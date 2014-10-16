@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hans_MO.xml
@@ -11,29 +11,13 @@ zh_Hans_MO{
     NumberElements{
         latn{
             patterns{
+                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
             }
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.92.87"}
     calendar{
-        buddhist{
-            DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
-                "ah:mm:ss",
-                "ah:mm",
-                "Gy年M月d日EEEE",
-                "Gy年M月d日",
-                "Gy年M月d日",
-                "Gd/M/yy",
-                "{1} {0}",
-                "{1}{0}",
-                "{1}{0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-        }
         generic{
             DateTimePatterns{
                 "zzzzah:mm:ss",
@@ -45,8 +29,8 @@ zh_Hans_MO{
                 "Gy年M月d日",
                 "d/M/yyGGGGG",
                 "{1} {0}",
-                "{1}{0}",
-                "{1}{0}",
+                "{1} {0}",
+                "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -55,9 +39,8 @@ zh_Hans_MO{
                 MMMMdd{"M月d日"}
                 MMdd{"MM-dd"}
                 Md{"M-d"}
-                yM{"y年M月"}
-                yMEd{"y年M月d日，E"}
-                yMd{"y年M月d日"}
+                yyyyMEd{"Gy年M月d日，E"}
+                yyyyMd{"Gy年M月d日"}
             }
             intervalFormats{
                 Hmv{
@@ -141,6 +124,9 @@ zh_Hans_MO{
                     M{"M-d至M-d"}
                     d{"M-d至M-d"}
                 }
+                d{
+                    d{"d日至d日"}
+                }
                 fallback{"{0}–{1}"}
                 yM{
                     M{"y年M月至y年M月"}
@@ -171,27 +157,6 @@ zh_Hans_MO{
                 "Gy年M月d日",
                 "Gd/M/yy",
                 "{1} {0}",
-                "{1}{0}",
-                "{1}{0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-            }
-        }
-        japanese{
-            DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
-                "ah:mm:ss",
-                "ah:mm",
-                "Gy年M月d日EEEE",
-                "Gy年M月d日",
-                "Gy年M月d日",
-                "Gd/M/yy",
-                "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -209,10 +174,15 @@ zh_Hans_MO{
                 "Gy年M月d日",
                 "Gd/M/yy",
                 "{1} {0}",
-                "{1}{0}",
-                "{1}{0}",
                 "{1} {0}",
                 "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MEd{"M-dE"}
+                MMM{"M月"}
+                Md{"M-d"}
             }
         }
     }
@@ -220,8 +190,93 @@ zh_Hans_MO{
         day{
             dn{"天"}
         }
-        era{
-            dn{"纪元"}
+        second{
+            relativeTime{
+                future{
+                    other{"{0}秒后"}
+                }
+                past{
+                    other{"{0}秒前"}
+                }
+            }
+        }
+    }
+    units{
+        compound{
+            per{"{0}/{1}"}
+        }
+        duration{
+            second{
+                other{"{0}秒"}
+            }
+        }
+    }
+    unitsNarrow{
+        length{
+            centimeter{
+                other{"{0}厘米"}
+            }
+            foot{
+                other{"{0}英尺"}
+            }
+            inch{
+                other{"{0}英寸"}
+            }
+            kilometer{
+                other{"{0}公里"}
+            }
+            light-year{
+                other{"{0}光年"}
+            }
+            meter{
+                other{"{0}米"}
+            }
+            mile{
+                other{"{0}英里"}
+            }
+            millimeter{
+                other{"{0}毫米"}
+            }
+            picometer{
+                other{"{0}皮米"}
+            }
+            yard{
+                other{"{0}码"}
+            }
+        }
+    }
+    unitsShort{
+        length{
+            centimeter{
+                other{"{0}厘米"}
+            }
+            foot{
+                other{"{0}英尺"}
+            }
+            inch{
+                other{"{0}英寸"}
+            }
+            kilometer{
+                other{"{0}公里"}
+            }
+            light-year{
+                other{"{0}光年"}
+            }
+            meter{
+                other{"{0}米"}
+            }
+            mile{
+                other{"{0}英里"}
+            }
+            millimeter{
+                other{"{0}毫米"}
+            }
+            picometer{
+                other{"{0}皮米"}
+            }
+            yard{
+                other{"{0}码"}
+            }
         }
     }
 }

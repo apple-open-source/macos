@@ -35,16 +35,24 @@
  * Encryption/decryption routines for CMS implementation, none of which are exported.
  *
  */
+#include <limits.h>
 
 #include "cmslocal.h"
 
 #include "secoid.h"
 #include <security_asn1/secerr.h>
 #include <security_asn1/secasn1.h>
+#include <security_asn1/secport.h>
+
 #include <Security/SecAsn1Templates.h>
+#if USE_CDSA_CRYPTO
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
 #include <Security/SecKeyPriv.h>
+#else
+#include <Security/SecRandom.h>
+#include <CommonCrypto/CommonCryptor.h>
+#endif
 
 /*
  * -------------------------------------------------------------------
@@ -61,14 +69,14 @@ typedef OSStatus (*nss_cms_cipher_destroy) (void *, Boolean);
 
 struct SecCmsCipherContextStr {
 #if 1
-    CSSM_CC_HANDLE	cc;			/* CSP CONTEXT */
+    void *              cc;			/* CSP CONTEXT */
     Boolean		encrypt;		/* encrypt / decrypt switch */
+    int			block_size;		/* block & pad sizes for cipher */
 #else
     void *		cx;			/* PK11 cipher context */
     nss_cms_cipher_function doit;
     nss_cms_cipher_destroy destroy;
     Boolean		encrypt;		/* encrypt / decrypt switch */
-    int			block_size;		/* block & pad sizes for cipher */
     int			pad_size;
     int			pending_count;		/* pending data (not yet en/decrypted */
     unsigned char	pending_buf[BLOCK_SIZE];/* because of blocking */
@@ -76,11 +84,11 @@ struct SecCmsCipherContextStr {
 };
 
 typedef struct sec_rc2cbcParameterStr {
-    SECItem rc2ParameterVersion;
-    SECItem iv;
+    SecAsn1Item rc2ParameterVersion;
+    SecAsn1Item iv;
 } sec_rc2cbcParameter;
 
-static const SecAsn1Template sec_rc2cbc_parameter_template[] = {
+__unused static const SecAsn1Template sec_rc2cbc_parameter_template[] = {
     { SEC_ASN1_SEQUENCE,
           0, NULL, sizeof(sec_rc2cbcParameter) },
     { SEC_ASN1_INTEGER | SEC_ASN1_SIGNED_INT,
@@ -90,15 +98,17 @@ static const SecAsn1Template sec_rc2cbc_parameter_template[] = {
     { 0 }
 };
 
+// TODO: get rid of this?
+#if USE_CDSA_CRYPTO
 /*
 ** Convert a der encoded *signed* integer into a machine integral value.
 ** If an underflow/overflow occurs, sets error code and returns min/max.
 */
 static long
-DER_GetInteger(SECItem *it)
+DER_GetInteger(SecAsn1Item *it)
 {
     long ival = 0;
-    CSSM_SIZE len = it->Length;
+    unsigned len = it->Length;
     unsigned char *cp = it->Data;
     unsigned long overflow = 0x1ffUL << (((sizeof(ival) - 1) * 8) - 1);
     unsigned long ofloinit;
@@ -125,7 +135,7 @@ DER_GetInteger(SECItem *it)
 /* S/MIME picked id values to represent differnt keysizes */      
 /* I do have a formula, but it ain't pretty, and it only works because you
  * can always match three points to a parabola:) */
-static unsigned char  rc2_map(SECItem *version)
+static unsigned char  rc2_map(SecAsn1Item *version)
 {
     long x;
 
@@ -148,6 +158,7 @@ static unsigned long  rc2_unmap(unsigned long x)
     }
     return 58;
 }
+#endif /* USE_CDSA_CRYPTO */
 
 /* default IV size in bytes */
 #define DEFAULT_IV_SIZE	    8
@@ -156,29 +167,49 @@ static unsigned long  rc2_unmap(unsigned long x)
 /* max IV size in bytes */
 #define MAX_IV_SIZE	    AES_BLOCK_SIZE
 
+#if !USE_CDSA_CRYPTO
+#ifndef kCCKeySizeMaxRC2
+#define kCCKeySizeMaxRC2 16
+#endif
+#ifndef kCCBlockSizeRC2
+#define kCCBlockSizeRC2 8
+#endif
+#ifndef kCCAlgorithmRC2
+#define kCCAlgorithmRC2 -1
+#endif
+#endif
+
 static SecCmsCipherContextRef
 SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorithmID *algid, Boolean encrypt)
 {
     SecCmsCipherContextRef cc;
-    CSSM_CC_HANDLE ciphercc = 0;
     SECOidData *oidData;
     SECOidTag algtag;
+    OSStatus rv;
+    uint8_t ivbuf[MAX_IV_SIZE];
+    SecAsn1Item initVector = { DEFAULT_IV_SIZE, ivbuf };
+#if USE_CDSA_CRYPTO
+    CSSM_CC_HANDLE ciphercc = 0;
     CSSM_ALGORITHMS algorithm;
     CSSM_PADDING padding = CSSM_PADDING_PKCS7;
     CSSM_ENCRYPT_MODE mode;
     CSSM_CSP_HANDLE cspHandle;
     const CSSM_KEY *cssmKey;
-    OSStatus rv;
-    uint8 ivbuf[MAX_IV_SIZE];
-    CSSM_DATA initVector = { DEFAULT_IV_SIZE, ivbuf };
-    //CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_ALG_PARAMS, sizeof(CSSM_DATA_PTR) };
+    //CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_ALG_PARAMS, sizeof(SecAsn1Item *) };
+#else
+    CCCryptorRef ciphercc = NULL;
+    CCOptions cipheroptions = kCCOptionPKCS7Padding;
+    int cipher_blocksize = 0;
+#endif
 
+#if USE_CDSA_CRYPTO
     rv = SecKeyGetCSPHandle(key, &cspHandle);
     if (rv)
 	goto loser;
     rv = SecKeyGetCSSMKey(key, &cssmKey);
     if (rv)
 	goto loser;
+#endif
 
     // @@@ Add support for PBE based stuff
 
@@ -186,10 +217,11 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
     if (!oidData)
 	goto loser;
     algtag = oidData->offset;
+#if USE_CDSA_CRYPTO
     algorithm = oidData->cssmAlgorithm;
     if (!algorithm)
 	goto loser;
-
+        
     switch (algtag)
     {
     case SEC_OID_RC2_CBC:
@@ -228,11 +260,38 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
     default:
 	goto loser;
     }
+#else
+    CCAlgorithm alg = -1;
+    switch (algtag) {
+        case SEC_OID_DES_CBC:
+            alg = kCCAlgorithmDES;
+            cipher_blocksize = kCCBlockSizeDES;
+            break;
+        case SEC_OID_DES_EDE3_CBC:
+            alg = kCCAlgorithm3DES;
+            cipher_blocksize = kCCBlockSize3DES;
+            break;
+        case SEC_OID_RC2_CBC:
+            alg = kCCAlgorithmRC2;
+            cipher_blocksize = kCCBlockSizeRC2;
+            break;
+        case SEC_OID_AES_128_CBC: 
+        case SEC_OID_AES_192_CBC:
+        case SEC_OID_AES_256_CBC:
+            alg = kCCAlgorithmAES128;
+            cipher_blocksize = kCCBlockSizeAES128;
+            initVector.Length = AES_BLOCK_SIZE;
+             break;
+        default: 
+            goto loser;
+    }
+#endif
 
     if (encrypt)
     {
+#if USE_CDSA_CRYPTO    
 	CSSM_CC_HANDLE randomcc;
-	//SECItem *parameters;
+	//SecAsn1Item *parameters;
 
 	// Generate random initVector
 	if (CSSM_CSP_CreateRandomGenContext(cspHandle,
@@ -245,6 +304,11 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	if (CSSM_GenerateRandom(randomcc, &initVector))
 	    goto loser;
 	CSSM_DeleteContext(randomcc);
+#else
+        if (SecRandomCopyBytes(kSecRandomDefault, 
+            initVector.Length, initVector.Data))
+                goto loser;
+#endif
 
 	// Put IV into algid.parameters
 	switch (algtag)
@@ -268,12 +332,12 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 				    &initVector, kSecAsn1OctetStringTemplate))
 		goto loser;
 	    break;
-    
 	case SEC_OID_RC2_CBC:
+#if USE_CDSA_CRYPTO    
 	{
 	    sec_rc2cbcParameter rc2 = {};
 	    unsigned long rc2version;
-	    SECItem *newParams;
+	    SecAsn1Item *newParams;
 
 	    rc2.iv = initVector;
 	    rc2version = rc2_unmap(cssmKey->KeyHeader.LogicalKeySizeInBits);
@@ -287,6 +351,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 		goto loser;
 	    break;
 	}
+#endif
 	case SEC_OID_RC5_CBC_PAD:
 	default:
 	    // @@@ Implement rc5 params stuff.
@@ -315,7 +380,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	case SEC_OID_DES_OFB:
 	case SEC_OID_DES_CFB:
 	{
-	    CSSM_DATA iv = {};
+	    SecAsn1Item iv = {};
 	    /* Just decode the initVector from an octet string. */
 	    rv = SEC_ASN1DecodeItem(NULL, &iv, kSecAsn1OctetStringTemplate, &(algid->parameters));
 	    if (rv)
@@ -329,6 +394,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	    break;
 	}
 	case SEC_OID_RC2_CBC:
+#if USE_CDSA_CRYPTO
 	{
 	    sec_rc2cbcParameter rc2 = {};
 	    unsigned long ulEffectiveBits;
@@ -352,6 +418,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 		goto loser;
 	    break;
 	}
+#endif
 	case SEC_OID_RC5_CBC_PAD:
 	default:
 	    // @@@ Implement rc5 params stuff.
@@ -360,6 +427,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	}
     }
 
+#if USE_CDSA_CRYPTO
     if (CSSM_CSP_CreateSymmetricContext(cspHandle,
 	    algorithm,
 	    mode,
@@ -377,6 +445,12 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	rv = CSSM_DecryptDataInit(ciphercc);
     if (rv)
 	goto loser;
+#else
+        if (CCCryptorCreate(encrypt ? kCCEncrypt : kCCDecrypt, 
+            alg, cipheroptions, CFDataGetBytePtr(key), CFDataGetLength(key), 
+            initVector.Data, &ciphercc))
+                goto loser;
+#endif
 
     cc = (SecCmsCipherContextRef)PORT_ZAlloc(sizeof(SecCmsCipherContext));
     if (cc == NULL)
@@ -384,11 +458,17 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 
     cc->cc = ciphercc;
     cc->encrypt = encrypt;
-
+#if !USE_CDSA_CRYPTO
+    cc->block_size =cipher_blocksize;
+#endif
     return cc;
 loser:
     if (ciphercc)
+#if USE_CDSA_CRYPTO
 	CSSM_DeleteContext(ciphercc);
+#else
+        CCCryptorRelease(ciphercc);
+#endif
 
     return NULL;
 }
@@ -409,7 +489,7 @@ SecCmsCipherContextStartDecrypt(SecSymmetricKeyRef key, SECAlgorithmID *algid)
     SecCmsCipherContextRef cc;
     void *ciphercx;
     CK_MECHANISM_TYPE mechanism;
-    CSSM_DATA_PTR param;
+    SecAsn1Item * param;
     PK11SlotInfo *slot;
     SECOidTag algtag;
 
@@ -418,7 +498,7 @@ SecCmsCipherContextStartDecrypt(SecSymmetricKeyRef key, SECAlgorithmID *algid)
     /* set param and mechanism */
     if (SEC_PKCS5IsAlgorithmPBEAlg(algid)) {
 	CK_MECHANISM pbeMech, cryptoMech;
-	CSSM_DATA_PTR pbeParams;
+	SecAsn1Item * pbeParams;
 	SEC_PKCS5KeyAndPassword *keyPwd;
 
 	PORT_Memset(&pbeMech, 0, sizeof(CK_MECHANISM));
@@ -447,7 +527,7 @@ SecCmsCipherContextStartDecrypt(SecSymmetricKeyRef key, SECAlgorithmID *algid)
 	SECITEM_ZfreeItem(pbeParams, PR_TRUE);
 
 	/* and use it to initialize param & mechanism */
-	if ((param = (CSSM_DATA_PTR)PORT_ZAlloc(sizeof(CSSM_DATA))) == NULL)
+	if ((param = (SecAsn1Item *)PORT_ZAlloc(sizeof(SecAsn1Item))) == NULL)
 	     return NULL;
 
 	param->Data = (unsigned char *)cryptoMech.pParameter;
@@ -505,7 +585,7 @@ SecCmsCipherContextStartEncrypt(PRArenaPool *poolp, SecSymmetricKeyRef key, SECA
 #if 0
     SecCmsCipherContextRef cc;
     void *ciphercx;
-    CSSM_DATA_PTR param;
+    SecAsn1Item * param;
     OSStatus rv;
     CK_MECHANISM_TYPE mechanism;
     PK11SlotInfo *slot;
@@ -515,7 +595,7 @@ SecCmsCipherContextStartEncrypt(PRArenaPool *poolp, SecSymmetricKeyRef key, SECA
     /* set param and mechanism */
     if (SEC_PKCS5IsAlgorithmPBEAlg(algid)) {
 	CK_MECHANISM pbeMech, cryptoMech;
-	CSSM_DATA_PTR pbeParams;
+	SecAsn1Item * pbeParams;
 	SEC_PKCS5KeyAndPassword *keyPwd;
 
 	PORT_Memset(&pbeMech, 0, sizeof(CK_MECHANISM));
@@ -544,7 +624,7 @@ SecCmsCipherContextStartEncrypt(PRArenaPool *poolp, SecSymmetricKeyRef key, SECA
 	SECITEM_ZfreeItem(pbeParams, PR_TRUE);
 
 	/* and use it to initialize param & mechanism */
-	if ((param = (CSSM_DATA_PTR)PORT_ZAlloc(sizeof(CSSM_DATA))) == NULL)
+	if ((param = (SecAsn1Item *)PORT_ZAlloc(sizeof(SecAsn1Item))) == NULL)
 	    return NULL;
 
 	param->Data = (unsigned char *)cryptoMech.pParameter;
@@ -611,13 +691,18 @@ SecCmsCipherContextDestroy(SecCmsCipherContextRef cc)
     PORT_Assert(cc != NULL);
     if (cc == NULL)
 	return;
+#if USE_CDSA_CRYPTO
     CSSM_DeleteContext(cc->cc);
+#else
+    CCCryptorRelease(cc->cc);
+#endif
     PORT_Free(cc);
 }
 
 static unsigned int
 SecCmsCipherContextLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final, Boolean encrypt)
 {
+#if USE_CDSA_CRYPTO
     CSSM_QUERY_SIZE_DATA dataBlockSize[2] = { { input_len, 0 }, { input_len, 0 } };
     /* Hack CDSA treats the last block as the final one.  So unless we are being asked to report the final size we ask for 2 block and ignore the second (final) one. */
     OSStatus rv = CSSM_QuerySize(cc->cc, cc->encrypt, final ? 1 : 2, dataBlockSize);
@@ -628,6 +713,9 @@ SecCmsCipherContextLength(SecCmsCipherContextRef cc, unsigned int input_len, Boo
     }
 
     return dataBlockSize[0].SizeOutputBlock;
+#else
+    return ((input_len + cc->block_size - 1) / cc->block_size * cc->block_size) + (final ? cc->block_size : 0);
+#endif
 }
 
 /*
@@ -651,11 +739,11 @@ SecCmsCipherContextLength(SecCmsCipherContextRef cc, unsigned int input_len, Boo
  * passed in to the subsequent decrypt operation, as no output bytes
  * will be stored.
  */
-size_t
-SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
+unsigned int
+SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final)
 {
 #if 1
-    return SecCmsCipherContextLength(cc, (unsigned int)input_len, final, PR_FALSE);
+    return SecCmsCipherContextLength(cc, input_len, final, PR_FALSE);
 #else
     int blocks, block_size;
 
@@ -713,11 +801,11 @@ SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Bo
  * passed in to the subsequent encrypt operation, as no output bytes
  * will be stored.
  */
-size_t
-SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
+unsigned int
+SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final)
 {
 #if 1
-    return SecCmsCipherContextLength(cc, (unsigned int)input_len, final, PR_TRUE);
+    return SecCmsCipherContextLength(cc, input_len, final, PR_TRUE);
 #else
     int blocks, block_size;
     int pad_size;
@@ -763,39 +851,47 @@ SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Bo
 
 static OSStatus
 SecCmsCipherContextCrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  size_t *output_len_p, size_t max_output_len,
-		  const unsigned char *input, size_t input_len,
+		  unsigned int *output_len_p, unsigned int max_output_len,
+		  const unsigned char *input, unsigned int input_len,
 		  Boolean final, Boolean encrypt)
 {
-    CSSM_DATA outputBuf = { max_output_len, output };
-    CSSM_SIZE bytes_output = 0;
+    size_t bytes_output = 0;
     OSStatus rv = 0;
 
     if (input_len)
     {
-	CSSM_DATA inputBuf = { input_len, (uint8 *)input };
 
-	if (encrypt)
-	    rv = CSSM_EncryptDataUpdate(cc->cc, &inputBuf, 1, &outputBuf, 1, &bytes_output);
-	else
-	    rv = CSSM_DecryptDataUpdate(cc->cc, &inputBuf, 1, &outputBuf, 1, &bytes_output);
+#if USE_CDSA_CRYPTO
+        SecAsn1Item inputBuf = { input_len, (uint8_t *)input };
+        SecAsn1Item outputBuf = { max_output_len, output };
+        if (encrypt)
+            rv = CSSM_EncryptDataUpdate(cc->cc, &inputBuf, 1, &outputBuf, 1, &bytes_output);
+        else
+            rv = CSSM_DecryptDataUpdate(cc->cc, &inputBuf, 1, &outputBuf, 1, &bytes_output);
+#else
+        rv = CCCryptorUpdate(cc->cc, input, input_len, output, max_output_len, &bytes_output);
+#endif
     }
 
     if (!rv && final)
     {
-	CSSM_DATA remainderBuf = { max_output_len - bytes_output, output + bytes_output };
+#if USE_CDSA_CRYPTO
+	SecAsn1Item remainderBuf = { max_output_len - bytes_output, output + bytes_output };
 	if (encrypt)
 	    rv = CSSM_EncryptDataFinal(cc->cc, &remainderBuf);
 	else
 	    rv = CSSM_DecryptDataFinal(cc->cc, &remainderBuf);
-
 	bytes_output += remainderBuf.Length;
+#else
+        size_t bytes_output_final = 0;
+        rv = CCCryptorFinal(cc->cc, output+bytes_output, max_output_len-bytes_output, &bytes_output_final);
+        bytes_output += bytes_output_final;
+#endif
     }
-
     if (rv)
 	PORT_SetError(SEC_ERROR_BAD_DATA);
     else if (output_len_p)
-	*output_len_p = bytes_output;
+	*output_len_p = (unsigned int)bytes_output; /* This cast is safe since bytes_output can't be bigger than max_output_len */
 
     return rv;
 }
@@ -832,8 +928,8 @@ SecCmsCipherContextCrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 OSStatus
 SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  size_t *output_len_p, size_t max_output_len,
-		  const unsigned char *input, size_t input_len,
+		  unsigned int *output_len_p, unsigned int max_output_len,
+		  const unsigned char *input, unsigned int input_len,
 		  Boolean final)
 {
 #if 1
@@ -1050,8 +1146,8 @@ SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 OSStatus
 SecCmsCipherContextEncrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  size_t *output_len_p, size_t max_output_len,
-		  const unsigned char *input, size_t input_len,
+		  unsigned int *output_len_p, unsigned int max_output_len,
+		  const unsigned char *input, unsigned int input_len,
 		  Boolean final)
 {
 #if 1

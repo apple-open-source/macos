@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,10 +26,9 @@
 #ifndef VisibleUnits_h
 #define VisibleUnits_h
 
-#include "EditingBehaviorTypes.h"
 #include "EditingBoundary.h"
-#include "TextBreakIterator.h"
 #include "TextDirection.h"
+#include "VisibleSelection.h"
 
 namespace WebCore {
 
@@ -97,6 +96,16 @@ VisiblePosition startOfEditableContent(const VisiblePosition&);
 VisiblePosition endOfEditableContent(const VisiblePosition&);
 bool isEndOfEditableOrNonEditableContent(const VisiblePosition&);
 
+#if PLATFORM(IOS)
+bool atBoundaryOfGranularity(const VisiblePosition&, TextGranularity, SelectionDirection);
+bool withinTextUnitOfGranularity(const VisiblePosition&, TextGranularity, SelectionDirection);
+VisiblePosition positionOfNextBoundaryOfGranularity(const VisiblePosition&, TextGranularity, SelectionDirection);
+PassRefPtr<Range> enclosingTextUnitOfGranularity(const VisiblePosition&, TextGranularity, SelectionDirection);
+int distanceBetweenPositions(const VisiblePosition&, const VisiblePosition&);
+PassRefPtr<Range> wordRangeFromPosition(const VisiblePosition& position);
+VisiblePosition closestWordBoundaryForPosition(const VisiblePosition& position);
+void charactersAroundPosition(const VisiblePosition&, UChar32& oneAfter, UChar32& oneBefore, UChar32& twoBefore);
+#endif
 } // namespace WebCore
 
 #endif // VisibleUnits_h

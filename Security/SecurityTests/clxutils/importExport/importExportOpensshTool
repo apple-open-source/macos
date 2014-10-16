@@ -1,0 +1,344 @@
+#! /bin/csh -f
+#
+# Run one iteration of OpenSSH portion of import/export tests.
+# Only used as a subroutine call from importExportOpenssh.
+#
+# Arguments (all required):
+#
+# privKey
+# privKeyFormat       -- ssh1|ssh1Wrap|ssh2|ssh2Wrap
+# pubKey
+# pubKeyFormat        -- ssh1|ssh2
+# algorithm           -- rsa|dsa
+# quiet               -- YES|NO
+# noACL               -- YES|NO
+# securePassphrase    -- YES|NO
+# noClean             -- YES|NO
+# 
+# If incoming private key is wrapped, we assume it has password "password" 
+# without the quotes.
+# 
+# We assume the presence of keychain $KEYCHAIN_PATH, which we clean out before 
+# using.
+#
+if ( $#argv != 9 ) then
+    echo See importExportOpensshTool script for usage.
+	exit(1)
+endif
+
+source setupCommon
+
+set PRIV_KEY_IN=$argv[1]
+set PRIV_KEY_FORM=$argv[2]
+set PUB_KEY_IN=$argv[3]
+set PUB_KEY_FORM=$argv[4]
+set ALG_ARG=
+set KEY_ALG=$argv[5]
+if($KEY_ALG == dsa) then
+	set ALG_ARG="a=d"
+endif
+set QUIET=$argv[6]
+set QUIET_ARG=
+if ($QUIET == YES) then
+	set QUIET_ARG=-q
+endif
+set NOACL_ARG=
+if ($argv[7] == YES) then
+	set NOACL_ARG=-n
+endif
+set SECURE_PHRASE_ARG=
+if ($argv[8] == YES) then
+	set SECURE_PHRASE_ARG=-Z
+endif
+set NOCLEAN=$argv[9]
+
+set SSHKEY=$BUILD_DIR/sshKey
+
+if ($QUIET == NO) then
+	echo -- Testing SSH privFormat $PRIV_KEY_FORM pubFormat $PUB_KEY_FORM --
+endif
+
+#
+# rsatool filename - it has particular requirements here...
+# All of are produced by exporting from a keychain. 
+# 
+set RSA_TOOL_FILENAME=$BUILD_DIR/rawSshKey
+set RAW_PRIV_KEY=${RSA_TOOL_FILENAME}_priv.der
+set RAW_PUB_KEY=${RSA_TOOL_FILENAME}_pub.der
+
+#
+# The file we sign with rsatool, in cwd, and a signature file.
+#
+set PLAINTEXT=somePlainText
+set SIGFILE=$BUILD_DIR/sig
+
+set PASSWORD=password
+
+# empty the keychain 
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+
+# 
+# Import incoming private key, export to unencrypted format.
+# Wrapped SSH1 --> SSH1
+# Wrapped SSH2 = Wrapped Openssl --> OpenSSL = PKCS1. 
+# SSH2 = OpenSSL/PEM = PKCS1/PEM --> OpenSSL = PKCS1.
+#
+# Note 
+#
+set RAW_PRIV_KEY_FORM=$PRIV_KEY_FORM
+set DO_CONVERT=no
+# these are for kcImport/kcExport
+set IN_FORM=foo
+set OUT_FORM=foo
+# these are for rsatool 
+set RSA_PUB_FORM=foo
+set RSA_PRIV_FORM=foo
+
+switch( $PRIV_KEY_FORM )
+	case ssh1Wrap:
+		set DO_CONVERT=yes
+		set IN_FORM=openssh1
+		set OUT_FORM=openssh1
+		set RSA_PRIV_FORM=s
+		breaksw
+	case ssh2Wrap:
+		set DO_CONVERT=yes
+		set IN_FORM=openssl
+		set OUT_FORM=openssl
+		if($KEY_ALG == rsa) then
+			set RSA_PRIV_FORM=1
+		else
+			set RSA_PRIV_FORM=o
+		endif
+		breaksw
+	case ssh1:
+		set DO_CONVERT=no
+		set IN_FORM=openssh1
+		set OUT_FORM=openssh1
+		set RSA_PRIV_FORM=s
+		breaksw
+	case ssh2:
+		set DO_CONVERT=no
+		set IN_FORM=openssl
+		set OUT_FORM=openssl
+		if($KEY_ALG == rsa) then
+			set RSA_PRIV_FORM=1
+		else
+			set RSA_PRIV_FORM=o
+		endif
+		breaksw
+	default:
+		echo See importExportOpensshTool script for usage.
+		exit(1)
+endsw
+
+#
+# Note we always import private keys with the -e option so we can export in the clear.
+#
+if($DO_CONVERT == yes) then
+	if ($QUIET == NO) then
+		echo Importing wrapped private key...
+	endif
+	set cmd="$KCIMPORT $PRIV_KEY_IN -k $KEYCHAIN -z $PASSWORD -t priv -f $IN_FORM -w -e -K 1 $QUIET_ARG $NOACL_ARG $SECURE_PHRASE_ARG"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+else
+	if ($QUIET == NO) then
+		echo Importing cleartext private key...
+	endif
+	set cmd="$KCIMPORT $PRIV_KEY_IN -k $KEYCHAIN -t priv -f $IN_FORM -e -K 1 $QUIET_ARG $NOACL_ARG"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif
+
+#
+# Export to cleartext private key format
+#
+if ($QUIET == NO) then
+	echo Exporting to cleartext private key...
+endif
+set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f $OUT_FORM -o $RAW_PRIV_KEY $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# Import public key, and re-export it. When we're thru with this for all combinations 
+# of keys sent to us by importExportOpenssh, we know we can read every format that 
+# OpenSSH can generate. 
+#
+switch( $PUB_KEY_FORM )
+	case ssh1:
+		set IN_FORM=openssh1
+		set OUT_FORM=openssh1
+		set RSA_PUB_FORM=o
+		breaksw
+	case ssh2:
+		set IN_FORM=openssh2
+		set OUT_FORM=openssh2
+		set RSA_PUB_FORM=O
+		breaksw
+	default:
+		echo See importExportOpensshTool script for usage.
+		exit(1)
+endsw
+
+if ($QUIET == NO) then
+	echo Importing public...
+endif
+set cmd="$KCIMPORT $PUB_KEY_IN -k $KEYCHAIN -t pub -f $IN_FORM -K 1 $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# Export public key
+#
+if ($QUIET == NO) then
+	echo Exporting public key...
+endif
+set cmd="$KCEXPORT $KEYCHAIN -t pubKeys -f $OUT_FORM -o $RAW_PUB_KEY $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# 
+# Sign and verify.
+#
+set cmd="$RSATOOL s p=$PLAINTEXT s=$SIGFILE k=$RSA_TOOL_FILENAME v=$RSA_PRIV_FORM $ALG_ARG q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$RSATOOL v p=$PLAINTEXT s=$SIGFILE k=$RSA_TOOL_FILENAME b=$RSA_PUB_FORM $ALG_ARG q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# The incoming public key and the one we exported from the keychain should be identical.
+#
+set cmd="$CMP $PUB_KEY_IN $RAW_PUB_KEY"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd 
+if($status != 0) then 
+	echo MISCOMPARE on public key form $PUB_KEY_FORM
+	exit(1)
+endif
+
+#
+# Verifying private keys is a little tricker. Only cleartext ssh2 keys can be
+# verified by byte-for-byte compare, and then only after exporting them again
+# in PEM armour. All the others have random data added. 
+#
+set PEM_PRIV_KEY=$BUILD_DIR/pemPrivKey
+if($PRIV_KEY_FORM == ssh2) then
+	set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f openssl -p -o $PEM_PRIV_KEY $QUIET_ARG"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	set cmd="$CMP $PRIV_KEY_IN $PEM_PRIV_KEY"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd 
+	if($status != 0) then 
+		echo MISCOMPARE on private key form $PRIV_KEY_FORM
+		exit(1)
+	endif
+endif
+
+#
+# We've verified that we write the following formats identically to OpenSSH:
+#   -- public ssh1
+#   -- public ssh2
+#   -- private unwrapped ssh2 (a.k.a. OpenSSL w/PEM)
+# 
+# Since private wrapped SSH2 keys are in a format that we've verified 
+# extensively elsewhere (OpenSSL, in the importExportOpensslWrap script), 
+# all we really need to test here is ssh1 format. We'll test that
+# via parsing keys with the sshKey program and comparing the output. 
+# This also verifies the comments in the generated keys, which should
+# always match the comment of the original key (ssh-keygen key, import
+# that, the resulting C item's PrintName has the comment; export that
+# KC item and the original comment gets embedded in the new key).
+#
+set DONE=no
+set PWDARG=
+switch( $PRIV_KEY_FORM )
+	case ssh1:
+		set PWDARG=-P
+		breaksw
+	case ssh1Wrap:
+		set PWDARG="-p $PASSWORD"
+		breaksw
+	case ssh2Wrap:
+	case ssh2:
+		set DONE=yes
+		breaksw
+	default:
+		echo BRRZZZAP! Missed one here! PRIV_KEY_FORM $PRIV_KEY_FORM
+		exit(1)
+endsw
+
+set PARSE_REF=$BUILD_DIR/parseRef
+set PARSE_GEN=$BUILD_DIR/parseGen
+
+if($DONE == no) then
+
+	if ($QUIET == NO) then
+		echo Parsing $PRIV_KEY_IN and $RAW_PRIV_KEY....
+	endif
+	set cmd="$SSHKEY -i $PRIV_KEY_IN -r -f ssh1 -v $PWDARG"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd > $PARSE_REF
+	if($status != 0) then
+		echo Error parsing $PRIV_KEY_IN.
+		exit(1)
+	endif
+	set cmd="$SSHKEY -i $RAW_PRIV_KEY -r -f ssh1 -v -P"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd > $PARSE_GEN
+	if($status != 0) then
+		echo Error parsing $RAW_PRIV_KEY.
+		exit(1)
+	endif
+	set cmd="$CMP $PARSE_GEN $PARSE_REF"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd 
+	if($status != 0) then 
+		echo MISCOMPARE on parsed private keys
+		exit(1)
+	endif
+endif
+
+# 
+# cleanup
+#
+if($NOCLEAN == NO) then
+	set cmd="rm -f $RAW_PRIV_KEY $RAW_PUB_KEY $SIGFILE $PEM_PRIV_KEY $PARSE_REF $PARSE_GEN"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif

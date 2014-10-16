@@ -26,6 +26,8 @@
 #include "config.h"
 #include "PageBanner.h"
 
+#if !PLATFORM(IOS)
+
 #include "WebPage.h"
 #include <WebCore/FrameView.h>
 #include <WebCore/GraphicsLayer.h>
@@ -123,7 +125,7 @@ void PageBanner::showIfHidden()
 void PageBanner::didChangeDeviceScaleFactor(float scaleFactor)
 {
     m_layer.get().contentsScale = scaleFactor;
-    [m_layer.get() setNeedsDisplay];
+    [m_layer setNeedsDisplay];
 }
 
 bool PageBanner::mouseEvent(const WebMouseEvent& mouseEvent)
@@ -167,3 +169,5 @@ CALayer *PageBanner::layer()
 }
 
 } // namespace WebKit
+
+#endif // !PLATFORM(IOS)

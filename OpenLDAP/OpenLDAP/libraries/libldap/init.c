@@ -124,16 +124,23 @@ static const struct ol_attribute {
 #endif
 
 #ifdef HAVE_TLS
+#ifdef HAVE_SECURE_TRANSPORT
+	{1, ATTR_TLS,	"TLS_IDENTITY",		NULL,	LDAP_OPT_X_TLS_IDENTITY},
+  	{0, ATTR_TLS,	"TLS_TRUSTED_CERTS",NULL,	LDAP_OPT_X_TLS_TRUSTED_CERTS},
+#else
 	{1, ATTR_TLS,	"TLS_CERT",			NULL,	LDAP_OPT_X_TLS_CERTFILE},
 	{1, ATTR_TLS,	"TLS_KEY",			NULL,	LDAP_OPT_X_TLS_KEYFILE},
   	{0, ATTR_TLS,	"TLS_CACERT",		NULL,	LDAP_OPT_X_TLS_CACERTFILE},
   	{0, ATTR_TLS,	"TLS_CACERTDIR",	NULL,	LDAP_OPT_X_TLS_CACERTDIR},
+#endif
   	{0, ATTR_TLS,	"TLS_REQCERT",		NULL,	LDAP_OPT_X_TLS_REQUIRE_CERT},
+#ifndef HAVE_SECURE_TRANSPORT
 	{0, ATTR_TLS,	"TLS_RANDFILE",		NULL,	LDAP_OPT_X_TLS_RANDOM_FILE},
+#endif
 	{0, ATTR_TLS,	"TLS_CIPHER_SUITE",	NULL,	LDAP_OPT_X_TLS_CIPHER_SUITE},
 	{0, ATTR_TLS,	"TLS_PROTOCOL_MIN",	NULL,	LDAP_OPT_X_TLS_PROTOCOL_MIN},
 
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 	{0, ATTR_TLS,	"TLS_CRLCHECK",		NULL,	LDAP_OPT_X_TLS_CRLCHECK},
 #endif
 #ifdef HAVE_GNUTLS
@@ -641,7 +648,9 @@ void ldap_int_initialize_global_options( struct ldapoptions *gopts, int *dbglvl 
 	gopts->ldo_tls_connect_cb = NULL;
 	gopts->ldo_tls_connect_arg = NULL;
 	gopts->ldo_tls_require_cert = LDAP_OPT_X_TLS_DEMAND;
+#ifndef HAVE_SECURE_TRANSPORT
 	gopts->ldo_tls_cert_ref = NULL;
+#endif
 #endif
 	gopts->ldo_keepalive_probes = 0;
 	gopts->ldo_keepalive_interval = 0;

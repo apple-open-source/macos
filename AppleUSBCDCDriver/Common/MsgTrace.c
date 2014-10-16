@@ -28,6 +28,7 @@
 #define CDC_ASL_KEY_MSG             "Message"
 
 #define CDC_ASL_DOMAIN              "com.apple.commssw.cdc.device"
+#define CDC_LOG_KEY_LEVEL           "Level"
 
 /*
  * Log a message for MessageTracer.
@@ -56,7 +57,7 @@ __private_extern__ void cdc_LogToMessageTracer(const char *domain, const char *s
     {
         snprintf(fmt, CDC_ASL_MAX_FMT_LEN, "%s [%s %d] [%s %s] [%s %s] [%s %s] [%s %s]",
                  CDC_ASL_MSG_LEN,
-                 FSLOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
+                 CDC_LOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
                  CDC_ASL_KEY_DOMAIN, domain,
                  CDC_ASL_KEY_SIG, signature,
                  CDC_ASL_KEY_SIG2, signature2,
@@ -67,7 +68,7 @@ __private_extern__ void cdc_LogToMessageTracer(const char *domain, const char *s
         {
             snprintf(fmt, CDC_ASL_MAX_FMT_LEN, "%s [%s %d] [%s %s] [%s %s] [%s %s]",
                      CDC_ASL_MSG_LEN,
-                     FSLOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
+                     CDC_LOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
                      CDC_ASL_KEY_DOMAIN, domain,
                      CDC_ASL_KEY_SIG, signature,
                      CDC_ASL_KEY_SIG2, signature2);
@@ -75,7 +76,7 @@ __private_extern__ void cdc_LogToMessageTracer(const char *domain, const char *s
         else
             snprintf(fmt, CDC_ASL_MAX_FMT_LEN, "%s [%s %d] [%s %s] [%s %s]",
                      CDC_ASL_MSG_LEN,
-                     FSLOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
+                     CDC_LOG_KEY_LEVEL, CDC_ASL_LEVEL_NOTICE,
                      CDC_ASL_KEY_DOMAIN, domain,
                      CDC_ASL_KEY_SIG, signature);
     

@@ -36,8 +36,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__used static const char copyright[] =
 "@(#) Copyright (c) 1980, 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -46,7 +47,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)df.c	8.9 (Berkeley) 5/8/95";
 #else
-static const char rcsid[] =
+__used static const char rcsid[] =
   "$FreeBSD: src/bin/df/df.c,v 1.23.2.9 2002/07/01 00:14:24 iedowse Exp $";
 #endif
 #endif /* not lint */
@@ -578,9 +579,9 @@ makenetvfslist(void)
 
 	mib[0] = CTL_VFS; mib[1] = VFS_GENERIC; mib[2] = VFS_MAXTYPENUM;
 	miblen=sizeof(maxvfsconf);
-	if (sysctl(mib, (unsigned int)(sizeof(mib) / sizeof(mib[0])),
+	if (sysctl(mib, 3,
 	    &maxvfsconf, &miblen, NULL, 0)) {
-		warnx("sysctl failed");
+		warn("sysctl failed");
 		return (NULL);
 	}
 
@@ -607,6 +608,7 @@ makenetvfslist(void)
 	                if (!(vfc.vfc_flags & MNT_LOCAL)) {
 	                        listptr[cnt++] = strdup(vfc.vfc_name);
 	                        if (listptr[cnt-1] == NULL) {
+					free(listptr);
 	                                warnx("malloc failed");
 	                                return (NULL);
 	                        }

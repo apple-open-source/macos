@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009-2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -491,6 +491,46 @@ set_set(int argc, char **argv)
 				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 				return;
 			}
+
+			_prefs_changed = TRUE;
+		} else if (strcmp(command, "id") == 0) {
+			char		*newID;
+			CFStringRef	setID;
+
+			if ((argc < 1) || (strlen(argv[0]) == 0)) {
+				SCPrint(TRUE, stdout, CFSTR("set id not specified\n"));
+				return;
+			}
+
+			newID = argv[0];
+			setID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			argv++;
+			argc--;
+
+			ok = _SCNetworkSetSetSetID(net_set, setID);
+			CFRelease(setID);
+			if (!ok) {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+				return;
+			}
+
+			_prefs_changed = TRUE;
+
+			if (sets != NULL) {
+				/*
+				 * since the (displayed) ordering may have changed, refresh sets
+				 */
+				CFRelease(net_set);
+				net_set = NULL;
+
+				CFRelease(sets);
+				sets = NULL;
+
+				net_set = _find_set(newID);
+				if (net_set != NULL) {
+					CFRetain(net_set);
+				}
+			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
 		}
@@ -574,18 +614,18 @@ show_set(int argc, char **argv)
 									  serviceID);
 			}
 			if (orderIndex != kCFNotFound) {
-				SCPrint(TRUE, stdout, CFSTR("%c%2d: %@%-*s (%@)\n"),
+				SCPrint(TRUE, stdout, CFSTR("%c%2ld: %@%-*s (%@)\n"),
 					((net_service != NULL) && CFEqual(service, net_service)) ? '>' : ' ',
 					orderIndex + 1,
 					serviceName,
-					30 - CFStringGetLength(serviceName),
+					(int)(30 - CFStringGetLength(serviceName)),
 					" ",
 					serviceID);
 			} else {
 				SCPrint(TRUE, stdout, CFSTR("%c  : %@%-*s (%@)\n"),
 					((net_service != NULL) && CFEqual(service, net_service)) ? '>' : ' ',
 					serviceName,
-					30 - CFStringGetLength(serviceName),
+					(int)(30 - CFStringGetLength(serviceName)),
 					" ",
 					serviceID);
 			}
@@ -605,7 +645,7 @@ show_set(int argc, char **argv)
 		n = CFArrayGetCount(interfaces);
 		for (i = 0; i < n; i++) {
 			interface = CFArrayGetValueAtIndex(interfaces, i);
-			SCPrint(TRUE, stdout, CFSTR(" %2d: %@ \n"),
+			SCPrint(TRUE, stdout, CFSTR(" %2ld: %@ \n"),
 				i + 1,
 				SCNetworkInterfaceGetLocalizedDisplayName(interface));
 		}
@@ -654,12 +694,12 @@ show_sets(int argc, char **argv)
 		setName = SCNetworkSetGetName(set);
 		if (setName == NULL) setName = CFSTR("");
 
-		SCPrint(TRUE, stdout, CFSTR(" %c%c%2d: %@%-*s (%@)\n"),
+		SCPrint(TRUE, stdout, CFSTR(" %c%c%2ld: %@%-*s (%@)\n"),
 			((current != NULL) && CFEqual(set, current)) ? '*' : ' ',
 			((net_set != NULL) && CFEqual(set, net_set)) ? '>' : ' ',
 			i + 1,
 			setName,
-			30 - CFStringGetLength(setName),
+			(int)(30 - CFStringGetLength(setName)),
 			" ",
 			setID);
 	}

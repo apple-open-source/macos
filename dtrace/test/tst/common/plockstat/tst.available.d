@@ -30,13 +30,8 @@
  * ASSERTION: make sure the plockstat probes are present in libc.
  */
 
-#if !defined(__APPLE__)
-plockstat$1:libc.so.1::
-{}
-#else
 plockstat$1:libsystem_c.dylib::
 {}
-#endif
 
 profile:::tick-1
 {

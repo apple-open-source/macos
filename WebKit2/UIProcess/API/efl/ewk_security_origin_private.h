@@ -28,7 +28,7 @@
 
 #include "WKEinaSharedString.h"
 #include "ewk_object_private.h"
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 #include <wtf/PassRefPtr.h>
 
 class EwkSecurityOrigin : public EwkObject {
@@ -48,6 +48,8 @@ public:
     const char* host() const;
     const char* protocol() const;
     uint32_t port() const;
+
+    WKSecurityOriginRef wkSecurityOrigin() const { return m_wkOrigin.get(); }
 
 private:
     explicit EwkSecurityOrigin(WKSecurityOriginRef originRef);

@@ -4,7 +4,7 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.0.2
+ProjectVersion	      = 5.0.5
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
@@ -34,12 +34,15 @@ strip-binaries:
 	$(MKDIR) $(SYMROOT)/bin $(SYMROOT)$(ZSH_MODULE_DIR) $(SYMROOT)$(ZSH_MODULE_DIR)/net
 	$(CP) $(DSTROOT)/bin/zsh $(SYMROOT)/bin
 	$(STRIP) -x $(DSTROOT)/bin/zsh
+	$(DSYMUTIL) $(SYMROOT)/bin/zsh
 	$(MKDIR) $(SYMROOT)$(ZSH_MODULE_DIR)
 	$(CP) $(DSTROOT)$(ZSH_MODULE_DIR)/*.so $(SYMROOT)$(ZSH_MODULE_DIR)
 	$(STRIP) -x $(DSTROOT)$(ZSH_MODULE_DIR)/*.so
+	$(DSYMUTIL) $(SYMROOT)$(ZSH_MODULE_DIR)/*.so
 	$(MKDIR) $(SYMROOT)$(ZSH_MODULE_DIR)/net
 	$(CP) $(DSTROOT)$(ZSH_MODULE_DIR)/net/*.so $(SYMROOT)$(ZSH_MODULE_DIR)/net
 	$(STRIP) -x $(DSTROOT)$(ZSH_MODULE_DIR)/net/*.so
+	$(DSYMUTIL) $(SYMROOT)$(ZSH_MODULE_DIR)/net/*.so
 
 install_source::
 	$(RMDIR) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)

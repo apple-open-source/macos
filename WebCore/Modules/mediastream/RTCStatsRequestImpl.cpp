@@ -28,24 +28,26 @@
 
 #include "RTCStatsRequestImpl.h"
 
+#include "MediaStreamTrack.h"
+#include "RTCPeerConnectionErrorCallback.h"
 #include "RTCStatsCallback.h"
 #include "RTCStatsRequest.h"
 #include "RTCStatsResponse.h"
 
 namespace WebCore {
 
-PassRefPtr<RTCStatsRequestImpl> RTCStatsRequestImpl::create(ScriptExecutionContext* context, PassRefPtr<RTCStatsCallback> callback, PassRefPtr<MediaStreamTrack> selector)
+PassRefPtr<RTCStatsRequestImpl> RTCStatsRequestImpl::create(ScriptExecutionContext* context, PassRefPtr<RTCStatsCallback> successCallback, PassRefPtr<RTCPeerConnectionErrorCallback> errorCallback, PassRefPtr<MediaStreamTrackPrivate> selector)
 {
-    RefPtr<RTCStatsRequestImpl> request = adoptRef(new RTCStatsRequestImpl(context, callback, selector));
+    RefPtr<RTCStatsRequestImpl> request = adoptRef(new RTCStatsRequestImpl(context, successCallback, errorCallback, selector));
     request->suspendIfNeeded();
     return request.release();
 }
 
-RTCStatsRequestImpl::RTCStatsRequestImpl(ScriptExecutionContext* context, PassRefPtr<RTCStatsCallback> callback, PassRefPtr<MediaStreamTrack> selector)
+RTCStatsRequestImpl::RTCStatsRequestImpl(ScriptExecutionContext* context, PassRefPtr<RTCStatsCallback> successCallback, PassRefPtr<RTCPeerConnectionErrorCallback> errorCallback, PassRefPtr<MediaStreamTrackPrivate> selector)
     : ActiveDOMObject(context)
-    , m_successCallback(callback)
-    , m_stream(selector ? selector->component()->stream() : 0)
-    , m_component(selector ? selector->component() : 0)
+    , m_successCallback(successCallback)
+    , m_errorCallback(errorCallback)
+    , m_track(selector)
 {
 }
 
@@ -60,17 +62,12 @@ PassRefPtr<RTCStatsResponseBase> RTCStatsRequestImpl::createResponse()
 
 bool RTCStatsRequestImpl::hasSelector()
 {
-    return m_stream;
+    return m_track;
 }
 
-MediaStreamDescriptor* RTCStatsRequestImpl::stream()
+MediaStreamTrackPrivate* RTCStatsRequestImpl::track()
 {
-    return m_stream.get();
-}
-
-MediaStreamComponent* RTCStatsRequestImpl::component()
-{
-    return m_component.get();
+    return m_track.get();
 }
 
 void RTCStatsRequestImpl::requestSucceeded(PassRefPtr<RTCStatsResponseBase> response)
@@ -78,6 +75,14 @@ void RTCStatsRequestImpl::requestSucceeded(PassRefPtr<RTCStatsResponseBase> resp
     if (!m_successCallback)
         return;
     m_successCallback->handleEvent(static_cast<RTCStatsResponse*>(response.get()));
+    clear();
+}
+
+void RTCStatsRequestImpl::requestFailed(const String& error)
+{
+    if (m_errorCallback)
+        m_errorCallback->handleEvent(DOMError::create(error).get());
+
     clear();
 }
 

@@ -35,9 +35,29 @@
 
 #include "MediaStreamCenter.h"
 
-#include "MediaStreamDescriptor.h"
+#include "MediaStreamPrivate.h"
 
 namespace WebCore {
+
+static MediaStreamCenter*& mediaStreamCenterOverride()
+{
+    static MediaStreamCenter* override;
+    return override;
+}
+
+MediaStreamCenter& MediaStreamCenter::shared()
+{
+    MediaStreamCenter* override = mediaStreamCenterOverride();
+    if (override)
+        return *override;
+    
+    return MediaStreamCenter::platformCenter();
+}
+
+void MediaStreamCenter::setSharedStreamCenter(MediaStreamCenter* center)
+{
+    mediaStreamCenterOverride() = center;
+}
 
 MediaStreamCenter::MediaStreamCenter()
 {
@@ -45,29 +65,6 @@ MediaStreamCenter::MediaStreamCenter()
 
 MediaStreamCenter::~MediaStreamCenter()
 {
-}
-
-void MediaStreamCenter::endLocalMediaStream(MediaStreamDescriptor* streamDescriptor)
-{
-    MediaStreamDescriptorClient* client = streamDescriptor->client();
-    if (client)
-        client->streamEnded();
-    else
-        streamDescriptor->setEnded();
-}
-
-void MediaStreamCenter::addMediaStreamTrack(MediaStreamDescriptor* streamDescriptor, MediaStreamComponent* component)
-{
-    MediaStreamDescriptorClient* client = streamDescriptor->client();
-    if (client)
-        client->addRemoteTrack(component);
-}
-
-void MediaStreamCenter::removeMediaStreamTrack(MediaStreamDescriptor* streamDescriptor, MediaStreamComponent* component)
-{
-    MediaStreamDescriptorClient* client = streamDescriptor->client();
-    if (client)
-        client->removeRemoteTrack(component);
 }
 
 } // namespace WebCore

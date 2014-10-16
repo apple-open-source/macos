@@ -26,9 +26,10 @@
 #import "config.h"
 #import "WebProcessProxy.h"
 
+#if PLATFORM(MAC)
+
 #import "WebContext.h"
 #import "WebPageGroup.h"
-#import "WebPreferences.h"
 #import "WebProcessMessages.h"
 #import "WKFullKeyboardAccessWatcher.h"
 
@@ -39,7 +40,6 @@ bool WebProcessProxy::fullKeyboardAccessEnabled()
     return [WKFullKeyboardAccessWatcher fullKeyboardAccessEnabled];
 }
 
-#if HAVE(XPC)
 static bool shouldUseXPC()
 {
     if (id value = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseXPCServiceForWebProcess"])
@@ -51,22 +51,13 @@ static bool shouldUseXPC()
     return false;
 #endif
 }
-#endif
 
 void WebProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
     // We want the web process to match the architecture of the UI process.
     launchOptions.architecture = ProcessLauncher::LaunchOptions::MatchCurrentArchitecture;
     launchOptions.executableHeap = false;
-
-#if HAVE(XPC)
     launchOptions.useXPC = shouldUseXPC();
-#endif
-}
-
-bool WebProcessProxy::pageIsProcessSuppressible(WebPageProxy* page)
-{
-    return !page->isViewVisible() && page->pageGroup()->preferences()->pageVisibilityBasedProcessSuppressionEnabled();
 }
 
 bool WebProcessProxy::allPagesAreProcessSuppressible() const
@@ -76,15 +67,17 @@ bool WebProcessProxy::allPagesAreProcessSuppressible() const
 
 void WebProcessProxy::updateProcessSuppressionState()
 {
-    if (!isValid())
+    if (state() != State::Running)
         return;
 
-    bool canEnable = m_context->canEnableProcessSuppressionForWebProcess(this);
+    bool canEnable = allPagesAreProcessSuppressible();
     if (m_processSuppressionEnabled == canEnable)
         return;
     m_processSuppressionEnabled = canEnable;
 
-    connection()->send(Messages::WebProcess::SetProcessSuppressionEnabled(m_processSuppressionEnabled), 0);
+    m_context->updateProcessSuppressionState();
 }
 
 } // namespace WebKit
+
+#endif // PLATFORM(MAC)

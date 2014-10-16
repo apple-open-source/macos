@@ -34,11 +34,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static const char sccsid[] = "@(#)tar.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] = "$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $";
+__used static const char rcsid[] = "$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $";
 #endif
 #endif /* not lint */
 

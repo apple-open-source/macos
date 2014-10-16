@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -31,11 +31,7 @@ CURLcode Curl_is_connected(struct connectdata *conn,
                            bool *connected);
 
 CURLcode Curl_connecthost(struct connectdata *conn,
-                          const struct Curl_dns_entry *host, /* connect to
-                                                                this */
-                          curl_socket_t *sockconn, /* not set if error */
-                          Curl_addrinfo **addr, /* the one we used */
-                          bool *connected); /* truly connected? */
+                          const struct Curl_dns_entry *host);
 
 /* generic function that returns how much time there's left to run, according
    to the timeouts set */
@@ -44,6 +40,8 @@ long Curl_timeleft(struct SessionHandle *data,
                    bool duringconnect);
 
 #define DEFAULT_CONNECT_TIMEOUT 300000 /* milliseconds == five minutes */
+#define HAPPY_EYEBALLS_TIMEOUT     200 /* milliseconds to wait between
+                                          ipv4/ipv6 connection attempts */
 
 /*
  * Used to extract socket and connectdata struct for the most recent
@@ -103,5 +101,22 @@ CURLcode Curl_socket(struct connectdata *conn,
                      const Curl_addrinfo *ai,
                      struct Curl_sockaddr_ex *addr,
                      curl_socket_t *sockfd);
+
+#ifdef CURLDEBUG
+/*
+ * Curl_connclose() sets the bit.close bit to TRUE with an explanation.
+ * Nothing else.
+ */
+void Curl_conncontrol(struct connectdata *conn,
+                      bool closeit,
+                      const char *reason);
+#define connclose(x,y) Curl_conncontrol(x,TRUE, y)
+#define connkeep(x,y) Curl_conncontrol(x, FALSE, y)
+#else /* if !CURLDEBUG */
+
+#define connclose(x,y) (x)->bits.close = TRUE
+#define connkeep(x,y) (x)->bits.close = FALSE
+
+#endif
 
 #endif /* HEADER_CURL_CONNECT_H */

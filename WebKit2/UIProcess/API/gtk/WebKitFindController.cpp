@@ -73,6 +73,7 @@ typedef enum {
 
 struct _WebKitFindControllerPrivate {
     CString searchText;
+    // Interpreted as WebKit::FindOptions.
     uint32_t findOptions;
     unsigned maxMatchCount;
     WebKitWebView* webView;
@@ -82,23 +83,35 @@ static guint signals[LAST_SIGNAL] = { 0, };
 
 WEBKIT_DEFINE_TYPE(WebKitFindController, webkit_find_controller, G_TYPE_OBJECT)
 
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE, FindOptionsCaseInsensitive);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_FIND_OPTIONS_AT_WORD_STARTS, FindOptionsAtWordStarts);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_FIND_OPTIONS_TREAT_MEDIAL_CAPITAL_AS_WORD_START, FindOptionsTreatMedialCapitalAsWordStart);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_FIND_OPTIONS_BACKWARDS, FindOptionsBackwards);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_FIND_OPTIONS_WRAP_AROUND, FindOptionsWrapAround);
+static inline WebKit::FindOptions toWebFindOptions(uint32_t findOptions)
+{
+    return static_cast<WebKit::FindOptions>((findOptions & WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE ? FindOptionsCaseInsensitive : 0)
+        | (findOptions & WEBKIT_FIND_OPTIONS_AT_WORD_STARTS ? FindOptionsAtWordStarts : 0)
+        | (findOptions & WEBKIT_FIND_OPTIONS_TREAT_MEDIAL_CAPITAL_AS_WORD_START ? FindOptionsTreatMedialCapitalAsWordStart : 0)
+        | (findOptions & WEBKIT_FIND_OPTIONS_BACKWARDS ? FindOptionsBackwards : 0)
+        | (findOptions & WEBKIT_FIND_OPTIONS_WRAP_AROUND ? FindOptionsWrapAround : 0));
+}
 
-static void didFindString(WKPageRef page, WKStringRef string, unsigned matchCount, const void* clientInfo)
+static inline WebKitFindOptions toWebKitFindOptions(uint32_t findOptions)
+{
+    return static_cast<WebKitFindOptions>((findOptions & FindOptionsCaseInsensitive ? WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE : 0)
+        | (findOptions & FindOptionsAtWordStarts ? WEBKIT_FIND_OPTIONS_AT_WORD_STARTS : 0)
+        | (findOptions & FindOptionsTreatMedialCapitalAsWordStart ? WEBKIT_FIND_OPTIONS_TREAT_MEDIAL_CAPITAL_AS_WORD_START : 0)
+        | (findOptions & FindOptionsBackwards ? WEBKIT_FIND_OPTIONS_BACKWARDS : 0)
+        | (findOptions & FindOptionsWrapAround ? WEBKIT_FIND_OPTIONS_WRAP_AROUND : 0));
+}
+
+static void didFindString(WKPageRef, WKStringRef, unsigned matchCount, const void* clientInfo)
 {
     g_signal_emit(WEBKIT_FIND_CONTROLLER(clientInfo), signals[FOUND_TEXT], 0, matchCount);
 }
 
-static void didFailToFindString(WKPageRef page, WKStringRef string, const void* clientInfo)
+static void didFailToFindString(WKPageRef, WKStringRef, const void* clientInfo)
 {
     g_signal_emit(WEBKIT_FIND_CONTROLLER(clientInfo), signals[FAILED_TO_FIND_TEXT], 0);
 }
 
-static void didCountStringMatches(WKPageRef page, WKStringRef string, unsigned matchCount, const void* clientInfo)
+static void didCountStringMatches(WKPageRef, WKStringRef, unsigned matchCount, const void* clientInfo)
 {
     g_signal_emit(WEBKIT_FIND_CONTROLLER(clientInfo), signals[COUNTED_MATCHES], 0, matchCount);
 }
@@ -111,15 +124,17 @@ static inline WebPageProxy* getPage(WebKitFindController* findController)
 static void webkitFindControllerConstructed(GObject* object)
 {
     WebKitFindController* findController = WEBKIT_FIND_CONTROLLER(object);
-    WKPageFindClient wkFindClient = {
-        kWKPageFindClientCurrentVersion,
-        findController, // clientInfo
+    WKPageFindClientV0 wkFindClient = {
+        {
+            0, // version
+            findController, // clientInfo
+        },
         didFindString,
         didFailToFindString,
         didCountStringMatches
     };
 
-    WKPageSetPageFindClient(toAPI(getPage(findController)), &wkFindClient);
+    WKPageSetPageFindClient(toAPI(getPage(findController)), &wkFindClient.base);
 }
 
 static void webkitFindControllerGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
@@ -304,7 +319,7 @@ guint32 webkit_find_controller_get_options(WebKitFindController* findController)
 {
     g_return_val_if_fail(WEBKIT_IS_FIND_CONTROLLER(findController), WEBKIT_FIND_OPTIONS_NONE);
 
-    return findController->priv->findOptions;
+    return toWebKitFindOptions(findController->priv->findOptions);
 }
 
 /**
@@ -347,7 +362,7 @@ static void webKitFindControllerPerform(WebKitFindController* findController, We
     WebKitFindControllerPrivate* priv = findController->priv;
     if (operation == CountOperation) {
         getPage(findController)->countStringMatches(String::fromUTF8(priv->searchText.data()),
-                                                    static_cast<WebKit::FindOptions>(priv->findOptions), priv->maxMatchCount);
+            static_cast<WebKit::FindOptions>(priv->findOptions), priv->maxMatchCount);
         return;
     }
 
@@ -404,8 +419,7 @@ void webkit_find_controller_search(WebKitFindController* findController, const g
 {
     g_return_if_fail(WEBKIT_IS_FIND_CONTROLLER(findController));
     g_return_if_fail(searchText);
-
-    webKitFindControllerSetSearchData(findController, searchText, findOptions, maxMatchCount);
+    webKitFindControllerSetSearchData(findController, searchText, toWebFindOptions(findOptions), maxMatchCount);
     webKitFindControllerPerform(findController, FindOperation);
 }
 
@@ -422,7 +436,7 @@ void webkit_find_controller_search_next(WebKitFindController* findController)
 {
     g_return_if_fail(WEBKIT_IS_FIND_CONTROLLER(findController));
 
-    findController->priv->findOptions &= ~WEBKIT_FIND_OPTIONS_BACKWARDS;
+    findController->priv->findOptions &= ~FindOptionsBackwards;
     findController->priv->findOptions &= ~FindOptionsShowHighlight;
     webKitFindControllerPerform(findController, FindNextPrevOperation);
 }
@@ -440,7 +454,7 @@ void webkit_find_controller_search_previous(WebKitFindController* findController
 {
     g_return_if_fail(WEBKIT_IS_FIND_CONTROLLER(findController));
 
-    findController->priv->findOptions |= WEBKIT_FIND_OPTIONS_BACKWARDS;
+    findController->priv->findOptions |= FindOptionsBackwards;
     findController->priv->findOptions &= ~FindOptionsShowHighlight;
     webKitFindControllerPerform(findController, FindNextPrevOperation);
 }
@@ -462,7 +476,7 @@ void webkit_find_controller_count_matches(WebKitFindController* findController, 
     g_return_if_fail(WEBKIT_IS_FIND_CONTROLLER(findController));
     g_return_if_fail(searchText);
 
-    webKitFindControllerSetSearchData(findController, searchText, findOptions, maxMatchCount);
+    webKitFindControllerSetSearchData(findController, searchText, toWebFindOptions(findOptions), maxMatchCount);
     webKitFindControllerPerform(findController, CountOperation);
 }
 

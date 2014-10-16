@@ -34,7 +34,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-bool InjectedBundle::load(APIObject* initializationUserData)
+bool InjectedBundle::initialize(const WebProcessCreationParameters&, API::Object* initializationUserData)
 {
     m_platformBundle = eina_module_new(m_path.utf8().data());
     if (!m_platformBundle) {
@@ -58,7 +58,7 @@ bool InjectedBundle::load(APIObject* initializationUserData)
     return true;
 }
 
-void InjectedBundle::activateMacFontAscentHack()
+void InjectedBundle::setBundleParameter(const String& /*key*/, const IPC::DataReference& /*data*/)
 {
 }
 

@@ -30,12 +30,12 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-#if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK) || PLATFORM(EFL)
 #include "Attachment.h"
 #include <wtf/text/WTFString.h>
 #endif
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
@@ -57,19 +57,19 @@ public:
 
         bool isNull() const;
 
-        void encode(CoreIPC::ArgumentEncoder&) const;
-        static bool decode(CoreIPC::ArgumentDecoder&, Handle&);
+        void clear();
+
+        void encode(IPC::ArgumentEncoder&) const;
+        static bool decode(IPC::ArgumentDecoder&, Handle&);
 
 #if USE(UNIX_DOMAIN_SOCKETS)
-        CoreIPC::Attachment releaseToAttachment() const;
+        IPC::Attachment releaseToAttachment() const;
         void adoptFromAttachment(int fileDescriptor, size_t);
 #endif
     private:
         friend class SharedMemory;
 #if OS(DARWIN)
         mutable mach_port_t m_port;
-#elif OS(WINDOWS)
-        mutable HANDLE m_handle;
 #elif USE(UNIX_DOMAIN_SOCKETS)
         mutable int m_fileDescriptor;
 #endif
@@ -86,19 +86,12 @@ public:
     // Will return 0 on failure.
     static PassRefPtr<SharedMemory> createFromVMBuffer(void*, size_t);
 
-#if OS(WINDOWS)
-    static PassRefPtr<SharedMemory> adopt(HANDLE, size_t, Protection);
-#endif
-
     ~SharedMemory();
 
     bool createHandle(Handle&, Protection);
 
     size_t size() const { return m_size; }
     void* data() const { return m_data; }
-#if OS(WINDOWS)
-    HANDLE handle() const { return m_handle; }
-#endif
 
     // Creates a copy-on-write copy of the first |size| bytes.
     PassRefPtr<SharedMemory> createCopyOnWriteCopy(size_t) const;
@@ -113,8 +106,6 @@ private:
 
 #if OS(DARWIN)
     mach_port_t m_port;
-#elif OS(WINDOWS)
-    HANDLE m_handle;
 #elif USE(UNIX_DOMAIN_SOCKETS)
     int m_fileDescriptor;
 #endif

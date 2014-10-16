@@ -2,8 +2,7 @@
 
 PKU2U DEFINITIONS ::= BEGIN
 
-IMPORTS heim_any_set FROM heim
-	Checksum FROM krb5
+IMPORTS Checksum FROM krb5
 	GeneralName FROM rfc2459
 	;
 

@@ -34,11 +34,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static const char sccsid[] = "@(#)file_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static const char rcsid[] = "$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $";
+__used static const char rcsid[] = "$OpenBSD: file_subs.c,v 1.30 2005/11/09 19:59:06 otto Exp $";
 #endif
 #endif /* not lint */
 
@@ -114,7 +115,7 @@ file_creat(ARCHD *arcn)
 
 	path_to_open = arcn->name;
 	new_path = arcn->name;
-	cwd = getcwd(&cwd_buff[0],MAXPATHLEN);
+	cwd = getcwd(cwd_buff,sizeof(cwd_buff));
 	if (cwd==NULL) return -1;
 	for (;;) {
 		/*
@@ -148,7 +149,7 @@ file_creat(ARCHD *arcn)
 		}
 		if (new_path) path_to_open = new_path; /* try again */
 	}
-	if (strcmp(new_path, arcn->name)!=0) { 
+	if (new_path && strcmp(new_path, arcn->name)!=0) {
 		dochdir(cwd);	/* go back to original directory */
 	}
 	return(fd);

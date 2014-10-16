@@ -35,6 +35,7 @@
  */
 
 #ifndef lint
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/libexec/revnetgroup/parse_netgroup.c,v 1.9 2002/04/01 21:13:15 mike Exp $";
 #endif /* not lint */

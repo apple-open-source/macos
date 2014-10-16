@@ -18,12 +18,11 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGAnimatedLength.h"
 
 #include "SVGAnimateElement.h"
 #include "SVGAnimatedNumber.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -35,17 +34,17 @@ SVGAnimatedLengthAnimator::SVGAnimatedLengthAnimator(SVGAnimationElement* animat
 
 static inline SVGLength& sharedSVGLength(SVGLengthMode mode, const String& valueAsString)
 {
-    DEFINE_STATIC_LOCAL(SVGLength, sharedLength, ());
-    sharedLength.setValueAsString(valueAsString, mode, ASSERT_NO_EXCEPTION);
+    static NeverDestroyed<SVGLength> sharedLength;
+    sharedLength.get().setValueAsString(valueAsString, mode, ASSERT_NO_EXCEPTION);
     return sharedLength;
 }
 
-PassOwnPtr<SVGAnimatedType> SVGAnimatedLengthAnimator::constructFromString(const String& string)
+std::unique_ptr<SVGAnimatedType> SVGAnimatedLengthAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::createLength(new SVGLength(m_lengthMode, string));
+    return SVGAnimatedType::createLength(std::make_unique<SVGLength>(m_lengthMode, string));
 }
 
-PassOwnPtr<SVGAnimatedType> SVGAnimatedLengthAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
+std::unique_ptr<SVGAnimatedType> SVGAnimatedLengthAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
     return SVGAnimatedType::createLength(constructFromBaseValue<SVGAnimatedLength>(animatedTypes));
 }
@@ -121,5 +120,3 @@ float SVGAnimatedLengthAnimator::calculateDistance(const String& fromString, con
 }
 
 }
-
-#endif // ENABLE(SVG)

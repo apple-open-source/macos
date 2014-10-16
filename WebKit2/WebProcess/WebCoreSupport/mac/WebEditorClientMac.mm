@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2010, 2011 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2010, 2011 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -30,6 +30,8 @@
 #import "config.h"
 #import "WebEditorClient.h"
 
+#if PLATFORM(MAC)
+
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
 #import "WebFrame.h"
@@ -44,8 +46,7 @@
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/Page.h>
-#import <WebKit/WebResource.h>
-#import <WebKit/WebNSURLExtras.h>
+#import <WebCore/WebCoreNSURLExtras.h>
 
 using namespace WebCore;
 
@@ -53,7 +54,7 @@ using namespace WebCore;
 - (DOMDocumentFragment*)_documentFromRange:(NSRange)range document:(DOMDocument*)document documentAttributes:(NSDictionary *)dict subresources:(NSArray **)subresources;
 @end
 
-@interface WebResource (WebResourceInternal)
+@interface NSObject (WebResourceInternal)
 - (WebCore::ArchiveResource*)_coreResource;
 @end
 
@@ -61,31 +62,31 @@ namespace WebKit {
     
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    if (m_page->handleEditingKeyboardEvent(event, false))
+    if (m_page->handleEditingKeyboardEvent(event))
         event->setDefaultHandled();
 }
 
 void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    if (m_page->handleEditingKeyboardEvent(event, true))
+    if (event->handledByInputMethod())
         event->setDefaultHandled();
 }
     
 NSString *WebEditorClient::userVisibleString(NSURL *url)
 {
-    return [url _web_userVisibleString];
+    return WebCore::userVisibleString(url);
 }
 
 NSURL *WebEditorClient::canonicalizeURL(NSURL *url)
 {
-    return [url _webkit_canonicalize];
+    return URLByCanonicalizingURL(url);
 }
 
 NSURL *WebEditorClient::canonicalizeURLString(NSString *URLString)
 {
     NSURL *URL = nil;
-    if ([URLString _webkit_looksLikeAbsoluteURL])
-        URL = [[NSURL _web_URLWithUserTypedString:URLString] _webkit_canonicalize];
+    if (looksLikeAbsoluteURL(URLString))
+        URL = URLByCanonicalizingURL(URLWithUserTypedString(URLString, nil));
     return URL;
 }
     
@@ -110,19 +111,19 @@ DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttrib
 {
     static NSArray *excludedElements = createExcludedElementsForAttributedStringConversion();
     
-    NSDictionary *dictionary = [[NSDictionary alloc] initWithObjectsAndKeys: excludedElements,
-        NSExcludedElementsDocumentAttribute, nil, @"WebResourceHandler", nil];
+    NSDictionary *dictionary = [NSDictionary dictionaryWithObject:excludedElements forKey:NSExcludedElementsDocumentAttribute];
     
     NSArray *subResources;
-    Document* document = m_page->mainFrame() ? m_page->mainFrame()->document() : 0;
+    Document* document = m_page->mainFrame()->document();
+
+    // FIXME: Isntead of calling this WebKit1 method, the code should be factored out and moved into WebCore.
     DOMDocumentFragment* fragment = [string _documentFromRange:NSMakeRange(0, [string length])
                                                       document:kit(document)
                                             documentAttributes:dictionary
                                                   subresources:&subResources];
-    for (WebResource* resource in subResources)
+    for (id resource in subResources)
         resources.append([resource _coreResource]);
-    
-    [dictionary release];
+
     return core(fragment);
 }
 
@@ -135,14 +136,14 @@ void WebEditorClient::setInsertionPasteboard(const String&)
 
 static void changeWordCase(WebPage* page, SEL selector)
 {
-    Frame* frame = page->corePage()->focusController()->focusedOrMainFrame();
-    if (!frame->editor().canEdit())
+    Frame& frame = page->corePage()->focusController().focusedOrMainFrame();
+    if (!frame.editor().canEdit())
         return;
 
-    frame->editor().command("selectWord").execute();
+    frame.editor().command("selectWord").execute();
 
-    NSString *selectedString = frame->displayStringModifiedByEncoding(frame->editor().selectedText());
-    page->replaceSelectionWithText(frame, [selectedString performSelector:selector]);
+    NSString *selectedString = frame.displayStringModifiedByEncoding(frame.editor().selectedText());
+    page->replaceSelectionWithText(&frame, [selectedString performSelector:selector]);
 }
 
 #if USE(APPKIT)
@@ -236,10 +237,6 @@ void WebEditorClient::toggleAutomaticSpellingCorrection()
 }
 #endif // USE(AUTOMATIC_TEXT_REPLACEMENT)
 
-void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, WebCore::TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
-{
-    // FIXME: It would be nice if we wouldn't have to copy the text here.
-    m_page->sendSync(Messages::WebPageProxy::CheckTextOfParagraph(String(text, length), checkingTypes), Messages::WebPageProxy::CheckTextOfParagraph::Reply(results));
-}
-
 } // namespace WebKit
+
+#endif // PLATFORM(MAC)

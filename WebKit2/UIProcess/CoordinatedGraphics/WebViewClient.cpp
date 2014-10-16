@@ -29,10 +29,15 @@
 
 #include "WebViewClient.h"
 
+#include "NotImplemented.h"
 #include "WKAPICast.h"
 #include "WKBase.h"
 #include "WKRetainPtr.h"
 #include "WebViewportAttributes.h"
+
+#if ENABLE(TOUCH_EVENTS)
+#include "NativeWebTouchEvent.h"
+#endif
 
 using namespace WebCore;
 
@@ -43,7 +48,7 @@ void WebViewClient::viewNeedsDisplay(WebView* view, const IntRect& area)
     if (!m_client.viewNeedsDisplay)
         return;
 
-    m_client.viewNeedsDisplay(toAPI(view), toAPI(area), m_client.clientInfo);
+    m_client.viewNeedsDisplay(toAPI(view), toAPI(area), m_client.base.clientInfo);
 }
 
 void WebViewClient::didChangeContentsSize(WebView* view, const IntSize& size)
@@ -51,7 +56,7 @@ void WebViewClient::didChangeContentsSize(WebView* view, const IntSize& size)
     if (!m_client.didChangeContentsSize)
         return;
 
-    m_client.didChangeContentsSize(toAPI(view), toAPI(size), m_client.clientInfo);
+    m_client.didChangeContentsSize(toAPI(view), toAPI(size), m_client.base.clientInfo);
 }
 
 void WebViewClient::webProcessCrashed(WebView* view, const String& url)
@@ -59,7 +64,7 @@ void WebViewClient::webProcessCrashed(WebView* view, const String& url)
     if (!m_client.webProcessCrashed)
         return;
 
-    m_client.webProcessCrashed(toAPI(view), adoptWK(toCopiedURLAPI(url)).get(), m_client.clientInfo);
+    m_client.webProcessCrashed(toAPI(view), adoptWK(toCopiedURLAPI(url)).get(), m_client.base.clientInfo);
 }
 
 void WebViewClient::webProcessDidRelaunch(WebView* view)
@@ -67,7 +72,7 @@ void WebViewClient::webProcessDidRelaunch(WebView* view)
     if (!m_client.webProcessDidRelaunch)
         return;
 
-    m_client.webProcessDidRelaunch(toAPI(view), m_client.clientInfo);
+    m_client.webProcessDidRelaunch(toAPI(view), m_client.base.clientInfo);
 }
 
 void WebViewClient::didChangeContentsPosition(WebView* view, const WebCore::IntPoint& point)
@@ -75,7 +80,7 @@ void WebViewClient::didChangeContentsPosition(WebView* view, const WebCore::IntP
     if (!m_client.didChangeContentsPosition)
         return;
 
-    m_client.didChangeContentsPosition(toAPI(view), toAPI(point), m_client.clientInfo);
+    m_client.didChangeContentsPosition(toAPI(view), toAPI(point), m_client.base.clientInfo);
 }
 
 void WebViewClient::didRenderFrame(WebView* view, const WebCore::IntSize& size, const WebCore::IntRect& coveredRect)
@@ -83,7 +88,7 @@ void WebViewClient::didRenderFrame(WebView* view, const WebCore::IntSize& size, 
     if (!m_client.didRenderFrame)
         return;
 
-    m_client.didRenderFrame(toAPI(view), toAPI(size), toAPI(coveredRect), m_client.clientInfo);
+    m_client.didRenderFrame(toAPI(view), toAPI(size), toAPI(coveredRect), m_client.base.clientInfo);
 }
 
 void WebViewClient::didCompletePageTransition(WebView* view)
@@ -91,7 +96,7 @@ void WebViewClient::didCompletePageTransition(WebView* view)
     if (!m_client.didCompletePageTransition)
         return;
 
-    m_client.didCompletePageTransition(toAPI(view), m_client.clientInfo);
+    m_client.didCompletePageTransition(toAPI(view), m_client.base.clientInfo);
 }
 
 void WebViewClient::didChangeViewportAttributes(WebView* view, const ViewportAttributes& attributes)
@@ -100,7 +105,7 @@ void WebViewClient::didChangeViewportAttributes(WebView* view, const ViewportAtt
         return;
 
     WKRetainPtr<WKViewportAttributesRef> wkAttributes = adoptWK(toAPI(WebViewportAttributes::create(attributes).leakRef()));
-    m_client.didChangeViewportAttributes(toAPI(view), wkAttributes.get(), m_client.clientInfo);
+    m_client.didChangeViewportAttributes(toAPI(view), wkAttributes.get(), m_client.base.clientInfo);
 }
 
 void WebViewClient::didChangeTooltip(WebView* view, const String& tooltip)
@@ -108,8 +113,33 @@ void WebViewClient::didChangeTooltip(WebView* view, const String& tooltip)
     if (!m_client.didChangeTooltip)
         return;
 
-    m_client.didChangeTooltip(toAPI(view), adoptWK(toCopiedAPI(tooltip)).get(), m_client.clientInfo);
+    m_client.didChangeTooltip(toAPI(view), adoptWK(toCopiedAPI(tooltip)).get(), m_client.base.clientInfo);
 }
+
+void WebViewClient::didFindZoomableArea(WebView* view, const IntPoint& target, const IntRect& area)
+{
+    if (!m_client.didFindZoomableArea)
+        return;
+
+    m_client.didFindZoomableArea(toAPI(view), toAPI(target), toAPI(area), m_client.base.clientInfo);
+}
+
+#if ENABLE(TOUCH_EVENTS)
+void WebViewClient::doneWithTouchEvent(WebView* view, const NativeWebTouchEvent& event, bool wasEventHandled)
+{
+#if PLATFORM(EFL)
+    if (!m_client.doneWithTouchEvent)
+        return;
+
+    m_client.doneWithTouchEvent(toAPI(view), toAPI(const_cast<EwkTouchEvent*>(event.nativeEvent())), wasEventHandled, m_client.base.clientInfo);
+#else
+    notImplemented();
+    UNUSED_PARAM(view);
+    UNUSED_PARAM(event);
+    UNUSED_PARAM(wasEventHandled);
+#endif
+}
+#endif
 
 } // namespace WebKit
 

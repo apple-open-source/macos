@@ -85,11 +85,7 @@ dt_pcb_push(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 	dtp->dt_pcb = pcb;
 	dtp->dt_gen++;
-#if !defined(__APPLE__)
-	yyinit(pcb);
-#else
 /* Darwin: moved call to yyinit() into dt_compile() where pcb is fully initialized. */
-#endif /* __APPLE__ */
 }
 
 static int

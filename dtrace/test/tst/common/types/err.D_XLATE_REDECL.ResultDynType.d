@@ -35,18 +35,10 @@
 
 #pragma D option quiet
 
-#if !defined (__APPLE__)
-translator lwpsinfo_t < kthread_t *T >
-{
-	pr_flag = T->t_flag;
-	pr_lwpid = T->t_tid;
-};
-#else
 translator lwpsinfo_t < thread_t T >
 {
 	pr_wchan = (uintptr_t)(((uthread_t)(T->uthread))->uu_wchan);
 };
-#endif /* __APPLE__ */
 
 BEGIN
 {

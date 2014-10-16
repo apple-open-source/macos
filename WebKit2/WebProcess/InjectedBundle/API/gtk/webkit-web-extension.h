@@ -17,13 +17,20 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __WebKitWebExtension_h
-#define __WebKitWebExtension_h
+#ifdef __WEBKIT_2_H__
+#error "Headers <webkit2/webkit2.h> and <webkit2/webkit-web-extension.h> cannot be included together."
+#endif
+
+#ifndef __WEBKIT_WEB_EXTENSION_H__
+#define __WEBKIT_WEB_EXTENSION_H__
 
 #define __WEBKIT_WEB_EXTENSION_H_INSIDE__
 
+#include <webkit2/WebKitFrame.h>
+#include <webkit2/WebKitScriptWorld.h>
 #include <webkit2/WebKitURIRequest.h>
 #include <webkit2/WebKitURIResponse.h>
+#include <webkit2/WebKitVersion.h>
 #include <webkit2/WebKitWebExtension.h>
 #include <webkit2/WebKitWebPage.h>
 

@@ -101,7 +101,7 @@ static const char *add_env_module_vars_passed(cmd_parms *cmd, void *sconf_,
         apr_table_setn(vars, arg, apr_pstrdup(cmd->pool, env_var));
     }
     else {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(01506)
                      "PassEnv variable %s was undefined", arg);
     }
 
@@ -149,15 +149,15 @@ AP_INIT_ITERATE("UnsetEnv", add_env_module_vars_unset, NULL,
 
 static int fixup_env_module(request_rec *r)
 {
-    apr_table_t *e = r->subprocess_env;
     env_dir_config_rec *sconf = ap_get_module_config(r->per_dir_config,
                                                      &env_module);
-    apr_table_t *vars = sconf->vars;
 
-    if (!apr_table_elts(sconf->vars)->nelts)
+    if (apr_is_empty_table(sconf->vars)) {
         return DECLINED;
+    }
 
-    r->subprocess_env = apr_table_overlay(r->pool, e, vars);
+    r->subprocess_env = apr_table_overlay(r->pool, r->subprocess_env,
+            sconf->vars);
 
     return OK;
 }
@@ -167,7 +167,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_fixups(fixup_env_module, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA env_module =
+AP_DECLARE_MODULE(env) =
 {
     STANDARD20_MODULE_STUFF,
     create_env_dir_config,      /* dir config creater */

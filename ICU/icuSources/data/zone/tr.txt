@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/tr.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/tr.xml
+ * ICU <specials> source: <path>/common/main/tr.xml
  */
 tr{
-    Version{"2.0.82.45"}
+    Version{"2.0.98.52"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abican"}
@@ -19,7 +19,7 @@ tr{
             ec{"Akra"}
         }
         "Africa:Algiers"{
-            ec{"Cezayir şehri"}
+            ec{"Cezayir"}
         }
         "Africa:Asmera"{
             ec{"Asmara"}
@@ -48,11 +48,17 @@ tr{
         "Africa:El_Aaiun"{
             ec{"Layun"}
         }
+        "Africa:Juba"{
+            ec{"Cuba"}
+        }
         "Africa:Khartoum"{
             ec{"Hartum"}
         }
         "Africa:Kinshasa"{
             ec{"Kinşasa"}
+        }
+        "Africa:Libreville"{
+            ec{"Librevil"}
         }
         "Africa:Mogadishu"{
             ec{"Mogadişu"}
@@ -64,7 +70,7 @@ tr{
             ec{"Trablus"}
         }
         "Africa:Tunis"{
-            ec{"Tınıs şehri"}
+            ec{"Tunus"}
         }
         "America:Asuncion"{
             ec{"Asunción"}
@@ -83,6 +89,9 @@ tr{
         }
         "America:Dominica"{
             ec{"Dominika"}
+        }
+        "America:Godthab"{
+            ec{"Nuuk"}
         }
         "America:Indiana:Knox"{
             ec{"Knox, Indiana"}
@@ -129,6 +138,9 @@ tr{
         "America:Puerto_Rico"{
             ec{"Porto Riko"}
         }
+        "America:Scoresbysund"{
+            ec{"Ittoqqortoormiit"}
+        }
         "America:St_Barthelemy"{
             ec{"Saint Barthélemy"}
         }
@@ -149,9 +161,6 @@ tr{
         }
         "Antarctica:DumontDUrville"{
             ec{"Dumont d’Urville"}
-        }
-        "Antarctica:South_Pole"{
-            ec{"Güney Kutbu"}
         }
         "Asia:Almaty"{
             ec{"Almatı"}
@@ -207,6 +216,9 @@ tr{
         "Asia:Gaza"{
             ec{"Gazze"}
         }
+        "Asia:Hebron"{
+            ec{"El Halil"}
+        }
         "Asia:Irkutsk"{
             ec{"İrkutsk"}
         }
@@ -230,6 +242,9 @@ tr{
         }
         "Asia:Katmandu"{
             ec{"Katmandu"}
+        }
+        "Asia:Khandyga"{
+            ec{"Handiga"}
         }
         "Asia:Kuching"{
             ec{"Kuçing"}
@@ -969,6 +984,9 @@ tr{
         "meta:South_Georgia"{
             ls{"Güney Georgia Saati"}
         }
+        "meta:Suriname"{
+            ls{"Surinam Saati"}
+        }
         "meta:Syowa"{
             ls{"Showa Saati"}
         }
@@ -1050,10 +1068,11 @@ tr{
             ls{"Yekaterinburg Standart Saati"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"{1} Saati ({0})"}
         gmtFormat{"GMT{0}"}
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0} Saati"}
+        regionFormatDaylight{"{0} Yaz Saati"}
+        regionFormatStandard{"{0} Standart Saati"}
     }
 }

@@ -135,10 +135,10 @@ read_data(krb5_storage *sp, krb5_storage *msg, size_t len)
 	    tlen = sizeof(buf);
 
 	slen = krb5_storage_read(sp, buf, tlen);
-	INSIST(slen == tlen);
+	INSIST(slen >= 0 && (size_t)slen == tlen);
 
 	slen = krb5_storage_write(msg, buf, tlen);
-	INSIST(slen == tlen);
+	INSIST(slen >= 0 || (size_t)slen == tlen);
 
 	len -= tlen;
     }
@@ -690,12 +690,15 @@ kadm5_mit_randkey_principal(void *server_handle,
     INSIST(retcode == VERSION2);
     CHECK(krb5_ret_uint32(sp, &retcode)); /* code */
     if (retcode == 0) {
-	uint32_t i, enctype;
+	uint32_t enctype, num;
+	int i;
 
-	CHECK(krb5_ret_uint32(sp, &i));
-	*n_keys = i;
+	CHECK(krb5_ret_uint32(sp, &num));
+	CHECK(num < 2000);
 
-	*keys = calloc(i, sizeof((*keys)[0]));
+	*n_keys = num;
+
+	*keys = calloc(num, sizeof((*keys)[0]));
 	for (i = 0; i < *n_keys; i++) {
 	    CHECK(krb5_ret_uint32(sp, &enctype));
 	    (*keys)[i].keytype = enctype;
@@ -743,7 +746,7 @@ xdr_setup_connection(krb5_context context,
     char portstr[NI_MAXSERV];
     struct grpc_client *c;
     krb5_error_code ret;
-    int error, s;
+    int error, s = -1;
     OM_uint32 maj_stat, maj_stat2, min_stat, ret_flags;
     gss_buffer_desc gin, gout;
     gss_name_t target;
@@ -775,7 +778,7 @@ xdr_setup_connection(krb5_context context,
 	}
 	break;
     }
-    if (a == NULL) {
+    if (a == NULL || s < 0) {
 	freeaddrinfo (ai);
 	return KADM5_FAILURE;
     }

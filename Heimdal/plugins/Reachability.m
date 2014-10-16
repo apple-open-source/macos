@@ -102,7 +102,7 @@ reachability_lookup(void *ctx,
     SCDynamicStoreRef store = NULL;
     NSDictionary *top = NULL;
     NSArray *vals;
-    NSString *defport;
+    NSString *defport = NULL;
     int found_entry = 0;
     id rp;
     
@@ -124,7 +124,8 @@ reachability_lookup(void *ctx,
 	    svc = (NSString *)HEIMDAL_SC_LOCATE_TYPE_ADMIN;
 	    defport = @"749";
 	    break;
-	default:
+	}
+	if (defport == NULL) {
 	    ret = KRB5_PLUGIN_NO_HANDLE;
 	    goto out;
 	}
@@ -185,7 +186,7 @@ reachability_lookup(void *ctx,
      out:
 	do {} while(0);
     }
-    @catch (NSException *exception) { }
+    @catch (NSException * __unused exception) { }
     @finally {
 
 	if (top)

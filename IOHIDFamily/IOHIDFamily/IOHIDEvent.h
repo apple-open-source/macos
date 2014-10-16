@@ -45,9 +45,8 @@ class IOHIDEvent: public OSObject
     IOHIDEvent *        _parent;
     size_t              _capacity;
     AbsoluteTime        _timeStamp;
-    AbsoluteTime        _creationTimeStamp;
     UInt64              _senderID;
-    uint32_t            _typeMask;
+    uint64_t            _typeMask;
     IOOptionBits        _options;
     UInt32              _eventCount;
 
@@ -81,6 +80,7 @@ public:
     static IOHIDEvent *     withType(   IOHIDEventType          type    = kIOHIDEventTypeNULL,
                                         IOOptionBits            options = 0);
 
+#if 0
 #if !TARGET_OS_EMBEDDED
     static IOHIDEvent *     withEventData (
                                         AbsoluteTime            timeStamp, 
@@ -88,6 +88,7 @@ public:
                                         NXEventData *           data, 
                                         IOOptionBits            options = 0);
 #endif /*!TARGET_OS_EMBEDDED*/
+#endif
                                         
     static IOHIDEvent *     keyboardEvent(  
                                         AbsoluteTime            timeStamp, 
@@ -145,15 +146,18 @@ public:
                                         IOHIDMotionPath         subType = 0,
                                         UInt32                  sequence = 0,
                                         IOOptionBits            options = 0);
-	
+    
     static IOHIDEvent *     buttonEvent (
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonMask,
+                                        UInt32                  mask,
+                                        UInt8                   number,
+                                        bool                    state,
                                         IOOptionBits            options = 0);
                                         
     static IOHIDEvent *     buttonEvent (
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonMask,
+                                        UInt32                  mask,
+                                        UInt8                   number,
                                         IOFixed                 pressure,
                                         IOOptionBits            options = 0);    
                                         
@@ -162,16 +166,16 @@ public:
                                         UInt32                  level,
                                         UInt32                  channel0    = 0,
                                         UInt32                  channel1    = 0,
-										UInt32                  channel2    = 0,
-										UInt32                  channel3    = 0,
+                                        UInt32                  channel2    = 0,
+                                        UInt32                  channel3    = 0,
                                         IOOptionBits            options     = 0);
                                         
     static IOHIDEvent *     proximityEvent (
-                                        AbsoluteTime				timeStamp,
-                                        IOHIDProximityDetectionMask	mask,
-										UInt32						level,
-                                        IOOptionBits				options = 0);
-	
+                                        AbsoluteTime                timeStamp,
+                                        IOHIDProximityDetectionMask    mask,
+                                        UInt32                        level,
+                                        IOOptionBits                options = 0);
+    
     static IOHIDEvent *     temperatureEvent (
                                         AbsoluteTime            timeStamp,
                                         IOFixed                 temperature,
@@ -183,17 +187,19 @@ public:
                                         SInt32                  y,
                                         SInt32                  z,
                                         UInt32                  buttonState,
+                                        UInt32                  oldButtonState = 0,
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     multiAxisPointerEvent(
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonState,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
-                                        IOFixed                 rX      = 0,
-                                        IOFixed                 rY      = 0,
-                                        IOFixed                 rZ      = 0,
+                                        IOFixed                 rX,
+                                        IOFixed                 rY,
+                                        IOFixed                 rZ,
+                                        UInt32                  buttonState,
+                                        UInt32                  oldButtonState = 0,
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     digitizerEvent(
@@ -277,9 +283,12 @@ public:
                                         UInt32                  length,
                                         IOOptionBits            options = 0);
 
-#if TARGET_OS_EMBEDDED
     static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options=0);
+#if TARGET_OS_EMBEDDED
+    static IOHIDEvent *     atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
 #endif /* TARGET_OS_EMBEDDED */
+
+    static IOHIDEvent *     unicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options);
 
     virtual void            appendChild(IOHIDEvent *childEvent);
 
@@ -292,34 +301,28 @@ public:
     virtual IOHIDEventPhaseBits  getPhase();
     virtual void            setPhase(IOHIDEventPhaseBits phase);
     
-    virtual IOHIDEvent *    getEvent(   IOHIDEventType          type, 
-                                        IOOptionBits            options = 0);
+    virtual IOHIDEvent *    getEvent(IOHIDEventType type, IOOptionBits options = 0);
     
     virtual SInt32          getIntegerValue(
-                                        IOHIDEventField         key, 
-                                        IOOptionBits            options = 0);
+                                        IOHIDEventField key, IOOptionBits options = 0);
     virtual void            setIntegerValue(    
-                                        IOHIDEventField         key, 
-                                        SInt32                  value, 
-                                        IOOptionBits            options = 0);
+                                        IOHIDEventField key, SInt32 value, IOOptionBits options = 0);
                                         
-    virtual IOFixed         getFixedValue(IOHIDEventField       key,
-                                        IOOptionBits            options = 0);
-    virtual void            setFixedValue(
-                                        IOHIDEventField         key, 
-                                        IOFixed                 value,
-                                        IOOptionBits            options = 0);
+    virtual IOFixed         getFixedValue(IOHIDEventField key, IOOptionBits options = 0);
+    virtual void            setFixedValue(IOHIDEventField key, IOFixed value, IOOptionBits options = 0);
+    
+    virtual UInt8 *         getDataValue(IOHIDEventField key, IOOptionBits options = 0);
 
     virtual void            free();
     
     virtual size_t          getLength(); 
-    virtual IOByteCount     readBytes(
-                                        void                    *bytes,
-                                        IOByteCount             withLength);
+    virtual IOByteCount     readBytes(void *bytes, IOByteCount withLength);
     
-    virtual void            setSenderID(uint64_t                senderID);
+    virtual void            setSenderID(uint64_t senderID);
     
     virtual uint64_t        getLatency(uint32_t scaleFactor);
+    
+    inline  IOOptionBits    getOptions() { return _options; };
 
 };
 

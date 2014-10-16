@@ -211,7 +211,7 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 	void *vardata, size_t vardatasize,
 	int *result, void *reply, size_t replysize)
 {
-	int error;
+	int error = 0;
 	socket_t so;
 	int so_open;
 	struct msghdr msg;
@@ -391,8 +391,7 @@ again:
 				     (vnop != WEBDAV_WRITE) && (vnop != WEBDAV_READ) &&
 					 (vnop != WEBDAV_FSYNC) && (vnop != WEBDAV_WRITESEQ) ) {
 						// This vnop has timed out.
-						printf("webdav_sendmsg: sock_receive() timeout. vnop: %d idisk: %s\n", vnop,
-							   (fmp->pm_server_ident & WEBDAV_IDISK_SERVER) ? "yes" : "no");
+						printf("webdav_sendmsg: sock_receive() timeout. vnop: %d\n", vnop);
 						error = ETIMEDOUT;
 						break;
 				}
@@ -1083,14 +1082,20 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				{
 					/* synthesize the lookup reply for dot and dotdot */
 					pt = isdot ? pt_dvp : VTOWEBDAV(pt_dvp->pt_parent);
-					reply_lookup.obj_id = pt->pt_obj_id;
-					reply_lookup.obj_fileid = pt->pt_fileid;
-					reply_lookup.obj_type = WEBDAV_DIR_TYPE;
-					reply_lookup.obj_atime = pt->pt_atime;
-					reply_lookup.obj_mtime = pt->pt_mtime;
-					reply_lookup.obj_ctime = pt-> pt_ctime;
-					reply_lookup.obj_createtime = pt->pt_createtime;
-					reply_lookup.obj_filesize = pt->pt_filesize;
+					if(pt != NULL) {
+						reply_lookup.obj_id = pt->pt_obj_id;
+						reply_lookup.obj_fileid = pt->pt_fileid;
+						reply_lookup.obj_type = WEBDAV_DIR_TYPE;
+						reply_lookup.obj_atime = pt->pt_atime;
+						reply_lookup.obj_mtime = pt->pt_mtime;
+						reply_lookup.obj_ctime = pt-> pt_ctime;
+						reply_lookup.obj_createtime = pt->pt_createtime;
+						reply_lookup.obj_filesize = pt->pt_filesize;
+					} else {
+						printf("webdav_vnop_lookup: pt is NULL\n");
+						error = ENOENT;
+						break;
+					}
 				}
 				else
 				{
@@ -1367,6 +1372,10 @@ static int webdav_vnop_open_locked(struct vnop_open_args *ap)
 			/* default to not ask for and to not cache additional directory information */
 			vnode_setnocache(vp);
 		}
+		
+		/* blow away statfs cache */
+		fmp->pm_statfstime = 0;
+
 	}
 
 dealloc_done:
@@ -1588,6 +1597,8 @@ static int webdav_fsync(struct vnop_fsync_args *ap)
 	}
 
 done:
+	if (!error)
+		fmp->pm_statfstime = 0;
 
 	return ( error );
 }
@@ -2795,6 +2806,11 @@ static int webdav_vnop_remove(struct vnop_remove_args *ap)
 	(void) vnode_recycle(vp); /* we don't care if the recycle was done or not */
 
 bad:
+	
+	if (!error) {
+		/* if success, blow away statfs cache */
+		fmp->pm_statfstime = 0;
+	}
 	/* unlock child node, then parent */
 	webdav_unlock(pt);
 	if (VTOWEBDAV(dvp) != pt)
@@ -2901,6 +2917,11 @@ static int webdav_vnop_rmdir(struct vnop_rmdir_args *ap)
 	(void) vnode_recycle(vp); /* we don't care if the recycle was done or not */
 
 bad:
+	/* if success, blow away statfs cache */
+	if (!error) {
+		fmp->pm_statfstime = 0;
+	}
+
 	/* unlock child node, then parent */
 	webdav_unlock(pt);
 	if (VTOWEBDAV(dvp) != pt)
@@ -3013,6 +3034,11 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 		webdav_unlock(VTOWEBDAV(*vpp));
 	
 bad:
+	
+	/* if success, blow away statfs cache */
+	if (!error)
+		fmp->pm_statfstime = 0;
+
 	webdav_unlock(pt_dvp);
 
 	RET_ERR("webdav_vnop_create", error);
@@ -3185,6 +3211,10 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	VTOWEBDAV(fdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
 	VTOWEBDAV(tdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
 
+	/* if success, blow away statfs cache */
+	if (!error)
+		wmp->pm_statfstime = 0;
+
 	/* Purge negative cache entries in the destination directory */
 	if (VTOWEBDAV(tdvp)->pt_status & WEBDAV_NEGNCENTRIES)
 	{
@@ -3310,6 +3340,11 @@ static int webdav_vnop_mkdir(struct vnop_mkdir_args *ap)
 	}
 
 bad:
+	
+	/* if success, blow away statfs cache */
+	if(!error)
+		fmp->pm_statfstime = 0;
+	
 	webdav_unlock(pt_dvp);
 
 	RET_ERR("webdav_vnop_mkdir", error);

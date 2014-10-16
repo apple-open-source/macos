@@ -1372,9 +1372,9 @@ else
     hardcode_shlibpath_var=no
     ;;
 
-  darwin[15]* | rhapsody*)
+  darwin[15].* | rhapsody*)
     allow_undefined_flag='-undefined error'
-    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts -install_name $rpath/$soname $(test -n "$verstring" -a x$verstring != x0.0 && echo $verstring)'
+    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts $(test x$module != xyes && echo -install_name $rpath/$soname) $(test -n "$verstring" -a x$verstring != x0.0 && echo $verstring)'
     # We need to add '_' to the symbols in $export_symbols first
     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols $lib'
     hardcode_direct=yes
@@ -1385,7 +1385,7 @@ else
   # Mac OS X v10.2 uses bash for /bin/sh instead of zsh, and the quoting syntax is incompatible
   darwin*)
     allow_undefined_flag='-undefined error'
-    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts $(test x$module != xyes && echo -install_name $rpath/$soname $tmp_verstring)'
+    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts $(test x$module != xyes && echo -install_name $LD_RUN_PATH/$soname $tmp_verstring)'
     # We need to add '_' to the symbols in $export_symbols first
     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols $lib'
     hardcode_direct=yes
@@ -1940,7 +1940,7 @@ darwin* | rhapsody*)
   version_type=darwin
   need_lib_prefix=no
   need_version=no
-  deplibs_check_method='file_magic Mach-O dynamically linked shared library'
+  deplibs_check_method='file_magic Mach-O (64-bit )?dynamically linked shared library'
   file_magic_cmd='/usr/bin/file -L'
   case "$host_os" in
   rhapsody* | darwin1.[012])
@@ -1950,8 +1950,8 @@ darwin* | rhapsody*)
     file_magic_test_file='/usr/lib/libSystem.dylib'
     ;;
   esac
-  library_names_spec='${libname}${release}${versuffix}.$(test x$module = xyes && echo so || echo dylib) ${libname}${release}${major}.$(test x$module = xyes && echo so || echo dylib) ${libname}.$(test x$module = xyes && echo so || echo dylib)'
-  soname_spec='${libname}${release}${major}.$(test x$module = xyes && echo so || echo dylib)'
+  library_names_spec='${libname}.$(test x$module = xyes && echo plugin || echo dylib)'
+  soname_spec='${libname}.$(test x$module = xyes && echo plugin || echo dylib)'
   shlibpath_overrides_runpath=yes
   shlibpath_var=DYLD_LIBRARY_PATH
   ;;

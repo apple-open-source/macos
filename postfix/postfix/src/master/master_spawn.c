@@ -60,9 +60,6 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <syslog.h>
-#ifdef __APPLE_OS_X_SERVER__
-#include <string.h>
-#endif
 
 /* Utility libraries. */
 
@@ -244,14 +241,6 @@ void    master_spawn(MASTER_SERV *serv)
     default:
 	if (msg_verbose)
 	    msg_info("spawn command %s; pid %d", serv->path, pid);
-
-#ifdef __APPLE_OS_X_SERVER__
-	if ( strcmp( serv->path, "/usr/libexec/postfix/smtp") == 0 )
-		smtp_count++;
-	if ( strcmp( serv->path, "/usr/libexec/postfix/smtpd") == 0 )
-		smtpd_count++;
-#endif
-
 	proc = (MASTER_PROC *) mymalloc(sizeof(MASTER_PROC));
 	proc->serv = serv;
 	proc->pid = pid;
@@ -335,13 +324,6 @@ void    master_reap_child(void)
 		master_throttle(serv);
 	    }
 	}
-
-#ifdef __APPLE_OS_X_SERVER__
-	if ( strcmp( serv->path, "/usr/libexec/postfix/smtp") == 0 )
-		smtp_count--;
-	if ( strcmp( serv->path, "/usr/libexec/postfix/smtpd") == 0 )
-		smtpd_count--;
-#endif
 	master_delete_child(proc);
     }
 }

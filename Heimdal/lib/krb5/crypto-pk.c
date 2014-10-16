@@ -150,9 +150,9 @@ encode_otherinfo(krb5_context context,
     memset(&pubinfo, 0, sizeof(pubinfo));
 
     pubinfo.enctype = enctype;
-    pubinfo.as_REQ = *as_req;
-    pubinfo.pk_as_rep = *pk_as_rep;
-    pubinfo.ticket = *ticket;
+    pubinfo.as_REQ = rk_UNCONST(as_req);
+    pubinfo.pk_as_rep = rk_UNCONST(pk_as_rep);
+    pubinfo.ticket = rk_UNCONST(ticket);
     ASN1_MALLOC_ENCODE(PkinitSuppPubInfo, pub.data, pub.length,
 		       &pubinfo, &size, ret);
     if (ret) {
@@ -162,16 +162,20 @@ encode_otherinfo(krb5_context context,
     if (pub.length != size)
 	krb5_abortx(context, "asn1 compiler internal error");
 
-    ret = encode_uvinfo(context, client, &otherinfo.partyUInfo);
-    if (ret) {
-	free(pub.data);
-	return ret;
+    if (client) {
+	ret = encode_uvinfo(context, client, &otherinfo.partyUInfo);
+	if (ret) {
+	    free(pub.data);
+	    return ret;
+	}
     }
-    ret = encode_uvinfo(context, server, &otherinfo.partyVInfo);
-    if (ret) {
-	free(otherinfo.partyUInfo.data);
-	free(pub.data);
-	return ret;
+    if (server) {
+	ret = encode_uvinfo(context, server, &otherinfo.partyVInfo);
+	if (ret) {
+	    free(otherinfo.partyUInfo.data);
+	    free(pub.data);
+	    return ret;
+	}
     }
 
     otherinfo.algorithmID = *ai;
@@ -206,19 +210,28 @@ _krb5_pk_kdf(krb5_context context,
 	     krb5_keyblock *key)
 {
     struct _krb5_encryption_type *et;
+    CCDigestAlgorithm digest;
     krb5_error_code ret;
     krb5_data other;
     size_t keylen, offset;
     uint32_t counter;
     unsigned char *keydata;
-    unsigned char shaoutput[CC_SHA1_DIGEST_LENGTH];
+    unsigned char output[CC_SHA512_DIGEST_LENGTH];
+    size_t digestsize;
     CCDigestRef m;
 
-    if (der_heim_oid_cmp(&asn1_oid_id_pkinit_kdf_ah_sha1, &ai->algorithm) != 0) {
+    if (der_heim_oid_cmp(&asn1_oid_id_pkinit_kdf_ah_sha1, &ai->algorithm) == 0) {
+	digest = kCCDigestSHA1;
+	digestsize = CC_SHA1_DIGEST_LENGTH;
+    } else if (der_heim_oid_cmp(&asn1_oid_id_pkinit_kdf_ah_sha512, &ai->algorithm) == 0) {
+	digest = kCCDigestSHA512;
+	digestsize = CC_SHA512_DIGEST_LENGTH;
+    } else {
 	krb5_set_error_message(context, KRB5_PROG_ETYPE_NOSUPP,
 			       N_("KDF not supported", ""));
 	return KRB5_PROG_ETYPE_NOSUPP;
     }
+
     if (ai->parameters != NULL &&
 	(ai->parameters->length != 2 ||
 	 memcmp(ai->parameters->data, "\x05\x00", 2) != 0))
@@ -251,7 +264,7 @@ _krb5_pk_kdf(krb5_context context,
 	return ret;
     }
 
-    m = CCDigestCreate(kCCDigestSHA1);
+    m = CCDigestCreate(digest);
     if (m == NULL) {
 	free(keydata);
 	free(other.data);
@@ -270,16 +283,16 @@ _krb5_pk_kdf(krb5_context context,
 	CCDigestUpdate(m, dhdata, dhsize);
 	CCDigestUpdate(m, other.data, other.length);
 
-	CCDigestFinal(m, shaoutput);
+	CCDigestFinal(m, output);
 
 	memcpy((unsigned char *)keydata + offset,
-	       shaoutput,
-	       min(keylen - offset, sizeof(shaoutput)));
+	       output,
+	       min(keylen - offset, digestsize));
 
-	offset += sizeof(shaoutput);
+	offset += digestsize;
 	counter++;
     } while(offset < keylen);
-    memset(shaoutput, 0, sizeof(shaoutput));
+    memset(output, 0, sizeof(output));
 
     CCDigestDestroy(m);
     free(other.data);

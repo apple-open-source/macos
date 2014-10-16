@@ -1,6 +1,6 @@
 /*
     ccid_serial.h:  Serial access routines
-    Copyright (C) 2003   Ludovic Rousseau
+    Copyright (C) 2003-2008   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid_serial.h 2974 2008-05-28 18:32:52Z rousseau $
+ * $Id: ccid_serial.h 4973 2010-06-01 09:43:29Z rousseau $
  */
 
 #ifndef __CCID_SERAL_H__

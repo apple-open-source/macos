@@ -103,7 +103,6 @@
 #include <Security/SecCertificatePriv.h>
 #endif
 #include "vpn_control_var.h"
-#include "ikev2_rfc.h"
 #include "extern.h"
 
 #define OUTBOUND_SA	0
@@ -151,11 +150,9 @@ struct dhgroup dh_modp8192;
 
 static int oakley_check_dh_pub (vchar_t *, vchar_t **);
 static int oakley_compute_keymat_x (phase2_handle_t *, int, int);
-static int oakley_compute_ikev2_keymat_x (phase2_handle_t *);
 static int get_cert_fromlocal (phase1_handle_t *, int);
 static int oakley_check_certid (phase1_handle_t *iph1);
 static int oakley_check_certid_1 (vchar_t *, int, int, void*, cert_status_t *certStatus);
-static vchar_t * oakley_prf_plus (vchar_t *, vchar_t *, int, phase1_handle_t *iph1);
 #ifdef HAVE_OPENSSL
 static int check_typeofcertname (int, int);
 #endif
@@ -536,7 +533,7 @@ vchar_t *
 oakley_prf(vchar_t *key, vchar_t *buf, phase1_handle_t *iph1)
 {
 	vchar_t *res = NULL;
-	int type;
+	int type = OAKLEY_ATTR_HASH_ALG_MD5;
 
 	if (iph1->approval == NULL) {
 		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
@@ -545,8 +542,6 @@ oakley_prf(vchar_t *key, vchar_t *buf, phase1_handle_t *iph1)
 			 * We use md5 as default.
 			 */
 			type = OAKLEY_ATTR_HASH_ALG_MD5;
-		} else {
-			type = OAKLEY_ATTR_HASH_ALG_SHA;			
 		}
 	} else
     {
@@ -569,7 +564,7 @@ vchar_t *
 oakley_hash(vchar_t *buf, phase1_handle_t *iph1)
 {
 	vchar_t *res = NULL;
-	int type;
+	int type = OAKLEY_ATTR_HASH_ALG_MD5;
 
 	if (iph1->approval == NULL) {
 		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
@@ -578,14 +573,10 @@ oakley_hash(vchar_t *buf, phase1_handle_t *iph1)
 			 * We use md5 as default.
 			 */
 			type = OAKLEY_ATTR_HASH_ALG_MD5;
-		} else {
-			type = OAKLEY_ATTR_HASH_ALG_SHA;			
 		}
 	} else {
         if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
             type = iph1->approval->hashtype;
-        } else {
-            type = OAKLEY_ATTR_HASH_ALG_SHA;
         }
     }
 
@@ -631,7 +622,6 @@ oakley_compute_keymat(phase2_handle_t *iph2, int side)
 end:
 	return error;
 }
-
 
 /*
  * compute KEYMAT.
@@ -1366,8 +1356,6 @@ oakley_validate_auth(phase1_handle_t *iph1)
 					 "invalid etype %d\n", iph1->etype);
 				return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
 			}
-		} else {
-			my_hash = oakley_ph1hash_common(iph1, VALIDATE);			
 		}
 		if (my_hash == NULL)
 			return ISAKMP_INTERNAL_ERROR;
@@ -1520,10 +1508,6 @@ oakley_validate_auth(phase1_handle_t *iph1)
 					 "invalid etype %d\n", iph1->etype);
 				return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
 			}
-		} else {
-			vchar_t *octets = NULL;
-			octets = ikev2_ike_sa_auth_get_octets(iph1, (iph1->side == INITIATOR)? FALSE : TRUE);
-			my_hash = alg_oakley_hashdef_one(OAKLEY_ATTR_HASH_ALG_SHA, octets);
 		}
 		if (my_hash == NULL)
 			return ISAKMP_INTERNAL_ERROR;
@@ -1547,8 +1531,6 @@ oakley_validate_auth(phase1_handle_t *iph1)
 				}
 				if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
 					error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p, FALSE);
-				} else {
-					error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p, TRUE);
 				}
 				if (error) {
 					plog(ASL_LEVEL_ERR, "error verifying signature %s\n", GetSecurityErrorString(error));
@@ -1951,7 +1933,9 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
             }
         }
         CFRelease(certificate);
-        CFRelease(subject);
+        if (subject != NULL) {
+            CFRelease(subject);
+        }
         return 0;
     }
     break;
@@ -2573,8 +2557,7 @@ oakley_getpskall(phase1_handle_t *iph1)
 				}
 				memcpy(secret->v, iph1->rmconf->shared_secret->v, secret->l);
 		}
-	} else if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 ||
-		   iph1->etype != ISAKMP_ETYPE_IDENT) {
+	} else if (iph1->etype != ISAKMP_ETYPE_IDENT) {
 		secret = getpskbyname(iph1->id_p);
 		if (!secret) {
 			if (iph1->rmconf->verify_identifier) {
@@ -2613,8 +2596,7 @@ oakley_skeyid(phase1_handle_t *iph1)
 	char *p;
 	int len;
 	int error = -1;
-    
-    
+	
 	/* SKEYID */
 	switch (AUTHMETHOD(iph1)) {
         case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
@@ -2719,97 +2701,13 @@ end:
 	return error;
 }
 
-static vchar_t *
-oakley_prf_plus (vchar_t *key, vchar_t *buf, int result_len, phase1_handle_t *iph1)
-{
-	vchar_t *t = 0;
-	uint8_t byte_value;
-	vchar_t *result = 0;
-	uint8_t *p;
-	vchar_t *bp;
-	int      bp_len;
-	uint8_t *tmp;
-	vchar_t *prf;
-
-	/*                                                                                                                                                                                                      
-	 * (draft-17)                                                                                                                                                                                           
-	 prf+ (K,S) = T1 | T2 | T3 | T4 | ...                                                                                                                                                                   
-	 
-	 where:                                                                                                                                                                                                 
-	 T1 = prf (K, S | 0x01)                                                                                                                                                                                 
-	 T2 = prf (K, T1 | S | 0x02)                                                                                                                                                                            
-	 T3 = prf (K, T2 | S | 0x03)                                                                                                                                                                            
-	 T4 = prf (K, T3 | S | 0x04)                                                                                                                                                                            
-	 */
-
-	if (!(result = vmalloc(result_len))) {
-		return NULL;
-	}
-
-	/*                                                                                                                                                                                                      
-	 * initial T0 = empty                                                                                                                                                                                   
-	 */
-	t = 0;
-	p = (uint8_t *)result->v;
-	for (byte_value = 1; result_len > 0; ++byte_value) {
-		/*                                                                                                                                                                                              
-		 * prf_output = prf(K, Ti-1 | S | byte)                                                                                                                                                         
-		 */
-		bp_len  = buf->l + sizeof(byte_value);
-		if (t) {
-			bp_len += t->l;
-		}
-		bp = vmalloc(bp_len);
-		if (!bp) {
-			return NULL;
-		}
-		tmp = (__typeof__(tmp))bp->v;
-		
-		if (t) {
-			memcpy(tmp, t->v, t->l);
-			tmp += t->l;
-		}
-		memcpy(tmp, buf->v, buf->l);
-		tmp += buf->l;
-		memcpy(tmp, &byte_value, sizeof(byte_value));
-		tmp += sizeof(byte_value);
-
-		if (!(prf = oakley_prf(key, bp, iph1))) {
-            VPTRINIT(bp);
-			return (vchar_t *)-1;
-		}
-        VPTRINIT(bp);
-
-		/*                                                                                                                                                                                              
-		 * concat prf_output                                                                                                                                          
-		 */
-		memcpy(p, prf->v, prf->l > (size_t)result_len ? (size_t)result_len : prf->l);
-		p += prf->l;
-		result_len -= prf->l;
-		
-		/*                                                                                                                                                                                              
-		 * Ti = prf_output                                                                                                                                                                              
-		 */
-		if (t) {
-			bzero(t->v, t->l);
-			vfree(t);
-		}
-		t = prf;
-	}
-	if (t) {
-		bzero(t->v, t->l);
-		vfree(t);
-	}
-	return result;
-}
-
 /*
  * compute SKEYID_[dae]
  */
 int
 oakley_skeyid_dae(phase1_handle_t *iph1)
 {
-	vchar_t *buf = NULL, *bp = NULL;
+	vchar_t *buf = NULL;
 	char *p;
 	int len;
 	int error = -1;
@@ -2818,6 +2716,7 @@ oakley_skeyid_dae(phase1_handle_t *iph1)
 		plog(ASL_LEVEL_ERR, "no SKEYID found.\n");
 		goto end;
 	}
+	
 	/*
 	 * see seciton 5. Exchanges in RFC 2409
 	 * SKEYID_d = prf(SKEYID, g^ir | CKY-I | CKY-R | 0)
@@ -2942,43 +2841,6 @@ oakley_compute_enckey(phase1_handle_t *iph1)
 			"failed to get key buffer\n");
 		goto end;
 	}
-	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2) {
-		iph1->key_p = vmalloc(keylen >> 3);
-		if (iph1->key_p == NULL) {
-			plog(ASL_LEVEL_ERR, 
-				 "failed to get key buffer\n");
-			goto end;
-		}
-
-		if (iph1->key->l <= iph1->skeyid_e->l) {
-			plog(ASL_LEVEL_DEBUG,
-				 "%s setting key len %zd, val %d (len %zd)", __FUNCTION__, iph1->key->l, (int)iph1->skeyid_e->v[0], iph1->skeyid_e->l);
-			/*
-			 * if length(Ka) <= length(SKEYID_e)
-			 *	Ka = first length(K) bit of SKEYID_e
-			 */
-			memcpy(iph1->key->v, iph1->skeyid_e->v, iph1->key->l);
-		} else {
-			plog(ASL_LEVEL_ERR, 
-				 "unexpected key length error (exp %zd, got %zd)",
-				 iph1->key->l, iph1->skeyid_e->l);
-			goto end;
-		}
-		if (iph1->key_p->l <= iph1->skeyid_e_p->l) {
-			plog(ASL_LEVEL_DEBUG, 
-				 "%s setting peer key len %zd, val %d (len %zd)", __FUNCTION__, iph1->key_p->l, (int)iph1->skeyid_e_p->v[0], iph1->skeyid_e_p->l);
-			/*
-			 * if length(Ka) <= length(SKEYID_e)
-			 *	Ka = first length(K) bit of SKEYID_e
-			 */
-			memcpy(iph1->key_p->v, iph1->skeyid_e_p->v, iph1->key_p->l);
-		} else {
-			plog(ASL_LEVEL_ERR, 
-				 "unexpected peer key length error (exp %zd, got %zd)",
-				 iph1->key_p->l, iph1->skeyid_e_p->l);
-			goto end;
-		}
-	}
 
 	/* set prf length */
 	prflen = alg_oakley_hashdef_hashlen(iph1->approval->hashtype);
@@ -3000,12 +2862,6 @@ oakley_compute_enckey(phase1_handle_t *iph1)
 		u_char *p, *ep;
 		int cplen;
 		int subkey;
-
-		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2) {
-			plog(ASL_LEVEL_ERR, 
-				 "invalid key len (got %zu, expected %zu.\n", iph1->key->l, iph1->skeyid_e->l);
-			goto end;
-		}
 
 		/*
 		 * otherwise,
@@ -3304,64 +3160,6 @@ end:
 	return newivm;
 }
 
-/*
- * Compute unpredictable IV for IKEv2.
- */
-int
-oakley_newiv_ikev2(phase1_handle_t * iph1)
-{
-	struct isakmp_ivm *newivm = NULL;    
-    int iv_length;
-    
-    /* Get IV length */
-    iv_length = alg_oakley_encdef_blocklen(iph1->approval->enctype);
-    if (iv_length == -1) {
-        plog(ASL_LEVEL_ERR, "Invalid encryption algorithm %d.\n", iph1->approval->enctype);
-    }
-    
-	/* Allocate IV Manager */
-	newivm = racoon_calloc(1, sizeof(struct isakmp_ivm));
-	if (newivm == NULL) {
-		plog(ASL_LEVEL_ERR, "Failed to allocate IV buffer.\n");
-		return -1;
-	}
-    
-	/* Compute IV */
-    /* There are two recommended methods for generating unpredictable IVs. The first method is to apply the forward cipher function, under the same key that is used for the encryption of the plaintext, to a nonce. The nonce must be a data block that is unique to each execution of the encryption operation. For example, the nonce may be a counter, as described in Appendix B, or a message number. The second method is to generate a random data block using a FIPS- approved random number generator. 
-     [National Institute of Standards and Technology, U.S.
-     Department of Commerce, "Recommendation for Block Cipher
-     Modes of Operation", SP 800-38A, 2001.]
-    */
-    /* Currently, we implement the second scheme, which uses a random block */
-    newivm->iv = eay_set_random(iv_length);
-    if (newivm->iv == NULL) {
-		oakley_delivm(newivm);
-		return -1;
-	}
-    
-	/* Adjust length of IV */
-    if (newivm->iv->l != iv_length) {
-        plog(ASL_LEVEL_WARNING, "IV length was adjusted.\n");
-        newivm->iv->l = iv_length;
-    }
-    
-	/* Make copy of IV in IVe */
-	if ((newivm->ive = vdup(newivm->iv)) == NULL) {
-		plog(ASL_LEVEL_ERR, "vdup (%s)\n", strerror(errno));
-		oakley_delivm(newivm);
-		return -1;
-	}
-
-    /* Delete old IV if there is one */
-	if (iph1->ivm != NULL)
-		oakley_delivm(iph1->ivm);
-    
-	iph1->ivm = newivm;
-    
-	return 0;
-}
-
-
 void
 oakley_delivm(struct isakmp_ivm *ivm)
 {
@@ -3498,6 +3296,7 @@ oakley_do_decrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivdp, vchar_t *i
 	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
 		return(oakley_do_ikev1_decrypt(iph1, msg, ivdp, ivep));
 	}
+	
 	plog(ASL_LEVEL_ERR, "Failed to decrypt invalid IKE version");
 	return NULL;
 }
@@ -3608,7 +3407,6 @@ end:
 	return buf;
 }
 
-
 /*
  * encrypt packet.
  */
@@ -3618,6 +3416,7 @@ oakley_do_encrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivep, vchar_t *i
 	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
 		return(oakley_do_ikev1_encrypt(iph1, msg, ivep, ivp));		
 	}
+
 	plog(ASL_LEVEL_ERR, "Failed to encrypt invalid IKE version");
 	return NULL;
 }

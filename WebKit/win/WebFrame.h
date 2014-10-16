@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,7 +34,7 @@
 #include <WebCore/AdjustViewSizeOrNot.h>
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
 #include <WebCore/ResourceHandleClient.h>
 
 #include <WTF/RefPtr.h>
@@ -157,7 +157,7 @@ public:
     virtual /* [local] */ JSGlobalContextRef STDMETHODCALLTYPE globalContext();
 
     // IWebFramePrivate
-    virtual HRESULT STDMETHODCALLTYPE unused1(BSTR*) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE unused1() { return E_NOTIMPL; }
     virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(BOOL forPrinting, BSTR *result);
 
     virtual HRESULT STDMETHODCALLTYPE pageNumberForElementById(
@@ -179,13 +179,12 @@ public:
     virtual HRESULT STDMETHODCALLTYPE firstLayoutDone(
         /* [retval][out] */ BOOL* result);
 
-    virtual HRESULT STDMETHODCALLTYPE loadType( 
-        /* [retval][out] */ WebFrameLoadType* type);
+    virtual HRESULT STDMETHODCALLTYPE unused2() { return E_NOTIMPL; }
 
     virtual HRESULT STDMETHODCALLTYPE pendingFrameUnloadEventCount( 
         /* [retval][out] */ UINT* result);
 
-    virtual HRESULT STDMETHODCALLTYPE unused2();
+    virtual HRESULT STDMETHODCALLTYPE unused3() { return E_NOTIMPL; }
     
     virtual HRESULT STDMETHODCALLTYPE setInPrintingMode( 
         /* [in] */ BOOL value,
@@ -237,14 +236,9 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE reloadFromOrigin();
 
-    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(
-        /* [in] */ RECT rect,
-        /* [in] */ OLE_HANDLE deviceContext);
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(/* [in] */ RECT rect, /* [in] */ HDC deviceContext);
 
-    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(
-        /* [in] */ RECT rect,
-        /* [in] */ POINT pt,
-        /* [in] */ OLE_HANDLE deviceContext);
+    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(/* [in] */ RECT rect, /* [in] */ POINT pt, /* [in] */ HDC deviceContext);
 
     virtual HRESULT STDMETHODCALLTYPE elementDoesAutoComplete(
         /* [in] */ IDOMElement* element, 
@@ -277,7 +271,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setTextDirection(BSTR);
 
-    virtual HRESULT STDMETHODCALLTYPE unused3(BSTR, BSTR*) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE unused4() { return E_NOTIMPL; }
 
     virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
 
@@ -298,7 +292,8 @@ public:
     virtual void frameLoaderDestroyed();
 
     // WebFrame
-    PassRefPtr<WebCore::Frame> init(IWebView*, WebCore::Page*, WebCore::HTMLFrameOwnerElement*);
+    PassRefPtr<WebCore::Frame> createSubframeWithOwnerElement(IWebView*, WebCore::Page*, WebCore::HTMLFrameOwnerElement*);
+    void initWithWebView(IWebView*, WebCore::Page*);
     WebCore::Frame* impl();
     void invalidate();
     void unmarkAllMisspellings();
@@ -317,7 +312,7 @@ public:
     HRESULT matchLabelsAgainstElement(const BSTR* labels, int cLabels, IDOMElement* againstElement, BSTR* result);
     HRESULT canProvideDocumentSource(bool* result);
 
-    WebCore::KURL url() const;
+    WebCore::URL url() const;
 
     WebView* webView() const;
     void setWebView(WebView*);
@@ -340,7 +335,7 @@ protected:
     class WebFramePrivate;
     WebFramePrivate*    d;
     bool                m_quickRedirectComing;
-    WebCore::KURL       m_originalRequestURL;
+    WebCore::URL       m_originalRequestURL;
     bool                m_inPrintingMode;
     Vector<WebCore::IntRect> m_pageRects;
     int m_pageHeight;   // height of the page adjusted by margins

@@ -47,14 +47,20 @@ static io_connect_t
 openiodev(void)
 {
     io_registry_entry_t service;
+    CFMutableDictionaryRef matching;
     io_connect_t conn;
     kern_return_t kr;
     
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kAppleFDEKeyStoreServiceName));
+    matching = IOServiceMatching(kAppleFDEKeyStoreServiceName);
+    if (matching == NULL)
+	return IO_OBJECT_NULL;
+
+    service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
     if (service == IO_OBJECT_NULL)
 	return IO_OBJECT_NULL;
     
     kr = IOServiceOpen(service, mach_task_self(), 0, &conn);
+    IOObjectRelease(service);
     if (kr != KERN_SUCCESS)
 	return IO_OBJECT_NULL;
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2013 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/RenderObject.h>
+#include <wtf/win/GDIObject.h>
 
 #include "MemoryStream.h"
 #include "WebError.h"
@@ -56,10 +57,9 @@ bool EmbeddedWidget::createWindow(HWND parentWindow, const IntSize& size)
     ASSERT(!m_window);
 
     HWND window;
-
     SIZE pluginSize(size);
 
-    HRESULT hr = m_view->createViewWindow((OLE_HANDLE)parentWindow, &pluginSize, (OLE_HANDLE*)&window);
+    HRESULT hr = m_view->createViewWindow(parentWindow, &pluginSize, &window);
         
     if (FAILED(hr) || !window)
         return false;
@@ -79,7 +79,7 @@ void EmbeddedWidget::invalidateRect(const IntRect& rect)
 
 void EmbeddedWidget::setFrameRect(const IntRect& rect)
 {
-    if (m_element->document()->printing())
+    if (m_element->document().printing())
         return;
 
     if (rect != frameRect())
@@ -109,27 +109,25 @@ void EmbeddedWidget::frameRectsChanged()
     if (m_windowRect == oldWindowRect && m_clipRect == oldClipRect)
         return;
 
-    HRGN rgn;
-
     // To prevent flashes while scrolling, we disable drawing during the window
     // update process by clipping the window to the zero rect.
 
     bool clipToZeroRect = true;
 
     if (clipToZeroRect) {
-        rgn = ::CreateRectRgn(0, 0, 0, 0);
-        ::SetWindowRgn(m_window, rgn, FALSE);
+        auto rgn = adoptGDIObject(::CreateRectRgn(0, 0, 0, 0));
+        ::SetWindowRgn(m_window, rgn.leak(), FALSE);
     } else {
-        rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY());
-        ::SetWindowRgn(m_window, rgn, TRUE);
+        auto rgn = adoptGDIObject(::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY()));
+        ::SetWindowRgn(m_window, rgn.leak(), TRUE);
      }
 
      if (m_windowRect != oldWindowRect)
         ::MoveWindow(m_window, m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height(), TRUE);
 
      if (clipToZeroRect) {
-        rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY());
-        ::SetWindowRgn(m_window, rgn, TRUE);
+        auto rgn = adoptGDIObject(::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY()));
+        ::SetWindowRgn(m_window, rgn.leak(), TRUE);
     }
 }
 
@@ -167,7 +165,7 @@ IntRect EmbeddedWidget::windowClipRect() const
     IntRect clipRect(m_windowRect);
     
     // Take our element and get the clip rect from the enclosing layer and frame view.
-    FrameView* parentView = m_element->document()->view();
+    FrameView* parentView = m_element->document().view();
     clipRect.intersect(parentView->windowClipRectForFrameOwner(m_element, true));
 
     return clipRect;

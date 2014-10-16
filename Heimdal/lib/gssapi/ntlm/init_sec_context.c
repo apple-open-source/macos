@@ -304,7 +304,7 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
     } else {
 	krb5_context context;
 	krb5_error_code ret;
-	krb5_storage *request, *response;
+	krb5_storage *request, *response = NULL;
 	krb5_data response_data, data, cb;
 	char *ruser = NULL, *rdomain = NULL;
 	uint8_t channelbinding[16];

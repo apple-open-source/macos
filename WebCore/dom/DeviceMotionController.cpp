@@ -41,11 +41,22 @@ DeviceMotionController::DeviceMotionController(DeviceMotionClient* client)
     deviceMotionClient()->setController(this);
 }
 
-PassOwnPtr<DeviceMotionController> DeviceMotionController::create(DeviceMotionClient* client)
+#if PLATFORM(IOS)
+// FIXME: We should look to reconcile the iOS and OpenSource differences with this class
+// so that we can either remove these methods or remove the PLATFORM(IOS)-guard.
+void DeviceMotionController::suspendUpdates()
 {
-    return adoptPtr(new DeviceMotionController(client));
+    if (m_client)
+        m_client->stopUpdating();
 }
 
+void DeviceMotionController::resumeUpdates()
+{
+    if (m_client && !m_listeners.isEmpty())
+        m_client->startUpdating();
+}
+#endif
+    
 void DeviceMotionController::didChangeDeviceMotion(DeviceMotionData* deviceMotionData)
 {
     dispatchDeviceEvent(DeviceMotionEvent::create(eventNames().devicemotionEvent, deviceMotionData));
@@ -85,7 +96,7 @@ bool DeviceMotionController::isActiveAt(Page* page)
 
 void provideDeviceMotionTo(Page* page, DeviceMotionClient* client)
 {
-    DeviceMotionController::provideTo(page, DeviceMotionController::supplementName(), DeviceMotionController::create(client));
+    DeviceMotionController::provideTo(page, DeviceMotionController::supplementName(), std::make_unique<DeviceMotionController>(client));
 }
 
 } // namespace WebCore

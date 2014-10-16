@@ -231,7 +231,7 @@ hx509_prompt_hidden(hx509_prompt_type type)
     case HX509_PROMPT_TYPE_QUESTION:
     case HX509_PROMPT_TYPE_INFO:
 	return 0;
-    default:
+    case HX509_PROMPT_TYPE_PASSWORD:
 	return 1;
     }
 }

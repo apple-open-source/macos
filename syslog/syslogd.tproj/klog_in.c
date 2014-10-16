@@ -57,7 +57,7 @@ klog_in_acceptdata(int fd)
 	ssize_t len;
 	uint32_t i;
 	char *p, *q;
-	aslmsg m;
+	asl_msg_t *m;
 
 	len = read(fd, inbuf + bx, BUFF_SIZE - bx);
 	if (len <= 0) return;

@@ -239,10 +239,6 @@ parse_binding(struct fileptr *f, unsigned *lineno, char *p,
 
 #if defined(__APPLE__)
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
-#define HAVE_CFPROPERTYLISTCREATEWITHSTREAM 1
-#endif
-
 static char *
 cfstring2cstring(CFStringRef string)
 {
@@ -267,7 +263,7 @@ cfstring2cstring(CFStringRef string)
 }
 
 struct array_ctx {
-    krb5_config_section *parent;
+    krb5_config_section **parent;
     char *key;
 };
 
@@ -278,7 +274,7 @@ convert_array(const void *value, void *context)
     krb5_config_section *tmp;
 
     if (CFGetTypeID(value) == CFStringGetTypeID()) {
-	tmp = _krb5_config_get_entry(&ctx->parent, ctx->key, krb5_config_string);
+	tmp = _krb5_config_get_entry(ctx->parent, ctx->key, krb5_config_string);
 	tmp->u.string = cfstring2cstring(value);
     }
 }
@@ -305,7 +301,7 @@ convert_content(const void *key, const void *value, void *context)
 	CFDictionaryApplyFunction(value, convert_content, &tmp->u.list);
     } else if (CFGetTypeID(value) == CFArrayGetTypeID()) {
 	struct array_ctx ctx;
-	ctx.parent = *parent;
+	ctx.parent = parent;
 	ctx.key = k;
 	CFArrayApplyFunction(value, CFRangeMake(0, CFArrayGetCount(value)),
 			     convert_array, &ctx);
@@ -341,11 +337,7 @@ parse_plist_config(krb5_context context, const char *path, krb5_config_section *
 	return ENOENT;
     }
 
-#ifdef HAVE_CFPROPERTYLISTCREATEWITHSTREAM
     d = (CFDictionaryRef)CFPropertyListCreateWithStream(NULL, s, 0, kCFPropertyListImmutable, NULL, NULL);
-#else
-    d = (CFDictionaryRef)CFPropertyListCreateFromStream(NULL, s, 0, kCFPropertyListImmutable, NULL, NULL);
-#endif
     CFRelease(s);
     if (d == NULL) {
 	krb5_clear_error_message(context);

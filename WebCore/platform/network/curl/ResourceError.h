@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,19 +28,33 @@
 
 #include "ResourceErrorBase.h"
 
+#if PLATFORM(WIN)
+#include <windows.h>
+#include <winsock2.h>
+#endif
+
+#include <curl/curl.h>
+
 namespace WebCore {
 
 class ResourceError : public ResourceErrorBase
 {
 public:
-    ResourceError()
+    ResourceError() : m_sslErrors(0)
     {
     }
 
     ResourceError(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription)
-        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription)
+        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription), m_sslErrors(0)
     {
     }
+
+    unsigned sslErrors() const { return m_sslErrors; }
+    void setSSLErrors(unsigned sslVerifyResult) { m_sslErrors = sslVerifyResult; }
+    bool hasSSLConnectError() const { return errorCode() == CURLE_SSL_CONNECT_ERROR; }
+
+private:
+    unsigned m_sslErrors;
 };
 
 }

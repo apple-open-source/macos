@@ -191,7 +191,7 @@ typedef struct _IOAudioSMPTETime
 
 } IOAudioSMPTETime;
 
-//	constants describing SMPTE types (taken from the MTC spec)
+//	constants describing SMPTE types (taken from the MTC spec), <rdar://11955717>
 enum
 {
 	kIOAudioSMPTETimeType24			= 0,
@@ -199,7 +199,13 @@ enum
 	kIOAudioSMPTETimeType30Drop		= 2,
 	kIOAudioSMPTETimeType30			= 3,
 	kIOAudioSMPTETimeType2997		= 4,
-	kIOAudioSMPTETimeType2997Drop	= 5
+	kIOAudioSMPTETimeType2997Drop	= 5,
+    kIOAudioSMPTETimeType60         = 6,
+    kIOAudioSMPTETimeType5994       = 7,
+    kIOAudioSMPTETimeType60Drop     = 8,
+    kIOAudioSMPTETimeType5994Drop   = 9,
+    kIOAudioSMPTETimeType50         = 10,
+    kIOAudioSMPTETimeType2398       = 11
 };
 
 //	flags describing a SMPTE time stamp

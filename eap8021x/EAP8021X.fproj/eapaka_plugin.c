@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -705,7 +705,7 @@ eapaka_challenge(EAPAKAContextRef context,
 	    AT_AUTS *		auts_p;
 	    int			len;
 
-	    len = CFDataGetLength(auts);
+	    len = (int)CFDataGetLength(auts);
 	    if (len != AUTS_SIZE) {
 		EAPLOG(LOG_NOTICE,
 		       "eapaka: SIM bogus AUTS size %d (should be %d)",
@@ -728,15 +728,17 @@ eapaka_challenge(EAPAKAContextRef context,
     CC_SHA1_Init(&sha1_context);
     if (context->last_identity != NULL) {
 	CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(context->last_identity),
-		       CFDataGetLength(context->last_identity));
+		       (int)CFDataGetLength(context->last_identity));
     }
     else {
 	CC_SHA1_Update(&sha1_context, context->plugin->username, 
 		       context->plugin->username_length);
     }
     ik = aka_results.ik;
-    CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(ik), CFDataGetLength(ik));
-    CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(ck), CFDataGetLength(ck));
+    CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(ik),
+		   (int)CFDataGetLength(ik));
+    CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(ck),
+		   (int)CFDataGetLength(ck));
     CC_SHA1_Final(EAPSIMAKAPersistentStateGetMasterKey(context->persist),
 		  &sha1_context);
 
@@ -776,7 +778,7 @@ eapaka_challenge(EAPAKAContextRef context,
 
     /* AT_RES */
     res = aka_results.res;
-    len = CFDataGetLength(res);
+    len = (int)CFDataGetLength(res);
     res_p = (AT_RES *)TLVBufferAllocateTLV(tb_p, kAT_RES,
 					   offsetof(AT_RES, rs_res) + len);
     if (res_p == NULL) {
@@ -817,7 +819,7 @@ eapaka_compute_reauth_key(EAPAKAContextRef context,
 
     if (context->last_identity != NULL) {
 	identity = CFDataGetBytePtr(context->last_identity);
-	identity_length = CFDataGetLength(context->last_identity);
+	identity_length = (int)CFDataGetLength(context->last_identity);
     }
     else {
 	identity = context->plugin->username;
@@ -1114,7 +1116,7 @@ eapaka_notification(EAPAKAContextRef context,
 	    *client_status = kEAPClientStatusProtocolError;
 	    goto done;
 	}
-
+	TLVListInit(decrypted_tlvs_p);
 	decrypted_buffer 
 	    = EAPSIMAKAKeyInfoDecryptTLVList(&context->key_info,
 					     encr_data_p, iv_p,
@@ -1320,6 +1322,7 @@ STATIC EAPClientPluginFuncProcess eapaka_process;
 STATIC EAPClientPluginFuncFreePacket eapaka_free_packet;
 STATIC EAPClientPluginFuncSessionKey eapaka_session_key;
 STATIC EAPClientPluginFuncServerKey eapaka_server_key;
+STATIC EAPClientPluginFuncMasterSessionKeyCopyBytes eapaka_msk_copy_bytes;
 STATIC EAPClientPluginFuncPublishProperties eapaka_publish_props;
 STATIC EAPClientPluginFuncUserName eapaka_user_name_copy;
 STATIC EAPClientPluginFuncCopyIdentity eapaka_copy_identity;
@@ -1457,6 +1460,24 @@ eapaka_server_key(EAPClientPluginDataRef plugin, int * key_length)
     return (NULL);
 }
 
+STATIC int
+eapaka_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+		      void * msk, int msk_size)
+{
+    EAPAKAContextRef	context = (EAPAKAContextRef)plugin->private;
+    int			ret_msk_size = sizeof(context->key_info.s.msk);
+    
+    if (msk_size < ret_msk_size
+	|| context->key_info_valid == FALSE
+	|| context->state != kEAPAKAClientStateSuccess) {
+	ret_msk_size = 0;
+    }
+    else {
+	bcopy(context->key_info.s.msk, msk, ret_msk_size);
+    }
+    return (ret_msk_size);
+}
+
 STATIC CFDictionaryRef
 eapaka_publish_props(EAPClientPluginDataRef plugin)
 {
@@ -1555,6 +1576,8 @@ STATIC struct func_table_ent {
     { kEAPClientPluginFuncNameFailureString, eapaka_failure_string },
     { kEAPClientPluginFuncNameSessionKey, eapaka_session_key },
     { kEAPClientPluginFuncNameServerKey, eapaka_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes,
+      eapaka_msk_copy_bytes },
     { kEAPClientPluginFuncNamePublishProperties, eapaka_publish_props },
     { kEAPClientPluginFuncNameUserName, eapaka_user_name_copy },
     { kEAPClientPluginFuncNameCopyIdentity, eapaka_copy_identity },

@@ -33,6 +33,7 @@
 #include "NotImplemented.h"
 #include "WebEvent.h"
 #include "WindowsKeyboardCodes.h"
+#include <WebCore/BackForwardController.h>
 #include <WebCore/EflKeyboardUtilities.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
@@ -77,7 +78,7 @@ void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
 
 static inline void scroll(Page* page, ScrollDirection direction, ScrollGranularity granularity)
 {
-    page->focusController()->focusedOrMainFrame()->eventHandler()->scrollRecursively(direction, granularity);
+    page->focusController().focusedOrMainFrame().eventHandler().scrollRecursively(direction, granularity);
 }
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
@@ -88,9 +89,9 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     switch (keyboardEvent.windowsVirtualKeyCode()) {
     case VK_BACK:
         if (keyboardEvent.shiftKey())
-            m_page->goForward();
+            m_page->backForward().goForward();
         else
-            m_page->goBack();
+            m_page->backForward().goBack();
         break;
     case VK_SPACE:
         scroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollUp : ScrollDown, ScrollByPage);
@@ -126,13 +127,13 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     return true;
 }
 
-bool WebPage::platformHasLocalDataForURL(const KURL&)
+bool WebPage::platformHasLocalDataForURL(const URL&)
 {
     notImplemented();
     return false;
 }
 
-String WebPage::cachedResponseMIMETypeForURL(const KURL&)
+String WebPage::cachedResponseMIMETypeForURL(const URL&)
 {
     notImplemented();
     return String();
@@ -144,13 +145,13 @@ bool WebPage::platformCanHandleRequest(const ResourceRequest&)
     return true;
 }
 
-String WebPage::cachedSuggestedFilenameForURL(const KURL&)
+String WebPage::cachedSuggestedFilenameForURL(const URL&)
 {
     notImplemented();
     return String();
 }
 
-PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const KURL&)
+PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
 {
     notImplemented();
     return 0;
@@ -168,17 +169,15 @@ const char* WebPage::interpretKeyEvent(const KeyboardEvent* event)
 
 void WebPage::setThemePath(const String& themePath)
 {
-    WebCore::RenderThemeEfl* theme = static_cast<WebCore::RenderThemeEfl*>(m_page->theme());
-    theme->setThemePath(themePath);
+    WebCore::RenderThemeEfl& theme = static_cast<WebCore::RenderThemeEfl&>(m_page->theme());
+    theme.setThemePath(themePath);
 }
 
 static Frame* targetFrameForEditing(WebPage* page)
 {
-    Frame* frame = page->corePage()->focusController()->focusedOrMainFrame();
-    if (!frame)
-        return 0;
+    Frame& frame = page->corePage()->focusController().focusedOrMainFrame();
 
-    Editor& editor = frame->editor();
+    Editor& editor = frame.editor();
     if (!editor.canEdit())
         return 0;
 
@@ -194,7 +193,7 @@ static Frame* targetFrameForEditing(WebPage* page)
         }
     }
 
-    return frame;
+    return &frame;
 }
 
 void WebPage::confirmComposition(const String& compositionString)
@@ -217,11 +216,13 @@ void WebPage::setComposition(const String& compositionString, const Vector<WebCo
 
 void WebPage::cancelComposition()
 {
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
-    if (!frame)
-        return;
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
+    frame.editor().cancelComposition();
+}
 
-    frame->editor().cancelComposition();
+String WebPage::platformUserAgent(const URL&) const
+{
+    return String();
 }
 
 } // namespace WebKit

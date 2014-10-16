@@ -24,13 +24,10 @@
  * _libc_fork_child() is called from Libsystem's libSystem_atfork_child()
  */
 #include <TargetConditionals.h>
-#include "CrashReporterClient.h"
+#include <CrashReporterClient.h>
 
 extern void _arc4_fork_child();
-#if !TARGET_IPHONE_SIMULATOR
 extern void _init_clock_port(void);
-#endif
-extern void _dirhelper_fork_child(void);
 
 void _libc_fork_child(void); // todo: private_extern?
 void
@@ -39,8 +36,5 @@ _libc_fork_child(void)
 	CRSetCrashLogMessage("crashed on child side of fork pre-exec");
 
 	_arc4_fork_child();
-#if !TARGET_IPHONE_SIMULATOR
 	_init_clock_port();
-#endif
-	_dirhelper_fork_child();
 }

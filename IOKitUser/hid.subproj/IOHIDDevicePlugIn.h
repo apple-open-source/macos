@@ -102,7 +102,7 @@ __BEGIN_DECLS
     This device interface is obtained after the IOCFPlugInInterface for the service itself has been obtained.
     
     <b>Note:</b> Please note that subsequent calls to QueryInterface with the UUID 
-    kIOHIDDeviceTransactionInterfaceID, will return a retained instance of an existing IOHIDDeviceTransactionInterface.
+    kIOHIDDeviceDeviceInterfaceID, will return a retained instance of an existing IOHIDDeviceDeviceInterface.
 
     Example:
     <pre>
@@ -122,6 +122,34 @@ __BEGIN_DECLS
     0x47, 0x4b, 0xdc, 0x8e, 0x9f, 0x4a, 0x11, 0xda, \
     0xb3, 0x66, 0x00, 0x0d, 0x93, 0x6d, 0x06, 0xd2 )
     
+/* B473256C-6A72-4E04-B694-C4001D202020 */
+/*! @defined kIOHIDDeviceDeviceInterfaceID2
+    @discussion This UUID constant is used to obtain a device interface corresponding
+    to an IOHIDDevice service in the kernel, but only for timestamped report callbacks.
+    The type of this device interface is IOHIDDeviceTimeStampedDeviceInterface.
+    This device interface is obtained after the IOCFPlugInInterface for the service itself has been obtained.
+
+    <b>Note:</b> Please note that subsequent calls to QueryInterface with the UUID 
+    kIOHIDDeviceDeviceInterfaceID2, will return a retained instance of an existing IOHIDDeviceTimeStampedDeviceInterface.
+
+    Example:
+    <pre>
+    @textblock
+    IOCFPluginInterface                     **iodev;  // obtained earlier
+
+    IOHIDDeviceTimeStampedDeviceInterface   **devTime;// fetching this now
+    IOReturn                                err;
+
+    err = (*iodev)->QueryInterface(iodev,
+                                   CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID2),
+                                   (LPVoid)&devTime);
+    @/textblock
+    </pre>
+*/
+#define kIOHIDDeviceDeviceInterfaceID2 CFUUIDGetConstantUUIDWithBytes(NULL, \
+   0xB4, 0x73, 0x25, 0x6C, 0x6A, 0x72, 0x4E, 0x04, \
+   0xB6, 0x94, 0xC4, 0x00, 0x1D, 0x20, 0x20, 0x20)
+
 /* 2EC78BDB-9F4E-11DA-B65C-000D936D06D2 */
 /*! @defined kIOHIDDeviceQueueInterfaceID
     @discussion This UUID constant is used to obtain a queue interface corresponding 
@@ -179,6 +207,18 @@ __BEGIN_DECLS
     0x90, 0xb4, 0x00, 0x0d, 0x93, 0x6d, 0x06, 0xd2)
 
 
+#define IOHID_DEVICE_DEVICE_FUNCS_V1                                                                    \
+        IOReturn (*open)(void * self, IOOptionBits options);                                            \
+        IOReturn (*close)(void * self, IOOptionBits options);                                           \
+        IOReturn (*getProperty)(void * self, CFStringRef key, CFTypeRef * pProperty);                   \
+        IOReturn (*setProperty)(void * self, CFStringRef key, CFTypeRef property);                      \
+        IOReturn (*getAsyncEventSource)(void * self, CFTypeRef * pSource);                              \
+        IOReturn (*copyMatchingElements)(void * self, CFDictionaryRef matchingDict, CFArrayRef * pElements, IOOptionBits options); \
+        IOReturn (*setValue)(void * self, IOHIDElementRef element, IOHIDValueRef value, uint32_t timeout, IOHIDValueCallback callback, void * context, IOOptionBits options); \
+        IOReturn (*getValue)(void * self, IOHIDElementRef element, IOHIDValueRef * pValue, uint32_t timeout, IOHIDValueCallback callback, void * context, IOOptionBits options); \
+        IOReturn (*setInputReportCallback)(void * self, uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, void * context, IOOptionBits options); \
+        IOReturn (*setReport)(void * self, IOHIDReportType reportType, uint32_t reportID, const uint8_t * report, CFIndex reportLength, uint32_t timeout, IOHIDReportCallback callback, void * context, IOOptionBits options); \
+        IOReturn (*getReport)(void * self, IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength, uint32_t timeout, IOHIDReportCallback callback, void * context, IOOptionBits options)
 /*! @interface  IOHIDDeviceDeviceInterface
     @abstract   The object you use to access HID devices from user space, returned by version 1.5 of the IOHIDFamily.
     @discussion The functions listed here will work with any version of the IOHIDDeviceDeviceInterface. 
@@ -187,6 +227,9 @@ __BEGIN_DECLS
 */
 typedef struct IOHIDDeviceDeviceInterface {
     IUNKNOWN_C_GUTS;
+#ifdef IOHID_DEVICE_DEVICE_FUNCS_V1 // {
+    IOHID_DEVICE_DEVICE_FUNCS_V1;
+#else // } {
     /*! @function   open
         @abstract   Opens the IOHIDDevice.
         @discussion Before the client can issue commands that change the state of the device, it must have succeeded in 
@@ -339,7 +382,7 @@ typedef struct IOHIDDeviceDeviceInterface {
         @param      reportType The report type.
         @param      reportID The report id.
         @param      report Pointer to a pre-allocated buffer to be filled.
-        @param      reportLength Length of the report buffer.  When finished, this will contain the actual length of the report.
+        @param      pReportLength Length of the report buffer.  When finished, this will contain the actual length of the report.
         @param      timeout Timeout in milliseconds for issuing the getReport.
         @param      callback Callback of type IOHIDReportCallback to be used when report data has been received from the device.
                     If null, this method will behave synchronously.
@@ -349,8 +392,40 @@ typedef struct IOHIDDeviceDeviceInterface {
     */
     IOReturn (*getReport)(void * self, IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength,
                     uint32_t timeout, IOHIDReportCallback callback, void * context, IOOptionBits options);
+#endif // }
 } IOHIDDeviceDeviceInterface;
 
+#define IOHID_DEVICE_DEVICE_FUNCS_V2                                                        \
+        IOReturn (*setInputReportWithTimeStampCallback)(void * self, uint8_t * report, CFIndex reportLength, IOHIDReportWithTimeStampCallback callback, void * context, IOOptionBits options)
+/*! @interface  IOHIDDeviceTimeStampedDeviceInterface
+    @abstract   The object you use to access HID devices from user space, returned by version 2.1 of the IOHIDFamily.
+    @discussion The functions listed here include all of the functions from the IOHIDDeviceDeviceInterface.
+    
+    <b>Note:</b> Please note that methods declared in this interface follow the copy/get/set conventions.
+*/
+typedef struct IOHIDDeviceTimeStampedDeviceInterface {
+    IUNKNOWN_C_GUTS;
+    IOHID_DEVICE_DEVICE_FUNCS_V1;
+#ifdef IOHID_DEVICE_DEVICE_FUNCS_V2 // {
+    IOHID_DEVICE_DEVICE_FUNCS_V2;
+#else // } {
+/*!
+    @function   setInputReportWithTimeStampCallback
+    @abstract   Sets the input report callback to be used when data is received from the Input pipe.
+    @discussion In order to function properly, the event source obtained using getAsyncEventSource must be added to a run loop.
+    @param      self Pointer to the IOHIDDeviceDeviceInterface.
+    @param      report Pointer to a pre-allocated buffer to be filled and passed back via the callback.
+    @param      reportLength Length of the report buffer.
+    @param      callback Callback of type IOHIDReportWithTimeStampCallback to be used when report data has been receieved by the IOHIDDevice.
+    @param      context Pointer to data to be passed to the callback.
+    @param      options Reserved for future use. Ignored in current implementation. Set to zero.
+    @result     Returns kIOReturnSuccess if successful or a kern_return_t if unsuccessful.
+*/
+IOReturn (*setInputReportWithTimeStampCallback)(void * self, uint8_t * report, CFIndex reportLength,
+                IOHIDReportWithTimeStampCallback callback, void * context, IOOptionBits options);
+
+#endif // }
+} IOHIDDeviceTimeStampedDeviceInterface;
 
 /*!
     @interface  IOHIDDeviceQueueInterface
@@ -441,7 +516,6 @@ typedef struct IOHIDDeviceQueueInterface {
         @param      self Pointer to the IOHIDDeviceQueueInterface.
         @param      callback Callback of type IOHIDCallback to be used when data is placed on the queue.
         @param      context Pointer to data to be passed to the callback.
-        @param      options Reserved for future use. Ignored in current implementation. Set to zero.
         @result     Returns kIOReturnSuccess if successful or a kern_return_t if unsuccessful.
     */
     IOReturn (*setValueAvailableCallback)(void * self, IOHIDCallback callback, void * context);

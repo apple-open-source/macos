@@ -467,9 +467,19 @@ If you are done with SASL forever (application quiting for
 example): 
 
 <pre>
-            sasl_done();         
+            sasl_client_done();
      
 </pre>
+
+Or if your application is both a SASL client and a SASL server:
+
+<pre>
+            sasl_done();
+     
+</pre>
+
+But note that applications should be using sasl_client_done()/sasl_server_done() whenever possible.
+
 
 <h3>sasl_client_init</h3>
 

@@ -7,9 +7,9 @@
    See tidy.h for the copyright notice.
   
    CVS Info:
-    $Author: iccir $ 
-    $Date: 2007/03/02 09:35:13 $ 
-    $Revision: 1.4 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
 */
 

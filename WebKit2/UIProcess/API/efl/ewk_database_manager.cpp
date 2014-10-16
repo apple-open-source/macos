@@ -29,7 +29,6 @@
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "ewk_database_manager_private.h"
-#include "ewk_error_private.h"
 #include "ewk_security_origin_private.h"
 
 using namespace WebKit;
@@ -63,32 +62,31 @@ Eina_List* EwkDatabaseManager::createOriginList(WKArrayRef origins) const
     return originList;
 }
 
-struct Ewk_Database_Origins_Async_Get_Context {
+struct EwkDatabaseOriginsAsyncData {
     const Ewk_Database_Manager* manager;
-    Ewk_Database_Origins_Get_Cb callback;
+    Ewk_Database_Origins_Async_Get_Cb callback;
     void* userData;
 
-    Ewk_Database_Origins_Async_Get_Context(const Ewk_Database_Manager* manager, Ewk_Database_Origins_Get_Cb callback, void* userData)
+    EwkDatabaseOriginsAsyncData(const Ewk_Database_Manager* manager, Ewk_Database_Origins_Async_Get_Cb callback, void* userData)
         : manager(manager)
         , callback(callback)
         , userData(userData)
     { }
 };
 
-static void getDatabaseOriginsCallback(WKArrayRef origins, WKErrorRef wkError, void* context)
+static void getDatabaseOriginsCallback(WKArrayRef origins, WKErrorRef, void* context)
 {
-    OwnPtr<Ewk_Database_Origins_Async_Get_Context*> webDatabaseContext = adoptPtr(static_cast<Ewk_Database_Origins_Async_Get_Context*>(context));
+    auto webDatabaseContext = std::unique_ptr<EwkDatabaseOriginsAsyncData>(static_cast<EwkDatabaseOriginsAsyncData*>(context));
     Eina_List* originList = webDatabaseContext->manager->createOriginList(origins);
-    OwnPtr<EwkError> ewkError = EwkError::create(wkError);
-    webDatabaseContext->callback(originList, ewkError.get(), webDatabaseContext->userData);
+    webDatabaseContext->callback(originList, webDatabaseContext->userData);
 }
 
-Eina_Bool ewk_database_manager_origins_get(const Ewk_Database_Manager* ewkDatabaseManager, Ewk_Database_Origins_Get_Cb callback, void* userData)
+Eina_Bool ewk_database_manager_origins_async_get(const Ewk_Database_Manager* ewkDatabaseManager, Ewk_Database_Origins_Async_Get_Cb callback, void* userData)
 {
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkDatabaseManager, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(callback, false);
 
-    Ewk_Database_Origins_Async_Get_Context* context = new Ewk_Database_Origins_Async_Get_Context(ewkDatabaseManager, callback, userData);
+    EwkDatabaseOriginsAsyncData* context = new EwkDatabaseOriginsAsyncData(ewkDatabaseManager, callback, userData);
     ewkDatabaseManager->getDatabaseOrigins(getDatabaseOriginsCallback, context);
 
     return true;

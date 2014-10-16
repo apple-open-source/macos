@@ -30,13 +30,12 @@
 #include "GraphicsSurface.h"
 #include "IntRect.h"
 #include "IntSize.h"
-#include "RunLoop.h"
 #include "TextureMapper.h"
 #include "TextureMapperBackingStore.h"
 #include "TextureMapperFPSCounter.h"
 #include "TextureMapperLayer.h"
 #include "Timer.h"
-#include <wtf/Functional.h>
+#include <functional>
 #include <wtf/HashSet.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/Vector.h>
@@ -48,8 +47,6 @@
 namespace WebCore {
 
 class CoordinatedBackingStore;
-class CustomFilterProgram;
-class CustomFilterProgramInfo;
 
 class CoordinatedGraphicsSceneClient {
 public:
@@ -68,7 +65,7 @@ public:
     void paintToGraphicsContext(PlatformGraphicsContext*);
     void setScrollPosition(const FloatPoint&);
     void detach();
-    void appendUpdate(const Function<void()>&);
+    void appendUpdate(std::function<void()>);
 
     WebCore::TextureMapperLayer* findScrollableContentsLayerAt(const WebCore::FloatPoint&);
 
@@ -77,12 +74,17 @@ public:
     // The painting thread must lock the main thread to use below two methods, because two methods access members that the main thread manages. See m_client.
     // Currently, QQuickWebPage::updatePaintNode() locks the main thread before calling both methods.
     void purgeGLResources();
+
+    bool isActive() const { return m_isActive; }
     void setActive(bool);
 
     void commitSceneState(const CoordinatedGraphicsState&);
 
     void setBackgroundColor(const Color&);
     void setDrawsBackground(bool enable) { m_setDrawsBackground = enable; }
+
+    void setViewBackgroundColor(const Color& color) { m_viewBackgroundColor = color; }
+    Color viewBackgroundColor() const { return m_viewBackgroundColor; }
 
 private:
     void setRootLayerID(CoordinatedLayerID);
@@ -114,13 +116,6 @@ private:
     void clearImageBackingContents(CoordinatedImageBackingID);
     void removeImageBacking(CoordinatedImageBackingID);
 
-#if ENABLE(CSS_SHADERS)
-    void syncCustomFilterPrograms(const CoordinatedGraphicsState&);
-    void injectCachedCustomFilterPrograms(const FilterOperations& filters) const;
-    void createCustomFilterProgram(int id, const CustomFilterProgramInfo&);
-    void removeCustomFilterProgram(int id);
-#endif
-
     TextureMapperLayer* layerByID(CoordinatedLayerID id)
     {
         ASSERT(m_layers.contains(id));
@@ -133,7 +128,7 @@ private:
     void syncRemoteContent();
     void adjustPositionForFixedLayers();
 
-    void dispatchOnMainThread(const Function<void()>&);
+    void dispatchOnMainThread(std::function<void()>);
     void updateViewport();
     void renderNextFrame();
     void purgeBackingStores();
@@ -154,10 +149,10 @@ private:
     void dispatchCommitScrollOffset(uint32_t layerID, const IntSize& offset);
 
     // Render queue can be accessed ony from main thread or updatePaintNode call stack!
-    Vector<Function<void()> > m_renderQueue;
+    Vector<std::function<void()>> m_renderQueue;
     Mutex m_renderQueueMutex;
 
-    OwnPtr<TextureMapper> m_textureMapper;
+    std::unique_ptr<TextureMapper> m_textureMapper;
 
     typedef HashMap<CoordinatedImageBackingID, RefPtr<CoordinatedBackingStore> > ImageBackingMap;
     ImageBackingMap m_imageBackings;
@@ -180,9 +175,9 @@ private:
     CoordinatedGraphicsSceneClient* m_client;
     bool m_isActive;
 
-    OwnPtr<TextureMapperLayer> m_rootLayer;
+    std::unique_ptr<TextureMapperLayer> m_rootLayer;
 
-    typedef HashMap<CoordinatedLayerID, OwnPtr<TextureMapperLayer> > LayerMap;
+    typedef HashMap<CoordinatedLayerID, std::unique_ptr<TextureMapperLayer>> LayerMap;
     LayerMap m_layers;
     typedef HashMap<CoordinatedLayerID, TextureMapperLayer*> LayerRawPtrMap;
     LayerRawPtrMap m_fixedLayers;
@@ -190,12 +185,8 @@ private:
     FloatPoint m_scrollPosition;
     FloatPoint m_renderedContentsScrollPosition;
     Color m_backgroundColor;
+    Color m_viewBackgroundColor;
     bool m_setDrawsBackground;
-
-#if ENABLE(CSS_SHADERS)
-    typedef HashMap<int, RefPtr<CustomFilterProgram> > CustomFilterProgramMap;
-    CustomFilterProgramMap m_customFilterPrograms;
-#endif
 
     TextureMapperFPSCounter m_fpsCounter;
 };

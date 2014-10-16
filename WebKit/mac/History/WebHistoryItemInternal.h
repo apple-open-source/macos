@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -28,7 +28,8 @@
 
 #import "WebBackForwardList.h"
 #import "WebHistoryItemPrivate.h"
-#import <wtf/Forward.h>
+#import <wtf/RefPtr.h>
+#import <wtf/Vector.h>
 
 namespace WebCore {
     class HistoryItem;
@@ -39,7 +40,7 @@ WebHistoryItem *kit(WebCore::HistoryItem* item);
 
 extern void WKNotifyHistoryItemChanged(WebCore::HistoryItem*);
 
-@interface WebHistoryItem (WebInternal)
+@interface WebHistoryItem ()
 
 + (WebHistoryItem *)entryWithURL:(NSURL *)URL;
 
@@ -48,13 +49,19 @@ extern void WKNotifyHistoryItemChanged(WebCore::HistoryItem*);
 - (id)initFromDictionaryRepresentation:(NSDictionary *)dict;
 - (id)initWithWebCoreHistoryItem:(PassRefPtr<WebCore::HistoryItem>)item;
 
-- (void)_mergeAutoCompleteHints:(WebHistoryItem *)otherItem;
 - (void)setTitle:(NSString *)title;
-- (void)_visitedWithTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount;
-- (void)_recordInitialVisit;
+- (void)_visitedWithTitle:(NSString *)title;
 
 @end
 
 @interface WebBackForwardList (WebInternal)
 - (void)_close;
+@end
+
+@interface WebHistoryItemPrivate : NSObject {
+@package
+    RefPtr<WebCore::HistoryItem> _historyItem;
+
+    NSTimeInterval _lastVisitedTime;
+}
 @end

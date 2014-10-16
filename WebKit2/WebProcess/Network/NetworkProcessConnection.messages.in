@@ -24,7 +24,9 @@
 
 messages -> NetworkProcessConnection LegacyReceiver {
 
-    DidCacheResource(WebCore::ResourceRequest request, WebKit::ShareableResource::Handle resource)
+#if ENABLE(SHAREABLE_RESOURCE)
+    DidCacheResource(WebCore::ResourceRequest request, WebKit::ShareableResource::Handle resource, WebCore::SessionID sessionID)
+#endif
 
 }
 

@@ -44,7 +44,7 @@ EwkContextMenu::EwkContextMenu(EwkView* view, WKArrayRef items)
 {
     size_t size = WKArrayGetSize(items);
     for (size_t i = 0; i < size; ++i)
-        m_contextMenuItems = eina_list_append(m_contextMenuItems, Ewk_Context_Menu_Item::create(static_cast<WKContextMenuItemRef>(WKArrayGetItemAtIndex(items, i)), this).leakPtr());
+        m_contextMenuItems = eina_list_append(m_contextMenuItems, std::make_unique<Ewk_Context_Menu_Item>(static_cast<WKContextMenuItemRef>(WKArrayGetItemAtIndex(items, i)), this).release());
 }
 
 EwkContextMenu::EwkContextMenu()
@@ -147,7 +147,7 @@ Eina_Bool ewk_context_menu_hide(Ewk_Context_Menu* menu)
 
 const Eina_List* ewk_context_menu_items_get(const Ewk_Context_Menu* menu)
 {
-    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContextMenu, menu, impl, 0);
+    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContextMenu, menu, impl, nullptr);
 
     return impl->items();
 }

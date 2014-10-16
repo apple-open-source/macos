@@ -67,6 +67,7 @@ void	id_print(struct passwd *, int, int, int);
 void	pline(struct passwd *);
 void	pretty(struct passwd *);
 void	auditid(void);
+void	fullname(struct passwd *);
 void	group(struct passwd *, int);
 void	maclabel(void);
 void	usage(void);
@@ -86,10 +87,12 @@ main(int argc, char *argv[])
 	struct passwd *pw;
 	int Gflag, Mflag, Pflag, ch, gflag, id, nflag, pflag, rflag, uflag;
 	int Aflag;
+	int Fflag;
 	const char *myname;
 
 	Gflag = Mflag = Pflag = gflag = nflag = pflag = rflag = uflag = 0;
 	Aflag = 0;
+	Fflag = 0;
 
 	myname = strrchr(argv[0], '/');
 	myname = (myname != NULL) ? myname + 1 : argv[0];
@@ -103,13 +106,16 @@ main(int argc, char *argv[])
 	}
 
 	while ((ch = getopt(argc, argv,
-	    (isgroups || iswhoami) ? "" : "APGMagnpru")) != -1)
+	    (isgroups || iswhoami) ? "" : "AFPGMagnpru")) != -1)
 		switch(ch) {
 #ifdef USE_BSM_AUDIT
 		case 'A':
 			Aflag = 1;
 			break;
 #endif
+		case 'F':
+			Fflag = 1;
+			break;
 		case 'G':
 			Gflag = 1;
 			break;
@@ -146,7 +152,7 @@ main(int argc, char *argv[])
 	if (iswhoami && argc > 0)
 		usage();
 
-	switch(Aflag + Gflag + Mflag + Pflag + gflag + pflag + uflag) {
+	switch(Aflag + Fflag + Gflag + Mflag + Pflag + gflag + pflag + uflag) {
 	case 1:
 		break;
 	case 0:
@@ -168,6 +174,11 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 #endif
+
+	if (Fflag) {
+		fullname(pw);
+		exit(0);
+	}
 
 	if (gflag) {
 		id = pw ? pw->pw_gid : rflag ? getgid() : getegid();
@@ -360,6 +371,18 @@ auditid(void)
 #endif
 
 void
+fullname(struct passwd *pw)
+{
+
+	if (!pw) {
+		if ((pw = getpwuid(getuid())) == NULL)
+			err(1, "getpwuid");
+	}
+
+	(void)printf("%s\n", pw->pw_gecos);
+}
+
+void
 group(struct passwd *pw, int nflag)
 {
 	struct group *gr;
@@ -387,7 +410,7 @@ group(struct passwd *pw, int nflag)
 #endif
 	} else {
 #ifdef __APPLE__
-		groups = malloc(NGROUPS + 1);
+		groups = malloc((NGROUPS + 1) * sizeof(gid_t));
 #endif
 		groups[0] = getgid();
 		ngroups = getgroups(NGROUPS, groups + 1) + 1;
@@ -488,13 +511,14 @@ usage(void)
 	else if (iswhoami)
 		(void)fprintf(stderr, "usage: whoami\n");
 	else
-		(void)fprintf(stderr, "%s\n%s%s\n%s\n%s\n%s\n%s\n%s\n",
+		(void)fprintf(stderr, "%s\n%s%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 		    "usage: id [user]",
 #ifdef USE_BSM_AUDIT
 		    "       id -A\n",
 #else
 		    "",
 #endif
+		    "       id -F [user]",
 		    "       id -G [-n] [user]",
 		    "       id -M",
 		    "       id -P [user]",

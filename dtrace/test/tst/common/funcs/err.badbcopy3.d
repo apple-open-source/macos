@@ -40,11 +40,7 @@
 BEGIN
 {
 	/* Attempt to copy to a NULL address */
-#if !defined(__APPLE__)
-	bcopy((void *)&`kmem_flags, (void *)NULL, sizeof (int));
-#else
 	bcopy((void *)&`max_ncpus, (void *)NULL, sizeof (int));
-#endif /* __APPLE__ */
 	exit(1);
 }
 

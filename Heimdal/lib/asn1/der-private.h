@@ -18,6 +18,12 @@ _asn1_bmember_put_bit (
 	size_t /*size*/,
 	unsigned int */*bitset*/);
 
+void
+_asn1_capture_data (
+	const char */*type*/,
+	const unsigned char */*p*/,
+	size_t /*len*/);
+
 int
 _asn1_copy (
 	const struct asn1_template */*t*/,
@@ -29,13 +35,6 @@ _asn1_copy_top (
 	const struct asn1_template */*t*/,
 	const void */*from*/,
 	void */*to*/);
-
-void
-_asn1_capture_data(const char *type, const unsigned char *p, size_t len);
-
-void
-_asn1_free_top(const struct asn1_template *t,
-	       void *data);
 
 int
 _asn1_decode (
@@ -76,6 +75,11 @@ _asn1_free (
 	const struct asn1_template */*t*/,
 	void */*data*/);
 
+void
+_asn1_free_top (
+	const struct asn1_template */*t*/,
+	void */*data*/);
+
 size_t
 _asn1_length (
 	const struct asn1_template */*t*/,
@@ -88,9 +92,6 @@ _asn1_length_fuzzer (
 
 size_t
 _asn1_sizeofType (const struct asn1_template */*t*/);
-
-time_t
-_der_timegm (struct tm */*tm*/);
 
 int
 _heim_der_set_sort (

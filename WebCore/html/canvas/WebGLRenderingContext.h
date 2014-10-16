@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,17 +33,16 @@
 #include "ImageBuffer.h"
 #include "Timer.h"
 #include "WebGLGetInfo.h"
-
-#include <wtf/Float32Array.h>
-#include <wtf/Int32Array.h>
-#include <wtf/OwnArrayPtr.h>
-#include <wtf/Uint8Array.h>
+#include <memory>
+#include <runtime/Float32Array.h>
+#include <runtime/Int32Array.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class EXTDrawBuffers;
+class ANGLEInstancedArrays;
 class EXTTextureFilterAnisotropic;
+class EXTShaderTextureLOD;
 class HTMLImageElement;
 class HTMLVideoElement;
 class ImageBuffer;
@@ -51,7 +50,9 @@ class ImageData;
 class IntSize;
 class OESStandardDerivatives;
 class OESTextureFloat;
+class OESTextureFloatLinear;
 class OESTextureHalfFloat;
+class OESTextureHalfFloatLinear;
 class OESVertexArrayObject;
 class OESElementIndexUint;
 class WebGLActiveInfo;
@@ -65,6 +66,7 @@ class WebGLContextAttributes;
 class WebGLDebugRendererInfo;
 class WebGLDebugShaders;
 class WebGLDepthTexture;
+class WebGLDrawBuffers;
 class WebGLExtension;
 class WebGLFramebuffer;
 class WebGLLoseContext;
@@ -82,11 +84,16 @@ typedef int ExceptionCode;
 
 class WebGLRenderingContext : public CanvasRenderingContext, public ActiveDOMObject {
 public:
-    static PassOwnPtr<WebGLRenderingContext> create(HTMLCanvasElement*, WebGLContextAttributes*);
+    static std::unique_ptr<WebGLRenderingContext> create(HTMLCanvasElement*, WebGLContextAttributes*);
     virtual ~WebGLRenderingContext();
 
-    virtual bool is3d() const { return true; }
-    virtual bool isAccelerated() const { return true; }
+    virtual bool is3d() const override { return true; }
+#if PLATFORM(WIN)
+    // FIXME: Implement accelerated 3d canvas on Windows.
+    virtual bool isAccelerated() const override { return false; }
+#else
+    virtual bool isAccelerated() const override { return true; }
+#endif
 
     int drawingBufferWidth() const;
     int drawingBufferHeight() const;
@@ -162,7 +169,7 @@ public:
 
     PassRefPtr<WebGLActiveInfo> getActiveAttrib(WebGLProgram*, GC3Duint index, ExceptionCode&);
     PassRefPtr<WebGLActiveInfo> getActiveUniform(WebGLProgram*, GC3Duint index, ExceptionCode&);
-    bool getAttachedShaders(WebGLProgram*, Vector<RefPtr<WebGLShader> >&, ExceptionCode&);
+    bool getAttachedShaders(WebGLProgram*, Vector<RefPtr<WebGLShader>>&, ExceptionCode&);
     GC3Dint getAttribLocation(WebGLProgram*, const String& name);
     WebGLGetInfo getBufferParameter(GC3Denum target, GC3Denum pname, ExceptionCode&);
     PassRefPtr<WebGLContextAttributes> getContextAttributes();
@@ -186,7 +193,7 @@ public:
 
     void hint(GC3Denum target, GC3Denum mode);
     GC3Dboolean isBuffer(WebGLBuffer*);
-    bool isContextLost();
+    bool isContextLost() const;
     GC3Dboolean isEnabled(GC3Denum cap);
     GC3Dboolean isFramebuffer(WebGLFramebuffer*);
     GC3Dboolean isProgram(WebGLProgram*);
@@ -307,14 +314,12 @@ public:
 
     GraphicsContext3D* graphicsContext3D() const { return m_context.get(); }
     WebGLContextGroup* contextGroup() const { return m_contextGroup.get(); }
-#if USE(ACCELERATED_COMPOSITING)
-    virtual PlatformLayer* platformLayer() const;
-#endif
+    virtual PlatformLayer* platformLayer() const override;
 
     void reshape(int width, int height);
 
     void markLayerComposited();
-    virtual void paintRenderingResultsToCanvas();
+    virtual void paintRenderingResultsToCanvas() override;
     virtual PassRefPtr<ImageData> paintRenderingResultsToImageData();
 
     void removeSharedObject(WebGLSharedObject*);
@@ -322,12 +327,13 @@ public:
     
     unsigned getMaxVertexAttribs() const { return m_maxVertexAttribs; }
 
-    // ActiveDOMObject notifications
-    virtual bool hasPendingActivity() const;
-    virtual void stop();
+    // ANGLE_instanced_arrays extension functions.
+    void drawArraysInstanced(GC3Denum mode, GC3Dint first, GC3Dsizei count, GC3Dsizei primcount);
+    void drawElementsInstanced(GC3Denum mode, GC3Dsizei count, GC3Denum type, long long offset, GC3Dsizei primcount);
+    void vertexAttribDivisor(GC3Duint index, GC3Duint divisor);
 
-  private:
-    friend class EXTDrawBuffers;
+private:
+    friend class WebGLDrawBuffers;
     friend class WebGLFramebuffer;
     friend class WebGLObject;
     friend class OESVertexArrayObject;
@@ -338,9 +344,14 @@ public:
     friend class WebGLRenderingContextErrorMessageCallback;
     friend class WebGLVertexArrayObjectOES;
 
+    WebGLRenderingContext(HTMLCanvasElement*, GraphicsContext3D::Attributes);
     WebGLRenderingContext(HTMLCanvasElement*, PassRefPtr<GraphicsContext3D>, GraphicsContext3D::Attributes);
     void initializeNewContext();
     void setupFlags();
+
+    // ActiveDOMObject
+    virtual bool hasPendingActivity() const override;
+    virtual void stop() override;
 
     void addSharedObject(WebGLSharedObject*);
     void addContextObject(WebGLContextObject*);
@@ -348,11 +359,6 @@ public:
 
     void destroyGraphicsContext3D();
     void markContextChanged();
-    void cleanupAfterGraphicsCall(bool changed)
-    {
-        if (changed)
-            markContextChanged();
-    }
 
     // Query whether it is built on top of compliant GLES2 implementation.
     bool isGLES2Compliant() { return m_isGLES2Compliant; }
@@ -377,13 +383,17 @@ public:
 
     // Precise but slow index validation -- only done if conservative checks fail
     bool validateIndexArrayPrecise(GC3Dsizei count, GC3Denum type, GC3Dintptr offset, unsigned& numElementsRequired);
-    // If numElements <= 0, we only check if each enabled vertex attribute is bound to a buffer.
-    bool validateRenderingState(unsigned numElements);
+    bool validateVertexAttributes(unsigned elementCount, unsigned primitiveCount = 0);
 
     bool validateWebGLObject(const char*, WebGLObject*);
 
+    bool validateDrawArrays(const char* functionName, GC3Denum mode, GC3Dint first, GC3Dsizei count, GC3Dsizei primcount);
+    bool validateDrawElements(const char* functionName, GC3Denum mode, GC3Dsizei count, GC3Denum type, long long offset, unsigned& numElements);
+
     // Adds a compressed texture format.
     void addCompressedTextureFormat(GC3Denum);
+
+    PassRefPtr<Image> drawImageIntoBuffer(Image*, int width, int height, int deviceScaleFactor);
 
 #if ENABLE(VIDEO)
     PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*, BackingStoreCopy, ExceptionCode&);
@@ -450,10 +460,9 @@ public:
     RefPtr<WebGLProgram> m_currentProgram;
     RefPtr<WebGLFramebuffer> m_framebufferBinding;
     RefPtr<WebGLRenderbuffer> m_renderbufferBinding;
-    class TextureUnitState {
-    public:
-        RefPtr<WebGLTexture> m_texture2DBinding;
-        RefPtr<WebGLTexture> m_textureCubeMapBinding;
+    struct TextureUnitState {
+        RefPtr<WebGLTexture> texture2DBinding;
+        RefPtr<WebGLTexture> textureCubeMapBinding;
     };
     Vector<TextureUnitState> m_textureUnits;
     unsigned long m_activeTextureUnit;
@@ -471,10 +480,10 @@ public:
         ImageBuffer* imageBuffer(const IntSize& size);
     private:
         void bubbleToFront(int idx);
-        OwnArrayPtr<OwnPtr<ImageBuffer> > m_buffers;
+        std::unique_ptr<std::unique_ptr<ImageBuffer>[]> m_buffers;
         int m_capacity;
     };
-    LRUImageBufferCache m_videoCache;
+    LRUImageBufferCache m_generatedImageCache;
 
     GC3Dint m_maxTextureSize;
     GC3Dint m_maxCubeMapTextureSize;
@@ -521,21 +530,32 @@ public:
     bool m_synthesizedErrorsToConsole;
     int m_numGLErrorsToConsoleAllowed;
 
+    // A WebGLRenderingContext can be created in a state where it appears as
+    // a valid and active context, but will not execute any important operations
+    // until its load policy is completely resolved.
+    bool m_isPendingPolicyResolution;
+    bool m_hasRequestedPolicyResolution;
+    bool isContextLostOrPending();
+
     // Enabled extension objects.
-    OwnPtr<EXTDrawBuffers> m_extDrawBuffers;
-    OwnPtr<EXTTextureFilterAnisotropic> m_extTextureFilterAnisotropic;
-    OwnPtr<OESTextureFloat> m_oesTextureFloat;
-    OwnPtr<OESTextureHalfFloat> m_oesTextureHalfFloat;
-    OwnPtr<OESStandardDerivatives> m_oesStandardDerivatives;
-    OwnPtr<OESVertexArrayObject> m_oesVertexArrayObject;
-    OwnPtr<OESElementIndexUint> m_oesElementIndexUint;
-    OwnPtr<WebGLLoseContext> m_webglLoseContext;
-    OwnPtr<WebGLDebugRendererInfo> m_webglDebugRendererInfo;
-    OwnPtr<WebGLDebugShaders> m_webglDebugShaders;
-    OwnPtr<WebGLCompressedTextureATC> m_webglCompressedTextureATC;
-    OwnPtr<WebGLCompressedTexturePVRTC> m_webglCompressedTexturePVRTC;
-    OwnPtr<WebGLCompressedTextureS3TC> m_webglCompressedTextureS3TC;
-    OwnPtr<WebGLDepthTexture> m_webglDepthTexture;
+    std::unique_ptr<EXTTextureFilterAnisotropic> m_extTextureFilterAnisotropic;
+    std::unique_ptr<EXTShaderTextureLOD> m_extShaderTextureLOD;
+    std::unique_ptr<OESTextureFloat> m_oesTextureFloat;
+    std::unique_ptr<OESTextureFloatLinear> m_oesTextureFloatLinear;
+    std::unique_ptr<OESTextureHalfFloat> m_oesTextureHalfFloat;
+    std::unique_ptr<OESTextureHalfFloatLinear> m_oesTextureHalfFloatLinear;
+    std::unique_ptr<OESStandardDerivatives> m_oesStandardDerivatives;
+    std::unique_ptr<OESVertexArrayObject> m_oesVertexArrayObject;
+    std::unique_ptr<OESElementIndexUint> m_oesElementIndexUint;
+    std::unique_ptr<WebGLLoseContext> m_webglLoseContext;
+    std::unique_ptr<WebGLDebugRendererInfo> m_webglDebugRendererInfo;
+    std::unique_ptr<WebGLDebugShaders> m_webglDebugShaders;
+    std::unique_ptr<WebGLCompressedTextureATC> m_webglCompressedTextureATC;
+    std::unique_ptr<WebGLCompressedTexturePVRTC> m_webglCompressedTexturePVRTC;
+    std::unique_ptr<WebGLCompressedTextureS3TC> m_webglCompressedTextureS3TC;
+    std::unique_ptr<WebGLDepthTexture> m_webglDepthTexture;
+    std::unique_ptr<WebGLDrawBuffers> m_webglDrawBuffers;
+    std::unique_ptr<ANGLEInstancedArrays> m_angleInstancedArrays;
 
     // Helpers for getParameter and others
     WebGLGetInfo getBooleanParameter(GC3Denum);
@@ -559,7 +579,7 @@ public:
     void texSubImage2DBase(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, const void* pixels, ExceptionCode&);
     void texSubImage2DImpl(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Denum format, GC3Denum type, Image*, GraphicsContext3D::ImageHtmlDomSource, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
-    void handleNPOTTextures(const char*, bool);
+    void checkTextureCompleteness(const char*, bool);
 
     void createFallbackBlackTextures1x1();
 
@@ -660,7 +680,7 @@ public:
 
     // Helper function to validate compressed texture dimensions are valid for
     // the given format.
-    bool validateCompressedTexDimensions(const char* functionName, GC3Dint level, GC3Dsizei width, GC3Dsizei height, GC3Denum format);
+    bool validateCompressedTexDimensions(const char* functionName, GC3Denum target, GC3Dint level, GC3Dsizei width, GC3Dsizei height, GC3Denum format);
 
     // Helper function to validate compressed texture dimensions are valid for
     // the given format.
@@ -782,8 +802,6 @@ public:
 
     // Check if EXT_draw_buffers extension is supported and if it satisfies the WebGL requirements.
     bool supportsDrawBuffers();
-
-    friend class WebGLStateRestorer;
 };
 
 } // namespace WebCore

@@ -76,10 +76,6 @@ class TestCFSocketStream (TestCase):
         self.failUnlessIsInstance(rd, CFReadStreamRef)
         self.failUnlessIsInstance(wr, CFWriteStreamRef)
 
-        self.failUnlessResultIsBOOL(CFSocketStreamPairSetSecurityProtocol)
-        v = CFSocketStreamPairSetSecurityProtocol(rd, wr, kCFStreamSocketSecuritySSLv23)
-        self.failUnlessIsInstance(v, bool)
-
         self.failUnlessArgIsCFRetained(CFStreamCreatePairWithSocketToNetService, 2)
         self.failUnlessArgIsCFRetained(CFStreamCreatePairWithSocketToNetService, 3)
         self.failUnlessArgIsOut(CFStreamCreatePairWithSocketToNetService, 2)

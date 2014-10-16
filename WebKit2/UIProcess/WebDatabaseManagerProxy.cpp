@@ -28,12 +28,13 @@
 
 #if ENABLE(SQL_DATABASE)
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "ImmutableDictionary.h"
 #include "WebContext.h"
 #include "WebDatabaseManagerMessages.h"
 #include "WebDatabaseManagerProxyMessages.h"
 #include "WebSecurityOrigin.h"
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -46,49 +47,61 @@ const char* WebDatabaseManagerProxy::supplementName()
 
 String WebDatabaseManagerProxy::originKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerOriginKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerOriginKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::originQuotaKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerOriginQuotaKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerOriginQuotaKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::originUsageKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerOriginUsageKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerOriginUsageKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::databaseDetailsKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerDatabaseDetailsKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::databaseDetailsNameKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerDatabaseDetailsNameKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsNameKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::databaseDetailsDisplayNameKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerDatabaseDetailsDisplayNameKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsDisplayNameKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::databaseDetailsExpectedUsageKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerDatabaseDetailsExpectedUsageKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsExpectedUsageKey"));
     return key;
 }
 
 String WebDatabaseManagerProxy::databaseDetailsCurrentUsageKey()
 {
-    DEFINE_STATIC_LOCAL(String, key, (ASCIILiteral("WebDatabaseManagerDatabaseDetailsCurrentUsageKey")));
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsCurrentUsageKey"));
+    return key;
+}
+
+String WebDatabaseManagerProxy::databaseDetailsCreationTimeKey()
+{
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsCreationTimeKey"));
+    return key;
+}
+
+String WebDatabaseManagerProxy::databaseDetailsModificationTimeKey()
+{
+    static NeverDestroyed<String> key(ASCIILiteral("WebDatabaseManagerDatabaseDetailsModificationTimeKey"));
     return key;
 }
 
@@ -100,14 +113,14 @@ PassRefPtr<WebDatabaseManagerProxy> WebDatabaseManagerProxy::create(WebContext* 
 WebDatabaseManagerProxy::WebDatabaseManagerProxy(WebContext* webContext)
     : WebContextSupplement(webContext)
 {
-    WebContextSupplement::context()->addMessageReceiver(Messages::WebDatabaseManagerProxy::messageReceiverName(), this);
+    WebContextSupplement::context()->addMessageReceiver(Messages::WebDatabaseManagerProxy::messageReceiverName(), *this);
 }
 
 WebDatabaseManagerProxy::~WebDatabaseManagerProxy()
 {
 }
 
-void WebDatabaseManagerProxy::initializeClient(const WKDatabaseManagerClient* client)
+void WebDatabaseManagerProxy::initializeClient(const WKDatabaseManagerClientBase* client)
 {
     m_client.initialize(client);
 }
@@ -116,12 +129,12 @@ void WebDatabaseManagerProxy::initializeClient(const WKDatabaseManagerClient* cl
 
 void WebDatabaseManagerProxy::contextDestroyed()
 {
-    invalidateCallbackMap(m_arrayCallbacks);
+    invalidateCallbackMap(m_arrayCallbacks, CallbackBase::Error::OwnerWasInvalidated);
 }
 
 void WebDatabaseManagerProxy::processDidClose(WebProcessProxy*)
 {
-    invalidateCallbackMap(m_arrayCallbacks);
+    invalidateCallbackMap(m_arrayCallbacks, CallbackBase::Error::ProcessExited);
 }
 
 bool WebDatabaseManagerProxy::shouldTerminate(WebProcessProxy*) const
@@ -131,17 +144,17 @@ bool WebDatabaseManagerProxy::shouldTerminate(WebProcessProxy*) const
 
 void WebDatabaseManagerProxy::refWebContextSupplement()
 {
-    APIObject::ref();
+    API::Object::ref();
 }
 
 void WebDatabaseManagerProxy::derefWebContextSupplement()
 {
-    APIObject::deref();
+    API::Object::deref();
 }
 
-void WebDatabaseManagerProxy::getDatabasesByOrigin(PassRefPtr<ArrayCallback> prpCallback)
+void WebDatabaseManagerProxy::getDatabasesByOrigin(std::function<void (API::Array*, CallbackBase::Error)> callbackFunction)
 {
-    RefPtr<ArrayCallback> callback = prpCallback;
+    RefPtr<ArrayCallback> callback = ArrayCallback::create(WTF::move(callbackFunction));
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
 
@@ -156,44 +169,45 @@ void WebDatabaseManagerProxy::didGetDatabasesByOrigin(const Vector<OriginAndData
         return;
     }
 
-    size_t originAndDatabasesCount = originAndDatabasesVector.size();
-    Vector<RefPtr<APIObject>> result(originAndDatabasesCount);
+    Vector<RefPtr<API::Object>> result;
+    result.reserveInitialCapacity(originAndDatabasesVector.size());
 
-    for (size_t i = 0; i < originAndDatabasesCount; ++i) {
-        const OriginAndDatabases& originAndDatabases = originAndDatabasesVector[i];
-    
-        RefPtr<APIObject> origin = WebSecurityOrigin::createFromDatabaseIdentifier(originAndDatabases.originIdentifier);
-    
-        size_t databasesCount = originAndDatabases.databases.size();
-        Vector<RefPtr<APIObject>> databases(databasesCount);
-    
-        for (size_t j = 0; j < databasesCount; ++j) {
-            const DatabaseDetails& details = originAndDatabases.databases[i];
-            HashMap<String, RefPtr<APIObject>> detailsMap;
+    for (const auto& originAndDatabases : originAndDatabasesVector) {
+        RefPtr<API::Object> origin = WebSecurityOrigin::create(SecurityOrigin::createFromDatabaseIdentifier(originAndDatabases.originIdentifier));
 
-            detailsMap.set(databaseDetailsNameKey(), WebString::create(details.name()));
-            detailsMap.set(databaseDetailsDisplayNameKey(), WebString::create(details.displayName()));
-            detailsMap.set(databaseDetailsExpectedUsageKey(), WebUInt64::create(details.expectedUsage()));
-            detailsMap.set(databaseDetailsCurrentUsageKey(), WebUInt64::create(details.currentUsage()));
-            databases.append(ImmutableDictionary::adopt(detailsMap));
+        Vector<RefPtr<API::Object>> databases;
+        databases.reserveInitialCapacity(originAndDatabases.databases.size());
+
+        for (const auto& databaseDetails : originAndDatabases.databases) {
+            HashMap<String, RefPtr<API::Object>> detailsMap;
+
+            detailsMap.set(databaseDetailsNameKey(), API::String::create(databaseDetails.name()));
+            detailsMap.set(databaseDetailsDisplayNameKey(), API::String::create(databaseDetails.displayName()));
+            detailsMap.set(databaseDetailsExpectedUsageKey(), API::UInt64::create(databaseDetails.expectedUsage()));
+            detailsMap.set(databaseDetailsCurrentUsageKey(), API::UInt64::create(databaseDetails.currentUsage()));
+            if (databaseDetails.creationTime())
+                detailsMap.set(databaseDetailsCreationTimeKey(), API::Double::create(databaseDetails.creationTime()));
+            if (databaseDetails.modificationTime())
+                detailsMap.set(databaseDetailsModificationTimeKey(), API::Double::create(databaseDetails.modificationTime()));
+
+            databases.uncheckedAppend(ImmutableDictionary::create(WTF::move(detailsMap)));
         }
 
-        HashMap<String, RefPtr<APIObject>> originAndDatabasesMap;
+        HashMap<String, RefPtr<API::Object>> originAndDatabasesMap;
         originAndDatabasesMap.set(originKey(), origin);
-        originAndDatabasesMap.set(originQuotaKey(), WebUInt64::create(originAndDatabases.originQuota));
-        originAndDatabasesMap.set(originUsageKey(), WebUInt64::create(originAndDatabases.originUsage));
-        originAndDatabasesMap.set(databaseDetailsKey(), ImmutableArray::adopt(databases));
+        originAndDatabasesMap.set(originQuotaKey(), API::UInt64::create(originAndDatabases.originQuota));
+        originAndDatabasesMap.set(originUsageKey(), API::UInt64::create(originAndDatabases.originUsage));
+        originAndDatabasesMap.set(databaseDetailsKey(), API::Array::create(WTF::move(databases)));
 
-        result.append(ImmutableDictionary::adopt(originAndDatabasesMap));
+        result.uncheckedAppend(ImmutableDictionary::create(WTF::move(originAndDatabasesMap)));
     }
 
-    RefPtr<ImmutableArray> resultArray = ImmutableArray::adopt(result);
-    callback->performCallbackWithReturnValue(resultArray.get());
+    callback->performCallbackWithReturnValue(API::Array::create(WTF::move(result)).get());
 }
 
-void WebDatabaseManagerProxy::getDatabaseOrigins(PassRefPtr<ArrayCallback> prpCallback)
+void WebDatabaseManagerProxy::getDatabaseOrigins(std::function<void (API::Array*, CallbackBase::Error)> callbackFunction)
 {
-    RefPtr<ArrayCallback> callback = prpCallback;
+    RefPtr<ArrayCallback> callback = ArrayCallback::create(WTF::move(callbackFunction));
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
 
@@ -208,23 +222,23 @@ void WebDatabaseManagerProxy::didGetDatabaseOrigins(const Vector<String>& origin
         return;
     }
 
-    size_t originIdentifiersCount = originIdentifiers.size();
-    Vector<RefPtr<APIObject>> securityOrigins(originIdentifiersCount);
+    Vector<RefPtr<API::Object>> securityOrigins;
+    securityOrigins.reserveInitialCapacity(originIdentifiers.size());
 
-    for (size_t i = 0; i < originIdentifiersCount; ++i)
-        securityOrigins[i] = WebSecurityOrigin::createFromDatabaseIdentifier(originIdentifiers[i]);
+    for (const auto& originIdentifier : originIdentifiers)
+        securityOrigins.uncheckedAppend(WebSecurityOrigin::create(SecurityOrigin::createFromDatabaseIdentifier(originIdentifier)));
 
-    callback->performCallbackWithReturnValue(ImmutableArray::adopt(securityOrigins).get());
+    callback->performCallbackWithReturnValue(API::Array::create(WTF::move(securityOrigins)).get());
 }
 
 void WebDatabaseManagerProxy::deleteDatabaseWithNameForOrigin(const String& databaseIdentifier, WebSecurityOrigin* origin)
 {
-    context()->sendToOneProcess(Messages::WebDatabaseManager::DeleteDatabaseWithNameForOrigin(databaseIdentifier, origin->databaseIdentifier()));
+    context()->sendToOneProcess(Messages::WebDatabaseManager::DeleteDatabaseWithNameForOrigin(databaseIdentifier, origin->securityOrigin().databaseIdentifier()));
 }
 
 void WebDatabaseManagerProxy::deleteDatabasesForOrigin(WebSecurityOrigin* origin)
 {
-    context()->sendToOneProcess(Messages::WebDatabaseManager::DeleteDatabasesForOrigin(origin->databaseIdentifier()));
+    context()->sendToOneProcess(Messages::WebDatabaseManager::DeleteDatabasesForOrigin(origin->securityOrigin().databaseIdentifier()));
 }
 
 void WebDatabaseManagerProxy::deleteAllDatabases()
@@ -234,18 +248,18 @@ void WebDatabaseManagerProxy::deleteAllDatabases()
 
 void WebDatabaseManagerProxy::setQuotaForOrigin(WebSecurityOrigin* origin, uint64_t quota)
 {
-    context()->sendToOneProcess(Messages::WebDatabaseManager::SetQuotaForOrigin(origin->databaseIdentifier(), quota));
+    context()->sendToOneProcess(Messages::WebDatabaseManager::SetQuotaForOrigin(origin->securityOrigin().databaseIdentifier(), quota));
 }
 
 void WebDatabaseManagerProxy::didModifyOrigin(const String& originIdentifier)
 {
-    RefPtr<WebSecurityOrigin> origin = WebSecurityOrigin::createFromDatabaseIdentifier(originIdentifier);
+    RefPtr<WebSecurityOrigin> origin = WebSecurityOrigin::create(SecurityOrigin::createFromDatabaseIdentifier(originIdentifier));
     m_client.didModifyOrigin(this, origin.get());
 }
 
 void WebDatabaseManagerProxy::didModifyDatabase(const String& originIdentifier, const String& databaseIdentifier)
 {
-    RefPtr<WebSecurityOrigin> origin = WebSecurityOrigin::createFromDatabaseIdentifier(originIdentifier);
+    RefPtr<WebSecurityOrigin> origin = WebSecurityOrigin::create(SecurityOrigin::createFromDatabaseIdentifier(originIdentifier));
     m_client.didModifyDatabase(this, origin.get(), databaseIdentifier);
 }
 

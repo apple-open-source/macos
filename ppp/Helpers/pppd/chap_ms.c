@@ -1207,9 +1207,10 @@ ChapMS2(u_char *rchallenge, u_char *PeerChallenge,
     if (!PeerChallenge)
 	for (i = 0; i < sizeof(response->PeerChallenge); i++) {
 #ifdef __APPLE__
-		last_challenge_response[i] = *p++ = (u_char) (drand48() * 0xff);
+ 		// Skip 0 to work around a DS API bug that treats a challenge as a C-string instead of byte stream.
+ 		last_challenge_response[i] = *p++ = (u_char) (drand48() * 0xfe) + 1;
 #else
-	    *p++ = (u_char) (drand48() * 0xff);
+		*p++ = (u_char) (drand48() * 0xff);
 #endif
 	}
     else

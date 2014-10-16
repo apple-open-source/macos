@@ -1,0 +1,26 @@
+--- php/configure.orig	2014-03-16 00:22:31.000000000 -0700
++++ php/configure	2014-03-16 00:37:23.000000000 -0700
+@@ -102194,7 +102194,7 @@
+ fi
+ 
+ 
+-php_with_pear=DEFAULT
++php_with_pear=no
+ 
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to install PEAR" >&5
+ $as_echo_n "checking whether to install PEAR... " >&6; }
+@@ -102236,7 +102236,13 @@
+ $as_echo "$ext_output" >&6; }
+ 
+ 
+-
++if test "$php_with_pear" = "no"; then
++	PHP_PEAR=no
++  	ext_output=no
++ 	ext_shared=no
++	{ $as_echo "$as_me:${as_lineno-$LINENO}: WILL NOT INSTALL PEAR" >&5
++	$as_echo_n "WILL NOT INSTALL PEAR... " >&6; }
++fi
+ 
+ if test "$PHP_PEAR" != "no"; then
+

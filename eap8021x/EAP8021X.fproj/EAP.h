@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -135,5 +135,7 @@ EAPPacketSetLength(EAPPacketRef pkt, uint16_t length);
 uint16_t
 EAPPacketGetLength(const EAPPacketRef pkt);
 
-#endif /* _EAP8021X_EAP_H */
+#define kEAPMasterSessionKeyMinimumSize			64
+#define kEAPExtendedMasterSessionKeyMinimumSize		64
 
+#endif /* _EAP8021X_EAP_H */

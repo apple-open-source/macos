@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2013-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebIconDatabase.h"
 
-#include "CFDictionaryPropertyBag.h"
+#include "COMPropertyBag.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
 #include "shlobj.h"
@@ -161,12 +161,11 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::sharedIconDatabase(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebIconDatabase::iconForURL(
-        /* [in] */ BSTR url,
-        /* [optional][in] */ LPSIZE size,
-        /* [optional][in] */ BOOL /*cache*/,
-        /* [retval][out] */ OLE_HANDLE* bitmap)
+HRESULT WebIconDatabase::iconForURL(BSTR url, LPSIZE size, BOOL /*cache*/, HBITMAP* bitmap)
 {
+    if (!size)
+        return E_POINTER;
+
     IntSize intSize(*size);
 
     Image* icon = 0;
@@ -175,8 +174,8 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::iconForURL(
 
     // Make sure we check for the case of an "empty image"
     if (icon && icon->width()) {
-        *bitmap = (OLE_HANDLE)(ULONG64)getOrCreateSharedBitmap(size);
-        if (!icon->getHBITMAPOfSize((HBITMAP)(ULONG64)*bitmap, size)) {
+        *bitmap = getOrCreateSharedBitmap(intSize);
+        if (!icon->getHBITMAPOfSize(*bitmap, &intSize)) {
             LOG_ERROR("Failed to draw Image to HBITMAP");
             *bitmap = 0;
             return E_FAIL;
@@ -187,11 +186,14 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::iconForURL(
     return defaultIconWithSize(size, bitmap);
 }
 
-HRESULT STDMETHODCALLTYPE WebIconDatabase::defaultIconWithSize(
-        /* [in] */ LPSIZE size,
-        /* [retval][out] */ OLE_HANDLE* result)
+HRESULT WebIconDatabase::defaultIconWithSize(LPSIZE size, HBITMAP* result)
 {
-    *result = (OLE_HANDLE)(ULONG64)getOrCreateDefaultIconBitmap(size);
+    if (!size)
+        return E_POINTER;
+
+    IntSize intSize(*size);
+
+    *result = getOrCreateDefaultIconBitmap(intSize);
     return S_OK;
 }
 
@@ -280,34 +282,34 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::hasIconForURL(
     return S_OK;
 }
 
-HBITMAP createDIB(LPSIZE size)
+static HBITMAP createDIB(const IntSize& size)
 {
-    BitmapInfo bmInfo = BitmapInfo::create(IntSize(*size));
+    BitmapInfo bmInfo = BitmapInfo::create(size);
 
     HWndDC dc(0);
     return CreateDIBSection(dc, &bmInfo, DIB_RGB_COLORS, 0, 0, 0);
 }
 
-HBITMAP WebIconDatabase::getOrCreateSharedBitmap(LPSIZE size)
+HBITMAP WebIconDatabase::getOrCreateSharedBitmap(const IntSize& size)
 {
-    HBITMAP result = m_sharedIconMap.get(*size);
+    HBITMAP result = m_sharedIconMap.get(size);
     if (result)
         return result;
     result = createDIB(size);
-    m_sharedIconMap.set(*size, result);
+    m_sharedIconMap.set(size, result);
     return result;
 }
 
-HBITMAP WebIconDatabase::getOrCreateDefaultIconBitmap(LPSIZE size)
+HBITMAP WebIconDatabase::getOrCreateDefaultIconBitmap(const IntSize& size)
 {
-    HBITMAP result = m_defaultIconMap.get(*size);
+    HBITMAP result = m_defaultIconMap.get(size);
     if (result)
         return result;
 
     result = createDIB(size);
 
-    m_defaultIconMap.set(*size, result);
-    if (!iconDatabase().defaultIcon(*size) || !iconDatabase().defaultIcon(*size)->getHBITMAPOfSize(result, size)) {
+    m_defaultIconMap.set(size, result);
+    if (!iconDatabase().defaultIcon(size) || !iconDatabase().defaultIcon(size)->getHBITMAPOfSize(result, &size)) {
         LOG_ERROR("Failed to draw Image to HBITMAP");
         return 0;
     }
@@ -364,9 +366,9 @@ BSTR WebIconDatabase::iconDatabaseDidAddIconNotification()
     return didAddIconName;
 }
 
-CFStringRef WebIconDatabase::iconDatabaseNotificationUserInfoURLKey()
+BSTR WebIconDatabase::iconDatabaseNotificationUserInfoURLKey()
 {
-    static CFStringRef iconUserInfoURLKey = String(WebIconNotificationUserInfoURLKey).createCFString().leakRef();
+    static BSTR iconUserInfoURLKey = SysAllocString(WebIconNotificationUserInfoURLKey);
     return iconUserInfoURLKey;
 }
 
@@ -384,13 +386,9 @@ static void postDidRemoveAllIconsNotification(WebIconDatabase* iconDB)
 
 static void postDidAddIconNotification(const String& pageURL, WebIconDatabase* iconDB)
 {
-    RetainPtr<CFMutableDictionaryRef> dictionary = adoptCF(
-    CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-    CFDictionaryAddValue(dictionary.get(), WebIconDatabase::iconDatabaseNotificationUserInfoURLKey(), pageURL.createCFString().get());
-
-    COMPtr<CFDictionaryPropertyBag> userInfo = CFDictionaryPropertyBag::createInstance();
-    userInfo->setDictionary(dictionary.get());
+    HashMap<String, String> dictionary;
+    dictionary.set(WebIconDatabase::iconDatabaseNotificationUserInfoURLKey(), pageURL);
+    COMPtr<IPropertyBag> userInfo(AdoptCOM, COMPropertyBag<String>::adopt(dictionary));
 
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
     notifyCenter->postNotificationName(WebIconDatabase::iconDatabaseDidAddIconNotification(), static_cast<IWebIconDatabase*>(iconDB), userInfo.get());

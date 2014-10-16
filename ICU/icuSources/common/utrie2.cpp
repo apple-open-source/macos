@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001-2011, International Business Machines
+*   Copyright (C) 2001-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -399,6 +399,35 @@ utrie2_getVersion(const void *data, int32_t length, UBool anyEndianOk) {
     return 0;
 }
 
+U_CAPI UBool U_EXPORT2
+utrie2_isFrozen(const UTrie2 *trie) {
+    return (UBool)(trie->newTrie==NULL);
+}
+
+U_CAPI int32_t U_EXPORT2
+utrie2_serialize(const UTrie2 *trie,
+                 void *data, int32_t capacity,
+                 UErrorCode *pErrorCode) {
+    /* argument check */
+    if(U_FAILURE(*pErrorCode)) {
+        return 0;
+    }
+
+    if( trie==NULL || trie->memory==NULL || trie->newTrie!=NULL ||
+        capacity<0 || (capacity>0 && (data==NULL || (U_POINTER_MASK_LSB(data, 3)!=0)))
+    ) {
+        *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+
+    if(capacity>=trie->length) {
+        uprv_memcpy(data, trie->memory, trie->length);
+    } else {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+    }
+    return trie->length;
+}
+
 U_CAPI int32_t U_EXPORT2
 utrie2_swap(const UDataSwapper *ds,
             const void *inData, int32_t length, void *outData,
@@ -731,14 +760,6 @@ uint16_t ForwardUTrie2StringIterator::next16() {
     uint16_t result;
     UTRIE2_U16_NEXT16(trie, codePointLimit, limit, codePoint, result);
     return result;
-}
-
-UTrie2 *UTrie2Singleton::getInstance(InstantiatorFn *instantiator, const void *context,
-                                     UErrorCode &errorCode) {
-    void *duplicate;
-    UTrie2 *instance=(UTrie2 *)singleton.getInstance(instantiator, context, duplicate, errorCode);
-    utrie2_close((UTrie2 *)duplicate);
-    return instance;
 }
 
 U_NAMESPACE_END

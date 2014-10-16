@@ -82,8 +82,9 @@ struct ProgramVars
 
 
 /*
- * dyld calls libSystem_initializer() and passes it a ProgramVars struct containing pointers to the
- * main executable's NXArg* global variables. libSystem_initializer() calls __libc_init() which calls
+ * dyld calls libSystem_initializer() and passes it a ProgramVars struct
+ * containing pointers to the main executable's NXArg* global variables.
+ * libSystem_initializer() calls _libc_initializer() which calls
  * _program_vars_init() passing the ProgramVars parameter.
  */
 void __attribute__((visibility("hidden")))

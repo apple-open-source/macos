@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class FileChooser;
+class Icon;
 
 struct FileChooserFileInfo {
     FileChooserFileInfo(const String& path, const String& displayName = String())
@@ -51,14 +52,11 @@ struct FileChooserFileInfo {
 
 struct FileChooserSettings {
     bool allowsMultipleFiles;
-#if ENABLE(DIRECTORY_UPLOAD)
-    bool allowsDirectoryUpload;
-#endif
     Vector<String> acceptMIMETypes;
     Vector<String> acceptFileExtensions;
     Vector<String> selectedFiles;
 #if ENABLE(MEDIA_CAPTURE)
-    String capture;
+    bool capture;
 #endif
 
     // Returns a combined vector of acceptMIMETypes and acceptFileExtensions.
@@ -70,6 +68,11 @@ public:
     virtual ~FileChooserClient() { }
 
     virtual void filesChosen(const Vector<FileChooserFileInfo>&) = 0;
+#if PLATFORM(IOS)
+    // FIXME: This function is almost identical to FileChooser::filesChosen(). We should merge this
+    // function with FileChooser::filesChosen() and hence remove the PLATFORM(IOS)-guard.
+    virtual void filesChosen(const Vector<FileChooserFileInfo>&, const String& displayString, Icon*) = 0;
+#endif
 };
 
 class FileChooser : public RefCounted<FileChooser> {
@@ -81,6 +84,11 @@ public:
 
     void chooseFile(const String& path);
     void chooseFiles(const Vector<String>& paths);
+#if PLATFORM(IOS)
+    // FIXME: This function is almost identical to FileChooser::chooseFiles(). We should merge this
+    // function with FileChooser::chooseFiles() and hence remove the PLATFORM(IOS)-guard.
+    void chooseMediaFiles(const Vector<String>& paths, const String& displayString, Icon*);
+#endif    
 
     // FIXME: We should probably just pass file paths that could be virtual paths with proper display names rather than passing structs.
     void chooseFiles(const Vector<FileChooserFileInfo>& files);

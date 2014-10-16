@@ -43,7 +43,7 @@ static apr_status_t queue_info_cleanup(void *data_)
         if (first_pool == NULL) {
             break;
         }
-        if (apr_atomic_casptr((volatile void**)&(qi->recycled_pools), first_pool->next,
+        if (apr_atomic_casptr((void*)&(qi->recycled_pools), first_pool->next,
                               first_pool) == first_pool) {
             apr_pool_destroy(first_pool->pool);
         }
@@ -100,7 +100,7 @@ apr_status_t ap_queue_info_set_idle(fd_queue_info_t *queue_info,
              */
             struct recycled_pool *next = queue_info->recycled_pools;
             new_recycle->next = next;
-            if (apr_atomic_casptr((volatile void**)&(queue_info->recycled_pools),
+            if (apr_atomic_casptr((void*)&(queue_info->recycled_pools),
                                   new_recycle, next) == next) {
                 break;
             }
@@ -209,7 +209,7 @@ apr_status_t ap_queue_info_wait_for_idler(fd_queue_info_t *queue_info,
         if (first_pool == NULL) {
             break;
         }
-        if (apr_atomic_casptr((volatile void**)&(queue_info->recycled_pools), first_pool->next,
+        if (apr_atomic_casptr((void*)&(queue_info->recycled_pools), first_pool->next,
                               first_pool) == first_pool) {
             *recycled_pool = first_pool->pool;
             break;
@@ -284,6 +284,8 @@ apr_status_t ap_queue_init(fd_queue_t *queue, int queue_capacity, apr_pool_t *a)
     queue->data = apr_palloc(a, queue_capacity * sizeof(fd_queue_elem_t));
     queue->bounds = queue_capacity;
     queue->nelts = 0;
+    queue->in = 0;
+    queue->out = 0;
 
     /* Set all the sockets in the queue to NULL */
     for (i = 0; i < queue_capacity; ++i)
@@ -312,7 +314,10 @@ apr_status_t ap_queue_push(fd_queue_t *queue, apr_socket_t *sd, apr_pool_t *p)
     AP_DEBUG_ASSERT(!queue->terminated);
     AP_DEBUG_ASSERT(!ap_queue_full(queue));
 
-    elem = &queue->data[queue->nelts];
+    elem = &queue->data[queue->in];
+    queue->in++;
+    if (queue->in >= queue->bounds)
+        queue->in -= queue->bounds;
     elem->sd = sd;
     elem->p = p;
     queue->nelts++;
@@ -361,7 +366,11 @@ apr_status_t ap_queue_pop(fd_queue_t *queue, apr_socket_t **sd, apr_pool_t **p)
         }
     }
 
-    elem = &queue->data[--queue->nelts];
+    elem = &queue->data[queue->out];
+    queue->out++;
+    if (queue->out >= queue->bounds)
+        queue->out -= queue->bounds;
+    queue->nelts--;
     *sd = elem->sd;
     *p = elem->p;
 #ifdef AP_DEBUG

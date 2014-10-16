@@ -35,12 +35,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct CCHmacContext * CCHmacContextRef;
+    
+typedef CCHmacContext * CCHmacContextRef;
 
 CCHmacContextRef
 CCHmacCreate(CCDigestAlg alg, const void *key, size_t keyLength)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
+/* Create a clone of an initialized CCHmacContextRef - you must do this before use.  */
+CCHmacContextRef
+CCHmacClone(CCHmacContextRef ctx)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 /* Update and Final are reused from existing api, type changed from struct CCHmacContext * to CCHmacContextRef though */            
 
@@ -56,6 +61,20 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 size_t
 CCHmacOutputSize(CCDigestAlg alg)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+    
+/*
+ * Stateless, one-shot HMAC function using digest constants
+ * Output is written to caller-supplied buffer, as in CCHmacFinal().
+ */
+void CCHmacOneShot(
+            CCDigestAlg alg,  /* kCCHmacSHA1, kCCHmacMD5 */
+            const void *key,
+            size_t keyLength,           /* length of key in bytes */
+            const void *data,
+            size_t dataLength,          /* length of data in bytes */
+            void *macOut)               /* MAC written here */
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+
 
     
 #ifdef __cplusplus

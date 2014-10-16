@@ -1,0 +1,152 @@
+#
+# Common makefile fragment for dmitch's cspxutils.
+# This is -included from project-specific Makefiles, assumed
+# to be one directory down from this file.
+#
+# See Makefile.template for sample project-specific Makefile.
+#
+
+# Defaults for variables provided by buildit
+# 
+# Object files written to '.' unless OBJROOT specified
+#
+OBJROOT ?= .
+SRCROOT ?= .
+#
+# Executables written to SYMROOT if specified, else to LOCAL_BUILD_DIR
+# env var if specified, else to '.'.
+#
+SYMROOT ?= $(shell echo $(LOCAL_BUILD_DIR))
+LOCAL_BUILD=$(SYMROOT)
+ifeq "" "$(LOCAL_BUILD)"
+	LOCAL_BUILD = .
+endif
+
+CC=c++
+
+# independent of SYMROOT
+CLEAN_DIR=$(shell echo $(LOCAL_BUILD_DIR))
+ifeq "" "$(CLEAN_DIR)"
+	CLEAN_DIR = .
+endif
+
+#
+# DSTROOT only used for install
+$
+DSTROOT ?= ""
+
+INSTALLDIR := $(DSTROOT)/usr/local/bin
+
+#
+# Sphinx can be overridden, else null
+# To use this source tree to test non-Sphinx code (I.e., SUJagGreen only,
+# uncomment the following:
+SPHINX ?= 
+# and comment out this, which makes Sphinx the default:
+# SPHINX=-DSPHINX
+
+UTIL_LIB_SRC= ../utilLib
+UTIL_LIB_BIN= libcsputils.a
+
+# libcsputils comes from ../cspxutils, or from DSTROOT if it's specified
+ifeq ("", $(DSTROOT))
+	CSPUTIL_PATH=$(UTIL_LIB_SRC)
+	UTIL_LIB_BIN_PATH=$(LOCAL_BUILD)/$(UTIL_LIB_BIN)
+else
+	CSPUTIL_PATH=$(DSTROOT)/usr/local/lib
+	UTIL_LIB_BIN_PATH=$(CSPUTIL_PATH)/$(UTIL_LIB_BIN)
+endif
+
+OFILES= $(CSOURCE:%.c=$(OBJROOT)/%.o) $(CPSOURCE:%.cpp=$(OBJROOT)/%.o)
+
+#
+# Assume final load with cc, not ld
+#
+STD_LIBS=-lcsputils -lsecurity_cdsa_client -lsecurity_utilities -lsecurity_cdsa_utilities -lsecurity_cdsa_utils
+STD_LIBPATH= -L$(LOCAL_BUILD) -L$(CSPUTIL_PATH)
+ALL_LIBS= $(STD_LIBS) $(PROJ_LIBS) 
+ALL_LIBPATHS= $(STD_LIBPATH) $(PROJ_LIBPATH) 
+PRIV_FRAMEWORK_PATH= /System/Library/PrivateFrameworks
+
+#
+# Override this from the make command line to add e.g. -lMallocDebug
+#
+CMDLINE_LDFLAGS?=
+
+#
+ALL_LDFLAGS= $(CMDLINE_LDFLAGS) -F$(LOCAL_BUILD)  $(ALL_LIBS) $(ALL_LIBPATHS) \
+	$(PROJ_LDFLAGS) -F$(PRIV_FRAMEWORK_PATH)
+
+STD_FRAMEWORKS= -framework Security -framework CoreFoundation
+
+ALL_FRAMEWORKS= $(STD_FRAMEWORKS) $(PROJ_FRAMEWORKS)
+
+#
+# to get to headers in frameworks - may not be necessary
+#
+STD_FINCLUDES= -F$(LOCAL_BUILD) -F$(PRIV_FRAMEWORK_PATH) -F$(PIECES_FRAMEWORK_PATH) -F$(COMPS_FRAMEWORK_PATH)
+
+STD_INCLUDES= -I../utilLib
+ALL_INCLUDES= $(STD_INCLUDES) $(PROJ_INCLUDES)
+CINCLUDES= $(STD_FINCLUDES) $(ALL_INCLUDES)
+
+###WFLAGS= -Wno-four-char-constants -Wall -Werror
+WFLAGS= -Wno-four-char-constants -Wall -Wno-deprecated-declarations
+STD_CFLAGS= -g $(VERBOSE) $(SPHINX)
+DEBUG_CFLAGS?=
+PROJ_CFLAGS?= -fvisibility=hidden
+
+ALL_CFLAGS= $(CINCLUDES) $(STD_CFLAGS) $(PROJ_CFLAGS) $(WFLAGS) $(DEBUG_CFLAGS)
+
+#
+# Executable in SYMROOT, build folder, '.' in that order
+#
+BUILT_TARGET= $(LOCAL_BUILD)/$(EXECUTABLE)
+
+first:	UTIL_LIB $(PROJ_DEPENDS) $(BUILT_TARGET)
+
+build: first
+
+debug:
+	make "VARIANT_SUFFIX=,_debug"
+
+sphinx:
+	make "SPHINX=-DSPHINX"
+
+# architecture options
+
+64bit:
+	make "DEBUG_CFLAGS=-arch x86_64" "CMDLINE_LDFLAGS=-arch x86_64" 
+	
+64bitFat:
+	make "DEBUG_CFLAGS=-arch x86_64 -arch i386" "CMDLINE_LDFLAGS=-arch x86_64 -arch i386" 
+
+fat:
+	make "DEBUG_CFLAGS=-arch i386" "CMDLINE_LDFLAGS=-arch i386" 
+
+install: build
+	install -d -m 0755 $(INSTALLDIR)
+	install -p -m 0755 $(BUILT_TARGET) $(INSTALLDIR)
+
+installhdrs:
+
+#
+# Executable might be in . if no LOCAL_BUILD_DIR specified
+#
+clean:
+	rm -f $(BUILT_TARGET) $(EXECUTABLE)
+	cd $(SRCROOT); rm -f $(OFILES) *.o
+	cd $(LOCAL_BUILD); rm -f $(EXECUTABLE) $(OTHER_TO_CLEAN)
+	rm -f $(CLEAN_DIR)/$(EXECUTABLE)
+
+UTIL_LIB:
+	(cd $(UTIL_LIB_SRC); make)
+
+$(BUILT_TARGET):	$(OFILES) $(UTIL_LIB_BIN_PATH)
+	$(CC) -o $(BUILT_TARGET) $(ALL_FRAMEWORKS) $^ $(ALL_LDFLAGS)
+
+$(OBJROOT)/%.o: %.c
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<
+
+$(OBJROOT)/%.o: %.cpp
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<

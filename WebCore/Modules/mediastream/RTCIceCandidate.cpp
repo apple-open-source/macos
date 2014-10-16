@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +37,6 @@
 
 #include "Dictionary.h"
 #include "ExceptionCode.h"
-#include "InspectorValues.h"
 #include "RTCIceCandidateDescriptor.h"
 
 namespace WebCore {
@@ -45,16 +45,31 @@ PassRefPtr<RTCIceCandidate> RTCIceCandidate::create(const Dictionary& dictionary
 {
     String candidate;
     bool ok = dictionary.get("candidate", candidate);
-    if (!ok || !candidate.length()) {
+    if (ok && candidate.isEmpty()) {
         ec = TYPE_MISMATCH_ERR;
-        return 0;
+        return nullptr;
     }
 
     String sdpMid;
-    dictionary.get("sdpMid", sdpMid);
+    ok = dictionary.get("sdpMid", sdpMid);
+    if (ok && sdpMid.isEmpty()) {
+        ec = TYPE_MISMATCH_ERR;
+        return nullptr;
+    }
 
+    String tempLineIndex;
     unsigned short sdpMLineIndex = 0;
-    dictionary.get("sdpMLineIndex", sdpMLineIndex);
+    // First we check if the property exists in the Dictionary.
+    ok = dictionary.get("sdpMLineIndex", tempLineIndex);
+    // Then we try to convert it to a number and check if it was successful.
+    if (ok) {
+        bool intConversionOk;
+        sdpMLineIndex = tempLineIndex.toUIntStrict(&intConversionOk);
+        if (!intConversionOk) {
+            ec = TYPE_MISMATCH_ERR;
+            return nullptr;
+        }
+    }
 
     return adoptRef(new RTCIceCandidate(RTCIceCandidateDescriptor::create(candidate, sdpMid, sdpMLineIndex)));
 }

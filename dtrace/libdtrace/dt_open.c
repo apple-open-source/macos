@@ -20,7 +20,7 @@
  */
 
 /*
- * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ * Portions copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
 
 /*
@@ -30,10 +30,7 @@
 
 #pragma ident	"@(#)dt_open.c	1.39	08/05/05 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/modctl.h>
-#include <sys/systeminfo.h>
 #include <sys/resource.h>
 
 #include <libelf.h>
@@ -50,27 +47,6 @@
 #define	_POSIX_PTHREAD_SEMANTICS
 #include <dirent.h>
 #undef	_POSIX_PTHREAD_SEMANTICS
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/modctl.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/systeminfo.h> */
-#include <sys/resource.h>
-
-#include <libelf.h>
-#include <strings.h>
-#include <alloca.h>
-#include <limits.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <assert.h>
-
-#define	_POSIX_PTHREAD_SEMANTICS
-#include <dirent.h>
-#undef	_POSIX_PTHREAD_SEMANTICS
-#endif /* __APPLE__ */ 
 
 #include <dt_impl.h>
 #include <dt_program.h>
@@ -78,6 +54,8 @@
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
+
+void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 
 /*
  * Stability and versioning definitions.  These #defines are used in the tables
@@ -130,10 +108,16 @@
 #define	DT_VERS_1_5	DT_VERSION_NUMBER(1, 5, 0)
 #define	DT_VERS_1_6	DT_VERSION_NUMBER(1, 6, 0)
 #define	DT_VERS_1_6_1	DT_VERSION_NUMBER(1, 6, 1)
-#define DT_VERS_1_7 DT_VERSION_NUMBER(1, 7, 0)
 #define	DT_VERS_1_6_2	DT_VERSION_NUMBER(1, 6, 2)
-#define	DT_VERS_LATEST	DT_VERS_1_7
-#define	DT_VERS_STRING	"Sun D 1.7"
+#define	DT_VERS_1_7	DT_VERSION_NUMBER(1, 7, 0)
+#define	DT_VERS_1_8	DT_VERSION_NUMBER(1, 8, 0)
+#define	DT_VERS_1_9	DT_VERSION_NUMBER(1, 9, 0)
+#define	DT_VERS_1_10	DT_VERSION_NUMBER(1, 10, 0)
+#define	DT_VERS_1_11	DT_VERSION_NUMBER(1, 11, 0)
+#define	DT_VERS_1_12	DT_VERSION_NUMBER(1, 12, 0)
+#define	DT_VERS_1_12_1	DT_VERSION_NUMBER(1, 12, 1)
+#define	DT_VERS_LATEST	DT_VERS_1_12_1
+#define	DT_VERS_STRING	"Sun D 1.12.1"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -148,7 +132,13 @@ const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_6,	/* D API 1.6 */
 	DT_VERS_1_6_1,	/* D API 1.6.1 */
 	DT_VERS_1_6_2,	/* D API 1.6.2 */
-    DT_VERS_1_7,    /* D API 1.7 */
+	DT_VERS_1_7,    /* D API 1.7 */
+	DT_VERS_1_8,	/* D API 1.8 */
+	DT_VERS_1_9,	/* D API 1.9 */
+	DT_VERS_1_10,	/* D API 1.10 */
+	DT_VERS_1_11,	/* D API 1.11 */
+	DT_VERS_1_12,	/* D API 1.12 */
+	DT_VERS_1_12_1,	/* D API 1.12.1 */
 	0
 };
 
@@ -209,20 +199,6 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(...)" },
 { "commit", DT_IDENT_ACTFUNC, 0, DT_ACT_COMMIT, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(int)" },
-#if !defined(__APPLE__)
-{ "copyin", DT_IDENT_FUNC, 0, DIF_SUBR_COPYIN, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void *(uintptr_t, size_t)" },
-{ "copyinstr", DT_IDENT_FUNC, 0, DIF_SUBR_COPYINSTR,
-	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "string(uintptr_t, [size_t])" },
-{ "copyinto", DT_IDENT_FUNC, 0, DIF_SUBR_COPYINTO, DT_ATTR_STABCMN,
-	DT_VERS_1_0, &dt_idops_func, "void(uintptr_t, size_t, void *)" },
-{ "copyout", DT_IDENT_FUNC, 0, DIF_SUBR_COPYOUT, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void(void *, uintptr_t, size_t)" },
-{ "copyoutstr", DT_IDENT_FUNC, 0, DIF_SUBR_COPYOUTSTR,
-	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void(char *, uintptr_t, size_t)" },
-#else
 { "copyin", DT_IDENT_FUNC, 0, DIF_SUBR_COPYIN, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void *(user_addr_t, size_t)" },
 { "copyinstr", DT_IDENT_FUNC, 0, DIF_SUBR_COPYINSTR,
@@ -235,25 +211,12 @@ static const dt_ident_t _dtrace_globals[] = {
 { "copyoutstr", DT_IDENT_FUNC, 0, DIF_SUBR_COPYOUTSTR,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(char *, user_addr_t, size_t)" },
-#endif /* __APPLE__ */
 { "count", DT_IDENT_AGGFUNC, 0, DTRACEAGG_COUNT, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
-#if !defined(__APPLE__)
-{ "curthread", DT_IDENT_SCALAR, 0, DIF_VAR_CURTHREAD,
-	{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_PRIVATE,
-	DTRACE_CLASS_COMMON }, DT_VERS_1_0,
-	&dt_idops_type, "genunix`kthread_t *" },
-#else
 { "curthread", DT_IDENT_SCALAR, 0, DIF_VAR_CURTHREAD,
 	{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_PRIVATE,
 	DTRACE_CLASS_COMMON }, DT_VERS_1_0,
 	&dt_idops_type, "mach_kernel`thread_t" },
-#endif /* __APPLE__ */
-#if !defined(__APPLE__)
-{ "ddi_pathname", DT_IDENT_FUNC, 0, DIF_SUBR_DDI_PATHNAME,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "string(void *, int64_t)" },
-#endif /* __APPLE__ */
 { "denormalize", DT_IDENT_ACTFUNC, 0, DT_ACT_DENORMALIZE, DT_ATTR_STABCMN,
 	DT_VERS_1_0, &dt_idops_func, "void(...)" },
 { "dirname", DT_IDENT_FUNC, 0, DIF_SUBR_DIRNAME, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -272,16 +235,6 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_VERS_1_1, &dt_idops_func, "void(@, ...)" },
 { "ftruncate", DT_IDENT_ACTFUNC, 0, DT_ACT_FTRUNCATE, DT_ATTR_STABCMN,
 	DT_VERS_1_0, &dt_idops_func, "void()" },
-#if !defined(__APPLE__)
-{ "func", DT_IDENT_ACTFUNC, 0, DT_ACT_SYM, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_symaddr(uintptr_t)" },
-{ "getmajor", DT_IDENT_FUNC, 0, DIF_SUBR_GETMAJOR,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "genunix`major_t(genunix`dev_t)" },
-{ "getminor", DT_IDENT_FUNC, 0, DIF_SUBR_GETMINOR,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "genunix`minor_t(genunix`dev_t)" },
-#else
 { "func", DT_IDENT_ACTFUNC, 0, DT_ACT_SYM, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_symaddr(user_addr_t)" },
 { "getmajor", DT_IDENT_FUNC, 0, DIF_SUBR_GETMAJOR,
@@ -290,7 +243,6 @@ static const dt_ident_t _dtrace_globals[] = {
 { "getminor", DT_IDENT_FUNC, 0, DIF_SUBR_GETMINOR,
 	DT_ATTR_EVOLCMN, DT_VERS_1_0,
 	&dt_idops_func, "mach_kernel`minor_t(mach_kernel`dev_t)" },
-#endif /* __APPLE__ */
 { "htonl", DT_IDENT_FUNC, 0, DIF_SUBR_HTONL, DT_ATTR_EVOLCMN, DT_VERS_1_3,
 	&dt_idops_func, "uint32_t(uint32_t)" },
 { "htonll", DT_IDENT_FUNC, 0, DIF_SUBR_HTONLL, DT_ATTR_EVOLCMN, DT_VERS_1_3,
@@ -303,17 +255,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "uint_t" },
 { "index", DT_IDENT_FUNC, 0, DIF_SUBR_INDEX, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "int(const char *, const char *, [int])" },
-#if !defined(__APPLE__)
-{ "inet_ntoa", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
-	DT_VERS_1_5, &dt_idops_func, "string(ipaddr_t *)" },
-{ "inet_ntoa6", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
-	DT_VERS_1_5, &dt_idops_func, "string(in6_addr_t *)" },
-#else
 { "inet_ntoa", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(uint32_t *)" },
 { "inet_ntoa6", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(struct in6_addr *)" },
-#endif
 { "inet_ntop", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOP, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(int, void *)" },
 { "ipl", DT_IDENT_SCALAR, 0, DIF_VAR_IPL, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -332,31 +277,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(@)" },
 { "min", DT_IDENT_AGGFUNC, 0, DTRACEAGG_MIN, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@)" },
-#if !defined(__APPLE__)
-{ "mod", DT_IDENT_ACTFUNC, 0, DT_ACT_MOD, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_symaddr(uintptr_t)" },
-{ "msgdsize", DT_IDENT_FUNC, 0, DIF_SUBR_MSGDSIZE,
-	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "size_t(mblk_t *)" },
-{ "msgsize", DT_IDENT_FUNC, 0, DIF_SUBR_MSGSIZE,
-	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "size_t(mblk_t *)" },
-{ "mutex_owned", DT_IDENT_FUNC, 0, DIF_SUBR_MUTEX_OWNED,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "int(genunix`kmutex_t *)" },
-{ "mutex_owner", DT_IDENT_FUNC, 0, DIF_SUBR_MUTEX_OWNER,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "genunix`kthread_t *(genunix`kmutex_t *)" },
-{ "mutex_type_adaptive", DT_IDENT_FUNC, 0, DIF_SUBR_MUTEX_TYPE_ADAPTIVE,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "int(genunix`kmutex_t *)" },
-{ "mutex_type_spin", DT_IDENT_FUNC, 0, DIF_SUBR_MUTEX_TYPE_SPIN,
-	DT_ATTR_EVOLCMN, DT_VERS_1_0,
-	&dt_idops_func, "int(genunix`kmutex_t *)" },
-#else
 { "mod", DT_IDENT_ACTFUNC, 0, DT_ACT_MOD, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_symaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "ntohl", DT_IDENT_FUNC, 0, DIF_SUBR_NTOHL, DT_ATTR_EVOLCMN, DT_VERS_1_3,
 	&dt_idops_func, "uint32_t(uint32_t)" },
 { "ntohll", DT_IDENT_FUNC, 0, DIF_SUBR_NTOHLL, DT_ATTR_EVOLCMN, DT_VERS_1_3,
@@ -369,10 +291,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void()" },
 { "pid", DT_IDENT_SCALAR, 0, DIF_VAR_PID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
-#if defined(__APPLE__)	
 { "pidresume", DT_IDENT_ACTFUNC, 0, DT_ACT_PIDRESUME, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(pid_t)" },
-#endif /* __APPLE__ */	
 { "ppid", DT_IDENT_SCALAR, 0, DIF_VAR_PPID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
 { "printa", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINTA, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -399,7 +319,6 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "int()" },
 { "rindex", DT_IDENT_FUNC, 0, DIF_SUBR_RINDEX, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "int(const char *, const char *, [int])" },
-#if !defined(__APPLE__)
 { "rw_iswriter", DT_IDENT_FUNC, 0, DIF_SUBR_RW_ISWRITER,
 	DT_ATTR_EVOLCMN, DT_VERS_1_0,
 	&dt_idops_func, "int(genunix`krwlock_t *)" },
@@ -409,7 +328,6 @@ static const dt_ident_t _dtrace_globals[] = {
 { "rw_write_held", DT_IDENT_FUNC, 0, DIF_SUBR_RW_WRITE_HELD,
 	DT_ATTR_EVOLCMN, DT_VERS_1_0,
 	&dt_idops_func, "int(genunix`krwlock_t *)" },
-#endif /* __APPLE__ */
 { "self", DT_IDENT_PTR, 0, 0, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "void" },
 { "setopt", DT_IDENT_ACTFUNC, 0, DT_ACT_SETOPT, DT_ATTR_STABCMN,
@@ -445,58 +363,42 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "string(const char *, int, [int])" },
 { "sum", DT_IDENT_AGGFUNC, 0, DTRACEAGG_SUM, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@)" },
-#if !defined(__APPLE__)
-{ "sym", DT_IDENT_ACTFUNC, 0, DT_ACT_SYM, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_symaddr(uintptr_t)" },
-#else
 { "sym", DT_IDENT_ACTFUNC, 0, DT_ACT_SYM, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_symaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "system", DT_IDENT_ACTFUNC, 0, DT_ACT_SYSTEM, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@, ...)" },
 { "this", DT_IDENT_PTR, 0, 0, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "void" },
 { "tid", DT_IDENT_SCALAR, 0, DIF_VAR_TID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "id_t" },
-#if defined(__APPLE__)
 { "dispatchqaddr", DT_IDENT_SCALAR, 0, DIF_VAR_DISPATCHQADDR, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
 	&dt_idops_type, "user_addr_t" },
-#endif
 { "timestamp", DT_IDENT_SCALAR, 0, DIF_VAR_TIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint64_t" },
+{ "tolower", DT_IDENT_FUNC, 0, DIF_SUBR_TOLOWER,
+	DT_ATTR_STABCMN, DT_VERS_1_8,
+	&dt_idops_func, "string(const char *)" },
+{ "toupper", DT_IDENT_FUNC, 0, DIF_SUBR_TOUPPER,
+	DT_ATTR_STABCMN, DT_VERS_1_8,
+	&dt_idops_func, "string(const char *)" },
 { "trace", DT_IDENT_ACTFUNC, 0, DT_ACT_TRACE, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@)" },
 { "tracemem", DT_IDENT_ACTFUNC, 0, DT_ACT_TRACEMEM,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void(@, size_t)" },
+	&dt_idops_func, "void(@, size_t, ...)" },
 { "trunc", DT_IDENT_ACTFUNC, 0, DT_ACT_TRUNC, DT_ATTR_STABCMN,
 	DT_VERS_1_0, &dt_idops_func, "void(...)" },
-#if !defined(__APPLE__)
-{ "uaddr", DT_IDENT_ACTFUNC, 0, DT_ACT_UADDR, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_usymaddr(uintptr_t)" },
-#else
 { "uaddr", DT_IDENT_ACTFUNC, 0, DT_ACT_UADDR, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_usymaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "ucaller", DT_IDENT_SCALAR, 0, DIF_VAR_UCALLER, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_type, "uint64_t" },
-#if !defined(__APPLE__)
-{ "ufunc", DT_IDENT_ACTFUNC, 0, DT_ACT_USYM, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_usymaddr(uintptr_t)" },
-#else
 { "ufunc", DT_IDENT_ACTFUNC, 0, DT_ACT_USYM, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_usymaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "uid", DT_IDENT_SCALAR, 0, DIF_VAR_UID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uid_t" },
-#if !defined(__APPLE__)
-{ "umod", DT_IDENT_ACTFUNC, 0, DT_ACT_UMOD, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_usymaddr(uintptr_t)" },
-#else
 { "umod", DT_IDENT_ACTFUNC, 0, DT_ACT_UMOD, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_usymaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "uregs", DT_IDENT_ARRAY, 0, DIF_VAR_UREGS, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_regs, NULL },
 { "ustack", DT_IDENT_ACTFUNC, 0, DT_ACT_USTACK, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -504,13 +406,8 @@ static const dt_ident_t _dtrace_globals[] = {
 { "ustackdepth", DT_IDENT_SCALAR, 0, DIF_VAR_USTACKDEPTH,
 	DT_ATTR_STABCMN, DT_VERS_1_2,
 	&dt_idops_type, "uint32_t" },
-#if !defined(__APPLE__)
-{ "usym", DT_IDENT_ACTFUNC, 0, DT_ACT_USYM, DT_ATTR_STABCMN,
-	DT_VERS_1_2, &dt_idops_func, "_usymaddr(uintptr_t)" },
-#else
 { "usym", DT_IDENT_ACTFUNC, 0, DT_ACT_USYM, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_usymaddr(user_addr_t)" },
-#endif /* __APPLE__ */
 { "vtimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_VTIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint64_t" },
@@ -519,7 +416,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "int64_t" },
 { "zonename", DT_IDENT_SCALAR, 0, DIF_VAR_ZONENAME,
 	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
-#if defined(__APPLE__)
+{ "machtimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_MACHTIMESTAMP,
+	DT_ATTR_STABCMN, DT_VERS_1_7, &dt_idops_type, "uint64_t" },
 { "core_profile", DT_IDENT_FUNC, 0, DIF_SUBR_COREPROFILE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
 	&dt_idops_func, "uint32_t(uint64_t, [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t])"},
 { "apple_define", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEDEFINE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
@@ -534,7 +432,6 @@ static const dt_ident_t _dtrace_globals[] = {
    &dt_idops_func, "void(...)"},
 { "apple_ustack", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEUSTACK, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
    &dt_idops_func, "void(...)"},
-#endif /* __APPLE__ */
 { NULL, 0, 0, 0, { 0, 0, 0 }, 0, NULL, NULL }
 };
 
@@ -614,11 +511,7 @@ static const dt_intrinsic_t _dtrace_intrinsics_64[] = {
  * Tables of ILP32 typedefs to use to populate the dynamic "D" CTF container.
  * These aliases ensure that D definitions can use typical <sys/types.h> names.
  */
-#if defined(__APPLE__)
 const dt_typedef_t _dtrace_typedefs_32[] = {
-#else
-static const dt_typedef_t _dtrace_typedefs_32[] = {
-#endif
 { "char", "int8_t" },
 { "short", "int16_t" },
 { "int", "int32_t" },
@@ -637,11 +530,7 @@ static const dt_typedef_t _dtrace_typedefs_32[] = {
 { "int", "ptrdiff_t" },
 { "unsigned", "uintptr_t" },
 { "unsigned", "size_t" },
-#if defined(__APPLE__)
 { "unsigned long long", "id_t" },
-#else
-{ "long", "id_t" },
-#endif
 { "long", "pid_t" },
 { NULL, NULL }
 };
@@ -650,11 +539,7 @@ static const dt_typedef_t _dtrace_typedefs_32[] = {
  * Tables of LP64 typedefs to use to populate the dynamic "D" CTF container.
  * These aliases ensure that D definitions can use typical <sys/types.h> names.
  */
-#if defined(__APPLE__)
 const dt_typedef_t _dtrace_typedefs_64[] = {
-#else
-static const dt_typedef_t _dtrace_typedefs_64[] = {
-#endif
 { "char", "int8_t" },
 { "short", "int16_t" },
 { "int", "int32_t" },
@@ -673,11 +558,7 @@ static const dt_typedef_t _dtrace_typedefs_64[] = {
 { "long", "ptrdiff_t" },
 { "unsigned long", "uintptr_t" },
 { "unsigned long", "size_t" },
-#if defined(__APPLE__)
 { "unsigned long long", "id_t" },
-#else
-{ "int", "id_t" },
-#endif
 { "int", "pid_t" },
 { NULL, NULL }
 };
@@ -790,19 +671,11 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 { DTRACE_STABILITY_UNSTABLE, DTRACE_STABILITY_UNSTABLE, DTRACE_CLASS_COMMON },
 };
 
-#if !defined(__APPLE__)
-const char *_dtrace_defcpp = "/usr/ccs/lib/cpp"; /* default cpp(1) to invoke */
-const char *_dtrace_defld = "/usr/ccs/bin/ld";   /* default ld(1) to invoke */
-
-const char *_dtrace_libdir = "/usr/lib/dtrace"; /* default library directory */
-const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
-#else
-const char *_dtrace_defcpp = "/usr/bin/gcc"; /* default cpp(1) to invoke. We use gcc -E instead of cpp */
+const char *_dtrace_defcpp = "/usr/bin/clang"; /* default cpp(1) to invoke. We use clang -E instead of cpp */
 const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke. */
 
 const char *_dtrace_libdir = "/usr/lib/dtrace"; /* default library directory */
 const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
-#endif /* __APPLE__ */ 
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
 int _dtrace_intbuckets = 256;	/* default number of integer buckets (Pof2) */
@@ -814,9 +687,7 @@ size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
 int _dtrace_debug = 0;		/* debug messages enabled (off) */
-#if defined(__APPLE__)
 int _dtrace_mangled = 0;	/* enabled mangled names for C++ fns (off) */
-#endif
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 int _dtrace_rdvers = RD_VERSION; /* rtld_db feature version */
@@ -826,20 +697,6 @@ typedef struct dt_fdlist {
 	uint_t df_ents;		/* number of valid elements in df_fds[] */
 	uint_t df_size;		/* size of df_fds[] */
 } dt_fdlist_t;
-
-#if !defined(__APPLE__)
-#pragma init(_dtrace_init)
-void
-_dtrace_init(void)
-{
-	_dtrace_debug = getenv("DTRACE_DEBUG") != NULL;
-
-	for (; _dtrace_rdvers > 0; _dtrace_rdvers--) {
-		if (rd_init(_dtrace_rdvers) == RD_OK)
-			break;
-	}
-}
-#endif /* __APPLE__ */
 
 static dtrace_hdl_t *
 set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
@@ -1008,28 +865,11 @@ dt_vopen(int version, int flags, int *errp,
 		(void) setrlimit(RLIMIT_NOFILE, &rl);
 	}
 
-#if !defined(__APPLE__)
-	/*
-	 * Get the device path of each of the providers.  We hold them open
-	 * in the df.df_fds list until we open the DTrace driver itself,
-	 * allowing us to see all of the probes provided on this system.  Once
-	 * we have the DTrace driver open, we can safely close all the providers
-	 * now that they have registered with the framework.
-	 */
-	dt_provmod_open(&provmod, &df);
-
-	dtfd = open("/dev/dtrace/dtrace", O_RDWR);
-	err = errno; /* save errno from opening dtfd */
-
-	ftfd = open("/dev/dtrace/provider/fasttrap", O_RDWR);
-	fterr = ftfd == -1 ? errno : 0; /* save errno from open ftfd */
-#else
 	dtfd = open("/dev/dtrace", O_RDWR);
 	err = errno; /* save errno from opening dtfd */
 
 	ftfd = open("/dev/fasttrap", O_RDWR);
 	fterr = ftfd == -1 ? errno : 0; /* save errno from open ftfd */
-#endif /* __APPLE__ */
 
 	while (df.df_ents-- != 0)
 		(void) close(df.df_fds[df.df_ents]);
@@ -1066,15 +906,12 @@ alloc:
 
 	bzero(dtp, sizeof (dtrace_hdl_t));
 	dtp->dt_oflags = flags;
-#if !defined(__APPLE__)
-	dtp->dt_prcmode = DT_PROC_STOP_PREINIT;
-#else
 	dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
-#endif	
 	dtp->dt_linkmode = DT_LINK_KERNEL;
 	dtp->dt_linktype = DT_LTYP_ELF;
 	dtp->dt_xlatemode = DT_XL_STATIC;
 	dtp->dt_stdcmode = DT_STDC_XA;
+	dtp->dt_encoding = DT_ENCODING_UNSET;
 	dtp->dt_version = version;
 	dtp->dt_fd = dtfd;
 	dtp->dt_ftfd = ftfd;
@@ -1099,10 +936,8 @@ alloc:
 	dt_dof_init(dtp);
 	(void) uname(&dtp->dt_uts);
 
-#if defined(__APPLE__)
 	dtp->dt_apple_ids = dt_strtab_create(100);
-#endif
-    
+
 	if (dtp->dt_mods == NULL || dtp->dt_provs == NULL ||
 	    dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
 	    dtp->dt_cpp_path == NULL || dtp->dt_cpp_argv == NULL)
@@ -1111,12 +946,8 @@ alloc:
 	for (i = 0; i < DTRACEOPT_MAX; i++)
 		dtp->dt_options[i] = DTRACEOPT_UNSET;
 
-#if defined(__APPLE__)
 	// We use the full path to cpp
 	dtp->dt_cpp_argv[0] = dtp->dt_cpp_path;
-#else
-	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
-#endif
 
 	(void) snprintf(isadef, sizeof (isadef), "-D__SUNW_D_%u",
 	    (uint_t)(sizeof (void *) * NBBY));
@@ -1125,16 +956,7 @@ alloc:
 	    dt_get_sysinfo(SI_SYSNAME, s1, sizeof (s1)),
 	    dt_get_sysinfo(SI_RELEASE, s2, sizeof (s2)));
 
-#if !defined(__APPLE__)
-	if (dt_cpp_add_arg(dtp, "-D__sun") == NULL ||
-	    dt_cpp_add_arg(dtp, "-D__unix") == NULL ||
-	    dt_cpp_add_arg(dtp, "-D__SVR4") == NULL ||
-	    dt_cpp_add_arg(dtp, "-D__SUNW_D=1") == NULL ||
-	    dt_cpp_add_arg(dtp, isadef) == NULL ||
-	    dt_cpp_add_arg(dtp, utsdef) == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
-#else
-	/* On MacOSX, we need to use gcc -E -x c instead of cpp because cpp doesn't
+	/* On MacOSX, we need to use clang -E -x c instead of cpp because cpp doesn't
 	 * always work correctly.
 	 * "cpp is meant for use by the X11 build system and some of its antiquated
 	 * notions of preprocessing.  If you don't want those semantics, don't use
@@ -1150,7 +972,6 @@ alloc:
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-#endif /* __APPLE__ */
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
@@ -1162,45 +983,21 @@ alloc:
 	else if (flags & DTRACE_O_ILP32)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_ILP32;
 
-#if !defined(__APPLE__)
-#ifdef __sparc
-	/*
-	 * On SPARC systems, __sparc is always defined for <sys/isa_defs.h>
-	 * and __sparcv9 is defined if we are doing a 64-bit compile.
-	 */
-	if (dt_cpp_add_arg(dtp, "-D__sparc") == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
-
-	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64 &&
-	    dt_cpp_add_arg(dtp, "-D__sparcv9") == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
-#endif
-
-#ifdef __x86
-	/*
-	 * On x86 systems, __i386 is defined for <sys/isa_defs.h> for 32-bit
-	 * compiles and __amd64 is defined for 64-bit compiles.  Unlike SPARC,
-	 * they are defined exclusive of one another (see PSARC 2004/619).
-	 */
-	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64) {
-		if (dt_cpp_add_arg(dtp, "-D__amd64") == NULL)
-			return (set_open_errno(dtp, errp, EDT_NOMEM));
-	} else {
-		if (dt_cpp_add_arg(dtp, "-D__i386") == NULL)
-			return (set_open_errno(dtp, errp, EDT_NOMEM));
-	}
-#endif
-#else  /* is Apple Mac OS X */
 #if defined(__i386__)
 	if (dt_cpp_add_arg(dtp, "-D__i386__") == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 #elif defined(__x86_64__)
 	if (dt_cpp_add_arg(dtp, "-D__x86_64__") == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
+#elif defined(__arm64__)
+       if (dt_cpp_add_arg(dtp, "-D__arm64__") == NULL)
+               return (set_open_errno(dtp, errp, EDT_NOMEM));  
+#elif defined(__arm__)
+       if (dt_cpp_add_arg(dtp, "-D__arm__") == NULL)
+               return (set_open_errno(dtp, errp, EDT_NOMEM));
 #else
 #error Unknown ISA
 #endif
-#endif /* __APPLE__ */
 
 	if (dtp->dt_conf.dtc_difversion < DIF_VERSION)
 		return (set_open_errno(dtp, errp, EDT_DIFVERS));
@@ -1237,14 +1034,12 @@ alloc:
 			return (set_open_errno(dtp, errp, EDT_NOMEM));
 	}
 
-#if defined(__APPLE__)
 	/*
 	 * To save space, the kernel may discard symbols that dtrace needs to
 	 * populate various providers. Update any missing kernel symbols.
 	 */
 	dtrace_update_kernel_symbols(dtp);
-#endif
-	
+
 	/*
 	 * Update the module list using /system/object and load the values for
 	 * the macro variable definitions according to the current process.
@@ -1566,11 +1361,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_provmod_destroy(&dtp->dt_provmod);
 	dt_dof_fini(dtp);
 
-#if !defined(__APPLE__)
-	for (i = 1; i < dtp->dt_cpp_argc; i++)
-#else
 	for (i = 4; i < dtp->dt_cpp_argc; i++)
-#endif
 		free(dtp->dt_cpp_argv[i]);
 
 	while ((dirp = dt_list_next(&dtp->dt_lib_path)) != NULL) {
@@ -1586,9 +1377,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_mods);
 	free(dtp->dt_provs);
     
-#if defined(__APPLE__)
     dt_strtab_destroy(dtp->dt_apple_ids);
-#endif
     
 	free(dtp);
 }

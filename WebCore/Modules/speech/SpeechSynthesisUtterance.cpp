@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,13 +30,13 @@
 
 namespace WebCore {
     
-PassRefPtr<SpeechSynthesisUtterance> SpeechSynthesisUtterance::create(ScriptExecutionContext* context, const String& text)
+PassRefPtr<SpeechSynthesisUtterance> SpeechSynthesisUtterance::create(ScriptExecutionContext& context, const String& text)
 {
     return adoptRef(new SpeechSynthesisUtterance(context, text));
 }
 
-SpeechSynthesisUtterance::SpeechSynthesisUtterance(ScriptExecutionContext* context, const String& text)
-    : ContextDestructionObserver(context)
+SpeechSynthesisUtterance::SpeechSynthesisUtterance(ScriptExecutionContext& context, const String& text)
+    : ContextDestructionObserver(&context)
     , m_platformUtterance(PlatformSpeechSynthesisUtterance::create(this))
 {
     m_platformUtterance->setText(text);
@@ -45,16 +45,6 @@ SpeechSynthesisUtterance::SpeechSynthesisUtterance(ScriptExecutionContext* conte
 SpeechSynthesisUtterance::~SpeechSynthesisUtterance()
 {
     m_platformUtterance->setClient(0);
-}
-    
-ScriptExecutionContext* SpeechSynthesisUtterance::scriptExecutionContext() const
-{
-    return ContextDestructionObserver::scriptExecutionContext();
-}    
-    
-const AtomicString& SpeechSynthesisUtterance::interfaceName() const
-{
-    return eventNames().interfaceForSpeechSynthesisUtterance;
 }
 
 SpeechSynthesisVoice* SpeechSynthesisUtterance::voice() const

@@ -59,6 +59,8 @@ install:	all
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		/bin/cp efax efix $(SYMROOT); \
+		/usr/bin/dsymutil $(SYMROOT)/efax; \
+		/usr/bin/dsymutil $(SYMROOT)/efix; \
 	fi
 
 install-strip:

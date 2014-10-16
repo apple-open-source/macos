@@ -38,8 +38,9 @@
 #ifndef _XAR_IO_H_
 #define _XAR_IO_H_
 
-typedef int (*read_callback)(xar_t, xar_file_t, void *, size_t, void *context);
-typedef int (*write_callback)(xar_t, xar_file_t, void *, size_t, void *context);
+#include "archive.h"
+//typedef int (*read_callback)(xar_t, xar_file_t, void *, size_t, void *context);
+//typedef int (*write_callback)(xar_t, xar_file_t, void *, size_t, void *context);
 
 typedef int (*fromheap_in)(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context);
 typedef int (*fromheap_out)(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context);
@@ -71,6 +72,13 @@ typedef struct xar_stream_state {
 	xar_prop_t p;
 } xar_stream_state_t;
 
+size_t xar_io_get_rsize(xar_t x);
+off_t xar_io_get_heap_base_offset(xar_t x);
+size_t xar_io_get_toc_checksum_length_for_type(const char *type);
+size_t xar_io_get_toc_checksum_length(xar_t x);
+off_t xar_io_get_file_offset(xar_t x, xar_file_t f, xar_prop_t p);
+int64_t xar_io_get_length(xar_prop_t p);
+
 int32_t xar_attrcopy_to_heap(xar_t x, xar_file_t f, xar_prop_t p, read_callback rcb, void *context);
 int32_t xar_attrcopy_from_heap(xar_t x, xar_file_t f, xar_prop_t p, write_callback wcb, void *context);
 int32_t xar_attrcopy_from_heap_to_heap(xar_t xsource, xar_file_t fsource, xar_prop_t p, xar_t xdest, xar_file_t fdest);
@@ -79,5 +87,10 @@ int32_t xar_attrcopy_from_heap_to_stream(xar_stream *stream);
 int32_t xar_attrcopy_from_heap_to_stream_end(xar_stream *stream);
 
 int32_t xar_heap_to_archive(xar_t x);
+
+#pragma mark internal
+
+// IMPORTANT: Keep count synchronized with declaration in io.c!
+extern struct datamod xar_datamods[6];
 
 #endif /* _XAR_IO_H_ */

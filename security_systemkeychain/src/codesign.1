@@ -247,13 +247,11 @@ You still need to specify the -f (--force) option to enable overwriting signatur
 If this option is absent, any old signature has no effect on the signing process.
 .br
 This option takes a comma-separated list of names, which you may reasonably abbreviate:
-.Bl -tag -width resource-rules
+.Bl -tag -width requirements
 .It identifier
 Preserve the signing identifier (--identifier) instead of generating a default identifier.
 .It entitlements
 Preserve the entitlement data (--entitlements).
-.It resource-rules
-Preserve and reuse the resource rules (--resource-rules).
 .It requirements
 Preserve the internal requirements (--requirements option), including any explicit Designated
 Requirement. Note that all internal requirements are preserved or regenerated as a whole; you
@@ -262,11 +260,6 @@ cannot pick and choose individual elements with this option.
 For historical reasons, this option can be given without a value, which preserves all
 of these values as presently known. This use is deprecated and will eventually be removed;
 always specify an explicit list of preserved items.
-.It Fl -resource-rules Ar filename
-During signing, this option overrides the default rules for identifying and collecting bundle
-resources and nested code to be sealed into the signature. The argument is the path to a
-property list (plist) file containing scanning and qualification instructions. See the code
-signing documentation for details.
 .It Fl -timestamp Ar [ =URL ]
 During signing, requests that a \fItimestamp authority server\fR
 be contacted to authenticate the time of signing. The server contacted is given by the \fIURL\fR value.
@@ -303,7 +296,7 @@ is explicitly given, it is sealed into all
 Otherwise, each path derives its
 .Ar identifier
 independently from its Info.plist or pathname.
-Code nested within bundle directories (as identified from the applicable \fIResource Rules\fP)
+Code nested within bundle directories
 must already be signed or the signing operation will \fIfail\fP, unless the
 .Fl -deep
 option is given, in which case any unsigned nested code will be recursively signed
@@ -315,8 +308,7 @@ options also present. Combining the
 .Fl -force
 and
 .Fl -deep
-options results in forcible replacement of all signatures within the target bundle,
-as long as the resource rules identify them.
+options results in forcible replacement of all signatures within the target bundle.
 .Pp
 .\" Verification
 .\" =============================================================================
@@ -486,6 +478,13 @@ involved. Code signatures generated with this flag will fail to verify once any 
 the certificates in the chain has expired, regardless of the intentions of the
 verifier. Note that this flag does not affect any other checks that may cause
 signature validation to fail, including checks for certificate revocation.
+.It library
+Forces the signed code's library validation flag to be set when the code begins execution.
+The code will only be able to link against system libraries and frameworks, or libraries, frameworks, 
+and plug-in bundles with the same team identifier embedded in the code directory. 
+Team identifiers are automatically recorded in signatures when signing with suitable Apple-issued signing certificates. 
+Note that the flag is not supported for i386 binaries, and only applies to the main executable. 
+The flag has no effect when set on frameworks and libraries.
 .El
 .Pp
 Note that code can set the hard and kill flags on itself at any time. The signing

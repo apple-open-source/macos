@@ -42,7 +42,7 @@ public:
     static PassRefPtr<DocumentMarkerDescription> create(const String&);
 
     const String& description() const { return m_description; }
-    virtual bool isDescription() const { return true; }
+    virtual bool isDescription() const override { return true; }
 
 private:
     DocumentMarkerDescription(const String& description)
@@ -71,7 +71,7 @@ public:
     static PassRefPtr<DocumentMarkerTextMatch> instanceFor(bool);
 
     bool activeMatch() const { return m_match; }
-    virtual bool isTextMatch() const { return true; }
+    virtual bool isTextMatch() const override { return true; }
 
 private:
     explicit DocumentMarkerTextMatch(bool match)
@@ -84,8 +84,8 @@ private:
 
 PassRefPtr<DocumentMarkerTextMatch> DocumentMarkerTextMatch::instanceFor(bool match)
 {
-    DEFINE_STATIC_LOCAL(RefPtr<DocumentMarkerTextMatch>, trueInstance, (adoptRef(new DocumentMarkerTextMatch(true))));
-    DEFINE_STATIC_LOCAL(RefPtr<DocumentMarkerTextMatch>, falseInstance, (adoptRef(new DocumentMarkerTextMatch(false))));
+    static DocumentMarkerTextMatch* trueInstance = adoptRef(new DocumentMarkerTextMatch(true)).leakRef();
+    static DocumentMarkerTextMatch* falseInstance = adoptRef(new DocumentMarkerTextMatch(false)).leakRef();
     return match ? trueInstance : falseInstance;
 }
 
@@ -111,8 +111,9 @@ DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, unsigned e
     : m_type(type)
     , m_startOffset(startOffset)
     , m_endOffset(endOffset)
-    , m_details(description.isEmpty() ? 0 : DocumentMarkerDescription::create(description))
+    , m_details(DocumentMarkerDescription::create(description))
 {
+    ASSERT(m_details);
 }
 
 DocumentMarker::DocumentMarker(unsigned startOffset, unsigned endOffset, bool activeMatch)
@@ -121,6 +122,7 @@ DocumentMarker::DocumentMarker(unsigned startOffset, unsigned endOffset, bool ac
     , m_endOffset(endOffset)
     , m_details(DocumentMarkerTextMatch::instanceFor(activeMatch))
 {
+    ASSERT(m_details);
 }
 
 DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, unsigned endOffset, PassRefPtr<DocumentMarkerDetails> details)
@@ -129,6 +131,7 @@ DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, unsigned e
     , m_endOffset(endOffset)
     , m_details(details)
 {
+    ASSERT(m_details);
 }
 
 void DocumentMarker::shiftOffsets(int delta)

@@ -12,7 +12,7 @@ heim_data_create
 heim_data_get_bytes
 heim_data_get_length
 heim_data_get_type_id
-heim_dict_add_value
+heim_dict_set_value
 heim_dict_copy_value
 heim_dict_create
 heim_dict_delete_key

@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHCOMPSYS" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -3541,15 +3541,30 @@ Like \fB_tags\fP this function supports the \fB\-C\fP option to give a
 different name for the argument context field\&.
 .RE
 .TP
-\fB_arguments\fP [ \fB\-nswWACRS\fP ] [ \fB\-O\fP \fIname\fP ] [ \fB\-M\fP \fImatchspec\fP ] [ \fB:\fP ] \fIspec\fP \&.\&.\&.
-This function can be used to give a complete specification for
-completion for a command whose arguments follow standard UNIX option and
-argument conventions\&.  The following forms specify individual sets of
-options and arguments; to avoid ambiguity, these may be separated from the
-options to \fB_arguments\fP itself by a single colon\&.  Options to
-\fB_arguments\fP itself must be in separate words, i\&.e\&. \fB\-s \-w\fP, not
-\fB\-sw\fP\&.
+.PD 0
+\fB_arguments\fP [ \fB\-nswWCRS\fP ] [ \fB\-A\fP \fIpat\fP ] [ \fB\-O\fP \fIname\fP ] [ \fB\-M\fP \fImatchspec\fP ] [ \fB:\fP ] \fIspec\fP\&.\&.\&.
+.TP
+.PD
+\fB_arguments\fP [ \fIopts\fP\&.\&.\&. ] \fB\-\fP\fB\-\fP [ \-i \fIpats\fP ] [ \fB\-s\fP \fIpair\fP ] [ \fIhelpspec\fP\&.\&.\&. ]
+This function can be used to give a complete specification for completion
+for a command whose arguments follow standard UNIX option and argument
+conventions\&.  Options to \fB_arguments\fP itself must be in separate words,
+i\&.e\&. \fB\-s \-w\fP, not \fB\-sw\fP\&.
 .RS
+.PP
+When calling \fB_arguments\fP, all \fIspec\fPs that describe options of the
+analyzed command line must precede all \fIspec\fPs that describe non\-option
+(aka "normal") arguments of the analyzed line\&.  To avoid ambiguity, all
+options to \fB_arguments\fP itself may be separated from the \fIspec\fP forms
+by a single colon\&.
+.PP
+The \fB\-s \-w \-W \-A\fP and \fB\-S\fP options describe how parsing of the command
+line should proceed, and are discussed in context below\&.  The `\fB\-\fP\fB\-\fP\&'
+form is used to intuit \fIspec\fP forms from the help output of the command
+being analyzed, and is described in detail below\&.  The \fIopts\fP for the
+`\fB\-\fP\fB\-\fP\&' form are otherwise the same options as the first form\&.  Note
+that `\fB\-s\fP\&' following `\fB\-\fP\fB\-\fP' has a distinct meaning from `\fB\-s\fP'
+preceding `\fB\-\fP\fB\-\fP\&', and both may appear\&.
 .PP
 With the option \fB\-n\fP, \fB_arguments\fP sets the parameter \fBNORMARG\fP
 to the position of the first normal argument in the \fB$words\fP array,
@@ -3557,6 +3572,21 @@ i\&.e\&. the position after the end of the options\&.  If that argument
 has not been reached, \fBNORMARG\fP is set to \fB\-1\fP\&.  The caller
 should declare `\fBinteger NORMARG\fP\&' if the \fB\-n\fP option is passed;
 otherwise the parameter is not used\&.
+.PP
+The option `\fB\-M\fP \fImatchspec\fP\&' sets a match specification to use to
+completion option names and values\&.  The default \fImatchspec\fP is:
+.PP
+.RS
+.nf
+\fB\fBr:|[_\-]=* r:|=*\fP\fP
+.fi
+.RE
+.PP
+This allows partial word completion after `\fB_\fP\&' and `\fB\-\fP', for example
+`\-f\-b\&' can be completed to `\fB\-foo\-bar\fP'\&.
+.PP
+Each of the following forms is a \fIspec\fP describing individual sets of
+options or arguments on the command line being analyzed\&.
 .PP
 .PD 0
 .TP
@@ -3620,10 +3650,10 @@ suitable for standard GNU options\&.
 .PP
 The combination of \fB\-s\fP with \fB\-w\fP allows single\-letter options to be
 combined in a single word even if one or more of the options take
-arguments\&.  For example, if \fB\-a\fP takes an argument, with no
-\fB\-s\fP `\fB\-ab\fP\&' is considered as a single (unhandled) option; with
-\fB\-s\fP \fB\-ab\fP is an option with the argument `\fBb\fP\&'; with both \fB\-s\fP
-and \fB\-w\fP, \fB\-ab\fP may be the option \fB\-a\fP and the option \fB\-b\fP with
+arguments\&.  For example, if \fB\-x\fP takes an argument, with no
+\fB\-s\fP `\fB\-xy\fP\&' is considered as a single (unhandled) option; with
+\fB\-s\fP \fB\-xy\fP is an option with the argument `\fBy\fP\&'; with both \fB\-s\fP
+and \fB\-w\fP, \fB\-xy\fP may be the option \fB\-x\fP and the option \fB\-y\fP with
 arguments still to come\&.
 .PP
 The option \fB\-W\fP takes this a stage further:  it is possible to
@@ -3700,6 +3730,27 @@ that follows the \fIoptspec\fP; see below\&.
 .PP
 It is possible for options with a literal `+\&' or `\fB=\fP' to
 appear, but that character must be quoted, for example `\fB\-\e+\fP\&'\&.
+.PP
+The options \fB\-S\fP and \fB\-A\fP are available to simplify the specifications
+for commands with standard option parsing\&.  With \fB\-S\fP, no option will be
+completed after a `\fB\-\fP\fB\-\fP\&' appearing on its own on the line; this
+argument will otherwise be ignored; hence in the line
+.PP
+.RS
+.nf
+\fBfoobar \-x \-\- \-y\fP
+.fi
+.RE
+.PP
+the `\fB\-x\fP\&' is considered an option but the `\fB\-y\fP' is considered an
+argument, while the `\fB\-\fP\fB\-\fP\&' is considered to be neither\&.
+.PP
+With \fB\-A\fP, no options will be completed after the first non\-option
+argument on the line\&.  The \fB\-A\fP must be followed by a pattern matching
+all strings which are not to be taken as arguments\&.  For example, to make
+\fB_arguments\fP stop completing options after the first normal argument, but
+ignoring all strings starting with a hyphen even if they are not described
+by one of the \fIoptspec\fPs, the form is `\fB\-A "\-*"\fP\&'\&.
 .PP
 Each \fIoptarg\fP following an \fIoptspec\fP must take one of the
 following forms:
@@ -3785,6 +3836,11 @@ completions should be generated\&.  Except for the `\fB\->\fP\fIstring\fP\&'
 form below, the \fIaction\fP will be executed by calling the
 \fB_all_labels\fP function to process all tag labels\&.  No special handling
 of tags is needed unless a function call introduces a new one\&.
+.PP
+The option `\fB\-O\fP \fIname\fP\&' specifies the name of an array whose elements
+will be passed as arguments to functions called to execute \fIaction\fPs\&.
+For example, this can be used to pass the same set of options for the
+\fBcompadd\fP builtin to all \fIaction\fPs\&.
 .PP
 The forms for \fIaction\fP are as follows\&.
 .PP
@@ -3911,10 +3967,10 @@ elements of the array\&.
 .RE
 .RE
 .PP
-During the performance of the action the array `\fBline\fP\&'
-will be set to the command name and normal arguments from the command
-line, i\&.e\&. the words from the command line excluding all options
-and their arguments\&.  Options are stored in the associative array
+During the performance of the action the array `\fBline\fP\&' will be set to
+the normal arguments from the command line, i\&.e\&. the words from the
+command line after the command name excluding all options and their
+arguments\&.  Options are stored in the associative array
 `\fBopt_args\fP\&' with option names as keys and their arguments as
 the values\&.  For options that have more than one argument these are
 given as one string, separated by colons\&.  All colons in the original
@@ -3935,6 +3991,22 @@ option, the name is `\fBoption\-o\-1\fP\&', while for the second normal
 Furthermore, during the evaluation of the \fIaction\fP the context name in
 the \fBcurcontext\fP parameter is altered to append the same string that is
 stored in the \fBcontext\fP parameter\&.
+.PP
+The option \fB\-C\fP tells \fB_arguments\fP to modify the \fBcurcontext\fP
+parameter for an action of the form `\fB\->\fP\fIstate\fP\&'\&.  This is the
+standard parameter used to keep track of the current context\&.  Here it
+(and not the \fBcontext\fP array) should be made local to the calling
+function to avoid passing back the modified value and should be
+initialised to the current value at the start of the function:
+.PP
+.RS
+.nf
+\fBlocal curcontext="$curcontext"\fP
+.fi
+.RE
+.PP
+This is useful where it is not possible for multiple states to be valid
+together\&.
 .PP
 It is possible to specify multiple sets of options and
 arguments with the sets separated by single hyphens\&.  The specifications
@@ -3990,55 +4062,6 @@ A useful alternative is often an option specification with rest\-arguments
 (as in `\fB\-foo:*:\&.\&.\&.\fP\&'); here the option \fB\-foo\fP swallows up all
 remaining arguments as described by the \fIoptarg\fP definitions\&.
 .PP
-The options \fB\-S\fP and \fB\-A\fP are available to simplify the specifications
-for commands with standard option parsing\&.  With \fB\-S\fP, no option will be
-completed after a `\fB\-\fP\fB\-\fP\&' appearing on its own on the line; this
-argument will otherwise be ignored; hence in the line
-.PP
-.RS
-.nf
-\fBfoobar \-a \-\- \-b\fP
-.fi
-.RE
-.PP
-the `\fB\-a\fP\&' is considered an option but the `\fB\-b\fP' is considered an
-argument, while the `\fB\-\fP\fB\-\fP\&' is considered to be neither\&.
-.PP
-With \fB\-A\fP, no options will be completed after the first non\-option
-argument on the line\&.  The \fB\-A\fP must be followed by a pattern matching
-all strings which are not to be taken as arguments\&.  For example, to make
-\fB_arguments\fP stop completing options after the first normal argument, but
-ignoring all strings starting with a hyphen even if they are not described
-by one of the \fIoptspec\fPs, the form is `\fB\-A "\-*"\fP\&'\&.
-.PP
-The option `\fB\-O\fP \fIname\fP\&' specifies the name of an array whose elements
-will be passed as arguments to functions called to execute \fIactions\fP\&.
-For example, this can be used to pass the same set of options for the
-\fBcompadd\fP builtin to all \fIaction\fPs\&.
-.PP
-The option `\fB\-M\fP \fIspec\fP\&' sets a match specification to use to
-completion option names and values\&.  It must appear before the first
-argument specification\&.  The default is `\fBr:|[_\-]=* r:|=*\fP\&': this allows
-partial word completion after `\fB_\fP\&' and `\fB\-\fP', for example `\-f\-b'
-can be completed to `\fB\-foo\-bar\fP\&'\&.
-.PP
-The option \fB\-C\fP tells \fB_arguments\fP to modify
-the \fBcurcontext\fP parameter for an action of the form
-`\fB\->\fP\fIstate\fP\&'\&.  This is the standard parameter used to keep track of
-the current context\&.  Here it (and not the \fBcontext\fP array) should be
-made local to the calling function
-to avoid passing back the modified value and should be initialised to the
-current value at the start of the function:
-.PP
-.RS
-.nf
-\fBlocal curcontext="$curcontext"\fP
-.fi
-.RE
-.PP
-This is useful where it is not possible for multiple states to be valid
-together\&.
-.PP
 The option `\fB\-\fP\fB\-\fP\&' allows \fB_arguments\fP to work out the names of long
 options that support the `\fB\-\fP\fB\-help\fP\&' option which is standard in many
 GNU commands\&.  The command word is called with the argument
@@ -4049,11 +4072,16 @@ the behaviour of the command is unspecified\&.
 In addition to options, `\fB_arguments \-\fP\fB\-\fP\&' will try to deduce the
 types of arguments available for options when the form
 `\fB\-\fP\fB\-\fP\fIopt\fP=\fIval\fP\&' is valid\&.  It is also possible to provide
-hints by examining the help text of the command and adding specifiers of
-the form `\fIpattern\fP\fB:\fP\fImessage\fP\fB:\fP\fIaction\fP\&'; note that normal
-\fB_arguments\fP specifiers are not used\&.  The \fIpattern\fP is matched
+hints by examining the help text of the command and adding \fIhelpspec\fP of
+the form `\fIpattern\fP\fB:\fP\fImessage\fP\fB:\fP\fIaction\fP\&'; note that other
+\fB_arguments\fP \fIspec\fP forms are not used\&.  The \fIpattern\fP is matched
 against the help text for an option, and if it matches the \fImessage\fP and
-\fIaction\fP are used as for other argument specifiers\&.  For example:
+\fIaction\fP are used as for other argument specifiers\&.  The special case
+of `\fB*:\fP\&' means both \fImessage\fP and \fIaction\fP are empty, which has
+the effect of causing options having no description in the help output to
+be ordered in listings ahead of options that have a description\&.
+.PP
+For example:
 .PP
 .RS
 .nf
@@ -4107,16 +4135,27 @@ will cause completion to ignore the options
 useful with GNU \fBconfigure\fP)\&.
 .PP
 The `\fB_arguments \-\fP\fB\-\fP\&' form can also be followed by the option `\fB\-s\fP
-\fIpair\fP\&' to describe option aliases\&.  Each \fIpair\fP consists of a
-pattern and a replacement\&.  For example, some \fBconfigure\fP\-scripts
-describe options only as `\fB\-\fP\fB\-enable\-foo\fP\&', but also accept
+\fIpair\fP\&' to describe option aliases\&.  The \fIpair\fP consists of a list
+of alternating patterns and corresponding replacements, enclosed in parens
+and quoted so that it forms a single argument word in the \fB_arguments\fP
+call\&.
+.PP
+For example, some \fBconfigure\fP\-script help output describes options only
+as `\fB\-\fP\fB\-enable\-foo\fP\&', but the script also accepts the negated form
 `\fB\-\fP\fB\-disable\-foo\fP\&'\&.  To allow completion of the second form:
 .PP
 .RS
 .nf
-\fB_arguments \-\- \-s "(#\-\fB\-enable\- \-\fP\fB\-disable\-)"\fP\fP
+\fB\fB_arguments \-\- \-s "(#\-\fP\fB\-enable\- \-\fP\fB\-disable\-)"\fP\fP
 .fi
 .RE
+.PP
+Finally, note that \fB_arguments\fP generally expects to be the primary
+function handling any completion for which it is used\&.  It may have side
+effects which change the treatment of any matches added by other functions
+called after it\&.  To combine \fB_arguments\fP with other functions, those
+functions should be called either before \fB_arguments\fP, as an \fIaction\fP
+within a \fIspec\fP, or in handlers for `\fB\->\fP\fIstate\fP\&' actions\&.
 .PP
 Here is a more general example of the use of \fB_arguments\fP:
 .PP
@@ -4447,11 +4486,14 @@ which already contains an expanded description\&.
 The \fB\-12VJ\fP options and the \fIgroup\fP are passed to \fBcompadd\fP and
 hence determine the group the message string is added to\&.
 .PP
-The second form gives a description for completions with the tag
-\fItag\fP to be shown even if there are no matches for that tag\&.  The tag
-can be omitted and if so the tag is taken from the parameter
-\fB$curtag\fP; this is maintained by the completion system and so is
-usually correct\&.
+The second \fB\-e\fP form gives a description for completions with the tag
+\fItag\fP to be shown even if there are no matches for that tag\&.  This form
+is called by \fB_arguments\fP in the event that there is no action for an
+option specification\&.  The tag can be omitted and if so the tag is taken
+from the parameter \fB$curtag\fP; this is maintained by the completion
+system and so is usually correct\&.  Note that if there are no matches at
+the time this function is called, \fBcompstate[insert]\fP is cleared, so
+additional matches generated later are not inserted on the command line\&.
 .RE
 .TP
 \fB_multi_parts\fP \fIsep\fP \fIarray\fP
@@ -4619,8 +4661,7 @@ described above\&.
 .RE
 .TP
 .PD 0
-\fB_pick_variant\fP [ \fB\-b\fP \fIbuiltin\-label\fP ] [ \fB\-c\fP
-\fIcommand\fP ] [ \fB\-r\fP \fIname\fP ]
+\fB_pick_variant\fP [ \fB\-b\fP \fIbuiltin\-label\fP ] [ \fB\-c\fP \fIcommand\fP ] [ \fB\-r\fP \fIname\fP ]
 .TP
 .PD
    \fIlabel\fP\fB=\fP\fIpattern\fP \&.\&.\&. \fIlabel\fP [ \fIargs\fP \&.\&.\&. ]

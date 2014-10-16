@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>MAGIC_BUNDLE</string>
+	<string>MAGIC_TARGET</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.debian.alioth.pcsclite.smartcardccid</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -20,7 +20,7 @@
 	<key>CFBundleVersion</key>
 	<string>0.0.1d1</string>
 	<key>ifdCapabilities</key>
-	<string>MAGIC_IFDCAPABILITIES</string>
+	<string>0x00000000</string>
 
 	<!-- Possible values for ifdCapabilities bits
 	1: IFD_GENERATE_HOTPLUG
@@ -56,7 +56,7 @@
 	<!-- Possible values for ifdDriverOptions
 	1: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED
 		the CCID Exchange command is allowed. You can use it through
-		SCardControl(hCard, IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, ...) 
+		SCardControl(hCard, IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, ...)
 
 	2: DRIVER_OPTION_GEMPC_TWIN_KEY_APDU
 		If set the GemPC Twin and GemPC Key readers with be configured
@@ -85,15 +85,12 @@
 
 	bits 4 & 5: (values 0, 16, 32, 48)
 	  0: power on the card at 5V (default value)
-	 16: power on the card at 3V and then, it 3V fails use 5V
+	 16: power on the card at 3V and then, if 3V fails use 5V
 	 32: power on the card at 1.8V, then 3V and then 5V
 	 48: let the reader decide
 
 	Default value: 0
 	-->
-
-	<key>CFBundleExecutable</key>
-	<string>MAGIC_TARGET</string>
 
 	<key>ifdManufacturerString</key>
 	<string>Ludovic Rousseau (ludovic.rousseau@free.fr)</string>

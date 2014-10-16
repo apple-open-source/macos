@@ -34,10 +34,6 @@
 				<integer>36</integer>
 				<key>Manual Eject</key>
 				<string>true</string>
-				<key>IOMaximumBlockCountRead</key>
-				<integer>128</integer>
-				<key>IOMaximumBlockCountWrite</key>
-				<integer>128</integer>
 			</dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOUSBMassStorageClass</string>
@@ -66,10 +62,6 @@
 				<integer>36</integer>
 				<key>Manual Eject</key>
 				<string>true</string>
-				<key>IOMaximumBlockCountRead</key>
-				<integer>128</integer>
-				<key>IOMaximumBlockCountWrite</key>
-				<integer>128</integer>
 			</dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOUSBMassStorageClass</string>
@@ -98,10 +90,6 @@
 				<integer>36</integer>
 				<key>Manual Eject</key>
 				<string>true</string>
-				<key>IOMaximumBlockCountRead</key>
-				<integer>128</integer>
-				<key>IOMaximumBlockCountWrite</key>
-				<integer>128</integer>
 			</dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOUSBMassStorageClass</string>
@@ -132,10 +120,6 @@
 				<integer>36</integer>
 				<key>Manual Eject</key>
 				<string>true</string>
-				<key>IOMaximumBlockCountRead</key>
-				<integer>128</integer>
-				<key>IOMaximumBlockCountWrite</key>
-				<integer>128</integer>
 			</dict>
 			<key>IOClass</key>
 			<string>IOUSBMassStorageClass</string>
@@ -162,10 +146,6 @@
 				<integer>36</integer>
 				<key>Manual Eject</key>
 				<string>true</string>
-				<key>IOMaximumBlockCountRead</key>
-				<integer>128</integer>
-				<key>IOMaximumBlockCountWrite</key>
-				<integer>128</integer>
 			</dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOUSBMassStorageClass</string>

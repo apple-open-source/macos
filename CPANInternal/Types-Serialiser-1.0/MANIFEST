@@ -1,0 +1,11 @@
+README
+Changes
+MANIFEST
+COPYING
+Makefile.PL
+Serialiser.pm
+Serialiser/Error.pm
+t/00_load.t
+t/51_types.t
+META.yml                                 Module meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

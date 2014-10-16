@@ -192,6 +192,7 @@ protected:
 	virtual IOReturn clientClose(void);
 
 	virtual bool start(IOService *provider);
+	virtual void stop(IOService *provider);
 
 	virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
 		

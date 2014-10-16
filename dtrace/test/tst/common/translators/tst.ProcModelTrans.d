@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-proc_t *T;
-#else
 proc_t T;
-#endif /* __APPLE__ */
 
 BEGIN
 {

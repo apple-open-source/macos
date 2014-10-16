@@ -1,0 +1,665 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>config.charset</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">config.charset&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-reference">#! /bin/sh
+</span><span class="enscript-comment"># Output a system dependent table of character encoding aliases.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#   Copyright (C) 2000-2004, 2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#   This program is free software; you can redistribute it and/or modify it
+</span><span class="enscript-comment">#   under the terms of the GNU Library General Public License as published
+</span><span class="enscript-comment">#   by the Free Software Foundation; either version 2, or (at your option)
+</span><span class="enscript-comment">#   any later version.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#   This program is distributed in the hope that it will be useful,
+</span><span class="enscript-comment">#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+</span><span class="enscript-comment">#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+</span><span class="enscript-comment">#   Library General Public License for more details.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#   You should have received a copy of the GNU Library General Public
+</span><span class="enscript-comment">#   License along with this program; if not, write to the Free Software
+</span><span class="enscript-comment">#   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+</span><span class="enscript-comment">#   USA.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># The table consists of lines of the form
+</span><span class="enscript-comment">#    ALIAS  CANONICAL
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># ALIAS is the (system dependent) result of &quot;nl_langinfo (CODESET)&quot;.
+</span><span class="enscript-comment"># ALIAS is compared in a case sensitive way.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># CANONICAL is the GNU canonical name for this character encoding.
+</span><span class="enscript-comment"># It must be an encoding supported by libiconv. Support by GNU libc is
+</span><span class="enscript-comment"># also desirable. CANONICAL is case insensitive. Usually an upper case
+</span><span class="enscript-comment"># MIME charset name is preferred.
+</span><span class="enscript-comment"># The current list of GNU canonical charset names is as follows.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#       name              MIME?             used by which systems
+</span><span class="enscript-comment">#   ASCII, ANSI_X3.4-1968       glibc solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-1              Y   glibc aix hpux irix osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-2              Y   glibc aix hpux irix osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-3              Y   glibc solaris
+</span><span class="enscript-comment">#   ISO-8859-4              Y   osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-5              Y   glibc aix hpux irix osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-6              Y   glibc aix hpux solaris
+</span><span class="enscript-comment">#   ISO-8859-7              Y   glibc aix hpux irix osf solaris netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-8              Y   glibc aix hpux osf solaris
+</span><span class="enscript-comment">#   ISO-8859-9              Y   glibc aix hpux irix osf solaris darwin
+</span><span class="enscript-comment">#   ISO-8859-13                 glibc netbsd darwin
+</span><span class="enscript-comment">#   ISO-8859-14                 glibc
+</span><span class="enscript-comment">#   ISO-8859-15                 glibc aix osf solaris freebsd darwin
+</span><span class="enscript-comment">#   KOI8-R                  Y   glibc solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   KOI8-U                  Y   glibc freebsd netbsd darwin
+</span><span class="enscript-comment">#   KOI8-T                      glibc
+</span><span class="enscript-comment">#   CP437                       dos
+</span><span class="enscript-comment">#   CP775                       dos
+</span><span class="enscript-comment">#   CP850                       aix osf dos
+</span><span class="enscript-comment">#   CP852                       dos
+</span><span class="enscript-comment">#   CP855                       dos
+</span><span class="enscript-comment">#   CP856                       aix
+</span><span class="enscript-comment">#   CP857                       dos
+</span><span class="enscript-comment">#   CP861                       dos
+</span><span class="enscript-comment">#   CP862                       dos
+</span><span class="enscript-comment">#   CP864                       dos
+</span><span class="enscript-comment">#   CP865                       dos
+</span><span class="enscript-comment">#   CP866                       freebsd netbsd darwin dos
+</span><span class="enscript-comment">#   CP869                       dos
+</span><span class="enscript-comment">#   CP874                       woe32 dos
+</span><span class="enscript-comment">#   CP922                       aix
+</span><span class="enscript-comment">#   CP932                       aix woe32 dos
+</span><span class="enscript-comment">#   CP943                       aix
+</span><span class="enscript-comment">#   CP949                       osf woe32 dos
+</span><span class="enscript-comment">#   CP950                       woe32 dos
+</span><span class="enscript-comment">#   CP1046                      aix
+</span><span class="enscript-comment">#   CP1124                      aix
+</span><span class="enscript-comment">#   CP1125                      dos
+</span><span class="enscript-comment">#   CP1129                      aix
+</span><span class="enscript-comment">#   CP1250                      woe32
+</span><span class="enscript-comment">#   CP1251                      glibc solaris netbsd darwin woe32
+</span><span class="enscript-comment">#   CP1252                      aix woe32
+</span><span class="enscript-comment">#   CP1253                      woe32
+</span><span class="enscript-comment">#   CP1254                      woe32
+</span><span class="enscript-comment">#   CP1255                      glibc woe32
+</span><span class="enscript-comment">#   CP1256                      woe32
+</span><span class="enscript-comment">#   CP1257                      woe32
+</span><span class="enscript-comment">#   GB2312                  Y   glibc aix hpux irix solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   EUC-JP                  Y   glibc aix hpux irix osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   EUC-KR                  Y   glibc aix hpux irix osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   EUC-TW                      glibc aix hpux irix osf solaris netbsd
+</span><span class="enscript-comment">#   BIG5                    Y   glibc aix hpux osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   BIG5-HKSCS                  glibc solaris
+</span><span class="enscript-comment">#   GBK                         glibc aix osf solaris woe32 dos
+</span><span class="enscript-comment">#   GB18030                     glibc solaris netbsd
+</span><span class="enscript-comment">#   SHIFT_JIS               Y   hpux osf solaris freebsd netbsd darwin
+</span><span class="enscript-comment">#   JOHAB                       glibc solaris woe32
+</span><span class="enscript-comment">#   TIS-620                     glibc aix hpux osf solaris
+</span><span class="enscript-comment">#   VISCII                  Y   glibc
+</span><span class="enscript-comment">#   TCVN5712-1                  glibc
+</span><span class="enscript-comment">#   GEORGIAN-PS                 glibc
+</span><span class="enscript-comment">#   HP-ROMAN8                   hpux
+</span><span class="enscript-comment">#   HP-ARABIC8                  hpux
+</span><span class="enscript-comment">#   HP-GREEK8                   hpux
+</span><span class="enscript-comment">#   HP-HEBREW8                  hpux
+</span><span class="enscript-comment">#   HP-TURKISH8                 hpux
+</span><span class="enscript-comment">#   HP-KANA8                    hpux
+</span><span class="enscript-comment">#   DEC-KANJI                   osf
+</span><span class="enscript-comment">#   DEC-HANYU                   osf
+</span><span class="enscript-comment">#   UTF-8                   Y   glibc aix hpux osf solaris netbsd darwin
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Note: Names which are not marked as being a MIME name should not be used in
+</span><span class="enscript-comment"># Internet protocols for information interchange (mail, news, etc.).
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Note: ASCII and ANSI_X3.4-1968 are synonymous canonical names. Applications
+</span><span class="enscript-comment"># must understand both names and treat them as equivalent.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># The first argument passed to this file is the canonical host specification,
+</span><span class="enscript-comment">#    CPU_TYPE-MANUFACTURER-OPERATING_SYSTEM
+</span><span class="enscript-comment"># or
+</span><span class="enscript-comment">#    CPU_TYPE-MANUFACTURER-KERNEL-OPERATING_SYSTEM
+</span>
+host=<span class="enscript-string">&quot;$1&quot;</span>
+os=`<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$host&quot;</span> | sed -e 's/^[^-]*-[^-]*-\(.*\)$/\1/'`
+<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# This file contains a table of character encoding aliases,&quot;</span>
+<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# suitable for operating system '${os}'.&quot;</span>
+<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# It was automatically generated from config.charset.&quot;</span>
+<span class="enscript-comment"># List of references, updated during installation:
+</span><span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# Packages using this file: &quot;</span>
+<span class="enscript-keyword">case</span> <span class="enscript-string">&quot;$os&quot;</span> <span class="enscript-keyword">in</span>
+    linux-gnulibc1*)
+	<span class="enscript-comment"># Linux libc5 doesn't have nl_langinfo(CODESET); therefore
+</span>	<span class="enscript-comment"># localcharset.c falls back to using the full locale name
+</span>	<span class="enscript-comment"># from the environment variables.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;C ASCII&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;POSIX ASCII&quot;</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> af af_ZA ca ca_ES da da_DK de de_AT de_BE de_CH de_DE de_LU \
+	         en en_AU en_BW en_CA en_DK en_GB en_IE en_NZ en_US en_ZA \
+	         en_ZW es es_AR es_BO es_CL es_CO es_DO es_EC es_ES es_GT \
+	         es_HN es_MX es_PA es_PE es_PY es_SV es_US es_UY es_VE et \
+	         et_EE eu eu_ES <span class="enscript-keyword">fi</span> fi_FI fo fo_FO fr fr_BE fr_CA fr_CH fr_FR \
+	         fr_LU ga ga_IE gl gl_ES id id_ID <span class="enscript-keyword">in</span> in_ID is is_IS it it_CH \
+	         it_IT kl kl_GL nl nl_BE nl_NL no no_NO pt pt_BR pt_PT sv \
+	         sv_FI sv_SE; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-1 ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-15 ISO-8859-15&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-15@euro ISO-8859-15&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l@euro ISO-8859-15&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-437 CP437&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-850 CP850&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1252 CP1252&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1252@euro CP1252&quot;</span>
+	  <span class="enscript-comment">#echo &quot;$l.atari-st ATARI-ST&quot; # not a commonly used encoding
+</span>	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8@euro UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> cs cs_CZ hr hr_HR hu hu_HU pl pl_PL ro ro_RO sk sk_SK sl \
+	         sl_SI sr sr_CS sr_YU; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-2&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-2 ISO-8859-2&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-852 CP852&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1250 CP1250&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> mk mk_MK ru ru_RU; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-5&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-5 ISO-8859-5&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.koi8-r KOI8-R&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-866 CP866&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1251 CP1251&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ar ar_SA; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-6&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-6 ISO-8859-6&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-864 CP864&quot;</span>
+	  <span class="enscript-comment">#echo &quot;$l.cp-868 CP868&quot; # not a commonly used encoding
+</span>	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1256 CP1256&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> el el_GR gr gr_GR; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-7&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-7 ISO-8859-7&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-869 CP869&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1253 CP1253&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1253@euro CP1253&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8@euro UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> he he_IL iw iw_IL; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-8&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-8 ISO-8859-8&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-862 CP862&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1255 CP1255&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> tr tr_TR; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-9&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.iso-8859-9 ISO-8859-9&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-857 CP857&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.cp-1254 CP1254&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> lt lt_LT lv lv_LV; <span class="enscript-keyword">do</span>
+	  <span class="enscript-comment">#echo &quot;$l BALTIC&quot; # not a commonly used encoding, wrong encoding name
+</span>	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-13&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ru_UA uk uk_UA; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l KOI8-U&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> zh zh_CN; <span class="enscript-keyword">do</span>
+	  <span class="enscript-comment">#echo &quot;$l GB_2312-80&quot; # not a commonly used encoding, wrong encoding name
+</span>	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l GB2312&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ja ja_JP ja_JP.EUC; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l EUC-JP&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ko ko_KR; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l EUC-KR&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> th th_TH; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l TIS-620&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> fa fa_IR; <span class="enscript-keyword">do</span>
+	  <span class="enscript-comment">#echo &quot;$l ISIRI-3342&quot; # a broken encoding
+</span>	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.utf-8 UTF-8&quot;</span>
+	<span class="enscript-keyword">done</span>
+	;;
+    linux* | *-gnu*)
+	<span class="enscript-comment"># With glibc-2.1 or newer, we don't need any canonicalization,
+</span>	<span class="enscript-comment"># because glibc has iconv and both glibc and libiconv support all
+</span>	<span class="enscript-comment"># GNU canonical names directly. Therefore, the Makefile does not
+</span>	<span class="enscript-comment"># need to install the alias file at all.
+</span>	<span class="enscript-comment"># The following applies only to glibc-2.0.x and older libcs.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO_646.IRV:1983 ASCII&quot;</span>
+	;;
+    aix*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-1 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-5 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-6 ISO-8859-6&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-7 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-8 ISO-8859-8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-9 ISO-8859-9&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-850 CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-856 CP856&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-921 ISO-8859-13&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-922 CP922&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-932 CP932&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-943 CP943&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-1046 CP1046&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-1124 CP1124&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-1129 CP1129&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-1252 CP1252&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-eucCN GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-eucKR EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;IBM-eucTW EUC-TW&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;big5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;GBK GBK&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;TIS-620 TIS-620&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;UTF-8 UTF-8&quot;</span>
+	;;
+    hpux*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88591 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88592 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88595 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88596 ISO-8859-6&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88597 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88598 ISO-8859-8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso88599 ISO-8859-9&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;iso885915 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;roman8 HP-ROMAN8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;arabic8 HP-ARABIC8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;greek8 HP-GREEK8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hebrew8 HP-HEBREW8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;turkish8 HP-TURKISH8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;kana8 HP-KANA8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;tis620 TIS-620&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;big5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucKR EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucTW EUC-TW&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hp15CN GB2312&quot;</span>
+	<span class="enscript-comment">#echo &quot;ccdc ?&quot; # what is this?
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;SJIS SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;utf8 UTF-8&quot;</span>
+	;;
+    irix*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-1 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-5 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-7 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-9 ISO-8859-9&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucCN GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucKR EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucTW EUC-TW&quot;</span>
+	;;
+    osf*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-1 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-4 ISO-8859-4&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-5 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-7 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-8 ISO-8859-8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-9 ISO-8859-9&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;cp850 CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;big5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;dechanyu DEC-HANYU&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;dechanzi GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;deckanji DEC-KANJI&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;deckorean EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucKR EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucTW EUC-TW&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;GBK GBK&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;KSC5601 CP949&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sdeckanji EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;SJIS SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;TACTIS TIS-620&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;UTF-8 UTF-8&quot;</span>
+	;;
+    solaris*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;646 ASCII&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-1 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-3 ISO-8859-3&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-4 ISO-8859-4&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-5 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-6 ISO-8859-6&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-7 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-8 ISO-8859-8&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-9 ISO-8859-9&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;koi8-r KOI8-R&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ansi-1251 CP1251&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;BIG5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;Big5-HKSCS BIG5-HKSCS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;gb2312 GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;GBK GBK&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;GB18030 GB18030&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;cns11643 EUC-TW&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;5601 EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ko_KR.johap92 JOHAB&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;PCK SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;TIS620.2533 TIS-620&quot;</span>
+	<span class="enscript-comment">#echo &quot;sun_eu_greek ?&quot; # what is this?
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;UTF-8 UTF-8&quot;</span>
+	;;
+    freebsd* | os2*)
+	<span class="enscript-comment"># FreeBSD 4.2 doesn't have nl_langinfo(CODESET); therefore
+</span>	<span class="enscript-comment"># localcharset.c falls back to using the full locale name
+</span>	<span class="enscript-comment"># from the environment variables.
+</span>	<span class="enscript-comment"># Likewise for OS/2. OS/2 has XFree86 just like FreeBSD. Just
+</span>	<span class="enscript-comment"># reuse FreeBSD's locale data for OS/2.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;C ASCII&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;US-ASCII ASCII&quot;</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> la_LN lt_LN; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ASCII ASCII&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> da_DK de_AT de_CH de_DE en_AU en_CA en_GB en_US es_ES \
+	         fi_FI fr_BE fr_CA fr_CH fr_FR is_IS it_CH it_IT la_LN \
+	         lt_LN nl_BE nl_NL no_NO pt_PT sv_SE; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO_8859-1 ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.DIS_8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> cs_CZ hr_HR hu_HU la_LN lt_LN pl_PL sl_SI; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO_8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> la_LN lt_LT; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO_8859-4 ISO-8859-4&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ru_RU ru_SU; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.KOI8-R KOI8-R&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO_8859-5 ISO-8859-5&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.CP866 CP866&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;uk_UA.KOI8-U KOI8-U&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_TW.BIG5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_TW.Big5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_CN.EUC GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP.EUC EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP.SJIS SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP.Shift_JIS SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ko_KR.EUC EUC-KR&quot;</span>
+	;;
+    netbsd*)
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;646 ASCII&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-1 ISO-8859-1&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-4 ISO-8859-4&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-5 ISO-8859-5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-7 ISO-8859-7&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-13 ISO-8859-13&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucCN GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucJP EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucKR EUC-KR&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eucTW EUC-TW&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;BIG5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;SJIS SHIFT_JIS&quot;</span>
+	;;
+    darwin[56]*)
+	<span class="enscript-comment"># Darwin 6.8 doesn't have nl_langinfo(CODESET); therefore
+</span>	<span class="enscript-comment"># localcharset.c falls back to using the full locale name
+</span>	<span class="enscript-comment"># from the environment variables.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;C ASCII&quot;</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> en_AU en_CA en_GB en_US la_LN; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.US-ASCII ASCII&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> da_DK de_AT de_CH de_DE en_AU en_CA en_GB en_US es_ES \
+	         fi_FI fr_BE fr_CA fr_CH fr_FR is_IS it_CH it_IT nl_BE \
+	         nl_NL no_NO pt_PT sv_SE; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-1 ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> la_LN; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-1 ISO-8859-1&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-15 ISO-8859-15&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> cs_CZ hr_HR hu_HU la_LN pl_PL sl_SI; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-2 ISO-8859-2&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> la_LN lt_LT; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-4 ISO-8859-4&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> ru_RU; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.KOI8-R KOI8-R&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.ISO8859-5 ISO-8859-5&quot;</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.CP866 CP866&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">for</span> l <span class="enscript-keyword">in</span> bg_BG; <span class="enscript-keyword">do</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$l.CP1251 CP1251&quot;</span>
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;uk_UA.KOI8-U KOI8-U&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_TW.BIG5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_TW.Big5 BIG5&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_CN.EUC GB2312&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP.EUC EUC-JP&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP.SJIS SHIFT_JIS&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ko_KR.EUC EUC-KR&quot;</span>
+	;;
+    darwin*)
+	<span class="enscript-comment"># Darwin 7.5 has nl_langinfo(CODESET), but it is useless:
+</span>	<span class="enscript-comment"># - It returns the empty string when LANG is set to a locale of the
+</span>	<span class="enscript-comment">#   form ll_CC, although ll_CC/LC_CTYPE is a symlink to an UTF-8
+</span>	<span class="enscript-comment">#   LC_CTYPE file.
+</span>	<span class="enscript-comment"># - The environment variables LANG, LC_CTYPE, LC_ALL are not set by
+</span>	<span class="enscript-comment">#   the system; nl_langinfo(CODESET) returns &quot;US-ASCII&quot; in this case.
+</span>	<span class="enscript-comment"># - The documentation says:
+</span>	<span class="enscript-comment">#     &quot;... all code that calls BSD system routines should ensure
+</span>	<span class="enscript-comment">#      that the const *char parameters of these routines are in UTF-8
+</span>	<span class="enscript-comment">#      encoding. All BSD system functions expect their string
+</span>	<span class="enscript-comment">#      parameters to be in UTF-8 encoding and nothing else.&quot;
+</span>	<span class="enscript-comment">#   It also says
+</span>	<span class="enscript-comment">#     &quot;An additional caveat is that string parameters for files,
+</span>	<span class="enscript-comment">#      paths, and other file-system entities must be in canonical
+</span>	<span class="enscript-comment">#      UTF-8. In a canonical UTF-8 Unicode string, all decomposable
+</span>	<span class="enscript-comment">#      characters are decomposed ...&quot;
+</span>	<span class="enscript-comment">#   but this is not true: You can pass non-decomposed UTF-8 strings
+</span>	<span class="enscript-comment">#   to file system functions, and it is the OS which will convert
+</span>	<span class="enscript-comment">#   them to decomposed UTF-8 before accessing the file system.
+</span>	<span class="enscript-comment"># - The Apple Terminal application displays UTF-8 by default.
+</span>	<span class="enscript-comment"># - However, other applications are free to use different encodings:
+</span>	<span class="enscript-comment">#   - xterm uses ISO-8859-1 by default.
+</span>	<span class="enscript-comment">#   - TextEdit uses MacRoman by default.
+</span>	<span class="enscript-comment"># We prefer UTF-8 over decomposed UTF-8-MAC because one should
+</span>	<span class="enscript-comment"># minimize the use of decomposed Unicode. Unfortunately, through the
+</span>	<span class="enscript-comment"># Darwin file system, decomposed UTF-8 strings are leaked into user
+</span>	<span class="enscript-comment"># space nevertheless.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;* UTF-8&quot;</span>
+	;;
+    beos*)
+	<span class="enscript-comment"># BeOS has a single locale, and it has UTF-8 encoding.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;* UTF-8&quot;</span>
+	;;
+    msdosdjgpp*)
+	<span class="enscript-comment"># DJGPP 2.03 doesn't have nl_langinfo(CODESET); therefore
+</span>	<span class="enscript-comment"># localcharset.c falls back to using the full locale name
+</span>	<span class="enscript-comment"># from the environment variables.
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;#&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# The encodings given here may not all be correct.&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# If you find that the encoding given for your language and&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# country is not the one your DOS machine actually uses, just&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# correct it in this file, and send a mail to&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# Juan Manuel Guerrero &lt;<a href="mailto:juan.guerrero@gmx.de">juan.guerrero@gmx.de</a>&gt;&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;# and Bruno Haible &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;.&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;#&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;C ASCII&quot;</span>
+	<span class="enscript-comment"># ISO-8859-1 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ca CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ca_ES CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;da CP865&quot;</span>    <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;da_DK CP865&quot;</span> <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;de CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;de_AT CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;de_CH CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;de_DE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_AU CP850&quot;</span> <span class="enscript-comment"># not CP437 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_CA CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_GB CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_NZ CP437&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_US CP437&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;en_ZA CP850&quot;</span> <span class="enscript-comment"># not CP437 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_AR CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_BO CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_CL CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_CO CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_CR CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_CU CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_DO CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_EC CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_ES CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_GT CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_HN CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_MX CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_NI CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_PA CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_PY CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_PE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_SV CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_UY CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;es_VE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;et CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;et_EE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eu CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eu_ES CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fi CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fi_FI CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fr CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fr_BE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fr_CA CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fr_CH CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;fr_FR CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ga CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ga_IE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;gd CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;gd_GB CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;gl CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;gl_ES CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;id CP850&quot;</span>    <span class="enscript-comment"># not CP437 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;id_ID CP850&quot;</span> <span class="enscript-comment"># not CP437 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;is CP861&quot;</span>    <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;is_IS CP861&quot;</span> <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;it CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;it_CH CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;it_IT CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;lt CP775&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;lt_LT CP775&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;lv CP775&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;lv_LV CP775&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nb CP865&quot;</span>    <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nb_NO CP865&quot;</span> <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nl CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nl_BE CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nl_NL CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nn CP865&quot;</span>    <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;nn_NO CP865&quot;</span> <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;no CP865&quot;</span>    <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;no_NO CP865&quot;</span> <span class="enscript-comment"># not CP850 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;pt CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;pt_BR CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;pt_PT CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sv CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sv_SE CP850&quot;</span>
+	<span class="enscript-comment"># ISO-8859-2 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;cs CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;cs_CZ CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hr CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hr_HR CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hu CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;hu_HU CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;pl CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;pl_PL CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ro CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ro_RO CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sk CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sk_SK CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sl CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sl_SI CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sq CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sq_AL CP852&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sr CP852&quot;</span>    <span class="enscript-comment"># CP852 or CP866 or CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sr_CS CP852&quot;</span> <span class="enscript-comment"># CP852 or CP866 or CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;sr_YU CP852&quot;</span> <span class="enscript-comment"># CP852 or CP866 or CP855 ??
+</span>	<span class="enscript-comment"># ISO-8859-3 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mt CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mt_MT CP850&quot;</span>
+	<span class="enscript-comment"># ISO-8859-5 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;be CP866&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;be_BE CP866&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;bg CP866&quot;</span>    <span class="enscript-comment"># not CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;bg_BG CP866&quot;</span> <span class="enscript-comment"># not CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mk CP866&quot;</span>    <span class="enscript-comment"># not CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mk_MK CP866&quot;</span> <span class="enscript-comment"># not CP855 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ru CP866&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ru_RU CP866&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;uk CP1125&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;uk_UA CP1125&quot;</span>
+	<span class="enscript-comment"># ISO-8859-6 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_AE CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_DZ CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_EG CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_IQ CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_IR CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_JO CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_KW CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_MA CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_OM CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_QA CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_SA CP864&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ar_SY CP864&quot;</span>
+	<span class="enscript-comment"># ISO-8859-7 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;el CP869&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;el_GR CP869&quot;</span>
+	<span class="enscript-comment"># ISO-8859-8 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;he CP862&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;he_IL CP862&quot;</span>
+	<span class="enscript-comment"># ISO-8859-9 languages
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;tr CP857&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;tr_TR CP857&quot;</span>
+	<span class="enscript-comment"># Japanese
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja CP932&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;ja_JP CP932&quot;</span>
+	<span class="enscript-comment"># Chinese
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_CN GBK&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;zh_TW CP950&quot;</span> <span class="enscript-comment"># not CP938 ??
+</span>	<span class="enscript-comment"># Korean
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;kr CP949&quot;</span>    <span class="enscript-comment"># not CP934 ??
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;kr_KR CP949&quot;</span> <span class="enscript-comment"># not CP934 ??
+</span>	<span class="enscript-comment"># Thai
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;th CP874&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;th_TH CP874&quot;</span>
+	<span class="enscript-comment"># Other
+</span>	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eo CP850&quot;</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;eo_EO CP850&quot;</span>
+	;;
+<span class="enscript-keyword">esac</span>
+</pre>
+<hr />
+</body></html>

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -775,24 +775,7 @@ char **sh_argbuild(Shell_t *shp,int *nargs, const struct comnod *comptr,int flag
 }
 
 #if _pipe_socketpair && !_socketpair_devfd
-#   define sh_pipe	arg_pipe
-/*
- * create a real pipe (not a socket) and print message on failure
- */
-static int	arg_pipe(register int pv[])
-{
-	Shell_t *shp = sh_getinterp();
-	int fd[2];
-	if(pipe(fd)<0 || (pv[0]=fd[0])<0 || (pv[1]=fd[1])<0)
-		errormsg(SH_DICT,ERROR_system(1),e_pipe);
-	pv[0] = sh_iomovefd(pv[0]);
-	pv[1] = sh_iomovefd(pv[1]);
-	shp->fdstatus[pv[0]] = IONOSEEK|IOREAD;
-	shp->fdstatus[pv[1]] = IONOSEEK|IOWRITE;
-	sh_subsavefd(pv[0]);
-	sh_subsavefd(pv[1]);
-	return(0);
-}
+#   define sh_pipe(a)	sh_rpipe(a)
 #endif
 
 struct argnod *sh_argprocsub(Shell_t *shp,struct argnod *argp)
@@ -804,12 +787,19 @@ struct argnod *sh_argprocsub(Shell_t *shp,struct argnod *argp)
 	ap = (struct argnod*)stkseek(shp->stk,ARGVAL);
 	ap->argflag |= ARG_MAKE;
 	ap->argflag &= ~ARG_RAW;
-	sfwrite(shp->stk,e_devfdNN,8);
-	pv[2] = 0;
-	sh_pipe(pv);
 	fd = argp->argflag&ARG_RAW;
 	if(fd==0 && shp->subshell)
 		sh_subtmpfile(shp);
+#if SHOPT_DEVFD
+	sfwrite(shp->stk,e_devfdNN,8);
+	pv[2] = 0;
+	sh_pipe(pv);
+#else
+	pv[0] = -1;
+	shp->fifo = pathtemp(0,0,0,"ksh.fifo",0);
+	mkfifo(shp->fifo,S_IRUSR|S_IWUSR);
+	sfputr(shp->stk,shp->fifo,0);
+#endif /* SHOPT_DEVFD */
 	sfputr(shp->stk,fmtbase((long)pv[fd],10,0),0);
 	ap = (struct argnod*)stkfreeze(shp->stk,0);
 	shp->inpipe = shp->outpipe = 0;
@@ -829,8 +819,13 @@ struct argnod *sh_argprocsub(Shell_t *shp,struct argnod *argp)
 	shp->subshell = subshell;
 	if(monitor)
 		sh_onstate(SH_MONITOR);
+#if SHOPT_DEVFD
 	close(pv[1-fd]);
 	sh_iosave(shp,-pv[fd], shp->topfd, (char*)0);
+#else
+	free(shp->fifo);
+	shp->fifo = 0;
+#endif /* SHOPT_DEVFD */
 	return(ap);
 }
 
@@ -839,7 +834,6 @@ static int arg_expand(Shell_t *shp,register struct argnod *argp, struct argnod *
 {
 	register int count = 0;
 	argp->argflag &= ~ARG_MAKE;
-#if SHOPT_DEVFD
 	if(*argp->argval==0 && (argp->argflag&ARG_EXP))
 	{
 		struct argnod *ap;
@@ -849,7 +843,6 @@ static int arg_expand(Shell_t *shp,register struct argnod *argp, struct argnod *
 		count++;
 	}
 	else
-#endif	/* SHOPT_DEVFD */
 	if(!(argp->argflag&ARG_RAW))
 	{
 #if SHOPT_OPTIMIZE

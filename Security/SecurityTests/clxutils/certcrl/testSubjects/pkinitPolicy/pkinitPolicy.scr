@@ -1,0 +1,38 @@
+# 
+# verify PKINIT policy
+# The certs noCA.cer and noBC.cer must be in your trusted KDC keychain or otherwise
+# be trusted somehow. You can add them using the pkinitTool (tech/dmitch/Misc/pkinitTool/)
+# like so:
+#
+#       % pkinitTool t noCA.cer
+#       ...KDC cert trust assignment successful
+#       % pkinitTool t noBC.cer
+#       ...KDC cert trust assignment successful
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = true
+allowUnverified = true
+end
+
+test = "Client, root cert, expect fail"
+policy = pkinitClient
+cert = noCA.cer
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+end
+
+test = "Server, CA, expect fail"
+policy = pkinitServer
+cert = CA.cer
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+end
+
+test = "Server, !CA, success"
+policy = pkinitServer
+cert = noCA.cer
+end
+
+test = "Server, !BC, success"
+policy = pkinitServer
+cert = noBC.cer
+end

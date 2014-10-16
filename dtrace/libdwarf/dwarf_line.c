@@ -44,8 +44,49 @@
 #include <alloca.h>
 #endif
 
+static int
+is_path_separator(Dwarf_Small s)
+{
+  if(s == '/') {
+    return 1;
+  }
+#ifdef HAVE_WINDOWS_PATH
+  if(s == '\\') {
+    return 1;
+  }
+#endif
+  return 0;
+}
 
-/* 
+/* Return 0 if false, 1 if true.
+ If HAVE_WINDOWS_PATH is defined we
+ attempt to handle windows full paths:
+ \\something   or  C:cwdpath.c
+ */
+static int
+file_name_is_full_path(Dwarf_Small  *fname)
+{
+  Dwarf_Small firstc = *fname;
+  if(is_path_separator(firstc)) {
+    /* Full path. */
+    return 1;
+  }
+  if(!firstc) {
+    return 0;
+  }
+#ifdef HAVE_WINDOWS_PATH
+  if((firstc >= 'A' && firstc <= 'Z') ||
+     (firstc >= 'a' && firstc <= 'z')) {
+    Dwarf_Small secondc = fname[1];
+    if (secondc == ':') {
+      return 1;
+    }
+  }
+#endif
+  return 0;
+}
+
+/*
     Although source files is supposed to return the
     source files in the compilation-unit, it does
     not look for any in the statement program.  In
@@ -57,214 +98,222 @@ dwarf_srcfiles(Dwarf_Die die,
 	       char ***srcfiles,
 	       Dwarf_Signed * srcfilecount, Dwarf_Error * error)
 {
-    /* 
-       This pointer is used to scan the portion of the .debug_line
-       section for the current cu. */
-    Dwarf_Small *line_ptr;
+  /* This pointer is used to scan the portion of the .debug_line
+   section for the current cu. */
+  Dwarf_Small *line_ptr;
+  
+  /* Pointer to a DW_AT_stmt_list attribute in case it exists in the
+   die. */
+  Dwarf_Attribute stmt_list_attr;
+  
+  /* Pointer to DW_AT_comp_dir attribute in die. */
+  Dwarf_Attribute comp_dir_attr;
+  
+  /* Pointer to name of compilation directory. */
+  Dwarf_Small *comp_dir = 0;
+  
+  /* Offset into .debug_line specified by a DW_AT_stmt_list
+   attribute. */
+  Dwarf_Unsigned line_offset = 0;
+  
+  /* This points to a block of char *'s, each of which points to a
+   file name. */
+  char **ret_files = 0;
+  
+  /* The Dwarf_Debug this die belongs to. */
+  Dwarf_Debug dbg = 0;
 
-
-    /* 
-       Pointer to a DW_AT_stmt_list attribute in case it exists in the
-       die. */
-    Dwarf_Attribute stmt_list_attr;
-
-    /* Pointer to DW_AT_comp_dir attribute in die. */
-    Dwarf_Attribute comp_dir_attr;
-
-    /* Pointer to name of compilation directory. */
-    Dwarf_Small *comp_dir = 0;
-
-    /* Offset into .debug_line specified by a DW_AT_stmt_list
-       attribute. */
-    Dwarf_Unsigned line_offset = 0;
-
-
-
-    /* 
-       This points to a block of char *'s, each of which points to a
-       file name. */
-    char **ret_files = 0;
-
-    /* The Dwarf_Debug this die belongs to. */
-    Dwarf_Debug dbg = 0;
-
-    /* Used to chain the file names. */
-    Dwarf_Chain curr_chain, prev_chain, head_chain = NULL;
-    int resattr = 0;
-    int lres = 0;
-    struct Line_Table_Prefix_s line_prefix;
-    int i = 0;
-    int res = 0;
-
+  /* Used to chain the file names. */
+  Dwarf_Chain curr_chain = NULL;
+  Dwarf_Chain prev_chain = NULL;
+  Dwarf_Chain head_chain = NULL;
+  Dwarf_Half attrform = 0;
+  int resattr = DW_DLV_ERROR;
+  int lres = DW_DLV_ERROR;
+  struct Line_Table_Prefix_s line_prefix;
+  int i = 0;
+  int res = DW_DLV_ERROR;
 
     /* ***** BEGIN CODE ***** */
 
-    /* Reset error. */
-    if (error != NULL)
-	*error = NULL;
+  /* ***** BEGIN CODE ***** */
+  /* Reset error. */
+  if (error != NULL)
+    *error = NULL;
 
-    CHECK_DIE(die, DW_DLV_ERROR)
-	dbg = die->di_cu_context->cc_dbg;
+  CHECK_DIE(die, DW_DLV_ERROR);
+  dbg = die->di_cu_context->cc_dbg;
 
-    resattr = dwarf_attr(die, DW_AT_stmt_list, &stmt_list_attr, error);
-    if (resattr != DW_DLV_OK) {
-	return resattr;
+  resattr = dwarf_attr(die, DW_AT_stmt_list, &stmt_list_attr, error);
+  if (resattr != DW_DLV_OK) {
+    return resattr;
+  }
+
+  if (dbg->de_debug_line_index== 0) {
+    _dwarf_error(dbg, error, DW_DLE_DEBUG_LINE_NULL);
+    return (DW_DLV_ERROR);
+  }
+
+  res = _dwarf_load_section(dbg, dbg->de_debug_line_index, &dbg->de_debug_line, error);
+  if (res != DW_DLV_OK) {
+    return res;
+  }
+
+  lres = dwarf_whatform(stmt_list_attr, &attrform, error);
+  if (lres != DW_DLV_OK) {
+    return lres;
+  }
+  if (attrform != DW_FORM_data4
+      && attrform != DW_FORM_data8
+      && attrform != DW_FORM_sec_offset )
+  {
+    _dwarf_error(dbg, error, DW_DLE_LINE_OFFSET_BAD);
+    return (DW_DLV_ERROR);
+  }
+  lres = dwarf_global_formref(stmt_list_attr, &line_offset, error);
+  if (lres != DW_DLV_OK) {
+    return lres;
+  }
+  if (line_offset >= dbg->de_debug_line_size) {
+    _dwarf_error(dbg, error, DW_DLE_LINE_OFFSET_BAD);
+    return (DW_DLV_ERROR);
+  }
+  line_ptr = dbg->de_debug_line + line_offset;
+  dwarf_dealloc(dbg, stmt_list_attr, DW_DLA_ATTR);
+
+  /*
+   If die has DW_AT_comp_dir attribute, get the string that names
+   the compilation directory. */
+  resattr = dwarf_attr(die, DW_AT_comp_dir, &comp_dir_attr, error);
+  if (resattr == DW_DLV_ERROR) {
+    return resattr;
+  }
+  if (resattr == DW_DLV_OK) {
+    int cres = DW_DLV_ERROR;
+    char *cdir = 0;
+    
+    cres = dwarf_formstring(comp_dir_attr, &cdir, error);
+    if (cres == DW_DLV_ERROR) {
+      return cres;
+    } else if (cres == DW_DLV_OK) {
+      comp_dir = (Dwarf_Small *) cdir;
+    }
+  }
+  if (resattr == DW_DLV_OK) {
+    dwarf_dealloc(dbg, comp_dir_attr, DW_DLA_ATTR);
+  }
+
+  dwarf_init_line_table_prefix(&line_prefix);
+
+  {
+    Dwarf_Small *line_ptr_out = 0;
+    int dres = dwarf_read_line_table_prefix(dbg,
+      line_ptr,
+      dbg->de_debug_line_size,
+      &line_ptr_out,
+      &line_prefix, error);
+
+    if (dres == DW_DLV_ERROR)
+      return dres;
+    if (dres == DW_DLV_NO_ENTRY) {
+      dwarf_free_line_table_prefix(&line_prefix);
+      return dres;
     }
 
-    if (dbg->de_debug_line_index == 0) {
-	_dwarf_error(dbg, error, DW_DLE_DEBUG_LINE_NULL);
-	return (DW_DLV_ERROR);
+    line_ptr = line_ptr_out;
+  }
+
+  for (i = 0; i < line_prefix.pf_files_count; ++i) {
+    struct Line_Table_File_Entry_s *fe =
+    line_prefix.pf_line_table_file_entries + i;
+    char *file_name = (char *) fe->lte_filename;
+    char *dir_name = 0;
+    char *full_name = 0;
+    Dwarf_Unsigned dir_index = fe->lte_directory_index;
+    
+    if (dir_index == 0) {
+      dir_name = (char *) comp_dir;
+    } else {
+      dir_name =
+      (char *) line_prefix.pf_include_directories[
+                                                  fe->lte_directory_index - 1];
     }
 
-    res =
-	_dwarf_load_section(dbg,
-			    dbg->de_debug_line_index,
-			    &dbg->de_debug_line, error);
-    if (res != DW_DLV_OK) {
-	return res;
+    /* dir_name can be NULL if there is no DW_AT_comp_dir */
+    if(dir_name == 0 || file_name_is_full_path(file_name)) {
+      /* This is safe because dwarf_dealloc is careful to not
+       dealloc strings which are part of the raw .debug_* data.
+       */
+      full_name = file_name;
+    } else {
+      full_name = (char *) _dwarf_get_alloc(dbg, DW_DLA_STRING,
+                                            strlen(dir_name) + 1 +
+                                            strlen(file_name) +
+                                            1);
+      if (full_name == NULL) {
+        dwarf_free_line_table_prefix(&line_prefix);
+        _dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
+        return (DW_DLV_ERROR);
+      }
+      
+      /* This is not careful to avoid // in the output, Nothing
+       forces a 'canonical' name format here. Unclear if this
+       needs to be fixed. */
+      strcpy(full_name, dir_name);
+      strcat(full_name, "/");
+      strcat(full_name, file_name);
     }
 
-    lres = dwarf_formudata(stmt_list_attr, &line_offset, error);
-    if (lres != DW_DLV_OK) {
-	return lres;
-    }
-    if (line_offset >= dbg->de_debug_line_size) {
-	_dwarf_error(dbg, error, DW_DLE_LINE_OFFSET_BAD);
-	return (DW_DLV_ERROR);
-    }
-    line_ptr = dbg->de_debug_line + line_offset;
-    dwarf_dealloc(dbg, stmt_list_attr, DW_DLA_ATTR);
-
-    /* 
-       If die has DW_AT_comp_dir attribute, get the string that names
-       the compilation directory. */
-    resattr = dwarf_attr(die, DW_AT_comp_dir, &comp_dir_attr, error);
-    if (resattr == DW_DLV_ERROR) {
-	return resattr;
-    }
-    if (resattr == DW_DLV_OK) {
-	int cres;
-	char *cdir;
-
-	cres = dwarf_formstring(comp_dir_attr, &cdir, error);
-	if (cres == DW_DLV_ERROR) {
-	    return cres;
-	} else if (cres == DW_DLV_OK) {
-	    comp_dir = (Dwarf_Small *) cdir;
-	}
-    }
-    if (resattr == DW_DLV_OK) {
-	dwarf_dealloc(dbg, comp_dir_attr, DW_DLA_ATTR);
-    }
-    dwarf_init_line_table_prefix(&line_prefix);
-    {
-	Dwarf_Small *line_ptr_out = 0;
-	int dres = dwarf_read_line_table_prefix(dbg,
-						line_ptr,
-						dbg->de_debug_line_size,
-						&line_ptr_out,
-						&line_prefix, error);
-
-	if (dres == DW_DLV_ERROR)
-	    return dres;
-	if (dres == DW_DLV_NO_ENTRY) {
-	    dwarf_free_line_table_prefix(&line_prefix);
-	    return dres;
-	}
-
-	line_ptr = line_ptr_out;
-    }
-
-    for (i = 0; i < line_prefix.pf_files_count; ++i) {
-	struct Line_Table_File_Entry_s *fe =
-	    line_prefix.pf_line_table_file_entries + i;
-	char *file_name = (char *) fe->lte_filename;
-	char *dir_name = 0;
-	char *full_name = 0;
-	Dwarf_Unsigned dir_index = fe->lte_directory_index;
-
-	if (dir_index == 0) {
-	    dir_name = (char *) comp_dir;
-	} else {
-	    dir_name =
-		(char *) line_prefix.pf_include_directories[fe->
-							    lte_directory_index
-							    - 1];
-	}
-
-	/* dir_name can be NULL if there is no DW_AT_comp_dir */
-	if ((*file_name) == '/' || dir_name == 0) {
-	    /* This is safe because dwarf_dealloc is careful to not
-	       dealloc strings which are part of the raw .debug_* data. 
-	     */
-	    full_name = file_name;
-	} else {
-	    full_name = (char *) _dwarf_get_alloc(dbg, DW_DLA_STRING,
-						  strlen(dir_name) + 1 +
-						  strlen(file_name) +
-						  1);
-	    if (full_name == NULL) {
-		_dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
-		return (DW_DLV_ERROR);
-	    }
-
-	    /* This is not careful to avoid // in the output, Nothing
-	       forces a 'canonical' name format here. Unclear if this
-	       needs to be fixed. */
-	    strcpy(full_name, dir_name);
-	    strcat(full_name, "/");
-	    strcat(full_name, file_name);
-	}
-	curr_chain =
-	    (Dwarf_Chain) _dwarf_get_alloc(dbg, DW_DLA_CHAIN, 1);
-	if (curr_chain == NULL) {
-	    _dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
-	    return (DW_DLV_ERROR);
-	}
-	curr_chain->ch_item = full_name;
-	if (head_chain == NULL)
-	    head_chain = prev_chain = curr_chain;
-	else {
-	    prev_chain->ch_next = curr_chain;
-	    prev_chain = curr_chain;
-	}
-
-
-    }
-
-    curr_chain = (Dwarf_Chain) _dwarf_get_alloc(dbg, DW_DLA_CHAIN, 1);
+    curr_chain =
+    (Dwarf_Chain) _dwarf_get_alloc(dbg, DW_DLA_CHAIN, 1);
     if (curr_chain == NULL) {
-	_dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
-	return (DW_DLV_ERROR);
+      dwarf_free_line_table_prefix(&line_prefix);
+      _dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
+      return (DW_DLV_ERROR);
     }
-
-
-
-
-    if (line_prefix.pf_files_count == 0) {
-	*srcfiles = NULL;
-	*srcfilecount = 0;
-	return (DW_DLV_NO_ENTRY);
+    curr_chain->ch_item = full_name;
+    if (head_chain == NULL)
+      head_chain = prev_chain = curr_chain;
+    else {
+      prev_chain->ch_next = curr_chain;
+      prev_chain = curr_chain;
     }
+  }
 
-    ret_files = (char **)
-	_dwarf_get_alloc(dbg, DW_DLA_LIST, line_prefix.pf_files_count);
-    if (ret_files == NULL) {
-	_dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
-	return (DW_DLV_ERROR);
-    }
+  curr_chain = (Dwarf_Chain) _dwarf_get_alloc(dbg, DW_DLA_CHAIN, 1);
+  if (curr_chain == NULL) {
+    dwarf_free_line_table_prefix(&line_prefix);
+    _dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
+    return (DW_DLV_ERROR);
+  }
 
-    curr_chain = head_chain;
-    for (i = 0; i < line_prefix.pf_files_count; i++) {
-	*(ret_files + i) = curr_chain->ch_item;
-	prev_chain = curr_chain;
-	curr_chain = curr_chain->ch_next;
-	dwarf_dealloc(dbg, prev_chain, DW_DLA_CHAIN);
-    }
-
-    *srcfiles = ret_files;
-    *srcfilecount = line_prefix.pf_files_count;
-    return (DW_DLV_OK);
+  if (line_prefix.pf_files_count == 0) {
+    *srcfiles = NULL;
+    *srcfilecount = 0;
+    dwarf_free_line_table_prefix(&line_prefix);
+    return (DW_DLV_NO_ENTRY);
+  }
+  
+  ret_files = (char **)
+  _dwarf_get_alloc(dbg, DW_DLA_LIST, line_prefix.pf_files_count);
+  if (ret_files == NULL) {
+    _dwarf_error(dbg, error, DW_DLE_ALLOC_FAIL);
+    dwarf_free_line_table_prefix(&line_prefix);
+    return (DW_DLV_ERROR);
+  }
+  
+  curr_chain = head_chain;
+  for (i = 0; i < line_prefix.pf_files_count; i++) {
+    *(ret_files + i) = curr_chain->ch_item;
+    prev_chain = curr_chain;
+    curr_chain = curr_chain->ch_next;
+    dwarf_dealloc(dbg, prev_chain, DW_DLA_CHAIN);
+  }
+  
+  *srcfiles = ret_files;
+  *srcfilecount = line_prefix.pf_files_count;
+  dwarf_free_line_table_prefix(&line_prefix);
+  return (DW_DLV_OK);
 }
 
 
@@ -1587,7 +1636,8 @@ dwarf_read_line_table_prefix(Dwarf_Debug dbg,
     prefix_out->pf_version = version;
     line_ptr += sizeof(Dwarf_Half);
     if (version != CURRENT_VERSION_STAMP &&
-	version != CURRENT_VERSION_STAMP3) {
+	version != CURRENT_VERSION_STAMP3 &&
+	version != CURRENT_VERSION_STAMP4) {
 	_dwarf_error(dbg, err, DW_DLE_VERSION_STAMP_ERROR);
 	return (DW_DLV_ERROR);
     }

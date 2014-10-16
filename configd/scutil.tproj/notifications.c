@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -373,7 +373,7 @@ do_notify_file(int argc, char **argv)
 	bufPtr = &buf.data[0];
 	needed = sizeof(buf.gotID);
 	while (needed > 0) {
-		int	got;
+		ssize_t	got;
 
 		got = read(fd, bufPtr, needed);
 		if (got == -1) {
@@ -388,7 +388,7 @@ do_notify_file(int argc, char **argv)
 			break;
 		}
 
-		SCPrint(TRUE, stdout, CFSTR("Received %d bytes.\n"), got);
+		SCPrint(TRUE, stdout, CFSTR("Received %ld bytes.\n"), got);
 		bufPtr += got;
 		needed -= got;
 	}

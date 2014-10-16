@@ -120,9 +120,11 @@ int32_t BRBLLogFunc(void *refcon, int32_t level, const char *string);
  *
  *      This function should give the same results as spawning
  *      kextcache -u <volRoot> and waiting for it to succeed.
- *      However, it will perform everything except kernel cache
- *      building in the calling process.  When running on an older
- *      OS, volRoot's source caches must already be up to date.
+ *      It will, however, perform all timestamp checking in the calling
+ *      process.  If a kernel/kext cache needs to be rebuilt, it will
+ *      launch the current running OS's kextcache.  As a result of this
+ *      dependency, kernel/kext cache rebuilds are only supported if
+ *      the running OS is as new or newer than the target OS.
  */
 OSStatus BRUpdateBootFiles(CFURLRef volRoot, Boolean force);
 

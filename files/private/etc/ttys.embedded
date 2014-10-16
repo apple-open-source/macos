@@ -3,9 +3,6 @@
 #
 # name	getty				type	status		comments
 #
-# To secure single-user mode, enable Firmware password protection.
-# http://docs.info.apple.com/article.html?artnum=106482
-#
 console 	"/usr/libexec/getty std.57600"	vt100	off secure
 #tahoe's only
 #remote	"/usr/libexec/getty std.1200"	pt	on		# diagnostics

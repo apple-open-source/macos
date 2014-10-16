@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,7 +21,7 @@
 
 #include "config.h"
 
-#if ENABLE(SVG) && ENABLE(FILTERS)
+#if ENABLE(FILTERS)
 #include "SVGFEBlendElement.h"
 
 #include "Attribute.h"
@@ -28,13 +29,14 @@
 #include "SVGElementInstance.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEBlendElement, SVGNames::inAttr, In1, in1)
 DEFINE_ANIMATED_STRING(SVGFEBlendElement, SVGNames::in2Attr, In2, in2)
-DEFINE_ANIMATED_ENUMERATION(SVGFEBlendElement, SVGNames::modeAttr, Mode, mode, BlendModeType)
+DEFINE_ANIMATED_ENUMERATION(SVGFEBlendElement, SVGNames::modeAttr, Mode, mode, BlendMode)
 
 BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEBlendElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(in1)
@@ -43,28 +45,28 @@ BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEBlendElement)
     REGISTER_PARENT_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
 END_REGISTER_ANIMATED_PROPERTIES
 
-inline SVGFEBlendElement::SVGFEBlendElement(const QualifiedName& tagName, Document* document)
+inline SVGFEBlendElement::SVGFEBlendElement(const QualifiedName& tagName, Document& document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
-    , m_mode(FEBLEND_MODE_NORMAL)
+    , m_mode(BlendModeNormal)
 {
     ASSERT(hasTagName(SVGNames::feBlendTag));
     registerAnimatedPropertiesForSVGFEBlendElement();
 }
 
-PassRefPtr<SVGFEBlendElement> SVGFEBlendElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<SVGFEBlendElement> SVGFEBlendElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(new SVGFEBlendElement(tagName, document));
 }
 
 bool SVGFEBlendElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
-    if (supportedAttributes.isEmpty()) {
-        supportedAttributes.add(SVGNames::modeAttr);
-        supportedAttributes.add(SVGNames::inAttr);
-        supportedAttributes.add(SVGNames::in2Attr);
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
+        supportedAttributes.get().add(SVGNames::modeAttr);
+        supportedAttributes.get().add(SVGNames::inAttr);
+        supportedAttributes.get().add(SVGNames::in2Attr);
     }
-    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGFEBlendElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -75,9 +77,9 @@ void SVGFEBlendElement::parseAttribute(const QualifiedName& name, const AtomicSt
     }
 
     if (name == SVGNames::modeAttr) {
-        BlendModeType propertyValue = SVGPropertyTraits<BlendModeType>::fromString(value);
-        if (propertyValue > 0)
-            setModeBaseValue(propertyValue);
+        BlendMode mode = BlendModeNormal;
+        if (parseBlendMode(value, mode))
+            setModeBaseValue(mode);
         return;
     }
 
@@ -144,4 +146,4 @@ PassRefPtr<FilterEffect> SVGFEBlendElement::build(SVGFilterBuilder* filterBuilde
 
 }
 
-#endif // ENABLE(SVG)
+#endif

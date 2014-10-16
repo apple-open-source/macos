@@ -1,0 +1,84 @@
+#! /bin/csh -f
+#
+# verify all of the certs in specified directory as intermediates. They must
+# verify against the system roots. 
+#
+if ( $#argv < 1 ) then
+        echo "Usage: intermedSourceTest directory [q(uiet)] [t(rustSettings)]"
+		echo A good directory would be ../../../security_certificates/certs/
+        exit(1)
+endif
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set CERTS_DIR=$argv[1]
+
+set QUIET=0
+set TRUST_SETTINGS_ARG=
+shift
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET = 1
+            shift
+            breaksw
+        case t:
+            set TRUST_SETTINGS_ARG = -g
+            shift
+            breaksw
+        default:
+			echo Usage: intermedSourceTest directory
+            exit(1)
+    endsw
+end
+
+#
+# binaries we need
+#
+set CERTCRL=$BUILD_DIR/certcrl
+set CERTS_FROM_DB=$BUILD_DIR/certsFromDb
+foreach targ ($CERTCRL $CERTS_FROM_DB)
+	if(! -e $targ) then
+		echo === $targ is missing. Try building clxutil. 
+		exit(1)
+	endif
+end
+
+set SYSTEM_CERTS=/System/Library/Keychains/SystemCACertificates.keychain
+
+echo starting intermedSourceTest
+#
+# certcrl args:
+#
+#  -c  cert to eval
+#  -s  use system anchors
+#  -a  allow certs unverified by CRLs
+#  -n  no network fetch of CRLs
+#  -N  no network fetch of certs  
+#  -f  leaf cert is a CA
+#  -d  SYSTEM_CERTS   -- use additional certs from there
+#  -L  silent
+#  -g  use Trust Settings
+#
+cd $CERTS_DIR
+foreach certFile (*)
+	if ( -f "$certFile" ) then 
+		if($QUIET == 0) then
+			echo testing $certFile....
+		endif
+		$CERTCRL -c "$certFile" -s -a -f -L -n -N -d $SYSTEM_CERTS $TRUST_SETTINGS_ARG
+		set ERR=$status
+		if($ERR == 1) then
+		   echo "Note: $certFile is expired"
+		else
+		if($ERR != 0) then
+		   echo "++++++++ Verification error on $certFile ($ERR)"
+		   $CERTCRL -c "$certFile" -s -a -f -v -n -N -d $SYSTEM_CERTS $TRUST_SETTINGS_ARG
+		   exit(1)
+		endif
+	endif
+end
+
+if($QUIET == 0) then
+	echo "...intermedSourceTest complete"
+endif
+

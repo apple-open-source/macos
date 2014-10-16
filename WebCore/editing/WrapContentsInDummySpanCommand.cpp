@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,7 +28,6 @@
 
 #include "ApplyStyleCommand.h"
 #include "ExceptionCodePlaceholder.h"
-#include "HTMLElement.h"
 
 namespace WebCore {
 
@@ -41,7 +40,7 @@ WrapContentsInDummySpanCommand::WrapContentsInDummySpanCommand(PassRefPtr<Elemen
 
 void WrapContentsInDummySpanCommand::executeApply()
 {
-    Vector<RefPtr<Node> > children;
+    Vector<RefPtr<Node>> children;
     for (Node* child = m_element->firstChild(); child; child = child->nextSibling())
         children.append(child);
 
@@ -63,10 +62,10 @@ void WrapContentsInDummySpanCommand::doUnapply()
 {
     ASSERT(m_element);
 
-    if (!m_dummySpan || !m_element->rendererIsEditable())
+    if (!m_dummySpan || !m_element->hasEditableStyle())
         return;
 
-    Vector<RefPtr<Node> > children;
+    Vector<RefPtr<Node>> children;
     for (Node* child = m_dummySpan->firstChild(); child; child = child->nextSibling())
         children.append(child);
 
@@ -81,7 +80,7 @@ void WrapContentsInDummySpanCommand::doReapply()
 {
     ASSERT(m_element);
     
-    if (!m_dummySpan || !m_element->rendererIsEditable())
+    if (!m_dummySpan || !m_element->hasEditableStyle())
         return;
 
     executeApply();

@@ -39,11 +39,16 @@ __END_DECLS
 
 //Begin-Libc
 #ifdef __LIBC__
-__DARWIN_CTYPE_inline int     
+__DARWIN_CTYPE_inline int
 __maskrune_l(__darwin_ct_rune_t _c, unsigned long _f, locale_t _l)
 {
-	return ((_c < 0 || _c >= _CACHED_RUNES) ? ___runetype_l(_c, _l) :
-		__locale_ptr(_l)->__lc_ctype->_CurrentRuneLocale.__runetype[_c]) & _f;
+	/* _CurrentRuneLocale.__runetype is __uint32_t
+	 * _f is unsigned long
+	 * ___runetype_l(_c, _l) is unsigned long
+	 * retval is int
+	 */
+	return (int)((_c < 0 || _c >= _CACHED_RUNES) ? (__uint32_t)___runetype_l(_c, _l) :
+		__locale_ptr(_l)->__lc_ctype->_CurrentRuneLocale.__runetype[_c]) & (__uint32_t)_f;
 }
 #else /* !__LIBC__ */
 //End-Libc

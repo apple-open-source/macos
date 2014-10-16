@@ -7,10 +7,11 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ * ICU <specials> source: <path>/common/main/ms_Arab.xml
  */
 ms_Arab{
-    Version{"2.0.82.68"}
+    %%Parent{"root"}
+    Version{"2.0.92.90"}
     zoneStrings{
         "Asia:Singapore"{
             ec{"سيڠاڤورا"}
@@ -40,7 +41,6 @@ ms_Arab{
             ls{"وقتو مليسيا"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"{1} وقتو ({0})"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"وقتو {0}"}
     }

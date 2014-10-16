@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -29,10 +29,13 @@
 #include	"name.h"
 #include	"streval.h"
 #include	"variables.h"
+#include	"builtins.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX	LONG_MAX
 #endif
+
+typedef Sfdouble_t (*Math_f)(Sfdouble_t, ...);
 
 extern const Namdisc_t	ENUM_disc;
 static Sfdouble_t	NaN, Inf, Fun;
@@ -40,21 +43,18 @@ static Namval_t Infnod =
 {
 	{ 0 },
 	"Inf",
-	NV_NOFREE|NV_LDOUBLE,NV_RDONLY
 };
 
 static Namval_t NaNnod =
 {
 	{ 0 },
 	"NaN",
-	NV_NOFREE|NV_LDOUBLE,NV_RDONLY
 };
 
 static Namval_t FunNode =
 {
 	{ 0 },
 	"?",
-	NV_NOFREE|NV_LDOUBLE,NV_RDONLY
 };
 
 static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int assign)
@@ -66,9 +66,13 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 	int	flags = HASH_NOSCOPE|HASH_SCOPE|HASH_BUCKET;
 	int	c=0,nosub = lvalue->nosub;
 	Dt_t	*sdict = (shp->st.real_fun? shp->st.real_fun->sdict:0);
+	Dt_t	*nsdict = (shp->namespace?nv_dict(shp->namespace):0);
 	Dt_t	*root = shp->var_tree;
 	assign = assign?NV_ASSIGN:NV_NOASSIGN;
 	lvalue->nosub = 0;
+	if(nosub<0 && lvalue->ovalue)
+		return((Namval_t*)lvalue->ovalue);
+	lvalue->ovalue = 0;
 	if(cp>=lvalue->expr &&  cp < lvalue->expr+lvalue->elen)
 	{
 		int offset;
@@ -79,6 +83,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 		{
 			Fun = sh_arith(shp,sub=stakptr(offset));
 			FunNode.nvalue.ldp = &Fun;
+			nv_onattr(&FunNode,NV_NOFREE|NV_LDOUBLE|NV_RDONLY);
 			cp[flag] = c;
 			return(&FunNode);
 		}
@@ -96,7 +101,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 	}
 	else if(assign==NV_ASSIGN  && nv_isnull(np) && !nv_isattr(np, ~(NV_MINIMAL|NV_NOFREE)))
 		flags |= NV_ADD;
-	if((lvalue->emode&ARITH_COMP) && dtvnext(root) && ((sdict && (mp=nv_search(cp,sdict,flags&~NV_ADD))) || (mp=nv_search(cp,root,flags&~(NV_ADD|HASH_NOSCOPE)))))
+	if((lvalue->emode&ARITH_COMP) && dtvnext(root) && ((sdict && (mp=nv_search(cp,sdict,flags&~NV_ADD))) || (mp=nv_search(cp,root,flags&~(NV_ADD))) || (nsdict && (mp=nv_search(cp,nsdict,flags&~(NV_ADD|HASH_NOSCOPE)))) ))
 		np = mp;
 	while(nv_isref(np))
 	{
@@ -121,6 +126,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 	}
 	if(!nosub && flag)
 	{
+		int		hasdot = 0;
 		cp = (char*)&lvalue->expr[flag];
 		if(sub)
 		{
@@ -137,6 +143,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 				c = '.';
 				while(*cp=='.')
 				{
+					hasdot=1;
 					cp++;
 					while(c=mbchar(cp),isaname(c));
 				}
@@ -145,7 +152,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 			}
 			flag = *cp;
 			*cp = 0;
-			if(c)
+			if(c || hasdot)
 			{
 				sfprintf(shp->strbuf,"%s%s%c",nv_name(np),sub,0);
 				sub = sfstruse(shp->strbuf);
@@ -153,9 +160,9 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 			if(strchr(sub,'$'))
 				sub = sh_mactrim(shp,sub,0);
 			*cp = flag;
-			if(c)
+			if(c || hasdot)
 			{
-				np = nv_open(sub,shp->var_tree,assign);
+				np = nv_open(sub,shp->var_tree,NV_VARNAME|assign);
 				return(np);
 			}
 #if SHOPT_FIXEDARRAY
@@ -185,6 +192,29 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 	else if(nosub>0)
 		nv_putsub(np,(char*)0,nosub-1);
 	return(np);
+}
+
+static Math_f sh_mathstdfun(const char *fname, size_t fsize, short * nargs)
+{
+	register const struct mathtab *tp;
+	register char c = fname[0];
+	for(tp=shtab_math; *tp->fname; tp++)
+	{
+		if(*tp->fname > c)
+			break;
+		if(tp->fname[1]==c && tp->fname[fsize+1]==0 && strncmp(&tp->fname[1],fname,fsize)==0)
+		{
+			if(nargs)
+				*nargs = *tp->fname;
+			return(tp->fnptr);
+		}
+	}
+	return(0);
+}
+
+int	sh_mathstd(const char *name)
+{
+	return(sh_mathstdfun(name,strlen(name),NULL)!=0);
 }
 
 static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdouble_t n)
@@ -250,20 +280,11 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 				if(np=nv_search(stkptr(shp->stk,off),shp->fun_tree,0))
 				{
 						lvalue->nargs = -np->nvalue.rp->argc;
-						lvalue->fun = (Sfdouble_t(*)(Sfdouble_t,...))np;
+						lvalue->fun = (Math_f)np;
 						break;
 				}
-				if(fsize<=(sizeof(tp->fname)-2)) for(tp=shtab_math; *tp->fname; tp++)
-				{
-					if(*tp->fname > c)
-						break;
-					if(tp->fname[1]==c && tp->fname[fsize+1]==0 && strncmp(&tp->fname[1],*ptr,fsize)==0)
-					{
-						lvalue->fun = tp->fnptr;
-						lvalue->nargs = *tp->fname;
-						break;
-					}
-				}
+				if(fsize<=(sizeof(tp->fname)-2))
+					lvalue->fun = (Math_f)sh_mathstdfun(*ptr,fsize,&lvalue->nargs);
 				if(lvalue->fun)
 					break;
 				if(lvalue->emode&ARITH_COMP)
@@ -315,12 +336,14 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 					Inf = strtold("Inf", NiL);
 					Infnod.nvalue.ldp = &Inf;
 					np = &Infnod;
+					nv_onattr(np,NV_NOFREE|NV_LDOUBLE|NV_RDONLY);
 				}
 				else if ((cp[0] == 'n' || cp[0] == 'N') && (cp[1] == 'a' || cp[1] == 'A') && (cp[2] == 'n' || cp[2] == 'N') && cp[3] == 0)
 				{
 					NaN = strtold("NaN", NiL);
 					NaNnod.nvalue.ldp = &NaN;
 					np = &NaNnod;
+					nv_onattr(np,NV_NOFREE|NV_LDOUBLE|NV_RDONLY);
 				}
 				else if(!(np = nv_open(*ptr,root,NV_NOREF|NV_NOASSIGN|NV_VARNAME|dot)))
 				{
@@ -363,6 +386,11 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 			char	lastbase=0, *val = xp, oerrno = errno;
 			lvalue->eflag = 0;
 			errno = 0;
+			if(shp->bltindata.bnode==SYSLET && !sh_isoption(SH_LETOCTAL))
+			{
+				while(*val=='0' && isdigit(val[1]))
+					val++;
+			}
 			r = strtonll(val,&str, &lastbase,-1);
 			if(*str=='8' || *str=='9')
 			{
@@ -423,6 +451,7 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 			}
 			return(0);
 		}
+		lvalue->ovalue = (char*)np;
 		if(lvalue->eflag)
 			lvalue->ptr = (void*)nv_hasdisc(np,&ENUM_disc);
 		else if((Namfun_t*)lvalue->ptr && !nv_hasdisc(np,&ENUM_disc) && !nv_isattr(np,NV_INTEGER))
@@ -481,7 +510,7 @@ Sfdouble_t sh_strnum(register const char *str, char** ptr, int mode)
 {
 	Shell_t	*shp = sh_getinterp();
 	register Sfdouble_t d;
-	char base=0, *last;
+	char base=(shp->inarith?0:10), *last;
 	if(*str==0)
 	{
 		if(ptr)

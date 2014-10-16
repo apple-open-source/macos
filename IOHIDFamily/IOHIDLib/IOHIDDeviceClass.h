@@ -63,8 +63,8 @@ protected:
     IOHIDDeviceClass();
     virtual ~IOHIDDeviceClass();
 
-    static IOCFPlugInInterface		sIOCFPlugInInterfaceV1;
-    static IOHIDDeviceDeviceInterface	sHIDDeviceInterfaceV2;
+    static IOCFPlugInInterface                      sIOCFPlugInInterfaceV1;
+    static IOHIDDeviceTimeStampedDeviceInterface	sHIDDeviceInterfaceV2;
 
     struct InterfaceMap             fHIDDevice;
     io_service_t                    fService;
@@ -114,11 +114,12 @@ protected:
     
     IOHIDQueueClass *               fReportHandlerQueue;
     
-    IOHIDReportCallback             fInputReportCallback;
-    void *                          fInputReportRefcon;
-    uint8_t *                       fInputReportBuffer;
-    CFIndex                         fInputReportBufferSize;
-    IOOptionBits                    fInputReportOptions;
+    IOHIDReportCallback                 fInputReportCallback;
+    IOHIDReportWithTimeStampCallback    fInputReportWithTimeStampCallback;
+    void *                              fInputReportRefcon;
+    uint8_t *                           fInputReportBuffer;
+    CFIndex                             fInputReportBufferSize;
+    IOOptionBits                        fInputReportOptions;
     
     uint64_t                        fGeneration;
 
@@ -174,6 +175,9 @@ protected:
     static IOReturn _copyMatchingElements(void * self, CFDictionaryRef matchingDict, CFArrayRef * pElements, IOOptionBits options);
     static IOReturn _setInterruptReportCallback(void * self, uint8_t * report, CFIndex reportLength, 
                             IOHIDReportCallback callback, void * refcon, IOOptionBits options);
+    static IOReturn _setInterruptReportWithTimeStampCallback(void * self, uint8_t * report,
+                            CFIndex reportLength, IOHIDReportWithTimeStampCallback callback,
+                            void * refcon, IOOptionBits options);
     static IOReturn _getReport(void * self, IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength,
                             uint32_t timeout, IOHIDReportCallback callback, void * refcon, IOOptionBits options);
     static IOReturn _setReport(void * self, IOHIDReportType reportType, uint32_t reportID, const uint8_t * report, CFIndex reportLength,
@@ -226,9 +230,9 @@ public:
     virtual IOReturn getReport(IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength, 
                                 uint32_t timeout, IOHIDReportCallback callback, void * refcon, IOOptionBits options = 0);
     virtual IOReturn copyMatchingElements(CFDictionaryRef matchingDict, CFArrayRef * elements, CFTypeRef parentElement=0, CFMutableDictionaryRef elementCache=0, IOOptionBits options=0);
-    virtual IOReturn setInterruptReportCallback(uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, void * refcon, IOOptionBits options = 0);
-
-    virtual IOReturn getElementValue(IOHIDElementRef element, 
+    virtual IOReturn setInterruptReportCallback(uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, IOHIDReportWithTimeStampCallback callbackWithTimeStamp, void * refcon, IOOptionBits options = 0);
+    
+    virtual IOReturn getElementValue(IOHIDElementRef element,
                                      IOHIDValueRef * pEvent, 
                                      uint32_t timeout = 0, 
                                      IOHIDValueCallback callback = 0, 

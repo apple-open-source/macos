@@ -3,7 +3,7 @@
 opensnoop \- snoop file opens as they occur. Uses DTrace.
 .SH SYNOPSIS
 .B opensnoop
-[\-a|\-A|\-ceghsvxZ] [\-f pathname] [\-n name] [\-p PID]
+[\-a|\-A|\-ceFghstvxZ] [\-f pathname] [\-n name] [\-p PID]
 .SH DESCRIPTION
 opensnoop tracks file opens. As a process issues a file open, details
 such as UID, PID and pathname are printed out. 
@@ -28,11 +28,17 @@ print current working directory of process
 \-e
 print errno value
 .TP
+\-F
+print the flags passed to open
+.TP
 \-g
 print full command arguments
 .TP
 \-s
 print start time, us
+.TP
+\-t
+print user stack trace
 .TP
 \-v
 print start time, string
@@ -92,6 +98,9 @@ Parent Process ID
 .TP
 FD
 File Descriptor (-1 is error)
+.TP
+FLAGS
+Flags passed to open
 .TP
 ERR
 errno value (see /usr/include/sys/errno.h)

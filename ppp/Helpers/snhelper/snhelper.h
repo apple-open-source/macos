@@ -6,6 +6,6 @@
 #ifndef __SNHELPER_H__
 #define __SNHELPER_H__
 
-void send_reply(xpc_connection_t connection, xpc_object_t request, int64_t result);
+void send_reply(xpc_connection_t connection, xpc_object_t request, int64_t result, xpc_object_t result_data);
 
 #endif /* __SNHELPER_H__ */

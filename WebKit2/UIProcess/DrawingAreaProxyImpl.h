@@ -29,9 +29,7 @@
 #include "BackingStore.h"
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
-#include <WebCore/RunLoop.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <wtf/RunLoop.h>
 
 namespace WebCore {
 class Region;
@@ -39,34 +37,26 @@ class Region;
 
 namespace WebKit {
 
-class CoordinatedLayerTreeHostProxy;
-
 class DrawingAreaProxyImpl : public DrawingAreaProxy {
 public:
-    static PassOwnPtr<DrawingAreaProxyImpl> create(WebPageProxy*);
+    explicit DrawingAreaProxyImpl(WebPageProxy*);
     virtual ~DrawingAreaProxyImpl();
 
     void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
 
-#if USE(ACCELERATED_COMPOSITING)
     bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
-#endif
 
     bool hasReceivedFirstUpdate() const { return m_hasReceivedFirstUpdate; }
 
 private:
-    explicit DrawingAreaProxyImpl(WebPageProxy*);
-
     // DrawingAreaProxy
     virtual void sizeDidChange();
     virtual void deviceScaleFactorDidChange();
-    virtual void layerHostingModeDidChange() OVERRIDE;
 
-    virtual void visibilityDidChange();
     virtual void setBackingStoreIsDiscardable(bool);
     virtual void waitForBackingStoreUpdateOnNextPaint();
 
-    // CoreIPC message handlers
+    // IPC message handlers
     virtual void update(uint64_t backingStoreStateID, const UpdateInfo&);
     virtual void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&);
     virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
@@ -80,18 +70,9 @@ private:
     void sendUpdateBackingStoreState(RespondImmediatelyOrNot);
     void waitForAndDispatchDidUpdateBackingStoreState();
 
-#if USE(ACCELERATED_COMPOSITING)
     void enterAcceleratedCompositingMode(const LayerTreeContext&);
     void exitAcceleratedCompositingMode();
     void updateAcceleratedCompositingMode(const LayerTreeContext&);
-#if USE(COORDINATED_GRAPHICS)
-    virtual void setVisibleContentsRect(const WebCore::FloatRect& visibleContentsRect, const WebCore::FloatPoint& trajectory) OVERRIDE;
-#endif
-#else
-    bool isInAcceleratedCompositingMode() const { return false; }
-#endif
-
-    virtual void pageCustomRepresentationChanged();
 
     void discardBackingStoreSoon();
     void discardBackingStore();
@@ -105,10 +86,8 @@ private:
     // whenever our state changes in a way that will require a new backing store to be allocated.
     uint64_t m_nextBackingStoreStateID;
 
-#if USE(ACCELERATED_COMPOSITING)
     // The current layer tree context.
     LayerTreeContext m_layerTreeContext;
-#endif
 
     // Whether we've sent a UpdateBackingStoreState message and are now waiting for a DidUpdateBackingStoreState message.
     // Used to throttle UpdateBackingStoreState messages so we don't send them faster than the Web process can handle.
@@ -118,9 +97,9 @@ private:
     bool m_hasReceivedFirstUpdate;
 
     bool m_isBackingStoreDiscardable;
-    OwnPtr<BackingStore> m_backingStore;
+    std::unique_ptr<BackingStore> m_backingStore;
 
-    WebCore::RunLoop::Timer<DrawingAreaProxyImpl> m_discardBackingStoreTimer;
+    RunLoop::Timer<DrawingAreaProxyImpl> m_discardBackingStoreTimer;
 };
 
 } // namespace WebKit

@@ -115,6 +115,10 @@ sysinfo(int command, char *buf, long count)
 		strlcpy( buf, "x86", count );
 #elif defined(__x86_64__)
 		strlcpy( buf, "x86_64", count );
+#elif defined(__arm64__)
+		strlcpy( buf, "arm64", count );
+#elif defined(__arm__)
+		strlcpy( buf, "arm", count );
 #else
 #error Unknown ISA
 #endif
@@ -164,4 +168,5 @@ p_online(processorid_t processorid, int flag)
 #if defined(_elf_seterr)
 #undef _elf_seterr
 #endif
+void _elf_seterr(int lib_err, int sys_err);
 void _SHIM_elf_seterr(int x) { _elf_seterr( 0, x); }

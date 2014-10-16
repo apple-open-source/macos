@@ -57,8 +57,8 @@ _CreateIfReachable( CFStringRef thePath )
     CFURLRef        pathURL = NULL;  // caller will release
     
     pathURL = CFURLCreateWithFileSystemPath(NULL, thePath,
-                                              kCFURLPOSIXPathStyle,
-                                              TRUE);
+                                            kCFURLPOSIXPathStyle,
+                                            TRUE);
     if (pathURL) {
         if (CFURLResourceIsReachable(pathURL, NULL) == false) {
             CFRelease( pathURL );
@@ -80,8 +80,8 @@ _CreateIfReachable( CFStringRef thePath )
 
 static kern_return_t
 IOFindPlugIns( io_service_t service,
-               CFUUIDRef pluginType,
-               CFArrayRef * factories, CFArrayRef * plists )
+              CFUUIDRef pluginType,
+              CFArrayRef * factories, CFArrayRef * plists )
 {
     CFURLRef		pluginURL = NULL;       // must release
     CFPlugInRef		onePlugin = NULL;
@@ -94,7 +94,7 @@ IOFindPlugIns( io_service_t service,
     CFStringRef		pluginName = NULL;      // do not release
     boolean_t		matches;
     kern_return_t	kr = kIOReturnSuccess;
-   
+    
     *factories      = 0;
     *plists         = 0;
     
@@ -117,74 +117,101 @@ IOFindPlugIns( io_service_t service,
         if ( pluginName == NULL ) {
             continue;
         }
-      
-#if 0
+        
+#if 0 //
         const char *    myPtr;
         myPtr = CFStringGetCStringPtr(pluginName, kCFStringEncodingMacRoman);
         __iocfpluginlog("%s pluginName \"%s\" \n", __func__,
                         myPtr ? myPtr : "no name");
 #endif
-
+        
         // see if the plugin name is possibly a full path
         if ( CFStringGetCharacterAtIndex(pluginName, 0) == '/' ) {
             CFStringAppend(pluginPath, pluginName);
             pluginURL = _CreateIfReachable(pluginPath);
+            if ( pluginURL ) {
+                onePlugin = CFPlugInCreate(NULL, pluginURL);
+                CFRelease( pluginURL );
+                pluginURL = NULL;
+                if ( onePlugin ) {
+                    continue;
+                }
+            }
         }
         
-        if ( pluginURL == NULL ) {
-            // no full path to plugin, so let's try /S/L/E/
-            CFStringReplaceAll(pluginPath, CFSTR(""));
-            CFStringAppendCString(pluginPath,
-                                  "/System/Library/Extensions/",
-                                  kCFStringEncodingMacRoman);
-            CFStringAppend(pluginPath, pluginName);
-            pluginURL = _CreateIfReachable(pluginPath);
+        // no full path to plugin, so let's try /S/L/E/
+        CFStringReplaceAll(pluginPath, CFSTR(""));
+        CFStringAppendCString(pluginPath,
+                              "/System/Library/Extensions/",
+                              kCFStringEncodingMacRoman);
+        CFStringAppend(pluginPath, pluginName);
+        pluginURL = CFURLCreateWithFileSystemPath(NULL,
+                                                  pluginPath,
+                                                  kCFURLPOSIXPathStyle,
+                                                  TRUE);
+        
+        // NOTE - on embedded we have cases where the plugin bundle is cached
+        // so do NOT use _CreateIfReachable.  In the cached case
+        // CFPlugInCreate will actually create the plugin for us.
+        if ( pluginURL ) {
+            onePlugin = CFPlugInCreate(NULL, pluginURL);
+            CFRelease( pluginURL );
+            pluginURL = NULL;
+            if ( onePlugin ) {
+                continue;
+            }
         }
         
-        if ( pluginURL == NULL ) {
-            // no full path to plugin, so let's try /L/E/
-            CFStringReplaceAll(pluginPath, CFSTR(""));
-            CFStringAppendCString(pluginPath,
-                                  "/Library/Extensions/",
-                                  kCFStringEncodingMacRoman);
-            CFStringAppend(pluginPath, pluginName);
-            pluginURL = _CreateIfReachable(pluginPath);
+        // no full path to plugin or /S/L/E/, so let's try /L/E/
+        CFStringReplaceAll(pluginPath, CFSTR(""));
+        CFStringAppendCString(pluginPath,
+                              "/Library/Extensions/",
+                              kCFStringEncodingMacRoman);
+        CFStringAppend(pluginPath, pluginName);
+        pluginURL = CFURLCreateWithFileSystemPath(NULL,
+                                                  pluginPath,
+                                                  kCFURLPOSIXPathStyle,
+                                                  TRUE);
+        if ( pluginURL ) {
+            onePlugin = CFPlugInCreate(NULL, pluginURL);
+            CFRelease( pluginURL );
+            pluginURL = NULL;
         }
     } while ( FALSE );
-    
-    if ( pluginURL ) {
-        onePlugin = CFPlugInCreate(NULL, pluginURL);
-    }
- 
+#if 0
+    const char *    myPtr;
+    myPtr = CFStringGetCStringPtr(pluginPath, kCFStringEncodingMacRoman);
+    __iocfpluginlog("%s pluginPath \"%s\" \n", __func__,
+                    myPtr ? myPtr : "no name");
+#endif
+   
     if ( onePlugin
         && (bundle = CFPlugInGetBundle(onePlugin))
         && (plist = CFBundleGetInfoDictionary(bundle))
         && (matching = (CFDictionaryRef)
             CFDictionaryGetValue(plist, CFSTR("Personality")))) {
-        kr = IOServiceMatchPropertyTable( service, matching, &matches );
-        if ( kr != kIOReturnSuccess )
-            matches = FALSE;
+            kr = IOServiceMatchPropertyTable( service, matching, &matches );
+            if ( kr != kIOReturnSuccess )
+                matches = FALSE;
         } else {
             matches = TRUE;
         }
-
+    
     if ( matches ) {
         if ( onePlugin ) {
             *factories = CFPlugInFindFactoriesForPlugInTypeInPlugIn(pluginType, onePlugin);
-       }
+        }
     }
-
-    if ( pluginURL )
-        CFRelease( pluginURL );
+    
     if ( pluginPath )
         CFRelease( pluginPath );
     if ( pluginTypes )
         CFRelease( pluginTypes );
-
+    
 #if 0
     __iocfpluginlog("%s kr %d \n", __func__, kr);
 #endif
-
+    
     return( kr );
 }
 
@@ -205,7 +232,7 @@ IOCreatePlugInInterfaceForService(io_service_t service,
     SInt32		score;
     IOCFPlugInInterface **	interface;
     Boolean		haveOne;
-    
+
     kr = IOFindPlugIns( service, pluginType,
                         &factories, &plists );
     if( KERN_SUCCESS != kr) {
@@ -322,19 +349,12 @@ IOCreatePlugInInterfaces(CFUUIDRef pluginType, CFUUIDRef interfaceType);
 #if 0 // local logging
 void __iocfpluginlog(const char *format, ...)
 {
-    aslmsg msg = NULL;
+    va_list args;
     
-    msg = asl_new(ASL_TYPE_MSG);
-    asl_set(msg, ASL_KEY_FACILITY, "com.apple.iokit.IOCFPlugin");
-    if (msg) {
-        va_list ap;
-        va_start(ap, format);
-        asl_vlog(NULL, msg, ASL_LEVEL_NOTICE, format, ap);
-        va_end(ap);
-        asl_free(msg);
-    }
+    va_start(args, format);
+    asl_vlog(NULL, NULL, ASL_LEVEL_CRIT, format, args);
+    va_end(args);
 }
 #endif
-
 
 #endif /* !HAVE_CFPLUGIN */

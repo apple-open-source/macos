@@ -67,6 +67,8 @@ struct dispatch_signal {
 
 static struct dispatch_signal *dispatch_signals;
 
+static void default_timer_ev(void) __attribute__((__noreturn__));
+
 static void
 default_timer_ev(void)
 {

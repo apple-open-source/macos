@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,11 +30,18 @@
 #include "InspectorInstrumentation.h"
 #include "ScheduledAction.h"
 #include "ScriptExecutionContext.h"
+#include "UserGestureIndicator.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
 
-using namespace std;
+#if PLATFORM(IOS)
+#include "Chrome.h"
+#include "ChromeClient.h"
+#include "Frame.h"
+#include "Page.h"
+#include "WKContentObservation.h"
+#endif
 
 namespace WebCore {
 
@@ -51,15 +58,13 @@ static inline bool shouldForwardUserGesture(int interval, int nestingLevel)
         && nestingLevel == 1; // Gestures should not be forwarded to nested timers.
 }
 
-DOMTimer::DOMTimer(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int interval, bool singleShot)
+DOMTimer::DOMTimer(ScriptExecutionContext* context, std::unique_ptr<ScheduledAction> action, int interval, bool singleShot)
     : SuspendableTimer(context)
     , m_nestingLevel(timerNestingLevel + 1)
-    , m_action(action)
+    , m_action(WTF::move(action))
     , m_originalInterval(interval)
+    , m_shouldForwardUserGesture(shouldForwardUserGesture(interval, m_nestingLevel))
 {
-    if (shouldForwardUserGesture(interval, m_nestingLevel))
-        m_userGestureToken = UserGestureIndicator::currentToken();
-
     // Keep asking for the next id until we're given one that we don't already have.
     do {
         m_timeoutId = context->circularSequentialID();
@@ -78,12 +83,22 @@ DOMTimer::~DOMTimer()
         scriptExecutionContext()->removeTimeout(m_timeoutId);
 }
 
-int DOMTimer::install(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int timeout, bool singleShot)
+int DOMTimer::install(ScriptExecutionContext* context, std::unique_ptr<ScheduledAction> action, int timeout, bool singleShot)
 {
     // DOMTimer constructor links the new timer into a list of ActiveDOMObjects held by the 'context'.
     // The timer is deleted when context is deleted (DOMTimer::contextDestroyed) or explicitly via DOMTimer::removeById(),
     // or if it is a one-time timer and it has fired (DOMTimer::fired).
-    DOMTimer* timer = new DOMTimer(context, action, timeout, singleShot);
+    DOMTimer* timer = new DOMTimer(context, WTF::move(action), timeout, singleShot);
+#if PLATFORM(IOS)
+    if (context->isDocument()) {
+        Document& document = toDocument(*context);
+        bool didDeferTimeout = document.frame() && document.frame()->timersPaused();
+        if (!didDeferTimeout && timeout <= 100 && singleShot) {
+            WKSetObservedContentChange(WKContentIndeterminateChange);
+            WebThreadAddObservedContentModifier(timer); // Will only take affect if not already visibility change.
+        }
+    }
+#endif
 
     timer->suspendIfNeeded();
     InspectorInstrumentation::didInstallTimer(context, timer->m_timeoutId, timeout, singleShot);
@@ -107,10 +122,20 @@ void DOMTimer::removeById(ScriptExecutionContext* context, int timeoutId)
 void DOMTimer::fired()
 {
     ScriptExecutionContext* context = scriptExecutionContext();
+    ASSERT(context);
+#if PLATFORM(IOS)
+    Document* document = nullptr;
+    if (context->isDocument()) {
+        document = toDocument(context);
+        ASSERT(!document->frame()->timersPaused());
+    }
+#endif
     timerNestingLevel = m_nestingLevel;
+    ASSERT(!isSuspended());
     ASSERT(!context->activeDOMObjectsAreSuspended());
+    UserGestureIndicator gestureIndicator(m_shouldForwardUserGesture ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
     // Only the first execution of a multi-shot timer should get an affirmative user gesture indicator.
-    UserGestureIndicator gestureIndicator(m_userGestureToken.release());
+    m_shouldForwardUserGesture = false;
 
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(context, m_timeoutId);
 
@@ -132,12 +157,39 @@ void DOMTimer::fired()
     }
 
     // Delete timer before executing the action for one-shot timers.
-    OwnPtr<ScheduledAction> action = m_action.release();
+    std::unique_ptr<ScheduledAction> action = WTF::move(m_action);
 
     // No access to member variables after this point.
     delete this;
 
+#if PLATFORM(IOS)
+    bool shouldReportLackOfChanges;
+    bool shouldBeginObservingChanges;
+    if (document) {
+        shouldReportLackOfChanges = WebThreadCountOfObservedContentModifiers() == 1;
+        shouldBeginObservingChanges = WebThreadContainsObservedContentModifier(this);
+    } else {
+        shouldReportLackOfChanges = false;
+        shouldBeginObservingChanges = false;
+    }
+
+    if (shouldBeginObservingChanges) {
+        WKBeginObservingContentChanges(false);
+        WebThreadRemoveObservedContentModifier(this);
+    }
+#endif
+
     action->execute(context);
+
+#if PLATFORM(IOS)
+    if (shouldBeginObservingChanges) {
+        WKStopObservingContentChanges();
+
+        if (WKObservedContentChange() == WKContentVisibilityChange || shouldReportLackOfChanges)
+            if (document && document->page())
+                document->page()->chrome().client().observedContentChange(document->frame());
+    }
+#endif
 
     InspectorInstrumentation::didFireTimer(cookie);
 
@@ -150,13 +202,12 @@ void DOMTimer::contextDestroyed()
     delete this;
 }
 
-void DOMTimer::stop()
+void DOMTimer::didStop()
 {
-    SuspendableTimer::stop();
     // Need to release JS objects potentially protected by ScheduledAction
     // because they can form circular references back to the ScriptExecutionContext
     // which will cause a memory leak.
-    m_action.clear();
+    m_action = nullptr;
 }
 
 void DOMTimer::adjustMinimumTimerInterval(double oldMinimumTimerInterval)
@@ -178,7 +229,7 @@ void DOMTimer::adjustMinimumTimerInterval(double oldMinimumTimerInterval)
 
 double DOMTimer::intervalClampedToMinimum(int timeout, double minimumTimerInterval) const
 {
-    double intervalMilliseconds = max(oneMillisecond, timeout * oneMillisecond);
+    double intervalMilliseconds = std::max(oneMillisecond, timeout * oneMillisecond);
 
     if (intervalMilliseconds < minimumTimerInterval && m_nestingLevel >= maxTimerNestingLevel)
         intervalMilliseconds = minimumTimerInterval;

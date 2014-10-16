@@ -546,12 +546,17 @@ The value of
 may be one of the following:
 .Pp
 .Bl -tag -width "safe"
-.It vis
-The default encoding described above.
 .It safe
+This is the default encoding for
+.Nm syslog
+output.
 Encodes backspace characters as ^H.
 Carriage returns are mapped to newlines.
 A tab character is appended after newlines so that message text is indented.
+.It vis
+The C-style backslash encoding similar to that produced by the
+.Dq vis -c
+command, as described above.
 .It none
 No encoding is used.
 .El
@@ -566,7 +571,7 @@ or
 .Dq none
 options may be garbled or subject to manipulation through the use of control characters and control sequences
 embedded in user-supplied message text.
-The default
+The
 .Dq vis
 encoding should be used to view messages if there is any suspicion
 that message text may have been used to manipulate the printed representation.

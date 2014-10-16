@@ -1,0 +1,170 @@
+//
+// script0022
+//
+//		KCAddCallback
+//		KCRemoveCallback
+// 
+// Add/remove callback for each event type
+//
+//										kLockKCEvent
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 1
+   Results : 1
+     OSStatus 0
+//										kUnlockEvent
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 2
+   Results : 1
+     OSStatus 0
+//										kAddKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 3
+   Results : 1
+     OSStatus 0
+//										kDeleteKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 4
+   Results : 1
+     OSStatus 0
+//										kUpdateKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 5
+   Results : 1
+     OSStatus 0
+//										kChangeIdentityKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 6
+   Results : 1
+     OSStatus 0
+//										kFindKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 7
+   Results : 1
+     OSStatus 0
+//										kDefaultChangedKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 9
+   Results : 1
+     OSStatus 0
+//										kDataAccessKCEvent								
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 10
+   Results : 1
+     OSStatus 0
+//										kLockKCEvent (duplicate)
+23 KCAddCallback
+   Input Arguments : 1
+     KCEvent : 1
+   Results : 1
+     OSStatus -25297
+//
+//
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0022.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 1
+//
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0022.002
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 2
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 2
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 3
+//
+35 KCNewItem
+   Input Arguments : 4
+     Class : inet
+     Creator : meme
+     Data : /17/Internet password
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+//										generate kLockKCEvent
+10 KCLock
+   Input Arguments : 1
+     KeychainIndex : 1
+   Results : 1
+     OSStatus 0
+//										generate kUnlockKCEvent     
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 1
+     Password : Apple
+   Results : 1
+     OSStatus 0
+//										generate kDefaultChangedKCEvent
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 1
+   Results : 1
+     OSStatus 0
+//										generate kAddKCEvent
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+//										generate kDataAccessKCEvent
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /50/00000000000000000000000000000000000000000000000000
+   Results : 3
+     OSStatus 0
+     Data : /50/Internet password000000000000000000000000000000000
+     ActualLength : 17
+//										generate kUpdateKCEvent
+38 KCSetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /3/Cat
+   Results : 1
+     OSStatus 0
+45 KCUpdateItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+//										generate kDeleteKCEvent
+43 KCDeleteItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+//										generate kLockKCEvent
+10 KCLock
+   Input Arguments : 1
+     KeychainIndex : 1
+   Results : 1
+     OSStatus 0
+//
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

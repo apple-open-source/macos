@@ -1,5 +1,5 @@
 #include <dispatch/dispatch.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include <errno.h>
 #include <fcntl.h>
 
@@ -27,12 +27,12 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 
 	(void)fcntl(fd, F_NOCACHE, 1);
 
-	(void)osx_assumes_zero(CCDigestInit(algorithm, &ctx));
+	(void)os_assumes_zero(CCDigestInit(algorithm, &ctx));
 
 	queue = dispatch_queue_create("com.apple.mtree.io", NULL);
-	osx_assert(queue);
+	os_assert(queue);
 	sema = dispatch_semaphore_create(0);
-	osx_assert(sema);
+	os_assert(sema);
 
 	io = dispatch_io_create(DISPATCH_IO_STREAM, fd, queue, ^(int error) {
 		if (error != 0) {
@@ -41,11 +41,11 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 		(void)close(fd);
 		(void)dispatch_semaphore_signal(sema);
 	});
-	osx_assert(io);
+	os_assert(io);
 	dispatch_io_read(io, 0, SIZE_MAX, queue, ^(__unused bool done, dispatch_data_t data, int error) {
 		if (data != NULL) {
 			(void)dispatch_data_apply(data, ^(__unused dispatch_data_t region, __unused size_t offset, const void *buffer, size_t size) {
-				(void)osx_assumes_zero(CCDigestUpdate(&ctx, buffer, size));
+				(void)os_assumes_zero(CCDigestUpdate(&ctx, buffer, size));
 				return (bool)true;
 			});
 		}
@@ -67,9 +67,9 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 	}
 
 	/* Finalize and convert to hex. */
-	(void)osx_assumes_zero(CCDigestFinal(&ctx, digest));
+	(void)os_assumes_zero(CCDigestFinal(&ctx, digest));
 	length = CCDigestOutputSize(&ctx);
-	osx_assert(length <= sizeof(digest));
+	os_assert(length <= sizeof(digest));
 	for (i = 0; i < length; i++) {
 		buf[i+i] = hex[digest[i] >> 4];
 		buf[i+i+1] = hex[digest[i] & 0x0f];

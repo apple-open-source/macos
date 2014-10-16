@@ -105,9 +105,6 @@ struct runloopInfo {
 #pragma pack()
 #endif
 
-/* the host names of .Mac iDisk servers */
-char *idisk_server_names[] = {"idisk.mac.com", "idisk.me.com", NULL};
-
 /* Macro to simplify common CFRelease usage */
 #define CFReleaseNull(obj) do { if(obj != NULL) { CFRelease(obj); obj = NULL; } } while (0)
 
@@ -160,7 +157,7 @@ static char* createUTF8CStringFromCFString(CFStringRef in_string)
 	out_cstring = (char *)calloc(1, bufSize);
 	
 	/* Make sure malloc succeeded then convert cstring */
-	if ( out_cstring == NULL ) 
+	if ( out_cstring == NULL )
 		return NULL;
 	
 	if ( CFStringGetCString(in_string, out_cstring, bufSize, kCFStringEncodingUTF8) == FALSE ) {
@@ -234,7 +231,7 @@ CopySegment(char *start, char *endPlusOne)
  * name is assumed to be char[MAXNAMLEN].
  */
 static int
-basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength, int hostisidisk)
+basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength)
 {
     int		error;
     char	*path;
@@ -321,29 +318,13 @@ basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength, 
 		
 		if ( lastPathSegment != NULL ) {
 			percent_decode_in_place(lastPathSegment);
-			/* is this the iDisk server? */
-			if ( hostisidisk ) {
-				/* iDisk server -- name is "firstPathSegment-lastPathSegment" */
-				
-				/* check length of strings */
-				if ( (strlen(firstPathSegment) + strlen(lastPathSegment) + 2) > maxlength ) {
+			/* name is lastPathSegment */
+			if ( (strlen(lastPathSegment) + 1) > MAXNAMLEN ) {
 					error = ENAMETOOLONG;
 					goto exit;
-				}
-				
-				/* combine strings */
-				strlcpy(name, firstPathSegment, maxlength);
-				strlcat(name, "-", maxlength);
-				strlcat(name, lastPathSegment, maxlength);
-			} else {
-				/* name is lastPathSegment */
-				if ( (strlen(lastPathSegment) + 1) > MAXNAMLEN ) {
-					error = ENAMETOOLONG;
-					goto exit;
-				}
-				
-				strlcpy(name, lastPathSegment, maxlength);
 			}
+				
+			strlcpy(name, lastPathSegment, maxlength);
 		} else {
 			/* no last path segment -- name is firstPathSegment*/
 			if ( (strlen(firstPathSegment) + 1) > MAXNAMLEN ) {
@@ -382,7 +363,7 @@ exit:
 
 static int
 create_basename(const char *url, size_t maxlength, char *mountpoint,
-				char *basename, int hostisidisk)
+				char *basename)
 {
     const char *namestart;
     char *slash;
@@ -424,8 +405,8 @@ create_basename(const char *url, size_t maxlength, char *mountpoint,
 #endif
     }
 	
-    /* create a basename from the path and check the host for idisk */
-    error = basename_from_path(namestart, basename, maxlength, hostisidisk);
+    /* create a basename from the path*/
+    error = basename_from_path(namestart, basename, maxlength);
     if ( error != 0 ) {
 		return ( error );
     }
@@ -528,7 +509,7 @@ FindActiveMountPointFromURL(const char* url, char* mountpoint, size_t mountpoint
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
 static int
-AttemptMount(const char *urlPtr, const char *mountPointPtr,  u_int32_t options, int fd, const char *volumename, int hostisidisk)
+AttemptMount(const char *urlPtr, const char *mountPointPtr,  u_int32_t options, int fd, const char *volumename)
 {
     pid_t pid, terminated_pid;
     int result;
@@ -585,15 +566,6 @@ AttemptMount(const char *urlPtr, const char *mountPointPtr,  u_int32_t options, 
 			strlcat(options_str, "-v", MAXNAMLEN + 21);
 			strlcat(options_str, volumename, MAXNAMLEN + 21);
 		}
-		if (hostisidisk) {
-			/* add the -s option */
-			if (*options_str != '\0') {
-				/* add comma if there are already options */
-				strlcat(options_str, ",", MAXNAMLEN + 21);
-			}
-			strlcat(options_str, "-s", MAXNAMLEN + 21);
-		}
-		
 		if (*options_str == '\0') {
 			result = execle(MOUNT_COMMAND, MOUNT_COMMAND ,
 							"-t", WEBDAV_MOUNT_TYPE, 
@@ -639,100 +611,6 @@ Return:
     return result;
 }
 
-static int cfurl_is_idisk(CFURLRef url)
-{
-	int found_idisk;
-	size_t len, host_len;
-	char** idisk_server;
-	char *cstr = NULL;
-	CFStringRef host = NULL;
-	
-	found_idisk = FALSE;
-	
-	host = CFURLCopyHostName(url);
-	
-	if (host == NULL)
-		return (found_idisk);
-	
-	cstr = createUTF8CStringFromCFString(host);
-	CFRelease(host);
-	
-	if (cstr == NULL)
-		return (found_idisk);
-
-	host_len = strlen(cstr);
-	idisk_server = idisk_server_names;
-	
-	while (*idisk_server) {
-		len = strlen(*idisk_server);
-		if (host_len >= len) {
-			// check for match
-			if ( strncasecmp(cstr, *idisk_server, len) == 0 ) {
-				found_idisk = TRUE;
-				break;
-			}
-		}
-		idisk_server++;
-	}
-	
-	free(cstr);
-	
-	return (found_idisk);
-}
-
-static int curl_is_idisk(const char* url)
-{
-	int found_idisk;
-	size_t len, shortest_len, url_len;
-	char*  colon;
-	char** idisk_server;
-
-	found_idisk = FALSE;
-	
-	if (url == NULL)
-		return (found_idisk);
-	
-	colon = strchr(url, ':');
-	if (colon == NULL)
-		return (found_idisk);
-	
-	// First, find the length of the shortest idisk server name
-	idisk_server = idisk_server_names;
-	shortest_len = strlen(*idisk_server);
-	while (*idisk_server != NULL) {
-		len = strlen(*idisk_server);
-		if (len < shortest_len)
-			shortest_len = len;
-		idisk_server++;
-	}
-	
-	if (strlen(colon) < shortest_len)
-		return (found_idisk);	// too short, not an idisk server name
-
-    /*
-     * Move colon past "://".  We've already verified that
-     * colon is at least as long as the shortest iDisk server name
-     * so not worried about buffer overflows
-     */	
-	colon += 3;
-	url_len = strlen(colon);
-	idisk_server = idisk_server_names;
-	while (*idisk_server) {
-		len = strlen(*idisk_server);
-		if (url_len >= len) {
-			// check for match
-			if ( strncasecmp(colon, *idisk_server, len) == 0 ) {
-				found_idisk = TRUE;
-				break;
-			}
-		}
-		idisk_server++;
-	}
-
-	return (found_idisk);
-}
-
-
 #define WEBDAV_TEMPLATE "/tmp/webdav.XXXXXX"
 
 static int
@@ -748,17 +626,13 @@ WebDAVMountURL(const char *url,
     int fd = -1;
     char basename[MAXNAMLEN];
     int error;
-    int hostisidisk = FALSE;
-	
 #if DEBUG_TRACE
     syslog(LOG_DEBUG, 
 		   "WebDAV_MountURLWithAuthentication: Mounting '%s'...\n", 
 		   url);
 #endif
-	
-    hostisidisk = curl_is_idisk(url);
-	
-    if ((error = create_basename(url, MAXNAMLEN, mountpoint, basename, hostisidisk)) != 0)
+		
+    if ((error = create_basename(url, MAXNAMLEN, mountpoint, basename)) != 0)
         goto error;
 	
     if ((username != NULL) || (proxy_username != NULL)) {
@@ -836,7 +710,7 @@ WebDAVMountURL(const char *url,
 		   url, mountpoint);
 #endif
 	
-    if ((error = AttemptMount(url, mountpoint, options, fd, basename, hostisidisk))) {
+    if ((error = AttemptMount(url, mountpoint, options, fd, basename))) {
 #if DEBUG_TRACE
 		syslog(LOG_DEBUG, 
 			   "WebDAV_MountURLWithAuthentication: AttemptMount returned %d\n", 
@@ -1164,10 +1038,10 @@ netfsError WebDAV_ParseURL(CFURLRef in_URL, CFDictionaryRef *out_URLParms)
     }
     
     /* Get optional path */
-    path = CFURLCopyPath(in_URL);
+	path = CFURLCopyPath(in_URL);
     if (path != NULL) {
 		unescaped_path = CFURLCreateStringByReplacingPercentEscapes(NULL,
-			path, CFSTR(""));
+																	path, CFSTR(""));
 		if (unescaped_path == NULL) {
 			CFRelease(path);
 			error = ENOMEM;
@@ -1177,8 +1051,8 @@ netfsError WebDAV_ParseURL(CFURLRef in_URL, CFDictionaryRef *out_URLParms)
 		CFDictionarySetValue(mutableDict, kNetFSPathKey, unescaped_path);
 		CFRelease(unescaped_path);
     }
-    
-    /* If we reached this point we have no errors, 
+
+	/* If we reached this point we have no errors,
      * so return the properties dictionary */
     *out_URLParms = mutableDict;
     
@@ -1201,12 +1075,12 @@ netfsError WebDAV_CreateURL(CFDictionaryRef in_URLParms, CFURLRef *out_URL)
     SInt32 error = 0;
     CFMutableStringRef urlStringM = NULL;
     CFURLRef myURL = NULL;
-    CFStringRef scheme;
-    CFStringRef host;
-    CFStringRef port;
-    CFStringRef path;
-    CFStringRef user;
-    CFStringRef pass;
+    CFStringRef scheme = NULL;
+    CFStringRef host = NULL;
+    CFStringRef port = NULL;
+    CFStringRef path = NULL;
+    CFStringRef user = NULL;
+    CFStringRef pass = NULL;
     
     /*
      * If in_URLParms is NULL, there's not much we can do, if out_URL is NULL,
@@ -1282,20 +1156,21 @@ netfsError WebDAV_CreateURL(CFDictionaryRef in_URLParms, CFURLRef *out_URL)
     /* Check for path.  Path is an optional field, but NetAuthAgent adds an
 	 * Explicit "/" if there isn't one, so this should never be NULL
 	 */
-    path = (CFStringRef) CFDictionaryGetValue(in_URLParms, kNetFSPathKey);
-    if (path != NULL) {
+	path = (CFStringRef) CFDictionaryGetValue(in_URLParms, kNetFSPathKey);
+	if (path != NULL) {
 		/* Escape  */
-		path = CFURLCreateStringByAddingPercentEscapes(NULL, path, 
+		path = CFURLCreateStringByAddingPercentEscapes(NULL, path,
 													   NULL, CFSTR("?"), kCFStringEncodingUTF8);
 		CFStringAppend(urlStringM, path);
 		CFRelease(path);
-    } 
+    }
 	else {
 		syslog(LOG_ERR, "%s: path is NULL!", __FUNCTION__);
 		error = EINVAL;
 		goto exit;
 	}
-    
+
+
     /* convert to CFURL */
     myURL = CFURLCreateWithString(NULL, urlStringM, NULL);
     CFRelease(urlStringM);
@@ -1494,12 +1369,7 @@ netfsError WebDAV_OpenSession(CFURLRef in_URL,
 		// before passing to webdavlib
 		a_url = copyStripUserPassFromCFURL(in_URL);
 		
-		if (cfurl_is_idisk(a_url)) {
-			// iDisk server - we require credentials to be sent securely
-			authStat = connectToServer(a_url, serverCredsDict, TRUE, &error);
-		}
-		else
-			authStat = connectToServer(a_url, serverCredsDict, FALSE, &error);
+		authStat = connectToServer(a_url, serverCredsDict, FALSE, &error);
 
 		CFReleaseNull(a_url);
 		

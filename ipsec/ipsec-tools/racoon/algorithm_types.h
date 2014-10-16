@@ -42,9 +42,7 @@ enum {
 	algclass_isakmp_hash,
 	algclass_isakmp_dh,
 	algclass_isakmp_ameth,	/* authentication method. */
-    algclass_ikev2_prf,
-    algclass_ikev2_integ,
-#define MAXALGCLASS 9
+#define MAXALGCLASS 7
 };
 
 #define ALG_DEFAULT_KEYLEN	64

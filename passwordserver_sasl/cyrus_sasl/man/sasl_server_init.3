@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_server_init "10 July 2001" SASL "SASL man pages"
+.TH sasl_server_init 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_server_init \- SASL server authentication initialization
 
@@ -58,8 +58,8 @@ initializes SASL. It must be called before any calls to
 sasl_server_start, and only once per process.
 This call initializes all SASL mechanism drivers
 (e.g. authentication mechanisms). These are usually found in the
-/usr/lib/sasl2 directory but the directory may be overriden with the
-SASL_PATH enviornment variable (or at compile time).
+/usr/lib/sasl2 directory but the directory may be overridden with the
+SASL_PATH environment variable (or at compile time).
 .PP
 .I callbacks
 specifies the base callbacks for all client connections. See
@@ -78,6 +78,6 @@ others indicate errors and should either be handled or the
 authentication session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_callbacks(3), sasl_errors(3), sasl_server_new(3), sasl_server_start(3), sasl_server_step(3)

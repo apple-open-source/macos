@@ -35,9 +35,5 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	tracemem(`v, 123);
-#else
 	tracemem(`proc0, 123);
-#endif /* __APPLE__ */
 }

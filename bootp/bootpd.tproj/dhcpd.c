@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,6 +49,7 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <mach/boolean.h>
+#include <notify.h>
 #include "util.h"
 #include "netinfo.h"
 #include "dhcp.h"
@@ -122,7 +123,7 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	int			lease_index;
 
 	/* check the IP address */
-	ip_index = ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
+	ip_index = (int)ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
 	if (ip_index == NI_INDEX_NULL) {
 	    continue;
 	}
@@ -138,7 +139,7 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	    continue;
 	}
 	/* check the lease expiration */
-	lease_index = ni_proplist_match(scan->pl, NIPROP_DHCP_LEASE, NULL);
+	lease_index = (int)ni_proplist_match(scan->pl, NIPROP_DHCP_LEASE, NULL);
 	if (lease_index != NI_INDEX_NULL) {
 	    ni_namelist *		lease_nl_p;
 	    long			val;
@@ -214,6 +215,13 @@ DHCPLeases_ip_in_use(DHCPLeases_t * leases, struct in_addr ip)
     return (entry != NULL);
 }
 
+static void
+S_generate_lease_change_notification(void)
+{
+    notify_post(DHCPD_LEASES_NOTIFICATION_KEY);
+    return;
+}
+
 static boolean_t
 S_remove_host(PLCacheEntry_t * * entry)
 {
@@ -223,6 +231,7 @@ S_remove_host(PLCacheEntry_t * * entry)
     PLCacheEntry_free(ent);
     *entry = NULL;
     PLCache_write(&S_leases.list, DHCP_LEASES_FILE);
+    S_generate_lease_change_notification();
     return (TRUE);
 }
 
@@ -246,7 +255,7 @@ S_set_lease(ni_proplist * pl_p, dhcp_time_secs_t lease_time_expiry,
 {
     char buf[32];
 
-    sprintf(buf, LEASE_FORMAT, lease_time_expiry);
+    snprintf(buf, sizeof(buf), LEASE_FORMAT, lease_time_expiry);
     ni_set_prop(pl_p, NIPROP_DHCP_LEASE, buf, mod);
     return;
 }
@@ -322,7 +331,7 @@ make_dhcp_nak(struct dhcp * reply, int pkt_size,
     r->dp_yiaddr.s_addr = 0;
 
     if (nak_msg) {
-	if (dhcpoa_add(options, dhcptag_message_e, strlen(nak_msg),
+	if (dhcpoa_add(options, dhcptag_message_e, (int)strlen(nak_msg),
 		       nak_msg) != dhcpoa_success_e) {
 	    my_log(LOG_INFO, "dhcpd: couldn't add NAK message type: %s",
 		   dhcpoa_err(options));
@@ -426,12 +435,13 @@ S_create_host(char * idstr, char * hwstr,
 			(ni_name) hwstr);
     ni_proplist_addprop(&pl, NIPROP_IDENTIFIER,
 			(ni_name) idstr);
-    sprintf(lease_str, LEASE_FORMAT, lease_time_expiry);
+    snprintf(lease_str, sizeof(lease_str), LEASE_FORMAT, lease_time_expiry);
     ni_proplist_addprop(&pl, NIPROP_DHCP_LEASE, (ni_name)lease_str);
 
     PLCache_add(&S_leases.list, PLCacheEntry_create(pl));
     PLCache_write(&S_leases.list, DHCP_LEASES_FILE);
     ni_proplist_free(&pl);
+    S_generate_lease_change_notification();
     return (TRUE);
 }
 
@@ -751,7 +761,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		lease = min_lease;
 	    }
 	    else { /* give the host the remaining time on the lease */
-		lease = lease_time_expiry - request->time_in_p->tv_sec;
+		lease = (dhcp_lease_time_t)
+		    (lease_time_expiry - request->time_in_p->tv_sec);
 	    }
 	}
     }
@@ -875,11 +886,13 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  if (binding == dhcp_binding_temporary_e) {
 		      S_remove_host(&entry);
 		  }
-		  if (detect_other_dhcp_server) {
+		  if (detect_other_dhcp_server(request->if_p)) {
 		      my_log(LOG_INFO, 
-			     "dhcpd: detected another DHCP server %s, exiting",
-			     inet_ntoa(*server_id));
-		      exit(2);
+			     "dhcpd: detected another DHCP server %s,"
+			     " disabling DHCP on %s",
+			     inet_ntoa(*server_id),
+			     if_name(request->if_p));
+		      disable_dhcp_on_interface(request->if_p);
 		  }
 		  goto no_reply;
 	      }
@@ -895,7 +908,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      lease_time_expiry 
 			  = hp->lease + request->time_in_p->tv_sec;
 		  }
-		  lease = hp->lease;
+		  lease = (dhcp_lease_time_t)hp->lease;
 	      }
 	      else {
 		  /* this case only happens if the client sends 
@@ -1072,7 +1085,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 			  goto send_nak;
 		      }
 		      /* give the host the remaining time on the lease */
-		      lease = lease_time_expiry - request->time_in_p->tv_sec;
+		      lease = (dhcp_lease_time_t)
+			  (lease_time_expiry - request->time_in_p->tv_sec);
 		  }
 		  if (lease == DHCP_INFINITE_LEASE) {
 		      lease_time_expiry = DHCP_INFINITE_TIME;
@@ -1172,14 +1186,14 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  if (reply)
 	      goto reply;
 	  goto no_reply;
-	  break;
       }
       default: {
-	  if (debug)
+	  if (debug) {
 	      printf("unknown message ignored\n");
+	  }
+	  break;
       }
-      break;
-      }
+    }
 
   reply:
     if (debug)
@@ -1215,7 +1229,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	    bzero(reply->dp_file, sizeof(reply->dp_file));
 
 	    reply->dp_siaddr = if_inet_addr(request->if_p);
-	    strcpy((char *)reply->dp_sname, server_name);
+	    strlcpy((char *)reply->dp_sname, server_name,
+		    sizeof(reply->dp_sname));
 
 	    /* add the client-specified parameters */
 	    if (params != NULL)

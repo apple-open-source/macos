@@ -6,9 +6,21 @@ g/-O3/s//-Os/g
 EXTRA_CFLAGS
 LIBTOOL
 .
+/# Calculate the right deployment target for this build\./i
+	    function vers2str() {
+		printf '%02d%02d' `echo $1 | sed 's/\./ /'`
+	    }
+	    function cmpvers() {
+		test `vers2str $1` "$2" `vers2str $3`
+	    }
+.
+/if test ${cur_target} '>' 10\.2/s/test/cmpvers/
 /LIBTOOL_CRUFT=""/i
             LIBTOOL='$(CC) -dynamiclib -all_load $(CFLAGS)'
 .
+/# Use -undefined dynamic_lookup whenever possible (10\.3 and later)\./a
+.
+/if test ${MACOSX_DEPLOYMENT_TARGET} '>' 10\.2/s/test/cmpvers/
 /LIBFFI_INCLUDEDIR="`/s,".*","/usr/include/ffi",
 /^# check for endianness/i
 # Enable dtrace

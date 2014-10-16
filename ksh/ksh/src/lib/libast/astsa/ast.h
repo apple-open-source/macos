@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -25,10 +25,9 @@
  */
 
 #ifndef _AST_H
-#define _AST_H
+#define _AST_H		1
 
-#include "ast_sa.h"
-
+#include <ast_sa.h>
 #include <ast_common.h>
 
 #include <stdio.h>
@@ -146,6 +145,7 @@ typedef struct
 extern _Ast_info_t	ast;
 
 extern int		astwinsize(int, int*, int*);
+extern int		chresc(const char*, char**);
 extern char*		fmtbuf(size_t);
 extern char*		fmtip4(uint32_t, int);
 extern char*		sfgetr(Sfio_t*, int, int);

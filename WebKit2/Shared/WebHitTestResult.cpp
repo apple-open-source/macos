@@ -25,7 +25,7 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/HitTestResult.h>
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
 #include <WebCore/Node.h>
 #include <wtf/text/WTFString.h>
 
@@ -59,7 +59,7 @@ WebHitTestResult::Data::~Data()
 {
 }
 
-void WebHitTestResult::Data::encode(CoreIPC::ArgumentEncoder& encoder) const
+void WebHitTestResult::Data::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << absoluteImageURL;
     encoder << absolutePDFURL;
@@ -72,7 +72,7 @@ void WebHitTestResult::Data::encode(CoreIPC::ArgumentEncoder& encoder) const
     encoder << isScrollbar;
 }
 
-bool WebHitTestResult::Data::decode(CoreIPC::ArgumentDecoder& decoder, WebHitTestResult::Data& hitTestResultData)
+bool WebHitTestResult::Data::decode(IPC::ArgumentDecoder& decoder, WebHitTestResult::Data& hitTestResultData)
 {
     if (!decoder.decode(hitTestResultData.absoluteImageURL)
         || !decoder.decode(hitTestResultData.absolutePDFURL)
@@ -94,7 +94,7 @@ IntRect WebHitTestResult::Data::elementBoundingBoxInWindowCoordinates(const HitT
     if (!node)
         return IntRect();
 
-    Frame* frame = node->document()->frame();
+    Frame* frame = node->document().frame();
     if (!frame)
         return IntRect();
 

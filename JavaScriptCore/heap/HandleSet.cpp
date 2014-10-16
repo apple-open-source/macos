@@ -30,14 +30,13 @@
 #include "HandleBlockInlines.h"
 #include "HeapRootVisitor.h"
 #include "JSObject.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 #include <wtf/DataLog.h>
 
 namespace JSC {
 
 HandleSet::HandleSet(VM* vm)
     : m_vm(vm)
-    , m_nextToFinalize(0)
 {
     grow();
 }
@@ -73,10 +72,6 @@ void HandleSet::visitStrongHandles(HeapRootVisitor& heapRootVisitor)
 
 void HandleSet::writeBarrier(HandleSlot slot, const JSValue& value)
 {
-    // Forbid assignment to handles during the finalization phase, since it would violate many GC invariants.
-    // File a bug with stack trace if you hit this.
-    RELEASE_ASSERT(!m_nextToFinalize);
-
     if (!value == !*slot && slot->isCell() == value.isCell())
         return;
 

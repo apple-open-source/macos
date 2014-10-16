@@ -40,6 +40,7 @@
 #include <pthread.h>
 
 #include "PMSettings.h"
+#include "BatteryTimeRemaining.h"
 #include "PrivateLib.h"
 #include "PMStore.h"
 #include "PMAssertions.h"
@@ -65,7 +66,7 @@ static CFStringRef                      currentPowerSource = NULL;
  */
 static unsigned long                    g_overrides = 0;
 static unsigned long                    gLastOverrideState = 0;
-static long                             gSleepSetting = -1;
+static unsigned long                    gSleepSetting = -1;
 
 static io_connect_t                     gPowerManager;
 
@@ -184,7 +185,7 @@ getDisplaySleepTimer(uint32_t *displaySleepTimer)
 
 /* Returns Idle sleep time in minutes */
 __private_extern__ IOReturn
-getIdleSleepTimer(uint32_t *idleSleepTimer)
+getIdleSleepTimer(unsigned long *idleSleepTimer)
 {
     CFDictionaryRef     current_settings; 
 
@@ -199,7 +200,7 @@ getIdleSleepTimer(uint32_t *idleSleepTimer)
     current_settings = (CFDictionaryRef)isA_CFDictionary(
                             CFDictionaryGetValue(energySettings, currentPowerSource));
     if (getAggressivenessValue(current_settings, CFSTR(kIOPMSystemSleepKey), 
-                                    kCFNumberSInt32Type, idleSleepTimer) ) {
+                                    kCFNumberSInt32Type, (uint32_t *)idleSleepTimer) ) {
         return kIOReturnSuccess;
     }
 
@@ -474,7 +475,6 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
 
 __private_extern__ void PMSettings_prime(void)
 {
-    CFTypeRef                           ps_blob;
 
     // Open a connection to the Power Manager.
     gPowerManager = IOPMFindPowerManagement(MACH_PORT_NULL);
@@ -487,13 +487,15 @@ __private_extern__ void PMSettings_prime(void)
     /*
      * determine current power source for separate Battery/AC settings
      */
-    ps_blob = IOPSCopyPowerSourcesInfo();
-    if(ps_blob) 
-    {
-        currentPowerSource = IOPSGetProvidingPowerSourceType(ps_blob);
-        CFRelease(ps_blob);
-    } else currentPowerSource = CFSTR(kIOPMACPowerKey);
-    
+    int powersource = getActivePSType();
+    if (kIOPSProvidedByExternalBattery == powersource) {
+        currentPowerSource = CFSTR(kIOPMUPSPowerKey);
+    } else if (kIOPSProvidedByBattery == powersource) {
+        currentPowerSource = CFSTR(kIOPMBatteryPowerKey);
+    } else {
+        currentPowerSource = CFSTR(kIOPMACPowerKey);
+    }
+
     // load the initial configuration from the database
     energySettings = _copyPMSettings(kIOPMRemoveUnsupportedSettings);
 
@@ -560,13 +562,21 @@ PMSettingsPrefsHaveChanged(void)
  * A power source has changed. Has the current power provider changed?
  * If so, get new settings down to the kernel.
  */
-__private_extern__ void PMSettingsPSChange(CFTypeRef ps_blob)
+__private_extern__ void PMSettingsPSChange(void)
 {
     CFStringRef     newPowerSource;
     
-    newPowerSource = IOPSGetProvidingPowerSourceType(ps_blob);
+    int powersource = getActivePSType();
+    if (kIOPSProvidedByExternalBattery == powersource) {
+        newPowerSource = CFSTR(kIOPMUPSPowerKey);
+    } else if (kIOPSProvidedByBattery == powersource) {
+        newPowerSource = CFSTR(kIOPMBatteryPowerKey);
+    } else {
+        newPowerSource = CFSTR(kIOPMACPowerKey);
+    }
 
-    if(!CFEqual(currentPowerSource, newPowerSource))
+    if(!currentPowerSource
+       || !CFEqual(currentPowerSource, newPowerSource))
     {
         currentPowerSource = newPowerSource;
 

@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Modules</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache Module mod_vhost_alias</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_vhost_alias.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_vhost_alias.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../tr/mod/mod_vhost_alias.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Provides for dynamically configured mass virtual
@@ -39,7 +40,7 @@ hosting</td></tr>
     the HTTP request to be used as part of the pathname to
     determine what files to serve. This allows for easy use of a
     huge number of virtual hosts with similar configurations.</p>
-    
+
     <div class="note"><h3>Note</h3>
       <p>If <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code> or <code class="module"><a href="../mod/mod_userdir.html">mod_userdir</a></code> are
       used for translating URIs to filenames, they will override the
@@ -48,10 +49,9 @@ hosting</td></tr>
       /cgi-bin/script.pl</code> to <code>
       /usr/local/apache2/cgi-bin/script.pl</code> in all cases:</p>
 
-      <div class="example"><p><code>
-        ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/<br />
-        VirtualScriptAlias /never/found/%0/cgi-bin/
-      </code></p></div>
+      <pre class="prettyprint lang-config">ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/
+VirtualScriptAlias /never/found/%0/cgi-bin/</pre>
+
     </div>
 </div>
 <div id="quickview"><h3 class="directives">Directives</h3>
@@ -68,7 +68,7 @@ hosting</td></tr>
 </ul><h3>See also</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/core.html#usecanonicalname">UseCanonicalName</a></code></li>
-<li><a href="../vhosts/mass.html">Dynamically configured mass 
+<li><a href="../vhosts/mass.html">Dynamically configured mass
     virtual hosting</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -94,7 +94,7 @@ hosting</td></tr>
 
 <tr><td><code>%N.M</code></td>
 <td>insert (part of) the name</td></tr>
-     
+
 </table>
 
     <p><code>N</code> and <code>M</code> are used to specify
@@ -143,26 +143,24 @@ hosting</td></tr>
     <p>For simple name-based virtual hosts you might use the
     following directives in your server configuration file:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName    Off<br />
-      VirtualDocumentRoot /usr/local/apache/vhosts/%0
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName    Off
+VirtualDocumentRoot /usr/local/apache/vhosts/%0</pre>
+
 
     <p>A request for
     <code>http://www.example.com/directory/file.html</code> will be
     satisfied by the file
     <code>/usr/local/apache/vhosts/www.example.com/directory/file.html</code>.
-    </p> 
+    </p>
 
     <p>For a very large number of virtual hosts it is a good idea
     to arrange the files to reduce the size of the
     <code>vhosts</code> directory. To do this you might use the
     following in your configuration file:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName    Off<br />
-      VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.1/%2.2/%2.3/%2
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName    Off
+VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.1/%2.2/%2.3/%2</pre>
+
 
     <p>A request for
     <code>http://www.domain.example.com/directory/file.html</code>
@@ -172,30 +170,45 @@ hosting</td></tr>
     <p>A more even spread of files can be achieved by hashing from the
     end of the name, for example: </p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.-1/%2.-2/%2.-3/%2
-</code></p></div>
+<pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.-1/%2.-2/%2.-3/%2</pre>
+
 
     <p>The example request would come from
     <code>/usr/local/apache/vhosts/example.com/n/i/a/domain/directory/file.html</code>.</p>
 
     <p>Alternatively you might use: </p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.1/%2.2/%2.3/%2.4+
-</code></p></div>
+<pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/vhosts/%3+/%2.1/%2.2/%2.3/%2.4+</pre>
+
 
     <p>The example request would come from
     <code>/usr/local/apache/vhosts/example.com/d/o/m/ain/directory/file.html</code>.</p>
 
+<p> A very common request by users is the ability to point multiple domains to multiple 
+document roots without having to worry about the length or number of parts of the 
+hostname being requested. If the requested hostname is <code>sub.www.domain.example.com</code>
+ instead of simply <code>www.domain.example.com</code>, then using %3+ will result in the document
+root being <code>/usr/local/apache/vhosts/domain.example.com/...</code> instead of the
+intended <code>example.com</code> directory. In such cases, it can be beneficial to use 
+the combination <code>%-2.0.%-1.0</code>, which will always yield the domain name and the 
+tld, for example <code>example.com</code> regardless of the number of subdomains appended 
+to the hostname. As such, one can make a configuration that will direct all first, second 
+or third level subdomains to the same directory:
+</p>
+<pre class="prettyprint lang-config">VirtualDocumentRoot "/usr/local/apache/vhosts/%-2.0.%-1.0"</pre>
+
+<p>
+In the example above, both <code>www.example.com</code> as well as <code>www.sub.example.com</code>
+or <code>example.com</code> will all point to <code>/usr/local/apache/vhosts/example.com</code>.
+</p>
+
     <p>For IP-based virtual hosting you might use the following in
     your configuration file:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName DNS<br />
-      VirtualDocumentRootIP /usr/local/apache/vhosts/%1/%2/%3/%4/docs<br />
-      VirtualScriptAliasIP  /usr/local/apache/vhosts/%1/%2/%3/%4/cgi-bin
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName DNS
+VirtualDocumentRootIP /usr/local/apache/vhosts/%1/%2/%3/%4/docs
+VirtualScriptAliasIP  /usr/local/apache/vhosts/%1/%2/%3/%4/cgi-bin</pre>
+
 
     <p>A request for
     <code>http://www.domain.example.com/directory/file.html</code>
@@ -212,15 +225,14 @@ hosting</td></tr>
     a <code>%</code> directive, you can work around the problem in
     the following way:</p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/vhosts/%2.0.%3.0
-</code></p></div>
+<pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/vhosts/%2.0.%3.0</pre>
+
 
     <p>A request for
     <code>http://www.domain.example.com/directory/file.html</code>
     will be satisfied by the file
     <code>/usr/local/apache/vhosts/domain.example/directory/file.html</code>.</p>
-     
+
     <p>The <code class="directive"><a href="../mod/mod_log_config.html#logformat">LogFormat</a></code>
     directives <code>%V</code> and <code>%A</code> are useful
     in conjunction with this module.</p>
@@ -238,13 +250,21 @@ for a given virtual host</td></tr>
 </table>
 
     <p>The <code class="directive">VirtualDocumentRoot</code> directive allows you to
-    determine where Apache will find your documents based on the
+    determine where Apache HTTP Server will find your documents based on the
     value of the server name. The result of expanding
     <em>interpolated-directory</em> is used as the root of the
-    document tree in a similar manner to the <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> directive's argument. 
+    document tree in a similar manner to the <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> directive's argument.
     If <em>interpolated-directory</em> is <code>none</code> then
-    <code class="directive">VirtualDocumentRoot</code> is turned off. This directive 
+    <code class="directive">VirtualDocumentRoot</code> is turned off. This directive
     cannot be used in the same context as <code class="directive"><a href="#virtualdocumentrootip">VirtualDocumentRootIP</a></code>.</p>
+
+<div class="warning"><h3>Note</h3>
+<code class="directive">VirtualDocumentRoot</code> will override any <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> directives you may have put in the same 
+context or child contexts. Putting a <code class="directive">VirtualDocumentRoot</code> 
+in the global server scope will effectively override <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> directives in any virtual hosts defined later 
+on, unless you set <code class="directive">VirtualDocumentRoot</code> to <code>None</code> 
+in each virtual host.
+</div>
 
 
 </div>
@@ -280,7 +300,7 @@ a given virtual host</td></tr>
 </table>
 
     <p>The <code class="directive">VirtualScriptAlias</code> directive allows you to
-    determine where Apache will find CGI scripts in a similar
+    determine where Apache httpd will find CGI scripts in a similar
     manner to <code class="directive"><a href="#virtualdocumentroot">VirtualDocumentRoot</a></code> does for other documents. It matches
     requests for URIs starting <code>/cgi-bin/</code>, much like <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>
     <code>/cgi-bin/</code> would.</p>
@@ -290,7 +310,7 @@ a given virtual host</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="VirtualScriptAliasIP" id="VirtualScriptAliasIP">VirtualScriptAliasIP</a> <a name="virtualscriptaliasip" id="virtualscriptaliasip">Directive</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Dynamically configure the location of the cgi directory for
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Dynamically configure the location of the CGI directory for
 a given virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>VirtualScriptAliasIP <em>interpolated-directory</em>|none</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>VirtualScriptAliasIP none</code></td></tr>
@@ -310,11 +330,12 @@ a given virtual host</td></tr>
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_vhost_alias.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_vhost_alias.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../tr/mod/mod_vhost_alias.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_vhost_alias.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_vhost_alias.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -329,7 +350,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_vhost_alias.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

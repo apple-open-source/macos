@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,6 +30,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "HTTPHeaderNames.h"
 #include "PluginDebug.h"
 #include "ResourceLoadScheduler.h"
 #include "SharedBuffer.h"
@@ -77,6 +78,7 @@ PluginStream::PluginStream(PluginStreamClient* client, Frame* frame, const Resou
     m_stream.end = 0;
     m_stream.notifyData = 0;
     m_stream.lastmodified = 0;
+    m_stream.headers = 0;
 
     streams().add(&m_stream, m_instance);
 }
@@ -104,11 +106,11 @@ void PluginStream::stop()
     if (m_loadManually) {
         ASSERT(!m_loader);
 
-        DocumentLoader* documentLoader = m_frame->loader()->activeDocumentLoader();
+        DocumentLoader* documentLoader = m_frame->loader().activeDocumentLoader();
         ASSERT(documentLoader);
 
         if (documentLoader->isLoadingMainResource())
-            documentLoader->cancelMainResourceLoad(m_frame->loader()->cancelledError(m_resourceRequest));
+            documentLoader->cancelMainResourceLoad(m_frame->loader().cancelledError(m_resourceRequest));
 
         return;
     }
@@ -121,11 +123,20 @@ void PluginStream::stop()
     m_client = 0;
 }
 
+static uint32_t lastModifiedDate(const ResourceResponse& response)
+{
+    double lastModified = response.lastModified();
+    if (!std::isfinite(lastModified))
+        return 0;
+
+    return lastModified * 1000;
+}
+
 void PluginStream::startStream()
 {
     ASSERT(m_streamState == StreamBeforeStarted);
 
-    const KURL& responseURL = m_resourceResponse.url();
+    const URL& responseURL = m_resourceResponse.url();
 
     // Some plugins (Flash) expect that javascript URLs are passed back decoded as this is the
     // format used when requesting the URL.
@@ -158,7 +169,7 @@ void PluginStream::startStream()
         // If the content is encoded (most likely compressed), then don't send its length to the plugin,
         // which is only interested in the decoded length, not yet known at the moment.
         // <rdar://problem/4470599> tracks a request for -[NSURLResponse expectedContentLength] to incorporate this logic.
-        String contentEncoding = m_resourceResponse.httpHeaderField("Content-Encoding");
+        String contentEncoding = m_resourceResponse.httpHeaderField(HTTPHeaderName::ContentEncoding);
         if (!contentEncoding.isNull() && contentEncoding != "identity")
             expectedContentLength = -1;
     }
@@ -167,7 +178,7 @@ void PluginStream::startStream()
     m_stream.pdata = 0;
     m_stream.ndata = this;
     m_stream.end = max(expectedContentLength, 0LL);
-    m_stream.lastmodified = m_resourceResponse.lastModifiedDate();
+    m_stream.lastmodified = lastModifiedDate(m_resourceResponse);
     m_stream.notifyData = m_notifyData;
 
     m_transferMode = NP_NORMAL;
@@ -376,7 +387,7 @@ void PluginStream::deliverData()
     } 
 }
 
-void PluginStream::sendJavaScriptStream(const KURL& requestURL, const CString& resultString)
+void PluginStream::sendJavaScriptStream(const URL& requestURL, const CString& resultString)
 {
     didReceiveResponse(0, ResourceResponse(requestURL, "text/plain", resultString.length(), "", ""));
 

@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -37,7 +37,7 @@ reg int		n;	/* number of streams in array		*/
 int		tm;	/* time in millisecs for select/poll	*/
 #endif
 {
-	reg int		r, c, m, np;
+	reg int		r, c, m, np, eintr;
 	reg Sfio_t*	f;
 	reg int		*status, *check;
 
@@ -57,10 +57,13 @@ int		tm;	/* time in millisecs for select/poll	*/
 
 #define HASAUXFD(f)	(f->proc && f->proc->file >= 0 && f->proc->file != f->file)
 
-	for(r = c = 0; r < n; ++r) /* compute streams that must be checked */
+	for(r = c = eintr = 0; r < n; ++r) /* compute streams that must be checked */
 	{	f = fa[r];
 		status[r] = 0;
 
+		/* terminate poll on interrupt? */
+		if(f->flags&SF_IOINTR)
+			eintr++;
 		/* check accessibility */
 		m = f->mode&SF_RDWR;
 		if((int)f->mode != m && _sfmode(f,m,0) < 0)
@@ -94,6 +97,8 @@ int		tm;	/* time in millisecs for select/poll	*/
 				status[r] |= SF_WRITE;
 		}
 	}
+	/* terminate poll on interrupt only if all streams marked SF_IOINTR */
+	eintr = eintr == n ? -1 : EINTR;
 
 	np = -1;
 #if _lib_poll
@@ -131,7 +136,7 @@ int		tm;	/* time in millisecs for select/poll	*/
 		}
 
 		while((np = SFPOLL(fds,m,tm)) < 0 )
-		{	if(errno == EINTR || errno == EAGAIN)
+		{	if(errno == eintr || errno == EAGAIN)
 				errno = 0;
 			else	break;
 		}
@@ -193,7 +198,7 @@ int		tm;	/* time in millisecs for select/poll	*/
 		}
 
 		while((np = select(m+1,&rd,&wr,NIL(fd_set*),tmp)) < 0 )
-		{	if(errno == EINTR)
+		{	if(errno == eintr)
 				errno = 0;
 			else	break;
 		}
@@ -241,5 +246,5 @@ int		tm;	/* time in millisecs for select/poll	*/
 	}
 
 	free((Void_t*)status);
-	return r;
+	return r ? r : np < 0 ? -1 : 0;
 }

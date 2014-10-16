@@ -1,4 +1,0 @@
-[% DEFAULT title = 'Default Title' -%]
-[% BLOCK menu -%]
-This is the menu, defined in 'config'
-[%- END -%]

@@ -72,6 +72,7 @@
 #include "symbol_scope.h"
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
+#include "IPv6Socket.h"
 
 STATIC const struct sockaddr_in6 sin6_allrouters = {
     sizeof(sin6_allrouters),
@@ -85,7 +86,7 @@ STATIC const struct sockaddr_in6 sin6_allrouters = {
 
 
 #define ND_OPT_ALIGN			8
-#define ND_RTADV_HOP_LIMIT		255
+#define ND_RTADV_HOP_LIMIT		IPV6_MAXHLIM
 
 #ifndef ND_OPT_RDNSS
 #define ND_OPT_RDNSS		25
@@ -138,50 +139,23 @@ STATIC int
 open_rtadv_socket(void)
 {
     struct icmp6_filter	filt;
-    int			opt = 1;
     int			sockfd;
 
     /* open socket */
-    if ((sockfd = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0) {
-	my_log(LOG_ERR, "RTADVSocket: error opening socket: %s",
-	       strerror(errno));
+    sockfd = ICMPv6SocketOpen(TRUE);
+    if (sockfd < 0) {
+	my_log_fl(LOG_ERR, "error opening socket: %s",
+		  strerror(errno));
 	goto failed;
     }
-    /* set to non-blocking */
-    if (ioctl(sockfd, FIONBIO, &opt) < 0) {
-	my_log(LOG_ERR, "RTADVSocket: ioctl FIONBIO failed %s",
-	       strerror(errno));
-	goto failed;
-    }
-    /* ask for packet info */
-    if (setsockopt(sockfd, IPPROTO_IPV6, 
-	   	   IPCONFIG_SOCKOPT_PKTINFO, &opt, sizeof(opt)) < 0) {
-	my_log(LOG_ERR, "RTADVSocket: IPV6_PKTINFO: %s",
-	       strerror(errno));
-	goto failed;
-    }
-    /* ... and hop limit */
-    if (setsockopt(sockfd, IPPROTO_IPV6, 
-		   IPCONFIG_SOCKOPT_HOPLIMIT, &opt, sizeof(opt)) < 0) {
-	my_log(LOG_ERR, "RTADVSocket: IPV6_HOPLIMIT: %s",
-	       strerror(errno));
-	goto failed;
-    }
-
-#ifdef SO_TC_CTL
-    opt = SO_TC_CTL;
-    /* set traffic class, we don't care if it failed. */
-    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
-		     sizeof(opt));
-#endif /* SO_TC_CTL */
 
     /* accept only router advertisement messages */
     ICMP6_FILTER_SETBLOCKALL(&filt);
     ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filt);
     if (setsockopt(sockfd, IPPROTO_ICMPV6, ICMP6_FILTER, &filt,
 		   sizeof(filt)) == -1) {
-	my_log(LOG_ERR, "RTADVSocket: setsockopt(ICMP6_FILTER): %s",
-	       strerror(errno));
+	my_log_fl(LOG_ERR, "setsockopt(ICMP6_FILTER): %s",
+		  strerror(errno));
 	goto failed;
     }
     return (sockfd);
@@ -478,7 +452,7 @@ RTADVSocketRead(void * arg1, void * arg2)
     struct iovec 			iov;
     struct sockaddr_in6 		from;
     struct msghdr 			mhdr;
-    int					n;
+    ssize_t				n;
     struct nd_router_advert * 		ndra_p;
     char 				ntopbuf[INET6_ADDRSTRLEN];
     struct in6_pktinfo *		pktinfo = NULL;
@@ -581,7 +555,7 @@ RTADVSocketRead(void * arg1, void * arg2)
 	       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)));
 	return;
     }
-    RTADVSocketDemux(pktinfo->ipi6_ifindex, &from.sin6_addr, ndra_p, n);
+    RTADVSocketDemux(pktinfo->ipi6_ifindex, &from.sin6_addr, ndra_p, (int)n);
     return;
 }
 
@@ -610,7 +584,7 @@ RTADVSocketInitTXBuf(RTADVSocketRef sock, uint32_t * txbuf, bool lladdr_ok)
 	int			opt_len;
 	struct nd_opt_hdr *	ndopt;
 
-	opt_len = roundup(ETHER_ADDR_LEN + sizeof(*ndopt), ND_OPT_ALIGN);
+	opt_len = roundup(if_link_length(if_p) + sizeof(*ndopt), ND_OPT_ALIGN);
 	ndopt = (struct nd_opt_hdr *)(ndrs + 1);
 	ndopt->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
 	ndopt->nd_opt_len = (opt_len / ND_OPT_ALIGN);
@@ -760,15 +734,14 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
 
 PRIVATE_EXTERN void
 RTADVSocketEnableReceive(RTADVSocketRef sock,
-			  RTADVSocketReceiveFuncPtr func, 
-			  void * arg1, void * arg2)
+			 RTADVSocketReceiveFuncPtr func, 
+			 void * arg1, void * arg2)
 {
     sock->receive_func = func;
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
     if (RTADVSocketOpenSocket(sock) == FALSE) {
-	my_log(LOG_ERR, "RTADVSocketEnableReceive(%s): failed",
-	       if_name(sock->if_p));
+	my_log_fl(LOG_ERR, "%s: failed", if_name(sock->if_p));
     }
     return;
 }
@@ -783,69 +756,13 @@ RTADVSocketDisableReceive(RTADVSocketRef sock)
     return;
 }
 
-STATIC int
-S_send_packet(int sockfd, int ifindex, char * pkt, int pkt_size)
-{
-    struct cmsghdr *	cm;
-    char		cmsgbuf[SEND_CMSG_BUF_SIZE];
-    struct iovec 	iov;
-    struct msghdr 	mhdr;
-    int			n;
-    struct in6_pktinfo *pi;
-    int			ret;
-
-    /* initialize msghdr for sending packets */
-    iov.iov_base = (caddr_t)pkt;
-    iov.iov_len = pkt_size;
-    mhdr.msg_name = (caddr_t)&sin6_allrouters;
-    mhdr.msg_namelen = sizeof(struct sockaddr_in6);
-    mhdr.msg_flags = 0;
-    mhdr.msg_iov = &iov;
-    mhdr.msg_iovlen = 1;
-    mhdr.msg_control = (caddr_t)cmsgbuf;
-    mhdr.msg_controllen = sizeof(cmsgbuf);
-
-    /* specify the outgoing interface */
-    bzero(cmsgbuf, sizeof(cmsgbuf));
-    cm = CMSG_FIRSTHDR(&mhdr);
-    if (cm == NULL) {
-	/* this can't happen, keep static analyzer happy */
-	return (EINVAL);
-    }
-    cm->cmsg_level = IPPROTO_IPV6;
-    cm->cmsg_type = IPV6_PKTINFO;
-    cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-    pi = (struct in6_pktinfo *)(void *)CMSG_DATA(cm);
-    pi->ipi6_ifindex = ifindex;
-
-    /* specify the hop limit of the packet */
-    cm = CMSG_NXTHDR(&mhdr, cm);
-    if (cm == NULL) {
-	/* this can't happen, keep static analyzer happy */
-	return (EINVAL);
-    }
-    cm->cmsg_level = IPPROTO_IPV6;
-    cm->cmsg_type = IPV6_HOPLIMIT;
-    cm->cmsg_len = CMSG_LEN(sizeof(int));
-    *((int *)(void *)CMSG_DATA(cm)) = 255;
-
-    n = sendmsg(sockfd, &mhdr, 0);
-    if (n != pkt_size) {
-	ret = errno;
-    }
-    else {
-	ret = 0;
-    }
-    return (ret);
-}
-
 PRIVATE_EXTERN int
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
 {
     interface_t *	if_p = RTADVSocketGetInterface(sock);
     boolean_t		needs_close = FALSE;
     int			ret;
-    uint32_t		txbuf[RTSOL_PACKET_MAX/sizeof(uint32_t)];
+    uint32_t		txbuf[RTSOL_PACKET_MAX / sizeof(uint32_t)];
     int			txbuf_used;	/* amount actually used */
 
 
@@ -858,9 +775,11 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
 	needs_close = TRUE;
     }
     txbuf_used = RTADVSocketInitTXBuf(sock, txbuf, lladdr_ok);
-    ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
-			if_link_index(if_p), (void *)txbuf,
-			txbuf_used);
+    ret = IPv6SocketSend(FDCalloutGetFD(S_globals->read_fd),
+			 if_link_index(if_p),
+			 &sin6_allrouters,
+			 (void *)txbuf, txbuf_used,
+			 ND_RTADV_HOP_LIMIT);
     if (needs_close) {
 	RTADVSocketCloseSocket(sock);
     }
@@ -886,6 +805,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
     RTADVSocketReceiveDataRef 	data;
     int				error;
     interface_t *		if_p = RTADVSocketGetInterface(rtadv->sock);
+    struct timeval		tv;
     char 			ntopbuf[INET6_ADDRSTRLEN];
 
     switch (event_id) {
@@ -899,7 +819,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	if (rtadv->try > MAX_RTR_SOLICITATIONS) {
 	    break;
 	}
-	my_log(LOG_DEBUG, 
+	my_log(LOG_NOTICE, 
 	       "RTADV %s: sending Router Solicitation (%d of %d)",
 	       if_name(if_p), rtadv->try, MAX_RTR_SOLICITATIONS);
 	error = RTADVSocketSendSolicitation(rtadv->sock, TRUE);
@@ -915,6 +835,12 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	    break;
 	}
 	rtadv->try++;
+	tv.tv_sec = RTR_SOLICITATION_INTERVAL;
+	tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	timer_set_relative(rtadv->timer, tv,
+			   (timer_func_t *)start_rtadv,
+			   rtadv, (void *)IFEventID_timeout_e, NULL);
+
 	break;
 
     case IFEventID_data_e:

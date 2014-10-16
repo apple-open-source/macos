@@ -81,7 +81,7 @@ static int open_log(server_rec *s, apr_pool_t *p)
 
         pl = ap_open_piped_log(p, pname);
         if (pl == NULL) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(00650)
                          "couldn't spawn forensic log pipe %s", cfg->logname);
             return 0;
         }
@@ -94,7 +94,7 @@ static int open_log(server_rec *s, apr_pool_t *p)
         if ((rv = apr_file_open(&cfg->fd, fname,
                                 APR_WRITE | APR_APPEND | APR_CREATE,
                                 APR_OS_DEFAULT, p)) != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(00651)
                          "could not open forensic log file %s.", fname);
             return 0;
         }
@@ -126,7 +126,7 @@ static char *log_escape(char *q, const char *e, const char *p)
         if (test_char_table[*(unsigned char *)p]&T_ESCAPE_FORENSIC) {
             ap_assert(q+2 < e);
             *q++ = '%';
-            sprintf(q, "%02x", *(unsigned char *)p);
+            ap_bin2hex(p, 1, q);
             q += 2;
         }
         else
@@ -195,7 +195,7 @@ static int log_before(request_rec *r)
     if (!(id = apr_table_get(r->subprocess_env, "UNIQUE_ID"))) {
         /* we make the assumption that we can't go through all the PIDs in
            under 1 second */
-        id = apr_psprintf(r->pool, "%" APR_PID_T_FMT ":%lx:%x", getpid(), 
+        id = apr_psprintf(r->pool, "%" APR_PID_T_FMT ":%lx:%x", getpid(),
                           time(NULL), apr_atomic_inc32(&next_id));
     }
     ap_set_module_config(r->request_config, &log_forensic_module, (char *)id);
@@ -240,7 +240,7 @@ static int log_after(request_rec *r)
     apr_size_t l, n;
     apr_status_t rv;
 
-    if (!cfg->fd) {
+    if (!cfg->fd || id == NULL) {
         return DECLINED;
     }
 
@@ -277,7 +277,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_log_transaction(log_after,NULL,NULL,APR_HOOK_REALLY_LAST);
 }
 
-module AP_MODULE_DECLARE_DATA log_forensic_module =
+AP_DECLARE_MODULE(log_forensic) =
 {
     STANDARD20_MODULE_STUFF,
     NULL,                       /* create per-dir config */

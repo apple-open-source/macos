@@ -5,9 +5,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/01/30 23:46:51 $ 
-    $Revision: 1.3 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
   Entity handling can be static because there are no config or
   document-specific values.  Lookup table is 100% defined at 

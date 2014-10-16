@@ -26,38 +26,42 @@
 #include "config.h"
 #include "ImmutableDictionary.h"
 
-#include "ImmutableArray.h"
-#include "WebString.h"
+#include "APIArray.h"
+#include "APIString.h"
 
 namespace WebKit {
 
-ImmutableDictionary::ImmutableDictionary()
+RefPtr<ImmutableDictionary> ImmutableDictionary::create()
 {
+    return create({ });
 }
 
-ImmutableDictionary::ImmutableDictionary(MapType& map)
+RefPtr<ImmutableDictionary> ImmutableDictionary::create(MapType map)
 {
-    m_map.swap(map);
+    return adoptRef(new ImmutableDictionary(WTF::move(map)));
+}
+
+ImmutableDictionary::ImmutableDictionary(MapType map)
+    : m_map(WTF::move(map))
+{
 }
 
 ImmutableDictionary::~ImmutableDictionary()
 {
 }
 
-PassRefPtr<ImmutableArray> ImmutableDictionary::keys() const
+PassRefPtr<API::Array> ImmutableDictionary::keys() const
 {
     if (m_map.isEmpty())
-        return ImmutableArray::create();
+        return API::Array::create();
 
-    Vector<RefPtr<APIObject>> vector;
-    vector.reserveInitialCapacity(m_map.size());
+    Vector<RefPtr<API::Object>> keys;
+    keys.reserveInitialCapacity(m_map.size());
 
-    MapType::const_iterator::Keys it = m_map.begin().keys();
-    MapType::const_iterator::Keys end = m_map.end().keys();
-    for (; it != end; ++it)
-        vector.uncheckedAppend(WebString::create(*it));
+    for (const auto& key : m_map.keys())
+        keys.uncheckedAppend(API::String::create(key));
 
-    return ImmutableArray::adopt(vector);
+    return API::Array::create(WTF::move(keys));
 }
 
 } // namespace WebKit

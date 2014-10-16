@@ -44,11 +44,7 @@ BEGIN
 	ptr = alloca(0);
 
 	/* Attempt to bcopy to scratch memory that isn't allocated */
-#if !defined(__APPLE__)
-	bcopy((void *)&`kmem_flags, ptr, sizeof (int));
-#else
 	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
-#endif /* __APPLE__ */
 	exit(1);
 }
 

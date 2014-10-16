@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,7 +57,6 @@
 #include "interfaces.h"
 #include "util.h"
 
-#include "dprintf.h"
 #include "dhcp_options.h"
 #include "ipconfigd_threads.h"
 
@@ -123,7 +122,7 @@ failover_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  failover->address_is_verified = FALSE;
 	  failover_cancel_pending_events(service_p);
 	  tv.tv_sec = random_range(0, 4);
-	  tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	  timer_set_relative(failover->timer, tv, 
 			     (timer_func_t *)failover_start,
 			     service_p, (void *)IFEventID_timeout_e, NULL);

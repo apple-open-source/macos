@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,7 +33,7 @@
 #include "JSGlobalObject.h"
 #include "JSObjectRef.h"
 #include "ObjectPrototype.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 #include <wtf/text/StringHash.h>
 #include <wtf/unicode/UTF8.h>
 
@@ -66,7 +66,7 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
         while (staticValue->name) {
             String valueName = String::fromUTF8(staticValue->name);
             if (!valueName.isNull())
-                m_staticValues->set(valueName.impl(), adoptPtr(new StaticValueEntry(staticValue->getProperty, staticValue->setProperty, staticValue->attributes)));
+                m_staticValues->set(valueName.impl(), std::make_unique<StaticValueEntry>(staticValue->getProperty, staticValue->setProperty, staticValue->attributes, valueName));
             ++staticValue;
         }
     }
@@ -76,7 +76,7 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
         while (staticFunction->name) {
             String functionName = String::fromUTF8(staticFunction->name);
             if (!functionName.isNull())
-                m_staticFunctions->set(functionName.impl(), adoptPtr(new StaticFunctionEntry(staticFunction->callAsFunction, staticFunction->attributes)));
+                m_staticFunctions->set(functionName.impl(), std::make_unique<StaticFunctionEntry>(staticFunction->callAsFunction, staticFunction->attributes));
             ++staticFunction;
         }
     }
@@ -88,19 +88,19 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
 OpaqueJSClass::~OpaqueJSClass()
 {
     // The empty string is shared across threads & is an identifier, in all other cases we should have done a deep copy in className(), below. 
-    ASSERT(!m_className.length() || !m_className.impl()->isIdentifier());
+    ASSERT(!m_className.length() || !m_className.impl()->isAtomic());
 
 #ifndef NDEBUG
     if (m_staticValues) {
         OpaqueJSClassStaticValuesTable::const_iterator end = m_staticValues->end();
         for (OpaqueJSClassStaticValuesTable::const_iterator it = m_staticValues->begin(); it != end; ++it)
-            ASSERT(!it->key->isIdentifier());
+            ASSERT(!it->key->isAtomic());
     }
 
     if (m_staticFunctions) {
         OpaqueJSClassStaticFunctionsTable::const_iterator end = m_staticFunctions->end();
         for (OpaqueJSClassStaticFunctionsTable::const_iterator it = m_staticFunctions->begin(); it != end; ++it)
-            ASSERT(!it->key->isIdentifier());
+            ASSERT(!it->key->isAtomic());
     }
 #endif
     
@@ -131,35 +131,36 @@ OpaqueJSClassContextData::OpaqueJSClassContextData(JSC::VM&, OpaqueJSClass* jsCl
     : m_class(jsClass)
 {
     if (jsClass->m_staticValues) {
-        staticValues = adoptPtr(new OpaqueJSClassStaticValuesTable);
+        staticValues = std::make_unique<OpaqueJSClassStaticValuesTable>();
         OpaqueJSClassStaticValuesTable::const_iterator end = jsClass->m_staticValues->end();
         for (OpaqueJSClassStaticValuesTable::const_iterator it = jsClass->m_staticValues->begin(); it != end; ++it) {
-            ASSERT(!it->key->isIdentifier());
-            staticValues->add(it->key->isolatedCopy(), adoptPtr(new StaticValueEntry(it->value->getProperty, it->value->setProperty, it->value->attributes)));
+            ASSERT(!it->key->isAtomic());
+            String valueName = it->key->isolatedCopy();
+            staticValues->add(valueName.impl(), std::make_unique<StaticValueEntry>(it->value->getProperty, it->value->setProperty, it->value->attributes, valueName));
         }
     }
 
     if (jsClass->m_staticFunctions) {
-        staticFunctions = adoptPtr(new OpaqueJSClassStaticFunctionsTable);
+        staticFunctions = std::make_unique<OpaqueJSClassStaticFunctionsTable>();
         OpaqueJSClassStaticFunctionsTable::const_iterator end = jsClass->m_staticFunctions->end();
         for (OpaqueJSClassStaticFunctionsTable::const_iterator it = jsClass->m_staticFunctions->begin(); it != end; ++it) {
-            ASSERT(!it->key->isIdentifier());
-            staticFunctions->add(it->key->isolatedCopy(), adoptPtr(new StaticFunctionEntry(it->value->callAsFunction, it->value->attributes)));
+            ASSERT(!it->key->isAtomic());
+            staticFunctions->add(it->key->isolatedCopy(), std::make_unique<StaticFunctionEntry>(it->value->callAsFunction, it->value->attributes));
         }
     }
 }
 
 OpaqueJSClassContextData& OpaqueJSClass::contextData(ExecState* exec)
 {
-    OwnPtr<OpaqueJSClassContextData>& contextData = exec->lexicalGlobalObject()->opaqueJSClassData().add(this, nullptr).iterator->value;
+    std::unique_ptr<OpaqueJSClassContextData>& contextData = exec->lexicalGlobalObject()->opaqueJSClassData().add(this, nullptr).iterator->value;
     if (!contextData)
-        contextData = adoptPtr(new OpaqueJSClassContextData(exec->vm(), this));
+        contextData = std::make_unique<OpaqueJSClassContextData>(exec->vm(), this);
     return *contextData;
 }
 
 String OpaqueJSClass::className()
 {
-    // Make a deep copy, so that the caller has no chance to put the original into IdentifierTable.
+    // Make a deep copy, so that the caller has no chance to put the original into AtomicStringTable.
     return m_className.isolatedCopy();
 }
 
@@ -206,6 +207,6 @@ JSObject* OpaqueJSClass::prototype(ExecState* exec)
             prototype->setPrototype(exec->vm(), parentPrototype);
     }
 
-    jsClassData.cachedPrototype = PassWeak<JSObject>(prototype);
+    jsClassData.cachedPrototype = Weak<JSObject>(prototype);
     return prototype;
 }

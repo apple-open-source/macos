@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2013, International Business Machines Corporation and    *
+* Copyright (C) 1997-2014, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -47,18 +47,18 @@
  * resource data.
  */
 
-#define PATTERN_CHARS_LEN 34
+#define PATTERN_CHARS_LEN 35
 
 /**
  * Unlocalized date-time pattern characters. For example: 'y', 'd', etc. All
  * locales use the same these unlocalized pattern characters.
  */
 static const UChar gPatternChars[] = {
-    // GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXx
+    // GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr
     0x47, 0x79, 0x4D, 0x64, 0x6B, 0x48, 0x6D, 0x73, 0x53, 0x45,
     0x44, 0x46, 0x77, 0x57, 0x61, 0x68, 0x4B, 0x7A, 0x59, 0x65,
     0x75, 0x67, 0x41, 0x5A, 0x76, 0x63, 0x4c, 0x51, 0x71, 0x56,
-    0x55, 0x4F, 0x58, 0x78, 0
+    0x55, 0x4F, 0x58, 0x78, 0x72, 0
 };
 
 /* length of an array */
@@ -158,6 +158,7 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(DateFormatSymbols)
 static const char gErasTag[]="eras";
 static const char gCyclicNameSetsTag[]="cyclicNameSets";
 static const char gNameSetYearsTag[]="years";
+static const char gNameSetZodiacsTag[]="zodiacs";
 static const char gMonthNamesTag[]="monthNames";
 static const char gMonthPatternsTag[]="monthPatterns";
 static const char gDayNamesTag[]="dayNames";
@@ -328,6 +329,12 @@ DateFormatSymbols::copyData(const DateFormatSymbols& other) {
         fShortYearNames = NULL;
         fShortYearNamesCount = 0;
     }
+    if (other.fShortZodiacNames != NULL) {
+        assignArray(fShortZodiacNames, fShortZodiacNamesCount, other.fShortZodiacNames, other.fShortZodiacNamesCount);
+    } else {
+        fShortZodiacNames = NULL;
+        fShortZodiacNamesCount = 0;
+    }
  
     if (other.fZoneStrings != NULL) {
         fZoneStringsColCount = other.fZoneStringsColCount;
@@ -391,6 +398,7 @@ void DateFormatSymbols::dispose()
     if (fStandaloneShortQuarters)   delete[] fStandaloneShortQuarters;
     if (fLeapMonthPatterns)         delete[] fLeapMonthPatterns;
     if (fShortYearNames)            delete[] fShortYearNames;
+    if (fShortZodiacNames)          delete[] fShortZodiacNames;
 
     disposeZoneStrings();
 }
@@ -461,6 +469,7 @@ DateFormatSymbols::operator==(const DateFormatSymbols& other) const
         fStandaloneShortQuartersCount == other.fStandaloneShortQuartersCount &&
         fLeapMonthPatternsCount == other.fLeapMonthPatternsCount &&
         fShortYearNamesCount == other.fShortYearNamesCount &&
+        fShortZodiacNamesCount == other.fShortZodiacNamesCount &&
         (uprv_memcmp(fCapitalization, other.fCapitalization, sizeof(fCapitalization))==0))
     {
         // Now compare the arrays themselves
@@ -487,7 +496,8 @@ DateFormatSymbols::operator==(const DateFormatSymbols& other) const
             arrayCompare(fStandaloneQuarters, other.fStandaloneQuarters, fStandaloneQuartersCount) &&
             arrayCompare(fStandaloneShortQuarters, other.fStandaloneShortQuarters, fStandaloneShortQuartersCount) &&
             arrayCompare(fLeapMonthPatterns, other.fLeapMonthPatterns, fLeapMonthPatternsCount) &&
-            arrayCompare(fShortYearNames, other.fShortYearNames, fShortYearNamesCount))
+            arrayCompare(fShortYearNames, other.fShortYearNames, fShortYearNamesCount) &&
+            arrayCompare(fShortZodiacNames, other.fShortZodiacNames, fShortZodiacNamesCount))
         {
             // Compare the contents of fZoneStrings
             if (fZoneStrings == NULL && other.fZoneStrings == NULL) {
@@ -728,6 +738,13 @@ DateFormatSymbols::getLeapMonthPatterns(int32_t &count) const
 {
     count = fLeapMonthPatternsCount;
     return fLeapMonthPatterns;
+}
+
+const UnicodeString*
+DateFormatSymbols::getZodiacNames(int32_t &count) const
+{
+    count = fShortZodiacNamesCount;
+    return fShortZodiacNames;
 }
 
 //------------------------------------------------------
@@ -1198,31 +1215,41 @@ DateFormatSymbols::getPatternCharIndex(UChar c) {
     }
 }
 
-static const uint32_t kNumericFields =
-    ((uint32_t)1 << UDAT_YEAR_FIELD) |                      // y
-    ((uint32_t)1 << UDAT_MONTH_FIELD) |                     // M or MM
-    ((uint32_t)1 << UDAT_DATE_FIELD) |                      // d
-    ((uint32_t)1 << UDAT_HOUR_OF_DAY1_FIELD) |              // k
-    ((uint32_t)1 << UDAT_HOUR_OF_DAY0_FIELD) |              // H
-    ((uint32_t)1 << UDAT_MINUTE_FIELD) |                    // m
-    ((uint32_t)1 << UDAT_SECOND_FIELD) |                    // s
-    ((uint32_t)1 << UDAT_FRACTIONAL_SECOND_FIELD) |         // S
-    ((uint32_t)1 << UDAT_DAY_OF_YEAR_FIELD) |               // D
-    ((uint32_t)1 << UDAT_DAY_OF_WEEK_IN_MONTH_FIELD) |      // F
-    ((uint32_t)1 << UDAT_WEEK_OF_YEAR_FIELD) |              // w
-    ((uint32_t)1 << UDAT_WEEK_OF_MONTH_FIELD) |             // W
-    ((uint32_t)1 << UDAT_HOUR1_FIELD) |                     // h
-    ((uint32_t)1 << UDAT_HOUR0_FIELD) |                     // K
-    ((uint32_t)1 << UDAT_YEAR_WOY_FIELD) |                  // Y
-    ((uint32_t)1 << UDAT_DOW_LOCAL_FIELD) |                 // e
-    ((uint32_t)1 << UDAT_EXTENDED_YEAR_FIELD);              // u
+static const uint64_t kNumericFieldsAlways =
+    ((uint64_t)1 << UDAT_YEAR_FIELD) |                      // y
+    ((uint64_t)1 << UDAT_DATE_FIELD) |                      // d
+    ((uint64_t)1 << UDAT_HOUR_OF_DAY1_FIELD) |              // k
+    ((uint64_t)1 << UDAT_HOUR_OF_DAY0_FIELD) |              // H
+    ((uint64_t)1 << UDAT_MINUTE_FIELD) |                    // m
+    ((uint64_t)1 << UDAT_SECOND_FIELD) |                    // s
+    ((uint64_t)1 << UDAT_FRACTIONAL_SECOND_FIELD) |         // S
+    ((uint64_t)1 << UDAT_DAY_OF_YEAR_FIELD) |               // D
+    ((uint64_t)1 << UDAT_DAY_OF_WEEK_IN_MONTH_FIELD) |      // F
+    ((uint64_t)1 << UDAT_WEEK_OF_YEAR_FIELD) |              // w
+    ((uint64_t)1 << UDAT_WEEK_OF_MONTH_FIELD) |             // W
+    ((uint64_t)1 << UDAT_HOUR1_FIELD) |                     // h
+    ((uint64_t)1 << UDAT_HOUR0_FIELD) |                     // K
+    ((uint64_t)1 << UDAT_YEAR_WOY_FIELD) |                  // Y
+    ((uint64_t)1 << UDAT_EXTENDED_YEAR_FIELD) |             // u
+    ((uint64_t)1 << UDAT_JULIAN_DAY_FIELD) |                // g
+    ((uint64_t)1 << UDAT_MILLISECONDS_IN_DAY_FIELD) |       // A
+    ((uint64_t)1 << UDAT_RELATED_YEAR_FIELD);               // r
+
+static const uint64_t kNumericFieldsForCount12 =
+    ((uint64_t)1 << UDAT_MONTH_FIELD) |                     // M or MM
+    ((uint64_t)1 << UDAT_DOW_LOCAL_FIELD) |                 // e or ee
+    ((uint64_t)1 << UDAT_STANDALONE_DAY_FIELD) |            // c or cc
+    ((uint64_t)1 << UDAT_STANDALONE_MONTH_FIELD) |          // L or LL
+    ((uint64_t)1 << UDAT_QUARTER_FIELD) |                   // Q or QQ
+    ((uint64_t)1 << UDAT_STANDALONE_QUARTER_FIELD);         // q or qq
 
 UBool U_EXPORT2
 DateFormatSymbols::isNumericField(UDateFormatField f, int32_t count) {
-    return
-        f != UDAT_FIELD_COUNT &&
-        (kNumericFields & ((uint32_t)1 << f)) != 0 &&
-        (f != UDAT_MONTH_FIELD || count < 3);
+    if (f == UDAT_FIELD_COUNT) {
+        return FALSE;
+    }
+    uint64_t flag = ((uint64_t)1 << f);
+    return ((kNumericFieldsAlways & flag) != 0 || ((kNumericFieldsForCount12 & flag) != 0 && count < 3));
 }
 
 UBool U_EXPORT2
@@ -1379,6 +1406,8 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
     fLeapMonthPatternsCount = 0;
     fShortYearNames = NULL;
     fShortYearNamesCount = 0;
+    fShortZodiacNames = NULL;
+    fShortZodiacNamesCount = 0;
     fZoneStringsRowCount = 0;
     fZoneStringsColCount = 0;
     fZoneStrings = NULL;
@@ -1453,6 +1482,19 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
                 ures_close(nameSetYearsFmt);
             }
             ures_close(nameSetYears);
+        }
+        UResourceBundle *nameSetZodiacs = ures_getByKeyWithFallback(cyclicNameSets, gNameSetZodiacsTag, NULL, &tempStatus);
+        if (U_SUCCESS(tempStatus)) {
+            UResourceBundle *nameSetZodiacsFmt = ures_getByKeyWithFallback(nameSetZodiacs, gNamesFormatTag, NULL, &tempStatus);
+            if (U_SUCCESS(tempStatus)) {
+                UResourceBundle *nameSetZodiacsFmtAbbrev = ures_getByKeyWithFallback(nameSetZodiacsFmt, gNamesAbbrTag, NULL, &tempStatus);
+                if (U_SUCCESS(tempStatus)) {
+                    initField(&fShortZodiacNames, fShortZodiacNamesCount, nameSetZodiacsFmtAbbrev, tempStatus);
+                    ures_close(nameSetZodiacsFmtAbbrev);
+                }
+                ures_close(nameSetZodiacsFmt);
+            }
+            ures_close(nameSetZodiacs);
         }
     }
 

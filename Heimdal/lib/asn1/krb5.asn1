@@ -81,11 +81,33 @@ EXPORTS
 	KrbFastArmor,
 	KDCFastState,
 	KDCFastCookie,
+	KDCSRPState,
 	KDC-PROXY-MESSAGE,
 	KERB-TIMES,
 	KERB-CRED,
 	KERB-TGS-REQ-IN,
-	KERB-TGS-REQ-OUT
+	KERB-TGS-REQ-OUT,
+	KERB-ARMOR-SERVICE-REPLY,
+	KERB-ERROR-DATA,
+	PA-SAM-CHALLENGE-2,
+	PA-SAM-REDIRECT,
+	KERB-ERROR-NUMBER,
+	KERB-TGS-REP-IN,
+	PROV-SRV-LOCATION,
+	TYPED-DATA,
+	krb5-pvno,
+	KERB-TGS-REP-OUT,
+	PA-ENC-SAM-RESPONSE-ENC,
+	PA-SAM-RESPONSE-2,
+	AD-MANDATORY-FOR-KDC,
+	PA-SAM-TYPE,
+	KRB5-SRP-GROUP,
+	KRB5-SRP-PA,
+	KRB5-SRP-PA-ANNOUNCE,
+	KRB5-SRP-PA-INIT,
+	KRB5-SRP-PA-SERVER-CHALLENGE,
+	KRB5-SRP-PA-CLIENT-RESPONSE,
+	KRB5-SRP-PA-SERVER-VERIFIER
 	;
 
 NAME-TYPE ::= INTEGER {
@@ -158,6 +180,7 @@ PADATA-TYPE ::= INTEGER {
 	KRB5-PADATA-SAM-CHALLENGE2(30),		-- (kenh@pobox.com)
 	KRB5-PADATA-SAM-RESPONSE2(31),		-- (kenh@pobox.com)
 	KRB5-PA-EXTRA-TGT(41),			-- Reserved extra TGT
+	KRB5-PADATA-FX-FAST-ARMOR(71),		-- fast armor
 	KRB5-PADATA-TD-KRB-PRINCIPAL(102),	-- PrincipalName
 	KRB5-PADATA-PK-TD-TRUSTED-CERTIFIERS(104), -- PKINIT
 	KRB5-PADATA-PK-TD-CERTIFICATE-INDEX(105), -- PKINIT
@@ -189,7 +212,8 @@ PADATA-TYPE ::= INTEGER {
 	KRB5-PADATA-PKINIT-KX(147),		-- krb-wg-anon
 	KRB5-PADATA-PKU2U-NAME(148),		-- zhu-pku2u
 	KRB5-PADATA-REQ-ENC-PA-REP(149),	--
-	KRB5-PADATA-SUPPORTED-ETYPES(165)	-- MS-KILE
+	KRB5-PADATA-SUPPORTED-ETYPES(165),	-- MS-KILE
+	KRB5-PADATA-SRP(250)			-- lha@apple.com
 }
 
 AUTHDATA-TYPE ::= INTEGER {
@@ -265,8 +289,10 @@ ENCTYPE ::= INTEGER {
 	KRB5_ENCTYPE_CRAM_MD5_NONE(-0x1005)		-- private use, lukeh@padl.com
 }
 
-
-
+KRB5-SRP-GROUP ::= INTEGER {
+	KRB5_SRP_GROUP_INVALID(0),
+	KRB5_SRP_GROUP_RFC5054_4096_PBKDF2_SHA512(1)
+}
 
 -- this is sugar to make something ASN1 does not have: unsigned
 
@@ -348,9 +374,8 @@ KDCOptions ::= BIT STRING {
 	allow-postdate(5),
 	postdated(6),
 	renewable(8),
-	request-anonymous(14),
 	canonicalize(15),
-	constrained-delegation(16), -- ms extension
+	request-anonymous(16), -- constrained-delegation(16) msft extension
 	disable-transited-check(26),
 	renewable-ok(27),
 	enc-tkt-in-skey(28),
@@ -837,23 +862,38 @@ PA-FX-FAST-REPLY ::= CHOICE {
 }
 
 KDCFastFlags ::= BIT STRING {
-	use_reply_key(0),
-	reply_key_used(1),
-	reply_key_replaced(2),
-	kdc_verfied(3)
+	use-reply-key(0),
+	reply-key-used(1),
+	reply-key-replaced(2),
+	kdc-verfied(3),
+	requested-hidden-names(4)
+
+}
+
+KDCSRPState ::= SEQUENCE {
+	pa-announce	[0] OCTET STRING,
+	group		[1] KRB5-SRP-GROUP,
+	m		[2] OCTET STRING,
+	hamk		[3] OCTET STRING,
+	k		[4] OCTET STRING
+}
+
+KDCFastPAState ::= SEQUENCE {
+	srp [0] KDCSRPState OPTIONAL
 }
 
 -- KDCFastState is stored in FX_COOKIE
 KDCFastState ::= SEQUENCE {
 	flags [0] KDCFastFlags,
 	expiration [1] GeneralizedTime,
-	fast-state [2] METHOD-DATA,
-	expected-pa-types [3] SEQUENCE OF PADATA-TYPE OPTIONAL
+	expected-pa-types [2] SEQUENCE OF PADATA-TYPE OPTIONAL,
+	pa-state [3] KDCFastPAState
 }
 
 KDCFastCookie ::= SEQUENCE {
-	version [0] UTF8String,
-	cookie [1] EncryptedData
+	version [0] krb5uint32,
+	realm [1] UTF8String,
+	cookie [2] EncryptedData
 }
 
 KDC-PROXY-MESSAGE ::= SEQUENCE {
@@ -913,6 +953,48 @@ KERB-TGS-REP-OUT ::= SEQUENCE {
 	subkey		[2] EncryptionKey
 }
 
+KERB-ARMOR-SERVICE-REPLY ::= SEQUENCE {
+	armor		[0] KrbFastArmor,
+	armor-key	[1] EncryptionKey
+}
+
+-- [MS-KILE] 2.2.1
+
+KERB-ERROR-NUMBER ::= INTEGER {
+	KRB5_AP_ERR_WINDOWS_ERROR_CODE(1),
+	KRB5_AP_ERR_TYPE_SKEW_RECOVERY(2)
+}
+
+KERB-ERROR-DATA ::= SEQUENCE {
+	data-type	[1] krb5int32,
+	data-value	[2] OCTET STRING OPTIONAL
+}
+
+-- [SRP]
+
+KRB5-SRP-PA ::= SEQUENCE {
+	group		[0] KRB5-SRP-GROUP,
+	salt		[1] OCTET STRING,
+	iterations	[2] krb5uint32
+}
+	
+KRB5-SRP-PA-ANNOUNCE ::= SEQUENCE {
+	groups		[0] SET OF KRB5-SRP-PA,		-- allowed groups and their salt
+	as-req		[1] Checksum			-- an unkeyed checksum of the AS-REQ using
+							-- an non weak checksum type that the KDC support
+							-- given the list of etype from the client
+}
+
+KRB5-SRP-PA-INIT ::= [APPLICATION 0] SEQUENCE  {
+	group	[0] krb5uint32,
+	a	[1] OCTET STRING
+}
+
+KRB5-SRP-PA-SERVER-CHALLENGE ::= [APPLICATION 1] OCTET STRING -- b
+
+KRB5-SRP-PA-CLIENT-RESPONSE ::= [APPLICATION 2] OCTET STRING -- m
+
+KRB5-SRP-PA-SERVER-VERIFIER ::= [APPLICATION 3] OCTET STRING -- hamk
 
 END
 

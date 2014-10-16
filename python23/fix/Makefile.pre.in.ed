@@ -1,7 +1,0 @@
-/RANLIB=/a
-LIBTOOL=	@LIBTOOL@
-.
-/libtool/s//$(LIBTOOL)/
-/Terminal/d
-.-1s/ \\$//
-w

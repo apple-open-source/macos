@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.SystemConfiguration.SCDynamicStore-write-access</key>
 	<true/>
+	<key>com.apple.private.nesessionmanager.privileged</key>
+	<true/>
 </dict>
 </plist>

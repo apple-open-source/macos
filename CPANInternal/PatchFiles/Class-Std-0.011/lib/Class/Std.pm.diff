@@ -1,10 +1,21 @@
---- Class-Std-0.011/lib/Class/Std.pm.orig	2013-03-05 16:13:33.000000000 -0800
-+++ Class-Std-0.011/lib/Class/Std.pm	2013-03-05 16:13:59.000000000 -0800
-@@ -519,6 +519,7 @@
+diff --git a/Class-Std-0.011/lib/Class/Std.pm b/Class-Std-0.011/lib/Class/Std.pm
+index c64ad8e..baac977 100644
+--- Class-Std-0.011/lib/Class/Std.pm
++++ Class-Std-0.011/lib/Class/Std.pm
+@@ -519,6 +519,7 @@ sub DESTROY {
  
      for my $base_class (_hierarchy_of(ref $_[0])) {
          no strict 'refs';
-+        no warnings;
++        no warnings 'once';
          if (my $demolish_ref = *{$base_class.'::DEMOLISH'}{CODE}) {
              &{$demolish_ref};
          }
+@@ -613,6 +614,8 @@ use overload (
+ 1; # Magic true value required at end of module
+ __END__
+ 
++=encoding ISO-8859-1
++
+ =head1 NAME
+ 
+ Class::Std - Support for creating standard "inside-out" classes

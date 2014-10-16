@@ -26,6 +26,8 @@
 #ifndef WebResourceBuffer_h
 #define WebResourceBuffer_h
 
+#if ENABLE(SHAREABLE_RESOURCE)
+
 #include <WebCore/ResourceBuffer.h>
 
 namespace WebKit {
@@ -36,11 +38,11 @@ class WebResourceBuffer : public WebCore::ResourceBuffer {
 public:
     static PassRefPtr<WebResourceBuffer> create(PassRefPtr<ShareableResource> resource) { return adoptRef(new WebResourceBuffer(resource)); }
 
-    virtual ~WebResourceBuffer() OVERRIDE;
+    virtual ~WebResourceBuffer() override;
 
-    virtual const char* data() const OVERRIDE;
-    virtual unsigned size() const OVERRIDE;
-    virtual bool isEmpty() const OVERRIDE;
+    virtual const char* data() const override;
+    virtual unsigned size() const override;
+    virtual bool isEmpty() const override;
 
 private:
     WebResourceBuffer(PassRefPtr<ShareableResource>);
@@ -49,5 +51,7 @@ private:
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(SHAREABLE_RESOURCE)
 
 #endif // WebResourceBuffer_h

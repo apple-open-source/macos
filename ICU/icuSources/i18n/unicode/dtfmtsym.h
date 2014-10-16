@@ -1,6 +1,6 @@
 /*  
 ********************************************************************************
-*   Copyright (C) 1997-2013, International Business Machines
+*   Copyright (C) 1997-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -283,13 +283,11 @@ public:
          ABBREVIATED,
          WIDE,
          NARROW,
-#ifndef U_HIDE_DRAFT_API
          /**
           * Short width is currently only supported for weekday names.
-          * @draft ICU 51
+          * @stable ICU 51
           */
          SHORT,
-#endif /* U_HIDE_DRAFT_API */
          /**
           */
          DT_WIDTH_COUNT = 4
@@ -445,6 +443,16 @@ public:
      */
     const UnicodeString* getLeapMonthPatterns(int32_t& count) const;
 
+    /**
+     * Apple addition to get zodiac names. Returns NULL if calendar
+     * does not have zodiac names. Note, there is currently no setter for this.
+     * @param count        Filled in with length of the array (may be 0).
+     * @return             The zodiac names (DateFormatSymbols retains ownership).
+     *                     May be NULL if there are no zodiac names for this calendar.
+     * @internal
+     */
+    const UnicodeString* getZodiacNames(int32_t& count) const;
+
 #endif  /* U_HIDE_INTERNAL_API */
 
 #ifndef U_HIDE_DEPRECATED_API
@@ -505,14 +513,16 @@ public:
      */
     Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const;
 
-#ifndef U_HIDE_INTERNAL_API
+    /* The following type and kCapContextUsageTypeCount cannot be #ifndef U_HIDE_INTERNAL_API,
+       they are needed for .h file declarations. */ 
     /**
      * Constants for capitalization context usage types.
      * @internal
      */
     enum ECapitalizationContextUsageType
     {
-        kCapContextUsageOther,
+#ifndef U_HIDE_INTERNAL_API
+        kCapContextUsageOther = 0,
         kCapContextUsageMonthFormat,     /* except narrow */
         kCapContextUsageMonthStandalone, /* except narrow */
         kCapContextUsageMonthNarrow,
@@ -526,9 +536,9 @@ public:
         kCapContextUsageZoneShort,
         kCapContextUsageMetazoneLong,
         kCapContextUsageMetazoneShort,
-        kCapContextUsageTypeCount
+#endif /* U_HIDE_INTERNAL_API */
+        kCapContextUsageTypeCount = 14
     };
-#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
@@ -692,6 +702,12 @@ private:
      */
     UnicodeString*  fShortYearNames;
     int32_t         fShortYearNamesCount;
+
+    /**
+     * (Format) Short cyclic zodiac names - Apple addition for now
+     */
+    UnicodeString*  fShortZodiacNames;
+    int32_t         fShortZodiacNamesCount;
 
     /**
      * Localized names of time zones in this locale.  This is a

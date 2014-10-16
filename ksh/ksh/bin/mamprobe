@@ -1,5 +1,5 @@
+### this script contains archaic constructs that work with all sh variants ###
 # mamprobe - generate MAM cc probe info
-# this script is written to make it through all sh variants
 # Glenn Fowler <gsf@research.att.com>
 
 case $-:$BASH_VERSION in
@@ -15,7 +15,7 @@ opt=
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	USAGE=$'
 [-?
-@(#)$Id: mamprobe (AT&T Labs Research) 2007-04-11 $
+@(#)$Id: mamprobe (AT&T Labs Research) 2011-02-11 $
 ]
 [+NAME?mamprobe - generate MAM cc probe info]
 [+DESCRIPTION?\bmamprobe\b generates MAM (make abstract machine) \bcc\b(1)

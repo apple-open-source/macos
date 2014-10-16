@@ -26,19 +26,17 @@
 #include "config.h"
 #include "ActivityAssertion.h"
 
-#include "ChildProcess.h"
-
 namespace WebKit {
 
-ActivityAssertion::ActivityAssertion(ChildProcess& process)
-    : m_process(process)
+ActivityAssertion::ActivityAssertion(CountedUserActivity& activity)
+    : m_activity(activity)
 {
-    m_process.incrementActiveTaskCount();
+    m_activity.increment();
 }
 
 ActivityAssertion::~ActivityAssertion()
 {
-    m_process.decrementActiveTaskCount();
+    m_activity.decrement();
 }
 
 }

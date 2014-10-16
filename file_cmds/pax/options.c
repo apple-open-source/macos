@@ -34,11 +34,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static const char sccsid[] = "@(#)options.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] = "$OpenBSD: options.c,v 1.70 2008/06/11 00:49:08 pvalchev Exp $";
+__used static const char rcsid[] = "$OpenBSD: options.c,v 1.70 2008/06/11 00:49:08 pvalchev Exp $";
 #endif
 #endif /* not lint */
 
@@ -103,56 +104,57 @@ static int getline_error;
  *	rd_data, wr_data, options
  */
 
-FSUB fsub[] = {
-/* 0: OLD BINARY CPIO */
+const FSUB fsub[] = {
+/* OLD BINARY CPIO */
 	{"bcpio", 5120, sizeof(HD_BCPIO), 1, 0, 0, 1, bcpio_id, cpio_strd,
 	bcpio_rd, bcpio_endrd, cpio_stwr, bcpio_wr, cpio_endwr, cpio_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
 
-/* 1: OLD OCTAL CHARACTER CPIO */
+/* OLD OCTAL CHARACTER CPIO */
 	{"cpio", 5120, sizeof(HD_CPIO), 1, 0, 0, 1, cpio_id, cpio_strd,
 	cpio_rd, cpio_endrd, cpio_stwr, cpio_wr, cpio_endwr, cpio_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
 
-/* 2: SVR4 HEX CPIO */
+/* POSIX 3 PAX */
+	{"pax", 5120, BLKMULT, 0, 1, BLKMULT, 0, pax_id, ustar_strd,
+	pax_rd, tar_endrd, ustar_stwr, pax_wr, tar_endwr, tar_trail,
+	rd_wrfile, wr_rdfile, pax_opt},
+
+/* SVR4 HEX CPIO */
 	{"sv4cpio", 5120, sizeof(HD_VCPIO), 1, 0, 0, 1, vcpio_id, cpio_strd,
 	vcpio_rd, vcpio_endrd, cpio_stwr, vcpio_wr, cpio_endwr, cpio_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
 
-/* 3: SVR4 HEX CPIO WITH CRC */
+/* SVR4 HEX CPIO WITH CRC */
 	{"sv4crc", 5120, sizeof(HD_VCPIO), 1, 0, 0, 1, crc_id, crc_strd,
 	vcpio_rd, vcpio_endrd, crc_stwr, vcpio_wr, cpio_endwr, cpio_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
 
-/* 4: OLD TAR */
+/* OLD TAR */
 	{"tar", 10240, BLKMULT, 0, 1, BLKMULT, 0, tar_id, no_op,
 	tar_rd, tar_endrd, no_op, tar_wr, tar_endwr, tar_trail,
 	rd_wrfile, wr_rdfile, tar_opt},
 
-/* 5: POSIX USTAR */
+/* POSIX USTAR */
 	{"ustar", 10240, BLKMULT, 0, 1, BLKMULT, 0, ustar_id, ustar_strd,
 	ustar_rd, tar_endrd, ustar_stwr, ustar_wr, tar_endwr, tar_trail,
 	rd_wrfile, wr_rdfile, bad_opt},
-
-/* 6: POSIX 3 PAX */
-	{"pax", 5120, BLKMULT, 0, 1, BLKMULT, 0, pax_id, ustar_strd,
-	pax_rd, tar_endrd, ustar_stwr, pax_wr, tar_endwr, tar_trail,
-	rd_wrfile, wr_rdfile, pax_opt},
 };
-#define	F_OCPIO	0	/* format when called as cpio -6 */
-#define	F_ACPIO	1	/* format when called as cpio -c */
-#define	F_CPIO	3	/* format when called as cpio */
-#define F_OTAR	4	/* format when called as tar -o */
-#define F_TAR	5	/* format when called as tar */
-#define F_PAX	6		/* format for pax */
-#define DEFLT	5	/* default write format from list above */
+#define F_OCPIO	0	/* format when called as cpio -6 */
+#define F_ACPIO	1	/* format when called as cpio -c */
+#define F_PAX	2	/* -x pax */
+#define F_SCPIO	3	/* -x sv4cpio */
+#define F_CPIO	4	/* format when called as cpio */
+#define F_OTAR	5	/* format when called as tar -o */
+#define F_TAR	6	/* format when called as tar */
+#define DEFLT	F_TAR	/* default write format from list above */
 
 /*
  * ford is the archive search order used by get_arc() to determine what kind
  * of archive we are dealing with. This helps to properly id archive formats
  * some formats may be subsets of others....
  */
-int ford[] = {6, 5, 4, 3, 2, 1, 0, -1 };
+int ford[] = {F_PAX, F_TAR, F_OTAR, F_CPIO, F_SCPIO, F_ACPIO, F_OCPIO, -1 };
 
 /*
  * Do we have -C anywhere?
@@ -413,7 +415,7 @@ pax_options(int argc, char **argv)
 			 */
 			tmp.name = optarg;
 			n_fsub = sizeof(fsub)/sizeof(FSUB);
-			if ((frmt = (FSUB *)lsearch(&tmp, fsub, &n_fsub, sizeof(FSUB),
+			if ((frmt = (FSUB *)bsearch(&tmp, fsub, n_fsub, sizeof(FSUB),
 						    c_frmt)) != NULL) {
 				flg |= XF;
 				break;
@@ -1274,8 +1276,8 @@ cpio_options(int argc, char **argv)
 				 */
 				tmp.name = optarg;
 				n_fsub = sizeof(fsub)/sizeof(FSUB);
-				if ((frmt = (FSUB *)lsearch((void *)&tmp, (void *)fsub,
-						&n_fsub, sizeof(FSUB), c_frmt)) != NULL)
+				if ((frmt = (FSUB *)bsearch((void *)&tmp, (void *)fsub,
+						n_fsub, sizeof(FSUB), c_frmt)) != NULL)
 					break;
 				paxwarn(1, "Unknown -H format: %s", optarg);
 				(void)fputs("cpio: Known -H formats are:", stderr);

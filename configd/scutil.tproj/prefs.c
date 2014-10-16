@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -119,7 +119,7 @@ _prefs_AuthorizationCreate()
 			SCPrint(TRUE,
 				stdout,
 				CFSTR("AuthorizationCreate() failed: status = %d\n"),
-				status);
+				(int)status);
 			return NULL;
 		}
 	}
@@ -325,8 +325,8 @@ get_ComputerName(int argc, char **argv)
 static void
 set_ComputerName(int argc, char **argv)
 {
-	CFStringRef		hostname;
-	Boolean			ok;
+	CFStringRef	hostname	= NULL;
+	Boolean		ok;
 
 	ok = _prefs_open(CFSTR("scutil --set ComputerName"), NULL);
 	if (!ok) {
@@ -344,7 +344,7 @@ set_ComputerName(int argc, char **argv)
 		old_hostname = SCDynamicStoreCopyComputerName(NULL, &old_encoding);
 		hostname = _copyStringFromSTDIN(CFSTR("ComputerName"), old_hostname);
 		if (old_hostname) CFRelease(old_hostname);
-	} else {
+	} else if (strlen(argv[0]) > 0) {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
@@ -424,7 +424,7 @@ set_HostName(int argc, char **argv)
 
 	if (argc == 0) {
 		hostname = _copyStringFromSTDIN(CFSTR("HostName"), SCPreferencesGetHostName(prefs));
-	} else {
+	} else if (strlen(argv[0]) > 0) {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
@@ -480,7 +480,7 @@ get_LocalHostName(int argc, char **argv)
 static void
 set_LocalHostName(int argc, char **argv)
 {
-	CFStringRef	hostname = NULL;
+	CFStringRef	hostname	= NULL;
 	Boolean		ok;
 
 	ok = _prefs_open(CFSTR("scutil --set LocalHostName"), NULL);
@@ -498,7 +498,7 @@ set_LocalHostName(int argc, char **argv)
 		old_hostname = SCDynamicStoreCopyLocalHostName(NULL);
 		hostname = _copyStringFromSTDIN(CFSTR("LocalHostName"), old_hostname);
 		if (old_hostname) CFRelease(old_hostname);
-	} else {
+	} else if (strlen(argv[0]) > 0) {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
 
@@ -582,13 +582,14 @@ do_getPref(char *pref, int argc, char **argv)
 
 		if (prefs_val != NULL) {
 			SCPrint(TRUE, stdout, CFSTR("%@\n"), prefs_val);
-		} else {
 			_prefs_close();
-			exit(1);
+			exit(0);
 		}
 	}
+
+	// if path or key not found
 	_prefs_close();
-	exit(0);
+	exit(1);
 }
 
 

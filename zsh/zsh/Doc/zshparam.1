@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHPARAM" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -475,9 +475,15 @@ of a shell function, shell script, or the shell itself; see
 the section `Invocation\&', and also the section `Functions'\&.
 The parameter \fIn\fP, where \fIn\fP is a number,
 is the \fIn\fPth positional parameter\&.
+The parameter `\fB$0\fP\&' is a special case, see
+the section `Parameters Set By The Shell\&'\&.
+.PP
 The parameters \fB*\fP, \fB@\fP and \fBargv\fP are
 arrays containing all the positional parameters;
 thus `\fB$argv[\fP\fIn\fP\fB]\fP\&', etc\&., is equivalent to simply `\fB$\fP\fIn\fP'\&.
+Note that the options \fBKSH_ARRAYS\fP or \fBKSH_ZERO_SUBSCRIPT\fP apply
+to these arrays as well, so with either of those options set,
+`\fB${argv[0]}\fP\&' is equivalent to `\fB$1\fP' and so on\&.
 .PP
 Positional parameters may be changed after the shell or function starts by
 using the \fBset\fP builtin, by assigning to the \fBargv\fP array, or by direct
@@ -957,6 +963,15 @@ Same as \fBhistchars\fP\&.  (Deprecated\&.)
 The file to save the history in when an interactive shell exits\&.
 If unset, the history is not saved\&.
 .TP
+\fBHISTORY_IGNORE\fP
+If set, is treated as a pattern at the time history files are written\&.
+Any potential history entry that matches the pattern is skipped\&.  For
+example, if the value is `\fBfc *\fP\&' then commands that invoke the
+interactive history editor are never written to the history file (compare
+the \fBHIST_NO_STORE\fP option or the \fBzshaddhistory\fP hook, either of
+which would prevent such commands from being added to the interactive
+history at all)\&.
+.TP
 \fBHISTSIZE\fP <S>
 The maximum number of events stored in the internal history list\&.
 If you use the \fBHIST_EXPIRE_DUPS_FIRST\fP option, setting this value
@@ -1183,7 +1198,7 @@ the name of the current shell structure and the line number within it\&.
 In sh or ksh emulation, the default is `\fB+ \fP\&'\&.
 .TP
 \fBpsvar\fP <S> <Z> (\fBPSVAR\fP <S>)
-An array (colon\-separated list) whose first nine values can be used in
+An array (colon\-separated list) whose elements can be used in
 \fBPROMPT\fP strings\&.  Setting \fBpsvar\fP also sets \fBPSVAR\fP, and
 vice versa\&.
 .TP
@@ -1540,5 +1555,19 @@ Note that certain completions may provide their own suffix removal
 or replacement behaviour which overrides the values described here\&.
 See the completion system documentation in
 \fIzshcompsys\fP(1)\&.
+.RE
+.TP
+\fBZLE_RPROMPT_INDENT <S>\fP
+If set, used to give the indentation between the right hand side of
+the right prompt in the line editor as given by \fBRPS1\fP or \fBRPROMPT\fP
+and the right hand side of the screen\&.  If not set, the value 1 is used\&.
+.RS
+.PP
+Typically this will be used to set the value to 0 so that the prompt
+appears flush with the right hand side of the screen\&.  This is not the
+default as many terminals do not handle this correctly, in particular
+when the prompt appears at the extreme bottom right of the screen\&.
+Recent virtual terminals are more likely to handle this case correctly\&.
+Some experimentation is necessary\&.
 .RE
 .RE

@@ -1,0 +1,40 @@
+As of April 9 2003, the clxutils directory will be tagged 
+with the version of Security.framework with which the 
+particular version of clxutils works. When a change
+is introduced into clxutils which prevents the tests
+from building or running with previous version of Security,
+an entry will be made in this file and the whole directory
+will be tagged with the same tag as the version of Security
+needed to run with the current version of clxutils. 
+
+Addenda: tags are now of the form clxutils-XXX since the Security reorg. 
+
+  Date       Tag            Notes
+--------  -----------   -----------------------------------------------
+04/04/05  TigerGM       TigerGM (8A428) baseline. 
+02/19/05  clxutils-111  New tests for AppleCerts, AppleCodeSigning, localTime, 
+							iChat policy. 
+						Support for SHA2 signature in signerAndSubj.
+12/20/04  clxutils-110  Updates to smimePolicy for radar 3880193 (iChat TP policy mods)
+11/01/04  clxutils-109  Fix for radar 855635 - CSSM_CERT_STATUS_IS_IN_ANCHORS missed 
+						   if cert is from a DLDB
+09/14/04  clxutils-108  Radar 3722218 - CertGroupVerify can now return 
+						   CSSMERR_APPLETP_HOSTNAME_MISMATCH. 
+08/12/04  clxutils-107  CSSMOID_APPLE_TP_CODE_SIGN trust policy testing. 
+07/21/04  clxutils-106  OCSP and major mods to certCertify() and certcrl program. 
+05/13/04  clxutils-105  Radar 3537553, SPI for ASN.1 encode/decode.
+05/04/04  clxutils-104  Mods for AuthorityInfoAccess extension
+04/28/04  clxutils-103  Mods for Radar 3636036 - errSSLConnectionRefused
+04/20/04  clxutils-101  Extended Key Use testing per 3622077, 3628039
+04/20/04  clxutils-100  Tag for just before changes for Extended Key Use in clxutils-101
+08/05/03  Security-132  Unnormalized subject/issuer names, 3347430
+07/16/03  Security-119  Add testing for 3300879, expired root handling
+06/16/03  Security-114	Mods for updated SSL host name checking, 3093245
+					    Test resumable session SPI, 3260631
+05/16/03  Security-102  Fixed corner cases in SSL HostName checking
+                        SecureTransport vfy via SecTrust, SSLGetPeerSecTrust
+04/24/03  Security-90   S/MIME policy testing
+04/17/03  Security-88   Support for buildit
+					    Was nssOidToAlg, is cssmOidToAlg
+					    Run cgVerify with DSA certs 
+04/09/03  Security-87   Partial DSA public key processing

@@ -21,6 +21,9 @@ error_code NOT_SEEKABLE,	"File descriptor not seekable"
 error_code TOO_BIG,		"Offset too large"
 error_code STORAGE_UUID,	"Failed parsing/writing UUID"
 error_code BAD_HDBENT_ENCODING,	"Invalid HDB entry encoding"
+error_code PA_CONTINUE_NEEDED,	"Need to continue preauth stepping"
+error_code PA_CANT_CONTINUE,	"Can't continue with this preauth"
+error_code NO_MORE_PA_MECHS,	"No more PA mechanisms available"
 
 index 64
 prefix HEIM_PKINIT

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -78,6 +78,9 @@ const NameValue setopt_nv_CURL_SSLVERSION[] = {
   NV(CURL_SSLVERSION_TLSv1),
   NV(CURL_SSLVERSION_SSLv2),
   NV(CURL_SSLVERSION_SSLv3),
+  NV(CURL_SSLVERSION_TLSv1_0),
+  NV(CURL_SSLVERSION_TLSv1_1),
+  NV(CURL_SSLVERSION_TLSv1_2),
   NVEND,
 };
 
@@ -93,6 +96,21 @@ const NameValue setopt_nv_CURLFTPSSL_CCC[] = {
   NV(CURLFTPSSL_CCC_NONE),
   NV(CURLFTPSSL_CCC_PASSIVE),
   NV(CURLFTPSSL_CCC_ACTIVE),
+  NVEND,
+};
+
+const NameValue setopt_nv_CURLUSESSL[] = {
+  NV(CURLUSESSL_NONE),
+  NV(CURLUSESSL_TRY),
+  NV(CURLUSESSL_CONTROL),
+  NV(CURLUSESSL_ALL),
+  NVEND,
+};
+
+const NameValue setopt_nv_CURL_NETRC[] = {
+  NV(CURL_NETRC_IGNORED),
+  NV(CURL_NETRC_OPTIONAL),
+  NV(CURL_NETRC_REQUIRED),
   NVEND,
 };
 
@@ -127,6 +145,8 @@ const NameValue setopt_nv_CURLPROTO[] = {
 static const NameValue setopt_nv_CURLNONZERODEFAULTS[] = {
   NV1(CURLOPT_SSL_VERIFYPEER, 1),
   NV1(CURLOPT_SSL_VERIFYHOST, 1),
+  NV1(CURLOPT_SSL_ENABLE_NPN, 1),
+  NV1(CURLOPT_SSL_ENABLE_ALPN, 1),
   NVEND
 };
 
@@ -210,7 +230,7 @@ static char *c_escape(const char *str)
 }
 
 /* setopt wrapper for enum types */
-CURLcode tool_setopt_enum(CURL *curl, struct Configurable *config,
+CURLcode tool_setopt_enum(CURL *curl, struct GlobalConfig *config,
                           const char *name, CURLoption tag,
                           const NameValue *nvlist, long lval)
 {
@@ -243,7 +263,7 @@ CURLcode tool_setopt_enum(CURL *curl, struct Configurable *config,
 }
 
 /* setopt wrapper for flags */
-CURLcode tool_setopt_flags(CURL *curl, struct Configurable *config,
+CURLcode tool_setopt_flags(CURL *curl, struct GlobalConfig *config,
                            const char *name, CURLoption tag,
                            const NameValue *nvlist, long lval)
 {
@@ -285,7 +305,7 @@ CURLcode tool_setopt_flags(CURL *curl, struct Configurable *config,
 }
 
 /* setopt wrapper for bitmasks */
-CURLcode tool_setopt_bitmask(CURL *curl, struct Configurable *config,
+CURLcode tool_setopt_bitmask(CURL *curl, struct GlobalConfig *config,
                              const char *name, CURLoption tag,
                              const NameValueUnsigned *nvlist,
                              long lval)
@@ -328,7 +348,7 @@ CURLcode tool_setopt_bitmask(CURL *curl, struct Configurable *config,
 }
 
 /* setopt wrapper for CURLOPT_HTTPPOST */
-CURLcode tool_setopt_httppost(CURL *curl, struct Configurable *config,
+CURLcode tool_setopt_httppost(CURL *curl, struct GlobalConfig *config,
                               const char *name, CURLoption tag,
                               struct curl_httppost *post)
 {
@@ -404,7 +424,7 @@ CURLcode tool_setopt_httppost(CURL *curl, struct Configurable *config,
 }
 
 /* setopt wrapper for curl_slist options */
-CURLcode tool_setopt_slist(CURL *curl, struct Configurable *config,
+CURLcode tool_setopt_slist(CURL *curl, struct GlobalConfig *config,
                            const char *name, CURLoption tag,
                            struct curl_slist *list)
 {
@@ -444,7 +464,7 @@ CURLcode tool_setopt_slist(CURL *curl, struct Configurable *config,
 
 /* generic setopt wrapper for all other options.
  * Some type information is encoded in the tag value. */
-CURLcode tool_setopt(CURL *curl, bool str, struct Configurable *config,
+CURLcode tool_setopt(CURL *curl, bool str, struct GlobalConfig *config,
                      const char *name, CURLoption tag, ...)
 {
   va_list arg;

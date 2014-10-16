@@ -270,7 +270,7 @@ We do not recommend modifying hibernation settings. Any changes you make are not
 = 0 (binary 0000) by default on supported desktops. The system will not back memory up to persistent storage. The system must wake from the contents of memory; the system will lose context on power loss. This is, historically, plain old sleep.
 .Pp
 .Ar hibernatemode 
-= 3 (binary 0011) by default on supported portables. The system will store a copy of memory to persistent storage (the disk), and will power memory during sleep. The system will wake from memory, unless a power loss forces it to restore from disk image.
+= 3 (binary 0011) by default on supported portables. The system will store a copy of memory to persistent storage (the disk), and will power memory during sleep. The system will wake from memory, unless a power loss forces it to restore from hibernate image.
 .Pp
 .Ar hibernatemode
 = 25 (binary 0001 1001) is only settable via pmset. The system will store a copy of memory to persistent storage (the disk), and will remove power to memory. The system will restore from disk image. If you want "hibernation" - slower sleeps, slower wakes, and better battery life, you should use this setting.
@@ -360,10 +360,13 @@ a problem with an aging battery.
 .Xr caffeinate 8 instead.
 .br
 .Ar sleepnow
-- causes an immediate system sleep
+- causes an immediate system sleep.
+.br
+.Ar restoredefaults
+- Restores Energy Saver settings to their default values. (Like clicking "Restore Defaults" in Energy Saver GUI).
 .br
 .Ar displaysleepnow
-- causes display to go to sleep immediately
+- causes display to go to sleep immediately.
 .br
 .Ar resetdisplayambientparams
 - resets the ambient light parameters for certain Apple displays.

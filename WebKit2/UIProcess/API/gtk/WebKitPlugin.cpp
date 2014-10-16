@@ -55,7 +55,7 @@ struct _WebKitPluginPrivate {
 
 WEBKIT_DEFINE_TYPE(WebKitPlugin, webkit_plugin, G_TYPE_OBJECT)
 
-static void webkit_plugin_class_init(WebKitPluginClass* pluginClass)
+static void webkit_plugin_class_init(WebKitPluginClass*)
 {
 }
 
@@ -97,7 +97,7 @@ const char* webkit_plugin_get_description(WebKitPlugin* plugin)
     g_return_val_if_fail(WEBKIT_IS_PLUGIN(plugin), 0);
 
     if (!plugin->priv->description.isNull())
-        plugin->priv->description.data();
+        return plugin->priv->description.data();
 
     if (plugin->priv->pluginInfo.info.desc.isEmpty())
         return 0;

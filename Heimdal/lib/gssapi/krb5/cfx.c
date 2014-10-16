@@ -731,6 +731,8 @@ unrotate_iov(OM_uint32 *minor_status, size_t rrc, gss_iov_buffer_desc *iov, int 
 		q += iov[i].buffer.length;
 	    }
     }
+    free(p);
+
     return GSS_S_COMPLETE;
 }
 

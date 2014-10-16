@@ -35,6 +35,7 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/Settings.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -44,7 +45,7 @@ typedef HashMap<uint64_t, StorageNamespaceImpl*> LocalStorageNamespaceMap;
 
 static LocalStorageNamespaceMap& localStorageNamespaceMap()
 {
-    DEFINE_STATIC_LOCAL(LocalStorageNamespaceMap, localStorageNamespaceMap, ());
+    static NeverDestroyed<LocalStorageNamespaceMap> localStorageNamespaceMap;
     return localStorageNamespaceMap;
 }
 
@@ -52,11 +53,11 @@ PassRefPtr<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespa
 {
     uint64_t pageGroupID = WebProcess::shared().webPageGroup(pageGroup)->pageGroupID();
 
-    LocalStorageNamespaceMap::AddResult result = localStorageNamespaceMap().add(pageGroupID, 0);
+    LocalStorageNamespaceMap::AddResult result = localStorageNamespaceMap().add(pageGroupID, nullptr);
     if (!result.isNewEntry)
         return result.iterator->value;
 
-    unsigned quota = pageGroup->groupSettings()->localStorageQuotaBytes();
+    unsigned quota = pageGroup->groupSettings().localStorageQuotaBytes();
     RefPtr<StorageNamespaceImpl> localStorageNamespace = adoptRef(new StorageNamespaceImpl(LocalStorage, pageGroupID, quota));
 
     result.iterator->value = localStorageNamespace.get();
@@ -65,7 +66,7 @@ PassRefPtr<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespa
 
 PassRefPtr<StorageNamespaceImpl> StorageNamespaceImpl::createSessionStorageNamespace(WebPage* webPage)
 {
-    return adoptRef(new StorageNamespaceImpl(SessionStorage, webPage->pageID(), webPage->corePage()->settings()->sessionStorageQuota()));
+    return adoptRef(new StorageNamespaceImpl(SessionStorage, webPage->pageID(), webPage->corePage()->settings().sessionStorageQuota()));
 }
 
 StorageNamespaceImpl::StorageNamespaceImpl(WebCore::StorageType storageType, uint64_t storageNamespaceID, unsigned quotaInBytes)
@@ -85,7 +86,7 @@ StorageNamespaceImpl::~StorageNamespaceImpl()
 
 PassRefPtr<StorageArea> StorageNamespaceImpl::storageArea(PassRefPtr<SecurityOrigin> securityOrigin)
 {
-    HashMap<RefPtr<WebCore::SecurityOrigin>, RefPtr<StorageAreaMap>>::AddResult result = m_storageAreaMaps.add(securityOrigin.get(), 0);
+    auto result = m_storageAreaMaps.add(securityOrigin.get(), nullptr);
     if (result.isNewEntry)
         result.iterator->value = StorageAreaMap::create(this, securityOrigin);
 

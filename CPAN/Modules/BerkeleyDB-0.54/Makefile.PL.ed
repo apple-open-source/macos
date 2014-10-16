@@ -1,0 +1,6 @@
+/^WriteMakefile(/i
+my $SDKROOT = (defined($ENV{SDKROOT}) && -d "$ENV{SDKROOT}$INC_DIR") ? $ENV{SDKROOT} : '';
+.
+/-L/s,,&$SDKROOT,
+/-I/s,,&$SDKROOT,
+w

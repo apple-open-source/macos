@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iconv_close.3.html</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iconv_close.3.html&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-keyword">&lt;html&gt;</span>
+<span class="enscript-keyword">&lt;head&gt;</span>
+<span class="enscript-keyword">&lt;meta name=</span><span class="enscript-string">&quot;generator&quot;</span><span class="enscript-keyword"> content=</span><span class="enscript-string">&quot;groff -Thtml, see www.gnu.org&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;meta name=</span><span class="enscript-string">&quot;Content-Style&quot;</span><span class="enscript-keyword"> content=</span><span class="enscript-string">&quot;text/css&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;title&gt;</span>ICONV_CLOSE<span class="enscript-keyword">&lt;/title&gt;</span>
+<span class="enscript-keyword">&lt;/head&gt;</span>
+<span class="enscript-keyword">&lt;body&gt;</span>
+
+<span class="enscript-keyword">&lt;h1 align=center&gt;</span>ICONV_CLOSE<span class="enscript-keyword">&lt;/h1&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#NAME&quot;</span><span class="enscript-keyword">&gt;</span>NAME<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#SYNOPSIS&quot;</span><span class="enscript-keyword">&gt;</span>SYNOPSIS<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#DESCRIPTION&quot;</span><span class="enscript-keyword">&gt;</span>DESCRIPTION<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#RETURN VALUE&quot;</span><span class="enscript-keyword">&gt;</span>RETURN VALUE<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#CONFORMING TO&quot;</span><span class="enscript-keyword">&gt;</span>CONFORMING TO<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+<span class="enscript-keyword">&lt;a href=</span><span class="enscript-string">&quot;#SEE ALSO&quot;</span><span class="enscript-keyword">&gt;</span>SEE ALSO<span class="enscript-keyword">&lt;/a&gt;</span><span class="enscript-keyword">&lt;br&gt;</span>
+
+<span class="enscript-keyword">&lt;hr&gt;</span>
+<span class="enscript-keyword">&lt;!-- Creator     : groff version 1.17 --&gt;</span>
+<span class="enscript-keyword">&lt;!-- CreationDate: Fri May 24 14:48:05 2002 --&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;NAME&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>NAME<span class="enscript-keyword">&lt;/h2&gt;</span>
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+iconv_close - deallocate descriptor for character set conversion<span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;SYNOPSIS&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>SYNOPSIS<span class="enscript-keyword">&lt;/h2&gt;</span>
+
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;pre&gt;</span><span class="enscript-keyword">&lt;b&gt;</span>#include <span class="enscript-keyword">&amp;lt;</span>iconv.h<span class="enscript-keyword">&amp;gt;</span>
+
+int iconv_close (iconv_t<span class="enscript-keyword">&lt;/b&gt;</span> <span class="enscript-keyword">&lt;i&gt;</span>cd<span class="enscript-keyword">&lt;/i&gt;</span><span class="enscript-keyword">&lt;b&gt;</span>);
+<span class="enscript-keyword">&lt;/b&gt;</span><span class="enscript-keyword">&lt;/pre&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;DESCRIPTION&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>DESCRIPTION<span class="enscript-keyword">&lt;/h2&gt;</span>
+
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+The <span class="enscript-keyword">&lt;b&gt;</span>iconv_close<span class="enscript-keyword">&lt;/b&gt;</span> function deallocates a conversion
+descriptor <span class="enscript-keyword">&lt;i&gt;</span>cd<span class="enscript-keyword">&lt;/i&gt;</span> previously allocated using
+<span class="enscript-keyword">&lt;b&gt;</span>iconv_open<span class="enscript-keyword">&lt;/b&gt;</span>.<span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;RETURN VALUE&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>RETURN VALUE<span class="enscript-keyword">&lt;/h2&gt;</span>
+
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+When successful, the <span class="enscript-keyword">&lt;b&gt;</span>iconv_close<span class="enscript-keyword">&lt;/b&gt;</span> function returns 0.
+In case of error, it sets <span class="enscript-keyword">&lt;b&gt;</span>errno<span class="enscript-keyword">&lt;/b&gt;</span> and returns
+-1.<span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;CONFORMING TO&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>CONFORMING TO<span class="enscript-keyword">&lt;/h2&gt;</span>
+
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+UNIX98<span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;a name=</span><span class="enscript-string">&quot;SEE ALSO&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/a&gt;</span>
+<span class="enscript-keyword">&lt;h2&gt;</span>SEE ALSO<span class="enscript-keyword">&lt;/h2&gt;</span>
+
+<span class="enscript-keyword">&lt;table width=</span><span class="enscript-string">&quot;100%&quot;</span><span class="enscript-keyword"> border=0 rules=</span><span class="enscript-string">&quot;none&quot;</span><span class="enscript-keyword"> frame=</span><span class="enscript-string">&quot;void&quot;</span><span class="enscript-keyword">
+       cols=</span><span class="enscript-string">&quot;2&quot;</span><span class="enscript-keyword"> cellspacing=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword"> cellpadding=</span><span class="enscript-string">&quot;0&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;tr valign=</span><span class="enscript-string">&quot;top&quot;</span><span class="enscript-keyword"> align=</span><span class="enscript-string">&quot;left&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;10%&quot;</span><span class="enscript-keyword">&gt;</span><span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;td width=</span><span class="enscript-string">&quot;90%&quot;</span><span class="enscript-keyword">&gt;</span>
+<span class="enscript-keyword">&lt;b&gt;</span>iconv_open<span class="enscript-keyword">&lt;/b&gt;</span>(3), <span class="enscript-keyword">&lt;b&gt;</span>iconv<span class="enscript-keyword">&lt;/b&gt;</span>(3)<span class="enscript-keyword">&lt;/td&gt;</span><span class="enscript-keyword">&lt;/table&gt;</span>
+<span class="enscript-keyword">&lt;hr&gt;</span>
+<span class="enscript-keyword">&lt;/body&gt;</span>
+<span class="enscript-keyword">&lt;/html&gt;</span>
+</pre>
+<hr />
+</body></html>

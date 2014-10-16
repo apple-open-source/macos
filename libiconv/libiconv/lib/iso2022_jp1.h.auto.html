@@ -1,0 +1,285 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iso2022_jp1.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iso2022_jp1.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * ISO-2022-JP-1
+ */</span>
+
+<span class="enscript-comment">/* Specification: RFC 2237 */</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ESC</span> 0x1b
+
+<span class="enscript-comment">/*
+ * The state can be one of the following values.
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_ASCII</span>          0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0201ROMAN</span>  1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0208</span>       2
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0212</span>       3
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp1_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  state_t state = conv-&gt;istate;
+  <span class="enscript-type">int</span> count = 0;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c;
+  <span class="enscript-keyword">for</span> (;;) {
+    c = *s;
+    <span class="enscript-keyword">if</span> (c == ESC) {
+      <span class="enscript-keyword">if</span> (n &lt; count+3)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">if</span> (s[1] == <span class="enscript-string">'('</span>) {
+        <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'B'</span>) {
+          state = STATE_ASCII;
+          s += 3; count += 3;
+          <span class="enscript-keyword">if</span> (n &lt; count+1)
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+          <span class="enscript-keyword">continue</span>;
+        }
+        <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'J'</span>) {
+          state = STATE_JISX0201ROMAN;
+          s += 3; count += 3;
+          <span class="enscript-keyword">if</span> (n &lt; count+1)
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+          <span class="enscript-keyword">continue</span>;
+        }
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+      }
+      <span class="enscript-keyword">if</span> (s[1] == <span class="enscript-string">'$'</span>) {
+        <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'@'</span> || s[2] == <span class="enscript-string">'B'</span>) {
+          <span class="enscript-comment">/* We don't distinguish JIS X 0208-1978 and JIS X 0208-1983. */</span>
+          state = STATE_JISX0208;
+          s += 3; count += 3;
+          <span class="enscript-keyword">if</span> (n &lt; count+1)
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+          <span class="enscript-keyword">continue</span>;
+        }
+        <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'('</span>) {
+          <span class="enscript-keyword">if</span> (n &lt; count+4)
+            <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+          <span class="enscript-keyword">if</span> (s[3] == <span class="enscript-string">'D'</span>) {
+            state = STATE_JISX0212;
+            s += 4; count += 4;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+        }
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">break</span>;
+  }
+  <span class="enscript-keyword">switch</span> (state) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_ASCII</span>:
+      <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = ascii_mbtowc(conv,pwc,s,1);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 1) abort();
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+1;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0201ROMAN</span>:
+      <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = jisx0201_mbtowc(conv,pwc,s,1);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 1) abort();
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+1;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0208</span>:
+      <span class="enscript-keyword">if</span> (n &lt; count+2)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">if</span> (s[0] &lt; 0x80 &amp;&amp; s[1] &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = jisx0208_mbtowc(conv,pwc,s,2);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 2) abort();
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+2;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0212</span>:
+      <span class="enscript-keyword">if</span> (n &lt; count+2)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">if</span> (s[0] &lt; 0x80 &amp;&amp; s[1] &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = jisx0212_mbtowc(conv,pwc,s,2);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 2) abort();
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+2;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-reference">default</span>: abort();
+  }
+
+<span class="enscript-reference">none</span>:
+  conv-&gt;istate = state;
+  <span class="enscript-keyword">return</span> RET_TOOFEW(count);
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp1_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  state_t state = conv-&gt;ostate;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+  <span class="enscript-type">int</span> ret;
+
+  <span class="enscript-comment">/* Try ASCII. */</span>
+  ret = ascii_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state == STATE_ASCII ? 1 : 4);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_ASCII) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'('</span>;
+        r[2] = <span class="enscript-string">'B'</span>;
+        r += 3;
+        state = STATE_ASCII;
+      }
+      r[0] = buf[0];
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0201-1976 Roman. */</span>
+  ret = jisx0201_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state == STATE_JISX0201ROMAN ? 1 : 4);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0201ROMAN) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'('</span>;
+        r[2] = <span class="enscript-string">'J'</span>;
+        r += 3;
+        state = STATE_JISX0201ROMAN;
+      }
+      r[0] = buf[0];
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0208-1990 in place of JIS X 0208-1978 and JIS X 0208-1983. */</span>
+  ret = jisx0208_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 2) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80 &amp;&amp; buf[1] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state == STATE_JISX0208 ? 2 : 5);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0208) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'B'</span>;
+        r += 3;
+        state = STATE_JISX0208;
+      }
+      r[0] = buf[0];
+      r[1] = buf[1];
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0212-1990. */</span>
+  ret = jisx0212_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 2) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80 &amp;&amp; buf[1] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state == STATE_JISX0212 ? 2 : 6);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0212) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'('</span>;
+        r[3] = <span class="enscript-string">'D'</span>;
+        r += 4;
+        state = STATE_JISX0212;
+      }
+      r[0] = buf[0];
+      r[1] = buf[1];
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp1_reset</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, size_t n)
+{
+  state_t state = conv-&gt;ostate;
+  <span class="enscript-keyword">if</span> (state != STATE_ASCII) {
+    <span class="enscript-keyword">if</span> (n &lt; 3)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    r[0] = ESC;
+    r[1] = <span class="enscript-string">'('</span>;
+    r[2] = <span class="enscript-string">'B'</span>;
+    <span class="enscript-comment">/* conv-&gt;ostate = 0; will be done by the caller */</span>
+    <span class="enscript-keyword">return</span> 3;
+  } <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> 0;
+}
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0212</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0208</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0201ROMAN</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_ASCII</span>
+</pre>
+<hr />
+</body></html>

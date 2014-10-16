@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -36,6 +36,7 @@
 #import "WebFrameInternal.h"
 #import "WebFrameLoadDelegate.h"
 #import "WebFrameLoaderClient.h"
+#import "WebFrameViewInternal.h"
 #import "WebHTMLRepresentation.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
@@ -49,22 +50,30 @@
 #import "WebViewInternal.h"
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/FrameLoader.h>
-#import <WebCore/KURL.h>
+#import <WebCore/URL.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/ResourceBuffer.h>
 #import <WebCore/ResourceRequest.h>
-#import <WebCore/RunLoop.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
-#import <WebKit/DOMHTML.h>
-#import <WebKit/DOMPrivate.h>
+#import <WebKitLegacy/DOMHTML.h>
+#import <WebKitLegacy/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RunLoop.h>
+
+#if PLATFORM(IOS)
+#import "WebPDFViewIOS.h"
+#endif
+
+#if USE(QUICK_LOOK)
+#import <WebCore/QuickLook.h>
+#endif
 
 using namespace WebCore;
 
@@ -75,6 +84,9 @@ public:
         : loader(loader)
         , representationFinishedLoading(NO)
         , includedInWebKitStatistics(NO)
+#if PLATFORM(IOS)
+        , _dataSourceDelegate(nil)
+#endif
     {
         ASSERT(this->loader);
     }
@@ -90,12 +102,26 @@ public:
     RetainPtr<id<WebDocumentRepresentation> > representation;
     BOOL representationFinishedLoading;
     BOOL includedInWebKitStatistics;
+#if PLATFORM(IOS)
+    NSObject<WebDataSourcePrivateDelegate> *_dataSourceDelegate;
+#endif
 };
 
 static inline WebDataSourcePrivate* toPrivate(void* privateAttribute)
 {
     return reinterpret_cast<WebDataSourcePrivate*>(privateAttribute);
 }
+
+#if ENABLE(DISK_IMAGE_CACHE) && PLATFORM(IOS)
+static void BufferMemoryMapped(PassRefPtr<SharedBuffer> buffer, SharedBuffer::CompletionStatus mapStatus, SharedBuffer::MemoryMappedNotifyCallbackData data)
+{
+    NSObject<WebDataSourcePrivateDelegate> *delegate = [(WebDataSource *)data dataSourceDelegate];
+    if (mapStatus == SharedBuffer::Succeeded)
+        [delegate dataSourceMemoryMapped];
+    else
+        [delegate dataSourceMemoryMapFailed];
+}
+#endif
 
 @interface WebDataSource (WebFileInternal)
 @end
@@ -132,9 +158,11 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 + (void)initialize
 {
     if (self == [WebDataSource class]) {
+#if !PLATFORM(IOS)
         JSC::initializeThreading();
         WTF::initializeMainThreadToProcessMainThread();
-        WebCore::RunLoop::initializeMainRunLoop();
+        RunLoop::initializeMainRunLoop();
+#endif
         WebCoreObjCFinalizeOnMainThread(self);
     }
 }
@@ -153,13 +181,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         toPrivate(_private)->loader->addAllArchiveResources([archive _coreLegacyWebArchive]);
 }
 
+#if !PLATFORM(IOS)
 - (NSFileWrapper *)_fileWrapperForURL:(NSURL *)URL
 {
-    if ([URL isFileURL]) {
-        NSString *path = [[URL path] stringByResolvingSymlinksInPath];
-        return [[[NSFileWrapper alloc] initWithPath:path] autorelease];
-    }
-    
+    if ([URL isFileURL])
+        return [[[NSFileWrapper alloc] initWithURL:[URL URLByResolvingSymlinksInPath] options:0 error:nullptr] autorelease];
+
     WebResource *resource = [self subresourceForURL:URL];
     if (resource)
         return [resource _fileWrapperRepresentation];
@@ -173,6 +200,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     
     return nil;
 }
+#endif
 
 - (NSString *)_responseMIMEType
 {
@@ -195,6 +223,61 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         return;
 
     toPrivate(_private)->loader->setDeferMainResourceDataLoad(flag);
+}
+
+#if PLATFORM(IOS)
+- (void)_setOverrideTextEncodingName:(NSString *)encoding
+{
+    toPrivate(_private)->loader->setOverrideEncoding([encoding UTF8String]);
+}
+#endif
+
+- (void)_setAllowToBeMemoryMapped
+{
+#if ENABLE(DISK_IMAGE_CACHE) && PLATFORM(IOS)
+    RefPtr<ResourceBuffer> mainResourceBuffer = toPrivate(_private)->loader->mainResourceData();
+    if (!mainResourceBuffer)
+        return;
+
+    RefPtr<SharedBuffer> mainResourceData = mainResourceBuffer->sharedBuffer();
+    if (!mainResourceData)
+        return;
+
+    if (mainResourceData->memoryMappedNotificationCallback() != BufferMemoryMapped) {
+        ASSERT(!mainResourceData->memoryMappedNotificationCallback() && !mainResourceData->memoryMappedNotificationCallbackData());
+        mainResourceData->setMemoryMappedNotificationCallback(BufferMemoryMapped, self);
+    }
+
+    switch (mainResourceData->allowToBeMemoryMapped()) {
+    case SharedBuffer::SuccessAlreadyMapped:
+        [[self dataSourceDelegate] dataSourceMemoryMapped];
+        return;
+    case SharedBuffer::PreviouslyQueuedForMapping:
+    case SharedBuffer::QueuedForMapping:
+        return;
+    case SharedBuffer::FailureCacheFull:
+        [[self dataSourceDelegate] dataSourceMemoryMapFailed];
+        return;
+    }
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+- (void)setDataSourceDelegate:(NSObject<WebDataSourcePrivateDelegate> *)delegate
+{
+#if ENABLE(DISK_IMAGE_CACHE) && PLATFORM(IOS)
+    ASSERT(!toPrivate(_private)->_dataSourceDelegate);
+    toPrivate(_private)->_dataSourceDelegate = delegate;
+#endif
+}
+
+- (NSObject<WebDataSourcePrivateDelegate> *)dataSourceDelegate
+{
+#if ENABLE(DISK_IMAGE_CACHE) && PLATFORM(IOS)
+    return toPrivate(_private)->_dataSourceDelegate;
+#else
+    return nullptr;
+#endif
 }
 
 @end
@@ -241,7 +324,13 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         // Since this is a "secret default" we don't both registering it.
         BOOL omitPDFSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitOmitPDFSupport"];
         if (!omitPDFSupport)
+#if PLATFORM(IOS)
+#define WebPDFRepresentation ([WebView _getPDFRepresentationClass])
+#endif
             addTypesFromClass(repTypes, [WebPDFRepresentation class], [WebPDFRepresentation supportedMIMETypes]);
+#if PLATFORM(IOS)
+#undef WebPDFRepresentation
+#endif
     }
     
     if (!addedImageTypes && !allowImageTypeOmission) {
@@ -312,7 +401,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 // May return nil if not initialized with a URL.
 - (NSURL *)_URL
 {
-    const KURL& url = toPrivate(_private)->loader->url();
+    const URL& url = toPrivate(_private)->loader->url();
     if (url.isEmpty())
         return nil;
     return url;
@@ -332,7 +421,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 - (void)_makeRepresentation
 {
     Class repClass = [[self class] _representationClassForMIMEType:[self _responseMIMEType] allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
-    
+
+#if PLATFORM(IOS)
+    if ([repClass respondsToSelector:@selector(_representationClassForWebFrame:)])
+        repClass = [repClass performSelector:@selector(_representationClassForWebFrame:) withObject:[self webFrame]];
+#endif
+
     // Check if the data source was already bound?
     if (![[self representation] isKindOfClass:repClass]) {
         id newRep = repClass != nil ? [[repClass alloc] init] : nil;
@@ -342,6 +436,9 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
     id<WebDocumentRepresentation> representation = toPrivate(_private)->representation.get();
     [representation setDataSource:self];
+#if PLATFORM(IOS)
+    toPrivate(_private)->loader->setResponseMIMEType([self _responseMIMEType]);
+#endif
 }
 
 - (DocumentLoader*)_documentLoader
@@ -370,7 +467,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 @implementation WebDataSource
 
-- (id)initWithRequest:(NSURLRequest *)request
+- (instancetype)initWithRequest:(NSURLRequest *)request
 {
     return [self _initWithDocumentLoader:WebDocumentLoaderMac::create(request, SubstituteData())];
 }
@@ -382,6 +479,30 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
     if (toPrivate(_private) && toPrivate(_private)->includedInWebKitStatistics)
         --WebDataSourceCount;
+
+#if ENABLE(DISK_IMAGE_CACHE) && PLATFORM(IOS)
+    // The code to remove memory mapped notification is only needed when we are viewing a PDF file.
+    // In such a case, WebPDFViewPlaceholder sets itself as the dataSourceDelegate. Guard the access
+    // to mainResourceData with this nil check so that we avoid assertions due to the resource being
+    // made purgeable.
+    if (_private && [self dataSourceDelegate]) {
+        RefPtr<ResourceBuffer> mainResourceBuffer = toPrivate(_private)->loader->mainResourceData();
+        if (mainResourceBuffer) {
+            RefPtr<SharedBuffer> mainResourceData = mainResourceBuffer->sharedBuffer();
+            if (mainResourceData && 
+                mainResourceData->memoryMappedNotificationCallbackData() == self &&
+                mainResourceData->memoryMappedNotificationCallback() == BufferMemoryMapped) {
+                mainResourceData->setMemoryMappedNotificationCallback(nullptr, nullptr);
+            }
+        }
+    }
+#endif
+    
+#if USE(QUICK_LOOK)
+    // Added in -[WebCoreResourceHandleAsDelegate connection:didReceiveResponse:].
+    if (NSURL *url = [[self response] URL])
+        removeQLPreviewConverterForURL(url);
+#endif
 
     delete toPrivate(_private);
 
@@ -405,7 +526,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     RefPtr<ResourceBuffer> mainResourceData = toPrivate(_private)->loader->mainResourceData();
     if (!mainResourceData)
         return nil;
-    return [mainResourceData->createNSData() autorelease];
+    return mainResourceData->createNSData().autorelease();
 }
 
 - (id <WebDocumentRepresentation>)representation
@@ -462,7 +583,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSURL *)unreachableURL
 {
-    const KURL& unreachableURL = toPrivate(_private)->loader->unreachableURL();
+    const URL& unreachableURL = toPrivate(_private)->loader->unreachableURL();
     if (unreachableURL.isEmpty())
         return nil;
     return unreachableURL;
@@ -485,19 +606,15 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSArray *)subresources
 {
-    Vector<PassRefPtr<ArchiveResource> > coreSubresources;
-    toPrivate(_private)->loader->getSubresources(coreSubresources);
+    auto coreSubresources = toPrivate(_private)->loader->subresources();
 
-    NSMutableArray *subresources = [[NSMutableArray alloc] initWithCapacity:coreSubresources.size()];
-    for (unsigned i = 0; i < coreSubresources.size(); ++i) {
-        WebResource *resource = [[WebResource alloc] _initWithCoreResource:coreSubresources[i]];
-        if (resource) {
-            [subresources addObject:resource];
-            [resource release];
-        }
+    auto subresources = adoptNS([[NSMutableArray alloc] initWithCapacity:coreSubresources.size()]);
+    for (const auto& coreSubresource : coreSubresources) {
+        if (auto resource = adoptNS([[WebResource alloc] _initWithCoreResource:coreSubresource]))
+            [subresources addObject:resource.get()];
     }
 
-    return [subresources autorelease];
+    return subresources.autorelease();
 }
 
 - (WebResource *)subresourceForURL:(NSURL *)URL

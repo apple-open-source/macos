@@ -26,7 +26,7 @@
 #ifndef PluginProcessManager_h
 #define PluginProcessManager_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "PluginModuleInfo.h"
 #include "PluginProcess.h"
@@ -34,10 +34,11 @@
 #include "WebProcessProxyMessages.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentEncoder;
 }
 
@@ -50,6 +51,7 @@ class WebPluginSiteDataManager;
 
 class PluginProcessManager {
     WTF_MAKE_NONCOPYABLE(PluginProcessManager);
+    friend class NeverDestroyed<PluginProcessManager>;
 public:
     static PluginProcessManager& shared();
 
@@ -61,7 +63,7 @@ public:
     void getSitesWithData(const PluginModuleInfo&, WebPluginSiteDataManager*, uint64_t callbackID);
     void clearSiteData(const PluginModuleInfo&, WebPluginSiteDataManager*, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     void setProcessSuppressionEnabled(bool);
 #endif
 
@@ -78,6 +80,6 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // PluginProcessManager_h

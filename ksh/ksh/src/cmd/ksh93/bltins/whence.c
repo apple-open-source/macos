@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -49,10 +49,10 @@ static int whence(Shell_t *,char**, int);
  * In this case return 0 when -v or -V or unknown option, otherwise
  *   the shift count to the command is returned
  */
-int	b_command(register int argc,char *argv[],void *extra)
+int	b_command(register int argc,char *argv[],Shbltin_t *context)
 {
 	register int n, flags=0;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	opt_info.index = opt_info.offset = 0;
 	while((n = optget(argv,sh_optcommand))) switch(n)
 	{
@@ -92,10 +92,10 @@ int	b_command(register int argc,char *argv[],void *extra)
 /*
  *  for the whence command
  */
-int	b_whence(int argc,char *argv[],void *extra)
+int	b_whence(int argc,char *argv[],Shbltin_t *context)
 {
 	register int flags=0, n;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	NOT_USED(argc);
 	if(*argv[0]=='t')
 		flags = V_FLAG;
@@ -221,7 +221,11 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 		do
 		{
 			if(path_search(shp,name,&pp,2+(aflag>1)))
+			{
 				cp = name;
+				if((flags&P_FLAG) && *cp!='/')
+					cp = 0;
+			}
 			else
 			{
 				cp = stakptr(PATH_OFFSET);
@@ -272,7 +276,10 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 				else
 					pp = 0;
 				if(tofree)
+				{
 					free((char*)cp);
+					tofree = 0;
+				}
 			}
 			else if(aflag<=1) 
 			{

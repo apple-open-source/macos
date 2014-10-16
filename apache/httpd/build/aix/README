@@ -36,3 +36,31 @@ Add Apache LICENSE to fileset and require acceptance
 Add special instructions for TCB - to ignore /etc/* /var/httpd/htdocs/*
 Add _config_i scripts to setup autostart
 Add _pre_i scripts to verify pre-requisites, required users/groups, etc.
+
+# This layout is intended to put customizeable data in /etc and /var
+# the file listing will be used to create an exceptions file to modify
+# the behavior of syschk checksum generation.
+# AIX layout
+<Layout AIX>
+    prefix:        /opt/httpd
+    exec_prefix:   /opt/httpd
+    bindir:        ${exec_prefix}/bin
+    sbindir:       ${exec_prefix}/sbin
+    libdir:        ${exec_prefix}/lib
+    libexecdir:    ${exec_prefix}/libexec
+    mandir:        /usr/share/man
+    sysconfdir:    /etc/httpd
+    datadir:       /var/httpd
+    installbuilddir: ${datadir}/build
+    errordir:      ${datadir}/error
+    htdocsdir:     ${datadir}/htdocs
+    cgidir:        ${datadir}/cgi-bin
+    iconsdir:      ${prefix}/icons
+    manualdir:     ${prefix}/manual
+    includedir:    ${prefix}/include
+    localstatedir: /var/httpd
+    runtimedir:    ${localstatedir}/run
+    logfiledir:    ${localstatedir}/logs
+    proxycachedir: ${localstatedir}/proxy
+</Layout>
+

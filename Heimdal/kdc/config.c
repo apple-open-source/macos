@@ -37,6 +37,9 @@
 #include <getarg.h>
 #include <parse_bytes.h>
 
+static void usage(int ret) __attribute__((noreturn));
+
+
 struct dbinfo {
     char *realm;
     char *dbname;

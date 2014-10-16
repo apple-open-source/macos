@@ -30,6 +30,7 @@
  */
 
 #ifndef lint
+__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
@@ -421,6 +422,9 @@ put(argc, argv)
 	int fd;
 	int n;
 	char *cp, *targ;
+#ifdef __APPLE__
+	char targbuf[PATH_MAX];
+#endif /* __APPLE__ */
 
 	if (argc < 2) {
 		strcpy(line, "send ");
@@ -471,10 +475,19 @@ put(argc, argv)
 	}
 				/* this assumes the target is a directory */
 				/* on a remote unix system.  hmmmm.  */
+#ifdef __APPLE__
+	snprintf(targbuf, sizeof(targbuf), "%s/", targ);
+	cp = targbuf + strlen(targbuf);
+#else /* !__APPLE__ */
 	cp = index(targ, '\0');
 	*cp++ = '/';
+#endif /* __APPLE__ */
 	for (n = 1; n < argc - 1; n++) {
+#ifdef __APPLE__
+		strlcpy(cp, tail(argv[n]), sizeof(targbuf) - (cp - targbuf));
+#else /* !__APPLE__ */
 		strcpy(cp, tail(argv[n]));
+#endif /* __APPLE__ */
 		fd = open(argv[n], O_RDONLY);
 		if (fd < 0) {
 			warn("%s", argv[n]);
@@ -482,7 +495,11 @@ put(argc, argv)
 		}
 		if (verbose)
 			printf("putting %s to %s:%s [%s]\n",
+#ifdef __APPLE__
+				argv[n], hostname, targbuf, mode);
+#else /* !__APPLE__ */
 				argv[n], hostname, targ, mode);
+#endif /* __APPLE__ */
 		xmitfile(fd, targ, mode);
 	}
 }

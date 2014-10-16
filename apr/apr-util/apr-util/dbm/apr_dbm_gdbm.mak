@@ -42,12 +42,12 @@ ALL : "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - Win32 Release" "libaprutil - Win32 Release" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - Win32 Release" "libapr - Win32 Release" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - Win32 ReleaseCLEAN" "libapr - Win32 ReleaseCLEAN" 
+CLEAN :"libapr - Win32 ReleaseCLEAN" "libaprutil - Win32 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -105,12 +105,12 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbm_gdbm.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6EF10000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X86 /opt:ref 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6F010000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X86 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbm_gdbm.obj" \
 	"$(INTDIR)\apr_dbm_gdbm-1.res" \
-	"..\Release\libaprutil-1.lib" \
-	"..\..\apr\Release\libapr-1.lib"
+	"..\..\apr\Release\libapr-1.lib" \
+	"..\Release\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbm_gdbm-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -145,12 +145,12 @@ ALL : "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - Win32 Debug" "libaprutil - Win32 Debug" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - Win32 Debug" "libapr - Win32 Debug" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - Win32 DebugCLEAN" "libapr - Win32 DebugCLEAN" 
+CLEAN :"libapr - Win32 DebugCLEAN" "libaprutil - Win32 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -208,12 +208,12 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbm_gdbm.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6EF10000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X86 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6F010000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X86 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbm_gdbm.obj" \
 	"$(INTDIR)\apr_dbm_gdbm-1.res" \
-	"..\Debug\libaprutil-1.lib" \
-	"..\..\apr\Debug\libapr-1.lib"
+	"..\..\apr\Debug\libapr-1.lib" \
+	"..\Debug\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbm_gdbm-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -248,12 +248,12 @@ ALL : "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - x64 Release" "libaprutil - x64 Release" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - x64 Release" "libapr - x64 Release" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - x64 ReleaseCLEAN" "libapr - x64 ReleaseCLEAN" 
+CLEAN :"libapr - x64 ReleaseCLEAN" "libaprutil - x64 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -311,12 +311,12 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbm_gdbm.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6EF10000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X64 /opt:ref 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6F010000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X64 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbm_gdbm.obj" \
 	"$(INTDIR)\apr_dbm_gdbm-1.res" \
-	"..\x64\Release\libaprutil-1.lib" \
-	"..\..\apr\x64\Release\libapr-1.lib"
+	"..\..\apr\x64\Release\libapr-1.lib" \
+	"..\x64\Release\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbm_gdbm-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -351,12 +351,12 @@ ALL : "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - x64 Debug" "libaprutil - x64 Debug" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - x64 Debug" "libapr - x64 Debug" "$(OUTDIR)\apr_dbm_gdbm-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - x64 DebugCLEAN" "libapr - x64 DebugCLEAN" 
+CLEAN :"libapr - x64 DebugCLEAN" "libaprutil - x64 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -414,12 +414,12 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbm_gdbm.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6EF10000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X64 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libgdbm.lib /nologo /base:"0x6F010000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbm_gdbm-1.pdb" /debug /out:"$(OUTDIR)\apr_dbm_gdbm-1.dll" /implib:"$(OUTDIR)\apr_dbm_gdbm-1.lib" /MACHINE:X64 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbm_gdbm.obj" \
 	"$(INTDIR)\apr_dbm_gdbm-1.res" \
-	"..\x64\Debug\libaprutil-1.lib" \
-	"..\..\apr\x64\Debug\libapr-1.lib"
+	"..\..\apr\x64\Debug\libapr-1.lib" \
+	"..\x64\Debug\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbm_gdbm-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -456,56 +456,6 @@ SOURCE=.\apr_dbm_gdbm.c
 
 "$(INTDIR)\apr_dbm_gdbm.obj" : $(SOURCE) "$(INTDIR)"
 
-
-!IF  "$(CFG)" == "apr_dbm_gdbm - Win32 Release"
-
-"libaprutil - Win32 Release" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" 
-   cd ".\dbm"
-
-"libaprutil - Win32 ReleaseCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" RECURSE=1 CLEAN 
-   cd ".\dbm"
-
-!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - Win32 Debug"
-
-"libaprutil - Win32 Debug" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" 
-   cd ".\dbm"
-
-"libaprutil - Win32 DebugCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" RECURSE=1 CLEAN 
-   cd ".\dbm"
-
-!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Release"
-
-"libaprutil - x64 Release" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" 
-   cd ".\dbm"
-
-"libaprutil - x64 ReleaseCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" RECURSE=1 CLEAN 
-   cd ".\dbm"
-
-!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Debug"
-
-"libaprutil - x64 Debug" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" 
-   cd ".\dbm"
-
-"libaprutil - x64 DebugCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" RECURSE=1 CLEAN 
-   cd ".\dbm"
-
-!ENDIF 
 
 !IF  "$(CFG)" == "apr_dbm_gdbm - Win32 Release"
 
@@ -557,34 +507,84 @@ SOURCE=.\apr_dbm_gdbm.c
 
 !ENDIF 
 
+!IF  "$(CFG)" == "apr_dbm_gdbm - Win32 Release"
+
+"libaprutil - Win32 Release" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" 
+   cd ".\dbm"
+
+"libaprutil - Win32 ReleaseCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" RECURSE=1 CLEAN 
+   cd ".\dbm"
+
+!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - Win32 Debug"
+
+"libaprutil - Win32 Debug" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" 
+   cd ".\dbm"
+
+"libaprutil - Win32 DebugCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" RECURSE=1 CLEAN 
+   cd ".\dbm"
+
+!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Release"
+
+"libaprutil - x64 Release" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" 
+   cd ".\dbm"
+
+"libaprutil - x64 ReleaseCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" RECURSE=1 CLEAN 
+   cd ".\dbm"
+
+!ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Debug"
+
+"libaprutil - x64 Debug" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" 
+   cd ".\dbm"
+
+"libaprutil - x64 DebugCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" RECURSE=1 CLEAN 
+   cd ".\dbm"
+
+!ENDIF 
+
 SOURCE=..\libaprutil.rc
 
 !IF  "$(CFG)" == "apr_dbm_gdbm - Win32 Release"
 
 
 "$(INTDIR)\apr_dbm_gdbm-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_gdbm" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbm_gdbm" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_gdbm - Win32 Debug"
 
 
 "$(INTDIR)\apr_dbm_gdbm-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_gdbm" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbm_gdbm" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Release"
 
 
 "$(INTDIR)\apr_dbm_gdbm-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_gdbm" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbm_gdbm" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_gdbm - x64 Debug"
 
 
 "$(INTDIR)\apr_dbm_gdbm-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_gdbm" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_gdbm-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbm_gdbm" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

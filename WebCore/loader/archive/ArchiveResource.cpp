@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-inline ArchiveResource::ArchiveResource(PassRefPtr<SharedBuffer> data, const KURL& url, const String& mimeType, const String& textEncoding, const String& frameName, const ResourceResponse& response)
+inline ArchiveResource::ArchiveResource(PassRefPtr<SharedBuffer> data, const URL& url, const String& mimeType, const String& textEncoding, const String& frameName, const ResourceResponse& response)
     : SubstituteResource(url, response, data)
     , m_mimeType(mimeType)
     , m_textEncoding(textEncoding)
@@ -42,7 +42,7 @@ inline ArchiveResource::ArchiveResource(PassRefPtr<SharedBuffer> data, const KUR
 {
 }
 
-PassRefPtr<ArchiveResource> ArchiveResource::create(PassRefPtr<SharedBuffer> data, const KURL& url, const String& mimeType, const String& textEncoding, const String& frameName, const ResourceResponse& response)
+PassRefPtr<ArchiveResource> ArchiveResource::create(PassRefPtr<SharedBuffer> data, const URL& url, const String& mimeType, const String& textEncoding, const String& frameName, const ResourceResponse& response)
 {
     if (!data)
         return 0;
@@ -54,7 +54,7 @@ PassRefPtr<ArchiveResource> ArchiveResource::create(PassRefPtr<SharedBuffer> dat
     return adoptRef(new ArchiveResource(data, url, mimeType, textEncoding, frameName, response));
 }
 
-PassRefPtr<ArchiveResource> ArchiveResource::create(PassRefPtr<SharedBuffer> data, const KURL& url, const ResourceResponse& response)
+PassRefPtr<ArchiveResource> ArchiveResource::create(PassRefPtr<SharedBuffer> data, const URL& url, const ResourceResponse& response)
 {
     return create(data, url, response.mimeType(), response.textEncodingName(), String(), response);
 }

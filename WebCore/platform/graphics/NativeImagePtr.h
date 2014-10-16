@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2007-2008 Torch Mobile, Inc.
  * Copyright (C) 2012 Company 100 Inc.
  *
@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,24 +30,10 @@
 
 #if USE(CG)
 typedef struct CGImage* CGImageRef;
-#elif PLATFORM(QT)
-#include "NativeImageQt.h"
-#include <qglobal.h>
-QT_BEGIN_NAMESPACE
-class QPixmap;
-QT_END_NAMESPACE
 #elif USE(CAIRO)
 #include "RefPtrCairo.h"
 #elif USE(WINGDI)
 #include "SharedBitmap.h"
-#elif PLATFORM(BLACKBERRY)
-namespace BlackBerry {
-namespace Platform {
-namespace Graphics {
-class TiledImage;
-}
-}
-}
 #endif
 
 namespace WebCore {
@@ -56,15 +42,11 @@ namespace WebCore {
 // pointers (see SVGImage::nativeImageForCurrentFrame()).
 #if USE(CG)
 typedef CGImageRef NativeImagePtr;
-#elif PLATFORM(QT)
-typedef QPixmap* NativeImagePtr;
 #elif USE(CAIRO)
 typedef RefPtr<cairo_surface_t> NativeImagePtr;
 typedef PassRefPtr<cairo_surface_t> PassNativeImagePtr;
 #elif USE(WINGDI)
 typedef RefPtr<SharedBitmap> NativeImagePtr;
-#elif PLATFORM(BLACKBERRY)
-typedef BlackBerry::Platform::Graphics::TiledImage* NativeImagePtr;
 #endif
 
 #if !USE(CAIRO)

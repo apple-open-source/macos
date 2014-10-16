@@ -1,0 +1,28 @@
+> security.log format='$Time $(Sender)[$(PID)] <$((Level)(str))> [$(Facility){$(SecAPITrace)} $(CALLER)]: $Message' rotate=utc-basic crashlog compress file_max=5M all_max=20M
+
+# Note: this file is for OSX only.
+
+# Note:
+# securityd is the iOS securityd
+# com.apple.securityd is the OSX securityd
+# com.apple.secd is the iOS version of securityd running on OSX
+
+? [T SecAPITrace] file security.log
+? [= Sender com.apple.securityd] file security.log
+? [= Sender com.apple.secd] file security.log
+? [= Sender CloudKeychainProxy] file security.log
+? [= Sender securityd] file security.log
+? [= Sender secd] file security.log
+? [= Sender securityd_service] file security.log
+
+# Claim prevents the built-in ASL configuration from
+# processing our messages.   We claim anything short
+# of errors, and let ASL do what it wants with the rest
+
+? [T SecAPITrace] [> Level error] claim
+? [= Sender com.apple.securityd] [> Level error] claim
+? [= Sender com.apple.secd] [> Level error] claim
+? [= Sender CloudKeychainProxy] [> Level error] claim
+? [= Sender securityd] [> Level error] claim
+? [= Sender secd] [> Level error] claim
+? [= Sender securityd_service] [> Level error] claim

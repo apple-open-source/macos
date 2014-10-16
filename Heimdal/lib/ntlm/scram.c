@@ -227,7 +227,7 @@ _heim_scram_parse(heim_scram_data *data, heim_scram_pairs **pd)
 	i += 2;
 	d->val[n].data.data = &p[i];
 	m = i;
-	while (p[i] != ',' && i < data->length)
+	while (i < data->length && p[i] != ',')
 	    i++;
 	d->val[n].data.length = i - m;
 	n++;
@@ -248,18 +248,21 @@ remove_proof(heim_scram_data *in, heim_scram_data *out)
     unsigned char *p;
     size_t i;
 
+    if (in->length < 3)
+	return HSCRAM_ERR_INVALID_PROOF;
+
     p = in->data;
-    for (i = in->length; i > 0; i--)
+    for (i = in->length - 1; i > 0; i--)
 	if (p[i] == ',')
 	    break;
     if (i == 0)
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_PROOF;
     if (i + 3 > in->length)
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_PROOF;
     if (p[i + 1] != 'p')
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_PROOF;
     if (p[i + 2] != '=')
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_PROOF;
 
     out->length = i;
     out->data = p;
@@ -302,7 +305,7 @@ _heim_scram_unparse(heim_scram_pairs *d, heim_scram_data *out)
 	if (i + 1 < d->len)
 	    *p++ = ',';
     }
-    heim_assert((p - (unsigned char *)out->data) == out->length, "generated packet wrong length");
+    heim_assert((size_t)((p - (unsigned char *)out->data)) == out->length, "generated packet wrong length");
     return 0;
 }
 
@@ -325,7 +328,7 @@ _scram_validate(heim_scram_pairs *d, const int *template)
     while(*template) {
 	same = (*template & 0xff) == d->val[i].type;
 	if (!same && (*template & TOPTIONAL) == 0)
-	    return EINVAL;
+	    return HSCRAM_ERR_INVALID_MESSAGE;
 	else if (same)
 	    i++;
 	template++;
@@ -718,7 +721,7 @@ heim_scram_client2(heim_scram_data *in,
     scram_data_zero(out);
 
     if (scram->type != CLIENT)
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_ROLE;
 
     ret = _heim_scram_parse(in, &p);
     if (ret)
@@ -802,7 +805,7 @@ heim_scram_server2(heim_scram_data *in,
     scram_data_zero(&binaryproof);
 
     if (scram->type != SERVER)
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_ROLE;
 
     ret = _heim_scram_parse(in, &p);
     if (ret)
@@ -878,7 +881,7 @@ heim_scram_client3(heim_scram_data *in,
     int ret;
 
     if (scram->type != CLIENT)
-	return EINVAL;
+	return HSCRAM_ERR_INVALID_ROLE;
 
     ret = _heim_scram_parse(in, &p);
     if (ret)

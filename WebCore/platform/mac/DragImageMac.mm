@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,7 +34,7 @@
 #import "FontSelector.h"
 #import "GraphicsContext.h"
 #import "Image.h"
-#import "KURL.h"
+#import "URL.h"
 #import "ResourceResponse.h"
 #import "StringTruncator.h"
 #import "TextRun.h"
@@ -58,7 +58,10 @@ RetainPtr<NSImage> scaleDragImage(RetainPtr<NSImage> image, FloatSize scale)
     NSSize newSize = NSMakeSize((originalSize.width * scale.width()), (originalSize.height * scale.height()));
     newSize.width = roundf(newSize.width);
     newSize.height = roundf(newSize.height);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [image.get() setScalesWhenResized:YES];
+#pragma clang diagnostic pop
     [image.get() setSize:newSize];
     return image;
 }
@@ -77,17 +80,17 @@ RetainPtr<NSImage> dissolveDragImageToFraction(RetainPtr<NSImage> image, float d
     return dissolvedImage;
 }
         
-RetainPtr<NSImage> createDragImageFromImage(Image* image, RespectImageOrientationEnum shouldRespectImageOrientation)
+RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientationDescription description)
 {
-    IntSize size = image->size();
+    FloatSize size = image->size();
 
     if (image->isBitmapImage()) {
-        ImageOrientation orientation = DefaultImageOrientation;
-        BitmapImage* bitmapImage = static_cast<BitmapImage *>(image);
-        IntSize sizeRespectingOrientation = bitmapImage->sizeRespectingOrientation();
+        ImageOrientation orientation;
+        BitmapImage* bitmapImage = toBitmapImage(image);
+        IntSize sizeRespectingOrientation = bitmapImage->sizeRespectingOrientation(description);
 
-        if (shouldRespectImageOrientation == RespectImageOrientation)
-            orientation = bitmapImage->currentFrameOrientation();
+        if (description.respectImageOrientation() == RespectImageOrientation)
+            orientation = bitmapImage->orientationForCurrentFrame();
 
         if (orientation != DefaultImageOrientation) {
             // Construct a correctly-rotated copy of the image to use as the drag image.
@@ -157,7 +160,7 @@ const float DragLinkUrlFontSize = 10;
 static Font& fontFromNSFont(NSFont *font)
 {
     static NSFont *currentFont;
-    DEFINE_STATIC_LOCAL(Font, currentRenderer, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Font, currentRenderer, ());
     
     if ([font isEqual:currentFont])
         return currentRenderer;
@@ -267,7 +270,7 @@ static void drawDoubledAtPoint(NSString *string, NSPoint textPoint, NSColor *top
         drawAtPoint(string, textPoint, font, topColor);
 }
 
-DragImageRef createDragImageForLink(KURL& url, const String& title, FontRenderingMode)
+DragImageRef createDragImageForLink(URL& url, const String& title, FontRenderingMode)
 {
     NSString *label = nsStringNilIfEmpty(title);
     NSURL *cocoaURL = url;

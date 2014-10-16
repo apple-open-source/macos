@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -59,8 +59,8 @@ ScrollView* Widget::root() const
     while (top->parent())
         top = top->parent();
     if (top->isFrameView())
-        return const_cast<ScrollView*>(static_cast<const ScrollView*>(top));
-    return 0;
+        return const_cast<ScrollView*>(toScrollView(top));
+    return nullptr;
 }
     
 void Widget::removeFromParent()
@@ -141,7 +141,7 @@ IntPoint Widget::convertToContainingWindow(const IntPoint& localPoint) const
     return convertFromRootToContainingWindow(this, localPoint);
 }
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(COCOA)
 IntRect Widget::convertFromRootToContainingWindow(const Widget*, const IntRect& rect)
 {
     return rect;
@@ -160,11 +160,6 @@ IntPoint Widget::convertFromRootToContainingWindow(const Widget*, const IntPoint
 IntPoint Widget::convertFromContainingWindowToRoot(const Widget*, const IntPoint& point)
 {
     return point;
-}
-
-PlatformDisplayID Widget::windowDisplayID() const
-{
-    return 0;
 }
 #endif
 
@@ -204,11 +199,5 @@ IntPoint Widget::convertFromContainingView(const IntPoint& parentPoint) const
 
     return parentPoint;
 }
-
-#if !PLATFORM(EFL)
-void Widget::frameRectsChanged()
-{
-}
-#endif
 
 } // namespace WebCore

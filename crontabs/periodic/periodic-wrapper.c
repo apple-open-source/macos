@@ -15,6 +15,7 @@ main(int argc, char *argv[])
 {
 	int64_t is_managed;
 	char activity_name[32];
+	static dispatch_source_t sigterm_source;
 
 	xpc_track_activity();
 
@@ -34,6 +35,12 @@ main(int argc, char *argv[])
 	} else {
 		exit(1);
 	}
+
+	sigterm_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_main_queue());
+	dispatch_source_set_event_handler(sigterm_source, ^{
+		exit(0);
+	});
+	dispatch_resume(sigterm_source);
 
 	snprintf(activity_name, sizeof(activity_name), "com.apple.periodic-%s", argv[1]);
 

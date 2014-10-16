@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -274,12 +274,6 @@ NAKTLVSetVendorId(NAKTLVRef tlv, VendorId vendor_id)
     return;
 }
 
-INLINE VendorId
-NAKTLVGetVendorId(NAKTLVRef tlv)
-{
-    return (net_uint32_get(tlv->na_vendor_id));
-}
-
 INLINE void
 NAKTLVSetNAKType(NAKTLVRef tlv, TLVType nak_type)
 {
@@ -287,17 +281,12 @@ NAKTLVSetNAKType(NAKTLVRef tlv, TLVType nak_type)
     return;
 }
 
-INLINE TLVType
-NAKTLVGetNAKType(NAKTLVRef tlv)
-{
-    return (net_uint16_get(tlv->na_nak_type));
-}
-
 typedef struct ErrorTLV_s {
     uint8_t		er_type[2];	/* kTLVTypeError */
     uint8_t		er_length[2];
     uint8_t		er_error_code[4];
 } ErrorTLV, * ErrorTLVRef;
+
 #define ERROR_TLV_LENGTH		4
 
 enum {
@@ -470,12 +459,6 @@ PACTypeTLVSetPACType(PACTypeTLVRef tlv, PACType pac_type)
     return;
 }
 
-INLINE PACType
-PACTypeTLVGetPACType(const PACTypeTLVRef tlv)
-{
-    return net_uint16_get(tlv->pt_pac_type);
-}
-
 typedef struct PACTLVAttributeList_s {
     TLVRef		key;
     TLVRef		opaque;
@@ -539,6 +522,7 @@ STATIC EAPClientPluginFuncProcess eapfast_process;
 STATIC EAPClientPluginFuncFreePacket eapfast_free_packet;
 STATIC EAPClientPluginFuncSessionKey eapfast_session_key;
 STATIC EAPClientPluginFuncServerKey eapfast_server_key;
+STATIC EAPClientPluginFuncMasterSessionKeyCopyBytes eapfast_msk_copy_bytes;
 STATIC EAPClientPluginFuncRequireProperties eapfast_require_props;
 STATIC EAPClientPluginFuncPublishProperties eapfast_publish_props_copy;
 STATIC EAPClientPluginFuncCopyPacketDescription eapfast_copy_packet_description;
@@ -677,7 +661,7 @@ BufferGetUsed(BufferRef buf)
 INLINE int
 BufferGetSpace(BufferRef buf)
 {
-    return (buf->size - buf->used);
+    return (BufferGetSize(buf) - BufferGetUsed(buf));
 }
 
 INLINE bool
@@ -729,7 +713,7 @@ pac_list_find_pac(CFArrayRef pac_list,
 		  const void * auid, uint16_t auid_length,
 		  const uint8_t * initiator, int initiator_length)
 {
-    int			count;
+    CFIndex		count;
     int			i;
     CFStringRef		initiator_cf = NULL;
     int			ret = -1;
@@ -1512,7 +1496,7 @@ ssl_get_server_client_random(SSLContextRef ssl_context,
 	       EAPSSLErrorString(status));
 	goto done;
     }
-    *random_size = offset + size;
+    *random_size = (int)(offset + size);
  done:
     return (status);
 }
@@ -1590,7 +1574,7 @@ eapfast_generate_key_material(EAPFASTPluginDataRef context,
 		  EAPSSLErrorString(status), (int)status);
 	goto done;
     }
-    key_block_offset = (digest_size + symmetric_key_size + iv_size) * 2;
+    key_block_offset = (int)(digest_size + symmetric_key_size + iv_size) * 2;
     key_block_length = key_block_offset + SESSION_KEY_SEED_LENGTH
 	+ MSCHAP2_CHALLENGE_SIZE * 2;
     if (key_block_length > sizeof(key_block_data)) {
@@ -1764,7 +1748,7 @@ eapfast_compute_master_secret(SSLContextRef ctx, const void * arg,
     if (status != noErr) {
 	goto failed;
     }
-    T_PRF(CFDataGetBytePtr(pac_key), CFDataGetLength(pac_key),
+    T_PRF(CFDataGetBytePtr(pac_key), (int)CFDataGetLength(pac_key),
 	  kPACToMasterLabel, kPACToMasterLabelLength,
 	  random, random_size,
 	  secret, MASTER_SECRET_LENGTH);
@@ -2715,7 +2699,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    }
 	    parse_ok = TLVListParse(tlvlist_p,
 				    context->in_message_buf,
-				    context->in_message_size,
+				    (int)context->in_message_size,
 				    str);
 	    if (str != NULL) {
 		EAPLOG(-LOG_DEBUG, "-------- Receive TLVs: ----------\n%@",
@@ -2967,7 +2951,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	str = CFStringCreateMutable(NULL, 0);
 	STRING_APPEND(str, "======== Send TLVs: ========\n");
 	(void)TLVListParse(NULL, BufferGetPtr(&out_tlvs_buf),
-			   out_tlvs_size, str);
+			   (int)out_tlvs_size, str);
 	EAPLOG(-LOG_DEBUG, "%@", str);
 	my_CFRelease(&str);
     }
@@ -3483,6 +3467,24 @@ eapfast_server_key(EAPClientPluginDataRef plugin, int * key_length)
     return (context->master_key + (MASTER_KEY_LENGTH / 2));
 }
 
+STATIC int
+eapfast_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+		       void * msk, int msk_size)
+{
+    EAPFASTPluginDataRef	context = (EAPFASTPluginDataRef)plugin->private;
+    int				ret_msk_size;
+
+    if (msk_size < MASTER_KEY_LENGTH
+	|| context->master_key_valid == FALSE) {
+	ret_msk_size = 0;
+    }
+    else {
+	ret_msk_size = MASTER_KEY_LENGTH;
+	bcopy(context->master_key, msk, ret_msk_size);
+    }
+    return (ret_msk_size);
+}
+
 STATIC void
 dictInsertEAPTypeInfo(CFMutableDictionaryRef dict, EAPType type,
 		      const char * type_name)
@@ -3724,6 +3726,8 @@ STATIC struct func_table_ent {
     { kEAPClientPluginFuncNameFailureString, eapfast_failure_string },
     { kEAPClientPluginFuncNameSessionKey, eapfast_session_key },
     { kEAPClientPluginFuncNameServerKey, eapfast_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes,
+      eapfast_msk_copy_bytes },
     { kEAPClientPluginFuncNameRequireProperties, eapfast_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapfast_publish_props_copy },
     { kEAPClientPluginFuncNameCopyPacketDescription,

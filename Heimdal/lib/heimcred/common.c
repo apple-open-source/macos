@@ -27,18 +27,18 @@
  * SUCH DAMAGE.
  */
 
-#import <CoreFoundation/CoreFoundation.h>
-#import <CoreFoundation/CFRuntime.h>
-#import <CoreFoundation/CFXPCBridge.h>
-#import <xpc/xpc.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CFXPCBridge.h>
+#include <xpc/xpc.h>
 
-#import "common.h"
+#include "common.h"
 
 
 
 #define HEIMCRED_CONST(_t,_c) \
     const _t _c = (_t)CFSTR(#_c); \
-    const char *_c##xpc = #_c;
+    const char *_c##xpc = #_c
 
 #include "heimcred-const.h"
 
@@ -71,13 +71,19 @@ HeimCredCopyUUID(xpc_object_t object, const char *key)
     return CFUUIDCreateFromUUIDBytes(NULL, bytes);
 }
 
-CFDictionaryRef
-HeimCredMessageCopyAttributes(xpc_object_t object, const char *key)
+CFTypeRef
+HeimCredMessageCopyAttributes(xpc_object_t object, const char *key, CFTypeID type)
 {
     xpc_object_t xpcattrs = xpc_dictionary_get_value(object, key);
+    CFTypeRef item;
     if (xpcattrs == NULL)
 	return NULL;
-    return _CFXPCCreateCFObjectFromXPCObject(xpcattrs);
+    item = _CFXPCCreateCFObjectFromXPCObject(xpcattrs);
+    if (item && CFGetTypeID(item) != type) {
+	CFRelease(item);
+	item = NULL;
+    }
+    return item;	
 }
 
 void
@@ -110,14 +116,19 @@ static CFStringRef
 HeimCredCopyDebugName(CFTypeRef cf)
 {
     HeimCredRef cred = (HeimCredRef)cf;
-    CFTypeRef client = CFDictionaryGetValue(cred->attributes, kHEIMAttrClientName);
-    CFTypeRef server = CFDictionaryGetValue(cred->attributes, kHEIMAttrServerName);
-    CFTypeRef group = CFDictionaryGetValue(cred->attributes, kHEIMAttrCredentialGroup);
-    CFTypeRef parent = CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
-    CFTypeRef lead = CFDictionaryGetValue(cred->attributes, kHEIMAttrCredentialGroupLead);
-    CFTypeRef acl = CFDictionaryGetValue(cred->attributes, kHEIMAttrBundleIdentifierACL);
-    return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@>"),
-				    cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""));
+    if (cred->attributes) {
+	CFTypeRef client = CFDictionaryGetValue(cred->attributes, kHEIMAttrClientName);
+	CFTypeRef server = CFDictionaryGetValue(cred->attributes, kHEIMAttrServerName);
+	CFTypeRef parent = CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
+	CFTypeRef group = CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential);
+
+	int lead = group ? CFBooleanGetValue(group) : false;
+	CFTypeRef acl = CFDictionaryGetValue(cred->attributes, kHEIMAttrBundleIdentifierACL);
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@>"),
+					cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""));
+    } else {
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@>"), cred->uuid);
+    }
 }
 
 static void
@@ -148,8 +159,20 @@ _HeimCredInitCommon(void)
 	    HeimCredCTX.haid = _CFRuntimeRegisterClass(&HeimCredClass);
 
 	    HeimCredCTX.queue = dispatch_queue_create("HeimCred", NULL);
+
+#if HEIMCRED_SERVER
+	    HeimCredCTX.sessions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+#else
 	    HeimCredCTX.items = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+#endif
 	});
+}
+
+CFTypeID
+HeimCredGetTypeID(void)
+{
+    _HeimCredInitCommon();
+    return HeimCredCTX.haid;
 }
 
 

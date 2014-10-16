@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>scipy</string>
+        <key>OpenSourceVersion</key>
+        <string>0.13.0b1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.scipy.org</string>
+        <key>OpenSourceURL</key>
+        <string>http://sourceforge.net/projects/scipy/files/scipy/0.13.0b1/scipy-0.13.0b1.tar.gz/download</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-10-11</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>d51c84f63542fd610c0344af424c563b</string>
+</dict>

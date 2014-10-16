@@ -64,6 +64,8 @@ void generate_type_copy (const Symbol *);
 void generate_type_seq (const Symbol *);
 void generate_glue (const Type *, const char*);
 
+void check_preserve_type(const char *, Type *);
+
 const char *classname(Der_class);
 const char *valuename(Der_class, int);
 

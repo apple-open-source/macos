@@ -57,6 +57,7 @@ cindex(expansion, history)
 History expansion allows you to use words from previous command
 lines in the command line you are typing.  This simplifies spelling
 corrections and the repetition of complicated commands or arguments.
+
 vindex(HISTSIZE, use of)
 Immediately before execution, each command is saved in the history list,
 the size of which is controlled by the tt(HISTSIZE) parameter.  The one
@@ -748,6 +749,8 @@ If var(spec) is one of the above substitutions, substitute
 the length in characters of the result instead of
 the result itself.  If var(spec) is an array expression,
 substitute the number of elements of the result.
+This has the side-effect that joining is skipped even in quoted
+forms, which may affect other sub-expressions in var(spec).
 Note that `tt(^)', `tt(=)', and `tt(~)', below, must appear
 to the left of `tt(#)' when these forms are combined.
 )
@@ -870,11 +873,12 @@ item(tt(A))(
 Create an array parameter with `tt(${)...tt(=)...tt(})',
 `tt(${)...tt(:=)...tt(})' or `tt(${)...tt(::=)...tt(})'.
 If this flag is repeated (as in `tt(AA)'), create an associative
-array parameter.  Assignment is made before sorting or padding.
-The var(name) part may be a subscripted range for ordinary
-arrays; the var(word) part em(must) be converted to an array, for
-example by using `tt(${(AA)=)var(name)tt(=)...tt(})' to activate
-field splitting, when creating an associative array.
+array parameter.  Assignment is made before sorting or padding;
+if field splitting is active, the var(word) part is split before
+assignment.  The var(name) part may be a subscripted range for
+ordinary arrays; the var(word) part em(must) be converted to
+an array, for example by using `tt(${(AA)=)var(name)tt(=)...tt(})'
+to activate field splitting, when creating an associative array.
 )
 item(tt(a))(
 Sort in array index order; when combined with `tt(O)' sort in reverse
@@ -884,7 +888,9 @@ order.
 )
 item(tt(c))(
 With tt(${#)var(name)tt(}), count the total number of characters in an array,
-as if the elements were concatenated with spaces between them.
+as if the elements were concatenated with spaces between them.  This is not
+a true join of the array, so other expressions used with this flag may have
+an effect on the elements of the array before it is counted.
 )
 item(tt(C))(
 Capitalize the resulting words.  `Words' in this case refers to sequences
@@ -1308,7 +1314,8 @@ subscripts apply to the scalar or array value yielded by the previous
 subscript.  Thus if tt(var) is an array, tt(${var[1][2]}) is the second
 character of the first word, but tt(${var[2,4][2]}) is the entire third
 word (the second word of the range of words two through four of the
-original array).  Any number of subscripts may appear.
+original array).  Any number of subscripts may appear.  Flags such as
+tt((k)) and tt((v)) which alter the result of subscripting are applied.
 )
 item(tt(4.) em(Parameter name replacement))(
 The effect of any tt((P)) flag, which treats the value so far as a
@@ -1316,11 +1323,12 @@ parameter name and replaces it with the corresponding value, is applied.
 )
 item(tt(5.) em(Double-quoted joining))(
 If the value after this process is an array, and the substitution
-appears in double quotes, and no tt((@)) flag is present at the current
-level, the words of the value are joined with the first character of the
-parameter tt($IFS), by default a space, between each word (single word
-arrays are not modified).  If the tt((j)) flag is present, that is used for
-joining instead of tt($IFS).
+appears in double quotes, and neither an tt((@)) flag nor a tt(#)
+length operator is present at the current level, then words of the
+value are joined with the first character of the parameter tt($IFS),
+by default a space, between each word (single word arrays are not
+modified).  If the tt((j)) flag is present, that is used for joining
+instead of tt($IFS).
 )
 item(tt(6.) em(Nested subscripting))(
 Any remaining subscripts (i.e. of a nested substitution) are evaluated at
@@ -1700,14 +1708,14 @@ Note that trailing slashes will be removed from the path to the directory
 It is also possible to define directory names using the tt(-d) option to the
 tt(hash) builtin.
 
-In certain circumstances (in prompts, for instance), when the shell
-prints a path, the path is checked to see if it has a named
-directory as its prefix.  If so, then the prefix portion
-is replaced with a `tt(~)' followed by the name of the directory.
-The shortest way of referring to the directory is used,
-with ties broken in favour of using a named directory,
-except when the directory is tt(/) itself.  The parameters tt($PWD) and
-tt($OLDPWD) are never abbreviated in this fashion.
+When the shell prints a path (e.g. when expanding tt(%~) in prompts or when
+printing the directory stack), the path is checked to see if it has a named
+directory as its prefix.  If so, then the prefix portion is replaced with a
+`tt(~)' followed by the name of the directory.
+The shorter of the two ways of referring to the directory is used,
+i.e. either the directory name or the full path; the name is used
+if they are the same length.
+The parameters tt($PWD) and tt($OLDPWD) are never abbreviated in this fashion.
 
 subsect(`=' expansion)
 
@@ -1949,10 +1957,12 @@ item(tt(@LPAR())...tt(RPAR()))(
 Match the pattern in the parentheses.  (Like `tt(LPAR())...tt(RPAR())'.)
 )
 item(tt(*LPAR())...tt(RPAR()))(
-Match any number of occurrences.  (Like `tt(LPAR())...tt(RPAR()#)'.)
+Match any number of occurrences.  (Like `tt(LPAR())...tt(RPAR()#)',
+except that recursive directory searching is not supported.)
 )
 item(tt(PLUS()LPAR())...tt(RPAR()))(
-Match at least one occurrence.  (Like `tt(LPAR())...tt(RPAR()##)'.)
+Match at least one occurrence.  (Like `tt(LPAR())...tt(RPAR()##)',
+except that recursive directory searching is not supported..)
 )
 item(tt(?LPAR())...tt(RPAR()))(
 Match zero or one occurrence.  (Like `tt(LPAR()|)...tt(RPAR())'.)

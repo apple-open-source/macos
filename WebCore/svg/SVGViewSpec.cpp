@@ -18,8 +18,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGViewSpec.h"
 
 #include "Document.h"
@@ -87,19 +85,19 @@ SVGViewSpec::SVGViewSpec(SVGElement* contextElement)
 
 const AtomicString& SVGViewSpec::viewBoxIdentifier()
 {
-    DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecViewBoxAttribute", AtomicString::ConstructFromLiteral));
+    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecViewBoxAttribute", AtomicString::ConstructFromLiteral));
     return s_identifier;
 }
 
 const AtomicString& SVGViewSpec::preserveAspectRatioIdentifier()
 {
-    DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecPreserveAspectRatioAttribute", AtomicString::ConstructFromLiteral));
+    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecPreserveAspectRatioAttribute", AtomicString::ConstructFromLiteral));
     return s_identifier;
 }
 
 const AtomicString& SVGViewSpec::transformIdentifier()
 {
-    DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecTransformAttribute", AtomicString::ConstructFromLiteral));
+    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGViewSpecTransformAttribute", AtomicString::ConstructFromLiteral));
     return s_identifier;
 }
 
@@ -142,7 +140,7 @@ SVGElement* SVGViewSpec::viewTarget() const
 {
     if (!m_contextElement)
         return 0;
-    Element* element = m_contextElement->treeScope()->getElementById(m_viewTargetString);
+    Element* element = m_contextElement->treeScope().getElementById(m_viewTargetString);
     if (!element || !element->isSVGElement())
         return 0;
     return toSVGElement(element);
@@ -209,7 +207,8 @@ static const UChar viewTargetSpec[] =  {'v', 'i', 'e', 'w', 'T', 'a', 'r', 'g', 
 
 bool SVGViewSpec::parseViewSpec(const String& viewSpec)
 {
-    const UChar* currViewSpec = viewSpec.characters();
+    auto upconvertedCharacters = StringView(viewSpec).upconvertedCharacters();
+    const UChar* currViewSpec = upconvertedCharacters;
     const UChar* end = currViewSpec + viewSpec.length();
 
     if (currViewSpec >= end || !m_contextElement)
@@ -229,7 +228,7 @@ bool SVGViewSpec::parseViewSpec(const String& viewSpec)
                     return false;
                 currViewSpec++;
                 FloatRect viewBox;
-                if (!SVGFitToViewBox::parseViewBox(m_contextElement->document(), currViewSpec, end, viewBox, false))
+                if (!SVGFitToViewBox::parseViewBox(&m_contextElement->document(), currViewSpec, end, viewBox, false))
                     return false;
                 setViewBoxBaseValue(viewBox);
                 if (currViewSpec >= end || *currViewSpec != ')')
@@ -295,5 +294,3 @@ bool SVGViewSpec::parseViewSpec(const String& viewSpec)
 }
 
 }
-
-#endif // ENABLE(SVG)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.private.accounts.allaccounts</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>CircleJoinRequested</string>
+	<key>keychain-cloud-circle</key>
+	<true/>
+	<key>com.apple.springboard.opensensitiveurl</key>
+	<true/>
+	<key>com.apple.securebackupd.access</key>
+	<true/>
+</dict>
+</plist>

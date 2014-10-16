@@ -7,7 +7,7 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ckb.xml
+ * ICU <specials> source: <path>/common/main/ckb.xml
  */
 ckb{
     Countries{
@@ -229,5 +229,8 @@ ckb{
         ZW{"زیمبابوی"}
         ZZ{"نەناسراو"}
     }
-    Version{"2.0.82.15"}
+    CountriesShort{
+        MO{"ماکاو"}
+    }
+    Version{"2.0.92.90"}
 }

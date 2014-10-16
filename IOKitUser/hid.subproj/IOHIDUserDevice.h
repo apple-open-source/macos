@@ -38,6 +38,10 @@ typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * refcon, IOHIDReportType
 typedef IOReturn (*IOHIDUserDeviceReportWithReturnLengthCallback)(void * refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength);
 typedef IOReturn (*IOHIDUserDeviceHandleReportAsyncCallback)(void * refcon, IOReturn result);
 
+enum {
+  kIOHIDUserDeviceCreateOptionStartWhenScheduled = (1<<0)
+};
+
 /*!
     @function   IOHIDUserDeviceGetTypeID
     @abstract   Returns the type identifier of all IOHIDUserDevice instances.
@@ -56,6 +60,22 @@ CFTypeID IOHIDUserDeviceGetTypeID(void);
 */
 CF_EXPORT
 IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef allocator, CFDictionaryRef properties);
+
+/*!
+ @function   IOHIDUserDeviceCreateWithOptions
+ @abstract   Creates an virtual IOHIDDevice in the kernel.
+ @discussion The io_service_t passed in this method must reference an object
+ in the kernel of type IOHIDUserDevice.  Please use the kIOHIDUserDeviceCreateOptionStartWhenScheduled option 
+ if you would like to ensure that callbacks are in place and scheduled prior to starting the device.  This will
+ that you will be able to handle getReport and setReport operations if performed during creation.
+ @param      allocator Allocator to be used during creation.
+ @param      properties CFDictionaryRef containing device properties index by keys defined in IOHIDKeys.h.
+ @param      options options to be used when allocating the device
+ @result     Returns a new IOHIDUserDeviceRef.
+ */
+CF_EXPORT
+IOHIDUserDeviceRef IOHIDUserDeviceCreateWithOptions(CFAllocatorRef allocator, CFDictionaryRef properties, IOOptionBits options);
+
 
 /*!
     @function   IOHIDUserDeviceScheduleWithRunLoop

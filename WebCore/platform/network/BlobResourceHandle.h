@@ -31,8 +31,6 @@
 #ifndef BlobResourceHandle_h
 #define BlobResourceHandle_h
 
-#if ENABLE(BLOB)
-
 #include "FileStreamClient.h"
 #include "ResourceHandle.h"
 #include <wtf/PassRefPtr.h>
@@ -42,25 +40,17 @@
 namespace WebCore {
 
 class AsyncFileStream;
-class BlobStorageData;
+class BlobData;
 class FileStream;
 class ResourceHandleClient;
 class ResourceRequest;
 struct BlobDataItem;
 
-class BlobResourceHandle : public FileStreamClient, public ResourceHandle  {
+class BlobResourceHandle final : public FileStreamClient, public ResourceHandle  {
 public:
-    static PassRefPtr<BlobResourceHandle> createAsync(BlobStorageData*, const ResourceRequest&, ResourceHandleClient*);
+    static PassRefPtr<BlobResourceHandle> createAsync(BlobData*, const ResourceRequest&, ResourceHandleClient*);
 
-    static void loadResourceSynchronously(BlobStorageData* blobData, const ResourceRequest& request, ResourceError& error, ResourceResponse& response, Vector<char>& data);
-
-    // FileStreamClient methods.
-    virtual void didGetSize(long long) OVERRIDE;
-    virtual void didOpen(bool) OVERRIDE;
-    virtual void didRead(int) OVERRIDE;
-
-    // ResourceHandle methods.
-    virtual void cancel() OVERRIDE;
+    static void loadResourceSynchronously(BlobData*, const ResourceRequest&, ResourceError&, ResourceResponse&, Vector<char>& data);
 
     void start();
     int readSync(char*, int);
@@ -68,10 +58,17 @@ public:
     bool aborted() const { return m_aborted; }
 
 private:
-    friend void delayedStartBlobResourceHandle(void*);
-
-    BlobResourceHandle(PassRefPtr<BlobStorageData>, const ResourceRequest&, ResourceHandleClient*, bool async);
+    BlobResourceHandle(BlobData*, const ResourceRequest&, ResourceHandleClient*, bool async);
     virtual ~BlobResourceHandle();
+
+    // FileStreamClient methods.
+    virtual void didGetSize(long long) override;
+    virtual void didOpen(bool) override;
+    virtual void didRead(int) override;
+
+    // ResourceHandle methods.
+    virtual void cancel() override;
+    virtual void continueDidReceiveResponse() override;
 
     void doStart();
     void getSizeForNext();
@@ -93,7 +90,7 @@ private:
     void notifyFail(int errorCode);
     void notifyFinish();
 
-    RefPtr<BlobStorageData> m_blobData;
+    RefPtr<BlobData> m_blobData;
     bool m_async;
     RefPtr<AsyncFileStream> m_asyncStream; // For asynchronous loading.
     RefPtr<FileStream> m_stream; // For synchronous loading.
@@ -112,7 +109,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(BLOB)
 
 #endif // BlobResourceHandle_h

@@ -1,3 +1,6 @@
+g/!SvUPGRADE(/s/if (!//\
+s/)$/;/\
+.+1d
 g/^long bzfile_clear_totals/s//void bzfile_clear_totals/
 g/strm.state is %p, in state %p/s//strm.state is %p, in state %d/
 /^int bzfile_close( bzFile\* obj, int abandon ) {/i

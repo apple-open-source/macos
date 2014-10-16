@@ -1,0 +1,164 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>allocsa.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">allocsa.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Safe automatic memory allocation.
+   Copyright (C) 2003 Free Software Foundation, Inc.
+   Written by Bruno Haible &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;, 2003.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;config.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Specification.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;allocsa.h&quot;</span>
+
+<span class="enscript-comment">/* The speed critical point in this file is freesa() applied to an alloca()
+   result: it must be fast, to match the speed of alloca().  The speed of
+   mallocsa() and freesa() in the other case are not critical, because they
+   are only invoked for big memory sizes.  */</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_ALLOCA</span>
+
+<span class="enscript-comment">/* Store the mallocsa() results in a hash table.  This is needed to reliably
+   distinguish a mallocsa() result and an alloca() result.
+
+   Although it is possible that the same pointer is returned by alloca() and
+   by mallocsa() at different times in the same application, it does not lead
+   to a bug in freesa(), because:
+     - Before a pointer returned by alloca() can point into malloc()ed memory,
+       the function must return, and once this has happened the programmer must
+       not call freesa() on it anyway.
+     - Before a pointer returned by mallocsa() can point into the stack, it
+       must be freed.  The only function that can free it is freesa(), and
+       when freesa() frees it, it also removes it from the hash table.  */</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">MAGIC_NUMBER</span> 0x1415fb4a
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">MAGIC_SIZE</span> sizeof (int)
+<span class="enscript-comment">/* This is how the header info would look like without any alignment
+   considerations.  */</span>
+<span class="enscript-type">struct</span> preliminary_header { <span class="enscript-type">void</span> *next; <span class="enscript-type">char</span> room[MAGIC_SIZE]; };
+<span class="enscript-comment">/* But the header's size must be a multiple of sa_alignment_max.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HEADER_SIZE</span> \
+  (((<span class="enscript-keyword">sizeof</span> (<span class="enscript-type">struct</span> preliminary_header) + sa_alignment_max - 1) / sa_alignment_max) * sa_alignment_max)
+<span class="enscript-type">struct</span> header { <span class="enscript-type">void</span> *next; <span class="enscript-type">char</span> room[HEADER_SIZE - <span class="enscript-keyword">sizeof</span> (<span class="enscript-type">struct</span> preliminary_header) + MAGIC_SIZE]; };
+<span class="enscript-comment">/* Verify that HEADER_SIZE == sizeof (struct header).  */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">int</span> verify1[2 * (HEADER_SIZE == <span class="enscript-keyword">sizeof</span> (<span class="enscript-type">struct</span> header)) - 1];
+<span class="enscript-comment">/* We make the hash table quite big, so that during lookups the probability
+   of empty hash buckets is quite high.  There is no need to make the hash
+   table resizable, because when the hash table gets filled so much that the
+   lookup becomes slow, it means that the application has memory leaks.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HASH_TABLE_SIZE</span> 257
+<span class="enscript-type">static</span> <span class="enscript-type">void</span> * mallocsa_results[HASH_TABLE_SIZE];
+
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-type">void</span> *
+<span class="enscript-function-name">mallocsa</span> (size_t n)
+{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_ALLOCA</span>
+  <span class="enscript-comment">/* Allocate one more word, that serves as an indicator for malloc()ed
+     memory, so that freesa() of an alloca() result is fast.  */</span>
+  size_t nplus = n + HEADER_SIZE;
+
+  <span class="enscript-keyword">if</span> (nplus &gt;= n)
+    {
+      <span class="enscript-type">char</span> *p = (<span class="enscript-type">char</span> *) malloc (nplus);
+
+      <span class="enscript-keyword">if</span> (p != NULL)
+	{
+	  size_t slot;
+
+	  p += HEADER_SIZE;
+
+	  <span class="enscript-comment">/* Put a magic number into the indicator word.  */</span>
+	  ((<span class="enscript-type">int</span> *) p)[-1] = MAGIC_NUMBER;
+
+	  <span class="enscript-comment">/* Enter p into the hash table.  */</span>
+	  slot = (<span class="enscript-type">unsigned</span> <span class="enscript-type">long</span>) p % HASH_TABLE_SIZE;
+	  ((<span class="enscript-type">struct</span> header *) (p - HEADER_SIZE))-&gt;next = mallocsa_results[slot];
+	  mallocsa_results[slot] = p;
+
+	  <span class="enscript-keyword">return</span> p;
+	}
+    }
+  <span class="enscript-comment">/* Out of memory.  */</span>
+  <span class="enscript-keyword">return</span> NULL;
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> !<span class="enscript-variable-name">MALLOC_0_IS_NONNULL</span>
+  <span class="enscript-keyword">if</span> (n == 0)
+    n = 1;
+# <span class="enscript-reference">endif</span>
+  <span class="enscript-keyword">return</span> malloc (n);
+#<span class="enscript-reference">endif</span>
+}
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_ALLOCA</span>
+<span class="enscript-type">void</span>
+<span class="enscript-function-name">freesa</span> (<span class="enscript-type">void</span> *p)
+{
+  <span class="enscript-comment">/* mallocsa() may have returned NULL.  */</span>
+  <span class="enscript-keyword">if</span> (p != NULL)
+    {
+      <span class="enscript-comment">/* Attempt to quickly distinguish the mallocsa() result - which has
+	 a magic indicator word - and the alloca() result - which has an
+	 uninitialized indicator word.  It is for this test that sa_increment
+	 additional bytes are allocated in the alloca() case.  */</span>
+      <span class="enscript-keyword">if</span> (((<span class="enscript-type">int</span> *) p)[-1] == MAGIC_NUMBER)
+	{
+	  <span class="enscript-comment">/* Looks like a mallocsa() result.  To see whether it really is one,
+	     perform a lookup in the hash table.  */</span>
+	  size_t slot = (<span class="enscript-type">unsigned</span> <span class="enscript-type">long</span>) p % HASH_TABLE_SIZE;
+	  <span class="enscript-type">void</span> **chain = &amp;mallocsa_results[slot];
+	  <span class="enscript-keyword">for</span> (; *chain != NULL;)
+	    {
+	      <span class="enscript-keyword">if</span> (*chain == p)
+		{
+		  <span class="enscript-comment">/* Found it.  Remove it from the hash table and free it.  */</span>
+		  <span class="enscript-type">char</span> *p_begin = (<span class="enscript-type">char</span> *) p - HEADER_SIZE;
+		  *chain = ((<span class="enscript-type">struct</span> header *) p_begin)-&gt;next;
+		  free (p_begin);
+		  <span class="enscript-keyword">return</span>;
+		}
+	      chain = &amp;((<span class="enscript-type">struct</span> header *) ((<span class="enscript-type">char</span> *) *chain - HEADER_SIZE))-&gt;next;
+	    }
+	}
+      <span class="enscript-comment">/* At this point, we know it was not a mallocsa() result.  */</span>
+    }
+}
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

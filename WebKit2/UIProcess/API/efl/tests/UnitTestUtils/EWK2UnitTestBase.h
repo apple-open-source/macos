@@ -44,15 +44,18 @@ protected:
     virtual void SetUp();
     virtual void TearDown();
 
-    static const double defaultTimeoutSeconds = 10.0;
+    static constexpr double defaultTimeoutSeconds = 10.0;
+    bool m_multipleProcesses;
 
     bool loadUrlSync(const char* url, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilLoadFinished(double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilTitleChangedTo(const char* expectedTitle, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilURLChangedTo(const char* expectedURL, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilTrue(bool &flag, double timeoutSeconds = defaultTimeoutSeconds);
+    Eina_List* waitUntilSpellingLanguagesLoaded(unsigned expectedLanguageCount, double timeoutValue = defaultTimeoutSeconds);
 
     void mouseClick(int x, int y, int button = 1 /*Left*/);
+    void mouseDoubleClick(int x, int y, int button = 1 /*Left*/);
     void mouseDown(int x, int y, int button = 1 /*Left*/);
     void mouseUp(int x, int y, int button = 1 /*Left*/);
     void mouseMove(int x, int y);

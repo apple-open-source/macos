@@ -26,9 +26,10 @@
 #include "config.h"
 #include "WebOpenPanelResultListenerProxy.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
+#include "APIString.h"
 #include "WebPageProxy.h"
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
 #include <wtf/Vector.h>
 
 using namespace WebCore;
@@ -44,25 +45,38 @@ WebOpenPanelResultListenerProxy::~WebOpenPanelResultListenerProxy()
 {
 }
 
-void WebOpenPanelResultListenerProxy::chooseFiles(ImmutableArray* fileURLsArray)
+static Vector<String> filePathsFromFileURLs(const API::Array& fileURLs)
+{
+    Vector<String> filePaths;
+
+    size_t size = fileURLs.size();
+    filePaths.reserveInitialCapacity(size);
+
+    for (size_t i = 0; i < size; ++i) {
+        API::URL* apiURL = fileURLs.at<API::URL>(i);
+        if (apiURL)
+            filePaths.uncheckedAppend(URL(URL(), apiURL->string()).fileSystemPath());
+    }
+
+    return filePaths;
+}
+
+#if PLATFORM(IOS)
+void WebOpenPanelResultListenerProxy::chooseFiles(API::Array* fileURLsArray, API::String* displayString, const API::Data* iconImageData)
 {
     if (!m_page)
         return;
 
-    size_t size = fileURLsArray->size();
+    m_page->didChooseFilesForOpenPanelWithDisplayStringAndIcon(filePathsFromFileURLs(*fileURLsArray), displayString ? displayString->string() : String(), iconImageData);
+}
+#endif
 
-    Vector<String> filePaths;
-    filePaths.reserveInitialCapacity(size);
+void WebOpenPanelResultListenerProxy::chooseFiles(API::Array* fileURLsArray)
+{
+    if (!m_page)
+        return;
 
-    for (size_t i = 0; i < size; ++i) {
-        WebURL* webURL = fileURLsArray->at<WebURL>(i);
-        if (webURL) {
-            KURL url(KURL(), webURL->string()); 
-            filePaths.uncheckedAppend(url.fileSystemPath());
-        }
-    }
-
-    m_page->didChooseFilesForOpenPanel(filePaths);
+    m_page->didChooseFilesForOpenPanel(filePathsFromFileURLs(*fileURLsArray));
 }
 
 void WebOpenPanelResultListenerProxy::cancel()

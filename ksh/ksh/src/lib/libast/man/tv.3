@@ -102,9 +102,9 @@ if
 .L av
 is greater than
 .LR bv .
-.SS "time_t tvgetatime(const struct stat* st, Tv_t* tv)"
-.SS "time_t tvgetmtime(const struct stat* st, Tv_t* tv)"
-.SS "time_t tvgetctime(const struct stat* st, Tv_t* tv)"
+.SS "time_t tvgetatime(Tv_t* tv, const struct stat* st)"
+.SS "time_t tvgetmtime(Tv_t* tv, const struct stat* st)"
+.SS "time_t tvgetctime(Tv_t* tv, const struct stat* st)"
 These macros set
 .L tv
 to the
@@ -113,9 +113,9 @@ the access, modify, or change time, respectively.
 The seconds portion of
 .L tv
 is returned.
-.SS "time_t tvsetatime(struct stat* st, const Tv_t* tv)"
-.SS "time_t tvsetmtime(struct stat* st, const Tv_t* tv)"
-.SS "time_t tvsetctime(struct stat* st, const Tv_t* tv)"
+.SS "time_t tvsetatime(Tv_t* tv, struct stat* st)"
+.SS "time_t tvsetmtime(Tv_t* tv, struct stat* st)"
+.SS "time_t tvsetctime(Tv_t* tv, struct stat* st)"
 These macros set the
 .L st
 access, modify, or change time, respectively, to

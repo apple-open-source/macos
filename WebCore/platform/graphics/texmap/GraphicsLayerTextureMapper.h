@@ -34,7 +34,7 @@ namespace WebCore {
 
 class GraphicsLayerTextureMapper : public GraphicsLayer, public TextureMapperPlatformLayer::Client {
 public:
-    explicit GraphicsLayerTextureMapper(GraphicsLayerClient*);
+    explicit GraphicsLayerTextureMapper(GraphicsLayerClient&);
     virtual ~GraphicsLayerTextureMapper();
 
     void setScrollClient(TextureMapperLayer::ScrollingClient* client) { m_layer->setScrollClient(client); }
@@ -43,7 +43,7 @@ public:
     // reimps from GraphicsLayer.h
     virtual void setNeedsDisplay();
     virtual void setContentsNeedsDisplay();
-    virtual void setNeedsDisplayInRect(const FloatRect&);
+    virtual void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer);
     virtual bool setChildren(const Vector<GraphicsLayer*>&);
     virtual void addChild(GraphicsLayer*);
     virtual void addChildAtIndex(GraphicsLayer*, int index);
@@ -63,19 +63,20 @@ public:
     virtual void setContentsOpaque(bool b);
     virtual void setBackfaceVisibility(bool b);
     virtual void setOpacity(float opacity);
-    virtual void setContentsRect(const IntRect& r);
+    virtual void setContentsRect(const FloatRect&);
     virtual void setReplicatedByLayer(GraphicsLayer*);
     virtual void setContentsToImage(Image*);
     virtual void setContentsToSolidColor(const Color&);
     Color solidColor() const { return m_solidColor; }
     virtual void setContentsToMedia(PlatformLayer*);
     virtual void setContentsToCanvas(PlatformLayer* canvas) { setContentsToMedia(canvas); }
-    virtual void setShowDebugBorder(bool) OVERRIDE;
-    virtual void setDebugBorder(const Color&, float width) OVERRIDE;
-    virtual void setShowRepaintCounter(bool) OVERRIDE;
+    virtual void setShowDebugBorder(bool) override;
+    virtual void setDebugBorder(const Color&, float width) override;
+    virtual void setShowRepaintCounter(bool) override;
     virtual void flushCompositingState(const FloatRect&);
     virtual void flushCompositingStateForThisLayerOnly();
     virtual void setName(const String& name);
+    virtual bool usesContentsLayer() const { return m_contentsLayer; }
     virtual PlatformLayer* platformLayer() const { return m_contentsLayer; }
 
     inline int changeMask() const { return m_changeMask; }
@@ -111,7 +112,8 @@ private:
     void prepareBackingStoreIfNeeded();
     bool shouldHaveBackingStore() const;
 
-    virtual void setPlatformLayerNeedsDisplay() OVERRIDE { setContentsNeedsDisplay(); }
+    virtual void platformLayerWillBeDestroyed() override { setContentsToMedia(0); }
+    virtual void setPlatformLayerNeedsDisplay() override { setContentsNeedsDisplay(); }
 
     // This set of flags help us defer which properties of the layer have been
     // modified by the compositor, so we can know what to look for in the next flush.
@@ -158,14 +160,13 @@ private:
     };
     void notifyChange(ChangeMask);
 
-    OwnPtr<TextureMapperLayer> m_layer;
+    std::unique_ptr<TextureMapperLayer> m_layer;
     RefPtr<TextureMapperTiledBackingStore> m_compositedImage;
     NativeImagePtr m_compositedNativeImagePtr;
     RefPtr<TextureMapperBackingStore> m_backingStore;
 
     int m_changeMask;
     bool m_needsDisplay;
-    bool m_hasOwnBackingStore;
     bool m_fixedToViewport;
     Color m_solidColor;
 

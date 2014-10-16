@@ -1522,6 +1522,11 @@ IOFBSetKernelDisplayConfig( IOFBConnectRef connectRef )
     uint32_t      attrIdx = 0;
     int32_t       idx;
 
+    DEBG(connectRef, "IOFBSetKernelDisplayConfig\n");
+
+	if (!connectRef->setKernelDisplayConfig) return (kIOReturnSuccess);
+    connectRef->setKernelDisplayConfig = false;
+
     for (idx = (kNumVendors - 1); idx >= 0; idx--)
     {
         static const uint32_t vendors[kNumVendors] = { 0, 0x1002, 0x8086, 0x10de };
@@ -2611,12 +2616,6 @@ IOFBProcessConnectChange( IOFBConnectRef connectRef )
 
     DEBG(connectRef, "IOFBProcessConnectChange\n");
     
-    TIMESTART();
-
-    IOFBRebuild( connectRef, true );
-
-    TIMEEND("IOFBRebuild");
-
     if (connectRef->matchMode != kIODisplayModeIDInvalid)
     {
         mode  = connectRef->matchMode;
@@ -2667,6 +2666,8 @@ IOFBInterestCallback( void * refcon, io_service_t service __unused,
 
       case kIOMessageServiceIsSuspended:
 
+	    DEBG(connectRef, " start connect change\n");
+
         next = connectRef;
         do {
             TIMESTART();
@@ -2684,17 +2685,18 @@ IOFBInterestCallback( void * refcon, io_service_t service __unused,
         do {
 
 			TIMESTART();
-	
 			IOFBUpdateConnectState( next );
-
 			TIMEEND("IOFBUpdateConnectState");
 
-            TIMESTART();
-            
-            IOFBProcessConnectChange( next );
+			next->setKernelDisplayConfig = true;
 
-            TIMEEND("IOFBProcessConnectChange");
-            
+			TIMESTART();
+			DEBG(next, " IOFBRebuild1\n");
+			IOFBRebuild( next, true );
+			TIMEEND("IOFBRebuild");
+
+            IOFBProcessConnectChange(next);
+           
             next = next->nextDependent;
 
         } while( next && (next != connectRef) );
@@ -2702,8 +2704,17 @@ IOFBInterestCallback( void * refcon, io_service_t service __unused,
         next = connectRef;
         do {
             if (next->inMuxSwitch)  next->inMuxSwitch = false;
-            else                    IOFBProcessConnectChange(next);
-            next = next->nextDependent;
+            else
+			{
+				TIMESTART();
+				IOFBRebuild( next, true );
+				TIMEEND("IOFBRebuild2");
+
+				DEBG(next, " IOFBProcessConnectChange\n");
+				IOFBProcessConnectChange(next);
+			}
+			next = next->nextDependent;
+
         } while( next && (next != connectRef) );
 
         next = connectRef;
@@ -3138,16 +3149,11 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         dict = CFArrayGetValueAtIndex( connectRef->modesArray, i );
         better = false;
         data = (CFDataRef) CFDictionaryGetValue( dict, CFSTR(kIOFBModeDMKey) );
-        if( !data)
-            continue;
+        if (!data) continue;
         info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
 
-        if( 0 == (info->flags & kDisplayModeValidFlag)) continue;
-        if (kMirrorOnlyFlags & info->flags)             continue;
-
         num = CFDictionaryGetValue( dict, CFSTR(kIOFBModeIDKey) );
-        if( !num)
-            continue;
+        if (!num) continue;
         CFNumberGetValue( num, kCFNumberSInt32Type, &mode );
 
         num = CFDictionaryGetValue( dict, CFSTR(kIOFBModeAIDKey) );
@@ -3156,10 +3162,13 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         else
             timingID = 0;
 
+        if (mode == connectRef->startMode) connectRef->startDepth = IOFBIndexForPixelBits(connectRef, mode, info->maxDepthIndex, 32);
+
+        if( 0 == (info->flags & kDisplayModeValidFlag)) continue;
+        if (kMirrorOnlyFlags & info->flags)             continue;
+
         // make sure it does >= 16bpp
         minDepth = IOFBIndexForPixelBits( connectRef, mode, info->maxDepthIndex, 16);
-
-        if (mode == connectRef->startMode) connectRef->startDepth = IOFBIndexForPixelBits(connectRef, mode, info->maxDepthIndex, 32);
 
         if( minDepth < 0)
             continue;
@@ -4381,29 +4390,51 @@ kern_return_t
 IOFramebufferServerFinishOpen( io_connect_t connect )
 {
     IOFBConnectRef next, connectRef;
-    SInt32         dependentIndex;
+    SInt32         pass, dependentIndex;
 
-	connectRef = IOFBConnectToRef( connect );
-	if (!connectRef) return( kIOReturnBadArgument );
+	connectRef = IOFBConnectToRef(connect);
+	if (!connectRef) return(kIOReturnBadArgument);
 
-	for (dependentIndex = 0; dependentIndex < 32; dependentIndex++)
-	{
-		next = connectRef;
-		do
+    if (connectRef->opened) return (kIOReturnSuccess);
+
+    DEBG(connectRef, "IOFramebufferServerFinishOpen start\n");
+
+    uint32_t onlineCount = 0;
+    for (pass = 0; pass < 3; pass++)
+    {
+		for (dependentIndex = 0; dependentIndex < 32; dependentIndex++)
 		{
-			if (next->dependentIndex == dependentIndex) IOFramebufferFinishOpen(next);
-			next = next->nextDependent;
+			next = connectRef;
+			do
+			{
+				if (next->dependentIndex == dependentIndex)
+				{
+					if (pass == 0)
+					{
+						next->opened = true;
+						next->setKernelDisplayConfig = true;
+						IOFBUpdateConnectState(next);
+						if (kIOFBConnectStateOnline & next->state) onlineCount++;
+					}
+					if (pass <= 1) 
+					{
+						IOFBRebuild(next, false);
+						if (kIOFBConnectStateUnusable & next->state)
+						{
+							next->state &= ~kIOFBConnectStateOnline;
+						}
+					}
+
+					if (pass == 2) IOFramebufferFinishOpen(next);
+				}
+				next = next->nextDependent;
+			}
+			while (next && (next != connectRef));
 		}
-		while( next && (next != connectRef) );
+		if ((pass == 0) && (onlineCount <= 1)) pass++;
 	}
 
-    next = connectRef;
-    do
-    {
-        IOFBProcessConnectChange(next);
-        next = next->nextDependent;
-    }
-    while( next && (next != connectRef) );
+	DEBG(connectRef, "IOFramebufferServerFinishOpen end\n");
     
 	return (kIOReturnSuccess);
 }
@@ -4421,18 +4452,7 @@ IOFramebufferFinishOpen(IOFBConnectRef connectRef)
     CFDictionaryRef             dict;
     CFDataRef                   data;
 
-    if (connectRef->opened) return (kIOReturnSuccess);
-    connectRef->opened = true;
-
-	IOFBUpdateConnectState( connectRef );
-
-	err = IOFBRebuild( connectRef, false );
-
-    if (kIOFBConnectStateUnusable & connectRef->state)
-    {
-		connectRef->state &= ~kIOFBConnectStateOnline;
-        return( kIOReturnSuccess );
-    }
+    if (!(kIOFBConnectStateOnline & connectRef->state)) return (kIOReturnSuccess);
 
     do
     {

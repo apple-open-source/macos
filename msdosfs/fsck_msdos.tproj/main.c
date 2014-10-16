@@ -166,6 +166,9 @@ bad_multiplier:
 	if (!argc)
 		usage();
 
+	/*
+	 * Realistically, this does not work well with multiple filesystems.
+	 */
 	while (--argc >= 0) {
 		setcdevname(*argv);
 		erg = checkfilesys(*argv++);

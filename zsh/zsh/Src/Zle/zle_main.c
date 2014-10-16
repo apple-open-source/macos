@@ -197,10 +197,11 @@ static int delayzsetterm;
  */
 /**/
 int nwatch;		/* Number of fd's we are watching */
+/*
+ * Array of nwatch structures.
+ */
 /**/
-int *watch_fds;		/* The list of fds, not terminated! */
-/**/
-char **watch_funcs;	/* The corresponding functions to call, normal array */
+Watch_fd watch_fds;
 
 /* set up terminal */
 
@@ -567,7 +568,9 @@ raw_getbyte(long do_keytmout, char *cptr)
 	gettyinfo(&ti);
 	ti.tio.c_cc[VMIN] = 0;
 	settyinfo(&ti);
+	winch_unblock();
 	ret = read(SHTTY, cptr, 1);
+	winch_block();
 	ti.tio.c_cc[VMIN] = 1;
 	settyinfo(&ti);
 	if (ret > 0)
@@ -584,7 +587,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 	 */
 	fds[0].events = POLLIN;
 	for (i = 0; i < nwatch; i++) {
-	    fds[i+1].fd = watch_fds[i];
+	    fds[i+1].fd = watch_fds[i].fd;
 	    fds[i+1].events = POLLIN;
 	}
 # endif
@@ -597,7 +600,9 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    else
 		poll_timeout = -1;
 
+	    winch_unblock();
 	    selret = poll(fds, errtry ? 1 : nfds, poll_timeout);
+	    winch_block();
 # else
 	    int fdmax = SHTTY;
 	    struct timeval *tvptr;
@@ -607,7 +612,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    FD_SET(SHTTY, &foofd);
 	    if (!errtry) {
 		for (i = 0; i < nwatch; i++) {
-		    int fd = watch_fds[i];
+		    int fd = watch_fds[i].fd;
 		    FD_SET(fd, &foofd);
 		    if (fd > fdmax)
 			fdmax = fd;
@@ -622,8 +627,10 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    else
 		tvptr = NULL;
 
+	    winch_unblock();
 	    selret = select(fdmax+1, (SELECT_ARG_2_T) & foofd,
 			    NULL, NULL, tvptr);
+	    winch_block();
 # endif
 	    /*
 	     * Make sure a user interrupt gets passed on straight away.
@@ -717,42 +724,51 @@ raw_getbyte(long do_keytmout, char *cptr)
 		 * handler function.
 		 */
 		int lnwatch = nwatch;
-		int *lwatch_fds = zalloc(lnwatch*sizeof(int));
-		char **lwatch_funcs = zarrdup(watch_funcs);
-		memcpy(lwatch_fds, watch_fds, lnwatch*sizeof(int));
+		Watch_fd lwatch_fds = zalloc(lnwatch*sizeof(struct watch_fd));
+		memcpy(lwatch_fds, watch_fds, lnwatch*sizeof(struct watch_fd));
+		for (i = 0; i < lnwatch; i++)
+		    lwatch_fds[i].func = ztrdup(lwatch_fds[i].func);
 		for (i = 0; i < lnwatch; i++) {
+		    Watch_fd lwatch_fd = lwatch_fds + i;
 		    if (
 # ifdef HAVE_POLL
 			(fds[i+1].revents & POLLIN)
 # else
-			FD_ISSET(lwatch_fds[i], &foofd)
+			FD_ISSET(lwatch_fd->fd, &foofd)
 # endif
 			) {
 			/* Handle the fd. */
-			LinkList funcargs = znewlinklist();
-			zaddlinknode(funcargs, ztrdup(lwatch_funcs[i]));
+			char *fdbuf;
 			{
 			    char buf[BDIGBUFSIZE];
-			    convbase(buf, lwatch_fds[i], 10);
-			    zaddlinknode(funcargs, ztrdup(buf));
+			    convbase(buf, lwatch_fd->fd, 10);
+			    fdbuf = ztrdup(buf);
 			}
+
+			if (lwatch_fd->widget) {
+			    zlecallhook(lwatch_fd->func, fdbuf);
+			    zsfree(fdbuf);
+			} else {
+			    LinkList funcargs = znewlinklist();
+			    zaddlinknode(funcargs, ztrdup(lwatch_fd->func));
+			    zaddlinknode(funcargs, fdbuf);
 # ifdef HAVE_POLL
 #  ifdef POLLERR
-			if (fds[i+1].revents & POLLERR)
-			    zaddlinknode(funcargs, ztrdup("err"));
+			    if (fds[i+1].revents & POLLERR)
+				zaddlinknode(funcargs, ztrdup("err"));
 #  endif
 #  ifdef POLLHUP
-			if (fds[i+1].revents & POLLHUP)
-			    zaddlinknode(funcargs, ztrdup("hup"));
+			    if (fds[i+1].revents & POLLHUP)
+				zaddlinknode(funcargs, ztrdup("hup"));
 #  endif
 #  ifdef POLLNVAL
-			if (fds[i+1].revents & POLLNVAL)
-			    zaddlinknode(funcargs, ztrdup("nval"));
+			    if (fds[i+1].revents & POLLNVAL)
+				zaddlinknode(funcargs, ztrdup("nval"));
 #  endif
 # endif
-
-
-			callhookfunc(lwatch_funcs[i], funcargs, 0, NULL);
+			    callhookfunc(lwatch_fd->func, funcargs, 0, NULL);
+			    freelinklist(funcargs, freestr);
+			}
 			if (errflag) {
 			    /* No sensible way of handling errors here */
 			    errflag = 0;
@@ -762,14 +778,14 @@ raw_getbyte(long do_keytmout, char *cptr)
 			     */
 			    errtry = 1;
 			}
-			freelinklist(funcargs, freestr);
 		    }
 		}
 		/* Function may have invalidated the display. */
 		if (resetneeded)
 		    zrefresh();
-		zfree(lwatch_fds, lnwatch*sizeof(int));
-		freearray(lwatch_funcs);
+		for (i = 0; i < lnwatch; i++)
+		    zsfree(lwatch_fds[i].func);
+		zfree(lwatch_fds, lnwatch*sizeof(struct watch_fd));
 	    }
 	}
 # ifdef HAVE_POLL
@@ -788,7 +804,9 @@ raw_getbyte(long do_keytmout, char *cptr)
 #  else
 	ioctl(SHTTY, TCSETA, &ti.tio);
 #  endif
+	winch_unblock();
 	ret = read(SHTTY, cptr, 1);
+	winch_block();
 #  ifdef HAVE_TERMIOS_H
 	tcsetattr(SHTTY, TCSANOW, &shttyinfo.tio);
 #  else
@@ -799,7 +817,9 @@ raw_getbyte(long do_keytmout, char *cptr)
 #endif
     }
 
+    winch_unblock();
     ret = read(SHTTY, cptr, 1);
+    winch_block();
 
     return ret;
 }
@@ -1105,7 +1125,7 @@ zlecore(void)
 
 /**/
 char *
-zleread(char **lp, char **rp, int flags, int context)
+zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 {
     char *s;
     int old_errno = errno;
@@ -1178,6 +1198,13 @@ zleread(char **lp, char **rp, int flags, int context)
     viinsbegin = 0;
     statusline = NULL;
     selectkeymap("main", 1);
+    /*
+     * If main is linked to the viins keymap, we need to register
+     * explicitly that we're now in vi insert mode as there's
+     * no user operation to indicate this.
+     */
+    if (openkeymap("main") == openkeymap("viins"))
+	viinsert(NULL);
     selectlocalmap(NULL);
     fixsuffix();
     if ((s = getlinknode(bufstack))) {
@@ -1223,7 +1250,9 @@ zleread(char **lp, char **rp, int flags, int context)
 
     unqueue_signals();	/* Should now be safe to acknowledge SIGWINCH */
 
-    zlecallhook("zle-line-init", NULL);
+    zlecallhook(init, NULL);
+
+    zrefresh();
 
     zlecore();
 
@@ -1231,7 +1260,7 @@ zleread(char **lp, char **rp, int flags, int context)
 	setsparam("ZLE_LINE_ABORTED", zlegetline(NULL, NULL));
 
     if (done && !exit_pending && !errflag)
-	zlecallhook("zle-line-finish", NULL);
+	zlecallhook(finish, NULL);
 
     statusline = NULL;
     invalidatelist();
@@ -1471,7 +1500,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     Param pm = 0;
     int ifl;
     int type = PM_SCALAR, obreaks = breaks, haso = 0, oSHTTY = 0;
-    char *p1, *p2, *main_keymapname, *vicmd_keymapname;
+    char *p1, *p2, *main_keymapname, *vicmd_keymapname, *init, *finish;
     Keymap main_keymapsave = NULL, vicmd_keymapsave = NULL;
     FILE *oshout = NULL;
 
@@ -1499,6 +1528,8 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     p2 = OPT_ARG_SAFE(ops,'r');
     main_keymapname = OPT_ARG_SAFE(ops,'M');
     vicmd_keymapname = OPT_ARG_SAFE(ops,'m');
+    init = OPT_ARG_SAFE(ops,'i');
+    finish = OPT_ARG_SAFE(ops,'f');
 
     if (type != PM_SCALAR && !OPT_ISSET(ops,'c')) {
 	zwarnnam(name, "-%s ignored", type == PM_ARRAY ? "a" : "A");
@@ -1600,6 +1631,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 
 	haso = 1;
     }
+
     /* edit the parameter value */
     zpushnode(bufstack, s);
 
@@ -1615,7 +1647,10 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops,'h'))
 	hbegin(2);
     isfirstln = OPT_ISSET(ops,'e');
-    t = zleread(&p1, &p2, OPT_ISSET(ops,'h') ? ZLRF_HISTORY : 0, ZLCON_VARED);
+
+    t = zleread(&p1, &p2, OPT_ISSET(ops,'h') ? ZLRF_HISTORY : 0, ZLCON_VARED,
+		init ? init : "zle-line-init",
+		finish ? finish : "zle-line-finish");
     if (OPT_ISSET(ops,'h'))
 	hend(NULL);
     isfirstln = ifl;
@@ -1880,7 +1915,8 @@ zle_main_entry(int cmd, va_list ap)
 	flags = va_arg(ap, int);
 	context = va_arg(ap, int);
 
-	return zleread(lp, rp, flags, context);
+	return zleread(lp, rp, flags, context,
+		       "zle-line-init", "zle-line-finish");
     }
 
     case ZLE_CMD_ADD_TO_LINE:
@@ -1915,6 +1951,13 @@ zle_main_entry(int cmd, va_list ap)
 	break;
     }
 
+    case ZLE_CMD_SET_HIST_LINE:
+    {
+	histline = va_arg(ap, zlong);
+
+	break;
+    }
+
     default:
 #ifdef DEBUG
 	    dputs("Bad command %d in zle_main_entry", cmd);
@@ -1926,8 +1969,8 @@ zle_main_entry(int cmd, va_list ap)
 
 static struct builtin bintab[] = {
     BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
-    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcehM:m:p:r:t:", NULL),
-    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNrRTU", NULL),
+    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcef:hi:M:m:p:r:t:", NULL),
+    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNrRTUw", NULL),
 };
 
 /* The order of the entries in this table has to match the *HOOK

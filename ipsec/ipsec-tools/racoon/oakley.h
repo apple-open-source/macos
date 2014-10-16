@@ -222,7 +222,6 @@ extern vchar_t *oakley_prf (vchar_t *, vchar_t *, phase1_handle_t *);
 extern vchar_t *oakley_hash (vchar_t *, phase1_handle_t *);
 
 extern int oakley_compute_keymat (phase2_handle_t *, int);
-extern int oakley_compute_ikev2_keymat (phase2_handle_t *);
 
 #if notyet
 extern vchar_t *oakley_compute_hashx (void);
@@ -255,7 +254,6 @@ extern cert_t *oakley_newcert (void);
 extern void oakley_delcert (cert_t *);
 extern int oakley_newiv (phase1_handle_t *);
 extern struct isakmp_ivm *oakley_newiv2 (phase1_handle_t *, u_int32_t);
-extern int oakley_newiv_ikev2(phase1_handle_t *iph1);
 extern void oakley_delivm (struct isakmp_ivm *);
 extern vchar_t *oakley_do_decrypt (phase1_handle_t *, vchar_t *, vchar_t *, vchar_t *);
 extern vchar_t *oakley_do_encrypt (phase1_handle_t *, vchar_t *, vchar_t *, vchar_t *);

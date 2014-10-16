@@ -425,7 +425,7 @@ _asn1_encode_fuzzer(const struct asn1_template *t,
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(fuzzerprim)/sizeof(fuzzerprim[0])) {
-		ABORT_ON_ERROR();
+		ABORT_ON_ERROR("type larger then fuzzerprim: %d", type);
 		return ASN1_PARSE_ERROR;
 	    }
 
@@ -594,7 +594,7 @@ _asn1_encode_fuzzer(const struct asn1_template *t,
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	t--;
 	elements--;
@@ -668,7 +668,7 @@ _asn1_length_fuzzer(const struct asn1_template *t, const void *data)
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
+		ABORT_ON_ERROR("type larger then fuzzerprim: %d", type);
 		break;
 	    }
 	    ret += (asn1_template_prim[type].length)(el);
@@ -728,7 +728,7 @@ _asn1_length_fuzzer(const struct asn1_template *t, const void *data)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	    break;
 	}
 	elements--;

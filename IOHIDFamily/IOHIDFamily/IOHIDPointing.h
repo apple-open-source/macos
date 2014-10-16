@@ -57,6 +57,7 @@ public:
                                 bool            isDispatcher);
 
     virtual bool start(IOService * provider);
+    virtual void stop(IOService * provider);
 
 
     virtual void dispatchAbsolutePointerEvent(

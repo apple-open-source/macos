@@ -203,14 +203,14 @@ main(int argc, char * argv[1])
 	    if (u_flag) {
 		usage(argv[0]);
 	    }
-	    uid = strtoul(optarg, NULL, 0);
+	    uid = (uid_t)strtoul(optarg, NULL, 0);
 	    u_flag = TRUE;
 	    break;
 	case 'g':
 	    if (g_flag) {
 		usage(argv[0]);
 	    }
-	    gid = strtoul(optarg, NULL, 0);
+	    gid = (gid_t)strtoul(optarg, NULL, 0);
 	    g_flag = TRUE;
 	    break;
 	default:

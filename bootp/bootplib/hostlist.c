@@ -102,14 +102,6 @@ hostfree(struct hosts * * hosts,
     free((char *)hp);
 }
 
-void
-hostlistfree(struct hosts * * hosts)
-{
-    while (*hosts)
-	hostfree(hosts, *hosts); /* pop off the head of the queue */
-    return;
-}
-
 struct hosts * 
 hostadd(struct hosts * * hosts, struct timeval * tv_p, int htype,
 	char * haddr, int hlen, struct in_addr * iaddr_p, 

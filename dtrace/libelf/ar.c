@@ -39,9 +39,7 @@
 #include "decl.h"
 #include "msg.h"
 #include "member.h"
-#if defined(__APPLE__)
 #include <string.h>
-#endif /* __APPLE__ */
 
 #define	MANGLE	'\177'
 

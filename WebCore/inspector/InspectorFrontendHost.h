@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,7 +29,6 @@
 #ifndef InspectorFrontendHost_h
 #define InspectorFrontendHost_h
 
-#include "ConsoleTypes.h"
 #include "ContextMenu.h"
 #include "ContextMenuProvider.h"
 #include <wtf/RefCounted.h>
@@ -39,7 +38,6 @@
 namespace WebCore {
 
 class ContextMenuItem;
-class DOMFileSystem;
 class Event;
 class FrontendMenuProvider;
 class InspectorFrontendClient;
@@ -67,32 +65,27 @@ public:
     void setToolbarHeight(unsigned);
 
     void moveWindowBy(float x, float y) const;
-    void setInjectedScriptForOrigin(const String& origin, const String& script);
 
     String localizedStringsURL();
+    String debuggableType();
 
     void copyText(const String& text);
     void openInNewTab(const String& url);
     bool canSave();
-    void save(const String& url, const String& content, bool forceSaveAs);
+    void save(const String& url, const String& content, bool base64Encoded, bool forceSaveAs);
     void append(const String& url, const String& content);
     void close(const String& url);
 
+#if ENABLE(CONTEXT_MENUS)
     // Called from [Custom] implementations.
     void showContextMenu(Event*, const Vector<ContextMenuItem>& items);
-    void sendMessageToBackend(const String& message);
-
-    String loadResourceSynchronously(const String& url);
-
-    bool supportsFileSystems();
-    void requestFileSystems();
-    void addFileSystem();
-    void removeFileSystem(const String& fileSystemPath);
-#if ENABLE(FILE_SYSTEM)
-    PassRefPtr<DOMFileSystem> isolatedFileSystem(const String& fileSystemName, const String& rootURL);
 #endif
+    void sendMessageToBackend(const String& message);
+    void dispatchEventAsContextMenuEvent(Event*);
 
     bool isUnderTest();
+
+    void beep();
 
     bool canInspectWorkers();
     bool canSaveAs();

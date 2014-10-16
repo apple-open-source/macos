@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Collabora Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,21 +27,22 @@
 #ifndef Widget_h
 #define Widget_h
 
+#if PLATFORM(IOS)
+#ifndef NSView
+#define NSView WAKView
+#endif
+#endif
+
 #include "IntRect.h"
 #include "PlatformScreen.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
 #endif
 
-#if PLATFORM(QT)
-#include <QPointer>
-#include <qglobal.h>
-#endif
-
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 OBJC_CLASS NSView;
 OBJC_CLASS NSWindow;
 typedef NSView *PlatformWidget;
@@ -58,38 +59,11 @@ typedef struct _GtkContainer GtkContainer;
 typedef GtkWidget* PlatformWidget;
 #endif
 
-#if PLATFORM(QT)
-QT_BEGIN_NAMESPACE
-class QObject;
-QT_END_NAMESPACE
-typedef QObject* PlatformWidget;
-#endif
-
-#if PLATFORM(BLACKBERRY)
-typedef void* PlatformWidget;
-#endif
-
 #if PLATFORM(EFL)
-#if USE(EO)
-typedef struct _Eo Evas_Object;
-#else
-typedef struct _Evas_Object Evas_Object;
-#endif
 typedef Evas_Object* PlatformWidget;
 #endif
 
-#if PLATFORM(QT)
-class QWebPageClient;
-typedef QWebPageClient* PlatformPageClient;
-#elif PLATFORM(BLACKBERRY)
-#include "PageClientBlackBerry.h"
-typedef PageClientBlackBerry* PlatformPageClient;
-#elif PLATFORM(EFL)
-class PageClientEfl;
-typedef PageClientEfl* PlatformPageClient;
-#else
 typedef PlatformWidget PlatformPageClient;
-#endif
 
 namespace WebCore {
 
@@ -99,7 +73,6 @@ class Font;
 class GraphicsContext;
 class PlatformMouseEvent;
 class ScrollView;
-class WidgetPrivate;
 
 enum WidgetNotification { WillPaintFlattened, DidPaintFlattened };
 
@@ -192,10 +165,7 @@ public:
     IntPoint convertToContainingWindow(const IntPoint&) const;
     IntPoint convertFromContainingWindow(const IntPoint&) const;
 
-    virtual void frameRectsChanged();
-
-    // Notifies this widget that other widgets on the page have been repositioned.
-    virtual void widgetPositionsUpdated() {}
+    virtual void frameRectsChanged() { }
 
     // Notifies this widget that its clip rect changed.
     virtual void clipRectChanged() { }
@@ -204,20 +174,13 @@ public:
     // the frame rects be the same no matter what transforms are applied.
     virtual bool transformsAffectFrameRect() { return true; }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     NSView* getOuterView() const;
 
     void removeFromSuperview();
 #endif
-
-#if PLATFORM(EFL)
-    void setEvasObject(Evas_Object*);
-    Evas_Object* evasObject() { return m_evasObject; }
-#endif
-
-#if PLATFORM(QT)
-    QObject* bindingObject() const;
-    void setBindingObject(QObject*);
+#if PLATFORM(IOS)
+    void addToSuperview(NSView*);
 #endif
 
     // Virtual methods to convert points to/from the containing ScrollView
@@ -225,9 +188,6 @@ public:
     virtual IntRect convertFromContainingView(const IntRect&) const;
     virtual IntPoint convertToContainingView(const IntPoint&) const;
     virtual IntPoint convertFromContainingView(const IntPoint&) const;
-    
-    // Return the displayID of the screen that this widget's window is primarily on.
-    virtual PlatformDisplayID windowDisplayID() const;
 
 private:
     void init(PlatformWidget); // Must be called by all Widget constructors to initialize cross-platform data.
@@ -245,7 +205,7 @@ private:
 
 private:
     ScrollView* m_parent;
-#if !PLATFORM(MAC)
+#if !PLATFORM(COCOA)
     PlatformWidget m_widget;
 #else
     RetainPtr<NSView> m_widget;
@@ -254,22 +214,12 @@ private:
     bool m_parentVisible;
 
     IntRect m_frame; // Not used when a native widget exists.
-
-#if PLATFORM(MAC)
-    WidgetPrivate* m_data;
-#endif
-
-#if PLATFORM(EFL)
-    Evas_Object* m_evasObject;
-#endif
-
-#if PLATFORM(QT)
-    QPointer<QObject> m_bindingObject;
-#endif
-
 };
 
-#if !PLATFORM(MAC)
+#define WIDGET_TYPE_CASTS(ToValueTypeName, predicate) \
+    TYPE_CASTS_BASE(ToValueTypeName, Widget, object, object->predicate, object.predicate)
+
+#if !PLATFORM(COCOA)
 
 inline PlatformWidget Widget::platformWidget() const
 {

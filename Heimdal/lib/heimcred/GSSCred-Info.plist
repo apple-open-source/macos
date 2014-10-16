@@ -24,10 +24,10 @@
 	<key>XPCService</key>
 	<dict>
 		<key>ServiceType</key>
-#ifdef TARGET_OS_IPHONE
 		<string>System</string>
-#else
-		<string>User</string>
+#if !TARGET_OS_IPHONE
+		<key>_MultipleInstances</key>
+		<true/>
 #endif
 		<key>no-EnvironmentVariables</key>
 		<dict>

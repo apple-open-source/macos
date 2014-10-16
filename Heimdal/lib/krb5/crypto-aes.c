@@ -157,6 +157,7 @@ cc_AES_PRF(krb5_context context,
     krb5_error_code ret;
     Checksum result;
     krb5_keyblock *derived;
+    size_t prfsize;
 
     result.cksumtype = ct->type;
     ret = krb5_data_alloc(&result.checksum, ct->checksumsize);
@@ -180,6 +181,9 @@ cc_AES_PRF(krb5_context context,
     if (ret)
 	krb5_abortx(context, "krb5_derive_key");
 
+    prfsize = (result.checksum.length / crypto->et->blocksize) * crypto->et->blocksize;
+    heim_assert(prfsize == crypto->et->prf_length, "prfsize not same ?");
+
     ret = krb5_data_alloc(out, crypto->et->blocksize);
     if (ret)
 	krb5_abortx(context, "malloc failed");
@@ -196,13 +200,13 @@ cc_AES_PRF(krb5_context context,
 		    crypto->et->keytype->size,
 		    NULL,
 		    result.checksum.data,
-		    crypto->et->blocksize,
+		    prfsize,
 		    out->data,
-		    crypto->et->blocksize,
+		    prfsize,
 		    &moved);
 	if (s)
 	    krb5_abortx(context, "encrypt failed");
-	if (moved != crypto->et->blocksize)
+	if (moved != prfsize)
 	    krb5_abortx(context, "encrypt failed");
 
     }
@@ -233,10 +237,6 @@ _krb5_cc_encrypt_cts(krb5_context context,
 
     c = encryptp ? ctx->enc : ctx->dec;
 
-    p0 = p = malloc(len);
-    if (p0 == NULL)
-	return ENOMEM;
-
     blocksize = 16; /* XXX only for aes now */
 
     if (len < blocksize) {
@@ -264,6 +264,10 @@ _krb5_cc_encrypt_cts(krb5_context context,
 	return 0;
     }
 
+    p0 = p = malloc(len);
+    if (p0 == NULL)
+	return ENOMEM;
+    
     if (ivec)
 	CCCryptorReset(c, ivec);
     else

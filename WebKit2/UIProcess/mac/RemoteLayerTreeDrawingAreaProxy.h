@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,22 +28,86 @@
 
 #include "DrawingAreaProxy.h"
 #include "RemoteLayerTreeHost.h"
+#include <WebCore/FloatPoint.h>
+#include <WebCore/IntPoint.h>
+#include <WebCore/IntSize.h>
+
+OBJC_CLASS OneShotDisplayLinkHandler;
 
 namespace WebKit {
 
+class RemoteLayerTreeTransaction;
+class RemoteScrollingCoordinatorTransaction;
+
 class RemoteLayerTreeDrawingAreaProxy : public DrawingAreaProxy {
 public:
-    static PassOwnPtr<RemoteLayerTreeDrawingAreaProxy> create(WebPageProxy*);
+    explicit RemoteLayerTreeDrawingAreaProxy(WebPageProxy*);
     virtual ~RemoteLayerTreeDrawingAreaProxy();
 
-private:
-    explicit RemoteLayerTreeDrawingAreaProxy(WebPageProxy*);
+    const RemoteLayerTreeHost& remoteLayerTreeHost() const { return m_remoteLayerTreeHost; }
 
-    virtual void sizeDidChange() OVERRIDE;
-    virtual void deviceScaleFactorDidChange() OVERRIDE;
+    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime);
+
+    uint64_t nextLayerTreeTransactionID() const { return m_pendingLayerTreeTransactionID + 1; }
+    uint64_t lastCommittedLayerTreeTransactionID() const { return m_transactionIDForPendingCACommit; }
+
+    void didRefreshDisplay(double timestamp);
+
+private:
+    virtual void sizeDidChange() override;
+    virtual void deviceScaleFactorDidChange() override;
+    virtual void didUpdateGeometry() override;
+    
+    // For now, all callbacks are called before committing changes, because that's what the only client requires.
+    // Once we have other callbacks, it may make sense to have a before-commit/after-commit option.
+    virtual void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) override;
+
+    WebCore::FloatRect scaledExposedRect() const;
+
+#if PLATFORM(MAC)
+    virtual void setExposedRect(const WebCore::FloatRect&) override;
+#endif
+
+    float indicatorScale(WebCore::IntSize contentsSize) const;
+    virtual void updateDebugIndicator() override;
+    void updateDebugIndicator(WebCore::IntSize contentsSize, bool rootLayerChanged, float scale);
+    void updateDebugIndicatorPosition();
+    void initializeDebugIndicator();
+
+    virtual void waitForDidUpdateViewState() override;
+    virtual void hideContentUntilNextUpdate() override;
+    
+    WebCore::FloatPoint indicatorLocation() const;
+
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+
+    // Message handlers
+    void willCommitLayerTree(uint64_t transactionID);
+    void commitLayerTree(const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&);
+    
+    void sendUpdateGeometry();
 
     RemoteLayerTreeHost m_remoteLayerTreeHost;
+    bool m_isWaitingForDidUpdateGeometry;
+
+    WebCore::IntSize m_lastSentSize;
+    WebCore::IntSize m_lastSentLayerPosition;
+
+    std::unique_ptr<RemoteLayerTreeHost> m_debugIndicatorLayerTreeHost;
+    RetainPtr<CALayer> m_tileMapHostLayer;
+    RetainPtr<CALayer> m_exposedRectIndicatorLayer;
+
+    uint64_t m_pendingLayerTreeTransactionID;
+    uint64_t m_lastVisibleTransactionID;
+    uint64_t m_transactionIDForPendingCACommit;
+
+    CallbackMap m_callbacks;
+
+    RetainPtr<OneShotDisplayLinkHandler> m_displayLinkHandler;
 };
+
+DRAWING_AREA_PROXY_TYPE_CASTS(RemoteLayerTreeDrawingAreaProxy, type() == DrawingAreaTypeRemoteLayerTree);
 
 } // namespace WebKit
 

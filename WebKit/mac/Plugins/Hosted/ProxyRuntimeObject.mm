@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,14 +36,14 @@ namespace WebKit {
 
 const ClassInfo ProxyRuntimeObject::s_info = { "ProxyRuntimeObject", &RuntimeObject::s_info, 0, 0, CREATE_METHOD_TABLE(ProxyRuntimeObject) };
 
-ProxyRuntimeObject::ProxyRuntimeObject(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, PassRefPtr<ProxyInstance> instance)
-    : RuntimeObject(exec, globalObject, structure, instance)
+ProxyRuntimeObject::ProxyRuntimeObject(VM& vm, Structure* structure, PassRefPtr<ProxyInstance> instance)
+    : RuntimeObject(vm, structure, instance)
 {
 }
 
-void ProxyRuntimeObject::finishCreation(JSGlobalObject* globalObject)
+void ProxyRuntimeObject::finishCreation(VM& vm)
 {
-    Base::finishCreation(globalObject);
+    Base::finishCreation(vm);
     ASSERT(inherits(&s_info));
 }
 

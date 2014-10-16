@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: sum (AT&T Research) 2010-07-28 $\n]"
+"[-?\n@(#)$Id: sum (AT&T Research) 2012-04-20 $\n]"
 USAGE_LICENSE
 "[+NAME?cksum,md5sum,sum - print file checksum and block count]"
 "[+DESCRIPTION?\bsum\b lists the checksum, and for most methods the block"
@@ -439,7 +439,7 @@ optinfo(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
 }
 
 int
-b_cksum(int argc, register char** argv, void* context)
+b_cksum(int argc, register char** argv, Shbltin_t* context)
 {
 	register int	flags;
 	char*		file;
@@ -453,7 +453,7 @@ b_cksum(int argc, register char** argv, void* context)
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	memset(&state, 0, sizeof(state));
-	flags = fts_flags() | FTS_TOP | FTS_NOPOSTORDER;
+	flags = fts_flags() | FTS_META | FTS_TOP | FTS_NOPOSTORDER;
 	state.flags = SUM_SIZE;
 	state.warn = 1;
 	logical = 1;

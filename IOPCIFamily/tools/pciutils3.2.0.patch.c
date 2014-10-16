@@ -1,29 +1,6 @@
-diff -Nur pciutils-3.2.0/Makefile.rej pciutils-3.2.0-darwin/Makefile.rej
---- pciutils-3.2.0/Makefile.rej	1969-12-31 16:00:00.000000000 -0800
-+++ pciutils-3.2.0-darwin/Makefile.rej	2013-09-26 16:14:32.000000000 -0700
-@@ -0,0 +1,19 @@
-+***************
-+*** 42,47 ****
-+  OBJS += nbsd-libpci
-+  endif
-+  
-+  all: $(PCILIB) $(PCILIBPC)
-+  
-+  ifeq ($(SHARED),no)
-+--- 42,51 ----
-+  OBJS += nbsd-libpci
-+  endif
-+  
-++ ifdef PCI_HAVE_PM_DARWIN_DEVICE
-++ OBJS += darwin-device
-++ endif
-++ 
-+  all: $(PCILIB) $(PCILIBPC)
-+  
-+  ifeq ($(SHARED),no)
 diff -Nur pciutils-3.2.0/lib/Makefile pciutils-3.2.0-darwin/lib/Makefile
 --- pciutils-3.2.0/lib/Makefile	2011-01-07 13:04:28.000000000 -0800
-+++ pciutils-3.2.0-darwin/lib/Makefile	2013-09-26 16:14:58.000000000 -0700
++++ pciutils-3.2.0-darwin/lib/Makefile	2013-10-31 18:17:24.000000000 -0700
 @@ -42,6 +42,10 @@
  OBJS += nbsd-libpci
  endif
@@ -37,7 +14,7 @@ diff -Nur pciutils-3.2.0/lib/Makefile pciutils-3.2.0-darwin/lib/Makefile
  ifeq ($(SHARED),no)
 diff -Nur pciutils-3.2.0/lib/configure pciutils-3.2.0-darwin/lib/configure
 --- pciutils-3.2.0/lib/configure	2013-04-01 12:47:38.000000000 -0700
-+++ pciutils-3.2.0-darwin/lib/configure	2013-09-26 16:40:02.000000000 -0700
++++ pciutils-3.2.0-darwin/lib/configure	2013-10-31 18:17:24.000000000 -0700
 @@ -100,6 +100,14 @@
  		echo >>$c '#define PCI_PATH_OBSD_DEVICE "/dev/pci"'
  		LIBRESOLV=
@@ -55,15 +32,9 @@ diff -Nur pciutils-3.2.0/lib/configure pciutils-3.2.0-darwin/lib/configure
  		echo >>$c '#define PCI_HAVE_PM_AIX_DEVICE'
 diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-device.c
 --- pciutils-3.2.0/lib/darwin-device.c	1969-12-31 16:00:00.000000000 -0800
-+++ pciutils-3.2.0-darwin/lib/darwin-device.c	2013-09-26 16:35:30.000000000 -0700
-@@ -0,0 +1,220 @@
++++ pciutils-3.2.0-darwin/lib/darwin-device.c	2013-11-01 13:46:41.000000000 -0700
+@@ -0,0 +1,166 @@
 +/*
-+ *	The PCI Library -- FreeBSD /dev/pci access
-+ *
-+ *	Copyright (c) 1999 Jari Kirma <kirma@cs.hut.fi>
-+ *	Updated in 2003 by Samy Al Bahra <samy@kerneled.com>
-+ *
-+ *	Can be freely distributed and used under the terms of the GNU GPL.
 + */
 +
 +#include <errno.h>
@@ -77,56 +48,11 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +
 +
 +#include <CoreFoundation/CoreFoundation.h>
++#include <mach/mach_error.h>
 +#include <IOKit/IOKitLib.h>
 +#include <IOKit/IOKitKeys.h>
-+
-+
-+enum {
-+	kACPIMethodAddressSpaceRead		= 0,
-+	kACPIMethodAddressSpaceWrite	= 1,
-+	kACPIMethodDebuggerCommand		= 2,
-+	kACPIMethodCount
-+};
-+
-+#pragma pack(1)
-+
-+typedef UInt32 IOACPIAddressSpaceID;
-+
-+enum {
-+    kIOACPIAddressSpaceIDSystemMemory       = 0,
-+    kIOACPIAddressSpaceIDSystemIO           = 1,
-+    kIOACPIAddressSpaceIDPCIConfiguration   = 2,
-+    kIOACPIAddressSpaceIDEmbeddedController = 3,
-+    kIOACPIAddressSpaceIDSMBus              = 4
-+};
-+
-+/*
-+ * 64-bit ACPI address
-+ */
-+union IOACPIAddress {
-+    UInt64 addr64;
-+    struct {
-+        unsigned int offset     :16;
-+        unsigned int function   :3;
-+        unsigned int device     :5;
-+        unsigned int bus        :8;
-+        unsigned int segment    :16;
-+        unsigned int reserved   :16;
-+    } pci;
-+};
-+typedef union IOACPIAddress IOACPIAddress;
-+
-+#pragma pack()
-+
-+struct AddressSpaceParam {
-+	UInt64			value;
-+	UInt32			spaceID;
-+	IOACPIAddress	address;
-+	UInt32			bitWidth;
-+	UInt32			bitOffset;
-+	UInt32			options;
-+};
-+typedef struct AddressSpaceParam AddressSpaceParam;
++#include <IOKit/pci/IOPCIDevice.h>
++#include <IOKit/pci/IOPCIPrivate.h>
 +
 +
 +static void
@@ -142,19 +68,19 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +	kern_return_t          status;
 +
 +	service = IOServiceGetMatchingService(kIOMasterPortDefault, 
-+																					IOServiceMatching("AppleACPIPlatformExpert"));
++																					IOServiceMatching("IOPCIBridge"));
 +	if (service) 
 +	{
-+		status = IOServiceOpen(service, mach_task_self(), 0, &connect);
++		status = IOServiceOpen(service, mach_task_self(), kIOPCIDiagnosticsClientType, &connect);
 +		IOObjectRelease(service);
 +	}
 +
 +  if (!service || (kIOReturnSuccess != status))
 +	{
-+		a->warning("Cannot open AppleACPIPlatformExpert (add boot arg debug=0x144 & run as root)");
++		a->warning("Cannot open IOPCIBridge (add boot arg debug=0x144 & run as root)");
 +		return 0;
 +	}
-+  a->debug("...using AppleACPIPlatformExpert");
++  a->debug("...using IOPCIBridge");
 +  a->fd = connect;
 +  return 1;
 +}
@@ -175,13 +101,12 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +  if (!(len == 1 || len == 2 || len == 4))
 +    return pci_generic_block_read(d, pos, buf, len);
 +
-+	AddressSpaceParam param;
-+	kern_return_t     status;
++    IOPCIDiagnosticsParameters param;
++    kern_return_t              status;
 +
-+	param.spaceID   = kIOACPIAddressSpaceIDPCIConfiguration;
-+	param.bitWidth  = len * 8;
-+	param.bitOffset = 0;
-+	param.options   = 0;
++    param.spaceType = kIOPCIConfigSpace;
++    param.bitWidth  = len * 8;
++    param.options   = 0;
 +
 +	param.address.pci.offset   = pos;
 +	param.address.pci.function = d->func;
@@ -192,12 +117,12 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +	param.value                = -1ULL;
 +
 +	size_t outSize = sizeof(param);
-+	status = IOConnectCallStructMethod(d->access->fd, kACPIMethodAddressSpaceRead,
++	status = IOConnectCallStructMethod(d->access->fd, kIOPCIDiagnosticsMethodRead,
 +																					&param, sizeof(param),
 +																					&param, &outSize);
 +  if ((kIOReturnSuccess != status))
 +	{
-+		d->access->error("darwin_read: kACPIMethodAddressSpaceRead failed: %s",
++		d->access->error("darwin_read: kIOPCIDiagnosticsMethodRead failed: %s",
 +							mach_error_string(status));
 +	}
 +
@@ -222,20 +147,18 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +  if (!(len == 1 || len == 2 || len == 4))
 +    return pci_generic_block_write(d, pos, buf, len);
 +
-+	AddressSpaceParam param;
-+	kern_return_t     status;
++    IOPCIDiagnosticsParameters param;
++    kern_return_t              status;
 +
-+	param.spaceID   = kIOACPIAddressSpaceIDPCIConfiguration;
-+	param.bitWidth  = len * 8;
-+	param.bitOffset = 0;
-+	param.options   = 0;
-+
-+	param.address.pci.offset   = pos;
-+	param.address.pci.function = d->func;
-+	param.address.pci.device   = d->dev;
-+	param.address.pci.bus      = d->bus;
-+	param.address.pci.segment  = d->domain;
-+	param.address.pci.reserved = 0;
++    param.spaceType = kIOPCIConfigSpace;
++    param.bitWidth  = len * 8;
++    param.options   = 0;
++    param.address.pci.offset   = pos;
++    param.address.pci.function = d->func;
++    param.address.pci.device   = d->dev;
++    param.address.pci.bus      = d->bus;
++    param.address.pci.segment  = d->domain;
++    param.address.pci.reserved = 0;
 +  switch (len)
 +	{
 +    case 1:
@@ -250,12 +173,12 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +	}
 +
 +	size_t outSize = 0;
-+	status = IOConnectCallStructMethod(d->access->fd, kACPIMethodAddressSpaceWrite,
++	status = IOConnectCallStructMethod(d->access->fd, kIOPCIDiagnosticsMethodWrite,
 +																					&param, sizeof(param),
 +																					NULL, &outSize);
 +  if ((kIOReturnSuccess != status))
 +	{
-+		d->access->error("darwin_read: kACPIMethodAddressSpaceWrite failed: %s",
++		d->access->error("darwin_read: kIOPCIDiagnosticsMethodWrite failed: %s",
 +							mach_error_string(status));
 +	}
 +
@@ -279,7 +202,7 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +};
 diff -Nur pciutils-3.2.0/lib/init.c pciutils-3.2.0-darwin/lib/init.c
 --- pciutils-3.2.0/lib/init.c	2011-01-07 13:04:28.000000000 -0800
-+++ pciutils-3.2.0-darwin/lib/init.c	2013-09-26 16:14:58.000000000 -0700
++++ pciutils-3.2.0-darwin/lib/init.c	2013-10-31 18:17:24.000000000 -0700
 @@ -57,6 +57,11 @@
  #else
    NULL,
@@ -294,7 +217,7 @@ diff -Nur pciutils-3.2.0/lib/init.c pciutils-3.2.0-darwin/lib/init.c
  void *
 diff -Nur pciutils-3.2.0/lib/internal.h pciutils-3.2.0-darwin/lib/internal.h
 --- pciutils-3.2.0/lib/internal.h	2013-04-01 06:36:18.000000000 -0700
-+++ pciutils-3.2.0-darwin/lib/internal.h	2013-09-26 16:14:58.000000000 -0700
++++ pciutils-3.2.0-darwin/lib/internal.h	2013-10-31 18:17:24.000000000 -0700
 @@ -69,4 +69,4 @@
  
  extern struct pci_methods pm_intel_conf1, pm_intel_conf2, pm_linux_proc,
@@ -303,7 +226,7 @@ diff -Nur pciutils-3.2.0/lib/internal.h pciutils-3.2.0-darwin/lib/internal.h
 +	pm_dump, pm_linux_sysfs, pm_darwin_device;
 diff -Nur pciutils-3.2.0/lib/pci.h pciutils-3.2.0-darwin/lib/pci.h
 --- pciutils-3.2.0/lib/pci.h	2013-04-01 06:35:24.000000000 -0700
-+++ pciutils-3.2.0-darwin/lib/pci.h	2013-09-26 16:14:58.000000000 -0700
++++ pciutils-3.2.0-darwin/lib/pci.h	2013-10-31 18:17:24.000000000 -0700
 @@ -39,7 +39,8 @@
    PCI_ACCESS_AIX_DEVICE,		/* /dev/pci0, /dev/bus0, etc. */
    PCI_ACCESS_NBSD_LIBPCI,		/* NetBSD libpci */

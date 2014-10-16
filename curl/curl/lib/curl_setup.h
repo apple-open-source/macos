@@ -112,6 +112,13 @@
 #  endif
 #endif
 
+/* Solaris needs this to get a POSIX-conformant getpwuid_r */
+#if defined(sun) || defined(__sun)
+#  ifndef _POSIX_PTHREAD_SEMANTICS
+#    define _POSIX_PTHREAD_SEMANTICS 1
+#  endif
+#endif
+
 /* ================================================================ */
 /*  If you need to include a system header file for your platform,  */
 /*  please, do it beyond the point further indicated in this file.  */
@@ -137,29 +144,6 @@
 #ifdef SIZEOF_CURL_OFF_T
 #  error "SIZEOF_CURL_OFF_T shall not be defined!"
    Error Compilation_aborted_SIZEOF_CURL_OFF_T_shall_not_be_defined
-#endif
-
-/*
- * Set up internal curl_off_t formatting string directives for
- * exclusive use with libcurl's internal *printf functions.
- */
-
-#ifdef FORMAT_OFF_T
-#  error "FORMAT_OFF_T shall not be defined before this point!"
-   Error Compilation_aborted_FORMAT_OFF_T_already_defined
-#endif
-
-#ifdef FORMAT_OFF_TU
-#  error "FORMAT_OFF_TU shall not be defined before this point!"
-   Error Compilation_aborted_FORMAT_OFF_TU_already_defined
-#endif
-
-#if (CURL_SIZEOF_CURL_OFF_T > CURL_SIZEOF_LONG)
-#  define FORMAT_OFF_T  "lld"
-#  define FORMAT_OFF_TU "llu"
-#else
-#  define FORMAT_OFF_T  "ld"
-#  define FORMAT_OFF_TU "lu"
 #endif
 
 /*
@@ -270,7 +254,9 @@
 #    endif
 #  endif
 #  include <tchar.h>
-   typedef wchar_t *(*curl_wcsdup_callback)(const wchar_t *str);
+#  ifdef UNICODE
+     typedef wchar_t *(*curl_wcsdup_callback)(const wchar_t *str);
+#  endif
 #endif
 
 /*
@@ -369,7 +355,9 @@
 #  include <sys/stat.h>
 #  undef  lseek
 #  define lseek(fdes,offset,whence)  _lseeki64(fdes, offset, whence)
+#  undef  fstat
 #  define fstat(fdes,stp)            _fstati64(fdes, stp)
+#  undef  stat
 #  define stat(fname,stp)            _stati64(fname, stp)
 #  define struct_stat                struct _stati64
 #  define LSEEK_ERROR                (__int64)-1
@@ -616,16 +604,18 @@ int netware_init(void);
 #if defined(USE_GNUTLS) || defined(USE_SSLEAY) || defined(USE_NSS) || \
     defined(USE_QSOSSL) || defined(USE_POLARSSL) || defined(USE_AXTLS) || \
     defined(USE_CYASSL) || defined(USE_SCHANNEL) || \
-    defined(USE_DARWINSSL)
+    defined(USE_DARWINSSL) || defined(USE_GSKIT)
 #define USE_SSL    /* SSL support has been enabled */
 #endif
 
-#if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
+#if !defined(CURL_DISABLE_CRYPTO_AUTH) && \
+    (defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI))
 #define USE_HTTP_NEGOTIATE
 #endif
 
 /* Single point where USE_NTLM definition might be done */
-#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_NTLM)
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_NTLM) && \
+    !defined(CURL_DISABLE_CRYPTO_AUTH)
 #if defined(USE_SSLEAY) || defined(USE_WINDOWS_SSPI) || \
     defined(USE_GNUTLS) || defined(USE_NSS) || defined(USE_DARWINSSL)
 #define USE_NTLM

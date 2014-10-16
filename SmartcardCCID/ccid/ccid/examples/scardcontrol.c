@@ -1,6 +1,6 @@
 /*
     scardcontrol.c: sample code to use/test SCardControl() API
-    Copyright (C) 2004-2009   Ludovic Rousseau
+    Copyright (C) 2004-2011   Ludovic Rousseau
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: scardcontrol.c 4341 2009-07-21 17:54:47Z rousseau $
+ * $Id: scardcontrol.c 6566 2013-03-12 14:00:37Z rousseau $
  */
 
 #include <stdio.h>
@@ -35,7 +35,9 @@
 #endif
 #include <reader.h>
 
-#define VERIFY_PIN
+#include "PCSCv2part10.h"
+
+#undef VERIFY_PIN
 #define MODIFY_PIN
 #undef GET_GEMPC_FIRMWARE
 
@@ -46,21 +48,124 @@
 
 #define IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE     SCARD_CTL_CODE(1)
 
+#define BLUE "\33[34m"
+#define RED "\33[31m"
+#define BRIGHT_RED "\33[01;31m"
+#define GREEN "\33[32m"
+#define NORMAL "\33[0m"
+#define MAGENTA "\33[35m"
+
 /* PCSC error message pretty print */
 #define PCSC_ERROR_EXIT(rv, text) \
 if (rv != SCARD_S_SUCCESS) \
 { \
-	printf(text ": %s (0x%lX)\n", pcsc_stringify_error(rv), rv); \
+	printf(text ": " RED "%s (0x%ulX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
 	goto end; \
 } \
 else \
-	printf(text ": OK\n\n");
+	printf(text ": " BLUE "OK\n\n" NORMAL);
 
 #define PCSC_ERROR_CONT(rv, text) \
 if (rv != SCARD_S_SUCCESS) \
-	printf(text ": %s (0x%lX)\n", pcsc_stringify_error(rv), rv); \
+	printf(text ": " BLUE "%s (0x%ulX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
 else \
-	printf(text ": OK\n\n");
+	printf(text ": " BLUE "OK\n\n" NORMAL);
+
+#define PRINT_GREEN(text, value) \
+	printf("%s: " GREEN "%s\n" NORMAL, text, value)
+
+#define PRINT_GREEN_DEC(text, value) \
+	printf("%s: " GREEN "%d\n" NORMAL, text, value)
+
+#define PRINT_RED_DEC(text, value) \
+	printf("%s: " RED "%d\n" NORMAL, text, value)
+
+#define PRINT_GREEN_HEX2(text, value) \
+	printf("%s: " GREEN "0x%02X\n" NORMAL, text, value)
+
+#define PRINT_GREEN_HEX4(text, value) \
+	printf("%s: " GREEN "0x%04X\n" NORMAL, text, value)
+
+static void parse_properties(unsigned char *bRecvBuffer, int length)
+{
+	unsigned char *p;
+	int i;
+
+	p = bRecvBuffer;
+	while (p-bRecvBuffer < length)
+	{
+		int tag, len, value;
+
+		tag = *p++;
+		len = *p++;
+
+		switch(len)
+		{
+			case 1:
+				value = *p;
+				break;
+			case 2:
+				value = *p + (*(p+1)<<8);
+				break;
+			case 4:
+				value = *p + (*(p+1)<<8) + (*(p+2)<<16) + (*(p+3)<<24);
+				break;
+			default:
+				value = -1;
+		}
+
+		switch(tag)
+		{
+			case PCSCv2_PART10_PROPERTY_wLcdLayout:
+				PRINT_GREEN_HEX4(" wLcdLayout", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_bEntryValidationCondition:
+				PRINT_GREEN_HEX2(" bEntryValidationCondition", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_bTimeOut2:
+				PRINT_GREEN_HEX2(" bTimeOut2", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_wLcdMaxCharacters:
+				PRINT_GREEN_HEX4(" wLcdMaxCharacters", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_wLcdMaxLines:
+				PRINT_GREEN_HEX4(" wLcdMaxLines", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_bMinPINSize:
+				PRINT_GREEN_HEX2(" bMinPINSize", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_bMaxPINSize:
+				PRINT_GREEN_HEX2(" bMaxPINSize", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_sFirmwareID:
+				printf(" sFirmwareID: " GREEN);
+				for (i=0; i<len; i++)
+					putchar(p[i]);
+				printf(NORMAL "\n");
+				break;
+			case PCSCv2_PART10_PROPERTY_bPPDUSupport:
+				PRINT_GREEN_HEX2(" bPPDUSupport", value);
+				if (value & 1)
+					printf("  PPDU is supported over SCardControl using FEATURE_CCID_ESC_COMMAND\n");
+				if (value & 2)
+					printf("  PPDU is supported over SCardTransmit\n");
+				break;
+			case PCSCv2_PART10_PROPERTY_dwMaxAPDUDataSize:
+				PRINT_GREEN_DEC(" dwMaxAPDUDataSize", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_wIdVendor:
+				PRINT_GREEN_HEX2(" wIdVendor", value);
+				break;
+			case PCSCv2_PART10_PROPERTY_wIdProduct:
+				PRINT_GREEN_HEX2(" wIdProduct", value);
+				break;
+			default:
+				printf(" Unknown tag: 0x%02X (length = %d)\n", tag, len);
+		}
+
+		p += len;
+	}
+} /* parse_properties */
 
 int main(int argc, char *argv[])
 {
@@ -83,8 +188,10 @@ int main(int argc, char *argv[])
 	DWORD modify_ioctl = 0;
 	DWORD pin_properties_ioctl = 0;
 	DWORD mct_readerdirect_ioctl = 0;
+	DWORD properties_in_tlv_ioctl = 0;
+	DWORD ccid_esc_command = 0;
 	SCARD_IO_REQUEST pioRecvPci;
- 	SCARD_IO_REQUEST pioSendPci;
+	SCARD_IO_REQUEST pioSendPci;
 	PCSC_TLV_STRUCTURE *pcsc_tlv;
 #if defined(VERIFY_PIN) | defined(MODIFY_PIN)
 	int offset;
@@ -95,18 +202,17 @@ int main(int argc, char *argv[])
 #ifdef MODIFY_PIN
 	PIN_MODIFY_STRUCTURE *pin_modify;
 #endif
-	char secoder_info[] = { 0x20, 0x70, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00 };
 
 	printf("SCardControl sample code\n");
-	printf("V 1.3 © 2004-2009, Ludovic Rousseau <ludovic.rousseau@free.fr>\n");
+	printf("V 1.4 © 2004-2010, Ludovic Rousseau <ludovic.rousseau@free.fr>\n\n");
 
-	printf("\nTHIS PROGRAM IS NOT DESIGNED AS A TESTING TOOL!\n");
-	printf("Do NOT use it unless you really know what you do.\n\n");
+	printf(MAGENTA "THIS PROGRAM IS NOT DESIGNED AS A TESTING TOOL!\n");
+	printf("Do NOT use it unless you really know what you do.\n\n" NORMAL);
 
 	rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
 	if (rv != SCARD_S_SUCCESS)
 	{
-		printf("SCardEstablishContext: Cannot Connect to Resource Manager %lX\n", rv);
+		printf("SCardEstablishContext: Cannot Connect to Resource Manager %ulX\n", rv);
 		return 1;
 	}
 
@@ -123,7 +229,7 @@ int main(int argc, char *argv[])
 
 	rv = SCardListReaders(hContext, NULL, mszReaders, &dwReaders);
 	if (rv != SCARD_S_SUCCESS)
-		printf("SCardListReader: %lX\n", rv);
+		printf("SCardListReader: %ulX\n", rv);
 
 	/* Extract readers from the null separated string and get the total
 	 * number of readers */
@@ -176,28 +282,28 @@ int main(int argc, char *argv[])
 
 	/* connect to a reader (even without a card) */
 	dwActiveProtocol = -1;
-	printf("Using reader: %s\n", readers[reader_nb]);
-	rv = SCardConnect(hContext, readers[reader_nb], SCARD_SHARE_DIRECT,
+	printf("Using reader: " GREEN "%s\n" NORMAL, readers[reader_nb]);
+	rv = SCardConnect(hContext, readers[reader_nb], SCARD_SHARE_SHARED,
 		SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, &hCard, &dwActiveProtocol);
-	printf(" Protocol: %ld\n", dwActiveProtocol);
+	printf(" Protocol: " GREEN "%uld\n" NORMAL, dwActiveProtocol);
 	PCSC_ERROR_EXIT(rv, "SCardConnect")
 
 #ifdef GET_GEMPC_FIRMWARE
 	/* get GemPC firmware */
 	printf(" Get GemPC Firmware\n");
 
-	/* this is specific to Gemplus readers */
+	/* this is specific to Gemalto readers */
 	bSendBuffer[0] = 0x02;
 	rv = SCardControl(hCard, IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, bSendBuffer,
 		1, bRecvBuffer, sizeof(bRecvBuffer), &length);
 
-	printf(" Firmware: ");
+	printf(" Firmware: " GREEN);
 	for (i=0; i<length; i++)
 		printf("%02X ", bRecvBuffer[i]);
-	printf("\n");
+	printf(NORMAL "\n");
 
 	bRecvBuffer[length] = '\0';
-	printf(" Firmware: %s (length %ld bytes)\n", bRecvBuffer, length);
+	printf(" Firmware: " GREEN "%s" NORMAL" (length " GREEN "%ld" NORMAL " bytes)\n", bRecvBuffer, length);
 
 	PCSC_ERROR_CONT(rv, "SCardControl")
 #endif
@@ -207,10 +313,10 @@ int main(int argc, char *argv[])
 		bRecvBuffer, sizeof(bRecvBuffer), &length);
 	PCSC_ERROR_EXIT(rv, "SCardControl")
 
-	printf(" TLV (%ld): ", length);
+	printf(" TLV (%uld): " GREEN, length);
 	for (i=0; i<length; i++)
 		printf("%02X ", bRecvBuffer[i]);
-	printf("\n");
+	printf(NORMAL "\n");
 
 	PCSC_ERROR_CONT(rv, "SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)")
 
@@ -229,39 +335,125 @@ int main(int argc, char *argv[])
 		switch (pcsc_tlv[i].tag)
 		{
 			case FEATURE_VERIFY_PIN_DIRECT:
-				printf("Reader supports FEATURE_VERIFY_PIN_DIRECT\n");
+				PRINT_GREEN("Reader supports", "FEATURE_VERIFY_PIN_DIRECT");
 				verify_ioctl = ntohl(pcsc_tlv[i].value);
 				break;
 			case FEATURE_MODIFY_PIN_DIRECT:
-				printf("Reader supports FEATURE_MODIFY_PIN_DIRECT\n");
+				PRINT_GREEN("Reader supports", "FEATURE_MODIFY_PIN_DIRECT");
 				modify_ioctl = ntohl(pcsc_tlv[i].value);
 				break;
 			case FEATURE_IFD_PIN_PROPERTIES:
-				printf("Reader supports FEATURE_IFD_PIN_PROPERTIES\n");
+				PRINT_GREEN("Reader supports", "FEATURE_IFD_PIN_PROPERTIES");
 				pin_properties_ioctl = ntohl(pcsc_tlv[i].value);
 				break;
-			case FEATURE_MCT_READERDIRECT:
-				printf("Reader supports FEATURE_MCT_READERDIRECT\n");
+			case FEATURE_MCT_READER_DIRECT:
+				PRINT_GREEN("Reader supports", "FEATURE_MCT_READER_DIRECT");
 				mct_readerdirect_ioctl = ntohl(pcsc_tlv[i].value);
 				break;
+			case FEATURE_GET_TLV_PROPERTIES:
+				PRINT_GREEN("Reader supports", "FEATURE_GET_TLV_PROPERTIES");
+				properties_in_tlv_ioctl = ntohl(pcsc_tlv[i].value);
+				break;
+			case FEATURE_CCID_ESC_COMMAND:
+				PRINT_GREEN("Reader supports", "FEATURE_CCID_ESC_COMMAND");
+				ccid_esc_command = ntohl(pcsc_tlv[i].value);
+				break;
 			default:
-				printf("Can't parse tag: 0x%02X\n", pcsc_tlv[i].tag);
+				PRINT_RED_DEC("Can't parse tag", pcsc_tlv[i].tag);
 		}
 	}
 	printf("\n");
 
+	if (properties_in_tlv_ioctl)
+	{
+		int value;
+		int ret;
+
+		rv = SCardControl(hCard, properties_in_tlv_ioctl, NULL, 0,
+			bRecvBuffer, sizeof(bRecvBuffer), &length);
+		PCSC_ERROR_CONT(rv, "SCardControl(GET_TLV_PROPERTIES)")
+
+		printf("GET_TLV_PROPERTIES (" GREEN "%uld" NORMAL "): " GREEN, length);
+		for (i=0; i<length; i++)
+			printf("%02X ", bRecvBuffer[i]);
+		printf(NORMAL "\n");
+
+		printf("\nDisplay all the properties:\n");
+		parse_properties(bRecvBuffer, length);
+
+		printf("\nFind a specific property:\n");
+		ret = PCSCv2Part10_find_TLV_property_by_tag_from_buffer(bRecvBuffer, length, PCSCv2_PART10_PROPERTY_wIdVendor, &value);
+		if (ret)
+			PRINT_RED_DEC(" wIdVendor", ret);
+		else
+			PRINT_GREEN_HEX4(" wIdVendor", value);
+
+		ret = PCSCv2Part10_find_TLV_property_by_tag_from_hcard(hCard, PCSCv2_PART10_PROPERTY_wIdProduct, &value);
+		if (ret)
+			PRINT_RED_DEC(" wIdProduct", ret);
+		else
+			PRINT_GREEN_HEX4(" wIdProduct", value);
+
+		printf("\n");
+	}
+
 	if (mct_readerdirect_ioctl)
 	{
+		char secoder_info[] = { 0x20, 0x70, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00 };
+
 		rv = SCardControl(hCard, mct_readerdirect_ioctl, secoder_info,
 			sizeof(secoder_info), bRecvBuffer, sizeof(bRecvBuffer), &length);
-		PCSC_ERROR_CONT(rv, "SCardControl(MCT_READERDIRECT)")
+		PCSC_ERROR_CONT(rv, "SCardControl(MCT_READER_DIRECT)")
 
-		printf("MCT_READERDIRECT (%ld): ", length);
+		printf("MCT_READER_DIRECT (%uld): ", length);
 		for (i=0; i<length; i++)
 			printf("%02X ", bRecvBuffer[i]);
 		printf("\n");
-
 	}
+
+	if (pin_properties_ioctl)
+	{
+		PIN_PROPERTIES_STRUCTURE *pin_properties;
+
+		rv = SCardControl(hCard, pin_properties_ioctl, NULL, 0,
+			bRecvBuffer, sizeof(bRecvBuffer), &length);
+		PCSC_ERROR_CONT(rv, "SCardControl(pin_properties_ioctl)")
+
+		printf("PIN PROPERTIES (" GREEN "%uld" NORMAL "): " GREEN, length);
+		for (i=0; i<length; i++)
+			printf("%02X ", bRecvBuffer[i]);
+		printf(NORMAL "\n");
+
+		pin_properties = (PIN_PROPERTIES_STRUCTURE *)bRecvBuffer;
+		PRINT_GREEN_HEX4(" wLcdLayout", pin_properties -> wLcdLayout);
+		PRINT_GREEN_DEC(" bEntryValidationCondition", pin_properties ->	bEntryValidationCondition);
+		PRINT_GREEN_DEC(" bTimeOut2", pin_properties -> bTimeOut2);
+
+		printf("\n");
+	}
+
+#ifdef GET_GEMPC_FIRMWARE
+	if (ccid_esc_command)
+	{
+		/* get GemPC firmware */
+		printf("Get GemPC Firmware\n");
+
+		/* this is specific to Gemalto readers */
+		bSendBuffer[0] = 0x02;
+		rv = SCardControl(hCard, ccid_esc_command, bSendBuffer,
+			1, bRecvBuffer, sizeof(bRecvBuffer), &length);
+
+		printf(" Firmware: " GREEN);
+		for (i=0; i<length; i++)
+			printf("%02X ", bRecvBuffer[i]);
+		printf(NORMAL "\n");
+
+		bRecvBuffer[length] = '\0';
+		printf(" Firmware: " GREEN "%s" NORMAL" (length " GREEN "%ld" NORMAL " bytes)\n", bRecvBuffer, length);
+
+		PCSC_ERROR_CONT(rv, "SCardControl")
+	}
+#endif
 
 	if (0 == verify_ioctl)
 	{
@@ -275,10 +467,10 @@ int main(int argc, char *argv[])
 	dwReaderLen = sizeof(pbReader);
 	rv = SCardStatus(hCard, pbReader, &dwReaderLen, &dwState, &dwProt,
 		pbAtr, &dwAtrLen);
-	printf(" Reader: %s (length %ld bytes)\n", pbReader, dwReaderLen);
-	printf(" State: 0x%04lX\n", dwState);
-	printf(" Prot: %ld\n", dwProt);
-	printf(" ATR (length %ld bytes):", dwAtrLen);
+	printf(" Reader: %s (length %uld bytes)\n", pbReader, dwReaderLen);
+	printf(" State: 0x%04ulX\n", dwState);
+	printf(" Prot: %uld\n", dwProt);
+	printf(" ATR (length %uld bytes):", dwAtrLen);
 	for (i=0; i<dwAtrLen; i++)
 		printf(" %02X", pbAtr[i]);
 	printf("\n");
@@ -295,7 +487,7 @@ int main(int argc, char *argv[])
 	rv = SCardReconnect(hCard, SCARD_SHARE_SHARED,
 		SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1, SCARD_LEAVE_CARD,
 		&dwActiveProtocol);
-	printf(" Protocol: %ld\n", dwActiveProtocol);
+	printf(" Protocol: %uld\n", dwActiveProtocol);
 	PCSC_ERROR_EXIT(rv, "SCardReconnect")
 
 	switch(dwActiveProtocol)
@@ -338,16 +530,21 @@ int main(int argc, char *argv[])
 	printf(" Secure verify PIN\n");
 	pin_verify = (PIN_VERIFY_STRUCTURE *)bSendBuffer;
 
+	/* table for bEntryValidationCondition
+	 * 0x01: Max size reached
+	 * 0x02: Validation key pressed
+	 * 0x04: Timeout occured
+	 */
 	/* PC/SC v2.02.05 Part 10 PIN verification data structure */
 	pin_verify -> bTimerOut = 0x00;
 	pin_verify -> bTimerOut2 = 0x00;
 	pin_verify -> bmFormatString = 0x82;
 	pin_verify -> bmPINBlockString = 0x04;
 	pin_verify -> bmPINLengthFormat = 0x00;
-	pin_verify -> wPINMaxExtraDigit = HOST_TO_CCID_16(0x0408); /* Min Max */
+	pin_verify -> wPINMaxExtraDigit = 0x0408; /* Min Max */
 	pin_verify -> bEntryValidationCondition = 0x02;	/* validation key pressed */
 	pin_verify -> bNumberMessage = 0x01;
-	pin_verify -> wLangId = HOST_TO_CCID_16(0x0904);
+	pin_verify -> wLangId = 0x0904;
 	pin_verify -> bMsgIndex = 0x00;
 	pin_verify -> bTeoPrologue[0] = 0x00;
 	pin_verify -> bTeoPrologue[1] = 0x00;
@@ -369,7 +566,7 @@ int main(int argc, char *argv[])
 	pin_verify -> abData[offset++] = 0x00;	/* '\0' */
 	pin_verify -> abData[offset++] = 0x00;	/* '\0' */
 	pin_verify -> abData[offset++] = 0x00;	/* '\0' */
-	pin_verify -> ulDataLength = HOST_TO_CCID_32(offset);	/* APDU size */
+	pin_verify -> ulDataLength = offset;	/* APDU size */
 
 	length = sizeof(PIN_VERIFY_STRUCTURE) + offset -1;	/* -1 because PIN_VERIFY_STRUCTURE contains the first byte of abData[] */
 
@@ -471,23 +668,28 @@ int main(int argc, char *argv[])
 	 * bConfirmPIN = 1, bNumberMessage = 2: "New Pin" "Confirm Pin"
 	 * bConfirmPIN = 0, bNumberMessage = 1: "New Pin"
 	 */
+	/* table for bMsgIndex[1-3]
+	 * 00: PIN insertion prompt        “ENTER SMARTCARD PIN”
+	 * 01: PIN Modification prompt     “ ENTER NEW PIN”
+	 * 02: NEW PIN Confirmation prompt “ CONFIRM NEW PIN”
+	 */
 	/* PC/SC v2.02.05 Part 10 PIN modification data structure */
 	pin_modify -> bTimerOut = 0x00;
 	pin_modify -> bTimerOut2 = 0x00;
 	pin_modify -> bmFormatString = 0x82;
 	pin_modify -> bmPINBlockString = 0x04;
 	pin_modify -> bmPINLengthFormat = 0x00;
-	pin_modify -> bInsertionOffsetOld = 0x00; 	/* offset from APDU start */
+	pin_modify -> bInsertionOffsetOld = 0x00;	/* offset from APDU start */
 	pin_modify -> bInsertionOffsetNew = 0x04;	/* offset from APDU start */
-	pin_modify -> wPINMaxExtraDigit = HOST_TO_CCID_16(0x0408);	/* Min Max */
+	pin_modify -> wPINMaxExtraDigit = 0x0408;	/* Min Max */
 	pin_modify -> bConfirmPIN = 0x03;	/* b0 set = confirmation requested */
 									/* b1 set = current PIN entry requested */
 	pin_modify -> bEntryValidationCondition = 0x02;	/* validation key pressed */
 	pin_modify -> bNumberMessage = 0x03; /* see table above */
-	pin_modify -> wLangId = HOST_TO_CCID_16(0x0904);
+	pin_modify -> wLangId = 0x0904;
 	pin_modify -> bMsgIndex1 = 0x00;
-	pin_modify -> bMsgIndex2 = 0x00;
-	pin_modify -> bMsgIndex3 = 0x00;
+	pin_modify -> bMsgIndex2 = 0x01;
+	pin_modify -> bMsgIndex3 = 0x02;
 	pin_modify -> bTeoPrologue[0] = 0x00;
 	pin_modify -> bTeoPrologue[1] = 0x00;
 	pin_modify -> bTeoPrologue[2] = 0x00;
@@ -508,7 +710,7 @@ int main(int argc, char *argv[])
 	pin_modify -> abData[offset++] = 0x30;	/* '0' */
 	pin_modify -> abData[offset++] = 0x30;	/* '0' */
 	pin_modify -> abData[offset++] = 0x30;	/* '0' */
-	pin_modify -> ulDataLength = HOST_TO_CCID_32(offset);	/* APDU size */
+	pin_modify -> ulDataLength = offset;	/* APDU size */
 
 	length = sizeof(PIN_MODIFY_STRUCTURE) + offset -1;	/* -1 because PIN_MODIFY_STRUCTURE contains the first byte of abData[] */
 
@@ -548,9 +750,11 @@ int main(int argc, char *argv[])
 			{
 				/* read the fake digits */
 				char in[40];	/* 4 digits + \n + \0 */
+				char *ret;
 
-				(void)fgets(in, sizeof(in), stdin);
-				printf("keyboard sent: %s", in);
+				ret = fgets(in, sizeof(in), stdin);
+				if (ret)
+					printf("keyboard sent: %s", in);
 			}
 		}
 	}
@@ -601,7 +805,7 @@ end:
 	/* We try to leave things as clean as possible */
 	rv = SCardReleaseContext(hContext);
 	if (rv != SCARD_S_SUCCESS)
-		printf("SCardReleaseContext: %s (0x%lX)\n", pcsc_stringify_error(rv),
+		printf("SCardReleaseContext: %s (0x%ulX)\n", pcsc_stringify_error(rv),
 			rv);
 
 	/* free allocated memory */

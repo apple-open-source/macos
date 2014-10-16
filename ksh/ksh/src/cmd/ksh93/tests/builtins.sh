@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -168,6 +168,9 @@ fi
 if	[[ $(print -f "%P" "[^x].*b\$") != '*[!x]*b' ]]
 then	err_exit 'print -f "%P" not working'
 fi
+if	[[ $(print -f "%(pattern)q" "[^x].*b\$") != '*[!x]*b' ]]
+then	err_exit 'print -f "%(pattern)q" not working'
+fi
 if	[[ $(abc: for i in foo bar;do print $i;break abc;done) != foo ]]
 then	err_exit 'break labels not working'
 fi
@@ -274,8 +277,17 @@ fi
 if	[[ $(printf '%H\n' $'<>"& \'\tabc') != '&lt;&gt;&quot;&amp;&nbsp;&apos;&#9;abc' ]]
 then	err_exit 'printf %H not working'
 fi
+if	[[ $(printf '%(html)q\n' $'<>"& \'\tabc') != '&lt;&gt;&quot;&amp;&nbsp;&apos;&#9;abc' ]]
+then	err_exit 'printf %(html)q not working'
+fi
+if	[[ $( printf 'foo://ab_c%(url)q\n' $'<>"& \'\tabc') != 'foo://ab_c%3C%3E%22%26%20%27%09abc' ]]
+then	err_exit 'printf %(url)q not working'
+fi
 if	[[ $(printf '%R %R %R %R\n' 'a.b' '*.c' '^'  '!(*.*)') != '^a\.b$ \.c$ ^\^$ ^(.*\..*)!$' ]]
-then	err_exit 'printf %R not working'
+then	err_exit 'printf %T not working'
+fi
+if	[[ $(printf '%(ere)q %(ere)q %(ere)q %(ere)q\n' 'a.b' '*.c' '^'  '!(*.*)') != '^a\.b$ \.c$ ^\^$ ^(.*\..*)!$' ]]
+then	err_exit 'printf %(ere)q not working'
 fi
 if	[[ $(printf '%..:c\n' abc) != a:b:c ]]
 then	err_exit "printf '%..:c' not working"
@@ -488,18 +500,18 @@ getconf UNIVERSE - ucb
 [[ $($SHELL -c 'echo -3') == -3 ]] || err_exit "echo -3 not working in ucb universe"
 typeset -F3 start_x=SECONDS total_t delay=0.02
 typeset reps=50 leeway=5
-#sleep $(( 2 * leeway * reps * delay )) |
-#for (( i=0 ; i < reps ; i++ ))
-#do	read -N1 -t $delay
-#done
-#(( total_t = SECONDS - start_x ))
-#if	(( total_t > leeway * reps * delay ))
-#then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too long"
-#elif	(( total_t < reps * delay ))
-#then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too fast"
-#fi
-#$SHELL -c 'sleep $(printf "%a" .95)' 2> /dev/null || err_exit "sleep doesn't except %a format constants"
-#$SHELL -c 'test \( ! -e \)' 2> /dev/null ; [[ $? == 1 ]] || err_exit 'test \( ! -e \) not working'
+sleep $(( 2 * leeway * reps * delay )) |
+for (( i=0 ; i < reps ; i++ ))
+do	read -N1 -t $delay
+done
+(( total_t = SECONDS - start_x ))
+if	(( total_t > leeway * reps * delay ))
+then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too long"
+elif	(( total_t < reps * delay ))
+then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too fast"
+fi
+$SHELL -c 'sleep $(printf "%a" .95)' 2> /dev/null || err_exit "sleep doesn't except %a format constants"
+$SHELL -c 'test \( ! -e \)' 2> /dev/null ; [[ $? == 1 ]] || err_exit 'test \( ! -e \) not working'
 [[ $(ulimit) == "$(ulimit -fS)" ]] || err_exit 'ulimit is not the same as ulimit -fS'
 tmpfile=$tmp/file.2
 print $'\nprint -r -- "${.sh.file} ${LINENO} ${.sh.lineno}"' > $tmpfile
@@ -507,14 +519,14 @@ print $'\nprint -r -- "${.sh.file} ${LINENO} ${.sh.lineno}"' > $tmpfile
 print -r -- "'xxx" > $tmpfile
 [[ $($SHELL -c ". $tmpfile"$'\n print ok' 2> /dev/null) == ok ]] || err_exit 'syntax error in dot command affects next command'
 
-#float sec=$SECONDS del=4
-#exec 3>&2 2>/dev/null
-#$SHELL -c "( sleep 1; kill -ALRM \$\$ ) & sleep $del" 2> /dev/null
-#exitval=$?
-#(( sec = SECONDS - sec ))
-#exec 2>&3-
-#(( exitval )) && err_exit "sleep doesn't exit 0 with ALRM interupt"
-#(( sec > (del - 1) )) || err_exit "ALRM signal causes sleep to terminate prematurely -- expected 3 sec, got $sec"
+float sec=$SECONDS del=4
+exec 3>&2 2>/dev/null
+$SHELL -c "( sleep 1; kill -ALRM \$\$ ) & sleep $del" 2> /dev/null
+exitval=$?
+(( sec = SECONDS - sec ))
+exec 2>&3-
+(( exitval )) && err_exit "sleep doesn't exit 0 with ALRM interupt"
+(( sec > (del - 1) )) || err_exit "ALRM signal causes sleep to terminate prematurely -- expected 3 sec, got $sec"
 typeset -r z=3
 y=5
 for i in 123 z  %x a.b.c
@@ -541,5 +553,90 @@ builtin cat
 out=$tmp/seq.out
 seq 11 >$out
 cmp -s <(print -- "$($bincat<( $bincat $out ) )") <(print -- "$(cat <( cat $out ) )") || err_exit "builtin cat differs from $bincat"
+
+[[ $($SHELL -c '{ printf %R "["; print ok;}' 2> /dev/null) == ok ]] || err_exit $'\'printf %R "["\' causes shell to abort'
+
+v=$( $SHELL -c $'
+	trap \'print "usr1"\' USR1
+	trap exit USR2
+	sleep 1 && {
+		kill -USR1 $$ && sleep 1
+		kill -0 $$ 2>/dev/null && kill -USR2 $$
+	} &
+	sleep 2 | read
+	echo done
+' ) 2> /dev/null
+[[ $v == $'usr1\ndone' ]] ||  err_exit 'read not terminating when receiving USR1 signal'
+
+mkdir $tmp/tmpdir1
+cd $tmp/tmpdir1
+pwd=$PWD
+cd ../tmpdir1
+[[ $PWD == "$pwd" ]] || err_exit 'cd ../tmpdir1 causes directory to change'
+cd "$pwd"
+mv $tmp/tmpdir1 $tmp/tmpdir2
+cd ..  2> /dev/null || err_exit 'cannot change directory to .. after current directory has been renamed'
+[[ $PWD == "$tmp" ]] || err_exit 'after "cd $tmp/tmpdir1; cd .." directory is not $tmp'
+
+cd "$tmp"
+mkdir $tmp/tmpdir2/foo
+pwd=$PWD
+cd $tmp/tmpdir2/foo
+mv $tmp/tmpdir2 $tmp/tmpdir1
+cd ../.. 2> /dev/null || err_exit 'cannot change directory to ../.. after current directory has been renamed'
+[[ $PWD == "$tmp" ]] || err_exit 'after "cd $tmp/tmpdir2; cd ../.." directory is not $tmp'
+cd "$tmp"
+rm -rf tmpdir1
+
+cd /etc
+cd ..
+[[ $(pwd) == / ]] || err_exit 'cd /etc;cd ..;pwd is not /'
+cd /etc
+cd ../..
+[[ $(pwd) == / ]] || err_exit 'cd /etc;cd ../..;pwd is not /'
+cd /etc
+cd .././..
+[[ $(pwd) == / ]] || err_exit 'cd /etc;cd .././..;pwd is not /'
+cd /usr/bin
+cd ../..
+[[ $(pwd) == / ]] || err_exit 'cd /usr/bin;cd ../..;pwd is not /'
+cd /usr/bin
+cd ..
+[[ $(pwd) == /usr ]] || err_exit 'cd /usr/bin;cd ..;pwd is not /usr'
+cd "$tmp"
+if	mkdir $tmp/t1
+then	(
+		cd $tmp/t1
+		> real_t1
+		(
+			cd ..
+			mv t1 t2
+			mkdir t1
+		)
+		[[ -f real_t1 ]] || err_exit 'real_t1 not found after parent directory renamed in subshell'
+	)
+fi
+cd "$tmp"
+
+$SHELL +E -i <<- \! && err_exit 'interactive shell should not exit 0 after false'
+	false
+	exit
+!
+
+if	kill -L > /dev/null 2>&1
+then	[[ $(kill -l HUP) == "$(kill -L HUP)" ]] || err_exit 'kill -l and kill -L are not the same when given a signal name'
+	[[ $(kill -l 9) == "$(kill -L 9)" ]] || err_exit 'kill -l and kill -L are not the same when given a signal number'
+	[[ $(kill -L) == *'9) KILL'* ]] || err_exit 'kill -L output does not contain 9) KILL'
+fi
+
+unset ENV
+v=$($SHELL 2> /dev/null +o rc -ic $'getopts a:bc: opt --man\nprint $?')
+[[ $v == 2* ]] || err_exit 'getopts --man does not exit 2 for interactive shells'
+
+read baz <<< 'foo\\\\bar'
+[[ $baz == 'foo\\bar' ]] || err_exit 'read of foo\\\\bar not getting foo\\bar'
+
+: ~root
+[[ $(builtin) == *.sh.tilde* ]] &&  err_exit 'builtin contains .sh.tilde'
 
 exit $((Errors<125?Errors:125))

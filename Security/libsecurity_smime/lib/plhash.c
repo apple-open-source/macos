@@ -362,7 +362,7 @@ PL_HashTableRawRemove(PLHashTable *ht, PLHashEntry **hep, PLHashEntry *he)
     }
 }
 
-PR_IMPLEMENT(Boolean)
+PR_IMPLEMENT(unsigned char)
 PL_HashTableRemove(PLHashTable *ht, const void *key)
 {
     PLHashNumber keyHash;

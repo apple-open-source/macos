@@ -31,39 +31,42 @@
 #ifndef BlobRegistryImpl_h
 #define BlobRegistryImpl_h
 
+#include "BlobData.h"
 #include "BlobRegistry.h"
-#include "BlobStorageData.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class KURL;
+class URL;
 class ResourceHandle;
 class ResourceHandleClient;
 class ResourceRequest;
 
 // BlobRegistryImpl is not thread-safe. It should only be called from main thread.
-class BlobRegistryImpl : public BlobRegistry {
+class BlobRegistryImpl final : public BlobRegistry {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~BlobRegistryImpl();
 
-    BlobStorageData* getBlobDataFromURL(const KURL&) const;
+    BlobData* getBlobDataFromURL(const URL&) const;
 
     PassRefPtr<ResourceHandle> createResourceHandle(const ResourceRequest&, ResourceHandleClient*);
 
 private:
-    void appendStorageItems(BlobStorageData*, const BlobDataItemList&);
-    void appendStorageItems(BlobStorageData*, const BlobDataItemList&, long long offset, long long length);
+    void appendStorageItems(BlobData*, const BlobDataItemList&, long long offset, long long length);
 
-    virtual void registerBlobURL(const KURL&, PassOwnPtr<BlobData>) OVERRIDE;
-    virtual void registerBlobURL(const KURL&, const KURL& srcURL) OVERRIDE;
-    virtual void unregisterBlobURL(const KURL&) OVERRIDE;
-    virtual bool isBlobRegistryImpl() const OVERRIDE { return true; }
+    virtual void registerFileBlobURL(const WebCore::URL&, PassRefPtr<BlobDataFileReference>, const String& contentType) override;
+    virtual void registerBlobURL(const URL&, Vector<BlobPart>, const String& contentType) override;
+    virtual void registerBlobURL(const URL&, const URL& srcURL) override;
+    virtual void registerBlobURLForSlice(const URL&, const URL& srcURL, long long start, long long end) override;
+    virtual void unregisterBlobURL(const URL&) override;
+    virtual bool isBlobRegistryImpl() const override { return true; }
 
-    HashMap<String, RefPtr<BlobStorageData> > m_blobs;
+    virtual unsigned long long blobSize(const URL&) override;
+
+    HashMap<String, RefPtr<BlobData>> m_blobs;
 };
 
 } // namespace WebCore

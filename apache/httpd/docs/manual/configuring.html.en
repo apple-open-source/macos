@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Configuration Files</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Configuration Files</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="./de/configuring.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/configuring.html" title="English">&nbsp;en&nbsp;</a> |
@@ -29,8 +29,8 @@
 <a href="./tr/configuring.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 
-<p>This document describes the files used to configure the Apache
-HTTP server.</p>
+<p>This document describes the files used to configure Apache HTTP
+Server.</p>
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#main">Main Configuration Files</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#syntax">Syntax of the Configuration Files</a></li>
@@ -44,7 +44,7 @@ HTTP server.</p>
     
     <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_mime.html">mod_mime</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/core.html#ifdefine">&lt;IfDefine&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#include">Include</a></code></li><li><code class="directive"><a href="./mod/mod_mime.html#typesconfig">TypesConfig</a></code></li></ul></td></tr></table>
 
-    <p>Apache is configured by placing <a href="mod/directives.html">directives</a> in plain text
+    <p>Apache HTTP Server is configured by placing <a href="mod/directives.html">directives</a> in plain text
     configuration files. The main configuration file is usually called
     <code>httpd.conf</code>. The location of this file is set at
     compile-time, but may be overridden with the <code>-f</code>
@@ -52,8 +52,8 @@ HTTP server.</p>
     added using the <code class="directive"><a href="./mod/core.html#include">Include</a></code>
     directive, and wildcards can be used to include many configuration
     files. Any directive may be placed in any of these configuration
-    files.  Changes to the main configuration files are only
-    recognized by Apache when it is started or restarted.</p>
+    files. Changes to the main configuration files are only
+    recognized by httpd when it is started or restarted.</p>
 
     <p>The server also reads a file containing mime document types;
     the filename is set by the <code class="directive"><a href="./mod/mod_mime.html#typesconfig">TypesConfig</a></code> directive,
@@ -63,11 +63,14 @@ HTTP server.</p>
 <h2><a name="syntax" id="syntax">Syntax of the Configuration Files</a></h2>
     
 
-    <p>Apache configuration files contain one directive per line.
+    <p>httpd configuration files contain one directive per line.
     The backslash "\" may be used as the last character on a line
     to indicate that the directive continues onto the next line.
     There must be no other characters or white space between the
     backslash and the end of the line.</p>
+
+    <p>Arguments to directives are separated by whitespace. If an 
+    argument contains spaces, you must enclose that argument in quotes.</p>
 
     <p>Directives in the configuration files are case-insensitive,
     but arguments to directives are often case sensitive. Lines
@@ -77,24 +80,40 @@ HTTP server.</p>
     and white space occurring before a directive are ignored, so
     you may indent directives for clarity.</p>
 
-    <p>The values of shell environment variables can be used in
-    configuration file lines using the syntax <code>${ENVVAR}</code>.
-    If "ENVVAR" is the name of a valid environment variable, the value
-    of that variable is substituted into that spot in the
-    configuration file line, and processing continues as if that text
-    were found directly in the configuration file.  (If the ENVVAR
-    variable is not found, the characters "${ENVVAR}" are left
-    unchanged for use by later stages in the config file
-    processing.)</p>
+    <p>The values of variables defined with the <code class="directive"><a href="./mod/core.html#define">Define</a></code> of or shell environment variables can
+    be used in configuration file lines using the syntax <code>${VAR}</code>.
+    If "VAR" is the name of a valid variable, the value of that variable is
+    substituted into that spot in the configuration file line, and processing
+    continues as if that text were found directly in the configuration file.
+    Variables defined with <code class="directive"><a href="./mod/core.html#define">Define</a></code> take
+    precedence over shell environment variables.
+    If the "VAR" variable is not found, the characters <code>${VAR}</code>
+    are left unchanged, and a warning is logged.
+    Variable names may not contain colon ":" characters, to avoid clashes with
+    <code class="directive"><a href="./mod/mod_rewrite.html#rewritemap">RewriteMap</a></code>'s syntax.</p>
 
-    <p>The maximum length of a line in the configuration file, after
-    environment-variable substitution, joining any continued lines and
-    removing leading and trailing white space, is 8192 characters.</p>
+    <p>Only shell environment variables defined before the server is started
+    can be used in expansions. Environment variables defined in the
+    configuration file itself, for example with <code class="directive"><a href="./mod/mod_env.html#setenv">SetEnv</a></code>, take effect too late to be used for
+    expansions in the configuration file.</p>
+
+    <p>The maximum length of a line in normal configuration files, after
+    variable substitution and joining any continued lines, is approximately
+    16 MiB. In <a href="configuring.html#htaccess">.htaccess files</a>, the
+    maximum length is 8190 characters.</p>
 
     <p>You can check your configuration files for syntax errors
     without starting the server by using <code>apachectl
     configtest</code> or the <code>-t</code> command line
     option.</p>
+
+    <p>You can use <code class="module"><a href="./mod/mod_info.html">mod_info</a></code>'s <code>-DDUMP_CONFIG</code> to
+    dump the configuration with all included files and environment
+    variables resolved and all comments and non-matching
+    <code class="directive"><a href="./mod/core.html#ifdefine">&lt;IfDefine&gt;</a></code> and
+    <code class="directive"><a href="./mod/core.html#ifmodule">&lt;IfModule&gt;</a></code> sections
+    removed. However, the output does not reflect the merging or overriding
+    that may happen for repeated directives.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="modules" id="modules">Modules</a></h2>
@@ -102,21 +121,26 @@ HTTP server.</p>
 
     <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_so.html">mod_so</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/core.html#ifmodule">&lt;IfModule&gt;</a></code></li><li><code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code></li></ul></td></tr></table>
 
-    <p>Apache is a modular server. This implies that only the most
+    <p>httpd is a modular server. This implies that only the most
     basic functionality is included in the core server. Extended
     features are available through <a href="mod/">modules</a> which can be loaded
-    into Apache. By default, a <a href="mod/module-dict.html#Status">base</a> set of modules is
+    into httpd. By default, a <a href="mod/module-dict.html#Status">base</a> set of modules is
     included in the server at compile-time. If the server is
     compiled to use <a href="dso.html">dynamically loaded</a>
     modules, then modules can be compiled separately and added at
     any time using the <code class="directive"><a href="./mod/mod_so.html#loadmodule">LoadModule</a></code>
     directive.
-    Otherwise, Apache must be recompiled to add or remove modules.
+    Otherwise, httpd must be recompiled to add or remove modules.
     Configuration directives may be included conditional on a
-    presence of a particular module by enclosing them in an <code class="directive"><a href="./mod/core.html#ifmodule">&lt;IfModule&gt;</a></code> block.</p>
+    presence of a particular module by enclosing them in an <code class="directive"><a href="./mod/core.html#ifmodule">&lt;IfModule&gt;</a></code> block. However,
+    <code class="directive">&lt;IfModule&gt;</code> blocks are not
+    required, and in some cases may mask the fact that you're missing an
+    important module.</p>
 
     <p>To see which modules are currently compiled into the server,
-    you can use the <code>-l</code> command line option.</p>
+    you can use the <code>-l</code> command line option. You can also
+    see what modules are loaded dynamically using the <code>-M</code>
+    command line option.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="scope" id="scope">Scope of Directives</a></h2>
@@ -133,7 +157,7 @@ HTTP server.</p>
     locations or URLs. They can also be nested, allowing for very
     fine grained configuration.</p>
 
-    <p>Apache has the capability to serve many different websites
+    <p>httpd has the capability to serve many different websites
     simultaneously. This is called <a href="vhosts/">Virtual
     Hosting</a>. Directives can also be scoped by placing them
     inside <code class="directive"><a href="./mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>
@@ -154,7 +178,7 @@ HTTP server.</p>
 
     <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td /><td><ul><li><code class="directive"><a href="./mod/core.html#accessfilename">AccessFileName</a></code></li><li><code class="directive"><a href="./mod/core.html#allowoverride">AllowOverride</a></code></li></ul></td></tr></table>
 
-    <p>Apache allows for decentralized management of configuration
+    <p>httpd allows for decentralized management of configuration
     via special files placed inside the web tree. The special files
     are usually called <code>.htaccess</code>, but any name can be
     specified in the <code class="directive"><a href="./mod/core.html#accessfilename">AccessFileName</a></code>
@@ -185,7 +209,7 @@ HTTP server.</p>
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/configuring.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/configuring.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -200,7 +224,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/configuring.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

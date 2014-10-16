@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Google Inc. All rights reserved.
+ * Copyright (c) 2012, 2013 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,42 +33,30 @@
 
 #if ENABLE(TEMPLATE_ELEMENT)
 
-#include "DocumentFragment.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
 
-class HTMLTemplateElement FINAL : public HTMLElement {
+class DocumentFragment;
+class TemplateContentDocumentFragment;
+
+class HTMLTemplateElement final : public HTMLElement {
 public:
-    static PassRefPtr<HTMLTemplateElement> create(const QualifiedName&, Document*);
+    static PassRefPtr<HTMLTemplateElement> create(const QualifiedName&, Document&);
     virtual ~HTMLTemplateElement();
 
     DocumentFragment* content() const;
 
 private:
-    virtual PassRefPtr<Node> cloneNode(bool deep) OVERRIDE;
-    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
+    HTMLTemplateElement(const QualifiedName&, Document&);
 
-    HTMLTemplateElement(const QualifiedName&, Document*);
+    virtual PassRefPtr<Node> cloneNode(bool deep) override;
+    virtual void didMoveToNewDocument(Document* oldDocument) override;
 
-    mutable RefPtr<DocumentFragment> m_content;
+    mutable RefPtr<TemplateContentDocumentFragment> m_content;
 };
 
-const HTMLTemplateElement* toHTMLTemplateElement(const Node*);
-
-inline HTMLTemplateElement* toHTMLTemplateElement(Node* node)
-{
-    return const_cast<HTMLTemplateElement*>(toHTMLTemplateElement(static_cast<const Node*>(node)));
-}
-
-#ifdef NDEBUG
-
-// The debug version of this, with assertions, is not inlined.
-inline const HTMLTemplateElement* toHTMLTemplateElement(const Node* node)
-{
-    return static_cast<const HTMLTemplateElement*>(node);
-}
-#endif // NDEBUG
+NODE_TYPE_CASTS(HTMLTemplateElement)
 
 } // namespace WebCore
 

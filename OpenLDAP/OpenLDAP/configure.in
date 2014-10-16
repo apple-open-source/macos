@@ -246,8 +246,8 @@ OL_ARG_WITH(fetch,[  --with-fetch		  with fetch(3) URL support],
 	auto, [auto yes no] )
 OL_ARG_WITH(threads,[  --with-threads	  with threads],
 	auto, [auto nt posix mach pth lwp yes no manual] )
-OL_ARG_WITH(tls,[  --with-tls		  with TLS/SSL support auto|openssl|gnutls|moznss],
-	auto, [auto openssl gnutls moznss yes no] )
+OL_ARG_WITH(tls,[  --with-tls		  with TLS/SSL support auto|secure-transport|openssl|gnutls|moznss],
+	auto, [auto secure-transport openssl gnutls moznss yes no] )
 OL_ARG_WITH(yielding_select,
 	[  --with-yielding-select  with implicitly yielding select],
 	auto, [auto yes no manual] )
@@ -494,7 +494,7 @@ fi
 
 if test $ol_enable_lmpasswd = yes ; then
 	if test $ol_with_tls = no ; then
-		AC_MSG_ERROR([LAN Manager passwords require OpenSSL])
+		AC_MSG_ERROR([LAN Manager passwords require TLS])
 	fi
 fi
 
@@ -1164,42 +1164,60 @@ if test $ol_with_tls = yes ; then
 fi
 
 ol_link_tls=no
-if test $ol_with_tls = openssl || test $ol_with_tls = auto ; then
-	AC_CHECK_HEADERS(openssl/ssl.h)
+if test $ol_with_tls = secure-transport || test $ol_with_tls = auto ; then
+	save_CPPFLAGS="$CPPFLAGS"
+	CPPFLAGS="$CPPFLAGS -F/System/Library/PrivateFrameworks"
+	AC_CHECK_HEADERS(Security/SecureTransport.h CoreDaemon/XSCipher.h)
+	CPPFLAGS="$save_CPPFLAGS"
+	if test $ac_cv_header_Security_SecureTransport_h = yes &&
+	   test $ac_cv_header_CoreDaemon_XSCipher_h = yes ; then
+		ol_with_tls=secure-transport
+		ol_link_tls=yes
+		AC_DEFINE(HAVE_SECURE_TRANSPORT, 1, [define if you have SecureTransport])
+		TLS_LIBS="-framework Security -framework CoreDaemon"
+	elif test $ol_with_tls = secure-transport ; then
+		AC_ERROR([Can't build with SecureTransport: required header not found])
+	fi
+fi
 
-	if test $ac_cv_header_openssl_ssl_h = yes ; then
-		AC_CHECK_LIB(ssl, SSL_library_init,
-			[have_openssl=yes
-			need_rsaref=no], [have_openssl=no],
-			[-lcrypto])
+if test $ol_link_tls = no ; then
+	if test $ol_with_tls = openssl || test $ol_with_tls = auto ; then
+		AC_CHECK_HEADERS(openssl/ssl.h)
 
-		if test $have_openssl = no ; then
-			AC_CHECK_LIB(ssl, ssl3_accept, 
+		if test $ac_cv_header_openssl_ssl_h = yes ; then
+			AC_CHECK_LIB(ssl, SSL_library_init,
 				[have_openssl=yes
-				need_rsaref=yes], [have_openssl=no],
-				[-lcrypto -lRSAglue -lrsaref])
-		fi
+				need_rsaref=no], [have_openssl=no],
+				[-lcrypto])
 
-		if test $have_openssl = yes ; then
-			ol_with_tls=openssl
-			ol_link_tls=yes
-
-			AC_DEFINE(HAVE_OPENSSL, 1, 
-				[define if you have OpenSSL])
-
-			if test $need_rsaref = yes; then
-				AC_DEFINE(HAVE_RSAREF, 1, 
-					[define if OpenSSL needs RSAref])
-
-				TLS_LIBS="-lssl -lcrypto -lRSAglue -lrsaref"
-			else
-				TLS_LIBS="-lssl -lcrypto"
+			if test $have_openssl = no ; then
+				AC_CHECK_LIB(ssl, ssl3_accept, 
+					[have_openssl=yes
+					need_rsaref=yes], [have_openssl=no],
+					[-lcrypto -lRSAglue -lrsaref])
 			fi
 
-			OL_SSL_COMPAT
-			if test $ol_cv_ssl_crl_compat = yes ; then
-				AC_DEFINE(HAVE_OPENSSL_CRL, 1, 
-					[define if you have OpenSSL with CRL checking capability])
+			if test $have_openssl = yes ; then
+				ol_with_tls=openssl
+				ol_link_tls=yes
+
+				AC_DEFINE(HAVE_OPENSSL, 1, 
+					[define if you have OpenSSL])
+
+				if test $need_rsaref = yes; then
+					AC_DEFINE(HAVE_RSAREF, 1, 
+						[define if OpenSSL needs RSAref])
+
+					TLS_LIBS="-lssl -lcrypto -lRSAglue -lrsaref"
+				else
+					TLS_LIBS="-lssl -lcrypto"
+				fi
+
+				OL_SSL_COMPAT
+				if test $ol_cv_ssl_crl_compat = yes ; then
+					AC_DEFINE(HAVE_OPENSSL_CRL, 1, 
+						[define if you have OpenSSL with CRL checking capability])
+				fi
 			fi
 		fi
 	fi
@@ -1243,7 +1261,7 @@ dnl ----------------------------------------------------------------
 dnl LAN Manger password checking requires DES from OpenSSL
 if test $ol_enable_lmpasswd != no; then
 	if test $ol_link_tls != yes ; then
-		AC_MSG_ERROR([LAN Manager passwords require OpenSSL])
+		AC_MSG_ERROR([LAN Manager passwords require TLS])
 	fi
 
 	AC_DEFINE(SLAPD_LMHASH, 1, [define to support LAN Manager passwords])

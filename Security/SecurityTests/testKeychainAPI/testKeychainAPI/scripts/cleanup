@@ -1,0 +1,7 @@
+#
+# Until this gets installed automatically, do the following line
+# from your build dir:
+# cp ../Tests/testKeychainAPI/testKeychainAPI/scripts/cleanup .
+rm ~/Library/Preferences/test00*
+rm ~/Library/Preferences/com.apple.securitycore.plist
+rm ./*.db

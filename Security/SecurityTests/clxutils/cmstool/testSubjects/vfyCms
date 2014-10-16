@@ -1,0 +1,27 @@
+#! /bin/csh -f
+#
+# run CMS regression tests.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set QUIET= 
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET = -q
+            shift
+            breaksw
+        default:
+            echo Usage: vfyCms \[q\(uiet\)\]
+            exit(1)
+    endsw
+end
+#
+# signed1.cms is ptext1 wrapped in a signedData
+#
+set TMP_PTEXT=/tmp/ptext_tmp
+$LOCAL_BUILD_DIR/cmstool parse -i signed1.cms -o $TMP_PTEXT -v sign $QUIET || exit(1)
+cmp ptext1.txt $TMP_PTEXT
+if ($status != 0) then
+	echo ### Data miscompare: plaintext signed1.cms recovered $TMP_PTEXT
+	exit(1)
+endif

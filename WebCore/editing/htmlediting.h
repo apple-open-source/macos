@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,7 +44,6 @@ class Range;
 class VisiblePosition;
 class VisibleSelection;
 
-
 // This file contains a set of helper functions used by the editing commands
 
 // -------------------------------------------------------------------------
@@ -66,7 +65,7 @@ Element* enclosingBlock(Node*, EditingBoundaryCrossingRule = CannotCrossEditingB
 Node* enclosingTableCell(const Position&);
 Node* enclosingEmptyListItem(const VisiblePosition&);
 Element* enclosingAnchorElement(const Position&);
-Node* enclosingNodeWithTag(const Position&, const QualifiedName&);
+Element* enclosingElementWithTag(const Position&, const QualifiedName&);
 Node* enclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 
 Node* tabSpanNode(const Node*);
@@ -108,7 +107,7 @@ bool isSpecialElement(const Node*);
 bool isTabSpanNode(const Node*);
 bool isTabSpanTextNode(const Node*);
 bool isMailBlockquote(const Node*);
-bool isTableElement(Node*);
+bool isRenderedTable(const Node*);
 bool isTableCell(const Node*);
 bool isEmptyTableCell(const Node*);
 bool isTableStructureNode(const Node*);
@@ -189,16 +188,9 @@ bool lineBreakExistsAtVisiblePosition(const VisiblePosition&);
 int comparePositions(const VisiblePosition&, const VisiblePosition&);
 
 int indexForVisiblePosition(const VisiblePosition&, RefPtr<ContainerNode>& scope);
+int indexForVisiblePosition(Node*, const VisiblePosition&, bool forSelectionPreservation);
 VisiblePosition visiblePositionForIndex(int index, ContainerNode* scope);
-
-// -------------------------------------------------------------------------
-// Range
-// -------------------------------------------------------------------------
-
-// Functions returning Range
-
-PassRefPtr<Range> createRange(PassRefPtr<Document>, const VisiblePosition& start, const VisiblePosition& end, ExceptionCode&);
-PassRefPtr<Range> extendRangeToWrappingNodes(PassRefPtr<Range> rangeToExtend, const Range* maximumRange, const Node* rootNode);
+VisiblePosition visiblePositionForIndexUsingCharacterIterator(Node*, int index); // FIXME: Why do we need this version?
 
 // -------------------------------------------------------------------------
 // HTMLElement
@@ -206,13 +198,13 @@ PassRefPtr<Range> extendRangeToWrappingNodes(PassRefPtr<Range> rangeToExtend, co
     
 // Functions returning HTMLElement
     
-PassRefPtr<HTMLElement> createDefaultParagraphElement(Document*);
-PassRefPtr<HTMLElement> createBreakElement(Document*);
-PassRefPtr<HTMLElement> createOrderedListElement(Document*);
-PassRefPtr<HTMLElement> createUnorderedListElement(Document*);
-PassRefPtr<HTMLElement> createListItemElement(Document*);
-PassRefPtr<HTMLElement> createHTMLElement(Document*, const QualifiedName&);
-PassRefPtr<HTMLElement> createHTMLElement(Document*, const AtomicString&);
+PassRefPtr<HTMLElement> createDefaultParagraphElement(Document&);
+PassRefPtr<HTMLElement> createBreakElement(Document&);
+PassRefPtr<HTMLElement> createOrderedListElement(Document&);
+PassRefPtr<HTMLElement> createUnorderedListElement(Document&);
+PassRefPtr<HTMLElement> createListItemElement(Document&);
+PassRefPtr<HTMLElement> createHTMLElement(Document&, const QualifiedName&);
+PassRefPtr<HTMLElement> createHTMLElement(Document&, const AtomicString&);
 
 HTMLElement* enclosingList(Node*);
 HTMLElement* outermostEnclosingList(Node*, Node* rootList = 0);
@@ -221,35 +213,37 @@ Node* enclosingListChild(Node*);
 // -------------------------------------------------------------------------
 // Element
 // -------------------------------------------------------------------------
-    
-// Functions returning Element
-    
-PassRefPtr<Element> createTabSpanElement(Document*);
-PassRefPtr<Element> createTabSpanElement(Document*, PassRefPtr<Node> tabTextNode);
-PassRefPtr<Element> createTabSpanElement(Document*, const String& tabText);
-PassRefPtr<Element> createBlockPlaceholderElement(Document*);
+
+PassRefPtr<Element> createTabSpanElement(Document&);
+PassRefPtr<Element> createTabSpanElement(Document&, PassRefPtr<Node> tabTextNode);
+PassRefPtr<Element> createTabSpanElement(Document&, const String& tabText);
+PassRefPtr<Element> createBlockPlaceholderElement(Document&);
 
 Element* editableRootForPosition(const Position&, EditableType = ContentIsEditable);
 Element* unsplittableElementForPosition(const Position&);
 
-// Boolean functions on Element
-    
 bool canMergeLists(Element* firstList, Element* secondList);
     
 // -------------------------------------------------------------------------
 // VisibleSelection
 // -------------------------------------------------------------------------
 
-// Functions returning VisibleSelection
 VisibleSelection selectionForParagraphIteration(const VisibleSelection&);
 
 Position adjustedSelectionStartForStyleComputation(const VisibleSelection&);
     
+// -------------------------------------------------------------------------
 
-// Miscellaneous functions on Text
+// FIXME: This is only one of many definitions of whitespace, so the name is not specific enough.
 inline bool isWhitespace(UChar c)
 {
     return c == noBreakSpace || c == ' ' || c == '\n' || c == '\t';
+}
+
+// FIXME: Can't really answer this question correctly without knowing the white-space mode.
+inline bool deprecatedIsCollapsibleWhitespace(UChar c)
+{
+    return c == ' ' || c == '\n';
 }
 
 inline bool isAmbiguousBoundaryCharacter(UChar character)
@@ -262,6 +256,12 @@ inline bool isAmbiguousBoundaryCharacter(UChar character)
 
 String stringWithRebalancedWhitespace(const String&, bool startIsStartOfParagraph, bool endIsEndOfParagraph);
 const String& nonBreakingSpaceString();
+
+// Miscellaaneous functions that for caret rendering
+
+RenderObject* rendererForCaretPainting(Node*);
+LayoutRect localCaretRectInRendererForCaretPainting(const VisiblePosition&, RenderObject*&);
+IntRect absoluteBoundsForLocalCaretRect(RenderObject* rendererForCaretPainting, const LayoutRect&);
 
 }
 

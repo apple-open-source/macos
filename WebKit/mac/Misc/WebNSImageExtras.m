@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,9 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebNSImageExtras.h>
+#if !PLATFORM(IOS)
 
-#import <WebKit/WebKitLogging.h>
+#import <WebKitLegacy/WebNSImageExtras.h>
+
+#import <WebKitLegacy/WebKitLogging.h>
 
 @implementation NSImage (WebExtras)
 
@@ -51,7 +53,10 @@
     
     if(resizeDelta > 0.0){
         NSSize newSize = NSMakeSize((originalSize.width * resizeDelta), (originalSize.height * resizeDelta));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [self setScalesWhenResized:YES];
+#pragma clang diagnostic pop
         [self setSize:newSize];
     }
 }
@@ -60,17 +65,29 @@
 {
     NSImage *dissolvedImage = [[NSImage alloc] initWithSize:[self size]];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSPoint point = [self isFlipped] ? NSMakePoint(0, [self size].height) : NSZeroPoint;
+#pragma clang diagnostic pop
     
     // In this case the dragging image is always correct.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [dissolvedImage setFlipped:[self isFlipped]];
+#pragma clang diagnostic pop
 
     [dissolvedImage lockFocus];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [self dissolveToPoint:point fraction: delta];
+#pragma clang diagnostic pop
     [dissolvedImage unlockFocus];
 
     [self lockFocus];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [dissolvedImage compositeToPoint:point operation:NSCompositeCopy];
+#pragma clang diagnostic pop
     [self unlockFocus];
 
     [dissolvedImage release];
@@ -89,3 +106,5 @@
 }
 
 @end
+
+#endif // !PLATFORM(IOS)

@@ -354,8 +354,13 @@ krb5_get_host_realm(krb5_context context,
 				   hostname);
 	    return KRB5_ERR_HOST_REALM_UNKNOWN;
 	}
+    } else if (heim_array_get_length(array) == 0) {
+	krb5_set_error_message(context, KRB5_ERR_HOST_REALM_UNKNOWN,
+			       N_("Unable to find realm of self", ""));
+	return KRB5_ERR_HOST_REALM_UNKNOWN;
+    } else {
+	ret = _krb5_array_to_realms(context, array, realms);
     }
-    ret = _krb5_array_to_realms(context, array, realms);
     heim_release(array);
     return ret;
 }

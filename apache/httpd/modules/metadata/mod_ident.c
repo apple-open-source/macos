@@ -95,33 +95,33 @@ static apr_status_t rfc1413_connect(apr_socket_t **newsock, conn_rec *conn,
                               0, conn->pool)) != APR_SUCCESS) {
         /* This should not fail since we have a numeric address string
          * as the host. */
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv, APLOGNO(01492)
                      "rfc1413: apr_sockaddr_info_get(%s) failed",
                      conn->local_ip);
         return rv;
     }
 
-    if ((rv = apr_sockaddr_info_get(&destsa, conn->remote_ip,
+    if ((rv = apr_sockaddr_info_get(&destsa, conn->client_ip,
                               localsa->family, /* has to match */
                               RFC1413_PORT, 0, conn->pool)) != APR_SUCCESS) {
         /* This should not fail since we have a numeric address string
          * as the host. */
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv, APLOGNO(01493)
                      "rfc1413: apr_sockaddr_info_get(%s) failed",
-                     conn->remote_ip);
+                     conn->client_ip);
         return rv;
     }
 
     if ((rv = apr_socket_create(newsock,
                                 localsa->family, /* has to match */
                                 SOCK_STREAM, 0, conn->pool)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv, APLOGNO(01494)
                      "rfc1413: error creating query socket");
         return rv;
     }
 
     if ((rv = apr_socket_timeout_set(*newsock, timeout)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv, APLOGNO(01495)
                      "rfc1413: error setting query socket timeout");
         apr_socket_close(*newsock);
         return rv;
@@ -137,7 +137,7 @@ static apr_status_t rfc1413_connect(apr_socket_t **newsock, conn_rec *conn,
  */
 
     if ((rv = apr_socket_bind(*newsock, localsa)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, srv, APLOGNO(01496)
                      "rfc1413: Error binding query socket to local port");
         apr_socket_close(*newsock);
         return rv;
@@ -167,7 +167,7 @@ static apr_status_t rfc1413_query(apr_socket_t *sock, conn_rec *conn,
     apr_size_t buflen;
 
     sav_our_port = conn->local_addr->port;
-    sav_rmt_port = conn->remote_addr->port;
+    sav_rmt_port = conn->client_addr->port;
 
     /* send the data */
     buflen = apr_snprintf(buffer, sizeof(buffer), "%hu,%hu\r\n", sav_rmt_port,
@@ -181,7 +181,7 @@ static apr_status_t rfc1413_query(apr_socket_t *sock, conn_rec *conn,
         apr_status_t status;
         status  = apr_socket_send(sock, buffer+i, &j);
         if (status != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_CRIT, status, srv,
+            ap_log_error(APLOG_MARK, APLOG_CRIT, status, srv, APLOGNO(01497)
                          "write: rfc1413: error sending request");
             return status;
         }
@@ -207,7 +207,7 @@ static apr_status_t rfc1413_query(apr_socket_t *sock, conn_rec *conn,
         apr_status_t status;
         status = apr_socket_recv(sock, buffer+i, &j);
         if (status != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_CRIT, status, srv,
+            ap_log_error(APLOG_MARK, APLOG_CRIT, status, srv, APLOGNO(01498)
                          "read: rfc1413: error reading response");
             return status;
         }
@@ -243,26 +243,18 @@ static apr_status_t rfc1413_query(apr_socket_t *sock, conn_rec *conn,
 static const char *set_idcheck(cmd_parms *cmd, void *d_, int arg)
 {
     ident_config_rec *d = d_;
-    const char *err = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
 
-    if (!err) {
-        d->do_rfc1413 = arg ? 1 : 0;
-    }
-
-    return err;
+    d->do_rfc1413 = arg ? 1 : 0;
+    return NULL;
 }
 
 static const char *set_timeout(cmd_parms *cmd, void *d_, const char *arg)
 {
     ident_config_rec *d = d_;
-    const char *err = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
 
-    if (!err) {
-        d->timeout = apr_time_from_sec(atoi(arg));
-        d->timeout_unset = 0;
-    }
-
-    return err;
+    d->timeout = apr_time_from_sec(atoi(arg));
+    d->timeout_unset = 0;
+    return NULL;
 }
 
 static void *create_ident_dir_config(apr_pool_t *p, char *d)
@@ -340,7 +332,7 @@ static void register_hooks(apr_pool_t *p)
     APR_REGISTER_OPTIONAL_FN(ap_ident_lookup);
 }
 
-module AP_MODULE_DECLARE_DATA ident_module =
+AP_DECLARE_MODULE(ident) =
 {
     STANDARD20_MODULE_STUFF,
     create_ident_dir_config,       /* dir config creater */

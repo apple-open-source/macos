@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -46,6 +46,8 @@
 #include <net/if_dl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <dispatch/dispatch.h>
 
 #include <mach/mach.h>
 #include <mach/notify.h>
@@ -144,15 +146,15 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 			(void)inet_ntop(addr.sin->sin_family,
 					&addr.sin->sin_addr,
 					buf,
-					bufLen);
+					(socklen_t)bufLen);
 			break;
 		case AF_INET6 : {
 			(void)inet_ntop(addr.sin6->sin6_family,
 					&addr.sin6->sin6_addr,
 					buf,
-					bufLen);
+					(socklen_t)bufLen);
 			if (addr.sin6->sin6_scope_id != 0) {
-				int	n;
+				size_t	n;
 
 				n = strlen(buf);
 				if ((n+IF_NAMESIZE+1) <= (int)bufLen) {
@@ -297,6 +299,51 @@ _SC_trimDomain(CFStringRef domain)
 	}
 
 	return domain;
+}
+
+
+CFStringRef
+_SC_hw_model(Boolean trim)
+{
+	static CFStringRef	model		= NULL;
+	static CFStringRef	model_trimmed	= NULL;
+	static dispatch_once_t	once;
+
+	dispatch_once(&once, ^{
+		char	*cp;
+		char	hwModel[64];
+		int	mib[]		= { CTL_HW, HW_MODEL };
+		size_t	n		= sizeof(hwModel);
+		int	ret;
+
+		// get HW model name
+		bzero(&hwModel, sizeof(hwModel));
+		ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
+		if (ret != 0) {
+			SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+			return;
+		}
+		hwModel[sizeof(hwModel) - 1] = '\0';
+		model = CFStringCreateWithCString(NULL, hwModel, kCFStringEncodingASCII);
+
+		// and the "trimmed" name
+		// ... remove everything after (and including) a comma
+		// ... and then any trailing digits
+		cp = index(hwModel, ',');
+		if (cp != NULL) {
+			*cp = '\0';
+		}
+		n = strlen(hwModel) - 1;
+		while (n > 0) {
+			if (!isdigit(hwModel[n])) {
+				break;
+			}
+			hwModel[n--] = '\0';
+		}
+		model_trimmed = CFStringCreateWithCString(NULL, hwModel, kCFStringEncodingASCII);
+	});
+
+	return trim ? model_trimmed : model;
 }
 
 
@@ -1006,7 +1053,7 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("%s: CFMachPortCreateWithPort() failed , port = %p"),
 		      portDescription,
-		      portNum);
+		      (void *)(uintptr_t)portNum);
 		if (port != NULL) {
 			err = CFStringCreateWithFormat(NULL, NULL,
 						       CFSTR("%s: CFMachPortCreateWithPort recycled, [old] port = %@"),
@@ -1026,7 +1073,7 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 					       getprogname());
 		_SC_crash(crash_info, CFSTR("CFMachPort error"), err);
 		CFAllocatorDeallocate(NULL, crash_info);
-		CFRelease(err);
+		if (err != NULL) CFRelease(err);
 	}
 
 	return port;
@@ -1352,8 +1399,12 @@ _SC_copyBacktrace()
 
 
 /* CrashReporter info */
+#if	!TARGET_OS_IPHONE
+#include <CrashReporterClient.h>
+#else	// !TARGET_OS_IPHONE
 const char *__crashreporter_info__ = NULL;
 asm(".desc ___crashreporter_info__, 0x10");
+#endif	// !TARGET_OS_IPHONE
 
 
 static Boolean
@@ -1430,7 +1481,11 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 	Boolean	ok	= FALSE;
 
 	if (crash_info != NULL) {
+#if	!TARGET_OS_IPHONE
+		CRSetCrashLogMessage(crash_info);
+#else	// !TARGET_OS_IPHONE
 		__crashreporter_info__ = crash_info;
+#endif	// !TARGET_OS_IPHONE
 
 		SCLog(TRUE, LOG_ERR, CFSTR("%s"), crash_info);
 	}
@@ -1446,7 +1501,11 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 #endif	// DO_NOT_CRASH
 	}
 
+#if	!TARGET_OS_IPHONE
+	CRSetCrashLogMessage(NULL);
+#else	// !TARGET_OS_IPHONE
 	__crashreporter_info__ = NULL;
+#endif	// !TARGET_OS_IPHONE
 	return;
 }
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>LimitLoadToSessionType</key>
+	<string>Background</string>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
+	<key>Label</key>
+	<string>com.apple.secd</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.secd</key>
+		<true/>
+		<key>com.apple.securityd.xpc</key>
+		<true/>
+	</dict>
+	<key>OnDemand</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/secd</string>
+	</array>
+	<key>ServiceIPC</key>
+	<true/>
+	<key>Umask</key>
+	<integer>54</integer>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>none</string>
+		<key>WAIT4DEBUGGER</key>
+		<string>NO</string>
+	</dict>
+</dict>
+</plist>

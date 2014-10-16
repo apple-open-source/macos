@@ -1,7 +1,7 @@
 /*
 	File:		MBCInteractivePlayer.h
 	Contains:	An agent representing a local human player
-	Copyright:	© 2002-2010 by Apple Inc., all rights reserved.
+	Copyright:	© 2002-2014 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -64,16 +64,18 @@
 	MBCVariant				fVariant;
 	MBCSquare				fFromSquare;
 	bool					fStartingSR;
-    bool                   fAnnounceCheck;
-    SRRecognitionSystem    fRecSystem;
+    bool                    fAnnounceCheck;
+    SRRecognitionSystem     fRecSystem;
 	SRRecognizer			fRecognizer;
 	SRLanguageModel			fModel;
 	NSData *				fSpeechHelp;
-    BOOL                   fHasObservers;
+    BOOL                    fHasObservers;
+    BOOL                    fPendingMouseUpdate;
 }
 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay;
 - (void) updateNeedMouse:(id)arg;
+- (void) doUpdateNeedMouse;
 - (void) allowedToListen:(BOOL)allowed;
 
 //

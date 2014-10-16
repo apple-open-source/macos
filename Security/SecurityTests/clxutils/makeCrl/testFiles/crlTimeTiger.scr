@@ -1,0 +1,128 @@
+# 
+# test for Radar 4515141: perform cert verify with CRL checking one second before and 
+# one second after the cert was revoked; the former should succeed, the latter should fail.
+#
+# This version of the script is for Tiger and Chard, without the requireCrlForAll command.
+#
+#   leaf cert
+#   not before 		20060417191040Z		19:10:40 Apr 17, 2006
+#   not after  		20160414191040Z		19:10:40 Apr 14, 2016
+#   
+#   root cert
+#   not before 		20060417190954Z		19:10:40 Apr 17, 2006
+#   not after  		20160414190954Z		19:10:40 Apr 14, 2016
+#   
+#   CRL: not valid until well after leaf cert was created, valid for 10 years, revocation
+#   	12 hours after CRL is created
+#   
+#   % makeCrl -s crlTestLeaf.cer -i crlTestRoot.cer -o crl.crl -n 315360000 -r 43200
+#   ...wrote 282 bytes to crl.crl.
+#    
+#   this update 	20060417210558Z		21:05:58 Apr 17, 2006
+#   next update 	20160414210558Z		21:05:58 Apr 14, 2016
+#   cert revoked 	20060418090558Z		09:05:58 Apr 18, 2006
+#   
+#   Test cert at revoke + 1 ==> fail				20060418090559Z
+#   Test cert at revoke - 1 ==> OK					20060418090557Z
+#   Test cert at create with CRL ==> OK 			20060417191040Z (before revocation, before CRL)
+#   Test cert at create w/o CRL ==> OK				20060417191040Z
+#   Test cert at create-1 w/o CRL - not yet valid	20060417191039Z
+#   Test cert at not after w/o CRL - OK				20160414191040Z
+#   Test cert at not after + 1 - fail				20160414191041Z
+#   
+#   Certs were  generated from CA in enclosed keychain, crlKeychain.keychaain, pwd = crlKeychain
+#
+
+globals
+certNetFetchEnable = false
+crlNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "basic, no CRL"
+allowUnverified = true
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+end
+
+#
+# This is a handy place to test the corner cases of notBefore and notAfter.
+# I don't believe these have ever been tested right to the second. 
+#
+test = "basic, no CRL, at NotBefore"
+allowUnverified = true
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+verifyTime = 20060417191040Z
+end
+
+test = "basic, no CRL, before NotBefore, expect fail"
+allowUnverified = true
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+verifyTime = 20060417191039Z
+error = CSSMERR_TP_CERT_NOT_VALID_YET
+# CSSM_CERT_STATUS_NOT_VALID_YET | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+certstatus = 0:0x06
+end
+
+#
+# Note root was created before leaf so we assume it will be expired at
+# the time of the leaf cert's NotAfter. 
+#
+test = "basic, no CRL, at NotAfter"
+allowUnverified = true
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+verifyTime = 20160414191040Z
+allowExpiredRoot = true
+end
+
+test = "basic, no CRL, at NotAfter plus 1, expect fail"
+allowUnverified = true
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+verifyTime = 20160414191041Z
+error = CSSMERR_TP_CERT_EXPIRED
+# CSSM_CERT_STATUS_EXPIRED | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+certstatus = 0:0x05
+end
+
+#
+# Begin CRL testing. 
+#
+test = "CRL, prior to revocation, within CRL validity"
+allowUnverified = false
+revokePolicy = crl
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+crl = crl.crl
+# One second before revocation
+verifyTime = 20060418090557Z
+end
+
+#
+# This ensures that we verify the CRL itself at 'now' instead of the 
+# cert verification time.
+#
+test = "CRL, prior to revocation, before CRL validity"
+allowUnverified = false
+revokePolicy = crl
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+crl = crl.crl
+# Leaf create/notBefore time, definitely before the CRL is valid. 
+verifyTime = 20060417191040Z
+end
+
+test = "CRL, subsequent to revocation"
+allowUnverified = false
+revokePolicy = crl
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+crl = crl.crl
+# Normal revocation case. 
+verifyTime = 20060418090559Z
+error = TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end

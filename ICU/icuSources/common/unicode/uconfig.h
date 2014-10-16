@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2002-2013, International Business Machines
+*   Copyright (C) 2002-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  uconfig.h
@@ -185,7 +185,8 @@
 #ifdef U_LIB_SUFFIX_C_NAME_STRING
     /* Use the predefined value. */
 #elif defined(U_LIB_SUFFIX_C_NAME)
-#   define U_LIB_SUFFIX_C_NAME_STRING #U_LIB_SUFFIX_C_NAME
+#   define CONVERT_TO_STRING(s) #s
+#   define U_LIB_SUFFIX_C_NAME_STRING CONVERT_TO_STRING(U_LIB_SUFFIX_C_NAME)
 #else
 #   define U_LIB_SUFFIX_C_NAME_STRING ""
 #endif
@@ -407,6 +408,16 @@
  */
 #ifndef UCONFIG_FORMAT_FASTPATHS_49
 #   define UCONFIG_FORMAT_FASTPATHS_49 1
+#endif
+
+/**
+ * \def UCONFIG_NO_FILTERED_BREAK_ITERATION
+ * This switch turns off filtered break iteration code.
+ *
+ * @internal
+ */
+#ifndef UCONFIG_NO_FILTERED_BREAK_ITERATION
+#   define UCONFIG_NO_FILTERED_BREAK_ITERATION 1
 #endif
 
 #endif

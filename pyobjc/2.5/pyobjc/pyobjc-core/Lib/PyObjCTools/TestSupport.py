@@ -78,7 +78,7 @@ def os_release():
 
     pl = _pl.readPlist('/System/Library/CoreServices/SystemVersion.plist')
     v = pl['ProductVersion']
-    return '.'.join(v.split('.')[:2])
+    return tuple(map(int, v.split('.')[:2]))
 
 def onlyOn32Bit(function):
     """
@@ -108,7 +108,7 @@ def min_os_level(release):
             def testSnowLeopardCode(self):
                 pass
     """
-    if os_release() >= release:
+    if os_release() >= tuple(map(int, release.split('.'))):
         def decorator(function):
             return function
 

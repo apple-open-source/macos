@@ -1,0 +1,26 @@
+#
+# Test some certs with ServerGatedCrypto extendedKeyUsages
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+end
+
+test = "https://dmp.luottokunta.fi/"
+cert = luottokunta_v3.100.cer
+cert = luottokunta_v3.101.cer
+sslHost = dmp.luottokunta.fi
+# specify verify time so this test will always be valid
+verifyTime = 20060601000000
+end
+
+test = "https://online.alandsbanken.fi/"
+cert = alandsbanken_v3.100.cer
+cert = alandsbanken_v3.101.cer
+sslHost = online.alandsbanken.fi
+# specify verify time so this test will always be valid
+verifyTime = 20060601000000
+end
+

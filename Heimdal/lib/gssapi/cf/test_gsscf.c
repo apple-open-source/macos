@@ -3,7 +3,7 @@
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
- * Portions Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2011 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -310,119 +310,140 @@ change_password(const char *user, const char *oldpassword, const char *newpasswo
     CFRelease(oldpw);
 }
 
+struct checkrules {
+    const char *name;
+    CFStringRef input;
+    CFStringRef result;
+};
+
+static void
+checkRulesTable(CFMutableDictionaryRef rules, struct checkrules *checks, size_t count)
+{
+    CFStringRef match;
+    size_t n;
+
+    for (n = 0 ; n < count; n++) {
+	printf("[TEST] %s\n", checks[n].name);
+
+	match = GSSRuleGetMatch(rules, checks[n].input);
+	if (match && checks[n].result == NULL) {
+	    printf("expected no result but did get some\n");
+	    printf("[FAIL] %s\n", checks[n].name);
+	} else if (match == NULL && checks[n].result) {
+	    printf("expected result but didn't get any\n");
+	    printf("[FAIL] %s\n", checks[n].name);
+	} else {
+	    printf("[PASS] %s\n", checks[n].name);
+	}
+    }
+}
+
+
 static void
 checkRules(void)
 {
     CFMutableDictionaryRef rules;
-    CFStringRef match;
-    
+
+    CFStringRef hostrule = CFSTR("hostrule");
+    CFStringRef domainrule = CFSTR("domainrule");
+    CFStringRef domainrule2 = CFSTR("domainrule2");
+    CFStringRef plainhostrule = CFSTR("plainhostrule");
+    CFStringRef plaindomainrule = CFSTR("plaindomainrule");
+    CFStringRef macrule = CFSTR("macrule");
+    CFStringRef allrule = CFSTR("allrule");
+
     rules = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (rules == NULL) {
 	printf("[FAIL] ENOMEM\n");
 	exit(1);
     }
 
-    CFStringRef hostrule = CFSTR("hostrule");
-    CFStringRef domainrule = CFSTR("domainrule");
-    CFStringRef domainrule2 = CFSTR("domainrule2");
 
+    printf("[TEST] build rules\n");
+
+    /* plain rules */
+    GSSRuleAddMatch(rules, CFSTR("plainhost.me.com"), plainhostrule);
+    GSSRuleAddMatch(rules, CFSTR(".plaindomain.me.com"), plaindomainrule);
+
+    /* url rules */
     GSSRuleAddMatch(rules, CFSTR("https://host.apple.com"), hostrule);
     GSSRuleAddMatch(rules, CFSTR("https://.apple.com"), domainrule);
     GSSRuleAddMatch(rules, CFSTR("https://host.icloud.com/"), hostrule);
     GSSRuleAddMatch(rules, CFSTR("https://.icloud.com/"), domainrule);
     GSSRuleAddMatch(rules, CFSTR("https://.icloud.com/foo/"), domainrule2);
 
-    printf("[TEST] hostrule\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://HOST.apple.com"));
-    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] hostrule\n");
-	exit(1);
-    }
-    printf("[PASS] hostrule\n");
+    /* any rule */
+    GSSRuleAddMatch(rules, CFSTR("any://.mac.com/"), macrule);
 
-    printf("[TEST] hostrule2\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host.apple.com"));
-    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] hostrule2\n");
-	exit(1);
-    }
-    printf("[PASS] hostrule2\n");
+    printf("[PASS] build rules\n");
 
-    printf("[TEST] domainrule\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host2.apple.com/"));
-    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] domainrule\n");
+    struct checkrules checks[] = {
+	{ "hostrule",		CFSTR("https://HOST.apple.com"), hostrule },
+	{ "hostrule2",		CFSTR("https://host.apple.com"), hostrule },
+	{ "domainrule",		CFSTR("https://host2.apple.com"), domainrule },
+	{ "hostrule3",		CFSTR("https://HOST.icloud.com"), hostrule },
+	{ "hostrule4",		CFSTR("https://host.icloud.com"), hostrule },
+	{ "domainrule2",	CFSTR("https://host2.icloud.com/foo"), domainrule },
+	{ "domainrule3",	CFSTR("https://host2.icloud.com/foo"), domainrule },
+	{ "domainrule4",	CFSTR("https://host2.icloud.com/bar/"), domainrule },
+	{ "no match",		CFSTR("host.h5l.org"), NULL },
+	{ "plain match",	CFSTR("http://plainhost.me.com"), plainhostrule },
+	{ "plain no match",	CFSTR("http://plainhost2.me.com"), NULL },
+	{ "plain domain match",	CFSTR("http://host.plaindomain.me.com"), plaindomainrule },
+	{ "plain domain no",	CFSTR("http://host.2plaindomain.me.com"), NULL },
+	{ "any http",		CFSTR("http://foo.mac.com/"), macrule },
+	{ "any https",		CFSTR("https://foo.mac.com/"), macrule },
+	{ "any https (bar)",	CFSTR("https://bar.mac.com/"), macrule },
+    };
+
+    checkRulesTable(rules, checks, 0 /* sizeof(checks)/sizeof(checks[0]) */);
+
+
+    CFRelease(rules);
+
+    struct checkrules checks2[] = {
+	{ "all http",		CFSTR("http://somehost.rule.com/"),		allrule },
+	{ "all http path",	CFSTR("http://somehost.rule.com/path/"),	allrule },
+	{ "all http path2",	CFSTR("http://somehost.rule.com/path"),		allrule },
+	{ "all http path2",	CFSTR("http://somehost.rule.com:8080/path"),	allrule },
+	{ "all http no /",	CFSTR("http://somehost.rule.com"),		allrule },
+	{ "all http port /",	CFSTR("http://somehost.rule.com:8080/"),	allrule },
+	{ "all http port no/",	CFSTR("http://somehost.rule.com:8080"),		allrule },
+	{ "all https",		CFSTR("http://somehost.rule.com/"),		allrule },
+	{ "all https path",	CFSTR("https://somehost.rule.com/path/"),	allrule },
+	{ "all https path2",	CFSTR("https://somehost.rule.com/path"),	allrule },
+	{ "all https path3",	CFSTR("https://somehost.rule.com:3443/path"),	allrule },
+	{ "all https port",	CFSTR("https://somehost.rule.com:3443/"),	allrule },
+	{ "all https port no/",	CFSTR("https://somehost.rule.com:3443"),	allrule },
+	{ "all https no /",	CFSTR("https://somehost.rule.com"),		allrule },
+	{ "all http .se /",	CFSTR("https://somehost.rule.se/"),		NULL },
+	{ "all http .se no /",	CFSTR("https://somehost.rule.se"),		NULL }
+    };
+
+
+    rules = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (rules == NULL) {
+	printf("[FAIL] ENOMEM\n");
 	exit(1);
     }
-    printf("[PASS] domainrule\n");
+
+    GSSRuleAddMatch(rules, CFSTR("https://.com/"), allrule);
+    GSSRuleAddMatch(rules, CFSTR("http://.com/"), allrule);
     
-    printf("[TEST] hostrule3\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://HOST.icloud.com"));
-    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] hostrule3\n");
-	exit(1);
-    }
-    printf("[PASS] hostrule3\n");
+    checkRulesTable(rules, checks2, sizeof(checks2)/sizeof(checks2[0]));
 
-    printf("[TEST] hostrule4\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host.icloud.com"));
-    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] hostrule4\n");
-	exit(1);
-    }
-    printf("[PASS] hostrule4\n");
-
-    printf("[TEST] domainrule2\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com"));
-    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] domainrule2\n");
-	exit(1);
-    }
-    printf("[PASS] domainrule2\n");
-
-    printf("[TEST] domainrule3\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/foo/"));
-    if (match == NULL || CFStringCompare(match, domainrule2, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] domainrule3\n");
-	exit(1);
-    }
-    printf("[PASS] domainrule2\n");
-
-    printf("[TEST] domainrule3\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/foo"));
-    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] domainrule3\n");
-	exit(1);
-    }
-    printf("[PASS] domainrule3\n");
-
-    printf("[TEST] domainrule4\n");
-    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/bar/"));
-    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
-	printf("[FAIL] domainrule4\n");
-	exit(1);
-    }
-    printf("[PASS] domainrule4\n");
-
-
-    printf("[TEST] no match\n");
-    match = GSSRuleGetMatch(rules, CFSTR("host.h5l.org"));
-    if (match != NULL) {
-	printf("[FAIL] no match");
-	exit(1);
-    }
-    printf("[PASS] no match\n");
-	
     CFRelease(rules);
 }
 
 int
 main(int argc, char **argv)
 {
-    if (argc > 3)
+
+    if (argc > 3) {
 	change_password(argv[1], argv[2], argv[3]);
-    else {
+    } else if (argc == 2 && strcmp(argv[1], "gssitem") == 0) {
 	run_tests();
+    } else {
 	checkRules();
     }
 

@@ -598,8 +598,9 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
 	dataPtr = CFDataGetBytePtr(value);
 	for (cnt = cnt2 = 0; cnt < length; cnt++) {
 	  dataChar = dataPtr[cnt];
-	  if (isprint(dataChar)) dataBuffer[cnt2++] = dataChar;
-	  else {
+	  if (isprint(dataChar) && dataChar != '%') {
+	    dataBuffer[cnt2++] = dataChar;
+	  } else {
 	    sprintf(dataBuffer + cnt2, "%%%02x", dataChar);
 	    cnt2 += 3;
 	  }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,10 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebLocalizableStrings.h>
+#import <WebKitLegacy/WebLocalizableStrings.h>
 
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
+
+#if PLATFORM(IOS)
+#import "WebLocalizableStringsInternal.h"
+#import <dispatch/dispatch.h>
+#endif
 
 WebLocalizableStringsBundle WebKitLocalizableStringsBundle = { "com.apple.WebKit", 0 };
 
@@ -39,7 +44,9 @@ NSString *WebLocalizedString(WebLocalizableStringsBundle *stringsBundle, const c
     // and its use of [NSBundle localizedStringForKey:::], which is not guaranteed to be thread-safe. If
     // we decide we need to use this on background threads, we'll need to add locking here and make sure
     // it doesn't affect performance.
+#if !PLATFORM(IOS)
     ASSERT(isMainThread());
+#endif
 
     NSBundle *bundle;
     if (stringsBundle == NULL) {
@@ -65,3 +72,20 @@ NSString *WebLocalizedString(WebLocalizableStringsBundle *stringsBundle, const c
     ASSERT_WITH_MESSAGE(result != notFound, "could not find localizable string %s in bundle", key);
     return result;
 }
+
+#if PLATFORM(IOS)
+// See <rdar://problem/7902473> Optimize WebLocalizedString for why we do this on a background thread on a timer callback
+static void LoadWebLocalizedStringsTimerCallback(CFRunLoopTimerRef timer, void *info)
+{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{ 
+        UI_STRING_KEY_INTERNAL("Typing", "Typing (Undo action name)", "We don't care if we find this string, but searching for it will load the plist and save the results.");
+    });
+}
+
+void LoadWebLocalizedStrings(void)
+{
+    CFRunLoopTimerRef timer = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent(), 0, 0, 0, &LoadWebLocalizedStringsTimerCallback, NULL);
+    CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopCommonModes);
+    CFRelease(timer);
+}
+#endif

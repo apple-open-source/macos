@@ -237,7 +237,7 @@ nestedgroup_getgroup(Operation *op, adpair *ap, int *isMember )
 	}
 	op->o_bd = be;
 	
-	Debug(LDAP_DEBUG_ANY, "=> nestedgroup_getgroup result (%ld)\n", rc, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "=> nestedgroup_getgroup result (%ld)\n", rc, 0, 0);
 	
 
 cleanup:

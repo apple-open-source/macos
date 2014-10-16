@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,6 +57,7 @@
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
 #include <netsmb/smb_sleephandler.h>
+#include <netsmb/smb_rq.h>
 
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
@@ -654,6 +655,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	vnode_t vp;
 	int error;
     uint32_t stream_flags = 0;
+
+    SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_START, 0, 0, 0, 0, 0);
     
 	if (data == USER_ADDR_NULL) {
 		SMBDEBUG("missing data argument\n");
@@ -725,7 +728,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 
 	lck_rw_init(&smp->sm_rw_sharelock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_mtx_init(&smp->sm_statfslock, smbfs_mutex_group, smbfs_lock_attr);		
-	lck_mtx_init(&smp->sm_reclaim_renamelock, smbfs_mutex_group, smbfs_lock_attr);
+	lck_mtx_init(&smp->sm_reclaim_lock, smbfs_mutex_group, smbfs_lock_attr);
     lck_mtx_init(&smp->sm_svrmsg_lock, smbfs_mutex_group, smbfs_lock_attr);
 
 	lck_rw_lock_exclusive(&smp->sm_rw_sharelock);
@@ -759,6 +762,23 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		smbfs_create_start_path(smp, args, SMB_UNICODE_STRINGS(SSTOVC(share)));
 	}
     
+    /*
+     * Validate the negotiate if SMB 2/3. smb2fs_smb_validate_neg_info will
+     * check for whether the session needs to be validated or not.
+     */
+    if (!(smp->sm_args.altflags & SMBFS_MNT_VALIDATE_NEG_OFF)) {
+        if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+            error = smb2fs_smb_validate_neg_info(share, context);
+            if (error) {
+                SMBERROR("smb2fs_smb_validate_neg_info failed %d \n", error);
+                goto bad;
+            }
+        }
+    }
+    else {
+        SMBWARNING("Validate Negotiate is off in preferences\n");
+    }
+    
 	/*
 	 * This call should be done from mount() in vfs layer. Not sure why each 
 	 * file system has to do it here, but go ahead and make an internal call to 
@@ -791,7 +811,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	vfs_getnewfsid(mp);
 	
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        /* Only SMB 2.x uses File IDs or AAPL create context */
+        /* Only SMB 2/3 uses File IDs or AAPL create context */
         if (smp->sm_args.altflags & SMBFS_MNT_FILE_IDS_OFF) {
             /* Turn off File IDs */
             SMBWARNING("File IDs has been turned off for %s volume\n",
@@ -889,6 +909,13 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         if (share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) {
             smp->sm_flags |= MNT_SUPPORTS_REPARSE_SYMLINKS;
         }
+        
+        if (!(SSTOVC(share)->vc_misc_flags & SMBV_HAS_COPYCHUNK)) {
+            /* Check for CopyChunk support */
+            if (!smb2fs_smb_cmpd_check_copyfile(share, VTOSMB(vp), context)) {
+                SSTOVC(share)->vc_misc_flags |= SMBV_HAS_COPYCHUNK;
+            }
+        }
     }
     else {
         if ((share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) &&
@@ -924,7 +951,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
         /*
-         * SMB 1.x Only
+         * SMB 1 Only
          *
          * We now default to have named streams on if the server supports named
          * streams. The user can turn off named streams by creating a file on 
@@ -934,11 +961,12 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
          * turn off streams.
          */
         if (share->ss_attributes & FILE_NAMED_STREAMS) {
-            if (smbfs_smb_query_info(share, VTOSMB(vp), SMB_STREAMS_OFF,
-                                     sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0) {
+            if (smbfs_smb_query_info(share, VTOSMB(vp), VREG,
+                                     SMB_STREAMS_OFF, sizeof(SMB_STREAMS_OFF) - 1,
+                                     NULL, context) == 0) {
                 share->ss_attributes &= ~FILE_NAMED_STREAMS;
             } else if (! UNIX_SERVER(SSTOVC(share)) &&
-                       (smbfs_smb_qstreaminfo(share, VTOSMB(vp),
+                       (smbfs_smb_qstreaminfo(share, VTOSMB(vp), VDIR,
                                               NULL, 0,
                                               SFM_DESKTOP_NAME,
                                               NULL, NULL,
@@ -1061,7 +1089,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     if ((SSTOVC(share)->vc_flags & SMBV_SMB2) &&
         (SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER)) {
         
-        /* Mac OS X SMB2 server */
+        /* Mac OS X SMB 2/3 server */
         share->ss_fstype = SMB_FS_MAC_OS_X;
         
         /* Enable server message notification */
@@ -1069,6 +1097,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     }
     
 	mount_cnt++;
+    
+    SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_END, 0, 0, 0, 0, 0);
 	return (0);
 bad:
 	if (share) {
@@ -1086,7 +1116,7 @@ bad:
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
-		lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
+		lck_mtx_destroy(&smp->sm_reclaim_lock, smbfs_mutex_group);
 		lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
         lck_mtx_destroy(&smp->sm_svrmsg_lock, smbfs_mutex_group);
 		SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
@@ -1097,6 +1127,8 @@ bad:
 		SMB_FREE(smp, M_SMBFSDATA);
 	}
 	SMB_FREE(args, M_SMBFSDATA); /* Done with the args free them */		
+
+    SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
 
@@ -1107,7 +1139,9 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	struct smbmount *smp = VFSTOSMBFS(mp);
     struct smb_share *share = smp->sm_share;
 	vnode_t vp;
-	int error;
+	int error = 0;
+
+    SMB_LOG_KTRACE(SMB_DBG_UNMOUNT | DBG_FUNC_START, mntflags, 0, 0, 0, 0);
 
 	SMBVDEBUG("smbfs_unmount: flags=%04x\n", mntflags);
 
@@ -1117,19 +1151,23 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	}
 
 	error = smbfs_root(mp, &vp, context);
-	if (error)
-		return (error);
+	if (error) {
+		goto done;
+    }
 
 	error = vflush(mp, vp, (mntflags & MNT_FORCE) ? FORCECLOSE : 0);
 	if (error) {
 		vnode_put(vp);
-		return (error);
+		goto done;
 	}
+    
 	if (vnode_isinuse(vp, 1)  && !(mntflags & MNT_FORCE)) {
 		SMBDEBUG("smbfs_unmount: usecnt\n");
 		vnode_put(vp);
-		return (EBUSY);
+        error = EBUSY;
+		goto done;
 	}
+    
 	smp->sm_rvp = NULL;	/* We no longer have a reference so clear it out */
 	vnode_rele(vp);	/* to drop ref taken by smbfs_mount */
 	vnode_put(vp);	/* to drop ref taken by VFS_ROOT above */
@@ -1151,7 +1189,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	if (SSTOVC(share)->throttle_info)
 		throttle_info_mount_rel(mp);
 	
-    /* Make sure SMB 2.x fid table is empty */
+    /* Make sure SMB 2/3 fid table is empty */
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
         smb_fid_delete_all(share);
     }
@@ -1174,7 +1212,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 
 	lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
-	lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
+	lck_mtx_destroy(&smp->sm_reclaim_lock, smbfs_mutex_group);
     lck_mtx_destroy(&smp->sm_svrmsg_lock, smbfs_mutex_group);
 	lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
     
@@ -1199,7 +1237,12 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
     
 	vfs_clearflags(mp, MNT_LOCAL);
 	mount_cnt--;
-	return (0);
+    
+    error = 0;
+    
+done:
+    SMB_LOG_KTRACE(SMB_DBG_UNMOUNT | DBG_FUNC_END, error, 0, 0, 0, 0);
+	return (error);
 }
 
 /* 
@@ -1212,17 +1255,21 @@ smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 	struct smb_share *share = NULL;
 	vnode_t vp;
 	struct smbfattr fattr;
-	int error;
+	int error = 0;
+
+    SMB_LOG_KTRACE(SMB_DBG_ROOT | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
 	if (smp == NULL) {
 		SMBERROR("smp == NULL (bug in umount)\n");
-		return (EINVAL);
+        error = EINVAL;
+        goto done;
 	}
 	
 	if (smp->sm_rvp) {
 		/* just get the saved root vnode as its much faster */
 		*vpp = smp->sm_rvp;
-		return (vnode_get(*vpp));
+		error = vnode_get(*vpp);
+        goto done;
 	}
 	
 	/* Fill in the default values that we already know about the root vnode */
@@ -1257,10 +1304,11 @@ smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
                        0, SMBFS_NGET_CREATE_VNODE,
                        context);
 	smb_share_rele(share, context);
-	if (error)
-		return (error);
+	if (error) {
+        goto done;
+    }
 
-	/* 
+	/*
 	 * Since root vnode has an exclusive lock, I know only one process can be 
 	 * here at this time.  Check once more while I still have the lock that 
 	 * sm_rvp is still NULL before taking a ref and saving it. 
@@ -1278,7 +1326,7 @@ smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 			SMBERROR("vnode_ref on rootvp failed error %d\n", error);
 			smp->sm_rvp = NULL;
 			vnode_put(vp);
-			return(error);
+            goto done;
 		}
 	} else {
 		/* 
@@ -1289,7 +1337,11 @@ smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 	}
 
 	*vpp = vp;
-	return (0);
+    error = 0;
+
+done:
+    SMB_LOG_KTRACE(SMB_DBG_ROOT | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return (error);
 }
 
 /*
@@ -1331,10 +1383,14 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 	int error = 0;
     struct smb_vc *vcp = NULL;
 
-	if ((smp->sm_rvp == NULL) || (VTOSMB(smp->sm_rvp) == NULL))
-		return (EINVAL);
+    SMB_LOG_KTRACE(SMB_DBG_VFS_GETATTR | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
+	if ((smp->sm_rvp == NULL) || (VTOSMB(smp->sm_rvp) == NULL)) {
+		error = EINVAL;
+        goto done;
+    }
 	
-	share = smb_get_share_with_reference(smp);	
+	share = smb_get_share_with_reference(smp);
     vcp = SSTOVC(share);
 
 	lck_mtx_lock(&smp->sm_statfslock);
@@ -1359,7 +1415,8 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 				lck_mtx_lock(&smp->sm_statfslock);
 				smp->sm_statfsbuf = cachedstatfs;
 				lck_mtx_unlock(&smp->sm_statfslock);
-			} else {
+			}
+            else {
 				error = 0;
 			}
 		}
@@ -1418,11 +1475,16 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
             VOL_CAP_FMT_64BIT_OBJECT_IDS | 
 			0;
 		
-		/* Only say we support large files if the server supports it */
-		if (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES)
+		/* 
+         * Only say we support large files if the server supports it.
+         * FAT shares can not handle large files either.
+         */
+		if ((VC_CAPS(vcp) & SMB_CAP_LARGE_FILES) &&
+            (share->ss_fstype != SMB_FS_FAT)) {
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_2TB_FILESIZE;
-			
-		/* Must be FAT so don't trust the modify times */
+        }
+
+        /* Must be FAT so don't trust the modify times */
 		if (share->ss_fstype == SMB_FS_FAT)
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_NO_ROOT_TIMES;
 			
@@ -1464,13 +1526,34 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			VOL_CAP_INT_MANLOCK |
 			0;
 		
-        if (!(smp->sm_args.altflags & SMBFS_MNT_READDIRATTR_OFF)) {
+        /*
+         * If its a FAT filesystem, then named streams are not supported.
+         * If named streams are not supported, then the attribute enumeration
+         * calls wont work as we can not Max Access or Resource Fork info.
+         * Thus named streams and non FAT is required for the attribute 
+         * enumeration calls.
+         */
+        if ((share->ss_fstype != SMB_FS_FAT) &&
+            (share->ss_attributes & FILE_NAMED_STREAMS) &&
+            !(smp->sm_args.altflags & SMBFS_MNT_READDIRATTR_OFF)) {
             /* vnop_readdirattr allowed */
             cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_READDIRATTR;
         }
         else {
-            SMBWARNING("readdirattr has been turned off for %s volume\n",
-                       (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
+            if (share->ss_fstype == SMB_FS_FAT) {
+                SMBWARNING("FAT filesystem so smbfs_vnop_readdirattr is disabled for %s volume\n",
+                           (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            }
+            
+            if (!(share->ss_attributes & FILE_NAMED_STREAMS)) {
+                SMBWARNING("No named streams so smbfs_vnop_readdirattr is disabled for %s volume\n",
+                           (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            }
+            
+            if (smp->sm_args.altflags & SMBFS_MNT_READDIRATTR_OFF) {
+                SMBWARNING("smbfs_vnop_readdirattr has been turned off for %s volume\n",
+                           (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            }
         }
         
         if (UNIX_CAPS(share) & CIFS_UNIX_FCNTL_LOCKS_CAP)
@@ -1486,7 +1569,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
         else {
             if (!(vcp->vc_flags & SMBV_SMB2) &&
                 (vcp->vc_maxmux < SMB_NOTIFY_MIN_MUX)) {
-                /* SMB 1.x */
+                /* SMB 1 */
                 SMBWARNING("Notifications are not support on %s volume\n",
                            (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
             }
@@ -1496,11 +1579,11 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
         }
         
         /*
-         * We only turn on VOL_CAP_INT_COPYFILE if it's an SMB2 connection
-         * AND OS X Server
+         * We only turn on VOL_CAP_INT_COPYFILE if it's an SMB 2/3 connection
+         * AND we know it supports FSCTL_SRV_COPY_CHUNK IOCTL.
          */
 		if ((SSTOVC(share)->vc_flags & SMBV_SMB2) &&
-            (SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER)) {
+            (SSTOVC(share)->vc_misc_flags & SMBV_HAS_COPYCHUNK)) {
             cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_COPYFILE;
         }
         
@@ -1735,7 +1818,10 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 	/* We never set f_carbon_fsid, see <rdar://problem/4470282> depricated */
 
 	smb_share_rele(share, context);
-	return (error);
+
+done:
+    SMB_LOG_KTRACE(SMB_DBG_VFS_GETATTR | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return (error);
 }
 
 struct smbfs_sync_cargs {
@@ -1754,6 +1840,7 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	struct smb_share *share = NULL;
 	struct timespec	ts;
     struct timespec waittime;
+    int dirty = 0;
     
 	cargs = (struct smbfs_sync_cargs *)args;
 
@@ -1773,16 +1860,6 @@ smbfs_sync_callback(vnode_t vp, void *args)
 		goto done;
 	}
 
-	/* 
-	 * We need to clear the ACL cache. We only want to hold on to it for a very 
-	 * short period, so any chance we get remove the cache. ACL cache data can 
-	 * get very large so only hold on to it for a short period of time. Don't 
-	 * clear negative acl cache it doesn't cost much, so its ok to hold on to 
-	 * for longer periods of time.
-	 */
-	if ((np->acl_error == 0) && (!vnode_isnamedstream(vp)))
-		smbfs_clear_acl_cache(np);
-
 	if (vnode_isreg(vp)) {
 		/* 
 		 * See if the file needs to be reopened. Ignore the error if being 
@@ -1793,7 +1870,9 @@ smbfs_sync_callback(vnode_t vp, void *args)
 		lck_mtx_lock(&np->f_openStateLock);
 		if (np->f_openState & kNeedRevoke) {
 			lck_mtx_unlock(&np->f_openStateLock);
-			SMBWARNING("revoking %s\n", np->n_name);
+            
+			SMBWARNING_LOCK(np, "revoking %s\n", np->n_name);
+            
 			smbnode_unlock(np);
 			np = NULL; /* Already unlocked */
 			vn_revoke(vp, REVOKEALL, cargs->context);
@@ -1805,24 +1884,37 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	 * We have dirty data or we have a set eof pending in either case
 	 * deal with it in smbfs_fsync.
 	 */
-	if (vnode_hasdirtyblks(vp) || 
-		(vnode_isreg(vp) && (np->n_flag & (NNEEDS_EOF_SET | NNEEDS_FLUSH)))) {
+    dirty = vnode_hasdirtyblks(vp);
+	if (dirty ||
+        (vnode_isreg(vp) && (np->n_flag & (NNEEDS_EOF_SET | NNEEDS_FLUSH)))) {
         
-        /* 
-         * Only send flush to server if its been longer than 30 secs since when
-         * the last write was done. A flush can take a while and thus it can
-         * hammer performance if you are doing a flush in the middle of a long
-         * set of writes.
-         */
-        nanouptime(&ts);
-        waittime.tv_sec = SMB_FSYNC_TIMO;
-        waittime.tv_nsec = 0;
-        timespecsub(&ts, &waittime);
+        if (!(dirty) &&
+            !(np->n_flag & NNEEDS_EOF_SET) &&
+            (SSTOVC(share)->vc_server_caps & kAAPL_UNIX_BASED)) {
+            /* 
+             * If its only needs a flush and the server is unix based, skip
+             * doing this flush because the server OS is already doing a sync
+             * with flush every 30 seconds or so.
+             */
+            np->n_flag &= ~NNEEDS_FLUSH;
+        }
+        else {
+            /*
+             * Only send flush to server if its been longer than 30 secs since when
+             * the last write was done. A flush can take a while and thus it can
+             * hammer performance if you are doing a flush in the middle of a long
+             * set of writes.
+             */
+            nanouptime(&ts);
+            waittime.tv_sec = SMB_FSYNC_TIMO;
+            waittime.tv_nsec = 0;
+            timespecsub(&ts, &waittime);
 
-        if (timespeccmp(&ts, &np->n_last_write_time, >)) {
-            error = smbfs_fsync(share, vp, cargs->waitfor, 0, cargs->context);
-            if (error)
-                cargs->error = error;
+            if (timespeccmp(&ts, &np->n_last_write_time, >)) {
+                error = smbfs_fsync(share, vp, cargs->waitfor, 0, cargs->context);
+                if (error)
+                    cargs->error = error;
+            }
         }
 	}
 	
@@ -1852,6 +1944,7 @@ done:
 	if (share) {
 		smb_share_rele(share, cargs->context);
 	}
+
 	return (VNODE_RETURNED);
 }
 
@@ -1863,6 +1956,8 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 {
 	struct smbfs_sync_cargs args;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SYNC | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
 	args.context = context;
 	args.waitfor = waitfor;
 	args.error = 0;
@@ -1875,6 +1970,7 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 	 */
 	vnode_iterate(mp, VNODE_ITERATE_ACTIVE, smbfs_sync_callback, (void *)&args);
 
+    SMB_LOG_KTRACE(SMB_DBG_SYNC | DBG_FUNC_END, args.error, 0, 0, 0, 0);
 	return (args.error);
 }
 
@@ -1897,9 +1993,12 @@ smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
     vnode_t root_vp = NULL;
     struct smbnode *root_np = NULL;
 
+    SMB_LOG_KTRACE(SMB_DBG_VGET | DBG_FUNC_START, ino, 0, 0, 0, 0);
+
     if (smp == NULL) {
         SMBERROR("smp == NULL\n");
-        return (EINVAL);
+        error = EINVAL;
+        goto done;
     }
 
     SMB_MALLOC(path,
@@ -2061,6 +2160,7 @@ done:
         smb_share_rele(share, context);
     }
     
+    SMB_LOG_KTRACE(SMB_DBG_VGET | DBG_FUNC_END, error, 0, 0, 0, 0);
     return (error);
 }
 
@@ -2091,7 +2191,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 	     user_addr_t newp, size_t newlen, vfs_context_t context)
 {
 #pragma unused(oldlenp, newp, newlen)
-	int error;
+	int error = 0;
 	struct sysctl_req *req;
 	struct mount *mp = NULL;
 	struct smbmount *smp = NULL;
@@ -2099,13 +2199,23 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 	int32_t dev = 0;
 	struct smb_remount_info info;
 	struct smb_share *share;
-    struct vfs_server v_server;
+	struct vfs_server v_server;
+	uint count;
+	uint totlen;
+	uint numThreads;
+	struct netfs_status *nsp = NULL;
+	struct smb_vc *vcp = NULL;
+	struct smb_rq *rqp, *trqp;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SYSCTL | DBG_FUNC_START, name[0], 0, 0, 0, 0);
+
 	/*
 	 * All names at this level are terminal.
 	 */
-	if (namelen > 1)
-		return (ENOTDIR);	/* overloaded */
+	if (namelen > 1) {
+		error = ENOTDIR;	/* overloaded */
+        goto done;
+    }
 
 	switch (name[0]) {
 		case VFS_CTL_STATFS:
@@ -2114,7 +2224,8 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 		case VFS_CTL_TIMEO:
 		case VFS_CTL_NOLOCKS:
 			/* Force the VFS layer to handle these */
-			return ENOTSUP;
+			error = ENOTSUP;
+            goto done;
 			break;
 		case SMBFS_SYSCTL_GET_SERVER_SHARE:
 		case SMBFS_SYSCTL_REMOUNT_INFO:
@@ -2123,6 +2234,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 		case VFS_CTL_SADDR:
         case VFS_CTL_DISC:
         case VFS_CTL_SERVERINFO:
+        case VFS_CTL_NSTATUS:
 		{
 			boolean_t is_64_bit = vfs_context_is64bit(context);
 			union union_vfsidctl vc;
@@ -2222,6 +2334,10 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
                     vq.vq_flags |= VQ_SERVEREVENT;
                 }
 			}
+            
+            SMB_LOG_KTRACE(SMB_DBG_SYSCTL | DBG_FUNC_NONE,
+                           0xabc001, vq.vq_flags, 0, 0, 0);
+            
 			SMBDEBUG("vq.vq_flags = 0x%x\n", vq.vq_flags);
 			error = SYSCTL_OUT(req, &vq, sizeof(vq));
 			break;
@@ -2285,9 +2401,13 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
                     
                     error = smbfs_IObusy(smp);
                     SMBDEBUG("VFS_CTL_DISC - smbfs_IObusy returned %d\n", error);
-                   
-                    lck_mtx_unlock(&share->ss_shlock);	
+
+                    lck_mtx_unlock(&share->ss_shlock);
                 }
+                
+                SMB_LOG_KTRACE(SMB_DBG_SYSCTL | DBG_FUNC_NONE,
+                               0xabc002, error, 0, 0, 0);
+                
                 if (error != EBUSY) {
                     SMBDEBUG("VFS_CTL_DISC unmounting\n");
                     /* ok to immediately be unmounted */
@@ -2334,14 +2454,107 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
             break;
         }
             
+        case VFS_CTL_NSTATUS:
+            /* grab a reference until we're done with the share */
+            share  = smb_get_share_with_reference(smp);
+            
+            /* Get access to the vc underneath */
+            vcp = SSTOVC(share);
+            
+            /* Round up the threads */
+            numThreads = 0;
+            SMB_IOD_RQLOCK(vcp->vc_iod);
+            TAILQ_FOREACH_SAFE(rqp, &(vcp->vc_iod)->iod_rqlist, sr_link, trqp) {
+                /* Only count threads for this share and
+                 * they're not internal or async threads */
+                if  ((rqp->sr_share == share) &&
+                     !(rqp->sr_flags & (SMBR_ASYNC | SMBR_INTERNAL))) {
+                    numThreads++;
+                }
+            }
+            SMB_IOD_RQUNLOCK(vcp->vc_iod);
+            
+            /* Calculate total size of result buffer */
+            totlen = sizeof(struct netfs_status) + (numThreads * sizeof(uint64_t));
+            
+            if (req->oldptr == USER_ADDR_NULL) { // Caller is querying buffer size
+                smb_share_rele(share, context);
+                return SYSCTL_OUT(req, NULL, totlen);
+            }
+            
+            MALLOC(nsp, struct netfs_status *, totlen, M_TEMP, M_WAITOK|M_ZERO);
+            if (nsp == NULL) {
+                smb_share_rele(share, context);
+                return ENOMEM;
+            }
+            
+            if (smp->sm_status & SM_STATUS_DOWN) {
+                nsp->ns_status |= VQ_NOTRESP;
+            }
+            if (smp->sm_status & SM_STATUS_DEAD) {
+                nsp->ns_status |= VQ_DEAD;
+            }
+            
+            /* Return some significant mount options as a string
+             * e.g. "rw,soft,vers=0x0302,sec=kerberos,timeout=20 */
+            snprintf(nsp->ns_mountopts, sizeof(nsp->ns_mountopts),
+                     "%s,%s,vers=0x%X,sec=%s,timeout=%d",
+                     (vfs_flags(mp) & MNT_RDONLY) ? "ro" : "rw",
+                     (smp->sm_args.altflags & SMBFS_MNT_SOFT) ? "soft" : "hard",
+                     vcp->vc_sopt.sv_dialect ? vcp->vc_sopt.sv_dialect : 0x01,
+                     (vcp->vc_flags & SMBV_GUEST_ACCESS)        ? "guest" :
+                     (vcp->vc_flags & SMBV_PRIV_GUEST_ACCESS)   ? "privguest" :
+                     (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS)    ? "anonymous" :
+                     (vcp->vc_flags & SMBV_KERBEROS_ACCESS)     ? "kerberos" :
+                     (vcp->vc_sopt.sv_caps & SMB_CAP_EXT_SECURITY)       ? "gss" : "unknown",
+                     (smp->sm_args.altflags & SMBFS_MNT_SOFT) ? share->ss_soft_timer : (share->ss_dead_timer + vcp->vc_resp_wait_timeout));
+            
+            nsp->ns_threadcount = numThreads;
+            
+            /* 
+             * Get the thread ids of threads waiting for a reply
+             * and find the longest wait time.
+             */
+            if (numThreads > 0) {
+                struct timespec now;
+                time_t sendtime;
+                
+                nanouptime(&now);
+                count = 0;
+                sendtime = now.tv_sec;
+                SMB_IOD_RQLOCK(vcp->vc_iod);
+                TAILQ_FOREACH_SAFE(rqp, &(vcp->vc_iod)->iod_rqlist, sr_link, trqp) {
+                    /* Only count threads for this share if they're not internal threads */
+                    if  ((rqp->sr_share == share) &&
+                         !(rqp->sr_flags & (SMBR_ASYNC | SMBR_INTERNAL))) {
+                        if ((rqp->sr_state & ~SMBRQ_NOTSENT) && rqp->sr_timesent.tv_sec < sendtime) {
+                            sendtime = rqp->sr_timesent.tv_sec;
+                        }
+                        nsp->ns_threadids[count] = rqp->sr_threadId;
+                        if (++count >= numThreads)
+                            break;
+                    }
+                }
+                nsp->ns_waittime = (uint32_t)(now.tv_sec - sendtime);
+                SMB_IOD_RQUNLOCK(vcp->vc_iod);
+            }
+            
+            smb_share_rele(share, context);
+            
+            error = SYSCTL_OUT(req, nsp, totlen);
+            break;
+            
 	    default:
 			error = ENOTSUP;
 			break;
 	}
+    
 done:
 	if (error) {
 		SMBWARNING("name[0] = %d error = %d\n", name[0], error);
 	}
+    
+    SMB_LOG_KTRACE(SMB_DBG_SYSCTL | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
 

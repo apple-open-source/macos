@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2006 Apple Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,6 +24,7 @@
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
+typedef int ExceptionCode;
 
 class Document;
 
@@ -31,7 +32,7 @@ class DOMParser : public RefCounted<DOMParser> {
 public:
     static PassRefPtr<DOMParser> create() { return adoptRef(new DOMParser); }
 
-    PassRefPtr<Document> parseFromString(const String&, const String& contentType);
+    PassRefPtr<Document> parseFromString(const String&, const String& contentType, ExceptionCode&);
 
 private:
     DOMParser() { }

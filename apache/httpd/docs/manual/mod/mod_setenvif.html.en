@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Modules</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache Module mod_setenvif</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_setenvif.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_setenvif.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_setenvif.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_setenvif.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_setenvif.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
@@ -49,21 +50,32 @@ on characteristics of the request</td></tr>
     such as this example, which sets <code>netscape</code> if the
     browser is mozilla but not MSIE.</p>
 
-<div class="example"><p><code>
-  BrowserMatch ^Mozilla netscape<br />
-  BrowserMatch MSIE !netscape<br />
-</code></p></div>
+<pre class="prettyprint lang-config">BrowserMatch ^Mozilla netscape
+BrowserMatch MSIE !netscape</pre>
+
+
+   <p>When the server looks up a path via an internal 
+   <a class="glossarylink" href="../glossary.html#subrequest" title="see glossary">subrequest</a> such as looking 
+   for a <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code> 
+   or generating a directory listing with <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code>,
+   per-request environment variables are <em>not</em> inherited in the 
+   subrequest. Additionally, 
+   <code class="directive"><a href="#setenvif">SetEnvIf</a></code> directives
+   are not separately evaluated in the subrequest due to the API phases
+   <code class="module"><a href="../mod/mod_setenvif.html">mod_setenvif</a></code> takes action in.</p>
+
 </div>
 <div id="quickview"><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#browsermatch">BrowserMatch</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#browsermatchnocase">BrowserMatchNoCase</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#setenvif">SetEnvIf</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#setenvifexpr">SetEnvIfExpr</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#setenvifnocase">SetEnvIfNoCase</a></li>
 </ul>
 <h3>See also</h3>
 <ul class="seealso">
-<li><a href="../env.html">Environment Variables in Apache</a></li>
+<li><a href="../env.html">Environment Variables in Apache HTTP Server</a></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -83,17 +95,15 @@ on characteristics of the request</td></tr>
   sets environment variables conditional on the
   <code>User-Agent</code> HTTP request header.  The following two
   lines have the same effect:</p>
-<div class="example"><p><code>
-   BrowserMatchNoCase Robot is_a_robot<br /> 
-   SetEnvIfNoCase User-Agent Robot is_a_robot<br /> 
-</code></p></div>
+<pre class="prettyprint lang-config">BrowserMatchNoCase Robot is_a_robot
+SetEnvIfNoCase User-Agent Robot is_a_robot</pre>
+
 
     <p>Some additional examples:</p>
-<div class="example"><p><code>
-    BrowserMatch ^Mozilla forms jpeg=yes browser=netscape<br />
-    BrowserMatch "^Mozilla/[2-3]" tables agif frames javascript<br />
-    BrowserMatch MSIE !javascript<br />
-</code></p></div>
+<pre class="prettyprint lang-config">BrowserMatch ^Mozilla forms jpeg=yes browser=netscape
+BrowserMatch "^Mozilla/[2-3]" tables agif frames javascript
+BrowserMatch MSIE !javascript</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -113,19 +123,17 @@ respect to case</td></tr>
     semantically identical to the <code class="directive"><a href="#browsermatch">BrowserMatch</a></code> directive.
     However, it provides for case-insensitive matching. For
     example:</p>
-<div class="example"><p><code>
-    BrowserMatchNoCase mac platform=macintosh<br />
-    BrowserMatchNoCase win platform=windows<br />
-</code></p></div>
+<pre class="prettyprint lang-config">BrowserMatchNoCase mac platform=macintosh
+BrowserMatchNoCase win platform=windows</pre>
+
 
     <p>The <code class="directive">BrowserMatch</code> and
     <code class="directive">BrowserMatchNoCase</code> directives are special cases of
     the <code class="directive"><a href="#setenvif">SetEnvIf</a></code> and <code class="directive"><a href="#setenvifnocase">SetEnvIfNoCase</a></code>
     directives. The following two lines have the same effect:</p>
-<div class="example"><p><code>
-   BrowserMatchNoCase Robot is_a_robot<br />
-   SetEnvIfNoCase User-Agent Robot is_a_robot<br />
-</code></p></div>
+<pre class="prettyprint lang-config">BrowserMatchNoCase Robot is_a_robot
+SetEnvIfNoCase User-Agent Robot is_a_robot</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -143,13 +151,13 @@ respect to case</td></tr>
 </table>
     <p>The <code class="directive">SetEnvIf</code> directive defines
     environment variables based on attributes of the request. The
-    <em>attribute</em> specified in the first argument can be one of three
+    <em>attribute</em> specified in the first argument can be one of four
     things:</p>
 
 <ol>
 <li>An HTTP request header field (see <a href="http://www.rfc-editor.org/rfc/rfc2616.txt">RFC2616</a>
     for more information about these); for example: <code>Host</code>,
-    <code>User-Agent</code>, <code>Referer</code>, and 
+    <code>User-Agent</code>, <code>Referer</code>, and
     <code>Accept-Language</code>.  A regular expression may be
     used to specify a set of request headers.</li>
 
@@ -192,6 +200,7 @@ this manner. 'Earlier' means that they were defined at a broader scope
 Environment variables will be considered only if there was no match
 among request characteristics and a regular expression was not
 used for the <em>attribute</em>.</li>
+
 </ol>
 
 <p>The second argument (<em>regex</em>) is a <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular expression</a>.  If the <em>regex</em>
@@ -213,23 +222,21 @@ of</p>
     <p>In the first form, the value will be set to "1". The second
     will remove the given variable if already defined, and the
     third will set the variable to the literal value given by
-    <code><em>value</em></code>. Since version 2.0.51 Apache will
+    <code><em>value</em></code>. Since version 2.0.51, Apache httpd will
     recognize occurrences of <code>$1</code>..<code>$9</code> within
     <var>value</var> and replace them by parenthesized subexpressions
     of <var>regex</var>.</p>
 
-<div class="example"><h3>Example:</h3><p><code>
+<pre class="prettyprint lang-config">SetEnvIf Request_URI "\.gif$" object_is_image=gif
+SetEnvIf Request_URI "\.jpg$" object_is_image=jpg
+SetEnvIf Request_URI "\.xbm$" object_is_image=xbm
+    
+SetEnvIf Referer www\.mydomain\.example\.com intra_site_referral
+    
+SetEnvIf object_is_image xbm XBIT_PROCESSING=1
+    
+SetEnvIf ^TS  ^[a-z]  HAVE_TS</pre>
 
-   SetEnvIf Request_URI "\.gif$" object_is_image=gif<br />
-   SetEnvIf Request_URI "\.jpg$" object_is_image=jpg<br />
-   SetEnvIf Request_URI "\.xbm$" object_is_image=xbm<br />
-        :<br />
-   SetEnvIf Referer www\.mydomain\.example\.com intra_site_referral<br />
-        :<br />
-   SetEnvIf object_is_image xbm XBIT_PROCESSING=1<br />
-        :<br />
-   SetEnvIf ^TS*  ^[a-z].*  HAVE_TS<br />
-</code></p></div>
 
     <p>The first three will set the environment variable
     <code>object_is_image</code> if the request was for an image
@@ -244,9 +251,47 @@ of</p>
 
 <h3>See also</h3>
 <ul>
-<li><a href="../env.html">Environment Variables in Apache</a>,
+<li><a href="../env.html">Environment Variables in Apache HTTP Server</a>,
 for additional examples.
 </li>
+</ul>
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="SetEnvIfExpr" id="SetEnvIfExpr">SetEnvIfExpr</a> <a name="setenvifexpr" id="setenvifexpr">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Sets environment variables based on an ap_expr expression</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SetEnvIfExpr <em>expr
+    [!]env-variable</em>[=<em>value</em>]
+    [[!]<em>env-variable</em>[=<em>value</em>]] ...</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory, .htaccess</td></tr>
+<tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_setenvif</td></tr>
+</table>
+    <p>The <code class="directive">SetEnvIfExpr</code> directive defines
+    environment variables based on an <code class="directive"><a href="../mod/core.html#if">&lt;If&gt;</a></code>
+    <code>ap_expr</code>. These expressions will be evaluated at runtime,
+    and applied <em>env-variable</em> in the same fashion as <code class="directive">SetEnvIf</code>.</p>
+
+<pre class="prettyprint lang-config">SetEnvIfExpr "tolower(req('X-Sendfile')) == 'd:\images\very_big.iso')" iso_delivered</pre>
+
+
+    <p>This would set the environment variable <code>iso_delivered</code>
+    every time our application attempts to send it via <code>X-Sendfile</code></p>
+
+    <p>A more useful example would be to set the variable rfc1918 if the
+    remote IP address is a private address according to RFC 1918:</p>
+
+<pre class="prettyprint lang-config">SetEnvIfExpr "-R '10.0.0.0/8' || -R '172.16.0.0/12' || -R '192.168.0.0/16'" rfc1918</pre>
+
+
+<h3>See also</h3>
+<ul>
+<li><a href="../expr.html">Expressions in Apache HTTP Server</a>,
+for a complete reference and more examples.</li>
+<li><code class="directive"><a href="../mod/core.html#if">&lt;If&gt;</a></code> can be used to achieve similar
+results.</li>
+<li><code class="module"><a href="../mod/mod_filter.html">mod_filter</a></code></li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -254,7 +299,7 @@ for additional examples.
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Sets environment variables based on attributes of the request
 without respect to case</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SetEnvIfNoCase <em>attribute regex 
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SetEnvIfNoCase <em>attribute regex
         [!]env-variable</em>[=<em>value</em>]
     [[!]<em>env-variable</em>[=<em>value</em>]] ...</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory, .htaccess</td></tr>
@@ -267,27 +312,27 @@ without respect to case</td></tr>
     the <code class="directive"><a href="#setenvif">SetEnvIf</a></code> directive,
     and differs only in that the regular expression matching is
     performed in a case-insensitive manner. For example:</p>
-<div class="example"><p><code>
-   SetEnvIfNoCase Host Apache\.Org site=apache
-</code></p></div>
+<pre class="prettyprint lang-config">SetEnvIfNoCase Host Example\.Org site=example</pre>
+
 
     <p>This will cause the <code>site</code> environment variable
-    to be set to "<code>apache</code>" if the HTTP request header
+    to be set to "<code>example</code>" if the HTTP request header
     field <code>Host:</code> was included and contained
-    <code>Apache.Org</code>, <code>apache.org</code>, or any other
+    <code>Example.Org</code>, <code>example.org</code>, or any other
     combination.</p>
 
 </div>
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_setenvif.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_setenvif.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_setenvif.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_setenvif.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_setenvif.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_setenvif.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_setenvif.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -302,7 +347,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_setenvif.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/da.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/da.xml
+ * ICU <specials> source: <path>/common/main/da.xml
  */
 da{
-    Version{"2.0.82.45"}
+    Version{"2.0.98.52"}
     zoneStrings{
         "Africa:Addis_Ababa"{
             ec{"Addis Abeba"}
@@ -21,8 +21,17 @@ da{
         "Africa:Asmera"{
             ec{"Asmara"}
         }
+        "Africa:Sao_Tome"{
+            ec{"São Tomé"}
+        }
+        "America:Asuncion"{
+            ec{"Asunción"}
+        }
         "America:Coral_Harbour"{
             ec{"Atikokan"}
+        }
+        "America:Curacao"{
+            ec{"Curaçao"}
         }
         "America:Godthab"{
             ec{"Nuuk"}
@@ -63,8 +72,14 @@ da{
         "America:North_Dakota:New_Salem"{
             ec{"New Salem, North Dakota"}
         }
+        "America:Sao_Paulo"{
+            ec{"São Paulo"}
+        }
+        "America:Scoresbysund"{
+            ec{"Ittoqqortoormiit"}
+        }
         "America:St_Barthelemy"{
-            ec{"St. Barthelemy"}
+            ec{"Saint-Barthélemy"}
         }
         "America:St_Johns"{
             ec{"St. John's"}
@@ -84,9 +99,6 @@ da{
         "Antarctica:DumontDUrville"{
             ec{"Dumont d’Urville"}
         }
-        "Antarctica:South_Pole"{
-            ec{"Sydpolen"}
-        }
         "Asia:Calcutta"{
             ec{"Kolkata"}
         }
@@ -97,13 +109,16 @@ da{
             ec{"Hongkong"}
         }
         "Asia:Katmandu"{
-            ec{"Kathmandu"}
+            ec{"Katmandu"}
         }
         "Asia:Macau"{
             ec{"Macao"}
         }
         "Asia:Saigon"{
             ec{"Ho Chi Minh-byen"}
+        }
+        "Asia:Tashkent"{
+            ec{"Tasjkent"}
         }
         "Asia:Tehran"{
             ec{"Teheran"}
@@ -135,6 +150,9 @@ da{
         "Europe:Athens"{
             ec{"Athen"}
         }
+        "Europe:Belgrade"{
+            ec{"Beograd"}
+        }
         "Europe:Brussels"{
             ec{"Bruxelles"}
         }
@@ -162,6 +180,9 @@ da{
         "Europe:Rome"{
             ec{"Rom"}
         }
+        "Europe:Vatican"{
+            ec{"Vatikanet"}
+        }
         "Europe:Vienna"{
             ec{"Wien"}
         }
@@ -174,11 +195,11 @@ da{
         "Europe:Zurich"{
             ec{"Zürich"}
         }
-        "Indian:Christmas"{
-            ec{"Juleøen"}
-        }
         "Indian:Maldives"{
             ec{"Maldiverne"}
+        }
+        "Indian:Reunion"{
+            ec{"Réunion"}
         }
         "Pacific:Easter"{
             ec{"Påskeøen"}
@@ -364,7 +385,7 @@ da{
             ls{"Choibalsan-normaltid"}
         }
         "meta:Christmas"{
-            ls{"Juleøen-normaltid"}
+            ls{"Christmas Island-normaltid"}
         }
         "meta:Cocos"{
             ls{"Cocosøerne-normaltid"}
@@ -402,9 +423,9 @@ da{
             ls{"Ecuadoriansk tid"}
         }
         "meta:Europe_Central"{
-            ld{"Mellemeuropæisk sommertid"}
-            lg{"Mellemeuropæisk tid"}
-            ls{"Mellemeuropæisk normaltid"}
+            ld{"Centraleuropæisk sommertid"}
+            lg{"Centraleuropæisk tid"}
+            ls{"Centraleuropæisk normaltid"}
             sd{"CEST"}
             sg{"CET"}
             ss{"CET"}
@@ -436,7 +457,7 @@ da{
             ls{"Fijiansk normaltid"}
         }
         "meta:French_Guiana"{
-            ls{"Fransk Guiana-tid"}
+            ls{"Fransk Guyana-tid"}
         }
         "meta:French_Southern"{
             ls{"Franske Sydlige og Antarktiske Territorier-tid"}
@@ -737,6 +758,9 @@ da{
         "meta:South_Georgia"{
             ls{"South Georgia-tid"}
         }
+        "meta:Suriname"{
+            ls{"Surinam-tid"}
+        }
         "meta:Syowa"{
             ls{"Syowa-tid"}
         }
@@ -818,10 +842,11 @@ da{
             ls{"Yekaterinburgsk normaltid"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"Tidszone for {1} ({0})"}
         gmtFormat{"GMT{0}"}
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH.mm;-HH.mm"}
         regionFormat{"Tidszone for {0}"}
+        regionFormatDaylight{"{0} (+1)"}
+        regionFormatStandard{"{0} (+0)"}
     }
 }

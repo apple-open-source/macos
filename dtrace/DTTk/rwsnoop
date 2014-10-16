@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 # #!/usr/bin/ksh
 #
 # rwsnoop - snoop read/write events.

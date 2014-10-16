@@ -36,6 +36,7 @@
 #import "WebFrameInternal.h"
 #import "WebHostedNetscapePluginView.h"
 #import "WebKitSystemInterface.h"
+#import <JavaScriptCore/IdentifierInlines.h>
 #import <WebCore/Frame.h>
 #import <WebCore/IdentifierRep.h>
 #import <WebCore/ScriptController.h>
@@ -83,7 +84,7 @@ private:
 typedef HashMap<mach_port_t, NetscapePluginHostProxy*> PluginProxyMap;
 static PluginProxyMap& pluginProxyMap()
 {
-    DEFINE_STATIC_LOCAL(PluginProxyMap, pluginProxyMap, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(PluginProxyMap, pluginProxyMap, ());
     
     return pluginProxyMap;
 }
@@ -326,44 +327,32 @@ bool NetscapePluginHostProxy::processRequests()
 
 void NetscapePluginHostProxy::makeCurrentProcessFrontProcess()
 {
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
     ProcessSerialNumber psn;
     GetCurrentProcess(&psn);
     SetFrontProcess(&psn);
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 }
 
 void NetscapePluginHostProxy::makePluginHostProcessFrontProcess() const
 {
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
     SetFrontProcess(&m_pluginHostPSN);
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 }
 
 bool NetscapePluginHostProxy::isPluginHostProcessFrontProcess() const
 {
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
     ProcessSerialNumber frontProcess;
     GetFrontProcess(&frontProcess);
 
     Boolean isSameProcess = 0;
     SameProcess(&frontProcess, &m_pluginHostPSN, &isSameProcess);
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 
     return isSameProcess;
 }
@@ -484,7 +473,7 @@ kern_return_t WKPCGetScriptableNPObjectReply(mach_port_t clientPort, uint32_t pl
     if (!instanceProxy)
         return KERN_FAILURE;
 
-    instanceProxy->setCurrentReply(requestID, new NetscapePluginInstanceProxy::GetScriptableNPObjectReply(objectID));
+    instanceProxy->setCurrentReply(requestID, std::make_unique<NetscapePluginInstanceProxy::GetScriptableNPObjectReply>(objectID));
     return KERN_SUCCESS;
 }
 
@@ -498,7 +487,7 @@ kern_return_t WKPCBooleanReply(mach_port_t clientPort, uint32_t pluginID, uint32
     if (!instanceProxy)
         return KERN_FAILURE;
     
-    instanceProxy->setCurrentReply(requestID, new NetscapePluginInstanceProxy::BooleanReply(result));
+    instanceProxy->setCurrentReply(requestID, std::make_unique<NetscapePluginInstanceProxy::BooleanReply>(result));
     return KERN_SUCCESS;
 }
 
@@ -515,7 +504,7 @@ kern_return_t WKPCBooleanAndDataReply(mach_port_t clientPort, uint32_t pluginID,
         return KERN_FAILURE;
 
     RetainPtr<CFDataRef> result = adoptCF(CFDataCreate(0, reinterpret_cast<UInt8*>(resultData), resultLength));
-    instanceProxy->setCurrentReply(requestID, new NetscapePluginInstanceProxy::BooleanAndDataReply(returnValue, result));
+    instanceProxy->setCurrentReply(requestID, std::make_unique<NetscapePluginInstanceProxy::BooleanAndDataReply>(returnValue, result));
     
     return KERN_SUCCESS;
 }
@@ -530,7 +519,7 @@ kern_return_t WKPCInstantiatePluginReply(mach_port_t clientPort, uint32_t plugin
     if (!instanceProxy)
         return KERN_FAILURE;
 
-    instanceProxy->setCurrentReply(requestID, new NetscapePluginInstanceProxy::InstantiatePluginReply(result, renderContextID, static_cast<RendererType>(rendererType)));
+    instanceProxy->setCurrentReply(requestID, std::make_unique<NetscapePluginInstanceProxy::InstantiatePluginReply>(result, renderContextID, static_cast<RendererType>(rendererType)));
     return KERN_SUCCESS;
 }
 
@@ -638,7 +627,7 @@ static Identifier identifierFromIdentifierRep(IdentifierRep* identifier)
     ASSERT(identifier->isString());
   
     const char* str = identifier->string();    
-    return Identifier(JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
+    return Identifier(&JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
 }
 
 kern_return_t WKPCInvoke(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, uint64_t serverIdentifier,
@@ -904,13 +893,13 @@ kern_return_t WKPCIdentifierInfo(mach_port_t clientPort, uint64_t serverIdentifi
     } else 
         info = [NSNumber numberWithInt:identifier->number()];
 
-    RetainPtr<NSData*> data = [NSPropertyListSerialization dataFromPropertyList:info format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListBinaryFormat_v1_0 options:0 error:nullptr];
     ASSERT(data);
     
-    *infoLength = [data.get() length];
+    *infoLength = data.length;
     mig_allocate(reinterpret_cast<vm_address_t*>(infoData), *infoLength);
     
-    memcpy(*infoData, [data.get() bytes], *infoLength);
+    memcpy(*infoData, data.bytes, *infoLength);
     
     return KERN_SUCCESS;
 }

@@ -63,13 +63,14 @@ installation instructions provided with it.
 
 H3: {{TERM[expand]TLS}}
 
-OpenLDAP clients and servers require installation of {{PRD:OpenSSL}},
+OpenLDAP clients and servers require installation of {{PRD:SecureTransport}}, {{PRD:OpenSSL}},
  {{PRD:GnuTLS}}, or {{PRD:MozNSS}}
 {{TERM:TLS}} libraries to provide {{TERM[expand]TLS}} services.  Though
 some operating systems may provide these libraries as part of the
 base system or as an optional software component, OpenSSL, GnuTLS, and
 Mozilla NSS often require separate installation.
 
+SecureTransport is part of OS X.
 OpenSSL is available from {{URL: http://www.openssl.org/}}.
 GnuTLS is available from {{URL: http://www.gnu.org/software/gnutls/}}.
 Mozilla NSS is available from {{URL: http://developer.mozilla.org/en/NSS}}.

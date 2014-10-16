@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -37,6 +37,18 @@
 @implementation WebCoreBundleFinder
 @end
 
+#if PLATFORM(IOS)
+#import "SoftLinking.h"
+
+#import <CoreGraphics/CoreGraphics.h>
+#import <ImageIO/ImageIO.h>
+#import <MobileCoreServices/MobileCoreServices.h>
+
+SOFT_LINK_FRAMEWORK(MobileCoreServices)
+SOFT_LINK_CONSTANT(MobileCoreServices, kUTTypeTIFF, CFStringRef)
+#define kUTTypeTIFF getkUTTypeTIFF()
+#endif
+
 namespace WebCore {
 
 void BitmapImage::invalidatePlatformData()
@@ -44,7 +56,9 @@ void BitmapImage::invalidatePlatformData()
     if (m_frames.size() != 1)
         return;
 
+#if USE(APPKIT)
     m_nsImage = 0;
+#endif
     m_tiffRep = 0;
 }
 
@@ -70,9 +84,9 @@ CFDataRef BitmapImage::getTIFFRepresentation()
 {
     if (m_tiffRep)
         return m_tiffRep.get();
-    
+
     unsigned numFrames = frameCount();
-    
+
     // If numFrames is zero, we know for certain this image doesn't have valid data
     // Even though the call to CGImageDestinationCreateWithData will fail and we'll handle it gracefully,
     // in certain circumstances that call will spam the console with an error message
@@ -87,13 +101,13 @@ CFDataRef BitmapImage::getTIFFRepresentation()
     }
 
     unsigned numValidFrames = images.size();
-    
+
     RetainPtr<CFMutableDataRef> data = adoptCF(CFDataCreateMutable(0, 0));
     RetainPtr<CGImageDestinationRef> destination = adoptCF(CGImageDestinationCreateWithData(data.get(), kUTTypeTIFF, numValidFrames, 0));
 
     if (!destination)
         return 0;
-    
+
     for (unsigned i = 0; i < numValidFrames; ++i)
         CGImageDestinationAddImage(destination.get(), images[i], 0);
 
@@ -103,6 +117,7 @@ CFDataRef BitmapImage::getTIFFRepresentation()
     return m_tiffRep.get();
 }
 
+#if USE(APPKIT)
 NSImage* BitmapImage::getNSImage()
 {
     if (m_nsImage)
@@ -115,5 +130,6 @@ NSImage* BitmapImage::getNSImage()
     m_nsImage = adoptNS([[NSImage alloc] initWithData:(NSData*)data]);
     return m_nsImage.get();
 }
+#endif
 
 }

@@ -97,7 +97,7 @@ identifierFromString(const char * str, u_char * type, int * len)
     boolean_t	done = FALSE;
     int		max_decoded_len;
     const char * scan;
-    int 	slen = strlen(str);
+    int 	slen = (int)strlen(str);
 
     *len = 0;
 

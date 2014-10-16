@@ -240,7 +240,7 @@ option_t l2tp_options[] = {
     { "l2tphellotimeout", o_int, &opt_hello_timeout,
       "Set timeout for hello messages: zero = send only for network change events" },    
     { "l2tpwaitiftimeout", o_int, &opt_wait_if_timeout,
-      "How long do we wait for our transport interface to come back after interface events" },    
+      "How long do we wait for our transport interface to come back after interface events" },
     { NULL }
 };
 
@@ -946,6 +946,143 @@ int l2tp_pre_start_link_check()
     return -1;
 }
 
+static CFStringRef l2tp_copy_str_at_index(CFStringRef key, int index)
+{
+    CFArrayRef	components;
+    CFStringRef foundstr = NULL;
+
+    components = CFStringCreateArrayBySeparatingStrings(NULL, key, CFSTR("/"));
+    if (index < CFArrayGetCount(components)) {
+        if ((foundstr = CFArrayGetValueAtIndex(components, index))){
+            CFRetain(foundstr);
+        }
+    }
+    CFRelease(components);
+    return foundstr;
+}
+
+static void l2tp_get_router_address(CFStringRef serviceID)
+{
+    CFStringRef		routerAddress = NULL;
+    CFStringRef     ipv4Key = NULL;
+    CFDictionaryRef ipv4Dict = NULL;
+
+    if (serviceID == NULL) {
+        goto done;
+    }
+
+    ipv4Key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainState,
+                                                          serviceID,
+                                                          kSCEntNetIPv4);
+    if (ipv4Key == NULL) {
+        goto done;
+    }
+
+    ipv4Dict = SCDynamicStoreCopyValue(NULL, ipv4Key);
+    if (ipv4Dict == NULL) {
+        goto done;
+    }
+
+    routerAddress = CFDictionaryGetValue(ipv4Dict, kSCPropNetIPv4Router);
+    if (routerAddress) {
+        CFStringGetCString(routerAddress, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+    }
+    
+done:
+    if (ipv4Key) {
+        CFRelease(ipv4Key);
+    }
+    if (ipv4Dict) {
+        CFRelease(ipv4Dict);
+    }
+}
+
+static void l2tp_get_router_address_for_interface(void)
+{
+    CFDictionaryRef     dict = NULL;
+    CFStringRef         pattern = NULL;
+    CFMutableArrayRef   patterns = NULL;
+    CFStringRef         *keys = NULL;
+    CFDictionaryRef     *values = NULL;
+    CFIndex             count = 0;
+    CFIndex             i = 0;
+    CFStringRef         serviceID = NULL;
+
+    if (interface == NULL || interface[0] == 0) {
+        goto done;
+    }
+
+    patterns = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainState,
+                                                          kSCCompAnyRegex,
+                                                          kSCEntNetIPv4);
+
+    if (patterns == NULL || pattern == NULL)
+        goto done;
+    CFArrayAppendValue(patterns, pattern);
+
+	dict = SCDynamicStoreCopyMultiple(NULL, NULL, patterns);
+    if (dict == NULL)
+	    goto done;
+	
+    count = CFDictionaryGetCount(dict);
+
+    keys = calloc(count, sizeof(CFStringRef));
+    values = calloc(count, sizeof(CFDictionaryRef));
+    if (keys == NULL || values == NULL)
+        goto done;
+    CFDictionaryGetKeysAndValues(dict, (const void**)keys, (const void**)values);
+
+    for (i=0; i < count; i++) {
+        CFDictionaryRef ipv4Dict = NULL;
+        CFStringRef     ipv4Key = NULL;
+        
+        ipv4Key  = keys[i];
+        ipv4Dict = values[i];
+        
+        if (ipv4Key == NULL || ipv4Dict == NULL) {
+            continue;
+        }
+        
+        /* Match interface name here */
+        CFStringRef ifnameRef = CFDictionaryGetValue(ipv4Dict, kSCPropInterfaceName);
+        if (ifnameRef) {
+            char ifname[IFNAMSIZ] = { 0 };
+            CFStringGetCString(ifnameRef, ifname, sizeof(ifname), kCFStringEncodingASCII);
+            if (!strcmp(ifname, interface)) {
+                if ((CFStringHasPrefix(ipv4Key, kSCDynamicStoreDomainState)) && (CFStringHasSuffix(ipv4Key, kSCEntNetIPv4))) {
+                    // Fetch the serviceID, then the router address
+                    serviceID = l2tp_copy_str_at_index(ipv4Key, 3);
+                    l2tp_get_router_address(serviceID);
+                    break;
+                }
+            }
+        }
+    }
+    
+done:
+    if (serviceID) {
+        CFRelease(serviceID);
+    }
+    if (pattern) {
+        CFRelease(pattern);
+    }
+    if (patterns) {
+        CFRelease(patterns);
+    }
+    if (dict) {
+        CFRelease(dict);
+    }
+    if (keys) {
+        free(keys);
+    }
+    if (values) {
+        free(values);
+    }
+}
+
 /* ----------------------------------------------------------------------------- 
 get the socket ready to start doing PPP.
 That is, open the socket and start the L2TP dialog
@@ -1010,16 +1147,21 @@ int l2tp_connect(int *errorcode)
     }
     our_params.protocol_vers = L2TP_PROTOCOL_VERSION;
 
-    key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-    if (key) {
-        dict = SCDynamicStoreCopyValue(cfgCache, key);
-	CFRelease(key);
-        if (dict) {
-            if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
-                CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-            if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
-                CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
-            CFRelease(dict);
+    if (ifscope && ifscope[0]) {
+        strcpy(interface, ifscope);
+        l2tp_get_router_address_for_interface();
+    } else {
+        key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+        if (key) {
+            dict = SCDynamicStoreCopyValue(cfgCache, key);
+        CFRelease(key);
+            if (dict) {
+                if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
+                    CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+                if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
+                    CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
+                CFRelease(dict);
+            }
         }
     }
 
@@ -1042,12 +1184,6 @@ int l2tp_connect(int *errorcode)
     interface_media = get_if_media((char*)interface);
 #endif /* !iPhone */
 	
-	// check to see if interface is captive: if so, bail if the interface is not ready.
-	if (check_vpn_interface_captive_and_not_ready(cfgCache, (char *)interface)) {
-		// TODO: perhaps we should wait for a few seconds?
-		goto fail;
-	}
-
 	/* let's say our underlying transport is up */
 	transport_up = 1;
 	wait_interface_timer_running = 0;
@@ -1231,7 +1367,7 @@ int l2tp_connect(int *errorcode)
         set_server_peer(peer_address.sin_addr);
 
         /* get the source address that will be used to reach the peer */
-        if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 0)) {
+        if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, ifscope, NULL)) {
             error("L2TP: cannot get our local address...\n");
 			*errorcode = L2TP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
             goto fail;
@@ -1738,7 +1874,7 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
             }
         }
     
-        if (get_src_address((struct sockaddr *)&src, peer, 0)) {
+        if (get_src_address((struct sockaddr *)&src, peer, ifscope, NULL)) {
             error("L2TP: cannot get our local address...\n");
             return -1;
         }

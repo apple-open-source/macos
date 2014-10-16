@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -32,13 +32,12 @@
 
 #include "Font.h"
 #include "FontCache.h"
+#include "OpenTypeMathData.h"
 #include <wtf/MathExtras.h>
 
 #if ENABLE(OPENTYPE_VERTICAL)
 #include "OpenTypeVerticalData.h"
 #endif
-
-using namespace std;
 
 namespace WebCore {
 
@@ -54,6 +53,7 @@ SimpleFontData::SimpleFontData(const FontPlatformData& platformData, bool isCust
     , m_isLoading(isLoading)
     , m_isTextOrientationFallback(isTextOrientationFallback)
     , m_isBrokenIdeographFallback(false)
+    , m_mathData(nullptr)
 #if ENABLE(OPENTYPE_VERTICAL)
     , m_verticalData(0)
 #endif
@@ -70,18 +70,22 @@ SimpleFontData::SimpleFontData(const FontPlatformData& platformData, bool isCust
 #endif
 }
 
-SimpleFontData::SimpleFontData(PassOwnPtr<AdditionalFontData> fontData, float fontSize, bool syntheticBold, bool syntheticItalic)
+SimpleFontData::SimpleFontData(std::unique_ptr<AdditionalFontData> fontData, float fontSize, bool syntheticBold, bool syntheticItalic)
     : m_platformData(FontPlatformData(fontSize, syntheticBold, syntheticItalic))
-    , m_fontData(fontData)
+    , m_fontData(WTF::move(fontData))
     , m_treatAsFixedPitch(false)
     , m_isCustomFont(true)
     , m_isLoading(false)
     , m_isTextOrientationFallback(false)
     , m_isBrokenIdeographFallback(false)
+    , m_mathData(nullptr)
 #if ENABLE(OPENTYPE_VERTICAL)
     , m_verticalData(0)
 #endif
     , m_hasVerticalGlyphs(false)
+#if PLATFORM(IOS)
+    , m_shouldNotBeUsedForArabic(false)
+#endif
 {
     m_fontData->initializeFontData(this, fontSize);
 }
@@ -104,7 +108,7 @@ void SimpleFontData::initCharWidths()
         m_avgCharWidth = m_fontMetrics.xHeight();
 
     if (m_maxCharWidth <= 0.f)
-        m_maxCharWidth = max(m_avgCharWidth, m_fontMetrics.floatAscent());
+        m_maxCharWidth = std::max(m_avgCharWidth, m_fontMetrics.floatAscent());
 }
 
 void SimpleFontData::platformGlyphInit()
@@ -235,7 +239,7 @@ PassRefPtr<SimpleFontData> SimpleFontData::nonSyntheticItalicFontData() const
         m_derivedFontData = DerivedFontData::create(isCustomFont());
     if (!m_derivedFontData->nonSyntheticItalic) {
         FontPlatformData nonSyntheticItalicFontPlatformData(m_platformData);
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         nonSyntheticItalicFontPlatformData.m_syntheticOblique = false;
 #endif
         m_derivedFontData->nonSyntheticItalic = create(nonSyntheticItalicFontPlatformData, isCustomFont(), false, true);
@@ -254,6 +258,18 @@ String SimpleFontData::description() const
     return platformData().description();
 }
 #endif
+
+const OpenTypeMathData* SimpleFontData::mathData() const
+{
+    if (m_isLoading)
+        return nullptr;
+    if (!m_mathData) {
+        m_mathData = OpenTypeMathData::create(m_platformData);
+        if (!m_mathData->hasMathData())
+            m_mathData.clear();
+    }
+    return m_mathData.get();
+}
 
 PassOwnPtr<SimpleFontData::DerivedFontData> SimpleFontData::DerivedFontData::create(bool forCustomFont)
 {
@@ -275,7 +291,7 @@ SimpleFontData::DerivedFontData::~DerivedFontData()
         GlyphPageTreeNode::pruneTreeCustomFontData(verticalRightOrientation.get());
     if (uprightOrientation)
         GlyphPageTreeNode::pruneTreeCustomFontData(uprightOrientation.get());
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (compositeFontReferences) {
         CFDictionaryRef dictionary = CFDictionaryRef(compositeFontReferences.get());
         CFIndex count = CFDictionaryGetCount(dictionary);

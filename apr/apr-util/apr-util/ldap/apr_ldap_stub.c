@@ -50,7 +50,7 @@ static apr_status_t load_ldap(apr_pool_t *pool)
 #else
     modname = "apr_ldap-" APU_STRINGIFY(APU_MAJOR_VERSION) ".so";
 #endif
-    rv = apu_dso_load(&symbol, modname, "apr__ldap_fns", pool);
+    rv = apu_dso_load(NULL, &symbol, modname, "apr__ldap_fns", pool);
     if (rv == APR_SUCCESS) {
         lfn = symbol;
     }

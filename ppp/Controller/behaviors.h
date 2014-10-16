@@ -9,6 +9,5 @@
 typedef void (^BehaviorsUpdatedBlock)(void);
 
 void behaviors_modify_ondemand(CFMutableDictionaryRef trigger_dict, BehaviorsUpdatedBlock cb_block);
-void behaviors_cancel_asset_check(void);
 
 #endif /* __VPN_BEHAVIORS_H__ */

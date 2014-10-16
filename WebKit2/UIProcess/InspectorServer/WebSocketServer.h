@@ -29,19 +29,13 @@
 
 #if ENABLE(INSPECTOR_SERVER)
 
+#include <memory>
 #include <wtf/Deque.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if USE(SOUP)
 #include <gio/gio.h>
 #include <wtf/gobject/GRefPtr.h>
-#endif
-
-#if PLATFORM(QT)
-namespace WebKit {
-class QtTcpServerHandler;
-}
 #endif
 
 namespace WebCore {
@@ -67,7 +61,7 @@ public:
     void close();
 
     WebSocketServerClient* client() const { return m_client; }
-    void didAcceptConnection(PassOwnPtr<WebSocketServerConnection>);
+    void didAcceptConnection(std::unique_ptr<WebSocketServerConnection>);
 
 private:
     void didCloseWebSocketServerConnection(WebSocketServerConnection*);
@@ -77,13 +71,11 @@ private:
     void platformClose();
 
     ServerState m_state;
-    Deque<OwnPtr<WebSocketServerConnection> > m_connections;
+    Deque<std::unique_ptr<WebSocketServerConnection>> m_connections;
     WebSocketServerClient* m_client;
     String m_bindAddress;
     unsigned short m_port;
-#if PLATFORM(QT)
-    OwnPtr<QtTcpServerHandler> m_tcpServerHandler;
-#elif USE(SOUP)
+#if USE(SOUP)
     GRefPtr<GSocketService> m_socketService;
 #endif
     friend class WebSocketServerConnection;

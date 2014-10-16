@@ -1,0 +1,31 @@
+
+#include "Heimdal.xcconfig"
+
+ASAN_PATH = /usr/local/clang-asan
+
+BUILD_VARIANTS = normal asan
+
+CC         = $(ASAN_PATH)/bin/clang
+CXX        = $(ASAN_PATH)/bin/clang++
+LDPLUSPLUS = $(ASAN_PATH)/bin/clang++
+
+// Xcode passes OTHER_LDFLAGS to libtool, which doesn't understand some of the
+// flags. The libtool-wrap.py strips these flags out. <rdar://problem/4285249>
+LIBTOOL = $(SOURCE_ROOT)/xcconfig/libtool-wrap.py
+
+// These are the default flags for enabling Address Sanitizer
+ASAN_CFLAGS			= -fsanitize=address -fno-omit-frame-pointer
+ASAN_LDFLAGS			= -fsanitize=address -Wl,-exported_symbol,___asan_mapping_offset -Wl,-exported_symbol,___asan_mapping_scale
+
+OTHER_CFLAGS_asan		= $(ASAN_CFLAGS) $(inherited)
+OTHER_CPLUSPLUSFLAGS_asan	= $(ASAN_CFLAGS) $(inherited)
+OTHER_LDFLAGS_asan		= $(ASAN_LDFLAGS) $(inherited)
+
+// Build optimized to reduce the performance impact
+GCC_OPTIMIZATION_LEVEL = 1
+
+// Do not run the static analyzer, to speed up builds
+RUN_CLANG_STATIC_ANALYZER = NO
+
+// Search for other Address Sanitizer-enabled frameworks in DSTROOT
+FRAMEWORK_SEARCH_PATHS_asan = "$(DSTROOT)/System/Library/PrivateFrameworks" "$(DSTROOT)/System/Library/Frameworks" $(inherited)

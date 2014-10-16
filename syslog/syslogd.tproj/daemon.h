@@ -34,7 +34,6 @@
 #include <asl_private.h>
 #include <asl_store.h>
 #include "asl_memory.h"
-#include "asl_mini_memory.h"
 #include "asl_common.h"
 #include <notify.h>
 #include <notify_keys.h>
@@ -52,7 +51,6 @@
 #define ASL_OPT_STORE "store"
 #define ASL_OPT_CONTROL "control"
 #define ASL_OPT_DB_FILE "asl_db_file"
-#define ASL_OPT_DB_MINI "asl_db_mini_memory"
 #define ASL_OPT_DB_MEMORY "asl_db_memory"
 
 #if TARGET_IPHONE_SIMULATOR
@@ -70,20 +68,20 @@ extern const char *_path_syslogd_log;
 #define _PATH_SYSLOGD_LOG	"/var/log/syslogd.log"
 #endif
 
+#define NOTIFY_PATH_SERVICE "com.apple.system.notify.service.path:0x87:"
+
 #define DB_TYPE_FILE	0x00000001
 #define DB_TYPE_MEMORY	0x00000002
-#define DB_TYPE_MINI	0x00000004
 
 #define KERN_DISASTER_LEVEL 3
 
 #define SOURCE_UNKNOWN      0
 #define SOURCE_INTERNAL     1
-#define SOURCE_ASL_SOCKET   2
-#define SOURCE_BSD_SOCKET   3
-#define SOURCE_UDP_SOCKET   4
-#define SOURCE_KERN         5
-#define SOURCE_ASL_MESSAGE  6
-#define SOURCE_LAUNCHD      7
+#define SOURCE_BSD_SOCKET   2
+#define SOURCE_UDP_SOCKET   3
+#define SOURCE_KERN         4
+#define SOURCE_ASL_MESSAGE  5
+#define SOURCE_LAUNCHD      6
 
 #define SOURCE_SESSION    100 /* does not generate messages */
 
@@ -92,6 +90,9 @@ extern const char *_path_syslogd_log;
 #define FS_TTL_SEC 31622400
 
 #define SEC_PER_DAY 86400
+
+/* trigger aslmanager no more often than 300 seconds */
+#define ASLMANAGER_DELAY 300
 
 typedef struct
 {
@@ -117,6 +118,7 @@ struct global_s
 	int reset;
 	pid_t pid;
 	int32_t work_queue_count;
+	int64_t work_queue_size;
 	int32_t asl_queue_count;
 	int32_t bsd_queue_count;
 	pthread_mutex_t *db_lock;
@@ -126,13 +128,13 @@ struct global_s
 	dispatch_source_t sig_hup_src;
 	asl_store_t *file_db;
 	asl_memory_t *memory_db;
-	asl_mini_memory_t *mini_db;
-	asl_mini_memory_t *disaster_db;
+	asl_memory_t *disaster_db;
 	int module_count;
 	int bsd_out_enabled;
 	int launchd_enabled;
 	module_t **module;
 	asl_out_module_t *asl_out_module;
+	time_t aslmanager_last_trigger;
 
 	/* parameters below are configurable as command-line args or in /etc/asl.conf */
 	int debug;
@@ -140,12 +142,13 @@ struct global_s
 	int dbtype;
 	uint32_t db_file_max;
 	uint32_t db_memory_max;
-	uint32_t db_mini_max;
+	uint32_t db_memory_str_max;
 	uint32_t mps_limit;
 	uint32_t remote_delay_time;
 	uint64_t bsd_max_dup_time;
 	uint64_t mark_time;
 	time_t utmp_ttl;
+	int64_t max_work_queue_size;
 };
 
 extern struct global_s global;
@@ -153,7 +156,7 @@ extern struct global_s global;
 void init_globals(void);
 
 void config_debug(int enable, const char *path);
-void config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t mini_max);
+void config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t str_memory_max);
 
 void asl_mark(void);
 void asl_archive(void);
@@ -164,10 +167,6 @@ void asl_client_count_decrement();
 int asldebug(const char *, ...);
 int internal_log_message(const char *str);
 
-asl_msg_t *asl_msg_from_string(const char *buf);
-int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
-time_t asl_parse_time(const char *str);
-
 void send_to_direct_watchers(asl_msg_t *msg);
 
 #if !TARGET_IPHONE_SIMULATOR
@@ -176,13 +175,15 @@ void launchd_callback();
 
 int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
-aslmsg asl_input_parse(const char *in, int len, char *rhost, uint32_t source);
+asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, uint32_t source);
 
-void process_message(aslmsg m, uint32_t source);
-void asl_out_message(aslmsg msg);
-void bsd_out_message(aslmsg msg);
+void process_message(asl_msg_t *msg, uint32_t source);
+void asl_out_message(asl_msg_t *msg);
+void bsd_out_message(asl_msg_t *msg);
 int control_set_param(const char *s, bool eval);
 int asl_action_control_set_param(const char *s);
+
+void trigger_aslmanager();
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

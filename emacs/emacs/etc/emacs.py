@@ -28,7 +28,7 @@ def eexecfile (file):
     """Execute FILE and then remove it.
     If we get an exception, print a traceback with the top frame
     (oursleves) excluded."""
-        try:
+    try:
 	try: execfile (file, globals (), globals ())
         except:
 	    (type, value, tb) = sys.exc_info ()
@@ -75,10 +75,10 @@ def complete (text, namespace = None):
             matches = c.attr_matches (text)
 	else:
             matches = c.global_matches (text)
-    print '_emacs_out (',
+        print '_emacs_out (',
         for elt in matches:
             print '"%s"' % elt,
-    print ')'
+        print ')'
     except:
         print '_emacs_out ()'
 

@@ -80,9 +80,8 @@ extern int notify_set_state(int, notify_state_t);
 typedef uint64_t notify_state_t;
 #endif
 
-extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
 extern size_t asl_memory_size(asl_memory_t *s);
-extern uint32_t db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess);
+extern uint32_t db_query(asl_msg_list_t *query, asl_msg_list_t **res, uint64_t startid, int count, uint32_t duration, int direction, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess);
 
 extern void add_lockdown_session(int fd);
 extern void remove_lockdown_session(int fd);
@@ -100,7 +99,6 @@ remote_db_size(uint32_t sel)
 {
 	if (sel == DB_TYPE_FILE) return global.db_file_max;
 	if (sel == DB_TYPE_MEMORY) return global.db_memory_max;
-	if (sel == DB_TYPE_MINI) return global.db_mini_max;
 	return 0;
 }
 
@@ -109,19 +107,17 @@ remote_db_set_size(uint32_t sel, uint32_t size)
 {
 	if (sel == DB_TYPE_FILE) global.db_file_max = size;
 	if (sel == DB_TYPE_MEMORY) global.db_memory_max = size;
-	if (sel == DB_TYPE_MINI) global.db_mini_max = size;
 	return 0;
 }
 
-aslmsg 
+asl_msg_t *
 remote_db_stats(uint32_t sel)
 {
-	aslmsg m;
+	asl_msg_t *m;
 	m = NULL;
 
 	if (sel == DB_TYPE_FILE) asl_store_statistics(global.file_db, &m);
 	if (sel == DB_TYPE_MEMORY) asl_memory_statistics(global.memory_db, &m);
-	if (sel == DB_TYPE_MINI) asl_mini_memory_statistics(global.mini_db, &m);
 	return m;
 }
 
@@ -129,10 +125,10 @@ void
 session(void *x)
 {
 	int i, s, wfd, status, pfmt, watch, wtoken, nfd, do_prompt;
-	aslresponse res;
-	asl_search_result_t ql;
+	asl_msg_list_t *res;
+	asl_msg_list_t ql;
 	uint32_t outlen;
-	aslmsg stats;
+	asl_msg_t *stats;
 	asl_msg_t *query;
 	asl_msg_t *qlq[1];
 	char str[1024], *p, *qs, *out;
@@ -158,7 +154,6 @@ session(void *x)
 
 	dbselect = 0;
 	if (global.dbtype & DB_TYPE_MEMORY) dbselect = DB_TYPE_MEMORY;
-	else if (global.dbtype & DB_TYPE_MINI) dbselect = DB_TYPE_MINI;
 	else if (global.dbtype & DB_TYPE_FILE) dbselect = DB_TYPE_FILE;
 
 	low_id = 0;
@@ -166,7 +161,7 @@ session(void *x)
 
 	pfmt = PRINT_STD;
 	query = NULL;
-	memset(&ql, 0, sizeof(asl_search_result_t));
+	memset(&ql, 0, sizeof(asl_msg_list_t));
 
 	if (flags & SESSION_FLAGS_LOCKDOWN) sleep(1);
 
@@ -265,13 +260,11 @@ session(void *x)
 				SESSION_WRITE(s, str);
 				snprintf(str, sizeof(str), "    select [val]         get [set] current database\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str), "                         val must be \"file\", \"mem\", or \"mini\"\n");
+				snprintf(str, sizeof(str), "                         val must be \"file\" or \"mem\"\n");
 				SESSION_WRITE(s, str);
 				snprintf(str, sizeof(str), "    file [on/off]        enable / disable file store\n");
 				SESSION_WRITE(s, str);
 				snprintf(str, sizeof(str), "    memory [on/off]      enable / disable memory store\n");
-				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str), "    mini [on/off]        enable / disable mini memory store\n");
 				SESSION_WRITE(s, str);
 				snprintf(str, sizeof(str), "    stats                database statistics\n");
 				SESSION_WRITE(s, str);
@@ -311,7 +304,7 @@ session(void *x)
 				out = asl_format_message((asl_msg_t *)stats, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, ASL_ENCODE_NONE, &outlen);
 				write(s, out, outlen);
 				free(out);
-				asl_free(stats);
+				asl_msg_release(stats);
 				continue;
 			}
 			else if (!strcmp(str, "flush"))
@@ -325,7 +318,6 @@ session(void *x)
 					if (dbselect == 0) snprintf(str, sizeof(str), "no store\n");
 					else if (dbselect == DB_TYPE_FILE) snprintf(str, sizeof(str), "file store\n");
 					else if (dbselect == DB_TYPE_MEMORY) snprintf(str, sizeof(str), "memory store\n");
-					else if (dbselect == DB_TYPE_MINI) snprintf(str, sizeof(str), "mini memory store\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
@@ -351,25 +343,6 @@ session(void *x)
 					}
 
 					dbselect = DB_TYPE_MEMORY;
-				}
-				else if (!strncmp(p, "mini", 4))
-				{
-					if ((global.dbtype & DB_TYPE_MINI) == 0)
-					{
-						if (global.mini_db != NULL)
-						{
-							snprintf(str, sizeof(str), "mini memory database is enabled for disaster messages\n");
-							SESSION_WRITE(s, str);
-						}
-						else
-						{
-							snprintf(str, sizeof(str), "mini memory database is not enabled\n");
-							SESSION_WRITE(s, str);
-							continue;
-						}
-					}
-
-					dbselect = DB_TYPE_MINI;
 				}
 				else
 				{
@@ -415,25 +388,6 @@ session(void *x)
 
 				if (!strcmp(p, "on")) global.dbtype |= DB_TYPE_MEMORY;
 				else if (!strcmp(p, "off")) global.dbtype &= ~ DB_TYPE_MEMORY;
-
-				snprintf(str, sizeof(str), "OK\n");
-				SESSION_WRITE(s, str);
-				continue;
-			}
-			else if (!strncmp(str, "mini", 4))
-			{
-				p = str + 4;
-				while ((*p == ' ') || (*p == '\t')) p++;
-				if (*p == '\0')
-				{
-					snprintf(str, sizeof(str), "mini database is %senabled\n", (global.dbtype & DB_TYPE_MINI) ? "" : "not ");
-					SESSION_WRITE(s, str);
-					if ((global.dbtype & DB_TYPE_MINI) != 0) dbselect = DB_TYPE_MINI;
-					continue;
-				}
-
-				if (!strcmp(p, "on")) global.dbtype |= DB_TYPE_MINI;
-				else if (!strcmp(p, "off")) global.dbtype &= ~ DB_TYPE_MINI;
 
 				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
@@ -542,7 +496,7 @@ session(void *x)
 			}
 			else if ((str[0] == '*') || (str[0] == 'T') || (str[0] == '=') || (str[0] == '!') || (str[0] == '<') || (str[0] == '>'))
 			{
-				memset(&ql, 0, sizeof(asl_search_result_t));
+				memset(&ql, 0, sizeof(asl_msg_list_t));
 				if (query != NULL) free(query);
 				query = NULL;
 
@@ -599,9 +553,9 @@ session(void *x)
 
 		if (watch == WATCH_OFF) low_id = 0;
 
-		memset(&res, 0, sizeof(aslresponse));
+		res = NULL;
 		high_id = 0;
-		(void)db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0, 0);
+		(void)db_query(&ql, &res, low_id, 0, 0, 0, &high_id, 0, 0, 0);
 
 		if ((watch == WATCH_RUN) && (high_id >= low_id)) low_id = high_id + 1;
 
@@ -626,7 +580,7 @@ session(void *x)
 			}
 
 			outlen = 0;
-			out = asl_list_to_string((asl_search_result_t *)res, &outlen);
+			out = asl_msg_list_to_string(res, &outlen);
 			write(s, out, outlen);
 			free(out);
 
@@ -675,7 +629,7 @@ session(void *x)
 			}
 		}
 
-		aslresponse_free(res);
+		asl_msg_list_release(res);
 
 		if (watch == WATCH_LOCKDOWN_START)
 		{
@@ -701,7 +655,7 @@ exit_session:
 	pthread_exit(NULL);
 }
 
-aslmsg 
+asl_msg_t *
 remote_acceptmsg(int fd, int tcp)
 {
 	socklen_t fromlen;
@@ -761,13 +715,13 @@ remote_acceptmsg(int fd, int tcp)
 	return NULL;
 }
 
-aslmsg 
+asl_msg_t *
 remote_acceptmsg_local(int fd)
 {
 	return remote_acceptmsg(fd, 0);
 }
 
-aslmsg 
+asl_msg_t *
 remote_acceptmsg_tcp(int fd)
 {
 	return remote_acceptmsg(fd, 1);

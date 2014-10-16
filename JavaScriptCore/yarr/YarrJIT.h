@@ -48,7 +48,7 @@ class ExecutablePool;
 namespace Yarr {
 
 class YarrCodeBlock {
-#if CPU(X86_64)
+#if CPU(X86_64) || CPU(ARM64)
     typedef MatchResult (*YarrJITCode8)(const LChar* input, unsigned start, unsigned length, int* output) YARR_CALL;
     typedef MatchResult (*YarrJITCode16)(const UChar* input, unsigned start, unsigned length, int* output) YARR_CALL;
     typedef MatchResult (*YarrJITCodeMatchOnly8)(const LChar* input, unsigned start, unsigned length) YARR_CALL;
@@ -108,7 +108,37 @@ public:
     }
 
 #if ENABLE(REGEXP_TRACING)
-    void *getAddr() { return m_ref.code().executableAddress(); }
+    void *get8BitMatchOnlyAddr()
+    {
+        if (!has8BitCodeMatchOnly())
+            return 0;
+
+        return m_matchOnly8.code().executableAddress();
+    }
+
+    void *get16BitMatchOnlyAddr()
+    {
+        if (!has16BitCodeMatchOnly())
+            return 0;
+
+        return m_matchOnly16.code().executableAddress();
+    }
+
+    void *get8BitMatchAddr()
+    {
+        if (!has8BitCode())
+            return 0;
+
+        return m_ref8.code().executableAddress();
+    }
+
+    void *get16BitMatchAddr()
+    {
+        if (!has16BitCode())
+            return 0;
+
+        return m_ref16.code().executableAddress();
+    }
 #endif
 
     void clear()

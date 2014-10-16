@@ -28,58 +28,46 @@
 
 #include "Timer.h"
 
+#include "UserActivity.h"
+#include "ViewState.h"
 #include <wtf/HashSet.h>
-#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
 class Page;
 class PageActivityAssertionToken;
 
-class PageThrottler : public RefCounted<PageThrottler> {
+class PageThrottler {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<PageThrottler> create(Page* page)
-    {
-        return adoptRef(new PageThrottler(page));
-    }
+    PageThrottler(Page&, ViewState::Flags);
 
-    bool shouldThrottleAnimations() const { return m_throttleState != PageNotThrottledState; }
-    bool shouldThrottleTimers() const { return m_throttleState != PageNotThrottledState; }
+    void setViewState(ViewState::Flags);
 
-    void setThrottled(bool);
-
-    void preventThrottling();
-    void reportInterestingEvent();
-    void allowThrottling();
-    void clearPage();
-
-    ~PageThrottler();
+    void didReceiveUserInput() { m_hysteresis.impulse(); }
+    void pluginDidEvaluateWhileAudioIsPlaying() { m_hysteresis.impulse(); }
+    std::unique_ptr<PageActivityAssertionToken> mediaActivityToken();
+    std::unique_ptr<PageActivityAssertionToken> pageLoadActivityToken();
 
 private:
-    enum PageThrottleState {
-        PageNotThrottledState,
-        PageWaitingToThrottleState,
-        PageThrottledState
-    };
-
     friend class PageActivityAssertionToken;
-    void addActivityToken(PageActivityAssertionToken*);
-    void removeActivityToken(PageActivityAssertionToken*);
+    WeakPtr<PageThrottler> weakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+    void incrementActivityCount();
+    void decrementActivityCount();
 
-    PageThrottler(Page*);
-    void startThrottleHysteresisTimer();
-    void stopThrottleHysteresisTimer();
-    void throttleHysteresisTimerFired(Timer<PageThrottler>*);
+    void updateHysteresis();
 
-    Page* m_page;
+    friend class HysteresisActivity<PageThrottler>;
+    void started();
+    void stopped();
 
-    void throttlePage();
-    void unthrottlePage();
-
-    unsigned m_activeThrottleBlockers;
-    PageThrottleState m_throttleState;
-    Timer<PageThrottler> m_throttleHysteresisTimer;
-    HashSet<PageActivityAssertionToken*> m_activityTokens;
+    Page& m_page;
+    ViewState::Flags m_viewState;
+    WeakPtrFactory<PageThrottler> m_weakPtrFactory;
+    HysteresisActivity<PageThrottler> m_hysteresis;
+    UserActivity::Impl m_activity;
+    size_t m_activityCount;
 };
 
 }

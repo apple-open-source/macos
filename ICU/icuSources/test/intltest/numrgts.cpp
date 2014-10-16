@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 1997-2012, International Business Machines Corporation
+ * Copyright (c) 1997-2013, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -172,6 +172,7 @@ NumberFormatRegressionTest::runIndexedTest( int32_t index, UBool exec, const cha
         CASE(62,Test9109);
         CASE(63,Test9780);
         CASE(64,Test9677);
+        CASE(65,Test10361);
 
         default: name = ""; break;
     }
@@ -906,6 +907,7 @@ void NumberFormatRegressionTest::Test4070798 (void)
     UErrorCode status = U_ZERO_ERROR;
     char loc[256]={0};
     int len = uloc_canonicalize("fr_FR_PREEURO", loc, 256, &status);
+    (void)len;  // Suppress set but not used warning.
     formatter = NumberFormat::createInstance(Locale(loc), status);
     if(U_FAILURE(status)) {
       dataerrln("Error creating DecimalFormat: %s", u_errorName(status));
@@ -2695,11 +2697,14 @@ void NumberFormatRegressionTest::TestJ691(void) {
 //   Error Checking / Reporting macros
 //
 //---------------------------------------------------------------------------
-#define TEST_CHECK_STATUS(status) \
-    if (U_FAILURE(status)) {\
-        errln("File %s, Line %d.  status=%s\n", __FILE__, __LINE__, u_errorName(status));\
-        return;\
-    }
+#define TEST_CHECK_STATUS(status) { \
+    if (U_FAILURE(status)) { \
+        if (status == U_MISSING_RESOURCE_ERROR) { \
+            dataerrln("File %s, Line %d: status=%s", __FILE__, __LINE__, u_errorName(status)); \
+        } else { \
+            errln("File %s, Line %d: status=%s", __FILE__, __LINE__, u_errorName(status)); \
+        } return; \
+    }}
 
 #define TEST_ASSERT(expr) \
     if ((expr)==FALSE) {\
@@ -2985,5 +2990,38 @@ void NumberFormatRegressionTest::Test9677(void) {
   }
 }
 
+void NumberFormatRegressionTest::Test10361(void) {
+    // DecimalFormat/NumberFormat were artificially limiting the number of digits,
+    //    preventing formatting of big decimals.
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormatSymbols symbols(Locale::getEnglish(), status);
+    LocalPointer<DecimalFormat> df(new DecimalFormat("###.##", symbols, status));
+    TEST_CHECK_STATUS(status);
+
+    // Create a decimal number with a million digits.
+    const int32_t NUMSIZE=1000000;
+    char *num = new char[NUMSIZE];
+    for (int32_t i=0; i<NUMSIZE; i++) {
+        num[i] = '0' + (i+1) % 10;
+    }
+    num[NUMSIZE-3] = '.';
+    num[NUMSIZE-1] = 0;
+
+    UnicodeString    s;
+    Formattable      fmtable;
+    fmtable.setDecimalNumber(num, status);
+    TEST_CHECK_STATUS(status);
+
+    FieldPosition pos(UNUM_DECIMAL_SEPARATOR_FIELD);
+    df->format(fmtable, s, pos, status);
+    TEST_CHECK_STATUS(status);
+    TEST_ASSERT(999999 == s.length());
+    TEST_ASSERT(999997 == pos.getBeginIndex());
+    TEST_ASSERT(999998 == pos.getEndIndex());
+
+    UnicodeString expected(num, -1, US_INV);
+    TEST_ASSERT(expected == s);
+    delete [] num;
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

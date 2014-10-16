@@ -49,7 +49,7 @@
 #include "ResourceResponse.h"
 #include "ThreadableLoader.h"
 #include "WindowFocusAllowedIndicator.h"
-#include "WorkerContext.h"
+#include "WorkerGlobalScope.h"
 
 namespace WebCore {
 
@@ -71,7 +71,7 @@ Notification::Notification(const String& title, const String& body, const String
         return;
     }
 
-    m_icon = iconURI.isEmpty() ? KURL() : scriptExecutionContext()->completeURL(iconURI);
+    m_icon = iconURI.isEmpty() ? URL() : scriptExecutionContext()->completeURL(iconURI);
     if (!m_icon.isEmpty() && !m_icon.isValid()) {
         ec = SYNTAX_ERR;
         return;
@@ -80,13 +80,13 @@ Notification::Notification(const String& title, const String& body, const String
 #endif
 
 #if ENABLE(NOTIFICATIONS)
-Notification::Notification(ScriptExecutionContext* context, const String& title)
-    : ActiveDOMObject(context)
+Notification::Notification(ScriptExecutionContext& context, const String& title)
+    : ActiveDOMObject(&context)
     , m_title(title)
     , m_state(Idle)
-    , m_taskTimer(adoptPtr(new Timer<Notification>(this, &Notification::taskTimerFired)))
+    , m_taskTimer(std::make_unique<Timer<Notification>>(this, &Notification::taskTimerFired))
 {
-    m_notificationCenter = DOMWindowNotifications::webkitNotifications(toDocument(context)->domWindow());
+    m_notificationCenter = DOMWindowNotifications::webkitNotifications(toDocument(context).domWindow());
     
     ASSERT(m_notificationCenter->client());
     m_taskTimer->startOneShot(0);
@@ -98,42 +98,37 @@ Notification::~Notification()
 }
 
 #if ENABLE(LEGACY_NOTIFICATIONS)
-PassRefPtr<Notification> Notification::create(const String& title, const String& body, const String& iconURI, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider) 
+PassRef<Notification> Notification::create(const String& title, const String& body, const String& iconURI, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider) 
 { 
-    RefPtr<Notification> notification(adoptRef(new Notification(title, body, iconURI, context, ec, provider)));
-    notification->suspendIfNeeded();
-    return notification.release();
+    auto notification = adoptRef(*new Notification(title, body, iconURI, context, ec, provider));
+    notification.get().suspendIfNeeded();
+    return notification;
 }
 #endif
 
 #if ENABLE(NOTIFICATIONS)
-PassRefPtr<Notification> Notification::create(ScriptExecutionContext* context, const String& title, const Dictionary& options)
+PassRef<Notification> Notification::create(ScriptExecutionContext& context, const String& title, const Dictionary& options)
 {
-    RefPtr<Notification> notification(adoptRef(new Notification(context, title)));
+    auto notification = adoptRef(*new Notification(context, title));
     String argument;
     if (options.get("body", argument))
-        notification->setBody(argument);
+        notification.get().setBody(argument);
     if (options.get("tag", argument))
-        notification->setTag(argument);
+        notification.get().setTag(argument);
     if (options.get("lang", argument))
-        notification->setLang(argument);
+        notification.get().setLang(argument);
     if (options.get("dir", argument))
-        notification->setDir(argument);
+        notification.get().setDir(argument);
     if (options.get("icon", argument)) {
-        KURL iconURI = argument.isEmpty() ? KURL() : context->completeURL(argument);
+        URL iconURI = argument.isEmpty() ? URL() : context.completeURL(argument);
         if (!iconURI.isEmpty() && iconURI.isValid())
-            notification->setIconURL(iconURI);
+            notification.get().setIconURL(iconURI);
     }
 
-    notification->suspendIfNeeded();
-    return notification.release();
+    notification.get().suspendIfNeeded();
+    return notification;
 }
 #endif
-
-const AtomicString& Notification::interfaceName() const
-{
-    return eventNames().interfaceForNotification;
-}
 
 void Notification::show() 
 {
@@ -166,16 +161,6 @@ void Notification::close()
     case Closed:
         break;
     }
-}
-
-EventTargetData* Notification::eventTargetData()
-{
-    return &m_eventTargetData;
-}
-
-EventTargetData* Notification::ensureEventTargetData()
-{
-    return &m_eventTargetData;
 }
 
 void Notification::contextDestroyed()
@@ -216,10 +201,10 @@ void Notification::dispatchErrorEvent()
 }
 
 #if ENABLE(NOTIFICATIONS)
-void Notification::taskTimerFired(Timer<Notification>* timer)
+void Notification::taskTimerFired(Timer<Notification>& timer)
 {
     ASSERT(scriptExecutionContext()->isDocument());
-    ASSERT_UNUSED(timer, timer == m_taskTimer.get());
+    ASSERT_UNUSED(timer, &timer == m_taskTimer.get());
     show();
 }
 #endif

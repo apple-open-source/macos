@@ -25,9 +25,10 @@
 #ifndef _IOKIT_HID_IOHIDEVENTTYPES_H
 #define _IOKIT_HID_IOHIDEVENTTYPES_H /* { */
 
+#include <TargetConditionals.h>
 #include <IOKit/IOTypes.h>
 
-#define IOHIDEventTypeMask(type) (1<<type)
+#define IOHIDEventTypeMask(type) (1LL<<type)
 #define IOHIDEventFieldBase(type) (type << 16)
 /*!
     @typedef IOHIDEventType
@@ -39,6 +40,7 @@
     @constant kIOHIDEventTypeNULL
     @constant kIOHIDEventTypeVendorDefined
     @constant kIOHIDEventTypeButton
+    @constant kIOHIDEventTypeKeyboard
     @constant kIOHIDEventTypeTranslation
     @constant kIOHIDEventTypeRotation
     @constant kIOHIDEventTypeScroll
@@ -46,7 +48,6 @@
     @constant kIOHIDEventTypeZoom
     @constant kIOHIDEventTypeVelocity
     @constant kIOHIDEventTypeOrientation
-    @constant kIOHIDEventTypeKeyboard 
     @constant kIOHIDEventTypeDigitizer
     @constant kIOHIDEventTypeAmbientLightSensor
     @constant kIOHIDEventTypeAccelerometer
@@ -62,6 +63,7 @@
     @constant kIOHIDEventTypeDockSwipe
     @constant kIOHIDEventTypeSymbolicHotKey
     @constant kIOHIDEventTypePower
+    @constant kIOHIDEventTypeLED
     @constant kIOHIDEventTypeFluidTouchGesture
     @constant kIOHIDEventTypeBoundaryScroll
     @constant kIOHIDEventTypeBiometric
@@ -93,13 +95,16 @@ enum {
     kIOHIDEventTypeGyro,                    // 20
     kIOHIDEventTypeCompass,
     kIOHIDEventTypeZoomToggle,
-    kIOHIDEventTypeDockSwipe, // just like kIOHIDEventTypeNavigationSwipe, but intended for consumption by Dock
+    kIOHIDEventTypeDockSwipe,               // just like kIOHIDEventTypeNavigationSwipe, but intended for consumption by Dock
     kIOHIDEventTypeSymbolicHotKey,
     kIOHIDEventTypePower,                   // 25
-    kIOHIDEventTypeReserved1,
-    kIOHIDEventTypeFluidTouchGesture, // This will eventually superseed Navagation and Dock swipes
+    kIOHIDEventTypeLED,
+    kIOHIDEventTypeFluidTouchGesture,       // This will eventually superseed Navagation and Dock swipes
     kIOHIDEventTypeBoundaryScroll,
     kIOHIDEventTypeBiometric,
+    kIOHIDEventTypeUnicode,                 // 30
+    kIOHIDEventTypeAtmosphericPressure,
+    kIOHIDEventTypeUndefined,
     kIOHIDEventTypeCount, // This should always be last
     
     
@@ -133,7 +138,8 @@ enum  {
     kIOHIDEventFieldButtonMask = IOHIDEventFieldBase(kIOHIDEventTypeButton),
     kIOHIDEventFieldButtonNumber,
     kIOHIDEventFieldButtonClickCount,
-    kIOHIDEventFieldButtonPressure
+    kIOHIDEventFieldButtonPressure,
+    kIOHIDEventFieldButtonState
 };
 
 enum {
@@ -172,22 +178,22 @@ enum {
     kIOHIDEventFieldPointerY,
     kIOHIDEventFieldPointerZ,
     kIOHIDEventFieldPointerButtonMask,
-    kIOHIDEventFieldPointerNumber,
-    kIOHIDEventFieldPointerClickCount,
-    kIOHIDEventFieldPointerPressure
+    kIOHIDEventFieldPointerButtonNumber     = kIOHIDEventFieldButtonNumber,
+    kIOHIDEventFieldPointerButtonClickCount = kIOHIDEventFieldButtonClickCount,
+    kIOHIDEventFieldPointerButtonPressure   = kIOHIDEventFieldButtonPressure
 };
 
 enum {
-    kIOHIDEventFieldMultiAxisPointerX = IOHIDEventFieldBase(kIOHIDEventTypeMultiAxisPointer),
+    kIOHIDEventFieldMultiAxisPointerX                   = IOHIDEventFieldBase(kIOHIDEventTypeMultiAxisPointer),
     kIOHIDEventFieldMultiAxisPointerY,
     kIOHIDEventFieldMultiAxisPointerZ,
     kIOHIDEventFieldMultiAxisPointerRx,
     kIOHIDEventFieldMultiAxisPointerRy,
     kIOHIDEventFieldMultiAxisPointerRz,
     kIOHIDEventFieldMultiAxisPointerButtonMask,
-    kIOHIDEventFieldMultiAxisPointerNumber,
-    kIOHIDEventFieldMultiAxisPointerClickCount,
-    kIOHIDEventFieldMultiAxisPointerPressure
+    kIOHIDEventFieldMultiAxisPointerButtonNumber        = kIOHIDEventFieldButtonNumber,
+    kIOHIDEventFieldMultiAxisPointerButtonClickCount    = kIOHIDEventFieldButtonClickCount,
+    kIOHIDEventFieldMultiAxisPointerButtonPressure      = kIOHIDEventFieldButtonPressure
 };
 
 /* DEPRECATED: use pointer field */
@@ -196,9 +202,9 @@ enum {
     kIOHIDEventFieldMouseY          = kIOHIDEventFieldPointerY,
     kIOHIDEventFieldMouseZ          = kIOHIDEventFieldPointerZ,
     kIOHIDEventFieldMouseButtonMask = kIOHIDEventFieldPointerButtonMask,
-    kIOHIDEventFieldMouseNumber     = kIOHIDEventFieldPointerNumber,
-    kIOHIDEventFieldMouseClickCount = kIOHIDEventFieldPointerClickCount,
-    kIOHIDEventFieldMousePressure   = kIOHIDEventFieldPointerPressure
+    kIOHIDEventFieldMouseNumber     = kIOHIDEventFieldPointerButtonNumber,
+    kIOHIDEventFieldMouseClickCount = kIOHIDEventFieldPointerButtonClickCount,
+    kIOHIDEventFieldMousePressure   = kIOHIDEventFieldPointerButtonPressure
 };
 
 
@@ -331,7 +337,8 @@ enum {
     kIOHIDEventFieldDigitizerCollection,
     kIOHIDEventFieldDigitizerCollectionChord,
     kIOHIDEventFieldDigitizerChildEventMask,
-    kIOHIDEventFieldDigitizerIsDisplayIntegrated
+    kIOHIDEventFieldDigitizerIsDisplayIntegrated,
+    kIOHIDEventFieldDigitizerQualityRadiiAccuracy,
 };
 
 enum {
@@ -444,6 +451,48 @@ enum {
     kIOHIDEventFieldBiometricLevel
 };
 
+enum {
+    kIOHIDEventFieldLEDMask = IOHIDEventFieldBase(kIOHIDEventTypeLED),
+    kIOHIDEventFieldLEDNumber,
+    kIOHIDEventFieldLEDState
+};
+
+
+enum {
+    kIOHIDUnicodeEncodingTypeUTF8,
+    kIOHIDUnicodeEncodingTypeUTF16LE,
+    kIOHIDUnicodeEncodingTypeUTF16BE,
+    kIOHIDUnicodeEncodingTypeUTF32LE,
+    kIOHIDUnicodeEncodingTypeUTF32BE,
+};
+typedef uint32_t IOHIDUnicodeEncodingType;
+
+/*!
+ @typedef IOHIDEventFieldUnicode
+ @abstract Event field corresponding the unicode events.
+ @discussion The HID Unicode Usage table states that currently only 2-octect are supported,
+             but considering that we can easily discern the size of the character field, it's
+             possible for us to convey variable length characters provided that the sizes
+             are byte aligned
+ @constant  kIOHIDEventFieldUnicodeEncoding event field selector representing the unicode encoding
+ @constant  kIOHIDEventFieldUnicodeQuality event field selector representing the quality of the character from 0.0 to 1.0
+@constant  kIOHIDEventFieldUnicodeLength event field selector representing the length/size
+            of the payload in bytes
+ @constant  kIOHIDEventFieldPayload event field selector representing the payload of size
+            references by kIOHIDEventFieldUnicodeLength
+ */
+
+enum {
+    kIOHIDEventFieldUnicodeEncoding     = IOHIDEventFieldBase(kIOHIDEventTypeUnicode),
+    kIOHIDEventFieldUnicodeQuality,
+    kIOHIDEventFieldUnicodeLength,
+    kIOHIDEventFieldUnicodePayload
+};
+
+enum {
+    kIOHIDEventFieldAtmosphericPressureLevel = IOHIDEventFieldBase(kIOHIDEventTypeAtmosphericPressure),
+    kIOHIDEventFieldAtmosphericSequence
+};
 
 typedef uint32_t IOHIDEventField;
 
@@ -517,6 +566,8 @@ typedef uint16_t IOHIDGestureMotion;
     @constant kIOHIDGestureFlavorDockSecondary
     @constant kIOHIDGestureFlavorNavagationPrimary
     @constant kIOHIDGestureFlavorNavagationSecondary
+    @constant kIOHIDGestureFlavorControlCenterPrimary
+    @constant kIOHIDGestureFlavorControlCenterSecondary
 */
 enum {
     kIOHIDGestureFlavorNone,
@@ -526,6 +577,8 @@ enum {
     kIOHIDGestureFlavorDockSecondary,
     kIOHIDGestureFlavorNavagationPrimary,
     kIOHIDGestureFlavorNavagationSecondary,
+    kIOHIDGestureFlavorControlCenterPrimary,
+    kIOHIDGestureFlavorControlCenterSecondary,
 };
 typedef uint16_t IOHIDGestureFlavor;
 
@@ -595,6 +648,7 @@ typedef uint32_t IOHIDDigitizerTransducerType;
     @constant kIOHIDDigitizerEventFromEdgeFlat Issued when a digitizer approaches from the edge with flattened presentation
     @constant kIOHIDDigitizerEventFromEdgeTip Issued when a digitizer approaches from the edge with standard (i.e. un-flattened) presentation.
     @constant kIOHIDDigitizerEventFromCorner Issued when a digitizer approaches from a corner
+    @constant kIOHIDDigitizerEventSwipePending Issued to indicate that an edge swipe is pending 
     @constant kIOHIDDigitizerEventUpSwipe Issued when an up swipe has been detected.
     @constant kIOHIDDigitizerEventDownSwipe Issued when an down swipe has been detected.
     @constant kIOHIDDigitizerEventLeftSwipe Issued when an left swipe has been detected.
@@ -615,6 +669,7 @@ enum {
     kIOHIDDigitizerEventFromEdgeFlat                        = 1<<10,
     kIOHIDDigitizerEventFromEdgeTip                         = 1<<11,
     kIOHIDDigitizerEventFromCorner                          = 1<<12,
+    kIOHIDDigitizerEventSwipePending                        = 1<<13,
     kIOHIDDigitizerEventSwipeUp                             = 1<<24,
     kIOHIDDigitizerEventSwipeDown                           = 1<<25,
     kIOHIDDigitizerEventSwipeLeft                           = 1<<26,

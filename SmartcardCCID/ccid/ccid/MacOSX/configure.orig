@@ -1,0 +1,113 @@
+#! /bin/bash
+
+#    Copyright (C) 2007-2009  Ludovic Rousseau  <ludovic.rousseau@free.fr>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+#    02110-1301 USA.
+
+# $Id: configure 6792 2013-11-25 13:03:21Z rousseau $
+
+# to use
+# ./MacOSX/configure
+# make
+# make install
+# the driver is installed in /usr/libexec/SmartCardServices/drivers
+
+# Colors
+RED="\033[31m"
+NORMAL="\033[0m"
+
+# run this script as ./MacOSX/configure to configure for Mac OS X
+if [ ! -d MacOSX ]
+then
+	echo -e $RED
+	echo "ERROR!"
+	echo "run ./MacOSX/configure from the source top directory"
+	echo -e $NORMAL
+	exit;
+fi
+
+# find pcsc-lite header files in MacOSX/
+# use ${varname:-word} to return word only if varname is not already defined
+PCSC_CFLAGS=${PCSC_CFLAGS:--I$(pwd)/MacOSX}
+PCSC_LIBS=${PCSC_LIBS:--framework PCSC}
+
+# use libusb-1.0 (or libusbx-1.0)
+LIBUSB_ARCHIVE=$(pkg-config --variable=libdir libusb-1.0)/libusb-1.0.a
+LIBUSB_CFLAGS=$(pkg-config --cflags --static libusb-1.0)
+LIBUSB_LIBS=$(pkg-config --libs --static libusb-1.0)
+
+# RESPONSECODE is already defined by PCSC/wintypes.h
+# define needed here to compile examples/scardcontrol.c since config.h is
+# not included
+CFLAGS="$CFLAGS -DRESPONSECODE_DEFINED_IN_WINTYPES_H"
+
+# Build a Universal Binary
+UB=$(file $LIBUSB_ARCHIVE | grep "Mach-O universal binary")
+echo $UB
+if [ -z "$UB" ]
+then
+	echo -en $RED
+	echo "*************************"
+	echo "No Universal Binary build"
+	echo "*************************"
+	echo -en $NORMAL
+else
+	echo "Universal Binary build"
+	CFLAGS="$CFLAGS -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk -arch i386 -arch x86_64"
+fi
+echo
+
+CONFIGURE_ARGS="--disable-dependency-tracking"
+
+# do not build a static driver
+# (building fails when linking statically with libusb)
+CONFIGURE_ARGS="$CONFIGURE_ARGS --disable-static"
+
+# do not use pcscd debug feature
+CONFIGURE_ARGS="$CONFIGURE_ARGS --disable-pcsclite"
+
+# simulate a composite device as multi slots
+CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-composite-as-multislot"
+
+# set BUNDLE_ID to a specific value for a specific driver
+#BUNDLE_ID="vendor-reader"
+if [ ! -z "$BUNDLE_ID" ]
+then
+	# do not build a class driver (not yet used by pcsc-lite on Mac OS X)
+	CONFIGURE_ARGS="$CONFIGURE_ARGS --disable-class"
+
+	# use a specific bundle name to NOT overwrite the official CCID driver
+	CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-bundle=ifd-ccid-$BUNDLE_ID.bundle"
+
+	# differentiate each libccid library by the dynamic linker
+	CONFIGURE_ARGS="$CONFIGURE_ARGS	--prefix=/fake/$BUNDLE_ID"
+fi
+
+set -x
+./configure \
+	CFLAGS="$CFLAGS" \
+	PCSC_CFLAGS="$PCSC_CFLAGS" \
+	PCSC_LIBS="$PCSC_LIBS" \
+	LIBUSB_CFLAGS="$LIBUSB_CFLAGS" \
+	LIBUSB_LIBS="$LIBUSB_LIBS" \
+	LDFLAGS="$LDFLAGS" \
+	--enable-usbdropdir=/usr/libexec/SmartCardServices/drivers \
+	$CONFIGURE_ARGS \
+	"$@"
+
+# force a regeneration of Info.plist
+rm -f src/Info.plist
+

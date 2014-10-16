@@ -1,0 +1,7 @@
+API Notes: Social framework
+===========================
+
+API Notes
+---------
+
+The entire "Social" framework on MacOSX 10.8 (or later) is available from Python.

@@ -31,16 +31,13 @@
 #include "config.h"
 #include "APIObject.h"
 
-#include <runtime/InitializeThreading.h>
-#include <runtime/Operations.h>
-#include <wtf/MainThread.h>
+#include "WebKit2Initialize.h"
 
-namespace WebKit {
+namespace API {
 
-APIObject::APIObject()
+Object::Object()
 {
-    JSC::initializeThreading();
-    WTF::initializeMainThread();
+    WebKit::InitializeWebKit2();
 }
 
 } // namespace WebKit

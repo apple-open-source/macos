@@ -35,6 +35,7 @@
 #include "IDBDatabase.h"
 #include "IDBKeyPath.h"
 #include "IDBObjectStore.h"
+#include "JSDOMBinding.h"
 #include "JSIDBObjectStore.h"
 #include <runtime/Error.h>
 #include <runtime/JSString.h>
@@ -46,7 +47,7 @@ namespace WebCore {
 JSValue JSIDBDatabase::createObjectStore(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
-        return throwError(exec, createNotEnoughArgumentsError(exec));
+        return exec->vm().throwException(exec, createNotEnoughArgumentsError(exec));
 
     String name = exec->argument(0).toString(exec)->value(exec);
     if (exec->hadException())
@@ -75,7 +76,7 @@ JSValue JSIDBDatabase::createObjectStore(ExecState* exec)
     }
 
     ExceptionCode ec = 0;
-    JSValue result = toJS(exec, globalObject(), impl()->createObjectStore(name, keyPath, autoIncrement, ec).get());
+    JSValue result = toJS(exec, globalObject(), impl().createObjectStore(name, keyPath, autoIncrement, ec).get());
     setDOMException(exec, ec);
     return result;
 }

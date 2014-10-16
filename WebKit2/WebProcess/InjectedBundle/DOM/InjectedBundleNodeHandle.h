@@ -44,7 +44,7 @@ class InjectedBundleScriptWorld;
 class WebFrame;
 class WebImage;
 
-class InjectedBundleNodeHandle : public TypedAPIObject<APIObject::TypeBundleNodeHandle> {
+class InjectedBundleNodeHandle : public API::ObjectImpl<API::Object::Type::BundleNodeHandle> {
 public:
     static PassRefPtr<InjectedBundleNodeHandle> getOrCreate(JSContextRef, JSObjectRef);
     static PassRefPtr<InjectedBundleNodeHandle> getOrCreate(WebCore::Node*);
@@ -66,6 +66,7 @@ public:
     void setHTMLInputElementAutofilled(bool);
     bool htmlInputElementLastChangeWasUserEdit();
     bool htmlTextAreaElementLastChangeWasUserEdit();
+    bool isTextField() const;
     
     PassRefPtr<InjectedBundleNodeHandle> htmlTableCellElementCellAbove();
 

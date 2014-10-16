@@ -14,6 +14,8 @@ VARIANT_CANCELABLE_INCLUDE = $(VARIANT_CANCELABLE_INCLUDE_$(PLATFORM_NAME))
 VARIANT_CANCELABLE_INCLUDE_macosx = $(VARIANT_CANCELABLE_INCLUDE_compat) $(VARIANT_CANCELABLE_INCLUDE_gen) $(VARIANT_CANCELABLE_INCLUDE_net) $(VARIANT_CANCELABLE_INCLUDE_sys)
 VARIANT_CANCELABLE_INCLUDE_iphoneos = $(VARIANT_CANCELABLE_INCLUDE_compat) $(VARIANT_CANCELABLE_INCLUDE_gen) $(VARIANT_CANCELABLE_INCLUDE_net) $(VARIANT_CANCELABLE_INCLUDE_sys)
 VARIANT_CANCELABLE_INCLUDE_iphonesimulator = $(VARIANT_CANCELABLE_INCLUDE_compat) $(VARIANT_CANCELABLE_INCLUDE_gen) $(VARIANT_CANCELABLE_INCLUDE_net) $(VARIANT_CANCELABLE_INCLUDE_sys)
+VARIANT_CANCELABLE_INCLUDE_iphoneosnano = $(VARIANT_CANCELABLE_INCLUDE_iphoneos)
+VARIANT_CANCELABLE_INCLUDE_iphonesimulatornano = $(VARIANT_CANCELABLE_INCLUDE_iphonesimulator)
 
 VARIANT_CANCELABLE_INCLUDE_compat = creat.c sigcompat.c
 VARIANT_CANCELABLE_INCLUDE_gen = lockf.c nanosleep.c pause.c pselect.c sleep.c termios.c usleep.c wait.c waitpid.c
@@ -85,7 +87,7 @@ VARIANT_DYLD_INCLUDE_generic = $(VARIANT_DYLD_INCLUDE_gen) $(VARIANT_DYLD_INCLUD
 VARIANT_DYLD_INCLUDE_gen = arc4random.c closedir.c dirfd.c getcwd.c getpagesize.c nanosleep.c opendir.c readdir.c scandir.c sysctl.c sysctlbyname.c telldir.c usleep.c
 VARIANT_DYLD_INCLUDE_stdlib = atexit.c exit.c gettimeofday.c heapsort.c merge.c qsort.c reallocf.c realpath.c
 VARIANT_DYLD_INCLUDE_string = bcopy.c libplatform.s strcat.c strchr.c strcpy.c strdup.c strlcat.c strlcpy.c strncmp.c strnlen.c strrchr.c strstr.c
-VARIANT_DYLD_INCLUDE_sys = __libc_init.c
+VARIANT_DYLD_INCLUDE_sys = _libc_init.c
 
 VARIANT_DYLD_INCLUDE_x86_64 = x86_64/string/strcpy.s x86_64/string/strlen.s x86_64/string/strncpy.s x86_64/string/strnlen.s            strstr.c
 VARIANT_DYLD_INCLUDE_i386 =     i386/string/strcpy.s   i386/string/strlen.s   i386/string/strncpy.s               strnlen.c            strstr.c

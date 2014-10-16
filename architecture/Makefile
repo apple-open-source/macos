@@ -23,7 +23,8 @@ ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONI
 DIRS = . $(ARCHS)
 
 ifeq ($(RC_ProjectName),architecture_Sim)
-	HEADER_INSTALL_PREFIX = $(SDKROOT)
+	include $(MAKEFILEPATH)/../AppleInternal/Makefiles/Makefile.indigo_prefix
+	HEADER_INSTALL_PREFIX = $(INDIGO_PREFIX)
 else
 	HEADER_INSTALL_PREFIX =
 endif

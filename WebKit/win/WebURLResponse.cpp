@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,9 +36,8 @@
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
-#include <wtf/platform.h>
 #include <WebCore/BString.h>
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/ResourceHandle.h>
 #include <shlobj.h>
@@ -47,7 +46,7 @@
 
 using namespace WebCore;
 
-static String CFHTTPMessageCopyLocalizedShortDescriptionForStatusCode(CFIndex statusCode)
+static String localizedShortDescriptionForStatusCode(int statusCode)
 {
     String result;
     if (statusCode < 100 || statusCode >= 600)
@@ -226,7 +225,7 @@ WebURLResponse* WebURLResponse::createInstance()
 {
     WebURLResponse* instance = new WebURLResponse();
     // fake an http response - so it has the IWebHTTPURLResponse interface
-    instance->m_response = ResourceResponse(KURL(ParsedURLString, "http://"), String(), 0, String(), String());
+    instance->m_response = ResourceResponse(WebCore::URL(ParsedURLString, "http://"), String(), 0, String(), String());
     instance->AddRef();
     return instance;
 }
@@ -361,7 +360,11 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::allHeaderFields(
 {
     ASSERT(m_response.isHTTP());
 
-    *headerFields = COMPropertyBag<String, AtomicString, CaseFoldingHash>::createInstance(m_response.httpHeaderFields());
+    HashMap<String, String, CaseFoldingHash> fields;
+    for (const auto& keyValuePair : m_response.httpHeaderFields())
+        fields.add(keyValuePair.key, keyValuePair.value);
+
+    *headerFields = COMPropertyBag<String, String, CaseFoldingHash>::adopt(fields);
     return S_OK;
 }
 
@@ -372,7 +375,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::localizedStringForStatusCode(
     ASSERT(m_response.isHTTP());
     if (statusString)
         *statusString = 0;
-    String statusText = CFHTTPMessageCopyLocalizedShortDescriptionForStatusCode(statusCode);
+    const String& statusText = localizedShortDescriptionForStatusCode(statusCode);
     if (!statusText)
         return E_FAIL;
     if (statusString)
@@ -397,8 +400,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::isAttachment(
 }
 
 
-HRESULT STDMETHODCALLTYPE WebURLResponse::sslPeerCertificate( 
-    /* [retval][out] */ OLE_HANDLE* result)
+HRESULT WebURLResponse::sslPeerCertificate(/* [retval][out] */ ULONG_PTR* result)
 {
     if (!result)
         return E_POINTER;
@@ -411,7 +413,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::sslPeerCertificate(
     void* data = wkGetSSLPeerCertificateDataBytePtr(dict);
     if (!data)
         return E_FAIL;
-    *result = (OLE_HANDLE)(ULONG64)data;
+    *result = reinterpret_cast<ULONG_PTR>(data);
 #endif
 
     return *result ? S_OK : E_FAIL;

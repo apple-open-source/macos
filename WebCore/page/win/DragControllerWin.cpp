@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,8 +26,12 @@
 #include "config.h"
 #include "DragController.h"
 
+#include "DataTransfer.h"
 #include "DragData.h"
+#include "Element.h"
 #include "FrameSelection.h"
+#include "Pasteboard.h"
+#include "markup.h"
 #include "windows.h"
 #include <wtf/RefPtr.h>
 
@@ -40,17 +44,16 @@ const int DragController::DragIconBottomInset = 3;
 
 const float DragController::DragImageAlpha = 0.75f;
 
-DragOperation DragController::dragOperation(DragData* dragData)
+DragOperation DragController::dragOperation(DragData& dragData)
 {
     //FIXME: to match the macos behaviour we should return DragOperationNone
     //if we are a modal window, we are the drag source, or the window is an attached sheet
     //If this can be determined from within WebCore operationForDrag can be pulled into 
     //WebCore itself
-    ASSERT(dragData);
-    return dragData->containsURL(0) && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
+    return dragData.containsURL(0) && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
 }
 
-bool DragController::isCopyKeyDown(DragData*)
+bool DragController::isCopyKeyDown(DragData&)
 {
     return ::GetAsyncKeyState(VK_CONTROL);
 }
@@ -64,6 +67,20 @@ const IntSize& DragController::maxDragImageSize()
 
 void DragController::cleanupAfterSystemDrag()
 {
+}
+
+void DragController::declareAndWriteDragImage(DataTransfer& dataTransfer, Element& element, const URL& url, const String& label)
+{
+    Pasteboard& pasteboard = dataTransfer.pasteboard();
+
+    // FIXME: Do we really need this check?
+    if (!pasteboard.writableDataObject())
+        return;
+
+    // Order is important here for Explorer's sake
+    pasteboard.writeURLToWritableDataObject(url, label);
+    pasteboard.writeImageToDataObject(element, url);
+    pasteboard.writeMarkup(createMarkup(element, IncludeNode, 0, ResolveAllURLs));
 }
 
 }

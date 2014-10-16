@@ -47,6 +47,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libresolv.xcconfig; path = xcodescripts/libresolv.xcconfig; sourceTree = "<group>"; };
 		FC585ED614EDAEA400C8F63A /* libresolv.9.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libresolv.9.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC585EE014EDAF3000C8F63A /* base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = base64.c; sourceTree = "<group>"; };
 		FC585EE114EDAF3000C8F63A /* dns_async.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dns_async.c; sourceTree = "<group>"; };
@@ -103,6 +104,7 @@
 		FC585ECB14EDAEA400C8F63A = {
 			isa = PBXGroup;
 			children = (
+				81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */,
 				FC585EE014EDAF3000C8F63A /* base64.c */,
 				FC585EE114EDAF3000C8F63A /* dns_async.c */,
 				FC585EE214EDAF3000C8F63A /* dns_private.h */,
@@ -280,37 +282,13 @@
 		FC585ED914EDAEA400C8F63A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*]" = USE_DNS_PSELECT;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				OTHER_CFLAGS = "-fno-common";
-				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
-				"PRIVATE_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/include";
-				PROVISIONING_PROFILE = "";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
-				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
 		};
 		FC585EDC14EDAEA400C8F63A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81BED2FE185D91FC00BC7221 /* libresolv.xcconfig */;
 			buildSettings = {
-				FRAMEWORK_VERSION = 9;
-				PRODUCT_NAME = "$(TARGET_NAME).$(FRAMEWORK_VERSION)";
-				LD_DYLIB_INSTALL_NAME = "/usr/lib/$(PRODUCT_NAME).dylib";
 			};
 			name = Release;
 		};

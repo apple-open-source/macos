@@ -26,17 +26,19 @@
 #include "CallData.h"
 #include "ConstructData.h"
 #include "Heap.h"
+#include "IndexingType.h"
 #include "JSLock.h"
+#include "JSTypeInfo.h"
 #include "SlotVisitor.h"
-#include "TypedArrayDescriptor.h"
+#include "TypedArrayType.h"
 #include "WriteBarrier.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/TypeTraits.h>
 
 namespace JSC {
 
 class CopyVisitor;
 class ExecState;
+class JSArrayBufferView;
 class JSDestructibleObject;
 class JSGlobalObject;
 class LLIntOffsetsExtractor;
@@ -48,6 +50,21 @@ enum EnumerationMode {
     ExcludeDontEnumProperties,
     IncludeDontEnumProperties
 };
+
+template<typename T> void* allocateCell(Heap&);
+template<typename T> void* allocateCell(Heap&, size_t);
+
+#define DECLARE_EXPORT_INFO                                             \
+    protected:                                                          \
+        static JS_EXPORTDATA const ::JSC::ClassInfo s_info;             \
+    public:                                                             \
+        static const ::JSC::ClassInfo* info() { return &s_info; }
+
+#define DECLARE_INFO                                                    \
+    protected:                                                          \
+        static const ::JSC::ClassInfo s_info;                           \
+    public:                                                             \
+        static const ::JSC::ClassInfo* info() { return &s_info; }
 
 class JSCell {
     friend class JSValue;
@@ -73,15 +90,22 @@ public:
     bool isString() const;
     bool isObject() const;
     bool isGetterSetter() const;
+    bool isCustomGetterSetter() const;
     bool isProxy() const;
     bool inherits(const ClassInfo*) const;
     bool isAPIValueWrapper() const;
 
+    JSType type() const;
+    IndexingType indexingType() const;
+    StructureID structureID() const { return m_structureID; }
     Structure* structure() const;
+    Structure* structure(VM&) const;
     void setStructure(VM&, Structure*);
-    void clearStructure() { m_structure.clear(); }
+    void clearStructure() { m_structureID = 0; }
 
-    const char* className();
+    TypeInfo::InlineTypeFlags inlineTypeFlags() const { return m_flags; }
+
+    const char* className() const;
 
     // Extracting the value.
     JS_EXPORT_PRIVATE bool getString(ExecState*, String&) const;
@@ -100,54 +124,85 @@ public:
     JS_EXPORT_PRIVATE double toNumber(ExecState*) const;
     JS_EXPORT_PRIVATE JSObject* toObject(ExecState*, JSGlobalObject*) const;
 
+    void dump(PrintStream&) const;
+    JS_EXPORT_PRIVATE static void dumpToStream(const JSCell*, PrintStream&);
     static void visitChildren(JSCell*, SlotVisitor&);
-    JS_EXPORT_PRIVATE static void copyBackingStore(JSCell*, CopyVisitor&);
+    JS_EXPORT_PRIVATE static void copyBackingStore(JSCell*, CopyVisitor&, CopyToken);
 
     // Object operations, with the toObject operation included.
     const ClassInfo* classInfo() const;
     const MethodTable* methodTable() const;
-    const MethodTable* methodTableForDestruction() const;
+    const MethodTable* methodTable(VM&) const;
     static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
         
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
     static bool deletePropertyByIndex(JSCell*, ExecState*, unsigned propertyName);
 
-    static JSObject* toThisObject(JSCell*, ExecState*);
+    static JSValue toThis(JSCell*, ExecState*, ECMAMode);
 
     void zap() { *reinterpret_cast<uintptr_t**>(this) = 0; }
     bool isZapped() const { return !*reinterpret_cast<uintptr_t* const*>(this); }
 
-    // FIXME: Rename getOwnPropertySlot to virtualGetOwnPropertySlot, and
-    // fastGetOwnPropertySlot to getOwnPropertySlot. Callers should always
-    // call this function, not its slower virtual counterpart. (For integer
-    // property names, we want a similar interface with appropriate optimizations.)
-    bool fastGetOwnPropertySlot(ExecState*, PropertyName, PropertySlot&);
-    JSValue fastGetOwnProperty(ExecState*, const String&);
+    static bool canUseFastGetOwnProperty(const Structure&);
+    JSValue fastGetOwnProperty(VM&, Structure&, const String&);
 
-    static ptrdiff_t structureOffset()
+    enum GCData : uint8_t {
+        Marked = 0,
+        NotMarked = 1,
+        MarkedAndRemembered = 2,
+    };
+
+    void setMarked() { m_gcData = Marked; }
+    void setRemembered(bool remembered)
     {
-        return OBJECT_OFFSETOF(JSCell, m_structure);
+        ASSERT(m_gcData == (remembered ? Marked : MarkedAndRemembered));
+        m_gcData = remembered ? MarkedAndRemembered : Marked; 
+    }
+    bool isMarked() const
+    {
+        switch (m_gcData) {
+        case Marked:
+        case MarkedAndRemembered:
+            return true;
+        case NotMarked:
+            return false;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return false;
+    }
+    bool isRemembered() const { return m_gcData == MarkedAndRemembered; }
+
+    static ptrdiff_t structureIDOffset()
+    {
+        return OBJECT_OFFSETOF(JSCell, m_structureID);
     }
 
-    void* structureAddress()
+    static ptrdiff_t typeInfoFlagsOffset()
     {
-        return &m_structure;
+        return OBJECT_OFFSETOF(JSCell, m_flags);
     }
-        
-#if ENABLE(GC_VALIDATION)
-    Structure* unvalidatedStructure() { return m_structure.unvalidatedGet(); }
-#endif
-        
-    static const TypedArrayType TypedArrayStorageType = TypedArrayNone;
+
+    static ptrdiff_t typeInfoTypeOffset()
+    {
+        return OBJECT_OFFSETOF(JSCell, m_type);
+    }
+
+    static ptrdiff_t indexingTypeOffset()
+    {
+        return OBJECT_OFFSETOF(JSCell, m_indexingType);
+    }
+
+    static ptrdiff_t gcDataOffset()
+    {
+        return OBJECT_OFFSETOF(JSCell, m_gcData);
+    }
+
+    static const TypedArrayType TypedArrayStorageType = NotTypedArray;
 protected:
 
     void finishCreation(VM&);
     void finishCreation(VM&, Structure*, CreatingEarlyCellTag);
-
-    // Base implementation; for non-object classes implements getPropertySlot.
-    static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
-    static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
 
     // Dummy implementations of override-able static functions for classes to put in their MethodTable
     static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
@@ -156,40 +211,50 @@ protected:
     static NO_RETURN_DUE_TO_CRASH void getPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
     static String className(const JSObject*);
     JS_EXPORT_PRIVATE static bool customHasInstance(JSObject*, ExecState*, JSValue);
-    static NO_RETURN_DUE_TO_CRASH void putDirectVirtual(JSObject*, ExecState*, PropertyName, JSValue, unsigned attributes);
-    static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, PropertyDescriptor&, bool shouldThrow);
-    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+    static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
+    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+    static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
+    JS_EXPORT_PRIVATE static ArrayBuffer* slowDownAndWasteMemory(JSArrayBufferView*);
+    JS_EXPORT_PRIVATE static PassRefPtr<ArrayBufferView> getTypedArrayImpl(JSArrayBufferView*);
 
 private:
     friend class LLIntOffsetsExtractor;
-        
-    WriteBarrier<Structure> m_structure;
+
+    StructureID m_structureID;
+    IndexingType m_indexingType;
+    JSType m_type;
+    TypeInfo::InlineTypeFlags m_flags;
+    uint8_t m_gcData;
 };
 
 template<typename To, typename From>
 inline To jsCast(From* from)
 {
-    ASSERT(!from || from->JSCell::inherits(&WTF::RemovePointer<To>::Type::s_info));
+    ASSERT(!from || from->JSCell::inherits(std::remove_pointer<To>::type::info()));
     return static_cast<To>(from);
 }
     
 template<typename To>
 inline To jsCast(JSValue from)
 {
-    ASSERT(from.isCell() && from.asCell()->JSCell::inherits(&WTF::RemovePointer<To>::Type::s_info));
+    ASSERT(from.isCell() && from.asCell()->JSCell::inherits(std::remove_pointer<To>::type::info()));
     return static_cast<To>(from.asCell());
 }
 
 template<typename To, typename From>
 inline To jsDynamicCast(From* from)
 {
-    return from->inherits(&WTF::RemovePointer<To>::Type::s_info) ? static_cast<To>(from) : 0;
+    if (LIKELY(from->inherits(std::remove_pointer<To>::type::info())))
+        return static_cast<To>(from);
+    return nullptr;
 }
 
 template<typename To>
 inline To jsDynamicCast(JSValue from)
 {
-    return from.isCell() && from.asCell()->inherits(&WTF::RemovePointer<To>::Type::s_info) ? static_cast<To>(from.asCell()) : 0;
+    if (LIKELY(from.isCell() && from.asCell()->inherits(std::remove_pointer<To>::type::info())))
+        return static_cast<To>(from.asCell());
+    return nullptr;
 }
 
 } // namespace JSC

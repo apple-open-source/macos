@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>python-dateutil</string>
+        <key>OpenSourceVersion</key>
+        <string>1.5</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://labix.org/python-dateutil</string>
+        <key>OpenSourceURL</key>
+        <string>http://labix.org/download/python-dateutil/python-dateutil-1.5.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-10-28</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>35f3732db3f2cc4afdc68a8533b60a52</string>
+</dict>

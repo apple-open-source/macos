@@ -53,6 +53,7 @@ struct pcap_proc_info {
 	uint32_t proc_index;
 	uint32_t proc_pid;
 	char *proc_name;
+	int proc_block_added;
 };
 extern struct pcap_proc_info * pcap_find_proc_info(pcap_t *, uint32_t , const char *);
 extern struct pcap_proc_info * pcap_find_proc_info_by_index(pcap_t *, uint32_t);

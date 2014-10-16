@@ -1,0 +1,54 @@
+#
+# Test Code Signing and Package Signing policies.
+# This used to be called the Code Signing POlicy; it was renamed on 8/15/06.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+### policy = CSSMOID_APPLE_TP_CODE_SIGNING ###
+
+test = "Apple Code Signing success"
+cert = CodeSignLeaf.cer
+root = CodeSignRoot.cer
+policy = codeSign
+end
+
+test = "Apple Code Signing, no EKU, expect fail"
+cert = NoEKULeaf.cer
+root = CodeSignRoot.cer
+policy = codeSign
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "Apple Code Signing, wrong EKU, expect fail"
+cert = BadCodeSignLeaf.cer
+root = CodeSignRoot.cer
+policy = codeSign
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+### policy = CSSMOID_APPLE_TP_PACKAGE_SIGNING ###
+
+test = "Package Signing success"
+cert = CodeSignLeaf.cer
+root = CodeSignRoot.cer
+policy = pkgSign
+end
+
+test = "Package Signing, no EKU, expect fail"
+cert = NoEKULeaf.cer
+root = CodeSignRoot.cer
+policy = pkgSign
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "Package Signing, wrong EKU, expect fail"
+cert = BadCodeSignLeaf.cer
+root = CodeSignRoot.cer
+policy = pkgSign
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end

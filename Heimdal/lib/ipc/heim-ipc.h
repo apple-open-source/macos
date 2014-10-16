@@ -71,7 +71,8 @@ heim_ipc_cred_get_server_address(heim_icred cred, krb5_socklen_t *sa_size);
 
 
 void
-heim_ipc_main(void);
+heim_ipc_main(void)
+    __attribute__((__noreturn__));
 
 heim_isemaphore
 heim_ipc_semaphore_create(long);

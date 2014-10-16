@@ -82,7 +82,7 @@ static void kdebug_sadb_session_id (struct sadb_ext *);
 static void kdebug_sadb_sastat (struct sadb_ext *);
 static void kdebug_sadb_x_policy (struct sadb_ext *ext);
 static void kdebug_sockaddr (struct sockaddr_storage *addr);
-
+static void kdebug_sadb_x_ipsecif (struct sadb_ext *ext);
 #ifdef SADB_X_EXT_NAT_T_TYPE
 static void kdebug_sadb_x_nat_t_type (struct sadb_ext *ext);
 static void kdebug_sadb_x_nat_t_port (struct sadb_ext *ext);
@@ -185,6 +185,7 @@ kdebug_sadb(base)
             kdebug_sadb_sastat(ext);
             break;
         case SADB_X_EXT_IPSECIF:
+            kdebug_sadb_x_ipsecif(ext);
             break;
 #ifdef SADB_X_EXT_NAT_T_TYPE
 		case SADB_X_EXT_NAT_T_TYPE:
@@ -453,6 +454,20 @@ struct sadb_ext *ext;
     printf("sadb_session_id{ id0=%llx, id1=%llx}\n",
            p->sadb_session_id_v[0],
            p->sadb_session_id_v[1]);
+}
+
+static void
+kdebug_sadb_x_ipsecif(struct sadb_ext *ext)
+{
+	struct sadb_x_ipsecif *p = ALIGNED_CAST(__typeof__(p))ext;
+
+	if (ext == NULL) {
+		printf("sadb_x_ipsecif: NULL pointer was passed.\n");
+		return;
+	}
+
+	printf("sadb_x_ipsec_if{ ipsecif=%s outgoing=%s\n", p->sadb_x_ipsecif_ipsec_if, p->sadb_x_ipsecif_outgoing_if);
+	printf("  internal=%s disabled=%d }\n", p->sadb_x_ipsecif_internal_if, p->sadb_x_ipsecif_init_disabled);
 }
 
 static void

@@ -67,6 +67,7 @@
 #include <time.h>
 
 #include <sys/param.h>
+#include <sys/errno.h>
 
 #include "ext.h"
 #include "fsutil.h"
@@ -616,6 +617,55 @@ checksize(boot, p, dir)
 
 
 /*
+ * Is the given directory entry really a subdirectory?
+ *
+ * Read the first cluster of the given subdirectory and check whether the
+ * first two short names are "." and "..".
+ *
+ * Return values:
+ *  0           Is a valid subdirectory
+ *  ENOTDIR     Is not a valid subdirectory
+ *  ENOMEM      Unable to allocate memory for an I/O buffer
+ *  EIO         Unable to read from the subdirectory
+ */
+static errno_t isSubdirectory(int fd, struct bootblock *boot, struct dosDirEntry *dir)
+{
+    off_t offset;
+    ssize_t amount;
+    char *buf;
+    errno_t err = 0;
+    
+    buf = malloc(boot->BytesPerSec);
+    if (buf == NULL) {
+        perr("No memory for subdirectory buffer");
+        return ENOMEM;
+    }
+
+    offset = ((off_t)dir->head * boot->SecPerClust + boot->ClusterOffset) * boot->BytesPerSec;
+    amount = pread(fd, buf, boot->BytesPerSec, offset);
+    if (amount != boot->BytesPerSec) {
+        pfatal("Unable to read cluster %u", dir->head);
+        err = EIO;
+        goto fail;
+    }
+
+    /* Make sure the first two children are named "." and ".." */
+    if (memcmp(buf, ".          ", 11) || memcmp(buf+32, "..         ", 11)) {
+        err = ENOTDIR;
+        goto fail;
+    }
+    
+    /* Make sure "." and ".." are marked as directories */
+    if ((buf[11] & ATTR_DIRECTORY) == 0 || (buf[32+11] & ATTR_DIRECTORY) == 0) {
+        err = ENOTDIR;
+    }
+    
+fail:
+    free(buf);
+    return err;
+}
+
+/*
  * Read a directory and
  *   - resolve long name records
  *   - enter file and directory records into the parent's list
@@ -653,6 +703,10 @@ readDosDirSection(f, boot, dir)
 	do {
 		last_cl = cl;	/* Remember last cluster accessed before exiting loop */
 
+        /*
+         * Get the starting offset and length of the current chunk of the
+         * directory.
+         */
 		if (!(boot->flags & FAT32) && !dir->parent) {
 			last = boot->RootDirEnts * 32;
 			off = boot->ResSectors + boot->FATs * boot->FATsecs;
@@ -668,12 +722,14 @@ readDosDirSection(f, boot, dir)
 			return FSFATAL;
 		}
 		last /= 32;
+
 		/*
-		 * Check `.' and `..' entries here?			XXX
-		 */
-		for (p = buffer, i = 0; i < last; i++, p += 32) {
+         * For each "slot" in the directory...
+         */
+        for (p = buffer, i = 0; i < last; i++, p += 32) {
 			if (dir->fsckflags & DIREMPWARN) {
 				*p = SLOT_EMPTY;
+				mod |= THISMOD|FSDIRMOD;
 				continue;
 			}
 
@@ -707,7 +763,7 @@ readDosDirSection(f, boot, dir)
 					} 
 				}
 				if (dir->fsckflags & DIREMPWARN) {
-					*p = SLOT_DELETED;
+					*p = SLOT_EMPTY;
 					mod |= THISMOD|FSDIRMOD;
 					continue;
 				} else if (dir->fsckflags & DIREMPTY)
@@ -715,7 +771,11 @@ readDosDirSection(f, boot, dir)
 				empty = NULL;
 			}
 
+            /*
+             * Check long name entries
+             */
 			if (p[11] == ATTR_WIN95) {
+                /* Remember or validate the long name checksum */
 				if (*p & LRFIRST) {
 					if (shortSum != -1) {
 						if (!invlfn) {
@@ -740,6 +800,10 @@ readDosDirSection(f, boot, dir)
 					vallfn = NULL;
 				}
 				lidx = *p & LRNOMASK;
+                
+                /*
+                 * Gather the characters from this long name entry
+                 */
 				t = longName + --lidx * 13;
 				for (k = 1; k < 11 && t < longName + sizeof(longName); k += 2) {
 					if (!p[k] && !p[k + 1])
@@ -767,6 +831,7 @@ readDosDirSection(f, boot, dir)
 						if (p[k + 1])
 							t[-1] = '?';
 					}
+                
 				if (t >= longName + sizeof(longName)) {
 					pwarn("long filename too long\n");
 					if (!invlfn) {
@@ -799,7 +864,8 @@ readDosDirSection(f, boot, dir)
 			dirent.flags = p[11];
 
 			/*
-			 * Translate from 850 to ISO here		XXX
+             * Gather the base name of the short name (the "8" in "8.3").
+             * Remove any trailing space padding.
 			 */
 			for (j = 0; j < 8; j++)
 				dirent.name[j] = p[j];
@@ -823,6 +889,9 @@ readDosDirSection(f, boot, dir)
 				continue;
 			}
 
+            /*
+             * Gather the extension of the short name (if any).
+             */
 			if (p[8] != ' ')
 				dirent.name[k++] = '.';
 			for (j = 0; j < 3; j++)
@@ -831,6 +900,7 @@ readDosDirSection(f, boot, dir)
 			for (k--; k >= 0 && dirent.name[k] == ' '; k--)
 				dirent.name[k] = '\0';
 
+            /* If there was a long name, make sure its checksum matches. */
 			if (vallfn && shortSum != calcShortSum(p)) {
 				if (!invlfn) {
 					invlfn = vallfn;
@@ -838,10 +908,14 @@ readDosDirSection(f, boot, dir)
 				}
 				vallfn = NULL;
 			}
+            
+            /* Get the starting cluster number field(s) */
 			dirent.head = p[26] | (p[27] << 8);
 			if (boot->ClustMask == CLUST32_MASK)
 				dirent.head |= (p[20] << 16) | (p[21] << 24);
+            /* Get the file size */
 			dirent.size = p[28] | (p[29] << 8) | (p[30] << 16) | (p[31] << 24);
+            /* Copy the long name, if there is one */
 			if (vallfn) {
 				strlcpy(dirent.lname, longName, sizeof(dirent.lname));
 				longName[0] = '\0';
@@ -955,8 +1029,6 @@ MarkedChain:
 				/*
 				 * gather more info for directories
 				 */
-				struct dirTodoNode *n;
-
 				if (dirent.size) {
 					pwarn("Directory %s has size != 0\n",
 					      fullpath(&dirent));
@@ -1022,6 +1094,28 @@ MarkedChain:
 					continue;
 				}
 
+                /*
+                 * We've found something that claims to be a subdirectory.
+                 * Make sure the contents of the first cluster contain "."
+                 * and ".." entries; if not, assume this is actually a file.
+                 */
+                errno_t err = isSubdirectory(f, boot, &dirent);
+                if (err) {
+                    if (err == ENOTDIR) {
+                        pwarn("Item %s does not appear to be a subdirectory\n", fullpath(&dirent));
+                        if (ask(0, "Correct")) {
+                            p[11] &= ~ATTR_DIRECTORY;
+                            dirent.flags &= ~ATTR_DIRECTORY;
+                            mod |= THISMOD|FSDIRMOD;
+                            goto check_file;
+                        } else {
+                            mod |= FSERROR;
+                        }
+                    } else {
+                        return FSFATAL;
+                    }
+                }
+                
 				/* create directory tree node */
 				if (!(d = newDosDirEntry())) {
 					perr("No space for directory");
@@ -1032,6 +1126,7 @@ MarkedChain:
 				dir->child = d;
 
 				/* Enter this directory into the todo list */
+                struct dirTodoNode *n;
 				if (!(n = newDirTodo())) {
 					perr("No space for todo list");
 					return FSFATAL;
@@ -1040,6 +1135,7 @@ MarkedChain:
 				n->dir = d;
 				pendingDirectories = n;
 			} else {
+            check_file:
 				mod |= k = checksize(boot, p, &dirent);
 				if (k & FSDIRMOD)
 					mod |= THISMOD;

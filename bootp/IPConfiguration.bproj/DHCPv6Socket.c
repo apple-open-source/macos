@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,7 @@
 #include "DHCPv6.h"
 #include "DHCPv6Socket.h"
 #include "DHCPv6Options.h"
+#include "IPv6Socket.h"
 #include "util.h"
 #include <syslog.h>
 #include <sys/uio.h>
@@ -85,7 +86,7 @@ struct DHCPv6Socket {
     void *			receive_arg2;
 };
 
-STATIC FILE *			S_verbose;
+STATIC bool			S_verbose;
 STATIC uint16_t			S_client_port = DHCPV6_CLIENT_PORT;
 STATIC uint16_t			S_server_port = DHCPV6_SERVER_PORT;
 STATIC DHCPv6SocketGlobalsRef	S_globals;
@@ -132,13 +133,24 @@ open_dhcpv6_socket(uint16_t client_port)
 	goto failed;
     }
 
-#ifdef SO_TC_CTL
-    /* set the traffic class */
+#if defined(SO_RECV_ANYIF)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
+		   sizeof(opt)) < 0) {
+	my_log(LOG_INFO, "setsockopt(SO_RECV_ANYIF) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_RECV_ANYIF */
+
+#if defined(SO_TRAFFIC_CLASS)
     opt = SO_TC_CTL;
-    /* set traffic class, we don't care if it failed. */
-    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
-		     sizeof(opt));
-#endif /* SO_TC_CTL */
+    /* set traffic class */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		   sizeof(opt)) < 0) {
+	my_log(LOG_INFO, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_TRAFFIC_CLASS */
+
     return (sockfd);
 
  failed:
@@ -194,7 +206,7 @@ DHCPv6SocketGetGlobals(void)
     return (S_globals);
 }
 
-static void
+STATIC void
 DHCPv6SocketDelayedClose(void * arg1, void * arg2, void * arg3)
 {
     if (S_globals->read_fd == NULL) {
@@ -216,7 +228,7 @@ DHCPv6SocketDelayedClose(void * arg1, void * arg2, void * arg3)
     return;
 }
 
-static void
+STATIC void
 DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 {
     DHCPv6SocketReceiveData	data;
@@ -249,7 +261,7 @@ DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 	    if (data.options != NULL) {
 		DHCPv6OptionListPrintToString(str, data.options);
 	    }
-	    my_log(-LOG_DEBUG, "[%s] Receive %@", 
+	    my_log(~LOG_DEBUG, "[%s] Receive %@", 
 		   if_name(DHCPv6SocketGetInterface(client)), str);
 	    CFRelease(str);
 	}
@@ -269,7 +281,7 @@ DHCPv6SocketSetVerbose(bool verbose)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6SocketSetPorts(uint16_t client_port, uint16_t server_port)
 {
     S_client_port = client_port;
@@ -277,13 +289,13 @@ DHCPv6SocketSetPorts(uint16_t client_port, uint16_t server_port)
     return;
 }
 
-interface_t *
+PRIVATE_EXTERN interface_t *
 DHCPv6SocketGetInterface(DHCPv6SocketRef sock)
 {
     return (sock->if_p);
 }
 
-DHCPv6SocketRef
+PRIVATE_EXTERN DHCPv6SocketRef
 DHCPv6SocketCreate(interface_t * if_p)
 {
     DHCPv6SocketRef		sock;
@@ -317,7 +329,7 @@ DHCPv6SocketFreeElement(void * arg)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6SocketRelease(DHCPv6SocketRef * sock_p)
 {
     DHCPv6SocketRef 	sock = *sock_p;
@@ -372,7 +384,7 @@ DHCPv6SocketCloseSocket(DHCPv6SocketRef sock)
     return;
 }
 
-static void
+STATIC void
 DHCPv6SocketRead(void * arg1, void * arg2)
 {
     struct cmsghdr *	cm;
@@ -380,7 +392,7 @@ DHCPv6SocketRead(void * arg1, void * arg2)
     struct iovec 	iov;
     struct sockaddr_in6 from;
     struct msghdr 	mhdr;
-    int			n;
+    ssize_t		n;
     struct in6_pktinfo *pktinfo = NULL;
     char	 	receive_buf[1500];
 
@@ -437,11 +449,11 @@ DHCPv6SocketRead(void * arg1, void * arg2)
 	return;
     }
     DHCPv6SocketDemux(pktinfo->ipi6_ifindex, 
-		      (const DHCPv6PacketRef)receive_buf, n);
+		      (const DHCPv6PacketRef)receive_buf, (int)n);
     return;
 }
 
-static boolean_t
+STATIC boolean_t
 DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 {
     if (sock->fd_open) {
@@ -484,7 +496,7 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
     return (FALSE);
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
 			  DHCPv6SocketReceiveFuncPtr func, 
 			  void * arg1, void * arg2)
@@ -499,7 +511,7 @@ DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6SocketDisableReceive(DHCPv6SocketRef sock)
 {
     sock->receive_func = NULL;
@@ -512,54 +524,14 @@ DHCPv6SocketDisableReceive(DHCPv6SocketRef sock)
 STATIC int
 S_send_packet(int sockfd, int ifindex, DHCPv6PacketRef pkt, int pkt_size)
 {
-    struct cmsghdr *	cm;
-    char		cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
     struct sockaddr_in6	dst;
-    struct iovec 	iov;
-    struct msghdr 	mhdr;
-    int			n;
-    struct in6_pktinfo *pi;
-    int			ret;
 
-    /* initialize msghdr for sending packets */
-    iov.iov_base = (caddr_t)pkt;
-    iov.iov_len = pkt_size;
     dst = dhcpv6_all_servers_and_relay_agents;
     dst.sin6_port = htons(S_server_port);
-
-    mhdr.msg_name = (caddr_t)&dst;
-    mhdr.msg_namelen = sizeof(struct sockaddr_in6);
-    mhdr.msg_flags = 0;
-    mhdr.msg_iov = &iov;
-    mhdr.msg_iovlen = 1;
-    mhdr.msg_control = (caddr_t)cmsgbuf;
-    mhdr.msg_controllen = sizeof(cmsgbuf);
-
-    /* specify the outgoing interface */
-    bzero(cmsgbuf, sizeof(cmsgbuf));
-    cm = CMSG_FIRSTHDR(&mhdr);
-    if (cm == NULL) {
-	/* this can't happen, keep static analyzer happy */
-	return (EINVAL);
-    }
-    cm->cmsg_level = IPPROTO_IPV6;
-    cm->cmsg_type = IPV6_PKTINFO;
-    cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-    /* ALIGN: CMSG_DATA should return aligned data */
-    pi = (struct in6_pktinfo *)(void *)CMSG_DATA(cm);
-    pi->ipi6_ifindex = ifindex;
-
-    n = sendmsg(sockfd, &mhdr, 0);
-    if (n != pkt_size) {
-	ret = errno;
-    }
-    else {
-	ret = 0;
-    }
-    return (ret);
+    return (IPv6SocketSend(sockfd, ifindex, &dst, pkt, pkt_size, -1));
 }
 
-int
+PRIVATE_EXTERN int
 DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 		     DHCPv6PacketRef pkt, int pkt_len)
 {
@@ -590,7 +562,7 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 	    DHCPv6OptionListPrintToString(str, options);
 	    DHCPv6OptionListRelease(&options);
 	}
-	my_log(-LOG_DEBUG,"[%s] Transmit %@", if_name(sock->if_p), str);
+	my_log(~LOG_DEBUG,"[%s] Transmit %@", if_name(sock->if_p), str);
 	CFRelease(str);
     }
     ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),

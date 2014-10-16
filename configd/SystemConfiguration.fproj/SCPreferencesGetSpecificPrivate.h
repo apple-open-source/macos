@@ -54,6 +54,16 @@ SCPreferencesGetHostName		(
 					SCPreferencesRef	prefs
 					);
 
+CFStringRef
+_SCPreferencesCopyLocalHostName		(
+					SCPreferencesRef	prefs
+					);
+
+CFStringRef
+_SCPreferencesCopyComputerName		(
+					SCPreferencesRef	prefs,
+					CFStringEncoding	*nameEncoding
+					);
 __END_DECLS
 
 #endif /* _SCPREFERENCESGETSPECIFICPRIVATE_H */

@@ -37,13 +37,13 @@ Directory layout:
 	where shell_path is an absolute pathname for the shell to
 	be tested.
 
-	The top level directory contains the nmake Makefile, a README,
-	and several documentation files.  The RELEASE file contains
-	the list of bug fixes and new features since the original
-	ksh93 release.  The file COMPATIBILITY is a list of all
-	known incompatibilities with ksh88.
+	The top level directory contains the nmake Makefile, the
+        RELEASE file, the ksh93 man file (sh.1) and nval.3 and shell.3
+        documentation files. The RELEASE file contains the list of bug
+	fixes and new features since the original ksh93 release.  The file
+	COMPATIBILITY is a list of all known incompatibilities with ksh88.
 
-	The  bash_pre_rc.sh is a startup script used when emulating
+	The  data/bash_pre_rc.sh is a startup script used when emulating
 	bash if the shell is compiled with SHOPT_BASH and the shell
 	is invoked as bash.  The bash emulation is not complete.
  
@@ -58,13 +58,13 @@ Include directory:
 		It also contains prototypes for many of the strings.
 	3.	defs.h is the catch all for all definitions that
 		don't fit elsewhere and it includes several other
-		headers.  It defines a strucuture that contains ksh
+		headers.  It defines a structure that contains ksh
 		global data, sh, and a structure that contains per
 		function data, sh.st. 
 	4.	edit.h contains definitions that are common to both
 		vi and emacs edit modes.
-	5.	env.h contains interfaces for creating and modifying
-		environment variables. 
+	5.	env.h contains an alternative interfaces for creating and
+		modifying environment variables. 
 	6.	fault.h contains prototypes for signal related
 		functions and trap and fault handling.
 	7.	fcin.h contains macro and function definitions for
@@ -102,6 +102,7 @@ Include directory:
 	23.	ulimit.h includes the appropriate resource header.
 	24.	variables.h contains symbolic constants for the built-in
 		shell variables.
+	25.	version.h contains the version string for this release.
 
 sh directory:
 	1.	args.c contains functions for parsing shell options
@@ -110,7 +111,7 @@ sh directory:
 		library and the interface to shell arithmetic.
 	3.	array.c contains the code for indexed and associative
 		arrays.
-	4.      bash.h contains code used when compiling with SHOPT_BASH
+	4.      bash.c contains code used when compiling with SHOPT_BASH
 		to add bash specific features such as shopt.
 	5.	defs.c contains the data definitions for global symbols.
 	6.	deparse.c contains code to generate shell script from
@@ -160,11 +161,20 @@ sh directory:
 	29.	tdump.c contains the code to dump a parse tree into
 		a file.
 	30.	timers.c contains code for multiple event timeouts.
-	31.	trestore contians the code for restoring the parse
+	31.	trestore contains the code for restoring the parse
 		tree from the file created by tdump.
 	32.	userinit.c contains a dummy userinit() function.
 		This is now obsolete with the new version of sh_main().
 	33.	waitevent.c contains the sh_waitnotify function so
 		that builtins can handle processing events when the
 		shell is waiting for input or for process completion.
-	34.	xec.c is the main shell executuion loop.
+	34.	xec.c is the main shell execution loop.
+edit directory:
+	1.      completion.c contains code for command and file generation and
+		completion.
+	2.      edit.c contains common editing and terminal code for vi and
+		emacs.
+	3.      emacs.c contains code for the emacs editor.
+	4.      hexpand.c contains code for C-shell style history expansions.
+	5.      history.c contains code for creating managing the history file.
+	6.      vi.c contains the code for the vi editor.

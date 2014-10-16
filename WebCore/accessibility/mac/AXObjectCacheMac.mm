@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -39,11 +39,15 @@
 #define NSAccessibilityLiveRegionChangedNotification @"AXLiveRegionChanged"
 #endif
 
+#ifndef NSAccessibilityLiveRegionCreatedNotification 
+#define NSAccessibilityLiveRegionCreatedNotification @"AXLiveRegionCreated"
+#endif
+
 // The simple Cocoa calls in this file don't throw exceptions.
 
 namespace WebCore {
 
-void AXObjectCache::detachWrapper(AccessibilityObject* obj)
+void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachmentType)
 {
     [obj->wrapper() detach];
     obj->setWrapper(0);
@@ -103,6 +107,9 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
         case AXValueChanged:
             macNotification = NSAccessibilityValueChangedNotification;
             break;
+        case AXLiveRegionCreated:
+            macNotification = NSAccessibilityLiveRegionCreatedNotification;
+            break;
         case AXLiveRegionChanged:
             macNotification = NSAccessibilityLiveRegionChangedNotification;
             break;
@@ -115,15 +122,33 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
         case AXRowCollapsed:
             macNotification = NSAccessibilityRowCollapsedNotification;
             break;
-            // Does not exist on Mac.
+        case AXElementBusyChanged:
+            macNotification = @"AXElementBusyChanged";
+            break;
+        case AXExpandedChanged:
+            macNotification = @"AXExpandedChanged";
+            break;
+        case AXMenuClosed:
+            macNotification = (id)kAXMenuClosedNotification;
+            break;
+        case AXMenuListItemSelected:
+            macNotification = (id)kAXMenuItemSelectedNotification;
+            break;
+        case AXMenuOpened:
+            macNotification = (id)kAXMenuOpenedNotification;
+            break;
         case AXCheckedStateChanged:
+            // Does not exist on Mac.
         default:
             return;
     }
     
     // NSAccessibilityPostNotification will call this method, (but not when running DRT), so ASSERT here to make sure it does not crash.
     // https://bugs.webkit.org/show_bug.cgi?id=46662
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ASSERT([obj->wrapper() accessibilityIsIgnored] || true);
+#pragma clang diagnostic pop
     
     NSAccessibilityPostNotification(obj->wrapper(), macNotification);
     
@@ -139,7 +164,7 @@ void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject*, 
 {
 }
 
-void AXObjectCache::handleFocusedUIElementChanged(Node*, Node*)
+void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node*)
 {
     wkAccessibilityHandleFocusChanged();
 }

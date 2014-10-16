@@ -70,7 +70,7 @@ enum {	/* symbols */
     JAN, FEB, MAR, APR, MAY, JUN,
     JUL, AUG, SEP, OCT, NOV, DEC,
     SUN, MON, TUE, WED, THU, FRI, SAT,
-    UTC
+    UTC, NEXT
     };
 
 /* parse translation table - table driven parsers can be your FRIEND!
@@ -140,6 +140,7 @@ static const struct {
     { "saturday", SAT, 0 },
     { "sat", SAT, 0 },
     { "utc", UTC, 0 },
+    { "next", NEXT, 0 },
 } ;
 
 /* File scope variables */
@@ -171,7 +172,7 @@ parse_token(char *arg)
 	}
 
     /* not special - must be some random id */
-    return ID;
+    return sc_tokid = ID;
 } /* parse_token */
 
 
@@ -332,6 +333,50 @@ plus(struct tm *tm)
 
 } /* plus */
 
+/*
+ *  at [NOW] NEXT [MINUTES|HOURS|DAYS|WEEKS|MONTHS|YEARS]
+ */
+static void
+next(struct tm *tm)
+{
+    switch (token()) {
+        case YEARS:
+            tm->tm_year++;
+            break;
+            
+        case MONTHS:
+            tm->tm_mon++;
+            break;
+            
+        case WEEKS:
+            tm->tm_mday += 7;
+            break;
+            
+        case DAYS:
+            tm->tm_mday++;
+            break;
+            
+        case HOURS:
+            tm->tm_hour++;
+            break;
+            
+        case MINUTES:
+            tm->tm_min++;
+            break;
+            
+        default:
+    	    plonk(sc_tokid);
+            break;
+    }
+    
+    if (sc_tokplur) {
+        warnx("pluralization is wrong");
+    }
+    tm->tm_isdst = -1;
+    if (mktime(tm) < 0) {
+        plonk(sc_tokid);
+    }
+} /* next */
 
 /*
  * tod() computes the time of day
@@ -342,77 +387,77 @@ tod(struct tm *tm)
 {
     int hour, minute = 0;
     size_t tlen;
-
+    
     hour = atoi(sc_token);
     tlen = strlen(sc_token);
-
+    
     /* first pick out the time of day - if it's 4 digits, we assume
      * a HHMM time, otherwise it's HH DOT MM time
      */
     if (token() == DOT) {
-	expect(NUMBER);
-	minute = atoi(sc_token);
-	if (minute > 59)
-	    panic("garbled time");
-	token();
+        expect(NUMBER);
+        minute = atoi(sc_token);
+        if (minute > 59)
+            panic("garbled time");
+        token();
     }
     else if (tlen == 4) {
-	minute = hour%100;
-	if (minute > 59)
-	    panic("garbled time");
-	hour = hour/100;
+        minute = hour%100;
+        if (minute > 59)
+            panic("garbled time");
+        hour = hour/100;
     }
-
+    
     /* check if an AM or PM specifier was given
      */
     switch (sc_tokid) {
-    case AM:
-    case PM:
-	if (hour > 12)
-	    panic("garbled time");
-
-	if (sc_tokid == PM) {
-	    if (hour != 12)	/* 12:xx PM is 12:xx, not 24:xx */
-		hour += 12;
-	} else {
-	    if (hour == 12)	/* 12:xx AM is 00:xx, not 12:xx */
-		hour = 0;
-	}
-	if (UTC != token())
-	     break;		/* else fallthrough */
-
-    case UTC:
-	 hour += tm->tm_gmtoff/(60*60);
-         while (hour < 0)
-	     hour += 24;
-	 minute += (tm->tm_gmtoff/60);
-	 while (minute < 0)
-	     minute += 60;
-	 tm->tm_gmtoff = 0;
-	 token();
-	 break;
-    default:
-	if (hour > 23)
-	    panic("garbled time");
-	break;
+        case AM:
+        case PM:
+            if (hour > 12)
+                panic("garbled time");
+            
+            if (sc_tokid == PM) {
+                if (hour != 12)	/* 12:xx PM is 12:xx, not 24:xx */
+                    hour += 12;
+            } else {
+                if (hour == 12)	/* 12:xx AM is 00:xx, not 12:xx */
+                    hour = 0;
+            }
+            if (UTC != token())
+                break;		/* else fallthrough */
+            
+        case UTC:
+            hour += tm->tm_gmtoff/(60*60);
+            while (hour < 0)
+                hour += 24;
+            minute += (tm->tm_gmtoff/60);
+            while (minute < 0)
+                minute += 60;
+            tm->tm_gmtoff = 0;
+            token();
+            break;
+        default:
+            if (hour > 23)
+                panic("garbled time");
+            break;
     }
-
+    
     /* if we specify an absolute time, we don't want to bump the day even
      * if we've gone past that time - but if we're specifying a time plus
      * a relative offset, it's okay to bump things
      * If minutes are the same assume tomorrow was meant
      */
     if ((sc_tokid == EOF || sc_tokid == PLUS) && 
-	((tm->tm_hour > hour) || ((tm->tm_hour == hour) && (tm->tm_min >= minute)))) {
-	tm->tm_mday++;
-	tm->tm_wday++;
+        ((tm->tm_hour > hour) || ((tm->tm_hour == hour) && (tm->tm_min >= minute)))) {
+        tm->tm_mday++;
+        tm->tm_wday++;
     }
-
+    
     tm->tm_hour = hour;
     tm->tm_min = minute;
     if (tm->tm_hour == 24) {
-	tm->tm_hour = 0;
-	tm->tm_mday++;
+        tm->tm_hour = 0;
+        tm->tm_mday++;
     }
 } /* tod */
 
@@ -421,7 +466,7 @@ tod(struct tm *tm)
  * assign_date() assigns a date, wrapping to next year if needed
  */
 static void
-assign_date(struct tm *tm, long mday, long mon, long year)
+assign_date(struct tm *tm, int mday, int mon, int year)
 {
    /*
     * Convert year into tm_year format (year - 1900).
@@ -466,18 +511,23 @@ assign_date(struct tm *tm, long mday, long mon, long year)
  *  |[TOMORROW]                          |
  *  |[DAY OF WEEK]                       |
  *  |NUMBER [SLASH NUMBER [SLASH NUMBER]]|
+ *  |NEXT MINUTES|HOURS|DAYS|WEEKS|MONTHS|YEARS|
  *  \PLUS NUMBER MINUTES|HOURS|DAYS|WEEKS/
  */
 static void
 month(struct tm *tm)
 {
-    long year= (-1);
-    long mday = 0, wday, mon;
+    int year= (-1);
+    int mday = 0, wday, mon;
     int tlen;
 
     switch (sc_tokid) {
     case PLUS:
 	    plus(tm);
+	    break;
+
+    case NEXT:
+	    next(tm);
 	    break;
 
     case TOMORROW:
@@ -494,10 +544,10 @@ month(struct tm *tm)
 	     */
 	    mon = (sc_tokid-JAN);
 	    expect(NUMBER);
-	    mday = atol(sc_token);
+	    mday = atoi(sc_token);
 	    if (token() == COMMA) {
 		if (token() == NUMBER) {
-		    year = atol(sc_token);
+		    year = atoi(sc_token);
 		    token();
 		}
 	    }
@@ -530,8 +580,8 @@ month(struct tm *tm)
     case NUMBER:
 	    /* get numeric MMDDYY, mm/dd/yy, or dd.mm.yy
 	     */
-	    tlen = strlen(sc_token);
-	    mon = atol(sc_token);
+	    tlen = (int)strlen(sc_token);
+	    mon = atoi(sc_token);
 	    token();
 
 	    if (sc_tokid == SLASH || sc_tokid == DOT) {
@@ -539,10 +589,10 @@ month(struct tm *tm)
 
 		sep = sc_tokid;
 		expect(NUMBER);
-		mday = atol(sc_token);
+		mday = atoi(sc_token);
 		if (token() == sep) {
 		    expect(NUMBER);
-		    year = atol(sc_token);
+		    year = atoi(sc_token);
 		    token();
 		}
 
@@ -575,6 +625,13 @@ month(struct tm *tm)
 
 	    assign_date(tm, mday, mon, year);
 	    break;
+
+    case EOF:
+            break;
+
+    default:
+	    plonk(sc_tokid);
+	    break;
     } /* case */
 } /* month */
 
@@ -584,78 +641,96 @@ month(struct tm *tm)
 time_t
 parsetime(int argc, char **argv)
 {
-/* Do the argument parsing, die if necessary, and return the time the job
- * should be run.
- */
+    /* Do the argument parsing, die if necessary, and return the time the job
+     * should be run.
+     */
     time_t nowtimer, runtimer;
     struct tm nowtime, runtime;
     int hr = 0;
     /* this MUST be initialized to zero for midnight/noon/teatime */
-
+    
     nowtimer = time(NULL);
     nowtime = *localtime(&nowtimer);
-
+    
     runtime = nowtime;
     runtime.tm_sec = 0;
     runtime.tm_isdst = 0;
-
+    
     if (argc <= optind)
-	usage();
-
+        usage();
+    
     init_scanner(argc-optind, argv+optind);
-
+    
     switch (token()) {
-    case NOW:	
-	    if (scc < 1) {
-		return nowtimer;
-	    }
-	    /* now is optional prefix for PLUS tree */
-	    expect(PLUS);
-    case PLUS:
-	    plus(&runtime);
-	    break;
-
-    case NUMBER:
-	    tod(&runtime);
-	    month(&runtime);
-	    break;
-
-	    /* evil coding for TEATIME|NOON|MIDNIGHT - we've initialised
-	     * hr to zero up above, then fall into this case in such a
-	     * way so we add +12 +4 hours to it for teatime, +12 hours
-	     * to it for noon, and nothing at all for midnight, then
-	     * set our runtime to that hour before leaping into the
-	     * month scanner
-	     */
-    case TEATIME:
-	    hr += 4;
-    case NOON:
-	    hr += 12;
-    case MIDNIGHT:
-	    if (runtime.tm_hour >= hr) {
-		runtime.tm_mday++;
-		runtime.tm_wday++;
-	    }
-	    runtime.tm_hour = hr;
-	    runtime.tm_min = 0;
-	    token();
-	    /* FALLTHROUGH to month setting */
-    default:
-	    month(&runtime);
-	    break;
+        case NOW:
+            if (scc < 1) {
+                return nowtimer;
+            }
+            /* now is optional prefix for PLUS/NEXT tree */
+            switch (token()) {
+                case PLUS:
+                    plus(&runtime);
+                    break;
+                    
+                case NEXT:
+                    next(&runtime);
+                    break;
+                    
+                default:
+                    plonk(sc_token);
+                    break;
+            }
+            break;
+            
+        case PLUS:
+            plus(&runtime);
+            break;
+            
+        case NEXT:
+            next(&runtime);
+            break;
+            
+        case NUMBER:
+            tod(&runtime);
+            month(&runtime);
+            break;
+            
+            /* evil coding for TEATIME|NOON|MIDNIGHT - we've initialised
+             * hr to zero up above, then fall into this case in such a
+             * way so we add +12 +4 hours to it for teatime, +12 hours
+             * to it for noon, and nothing at all for midnight, then
+             * set our runtime to that hour before leaping into the
+             * month scanner
+             */
+        case TEATIME:
+            hr += 4;
+        case NOON:
+            hr += 12;
+        case MIDNIGHT:
+            if (runtime.tm_hour >= hr) {
+                runtime.tm_mday++;
+                runtime.tm_wday++;
+            }
+            runtime.tm_hour = hr;
+            runtime.tm_min = 0;
+            token();
+            /* FALLTHROUGH to month setting */
+        default:
+            month(&runtime);
+            break;
     } /* ugly case statement */
     expect(EOF);
-
+    
     /* convert back to time_t
      */
     runtime.tm_isdst = -1;
     runtimer = mktime(&runtime);
-
+    
     if (runtimer < 0)
-	panic("garbled time");
-
+        panic("garbled time");
+    
     if (nowtimer > runtimer)
-	panic("trying to travel back in time");
-
+        panic("trying to travel back in time");
+    
     return runtimer;
 } /* parsetime */

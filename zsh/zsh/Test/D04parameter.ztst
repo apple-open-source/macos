@@ -1544,3 +1544,19 @@
 0:Regression test for shwordsplit with null or unset IFS and quoted array
 >abc
 >a b c
+
+   foo=
+   print ${foo:wq}
+   print ${:wq}
+0:Empty parameter shouldn't cause modifiers to crash the shell
+>
+>
+
+# This used to cause uncontrolled behaviour, but at best
+# you got the wrong output so the check is worth it.
+   args() { print $#; }
+   args ${:*}
+   args ${:|}
+0:Intersection and disjunction with empty parameters
+>0
+>0

@@ -37,6 +37,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
+#include "SCPreferencesInternal.h"
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -72,6 +73,7 @@ inet_dgram_socket()
 
 typedef struct {
 	CFMutableArrayRef	vlans;
+	SCPreferencesRef	ni_prefs;
 	SCPreferencesRef	prefs;
 } addContext, *addContextRef;
 
@@ -86,7 +88,7 @@ add_configured_interface(const void *key, const void *value, void *context)
 	CFDictionaryRef			vlan_info	= (CFDictionaryRef)value;
 	CFStringRef			vlan_name;
 	CFDictionaryRef			vlan_options;
-	SCNetworkInterfaceRef		vlan_physical;
+	SCNetworkInterfaceRef		vlan_physical = NULL;
 	CFStringRef			vlan_physical_if;
 	CFNumberRef			vlan_tag;
 
@@ -107,8 +109,14 @@ add_configured_interface(const void *key, const void *value, void *context)
 	assert(vlan != NULL);
 
 	// set physical interface and tag
-	vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
-							     kIncludeBondInterfaces);
+	if (myContext->ni_prefs != NULL) {
+		vlan_physical = __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(NULL, myContext->ni_prefs,
+											vlan_physical_if);
+	}
+	if (vlan_physical == NULL) {
+		vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
+								     kIncludeBondInterfaces);
+	}
 	assert(vlan_physical != NULL);
 
 	// since we KNOW that the physical interface supported VLANs when
@@ -211,9 +219,18 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 {
 	addContext		context;
 	CFDictionaryRef		dict;
+	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
-
+	
+	if ((prefs == NULL) ||
+	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+		ni_prefs = NULL;
+	}
+	else {
+		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+	}
 	context.vlans = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	context.ni_prefs = ni_prefs;
 	context.prefs = prefs;
 
 	path = CFStringCreateWithFormat(NULL,
@@ -226,7 +243,9 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 	if (isA_CFDictionary(dict)) {
 		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
-
+	if (ni_prefs != NULL) {
+		CFRelease(ni_prefs);
+	}
 	return context.vlans;
 }
 
@@ -368,7 +387,7 @@ _SCVLANInterfaceCopyActive(void)
 		ifr.ifr_data = (caddr_t)&vreq;
 
 		if (ioctl(s, SIOCGIFVLAN, (caddr_t)&ifr) == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("ioctl() failed: %s"), strerror(errno));
+			SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCGIFVLAN) failed: %s"), strerror(errno));
 			CFRelease(vlans);
 			vlans = NULL;
 			_SCErrorSet(kSCStatusFailed);
@@ -424,7 +443,7 @@ SCVLANInterfaceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef physical, CF
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
-
+	
 	if (!isA_SCNetworkInterface(physical)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
@@ -432,8 +451,13 @@ SCVLANInterfaceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef physical, CF
 
 	interfacePrivate = (SCNetworkInterfacePrivateRef)physical;
 	if (!interfacePrivate->supportsVLAN) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return NULL;
+		if (__SCPreferencesUsingDefaultPrefs(prefs) == FALSE) {
+			interfacePrivate->supportsVLAN = TRUE;
+		}
+		else {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
 	}
 
 	if (isA_CFNumber(tag)) {
@@ -591,7 +615,8 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag(SCVLANInterfaceRef vlan, SCNetworkInte
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate;
 	Boolean				ok			= TRUE;
-
+	SCPreferencesRef		prefs;
+	
 	if (!isA_SCVLANInterface(vlan)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
@@ -603,9 +628,16 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag(SCVLANInterfaceRef vlan, SCNetworkInte
 	}
 
 	interfacePrivate = (SCNetworkInterfacePrivateRef)physical;
+	prefs = interfacePrivate->prefs;
+	
 	if (!interfacePrivate->supportsVLAN) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+		if (__SCPreferencesUsingDefaultPrefs(prefs) == FALSE) {
+			interfacePrivate->supportsVLAN = TRUE;
+		}
+		else {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
 	}
 
 	if (isA_CFNumber(tag)) {

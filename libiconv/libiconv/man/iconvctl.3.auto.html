@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iconvctl.3</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iconvctl.3&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+.\&quot; Copyright (c) Perry Rapp
+.\&quot; Copyright (c) Bruno Haible &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+.\&quot;
+.\&quot; This is free documentation; you can redistribute it and/or
+.\&quot; modify it under the terms of the GNU General Public License as
+.\&quot; published by the Free Software Foundation; either version 2 of
+.\&quot; the License, or (at your option) any later version.
+.\&quot;
+.\&quot; References consulted:
+.\&quot;   iconv.h
+.\&quot;
+.TH ICONVCTL 3  &quot;February 2, 2004&quot; &quot;GNU&quot; &quot;Linux Programmer's Manual&quot;
+.SH NAME
+iconvctl \- control iconv behavior
+.SH SYNOPSIS
+.nf
+.B #include &lt;iconv.h&gt;
+.sp
+.BI &quot;int iconvctl (iconv_t &quot; cd &quot; , int &quot; request &quot;, void * &quot; argument );
+.fi
+.SH DESCRIPTION
+The argument \fIcd\fP must be a conversion descriptor created using the
+function \fBiconv_open\fP.
+.PP
+\fBiconvctl\fP queries or adjusts the behavior of the \fBiconv\fP function,
+when invoked with the specified conversion descriptor, depending on the
+request value.
+.SH &quot;REQUEST VALUES&quot;
+The following are permissible values for the \fIrequest\fP parameter.
+.TP
+.B ICONV_TRIVIALP
+\fIargument\fP should be an \fBint *\fP which will receive 1 if the
+conversion is trivial, or 0 otherwise.
+.TP
+.B ICONV_GET_TRANSLITERATE
+\fIargument\fP should be an \fBint *\fP which will receive 1 if 
+transliteration is enabled in the conversion, or 0 otherwise.
+.TP
+.B ICONV_SET_TRANSLITERATE
+\fIargument\fP should be a \fBconst int *\fP, pointing to an \fBint\fP value.
+A non-zero value is used to enable transliteration in the conversion. A zero
+value disables it.
+.TP
+.B ICONV_GET_DISCARD_ILSEQ
+\fIargument\fP should be an \fBint *\fP which will receive 1 if 
+&quot;illegal sequence discard and continue&quot; is enabled in the conversion,
+or 0 otherwise.
+.TP
+.B ICONV_SET_DISCARD_ILSEQ
+\fIargument\fP should be a \fBconst int *\fP, pointing to an \fBint\fP value.
+A non-zero value is used to enable &quot;illegal sequence discard and continue&quot;
+in the conversion. A zero value disables it.
+.SH &quot;RETURN VALUE&quot;
+The \fBiconvctl\fP function returns 0 if it succeeds. In case of error, it sets
+\fBerrno\fP and returns -1.
+.SH ERRORS
+The following errors can occur, among others:
+.TP
+.B EINVAL
+The request is invalid.
+.SH &quot;CONFORMING TO&quot;
+This function is implemented only in GNU libiconv and not in other \fBiconv\fP
+implementations. It is not backed by a standard. You can test for its presence
+through \fB(_LIBICONV_VERSION &gt;= 0x0108)\fP.
+.SH &quot;SEE ALSO&quot;
+.BR iconv_open &quot;(3), &quot; iconv (3)
+</pre>
+<hr />
+</body></html>

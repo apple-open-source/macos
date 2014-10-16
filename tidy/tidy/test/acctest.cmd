@@ -9,9 +9,9 @@ REM <URL:http://tidy.sourceforge.net/>
 REM
 REM CVS Info:
 REM
-REM    $Author: iccir $
-REM    $Date: 2007/01/31 02:33:39 $
-REM    $Revision: 1.1 $
+REM    $Author$
+REM    $Date$
+REM    $Revision$
 
 @REM USER VARIABLES
 @REM ##############

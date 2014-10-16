@@ -168,6 +168,15 @@ static struct dns_type_map dns_type_map[] = {
 #ifdef T_MAILA
     T_MAILA, "MAILA",
 #endif
+#ifdef T_TLSA
+    T_TLSA, "TLSA",
+#endif
+#ifdef T_RRSIG
+    T_RRSIG, "RRSIG",
+#endif
+#ifdef T_DNAME
+    T_DNAME, "DNAME",
+#endif
 #ifdef T_ANY
     T_ANY, "ANY",
 #endif

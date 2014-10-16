@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,11 +26,10 @@
 #ifndef GraphicsLayerClient_h
 #define GraphicsLayerClient_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
 namespace WebCore {
 
 class FloatPoint;
+class FloatRect;
 class GraphicsContext;
 class GraphicsLayer;
 class IntPoint;
@@ -72,7 +71,7 @@ public:
     // Notification that this layer requires a flush before the next display refresh.
     virtual void notifyFlushBeforeDisplayRefresh(const GraphicsLayer*) { }
 
-    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const IntRect& inClip) = 0;
+    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const FloatRect& inClip) = 0;
     virtual void didCommitChangesForLayer(const GraphicsLayer*) const { }
 
     // Provides current transform (taking transform-origin and animations into account). Input matrix has been
@@ -87,8 +86,20 @@ public:
     virtual float deviceScaleFactor() const { return 1; }
     // Page scale factor.
     virtual float pageScaleFactor() const { return 1; }
+    virtual float zoomedOutPageScaleFactor() const { return 0; }
+
+    virtual float contentsScaleMultiplierForNewTiles(const GraphicsLayer*) const { return 1; }
+    virtual bool paintsOpaquelyAtNonIntegralScales(const GraphicsLayer*) const { return false; }
 
     virtual bool isTrackingRepaints() const { return false; }
+
+    virtual bool shouldSkipLayerInDump(const GraphicsLayer*) const { return false; }
+    virtual bool shouldDumpPropertyForLayer(const GraphicsLayer*, const char*) const { return true; }
+
+    virtual bool shouldAggressivelyRetainTiles(const GraphicsLayer*) const { return false; }
+    virtual bool shouldTemporarilyRetainTileCohorts(const GraphicsLayer*) const { return true; }
+
+    virtual bool needsPixelAligment() const { return false; }
 
 #ifndef NDEBUG
     // RenderLayerBacking overrides this to verify that it is not
@@ -101,7 +112,5 @@ public:
 };
 
 } // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // GraphicsLayerClient_h

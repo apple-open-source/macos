@@ -44,7 +44,7 @@ static krb5_error_code _warnerr(krb5_context context, int do_errtext,
 	 void (*logfunc)(const char *fmt, ...) __attribute__((__format__(__printf__, 1, 2))),
 	 const char *fmt, va_list ap)
 	__attribute__((__format__(__printf__, 6, 0)));
-	
+
 static krb5_error_code
 _warnerr(krb5_context context, int do_errtext,
 	 krb5_error_code code, int level,
@@ -78,6 +78,11 @@ _warnerr(krb5_context context, int do_errtext,
 	    *arg= "<unknown error>";
 	}
     }
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
 	
     if (logfunc)
 	logfunc(xfmt, args[0], args[1]);
@@ -85,6 +90,11 @@ _warnerr(krb5_context context, int do_errtext,
 	krb5_log(context, context->warn_dest, level, xfmt, args[0], args[1]);
     else
 	warnx(xfmt, args[0], args[1]);
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
     free(msg);
     krb5_free_error_message(context, err_str);
     return 0;
@@ -319,7 +329,6 @@ krb5_vabortx(krb5_context context, const char *fmt, va_list ap)
  * Log a warning to the log, default stderr, and then abort.
  *
  * @param context A Kerberos 5 context
- * @param code error code of the last error
  * @param fmt message to print
  *
  * @ingroup krb5_error

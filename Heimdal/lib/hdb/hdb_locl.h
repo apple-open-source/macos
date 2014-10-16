@@ -62,8 +62,23 @@
 #endif
 #include <roken.h>
 
+struct krb5_dh_moduli;
+struct AlgorithmIdentifier;
+struct _krb5_krb_auth_data;
+struct _krb5_key_data;
+struct _krb5_key_type;
+struct _krb5_checksum_type;
+struct _krb5_encryption_type;
+struct _krb5_srv_query_ctx;
+struct krb5_fast_state;
+struct _krb5_srp_group;
+struct _krb5_srp;
+
 #include "crypto-headers.h"
+#include <heimbase.h>
+#include <hx509.h>
 #include <krb5.h>
+#include <krb5-private.h>
 #include <hdb.h>
 #include <hdb-private.h>
 

@@ -32,14 +32,6 @@
 
 #pragma ident	"@(#)decl.h	1.23	08/03/18 SMI" 	/* SVr4.0 1.9	*/
 
-#if !defined(__APPLE__)
-#include <thread.h>
-#include <note.h>
-#include <_libelf.h>
-#include <sys/machelf.h>
-#include <msg.h>
-#else /* is Apple Mac OS X */
-
 #define SEG_CTF "__CTF"
 #define SECT_CTF "__ctf"
 
@@ -88,8 +80,6 @@ extern void __swap_segment_command_64(struct segment_command_64 *);
 extern void __swap_section(struct section *);
 extern void __swap_section_64(struct section_64 *);
 extern void __swap_symtab_command(struct symtab_command *);
-
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -445,9 +435,7 @@ NOTE(RWLOCK_COVERS_LOCKS(Elf::ed_rwlock, Elf_Scn::s_mutex))
 #define	EDF_MPROTECT	0x400	/* applies to slideable archives */
 #define	EDF_IMALLOC	0x800	/* wrimage dynamically allocated */
 #define	EDF_WRALLOC	0x1000	/* wrimage is to by dyn allocated */
-#if defined(__APPLE__)
 #define	EDF_RDKERNTYPE	0x2000	/* When Mach-o is fat, choose member matching the running kernel. */
-#endif /* __APPLE__ */
 
 
 typedef enum

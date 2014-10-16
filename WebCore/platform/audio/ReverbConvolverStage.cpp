@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -37,8 +37,6 @@
 #include "ReverbAccumulationBuffer.h"
 #include "ReverbConvolver.h"
 #include "ReverbInputBuffer.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -55,13 +53,13 @@ ReverbConvolverStage::ReverbConvolverStage(const float* impulseResponse, size_t,
     ASSERT(accumulationBuffer);
 
     if (!m_directMode) {
-        m_fftKernel = adoptPtr(new FFTFrame(fftSize));
+        m_fftKernel = std::make_unique<FFTFrame>(fftSize);
         m_fftKernel->doPaddedFFT(impulseResponse + stageOffset, stageLength);
-        m_fftConvolver = adoptPtr(new FFTConvolver(fftSize));
+        m_fftConvolver = std::make_unique<FFTConvolver>(fftSize);
     } else {
-        m_directKernel = adoptPtr(new AudioFloatArray(fftSize / 2));
+        m_directKernel = std::make_unique<AudioFloatArray>(fftSize / 2);
         m_directKernel->copyToRange(impulseResponse + stageOffset, 0, fftSize / 2);
-        m_directConvolver = adoptPtr(new DirectConvolver(renderSliceSize));
+        m_directConvolver = std::make_unique<DirectConvolver>(renderSliceSize);
     }
     m_temporaryBuffer.allocate(renderSliceSize);
 

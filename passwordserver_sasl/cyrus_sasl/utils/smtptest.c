@@ -210,6 +210,7 @@ int main(int argc, char **argv)
     char in[4096];
     const char *out;
     unsigned int inlen, outlen;
+    unsigned len;
     char out64[4096];
     int c;
 
@@ -467,6 +468,10 @@ int main(int argc, char **argv)
 	} else if (code != 334) {
 	    /* unexpected response */
 	    break;
+	}
+	len = strlen(buf);
+	if (len > 0 && buf[len-1] == '\n') {
+	    buf[len-1] = '\0';
 	}
 	r = sasl_decode64(buf + 4, strlen(buf) - 6, in, 4096, &inlen);
 	if (r != SASL_OK) break;

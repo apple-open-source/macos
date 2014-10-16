@@ -70,7 +70,7 @@ typedef struct {
 #define NL_FLAG_DNS_HOST_NAME           0x00000008 /* not used */
 #define NL_FLAG_UTF8_COMPUTER_NAME      0x00000010
     uint32_t Flags;
-    char *Buffer[0];
+    char *Buffer[];
 } NL_AUTH_MESSAGE;
 
 #define NL_AUTH_MESSAGE_LENGTH          8

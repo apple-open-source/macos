@@ -1,19 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hans_HK.xml
 // *
 // ***************************************************************************
 zh_Hans_HK{
-    Version{"2.0.82.45"}
+    Version{"2.0.96.25"}
     zoneStrings{
         "America:Danmarkshavn"{
             ec{"丹马克沙伏"}
-        }
-        "America:Grand_Turk"{
-            ec{"大特克"}
         }
         "America:Santo_Domingo"{
             ec{"圣多明戈"}
@@ -29,9 +26,6 @@ zh_Hans_HK{
         }
         "Europe:Zaporozhye"{
             ec{"扎波罗什"}
-        }
-        "Indian:Antananarivo"{
-            ec{"安塔那那利佛"}
         }
         "meta:Cocos"{
             ls{"科科斯岛时间"}

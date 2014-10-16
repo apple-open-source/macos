@@ -346,8 +346,10 @@ literal:
 
 		case 'n':
 		{
+			if (flags & SUPPRESS)	/* ??? */
+				continue;
 			void *ptr = va_arg(ap, void *);
-			if ((ptr == NULL) || (flags & SUPPRESS))	/* ??? */
+			if (ptr == NULL)
 				continue;
 			else if (flags & SHORTSHORT)
 				*(char *)ptr = nread;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -56,14 +56,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#ifndef lint
-/*
-static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
-*/
-static const char rcsid[] =
-	"$Id: inet.c,v 1.9 2006/04/04 04:36:27 lindak Exp $";
-#endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -311,8 +303,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					break;
 			} 		
 		} else {
-            if (vflag)
-                printf("got %d twice\n", xgn->xgn_kind);
+			if (vflag)
+        	        	printf("got %d twice\n", xgn->xgn_kind);
 		}
 		
 		if ((istcp && which != ALL_XGN_KIND_TCP) || (!istcp && which != ALL_XGN_KIND_INP))
@@ -382,6 +374,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
 				if (prioflag >= 0)
 					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
+				if (vflag > 0)
+					printf(" %6.6s %6.6s %6.6s %6.6s",
+					    "rhiwat", "shiwat", "pid", "epid");
 				printf("\n");
 			}
 			first = 0;
@@ -512,6 +507,13 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0, 
 				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
 		}
+		if (vflag > 0) {
+			printf(" %6u %6u %6u %6u",
+			       so_rcv->sb_hiwat,
+			       so_snd->sb_hiwat,
+			       so->so_last_pid,
+			       so->so_e_pid);
+		}
 		putchar('\n');
 	}
 	if (xig != oxig && xig->xig_gen != oxig->xig_gen) {
@@ -553,8 +555,8 @@ tcp_stats(uint32_t off , char *name, int af)
 		tcp_done = 1;
 #endif
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf ("%s:\n", name);
 
 #define	TCPDIFF(f) (tcpstat.f - ptcpstat.f)
@@ -600,6 +602,7 @@ tcp_stats(uint32_t off , char *name, int af)
 	p2(tcps_rcvduppack, tcps_rcvdupbyte,
 		"\t\t%u completely duplicate packet%s (%u byte%s)\n");
 	p(tcps_pawsdrop, "\t\t%u old duplicate packet%s\n");
+	p(tcps_rcvmemdrop, "\t\t%u received packet%s dropped due to low memory\n");
 	p2(tcps_rcvpartduppack, tcps_rcvpartdupbyte,
 		"\t\t%u packet%s with some dup. data (%u byte%s duped)\n");
 	p2(tcps_rcvoopack, tcps_rcvoobyte,
@@ -671,6 +674,19 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_limited_txt, "\t%u limited transmit%s done\n");
 	p(tcps_early_rexmt, "\t%u early retransmit%s done\n");
 	p(tcps_sack_ackadv, "\t%u time%s cumulative ack advanced along with SACK\n");
+	p(tcps_pto, "\t%u probe timeout%s\n");
+	p(tcps_rto_after_pto, "\t\t%u time%s retransmit timeout triggered after probe\n");
+	p(tcps_tlp_recovery, "\t\t%u time%s fast recovery after tail loss\n");
+	p(tcps_tlp_recoverlastpkt, "\t\t%u time%s recovered last packet \n");
+	p(tcps_ecn_setup, "\t%u connection%s negotiated ECN\n");
+	p(tcps_sent_ece, "\t\t%u time%s congestion notification was sent using ECE\n");
+	p(tcps_sent_cwr, "\t\t%u time%s CWR was sent in response to ECE\n");
+
+	p(tcps_detect_reordering, "\t%u time%s packet reordering was detected on a connection\n");
+	p(tcps_reordered_pkts, "\t\t%u time%s transmitted packets were reordered\n");
+	p(tcps_delay_recovery, "\t\t%u time%s fast recovery was delayed to handle reordering\n");
+	p(tcps_avoid_rxmt, "\t\t%u time%s retransmission was avoided by delaying recovery\n");
+	p(tcps_unnecessary_rxmt, "\t\t%u retransmission%s not needed \n");
 
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
@@ -686,7 +702,6 @@ tcp_stats(uint32_t off , char *name, int af)
 #undef p3
 }
 
-#if TARGET_OS_EMBEDDED
 /*
  * Dump MPTCP statistics
  */
@@ -754,7 +769,6 @@ mptcp_stats(uint32_t off , char *name, int af)
 #undef p2a
 #undef p3
 }
-#endif /* TARGET_OS_EMBEDDED */
 
 /*
  * Dump UDP statistics structure.
@@ -781,8 +795,8 @@ udp_stats(uint32_t off , char *name, int af )
 		udp_done = 1;
 #endif
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf("%s:\n", name);
 
 #define	UDPDIFF(f) (udpstat.f - pudpstat.f)
@@ -861,8 +875,8 @@ ip_stats(uint32_t off , char *name, int af )
 		return;
 	}
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf("%s:\n", name);
 
 #define	IPDIFF(f) (ipstat.f - pipstat.f)
@@ -941,8 +955,8 @@ arp_stats(uint32_t off, char *name, int af)
 		return;
 	}
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf("%s:\n", name);
 
 #define	ARPDIFF(f) (arpstat.f - parpstat.f)
@@ -1017,8 +1031,8 @@ icmp_stats(uint32_t off , char *name, int af )
 	if (sysctl(mib, 4, &icmpstat, &len, (void *)0, 0) < 0)
 		return;		/* XXX should complain, but not traditional */
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf("%s:\n", name);
 
 #define	ICMPDIFF(f) (icmpstat.f - picmpstat.f)
@@ -1094,8 +1108,8 @@ igmp_stats(uint32_t off , char *name, int af )
 		    igmpstat.igps_len, IGPS_VERSION3_LEN);
 	}
 
-    if (interval && vflag > 0)
-        print_time();
+	if (interval && vflag > 0)
+		print_time();
 	printf("%s:\n", name);
 
 #define	IGMPDIFF(f) ((uintmax_t)(igmpstat.f - pigmpstat.f))

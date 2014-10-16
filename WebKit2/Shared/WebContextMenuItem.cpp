@@ -22,15 +22,16 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
 #include "config.h"
 
 #if ENABLE(CONTEXT_MENUS)
 
 #include "WebContextMenuItem.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include <WebCore/ContextMenuItem.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
 
@@ -39,51 +40,48 @@ WebContextMenuItem::WebContextMenuItem(const WebContextMenuItemData& data)
 {
 }
 
-PassRefPtr<WebContextMenuItem> WebContextMenuItem::create(const String& title, bool enabled, ImmutableArray* submenuItems)
+PassRefPtr<WebContextMenuItem> WebContextMenuItem::create(const String& title, bool enabled, API::Array* submenuItems)
 {
     size_t size = submenuItems->size();
-    
+
     Vector<WebContextMenuItemData> submenu;
     submenu.reserveCapacity(size);
-    
+
     for (size_t i = 0; i < size; ++i) {
         WebContextMenuItem* item = submenuItems->at<WebContextMenuItem>(i);
         if (item)
             submenu.append(*item->data());
     }
-    
+
     return adoptRef(new WebContextMenuItem(WebContextMenuItemData(WebCore::ContextMenuItemTagNoAction, title, enabled, submenu))).leakRef();
 }
 
 WebContextMenuItem* WebContextMenuItem::separatorItem()
 {
-    DEFINE_STATIC_LOCAL(WebContextMenuItem*, separatorItem, (adoptRef(new WebContextMenuItem(WebContextMenuItemData(WebCore::SeparatorType, WebCore::ContextMenuItemTagNoAction, String(), true, false))).leakRef()));
+    static WebContextMenuItem* separatorItem = new WebContextMenuItem(WebContextMenuItemData(WebCore::SeparatorType, WebCore::ContextMenuItemTagNoAction, String(), true, false));
     return separatorItem;
 }
 
-PassRefPtr<ImmutableArray> WebContextMenuItem::submenuItemsAsImmutableArray() const
-{    
+PassRefPtr<API::Array> WebContextMenuItem::submenuItemsAsAPIArray() const
+{
     if (m_webContextMenuItemData.type() != WebCore::SubmenuType)
-        return ImmutableArray::create();
+        return API::Array::create();
 
-    const Vector<WebContextMenuItemData>& submenuVector(m_webContextMenuItemData.submenu());
-    unsigned size = submenuVector.size();
-    
-    Vector<RefPtr<APIObject>> result;
-    result.reserveCapacity(size);
-    
-    for (unsigned i = 0; i < size; ++i)
-        result.append(WebContextMenuItem::create(submenuVector[i]));
-    
-    return ImmutableArray::adopt(result);
+    Vector<RefPtr<API::Object>> submenuItems;
+    submenuItems.reserveInitialCapacity(m_webContextMenuItemData.submenu().size());
+
+    for (const auto& item : m_webContextMenuItemData.submenu())
+        submenuItems.uncheckedAppend(WebContextMenuItem::create(item));
+
+    return API::Array::create(WTF::move(submenuItems));
 }
 
-APIObject* WebContextMenuItem::userData() const
+API::Object* WebContextMenuItem::userData() const
 {
     return m_webContextMenuItemData.userData();
 }
 
-void WebContextMenuItem::setUserData(APIObject* userData)
+void WebContextMenuItem::setUserData(API::Object* userData)
 {
     m_webContextMenuItemData.setUserData(userData);
 }

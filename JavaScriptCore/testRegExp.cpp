@@ -21,11 +21,10 @@
 #include "config.h"
 #include "RegExp.h"
 
-#include "APIShims.h"
 #include <wtf/CurrentTime.h>
 #include "InitializeThreading.h"
+#include "JSCInlines.h"
 #include "JSGlobalObject.h"
-#include "Operations.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,11 +43,6 @@
 #include <crtdbg.h>
 #include <mmsystem.h>
 #include <windows.h>
-#endif
-
-#if PLATFORM(QT)
-#include <QCoreApplication>
-#include <QDateTime>
 #endif
 
 const int MaxLineLength = 100 * 1024;
@@ -82,12 +76,12 @@ private:
 
 void StopWatch::start()
 {
-    m_startTime = currentTime();
+    m_startTime = monotonicallyIncreasingTime();
 }
 
 void StopWatch::stop()
 {
-    m_stopTime = currentTime();
+    m_stopTime = monotonicallyIncreasingTime();
 }
 
 long StopWatch::getElapsedMS()
@@ -122,13 +116,13 @@ public:
         return globalObject;
     }
 
-    static const ClassInfo s_info;
+    DECLARE_INFO;
 
     static const bool needsDestructor = false;
 
     static Structure* createStructure(VM& vm, JSValue prototype)
     {
-        return Structure::create(vm, 0, prototype, TypeInfo(GlobalObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, 0, prototype, TypeInfo(GlobalObjectType, StructureFlags), info());
     }
 
 protected:
@@ -138,8 +132,6 @@ protected:
         UNUSED_PARAM(arguments);
     }
 };
-
-COMPILE_ASSERT(!IsInteger<GlobalObject>::value, WTF_IsInteger_GlobalObject_false);
 
 const ClassInfo GlobalObject::s_info = { "global", &JSGlobalObject::s_info, 0, ExecState::globalObjectTable, CREATE_METHOD_TABLE(GlobalObject) };
 
@@ -154,7 +146,7 @@ GlobalObject::GlobalObject(VM& vm, Structure* structure, const Vector<String>& a
 // be in a separate main function because the realMain function requires object
 // unwinding.
 
-#if COMPILER(MSVC) && !COMPILER(INTEL) && !defined(_DEBUG) && !OS(WINCE)
+#if COMPILER(MSVC) && !defined(_DEBUG) && !OS(WINCE)
 #define TRY       __try {
 #define EXCEPT(x) } __except (EXCEPTION_EXECUTE_HANDLER) { x; }
 #else
@@ -184,10 +176,6 @@ int main(int argc, char** argv)
 #endif
 
     timeBeginPeriod(1);
-#endif
-
-#if PLATFORM(QT)
-    QCoreApplication app(argc, argv);
 #endif
 
     // Initialize JSC before getting VM.
@@ -501,7 +489,7 @@ static void parseArguments(int argc, char** argv, CommandLine& options)
 int realMain(int argc, char** argv)
 {
     VM* vm = VM::create(LargeHeap).leakRef();
-    APIEntryShim shim(vm);
+    JSLockHolder locker(vm);
 
     CommandLine options;
     parseArguments(argc, argv, options);

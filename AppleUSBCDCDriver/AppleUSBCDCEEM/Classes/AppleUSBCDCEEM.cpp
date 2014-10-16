@@ -334,7 +334,7 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 	pipeInBuffers	*pipeBuf = (pipeInBuffers *)param;
 //    UInt32			poolIndx = (UInt32)param;
 	UInt16			EEMHeader;
-	UInt16			*EEMHeaderAddress = &EEMHeader;
+    UInt8			*EEMHeaderAddress = (UInt8 *) &EEMHeader;
 	SInt16			actualLen, dataLen, i = 0;
 	bool			done = false;
     
@@ -352,7 +352,6 @@ void AppleUSBCDCEEM::dataReadComplete(void *obj, void *param, IOReturn rc, UInt3
 		
 			if (EEMHeader & bmTypeCommand)
 			{
-		
 					// Look at the command
 				
 				me->processEEMCommand(EEMHeader, pipeBuf->indx, i+2, &actualLen);

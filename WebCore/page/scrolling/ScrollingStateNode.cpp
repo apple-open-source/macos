@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ScrollingStateNode.h"
 
-#if ENABLE(THREADED_SCROLLING) || USE(COORDINATED_GRAPHICS)
+#if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
 #include "ScrollingStateFixedNode.h"
 #include "ScrollingStateTree.h"
@@ -36,100 +36,80 @@
 
 namespace WebCore {
 
-ScrollingStateNode::ScrollingStateNode(ScrollingStateTree* scrollingStateTree, ScrollingNodeID nodeID)
-    : m_scrollingStateTree(scrollingStateTree)
+ScrollingStateNode::ScrollingStateNode(ScrollingNodeType nodeType, ScrollingStateTree& scrollingStateTree, ScrollingNodeID nodeID)
+    : m_nodeType(nodeType)
     , m_nodeID(nodeID)
     , m_changedProperties(0)
-    , m_parent(0)
+    , m_scrollingStateTree(scrollingStateTree)
+    , m_parent(nullptr)
 {
 }
 
 // This copy constructor is used for cloning nodes in the tree, and it doesn't make sense
-// to clone the relationship pointers, so don't copy that information from the original
-// node.
-ScrollingStateNode::ScrollingStateNode(const ScrollingStateNode& stateNode)
-    : m_scrollingStateTree(0)
+// to clone the relationship pointers, so don't copy that information from the original node.
+ScrollingStateNode::ScrollingStateNode(const ScrollingStateNode& stateNode, ScrollingStateTree& adoptiveTree)
+    : m_nodeType(stateNode.nodeType())
     , m_nodeID(stateNode.scrollingNodeID())
     , m_changedProperties(stateNode.changedProperties())
-    , m_parent(0)
+    , m_scrollingStateTree(adoptiveTree)
+    , m_parent(nullptr)
 {
-    // FIXME: why doesn't this set the GraphicsLayer?
-    setScrollPlatformLayer(stateNode.platformScrollLayer());
+    if (hasChangedProperty(ScrollLayer))
+        setLayer(stateNode.layer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
+    scrollingStateTree().addNode(this);
 }
 
 ScrollingStateNode::~ScrollingStateNode()
 {
 }
 
-PassOwnPtr<ScrollingStateNode> ScrollingStateNode::cloneAndReset()
+void ScrollingStateNode::setPropertyChanged(unsigned propertyBit)
 {
-    OwnPtr<ScrollingStateNode> clone = this->clone();
+    if (m_changedProperties & (1 << propertyBit))
+        return;
+
+    m_changedProperties |= (1 << propertyBit);
+    m_scrollingStateTree.setHasChangedProperties();
+}
+
+PassRefPtr<ScrollingStateNode> ScrollingStateNode::cloneAndReset(ScrollingStateTree& adoptiveTree)
+{
+    RefPtr<ScrollingStateNode> clone = this->clone(adoptiveTree);
 
     // Now that this node is cloned, reset our change properties.
     resetChangedProperties();
 
-    cloneAndResetChildren(clone.get());
+    cloneAndResetChildren(*clone, adoptiveTree);
     return clone.release();
 }
 
-void ScrollingStateNode::cloneAndResetChildren(ScrollingStateNode* clone)
+void ScrollingStateNode::cloneAndResetChildren(ScrollingStateNode& clone, ScrollingStateTree& adoptiveTree)
 {
     if (!m_children)
         return;
 
-    size_t size = m_children->size();
-    for (size_t i = 0; i < size; ++i)
-        clone->appendChild(m_children->at(i)->cloneAndReset());
+    for (auto& child : *m_children)
+        clone.appendChild(child->cloneAndReset(adoptiveTree));
 }
 
-void ScrollingStateNode::appendChild(PassOwnPtr<ScrollingStateNode> childNode)
+void ScrollingStateNode::appendChild(PassRefPtr<ScrollingStateNode> childNode)
 {
     childNode->setParent(this);
 
     if (!m_children)
-        m_children = adoptPtr(new Vector<OwnPtr<ScrollingStateNode> >);
+        m_children = adoptPtr(new Vector<RefPtr<ScrollingStateNode>>);
 
     m_children->append(childNode);
 }
 
-void ScrollingStateNode::removeChild(ScrollingStateNode* node)
+void ScrollingStateNode::setLayer(const LayerRepresentation& layerRepresentation)
 {
-    if (!m_children)
+    if (layerRepresentation == m_layer)
         return;
+    
+    m_layer = layerRepresentation;
 
-    size_t index = m_children->find(node);
-
-    // The index will be notFound if the node to remove is a deeper-than-1-level descendant or
-    // if node is the root state node.
-    if (index != notFound) {
-        node->willBeRemovedFromStateTree();
-        m_children->remove(index);
-        return;
-    }
-
-    size_t size = m_children->size();
-    for (size_t i = 0; i < size; ++i)
-        m_children->at(i)->removeChild(node);
-}
-
-void ScrollingStateNode::willBeRemovedFromStateTree()
-{
-    ASSERT(m_scrollingStateTree);
-
-    m_scrollingStateTree->didRemoveNode(scrollingNodeID());
-
-    if (!m_children)
-        return;
-
-    size_t size = m_children->size();
-    for (size_t i = 0; i < size; ++i)
-        m_children->at(i)->willBeRemovedFromStateTree();
-}
-
-void ScrollingStateNode::writeIndent(TextStream& ts, int indent)
-{
-    for (int i = 0; i != indent; ++i)
-        ts << "  ";
+    setPropertyChanged(ScrollLayer);
 }
 
 void ScrollingStateNode::dump(TextStream& ts, int indent) const
@@ -139,11 +119,10 @@ void ScrollingStateNode::dump(TextStream& ts, int indent) const
 
     if (m_children) {
         writeIndent(ts, indent + 1);
-        size_t size = children()->size();
-        ts << "(children " << size << "\n";
+        ts << "(children " << children()->size() << "\n";
         
-        for (size_t i = 0; i < size; i++)
-            m_children->at(i)->dump(ts, indent + 2);
+        for (auto& child : *m_children)
+            child->dump(ts, indent + 2);
         writeIndent(ts, indent + 1);
         ts << ")\n";
     }
@@ -162,4 +141,4 @@ String ScrollingStateNode::scrollingStateTreeAsText() const
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING) || USE(COORDINATED_GRAPHICS)
+#endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)

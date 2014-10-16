@@ -22,6 +22,7 @@
 
 #include "httpd.h"
 #include "http_config.h"
+#include "ap_provider.h"
 #include "http_core.h"
 #include "http_log.h"
 #include "http_protocol.h"
@@ -30,10 +31,12 @@
 #include "mod_auth.h"
 
 typedef struct {
-    char *grpfile;
-    char *dbmtype;
-    int authoritative;
+    const char *grpfile;
+    const char *dbmtype;
 } authz_dbm_config_rec;
+
+APR_DECLARE_OPTIONAL_FN(char*, authz_owner_get_file_group, (request_rec *r));
+
 
 /* This should go into APR; perhaps with some nice
  * caching/locking/flocking of the open dbm file.
@@ -62,7 +65,6 @@ static void *create_authz_dbm_dir_config(apr_pool_t *p, char *d)
 
     conf->grpfile = NULL;
     conf->dbmtype = "default";
-    conf->authoritative = 1;  /* fortress is secure by default */
 
     return conf;
 }
@@ -75,11 +77,6 @@ static const command_rec authz_dbm_cmds[] =
     AP_INIT_TAKE1("AuthzDBMType", ap_set_string_slot,
      (void *)APR_OFFSETOF(authz_dbm_config_rec, dbmtype),
      OR_AUTHCFG, "what type of DBM file the group file is"),
-    AP_INIT_FLAG("AuthzDBMAuthoritative", ap_set_flag_slot,
-     (void *)APR_OFFSETOF(authz_dbm_config_rec, authoritative),
-     OR_AUTHCFG, "Set to 'Off' to allow access control to be passed along to "
-     "lower modules, if the group required is not found or empty, or the user "
-     " is not in the required groups. (default is On.)"),
     {NULL}
 };
 
@@ -97,7 +94,7 @@ module AP_MODULE_DECLARE_DATA authz_dbm_module;
  */
 
 static apr_status_t get_dbm_grp(request_rec *r, char *key1, char *key2,
-                                char *dbmgrpfile, char *dbtype,
+                                const char *dbmgrpfile, const char *dbtype,
                                 const char ** out)
 {
     char *grp_colon, *val;
@@ -133,145 +130,199 @@ static apr_status_t get_dbm_grp(request_rec *r, char *key1, char *key2,
     return retval;
 }
 
-/* Checking ID */
-static int dbm_check_auth(request_rec *r)
+static authz_status dbmgroup_check_authorization(request_rec *r,
+                                                 const char *require_args,
+                                                 const void *parsed_require_args)
 {
     authz_dbm_config_rec *conf = ap_get_module_config(r->per_dir_config,
                                                       &authz_dbm_module);
     char *user = r->user;
-    int m = r->method_number;
-    const apr_array_header_t *reqs_arr = ap_requires(r);
-    require_line *reqs = reqs_arr ? (require_line *) reqs_arr->elts : NULL;
-    register int x;
+
+    const char *err = NULL;
+    const ap_expr_info_t *expr = parsed_require_args;
+    const char *require;
+
     const char *t;
     char *w;
-    int required_group = 0;
-    const char *filegroup = NULL;
     const char *orig_groups = NULL;
-    char *reason = NULL;
+    const char *realm = ap_auth_name(r);
+    const char *groups;
+    char *v;
+
+    if (!user) {
+        return AUTHZ_DENIED_NO_USER;
+    }
 
     if (!conf->grpfile) {
-        return DECLINED;
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01798)
+                        "No group file was specified in the configuration");
+        return AUTHZ_DENIED;
     }
 
-    if (!reqs_arr) {
-        return DECLINED;
+    /* fetch group data from dbm file only once. */
+    if (!orig_groups) {
+        apr_status_t status;
+
+        status = get_dbm_grp(r, apr_pstrcat(r->pool, user, ":", realm, NULL),
+                             user, conf->grpfile, conf->dbmtype, &groups);
+
+        if (status != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(01799)
+                          "could not open dbm (type %s) group access "
+                          "file: %s", conf->dbmtype, conf->grpfile);
+            return AUTHZ_GENERAL_ERROR;
+        }
+
+        if (groups == NULL) {
+            /* no groups available, so exit immediately */
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01800)
+                          "Authorization of user %s to access %s failed, reason: "
+                          "user doesn't appear in DBM group file (%s).",
+                          r->user, r->uri, conf->grpfile);
+            return AUTHZ_DENIED;
+        }
+
+        orig_groups = groups;
     }
 
-    for (x = 0; x < reqs_arr->nelts; x++) {
+    require = ap_expr_str_exec(r, expr, &err);
+    if (err) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02591)
+                      "authz_dbm authorize: require dbm-group: Can't "
+                      "evaluate require expression: %s", err);
+        return AUTHZ_DENIED;
+    }
 
-        if (!(reqs[x].method_mask & (AP_METHOD_BIT << m))) {
-            continue;
-        }
-
-        t = reqs[x].requirement;
-        w = ap_getword_white(r->pool, &t);
-
-        if (!strcasecmp(w, "file-group")) {
-            filegroup = apr_table_get(r->notes, AUTHZ_GROUP_NOTE);
-
-            if (!filegroup) {
-                /* mod_authz_owner is not present or not
-                 * authoritative. We are just a helper module for testing
-                 * group membership, so we don't care and decline.
-                 */
-                continue;
-            }
-        }
-
-        if (!strcasecmp(w, "group") || filegroup) {
-            const char *realm = ap_auth_name(r);
-            const char *groups;
-            char *v;
-
-            /* remember that actually a group is required */
-            required_group = 1;
-
-            /* fetch group data from dbm file only once. */
-            if (!orig_groups) {
-                apr_status_t status;
-
-                status = get_dbm_grp(r, apr_pstrcat(r->pool, user, ":", realm,
-                                                    NULL),
-                                     user,
-                                     conf->grpfile, conf->dbmtype, &groups);
-
-                if (status != APR_SUCCESS) {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                                  "could not open dbm (type %s) group access "
-                                  "file: %s", conf->dbmtype, conf->grpfile);
-                    return HTTP_INTERNAL_SERVER_ERROR;
-                }
-
-                if (groups == NULL) {
-                    /* no groups available, so exit immediately */
-                    reason = apr_psprintf(r->pool,
-                                          "user doesn't appear in DBM group "
-                                          "file (%s).", conf->grpfile);
-                    break;
-                }
-
-                orig_groups = groups;
-            }
-
-            if (filegroup) {
-                groups = orig_groups;
-                while (groups[0]) {
-                    v = ap_getword(r->pool, &groups, ',');
-                    if (!strcmp(v, filegroup)) {
-                        return OK;
-                    }
-                }
-
-                if (conf->authoritative) {
-                    reason = apr_psprintf(r->pool,
-                                          "file group '%s' does not match.",
-                                          filegroup);
-                    break;
-                }
-
-                /* now forget the filegroup, thus alternatively require'd
-                   groups get a real chance */
-                filegroup = NULL;
-            }
-            else {
-                while (t[0]) {
-                    w = ap_getword_white(r->pool, &t);
-                    groups = orig_groups;
-                    while (groups[0]) {
-                        v = ap_getword(r->pool, &groups, ',');
-                        if (!strcmp(v, w)) {
-                            return OK;
-                        }
-                    }
-                }
+    t = require;
+    while ((w = ap_getword_white(r->pool, &t)) && w[0]) {
+        groups = orig_groups;
+        while (groups[0]) {
+            v = ap_getword(r->pool, &groups, ',');
+            if (!strcmp(v, w)) {
+                return AUTHZ_GRANTED;
             }
         }
     }
 
-    /* No applicable "require group" for this method seen */
-    if (!required_group || !conf->authoritative) {
-        return DECLINED;
-    }
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01801)
+                  "Authorization of user %s to access %s failed, reason: "
+                  "user is not part of the 'require'ed group(s).",
+                  r->user, r->uri);
 
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                  "Authorization of user %s to access %s failed, reason: %s",
-                  r->user, r->uri,
-                  reason ? reason : "user is not part of the "
-                                    "'require'ed group(s).");
-
-    ap_note_auth_failure(r);
-    return HTTP_UNAUTHORIZED;
+    return AUTHZ_DENIED;
 }
+
+APR_OPTIONAL_FN_TYPE(authz_owner_get_file_group) *authz_owner_get_file_group;
+
+static authz_status dbmfilegroup_check_authorization(request_rec *r,
+                                                     const char *require_args,
+                                                     const void *parsed_require_args)
+{
+    authz_dbm_config_rec *conf = ap_get_module_config(r->per_dir_config,
+                                                      &authz_dbm_module);
+    char *user = r->user;
+    const char *realm = ap_auth_name(r);
+    const char *filegroup = NULL;
+    apr_status_t status;
+    const char *groups;
+    char *v;
+
+    if (!user) {
+        return AUTHZ_DENIED_NO_USER;
+    }
+
+    if (!conf->grpfile) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01802)
+                        "No group file was specified in the configuration");
+        return AUTHZ_DENIED;
+    }
+
+    /* fetch group data from dbm file. */
+    status = get_dbm_grp(r, apr_pstrcat(r->pool, user, ":", realm, NULL),
+                         user, conf->grpfile, conf->dbmtype, &groups);
+
+    if (status != APR_SUCCESS) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(01803)
+                      "could not open dbm (type %s) group access "
+                      "file: %s", conf->dbmtype, conf->grpfile);
+        return AUTHZ_DENIED;
+    }
+
+    if (groups == NULL) {
+        /* no groups available, so exit immediately */
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01804)
+                      "Authorization of user %s to access %s failed, reason: "
+                      "user doesn't appear in DBM group file (%s).",
+                      r->user, r->uri, conf->grpfile);
+        return AUTHZ_DENIED;
+    }
+
+    filegroup = authz_owner_get_file_group(r);
+
+    if (filegroup) {
+        while (groups[0]) {
+            v = ap_getword(r->pool, &groups, ',');
+            if (!strcmp(v, filegroup)) {
+                return AUTHZ_GRANTED;
+            }
+        }
+    }
+
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01805)
+                  "Authorization of user %s to access %s failed, reason: "
+                  "user is not part of the 'require'ed group(s).",
+                  r->user, r->uri);
+
+    return AUTHZ_DENIED;
+}
+
+static const char *dbm_parse_config(cmd_parms *cmd, const char *require_line,
+                                     const void **parsed_require_line)
+{
+    const char *expr_err = NULL;
+    ap_expr_info_t *expr;
+
+    expr = ap_expr_parse_cmd(cmd, require_line, AP_EXPR_FLAG_STRING_RESULT,
+            &expr_err, NULL);
+
+    if (expr_err)
+        return apr_pstrcat(cmd->temp_pool,
+                           "Cannot parse expression in require line: ",
+                           expr_err, NULL);
+
+    *parsed_require_line = expr;
+
+    return NULL;
+}
+
+static const authz_provider authz_dbmgroup_provider =
+{
+    &dbmgroup_check_authorization,
+    &dbm_parse_config,
+};
+
+static const authz_provider authz_dbmfilegroup_provider =
+{
+    &dbmfilegroup_check_authorization,
+    NULL,
+};
+
 
 static void register_hooks(apr_pool_t *p)
 {
-    static const char * const aszPre[]={ "mod_authz_owner.c", NULL };
+    authz_owner_get_file_group = APR_RETRIEVE_OPTIONAL_FN(authz_owner_get_file_group);
 
-    ap_hook_auth_checker(dbm_check_auth, aszPre, NULL, APR_HOOK_MIDDLE);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "dbm-group",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_dbmgroup_provider,
+                              AP_AUTH_INTERNAL_PER_CONF);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "dbm-file-group",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_dbmfilegroup_provider,
+                              AP_AUTH_INTERNAL_PER_CONF);
 }
 
-module AP_MODULE_DECLARE_DATA authz_dbm_module =
+AP_DECLARE_MODULE(authz_dbm) =
 {
     STANDARD20_MODULE_STUFF,
     create_authz_dbm_dir_config, /* dir config creater */

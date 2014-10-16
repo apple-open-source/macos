@@ -2,11 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>LimitLoadToSessionType</key>
-	<string>Background</string>
+	<key>EnablePressuredExit</key>
+	<true/>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/System/Library/Frameworks/Security.framework/Versions/A/Resources/CloudKeychainProxy.bundle/Contents/MacOS/CloudKeychainProxy</string>
+		<string>/System/Library/Frameworks/Security.framework/CloudKeychainProxy.bundle/CloudKeychainProxy</string>
 	</array>
 	<key>MachServices</key>
 	<dict>
@@ -15,10 +15,10 @@
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
-	<key>KeepAlive</key>
-	<false/>
+	<key>enabletransactions</key>
+	<true/>
 	<key>Program</key>
-	<string>/System/Library/Frameworks/Security.framework/Versions/A/Resources/CloudKeychainProxy.bundle/Contents/MacOS/CloudKeychainProxy</string>
+	<string>/System/Library/Frameworks/Security.framework/CloudKeychainProxy.bundle/CloudKeychainProxy</string>
 	<key>Label</key>
 	<string>com.apple.security.cloudkeychainproxy3</string>
 	<key>EnvironmentVariables</key>
@@ -32,10 +32,10 @@
 	<dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
-			<key>com.apple.keystore.lockstatus</key>
+			<key>com.apple.mobile.keybagd.lock_status</key>
 			<dict>
 				<key>Notification</key>
-				<string>com.apple.keystore.lockstatus</string>
+				<string>com.apple.mobile.keybagd.lock_status</string>
 			</dict>
 			<key>com.apple.security.cloudkeychainproxy.kvstorechange3</key>
 			<dict>

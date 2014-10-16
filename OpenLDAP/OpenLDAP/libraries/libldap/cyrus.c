@@ -114,11 +114,14 @@ int ldap_int_sasl_init( void )
 #endif /* CSRIMALLOC */
 
 #ifdef LDAP_R_COMPILE
+#ifndef __APPLE__
+	/* The SASL library post-Mavericks uses pthread mutexes by default. */
 	sasl_set_mutex(
 		ldap_pvt_sasl_mutex_new,
 		ldap_pvt_sasl_mutex_lock,
 		ldap_pvt_sasl_mutex_unlock,    
 		ldap_pvt_sasl_mutex_dispose );
+#endif /* __APPLE__ */
 	
 	ldap_pvt_thread_mutex_init( &ldap_int_sasl_mutex );
 #endif

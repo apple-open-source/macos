@@ -1,0 +1,41 @@
+#!/bin/csh
+# openssl/certtool/sslServer compatibility
+#
+#
+# certtool arguments
+#
+set KC_NAME=opensslkc
+set CERT_FILE_PEM=new.cert.pem
+set CERT_FILE_DER=new.cert.der
+set PRIV_RAW_KEY_PEM=new.key.pem
+#
+#
+# Prepare to import
+#
+echo Preparing to delete keychain $KC_NAME. Ctl-c to abort, or....
+doprompt
+rm -f ~/Library/Keychains/$KC_NAME
+#
+# Do the import
+# Cert and key both in PEM Format
+#
+set cmd="certtool i $CERT_FILE_PEM k=$KC_NAME c r=$PRIV_RAW_KEY_PEM f=1 p=$KC_NAME"
+echo $cmd
+$cmd || exit(1)
+#
+# Run an SSL session using this cert/priv key
+#
+set cmd="sslServer k=$KC_NAME z=$KC_NAME"
+echo $cmd
+$cmd & 
+#
+# wait for server to settle down
+#
+sleep 2
+#
+# and one ping with cert dump
+# 
+set cmd="sslViewer localhost P=1200 c t a $CERT_FILE_DER"
+echo $cmd
+$cmd || exit(1)
+echo === Complete ===

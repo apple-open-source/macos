@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -705,6 +705,7 @@ tmxdate(register const char* s, char** e, Time_t now)
 			if ((*t == 'T' || *t == 't') && ((set|state) & (YEAR|MONTH|DAY)) == (YEAR|MONTH) && isdigit(*(t + 1)))
 				t++;
 			u = t + (*t == '-');
+			message((-1, "AHA#%d n=%d w=%d u='%c' f=%d t=\"%s\"", __LINE__, n, w, *u, f, t));
 			if ((w == 2 || w == 4) && (*u == 'W' || *u == 'w') && isdigit(*(u + 1)))
 			{
 				if (w == 4)
@@ -830,239 +831,250 @@ tmxdate(register const char* s, char** e, Time_t now)
 			}
 			else
 			{
-				if (!(state & (LAST|NEXT|THIS)) && ((i = t - s) == 4 && (*t == '.' && isdigit(*(t + 1)) && isdigit(*(t + 2)) && *(t + 3) != '.' || (!*t || isspace(*t) || *t == '_' || isalnum(*t)) && n >= 0 && (n % 100) < 60 && ((m = (n / 100)) < 20 || m < 24 && !((set|state) & (YEAR|MONTH|HOUR|MINUTE)))) || i > 4 && i <= 12))
+				for (u = t; isspace(*u); u++);
+				message((-1, "AHA#%d n=%d u=\"%s\"", __LINE__, n, u));
+				if ((j = tmlex(u, NiL, tm_info.format, TM_NFORM, tm_info.format + TM_SUFFIXES, TM_PARTS - TM_SUFFIXES)) >= 0 && tm_data.lex[j] == TM_PARTS)
+					s = u;
+				else
 				{
-					/*
-					 * various { date(1) touch(1) } formats
-					 *
-					 *	[[cc]yy[mm]]ddhhmm[.ss[.nn...]]
-					 *	[cc]yyjjj
-					 *	hhmm[.ss[.nn...]]
-					 */
+					message((-1, "AHA#%d t=\"%s\"", __LINE__, t));
+					if (!(state & (LAST|NEXT|THIS)) && ((i = t - s) == 4 && (*t == '.' && isdigit(*(t + 1)) && isdigit(*(t + 2)) && *(t + 3) != '.' || (!*t || isspace(*t) || *t == '_' || isalnum(*t)) && n >= 0 && (n % 100) < 60 && ((m = (n / 100)) < 20 || m < 24 && !((set|state) & (YEAR|MONTH|HOUR|MINUTE)))) || i > 4 && i <= 12))
+					{
+						/*
+						 * various { date(1) touch(1) } formats
+						 *
+						 *	[[cc]yy[mm]]ddhhmm[.ss[.nn...]]
+						 *	[cc]yyjjj
+						 *	hhmm[.ss[.nn...]]
+						 */
 
-					flags = 0;
-					if (state & CCYYMMDDHHMMSS)
-						break;
-					state |= CCYYMMDDHHMMSS;
-					p = 0;
-					if ((i == 7 || i == 5) && (!*t || *t == 'Z' || *t == 'z'))
-					{
-						if (i == 7)
+						message((-1, "AHA#%d t=\"%s\"", __LINE__, t));
+						flags = 0;
+						if (state & CCYYMMDDHHMMSS)
+							break;
+						state |= CCYYMMDDHHMMSS;
+						p = 0;
+						if ((i == 7 || i == 5) && (!*t || *t == 'Z' || *t == 'z'))
 						{
-							dig4(s, m);
-							if ((m -= 1900) < TM_WINDOW)
-								break;
-						}
-						else if (dig2(s, m) < TM_WINDOW)
-							m += 100;
-						dig3(s, k);
-						l = 1;
-						j = 0;
-						i = 0;
-						n = 0;
-						flags |= MONTH;
-					}
-					else if (i & 1)
-						break;
-					else
-					{
-						u = t;
-						if (i == 12)
-						{
-							x = s;
-							dig2(x, m);
-							if (m <= 12)
+							if (i == 7)
 							{
-								u -= 4;
-								i -= 4;
-								x = s + 8;
-								dig4(x, m);
-							}
-							else
 								dig4(s, m);
-							if (m < 1969 || m >= 3000)
-								break;
-							m -= 1900;
+								if ((m -= 1900) < TM_WINDOW)
+									break;
+							}
+							else if (dig2(s, m) < TM_WINDOW)
+								m += 100;
+							dig3(s, k);
+							l = 1;
+							j = 0;
+							i = 0;
+							n = 0;
+							flags |= MONTH;
 						}
-						else if (i == 10)
+						else if (i & 1)
+							break;
+						else
 						{
-							x = s;
-							if (!dig2(x, m) || m > 12 || !dig2(x, m) || m > 31 || dig2(x, m) > 24 || dig2(x, m) > 60 || dig2(x, m) <= 60 && !(tm_info.flags & TM_DATESTYLE))
-								dig2(s, m);
+							u = t;
+							if (i == 12)
+							{
+								x = s;
+								dig2(x, m);
+								if (m <= 12)
+								{
+									u -= 4;
+									i -= 4;
+									x = s + 8;
+									dig4(x, m);
+								}
+								else
+									dig4(s, m);
+								if (m < 1969 || m >= 3000)
+									break;
+								m -= 1900;
+							}
+							else if (i == 10)
+							{
+								x = s;
+								if (!dig2(x, m) || m > 12 || !dig2(x, m) || m > 31 || dig2(x, m) > 24 || dig2(x, m) > 60 || dig2(x, m) <= 60 && !(tm_info.flags & TM_DATESTYLE))
+									dig2(s, m);
+								else
+								{
+									u -= 2;
+									i -= 2;
+									x = s + 8;
+									dig2(x, m);
+								}
+								if (m < TM_WINDOW)
+									m += 100;
+							}
+							else
+								m = tm->tm_year;
+							if ((u - s) < 8)
+								l = tm->tm_mon + 1;
+							else if (dig2(s, l) <= 0 || l > 12)
+								break;
+							else
+								flags |= MONTH;
+							if ((u - s) < 6)
+								k = tm->tm_mday;
+							else if (dig2(s, k) < 1 || k > 31)
+								break;
+							else
+								flags |= DAY;
+							if ((u - s) < 4)
+								break;
+							if (dig2(s, j) > 24)
+								break;
+							if (dig2(s, i) > 59)
+								break;
+							flags |= HOUR|MINUTE;
+							if ((u - s) == 2)
+							{
+								dig2(s, n);
+								flags |= SECOND;
+							}
+							else if (u - s)
+								break;
+							else if (*t != '.')
+								n = 0;
 							else
 							{
-								u -= 2;
-								i -= 2;
-								x = s + 8;
-								dig2(x, m);
+								n = strtol(t + 1, &t, 10);
+								flags |= SECOND;
+								if (*t == '.')
+								{
+									q = 1000000000;
+									while (isdigit(*++t))
+										p += (*t - '0') * (q /= 10);
+									set |= NSEC;
+								}
 							}
-							if (m < TM_WINDOW)
-								m += 100;
+							if (n > (59 + TM_MAXLEAP))
+								break;
 						}
-						else
-							m = tm->tm_year;
-						if ((u - s) < 8)
-							l = tm->tm_mon + 1;
-						else if (dig2(s, l) <= 0 || l > 12)
-							break;
-						else
-							flags |= MONTH;
-						if ((u - s) < 6)
-							k = tm->tm_mday;
-						else if (dig2(s, k) < 1 || k > 31)
-							break;
-						else
-							flags |= DAY;
-						if ((u - s) < 4)
-							break;
-						if (dig2(s, j) > 24)
-							break;
-						if (dig2(s, i) > 59)
-							break;
-						flags |= HOUR|MINUTE;
-						if ((u - s) == 2)
-						{
-							dig2(s, n);
-							flags |= SECOND;
-						}
-						else if (u - s)
-							break;
-						else if (*t != '.')
-							n = 0;
-						else
-						{
-							n = strtol(t + 1, &t, 10);
-							flags |= SECOND;
-							if (*t == '.')
-							{
-								q = 1000000000;
-								while (isdigit(*++t))
-									p += (*t - '0') * (q /= 10);
-								set |= NSEC;
-							}
-						}
-						if (n > (59 + TM_MAXLEAP))
-							break;
+					save:
+						tm->tm_hour = j;
+						tm->tm_min = i;
+						tm->tm_sec = n;
+						tm->tm_nsec = p;
+					save_yymmdd:
+						tm->tm_mday = k;
+					save_yymm:
+						tm->tm_mon = l - 1;
+						tm->tm_year = m;
+						s = t;
+						set |= flags;
+						continue;
 					}
-				save:
-					tm->tm_hour = j;
-					tm->tm_min = i;
-					tm->tm_sec = n;
-					tm->tm_nsec = p;
-				save_yymmdd:
-					tm->tm_mday = k;
-				save_yymm:
-					tm->tm_mon = l - 1;
-					tm->tm_year = m;
-					s = t;
-					set |= flags;
-					continue;
-				}
-				for (s = t; skip[*s]; s++);
-				if (*s == ':' || *s == '.' && ((set|state) & (YEAR|MONTH|DAY|HOUR)) == (YEAR|MONTH|DAY))
-				{
-					c = *s;
-					if ((state & HOUR) || n > 24)
-						break;
-					while (isspace(*++s) || *s == '_');
-					if (!isdigit(*s))
-						break;
-					i = n;
-					n = strtol(s, &t, 10);
-					for (s = t; isspace(*s) || *s == '_'; s++);
-					if (n > 59)
-						break;
-					j = n;
-					m = 0;
-					if (*s == c)
+					for (s = t; skip[*s]; s++);
+					message((-1, "AHA#%d s=\"%s\"", __LINE__, s));
+					if (*s == ':' || *s == '.' && ((set|state) & (YEAR|MONTH|DAY|HOUR)) == (YEAR|MONTH|DAY))
 					{
+						c = *s;
+						if ((state & HOUR) || n > 24)
+							break;
 						while (isspace(*++s) || *s == '_');
 						if (!isdigit(*s))
 							break;
+						i = n;
 						n = strtol(s, &t, 10);
-						s = t;
-						if (n > (59 + TM_MAXLEAP))
+						for (s = t; isspace(*s) || *s == '_'; s++);
+						if (n > 59)
 							break;
-						set |= SECOND;
+						j = n;
+						m = 0;
+						if (*s == c)
+						{
+							while (isspace(*++s) || *s == '_');
+							if (!isdigit(*s))
+								break;
+							n = strtol(s, &t, 10);
+							s = t;
+							if (n > (59 + TM_MAXLEAP))
+								break;
+							set |= SECOND;
+							while (isspace(*s))
+								s++;
+							if (*s == '.')
+							{
+								q = 1000000000;
+								while (isdigit(*++s))
+									m += (*s - '0') * (q /= 10);
+								set |= NSEC;
+							}
+						}
+						else
+							n = 0;
+						set |= HOUR|MINUTE;
+						skip[':'] = 1;
+						k = tm->tm_hour;
+						tm->tm_hour = i;
+						l = tm->tm_min;
+						tm->tm_min = j;
+						tm->tm_sec = n;
+						tm->tm_nsec = m;
 						while (isspace(*s))
 							s++;
-						if (*s == '.')
+						switch (tmlex(s, &t, tm_info.format, TM_NFORM, tm_info.format + TM_MERIDIAN, 2))
 						{
-							q = 1000000000;
-							while (isdigit(*++s))
-								m += (*s - '0') * (q /= 10);
-							set |= NSEC;
+						case TM_MERIDIAN:
+							s = t;
+							if (i == 12)
+								tm->tm_hour = i = 0;
+							break;
+						case TM_MERIDIAN+1:
+							if (i < 12)
+								tm->tm_hour = i += 12;
+							break;
 						}
-					}
-					else
-						n = 0;
-					set |= HOUR|MINUTE;
-					skip[':'] = 1;
-					k = tm->tm_hour;
-					tm->tm_hour = i;
-					l = tm->tm_min;
-					tm->tm_min = j;
-					tm->tm_sec = n;
-					tm->tm_nsec = m;
-					while (isspace(*s))
-						s++;
-					switch (tmlex(s, &t, tm_info.format, TM_NFORM, tm_info.format + TM_MERIDIAN, 2))
-					{
-					case TM_MERIDIAN:
-						s = t;
-						if (i == 12)
-							tm->tm_hour = i = 0;
-						break;
-					case TM_MERIDIAN+1:
-						if (i < 12)
-							tm->tm_hour = i += 12;
-						break;
-					}
-					if (f >= 0 || (state & (LAST|NEXT)))
-					{
-						message((-1, "AHA#%d f=%d i=%d j=%d k=%d l=%d", __LINE__, f, i, j, k, l));
-						state &= ~HOLD;
-						if (f < 0)
+						if (f >= 0 || (state & (LAST|NEXT)))
 						{
-							if (state & LAST)
-								f = -1;
-							else if (state & NEXT)
-								f = 1;
-							else
-								f = 0;
-						}
-						if (f > 0)
-						{
-							if (i > k || i == k && j > l)
-								f--;
-						}
-						else if (i < k || i == k && j < l)
-							f++;
-						if (f > 0)
-						{
-							tm->tm_hour += f * 24;
-							while (tm->tm_hour >= 24)
+							message((-1, "AHA#%d f=%d i=%d j=%d k=%d l=%d", __LINE__, f, i, j, k, l));
+							state &= ~HOLD;
+							if (f < 0)
 							{
-								tm->tm_hour -= 24;
-								tm->tm_mday++;
+								if (state & LAST)
+									f = -1;
+								else if (state & NEXT)
+									f = 1;
+								else
+									f = 0;
+							}
+							if (f > 0)
+							{
+								if (i > k || i == k && j > l)
+									f--;
+							}
+							else if (i < k || i == k && j < l)
+								f++;
+							if (f > 0)
+							{
+								tm->tm_hour += f * 24;
+								while (tm->tm_hour >= 24)
+								{
+									tm->tm_hour -= 24;
+									tm->tm_mday++;
+								}
+							}
+							else if (f < 0)
+							{
+								tm->tm_hour += f * 24;
+								while (tm->tm_hour < 24)
+								{
+									tm->tm_hour += 24;
+									tm->tm_mday--;
+								}
 							}
 						}
-						else if (f < 0)
-						{
-							tm->tm_hour += f * 24;
-							while (tm->tm_hour < 24)
-							{
-								tm->tm_hour += 24;
-								tm->tm_mday--;
-							}
-						}
+						continue;
 					}
-					continue;
 				}
 			}
 		}
 		for (;;)
 		{
+			message((-1, "AHA#%d s=\"%s\"", __LINE__, s));
 			if (*s == '-' || *s == '+')
 			{
 				if (((set|state) & (MONTH|DAY|HOUR|MINUTE)) == (MONTH|DAY|HOUR|MINUTE) || *s == '+' && (!isdigit(s[1]) || !isdigit(s[2]) || s[3] != ':' && (s[3] != '.' || ((set|state) & (YEAR|MONTH)) != (YEAR|MONTH))))
@@ -1080,6 +1092,7 @@ tmxdate(register const char* s, char** e, Time_t now)
 			{
 				x = s;
 				q = *s++;
+				message((-1, "AHA#%d n=%d q='%c'", __LINE__, n, q));
 				if (isalpha(*s))
 				{
 					q <<= 8;
@@ -1182,9 +1195,9 @@ tmxdate(register const char* s, char** e, Time_t now)
 				}
 				s = x;
 			}
-			if (n < 1000)
+			if ((j = tmlex(s, &t, tm_info.format, TM_NFORM, tm_info.format + TM_SUFFIXES, TM_PARTS - TM_SUFFIXES)) >= 0)
 			{
-				if ((j = tmlex(s, &t, tm_info.format, TM_NFORM, tm_info.format + TM_SUFFIXES, TM_PARTS - TM_SUFFIXES)) >= 0)
+				if (tm_data.lex[j] == TM_PARTS || n < 1000)
 				{
 					s = t;
 					switch (tm_data.lex[j])
@@ -1527,6 +1540,9 @@ tmxdate(register const char* s, char** e, Time_t now)
 						continue;
 					}
 				}
+			}
+			if (n < 1000)
+			{
 				if (!(state & ZONE) && (zp = tmzone(s, &t, type, &dst)))
 				{
 					s = t;

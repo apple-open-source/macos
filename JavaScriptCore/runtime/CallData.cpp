@@ -29,15 +29,27 @@
 #include "Executable.h"
 #include "Interpreter.h"
 #include "JSFunction.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 
 namespace JSC {
 
 JSValue call(ExecState* exec, JSValue functionObject, CallType callType, const CallData& callData, JSValue thisValue, const ArgList& args)
 {
     ASSERT(callType == CallTypeJS || callType == CallTypeHost);
-    ASSERT(isValidThisObject(thisValue, exec));
     return exec->interpreter()->executeCall(exec, asObject(functionObject), callType, callData, thisValue, args);
+}
+
+JSValue call(ExecState* exec, JSValue functionObject, CallType callType, const CallData& callData, JSValue thisValue, const ArgList& args, JSValue* exception)
+{
+    JSValue result = call(exec, functionObject, callType, callData, thisValue, args);
+    if (exec->hadException()) {
+        if (exception)
+            *exception = exec->exception();
+        exec->clearException();
+        return jsUndefined();
+    }
+    RELEASE_ASSERT(result);
+    return result;
 }
 
 } // namespace JSC

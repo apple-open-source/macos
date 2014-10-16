@@ -219,21 +219,10 @@ typedef struct {
 extern void master_str_watch(const MASTER_STR_WATCH *);
 extern void master_int_watch(MASTER_INT_WATCH *);
 
-#ifdef __APPLE_OS_X_SERVER__
-
-extern int smtp_count;
-extern int smtpd_count;
-
-#define	SRVR_MGR_COM_FILE	"/Library/Server/Mail/Data/spool/pid/.smd.smtp.com"
-#define SRVR_MGR_DATA		\
-"<dict> \
-\n\t<key>SMTP</key> \
-\n\t<integer>%d</integer> \
-\n\t<key>SMTPD</key> \
-\n\t<integer>%d</integer> \
-\n</dict>\n"
-
-#endif
+ /*
+  * master_monitor.c
+  */
+extern int master_monitor(int);
 
 /* DIAGNOSTICS
 /* BUGS

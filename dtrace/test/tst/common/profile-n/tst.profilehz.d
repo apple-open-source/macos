@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-100hz
-#else
 tick-100hz
-#endif
 {
 	printf("This test is a simple profile-hz provider test");
 	exit(0);

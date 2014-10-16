@@ -38,10 +38,7 @@
 #include <libelf.h>
 #include "decl.h"
 #include "msg.h"
-#if defined(__APPLE__)
 #include <string.h>
-#endif /* __APPLE__ */
-
 
 /*
  * File input
@@ -240,8 +237,11 @@ _elf_inmap(Elf * elf)
 	{
 		register char	*p;
 
+		/* The embedded build won't let us reprotect this memory with write
+		 * permissions later unless we give it write permissions now
+		 */
 		if ((elf->ed_myflags & EDF_WRITE) == 0 &&
-		    (p = mmap((char *)0, sz, PROT_READ,
+		    (p = mmap((char *)0, sz, PROT_READ|PROT_WRITE,
 		    MAP_PRIVATE, fd, (off_t)0)) != (char *)-1) {
 			elf->ed_image = elf->ed_ident = p;
 			elf->ed_imagesz = elf->ed_fsz = elf->ed_identsz = sz;

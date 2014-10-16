@@ -31,12 +31,19 @@
 
 #include <wtf/text/WTFString.h>
 
+namespace API {
+class Object;
+
+template<> struct ClientTraits<WKInspectorClientGtkBase> {
+    typedef std::tuple<WKInspectorClientGtkV0> Versions;
+};
+}
+
 namespace WebKit {
 
-class APIObject;
 class WebInspectorProxy;
 
-class WebInspectorClientGtk : public APIClient<WKInspectorClientGtk, kWKInspectorClientGtkCurrentVersion> {
+class WebInspectorClientGtk : public API::Client<WKInspectorClientGtkBase> {
 public:
     bool openWindow(WebInspectorProxy*);
     void didClose(WebInspectorProxy*);
@@ -45,6 +52,7 @@ public:
     bool attach(WebInspectorProxy*);
     bool detach(WebInspectorProxy*);
     void didChangeAttachedHeight(WebInspectorProxy*, unsigned height);
+    void didChangeAttachedWidth(WebInspectorProxy*, unsigned width);
 };
 
 } // namespace WebKit

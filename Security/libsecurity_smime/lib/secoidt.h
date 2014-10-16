@@ -39,8 +39,6 @@
 
 #include <Security/SecCmsBase.h>
 
-#include <security_asn1/seccomon.h>
-
 typedef enum {
     INVALID_CERT_EXTENSION = 0,
     UNSUPPORTED_CERT_EXTENSION = 1,
@@ -48,10 +46,12 @@ typedef enum {
 } SECSupportExtenTag;
 
 struct SECOidDataStr {
-    SECItem            oid;
+    SecAsn1Item            oid;
     SECOidTag          offset;
     const char *       desc;
-    CSSM_ALGORITHMS    cssmAlgorithm;
+#if USE_CDSA_CRYPTO
+    SecAsn1AlgId    cssmAlgorithm;
+#endif
     SECSupportExtenTag supportedExtension;	
     				/* only used for x.509 v3 extensions, so
 				   that we can print the names of those

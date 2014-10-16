@@ -1,6 +1,0 @@
-#include <TargetConditionals.h>
-#if TARGET_OS_EMBEDDED
-subsystem dummy 0;
-#else
-#include <IOKit/kext/kextmanager_mig.defs>
-#endif

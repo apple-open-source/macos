@@ -69,7 +69,11 @@ ifeq ($(AEP),YES)
 	done
 	ed - $(SRCROOT)/$(Project)/pyobjc-core/setup.py < '$(SRCROOT)/patches/pyobjc-core_setup.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core/Lib/objc/_convenience.py < '$(SRCROOT)/patches/pyobjc-core_Lib_objc__convenience.py.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-core/Lib/PyObjCTools/TestSupport.py < '$(SRCROOT)/patches/pyobjc-core_Lib_PyObjCTools_TestSupport.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core/Modules/objc/parsexml.m < '$(SRCROOT)/patches/pyobjc-core_Modules_objc_parsexml.m.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-CFNetwork/Lib/CFNetwork/PyObjC.bridgesupport < '$(SRCROOT)/patches/pyobjc-framework-CFNetwork_Lib_CFNetwork_PyObjC.bridgesupport.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-CFNetwork/PyObjCTest/test_cfhttpstream.py < '$(SRCROOT)/patches/pyobjc-framework-CFNetwork_PyObjCTest_test_cfhttpstream.py.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-CFNetwork/PyObjCTest/test_cfsocketstream.py < '$(SRCROOT)/patches/pyobjc-framework-CFNetwork_PyObjCTest_test_cfsocketstream.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa/Lib/PyObjCTools/Conversion.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_PyObjCTools_Conversion.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz/Lib/Quartz/CoreGraphics/PyObjC.bridgesupport < '$(SRCROOT)/patches/pyobjc-framework-Quartz_Lib_Quartz_CoreGraphics_PyObjC.bridgesupport.ed'
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \

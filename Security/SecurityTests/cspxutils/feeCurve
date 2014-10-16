@@ -1,0 +1,62 @@
+#! /bin/csh -f
+#
+# run FEE tests for CSP/X for one curve. All incoming arguments except for 's'
+# passed down to individual tests. It's assumed thast one of the arguments is 
+# "C=m" for Montgomery curves; in that case we skip the Weierstrass-only tests. 
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+set QUICK_TEST=0
+set CMD_ARGS=
+set WEIERSTRASS=1
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case s:
+            set QUICK_TEST = 1
+            shift
+            breaksw
+        default:
+			if("$argv[1]" == "C=m") then
+				set WEIERSTRASS = 0
+			endif
+			set CMD_ARGS = "$CMD_ARGS $argv[1]"
+            shift
+            breaksw
+    endsw
+end
+#
+# Select 'quick' or 'normal' test params
+#
+if($QUICK_TEST == 1) then
+    set SIGTEST_ARGS=
+    set BADSIG_ARGS="l=4 i=10"
+	set ASYMTEST_ARGS=
+else
+    set SIGTEST_ARGS=
+    set BADSIG_ARGS="l=20"
+	set ASYMTEST_ARGS=
+endif
+#
+cd $BUILD_DIR
+#
+# sigtest - FEE/MD5, FEE/SHA1 for all curves; ECDSA for Weierstrass only
+#
+sigtest a=f $SIGTEST_ARGS $CMD_ARGS || exit(1)
+sigtest a=F $SIGTEST_ARGS $CMD_ARGS || exit(1)
+if($WEIERSTRASS == 1) then
+	sigtest a=e $SIGTEST_ARGS $CMD_ARGS || exit(1)
+endif
+#
+# badsig - FEE/MD5, FEE/SHA1 for all curves; ECDSA for Weierstrass only
+#
+badsig a=f $BADSIG_ARGS $CMD_ARGS || exit(1)
+badsig a=F $BADSIG_ARGS $CMD_ARGS || exit(1)
+if($WEIERSTRASS == 1) then
+	badsig a=e $BADSIG_ARGS $CMD_ARGS || exit(1)
+endif
+#
+# asymtest - FEED, FEEDExp for all curves
+#
+asymTest a=f $ASYMTEST_ARGS $CMD_ARGS || exit(1)
+asymTest a=x $ASYMTEST_ARGS $CMD_ARGS || exit(1)

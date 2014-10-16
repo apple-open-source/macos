@@ -27,7 +27,7 @@
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDPointingDevice.h" 
 
-typedef struct ScrollDescriptor {    
+typedef struct __attribute__((packed)) ScrollDescriptor {
     //09 38:    Usage (Wheel)
     UInt8 wheelUsageOp;
     UInt8 wheelUsageNum;
@@ -60,7 +60,7 @@ typedef struct ScrollDescriptor {
     UInt8 wheelInputNum;
 }ScrollDescriptor;
 
-typedef struct GenericMouseDescriptor {
+typedef struct __attribute__((packed)) GenericMouseDescriptor {
     //05 01: Usage Page (Generic Desktop)
     UInt8 devUsagePageOp;
     UInt8 devUsagePageNum;
@@ -154,7 +154,7 @@ typedef struct GenericMouseDescriptor {
 } GenericMouseDescriptor;
 
 
-typedef struct GenericMouseReport{
+typedef struct __attribute__((packed)) GenericMouseReport{
     UInt8 buttons;
     UInt8 x[2];
     UInt8 y[2];
@@ -301,53 +301,56 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
     desc = ((IOBufferMemoryDescriptor *)(*descriptor))->getBytesNoCopy();
     
     UInt8 genMouseDesc[] = {
-        0x05, 0x01, 
-        0x09, 0x02, 
-        0xA1, 0x01, 
-            // Button
-            0x05, 0x09, 0x19, 0x01, 
-            0x29, 0x08, 0x15, 0x00, 
-            0x25, 0x01, 0x95, 0x08, 
-            0x75, 0x01, 0x81, 0x02,
-
-            // Constant
-            0x95, 0x00, 0x75, 0x01, 
-            0x81, 0x00,
-            
-            // Pointer
-            0x05, 0x01, 0x09, 0x01, 
-            0xA1, 0x00,
-                0x09, 0x30, 
-                0x09, 0x31, 
-                
-                // log min/max
-                0x16, 0x01, 0x80,
-                0x26, 0xff, 0x7f,
-                
-                // Phy min/max
-                0x36, 0x00, 0x00,
-                0x46, 0x00, 0x00,
-                
-                // Unit, Unit Exponent
-                0x55, 0x00, 
-                0x65, 0x00,
-                
-                0x75, 0x10, 0x95, 0x02,
-                0x81, 0x06,
-            0xC0,
-            // Wheel Padding
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-            0x00, 0x00,
-        
-        0xC0
+        0x05, 0x01,                               // Usage Page (Generic Desktop)
+        0x09, 0x02,                               // Usage (Mouse)
+        0xA1, 0x01,                               // Collection (Application)
+        0x05, 0x09,                               //   Usage Page (Button)
+        0x19, 0x01,                               //   Usage Minimum........... (1)
+        0x29, 0x08,                               //   Usage Maximum........... (8)
+        0x15, 0x00,                               //   Logical Minimum......... (0)
+        0x25, 0x01,                               //   Logical Maximum......... (1)
+        0x95, 0x08,                               //   Report Count............ (8)
+        0x75, 0x01,                               //   Report Size............. (1)
+        0x81, 0x02,                               //   Input...................(Data, Variable, Absolute)
+        0x95, 0x00,                               //   Report Count............ (0)
+        0x75, 0x01,                               //   Report Size............. (1)
+        0x81, 0x00,                               //   Input...................(Data, Array, Absolute)
+        0x05, 0x01,                               //   Usage Page (Generic Desktop)
+        0x09, 0x01,                               //   Usage (Pointer)
+        0xA1, 0x00,                               //   Collection (Physical)
+        0x09, 0x30,                               //     Usage (X)
+        0x09, 0x31,                               //     Usage (Y)
+        0x16, 0x01, 0x80,                         //     Logical Minimum......... (-32767)
+        0x26, 0xFF, 0x7F,                         //     Logical Maximum......... (32767)
+        0x36, 0x00, 0x00,                         //     Physical Minimum........ (0)
+        0x46, 0x00, 0x00,                         //     Physical Maximum........ (0)
+        0x55, 0x00,                               //     Unit Exponent........... (0)
+        0x65, 0x00,                               //     Unit.................... (0)
+        0x75, 0x10,                               //     Report Size............. (16)
+        0x95, 0x02,                               //     Report Count............ (2)
+        0x81, 0x06,                               //     Input...................(Data, Variable, Relative)
+        0xC0,                                     //   End Collection
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,
+        0x00,                                     //   0x00,  
+        0x00,                                     //   0x00,  
+        0x00,                                     //   0x00,  
+        0x00,                                     //   0x00,  
+        0x00,                                     //   0x00,  
+        0xC0,                                     // End Collection  
     };
 
     bcopy(genMouseDesc, desc, sizeof(GenericMouseDescriptor));
@@ -379,16 +382,16 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
     if (_isScrollPresent)
     {
         UInt8 scrollDes[] = {
-            0x09, 0x38,
-            0x15, 0x81, 
-            0x25, 0x7f, 
-            0x35, 0x00, 
-            0x45, 0x00, 
-            0x55, 0x00, 
-            0x65, 0x00,
-            0x75, 0x08, 
-            0x95, 0x01,
-            0x81, 0x06
+            0x09, 0x38,                               // Usage 56 (0x38)
+            0x15, 0x81,                               // Logical Minimum......... (-127)
+            0x25, 0x7F,                               // Logical Maximum......... (127)
+            0x35, 0x00,                               // Physical Minimum........ (0)
+            0x45, 0x00,                               // Physical Maximum........ (0)
+            0x55, 0x00,                               // Unit Exponent........... (0)
+            0x65, 0x00,                               // Unit.................... (0)
+            0x75, 0x08,                               // Report Size............. (8)
+            0x95, 0x01,                               // Report Count............ (1)
+            0x81, 0x06,                               // Input...................(Data, Variable, Relative) 
         };
         
         bcopy(scrollDes, &mouse->scrollDescriptor, sizeof(ScrollDescriptor));

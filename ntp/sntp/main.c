@@ -113,7 +113,7 @@ sntp_main (
 	/* Considering employing a variable that prevents functions of doing anything until 
 	 * everything is initialized properly 
 	 */
-	resc = resolve_hosts(argv, argc, &resh, ai_fam_pref);
+	resc = resolve_hosts(argv, argc, "123", &resh, ai_fam_pref);
 
 	if (resc < 1) {
 		printf("Unable to resolve hostname(s)\n");
@@ -196,8 +196,15 @@ on_wire (
 
 		create_socket(&sock, (sockaddr_u *)host->ai_addr);
 
+        struct timeval timeout_tv = { 0 };
+        if(ENABLED_OPT(TIMEOUT)) {
+            timeout_tv.tv_sec = (int) OPT_ARG(TIMEOUT);
+        } else {
+            timeout_tv.tv_sec = 15;
+        }
+
 		if (0 == sendpkt(sock, (sockaddr_u *)host->ai_addr, &x_pkt, LEN_PKT_NOMAC)) {
-			rpktl = recvpkt(sock, &r_pkt, &x_pkt);
+			rpktl = recvpkt(sock, timeout_tv, &r_pkt, &x_pkt);
 		} else {
 			rpktl = SERVER_UNUSEABLE;
 		}
@@ -416,6 +423,7 @@ set_time (
 			return -1;
 		}
 		else {
+			msyslog(LOG_NOTICE, "time set %+.6f s", offset);
 			return 0;
 		}
 	}

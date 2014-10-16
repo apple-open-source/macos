@@ -34,7 +34,8 @@
 #include "ktutil_locl.h"
 #include <err.h>
 
-RCSID("$Id$");
+static void usage(int status) __attribute__((noreturn));
+
 
 static int help_flag;
 static int version_flag;

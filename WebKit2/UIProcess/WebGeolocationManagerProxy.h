@@ -27,9 +27,11 @@
 #define WebGeolocationManagerProxy_h
 
 #include "APIObject.h"
+#include "Connection.h"
 #include "MessageReceiver.h"
 #include "WebContextSupplement.h"
 #include "WebGeolocationProvider.h"
+#include <wtf/HashSet.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -37,37 +39,45 @@ namespace WebKit {
 class WebContext;
 class WebGeolocationPosition;
 
-class WebGeolocationManagerProxy : public TypedAPIObject<APIObject::TypeGeolocationManager>, public WebContextSupplement, private CoreIPC::MessageReceiver {
+class WebGeolocationManagerProxy : public API::ObjectImpl<API::Object::Type::GeolocationManager>, public WebContextSupplement, private IPC::MessageReceiver {
 public:
     static const char* supplementName();
 
     static PassRefPtr<WebGeolocationManagerProxy> create(WebContext*);
-    virtual ~WebGeolocationManagerProxy();
 
-    void initializeProvider(const WKGeolocationProvider*);
+    void initializeProvider(const WKGeolocationProviderBase*);
 
     void providerDidChangePosition(WebGeolocationPosition*);
     void providerDidFailToDeterminePosition(const String& errorMessage = String());
+#if PLATFORM(IOS)
+    void resetPermissions();
+#endif
 
-    using APIObject::ref;
-    using APIObject::deref;
+    using API::Object::ref;
+    using API::Object::deref;
 
 private:
     explicit WebGeolocationManagerProxy(WebContext*);
 
     // WebContextSupplement
-    virtual void contextDestroyed() OVERRIDE;
-    virtual void processDidClose(WebProcessProxy*) OVERRIDE;
-    virtual void refWebContextSupplement() OVERRIDE;
-    virtual void derefWebContextSupplement() OVERRIDE;
+    virtual void contextDestroyed() override;
+    virtual void processDidClose(WebProcessProxy*) override;
+    virtual void refWebContextSupplement() override;
+    virtual void derefWebContextSupplement() override;
 
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
-    void startUpdating();
-    void stopUpdating();
+    bool isUpdating() const { return !m_updateRequesters.isEmpty(); }
+    bool isHighAccuracyEnabled() const { return !m_highAccuracyRequesters.isEmpty(); }
 
-    bool m_isUpdating;
+    void startUpdating(IPC::Connection*);
+    void stopUpdating(IPC::Connection*);
+    void removeRequester(const IPC::Connection::Client*);
+    void setEnableHighAccuracy(IPC::Connection*, bool);
+
+    HashSet<const IPC::Connection::Client*> m_updateRequesters;
+    HashSet<const IPC::Connection::Client*> m_highAccuracyRequesters;
 
     WebGeolocationProvider m_provider;
 };

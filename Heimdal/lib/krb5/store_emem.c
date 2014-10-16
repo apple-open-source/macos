@@ -118,15 +118,16 @@ emem_trunc(krb5_storage *sp, off_t offset)
     } else if ((size_t)offset > s->size || (s->size / 2) > (size_t)offset) {
 	void *base;
 	size_t off;
+	size_t soffset = (size_t)offset;
 	off = s->ptr - s->base;
-	if (offset > SIZE_T_MAX)
+	if (offset > (off_t)soffset)
 	    return ENOMEM;
-	base = realloc(s->base, (size_t)offset);
+	base = realloc(s->base, soffset);
 	if(base == NULL)
 	    return ENOMEM;
-	if ((size_t)offset > s->size)
-	    memset((char *)base + s->size, 0, offset - s->size);
-	s->size = (size_t)offset;
+	if (soffset > s->size)
+	    memset((char *)base + s->size, 0, soffset - s->size);
+	s->size = soffset;
 	s->base = base;
 	s->ptr = (unsigned char *)base + off;
     }

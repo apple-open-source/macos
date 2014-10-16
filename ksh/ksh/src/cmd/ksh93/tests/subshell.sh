@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -31,6 +31,7 @@ integer Errors=0 Error_fd=2
 tmp=$(mktemp -dt) || { err_exit mktemp -dt failed; exit 1; }
 trap "cd /; rm -rf $tmp" EXIT
 
+builtin getconf
 bincat=$(PATH=$(getconf PATH) whence -p cat)
 
 z=()
@@ -345,8 +346,7 @@ TST=(
 	( CMD='cat $tmp/buf | read v; print $v'		LIM=4*1024	)
 )
 
-command exec 3<> /dev/null
-if	cat /dev/fd/3 >/dev/null 2>&1
+if	cat /dev/fd/3 3</dev/null >/dev/null 2>&1 || whence mkfifo > /dev/null
 then	T=${#TST[@]}
 	TST[T].CMD='$cat <(print foo)'
 	TST[T].EXP=3
@@ -503,5 +503,118 @@ got=$( $SHELL -c "(eval '$src'); echo $exp" )
 
 x=$( { time $SHELL -c date >| /dev/null;} 2>&1)
 [[ $x == *real*user*sys* ]] || err_exit 'time { ...;} 2>&1 in $(...) fails'
+
+x=$($SHELL -c '( function fx { export X=123;  } ; fx; ); echo $X')
+[[ $x == 123 ]] && err_exit 'global variables set from with functions inside a
+subshell can leave side effects in parent shell'
+
+date=$(whence -p date)
+err() { return $1; }
+( err 12 ) & pid=$!
+: $( $date)
+wait $pid
+[[ $? == 12 ]] || err_exit 'exit status from subshells not being preserved'
+
+if	cat /dev/fd/3 3</dev/null >/dev/null 2>&1 || whence mkfifo > /dev/null
+then	x="$(sed 's/^/Hello /' <(print "Fred" | sort))"
+	[[ $x == 'Hello Fred' ]] || err_exit  "process substitution of pipeline in command substitution not working"
+fi
+
+{
+$SHELL <<- \EOF
+	function foo
+	{
+		integer i
+		print -u2 foobar
+		for	((i=0; i < 8000; i++))
+		do	print abcdefghijk
+		done
+		print -u2 done
+	}
+	out=$(eval "foo | cat" 2>&1)
+	(( ${#out} == 96011 )) || err_exit "\${#out} is ${#out} should be 96011"
+EOF
+} & pid=$!
+$SHELL -c "{ sleep 4 && kill $pid ;}" 2> /dev/null
+(( $? == 0 )) &&  err_exit 'process has hung'
+
+{
+x=$( $SHELL  <<- \EOF
+	function func1 { typeset IFS; : $(func2); print END ;}
+	function func2 { IFS="BAR"; }
+	func1
+	func1
+EOF
+)
+} 2> /dev/null
+[[ $x == $'END\nEND' ]] || err_exit 'bug in save/restore of IFS in subshell'
+
+true=$(whence -p true)
+date=$(whence -p date)
+tmpf=$tmp/foo
+function fun1
+{
+	$true
+	cd - >/dev/null 2>&1
+	print -u2 -- "$($date) SUCCESS"
+}
+
+print -n $(fun1 2> $tmpf)
+[[  $(< $tmpf) == *SUCCESS ]] || err_exit 'standard error output lost with command substitution'
+
+
+tmpfile=$tmp/foo
+cat > $tmpfile <<-\EOF
+	$SHELL -c 'function g { IFS= ;};function f { typeset IFS;(g);: $V;};f;f'
+	EOF
+$SHELL 2> /dev/null "$tmpfile" || err_exit 'IFS in subshell causes core dump'
+
+unset i
+if      [[ -d /dev/fd ]]
+then    integer i
+        for ((i=11; i < 29; i++))
+        do      if      ! [[ -r /dev/fd/$i  || -w /dev/fd/$i ]]
+                then    a=$($SHELL -c "[[ -r /dev/fd/$i || -w /dev/fd/$i ]]")
+                        (( $? )) || err_exit "file descriptor $i not close on exec"
+                fi
+        done
+fi
+
+trap USR1 USR1
+trap ERR ERR
+[[ $(trap -p USR1) == USR1 ]] || err_exit 'trap -p USR1 in subshell not working'
+[[ $(trap -p ERR) == ERR ]] || err_exit 'trap -p ERR in subshell not working'
+[[ $(trap -p) == *USR* ]] || err_exit 'trap -p in subshell does not contain USR'
+[[ $(trap -p) == *ERR* ]] || err_exit 'trap -p in subshell does not contain ERR'
+trap - USR1 ERR
+
+( PATH=/bin:/usr/bin
+dot=$(cat <<-EOF
+		$(ls -d .)
+	EOF
+) ) & sleep 1
+if      kill -0 $! 2> /dev/null
+then    err_exit  'command substitution containg here-doc with command substitution fails'
+fi
+
+printf=$(whence -p printf)
+[[ $( { trap "echo foobar" EXIT; ( $printf ""); } & wait) == foobar ]] || err_exit  'exit trap not being invoked'
+
+$SHELL 2> /dev/null -c '( PATH=/bin; set -o restricted) ; exit 0'  || err_exit 'restoring PATH when a subshell enables restricted exits not working'
+
+$SHELL <<- \EOF
+	wc=$(whence wc) head=$(whence head)
+	print > /dev/null  $( ( $head -c 1 /dev/zero | ( $wc -c) 3>&1 ) 3>&1) &
+	pid=$!
+	sleep 2
+	kill -9 $! 2> /dev/null && err_exit '/dev/zero in command substitution hangs'
+	wait $!
+EOF
+
+for f in /dev/stdout /dev/fd/1
+do	if	[[ -e $f ]]
+	then	$SHELL -c "x=\$(command -p tee $f </dev/null 2>/dev/null)" || err_exit "$f in command substitution fails"
+	fi
+done
 
 exit $((Errors<125?Errors:125))

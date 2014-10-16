@@ -31,8 +31,6 @@ install-files:
 	$(_v) $(INSTALL_FILE) -m 0644 -c afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
 ifeq "$(Product)" "MacOSX"
 	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf "$(Destination)/asl.conf"
-	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf "$(Destination)/asl.conf.install"
-	$(_v) cat asl.conf.install >> "$(Destination)/asl.conf.install"
 else
 	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf.ios "$(Destination)/asl.conf"
 endif

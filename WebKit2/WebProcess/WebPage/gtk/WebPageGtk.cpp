@@ -33,6 +33,7 @@
 #include "WebPageAccessibilityObject.h"
 #include "WebPageProxyMessages.h"
 #include "WindowsKeyboardCodes.h"
+#include <WebCore/BackForwardController.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
@@ -41,7 +42,8 @@
 #include <WebCore/PasteboardHelper.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/Settings.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <WebCore/UserAgentGtk.h>
+#include <wtf/gobject/GUniquePtr.h>
 
 using namespace WebCore;
 
@@ -49,19 +51,22 @@ namespace WebKit {
 
 void WebPage::platformInitialize()
 {
+#if HAVE(ACCESSIBILITY)
     // Create the accessible object (the plug) that will serve as the
     // entry point to the Web process, and send a message to the UI
     // process to connect the two worlds through the accessibility
     // object there specifically placed for that purpose (the socket).
     m_accessibilityObject = adoptGRef(webPageAccessibilityObjectNew(this));
-    GOwnPtr<gchar> plugID(atk_plug_get_id(ATK_PLUG(m_accessibilityObject.get())));
+    GUniquePtr<gchar> plugID(atk_plug_get_id(ATK_PLUG(m_accessibilityObject.get())));
     send(Messages::WebPageProxy::BindAccessibilityTree(String(plugID.get())));
+#endif
 
 #if USE(TEXTURE_MAPPER_GL)
     m_nativeWindowHandle = 0;
 #endif
 }
 
+#if HAVE(ACCESSIBILITY)
 void WebPage::updateAccessibilityTree()
 {
     if (!m_accessibilityObject)
@@ -69,6 +74,7 @@ void WebPage::updateAccessibilityTree()
 
     webPageAccessibilityObjectRefresh(m_accessibilityObject.get());
 }
+#endif
 
 void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
 {
@@ -77,7 +83,7 @@ void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
 
 static inline void scroll(Page* page, ScrollDirection direction, ScrollGranularity granularity)
 {
-    page->focusController()->focusedOrMainFrame()->eventHandler()->scrollRecursively(direction, granularity);
+    page->focusController().focusedOrMainFrame().eventHandler().scrollRecursively(direction, granularity);
 }
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
@@ -88,9 +94,9 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     switch (keyboardEvent.windowsVirtualKeyCode()) {
     case VK_BACK:
         if (keyboardEvent.shiftKey())
-            m_page->goForward();
+            m_page->backForward().goForward();
         else
-            m_page->goBack();
+            m_page->backForward().goBack();
         break;
     case VK_SPACE:
         scroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollUp : ScrollDown, ScrollByPage);
@@ -126,13 +132,13 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     return true;
 }
 
-bool WebPage::platformHasLocalDataForURL(const KURL&)
+bool WebPage::platformHasLocalDataForURL(const URL&)
 {
     notImplemented();
     return false;
 }
 
-String WebPage::cachedResponseMIMETypeForURL(const KURL&)
+String WebPage::cachedResponseMIMETypeForURL(const URL&)
 {
     notImplemented();
     return String();
@@ -141,16 +147,16 @@ String WebPage::cachedResponseMIMETypeForURL(const KURL&)
 bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
-    return true;
+    return false;
 }
 
-String WebPage::cachedSuggestedFilenameForURL(const KURL&)
+String WebPage::cachedSuggestedFilenameForURL(const URL&)
 {
     notImplemented();
     return String();
 }
 
-PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const KURL&)
+PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
 {
     notImplemented();
     return 0;
@@ -162,5 +168,13 @@ void WebPage::setAcceleratedCompositingWindowId(int64_t nativeWindowHandle)
     m_nativeWindowHandle = nativeWindowHandle;
 }
 #endif
+
+String WebPage::platformUserAgent(const URL& url) const
+{
+    if (url.isNull() || !m_page->settings().needsSiteSpecificQuirks())
+        return String();
+
+    return WebCore::standardUserAgentForURL(url);
+}
 
 } // namespace WebKit

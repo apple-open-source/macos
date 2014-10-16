@@ -89,12 +89,22 @@ ARCFOUR_string_to_key(krb5_context context,
 {
     krb5_error_code ret;
     uint16_t *s = NULL;
-    size_t len, i;
+    char *str = NULL;
+    size_t len = 0, i;
     CCDigestRef m;
 
     if (getenv("KRB5_USE_BROKEN_ARCFOUR_STRING2KEY") || krb5_heim_use_broken_arcfour_string2key)
 	return ARCFOUR_string_to_key_broken(context, enctype, password,
 					    salt, opaque, key);
+
+    str = malloc(password.length + 1);
+    if (str == NULL) {
+	ret = ENOMEM;
+	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
+	return ret;
+    }
+    memcpy(str, password.data, password.length);
+    str[password.length] = '\0';
 
     m = CCDigestCreate(kCCDigestMD4);
     if (m == NULL) {
@@ -103,7 +113,7 @@ ARCFOUR_string_to_key(krb5_context context,
 	goto out;
     }
 
-    ret = wind_utf8ucs2_length(password.data, &len);
+    ret = wind_utf8ucs2_length(str, &len);
     if (ret) {
 	krb5_set_error_message (context, ret,
 				N_("Password not an UCS2 string", ""));
@@ -118,7 +128,7 @@ ARCFOUR_string_to_key(krb5_context context,
 	goto out;
     }
 
-    ret = wind_utf8ucs2(password.data, s, &len);
+    ret = wind_utf8ucs2(str, s, &len);
     if (ret) {
 	krb5_set_error_message (context, ret,
 				N_("Password not an UCS2 string", ""));
@@ -144,9 +154,12 @@ ARCFOUR_string_to_key(krb5_context context,
 
  out:
     CCDigestDestroy(m);
-    if (s)
-	memset (s, 0, len);
-    free (s);
+    if (s) {
+	memset(s, 0, len);
+	free(s);
+    }
+    if (str)
+	free(str);
     return ret;
 }
 

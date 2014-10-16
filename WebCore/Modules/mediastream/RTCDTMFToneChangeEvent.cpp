@@ -44,7 +44,7 @@ PassRefPtr<RTCDTMFToneChangeEvent> RTCDTMFToneChangeEvent::create(const String& 
 
 PassRefPtr<RTCDTMFToneChangeEvent> RTCDTMFToneChangeEvent::create(const AtomicString& type, const RTCDTMFToneChangeEventInit& initializer)
 {
-    ASSERT(type == eventNames().tonechangeEvent);
+    ASSERT_UNUSED(type, type == eventNames().tonechangeEvent);
     return adoptRef(new RTCDTMFToneChangeEvent(initializer));
 }
 
@@ -73,9 +73,9 @@ const String& RTCDTMFToneChangeEvent::tone() const
     return m_tone;
 }
 
-const AtomicString& RTCDTMFToneChangeEvent::interfaceName() const
+EventInterface RTCDTMFToneChangeEvent::eventInterface() const
 {
-    return eventNames().interfaceForRTCDTMFToneChangeEvent;
+    return RTCDTMFToneChangeEventInterfaceType;
 }
 
 } // namespace WebCore

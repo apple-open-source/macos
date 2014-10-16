@@ -70,18 +70,8 @@ ssize_t timed_read(int fd, void *buf, size_t len,
      * success.
      */
     for (;;) {
-#ifdef __APPLE_OS_X_SERVER__
-	if (unused_context)
-	{
-	if (timeout > 0 && read_wait_no_poll(fd, timeout) < 0)
-	    return (-1);
-	} else {
-#endif /* __APPLE_OS_X_SERVER__ */
 	if (timeout > 0 && read_wait(fd, timeout) < 0)
 	    return (-1);
-#ifdef __APPLE_OS_X_SERVER__
-	}
-#endif /* __APPLE_OS_X_SERVER__ */
 	if ((ret = read(fd, buf, len)) < 0 && timeout > 0 && errno == EAGAIN) {
 	    msg_warn("read() returns EAGAIN on a readable file descriptor!");
 	    msg_warn("pausing to avoid going into a tight select/read loop!");

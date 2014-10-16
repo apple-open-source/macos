@@ -167,36 +167,6 @@ static void master_sig_event(int unused_event, char *unused_context)
 
 #endif
 
-#ifdef __APPLE_OS_X_SERVER__
-#include <stdio.h>
-#include <string.h>
-
-static void sigusr1_handler(int sig)
-{
-    char   *myname = "sigusr1_handler";
-	char	pData[1024];
-	int file_fd = -1;
-
-	file_fd = open( SRVR_MGR_COM_FILE, O_CREAT|O_TRUNC|O_RDWR, 0600 );
-	if( file_fd == -1 )
-	{
-	    msg_fatal( "can't open com file: %s (%m)", SRVR_MGR_COM_FILE );
-	}
-	else
-	{
-		snprintf( pData, sizeof pData, SRVR_MGR_DATA, smtp_count, smtpd_count );
-
-		if ( lseek(file_fd, 0, SEEK_SET) == -1 ||
-			ftruncate(file_fd, 0) == -1 ||
-			write(file_fd, pData, strlen(pData)) == -1 )
-		{
-			msg_fatal("%s: can't write to file: %m", myname);
-		}
-		close( file_fd );
-	}
-}
-#endif
-
 /* master_sigdeath - die, women and children first */
 
 static void master_sigdeath(int sig)
@@ -288,10 +258,4 @@ void    master_sigsetup(void)
     action.sa_handler = master_sigchld;
     if (sigaction(SIGCHLD, &action, (struct sigaction *) 0) < 0)
 	msg_fatal("%s: sigaction(%d): %m", myname, SIGCHLD);
-
-#ifdef __APPLE_OS_X_SERVER__
-    action.sa_handler = sigusr1_handler;
-    if (sigaction(SIGUSR1, &action, (struct sigaction *) 0) < 0)
-	msg_fatal("%s: sigaction(%d): %m", myname, SIGUSR1);
-#endif
 }

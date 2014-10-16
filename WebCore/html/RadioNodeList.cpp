@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Motorola Mobility, Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,15 +38,16 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RadioNodeList::RadioNodeList(Node* rootNode, const AtomicString& name)
-    : LiveNodeList(rootNode, RadioNodeListType, InvalidateForFormControls, rootNode->hasTagName(formTag) ? NodeListIsRootedAtDocument : NodeListIsRootedAtNode)
+RadioNodeList::RadioNodeList(ContainerNode& rootNode, const AtomicString& name)
+    : CachedLiveNodeList(rootNode, InvalidateForFormControls)
     , m_name(name)
+    , m_isRootedAtDocument(isHTMLFormElement(ownerNode()))
 {
 }
 
 RadioNodeList::~RadioNodeList()
 {
-    ownerNode()->nodeLists()->removeCacheWithAtomicName(this, RadioNodeListType, m_name);
+    ownerNode().nodeLists()->removeCacheWithAtomicName(this, m_name);
 }
 
 static inline HTMLInputElement* toRadioButtonInputElement(Node* node)
@@ -84,13 +86,13 @@ void RadioNodeList::setValue(const String& value)
 bool RadioNodeList::checkElementMatchesRadioNodeListFilter(Element* testElement) const
 {
     ASSERT(testElement->hasTagName(objectTag) || testElement->isFormControlElement());
-    if (ownerNode()->hasTagName(formTag)) {
+    if (isHTMLFormElement(ownerNode())) {
         HTMLFormElement* formElement = 0;
         if (testElement->hasTagName(objectTag))
-            formElement = static_cast<HTMLObjectElement*>(testElement)->form();
+            formElement = toHTMLObjectElement(testElement)->form();
         else
-            formElement = static_cast<HTMLFormControlElement*>(testElement)->form();
-        if (!formElement || formElement != ownerNode())
+            formElement = toHTMLFormControlElement(testElement)->form();
+        if (!formElement || formElement != &ownerNode())
             return false;
     }
 

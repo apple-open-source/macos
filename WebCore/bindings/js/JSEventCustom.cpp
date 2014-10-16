@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -29,12 +29,13 @@
 #include "config.h"
 #include "JSEvent.h"
 
-#include "Clipboard.h"
+#include "DataTransfer.h"
 #include "Event.h"
 #include "EventHeaders.h"
 #include "EventInterfaces.h"
 #include "EventNames.h"
-#include "JSClipboard.h"
+#include "JSDOMBinding.h"
+#include "JSDataTransfer.h"
 #include <runtime/JSLock.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/AtomicString.h>
@@ -45,28 +46,29 @@ namespace WebCore {
 
 JSValue JSEvent::clipboardData(ExecState* exec) const
 {
-    return impl()->isClipboardEvent() ? toJS(exec, globalObject(), impl()->clipboardData()) : jsUndefined();
+    return impl().isClipboardEvent() ? toJS(exec, globalObject(), impl().clipboardData()) : jsUndefined();
 }
 
 #define TRY_TO_WRAP_WITH_INTERFACE(interfaceName) \
-    if (eventNames().interfaceFor##interfaceName == desiredInterface) \
-        return CREATE_DOM_WRAPPER(exec, globalObject, interfaceName, event);
+    case interfaceName##InterfaceType: \
+        return CREATE_DOM_WRAPPER(globalObject, interfaceName, event);
 
-JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
+JSValue toJS(ExecState*, JSDOMGlobalObject* globalObject, Event* event)
 {
-    JSLockHolder lock(exec);
+    JSLockHolder lock(globalObject->vm());
 
     if (!event)
         return jsNull();
 
-    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), event);
+    JSObject* wrapper = getCachedWrapper(globalObject->world(), event);
     if (wrapper)
         return wrapper;
 
-    String desiredInterface = event->interfaceName();
-    DOM_EVENT_INTERFACES_FOR_EACH(TRY_TO_WRAP_WITH_INTERFACE)
+    switch (event->eventInterface()) {
+        DOM_EVENT_INTERFACES_FOR_EACH(TRY_TO_WRAP_WITH_INTERFACE)
+    }
 
-    return CREATE_DOM_WRAPPER(exec, globalObject, Event, event);
+    return CREATE_DOM_WRAPPER(globalObject, Event, event);
 }
 
 #undef TRY_TO_WRAP_WITH_INTERFACE

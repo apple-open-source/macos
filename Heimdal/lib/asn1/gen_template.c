@@ -54,7 +54,7 @@ integer_symbol(const char *basename, const Type *t)
 	return "heim_integer";
     else if (t->range->min == INT_MIN && t->range->max == INT_MAX)
 	return "int";
-    else if (t->range->min == 0 && t->range->max == UINT_MAX)
+    else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX)
 	return "unsigned";
     else if (t->range->min == 0 && t->range->max == INT_MAX)
 	return "unsigned";
@@ -508,7 +508,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	    itype = "HEIM_INTEGER";
 	else if (t->range->min == INT_MIN && t->range->max == INT_MAX)
 	    itype = "INTEGER";
-	else if (t->range->min == 0 && t->range->max == UINT_MAX)
+	else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX)
 	    itype = "UNSIGNED";
 	else if (t->range->min == 0 && t->range->max == INT_MAX)
 	    itype = "UNSIGNED";
@@ -862,6 +862,12 @@ generate_template_type(const char *varname,
     const char *dup;
     int have_ellipsis = 0;
     int implicit = 0;
+    int preservep = 0;
+
+    preservep = (symname && preserve_type(symname));
+
+    if (preservep)
+	check_preserve_type(symname, type);
 
     tl = tlist_new(varname);
 
@@ -887,7 +893,7 @@ generate_template_type(const char *varname,
     fprintf(get_code_file(), "/* generate_template_type: %s */\n", tl->name);
 
     tlist_header(tl, "{ 0%s%s, sizeof(%s%s), ((void *)%lu) }",
-		 (symname && preserve_type(symname)) ? "|A1_HF_PRESERVE" : "",
+		 preservep ? "|A1_HF_PRESERVE" : "",
 		 have_ellipsis ? "|A1_HF_ELLIPSIS" : "",
 		 isstruct ? "struct " : "", basetype, tlist_count(tl));
 

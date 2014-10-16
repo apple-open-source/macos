@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -64,6 +64,8 @@ static struct State_s
 	int		nmatch;
 } matchstate;
 
+#define STR_INT		040000
+
 /*
  * subgroup match
  * 0 returned if no match
@@ -75,10 +77,10 @@ static struct State_s
  */
 
 int
-strgrpmatch(const char* b, const char* p, int* sub, int n, register int flags)
+strgrpmatch(const char* b, const char* p, ssize_t* sub, int n, register int flags)
 {
 	register regex_t*	re;
-	register int*		end;
+	register ssize_t*	end;
 	register int		i;
 	register regflags_t	reflags;
 
@@ -95,7 +97,16 @@ strgrpmatch(const char* b, const char* p, int* sub, int n, register int flags)
 	if (!*p)
 	{
 		if (sub && n > 0)
-			sub[0] = sub[1] = 0;
+		{
+			if (flags & STR_INT)
+			{
+				int*	subi = (int*)sub;
+
+				subi[0] = subi[1] = 0;
+			}
+			else
+				sub[0] = sub[1] = 0;
+		}
 		return *b == 0;
 	}
 
@@ -134,11 +145,25 @@ strgrpmatch(const char* b, const char* p, int* sub, int n, register int flags)
 	if (!sub || n <= 0)
 		return 1;
 	i = re->re_nsub;
-	end = sub + n * 2;
-	for (n = 0; sub < end && n <= i; n++)
+	if (flags & STR_INT)
 	{
-		*sub++ = matchstate.match[n].rm_so;
-		*sub++ = matchstate.match[n].rm_eo;
+		int*	subi = (int*)sub;
+		int*	endi = subi + n * 2;
+
+		for (n = 0; subi < endi && n <= i; n++)
+		{
+			*subi++ = matchstate.match[n].rm_so;
+			*subi++ = matchstate.match[n].rm_eo;
+		}
+	}
+	else
+	{
+		end = sub + n * 2;
+		for (n = 0; sub < end && n <= i; n++)
+		{
+			*sub++ = matchstate.match[n].rm_so;
+			*sub++ = matchstate.match[n].rm_eo;
+		}
 	}
 	return i + 1;
 }
@@ -165,7 +190,18 @@ strmatch(const char* s, const char* p)
 char*
 strsubmatch(const char* s, const char* p, int flags)
 {
-	int	match[2];
+	ssize_t	match[2];
 
 	return strgrpmatch(s, p, match, 1, (flags ? STR_MAXIMAL : 0)|STR_LEFT) ? (char*)s + match[1] : (char*)0;
+}
+
+#undef	strgrpmatch
+#if _map_libc
+#define strgrpmatch	_ast_strgrpmatch
+#endif
+
+int
+strgrpmatch(const char* b, const char* p, int* sub, int n, int flags)
+{
+	return strgrpmatch_20120528(b, p, (ssize_t*)sub, n, flags|STR_INT);
 }

@@ -29,25 +29,24 @@
 #if ENABLE(CONTEXT_MENUS)
 
 #include <WebCore/ContextMenuItem.h>
+#include <functional>
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
+namespace API {
+class Object;
+}
+
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
 
-namespace WebCore {
-    class ContextMenu;
-}
-
 namespace WebKit {
-
-class APIObject;
 
 class WebContextMenuItemData {
 public:
     WebContextMenuItemData();
-    WebContextMenuItemData(const WebCore::ContextMenuItem&, WebCore::ContextMenu* menu);
+    WebContextMenuItemData(const WebCore::ContextMenuItem&, std::function<void()> selectionHandler = nullptr);
     WebContextMenuItemData(WebCore::ContextMenuItemType, WebCore::ContextMenuAction, const String& title, bool enabled, bool checked);
     WebContextMenuItemData(WebCore::ContextMenuAction, const String& title, bool enabled, const Vector<WebContextMenuItemData>& submenu);
 
@@ -60,11 +59,13 @@ public:
     
     WebCore::ContextMenuItem core() const;
     
-    APIObject* userData() const;
-    void setUserData(APIObject*);
+    API::Object* userData() const;
+    void setUserData(API::Object*);
     
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, WebContextMenuItemData&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, WebContextMenuItemData&);
+
+    std::function<void()> selectionHandler() const { return m_selectionHandler; }
 
 private:
     WebCore::ContextMenuItemType m_type;
@@ -73,10 +74,12 @@ private:
     bool m_enabled;
     bool m_checked;
     Vector<WebContextMenuItemData> m_submenu;
-    RefPtr<APIObject> m_userData;
+    RefPtr<API::Object> m_userData;
+
+    std::function<void()> m_selectionHandler;
 };
 
-Vector<WebContextMenuItemData> kitItems(const Vector<WebCore::ContextMenuItem>&, WebCore::ContextMenu*);
+Vector<WebContextMenuItemData> kitItems(const Vector<WebCore::ContextMenuItem>&);
 Vector<WebCore::ContextMenuItem> coreItems(const Vector<WebContextMenuItemData>&);
 
 } // namespace WebKit

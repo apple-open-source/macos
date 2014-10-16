@@ -60,7 +60,9 @@ Heap *
 heap_new (unsigned sz, heap_cmp_fn cmp)
 {
     Heap *ret;
-    int i;
+    unsigned i;
+
+    assert(sz != 0);
 
     ret = malloc (sizeof(*ret));
     if (ret == NULL)
@@ -70,7 +72,7 @@ heap_new (unsigned sz, heap_cmp_fn cmp)
     ret->max_sz = sz;
     ret->sz     = 0;
     ret->data   = malloc (sz * sizeof(*ret->data));
-    if (ret->sz != 0 && ret->data == NULL) {
+    if (ret->data == NULL) {
 	free (ret);
 	return NULL;
     }

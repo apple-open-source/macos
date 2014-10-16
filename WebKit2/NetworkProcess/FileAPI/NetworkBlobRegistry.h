@@ -26,14 +26,15 @@
 #ifndef NetworkBlobRegistry_h
 #define NetworkBlobRegistry_h
 
-#if ENABLE(BLOB) && ENABLE(NETWORK_PROCESS)
+#if ENABLE(NETWORK_PROCESS)
 
-#include <WebCore/KURLHash.h>
+#include <WebCore/URLHash.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
 namespace WebCore {
-class BlobData;
+class BlobDataFileReference;
+class BlobPart;
 }
 
 namespace WebKit {
@@ -47,26 +48,26 @@ public:
     NetworkBlobRegistry();
     static NetworkBlobRegistry& shared();
 
-    void registerBlobURL(NetworkConnectionToWebProcess*, const WebCore::KURL&, PassOwnPtr<WebCore::BlobData>, const Vector<RefPtr<SandboxExtension>>&);
-    void registerBlobURL(NetworkConnectionToWebProcess*, const WebCore::KURL&, const WebCore::KURL& srcURL);
-    void unregisterBlobURL(NetworkConnectionToWebProcess*, const WebCore::KURL&);
+    void registerFileBlobURL(NetworkConnectionToWebProcess*, const WebCore::URL&, const String& path, PassRefPtr<SandboxExtension>, const String& contentType);
+    void registerBlobURL(NetworkConnectionToWebProcess*, const WebCore::URL&, Vector<WebCore::BlobPart>, const String& contentType);
+    void registerBlobURL(NetworkConnectionToWebProcess*, const WebCore::URL&, const WebCore::URL& srcURL);
+    void registerBlobURLForSlice(NetworkConnectionToWebProcess*, const WebCore::URL&, const WebCore::URL& srcURL, int64_t start, int64_t end);
+    void unregisterBlobURL(NetworkConnectionToWebProcess*, const WebCore::URL&);
+    uint64_t blobSize(NetworkConnectionToWebProcess*, const WebCore::URL&);
 
     void connectionToWebProcessDidClose(NetworkConnectionToWebProcess*);
 
-    const Vector<RefPtr<SandboxExtension>> sandboxExtensions(const WebCore::KURL&);
+    Vector<RefPtr<WebCore::BlobDataFileReference>> filesInBlob(NetworkConnectionToWebProcess*, const WebCore::URL&);
 
 private:
     ~NetworkBlobRegistry();
 
-    typedef HashMap<String, Vector<RefPtr<SandboxExtension>>> SandboxExtensionMap;
-    SandboxExtensionMap m_sandboxExtensions;
-
-    typedef HashMap<NetworkConnectionToWebProcess*, HashSet<WebCore::KURL>> BlobForConnectionMap;
+    typedef HashMap<NetworkConnectionToWebProcess*, HashSet<WebCore::URL>> BlobForConnectionMap;
     BlobForConnectionMap m_blobsForConnection;
 };
 
 }
 
-#endif // ENABLE(BLOB) && ENABLE(NETWORK_PROCESS)
+#endif // ENABLE(NETWORK_PROCESS)
 
 #endif // NetworkBlobRegistry_h

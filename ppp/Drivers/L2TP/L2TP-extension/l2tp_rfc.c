@@ -756,7 +756,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
     memcpy(mbuf_data(m), hdr, sizeof(hdr_data));
 
     /* if the address is too large then we have a problem... */
-    if (to->sa_len > sizeof(elem->addr)
+    if (!to || to->sa_len > sizeof(elem->addr)
         || (to->sa_family == 0 && rfc->peer_address == 0)) {
         mbuf_freem(m);
         return EINVAL;

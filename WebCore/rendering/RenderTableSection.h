@@ -30,6 +30,8 @@
 
 namespace WebCore {
 
+class RenderTableRow;
+
 enum CollapsedBorderSide {
     CBSBefore,
     CBSAfter,
@@ -60,20 +62,18 @@ private:
 class RenderTableCell;
 class RenderTableRow;
 
-class RenderTableSection : public RenderBox {
+class RenderTableSection final : public RenderBox {
 public:
-    RenderTableSection(Element*);
+    RenderTableSection(Element&, PassRef<RenderStyle>);
+    RenderTableSection(Document&, PassRef<RenderStyle>);
     virtual ~RenderTableSection();
 
-    RenderObject* firstChild() const { ASSERT(children() == virtualChildren()); return children()->firstChild(); }
-    RenderObject* lastChild() const { ASSERT(children() == virtualChildren()); return children()->lastChild(); }
+    RenderTableRow* firstRow() const;
+    RenderTableRow* lastRow() const;
 
-    const RenderObjectChildList* children() const { return &m_children; }
-    RenderObjectChildList* children() { return &m_children; }
+    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
 
-    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-
-    virtual int firstLineBoxBaseline() const OVERRIDE;
+    virtual int firstLineBaseline() const override;
 
     void addCell(RenderTableCell*, RenderTableRow* row);
 
@@ -123,17 +123,17 @@ public:
     const BorderValue& borderAdjoiningTableStart() const
     {
         if (hasSameDirectionAs(table()))
-            return style()->borderStart();
+            return style().borderStart();
 
-        return style()->borderEnd();
+        return style().borderEnd();
     }
 
     const BorderValue& borderAdjoiningTableEnd() const
     {
         if (hasSameDirectionAs(table()))
-            return style()->borderEnd();
+            return style().borderEnd();
 
-        return style()->borderStart();
+        return style().borderStart();
     }
 
     const BorderValue& borderAdjoiningStartCell(const RenderTableCell*) const;
@@ -142,15 +142,30 @@ public:
     const RenderTableCell* firstRowCellAdjoiningTableStart() const;
     const RenderTableCell* firstRowCellAdjoiningTableEnd() const;
 
-    CellStruct& cellAt(unsigned row,  unsigned col) { return m_grid[row].row[col]; }
-    const CellStruct& cellAt(unsigned row, unsigned col) const { return m_grid[row].row[col]; }
+    CellStruct& cellAt(unsigned row,  unsigned col)
+    {
+        recalcCellsIfNeeded();
+        return m_grid[row].row[col];
+    }
+
+    const CellStruct& cellAt(unsigned row, unsigned col) const
+    {
+        ASSERT(!m_needsCellRecalc);
+        return m_grid[row].row[col];
+    }
+
     RenderTableCell* primaryCellAt(unsigned row, unsigned col)
     {
+        recalcCellsIfNeeded();
         CellStruct& c = m_grid[row].row[col];
         return c.primaryCell();
     }
 
-    RenderTableRow* rowRendererAt(unsigned row) const { return m_grid[row].rowRenderer; }
+    RenderTableRow* rowRendererAt(unsigned row) const
+    {
+        ASSERT(!m_needsCellRecalc);
+        return m_grid[row].rowRenderer;
+    }
 
     void appendColumn(unsigned pos);
     void splitColumn(unsigned pos, unsigned first);
@@ -166,7 +181,40 @@ public:
     int outerBorderStart() const { return m_outerBorderStart; }
     int outerBorderEnd() const { return m_outerBorderEnd; }
 
-    unsigned numRows() const { return m_grid.size(); }
+    int outerBorderLeft(const RenderStyle* styleForCellFlow) const
+    {
+    if (styleForCellFlow->isHorizontalWritingMode())
+        return styleForCellFlow->isLeftToRightDirection() ? outerBorderStart() : outerBorderEnd();
+    return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderAfter() : outerBorderBefore();
+    }
+
+    int outerBorderRight(const RenderStyle* styleForCellFlow) const
+    {
+    if (styleForCellFlow->isHorizontalWritingMode())
+        return styleForCellFlow->isLeftToRightDirection() ? outerBorderEnd() : outerBorderStart();
+    return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderBefore() : outerBorderAfter();
+    }
+
+    int outerBorderTop(const RenderStyle* styleForCellFlow) const
+    {
+    if (styleForCellFlow->isHorizontalWritingMode())
+        return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderAfter() : outerBorderBefore();
+    return styleForCellFlow->isLeftToRightDirection() ? outerBorderStart() : outerBorderEnd();
+    }
+
+    int outerBorderBottom(const RenderStyle* styleForCellFlow) const
+    {
+    if (styleForCellFlow->isHorizontalWritingMode())
+        return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderBefore() : outerBorderAfter();
+    return styleForCellFlow->isLeftToRightDirection() ? outerBorderEnd() : outerBorderStart();
+    }
+
+    unsigned numRows() const
+    {
+        ASSERT(!m_needsCellRecalc);
+        return m_grid.size();
+    }
+
     unsigned numColumns() const;
     void recalcCells();
     void recalcCellsIfNeeded()
@@ -178,7 +226,11 @@ public:
     bool needsCellRecalc() const { return m_needsCellRecalc; }
     void setNeedsCellRecalc();
 
-    LayoutUnit rowBaseline(unsigned row) { return m_grid[row].baseline; }
+    LayoutUnit rowBaseline(unsigned row)
+    {
+        recalcCellsIfNeeded();
+        return m_grid[row].baseline;
+    }
 
     void rowLogicalHeightChanged(unsigned rowIndex);
 
@@ -191,34 +243,45 @@ public:
     int distributeExtraLogicalHeightToRows(int extraLogicalHeight);
 
     static RenderTableSection* createAnonymousWithParentRenderer(const RenderObject*);
-    virtual RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const OVERRIDE
+    virtual RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const override
     {
         return createAnonymousWithParentRenderer(parent);
     }
     
-    virtual void paint(PaintInfo&, const LayoutPoint&) OVERRIDE;
+    virtual void paint(PaintInfo&, const LayoutPoint&) override;
 
 protected:
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
 private:
-    virtual RenderObjectChildList* virtualChildren() { return children(); }
-    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    enum ShouldIncludeAllIntersectingCells {
+        IncludeAllIntersectingCells,
+        DoNotIncludeAllIntersectingCells
+    };
 
-    virtual const char* renderName() const { return (isAnonymous() || isPseudoElement()) ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
+    virtual const char* renderName() const override { return (isAnonymous() || isPseudoElement()) ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
 
-    virtual bool isTableSection() const { return true; }
+    virtual bool canHaveChildren() const override { return true; }
 
-    virtual void willBeRemovedFromTree() OVERRIDE;
+    virtual bool isTableSection() const override { return true; }
 
-    virtual void layout();
+    virtual void willBeRemovedFromTree() override;
 
-    virtual void paintCell(RenderTableCell*, PaintInfo&, const LayoutPoint&);
-    virtual void paintObject(PaintInfo&, const LayoutPoint&);
+    virtual void layout() override;
 
-    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
+    void paintCell(RenderTableCell*, PaintInfo&, const LayoutPoint&);
+    virtual void paintObject(PaintInfo&, const LayoutPoint&) override;
+    void paintRowGroupBorder(const PaintInfo&, bool antialias, LayoutRect, BoxSide, CSSPropertyID borderColor, EBorderStyle, EBorderStyle tableBorderStyle);
+    void paintRowGroupBorderIfRequired(const PaintInfo&, const LayoutPoint& paintOffset, unsigned row, unsigned col, BoxSide, RenderTableCell* = 0);
+    int offsetLeftForRowGroupBorder(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) OVERRIDE;
+    int offsetTopForRowGroupBorder(RenderTableCell*, BoxSide borderSide, unsigned row);
+    int verticalRowGroupBorderHeight(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
+    int horizontalRowGroupBorderWidth(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row, unsigned column);
+
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0) override;
+
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
     void ensureRows(unsigned);
 
@@ -229,7 +292,12 @@ private:
     bool hasOverflowingCell() const { return m_overflowingCells.size() || m_forceSlowPaintPathWithOverflowingCell; }
     void computeOverflowFromCells(unsigned totalRows, unsigned nEffCols);
 
-    CellSpan fullTableRowSpan() const { return CellSpan(0, m_grid.size()); }
+    CellSpan fullTableRowSpan() const
+    {
+        ASSERT(!m_needsCellRecalc);
+        return CellSpan(0, m_grid.size());
+    }
+
     CellSpan fullTableColumnSpan() const { return CellSpan(0, table()->columns().size()); }
 
     // Flip the rect so it aligns with the coordinates used by the rowPos and columnPos vectors.
@@ -240,12 +308,17 @@ private:
 
     // These two functions take a rectangle as input that has been flipped by logicalRectForWritingModeAndDirection.
     // The returned span of rows or columns is end-exclusive, and empty if start==end.
-    CellSpan spannedRows(const LayoutRect& flippedRect) const;
-    CellSpan spannedColumns(const LayoutRect& flippedRect) const;
+    // The IncludeAllIntersectingCells argument is used to determine which cells to include when
+    // an edge of the flippedRect lies exactly on a cell boundary. Using IncludeAllIntersectingCells
+    // will return both cells, and using DoNotIncludeAllIntersectingCells will return only the cell
+    // that hittesting should return.
+    CellSpan spannedRows(const LayoutRect& flippedRect, ShouldIncludeAllIntersectingCells) const;
+    CellSpan spannedColumns(const LayoutRect& flippedRect, ShouldIncludeAllIntersectingCells) const;
 
     void setLogicalPositionForCell(RenderTableCell*, unsigned effectiveColumn) const;
 
-    RenderObjectChildList m_children;
+    void firstChild() const = delete;
+    void lastChild() const = delete;
 
     Vector<RowStruct> m_grid;
     Vector<int> m_rowPos;
@@ -271,23 +344,10 @@ private:
 
     // This map holds the collapsed border values for cells with collapsed borders.
     // It is held at RenderTableSection level to spare memory consumption by table cells.
-    HashMap<pair<const RenderTableCell*, int>, CollapsedBorderValue > m_cellsCollapsedBorders;
+    HashMap<std::pair<const RenderTableCell*, int>, CollapsedBorderValue > m_cellsCollapsedBorders;
 };
 
-inline RenderTableSection* toRenderTableSection(RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isTableSection());
-    return static_cast<RenderTableSection*>(object);
-}
-
-inline const RenderTableSection* toRenderTableSection(const RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isTableSection());
-    return static_cast<const RenderTableSection*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toRenderTableSection(const RenderTableSection*);
+RENDER_OBJECT_TYPE_CASTS(RenderTableSection, isTableSection())
 
 } // namespace WebCore
 

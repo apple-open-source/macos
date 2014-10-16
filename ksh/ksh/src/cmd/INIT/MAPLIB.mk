@@ -19,14 +19,15 @@
 	$(LIBDIR)/lib/$(L) :INSTALL: $(L).req
 	eval
 	$(L).req : (CC) $$(>)
+		set -
 		r='-'
 		for i in $$(*)
 		do	if	$$(CC) -c $i > /dev/null
 			then	g=
 				for p in $(P) -
 				do	case $p in
-					-)	if	$$(CC) -o $$(<:B:S=.exe) $i $g > /dev/null
-						then	$$(CC) -o $$(<:B:S=.exe) $i > /dev/null || {
+					-)	if	$$(CC) -o $$(<:B:S=.exe) $i $g > /dev/null 2>&1
+						then	$$(CC) -o $$(<:B:S=.exe) $i > /dev/null 2>&1 || {
 								r="$g"
 								break 2
 							}

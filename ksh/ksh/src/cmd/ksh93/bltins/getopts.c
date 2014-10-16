@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -37,7 +37,11 @@ static int infof(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
 {
 	Shell_t	*shp = *(Shell_t**)(dp+1);
 	Stk_t	*stkp = shp->stk;
+#if SHOPT_NAMESPACE
+	if((shp->namespace && sh_fsearch(shp,s,0)) || nv_search(s,shp->fun_tree,0))
+#else
 	if(nv_search(s,shp->fun_tree,0))
+#endif /* SHOPT_NAMESPACE */
 	{
 		int savtop = stktell(stkp);
 		char *savptr = stkfreeze(stkp,0);
@@ -50,15 +54,15 @@ static int infof(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
         return(1);
 }
 
-int	b_getopts(int argc,char *argv[],void *extra)
+int	b_getopts(int argc,char *argv[],Shbltin_t *context)
 {
 	register char *options=error_info.context->id;
 	register Namval_t *np;
 	register int flag, mode;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	char value[2], key[2];
-	int jmpval,extended;
-	volatile int r= -1;
+	int jmpval;
+	volatile int extended, r= -1;
 	struct checkpt buff, *pp;
 	struct {
 	        Optdisc_t	hdr;
@@ -174,7 +178,7 @@ int	b_getopts(int argc,char *argv[],void *extra)
 	shp->st.optchar = opt_info.offset;
 	nv_putval(np, options, 0);
 	nv_close(np);
-	np = nv_open(nv_name(OPTARGNOD),shp->var_tree,NV_NOSCOPE);
+	np = nv_open(nv_name(OPTARGNOD),shp->var_tree,0);
 	if(opt_info.num == LONG_MIN)
 		nv_putval(np, opt_info.arg, NV_RDONLY);
 	else if (opt_info.arg && opt_info.num > 0 && isalpha((char)opt_info.num) && !isdigit(opt_info.arg[0]) && opt_info.arg[0] != '-' && opt_info.arg[0] != '+')

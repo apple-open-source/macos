@@ -296,6 +296,8 @@ private:
   inline void showCursor();
   inline void hideCursor();
   inline void moveCursor();
+  void enableContinuousCursor();
+  void disableContinuousCursor();
   // Claim ownership of event sources.
   void attachDefaultEventSources();
   // Give up ownership of event sources.
@@ -547,7 +549,7 @@ public:
     IOReturn extUnregisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
     IOReturn extSetVirtualDisplayBounds(void*,void*,void*,void*,void*,void*);
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
-
+    IOReturn setContinuousCursorEnable(void*,void*,void*,void*,void*,void*);
 /*
  * HISTORICAL NOTE:
  *   The following methods were part of the IOScreenRegistration protocol;
@@ -770,6 +772,9 @@ static	IOReturn	doNewUserClient (IOHIDSystem *self, void * args);
 
 static	IOReturn	doSetCursorEnable (IOHIDSystem *self, void * arg0);
         IOReturn	setCursorEnableGated (void * p1);
+
+static	IOReturn	doSetContinuousCursorEnable (IOHIDSystem *self, void * arg0);
+        IOReturn	setContinuousCursorEnableGated (void * p1);
 
 static	IOReturn	doExtPostEvent(IOHIDSystem *self, void * arg0, void * arg1, void * arg2, void * arg3);
         IOReturn	extPostEventGated (void * p1, void * p2, void * p3);

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1990-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1990-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -32,8 +32,31 @@
 
 #include "colib.h"
 
+#include <ctype.h>
 #include <fs3d.h>
 #include <ls.h>
+
+static void
+exid(Sfio_t* sp, const char* pre, const char* name, const char* pos)
+{
+	int	c;
+
+	sfputr(sp, pre, -1);
+	if ((c = *name++) && c != '=')
+	{
+		if (isdigit(c))
+			sfputc(sp, '_');
+		do
+		{
+			if (!isalnum(c))
+				c = '_';
+			sfputc(sp, c);
+		} while ((c = *name++) && c != '=');
+	}
+	else
+		sfputc(sp, '_');
+	sfputr(sp, pos, -1);
+}
 
 /*
  * add n to the export list
@@ -51,6 +74,11 @@ putexport(Coshell_t* co, Sfio_t* sp, char* n, int old, int coex, int flags)
 
 	if (cvt = *n == '%')
 		n++;
+
+	/*
+	 * currently limited to valid identifer env var names
+	 */
+
 	if (!co->export || !dtmatch(co->export, n))
 	{
 		if (old)
@@ -59,7 +87,7 @@ putexport(Coshell_t* co, Sfio_t* sp, char* n, int old, int coex, int flags)
 		{
 			if (!old)
 				sfprintf(sp, "\\\n");
-			sfprintf(sp, " %s='", n);
+			exid(sp, " ", n, "='");
 			if (coex && (flags & CO_EXPORT))
 				v = "(*)";
 			if (v)
@@ -70,12 +98,13 @@ putexport(Coshell_t* co, Sfio_t* sp, char* n, int old, int coex, int flags)
 				for (ex = (Coexport_t*)dtfirst(co->export); ex; ex = (Coexport_t*)dtnext(co->export, ex))
 				{
 					sfprintf(sp, "%s%s", v, ex->name);
+					exid(sp, v, ex->name, "");
 					v = ":";
 				}
 			}
 			sfputc(sp, '\'');
 			if (old)
-				sfprintf(sp, "\nexport %s\n", n);
+				exid(sp, "\nexport ", n, "\n");
 		}
 	}
 }
@@ -177,7 +206,7 @@ coinitialize(Coshell_t* co, int flags)
 					while (e = *ep++)
 						if ((t = strsubmatch(e, s, 1)) && (*t == '=' || !*t && (t = strchr(e, '='))))
 						{
-							m = t - e;
+							m = (int)(t - e);
 							if (!strneq(e, "PATH=", 5) && !strneq(e, "_=", 2))
 							{
 								for (n = 0; xs = co_export[n]; n++)
@@ -195,11 +224,11 @@ coinitialize(Coshell_t* co, int flags)
 								{
 									if (!old)
 										sfprintf(sp, "\\\n");
-									sfprintf(sp, " %-.*s='", m, e);
+									exid(sp, " ", e, "='");
 									coquote(sp, e + m + 1, 0);
 									sfputc(sp, '\'');
 									if (old)
-										sfprintf(sp, "\nexport %-.*s\n", m, e);
+										exid(sp, "\nexport ", e, "\n");
 								}
 							}
 						}
@@ -225,11 +254,11 @@ coinitialize(Coshell_t* co, int flags)
 				{
 					if (!old)
 						sfprintf(sp, "\\\n");
-					sfprintf(sp, " %s='", ex->name);
+					exid(sp, " ", ex->name, "='");
 					coquote(sp, ex->value, 0);
 					sfputc(sp, '\'');
 					if (old)
-						sfprintf(sp, "\nexport %s\n", ex->name);
+						exid(sp, "\nexport ", ex->name, "\n");
 				}
 		}
 
@@ -323,7 +352,7 @@ coinitialize(Coshell_t* co, int flags)
 			 * VPATH
 			 */
 
-			p = sfstrtell(sp);
+			p = (int)sfstrtell(sp);
 			sfprintf(sp, "vpath ");
 			n = PATH_MAX;
 			if (fs3d(FS3D_TEST))
@@ -359,7 +388,7 @@ coinitialize(Coshell_t* co, int flags)
 				sfprintf(sp, "export %s\n", CO_ENV_TEMP);
 		}
 		sfputc(sp, 0);
-		n = sfstrtell(sp);
+		n = (int)sfstrtell(sp);
 		if (co->vm)
 		{
 			if (co->init.script)

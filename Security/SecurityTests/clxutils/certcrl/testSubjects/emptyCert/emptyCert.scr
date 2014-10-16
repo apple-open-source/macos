@@ -1,0 +1,51 @@
+#
+# Test for empty/bad cert handling, Radar 3116734.
+# Without the fix for 3116734, this results in an assertion failure on 
+# debug Security.framework.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Basic good verify as sanity check"
+cert = leaf.cer
+cert = CA.cer
+root = root.cer
+# IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "Throw in empty cert not as leaf, it should be ignored"
+cert = leaf.cer
+cert = CA.cer
+cert = emptyCert.cer
+root = root.cer
+# IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "Throw in text file not as leaf, it should be ignored"
+cert = leaf.cer
+cert = CA.cer
+cert = emptyCert.scr
+root = root.cer
+# IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "Empty cert as leaf, expect error"
+cert = emptyCert.cer
+cert = CA.cer
+root = root.cer
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "Text file as leaf, expect error"
+cert = emptyCert.cer
+cert = CA.cer
+root = root.cer
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end

@@ -14,12 +14,15 @@
 #import <CoreServices/CoreServices.h>
 #import <CoreServices/CoreServicesPriv.h>
 
+#import "TestUsers.h"
+
 
 @interface HTTPTest ()
 @property (retain) dispatch_semaphore_t sema;
 @property (retain) NSOperationQueue *opQueue;
 @property (assign) bool testPassed;
 @property (retain) NSString *client;
+@property (retain) NSMutableData *content;
 
 @end
 
@@ -29,11 +32,12 @@
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
+    [self.content appendData:data];
 }
 
 - (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
 {
-    [self STCOutput:[NSString stringWithFormat:@"canAuthenticateAgainstProtectionSpace: %@", [protectionSpace authenticationMethod]]];
+    [self STCOutput:@"canAuthenticateAgainstProtectionSpace: %@", [protectionSpace authenticationMethod]];
     if ([[protectionSpace authenticationMethod] isEqualToString:NSURLAuthenticationMethodNegotiate])
         return YES;
     
@@ -41,30 +45,32 @@
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
-    [self STCOutput:[NSString stringWithFormat:@"Connection didReceiveResponse! Response - %@", response]];
+    [self STCOutput:@"Connection didReceiveResponse! Response - %@", response];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     NSLog(@"Finished...");
     self.testPassed = YES;
+    [self STCOutput:@"data:\n\n%@\n", [[NSString alloc] initWithData:self.content encoding:NSUTF8StringEncoding]];
+    self.content = NULL;
     dispatch_semaphore_signal(self.sema);
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-	[self STCOutput:[NSString stringWithFormat:@"didFailWithError"]];
+	[self STCOutput:@"didFailWithError: %@", error];
     dispatch_semaphore_signal(self.sema);
 }
 
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse
 {
-	[self STCOutput:[NSString stringWithFormat:@"willSendRequest"]];
+	[self STCOutput:@"willSendRequest"];
 	return request;
 }
 
 - (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
 {
-	[self STCOutput:[NSString stringWithFormat:@"connectionShouldUseCredentialStorage"]];
+	[self STCOutput:@"connectionShouldUseCredentialStorage"];
 	return NO;
 }
 
@@ -73,9 +79,9 @@
 {
     NSURLProtectionSpace *protectionSpace = [challenge protectionSpace];
 	
-	[self STCOutput:[NSString stringWithFormat:@"didReceiveAuthenticationChallenge: %@ %@", [protectionSpace authenticationMethod], [protectionSpace host]]];
+	[self STCOutput:@"didReceiveAuthenticationChallenge: %@ %@", [protectionSpace authenticationMethod], [protectionSpace host]];
     
-    NSString *serverPrincipal = [NSString stringWithFormat:@"HTTP@%@", [protectionSpace host]];
+    NSString *serverPrincipal = [NSString stringWithFormat:@"HTTP/%@", [protectionSpace host]];
     
     
 	CFURLCredentialRef cfCredential = _CFURLCredentialCreateForKerberosTicket(NULL, (__bridge CFStringRef)self.client, (__bridge CFStringRef)serverPrincipal, NULL);
@@ -93,25 +99,26 @@
 
 
 
-- (void)testHTTP_ADS {
+- (void)testHTTP_QAD {
     gss_cred_id_t cred = NULL;
     
     self.sema = dispatch_semaphore_create(0);
     self.opQueue = [[NSOperationQueue alloc] init];
     self.testPassed = NO;
+    self.content = [NSMutableData data];
     
     [self STCDestroyCredential:GSS_C_NO_OID];
     
-    self.client = @"ktestuser@ADS.APPLE.COM";
+    self.client = @"ktestuser@QAD.APPLE.COM";
     
-    cred = [self STCAcquireCredential:self.client withPassword:@"foobar" mech:GSS_KRB5_MECHANISM];
+    cred = [self STCAcquireCredential:self.client withPassword:passwordKtestuserQAD mech:GSS_KRB5_MECHANISM];
     STAssertTrue(cred, @"Failed to acquire credential from ADS");
     if (cred == NULL)
         return;
     
     CFRelease(cred);
     
-    NSURL *url = [NSURL URLWithString:@"http://dc03.ads.apple.com/negotiate/"];
+    NSURL *url = [NSURL URLWithString:@"http://dc01qad.qad.apple.com/negotiate/"];
 
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest: request delegate: self startImmediately:NO];

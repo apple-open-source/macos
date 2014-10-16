@@ -26,10 +26,11 @@
 #include "config.h"
 #include "MarkedBlock.h"
 
+#include "DelayedReleaseScope.h"
 #include "IncrementalSweeper.h"
 #include "JSCell.h"
 #include "JSDestructibleObject.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 
 namespace JSC {
 
@@ -53,17 +54,17 @@ MarkedBlock::MarkedBlock(Region* region, MarkedAllocator* allocator, size_t cell
     HEAP_LOG_BLOCK_STATE_TRANSITION(this);
 }
 
+template<MarkedBlock::DestructorType dtorType>
 inline void MarkedBlock::callDestructor(JSCell* cell)
 {
     // A previous eager sweep may already have run cell's destructor.
     if (cell->isZapped())
         return;
 
-#if ENABLE(SIMPLE_HEAP_PROFILING)
-    m_heap->m_destroyedTypeCounts.countVPtr(vptr);
-#endif
-
-    cell->methodTableForDestruction()->destroy(cell);
+    if (dtorType == MarkedBlock::Normal)
+        jsCast<JSDestructibleObject*>(cell)->classInfo()->methodTable.destroy(cell);
+    else
+        cell->structure(*vm())->classInfo()->methodTable.destroy(cell);
     cell->zap();
 }
 
@@ -85,7 +86,7 @@ MarkedBlock::FreeList MarkedBlock::specializedSweep()
         JSCell* cell = reinterpret_cast_ptr<JSCell*>(&atoms()[i]);
 
         if (dtorType != MarkedBlock::None && blockState != New)
-            callDestructor(cell);
+            callDestructor<dtorType>(cell);
 
         if (sweepMode == SweepToFreeList) {
             FreeCell* freeCell = reinterpret_cast<FreeCell*>(cell);
@@ -106,6 +107,7 @@ MarkedBlock::FreeList MarkedBlock::specializedSweep()
 
 MarkedBlock::FreeList MarkedBlock::sweep(SweepMode sweepMode)
 {
+    ASSERT(DelayedReleaseScope::isInEffectFor(heap()->m_objectSpace));
     HEAP_LOG_BLOCK_STATE_TRANSITION(this);
 
     m_weakSet.sweep();
@@ -131,6 +133,7 @@ MarkedBlock::FreeList MarkedBlock::sweepHelper(SweepMode sweepMode)
         // Happens when a block transitions to fully allocated.
         ASSERT(sweepMode == SweepToFreeList);
         return FreeList();
+    case Retired:
     case Allocated:
         RELEASE_ASSERT_NOT_REACHED();
         return FreeList();
@@ -161,7 +164,7 @@ private:
     MarkedBlock* m_block;
 };
 
-void MarkedBlock::canonicalizeCellLivenessData(const FreeList& freeList)
+void MarkedBlock::stopAllocating(const FreeList& freeList)
 {
     HEAP_LOG_BLOCK_STATE_TRANSITION(this);
     FreeCell* head = freeList.head;
@@ -197,6 +200,95 @@ void MarkedBlock::canonicalizeCellLivenessData(const FreeList& freeList)
     }
     
     m_state = Marked;
+}
+
+void MarkedBlock::clearMarks()
+{
+#if ENABLE(GGC)
+    if (heap()->operationInProgress() == JSC::EdenCollection)
+        this->clearMarksWithCollectionType<EdenCollection>();
+    else
+        this->clearMarksWithCollectionType<FullCollection>();
+#else
+    this->clearMarksWithCollectionType<FullCollection>();
+#endif
+}
+
+void MarkedBlock::clearRememberedSet()
+{
+    m_rememberedSet.clearAll();
+}
+
+template <HeapOperation collectionType>
+void MarkedBlock::clearMarksWithCollectionType()
+{
+    ASSERT(collectionType == FullCollection || collectionType == EdenCollection);
+    HEAP_LOG_BLOCK_STATE_TRANSITION(this);
+
+    ASSERT(m_state != New && m_state != FreeListed);
+    if (collectionType == FullCollection) {
+        m_marks.clearAll();
+#if ENABLE(GGC)
+        m_rememberedSet.clearAll();
+#endif
+        // This will become true at the end of the mark phase. We set it now to
+        // avoid an extra pass to do so later.
+        m_state = Marked;
+        return;
+    }
+
+    ASSERT(collectionType == EdenCollection);
+    // If a block was retired then there's no way an EdenCollection can un-retire it.
+    if (m_state != Retired)
+        m_state = Marked;
+}
+
+void MarkedBlock::lastChanceToFinalize()
+{
+    m_weakSet.lastChanceToFinalize();
+
+    clearNewlyAllocated();
+    clearMarksWithCollectionType<FullCollection>();
+    sweep();
+}
+
+MarkedBlock::FreeList MarkedBlock::resumeAllocating()
+{
+    HEAP_LOG_BLOCK_STATE_TRANSITION(this);
+
+    ASSERT(m_state == Marked);
+
+    if (!m_newlyAllocated) {
+        // We didn't have to create a "newly allocated" bitmap. That means we were already Marked
+        // when we last stopped allocation, so return an empty free list and stay in the Marked state.
+        return FreeList();
+    }
+
+    // Re-create our free list from before stopping allocation. 
+    return sweep(SweepToFreeList);
+}
+
+void MarkedBlock::didRetireBlock(const FreeList& freeList)
+{
+    HEAP_LOG_BLOCK_STATE_TRANSITION(this);
+    FreeCell* head = freeList.head;
+
+    // Currently we don't notify the Heap that we're giving up on this block. 
+    // The Heap might be able to make a better decision about how many bytes should 
+    // be allocated before the next collection if it knew about this retired block.
+    // On the other hand we'll waste at most 10% of our Heap space between FullCollections 
+    // and only under heavy fragmentation.
+
+    // We need to zap the free list when retiring a block so that we don't try to destroy 
+    // previously destroyed objects when we re-sweep the block in the future.
+    FreeCell* next;
+    for (FreeCell* current = head; current; current = next) {
+        next = current->next;
+        reinterpret_cast<JSCell*>(current)->zap();
+    }
+
+    ASSERT(m_state == FreeListed);
+    m_state = Retired;
 }
 
 } // namespace JSC

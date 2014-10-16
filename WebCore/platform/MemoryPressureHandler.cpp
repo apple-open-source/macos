@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2011, 2014 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,13 +26,30 @@
 #include "config.h"
 #include "MemoryPressureHandler.h"
 
+#include "CSSValuePool.h"
+#include "Document.h"
+#include "Font.h"
+#include "FontCache.h"
+#include "GCController.h"
+#include "JSDOMWindow.h"
+#include "MemoryCache.h"
+#include "Page.h"
+#include "PageCache.h"
+#include "ScrollingThread.h"
+#include "StorageThread.h"
+#include "WorkerThread.h"
+#include <wtf/CurrentTime.h>
+#include <wtf/FastMalloc.h>
+#include <wtf/Functional.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
+bool MemoryPressureHandler::ReliefLogger::s_loggingEnabled = false;
+
 MemoryPressureHandler& memoryPressureHandler()
 {
-    DEFINE_STATIC_LOCAL(MemoryPressureHandler, staticMemoryPressureHandler, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(MemoryPressureHandler, staticMemoryPressureHandler, ());
     return staticMemoryPressureHandler;
 }
 
@@ -40,17 +57,101 @@ MemoryPressureHandler::MemoryPressureHandler()
     : m_installed(false)
     , m_lastRespondTime(0)
     , m_lowMemoryHandler(releaseMemory)
+    , m_underMemoryPressure(false)
+#if PLATFORM(IOS)
+    // FIXME: Can we share more of this with OpenSource?
+    , m_memoryPressureReason(MemoryPressureReasonNone)
+    , m_clearPressureOnMemoryRelease(true)
+    , m_releaseMemoryBlock(0)
+    , m_observer(0)
+#endif
 {
 }
 
-#if !PLATFORM(MAC) || PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
+void MemoryPressureHandler::releaseNoncriticalMemory()
+{
+    {
+        ReliefLogger log("Purge inactive FontData");
+        fontCache().purgeInactiveFontData();
+    }
 
+    {
+        ReliefLogger log("Clear WidthCaches");
+        clearWidthCaches();
+    }
+
+    {
+        ReliefLogger log("Discard Selector Query Cache");
+        for (auto* document : Document::allDocuments())
+            document->clearSelectorQueryCache();
+    }
+
+    {
+        ReliefLogger log("Clearing JS string cache");
+        JSDOMWindow::commonVM().stringCache.clear();
+    }
+}
+
+void MemoryPressureHandler::releaseCriticalMemory()
+{
+    {
+        ReliefLogger log("Empty the PageCache");
+        int savedPageCacheCapacity = pageCache()->capacity();
+        pageCache()->setCapacity(0);
+        pageCache()->setCapacity(savedPageCacheCapacity);
+    }
+
+    {
+        ReliefLogger log("Prune MemoryCache");
+        memoryCache()->pruneToPercentage(0);
+    }
+
+    {
+        ReliefLogger log("Drain CSSValuePool");
+        cssValuePool().drain();
+    }
+
+    {
+        ReliefLogger log("Discard StyleResolvers");
+        for (auto* document : Document::allDocuments())
+            document->clearStyleResolver();
+    }
+
+    {
+        ReliefLogger log("Discard all JIT-compiled code");
+        gcController().discardAllCompiledCode();
+    }
+}
+
+void MemoryPressureHandler::releaseMemory(bool critical)
+{
+    releaseNoncriticalMemory();
+
+    if (critical)
+        releaseCriticalMemory();
+
+    platformReleaseMemory(critical);
+
+    {
+        ReliefLogger log("Release free FastMalloc memory");
+        // FastMalloc has lock-free thread specific caches that can only be cleared from the thread itself.
+        StorageThread::releaseFastMallocFreeMemoryInAllThreads();
+        WorkerThread::releaseFastMallocFreeMemoryInAllThreads();
+#if ENABLE(ASYNC_SCROLLING) && !PLATFORM(IOS)
+        ScrollingThread::dispatch(bind(WTF::releaseFastMallocFreeMemory));
+#endif
+        WTF::releaseFastMallocFreeMemory();
+    }
+}
+
+#if !PLATFORM(COCOA)
 void MemoryPressureHandler::install() { }
 void MemoryPressureHandler::uninstall() { }
 void MemoryPressureHandler::holdOff(unsigned) { }
-void MemoryPressureHandler::respondToMemoryPressure() { }
-void MemoryPressureHandler::releaseMemory(bool) { }
-
+void MemoryPressureHandler::respondToMemoryPressure(bool) { }
+void MemoryPressureHandler::platformReleaseMemory(bool) { }
+void MemoryPressureHandler::ReliefLogger::platformLog() { }
+size_t MemoryPressureHandler::ReliefLogger::platformMemoryUsage() { return 0; }
 #endif
- 
+
 } // namespace WebCore

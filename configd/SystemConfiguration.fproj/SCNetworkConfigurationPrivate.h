@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -51,6 +51,7 @@ __BEGIN_DECLS
  */
 extern const CFStringRef kSCNetworkInterfaceTypeBridge						__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/);
 
+
 /*!
 	@const kSCNetworkInterfaceTypeLoopback
  */
@@ -79,13 +80,13 @@ extern const CFStringRef kSCNetworkInterfaceTypeVPN						__OSX_AVAILABLE_STARTIN
  */
 typedef SCNetworkInterfaceRef SCBridgeInterfaceRef;
 
-enum {
+typedef CF_ENUM(uint32_t, SCNetworkServicePrimaryRank) {
 	kSCNetworkServicePrimaryRankDefault	= 0,
 	kSCNetworkServicePrimaryRankFirst	= 1,
 	kSCNetworkServicePrimaryRankLast	= 2,
-	kSCNetworkServicePrimaryRankNever	= 3
+	kSCNetworkServicePrimaryRankNever	= 3,
+	kSCNetworkServicePrimaryRankScoped	= 4
 };
-typedef uint32_t	SCNetworkServicePrimaryRank;
 
 #pragma mark -
 #pragma mark SCNetworkInterface configuration (SPI)
@@ -198,7 +199,7 @@ _SCNetworkInterfaceCopyAllWithPreferences		(SCPreferencesRef		prefs)		__OSX_AVAI
 	@result The BT-PAN interface; NULL if the interface is not (yet) known.
  */
 SCNetworkInterfaceRef
-_SCNetworkInterfaceCopyBTPANInterface			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_8/*FIXME*/,__IPHONE_NA);
+_SCNetworkInterfaceCopyBTPANInterface			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_NA);
 
 /*!
 	@function _SCNetworkInterfaceCopySlashDevPath
@@ -260,7 +261,6 @@ _SCNetworkInterfaceCreateWithIONetworkInterfaceObject	(io_object_t			if_obj)		__
 /*!
 	@function SCNetworkInterfaceGetPrimaryRank
 	@discussion We allow caller to retrieve the rank on an interface.
-		The key is stored in State:/Network/Interface/<ifname>/Service
 	@param the interface to get the rank
 	@result SCNetworkServicePrimaryRank
  */
@@ -270,6 +270,8 @@ SCNetworkInterfaceGetPrimaryRank			(SCNetworkInterfaceRef		interface)	__OSX_AVAI
 /*!
 	@function SCNetworkInterfaceSetPrimaryRank
 	@discussion We allow caller to set an assertion on an interface.
+		The rank assertion lives as long as the SCNetworkInterfaceRef
+		remains valid.
 	@param the interface to set the rank assertion
 	@param the new rank to be set
 	@result TRUE if operation is successful; FALSE if an error was encountered.
@@ -285,7 +287,8 @@ SCNetworkInterfaceSetPrimaryRank			(SCNetworkInterfaceRef		interface,
 
 #define	kSCNetworkInterfaceNetworkConfigurationOverridesKey	CFSTR("NetworkConfigurationOverrides")
 #define	kSCNetworkInterfaceHiddenConfigurationKey		CFSTR("HiddenConfiguration")
-#define	kSCNetworkInterfaceHiddenPortKey			CFSTR("HiddenPort")
+#define	kSCNetworkInterfaceHiddenPortKey			CFSTR("HiddenPort") /* for serial ports */
+#define	kSCNetworkInterfaceHiddenInterfaceKey			CFSTR("HiddenInterface") /* for network interfaces */
 
 // IORegistry property to indicate that a [WWAN] interface is not yet ready
 #define	kSCNetworkInterfaceInitializingKey			CFSTR("Initializing")
@@ -830,6 +833,17 @@ CFStringRef
 SCNetworkServiceCopyExternalID				(SCNetworkServiceRef		service,
 							 CFStringRef			identifierDomain);
 
+/*!
+	@function _SCNetworkServiceSetServiceID
+	@discussion Sets serviceID of the service to a different value provided.
+	@param service The network service
+	@param newServiceID The new service ID
+	@result TRUE if new service ID is set successfully.
+ */
+Boolean
+_SCNetworkServiceSetServiceID				(SCNetworkServiceRef		service,
+							 CFStringRef			newServiceID)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
 #pragma mark -
 #pragma mark SCNetworkSet configuration (SPI)
 
@@ -923,6 +937,10 @@ Boolean
 SCNetworkSetSetSelectedVPNService			(SCNetworkSetRef		set,
 							 SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
+Boolean
+_SCNetworkSetSetSetID					(SCNetworkSetRef		set,
+							 CFStringRef			setID)		__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
 /*!
 	@group VPN Service configuration
  */
@@ -1002,6 +1020,115 @@ VPNServiceCopyAppRule				(VPNServiceRef			service,
 Boolean
 VPNServiceRemoveAppRule				(VPNServiceRef			service,
 						 CFStringRef			ruleIdentifier)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceIsManagedAppVPN
+	@discussion Check to see if a VPN service is a managed App VPN service
+	@param service The VPN servie.
+	@result Returns TRUE if the service is a managed App VPN service; FALSE otherwise.
+*/
+Boolean
+VPNServiceIsManagedAppVPN			(VPNServiceRef			service)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@group	Migration SPI
+ */
+#pragma mark -
+#pragma mark Migration SPI
+
+extern const CFStringRef kSCNetworkConfigurationRepair			/* CFBoolean */		__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
+extern const CFStringRef kSCNetworkConfigurationMigrationActionKey	/* CFNumber */		__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+typedef CF_ENUM(uint32_t, SCNetworkConfigurationMigrationAction) {
+	kSCNetworkConfigurationMigrationAction_CleanInstall	= 0,
+	kSCNetworkConfigurationMigrationAction_Upgrade		= 1,
+	kSCNetworkConfigurationMigrationAction_Restore		= 2,
+};
+
+/*!
+	@function _SCNetworkConfigurationCopyMigrationPaths
+	@result	Returns an array of paths that we would need from the source
+ */
+CFArrayRef
+_SCNetworkConfigurationCopyMigrationPaths(CFDictionaryRef options)				__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+/*!
+	@function _SCNetworkConfigurationPerformMigration
+	@discussion Updates the network configuration of the target system with
+		configurations from previous system. Both sourceDir and targetDir
+		cannot be NULL, since NULL indicates API to look at the local system
+	@param sourceDir A reference which points to the root of a directory populated
+		with the list of requested directories/path from the "source" volume. Passing NULL
+		will indicate that sourceDir should point to local system
+	@param currentDir A reference which points to the root of a directory populated
+		with the list of requested directories/path from the "destination" volume. Passing
+		NULL will indicate that currentDir should point to local system.
+	@param targetDir A reference which points to the root of a directory that we
+		will populate (update) with new configuration. Passing NULL will mean that we want to
+		migrate to the currentDir. If not NULL, then this path should exist.
+	@param options Argument which will tell us what action we are supposed to take
+		(clean-install, upgrade, migrate/restore settings from another system, ...)
+	@result Returns array which would consist of those paths that should be moved
+		from the "targetDir" directory to destination volume. You must release the returned value.
+ */
+
+CF_RETURNS_RETAINED
+CFArrayRef
+_SCNetworkConfigurationPerformMigration(CFURLRef sourceDir,
+					CFURLRef currentDir,
+					CFURLRef targetDir,
+					CFDictionaryRef options)				__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+
+/*!
+	@function _SCNetworkConfigurationCheckValidity
+	@discussion Verifies whether the configuration files present in the specified
+		directory have valid mappings or not
+	@param configDir A reference which points to the directory where the configuration
+		files are present
+	@result TRUE if valid configurations are found
+
+ */
+
+Boolean
+_SCNetworkConfigurationCheckValidity(CFURLRef configDir,
+				     CFDictionaryRef options)					__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+
+/*!
+ @function _SCNetworkMigrationAreConfigurationsIdentical
+ @discussion Compares the migration output between network configurations
+		with the expected output.
+ @param configPref Preferences pointing toward preferences.plist file to
+		be compared with expected file.
+ @param configNetworkInterfacePref Preferences pointing toward NetworkInterfaces.plist
+		file to be compared with expected file.
+ @param expectedConfigPref Preferences pointing toward preferences.plist file
+		which is the expected result.
+ @param expectedNetworkInterfacePref Preferences pointing toward NetworkInterfaces.plist
+		file which is the expected file.
+ @result TRUE if configurations match with the expected configurations
+
+ */
+
+Boolean
+_SCNetworkMigrationAreConfigurationsIdentical (CFURLRef configurationURL,
+					       CFURLRef expectedConfigurationURL)
+							__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+/*!
+ @function	_SCNetworkConfigurationCopyMigrationRemovePaths
+ @discussion	List of paths to files which we want to be removed from the target filesystem after migration
+ @param targetPaths	the CFArray returned by _SCNetworkConfigurationPerformMigration
+ @param targetDir	the CFURL passed to _SCNetworkConfigurationPerformMigration
+ @result	An array of CFURL's; NULL if no paths need to be removed from the target filesystem
+ 
+*/
+
+CFArrayRef	// of CFURLRef's
+_SCNetworkConfigurationCopyMigrationRemovePaths	(CFArrayRef	targetPaths,
+                                                 CFURLRef	targetDir)				__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 __END_DECLS
 #endif	/* _SCNETWORKCONFIGURATIONPRIVATE_H */

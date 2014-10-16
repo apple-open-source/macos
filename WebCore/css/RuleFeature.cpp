@@ -41,16 +41,21 @@ void RuleFeatureSet::collectFeaturesFromSelector(const CSSSelector* selector)
         classesInRules.add(selector->value().impl());
     else if (selector->isAttributeSelector())
         attrsInRules.add(selector->attribute().localName().impl());
-    switch (selector->pseudoType()) {
-    case CSSSelector::PseudoFirstLine:
-        usesFirstLineRules = true;
-        break;
-    case CSSSelector::PseudoBefore:
-    case CSSSelector::PseudoAfter:
-        usesBeforeAfterRules = true;
-        break;
-    default:
-        break;
+    else if (selector->m_match == CSSSelector::PseudoElement) {
+        switch (selector->pseudoElementType()) {
+        case CSSSelector::PseudoElementFirstLine:
+            usesFirstLineRules = true;
+            break;
+        case CSSSelector::PseudoElementFirstLetter:
+            usesFirstLetterRules = true;
+            break;
+        case CSSSelector::PseudoElementBefore:
+        case CSSSelector::PseudoElementAfter:
+            usesBeforeAfterRules = true;
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -68,6 +73,7 @@ void RuleFeatureSet::add(const RuleFeatureSet& other)
     siblingRules.appendVector(other.siblingRules);
     uncommonAttributeRules.appendVector(other.uncommonAttributeRules);
     usesFirstLineRules = usesFirstLineRules || other.usesFirstLineRules;
+    usesFirstLetterRules = usesFirstLetterRules || other.usesFirstLetterRules;
     usesBeforeAfterRules = usesBeforeAfterRules || other.usesBeforeAfterRules;
 }
 
@@ -79,6 +85,7 @@ void RuleFeatureSet::clear()
     siblingRules.clear();
     uncommonAttributeRules.clear();
     usesFirstLineRules = false;
+    usesFirstLetterRules = false;
     usesBeforeAfterRules = false;
 }
 

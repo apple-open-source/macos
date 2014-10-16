@@ -1,5 +1,0 @@
-# chkpasswd: auth account
-auth       required       pam_opendirectory.so
-account    required       pam_opendirectory.so
-password   required       pam_permit.so
-session    required       pam_permit.so

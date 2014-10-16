@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -109,7 +109,7 @@ _configget(mach_port_t			server,
 
 	/* serialize the data */
 	ok = _SCSerializeData(value, (void **)dataRef, &len);
-	*dataLen = len;
+	*dataLen = (mach_msg_type_number_t)len;
 	CFRelease(value);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;
@@ -189,7 +189,7 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRe
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
-			CFSTR("copy m  : %5d : %d keys, %d patterns\n"),
+			CFSTR("copy m  : %5d : %ld keys, %ld patterns\n"),
 			storePrivate->server,
 			keys     ? CFArrayGetCount(keys)     : 0,
 			patterns ? CFArrayGetCount(patterns) : 0);
@@ -288,7 +288,7 @@ _configget_m(mach_port_t		server,
 
 	/* serialize the dictionary of matching keys/patterns */
 	ok = _SCSerialize(dict, NULL, (void **)dataRef, &len);
-	*dataLen = len;
+	*dataLen = (mach_msg_type_number_t)len;
 	CFRelease(dict);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;

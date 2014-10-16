@@ -93,7 +93,6 @@ struct saproto {
 /* SA algorithm specification */
 struct satrns {
 	int trns_no;
-	int trns_type;          /* IKEv2 only - transform type */
     int trns_id;			/* transform id */
 	int encklen;			/* key length of encryption algorithm */
 	int authtype;			/* authentication algorithm if ESP */
@@ -177,7 +176,6 @@ struct prop_pair {
 #define PROP_CHECK_STRICT	2
 #define PROP_CHECK_CLAIM	3
 #define PROP_CHECK_EXACT	4
-#define PROP_CHECK_IKEV2	5
 
 struct sainfo;
 struct secpolicy;

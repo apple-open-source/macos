@@ -6,6 +6,7 @@
 
 #include "reachability.h"
 #include "scnc_main.h"
+#include "scnc_utils.h"
 
 static ReachabilityChangedBlock	g_cb_block			= NULL;
 static CFRunLoopRef				g_cb_runloop		= NULL;
@@ -76,83 +77,17 @@ reachability_clear(struct service *serv)
 void
 reachability_reset(struct service *serv)
 {
-	CFStringRef remote_address_key = NULL;
-
 	reachability_clear(serv);
 
-	switch (serv->type) {
-		case TYPE_PPP: 
-			remote_address_key = kSCPropNetPPPCommRemoteAddress;
-			break;
-		case TYPE_IPSEC:
-			remote_address_key = kSCPropNetIPSecRemoteAddress;
-			break;
-		case TYPE_VPN:
-			remote_address_key = kSCPropNetVPNRemoteAddress;
-			break;
-	}
-
-	if (remote_address_key == NULL) {
-		return;
-	}
-
-	CFStringRef remote_address = CFDictionaryGetValue(serv->systemprefs, remote_address_key);
+	CFStringRef remote_address = scnc_copy_remote_server(serv, NULL);
 	if (isA_CFString(remote_address) && CFStringGetLength(remote_address) > 0) {
-		CFCharacterSetRef slash_set = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, CFSTR("/"));
-		CFCharacterSetRef colon_set = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, CFSTR(":"));
-		CFRange slash_range;
-		CFRange colon_range;
 		char *addr_cstr;
 		CFIndex addr_cstr_len;
 		struct sockaddr_storage sa_storage;
 		CFMutableDictionaryRef reach_options;
 		CFStringRef service_id;
 
-		CFRetain(remote_address);
-
 		memset(&sa_storage, 0, sizeof(sa_storage));
-
-		if (CFStringFindCharacterFromSet(remote_address,
-		                                 slash_set,
-		                                 CFRangeMake(0, CFStringGetLength(remote_address)),
-		                                 0,
-		                                 &slash_range))
-		{
-			CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, remote_address, NULL);
-			if (url != NULL) {
-				/* Check to see if there is a scheme on the URL. If not, add one. The hostname will not parse without a scheme */
-				CFRange schemeRange = CFURLGetByteRangeForComponent(url, kCFURLComponentScheme, NULL);
-				if (schemeRange.location == kCFNotFound) {
-					CFRelease(url);
-					CFStringRef address = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("https://%@"), remote_address);
-					url = CFURLCreateWithString(kCFAllocatorDefault, address, NULL);
-					CFRelease(address);
-				}
-				if (url != NULL) {
-					CFRelease(remote_address);
-					remote_address = CFURLCopyHostName(url);
-					CFRelease(url);
-				}
-			}
-		} else if (CFStringFindCharacterFromSet(remote_address,
-		                                        colon_set,
-		                                        CFRangeMake(0, CFStringGetLength(remote_address)),
-		                                        0,
-		                                        &colon_range))
-		{
-			CFStringRef address = CFStringCreateWithSubstring(kCFAllocatorDefault,
-					remote_address,
-					CFRangeMake(0, colon_range.location));
-			CFRelease(remote_address);
-			remote_address = address;
-		}
-
-		CFRelease(slash_set);
-		CFRelease(colon_set);
-		
-		if (remote_address == NULL) {
-			return;
-		}
 
 		addr_cstr_len = CFStringGetLength(remote_address); /* Assume that the address is ASCII */
 		addr_cstr = CFAllocatorAllocate(kCFAllocatorDefault, addr_cstr_len + 1, 0);

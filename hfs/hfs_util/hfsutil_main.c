@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -124,6 +124,8 @@
  
 
 /* **************************************** L O C A L S ******************************************* */
+
+#define kHFSPlusMaxFileNameBytes	(3 * 255 + 1)	/* 255 unicode characters, plus 1 NUL byte */
 
 #define	HFS_BLOCK_SIZE			512
 
@@ -741,7 +743,7 @@ DoProbe(char *rawDeviceNamePtr, char *blockDeviceNamePtr)
 	char * bufPtr;
 	HFSMasterDirectoryBlock * mdbPtr;
 	HFSPlusVolumeHeader * volHdrPtr;
-	u_char volnameUTF8[NAME_MAX+1];
+	u_char volnameUTF8[kHFSPlusMaxFileNameBytes];
 
 	/*
 	 * Determine if there is a volume already mounted from this device.  If
@@ -1949,7 +1951,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 	    }
 	    swapped->unicode[i] = 0;
 	    cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, swapped->unicode, swapped->length);
-	    (void) CFStringGetCString(cfstr, (char *)name_o, NAME_MAX, kCFStringEncodingUTF8);
+	    (void) CFStringGetCString(cfstr, (char *)name_o, NAME_MAX * 3 + 1, kCFStringEncodingUTF8);
 	    CFRelease(cfstr);
 	    free(swapped);
 	}

@@ -294,7 +294,7 @@ int get_route_interface(struct sockaddr *src, const struct sockaddr *dst, char *
 	if ((ret = get_interface((struct sockaddr_in *)src, (struct sockaddr_in *)dst, if_name))) {
 	
 		// if not, then look ask the routing table for the interface to the cluster address is already assigned to an interface			
-		ret = get_src_address(src, dst, if_name);
+		ret = get_src_address(src, dst, NULL, if_name);
 				
 	}
 

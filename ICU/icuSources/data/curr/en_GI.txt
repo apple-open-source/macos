@@ -1,12 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en_GI.xml
 // *
 // ***************************************************************************
 en_GI{
+    %%Parent{"en_GB"}
     Currencies{
         GBP{
             "GB£",
@@ -21,5 +22,5 @@ en_GI{
             "US Dollar",
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.90.61"}
 }

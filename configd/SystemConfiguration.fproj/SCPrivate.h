@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -68,6 +68,8 @@
 #define _SC_SERVER_PROG			"configd_sim"
 #endif	// !TARGET_IPHONE_SIMULATOR
 
+#define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
+#define INSTALL_FACILITY	"install"
 
 /* atomic operations */
 #define _SC_ATOMIC_CMPXCHG(p, o, n)	__sync_bool_compare_and_swap((p), (o), (n))
@@ -118,6 +120,13 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 		local address associated with a network connection.
  */
 #define kSCNetworkReachabilityOptionLocalAddress		CFSTR("local-address")
+
+/*!
+	@constant kSCNetworkReachabilityOptionPTRAddress
+	@discussion A CFData wrapping a "struct sockaddr" that represents
+		the reverse-address to be queried.
+ */
+#define kSCNetworkReachabilityOptionPTRAddress			CFSTR("ptr-address")
 
 /*!
 	@constant kSCNetworkReachabilityOptionRemoteAddress
@@ -403,7 +412,7 @@ CFStringRef	_SCCopyDescription		(CFTypeRef		cf,
 void		SCLog				(Boolean		condition,
 						 int			level,
 						 CFStringRef		formatString,
-						 ...);
+						 ...)	CF_FORMAT_FUNCTION(3, 4);
 
 enum {
 	kSCLoggerFlagsNone		= 0x0,
@@ -431,7 +440,8 @@ typedef struct SCLogger * SCLoggerRef;
 void		SCLoggerLog			(SCLoggerRef	logger,
 						 int		level,
 						 CFStringRef	formatString,
-						 ...)			__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
+						 ...)	CF_FORMAT_FUNCTION(3, 4)
+							__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
 
 /*!
 	@function SCLoggerVLog
@@ -470,11 +480,11 @@ void		SCLoggerVLog			(SCLoggerRef	logger,
 	@result The specified message will be written to the system message
 		logger (See syslogd(8)).
  */
-void		SCLOG				(aslclient		asl,
-						 aslmsg			msg,
+void		SCLOG				(asl_object_t		asl,
+						 asl_object_t		msg,
 						 int			level,
 						 CFStringRef		formatString,
-						 ...);
+						 ...)	CF_FORMAT_FUNCTION(4, 5);
 
 
 #endif
@@ -491,7 +501,7 @@ void		SCLOG				(aslclient		asl,
 void		SCPrint				(Boolean		condition,
 						 FILE			*stream,
 						 CFStringRef		formatString,
-						 ...);
+						 ...)	CF_FORMAT_FUNCTION(3, 4);
 
 
 
@@ -507,7 +517,7 @@ void		SCPrint				(Boolean		condition,
 void		SCTrace				(Boolean		condition,
 						 FILE			*stream,
 						 CFStringRef		formatString,
-						 ...);
+						 ...)	CF_FORMAT_FUNCTION(3, 4);
 
 /*!
 	@function SCLoggerCreate
@@ -562,6 +572,38 @@ CFArrayRef
 SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
 						 CFStringRef		server,
 						 CFStringRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+
+#define kSCProxiesMatchServer		CFSTR("Server")		/* CFString */
+#define kSCProxiesMatchInterface	CFSTR("Interface")	/* CFString */
+#define kSCProxiesMatchExecutableUUID	CFSTR("UUID")		/* CFUUID */
+
+/*!
+	@function SCNetworkProxiesCopyMatchingWithOptions
+	@discussion
+	@param globalConfiguration the proxy dictionary currently returned
+		by SCDynamicStoreCopyProxies().
+	@param options A dictionary containing any (or none) of the following:
+		key				value		description
+		------------------------------------------------------------------------------------------------
+		kSCProxiesMatchServer		CFString	The hostname of interest; do not include if no
+								specific hostname should be used in selecting the
+								proxy configurations.
+		kSCProxiesMatchInterface	CFString	If present, specifies the network interface
+								(e.g. "en0", "en1", ...) whose proxy configuration
+								should be returned. If not present, then proxy usage
+								will not be scoped to an interface.
+		kSCProxiesMatchExecutableUUID	CFUUID		If present, specifies the Mach-O UUID of the executable
+								on whose behalf the match operation is being performed.
+								If kSCProxiesMatchInterface is present then this option
+							   	is ignored. If not present, then the Mach-O UUID of
+							   	the current process is used. The Mach-O UUID is used
+							   	to match application-specific proxy configurations
+							   	(i.e., if per-app VPN rules are in effect).
+	@result A CFArray containing the proxy configurations associated with the given options.
+ */
+CFArrayRef
+SCNetworkProxiesCopyMatchingWithOptions		(CFDictionaryRef	globalConfiguration,
+						 CFDictionaryRef	options)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0/*SPI*/);
 
 extern const CFStringRef	kSCProxiesNoGlobal;
 
@@ -667,6 +709,33 @@ SCNetworkReachabilityGetInterfaceIndex		(SCNetworkReachabilityRef	target);
 Boolean
 _SC_domainEndsWithDomain			(CFStringRef			compare_domain,
 						 CFStringRef 			match_domain);
+
+/*!
+ @function    _SC_hostMatchesDomain
+ @discussion  Checks if a hostname matches a domain. "*" not accepted as a domain. Top-level domain matching not supported.
+ The algorithm is as follows:
+
+ 1. Trim .’s and *’s from the front and back of hostname and domain.
+ 2. If the number of .’s left in the hostname and domain are equal, require an exact match.
+ 3. Else, if the number of .’s in the hostname is greater than the number of .’s in the domain, and the number of .’s in the domain is greater than zero, append a . to the front of the domain and do a suffix match on the hostname.
+ 4. Else, fail.
+
+ Examples
+ www.apple.com > * : NO
+ www.apple.com > apple.com : YES
+ www.badapple.com > apple.com : NO
+ www.apple.com > .com : NO
+ foobar > foobar : YES
+ www.apple.com > www.apple.com : YES
+ www.apple.com... > .*.apple.com. : YES
+
+ @param hostname The specific hostname to check.
+ @param domain The domain to be matched.
+ @return TRUE if the hostname matches the domain. FALSE otherwise.
+ */
+Boolean
+_SC_hostMatchesDomain				(CFStringRef			hostname,
+						 CFStringRef			domain);
 
 #pragma mark -
 #pragma mark NetBIOS
@@ -776,36 +845,8 @@ _SC_isAppleInternal()
 
 #define	MODEL			CFSTR("Model")
 
-static __inline__ CFStringRef
-_SC_hw_model()
-{
-	/*
-	 * S_model
-	 *   Hardware model for this network configuration.
-	 */
-	static CFStringRef		model			= NULL;
-
-	if (model == NULL) {
-		char	hwModel[64];
-		int	mib[]		= { CTL_HW, HW_MODEL };
-		size_t	n		= sizeof(hwModel);
-		int	ret;
-
-		// get HW model name
-		bzero(&hwModel, sizeof(hwModel));
-		ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
-		if (ret != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
-			return NULL;
-		}
-		hwModel[sizeof(hwModel) - 1] = '\0';
-
-		model = CFStringCreateWithCString(NULL, hwModel, kCFStringEncodingASCII);
-	}
-
-	return model;
-
-}
+CFStringRef
+_SC_hw_model					(Boolean		trim);
 
 /*
  * debugging

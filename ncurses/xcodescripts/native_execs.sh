@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e -x
 
-SDK="-sdk macosx"
+SDK="-sdk macosx.internal"
 
 export -n SDKROOT
 export -n ARCHS CURRENT_ARCH RC_ARCHS RC_CFLAGS

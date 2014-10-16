@@ -9,24 +9,29 @@ GnuNoBuild = YES
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
-
+SDKROOTUSR=$(SDKROOT)/usr
 unexport GEM_HOME
+MKMFFLAGS=--ignore-dependencies \
+	--with-xml2-include=$(SDKROOTUSR)/include/libxml2 \
+	--with-xml2-lib=$(SDKROOTUSR)/lib \
+	--with-xslt-include=$(SDKROOTUSR)/include \
+	--with-xslt-lib=$(SDKROOTUSR)/lib
 
 GEMDIR=/System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/gems/2.0.0
 GEMS= gems/*.gem
 
 build::
-	$(MKDIR) $(OSL) $(OSV)
+	$(INSTALL_DIRECTORY) $(OSL) $(OSV)
 	for l in $(SRCROOT)/*.txt; do \
-		$(CP) $$l $(OSL); \
+		$(INSTALL_FILE) $$l $(OSL); \
 	done
-	cp $(SRCROOT)/RubyGems.plist $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/RubyGems.plist $(OSV)
 	for g in $(GEMS); do \
-		GEM_HOME=$(DSTROOT)$(GEMDIR) gem install --local $$g || exit 1; \
+		GEM_HOME=$(DSTROOT)$(GEMDIR) gem install -V --local $$g -- $(MKMFFLAGS) || exit 1; \
 	done
-	$(FIND) $(DSTROOT) \( -name .gemtest -or -name .RUBYARCHDIR.time \) -empty -delete
+	$(FIND) $(DSTROOT) \( -name script -or -name test \) -print | xargs -t rm -rf
+	$(FIND) $(DSTROOT) -type f \( -name '*.[ch]' -o -name '*.txt' \) -perm -a+x | xargs -t chmod a-x
 	rsync -irptgoD --include='*/' --include='*.bundle' --exclude='*' $(DSTROOT)/ $(SYMROOT)/
 	$(FIND) $(SYMROOT) -type f -perm -a+x | xargs -t -n 1 dsymutil
-	$(FIND) $(SYMROOT) -empty -delete
-	$(FIND) $(DSTROOT) -name '*.o' -delete
-	$(FIND) $(DSTROOT) \( -name script -or -name test \) -print | xargs -t rm -rf
+	$(FIND) $(DSTROOT) \( -name .gemtest -or -name .RUBYARCHDIR.time -or -name '*.o' -or -name script -or -name test -or -empty \) -print -delete
+	

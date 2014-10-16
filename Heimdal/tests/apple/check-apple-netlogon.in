@@ -1,0 +1,99 @@
+#!/bin/sh
+#
+# Copyright (c) 2010 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Portions Copyright (c) 2010 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+
+env_setup="@env_setup@"
+testdir="@testdir@"
+
+R=ADS.APPLE.COM
+
+. ${env_setup}
+
+cache="FILE:${testdir}/cache.krb5"
+
+kinit="${kinit} -c $cache"
+kdestroy="${kdestroy} -c $cache"
+
+test -d ${testdir} || mkdir -p ${testdir}
+
+if ! ping -c 1 dc03.ads.apple.com > /dev/null 2>&1 ; then
+      { echo "no dc03 available, skipping tests" ; exit 0; }
+fi
+
+echo "checking for ADS"
+if odutil show nodenames | grep '/Active Directory/ADS' > /dev/null ; then
+    echo "already joined to ADS"
+    needed_unjoin=no
+else
+    echo "joining ads.apple.com"
+    dsconfigad -add $R -force -user bind -password apple || { echo "join failed" ; exit 1; }
+    killall -9 digest-service
+    needed_unjoin=yes
+fi
+
+
+# ------------------------------------------------------------------------------------
+
+
+echo "checking ktestuser in ADS (no domain)"
+${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (domain)"
+${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (no domain)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (domain)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (failure, wrong password)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null --session-key-broken > /dev/null && \
+    { echo "test failed";  exit 1; }
+
+# ------------------------------------------------------------------------------------
+
+if [ ${needed_unjoin} = yes ] ; then
+    echo "unjoin"
+    dsconfigad -remove $R -force -user bind -password apple
+    killall -9 digest-service
+fi
+
+
+exit 0
+

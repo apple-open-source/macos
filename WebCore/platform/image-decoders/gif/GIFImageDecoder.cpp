@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,7 +27,6 @@
 #include "GIFImageDecoder.h"
 
 #include "GIFImageReader.h"
-#include "PlatformInstrumentation.h"
 #include <limits>
 #include <wtf/PassOwnPtr.h>
 
@@ -119,11 +118,8 @@ ImageFrame* GIFImageDecoder::frameBufferAtIndex(size_t index)
         return 0;
 
     ImageFrame& frame = m_frameBufferCache[index];
-    if (frame.status() != ImageFrame::FrameComplete) {
-        PlatformInstrumentation::willDecodeImage("GIF");
+    if (frame.status() != ImageFrame::FrameComplete)
         decode(index + 1, GIFFullQuery);
-        PlatformInstrumentation::didDecodeImage();
-    }
     return &frame;
 }
 
@@ -214,7 +210,7 @@ bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned 
 
     // Initialize the frame if necessary.
     ImageFrame& buffer = m_frameBufferCache[frameIndex];
-    if ((buffer.status() == ImageFrame::FrameEmpty) && !initFrameBuffer(frameIndex))
+    if (((buffer.status() == ImageFrame::FrameEmpty) && !initFrameBuffer(frameIndex)) || !buffer.hasPixelData())
         return false;
 
     ImageFrame::PixelData* currentAddress = buffer.getAddr(xBegin, yBegin);
@@ -359,7 +355,7 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
     int top = upperBoundScaledY(frameRect.y());
     int bottom = lowerBoundScaledY(frameRect.maxY(), top);
     buffer->setOriginalFrameRect(IntRect(left, top, right - left, bottom - top));
-    
+
     if (!frameIndex) {
         // This is the first frame, so we're not relying on any previous data.
         if (!buffer->setSize(scaledSize().width(), scaledSize().height()))
@@ -396,15 +392,10 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
                 if (!buffer->setSize(bufferSize.width(), bufferSize.height()))
                     return setFailed();
             } else {
-              // Copy the whole previous buffer, then clear just its frame.
-              if (!buffer->copyBitmapData(*prevBuffer))
-                  return setFailed();
-              for (int y = prevRect.y(); y < prevRect.maxY(); ++y) {
-                  for (int x = prevRect.x(); x < prevRect.maxX(); ++x)
-                      buffer->setRGBA(x, y, 0, 0, 0, 0);
-              }
-              if ((prevRect.width() > 0) && (prevRect.height() > 0))
-                  buffer->setHasAlpha(true);
+                // Copy the whole previous buffer, then clear just its frame.
+                if (!buffer->copyBitmapData(*prevBuffer))
+                    return setFailed();
+                buffer->zeroFillFrameRect(prevRect);
             }
         }
     }

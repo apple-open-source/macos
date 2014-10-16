@@ -77,7 +77,7 @@ hx509_cms_wrap_ContentInfo(const heim_oid *oid,
 			   heim_octet_string *res)
 {
     ContentInfo ci;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     memset(res, 0, sizeof(*res));
@@ -246,7 +246,7 @@ unparse_CMSIdentifier(hx509_context context,
 	free(keyid);
 	break;
     }
-    default:
+    case invalid_choice_CMSIdentifier:
 	asprintf(str, "certificate have unknown CMSidentifier type");
 	break;
     }
@@ -283,7 +283,7 @@ find_CMSIdentifier(hx509_context context,
 	q.subject_id = &client->u.subjectKeyIdentifier;
 	q.match = HX509_QUERY_MATCH_SUBJECT_KEY_ID;
 	break;
-    default:
+    case invalid_choice_CMSIdentifier:
 	hx509_set_error_string(context, 0, HX509_CMS_NO_RECIPIENT_CERTIFICATE,
 			       "unknown CMS identifier element");
 	return HX509_CMS_NO_RECIPIENT_CERTIFICATE;
@@ -569,7 +569,7 @@ hx509_cms_envelope_1(hx509_context context,
     hx509_crypto crypto = NULL;
     int ret, cmsidflag;
     EnvelopedData ed;
-    size_t size;
+    size_t size = 0;
 
     memset(&ivec, 0, sizeof(ivec));
     memset(&key, 0, sizeof(key));
@@ -876,7 +876,7 @@ hx509_cms_verify_signed(hx509_context context,
 	    ret = HX509_CMS_MISSING_SIGNER_DATA;
 	    hx509_set_error_string(context, 0, ret,
 				   "SignerInfo %d in SignedData "
-				   "missing sigature", i);
+				   "missing sigature", (int)i);
 	    continue;
 	}
 
@@ -1026,8 +1026,10 @@ hx509_cms_verify_signed(hx509_context context,
 				       "Failed to verify signature in "
 				       "CMS SignedData");
 	}
-        if (signer_info->signedAttrs)
+        if (signer_info->signedAttrs) {
 	    free(signed_data.data);
+	    signed_data.data = NULL;
+	}
 	if (ret)
 	    goto next_sigature;
 
@@ -1144,7 +1146,7 @@ add_one_attribute(Attribute **attr,
  * Decode SignedData and verify that the signature is correct.
  *
  * @param context A hx509 context.
- * @param flags
+ * @param flags flags
  * @param eContentType the type of the data.
  * @param data data to sign
  * @param length length of the data that data point to.
@@ -1217,7 +1219,7 @@ sig_process(hx509_context context, void *ctx, hx509_cert cert)
     heim_octet_string buf, sigdata = { 0, NULL };
     SignerInfo *signer_info = NULL;
     AlgorithmIdentifier digest;
-    size_t size;
+    size_t size = 0;
     void *ptr;
     int ret;
     SignedData *sd = &sigctx->sd;
@@ -1471,7 +1473,7 @@ hx509_cms_create_signed(hx509_context context,
     unsigned int i, j;
     hx509_name name;
     int ret;
-    size_t size;
+    size_t size = 0;
     struct sigctx sigctx;
 
     memset(&sigctx, 0, sizeof(sigctx));

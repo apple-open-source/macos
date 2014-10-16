@@ -3,7 +3,10 @@
 #
 
 CC = cc
-CFLAGS = -O -D_PACKAGE_astsa -I$(ASTSA_DIR)
+CFLAGS = $(ASTSA_CFLAGS)
+
+ASTSA_OPTIMIZE = -O
+ASTSA_CFLAGS = $(ASTSA_OPTIMIZE) -D_PACKAGE_astsa -I.
 
 ASTSA_GEN = \
 	ast_sa.h
@@ -30,6 +33,7 @@ ASTSA_HDRS = \
 	vmalloc.h
 
 ASTSA_SRCS = \
+	aso.c \
 	ast.c \
 	chresc.c \
 	error.c \
@@ -46,20 +50,13 @@ ASTSA_SRCS = \
 	vmalloc.c \
 	dtclose.c \
 	dtdisc.c \
-	dtextract.c \
-	dtflatten.c \
 	dthash.c \
 	dtlist.c \
 	dtmethod.c \
 	dtnew.c \
 	dtopen.c \
-	dtrenew.c \
-	dtrestore.c \
-	dtsize.c \
-	dtstat.c \
 	dtstrhash.c \
 	dttree.c \
-	dttreeset.c \
 	dtview.c \
 	dtwalk.c
 
@@ -69,12 +66,11 @@ ASTSA_MANIFEST = \
 
 astsa : ast_sa.h libastsa.a
 
-libastsa.a : ast.o chresc.o error.o fmtbuf.o fmtip4.o fmtip6.o optget.o \
+libastsa.a : aso.o ast.o chresc.o error.o fmtbuf.o fmtip4.o fmtip6.o optget.o \
 		sfstr.o strcopy.o strdup.o strmatch.o strtoip4.o strtoip6.o \
 		vmalloc.o \
-		dtclose.o dtdisc.o dtextract.o dtflatten.o dthash.o dtlist.o \
-		dtmethod.o dtopen.o dtrenew.o dtrestore.o dtsize.o dtstat.o \
-		dtstrhash.o dttree.o dttreeset.o dtview.o dtwalk.o
+		dtclose.o dtdisc.o dthash.o dtlist.o dtmethod.o \
+		dtopen.o dtstrhash.o dttree.o dtview.o dtwalk.o
 	ar cr libastsa.a $?
 
 ast_sa.h : mkast_sa

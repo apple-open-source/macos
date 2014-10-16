@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,8 +31,6 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityTable.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -60,7 +58,7 @@ bool AccessibilityTableHeaderContainer::computeAccessibilityIsIgnored() const
     if (!m_parent)
         return true;
     
-#if PLATFORM(GTK)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(EFL)
     return true;
 #endif
 
@@ -75,11 +73,10 @@ void AccessibilityTableHeaderContainer::addChildren()
     if (!m_parent || !m_parent->isAccessibilityTable())
         return;
     
-    static_cast<AccessibilityTable*>(m_parent)->columnHeaders(m_children);
+    toAccessibilityTable(m_parent)->columnHeaders(m_children);
     
-    unsigned length = m_children.size();
-    for (unsigned k = 0; k < length; ++k)
-        m_headerRect.unite(m_children[k]->elementRect());
+    for (const auto& child : m_children)
+        m_headerRect.unite(child->elementRect());
 }
 
 } // namespace WebCore

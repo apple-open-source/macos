@@ -1,0 +1,869 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		18C5A961148442000010EF34 /* libsecurity_transform.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */; };
+		18C5A964148443F00010EF34 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18C5A963148443F00010EF34 /* SenTestingKit.framework */; };
+		18C5A9661484440D0010EF34 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18C5A9651484440D0010EF34 /* Foundation.framework */; };
+		4C010B9B121AE9960094CB72 /* speed-test.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4C010B9A121AE9960094CB72 /* speed-test.mm */; };
+		4C010BBB121AECF10094CB72 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D16D6FB114EA1000096BD75 /* Security.framework */; };
+		4C010C52121B00350094CB72 /* SecExternalSourceTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C010C4B121AFCA70094CB72 /* SecExternalSourceTransform.h */; };
+		4C010C53121B00440094CB72 /* SecExternalSourceTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C010C4C121AFCA70094CB72 /* SecExternalSourceTransform.cpp */; };
+		4C0113511468693100E4F866 /* SecMaskGenerationFunctionTransform.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C01134F1468693100E4F866 /* SecMaskGenerationFunctionTransform.c */; };
+		4C0113521468693100E4F866 /* SecMaskGenerationFunctionTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C0113501468693100E4F866 /* SecMaskGenerationFunctionTransform.h */; settings = {ATTRIBUTES = (); }; };
+		4C01135C14686F2600E4F866 /* NSData+HexString.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C01135A14686F2600E4F866 /* NSData+HexString.m */; };
+		4C27A37814F2DCB4007FCA66 /* CEncryptDecrypt.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27A37714F2DCB4007FCA66 /* CEncryptDecrypt.c */; };
+		4C6E5966116D4E3E00A70E8F /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6E5964116D4E3E00A70E8F /* misc.c */; };
+		4C6E5967116D4E3E00A70E8F /* misc.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6E5965116D4E3E00A70E8F /* misc.h */; };
+		4C73822D112DCC4800EA003B /* SecCustomTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C73822B112DCC4800EA003B /* SecCustomTransform.h */; settings = {ATTRIBUTES = (); }; };
+		4C73822E112DCC4800EA003B /* SecCustomTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C73822C112DCC4800EA003B /* SecCustomTransform.cpp */; };
+		4C8174341133031E007F84D6 /* libsecurity_transform.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */; };
+		4CB89E62124D5667004DEC20 /* SecTransformValidator.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CB89E61124D5667004DEC20 /* SecTransformValidator.h */; settings = {ATTRIBUTES = (); }; };
+		4CC4A8B21264D22300075C8F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D16D6FB114EA1000096BD75 /* Security.framework */; };
+		4CD6A669113F41990094F287 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CD6A668113F41990094F287 /* libz.dylib */; };
+		4CD87F501130A49400A98C5E /* 100-sha2.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CD87F3D1130A34700A98C5E /* 100-sha2.m */; };
+		4CDF6DCC113C4E9E00C64234 /* EncodeDecodeTransforms.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CDF6DC9113C4E9E00C64234 /* EncodeDecodeTransforms.c */; };
+		4CDF6DCD113C4E9E00C64234 /* SecDecodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CDF6DCA113C4E9E00C64234 /* SecDecodeTransform.h */; settings = {ATTRIBUTES = (); }; };
+		4CDF6DCE113C4E9E00C64234 /* SecEncodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CDF6DCB113C4E9E00C64234 /* SecEncodeTransform.h */; settings = {ATTRIBUTES = (); }; };
+		5DCAD5B711F0E099003F2E7A /* SecCollectTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5DCAD5B511F0E099003F2E7A /* SecCollectTransform.cpp */; };
+		5DCAD5B811F0E099003F2E7A /* SecCollectTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCAD5B611F0E099003F2E7A /* SecCollectTransform.h */; };
+		5DD2E91E114E9044007429E7 /* EncryptTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DD2E91C114E9044007429E7 /* EncryptTransform.h */; };
+		5DD2E91F114E9044007429E7 /* EncryptTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2E91D114E9044007429E7 /* EncryptTransform.cpp */; };
+		5DD2E925114E9094007429E7 /* EncryptTransformUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DD2E923114E9094007429E7 /* EncryptTransformUtilities.h */; };
+		5DD2E926114E9094007429E7 /* EncryptTransformUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2E924114E9094007429E7 /* EncryptTransformUtilities.cpp */; };
+		5DD2E929114E90E2007429E7 /* SecEncryptTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DD2E927114E90E2007429E7 /* SecEncryptTransform.h */; settings = {ATTRIBUTES = (); }; };
+		5DD2E92A114E90E2007429E7 /* SecEncryptTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2E928114E90E2007429E7 /* SecEncryptTransform.cpp */; };
+		5DD2E938114E91CC007429E7 /* SecSignVerifyTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DD2E936114E91CC007429E7 /* SecSignVerifyTransform.h */; settings = {ATTRIBUTES = (); }; };
+		5DD2E939114E91CC007429E7 /* SecSignVerifyTransform.c in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2E937114E91CC007429E7 /* SecSignVerifyTransform.c */; };
+		5DD2E9B5114E986D007429E7 /* custom.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5DD2E96E114E95B1007429E7 /* custom.mm */; };
+		AA068646138C420C0059E73E /* SecReadTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA068645138C420C0059E73E /* SecReadTransform.h */; settings = {ATTRIBUTES = (); }; };
+		AA068EDF1174AB350002E9E0 /* GroupTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA068EDB1174AB350002E9E0 /* GroupTransform.cpp */; };
+		AA068EE01174AB350002E9E0 /* GroupTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA068EDC1174AB350002E9E0 /* GroupTransform.h */; };
+		AA068EE11174AB350002E9E0 /* SecGroupTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA068EDD1174AB350002E9E0 /* SecGroupTransform.cpp */; };
+		AA068EE21174AB350002E9E0 /* SecGroupTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA068EDE1174AB350002E9E0 /* SecGroupTransform.h */; };
+		AA068EEE1174ABB20002E9E0 /* SecTransformInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = AA068EED1174ABB20002E9E0 /* SecTransformInternal.h */; settings = {ATTRIBUTES = (); }; };
+		AA957FCB122C571E00181BE1 /* SecTransformReadTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA957FCA122C571E00181BE1 /* SecTransformReadTransform.h */; settings = {ATTRIBUTES = (); }; };
+		AA957FD5122C57AF00181BE1 /* SecTransformReadTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA957FD4122C57AF00181BE1 /* SecTransformReadTransform.cpp */; };
+		AA9781A91175475500699E38 /* c++utils.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9781A71175475500699E38 /* c++utils.h */; };
+		AA9781AA1175475500699E38 /* c++utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9781A81175475500699E38 /* c++utils.cpp */; };
+		AA9E1C221117966F00380F0D /* CoreFoundationBasics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C051117966F00380F0D /* CoreFoundationBasics.cpp */; };
+		AA9E1C231117966F00380F0D /* CoreFoundationBasics.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C061117966F00380F0D /* CoreFoundationBasics.h */; };
+		AA9E1C241117966F00380F0D /* Digest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C071117966F00380F0D /* Digest.cpp */; };
+		AA9E1C251117966F00380F0D /* Digest.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C081117966F00380F0D /* Digest.h */; };
+		AA9E1C261117966F00380F0D /* LinkedList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C091117966F00380F0D /* LinkedList.cpp */; };
+		AA9E1C271117966F00380F0D /* LinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C0A1117966F00380F0D /* LinkedList.h */; };
+		AA9E1C281117966F00380F0D /* Monitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C0B1117966F00380F0D /* Monitor.cpp */; };
+		AA9E1C291117966F00380F0D /* Monitor.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C0C1117966F00380F0D /* Monitor.h */; };
+		AA9E1C2A1117966F00380F0D /* NullTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C0D1117966F00380F0D /* NullTransform.cpp */; };
+		AA9E1C2B1117966F00380F0D /* NullTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C0E1117966F00380F0D /* NullTransform.h */; };
+		AA9E1C2C1117966F00380F0D /* SecDigestTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C0F1117966F00380F0D /* SecDigestTransform.cpp */; };
+		AA9E1C2D1117966F00380F0D /* SecDigestTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C101117966F00380F0D /* SecDigestTransform.h */; settings = {ATTRIBUTES = (); }; };
+		AA9E1C2E1117966F00380F0D /* SecNullTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C111117966F00380F0D /* SecNullTransform.cpp */; };
+		AA9E1C2F1117966F00380F0D /* SecNullTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C121117966F00380F0D /* SecNullTransform.h */; settings = {ATTRIBUTES = (); }; };
+		AA9E1C301117966F00380F0D /* SecTransform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C131117966F00380F0D /* SecTransform.cpp */; };
+		AA9E1C311117966F00380F0D /* SecTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C141117966F00380F0D /* SecTransform.h */; settings = {ATTRIBUTES = (); }; };
+		AA9E1C331117966F00380F0D /* SingleShotSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C161117966F00380F0D /* SingleShotSource.cpp */; };
+		AA9E1C341117966F00380F0D /* SingleShotSource.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C171117966F00380F0D /* SingleShotSource.h */; };
+		AA9E1C351117966F00380F0D /* Source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C181117966F00380F0D /* Source.cpp */; };
+		AA9E1C361117966F00380F0D /* Source.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C191117966F00380F0D /* Source.h */; };
+		AA9E1C371117966F00380F0D /* StreamSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C1A1117966F00380F0D /* StreamSource.cpp */; };
+		AA9E1C381117966F00380F0D /* StreamSource.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C1B1117966F00380F0D /* StreamSource.h */; };
+		AA9E1C391117966F00380F0D /* Transform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C1C1117966F00380F0D /* Transform.cpp */; };
+		AA9E1C3A1117966F00380F0D /* Transform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C1D1117966F00380F0D /* Transform.h */; };
+		AA9E1C3B1117966F00380F0D /* TransformFactory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C1E1117966F00380F0D /* TransformFactory.cpp */; };
+		AA9E1C3C1117966F00380F0D /* TransformFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C1F1117966F00380F0D /* TransformFactory.h */; };
+		AA9E1C3D1117966F00380F0D /* Utilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA9E1C201117966F00380F0D /* Utilities.cpp */; };
+		AA9E1C3E1117966F00380F0D /* Utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = AA9E1C211117966F00380F0D /* Utilities.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C010B90121AE9070094CB72 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_transform;
+		};
+		4C817255112F030F007F84D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_transform;
+		};
+		4CD87FFF1131E0F500A98C5E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_transform;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		18BBC7391471F6DF00F2B224 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		18BBC73A1471F6DF00F2B224 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18BBC73B1471F6DF00F2B224 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		18BBC73C1471F6DF00F2B224 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18BBC73D1471F6DF00F2B224 /* security.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = security.xcconfig; sourceTree = "<group>"; };
+		18C5A963148443F00010EF34 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
+		18C5A9651484440D0010EF34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		4C010B87121AE8DF0094CB72 /* input-speed-test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "input-speed-test"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C010B99121AE9960094CB72 /* speed-test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "speed-test.h"; path = "misc/speed-test.h"; sourceTree = "<group>"; };
+		4C010B9A121AE9960094CB72 /* speed-test.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "speed-test.mm"; path = "misc/speed-test.mm"; sourceTree = "<group>"; };
+		4C010BBE121AED340094CB72 /* libc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++.dylib"; path = "usr/lib/libc++.dylib"; sourceTree = SDKROOT; };
+		4C010C4B121AFCA70094CB72 /* SecExternalSourceTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecExternalSourceTransform.h; sourceTree = "<group>"; };
+		4C010C4C121AFCA70094CB72 /* SecExternalSourceTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecExternalSourceTransform.cpp; sourceTree = "<group>"; };
+		4C01134F1468693100E4F866 /* SecMaskGenerationFunctionTransform.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecMaskGenerationFunctionTransform.c; sourceTree = "<group>"; };
+		4C0113501468693100E4F866 /* SecMaskGenerationFunctionTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecMaskGenerationFunctionTransform.h; sourceTree = "<group>"; };
+		4C01135A14686F2600E4F866 /* NSData+HexString.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+HexString.m"; sourceTree = "<group>"; };
+		4C01135B14686F2600E4F866 /* NSData+HexString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+HexString.h"; sourceTree = "<group>"; };
+		4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcorecrypto.dylib; path = usr/lib/system/libcorecrypto.dylib; sourceTree = SDKROOT; };
+		4C27A37714F2DCB4007FCA66 /* CEncryptDecrypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CEncryptDecrypt.c; sourceTree = "<group>"; };
+		4C6E5964116D4E3E00A70E8F /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
+		4C6E5965116D4E3E00A70E8F /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = misc.h; sourceTree = "<group>"; };
+		4C73822B112DCC4800EA003B /* SecCustomTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCustomTransform.h; sourceTree = "<group>"; };
+		4C73822C112DCC4800EA003B /* SecCustomTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecCustomTransform.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		4C738257112DF65200EA003B /* unit-tests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "unit-tests.octest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C738258112DF65200EA003B /* unit-tests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "unit-tests-Info.plist"; sourceTree = "<group>"; };
+		4C738260112DF68900EA003B /* custom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = custom.h; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_transform.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CB89E61124D5667004DEC20 /* SecTransformValidator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformValidator.h; sourceTree = "<group>"; };
+		4CBCBEB61130A2D700CC18E9 /* 100-sha2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "100-sha2"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CBCBEB81130A2D800CC18E9 /* Info-security_transform.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-security_transform.plist"; sourceTree = "<group>"; };
+		4CD6A668113F41990094F287 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		4CD87F3D1130A34700A98C5E /* 100-sha2.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "100-sha2.m"; sourceTree = "<group>"; };
+		4CDF6DC9113C4E9E00C64234 /* EncodeDecodeTransforms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EncodeDecodeTransforms.c; sourceTree = "<group>"; };
+		4CDF6DCA113C4E9E00C64234 /* SecDecodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDecodeTransform.h; sourceTree = "<group>"; };
+		4CDF6DCB113C4E9E00C64234 /* SecEncodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncodeTransform.h; sourceTree = "<group>"; };
+		5D16D6FB114EA1000096BD75 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		5DCAD5B511F0E099003F2E7A /* SecCollectTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecCollectTransform.cpp; sourceTree = "<group>"; };
+		5DCAD5B611F0E099003F2E7A /* SecCollectTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCollectTransform.h; sourceTree = "<group>"; };
+		5DD2E91C114E9044007429E7 /* EncryptTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = EncryptTransform.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		5DD2E91D114E9044007429E7 /* EncryptTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = EncryptTransform.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		5DD2E923114E9094007429E7 /* EncryptTransformUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EncryptTransformUtilities.h; sourceTree = "<group>"; };
+		5DD2E924114E9094007429E7 /* EncryptTransformUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EncryptTransformUtilities.cpp; sourceTree = "<group>"; };
+		5DD2E927114E90E2007429E7 /* SecEncryptTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncryptTransform.h; sourceTree = "<group>"; };
+		5DD2E928114E90E2007429E7 /* SecEncryptTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecEncryptTransform.cpp; sourceTree = "<group>"; };
+		5DD2E936114E91CC007429E7 /* SecSignVerifyTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecSignVerifyTransform.h; sourceTree = "<group>"; };
+		5DD2E937114E91CC007429E7 /* SecSignVerifyTransform.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecSignVerifyTransform.c; sourceTree = "<group>"; };
+		5DD2E96E114E95B1007429E7 /* custom.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = custom.mm; sourceTree = "<group>"; };
+		AA068645138C420C0059E73E /* SecReadTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecReadTransform.h; sourceTree = "<group>"; };
+		AA068648138C42520059E73E /* SecReadTransform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecReadTransform.h; sourceTree = "<group>"; };
+		AA068EDB1174AB350002E9E0 /* GroupTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GroupTransform.cpp; sourceTree = "<group>"; };
+		AA068EDC1174AB350002E9E0 /* GroupTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GroupTransform.h; sourceTree = "<group>"; };
+		AA068EDD1174AB350002E9E0 /* SecGroupTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecGroupTransform.cpp; sourceTree = "<group>"; };
+		AA068EDE1174AB350002E9E0 /* SecGroupTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecGroupTransform.h; sourceTree = "<group>"; };
+		AA068EED1174ABB20002E9E0 /* SecTransformInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformInternal.h; sourceTree = "<group>"; };
+		AA957FCA122C571E00181BE1 /* SecTransformReadTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformReadTransform.h; sourceTree = "<group>"; };
+		AA957FD4122C57AF00181BE1 /* SecTransformReadTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTransformReadTransform.cpp; sourceTree = "<group>"; };
+		AA9781A71175475500699E38 /* c++utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "c++utils.h"; sourceTree = "<group>"; };
+		AA9781A81175475500699E38 /* c++utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "c++utils.cpp"; sourceTree = "<group>"; };
+		AA9E1C051117966F00380F0D /* CoreFoundationBasics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CoreFoundationBasics.cpp; sourceTree = "<group>"; };
+		AA9E1C061117966F00380F0D /* CoreFoundationBasics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CoreFoundationBasics.h; sourceTree = "<group>"; };
+		AA9E1C071117966F00380F0D /* Digest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Digest.cpp; sourceTree = "<group>"; };
+		AA9E1C081117966F00380F0D /* Digest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Digest.h; sourceTree = "<group>"; };
+		AA9E1C091117966F00380F0D /* LinkedList.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LinkedList.cpp; sourceTree = "<group>"; };
+		AA9E1C0A1117966F00380F0D /* LinkedList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LinkedList.h; sourceTree = "<group>"; };
+		AA9E1C0B1117966F00380F0D /* Monitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Monitor.cpp; sourceTree = "<group>"; };
+		AA9E1C0C1117966F00380F0D /* Monitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Monitor.h; sourceTree = "<group>"; };
+		AA9E1C0D1117966F00380F0D /* NullTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NullTransform.cpp; sourceTree = "<group>"; };
+		AA9E1C0E1117966F00380F0D /* NullTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NullTransform.h; sourceTree = "<group>"; };
+		AA9E1C0F1117966F00380F0D /* SecDigestTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecDigestTransform.cpp; sourceTree = "<group>"; };
+		AA9E1C101117966F00380F0D /* SecDigestTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDigestTransform.h; sourceTree = "<group>"; };
+		AA9E1C111117966F00380F0D /* SecNullTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecNullTransform.cpp; sourceTree = "<group>"; };
+		AA9E1C121117966F00380F0D /* SecNullTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecNullTransform.h; sourceTree = "<group>"; };
+		AA9E1C131117966F00380F0D /* SecTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTransform.cpp; sourceTree = "<group>"; };
+		AA9E1C141117966F00380F0D /* SecTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransform.h; sourceTree = "<group>"; };
+		AA9E1C161117966F00380F0D /* SingleShotSource.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SingleShotSource.cpp; sourceTree = "<group>"; };
+		AA9E1C171117966F00380F0D /* SingleShotSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SingleShotSource.h; sourceTree = "<group>"; };
+		AA9E1C181117966F00380F0D /* Source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Source.cpp; sourceTree = "<group>"; };
+		AA9E1C191117966F00380F0D /* Source.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Source.h; sourceTree = "<group>"; };
+		AA9E1C1A1117966F00380F0D /* StreamSource.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StreamSource.cpp; sourceTree = "<group>"; };
+		AA9E1C1B1117966F00380F0D /* StreamSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StreamSource.h; sourceTree = "<group>"; };
+		AA9E1C1C1117966F00380F0D /* Transform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Transform.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		AA9E1C1D1117966F00380F0D /* Transform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = Transform.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		AA9E1C1E1117966F00380F0D /* TransformFactory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TransformFactory.cpp; sourceTree = "<group>"; };
+		AA9E1C1F1117966F00380F0D /* TransformFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TransformFactory.h; sourceTree = "<group>"; };
+		AA9E1C201117966F00380F0D /* Utilities.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Utilities.cpp; sourceTree = "<group>"; };
+		AA9E1C211117966F00380F0D /* Utilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Utilities.h; sourceTree = "<group>"; };
+		AA9E1C9A1117A4A800380F0D /* security_transform.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = security_transform.exp; path = lib/security_transform.exp; sourceTree = "<group>"; };
+		AA9E1CAD1117A6E000380F0D /* libsecurity_transform_Development.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libsecurity_transform_Development.xcconfig; sourceTree = "<group>"; };
+		AA9E1CAE1117A6F200380F0D /* libsecurity_transform_Deployment.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libsecurity_transform_Deployment.xcconfig; sourceTree = "<group>"; };
+		AA9E1CAF1117A70300380F0D /* libsecurity_transform.Default.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libsecurity_transform.Default.xcconfig; sourceTree = "<group>"; };
+		AA9E1CB01117A78C00380F0D /* security_transform_Development.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = security_transform_Development.xcconfig; sourceTree = "<group>"; };
+		AA9E1CB11117A7A300380F0D /* security_transform_Deployment.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = security_transform_Deployment.xcconfig; sourceTree = "<group>"; };
+		AA9E1CB21117A7BA00380F0D /* security_transform_Default.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = security_transform_Default.xcconfig; sourceTree = "<group>"; };
+		AACAD86B11628E700070BA52 /* libsecurity_transform_core.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libsecurity_transform_core.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4C010B85121AE8DF0094CB72 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C010BBB121AECF10094CB72 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C738254112DF65200EA003B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18C5A9661484440D0010EF34 /* Foundation.framework in Frameworks */,
+				18C5A964148443F00010EF34 /* SenTestingKit.framework in Frameworks */,
+				18C5A961148442000010EF34 /* libsecurity_transform.a in Frameworks */,
+				4CD6A669113F41990094F287 /* libz.dylib in Frameworks */,
+				4CC4A8B21264D22300075C8F /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CBCBEB41130A2D700CC18E9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C8174341133031E007F84D6 /* libsecurity_transform.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		18BBC7381471F6DF00F2B224 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18BBC7391471F6DF00F2B224 /* base.xcconfig */,
+				18BBC73A1471F6DF00F2B224 /* debug.xcconfig */,
+				18BBC73B1471F6DF00F2B224 /* lib.xcconfig */,
+				18BBC73C1471F6DF00F2B224 /* release.xcconfig */,
+				18BBC73D1471F6DF00F2B224 /* security.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		4C73825F112DF66700EA003B /* unit-tests */ = {
+			isa = PBXGroup;
+			children = (
+				4C01135A14686F2600E4F866 /* NSData+HexString.m */,
+				4C01135B14686F2600E4F866 /* NSData+HexString.h */,
+				4C738260112DF68900EA003B /* custom.h */,
+				5DD2E96E114E95B1007429E7 /* custom.mm */,
+			);
+			name = "unit-tests";
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				18C5A9651484440D0010EF34 /* Foundation.framework */,
+				18C5A963148443F00010EF34 /* SenTestingKit.framework */,
+				18BBC7381471F6DF00F2B224 /* config */,
+				4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */,
+				4C010BBE121AED340094CB72 /* libc++.dylib */,
+				4CD6A668113F41990094F287 /* libz.dylib */,
+				4C73825F112DF66700EA003B /* unit-tests */,
+				4CBCBEB01130A2AB00CC18E9 /* misc-tests */,
+				AA9E1CA31117A67D00380F0D /* Configurations */,
+				AA9E1C9A1117A4A800380F0D /* security_transform.exp */,
+				4CAFF3FC0534D89900303760 /* lib */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+				4C738258112DF65200EA003B /* unit-tests-Info.plist */,
+				4CBCBEB81130A2D800CC18E9 /* Info-security_transform.plist */,
+				5D16D6FB114EA1000096BD75 /* Security.framework */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */,
+				4C738257112DF65200EA003B /* unit-tests.octest */,
+				4CBCBEB61130A2D700CC18E9 /* 100-sha2 */,
+				4C010B87121AE8DF0094CB72 /* input-speed-test */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CAFF3FC0534D89900303760 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				4C01134F1468693100E4F866 /* SecMaskGenerationFunctionTransform.c */,
+				4C0113501468693100E4F866 /* SecMaskGenerationFunctionTransform.h */,
+				AA068645138C420C0059E73E /* SecReadTransform.h */,
+				5DCAD5B511F0E099003F2E7A /* SecCollectTransform.cpp */,
+				5DCAD5B611F0E099003F2E7A /* SecCollectTransform.h */,
+				AA9781A71175475500699E38 /* c++utils.h */,
+				AA9781A81175475500699E38 /* c++utils.cpp */,
+				AA9E1C051117966F00380F0D /* CoreFoundationBasics.cpp */,
+				AA9E1C061117966F00380F0D /* CoreFoundationBasics.h */,
+				AA9E1C071117966F00380F0D /* Digest.cpp */,
+				AA9E1C081117966F00380F0D /* Digest.h */,
+				4CDF6DC9113C4E9E00C64234 /* EncodeDecodeTransforms.c */,
+				5DD2E91C114E9044007429E7 /* EncryptTransform.h */,
+				5DD2E91D114E9044007429E7 /* EncryptTransform.cpp */,
+				4C27A37714F2DCB4007FCA66 /* CEncryptDecrypt.c */,
+				5DD2E923114E9094007429E7 /* EncryptTransformUtilities.h */,
+				5DD2E924114E9094007429E7 /* EncryptTransformUtilities.cpp */,
+				AA068EDB1174AB350002E9E0 /* GroupTransform.cpp */,
+				AA068EDC1174AB350002E9E0 /* GroupTransform.h */,
+				AA9E1C091117966F00380F0D /* LinkedList.cpp */,
+				AA9E1C0A1117966F00380F0D /* LinkedList.h */,
+				4C6E5964116D4E3E00A70E8F /* misc.c */,
+				4C6E5965116D4E3E00A70E8F /* misc.h */,
+				AA9E1C0B1117966F00380F0D /* Monitor.cpp */,
+				AA9E1C0C1117966F00380F0D /* Monitor.h */,
+				AA9E1C0D1117966F00380F0D /* NullTransform.cpp */,
+				AA9E1C0E1117966F00380F0D /* NullTransform.h */,
+				4C73822B112DCC4800EA003B /* SecCustomTransform.h */,
+				4C73822C112DCC4800EA003B /* SecCustomTransform.cpp */,
+				4CDF6DCA113C4E9E00C64234 /* SecDecodeTransform.h */,
+				AA9E1C0F1117966F00380F0D /* SecDigestTransform.cpp */,
+				AA9E1C101117966F00380F0D /* SecDigestTransform.h */,
+				5DD2E927114E90E2007429E7 /* SecEncryptTransform.h */,
+				4CDF6DCB113C4E9E00C64234 /* SecEncodeTransform.h */,
+				5DD2E928114E90E2007429E7 /* SecEncryptTransform.cpp */,
+				AA068EDD1174AB350002E9E0 /* SecGroupTransform.cpp */,
+				AA068EDE1174AB350002E9E0 /* SecGroupTransform.h */,
+				AA9E1C111117966F00380F0D /* SecNullTransform.cpp */,
+				5DD2E936114E91CC007429E7 /* SecSignVerifyTransform.h */,
+				5DD2E937114E91CC007429E7 /* SecSignVerifyTransform.c */,
+				AA9E1C121117966F00380F0D /* SecNullTransform.h */,
+				AA9E1C131117966F00380F0D /* SecTransform.cpp */,
+				AA9E1C141117966F00380F0D /* SecTransform.h */,
+				AA068EED1174ABB20002E9E0 /* SecTransformInternal.h */,
+				AA9E1C161117966F00380F0D /* SingleShotSource.cpp */,
+				AA9E1C171117966F00380F0D /* SingleShotSource.h */,
+				AA9E1C181117966F00380F0D /* Source.cpp */,
+				AA9E1C191117966F00380F0D /* Source.h */,
+				AA9E1C1A1117966F00380F0D /* StreamSource.cpp */,
+				AA9E1C1B1117966F00380F0D /* StreamSource.h */,
+				AA9E1C1C1117966F00380F0D /* Transform.cpp */,
+				AA9E1C1D1117966F00380F0D /* Transform.h */,
+				AA9E1C1E1117966F00380F0D /* TransformFactory.cpp */,
+				AA9E1C1F1117966F00380F0D /* TransformFactory.h */,
+				AA9E1C201117966F00380F0D /* Utilities.cpp */,
+				AA9E1C211117966F00380F0D /* Utilities.h */,
+				4C010C4B121AFCA70094CB72 /* SecExternalSourceTransform.h */,
+				4C010C4C121AFCA70094CB72 /* SecExternalSourceTransform.cpp */,
+				AA957FCA122C571E00181BE1 /* SecTransformReadTransform.h */,
+				AA957FD4122C57AF00181BE1 /* SecTransformReadTransform.cpp */,
+				4CB89E61124D5667004DEC20 /* SecTransformValidator.h */,
+				AA068648138C42520059E73E /* SecReadTransform.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		4CBCBEB01130A2AB00CC18E9 /* misc-tests */ = {
+			isa = PBXGroup;
+			children = (
+				4CD87F3D1130A34700A98C5E /* 100-sha2.m */,
+				4C010B99121AE9960094CB72 /* speed-test.h */,
+				4C010B9A121AE9960094CB72 /* speed-test.mm */,
+			);
+			name = "misc-tests";
+			sourceTree = "<group>";
+		};
+		AA9E1CA31117A67D00380F0D /* Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				AACAD86B11628E700070BA52 /* libsecurity_transform_core.xcconfig */,
+				AA9E1CAD1117A6E000380F0D /* libsecurity_transform_Development.xcconfig */,
+				AA9E1CAE1117A6F200380F0D /* libsecurity_transform_Deployment.xcconfig */,
+				AA9E1CAF1117A70300380F0D /* libsecurity_transform.Default.xcconfig */,
+				AA9E1CB01117A78C00380F0D /* security_transform_Development.xcconfig */,
+				AA9E1CB11117A7A300380F0D /* security_transform_Deployment.xcconfig */,
+				AA9E1CB21117A7BA00380F0D /* security_transform_Default.xcconfig */,
+			);
+			path = Configurations;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA9E1C2D1117966F00380F0D /* SecDigestTransform.h in Headers */,
+				AA068646138C420C0059E73E /* SecReadTransform.h in Headers */,
+				AA9E1C311117966F00380F0D /* SecTransform.h in Headers */,
+				4C73822D112DCC4800EA003B /* SecCustomTransform.h in Headers */,
+				4CDF6DCD113C4E9E00C64234 /* SecDecodeTransform.h in Headers */,
+				4CDF6DCE113C4E9E00C64234 /* SecEncodeTransform.h in Headers */,
+				5DD2E929114E90E2007429E7 /* SecEncryptTransform.h in Headers */,
+				5DD2E938114E91CC007429E7 /* SecSignVerifyTransform.h in Headers */,
+				AA957FCB122C571E00181BE1 /* SecTransformReadTransform.h in Headers */,
+				AA9E1C231117966F00380F0D /* CoreFoundationBasics.h in Headers */,
+				AA9E1C251117966F00380F0D /* Digest.h in Headers */,
+				4CB89E62124D5667004DEC20 /* SecTransformValidator.h in Headers */,
+				AA9E1C2F1117966F00380F0D /* SecNullTransform.h in Headers */,
+				AA068EEE1174ABB20002E9E0 /* SecTransformInternal.h in Headers */,
+				AA9E1C271117966F00380F0D /* LinkedList.h in Headers */,
+				AA9E1C291117966F00380F0D /* Monitor.h in Headers */,
+				AA9E1C2B1117966F00380F0D /* NullTransform.h in Headers */,
+				AA9E1C341117966F00380F0D /* SingleShotSource.h in Headers */,
+				AA9E1C361117966F00380F0D /* Source.h in Headers */,
+				AA9E1C381117966F00380F0D /* StreamSource.h in Headers */,
+				AA9E1C3A1117966F00380F0D /* Transform.h in Headers */,
+				AA9E1C3C1117966F00380F0D /* TransformFactory.h in Headers */,
+				AA9E1C3E1117966F00380F0D /* Utilities.h in Headers */,
+				4C0113521468693100E4F866 /* SecMaskGenerationFunctionTransform.h in Headers */,
+				5DD2E91E114E9044007429E7 /* EncryptTransform.h in Headers */,
+				5DD2E925114E9094007429E7 /* EncryptTransformUtilities.h in Headers */,
+				4C6E5967116D4E3E00A70E8F /* misc.h in Headers */,
+				AA068EE01174AB350002E9E0 /* GroupTransform.h in Headers */,
+				AA068EE21174AB350002E9E0 /* SecGroupTransform.h in Headers */,
+				AA9781A91175475500699E38 /* c++utils.h in Headers */,
+				5DCAD5B811F0E099003F2E7A /* SecCollectTransform.h in Headers */,
+				4C010C52121B00350094CB72 /* SecExternalSourceTransform.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4C010B86121AE8DF0094CB72 /* input-speed-test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C010B97121AE9340094CB72 /* Build configuration list for PBXNativeTarget "input-speed-test" */;
+			buildPhases = (
+				4C010B84121AE8DF0094CB72 /* Sources */,
+				4C010B85121AE8DF0094CB72 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C010B91121AE9070094CB72 /* PBXTargetDependency */,
+			);
+			name = "input-speed-test";
+			productName = "input-speed-test";
+			productReference = 4C010B87121AE8DF0094CB72 /* input-speed-test */;
+			productType = "com.apple.product-type.tool";
+		};
+		4C738256112DF65200EA003B /* unit-tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C73825C112DF65400EA003B /* Build configuration list for PBXNativeTarget "unit-tests" */;
+			buildPhases = (
+				4C738252112DF65200EA003B /* Resources */,
+				4C738253112DF65200EA003B /* Sources */,
+				4C738254112DF65200EA003B /* Frameworks */,
+				4C738255112DF65200EA003B /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C817256112F030F007F84D6 /* PBXTargetDependency */,
+			);
+			name = "unit-tests";
+			productName = "unit-tests";
+			productReference = 4C738257112DF65200EA003B /* unit-tests.octest */;
+			productType = "com.apple.product-type.bundle.ocunit-test";
+		};
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_transform" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_transform;
+			productName = libsecurity_transform;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		4CBCBEB51130A2D700CC18E9 /* 100-sha2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CBCBEBC1130A2DB00CC18E9 /* Build configuration list for PBXNativeTarget "100-sha2" */;
+			buildPhases = (
+				4CBCBEB31130A2D700CC18E9 /* Sources */,
+				4CBCBEB41130A2D700CC18E9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4CD880001131E0F500A98C5E /* PBXTargetDependency */,
+			);
+			name = "100-sha2";
+			productName = "100-sha2";
+			productReference = 4CBCBEB61130A2D700CC18E9 /* 100-sha2 */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+			};
+			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_transform" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */,
+				4C738256112DF65200EA003B /* unit-tests */,
+				4CBCBEB51130A2D700CC18E9 /* 100-sha2 */,
+				4C010B86121AE8DF0094CB72 /* input-speed-test */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4C738252112DF65200EA003B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C738255112DF65200EA003B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4C010B84121AE8DF0094CB72 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C010B9B121AE9960094CB72 /* speed-test.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C738253112DF65200EA003B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DD2E9B5114E986D007429E7 /* custom.mm in Sources */,
+				4C01135C14686F2600E4F866 /* NSData+HexString.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA9E1C221117966F00380F0D /* CoreFoundationBasics.cpp in Sources */,
+				AA9E1C241117966F00380F0D /* Digest.cpp in Sources */,
+				AA9E1C261117966F00380F0D /* LinkedList.cpp in Sources */,
+				AA9E1C281117966F00380F0D /* Monitor.cpp in Sources */,
+				AA9E1C2A1117966F00380F0D /* NullTransform.cpp in Sources */,
+				AA9E1C2C1117966F00380F0D /* SecDigestTransform.cpp in Sources */,
+				AA9E1C2E1117966F00380F0D /* SecNullTransform.cpp in Sources */,
+				AA9E1C301117966F00380F0D /* SecTransform.cpp in Sources */,
+				AA9E1C331117966F00380F0D /* SingleShotSource.cpp in Sources */,
+				AA9E1C351117966F00380F0D /* Source.cpp in Sources */,
+				AA9E1C371117966F00380F0D /* StreamSource.cpp in Sources */,
+				AA9E1C391117966F00380F0D /* Transform.cpp in Sources */,
+				AA9E1C3B1117966F00380F0D /* TransformFactory.cpp in Sources */,
+				AA9E1C3D1117966F00380F0D /* Utilities.cpp in Sources */,
+				4C73822E112DCC4800EA003B /* SecCustomTransform.cpp in Sources */,
+				4CDF6DCC113C4E9E00C64234 /* EncodeDecodeTransforms.c in Sources */,
+				5DD2E91F114E9044007429E7 /* EncryptTransform.cpp in Sources */,
+				5DD2E926114E9094007429E7 /* EncryptTransformUtilities.cpp in Sources */,
+				5DD2E92A114E90E2007429E7 /* SecEncryptTransform.cpp in Sources */,
+				5DD2E939114E91CC007429E7 /* SecSignVerifyTransform.c in Sources */,
+				4C6E5966116D4E3E00A70E8F /* misc.c in Sources */,
+				AA068EDF1174AB350002E9E0 /* GroupTransform.cpp in Sources */,
+				AA068EE11174AB350002E9E0 /* SecGroupTransform.cpp in Sources */,
+				AA9781AA1175475500699E38 /* c++utils.cpp in Sources */,
+				5DCAD5B711F0E099003F2E7A /* SecCollectTransform.cpp in Sources */,
+				4C010C53121B00440094CB72 /* SecExternalSourceTransform.cpp in Sources */,
+				AA957FD5122C57AF00181BE1 /* SecTransformReadTransform.cpp in Sources */,
+				4C0113511468693100E4F866 /* SecMaskGenerationFunctionTransform.c in Sources */,
+				4C27A37814F2DCB4007FCA66 /* CEncryptDecrypt.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CBCBEB31130A2D700CC18E9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CD87F501130A49400A98C5E /* 100-sha2.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C010B91121AE9070094CB72 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */;
+			targetProxy = 4C010B90121AE9070094CB72 /* PBXContainerItemProxy */;
+		};
+		4C817256112F030F007F84D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */;
+			targetProxy = 4C817255112F030F007F84D6 /* PBXContainerItemProxy */;
+		};
+		4CD880001131E0F500A98C5E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */;
+			targetProxy = 4CD87FFF1131E0F500A98C5E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4C010B89121AE8DF0094CB72 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PRODUCT_NAME = "input-speed-test";
+			};
+			name = Debug;
+		};
+		4C010B8B121AE8DF0094CB72 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PRODUCT_NAME = "input-speed-test";
+			};
+			name = Release;
+		};
+		4C738259112DF65400EA003B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+				);
+				INFOPLIST_FILE = "unit-tests-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				PRODUCT_NAME = "unit-tests";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Debug;
+		};
+		4C73825B112DF65400EA003B /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+				);
+				INFOPLIST_FILE = "unit-tests-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				PRODUCT_NAME = "unit-tests";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Release;
+		};
+		4CBCBEB91130A2DB00CC18E9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-lstdc++",
+				);
+				PRODUCT_NAME = "100-sha2";
+			};
+			name = Debug;
+		};
+		4CBCBEBB1130A2DB00CC18E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-lstdc++",
+				);
+				PRODUCT_NAME = "100-sha2";
+			};
+			name = Release;
+		};
+		C27AD4010987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DCOM_APPLE_SECURITY_SANE_INCLUDES",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
+			};
+			name = Debug;
+		};
+		C27AD4030987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DCOM_APPLE_SECURITY_SANE_INCLUDES",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
+			};
+			name = Release;
+		};
+		C27AD4050987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73A1471F6DF00F2B224 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4070987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18BBC73C1471F6DF00F2B224 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4C010B97121AE9340094CB72 /* Build configuration list for PBXNativeTarget "input-speed-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C010B89121AE8DF0094CB72 /* Debug */,
+				4C010B8B121AE8DF0094CB72 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4C73825C112DF65400EA003B /* Build configuration list for PBXNativeTarget "unit-tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C738259112DF65400EA003B /* Debug */,
+				4C73825B112DF65400EA003B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CBCBEBC1130A2DB00CC18E9 /* Build configuration list for PBXNativeTarget "100-sha2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CBCBEB91130A2DB00CC18E9 /* Debug */,
+				4CBCBEBB1130A2DB00CC18E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_transform" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4010987FCDF001272E0 /* Debug */,
+				C27AD4030987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_transform" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4050987FCDF001272E0 /* Debug */,
+				C27AD4070987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

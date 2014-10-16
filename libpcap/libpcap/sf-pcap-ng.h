@@ -26,26 +26,16 @@
 #ifndef sf_pcap_ng_h
 #define	sf_pcap_ng_h
 
-/*
- * Block cursor - used when processing the contents of a block.
- * Contains a pointer into the data being processed and a count
- * of bytes remaining in the block.
- */
-struct block_cursor {
-	u_char		*data;
-	size_t		data_remaining;
-	bpf_u_int32	block_type;
-};
+extern pcap_t *pcap_ng_check_header(bpf_u_int32 magic, FILE *fp,
+    u_int precision, char *errbuf, int *err, int isng);
 
+#ifdef __APPLE__
+struct block_cursor;
 
-extern void * get_from_block_data(struct block_cursor *, size_t ,
-                           char *);
-struct pcapng_option_header * get_opthdr_from_block_data(struct pcapng_option_header *, int,
-						   struct block_cursor *, char *);
+void *
+get_from_block_data(struct block_cursor *cursor, size_t chunk_size,
+		    char *errbuf);
 
-void * get_optvalue_from_block_data(struct block_cursor *,
-									struct pcapng_option_header *, char *);
-
-extern int pcap_ng_check_header(pcap_t *, bpf_u_int32, FILE *, char *, int);
+#endif /* __APPLE__ */
 
 #endif

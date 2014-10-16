@@ -1,0 +1,146 @@
+#! /bin/csh -f
+#
+# run client side of SSL protocol version test. Run this script
+# after starting protServe script.
+#
+#set SSL_NEWROOT=newcert.cer
+set SSL_NEWROOT=localcert.cer
+#
+# set allow hostname spoof for use with numeric IP address (e.g., 10.0.61.6)
+# if the server cert doesn't have a subjectAltName.
+#
+#set NAME_SPOOF=H
+set NAME_SPOOF=
+#
+# In SSL_AUTO mode, we wait SSL_WAIT seconds between runs of sslServer from
+# the protServe script to allow the sslServer to get initialized. 
+# Otherwise we wait manually via the sh script doprompt.
+#
+set SSL_AUTO=0
+#
+set SSL_HOST=localhost
+set QUIET=
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case a:
+            set SSL_AUTO = 1
+            shift
+            breaksw
+        case q:
+            set QUIET = q
+            shift
+            breaksw
+        default:
+            echo 'Usage: protClient [a(auto)]'
+            exit(1)
+    endsw
+end
+#
+# options for every run of sslViewer
+#
+set STD_OPTS="$SSL_HOST a $SSL_NEWROOT $NAME_SPOOF"
+
+echo ===== unrestricted server via SSLSetProtocolVersion
+set SSL_PORT=1200
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t o m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 o m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=2t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3t m=t || exit(1)
+
+doprompt $SSL_AUTO $QUIET
+
+echo ===== server restricted to SSL2,3 via SSLSetProtocolVersion
+set SSL_PORT=1201
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=3 || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl3 restriction" \
+	$STD_OPTS P=$SSL_PORT t o || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl3 restriction" \
+	$STD_OPTS P=$SSL_PORT g=t || exit(1)
+	
+doprompt $SSL_AUTO $QUIET
+
+echo ===== server restricted to SSL2 via SSLSetProtocolVersion
+set SSL_PORT=1202
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=2 || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl2 restriction" \
+	$STD_OPTS P=$SSL_PORT t o || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl2 restriction" \
+	$STD_OPTS P=$SSL_PORT 3 o || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl2 restriction" \
+	$STD_OPTS P=$SSL_PORT g=3t || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl2 restriction" \
+	$STD_OPTS P=$SSL_PORT g=t || exit(1)
+runProtClient $QUIET e "Expect error due to server ssl2 restriction" \
+	$STD_OPTS P=$SSL_PORT g=3 || exit(1)
+
+doprompt $SSL_AUTO $QUIET
+
+echo ===== unrestricted server via SSLSetProtocolVersionEnabled
+set SSL_PORT=1203
+
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t o m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 o m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=2t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3t m=t || exit(1)
+
+doprompt $SSL_AUTO $QUIET
+
+echo ===== server restricted to SSL3, TLS1 via SSLSetProtocolVersionEnabled
+set SSL_PORT=1204
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t o m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 o m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=2t m=t || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3 m=3 || exit(1)
+runProtClient $QUIET e "Expect error due to server SSL3,TLS1 restriction " \
+	$STD_OPTS P=$SSL_PORT 2 || exit(1)
+runProtClient $QUIET e "Expect error due to server SSL3,TLS1 restriction " \
+	$STD_OPTS P=$SSL_PORT g=2 || exit(1)
+
+doprompt $SSL_AUTO $QUIET
+
+echo ===== server restricted to SSL2,3 via SSLSetProtocolVersionEnabled
+set SSL_PORT=1205
+
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT t m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 3 o m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT 2 m=2 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23t m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=23 m=3 || exit(1)
+runProtClient $QUIET $STD_OPTS P=$SSL_PORT g=3 m=3 || exit(1)
+#
+# Odd case, we try for TLS1, server should respond with 3, which 
+# we don't support
+runProtClient $QUIET e "Expect error due to server SSL2,3 restriction" \
+	$STD_OPTS P=$SSL_PORT g=2t || exit(1)
+runProtClient $QUIET e "Expect error due to server SSL2,3 restriction" \
+	$STD_OPTS P=$SSL_PORT t o || exit(1)
+runProtClient $QUIET e "Expect error due to server SSL2,3 restriction" \
+	$STD_OPTS P=$SSL_PORT g=t || exit(1)
+
+echo =====
+echo ===== protClient success
+echo =====

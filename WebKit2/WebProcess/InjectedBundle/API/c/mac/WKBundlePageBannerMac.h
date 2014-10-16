@@ -26,8 +26,8 @@
 #ifndef WKBundlePageBannerMac_h
 #define WKBundlePageBannerMac_h
 
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKBundlePageBanner.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKBundlePageBanner.h>
 
 @class CALayer;
 
@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-WK_EXPORT WKBundlePageBannerRef WKBundlePageBannerCreateBannerWithCALayer(CALayer *layer, int height, WKBundlePageBannerClient * client);
+WK_EXPORT WKBundlePageBannerRef WKBundlePageBannerCreateBannerWithCALayer(CALayer *layer, int height, WKBundlePageBannerClientBase* client);
 
 WK_EXPORT CALayer * WKBundlePageBannerGetLayer(WKBundlePageBannerRef pageBanner);
 

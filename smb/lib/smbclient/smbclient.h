@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -163,13 +163,14 @@ SMBMountShare(
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
 
-	/*! Don't use NTFS Streams even if they are supported by the server. */
-#define kSMBMntOptionNoStreams			0x00000001
-	/*! Don't use Remote Notifications even if they are supported by the server. */
-#define kSMBMntOptionNoNotifcations		0x00000002
-	/*! Mount the volume soft, return time out error durring reconnect. */
-#define kSMBMntOptionSoftMount			0x00000004
-#define kSMBReservedTMMount				0x00000008
+/*! Don't use NTFS Streams even if they are supported by the server. */
+#define kSMBMntOptionNoStreams          0x00000001
+/*! Don't use Remote Notifications even if they are supported by the server. */
+#define kSMBMntOptionNoNotifcations     0x00000002
+/*! Mount the volume soft, return time out error during reconnect. */
+#define kSMBMntOptionSoftMount          0x00000004
+#define kSMBReservedTMMount             0x00000008
+#define kSMBMntForceNewSession          0x00000010
 
 /*!
  * @function SMBOpenServerWithMountPoint
@@ -239,7 +240,7 @@ typedef struct SMBServerPropertiesV1
 	uint32_t	version;
     SMBAuthType authType;
     SMBDialect  dialect;
-    uint64_t    capabilities;	/* Either SMB or SMB2 capability flags */
+    uint64_t    capabilities;	/* Either SMB or SMB 2/3 capability flags */
 	uint64_t    maxReadBytes;
     uint64_t    maxWriteBytes;
     uint64_t    maxTransactBytes;
@@ -588,6 +589,7 @@ SMBConvertFromUTF8ToUTF16(
 	   uint64_t options)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
+
 
 #ifdef __cplusplus
 } // extern "C"

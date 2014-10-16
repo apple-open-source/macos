@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -27,11 +27,12 @@
  */
 
 #include "config.h"
+#include "Page.h"
+
 #include "DocumentLoader.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
-#include "Page.h"
+#include "MainFrame.h"
 
 namespace WebCore {
 
@@ -40,15 +41,17 @@ void Page::addSchedulePair(PassRefPtr<SchedulePair> prpPair)
     RefPtr<SchedulePair> pair = prpPair;
 
     if (!m_scheduledRunLoopPairs)
-        m_scheduledRunLoopPairs = adoptPtr(new SchedulePairHashSet);
+        m_scheduledRunLoopPairs = std::make_unique<SchedulePairHashSet>();
     m_scheduledRunLoopPairs->add(pair);
 
-    for (Frame* frame = m_mainFrame.get(); frame; frame = frame->tree()->traverseNext()) {
-        if (DocumentLoader* documentLoader = frame->loader()->documentLoader())
-            documentLoader->schedule(pair.get());
-        if (DocumentLoader* documentLoader = frame->loader()->provisionalDocumentLoader())
-            documentLoader->schedule(pair.get());
+#if !PLATFORM(IOS)
+    for (Frame* frame = m_mainFrame.get(); frame; frame = frame->tree().traverseNext()) {
+        if (DocumentLoader* documentLoader = frame->loader().documentLoader())
+            documentLoader->schedule(*pair);
+        if (DocumentLoader* documentLoader = frame->loader().provisionalDocumentLoader())
+            documentLoader->schedule(*pair);
     }
+#endif
 
     // FIXME: make SharedTimerMac use these SchedulePairs.
 }
@@ -62,12 +65,14 @@ void Page::removeSchedulePair(PassRefPtr<SchedulePair> prpPair)
     RefPtr<SchedulePair> pair = prpPair;
     m_scheduledRunLoopPairs->remove(pair);
 
-    for (Frame* frame = m_mainFrame.get(); frame; frame = frame->tree()->traverseNext()) {
-        if (DocumentLoader* documentLoader = frame->loader()->documentLoader())
-            documentLoader->unschedule(pair.get());
-        if (DocumentLoader* documentLoader = frame->loader()->provisionalDocumentLoader())
-            documentLoader->unschedule(pair.get());
+#if !PLATFORM(IOS)
+    for (Frame* frame = m_mainFrame.get(); frame; frame = frame->tree().traverseNext()) {
+        if (DocumentLoader* documentLoader = frame->loader().documentLoader())
+            documentLoader->unschedule(*pair);
+        if (DocumentLoader* documentLoader = frame->loader().provisionalDocumentLoader())
+            documentLoader->unschedule(*pair);
     }
+#endif
 }
 
 } // namespace

@@ -135,15 +135,6 @@ vpn_connect(struct bound_addr *srv, int oper)
 	((struct sockaddr_in *)(dst))->sin_port = 500;
 	((struct sockaddr_in *)(dst))->sin_addr.s_addr = srv->address;
 
-	/*
-	 * Find the source address
-	 */	 
-	if ((local = getlocaladdr((struct sockaddr *)dst)) == NULL) {
-		plog(ASL_LEVEL_ERR, 
-			"cannot get local address\n");
-		goto out1;
-	}
-
 	/* find appropreate configuration */
 	rmconf = getrmconf(dst);
 	if (rmconf == NULL) {
@@ -152,7 +143,20 @@ vpn_connect(struct bound_addr *srv, int oper)
 			"for %s\n", saddrwop2str((struct sockaddr *)dst));
 		goto out1;
 	}
-
+	
+	/*
+	 * Find the source address
+	 */
+	if (rmconf->forced_local != NULL) {
+		if ((local = dupsaddr(rmconf->forced_local)) == NULL) {
+			plog(ASL_LEVEL_ERR, "failed to duplicate local address\n");
+			goto out1;
+		}
+	} else if ((local = getlocaladdr((struct sockaddr *)dst)) == NULL) {
+		plog(ASL_LEVEL_ERR, "cannot get local address\n");
+		goto out1;
+	}
+	
 	/* get remote IP address and port number. */
 	if ((remote = dupsaddr(dst)) == NULL) {
 		plog(ASL_LEVEL_ERR, 
@@ -189,10 +193,8 @@ vpn_connect(struct bound_addr *srv, int oper)
 
 	IPSECLOGASLMSG("IPSec connecting to server %s\n",
 				   saddrwop2str((struct sockaddr *)remote));
-    {
-		if (ikev1_ph1begin_i(NULL, rmconf, remote, local, oper) < 0)
-			goto out1;
-	}
+	if (ikev1_ph1begin_i(NULL, rmconf, remote, local, oper) < 0)
+		goto out1;
 	error = 0;
 
 out1:
@@ -486,7 +488,6 @@ vpn_get_config(phase1_handle_t *iph1, struct vpnctl_status_phase_change **msg, s
 
 	return 0;
 }
-
 
 int
 vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)

@@ -26,6 +26,8 @@
 #ifndef WKPageVisibilityTypes_h
 #define WKPageVisibilityTypes_h
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,8 +35,7 @@ extern "C" {
 enum {
     kWKPageVisibilityStateVisible,
     kWKPageVisibilityStateHidden,
-    kWKPageVisibilityStatePrerender,
-    kWKPageVisibilityStateUnloaded
+    kWKPageVisibilityStatePrerender
 };
 typedef uint32_t WKPageVisibilityState;
 

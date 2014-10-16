@@ -1111,6 +1111,8 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 			BUNLOCK(bf->block);
 		}
 		if (addr) break;
+		if (!uselarge && (size >= (1 << (kBPagesLog2 - 2)))) break;
+
 		IOLockLock(bf->rlock);
 		bf->waiting_space = true;
 		IOLockSleep(bf->rlock, &bf->waiting_space, THREAD_UNINT);

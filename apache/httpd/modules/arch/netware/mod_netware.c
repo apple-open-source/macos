@@ -29,6 +29,7 @@
 #include "apr_optional.h"
 #include "apr_lib.h"
 #include "mod_cgi.h"
+#include "mpm_common.h"
 
 #ifdef NETWARE
 
@@ -50,7 +51,7 @@ static void *create_netware_dir_config(apr_pool_t *p, char *dir)
     new->file_handler_mode = apr_table_make(p, 10);
     new->extra_env_vars = apr_table_make(p, 10);
 
-    apr_table_set(new->file_type_handlers, "NLM", "OS");
+    apr_table_setn(new->file_type_handlers, "NLM", "OS");
 
     return new;
 }
@@ -101,7 +102,6 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
     char *cmd_only, *ptr;
     const char *new_cmd;
     netware_dir_config *d;
-    apr_file_t *fh;
     const char *args = "";
 
     d = (netware_dir_config *)ap_get_module_config(r->per_dir_config,
@@ -128,7 +128,7 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
     for (ptr = cmd_only; *ptr && (*ptr != ' '); ptr++);
     *ptr = '\0';
 
-    /* Figure out what the extension is so that we can matche it. */
+    /* Figure out what the extension is so that we can match it. */
     ext = strrchr(apr_filepath_name_get(cmd_only), '.');
 
     /* If there isn't an extension then give it an empty string */
@@ -144,7 +144,7 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
     new_cmd = apr_table_get(d->file_type_handlers, ext);
     e_info->detached = 1;
     if (new_cmd == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02135)
                   "Could not find a command associated with the %s extension", ext);
         return APR_EBADF;
     }
@@ -167,9 +167,19 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
     return APR_SUCCESS;
 }
 
+static int
+netware_pre_config(apr_pool_t *pconf, apr_pool_t *plog,
+                 apr_pool_t *ptemp)
+{
+    ap_sys_privileges_handlers(1);
+    return OK;
+}
+
 static void register_hooks(apr_pool_t *p)
 {
     APR_REGISTER_OPTIONAL_FN(ap_cgi_build_command);
+    ap_hook_pre_config(netware_pre_config,
+                       NULL, NULL, APR_HOOK_FIRST);
 }
 
 static const command_rec netware_cmds[] = {
@@ -181,7 +191,7 @@ AP_INIT_TAKE23("CGIMapExtension", set_extension_map, NULL, OR_FILEINFO,
 { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA netware_module = {
+AP_DECLARE_MODULE(netware) = {
    STANDARD20_MODULE_STUFF,
    create_netware_dir_config,     /* create per-dir config */
    merge_netware_dir_configs,     /* merge per-dir config */

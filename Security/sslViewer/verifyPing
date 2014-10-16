@@ -1,0 +1,143 @@
+#! /bin/csh -f
+#
+# run sslViewer on a list of known sites, using sslViewer's 'verify 
+# protocol' option.
+# Arguments to this script are passed on to sslViewer unmodified.
+#
+set ARG_LIST = 
+while ( $#argv > 0 )
+	set thisArg = "$argv[1]"
+	set ARG_LIST = "$ARG_LIST $thisArg"
+	shift
+end
+echo Starting verifyPing\; args: $ARG_LIST
+
+#
+# Sites which support all three protocols
+#
+# this flaked out yet agaqin...   www.cduniverse.com 
+set FULL_TLS_SITES = ( www.amazon.com \
+   mypage.apple.com \
+   gmail.google.com ) 
+
+#
+# Sites which support SSLv2 and SSLv3 only
+# None known currently
+#
+set FULL_SSL_SITES = 
+
+#
+# Sites which support SSLv2 only
+#
+# store.apple.com seems to have been permanently upgraded.
+#
+#set SSLV2_SITES = ( store.apple.com )
+
+#
+# Sites which support only TLSv1 and SSLv3
+# remote.harpercollins.com asks for a client cert but works if you don't give it one
+#
+set TLS_SSL3_SITES = ( www.thawte.com \
+	store.apple.com \
+	digitalid.verisign.com \
+	www.firstamlink.com \
+	remote.harpercollins.com \
+	mbanxonlinebanking.harrisbank.com \
+	www.sun.com \
+	directory.umich.edu \
+	account.authorize.net )
+
+#
+# Sites which support all three protocols if 'r' option is specified for SSL2 only
+# I.e., these really need to be able to transmit an intermediate cert for us
+# to verify them, and SSLv2 doesn't allow that. 
+#
+# 9/24/04 - secure.authorize.net keeps throwing SIGPIPE
+# secure.authorize.net
+# 
+# ktt2.keybank.com doesn't seem to be around anymore
+set FULL_TLS_ANYROOT_SITES = ( weblogin.umich.edu )
+
+#
+# Here's one which supports TLSv1 and SSLv2 only (!). It tests the Entrust root cert.
+# set TLS_SSL2_SITES = ( directory.umich.edu)
+#
+set TLS_SSL2_SITES = 
+
+# SSLv3 only - try with TLSv1 
+set SSL3_ONLY_SITES = ( www.verisign.com \
+	www.cmarket.jp )
+
+#
+# SSLv3 and TLS with any root set
+# office.bis.bonn.org sends a huge pile of certs per radar 3859283 and also asks
+# for a client cert
+#
+# 12/14/05 : office.bis.bonn.org is offline
+#
+# set TLS_SSL3_ANYROOT_SITES = ( office.bis.bonn.org )
+set TLS_SSL3_ANYROOT_SITES = (  )
+
+#
+# All three protocols.
+# One run with all three protocols using SSLv2-compatible Hello
+# One run for each of TLSv1 and SSLv3 ONLY using SLSv3 Hello
+#
+foreach site ($FULL_TLS_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v L $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v t o $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 o $ARG_LIST || exit(1);
+end
+
+# 
+# SSLv3 only
+# Try with each of 
+# TLSv1 w/SSLv2 Hello
+# SSLv3 w/SSLv3 Hello
+#
+foreach site ($SSL3_ONLY_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v t m=3 $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v o 3 $ARG_LIST || exit(1);
+end
+
+#
+# SSLV2 seems to be obsolete in the real world
+#
+#foreach site ($SSLV2_SITES);
+#	$LOCAL_BUILD_DIR/sslViewer $site m=2 $ARG_LIST || exit(1);
+#	$LOCAL_BUILD_DIR/sslViewer $site 2 v $ARG_LIST || exit(1);
+#end
+
+#
+# All three protocols, but SSLv2 needs 'any root'
+# Test TLSv1 and SSLv3 with both SSLv3 and SSLv2 Hello
+#
+foreach site ($FULL_TLS_ANYROOT_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v t $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v t o $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 o $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 2 r $ARG_LIST || exit(1);
+end
+
+#
+# No SSLv2
+# Test TLSv1 and SSLv3 with both SSLv3 and SSLv2 Hello
+#
+foreach site ($TLS_SSL3_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v t $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v t o $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 o $ARG_LIST || exit(1);
+end
+
+# try SSLv3 and expect SSLV2
+foreach site ($TLS_SSL2_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v t $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 m=2 $ARG_LIST || exit(1);
+end
+# TLS end SSLv3 with any root
+foreach site ($TLS_SSL3_ANYROOT_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site v t r $ARG_LIST || exit(1);
+	$LOCAL_BUILD_DIR/sslViewer $site v 3 r $ARG_LIST || exit(1);
+end

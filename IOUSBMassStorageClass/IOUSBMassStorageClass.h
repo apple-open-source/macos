@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,7 +180,7 @@ private:
 protected:
     // Reserve space for future expansion.
     
-    // We flatten the ExpansionData for iOS as we're relieved of the burden binary compatibility.
+    // We flatten the ExpansionData for iOS since we're relieved of the burden binary compatibility.
 #ifndef EMBEDDED
     struct ExpansionData
 	{
@@ -212,10 +212,11 @@ protected:
 		UInt32					fRequiredMaxBusStall;
 #endif // EMBEDDED
 		bool					fBlockOnResetThread;
-        UInt32					fPostDeviceResetCoolDownInterval;
 #ifndef EMBEDDED
+        UInt32					fPostDeviceResetCoolDownInterval;
 		bool					fSuspendOnReboot;
 #endif // EMBEDDED
+		UInt8					fResetStatus;
         
 #ifndef EMBEDDED
 	};
@@ -246,10 +247,18 @@ protected:
     #define fBlockOnResetThread					reserved->fBlockOnResetThread
     #define fPostDeviceResetCoolDownInterval	reserved->fPostDeviceResetCoolDownInterval
     #define fSuspendOnReboot					reserved->fSuspendOnReboot
+    #define fResetStatus						reserved->fResetStatus	
 #endif // EMBEDDED
     
 	// Enumerated constants used to control various aspects of this
 	// driver.
+
+	// Enumerates the fResetStatus
+	enum
+	{
+		kUSBResetStatusSuccess				= 0,
+		kUSBResetStatusFailure				= 1
+	};
 	
 	// Enumerations for Mass Storage Class Subclass types
 	enum
@@ -511,7 +520,7 @@ protected:
 		                	UInt32			bufferSizeRemaining );	/* OBSOLETE */
 #endif // EMBEDDED
     
-    void                ResetDeviceNow( bool waitForReset );
+	IOReturn       ResetDeviceNow( bool waitForReset );
 	
 	void                AbortCurrentSCSITask( void );
 	

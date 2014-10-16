@@ -30,6 +30,7 @@ const struct testlist {
     {testpass},
     {testmd4},
     {testmd5},
+    {testcrypto},
     {testldap},
     {testdbd},
     {testdate},

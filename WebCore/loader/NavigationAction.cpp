@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,6 +31,7 @@
 
 #include "Event.h"
 #include "FrameLoader.h"
+#include "ScriptController.h"
 
 namespace WebCore {
 
@@ -40,7 +41,7 @@ static NavigationType navigationType(FrameLoadType frameLoadType, bool isFormSub
         return NavigationTypeFormSubmitted;
     if (haveEvent)
         return NavigationTypeLinkClicked;
-    if (frameLoadType == FrameLoadTypeReload || frameLoadType == FrameLoadTypeReloadFromOrigin)
+    if (frameLoadType == FrameLoadType::Reload || frameLoadType == FrameLoadType::ReloadFromOrigin)
         return NavigationTypeReload;
     if (isBackForwardLoadType(frameLoadType))
         return NavigationTypeBackForward;
@@ -49,18 +50,21 @@ static NavigationType navigationType(FrameLoadType frameLoadType, bool isFormSub
 
 NavigationAction::NavigationAction()
     : m_type(NavigationTypeOther)
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 
 NavigationAction::NavigationAction(const ResourceRequest& resourceRequest)
     : m_resourceRequest(resourceRequest)
     , m_type(NavigationTypeOther)
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 
 NavigationAction::NavigationAction(const ResourceRequest& resourceRequest, NavigationType type)
     : m_resourceRequest(resourceRequest)
     , m_type(type)
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 
@@ -68,6 +72,7 @@ NavigationAction::NavigationAction(const ResourceRequest& resourceRequest, Frame
         bool isFormSubmission)
     : m_resourceRequest(resourceRequest)
     , m_type(navigationType(frameLoadType, isFormSubmission, 0))
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 
@@ -75,6 +80,7 @@ NavigationAction::NavigationAction(const ResourceRequest& resourceRequest, Navig
     : m_resourceRequest(resourceRequest)
     , m_type(type)
     , m_event(event)
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 
@@ -83,6 +89,7 @@ NavigationAction::NavigationAction(const ResourceRequest& resourceRequest, Frame
     : m_resourceRequest(resourceRequest)
     , m_type(navigationType(frameLoadType, isFormSubmission, event))
     , m_event(event)
+    , m_processingUserGesture(ScriptController::processingUserGesture())
 {
 }
 

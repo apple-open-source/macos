@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.2</a> &gt; <a href="./">モジュール</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">モジュール</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache モジュール mod_log_config</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_log_config.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_log_config.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_log_config.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_log_config.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_log_config.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
@@ -58,7 +59,6 @@
 <div id="quickview"><h3 class="directives">ディレクティブ</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#bufferedlogs">BufferedLogs</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#cookielog">CookieLog</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#customlog">CustomLog</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#logformat">LogFormat</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#transferlog">TransferLog</a></li>
@@ -134,43 +134,50 @@
         <td>応答の <code><var>Foobar</var>:</code> ヘッダの内容</td></tr>
 <tr><td><code>%p</code></td>
         <td>リクエストを扱っているサーバの正式なポート</td></tr>
-<tr class="odd"><td><code>%P</code></td>
+<tr class="odd"><td><code>%{<var>format</var>}p</code></td>
+        <td>サーバがリクエストを処理しているポートの公式
+        <span class="transnote">(<em>訳注:</em> canonical)</span> のポート番号か、
+        サーバの実際のポート番号か、クライアント側の実際のポート番号かです。
+        format に使える文字列は <code>canonical</code>, <code>local</code>,
+        <code>remote</code> になります。
+        </td></tr>
+<tr><td><code>%P</code></td>
         <td>リクエストを扱った子プロセスのプロセス ID</td></tr>
-<tr><td><code>%{<var>format</var>}P</code></td>
+<tr class="odd"><td><code>%{<var>format</var>}P</code></td>
         <td>リクエストを扱ったワーカーのプロセス ID かスレッド ID。
         <var>format</var> として有効な値は <code>pid</code>, <code>tid</code>,
         <code>hextid</code> です。<code>hextid</code> を使うには
         APR 1.2.0 以降が必要です。
         </td></tr>
-<tr class="odd"><td><code>%q</code></td>
+<tr><td><code>%q</code></td>
         <td>問い合せ文字列 (存在する場合は前に <code>?</code> が追加される。
         そうでない場合は空文字列)</td></tr>
-<tr><td><code>%r</code></td>
+<tr class="odd"><td><code>%r</code></td>
         <td>リクエストの最初の行</td></tr>
-<tr class="odd"><td><code>%s</code></td>
+<tr><td><code>%s</code></td>
         <td>ステータス。内部でリダイレクトされたリクエストは、元々の
          リクエストのステータス --- 最後のステータスは <code>%&gt;s</code>
     </td></tr>
-<tr><td><code>%t</code></td>
+<tr class="odd"><td><code>%t</code></td>
         <td>リクエストを受付けた時刻。
         CLF の時刻の書式 (標準の英語の書式)</td></tr>
-<tr class="odd"><td><code>%{<var>format</var>}t</code></td>
+<tr><td><code>%{<var>format</var>}t</code></td>
         <td><var>format</var> で与えられた書式による時刻。format は
          <code>strftime (3)</code> の
          書式である必要がある。(地域化されている可能性がある)</td></tr>
-<tr><td><code>%T</code></td>
+<tr class="odd"><td><code>%T</code></td>
         <td>リクエストを扱うのにかかった時間、秒単位</td></tr>
-<tr class="odd"><td><code>%u</code></td>
+<tr><td><code>%u</code></td>
         <td>リモートユーザ (認証によるもの。ステータス (<code>%s</code>) が
         401 のときは意味がないものである可能性がある)
     </td></tr>
-<tr><td><code>%U</code></td>
+<tr class="odd"><td><code>%U</code></td>
         <td>リクエストされた URL パス。クエリ文字列は含まない</td></tr>
-<tr class="odd"><td><code>%v</code></td>
+<tr><td><code>%v</code></td>
         <td>リクエストを扱っているサーバの正式な <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code></td></tr>
-<tr><td><code>%V</code></td>
+<tr class="odd"><td><code>%V</code></td>
         <td><code class="directive"><a href="../mod/core.html#usecanonicalname">UseCanonicalName</a></code> の設定によるサーバ名</td></tr>
-<tr class="odd"><td><code>%X</code></td>
+<tr><td><code>%X</code></td>
         <td>応答が完了したときの接続ステータス:
 
         <table>
@@ -188,11 +195,11 @@
         いましたが、これは歴史的に ssl が使用している
         <code>%{<var>var</var>}c</code>
         構文と衝突していました。)</p></td></tr>
-<tr><td><code>%I</code></td>
+<tr class="odd"><td><code>%I</code></td>
         <td>リクエストとヘッダを含む、受け取ったバイト数。
         0 にはならない。
         これを使用するためには <code class="module"><a href="../mod/mod_logio.html">mod_logio</a></code> が必要</td></tr>
-<tr class="odd"><td><code>%O</code></td>
+<tr><td><code>%O</code></td>
         <td>ヘッダを含む、送信したバイト数。0 にはならない。
         これを使用するためには <code class="module"><a href="../mod/mod_logio.html">mod_logio</a></code> が必要</td></tr>
 </table>
@@ -295,23 +302,6 @@
 
     <div class="note">このディレクティブは実験的なものですので、
     使用する際は注意してください。</div>
-
-</div>
-<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="CookieLog" id="CookieLog">CookieLog</a> <a name="cookielog" id="cookielog">ディレクティブ</a></h2>
-<table class="directive">
-<tr><th><a href="directive-dict.html#Description">説明:</a></th><td>クッキングのロギングのためのファイル名を設定する</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">構文:</a></th><td><code>CookieLog <var>filename</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト</td></tr>
-<tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Base</td></tr>
-<tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_log_config</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>このディレクティブは非推奨</td></tr>
-</table>
-    <p><code class="directive">CookieLog</code>
-    ディレクティブはクッキーのロギングのためのファイル名を
-    設定します。filename は <code class="directive"><a href="../mod/core.html#serverroot">ServerRoot</a></code>
-    からの相対パスです。このディレクティブは <code>mod_cookies</code> との互換性のためだけに
-    存在し、使用は推奨されていません。</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -471,13 +461,14 @@
 </div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_log_config.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_log_config.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_log_config.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_log_config.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_log_config.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_log_config.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_log_config.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -492,7 +483,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_log_config.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

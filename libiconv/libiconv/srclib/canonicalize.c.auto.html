@@ -1,0 +1,381 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>canonicalize.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">canonicalize.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Return the canonical absolute name of a given file.
+   Copyright (C) 1996-2003, 2005 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;config.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Avoid a clash of our rpl_realpath() function with the prototype in
+   &lt;stdlib.h&gt; on Solaris 2.5.1.  */</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">realpath</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">HAVE_CANONICALIZE_FILE_NAME</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;alloca.h&gt;</span>
+
+<span class="enscript-comment">/* Specification.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;canonicalize.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_UNISTD_H</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;unistd.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;limits.h&gt;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_SYS_PARAM_H</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/param.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">MAXSYMLINKS</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">MAXSYMLINKS</span> 20
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/stat.h&gt;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;errno.h&gt;</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">__set_errno</span>(e) errno = (e)
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">ENAMETOOLONG</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">ENAMETOOLONG</span> EINVAL
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;shlib-compat.h&gt;</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">SHLIB_COMPAT</span>(lib, introduced, obsoleted) 0
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">versioned_symbol</span>(lib, local, symbol, version)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">compat_symbol</span>(lib, local, symbol, version)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">weak_alias</span>(local, symbol)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">__canonicalize_file_name</span> canonicalize_file_name
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">__realpath</span> rpl_realpath
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;pathmax.h&quot;</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;allocsa.h&quot;</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">HAVE_GETCWD</span>
+#  <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">VMS</span>
+    <span class="enscript-comment">/* We want the directory in Unix syntax, not in VMS syntax.  */</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-function-name">__getcwd</span>(buf, max) getcwd (buf, max, 0)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">__getcwd</span> getcwd
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">__getcwd</span>(buf, max) getwd (buf)
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">__readlink</span> readlink
+  <span class="enscript-comment">/* On systems without symbolic links, call stat() instead of lstat().  */</span>
+# <span class="enscript-reference">if</span> !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">S_ISNLK</span> &amp;&amp; !<span class="enscript-variable-name">HAVE_READLINK</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">lstat</span> stat
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Return the canonical absolute name of file NAME.  A canonical name
+   does not contain any `.', `..' components nor any repeated path
+   separators ('/') or symlinks.  All path components must exist.  If
+   RESOLVED is null, the result is malloc'd; otherwise, if the
+   canonical name is PATH_MAX chars or more, returns null with `errno'
+   set to ENAMETOOLONG; if the name fits in fewer than PATH_MAX chars,
+   returns the name in RESOLVED.  If the name cannot be resolved and
+   RESOLVED is non-NULL, it contains the path of the first component
+   that cannot be resolved.  If the path can be resolved, RESOLVED
+   holds the same value as the value returned.  */</span>
+
+<span class="enscript-type">char</span> *
+<span class="enscript-function-name">__realpath</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name, <span class="enscript-type">char</span> *resolved)
+{
+  <span class="enscript-type">char</span> *rpath, *dest, *extra_buf = NULL;
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *start, *end, *rpath_limit;
+  <span class="enscript-type">long</span> <span class="enscript-type">int</span> path_max;
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">S_ISLNK</span>
+  <span class="enscript-type">int</span> num_links = 0;
+#<span class="enscript-reference">endif</span>
+
+  <span class="enscript-keyword">if</span> (name == NULL)
+    {
+      <span class="enscript-comment">/* As per Single Unix Specification V2 we must return an error if
+	 either parameter is a null pointer.  We extend this to allow
+	 the RESOLVED parameter to be NULL in case the we are expected to
+	 allocate the room for the return value.  */</span>
+      __set_errno (EINVAL);
+      <span class="enscript-keyword">return</span> NULL;
+    }
+
+  <span class="enscript-keyword">if</span> (name[0] == <span class="enscript-string">'\0'</span>)
+    {
+      <span class="enscript-comment">/* As per Single Unix Specification V2 we must return an error if
+	 the name argument points to an empty string.  */</span>
+      __set_errno (ENOENT);
+      <span class="enscript-keyword">return</span> NULL;
+    }
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">PATH_MAX</span>
+  path_max = PATH_MAX;
+#<span class="enscript-reference">else</span>
+  path_max = pathconf (name, _PC_PATH_MAX);
+  <span class="enscript-keyword">if</span> (path_max &lt;= 0)
+    path_max = 1024;
+#<span class="enscript-reference">endif</span>
+
+  <span class="enscript-keyword">if</span> (resolved == NULL)
+    {
+      rpath = malloc (path_max);
+      <span class="enscript-keyword">if</span> (rpath == NULL)
+	<span class="enscript-keyword">return</span> NULL;
+    }
+  <span class="enscript-keyword">else</span>
+    rpath = resolved;
+  rpath_limit = rpath + path_max;
+
+  <span class="enscript-keyword">if</span> (name[0] != <span class="enscript-string">'/'</span>)
+    {
+      <span class="enscript-keyword">if</span> (!__getcwd (rpath, path_max))
+	{
+	  rpath[0] = <span class="enscript-string">'\0'</span>;
+	  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+	}
+      dest = strchr (rpath, <span class="enscript-string">'\0'</span>);
+    }
+  <span class="enscript-keyword">else</span>
+    {
+      rpath[0] = <span class="enscript-string">'/'</span>;
+      dest = rpath + 1;
+    }
+
+  <span class="enscript-keyword">for</span> (start = end = name; *start; start = end)
+    {
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+      <span class="enscript-type">struct</span> stat64 st;
+#<span class="enscript-reference">else</span>
+      <span class="enscript-type">struct</span> stat st;
+#<span class="enscript-reference">endif</span>
+
+      <span class="enscript-comment">/* Skip sequence of multiple path-separators.  */</span>
+      <span class="enscript-keyword">while</span> (*start == <span class="enscript-string">'/'</span>)
+	++start;
+
+      <span class="enscript-comment">/* Find end of path component.  */</span>
+      <span class="enscript-keyword">for</span> (end = start; *end &amp;&amp; *end != <span class="enscript-string">'/'</span>; ++end)
+	<span class="enscript-comment">/* Nothing.  */</span>;
+
+      <span class="enscript-keyword">if</span> (end - start == 0)
+	<span class="enscript-keyword">break</span>;
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (end - start == 1 &amp;&amp; start[0] == <span class="enscript-string">'.'</span>)
+	<span class="enscript-comment">/* nothing */</span>;
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (end - start == 2 &amp;&amp; start[0] == <span class="enscript-string">'.'</span> &amp;&amp; start[1] == <span class="enscript-string">'.'</span>)
+	{
+	  <span class="enscript-comment">/* Back up to previous component, ignore if at root already.  */</span>
+	  <span class="enscript-keyword">if</span> (dest &gt; rpath + 1)
+	    <span class="enscript-keyword">while</span> ((--dest)[-1] != <span class="enscript-string">'/'</span>);
+	}
+      <span class="enscript-keyword">else</span>
+	{
+	  size_t new_size;
+
+	  <span class="enscript-keyword">if</span> (dest[-1] != <span class="enscript-string">'/'</span>)
+	    *dest++ = <span class="enscript-string">'/'</span>;
+
+	  <span class="enscript-keyword">if</span> (dest + (end - start) &gt;= rpath_limit)
+	    {
+	      ptrdiff_t dest_offset = dest - rpath;
+	      <span class="enscript-type">char</span> *new_rpath;
+
+	      <span class="enscript-keyword">if</span> (resolved)
+		{
+		  __set_errno (ENAMETOOLONG);
+		  <span class="enscript-keyword">if</span> (dest &gt; rpath + 1)
+		    dest--;
+		  *dest = <span class="enscript-string">'\0'</span>;
+		  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		}
+	      new_size = rpath_limit - rpath;
+	      <span class="enscript-keyword">if</span> (end - start + 1 &gt; path_max)
+		new_size += end - start + 1;
+	      <span class="enscript-keyword">else</span>
+		new_size += path_max;
+	      new_rpath = (<span class="enscript-type">char</span> *) realloc (rpath, new_size);
+	      <span class="enscript-keyword">if</span> (new_rpath == NULL)
+		<span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+	      rpath = new_rpath;
+	      rpath_limit = rpath + new_size;
+
+	      dest = rpath + dest_offset;
+	    }
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+	  dest = __mempcpy (dest, start, end - start);
+#<span class="enscript-reference">else</span>
+	  memcpy (dest, start, end - start);
+	  dest += end - start;
+#<span class="enscript-reference">endif</span>
+	  *dest = <span class="enscript-string">'\0'</span>;
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+	  <span class="enscript-keyword">if</span> (__lxstat64 (_STAT_VER, rpath, &amp;st) &lt; 0)
+#<span class="enscript-reference">else</span>
+	  <span class="enscript-keyword">if</span> (lstat (rpath, &amp;st) &lt; 0)
+#<span class="enscript-reference">endif</span>
+	    <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">S_ISLNK</span>
+	  <span class="enscript-keyword">if</span> (S_ISLNK (st.st_mode))
+	    {
+	      <span class="enscript-type">char</span> *buf;
+	      size_t len;
+	      ssize_t n;
+
+	      <span class="enscript-keyword">if</span> (++num_links &gt; MAXSYMLINKS)
+		{
+		  __set_errno (ELOOP);
+		  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		}
+
+	      buf = allocsa (path_max);
+	      <span class="enscript-keyword">if</span> (!buf)
+		{
+		  errno = ENOMEM;
+		  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		}
+
+	      n = __readlink (rpath, buf, path_max);
+	      <span class="enscript-keyword">if</span> (n &lt; 0)
+		{
+		  <span class="enscript-type">int</span> saved_errno = errno;
+		  freesa (buf);
+		  errno = saved_errno;
+		  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		}
+	      buf[n] = <span class="enscript-string">'\0'</span>;
+
+	      <span class="enscript-keyword">if</span> (!extra_buf)
+		{
+		  extra_buf = allocsa (path_max);
+		  <span class="enscript-keyword">if</span> (!extra_buf)
+		    {
+		      freesa (buf);
+		      errno = ENOMEM;
+		      <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		    }
+		}
+
+	      len = strlen (end);
+	      <span class="enscript-keyword">if</span> ((<span class="enscript-type">long</span> <span class="enscript-type">int</span>) (n + len) &gt;= path_max)
+		{
+		  freesa (buf);
+		  __set_errno (ENAMETOOLONG);
+		  <span class="enscript-keyword">goto</span> <span class="enscript-reference">error</span>;
+		}
+
+	      <span class="enscript-comment">/* Careful here, end may be a pointer into extra_buf... */</span>
+	      memmove (&amp;extra_buf[n], end, len + 1);
+	      name = end = memcpy (extra_buf, buf, n);
+
+	      <span class="enscript-keyword">if</span> (buf[0] == <span class="enscript-string">'/'</span>)
+		dest = rpath + 1;	<span class="enscript-comment">/* It's an absolute symlink */</span>
+	      <span class="enscript-keyword">else</span>
+		<span class="enscript-comment">/* Back up to previous component, ignore if at root already: */</span>
+		<span class="enscript-keyword">if</span> (dest &gt; rpath + 1)
+		  <span class="enscript-keyword">while</span> ((--dest)[-1] != <span class="enscript-string">'/'</span>);
+	    }
+#<span class="enscript-reference">endif</span>
+	}
+    }
+  <span class="enscript-keyword">if</span> (dest &gt; rpath + 1 &amp;&amp; dest[-1] == <span class="enscript-string">'/'</span>)
+    --dest;
+  *dest = <span class="enscript-string">'\0'</span>;
+
+  <span class="enscript-keyword">if</span> (extra_buf)
+    freesa (extra_buf);
+
+  <span class="enscript-keyword">return</span> resolved ? memcpy (resolved, rpath, dest - rpath + 1) : rpath;
+
+<span class="enscript-reference">error</span>:
+  {
+    <span class="enscript-type">int</span> saved_errno = errno;
+    <span class="enscript-keyword">if</span> (extra_buf)
+      freesa (extra_buf);
+    <span class="enscript-keyword">if</span> (resolved)
+      strcpy (resolved, rpath);
+    <span class="enscript-keyword">else</span>
+      free (rpath);
+    errno = saved_errno;
+  }
+  <span class="enscript-keyword">return</span> NULL;
+}
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+<span class="enscript-function-name">versioned_symbol</span> (libc, __realpath, realpath, GLIBC_2_3);
+#<span class="enscript-reference">endif</span>
+
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">SHLIB_COMPAT</span>(<span class="enscript-variable-name">libc</span>, <span class="enscript-variable-name">GLIBC_2_0</span>, <span class="enscript-variable-name">GLIBC_2_3</span>)
+<span class="enscript-type">char</span> *
+<span class="enscript-function-name">__old_realpath</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name, <span class="enscript-type">char</span> *resolved)
+{
+  <span class="enscript-keyword">if</span> (resolved == NULL)
+    {
+      __set_errno (EINVAL);
+      <span class="enscript-keyword">return</span> NULL;
+    }
+
+  <span class="enscript-keyword">return</span> __realpath (name, resolved);
+}
+<span class="enscript-function-name">compat_symbol</span> (libc, __old_realpath, realpath, GLIBC_2_0);
+#<span class="enscript-reference">endif</span>
+
+
+<span class="enscript-type">char</span> *
+<span class="enscript-function-name">__canonicalize_file_name</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name)
+{
+  <span class="enscript-keyword">return</span> __realpath (name, NULL);
+}
+<span class="enscript-function-name">weak_alias</span> (__canonicalize_file_name, canonicalize_file_name)
+
+#<span class="enscript-reference">else</span>
+
+<span class="enscript-comment">/* This declaration is solely to ensure that after preprocessing
+   this file is never empty.  */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">int</span> dummy;
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

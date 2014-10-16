@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2008-2009 Torch Mobile, Inc.
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
@@ -13,10 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -77,6 +77,7 @@ namespace WebCore {
         // These do not touch other metadata, only the raw pixel data.
         void clearPixelData();
         void zeroFillPixelData();
+        void zeroFillFrameRect(const IntRect&);
 
         // Makes this frame have an independent copy of the provided image's
         // pixel data, so that modifications in one frame are not reflected in
@@ -131,6 +132,11 @@ namespace WebCore {
         inline PixelData* getAddr(int x, int y)
         {
             return m_bytes + (y * width()) + x;
+        }
+
+        inline bool hasPixelData() const
+        {
+            return m_bytes;
         }
 
         // Use fix point multiplier instead of integer division or floating point math.
@@ -314,13 +320,8 @@ namespace WebCore {
                     size_t length = CFDataGetLength(iccProfile);
                     const unsigned char* systemProfile = CFDataGetBytePtr(iccProfile);
                     outputDeviceProfile = qcms_profile_from_memory(systemProfile, length);
+                    CFRelease(iccProfile);
                 }
-#else
-                // FIXME: add support for multiple monitors.
-                ColorProfile profile;
-                screenColorProfile(profile);
-                if (!profile.isEmpty())
-                    outputDeviceProfile = qcms_profile_from_memory(profile.data(), profile.size());
 #endif
                 if (outputDeviceProfile && qcms_profile_is_bogus(outputDeviceProfile)) {
                     qcms_profile_release(outputDeviceProfile);

@@ -1,0 +1,10 @@
+Usage: cltpdvt [options]
+Options:
+   l  long test
+   v  verbose output
+   q  quiet output
+   n  no SSL (not even local loopback tests)
+   f  full SSL test
+   k  skip basic cert group tests
+   t  no threadTest
+   h  help

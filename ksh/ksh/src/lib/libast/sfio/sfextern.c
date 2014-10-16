@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -60,11 +60,7 @@ Sfextern_t _Sfextern =
 };
 
 ssize_t	_Sfi = -1;		/* value for a few fast macro functions	*/
-#ifdef _ast_int8_t
-ssize_t _Sfmaxr = 256*1024;	/* default maximum size for a record	*/
-#else
-ssize_t _Sfmaxr = 16*1024;	/* default maximum size for a record	*/
-#endif
+ssize_t _Sfmaxr = 0;		/* default (unlimited) max record size	*/
 
 #if vt_threaded
 static Vtmutex_t	_Sfmtxin, _Sfmtxout, _Sfmtxerr;

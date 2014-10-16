@@ -7,7 +7,7 @@ strings/apr_snprintf.lo: strings/apr_snprintf.c .make.dirs include/apr_allocator
 strings/apr_strings.lo: strings/apr_strings.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_lib.h include/apr_pools.h include/apr_strings.h include/apr_thread_mutex.h include/apr_want.h
 strings/apr_strnatcmp.lo: strings/apr_strnatcmp.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_lib.h include/apr_pools.h include/apr_strings.h include/apr_thread_mutex.h include/apr_want.h
 strings/apr_strtok.lo: strings/apr_strtok.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_pools.h include/apr_strings.h include/apr_thread_mutex.h include/apr_want.h
-tables/apr_hash.lo: tables/apr_hash.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_hash.h include/apr_pools.h include/apr_thread_mutex.h include/apr_want.h
+tables/apr_hash.lo: tables/apr_hash.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_hash.h include/apr_pools.h include/apr_thread_mutex.h include/apr_time.h include/apr_want.h
 tables/apr_tables.lo: tables/apr_tables.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_lib.h include/apr_pools.h include/apr_strings.h include/apr_tables.h include/apr_thread_mutex.h include/apr_want.h
 
 OBJECTS_all = passwd/apr_getpass.lo strings/apr_cpystrn.lo strings/apr_fnmatch.lo strings/apr_snprintf.lo strings/apr_strings.lo strings/apr_strnatcmp.lo strings/apr_strtok.lo tables/apr_hash.lo tables/apr_tables.lo

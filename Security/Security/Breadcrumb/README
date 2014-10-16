@@ -1,0 +1,99 @@
+Breadcrumbs
+===========
+
+simple defintions:
+
+	old password 
+	new password
+	K = random 16 byte key
+	EK = Encrypted K
+	EKold =  ECB(PBKDF2(password_old), K)
+	EKnew =  ECB(PBKDF2(password_new), K)
+	Breadcrumb = AES-GCM(K, old password)
+
+
+Breadcrumbs are to make life easier when using AppleID password as
+local password by allowing upgrade of keychains from old password to new
+password.
+
+When changing the password on one machine, the keychains for the user are
+still encrypted (AES-GCM, key derived using PBKDF2) with the old password on
+all machines.
+
+This happens for one machine when changing password on the AppleID.apple.com webpage.
+
+An EK is stored on the apple server. Each machine have its own EK stored on the web server.
+
+When user change the password on the AppleID.apple.com website, the
+web server will unwrap the key K with the old password and then rewrap
+it with the new password.
+
+	unwrap(EKold, old password) -> K
+	wrap(K, new password) -> EKnew
+
+This means that if the user changes password more then ones, the computer can still upgrade the keychain to the current password since K will be the same until a new EK is uploaded the the computer.
+
+PKDF2 is used to avoid prebuilt lists of string2key tables attacks on
+the breadcrumb + encryptedKey if the attacker possesses both.
+
+Breadcrumb contain current password that encrypts the keychain. The breadcrumb itself is encrypted with a machine-specific key K.
+
+The breadcrumb is stored on the local machine and never leaves the
+local machine.
+
+When the computer have upgrade keychain to the current password and new K, EK, and breadcrumb is generated.
+
+Format
+======
+
+K = Random 16 byte
+EK = ECB(PBKDF2(pw), key K) (16byte) | pbkdf-salt (20byte) | 4byte int network order of pbdf-iter
+Breadcrumb = version (1) 1byte | AES-GCM-ENC(key K, password length (4byte, network order) | password | pad  ) | tag
+
+The encrypted key (EK) is a PKDF2 salt + iteration count + random AES-128 key (K) 
+encrypted with ECB of the PKDF2(salt, iteration, password).
+
+There is no integrity on this encryption on purpose since that would make the
+EK an verifier.
+
+The format of the EncryptedKey is
+
+    ECB(PBKDF2(pw), key K) (16byte) | pbkdf-salt (20byte) | 4byte int network order of pbdf-iter
+    
+The random key (K) is used to encrypt a breadcrumb that is stored
+locally on the machine. The breadcrumb allows you to recover the old
+password if you know the new password and have the encrypted key.
+
+The client machine encrypts the password with AES-GCM using key K. The data
+is padded to 256 bytes to no tell password length.
+
+The format of the breadcrumb
+
+    version (1) 1byte | AES-GCM-ENC(key K, password length (4byte, network order) | password | pad  ) | tag
+    
+tag is the 16 byte GCM tag
+key is the key (K) from the EncryptedKey (EK)
+assoc data i AES-GCM covers version byte
+
+Password length including up to pad is encrypted with AES-GCM
+
+Password is padded to paddingSize (256) to avoid exposing length of password.
+
+The PBKDF2 function is PBKDF2-HMAC-SHA256.
+
+
+Updating the Encrypted Key (EK) on server
+=========================================
+
+When a user update the password on the apple id server the server
+updates the breadcrumb for each machine that the user have associsated
+with the account.
+
+1. The server takes the old password generates a the key using PBKDF2
+   using the salt and interation count.
+
+2. The server takes the new password generates a the key using PBKDF2
+   using the same salt and interation count.
+
+3. Decrypts the first block with the key of old password and
+   re-encrypt with the key of new password.

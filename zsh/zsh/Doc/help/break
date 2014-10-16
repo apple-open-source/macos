@@ -1,0 +1,3 @@
+break [ n ]
+       Exit from an enclosing for, while, until, select or repeat loop.
+       If n is specified, then break n levels instead of just one.

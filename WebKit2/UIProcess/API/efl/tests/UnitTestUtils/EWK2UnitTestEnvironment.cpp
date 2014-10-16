@@ -30,16 +30,17 @@ EWK2UnitTestEnvironment::EWK2UnitTestEnvironment()
     : m_defaultWidth(800)
     , m_defaultHeight(600)
 {
+    setenv("WEBKIT_EXEC_PATH", WEBKIT_EXEC_PATH, false);
 }
 
 const char* EWK2UnitTestEnvironment::defaultTestPageUrl() const
 {
-    return "file://"TEST_RESOURCES_DIR"/default_test_page.html";
+    return "file://" TEST_RESOURCES_DIR "/default_test_page.html";
 }
 
 const char* EWK2UnitTestEnvironment::defaultTheme() const
 {
-    return TEST_THEME_DIR"/default.edj";
+    return TEST_THEME_DIR "/default.edj";
 }
 
 const char* EWK2UnitTestEnvironment::injectedBundleSample() const
@@ -49,7 +50,7 @@ const char* EWK2UnitTestEnvironment::injectedBundleSample() const
 
 CString EWK2UnitTestEnvironment::urlForResource(const char* resource)
 {
-    return makeString("file://"TEST_RESOURCES_DIR"/", resource).utf8();
+    return makeString("file://" TEST_RESOURCES_DIR "/", resource).utf8();
 }
 
 CString EWK2UnitTestEnvironment::pathForResource(const char* resource)

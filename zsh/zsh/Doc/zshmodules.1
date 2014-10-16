@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHMODULES" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -871,15 +871,15 @@ The subcommand \fBposition\fP writes various positions associated with
 These are, in order:
 .PD 0
 .TP
-
+\-
 The y and x coordinates of the cursor relative to the top left
 of \fItargetwin\fP
 .TP
-
+\-
 The y and x coordinates of the top left of \fItargetwin\fP on the
 screen
 .TP
-
+\-
 The size of \fItargetwin\fP in y and x dimensions\&.
 .PD
 .PP
@@ -1402,9 +1402,12 @@ referenced may not be written or deleted\&.
 .PP
 A file may conveniently be read into an array as one line per element
 with the form
-`\fIarray\fP\fB=("${(f)mapfile[\fP\fIfilename\fP\fB]}")\fP\&'\&.
-The double quotes are necessary to prevent empty lines from being
-removed\&.
+`\fIarray\fP\fB=("${(f@)mapfile[\fP\fIfilename\fP\fB]}")\fP\&'\&.
+The double quotes and the `\fB@\fP\&' are necessary to prevent empty lines
+from being removed\&.  Note that if the file ends with a newline,
+the shell will split on the final newline, generating an additional
+empty field; this can be suppressed by using
+`\fIarray\fP\fB=("${(f@)${mapfile[\fP\fIfilename\fP\fB]%$\&'\en'}}")\fP'\&.
 .RE
 .RE
 .PP
@@ -1464,7 +1467,7 @@ returns an integer\&.
 The function \fBsigngam\fP takes no arguments, and returns an integer, which
 is the C variable of the same name, as described in \fIgamma\fP(3)\&.  Note
 that it is therefore only useful immediately after a call to \fBgamma\fP or
-\fBlgamma\fP\&.  Note also that `\fBsigngam(RPAR\fP\&' and `\fBsigngam\fP' are
+\fBlgamma\fP\&.  Note also that `\fBsigngam()\fP\&' and `\fBsigngam\fP' are
 distinct expressions\&.
 .PP
 The following functions take two floating point arguments: \fBcopysign\fP,
@@ -1619,6 +1622,12 @@ This array contains the enabled reserved words\&.
 .TP
 \fBdis_reswords\fP
 Like \fBreswords\fP but for disabled reserved words\&.
+.TP
+\fBpatchars\fP
+This array contains the enabled pattern characters\&.
+.TP
+\fBdis_patchars\fP
+Like \fBpatchars\fP but for disabled pattern characters\&.
 .TP
 \fBaliases\fP
 This maps the names of the regular aliases currently enabled to their

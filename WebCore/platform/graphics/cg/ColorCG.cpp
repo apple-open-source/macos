@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -31,9 +31,37 @@
 #include "GraphicsContextCG.h"
 #include <wtf/Assertions.h>
 #include <wtf/RetainPtr.h>
+#if !PLATFORM(IOS)
 #include <ApplicationServices/ApplicationServices.h>
+#else
+#include <CoreGraphics/CGColorTransform.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <wtf/StdLibExtras.h>
+#endif // !PLATFORM(IOS)
 
 namespace WebCore {
+
+#if PLATFORM(IOS)
+CGColorRef createCGColorWithDeviceWhite(CGFloat white, CGFloat alpha)
+{
+    static CGColorSpaceRef graySpace = CGColorSpaceCreateDeviceGray();
+    const CGFloat components[] = { white, alpha };
+    return CGColorCreate(graySpace, components);
+}
+
+static CGColorRef createCGColorWithDeviceRGBA(CGColorRef sourceColor)
+{
+    if (!sourceColor || CFEqual(CGColorGetColorSpace(sourceColor), deviceRGBColorSpaceRef()))
+        return CGColorRetain(sourceColor);
+
+    RetainPtr<CGColorTransformRef> colorTransform = adoptCF(CGColorTransformCreate(deviceRGBColorSpaceRef(), nullptr));
+    if (!colorTransform)
+        return CGColorRetain(sourceColor);
+
+    // CGColorTransformConvertColor() returns a +1 retained object.
+    return CGColorTransformConvertColor(colorTransform.get(), sourceColor, kCGRenderingIntentDefault);
+}
+#endif // PLATFORM(IOS)
 
 Color::Color(CGColorRef color)
 {
@@ -43,8 +71,17 @@ Color::Color(CGColorRef color)
         return;
     }
 
+#if !PLATFORM(IOS)
     size_t numComponents = CGColorGetNumberOfComponents(color);
     const CGFloat* components = CGColorGetComponents(color);
+#else
+    RetainPtr<CGColorRef> correctedColor = adoptCF(createCGColorWithDeviceRGBA(color));
+    if (!correctedColor)
+        correctedColor = color;
+
+    size_t numComponents = CGColorGetNumberOfComponents(correctedColor.get());
+    const CGFloat* components = CGColorGetComponents(correctedColor.get());
+#endif // !PLATFORM(IOS)
 
     float r = 0;
     float g = 0;
@@ -68,20 +105,6 @@ Color::Color(CGColorRef color)
 
     m_color = makeRGBA(r * 255, g * 255, b * 255, a * 255);
     m_valid = true;
-}
-
-static inline CGColorSpaceRef cachedCGColorSpace(ColorSpace colorSpace)
-{
-    switch (colorSpace) {
-    case ColorSpaceDeviceRGB:
-        return deviceRGBColorSpaceRef();
-    case ColorSpaceSRGB:
-        return sRGBColorSpaceRef();
-    case ColorSpaceLinearRGB:
-        return linearRGBColorSpaceRef();
-    }
-    ASSERT_NOT_REACHED();
-    return deviceRGBColorSpaceRef();
 }
 
 static CGColorRef leakCGColor(const Color& color, ColorSpace colorSpace)

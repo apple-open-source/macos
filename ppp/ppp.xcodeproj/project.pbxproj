@@ -12,7 +12,6 @@
 			buildConfigurationList = 72DD79D4091AA0ED00EE4DEA /* Build configuration list for PBXAggregateTarget "ppp (Aggregate)" */;
 			buildPhases = (
 				23055ECF05E1807F00EAB16F /* CopyFiles */,
-				23055ED305E1807F00EAB16F /* CopyFiles */,
 			);
 			dependencies = (
 				230560D605E1808C00EAB16F /* PBXTargetDependency */,
@@ -60,10 +59,8 @@
 			dependencies = (
 				230560F205E1808C00EAB16F /* PBXTargetDependency */,
 				230560F405E1808C00EAB16F /* PBXTargetDependency */,
-				72FD18F81015541C00277ED4 /* PBXTargetDependency */,
 				230560F605E1808C00EAB16F /* PBXTargetDependency */,
 				230560FA05E1808C00EAB16F /* PBXTargetDependency */,
-				B0AE78B01744342200840C25 /* PBXTargetDependency */,
 			);
 			name = "Helpers (Aggregate)";
 			productName = "Helpers (Aggregate)";
@@ -101,7 +98,6 @@
 			buildConfigurationList = 72A56FFF0D1B5E2300DFDE1E /* Build configuration list for PBXAggregateTarget "ppp (Aggregate) EMBEDDED" */;
 			buildPhases = (
 				72A56FEF0D1B5E2300DFDE1E /* CopyFiles */,
-				72A56FFE0D1B5E2300DFDE1E /* CopyFiles */,
 			);
 			dependencies = (
 				72A56FE10D1B5E2300DFDE1E /* PBXTargetDependency */,
@@ -120,11 +116,7 @@
 				72A570120D1B5E9400DFDE1E /* CopyFiles */,
 			);
 			dependencies = (
-				83F592E50F6B379300B1E1AE /* PBXTargetDependency */,
 				72C265CE0D412950003A6CE8 /* PBXTargetDependency */,
-				81937EB5107EC4B100EEE3F8 /* PBXTargetDependency */,
-				72DA28211151704B0028754B /* PBXTargetDependency */,
-				B07ACE0117459A0000DAF35A /* PBXTargetDependency */,
 			);
 			name = "Helpers (Aggregate) EMBEDDED";
 			productName = "Helpers (Aggregate)";
@@ -423,7 +415,6 @@
 		7202B3F8114EF02700FD3AA2 /* vpnagent_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EFA0F572A1B0031E487 /* vpnagent_control.c */; };
 		7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB13A0235C9C70160DF93 /* SystemConfiguration.framework */; };
 		7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
-		7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
 		7208653116A762D7004A5747 /* controller_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 7208653016A762D7004A5747 /* controller_options.c */; };
 		7208653216A762D7004A5747 /* controller_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 7208653016A762D7004A5747 /* controller_options.c */; };
 		7208653416A762F0004A5747 /* controller_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208653316A762F0004A5747 /* controller_options.h */; };
@@ -442,6 +433,11 @@
 		723EC00C164C76FF003D5EB3 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D95F5914F7358E002A7614 /* CFNetwork.framework */; };
 		723FE96709E5C4AA00845480 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		7249BFC112A9518100FB4435 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
+		72515E2019A52436003F9E7C /* pppd-entitlement-osx.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72515E1F19A52436003F9E7C /* pppd-entitlement-osx.plist */; };
+		72519CA217678B4F002BBB0E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72519CA117678B4F002BBB0E /* Foundation.framework */; };
+		72519CA417678B9A002BBB0E /* launch_services.m in Sources */ = {isa = PBXBuildFile; fileRef = 72519CA317678B9A002BBB0E /* launch_services.m */; };
+		72519CA517678B9A002BBB0E /* launch_services.m in Sources */ = {isa = PBXBuildFile; fileRef = 72519CA317678B9A002BBB0E /* launch_services.m */; };
+		72519CA61767A2AF002BBB0E /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 727612B316AF16340095EF4B /* MobileCoreServices.framework */; };
 		7251DFEF09212AAA00B94FFF /* radius_eap.c in Sources */ = {isa = PBXBuildFile; fileRef = 7251DFEE09212AAA00B94FFF /* radius_eap.c */; };
 		7251E01309212CF000B94FFF /* radius.h in Headers */ = {isa = PBXBuildFile; fileRef = 7251E01209212CF000B94FFF /* radius.h */; };
 		72584E201726019800C7EBE8 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */; };
@@ -514,7 +510,6 @@
 		72B41EC615ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
 		72B41EC715ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
 		72B9DBF00F6DEFD3006DFE11 /* SpringBoardServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */; };
-		72BE352510A0C29900F4849C /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
 		72BE36B810A11F3800F4849C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		72C265870D412932003A6CE8 /* ccp.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E20235C6910160DF93 /* ccp.h */; };
 		72C265880D412932003A6CE8 /* chap_ms.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E40235C6910160DF93 /* chap_ms.h */; };
@@ -573,7 +568,6 @@
 		72C3BA0C11474CEB004184C2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		72D07F270A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
 		72D07F280A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
-		72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
 		72D95F5A14F7358E002A7614 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D95F5914F7358E002A7614 /* CFNetwork.framework */; };
 		72DC04C1115834E700CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
 		72DC04C2115834F800CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
@@ -583,7 +577,6 @@
 		72E07C47103E387600E4241C /* vpnd.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E07C3B103E376900E4241C /* vpnd.5 */; };
 		72E8662E16BC4D8600AB05E3 /* AppSandbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E8662D16BC4D8600AB05E3 /* AppSandbox.framework */; };
 		72E8663016BC4DC600AB05E3 /* AppContainer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E8662F16BC4DC600AB05E3 /* AppContainer.framework */; };
-		72E8A03712973B36002DD098 /* vpn-plugins.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E8A03412973AE5002DD098 /* vpn-plugins.sb */; };
 		72F5EB630D4721600078F2B3 /* PPPControllerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */; };
 		72FDE4750D4124C4007C4F13 /* if_ppp.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
 		72FDE4760D4124C4007C4F13 /* if_ppplink.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
@@ -699,7 +692,6 @@
 		B0C78052168501D900537A2F /* behaviors.c in Sources */ = {isa = PBXBuildFile; fileRef = B0C78050168501D900537A2F /* behaviors.c */; };
 		B0C78054168501F100537A2F /* behaviors.h in Headers */ = {isa = PBXBuildFile; fileRef = B0C78053168501F100537A2F /* behaviors.h */; };
 		B0C78055168501F100537A2F /* behaviors.h in Headers */ = {isa = PBXBuildFile; fileRef = B0C78053168501F100537A2F /* behaviors.h */; };
-		B0C780591685021400537A2F /* behaviors_check_asset.m in Sources */ = {isa = PBXBuildFile; fileRef = B0C780571685021400537A2F /* behaviors_check_asset.m */; };
 		B0C7805C168502B400537A2F /* MobileAsset.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C7805A1685029D00537A2F /* MobileAsset.framework */; };
 		B0C7805F168502D400537A2F /* AppSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C7805D168502C900537A2F /* AppSupport.framework */; };
 		B0C780621685043D00537A2F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C780601685043100537A2F /* SystemConfiguration.framework */; };
@@ -717,13 +709,16 @@
 		BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C20F3FFDF200E52690 /* messageTracer.h */; };
 		BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1E33C30F3FFDF200E52690 /* sessionTracer.c */; };
 		BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C40F3FFDF200E52690 /* sessionTracer.h */; };
-		BA6C4EA210D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
-		BA6C4EA310D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
 		BA6C4F2410D4BD89001D4B22 /* Apple80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAB4969610CC6007007B830C /* Apple80211.framework */; };
 		BA8B563C14E089FB00697D55 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA8B563B14E089FB00697D55 /* Security.framework */; };
 		BA8B563D14E08A1000697D55 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA8B563B14E089FB00697D55 /* Security.framework */; };
 		BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
 		BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
+		C40EF97B189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */; };
+		C40EF97C189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */; };
+		C40EF97D189199F300EEBF23 /* ne_sm_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */; };
+		C40EF97E189199F300EEBF23 /* ne_sm_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */; };
+		C43B7268192EA7ED00F07EE6 /* PPPController-Info-ios.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */; };
 		C447EC8E160283EB00CF047A /* flow_divert_controller.c in Sources */ = {isa = PBXBuildFile; fileRef = C447EC8D160283EB00CF047A /* flow_divert_controller.c */; };
 		C447EC8F160283EB00CF047A /* flow_divert_controller.c in Sources */ = {isa = PBXBuildFile; fileRef = C447EC8D160283EB00CF047A /* flow_divert_controller.c */; };
 		C4D868D916C06D1D00ECF818 /* reachability.c in Sources */ = {isa = PBXBuildFile; fileRef = C4D868D816C06D1200ECF818 /* reachability.c */; };
@@ -971,20 +966,6 @@
 			remoteGlobalIDString = 72C265850D412932003A6CE8;
 			remoteInfo = "pppd (Tool) EMBEDDED";
 		};
-		72DA28201151704B0028754B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7202B3F3114EF02700FD3AA2;
-			remoteInfo = "vpnagent (Tool - Developer) EMBEDDED";
-		};
-		72FD18F71015541C00277ED4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 81D42ED10F5728790031E487;
-			remoteInfo = "vpnagent (Tool)";
-		};
 		72FD18FE1015543200277ED4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -1020,40 +1001,12 @@
 			remoteGlobalIDString = 72FDE4FE0D41256B007C4F13;
 			remoteInfo = "PPPDialogs (Plugin) EMBEDDED";
 		};
-		81937EB4107EC4B100EEE3F8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 81937E93107EC4A200EEE3F8;
-			remoteInfo = "vpnagent (Tool) Embedded";
-		};
 		830403480F6B4CC00062C836 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 83F592D30F6B376D00B1E1AE;
 			remoteInfo = "sbslauncher (Tool) EMBEDDED";
-		};
-		83F592E40F6B379300B1E1AE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 83F592D30F6B376D00B1E1AE;
-			remoteInfo = SBSLauncher;
-		};
-		B07ACE0017459A0000DAF35A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B07ACDF2174599B300DAF35A;
-			remoteInfo = "snhelper (Tool) EMBEDDED";
-		};
-		B0AE78AF1744342200840C25 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B0AE789C17442F4C00840C25;
-			remoteInfo = "snhelper (Tool)";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -1065,18 +1018,9 @@
 			dstSubfolderSpec = 7;
 			files = (
 				23055ED205E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */,
+				72515E2019A52436003F9E7C /* pppd-entitlement-osx.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		23055ED305E1807F00EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/Sandbox/Profiles;
-			dstSubfolderSpec = 0;
-			files = (
-				72E8A03712973B36002DD098 /* vpn-plugins.sb in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
 		};
 		23055EEE05E1807F00EAB16F /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1232,15 +1176,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		72A56FFE0D1B5E2300DFDE1E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		72A570120D1B5E9400DFDE1E /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1248,6 +1183,7 @@
 			dstSubfolderSpec = 7;
 			files = (
 				72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */,
+				C43B7268192EA7ED00F07EE6 /* PPPController-Info-ios.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1540,6 +1476,10 @@
 		7240E452152617B2001F555F /* NetworkConnect_32x32@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_32x32@2x.png"; sourceTree = "<group>"; };
 		7240E453152617B2001F555F /* NetworkConnect_512x512.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_512x512.png; sourceTree = "<group>"; };
 		7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_512x512@2x.png"; sourceTree = "<group>"; };
+		72515E1F19A52436003F9E7C /* pppd-entitlement-osx.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "pppd-entitlement-osx.plist"; path = "pppd/pppd-entitlement-osx.plist"; sourceTree = "<group>"; };
+		72519CA117678B4F002BBB0E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		72519CA317678B9A002BBB0E /* launch_services.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = launch_services.m; sourceTree = "<group>"; };
+		72519CA71767A2D3002BBB0E /* launch_services.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = launch_services.h; sourceTree = "<group>"; };
 		7251DFEE09212AAA00B94FFF /* radius_eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = radius_eap.c; path = Authenticators/Radius/radius_eap.c; sourceTree = "<group>"; };
 		7251E01209212CF000B94FFF /* radius.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = radius.h; path = Authenticators/Radius/radius.h; sourceTree = "<group>"; };
 		72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = DEVELOPER_DIR; };
@@ -1625,9 +1565,6 @@
 		B0AE78B5174438B100840C25 /* snhelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = snhelper.h; sourceTree = "<group>"; };
 		B0C78050168501D900537A2F /* behaviors.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = behaviors.c; path = Controller/behaviors.c; sourceTree = "<group>"; };
 		B0C78053168501F100537A2F /* behaviors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = behaviors.h; sourceTree = "<group>"; };
-		B0C780561685021400537A2F /* behaviors_check_asset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = behaviors_check_asset.h; path = sbslauncher/behaviors_check_asset.h; sourceTree = "<group>"; };
-		B0C780571685021400537A2F /* behaviors_check_asset.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = behaviors_check_asset.m; path = sbslauncher/behaviors_check_asset.m; sourceTree = "<group>"; };
-		B0C780581685021400537A2F /* behaviors_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = behaviors_defines.h; path = sbslauncher/behaviors_defines.h; sourceTree = "<group>"; };
 		B0C7805A1685029D00537A2F /* MobileAsset.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileAsset.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/MobileAsset.framework; sourceTree = DEVELOPER_DIR; };
 		B0C7805D168502C900537A2F /* AppSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSupport.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AppSupport.framework; sourceTree = DEVELOPER_DIR; };
 		B0C780601685043100537A2F /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
@@ -1636,10 +1573,12 @@
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
 		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
 		BA1E33C40F3FFDF200E52690 /* sessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sessionTracer.h; sourceTree = "<group>"; };
-		BA6C4EA110D49581001D4B22 /* net_location.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_location.c; path = Controller/net_location.c; sourceTree = "<group>"; };
 		BA8B563B14E089FB00697D55 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		BAB4969610CC6007007B830C /* Apple80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Apple80211.framework; path = /System/Library/PrivateFrameworks/Apple80211.framework; sourceTree = "<absolute>"; };
 		BAC29FA410D493F9007AC660 /* nat_port_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nat_port_mapping.c; path = Controller/nat_port_mapping.c; sourceTree = "<group>"; };
+		C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ne_sm_bridge_private.h; sourceTree = "<group>"; };
+		C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ne_sm_bridge.c; path = Controller/ne_sm_bridge.c; sourceTree = "<group>"; };
+		C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "PPPController-Info-ios.plist"; sourceTree = "<group>"; };
 		C447EC8D160283EB00CF047A /* flow_divert_controller.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = flow_divert_controller.c; path = Controller/flow_divert_controller.c; sourceTree = "<group>"; };
 		C447EC901602840200CF047A /* flow_divert_controller.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = flow_divert_controller.h; sourceTree = "<group>"; };
 		C4D868D816C06D1200ECF818 /* reachability.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reachability.c; path = Controller/reachability.c; sourceTree = "<group>"; };
@@ -1972,7 +1911,6 @@
 				BA8B563D14E08A1000697D55 /* Security.framework in Frameworks */,
 				7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */,
 				7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */,
-				7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2018,7 +1956,6 @@
 				7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */,
 				7290FED40D3318CC0027CEAD /* IOKit.framework in Frameworks */,
 				8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */,
-				72BE352510A0C29900F4849C /* MobileInstallation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2070,7 +2007,6 @@
 				BA8B563C14E089FB00697D55 /* Security.framework in Frameworks */,
 				81937E9B107EC4A200EEE3F8 /* SystemConfiguration.framework in Frameworks */,
 				81937E9C107EC4A200EEE3F8 /* CoreFoundation.framework in Frameworks */,
-				72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2104,6 +2040,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72519CA217678B4F002BBB0E /* Foundation.framework in Frameworks */,
+				72519CA61767A2AF002BBB0E /* MobileCoreServices.framework in Frameworks */,
 				B07ACDF7174599B300DAF35A /* SystemConfiguration.framework in Frameworks */,
 				B07ACDF8174599B300DAF35A /* CoreFoundation.framework in Frameworks */,
 			);
@@ -2318,6 +2256,7 @@
 		2D5033BA0072595C7F000001 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */,
 				727412011728A2A600221EE3 /* diagnostics.h */,
 				727412021728A2A600221EE3 /* diagnostics.c */,
 				C4D868D816C06D1200ECF818 /* reachability.c */,
@@ -2336,7 +2275,6 @@
 				723074551161275A004C0871 /* vpn_environment.c */,
 				7129A463FFF956F311CA2CDC /* scnc_main.c */,
 				BA1E33C30F3FFDF200E52690 /* sessionTracer.c */,
-				BA6C4EA110D49581001D4B22 /* net_location.c */,
 				720C564614E0999B008B1CDE /* network_detection.c */,
 				BAC29FA410D493F9007AC660 /* nat_port_mapping.c */,
 			);
@@ -2367,6 +2305,7 @@
 		7129A432FFF956F311CA2CDC /* ppp */ = {
 			isa = PBXGroup;
 			children = (
+				72519CA117678B4F002BBB0E /* Foundation.framework */,
 				72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */,
 				BA8B563B14E089FB00697D55 /* Security.framework */,
 				7129A438FFF956F311CA2CDC /* Controller */,
@@ -2390,6 +2329,7 @@
 		7129A438FFF956F311CA2CDC /* Controller */ = {
 			isa = PBXGroup;
 			children = (
+				C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */,
 				23055EF205E1807F00EAB16F /* PPPController-Info.plist */,
 				23B7071F061B7381008BA483 /* Mach Server */,
 				23B7071C061B7373008BA483 /* Socket Server */,
@@ -2406,6 +2346,7 @@
 		7129A439FFF956F311CA2CDC /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */,
 				C4D868DB16C06D3900ECF818 /* reachability.h */,
 				7208653316A762F0004A5747 /* controller_options.h */,
 				B0C78053168501F100537A2F /* behaviors.h */,
@@ -2541,7 +2482,6 @@
 		7129A4CEFFF956F311CA2CDC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7129A46AFFF956F311CA2CDC /* Family */,
 				23055EF305E1807F00EAB16F /* PPPController.bundle */,
 				23055F1605E1807F00EAB16F /* PPP.kext */,
 				23055F3105E1808000EAB16F /* PPPoE.ppp */,
@@ -2659,10 +2599,7 @@
 				72E8662D16BC4D8600AB05E3 /* AppSandbox.framework */,
 				727612B316AF16340095EF4B /* MobileCoreServices.framework */,
 				B0C780601685043100537A2F /* SystemConfiguration.framework */,
-				B0C780561685021400537A2F /* behaviors_check_asset.h */,
 				72EC2EF516CB4F8C00029F51 /* sandbox_info.h */,
-				B0C780571685021400537A2F /* behaviors_check_asset.m */,
-				B0C780581685021400537A2F /* behaviors_defines.h */,
 				72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */,
 				B0C7805D168502C900537A2F /* AppSupport.framework */,
 				B0C7805A1685029D00537A2F /* MobileAsset.framework */,
@@ -2699,6 +2636,8 @@
 				B0AE789617442EC700840C25 /* com.apple.snhelper.plist */,
 				B0AE789717442EC700840C25 /* flow_divert.c */,
 				B0AE789817442EC700840C25 /* flow_divert.h */,
+				72519CA317678B9A002BBB0E /* launch_services.m */,
+				72519CA71767A2D3002BBB0E /* launch_services.h */,
 				B0AE789917442EC700840C25 /* snhelper.c */,
 				B0AE78B5174438B100840C25 /* snhelper.h */,
 			);
@@ -2749,6 +2688,7 @@
 		F51AB0D50235C5AF0160DF93 /* pppd */ = {
 			isa = PBXGroup;
 			children = (
+				72515E1F19A52436003F9E7C /* pppd-entitlement-osx.plist */,
 				FAAAD5FD023EA4CE04CA2CDC /* pppd.8 */,
 				F517DE990237253101E059DF /* Headers */,
 				F517DE960237251F01E059DF /* Libraries */,
@@ -3029,6 +2969,7 @@
 				B089692F1640392F00E79570 /* app_layer.h in Headers */,
 				B0C78054168501F100537A2F /* behaviors.h in Headers */,
 				7208653416A762F0004A5747 /* controller_options.h in Headers */,
+				C40EF97B189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */,
 				C4D868DC16C06D4200ECF818 /* reachability.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3327,6 +3268,7 @@
 				B096EC45171DFC6E00EE4713 /* fd_exchange.h in Headers */,
 				7230745A1161275A004C0871 /* vpn_environment.h in Headers */,
 				72B280F314E45A6B00EBDC05 /* network_detection.h in Headers */,
+				C40EF97C189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */,
 				7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */,
 				B089692C164038FB00E79570 /* pppcontroller_mach_defines.h in Headers */,
 				B08969301640392F00E79570 /* app_layer.h in Headers */,
@@ -4958,8 +4900,8 @@
 				BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */,
 				72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */,
 				81D430A80F575A040031E487 /* vpn_manager.c in Sources */,
+				C40EF97D189199F300EEBF23 /* ne_sm_bridge.c in Sources */,
 				BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */,
-				BA6C4EA210D49581001D4B22 /* net_location.c in Sources */,
 				72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */,
 				723074571161275A004C0871 /* vpn_environment.c in Sources */,
 				720C564714E0999B008B1CDE /* network_detection.c in Sources */,
@@ -5287,8 +5229,8 @@
 				7290FECF0D3318CC0027CEAD /* scnc_utils.c in Sources */,
 				7290FED00D3318CC0027CEAD /* ipsec_manager.c in Sources */,
 				BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */,
+				C40EF97E189199F300EEBF23 /* ne_sm_bridge.c in Sources */,
 				9AFD09B317305EC2003BF988 /* scnc_utils_common.c in Sources */,
-				BA6C4EA310D49581001D4B22 /* net_location.c in Sources */,
 				72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */,
 				723074591161275A004C0871 /* vpn_environment.c in Sources */,
 				720C564814E0999B008B1CDE /* network_detection.c in Sources */,
@@ -5415,7 +5357,6 @@
 			files = (
 				83F592FB0F6B38C900B1E1AE /* sbslauncher.m in Sources */,
 				81FC7D9511C697B20058949B /* PluginDownloadObserver.m in Sources */,
-				B0C780591685021400537A2F /* behaviors_check_asset.m in Sources */,
 				78CFEBA81703655700CB6E65 /* network_detection_helper.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5426,6 +5367,7 @@
 			files = (
 				B07ACDF4174599B300DAF35A /* flow_divert.c in Sources */,
 				B07ACDF5174599B300DAF35A /* snhelper.c in Sources */,
+				72519CA517678B9A002BBB0E /* launch_services.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5435,6 +5377,7 @@
 			files = (
 				B0AE78AB1744333800840C25 /* flow_divert.c in Sources */,
 				B0AE78AC1744333800840C25 /* snhelper.c in Sources */,
+				72519CA417678B9A002BBB0E /* launch_services.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5611,16 +5554,6 @@
 			target = 72C265850D412932003A6CE8 /* pppd (Tool) EMBEDDED */;
 			targetProxy = 72C265CD0D412950003A6CE8 /* PBXContainerItemProxy */;
 		};
-		72DA28211151704B0028754B /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7202B3F3114EF02700FD3AA2 /* vpnagent (Tool - Developer) EMBEDDED */;
-			targetProxy = 72DA28201151704B0028754B /* PBXContainerItemProxy */;
-		};
-		72FD18F81015541C00277ED4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 81D42ED10F5728790031E487 /* vpnagent (Tool) */;
-			targetProxy = 72FD18F71015541C00277ED4 /* PBXContainerItemProxy */;
-		};
 		72FD18FF1015543200277ED4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 23055F5605E1808000EAB16F /* Helpers (Aggregate) */;
@@ -5646,30 +5579,10 @@
 			target = 72FDE4FE0D41256B007C4F13 /* PPPDialogs (Plugin) EMBEDDED */;
 			targetProxy = 72FDE5130D412576007C4F13 /* PBXContainerItemProxy */;
 		};
-		81937EB5107EC4B100EEE3F8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 81937E93107EC4A200EEE3F8 /* vpnagent (Tool) EMBEDDED */;
-			targetProxy = 81937EB4107EC4B100EEE3F8 /* PBXContainerItemProxy */;
-		};
 		830403490F6B4CC00062C836 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */;
 			targetProxy = 830403480F6B4CC00062C836 /* PBXContainerItemProxy */;
-		};
-		83F592E50F6B379300B1E1AE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */;
-			targetProxy = 83F592E40F6B379300B1E1AE /* PBXContainerItemProxy */;
-		};
-		B07ACE0117459A0000DAF35A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B07ACDF2174599B300DAF35A /* snhelper (Tool) EMBEDDED */;
-			targetProxy = B07ACE0017459A0000DAF35A /* PBXContainerItemProxy */;
-		};
-		B0AE78B01744342200840C25 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B0AE789C17442F4C00840C25 /* snhelper (Tool) */;
-			targetProxy = B0AE78AF1744342200840C25 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -6311,7 +6224,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
 					../Shared,
 				);
-				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
+				INFOPLIST_FILE = "Controller/PPPController-Info-ios.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -6361,7 +6274,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
 					../Shared,
 				);
-				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
+				INFOPLIST_FILE = "Controller/PPPController-Info-ios.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -6407,7 +6320,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
 					../Shared,
 				);
-				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
+				INFOPLIST_FILE = "Controller/PPPController-Info-ios.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -6873,6 +6786,8 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "";
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -6939,6 +6854,8 @@
 				ALTERNATE_MODE = "$(INSTALL_MODE_FLAG)";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/Helpers/pppd/pppd-entitlement-osx.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -7001,6 +6918,8 @@
 				ALTERNATE_MODE = "$(INSTALL_MODE_FLAG)";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/Helpers/pppd/pppd-entitlement-osx.plist";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					lint,

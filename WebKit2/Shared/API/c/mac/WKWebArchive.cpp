@@ -26,59 +26,58 @@
 #include "config.h"
 #include "WKWebArchive.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
+#include "APIData.h"
+#include "APIWebArchive.h"
+#include "APIWebArchiveResource.h"
 #include "InjectedBundleRangeHandle.h"
 #include "WKBundleAPICast.h"
 #include "WKSharedAPICast.h"
-#include "WebArchive.h"
-#include "WebArchiveResource.h"
-#include "WebData.h"
 
 using namespace WebKit;
 
 WKTypeID WKWebArchiveGetTypeID()
 {
-    return toAPI(WebArchive::APIType);
+    return toAPI(API::WebArchive::APIType);
 }
 
 WKWebArchiveRef WKWebArchiveCreate(WKWebArchiveResourceRef mainResourceRef, WKArrayRef subresourcesRef, WKArrayRef subframeArchivesRef)
 {
-    RefPtr<WebArchive> webArchive = WebArchive::create(toImpl(mainResourceRef), toImpl(subresourcesRef), toImpl(subframeArchivesRef));
+    RefPtr<API::WebArchive> webArchive = API::WebArchive::create(toImpl(mainResourceRef), toImpl(subresourcesRef), toImpl(subframeArchivesRef));
     return toAPI(webArchive.release().leakRef());
 }
 
 WKWebArchiveRef WKWebArchiveCreateWithData(WKDataRef dataRef)
 {
-    RefPtr<WebArchive> webArchive = WebArchive::create(toImpl(dataRef));
+    RefPtr<API::WebArchive> webArchive = API::WebArchive::create(toImpl(dataRef));
     return toAPI(webArchive.release().leakRef());
 }
 
 WKWebArchiveRef WKWebArchiveCreateFromRange(WKBundleRangeHandleRef rangeHandleRef)
 {
-    RefPtr<WebArchive> webArchive = WebArchive::create(toImpl(rangeHandleRef)->coreRange());
+    RefPtr<API::WebArchive> webArchive = API::WebArchive::create(toImpl(rangeHandleRef)->coreRange());
     return toAPI(webArchive.release().leakRef());
 }
 
 WKWebArchiveResourceRef WKWebArchiveCopyMainResource(WKWebArchiveRef webArchiveRef)
 {
-    RefPtr<WebArchiveResource> mainResource = toImpl(webArchiveRef)->mainResource();
+    RefPtr<API::WebArchiveResource> mainResource = toImpl(webArchiveRef)->mainResource();
     return toAPI(mainResource.release().leakRef());
 }
 
 WKArrayRef WKWebArchiveCopySubresources(WKWebArchiveRef webArchiveRef)
 {
-    RefPtr<ImmutableArray> subresources = toImpl(webArchiveRef)->subresources();
+    RefPtr<API::Array> subresources = toImpl(webArchiveRef)->subresources();
     return toAPI(subresources.release().leakRef());
 }
 
 WKArrayRef WKWebArchiveCopySubframeArchives(WKWebArchiveRef webArchiveRef)
 {
-    RefPtr<ImmutableArray> subframeArchives = toImpl(webArchiveRef)->subframeArchives();
+    RefPtr<API::Array> subframeArchives = toImpl(webArchiveRef)->subframeArchives();
     return toAPI(subframeArchives.release().leakRef());
 }
 
 WKDataRef WKWebArchiveCopyData(WKWebArchiveRef webArchiveRef)
 {
-    RefPtr<WebData> data = toImpl(webArchiveRef)->data();
-    return toAPI(data.release().leakRef());
+    return toAPI(toImpl(webArchiveRef)->data().leakRef());
 }

@@ -26,6 +26,7 @@ _postfix:*:27:
 _postdrop:*:28:
 certusers:*:29:root,_jabber,_postfix,_cyrus,_calendar
 _keytabusers:*:30:_calendar,_jabber,_postfix
+_neagent:*:34:
 utmp:*:45:
 authedusers:*:50:
 interactusers:*:51:
@@ -69,4 +70,5 @@ _installer:*:96:
 _atsserver:*:97:
 _lpadmin:*:98:
 _unknown:*:99:
+_distnote:*:241:
 mobile:*:501:mobile

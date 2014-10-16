@@ -431,9 +431,15 @@ of a shell function, shell script, or the shell itself; see
 noderef(Invocation), and also noderef(Functions).
 The parameter var(n), where var(n) is a number,
 is the var(n)th positional parameter.
+The parameter `tt($0)' is a special case, see
+noderef(Parameters Set By The Shell).
+
 The parameters tt(*), tt(@) and tt(argv) are
 arrays containing all the positional parameters;
 thus `tt($argv[)var(n)tt(])', etc., is equivalent to simply `tt($)var(n)'.
+Note that the options tt(KSH_ARRAYS) or tt(KSH_ZERO_SUBSCRIPT) apply
+to these arrays as well, so with either of those options set,
+`tt(${argv[0]})' is equivalent to `tt($1)' and so on.
 
 Positional parameters may be changed after the shell or function starts by
 using the tt(set) builtin, by assigning to the tt(argv) array, or by direct
@@ -967,6 +973,16 @@ item(tt(HISTFILE))(
 The file to save the history in when an interactive shell exits.
 If unset, the history is not saved.
 )
+vindex(HISTORY_IGNORE)
+item(tt(HISTORY_IGNORE))(
+If set, is treated as a pattern at the time history files are written.
+Any potential history entry that matches the pattern is skipped.  For
+example, if the value is `tt(fc *)' then commands that invoke the
+interactive history editor are never written to the history file (compare
+the tt(HIST_NO_STORE) option or the tt(zshaddhistory) hook, either of
+which would prevent such commands from being added to the interactive
+history at all).
+)
 vindex(HISTSIZE)
 item(tt(HISTSIZE) <S>)(
 The maximum number of events stored in the internal history list.
@@ -1215,7 +1231,7 @@ In sh or ksh emulation, the default is `tt(PLUS() )'.
 vindex(psvar)
 vindex(PSVAR)
 item(tt(psvar) <S> <Z> (tt(PSVAR) <S>))(
-An array (colon-separated list) whose first nine values can be used in
+An array (colon-separated list) whose elements can be used in
 tt(PROMPT) strings.  Setting tt(psvar) also sets tt(PSVAR), and
 vice versa.
 )
@@ -1530,5 +1546,18 @@ or replacement behaviour which overrides the values described here.
 See the completion system documentation in
 ifzman(zmanref(zshcompsys))\
 ifnzman(noderef(Completion System)).
+)
+vindex(ZLE_RPROMPT_INDENT)
+item(tt(ZLE_RPROMPT_INDENT <S>))(
+If set, used to give the indentation between the right hand side of
+the right prompt in the line editor as given by tt(RPS1) or tt(RPROMPT)
+and the right hand side of the screen.  If not set, the value 1 is used.
+
+Typically this will be used to set the value to 0 so that the prompt
+appears flush with the right hand side of the screen.  This is not the
+default as many terminals do not handle this correctly, in particular
+when the prompt appears at the extreme bottom right of the screen.
+Recent virtual terminals are more likely to handle this case correctly.
+Some experimentation is necessary.
 )
 enditem()

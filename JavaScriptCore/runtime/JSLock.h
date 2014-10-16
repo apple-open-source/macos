@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,11 +21,13 @@
 #ifndef JSLock_h
 #define JSLock_h
 
+#include <mutex>
+#include <thread>
 #include <wtf/Assertions.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
-#include <wtf/TCSpinLock.h>
-#include <wtf/Threading.h>
+#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/WTFThreadData.h>
 
 namespace JSC {
 
@@ -61,7 +63,7 @@ namespace JSC {
 
         static void initialize();
     private:
-        static Mutex* s_sharedInstanceLock;
+        static std::mutex* s_sharedInstanceMutex;
     };
 
     class JSLockHolder {
@@ -93,33 +95,51 @@ namespace JSC {
 
         VM* vm() { return m_vm; }
 
+        bool hasExclusiveThread() const { return m_hasExclusiveThread; }
+        std::thread::id exclusiveThread() const
+        {
+            ASSERT(m_hasExclusiveThread);
+            return m_ownerThreadID;
+        }
+        JS_EXPORT_PRIVATE void setExclusiveThread(std::thread::id);
         JS_EXPORT_PRIVATE bool currentThreadIsHoldingLock();
-
-        unsigned dropAllLocks();
-        unsigned dropAllLocksUnconditionally();
-        void grabAllLocks(unsigned lockCount);
 
         void willDestroyVM(VM*);
 
         class DropAllLocks {
             WTF_MAKE_NONCOPYABLE(DropAllLocks);
         public:
-            JS_EXPORT_PRIVATE DropAllLocks(ExecState* exec);
+            JS_EXPORT_PRIVATE DropAllLocks(ExecState*);
             JS_EXPORT_PRIVATE DropAllLocks(VM*);
+            JS_EXPORT_PRIVATE DropAllLocks(VM&);
             JS_EXPORT_PRIVATE ~DropAllLocks();
             
+            void setDropDepth(unsigned depth) { m_dropDepth = depth; }
+            unsigned dropDepth() const { return m_dropDepth; }
+
         private:
-            intptr_t m_lockCount;
+            intptr_t m_droppedLockCount;
             RefPtr<VM> m_vm;
+            unsigned m_dropDepth;
         };
 
     private:
-        SpinLock m_spinLock;
-        Mutex m_lock;
-        ThreadIdentifier m_ownerThread;
+        void lock(intptr_t lockCount);
+        void unlock(intptr_t unlockCount);
+
+        void didAcquireLock();
+        void willReleaseLock();
+
+        unsigned dropAllLocks(DropAllLocks*);
+        void grabAllLocks(DropAllLocks*, unsigned lockCount);
+
+        std::mutex m_lock;
+        std::thread::id m_ownerThreadID;
         intptr_t m_lockCount;
         unsigned m_lockDropDepth;
+        bool m_hasExclusiveThread;
         VM* m_vm;
+        AtomicStringTable* m_entryAtomicStringTable; 
     };
 
 } // namespace

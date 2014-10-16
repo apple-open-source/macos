@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,6 +31,7 @@
 #import "WebFontCache.h"
 
 #import "FontTraitsMask.h"
+#import "WebCoreNSStringExtras.h"
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 #import <math.h>
@@ -160,7 +161,8 @@ static inline FontTraitsMask toTraitsMask(NSFontTraitMask appKitTraits, NSIntege
 + (NSFont *)internalFontWithFamily:(NSString *)desiredFamily traits:(NSFontTraitMask)desiredTraits weight:(int)desiredWeight size:(float)size
 {
 
-    if ([desiredFamily compare:@"-webkit-system-font" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
+    if (stringIsCaseInsensitiveEqualToString(desiredFamily, @"-webkit-system-font")
+        || stringIsCaseInsensitiveEqualToString(desiredFamily, @"-apple-system-font")) {
         // We ignore italic for system font.
         return (desiredWeight >= 7) ? [NSFont boldSystemFontOfSize:size] : [NSFont systemFontOfSize:size];
     }
@@ -287,12 +289,10 @@ static inline FontTraitsMask toTraitsMask(NSFontTraitMask appKitTraits, NSIntege
     return [self internalFontWithFamily:desiredFamily traits:desiredTraits weight:desiredWeight size:size];
 }
 
-#if !PLATFORM(IOS)
 + (NSFont *)fontWithFamily:(NSString *)desiredFamily traits:(NSFontTraitMask)desiredTraits size:(float)size
 {
     int desiredWeight = (desiredTraits & NSBoldFontMask) ? 9 : 5;
     return [self fontWithFamily:desiredFamily traits:desiredTraits weight:desiredWeight size:size];
 }
-#endif
 
 @end

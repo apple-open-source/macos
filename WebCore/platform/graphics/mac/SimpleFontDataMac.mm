@@ -35,22 +35,39 @@
 #import "FontDescription.h"
 #import "SharedBuffer.h"
 #import "WebCoreSystemInterface.h"
+#if USE(APPKIT)
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
+#else
+#import <CoreText/CoreText.h>
+#endif
 #import <float.h>
 #import <unicode/uchar.h>
 #import <wtf/Assertions.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
 
+#if defined(__has_include) && __has_include(<CoreText/CTFontDescriptorPriv.h>)
+#import <CoreText/CTFontDescriptorPriv.h>
+#endif
+extern "C" bool CTFontDescriptorIsSystemUIFont(CTFontDescriptorRef);
+
+#if defined(__has_include) && __has_include(<CoreGraphics/CGFontGlyphSupport.h>)
+#import <CoreGraphics/CGFontGlyphSupport.h>
+#endif
+extern "C" bool CGFontGetGlyphAdvancesForStyle(CGFontRef font,
+    const CGAffineTransform *t, CGFontRenderingStyle style,
+    const CGGlyph glyphs[], size_t count, CGSize advances[]);
+
+#if !PLATFORM(IOS)
 @interface NSFont (WebAppKitSecretAPI)
 - (BOOL)_isFakeFixedPitch;
 @end
-
-using namespace std;
+#endif
 
 namespace WebCore {
-  
+
+#if USE(APPKIT)
 static bool fontHasVerticalGlyphs(CTFontRef ctFont)
 {
     // The check doesn't look neat but this is what AppKit does for vertical writing...
@@ -74,8 +91,8 @@ static bool initFontData(SimpleFontData* fontData)
 
 static NSString *webFallbackFontFamily(void)
 {
-    DEFINE_STATIC_LOCAL(RetainPtr<NSString>, webFallbackFontFamily, ([[NSFont systemFontOfSize:16.0f] familyName]));
-    return webFallbackFontFamily.get();
+    static NSString *webFallbackFontFamily = [[[NSFont systemFontOfSize:16.0f] familyName] retain];
+    return webFallbackFontFamily;
 }
 
 const SimpleFontData* SimpleFontData::getCompositeFontReferenceFontData(NSFont *key) const
@@ -257,19 +274,21 @@ void SimpleFontData::platformCharWidthInit()
     // Fallback to a cross-platform estimate, which will populate these values if they are non-positive.
     initCharWidths();
 }
+#endif // USE(APPKIT)
 
 void SimpleFontData::platformDestroy()
 {
     if (!isCustomFont() && m_derivedFontData) {
         // These come from the cache.
         if (m_derivedFontData->smallCaps)
-            fontCache()->releaseFontData(m_derivedFontData->smallCaps.get());
+            fontCache().releaseFontData(m_derivedFontData->smallCaps.get());
 
         if (m_derivedFontData->emphasisMark)
-            fontCache()->releaseFontData(m_derivedFontData->emphasisMark.get());
+            fontCache().releaseFontData(m_derivedFontData->emphasisMark.get());
     }
 }
 
+#if !PLATFORM(IOS)
 PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const FontDescription& fontDescription, float scaleFactor) const
 {
     if (isCustomFont()) {
@@ -300,13 +319,15 @@ PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const Fo
         scaledFontData.m_syntheticOblique = (fontTraits & NSItalicFontMask) && !(scaledFontTraits & NSItalicFontMask);
 
         // SimpleFontData::platformDestroy() takes care of not deleting the cached font data twice.
-        return fontCache()->getCachedFontData(&scaledFontData);
+        return fontCache().getCachedFontData(&scaledFontData);
     }
     END_BLOCK_OBJC_EXCEPTIONS;
 
     return 0;
 }
+#endif // !PLATFORM(IOS)
 
+#if !PLATFORM(IOS)
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
 {
     NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<unichar*>(characters) length:length freeWhenDone:NO];
@@ -337,6 +358,7 @@ void SimpleFontData::determinePitch()
            [name caseInsensitiveCompare:@"MS-PGothic"] != NSOrderedSame &&
            [name caseInsensitiveCompare:@"MonotypeCorsiva"] != NSOrderedSame;
 }
+#endif // !PLATFORM(IOS)
 
 FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 {
@@ -349,23 +371,87 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
     return boundingBox;
 }
 
+#if PLATFORM(MAC)
+inline CGFontRenderingStyle SimpleFontData::renderingStyle() const
+{
+    CGFontRenderingStyle style = kCGFontRenderingStyleAntialiasing | kCGFontRenderingStyleSubpixelPositioning | kCGFontRenderingStyleSubpixelQuantization;
+    NSFont *font = platformData().font();
+    if (font) {
+        switch ([font renderingMode]) {
+        case NSFontIntegerAdvancementsRenderingMode:
+            style = 0;
+            break;
+        case NSFontAntialiasedIntegerAdvancementsRenderingMode:
+            style = kCGFontRenderingStyleAntialiasing;
+            break;
+        default:
+            break;
+        }
+    }
+    return style;
+}
+
+inline bool SimpleFontData::advanceForColorBitmapFont(Glyph glyph, CGSize& advance) const
+{
+    NSFont *font = platformData().font();
+    if (!font || !platformData().isColorBitmapFont())
+        return false;
+    advance = NSSizeToCGSize([font advancementForGlyph:glyph]);
+    return true;
+}
+#endif
+
+static bool hasCustomTracking(CTFontRef font)
+{
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1090
+    UNUSED_PARAM(font);
+    return false;
+#else
+    return CTFontDescriptorIsSystemUIFont(adoptCF(CTFontCopyFontDescriptor(font)).get());
+#endif
+}
+
+static inline bool isEmoji(const FontPlatformData& platformData)
+{
+#if PLATFORM(IOS)
+    return platformData.m_isEmoji;
+#else
+    UNUSED_PARAM(platformData);
+    return false;
+#endif
+}
+
+inline bool SimpleFontData::canUseFastGlyphAdvanceGetter(Glyph glyph, CGSize& advance, bool& populatedAdvance) const
+{
+    // Fast getter doesn't take custom tracking into account
+    if (hasCustomTracking(platformData().ctFont()))
+        return false;
+    // Fast getter doesn't work for emoji
+    if (isEmoji(platformData()))
+        return false;
+    // ... or for any bitmap fonts in general
+    if (advanceForColorBitmapFont(glyph, advance)) {
+        populatedAdvance = true;
+        return false;
+    }
+    return true;
+}
+
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     CGSize advance = CGSizeZero;
-    if (platformData().orientation() == Horizontal || m_isBrokenIdeographFallback) {
-        NSFont *font = platformData().font();
-        if (font && platformData().isColorBitmapFont())
-            advance = NSSizeToCGSize([font advancementForGlyph:glyph]);
-        else {
-            float pointSize = platformData().m_size;
-            CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
-            if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
-                LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
-                advance.width = 0;
-            }
+    bool horizontal = platformData().orientation() == Horizontal;
+    bool populatedAdvance = false;
+    if ((horizontal || m_isBrokenIdeographFallback) && canUseFastGlyphAdvanceGetter(glyph, advance, populatedAdvance)) {
+        float pointSize = platformData().m_size;
+        CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
+        if (!CGFontGetGlyphAdvancesForStyle(platformData().cgFont(), &m, renderingStyle(), &glyph, 1, &advance)) {
+            RetainPtr<CFStringRef> fullName = adoptCF(CGFontCopyFullName(platformData().cgFont()));
+            LOG_ERROR("Unable to cache glyph widths for %@ %f", fullName.get(), pointSize);
+            advance.width = 0;
         }
-    } else
-        CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), kCTFontVerticalOrientation, &glyph, &advance, 1);
+    } else if (!populatedAdvance)
+        CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), horizontal ? kCTFontHorizontalOrientation : kCTFontVerticalOrientation, &glyph, &advance, 1);
 
     return advance.width + m_syntheticBoldOffset;
 }

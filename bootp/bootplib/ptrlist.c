@@ -31,7 +31,6 @@
 
 #ifdef TESTING
 #define DEBUG
-#endif /* TESTING */
 
 static __inline__ void
 ptrlist_print(ptrlist_t * list)
@@ -44,6 +43,8 @@ ptrlist_print(ptrlist_t * list)
     }
     return;
 }
+
+#endif /* TESTING */
 
 void
 ptrlist_init(ptrlist_t * list)

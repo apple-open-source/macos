@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,9 +28,7 @@
 
 #include "IntPoint.h"
 #include "PlatformEvent.h"
-#if OS(WINDOWS)
-#include "WindowsExtras.h"
-#endif
+#include <wtf/WindowsExtras.h>
 
 #if PLATFORM(GTK)
 typedef struct _GdkEventScroll GdkEventScroll;
@@ -50,13 +48,13 @@ namespace WebCore {
     // and synthesized in other cases where platforms generate line-by-line scrolling events.
     // The ScrollByPageWheelEvent indicates that the wheel event should scroll an entire page.  In this case WebCore's built in paging behavior is used to page
     // up and down (you get the same behavior as if the user was clicking in a scrollbar track to page up or page down).
-    enum PlatformWheelEventGranularity {
+    enum PlatformWheelEventGranularity : uint64_t {
         ScrollByPageWheelEvent,
         ScrollByPixelWheelEvent,
     };
 
-#if PLATFORM(MAC)
-    enum PlatformWheelEventPhase {
+#if PLATFORM(COCOA)
+    enum PlatformWheelEventPhase : uint64_t {
         PlatformWheelEventPhaseNone        = 0,
         PlatformWheelEventPhaseBegan       = 1 << 0,
         PlatformWheelEventPhaseStationary  = 1 << 1,
@@ -77,7 +75,7 @@ namespace WebCore {
             , m_wheelTicksY(0)
             , m_granularity(ScrollByPixelWheelEvent)
             , m_directionInvertedFromDevice(false)
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
             , m_hasPreciseScrollingDeltas(false)
             , m_phase(PlatformWheelEventPhaseNone)
             , m_momentumPhase(PlatformWheelEventPhaseNone)
@@ -98,7 +96,7 @@ namespace WebCore {
             , m_wheelTicksY(wheelTicksY)
             , m_granularity(granularity)
             , m_directionInvertedFromDevice(false)
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
             , m_hasPreciseScrollingDeltas(false)
             , m_phase(PlatformWheelEventPhaseNone)
             , m_momentumPhase(PlatformWheelEventPhaseNone)
@@ -118,6 +116,20 @@ namespace WebCore {
             copy.m_wheelTicksX = copy.m_wheelTicksY;
             copy.m_wheelTicksY = 0;
 
+            return copy;
+        }
+
+        PlatformWheelEvent copyIgnoringHorizontalDelta() const
+        {
+            PlatformWheelEvent copy = *this;
+            copy.m_deltaX = 0;
+            return copy;
+        }
+
+        PlatformWheelEvent copyIgnoringVerticalDelta() const
+        {
+            PlatformWheelEvent copy = *this;
+            copy.m_deltaY = 0;
             return copy;
         }
 
@@ -142,7 +154,7 @@ namespace WebCore {
         explicit PlatformWheelEvent(const Evas_Event_Mouse_Wheel*);
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         bool hasPreciseScrollingDeltas() const { return m_hasPreciseScrollingDeltas; }
         void setHasPreciseScrollingDeltas(bool b) { m_hasPreciseScrollingDeltas = b; }
         PlatformWheelEventPhase phase() const { return m_phase; }
@@ -150,9 +162,27 @@ namespace WebCore {
         unsigned scrollCount() const { return m_scrollCount; }
         float unacceleratedScrollingDeltaX() const { return m_unacceleratedScrollingDeltaX; }
         float unacceleratedScrollingDeltaY() const { return m_unacceleratedScrollingDeltaY; }
-        bool useLatchedEventNode() const { return m_momentumPhase == PlatformWheelEventPhaseBegan || m_momentumPhase == PlatformWheelEventPhaseChanged; }
+        bool useLatchedEventElement() const
+        {
+            return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseChanged
+                || m_momentumPhase == PlatformWheelEventPhaseBegan || m_momentumPhase == PlatformWheelEventPhaseChanged;
+        }
+        bool shouldConsiderLatching() const
+        {
+            return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseMayBegin;
+        }
+        bool shouldResetLatching() const
+        {
+            if (m_phase == PlatformWheelEventPhaseCancelled || m_phase == PlatformWheelEventPhaseMayBegin)
+                return true;
+            
+            if (m_phase == PlatformWheelEventPhaseNone && m_momentumPhase == PlatformWheelEventPhaseEnded)
+                return true;
+            
+            return false;
+        }
 #else
-        bool useLatchedEventNode() const { return false; }
+        bool useLatchedEventElement() const { return false; }
 #endif
 
 #if PLATFORM(WIN)
@@ -169,7 +199,7 @@ namespace WebCore {
         float m_wheelTicksY;
         PlatformWheelEventGranularity m_granularity;
         bool m_directionInvertedFromDevice;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         bool m_hasPreciseScrollingDeltas;
         PlatformWheelEventPhase m_phase;
         PlatformWheelEventPhase m_momentumPhase;

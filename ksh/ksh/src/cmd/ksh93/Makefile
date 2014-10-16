@@ -15,15 +15,16 @@ SHCOMP := shcomp$(RELEASE)
  * override SHOPT_foo=1 can be placed one per line in the build dir Makeargs
  */
 
+SHOPT_2DMATCH == 1		/* two dimensional .sh.match for ${var//pat/str} */
 SHOPT_ACCT ==  			/* accounting */
 SHOPT_ACCTFILE ==  		/* per user accounting info */
-SHOPT_AUDIT ==
+SHOPT_AUDIT == 1		/* enable auditing per SHOPT_AUDITFILE */
 SHOPT_AUDITFILE == "/etc/ksh_audit"  		/* auditing file */
 SHOPT_BASH ==			/* bash compatibility code */
 SHOPT_BGX == 1			/* one SIGCHLD trap per completed job */
 SHOPT_BRACEPAT == 1		/* C-shell {...,...} expansions (, required) */
-SHOPT_CMDLIB_HDR ==		/* -lcmd builtin list: <cmdlist.h> */
-SHOPT_CMDLIB_DIR ==		/* SHOPT_CMDLIB_HDR prefix SH_CMDLIB_DIR + <cmdlist.h> */
+SHOPT_CMDLIB_HDR ==		/* -lcmd builtin list (<cmdlist.h>) */
+SHOPT_CMDLIB_DIR ==		/* SHOPT_CMDLIB_HDR directory prefix (default "/opt/ast/bin") */
 SHOPT_COSHELL == 1		/* build with connection to coshell */
 SHOPT_CRNL ==			/* accept <cr><nl> for <nl> */
 SHOPT_DYNAMIC == 1		/* dynamic loading for builtins */
@@ -63,6 +64,9 @@ if CC.HOSTTYPE == "*.s390-64"
 end
 
 if SHOPT_DYNAMIC && ( "$(CC.DIALECT:N=EXPORT=DLL)" || "$(PACKAGE_OPTIONS:N=optimize-space)" )
+	if "$(PACKAGE_OPTIONS:N=optimize-space)" && ! SHOPT_CMDLIB_HDR
+		SHOPT_CMDLIB_HDR == <cmdlist.h>
+	end
 	CCFLAGS += $$(CC.DLL) $$(CC.SUFFIX.DEBUG:+$$(CC.DEBUG))
 	LIBS_req = -lshell$(RELEASE)
 else
@@ -77,7 +81,7 @@ else
 	LIBS_req = +lshell$(RELEASE)
 end
 
-:PACKAGE: ast$(libtype):20100309 order:coshell --clobber=!($(SH))
+:PACKAGE: ast$(libtype):20100309 coshell:order --clobber=!($(SH))
 
 .SOURCE : edit sh bltins data tests fun
 .SOURCE.h : include 
@@ -92,7 +96,7 @@ SH_CMDLIB_DIR ==		/* SHOPT_CMDLIB_DIR dir prefix */
 SH_DICT ==			/* message catalog */
 DEBUG ==			/* debugging purposes only */
 
-if  CC.HOSTTYPE == "*win*"
+if  CC.HOSTTYPE == "win32*"
 	SHOPT_CRNL == 1		/* <cr><nl> is eqivalent to <nl> */
 end
 
@@ -121,7 +125,7 @@ if CC.HOSTTYPE == "linux.sparc*"
 end
 LIBS_opt += -lsecdb
 if CC.HOSTTYPE == "sol.*"
-	LIBS_opt += +lw
+	LIBS_opt += -lw
 end
 $(LIBS_opt)	: .DONTCARE
 
@@ -207,13 +211,13 @@ end
 :: shtests \
 	alias.sh append.sh arith.sh arrays.sh arrays2.sh \
 	attributes.sh basic.sh bracket.sh builtins.sh case.sh \
-	comvar.sh coprocess.sh cubetype.sh enum.sh exit.sh \
+	comvar.sh comvario.sh coprocess.sh cubetype.sh enum.sh exit.sh \
 	expand.sh functions.sh glob.sh grep.sh heredoc.sh io.sh \
-	leaks.sh locale.sh math.sh nameref.sh options.sh path.sh \
-	pointtype.sh pty.sh quoting.sh quoting2.sh recttype.sh \
-	restricted.sh return.sh select.sh shtests sigchld.sh \
-	signal.sh statics.sh subshell.sh substring.sh tilde.sh \
-	timetype.sh treemove.sh types.sh variables.sh \
+	leaks.sh locale.sh math.sh nameref.sh namespace.sh options.sh \
+	path.sh pointtype.sh pty.sh quoting.sh quoting2.sh readcsv.sh \
+	recttype.sh restricted.sh return.sh select.sh shtests \
+	sigchld.sh signal.sh statics.sh subshell.sh substring.sh \
+	tilde.sh timetype.sh treemove.sh types.sh variables.sh \
 	vartree1.sh vartree2.sh
 
 :: ksh-regress.rt ksh-regress.tst

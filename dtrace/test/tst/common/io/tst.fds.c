@@ -45,11 +45,7 @@ interrupt(int sig)
 int
 main(int argc, char *argv[])
 {
-#if !defined(__APPLE__)
-	const char *file = "/dev/null";
-#else
 	const char *file = "/etc/hosts";
-#endif
 	int i, n, fds[10];
 	struct sigaction act;
 
@@ -64,12 +60,8 @@ main(int argc, char *argv[])
 	(void) sigemptyset(&act.sa_mask);
 	(void) sigaction(SIGUSR1, &act, NULL);
 
-#if !defined(__APPLE__)
-	closefrom(0);
-#else
 	n = getdtablesize();
 	for (i = 0; i < n; ++i) close(i);
-#endif /* __APPLE__ */
 	n = 0;
 
 	/*
@@ -89,14 +81,8 @@ main(int argc, char *argv[])
 	fds[n++] = open(file, O_WRONLY);
 	fds[n++] = open(file, O_RDWR);
 
-#if !defined(__APPLE__)
-	fds[n++] = open(file, O_RDWR | O_APPEND | O_CREAT | O_DSYNC |
-	    O_LARGEFILE | O_NOCTTY | O_NONBLOCK | O_NDELAY | O_RSYNC |
-	    O_SYNC | O_TRUNC | O_XATTR);
-#else
 	fds[n++] = open(file, O_RDWR | O_APPEND | O_CREAT | O_ASYNC |
 	    O_NOCTTY | O_NONBLOCK | O_NDELAY | O_SYNC );
-#endif /* __APPLE__ */
 
 	fds[n++] = open(file, O_RDWR);
 	(void) lseek(fds[n - 1], 123, SEEK_SET);

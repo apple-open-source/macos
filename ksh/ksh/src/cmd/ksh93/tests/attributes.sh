@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -394,5 +394,79 @@ unset s
 if	command typeset -M totitle s 2> /dev/null
 then	[[ $(typeset +p s) == 'typeset -M totitle s' ]] || err_exit 'typeset -M totitle does not display correctly with typeset -p'
 fi
+
+{ $SHELL  <<-  \EOF
+	compound -a a1
+	for ((i=1 ; i < 100 ; i++ ))
+        do	[[ "$( typeset + a1[$i] )" == '' ]] && a1[$i].text='hello'
+	done
+	[[ ${a1[70].text} == hello ]]
+EOF
+} 2> /dev/null
+(( $? )) && err_exit  'typeset + a[i] not working'
+
+typeset groupDB="" userDB=""
+typeset -l -L1 DBPick=""
+[[ -n "$groupDB" ]]  && err_exit 'typeset -l -L1 causes unwanted side effect'
+
+HISTFILE=foo
+typeset -u PS1='hello --- '
+HISTFILE=foo
+[[ $HISTFILE == foo ]] || err_exit  'typeset -u PS1 affects HISTFILE'
+
+typeset -a a=( aA= ZQ= bA= bA= bw= Cg= )
+typeset -b x
+for 	(( i=0 ; i < ${#a[@]} ; i++ ))
+do 	x+="${a[i]}"
+done
+[[ $(printf "%B" x) == hello ]] || err_exit "append for typeset -b not working: got '$(printf "%B" x)' should get hello"
+
+(
+	trap 'exit $?' EXIT
+	$SHELL -c 'typeset v=foo; [[ $(typeset -p v[0]) == v=foo ]]'
+) 2> /dev/null || err_exit 'typeset -p v[0] not working for simple variable v'
+
+unset x
+expected='typeset -a x=(a\=3 b\=4)'
+typeset -a x=( a=3 b=4)
+[[ $(typeset -p x) == "$expected" ]] || err_exit 'assignment elements in typeset -a assignment not working'
+
+unset z
+z='typeset -a q=(a b c)'
+$SHELL -c "$z; [[ \$(typeset -pa) == '$z' ]]" || err_exit 'typeset -pa does not list only index arrays'
+z='typeset -C z=(foo=bar)'
+$SHELL -c "$z; [[ \$(typeset -pC) == '$z' ]]" || err_exit 'typeset -pC does not list only compound variables'
+unset y
+z='typeset -A y=([a]=foo)'
+$SHELL -c "$z; [[ \$(typeset -pA) == '$z' ]]" || err_exit 'typeset -pA does not list only associative arrays'
+
+$SHELL 2> /dev/null -c 'typeset -C arr=( aa bb cc dd )' && err_exit 'invalid compound variable assignment not reported'
+
+unset x
+typeset -l x=
+[[ ${x:=foo} == foo ]] || err_exit '${x:=foo} with x unset, not foo when x is a lowercase variable'
+
+unset x
+typeset -L4 x=$'\001abcdef'
+[[ ${#x} == 5 ]] || err_exit "width of character '\01' is not zero" 
+
+unset x
+typeset -L x=-1
+command typeset -F x=0-1 2> /dev/null || err_exit 'typeset -F after typeset -L fails'
+
+unset val
+typeset -i val=10#0-3
+typeset -Z val=0-1
+[[ $val == 0-1 ]] || err_exit 'integer attribute not cleared for subsequent typeset'
+
+unset x
+typeset -L -Z x=foo
+[[ $(typeset -p x) == 'typeset -Z 3 -L 3 x=foo' ]] || err_exit '-LRZ without [n] not defaulting to width of variable'
+
+unset foo
+typeset -Z2 foo=3
+[[ $(typeset -p foo) == 'typeset -Z 2 -R 2 foo=03' ]] || err_exit '-Z2  not working'
+export foo
+[[ $(typeset -p foo) == 'typeset -x -Z 2 -R 2 foo=03' ]] || err_exit '-Z2  not working after export'
 
 exit $((Errors<125?Errors:125))

@@ -1,0 +1,26 @@
+Revision history for Perl extension Types::Serialiser
+
+1.0  Sat Nov 30 19:33:19 CET 2013
+	- clarify that the seocnd arg of FEEZE/THAW is the data
+          model/data format name, not the serialsier.
+        - clarify that FREEZE must not modify the data structure to be serialised.
+
+0.03 Tue Oct 29 14:08:00 CET 2013
+	- work around an overloading bug in perls < 5.18 (reported by
+          Paul Howarth).
+	- remove Types::Serialiser::Boolean module, as it serves
+          no purpose anymore.
+
+0.02 Mon Oct 28 16:29:06 CET 2013
+	- document the Types::Serialisation protocol, in the hope
+          of other modules picking it up.
+        - alias JSON::PP::Boolean as class for booleans, without
+          introducing a dependency to it. It's ugly, but allows
+          JSON::PP to stay in core without dependency to
+          Types::Serialiser.
+        - actually add a simple testcase.
+        - reintroduced common::sense to supprerss spurious warnings.
+
+0.01 Sun Oct 27 16:37:56 CET 2013
+	- original version; cloned from JSON-XS/CBOR-XS
+

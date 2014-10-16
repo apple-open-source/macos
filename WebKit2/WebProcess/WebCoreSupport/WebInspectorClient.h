@@ -31,7 +31,7 @@
 #include "PageOverlay.h"
 
 #include <WebCore/InspectorClient.h>
-#include <WebCore/InspectorFrontendChannel.h>
+#include <WebCore/InspectorForwarding.h>
 
 namespace WebCore {
 class GraphicsContext;
@@ -51,26 +51,33 @@ public:
     }
 
 private:
-    virtual void inspectorDestroyed() OVERRIDE;
+    virtual void inspectorDestroyed() override;
 
-    virtual InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) OVERRIDE;
-    virtual void closeInspectorFrontend() OVERRIDE;
-    virtual void bringFrontendToFront() OVERRIDE;
-    virtual void didResizeMainFrame(WebCore::Frame*) OVERRIDE;
+    virtual InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) override;
+    virtual void closeInspectorFrontend() override;
+    virtual void bringFrontendToFront() override;
+    virtual void didResizeMainFrame(WebCore::Frame*) override;
 
-    virtual void highlight() OVERRIDE;
-    virtual void hideHighlight() OVERRIDE;
+    virtual void highlight() override;
+    virtual void hideHighlight() override;
 
-    virtual bool sendMessageToFrontend(const String&) OVERRIDE;
+#if PLATFORM(IOS)
+    virtual void showInspectorIndication() override;
+    virtual void hideInspectorIndication() override;
+
+    virtual void didSetSearchingForNode(bool) override;
+#endif
+
+    virtual bool sendMessageToFrontend(const String&) override;
 
     virtual bool supportsFrameInstrumentation();
 
     // PageOverlay::Client
-    virtual void pageOverlayDestroyed(PageOverlay*) OVERRIDE;
-    virtual void willMoveToWebPage(PageOverlay*, WebPage*) OVERRIDE;
-    virtual void didMoveToWebPage(PageOverlay*, WebPage*) OVERRIDE;
-    virtual void drawRect(PageOverlay*, WebCore::GraphicsContext&, const WebCore::IntRect&) OVERRIDE;
-    virtual bool mouseEvent(PageOverlay*, const WebMouseEvent&) OVERRIDE;
+    virtual void pageOverlayDestroyed(PageOverlay*) override;
+    virtual void willMoveToWebPage(PageOverlay*, WebPage*) override;
+    virtual void didMoveToWebPage(PageOverlay*, WebPage*) override;
+    virtual void drawRect(PageOverlay*, WebCore::GraphicsContext&, const WebCore::IntRect&) override;
+    virtual bool mouseEvent(PageOverlay*, const WebMouseEvent&) override;
 
     WebPage* m_page;
     PageOverlay* m_highlightOverlay;

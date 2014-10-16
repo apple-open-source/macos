@@ -1,0 +1,101 @@
+#!/bin/csh
+# generate keys, certs, and keychains via openssl
+#
+set ALG=none
+if( $#argv  != 1 ) then
+	echo Usage: makeOpensslCert rsa\|dsa
+	exit(1)
+endif
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case rsa:
+            set ALG=rsa
+            shift
+            breaksw
+        case dsa:
+            set ALG=dsa
+            shift
+            breaksw
+        default:
+            echo Usage: makeOpensslCert rsa\|dsa
+            exit(1)
+    endsw
+end
+
+# file name arguments
+set CSR_FILE=os"$ALG"cert.csr
+set PRIV_KEY_ENCR=os"$ALG"privkey.pem
+set PRIV_RAW_KEY_PEM=os"$ALG"rawprivkey.pem
+set CERT_FILE_PEM=os"$ALG"cert.pem
+set CERT_FILE_DER=os"$ALG"cert.der
+set GEN_INPUT=opensslReqInput
+set KC_NAME=os"$ALG"cert
+
+set REQ_PASSWD=foobar
+set RSA_KEY_SIZE=1024
+set DSA_PARAMS=osdsaparam.der
+
+set KC_DIR=$HOME/Library/Keychains
+
+set ALL_FILES_TBD="$CSR_FILE $PRIV_KEY_ENCR $PRIV_RAW_KEY_PEM $CERT_FILE_PEM $CERT_FILE_DER"
+
+set ALL_FILES_TBD="$ALL_FILES_TBD"
+
+#
+# clean out and start from scratch
+#
+echo deleting $KC_NAME from Library/Keychains
+(cd $KC_DIR; rm -f $KC_NAME)
+set cmd="rm -f $ALL_FILES_TBD"
+echo $cmd
+$cmd || exit(1)
+
+echo "########################################"
+echo "# 1. Create private signing key and CSR."
+echo "########################################"
+if($ALG == dsa) then
+	set KEY_ARGS="dsa:$DSA_PARAMS"
+else
+	set KEY_ARGS="rsa:$RSA_KEY_SIZE"
+endif
+
+set cmd="openssl req -new -passin pass:$REQ_PASSWD -passout pass:$REQ_PASSWD -newkey $KEY_ARGS -keyform PEM -keyout $PRIV_KEY_ENCR"
+echo $cmd \> $CSR_FILE \< $GEN_INPUT
+$cmd > $CSR_FILE < $GEN_INPUT || exit(1)
+echo ...$PRIV_KEY_ENCR contains encrypted signing key in PEM format.
+
+echo "########################################"
+echo "# 2. Remove the passphrase from the key."
+echo "########################################"
+set cmd="openssl $ALG -in $PRIV_KEY_ENCR -out $PRIV_RAW_KEY_PEM -passin pass:$REQ_PASSWD"
+echo $cmd
+$cmd || exit(1)
+echo ...$PRIV_RAW_KEY_PEM contains raw signing key in PEM format. 
+
+echo "########################################"
+echo "# 3. Convert request into signed cert."
+echo "########################################"
+set cmd="openssl x509 -in $CSR_FILE -out $CERT_FILE_PEM -req -signkey $PRIV_RAW_KEY_PEM -days 365"
+echo $cmd
+$cmd || exit(1)
+echo ...$CERT_FILE_PEM contains signing cert in PEM format. 
+
+echo "##################################################"
+echo "# 4. convert cert to DER form for use by sslViewer"
+echo "##################################################"
+set cmd="openssl x509 -inform PEM -outform DER -in $CERT_FILE_PEM -out $CERT_FILE_DER"
+echo $cmd
+$cmd || exit(1)
+echo ...$CERT_FILE_DER contains cert in DER format. 
+
+echo "##################################################"
+echo "# 4. Import cert and private key into keychain"
+echo "##################################################"
+set cmd="certtool i $CERT_FILE_PEM k=$KC_NAME c p=$KC_NAME r=$PRIV_RAW_KEY_PEM"
+echo $cmd
+$cmd || exit(1)
+
+echo "############"
+echo "# FINISHED #"
+echo "############"
+

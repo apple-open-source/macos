@@ -1,4 +1,4 @@
-/* $Id: client.c,v 1.2 2004/07/07 22:53:07 snsimon Exp $ */
+/* $Id: client.c,v 1.9 2011/09/15 09:31:49 mel Exp $ */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -39,14 +39,15 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
+#include <pwd.h>
+#include <unistd.h>
+#include <sysexits.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -59,7 +60,8 @@
 
 #include <assert.h>
 
-#include <sasl.h>
+#include <sasl/sasl.h>
+#include <saslplug.h>
 
 #include "common.h"
 
@@ -108,7 +110,9 @@ static int simple(void *context __attribute__((unused)),
 		  const char **result,
 		  unsigned *len)
 {
-    static char buf[1024];
+    static char bufU[1024];
+    static char bufA[1024];
+    char *b;
 
     /* paranoia check */
     if (! result)
@@ -117,18 +121,20 @@ static int simple(void *context __attribute__((unused)),
     switch (id) {
     case SASL_CB_USER:
 	printf("please enter an authorization id: ");
+        b = bufU;
 	break;
     case SASL_CB_AUTHNAME:
 	printf("please enter an authentication id: ");
+        b = bufA;
 	break;
     default:
 	return SASL_BADPARAM;
     }
 
-    fgets(buf, sizeof buf, stdin);
-    chop(buf);
-    *result = buf;
-    if (len) *len = strlen(buf);
+    fgets(b, 1024, stdin);
+    chop(b);
+    *result = b;
+    if (len) *len = strlen(b);
   
     return SASL_OK;
 }
@@ -169,7 +175,7 @@ getsecret(sasl_conn_t *conn,
     }
 
     x->len = len;
-    strcpy(x->data, password);
+    strcpy((char *)x->data, (char *)password);
     memset(password, 0, len);
     
     *psecret = x;
@@ -180,13 +186,13 @@ getsecret(sasl_conn_t *conn,
 /* callbacks we support */
 static sasl_callback_t callbacks[] = {
   {
-    SASL_CB_GETREALM, &getrealm, NULL
+    SASL_CB_GETREALM, (sasl_callback_ft)&getrealm, NULL
   }, {
-    SASL_CB_USER, &simple, NULL
+    SASL_CB_USER, (sasl_callback_ft)&simple, NULL
   }, {
-    SASL_CB_AUTHNAME, &simple, NULL
+    SASL_CB_AUTHNAME, (sasl_callback_ft)&simple, NULL
   }, {
-    SASL_CB_PASS, &getsecret, NULL
+    SASL_CB_PASS, (sasl_callback_ft)&getsecret, NULL
   }, {
     SASL_CB_LIST_END, NULL, NULL
   }
@@ -232,7 +238,7 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
     char buf[8192];
     const char *data;
     const char *chosenmech;
-    int len;
+    unsigned int len;
     int r, c;
 
     /* get the capability list */
@@ -317,7 +323,7 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
 
 void usage(void)
 {
-    fprintf(stderr, "usage: client [-p port] [-s service] [-m mech] host\n");
+    fprintf(stderr, "usage: client [-c|-C] [-p port] [-s service] [-m mech] host\n");
     exit(EX_USAGE);
 }
 
@@ -334,12 +340,22 @@ int main(int argc, char *argv[])
     sasl_conn_t *conn;
     FILE *in, *out;
     int fd;
-    int salen;
+    socklen_t salen;
     int niflags, error;
     struct sockaddr_storage local_ip, remote_ip;
+    int cb_flag = 0;
+    sasl_channel_binding_t cb;
 
-    while ((c = getopt(argc, argv, "p:s:m:")) != EOF) {
+    while ((c = getopt(argc, argv, "Ccp:s:m:")) != EOF) {
 	switch(c) {
+	case 'C':
+	    cb_flag = 2;    /* channel bindings are critical */
+	    break;
+
+	case 'c':
+	    cb_flag = 1;    /* channel bindings are optional */
+	    break;
+
 	case 'p':
 	    port = optarg;
 	    break;
@@ -415,11 +431,25 @@ int main(int argc, char *argv[])
     r = sasl_client_new(service, host, localaddr, remoteaddr, NULL, 0, &conn);
     if (r != SASL_OK) saslfail(r, "allocating connection state");
 
+    if (cb_flag) {
+        cb.name = "sasl-sample";
+        cb.critical = cb_flag > 1;
+        cb.data = "this is a test of channel binding";
+        cb.len = strlen(cb.data);
+
+        sasl_setprop(conn, SASL_CHANNEL_BINDING, &cb);
+    }
+
+    const char *mechlist = NULL;
+    if (sasl_listmech(conn, NULL, NULL, " ", NULL, &mechlist, NULL, NULL) == SASL_OK)
+        printf("client supported mechs:\n%s\n", mechlist);
+
     /* set external properties here
        sasl_setprop(conn, SASL_SSF_EXTERNAL, &extprops); */
 
     /* set required security properties here
        sasl_setprop(conn, SASL_SEC_PROPS, &secprops); */
+
 
     in = fdopen(fd, "r");
     out = fdopen(fd, "w");
@@ -439,5 +469,5 @@ int main(int argc, char *argv[])
 
     sasl_done();
 
-    return 0;
+    return r;
 }

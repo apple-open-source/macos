@@ -331,7 +331,9 @@ get_retry(const char *opts)
 	if (opts == NULL)
 		return (retry);
 
-	CHECK_STRCPY(buf, opts, sizeof (buf));
+	if (CHECK_STRCPY(buf, opts, sizeof (buf))) {
+                return (retry);
+        }
 	pb = buf;
 	while ((p = (char *)strtok_r(pb, ",", &lasts)) != NULL) {
 		pb = NULL;

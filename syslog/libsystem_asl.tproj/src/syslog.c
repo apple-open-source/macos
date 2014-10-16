@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,6 +54,8 @@
  * SUCH DAMAGE.
  */
 
+#include <stdio.h>
+
 #include <sys/syslog.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,7 +63,8 @@
 #include <pthread.h>
 #include <dispatch/dispatch.h>
 #include <asl.h>
-#include "asl_private.h"
+#include <asl_msg.h>
+#include <asl_private.h>
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -117,7 +120,7 @@ void
 vsyslog(int pri, const char *fmt, va_list ap)
 {
 	int fac;
-	aslmsg facmsg;
+	asl_msg_t *facmsg;
 	const char *facility;
 
 	facmsg = NULL;
@@ -127,8 +130,8 @@ vsyslog(int pri, const char *fmt, va_list ap)
 		facility = asl_syslog_faciliy_num_to_name(fac);
 		if (facility != NULL)
 		{
-			facmsg = asl_new(ASL_TYPE_MSG);
-			asl_set(facmsg, ASL_KEY_FACILITY, facility);
+			facmsg = asl_msg_new(ASL_TYPE_MSG);
+			asl_msg_set_key_val(facmsg, ASL_KEY_FACILITY, facility);
 		}
 	}
 
@@ -142,11 +145,11 @@ vsyslog(int pri, const char *fmt, va_list ap)
 		asl_set_filter(_sl_asl, _sl_mask);
 	}
 
-	asl_vlog(_sl_asl, facmsg, LOG_PRI(pri), fmt, ap);
+	asl_vlog(_sl_asl, (aslmsg)facmsg, LOG_PRI(pri), fmt, ap);
 
 	pthread_mutex_unlock(&_sl_lock);
 
-	if (facmsg != NULL) asl_free(facmsg);
+	if (facmsg != NULL) asl_msg_release(facmsg);
 }
 
 #ifndef BUILDING_VARIANT
@@ -159,8 +162,7 @@ openlog(const char *ident, int opts, int logfac)
 
 	pthread_mutex_lock(&_sl_lock);
 
-	/* close existing aslclient */
-	asl_close(_sl_asl);
+	if (_sl_asl != NULL) asl_close(_sl_asl);
 	_sl_asl = NULL;
 
 	free(_sl_ident);
@@ -196,7 +198,7 @@ closelog()
 	if (_sl_asl != NULL) asl_close(_sl_asl);
 	_sl_asl = NULL;
 
-	if (_sl_ident != NULL) free(_sl_ident);
+	free(_sl_ident);
 	_sl_ident = NULL;
 
 	pthread_mutex_unlock(&_sl_lock);
@@ -214,6 +216,7 @@ setlogmask(int mask)
 
 	_sl_mask = mask;
 	oldmask = asl_set_filter(_sl_asl, mask);
+	if (_sl_opts & LOG_PERROR) asl_set_output_file_filter(_sl_asl, STDERR_FILENO, mask);
 
 	pthread_mutex_unlock(&_sl_lock);
 

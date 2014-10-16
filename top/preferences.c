@@ -81,7 +81,7 @@ static struct {
     .have_ncols = false,
     .ncols = -1,
     .show_swap = false,
-    .mmr = true,
+    .mmr = false,
     .delta_forced_mmr = false
 };
 
@@ -92,6 +92,9 @@ static struct {
     {"pid", STATISTIC_PID},
     {"command", STATISTIC_COMMAND},
     {"cpu", STATISTIC_CPU},
+    {"cpu_me", STATISTIC_CPU_ME},
+    {"cpu_others", STATISTIC_CPU_OTHERS},
+    {"boosts", STATISTIC_BOOSTS},
     {"csw", STATISTIC_CSW},
     {"time", STATISTIC_TIME},
     /*alias*/
@@ -211,22 +214,20 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_WORKQUEUE);
 #endif
     SPREF(STATISTIC_PORTS);
-    SPREF(STATISTIC_MREGION);
 #ifdef TOP_ANONYMOUS_MEMORY
     SPREF(STATISTIC_RMEM);
-    SPREF(STATISTIC_RPRVT);
     SPREF(STATISTIC_PURG);
     SPREF(STATISTIC_COMPRESSED);
 #else
-    SPREF(STATISTIC_RPRVT);
     SPREF(STATISTIC_RSHRD);
     SPREF(STATISTIC_RSIZE);
 #endif
-    SPREF(STATISTIC_VPRVT);
-    SPREF(STATISTIC_VSIZE);
     SPREF(STATISTIC_PGRP);
     SPREF(STATISTIC_PPID);
     SPREF(STATISTIC_PSTATE);
+    SPREF(STATISTIC_BOOSTS);
+    SPREF(STATISTIC_CPU_ME);
+    SPREF(STATISTIC_CPU_OTHERS);
     SPREF(STATISTIC_UID);
     SPREF(STATISTIC_FAULTS);
     SPREF(STATISTIC_COW_FAULTS);
@@ -236,11 +237,17 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_SYSMACH);
     SPREF(STATISTIC_CSW);
     SPREF(STATISTIC_PAGEINS);
-    SPREF(STATISTIC_KPRVT);
-    SPREF(STATISTIC_KSHRD);
     SPREF(STATISTIC_IDLEWAKE);
     SPREF(STATISTIC_POWERSCORE);
     SPREF(STATISTIC_USER);
+
+    /* mmr columns - we hates them */
+    SPREF(STATISTIC_MREGION);
+    SPREF(STATISTIC_RPRVT);
+    SPREF(STATISTIC_VPRVT);
+    SPREF(STATISTIC_VSIZE);
+    SPREF(STATISTIC_KPRVT);
+    SPREF(STATISTIC_KSHRD);
 
 #undef SPREF
 

@@ -39,20 +39,26 @@ Dtstat_t;
 Dt_t*       dtopen(const Dtdisc_t* disc, const Dtmethod_t* meth);
 int         dtclose(Dt_t* dt);
 void        dtclear(dt);
-Dtmethod_t* dtmethod(Dt_t* dt, const Dtmethod_t* meth);
 Dtdisc_t*   dtdisc(Dt_t* dt, const Dtdisc_t* disc, int type);
+Dtmethod_t* dtmethod(Dt_t* dt, const Dtmethod_t* meth);
 Dt_t*       dtview(Dt_t* dt, Dt_t* view);
-int         dttreeset(Dt_t* dt, int minp, int balance);
+int         dtcustomize(Dt_t* dt, int type, Void_t* arg);
+int         dtoptimize(Dt_t* dt);
+int         dtshare(Dt_t* dt, int type);
+int         dtlock(Dt_t* dt, unsigned int key, int type);
 .Ce
 .Ss "STORAGE METHODS"
 .Cs
 Dtmethod_t* Dtset;
 Dtmethod_t* Dtbag;
+Dtmethod_t* Dtrhset;
+Dtmethod_t* Dtrhbag;
 Dtmethod_t* Dtoset;
 Dtmethod_t* Dtobag;
 Dtmethod_t* Dtlist;
 Dtmethod_t* Dtstack;
 Dtmethod_t* Dtqueue;
+Dtmethod_t* Dtdeque;
 .Ce
 .Ss "DISCIPLINE"
 .Cs
@@ -68,6 +74,7 @@ typedef int          (*Dtevent_f)(Dt_t*, int, Void_t*, Dtdisc_t*);
 .Ss "OBJECT OPERATIONS"
 .Cs
 Void_t*   dtinsert(Dt_t* dt, Void_t* obj);
+Void_t*   dtappend(Dt_t* dt, Void_t* obj);
 Void_t*   dtdelete(Dt_t* dt, Void_t* obj);
 Void_t*   dtattach(Dt_t* dt, Void_t* obj);
 Void_t*   dtdetach(Dt_t* dt, Void_t* obj);
@@ -77,25 +84,22 @@ Void_t*   dtfirst(Dt_t* dt);
 Void_t*   dtnext(Dt_t* dt, Void_t* obj);
 Void_t*   dtlast(Dt_t* dt);
 Void_t*   dtprev(Dt_t* dt, Void_t* obj);
-Void_t*   dtfinger(Dt_t* dt);
-Void_t*   dtrenew(Dt_t* dt, Void_t* obj);
+Void_t*   dtleast(Dt_t* dt, Void_t* obj);
+Void_t*   dtmost(Dt_t* dt, Void_t* obj);
 int       dtwalk(Dt_t* dt, int (*userf)(Dt_t*, Void_t*, Void_t*), Void_t*);
 Dtlink_t* dtflatten(Dt_t* dt);
-Dtlink_t* dtlink(Dt_t*, Dtlink_t* link);
+Dtlink_t* dtlink(Dt_t* dt, Dtlink_t* link);
 Void_t*   dtobj(Dt_t* dt, Dtlink_t* link);
 Dtlink_t* dtextract(Dt_t* dt);
-int       dtrestore(Dt_t* dt, Dtlink_t* link);
-
-#define   DTTREESEARCH(Dt_t* dt, Void_t* obj, action)
-#define   DTTREEMATCH(Dt_t* dt, Void_t* key, action)
+Dtlink_t* dtrestore(Dt_t* dt, Dtlink_t* link);
 .Ce
 .Ss "DICTIONARY STATUS"
 .Cs
 Dt_t*     dtvnext(Dt_t* dt);
-int       dtvcount(Dt_t* dt);
+ssize_t   dtvcount(Dt_t* dt);
 Dt_t*     dtvhere(Dt_t* dt);
-int       dtsize(Dt_t* dt);
-int       dtstat(Dt_t* dt, Dtstat_t*, int all);
+ssize_t   dtsize(Dt_t* dt);
+ssize_t   dtstat(Dt_t* dt, Dtstat_t* st);
 .Ce
 .Ss "HASH FUNCTIONS"
 .Cs
@@ -112,14 +116,14 @@ unordered set/multiset, ordered set/multiset, list, stack, and queue.
 .Ss "  Void_t*"
 This type is used to pass objects between \fICdt\fP and application code.
 \f5Void_t\fP is defined as \f5void\fP for ANSI-C and C++
-and \f5char\fP for other compilation environments.
+and \f5char\fP for older C compilation environments.
 .PP
 .Ss "  Dt_t"
 This is the type of a dictionary handle.
 .PP
 .Ss "  Dtdisc_t"
-This defines the type of a discipline structure which describes
-object lay-out and manipulation functions.
+This defines the type of a discipline structure which define the lay-out of
+an object and functions to compare, hash, make, delete objects, etc. (see \f5dtdisc()\fP).
 .PP
 .Ss "  Dtmethod_t"
 This defines the type of a container method.
@@ -149,15 +153,6 @@ See also the events \f5DT_CLOSE\fP and \f5DT_ENDCLOSE\fP below.
 .Ss "  void dtclear(Dt_t* dt)"
 This deletes all objects in \f5dt\fP without closing \f5dt\fP.
 .PP
-.Ss "  Dtmethod_t dtmethod(Dt_t* dt, const Dtmethod_t* meth)"
-If \f5meth\fP is \f5NULL\fP, \f5dtmethod()\fP returns the current method.
-Otherwise, it changes the storage method of \f5dt\fP to \f5meth\fP.
-Object order remains the same during a
-method switch among \f5Dtlist\fP, \f5Dtstack\fP and \f5Dtqueue\fP.
-Switching to and from \f5Dtset/Dtbag\fP and \f5Dtoset/Dtobag\fP may cause
-objects to be rehashed, reordered, or removed as the case requires.
-\f5dtmethod()\fP returns the previous method or \f5NULL\fP on error.
-.PP
 .Ss "  Dtdisc_t* dtdisc(Dt_t* dt, const Dtdisc_t* disc, int type)"
 If \f5disc\fP is \f5NULL\fP, \f5dtdisc()\fP returns the current discipline.
 Otherwise, it changes the discipline of \f5dt\fP to \f5disc\fP.
@@ -170,6 +165,12 @@ thus obviating the need to rehash.
 \f5dtdisc()\fP returns the previous discipline on success
 and \f5NULL\fP on error.
 .PP
+.Ss "  Dtmethod_t dtmethod(Dt_t* dt, const Dtmethod_t* meth)"
+If \f5meth\fP is \f5NULL\fP, \f5dtmethod()\fP returns the current method.
+Otherwise, it changes the storage method of \f5dt\fP to \f5meth\fP.
+Objects may be rehashed, reordered, or removed as appropriate.
+\f5dtmethod()\fP returns the previous method or \f5NULL\fP on error.
+.PP
 .Ss "  Dt_t* dtview(Dt_t* dt, Dt_t* view)"
 A viewpath allows a search or walk starting from a dictionary to continue to another.
 \f5dtview()\fP first terminates any current view from \f5dt\fP to another dictionary.
@@ -177,24 +178,56 @@ Then, if \f5view\fP is \f5NULL\fP, \f5dtview\fP returns the terminated view dict
 If \f5view\fP is not \f5NULL\fP, a viewpath from \f5dt\fP to \f5view\fP is established.
 \f5dtview()\fP returns \f5dt\fP on success and \f5NULL\fP on error.
 .PP
-If two dictionaries on the same viewpath have the same values for the discipline fields
-\f5Dtdisc_t.link\fP, \f5Dtdisc_t.key\fP, \f5Dtdisc_t.size\fP, and \f5Dtdisc_t.hashf\fP,
-it is expected that key hashing will be the same.
-If not, undefined behaviors may result during a search or a walk.
+It is an error to have dictionaries on a viewpath with different storage methods.
+In addition, dictionaries on the same view path should
+treat objects in a consistent manner with respect to comparison or hashing.
+If not, undefined behaviors may result.
 .PP
-.Ss "  int dttreeset(Dt_t* dt, int minp, int balance)"
-This function only applies to dictionaries operated under the method \f5Dtoset\fP
-which uses top-down splay trees (see below). It returns 0 on success and -1 on error.
+.Ss "  int dtcustomize(Dt_t* dt, int type, Void_t* arg)"
+This customizes a storage method. The \f5type\fP argument
+indicates the type of customization and \f5arg\fP gives additional
+information for the operation. Here are the types:
 .Tp
-\f5minp\fP:
-This parameter defines the minimum path length before a search path is adjusted.
-For example, \f5minp\fP equal 0 would mean that search paths are always adjusted.
-If \f5minp\fP is negative, the minimum search path is internally computed based
-on a function of the current dictionary size. This computed value is such that
-if the tree is balanced, it will never require adjusting.
+\f5DT_SHARE\fP:
+This turns on/off the share mode for a dictionary.
+Concurrent accesses of a dictionary not in share mode
+may exhibit undefined behaviors including memory segmentation.
+
+Share mode allows multiple accessors, threads or processes, to access objects.
+Such objects could be in the same directory in the case of threads or shared
+memory in the case of processes.
 .Tp
-\f5balance\fP:
-If this is non-zero, the tree will be made balanced.
+\f5DT_OPTIMIZE\fP:
+This causes the underlying method to optimize its internal
+data structure. For example, the splay tree underlying \f5Dtoset\fP
+would be balanced.
+.PP
+.Ss "  int dtoptimize(Dt_t* dt)"
+This is a short-hand for invoking \f5dtcustomize()\fP with the \f5DT_OPTIMIZE\fP event.
+.PP
+.Ss "  int dtshare(Dt_t* dt, int type)"
+This turns on or off share mode for dictionary \f5dt\fP depending on whether \f5type\fP
+is positive or non-positive. It returns -1 on failure.
+.PP
+.Ss "  int dtlock(Dt_t* dt, unsigned int key, int type)"
+This globally locks/unlocks a dictionary using the given \f5key\fP.
+It returns 0 on success and -1 on failure.
+The value of \f5key\fP must not be 0.
+The argument \f5type\fP is used as follows:
+.Tp
+\f5type < 0\fP:
+Unlock the dictionary if it was locked with \f5key\fP.
+An error will result if the dictionary was locked with a different key.
+.Tp
+\f5type == 0\fP:
+Attempt to lock the dictionary with \f5key\fP if it is unlocked.
+An error will result if the dictionary was already locked with a different key.
+.Tp
+\f5type > 0\fP:
+Attempt to lock the dictionary with \f5key\fP.
+If the dictionary is already locked with a different key,
+the call will loop and wait until the lock is open to lock it.
+
 .PP
 .Ss "STORAGE METHODS"
 .PP
@@ -211,17 +244,28 @@ Objects are ordered by comparisons.
 .Ss "  Dtbag"
 Objects are unordered.
 \f5Dtset\fP keeps unique objects.
-\f5Dtbag\fP allows repeatable objects and always keeps them together
-(note the effect on dictionary walking.)
-These methods use a hash table with chaining to manage the objects.
-See also the event \f5DT_HASHSIZE\fP below on how to manage hash table
-resizing when objects are inserted.
+\f5Dtbag\fP allows repeatable objects.
+The underlying data structure is a hash table with chaining to handle collisions.
+.PP
+.Ss "  Dtrhset"
+.Ss "  Dtrhbag"
+These methods are like \f5Dtset\fP and \f5Dtbag\fP but are based on
+a recursive hashing data structure that allows table extension without
+object relocation. The data structure also supports lock-free
+concurrent search operations for share dictionaries.
 .PP
 .Ss "  Dtlist"
 Objects are kept in a list.
-New objects are inserted either
-in front of \fIcurrent object\fP (see \f5dtfinger()\fP) if this is defined
-or at list front if there is no current object.
+\fIA current object\fP is always defined to be either the head of
+the list or an object resulting from a recent search or insert operation.
+The call \f5dtinsert()\fP will insert a new object
+in front of such a current object
+while the call \f5dtappend()\fP will append in back of it.
+.PP
+.Ss "  Dtdeque"
+Objects are kept in a deque. This is similar to \f5Dtlist\fP
+except that objects are always inserted at the front and appended at the tail
+of the list.
 .PP
 .Ss "  Dtstack"
 Objects are kept in a stack, i.e., in reverse order of insertion.
@@ -239,8 +283,8 @@ Object format and associated management functions are
 defined in the type \f5Dtdisc_t\fP:
 .Cs
     typedef struct
-    { int        key, size;
-      int        link;
+    { ssize_t    key, size;
+      ssize_t    link;
       Dtmake_f   makef;
       Dtfree_f   freef;
       Dtcompar_f comparf;
@@ -249,7 +293,7 @@ defined in the type \f5Dtdisc_t\fP:
       Dtevent_f  eventf;
     } Dtdisc_t;
 .Ce
-.Ss "  int key, size"
+.Ss "  ssize_t key, size"
 Each object \f5obj\fP is identified by a key used for object comparison or hashing.
 \f5key\fP should be non-negative and defines an offset into \f5obj\fP.
 If \f5size\fP is negative, the key is a null-terminated
@@ -259,16 +303,17 @@ If \f5size\fP is zero, the key is a null-terminated string with starting address
 Finally, if \f5size\fP is positive, the key is a byte array of length \f5size\fP
 starting at \f5(Void_t*)((char*)obj+key)\fP.
 .PP
-.Ss "  int link"
-Let \f5obj\fP be an object to be inserted into \f5dt\fP as discussed below.
-If \f5link\fP is negative, an internally allocated object holder is used
-to hold \f5obj\fP. Otherwise, \f5obj\fP should have
+.Ss "  ssize_t link"
+Let \f5obj\fP be an object to be inserted into \f5dt\fP.
+If \f5link\fP is negative, an object holder of type \f5Dtlink_t\fP
+will be allocated to hold \f5obj\fP.
+Otherwise, \f5obj\fP should have
 a \f5Dtlink_t\fP structure embedded \f5link\fP bytes into it,
 i.e., at address \f5(Dtlink_t*)((char*)obj+link)\fP.
 .PP
 .Ss "  Void_t* (*makef)(Dt_t* dt, Void_t* obj, Dtdisc_t* disc)"
 If \f5makef\fP is not \f5NULL\fP,
-\f5dtinsert(dt,obj)\fP will call it
+\f5dtinsert(dt,obj)\fP or \f5dtappend()\fP will call it
 to make a copy of \f5obj\fP suitable for insertion into \f5dt\fP.
 If \f5makef\fP is \f5NULL\fP, \f5obj\fP itself will be inserted into \f5dt\fP.
 .PP
@@ -300,9 +345,6 @@ If \f5addr\fP is not \f5NULL\fP and \f5size\fP is zero, \f5addr\fP is to be free
 If \f5addr\fP is not \f5NULL\fP and \f5size\fP is positive,
 \f5addr\fP is to be resized to the given size.
 If \f5memoryf\fP is \f5NULL\fP, \fImalloc(3)\fP is used.
-When dictionaries share memory,
-a record of the first allocated memory segment should be kept
-so that it can be used to initialize other dictionaries (see below.)
 .PP
 .Ss "  int (*eventf)(Dt_t* dt, int type, Void_t* data, Dtdisc_t* disc)"
 If not \f5NULL\fP, \f5eventf\fP announces various events.
@@ -311,35 +353,49 @@ But a negative return value typically means failure.
 Following are the events:
 .Tp
 \f5DT_OPEN\fP:
-\f5dt\fP is being opened.
-If \f5eventf\fP returns negative, the opening process terminates with failure.
-If \f5eventf\fP returns zero, the opening process proceeds normally.
-A positive return value indicates special treatment of memory as follows.
-If \f5*(Void_t**)data\fP is set to point to some memory segment
-as discussed in \f5memoryf\fP, that segment of memory is used to start
-the dictionary. If \f5*(Void_t**)data\fP is not set, this indicates that
-\f5dtopen()\fP should allocate the dictionary handle itself with
-\f5memoryf\fP so that all memories pertained to the dictionary are allocated
-via this function.
+This event is raised at the start of the process to open a new dictionary.
+The argument \f5data\fP will be a pointer to an object of type \f5Void_t*\fP
+initialized to \f5NULL\fP before the call. The return value of \f5eventf()\fP
+is significant as follows:
+
+On a negative return value, \f5dtopen()\fP will return failure.
+
+On a zero return value, \f5eventf()\fP may set \f5*(Void_t**)data\fP to some non-\f5NULL\fP
+value to indicate that the dictionary structure itself should be allocated
+along with the \f5Dtdisc_t.data\fP section.
+Otherwise, it will be allocated separately with \f5malloc(3)\fP.
+
+On a positive return value, the dictionary is being reconstructed
+based on existing states of some previous dictionary.
+In this case, \f5eventf()\fP should set \f5*(Void_t**)data\fP to point to
+the field \f5Dt_t.data\fP of the corresponding previous dictionary (see \f5DT_CLOSE\fP below).
+If the handle of the previous dictionary was created as discussed above
+in the case of the zero return value, it will be exactly restored.
+Otherwise, a new handle will be allocated with \f5malloc()\fP.
+The ability to create different dictionaries sharing the same set of objects
+allows for managing objects in shared and/or persistent memory.
 .Tp
 \f5DT_ENDOPEN\fP:
-This event announces that \f5dtopen()\fP has successfully opened
-a dictionary and is about to return. The \f5data\fP argument of
-\f5eventf\fP should be the new dictionary handle itself.
+This event is raised at the end of the process to open a dictionary.
+The return value of \f5eventf()\fP will be ignored.
 .Tp
 \f5DT_CLOSE\fP:
-\f5dt\fP is about to be closed. If \f5eventf\fP returns zero,
-the closing process proceeds normally. This means that all objects
-in the dictionary will be deleted and all associated memories freed.
-If \f5eventf\fP returns a positive value, objects will not be deleted.
-However, the dictionary handle itself will still be deallocated
-unless it was allocated via \f5memoryf\fP during \f5dtopen()\fP.
-This allows shared/persistent memory dictionaries to retain
-the relevant memories across dictionary openings and closings.
+This event is raised at the start of the process to close dictionary \f5dt\fP.
+The return value of \f5eventf\fP is significant as follows:
+
+On a negative return value, \f5dtclose()\fP will return failure.
+
+On a zero return value, all dictionary objects will be deleted and
+and all associated memory will be freed.
+
+On a positive return value, allocated objects and memory will be kept intact.
+This means that \f5dt->data\fP remains intact and can be reused in some future
+dictionary (see \f5DT_OPEN\fP above).
+Note, however, that \f5dt\fP itself would still be freed if it was allocated with \f5malloc(3)\fP.
 .Tp
 \f5DT_ENDCLOSE\fP:
-This event announces that \f5dtclose()\fP has successfully closed
-a dictionary and is about to return.
+This event is raised at the end of the process to close a dictionary.
+The return value of \f5eventf()\fP will be ignored.
 .Tp
 \f5DT_DISC\fP:
 The discipline of \f5dt\fP is being changed to a new one given in
@@ -350,15 +406,23 @@ The method of \f5dt\fP is being changed to a new one given in
 \f5(Dtmethod_t*)data\fP.
 .Tp
 \f5DT_HASHSIZE\fP:
-The hash table (for \f5Dtset\fP and \f5Dtbag\fP) is being resized.
-In this case, \f5*(int*)data\fP has the current size of the table.
-The application can set the new table size by first changing
-\f5*(int*)data\fP to the desired size, then return a positive value.
-The application can also fix the table size at the current value
-forever by setting \f5*(int*)data\fP to a negative value, then
-again return a positive value. A non-positive return value from
-the event handling function means that Cdt will be responsible
-for choosing the hash table size.
+This event is applicable to
+the methods \f5Dtset\fP, \f5Dtbag\fP, \f5Dtrhset\fP and \f5Dtrhbag\fP.
+It is typically issued when the respective internal data structure of
+a method is about to be initialized.
+If the return value of the event handling function is positive,
+\f5*(ssize_t*)data\fP is examined for further action;
+else, it is ignored.
+A positive return value means that the event function wishes to suggest a table size.
+It does that by setting \f5*(ssize_t*)data\fP to the desired size.
+Then, the actual table size will be the maximum of the absolute value
+of \f5*(ssize_t*)data\fP and some predefined value set by the method.
+In addition, if \f5*(ssize_t*)data\fP was negative,
+the \f5Dtset\fP and \f5Dtbag\fP methods will never resize the hash table.
+.Tp
+\f5DT_ERROR\fP:
+This event announces an error that occurred during some operations.
+The argument \f5(char*)data\fP is a null-terminated string describing the error.
 .PP
 .Ss "#define DTOFFSET(struct_s,member)"
 This macro function computes the offset of \f5member\fP from the start
@@ -372,24 +436,22 @@ with the given values.
 .Ss "OBJECT OPERATIONS"
 .PP
 .Ss "  Void_t* dtinsert(Dt_t* dt, Void_t* obj)"
-This inserts an object prototyped by \f5obj\fP into \f5dt\fP.
+.Ss "  Void_t* dtappend(Dt_t* dt, Void_t* obj)"
+These functions add an object prototyped by \f5obj\fP into \f5dt\fP.
+\f5dtinsert()\fP and \f5dtappend()\fP perform the same function
+for all methods except for \f5Dtlist\fP (see \f5Dtlist\fP for details).
 If there is an existing object in \f5dt\fP matching \f5obj\fP
-and the storage method is \f5Dtset\fP or \f5Dtoset\fP,
-\f5dtinsert()\fP will simply return the matching object.
+and the storage method is \f5Dtset\fP, \f5Dtrhset\fP or \f5Dtoset\fP,
+\f5dtinsert()\fP and \f5dtappend()\fP will simply return the matching object.
 Otherwise, a new object is inserted according to the method in use.
 See \f5Dtdisc_t.makef\fP for object construction.
-\f5dtinsert()\fP returns the new object, a matching object as noted,
-or \f5NULL\fP on error.
+The new object or a matching object as noted will be returned on success
+while \f5NULL\fP is returned on error.
 .PP
 .Ss "  Void_t* dtdelete(Dt_t* dt, Void_t* obj)"
 If \f5obj\fP is \f5NULL\fP, methods \f5Dtstack\fP and \f5Dtqueue\fP
 delete respectively stack top or queue head while other methods do nothing.
-If \f5obj\fP is not \f5NULL\fP, there are two cases.
-If the method in use is not \f5Dtbag\fP or \f5Dtobag\fP,
-the first object matching \f5obj\fP is deleted.
-On the other hand, if the method in use is \f5Dtbag\fP or \f5Dtobag\fP,
-the library check to see if \f5obj\fP is in the dictionary and delete it.
-If \f5obj\fP is not in the dictionary, some object matching it will be deleted.
+If \f5obj\fP is not \f5NULL\fP, an object matching \f5obj\fP is deleted.
 See \f5Dtdisc_t.freef\fP for object destruction.
 \f5dtdelete()\fP returns the deleted object (even if it was deallocated)
 or \f5NULL\fP on error.
@@ -413,48 +475,42 @@ from some dictionary accessible from \f5dt\fP via a viewpath (see \f5dtview()\fP
 .Ss "  Void_t* dtfirst(Dt_t* dt)"
 .Ss "  Void_t* dtnext(Dt_t* dt, Void_t* obj)"
 \f5dtfirst()\fP returns the first object in \f5dt\fP.
-\f5dtnext()\fP returns the object following \f5obj\fP.
+\f5dtnext()\fP returns the object that follows an object matching \f5obj\fP.
 Objects are ordered based on the storage method in use.
 For \f5Dtoset\fP and \f5Dtobag\fP, objects are ordered by object comparisons.
 For \f5Dtstack\fP, objects are ordered in reverse order of insertion.
 For \f5Dtqueue\fP, objects are ordered in order of insertion.
 For \f5Dtlist\fP, objects are ordered by list position.
-For \f5Dtset\fP and \f5Dtbag\fP,
-objects are ordered by some internal order (more below).
-Thus, objects in a dictionary or a viewpath can be walked using 
+For \f5Dtset\fP, \f5Dtbag\fP, \f5Dtrhset\fP and \f5Dtrhbag\fP,
+objects are ordered by some internal order defined at the time when these
+functions are called.
+
+Objects in a dictionary or a viewpath can be walked using 
 a \f5for(;;)\fP loop as below.
 .Cs
     for(obj = dtfirst(dt); obj; obj = dtnext(dt,obj))
 .Ce
-When a dictionary uses \f5Dtset\fP or \f5Dtbag\fP,
-the object order is determined upon a call to \f5dtfirst()\fP/\f5dtlast()\fP.
-This order is frozen until a call \f5dtnext()\fP/\f5dtprev()\fP returns \f5NULL\fP
-or when these same functions are called with a \f5NULL\fP object argument.
-It is important that a \f5dtfirst()/dtlast()\fP call be
-balanced by a \f5dtnext()/dtprev()\fP call as described.
-Nested loops will require multiple balancing, once per loop.
-If loop balancing is not done carefully, either performance is degraded
-or unexpected behaviors may result.
+.PP
 .Ss "  Void_t* dtlast(Dt_t* dt)"
 .Ss "  Void_t* dtprev(Dt_t* dt, Void_t* obj)"
 \f5dtlast()\fP and \f5dtprev()\fP are like \f5dtfirst()\fP and \f5dtnext()\fP
 but work in reverse order.
-Note that dictionaries on a viewpath are still walked in order
-but objects in each dictionary are walked in reverse order.
+For \f5Dtset\fP, \f5Dtbag\fP, \f5Dtrhset\fP and \f5Dtrhbag\fP,
+both reverse and forward orders are the same.
+Note that dictionaries on a viewpath are still walked in the order
+of the viewpath.
 .PP
-.Ss "  Void_t* dtfinger(Dt_t* dt)"
-This function returns the \fIcurrent object\fP of \f5dt\fP, if any.
-The current object is defined after a successful call to one of
-\f5dtsearch()\fP, \f5dtmatch()\fP, \f5dtinsert()\fP,
-\f5dtfirst()\fP, \f5dtnext()\fP, \f5dtlast()\fP, or \f5dtprev()\fP.
-As a side effect of this implementation of \fICdt\fP,
-when a dictionary is based on \f5Dtoset\fP and \f5Dtobag\fP,
-the current object is always defined and is the root of the tree.
-.PP
-.Ss "  Void_t* dtrenew(Dt_t* dt, Void_t* obj)"
-This function repositions and perhaps rehashes
-an object \f5obj\fP after its key has been changed.
-\f5dtrenew()\fP only works if \f5obj\fP is the current object (see \f5dtfinger()\fP).
+.Ss "  Void_t* dtleast(Dt_t* dt, Void_t* obj)"
+.Ss "  Void_t* dtmost(Dt_t* dt, Void_t* obj)"
+\f5dtleast()\fP returns the smallest object greater or equal to \f5obj\fP.
+\f5dtmost()\fP returns the largest object smaller or equal to \f5obj\fP.
+Again, object ordering depends on the storage method in use.
+For example, with \f5Dtoset\fP and \f5Dtobag\fP, the ordering of objects
+is well-defined and it is possible to call \f5dtleast()\fP or \f5dtmost()\fP
+on an object not in the dictionary and still get a meaningful result.
+On the other hand, with \f5Dtset\fP or \f5Dtrhset\fP, such a call will
+essentially be the same as \f5dtsearch()\fP because without matching
+an object, it cannot be determined what comes before or after.
 .PP
 .Ss "  dtwalk(Dt_t* dt, int (*userf)(Dt_t*, Void_t*, Void_t*), Void_t* data)"
 This function calls \f5(*userf)(walk,obj,data)\fP on each object in \f5dt\fP and
@@ -488,90 +544,56 @@ Beware that the flattened object list is unflattened on any
 dictionary operations other than \f5dtlink()\fP.
 .PP
 .Ss "  Dtlink_t* dtextract(Dt_t* dt)"
-.Ss "  int dtrestore(Dt_t* dt, Dtlink_t* link)"
-\f5dtextract()\fP extracts all objects from \f5dt\fP and makes it appear empty.
+.Ss "  Dtlink_t* dtrestore(Dt_t* dt, Dtlink_t* list)"
+\f5dtextract()\fP extracts the list of objects from \f5dt\fP and makes it appear empty.
 \f5dtrestore()\fP repopulates \f5dt\fP with
-objects previously obtained via \f5dtextract()\fP.
-\f5dtrestore()\fP will fail if \f5dt\fP is not empty.
-These functions can be used
-to share a same \f5dt\fP handle among many sets of objects.
-They are useful to reduce dictionary overhead
-in an application that creates many concurrent dictionaries.
+a list of objects previously obtained via \f5dtextract()\fP.
 It is important that the same discipline and method are in use at both
 extraction and restoration. Otherwise, undefined behaviors may result.
-.PP
-.Ss "  #define   DTTREESEARCH(Dt_t* dt, Void_t* obj, action)"
-.Ss "  #define   DTTREEMATCH(Dt_t* dt, Void_t* key, action)"
-These macro functions are analogues of \f5dtsearch()\fP and \f5dtmatch()\fP
-but they can only be used on a dictionary based on a binary
-search tree, i.e., \f5Dtoset\fP or \f5Dtobag\fP.
-.Tp
-\f5obj\fP or \f5key\fP:
-These are used to find a matching object. If there is no match,
-the result is \f5NULL\fP.
-.Tp
-\f5action\fP:
-The matching object \f5o\fP (which may be \f5NULL\fP) will be processed as follow:
-
-.Cs
-    action (o);
-.Ce
-
-Since \f5action\fP is used verbatim, it can be any C code
-fragment combinable with \f5(o)\fP to form a syntactically correct C statement.
-For example, suppose that the matching object is an integer, the below code
-accumulates the integer value in a variable \f5total\fP:
-
-.Cs
-    DTTREEMATCH(dt, key, total += (int));
-.Ce
+These functions return \f5NULL\fP on error.
 
 .PP
 .Ss "DICTIONARY INFORMATION"
 .PP
 .Ss "  Dt_t* dtvnext(Dt_t* dt)"
 This returns the dictionary that \f5dt\fP is viewing, if any.
-.Ss "  int dtvcount(Dt_t* dt)"
+.Ss "  ssize_t dtvcount(Dt_t* dt)"
 This returns the number of dictionaries that view \f5dt\fP.
 .Ss "  Dt_t* dtvhere(Dt_t* dt)"
 This returns the dictionary \f5v\fP viewable from \f5dt\fP
 where an object was found from the most recent search or walk operation.
-.Ss "  int dtsize(Dt_t* dt)"
+.Ss "  ssize_t dtsize(Dt_t* dt)"
 This function returns the number of objects stored in \f5dt\fP.
 .PP
-.Ss "  int dtstat(Dt_t *dt, Dtstat_t* st, int all)"
+.Ss "  ssize_t dtstat(Dt_t *dt, Dtstat_t* st)"
 This function reports dictionary statistics.
-If \f5all\fP is non-zero, all fields of \f5st\fP are filled.
-Otherwise, only the \f5dt_type\fP and \f5dt_size\fP fields are filled.
-It returns \f50\fP on success and \f5-1\fP on error.
+It returns the number of objects stored in \f5dt\fP.
 .PP
 \f5Dtstat_t\fP contains the below fields:
 .Tp
-\f5int dt_type\fP:
-This is one of \f5DT_SET\fP, \f5DT_BAG\fP, \f5DT_OSET\fP, \f5DT_OBAG\fP,
-\f5DT_LIST\fP, \f5DT_STACK\fP, and \f5DT_QUEUE\fP.
+\f5int meth\fP:
+This returns the method used for the dictionary, e.g., \f5DT_SET\fP, \f5DT_OSET\fP, etc.
 .Tp
-\f5int dt_size\fP:
-This contains the number of objects in the dictionary.
+\f5ssize_t size\fP:
+This has the number of objects in the dictionary.
 .Tp
-\f5int dt_n\fP:
-For \f5Dtset\fP and \f5Dtbag\fP,
-this is the number of non-empty chains in the hash table.
-For \f5Dtoset\fP and \f5Dtobag\fP,
-this is the deepest level in the tree (counting from zero.)
-Each level in the tree contains all nodes of equal distance from the root node.
-\f5dt_n\fP and the below two fields are undefined for other methods.
+\f5ssize_t mlev\fP:
+This returns the maximum number of levels in the data structure used for object storage, i.e.,
+the binary tree or the recursive hash table.
+For a hash table with chaining (i.e., \f5Dtset\fP and \f5Dtbag\fP),
+it gives the length of the longest chain.
 .Tp
-\f5int dt_max\fP:
-For \f5Dtbag\fP and \f5Dtset\fP, this is the size of a largest chain.
-For \f5Dtoset\fP and \f5Dtobag\fP, this is the size of a largest level.
+\f5ssize_t lsize[]\fP:
+This gives the object counts at each level.
+For a hash table with chaining (i.e., \f5Dtset\fP and \f5Dtbag\fP),
+a level is defined as objects at that position in their chains.
+Since chains can be arbitrarily long, the report is limited
+to objects at a level less than \f5DT_MAXSIZE\fP.
 .Tp
-\f5int* dt_count\fP:
-For \f5Dtset\fP and \f5Dtbag\fP,
-this is the list of counts for chains of particular sizes.
-For example, \f5dt_count[1]\fP is the number of chains of size \f51\fP.
-For \f5Dtoset\fP and \f5Dtobag\fP, this is the list of sizes of the levels.
-For example, \f5dt_count[1]\fP is the size of level \f51\fP.
+\f5ssize_t tsize[]\fP:
+For a hash table using a trie structure, this counts the number of
+sub-tables at each level. For example, \f5tsize[0]\fP should be 1
+only for this hash table type.
 .PP
 .Ss "HASH FUNCTIONS"
 .PP
@@ -584,10 +606,12 @@ If \f5n\fP is positive, \f5str\fP is a byte array of length \f5n\fP;
 otherwise, \f5str\fP is a null-terminated string.
 .PP
 .SH IMPLEMENTATION NOTES
+\f5Dtlist\fP, \f5Dtstack\fP and \f5Dtqueue\fP are based on doubly linked list.
+\f5Dtoset\fP and \f5Dtobag\fP are based on top-down splay trees.
 \f5Dtset\fP and \f5Dtbag\fP are based on hash tables with
 move-to-front collision chains.
-\f5Dtoset\fP and \f5Dtobag\fP are based on top-down splay trees.
-\f5Dtlist\fP, \f5Dtstack\fP and \f5Dtqueue\fP are based on doubly linked list.
+\f5Dtrhset\fP and \f5Dtrhbag\fP are based on a recursive hashing data structure
+that avoids table resizing.
 .PP
 .SH AUTHOR
 Kiem-Phong Vo, kpv@research.att.com

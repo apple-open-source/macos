@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,17 +30,20 @@
 
 #if USE(3D_GRAPHICS)
 
+#include "CairoUtilities.h"
 #include "GraphicsContext3DPrivate.h"
 #include "Image.h"
 #include "ImageSource.h"
 #include "NotImplemented.h"
 #include "PlatformContextCairo.h"
 #include "RefPtrCairo.h"
-#include "ShaderLang.h"
 #include <cairo.h>
-#include <wtf/NotFound.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+
+#if PLATFORM(WIN)
+#include "GLSLANG/ShaderLang.h"
+#else
+#include "ShaderLang.h"
+#endif
 
 #if USE(OPENGL_ES_2)
 #include "Extensions3DOpenGLES.h"
@@ -78,12 +81,13 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attributes, H
     , m_compiler(isGLES2Compliant() ? SH_ESSL_OUTPUT : SH_GLSL_OUTPUT)
     , m_attrs(attributes)
     , m_texture(0)
+    , m_compositorTexture(0)
     , m_fbo(0)
     , m_depthStencilBuffer(0)
     , m_multisampleFBO(0)
     , m_multisampleDepthStencilBuffer(0)
     , m_multisampleColorBuffer(0)
-    , m_private(GraphicsContext3DPrivate::create(this, renderStyle))
+    , m_private(std::make_unique<GraphicsContext3DPrivate>(this, renderStyle))
 {
     makeContextCurrent();
 
@@ -153,7 +157,11 @@ GraphicsContext3D::~GraphicsContext3D()
         return;
 
     makeContextCurrent();
-    ::glDeleteTextures(1, &m_texture);
+    if (m_texture)
+        ::glDeleteTextures(1, &m_texture);
+    if (m_compositorTexture)
+        ::glDeleteTextures(1, &m_compositorTexture);
+
     if (m_attrs.antialias) {
         ::glDeleteRenderbuffers(1, &m_multisampleColorBuffer);
         if (m_attrs.stencil || m_attrs.depth)
@@ -196,13 +204,23 @@ bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool
         // do AlphaDoUnmultiply if UNPACK_PREMULTIPLY_ALPHA_WEBGL is set to false.
         if (!premultiplyAlpha && m_imageHtmlDomSource != HtmlDomVideo)
             m_alphaOp = AlphaDoUnmultiply;
+
+        // if m_imageSurface is not an image, extract a copy of the surface
+        if (m_imageSurface && cairo_surface_get_type(m_imageSurface.get()) != CAIRO_SURFACE_TYPE_IMAGE) {
+            RefPtr<cairo_surface_t> tmpSurface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_imageWidth, m_imageHeight));
+            copyRectFromOneSurfaceToAnother(m_imageSurface.get(), tmpSurface.get(), IntSize(), IntRect(0, 0, m_imageWidth, m_imageHeight), IntSize(), CAIRO_OPERATOR_SOURCE);
+            m_imageSurface = tmpSurface.release();
+        }
     }
 
     if (!m_imageSurface)
         return false;
 
-    m_imageWidth = cairo_image_surface_get_width(m_imageSurface.get());
-    m_imageHeight = cairo_image_surface_get_height(m_imageSurface.get());
+    ASSERT(cairo_surface_get_type(m_imageSurface.get()) == CAIRO_SURFACE_TYPE_IMAGE);
+
+    IntSize imageSize = cairoSurfaceSize(m_imageSurface.get());
+    m_imageWidth = imageSize.width();
+    m_imageHeight = imageSize.height();
     if (!m_imageWidth || !m_imageHeight)
         return false;
 
@@ -252,11 +270,11 @@ void GraphicsContext3D::paintToCanvas(const unsigned char* imagePixels, int imag
     context->restore();
 }
 
-void GraphicsContext3D::setContextLostCallback(PassOwnPtr<ContextLostCallback>)
+void GraphicsContext3D::setContextLostCallback(std::unique_ptr<ContextLostCallback>)
 {
 }
 
-void GraphicsContext3D::setErrorMessageCallback(PassOwnPtr<ErrorMessageCallback>)
+void GraphicsContext3D::setErrorMessageCallback(std::unique_ptr<ErrorMessageCallback>)
 {
 }
 
@@ -286,12 +304,10 @@ bool GraphicsContext3D::isGLES2Compliant() const
 #endif
 }
 
-#if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* GraphicsContext3D::platformLayer() const
 {
     return m_private.get();
 }
-#endif
 
 } // namespace WebCore
 

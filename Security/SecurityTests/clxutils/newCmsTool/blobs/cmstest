@@ -1,0 +1,506 @@
+#! /bin/csh -f
+#
+# test libsecurity_cms.
+#
+set USE_REF_BLOBS=NO
+set QUIET=NO
+set QUIET_ARG=
+set MULTI_UPDATE=
+
+#
+# safely look for this required env var
+#
+setenv | /usr/bin/grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+        echo Please set env var LOCAL_BUILD_DIR.
+        exit(1)
+endif
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+# 
+# Default options: identities, keychain, etc.; overridable
+#
+set SRCH_KC=
+set SIGNER=dmitch@apple.com
+set RECIP=dmitch@apple.com
+set SIGNER2=dmitch@dmitch.com
+set RECIP2=dmitch@dmitch.com
+# specifying an anchorFile implies manual SecTrustEval
+set MANUAL_EVAL=
+set ANCHOR_CERT=
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case -r:
+            set USE_REF_BLOBS = YES
+            shift
+            breaksw
+		case -q:
+			set QUIET=YES
+			set QUIET_ARG = -Z
+            shift
+            breaksw
+		case -m:
+			set MULTI_UPDATE = -m
+			shift
+			breaksw
+		case -s:
+			if($#argv < 2) then
+				cat cmstestUsage
+				exit(1)
+			endif
+			set SIGNER=$argv[2]
+			set RECIP=$argv[2]
+			shift
+			shift
+			breaksw
+		case -S:
+			if($#argv < 2) then
+				cat cmstestUsage
+				exit(1)
+			endif
+			set SIGNER2=$argv[2]
+			set RECIP2=$argv[2]
+			shift
+			shift
+			breaksw
+		case -k:
+			if($#argv < 2) then
+				cat cmstestUsage
+				exit(1)
+			endif
+			set SRCH_KC="-k $argv[2]"
+			shift
+			shift
+			breaksw
+		case -a:
+			if($#argv < 2) then
+				cat cmstestUsage
+				exit(1)
+			endif
+			set ANCHOR_CERT="-A $argv[2]"
+			set MANUAL_EVAL="-M"
+			shift
+			shift
+			breaksw
+        default:
+            cat cmstestUsage
+            exit(1)
+    endsw
+end
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set CMSTOOL=$BUILD_DIR/newCmsTool
+
+# the files we act on - we only write to $BUILD_DIR. If we're using reference blobs,
+# we copy them to the build directory and then run as usual.
+#
+set PTEXT=ptext
+set RPTEXT=${BUILD_DIR}/rptext
+
+set OTHER_CERT0=GTE_SGC.cer
+set OTHER_CERT1=dmitchIChat.cer
+set CERT_FILEBASE=${BUILD_DIR}/outcert
+
+set STD_SIGN_CMD="$CMSTOOL sign $SRCH_KC -S $SIGNER $QUIET_ARG $MULTI_UPDATE"
+set STD_ENCR_CMD="$CMSTOOL envel $SRCH_KC -r $RECIP $QUIET_ARG $MULTI_UPDATE"
+set STD_SIGN_ENCR_CMD="$CMSTOOL signEnv $SRCH_KC -S $SIGNER -r $RECIP $QUIET_ARG $MULTI_UPDATE"
+set STD_PARSE_CMD="$CMSTOOL parse -o $RPTEXT $SRCH_KC $ANCHOR_CERT $MANUAL_EVAL $QUIET_ARG $MULTI_UPDATE"
+set STD_CMP_CMD="cmp $PTEXT $RPTEXT"
+
+# vanilla
+set O_SIGN=${BUILD_DIR}/sign.p7
+set O_ENV=${BUILD_DIR}/env.p7
+set O_SIGN_ENV=${BUILD_DIR}/signEnv.p7
+# eContentType = auth
+set O_SIGN_AUTH=${BUILD_DIR}/sign_auth.p7
+set O_SIGN_ENV_AUTH=${BUILD_DIR}/signEnv_auth.p7
+# detached content
+set O_SIGN_DETACH=${BUILD_DIR}/sign_det.p7
+# two signers
+set O_SIGN_TWO=${BUILD_DIR}/sign_two.p7
+set O_SIGN_ENV_TWO_SIGN=${BUILD_DIR}/signEnv_twoSign.p7
+# two recipients
+set O_ENV_TWO=${BUILD_DIR}/env_two.p7
+set O_SIGN_ENV_TWO_SIGN_TWO_RECIP=${BUILD_DIR}/signEnv_twoSign_twoRecip.p7
+# additional certs - one signed, sone signed/encryped, one certs only
+set O_SIGN_ADD_CERTS=${BUILD_DIR}/sign_certs.p7
+set O_SIGN_ENV_ADD_CERTS=${BUILD_DIR}/signEnv_certs.p7
+set O_SIGN_ONLY_CERTS=${BUILD_DIR}/certsOnly.p7
+# cert chain options
+set O_SIGN_NONE=${BUILD_DIR}/sign_nocerts.p7
+set O_SIGN_SIGNER=${BUILD_DIR}/sign_signer.p7
+set O_SIGN_WITHROOT=${BUILD_DIR}/sign_withroot.p7
+
+if($USE_REF_BLOBS == YES) then
+	if($QUIET == NO) then
+		echo copying reference blobs to Build directory...
+		echo "cp *.p7 ${BUILD_DIR}/"
+	endif
+	cp *.p7 ${BUILD_DIR} || exit(1)
+else 
+	if($QUIET == NO) then
+		echo generating blobs in Build directory...
+	endif
+
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_ENCR_CMD -i $PTEXT -o $O_ENV"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_ENCR_CMD -i $PTEXT -o $O_SIGN_ENV"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_AUTH -e a"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_ENCR_CMD -i $PTEXT -o $O_SIGN_ENV_AUTH -e a"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_DETACH -d"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_TWO -S $SIGNER2"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+
+	set cmd="$STD_SIGN_ENCR_CMD -i $PTEXT -o $O_SIGN_ENV_TWO_SIGN -S $SIGNER2"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_ENCR_CMD -i $PTEXT -o $O_ENV_TWO -r $RECIP2"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_ENCR_CMD -i $PTEXT -o $O_SIGN_ENV_TWO_SIGN_TWO_RECIP -S $SIGNER2 -r $RECIP2"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_ADD_CERTS -C $OTHER_CERT0 -C $OTHER_CERT1"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_ENCR_CMD -i $PTEXT -o $O_SIGN_ENV_ADD_CERTS -C $OTHER_CERT0 -C $OTHER_CERT1"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$CMSTOOL certs -o $O_SIGN_ONLY_CERTS $QUIET_ARG -C $OTHER_CERT0 -C $OTHER_CERT1"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+	
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_NONE -t none"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_SIGNER -t signer"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+
+	set cmd="$STD_SIGN_CMD -i $PTEXT -o $O_SIGN_WITHROOT -t chainWithRoot"
+	if($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+
+endif
+
+if($QUIET == NO) then
+	echo verifying blobs in Build directory...
+endif
+
+# Note we expect there to be twp certs per signer...true for the current
+# Thawte certs.
+
+# signed
+set cmd="$STD_PARSE_CMD -i $O_SIGN -v sign -E d -s 1 -N 2"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# enveloped
+set cmd="$STD_PARSE_CMD -i $O_ENV -v encr -N 0"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# signed & enveloped
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ENV -v signEnv -E d -s 1 -N 2"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# signed, eContentType auth
+set cmd="$STD_PARSE_CMD -i $O_SIGN_AUTH -v sign -E a -s 1 -N 2"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# signed & enveloped, eContentType auth
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ENV_AUTH -v signEnv -E a -s 1 -N 2"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+	
+# signed, detached content - no output
+set cmd="$CMSTOOL parse -i $O_SIGN_DETACH -D $PTEXT $SRCH_KC $ANCHOR_CERT $MANUAL_EVAL -v sign -E d -s 1 $QUIET_ARG $MULTI_UPDATE -N 2"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# signed, two signers
+set cmd="$STD_PARSE_CMD -i $O_SIGN_TWO -v sign -E d -s 2 -N 4"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# signed & enveloped, two signers
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ENV_TWO_SIGN -v signEnv -E d -s 2 -N 4"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+	
+# enveloped, two recipients
+set cmd="$STD_PARSE_CMD -i $O_ENV_TWO -v encr -N 0"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# signed & enveloped, two signers, two recipients
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ENV_TWO_SIGN_TWO_RECIP -v signEnv -E d -s 2 -N 4"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+	
+# additional certs with signer
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ADD_CERTS -v sign -E d -s 1 -N 4"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# additional certs with signer & recipient
+set cmd="$STD_PARSE_CMD -i $O_SIGN_ENV_ADD_CERTS -v signEnv -E d -s 1 -N 4"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# cert chain options - first, no certs
+set cmd="$STD_PARSE_CMD -i $O_SIGN_NONE -v sign -E d -s 1 -N 0"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# cert chain options - signer certs
+set cmd="$STD_PARSE_CMD -i $O_SIGN_SIGNER -v sign -E d -s 1 -N 1"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# cert chain options - chain with root
+set cmd="$STD_PARSE_CMD -i $O_SIGN_WITHROOT -v sign -E d -s 1 -N 3"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$STD_CMP_CMD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if($QUIET == NO) then
+	echo rm $RPTEXT
+endif
+rm $RPTEXT
+
+# certs only
+set cmd="$CMSTOOL parse -i $O_SIGN_ONLY_CERTS $QUIET_ARG $MULTI_UPDATE -v sign -s 0 -N 2 -f $CERT_FILEBASE"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+# the order here is affected by the size of the certs: the certs are encoded in the
+# p7 blob as a SET OF, which when DER-encoded (as opposed to BER encoded), is ordered,
+# with the length octets happening to determine the order (if the certs are different 
+# sizes). We know that OTHER_CERT1 is smaller that OTHER_CERT0...
+set cmd="cmp $OTHER_CERT1 ${CERT_FILEBASE}_0.cer"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="cmp $OTHER_CERT0 ${CERT_FILEBASE}_1.cer"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="rm ${CERT_FILEBASE}_0.cer ${CERT_FILEBASE}_1.cer"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if($QUIET == NO) then
+	echo === cmstest Succeeded ===
+endif

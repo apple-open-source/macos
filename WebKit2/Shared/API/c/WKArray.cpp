@@ -26,26 +26,36 @@
 #include "config.h"
 #include "WKArray.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "WKAPICast.h"
 
 using namespace WebKit;
 
 WKTypeID WKArrayGetTypeID()
 {
-    return toAPI(ImmutableArray::APIType);
+    return toAPI(API::Array::APIType);
 }
 
 WKArrayRef WKArrayCreate(WKTypeRef* values, size_t numberOfValues)
 {
-    RefPtr<ImmutableArray> array = ImmutableArray::create(reinterpret_cast<APIObject**>(const_cast<void**>(values)), numberOfValues);
-    return toAPI(array.release().leakRef());
+    Vector<RefPtr<API::Object>> elements;
+    elements.reserveInitialCapacity(numberOfValues);
+
+    for (size_t i = 0; i < numberOfValues; ++i)
+        elements.uncheckedAppend(const_cast<API::Object*>(static_cast<const API::Object*>(values[i])));
+
+    return toAPI(API::Array::create(WTF::move(elements)).leakRef());
 }
 
 WKArrayRef WKArrayCreateAdoptingValues(WKTypeRef* values, size_t numberOfValues)
 {
-    RefPtr<ImmutableArray> array = ImmutableArray::adopt(reinterpret_cast<APIObject**>(const_cast<void**>(values)), numberOfValues);
-    return toAPI(array.release().leakRef());
+    Vector<RefPtr<API::Object>> elements;
+    elements.reserveInitialCapacity(numberOfValues);
+
+    for (size_t i = 0; i < numberOfValues; ++i)
+        elements.uncheckedAppend(adoptRef(const_cast<API::Object*>(static_cast<const API::Object*>(values[i]))));
+
+    return toAPI(API::Array::create(WTF::move(elements)).leakRef());
 }
 
 WKTypeRef WKArrayGetItemAtIndex(WKArrayRef arrayRef, size_t index)

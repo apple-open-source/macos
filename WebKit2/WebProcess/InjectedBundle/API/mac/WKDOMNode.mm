@@ -24,11 +24,9 @@
  */
 
 #import "config.h"
-
-#if defined(__LP64__) && defined(__clang__)
-
-#import "WKDOMNode.h"
 #import "WKDOMNodePrivate.h"
+
+#if WK_API_ENABLED
 
 #import "InjectedBundleNodeHandle.h"
 #import "WKBundleAPICast.h"
@@ -78,7 +76,7 @@
 
 - (WKDOMDocument *)document
 {
-    return WebKit::toWKDOMDocument(_impl->document());
+    return WebKit::toWKDOMDocument(&_impl->document());
 }
 
 - (WKDOMNode *)parentNode
@@ -108,7 +106,7 @@
 
 - (NSArray *)textRects
 {
-    _impl->document()->updateLayoutIgnorePendingStylesheets();
+    _impl->document().updateLayoutIgnorePendingStylesheets();
     if (!_impl->renderer())
         return nil;
     Vector<WebCore::IntRect> rects;
@@ -128,4 +126,4 @@
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

@@ -1,0 +1,27 @@
+leaf cert
+not before 		20060417191040Z		19:10:40 Apr 17, 2006
+not after  		20160414191040Z		19:10:40 Apr 14, 2016
+
+root cert
+not before 		20060417190954Z		19:10:40 Apr 17, 2006
+not after  		20160414190954Z		19:10:40 Apr 14, 2016
+
+CRL: not valid until well after leaf cert was created, valid for 10 years, revocation
+	12 hours after CRL is created
+
+$ makeCrl -s crlTestLeaf.cer -i crlTestRoot.cer -o crl.crl -n 315360000 -r 43200
+...wrote 282 bytes to crl.crl.
+ 
+this update 	20060417210558Z		21:05:58 Apr 17, 2006
+next update 	20160414210558Z		21:05:58 Apr 14, 2016
+cert revoked 	20060418090558Z		09:05:58 Apr 18, 2006
+
+Test cert at revoke + 1 ==> fail				20060418090559Z
+Test cert at revoke - 1 ==> OK					20060418090557Z
+Test cert at create with CRL ==> OK 			20060417191040Z (before revocation, before CRL)
+Test cert at create w/o CRL ==> OK				20060417191040Z
+Test cert at create-1 w/o CRL - not yet valid	20060417191039Z
+Test cert at not after w/o CRL - OK				20160414191040Z
+Test cert at not after + 1 - fail				20160414191041Z
+
+Cert generated from CA in enclosed keychain, crlKeychain.keychaain, pwd = crlKeychain

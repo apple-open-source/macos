@@ -27,6 +27,7 @@
 
 #include "IntRect.h"
 #include "RenderBox.h"
+#include "RenderText.h"
 
 namespace WebCore {
 
@@ -40,7 +41,7 @@ public:
     {
     }
 
-    RenderSelectionInfoBase(RenderObject* o)
+    explicit RenderSelectionInfoBase(RenderObject* o)
         : m_object(o)
         , m_repaintContainer(o->containerForRepaint())
         , m_state(o->selectionState())
@@ -62,8 +63,14 @@ class RenderSelectionInfo : public RenderSelectionInfoBase {
 public:
     RenderSelectionInfo(RenderObject* o, bool clipToVisibleContent)
         : RenderSelectionInfoBase(o)
-        , m_rect(o->canUpdateSelectionOnRootLineBoxes() ? o->selectionRectForRepaint(m_repaintContainer, clipToVisibleContent) : LayoutRect())
     {
+        ASSERT(o);
+        if (o->canUpdateSelectionOnRootLineBoxes()) {
+            if (o->isText())
+                m_rect = toRenderText(*o).collectSelectionRectsForLineBoxes(m_repaintContainer, clipToVisibleContent, m_rects);
+            else
+                m_rect = o->selectionRectForRepaint(m_repaintContainer, clipToVisibleContent);
+        }
     }
     
     void repaint()
@@ -71,9 +78,11 @@ public:
         m_object->repaintUsingContainer(m_repaintContainer, enclosingIntRect(m_rect));
     }
 
+    const Vector<LayoutRect>& rects() const { return m_rects; }
     LayoutRect rect() const { return m_rect; }
 
 private:
+    Vector<LayoutRect> m_rects;
     LayoutRect m_rect; // relative to repaint container
 };
 
@@ -81,7 +90,7 @@ private:
 // This struct is used when the selection changes to cache the old and new state of the selection for each RenderBlock.
 class RenderBlockSelectionInfo : public RenderSelectionInfoBase {
 public:
-    RenderBlockSelectionInfo(RenderBlock* b)
+    explicit RenderBlockSelectionInfo(RenderBlock* b)
         : RenderSelectionInfoBase(b)
         , m_rects(b->canUpdateSelectionOnRootLineBoxes() ? block()->selectionGapRectsForRepaint(m_repaintContainer) : GapRects())
     { 

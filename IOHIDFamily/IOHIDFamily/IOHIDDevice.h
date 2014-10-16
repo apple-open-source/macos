@@ -30,6 +30,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/IOEventSource.h>
 
 class   IOHIDSystem;
 class   IOHIDPointing;
@@ -129,6 +130,8 @@ private:
         IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
         IOHIDAsyncReportQueue * asyncReportQueue;
+        IOWorkLoop *            workLoop;
+        IOEventSource *         eventSource;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */

@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wtf/text/StringBuilder.h>
 
 using namespace WebCore;
 
@@ -67,7 +68,7 @@ StdoutDevNullRedirector::~StdoutDevNullRedirector()
 }
 
 
-static void parseMIMEDescription(const String& mimeDescription, Vector<MimeClassInfo>& result)
+void NetscapePluginModule::parseMIMEDescription(const String& mimeDescription, Vector<MimeClassInfo>& result)
 {
     ASSERT_ARG(result, result.isEmpty());
 
@@ -92,6 +93,32 @@ static void parseMIMEDescription(const String& mimeDescription, Vector<MimeClass
         if (mimeTypeParts.size() > 2)
             mimeInfo.desc = mimeTypeParts[2];
     }
+}
+
+String NetscapePluginModule::buildMIMEDescription(const Vector<MimeClassInfo>& mimeDescription)
+{
+    StringBuilder builder;
+
+    size_t mimeInfoCount = mimeDescription.size();
+    for (size_t i = 0; i < mimeInfoCount; ++i) {
+        const MimeClassInfo& mimeInfo = mimeDescription[i];
+        builder.append(mimeInfo.type);
+        builder.append(':');
+
+        size_t extensionsCount = mimeInfo.extensions.size();
+        for (size_t j = 0; j < extensionsCount; ++j) {
+            builder.append(mimeInfo.extensions[j]);
+            if (j != extensionsCount - 1)
+                builder.append(',');
+        }
+        builder.append(':');
+
+        builder.append(mimeInfo.desc);
+        if (i != mimeInfoCount - 1)
+            builder.append(';');
+    }
+
+    return builder.toString();
 }
 
 bool NetscapePluginModule::getPluginInfoForLoadedPlugin(RawPluginMetaData& metaData)
@@ -122,6 +149,10 @@ bool NetscapePluginModule::getPluginInfoForLoadedPlugin(RawPluginMetaData& metaD
 
     metaData.mimeDescription = mimeDescription;
 
+#if PLATFORM(GTK)
+    metaData.requiresGtk2 = module->functionPointer<void (*)()>("gtk_progress_get_type");
+#endif
+
     return true;
 }
 
@@ -136,13 +167,15 @@ bool NetscapePluginModule::getPluginInfo(const String& pluginPath, PluginModuleI
     plugin.info.name = metaData.name;
     plugin.info.desc = metaData.description;
     parseMIMEDescription(metaData.mimeDescription, plugin.info.mimes);
+#if PLATFORM(GTK)
+    plugin.requiresGtk2 = metaData.requiresGtk2;
+#endif
 
     return true;
 }
 
 void NetscapePluginModule::determineQuirks()
 {
-#if CPU(X86_64)
     RawPluginMetaData metaData;
     if (!getPluginInfoForLoadedPlugin(metaData))
         return;
@@ -151,30 +184,35 @@ void NetscapePluginModule::determineQuirks()
     parseMIMEDescription(metaData.mimeDescription, mimeTypes);
     for (size_t i = 0; i < mimeTypes.size(); ++i) {
         if (mimeTypes[i].type == "application/x-shockwave-flash") {
+#if CPU(X86_64)
             m_pluginQuirks.add(PluginQuirks::IgnoreRightClickInWindowlessMode);
+#endif
+#if PLATFORM(EFL)
+            m_pluginQuirks.add(PluginQuirks::ForceFlashWindowlessMode);
+#endif
             break;
         }
     }
-#endif
 }
 
-static String truncateToSingleLine(const String& string)
+static void writeCharacter(char byte)
 {
-    unsigned oldLength = string.length();
-    UChar* buffer;
-    String stringBuffer(StringImpl::createUninitialized(oldLength + 1, buffer));
+    int result;
+    while ((result = fputc(byte, stdout)) == EOF && errno == EINTR) { }
+    ASSERT(result != EOF);
+}
 
-    unsigned newLength = 0;
-    const UChar* start = string.characters();
-    for (const UChar* c = start; c < start + oldLength; ++c) {
-        if (*c != UChar('\n'))
-            buffer[newLength++] = *c;
+static void writeLine(const String& line)
+{
+    CString utf8String = line.utf8();
+    const char* utf8Data = utf8String.data();
+
+    for (unsigned i = 0; i < utf8String.length(); i++) {
+        char character = utf8Data[i];
+        if (character != '\n')
+            writeCharacter(character);
     }
-    buffer[newLength++] = UChar('\n');
-
-    String result = (newLength == oldLength + 1) ? stringBuffer : String(stringBuffer.characters16(), newLength);
-    ASSERT(result.endsWith(UChar('\n')));
-    return result;
+    writeCharacter('\n');
 }
 
 bool NetscapePluginModule::scanPlugin(const String& pluginPath)
@@ -200,22 +238,13 @@ bool NetscapePluginModule::scanPlugin(const String& pluginPath)
     }
 
     // Write data to standard output for the UI process.
-    String output[3] = {
-        truncateToSingleLine(metaData.name),
-        truncateToSingleLine(metaData.description),
-        truncateToSingleLine(metaData.mimeDescription)
-    };
-    for (unsigned i = 0; i < 3; ++i) {
-        const String& line = output[i];
-        const char* current = reinterpret_cast<const char*>(line.characters16());
-        const char* end = reinterpret_cast<const char*>(line.characters16()) + (line.length() * sizeof(UChar));
-        while (current < end) {
-            int result;
-            while ((result = fputc(*current, stdout)) == EOF && errno == EINTR) { }
-            ASSERT(result != EOF);
-            ++current;
-        }
-    }
+    writeLine(metaData.name);
+    writeLine(metaData.description);
+    writeLine(metaData.mimeDescription);
+#if PLATFORM(GTK)
+    if (metaData.requiresGtk2)
+        writeLine("requires-gtk2");
+#endif
 
     fflush(stdout);
 

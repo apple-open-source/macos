@@ -30,8 +30,9 @@ static const char usage[] =
 "	executing any embedded installation scripts.]"
 "[c:cat|uncompress?Uncompress the standard input and copy it to the standard"
 "	output.]"
-#if defined(_SEAR_EXEC)
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
 "[i!:install?Execute the sear installation script.]"
+"[k:keep?Keep the installation temporary directory.]"
 #endif
 "[l:local?Reject files that traverse outside the current directory.]"
 "[m:meter?Display a one line text meter showing archive read progress.]"
@@ -86,7 +87,9 @@ static const char usage[] =
 
 #if _PACKAGE_ast
 
+#ifndef setmode
 #define setmode(d,m)
+#endif
 
 #else
 
@@ -120,7 +123,9 @@ static const char usage[] =
 #include <unistd.h>
 #include <errno.h>
 
+#ifndef setmode
 #define setmode(d,m)
+#endif
 
 #endif
 
@@ -3791,7 +3796,7 @@ local gzFile gz_open (path, mode, fp)
 	sfsetbuf(s->file, (void*)s->file, SF_UNBOUND);
 #endif
         check_header(s); /* skip the .gz header */
-        s->start = ftell(s->file) - s->stream.avail_in;
+        s->start = (z_off_t)(ftell(s->file) - s->stream.avail_in);
     }
 
     return (gzFile)s;
@@ -4249,7 +4254,11 @@ static struct
 static void
 usage()
 {
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
+	fprintf(stderr, "Usage: %s [-ciklmntvV] [ [no]name[=value] ... ]\n", state.id);
+#else
 	fprintf(stderr, "Usage: %s [-clmntvV] < input.tgz\n", state.id);
+#endif
 	exit(2);
 }
 
@@ -4448,7 +4457,7 @@ register char*	s;
 #define PATH_MAX	256
 #endif
 
-#define EXIT(n)	return(sear_exec((char*)0,(char**)0,(char*)0),(n))
+#define EXIT(n)	return(sear_exec((char*)0,(char**)0,(char*)0,(n)))
 
 static int	sear_stdin;
 static char*	sear_tmp;
@@ -4513,6 +4522,7 @@ sear_rm_r(char* dir)
 	if (!SetCurrentDirectory(dir))
 		return;
 	if ((hp = FindFirstFile("*.*", &info)) != INVALID_HANDLE_VALUE)
+	{
 		do
 		{
 			if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
@@ -4524,7 +4534,8 @@ sear_rm_r(char* dir)
 			else if (info.cFileName[0] != '.' || info.cFileName[1] != 0 && (info.cFileName[1] != '.' || info.cFileName[2] != 0))
 				sear_rm_r(info.cFileName);
 		} while(FindNextFile(hp, &info));
-	FindClose(hp);
+		FindClose(hp);
+	}
 	if (SetCurrentDirectory(".."))
 		RemoveDirectory(dir);
 }
@@ -4586,7 +4597,7 @@ copy(char* t, const char* f, char* e)
  */
 
 static int
-sear_exec(const char* cmd, char* const* arg, char* operands)
+sear_exec(const char* cmd, char* const* arg, char* operands, int code)
 {
 	const char*	a;
 	char*		b;
@@ -4652,12 +4663,15 @@ sear_exec(const char* cmd, char* const* arg, char* operands)
 				*b = 0;
 				cmd = (const char*)buf;
 			}
+			r = sear_system(cmd, nowindow);
 		}
-		r = cmd ? sear_system(cmd, nowindow) : 1;
-		sear_rm_r(sear_tmp);
+		else
+			r = code;
+		if (code >= 0)
+			sear_rm_r(sear_tmp);
 	}
 	else
-		r = cmd ? 0 : 1;
+		r = cmd ? 0 : code;
 	return r;
 }
 
@@ -4762,6 +4776,9 @@ char**	argv;
 		case 'i':
 			install = 0;
 			continue;
+		case 'k':
+			install = -1;
+			continue;
 #endif
 		case 'l':
 			local = 1;
@@ -4818,6 +4835,9 @@ char**	argv;
 #if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
 			case 'i':
 				install = 0;
+				continue;
+			case 'k':
+				install = -1;
 				continue;
 #endif
 			case 'l':
@@ -5089,7 +5109,7 @@ char**	argv;
 				}
 				else
 				{
-					n = strlen(s = path);
+					n = (int)strlen(s = path);
 					p = (state.blocks * 100) / total;
 					if (n > (METER_width - METER_parts - 1))
 					{
@@ -5279,7 +5299,7 @@ char**	argv;
 #if !defined(_SEAR_ARGS)
 #define _SEAR_ARGS	0
 #endif
-	if (install && sear_exec(_SEAR_EXEC, argv, _SEAR_ARGS))
+	if (install && sear_exec(_SEAR_EXEC, argv, _SEAR_ARGS, install))
 	{
 		Sleep(2 * 1000);
 		return 1;

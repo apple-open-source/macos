@@ -48,8 +48,6 @@
  *   when done to continue with the form submission. If the last reference is removed on a
  *   #Ewk_Form_Submission_Request and the form has not been submitted yet,
  *   ewk_form_submission_request_submit() will be called automatically.
- * - "favicon,changed", void: reports that the view's favicon has changed.
- *   The favicon can be queried using ewk_view_favicon_get().
  * - "load,error", const Ewk_Error*: reports main frame load failed.
  * - "load,finished", void: reports load finished.
  * - "load,progress", double*: load progress has changed (value from 0.0 to 1.0).
@@ -83,7 +81,6 @@
 #include "ewk_page_group.h"
 #include "ewk_popup_menu.h"
 #include "ewk_security_origin.h"
-#include "ewk_settings.h"
 #include "ewk_touch.h"
 #include "ewk_url_request.h"
 #include "ewk_url_response.h"
@@ -154,7 +151,7 @@ struct Ewk_View_Smart_Class {
 
     // window creation and closing:
     //   - Create a new window with specified features and close window.
-    Evas_Object *(*window_create)(Ewk_View_Smart_Data *sd, const char* url, const Ewk_Window_Features *window_features);
+    Evas_Object *(*window_create)(Ewk_View_Smart_Data *sd, const Ewk_Window_Features *window_features);
     void (*window_close)(Ewk_View_Smart_Data *sd);
 };
 
@@ -279,6 +276,12 @@ typedef enum {
 } Ewk_Pagination_Mode;
 
 /**
+ * @typedef Ewk_View_Script_Execute_Cb Ewk_View_Script_Execute_Cb
+ * @brief Callback type for use with ewk_view_script_execute()
+ */
+typedef void (*Ewk_View_Script_Execute_Cb)(Evas_Object *o, const char *return_value, void *user_data);
+
+/**
  * Creates a type name for the callback function used to get the page contents.
  *
  * @param type type of the contents
@@ -387,16 +390,6 @@ EAPI Eina_Bool ewk_view_url_set(Evas_Object *o, const char *url);
 EAPI const char *ewk_view_url_get(const Evas_Object *o);
 
 /**
- * Returns the current favicon of view object.
- *
- * @param o view object to get current icon URL
- *
- * @return current favicon on success or @c NULL if unavailable or on failure.
- * The returned Evas_Object needs to be freed after use.
- */
-EAPI Evas_Object *ewk_view_favicon_get(const Evas_Object *o);
-
-/**
  * Asks the main frame to reload the current document.
  *
  * @param o view object to reload current document
@@ -424,15 +417,6 @@ EAPI Eina_Bool ewk_view_reload_bypass_cache(Evas_Object *o);
  * @return @c EINA_TRUE on success or @c EINA_FALSE otherwise.
  */
 EAPI Eina_Bool    ewk_view_stop(Evas_Object *o);
-
-/**
- * Gets the Ewk_Settings of this view.
- *
- * @param o view object to get Ewk_Settings
- *
- * @return the Ewk_Settings of this view or @c NULL on failure
- */
-EAPI Ewk_Settings *ewk_view_settings_get(const Evas_Object *o);
 
 /**
  * Asks the main frame to navigate back in the history.
@@ -567,6 +551,28 @@ EAPI Eina_Bool ewk_view_scale_set(Evas_Object *o, double scaleFactor, int x, int
 EAPI double ewk_view_scale_get(const Evas_Object *o);
 
 /**
+ * Sets zoom of the current page.
+ *
+ * @param o view object to set the zoom level
+ * @param zoom_factor a new level to set
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_page_zoom_set(Evas_Object *o, double zoom_factor);
+
+/**
+ * Queries the current zoom factor of the page.
+ *
+ * It returns previous zoom factor after ewk_view_page_zoom_factor_set is called immediately
+ * until zoom factor of page is really changed.
+ *
+ * @param o view object to get the zoom factor
+ *
+ * @return current zoom factor in use on success or @c -1.0 on failure
+ */
+EAPI double ewk_view_page_zoom_get(const Evas_Object *o);
+
+/**
  * Queries the ratio between the CSS units and device pixels when the content is unscaled.
  *
  * When designing touch-friendly contents, knowing the approximated target size on a device
@@ -676,7 +682,7 @@ EAPI const char *ewk_view_user_agent_get(const Evas_Object *o);
  *
  * @return @c EINA_TRUE on success @c EINA_FALSE otherwise
  */
-EAPI Eina_Bool ewk_view_user_agent_set(Evas_Object *o, const char *encoding);
+EAPI Eina_Bool ewk_view_user_agent_set(Evas_Object *o, const char *user_agent);
 
 /**
  * Searches and hightlights the given string in the document.
@@ -833,22 +839,6 @@ EAPI Ewk_Pagination_Mode ewk_view_pagination_mode_get(const Evas_Object *o);
 EAPI Eina_Bool ewk_view_fullscreen_exit(Evas_Object *o);
 
 /**
- * Sets whether the ewk_view background matches page background color.
- *
- * If enabled sets view background color close to page color on page load.
- * This helps to reduce flicker on page scrolling and repainting in places
- * where page content is not ready for painting.
- * View background color can interfere with semi-transparent pages and is
- * disabled by default.
- *
- * @param o view object to enable/disable background matching
- * @param enabled a state to set
- *
- * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
- */
-EAPI void ewk_view_draws_page_background_set(Evas_Object *o, Eina_Bool enabled);
-
-/**
  * Get contents of the current web page.
  *
  * @param o view object to get the page contents
@@ -861,28 +851,97 @@ EAPI void ewk_view_draws_page_background_set(Evas_Object *o, Eina_Bool enabled);
 EAPI Eina_Bool ewk_view_page_contents_get(const Evas_Object *o, Ewk_Page_Contents_Type type, Ewk_Page_Contents_Cb callback, void *user_data);
 
 /**
- * Sets the source mode as EINA_TRUE to display the web source code
- * or EINA_FALSE otherwise. The default value is EINA_FALSE.
+ * Requests execution of the given script.
  *
- * This method should be called before loading new contents on web view
- * so that the new view mode will be applied to the new contents.
+ * The result value for the execution can be retrieved from the asynchronous callback.
  *
- * @param o view object to set the view source mode
- * @param enabled a state to set view source mode
+ * @param o The view to execute script
+ * @param script JavaScript to execute
+ * @param callback The function to call when the execution is completed, may be @c NULL
+ * @param user_data User data, may be @c NULL
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ */
+EAPI Eina_Bool ewk_view_script_execute(Evas_Object *o, const char *script, Ewk_View_Script_Execute_Cb callback, void *user_data);
+
+/**
+ * Sets whether the ewk_view use fixed layout or not.
+ *
+ * The webview will use fixed layout if EINA_TRUE or not use it otherwise.
+ * The default value is EINA_FALSE.
+ *
+ * @param o view object to set fixed layout
+ * @param enabled a state to set
  *
  * @return @c EINA_TRUE on success, or @c EINA_FALSE on failure
  */
-EAPI Eina_Bool ewk_view_source_mode_set(Evas_Object *o, Eina_Bool enabled);
+EAPI Eina_Bool ewk_view_layout_fixed_set(Evas_Object *o, Eina_Bool enabled);
 
 /**
- * Gets the view source mode of the current web page.
+ * Queries if the webview is using fixed layout.
  *
- * @param o view object to get the view source mode
+ * @param o view object to query the status
  *
- * @return @c EINA_TRUE if the view mode is set to load source code, or
+ * @return @c EINA_TRUE if the webview is using fixed layout, or
  *         @c EINA_FALSE otherwise
  */
-EAPI Eina_Bool ewk_view_source_mode_get(const Evas_Object *o);
+EAPI Eina_Bool ewk_view_layout_fixed_get(const Evas_Object *o);
+
+/**
+ * Sets size of fixed layout to web page.
+ *
+ * The webview size will be set with given size.
+ *
+ * @param o view object to set fixed layout
+ * @param width an integer value in which to set width of fixed layout
+ * @param height an integer value in which to set height of fixed layout
+ */
+EAPI void ewk_view_layout_fixed_size_set(const Evas_Object *o, Evas_Coord width, Evas_Coord height);
+
+/**
+ * Gets the fixed layout size of current web page.
+ *
+ * @param o view object to query the size
+ *
+ * @param width pointer to an integer value in which to get the width of fixed layout
+ * @param height pointer to an integer value in which to get the height of fixed layout
+ */
+EAPI void ewk_view_layout_fixed_size_get(const Evas_Object *o, Evas_Coord *width, Evas_Coord *height);
+
+/**
+ * Sets the background color and transparency of the view.
+ *
+ * @param o view object to change the background color
+ * @param r red color component
+ * @param g green color component
+ * @param b blue color component
+ * @param a transparency
+ */
+EAPI void ewk_view_bg_color_set(Evas_Object *o, int r, int g, int b, int a);
+
+/**
+ * Gets the background color of the view.
+ *
+ * @param o view object to get the background color
+ * @param r the pointer to store red color component
+ * @param g the pointer to store green color component
+ * @param b the pointer to store blue color component
+ * @param a the pointer to store alpha value
+ */
+EAPI void ewk_view_bg_color_get(const Evas_Object *o, int *r, int *g, int *b, int *a);
+
+/**
+ * Get contents size of current web page.
+ *
+ * If it fails to get the content size, the width and height will be set to 0.
+ *
+ * @param o view object to get contents size
+ * @param width pointer to an integer in which to store the width of contents.
+ * @param height pointer to an integer in which to store the height of contents.
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_contents_size_get(const Evas_Object *o, Evas_Coord *width, Evas_Coord *height);
 
 #ifdef __cplusplus
 }

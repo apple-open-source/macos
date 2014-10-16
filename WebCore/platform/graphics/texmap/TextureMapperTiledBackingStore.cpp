@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+#if USE(TEXTURE_MAPPER)
 #include "TextureMapperTiledBackingStore.h"
 
 #include "ImageBuffer.h"
@@ -38,7 +38,7 @@ void TextureMapperTiledBackingStore::updateContentsFromImageIfNeeded(TextureMapp
     if (!m_image)
         return;
 
-    updateContents(textureMapper, m_image.get(), m_image->size(), m_image->rect(), BitmapTexture::UpdateCannotModifyOriginalImageData);
+    updateContents(textureMapper, m_image.get(), m_image->size(), enclosingIntRect(m_image->rect()), BitmapTexture::UpdateCannotModifyOriginalImageData);
     m_image.clear();
 }
 

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,7 +32,6 @@
 #include "EventNames.h"
 #include "HTMLMediaElement.h"
 #include "ScriptExecutionContext.h"
-#include "TrackBase.h"
 #include "TrackEvent.h"
 
 using namespace WebCore;
@@ -40,8 +39,7 @@ using namespace WebCore;
 TrackListBase::TrackListBase(HTMLMediaElement* element, ScriptExecutionContext* context)
     : m_context(context)
     , m_element(element)
-    , m_pendingEventTimer(this, &TrackListBase::asyncEventTimerFired)
-    , m_dispatchingEvents(0)
+    , m_asyncEventQueue(*this)
 {
     ASSERT(context->isDocument());
 }
@@ -60,7 +58,7 @@ unsigned TrackListBase::length() const
     return m_inbandTracks.size();
 }
 
-void TrackListBase::remove(TrackBase* track)
+void TrackListBase::remove(TrackBase* track, bool scheduleEvent)
 {
     size_t index = m_inbandTracks.find(track);
     ASSERT(index != notFound);
@@ -72,12 +70,23 @@ void TrackListBase::remove(TrackBase* track)
 
     m_inbandTracks.remove(index);
 
-    scheduleRemoveTrackEvent(trackRef.release());
+    if (scheduleEvent)
+        scheduleRemoveTrackEvent(trackRef.release());
 }
 
 bool TrackListBase::contains(TrackBase* track) const
 {
     return m_inbandTracks.find(track) != notFound;
+}
+
+void TrackListBase::scheduleTrackEvent(const AtomicString& eventName, PassRefPtr<TrackBase> track)
+{
+    TrackEventInit initializer;
+    initializer.track = track;
+    initializer.bubbles = false;
+    initializer.cancelable = false;
+
+    m_asyncEventQueue.enqueueEvent(TrackEvent::create(eventName, initializer));
 }
 
 void TrackListBase::scheduleAddTrackEvent(PassRefPtr<TrackBase> track)
@@ -99,17 +108,8 @@ void TrackListBase::scheduleAddTrackEvent(PassRefPtr<TrackBase> track)
     // ... then queue a task to fire an event with the name addtrack, that does not
     // bubble and is not cancelable, and that uses the TrackEvent interface, with
     // the track attribute initialized to the text track's TextTrack object, at
-    // the media element's textTracks attribute's TextTrackList object. 
-
-    RefPtr<TrackBase> trackRef = track;
-    TrackEventInit initializer;
-    initializer.track = trackRef;
-    initializer.bubbles = false;
-    initializer.cancelable = false;
-
-    m_pendingEvents.append(TrackEvent::create(eventNames().addtrackEvent, initializer));
-    if (!m_pendingEventTimer.isActive())
-        m_pendingEventTimer.startOneShot(0);
+    // the media element's textTracks attribute's TextTrackList object.
+    scheduleTrackEvent(eventNames().addtrackEvent, track);
 }
 
 void TrackListBase::scheduleRemoveTrackEvent(PassRefPtr<TrackBase> track)
@@ -136,16 +136,7 @@ void TrackListBase::scheduleRemoveTrackEvent(PassRefPtr<TrackBase> track)
     // interface, with the track attribute initialized to the text track's
     // TextTrack object, at the media element's textTracks attribute's
     // TextTrackList object.
-
-    RefPtr<TrackBase> trackRef = track;
-    TrackEventInit initializer;
-    initializer.track = trackRef;
-    initializer.bubbles = false;
-    initializer.cancelable = false;
-
-    m_pendingEvents.append(TrackEvent::create(eventNames().removetrackEvent, initializer));
-    if (!m_pendingEventTimer.isActive())
-        m_pendingEventTimer.startOneShot(0);
+    scheduleTrackEvent(eventNames().removetrackEvent, track);
 }
 
 void TrackListBase::scheduleChangeEvent()
@@ -163,21 +154,17 @@ void TrackListBase::scheduleChangeEvent()
     initializer.bubbles = false;
     initializer.cancelable = false;
 
-    m_pendingEvents.append(Event::create(eventNames().changeEvent, initializer));
-    if (!m_pendingEventTimer.isActive())
-        m_pendingEventTimer.startOneShot(0);
+    m_asyncEventQueue.enqueueEvent(Event::create(eventNames().changeEvent, initializer));
 }
 
-void TrackListBase::asyncEventTimerFired(Timer<TrackListBase>*)
+bool TrackListBase::isAnyTrackEnabled() const
 {
-    Vector<RefPtr<Event> > pendingEvents;
-
-    ++m_dispatchingEvents;
-    m_pendingEvents.swap(pendingEvents);
-    size_t count = pendingEvents.size();
-    for (size_t index = 0; index < count; ++index)
-        dispatchEvent(pendingEvents[index].release(), IGNORE_EXCEPTION);
-    --m_dispatchingEvents;
+    for (size_t i = 0; i < m_inbandTracks.size(); ++i) {
+        TrackBase* track = m_inbandTracks[i].get();
+        if (track->enabled())
+            return true;
+    }
+    return false;
 }
 
 #endif

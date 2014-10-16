@@ -71,7 +71,6 @@
 #define WEBDAV_REQUEST_THREADS 5
 
 #define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Support/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
-#define PRIVATE_LOAD_COMMAND "/System/Library/Extensions/webdav_fs.kext/Contents/Resources/load_webdav"
 #define PRIVATE_UNMOUNT_COMMAND "/sbin/umount"
 #define PRIVATE_UNMOUNT_FLAGS "-f"
 

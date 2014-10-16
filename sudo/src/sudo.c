@@ -740,8 +740,9 @@ init_vars(envp)
 	if (NewArgc > 0) {
 	    /* shell -c "command" */
 	    char *src, *dst;
-	    size_t cmnd_size = (size_t) (NewArgv[NewArgc - 1] - NewArgv[0]) +
-		    strlen(NewArgv[NewArgc - 1]) + 1;
+	    size_t cmnd_size = (size_t) (NewArgv[NewArgc - 1] - NewArgv[0]);
+	    for (av = NewArgv; *av != NULL; av++)
+		cmnd_size += strlen(*av); 
 
 	    cmnd = dst = emalloc2(cmnd_size, 2);
 	    for (av = NewArgv; *av != NULL; av++) {
@@ -762,6 +763,7 @@ init_vars(envp)
 
 	/* Allocate 2 extra slots for --login and execve() failure (ENOEXEC). */
 	av = (char **) emalloc2(ac + 3, sizeof(char *));
+	av += 2;
 	av[0] = user_shell;	/* may be updated later */
 	if (cmnd != NULL) {
 	    av[1] = "-c";

@@ -1,0 +1,9 @@
+cmsattr.c
+cmsdecode.c
+cmsdigest.c
+cmsrecinfo.c
+cmssigdata.c
+cmssiginfo.c
+
+* Support NSS_CMSRecipientInfo_Encode
+	cmst.h and cms.h changes.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -405,7 +405,6 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			fRequiresResetOnResume = true;
 			
 		}
-#endif // EMBEDDED
         
 		// Check to see if this device requires some time after USB reset to collect itself.
 		if ( characterDict->getObject( kIOUSBMassStoragePostResetCoolDown ) != NULL )
@@ -425,7 +424,8 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			}
 			
 		}
-                    
+#endif // EMBEDDED
+           
 		// Check if the personality for this device specifies a preferred subclass
         preferredSubclass = OSDynamicCast ( OSNumber, characterDict->getObject( kIOUSBMassStoragePreferredSubclass ));
 		if ( preferredSubclass == NULL )
@@ -462,6 +462,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
     STATUS_LOG ( ( 7, "%s[%p]: Configure the Storage interface", getName(), this ) );
     switch ( GetInterfaceProtocol() )
     {
+    
     	case kProtocolControlBulkInterrupt:
     	{
 			RecordUSBTimeStamp ( UMC_TRACE ( kCBIProtocolDeviceDetected ),
@@ -835,9 +836,9 @@ require_nonzero ( reserved, Exit );
 #ifndef EMBEDDED
     IOFree ( reserved, sizeof ( ExpansionData ) );
     reserved = NULL;
-#endif // EMBEDDED
     
 Exit:
+#endif // EMBEDDED
     
 	
 	super::free ( );
@@ -868,10 +869,10 @@ IOUSBMassStorageClass::message ( UInt32 type, IOService * provider, void * argum
 #ifndef EMBEDDED
 			if ( fRequiresResetOnResume == true )
 			{   
-				ResetDeviceNow ( true );
+				result = ResetDeviceNow ( true );
 			}
 #else // EMBEDDED
-            ResetDeviceNow ( true );
+			result = ResetDeviceNow ( true );
 #endif // EMBEDDED
             
 		}
@@ -976,7 +977,6 @@ IOUSBMassStorageClass::didTerminate ( IOService * provider, IOOptionBits options
 	}
 	
 	// Close our provider, and clear our reference to it.
-	
 	currentInterface = GetInterfaceReference ( );
 	require_nonzero ( currentInterface, ErrorExit );
 
@@ -984,6 +984,24 @@ IOUSBMassStorageClass::didTerminate ( IOService * provider, IOOptionBits options
 	SetInterfaceReference ( NULL );
 	currentInterface->close ( this );
 	STATUS_LOG ( ( 3 , "%s[%p]::didTerminate: Closed provider", getName ( ), this ) );
+    
+    
+#ifndef EMBEDDED
+    // Make sure that if we had a max bus stall requirement set that we clear it before
+    // terminating. Waiting on fTerminationDeferred should have ensured that this should
+    // never happen, but just in case.
+    if ( fRequiredMaxBusStall != 0 )
+    {
+
+        // As this is an exceptional case we should panic on debug builds so that we can
+        // better deduce how we got into this state.
+        PANIC_NOW ( ( "IOUSBMassStorageClass::didTerminate fRequiredMaxBusStall != 0 after waiting for all I/O to complete" ) );
+
+        requireMaxBusStall ( 0 );
+        fRequiredMaxBusStall = 0;
+
+    }
+#endif // EMBEDDED
     
  
 ErrorExit:
@@ -1124,7 +1142,7 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
 						STATUS_LOG ( ( 4, "%s[%p]: BeginProvidedServices: device not responding, reseting.", getName(), this ) );
 						
 						// Reset the device on its own thread so we don't deadlock.
-						ResetDeviceNow ( true );
+						status = ResetDeviceNow ( true );
 						
 						triedReset = true;
 						
@@ -1529,13 +1547,11 @@ IOUSBMassStorageClass::IsProtocolServiceSupported (
             
             UInt32		maxByteCount = kDefaultMaximumByteCountWrite;
 
-#ifndef EMBEDDED
-            // For super speed ( or faster ) devices we permit a larger I/O size. 
+            // For super speed ( or faster ) devices we permit a larger I/O size.
             if ( deviceSpeed >= kUSBDeviceSpeedSuper )
             {
                 maxByteCount = kDefaultMaximumByteCountReadUSB3;
             }
-#endif // EMBEDDED
             
 			if ( characterDict != NULL )
 			{
@@ -1561,13 +1577,11 @@ IOUSBMassStorageClass::IsProtocolServiceSupported (
 			
 			UInt32		maxByteCount = kDefaultMaximumByteCountWrite;
             
-#ifndef EMBEDDED
-            // For super speed ( or faster ) devices we permit a larger I/O size. 
+            // For super speed ( or faster ) devices we permit a larger I/O size.
             if ( deviceSpeed >= kUSBDeviceSpeedSuper )
             {
                 maxByteCount = kDefaultMaximumByteCountWriteUSB3;
             }
-#endif // EMBEDDED
 			
 			if ( characterDict != NULL )
 			{
@@ -2031,6 +2045,7 @@ IOUSBMassStorageClass::SetMaxLogicalUnitNumber ( UInt8 maxLUN )
 #pragma mark *** Accessor Methods For CBI Protocol Variables ***
 #pragma mark -
 
+
 //--------------------------------------------------------------------------------------------------
 //	GetCBIRequestBlock																	 [PROTECTED]
 //--------------------------------------------------------------------------------------------------
@@ -2251,9 +2266,12 @@ Exit:
 IOReturn
 IOUSBMassStorageClass::HandlePowerOn ( void )
 {
-
+	IOReturn status = kIOReturnSuccess;
+#ifndef EMBEDDED
 	UInt8	eStatus[2];
-
+	
+#endif // EMBEDDED
+    
 	// The USB hub port that the device is connected to has been resumed,
 	// check to see if the device is still responding correctly and if not, 
 	// fix it so that it is.
@@ -2266,18 +2284,18 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 		
 		RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
 							 
-        ResetDeviceNow ( true );
+        status = ResetDeviceNow ( true );
         
 	}
-#else
-        ResetDeviceNow( true );
-#endif
+#else // EMBEDDED
+        status = ResetDeviceNow( true );
+#endif // EMBEDDED
 	
 	// If our port was suspended before sleep, it would have been resumed as part
 	// of the global resume on system wake.
 	fPortIsSuspended = false;
 	
-	return kIOReturnSuccess;
+	return status;
 	
 }
 
@@ -2578,6 +2596,7 @@ ErrorExit:
 			
 		}
 
+#ifndef EMBEDDED
 		// Do we have a device which requires some to collect itself following a USB device reset?
 		// We only do this if the device successfully reconfigured.
 		if ( ( driver->fPostDeviceResetCoolDownInterval != 0 ) && 
@@ -2588,6 +2607,7 @@ ErrorExit:
 			IOSleep ( driver->fPostDeviceResetCoolDownInterval );
 			
 		}
+#endif // EMBEDDED
 		
 	}
      
@@ -2608,18 +2628,33 @@ ErrorExit:
             driver->GetInterfaceReference()->setProperty ( "IOUSBMassStorageClass Detached", driver->fConsecutiveResetCount, 8 );
         }
         
+		driver->fResetInProgress = false;
+				
+		if ( driver->fBlockOnResetThread == false )
+		{
+			driver->fResetStatus = kUSBResetStatusFailure;
+			// Unblock our main thread.
+			driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
+		
+		}
         // Terminate.
  		driver->terminate();
 		
-	}
+	} 
+
+	else
 	
-	driver->fResetInProgress = false;
-        
-	if ( driver->fBlockOnResetThread == false )
 	{
-        // Unblock our main thread.
-		driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
+	
+		driver->fResetInProgress = false;
         
+		if ( driver->fBlockOnResetThread == false )
+		{
+			driver->fResetStatus = kUSBResetStatusSuccess;
+       	 	// Unblock our main thread.
+			driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
+        
+		}
 	}
 	
 	STATUS_LOG ( ( 6, "%s[%p]: sResetDevice exiting.", driver->getName ( ), driver ) );
@@ -2628,16 +2663,17 @@ ErrorExit:
 	// we created a thread for sResetDevice().
 	driver->release();
     
-    // Terminate the thread.
-	thread = current_thread ( );
-    require ( ( thread != THREAD_NULL ), Exit );
-    
-	thread_deallocate ( thread );
-	thread_terminate ( thread );
-    
     
 Exit:
-
+    
+    
+    // Terminate the thread.
+	thread = current_thread ( );
+    if ( thread != THREAD_NULL )
+    {
+        thread_deallocate ( thread );
+        thread_terminate ( thread );
+    }
     
 	return;
 	
@@ -2793,7 +2829,7 @@ OSMetaClassDefineReservedUsed ( IOUSBMassStorageClass, 2 );
 void
 IOUSBMassStorageClass::FinishDeviceRecovery ( IOReturn status )
 {
-	ResetDeviceNow( false );
+	(void) ResetDeviceNow( false );
 }
 
 
@@ -2825,12 +2861,13 @@ IOUSBMassStorageClass::DeviceRecoveryCompletionAction (
 //	ResetDeviceNow																		 [PROTECTED]
 //--------------------------------------------------------------------------------------------------
 
-void
+IOReturn
 IOUSBMassStorageClass::ResetDeviceNow ( bool waitForReset )
 {
 	
 	thread_t        thread = THREAD_NULL;
 	kern_return_t   result = KERN_FAILURE;
+	IOReturn		status = kIOReturnError;
 	
 	// Make sure we aren't terminating. 
 	require ( ( fTerminating == false ), Exit );
@@ -2857,9 +2894,19 @@ IOUSBMassStorageClass::ResetDeviceNow ( bool waitForReset )
 									&thread );
 	require ( ( result == KERN_SUCCESS ), ErrorExit );
 		
+	if (result == KERN_SUCCESS)
+	{
+		status = kIOReturnSuccess;
+	}
+
 	if ( waitForReset == true )
 	{
 		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
+		if ( fResetStatus != kUSBResetStatusSuccess ) 
+		{
+			fResetStatus = 0;
+			status = kIOReturnNotResponding;
+		}
 	}
 	
 	
@@ -2876,7 +2923,7 @@ Exit:
 	STATUS_LOG ( ( 4, "%s[%p]: ResetDeviceNow exiting\n", getName(), this ) );
 
 
-	return;
+	return status;
 	
 	
 ErrorExit:
@@ -2885,6 +2932,8 @@ ErrorExit:
     fResetInProgress = false;
     
 	release ( );
+
+	return status;
 	
 
 }

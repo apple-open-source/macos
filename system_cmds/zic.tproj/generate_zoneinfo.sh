@@ -22,8 +22,6 @@ ZICHOST="${ZICHOST_DSTROOT}/zic_host"
 LOCALTIME="US/Pacific"
 POSIXRULES="US/Pacific"
 
-# pacificnew is obsolete and was removed from ZONE_FILES
-ZONE_FILES="africa antarctica asia australasia europe northamerica southamerica etcetera factory backward systemv"
 ZONEINFO="${BUILT_PRODUCTS_DIR}/zoneinfo"
 DATFILES="${BUILT_PRODUCTS_DIR}/datfiles"
 PRIVATEDIR="${BUILT_PRODUCTS_DIR}/private"
@@ -31,17 +29,22 @@ PRIVATEDIR="${BUILT_PRODUCTS_DIR}/private"
 # ftp://elsie.nci.nih.gov/pub/tzdata*.tar.gz
 # the tzdata*.tar.gz file is automatically unpacked and a version file created
 # /usr/local/share/tz/tzdata*.tar.gz is installed by the TimeZoneData project
-TARBALL=`ls ${SDKROOT}/usr/local/share/tz/tzdata* | sort | tail -n 1`
-if [ -z "$TARBALL" ]; then
-    echo "No tzdata file found in ${SDKROOT}/usr/local/share/tz" 1>&2
+TARBALL="${SDKROOT}"/usr/local/share/tz/latest_tzdata.tar.gz
+if [ ! -L "$TARBALL" ]; then
+    echo "error: ${TARBALL} is not a symbolic link" 1>&2
     exit 1
 fi
-DATVERS=`basename ${TARBALL} | sed -e 's,\..*,,' -e 's/^tzdata//'`
+if [ ! -r "$TARBALL" ]; then
+    echo "error: ${TARBALL} does not point to a valid file" 1>&2
+    exit 1
+fi
+DATVERS=`readlink ${TARBALL} | cut -d. -f1 | sed -e 's/^tzdata//'`
 VERSIONFILE="${ZONEINFO}/+VERSION"
 
 mkdir -p "${DATFILES}"
 mkdir -p "${ZONEINFO}"
 tar zxf "${TARBALL}" -C "${DATFILES}"
+ZONE_FILES="$(${SRCROOT}/zic.tproj/generate_zone_file_list.sh ${DATFILES})"
 for tz in ${ZONE_FILES}; do
     if [ ${tz} = "northamerica" ]; then
         ARG="-p America/New_York"
@@ -51,6 +54,7 @@ for tz in ${ZONE_FILES}; do
     ${ZICHOST} ${ARG} -L /dev/null -d "${ZONEINFO}" \
         -y "${DATFILES}/yearistype.sh" "${DATFILES}/${tz}" || exit 1
 done
+
 if [ $? -ne 0 ]; then
     exit 1
 fi
@@ -63,9 +67,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ "${PLATFORM_NAME}" = "iphoneos" ]; then
+if [[ "${PLATFORM_NAME}" == "iphoneos"* ]]; then
     mkdir -p "${PRIVATEDIR}/var/db"
-    mkdir -p -m a+rwx "${PRIVATEDIR}/var/db/timezone"
+    mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"
 
     # This link must precisely start with TZDIR followed by a slash. radar:13532660
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"

@@ -29,6 +29,10 @@
 
 #include <libctf.h>
 #include <dtrace.h>
+
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
 	
 void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] target architecture
                            unsigned int typeCount,     // [provided by linker] number of stability or typedef symbol names
@@ -43,5 +47,9 @@ char* dt_ld_encode_stability(char* provider_name, dt_provider_t* provider);
 char* dt_ld_encode_typedefs(char* provider_name, dt_provider_t* provider);
 char* dt_ld_encode_probe(char* provider_name, char* probe_name, dt_probe_t* probe);
 char* dt_ld_encode_isenabled(char* provider_name, char* probe_name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* _DT_LD_H */

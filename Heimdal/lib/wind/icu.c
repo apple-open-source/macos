@@ -57,7 +57,7 @@ wind_stringprep(const uint32_t *in, size_t in_len,
 	return EINVAL;
     }
 
-    for (n = 0; n < len; n++)
+    for (n = 0; n < (size_t)len; n++)
 	out[n] = dest[n];
 
     *out_len = len;

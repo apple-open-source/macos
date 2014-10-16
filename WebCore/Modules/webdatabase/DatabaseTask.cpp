@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -85,7 +85,13 @@ void DatabaseTask::performTask()
 
     LOG(StorageAPI, "Performing %s %p\n", debugTaskName(), this);
 
+#if !PLATFORM(IOS)
     m_database->resetAuthorizer();
+#else
+    if (m_database)
+        m_database->resetAuthorizer();
+#endif
+
     doPerformTask();
 
     if (m_synchronizer)
@@ -167,6 +173,13 @@ DatabaseBackend::DatabaseTransactionTask::~DatabaseTransactionTask()
     if (!m_didPerformTask)
         m_transaction->notifyDatabaseThreadIsShuttingDown();
 }
+
+#if PLATFORM(IOS)
+bool Database::DatabaseTransactionTask::shouldPerformWhilePaused() const
+{
+    return m_transaction->shouldPerformWhilePaused();
+}
+#endif
 
 void DatabaseBackend::DatabaseTransactionTask::doPerformTask()
 {

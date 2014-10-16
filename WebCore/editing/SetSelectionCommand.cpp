@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -40,22 +40,20 @@ SetSelectionCommand::SetSelectionCommand(const VisibleSelection& selection, Fram
 
 void SetSelectionCommand::doApply()
 {
-    FrameSelection* selection = document()->frame()->selection();
-    ASSERT(selection);
+    FrameSelection& selection = frame().selection();
 
-    if (selection->shouldChangeSelection(m_selectionToSet) && m_selectionToSet.isNonOrphanedCaretOrRange()) {
-        selection->setSelection(m_selectionToSet, m_options);
+    if (selection.shouldChangeSelection(m_selectionToSet) && m_selectionToSet.isNonOrphanedCaretOrRange()) {
+        selection.setSelection(m_selectionToSet, m_options);
         setEndingSelection(m_selectionToSet);
     }
 }
 
 void SetSelectionCommand::doUnapply()
 {
-    FrameSelection* selection = document()->frame()->selection();
-    ASSERT(selection);
+    FrameSelection& selection = frame().selection();
 
-    if (selection->shouldChangeSelection(startingSelection()) && startingSelection().isNonOrphanedCaretOrRange())
-        selection->setSelection(startingSelection(), m_options);
+    if (selection.shouldChangeSelection(startingSelection()) && startingSelection().isNonOrphanedCaretOrRange())
+        selection.setSelection(startingSelection(), m_options);
 }
 
 } // namespace WebCore

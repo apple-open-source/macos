@@ -116,10 +116,10 @@ mach_ipc(void *ctx,
     heim_ipc_message_outband_t requestout = NULL;
     mach_msg_type_number_t requestout_length = 0;
     heim_ipc_message_inband_t replyin;
-    mach_msg_type_number_t replyin_length;
-    heim_ipc_message_outband_t replyout;
-    mach_msg_type_number_t replyout_length;
-    int ret, errorcode, retries = 0;
+    mach_msg_type_number_t replyin_length = 0;
+    heim_ipc_message_outband_t replyout = 0;
+    mach_msg_type_number_t replyout_length = 0;
+    int ret, errorcode = -1, retries = 0;
 
     if (request->length < sizeof(requestin)) {
 	memcpy(requestin, request->data, request->length);
@@ -213,7 +213,7 @@ mheim_ado_acall_reply(mach_port_t server_port,
 		      heim_ipc_message_outband_t replyout,
 		      mach_msg_type_number_t replyoutCnt)
 {
-    struct async_client *c = dispatch_get_specific(mheim_ado_acall_reply);
+    struct async_client *c = dispatch_get_specific((void *)mheim_ado_acall_reply);
     heim_idata response;
 
     if (returnvalue) {
@@ -261,12 +261,14 @@ mach_async(void *ctx, const heim_idata *request, void *userctx,
 	return ENOMEM;
 
     kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &c->mp);
-    if (kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS) {
+	free(c);
 	return EINVAL;
-
+    }
+    
     c->queue = dispatch_queue_create("heim-ipc-async-client", NULL);
     c->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, c->mp, 0, c->queue);
-    dispatch_queue_set_specific(c->queue, mheim_ado_acall_reply, c, NULL);
+    dispatch_queue_set_specific(c->queue, (void *)mheim_ado_acall_reply, c, NULL);
 
     dispatch_source_set_event_handler(c->source, ^{
 	    dispatch_mig_server(c->source,

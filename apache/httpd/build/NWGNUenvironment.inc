@@ -117,7 +117,7 @@ endif
 OBJDIR = obj_$(RELEASE)
 
 # Define minimum APR version to check for
-APR_WANTED = 1003000
+APR_WANTED = 1004000
 
 #
 # Setup compiler information
@@ -187,9 +187,9 @@ endif
 ifneq "$(ZLIBSDK)" ""
 INCDIRS += $(ZLIBSDK);
 endif
-#ifneq "$(PCRESRC)" ""
-#INCDIRS += $(PCRESRC);
-#endif
+ifneq "$(PCRESRC)" ""
+INCDIRS += $(PCRESRC);
+endif
 
 DEFINES	= -DNETWARE 
 ifndef USE_STDSOCKETS

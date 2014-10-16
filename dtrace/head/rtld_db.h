@@ -33,19 +33,10 @@
 extern "C" {
 #endif
 
-#if !defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/lwp.h>
-#include <sys/elf.h>
-#include <link.h>
-#include <proc_service.h>
-#else /* is Apple Mac OS X */
 #include <sys/types.h>
 #include "lwp.h" /* In lieu of Solaris <sys/lwp.h> */
 #include <link.h>
 #include <proc_service.h>
-#endif /* __APPLE__ */
-
 
 /*
  * librtld_db interface versions

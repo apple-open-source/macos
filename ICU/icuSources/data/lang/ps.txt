@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ps.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ps.xml
+ * ICU <specials> source: <path>/common/main/ps.xml
  */
 ps{
     Languages{
@@ -23,7 +23,6 @@ ps{
         he{"عبري"}
         hi{"هندي"}
         hy{"ارمني"}
-        ine{"هند و اروپایي"}
         it{"ایټالوي"}
         ja{"جاپانی"}
         ku{"کردي"}
@@ -47,5 +46,5 @@ ps{
     Scripts{
         Arab{"عربي"}
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.98.62"}
 }

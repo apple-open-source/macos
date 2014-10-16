@@ -22,6 +22,9 @@ struct _krb5_checksum_type;
 struct _krb5_key_type;
 struct _krb5_encryption_type;
 struct _krb5_srv_query_ctx;
+struct krb5_fast_state;
+struct _krb5_srp_group;
+struct _krb5_srp;
 
 #define KRB5_DEPRECATED
 #define KRB5_DEPRECATED_FUNCTION(x)
@@ -70,6 +73,7 @@ struct _krb5_srv_query_ctx;
 #include <cms_asn1.h>
 #include <spnego_asn1.h>
 #include <gkrb5_err.h>
+#include <heimcred.h>
 
 krb5_error_code _gsskrb5_init (krb5_context *);
 
@@ -79,7 +83,6 @@ struct hx509_collector;
 struct hx_expr;
 struct hx509_generate_private_context;
 struct hx509_keyset_ops;
-enum hx_expr_op;
 typedef struct hx509_path hx509_path;
 typedef void (*_hx509_cert_release_func)(struct hx509_cert_data *, void *);
 
@@ -87,13 +90,17 @@ typedef void (*_hx509_cert_release_func)(struct hx509_cert_data *, void *);
 
 extern const void *${name}_export[];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 const void *${name}_export[] = {
 EOF
-egrep -v '^ *#' $1 | sed -e 's/\([^ 	]*\)\([ 	]*,private\)*$/\1,/' | sed -e 's/^%\(.*\),$/#\1/' >> $tmp
+egrep -v '^ *#' $1 | sed -e 's/\([^ 	]*\)\([ 	]*,private\)*$/\1,/' | sed -e 's/^%\(.*\),$/#\1/' | sed 's/^\([^#]\)/(const void *)\1/' >> $tmp
 
 cat >> $tmp <<EOF
 NULL
 };
+
+#pragma clang diagnostic pop
 
 EOF
 

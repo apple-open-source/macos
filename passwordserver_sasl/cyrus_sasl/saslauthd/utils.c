@@ -217,7 +217,7 @@ int retry_writev(int fd, struct iovec *iov, int iovcnt) {
 				break;
 			}
 
-			n -= (int)iov[i].iov_len;
+			n -= iov[i].iov_len;
 			iov[i].iov_len = 0;
 		}
 
@@ -226,6 +226,51 @@ int retry_writev(int fd, struct iovec *iov, int iovcnt) {
 		}
 	}
 }
+
+#ifndef HAVE_ASPRINTF
+
+# include <stdarg.h>
+
+/*
+ * asprintf -- work around lame systems that haven't added their own yet
+ *
+ * XXX relies on a valid working (SuSv3) vsnprintf(), OK on SunOS-5.10 BUT NOT BEFORE!
+ */
+int
+asprintf(char **str,
+	 const char *fmt,
+	 ...)
+{
+	va_list ap;
+	char *newstr;
+	size_t len;
+	int ret;
+
+	*str = NULL;
+
+	va_start(ap, fmt);
+	ret = vsnprintf((char *) NULL, (size_t) 0, fmt, ap);
+	va_end(ap);
+	if (ret < 0) {
+		return ret;
+	}
+	len = (size_t) ret + 1;		/* allow for nul */
+	if ((newstr = malloc(len)) == NULL) {
+		return (-1);
+	}
+	va_start(ap, fmt);
+	ret = vsnprintf(newstr, len, fmt, ap);
+	va_end(ap);
+	if (ret >= 0 && (size_t) ret < len) { /* XXX (ret == len-1) */
+		*str = newstr;
+	} else {
+		free(newstr);
+		return ret;
+	}
+
+	return ret;
+}
+#endif /* HAVE_ASPRINTF */
 
 #ifndef HAVE_STRLCPY
 /* strlcpy -- copy string smartly.

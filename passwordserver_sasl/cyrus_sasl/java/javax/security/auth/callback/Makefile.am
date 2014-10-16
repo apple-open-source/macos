@@ -48,6 +48,7 @@ javasasl_JAVA = PasswordCallback.java \
 	CallbackHandler.java \
 	UnsupportedCallbackException.java \
 	NameCallback.java
+EXTRA_DIST = $(javasasl_JAVA)
 
 CLASSES = $(javasasl_JAVA:.java=.class)
 

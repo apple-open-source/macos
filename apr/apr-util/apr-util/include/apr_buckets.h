@@ -687,9 +687,10 @@ APU_DECLARE(apr_status_t) apr_brigade_cleanup(void *data);
  * @param b The brigade to split
  * @param e The first bucket to move
  * @param a The brigade which should be used for the result or NULL if
- *          a new brigade should be created.
- * @return The brigade supplied in @param a or a new one if @param a was NULL.
- * @warning Note that this function allocates a new brigade if @param a is
+ *          a new brigade should be created. The brigade @a a will be
+ *          cleared if it is not empty.
+ * @return The brigade supplied in @a a or a new one if @a a was NULL.
+ * @warning Note that this function allocates a new brigade if @a a is
  * NULL so memory consumption should be carefully considered.
  */
 APU_DECLARE(apr_bucket_brigade *) apr_brigade_split_ex(apr_bucket_brigade *b,
@@ -699,8 +700,8 @@ APU_DECLARE(apr_bucket_brigade *) apr_brigade_split_ex(apr_bucket_brigade *b,
 /**
  * Create a new bucket brigade and move the buckets from the tail end
  * of an existing brigade into the new brigade.  Buckets from 
- * @param e to the last bucket (inclusively) of brigade @param b
- * are moved from @param b to the returned brigade.
+ * @a e to the last bucket (inclusively) of brigade @a b
+ * are moved from @a b to the returned brigade.
  * @param b The brigade to split 
  * @param e The first bucket to move
  * @return The new brigade
@@ -801,6 +802,20 @@ APU_DECLARE(apr_status_t) apr_brigade_vputstrs(apr_bucket_brigade *b,
 
 /**
  * This function writes a string into a bucket brigade.
+ *
+ * The apr_brigade_write function attempts to be efficient with the
+ * handling of heap buckets. Regardless of the amount of data stored
+ * inside a heap bucket, heap buckets are a fixed size to promote their
+ * reuse.
+ *
+ * If an attempt is made to write a string to a brigade that already 
+ * ends with a heap bucket, this function will attempt to pack the
+ * string into the remaining space in the previous heap bucket, before
+ * allocating a new heap bucket.
+ *
+ * This function always returns APR_SUCCESS, unless a flush function is
+ * passed, in which case the return value of the flush function will be
+ * returned if used.
  * @param b The bucket brigade to add to
  * @param flush The flush function to use if the brigade is full
  * @param ctx The structure to pass to the flush function
@@ -989,19 +1004,70 @@ APU_DECLARE_NONSTD(void) apr_bucket_free(void *block);
     } while (0)
 
 /**
- * Read the data from the bucket.
- * 
- * If it is not practical to return all
- * the data in the bucket, the current bucket is split and replaced by
- * two buckets, the first representing the data returned in this call,
- * and the second representing the rest of the data as yet unread. The
- * original bucket will become the first bucket after this call.
- * 
- * (It is assumed that the bucket is a member of a brigade when this
- * function is called).
+ * Read some data from the bucket.
+ *
+ * The apr_bucket_read function returns a convenient amount of data
+ * from the bucket provided, writing the address and length of the
+ * data to the pointers provided by the caller. The function tries
+ * as hard as possible to avoid a memory copy.
+ *
+ * Buckets are expected to be a member of a brigade at the time they
+ * are read.
+ *
+ * In typical application code, buckets are read in a loop, and after
+ * each bucket is read and processed, it is moved or deleted from the
+ * brigade and the next bucket read.
+ *
+ * The definition of "convenient" depends on the type of bucket that
+ * is being read, and is decided by APR. In the case of memory based
+ * buckets such as heap and immortal buckets, a pointer will be
+ * returned to the location of the buffer containing the complete
+ * contents of the bucket.
+ *
+ * Some buckets, such as the socket bucket, might have no concept
+ * of length. If an attempt is made to read such a bucket, the
+ * apr_bucket_read function will read a convenient amount of data
+ * from the socket. The socket bucket is magically morphed into a
+ * heap bucket containing the just-read data, and a new socket bucket
+ * is inserted just after this heap bucket.
+ *
+ * To understand why apr_bucket_read might do this, consider the loop
+ * described above to read and process buckets. The current bucket
+ * is magically morphed into a heap bucket and returned to the caller.
+ * The caller processes the data, and deletes the heap bucket, moving
+ * onto the next bucket, the new socket bucket. This process repeats,
+ * giving the illusion of a bucket brigade that contains potentially
+ * infinite amounts of data. It is up to the caller to decide at what
+ * point to stop reading buckets.
+ *
+ * Some buckets, such as the file bucket, might have a fixed size,
+ * but be significantly larger than is practical to store in RAM in
+ * one go. As with the socket bucket, if an attempt is made to read
+ * from a file bucket, the file bucket is magically morphed into a
+ * heap bucket containing a convenient amount of data read from the
+ * current offset in the file. During the read, the offset will be
+ * moved forward on the file, and a new file bucket will be inserted
+ * directly after the current bucket representing the remainder of the
+ * file. If the heap bucket was large enough to store the whole
+ * remainder of the file, no more file buckets are inserted, and the
+ * file bucket will disappear completely.
+ *
+ * The pattern for reading buckets described above does create the
+ * illusion that the code is willing to swallow buckets that might be
+ * too large for the system to handle in one go. This however is just
+ * an illusion: APR will always ensure that large (file) or infinite
+ * (socket) buckets are broken into convenient bite sized heap buckets
+ * before data is returned to the caller.
+ *
+ * There is a potential gotcha to watch for: if buckets are read in a
+ * loop, and aren't deleted after being processed, the potentially large
+ * bucket will slowly be converted into RAM resident heap buckets. If
+ * the file is larger than available RAM, an out of memory condition
+ * could be caused if the application is not careful to manage this.
+ *
  * @param e The bucket to read from
- * @param str The location to store the data in
- * @param len The amount of data read
+ * @param str The location to store a pointer to the data in
+ * @param len The location to store the amount of data read
  * @param block Whether the read function blocks
  */
 #define apr_bucket_read(e,str,len,block) (e)->type->read(e, str, len, block)

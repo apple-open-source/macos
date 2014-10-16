@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2012, 2013, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2010 University of Szeged
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #if ENABLE(ASSEMBLER) && CPU(ARM_THUMB2)
 
 #include "AssemblerBuffer.h"
+#include <limits.h>
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 #include <stdint.h>
@@ -45,11 +46,11 @@ namespace ARMRegisters {
         r4,
         r5,
         r6,
-        r7, wr = r7,   // thumb work register
+        r7, fp = r7,   // frame pointer
         r8,
         r9, sb = r9,   // static base
         r10, sl = r10, // stack limit
-        r11, fp = r11, // frame pointer
+        r11,
         r12, ip = r12,
         r13, sp = r13,
         r14, lr = r14,
@@ -172,6 +173,77 @@ namespace ARMRegisters {
         ASSERT(!(reg & 1));
         return (FPDoubleRegisterID)(reg >> 1);
     }
+
+#if USE(MASM_PROBE)
+    #define FOR_EACH_CPU_REGISTER(V) \
+        FOR_EACH_CPU_GPREGISTER(V) \
+        FOR_EACH_CPU_SPECIAL_REGISTER(V) \
+        FOR_EACH_CPU_FPREGISTER(V)
+
+    #define FOR_EACH_CPU_GPREGISTER(V) \
+        V(void*, r0) \
+        V(void*, r1) \
+        V(void*, r2) \
+        V(void*, r3) \
+        V(void*, r4) \
+        V(void*, r5) \
+        V(void*, r6) \
+        V(void*, r7) \
+        V(void*, r8) \
+        V(void*, r9) \
+        V(void*, r10) \
+        V(void*, r11) \
+        V(void*, ip) \
+        V(void*, sp) \
+        V(void*, lr) \
+        V(void*, pc)
+
+    #define FOR_EACH_CPU_SPECIAL_REGISTER(V) \
+        V(void*, apsr) \
+        V(void*, fpscr) \
+
+    #define FOR_EACH_CPU_FPREGISTER(V) \
+        V(double, d0) \
+        V(double, d1) \
+        V(double, d2) \
+        V(double, d3) \
+        V(double, d4) \
+        V(double, d5) \
+        V(double, d6) \
+        V(double, d7) \
+        V(double, d8) \
+        V(double, d9) \
+        V(double, d10) \
+        V(double, d11) \
+        V(double, d12) \
+        V(double, d13) \
+        V(double, d14) \
+        V(double, d15) \
+        FOR_EACH_CPU_FPREGISTER_EXTENSION(V)
+
+#if CPU(APPLE_ARMV7S)
+    #define FOR_EACH_CPU_FPREGISTER_EXTENSION(V) \
+        V(double, d16) \
+        V(double, d17) \
+        V(double, d18) \
+        V(double, d19) \
+        V(double, d20) \
+        V(double, d21) \
+        V(double, d22) \
+        V(double, d23) \
+        V(double, d24) \
+        V(double, d25) \
+        V(double, d26) \
+        V(double, d27) \
+        V(double, d28) \
+        V(double, d29) \
+        V(double, d30) \
+        V(double, d31)
+#else
+    #define FOR_EACH_CPU_FPREGISTER_EXTENSION(V) // Nothing to add.
+#endif // CPU(APPLE_ARMV7S)
+
+#endif // USE(MASM_PROBE)
 }
 
 class ARMv7Assembler;
@@ -418,6 +490,13 @@ public:
     typedef ARMRegisters::FPSingleRegisterID FPSingleRegisterID;
     typedef ARMRegisters::FPDoubleRegisterID FPDoubleRegisterID;
     typedef ARMRegisters::FPQuadRegisterID FPQuadRegisterID;
+    typedef FPDoubleRegisterID FPRegisterID;
+    
+    static RegisterID firstRegister() { return ARMRegisters::r0; }
+    static RegisterID lastRegister() { return ARMRegisters::r13; }
+    
+    static FPRegisterID firstFPRegister() { return ARMRegisters::d0; }
+    static FPRegisterID lastFPRegister() { return ARMRegisters::d31; }
 
     // (HS, LO, HI, LS) -> (AE, B, A, BE)
     // (VS, VC) -> (O, NO)
@@ -504,6 +583,8 @@ public:
     {
     }
 
+    AssemblerBuffer& buffer() { return m_formatter.m_buffer; }
+
 private:
 
     // ARMv7, Appx-A.6.3
@@ -567,6 +648,8 @@ private:
         OP_ADD_SP_imm_T1    = 0xA800,
         OP_ADD_SP_imm_T2    = 0xB000,
         OP_SUB_SP_imm_T1    = 0xB080,
+        OP_PUSH_T1          = 0xB400,
+        OP_POP_T1           = 0xBC00,
         OP_BKPT             = 0xBE00,
         OP_IT               = 0xBF00,
         OP_NOP_T1           = 0xBF00,
@@ -575,6 +658,8 @@ private:
     typedef enum {
         OP_B_T1         = 0xD000,
         OP_B_T2         = 0xE000,
+        OP_POP_T2       = 0xE8BD,
+        OP_PUSH_T2      = 0xE92D,
         OP_AND_reg_T2   = 0xEA00,
         OP_TST_reg_T2   = 0xEA10,
         OP_ORR_reg_T2   = 0xEA40,
@@ -635,6 +720,7 @@ private:
         OP_MOVT         = 0xF2C0,
         OP_UBFX_T1      = 0xF3C0,
         OP_NOP_T2a      = 0xF3AF,
+        OP_DMB_SY_T2a   = 0xF3BF,
         OP_STRB_imm_T3  = 0xF800,
         OP_STRB_reg_T2  = 0xF800,
         OP_LDRB_imm_T3  = 0xF810,
@@ -691,6 +777,7 @@ private:
         OP_VCVTSD_T1b   = 0x0A40,
         OP_VCVTDS_T1b   = 0x0A40,
         OP_NOP_T2b      = 0x8000,
+        OP_DMB_SY_T2b   = 0x8F5F,
         OP_B_T3b        = 0x8000,
         OP_B_T4b        = 0x9000,
     } OpcodeID2;
@@ -718,11 +805,11 @@ private:
     class ARMInstructionFormatter;
 
     // false means else!
-    bool ifThenElseConditionBit(Condition condition, bool isIf)
+    static bool ifThenElseConditionBit(Condition condition, bool isIf)
     {
         return isIf ? (condition & 1) : !(condition & 1);
     }
-    uint8_t ifThenElse(Condition condition, bool inst2if, bool inst3if, bool inst4if)
+    static uint8_t ifThenElse(Condition condition, bool inst2if, bool inst3if, bool inst4if)
     {
         int mask = (ifThenElseConditionBit(condition, inst2if) << 3)
             | (ifThenElseConditionBit(condition, inst3if) << 2)
@@ -731,7 +818,7 @@ private:
         ASSERT((condition != ConditionAL) || !(mask & (mask - 1)));
         return (condition << 4) | mask;
     }
-    uint8_t ifThenElse(Condition condition, bool inst2if, bool inst3if)
+    static uint8_t ifThenElse(Condition condition, bool inst2if, bool inst3if)
     {
         int mask = (ifThenElseConditionBit(condition, inst2if) << 3)
             | (ifThenElseConditionBit(condition, inst3if) << 2)
@@ -739,7 +826,7 @@ private:
         ASSERT((condition != ConditionAL) || !(mask & (mask - 1)));
         return (condition << 4) | mask;
     }
-    uint8_t ifThenElse(Condition condition, bool inst2if)
+    static uint8_t ifThenElse(Condition condition, bool inst2if)
     {
         int mask = (ifThenElseConditionBit(condition, inst2if) << 3)
             | 4;
@@ -747,7 +834,7 @@ private:
         return (condition << 4) | mask;
     }
 
-    uint8_t ifThenElse(Condition condition)
+    static uint8_t ifThenElse(Condition condition)
     {
         int mask = 8;
         return (condition << 4) | mask;
@@ -774,7 +861,7 @@ public:
         ASSERT(rn != ARMRegisters::pc);
         ASSERT(imm.isValid());
 
-        if (rn == ARMRegisters::sp) {
+        if (rn == ARMRegisters::sp && imm.isUInt16()) {
             ASSERT(!(imm.getUInt16() & 3));
             if (!(rd & 8) && imm.isUInt10()) {
                 m_formatter.oneWordOp5Reg3Imm8(OP_ADD_SP_imm_T1, rd, static_cast<uint8_t>(imm.getUInt10() >> 2));
@@ -813,6 +900,11 @@ public:
     // NOTE: In an IT block, add doesn't modify the flags register.
     ALWAYS_INLINE void add(RegisterID rd, RegisterID rn, RegisterID rm)
     {
+        if (rd == ARMRegisters::sp) {
+            mov(rd, rn);
+            rn = rd;
+        }
+
         if (rd == rn)
             m_formatter.oneWordOp8RegReg143(OP_ADD_reg_T2, rm, rd);
         else if (rd == rm)
@@ -1266,7 +1358,7 @@ public:
         m_formatter.twoWordOp5i6Imm4Reg4EncodedImm(OP_MOV_imm_T3, imm.m_value.imm4, rd, imm);
     }
     
-#if OS(LINUX) || OS(QNX)
+#if OS(LINUX)
     static void revertJumpTo_movT3movtcmpT2(void* instructionStart, RegisterID left, RegisterID right, uintptr_t imm)
     {
         uint16_t* address = static_cast<uint16_t*>(instructionStart);
@@ -1407,9 +1499,49 @@ public:
         m_formatter.twoWordOp12Reg4FourFours(OP_ROR_reg_T2, rn, FourFours(0xf, rd, 0, rm));
     }
 
+    ALWAYS_INLINE void pop(RegisterID dest)
+    {
+        if (dest < ARMRegisters::r8)
+            m_formatter.oneWordOp7Imm9(OP_POP_T1, 1 << dest);
+        else {
+            // Load postindexed with writeback.
+            ldr(dest, ARMRegisters::sp, sizeof(void*), false, true);
+        }
+    }
+
+    ALWAYS_INLINE void pop(uint32_t registerList)
+    {
+        ASSERT(WTF::bitCount(registerList) > 1);
+        ASSERT(!((1 << ARMRegisters::pc) & registerList) || !((1 << ARMRegisters::lr) & registerList));
+        ASSERT(!((1 << ARMRegisters::sp) & registerList));
+        m_formatter.twoWordOp16Imm16(OP_POP_T2, registerList);
+    }
+
+    ALWAYS_INLINE void push(RegisterID src)
+    {
+        if (src < ARMRegisters::r8)
+            m_formatter.oneWordOp7Imm9(OP_PUSH_T1, 1 << src);
+        else if (src == ARMRegisters::lr)
+            m_formatter.oneWordOp7Imm9(OP_PUSH_T1, 0x100);
+        else {
+            // Store preindexed with writeback.
+            str(src, ARMRegisters::sp, -sizeof(void*), true, true);
+        }
+    }
+
+    ALWAYS_INLINE void push(uint32_t registerList)
+    {
+        ASSERT(WTF::bitCount(registerList) > 1);
+        ASSERT(!((1 << ARMRegisters::pc) & registerList));
+        ASSERT(!((1 << ARMRegisters::sp) & registerList));
+        m_formatter.twoWordOp16Imm16(OP_PUSH_T2, registerList);
+    }
+
 #if CPU(APPLE_ARMV7S)
+    template<int datasize>
     ALWAYS_INLINE void sdiv(RegisterID rd, RegisterID rn, RegisterID rm)
     {
+        static_assert(datasize == 32, "sdiv datasize must be 32 for armv7s");        
         ASSERT(!BadReg(rd));
         ASSERT(!BadReg(rn));
         ASSERT(!BadReg(rm));
@@ -1902,6 +2034,11 @@ public:
     {
         m_formatter.twoWordOp16Op16(OP_NOP_T2a, OP_NOP_T2b);
     }
+    
+    void dmbSY()
+    {
+        m_formatter.twoWordOp16Op16(OP_DMB_SY_T2a, OP_DMB_SY_T2b);
+    }
 
     AssemblerLabel labelIgnoringWatchpoints()
     {
@@ -1950,14 +2087,7 @@ public:
         return b.m_offset - a.m_offset;
     }
 
-    int executableOffsetFor(int location)
-    {
-        if (!location)
-            return 0;
-        return static_cast<int32_t*>(m_formatter.data())[location / sizeof(int32_t) - 1];
-    }
-    
-    int jumpSizeDelta(JumpType jumpType, JumpLinkType jumpLinkType) { return JUMP_ENUM_SIZE(jumpType) - JUMP_ENUM_SIZE(jumpLinkType); }
+    static int jumpSizeDelta(JumpType jumpType, JumpLinkType jumpLinkType) { return JUMP_ENUM_SIZE(jumpType) - JUMP_ENUM_SIZE(jumpLinkType); }
     
     // Assembler admin methods:
 
@@ -1966,7 +2096,7 @@ public:
         return a.from() < b.from();
     }
 
-    bool canCompact(JumpType jumpType)
+    static bool canCompact(JumpType jumpType)
     {
         // The following cannot be compacted:
         //   JumpFixed: represents custom jump sequence
@@ -1975,7 +2105,7 @@ public:
         return (jumpType == JumpNoCondition) || (jumpType == JumpCondition);
     }
     
-    JumpLinkType computeJumpType(JumpType jumpType, const uint8_t* from, const uint8_t* to)
+    static JumpLinkType computeJumpType(JumpType jumpType, const uint8_t* from, const uint8_t* to)
     {
         if (jumpType == JumpFixed)
             return LinkInvalid;
@@ -2019,20 +2149,11 @@ public:
         return LinkConditionalBX;
     }
     
-    JumpLinkType computeJumpType(LinkRecord& record, const uint8_t* from, const uint8_t* to)
+    static JumpLinkType computeJumpType(LinkRecord& record, const uint8_t* from, const uint8_t* to)
     {
         JumpLinkType linkType = computeJumpType(record.type(), from, to);
         record.setLinkType(linkType);
         return linkType;
-    }
-    
-    void recordLinkOffsets(int32_t regionStart, int32_t regionEnd, int32_t offset)
-    {
-        int32_t ptr = regionStart / sizeof(int32_t);
-        const int32_t end = regionEnd / sizeof(int32_t);
-        int32_t* offsets = static_cast<int32_t*>(m_formatter.data());
-        while (ptr < end)
-            offsets[ptr++] = offset;
     }
     
     Vector<LinkRecord, 0, UnsafeVectorOverflow>& jumpsToLink()
@@ -2041,7 +2162,7 @@ public:
         return m_jumpsToLink;
     }
 
-    void ALWAYS_INLINE link(LinkRecord& record, uint8_t* from, uint8_t* to)
+    static void ALWAYS_INLINE link(LinkRecord& record, uint8_t* from, uint8_t* to)
     {
         switch (record.linkType()) {
         case LinkJumpT1:
@@ -2107,7 +2228,6 @@ public:
     {
         ASSERT(!(reinterpret_cast<intptr_t>(code) & 1));
         ASSERT(from.isSet());
-        ASSERT(reinterpret_cast<intptr_t>(to) & 1);
 
         setPointer(reinterpret_cast<uint16_t*>(reinterpret_cast<intptr_t>(code) + from.m_offset) - 1, to, false);
     }
@@ -2130,7 +2250,6 @@ public:
     static void relinkCall(void* from, void* to)
     {
         ASSERT(!(reinterpret_cast<intptr_t>(from) & 1));
-        ASSERT(reinterpret_cast<intptr_t>(to) & 1);
 
         setPointer(reinterpret_cast<uint16_t*>(from) - 1, to, true);
     }
@@ -2184,7 +2303,7 @@ public:
         ASSERT(!(bitwise_cast<uintptr_t>(instructionStart) & 1));
         ASSERT(!(bitwise_cast<uintptr_t>(to) & 1));
 
-#if OS(LINUX) || OS(QNX)
+#if OS(LINUX)
         if (canBeJumpT4(reinterpret_cast<uint16_t*>(instructionStart), to)) {
             uint16_t* ptr = reinterpret_cast<uint16_t*>(instructionStart) + 2;
             linkJumpT4(ptr, to);
@@ -2203,7 +2322,7 @@ public:
     
     static ptrdiff_t maxJumpReplacementSize()
     {
-#if OS(LINUX) || OS(QNX)
+#if OS(LINUX)
         return 10;
 #else
         return 4;
@@ -2293,13 +2412,6 @@ public:
         linuxPageFlush(current, end);
 #elif OS(WINCE)
         CacheRangeFlush(code, size, CACHE_SYNC_ALL);
-#elif OS(QNX)
-#if !ENABLE(ASSEMBLER_WX_EXCLUSIVE)
-        msync(code, size, MS_INVALIDATE_ICACHE);
-#else
-        UNUSED_PARAM(code);
-        UNUSED_PARAM(size);
-#endif
 #else
 #error "The cacheFlush support is missing on this platform."
 #endif
@@ -2501,7 +2613,7 @@ private:
         return ((relative << 7) >> 7) == relative;
     }
     
-    void linkJumpT1(Condition cond, uint16_t* instruction, void* target)
+    static void linkJumpT1(Condition cond, uint16_t* instruction, void* target)
     {
         // FIMXE: this should be up in the MacroAssembler layer. :-(        
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
@@ -2537,7 +2649,7 @@ private:
         instruction[-1] = OP_B_T2 | ((relative & 0xffe) >> 1);
     }
     
-    void linkJumpT3(Condition cond, uint16_t* instruction, void* target)
+    static void linkJumpT3(Condition cond, uint16_t* instruction, void* target)
     {
         // FIMXE: this should be up in the MacroAssembler layer. :-(
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
@@ -2570,7 +2682,7 @@ private:
         instruction[-1] = OP_B_T4b | ((relative & 0x800000) >> 10) | ((relative & 0x400000) >> 11) | ((relative & 0xffe) >> 1);
     }
     
-    void linkConditionalJumpT4(Condition cond, uint16_t* instruction, void* target)
+    static void linkConditionalJumpT4(Condition cond, uint16_t* instruction, void* target)
     {
         // FIMXE: this should be up in the MacroAssembler layer. :-(        
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
@@ -2596,7 +2708,7 @@ private:
         instruction[-1] = OP_BX | (JUMP_TEMPORARY_REGISTER << 3);
     }
     
-    void linkConditionalBX(Condition cond, uint16_t* instruction, void* target)
+    static void linkConditionalBX(Condition cond, uint16_t* instruction, void* target)
     {
         // FIMXE: this should be up in the MacroAssembler layer. :-(        
         ASSERT(!(reinterpret_cast<intptr_t>(instruction) & 1));
@@ -2676,6 +2788,11 @@ private:
             m_buffer.putShort(op | (reg1 << 6) | (reg2 << 3) | reg3);
         }
 
+        ALWAYS_INLINE void oneWordOp7Imm9(OpcodeID op, uint16_t imm)
+        {
+            m_buffer.putShort(op | imm);
+        }
+
         ALWAYS_INLINE void oneWordOp8Imm8(OpcodeID op, uint8_t imm)
         {
             m_buffer.putShort(op | imm);
@@ -2714,6 +2831,12 @@ private:
             m_buffer.putShort(op2);
         }
 
+        ALWAYS_INLINE void twoWordOp16Imm16(OpcodeID1 op1, uint16_t imm)
+        {
+            m_buffer.putShort(op1);
+            m_buffer.putShort(imm);
+        }
+        
         ALWAYS_INLINE void twoWordOp5i6Imm4Reg4EncodedImm(OpcodeID1 op, int imm4, RegisterID rd, ARMThumbImmediate imm)
         {
             ARMThumbImmediate newImm = imm;
@@ -2774,7 +2897,6 @@ private:
 
         unsigned debugOffset() { return m_buffer.debugOffset(); }
 
-    private:
         AssemblerBuffer m_buffer;
     } m_formatter;
 

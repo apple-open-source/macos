@@ -46,6 +46,9 @@
 #define CONFIG_H
 
 
+/* Runtime config file location */
+#undef CONFIGDIR
+
 /* Do we need a leading _ for dlsym? */
 #undef DLSYM_NEEDS_UNDERSCORE
 
@@ -98,6 +101,9 @@
 /* Do we have a getnameinfo() function? */
 #undef HAVE_GETNAMEINFO
 
+/* Define to 1 if you have the `getpassphrase' function. */
+#undef HAVE_GETPASSPHRASE
+
 /* Define to 1 if you have the `getpwnam' function. */
 #undef HAVE_GETPWNAM
 
@@ -110,6 +116,9 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
 
+/* Define to 1 if you have the <gssapi/gssapi_ext.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_EXT_H
+
 /* Define if you have the gssapi.h header file */
 #undef HAVE_GSSAPI_H
 
@@ -117,11 +126,26 @@
    */
 #undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE */
+/* Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE */
 #undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME */
+/* Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME */
 #undef HAVE_GSS_C_NT_USER_NAME
+
+/* Define to 1 if you have the `gss_decapsulate_token' function. */
+#undef HAVE_GSS_DECAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_encapsulate_token' function. */
+#undef HAVE_GSS_ENCAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_get_name_attribute' function. */
+#undef HAVE_GSS_GET_NAME_ATTRIBUTE
+
+/* Define to 1 if you have the `gss_oid_equal' function. */
+#undef HAVE_GSS_OID_EQUAL
+
+/* Define if your GSSAPI implementation supports SPNEGO */
+#undef HAVE_GSS_SPNEGO
 
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
@@ -209,6 +233,9 @@
 
 /* Do we have SQLite support? */
 #undef HAVE_SQLITE
+
+/* Do we have SQLite3 support? */
+#undef HAVE_SQLITE3
 
 /* Is there an ss_family in sockaddr_storage? */
 #undef HAVE_SS_FAMILY
@@ -299,6 +326,9 @@
 /* define if your compiler has __attribute__ */
 #undef HAVE___ATTRIBUTE__
 
+/* Should we keep handle to Berkeley DB open in SASLDB plugin? */
+#undef KEEP_DB_OPEN
+
 /* Ignore IP Address in Kerberos 4 tickets? */
 #undef KRB4_IGNORE_IP_ADDRESS
 
@@ -353,37 +383,37 @@
 /* Use NDBM for SASLdb */
 #undef SASL_NDBM
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* Link ANONYMOUS Staticly */
+/* Link ANONYMOUS Statically */
 #undef STATIC_ANONYMOUS
 
-/* Link CRAM-MD5 Staticly */
+/* Link CRAM-MD5 Statically */
 #undef STATIC_CRAMMD5
 
-/* Link DIGEST-MD5 Staticly */
+/* Link DIGEST-MD5 Statically */
 #undef STATIC_DIGESTMD5
 
-/* Link GSSAPI Staticly */
+/* Link GSSAPI Statically */
 #undef STATIC_GSSAPIV2
 
 /* User KERBEROS_V4 Staticly */
 #undef STATIC_KERBEROS4
 
-/* Link ldapdb plugin Staticly */
+/* Link ldapdb plugin Statically */
 #undef STATIC_LDAPDB
 
-/* Link LOGIN Staticly */
+/* Link LOGIN Statically */
 #undef STATIC_LOGIN
 
-/* Link NTLM Staticly */
+/* Link NTLM Statically */
 #undef STATIC_NTLM
 
-/* Link OTP Staticly */
+/* Link OTP Statically */
 #undef STATIC_OTP
 
-/* Link PASSDSS Staticly */
+/* Link PASSDSS Statically */
 #undef STATIC_PASSDSS
 
 /* Link PLAIN Staticly */
@@ -392,10 +422,13 @@
 /* Link SASLdb Staticly */
 #undef STATIC_SASLDB
 
-/* Link SQL plugin staticly */
+/* Link SCRAM Statically */
+#undef STATIC_SCRAM
+
+/* Link SQL plugin statically */
 #undef STATIC_SQL
 
-/* Link SRP Staticly */
+/* Link SRP Statically */
 #undef STATIC_SRP
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -404,7 +437,7 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
-/* Should we try to dlopen() plugins while staticly compiled? */
+/* Should we try to dlopen() plugins while statically compiled? */
 #undef TRY_DLOPEN_WHEN_STATIC
 
 /* use the doors IPC API for saslauthd? */
@@ -428,9 +461,11 @@
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
 
-/* Define as `__inline' if that's what the C compiler calls it, or to nothing
-   if it is not supported. */
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
 #undef inline
+#endif
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t
@@ -442,7 +477,8 @@
 
 
 /* Create a struct iovec if we need one */
-#if !defined(_WIN32) && !defined(HAVE_SYS_UIO_H)
+#if !defined(_WIN32)
+#if !defined(HAVE_SYS_UIO_H)
 /* (win32 is handled in sasl.h) */
 struct iovec {
     char *iov_base;
@@ -451,6 +487,7 @@ struct iovec {
 #else
 #include <sys/types.h>
 #include <sys/uio.h>
+#endif
 #endif
 
 /* location of the random number generator */
@@ -485,12 +522,14 @@ struct iovec {
 #endif
 
 #define SASL_PATH_ENV_VAR "SASL_PATH"
+#define SASL_CONF_PATH_ENV_VAR "SASL_CONF_PATH"
 
 #include <stdlib.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #ifndef WIN32
+# include <sys/socket.h>
 # include <netdb.h>
+# include <netinet/in.h>
 # ifdef HAVE_SYS_PARAM_H
 #  include <sys/param.h>
 # endif
@@ -499,13 +538,11 @@ struct iovec {
 #endif /* WIN32 */
 #include <string.h>
 
-#include <netinet/in.h>
-
 #ifndef HAVE_SOCKLEN_T
 typedef unsigned int socklen_t;
 #endif /* HAVE_SOCKLEN_T */
 
-#ifndef HAVE_STRUCT_SOCKADDR_STORAGE
+#if !defined(HAVE_STRUCT_SOCKADDR_STORAGE) && !defined(WIN32)
 #define	_SS_MAXSIZE	128	/* Implementation specific max size */
 #define	_SS_PADSIZE	(_SS_MAXSIZE - sizeof (struct sockaddr))
 
@@ -567,6 +604,18 @@ struct sockaddr_storage {
 
 #ifndef HIER_DELIMITER
 #define HIER_DELIMITER '/'
+#endif
+
+#ifdef WIN32
+#define SASL_ROOT_KEY "SOFTWARE\\Carnegie Mellon\\Project Cyrus\\SASL Library"
+#define SASL_PLUGIN_PATH_ATTR "SearchPath"
+#define SASL_CONF_PATH_ATTR "ConfFile"
+
+#include <windows.h>
+inline static unsigned int sleep(unsigned int seconds) {
+       Sleep(seconds * 1000);
+       return 0;
+}
 #endif
 
 #endif /* CONFIG_H */

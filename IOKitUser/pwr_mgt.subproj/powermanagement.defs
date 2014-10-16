@@ -40,7 +40,8 @@ routine io_pm_set_value_int(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
         in  selector    : int;
-        in  value       : int);
+        in  value       : int;
+        out return_val  : int);
 
 // PM Settings
 routine io_pm_force_active_settings(
@@ -186,25 +187,44 @@ routine io_pm_connection_copy_status(
         out status_data : pointer_t;
         out return_val  : int);
 
-// "Soft" OS controlled power sources        
-routine io_pm_new_pspowersource(
-            server      : mach_port_t;
-        in  clientport  : mach_port_t;
-        in  clienttype  : string_t;
-        out dskey       : string_t;
-        out return_code : int);
-    
-routine io_pm_update_pspowersource(
-            server      : mach_port_t;
-        in  dskey       : string_t;
-        in  psdetails   : pointer_t;
-        out return_code : int);
-                
-// IOPMHIDPostEventActivity
-simpleroutine io_pm_hid_event_report_activity(
+// OS controlled power sources
+routine io_ps_new_pspowersource(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
-        in  _action     : int);
+        out psid        : int;
+        out return_code : int);
+    
+routine io_ps_update_pspowersource(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  psid        : int;
+        in  psdetails   : pointer_t;
+        out return_code : int);
+
+routine io_ps_release_pspowersource(
+        server          : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in   psid       : int);
+
+routine io_ps_copy_powersources_info(
+        server          : mach_port_t;
+       out powersources : pointer_t, dealloc;
+       out return_code  : int);
+
+routine io_ps_copy_chargelog(
+        server          : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in time         : double;
+       out log          : pointer_t, dealloc;
+       out return_code  : int);
+
+
+// IOPMHIDPostEventActivity
+routine io_pm_hid_event_report_activity(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  _action     : int;
+        out  allow      : int);
 
 routine io_pm_hid_event_copy_history(
             server      : mach_port_t;
@@ -215,6 +235,7 @@ routine io_pm_set_debug_flags(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
             in  newFlags   : uint32_t;
+            in  setMode    : uint32_t;
             out oldFlags   : uint32_t;
             out return_val : int);
 
@@ -263,5 +284,19 @@ routine io_pm_assertion_notify(
 ServerAuditToken token  : audit_token_t;
             in name     : string_t;
             in  req_type: int;
+            out return_code : int);
+
+routine io_pm_assertion_activity_log(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            out log         : pointer_t, dealloc;
+            inout entryCnt  : uint32_t;
+            out overflow    : uint32_t;
+            out return_code : int);
+
+routine io_pm_assertion_activity_aggregate(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            out statsData: pointer_t, dealloc;
             out return_code : int);
 

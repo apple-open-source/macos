@@ -30,7 +30,7 @@
 #include <WebCore/AuthenticationChallenge.h>
 #include <wtf/PassRefPtr.h>
 
-namespace CoreIPC {
+namespace IPC {
 class Connection;
 }
 
@@ -41,9 +41,9 @@ class ChildProcessProxy;
 class WebCredential;
 class WebProtectionSpace;
 
-class AuthenticationChallengeProxy : public TypedAPIObject<APIObject::TypeAuthenticationChallenge> {
+class AuthenticationChallengeProxy : public API::ObjectImpl<API::Object::Type::AuthenticationChallenge> {
 public:
-    static PassRefPtr<AuthenticationChallengeProxy> create(const WebCore::AuthenticationChallenge& authenticationChallenge, uint64_t challengeID, CoreIPC::Connection* connection)
+    static PassRefPtr<AuthenticationChallengeProxy> create(const WebCore::AuthenticationChallenge& authenticationChallenge, uint64_t challengeID, IPC::Connection* connection)
     {
         return adoptRef(new AuthenticationChallengeProxy(authenticationChallenge, challengeID, connection));
     }
@@ -52,6 +52,8 @@ public:
     
     void useCredential(WebCredential*);
     void cancel();
+    void performDefaultHandling();
+    void rejectProtectionSpaceAndContinue();
 
     AuthenticationDecisionListener* listener() const { return m_listener.get(); }
     WebCredential* proposedCredential() const;
@@ -60,11 +62,11 @@ public:
     const WebCore::AuthenticationChallenge& core() { return m_coreAuthenticationChallenge; }
 
 private:
-    AuthenticationChallengeProxy(const WebCore::AuthenticationChallenge&, uint64_t challengeID, CoreIPC::Connection*);
+    AuthenticationChallengeProxy(const WebCore::AuthenticationChallenge&, uint64_t challengeID, IPC::Connection*);
 
     WebCore::AuthenticationChallenge m_coreAuthenticationChallenge;
     uint64_t m_challengeID;
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
     RefPtr<AuthenticationDecisionListener> m_listener;
     mutable RefPtr<WebCredential> m_webCredential;
     mutable RefPtr<WebProtectionSpace> m_webProtectionSpace;

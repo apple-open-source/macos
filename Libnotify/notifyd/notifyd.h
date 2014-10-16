@@ -50,7 +50,7 @@ struct global_s
 	uint32_t *last_shm_base;
 	uint32_t log_cutoff;
 	uint32_t log_default;
-	FILE *log_file;
+	char *log_path;
 } global;
 
 struct call_statistics_s

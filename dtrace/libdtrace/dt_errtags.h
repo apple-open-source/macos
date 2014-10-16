@@ -189,6 +189,8 @@ typedef enum {
 	D_TRACE_DYN,			/* trace() argument has dynamic type */
 	D_TRACEMEM_ADDR,		/* tracemem() address bad type */
 	D_TRACEMEM_SIZE,		/* tracemem() size bad type */
+	D_TRACEMEM_ARGS,		/* tracemem() illegal number of args */
+	D_TRACEMEM_DYNSIZE,		/* tracemem() dynamic size bad type */
 	D_STACK_PROTO,			/* stack() prototype mismatch */
 	D_STACK_SIZE,			/* stack() size argument bad type */
 	D_USTACK_FRAMES,		/* ustack() frames arg bad type */
@@ -253,9 +255,7 @@ typedef enum {
 	D_LLQUANT_FACTOREVEN,	/* llquantize() bad # steps/factor */
 	D_LLQUANT_FACTORSMALL,	/* llquantize() magnitude too small */
 	D_LLQUANT_MAGTOOBIG,	/* llquantize() high mag too large */
-#if defined(__APPLE__)
     D_APPLE_BADPARAM        /* apple_*() bad parameter code */
-#endif
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

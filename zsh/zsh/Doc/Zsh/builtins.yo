@@ -28,6 +28,40 @@ See ifzman(the section `Zle Builtins' in zmanref(zshzle))\
 ifnzman(noderef(Zle Builtins)).
 )\
 )\
+
+Some shell builtin commands take options as described in individual
+entries; these are often referred to in the list below as `tt(flags)' to
+avoid confusion with shell options, which may also have an effect on the
+behaviour of builtin commands.  In this introductory section,
+`tt(option)' always has the meaning of an option to a command that should
+be familiar to most command line users.
+
+Typically, options are single letters preceded by a hyphen (tt(-)).
+Options that take an argument accept it either immediately following the
+option letter or after white space, for example `tt(print -C3 *)' or
+`tt(print -C 3 *)' are equivalent.  Arguments to options are not the
+same as arguments to the command; the documentation indicates which is
+which.  Options that do not take an argument may be combined in a single
+word, for example `tt(print -ca *)' and `tt(print -c -a *)' are
+equivalent.
+
+Some shell builtin commands also take options that begin with `tt(+)'
+instead of `tt(-)'.  The list below makes clear which commands these
+are.
+
+Options (together with their individual arguments, if any) must appear
+in a group before any non-option arguments; once the first non-option
+argument has been found, option processing is terminated.
+
+All builtin commands other than precommand modifiers, even those that
+have no options, can be given the argument `tt(--)' to terminate option
+processing.  This indicates that the following words are non-option
+arguments, but is otherwise ignored.  This is useful in cases where
+arguments to the command may begin with `tt(-)'.  For historical
+reasons, most builtin commands also recognize a single `tt(-)' in a
+separate word for this purpose; note that this is less standard and
+use of `tt(--) is recommended.
+
 startitem()
 prefix(-)
 findex(.)
@@ -68,7 +102,7 @@ to be checked for alias expansion.  If the tt(-g) flag is present,
 define a global alias; global aliases are expanded even if they do not
 occur in command position.
 
-If the tt(-s) flags is present, define a suffix alias: if the command
+If the tt(-s) flag is present, define a suffix alias: if the command
 word on a command line is in the form `var(text)tt(.)var(name)', where
 var(text) is any non-empty string, it is replaced by the text
 `var(value) var(text)tt(.)var(name)'.  Note that var(name) is treated as
@@ -277,7 +311,9 @@ item(tt(-c))(
 clear the directory stack.
 )
 item(tt(-l))(
-print directory names in full instead of using of using tt(~) expressions.
+print directory names in full instead of using of using tt(~) expressions (\
+ifzman(see em(Dynamic) and em(Static named directories) in zmanref(zshexpn))\
+ifnzman(noderef(Filename Expansion))).
 )
 item(tt(-p))(
 print directory entries one per line.
@@ -291,8 +327,8 @@ enditem()
 findex(disable)
 cindex(disabling commands)
 cindex(commands, disabling)
-item(tt(disable) [ tt(-afmrs) ] var(name) ...)(
-Temporarily disable the var(name)d hash table elements.  The default
+item(tt(disable) [ tt(-afmprs) ] var(name) ...)(
+Temporarily disable the var(name)d hash table elements or patterns.  The default
 is to disable builtin commands.  This allows you to use an external
 command with the same name as a builtin command.  The tt(-a) option
 causes tt(disable) to act on regular or global aliases.  The tt(-s)
@@ -305,6 +341,80 @@ quoted to prevent them from undergoing filename expansion), and all hash
 table elements from the corresponding hash table matching these patterns
 are disabled.  Disabled objects can be enabled with the tt(enable)
 command.
+
+With the option tt(-p), var(name) ... refer to elements of the
+shell's pattern syntax as described in noderef(Filename Generation).
+Certain elements can be disabled separately, as given below.
+
+Note that patterns
+not allowed by the current settings for the options tt(EXTENDED_GLOB),
+tt(KSH_GLOB) and tt(SH_GLOB) are never enabled, regardless of the
+setting here.  For example, if tt(EXTENDED_GLOB) is not active,
+the pattern tt(^) is ineffective even if `tt(disable -p "^")' has
+not been issued.  The list below indicates any option settings
+that restrict the use of the pattern.  It should be noted that
+setting tt(SH_GLOB) has a wider effect then merely disabling patterns
+as certain expressions, in particular those involving parentheses,
+are parsed differently.
+
+The following patterns may be disabled; all
+the strings need quoting on the command line to prevent them from
+being interpreted immediately as patterns and the patterns are
+shown below in single quotes as a reminder.
+startitem()
+item(tt('?'))(
+The pattern character tt(?) wherever it occurs, including when preceding
+a parenthesis with tt(KSH_GLOB).
+)
+item(tt('*'))(
+The pattern character tt(*) wherever it occurs, including recursive
+globbing and when preceding a parenthesis with tt(KSH_GLOB).
+)
+item('LSQUARE()')(
+Character classes.
+)
+item(tt('<') (tt(NO_SH_GLOB)))(
+Numeric ranges.
+)
+item(tt('|') (tt(NO_SH_GLOB)))(
+Alternation in grouped patterns, case statements, or KSH_GLOB
+parenthesised expressions.
+)
+item(tt('LPAR()') (tt(NO_SH_GLOB)))(
+Grouping using single parentheses.  Disabling this does not disable the
+use of parentheses for tt(KSH_GLOB) where they are introduced by a
+special character, nor for glob qualifiers (use `tt(setopt
+NO_BARE_GLOB_QUAL)' to disable glob qualifiers that use parentheses
+only).
+)
+item(tt('~') (tt(EXTENDED_GLOB)))(
+Exclusion in the form var(A)tt(~)var(B).
+)
+item(tt('^') (tt(EXTENDED_GLOB)))(
+Exclusion in the form var(A)tt(^)var(B).
+)
+item(tt('#') (tt(EXTENDED_GLOB)))(
+The pattern character tt(#) wherever it occurs, both for
+repetition of a previous pattern and for indicating globbing flags.
+)
+item(tt('?LPAR()') (tt(KSH_GLOB)))(
+The grouping form tt(?LPAR())var(...)tt(RPAR()).  Note this is also
+disabled if tt('?') is disabled.
+)
+item(tt('*LPAR()') (tt(KSH_GLOB)))(
+The grouping form tt(*LPAR())var(...)tt(RPAR()).  Note this is also
+disabled if tt('*') is disabled.
+)
+item(tt('PLUS()LPAR()') (tt(KSH_GLOB)))(
+The grouping form tt(PLUS()LPAR())var(...)tt(RPAR()).
+)
+item(tt('!LPAR()') (tt(KSH_GLOB)))(
+The grouping form tt(!LPAR())var(...)tt(RPAR()).
+)
+item(tt('@LPAR()') (tt(KSH_GLOB)))(
+The grouping form tt(@LPAR())var(...)tt(RPAR()).
+)
+enditem()
 )
 findex(disown)
 cindex(jobs, disowning)
@@ -376,7 +486,9 @@ the section COMPATIBILITY in zmanref(zsh)
 ifnzman(\
 noderef(Compatibility)
 )\
-.
+.  In addition to setting shell options, the command also restores
+the pristine state of pattern enables, as if all patterns had been
+enabled using tt(enable -p).
 
 If the tt(emulate) command occurs inside a function that has been
 marked for execution tracing with tt(functions -t) then the tt(xtrace)
@@ -390,9 +502,11 @@ are reset to their default value corresponding to the specified emulation
 mode, except for certain options describing the interactive
 environment; otherwise, only those options likely to cause portability
 problems in scripts and functions are altered.  If the tt(-L) switch is given,
-the options tt(LOCAL_OPTIONS) and tt(LOCAL_TRAPS) will be set as
-well, causing the effects of the tt(emulate) command and any tt(setopt) and
-tt(trap) commands to be local to the immediately surrounding shell
+the options tt(LOCAL_OPTIONS), tt(LOCAL_PATTERNS) and tt(LOCAL_TRAPS)
+will be set as
+well, causing the effects of the tt(emulate) command and any tt(setopt),
+tt(disable -p) or tt(enable -p), and tt(trap) commands to be local to
+the immediately surrounding shell
 function, if any; normally these options are turned off in all emulation
 modes except tt(ksh). The tt(-L) switch is mutually exclusive with the
 use of tt(-c) in var(flags).
@@ -414,7 +528,8 @@ Use of tt(-c) enables `sticky' emulation mode for functions defined
 within the evaluated expression:  the emulation mode is associated
 thereafter with the function so that whenever the function is executed
 the emulation (respecting the tt(-R) switch, if present) and all
-options are set before entry to the function, and restored after exit.
+options are set (and pattern disables cleared)
+before entry to the function, and the state is restored after exit.
 If the function is called when the sticky emulation is already in
 effect, either within an `tt(emulate) var(shell) tt(-c)' expression or
 within another function with the same sticky emulation, entry and exit
@@ -471,7 +586,7 @@ endsitem()
 findex(enable)
 cindex(enabling commands)
 cindex(commands, enabling)
-item(tt(enable) [ tt(-afmrs) ] var(name) ...)(
+item(tt(enable) [ tt(-afmprs) ] var(name) ...)(
 Enable the var(name)d hash table elements, presumably disabled
 earlier with tt(disable).  The default is to enable builtin commands.
 The tt(-a) option causes tt(enable) to act on regular or global aliases.
@@ -483,6 +598,13 @@ printed.  With the tt(-m) flag the arguments are taken as patterns
 (should be quoted) and all hash table elements from the corresponding
 hash table matching these patterns are enabled.  Enabled objects can be
 disabled with the tt(disable) builtin command.
+
+tt(enable -p) reenables patterns disabled with tt(disable -p).  Note
+that it does not override globbing options; for example, `tt(enable -p
+"~")' does not cause the pattern character tt(~) to be active unless
+the tt(EXTENDED_GLOB) option is also set.  To enable all possible
+patterns (so that they may be invidually disabled with tt(disable -p)),
+use `tt(setopt EXTENDED_GLOB KSH_GLOB NO_SH_GLOB)'.
 )
 findex(eval)
 cindex(evaluating arguments as commands)
@@ -507,6 +629,11 @@ is specified, use the exit status from the last command executed.
 pindex(IGNORE_EOF, use of)
 An EOF condition will also cause the shell to exit, unless
 the tt(IGNORE_EOF) option is set.
+
+See notes at the end of
+ifzman(the section JOBS in in zmanref(zshmisc))\
+ifnzman(noderef(Jobs & Signals)) for some possibly unexpected interactions
+of the tt(exit) command with jobs.
 )
 findex(export)
 item(tt(export) [ var(name)[tt(=)var(value)] ... ])(
@@ -876,15 +1003,19 @@ sitem(tt(cputime))(Maximum CPU seconds per process.)
 sitem(tt(datasize))(Maximum data size (including stack) for each process.)
 sitem(tt(descriptors))(Maximum value for a file descriptor.)
 sitem(tt(filesize))(Largest single file allowed.)
+sitem(tt(kqueues))(Maximum number of kqueues allocated.)
 sitem(tt(maxproc))(Maximum number of processes.)
 sitem(tt(maxpthreads))(Maximum number of threads per process.)
 sitem(tt(memorylocked))(Maximum amount of memory locked in RAM.)
 sitem(tt(memoryuse))(Maximum resident set size.)
 sitem(tt(msgqueue))(Maximum number of bytes in POSIX message queues.)
+sitem(tt(posixlocks))(Maximum number of POSIX locks per user.)
+sitem(tt(pseudoterminals))(Maximum number of pseudo-terminals.)
 sitem(tt(resident))(Maximum resident set size.)
 sitem(tt(sigpending))(Maximum number of pending signals.)
 sitem(tt(sockbufsize))(Maximum size of all socket buffers.)
 sitem(tt(stacksize))(Maximum stack size for each process.)
+sitem(tt(swapsize))(Maximum amount of swap used.)
 sitem(tt(vmemorysize))(Maximum amount of virtual memory.)
 endsitem()
 
@@ -982,8 +1113,8 @@ Print the arguments in var(cols) columns.  Unless tt(-a) is also given,
 arguments are printed with the row incrementing first.
 )
 item(tt(-D))(
-Treat the arguments as directory names, replacing prefixes with tt(~)
-expressions, as appropriate.
+Treat the arguments as paths, replacing directory prefixes with tt(~)
+expressions corresponding to directory names, as appropriate.
 )
 item(tt(-i))(
 If given together with tt(-o) or tt(-O), sorting is performed
@@ -1766,7 +1897,7 @@ enditem()
 findex(ulimit)
 cindex(resource limits)
 cindex(limits, resource)
-item(tt(ulimit) [ [ tt(-SHacdfilmnpqrstvx) | tt(-N) var(resource) [ var(limit) ] ... ])(
+item(tt(ulimit) [ [ tt(-SHacdfiklmnpqsTtvwx) | tt(-N) var(resource) [ var(limit) ] ... ])(
 Set or display resource limits of the shell and the processes started by
 the shell.  The value of var(limit) can be a number in the unit specified
 below or one of the values `tt(unlimited)', which removes the limit on the
@@ -1797,16 +1928,19 @@ sitem(tt(-c))(512-byte blocks on the size of core dumps.)
 sitem(tt(-d))(Kilobytes on the size of the data segment.)
 sitem(tt(-f))(512-byte blocks on the size of files written.)
 sitem(tt(-i))(The number of pending signals.)
+sitem(tt(-k))(The number of kqueues allocated.)
 sitem(tt(-l))(Kilobytes on the size of locked-in memory.)
 sitem(tt(-m))(Kilobytes on the size of physical memory.)
 sitem(tt(-n))(open file descriptors.)
+sitem(tt(-p))(The number of pseudo-terminals.)
 sitem(tt(-q))(Bytes in POSIX message queues.)
 sitem(tt(-s))(Kilobytes on the size of the stack.)
+sitem(tt(-T))(The number of simultaneous threads available to the user.)
 sitem(tt(-t))(CPU seconds to be used.)
-sitem(tt(-r))(The number of simultaneous threads available to the user.)
 sitem(tt(-u))(The number of processes available to the user.)
 sitem(tt(-v))(Kilobytes on the size of virtual memory.  On some systems this
 refers to the limit called `address space'.)
+sitem(tt(-w))(Kilobytes on the size of swapped out memory.)
 sitem(tt(-x))(The number of locks on files.)
 endsitem()
 

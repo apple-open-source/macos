@@ -43,12 +43,12 @@
 .Op Fl t Ar lfs | external_type
 .Nm mount
 .Op Fl dfruvw
-.Ar special | node
+.Ar special | mount_point
 .Nm mount
 .Op Fl dfruvw
 .Op Fl o Ar options
 .Op Fl t Ar lfs | external_type
-.Ar special node
+.Ar special mount_point
 .Sh DESCRIPTION
 The
 .Nm mount
@@ -58,11 +58,11 @@ calls the
 system call to prepare and graft a
 .Ar "special device"
 or the remote node (rhost:path) on to the file system tree at the point
-.Ar node .
-If either
+.Ar mount_point ,
+which must be a directory.  If either
 .Ar special
 or
-.Ar node
+.Ar mount_point
 are not provided, the appropriate information is obtained via the
 .Xr getfsent 3
 library routines.

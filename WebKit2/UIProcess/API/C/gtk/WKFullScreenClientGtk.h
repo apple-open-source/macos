@@ -26,7 +26,7 @@
 #ifndef WKFullScreenClientGtk_h
 #define WKFullScreenClientGtk_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,17 +35,19 @@ extern "C" {
 typedef bool (*WKFullScreenClientGtkWillEnterFullScreenCallback)(const void* clientInfo);
 typedef bool (*WKFullScreenClientGtkWillExitFullScreenCallback)(const void* clientInfo);
 
-struct WKFullScreenClientGtk {
+typedef struct WKFullScreenClientGtkBase {
     int                                              version;
     const void*                                      clientInfo;
+} WKFullScreenClientGtkBase;
+
+typedef struct WKFullScreenClientGtkV0 {
+    WKFullScreenClientGtkBase                        base;
+
     WKFullScreenClientGtkWillEnterFullScreenCallback willEnterFullScreen;
     WKFullScreenClientGtkWillExitFullScreenCallback  willExitFullScreen;
-};
-typedef struct WKFullScreenClientGtk WKFullScreenClientGtk;
+} WKFullScreenClientGtkV0;
 
-enum { kWKFullScreenClientGtkCurrentVersion = 0 };
-
-WK_EXPORT void WKViewSetFullScreenClientGtk(WKViewRef viewRef, const WKFullScreenClientGtk* client);
+WK_EXPORT void WKViewSetFullScreenClientGtk(WKViewRef viewRef, const WKFullScreenClientGtkBase* client);
 
 #ifdef __cplusplus
 }

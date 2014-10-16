@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004-2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,20 +43,91 @@
 #import <WebCore/DOMRGBColor.h>
 #import <WebCore/DOMRange.h>
 
+#if TARGET_OS_IPHONE
+#import <CoreGraphics/CoreGraphics.h>
+#endif
+
 @class NSArray;
+#if !TARGET_OS_IPHONE
 @class NSImage;
+#endif
 @class NSURL;
 
+
+#if TARGET_OS_IPHONE
+@interface DOMHTMLElement (DOMHTMLElementExtensions)
+- (int)scrollXOffset;
+- (int)scrollYOffset;
+- (void)setScrollXOffset:(int)x scrollYOffset:(int)y;
+- (void)setScrollXOffset:(int)x scrollYOffset:(int)y adjustForIOSCaret:(BOOL)adjustForIOSCaret;
+- (void)absolutePosition:(int *)x :(int *)y :(int *)w :(int *)h;
+@end
+#endif
+
+#if TARGET_OS_IPHONE
+typedef struct _WKQuad {
+    CGPoint p1;
+    CGPoint p2;
+    CGPoint p3;
+    CGPoint p4;
+} WKQuad;
+
+@interface WKQuadObject : NSObject
+{
+    WKQuad  _quad;
+}
+
+- (id)initWithQuad:(WKQuad)quad;
+- (WKQuad)quad;
+- (CGRect)boundingBox;
+@end
+#endif
+
 @interface DOMNode (DOMNodeExtensions)
-- (NSRect)boundingBox WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER);
-- (NSArray *)lineBoxRects WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER);
+#if TARGET_OS_IPHONE
+- (CGRect)boundingBox;
+#else
+- (NSRect)boundingBox WEBKIT_AVAILABLE_MAC(10_5);
+#endif
+- (NSArray *)lineBoxRects WEBKIT_AVAILABLE_MAC(10_5);
+
+#if TARGET_OS_IPHONE
+- (CGRect)boundingBoxUsingTransforms; // takes transforms into account
+
+- (WKQuad)absoluteQuad;
+- (WKQuad)absoluteQuadAndInsideFixedPosition:(BOOL *)insideFixed;
+- (NSArray *)lineBoxQuads;      // returns array of WKQuadObject
+
+- (NSURL *)hrefURL;
+- (CGRect)hrefFrame;
+- (NSString *)hrefTarget;
+- (NSString *)hrefLabel;
+- (NSString *)hrefTitle;
+- (CGRect)boundingFrame;
+- (WKQuad)innerFrameQuad;       // takes transforms into account
+- (float)computedFontSize;
+- (DOMNode *)nextFocusNode;
+- (DOMNode *)previousFocusNode;
+#endif
 @end
 
 @interface DOMElement (DOMElementAppKitExtensions)
-- (NSImage *)image WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER);
+#if !TARGET_OS_IPHONE
+- (NSImage *)image WEBKIT_AVAILABLE_MAC(10_5);
+#endif
 @end
 
 @interface DOMHTMLDocument (DOMHTMLDocumentExtensions)
-- (DOMDocumentFragment *)createDocumentFragmentWithMarkupString:(NSString *)markupString baseURL:(NSURL *)baseURL WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER);
-- (DOMDocumentFragment *)createDocumentFragmentWithText:(NSString *)text WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER);
+- (DOMDocumentFragment *)createDocumentFragmentWithMarkupString:(NSString *)markupString baseURL:(NSURL *)baseURL WEBKIT_AVAILABLE_MAC(10_5);
+- (DOMDocumentFragment *)createDocumentFragmentWithText:(NSString *)text WEBKIT_AVAILABLE_MAC(10_5);
 @end
+
+#if TARGET_OS_IPHONE
+@interface DOMHTMLAreaElement (DOMHTMLAreaElementExtensions)
+- (CGRect)boundingFrameForOwner:(DOMNode *)anOwner;
+@end
+
+@interface DOMHTMLSelectElement (DOMHTMLSelectElementExtensions)
+- (DOMNode *)listItemAtIndex:(int)anIndex;
+@end
+#endif

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsRecipientInfo.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -50,28 +50,22 @@ extern "C" {
                 the certificate is supposed to have been verified by the caller
  */
 extern SecCmsRecipientInfoRef
-SecCmsRecipientInfoCreate(SecCmsMessageRef cmsg, SecCertificateRef cert);
+SecCmsRecipientInfoCreate(SecCmsEnvelopedDataRef envd, SecCertificateRef cert);
 
 /*!
     @function
  */
 extern SecCmsRecipientInfoRef
-SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, 
-                                         CSSM_DATA_PTR subjKeyID,
-                                         SecPublicKeyRef pubKey);
+SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd, 
+                                       const SecAsn1Item *subjKeyID,
+                                       SecPublicKeyRef pubKey);
 
 /*!
     @function
  */
 extern SecCmsRecipientInfoRef
-SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsMessageRef cmsg, 
-                                                 SecCertificateRef cert);
-
-/*!
-    @function
- */
-extern void
-SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri);
+SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsEnvelopedDataRef envd, 
+                                               SecCertificateRef cert);
 
 
 #if defined(__cplusplus)

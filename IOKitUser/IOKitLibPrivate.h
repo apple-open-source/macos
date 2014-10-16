@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 #include <CoreFoundation/CFMachPort.h>
 
-
+#if !__has_feature(objc_arc)
 struct IONotificationPort
 {
     mach_port_t		masterPort;
@@ -33,6 +33,7 @@ struct IONotificationPort
     dispatch_source_t	dispatchSource;
 };
 typedef struct IONotificationPort IONotificationPort;
+#endif
 
 void
 IODispatchCalloutFromCFMessage(
@@ -72,3 +73,13 @@ enum {
     kIOServiceFirstPublishState	= 0x00000008,
     kIOServiceFirstMatchState	= 0x00000010
 };
+
+kern_return_t
+_IOServiceGetAuthorizationID(
+	io_service_t    service,
+	uint64_t *	authorizationID );
+
+kern_return_t
+_IOServiceSetAuthorizationID(
+	io_service_t    service,
+	uint64_t	authorizationID );

@@ -31,11 +31,7 @@
 #include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "ScriptState.h"
-#if ENABLE(WORKERS)
-#include "WorkerContext.h"
-#endif
-
-#include <JavaScriptCore/APIShims.h>
+#include "WorkerGlobalScope.h"
 
 namespace WebCore {
 
@@ -49,12 +45,10 @@ public:
     {
         if (m_scriptExecutionContext->isDocument()) {
             Document* document = toDocument(m_scriptExecutionContext);
-            m_exec = scriptStateFromPage(mainThreadNormalWorld(), document->page());
+            m_exec = execStateFromPage(mainThreadNormalWorld(), document->page());
         } else {
-#if ENABLE(WORKERS)
-            WorkerContext* workerContext = static_cast<WorkerContext*>(m_scriptExecutionContext);
-            m_exec = scriptStateFromWorkerContext(workerContext);
-#endif
+            WorkerGlobalScope* workerGlobalScope = static_cast<WorkerGlobalScope*>(m_scriptExecutionContext);
+            m_exec = execStateFromWorkerGlobalScope(workerGlobalScope);
         }
     }
 
@@ -67,11 +61,11 @@ public:
     class Scope {
     public:
         explicit Scope(DOMRequestState& state)
-            : m_entryShim(state.exec())
+            : m_locker(state.exec())
         {
         }
     private:
-        JSC::APIEntryShim m_entryShim;
+        JSC::JSLockHolder m_locker;
     };
 
     JSC::ExecState* exec()

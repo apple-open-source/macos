@@ -1,0 +1,9 @@
+#include "<DEVELOPER_DIR>AppleInternal/XcodeConfig/AspenFamily.xcconfig"
+
+SUPPORTED_PLATFORMS = macosx iphoneos
+
+VALID_ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_32_64_BIT)
+VALID_ARCHS[sdk=iphoneos*] = $(ARCHS_UNIVERSAL_IPHONE_OS) armv7k
+
+ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_32_64_BIT)
+ARCHS[sdk=iphoneos*] = $(ARCHS_STANDARD_32_64_BIT)

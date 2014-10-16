@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -23,7 +23,7 @@
 #define FORMAT		"PID=%(pid)d PPID=%(ppid)d PGID=%(pgid)d TID=%(tid)d SID=%(sid)d"
 
 static const char usage[] =
-"[-?\n@(#)$Id: pids (AT&T Research) 2008-04-01 $\n]"
+"[-?\n@(#)$Id: pids (AT&T Research) 2011-08-27 $\n]"
 USAGE_LICENSE
 "[+NAME?pids - list calling shell process ids]"
 "[+DESCRIPTION?When invoked as a shell builtin, \bpids\b lists one or "
@@ -65,7 +65,7 @@ key(void* handle, Sffmt_t* fp, const char* arg, char** ps, Sflong_t* pn)
 	if (!(s = fp->t_str) || streq(s, "pid"))
 		*pn = getpid();
 	else if (streq(s, "pgid"))
-		*pn = getpgid(0);
+		*pn = getpgrp();
 	else if (streq(s, "ppid"))
 		*pn = getppid();
 	else if (streq(s, "tid") || streq(s, "tty"))
@@ -76,7 +76,11 @@ key(void* handle, Sffmt_t* fp, const char* arg, char** ps, Sflong_t* pn)
 		*pn = tid;
 	}
 	else if (streq(s, "sid"))
+#if _lib_getsid
 		*pn = getsid(0);
+#else
+		*pn = -1;
+#endif
 	else if (streq(s, "format"))
 		*ps = (char*)handle;
 	else
@@ -88,7 +92,7 @@ key(void* handle, Sffmt_t* fp, const char* arg, char** ps, Sflong_t* pn)
 }
 
 int
-b_pids(int argc, char** argv, void* context)
+b_pids(int argc, char** argv, Shbltin_t* context)
 {
 	char*			format = 0;
 

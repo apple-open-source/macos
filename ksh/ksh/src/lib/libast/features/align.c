@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -110,14 +110,15 @@ main()
 		v.u2 = u.u2 + i;
 		bits2 |= u.u1 ^ v.u1;
 	}
-	printf("typedef unsigned %s ALIGN_INTEGRAL;\n", sizeof(char*) >= sizeof(long) ? "long" : sizeof(char*) >= sizeof(int) ? "int" : "short");
 	printf("\n");
 	printf("#define ALIGN_CHUNK		%d\n", sizeof(char*) >= 4 ? 8192 : 1024);
-	printf("#define ALIGN_INTEGRAL		%s\n", sizeof(char*) >= sizeof(long) ? "long" : sizeof(char*) >= sizeof(int) ? "int" : "short");
-	printf("#define ALIGN_INTEGER(x)	((ALIGN_INTEGRAL)(x))\n");
+	printf("#define ALIGN_INTEGRAL		uintptr_t\n");
+	printf("#define ALIGN_INTEGER(x)	((char*)(x)-(char*)0)\n");
 	printf("#define ALIGN_POINTER(x)	((char*)(x))\n");
-	if (bits2 == (align2 - 1)) printf("#define ALIGN_ROUND(x,y)	ALIGN_POINTER(ALIGN_INTEGER((x)+(y)-1)&~((y)-1))\n");
-	else printf("#define ALIGN_ROUND(x,y)	ALIGN_POINTER(ALIGN_INTEGER(ALIGN_ALIGN(x)+(((y)+%d)/%d)-1)&~((((y)+%d)/%d)-1))\n", align0, align0, align0, align0);
+	if (bits2 == (align2 - 1))
+		printf("#define ALIGN_ROUND(x,y)	ALIGN_POINTER(ALIGN_INTEGER((x)+(y)-1)&~((y)-1))\n");
+	else
+		printf("#define ALIGN_ROUND(x,y)	ALIGN_POINTER(ALIGN_INTEGER(ALIGN_ALIGN(x)+(((y)+%d)/%d)-1)&~((((y)+%d)/%d)-1))\n", align0, align0, align0, align0);
 	printf("\n");
 	if (align0 == align2)
 	{
@@ -151,14 +152,34 @@ main()
 		printf("#define ALIGN_ALIGN1(x)		ALIGN_TRUNC1((x)+%d)\n", align1 - 1);
 		printf("#define ALIGN_TRUNC1(x)		ALIGN_POINTER(ALIGN_INTEGER((x)+%d)&0x%lx)\n", align1 - 1, ~(bits0|bits1));
 	}
+#if _X86_ || _X64_
+	printf("#if _X64_\n");
+	printf("#define ALIGN_CLRBIT1(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0xfffffffffffffffeULL)\n");
+	printf("#else\n");
+	printf("#define ALIGN_CLRBIT1(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0xfffffffe)\n");
+	printf("#endif\n");
+#else
 	printf("#define ALIGN_CLRBIT1(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0x%lx)\n", ~bit1);
+#endif
 	printf("#define ALIGN_SETBIT1(x)	ALIGN_POINTER(ALIGN_INTEGER(x)|0x%lx)\n", bit1);
 	printf("#define ALIGN_TSTBIT1(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0x%lx)\n", bit1);
 	printf("\n");
 	printf("#define ALIGN_BIT2		0x%lx\n", bit2);
+#if _X86_ || _X64_
+	printf("#if _X64_\n");
+	printf("#define ALIGN_BOUND2		16\n");
+	printf("#define ALIGN_ALIGN2(x)		ALIGN_TRUNC2((x)+15)\n");
+	printf("#define ALIGN_TRUNC2(x)		ALIGN_POINTER(ALIGN_INTEGER(x)&0xfffffffffffffffeULL)\n");
+	printf("#else\n");
+	printf("#define ALIGN_BOUND2		8\n");
+	printf("#define ALIGN_ALIGN2(x)		ALIGN_TRUNC2((x)+7)\n");
+	printf("#define ALIGN_TRUNC2(x)		ALIGN_POINTER(ALIGN_INTEGER(x)&0xfffffff8)\n");
+	printf("#endif\n");
+#else
 	printf("#define ALIGN_BOUND2		%d\n", align2);
 	printf("#define ALIGN_ALIGN2(x)		ALIGN_TRUNC2((x)+%d)\n", align2 - 1);
 	printf("#define ALIGN_TRUNC2(x)		ALIGN_POINTER(ALIGN_INTEGER(x)&0x%lx)\n", ~(bits0|bits1|bits2));
+#endif
 	printf("#define ALIGN_CLRBIT2(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0x%lx)\n", ~bit2);
 	printf("#define ALIGN_SETBIT2(x)	ALIGN_POINTER(ALIGN_INTEGER(x)|0x%lx)\n", bit2);
 	printf("#define ALIGN_TSTBIT2(x)	ALIGN_POINTER(ALIGN_INTEGER(x)&0x%lx)\n", bit2);

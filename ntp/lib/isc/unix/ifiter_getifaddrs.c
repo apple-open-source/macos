@@ -146,7 +146,7 @@ internal_current(isc_interfaceiter_t *iter) {
 	family = ifa->ifa_addr->sa_family;
 	if (family != AF_INET && family != AF_INET6)
 		return (ISC_R_IGNORE);
-
+	
 #ifdef __linux
 	if (family == AF_INET6)
 		seenv6 = ISC_TRUE;

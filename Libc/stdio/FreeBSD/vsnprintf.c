@@ -56,8 +56,15 @@ _vsnprintf(printf_comp_t __restrict pc, printf_domain_t __restrict domain, char 
 	on = n;
 	if (n != 0)
 		n--;
+#if defined(__i386__)
+	/* <rdar://problem/16329527> don't corrupt the output buffer at all if the size underflowed */
+	if (n > INT_MAX)
+		on = n = 0;
+#else
 	if (n > INT_MAX)
 		n = INT_MAX;
+#endif
+
 	/* Stdio internals do not deal correctly with zero length buffer */
 	if (n == 0) {
 		if (on > 0)

@@ -25,6 +25,8 @@
 	</dict>
 	<key>UserName</key>
 	<string>nobody</string>
+	<key>Umask</key>
+	<integer>7</integer>
 	<key>inetdCompatibility</key>
 	<dict>
 		<key>Wait</key>

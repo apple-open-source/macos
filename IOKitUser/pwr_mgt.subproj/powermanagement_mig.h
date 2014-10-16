@@ -33,6 +33,15 @@ enum {
     kIOPMGetValueDWBTSupportOnBatt                      = 2
 };
 
+/* 
+ * 'setMode' values in io_pm_set_debug_flags() MIG call
+ */
+enum {
+    kIOPMDebugFlagsSetBits,
+    kIOPMDebugFlagsResetBits,
+    kIOPMDebugFlagsSetValue
+};
+
 /*
  * Arguments to powermanagement.defs MIG call io_pm_assertion_copy_details
  *    parameter "whichData"
@@ -41,9 +50,8 @@ enum {
     kIOPMAssertionMIGCopyOneAssertionProperties     = 1,
     kIOPMAssertionMIGCopyAll                        = 2,
     kIOPMAssertionMIGCopyStatus                     = 3,
-    kIOPMAssertionMIGCopyTimedOutAssertions         = 4,
-    kIOPMPowerEventsMIGCopyScheduledEvents          = 5,
-    kIOPMPowerEventsMIGCopyRepeatEvents             = 6,
+    kIOPMPowerEventsMIGCopyScheduledEvents          = 4,
+    kIOPMPowerEventsMIGCopyRepeatEvents             = 5,
 };
 
 /*

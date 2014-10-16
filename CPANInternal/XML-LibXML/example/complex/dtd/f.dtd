@@ -1,3 +1,0 @@
-<!ENTITY % g SYSTEM "g.dtd">
-<!ELEMENT doc ANY>
-%g;

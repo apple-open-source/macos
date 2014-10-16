@@ -41,6 +41,10 @@
 #include <heim-ipc.h>
 #include <kadm5/private.h>
 
+static void terminated(void *) __attribute__((__noreturn__));
+static void usage(int) __attribute__((__noreturn__));
+static void doit(int) __attribute__((__noreturn__));
+
 static krb5_context context;
 static krb5_log_facility *log_facility;
 
@@ -732,7 +736,7 @@ listen_on(krb5_address *addr, int type, int port)
     head_data = data;
 }
 
-static int
+static void
 doit(int port)
 {
     krb5_error_code ret;
@@ -757,10 +761,6 @@ doit(int port)
     }	
 
     heim_ipc_main();
-
-    krb5_free_addresses (context, &addrs);
-    krb5_free_context (context);
-    return 0;
 }
 
 static void
@@ -913,5 +913,5 @@ main (int argc, char **argv)
 
     pidfile(NULL);
 
-    return doit (port);
+    doit(port);
 }

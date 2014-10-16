@@ -30,6 +30,7 @@
 #import "NetworkProcessConnectionMessages.h"
 #import "NetworkResourceLoader.h"
 #import "WebCoreArgumentCoders.h"
+#import <wtf/PassOwnPtr.h>
 
 #ifdef __has_include
 #if __has_include(<CFNetwork/CFURLCachePriv.h>)
@@ -37,7 +38,7 @@
 #endif
 #endif
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
 
 typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 extern "C" void _CFCachedURLResponseSetBecameFileBackedCallBackBlock(CFCachedURLResponseRef, CFCachedURLResponseCallBackBlock, dispatch_queue_t);
@@ -62,8 +63,9 @@ void DiskCacheMonitor::monitorFileBackingStoreCreation(CFCachedURLResponseRef ca
 DiskCacheMonitor::DiskCacheMonitor(CFCachedURLResponseRef cachedResponse, NetworkResourceLoader* loader)
     : m_connectionToWebProcess(loader->connectionToWebProcess())
     , m_resourceRequest(loader->request())
+    , m_sessionID(loader->sessionID())
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     // Set up a delayed callback to cancel this monitor if the resource hasn't been cached yet.
     __block DiskCacheMonitor* rawMonitor = this;
@@ -88,13 +90,13 @@ DiskCacheMonitor::DiskCacheMonitor(CFCachedURLResponseRef cachedResponse, Networ
         if (handle.isNull())
             return;
 
-        monitor->send(Messages::NetworkProcessConnection::DidCacheResource(monitor->resourceRequest(), handle));
+        monitor->send(Messages::NetworkProcessConnection::DidCacheResource(monitor->resourceRequest(), handle, m_sessionID));
     };
 
     _CFCachedURLResponseSetBecameFileBackedCallBackBlock(cachedResponse, block, dispatch_get_main_queue());
 }
 
-CoreIPC::Connection* DiskCacheMonitor::messageSenderConnection()
+IPC::Connection* DiskCacheMonitor::messageSenderConnection()
 {
     return m_connectionToWebProcess->connection();
 }
@@ -106,4 +108,4 @@ uint64_t DiskCacheMonitor::messageSenderDestinationID()
 
 } // namespace WebKit
 
-#endif // #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#endif

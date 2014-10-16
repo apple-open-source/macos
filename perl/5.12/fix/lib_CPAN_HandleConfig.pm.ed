@@ -1,2 +1,0 @@
-/Carp::confess("Cannot open >$configpmtest");/s//$CPAN::Frontend->mywarn("Cannot open >$configpmtest"); return;/
-w

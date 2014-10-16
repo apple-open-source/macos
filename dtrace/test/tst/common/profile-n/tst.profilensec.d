@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-2000000000nsec
-#else
 tick-2000000000nsec
-#endif
 {
 	printf("This test is a simple profile-nsec provider test");
 	exit(0);

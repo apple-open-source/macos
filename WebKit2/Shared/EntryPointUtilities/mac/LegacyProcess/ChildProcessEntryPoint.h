@@ -29,9 +29,9 @@
 #import "ChildProcess.h"
 #import "CommandLine.h"
 #import "WebKit2Initialize.h"
-#import <WebCore/RunLoop.h>
 #import <WebKitSystemInterface.h>
 #import <sysexits.h>
+#import <wtf/RunLoop.h>
 
 namespace WebKit {
 
@@ -47,7 +47,7 @@ public:
     virtual void installSignalHandlers();
     virtual void doPreInitializationWork();
 
-    virtual bool getConnectionIdentifier(CoreIPC::Connection::Identifier& identifier);
+    virtual bool getConnectionIdentifier(IPC::Connection::Identifier& identifier);
     virtual bool getClientIdentifier(String& clientIdentifier);
     virtual bool getClientProcessName(String& clientProcessName);
     virtual bool getExtraInitializationData(HashMap<String, String>& extraInitializationData);
@@ -86,12 +86,6 @@ int ChildProcessMain(int argc, char** argv)
 
         if (!delegate.getExtraInitializationData(parameters.extraInitializationData))
             return EXIT_FAILURE;
-
-        // FIXME: This should be moved to ChildProcessMac if it is still necessary.
-        String localization = commandLine["localization"];
-        RetainPtr<CFStringRef> cfLocalization = adoptCF(CFStringCreateWithCharacters(0, reinterpret_cast<const UniChar*>(localization.characters()), localization.length()));
-        if (cfLocalization)
-            WKSetDefaultLocalization(cfLocalization.get());
 
         ChildProcessType::shared().initialize(parameters);
     }

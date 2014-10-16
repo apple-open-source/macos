@@ -20,16 +20,15 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGTransformable.h"
 
 #include "AffineTransform.h"
 #include "FloatConversion.h"
+#include "SVGElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGStyledElement.h"
 #include "SVGTransformList.h"
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -173,7 +172,8 @@ static inline bool parseAndSkipType(const UChar*& currTransform, const UChar* en
 SVGTransform::SVGTransformType SVGTransformable::parseTransformType(const String& typeString)
 {
     unsigned short type = SVGTransform::SVG_TRANSFORM_UNKNOWN;
-    const UChar* characters = typeString.characters();
+    auto upconvertedCharacters = StringView(typeString).upconvertedCharacters();
+    const UChar* characters = upconvertedCharacters;
     parseAndSkipType(characters, characters + typeString.length(), type);
     return static_cast<SVGTransform::SVGTransformType>(type);
 }
@@ -209,5 +209,3 @@ bool SVGTransformable::parseTransformAttribute(SVGTransformList& list, const UCh
 }
 
 }
-
-#endif // ENABLE(SVG)

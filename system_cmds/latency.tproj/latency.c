@@ -102,7 +102,8 @@ int      i_high_res_bins[N_HIGH_RES_BINS];
 
 long     i_thresh_hold;
 
-int	 watch_priority = 97;
+int	 watch_priority_min = 97;
+int	 watch_priority_max = 97;
 
 long     start_time;
 long     curr_time;
@@ -213,6 +214,7 @@ struct threadrun {
 	uintptr_t	tr_thread;
 	kd_buf		*tr_entry;
 	uint64_t	tr_timestamp;
+	int		tr_priority;
 };
 
 
@@ -346,8 +348,8 @@ static int binary_search(kern_sym_t *list, int low, int high, uintptr_t addr);
 
 static void create_map_entry(uintptr_t, char *);
 static void check_for_thread_update(uintptr_t thread, int debugid_base, kd_buf *kbufp, char **command);
-static void log_scheduler(kd_buf *kd_start, kd_buf *kd_stop, kd_buf *end_of_sample, double s_latency, uintptr_t thread);
-static int check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *kd, kd_buf **kd_start, double *latency);
+static void log_scheduler(kd_buf *kd_start, kd_buf *kd_stop, kd_buf *end_of_sample, int s_priority, double s_latency, uintptr_t thread);
+static int check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *kd, kd_buf **kd_start, int *priority, double *latency);
 static void open_rawfile(const char *path);
 
 static void screen_update(FILE *);
@@ -892,10 +894,10 @@ screen_update(FILE *fp)
 int
 exit_usage(void)
 {
-	fprintf(stderr, "Usage: latency [-p priority] [-h] [-m] [-st threshold] [-it threshold]\n");
-	fprintf(stderr, "               [-c codefile] [-l logfile] [-R rawfile] [-n kernel]\n\n");
+	fprintf(stderr, "Usage: latency [-p <priority>] [-h] [-m] [-st <threshold>] [-it <threshold>]\n");
+	fprintf(stderr, "               [-c <codefile>] [-l <logfile>] [-R <rawfile>] [-n <kernel>]\n\n");
  
-	fprintf(stderr, "  -p    specify scheduling priority to watch... default is realtime\n");
+	fprintf(stderr, "  -p    specify scheduling priority to watch... default is realtime. Can also be a range, e.g. \"31-47\".\n");
 	fprintf(stderr, "  -h    Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.\n");
 	fprintf(stderr, "  -st   set scheduler latency threshold in microseconds... if latency exceeds this, then log trace\n");
 	fprintf(stderr, "  -m    specify per-CPU interrupt latency reporting\n");	
@@ -903,7 +905,7 @@ exit_usage(void)
 	fprintf(stderr, "  -c    specify name of codes file... default is /usr/share/misc/trace.codes\n");
 	fprintf(stderr, "  -l    specify name of file to log trace entries to when the specified threshold is exceeded\n");
 	fprintf(stderr, "  -R    specify name of raw trace file to process\n");
-	fprintf(stderr, "  -n    specify kernel... default is /mach_kernel\n");	
+	fprintf(stderr, "  -n    specify kernel... default is /System/Library/Kernels/kernel.development\n");	
 
 	fprintf(stderr, "\nlatency must be run as root\n\n");
 
@@ -939,7 +941,19 @@ main(int argc, char *argv[])
 			argv++;
 
 			if (argc > 1) {
-				watch_priority = atoi(argv[1]);
+				if (2 == sscanf(argv[1], "%d-%d", &watch_priority_min, &watch_priority_max)) {
+					if (watch_priority_min > watch_priority_max) {
+						exit_usage();
+					} else if (watch_priority_min < 0) {
+						exit_usage();
+					}
+				} else {
+					if (1 == sscanf(argv[1], "%d", &watch_priority_min)) {
+						watch_priority_max = watch_priority_min;
+					} else {
+						exit_usage();
+					}
+				}
 			} else {
 				exit_usage();
 			}
@@ -1008,7 +1022,7 @@ main(int argc, char *argv[])
 		}
 	}
 	if (kernelpath == NULL) {
-		kernelpath = "/mach_kernel";
+		kernelpath = "/System/Library/Kernels/kernel.development";
 	}
 
 	if (code_file == NULL) {
@@ -1467,7 +1481,7 @@ delete_all_thread_entries(void)
 
 
 static void
-insert_run_event(uintptr_t thread, kd_buf *kd, uint64_t now)
+insert_run_event(uintptr_t thread, int priority, kd_buf *kd, uint64_t now)
 {
 	threadrun_t	trp;
 
@@ -1494,6 +1508,7 @@ insert_run_event(uintptr_t thread, kd_buf *kd, uint64_t now)
 	}
 	trp->tr_entry = kd;
 	trp->tr_timestamp = now;
+	trp->tr_priority = priority;
 }
 
 static threadrun_t
@@ -1893,8 +1908,9 @@ sample_sc(void)
 			}
 		} else {
 			double s_latency;
-			if (check_for_scheduler_latency(type, &thread, now, kd, &kd_start, &s_latency)) {
-				log_scheduler(kd_start, kd, end_of_sample, s_latency, thread);
+			int s_priority;
+			if (check_for_scheduler_latency(type, &thread, now, kd, &kd_start, &s_priority, &s_latency)) {
+				log_scheduler(kd_start, kd, end_of_sample, s_priority, s_latency, thread);
 			}
 		}
 	}
@@ -2352,7 +2368,7 @@ log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_
 
 
 void
-log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double s_latency, uintptr_t thread)
+log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, int s_priority, double s_latency, uintptr_t thread)
 {
 	kd_buf *kd_start, *kd_stop;
 	uint64_t now;
@@ -2395,9 +2411,9 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double s_la
 		TOD_usecs = (uint64_t)sample_timestamp;
 		TOD_secs = sample_TOD_secs + ((sample_TOD_usecs + TOD_usecs) / 1000000);
 
-		sprintf(buf1, "%-19.19s     priority = %d,  scheduling latency = %.1fus [timestamp %.1f]", ctime(&TOD_secs), watch_priority, s_latency, sample_timestamp);
+		sprintf(buf1, "%-19.19s     priority = %d,  scheduling latency = %.1fus [timestamp %.1f]", ctime(&TOD_secs), s_priority, s_latency, sample_timestamp);
 	} else {
-		sprintf(buf1, "%-19.19s     priority = %d,  scheduling latency = %.1fus [sample %d]", &(ctime(&curr_time)[0]), watch_priority, s_latency, sample_generation);
+		sprintf(buf1, "%-19.19s     priority = %d,  scheduling latency = %.1fus [sample %d]", &(ctime(&curr_time)[0]), s_priority, s_latency, sample_generation);
 	}
 
 	log_range((kd_buf *)my_buffer, kd_start, kd_stop, kd_beg, buf1);
@@ -2406,16 +2422,16 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double s_la
 
 
 int
-check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *kd, kd_buf **kd_start, double *latency)
+check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *kd, kd_buf **kd_start, int *priority, double *latency)
 {
 	int found_latency = 0;
 
 	if (type == MACH_makerunnable) {
-		if (watch_priority == kd->arg2) {
-			insert_run_event(kd->arg1, kd, now);
+		if (watch_priority_min <= kd->arg2 && kd->arg2 <= watch_priority_max) {
+			insert_run_event(kd->arg1, (int)kd->arg2, kd, now);
 		}
 	} else if (type == MACH_sched || type == MACH_stkhandoff) {
-		threadrun_t	trp;
+		threadrun_t	trp = find_run_event(kd->arg2);
 
 		if (type == MACH_sched || type == MACH_stkhandoff) {
 			*thread = kd->arg2;
@@ -2453,6 +2469,7 @@ check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *k
 					
 					if (log_fp) {
 						*kd_start = trp->tr_entry;
+						*priority = trp->tr_priority;
 						*latency = d_s_latency;
 						found_latency = 1;
 					}

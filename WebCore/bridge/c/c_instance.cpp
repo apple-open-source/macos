@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -56,7 +56,7 @@ namespace Bindings {
 
 static String& globalExceptionString()
 {
-    DEFINE_STATIC_LOCAL(String, exceptionStr, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, exceptionStr, ());
     return exceptionStr;
 }
 
@@ -72,7 +72,7 @@ void CInstance::moveGlobalExceptionToExecState(ExecState* exec)
 
     {
         JSLockHolder lock(exec);
-        throwError(exec, createError(exec, globalExceptionString()));
+        exec->vm().throwException(exec, createError(exec, globalExceptionString()));
     }
 
     globalExceptionString() = String();
@@ -92,7 +92,8 @@ CInstance::~CInstance()
 
 RuntimeObject* CInstance::newRuntimeObject(ExecState* exec)
 {
-    return CRuntimeObject::create(exec, exec->lexicalGlobalObject(), this);
+    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object.
+    return CRuntimeObject::create(exec->vm(), WebCore::deprecatedGetDOMStructure<CRuntimeObject>(exec), this);
 }
 
 Class *CInstance::getClass() const
@@ -123,10 +124,10 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
-    static const ClassInfo s_info;
+    DECLARE_INFO;
 
 private:
     CRuntimeMethod(JSGlobalObject* globalObject, Structure* structure, Bindings::Method* method)
@@ -137,7 +138,7 @@ private:
     void finishCreation(VM& vm, const String& name)
     {
         Base::finishCreation(vm, name);
-        ASSERT(inherits(&s_info));
+        ASSERT(inherits(info()));
     }
 
 };
@@ -152,8 +153,8 @@ JSValue CInstance::getMethod(ExecState* exec, PropertyName propertyName)
 
 JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 {
-    if (!asObject(runtimeMethod)->inherits(&CRuntimeMethod::s_info))
-        return throwError(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
+    if (!asObject(runtimeMethod)->inherits(CRuntimeMethod::info()))
+        return exec->vm().throwException(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
 
     CMethod* method = static_cast<CMethod*>(runtimeMethod->method());
     ASSERT(method);
@@ -167,7 +168,7 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 
     unsigned i;
     for (i = 0; i < count; i++)
-        convertValueToNPVariant(exec, exec->argument(i), &cArgs[i]);
+        convertValueToNPVariant(exec, exec->uncheckedArgument(i), &cArgs[i]);
 
     // Invoke the 'C' method.
     bool retval = true;
@@ -182,7 +183,7 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
     }
 
     if (!retval)
-        throwError(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
+        exec->vm().throwException(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -203,7 +204,7 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec)
 
     unsigned i;
     for (i = 0; i < count; i++)
-        convertValueToNPVariant(exec, exec->argument(i), &cArgs[i]);
+        convertValueToNPVariant(exec, exec->uncheckedArgument(i), &cArgs[i]);
 
     // Invoke the 'C' method.
     bool retval = true;
@@ -217,7 +218,7 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec)
     }
 
     if (!retval)
-        throwError(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
+        exec->vm().throwException(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -256,7 +257,7 @@ JSValue CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
     }
 
     if (!retval)
-        throwError(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
+        exec->vm().throwException(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -282,7 +283,7 @@ JSValue CInstance::stringValue(ExecState* exec) const
         return value;
 
     // Fallback to default implementation.
-    return jsString(exec, "NPObject");
+    return jsNontrivialString(exec, ASCIILiteral("NPObject"));
 }
 
 JSValue CInstance::numberValue(ExecState*) const
@@ -326,7 +327,7 @@ bool CInstance::toJSPrimitive(ExecState* exec, const char* name, JSValue& result
     }
 
     if (!retval)
-        throwError(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
+        exec->vm().throwException(exec, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     resultValue = convertNPVariantToValue(exec, &resultVariant, m_rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);

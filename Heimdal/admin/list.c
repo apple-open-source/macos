@@ -34,8 +34,6 @@
 #include "ktutil_locl.h"
 #include <rtbl.h>
 
-RCSID("$Id$");
-
 static int
 do_list(struct list_options *opt, const char *keytab_str)
 {

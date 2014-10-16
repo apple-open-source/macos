@@ -320,6 +320,7 @@ mkdir($locale_dir);
 &write_lc_money();
 &write_lc_time();
 &write_lc_messages();
+&write_lc_numeric();
 &write_lc_collate();
 exit 0;
 
@@ -1017,7 +1018,7 @@ sub write_lc_money {
 }
 
 sub write_lc_time {
-	my $F = (new IO::File "$locale_dir/LC_DATE", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_DATE: $!");
+	my $F = (new IO::File "$locale_dir/LC_TIME", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_TIME: $!");
 	my %array_cnt = (abmon => 12, mon => 12, abday => 7, day => 7, alt_month => 12, am_pm => 2);
 
 	$time{"md_order"} = "md" unless defined $time{"md_order"};
@@ -1045,13 +1046,30 @@ sub write_lc_time {
 
 sub write_lc_messages {
 	mkdir("$locale_dir/LC_MESSAGES");
-	my $F = (new IO::File "$locale_dir/LC_MESSAGES/LC_MESSAGES", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_DATE: $!");
+	my $F = (new IO::File "$locale_dir/LC_MESSAGES/LC_MESSAGES", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_MESSAGES/LC_MESSAGES: $!");
 
 	foreach my $s (qw(yesexpr noexpr yesstr nostr)) {
 		my $v = $messages{$s};
 
 		if (defined $v) {
 			$F->print("$v\n");
+		} else {
+			$F->print("\n");
+		}
+	}
+}
+
+sub write_lc_numeric {
+	my $F = (new IO::File "$locale_dir/LC_NUMERIC", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_NUMERIC: $!");
+
+	foreach my $s (qw(decimal_point thousands_sep grouping)) {
+		if (exists $numeric{$s}) {
+			my $v = $numeric{$s};
+			if ("ARRAY" eq ref $v) {
+				$F->print(join(";", @$v), "\n");
+			} else {
+				$F->print("$v\n");
+			}
 		} else {
 			$F->print("\n");
 		}

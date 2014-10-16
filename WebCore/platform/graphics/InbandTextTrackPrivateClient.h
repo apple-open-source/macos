@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,14 +27,18 @@
 #define InbandTextTrackPrivateClient_h
 
 #include "Color.h"
-#include <wtf/RefCounted.h>
-#include <wtf/text/WTFString.h>
+#include "TrackPrivateBase.h"
+
+#if ENABLE(DATACUE_VALUE)
+#include "SerializedPlatformRepresentation.h"
+#endif
 
 #if ENABLE(VIDEO_TRACK)
 
 namespace WebCore {
 
 class InbandTextTrackPrivate;
+class ISOWebVTTCue;
 
 class GenericCueData : public RefCounted<GenericCueData> {
 public:
@@ -97,7 +101,9 @@ public:
     };
     Status status() { return m_status; }
     void setStatus(Status status) { m_status = status; }
-    
+
+    bool doesExtendCueData(const GenericCueData&) const;
+
 private:
     GenericCueData()
         : m_startTime(0)
@@ -129,15 +135,55 @@ private:
     Status m_status;
 };
 
-class InbandTextTrackPrivateClient {
+inline bool GenericCueData::doesExtendCueData(const GenericCueData& other) const
+{
+    if (m_relativeFontSize != other.m_relativeFontSize)
+        return false;
+    if (m_baseFontSize != other.m_baseFontSize)
+        return false;
+    if (m_position != other.m_position)
+        return false;
+    if (m_line != other.m_line)
+        return false;
+    if (m_size != other.m_size)
+        return false;
+    if (m_align != other.m_align)
+        return false;
+    if (m_foregroundColor != other.m_foregroundColor)
+        return false;
+    if (m_backgroundColor != other.m_backgroundColor)
+        return false;
+    if (m_highlightColor != other.m_highlightColor)
+        return false;
+    if (m_fontName != other.m_fontName)
+        return false;
+    if (m_id != other.m_id)
+        return false;
+    if (m_content != other.m_content)
+        return false;
+    
+    return true;
+}
+    
+class InbandTextTrackPrivateClient : public TrackPrivateBaseClient {
 public:
     virtual ~InbandTextTrackPrivateClient() { }
+
+    virtual void addDataCue(InbandTextTrackPrivate*, double start, double end, const void*, unsigned) = 0;
+
+#if ENABLE(DATACUE_VALUE)
+    virtual void addDataCue(InbandTextTrackPrivate*, double start, double end, PassRefPtr<SerializedPlatformRepresentation>, const String&) = 0;
+    virtual void updateDataCue(InbandTextTrackPrivate*, double start, double end, PassRefPtr<SerializedPlatformRepresentation>) = 0;
+    virtual void removeDataCue(InbandTextTrackPrivate*, double start, double end, PassRefPtr<SerializedPlatformRepresentation>) = 0;
+#endif
 
     virtual void addGenericCue(InbandTextTrackPrivate*, PassRefPtr<GenericCueData>) = 0;
     virtual void updateGenericCue(InbandTextTrackPrivate*, GenericCueData*) = 0;
     virtual void removeGenericCue(InbandTextTrackPrivate*, GenericCueData*) = 0;
 
-    virtual void willRemoveTextTrackPrivate(InbandTextTrackPrivate*) = 0;
+    virtual void parseWebVTTFileHeader(InbandTextTrackPrivate*, String) { ASSERT_NOT_REACHED(); }
+    virtual void parseWebVTTCueData(InbandTextTrackPrivate*, const char* data, unsigned length) = 0;
+    virtual void parseWebVTTCueData(InbandTextTrackPrivate*, const ISOWebVTTCue&) = 0;
 };
 
 } // namespace WebCore

@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_errstring "10 July 2001" SASL "SASL man pages"
+.TH sasl_errstring 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_errstring \- Translate a SASL return code to a human-readable form
 
@@ -48,7 +48,7 @@ sasl_errstring \- Translate a SASL return code to a human-readable form
 .B #include <sasl/sasl.h>
 
 .sp
-.BI "const char * sasl_errsring(int " saslerr ", "
+.BI "const char * sasl_errstring(int " saslerr ", "
 .BI "			        const char * " langlist ", "
 .BI "			        const char ** " outlang ");"
 
@@ -58,21 +58,28 @@ sasl_errstring \- Translate a SASL return code to a human-readable form
 .B sasl_usererr
 is called to convert a SASL return code (an integer) into a human
 readable string. At this time the only language available is american
-english written by programmers (aka gobldygoop).
+english written by programmers (aka gobbledygook).
 Note that a server should call sasl_usererr on a return code first if
 the string is going to be sent to the client.
-
+.PP
+.I saslerr
+specifies the error number to convert.
+.PP
+.I langlist
+is currently unused; Use NULL.
+.PP
+.I outlang
+specifies the desired RFC 1766 language for output.  NULL defaults to "en-us,"
+currently the only supported language.
+.PP
 It should be noted that this function is not the recommended means of
 extracting error code information from SASL, instead application should
 use sasl_errdetail(3), which contains this information (and more)
-
 .PP
-
 .SH "RETURN VALUE"
-Returns the string.
-
+Returns the string.  If langlist is NULL, US-ASCII is used.
+.PP
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errdetail(3), sasl_errors(3)
-

@@ -36,18 +36,9 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-#if !defined(__APPLE__)
-fbt::ioctl:return
-/arg1 == 0/
-{
-	printf("%s %x returned 0", probefunc, arg0);
-	exit(0);
-}
-#else
 fbt::sigprocmask:return
 /arg1 == 0/
 {
 	printf("%s %x returned 0", probefunc, arg0);
 	exit(0);
 }
-#endif /* __APPLE__ */

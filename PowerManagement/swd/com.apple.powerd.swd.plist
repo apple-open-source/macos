@@ -10,10 +10,15 @@
 	<array>
 		<string>/System/Library/CoreServices/powerd.bundle/swd</string>
 	</array>
-    <key>WatchPaths</key>
-    <array>
-        <string>/var/tmp/SleepWakeLog.dump</string>
-        <string>/var/tmp/PMSleepWakeLog.dump</string>
-    </array>
+    <key>KeepAlive</key>                                                                                                
+    <dict>                                                                                                              
+        <key>PathState</key>                                                                                            
+        <dict>                                                                                                          
+            <key>/var/log/SleepWakeLog.dump</key>
+            <true/>
+            <key>/var/log/AppleOSXWatchdogLog.dump</key>
+            <true/>
+        </dict>                                                                                                         
+    </dict>           
 </dict>
 </plist>

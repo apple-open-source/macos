@@ -31,7 +31,6 @@
 #define APR_WANT_STRFUNC
 #include "apr_want.h"
 
-#define CORE_PRIVATE
 #include "ap_config.h"
 #include "httpd.h"
 #include "http_config.h"
@@ -49,6 +48,8 @@
 #if APR_HAVE_STDARG_H
 #include <stdarg.h>
 #endif
+
+APLOG_USE_MODULE(http);
 
 /*****************************************************************
  *
@@ -98,7 +99,7 @@ AP_DECLARE(void) ap_die(int type, request_rec *r)
          * next->frec == ap_http_header_filter
          */
         if (next) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01579)
                           "Custom error page caused AP_FILTER_ERROR");
             type = HTTP_INTERNAL_SERVER_ERROR;
         }
@@ -196,7 +197,7 @@ AP_DECLARE(void) ap_die(int type, request_rec *r)
                                              "error-notes")) != NULL) {
                 apr_table_setn(r->subprocess_env, "ERROR_NOTES", error_notes);
             }
-            r->method = apr_pstrdup(r->pool, "GET");
+            r->method = "GET";
             r->method_number = M_GET;
             ap_internal_redirect(custom_response, r);
             return;
@@ -207,7 +208,7 @@ AP_DECLARE(void) ap_die(int type, request_rec *r)
              * dying with a recursive server error...
              */
             recursive_error = HTTP_INTERNAL_SERVER_ERROR;
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01580)
                         "Invalid error redirection directive: %s",
                         custom_response);
         }
@@ -215,48 +216,62 @@ AP_DECLARE(void) ap_die(int type, request_rec *r)
     ap_send_error_response(r_1st_err, recursive_error);
 }
 
-static void check_pipeline_flush(request_rec *r)
+static void check_pipeline(conn_rec *c)
 {
-    apr_bucket *e;
-    apr_bucket_brigade *bb;
-    conn_rec *c = r->connection;
-    /* ### if would be nice if we could PEEK without a brigade. that would
-       ### allow us to defer creation of the brigade to when we actually
-       ### need to send a FLUSH. */
-    bb = apr_brigade_create(r->pool, c->bucket_alloc);
+    if (c->keepalive != AP_CONN_CLOSE) {
+        apr_status_t rv;
+        apr_bucket_brigade *bb = apr_brigade_create(c->pool, c->bucket_alloc);
 
-    /* Flush the filter contents if:
-     *
-     *   1) the connection will be closed
-     *   2) there isn't a request ready to be read
-     */
-    /* ### shouldn't this read from the connection input filters? */
-    /* ### is zero correct? that means "read one line" */
-    if (r->connection->keepalive != AP_CONN_CLOSE) {
-        if (ap_get_brigade(r->input_filters, bb, AP_MODE_EATCRLF,
-                       APR_NONBLOCK_READ, 0) != APR_SUCCESS) {
-            c->data_in_input_filters = 0;  /* we got APR_EOF or an error */
+        rv = ap_get_brigade(c->input_filters, bb, AP_MODE_SPECULATIVE,
+                            APR_NONBLOCK_READ, 1);
+        if (rv != APR_SUCCESS || APR_BRIGADE_EMPTY(bb)) {
+            /*
+             * Error or empty brigade: There is no data present in the input
+             * filter
+             */
+            c->data_in_input_filters = 0;
         }
         else {
             c->data_in_input_filters = 1;
-            return;    /* don't flush */
         }
+        apr_brigade_destroy(bb);
     }
-
-        e = apr_bucket_flush_create(c->bucket_alloc);
-
-        /* We just send directly to the connection based filters.  At
-         * this point, we know that we have seen all of the data
-         * (request finalization sent an EOS bucket, which empties all
-         * of the request filters). We just want to flush the buckets
-         * if something hasn't been sent to the network yet.
-         */
-        APR_BRIGADE_INSERT_HEAD(bb, e);
-        ap_pass_brigade(r->connection->output_filters, bb);
 }
 
-void ap_process_request(request_rec *r)
+
+AP_DECLARE(void) ap_process_request_after_handler(request_rec *r)
 {
+    apr_bucket_brigade *bb;
+    apr_bucket *b;
+    conn_rec *c = r->connection;
+
+    /* Send an EOR bucket through the output filter chain.  When
+     * this bucket is destroyed, the request will be logged and
+     * its pool will be freed
+     */
+    bb = apr_brigade_create(r->connection->pool, r->connection->bucket_alloc);
+    b = ap_bucket_eor_create(r->connection->bucket_alloc, r);
+    APR_BRIGADE_INSERT_HEAD(bb, b);
+
+    ap_pass_brigade(r->connection->output_filters, bb);
+
+    /* From here onward, it is no longer safe to reference r
+     * or r->pool, because r->pool may have been destroyed
+     * already by the EOR bucket's cleanup function.
+     */
+
+    if (c->cs)
+        c->cs->state = CONN_STATE_WRITE_COMPLETION;
+    check_pipeline(c);
+    AP_PROCESS_REQUEST_RETURN((uintptr_t)r, r->uri, r->status);
+    if (ap_extended_status) {
+        ap_time_process_request(c->sbh, STOP_PREQUEST);
+    }
+}
+
+void ap_process_async_request(request_rec *r)
+{
+    conn_rec *c = r->connection;
     int access_status;
 
     /* Give quick handlers a shot at serving the request on the fast
@@ -273,8 +288,28 @@ void ap_process_request(request_rec *r)
      * Use this hook with extreme care and only if you know what you are
      * doing.
      */
-    if (ap_extended_status)
+    AP_PROCESS_REQUEST_ENTRY((uintptr_t)r, r->uri);
+    if (ap_extended_status) {
         ap_time_process_request(r->connection->sbh, START_PREQUEST);
+    }
+
+    if (APLOGrtrace4(r)) {
+        int i;
+        const apr_array_header_t *t_h = apr_table_elts(r->headers_in);
+        const apr_table_entry_t *t_elt = (apr_table_entry_t *)t_h->elts;
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE4, 0, r,
+                      "Headers received from client:");
+        for (i = 0; i < t_h->nelts; i++, t_elt++) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE4, 0, r, "  %s: %s",
+                          ap_escape_logitem(r->pool, t_elt->key),
+                          ap_escape_logitem(r->pool, t_elt->val));
+        }
+    }
+
+#if APR_HAS_THREADS
+    apr_thread_mutex_create(&r->invoke_mtx, APR_THREAD_MUTEX_DEFAULT, r->pool);
+    apr_thread_mutex_lock(r->invoke_mtx);
+#endif
     access_status = ap_run_quick_handler(r, 0);  /* Not a look-up request */
     if (access_status == DECLINED) {
         access_status = ap_process_request_internal(r);
@@ -282,6 +317,25 @@ void ap_process_request(request_rec *r)
             access_status = ap_invoke_handler(r);
         }
     }
+
+    if (access_status == SUSPENDED) {
+        /* TODO: Should move these steps into a generic function, so modules
+         * working on a suspended request can also call _ENTRY again.
+         */
+        AP_PROCESS_REQUEST_RETURN((uintptr_t)r, r->uri, access_status);
+        if (ap_extended_status) {
+            ap_time_process_request(c->sbh, STOP_PREQUEST);
+        }
+        if (c->cs)
+            c->cs->state = CONN_STATE_SUSPENDED;
+#if APR_HAS_THREADS
+        apr_thread_mutex_unlock(r->invoke_mtx);
+#endif
+        return;
+    }
+#if APR_HAS_THREADS
+    apr_thread_mutex_unlock(r->invoke_mtx);
+#endif
 
     if (access_status == DONE) {
         /* e.g., something not in storage like TRACE */
@@ -296,18 +350,40 @@ void ap_process_request(request_rec *r)
         ap_die(access_status, r);
     }
 
-    /*
-     * We want to flush the last packet if this isn't a pipelining connection
-     * *before* we start into logging.  Suppose that the logging causes a DNS
-     * lookup to occur, which may have a high latency.  If we hold off on
-     * this packet, then it'll appear like the link is stalled when really
-     * it's the application that's stalled.
-     */
-    check_pipeline_flush(r);
-    ap_update_child_status(r->connection->sbh, SERVER_BUSY_LOG, r);
-    ap_run_log_transaction(r);
-    if (ap_extended_status)
-        ap_time_process_request(r->connection->sbh, STOP_PREQUEST);
+    ap_process_request_after_handler(r);
+}
+
+void ap_process_request(request_rec *r)
+{
+    apr_bucket_brigade *bb;
+    apr_bucket *b;
+    conn_rec *c = r->connection;
+    apr_status_t rv;
+
+    ap_process_async_request(r);
+
+    if (!c->data_in_input_filters) {
+        bb = apr_brigade_create(c->pool, c->bucket_alloc);
+        b = apr_bucket_flush_create(c->bucket_alloc);
+        APR_BRIGADE_INSERT_HEAD(bb, b);
+        rv = ap_pass_brigade(c->output_filters, bb);
+        if (APR_STATUS_IS_TIMEUP(rv)) {
+            /*
+             * Notice a timeout as an error message. This might be
+             * valuable for detecting clients with broken network
+             * connections or possible DoS attacks.
+             *
+             * It is still safe to use r / r->pool here as the eor bucket
+             * could not have been destroyed in the event of a timeout.
+             */
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, rv, r, APLOGNO(01581)
+                          "Timeout while writing data for URI %s to the"
+                          " client", r->unparsed_uri);
+        }
+    }
+    if (ap_extended_status) {
+        ap_time_process_request(c->sbh, STOP_PREQUEST);
+    }
 }
 
 static apr_table_t *rename_original_env(apr_pool_t *p, apr_table_t *t)
@@ -363,6 +439,9 @@ static request_rec *internal_internal_redirect(const char *new_uri,
     new->prev = r;
     r->next   = new;
 
+    new->useragent_addr = r->useragent_addr;
+    new->useragent_ip = r->useragent_ip;
+
     /* Must have prev and next pointers set before calling create_request
      * hook.
      */
@@ -385,6 +464,11 @@ static request_rec *internal_internal_redirect(const char *new_uri,
 
     new->headers_in      = r->headers_in;
     new->headers_out     = apr_table_make(r->pool, 12);
+    if (ap_is_HTTP_REDIRECT(new->status)) {
+        const char *location = apr_table_get(r->headers_out, "Location");
+        if (location)
+            apr_table_setn(new->headers_out, "Location", location);
+    }
     new->err_headers_out = r->err_headers_out;
     new->subprocess_env  = rename_original_env(r->pool, r->subprocess_env);
     new->notes           = apr_table_make(r->pool, 5);
@@ -416,7 +500,7 @@ static request_rec *internal_internal_redirect(const char *new_uri,
             nextf = f->next;
 
             if (f->r == r && f->frec != ap_subreq_core_filter_handle) {
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01582)
                               "dropping filter '%s' in internal redirect from %s to %s",
                               f->frec->name, r->unparsed_uri, new_uri);
 
@@ -451,6 +535,10 @@ static request_rec *internal_internal_redirect(const char *new_uri,
      * until some module interjects and changes the value.
      */
     new->used_path_info = AP_REQ_DEFAULT_PATH_INFO;
+
+#if APR_HAS_THREADS
+    new->invoke_mtx = r->invoke_mtx;
+#endif
 
     /*
      * XXX: hmm.  This is because mod_setenvif and mod_unique_id really need
@@ -541,6 +629,8 @@ AP_DECLARE(void) ap_internal_redirect(const char *new_uri, request_rec *r)
 {
     request_rec *new = internal_internal_redirect(new_uri, r);
     int access_status;
+
+    AP_INTERNAL_REDIRECT(r->uri, new_uri);
 
     /* ap_die was already called, if an error occured */
     if (!new) {

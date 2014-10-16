@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -47,8 +47,8 @@ public:
     virtual ~Archive();
     virtual Type type() const = 0;
     ArchiveResource* mainResource() { return m_mainResource.get(); }
-    const Vector<RefPtr<ArchiveResource> >& subresources() const { return m_subresources; }
-    const Vector<RefPtr<Archive> >& subframeArchives() const { return m_subframeArchives; }
+    const Vector<RefPtr<ArchiveResource>>& subresources() const { return m_subresources; }
+    const Vector<RefPtr<Archive>>& subframeArchives() const { return m_subframeArchives; }
 
 protected:
     // These methods are meant for subclasses for different archive types to add resources in to the archive,
@@ -60,11 +60,11 @@ protected:
     void clearAllSubframeArchives();
 
 private:
-    void clearAllSubframeArchivesImpl(Vector<RefPtr<Archive> >* clearedArchives);
+    void clearAllSubframeArchivesImpl(Vector<RefPtr<Archive>>* clearedArchives);
 
     RefPtr<ArchiveResource> m_mainResource;
-    Vector<RefPtr<ArchiveResource> > m_subresources;
-    Vector<RefPtr<Archive> > m_subframeArchives;
+    Vector<RefPtr<ArchiveResource>> m_subresources;
+    Vector<RefPtr<Archive>> m_subframeArchives;
 };
 
 }

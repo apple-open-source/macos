@@ -43,9 +43,7 @@ namespace JSC {
     }
 
     inline Node::Node(const JSTokenLocation& location)
-        : m_lineNumber(location.line)
-        , m_startOffset(location.startOffset)
-        , m_lineStartOffset(location.lineStartOffset)
+        : m_position(location.line, location.startOffset, location.lineStartOffset)
     {
         ASSERT(location.startOffset >= location.lineStartOffset);
     }
@@ -102,14 +100,12 @@ namespace JSC {
     {
     }
 
-inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifier& ident, unsigned startOffset, unsigned divotLine, unsigned divotLineStart)
+inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifier& ident, const JSTextPosition& start)
         : ExpressionNode(location)
         , m_ident(ident)
-        , m_startOffset(startOffset)
-        , m_divotLine(divotLine)
-        , m_divotLineStart(divotLineStart)
+        , m_start(start)
     {
-        ASSERT(m_startOffset >= m_divotLineStart);
+        ASSERT(m_start.offset >= m_start.lineStartOffset);
     }
 
     inline ElementNode::ElementNode(int elision, ExpressionNode* node)
@@ -152,14 +148,22 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     }
 
     inline PropertyNode::PropertyNode(VM*, const Identifier& name, ExpressionNode* assign, Type type)
-        : m_name(name)
+        : m_name(&name)
         , m_assign(assign)
         , m_type(type)
     {
     }
 
     inline PropertyNode::PropertyNode(VM* vm, double name, ExpressionNode* assign, Type type)
-        : m_name(vm->parserArena->identifierArena().makeNumericIdentifier(vm, name))
+        : m_name(&vm->parserArena->identifierArena().makeNumericIdentifier(vm, name))
+        , m_assign(assign)
+        , m_type(type)
+    {
+    }
+    
+    inline PropertyNode::PropertyNode(VM*, ExpressionNode* name, ExpressionNode* assign, Type type)
+        : m_name(0)
+        , m_expression(name)
         , m_assign(assign)
         , m_type(type)
     {
@@ -206,6 +210,13 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
         , m_ident(ident)
     {
     }
+    
+    
+    inline SpreadExpressionNode::SpreadExpressionNode(const JSTokenLocation& location, ExpressionNode* expression)
+        : ExpressionNode(location)
+        , m_expression(expression)
+    {
+    }
 
     inline ArgumentListNode::ArgumentListNode(const JSTokenLocation& location, ExpressionNode* expr)
         : ExpressionNode(location)
@@ -246,81 +257,81 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline EvalFunctionCallNode::EvalFunctionCallNode(const JSTokenLocation& location, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline EvalFunctionCallNode::EvalFunctionCallNode(const JSTokenLocation& location, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_args(args)
     {
-        ASSERT(divot >= divotLineStart);
     }
 
-    inline FunctionCallValueNode::FunctionCallValueNode(const JSTokenLocation& location, ExpressionNode* expr, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline FunctionCallValueNode::FunctionCallValueNode(const JSTokenLocation& location, ExpressionNode* expr, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_expr(expr)
         , m_args(args)
     {
+        ASSERT(divot.offset >= divotStart.offset);
     }
 
-    inline FunctionCallResolveNode::FunctionCallResolveNode(const JSTokenLocation& location, const Identifier& ident, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline FunctionCallResolveNode::FunctionCallResolveNode(const JSTokenLocation& location, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_ident(ident)
         , m_args(args)
     {
     }
 
-    inline FunctionCallBracketNode::FunctionCallBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline FunctionCallBracketNode::FunctionCallBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableSubExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableSubExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_subscript(subscript)
         , m_args(args)
     {
     }
 
-    inline FunctionCallDotNode::FunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline FunctionCallDotNode::FunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableSubExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableSubExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_ident(ident)
         , m_args(args)
     {
     }
 
-    inline CallFunctionCallDotNode::CallFunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
-        : FunctionCallDotNode(location, base, ident, args, divot, startOffset, endOffset, divotLine, divotLineStart)
+    inline CallFunctionCallDotNode::CallFunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
+        : FunctionCallDotNode(location, base, ident, args, divot, divotStart, divotEnd)
     {
     }
 
-    inline ApplyFunctionCallDotNode::ApplyFunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
-        : FunctionCallDotNode(location, base, ident, args, divot, startOffset, endOffset, divotLine, divotLineStart)
+    inline ApplyFunctionCallDotNode::ApplyFunctionCallDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
+        : FunctionCallDotNode(location, base, ident, args, divot, divotStart, divotEnd)
     {
     }
 
-    inline PostfixNode::PostfixNode(const JSTokenLocation& location, ExpressionNode* expr, Operator oper, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
-        : PrefixNode(location, expr, oper, divot, startOffset, endOffset, divotLine, divotLineStart)
+    inline PostfixNode::PostfixNode(const JSTokenLocation& location, ExpressionNode* expr, Operator oper, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
+        : PrefixNode(location, expr, oper, divot, divotStart, divotEnd)
     {
     }
 
-    inline DeleteResolveNode::DeleteResolveNode(const JSTokenLocation& location, const Identifier& ident, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline DeleteResolveNode::DeleteResolveNode(const JSTokenLocation& location, const Identifier& ident, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_ident(ident)
     {
     }
 
-    inline DeleteBracketNode::DeleteBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline DeleteBracketNode::DeleteBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_subscript(subscript)
     {
     }
 
-    inline DeleteDotNode::DeleteDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline DeleteDotNode::DeleteDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_ident(ident)
     {
@@ -350,9 +361,9 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline PrefixNode::PrefixNode(const JSTokenLocation& location, ExpressionNode* expr, Operator oper, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline PrefixNode::PrefixNode(const JSTokenLocation& location, ExpressionNode* expr, Operator oper, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowablePrefixedSubExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowablePrefixedSubExpressionData(divot, divotStart, divotEnd)
         , m_expr(expr)
         , m_operator(oper)
     {
@@ -536,16 +547,14 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline ReadModifyResolveNode::ReadModifyResolveNode(const JSTokenLocation& location, const Identifier& ident, Operator oper, ExpressionNode*  right, bool rightHasAssignments, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline ReadModifyResolveNode::ReadModifyResolveNode(const JSTokenLocation& location, const Identifier& ident, Operator oper, ExpressionNode*  right, bool rightHasAssignments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_ident(ident)
         , m_right(right)
         , m_operator(oper)
         , m_rightHasAssignments(rightHasAssignments)
     {
-        ASSERT(divot >= divotLineStart);
-        ASSERT(divot - startOffset >= divotLineStart);
     }
 
     inline AssignResolveNode::AssignResolveNode(const JSTokenLocation& location, const Identifier& ident, ExpressionNode* right)
@@ -555,9 +564,10 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline ReadModifyBracketNode::ReadModifyBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, Operator oper, ExpressionNode* right, bool subscriptHasAssignments, bool rightHasAssignments, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+
+    inline ReadModifyBracketNode::ReadModifyBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, Operator oper, ExpressionNode* right, bool subscriptHasAssignments, bool rightHasAssignments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableSubExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableSubExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_subscript(subscript)
         , m_right(right)
@@ -567,9 +577,9 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline AssignBracketNode::AssignBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, ExpressionNode* right, bool subscriptHasAssignments, bool rightHasAssignments, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline AssignBracketNode::AssignBracketNode(const JSTokenLocation& location, ExpressionNode* base, ExpressionNode* subscript, ExpressionNode* right, bool subscriptHasAssignments, bool rightHasAssignments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_subscript(subscript)
         , m_right(right)
@@ -578,9 +588,9 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline AssignDotNode::AssignDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ExpressionNode* right, bool rightHasAssignments, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline AssignDotNode::AssignDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, ExpressionNode* right, bool rightHasAssignments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_ident(ident)
         , m_right(right)
@@ -588,9 +598,9 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline ReadModifyDotNode::ReadModifyDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, Operator oper, ExpressionNode* right, bool rightHasAssignments, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline ReadModifyDotNode::ReadModifyDotNode(const JSTokenLocation& location, ExpressionNode* base, const Identifier& ident, Operator oper, ExpressionNode* right, bool rightHasAssignments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableSubExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableSubExpressionData(divot, divotStart, divotEnd)
         , m_base(base)
         , m_ident(ident)
         , m_right(right)
@@ -599,15 +609,17 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline AssignErrorNode::AssignErrorNode(const JSTokenLocation& location, unsigned divot, unsigned startOffset, unsigned endOffset, unsigned divotLine, unsigned divotLineStart)
+    inline AssignErrorNode::AssignErrorNode(const JSTokenLocation& location, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
-        , ThrowableExpressionData(divot, startOffset, endOffset, divotLine, divotLineStart)
+        , ThrowableExpressionData(divot, divotStart, divotEnd)
     {
     }
 
     inline CommaNode::CommaNode(const JSTokenLocation& location, ExpressionNode* expr1, ExpressionNode* expr2)
         : ExpressionNode(location)
     {
+        ASSERT(expr1);
+        ASSERT(expr2);
         m_expressions.append(expr1);
         m_expressions.append(expr2);
     }
@@ -706,13 +718,11 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline WithNode::WithNode(const JSTokenLocation& location, ExpressionNode* expr, StatementNode* statement, uint32_t divot, unsigned divotLine, unsigned divotLineStart, uint32_t expressionLength)
+    inline WithNode::WithNode(const JSTokenLocation& location, ExpressionNode* expr, StatementNode* statement, const JSTextPosition& divot, uint32_t expressionLength)
         : StatementNode(location)
         , m_expr(expr)
         , m_statement(statement)
         , m_divot(divot)
-        , m_divotLine(divotLine)
-        , m_divotLineStart(divotLineStart)
         , m_expressionLength(expressionLength)
     {
     }
@@ -739,31 +749,34 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline ParameterNode::ParameterNode(const Identifier& ident)
-        : m_ident(ident)
+    inline ParameterNode::ParameterNode(PassRefPtr<DeconstructionPatternNode> pattern)
+        : m_pattern(pattern)
         , m_next(0)
     {
+        ASSERT(m_pattern);
     }
 
-    inline ParameterNode::ParameterNode(ParameterNode* l, const Identifier& ident)
-        : m_ident(ident)
+    inline ParameterNode::ParameterNode(ParameterNode* l, PassRefPtr<DeconstructionPatternNode> pattern)
+        : m_pattern(pattern)
         , m_next(0)
     {
         l->m_next = this;
+        ASSERT(m_pattern);
+        ASSERT(l->m_pattern);
     }
 
     inline FuncExprNode::FuncExprNode(const JSTokenLocation& location, const Identifier& ident, FunctionBodyNode* body, const SourceCode& source, ParameterNode* parameter)
         : ExpressionNode(location)
         , m_body(body)
     {
-        m_body->finishParsing(source, parameter, ident, FunctionNameIsInScope);
+        m_body->finishParsing(source, parameter, ident, FunctionExpression);
     }
 
     inline FuncDeclNode::FuncDeclNode(const JSTokenLocation& location, const Identifier& ident, FunctionBodyNode* body, const SourceCode& source, ParameterNode* parameter)
         : StatementNode(location)
         , m_body(body)
     {
-        m_body->finishParsing(source, parameter, ident, FunctionNameIsNotInScope);
+        m_body->finishParsing(source, parameter, ident, FunctionDeclaration);
     }
 
     inline CaseClauseNode::CaseClauseNode(ExpressionNode* expr, SourceElements* statements)
@@ -813,31 +826,88 @@ inline ResolveNode::ResolveNode(const JSTokenLocation& location, const Identifie
     {
     }
 
-    inline ForInNode::ForInNode(const JSTokenLocation& location, ExpressionNode* l, ExpressionNode* expr, StatementNode* statement)
+    inline EnumerationNode::EnumerationNode(const JSTokenLocation& location, ExpressionNode* l, ExpressionNode* expr, StatementNode* statement)
         : StatementNode(location)
-        , m_init(0)
         , m_lexpr(l)
         , m_expr(expr)
         , m_statement(statement)
     {
+        ASSERT(l);
     }
-
-    inline ForInNode::ForInNode(VM* vm, const JSTokenLocation& location, const Identifier& ident, ExpressionNode* in, ExpressionNode* expr, StatementNode* statement, unsigned divot, int startOffset, int endOffset, unsigned divotLine, unsigned divotLineStart)
+    
+    inline EnumerationNode::EnumerationNode(VM* vm, const JSTokenLocation& location, DeconstructionPatternNode* pattern, ExpressionNode* expr, StatementNode* statement)
         : StatementNode(location)
-        , m_init(0)
-        , m_lexpr(new (vm) ResolveNode(location, ident, divot - startOffset, divotLine, divotLineStart))
+        , m_lexpr(new (vm) DeconstructingAssignmentNode(location, pattern, 0))
         , m_expr(expr)
         , m_statement(statement)
     {
-        if (in) {
-            AssignResolveNode* node = new (vm) AssignResolveNode(location, ident, in);
-            ASSERT(divot >= divotLineStart);
-            node->setExceptionSourceCode(divot, divot - startOffset, endOffset - divot, divotLine, divotLineStart);
-            m_init = node;
-        }
-        // for( var foo = bar in baz )
+        ASSERT(pattern);
+    }
+    
+    inline ForInNode::ForInNode(const JSTokenLocation& location, ExpressionNode* l, ExpressionNode* expr, StatementNode* statement)
+        : EnumerationNode(location, l, expr, statement)
+    {
+    }
+    
+    inline ForInNode::ForInNode(VM* vm, const JSTokenLocation& location, DeconstructionPatternNode* pattern, ExpressionNode* expr, StatementNode* statement)
+        : EnumerationNode(vm, location, pattern, expr, statement)
+    {
+    }
+    
+    inline ForOfNode::ForOfNode(const JSTokenLocation& location, ExpressionNode* l, ExpressionNode* expr, StatementNode* statement)
+        : EnumerationNode(location, l, expr, statement)
+    {
+    }
+    
+    inline ForOfNode::ForOfNode(VM* vm, const JSTokenLocation& location, DeconstructionPatternNode* pattern, ExpressionNode* expr, StatementNode* statement)
+        : EnumerationNode(vm, location, pattern, expr, statement)
+    {
+    }
+    
+    inline DeconstructionPatternNode::DeconstructionPatternNode(VM*)
+    {
     }
 
+    inline ArrayPatternNode::ArrayPatternNode(VM* vm)
+        : DeconstructionPatternNode(vm)
+    {
+    }
+    
+    inline PassRefPtr<ArrayPatternNode> ArrayPatternNode::create(VM* vm)
+    {
+        return adoptRef(new ArrayPatternNode(vm));
+    }
+    
+    inline ObjectPatternNode::ObjectPatternNode(VM* vm)
+        : DeconstructionPatternNode(vm)
+    {
+    }
+    
+    inline PassRefPtr<ObjectPatternNode> ObjectPatternNode::create(VM* vm)
+    {
+        return adoptRef(new ObjectPatternNode(vm));
+    }
+
+    inline PassRefPtr<BindingNode> BindingNode::create(VM* vm, const Identifier& boundProperty, const JSTextPosition& start, const JSTextPosition& end)
+    {
+        return adoptRef(new BindingNode(vm, boundProperty, start, end));
+    }
+    
+    inline BindingNode::BindingNode(VM* vm, const Identifier& boundProperty, const JSTextPosition& start, const JSTextPosition& end)
+        : DeconstructionPatternNode(vm)
+        , m_divotStart(start)
+        , m_divotEnd(end)
+        , m_boundProperty(boundProperty)
+    {
+    }
+    
+    inline DeconstructingAssignmentNode::DeconstructingAssignmentNode(const JSTokenLocation& location, PassRefPtr<DeconstructionPatternNode> bindings, ExpressionNode* initializer)
+        : ExpressionNode(location)
+        , m_bindings(bindings)
+        , m_initializer(initializer)
+    {
+    }
+    
 } // namespace JSC
 
 #endif // NodeConstructors_h

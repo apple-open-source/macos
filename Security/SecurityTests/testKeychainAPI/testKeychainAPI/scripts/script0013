@@ -1,0 +1,79 @@
+//
+// script0013
+//
+//		KCAddAppleSharePassword
+//		KCFindAppleSharePassword
+//
+// Add an Apple Share password and retrieve it
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0013.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+27 KCAddAppleSharePassword
+   Input Arguments : 7
+     ServerSignature : My Signature....    
+     ServerAddress : This is my Server Address
+     ServerName : This is my Server Name
+     VolumeName : This is my Volume Name
+     AccountName : This is my Account Name
+     Password : /5/Apple
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+// %%%cpm -
+// The following stuff won't run correctly because
+// Only AppleShare and KeychainAccess can interpret the contents of
+// a AppleSharePassword item.  It's contains a AppleShare private structure
+// with a max of 8 characters inside for the pwd.
+//
+//## Click the Allow button (to acquire data on the find)##
+//
+//28 KCFindAppleSharePassword
+//   Input Arguments : 6
+//     ServerSignature : My Signature....
+//     ServerAddress : This is my Server Address
+//     ServerName : This is my Server Name
+//     VolumeName : This is my Volume Name
+//     AccountName : This is my Account Name
+//     Password : /8/00000000
+//   Results : 4
+//     OSStatus 0
+//     Password : /8/Apple000
+//     ActualLength : 5
+//     ItemIndex : 0
+//45 KCUpdateItem
+//   Input Arguments : 1
+//     ItemIndex : 0
+//   Results : 1
+//     OSStatus 0
+//46 KCReleaseItem
+//   Input Arguments : 1
+//     ItemIndex : 0
+//   Results : 1
+//     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

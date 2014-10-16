@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,37 +32,34 @@
 #include "WindowsKeyboardCodes.h"
 #include <wtf/HashMap.h>
 #include <wtf/HexNumber.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-typedef HashMap<String, String> KeyMap;
-typedef HashMap<String, int> WindowsKeyMap;
-typedef HashMap<int, const char*> KeyCommandMap;
-
-static KeyMap& keyMap()
+static HashMap<String, String>& keyMap()
 {
-    DEFINE_STATIC_LOCAL(KeyMap, keyMap, ());
+    static NeverDestroyed<HashMap<String, String>> keyMap;
     return keyMap;
 }
 
-static WindowsKeyMap& windowsKeyMap()
+static HashMap<String, int>& windowsKeyMap()
 {
-    DEFINE_STATIC_LOCAL(WindowsKeyMap, windowsKeyMap, ());
+    static NeverDestroyed<HashMap<String, int>> windowsKeyMap;
     return windowsKeyMap;
 }
 
-static KeyCommandMap& keyDownCommandsMap()
+static HashMap<int, const char*>& keyDownCommandsMap()
 {
-    DEFINE_STATIC_LOCAL(KeyCommandMap, keyDownCommandsMap, ());
+    static NeverDestroyed<HashMap<int, const char*>> keyDownCommandsMap;
     return keyDownCommandsMap;
 }
 
-static KeyCommandMap& keyPressCommandsMap()
+static HashMap<int, const char*>& keyPressCommandsMap()
 {
-    DEFINE_STATIC_LOCAL(KeyCommandMap, keyPressCommandsMap, ());
+    static NeverDestroyed<HashMap<int, const char*>> keyPressCommandsMap;
     return keyPressCommandsMap;
 }
 
@@ -97,7 +94,6 @@ static void createKeyMap()
     keyMap().set(ASCIILiteral("Home"), ASCIILiteral("Home"));
     keyMap().set(ASCIILiteral("Insert"), ASCIILiteral("Insert"));
     keyMap().set(ASCIILiteral("Left"), ASCIILiteral("Left"));
-    keyMap().set(ASCIILiteral("Down"), ASCIILiteral("Down"));
     keyMap().set(ASCIILiteral("Next"), ASCIILiteral("PageDown"));
     keyMap().set(ASCIILiteral("Prior"), ASCIILiteral("PageUp"));
     keyMap().set(ASCIILiteral("Right"), ASCIILiteral("Right"));
@@ -301,6 +297,15 @@ static const KeyDownEntry keyDownEntries[] = {
     { VK_RETURN, CtrlKey,            "InsertNewline"                               },
     { VK_RETURN, AltKey,             "InsertNewline"                               },
     { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
+
+    { 'C',       CtrlKey,            "Copy"                                        },
+    { 'V',       CtrlKey,            "Paste"                                       },
+    { 'X',       CtrlKey,            "Cut"                                         },
+
+    { 'A',       CtrlKey,            "SelectAll"                                   },
+    { 'Z',       CtrlKey,            "Undo"                                        },
+    { 'Z',       CtrlKey | ShiftKey, "Redo"                                        },
+    { 'Y',       CtrlKey,            "Redo"                                        },
 };
 
 static const KeyPressEntry keyPressEntries[] = {

@@ -26,11 +26,7 @@
 
 #pragma ident	"@(#)tst.raise2.c	1.1	06/08/28 SMI"
 
-#if !defined(__APPLE__)
-#include <unistd.h>
-#else
 #include <stdlib.h>
-#endif /* __APPLE__ */
 #include <signal.h>
 
 static void
@@ -51,10 +47,6 @@ main(int argc, char **argv)
 	(void) sigaction(SIGINT, &sa, NULL);
 
 	for (;;) {
-#if !defined(__APPLE__)
-		(void) getpid();
-#else
 		(void) geteuid();
-#endif
 	}
 }

@@ -29,7 +29,7 @@
 
 void
 hex_and_ascii_print(const char *prefix, const void *data,
-					unsigned int len, const char *suffix)
+					size_t len, const char *suffix)
 {
 	size_t i, j, k;
 	unsigned char *ptr = (unsigned char *)data;

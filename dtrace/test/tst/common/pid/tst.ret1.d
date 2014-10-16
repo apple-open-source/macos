@@ -42,11 +42,7 @@ BEGIN
 	timeout = timestamp + 1000000000;
 }
 
-#if !defined(__APPLE__)
-syscall::getpid:return
-#else
 syscall::geteuid:return
-#endif
 /pid == $1/
 {
 	i = 0;

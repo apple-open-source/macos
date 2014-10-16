@@ -29,25 +29,17 @@
 #include "TextureMapperBackingStore.h"
 #include "TextureMapperGL.h"
 #include "TextureMapperLayer.h"
-#include <OpenGLShims.h>
 #include <wtf/Atomics.h>
 #include <wtf/MainThread.h>
 
-#if ENABLE(CSS_SHADERS)
-#include "CoordinatedCustomFilterOperation.h"
-#include "CoordinatedCustomFilterProgram.h"
-#include "CustomFilterProgram.h"
-#include "CustomFilterProgramInfo.h"
-#endif
-
 namespace WebCore {
 
-void CoordinatedGraphicsScene::dispatchOnMainThread(const Function<void()>& function)
+void CoordinatedGraphicsScene::dispatchOnMainThread(std::function<void()> function)
 {
     if (isMainThread())
         function();
     else
-        callOnMainThread(function);
+        callOnMainThread(WTF::move(function));
 }
 
 static bool layerShouldHaveBackingStore(TextureMapperLayer* layer)
@@ -60,6 +52,7 @@ CoordinatedGraphicsScene::CoordinatedGraphicsScene(CoordinatedGraphicsSceneClien
     , m_isActive(false)
     , m_rootLayerID(InvalidCoordinatedLayerID)
     , m_backgroundColor(Color::white)
+    , m_viewBackgroundColor(Color::white)
     , m_setDrawsBackground(false)
 {
     ASSERT(isMainThread());
@@ -84,13 +77,8 @@ void CoordinatedGraphicsScene::paintToCurrentGLContext(const TransformationMatri
     if (!currentRootLayer)
         return;
 
-    TextureMapperLayer* layer = currentRootLayer;
-
-    if (!layer)
-        return;
-
-    layer->setTextureMapper(m_textureMapper.get());
-    layer->applyAnimationsRecursively();
+    currentRootLayer->setTextureMapper(m_textureMapper.get());
+    currentRootLayer->applyAnimationsRecursively();
     m_textureMapper->beginPainting(PaintFlags);
     m_textureMapper->beginClip(TransformationMatrix(), clipRect);
 
@@ -99,6 +87,10 @@ void CoordinatedGraphicsScene::paintToCurrentGLContext(const TransformationMatri
             m_backgroundColor.green(), m_backgroundColor.blue(),
             m_backgroundColor.alpha() * opacity);
         m_textureMapper->drawSolidColor(clipRect, TransformationMatrix(), Color(rgba));
+    } else {
+        GraphicsContext3D* context = static_cast<TextureMapperGL*>(m_textureMapper.get())->graphicsContext3D();
+        context->clearColor(m_viewBackgroundColor.red() / 255.0f, m_viewBackgroundColor.green() / 255.0f, m_viewBackgroundColor.blue() / 255.0f, m_viewBackgroundColor.alpha() / 255.0f);
+        context->clear(GraphicsContext3D::COLOR_BUFFER_BIT);
     }
 
     if (currentRootLayer->opacity() != opacity || currentRootLayer->transform() != matrix) {
@@ -106,13 +98,17 @@ void CoordinatedGraphicsScene::paintToCurrentGLContext(const TransformationMatri
         currentRootLayer->setTransform(matrix);
     }
 
-    layer->paint();
+    currentRootLayer->paint();
     m_fpsCounter.updateFPSAndDisplay(m_textureMapper.get(), clipRect.location(), matrix);
     m_textureMapper->endClip();
     m_textureMapper->endPainting();
 
-    if (layer->descendantsOrSelfHaveRunningAnimations())
-        dispatchOnMainThread(bind(&CoordinatedGraphicsScene::updateViewport, this));
+    if (currentRootLayer->descendantsOrSelfHaveRunningAnimations()) {
+        RefPtr<CoordinatedGraphicsScene> protector(this);
+        dispatchOnMainThread([=] {
+            protector->updateViewport();
+        });
+    }
 }
 
 void CoordinatedGraphicsScene::paintToGraphicsContext(PlatformGraphicsContext* platformContext)
@@ -133,6 +129,8 @@ void CoordinatedGraphicsScene::paintToGraphicsContext(PlatformGraphicsContext* p
     IntRect clipRect = graphicsContext.clipBounds();
     if (m_setDrawsBackground)
         m_textureMapper->drawSolidColor(clipRect, TransformationMatrix(), m_backgroundColor);
+    else
+        m_textureMapper->drawSolidColor(clipRect, TransformationMatrix(), m_viewBackgroundColor);
 
     layer->paint();
     m_fpsCounter.updateFPSAndDisplay(m_textureMapper.get(), clipRect.location());
@@ -162,9 +160,8 @@ void CoordinatedGraphicsScene::adjustPositionForFixedLayers()
     // them by the delta between the current position and the position of the viewport used for the last layout.
     FloatSize delta = m_scrollPosition - m_renderedContentsScrollPosition;
 
-    LayerRawPtrMap::iterator end = m_fixedLayers.end();
-    for (LayerRawPtrMap::iterator it = m_fixedLayers.begin(); it != end; ++it)
-        it->value->setScrollPositionDeltaIfNeeded(delta);
+    for (auto& fixedLayer : m_fixedLayers.values())
+        fixedLayer->setScrollPositionDeltaIfNeeded(delta);
 }
 
 #if USE(GRAPHICS_SURFACE)
@@ -235,53 +232,9 @@ void CoordinatedGraphicsScene::setLayerFiltersIfNeeded(TextureMapperLayer* layer
     if (!state.filtersChanged)
         return;
 
-#if ENABLE(CSS_SHADERS)
-    injectCachedCustomFilterPrograms(state.filters);
-#endif
     layer->setFilters(state.filters);
 }
 #endif
-
-#if ENABLE(CSS_SHADERS)
-void CoordinatedGraphicsScene::syncCustomFilterPrograms(const CoordinatedGraphicsState& state)
-{
-    for (size_t i = 0; i < state.customFiltersToCreate.size(); ++i)
-        createCustomFilterProgram(state.customFiltersToCreate[i].first, state.customFiltersToCreate[i].second);
-
-    for (size_t i = 0; i < state.customFiltersToRemove.size(); ++i)
-        removeCustomFilterProgram(state.customFiltersToRemove[i]);
-}
-
-void CoordinatedGraphicsScene::injectCachedCustomFilterPrograms(const FilterOperations& filters) const
-{
-    for (size_t i = 0; i < filters.size(); ++i) {
-        FilterOperation* operation = filters.operations().at(i).get();
-        if (operation->getOperationType() != FilterOperation::CUSTOM)
-            continue;
-
-        CoordinatedCustomFilterOperation* customOperation = static_cast<CoordinatedCustomFilterOperation*>(operation);
-        ASSERT(!customOperation->program());
-        CustomFilterProgramMap::const_iterator iter = m_customFilterPrograms.find(customOperation->programID());
-        ASSERT(iter != m_customFilterPrograms.end());
-        customOperation->setProgram(iter->value.get());
-    }
-}
-
-void CoordinatedGraphicsScene::createCustomFilterProgram(int id, const CustomFilterProgramInfo& programInfo)
-{
-    ASSERT(!m_customFilterPrograms.contains(id));
-    m_customFilterPrograms.set(id, CoordinatedCustomFilterProgram::create(programInfo.vertexShaderString(), programInfo.fragmentShaderString(), programInfo.programType(), programInfo.mixSettings(), programInfo.meshType()));
-}
-
-void CoordinatedGraphicsScene::removeCustomFilterProgram(int id)
-{
-    CustomFilterProgramMap::iterator iter = m_customFilterPrograms.find(id);
-    ASSERT(iter != m_customFilterPrograms.end());
-    if (m_textureMapper)
-        m_textureMapper->removeCachedCustomFilterProgram(iter->value.get());
-    m_customFilterPrograms.remove(iter);
-}
-#endif // ENABLE(CSS_SHADERS)
 
 void CoordinatedGraphicsScene::setLayerState(CoordinatedLayerID id, const CoordinatedGraphicsLayerState& layerState)
 {
@@ -384,10 +337,10 @@ void CoordinatedGraphicsScene::createLayers(const Vector<CoordinatedLayerID>& id
 
 void CoordinatedGraphicsScene::createLayer(CoordinatedLayerID id)
 {
-    OwnPtr<TextureMapperLayer> newLayer = adoptPtr(new TextureMapperLayer);
+    std::unique_ptr<TextureMapperLayer> newLayer = std::make_unique<TextureMapperLayer>();
     newLayer->setID(id);
     newLayer->setScrollClient(this);
-    m_layers.add(id, newLayer.release());
+    m_layers.add(id, WTF::move(newLayer));
 }
 
 void CoordinatedGraphicsScene::deleteLayers(const Vector<CoordinatedLayerID>& layerIDs)
@@ -398,7 +351,7 @@ void CoordinatedGraphicsScene::deleteLayers(const Vector<CoordinatedLayerID>& la
 
 void CoordinatedGraphicsScene::deleteLayer(CoordinatedLayerID layerID)
 {
-    OwnPtr<TextureMapperLayer> layer = m_layers.take(layerID);
+    std::unique_ptr<TextureMapperLayer> layer = m_layers.take(layerID);
     ASSERT(layer);
 
     m_backingStores.remove(layer.get());
@@ -528,11 +481,11 @@ void CoordinatedGraphicsScene::removeUpdateAtlas(uint32_t atlasID)
 
 void CoordinatedGraphicsScene::syncImageBackings(const CoordinatedGraphicsState& state)
 {
-    for (size_t i = 0; i < state.imagesToCreate.size(); ++i)
-        createImageBacking(state.imagesToCreate[i]);
-
     for (size_t i = 0; i < state.imagesToRemove.size(); ++i)
         removeImageBacking(state.imagesToRemove[i]);
+
+    for (size_t i = 0; i < state.imagesToCreate.size(); ++i)
+        createImageBacking(state.imagesToCreate[i]);
 
     for (size_t i = 0; i < state.imagesToUpdate.size(); ++i)
         updateImageBacking(state.imagesToUpdate[i].first, state.imagesToUpdate[i].second);
@@ -606,9 +559,8 @@ void CoordinatedGraphicsScene::removeReleasedImageBackingsIfNeeded()
 
 void CoordinatedGraphicsScene::commitPendingBackingStoreOperations()
 {
-    HashSet<RefPtr<CoordinatedBackingStore> >::iterator end = m_backingStoresWithPendingBuffers.end();
-    for (HashSet<RefPtr<CoordinatedBackingStore> >::iterator it = m_backingStoresWithPendingBuffers.begin(); it != end; ++it)
-        (*it)->commitTileOperations(m_textureMapper.get());
+    for (auto& backingStore : m_backingStoresWithPendingBuffers)
+        backingStore->commitTileOperations(m_textureMapper.get());
 
     m_backingStoresWithPendingBuffers.clear();
 }
@@ -625,9 +577,6 @@ void CoordinatedGraphicsScene::commitSceneState(const CoordinatedGraphicsState& 
 
     syncImageBackings(state);
     syncUpdateAtlases(state);
-#if ENABLE(CSS_SHADERS)
-    syncCustomFilterPrograms(state);
-#endif
 
     for (size_t i = 0; i < state.layersToUpdate.size(); ++i)
         setLayerState(state.layersToUpdate[i].first, state.layersToUpdate[i].second);
@@ -636,7 +585,10 @@ void CoordinatedGraphicsScene::commitSceneState(const CoordinatedGraphicsState& 
     removeReleasedImageBackingsIfNeeded();
 
     // The pending tiles state is on its way for the screen, tell the web process to render the next one.
-    dispatchOnMainThread(bind(&CoordinatedGraphicsScene::renderNextFrame, this));
+    RefPtr<CoordinatedGraphicsScene> protector(this);
+    dispatchOnMainThread([=] {
+        protector->renderNextFrame();
+    });
 }
 
 void CoordinatedGraphicsScene::renderNextFrame()
@@ -650,7 +602,7 @@ void CoordinatedGraphicsScene::ensureRootLayer()
     if (m_rootLayer)
         return;
 
-    m_rootLayer = adoptPtr(new TextureMapperLayer);
+    m_rootLayer = std::make_unique<TextureMapperLayer>();
     m_rootLayer->setMasksToBounds(false);
     m_rootLayer->setDrawsContent(false);
     m_rootLayer->setAnchorPoint(FloatPoint3D(0, 0, 0));
@@ -667,16 +619,16 @@ void CoordinatedGraphicsScene::syncRemoteContent()
     // We enqueue messages and execute them during paint, as they require an active GL context.
     ensureRootLayer();
 
-    Vector<Function<void()> > renderQueue;
+    Vector<std::function<void()>> renderQueue;
     bool calledOnMainThread = WTF::isMainThread();
     if (!calledOnMainThread)
         m_renderQueueMutex.lock();
-    renderQueue.swap(m_renderQueue);
+    renderQueue = WTF::move(m_renderQueue);
     if (!calledOnMainThread)
         m_renderQueueMutex.unlock();
 
-    for (size_t i = 0; i < renderQueue.size(); ++i)
-        renderQueue[i]();
+    for (auto& function : renderQueue)
+        function();
 }
 
 void CoordinatedGraphicsScene::purgeGLResources()
@@ -688,16 +640,20 @@ void CoordinatedGraphicsScene::purgeGLResources()
 #endif
     m_surfaces.clear();
 
-    m_rootLayer.clear();
+    m_rootLayer = nullptr;
     m_rootLayerID = InvalidCoordinatedLayerID;
     m_layers.clear();
     m_fixedLayers.clear();
-    m_textureMapper.clear();
+    m_textureMapper = nullptr;
     m_backingStores.clear();
     m_backingStoresWithPendingBuffers.clear();
 
     setActive(false);
-    dispatchOnMainThread(bind(&CoordinatedGraphicsScene::purgeBackingStores, this));
+
+    RefPtr<CoordinatedGraphicsScene> protector(this);
+    dispatchOnMainThread([=] {
+        protector->purgeBackingStores();
+    });
 }
 
 void CoordinatedGraphicsScene::dispatchCommitScrollOffset(uint32_t layerID, const IntSize& offset)
@@ -707,7 +663,10 @@ void CoordinatedGraphicsScene::dispatchCommitScrollOffset(uint32_t layerID, cons
 
 void CoordinatedGraphicsScene::commitScrollOffset(uint32_t layerID, const IntSize& offset)
 {
-    dispatchOnMainThread(bind(&CoordinatedGraphicsScene::dispatchCommitScrollOffset, this, layerID, offset));
+    RefPtr<CoordinatedGraphicsScene> protector(this);
+    dispatchOnMainThread([=] {
+        protector->dispatchCommitScrollOffset(layerID, offset);
+    });
 }
 
 void CoordinatedGraphicsScene::purgeBackingStores()
@@ -721,17 +680,6 @@ void CoordinatedGraphicsScene::setLayerAnimationsIfNeeded(TextureMapperLayer* la
     if (!state.animationsChanged)
         return;
 
-#if ENABLE(CSS_SHADERS)
-    for (size_t i = 0; i < state.animations.animations().size(); ++i) {
-        const KeyframeValueList& keyframes = state.animations.animations().at(i).keyframes();
-        if (keyframes.property() != AnimatedPropertyWebkitFilter)
-            continue;
-        for (size_t j = 0; j < keyframes.size(); ++j) {
-            const FilterAnimationValue& filterValue = static_cast<const FilterAnimationValue&>(keyframes.at(j));
-            injectCachedCustomFilterPrograms(filterValue.value());
-        }
-    }
-#endif
     layer->setAnimations(state.animations);
 }
 
@@ -742,14 +690,14 @@ void CoordinatedGraphicsScene::detach()
     m_client = 0;
 }
 
-void CoordinatedGraphicsScene::appendUpdate(const Function<void()>& function)
+void CoordinatedGraphicsScene::appendUpdate(std::function<void()> function)
 {
     if (!m_isActive)
         return;
 
     ASSERT(isMainThread());
     MutexLocker locker(m_renderQueueMutex);
-    m_renderQueue.append(function);
+    m_renderQueue.append(WTF::move(function));
 }
 
 void CoordinatedGraphicsScene::setActive(bool active)
@@ -762,8 +710,12 @@ void CoordinatedGraphicsScene::setActive(bool active)
     // and cannot be applied to the newly created instance.
     m_renderQueue.clear();
     m_isActive = active;
-    if (m_isActive)
-        dispatchOnMainThread(bind(&CoordinatedGraphicsScene::renderNextFrame, this));
+    if (m_isActive) {
+        RefPtr<CoordinatedGraphicsScene> protector(this);
+        dispatchOnMainThread([=] {
+            protector->renderNextFrame();
+        });
+    }
 }
 
 void CoordinatedGraphicsScene::setBackgroundColor(const Color& color)

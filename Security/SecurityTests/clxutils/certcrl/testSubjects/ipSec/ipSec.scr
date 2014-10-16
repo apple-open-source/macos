@@ -1,0 +1,17 @@
+# 
+# IPSec test for Radar 4760398.
+# The leaf cert has an EKU of "IPSec Protection", now valid for policy IPSec. 
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = false
+allowUnverified = true
+end
+
+test = "IPSec test"
+policy = IPSec
+verifyTime = 20061002090559Z
+cert = vpn-gateway.vpntrial.com.cer
+root = VPNTrialCA.cer
+end
+

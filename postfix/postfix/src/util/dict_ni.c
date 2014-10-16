@@ -76,7 +76,6 @@ static const char *dict_ni_do_lookup(char *path, char *key_prop,
     int     depth = 0;
     void   *domain;
     void   *next_domain;
-    size_t size;	/* APPLE */
     char   *query;
     ni_status r;
     ni_id   dir;
@@ -89,10 +88,8 @@ static const char *dict_ni_do_lookup(char *path, char *key_prop,
 	msg_warn("ni_open `.': %d", r);
 	return NULL;
     }
-	/* APPLE */
-    size = strlen(path) + strlen(key_prop) + 3 + strlen(key_value);
-    query = alloca(size);
-    snprintf(query, size, "%s/%s=%s", path, key_prop, key_value);
+    query = mymalloc(strlen(path) + strlen(key_prop) + 3 + strlen(key_value));
+    sprintf(query, "%s/%s=%s", path, key_prop, key_value);
 
     for (;;) {
 
@@ -141,6 +138,7 @@ static const char *dict_ni_do_lookup(char *path, char *key_prop,
     }
 
     ni_free(domain);
+    myfree(query);
 
     return return_val;
 }

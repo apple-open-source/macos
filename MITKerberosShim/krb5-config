@@ -99,10 +99,10 @@ fi
 lib_flags="-dynamic -Wl,-search_paths_first"
 
 if test "$prefix" = ""; then
-  prefix=/usr/heimdal
+  prefix=/
 fi
 if test "$exec_prefix" = ""; then
-  exec_prefix=/usr/heimdal
+  exec_prefix=/
 fi
 
 if test "$print_prefix" = "yes"; then

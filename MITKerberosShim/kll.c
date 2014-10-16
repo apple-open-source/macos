@@ -970,7 +970,7 @@ KLGetTripletFromPrincipal(KLPrincipal inPrincipal,
     if (outInstance)
 	*outInstance = NULL;
     if (outRealm)
-	*outInstance = NULL;
+	*outRealm = NULL;
 
     if (inPrincipal == NULL)
 	return klParameterErr;

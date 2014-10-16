@@ -1,8 +1,13 @@
-INSTALL_PATH = $(INSTALL_PREFIX)/usr/libexec
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
+
+// Set INSTALL_PATH_ACTUAL to whatever INSTALL_PATH would normally be
+INSTALL_PATH_ACTUAL = /usr/sbin
+
+INSTALL_PATH_ACTUAL = /usr/libexec
 PRODUCT_NAME = tzlinkd
 
-INSTALL_PREFIX = $(INSTALL_PREFIX_$(PLATFORM_NAME))
-INSTALL_PREFIX_iphonesimulator = $(SDKROOT)
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_ENTITLEMENTS = tzlinkd/entitlements.plist
 
 USER_HEADER_SEARCH_PATHS = $(SRCROOT)
 

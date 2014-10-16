@@ -41,4 +41,15 @@ __private_extern__ void SystemLoadSystemPowerStateHasChanged(void);
 
 __private_extern__ void SystemLoadUserActiveAssertions(bool _userActiveAssertions);
 
+
+/* These methods support userActivity tracking
+ */
+
+__private_extern__ bool isUserActiveRootDomain(void);
+__private_extern__ void userActiveHandleRootDomainActivity(void);
+__private_extern__ void userActiveHandleSleep(void);
+__private_extern__ void userActiveHandlePowerAssertionsChanged(void);
+
+__private_extern__ CFAbsoluteTime get_SleepFromUserWakeTime(void);
+
 #endif

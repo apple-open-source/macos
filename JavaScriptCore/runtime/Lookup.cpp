@@ -22,54 +22,38 @@
 
 #include "Executable.h"
 #include "JSFunction.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 
 namespace JSC {
 
-void HashTable::createTable(VM* vm) const
+void HashTable::createTable(VM&) const
 {
-    ASSERT(!table);
-    int linkIndex = compactHashSizeMask + 1;
-    HashEntry* entries = new HashEntry[compactSize];
-    for (int i = 0; i < compactSize; ++i)
-        entries[i].setKey(0);
-    for (int i = 0; values[i].key; ++i) {
-        StringImpl* identifier = Identifier::add(vm, values[i].key).leakRef();
-        int hashIndex = identifier->existingHash() & compactHashSizeMask;
-        HashEntry* entry = &entries[hashIndex];
+    ASSERT(!keys);
+    keys = static_cast<const char**>(fastMalloc(sizeof(char*) * numberOfValues));
 
-        if (entry->key()) {
-            while (entry->next()) {
-                entry = entry->next();
-            }
-            ASSERT(linkIndex < compactSize);
-            entry->setNext(&entries[linkIndex++]);
-            entry = entry->next();
-        }
-
-        entry->initialize(identifier, values[i].attributes, values[i].value1, values[i].value2, values[i].intrinsic);
+    for (int i = 0; i < numberOfValues; ++i) {
+        if (values[i].m_key)
+            keys[i] = values[i].m_key;
+        else
+            keys[i] = 0;
     }
-    table = entries;
 }
 
 void HashTable::deleteTable() const
 {
-    if (table) {
-        int max = compactSize;
-        for (int i = 0; i != max; ++i) {
-            if (StringImpl* key = table[i].key())
-                key->deref();
-        }
-        delete [] table;
-        table = 0;
+    if (keys) {
+        fastFree(keys);
+        keys = nullptr;
     }
 }
 
-bool setUpStaticFunctionSlot(ExecState* exec, const HashEntry* entry, JSObject* thisObj, PropertyName propertyName, PropertySlot& slot)
+bool setUpStaticFunctionSlot(ExecState* exec, const HashTableValue* entry, JSObject* thisObj, PropertyName propertyName, PropertySlot& slot)
 {
     ASSERT(thisObj->globalObject());
-    ASSERT(entry->attributes() & Function);
-    PropertyOffset offset = thisObj->getDirectOffset(exec->vm(), propertyName);
+    ASSERT(entry->attributes() & BuiltinOrFunction);
+    VM& vm = exec->vm();
+    unsigned attributes;
+    PropertyOffset offset = thisObj->getDirectOffset(vm, propertyName, attributes);
 
     if (!isValidOffset(offset)) {
         // If a property is ever deleted from an object with a static table, then we reify
@@ -77,14 +61,18 @@ bool setUpStaticFunctionSlot(ExecState* exec, const HashEntry* entry, JSObject* 
         if (thisObj->staticFunctionsReified())
             return false;
     
-        thisObj->putDirectNativeFunction(
-            exec, thisObj->globalObject(), propertyName, entry->functionLength(),
-            entry->function(), entry->intrinsic(), entry->attributes());
-        offset = thisObj->getDirectOffset(exec->vm(), propertyName);
+        if (entry->attributes() & Builtin)
+            thisObj->putDirectBuiltinFunction(vm, thisObj->globalObject(), propertyName, entry->builtinGenerator()(vm), entry->attributes());
+        else {
+            thisObj->putDirectNativeFunction(
+                vm, thisObj->globalObject(), propertyName, entry->functionLength(),
+                entry->function(), entry->intrinsic(), entry->attributes());
+        }
+        offset = thisObj->getDirectOffset(vm, propertyName, attributes);
         ASSERT(isValidOffset(offset));
     }
 
-    slot.setValue(thisObj, thisObj->getDirect(offset), offset);
+    slot.setValue(thisObj, attributes, thisObj->getDirect(offset), offset);
     return true;
 }
 

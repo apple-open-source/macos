@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -57,16 +57,6 @@ public:
     }
 
     bool equals(const Pair& other) const { return compareCSSValuePtr(m_first, other.m_first) && compareCSSValuePtr(m_second, other.m_second); }
-
-#if ENABLE(CSS_VARIABLES)
-    String serializeResolvingVariables(const HashMap<AtomicString, String>& variables) const
-    {
-        return generateCSSString(first()->customSerializeResolvingVariables(variables),
-                                 second()->customSerializeResolvingVariables(variables));
-    }
-    
-    bool hasVariableReference() const { return first()->hasVariableReference() || second()->hasVariableReference(); }
-#endif
 
 private:
     Pair() : m_first(0), m_second(0) { }

@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'assertValidation' target in the 'assertValidation' project
+//
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+#endif

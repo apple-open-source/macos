@@ -1,6 +1,6 @@
 .\" -*- nroff -*-
 .\" 
-.\" Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+.\" Copyright (c) 2006 Carnegie Mellon University.  All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_callbacks "10 July 2001" SASL "SASL man pages"
+.TH sasl_callbacks 3 "12 February 2006" SASL "SASL man pages"
 .SH NAME
 sasl_callbacks \- How to work with SASL callbacks
 
@@ -74,7 +74,7 @@ sasl_log_t
 Log message handler
 .TP 0.8i
 sasl_getpath_t
-Get path to search for mechanisms
+Get path to search for plugins (e.g. SASL mechanisms)
 .TP 0.8i
 sasl_verifyfile_t
 Verify files for use by SASL
@@ -106,17 +106,20 @@ verify plaintext password
 .TP 0.8i
 sasl_server_userdb_setpass_t
 set plaintext password
+.TP 0.8i
+sasl_getconfpath_t
+Get path to search for SASL configuration file (server side only). New in SASL 2.1.22.
 
 .SH "RETURN VALUE"
 
 SASL callback functions should return SASL return codes. See sasl.h for a complete list. SASL_OK typically indicates success.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_authorize_t(3), sasl_log_t(3), sasl_getpath_t(3),
-sasl_verifyfile_t(3), sasl_canon_user_t(3), sasl_getsimple(3),
+sasl_getconfpath_t(3), sasl_verifyfile_t(3), sasl_canon_user_t(3), sasl_getsimple(3),
 sasl_getsecret_t(3), sasl_chalprompt_t(3), sasl_getrealm_t(3),
 sasl_authorize_t(3), sasl_server_userdb_checkpass_t(3),
 sasl_server_userdb_setpass_t(3)

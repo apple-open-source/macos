@@ -34,21 +34,32 @@
 #include <mach/mach.h>
 #include <mach/task_policy.h>
 
+#include <spawn.h>
+#include <spawn_private.h>
+#include <sys/spawn_internal.h>
+
 #define QOS_PARAMETER_LATENCY 0
 #define QOS_PARAMETER_THROUGHPUT 1
+
+extern char **environ;
 
 static void usage(void);
 static int parse_disk_policy(const char *strpolicy);
 static int parse_qos_tier(const char *strpolicy, int parameter);
+static uint64_t parse_qos_clamp(const char *qos_string);
 
 int main(int argc, char * argv[])
 {
 	int ch, ret;
-	bool flagx = false, flagX = false, flagb = false;
+	pid_t pid = 0;
+    posix_spawnattr_t attr;
+    extern char **environ;
+	bool flagx = false, flagX = false, flagb = false, flagB = false;
 	int flagd = -1, flagg = -1;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
+    uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 	
-	while ((ch = getopt(argc, argv, "xXbd:g:t:l:")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -58,6 +69,9 @@ int main(int argc, char * argv[])
 				break;
 			case 'b':
 				flagb = true;
+				break;
+			case 'B':
+				flagB = true;
 				break;
 			case 'd':
 				flagd = parse_disk_policy(optarg);
@@ -73,6 +87,13 @@ int main(int argc, char * argv[])
 					usage();
 				}
 				break;
+            case 'c':
+                qos_clamp = parse_qos_clamp(optarg);
+                if (qos_clamp == POSIX_SPAWN_PROC_CLAMP_NONE) {
+                    warnx("Could not parse '%s' as a QoS clamp", optarg);
+                    usage();
+                }
+                break;
 			case 't':
 				qosinfo.task_throughput_qos_tier = parse_qos_tier(optarg, QOS_PARAMETER_THROUGHPUT);
 				if (qosinfo.task_throughput_qos_tier == -1) {
@@ -87,6 +108,13 @@ int main(int argc, char * argv[])
 					usage();
 				}
 				break;
+			case 'p':
+				pid = atoi(optarg);
+				if (pid == 0) {
+					warnx("Invalid pid '%s' specified", optarg);
+					usage();
+				}
+				break;
 			case '?':
 			default:
 				usage();
@@ -95,12 +123,27 @@ int main(int argc, char * argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0) {
+	if (pid == 0 && argc == 0) {
+		usage();
+	}
+
+	if (pid != 0 && (flagx || flagX || flagg != -1 || flagd != -1)) {
+		warnx("Incompatible option(s) used with -p");
 		usage();
 	}
 	
 	if (flagx && flagX){
 		warnx("Incompatible options -x, -X");
+		usage();
+	}
+
+	if (flagb && flagB) {
+		warnx("Incompatible options -b, -B");
+		usage();
+	}
+
+	if (flagB && pid == 0) {
+		warnx("The -B option can only be used with the -p option");
 		usage();
 	}
 
@@ -119,7 +162,14 @@ int main(int argc, char * argv[])
 	}
 
 	if (flagb) {
-		ret = setpriority(PRIO_DARWIN_PROCESS, 0, PRIO_DARWIN_BG);
+		ret = setpriority(PRIO_DARWIN_PROCESS, pid, PRIO_DARWIN_BG);
+		if (ret == -1) {
+			err(EX_SOFTWARE, "setpriority()");
+		}
+	}
+
+	if (flagB) {
+		ret = setpriority(PRIO_DARWIN_PROCESS, pid, 0);
 		if (ret == -1) {
 			err(EX_SOFTWARE, "setpriority()");
 		}
@@ -141,23 +191,48 @@ int main(int argc, char * argv[])
 
 	if (qosinfo.task_latency_qos_tier != LATENCY_QOS_TIER_UNSPECIFIED ||
 	    qosinfo.task_throughput_qos_tier != THROUGHPUT_QOS_TIER_UNSPECIFIED){
-		ret = task_policy_set(mach_task_self(), TASK_OVERRIDE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
+		mach_port_t task;
+		if (pid) {
+			ret = task_for_pid(mach_task_self(), pid, &task);
+			if (ret != KERN_SUCCESS) {
+				err(EX_SOFTWARE, "task_for_pid(%d) failed", pid);
+				return EX_OSERR;
+			}
+		} else {
+			task = mach_task_self();
+		}
+		ret = task_policy_set((task_t)task, TASK_OVERRIDE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
 		if (ret != KERN_SUCCESS){
 			err(EX_SOFTWARE, "task_policy_set(...TASK_OVERRIDE_QOS_POLICY...)");
 		}
 	}
 	
-	ret = execvp(argv[0], argv);
-	if (ret == -1) {
-		err(EX_NOINPUT, "Could not execute %s", argv[0]);
-	}
-	
+	if (pid != 0)
+		return 0;
+    
+    
+    ret = posix_spawnattr_init(&attr);
+    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_init");
+    
+    ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
+    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setflags");
+    
+    if (qos_clamp != POSIX_SPAWN_PROC_CLAMP_NONE) {
+        ret = posix_spawnattr_set_qos_clamp_np(&attr, qos_clamp);
+        if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
+    }
+    
+    ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
+    if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
+    
 	return EX_OSERR;
 }
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g policy] [-b] [-t <tier>] [-l <tier>] <program> [<pargs> [...]]\n", getprogname());
+	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g policy] [-c clamp] [-b] [-t <tier>]\n"
+                    "                  [-l <tier>] <program> [<pargs> [...]]\n", getprogname());
+	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }
 
@@ -223,4 +298,17 @@ static int parse_qos_tier(const char *strtier, int parameter){
 	}
 
 	return -1;
+}
+
+static uint64_t parse_qos_clamp(const char *qos_string) {
+    
+    if (0 == strcasecmp(qos_string, "utility") ) {
+        return POSIX_SPAWN_PROC_CLAMP_UTILITY;
+    } else if (0 == strcasecmp(qos_string, "background")) {
+        return POSIX_SPAWN_PROC_CLAMP_BACKGROUND;
+    } else if (0 == strcasecmp(qos_string, "maintenance")) {
+        return POSIX_SPAWN_PROC_CLAMP_MAINTENANCE;
+    } else {
+        return POSIX_SPAWN_PROC_CLAMP_NONE;
+    }
 }

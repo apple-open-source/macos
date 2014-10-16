@@ -1,6 +1,6 @@
 --- Doc/Makefile.in	2006-12-17 08:02:02.000000000 -0800
 +++ Doc/Makefile.in	2007-05-17 14:05:21.000000000 -0700
-@@ -45,7 +45,7 @@
+@@ -46,7 +46,7 @@
  .SUFFIXES: .yo .1
  
  # man pages to install
@@ -9,7 +9,7 @@
  zshcontrib.1 zshexpn.1 zshmisc.1 zshmodules.1 \
  zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1 \
  zshall.1
-@@ -70,7 +70,6 @@
+@@ -71,7 +71,6 @@
  Zsh/mod_zutil.yo
  
  YODLSRC = zmacros.yo zman.yo ztexi.yo Zsh/arith.yo Zsh/builtins.yo \
@@ -17,7 +17,7 @@
  Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
  Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
  Zsh/filelist.yo Zsh/files.yo Zsh/ftp_sites.yo \
-@@ -191,8 +190,6 @@
+@@ -201,8 +200,6 @@
  
  zshbuiltins.1: Zsh/builtins.yo
  

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,14 +27,16 @@
 #include "SplitTextNodeContainingElementCommand.h"
 
 #include "Element.h"
+#include "RenderElement.h"
 #include "Text.h"
-#include "RenderObject.h"
 #include <wtf/Assertions.h>
 
 namespace WebCore {
 
 SplitTextNodeContainingElementCommand::SplitTextNodeContainingElementCommand(PassRefPtr<Text> text, int offset)
-    : CompositeEditCommand(text->document()), m_text(text), m_offset(offset)
+    : CompositeEditCommand(text->document())
+    , m_text(text)
+    , m_offset(offset)
 {
     ASSERT(m_text);
     ASSERT(m_text->length() > 0);
@@ -48,10 +50,10 @@ void SplitTextNodeContainingElementCommand::doApply()
     splitTextNode(m_text.get(), m_offset);
 
     Element* parent = m_text->parentElement();
-    if (!parent || !parent->parentElement() || !parent->parentElement()->rendererIsEditable())
+    if (!parent || !parent->parentElement() || !parent->parentElement()->hasEditableStyle())
         return;
 
-    RenderObject* parentRenderer = parent->renderer();
+    RenderElement* parentRenderer = parent->renderer();
     if (!parentRenderer || !parentRenderer->isInline()) {
         wrapContentsInDummySpan(parent);
         Node* firstChild = parent->firstChild();

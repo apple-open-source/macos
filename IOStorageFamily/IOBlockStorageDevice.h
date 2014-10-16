@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -436,23 +436,39 @@ public:
                              UInt32                       extentsCount,
                              UInt32                       options = 0); /* 10.6.6 */
 
+    /*!
+     * @function doSetPriority
+     * @abstract
+     * Reprioritize read or write operations.
+     * @param extents
+     * List of extents.  See IOBlockStorageDeviceExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
+     * @param priority
+     * New priority.  See IOStoragePriority.
+     */
+    virtual IOReturn doSetPriority(IOBlockStorageDeviceExtent * extents,
+                                   UInt32                       extentsCount,
+                                   IOStoragePriority            priority); /* 10.10.0 */
+
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  0);
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  1);
 #ifdef __LP64__
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  3);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  6);
+    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  7);
 #else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  3);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  4);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  6);
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  7);
 #endif /* !__LP64__ */
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  7);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  8);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  9);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice, 10);

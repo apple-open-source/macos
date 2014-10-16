@@ -62,7 +62,7 @@
 		BA2BD8FF136D27FE00FF78C0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /System/Library/Frameworks/System.framework/Versions/B/Resources;
+			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/Frameworks/System.framework/Versions/B/Resources";
 			dstSubfolderSpec = 0;
 			files = (
 				BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */,
@@ -76,14 +76,14 @@
 		BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CompatibilityHacks.c; sourceTree = "<group>"; };
 		BA5511B6136C9D780012B9B5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BA5511B7136C9D780012B9B5 /* init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; };
+		BA5511B7136C9D780012B9B5 /* init.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		BA5511B9136C9D780012B9B5 /* optionallibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs; sourceTree = "<group>"; };
 		BA5511BA136C9D780012B9B5 /* requiredlibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs; sourceTree = "<group>"; };
 		BA5511C4136C9E2E0012B9B5 /* libSystem.B.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libSystem.B.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		C64EE1D7136F644700676C52 /* create_dylib_symlinks.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_dylib_symlinks.sh; sourceTree = "<group>"; };
 		C64EE1D8136F644700676C52 /* create_system_framework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_system_framework.sh; sourceTree = "<group>"; };
 		C64EE1D9136F644700676C52 /* linker_arguments.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = linker_arguments.sh; sourceTree = "<group>"; };
-		C9A43CAB15374DB200388D0C /* alloc_once_private.h */ = {isa = PBXFileReference; fileEncoding = 4; path = alloc_once_private.h; sourceTree = "<group>"; };
+		C9A43CAB15374DB200388D0C /* alloc_once_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alloc_once_private.h; sourceTree = "<group>"; };
 		C9B56C55153751A600C153A8 /* Libsystem.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Libsystem.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -286,6 +286,7 @@
 			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME).B";
+				"PRODUCT_NAME[sdk=iphonesimulator*]" = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};

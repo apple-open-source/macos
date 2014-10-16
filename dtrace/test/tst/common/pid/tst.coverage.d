@@ -41,14 +41,9 @@ BEGIN
 	timeout = timestamp + 2000000000;
 }
 
-#if !defined(__APPLE__)
-pid$1:a.out::
-{}
-#else
 /* every instruction in waitpid */
 pid$1:libsystem_c.dylib:w*:
 {}
-#endif
 
 profile:::tick-4
 /timestamp > timeout/

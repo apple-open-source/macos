@@ -34,8 +34,6 @@
 #include <GSS/gssapi_spnego.h>
 #include <GSS/spnego_asn1.h>
 
-#include "LKDCHelper.h"
-
 #include <Carbon/Carbon.h>
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
@@ -52,7 +50,6 @@
 
 #include "DeconstructServiceName.h"
 #include "utils.h"
-#include "lookupDSLocalKDC.h"
 
 int
 der_print_heim_oid (
@@ -154,11 +151,10 @@ add_mapping(KRBHelperContextRef hCtx, const char *hostname, const char *realm, i
 }
 
 static void
-find_mapping(KRBHelperContextRef hCtx, const char *hostname, int lkdcp)
+find_mapping(KRBHelperContextRef hCtx, const char *hostname)
 {
     krb5_error_code ret;
     char **realmlist = NULL;
-    char *realm;
     size_t i;
 	
     for (i = 0; i < hCtx->realms.len; i++)
@@ -168,13 +164,9 @@ find_mapping(KRBHelperContextRef hCtx, const char *hostname, int lkdcp)
     ret = krb5_get_host_realm(hCtx->krb5_ctx, hostname, &realmlist);
     if (ret == 0) {
 	for (i = 0; realmlist && realmlist[i] && *(realmlist[i]); i++)
-	    add_mapping(hCtx, hostname, realmlist[i], is_lkdc_realm(realmlist[i]));
+	    add_mapping(hCtx, hostname, realmlist[i], 0);
 	if (i == 0)
             KHLog ("    %s: krb5_get_host_realm returned unusable realm!", __func__);
-    }
-    if (lkdcp && LKDCDiscoverRealm(hostname, &realm) == 0) {
-	add_mapping(hCtx, hostname, realm, is_lkdc_realm(realm));
-	free(realm);
     }
 
     if (realmlist)
@@ -370,7 +362,6 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
     struct realm_mappings *selected_mapping = NULL;
     OSStatus err = noErr;
     int avoidDNSCanonicalizationBug = 0;
-    int lkdcp = 0;
     size_t i;
 
     *outKerberosSession = NULL;
@@ -486,18 +477,10 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
     }
 
     /*
-     * If the service didn't announce a realm, or it a annouced a LKDC
-     * realm, lets consider it when looking up hosts/realm mappings.
-     */
-
-    if ((hintrealm == NULL || is_lkdc_realm(hintrealm)) && noLocalKDC == 0)
-	lkdcp = 1;
-
-    /*
      * Before we canonlize the hostname, lets find the realm.
      */
 
-    find_mapping(hCtx, hostname, lkdcp);
+    find_mapping(hCtx, hostname);
 
     /* Normalize the given host name using getaddrinfo AI_CANONNAME if
      * possible. Track the resulting host name (normalized or not) as
@@ -525,7 +508,7 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
      * Try adding the mapping for the canonlical name if we got one
      */
 
-    find_mapping(hCtx, hostname, lkdcp);
+    find_mapping(hCtx, hostname);
 
     /*
      * If we have a hintrealm and there our initial guessing is right,
@@ -562,7 +545,7 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
 	    /* This is not a fatal error.  We'll keep looking for candidate host names. */
             continue;
         }
-	find_mapping(hCtx, hbuf, lkdcp);
+	find_mapping(hCtx, hbuf);
     }
 
     /* Reset err */
@@ -574,7 +557,7 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
      */
 
     if (localname)
-	find_mapping(hCtx, localname, lkdcp);
+	find_mapping(hCtx, localname);
 
  done:
     /*

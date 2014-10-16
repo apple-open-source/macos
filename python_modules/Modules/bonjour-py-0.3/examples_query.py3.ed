@@ -1,0 +1,6 @@
+/^def QueryCallback(/a
+.
+/''\.join/s//b&/
+/''\.join/s//b&/
+/typ + '\.' + klass/s//typ.decode('utf-8') + '.' + klass.decode('utf-8')/
+w

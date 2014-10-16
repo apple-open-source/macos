@@ -752,7 +752,8 @@ int fat_free_unused(void)
 			if (ask(1, "Fix")) {
 				gBoot->FSFree = gBoot->NumFree;
 				fix = 1;
-			}
+			} else
+				err |= FSERROR;
 		}
 		if (fix)
 			err |= writefsinfo(gFS, gBoot);
@@ -935,7 +936,7 @@ int initUseMap(struct bootblock *boot)
 
 void freeUseMap(void)
 {
-	if (useMap == NULL)
+	if (useMap != NULL)
 		free(useMap);
 	useMap = NULL;
 }

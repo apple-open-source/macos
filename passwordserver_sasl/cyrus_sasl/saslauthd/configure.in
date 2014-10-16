@@ -15,7 +15,7 @@ AC_ARG_WITH(saslauthd, [  --with-saslauthd=DIR    enable use of the saslauth dae
   AC_DEFINE_UNQUOTED(PATH_SASLAUTHD_RUNDIR, "$with_saslauthd",[Location of saslauthd socket])
 AM_CONDITIONAL(SASLAUTHD, test "$with_saslauthd" != no)
 
-AM_INIT_AUTOMAKE(saslauthd,2.1.22)
+AM_INIT_AUTOMAKE(saslauthd,2.1.26)
 CMU_INIT_AUTOMAKE
 
 dnl Checks for programs.
@@ -78,6 +78,13 @@ if test "$authsasldb" != no; then
   SASL_DB_PATH_CHECK()
   SASL_DB_CHECK()
   SASL_DB_LIB="$SASL_DB_LIB ../sasldb/.libs/libsasldb.al"
+fi
+
+AC_ARG_ENABLE(httpform, [  --enable-httpform       enable HTTP form authentication [[no]] ],
+  httpform=$enableval,
+  httpform=no)
+if test "$httpform" != no; then
+  AC_DEFINE(HAVE_HTTPFORM,[],[Include HTTP form Support])
 fi
 
 AC_ARG_WITH(pam, [  --with-pam=DIR          use PAM (rooted in DIR) [yes] ],
@@ -188,8 +195,31 @@ fi
 dnl Checks for library functions.
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(gethostname mkdir socket strdup)
+dnl Only look for one or the other
 AC_CHECK_FUNCS(getspnam getuserpw, break)
-AC_CHECK_FUNCS(strlcat strlcpy)
+AC_CHECK_FUNCS(asprintf strlcat strlcpy)
+
+if test $ac_cv_func_getspnam = yes; then
+	AC_MSG_CHECKING(if getpwnam_r/getspnam_r take 5 arguments)
+	AC_TRY_COMPILE(
+		[
+#include <sys/types.h>
+#include <pwd.h>
+#include <shadow.h>
+		],
+		[
+struct passwd *pw;
+struct passwd pwbuf;
+char pwdata[512];
+(void) getpwnam_r("bin", &pwbuf, pwdata, sizeof(pwdata), &pw);
+		],
+		[AC_MSG_RESULT(yes)
+		 AC_DEFINE(GETXXNAM_R_5ARG, 1,
+			[Define if your getpwnam_r()/getspnam_r()
+			functions take 5 arguments])],
+		[AC_MSG_RESULT(no)]
+	)
+fi
 
 dnl Check for getaddrinfo
 GETADDRINFOOBJS=""
@@ -297,6 +327,9 @@ extern size_t saslauthd_strlcpy(char *dst, const char *src, size_t len);
 #ifndef HAVE_STRLCAT
 extern size_t saslauthd_strlcat(char *dst, const char *src, size_t len);
 #define strlcat(x,y,z) saslauthd_strlcat((x),(y),(z))
+#endif
+#ifndef HAVE_ASPRINTF
+extern int asprintf(char **str, const char *fmt, ...);
 #endif
 
 #endif

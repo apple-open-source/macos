@@ -1,0 +1,287 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>johab_hangul.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">johab_hangul.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * JOHAB Hangul
+ *
+ * Ken Lunde writes in his &quot;CJKV Information Processing&quot; book, p. 114:
+ * &quot;Hangul can be composed of two or three jamo (some jamo are considered
+ *  compound). Johab uses 19 initial jamo (consonants), 21 medial jamo (vowels)
+ *  and 27 final jamo (consonants; 28 when you include the &quot;fill&quot; character
+ *  for Hangul containing only two jamo). Multiplying these numbers results in
+ *  11172.&quot;
+ *
+ * Structure of the Johab encoding (see p. 181-184):
+ *   bit 15 = 1
+ *   bit 14..10 = initial jamo, only 19+1 out of 32 possible values are used
+ *   bit 9..5 = medial jamo, only 21+1 out of 32 possible values are used
+ *   bit 4..0 = final jamo, only 27+1 out of 32 possible values are used
+ * 
+ * Structure of the Unicode encoding:
+ * grep '^0x\([8-C]...\|D[0-7]..\)' unicode.org-mappings/EASTASIA/KSC/JOHAB.TXT
+ * You see that all characters there are marked &quot;HANGUL LETTER&quot; or &quot;HANGUL
+ * SYLLABLE&quot;. If you eliminate the &quot;HANGUL LETTER&quot;s, the table is sorted
+ * in ascending order according to Johab encoding and according to the Unicode
+ * encoding. Now look a little more carefully, and you see that the following
+ * formula holds:
+ *     unicode == 0xAC00
+ *                + 21 * 28 * (jamo_initial_index[(johab &gt;&gt; 10) &amp; 31] - 1)
+ *                + 28 * (jamo_medial_index[(johab &gt;&gt; 5) &amp; 31] - 1)
+ *                + jamo_final_index[johab &amp; 31]
+ * where the index tables are defined as below.
+ */</span>
+
+<span class="enscript-comment">/* Tables mapping 5-bit groups to jamo letters. */</span>
+<span class="enscript-comment">/* Note that Jamo XX = UHC 0xA4A0+XX = Unicode 0x3130+XX */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">NONE</span> 0xfd
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">FILL</span> 0xff
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo_initial[32] = {
+  NONE, FILL, 0x01, 0x02, 0x04, 0x07, 0x08, 0x09,
+  0x11, 0x12, 0x13, 0x15, 0x16, 0x17, 0x18, 0x19,
+  0x1a, 0x1b, 0x1c, 0x1d, 0x1e, NONE, NONE, NONE,
+  NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo_medial[32] = {
+  NONE, NONE, FILL, 0x1f, 0x20, 0x21, 0x22, 0x23,
+  NONE, NONE, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29,
+  NONE, NONE, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+  NONE, NONE, 0x30, 0x31, 0x32, 0x33, NONE, NONE,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo_final[32] = {
+  NONE, FILL, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+  0x07, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+  0x10, 0x11, NONE, 0x12, 0x14, 0x15, 0x16, 0x17,
+  0x18, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, NONE, NONE,
+};
+<span class="enscript-comment">/* Same as jamo_final, except that it excludes characters already
+   contained in jamo_initial. 11 characters instead of 27. */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo_final_notinitial[32] = {
+  NONE, NONE, NONE, NONE, 0x03, NONE, 0x05, 0x06,
+  NONE, NONE, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+  0x10, NONE, NONE, NONE, 0x14, NONE, NONE, NONE,
+  NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
+};
+
+<span class="enscript-comment">/* Tables mapping 5-bit groups to packed indices. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">none</span> -1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">fill</span> 0
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span> jamo_initial_index[32] = {
+  none, fill, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+  0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+  0x0f, 0x10, 0x11, 0x12, 0x13, none, none, none,
+  none, none, none, none, none, none, none, none,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span> jamo_medial_index[32] = {
+  none, none, fill, 0x01, 0x02, 0x03, 0x04, 0x05,
+  none, none, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+  none, none, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11,
+  none, none, 0x12, 0x13, 0x14, 0x15, none, none,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span> jamo_final_index[32] = {
+  none, fill, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+  0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+  0x0f, 0x10, none, 0x11, 0x12, 0x13, 0x14, 0x15,
+  0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, none, none,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">johab_hangul_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1 = s[0];
+  <span class="enscript-keyword">if</span> ((c1 &gt;= 0x84 &amp;&amp; c1 &lt;= 0xd3)) {
+    <span class="enscript-keyword">if</span> (n &gt;= 2) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c2 = s[1];
+      <span class="enscript-keyword">if</span> ((c2 &gt;= 0x41 &amp;&amp; c2 &lt; 0x7f) || (c2 &gt;= 0x81 &amp;&amp; c2 &lt; 0xff)) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> johab = (c1 &lt;&lt; 8) | c2;
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> bitspart1 = (johab &gt;&gt; 10) &amp; 31;
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> bitspart2 = (johab &gt;&gt; 5) &amp; 31;
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> bitspart3 = johab &amp; 31;
+        <span class="enscript-type">int</span> index1 = jamo_initial_index[bitspart1];
+        <span class="enscript-type">int</span> index2 = jamo_medial_index[bitspart2];
+        <span class="enscript-type">int</span> index3 = jamo_final_index[bitspart3];
+        <span class="enscript-comment">/* Exclude &quot;none&quot; values. */</span>
+        <span class="enscript-keyword">if</span> (index1 &gt;= 0 &amp;&amp; index2 &gt;= 0 &amp;&amp; index3 &gt;= 0) {
+          <span class="enscript-comment">/* Deal with &quot;fill&quot; values in initial or medial position. */</span>
+          <span class="enscript-keyword">if</span> (index1 == fill) {
+            <span class="enscript-keyword">if</span> (index2 == fill) {
+              <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo3 = jamo_final_notinitial[bitspart3];
+              <span class="enscript-keyword">if</span> (jamo3 != NONE) {
+                *pwc = (ucs4_t) 0x3130 + jamo3;
+                <span class="enscript-keyword">return</span> 2;
+              }
+            } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (index3 == fill) {
+              <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo2 = jamo_medial[bitspart2];
+              <span class="enscript-keyword">if</span> (jamo2 != NONE &amp;&amp; jamo2 != FILL) {
+                *pwc = (ucs4_t) 0x3130 + jamo2;
+                <span class="enscript-keyword">return</span> 2;
+              }
+            }
+            <span class="enscript-comment">/* Syllables composed only of medial and final don't exist. */</span>
+          } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (index2 == fill) {
+            <span class="enscript-keyword">if</span> (index3 == fill) {
+              <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo1 = jamo_initial[bitspart1];
+              <span class="enscript-keyword">if</span> (jamo1 != NONE &amp;&amp; jamo1 != FILL) {
+                *pwc = (ucs4_t) 0x3130 + jamo1;
+                <span class="enscript-keyword">return</span> 2;
+              }
+            }
+            <span class="enscript-comment">/* Syllables composed only of initial and final don't exist. */</span>
+          } <span class="enscript-keyword">else</span> {
+             <span class="enscript-comment">/* index1 and index2 are not fill, but index3 may be fill. */</span>
+             <span class="enscript-comment">/* Nothing more to exclude. All 11172 code points are valid. */</span>
+             *pwc = 0xac00 + ((index1 - 1) * 21 + (index2 - 1)) * 28 + index3;
+             <span class="enscript-keyword">return</span> 2;
+          }
+        }
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+  }
+  <span class="enscript-keyword">return</span> RET_ILSEQ;
+}
+
+<span class="enscript-comment">/* 51 Jamo: 19 initial, 21 medial, 11 final not initial. */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> johab_hangul_page31[51] = {
+          0x8841, 0x8c41, 0x8444, 0x9041, 0x8446, 0x8447, 0x9441, <span class="enscript-comment">/*0x30-0x37*/</span>
+  0x9841, 0x9c41, 0x844a, 0x844b, 0x844c, 0x844d, 0x844e, 0x844f, <span class="enscript-comment">/*0x38-0x3f*/</span>
+  0x8450, 0xa041, 0xa441, 0xa841, 0x8454, 0xac41, 0xb041, 0xb441, <span class="enscript-comment">/*0x40-0x47*/</span>
+  0xb841, 0xbc41, 0xc041, 0xc441, 0xc841, 0xcc41, 0xd041, 0x8461, <span class="enscript-comment">/*0x48-0x4f*/</span>
+  0x8481, 0x84a1, 0x84c1, 0x84e1, 0x8541, 0x8561, 0x8581, 0x85a1, <span class="enscript-comment">/*0x50-0x57*/</span>
+  0x85c1, 0x85e1, 0x8641, 0x8661, 0x8681, 0x86a1, 0x86c1, 0x86e1, <span class="enscript-comment">/*0x58-0x5f*/</span>
+  0x8741, 0x8761, 0x8781, 0x87a1,                                 <span class="enscript-comment">/*0x60-0x67*/</span>
+};
+
+<span class="enscript-comment">/* Tables mapping packed indices to 5-bit groups. */</span>
+<span class="enscript-comment">/* index1+1 = jamo_initial_index[bitspart1]  &lt;==&gt;
+   bitspart1 = jamo_initial_index_inverse[index1] */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> jamo_initial_index_inverse[19] = {
+              0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+  0x10, 0x11, 0x12, 0x13, 0x14,
+};
+<span class="enscript-comment">/* index2+1 = jamo_medial_index[bitspart2]  &lt;==&gt;
+   bitspart2 = jamo_medial_index_inverse[index2] */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> jamo_medial_index_inverse[21] = {
+                    0x03, 0x04, 0x05, 0x06, 0x07,
+              0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+              0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+              0x1a, 0x1b, 0x1c, 0x1d,
+};
+<span class="enscript-comment">/* index3 = jamo_final_index[bitspart3]  &lt;==&gt;
+   bitspart3 = jamo_final_index_inverse[index3] */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> jamo_final_index_inverse[28] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+  0x10, 0x11,       0x13, 0x14, 0x15, 0x16, 0x17,
+  0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">johab_hangul_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-keyword">if</span> (n &gt;= 2) {
+    <span class="enscript-keyword">if</span> (wc &gt;= 0x3131 &amp;&amp; wc &lt; 0x3164) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> c = johab_hangul_page31[wc-0x3131];
+      r[0] = (c &gt;&gt; 8); r[1] = (c &amp; 0xff);
+      <span class="enscript-keyword">return</span> 2;
+    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0xac00 &amp;&amp; wc &lt; 0xd7a4) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> index1;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> index2;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> index3;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> c;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> tmp = wc - 0xac00;
+      index3 = tmp % 28; tmp = tmp / 28;
+      index2 = tmp % 21; tmp = tmp / 21;
+      index1 = tmp;
+      c = (((((1 &lt;&lt; 5)
+              | jamo_initial_index_inverse[index1]) &lt;&lt; 5)
+            | jamo_medial_index_inverse[index2]) &lt;&lt; 5)
+          | jamo_final_index_inverse[index3];
+      r[0] = (c &gt;&gt; 8); r[1] = (c &amp; 0xff);
+      <span class="enscript-keyword">return</span> 2;
+    }
+    <span class="enscript-keyword">return</span> RET_ILUNI;
+  }
+  <span class="enscript-keyword">return</span> RET_TOOSMALL;
+}
+
+<span class="enscript-comment">/*
+ * Decomposition of JOHAB Hangul in one to three Johab Jamo elements.
+ */</span>
+
+<span class="enscript-comment">/* Decompose wc into r[0..2], and return the number of resulting Jamo elements.
+   Return RET_ILUNI if decomposition is not possible. */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span> <span class="enscript-function-name">johab_hangul_decompose</span> (conv_t conv, ucs4_t* r, ucs4_t wc)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+  <span class="enscript-type">int</span> ret = johab_hangul_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> hangul = (buf[0] &lt;&lt; 8) | buf[1];
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo1 = jamo_initial[(hangul &gt;&gt; 10) &amp; 31];
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo2 = jamo_medial[(hangul &gt;&gt; 5) &amp; 31];
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> jamo3 = jamo_final[hangul &amp; 31];
+    <span class="enscript-keyword">if</span> ((hangul &gt;&gt; 15) != 1) abort();
+    <span class="enscript-keyword">if</span> (jamo1 != NONE &amp;&amp; jamo2 != NONE &amp;&amp; jamo3 != NONE) {
+      <span class="enscript-comment">/* They are not all three == FILL because that would correspond to
+         johab = 0x8441, which doesn't exist. */</span>
+      ucs4_t* p = r;
+      <span class="enscript-keyword">if</span> (jamo1 != FILL)
+        *p++ = 0x3130 + jamo1;
+      <span class="enscript-keyword">if</span> (jamo2 != FILL)
+        *p++ = 0x3130 + jamo2;
+      <span class="enscript-keyword">if</span> (jamo3 != FILL)
+        *p++ = 0x3130 + jamo3;
+      <span class="enscript-keyword">return</span> (<span class="enscript-type">int</span>)(p-r);
+    }
+  }
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">fill</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">none</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">FILL</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">NONE</span>
+</pre>
+<hr />
+</body></html>

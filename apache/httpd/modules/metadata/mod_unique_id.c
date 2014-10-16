@@ -79,8 +79,8 @@ typedef struct {
  * saving cpu cycles.  The counter is never reset, and is used to permit up to
  * 64k requests in a single second by a single child.
  *
- * The 112-bits of unique_id_rec are encoded using the alphabet
- * [A-Za-z0-9@-], resulting in 19 bytes of printable characters.  That is then
+ * The 144-bits of unique_id_rec are encoded using the alphabet
+ * [A-Za-z0-9@-], resulting in 24 bytes of printable characters.  That is then
  * stuffed into the environment variable UNIQUE_ID so that it is available to
  * other modules.  The alphabet choice differs from normal base64 encoding
  * [A-Za-z0-9+/] because + and / are special characters in URLs and we want to
@@ -118,6 +118,12 @@ typedef struct {
 
 static unsigned global_in_addr;
 
+/*
+ * XXX: We should have a per-thread counter and not use cur_unique_id.counter
+ * XXX: in all threads, because this is bad for performance on multi-processor
+ * XXX: systems: Writing to the same address from several CPUs causes cache
+ * XXX: thrashing.
+ */
 static unique_id_rec cur_unique_id;
 
 /*
@@ -165,8 +171,8 @@ static int unique_id_global_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *pt
      * be unique as the physical address of the machine
      */
     if ((rv = apr_gethostname(str, sizeof(str) - 1, p)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server,
-          "mod_unique_id: unable to find hostname of the server");
+        ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server, APLOGNO(01563)
+          "unable to find hostname of the server");
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
@@ -174,15 +180,15 @@ static int unique_id_global_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *pt
         global_in_addr = sockaddr->sa.sin.sin_addr.s_addr;
     }
     else {
-        ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server,
-                    "mod_unique_id: unable to find IPv4 address of \"%s\"", str);
+        ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server, APLOGNO(01564)
+                    "unable to find IPv4 address of \"%s\"", str);
 #if APR_HAVE_IPV6
         if ((rv = apr_sockaddr_info_get(&sockaddr, str, AF_INET6, 0, 0, p)) == APR_SUCCESS) {
             memcpy(&global_in_addr,
                    (char *)sockaddr->ipaddr_ptr + sockaddr->ipaddr_len - sizeof(global_in_addr),
                    sizeof(global_in_addr));
-            ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server,
-                         "mod_unique_id: using low-order bits of IPv6 address "
+            ap_log_error(APLOG_MARK, APLOG_ALERT, rv, main_server, APLOGNO(01565)
+                         "using low-order bits of IPv6 address "
                          "as if they were unique");
         }
         else
@@ -191,8 +197,7 @@ static int unique_id_global_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *pt
     }
 
     apr_sockaddr_ip_get(&ipaddrstr, sockaddr);
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, main_server,
-                "mod_unique_id: using ip addr %s",
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, main_server, APLOGNO(01566) "using ip addr %s",
                  ipaddrstr);
 
     /*
@@ -215,7 +220,6 @@ static int unique_id_global_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *pt
 static void unique_id_child_init(apr_pool_t *p, server_rec *s)
 {
     pid_t pid;
-    apr_time_t tv;
 
     /*
      * Note that we use the pid because it's possible that on the same
@@ -236,7 +240,7 @@ static void unique_id_child_init(apr_pool_t *p, server_rec *s)
      * global_init ... but oh well.
      */
     if ((pid_t)cur_unique_id.pid != pid) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, APLOGNO(01567)
                     "oh no! pids are greater than 32-bits!  I'm broken!");
     }
 
@@ -247,11 +251,8 @@ static void unique_id_child_init(apr_pool_t *p, server_rec *s)
      * against restart problems, and a little less protection against a clock
      * going backwards in time.
      */
-    tv = apr_time_now();
-    /* Some systems have very low variance on the low end of their system
-     * counter, defend against that.
-     */
-    cur_unique_id.counter = (unsigned short)(apr_time_usec(tv) / 10);
+    ap_random_insecure_bytes(&cur_unique_id.counter,
+                             sizeof(cur_unique_id.counter));
 
     /*
      * We must always use network ordering for these bytes, so that
@@ -259,7 +260,6 @@ static void unique_id_child_init(apr_pool_t *p, server_rec *s)
      * orderings.  Note in_addr is already in network order.
      */
     cur_unique_id.pid = htonl(cur_unique_id.pid);
-    cur_unique_id.counter = htons(cur_unique_id.counter);
 }
 
 /* NOTE: This is *NOT* the same encoding used by base64encode ... the last two
@@ -275,7 +275,7 @@ static const char uuencoder[64] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '@', '-',
 };
 
-static int gen_unique_id(request_rec *r)
+static const char *gen_unique_id(const request_rec *r)
 {
     char *str;
     /*
@@ -289,16 +289,7 @@ static int gen_unique_id(request_rec *r)
     } paddedbuf;
     unsigned char *x,*y;
     unsigned short counter;
-    const char *e;
     int i,j,k;
-
-    /* copy the unique_id if this is an internal redirect (we're never
-     * actually called for sub requests, so we don't need to test for
-     * them) */
-    if (r->prev && (e = apr_table_get(r->subprocess_env, "REDIRECT_UNIQUE_ID"))) {
-        apr_table_setn(r->subprocess_env, "UNIQUE_ID", e);
-        return DECLINED;
-    }
 
     new_unique_id.in_addr = cur_unique_id.in_addr;
     new_unique_id.pid = cur_unique_id.pid;
@@ -310,7 +301,6 @@ static int gen_unique_id(request_rec *r)
     /* we'll use a temporal buffer to avoid uuencoding the possible internal
      * paddings of the original structure */
     x = (unsigned char *) &paddedbuf;
-    y = (unsigned char *) &new_unique_id;
     k = 0;
     for (i = 0; i < UNIQUE_ID_REC_MAX; i++) {
         y = ((unsigned char *) &new_unique_id) + unique_id_rec_offset[i];
@@ -338,13 +328,63 @@ static int gen_unique_id(request_rec *r)
     }
     str[k++] = '\0';
 
-    /* set the environment variable */
-    apr_table_setn(r->subprocess_env, "UNIQUE_ID", str);
-
     /* and increment the identifier for the next call */
 
     counter = ntohs(new_unique_id.counter) + 1;
     cur_unique_id.counter = htons(counter);
+
+    return str;
+}
+
+/*
+ * There are two ways the generation of a unique id can be triggered:
+ *
+ * - from the post_read_request hook which calls set_unique_id()
+ * - from error logging via the generate_log_id hook which calls
+ *   generate_log_id(). This may happen before or after set_unique_id()
+ *   has been called, or not at all.
+ */
+
+static int generate_log_id(const conn_rec *c, const request_rec *r,
+                           const char **id)
+{
+    /* we do not care about connection ids */
+    if (r == NULL)
+        return DECLINED;
+
+    /* XXX: do we need special handling for internal redirects? */
+
+    /* if set_unique_id() has been called for this request, use it */
+    *id = apr_table_get(r->subprocess_env, "UNIQUE_ID");
+
+    if (!*id)
+        *id = gen_unique_id(r);
+    return OK;
+}
+
+static int set_unique_id(request_rec *r)
+{
+    const char *id = NULL;
+    /* copy the unique_id if this is an internal redirect (we're never
+     * actually called for sub requests, so we don't need to test for
+     * them) */
+    if (r->prev) {
+       id = apr_table_get(r->subprocess_env, "REDIRECT_UNIQUE_ID");
+    }
+
+    if (!id) {
+        /* if we have a log id, it was set by our generate_log_id() function
+         * and we should reuse the same id
+         */
+        id = r->log_id;
+    }
+
+    if (!id) {
+        id = gen_unique_id(r);
+    }
+
+    /* set the environment variable */
+    apr_table_setn(r->subprocess_env, "UNIQUE_ID", id);
 
     return DECLINED;
 }
@@ -353,10 +393,11 @@ static void register_hooks(apr_pool_t *p)
 {
     ap_hook_post_config(unique_id_global_init, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_child_init(unique_id_child_init, NULL, NULL, APR_HOOK_MIDDLE);
-    ap_hook_post_read_request(gen_unique_id, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_post_read_request(set_unique_id, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_generate_log_id(generate_log_id, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA unique_id_module = {
+AP_DECLARE_MODULE(unique_id) = {
     STANDARD20_MODULE_STUFF,
     NULL,                       /* dir config creater */
     NULL,                       /* dir merger --- default is to override */

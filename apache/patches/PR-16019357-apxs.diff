@@ -1,0 +1,18 @@
+--- support/Makefile.in.orig	2012-12-11 02:37:25.000000000 -0800
++++ support/Makefile.in	2014-02-08 02:45:04.000000000 -0800
+@@ -17,13 +17,7 @@
+ 	@test -d $(DESTDIR)$(sbindir) || $(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
+ 	@test -d $(DESTDIR)$(libexecdir) || $(MKINSTALLDIRS) $(DESTDIR)$(libexecdir)
+ 	@cp -p $(top_builddir)/server/httpd.exp $(DESTDIR)$(libexecdir)
+-	@for i in apxs dbmmanage; do \
+-	    if test -f "$(builddir)/$$i"; then \
+-	        cp -p $$i $(DESTDIR)$(bindir); \
+-	        chmod 755 $(DESTDIR)$(bindir)/$$i; \
+-	    fi ; \
+-	done
+-	@for i in apachectl; do \
++	@for i in apachectl apxs dbmmanage; do \
+ 	    if test -f "$(builddir)/$$i"; then \
+ 	        cp -p $$i $(DESTDIR)$(sbindir); \
+ 	        chmod 755 $(DESTDIR)$(sbindir)/$$i; \
+

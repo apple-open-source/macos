@@ -29,10 +29,31 @@
 
 using namespace WebKit;
 
-static void decidePolicyForNavigationActionCallback(WKPageRef page, WKFrameRef frame, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo)
+static inline WebKitNavigationType toWebKitNavigationType(WKFrameNavigationType type)
+{
+    switch (type) {
+    case kWKFrameNavigationTypeLinkClicked:
+        return WEBKIT_NAVIGATION_TYPE_LINK_CLICKED;
+    case kWKFrameNavigationTypeFormSubmitted:
+        return WEBKIT_NAVIGATION_TYPE_FORM_SUBMITTED;
+    case kWKFrameNavigationTypeBackForward:
+        return WEBKIT_NAVIGATION_TYPE_BACK_FORWARD;
+    case kWKFrameNavigationTypeReload:
+        return WEBKIT_NAVIGATION_TYPE_RELOAD;
+    case kWKFrameNavigationTypeFormResubmitted:
+        return WEBKIT_NAVIGATION_TYPE_FORM_RESUBMITTED;
+    case kWKFrameNavigationTypeOther:
+        return WEBKIT_NAVIGATION_TYPE_OTHER;
+    default:
+        ASSERT_NOT_REACHED();
+        return WEBKIT_NAVIGATION_TYPE_LINK_CLICKED;
+    }
+}
+
+static void decidePolicyForNavigationAction(WKPageRef, WKFrameRef, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKFrameRef, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef /* userData */, const void* clientInfo)
 {
     GRefPtr<WebKitNavigationPolicyDecision> decision =
-        adoptGRef(webkitNavigationPolicyDecisionCreate(static_cast<WebKitNavigationType>(navigationType),
+        adoptGRef(webkitNavigationPolicyDecisionCreate(toWebKitNavigationType(navigationType),
                                                        wkEventMouseButtonToWebKitMouseButton(mouseButton),
                                                        wkEventModifiersToGdkModifiers(modifiers),
                                                        toImpl(request),
@@ -43,10 +64,10 @@ static void decidePolicyForNavigationActionCallback(WKPageRef page, WKFrameRef f
                                     WEBKIT_POLICY_DECISION(decision.get()));
 }
 
-static void decidePolicyForNewWindowActionCallback(WKPageRef page, WKFrameRef frame, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKStringRef frameName, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo)
+static void decidePolicyForNewWindowAction(WKPageRef, WKFrameRef, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKStringRef frameName, WKFramePolicyListenerRef listener, WKTypeRef /* userData */, const void* clientInfo)
 {
     GRefPtr<WebKitNavigationPolicyDecision> decision =
-        adoptGRef(webkitNavigationPolicyDecisionCreate(static_cast<WebKitNavigationType>(navigationType),
+        adoptGRef(webkitNavigationPolicyDecisionCreate(toWebKitNavigationType(navigationType),
                                                        wkEventMouseButtonToWebKitMouseButton(mouseButton),
                                                        wkEventModifiersToGdkModifiers(modifiers),
                                                        toImpl(request),
@@ -57,10 +78,10 @@ static void decidePolicyForNewWindowActionCallback(WKPageRef page, WKFrameRef fr
                                     WEBKIT_POLICY_DECISION(decision.get()));
 }
 
-static void decidePolicyForResponseCallback(WKPageRef page, WKFrameRef frame, WKURLResponseRef response, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo)
+static void decidePolicyForResponse(WKPageRef, WKFrameRef, WKURLResponseRef response, WKURLRequestRef request, bool canShowMIMEType, WKFramePolicyListenerRef listener, WKTypeRef /* userData */, const void* clientInfo)
 {
     GRefPtr<WebKitResponsePolicyDecision> decision =
-        adoptGRef(webkitResponsePolicyDecisionCreate(toImpl(request), toImpl(response), toImpl(listener)));
+        adoptGRef(webkitResponsePolicyDecisionCreate(toImpl(request), toImpl(response), canShowMIMEType, toImpl(listener)));
     webkitWebViewMakePolicyDecision(WEBKIT_WEB_VIEW(clientInfo),
                                     WEBKIT_POLICY_DECISION_TYPE_RESPONSE,
                                     WEBKIT_POLICY_DECISION(decision.get()));
@@ -68,13 +89,17 @@ static void decidePolicyForResponseCallback(WKPageRef page, WKFrameRef frame, WK
 
 void attachPolicyClientToView(WebKitWebView* webView)
 {
-    WKPagePolicyClient policyClient = {
-        kWKPagePolicyClientCurrentVersion,
-        webView, // clientInfo
-        decidePolicyForNavigationActionCallback,
-        decidePolicyForNewWindowActionCallback,
-        decidePolicyForResponseCallback,
+    WKPagePolicyClientV1 policyClient = {
+        {
+            1, // version
+            webView, // clientInfo
+        },
+        0, // decidePolicyForNavigationAction_deprecatedForUseWithV0
+        decidePolicyForNewWindowAction,
+        0, // decidePolicyForResponse_deprecatedForUseWithV0
         0, // unableToImplementPolicy
+        decidePolicyForNavigationAction,
+        decidePolicyForResponse
     };
-    WKPageSetPagePolicyClient(toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView))), &policyClient);
+    WKPageSetPagePolicyClient(toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView))), &policyClient.base);
 }

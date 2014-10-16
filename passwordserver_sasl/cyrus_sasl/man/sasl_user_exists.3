@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_user_exists "10 July 2001" SASL "SASL man pages"
+.TH sasl_user_exists 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_user_exists \- Check if a user exists on server
 
@@ -67,12 +67,12 @@ Service name or NULL (for service name of connection context)
 Realm to check in or NULL (for default realm)
 
 .I user
-User name to check for existance of.
+User name to check for existence of.
 
 .SH "RETURN VALUE"
 Returns SASL_OK on success. SASL error code on failure.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3)

@@ -31,6 +31,8 @@
 #define BasicShapes_h
 
 #include "Length.h"
+#include "LengthSize.h"
+#include "RenderStyleConstants.h"
 #include "WindRule.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -40,17 +42,17 @@ namespace WebCore {
 
 class FloatRect;
 class Path;
+class RenderBox;
 
 class BasicShape : public RefCounted<BasicShape> {
 public:
     virtual ~BasicShape() { }
 
     enum Type {
-        BasicShapeRectangleType = 1,
-        BasicShapeCircleType = 2,
-        BasicShapeEllipseType = 3,
-        BasicShapePolygonType = 4,
-        BasicShapeInsetRectangleType = 5
+        BasicShapePolygonType,
+        BasicShapeCircleType,
+        BasicShapeEllipseType,
+        BasicShapeInsetType
     };
 
     bool canBlend(const BasicShape*) const;
@@ -60,100 +62,139 @@ public:
     virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const = 0;
 
     virtual Type type() const = 0;
-protected:
-    BasicShape() { }
 };
 
-class BasicShapeRectangle : public BasicShape {
+class BasicShapeCenterCoordinate {
 public:
-    static PassRefPtr<BasicShapeRectangle> create() { return adoptRef(new BasicShapeRectangle); }
+    enum Direction {
+        TopLeft,
+        BottomRight
+    };
 
-    Length x() const { return m_x; }
-    Length y() const { return m_y; }
-    Length width() const { return m_width; }
-    Length height() const { return m_height; }
-    Length cornerRadiusX() const { return m_cornerRadiusX; }
-    Length cornerRadiusY() const { return m_cornerRadiusY; }
-
-    void setX(Length x) { m_x = x; }
-    void setY(Length y) { m_y = y; }
-    void setWidth(Length width) { m_width = width; }
-    void setHeight(Length height) { m_height = height; }
-    void setCornerRadiusX(Length radiusX)
+    BasicShapeCenterCoordinate()
+        : m_direction(TopLeft)
+        , m_length(Undefined)
     {
-        ASSERT(!radiusX.isUndefined());
-        m_cornerRadiusX = radiusX;
-    }
-    void setCornerRadiusY(Length radiusY)
-    {
-        ASSERT(!radiusY.isUndefined());
-        m_cornerRadiusY = radiusY;
+        updateComputedLength();
     }
 
-    virtual void path(Path&, const FloatRect&) OVERRIDE;
-    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const OVERRIDE;
+    BasicShapeCenterCoordinate(Direction direction, Length length)
+        : m_direction(direction)
+        , m_length(length)
+    {
+        updateComputedLength();
+    }
 
-    virtual Type type() const { return BasicShapeRectangleType; }
+    BasicShapeCenterCoordinate(const BasicShapeCenterCoordinate& other)
+        : m_direction(other.direction())
+        , m_length(other.length())
+        , m_computedLength(other.m_computedLength)
+    {
+    }
+
+    Direction direction() const { return m_direction; }
+    const Length& length() const { return m_length; }
+    const Length& computedLength() const { return m_computedLength; }
+
+    BasicShapeCenterCoordinate blend(const BasicShapeCenterCoordinate& other, double progress) const
+    {
+        return BasicShapeCenterCoordinate(TopLeft, m_computedLength.blend(other.m_computedLength, progress));
+    }
+
 private:
-    BasicShapeRectangle() { }
+    Direction m_direction;
+    Length m_length;
+    Length m_computedLength;
 
-    Length m_y;
-    Length m_x;
-    Length m_width;
-    Length m_height;
-    Length m_cornerRadiusX;
-    Length m_cornerRadiusY;
+    void updateComputedLength();
+};
+
+class BasicShapeRadius {
+public:
+    enum Type {
+        Value,
+        ClosestSide,
+        FarthestSide
+    };
+    BasicShapeRadius() : m_value(Undefined), m_type(ClosestSide) { }
+    explicit BasicShapeRadius(Length v) : m_value(v), m_type(Value) { }
+    explicit BasicShapeRadius(Type t) : m_value(Undefined), m_type(t) { }
+    BasicShapeRadius(const BasicShapeRadius& other) : m_value(other.value()), m_type(other.type()) { }
+
+    const Length& value() const { return m_value; }
+    Type type() const { return m_type; }
+
+    bool canBlend(const BasicShapeRadius& other) const
+    {
+        // FIXME determine how to interpolate between keywords. See bug 125108.
+        return m_type == Value && other.type() == Value;
+    }
+
+    BasicShapeRadius blend(const BasicShapeRadius& other, double progress) const
+    {
+        if (m_type != Value || other.type() != Value)
+            return BasicShapeRadius(other);
+
+        return BasicShapeRadius(m_value.blend(other.value(), progress));
+    }
+
+private:
+    Length m_value;
+    Type m_type;
+
 };
 
 class BasicShapeCircle : public BasicShape {
 public:
     static PassRefPtr<BasicShapeCircle> create() { return adoptRef(new BasicShapeCircle); }
 
-    Length centerX() const { return m_centerX; }
-    Length centerY() const { return m_centerY; }
-    Length radius() const { return m_radius; }
+    const BasicShapeCenterCoordinate& centerX() const { return m_centerX; }
+    const BasicShapeCenterCoordinate& centerY() const { return m_centerY; }
+    const BasicShapeRadius& radius() const { return m_radius; }
+    float floatValueForRadiusInBox(float boxWidth, float boxHeight) const;
 
-    void setCenterX(Length centerX) { m_centerX = centerX; }
-    void setCenterY(Length centerY) { m_centerY = centerY; }
-    void setRadius(Length radius) { m_radius = radius; }
+    void setCenterX(BasicShapeCenterCoordinate centerX) { m_centerX = WTF::move(centerX); }
+    void setCenterY(BasicShapeCenterCoordinate centerY) { m_centerY = WTF::move(centerY); }
+    void setRadius(BasicShapeRadius radius) { m_radius = WTF::move(radius); }
 
-    virtual void path(Path&, const FloatRect&) OVERRIDE;
-    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const OVERRIDE;
+    virtual void path(Path&, const FloatRect&) override;
+    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const override;
 
-    virtual Type type() const { return BasicShapeCircleType; }
+    virtual Type type() const override { return BasicShapeCircleType; }
 private:
     BasicShapeCircle() { }
 
-    Length m_centerX;
-    Length m_centerY;
-    Length m_radius;
+    BasicShapeCenterCoordinate m_centerX;
+    BasicShapeCenterCoordinate m_centerY;
+    BasicShapeRadius m_radius;
 };
 
 class BasicShapeEllipse : public BasicShape {
 public:
     static PassRefPtr<BasicShapeEllipse> create() { return adoptRef(new BasicShapeEllipse); }
 
-    Length centerX() const { return m_centerX; }
-    Length centerY() const { return m_centerY; }
-    Length radiusX() const { return m_radiusX; }
-    Length radiusY() const { return m_radiusY; }
+    const BasicShapeCenterCoordinate& centerX() const { return m_centerX; }
+    const BasicShapeCenterCoordinate& centerY() const { return m_centerY; }
+    const BasicShapeRadius& radiusX() const { return m_radiusX; }
+    const BasicShapeRadius& radiusY() const { return m_radiusY; }
+    float floatValueForRadiusInBox(const BasicShapeRadius&, float center, float boxWidthOrHeight) const;
 
-    void setCenterX(Length centerX) { m_centerX = centerX; }
-    void setCenterY(Length centerY) { m_centerY = centerY; }
-    void setRadiusX(Length radiusX) { m_radiusX = radiusX; }
-    void setRadiusY(Length radiusY) { m_radiusY = radiusY; }
+    void setCenterX(BasicShapeCenterCoordinate centerX) { m_centerX = WTF::move(centerX); }
+    void setCenterY(BasicShapeCenterCoordinate centerY) { m_centerY = WTF::move(centerY); }
+    void setRadiusX(BasicShapeRadius radiusX) { m_radiusX = WTF::move(radiusX); }
+    void setRadiusY(BasicShapeRadius radiusY) { m_radiusY = WTF::move(radiusY); }
 
-    virtual void path(Path&, const FloatRect&) OVERRIDE;
-    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const OVERRIDE;
+    virtual void path(Path&, const FloatRect&) override;
+    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const override;
 
-    virtual Type type() const { return BasicShapeEllipseType; } 
+    virtual Type type() const override { return BasicShapeEllipseType; }
 private:
     BasicShapeEllipse() { }
 
-    Length m_centerX;
-    Length m_centerY;
-    Length m_radiusX;
-    Length m_radiusY;
+    BasicShapeCenterCoordinate m_centerX;
+    BasicShapeCenterCoordinate m_centerY;
+    BasicShapeRadius m_radiusX;
+    BasicShapeRadius m_radiusY;
 };
 
 class BasicShapePolygon : public BasicShape {
@@ -161,18 +202,18 @@ public:
     static PassRefPtr<BasicShapePolygon> create() { return adoptRef(new BasicShapePolygon); }
 
     const Vector<Length>& values() const { return m_values; }
-    Length getXAt(unsigned i) const { return m_values.at(2 * i); }
-    Length getYAt(unsigned i) const { return m_values.at(2 * i + 1); }
+    const Length& getXAt(unsigned i) const { return m_values[2 * i]; }
+    const Length& getYAt(unsigned i) const { return m_values[2 * i + 1]; }
 
     void setWindRule(WindRule windRule) { m_windRule = windRule; }
-    void appendPoint(Length x, Length y) { m_values.append(x); m_values.append(y); }
+    void appendPoint(Length x, Length y) { m_values.append(WTF::move(x)); m_values.append(WTF::move(y)); }
 
-    virtual void path(Path&, const FloatRect&) OVERRIDE;
-    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const OVERRIDE;
+    virtual void path(Path&, const FloatRect&) override;
+    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const override;
 
-    virtual WindRule windRule() const { return m_windRule; }
+    virtual WindRule windRule() const override { return m_windRule; }
 
-    virtual Type type() const { return BasicShapePolygonType; }
+    virtual Type type() const override { return BasicShapePolygonType; }
 private:
     BasicShapePolygon()
         : m_windRule(RULE_NONZERO)
@@ -182,45 +223,47 @@ private:
     Vector<Length> m_values;
 };
 
-class BasicShapeInsetRectangle : public BasicShape {
+class BasicShapeInset : public BasicShape {
 public:
-    static PassRefPtr<BasicShapeInsetRectangle> create() { return adoptRef(new BasicShapeInsetRectangle); }
+    static PassRefPtr<BasicShapeInset> create() { return adoptRef(new BasicShapeInset); }
 
-    Length top() const { return m_top; }
-    Length right() const { return m_right; }
-    Length bottom() const { return m_bottom; }
-    Length left() const { return m_left; }
-    Length cornerRadiusX() const { return m_cornerRadiusX; }
-    Length cornerRadiusY() const { return m_cornerRadiusY; }
+    const Length& top() const { return m_top; }
+    const Length& right() const { return m_right; }
+    const Length& bottom() const { return m_bottom; }
+    const Length& left() const { return m_left; }
 
-    void setTop(Length top) { m_top = top; }
-    void setRight(Length right) { m_right = right; }
-    void setBottom(Length bottom) { m_bottom = bottom; }
-    void setLeft(Length left) { m_left = left; }
-    void setCornerRadiusX(Length radiusX)
-    {
-        ASSERT(!radiusX.isUndefined());
-        m_cornerRadiusX = radiusX;
-    }
-    void setCornerRadiusY(Length radiusY)
-    {
-        ASSERT(!radiusY.isUndefined());
-        m_cornerRadiusY = radiusY;
-    }
+    const LengthSize& topLeftRadius() const { return m_topLeftRadius; }
+    const LengthSize& topRightRadius() const { return m_topRightRadius; }
+    const LengthSize& bottomRightRadius() const { return m_bottomRightRadius; }
+    const LengthSize& bottomLeftRadius() const { return m_bottomLeftRadius; }
 
-    virtual void path(Path&, const FloatRect&) OVERRIDE;
-    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const OVERRIDE;
+    void setTop(Length top) { m_top = WTF::move(top); }
+    void setRight(Length right) { m_right = WTF::move(right); }
+    void setBottom(Length bottom) { m_bottom = WTF::move(bottom); }
+    void setLeft(Length left) { m_left = WTF::move(left); }
 
-    virtual Type type() const { return BasicShapeInsetRectangleType; }
+    void setTopLeftRadius(LengthSize radius) { m_topLeftRadius = WTF::move(radius); }
+    void setTopRightRadius(LengthSize radius) { m_topRightRadius = WTF::move(radius); }
+    void setBottomRightRadius(LengthSize radius) { m_bottomRightRadius = WTF::move(radius); }
+    void setBottomLeftRadius(LengthSize radius) { m_bottomLeftRadius = WTF::move(radius); }
+
+    virtual void path(Path&, const FloatRect&) override;
+    virtual PassRefPtr<BasicShape> blend(const BasicShape*, double) const override;
+
+    virtual Type type() const override { return BasicShapeInsetType; }
 private:
-    BasicShapeInsetRectangle() { }
+    BasicShapeInset() { }
 
     Length m_right;
     Length m_top;
     Length m_bottom;
     Length m_left;
-    Length m_cornerRadiusX;
-    Length m_cornerRadiusY;
+
+    LengthSize m_topLeftRadius;
+    LengthSize m_topRightRadius;
+    LengthSize m_bottomRightRadius;
+    LengthSize m_bottomLeftRadius;
 };
+
 }
 #endif

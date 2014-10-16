@@ -53,7 +53,6 @@
 
 #include <schedule.h>
 
-
 /* About address semantics in each case.
  *			initiator(addr=I)	responder(addr=R)
  *			src	dst		src	dst
@@ -128,8 +127,6 @@ struct phase1handle {
 	vchar_t *skeyid_a_p;    /* SKEYID_a_p, i.e. integrity protection */
 	vchar_t *skeyid_e;		/* SKEYID_e, i.e. encryption */
     vchar_t *skeyid_e_p;	/* peer's SKEYID_e, i.e. encryption */
-	vchar_t *skeyid_p;		/* SKEYID_p, i.e. for IKEv2 */
-    vchar_t *skeyid_p_p;	/* peer's SKEYID_p, i.e. for IKEv2 */
 	vchar_t *key;			/* cipher key */
     vchar_t *key_p;         /* peer's cipher key */
 	vchar_t *hash;			/* HASH minus general header */
@@ -186,9 +183,7 @@ struct phase1handle {
 	ike_session_t                           *parent_session;
 	LIST_HEAD(_ph2ofph1_, phase2handle)     bound_ph2tree;
 	LIST_ENTRY(phase1handle)                ph1ofsession_chain;
-
 };
-
 
 #define PHASE2_TYPE_SA          0
 #define PHASE2_TYPE_INFO        1
@@ -279,12 +274,12 @@ struct phase2handle {
 	struct phase1handle *ph1;	/* back pointer to isakmp status */
 	int                    is_rekey:1;
 	int                    is_dying:1;
+    	int		       is_defunct:1;
 	ike_session_t         *parent_session;
 	vchar_t               *ext_nat_id;
 	vchar_t               *ext_nat_id_p;
 	LIST_ENTRY(phase2handle)    ph2ofsession_chain;	
 	LIST_ENTRY(phase2handle)    ph1bind_chain;	/* chain to ph1handle */
-
 };
 
 /*

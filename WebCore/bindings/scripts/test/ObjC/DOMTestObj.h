@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -25,8 +25,6 @@
  */
 
 #import <WebCore/DOMObject.h>
-
-#if WEBKIT_VERSION_MAX_ALLOWED >= WEBKIT_VERSION_LATEST
 
 @class DOMDictionary;
 @class DOMDocument;
@@ -46,28 +44,26 @@
 @protocol DOMEventListener;
 
 enum {
-#if ENABLE(Condition1)
-    DOM_CONDITIONAL_CONST = 0,
-#endif
     DOM_CONST_VALUE_0 = 0,
     DOM_CONST_VALUE_1 = 1,
     DOM_CONST_VALUE_2 = 2,
     DOM_CONST_VALUE_4 = 4,
     DOM_CONST_VALUE_8 = 8,
     DOM_CONST_VALUE_9 = -1,
-    DOM_CONST_VALUE_10 = "my constant string",
     DOM_CONST_VALUE_11 = 0xffffffff,
     DOM_CONST_VALUE_12 = 0x01,
     DOM_CONST_VALUE_13 = 0X20,
     DOM_CONST_VALUE_14 = 0x1abc,
-    DOM_CONST_JAVASCRIPT = 15
-};
+    DOM_CONST_JAVASCRIPT = 15,
+    DOM_readonly = 0
+} WEBKIT_ENUM_AVAILABLE_MAC(TBD);
 
+WEBKIT_CLASS_AVAILABLE_MAC(TBD)
 @interface DOMTestObj : DOMObject
-@property(readonly) int readOnlyLongAttr;
-@property(readonly, copy) NSString *readOnlyStringAttr;
-@property(readonly, retain) DOMTestObj *readOnlyTestObjAttr;
-@property(retain) DOMTestSubObjConstructor *TestSubObjEnabledBySetting;
+@property (readonly) int readOnlyLongAttr;
+@property (readonly, copy) NSString *readOnlyStringAttr;
+@property (readonly, strong) DOMTestObj *readOnlyTestObjAttr;
+@property (strong) DOMTestSubObjConstructor *TestSubObjEnabledBySetting;
 @property char byteAttr;
 @property unsigned char octetAttr;
 @property short shortAttr;
@@ -75,54 +71,55 @@ enum {
 @property int longAttr;
 @property long long longLongAttr;
 @property unsigned long long unsignedLongLongAttr;
-@property(copy) NSString *stringAttr;
-@property(retain) DOMTestObj *testObjAttr;
-@property(retain) DOMTestObj *XMLObjAttr;
+@property (copy) NSString *stringAttr;
+@property (strong) DOMTestObj *testObjAttr;
+@property (strong) DOMTestObj *XMLObjAttr;
 @property BOOL create;
-@property(copy) NSString *reflectedStringAttr;
+@property (copy) NSString *reflectedStringAttr;
 @property int reflectedIntegralAttr;
 @property unsigned reflectedUnsignedIntegralAttr;
 @property BOOL reflectedBooleanAttr;
-@property(copy) NSString *reflectedURLAttr;
-@property(copy) NSString *reflectedStringAttr;
+@property (copy) NSString *reflectedURLAttr;
+@property (copy) NSString *reflectedStringAttr;
 @property int reflectedCustomIntegralAttr;
 @property BOOL reflectedCustomBooleanAttr;
-@property(copy) NSString *reflectedCustomURLAttr;
+@property (copy) NSString *reflectedCustomURLAttr;
 @property int attrWithGetterException;
 @property int attrWithSetterException;
-@property(copy) NSString *stringAttrWithGetterException;
-@property(copy) NSString *stringAttrWithSetterException;
+@property (copy) NSString *stringAttrWithGetterException;
+@property (copy) NSString *stringAttrWithSetterException;
 @property int customAttr;
 @property int withScriptStateAttribute;
-@property(retain) DOMTestObj *withScriptExecutionContextAttribute;
-@property(retain) DOMTestObj *withScriptStateAttributeRaises;
-@property(retain) DOMTestObj *withScriptExecutionContextAttributeRaises;
-@property(retain) DOMTestObj *withScriptExecutionContextAndScriptStateAttribute;
-@property(retain) DOMTestObj *withScriptExecutionContextAndScriptStateAttributeRaises;
-@property(retain) DOMTestObj *withScriptExecutionContextAndScriptStateWithSpacesAttribute;
-@property(retain) DOMTestObj *withScriptArgumentsAndCallStackAttribute;
+@property (strong) DOMTestObj *withScriptExecutionContextAttribute;
+@property (strong) DOMTestObj *withScriptStateAttributeRaises;
+@property (strong) DOMTestObj *withScriptExecutionContextAttributeRaises;
+@property (strong) DOMTestObj *withScriptExecutionContextAndScriptStateAttribute;
+@property (strong) DOMTestObj *withScriptExecutionContextAndScriptStateAttributeRaises;
+@property (strong) DOMTestObj *withScriptExecutionContextAndScriptStateWithSpacesAttribute;
+@property (strong) DOMTestObj *withScriptArgumentsAndCallStackAttribute;
 @property int conditionalAttr1;
 @property int conditionalAttr2;
 @property int conditionalAttr3;
-@property(retain) DOMTestObjectAConstructor *conditionalAttr4;
-@property(retain) DOMTestObjectBConstructor *conditionalAttr5;
-@property(retain) DOMTestObjectCConstructor *conditionalAttr6;
-@property(retain) DOMany *anyAttribute;
-@property(readonly, retain) DOMDocument *contentDocument;
-@property(retain) DOMSVGPoint *mutablePoint;
-@property(retain) DOMSVGPoint *immutablePoint;
+@property (strong) DOMTestObjectAConstructor *conditionalAttr4;
+@property (strong) DOMTestObjectBConstructor *conditionalAttr5;
+@property (strong) DOMTestObjectCConstructor *conditionalAttr6;
+@property (strong) DOMany *anyAttribute;
+@property (readonly, strong) DOMDocument *contentDocument;
+@property (strong) DOMSVGPoint *mutablePoint;
+@property (strong) DOMSVGPoint *immutablePoint;
 @property int strawberry;
 @property float strictFloat;
-@property(readonly) int descriptionName;
+@property (readonly) int descriptionName;
 @property int idName;
-@property(readonly, copy) NSString *hashName;
-@property(readonly) int replaceableAttribute;
-@property(readonly) double nullableDoubleAttribute;
-@property(readonly) int nullableLongAttribute;
-@property(readonly) BOOL nullableBooleanAttribute;
-@property(readonly, copy) NSString *nullableStringAttribute;
+@property (readonly, copy) NSString *hashName;
+@property (readonly) int replaceableAttribute;
+@property (readonly) double nullableDoubleAttribute;
+@property (readonly) int nullableLongAttribute;
+@property (readonly) BOOL nullableBooleanAttribute;
+@property (readonly, copy) NSString *nullableStringAttribute;
 @property int nullableLongSettableAttribute;
 @property int nullableStringValue;
+@property (readonly, copy) NSString *attribute;
 
 - (void)voidMethod;
 - (void)voidMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg;
@@ -158,24 +155,9 @@ enum {
 - (void)methodWithOptionalString:(NSString *)str;
 - (void)methodWithOptionalStringIsUndefined:(NSString *)str;
 - (void)methodWithOptionalStringIsNullString:(NSString *)str;
-#if ENABLE(Condition1)
-- (NSString *)conditionalMethod1;
-#endif
-#if ENABLE(Condition1) && ENABLE(Condition2)
-- (void)conditionalMethod2;
-#endif
-#if ENABLE(Condition1) || ENABLE(Condition2)
-- (void)conditionalMethod3;
-#endif
 - (void)classMethod;
 - (int)classMethodWithOptional:(int)arg;
 - (void)classMethod2:(int)arg;
-#if ENABLE(Condition1)
-- (void)overloadedMethod1:(int)arg;
-#endif
-#if ENABLE(Condition1)
-- (void)overloadedMethod1:(NSString *)type;
-#endif
 - (DOMSVGDocument *)getSVGDocument;
 - (void)convert1:(DOMTestNode *)value;
 - (void)convert2:(DOMTestNode *)value;
@@ -188,6 +170,5 @@ enum {
 - (void)variadicStringMethod:(NSString *)head tail:(NSString *)tail;
 - (void)variadicDoubleMethod:(double)head tail:(double)tail;
 - (void)variadicNodeMethod:(DOMNode *)head tail:(DOMNode *)tail;
+- (void)any:(float)a b:(int)b;
 @end
-
-#endif

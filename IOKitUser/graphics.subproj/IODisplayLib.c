@@ -209,7 +209,7 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
                 	size_t len = CFDataGetLength(boardId);
                 	if (len > sizeof(gIODisplayBoardID)) len = sizeof(gIODisplayBoardID);
                     strlcpy(gIODisplayBoardID, (const char *) CFDataGetBytePtr(boardId), len);
-                    IOObjectRelease(boardId);
+                    CFRelease(boardId);
                 }
             }
         }
@@ -1799,7 +1799,7 @@ InstallFromCEAShortVideoDesc( IOFBConnectRef connectRef, UInt8 * bytes )
     for (offset = 1; offset < (length + 1); offset++)
     {
         code = bytes[offset] & 0x7F;
-		if (code > CFArrayGetCount(array)) continue;
+		if (code >= CFArrayGetCount(array)) continue;
 		data = CFArrayGetValueAtIndex(array, code);
 		if (CFDataGetTypeID() != CFGetTypeID(data)) continue;
 		if (CFDataGetLength(data) != sizeof(timing->detailedInfo.v2)) continue;
@@ -3248,10 +3248,8 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     {
         if (CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"))
         || ((!CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
-#if 0
             && ((connectRef->displayVendor != kDisplayVendorIDUnknown)
              || (connectRef->displayProduct == kDisplayProductIDGeneric))
-#endif
             && (!edid || ((0xffffffff != connectRef->dimensions.width)
                         && (0xffffffff != connectRef->dimensions.height)))))
         {

@@ -33,6 +33,8 @@
 
 #include "kuser_locl.h"
 
+static void usage (int status) __attribute__((noreturn));
+
 static const char *cache;
 static const char *credential;
 static const char *principal_str;

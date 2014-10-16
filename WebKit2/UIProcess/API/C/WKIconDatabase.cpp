@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WKIconDatabase.h"
 
+#include "APIData.h"
 #include "WKAPICast.h"
 #include "WebIconDatabase.h"
 
@@ -36,7 +37,7 @@ WKTypeID WKIconDatabaseGetTypeID()
     return toAPI(WebIconDatabase::APIType);
 }
 
-void WKIconDatabaseSetIconDatabaseClient(WKIconDatabaseRef iconDatabaseRef, const WKIconDatabaseClient* wkClient)
+void WKIconDatabaseSetIconDatabaseClient(WKIconDatabaseRef iconDatabaseRef, const WKIconDatabaseClientBase* wkClient)
 {
     toImpl(iconDatabaseRef)->initializeIconDatabaseClient(wkClient);
 }
@@ -49,6 +50,28 @@ void WKIconDatabaseRetainIconForURL(WKIconDatabaseRef iconDatabaseRef, WKURLRef 
 void WKIconDatabaseReleaseIconForURL(WKIconDatabaseRef iconDatabaseRef, WKURLRef pageURLRef)
 {
     toImpl(iconDatabaseRef)->releaseIconForPageURL(toWTFString(pageURLRef));
+}
+
+void WKIconDatabaseSetIconDataForIconURL(WKIconDatabaseRef iconDatabaseRef, WKDataRef iconDataRef, WKURLRef iconURLRef)
+{
+    toImpl(iconDatabaseRef)->setIconDataForIconURL(toImpl(iconDataRef)->dataReference(), toWTFString(iconURLRef));
+}
+
+void WKIconDatabaseSetIconURLForPageURL(WKIconDatabaseRef iconDatabaseRef, WKURLRef iconURLRef, WKURLRef pageURLRef)
+{
+    toImpl(iconDatabaseRef)->setIconURLForPageURL(toWTFString(iconURLRef), toWTFString(pageURLRef));
+}
+
+WKURLRef WKIconDatabaseCopyIconURLForPageURL(WKIconDatabaseRef iconDatabaseRef, WKURLRef pageURLRef)
+{
+    String iconURLString;
+    toImpl(iconDatabaseRef)->synchronousIconURLForPageURL(toWTFString(pageURLRef), iconURLString);
+    return toCopiedURLAPI(iconURLString);
+}
+
+WKDataRef WKIconDatabaseCopyIconDataForPageURL(WKIconDatabaseRef iconDatabaseRef, WKURLRef pageURL)
+{
+    return toAPI(toImpl(iconDatabaseRef)->iconDataForPageURL(toWTFString(pageURL)).leakRef());
 }
 
 void WKIconDatabaseEnableDatabaseCleanup(WKIconDatabaseRef iconDatabaseRef)

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,7 +32,7 @@
 #include "Node.h"
 #include "NotImplemented.h"
 #include <windows.h>
-#include <wtf/OwnArrayPtr.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 
@@ -73,7 +73,7 @@ void ContextMenu::getContextMenuItems(HMENU menu, Vector<ContextMenuItem>& items
         }
 
         int menuStringLength = info.cch + 1;
-        OwnArrayPtr<WCHAR> menuString = adoptArrayPtr(new WCHAR[menuStringLength]);
+        auto menuString = std::make_unique<WCHAR[]>(menuStringLength);
         info.dwTypeData = menuString.get();
         info.cch = menuStringLength;
 
@@ -119,11 +119,14 @@ HMENU ContextMenu::createPlatformContextMenuFromItems(const Vector<ContextMenuIt
 #else
         // ContextMenuItem::platformContextMenuItem doesn't set the title of the MENUITEMINFO to make the
         // lifetime handling easier for callers.
-        String itemTitle = item.title();
+        Vector<UChar> wideCharTitle; // Retain buffer for long enough to make the InsertMenuItem call
+
+        const String& itemTitle = item.title();
         if (item.type() != SeparatorType) {
             menuItem.fMask |= MIIM_STRING;
             menuItem.cch = itemTitle.length();
-            menuItem.dwTypeData = const_cast<LPWSTR>(itemTitle.charactersWithNullTermination());
+            wideCharTitle = itemTitle.charactersWithNullTermination();
+            menuItem.dwTypeData = const_cast<LPWSTR>(wideCharTitle.data());
         }
 
         ::InsertMenuItem(menu, i, TRUE, &menuItem);

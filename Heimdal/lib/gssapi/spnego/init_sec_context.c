@@ -263,7 +263,7 @@ spnego_initial(OM_uint32 * minor_status,
     int ret;
     OM_uint32 sub, minor;
     gss_buffer_desc mech_token;
-    size_t size;
+    size_t size = 0;
     gss_buffer_desc data;
     spnego_name name = (spnego_name)target_name;
     struct mech_selection sel;
@@ -439,11 +439,11 @@ spnego_reply(OM_uint32 * minor_status,
     }
 
     /*
-     * Pick up the mechanism that the acceptor selected, only allow it
-     * to be sent in packet.
+     * Pick up the mechanism that the acceptor selected, only pick up
+     * the first selection.
      */
 
-    if (resp.u.negTokenResp.supportedMech || ctx->flags.seen_supported_mech == 0) {
+    if (ctx->selected_mech_type == NULL && resp.u.negTokenResp.supportedMech) {
 	gss_OID_desc oid;
 	size_t len;
 
@@ -468,25 +468,39 @@ spnego_reply(OM_uint32 * minor_status,
 	if (gss_oid_equal(GSS_SPNEGO_MECHANISM, &oid)) {
 	    free(oid.elements);
 	    free_NegotiationToken(&resp);
-	    return GSS_S_BAD_MECH;
+	    return gss_mg_set_error_string(GSS_SPNEGO_MECHANISM,
+					   GSS_S_BAD_MECH, (*minor_status = EINVAL),
+					   "SPNEGO acceptor picked SPNEGO??");
 	}
 
 	/* check if the acceptor took our optimistic token */
-	if (!gss_oid_equal(ctx->preferred_mech_type, &oid) &&
-	    (!gss_oid_equal(ctx->preferred_mech_type, GSS_KRB5_MECHANISM) ||
-	     !gss_oid_equal(&oid, &_gss_spnego_mskrb_mechanism_oid_desc)))
-	{
+	if (gss_oid_equal(ctx->preferred_mech_type, &oid)) {
+	    ctx->selected_mech_type = ctx->preferred_mech_type;
+	} else if (gss_oid_equal(ctx->preferred_mech_type, GSS_KRB5_MECHANISM) &&
+		   gss_oid_equal(&oid, &_gss_spnego_mskrb_mechanism_oid_desc)) {
+	    /* mis-encoded asn1 type from msft servers */
+	    ctx->selected_mech_type = ctx->preferred_mech_type;
+	} else {
 	    /* nope, lets start over */
-	    free(oid.elements);
 	    gss_delete_sec_context(&minor, &ctx->negotiated_ctx_id,
 				   GSS_C_NO_BUFFER);
 	    ctx->negotiated_ctx_id = GSS_C_NO_CONTEXT;
-	} else {
-	    gss_duplicate_oid(minor_status, &oid, &ctx->selected_mech_type);
-	    free(oid.elements);
+
+	    ctx->selected_mech_type = _gss_mg_support_mechanism(&oid);
+
+	    /* XXX check that server pick a mechanism we proposed */
+	    if (ctx->selected_mech_type == GSS_C_NO_OID) {
+		free(oid.elements);
+		free_NegotiationToken(&resp);
+		return gss_mg_set_error_string(GSS_SPNEGO_MECHANISM,
+					       GSS_S_BAD_MECH, (*minor_status = EINVAL),
+					       "SPNEGO acceptor send supportedMech we don't support");
+	    }
 	}
 
-    } else if (!ctx->flags.seen_supported_mech) {
+	free(oid.elements);
+
+    } else if (ctx->selected_mech_type == NULL) {
 	free_NegotiationToken(&resp);
 	return gss_mg_set_error_string(GSS_SPNEGO_MECHANISM,
 				       GSS_S_BAD_MECH, (*minor_status = EINVAL),
@@ -533,6 +547,13 @@ spnego_reply(OM_uint32 * minor_status,
     } else if (*resp.u.negTokenResp.negResult == accept_completed) {
 	if (ctx->flags.maybe_open)
 	    ctx->flags.open = 1;
+
+	if (!ctx->flags.open) {
+	    return gss_mg_set_error_string(GSS_SPNEGO_MECHANISM,
+					   GSS_S_BAD_MECH, (*minor_status = EINVAL),
+					   "SPNEGO acceptor send acceptor compete, "
+					   "but we are not complete yet");
+	}
     }
 
     if (*resp.u.negTokenResp.negResult == request_mic) {

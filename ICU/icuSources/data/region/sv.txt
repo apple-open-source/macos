@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/sv.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/sv.xml
+ * ICU <specials> source: <path>/common/main/sv.xml
  */
 sv{
     Countries{
@@ -142,7 +142,7 @@ sv{
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
         HK{"Hongkong (S.A.R. Kina)"}
-        HM{"Heard- och McDonaldöarna"}
+        HM{"Heardön och McDonaldöarna"}
         HN{"Honduras"}
         HR{"Kroatien"}
         HT{"Haiti"}
@@ -153,7 +153,7 @@ sv{
         IL{"Israel"}
         IM{"Isle of Man"}
         IN{"Indien"}
-        IO{"Brittiska Indiska oceanöarna"}
+        IO{"Brittiska territoriet i Indiska oceanen"}
         IQ{"Irak"}
         IR{"Iran"}
         IS{"Island"}
@@ -193,7 +193,7 @@ sv{
         MH{"Marshallöarna"}
         MK{"Makedonien"}
         ML{"Mali"}
-        MM{"Myanmar"}
+        MM{"Myanmar (Burma)"}
         MN{"Mongoliet"}
         MO{"Macao (S.A.R. Kina)"}
         MP{"Nordmarianerna"}
@@ -230,12 +230,12 @@ sv{
         PM{"S:t Pierre och Miquelon"}
         PN{"Pitcairnöarna"}
         PR{"Puerto Rico"}
-        PS{"Palestinska territoriet"}
+        PS{"Palestinska territorierna"}
         PT{"Portugal"}
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Qatar"}
-        QO{"Yttre öar i Oceanien"}
+        QO{"yttre öar i Oceanien"}
         RE{"Réunion"}
         RO{"Rumänien"}
         RS{"Serbien"}
@@ -265,7 +265,7 @@ sv{
         TA{"Tristan da Cunha"}
         TC{"Turks- och Caicosöarna"}
         TD{"Tchad"}
-        TF{"Franska Sydterritorierna"}
+        TF{"Franska sydterritorierna"}
         TG{"Togo"}
         TH{"Thailand"}
         TJ{"Tadzjikistan"}
@@ -294,6 +294,7 @@ sv{
         VU{"Vanuatu"}
         WF{"Wallis- och Futunaöarna"}
         WS{"Samoa"}
+        XK{"Kosovo"}
         YE{"Jemen"}
         YT{"Mayotte"}
         ZA{"Sydafrika"}
@@ -301,5 +302,12 @@ sv{
         ZW{"Zimbabwe"}
         ZZ{"okänd region"}
     }
-    Version{"2.0.82.57"}
+    CountriesShort{
+        GB{"Storbritannien"}
+        HK{"Hongkong"}
+        MO{"Macao"}
+        PS{"Palestina"}
+        US{"USA"}
+    }
+    Version{"2.0.99.20"}
 }

@@ -26,27 +26,13 @@
 
 #pragma ident	"@(#)dt_cg.c	1.13	05/07/31 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/sysmacros.h>
-#include <sys/isa_defs.h>
 
 #include <strings.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <assert.h>
 #include <errno.h>
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/isa_defs.h> */
-
-#include <strings.h>
-#include <stdlib.h>
-#include <setjmp.h>
-#include <assert.h>
-#include <errno.h>
-#endif /* __APPLE__ */
 
 #include <dt_impl.h>
 #include <dt_grammar.h>
@@ -524,7 +510,6 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
  * implies that a DIF implementation should offer a number of general purpose
  * registers at least one greater than the number of tuple registers.
  */
-#if defined(__APPLE__)
 /* Changes for <rdar://problem/6790024> */
 static void
 dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
@@ -583,57 +568,6 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
 }
-#else
-static void
-dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
-    dt_irlist_t *dlp, dt_regset_t *drp)
-{
-	const dt_idsig_t *isp = idp->di_data;
-	dt_node_t *dnp;
-	int i = 0;
-
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
-		dt_cg_node(dnp, dlp, drp);
-
-	dt_irlist_append(dlp,
-	    dt_cg_node_alloc(DT_LBL_NONE, DIF_INSTR_FLUSHTS));
-
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
-		dtrace_diftype_t t;
-		dif_instr_t instr;
-		uint_t op;
-		int reg;
-
-		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
-
-		isp->dis_args[i].dn_reg = dnp->dn_reg; /* re-use register */
-		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
-		isp->dis_args[i].dn_reg = -1;
-
-		if (t.dtdt_flags & DIF_TF_BYREF)
-			op = DIF_OP_PUSHTR;
-		else
-			op = DIF_OP_PUSHTV;
-
-		if (t.dtdt_size != 0) {
-			if ((reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			dt_cg_setx(dlp, reg, t.dtdt_size);
-		} else
-			reg = DIF_REG_R0;
-
-		instr = DIF_INSTR_PUSHTS(op, t.dtdt_kind, reg, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, dnp->dn_reg);
-
-		if (reg != DIF_REG_R0)
-			dt_regset_free(drp, reg);
-	}
-
-	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
-}
-#endif
 
 static void
 dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp,

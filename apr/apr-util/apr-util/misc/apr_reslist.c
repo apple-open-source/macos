@@ -24,8 +24,6 @@
 #include "apr_thread_cond.h"
 #include "apr_ring.h"
 
-#if APR_HAS_THREADS
-
 /**
  * A single resource element.
  */
@@ -56,8 +54,10 @@ struct apr_reslist_t {
     void *params; /* opaque data passed to constructor and destructor calls */
     apr_resring_t avail_list;
     apr_resring_t free_list;
+#if APR_HAS_THREADS
     apr_thread_mutex_t *listlock;
     apr_thread_cond_t *avail;
+#endif
 };
 
 /**
@@ -141,7 +141,9 @@ static apr_status_t reslist_cleanup(void *data_)
     apr_reslist_t *rl = data_;
     apr_res_t *res;
 
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(rl->listlock);
+#endif
 
     while (rl->nidle > 0) {
         apr_status_t rv1;
@@ -158,9 +160,11 @@ static apr_status_t reslist_cleanup(void *data_)
     assert(rl->nidle == 0);
     assert(rl->ntotal == 0);
 
+#if APR_HAS_THREADS
     apr_thread_mutex_unlock(rl->listlock);
     apr_thread_mutex_destroy(rl->listlock);
     apr_thread_cond_destroy(rl->avail);
+#endif
 
     return rv;
 }
@@ -169,14 +173,16 @@ static apr_status_t reslist_cleanup(void *data_)
  * Perform routine maintenance on the resource list. This call
  * may instantiate new resources or expire old resources.
  */
-static apr_status_t reslist_maint(apr_reslist_t *reslist)
+APU_DECLARE(apr_status_t) apr_reslist_maintain(apr_reslist_t *reslist)
 {
     apr_time_t now;
     apr_status_t rv;
     apr_res_t *res;
     int created_one = 0;
 
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(reslist->listlock);
+#endif
 
     /* Check if we need to create more resources, and if we are allowed to. */
     while (reslist->nidle < reslist->min && reslist->ntotal < reslist->hmax) {
@@ -184,7 +190,9 @@ static apr_status_t reslist_maint(apr_reslist_t *reslist)
         rv = create_resource(reslist, &res);
         if (rv != APR_SUCCESS) {
             free_container(reslist, res);
+#if APR_HAS_THREADS
             apr_thread_mutex_unlock(reslist->listlock);
+#endif
             return rv;
         }
         /* Add it to the list */
@@ -192,17 +200,21 @@ static apr_status_t reslist_maint(apr_reslist_t *reslist)
         /* Update our counters */
         reslist->ntotal++;
         /* If someone is waiting on that guy, wake them up. */
+#if APR_HAS_THREADS
         rv = apr_thread_cond_signal(reslist->avail);
         if (rv != APR_SUCCESS) {
             apr_thread_mutex_unlock(reslist->listlock);
             return rv;
         }
+#endif
         created_one++;
     }
 
     /* We don't need to see if we're over the max if we were under it before */
     if (created_one) {
+#if APR_HAS_THREADS
         apr_thread_mutex_unlock(reslist->listlock);
+#endif
         return APR_SUCCESS;
     }
 
@@ -223,12 +235,16 @@ static apr_status_t reslist_maint(apr_reslist_t *reslist)
         rv = destroy_resource(reslist, res);
         free_container(reslist, res);
         if (rv != APR_SUCCESS) {
+#if APR_HAS_THREADS
             apr_thread_mutex_unlock(reslist->listlock);
+#endif
             return rv;
         }
     }
 
+#if APR_HAS_THREADS
     apr_thread_mutex_unlock(reslist->listlock);
+#endif
     return APR_SUCCESS;
 }
 
@@ -250,6 +266,17 @@ APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
         return APR_EINVAL;
     }
 
+#if !APR_HAS_THREADS
+    /* There can be only one resource when we have no threads. */
+    if (min > 0) {
+        min = 1;
+    }
+    if (smax > 0) {
+        smax = 1;
+    }
+    hmax = 1;
+#endif
+
     rl = apr_pcalloc(pool, sizeof(*rl));
     rl->pool = pool;
     rl->min = min;
@@ -263,6 +290,7 @@ APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
     APR_RING_INIT(&rl->avail_list, apr_res_t, link);
     APR_RING_INIT(&rl->free_list, apr_res_t, link);
 
+#if APR_HAS_THREADS
     rv = apr_thread_mutex_create(&rl->listlock, APR_THREAD_MUTEX_DEFAULT,
                                  pool);
     if (rv != APR_SUCCESS) {
@@ -272,8 +300,9 @@ APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
     if (rv != APR_SUCCESS) {
         return rv;
     }
+#endif
 
-    rv = reslist_maint(rl);
+    rv = apr_reslist_maintain(rl);
     if (rv != APR_SUCCESS) {
         /* Destroy what we've created so far.
          */
@@ -301,7 +330,9 @@ APU_DECLARE(apr_status_t) apr_reslist_acquire(apr_reslist_t *reslist,
     apr_res_t *res;
     apr_time_t now;
 
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(reslist->listlock);
+#endif
     /* If there are idle resources on the available list, use
      * them right away. */
     now = apr_time_now();
@@ -314,19 +345,24 @@ APU_DECLARE(apr_status_t) apr_reslist_acquire(apr_reslist_t *reslist,
             rv = destroy_resource(reslist, res);
             free_container(reslist, res);
             if (rv != APR_SUCCESS) {
+#if APR_HAS_THREADS
                 apr_thread_mutex_unlock(reslist->listlock);
+#endif
                 return rv;  /* FIXME: this might cause unnecessary fails */
             }
             continue;
         }
         *resource = res->opaque;
         free_container(reslist, res);
+#if APR_HAS_THREADS
         apr_thread_mutex_unlock(reslist->listlock);
+#endif
         return APR_SUCCESS;
     }
     /* If we've hit our max, block until we're allowed to create
      * a new one, or something becomes free. */
     while (reslist->ntotal >= reslist->hmax && reslist->nidle <= 0) {
+#if APR_HAS_THREADS
         if (reslist->timeout) {
             if ((rv = apr_thread_cond_timedwait(reslist->avail, 
                 reslist->listlock, reslist->timeout)) != APR_SUCCESS) {
@@ -337,6 +373,9 @@ APU_DECLARE(apr_status_t) apr_reslist_acquire(apr_reslist_t *reslist,
         else {
             apr_thread_cond_wait(reslist->avail, reslist->listlock);
         }
+#else
+        return APR_EAGAIN;
+#endif
     }
     /* If we popped out of the loop, first try to see if there
      * are new resources available for immediate use. */
@@ -344,7 +383,9 @@ APU_DECLARE(apr_status_t) apr_reslist_acquire(apr_reslist_t *reslist,
         res = pop_resource(reslist);
         *resource = res->opaque;
         free_container(reslist, res);
+#if APR_HAS_THREADS
         apr_thread_mutex_unlock(reslist->listlock);
+#endif
         return APR_SUCCESS;
     }
     /* Otherwise the reason we dropped out of the loop
@@ -357,7 +398,9 @@ APU_DECLARE(apr_status_t) apr_reslist_acquire(apr_reslist_t *reslist,
             *resource = res->opaque;
         }
         free_container(reslist, res);
+#if APR_HAS_THREADS
         apr_thread_mutex_unlock(reslist->listlock);
+#endif
         return rv;
     }
 }
@@ -367,14 +410,18 @@ APU_DECLARE(apr_status_t) apr_reslist_release(apr_reslist_t *reslist,
 {
     apr_res_t *res;
 
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(reslist->listlock);
+#endif
     res = get_container(reslist);
     res->opaque = resource;
     push_resource(reslist, res);
+#if APR_HAS_THREADS
     apr_thread_cond_signal(reslist->avail);
     apr_thread_mutex_unlock(reslist->listlock);
+#endif
 
-    return reslist_maint(reslist);
+    return apr_reslist_maintain(reslist);
 }
 
 APU_DECLARE(void) apr_reslist_timeout_set(apr_reslist_t *reslist,
@@ -387,9 +434,13 @@ APU_DECLARE(apr_uint32_t) apr_reslist_acquired_count(apr_reslist_t *reslist)
 {
     apr_uint32_t count;
 
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(reslist->listlock);
+#endif
     count = reslist->ntotal - reslist->nidle;
+#if APR_HAS_THREADS
     apr_thread_mutex_unlock(reslist->listlock);
+#endif
 
     return count;
 }
@@ -398,12 +449,25 @@ APU_DECLARE(apr_status_t) apr_reslist_invalidate(apr_reslist_t *reslist,
                                                  void *resource)
 {
     apr_status_t ret;
+#if APR_HAS_THREADS
     apr_thread_mutex_lock(reslist->listlock);
+#endif
     ret = reslist->destructor(resource, reslist->params, reslist->pool);
     reslist->ntotal--;
+#if APR_HAS_THREADS
     apr_thread_cond_signal(reslist->avail);
     apr_thread_mutex_unlock(reslist->listlock);
+#endif
     return ret;
 }
 
-#endif  /* APR_HAS_THREADS */
+APU_DECLARE(void) apr_reslist_cleanup_order_set(apr_reslist_t *rl,
+                                                apr_uint32_t mode)
+{
+    apr_pool_cleanup_kill(rl->pool, rl, reslist_cleanup);
+    if (mode == APR_RESLIST_CLEANUP_FIRST)
+        apr_pool_pre_cleanup_register(rl->pool, rl, reslist_cleanup);
+    else
+        apr_pool_cleanup_register(rl->pool, rl, reslist_cleanup,
+                                  apr_pool_cleanup_null);
+}

@@ -2605,6 +2605,8 @@ slapd_daemon_task(
                                  });
 #endif
 
+	int pwsfd = open("/private/var/run/com.apple.slapd.start", O_CREAT|O_TRUNC|O_RDWR, 0600);
+	if(pwsfd >= 0) close(pwsfd);
 #endif /* __APPLE__ */
 
 loop:
@@ -3123,6 +3125,7 @@ loop:
                   "daemon: posting daemon shutdown notification.\n",
                   0, 0, 0 );
         notify_post("com.apple.slapd.shutdown");
+	unlink("/private/var/run/com.apple.slapd.start");
 #endif /* __APPLE__ */
 
 	return NULL;

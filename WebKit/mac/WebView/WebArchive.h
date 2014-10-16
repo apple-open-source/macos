@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -58,7 +58,7 @@ extern NSString *WebArchivePboardType;
     @param subframeArchives The archives representing the subframes of the archive (can be nil).
     @result An initialized WebArchive.
 */
-- (id)initWithMainResource:(WebResource *)mainResource subresources:(NSArray *)subresources subframeArchives:(NSArray *)subframeArchives;
+- (instancetype)initWithMainResource:(WebResource *)mainResource subresources:(NSArray *)subresources subframeArchives:(NSArray *)subframeArchives;
 
 /*!
     @method initWithData:
@@ -66,32 +66,32 @@ extern NSString *WebArchivePboardType;
     @param data The data representing the archive. This can be obtained using WebArchive's data method.
     @result An initialized WebArchive.
 */
-- (id)initWithData:(NSData *)data;
+- (instancetype)initWithData:(NSData *)data;
 
 /*!
-    @method mainResource
-    @result The main resource of the archive.
+    @property mainResource
+    @abstract The main resource of the archive.
 */
-- (WebResource *)mainResource;
+@property (nonatomic, readonly, strong) WebResource *mainResource;
 
 /*!
-    @method subresources
-    @result The subresource of the archive (can be nil).
+    @property subresources
+    @abstract The subresource of the archive (can be nil).
 */
-- (NSArray *)subresources;
+@property (nonatomic, readonly, copy) NSArray *subresources;
 
 /*!
-    @method subframeArchives
-    @result The archives representing the subframes of the archive (can be nil).
+    @property subframeArchives
+    @abstract The archives representing the subframes of the archive (can be nil).
 */
-- (NSArray *)subframeArchives;
+@property (nonatomic, readonly, copy) NSArray *subframeArchives;
 
 /*!
-    @method data
-    @result The data representation of the archive.
+    @property data
+    @abstract The data representation of the archive.
     @discussion The data returned by this method can be used to save a web archive to a file or to place a web archive on the pasteboard
     using WebArchivePboardType. To create a WebArchive using the returned data, call initWithData:.
 */
-- (NSData *)data;
+@property (nonatomic, readonly, copy) NSData *data;
 
 @end

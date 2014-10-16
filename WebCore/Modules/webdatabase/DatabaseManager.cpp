@@ -53,7 +53,7 @@ DatabaseManager::ProposedDatabase::ProposedDatabase(DatabaseManager& manager,
     SecurityOrigin* origin, const String& name, const String& displayName, unsigned long estimatedSize)
     : m_manager(manager)
     , m_origin(origin->isolatedCopy())
-    , m_details(name.isolatedCopy(), displayName.isolatedCopy(), estimatedSize, 0)
+    , m_details(name.isolatedCopy(), displayName.isolatedCopy(), estimatedSize, 0, 0, 0)
 {
     m_manager.addProposedDatabase(this);
 }
@@ -117,32 +117,9 @@ void DatabaseManager::setIsAvailable(bool available)
     m_databaseIsAvailable = available;
 }
 
-class DatabaseCreationCallbackTask : public ScriptExecutionContext::Task {
-public:
-    static PassOwnPtr<DatabaseCreationCallbackTask> create(PassRefPtr<Database> database, PassRefPtr<DatabaseCallback> creationCallback)
-    {
-        return adoptPtr(new DatabaseCreationCallbackTask(database, creationCallback));
-    }
-
-    virtual void performTask(ScriptExecutionContext*)
-    {
-        m_creationCallback->handleEvent(m_database.get());
-    }
-
-private:
-    DatabaseCreationCallbackTask(PassRefPtr<Database> database, PassRefPtr<DatabaseCallback> callback)
-        : m_database(database)
-        , m_creationCallback(callback)
-    {
-    }
-
-    RefPtr<Database> m_database;
-    RefPtr<DatabaseCallback> m_creationCallback;
-};
-
 PassRefPtr<DatabaseContext> DatabaseManager::existingDatabaseContextFor(ScriptExecutionContext* context)
 {
-    MutexLocker locker(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     ASSERT(m_databaseContextRegisteredCount >= 0);
     ASSERT(m_databaseContextInstanceCount >= 0);
@@ -173,7 +150,8 @@ PassRefPtr<DatabaseContext> DatabaseManager::databaseContextFor(ScriptExecutionC
 
 void DatabaseManager::registerDatabaseContext(DatabaseContext* databaseContext)
 {
-    MutexLocker locker(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     ScriptExecutionContext* context = databaseContext->scriptExecutionContext();
     m_contextMap.set(context, databaseContext);
 #if !ASSERT_DISABLED
@@ -183,7 +161,8 @@ void DatabaseManager::registerDatabaseContext(DatabaseContext* databaseContext)
 
 void DatabaseManager::unregisterDatabaseContext(DatabaseContext* databaseContext)
 {
-    MutexLocker locker(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     ScriptExecutionContext* context = databaseContext->scriptExecutionContext();
     ASSERT(m_contextMap.get(context));
 #if !ASSERT_DISABLED
@@ -195,13 +174,15 @@ void DatabaseManager::unregisterDatabaseContext(DatabaseContext* databaseContext
 #if !ASSERT_DISABLED
 void DatabaseManager::didConstructDatabaseContext()
 {
-    MutexLocker lock(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     m_databaseContextInstanceCount++;
 }
 
 void DatabaseManager::didDestructDatabaseContext()
 {
-    MutexLocker lock(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     m_databaseContextInstanceCount--;
     ASSERT(m_databaseContextRegisteredCount <= m_databaseContextInstanceCount);
 }
@@ -262,9 +243,10 @@ PassRefPtr<DatabaseBackendBase> DatabaseManager::openDatabaseBackend(ScriptExecu
             // Notify the client that we've exceeded the database quota.
             // The client may want to increase the quota, and we'll give it
             // one more try after if that is the case.
-            databaseContext->databaseExceededQuota(name,
-                DatabaseDetails(name.isolatedCopy(), displayName.isolatedCopy(), estimatedSize, 0));
-
+            {
+                ProposedDatabase proposedDb(*this, context->securityOrigin(), name, displayName, estimatedSize);
+                databaseContext->databaseExceededQuota(name, proposedDb.details());
+            }
             error = DatabaseError::None;
 
             backend = m_server->openDatabase(backendContext, type, name, expectedVersion,
@@ -294,13 +276,15 @@ PassRefPtr<DatabaseBackendBase> DatabaseManager::openDatabaseBackend(ScriptExecu
 
 void DatabaseManager::addProposedDatabase(ProposedDatabase* proposedDb)
 {
-    MutexLocker locker(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     m_proposedDatabases.add(proposedDb);
 }
 
 void DatabaseManager::removeProposedDatabase(ProposedDatabase* proposedDb)
 {
-    MutexLocker locker(m_lock);
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     m_proposedDatabases.remove(proposedDb);
 }
 
@@ -327,7 +311,9 @@ PassRefPtr<Database> DatabaseManager::openDatabase(ScriptExecutionContext* conte
 
     if (backend->isNew() && creationCallback.get()) {
         LOG(StorageAPI, "Scheduling DatabaseCreationCallbackTask for database %p\n", database.get());
-        database->m_scriptExecutionContext->postTask(DatabaseCreationCallbackTask::create(database, creationCallback));
+        database->m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
+            creationCallback->handleEvent(database.get());
+        });
     }
 
     ASSERT(database);
@@ -378,11 +364,14 @@ void DatabaseManager::stopDatabases(ScriptExecutionContext* context, DatabaseTas
 String DatabaseManager::fullPathForDatabase(SecurityOrigin* origin, const String& name, bool createIfDoesNotExist)
 {
     {
-        MutexLocker locker(m_lock);
-        for (HashSet<ProposedDatabase*>::iterator iter = m_proposedDatabases.begin(); iter != m_proposedDatabases.end(); ++iter)
-            if ((*iter)->details().name() == name && (*iter)->origin()->equal(origin))
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        for (auto* proposedDatabase : m_proposedDatabases) {
+            if (proposedDatabase->details().name() == name && proposedDatabase->origin()->equal(origin))
                 return String();
+        }
     }
+    
     return m_server->fullPathForDatabase(origin, name, createIfDoesNotExist);
 }
 
@@ -391,7 +380,7 @@ bool DatabaseManager::hasEntryForOrigin(SecurityOrigin* origin)
     return m_server->hasEntryForOrigin(origin);
 }
 
-void DatabaseManager::origins(Vector<RefPtr<SecurityOrigin> >& result)
+void DatabaseManager::origins(Vector<RefPtr<SecurityOrigin>>& result)
 {
     m_server->origins(result);
 }
@@ -404,13 +393,17 @@ bool DatabaseManager::databaseNamesForOrigin(SecurityOrigin* origin, Vector<Stri
 DatabaseDetails DatabaseManager::detailsForNameAndOrigin(const String& name, SecurityOrigin* origin)
 {
     {
-        MutexLocker locker(m_lock);
-        for (HashSet<ProposedDatabase*>::iterator iter = m_proposedDatabases.begin(); iter != m_proposedDatabases.end(); ++iter)
-            if ((*iter)->details().name() == name && (*iter)->origin()->equal(origin)) {
-                ASSERT((*iter)->details().thread() == currentThread() || isMainThread());
-                return (*iter)->details();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        
+        for (auto* proposedDatabase : m_proposedDatabases) {
+            if (proposedDatabase->details().name() == name && proposedDatabase->origin()->equal(origin)) {
+                ASSERT(proposedDatabase->details().threadID() == std::this_thread::get_id() || isMainThread());
+                
+                return proposedDatabase->details();
             }
+        }
     }
+    
     return m_server->detailsForNameAndOrigin(name, origin);
 }
 
@@ -453,7 +446,7 @@ void DatabaseManager::interruptAllDatabasesForContext(ScriptExecutionContext* co
 
 void DatabaseManager::logErrorMessage(ScriptExecutionContext* context, const String& message)
 {
-    context->addConsoleMessage(StorageMessageSource, ErrorMessageLevel, message);
+    context->addConsoleMessage(MessageSource::Storage, MessageLevel::Error, message);
 }
 
 } // namespace WebCore

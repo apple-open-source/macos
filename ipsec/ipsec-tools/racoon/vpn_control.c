@@ -222,6 +222,7 @@ vpncontrol_handler(void *unused)
     int sock;
 
 	struct vpnctl_socket_elem *sock_elem;
+
 	
     sock_elem = racoon_malloc(sizeof(struct vpnctl_socket_elem));
 	if (sock_elem == NULL) {
@@ -1021,6 +1022,7 @@ vpncontrol_close_comm(struct vpnctl_socket_elem *elem)
 	}
 	racoon_free(elem);
 	check_auto_exit();
+
 }
 
 int

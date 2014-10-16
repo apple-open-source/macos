@@ -9,17 +9,17 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="../"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Apache mod_rewrite</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Apache mod_rewrite</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/rewrite/" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/rewrite/" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -29,7 +29,7 @@
 
 
     <p><code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> provides a way to modify incoming
-    URL requests, dynamically, based on <a href="intro.html#regex">regular 
+    URL requests, dynamically, based on <a href="intro.html#regex">regular
     expression</a> rules. This allows you to map arbitrary URLs onto
     your internal URL structure in any way you like.</p>
 
@@ -69,7 +69,7 @@ documentation</a></li>
 <li><a href="vhosts.html">Dynamic virtual hosts with mod_rewrite</a></li>
 <li><a href="proxy.html">Dynamic proxying with mod_rewrite</a></li>
 <li><a href="rewritemap.html">Using RewriteMap</a></li>
-<li><a href="advanced.html">Advanced techniques and tricks</a></li>
+<li><a href="advanced.html">Advanced techniques</a></li>
 <li><a href="avoid.html">When <strong>NOT</strong> to use mod_rewrite</a></li>
 <li><a href="flags.html">RewriteRule Flags</a></li>
 <li><a href="tech.html">Technical details</a></li>
@@ -85,7 +85,7 @@ wiki</a></li><li><a href="../glossary.html">Glossary</a></li></ul></div>
 <a href="../tr/rewrite/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/rewrite/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

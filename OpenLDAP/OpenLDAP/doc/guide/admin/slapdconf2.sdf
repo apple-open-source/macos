@@ -560,6 +560,8 @@ H4: olcSyncrepl
 >		[tls_key=<file>]
 >		[tls_cacert=<file>]
 >		[tls_cacertdir=<path>]
+>		[tls_identity=<name>]
+>		[tls_trusted_certs=<list>]
 >		[tls_reqcert=never|allow|try|demand]
 >		[tls_ciphersuite=<ciphers>]
 >		[tls_crlcheck=none|peer|all]

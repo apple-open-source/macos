@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,7 +19,7 @@
 
 [
     Constructor,
-    ImplementationLacksVTable
+    ImplementationLacksVTable,
 ] interface XPathEvaluator {
     [RaisesException] XPathExpression createExpression([Default=Undefined] optional DOMString expression,
                                      [Default=Undefined] optional XPathNSResolver resolver);

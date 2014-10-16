@@ -1,0 +1,63 @@
+preamble:
+0000000          00001234        00000001        000003fe        00000004
+                 byte order      version         data type       ptr size
+0000020          03935c50        000000cf        
+                 base ptr        # of bytes
+
+CSSM_ACL_OWNER_PROTOTYPE:
+                                                 00000000        03935c60
+												 TypedSubject.   TypedSubject.
+												 ListType        Head
+0000040          03935ca8        00000000        
+                 TypedSubject.   Delegate
+				 Tail
+
+TypedSubject.Head:
+                                                 03935c78        0000007b
+												 NextElement     WordID
+0000060          00000002        00060000        00000023        00000000
+                 ElementType     <value>         <ignored>       <ignored>
+TypedSubject.Head->NextElement:
+0000100          03935c90        00000001        00000002        000a0000
+                 NextElement     WordID          ElementType     <value>
+0000120          00000023        00000000        
+                 <ignored>       <ignored>
+TypedSubject.Head->NextElement->NextElement:
+                                                 03935ca8        00000001
+												 NextElement     WordID
+0000140          00000002        00080000        00000023        00000000
+                 ElementType     <value>         <ignored>       <ignored>
+TypedSubject.Head->NextElement->NextElement->NextElement:
+0000160          00000000        00000000        00000001        00000000
+                 NextElement     WordID          ElementType     Sublist.
+				                                                 ListType
+0000200          03935cc0        03935cf4        
+                 Sublist.Head    Sublist.Tail
+TypedSubject.Head->NextElement->NextElement->NextElement->Sublist.Head:
+                                                 03935cd8        00010000
+												 NextElement     WordID
+0000220          00000002        00225c10        00000026        00000000
+                 ElementType     <value>         <ignored>       <ignored>
+TypedSubject.Head->NextElement->NextElement->NextElement->Sublist.Head->NextElement:
+0000240          03935cf4        00000000        00000000        00000004
+				 NextElement     WordID          ElementType     Element.Word.
+				                                                 Length
+0000260          03935cf0        00000000        
+                 Element.Word.   <ignored>
+				 Data
+TypedSubject.Head->NextElement->NextElement->NextElement->Sublist.Head->NextElement->Element.Word.Data:
+                                                 01010000                
+												 Data
+TypedSubject.Head->NextElement->NextElement->NextElement->Sublist.Head->NextElement->NextElement:
+                                                                 00000000
+																 NextElement
+0000300          00000000        00000000        00000013        03935d0c
+                 WordID          ElementType     Element.Word.   Element.Word.
+				                                 Length          Data
+0000320          00000000        
+                 <ignored>
+TypedSubject.Head->NextElement->NextElement->NextElement->Sublist.Head->NextElement->NextElement->Element.Word.Data:
+                                 49505365        63205368        61726564
+								  I P S e         c   S h         a r e d
+0000340          20536563        72657400                                
+                    S e c         r e t

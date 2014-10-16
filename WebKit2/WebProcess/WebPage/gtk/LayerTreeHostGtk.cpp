@@ -40,10 +40,10 @@
 #include <GL/gl.h>
 #endif
 
-#include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/GLContext.h>
 #include <WebCore/GraphicsLayerTextureMapper.h>
+#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
 #include <wtf/CurrentTime.h>
@@ -74,7 +74,6 @@ LayerTreeHostGtk::LayerTreeHostGtk(WebPage* webPage)
     , m_notifyAfterScheduledLayerFlush(false)
     , m_lastFlushTime(0)
     , m_layerFlushSchedulingEnabled(true)
-    , m_layerFlushTimerCallbackId(0)
 {
 }
 
@@ -93,16 +92,16 @@ GLContext* LayerTreeHostGtk::glContext()
 
 void LayerTreeHostGtk::initialize()
 {
-    m_rootLayer = GraphicsLayer::create(graphicsLayerFactory(), this);
+    m_rootLayer = GraphicsLayer::create(graphicsLayerFactory(), *this);
     m_rootLayer->setDrawsContent(false);
     m_rootLayer->setSize(m_webPage->size());
 
     // The non-composited contents are a child of the root layer.
-    m_nonCompositedContentLayer = GraphicsLayer::create(graphicsLayerFactory(), this);
+    m_nonCompositedContentLayer = GraphicsLayer::create(graphicsLayerFactory(), *this);
     m_nonCompositedContentLayer->setDrawsContent(true);
     m_nonCompositedContentLayer->setContentsOpaque(m_webPage->drawsBackground() && !m_webPage->drawsTransparentBackground());
     m_nonCompositedContentLayer->setSize(m_webPage->size());
-    if (m_webPage->corePage()->settings()->acceleratedDrawingEnabled())
+    if (m_webPage->corePage()->settings().acceleratedDrawingEnabled())
         m_nonCompositedContentLayer->setAcceleratesDrawing(true);
 
 #ifndef NDEBUG
@@ -113,27 +112,20 @@ void LayerTreeHostGtk::initialize()
     m_rootLayer->addChild(m_nonCompositedContentLayer.get());
     m_nonCompositedContentLayer->setNeedsDisplay();
 
-    m_layerTreeContext.windowHandle = m_webPage->nativeWindowHandle();
+    m_layerTreeContext.contextID = m_webPage->nativeWindowHandle();
 
     GLContext* context = glContext();
-    if (!context) {
-        m_isValid = false;
+    if (!context)
         return;
-    }
 
     // The creation of the TextureMapper needs an active OpenGL context.
     context->makeContextCurrent();
 
-    m_textureMapper = TextureMapperGL::create();
+    m_textureMapper = TextureMapper::create(TextureMapper::OpenGLMode);
     static_cast<TextureMapperGL*>(m_textureMapper.get())->setEnableEdgeDistanceAntialiasing(true);
     toTextureMapperLayer(m_rootLayer.get())->setTextureMapper(m_textureMapper.get());
 
-    if (m_webPage->hasPageOverlay()) {
-        PageOverlayList& pageOverlays = m_webPage->pageOverlays();
-        PageOverlayList::iterator end = pageOverlays.end();
-        for (PageOverlayList::iterator it = pageOverlays.begin(); it != end; ++it)
-            createPageOverlayLayer(it->get());
-    }
+    // FIXME: Cretae page olverlay layers. https://bugs.webkit.org/show_bug.cgi?id=131433.
 
     scheduleLayerFlush();
 }
@@ -169,6 +161,11 @@ void LayerTreeHostGtk::setRootCompositingLayer(GraphicsLayer* graphicsLayer)
 void LayerTreeHostGtk::invalidate()
 {
     ASSERT(m_isValid);
+
+    // This can trigger destruction of GL objects so let's make sure that
+    // we have the right active context
+    if (m_context)
+        m_context->makeContextCurrent();
 
     cancelPendingLayerFlush();
     m_rootLayer = nullptr;
@@ -266,7 +263,7 @@ void LayerTreeHostGtk::setPageOverlayNeedsDisplay(PageOverlay* pageOverlay, cons
     scheduleLayerFlush();
 }
 
-void LayerTreeHostGtk::notifyAnimationStarted(const WebCore::GraphicsLayer*, double time)
+void LayerTreeHostGtk::notifyAnimationStarted(const WebCore::GraphicsLayer*, double /* time */)
 {
 }
 
@@ -274,39 +271,25 @@ void LayerTreeHostGtk::notifyFlushRequired(const WebCore::GraphicsLayer*)
 {
 }
 
-void LayerTreeHostGtk::paintContents(const GraphicsLayer* graphicsLayer, GraphicsContext& graphicsContext, GraphicsLayerPaintingPhase, const IntRect& clipRect)
+void LayerTreeHostGtk::paintContents(const GraphicsLayer* graphicsLayer, GraphicsContext& graphicsContext, GraphicsLayerPaintingPhase, const FloatRect& clipRect)
 {
-    if (graphicsLayer == m_nonCompositedContentLayer) {
-        m_webPage->drawRect(graphicsContext, clipRect);
+    if (graphicsLayer == m_nonCompositedContentLayer.get()) {
+        m_webPage->drawRect(graphicsContext, enclosingIntRect(clipRect));
         return;
     }
 
-    PageOverlayLayerMap::iterator end = m_pageOverlayLayers.end();
-    for (PageOverlayLayerMap::iterator it = m_pageOverlayLayers.begin(); it != end; ++it) {
-        if (it->value == graphicsLayer) {
-            m_webPage->drawPageOverlay(it->key, graphicsContext, clipRect);
-            break;
-        }
-    }
-}
-
-gboolean LayerTreeHostGtk::layerFlushTimerFiredCallback(LayerTreeHostGtk* layerTreeHost)
-{
-    layerTreeHost->layerFlushTimerFired();
-    return FALSE;
+    // FIXME: Draw page overlays. https://bugs.webkit.org/show_bug.cgi?id=131433.
 }
 
 void LayerTreeHostGtk::layerFlushTimerFired()
 {
-    ASSERT(m_layerFlushTimerCallbackId);
-    m_layerFlushTimerCallbackId = 0;
-
     flushAndRenderLayers();
 
-    if (toTextureMapperLayer(m_rootLayer.get())->descendantsOrSelfHaveRunningAnimations() && !m_layerFlushTimerCallbackId) {
+    if (!m_layerFlushTimerCallback.isScheduled() && toTextureMapperLayer(m_rootLayer.get())->descendantsOrSelfHaveRunningAnimations()) {
         const double targetFPS = 60;
         double nextFlush = std::max((1 / targetFPS) - (currentTime() - m_lastFlushTime), 0.0);
-        m_layerFlushTimerCallbackId = g_timeout_add_full(GDK_PRIORITY_EVENTS, nextFlush * 1000.0, reinterpret_cast<GSourceFunc>(layerFlushTimerFiredCallback), this, 0);
+        m_layerFlushTimerCallback.scheduleAfterDelay("[WebKit] layerFlushTimer", std::bind(&LayerTreeHostGtk::layerFlushTimerFired, this),
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::duration<double>(nextFlush)), GDK_PRIORITY_EVENTS);
     }
 }
 
@@ -319,7 +302,7 @@ bool LayerTreeHostGtk::flushPendingLayerChanges()
     for (PageOverlayLayerMap::iterator it = m_pageOverlayLayers.begin(); it != end; ++it)
         it->value->flushCompositingStateForThisLayerOnly();
 
-    return m_webPage->corePage()->mainFrame()->view()->flushCompositingStateIncludingSubframes();
+    return m_webPage->corePage()->mainFrame().view()->flushCompositingStateIncludingSubframes();
 }
 
 void LayerTreeHostGtk::compositeLayersToContext(CompositePurpose purpose)
@@ -360,10 +343,10 @@ void LayerTreeHostGtk::flushAndRenderLayers()
     if (!context || !context->makeContextCurrent())
         return;
 
+    m_lastFlushTime = currentTime();
     if (!flushPendingLayerChanges())
         return;
 
-    m_lastFlushTime = currentTime();
     // Our model is very simple. We always composite and render the tree immediately after updating it.
     compositeLayersToContext();
 
@@ -376,24 +359,24 @@ void LayerTreeHostGtk::flushAndRenderLayers()
 
 void LayerTreeHostGtk::createPageOverlayLayer(PageOverlay* pageOverlay)
 {
-    OwnPtr<GraphicsLayer> layer = GraphicsLayer::create(graphicsLayerFactory(), this);
+    std::unique_ptr<GraphicsLayer> layer = GraphicsLayer::create(graphicsLayerFactory(), *this);
 #ifndef NDEBUG
     layer->setName("LayerTreeHost page overlay content");
 #endif
 
-    layer->setAcceleratesDrawing(m_webPage->corePage()->settings()->acceleratedDrawingEnabled());
+    layer->setAcceleratesDrawing(m_webPage->corePage()->settings().acceleratedDrawingEnabled());
     layer->setDrawsContent(true);
     layer->setSize(m_webPage->size());
-    layer->setShowDebugBorder(m_webPage->corePage()->settings()->showDebugBorders());
-    layer->setShowRepaintCounter(m_webPage->corePage()->settings()->showRepaintCounter());
+    layer->setShowDebugBorder(m_webPage->corePage()->settings().showDebugBorders());
+    layer->setShowRepaintCounter(m_webPage->corePage()->settings().showRepaintCounter());
 
     m_rootLayer->addChild(layer.get());
-    m_pageOverlayLayers.add(pageOverlay, layer.release());
+    m_pageOverlayLayers.add(pageOverlay, WTF::move(layer));
 }
 
 void LayerTreeHostGtk::destroyPageOverlayLayer(PageOverlay* pageOverlay)
 {
-    OwnPtr<GraphicsLayer> layer = m_pageOverlayLayers.take(pageOverlay);
+    std::unique_ptr<GraphicsLayer> layer = m_pageOverlayLayers.take(pageOverlay);
     ASSERT(layer);
 
     layer->removeFromParent();
@@ -405,8 +388,8 @@ void LayerTreeHostGtk::scheduleLayerFlush()
         return;
 
     // We use a GLib timer because otherwise GTK+ event handling during dragging can starve WebCore timers, which have a lower priority.
-    if (!m_layerFlushTimerCallbackId)
-        m_layerFlushTimerCallbackId = g_timeout_add_full(GDK_PRIORITY_EVENTS, 0, reinterpret_cast<GSourceFunc>(layerFlushTimerFiredCallback), this, 0);
+    if (!m_layerFlushTimerCallback.isScheduled())
+        m_layerFlushTimerCallback.schedule("[WebKit] layerFlushTimer", std::bind(&LayerTreeHostGtk::layerFlushTimerFired, this), GDK_PRIORITY_EVENTS);
 }
 
 void LayerTreeHostGtk::setLayerFlushSchedulingEnabled(bool layerFlushingEnabled)
@@ -431,11 +414,7 @@ void LayerTreeHostGtk::pageBackgroundTransparencyChanged()
 
 void LayerTreeHostGtk::cancelPendingLayerFlush()
 {
-    if (!m_layerFlushTimerCallbackId)
-        return;
-
-    g_source_remove(m_layerFlushTimerCallbackId);
-    m_layerFlushTimerCallbackId = 0;
+    m_layerFlushTimerCallback.cancel();
 }
 
 } // namespace WebKit

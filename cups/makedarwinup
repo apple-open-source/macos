@@ -17,13 +17,14 @@ if test $# != 1; then
 	exit 1
 fi
 
-buildit -project cups -arch i386 -arch x86_64 -offline -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
+#buildit -project cups -arch i386 -arch x86_64 -offline -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
+buildit -project cups -arch i386 -arch x86_64 -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
 rm -f ~/Desktop/Shared_cups-$1_HDRDSTROOT_osx.tar.gz
 mv -f ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz ~/Desktop/cups-$1.tar.gz
 
 echo "Send ~/Desktop/cups-$1.tar.gz to tester."
 echo ""
-echo "Commands for tester to run:"
+echo "Use the following commands to install the root:"
 echo ""
 echo "  sudo darwinup install ~/Desktop/cups-$1.tar.gz"
 echo "  sudo killall cupsd"

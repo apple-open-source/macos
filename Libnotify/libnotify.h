@@ -29,7 +29,14 @@
 #include <dispatch/dispatch.h>
 #include "table.h"
 
+#include <TargetConditionals.h>
+
+#if TARGET_IPHONE_SIMULATOR
+extern const char *_notify_shm_id();
+#define SHM_ID _notify_shm_id()
+#else
 #define SHM_ID "apple.shm.notification_center"
+#endif
 
 #define NOTIFY_IPC_VERSION_NAME "com.apple.system.notify.ipc_version"
 #define NOTIFY_IPC_VERSION_NAME_LEN 35

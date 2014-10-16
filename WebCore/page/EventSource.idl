@@ -30,13 +30,13 @@
  */
 
 [
-    GlobalContext=WindowAndWorker,
+    GlobalContext=DOMWindow&WorkerGlobalScope,
     ActiveDOMObject,
     Constructor(DOMString url, optional Dictionary eventSourceInit),
     ConstructorCallWith=ScriptExecutionContext,
     ConstructorRaisesException,
     EventTarget,
-    JSNoStaticTables
+    JSNoStaticTables,
 ] interface EventSource {
 
     readonly attribute DOMString URL; // Lowercased .url is the one in the spec, but leaving .URL for compatibility reasons.

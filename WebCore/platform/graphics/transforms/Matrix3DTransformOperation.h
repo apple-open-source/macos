@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-class Matrix3DTransformOperation : public TransformOperation {
+class Matrix3DTransformOperation final : public TransformOperation {
 public:
     static PassRefPtr<Matrix3DTransformOperation> create(const TransformationMatrix& matrix)
     {
@@ -40,26 +40,20 @@ public:
     TransformationMatrix matrix() const {return m_matrix; }
 
 private:    
-    virtual bool isIdentity() const { return m_matrix.isIdentity(); }
+    virtual bool isIdentity() const override { return m_matrix.isIdentity(); }
 
-    virtual OperationType getOperationType() const { return MATRIX_3D; }
-    virtual bool isSameType(const TransformOperation& o) const { return o.getOperationType() == MATRIX_3D; }
+    virtual OperationType type() const override { return MATRIX_3D; }
+    virtual bool isSameType(const TransformOperation& o) const override { return o.type() == MATRIX_3D; }
 
-    virtual bool operator==(const TransformOperation& o) const
-    {
-        if (!isSameType(o))
-            return false;
-        const Matrix3DTransformOperation* m = static_cast<const Matrix3DTransformOperation*>(&o);
-        return m_matrix == m->m_matrix;
-    }
+    virtual bool operator==(const TransformOperation&) const override;
 
-    virtual bool apply(TransformationMatrix& transform, const FloatSize&) const
+    virtual bool apply(TransformationMatrix& transform, const FloatSize&) const override
     {
         transform.multiply(TransformationMatrix(m_matrix));
         return false;
     }
 
-    virtual PassRefPtr<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+    virtual PassRefPtr<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
     
     Matrix3DTransformOperation(const TransformationMatrix& mat)
     {
@@ -68,6 +62,8 @@ private:
 
     TransformationMatrix m_matrix;
 };
+
+TRANSFORMOPERATION_TYPE_CASTS(Matrix3DTransformOperation, type() == TransformOperation::MATRIX_3D);
 
 } // namespace WebCore
 

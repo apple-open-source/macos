@@ -32,8 +32,6 @@
 #ifndef AsyncFileStream_h
 #define AsyncFileStream_h
 
-#if ENABLE(BLOB)
-
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -42,7 +40,7 @@ namespace WebCore {
 
 class FileStreamClient;
 class FileStream;
-class KURL;
+class URL;
 
 class AsyncFileStream : public RefCounted<AsyncFileStream> {
 public:
@@ -54,7 +52,7 @@ public:
     void openForWrite(const String& path);
     void close();
     void read(char* buffer, int length);
-    void write(const KURL& blobURL, long long position, int length);
+    void write(const URL& blobURL, long long position, int length);
     void truncate(long long position);
 
     // Stops the proxy and schedules it to be destructed. All the pending tasks will be aborted and the file stream will be closed.
@@ -67,24 +65,10 @@ public:
 private:
     AsyncFileStream(FileStreamClient*);
 
-    // Called on File thread.
-    void startOnFileThread();
-    void stopOnFileThread();
-    void getSizeOnFileThread(const String& path, double expectedModificationTime);
-    void openForReadOnFileThread(const String& path, long long offset, long long length);
-    void openForWriteOnFileThread(const String& path);
-    void closeOnFileThread();
-    void readOnFileThread(char* buffer, int length);
-    void writeOnFileThread(const KURL& blobURL, long long position, int length);
-    void truncateOnFileThread(long long position);
-
     RefPtr<FileStream> m_stream;
-
     FileStreamClient* m_client;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(BLOB)
 
 #endif // AsyncFileStream_h

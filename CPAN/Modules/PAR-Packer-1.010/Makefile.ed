@@ -1,2 +1,0 @@
-/script\/pp blib\/man1\/pp.1/s,script/pp,lib/pp.pm,
-w

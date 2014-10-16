@@ -1,0 +1,7 @@
+In src/ft2font.cpp, to improve debugging, the error value returned from
+FT_Glyph_To_Bitmap() was added to the error message.
+
+It is documented that using the MacOSX backend, running an animation with blit
+turned on will go into an infinite loop.  So in lib/matplotlib/animation.py, 
+an exception is thrown, suggesting to either switch backends, or turn off
+blitting.

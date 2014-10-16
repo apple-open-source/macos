@@ -1,0 +1,294 @@
+#! /bin/csh -f
+#
+# run CL/TP/SSL X regression tests.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+set QUICK_TEST = 1
+set QUIET= 
+set CERTCRL_QUIET=
+set VERB= 
+set PINGSSL_QUIET=
+set SKIP_BASIC = 0
+# when false, no SSL, not even local loopback tests or CRL/OCSP tests
+set NO_SSL=0
+# when empty, do ssl Ping tests via ssldvt
+set SSL_PING_ENABLE=n
+set FULL_SSL=NO
+set DO_THREAD=1
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case s:
+            set QUICK_TEST = 1
+            shift
+            breaksw
+        case l:
+            set QUICK_TEST = 0
+            shift
+            breaksw
+        case v:
+            set VERB = v
+            shift
+            breaksw
+        case n:
+            set NO_SSL = 1
+            shift
+            breaksw
+        case f:
+            set SSL_PING_ENABLE =
+			set FULL_SSL = YES
+            shift
+            breaksw
+        case t:
+            set DO_THREAD = 0
+            shift
+            breaksw
+		case k:
+			set SKIP_BASIC = 1
+			shift
+			breaksw
+        case q:
+            set QUIET = q
+			set CERTCRL_QUIET = -q
+			set PINGSSL_QUIET = s
+            shift
+            breaksw
+        default:
+            cat cltpdvt_usage
+            exit(1)
+    endsw
+end
+
+#
+# Select 'quick' or 'normal' test params
+#
+# Note that we disable DB storage of certs in cgVerify and cgConstruct, to avoid
+# messing with user's ~/Library/Keychains. 
+#
+if($QUICK_TEST == 1) then
+	set CGCONSTRUCT_ARGS="d=0"
+    set CGVERIFY_ARGS="d"
+    set CGVERIFY_DSA_ARGS="l=20 d"
+	set CAVERIFY_ARGS=
+	set EXTENTEST_ARGS=
+	if($NO_SSL == 1) then
+		set THREADTEST_ARGS="ecvsyfF l=10"
+	else
+		set THREADTEST_ARGS="l=10"
+	endif
+	set THREADPING_ARGS="ep o=mr3 l=5"
+	set P12REENCODE_ARGS="l=2"
+else
+	set CGCONSTRUCT_ARGS="l=100 d=0"
+	set CGVERIFY_ARGS="l=100 d"
+	set CAVERIFY_ARGS="l=500"
+    set CGVERIFY_DSA_ARGS="l=500 d"
+	set EXTENTEST_ARGS="l=100"
+	if($NO_SSL == 1) then
+		set THREADTEST_ARGS="l=100 ecvsyfF"
+	else
+		set THREADTEST_ARGS="l=100"
+	endif
+	set THREADPING_ARGS="ep o=mr3 l=10"
+	set P12REENCODE_ARGS="l=10"
+endif
+#
+set CLXUTILS=`pwd`
+
+if($SKIP_BASIC == 0) then
+	#
+	# test RSA, FEE, ECDSA with the following two...
+	#
+	$BUILD_DIR/cgConstruct $CGCONSTRUCT_ARGS $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgConstruct $CGCONSTRUCT_ARGS a=f $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgConstruct $CGCONSTRUCT_ARGS a=E $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgVerify $CGVERIFY_ARGS n=2 $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgVerify $CGVERIFY_ARGS $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgVerify $CGVERIFY_ARGS a=e $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgVerify $CGVERIFY_ARGS a=5 $QUIET $VERB || exit(1)
+	$BUILD_DIR/cgVerify $CGVERIFY_ARGS a=E $QUIET $VERB || exit(1)
+	#
+	# And one run for DSA partial key processing; run in the test
+	# dir to pick up DSA params
+	#
+	cd $CLXUTILS/cgVerify
+	$BUILD_DIR/cgVerify $CGVERIFY_DSA_ARGS a=d $QUIET $VERB || exit(1)
+	$BUILD_DIR/caVerify $CAVERIFY_ARGS $QUIET $VERB || exit(1)
+	$BUILD_DIR/caVerify a=E $CAVERIFY_ARGS $QUIET $VERB || exit(1)
+endif
+
+#
+# Anchor and intermediate test: once with normal anchors, one with 
+# Trust Settings.
+#
+###
+### Allow expired anchors until Radar 6133507 is fixed
+###
+echo "### Warning: allowing expired roots in anchorTest..."
+$BUILD_DIR/anchorTest e $QUIET $VERB || exit(1)
+$BUILD_DIR/anchorTest t e $QUIET $VERB || exit(1)
+$CLXUTILS/anchorTest/intermedTest $QUIET || exit(1)
+$CLXUTILS/anchorTest/intermedTest t $QUIET || exit(1)
+$BUILD_DIR/trustAnchors $QUIET || exit(1)
+
+cd $CLXUTILS
+./updateCerts
+
+$BUILD_DIR/certSerialEncodeTest $QUIET || exit(1)
+
+#
+# certcrl script tests require files relative to cwd
+#
+cd $CLXUTILS/certcrl/testSubjects/X509tests
+$BUILD_DIR/certcrl -S x509tests.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/smime
+$BUILD_DIR/certcrl -S smime.scr $CERTCRL_QUIET || exit(1)
+#
+# disable expiredRoot test since it makes assumptions about
+# store.apple.com which are no longer true %%%FIXME!
+#cd $CLXUTILS/certcrl/testSubjects/expiredRoot
+#$BUILD_DIR/certcrl -S expiredRoot.scr $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/expiredCerts
+$BUILD_DIR/certcrl -S expiredCerts.scr $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/anchorAndDb
+$BUILD_DIR/certcrl -S anchorAndDb.scr $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/hostNameDot
+$BUILD_DIR/certcrl -S hostNameDot.scr $CERTCRL_QUIET || exit(1)
+#
+# one with normal anchors, one with Trust Settings
+cd $CLXUTILS/certcrl/testSubjects/AppleCerts
+$BUILD_DIR/certcrl -S AppleCerts.scr $CERTCRL_QUIET || exit(1)
+$BUILD_DIR/certcrl -S AppleCerts.scr -g $CERTCRL_QUIET || exit(1)
+#
+# one with normal anchors, one with Trust Settings
+# This will fail if you have userTrustSettings.plist, from ../trustSettings,
+# installed!
+# Note this should eventually be renamed to something like SWUpdateSigning...
+cd $CLXUTILS/certcrl/testSubjects/AppleCodeSigning
+$BUILD_DIR/certcrl -S AppleCodeSigning.scr $CERTCRL_QUIET || exit(1)
+$BUILD_DIR/certcrl -S AppleCodeSigning.scr -g $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/CodePkgSigning
+$BUILD_DIR/certcrl -S CodePkgSigning.scr $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/localTime
+$BUILD_DIR/certcrl -S localTime.scr $CERTCRL_QUIET || exit(1)
+#
+# one with normal anchors, one with Trust Settings
+cd $CLXUTILS/certcrl/testSubjects/serverGatedCrypto
+$BUILD_DIR/certcrl -S sgc.scr $CERTCRL_QUIET || exit(1)
+$BUILD_DIR/certcrl -S sgc.scr -g $CERTCRL_QUIET || exit(1)
+#
+cd $CLXUTILS/certcrl/testSubjects/crlTime
+$BUILD_DIR/certcrl -S crlTime.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/implicitAnchor
+$BUILD_DIR/certcrl -S implicitAnchor.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/crossSigned
+$BUILD_DIR/certcrl -S crossSigned.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/emptyCert
+$BUILD_DIR/certcrl -S emptyCert.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/emptySubject
+$BUILD_DIR/certcrl -S emptySubject.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/qualCertStatment
+$BUILD_DIR/certcrl -S qualCertStatement.scr $CERTCRL_QUIET || exit(1)
+cd $CLXUTILS/certcrl/testSubjects/ipSec
+$BUILD_DIR/certcrl -S ipSec.scr $CERTCRL_QUIET || exit(1)
+#
+# ECDSA certs, lots of 'em
+#
+cd $CLXUTILS/certcrl/testSubjects/NSS_ECC
+$BUILD_DIR/certcrl -S nssecc.scr $CERTCRL_QUIET || exit(1)
+$BUILD_DIR/certcrl -S msEcc.scr $CERTCRL_QUIET || exit(1)
+$BUILD_DIR/certcrl -S opensslEcc.scr $CERTCRL_QUIET || exit(1)
+
+#
+# CRL/OCSP tests
+# once each with normal anchors, one with Trust Settings
+#
+# Until Verisign gets their CRL server fixed, we have to allow the disabling of the 
+# CRL test....
+#
+if($NO_SSL == 0) then
+	cd $CLXUTILS
+	if($FULL_SSL == YES) then
+		cd $CLXUTILS/certcrl/testSubjects/crlFromSsl
+		$BUILD_DIR/certcrl -S crlssl.scr $CERTCRL_QUIET || exit(1)
+		$BUILD_DIR/certcrl -S crlssl.scr -g $CERTCRL_QUIET || exit(1)
+	endif
+	cd $CLXUTILS/certcrl/testSubjects/ocspFromSsl
+	# this test makes assumptions about store.apple.com which are no longer
+	# true, so need to disable the test for now. %%%FIXME!
+	#$BUILD_DIR/certcrl -S ocspssl.scr $CERTCRL_QUIET || exit(1)
+	#$BUILD_DIR/certcrl -S ocspssl.scr -g $CERTCRL_QUIET || exit(1)
+endif
+#
+$BUILD_DIR/extenTest $EXTENTEST_ARGS $QUIET $VERB || exit(1)
+$BUILD_DIR/extenTestTp $EXTENTEST_ARGS $QUIET $VERB || exit(1)
+$BUILD_DIR/sslSubjName $QUIET $VERB || exit(1)
+$BUILD_DIR/smimePolicy $QUIET $VERB || exit(1)
+$BUILD_DIR/certLabelTest $CERTCRL_QUIET || exit(1)
+
+#
+# extendAttrTest has to be run from specific directory for access to keys and certs
+# 
+cd $CLXUTILS/extendAttrTest
+$BUILD_DIR/extendAttrTest -k $BUILD_DIR/eat.keychain $CERTCRL_QUIET || exit(1)
+
+#
+# threadTest relies on a cert file in cwd
+#
+if($DO_THREAD == 1) then
+	cd $CLXUTILS/threadTest
+	$BUILD_DIR/threadTest $THREADTEST_ARGS $QUIET $VERB || exit(1)
+endif
+#
+# CMS tests have to be run from specific directory for access to keychain and certs
+# 
+cd $CLXUTILS/newCmsTool/blobs
+./cmstestHandsoff $CERTCRL_QUIET || exit(1)
+./cmsEcdsaHandsoff $CERTCRL_QUIET || exit(1)
+
+#
+# This one uses a number of p12 files in cwd
+#
+# we may never see this again....
+#
+# echo ==== skipping p12Reencode for now, but I really want this back ===
+# cd $CLXUTILS/p12Reencode
+# ./doReencode $P12REENCODE_ARGS $QUIET || exit(1)
+#
+
+#
+# Import/export tests, always run from here with no default ACL (to avoid UI).
+#
+cd $CLXUTILS/importExport
+./importExport n $QUIET || exit(1)
+
+# sslEcdsa test removed pending validation of tls.secg.org server
+# 
+# $BUILD_DIR/sslEcdsa $CERTCRL_QUIET || exit(1)
+
+#
+# Full SSL tests run:
+# -- once with blocking socket I/O
+# -- once with nonblocking socket I/O
+# -- once with RingBuffer I/O, no verifyPing
+#
+if($NO_SSL == 0) then
+	cd $CLXUTILS/sslScripts
+	./makeLocalCert a || exit(1)
+	./ssldvt $SSL_PING_ENABLE $QUIET $VERB || exit(1)
+	./ssldvt $SSL_PING_ENABLE $QUIET $VERB b || exit(1)
+	./ssldvt n $QUIET $VERB R || exit(1)
+	./removeLocalCerts
+endif
+if($FULL_SSL == YES) then
+	$BUILD_DIR/threadTest $THREADPING_ARGS $QUIET $VERB || exit(1)
+endif
+
+echo ==== cltpdvt success ====
+

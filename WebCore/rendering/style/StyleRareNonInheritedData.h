@@ -34,7 +34,7 @@
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
 #include "ShapeValue.h"
-#include <wtf/OwnPtr.h>
+#include <memory>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
@@ -47,8 +47,10 @@ class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
 #endif
 class StyleFlexibleBoxData;
+#if ENABLE(CSS_GRID_LAYOUT)
 class StyleGridData;
 class StyleGridItemData;
+#endif
 class StyleMarqueeData;
 class StyleMultiColData;
 class StyleReflection;
@@ -77,8 +79,8 @@ enum PageSizeType {
 // actually uses one of these properties.
 class StyleRareNonInheritedData : public RefCounted<StyleRareNonInheritedData> {
 public:
-    static PassRefPtr<StyleRareNonInheritedData> create() { return adoptRef(new StyleRareNonInheritedData); }
-    PassRefPtr<StyleRareNonInheritedData> copy() const { return adoptRef(new StyleRareNonInheritedData(*this)); }
+    static PassRef<StyleRareNonInheritedData> create() { return adoptRef(*new StyleRareNonInheritedData); }
+    PassRef<StyleRareNonInheritedData> copy() const;
     ~StyleRareNonInheritedData();
     
     bool operator==(const StyleRareNonInheritedData&) const;
@@ -90,8 +92,10 @@ public:
     bool reflectionDataEquivalent(const StyleRareNonInheritedData&) const;
     bool animationDataEquivalent(const StyleRareNonInheritedData&) const;
     bool transitionDataEquivalent(const StyleRareNonInheritedData&) const;
+    bool hasFilters() const;
+    bool hasOpacity() const { return opacity < 1; }
 
-    float opacity; // Whether or not we're transparent.
+    float opacity;
 
     float m_aspectRatioDenominator;
     float m_aspectRatioNumerator;
@@ -104,9 +108,6 @@ public:
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<StyleDashboardRegion> m_dashboardRegions;
 #endif
-#if ENABLE(DRAGGABLE_REGION)
-    DraggableRegionMode m_draggableRegionMode;
-#endif
 
     DataRef<StyleDeprecatedFlexibleBoxData> m_deprecatedFlexibleBox; // Flexible box properties
     DataRef<StyleFlexibleBoxData> m_flexibleBox;
@@ -118,35 +119,37 @@ public:
     DataRef<StyleFilterData> m_filter; // Filter operations (url, sepia, blur, etc.)
 #endif
 
+#if ENABLE(CSS_GRID_LAYOUT)
     DataRef<StyleGridData> m_grid;
     DataRef<StyleGridItemData> m_gridItem;
+#endif
 
-    OwnPtr<ContentData> m_content;
-    OwnPtr<CounterDirectiveMap> m_counterDirectives;
+    std::unique_ptr<ContentData> m_content;
+    std::unique_ptr<CounterDirectiveMap> m_counterDirectives;
+    String m_altText;
 
-    OwnPtr<ShadowData> m_boxShadow;  // For box-shadow decorations.
+    std::unique_ptr<ShadowData> m_boxShadow; // For box-shadow decorations.
     
     RefPtr<StyleReflection> m_boxReflect;
 
-    OwnPtr<AnimationList> m_animations;
-    OwnPtr<AnimationList> m_transitions;
+    std::unique_ptr<AnimationList> m_animations;
+    std::unique_ptr<AnimationList> m_transitions;
 
     FillLayer m_mask;
     NinePieceImage m_maskBoxImage;
 
     LengthSize m_pageSize;
 
-    RefPtr<ShapeValue> m_shapeInside;
+#if ENABLE(CSS_SHAPES)
     RefPtr<ShapeValue> m_shapeOutside;
     Length m_shapeMargin;
-    Length m_shapePadding;
+    float m_shapeImageThreshold;
+#endif
 
     RefPtr<ClipPathOperation> m_clipPath;
 
-#if ENABLE(CSS3_TEXT)
     Color m_textDecorationColor;
     Color m_visitedLinkTextDecorationColor;
-#endif // CSS3_TEXT
     Color m_visitedLinkBackgroundColor;
     Color m_visitedLinkOutlineColor;
     Color m_visitedLinkBorderLeftColor;
@@ -173,6 +176,9 @@ public:
     unsigned m_alignSelf : 3; // EAlignItems
     unsigned m_justifyContent : 3; // EJustifyContent
 
+    unsigned m_justifySelf : 4; // EJustifySelf
+    unsigned m_justifySelfOverflowAlignment : 2; // EJustifySelfOverflowAlignment
+
     unsigned userDrag : 2; // EUserDrag
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
     unsigned marginBeforeCollapse : 2; // EMarginCollapse
@@ -181,21 +187,18 @@ public:
     unsigned m_borderFit : 1; // EBorderFit
     unsigned m_textCombine : 1; // CSS3 text-combine properties
 
-#if ENABLE(CSS3_TEXT)
     unsigned m_textDecorationStyle : 3; // TextDecorationStyle
-#endif // CSS3_TEXT
-    unsigned m_wrapFlow: 3; // WrapFlow
-    unsigned m_wrapThrough: 1; // WrapThrough
 
-#if USE(ACCELERATED_COMPOSITING)
     unsigned m_runningAcceleratedAnimation : 1;
-#endif
 
-    unsigned m_hasAspectRatio : 1; // Whether or not an aspect ratio has been specified.
+    unsigned m_aspectRatioType : 2;
 
 #if ENABLE(CSS_COMPOSITING)
     unsigned m_effectiveBlendMode: 5; // EBlendMode
+    unsigned m_isolation : 1; // Isolation
 #endif
+
+    unsigned m_objectFit : 3; // ObjectFit
 
 private:
     StyleRareNonInheritedData();

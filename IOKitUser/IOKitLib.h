@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -437,10 +437,10 @@ IOServiceAddMatchingNotification(
 
 /*! @function IOServiceAddInterestNotification
     @abstract Register for notification of state changes in an IOService.
-    @discussion IOService objects deliver notifications of their state changes to their clients via the IOService::message API, and to other interested parties including callers of this function. Message type s are defined IOKit/IOMessage.h.
+    @discussion IOService objects deliver notifications of their state changes to their clients via the IOService::messageClients API, and to other interested parties including callers of this function. Message types are defined IOKit/IOMessage.h.
     @param notifyPort A IONotificationPortRef object that controls how messages will be sent when the notification is fired. See IONotificationPortCreate.
     @param interestType A notification type from IOKitKeys.h
-<br>	kIOGeneralInterest General state changes delivered via the IOService::message API.
+<br>	kIOGeneralInterest General state changes delivered via the IOService::messageClients API.
 <br>	kIOBusyInterest Delivered when the IOService changes its busy state to or from zero. The message argument contains the new busy state causing the notification.
     @param callback A callback function called when the notification fires, with messageType and messageArgument for the state change.
     @param refCon A reference constant for the callbacks use.
@@ -546,7 +546,29 @@ IOServiceRequestProbe(
 	io_service_t    service,
 	uint32_t	options );
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// options for IOServiceAuthorize()
+enum {
+    kIOServiceInteractionAllowed	= 0x00000001
+};
+
+/*! @function IOServiceAuthorize
+    @abstract Authorize access to an IOService.
+    @discussion Determine whether this application is authorized to invoke IOServiceOpen() for a given IOService, either by confirming that it has been previously authorized by the user, or by soliciting the console user.
+    @param service The IOService object to be authorized, usually obtained via the IOServiceGetMatchingServices or IOServiceAddNotification APIs.
+    @param options kIOServiceInteractionAllowed may be set to permit user interaction, if required.
+    @result kIOReturnSuccess if the IOService is authorized, kIOReturnNotPermitted if the IOService is not authorized. */
+
+kern_return_t
+IOServiceAuthorize(
+	io_service_t	service,
+	uint32_t	options );
+
+int
+IOServiceOpenAsFileDescriptor(
+	io_service_t	service,
+	int		oflag );
+
+/* * * * * * * * * * * * * * *ff * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
  * IOService connection

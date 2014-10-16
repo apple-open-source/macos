@@ -26,12 +26,13 @@
 #include "config.h"
 #include "SecItemShimProxy.h"
 
-#if USE(SECURITY_FRAMEWORK)
+#if ENABLE(SEC_ITEM_SHIM)
 
 #include "SecItemRequestData.h"
 #include "SecItemResponseData.h"
 #include "SecItemShimMessages.h"
 #include "SecItemShimProxyMessages.h"
+#include <Security/SecBase.h>
 #include <Security/SecItem.h>
 
 namespace WebKit {
@@ -51,19 +52,20 @@ SecItemShimProxy::SecItemShimProxy()
 {
 }
 
-void SecItemShimProxy::initializeConnection(CoreIPC::Connection* connection)
+void SecItemShimProxy::initializeConnection(IPC::Connection* connection)
 {
     connection->addWorkQueueMessageReceiver(Messages::SecItemShimProxy::messageReceiverName(), m_queue.get(), this);
 }
 
-void SecItemShimProxy::secItemRequest(CoreIPC::Connection* connection, uint64_t requestID, const SecItemRequestData& request)
+void SecItemShimProxy::secItemRequest(IPC::Connection* connection, uint64_t requestID, const SecItemRequestData& request)
 {
     SecItemResponseData response;
 
     switch (request.type()) {
     case SecItemRequestData::Invalid:
-        ASSERT_NOT_REACHED();
-        return;
+        LOG_ERROR("SecItemShimProxy::secItemRequest received an invalid data request. Please file a bug if you know how you caused this.");
+        response = SecItemResponseData(errSecParam, nullptr);
+        break;
 
     case SecItemRequestData::CopyMatching: {
         CFTypeRef resultObject = 0;
@@ -97,4 +99,4 @@ void SecItemShimProxy::secItemRequest(CoreIPC::Connection* connection, uint64_t 
 
 } // namespace WebKit
 
-#endif // USE(SECURITY_FRAMEWORK)
+#endif // ENABLE(SEC_ITEM_SHIM)

@@ -25,6 +25,7 @@
 #include "IOHIDEventServiceClass.h"
 #include "IOHIDEventServiceUserClient.h"
 #include "IOHIDEventData.h"
+#include <dispatch/private.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDKeys.h>
@@ -41,11 +42,6 @@ __BEGIN_DECLS
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>
 __END_DECLS
-
-#define QUEUE_LOCK(service)     pthread_mutex_lock(&service->_queueLock)
-#define QUEUE_UNLOCK(service)   pthread_mutex_unlock(&service->_queueLock)
-#define QUEUE_WAIT(service)     while (service->_queueBusy) { pthread_cond_wait(&service->_queueCondition, &service->_queueLock); }
-#define QUEUE_SIGNAL(service)   pthread_cond_signal(&service->_queueCondition)
 
 //===========================================================================
 // Static Helper Declarations
@@ -79,10 +75,10 @@ IOHIDServiceInterface2 IOHIDEventServiceClass::sIOHIDServiceInterface2 =
     &IOHIDEventServiceClass::_copyProperty,
     &IOHIDEventServiceClass::_setProperty,
     &IOHIDEventServiceClass::_setEventCallback,
-    &IOHIDEventServiceClass::_scheduleWithRunLoop,
-    &IOHIDEventServiceClass::_unscheduleFromRunLoop,
+    &IOHIDEventServiceClass::_scheduleWithDispatchQueue,
+    &IOHIDEventServiceClass::_unscheduleFromDispatchQueue,
     &IOHIDEventServiceClass::_copyEvent,
-    &IOHIDEventServiceClass::_setElementValue
+    &IOHIDEventServiceClass::_setOutputEvent
 };
 
 //===========================================================================
@@ -101,7 +97,6 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _isOpen                     = FALSE;
 
     _asyncPort                  = MACH_PORT_NULL;
-    _asyncCFMachPort            = NULL;
     _asyncEventSource           = NULL;
     
     _serviceProperties          = NULL;
@@ -111,12 +106,7 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _eventRefcon                = NULL;
     
     _queueMappedMemory          = NULL;
-    _queueMappedMemorySize      = 0;
-    
-    _queueBusy                  = FALSE;
-
-    pthread_mutex_init(&_queueLock, NULL);
-    pthread_cond_init(&_queueCondition, NULL);
+    _queueMappedMemorySize      = 0;    
 }
 
 //---------------------------------------------------------------------------
@@ -124,10 +114,6 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
 //---------------------------------------------------------------------------
 IOHIDEventServiceClass::~IOHIDEventServiceClass()
 {
-    QUEUE_LOCK(this);
-    
-    QUEUE_WAIT(this);
-
     // finished with the shared memory
     if (_queueMappedMemory)
     {
@@ -143,7 +129,6 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
         _queueMappedMemory = NULL;
         _queueMappedMemorySize = 0;
     }
-    QUEUE_UNLOCK(this);
 
     if (_connect) {
         IOServiceClose(_connect);
@@ -163,25 +148,11 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
         CFRelease(_servicePreferences);
         _servicePreferences = NULL;
     }
-
-    if (_asyncEventSource) {
-        CFRelease(_asyncEventSource);
-        _asyncEventSource = NULL;
-    }
-    
-    if ( _asyncCFMachPort ) {
-        CFMachPortInvalidate(_asyncCFMachPort);
-        CFRelease(_asyncCFMachPort);
-        _asyncCFMachPort = NULL;
-    }
     
     if ( _asyncPort ) {
         mach_port_mod_refs(mach_task_self(), _asyncPort, MACH_PORT_RIGHT_RECEIVE, -1);
         _asyncPort = MACH_PORT_NULL;
     }
-        
-    pthread_mutex_destroy(&_queueLock);
-    pthread_cond_destroy(&_queueCondition);
 }
 
 //===========================================================================
@@ -227,9 +198,9 @@ IOHIDEventRef IOHIDEventServiceClass::_copyEvent(void *self, IOHIDEventType type
     return getThis(self)->copyEvent(type, matching, options);
 }
 
-IOReturn IOHIDEventServiceClass::_setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value)
+IOReturn IOHIDEventServiceClass::_setOutputEvent(void *self, IOHIDEventRef event)
 {
-    return getThis(self)->setElementValue(usagePage, usage, value);
+    return getThis(self)->setOutputEvent(event);
 }
 
 void IOHIDEventServiceClass::_setEventCallback(void * self, IOHIDServiceEventCallback callback, void * target, void * refcon)
@@ -237,36 +208,52 @@ void IOHIDEventServiceClass::_setEventCallback(void * self, IOHIDServiceEventCal
     getThis(self)->setEventCallback(callback, target, refcon);
 }
 
-void IOHIDEventServiceClass::_scheduleWithRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode)
+void IOHIDEventServiceClass::_scheduleWithDispatchQueue(void *self, dispatch_queue_t queue)
 {
-    return getThis(self)->scheduleWithRunLoop(runLoop, runLoopMode);
+    return getThis(self)->scheduleWithDispatchQueue(queue);
 }
 
-void IOHIDEventServiceClass::_unscheduleFromRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode)
+void IOHIDEventServiceClass::_unscheduleFromDispatchQueue(void *self, dispatch_queue_t queue)
 {
-    return getThis(self)->unscheduleFromRunLoop(runLoop, runLoopMode);
+    return getThis(self)->unscheduleFromDispatchQueue(queue);
 }
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEventServiceClass::_queueEventSourceCallback
-//------------------------------------------------------------------------------
-void IOHIDEventServiceClass::_queueEventSourceCallback(
-                                            CFMachPortRef               cfPort, 
-                                            mach_msg_header_t *         msg __unused, 
-                                            CFIndex                     size __unused, 
-                                            void *                      info)
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void IOHIDEventServiceClass::_queueEventSourceCallback(void * info)
 {
-    IOHIDEventServiceClass *eventService = (IOHIDEventServiceClass *)info;
-    IOReturn ret = kIOReturnSuccess;
-
-    QUEUE_LOCK(eventService);
-
-    QUEUE_WAIT(eventService);
-
-    eventService->_queueBusy = TRUE;
+    IOHIDEventServiceClass * self = (IOHIDEventServiceClass*)info;
     
+    mach_msg_size_t size = sizeof(mach_msg_header_t) + MAX_TRAILER_SIZE;
+    mach_msg_header_t *msg = (mach_msg_header_t *)CFAllocatorAllocate(kCFAllocatorDefault, size, 0);
+    msg->msgh_size = size;
+    for (;;) {
+        msg->msgh_bits = 0;
+        msg->msgh_local_port = self->_asyncPort;
+        msg->msgh_remote_port = MACH_PORT_NULL;
+        msg->msgh_id = 0;
+        kern_return_t ret = mach_msg(msg, MACH_RCV_MSG|MACH_RCV_LARGE|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AV), 0, msg->msgh_size, self->_asyncPort, 0, MACH_PORT_NULL);
+        if (MACH_MSG_SUCCESS == ret) break;
+        if (MACH_RCV_TOO_LARGE != ret) goto user_exit;
+        uint32_t newSize = round_msg(msg->msgh_size + MAX_TRAILER_SIZE);
+        msg = (mach_msg_header_t*)CFAllocatorReallocate(kCFAllocatorDefault, msg, newSize, 0);
+        msg->msgh_size = newSize;
+    }
+    
+    self->dequeueHIDEvents();
+    
+user_exit:
+    CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDEventServiceClass::dequeueHIDEvents
+//------------------------------------------------------------------------------
+void IOHIDEventServiceClass::dequeueHIDEvents(boolean_t suppress)
+{
     do {
-        if ( !eventService->_queueMappedMemory )
+        if ( !_queueMappedMemory )
             break;
 
         // check entry size
@@ -274,30 +261,21 @@ void IOHIDEventServiceClass::_queueEventSourceCallback(
         uint32_t            dataSize;
 
         // if queue empty, then stop
-        while ((nextEntry = IODataQueuePeek(eventService->_queueMappedMemory))) {
-            // RY: cfPort==NULL means we're draining
-            if ( cfPort ) {
+        while ((nextEntry = IODataQueuePeek(_queueMappedMemory))) {
+            if ( !suppress ) {
                 IOHIDEventRef event = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)&(nextEntry->data), nextEntry->size);
 
                 if ( event ) {
-                    QUEUE_UNLOCK(eventService);
-                    eventService->dispatchHIDEvent(event);
-                    QUEUE_LOCK(eventService);
+                    dispatchHIDEvent(event);
                     CFRelease(event);
                 }
             }
             
             // dequeue the item
             dataSize = 0;
-            IODataQueueDequeue(eventService->_queueMappedMemory, NULL, &dataSize);
+            IODataQueueDequeue(_queueMappedMemory, NULL, &dataSize);
         }
     } while ( 0 );
-
-    eventService->_queueBusy = FALSE;
-    
-    QUEUE_UNLOCK(eventService);
-    
-    QUEUE_SIGNAL(eventService);
 }
 
 
@@ -429,34 +407,12 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, i
 
         CFRelease(serviceProps);
         
-        /*
-        // Get properties, but do so via IORegistryEntryCreateCFProperty instead
-        // of IORegistryEntryCreateCFProperties to avoid pulling in more that we
-        // need and increasing footprint
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDTransportKey), _serviceProperties, CFSTR(kIOHIDServiceTransportKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDVendorIDKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDVendorIDSourceKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDSourceKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDProductIDKey), _serviceProperties, CFSTR(kIOHIDServiceProductIDKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDVersionNumberKey), _serviceProperties, CFSTR(kIOHIDServiceVersionNumberKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDManufacturerKey), _serviceProperties, CFSTR(kIOHIDServiceManufacturerKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDProductKey), _serviceProperties, CFSTR(kIOHIDServiceProductKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDSerialNumberKey), _serviceProperties, CFSTR(kIOHIDServiceSerialNumberKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDCountryCodeKey), _serviceProperties, CFSTR(kIOHIDServiceCountryCodeKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDLocationIDKey), _serviceProperties, CFSTR(kIOHIDServiceLocationIDKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDPrimaryUsagePageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsagePageKey));
-        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDPrimaryUsageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsageKey));
-// This should be considered a dymanic property
-//        GET_AND_SET_SERVICE_PROPERTY(service, CFSTR(kIOHIDReportIntervalKey), _serviceProperties, CFSTR(kIOHIDServiceReportIntervalKey));
-        */
-
         // Establish connection with device
         ret = IOServiceOpen(_service, mach_task_self(), 0, &_connect);
         if (ret != kIOReturnSuccess || !_connect)
             break;
                         
         // allocate the memory
-        QUEUE_LOCK(this);
-
 #if !__LP64__
         vm_address_t        address = nil;
         vm_size_t           size    = 0;
@@ -478,12 +434,6 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, i
         
         if ( !_queueMappedMemory || !_queueMappedMemorySize )
             break;
-
-        _queueBusy = FALSE;
-        
-        QUEUE_UNLOCK(this);
-        
-        QUEUE_SIGNAL(this);
 
         return kIOReturnSuccess;
         
@@ -515,8 +465,6 @@ boolean_t IOHIDEventServiceClass::open(IOOptionBits options)
     IOReturn kr;
     bool     ret = true;
     
-    QUEUE_LOCK(this);
-
     if ( !_isOpen ) {
             
         do {
@@ -530,9 +478,7 @@ boolean_t IOHIDEventServiceClass::open(IOOptionBits options)
             
         } while ( 0 );
     }
-    
-    QUEUE_UNLOCK(this);
-                                                    
+                                                        
     return ret;
 }
 
@@ -544,23 +490,15 @@ void IOHIDEventServiceClass::close(IOOptionBits options)
     uint32_t len = 0;
     uint64_t input = options;
         
-    QUEUE_LOCK(this);
-
     if ( _isOpen ) {
         (void) IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientClose, &input, 1, 0, &len); 
         
-		// drain the queue just in case
-		QUEUE_UNLOCK(this);
-		
-		if ( _eventCallback )
-			_queueEventSourceCallback(NULL, NULL, 0, this);
-		
-		QUEUE_LOCK(this);
+        // drain the queue just in case
+        if ( _eventCallback )
+            dequeueHIDEvents(true);
 		
         _isOpen = false;
     }
-
-    QUEUE_UNLOCK(this);
 }
 
 //---------------------------------------------------------------------------
@@ -714,13 +652,18 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
 }
 
 //---------------------------------------------------------------------------
-// IOHIDEventServiceClass::setElementValue
+// IOHIDEventServiceClass::setOutputEvent
 //---------------------------------------------------------------------------
-IOReturn IOHIDEventServiceClass::setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value)
+IOReturn IOHIDEventServiceClass::setOutputEvent(IOHIDEventRef event)
 {
-    uint64_t input[3] = {usagePage, usage, value};
+    IOReturn result = kIOReturnUnsupported;
+    if ( IOHIDEventGetType(event) == kIOHIDEventTypeLED ) {        
+        uint64_t input[3] = {kHIDPage_LEDs, IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber), IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDState)};
 
-    return IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
+        result = IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
+    }
+    
+    return result;
 }
 
 
@@ -729,15 +672,15 @@ IOReturn IOHIDEventServiceClass::setElementValue(uint32_t usagePage, uint32_t us
 //---------------------------------------------------------------------------
 void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback, void * target, void * refcon)
 {
-    _eventCallback = callback;
-    _eventTarget = target;
-    _eventRefcon = refcon;
+    _eventCallback  = callback;
+    _eventTarget    = target;
+    _eventRefcon    = refcon;
 }
 
 //---------------------------------------------------------------------------
-// IOHIDEventServiceClass::scheduleWithRunLoop
+// IOHIDEventServiceClass::scheduleWithDispatchQueue
 //---------------------------------------------------------------------------
-void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
+void IOHIDEventServiceClass::scheduleWithDispatchQueue(dispatch_queue_t dispatchQueue)
 {
     if ( !_asyncPort ) {
         _asyncPort = IODataQueueAllocateNotificationPort();
@@ -748,50 +691,33 @@ void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringR
         if ( kIOReturnSuccess != ret )
             return;
     }
-
-    if ( !_asyncCFMachPort ) {
-        CFMachPortContext   context;
-        Boolean             shouldFreeInfo = FALSE;
-
-        context.version = 1;
-        context.info = this;
-        context.retain = NULL;
-        context.release = NULL;
-        context.copyDescription = NULL;
-
-        _asyncCFMachPort = CFMachPortCreateWithPort(NULL, _asyncPort,
-                    (CFMachPortCallBack) IOHIDEventServiceClass::_queueEventSourceCallback,
-                    &context, &shouldFreeInfo);
-                    
-        if ( shouldFreeInfo ) {
-            // The CFMachPort we got might not work, but we'll proceed with it anyway.
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
-        }
-
-        if (!_asyncCFMachPort)
-            return;
-    }
-        
+    
+    
     if ( !_asyncEventSource ) {
-
-        _asyncEventSource = CFMachPortCreateRunLoopSource(NULL, _asyncCFMachPort, 0);
+        _asyncEventSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, _asyncPort, 0, dispatchQueue);
         
         if ( !_asyncEventSource )
             return;
-    }    
-    CFRunLoopAddSource(runLoop, _asyncEventSource, runLoopMode);
+        
+        dispatch_set_context(_asyncEventSource, this);
+        dispatch_source_set_event_handler_f(_asyncEventSource, _queueEventSourceCallback);
+    }
+    dispatch_resume(_asyncEventSource);
     
-    // kick him for good measure
-    if ( _queueMappedMemory )
-        CFRunLoopSourceSignal(_asyncEventSource);
+    dispatch_async(dispatchQueue, ^{
+        dequeueHIDEvents();
+    });    
 }
 
 //---------------------------------------------------------------------------
-// IOHIDEventServiceClass::unscheduleFromRunLoop
+// IOHIDEventServiceClass::unscheduleFromDispatchQueue
 //---------------------------------------------------------------------------
-void IOHIDEventServiceClass::unscheduleFromRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
+void IOHIDEventServiceClass::unscheduleFromDispatchQueue(dispatch_queue_t queue __unused)
 {
-    CFRunLoopRemoveSource(runLoop, _asyncEventSource, runLoopMode);
+    if ( _asyncEventSource ) {
+        dispatch_release(_asyncEventSource);
+        _asyncEventSource = NULL;
+    }
 }
 
 //===========================================================================

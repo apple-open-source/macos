@@ -27,14 +27,14 @@
 #define WKErrorCF_h
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 WK_EXPORT WKErrorRef WKErrorCreateWithCFError(CFErrorRef error);
-WK_EXPORT CFErrorRef WKErrorCopyCFError(CFAllocatorRef alloc, WKErrorRef error);
+WK_EXPORT CFErrorRef WKErrorCopyCFError(CFAllocatorRef alloc, WKErrorRef error) CF_RETURNS_RETAINED;
 
 #ifdef __cplusplus
 }

@@ -1072,6 +1072,7 @@ INTERNAL rpc_socket_error_t rpc__bsd_socket_recvmsg
     rpc_socket_error_t  serr;
     struct msghdr       msg;
     rpc_bsd_socket_p_t  lrpc = (rpc_bsd_socket_p_t) sock->data.pointer;
+    int block = 0;
 
     *cc = 0;
 
@@ -1092,6 +1093,18 @@ recvmsg_again:
     }
     msg.msg_iov =  iov;
     msg.msg_iovlen = iovcnt;
+
+    /*
+     * WORKAROUND :
+     * - Inconsistency between kernel socket state and socket file descriptor state -
+     * fcntl(F_GETFL) here tells us that socket is blocking (O_NONBLOCK not set in flags),
+     * however kernel dtrace probe for soreceive says socket is SS_NBIO.
+     * See 18110085 / 17781539 for details.
+     * Setting FIONBIO to 0 from userland will resolve this incosistency and make both
+     * socket state and socket file descriptor state in the kernel land, and gurantees a
+     * blocking socket before recvmsg() is called.
+     */
+    ioctl(lrpc->fd, FIONBIO, &block);
 
     ret = dcethread_recvmsg (lrpc->fd, &msg, 0);
     if (ret == (ssize_t)-1)

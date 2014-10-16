@@ -1,0 +1,80 @@
+#! /bin/csh -f
+#
+# Test Alexander-specific SecureTransport features
+#
+set SSL_HOST=trading.etrade.com
+echo === $SSL_HOST : expired leaf cert ===
+echo === ...no options : expect errSSLCertExpired
+sslViewer $SSL_HOST 3
+if($status == 0) then
+   echo $SSL_HOST did not fail!
+   exit(1)
+endif
+echo === ... allowExpiredRoot expect errSSLCertExpired
+sslViewer $SSL_HOST 3 E
+if($status == 0) then
+   echo $SSL_HOST did not fail!
+   exit(1)
+endif
+echo === ... allowExpiredCerts expect success
+sslViewer $SSL_HOST 3 e
+if($status != 0) then
+   echo allowExpiredCerts did not fix $SSL_HOST!
+   exit(1)
+endif
+
+#
+#
+#
+set SSL_HOST=iproject.apple.com
+echo === $SSL_HOST : good leaf, expired root ===
+echo === ...no options : expect errSSLCertExpired
+sslViewer $SSL_HOST 3
+if($status == 0) then
+   echo $SSL_HOST did not fail!
+   exit(1)
+endif
+echo === ... allowExpiredRoot expect success
+sslViewer $SSL_HOST 3 E
+if($status != 0) then
+   echo allowExpiredRoot did not fix $SSL_HOST!
+   exit(1)
+endif
+echo === ... allowExpiredCerts expect success
+sslViewer $SSL_HOST 3 e
+if($status != 0) then
+   echo allowExpiredCerts did not fix $SSL_HOST!
+   exit(1)
+endif
+#
+#
+#
+set SSL_HOST=www.xdss.com
+echo === $SSL_HOST : unknown root ===
+echo === ...no options : expect errSSLNoRootCert
+sslViewer $SSL_HOST 3
+if($status == 0) then
+   echo $SSL_HOST did not fail!
+   exit(1)
+endif
+echo === ... allowAnyRoot, the old gross workaround, expect success
+sslViewer $SSL_HOST 3 r
+if($status != 0) then
+   echo allowAnyRoot did not fix $SSL_HOST!
+   exit(1)
+endif
+set ANCHOR_FILE=verisignCA.cer
+echo === ... only anchor = $ANCHOR_FILE, expect success
+sslViewer $SSL_HOST 3 A $ANCHOR_FILE
+if($status != 0) then
+   echo A $ANCHOR_FILE did not fix $SSL_HOST!
+   exit(1)
+endif
+echo === ... add anchor $ANCHOR_FILE, expect success
+sslViewer $SSL_HOST 3 a $ANCHOR_FILE
+if($status != 0) then
+   echo a $ANCHOR_FILE did not fix $SSL_HOST!
+   exit(1)
+endif
+
+echo ===== SUCCESS =====

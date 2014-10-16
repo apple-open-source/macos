@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.2</a></div><div id="page-content"><div id="preamble"><h1>İçerik Uzlaşımı</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.4</a></div><div id="page-content"><div id="preamble"><h1>İçerik Uzlaşımı</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="./en/content-negotiation.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/content-negotiation.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -29,7 +29,7 @@
 </div>
 
 
-    <p>Apache, içerik uzlaşımını HTTP/1.1 belirtiminde bahsedildiği şekliyle
+    <p>Apache HTTPD, içerik uzlaşımını HTTP/1.1 belirtiminde bahsedildiği şekliyle
       destekler. Bir özkaynağın en iyi gösterimini, tarayıcının sağladığı
       karakter kodlaması, karakter kümesi, dil, ortam türü gibi kullanıcı
       tercihlerine bağlı olarak seçebilir. Ayrıca, tarayıcının kullanıcı
@@ -40,7 +40,7 @@
       <code class="module"><a href="./mod/mod_negotiation.html">mod_negotiation</a></code> modülü tarafından sağlanır.</p>
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#about">İçerik Uzlaşımı Hakkında</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#negotiation">Apache’de İçerik Uzlaşımı</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#negotiation">httpd’de İçerik Uzlaşımı</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#methods">Uzlaşım Yöntemleri</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#better">Üstünlük Değerleriyle Oynamak</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#extensions">Şeffaf İçerik Uzlaşımının Genişletilmesi</a></li>
@@ -81,11 +81,11 @@
       q=0.6, image/*; q=0.5, */*; q=0.1
     </code></p></div>
 
-    <p>Apache, HTTP/1.1 belirtiminde tanımlanan şekliyle ‘sunucu yönetiminde’
+    <p>httpd, HTTP/1.1 belirtiminde tanımlanan şekliyle ‘sunucu yönetiminde’
       içerik uzlaşımını destekler. <code>Accept</code>,
       <code>Accept-Language</code>, <code>Accept-Charset</code> ve
       <code>Accept-Encoding</code> istek başlıklarını tamamen destekler.
-      Apache ayrıca, RFC 2295 ve RFC 2296’da tanımlanan bir deneysel uzlaşım
+      httpd ayrıca, RFC 2295 ve RFC 2296’da tanımlanan bir deneysel uzlaşım
       olarak ‘şeffaf’ içerik uzlaşımını da destekler. Fakat ‘özellik
       uzlaşımını’ bu RFC’lerde tanımlandığı gibi desteklemez.</p>
 
@@ -101,7 +101,7 @@
       kaynaklandığından bahsedilebilir.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="negotiation" id="negotiation">Apache’de İçerik Uzlaşımı</a></h2>
+<h2><a name="negotiation" id="negotiation">httpd’de İçerik Uzlaşımı</a></h2>
 
     <p>Bir özkaynak üzerinde uzlaşılırken gösterim çeşitlerinin her biri
       hakkında sunucuya bilgi verilmesi gerekir. Bu iki yolla yapılabilir:</p>
@@ -119,25 +119,33 @@
    <h3><a name="type-map" id="type-map">Bir türeşlem dosyası kullanmak</a></h3>
 
     <p>Bir türeşlem dosyası, <code>type-map</code> eylemcisi ile ilişkili bir
-      belgedir (ya da eski Apache yapılandırmaları ile geriye uyumluluk için,
+      belgedir (ya da eski httpd yapılandırmaları ile geriye uyumluluk için,
       <code>application/x-type-map</code> <a class="glossarylink" href="./glossary.html#mime türü" title="sözlüğe bakınız">MIME türü</a>nde
       bir belgedir). Bu özelliği kullanmak için, yapılandırmada bir tür
       eşleyici olarak her dosya ismi uzantısı için bir <code>type-map</code>
       eylemcisi tanımlamalısınız. Bu, sunucu yapılandırma dosyasında en iyi
       şöyle yapılabilir:</p>
 
-    <div class="example"><p><code>AddHandler type-map .var</code></p></div>
+    <pre class="prettyprint lang-config">AddHandler type-map .var</pre>
+
 
     <p>Türeşlem dosyaları kendilerini tanımlayan özkaynak ile aynı isimde
-      olmalı ve her gösterim çeşidi için bir girdi içermelidir; bu girdiler
+      olmalı ve isim bir <code>.var</code> uzantısı içermelidir. Aşağıdaki
+      örneklerde özkaynak ismi <code>foo</code> olduğundan türeşlem dosyasının
+      ismi <code>foo.var</code>'dır.</p>
+
+    <p>Bu dosya her gösterim çeşidi için bir girdi içermelidir; bu girdiler
       ardarda belirtilen HTTP biçem başlık satırlarından oluşur. Farklı
       gösterimlerin girdileri bir boş satırla diğerlerinden ayrılır. Aynı
       girdi içinde boş satır kullanılamaz. Bir eşlem dosyasını bir birleşik
       öğenin tamamı için bir girdi ile başlatmak adet olmuştur (ise de, bu
       gerekli değildir, hele yoksayılacaksa hiç gerekli değildir). Eşlem
-      dosyası için aşağıda bir örnek verilmiştir. Dosya <code>misal</code>
-      isimli bir özkaynak hakkında olduğundan dosyaya <code>misal.var</code>
-      ismi verilebilir.</p>
+      dosyası için aşağıda bir örnek verilmiştir.</p>
+
+   <p>Bu dosyadaki URI'ler türeşlem dosyasının yerine görelidir. Dolayısıyla,
+     bu dosyaların aynı dizinde bulunması beklenirse de bu gerekli değildir.
+     Aynı sunucuda bulunan tüm dosyalar için türeşlem dosyasındaki gibi mutlak
+     veya göreli URI'ler belirtebilirsiniz.</p>
 
     <div class="example"><p><code>
       URI: misal<br />
@@ -209,7 +217,8 @@
       listelemeye çalıştığı durumda <code class="directive"><a href="./mod/mod_dir.html#directoryindex">DirectoryIndex</a></code> yönergesi ile belirtilen dosya için de bir
       arama tertipleyebilir. Eğer yapılandırma dosyalarında</p>
 
-    <div class="example"><p><code>DirectoryIndex index</code></p></div>
+    <pre class="prettyprint lang-config">DirectoryIndex index</pre>
+
 
     <p>şeklinde bir atama varsa ve dizinde <code>index.html</code> ve
       <code>index.html3</code> dosyaları varsa sunucu bunlar arasından hakem
@@ -229,10 +238,10 @@
 <div class="section">
 <h2><a name="methods" id="methods">Uzlaşım Yöntemleri</a></h2>
 
-    <p>Apache’nin, bir türeşlem dosyası veya dizin içindeki bir dosya
+    <p>httpd’nin, bir türeşlem dosyası veya dizin içindeki bir dosya
       sayesinde belli bir özkaynağın gösterim çeşitlerinin bir listesini elde
       ettikten sonra ‘en uygun’ gösterime karar vermek için kullanabileceği
-      iki yöntem vardır. Apache’nin içerik uzlaşım özelliklerinin kullanımı
+      iki yöntem vardır. httpd’nin içerik uzlaşım özelliklerinin kullanımı
       sırasında uzlaşımın nasıl yerine getirileceği ile ilgili ayrıntıları
       bilmek aslında gerekli değildir. Bununla birlikte belgenin kalanında bu
       konu açıklanmaya çalışılmıştır.</p>
@@ -240,11 +249,11 @@
     <p>İki uzlaşım yöntemi vardır:</p>
 
     <ol>
-      <li>Normal durumda <strong>sunucu yönetiminde Apache uzlaşım
+      <li>Normal durumda <strong>sunucu yönetiminde httpd uzlaşım
         algoritması</strong> kullanılır. Bu algoritma aşağıda ayrıntılı olarak
-        açıklanmıştır. Bu algoritma kullanıldığı zaman, Apache, en iyi sonuca
+        açıklanmıştır. Bu algoritma kullanıldığı zaman, httpd, en iyi sonuca
         ulaşmak için bazen belli boyutların üstünlük katsayılarıyla ‘oynar’.
-        Apache’nin bu katsayılarla oynama işini nasıl yaptığı aşağıda daha
+        httpd’nin bu katsayılarla oynama işini nasıl yaptığı aşağıda daha
         ayrıntılı açıklanmıştır.</li>
 
       <li>İstemci bu işlem için özellikle RFC 2295’te tanımlanan mekanizmanın
@@ -254,7 +263,7 @@
         tarayıcının bu işlem için kullandığı algoritmanın başarısına bağlıdır.
         Şeffaf uzlaşım sürecinin bir parçası olarak, tarayıcı, RFC 2296’da
         tanımlanan ‘gösterim çeşidini uzaktan seçme algoritması’nın
-        çalıştırılmasını Apache’den isteyebilir.</li>
+        çalıştırılmasını httpd’den isteyebilir.</li>
     </ol>
 
   <h3><a name="dimensions" id="dimensions">Uzlaşımın Boyutları</a></h3>
@@ -304,9 +313,9 @@
     </table>
   
 
-  <h3><a name="algorithm" id="algorithm">Apache Uzlaşım Algoritması</a></h3>
+  <h3><a name="algorithm" id="algorithm">httpd Uzlaşım Algoritması</a></h3>
 
-    <p>Apache, tarayıcıya döndürülecek en uygun gösterim çeşidini (varsa)
+    <p>httpd, tarayıcıya döndürülecek en uygun gösterim çeşidini (varsa)
       seçmek için aşağıdaki algoritmayı kullanabilir. Bu algoritma pek de
       yapılandırılabilir değildir. Şöyle çalışır:</p>
 
@@ -386,13 +395,13 @@
 <div class="section">
 <h2><a name="better" id="better">Üstünlük Değerleriyle Oynamak</a></h2>
 
-    <p>Apache bazen yukarıdaki Apache uzlaşım algoritmasının kesin sonucunun
+    <p>httpd bazen yukarıdaki httpd uzlaşım algoritmasının kesin sonucunun
       beklenenden farklı olması için üstünlük değerleriyle oynar. Bunu tam ve
       doğru bilgi göndermeyen tarayıcılar için algoritmadan en iyi sonucu elde
       etmek amacıyla yapar. Bazen günümüzün en tanınmış tarayıcıları bile çoğu
       durumda yanlış bir seçimle sonuçlanmayacaksa <code>Accept</code> başlık
       bilgilerini göndermemektedir. Eğer tarayıcı eksiksiz ve doğru bilgi
-      gönderirse Apache bu değerlerle oynamayacaktır.</p>
+      gönderirse httpd bu değerlerle oynamayacaktır.</p>
 
   <h3><a name="wildcards" id="wildcards">Ortam Türleri ve Dosyaismi Kalıpları</a></h3>
 
@@ -426,7 +435,7 @@
       hiçbirinin bulunmaması halinde diğer türler eşleşecektir.</p>
 
     <p>Eğer <code>Accept:</code> başlığı <em>hiçbir</em> <code>q</code>
-      katsayısı içermiyorsa ve başlıkta "*/*" belirtilmişse, Apache istenen
+      katsayısı içermiyorsa ve başlıkta "*/*" belirtilmişse, httpd istenen
       davranışı taklit etmek için bu kalıba 0.01 katsayısını atar. Keza
       "type/*" kalıbına da 0.02 katsayısını atar (yani, */* kalıbına göre
       tercihli olur). Eğer  <code>Accept:</code> alanındaki her ortam türü bir
@@ -437,7 +446,7 @@
 
   <h3><a name="exceptions" id="exceptions">Dil Uzlaşımında İstisnalar</a></h3>
 
-    <p>Apache 2.0’dan itibaren, uzlaşım algoritmasına, bir eşleşme bulmak
+    <p>httpd 2.0’dan itibaren, uzlaşım algoritmasına, bir eşleşme bulmak
       konusunda algoritma başarılı olamadığı takdirde hoş bir son çareye izin
       vermek için bazı istisnalar eklenmiştir.</p>
 
@@ -445,7 +454,7 @@
       gönderilen <code>Accept-language</code> başlığıyla eşleşen tek bir sayfa
       bulamadığı takdirde istemciye ya “Kabul edilebilir bir gösterim çeşidi
       yok” ya da “Çok sayıda seçim belirtilmiş” yanıtını döndürür. Bu hata
-      iletilerinden kaçınmak için bu gibi durumlarda Apache
+      iletilerinden kaçınmak için bu gibi durumlarda httpd
       <code>Accept-language</code> başlığını yoksaymaya ayarlanabilir. Böylece
       istemcinin isteğine tam olarak uymasa da bir belge sağlanır. Bu hata
       iletilerinin birini veya her ikisini de geçersiz kılmak için <code class="directive"><a href="./mod/mod_negotiation.html#forcelanguagepriority">ForceLanguagePriority</a></code> yönergesi
@@ -467,7 +476,7 @@
       <code class="directive"><a href="./mod/mod_negotiation.html#languagepriority">LanguagePriority</a></code> son
       çaresine ayarlanmışsa alt küme belirtimini yok sayacak ve
       <code>en</code> belge isteklerine <code>en-GB</code> belgelerle yanıt
-      verecektir. Apache, lehçenin üyesi olduğu anadili, istemcinin kabul
+      verecektir. httpd, lehçenin üyesi olduğu anadili, istemcinin kabul
       edilebilir diller listesine örtük olarak düşük bir üstünlük değeri ile
       ekler. Yalnız şuna dikkat edin, eğer istemci tercihini "en-GB; q=0.9,
       fr; q=0.8" olarak belirtirse ve sunucuda sadece "en" ve "fr" belgeleri
@@ -476,7 +485,7 @@
       gibi çalışabilmek için bu gereklidir.</p>
 
     <p>Gelişmiş tekniklerin (çerezler, özel URL yolları gibi) desteklenmesi
-      sırasında, kullanıcının tercih ettiği dili saptamak için Apache 2.0.47
+      sırasında, kullanıcının tercih ettiği dili saptamak için httpd 2.0.47
       sürümünden beri <code class="module"><a href="./mod/mod_negotiation.html">mod_negotiation</a></code> modülü
       <code>prefer-language</code> <a href="env.html">ortam değişkenini</a>
       tanımaktadır. Değişken mevcutsa ve uygun bir dil yaftası içeriyorsa
@@ -484,17 +493,16 @@
       Böyle bir gösterim çeşidi mevcut değilse normal uzlaşım işlemi
       uygulanacaktır.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      SetEnvIf Cookie "language=(.+)" prefer-language=$1<br />
-      Header append Vary cookie
-    </code></p></div>
+    <div class="example"><h3>Örnek</h3><pre class="prettyprint lang-config">SetEnvIf Cookie "language=(.+)" prefer-language=$1
+Header append Vary cookie</pre>
+</div>
   
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="extensions" id="extensions">Şeffaf İçerik Uzlaşımının Genişletilmesi</a></h2>
   
 
-  <p>Apache, şeffaf içerik uzlaşımı protokolünü (RFC 2295) şöyle genişletir:
+  <p>httpd, şeffaf içerik uzlaşımı protokolünü (RFC 2295) şöyle genişletir:
     Sadece içerik kodlamasına özgü olmak üzere gösterim çeşidi listelerinde
     gösterim çeşitlerini imlemek için yeni bir <code>{encoding ..}</code>
     elemanı kullanılır. RVSA/1.0 algoritmasının (RFC 2296) gerçeklenimi,
@@ -601,7 +609,7 @@
 
     <p>Yukarıdaki tabloya bakarak hiperbağlarda bir dosya ismini uzantısız
       olarak (<code>misal</code> gibi) kullanmanın daima mümkün olduğunu
-      farkedeceksiniz. Böylece br belgenin asıl türünü gizleyebilir ve
+      farkedeceksiniz. Böylece bir belgenin asıl türünü gizleyebilir ve
       sonradan bir hiperbağ değişikliği yapmaksızın örneğin
       <code>html</code>’den <code>shtml</code> veya <code>cgi</code>’ye
       geçebilirsiniz.</p>
@@ -617,9 +625,9 @@
       Böylece, sonradan aynı URL için bir istek yapıldığında kaydettiği
       gösterimi kullanabilir. Fakat özkaynak sunucuyla uzlaşılan türdeyse
       arabelleğe ilk istenen çeşit saklanmış olacağından isteğe yanlış
-      gösterimle yanıt verilmiş olacaktır. Bunun olmaması için Apache, normal
+      gösterimle yanıt verilmiş olacaktır. Bunun olmaması için httpd, normal
       olarak içerik uzlaşımının sonucu olarak döndürülen tüm yanıtları
-      HTTP/1.0 istemciler tarafından arabelleklenemez olarak imler. Apache
+      HTTP/1.0 istemciler tarafından arabelleklenemez olarak imler. httpd
       ayrıca, uzlaşımlı yanıtların arabelleklenmesini mümkün kılan HTTP/1.1
       protokolünü de destekler.</p>
 
@@ -630,7 +638,7 @@
       yapılandırılmasında kullanılabilir. Bunun HTTP/1.1 istemcilerinden gelen
       isteklere bir etkisi yoktur.</p>
 
-    <p>HTTP/1.1 istemciler için, Apache, yanıtın uzlaşım boyutlarını göstermek
+    <p>HTTP/1.1 istemciler için, httpd, yanıtın uzlaşım boyutlarını göstermek
       üzere bir <code>Vary</code> HTTP yanıt başlığı gönderir. Arabellekler bu
       bilgiyi sonraki istekleri yerel kopyadan sunarken kullanabilirler. Bir
       arabelleğin uzlaşım boyutlarına bakmaksızın yerel kopyasını kullanmaya
@@ -646,7 +654,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/content-negotiation.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/content-negotiation.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -661,7 +669,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/content-negotiation.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -1,0 +1,72 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>stdbool.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">stdbool.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 2001-2002 Free Software Foundation, Inc.
+   Written by Bruno Haible &lt;<a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a>&gt;, 2001.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_STDBOOL_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDBOOL_H</span>
+
+<span class="enscript-comment">/* ISO C 99 &lt;stdbool.h&gt; for platforms that lack it.  */</span>
+
+<span class="enscript-comment">/* 7.16. Boolean type and values */</span>
+
+<span class="enscript-comment">/* BeOS &lt;sys/socket.h&gt; already #defines false 0, true 1.  We use the same
+   definitions below, but temporarily we have to #undef them.  */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__BEOS__</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">false</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">true</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* For the sake of symbolic names in gdb, define _Bool as an enum type.  */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__cplusplus</span>
+# <span class="enscript-reference">if</span> !0
+<span class="enscript-type">typedef</span> <span class="enscript-type">enum</span> { false = 0, true = 1 } _Bool;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> bool _Bool;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">bool</span> _Bool
+
+<span class="enscript-comment">/* The other macros must be usable in preprocessor directives.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">false</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">true</span> 1
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">__bool_true_false_are_defined</span> 1
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _STDBOOL_H */</span>
+</pre>
+<hr />
+</body></html>

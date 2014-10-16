@@ -1,27 +1,20 @@
 /*
- * "$Id: usb-unix.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: usb-unix.c 12131 2014-08-28 23:38:16Z msweet $"
  *
- *   USB port backend for CUPS.
+ * USB port backend for CUPS.
  *
- *   This file is included from "usb.c" when compiled on UNIX/Linux.
+ * This file is included from "usb.c" when compiled on UNIX/Linux.
  *
- *   Copyright 2007-2012 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright 2007-2013 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   "LICENSE" which should have been included with this file.  If this
- *   file is missing or damaged, see the license at "http://www.cups.org/".
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * "LICENSE" which should have been included with this file.  If this
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  *
- *   This file is subject to the Apple OS-Developed Software exception.
- *
- * Contents:
- *
- *   print_device() - Print a file to a USB device.
- *   list_devices() - List all USB devices.
- *   open_device()  - Open a USB device...
- *   side_cb()      - Handle side-channel requests...
+ * This file is subject to the Apple OS-Developed Software exception.
  */
 
 /*
@@ -153,7 +146,7 @@ print_device(const char *uri,		/* I - Device URI */
 
   tcgetattr(device_fd, &opts);
 
-  opts.c_lflag &= ~(ICANON | ECHO | ISIG);	/* Raw mode */
+  opts.c_lflag &= ~(unsigned)(ICANON | ECHO | ISIG);	/* Raw mode */
 
   /**** No options supported yet ****/
 
@@ -285,8 +278,6 @@ list_devices(void)
       close(fd);
     }
   }
-#elif defined(__hpux)
-#elif defined(__osf)
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
   int   i;                      /* Looping var */
   char  device[255];            /* Device filename */
@@ -612,5 +603,5 @@ side_cb(int         print_fd,		/* I - Print file */
 
 
 /*
- * End of "$Id: usb-unix.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: usb-unix.c 12131 2014-08-28 23:38:16Z msweet $".
  */

@@ -134,7 +134,7 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
 			     SecIdentityRef * ret_identity)
 {
     SecCertificateRef		cert_to_match = NULL;
-    int				count;
+    CFIndex			count;
     int				i;
     CFArrayRef			identity_list;
     OSStatus			status;
@@ -318,7 +318,7 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     }
     {
 	CFMutableArrayRef	array;
-	int			count = SecTrustGetCertificateCount(trust);
+	CFIndex			count = SecTrustGetCertificateCount(trust);
 	int			i;
 
 	if (count == 0) {
@@ -356,7 +356,7 @@ OSStatus
 EAPSecIdentityCreateTrustChain(SecIdentityRef identity, CFArrayRef * ret_array)
 {
     CFMutableArrayRef		array = NULL;
-    int				count;
+    CFIndex			count;
     OSStatus			status;
     CFArrayRef			trust_chain = NULL;
 
@@ -485,7 +485,7 @@ CFArrayRef
 EAPSecCertificateArrayCreateCFDataArray(CFArrayRef certs)
 {
     CFMutableArrayRef	array = NULL;
-    int			count = CFArrayGetCount(certs);
+    CFIndex		count = CFArrayGetCount(certs);
     int			i;
 
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
@@ -517,7 +517,7 @@ CFArrayRef
 EAPCFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 {
     CFMutableArrayRef	array = NULL;
-    int			count = CFArrayGetCount(certs);
+    CFIndex		count = CFArrayGetCount(certs);
     int			i;
     
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);

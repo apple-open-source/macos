@@ -1,0 +1,89 @@
+CarlDSSCRLEmpty.crl
+TBS Sig Algorithm  : dsaWithSha1 (1 2 840 10040 4 3)
+Issuer Name        :
+   Common Name     : CarlDSS
+This Update        : 07:00:00 Aug 20, 1999
+Next Update        : <not present>
+Signature          : 47 bytes : 30 2D 02 14 62 3F 36 17 ...
+
+
+CarlDSSCRLForAll.crl
+TBS Sig Algorithm  : dsaWithSha1 (1 2 840 10040 4 3)
+Issuer Name        :
+   Common Name     : CarlDSS
+This Update        : 07:00:00 Aug 27, 1999
+Next Update        : <not present>
+Num Revoked Certs  : 5
+Revoked Cert 0     :
+   Serial number   : 00 C8 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 1     :
+   Serial number   : 00 C9 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 2     :
+   Serial number   : 00 D3 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 3     :
+   Serial number   : 00 D2 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 4     :
+   Serial number   : 00 D4 
+   Revocation time : 07:00:00 Aug 24, 1999
+Signature          : 46 bytes : 30 2C 02 14 7E 65 52 76 ...
+
+
+CarlDSSCRLForCarl.crl
+TBS Sig Algorithm  : dsaWithSha1 (1 2 840 10040 4 3)
+Issuer Name        :
+   Common Name     : CarlDSS
+This Update        : 07:00:00 Aug 25, 1999
+Next Update        : <not present>
+Num Revoked Certs  : 1
+Revoked Cert 0     :
+   Serial number   : 01 
+   Revocation time : 07:00:00 Aug 22, 1999
+Signature          : 47 bytes : 30 2D 02 15 00 B3 1F C5 ...
+
+
+CarlRSACRLEmpty.crl
+TBS Sig Algorithm  : md5withRSAEncryption (1 2 840 113549 1 1 4)
+   alg params      : 05 00 
+Issuer Name        :
+   Common Name     : CarlRSA
+This Update        : 07:00:00 Aug 20, 1999
+Next Update        : <not present>
+Signature          : 128 bytes : A9 C5 21 B8 13 7C 74 F3 ...
+
+
+CarlRSACRLForAll.crl
+TBS Sig Algorithm  : md5withRSAEncryption (1 2 840 113549 1 1 4)
+   alg params      : 05 00 
+Issuer Name        :
+   Common Name     : CarlRSA
+This Update        : 07:00:00 Aug 27, 1999
+Next Update        : <not present>
+Num Revoked Certs  : 3
+Revoked Cert 0     :
+   Serial number   : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E C4 10 B3 B0 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 1     :
+   Serial number   : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E D5 9A 30 90 
+   Revocation time : 07:00:00 Aug 22, 1999
+Revoked Cert 2     :
+   Serial number   : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E CD 5D 71 D0 
+   Revocation time : 07:00:00 Aug 24, 1999
+Signature          : 128 bytes : BF B3 97 AA 53 F0 32 21 ...
+
+
+CarlRSACRLForCarl.crl
+TBS Sig Algorithm  : md5withRSAEncryption (1 2 840 113549 1 1 4)
+   alg params      : 05 00 
+Issuer Name        :
+   Common Name     : CarlRSA
+This Update        : 07:00:00 Aug 25, 1999
+Next Update        : <not present>
+Num Revoked Certs  : 1
+Revoked Cert 0     :
+   Serial number   : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E 9F F2 50 20 
+   Revocation time : 07:00:00 Aug 22, 1999
+Signature          : 128 bytes : 21 EF 21 D4 C1 1A 85 95 ...

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,7 +36,6 @@ namespace WebCore {
 class MIMETypeRegistry {
 public:
     static String getMIMETypeForExtension(const String& extension);
-    static String getWellKnownMIMETypeForExtension(const String& extension);
 
     static Vector<String> getExtensionsForMIMEType(const String& type);
     static String getPreferredExtensionForMIMEType(const String& type);
@@ -67,11 +66,6 @@ public:
     // Check to see if a mime type is suitable for being loaded using <video> and <audio>
     static bool isSupportedMediaMIMEType(const String& mimeType); 
 
-#if ENABLE(MEDIA_SOURCE)
-    // Check to see if the mime type and codecs are supported by the MediaSource implementation.
-    static bool isSupportedMediaSourceMIMEType(const String& mimeType, const String& codecs);
-#endif
-
     // Check to see if the mime type is not suitable for being loaded as a text
     // document in a frame. Only valid for mime types begining with "text/".
     static bool isUnsupportedTextMIMEType(const String& mimeType);
@@ -85,6 +79,7 @@ public:
 
     // Check to see if a mime type is one of the common PDF/PS types.
     static bool isPDFOrPostScriptMIMEType(const String& mimeType);
+    static bool isPDFMIMEType(const String& mimeType);
 
     // Check to see if a mime type is suitable for being shown inside a page.
     // Returns true if any of isSupportedImageMIMEType(), isSupportedNonImageMIMEType(), isSupportedMediaMIMEType() returns true
@@ -96,6 +91,7 @@ public:
     static HashSet<String>& getSupportedImageMIMETypesForEncoding();
     static HashSet<String>& getSupportedNonImageMIMETypes();
     static HashSet<String>& getSupportedMediaMIMETypes();
+    static HashSet<String>& getPDFMIMETypes();
     static HashSet<String>& getPDFAndPostScriptMIMETypes();
     static HashSet<String>& getUnsupportedTextMIMETypes();
 

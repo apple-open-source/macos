@@ -1,4 +1,4 @@
-lib	getexecname
+lib	getexecname,_NSGetExecutablePath
 
 tst	run{
 	for p in /proc/self/exe /proc/self/path/a.out
@@ -8,3 +8,5 @@ tst	run{
 		fi
 	done
 }end
+
+_hdr_macho_o_dyld = hdr mach-o/dyld

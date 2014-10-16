@@ -18,9 +18,6 @@
 /*	#define EHLO_MASK_XFORWARD	(1<<9)
 /*	#define EHLO_MASK_ENHANCEDSTATUSCODES	(1<<10)
 /*	#define EHLO_MASK_DSN		(1<<11)
-/*	#define EHLO_MASK_BINARYMIME	(1<<12)			APPLE - RFC 3030
-/*	#define EHLO_MASK_CHUNKING	(1<<13)			APPLE - RFC 3030
-/*	#define EHLO_MASK_BURL		(1<<14)			APPLE - burl
 /*	#define EHLO_MASK_SILENT	(1<<15)
 /*
 /*	int	ehlo_mask(keyword_list)
@@ -78,16 +75,6 @@ static const NAME_MASK ehlo_mask_table[] = {
     "STARTTLS", EHLO_MASK_STARTTLS,
     "ENHANCEDSTATUSCODES", EHLO_MASK_ENHANCEDSTATUSCODES,
     "DSN", EHLO_MASK_DSN,
-
-    /* APPLE - RFC 3030 */
-    "BINARYMIME", EHLO_MASK_BINARYMIME,
-    "CHUNKING", EHLO_MASK_CHUNKING,
-
-/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-    "BURL", EHLO_MASK_BURL,
-#endif
-
     "SILENT-DISCARD", EHLO_MASK_SILENT,	/* XXX In-band signaling */
     0,
 };

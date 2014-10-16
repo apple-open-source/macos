@@ -39,11 +39,21 @@ class IntSize;
 class ViewportAttributes;
 }
 
+namespace API {
+template<> struct ClientTraits<WKViewClientBase> {
+    typedef std::tuple<WKViewClientV0> Versions;
+};
+}
+
 namespace WebKit {
 
 class WebView;
 
-class WebViewClient: public APIClient<WKViewClient, kWKViewClientCurrentVersion> {
+#if ENABLE(TOUCH_EVENTS)
+class NativeWebTouchEvent;
+#endif
+
+class WebViewClient: public API::Client<WKViewClientBase> {
 public:
     void viewNeedsDisplay(WebView*, const WebCore::IntRect&);
     void didChangeContentsSize(WebView*, const WebCore::IntSize&);
@@ -54,6 +64,10 @@ public:
     void didCompletePageTransition(WebView*);
     void didChangeViewportAttributes(WebView*, const WebCore::ViewportAttributes&);
     void didChangeTooltip(WebView*, const String& tooltip);
+    void didFindZoomableArea(WebView*, const WebCore::IntPoint&, const WebCore::IntRect&);
+#if ENABLE(TOUCH_EVENTS)
+    void doneWithTouchEvent(WebView*, const NativeWebTouchEvent&, bool);
+#endif
 };
 
 } // namespace WebKit

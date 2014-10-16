@@ -28,19 +28,19 @@
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
 
+#include "CDMSession.h"
+#include <runtime/Uint8Array.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
-#include <wtf/Uint8Array.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CDM;
 class CDMPrivateInterface;
-class CDMSession;
 class MediaPlayer;
 
-typedef PassOwnPtr<CDMPrivateInterface> (*CreateCDM)(CDM*);
+typedef std::unique_ptr<CDMPrivateInterface> (*CreateCDM)(CDM*);
 typedef bool (*CDMSupportsKeySystem)(const String&);
 typedef bool (*CDMSupportsKeySystemAndMimeType)(const String&, const String&);
 
@@ -51,29 +51,19 @@ public:
     virtual MediaPlayer* cdmMediaPlayer(const CDM*) const = 0;
 };
 
-class CDMSession {
-public:
-    CDMSession() { }
-    virtual ~CDMSession() { }
-
-    virtual const String& sessionId() const = 0;
-    virtual PassRefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) = 0;
-    virtual void releaseKeys() = 0;
-    virtual bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) = 0;
-};
-
 class CDM {
 public:
+    explicit CDM(const String& keySystem);
 
     enum CDMErrorCode { UnknownError = 1, ClientError, ServiceError, OutputError, HardwareChangeError, DomainError };
     static bool supportsKeySystem(const String&);
     static bool keySystemSupportsMimeType(const String& keySystem, const String& mimeType);
-    static PassOwnPtr<CDM> create(const String& keySystem);
+    static std::unique_ptr<CDM> create(const String& keySystem);
     static void registerCDMFactory(CreateCDM, CDMSupportsKeySystem, CDMSupportsKeySystemAndMimeType);
     ~CDM();
 
     bool supportsMIMEType(const String&) const;
-    PassOwnPtr<CDMSession> createSession();
+    std::unique_ptr<CDMSession> createSession();
 
     const String& keySystem() const { return m_keySystem; }
 
@@ -83,10 +73,8 @@ public:
     MediaPlayer* mediaPlayer() const;
 
 private:
-    CDM(const String& keySystem);
-
     String m_keySystem;
-    OwnPtr<CDMPrivateInterface> m_private;
+    std::unique_ptr<CDMPrivateInterface> m_private;
     CDMClient* m_client;
 };
 

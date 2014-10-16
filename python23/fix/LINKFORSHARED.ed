@@ -1,2 +1,0 @@
-/^LINKFORSHARED=/s,$(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)/$(PYTHONFRAMEWORK),-framework Python,
-w

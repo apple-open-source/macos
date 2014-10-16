@@ -39,9 +39,9 @@ int ppp_suspend(struct service *serv);
 int ppp_resume(struct service *serv);
 SCNetworkConnectionStatus ppp_getstatus(struct service *serv);
 int ppp_getstatus1(struct service *serv, void **reply, u_int16_t *replylen);
-int ppp_copyextendedstatus (struct service *serv, void **reply, u_int16_t *replylen);
-int ppp_copystatistics(struct service *serv, void **reply, u_int16_t *replylen);
-int ppp_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all);
+int ppp_copyextendedstatus(struct service *serv, CFDictionaryRef *statusdict);
+int ppp_copystatistics(struct service *serv, CFDictionaryRef *statsdict);
+int ppp_getconnectdata(struct service *serv, CFDictionaryRef *options, int all);
 int ppp_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *replylen);
 
 void ppp_updatephase(struct service *serv, int phase, int ifunit);
@@ -58,5 +58,8 @@ void ppp_ipv4_state_changed(struct service *serv);
 void ppp_user_notification_callback(struct service *serv, CFUserNotificationRef userNotification, CFOptionFlags responseFlags);
 int ppp_ondemand_add_service_data(struct service *serv, CFMutableDictionaryRef ondemand_dict);
 int ppp_is_pid(struct service *serv, int pid);
+
+int ppp_install(struct service *serv);
+int ppp_uninstall(struct service *serv);
 
 #endif

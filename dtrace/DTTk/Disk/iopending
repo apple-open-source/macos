@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 ##!/usr/bin/ksh
 #
 # iopending - Print a plot for the number of pending disk I/O events.

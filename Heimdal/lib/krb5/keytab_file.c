@@ -521,6 +521,8 @@ loop:
     if(start) *start = pos;
     if(end) *end = pos + 4 + len;
  out:
+    if (ret)
+	krb5_kt_free_entry(context, entry);
     krb5_storage_seek(cursor->sp, pos + 4 + len, SEEK_SET);
     return ret;
 }
@@ -726,7 +728,7 @@ fkt_add_entry(krb5_context context,
 	}
 	if(len < 0) {
 	    len = -len;
-	    if(len >= (uint32_t)keytab.length) {
+	    if(len >= (int32_t)keytab.length) {
 		krb5_storage_seek(sp, -4, SEEK_CUR);
 		break;
 	    }

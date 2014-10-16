@@ -15,6 +15,11 @@ main(int argc, char **argv)
     uint32_t	version;
     
     error = KLCacheHasValidTickets(NULL, kerberosVersion_V5,
+				   &foundTickets, NULL, NULL);
+    if (error)
+	errx(1, "no valid ticket");
+
+    error = KLCacheHasValidTickets(NULL, kerberosVersion_V5,
 				   &foundTickets, &principal, &cacheName);
     if (error)
 	errx(1, "no valid ticket");
@@ -24,11 +29,12 @@ main(int argc, char **argv)
     if (error)
 	errx(1, "failed to parse principal");
     
-    printf("name: %s instance: %s realm: %s\n", name, instance, realm);
+    printf("name: %s instance: %s realm: %s cacheName: %s\n", name, instance, realm, cacheName);
     
     KLDisposeString (name);
     KLDisposeString (instance);
     KLDisposeString (realm);
+    KLDisposeString (cacheName);
 
     return 0;
 }

@@ -133,7 +133,7 @@ bpf_arp_filter(int fd, int type_offset, int type, int pkt_size)
 int
 bpf_write(int fd, void * pkt, int len)
 {
-    return (write(fd, pkt, len));
+    return ((int)write(fd, pkt, len));
 }
 
 #ifdef TESTING

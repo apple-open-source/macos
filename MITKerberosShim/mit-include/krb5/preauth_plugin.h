@@ -35,7 +35,7 @@
 
 #ifndef KRB5_PREAUTH_PLUGIN_H_INCLUDED
 #define KRB5_PREAUTH_PLUGIN_H_INCLUDED
-#include <Kerberos/krb5.h>
+#include <krb5/krb5.h>
 
 /*
  * While arguments of these types are passed-in, for the most part a preauth

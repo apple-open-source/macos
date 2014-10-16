@@ -74,6 +74,7 @@ _sasl_client_start
 _sasl_client_step
 _sasl_config_getstring
 _sasl_config_init
+_sasl_config_done
 _sasl_decode
 _sasl_decode64
 _sasl_dispose
@@ -101,6 +102,7 @@ _sasl_server_plugin_info
 _sasl_server_start
 _sasl_server_step
 _sasl_set_alloc
+_sasl_set_path
 _sasl_set_mutex
 _sasl_seterror
 _sasl_setpass

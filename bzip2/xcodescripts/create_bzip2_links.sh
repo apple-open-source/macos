@@ -2,12 +2,7 @@
 
 set -ex
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	[ -z "${DSTROOT}" ] && exit 1
-	[ -d "${DSTROOT}/usr" ] && rm -rf "${DSTROOT}/usr"
-	exit 0
-fi
+DSTROOT=${DSTROOT}${INSTALL_PATH_PREFIX}
 
 # This script phase is run here, so that the hardlinks are created *after* stripping.
 # Doing it in the bzip2 target itself produces verification failures.

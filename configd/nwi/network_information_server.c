@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,7 +85,7 @@ log_xpc_object(const char *msg, xpc_object_t obj)
 
 	desc = xpc_copy_description(obj);
 	if (*S_debug) {
-		SCLoggerLog(S_logger, LOG_INFO, "%s = %s", msg, desc);
+		SCLoggerLog(S_logger, LOG_DEBUG, "%s = %s", msg, desc);
 	}
 	free(desc);
 }
@@ -147,7 +147,7 @@ _nwi_state_copy(xpc_connection_t connection, xpc_object_t request)
 			proc_name = "???";
 		}
 
-		SCLoggerLog(S_logger, LOG_INFO, CFSTR("<%p:%s[%d]> Network information copy: %lu"),
+		SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%s[%d]> Network information copy: %llu"),
 			    connection,
 			    proc_name,
 			    xpc_connection_get_pid(connection),
@@ -187,7 +187,7 @@ _nwi_state_acknowledge(xpc_connection_t connection, xpc_object_t request)
 	generation = xpc_dictionary_get_uint64(request, NWI_GENERATION);
 
 	if (*S_debug) {
-		SCLoggerLog(S_logger, LOG_INFO, CFSTR("<%p:%d> Network information ack: %lu"),
+		SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information ack: %llu"),
 			    connection,
 			    xpc_connection_get_pid(connection),
 			    generation);
@@ -230,7 +230,7 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 			break;
 		default :
 			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p> unknown request : %d"),
+				    CFSTR("<%p> unknown request : %lld"),
 				    connection,
 				    op);
 
@@ -245,7 +245,7 @@ static void
 process_new_connection(xpc_connection_t c)
 {
 	if (*S_debug) {
-		SCLoggerLog(S_logger, LOG_INFO, CFSTR("<%p:%d> Network information session: open"),
+		SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information session: open"),
 			    c,
 			    xpc_connection_get_pid(c));
 	}
@@ -270,7 +270,7 @@ process_new_connection(xpc_connection_t c)
 				Boolean		changed;
 
 				if (*S_debug) {
-					SCLoggerLog(S_logger, LOG_INFO, CFSTR("<%p:%d> Network information session: close"),
+					SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information session: close"),
 						    c,
 						    xpc_connection_get_pid(c));
 				}
@@ -293,7 +293,7 @@ process_new_connection(xpc_connection_t c)
 
 			} else {
 				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("<%p:%d> Connection error: %d : %s"),
+					    CFSTR("<%p:%d> Connection error: %p : %s"),
 					    c,
 					    xpc_connection_get_pid(c),
 					    xobj,
@@ -302,7 +302,7 @@ process_new_connection(xpc_connection_t c)
 
 		}  else {
 			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p:%d> unknown event type : %x"),
+				    CFSTR("<%p:%d> unknown event type : %p"),
 				    c,
 				    xpc_connection_get_pid(c),
 				    type);
@@ -370,14 +370,14 @@ load_NetworkInformation(CFBundleRef		bundle,
 				SCLoggerLog(S_logger, LOG_ERR, CFSTR("Network information server: %s"), desc);
 			} else {
 				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("Network information server: Connection error: %d : %s"),
+					    CFSTR("Network information server: Connection error: %p : %s"),
 					    event,
 					    desc);
 			}
 
 		} else {
 			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("Network information server: unknown event type : %x"),
+				    CFSTR("Network information server: unknown event type : %p"),
 				    type);
 
 		}
@@ -441,7 +441,7 @@ _nwi_state_store(nwi_state *state)
 		new_generation = state->generation_count;
 
 		if (*S_debug) {
-			SCLoggerLog(S_logger, LOG_INFO, CFSTR("Network information updated: %llu"),
+			SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("Network information updated: %llu"),
 				    new_generation);
 		}
 

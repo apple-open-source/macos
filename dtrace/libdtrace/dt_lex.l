@@ -37,23 +37,7 @@
 #include <dt_parser.h>
 #include <dt_string.h>
 
-#if !defined(__APPLE__)
-/*
- * We need to undefine lex's input and unput macros so that references to these
- * call the functions provided at the end of this source file.
- */
-#undef input
-#undef unput
-
 static int id_or_type(const char *);
-static int input(void);
-static void unput(int);
-#else
-static int id_or_type(const char *);
-/* Darwin's lex(1) ("flex") uses the YY_INPUT call to get data. */
-#endif /* __APPLE__ */
-
-#if defined(__APPLE__)
 
 #define YY_INPUT(buf, result, max_size)										\
 {																			\
@@ -77,8 +61,6 @@ static int id_or_type(const char *);
 	}																		\
 }
 
-#endif /* __APPLE__ */
-
 /*
  * We first define a set of labeled states for use in the D lexer and then a
  * set of regular expressions to simplify things below.  The lexer states are:
@@ -98,13 +80,7 @@ static int id_or_type(const char *);
 %s S0 S1 S2 S3 S4
 
 RGX_AGG		"@"[a-zA-Z_][0-9a-zA-Z_]*
-/*
-#if !defined(__APPLE__)
-RGX_PSPEC	[-$:a-zA-Z_.?*\\\[\]!][-$:0-9a-zA-Z_.`?*\\\[\]!]*
-#else
-*/
 RGX_PSPEC	[-+$:a-zA-Z_.?*\\\[\]!][-+$:0-9a-zA-Z_.`?*\\\[\]!\(\)]*
-/* #endif __APPLE__ */
 RGX_IDENT	[a-zA-Z_`][0-9a-zA-Z_`]*
 RGX_INT		([0-9]+|0[xX][0-9A-Fa-f]+)[uU]?[lL]?[lL]?
 RGX_FP		([0-9]+("."?)[0-9]*|"."[0-9]+)((e|E)("+"|-)?[0-9]+)?[fFlL]?
@@ -595,11 +571,7 @@ if (yypcb->pcb_token != 0) {
 <S0>{RGX_WS}	; /* discard */
 <S0>"\\"\n	; /* discard */
 <S0>"\0"	{
-			#if defined(__APPLE__)
 				return (DT_TOK_EOF);
-			#else
-				yyerror("syntax error: spurious '\0'\n");
-			#endif
 			}
 <S0>.		yyerror("syntax error near \"%c\"\n", yytext[0]);
 
@@ -665,11 +637,7 @@ if (yypcb->pcb_token != 0) {
 
 <S2>{RGX_WS}	; /* discard */
 <S2>"\0"	{
-			#if defined(__APPLE__)
 				return (DT_TOK_EOF);
-			#else
-				yyerror("syntax error: spurious '\0'\n");
-			#endif
 			}
 <S2>.		yyerror("syntax error near \"%c\"\n", yytext[0]);
 
@@ -750,16 +718,6 @@ yybegin(yystate_t state)
 	yypcb->pcb_yystate = state;
 }
 
-#if !defined(__APPLE__)
-void
-yyinit(dt_pcb_t *pcb)
-{
-	yypcb = pcb;
-	yylineno = 1;
-	yypragma = NULL;
-	yysptr = yysbuf;
-}
-#else /* is Apple Mac OS X */
 void
 yyinit(dt_pcb_t *pcb)
 {
@@ -769,7 +727,6 @@ yyinit(dt_pcb_t *pcb)
 	yylineno = 1;
 	yypragma = NULL;
 }
-#endif /* __APPLE__ */
 
 /*
  * Given a lexeme 's' (typically yytext), set yylval and return an appropriate
@@ -864,48 +821,3 @@ id_or_type(const char *s)
 	return (ttok);
 }
 
-#if !defined(__APPLE__)
-static int
-input(void)
-{
-	int c;
-
-	if (yysptr > yysbuf)
-		c = *--yysptr;
-	else if (yypcb->pcb_fileptr != NULL)
-		c = fgetc(yypcb->pcb_fileptr);
-	else if (yypcb->pcb_strptr < yypcb->pcb_string + yypcb->pcb_strlen)
-		c = *yypcb->pcb_strptr++;
-	else
-		c = EOF;
-
-	if (c == '\n')
-		yylineno++;
-
-	if (c != EOF)
-		return (c);
-
-	if ((YYSTATE) == S1)
-		yyerror("end-of-file encountered before matching */\n");
-
-	if ((YYSTATE) == S3)
-		yyerror("end-of-file encountered before end of control line\n");
-
-	if (yypcb->pcb_fileptr != NULL && ferror(yypcb->pcb_fileptr))
-		longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
-
-	return (0); /* EOF */
-}
-
-static void
-unput(int c)
-{
-	if (c == '\n')
-		yylineno--;
-
-	*yysptr++ = c;
-	yytchar = c;
-}
-#else /* is Apple Mac OS X */
-/* Darwin's lex(1) ("flex") uses the YY_INPUT call to get data. */
-#endif /* __APPLE__ */

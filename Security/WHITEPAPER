@@ -1,0 +1,146 @@
+Security White Paper For Purple v1
+==================================
+
+Author
+======
+
+Michael Brouwer <mb@apple.com>
+
+
+Goals
+====
+
+* SSL support with Client Side authentication working.
+* SecKeychain API for password storage.
+
+Footprint
+=======
+
+To get an idea of how small an SSL implementation can be I compiled
+MatrixSSL on ppc and arm.  PPC binary is about 75k and arm is about
+100k.  MatrixSSL uses a GPL license so we can't use it directly.
+However we could purchase a more liberal license from them and get
+additional features available in the commercial version only.  I
+didn't investigate yet what those features are or what the pricing is.
+
+We've exceeded the matrixssl size by arriving at less than 100k ppc
+binary for sslv2 sslv3 tlsv1 support with aes rc4 3des md5 sha1 rsa
+support including the 40 bit export strength suites.
+
+I'm using the above numbers as a target to beat.  Note that MatrixSSL
+only does SSLv3 and TLS.  In addition it only supports a cipher suites
+using: MD2, MD5, SHA1, 3DES, and RSA.  Also it doesn't support the
+weaker "export strength" algorithms, which use smaller (40 bit) key
+sizes, so you can't talk to an "export strength" only SSL server.
+
+Currently SecureTransport on Mac OS X supports, in addition to the
+above: SSLv2 and cipher suites using RC2, RC4, AES, and Diffie-Hellman
+key exchange (both anon and not).  As well as export and non-export
+versions of everything.
+
+We can decide later on if we need the algorithms that we support above
+the MatrixSSL baseline, using a compile time flag.  Of course each
+addition algorithm adds to the code footprint.  Diffie-Hellman in
+particular adds extra code to SSL itself as well.  Something else to
+consider is whether or not we want to support ECCDSA and SHA2 (256 384
+and 512) something that the Federal government is requiring.
+
+SSLv2 support is something else we need to decide whether or not we
+need, since supporting it requires a reasonable amount of code as
+well.  It's generally considered insecure today, however I don't know
+how many websites are out there that only support SSLv2 and not any of
+the more modern protocols.  If we decide it's worth dropping SSLv2 to
+save space, we should research this.
+
+SSL Milestones
+============
+
+* Converted our existing SecureTransport SSL code to C from C++ (done)
+* Switch from using CDSA to embedded crypto (done)
+* Move to a standalone certificate verification layer (mostly done)
+  Once the above are completed we will have a functional standalone
+  SSL library without client side auth support. (done)
+* Optionally switch from using a generic ASN.1 encoding/decoding library to some
+  hand written C code instead which will be much smaller, saving and
+  estimated 100k code. (done)
+
+Progress
+========
+
+I've started evaluating and collecting crypto algorithms for use with
+this SSL library.  So far a number of them are smaller and faster than
+the ones provided with MatrixSSL.  However this comparison was done on
+PPC as I don't have any  ARM hardware to test on yet.  Once selected
+these algorithms should probably also go into the IP-Sec stack in xnu
+or potentially even be shared between kernel and user space.
+
+Open Questions
+==============
+
+Do we need to support:
+
+* CRLs (could potentially be synced connected to a host computer)
+* OCSP certificate checking (requires a live connection).
+* Suite B algorithms: AES 128/192/256, SHA2 256/384/512 and
+  ECCDSA 256/384/512.
+
+MatrixSSL has no support for either.  The federal government requires
+that we support at least one of the above and possibly even both.
+
+Keychain Support
+==============
+
+To add client side certificate support we will need a way to securely
+store private keys.  For this I propose using a subset interface
+similar, or identical to, the current SecKeychain API, but with a
+completely new back-end implementation.  This will get us both key and
+password storage at the same time.
+
+For the back-end we can either use sqlite3 as the data store layer or
+a custom lightweight DB or something based on CFPropertyLists.
+Tradeoffs are that sqlite3 will scale better to large numbers of items
+and large items (such as certificates and CRLs), but have a larger
+code footprint.  Safari is probably the only client that doesn't
+already use sqlite3 though so in the other cases using sqlite3 will
+probably make the footprint smaller than having custom code.
+
+An alternative is to keep each type of item in a separate lightweight
+DB or property list to help scaling, but if a user stores a lot of web
+form passwords for a lot of websites we will still end up reading all
+of them into ram rather than just those we need when using sqlite3.
+
+In either case there need to be searchable attributes, and a single
+non searchable attribute per item which will be encrypted with a
+system wide key know only to a privileged agent.
+
+This agent will need to support 2 simple operations: encrypt blob and
+decrypt blob.  The agent can live either in the kernel or in a
+lightweight server process that is launched on demand and can exit
+when it is no longer needed.  In either case the agent guards the key
+bits but freely allows access to it by any client.  This means we have
+no keychain ACLs and any application running on the system can decrypt
+all keychain secrets.  Mac OS X currently has a much better
+architecture which allows unwrapping keys inside the agent and
+operating on them by reference without exposing the key bits to the
+client.  For private keys and multi use sessions keys this might be
+desirable, but adds complexity and code size.
+
+Keychain Synching will require an agent running on the system that
+decrypts each item and re-encrypts it the way a Tiger system expects
+to see it.  This can be done when the device is connect to a computer,
+by requiring the user to enter the synched keychain password on the
+device once to obtain the secrets.
+
+Other Security Issues
+=====================
+
+* I have not yet looked at SPNEGO and NTLM at all yet.
+* We might want to consolidate the Keychain secret mechanism above
+  with whatever the device will be using for music DRM services.
+
+Conclusion
+==========
+
+If desired I can turn this into a more formal whitepaper and
+start trying to set some milestones and timelines.  However for now
+I'd like to get some feedback on the current plan.

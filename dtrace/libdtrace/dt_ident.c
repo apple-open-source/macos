@@ -26,27 +26,13 @@
 
 #pragma ident	"@(#)dt_ident.c	1.16	07/06/29 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
 #include <strings.h>
 #include <stdlib.h>
 #include <alloca.h>
 #include <assert.h>
 #include <errno.h>
 #include <ctype.h>
-#include <sys/procfs_isa.h>
 #include <limits.h>
-#else /* is Apple Mac OS X */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-#include <strings.h>
-#include <stdlib.h>
-#include <alloca.h>
-#include <assert.h>
-#include <errno.h>
-#include <ctype.h>
-/* NOTHING */ /* In lieu of Solaris <sys/procfs_isa.h> */
-#include <limits.h>
-#endif /* __APPLE__ */
 
 #include <dt_ident.h>
 #include <dt_parser.h>

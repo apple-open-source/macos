@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>none</string>
+		<key>WAIT4DEBUGGER</key>
+		<string>NO</string>
+	</dict>
+	<key>Label</key>
+	<string>com.apple.security.swcagent</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.security.swcagent</key>
+		<true/>
+	</dict>
+	<key>OnDemand</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/System/Library/Frameworks/Security.framework/swcagent</string>
+	</array>
+	<key>ServiceIPC</key>
+	<true/>
+	<key>Umask</key>
+	<integer>54</integer>
+	<key>UserName</key>
+	<string>mobile</string>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
+</dict>
+</plist>

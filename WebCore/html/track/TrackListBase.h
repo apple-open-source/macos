@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,6 +30,7 @@
 
 #include "EventListener.h"
 #include "EventTarget.h"
+#include "GenericEventQueue.h"
 #include "Timer.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -41,19 +42,19 @@ class HTMLMediaElement;
 class Element;
 class TrackBase;
 
-class TrackListBase : public RefCounted<TrackListBase>, public EventTarget {
+class TrackListBase : public RefCounted<TrackListBase>, public EventTargetWithInlineData {
 public:
-    ~TrackListBase();
+    virtual ~TrackListBase();
 
     virtual unsigned length() const;
     virtual bool contains(TrackBase*) const;
-    virtual void remove(TrackBase*);
+    virtual void remove(TrackBase*, bool scheduleEvent = true);
 
     // EventTarget
-    virtual const AtomicString& interfaceName() const = 0;
+    virtual EventTargetInterface eventTargetInterface() const = 0;
     using RefCounted<TrackListBase>::ref;
     using RefCounted<TrackListBase>::deref;
-    virtual ScriptExecutionContext* scriptExecutionContext() const { return m_context; }
+    virtual ScriptExecutionContext* scriptExecutionContext() const override final { return m_context; }
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(addtrack);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(change);
@@ -63,10 +64,10 @@ public:
     Element* element() const;
     HTMLMediaElement* mediaElement() const { return m_element; }
 
-    bool isFiringEventListeners() { return m_dispatchingEvents; }
-
     // Needs to be public so tracks can call it
     void scheduleChangeEvent();
+
+    bool isAnyTrackEnabled() const;
 
 protected:
     TrackListBase(HTMLMediaElement*, ScriptExecutionContext*);
@@ -74,27 +75,19 @@ protected:
     void scheduleAddTrackEvent(PassRefPtr<TrackBase>);
     void scheduleRemoveTrackEvent(PassRefPtr<TrackBase>);
 
-    Vector<RefPtr<TrackBase> > m_inbandTracks;
+    Vector<RefPtr<TrackBase>> m_inbandTracks;
 
 private:
+    void scheduleTrackEvent(const AtomicString& eventName, PassRefPtr<TrackBase>);
 
     // EventTarget
-    virtual void refEventTarget() OVERRIDE { ref(); }
-    virtual void derefEventTarget() OVERRIDE { deref(); }
-    virtual EventTargetData* eventTargetData() OVERRIDE { return &m_eventTargetData; }
-    virtual EventTargetData* ensureEventTargetData() OVERRIDE { return &m_eventTargetData; }
-
-    void asyncEventTimerFired(Timer<TrackListBase>*);
+    virtual void refEventTarget() override final { ref(); }
+    virtual void derefEventTarget() override final { deref(); }
 
     ScriptExecutionContext* m_context;
     HTMLMediaElement* m_element;
 
-    Vector<RefPtr<Event> > m_pendingEvents;
-    Timer<TrackListBase> m_pendingEventTimer;
-
-    EventTargetData m_eventTargetData;
-
-    int m_dispatchingEvents;
+    GenericEventQueue m_asyncEventQueue;
 };
 
 } // namespace WebCore

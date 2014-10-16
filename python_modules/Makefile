@@ -1,18 +1,6 @@
 # Makefile orchestrating python_modules
 
-PROJECTS = \
-    setuptools \
-    altgraph \
-    modulegraph \
-    macholib \
-    bdist_mpkg \
-    py2app \
-    numpy \
-    xattr \
-    bonjour-py \
-    scipy \
-    pytz \
-    matplotlib
+include $(VERSIONER_PYTHON_VERSION).inc
 
 EXTRAS = $(shell python -c "import sys, os;print(os.path.join(sys.prefix, 'Extras'))")
 EXTRASPYTHON = $(EXTRAS)/lib/python
@@ -27,15 +15,10 @@ no_target:
 	echo 'specify target install, installsrc, installhdrs, clean'
 	false
 
-afterinstallsrc:
-	for i in $(PROJECTS); do \
-	    $(MAKE) -C $(SRCROOT)/$$i afterinstallsrc || exit 1; \
-	done
-
 install:
-	for i in $(PROJECTS); do \
+	@set -x && for i in $(MODULES); do \
 	    echo ===== Installing $$i ===== && \
-	    $(make) -C $$i install \
+	    $(make) -C Modules/$$i install \
 		EXTRAS="$(EXTRAS)" EXTRASPYTHON="$(EXTRASPYTHON)" \
 		OSL='$(OSL)' OSV='$(OSV)' \
 		|| exit 1; \

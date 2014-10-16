@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fa.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/fa.xml
+ * ICU <specials> source: <path>/common/main/fa.xml
  */
 fa{
-    Version{"2.0.82.45"}
+    Version{"2.0.98.76"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"آبیجان"}
@@ -86,6 +86,9 @@ fa{
         }
         "Africa:Johannesburg"{
             ec{"ژوهانسبورگ"}
+        }
+        "Africa:Juba"{
+            ec{"جوبا"}
         }
         "Africa:Kampala"{
             ec{"کامپالا"}
@@ -169,7 +172,7 @@ fa{
             ec{"ایدک"}
         }
         "America:Anchorage"{
-            ec{"انکریج"}
+            ec{"انکوریج"}
         }
         "America:Anguilla"{
             ec{"آنگوئیلا"}
@@ -209,6 +212,9 @@ fa{
         }
         "America:Bahia"{
             ec{"بایا"}
+        }
+        "America:Bahia_Banderas"{
+            ec{"باهیا باندراس"}
         }
         "America:Barbados"{
             ec{"باربادوس"}
@@ -259,7 +265,7 @@ fa{
             ec{"شیکاگو"}
         }
         "America:Chihuahua"{
-            ec{"چیئوائوا"}
+            ec{"چیواوا"}
         }
         "America:Coral_Harbour"{
             ec{"اتکوکان"}
@@ -269,6 +275,9 @@ fa{
         }
         "America:Costa_Rica"{
             ec{"کاستاریکا"}
+        }
+        "America:Creston"{
+            ec{"کرستون"}
         }
         "America:Cuiaba"{
             ec{"کویاوا"}
@@ -384,6 +393,9 @@ fa{
         "America:Kentucky:Monticello"{
             ec{"مانتیسلو، کنتاکی"}
         }
+        "America:Kralendijk"{
+            ec{"کرالندیک"}
+        }
         "America:La_Paz"{
             ec{"لاپاز"}
         }
@@ -414,6 +426,9 @@ fa{
         "America:Martinique"{
             ec{"مارتینیک"}
         }
+        "America:Matamoros"{
+            ec{"ماتاموروس"}
+        }
         "America:Mazatlan"{
             ec{"ماساتلان"}
         }
@@ -425,6 +440,9 @@ fa{
         }
         "America:Merida"{
             ec{"مریدا"}
+        }
+        "America:Metlakatla"{
+            ec{"متالاکاتلا"}
         }
         "America:Mexico_City"{
             ec{"مکزیکوسیتی"}
@@ -440,9 +458,6 @@ fa{
         }
         "America:Montevideo"{
             ec{"مونته‌ویدئو"}
-        }
-        "America:Montreal"{
-            ec{"مونرئال"}
         }
         "America:Montserrat"{
             ec{"مونتسرات"}
@@ -470,6 +485,9 @@ fa{
         }
         "America:North_Dakota:New_Salem"{
             ec{"نیوسالم، داکوتای شمالی"}
+        }
+        "America:Ojinaga"{
+            ec{"اخیناگا"}
         }
         "America:Panama"{
             ec{"پاناما"}
@@ -513,6 +531,9 @@ fa{
         "America:Rio_Branco"{
             ec{"ریوبرانکو"}
         }
+        "America:Santa_Isabel"{
+            ec{"سانتا ایزابل"}
+        }
         "America:Santarem"{
             ec{"سنتارم"}
         }
@@ -528,8 +549,8 @@ fa{
         "America:Scoresbysund"{
             ec{"اسکورسبیسوند"}
         }
-        "America:Shiprock"{
-            ec{"شیپراک"}
+        "America:Sitka"{
+            ec{"سیتکا"}
         }
         "America:St_Barthelemy"{
             ec{"سنت بارتلمی"}
@@ -594,6 +615,9 @@ fa{
         "Antarctica:DumontDUrville"{
             ec{"دومون دورویل"}
         }
+        "Antarctica:Macquarie"{
+            ec{"مکواری"}
+        }
         "Antarctica:Mawson"{
             ec{"ماوسون"}
         }
@@ -605,9 +629,6 @@ fa{
         }
         "Antarctica:Rothera"{
             ec{"روترا"}
-        }
-        "Antarctica:South_Pole"{
-            ec{"قطب جنوب"}
         }
         "Antarctica:Syowa"{
             ec{"شووا"}
@@ -693,6 +714,9 @@ fa{
         "Asia:Harbin"{
             ec{"هاربین"}
         }
+        "Asia:Hebron"{
+            ec{"الخلیل"}
+        }
         "Asia:Hong_Kong"{
             ec{"هنگ‌کنگ"}
         }
@@ -726,6 +750,9 @@ fa{
         "Asia:Katmandu"{
             ec{"کاتماندو"}
         }
+        "Asia:Khandyga"{
+            ec{"خاندیگا"}
+        }
         "Asia:Krasnoyarsk"{
             ec{"کراسنویارسک"}
         }
@@ -755,6 +782,9 @@ fa{
         }
         "Asia:Nicosia"{
             ec{"نیکوزیا"}
+        }
+        "Asia:Novokuznetsk"{
+            ec{"نوووکوزنتسک"}
         }
         "Asia:Novosibirsk"{
             ec{"نووسیبیریسک"}
@@ -827,6 +857,9 @@ fa{
         }
         "Asia:Urumqi"{
             ec{"ارومچی"}
+        }
+        "Asia:Ust-Nera"{
+            ec{"اوست نرا"}
         }
         "Asia:Vientiane"{
             ec{"وینتیان"}
@@ -938,6 +971,9 @@ fa{
         }
         "Europe:Budapest"{
             ec{"بوداپست"}
+        }
+        "Europe:Busingen"{
+            ec{"بازنگن"}
         }
         "Europe:Chisinau"{
             ec{"کیشیناو"}
@@ -1750,6 +1786,9 @@ fa{
         "meta:South_Georgia"{
             ls{"وقت جورجیای جنوبی"}
         }
+        "meta:Suriname"{
+            ls{"وقت سورینام"}
+        }
         "meta:Syowa"{
             ls{"وقت شووا"}
         }
@@ -1831,10 +1870,11 @@ fa{
             ls{"وقت عادی یکاترینبورگ"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"وقت {1} ({0})"}
         gmtFormat{"GMT{0}"}
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;−HH:mm"}
         regionFormat{"وقت {0}"}
+        regionFormatDaylight{"وقت تابستانی {0}"}
+        regionFormatStandard{"وقت عادی {0}"}
     }
 }

@@ -1,0 +1,59 @@
+//
+// script0025
+//
+//		KCChangeSettings
+//		KCSetInteractionAllowed
+//		KCGetInteractionAllowed
+//
+// Change keychain settings w/ and w/o interaction allowed enabled
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0025.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+25 KCSetInteractionAllowed
+    Input Arguments : 1
+     AllowInteraction : 0
+    Results : 1
+     OSStatus 0
+20 KCChangeSettings
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus -25308
+// taken out to avoid any UI for automation purposes
+//25 KCSetInteractionAllowed
+//    Input Arguments : 1
+//     AllowInteraction : 1
+//    Results : 1
+//     OSStatus 0
+//20 KCChangeSettings
+//   Input Arguments : 1
+//     KeychainIndex : 0
+//   Results : 1
+//     OSStatus -128
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

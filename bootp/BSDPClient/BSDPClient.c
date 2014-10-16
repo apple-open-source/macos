@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -552,19 +552,12 @@ S_open_socket(u_short * ret_port)
     opt = IP_PORTRANGE_LOW;
     status = setsockopt(sockfd, IPPROTO_IP, IP_PORTRANGE, &opt, 
 			sizeof(opt));
-
     if (status < 0) {
 	perror("setsockopt IPPROTO_IP IP_PORTRANGE");
 	goto failed;
     }
 
-#ifdef SO_TC_CTL
-    opt = SO_TC_CTL;
-    /* set traffic class, we don't care if it failed. */
-    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
-		     sizeof(opt));
-#endif /* SO_TC_CTL */
-
+    /* bind the socket */
     status = bind(sockfd, (struct sockaddr *)&me, sizeof(me));
     if (status != 0) {
 	perror("bind");
@@ -576,19 +569,41 @@ S_open_socket(u_short * ret_port)
 	goto failed;
     }
     client_port = ntohs(me.sin_port);
+
     opt = 1;
+
+#if defined(SO_RECV_ANYIF)
+    /* receive over any interface */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
+		   sizeof(opt)) < 0) {
+	perror("setsockopt SO_RECV_ANYIF");
+    }
+#endif /* SO_RECV_ANYIF */
+
+    /* broadcast */
     status = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &opt, 
 			sizeof(opt));
     if (status < 0) {
 	perror("setsockopt SO_BROADCAST");
 	goto failed;
     }
-    opt = 1;
+    /* non-blocking I/O */
     status = ioctl(sockfd, FIONBIO, &opt);
     if (status < 0) {
-	perror("FIONBIO");
+	perror("ioctl FIONBIO");
 	goto failed;
     }
+
+#if defined(SO_TRAFFIC_CLASS)
+    opt = SO_TC_CTL;
+    /* set control traffic class */
+    status = setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+			sizeof(opt));
+    if (status < 0) {
+	perror("setsockopt SO_TRAFFIC_CLASS");
+    }
+#endif /* SO_TRAFFIC_CLASS */
+
     *ret_port = client_port;
     return sockfd;
 

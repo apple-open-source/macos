@@ -28,34 +28,34 @@
 
 #include "WebCoreArgumentCoders.h"
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "ArgumentCodersCF.h"
 #endif
 
 namespace WebKit {
 
-void DictionaryPopupInfo::encode(CoreIPC::ArgumentEncoder& encoder) const
+void DictionaryPopupInfo::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << origin;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool hadOptions = options;
     encoder << hadOptions;
     if (hadOptions)
-        CoreIPC::encode(encoder, options.get());
+        IPC::encode(encoder, options.get());
 #endif
 }
 
-bool DictionaryPopupInfo::decode(CoreIPC::ArgumentDecoder& decoder, DictionaryPopupInfo& result)
+bool DictionaryPopupInfo::decode(IPC::ArgumentDecoder& decoder, DictionaryPopupInfo& result)
 {
     if (!decoder.decode(result.origin))
         return false;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool hadOptions;
     if (!decoder.decode(hadOptions))
         return false;
     if (hadOptions) {
-        if (!CoreIPC::decode(decoder, result.options))
+        if (!IPC::decode(decoder, result.options))
             return false;
     }
 #endif

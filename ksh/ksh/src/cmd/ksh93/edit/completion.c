@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -41,9 +41,9 @@ static char *fmtx(const char *string)
 	register int	 	n,c;
 	unsigned char 		*state = (unsigned char*)sh_lexstates[2]; 
 	int offset = staktell();
-	if(*cp=='#')
+	if(*cp=='#' || *cp=='~')
 		stakputc('\\');
-	while((c=mbchar(cp)),(c>UCHAR_MAX)||(n=state[c])==0);
+	while((c=mbchar(cp)),(c>UCHAR_MAX)||(n=state[c])==0 || n==S_EPAT);
 	if(n==S_EOF && *string!='#')
 		return((char*)string);
 	stakwrite(string,--cp-string);
@@ -51,7 +51,7 @@ static char *fmtx(const char *string)
 	{
 		if((n=cp-string)==1)
 		{
-			if(state[c])
+			if((n=state[c]) && n!=S_EPAT)
 				stakputc('\\');
 			stakputc(c);
 		}
@@ -245,6 +245,11 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 	}
 #endif /* SHOPT_MULTIBYTE */
 	out = outbuff + *cur + (sh_isoption(SH_VI)!=0);
+	if(out[-1]=='"' || out[-1]=='\'')
+	{
+		rval = -(sh_isoption(SH_VI)!=0);
+		goto done;
+	}
 	comptr->comtyp = COMSCAN;
 	comptr->comarg = ap;
 	ap->argflag = (ARG_MAC|ARG_EXP);
@@ -332,6 +337,8 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 			rval = -1;
 			goto done;
 		}
+		if(mode=='\\' && out[-1]=='/'  && narg>1)
+			mode = '=';
 		if(mode=='=')
 		{
 			if (strip && !cmd_completion)

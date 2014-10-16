@@ -36,13 +36,13 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLTableColElement::HTMLTableColElement(const QualifiedName& tagName, Document* document)
+inline HTMLTableColElement::HTMLTableColElement(const QualifiedName& tagName, Document& document)
     : HTMLTablePartElement(tagName, document)
     , m_span(1)
 {
 }
 
-PassRefPtr<HTMLTableColElement> HTMLTableColElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<HTMLTableColElement> HTMLTableColElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(new HTMLTableColElement(tagName, document));
 }
@@ -54,7 +54,7 @@ bool HTMLTableColElement::isPresentationAttribute(const QualifiedName& name) con
     return HTMLTablePartElement::isPresentationAttribute(name);
 }
 
-void HTMLTableColElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
+void HTMLTableColElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStyleProperties& style)
 {
     if (name == widthAttr)
         addHTMLLengthToStyle(style, CSSPropertyWidth, value);
@@ -65,7 +65,8 @@ void HTMLTableColElement::collectStyleForPresentationAttribute(const QualifiedNa
 void HTMLTableColElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == spanAttr) {
-        m_span = !value.isNull() ? value.toInt() : 1;
+        int newSpan = value.toInt();
+        m_span = newSpan ? newSpan : 1;
         if (renderer() && renderer()->isRenderTableCol())
             renderer()->updateFromElement();
     } else if (name == widthAttr) {
@@ -81,23 +82,23 @@ void HTMLTableColElement::parseAttribute(const QualifiedName& name, const Atomic
         HTMLTablePartElement::parseAttribute(name, value);
 }
 
-const StylePropertySet* HTMLTableColElement::additionalPresentationAttributeStyle()
+const StyleProperties* HTMLTableColElement::additionalPresentationAttributeStyle()
 {
-    if (!hasLocalName(colgroupTag))
-        return 0;
+    if (!hasTagName(colgroupTag))
+        return nullptr;
     if (HTMLTableElement* table = findParentTable())
         return table->additionalGroupStyle(false);
-    return 0;
+    return nullptr;
 }
 
 void HTMLTableColElement::setSpan(int n)
 {
-    setAttribute(spanAttr, String::number(n));
+    setIntegralAttribute(spanAttr, n);
 }
 
 String HTMLTableColElement::width() const
 {
-    return getAttribute(widthAttr);
+    return fastGetAttribute(widthAttr);
 }
 
 }

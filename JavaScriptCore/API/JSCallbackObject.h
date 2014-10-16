@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -42,7 +42,7 @@ struct JSCallbackObjectData : WeakHandleOwner {
         JSClassRetain(jsClass);
     }
     
-    ~JSCallbackObjectData()
+    virtual ~JSCallbackObjectData()
     {
         JSClassRelease(jsClass);
     }
@@ -110,7 +110,7 @@ struct JSCallbackObjectData : WeakHandleOwner {
         PrivatePropertyMap m_propertyMap;
     };
     OwnPtr<JSPrivatePropertyMap> m_privateProperties;
-    virtual void finalize(Handle<Unknown>, void*);
+    virtual void finalize(Handle<Unknown>, void*) override;
 };
 
     
@@ -144,7 +144,7 @@ public:
     void setPrivate(void* data);
     void* getPrivate();
 
-    static const ClassInfo s_info;
+    DECLARE_INFO;
 
     JSClassRef classRef() const { return m_callbackObjectData->jsClass; }
     bool inherits(JSClassRef) const;
@@ -176,9 +176,8 @@ private:
 
     static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
 
-    static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
-    static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
-    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+    static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
     
     static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static void putByIndex(JSCell*, ExecState*, unsigned, JSValue, bool shouldThrow);
@@ -196,7 +195,7 @@ private:
     static void visitChildren(JSCell* cell, SlotVisitor& visitor)
     {
         JSCallbackObject* thisObject = jsCast<JSCallbackObject*>(cell);
-        ASSERT_GC_OBJECT_INHERITS((static_cast<Parent*>(thisObject)), &JSCallbackObject<Parent>::s_info);
+        ASSERT_GC_OBJECT_INHERITS((static_cast<Parent*>(thisObject)), JSCallbackObject<Parent>::info());
         COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
         ASSERT(thisObject->Parent::structure()->typeInfo().overridesVisitChildren());
         Parent::visitChildren(thisObject, visitor);
@@ -206,13 +205,14 @@ private:
     void init(ExecState*);
  
     static JSCallbackObject* asCallbackObject(JSValue);
+    static JSCallbackObject* asCallbackObject(EncodedJSValue);
  
     static EncodedJSValue JSC_HOST_CALL call(ExecState*);
     static EncodedJSValue JSC_HOST_CALL construct(ExecState*);
    
     JSValue getStaticValue(ExecState*, PropertyName);
-    static JSValue staticFunctionGetter(ExecState*, JSValue, PropertyName);
-    static JSValue callbackGetter(ExecState*, JSValue, PropertyName);
+    static EncodedJSValue staticFunctionGetter(ExecState*, JSObject*, EncodedJSValue, PropertyName);
+    static EncodedJSValue callbackGetter(ExecState*, JSObject*, EncodedJSValue, PropertyName);
 
     OwnPtr<JSCallbackObjectData> m_callbackObjectData;
 };

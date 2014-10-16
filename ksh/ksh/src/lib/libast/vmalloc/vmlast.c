@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -33,53 +33,40 @@ void _STUB_vmlast(){}
 */
 
 #if __STD_C
-static Void_t* lastalloc(Vmalloc_t* vm, size_t size)
+static Void_t* lastalloc(Vmalloc_t* vm, size_t size, int local)
 #else
-static Void_t* lastalloc(vm, size)
+static Void_t* lastalloc(vm, size, local)
 Vmalloc_t*	vm;
 size_t		size;
+int		local;
 #endif
 {
-	reg Block_t	*tp, *next;
-	reg Seg_t	*seg, *last;
-	reg size_t	s;
-	reg Vmdata_t*	vd = vm->data;
-	reg int		local, inuse;
-	size_t		orgsize = 0;
+	Block_t		*tp, *next;
+	Seg_t		*seg, *last;
+	size_t		s;
+	Vmdata_t	*vd = vm->data;
+	size_t		orgsize = size;
 
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST))
-	{	GETLOCAL(vd,local);
-		if(ISLOCK(vd,local))
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd,local);
-		orgsize = size;
-	}
+	SETLOCK(vm, local);
 
 	size = size < ALIGN ? ALIGN : ROUND(size,ALIGN);
-	for(;;)
-	{	for(last = NIL(Seg_t*), seg = vd->seg; seg; last = seg, seg = seg->next)
-		{	if(!(tp = seg->free) || (SIZE(tp)+sizeof(Head_t)) < size)
-				continue;
-			if(last)
-			{	last->next = seg->next;
-				seg->next = vd->seg;
-				vd->seg = seg;
-			}
-			goto got_block;
+	for(last = NIL(Seg_t*), seg = vd->seg; seg; last = seg, seg = seg->next)
+	{	if(!(tp = seg->free) || (SIZE(tp)+sizeof(Head_t)) < size)
+			continue;
+		if(last)
+		{	last->next = seg->next;
+			seg->next = vd->seg;
+			vd->seg = seg;
 		}
-
-		/* there is no usable free space in region, try extending */
-		if((tp = (*_Vmextend)(vm,size,NIL(Vmsearch_f))) )
-		{	seg = SEG(tp);
-			goto got_block;
-		}
-		else if(vd->mode&VM_AGAIN)
-			vd->mode &= ~VM_AGAIN;
-		else	goto done;
+		goto got_block;
 	}
+
+	/* there is no usable free space in region, try extending */
+	if((tp = (*_Vmextend)(vm,size,NIL(Vmsearch_f))) )
+	{	seg = SEG(tp);
+		goto got_block;
+	}
+	else	goto done;
 
 got_block:
 	if((s = SIZE(tp)) >= size)
@@ -96,110 +83,86 @@ got_block:
 		(*_Vmtrace)(vm, NIL(Vmuchar_t*), (Vmuchar_t*)tp, orgsize, 0);
 
 done:
-	CLRLOCK(vd,local);
-	ANNOUNCE(local, vm, VM_ALLOC, (Void_t*)tp, vm->disc);
-	CLRINUSE(vd, inuse);
+	CLRLOCK(vm, local);
+
 	return (Void_t*)tp;
 }
 
 #if __STD_C
-static int lastfree(Vmalloc_t* vm, reg Void_t* data )
+static int lastfree(Vmalloc_t* vm, reg Void_t* data, int local )
 #else
-static int lastfree(vm, data)
+static int lastfree(vm, data, local)
 Vmalloc_t*	vm;
-reg Void_t*	data;
+Void_t*		data;
+int		local;
 #endif
 {
-	reg Seg_t*	seg;
-	reg Block_t*	fp;
-	reg size_t	s;
-	reg Vmdata_t*	vd = vm->data;
-	reg int		local, inuse;
+	Seg_t		*seg;
+	Block_t		*fp;
+	size_t		s;
+	Vmdata_t	*vd = vm->data;
 
 	if(!data)
 		return 0;
 
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST) )
-	{	GETLOCAL(vd, local);
-		if(ISLOCK(vd, local))
-		{	CLRINUSE(vd, inuse);
-			return -1;
-		}
-		SETLOCK(vd, local);
-	}
+	SETLOCK(vm, local);
+
 	if(data != (Void_t*)vd->free)
-	{	if(!local && vm->disc->exceptf)
-			(void)(*vm->disc->exceptf)(vm,VM_BADADDR,data,vm->disc);
-		CLRLOCK(vd, local);
-		CLRINUSE(vd, inuse);
-		return -1;
+		data = NIL(Void_t*); /* signaling an error */
+	else
+	{	seg = vd->seg;
+		if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
+		{	if(seg->free )
+				s = (Vmuchar_t*)(seg->free) - (Vmuchar_t*)data;
+			else	s = (Vmuchar_t*)BLOCK(seg->baddr) - (Vmuchar_t*)data;
+			(*_Vmtrace)(vm, (Vmuchar_t*)data, NIL(Vmuchar_t*), s, 0);
+		}
+
+		vd->free = NIL(Block_t*);
+		fp = (Block_t*)data;
+		SEG(fp)  = seg;
+		SIZE(fp) = ((Vmuchar_t*)BLOCK(seg->baddr) - (Vmuchar_t*)data) - sizeof(Head_t);
+		seg->free = fp;
+		seg->last = NIL(Block_t*);
 	}
 
-	seg = vd->seg;
-	if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
-	{	if(seg->free )
-			s = (Vmuchar_t*)(seg->free) - (Vmuchar_t*)data;
-		else	s = (Vmuchar_t*)BLOCK(seg->baddr) - (Vmuchar_t*)data;
-		(*_Vmtrace)(vm, (Vmuchar_t*)data, NIL(Vmuchar_t*), s, 0);
-	}
+	CLRLOCK(vm, local);
 
-	vd->free = NIL(Block_t*);
-	fp = (Block_t*)data;
-	SEG(fp)  = seg;
-	SIZE(fp) = ((Vmuchar_t*)BLOCK(seg->baddr) - (Vmuchar_t*)data) - sizeof(Head_t);
-	seg->free = fp;
-	seg->last = NIL(Block_t*);
-
-	CLRLOCK(vd, local);
-	ANNOUNCE(local, vm, VM_FREE, data, vm->disc);
-
-	CLRINUSE(vd, inuse);
-	return 0;
+	return data ? 0 : -1;
 }
 
 #if __STD_C
-static Void_t* lastresize(Vmalloc_t* vm, reg Void_t* data, size_t size, int type )
+static Void_t* lastresize(Vmalloc_t* vm, reg Void_t* data, size_t size, int type, int local)
 #else
-static Void_t* lastresize(vm, data, size, type )
+static Void_t* lastresize(vm, data, size, type, local )
 Vmalloc_t*	vm;
 reg Void_t*	data;
 size_t		size;
 int		type;
+int		local;
 #endif
 {
-	reg Block_t*	tp;
-	reg Seg_t	*seg;
-	reg size_t	oldsize;
-	reg ssize_t	s, ds;
-	reg Vmdata_t*	vd = vm->data;
-	reg int		local, inuse;
-	reg Void_t*	addr;
-	Void_t*		orgdata = NIL(Void_t*);
-	size_t		orgsize = 0;
+	Block_t		*tp;
+	Seg_t		*seg;
+	ssize_t		s, ds;
+	Void_t		*addr;
+	size_t		oldsize = 0;
+	Void_t		*orgdata = data;
+	size_t		orgsize = size;
+	Vmdata_t	*vd = vm->data;
 
-	SETINUSE(vd, inuse);
 	if(!data)
-	{	oldsize = 0;
-		data = lastalloc(vm,size);
-		goto done;
+	{	data = lastalloc(vm, size, local);
+		if(data && (type&VM_RSZERO) )
+			memset(data, 0, size);
+		return data;
 	}
 	if(size <= 0)
-	{	(void)lastfree(vm,data);
-		CLRINUSE(vd, inuse);
+	{	(void)lastfree(vm, data, local);
 		return NIL(Void_t*);
 	}
 
-	if(!(local = vd->mode&VM_TRUST))
-	{	GETLOCAL(vd, local);
-		if(ISLOCK(vd, local))
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd, local);
-		orgdata = data;
-		orgsize = size;
-	}
+	SETLOCK(vm, local);
 
 	if(data == (Void_t*)vd->free)
 		seg = vd->seg;
@@ -210,9 +173,8 @@ int		type;
 				break;
 		if(!seg || (VLONG(data)%ALIGN) != 0 ||
 		   (seg->last && (Vmuchar_t*)data > (Vmuchar_t*)seg->last) )
-		{	CLRLOCK(vd,0);
-			CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
+		{	data = NIL(Void_t*);
+			goto done;
 		}
 	}
 
@@ -294,76 +256,79 @@ int		type;
 
 		if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
 			(*_Vmtrace)(vm,(Vmuchar_t*)orgdata,(Vmuchar_t*)data,orgsize,0);
+
+		if((type&VM_RSZERO) && size > oldsize)
+			memset((Void_t*)((Vmuchar_t*)data + oldsize), 0, size-oldsize);
 	}
 
-	CLRLOCK(vd, local);
-	ANNOUNCE(local, vm, VM_RESIZE, data, vm->disc);
+done:	CLRLOCK(vm, local);
 
-done:	if(data && (type&VM_RSZERO) && size > oldsize)
-		memset((Void_t*)((Vmuchar_t*)data + oldsize), 0, size-oldsize);
-
-	CLRINUSE(vd, inuse);
 	return data;
 }
 
 
 #if __STD_C
-static long lastaddr(Vmalloc_t* vm, Void_t* addr)
+static long lastaddr(Vmalloc_t* vm, Void_t* addr, int local)
 #else
-static long lastaddr(vm, addr)
+static long lastaddr(vm, addr, local)
 Vmalloc_t*	vm;
 Void_t*		addr;
+int		local;
 #endif
 {
-	reg Vmdata_t*	vd = vm->data;
+	long		offset;
+	Vmdata_t	*vd = vm->data;
 
-	if(!(vd->mode&VM_TRUST) && ISLOCK(vd,0))
-		return -1L;
+	SETLOCK(vm, local);
+
 	if(!vd->free || addr < (Void_t*)vd->free || addr >= (Void_t*)vd->seg->baddr)
-		return -1L;
-	else	return (Vmuchar_t*)addr - (Vmuchar_t*)vd->free;
+		offset = -1L;
+	else	offset = (long)((Vmuchar_t*)addr - (Vmuchar_t*)vd->free);
+
+	CLRLOCK(vm, local);
+
+	return offset;
 }
 
 #if __STD_C
-static long lastsize(Vmalloc_t* vm, Void_t* addr)
+static long lastsize(Vmalloc_t* vm, Void_t* addr, int local)
 #else
-static long lastsize(vm, addr)
+static long lastsize(vm, addr, local)
 Vmalloc_t*	vm;
 Void_t*		addr;
+int		local;
 #endif
 {
-	reg Vmdata_t*	vd = vm->data;
+	long		size;
+	Vmdata_t	*vd = vm->data;
 
-	if(!(vd->mode&VM_TRUST) && ISLOCK(vd,0))
-		return -1L;
+	SETLOCK(vm, local);
+
 	if(!vd->free || addr != (Void_t*)vd->free )
-		return -1L;
+		size = -1L;
 	else if(vd->seg->free)
-		return (Vmuchar_t*)vd->seg->free - (Vmuchar_t*)addr;
-	else	return (Vmuchar_t*)vd->seg->baddr - (Vmuchar_t*)addr - sizeof(Head_t);
+		size = (long)((Vmuchar_t*)vd->seg->free - (Vmuchar_t*)addr);
+	else	size = (long)((Vmuchar_t*)vd->seg->baddr - (Vmuchar_t*)addr - sizeof(Head_t));
+
+	CLRLOCK(vm, local);
+
+	return size;
 }
 
 #if __STD_C
-static int lastcompact(Vmalloc_t* vm)
+static int lastcompact(Vmalloc_t* vm, int local)
 #else
-static int lastcompact(vm)
+static int lastcompact(vm, local)
 Vmalloc_t*	vm;
+int		local;
 #endif
 {
-	reg Block_t*	fp;
-	reg Seg_t	*seg, *next;
-	reg size_t	s;
-	reg Vmdata_t*	vd = vm->data;
-	reg int		inuse;
+	ssize_t		s;
+	Block_t		*fp;
+	Seg_t		*seg, *next;
+	Vmdata_t	*vd = vm->data;
 
-	SETINUSE(vd, inuse);
-	if(!(vd->mode&VM_TRUST))
-	{	if(ISLOCK(vd,0))
-		{	CLRINUSE(vd, inuse);
-			return -1;
-		}
-		SETLOCK(vd,0);
-	}
+	SETLOCK(vm, local);
 
 	for(seg = vd->seg; seg; seg = next)
 	{	next = seg->next;
@@ -383,41 +348,30 @@ Vmalloc_t*	vm;
 	if((vd->mode&VM_TRACE) && _Vmtrace)
 		(*_Vmtrace)(vm,(Vmuchar_t*)0,(Vmuchar_t*)0,0,0);
 
-	CLRLOCK(vd,0);
-	CLRINUSE(vd, inuse);
+	CLRLOCK(vm, local);
 	return 0;
 }
 
 #if __STD_C
-static Void_t* lastalign(Vmalloc_t* vm, size_t size, size_t align)
+static Void_t* lastalign(Vmalloc_t* vm, size_t size, size_t align, int local)
 #else
-static Void_t* lastalign(vm, size, align)
+static Void_t* lastalign(vm, size, align, local)
 Vmalloc_t*	vm;
 size_t		size;
 size_t		align;
+int		local;
 #endif
 {
-	reg Vmuchar_t*	data;
-	reg Seg_t*	seg;
-	reg Block_t*	next;
-	reg int		local, inuse;
-	reg size_t	s, orgsize = 0, orgalign = 0;
-	reg Vmdata_t*	vd = vm->data;
+	Vmuchar_t	*data;
+	Seg_t		*seg;
+	Block_t		*next;
+	size_t		s, orgsize = size, orgalign = align;
+	Vmdata_t	*vd = vm->data;
 
 	if(size <= 0 || align <= 0)
 		return NIL(Void_t*);
 
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST) )
-	{	GETLOCAL(vd,local);
-		if(ISLOCK(vd,local) )
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd,local);
-		orgsize = size;
-		orgalign = align;
-	}
+	SETLOCK(vm, local);
 
 	size = size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN);
 	align = MULTIPLE(align,ALIGN);
@@ -446,14 +400,12 @@ size_t		align;
 
 	vd->free = seg->last = (Block_t*)data;
 
-	if(!local && !(vd->mode&VM_TRUST) && _Vmtrace && (vd->mode&VM_TRACE) )
+	if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
 		(*_Vmtrace)(vm,NIL(Vmuchar_t*),data,orgsize,orgalign);
 
 done:
-	CLRLOCK(vd,local);
-	ANNOUNCE(local, vm, VM_ALLOC, (Void_t*)data, vm->disc);
+	CLRLOCK(vm, local);
 
-	CLRINUSE(vd, inuse);
 	return (Void_t*)data;
 }
 

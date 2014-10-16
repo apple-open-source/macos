@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 ##!/usr/bin/ksh
 #
 # iotop - display top disk I/O events by process.

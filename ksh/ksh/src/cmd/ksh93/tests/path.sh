@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -321,6 +321,13 @@ done
 rm -f ls
 PATH=${PATH%:}
 
+#whence -p bug fix
+function foo
+{
+	:
+}
+[[ $(whence -p foo) == foo ]] && err_exit 'whence -p foo should not find function foo'
+
 # whence -q bug fix
 $SHELL -c 'whence -q cat' & pid=$!
 sleep 3
@@ -329,10 +336,60 @@ kill $! 2> /dev/null && err_exit 'whence -q appears to be hung'
 FPATH=$PWD
 print  'function foobar { :;}' > foobar
 autoload foobar;
+exec {m}< /dev/null
 for ((i=0; i < 25; i++))
 do	( foobar )
 done
+exec {m}<& -
 exec {n}< /dev/null
-(( n > 24 )) && err_exit 'autoload function in subshell leaves file open'
+(( n > m )) && err_exit 'autoload function in subshell leaves file open'
+
+# whence -a bug fix
+rmdir=rmdir
+if	mkdir "$rmdir"
+then	rm=${ whence rm;}
+	cp "$rm" "$rmdir"
+	{ PATH=:${rm%/rm} $SHELL -c "cd \"$rmdir\";whence -a rm";} > /dev/null 2>&1
+	exitval=$?
+	(( exitval==0 )) || err_exit "whence -a has exitval $exitval"
+fi
+
+[[ ! -d bin ]] && mkdir bin
+[[ ! -d fun ]] && mkdir fun
+print 'FPATH=../fun' > bin/.paths
+cat <<- \EOF > fun/myfun
+	function myfun
+	{
+		print myfun
+	}
+EOF
+x=$(FPATH= PATH=$PWD/bin $SHELL -c  ': $(whence less);myfun') 2> /dev/null
+[[ $x == myfun ]] || err_exit 'function myfun not found'
+
+cp $(whence -p echo) user_to_group_relationship.hdr.query
+FPATH=/foobar:
+PATH=$FPATH:$PATH:.
+[[ $(user_to_group_relationship.hdr.query foobar) == foobar ]] 2> /dev/null || err_exit 'Cannot execute command with . in name when PATH and FPATH end in :.'
+
+mkdir -p $tmp/new/bin
+mkdir $tmp/new/fun
+print FPATH=../fun > $tmp/new/bin/.paths
+print FPATH=../xxfun > $tmp/bin/.paths
+cp "$(whence -p echo)" $tmp/new/bin
+PATH=$tmp/bin:$tmp/new/bin:$PATH
+x=$(whence -p echo 2> /dev/null)
+[[ $x == "$tmp/new/bin/echo" ]] ||  err_exit 'nonexistant FPATH directory in .paths file causes path search to fail'
+
+$SHELL 2> /dev/null <<- \EOF || err_exit 'path search problem with non-existant directories in PATH'
+	PATH=/usr/nogood1/bin:/usr/nogood2/bin:/bin:/usr/bin
+	tail /dev/null && tail /dev/null
+EOF
+
+( PATH=/bin:usr/bin
+cat << END >/dev/null 2>&1
+${.sh.version}
+END
+) || err_exit '${.sh.xxx} variables causes cat not be found'
 
 exit $((Errors<125?Errors:125))
+

@@ -24,7 +24,11 @@
 
 #include "BitmapImage.h"
 #include "FloatRect.h"
-#include "GStreamerVersioning.h"
+#include "GRefPtrGStreamer.h"
+
+#include <gst/gst.h>
+#include <gst/video/video.h>
+
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -60,9 +64,8 @@ class ImageGStreamer : public RefCounted<ImageGStreamer> {
         RefPtr<BitmapImage> m_image;
         FloatRect m_cropRect;
 
-#if USE(CAIRO) && defined(GST_API_VERSION_1)
-        GRefPtr<GstBuffer> m_buffer;
-        GstMapInfo m_mapInfo;
+#if USE(CAIRO)
+        GstVideoFrame m_videoFrame;
 #endif
     };
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003, 2006, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,7 +97,7 @@ _notifychanges(mach_port_t			server,
 
 	/* serialize the array of keys */
 	ok = _SCSerialize(notifierKeys, NULL, (void **)listRef, &len);
-	*listLen = len;
+	*listLen = (mach_msg_type_number_t)len;
 	CFRelease(notifierKeys);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;

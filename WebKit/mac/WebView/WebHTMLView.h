@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,7 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebDocument.h>
+#import <WebKitLegacy/WebDocument.h>
+
+#if TARGET_OS_IPHONE
+#import <WebKitLegacy/WAKAppKitStubs.h>
+#import <WebKitLegacy/WAKView.h>
+#endif
 
 @class WebDataSource;
 @class WebHTMLViewPrivate;
@@ -37,7 +42,11 @@
     WebHTMLView is a NSControl because it hosts NSCells that are painted by WebCore's Aqua theme
     renderer (and those cells must be hosted by an enclosing NSControl in order to paint properly).
 */
+#if !TARGET_OS_IPHONE
 @interface WebHTMLView : NSControl <WebDocumentView, WebDocumentSearching>
+#else
+@interface WebHTMLView : NSView <WebDocumentView, WebDocumentSearching>
+#endif
 {
 @private
     WebHTMLViewPrivate *_private;
@@ -57,7 +66,9 @@
 */
 - (void)reapplyStyles;
 
+#if !TARGET_OS_IPHONE
 - (void)outdent:(id)sender;
+#endif
 
 @end
 

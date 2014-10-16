@@ -1,16 +1,16 @@
 /*
- * "$Id: config.h.in 11693 2014-03-11 01:24:45Z msweet $"
+ * "$Id: config.h.in 12142 2014-08-30 02:35:43Z msweet $"
  *
- *   Configuration file for CUPS.
+ * Configuration file for CUPS.
  *
- *   Copyright 2007-2013 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 #ifndef _CUPS_CONFIG_H_
@@ -93,7 +93,7 @@
  * Default MaxCopies value...
  */
 
-#define CUPS_DEFAULT_MAX_COPIES	100
+#define CUPS_DEFAULT_MAX_COPIES	9999
 
 
 /*
@@ -132,6 +132,13 @@
 
 
 /*
+ * Do we have posix_spawn?
+ */
+
+#undef HAVE_POSIX_SPAWN
+
+
+/*
  * Do we have ZLIB?
  */
 
@@ -143,10 +150,7 @@
  * Do we have PAM stuff?
  */
 
-#ifndef HAVE_LIBPAM
 #define HAVE_LIBPAM 0
-#endif /* !HAVE_LIBPAM */
-
 #undef HAVE_PAM_PAM_APPL_H
 #undef HAVE_PAM_SET_ITEM
 #undef HAVE_PAM_SETCRED
@@ -290,15 +294,15 @@
 
 #undef HAVE_CDSASSL
 #undef HAVE_GNUTLS
-#undef HAVE_LIBSSL
+#undef HAVE_SSPISSL
 #undef HAVE_SSL
 
 
 /*
- * Do we have the SSL_set_tlsext_host_name function?
+ * Do we have the gnutls_transport_set_pull_timeout_function function?
  */
 
-#undef HAVE_SSL_SET_TLSEXT_HOST_NAME
+#undef HAVE_GNUTLS_TRANSPORT_SET_PULL_TIMEOUT_FUNCTION
 
 
 /*
@@ -321,6 +325,20 @@
  */
 
 #undef HAVE_CSSMERRORSTRING
+
+
+/*
+ * Do we have the SecGenerateSelfSignedCertificate function?
+ */
+
+#undef HAVE_SECGENERATESELFSIGNEDCERTIFICATE
+
+
+/*
+ * Do we have the SecKeychainOpen function?
+ */
+
+#undef HAVE_SECKEYCHAINOPEN
 
 
 /*
@@ -429,13 +447,6 @@
 
 
 /*
- * Do we have the AIX usersec.h header file?
- */
-
-#undef HAVE_USERSEC_H
-
-
-/*
  * Do we have pthread support?
  */
 
@@ -448,6 +459,14 @@
 
 #undef HAVE_LAUNCH_H
 #undef HAVE_LAUNCHD
+#undef HAVE_LAUNCH_ACTIVATE_SOCKET
+
+
+/*
+ * Do we have systemd support?
+ */
+
+#undef HAVE_SYSTEMD
 
 
 /*
@@ -520,13 +539,6 @@
 
 #undef HAVE_NOTIFY_H
 #undef HAVE_NOTIFY_POST
-
-
-/*
- * Do we have Darwin's IOKit private headers?
- */
-
-#undef HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H
 
 
 /*
@@ -626,13 +638,6 @@
 
 
 /*
- * Do we have vproc_transaction_begin/end?
- */
-
-#undef HAVE_VPROC_TRANSACTION_BEGIN
-
-
-/*
  * Do we have libusb?
  */
 
@@ -707,5 +712,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h.in 11693 2014-03-11 01:24:45Z msweet $".
+ * End of "$Id: config.h.in 12142 2014-08-30 02:35:43Z msweet $".
  */

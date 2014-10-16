@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -108,7 +108,7 @@ fi
 # check for attributes across subshells
 typeset -i x=3
 y=1/0
-if	( typeset x=y ) 2> /dev/null
+if	( x=y ) 2> /dev/null
 then	err_exit "attributes not passed to subshells"
 fi
 unset x
@@ -484,6 +484,15 @@ function dave.unset
 unset dave
 [[ $(typeset +f) == *dave.* ]] && err_exit 'unset discipline not removed'
 
+x=$(
+	dave=dave
+	function dave.unset
+	{
+		print dave.unset
+	}
+)
+[[ $x == dave.unset ]] || err_exit 'unset discipline not called with subset completion'
+
 print 'print ${VAR}' > $tmp/script
 unset VAR
 VAR=new $tmp/script > $tmp/out
@@ -659,5 +668,10 @@ $SHELL -c "$cmd" 2>/dev/null || err_exit "'$cmd' exit status $?, expected 0"
 SHLVL=1
 level=$($SHELL -c $'$SHELL -c \'print -r "$SHLVL"\'')
 [[ $level  == 3 ]]  || err_exit "SHLVL should be 3 not $level"
+
+[[ $($SHELL -c '{ x=1; : ${x.};print ok;}' 2> /dev/null) == ok ]] || err_exit '${x.} where x is a simple variable causes shell to abort'
+
+$SHELL -c 'unset .sh' 2> /dev/null
+[[ $? == 1 ]] || err_exit 'unset .sh should return 1'
 
 exit $((Errors<125?Errors:125))

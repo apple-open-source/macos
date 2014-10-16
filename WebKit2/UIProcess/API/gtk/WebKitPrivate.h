@@ -26,32 +26,29 @@
 #ifndef WebKitPrivate_h
 #define WebKitPrivate_h
 
-#include <WebKit2/WKAPICast.h>
-#include <WebKit2/WKContextSoup.h>
-#include <WebKit2/WKDownload.h>
-#include <WebKit2/WKFindOptions.h>
-#include <WebKit2/WKFullScreenClientGtk.h>
-#include <WebKit2/WKGeolocationManager.h>
-#include <WebKit2/WKGeolocationPermissionRequest.h>
-#include <WebKit2/WKGeolocationPosition.h>
-#include <WebKit2/WKIconDatabase.h>
-#include <WebKit2/WKInspector.h>
-#include <WebKit2/WKInspectorClientGtk.h>
-#include <WebKit2/WKRetainPtr.h>
-#include <WebKit2/WKSerializedScriptValue.h>
-#include <WebKit2/WKSoupRequestManager.h>
-#include <WebKit2/WKString.h>
-#include <WebKit2/WKTextChecker.h>
-#include <WebKit2/WebKit2_C.h>
+#include "WebKitNavigationAction.h"
+#include <WebKit/WKAPICast.h>
+#include <WebKit/WKDownload.h>
+#include <WebKit/WKFindOptions.h>
+#include <WebKit/WKFullScreenClientGtk.h>
+#include <WebKit/WKGeolocationManager.h>
+#include <WebKit/WKGeolocationPermissionRequest.h>
+#include <WebKit/WKGeolocationPosition.h>
+#include <WebKit/WKIconDatabase.h>
+#include <WebKit/WKInspector.h>
+#include <WebKit/WKInspectorClientGtk.h>
+#include <WebKit/WKRetainPtr.h>
+#include <WebKit/WKSerializedScriptValue.h>
+#include <WebKit/WKSoupCustomProtocolRequestManager.h>
+#include <WebKit/WKString.h>
+#include <WebKit/WKTextChecker.h>
+#include <WebKit/WebKit2_C.h>
 #include <glib.h>
 #include <wtf/Assertions.h>
 
 #define WEBKIT_PARAM_READABLE (static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB))
 #define WEBKIT_PARAM_WRITABLE (static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB))
 #define WEBKIT_PARAM_READWRITE (static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB))
-
-#define COMPILE_ASSERT_MATCHING_ENUM(webkitName, webcoreName) \
-        COMPILE_ASSERT(int(webkitName) == int(webcoreName), mismatchingEnums)
 
 #define WEBKIT_DEFINE_ASYNC_DATA_STRUCT(structName) \
 static structName* create##structName() \
@@ -119,6 +116,11 @@ GType type_name##_get_type(void) \
 
 unsigned wkEventModifiersToGdkModifiers(WKEventModifiers);
 unsigned wkEventMouseButtonToWebKitMouseButton(WKEventMouseButton);
+unsigned toGdkModifiers(WebKit::WebEvent::Modifiers);
+WebKitNavigationType toWebKitNavigationType(WebCore::NavigationType);
+unsigned toWebKitMouseButton(WebKit::WebMouseEvent::Button);
+unsigned toWebKitError(unsigned webCoreError);
+unsigned toWebCoreError(unsigned webKitError);
 
 enum SnapshotRegion {
     SnapshotRegionVisible,

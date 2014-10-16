@@ -6,9 +6,9 @@
 #
 #  CVS Info :
 #
-#    $Author: iccir $
-#    $Date: 2007/01/30 23:46:50 $
-#    $Revision: 1.2 $
+#    $Author$
+#    $Date$
+#    $Revision$
 #
 #  Contributing Author(s):
 #     Sierk Bornemann <bornemann@users.sourceforge.net>

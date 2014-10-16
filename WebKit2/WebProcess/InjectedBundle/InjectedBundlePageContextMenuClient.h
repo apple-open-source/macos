@@ -32,20 +32,27 @@
 #include "WKBundlePage.h"
 #include <wtf/Vector.h>
 
+namespace API {
+class Object;
+
+template<> struct ClientTraits<WKBundlePageContextMenuClientBase> {
+    typedef std::tuple<WKBundlePageContextMenuClientV0> Versions;
+};
+}
+
 namespace WebCore {
-    class ContextMenu;
+class ContextMenu;
 }
 
 namespace WebKit {
 
-class APIObject;
 class InjectedBundleHitTestResult;
 class WebContextMenuItemData;
 class WebPage;
 
-class InjectedBundlePageContextMenuClient : public APIClient<WKBundlePageContextMenuClient, kWKBundlePageContextMenuClientCurrentVersion> {
+class InjectedBundlePageContextMenuClient : public API::Client<WKBundlePageContextMenuClientBase> {
 public:
-    bool getCustomMenuFromDefaultItems(WebPage*, InjectedBundleHitTestResult*, const Vector<WebContextMenuItemData>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<APIObject>& userData);
+    bool getCustomMenuFromDefaultItems(WebPage*, InjectedBundleHitTestResult*, const Vector<WebContextMenuItemData>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<API::Object>& userData);
 };
 
 } // namespace WebKit

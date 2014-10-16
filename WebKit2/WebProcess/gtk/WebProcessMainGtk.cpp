@@ -25,64 +25,52 @@
  */
 
 #include "config.h"
-#include "WebProcessMainGtk.h"
+#include "WebProcessMainUnix.h"
 
-#include "WKBase.h"
-#include "WebKit2Initialize.h"
-#include <WebCore/AuthenticationChallenge.h>
-#include <WebCore/NetworkingContext.h>
-#include <WebCore/ResourceHandle.h>
-#include <WebCore/RunLoop.h>
-#include <WebKit2/WebProcess.h>
+#include "ChildProcessMain.h"
+#include "WebProcess.h"
+#include <WebCore/SoupNetworkSession.h>
 #include <gtk/gtk.h>
 #include <libintl.h>
 #include <libsoup/soup.h>
-#include <unistd.h>
-#include <wtf/gobject/GOwnPtr.h>
-#include <wtf/gobject/GRefPtr.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-WK_EXPORT int WebProcessMainGtk(int argc, char* argv[])
-{
-    ASSERT(argc == 2);
-
+class WebProcessMain final: public ChildProcessMainBase {
+public:
+    bool platformInitialize() override
+    {
 #ifndef NDEBUG
-    if (g_getenv("WEBKIT2_PAUSE_WEB_PROCESS_ON_LAUNCH"))
-        sleep(30);
+        if (g_getenv("WEBKIT2_PAUSE_WEB_PROCESS_ON_LAUNCH"))
+            sleep(30);
 #endif
 
-    gtk_init(&argc, &argv);
+        gtk_init(nullptr, nullptr);
 
-    bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
-    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+        bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
+        bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 
-    InitializeWebKit2();
-
-    int socket = atoi(argv[1]);
-
-    ChildProcessInitializationParameters parameters;
-    parameters.connectionIdentifier = socket;
-
-    WebProcess::shared().initialize(parameters);
-
-    // Despite using system CAs to validate certificates we're
-    // accepting invalid certificates by default. New API will be
-    // added later to let client accept/discard invalid certificates.
-    SoupSession* session = WebCore::ResourceHandle::defaultSession();
-    g_object_set(session, SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
-                 SOUP_SESSION_SSL_STRICT, FALSE, NULL);
-
-    RunLoop::run();
-
-    if (SoupSessionFeature* soupCache = soup_session_get_feature(session, SOUP_TYPE_CACHE)) {
-        soup_cache_flush(SOUP_CACHE(soupCache));
-        soup_cache_dump(SOUP_CACHE(soupCache));
+        // Despite using system CAs to validate certificates we're
+        // accepting invalid certificates by default. New API will be
+        // added later to let client accept/discard invalid certificates.
+        SoupNetworkSession::defaultSession().setSSLPolicy(SoupNetworkSession::SSLUseSystemCAFile);
+        return true;
     }
 
-    return 0;
+    void platformFinalize() override
+    {
+        if (SoupCache* soupCache = SoupNetworkSession::defaultSession().cache()) {
+            soup_cache_flush(soupCache);
+            soup_cache_dump(soupCache);
+        }
+    }
+};
+
+int WebProcessMainUnix(int argc, char** argv)
+{
+    return ChildProcessMain<WebProcess, WebProcessMain>(argc, argv);
 }
 
 } // namespace WebKit

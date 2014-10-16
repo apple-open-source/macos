@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -16,8 +16,10 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
-interface Text : CharacterData {
+[
+    Constructor([Default=NullString] optional DOMString data),
+    ConstructorCallWith=ScriptExecutionContext
+] interface Text : CharacterData {
 
     // DOM Level 1
 
@@ -26,10 +28,5 @@ interface Text : CharacterData {
     // Introduced in DOM Level 3:
     readonly attribute DOMString       wholeText;
     [RaisesException] Text               replaceWholeText([Default=Undefined] optional DOMString content);
-    // ShadowAware API
-#if defined(ENABLE_SHADOW_DOM) && ENABLE_SHADOW_DOM && defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-    [ImplementedAs=insertionParentForBinding] readonly attribute Node webkitInsertionParent;
-#endif
-
 };
 

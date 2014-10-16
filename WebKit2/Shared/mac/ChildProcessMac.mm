@@ -24,12 +24,15 @@
  */
 
 #import "config.h"
+
+#if PLATFORM(MAC)
 #import "ChildProcess.h"
 
 #import "SandboxInitializationParameters.h"
 #import "WebKitSystemInterface.h"
 #import <WebCore/FileSystem.h>
-#import <WebCore/SystemVersionMac.h>
+#import <WebCore/SystemVersion.h>
+#import <mach/mach.h>
 #import <mach/task.h>
 #import <pwd.h>
 #import <stdlib.h>
@@ -60,68 +63,6 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static const double kSuspensionHysteresisSeconds = 5.0;
-
-void ChildProcess::setProcessSuppressionEnabledInternal(bool processSuppressionEnabled)
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-    if (this->processSuppressionEnabled() == processSuppressionEnabled)
-        return;
-
-    if (processSuppressionEnabled) {
-        ASSERT(!m_activeTaskCount);
-        [[NSProcessInfo processInfo] endActivity:m_processSuppressionAssertion.get()];
-        m_processSuppressionAssertion.clear();
-    } else {
-        NSActivityOptions options = (NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical) & ~(NSActivitySuddenTerminationDisabled | NSActivityAutomaticTerminationDisabled);
-        m_processSuppressionAssertion = [[NSProcessInfo processInfo] beginActivityWithOptions:options reason:@"Process Suppression Disabled"];
-    }
-#else
-    UNUSED_PARAM(processSuppressionEnabled);
-#endif
-}
-
-void ChildProcess::setProcessSuppressionEnabled(bool processSuppressionEnabled)
-{
-    if (this->processSuppressionEnabled() == processSuppressionEnabled)
-        return;
-    if (m_shouldSuspend == processSuppressionEnabled)
-        return;
-    m_shouldSuspend = processSuppressionEnabled;
-    if (m_shouldSuspend) {
-        if (!m_activeTaskCount)
-            m_suspensionHysteresisTimer.startOneShot(kSuspensionHysteresisSeconds);
-        return;
-    }
-    setProcessSuppressionEnabledInternal(false);
-}
-
-void ChildProcess::incrementActiveTaskCount()
-{
-    m_activeTaskCount++;
-    if (m_suspensionHysteresisTimer.isActive())
-        m_suspensionHysteresisTimer.stop();
-    if (m_activeTaskCount)
-        setProcessSuppressionEnabledInternal(false);
-}
-
-void ChildProcess::decrementActiveTaskCount()
-{
-    ASSERT(m_activeTaskCount);
-    m_activeTaskCount--;
-    if (m_activeTaskCount)
-        return;
-    if (m_shouldSuspend)
-        m_suspensionHysteresisTimer.startOneShot(kSuspensionHysteresisSeconds);
-}
-
-void ChildProcess::suspensionHysteresisTimerFired()
-{
-    ASSERT(!m_activeTaskCount);
-    ASSERT(m_shouldSuspend);
-    setProcessSuppressionEnabledInternal(true);
-}
-
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 static void initializeTimerCoalescingPolicy()
 {
@@ -148,11 +89,6 @@ void ChildProcess::platformInitialize()
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     initializeTimerCoalescingPolicy();
 #endif
-    // Starting with process suppression disabled.  The proxy for this process will
-    // enable if appropriate from didFinishLaunching().
-    // We use setProcessSuppressionEnabledInternal to avoid any short circuit logic
-    // that would prevent us from taking the suppression assertion.
-    setProcessSuppressionEnabledInternal(false);
 
     [[NSFileManager defaultManager] changeCurrentDirectoryPath:[[NSBundle mainBundle] bundlePath]];
 }
@@ -168,15 +104,13 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
 
     Vector<String> osVersionParts;
-    String osSystemMarketingVersion = String(systemMarketingVersion());
+    String osSystemMarketingVersion = systemMarketingVersion();
     osSystemMarketingVersion.split('.', false, osVersionParts);
     if (osVersionParts.size() < 2) {
         WTFLogAlways("%s: Couldn't find OS Version\n", getprogname());
         exit(EX_NOPERM);
     }
-    String osVersion = osVersionParts[0];
-    osVersion.append('.');
-    osVersion.append(osVersionParts[1]);
+    String osVersion = osVersionParts[0] + '.' + osVersionParts[1];
     sandboxParameters.addParameter("_OS_VERSION", osVersion.utf8().data());
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
@@ -252,6 +186,7 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
 }
 
+#if USE(APPKIT)
 void ChildProcess::stopNSAppRunLoop()
 {
     ASSERT([NSApp isRunning]);
@@ -260,5 +195,26 @@ void ChildProcess::stopNSAppRunLoop()
     NSEvent *event = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0) modifierFlags:0 timestamp:0.0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
     [NSApp postEvent:event atStart:true];
 }
+#endif
+
+void ChildProcess::setQOS(int latencyQOS, int throughputQOS)
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    if (!latencyQOS && !throughputQOS)
+        return;
+
+    struct task_qos_policy qosinfo = {
+        latencyQOS ? LATENCY_QOS_TIER_0 + latencyQOS - 1 : LATENCY_QOS_TIER_UNSPECIFIED,
+        throughputQOS ? THROUGHPUT_QOS_TIER_0 + throughputQOS - 1 : THROUGHPUT_QOS_TIER_UNSPECIFIED
+    };
+
+    task_policy_set(mach_task_self(), TASK_OVERRIDE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
+#else
+    UNUSED_PARAM(latencyQOS);
+    UNUSED_PARAM(throughputQOS);
+#endif
+}
 
 } // namespace WebKit
+
+#endif

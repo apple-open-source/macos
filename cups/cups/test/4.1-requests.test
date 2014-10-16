@@ -1,5 +1,5 @@
 #
-# "$Id: 4.1-requests.test 11433 2013-11-20 18:57:44Z msweet $"
+# "$Id: 4.1-requests.test 11468 2013-12-18 20:31:42Z msweet $"
 #
 #   Verify that the server requires the following attributes:
 #
@@ -155,5 +155,5 @@
 	STATUS server-error-version-not-supported
 }
 #
-# End of "$Id: 4.1-requests.test 11433 2013-11-20 18:57:44Z msweet $"
+# End of "$Id: 4.1-requests.test 11468 2013-12-18 20:31:42Z msweet $"
 #

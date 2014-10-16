@@ -35,18 +35,26 @@
 
 #include "bootroot.h"
 
-// internal options for "update" operations (BROptsNone #def'd in bootroot.h)
+// internal options for "update" operations 
 typedef enum {
-    // this first one is orthogonal to the others :P
-    kBRUForceUpdateHelpers = 0x1,   // ignore bootstamps, update helpers
+    // BROptsNone          = 0x0,       // in bootroot.h
 
-    kBRUCachesOnly         = 0x2,   // only update caches, not helpers
-    kBRUHelpersOptional    = 0x4,   // ignore helper update failures
-    kBRUExpectUpToDate     = 0x8,   // successful updates -> EX_OSFILE
+    // command-line options
+    kBRUForceUpdateHelpers = 1 << 0,    // -f: ignore bootstamps, update helpers
 
-    // kBRAnyBootStamps #def'd to 0x10000 in bootroot.h
+    kBRUCachesOnly         = 1 << 1,    // -caches-only: don't update helpers
+    kBRUHelpersOptional    = 1 << 2,    // -Installer: helper updates !req'd
+    kBRUExpectUpToDate     = 1 << 3,    // -U: successful updates -> EX_OSFILE
+    kBRUEarlyBoot          = 1 << 4,    // -Boot: launch* calling us
+
+    kBRUInvalidateKextcache = 1 << 5,   // -i: mimic sudo touch /S/L/Extensions
+
+    // needUpdates() opt (default is all caches, default-bootable)
+    kBRUCachesAnyRoot       = 1 << 6,   // non-default B!=R configs okay
+
+    // copy files opts
+    // kBRAnyBootStamps = 0x10000 (1<<16) // in bootroot.h
 } BRUpdateOpts_t;
-
 
 // in update_boot.c
 
@@ -58,7 +66,7 @@ typedef enum {
 int checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t flags);
 
 // "put" and "take" let routines decide if a lock is needed (e.g. if no kextd)
-// only used by volume lockers (kextcache, libBootRoot clients, !kextd)
+// Only used by volume lockers (kextcache, libBootRoot clients, !kextd)
 int takeVolumeForPath(const char *volPath);
 int putVolumeForPath(const char *path, int status);
 

@@ -1,0 +1,56 @@
+#! /bin/csh -f
+#
+# Build a new X509Anchors or X509Certificates file from all of the certs in 
+# specified directory.
+#
+if ( $#argv != 2 ) then
+        echo Usage: buildX509Anchors anchors\|certs anchor_dir
+        exit(1)
+endif
+
+set KCDIR=/System/Library/Keychains
+set CERTSDIR=$argv[2]
+set SECTOOL=/usr/bin/security
+
+switch ( "$argv[1]" )
+	case anchors:
+		set KCFILE=$KCDIR/X509Anchors
+		set KCFILE_BACK=$KCDIR/X509Anchors_old
+		set KC_PWD=X509Anchors
+		breaksw
+	case certs:
+		set KCFILE=$KCDIR/X509Certificates
+		set KCFILE_BACK=$KCDIR/X509Certificates_old
+		set KC_PWD=X509Certificates
+		breaksw
+	default:
+        echo Usage: buildX509Anchors anchors\|certs anchor_dir
+        exit(1)
+endsw
+
+if ( -e $KCFILE ) then
+	echo Saving old $KCFILE...
+	set cmd="rm -f $KCFILE_BACK"
+	echo $cmd
+	$cmd || exit(1)
+	set cmd="mv $KCFILE $KCFILE_BACK"
+	echo $cmd
+	$cmd || exit(1)
+else 
+	echo Warning: no existing $KCFILE!
+endif
+
+set cmd="$SECTOOL create-keychain -p $KC_PWD $KCFILE"
+$cmd || exit(1)
+
+set cmd="cd $CERTSDIR"
+echo $cmd
+$cmd || exit(1)
+foreach i (*)
+	if( ( -f "$i" )  && ( "$i" != X509Anchors) ) then
+		set cmd="$SECTOOL add-certificate -k $KCFILE $i"
+		echo $cmd
+		$SECTOOL add-certificate -k $KCFILE "$i" || exit(1)
+	endif
+end
+echo .../Complete.

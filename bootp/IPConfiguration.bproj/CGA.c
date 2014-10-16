@@ -99,7 +99,7 @@ my_CFDataCreateWithRandomBytes(CFIndex size)
 
     data = CFDataCreateMutable(NULL, size);
     CFDataSetLength(data, size);
-    fill_with_random(CFDataGetMutableBytePtr(data), size);
+    fill_with_random(CFDataGetMutableBytePtr(data), (int)size);
     return (data);
 }
 
@@ -127,7 +127,7 @@ linklocal_modifier_has_expired(CFDictionaryRef dict, CFDateRef now)
 STATIC void
 remove_old_linklocal_modifiers(CFMutableDictionaryRef modifiers)
 {
-    int			count;
+    CFIndex		count;
 
     count = CFDictionaryGetCount(modifiers);
     if (count > 0) {

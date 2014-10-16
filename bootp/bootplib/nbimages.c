@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +51,10 @@
 
 #include <CoreFoundation/CFURL.h>
 #include <SystemConfiguration/SCValidation.h>
+
+#ifdef TEST_NBIMAGES
+#define CHECK_TOTAL_SPACE 1
+#endif /* TEST_NBIMAGES */
 
 struct NBImageList_s {
     dynarray_t		list;
@@ -1042,22 +1045,20 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    entry->type_info.classic.private = offset;
 	    (void)my_CFStringToCStringAndLength(private_prop, 
 						offset, private_space);
-#if CHECK_TOTAL_SPACE
 	    offset += private_space;
-#endif /* CHECK_TOTAL_SPACE */
 	}
 	break;
     case kNBImageTypeNFS:
 	entry->type_info.nfs.root_path = offset;
-	strcpy((char *)entry->type_info.nfs.root_path, root_path);
-#if CHECK_TOTAL_SPACE
+	strlcpy((char *)entry->type_info.nfs.root_path, root_path,
+		root_path_len + 1);
 	offset += root_path_len + 1;
-#endif /* CHECK_TOTAL_SPACE */
 	entry->type_info.nfs.indirect = indirect;
 	break;
     case kNBImageTypeHTTP:
 	entry->type_info.http.root_path = offset;
-	strcpy((char *)entry->type_info.http.root_path, root_path);
+	strlcpy((char *)entry->type_info.http.root_path, root_path,
+		root_path_len + 1);
 	offset += root_path_len + 1;
 	if (root_path_esc_len == 0) {
 	    entry->type_info.http.root_path_esc
@@ -1065,11 +1066,10 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	}
 	else {
 	    entry->type_info.http.root_path_esc = offset;
-	    strcpy((char *)entry->type_info.http.root_path_esc, 
-		   root_path_esc);
-#if CHECK_TOTAL_SPACE
+	    strlcpy((char *)entry->type_info.http.root_path_esc, 
+		    root_path_esc,
+		    root_path_esc_len + 1);
 	    offset += root_path_esc_len + 1;
-#endif /* CHECK_TOTAL_SPACE */
 	}
 	entry->type_info.http.indirect = indirect;
 	break;
@@ -1078,8 +1078,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     }
 #if CHECK_TOTAL_SPACE
     printf("tail_space %d - actual %d = %d\n",
-	   tail_space, (offset - (char *)(entry + 1)),
-	   tail_space - (offset - (char *)(entry + 1)));
+	   tail_space, (int)(offset - (char *)(entry + 1)),
+	   tail_space - (int)(offset - (char *)(entry + 1)));
 #endif /* CHECK_TOTAL_SPACE */
     my_CFRelease(&plist);
     return (entry);
@@ -1327,24 +1327,6 @@ NBImageList_print(NBImageListRef image_list)
 }
 
 #ifdef TEST_NBIMAGES
-#if 0
-#include <stdarg.h>
-void
-my_log(int priority, const char *message, ...)
-{
-    va_list 		ap;
-
-    if (priority == LOG_DEBUG) {
-	if (G_verbose == FALSE)
-	    return;
-	priority = LOG_INFO;
-    }
-
-    va_start(ap, message);
-    vsyslog(priority, message, ap);
-    return;
-}
-#endif /* 0 */
 
 int
 main(int argc, char * argv[])

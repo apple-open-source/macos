@@ -29,21 +29,23 @@
 #include "AudioContext.h"
 
 #include "AudioBuffer.h"
-#include "JSArrayBuffer.h"
+#include "Document.h"
 #include "JSAudioBuffer.h"
 #include "JSAudioContext.h"
+#include "JSDOMBinding.h"
 #include "JSOfflineAudioContext.h"
 #include "OfflineAudioContext.h"
+#include <runtime/ArrayBuffer.h>
 #include <runtime/Error.h>
-#include <wtf/ArrayBuffer.h>
+#include <runtime/JSArrayBuffer.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-EncodedJSValue JSC_HOST_CALL JSAudioContextConstructor::constructJSAudioContext(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL constructJSAudioContext(ExecState* exec)
 {
-    JSAudioContextConstructor* jsConstructor = jsCast<JSAudioContextConstructor*>(exec->callee());
+    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec->callee());
     if (!jsConstructor)
         return throwVMError(exec, createReferenceError(exec, "AudioContext constructor callee is unavailable"));
 
@@ -54,7 +56,7 @@ EncodedJSValue JSC_HOST_CALL JSAudioContextConstructor::constructJSAudioContext(
     if (!scriptExecutionContext->isDocument())
         return throwVMError(exec, createReferenceError(exec, "AudioContext constructor called in a script execution context which is not a document"));
 
-    Document* document = toDocument(scriptExecutionContext);
+    Document& document = toDocument(*scriptExecutionContext);
 
     RefPtr<AudioContext> audioContext;
     
@@ -72,8 +74,7 @@ EncodedJSValue JSC_HOST_CALL JSAudioContextConstructor::constructJSAudioContext(
 #if ENABLE(LEGACY_WEB_AUDIO)
         // Constructor for offline (render-target) AudioContext which renders into an AudioBuffer.
         // new AudioContext(in unsigned long numberOfChannels, in unsigned long numberOfFrames, in float sampleRate);
-        document->addConsoleMessage(JSMessageSource, WarningMessageLevel,
-            "Deprecated AudioContext constructor: use OfflineAudioContext instead");
+        document.addConsoleMessage(MessageSource::JS, MessageLevel::Warning, ASCIILiteral("Deprecated AudioContext constructor: use OfflineAudioContext instead"));
 
         if (exec->argumentCount() < 3)
             return throwVMError(exec, createNotEnoughArgumentsError(exec));
@@ -106,7 +107,7 @@ EncodedJSValue JSC_HOST_CALL JSAudioContextConstructor::constructJSAudioContext(
     if (!audioContext.get())
         return throwVMError(exec, createReferenceError(exec, "Error creating AudioContext"));
 
-    return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), AudioContext, audioContext.get()));
+    return JSValue::encode(CREATE_DOM_WRAPPER(jsConstructor->globalObject(), AudioContext, audioContext.get()));
 }
 
 } // namespace WebCore

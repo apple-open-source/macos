@@ -98,6 +98,7 @@ static int top_sort(void *a_data, const libtop_psamp_t *a, const libtop_psamp_t 
 static int sort_subcomp(int a_key, const libtop_psamp_t *a_a, 
 		     const libtop_psamp_t *a_b) {
     struct timeval  tv_a, tv_b;
+    unsigned long long used_ns_a, used_ns_b;
     const char      *user_a, *user_b;
     
     switch (a_key) {
@@ -114,6 +115,27 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
 	} else {
 	    return COMP(tv_a.tv_sec, tv_b.tv_sec);
 	}
+
+    case STATISTIC_CPU_ME:
+	used_ns_a = a_a->cpu_billed_to_me - a_a->p_cpu_billed_to_me;
+	used_ns_b = a_b->cpu_billed_to_me - a_b->p_cpu_billed_to_me;
+	return COMP(used_ns_a, used_ns_b);
+
+    case STATISTIC_CPU_OTHERS:
+	used_ns_a = a_a->cpu_billed_to_others - a_a->p_cpu_billed_to_others;
+	used_ns_b = a_b->cpu_billed_to_others - a_b->p_cpu_billed_to_others;
+	return COMP(used_ns_a, used_ns_b);
+
+    case STATISTIC_BOOSTS:
+	{
+		int res;
+		res = COMP(a_a->boost_last_donating_seq, a_b->boost_last_donating_seq);
+		if (res) return res;
+		res = COMP(!a_a->boost_donating, !a_b->boost_donating);
+		if (res) return res;
+		return COMP(a_a->boosts - a_a->p_boosts, a_b->boosts - a_b->p_boosts);
+	}
+
 
     case STATISTIC_TIME:
 	 tv_a = a_a->total_time;

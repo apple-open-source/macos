@@ -20,9 +20,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-[
-    Conditional=SVG
-] interface SVGNumber {
-    [StrictTypeChecking] attribute float value;
+interface SVGNumber {
+    [StrictTypeChecking] attribute unrestricted float value;
 };
 

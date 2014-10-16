@@ -40,6 +40,23 @@
  * into the kernel and parse out the results.
  */
 
+/*
+ * Forward declare SMBQueryDir since its declared in smbclient_internal.h
+ * If we ever make this public and move it into smbclient.h, then we can
+ * remove this forward declaration.
+ */
+NTSTATUS SMBQueryDir(SMBHANDLE       inConnection,
+                     uint8_t         file_info_class,
+                     uint8_t         flags,
+                     uint32_t        file_index,
+                     SMBFID          fid,
+                     const char *    name,
+                     uint32_t        name_len,
+                     char *          rcv_output_buffer,
+                     uint32_t        rcv_max_output_len,
+                     uint32_t *      rcv_output_len,
+                     uint32_t *      query_dir_reply_len);
+
 
 static NTSTATUS
 SMBMapError (int error)
@@ -274,7 +291,7 @@ SMBDeviceIoControl(
     }
 
     if (hDevice > UINT16_MAX) {
-        /* No large file handle support until SMB2. */
+        /* No large file handle support until SMB 2/3 */
         return STATUS_INVALID_HANDLE;
     }
 
@@ -361,6 +378,45 @@ SMBCloseFile(
 		return status;
     }
 
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+SMBQueryDir(
+    SMBHANDLE       inConnection,
+    uint8_t         file_info_class,
+    uint8_t         flags,
+    uint32_t        file_index,
+    SMBFID          fid,
+    const char *    name,
+    uint32_t        name_len,
+    char *          rcv_output_buffer,
+    uint32_t        rcv_max_output_len,
+    uint32_t *      rcv_output_len,
+    uint32_t *      query_dir_reply_len)
+{
+    int error;
+    NTSTATUS status;
+    void * hContext;
+    
+    status = SMBServerContext(inConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
+        return status;
+    }
+	
+    error = smb2io_query_dir(hContext,
+                             file_info_class,
+                             flags,
+                             file_index,
+                             fid,
+                             name, name_len,
+                             rcv_output_buffer, rcv_max_output_len,
+                             rcv_output_len, query_dir_reply_len);
+    status = SMBMapError(error);
+	if (!NT_SUCCESS(status)) {
+		return status;
+    }
+    
     return STATUS_SUCCESS;
 }
 

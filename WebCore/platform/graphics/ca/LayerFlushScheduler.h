@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,11 +26,9 @@
 #ifndef LayerFlushScheduler_h
 #define LayerFlushScheduler_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
 #include "LayerFlushSchedulerClient.h"
+#include "RunLoopObserver.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/RetainPtr.h>
 
 namespace WebCore {
     
@@ -38,7 +36,7 @@ class LayerFlushScheduler {
     WTF_MAKE_NONCOPYABLE(LayerFlushScheduler);
 public:
     LayerFlushScheduler(LayerFlushSchedulerClient*);
-    ~LayerFlushScheduler();
+    virtual ~LayerFlushScheduler();
 
     void schedule();
     void invalidate();
@@ -48,19 +46,19 @@ public:
 
     bool isSuspended() const { return m_isSuspended; }
 
+#if PLATFORM(COCOA)
+    virtual void layerFlushCallback();
+#endif
+
 private:
     bool m_isSuspended;
     LayerFlushSchedulerClient* m_client;
     
-#if PLATFORM(MAC)
-    RetainPtr<CFRunLoopObserverRef> m_runLoopObserver;
-    static void runLoopObserverCallback(CFRunLoopObserverRef, CFRunLoopActivity, void* context);
-    void runLoopObserverCallback();
+#if PLATFORM(COCOA)
+    std::unique_ptr<RunLoopObserver> m_runLoopObserver;
 #endif
 };
 
 } // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // LayerFlushScheduler_h

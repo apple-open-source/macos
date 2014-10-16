@@ -1,6 +1,3 @@
-.\"
-.\" $FreeBSD: /repoman/r/ncvs/src/sbin/ipfw/ipfw.8,v 1.63.2.38 2003/07/28 07:15:13 luigi Exp $
-.\"
 .Dd August 13, 2002
 .Dt DNCTL 8
 .Os Darwin
@@ -361,9 +358,6 @@ Most connections need packets going in both directions.
 .It
 Remember to test very carefully.
 It is a good idea to be near the console when doing this.
-If you cannot be near the console,
-use an auto-recovery script such as the one in
-.Pa /usr/share/examples/ipfw/change_rules.sh .
 .It
 Don't forget the loopback interface.
 .El
@@ -402,40 +396,28 @@ for the RED algorithm.
 .El
 .Sh EXAMPLES
 The following rules show some of the applications of
-.Xr dummynet 4
-for simulations and the like. The examples use the obsolete 
-.Nm ipfw 
-command for illustration only as the use of 
-.Nm ipfw 
-is discouraged.
+for simulations and the like by using 
+.Em dummynet
+rules in
+.Xr pf.conf 8
+configuration files.
 .Pp
-This rule drops random incoming packets with a probability
-of 5%:
-.Pp
-.Dl "ipfw add pipe 10 ip from any to any"
+To drop random incoming IPv4 and IPv6 ICMP packets with a probability of 5%, 
+create a pipe:
 .Dl "dnctl pipe 10 config plr 0.05"
 .Pp
-We can use pipes to artificially limit bandwidth, e.g. on a
-machine acting as a router, if we want to limit traffic from
-local clients on 192.168.2.0/24 we do:
-.Pp
-.Dl "ipfw add pipe 1 ip from 192.168.2.0/24 to any out"
-.Dl "dnctl pipe 1 config bw 300Kbit/s queue 50KBytes"
-.Pp
-note that we use the
-.Cm out
-modifier so that the rule is not used twice.
-Remember in fact that
-.Nm
-rules are checked both on incoming and outgoing packets.
+and add these rules in your pf.conf file:
+.Dl "dummynet in inet proto icmp all pipe 10"
+.Dl "dummynet in inet6 proto ipv6-icmp all pipe 10"
 .Pp
 Should we want to simulate a bidirectional link with bandwidth
-limitations, the correct way is the following:
+limitations, the correct way is to create a pipe for each direction:
+.Dl "dnctl pipe 1 config bw 14Kbit/s queue 10Kbytes"
+.Dl "dnctl pipe 2 config bw 1Kbit/s queue 10Kbytes"
 .Pp
-.Dl "ipfw add pipe 1 ip from any to any out"
-.Dl "ipfw add pipe 2 ip from any to any in"
-.Dl "dnctl pipe 1 config bw 64Kbit/s queue 10Kbytes"
-.Dl "dnctl pipe 2 config bw 64Kbit/s queue 10Kbytes"
+and add these rules in your pf.conf file:
+.Dl "dummynet in all pipe 1"
+.Dl "dummynet out all pipe 2"
 .Pp
 The above can be very useful, e.g. if you want to see how
 your fancy Web page will look for a residential user who
@@ -443,14 +425,16 @@ is connected only through a slow link.
 You should not use only one pipe for both directions, unless
 you want to simulate a half-duplex medium (e.g. AppleTalk,
 Ethernet, IRDA).
-It is not necessary that both pipes have the same configuration,
-so we can also simulate asymmetric links.
+.Pp
+Note that with the above rules the pipes receive traffic for both the 
+IPv4 and IPv6 protocols.
 .Pp
 Should we want to verify network performance with the RED queue
-management algorithm:
-.Pp
-.Dl "ipfw add pipe 1 ip from any to any"
+management algorithm, create this pipe:
 .Dl "dnctl pipe 1 config bw 500Kbit/s queue 100 red 0.002/30/80/0.1"
+.Pp
+and then add these rules to you pf.conf file:
+.Dl "dummynet all pipe 1"
 .Pp
 Another typical application of the traffic shaper is to
 introduce some delay in the communication.
@@ -458,65 +442,42 @@ This can significantly affect applications which do a lot of Remote
 Procedure Calls, and where the round-trip-time of the
 connection often becomes a limiting factor much more than
 bandwidth:
-.Pp
-.Dl "ipfw add pipe 1 ip from any to any out"
-.Dl "ipfw add pipe 2 ip from any to any in"
 .Dl "dnctl pipe 1 config delay 250ms bw 1Mbit/s"
 .Dl "dnctl pipe 2 config delay 250ms bw 1Mbit/s"
 .Pp
+and add these rules in your pf.conf file:
+.Dl "dummynet in all pipe 1"
+.Dl "dummynet out all pipe 2"
+.Pp
 Per-flow queueing can be useful for a variety of purposes.
 A very simple one is counting traffic:
-.Pp
-.Dl "ipfw add pipe 1 tcp from any to any"
-.Dl "ipfw add pipe 1 udp from any to any"
-.Dl "ipfw add pipe 1 ip from any to any"
 .Dl "dnctl pipe 1 config mask all"
+.Pp
+and add these statements in your pf.conf file:
+.Dl "dummynet in quick proto tcp all pipe 1"
+.Dl "dummynet out quick proto tcp all pipe 1"
+.Dl "dummynet in quick proto udp all pipe 1"
+.Dl "dummynet out quick proto udp all pipe 1"
+.Dl "dummynet in quick all pipe 1"
+.Dl "dummynet out quick all pipe 1"
 .Pp
 The above set of rules will create queues (and collect
 statistics) for all traffic.
 Because the pipes have no limitations, the only effect is
 collecting statistics.
-Note that we need 3 rules, not just the last one, because
+Note that we need six rules, not just the last two one, because
 when
 .Nm
 tries to match IP packets it will not consider ports, so we
 would not see connections on separate ports as different
 ones.
-.Pp
-A more sophisticated example is limiting the outbound traffic
-on a net with per-host limits, rather than per-network limits:
-.Pp
-.Dl "ipfw add pipe 1 ip from 192.168.2.0/24 to any out"
-.Dl "ipfw add pipe 2 ip from any to 192.168.2.0/24 in"
-.Dl "dnctl pipe 1 config mask src-ip 0x000000ff bw 200Kbit/s queue 20Kbytes"
-.Dl "dnctl pipe 2 config mask dst-ip 0x000000ff bw 200Kbit/s queue 20Kbytes"
-.Ss SETS OF RULES
-To add a set of rules atomically, e.g. set 18:
-.Pp
-.Dl "ipfw set disable 18"
-.Dl "ipfw add NN set 18 ...         # repeat as needed"
-.Dl "ipfw set enable 18"
-.Pp
-To delete a set of rules atomically the command is simply:
-.Pp
-.Dl "ipfw delete set 18"
-.Pp
-To test a ruleset and disable it and regain control if something goes wrong:
-.Pp
-.Dl "ipfw set disable 18"
-.Dl "ipfw add NN set 18 ...         # repeat as needed"
-.Dl "ipfw set enable 18; echo done; sleep 30 && ipfw set disable 18"
-.Pp
-Here if everything goes well, you press control-C before the "sleep"
-terminates, and your ruleset will be left active. Otherwise, e.g. if
-you cannot access your box, the ruleset will be disabled after
-the sleep terminates thus restoring the previous situation.
 .Sh SEE ALSO
 .Xr cpp 1 ,
-.Xr m4 1 ,
 .Xr dummynet 4 ,
+.Xr m4 1 ,
 .Xr ip 4 ,
-.Xr ipfirewall 4 ,
+.Xr pfctl 8 ,
+.Xr pf.conf 5 ,
 .Xr protocols 5 ,
 .Xr services 5 ,
 .Xr sysctl 8
@@ -545,5 +506,3 @@ was introduced in
 .Fx 2.2.8 .
 Stateful extensions were introduced in
 .Fx 4.0 .
-.Nm ipfw2
-was introduced in Summer 2002.

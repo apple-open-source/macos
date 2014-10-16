@@ -20,7 +20,7 @@
 #include "config.h"
 #include "WebKitWebResource.h"
 
-#include "WebData.h"
+#include "APIData.h"
 #include "WebFrameProxy.h"
 #include "WebKitMarshal.h"
 #include "WebKitURIRequest.h"
@@ -310,21 +310,15 @@ WebKitURIResponse* webkit_web_resource_get_response(WebKitWebResource* resource)
 }
 
 struct ResourceGetDataAsyncData {
-    RefPtr<WebData> webData;
-    GRefPtr<GCancellable> cancellable;
+    RefPtr<API::Data> webData;
 };
 WEBKIT_DEFINE_ASYNC_DATA_STRUCT(ResourceGetDataAsyncData)
 
-static void resourceDataCallback(WKDataRef wkData, WKErrorRef, void* context)
+static void resourceDataCallback(API::Data* wkData, GTask* task)
 {
-    GRefPtr<GSimpleAsyncResult> result = adoptGRef(G_SIMPLE_ASYNC_RESULT(context));
-    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_simple_async_result_get_op_res_gpointer(result.get()));
-    GError* error = 0;
-    if (g_cancellable_set_error_if_cancelled(data->cancellable.get(), &error))
-        g_simple_async_result_take_error(result.get(), error);
-    else
-        data->webData = toImpl(wkData);
-    g_simple_async_result_complete(result.get());
+    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_task_get_task_data(task));
+    data->webData = wkData;
+    g_task_return_boolean(task, TRUE);
 }
 
 /**
@@ -343,16 +337,17 @@ void webkit_web_resource_get_data(WebKitWebResource* resource, GCancellable* can
 {
     g_return_if_fail(WEBKIT_IS_WEB_RESOURCE(resource));
 
-    GSimpleAsyncResult* result = g_simple_async_result_new(G_OBJECT(resource), callback, userData,
-                                                           reinterpret_cast<gpointer>(webkit_web_resource_get_data));
-    ResourceGetDataAsyncData* data = createResourceGetDataAsyncData();
-    data->cancellable = cancellable;
-    g_simple_async_result_set_op_res_gpointer(result, data, reinterpret_cast<GDestroyNotify>(destroyResourceGetDataAsyncData));
+    GTask* task = g_task_new(resource, cancellable, callback, userData);
+    g_task_set_task_data(task, createResourceGetDataAsyncData(), reinterpret_cast<GDestroyNotify>(destroyResourceGetDataAsyncData));
     if (resource->priv->isMainResource)
-        resource->priv->frame->getMainResourceData(DataCallback::create(result, resourceDataCallback));
+        resource->priv->frame->getMainResourceData([task](API::Data* data, CallbackBase::Error) {
+            resourceDataCallback(data, adoptGRef(task).get());
+        });
     else {
         String url = String::fromUTF8(resource->priv->uri.data());
-        resource->priv->frame->getResourceData(WebURL::create(url).get(), DataCallback::create(result, resourceDataCallback));
+        resource->priv->frame->getResourceData(API::URL::create(url).get(), [task](API::Data* data, CallbackBase::Error) {
+            resourceDataCallback(data, adoptGRef(task).get());
+        });
     }
 }
 
@@ -360,26 +355,25 @@ void webkit_web_resource_get_data(WebKitWebResource* resource, GCancellable* can
  * webkit_web_resource_get_data_finish:
  * @resource: a #WebKitWebResource
  * @result: a #GAsyncResult
- * @length: (out): return location for the length of the resource data
+ * @length: (out) (allow-none): return location for the length of the resource data
  * @error: return location for error or %NULL to ignore
  *
  * Finish an asynchronous operation started with webkit_web_resource_get_data().
  *
- * Returns: (transfer full): a string with the data of @resource, or %NULL in case
- *    of error. if @length is not %NULL, the size of the data will be assigned to it.
+ * Returns: (transfer full) (array length=length) (element-type guint8): a
+ *    string with the data of @resource, or %NULL in case of error. if @length
+ *    is not %NULL, the size of the data will be assigned to it.
  */
 guchar* webkit_web_resource_get_data_finish(WebKitWebResource* resource, GAsyncResult* result, gsize* length, GError** error)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_RESOURCE(resource), 0);
-    g_return_val_if_fail(G_IS_ASYNC_RESULT(result), 0);
+    g_return_val_if_fail(g_task_is_valid(result, resource), 0);
 
-    GSimpleAsyncResult* simple = G_SIMPLE_ASYNC_RESULT(result);
-    g_warn_if_fail(g_simple_async_result_get_source_tag(simple) == webkit_web_resource_get_data);
-
-    if (g_simple_async_result_propagate_error(simple, error))
+    GTask* task = G_TASK(result);
+    if (!g_task_propagate_boolean(task, error))
         return 0;
 
-    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_simple_async_result_get_op_res_gpointer(simple));
+    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_task_get_task_data(task));
     if (length)
         *length = data->webData->size();
     return static_cast<guchar*>(g_memdup(data->webData->bytes(), data->webData->size()));

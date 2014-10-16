@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,9 +26,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/DOMCore.h>
-#import <WebKit/DOMHTML.h>
-#import <WebKit/DOMRange.h>
+#import <WebKitLegacy/DOMCore.h>
+#import <WebKitLegacy/DOMHTML.h>
+#import <WebKitLegacy/DOMRange.h>
 
 @class WebArchive;
 @class WebFrame;
@@ -36,20 +36,20 @@
 @interface DOMNode (WebDOMNodeOperations)
 
 /*!
-    @method webArchive
-    @result A WebArchive representing the node and the children of the node.
+    @property webArchive
+    @abstract A WebArchive representing the node and the children of the node.
 */
-- (WebArchive *)webArchive;
+@property (nonatomic, readonly, strong) WebArchive *webArchive;
 
 @end
 
 @interface DOMDocument (WebDOMDocumentOperations)
 
 /*!
-    @method webFrame
-    @abstract Returns the frame of the DOM document.
+    @property webFrame
+    @abstract The frame of the DOM document.
 */
-- (WebFrame *)webFrame;
+@property (nonatomic, readonly, strong) WebFrame *webFrame;
 
 /*!
     @method URLWithAttributeString:
@@ -65,47 +65,47 @@
 @interface DOMRange (WebDOMRangeOperations)
 
 /*!
-    @method webArchive
-    @result A WebArchive representing the range.
+    @property webArchive
+    @abstract A WebArchive representing the range.
 */
-- (WebArchive *)webArchive;
+@property (nonatomic, readonly, strong) WebArchive *webArchive;
 
 /*!
-    @method markupString
-    @result A markup string representing the range.
+    @property markupString
+    @abstract A markup string representing the range.
 */
-- (NSString *)markupString;
+@property (nonatomic, readonly, copy) NSString *markupString;
 
 @end
 
 @interface DOMHTMLFrameElement (WebDOMHTMLFrameElementOperations)
 
 /*!
-    @method contentFrame
-    @abstract Returns the content frame of the element.
+    @property contentFrame
+    @abstract The content frame of the element.
 */
-- (WebFrame *)contentFrame;
+@property (nonatomic, readonly, strong) WebFrame *contentFrame;
 
 @end
 
 @interface DOMHTMLIFrameElement (WebDOMHTMLIFrameElementOperations)
 
 /*!
-    @method contentFrame
+    @property contentFrame
     @abstract Returns the content frame of the element.
 */
-- (WebFrame *)contentFrame;
+@property (nonatomic, readonly, strong) WebFrame *contentFrame;
 
 @end
 
 @interface DOMHTMLObjectElement (WebDOMHTMLObjectElementOperations)
 
 /*!
-    @method contentFrame
-    @abstract Returns the content frame of the element.
+    @property contentFrame
+    @abstract The content frame of the element.
     @discussion Returns non-nil only if the object represents a child frame
     such as if the data of the object is HTML content.
 */
-- (WebFrame *)contentFrame;
+@property (nonatomic, readonly, strong) WebFrame *contentFrame;
 
 @end

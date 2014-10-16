@@ -13,10 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -71,10 +71,6 @@ using JSC::Interpreter;
 using JSC::JSLock;
 using JSC::JSObject;
 using JSC::JSValue;
-
-#if PLATFORM(QT)
-#include <QPainter>
-#endif
 
 using namespace WTF;
 
@@ -361,20 +357,6 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     if(!dispatchNPCocoaEvent(cocoaEvent))
         LOG(Events, "PluginView::paint(): Paint event type %d not accepted", cocoaEvent.type);
-    
-#if PLATFORM(QT)
-    // Paint the intermediate bitmap into our graphics context.
-    ASSERT(CGBitmapContextGetBitmapInfo(m_contextRef) & (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
-    ASSERT(CGBitmapContextGetBitsPerPixel(m_contextRef) == 32);
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(CGBitmapContextGetData(m_contextRef));
-    size_t width = CGBitmapContextGetWidth(m_contextRef);
-    size_t height = CGBitmapContextGetHeight(m_contextRef);
-    const QImage imageFromBitmap(data, width, height, QImage::Format_ARGB32_Premultiplied);
-
-    QPainter* painter = context->platformContext();
-    painter->drawImage(targetRect.x(), targetRect.y(), imageFromBitmap,
-        targetRect.x() - frameRect().x(), targetRect.y() - frameRect().y(), targetRect.width(), targetRect.height());
-#endif
 
     CGContextRestoreGState(m_contextRef);
 }
@@ -464,7 +446,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
             eventType = NPCocoaEventMouseDown;
             // The plugin needs focus to receive keyboard events
             if (Page* page = m_parentFrame->page())
-                page->focusController()->setFocusedFrame(m_parentFrame);
+                page->focusController().setFocusedFrame(m_parentFrame);
             m_parentFrame->document()->setFocusedElement(m_element);
             break;
 

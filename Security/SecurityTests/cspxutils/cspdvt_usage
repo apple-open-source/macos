@@ -1,0 +1,7 @@
+Usage: cspdvt [options]
+Options:
+   l  long test
+   v  verbose output
+   q  quiet output
+   D  CSPDL combo; default = bare CSP
+   h  help

@@ -25,7 +25,8 @@
 #define JSGlobalObjectFunctions_h
 
 #include "JSCJSValue.h"
-#include <wtf/unicode/Unicode.h>
+#include <unicode/uchar.h>
+#include <wtf/text/LChar.h>
 
 namespace JSC {
 
@@ -50,11 +51,10 @@ EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState*);
 EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeError(ExecState*);
 EncodedJSValue JSC_HOST_CALL globalFuncProtoGetter(ExecState*);
 EncodedJSValue JSC_HOST_CALL globalFuncProtoSetter(ExecState*);
-
+EncodedJSValue JSC_HOST_CALL globalFuncBuiltinLog(ExecState*);
+    
 static const double mantissaOverflowLowerBound = 9007199254740992.0;
-double parseIntOverflow(const LChar*, int length, int radix);
-ALWAYS_INLINE double parseIntOverflow(const char* s, int length, int radix) { return parseIntOverflow(reinterpret_cast<const LChar*>(s), length, radix); }
-double parseIntOverflow(const UChar*, int length, int radix);
+double parseIntOverflow(const LChar*, unsigned length, int radix);
 bool isStrWhiteSpace(UChar);
 double jsToNumber(const WTF::String&);
 

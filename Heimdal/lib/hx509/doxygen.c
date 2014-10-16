@@ -83,3 +83,4 @@
 /** @defgroup hx509_peer hx509 certificate selecting functions */
 /** @defgroup hx509_print hx509 printing functions */
 /** @defgroup hx509_env hx509 enviroment functions */
+int hx509_not_used = 0;

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -31,6 +31,7 @@
 #include	"defs.h"
 #include	<error.h>
 #include	<ls.h>
+#include	<regex.h>
 #include	"io.h"
 #include	"terminal.h"
 #include	"test.h"
@@ -81,9 +82,9 @@ static char *nxtarg(struct test*,int);
 static int expr(struct test*,int);
 static int e3(struct test*);
 
-static int test_strmatch(const char *str, const char *pat)
+static int test_strmatch(Shell_t *shp,const char *str, const char *pat)
 {
-	int match[2*(MATCH_MAX+1)],n;
+	regoff_t match[2*(MATCH_MAX+1)],n;
 	register int c, m=0;
 	register const char *cp=pat; 
 	while(c = *cp++)
@@ -103,16 +104,16 @@ static int test_strmatch(const char *str, const char *pat)
 	if(m==0 && n==1)
 		match[1] = strlen(str);
 	if(n)
-		sh_setmatch(str, -1, n, match);
+		sh_setmatch(shp, str, -1, n, match, 0);
 	return(n);
 }
 
-int b_test(int argc, char *argv[],void *extra)
+int b_test(int argc, char *argv[],Shbltin_t *context)
 {
 	struct test tdata;
 	register char *cp = argv[0];
 	register int not;
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	tdata.av = argv;
 	tdata.ap = 1;
 	if(c_eq(cp,'['))
@@ -155,6 +156,8 @@ int b_test(int argc, char *argv[],void *extra)
 					return(test_unop(tdata.sh,cp[1],argv[3])!=0);
 				else if(argv[1][0]=='-' && argv[1][2]==0)
 					return(!test_unop(tdata.sh,argv[1][1],cp));
+				else if(not && c_eq(argv[2],'!'))
+					return(*argv[3]==0);
 				errormsg(SH_DICT,ERROR_exit(2),e_badop,cp);
 			}
 			return(test_binop(tdata.sh,op,argv[1],argv[3])^(argc!=5));
@@ -477,9 +480,9 @@ int test_binop(Shell_t *shp,register int op,const char *left,const char *right)
 		case TEST_OR:
 			return(*left!=0);
 		case TEST_PEQ:
-			return(test_strmatch(left, right));
+			return(test_strmatch(shp, left, right));
 		case TEST_PNE:
-			return(!test_strmatch(left, right));
+			return(!test_strmatch(shp, left, right));
 		case TEST_SGT:
 			return(strcoll(left, right)>0);
 		case TEST_SLT:
@@ -644,6 +647,7 @@ skip:
 static int test_mode(register const char *file)
 {
 	struct stat statb;
+	statb.st_mode = 0;
 	if(file && (*file==0 || test_stat(file,&statb)<0))
 		return(0);
 	return(statb.st_mode);

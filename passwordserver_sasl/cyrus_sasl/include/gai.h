@@ -58,6 +58,7 @@
 extern "C" {
 #endif
 
+/* APPLE: use system definitions */
 #include <netdb.h>
 
 #ifdef __cplusplus

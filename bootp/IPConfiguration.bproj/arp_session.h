@@ -155,7 +155,7 @@ arp_client_detect(arp_client_t * client,
 void
 arp_client_cancel(arp_client_t * client);
 
-void
+boolean_t
 arp_client_defend(arp_client_t * client, struct in_addr our_ip);
 
 boolean_t

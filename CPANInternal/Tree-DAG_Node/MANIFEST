@@ -1,9 +1,0 @@
-ChangeLog
-lib/Tree/DAG_Node.pm
-Makefile.PL
-MANIFEST
-MANIFEST.SKIP
-README
-t/00_about_verbose.t
-t/01_old_junk.t
-META.yml                                 Module meta-data (added by MakeMaker)

@@ -276,7 +276,11 @@ parse_ocsp_basic(const void *data, size_t length, OCSPBasicOCSPResponse *basic)
     switch (resp.responseStatus) {
     case successful:
 	break;
-    default:
+    case internalError:
+    case malformedRequest:
+    case sigRequired:
+    case tryLater:
+    case unauthorized:
 	free_OCSPResponse(&resp);
 	return HX509_REVOKE_WRONG_DATA;
     }
@@ -657,10 +661,10 @@ hx509_revoke_add_crl(hx509_context context,
  *
  * @param context hx509 context
  * @param ctx hx509 revokation context
- * @param certs
- * @param now
- * @param cert
- * @param parent_cert
+ * @param certs certifiate pool t use
+ * @param now time now, 0 for current time
+ * @param cert cert to check
+ * @param parent_cert parent certificate
  *
  * @return An hx509 error code, see hx509_get_error_string().
  *
@@ -967,7 +971,7 @@ hx509_ocsp_request(hx509_context context,
 		   heim_octet_string *nonce)
 {
     OCSPRequest req;
-    size_t size;
+    size_t size = 0;
     int ret;
     struct ocsp_add_ctx ctx;
     Extensions *es;
@@ -997,12 +1001,13 @@ hx509_ocsp_request(hx509_context context,
 
 	es = req.tbsRequest.requestExtensions;
 
+	es->len = 1;
 	es->val = calloc(es->len, sizeof(es->val[0]));
 	if (es->val == NULL) {
+	    es->len = 0;
 	    ret = ENOMEM;
 	    goto out;
 	}
-	es->len = 1;
 	ret = der_copy_oid(&asn1_oid_id_pkix_ocsp_nonce, &es->val[0].extnID);
 	if (ret) {
 	    free_OCSPRequest(&req);
@@ -1115,9 +1120,8 @@ hx509_revoke_ocsp_print(hx509_context context, const char *path, FILE *out)
 	free(s);
 	break;
     }
-    default:
+    case invalid_choice_OCSPResponderID:
 	_hx509_abort("choice_OCSPResponderID unknown");
-	break;
     }
 
     fprintf(out, "producedAt: %s\n",
@@ -1137,8 +1141,9 @@ hx509_revoke_ocsp_print(hx509_context context, const char *path, FILE *out)
 	case choice_OCSPCertStatus_unknown:
 	    status = "unknown";
 	    break;
-	default:
+	case invalid_choice_OCSPCertStatus:
 	    status = "element unknown";
+	    break;
 	}
 
 	fprintf(out, "\t%zu. status: %s\n", i, status);
@@ -1425,7 +1430,7 @@ hx509_crl_sign(hx509_context context,
 {
     const AlgorithmIdentifier *sigalg = _hx509_crypto_default_sig_alg;
     CRLCertificateList c;
-    size_t size;
+    size_t size = 0;
     int ret;
     hx509_private_key signerkey;
 

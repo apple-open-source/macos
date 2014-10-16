@@ -223,6 +223,12 @@
 		1521400C0E93FFF500DACD2C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		152140580E93FFFC00DACD2C /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1559C4440D349A4E0098FD59 /* SystemConfiguration.framework */; };
 		1522FCFB0FA7FE4B00B24128 /* dnsinfo_flatfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */; };
+		152439E518038E5B00D91708 /* ev_extra.h in Headers */ = {isa = PBXBuildFile; fileRef = 152439E318038E5B00D91708 /* ev_extra.h */; };
+		152439E618038E5B00D91708 /* ev_extra.m in Sources */ = {isa = PBXBuildFile; fileRef = 152439E418038E5B00D91708 /* ev_extra.m */; };
+		152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152439E7180399D800D91708 /* CoreWLAN.framework */; };
+		152439E91805CC6C00D91708 /* ev_extra.h in Headers */ = {isa = PBXBuildFile; fileRef = 152439E318038E5B00D91708 /* ev_extra.h */; };
+		152439EA1805CC8400D91708 /* ev_extra.m in Sources */ = {isa = PBXBuildFile; fileRef = 152439E418038E5B00D91708 /* ev_extra.m */; };
+		152439EC180716ED00D91708 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152439EB180716ED00D91708 /* MobileWiFi.framework */; };
 		152691DB1129EEA6006BD2D5 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
 		152691DC1129EEAD006BD2D5 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
 		152691DE1129EEC2006BD2D5 /* VLANConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B605C0722B0099E85F /* VLANConfiguration.c */; };
@@ -295,6 +301,8 @@
 		155D223B0AF13A7300D52ED0 /* dns-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D22380AF13A7300D52ED0 /* dns-configuration.h */; };
 		155D223C0AF13A7300D52ED0 /* set-hostname.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D22390AF13A7300D52ED0 /* set-hostname.h */; };
 		155D223D0AF13A7300D52ED0 /* smb-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D223A0AF13A7300D52ED0 /* smb-configuration.h */; };
+		1565D85018B847590097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
+		1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		156BD6BC07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		156CA47B0EF853BB00C59A18 /* logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 1531D3DB0E93E6DA00248432 /* logger.c */; };
 		156CA47D0EF853BB00C59A18 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
@@ -919,19 +927,26 @@
 		15E1B05416EBAE3C00E5F06F /* scprefs_observer.c in Sources */ = {isa = PBXBuildFile; fileRef = D61AAEAD1522C99C0066B003 /* scprefs_observer.c */; };
 		15E1B05516EBAE3C00E5F06F /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		15F21618110F823500E89CF7 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
+		15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */; };
 		15FC130B0CCEA59E0013872C /* monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FC130A0CCEA59E0013872C /* monitor.c */; };
 		15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		15FD7B3C101E439200C56621 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
 		15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */; };
 		15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 15FEE8180CD03CBB001312F9 /* Localizable.strings */; };
 		15FF5C370CDF776200EEC8AA /* com.apple.SCHelper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15FF5C290CDF770500EEC8AA /* com.apple.SCHelper.plist */; };
+		55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		7264C144147319E7004FD76D /* CaptiveNetwork.c in Sources */ = {isa = PBXBuildFile; fileRef = 15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */; };
 		7264C14614731A1F004FD76D /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		727AF25419138699009AB153 /* VPNAppLayerPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = B0A88CA616397A1200A60B3A /* VPNAppLayerPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		727AF255191386A0009AB153 /* VPNFlow.h in Headers */ = {isa = PBXBuildFile; fileRef = C4CDB8111631933400819B44 /* VPNFlow.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		727AF256191386CB009AB153 /* VPNFlowPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = C4CDB8121631933400819B44 /* VPNFlowPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		727AF257191386DA009AB153 /* VPNTunnel.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F2108E310700C2A607 /* VPNTunnel.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		727AF258191386E3009AB153 /* VPNTunnelPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F1108E310700C2A607 /* VPNTunnelPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		727AF25919138E24009AB153 /* VPNTunnel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15AAA7F3108E310700C2A607 /* VPNTunnel.c */; };
 		72B43728113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B43729113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
 		72B4372A113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B4372B113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
-		72C3E82715003E78000D68CB /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72C3E82615003E78000D68CB /* MobileInstallation.framework */; };
 		B03FEFB616376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
@@ -972,6 +987,10 @@
 		E4F211D3137B0AB900BBB915 /* network_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_information_priv.c */; };
 		E4F211D4137B0ABD00BBB915 /* network_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_information_priv.h */; };
 		E4F211D7137B0AF200BBB915 /* network_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_information_priv.h */; };
+		F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */; };
+		F9347FF8187C7993003D4178 /* IPMonitorControl.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */; };
+		F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
+		F9347FFA187C7993003D4178 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -979,6 +998,18 @@
 		F9A3781116A4849100C57CDC /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9B50FF316A4CBB200CA274E /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9B50FF416A4CBB800CA274E /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
+		F9B7AE641862119300C78D18 /* IPMonitorControl.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */; };
+		F9B7AE65186211B500C78D18 /* IPMonitorControl.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */; };
+		F9B7AE66186211BE00C78D18 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
+		F9B7AE67186211C200C78D18 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
+		F9B7AE68186211C900C78D18 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
+		F9B7AE69186211CE00C78D18 /* IPMonitorControlServer.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5F1862116500C78D18 /* IPMonitorControlServer.c */; };
+		F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5F1862116500C78D18 /* IPMonitorControlServer.c */; };
+		F9B7AE6B186211DA00C78D18 /* IPMonitorControlServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE601862116500C78D18 /* IPMonitorControlServer.h */; };
+		F9B7AE6C186211DE00C78D18 /* IPMonitorControlServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE601862116500C78D18 /* IPMonitorControlServer.h */; };
+		F9B7AE6D186211EA00C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
+		F9B7AE6E186211F000C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
+		F9B7AE6F186211F600C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1463,7 +1494,7 @@
 		15732AA716EA503200F3AC4C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(SDKROOT)/System/Library/LaunchDaemons";
+			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/LaunchDaemons";
 			dstSubfolderSpec = 0;
 			files = (
 				15D3083B16F4E81C00014F82 /* com.apple.configd_sim.plist in CopyFiles */,
@@ -1568,6 +1599,10 @@
 		15213FFA0E93E9F500DACD2C /* Logger.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Logger.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		1521FC5C060F296A003B28F5 /* dnsinfo_create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dnsinfo_create.c; path = dnsinfo/dnsinfo_create.c; sourceTree = SOURCE_ROOT; };
 		1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dnsinfo_flatfile.c; path = dnsinfo/dnsinfo_flatfile.c; sourceTree = "<group>"; };
+		152439E318038E5B00D91708 /* ev_extra.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ev_extra.h; sourceTree = "<group>"; };
+		152439E418038E5B00D91708 /* ev_extra.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ev_extra.m; sourceTree = "<group>"; };
+		152439E7180399D800D91708 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = /System/Library/Frameworks/CoreWLAN.framework; sourceTree = "<absolute>"; };
+		152439EB180716ED00D91708 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
 		1528BFE21357305400691881 /* libSCNetworkReachability.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSCNetworkReachability.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1528BFE81357309800691881 /* SCNetworkReachability.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SCNetworkReachability.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		1528BFE91357312E00691881 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Plugins/SCNetworkReachability/Info.plist; sourceTree = "<group>"; };
@@ -1606,7 +1641,7 @@
 		155D22380AF13A7300D52ED0 /* dns-configuration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "dns-configuration.h"; sourceTree = "<group>"; };
 		155D22390AF13A7300D52ED0 /* set-hostname.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "set-hostname.h"; sourceTree = "<group>"; };
 		155D223A0AF13A7300D52ED0 /* smb-configuration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "smb-configuration.h"; sourceTree = "<group>"; };
-		1567333E0DD1FD6500145179 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		1567333E0DD1FD6500145179 /* entitlements-ios.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "entitlements-ios.plist"; sourceTree = "<group>"; };
 		156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCPreferencesSetSpecificPrivate.h; sourceTree = "<group>"; };
 		156CA4850EF853BB00C59A18 /* Logger.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Logger.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		156CA48D0EF853BB00C59A18 /* Info-Embedded.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "Plugins/Logger/Info-Embedded.plist"; sourceTree = "<group>"; };
@@ -1838,9 +1873,13 @@
 		15DC346E0711D49400A3311C /* net_set.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net_set.h; sourceTree = "<group>"; };
 		15E1B05916EBAE3C00E5F06F /* libIPMonitor_sim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIPMonitor_sim.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E1B06116EBAE7800E5F06F /* IPMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
+		15FBB54E17D7899C0035D752 /* Info-EmbeddedSimulator.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-EmbeddedSimulator.plist"; sourceTree = "<group>"; };
+		15FBB54F17D789B50035D752 /* Info-EmbeddedSimulator.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-EmbeddedSimulator.plist"; path = "Plugins/SCNetworkReachability/Info-EmbeddedSimulator.plist"; sourceTree = "<group>"; };
+		15FBB55017D78A780035D752 /* update-mach-services */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "update-mach-services"; sourceTree = "<group>"; };
 		15FC12F20CCEA4F00013872C /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = SCMonitor/Info.plist; sourceTree = "<group>"; };
 		15FC130A0CCEA59E0013872C /* monitor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = monitor.c; path = SCMonitor/monitor.c; sourceTree = "<group>"; };
-		15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = IndigoSDK.xcconfig; path = /AppleInternal/Indigo/IndigoSDK.xcconfig; sourceTree = "<absolute>"; };
+		15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = SimulatorSupport.xcconfig; path = AppleInternal/XcodeConfig/SimulatorSupport.xcconfig; sourceTree = DEVELOPER_DIR; };
 		15FD72970754DA2B001CC321 /* InterfaceNamer.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InterfaceNamer.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		15FD72A50754DA4C001CC321 /* IPMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		15FD72B50754DA69001CC321 /* LinkConfiguration.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinkConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1854,14 +1893,13 @@
 		23C1E2B4062DD2C700835B54 /* pppcontroller_types.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = pppcontroller_types.h; path = usr/local/include/ppp/pppcontroller_types.h; sourceTree = SDKROOT; };
 		23C1E2B8062DD45900835B54 /* pppcontroller.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = pppcontroller.defs; path = SystemConfiguration.fproj/pppcontroller.defs; sourceTree = "<group>"; };
 		23C1E2BE062DD5DB00835B54 /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = configd.build/SystemConfiguration.framework.build/DerivedSources/pppcontroller.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCNetworkMigration.c; sourceTree = "<group>"; };
 		72B43726113C7BFC00EBF1B6 /* nc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nc.h; sourceTree = "<group>"; };
 		72B43727113C7BFC00EBF1B6 /* nc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nc.c; sourceTree = "<group>"; };
-		72C3E82615003E78000D68CB /* MobileInstallation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileInstallation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS6.0.Internal.sdk/System/Library/PrivateFrameworks/MobileInstallation.framework; sourceTree = DEVELOPER_DIR; };
 		9EE943F306AF409B00772EB5 /* BondConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BondConfiguration.c; sourceTree = "<group>"; };
 		B03FEFB516376D2800A1B88F /* VPNAppLayer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = VPNAppLayer.c; sourceTree = "<group>"; };
 		B084710E16385121006C92A3 /* SCNetworkConnectionInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkConnectionInternal.h; sourceTree = "<group>"; };
 		B0A88CA616397A1200A60B3A /* VPNAppLayerPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = VPNAppLayerPrivate.h; sourceTree = "<group>"; tabWidth = 4; };
-		B0BF3440174594C400961734 /* entitlements-osx.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-osx.plist"; sourceTree = "<group>"; };
 		B0C967F717441F0E00889853 /* SNHelperPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SNHelperPrivate.h; sourceTree = "<group>"; };
 		B0C9689B174426C200889853 /* SNHelper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SNHelper.c; sourceTree = "<group>"; };
 		C4CDB8111631933400819B44 /* VPNFlow.h */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = VPNFlow.h; sourceTree = "<group>"; tabWidth = 4; };
@@ -1881,6 +1919,14 @@
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
 		F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControlPrefs.c; sourceTree = "<group>"; };
 		F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControlPrefs.h; sourceTree = "<group>"; };
+		F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControl.c; sourceTree = "<group>"; };
+		F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControl.h; sourceTree = "<group>"; };
+		F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControlPrivate.h; sourceTree = "<group>"; };
+		F9B7AE5F1862116500C78D18 /* IPMonitorControlServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControlServer.c; sourceTree = "<group>"; };
+		F9B7AE601862116500C78D18 /* IPMonitorControlServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControlServer.h; sourceTree = "<group>"; };
+		F9B7AE611862116500C78D18 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		F9B7AE621862116500C78D18 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		F9B7AE631862116500C78D18 /* symbol_scope.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = symbol_scope.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2003,7 +2049,6 @@
 				1574340E0D4A8137002ACA73 /* CoreFoundation.framework in Frameworks */,
 				1574340F0D4A8137002ACA73 /* SystemConfiguration.framework in Frameworks */,
 				157434110D4A8137002ACA73 /* libedit.dylib in Frameworks */,
-				72C3E82715003E78000D68CB /* MobileInstallation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2021,6 +2066,7 @@
 				1583174C0CFB80A1006F62B9 /* CoreFoundation.framework in Frameworks */,
 				154707350D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
 				1583174E0CFB80A1006F62B9 /* IOKit.framework in Frameworks */,
+				152439EC180716ED00D91708 /* MobileWiFi.framework in Frameworks */,
 				159C32B60F583724008A72EE /* Security.framework in Frameworks */,
 				158317500CFB80A1006F62B9 /* libbsm.dylib in Frameworks */,
 				158317520CFB80A1006F62B9 /* libKernelEventMonitor.a in Frameworks */,
@@ -2049,6 +2095,7 @@
 			files = (
 				159D54CC07529FFF004F8947 /* CoreFoundation.framework in Frameworks */,
 				1559C44A0D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
+				152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */,
 				1543636B0752D03C00A8EC6C /* IOKit.framework in Frameworks */,
 				D6623873120B2AA7007F8E95 /* Security.framework in Frameworks */,
 				15BAA32307F0699A00D9EC95 /* libbsm.dylib in Frameworks */,
@@ -2083,6 +2130,7 @@
 			files = (
 				15DAD6AE07591A1A0084A6ED /* CoreFoundation.framework in Frameworks */,
 				B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */,
+				15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2103,6 +2151,7 @@
 			isa = PBXGroup;
 			children = (
 				1528BFE91357312E00691881 /* Info.plist */,
+				15FBB54F17D789B50035D752 /* Info-EmbeddedSimulator.plist */,
 			);
 			name = SCNetworkReachability;
 			sourceTree = "<group>";
@@ -2315,6 +2364,7 @@
 				155D223A0AF13A7300D52ED0 /* smb-configuration.h */,
 				1572EB7A0A506D3B00D02459 /* smb-configuration.c */,
 				15FD743E0754DE7A001CC321 /* Info.plist */,
+				15FBB54E17D7899C0035D752 /* Info-EmbeddedSimulator.plist */,
 				D68AD25F159BCD5900D4F1BE /* com.apple.networking.IPMonitor */,
 			);
 			name = IPMonitor;
@@ -2338,10 +2388,12 @@
 				159D53B207528B36004F8947 /* ev_dlil.h */,
 				159D53B807528B36004F8947 /* ev_ipv4.h */,
 				159D53BA07528B36004F8947 /* ev_ipv6.h */,
+				152439E318038E5B00D91708 /* ev_extra.h */,
 				159D53B007528B36004F8947 /* eventmon.c */,
 				159D53B107528B36004F8947 /* ev_dlil.c */,
 				159D53B307528B36004F8947 /* ev_ipv4.c */,
 				159D53B407528B36004F8947 /* ev_ipv6.c */,
+				152439E418038E5B00D91708 /* ev_extra.m */,
 				158AD8700754E3D400124717 /* Info.plist */,
 			);
 			name = KernelEventMonitor;
@@ -2562,6 +2614,7 @@
 				15FD7B3B101E439200C56621 /* BridgeConfiguration.c */,
 				15CB69B605C0722B0099E85F /* VLANConfiguration.c */,
 				C4F1847F16237AFC00D97043 /* VPNService.c */,
+				55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -2644,9 +2697,10 @@
 				15CB6A2205C0722B0099E85F /* scselect */,
 				15CB6A3705C0722B0099E85F /* scutil */,
 				159D53A207528B06004F8947 /* Plugins */,
+				F9B7AE5B1862116500C78D18 /* IPMonitorControl */,
 				15CB6A6E05C0722B0099E85F /* External Frameworks and Libraries */,
 				15CB690F05C0722B0099E85F /* Products */,
-				15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */,
+				15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */,
 			);
 			indentWidth = 8;
 			name = configd;
@@ -2797,11 +2851,11 @@
 		15CB6A1805C0722B0099E85F /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				B0BF3440174594C400961734 /* entitlements-osx.plist */,
 				1540E3600987DA9500157C07 /* com.apple.configd.plist */,
 				15D3083A16F4E6D900014F82 /* com.apple.configd_sim.plist */,
 				15CB6A2005C0722B0099E85F /* configd.8 */,
-				1567333E0DD1FD6500145179 /* entitlements.plist */,
+				1567333E0DD1FD6500145179 /* entitlements-ios.plist */,
+				15FBB55017D78A780035D752 /* update-mach-services */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -2898,12 +2952,14 @@
 			children = (
 				15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */,
 				15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */,
+				152439E7180399D800D91708 /* CoreWLAN.framework */,
 				1543636A0752D03C00A8EC6C /* IOKit.framework */,
+				152439EB180716ED00D91708 /* MobileWiFi.framework */,
 				1520A3DE0846B2DC0010B584 /* Security.framework */,
 				15BAA32207F0699A00D9EC95 /* libbsm.dylib */,
 				15AC2D8816C574FE00340E28 /* libcupolicy.dylib */,
 				152CEED0070CF6640050F23C /* libedit.dylib */,
-				72C3E82615003E78000D68CB /* MobileInstallation.framework */,
+				15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */,
 				15CAEF381712690500367CE1 /* libcupolicy.dylib */,
 			);
 			name = "External Frameworks and Libraries";
@@ -2976,6 +3032,21 @@
 				153ACCA614E322D5005029A5 /* network_information_server.c */,
 			);
 			name = Sources;
+			sourceTree = "<group>";
+		};
+		F9B7AE5B1862116500C78D18 /* IPMonitorControl */ = {
+			isa = PBXGroup;
+			children = (
+				F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */,
+				F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */,
+				F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */,
+				F9B7AE5F1862116500C78D18 /* IPMonitorControlServer.c */,
+				F9B7AE601862116500C78D18 /* IPMonitorControlServer.h */,
+				F9B7AE611862116500C78D18 /* main.c */,
+				F9B7AE621862116500C78D18 /* Makefile */,
+				F9B7AE631862116500C78D18 /* symbol_scope.h */,
+			);
+			path = IPMonitorControl;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -3077,6 +3148,9 @@
 				B0A88CA816397A1200A60B3A /* VPNAppLayerPrivate.h in Headers */,
 				1572C4D40CFB55B400E2776E /* SCNetworkConnectionPrivate.h in Headers */,
 				1572C4D50CFB55B400E2776E /* SCPreferencesKeychainPrivate.h in Headers */,
+				F9347FF8187C7993003D4178 /* IPMonitorControl.h in Headers */,
+				F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */,
+				F9347FFA187C7993003D4178 /* symbol_scope.h in Headers */,
 				1572C4D60CFB55B400E2776E /* SCSchemaDefinitionsPrivate.h in Headers */,
 				1572C4D70CFB55B400E2776E /* SCNetworkSignature.h in Headers */,
 				B0C9689E174426DD00889853 /* SNHelperPrivate.h in Headers */,
@@ -3182,10 +3256,13 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9B7AE6C186211DE00C78D18 /* IPMonitorControlServer.h in Headers */,
 				157A84F60D56C7E800B6F1A0 /* dns-configuration.h in Headers */,
 				15D48EC20F67061F00B4711E /* dnsinfo_create.h in Headers */,
 				E4F211D4137B0ABD00BBB915 /* network_information_priv.h in Headers */,
 				1575FD2812CD15C60003D86E /* proxy-configuration.h in Headers */,
+				F9B7AE6F186211F600C78D18 /* symbol_scope.h in Headers */,
+				F9B7AE68186211C900C78D18 /* IPMonitorControlPrivate.h in Headers */,
 				157A84F70D56C7E800B6F1A0 /* set-hostname.h in Headers */,
 				153ACCAC14E322D5005029A5 /* network_information_server.h in Headers */,
 				1596A7B514EDB73D00798C39 /* libSystemConfiguration_server.h in Headers */,
@@ -3203,11 +3280,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				157A85170D56C8E000B6F1A0 /* eventmon.h in Headers */,
 				157A85120D56C8E000B6F1A0 /* cache.h in Headers */,
 				157A85140D56C8E000B6F1A0 /* ev_dlil.h in Headers */,
 				157A85150D56C8E000B6F1A0 /* ev_ipv4.h in Headers */,
 				157A85160D56C8E000B6F1A0 /* ev_ipv6.h in Headers */,
-				157A85170D56C8E000B6F1A0 /* eventmon.h in Headers */,
+				152439E91805CC6C00D91708 /* ev_extra.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3252,11 +3330,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				159D541407528DB5004F8947 /* eventmon.h in Headers */,
 				159D540A07528D3B004F8947 /* cache.h in Headers */,
 				159D540E07528DAE004F8947 /* ev_dlil.h in Headers */,
 				159D541007528DB1004F8947 /* ev_ipv4.h in Headers */,
 				159D541207528DB3004F8947 /* ev_ipv6.h in Headers */,
-				159D541407528DB5004F8947 /* eventmon.h in Headers */,
+				152439E518038E5B00D91708 /* ev_extra.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3276,7 +3355,10 @@
 				E4F211D7137B0AF200BBB915 /* network_information_priv.h in Headers */,
 				1575FD2A12CD15C60003D86E /* proxy-configuration.h in Headers */,
 				155D223C0AF13A7300D52ED0 /* set-hostname.h in Headers */,
+				F9B7AE67186211C200C78D18 /* IPMonitorControlPrivate.h in Headers */,
+				F9B7AE6E186211F000C78D18 /* symbol_scope.h in Headers */,
 				155D223D0AF13A7300D52ED0 /* smb-configuration.h in Headers */,
+				F9B7AE6B186211DA00C78D18 /* IPMonitorControlServer.h in Headers */,
 				153ACCAB14E322D5005029A5 /* network_information_server.h in Headers */,
 				1596A7B414EDB73D00798C39 /* libSystemConfiguration_server.h in Headers */,
 			);
@@ -3315,6 +3397,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15A5A1E70D5B94190087BDA0 /* SCSchemaDefinitions.h in Headers */,
+				727AF256191386CB009AB153 /* VPNFlowPrivate.h in Headers */,
 				15A5A1E80D5B94190087BDA0 /* SystemConfiguration.h in Headers */,
 				15A5A1E90D5B94190087BDA0 /* SCPrivate.h in Headers */,
 				15A5A1EA0D5B94190087BDA0 /* SCDPlugin.h in Headers */,
@@ -3332,6 +3415,7 @@
 				15A5A1F60D5B94190087BDA0 /* SCPreferencesSetSpecific.h in Headers */,
 				15A5A1F70D5B94190087BDA0 /* SCNetworkConfiguration.h in Headers */,
 				15A5A1F80D5B94190087BDA0 /* SCNetworkConfigurationInternal.h in Headers */,
+				727AF257191386DA009AB153 /* VPNTunnel.h in Headers */,
 				15A5A1F90D5B94190087BDA0 /* SCNetwork.h in Headers */,
 				15A5A1FA0D5B94190087BDA0 /* SCNetworkConnection.h in Headers */,
 				15A5A1FB0D5B94190087BDA0 /* SCNetworkReachability.h in Headers */,
@@ -3339,6 +3423,7 @@
 				15A5A1FD0D5B94190087BDA0 /* DHCPClientPreferences.h in Headers */,
 				D61AAEB71522C9EF0066B003 /* scprefs_observer.h in Headers */,
 				15A5A1FE0D5B94190087BDA0 /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
+				727AF258191386E3009AB153 /* VPNTunnelPrivate.h in Headers */,
 				15A5A1FF0D5B94190087BDA0 /* moh_msg.h in Headers */,
 				15A5A2000D5B94190087BDA0 /* moh.h in Headers */,
 				15A5A2010D5B94190087BDA0 /* DeviceOnHold.h in Headers */,
@@ -3350,6 +3435,7 @@
 				1572C57F171CCFE200870549 /* pppcontroller_mach_defines.h in Headers */,
 				15A5A20C0D5B94190087BDA0 /* SCPreferencesSetSpecificPrivate.h in Headers */,
 				15A5A20D0D5B94190087BDA0 /* SCPreferencesGetSpecificPrivate.h in Headers */,
+				727AF255191386A0009AB153 /* VPNFlow.h in Headers */,
 				15A5A20E0D5B94190087BDA0 /* SCNetworkConfigurationPrivate.h in Headers */,
 				15A5A2100D5B94190087BDA0 /* SCHelper_client.h in Headers */,
 				15A5A2110D5B94190087BDA0 /* SCNetworkConnectionPrivate.h in Headers */,
@@ -3361,6 +3447,7 @@
 				159A7528107FEAA400A57EAB /* VPNPrivate.h in Headers */,
 				159A752A107FEAA400A57EAB /* VPNConfiguration.h in Headers */,
 				15C330D3134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */,
+				727AF25419138699009AB153 /* VPNAppLayerPrivate.h in Headers */,
 				15D8B22C1450D8450090CECF /* SCD.h in Headers */,
 				15A5A2090D5B94190087BDA0 /* pppcontroller.h in Headers */,
 			);
@@ -3416,9 +3503,12 @@
 				15DAD65207591A1A0084A6ED /* SCNetworkConfiguration.h in Headers */,
 				D61AAEB51522C9D00066B003 /* scprefs_observer.h in Headers */,
 				15DAD65307591A1A0084A6ED /* SCNetworkConfigurationInternal.h in Headers */,
+				F9B7AE66186211BE00C78D18 /* IPMonitorControlPrivate.h in Headers */,
 				15DAD65407591A1A0084A6ED /* SCNetwork.h in Headers */,
 				15DAD65507591A1A0084A6ED /* SCNetworkConnection.h in Headers */,
+				F9B7AE65186211B500C78D18 /* IPMonitorControl.h in Headers */,
 				15DAD65607591A1A0084A6ED /* SCNetworkReachability.h in Headers */,
+				F9B7AE6D186211EA00C78D18 /* symbol_scope.h in Headers */,
 				15DAD65707591A1A0084A6ED /* SCValidation.h in Headers */,
 				15DAD65807591A1A0084A6ED /* DHCPClientPreferences.h in Headers */,
 				15DAD65907591A1A0084A6ED /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
@@ -3686,6 +3776,7 @@
 				15732A7F16EA503200F3AC4C /* Sources */,
 				15732A9B16EA503200F3AC4C /* Frameworks */,
 				15732AA716EA503200F3AC4C /* CopyFiles */,
+				15FBB55217D78B9F0035D752 /* Update MachServices */,
 			);
 			buildRules = (
 			);
@@ -3893,6 +3984,7 @@
 				1583172C0CFB80A1006F62B9 /* Sources */,
 				1583174B0CFB80A1006F62B9 /* Frameworks */,
 				1583175B0CFB80A1006F62B9 /* CopyFiles */,
+				15FBB55117D78B670035D752 /* Update MachServices */,
 			);
 			buildRules = (
 			);
@@ -4092,6 +4184,7 @@
 				159D54CA07529FFF004F8947 /* Frameworks */,
 				159D54D507529FFF004F8947 /* CopyFiles */,
 				159D54D707529FFF004F8947 /* CopyFiles */,
+				15FBB54D17D75DE70035D752 /* Update MachServices */,
 			);
 			buildRules = (
 			);
@@ -4331,7 +4424,7 @@
 		15CB6A7705C0722B0099E85F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0600;
 			};
 			buildConfigurationList = 156EB63E0905594A00EEF749 /* Build configuration list for PBXProject "configd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -4610,6 +4703,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} split\nfi";
+			showEnvVarsInLog = 0;
 		};
 		1572C5270CFB55B400E2776E /* get-mobility-info */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4688,6 +4782,54 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"${DSTROOT}/usr/local/bin\"\nln -fs \"${INSTALL_PATH}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/get-mobility-info\" \"${DSTROOT}/usr/local/bin/\"\n";
+			showEnvVarsInLog = 0;
+		};
+		15FBB54D17D75DE70035D752 /* Update MachServices */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/configd.tproj/update-mach-services",
+			);
+			name = "Update MachServices";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n    ${SCRIPT_INPUT_FILE_0} com.apple.configd.plist\nfi";
+			showEnvVarsInLog = 0;
+		};
+		15FBB55117D78B670035D752 /* Update MachServices */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/configd.tproj/update-mach-services",
+			);
+			name = "Update MachServices";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} com.apple.configd.plist\nfi";
+			showEnvVarsInLog = 0;
+		};
+		15FBB55217D78B9F0035D752 /* Update MachServices */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/configd.tproj/update-mach-services",
+			);
+			name = "Update MachServices";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} com.apple.configd_sim.plist\nfi";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -4776,6 +4918,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */,
 				1572C5140CFB55B400E2776E /* config.defs in Sources */,
 				1572C4DF0CFB55B400E2776E /* SCSchemaDefinitions.c in Sources */,
 				1572C4E00CFB55B400E2776E /* SCD.c in Sources */,
@@ -4831,6 +4974,7 @@
 				1572C51B0CFB55B400E2776E /* SCNetworkProtocol.c in Sources */,
 				1572C51C0CFB55B400E2776E /* SCNetworkService.c in Sources */,
 				1572C51D0CFB55B400E2776E /* SCNetworkSet.c in Sources */,
+				1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */,
 				1572C5200CFB55B400E2776E /* SCHelper_client.c in Sources */,
 				1572C5210CFB55B400E2776E /* SCPreferencesKeychainPrivate.c in Sources */,
 				1572C5220CFB55B400E2776E /* SCNetworkSignature.c in Sources */,
@@ -4961,6 +5105,7 @@
 			files = (
 				157A84FB0D56C7E800B6F1A0 /* dns-configuration.c in Sources */,
 				15D48EC10F67061F00B4711E /* dnsinfo_create.c in Sources */,
+				F9B7AE69186211CE00C78D18 /* IPMonitorControlServer.c in Sources */,
 				150BEC1A14CA252200237116 /* dnsinfo_server.c in Sources */,
 				155281020E3E4A0F00C54315 /* ip_plugin.c in Sources */,
 				E4F211D3137B0AB900BBB915 /* network_information_priv.c in Sources */,
@@ -4985,11 +5130,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				157A851E0D56C8E000B6F1A0 /* eventmon.c in Sources */,
 				157A85190D56C8E000B6F1A0 /* cache.c in Sources */,
 				157A851B0D56C8E000B6F1A0 /* ev_dlil.c in Sources */,
 				157A851C0D56C8E000B6F1A0 /* ev_ipv4.c in Sources */,
 				157A851D0D56C8E000B6F1A0 /* ev_ipv6.c in Sources */,
-				157A851E0D56C8E000B6F1A0 /* eventmon.c in Sources */,
+				152439EA1805CC8400D91708 /* ev_extra.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5056,11 +5202,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				159D541307528DB5004F8947 /* eventmon.c in Sources */,
 				159D540907528D3A004F8947 /* cache.c in Sources */,
 				159D540D07528DAE004F8947 /* ev_dlil.c in Sources */,
 				159D540F07528DB0004F8947 /* ev_ipv4.c in Sources */,
 				159D541107528DB2004F8947 /* ev_ipv6.c in Sources */,
-				159D541307528DB5004F8947 /* eventmon.c in Sources */,
+				152439E618038E5B00D91708 /* ev_extra.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5080,6 +5227,7 @@
 				15D48EBF0F67061600B4711E /* dnsinfo_create.c in Sources */,
 				1522FCFB0FA7FE4B00B24128 /* dnsinfo_flatfile.c in Sources */,
 				150BEC1814CA24F900237116 /* dnsinfo_server.c in Sources */,
+				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
 				159D541707528E05004F8947 /* ip_plugin.c in Sources */,
 				E49173E1137C4E4F0000089F /* network_information_priv.c in Sources */,
 				153ACCA814E322D5005029A5 /* network_information_server.c in Sources */,
@@ -5199,6 +5347,7 @@
 				15A5A25A0D5B94190087BDA0 /* SCNetworkProtocol.c in Sources */,
 				15A5A25B0D5B94190087BDA0 /* SCNetworkService.c in Sources */,
 				15A5A25C0D5B94190087BDA0 /* SCNetworkSet.c in Sources */,
+				1565D85018B847590097062B /* SCNetworkMigration.c in Sources */,
 				15A5A25F0D5B94190087BDA0 /* SCHelper_client.c in Sources */,
 				15A5A2600D5B94190087BDA0 /* SCPreferencesKeychainPrivate.c in Sources */,
 				15A5A2610D5B94190087BDA0 /* SCNetworkSignature.c in Sources */,
@@ -5212,6 +5361,7 @@
 				D61AAEB21522C99C0066B003 /* scprefs_observer.c in Sources */,
 				C4F1848316237B1400D97043 /* VPNService.c in Sources */,
 				B0FEF41B1644089200174B99 /* VPNAppLayer.c in Sources */,
+				727AF25919138E24009AB153 /* VPNTunnel.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5262,6 +5412,7 @@
 				15DAD67B07591A1A0084A6ED /* SCDNotifierSetKeys.c in Sources */,
 				15DAD67C07591A1A0084A6ED /* SCDNotifierAdd.c in Sources */,
 				15DAD67D07591A1A0084A6ED /* SCDNotifierRemove.c in Sources */,
+				F9B7AE641862119300C78D18 /* IPMonitorControl.c in Sources */,
 				15DAD67E07591A1A0084A6ED /* SCDNotifierGetChanges.c in Sources */,
 				15DAD67F07591A1A0084A6ED /* SCDNotifierWait.c in Sources */,
 				15DAD68007591A1A0084A6ED /* SCDNotifierInformViaCallback.c in Sources */,
@@ -5304,6 +5455,7 @@
 				15DAD6A807591A1A0084A6ED /* SCNetworkProtocol.c in Sources */,
 				15DAD6A907591A1A0084A6ED /* SCNetworkService.c in Sources */,
 				15DAD6AA07591A1A0084A6ED /* SCNetworkSet.c in Sources */,
+				55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */,
 				15DAD6AB07591A1A0084A6ED /* BondConfiguration.c in Sources */,
 				15FD7B3C101E439200C56621 /* BridgeConfiguration.c in Sources */,
 				15DAF2DC08466D4900D1B2BD /* SCHelper_client.c in Sources */,
@@ -5772,7 +5924,7 @@
 		};
 		151FE2E50D5B7046000D6DB1 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "configd_base (EmbeddedSimulator)";
 			};
@@ -5780,7 +5932,7 @@
 		};
 		151FE2E60D5B7046000D6DB1 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "configd_base (EmbeddedSimulator)";
 			};
@@ -6055,7 +6207,6 @@
 		156EB5E30905594A00EEF749 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -6067,7 +6218,6 @@
 		156EB5E40905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -6204,6 +6354,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
@@ -6217,6 +6368,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
@@ -6443,6 +6595,7 @@
 			buildSettings = {
 				"ARCHS[sdk=iphoneos*]" = "$(NATIVE_ARCH)";
 				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
@@ -6466,6 +6619,7 @@
 					"-Wno-unknown-pragmas",
 					"-Wformat-security",
 					"-Wcast-align",
+					"-Wshorten-64-to-32",
 				);
 			};
 			name = Debug;
@@ -6473,6 +6627,7 @@
 		156EB6400905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -6493,6 +6648,7 @@
 					"-Wno-unknown-pragmas",
 					"-Wformat-security",
 					"-Wcast-align",
+					"-Wshorten-64-to-32",
 				);
 			};
 			name = Release;
@@ -6537,10 +6693,9 @@
 		};
 		15732AAA16EA503200F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/libexec;
@@ -6554,10 +6709,9 @@
 		};
 		15732AAB16EA503200F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/libexec;
@@ -6571,7 +6725,7 @@
 		};
 		15732AD316EA511900F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6589,7 +6743,7 @@
 		};
 		15732AD416EA511900F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6607,7 +6761,7 @@
 		};
 		15732AE216EA6B6700F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -6627,7 +6781,7 @@
 				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
-					"-L$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib/system",
+					"-L/usr/lib/system",
 					"-lcompiler_rt_sim",
 					"-ldispatch",
 					"-ldyld_sim",
@@ -6636,9 +6790,9 @@
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
-				PRIVATE_HEADERS_FOLDER_PATH = "$(SDKROOT)/usr/local/include";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include";
 				PRODUCT_NAME = libsystem_sim_configuration;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(SDKROOT)/usr/local/include";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include";
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
@@ -6647,7 +6801,7 @@
 		};
 		15732AE316EA6B6700F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -6667,7 +6821,7 @@
 				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
-					"-L$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib/system",
+					"-L/usr/lib/system",
 					"-lcompiler_rt_sim",
 					"-ldispatch",
 					"-ldyld_sim",
@@ -6676,9 +6830,9 @@
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
-				PRIVATE_HEADERS_FOLDER_PATH = "$(SDKROOT)/usr/local/include";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include";
 				PRODUCT_NAME = libsystem_sim_configuration;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(SDKROOT)/usr/local/include";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include";
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
@@ -6977,7 +7131,7 @@
 		};
 		157FDE3F164A075F0040D6A8 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
@@ -6986,7 +7140,7 @@
 		};
 		157FDE40164A075F0040D6A8 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
@@ -7039,9 +7193,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
-				CODE_SIGN_ENTITLEMENTS = configd.tproj/entitlements.plist;
+				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
 				CODE_SIGN_IDENTITY = "-";
-				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
@@ -7058,9 +7215,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
-				CODE_SIGN_ENTITLEMENTS = configd.tproj/entitlements.plist;
+				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
 				CODE_SIGN_IDENTITY = "-";
-				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
@@ -7221,7 +7381,7 @@
 		};
 		15A5A2670D5B94190087BDA0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
@@ -7243,7 +7403,7 @@
 		};
 		15A5A2680D5B94190087BDA0 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
@@ -7265,9 +7425,10 @@
 		};
 		15AB751716EBFF3400FAA8CE /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				INFOPLIST_FILE = "Plugins/SCNetworkReachability/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
@@ -7278,9 +7439,10 @@
 		};
 		15AB751816EBFF3400FAA8CE /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				INFOPLIST_FILE = "Plugins/SCNetworkReachability/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
@@ -7291,9 +7453,9 @@
 		};
 		15AB751D16EBFF8A00FAA8CE /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
-				INFOPLIST_FILE = Plugins/SCNetworkReachability/Info.plist;
+				INFOPLIST_FILE = "Plugins/SCNetworkReachability/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /System/Library/SystemConfiguration;
 				PRODUCT_NAME = SCNetworkReachability;
@@ -7302,9 +7464,9 @@
 		};
 		15AB751E16EBFF8A00FAA8CE /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
-				INFOPLIST_FILE = Plugins/SCNetworkReachability/Info.plist;
+				INFOPLIST_FILE = "Plugins/SCNetworkReachability/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /System/Library/SystemConfiguration;
 				PRODUCT_NAME = SCNetworkReachability;
@@ -7345,7 +7507,7 @@
 		};
 		15D3082516F3E4DA00014F82 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
@@ -7359,7 +7521,7 @@
 		};
 		15D3082616F3E4DA00014F82 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
@@ -7373,7 +7535,7 @@
 		};
 		15D3082B16F3E4E100014F82 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/SimulatorSupport/Info.plist;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -7384,7 +7546,7 @@
 		};
 		15D3082C16F3E4E100014F82 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/SimulatorSupport/Info.plist;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -7395,10 +7557,11 @@
 		};
 		15E1B05716EBAE3C00E5F06F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
@@ -7409,10 +7572,11 @@
 		};
 		15E1B05816EBAE3C00E5F06F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
@@ -7423,9 +7587,9 @@
 		};
 		15E1B05F16EBAE7800E5F06F /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
-				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
+				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /System/Library/SystemConfiguration;
 				PRODUCT_NAME = IPMonitor;
@@ -7434,9 +7598,9 @@
 		};
 		15E1B06016EBAE7800E5F06F /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
-				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
+				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH_ACTUAL = /System/Library/SystemConfiguration;
 				PRODUCT_NAME = IPMonitor;
@@ -7459,7 +7623,7 @@
 		};
 		15FD13C70D59485000F9409C /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "configd (Aggregate/EmbeddedSimulator)";
 			};
@@ -7467,7 +7631,7 @@
 		};
 		15FD13C80D59485000F9409C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 15FD147B0D594FE700F9409C /* IndigoSDK.xcconfig */;
+			baseConfigurationReference = 15FD147B0D594FE700F9409C /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "configd (Aggregate/EmbeddedSimulator)";
 			};

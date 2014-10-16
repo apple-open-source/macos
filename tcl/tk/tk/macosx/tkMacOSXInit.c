@@ -225,12 +225,12 @@ TkpInit(
 #endif
 
 	if (!uname(&name)) {
-	    tkMacOSXMacOSXVersion = (strtod(name.release, NULL) + 96) * 10;
+	    tkMacOSXMacOSXVersion = strtol(name.release, NULL, 10) + 996;
 	}
 	if (tkMacOSXMacOSXVersion &&
-		tkMacOSXMacOSXVersion/10 < MAC_OS_X_VERSION_MIN_REQUIRED/10) {
+		tkMacOSXMacOSXVersion < TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)) {
 	    Tcl_Panic("Mac OS X 10.%d or later required !",
-		    (MAC_OS_X_VERSION_MIN_REQUIRED/10)-100);
+		    TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)-1000);
 	}
 
 #ifdef TK_FRAMEWORK

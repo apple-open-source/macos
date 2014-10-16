@@ -39,7 +39,7 @@ namespace WebKit {
 bool WebInspectorServer::platformResourceForPath(const String& path, Vector<char>& data, String& contentType)
 {
     // The page list contains an unformated list of pages that can be inspected with a link to open a session.
-    if (path == "/pagelist.json") {
+    if (path == "/pagelist.json" || path == "/json") {
         buildPageList(data, contentType);
         return true;
     }
@@ -90,11 +90,25 @@ void WebInspectorServer::buildPageList(Vector<char>& data, String& contentType)
         builder.appendLiteral("{ \"id\": ");
         builder.appendNumber(it->key);
         builder.appendLiteral(", \"title\": \"");
-        builder.append(webPage->pageTitle());
+        builder.append(webPage->pageLoadState().title());
         builder.appendLiteral("\", \"url\": \"");
-        builder.append(webPage->activeURL());
+        builder.append(webPage->pageLoadState().activeURL());
         builder.appendLiteral("\", \"inspectorUrl\": \"");
-        builder.appendLiteral("/inspector.html?page=");
+        builder.appendLiteral("/Main.html?page=");
+        builder.appendNumber(it->key);
+        builder.appendLiteral("\", \"devtoolsFrontendUrl\": \"");
+        builder.appendLiteral("/Main.html?ws=");
+        builder.append(bindAddress());
+        builder.appendLiteral(":");
+        builder.appendNumber(port());
+        builder.appendLiteral("/devtools/page/");
+        builder.appendNumber(it->key);
+        builder.appendLiteral("\", \"webSocketDebuggerUrl\": \"");
+        builder.appendLiteral("ws://");
+        builder.append(bindAddress());
+        builder.appendLiteral(":");
+        builder.appendNumber(port());
+        builder.appendLiteral("/devtools/page/");
         builder.appendNumber(it->key);
         builder.appendLiteral("\" }");
     }

@@ -1,0 +1,25 @@
+---
+abstract: 'Globally/Universally Unique Identifiers (GUIDs/UUIDs)'
+author:
+  - 'Ricardo Signes <rjbs[at]cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.68, CPAN::Meta::Converter version 2.131560'
+license: bsd
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Data-UUID
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  Digest::MD5: 0
+resources:
+  bugtracker: https://github.com/rjbs/Data-UUID/issues
+  repository: https://github.com/rjbs/Data-UUID
+version: 1.219

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,6 +99,7 @@ STATIC EAPClientPluginFuncProcess eapsim_process;
 STATIC EAPClientPluginFuncFreePacket eapsim_free_packet;
 STATIC EAPClientPluginFuncSessionKey eapsim_session_key;
 STATIC EAPClientPluginFuncServerKey eapsim_server_key;
+STATIC EAPClientPluginFuncMasterSessionKeyCopyBytes eapsim_msk_copy_bytes;
 STATIC EAPClientPluginFuncPublishProperties eapsim_publish_props;
 STATIC EAPClientPluginFuncUserName eapsim_user_name_copy;
 STATIC EAPClientPluginFuncCopyIdentity eapsim_copy_identity;
@@ -440,7 +441,7 @@ STATIC CFArrayRef
 copy_data_array(CFDictionaryRef properties, CFStringRef prop_name,
 		int data_size)
 {
-    int			count;
+    CFIndex		count;
     int			i;
     CFArrayRef		list;
 
@@ -470,7 +471,7 @@ STATIC bool
 SIMStaticTripletsInitFromProperties(SIMStaticTripletsRef sim_static_p,
 				    CFDictionaryRef properties)
 {
-    int			count;
+    CFIndex		count;
     CFArrayRef		kc;
     CFArrayRef		rand;
     CFArrayRef		sres;
@@ -535,7 +536,7 @@ STATIC int
 EAPSIMContextLookupStaticRAND(EAPSIMContextRef context, 
 			      const uint8_t rand[SIM_RAND_SIZE])
 {
-    int		count;
+    CFIndex	count;
     int		i;
 
     if (context->sim_static.rand == NULL) {
@@ -1077,7 +1078,7 @@ eapsim_challenge(EAPSIMContextRef context,
     CC_SHA1_Init(&sha1_context);
     if (context->last_identity != NULL) {
 	CC_SHA1_Update(&sha1_context, CFDataGetBytePtr(context->last_identity),
-		       CFDataGetLength(context->last_identity));
+		       (int)CFDataGetLength(context->last_identity));
     }
     else {
 	CC_SHA1_Update(&sha1_context, context->plugin->username, 
@@ -1165,7 +1166,7 @@ eapsim_compute_reauth_key(EAPSIMContextRef context,
 
     if (context->last_identity != NULL) {
 	identity = CFDataGetBytePtr(context->last_identity);
-	identity_length = CFDataGetLength(context->last_identity);
+	identity_length = (int)CFDataGetLength(context->last_identity);
     }
     else {
 	identity = context->plugin->username;
@@ -1464,6 +1465,7 @@ eapsim_notification(EAPSIMContextRef context,
 	    goto done;
 	}
 
+	TLVListInit(decrypted_tlvs_p);
 	decrypted_buffer 
 	    = EAPSIMAKAKeyInfoDecryptTLVList(&context->key_info,
 					     encr_data_p, iv_p,
@@ -1714,6 +1716,24 @@ eapsim_server_key(EAPClientPluginDataRef plugin, int * key_length)
     return (NULL);
 }
 
+STATIC int
+eapsim_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+		      void * msk, int msk_size)
+{
+    EAPSIMContextRef	context = (EAPSIMContextRef)plugin->private;
+    int			ret_msk_size = sizeof(context->key_info.s.msk);
+
+    if (msk_size < ret_msk_size
+	|| context->key_info_valid == FALSE
+	|| context->state != kEAPSIMClientStateSuccess) {
+	ret_msk_size = 0;
+    }
+    else {
+	bcopy(context->key_info.s.msk, msk, ret_msk_size);
+    }
+    return (ret_msk_size);
+}
+
 STATIC CFDictionaryRef
 eapsim_publish_props(EAPClientPluginDataRef plugin)
 {
@@ -1813,6 +1833,8 @@ STATIC struct func_table_ent {
     { kEAPClientPluginFuncNameFailureString, eapsim_failure_string },
     { kEAPClientPluginFuncNameSessionKey, eapsim_session_key },
     { kEAPClientPluginFuncNameServerKey, eapsim_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes,
+      eapsim_msk_copy_bytes },
     { kEAPClientPluginFuncNamePublishProperties, eapsim_publish_props },
     { kEAPClientPluginFuncNameUserName, eapsim_user_name_copy },
     { kEAPClientPluginFuncNameCopyIdentity, eapsim_copy_identity },

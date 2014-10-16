@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/id.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/id.xml
+ * ICU <specials> source: <path>/common/main/id.xml
  */
 id{
-    Version{"2.0.82.57"}
+    Version{"2.0.98.52"}
     zoneStrings{
         "Africa:Accra"{
             ec{"Akra"}
@@ -66,6 +66,9 @@ id{
         "America:Glace_Bay"{
             ec{"Teluk Glace"}
         }
+        "America:Godthab"{
+            ec{"Nuuk"}
+        }
         "America:Goose_Bay"{
             ec{"Teluk Goose"}
         }
@@ -114,6 +117,9 @@ id{
         "America:Puerto_Rico"{
             ec{"Puerto Riko"}
         }
+        "America:Scoresbysund"{
+            ec{"Ittoqqortoormiit"}
+        }
         "America:St_Barthelemy"{
             ec{"Saint Barthélemy"}
         }
@@ -137,9 +143,6 @@ id{
         }
         "Antarctica:DumontDUrville"{
             ec{"Dumont d’Urville"}
-        }
-        "Antarctica:South_Pole"{
-            ec{"Kutub Selatan"}
         }
         "Asia:Aqtau"{
             ec{"Aktau"}
@@ -517,7 +520,7 @@ id{
             ls{"Waktu Guyana Prancis"}
         }
         "meta:French_Southern"{
-            ls{"Waktu Antartika dan Selatan Prancis"}
+            ls{"Waktu Wilayah Selatan dan Antarktika Prancis"}
         }
         "meta:GMT"{
             ls{"Waktu Rata-Rata Greenwich"}
@@ -818,6 +821,9 @@ id{
         "meta:South_Georgia"{
             ls{"Waktu Georgia Selatan"}
         }
+        "meta:Suriname"{
+            ls{"Waktu Suriname"}
+        }
         "meta:Syowa"{
             ls{"Waktu Syowa"}
         }
@@ -844,9 +850,9 @@ id{
             ls{"Waktu Chuuk"}
         }
         "meta:Turkmenistan"{
-            ld{"Waktu Musim Panas Turkimenistan"}
-            lg{"Waktu Turkimenistan"}
-            ls{"Waktu Standar Turkimenistan"}
+            ld{"Waktu Musim Panas Turkmenistan"}
+            lg{"Waktu Turkmenistan"}
+            ls{"Waktu Standar Turkmenistan"}
         }
         "meta:Tuvalu"{
             ls{"Waktu Tuvalu"}
@@ -899,10 +905,11 @@ id{
             ls{"Waktu Standar Yekaterinburg"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"Waktu {1} ({0})"}
         gmtFormat{"GMT{0}"}
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH.mm;-HH.mm"}
         regionFormat{"Waktu {0}"}
+        regionFormatDaylight{"Waktu Terang {0}"}
+        regionFormatStandard{"Waktu Standar {0}"}
     }
 }

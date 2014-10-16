@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -252,31 +252,10 @@ SecKeychainRef
 _SCSecKeychainCopySystemKeychain(void)
 {
 #if	!TARGET_OS_IPHONE
-	SecPreferencesDomain	domain;
 	SecKeychainRef		keychain	= NULL;
 	OSStatus		status;
 
-	status = SecKeychainGetPreferenceDomain(&domain);
-	if (status != noErr) {
-		_SCErrorSet(status);
-		return NULL;
-	}
-
-	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-	if (status != noErr) {
-		_SCErrorSet(status);
-		return NULL;
-	}
-
 	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem, &keychain);
-	if (status != noErr) {
-		_SCErrorSet(status);
-		(void) SecKeychainSetPreferenceDomain(domain);
-		if (keychain != NULL) CFRelease(keychain);
-		return NULL;
-	}
-
-	status = SecKeychainSetPreferenceDomain(domain);
 	if (status != noErr) {
 		_SCErrorSet(status);
 		if (keychain != NULL) CFRelease(keychain);
@@ -465,7 +444,7 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 				code = CFErrorGetCode(error);
 				CFRelease(error);
 			}
-			_SCErrorSet(code);
+			_SCErrorSet((int)code);
 			return FALSE;
 		}
 #endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
@@ -505,7 +484,7 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 
 		attributes[n].tag    = tag;
 		attributes[n].data   = _SC_cfstring_to_cstring(str, NULL, 0, kCFStringEncodingUTF8);
-		attributes[n].length = strlen(attributes[n].data);
+		attributes[n].length = (UInt32)strlen(attributes[n].data);
 		n++;
 	}
 
@@ -518,10 +497,10 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 			// keychain item exists
 			if (password != NULL) {
 				pw     = CFDataGetBytePtr(password);
-				pw_len = CFDataGetLength(password);
+				pw_len = (UInt32)CFDataGetLength(password);
 			}
 
-			attributeList.count = n;
+			attributeList.count = (UInt32)n;
 			status = SecKeychainItemModifyContent(item,
 							      &attributeList,
 							      pw_len,
@@ -537,10 +516,10 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 				goto done;
 			}
 
-			attributeList.count = n;
+			attributeList.count = (UInt32)n;
 			status = SecKeychainItemCreateFromContent(kSecGenericPasswordItemClass,
 								&attributeList,
-								CFDataGetLength(password),
+								(UInt32)CFDataGetLength(password),
 								CFDataGetBytePtr(password),
 								keychain,
 								access,

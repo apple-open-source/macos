@@ -45,11 +45,6 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#if !defined(__APPLE__)
-#include <sys/elf.h>
-#include <sys/ctf.h>
-#else /* is Apple Mac OS X */
-
 #if defined(__LP64__)
 #if !defined(_LP64)
 #define _LP64 /* Solaris vs. Darwin */
@@ -80,7 +75,6 @@
 
 #include "elf.h" /* In lieu of Solaris <sys/elf.h> */
 #include "ctf.h" /* In lieu of Solaris <sys/ctf.h> */
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -219,6 +213,7 @@ extern int ctf_type_encoding(ctf_file_t *, ctf_id_t, ctf_encoding_t *);
 extern int ctf_type_visit(ctf_file_t *, ctf_id_t, ctf_visit_f *, void *);
 extern int ctf_type_cmp(ctf_file_t *, ctf_id_t, ctf_file_t *, ctf_id_t);
 extern int ctf_type_compat(ctf_file_t *, ctf_id_t, ctf_file_t *, ctf_id_t);
+extern int ctf_type_printf_compat(ctf_file_t *, ctf_id_t, ctf_file_t *, ctf_id_t);
 
 extern int ctf_member_info(ctf_file_t *, ctf_id_t, const char *,
     ctf_membinfo_t *);

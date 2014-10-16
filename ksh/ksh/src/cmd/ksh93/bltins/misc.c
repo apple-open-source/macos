@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -57,13 +57,13 @@ struct login
 	char    *arg0;
 };
 
-int    b_exec(int argc,char *argv[], void *extra)
+int    b_exec(int argc,char *argv[], Shbltin_t *context)
 {
 	struct login logdata;
 	register int n;
 	logdata.clear = 0;
 	logdata.arg0 = 0;
-	logdata.sh = ((Shbltin_t*)extra)->shp;
+	logdata.sh = context->shp;
         logdata.sh->st.ioset = 0;
 	while (n = optget(argv, sh_optexec)) switch (n)
 	{
@@ -85,7 +85,7 @@ int    b_exec(int argc,char *argv[], void *extra)
 	if(error_info.errors)
 		errormsg(SH_DICT,ERROR_usage(2),"%s",optusage((char*)0));
 	if(*argv)
-                B_login(0,argv,(void*)&logdata);
+                B_login(0,argv,(Shbltin_t*)&logdata);
 	return(0);
 }
 
@@ -95,17 +95,17 @@ static void     noexport(register Namval_t* np, void *data)
 	nv_offattr(np,NV_EXPORT);
 }
 
-int    B_login(int argc,char *argv[],void *extra)
+int    B_login(int argc,char *argv[],Shbltin_t *context)
 {
 	struct checkpt *pp;
 	register struct login *logp=0;
 	register Shell_t *shp;
 	const char *pname;
 	if(argc)
-		shp = ((Shbltin_t*)extra)->shp;
+		shp = context->shp;
 	else
 	{
-		logp = (struct login*)extra;
+		logp = (struct login*)context;
 		shp = logp->sh;
 	}
 	pp = (struct checkpt*)shp->jmplist;
@@ -156,11 +156,11 @@ int    B_login(int argc,char *argv[],void *extra)
 	return(1);
 }
 
-int    b_let(int argc,char *argv[],void *extra)
+int    b_let(int argc,char *argv[],Shbltin_t *context)
 {
 	register int r;
 	register char *arg;
-	Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	Shell_t *shp = context->shp;
 	NOT_USED(argc);
 	while (r = optget(argv,sh_optlet)) switch (r)
 	{
@@ -179,10 +179,10 @@ int    b_let(int argc,char *argv[],void *extra)
 	return(r);
 }
 
-int    b_eval(int argc,char *argv[], void *extra)
+int    b_eval(int argc,char *argv[], Shbltin_t *context)
 {
 	register int r;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	NOT_USED(argc);
 	while (r = optget(argv,sh_opteval)) switch (r)
 	{
@@ -204,16 +204,17 @@ int    b_eval(int argc,char *argv[], void *extra)
 	return(shp->exitval);
 }
 
-int    b_dot_cmd(register int n,char *argv[],void* extra)
+int    b_dot_cmd(register int n,char *argv[],Shbltin_t *context)
 {
 	register char *script;
 	register Namval_t *np;
 	register int jmpval;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	struct sh_scoped savst, *prevscope = shp->st.self;
-	char *filename=0;
+	char *filename=0, *buffer=0;
 	int	fd;
-	struct dolnod   *argsave=0, *saveargfor;
+	struct dolnod   *saveargfor;
+	volatile struct dolnod   *argsave=0;
 	struct checkpt buff;
 	Sfio_t *iop=0;
 	short level;
@@ -273,7 +274,6 @@ int    b_dot_cmd(register int n,char *argv[],void* extra)
 	shp->st.self = &savst;
 	shp->topscope = (Shscope_t*)shp->st.self;
 	prevscope->save_tree = shp->var_tree;
-	shp->st.cmdname = argv[0];
 	if(np)
 		shp->st.filename = np->nvalue.rp->fname;
 	nv_putval(SH_PATHNAMENOD, shp->st.filename ,NV_NOFREE);
@@ -289,18 +289,20 @@ int    b_dot_cmd(register int n,char *argv[],void* extra)
 			sh_exec((Shnode_t*)(nv_funtree(np)),sh_isstate(SH_ERREXIT));
 		else
 		{
-			char buff[IOBSIZE+1];
-			iop = sfnew(NIL(Sfio_t*),buff,IOBSIZE,fd,SF_READ);
+			buffer = malloc(IOBSIZE+1);
+			iop = sfnew(NIL(Sfio_t*),buffer,IOBSIZE,fd,SF_READ);
 			sh_offstate(SH_NOFORK);
-			sh_eval(iop,0);
+			sh_eval(iop,sh_isstate(SH_PROFILE)?SH_FUNEVAL:0);
 		}
 	}
 	sh_popcontext(shp,&buff);
+	if(buffer)
+		free(buffer);
 	if(!np)
 		free((void*)shp->st.filename);
 	shp->dot_depth--;
 	if((np || argv[1]) && jmpval!=SH_JMPSCRIPT)
-		sh_argreset(shp,argsave,saveargfor);
+		sh_argreset(shp,(struct dolnod*)argsave,saveargfor);
 	else
 	{
 		prevscope->dolc = shp->st.dolc;
@@ -320,29 +322,29 @@ int    b_dot_cmd(register int n,char *argv[],void* extra)
 /*
  * null, true  command
  */
-int    b_true(int argc,register char *argv[],void *extra)
+int    b_true(int argc,register char *argv[],Shbltin_t *context)
 {
 	NOT_USED(argc);
 	NOT_USED(argv[0]);
-	NOT_USED(extra);
+	NOT_USED(context);
 	return(0);
 }
 
 /*
  * false  command
  */
-int    b_false(int argc,register char *argv[], void *extra)
+int    b_false(int argc,register char *argv[], Shbltin_t *context)
 {
 	NOT_USED(argc);
 	NOT_USED(argv[0]);
-	NOT_USED(extra);
+	NOT_USED(context);
 	return(1);
 }
 
-int    b_shift(register int n, register char *argv[], void *extra)
+int    b_shift(register int n, register char *argv[], Shbltin_t *context)
 {
 	register char *arg;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	while((n = optget(argv,sh_optshift))) switch(n)
 	{
 		case ':':
@@ -366,9 +368,9 @@ int    b_shift(register int n, register char *argv[], void *extra)
 	return(0);
 }
 
-int    b_wait(int n,register char *argv[],void *extra)
+int    b_wait(int n,register char *argv[],Shbltin_t *context)
 {
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	while((n = optget(argv,sh_optwait))) switch(n)
 	{
 		case ':':
@@ -388,13 +390,13 @@ int    b_wait(int n,register char *argv[],void *extra)
 #ifdef JOBS
 #   if 0
     /* for the dictionary generator */
-	int    b_fg(int n,char *argv[],void *extra){}
-	int    b_disown(int n,char *argv[],void *extra){}
+	int    b_fg(int n,char *argv[],Shbltin_t *context){}
+	int    b_disown(int n,char *argv[],Shbltin_t *context){}
 #   endif
-int    b_bg(register int n,register char *argv[],void *extra)
+int    b_bg(register int n,register char *argv[],Shbltin_t *context)
 {
 	register int flag = **argv;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	register const char *optstr = sh_optbg; 
 	if(*argv[0]=='f')
 		optstr = sh_optfg;
@@ -425,10 +427,10 @@ int    b_bg(register int n,register char *argv[],void *extra)
 	return(shp->exitval);
 }
 
-int    b_jobs(register int n,char *argv[],void *extra)
+int    b_jobs(register int n,char *argv[],Shbltin_t *context)
 {
 	register int flag = 0;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	while((n = optget(argv,sh_optjobs))) switch(n)
 	{
 	    case 'l':
@@ -464,11 +466,11 @@ int    b_jobs(register int n,char *argv[],void *extra)
  * There are several universe styles that are masked by the getuniv(),
  * setuniv() calls.
  */
-int	b_universe(int argc, char *argv[],void *extra)
+int	b_universe(int argc, char *argv[],Shbltin_t *context)
 {
 	register char *arg;
 	register int n;
-	NOT_USED(extra);
+	NOT_USED(context);
 	while((n = optget(argv,sh_optuniverse))) switch(n)
 	{
 	    case ':':
@@ -504,14 +506,14 @@ int	b_universe(int argc, char *argv[],void *extra)
 #endif
 #   if 0
     /* for the dictionary generator */
-    int	b_vmap(int argc,char *argv[], void *extra){}
+    int	b_vmap(int argc,char *argv[], Shbltin_t *context){}
 #   endif
-    int	b_vpath(register int argc,char *argv[], void *extra)
+    int	b_vpath(register int argc,char *argv[], Shbltin_t *context)
     {
 	register int flag, n;
 	register const char *optstr; 
 	register char *vend; 
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	if(argv[0][1]=='p')
 	{
 		optstr = sh_optvpath;

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -36,10 +36,14 @@
 #import <WebCore/HistoryItem.h>
 #import <WebCore/PageGroup.h>
 
+#if PLATFORM(IOS)
+#import <WebCore/WebCoreThreadMessage.h>
+#endif
+
 using namespace WebCore;
 
 typedef int64_t WebHistoryDateKey;
-typedef HashMap<WebHistoryDateKey, RetainPtr<NSMutableArray> > DateToEntriesMap;
+typedef HashMap<WebHistoryDateKey, RetainPtr<NSMutableArray>> DateToEntriesMap;
 
 NSString *WebHistoryItemsAddedNotification = @"WebHistoryItemsAddedNotification";
 NSString *WebHistoryItemsRemovedNotification = @"WebHistoryItemsRemovedNotification";
@@ -74,7 +78,7 @@ private:
 @interface WebHistoryPrivate : NSObject {
 @private
     NSMutableDictionary *_entriesByURL;
-    DateToEntriesMap* _entriesByDate;
+    std::unique_ptr<DateToEntriesMap> _entriesByDate;
     NSMutableArray *_orderedLastVisitedDays;
     BOOL itemLimitSet;
     int itemLimit;
@@ -82,7 +86,7 @@ private:
     int ageInDaysLimit;
 }
 
-- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount;
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title;
 
 - (BOOL)addItem:(WebHistoryItem *)entry discardDuplicate:(BOOL)discardDuplicate;
 - (void)addItems:(NSArray *)newEntries;
@@ -92,7 +96,6 @@ private:
 - (void)rebuildHistoryByDayIfNeeded:(WebHistory *)webHistory;
 
 - (NSArray *)orderedLastVisitedDays;
-- (NSArray *)orderedItemsLastVisitedOnDay:(NSCalendarDate *)calendarDate;
 - (BOOL)containsURL:(NSURL *)URL;
 - (WebHistoryItem *)itemForURL:(NSURL *)URL;
 - (WebHistoryItem *)itemForURLString:(NSString *)URLString;
@@ -100,8 +103,6 @@ private:
 
 - (BOOL)loadFromURL:(NSURL *)URL collectDiscardedItemsInto:(NSMutableArray *)discardedItems error:(NSError **)error;
 - (BOOL)saveToURL:(NSURL *)URL error:(NSError **)error;
-
-- (NSCalendarDate *)ageLimitDate;
 
 - (void)setHistoryItemLimit:(int)limit;
 - (int)historyItemLimit;
@@ -132,7 +133,7 @@ private:
         return nil;
     
     _entriesByURL = [[NSMutableDictionary alloc] init];
-    _entriesByDate = new DateToEntriesMap;
+    _entriesByDate = std::make_unique<DateToEntriesMap>();
 
     return self;
 }
@@ -141,13 +142,11 @@ private:
 {
     [_entriesByURL release];
     [_orderedLastVisitedDays release];
-    delete _entriesByDate;
     [super dealloc];
 }
 
 - (void)finalize
 {
-    delete _entriesByDate;
     [super finalize];
 }
 
@@ -155,6 +154,18 @@ private:
 
 static void getDayBoundaries(NSTimeInterval interval, NSTimeInterval& beginningOfDay, NSTimeInterval& beginningOfNextDay)
 {
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:interval];
+    
+    NSCalendar *calendar = [NSCalendar calendarWithIdentifier:NSCalendarIdentifierGregorian];
+    
+    NSDate *beginningOfDayDate = nil;
+    NSTimeInterval dayLength;
+    [calendar rangeOfUnit:NSCalendarUnitDay startDate:&beginningOfDayDate interval:&dayLength forDate:date];
+    
+    beginningOfDay = beginningOfDayDate.timeIntervalSinceReferenceDate;
+    beginningOfNextDay = beginningOfDay + dayLength;
+#else
     CFTimeZoneRef timeZone = CFTimeZoneCopyDefault();
     CFGregorianDate date = CFAbsoluteTimeGetGregorianDate(interval, timeZone);
     date.hour = 0;
@@ -164,6 +175,7 @@ static void getDayBoundaries(NSTimeInterval interval, NSTimeInterval& beginningO
     date.day += 1;
     beginningOfNextDay = CFGregorianDateGetAbsoluteTime(date, timeZone);
     CFRelease(timeZone);
+#endif
 }
 
 static inline NSTimeInterval beginningOfDay(NSTimeInterval date)
@@ -289,7 +301,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     }
 }
 
-- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title
 {
     ASSERT(url);
     ASSERT(title);
@@ -306,11 +318,10 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         BOOL itemWasInDateCaches = [self removeItemFromDateCaches:entry];
         ASSERT_UNUSED(itemWasInDateCaches, itemWasInDateCaches);
 
-        [entry _visitedWithTitle:title increaseVisitCount:increaseVisitCount];
+        [entry _visitedWithTitle:title];
     } else {
         LOG(History, "Adding new global history entry for %@", url);
         entry = [[WebHistoryItem alloc] initWithURLString:URLString title:title lastVisitedTimeInterval:[NSDate timeIntervalSinceReferenceDate]];
-        [entry _recordInitialVisit];
         [_entriesByURL setObject:entry forKey:URLString];
         [entry release];
     }
@@ -327,6 +338,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 
     NSString *URLString = [entry URLString];
 
+#if !PLATFORM(IOS)
     WebHistoryItem *oldEntry = [_entriesByURL objectForKey:URLString];
     if (oldEntry) {
         if (discardDuplicate)
@@ -336,15 +348,33 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         // until we're done with oldEntry.
         [oldEntry retain];
         [self removeItemForURLString:URLString];
-
-        // If we already have an item with this URL, we need to merge info that drives the
-        // URL autocomplete heuristics from that item into the new one.
-        [entry _mergeAutoCompleteHints:oldEntry];
         [oldEntry release];
     }
 
     [self addItemToDateCaches:entry];
     [_entriesByURL setObject:entry forKey:URLString];
+#else
+    WebHistoryItem *otherEntry = [_entriesByURL objectForKey:URLString];
+    if (otherEntry) {
+        if (discardDuplicate)
+            return NO;
+
+        if ([otherEntry lastVisitedTimeInterval] < [entry lastVisitedTimeInterval]) {
+            // The last reference to oldEntry might be this dictionary, so we hold onto a reference
+            // until we're done with oldEntry.
+            [otherEntry retain];
+            [self removeItemForURLString:URLString];
+            [otherEntry release];
+
+            [self addItemToDateCaches:entry];
+            [_entriesByURL setObject:entry forKey:URLString];
+        } else
+            return NO; // Special case for merges when new items may be older than pre-existing entries.
+    } else {
+        [self addItemToDateCaches:entry];
+        [_entriesByURL setObject:entry forKey:URLString];
+    }
+#endif
     
     return YES;
 }
@@ -353,7 +383,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 {
     // We clear all the values to present a consistent state when sending the notifications.
     // We keep a reference to the entries for rebuilding the history after the notification.
-    Vector <RetainPtr<NSMutableArray> > entryArrays;
+    Vector <RetainPtr<NSMutableArray>> entryArrays;
     copyValuesToVector(*_entriesByDate, entryArrays);
     _entriesByDate->clear();
     
@@ -434,6 +464,9 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 
 // MARK: DATE-BASED RETRIEVAL
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (NSArray *)orderedLastVisitedDays
 {
     if (!_orderedLastVisitedDays) {
@@ -463,6 +496,8 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         return nil;
     return _entriesByDate->get(dateKey).get();
 }
+
+#pragma clang diagnostic pop
 
 // MARK: URL MATCHING
 
@@ -514,6 +549,9 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitHistoryItemLimit"];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 // Return a date that marks the age limit for history entries saved to or
 // loaded from disk. Any entry older than this item should be rejected.
 - (NSCalendarDate *)ageLimitDate
@@ -521,6 +559,8 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [[NSCalendarDate calendarDate] dateByAddingYears:0 months:0 days:-[self historyAgeInDaysLimit]
                                                       hours:0 minutes:0 seconds:0];
 }
+
+#pragma clang diagnostic pop
 
 - (BOOL)loadHistoryGutsFromURL:(NSURL *)URL savedItemsCount:(int *)numberOfItemsLoaded collectDiscardedItemsInto:(NSMutableArray *)discardedItems error:(NSError **)error
 {
@@ -540,12 +580,8 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         }
     } else {
         NSData *data = [NSURLConnection sendSynchronousRequest:[NSURLRequest requestWithURL:URL] returningResponse:nil error:error];
-        if (data && [data length] > 0) {
-            dictionary = [NSPropertyListSerialization propertyListFromData:data
-                mutabilityOption:NSPropertyListImmutable
-                format:nil
-                errorDescription:nil];
-        }
+        if (data.length)
+            dictionary = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nullptr error:nullptr];
     }
 
     // We used to support NSArrays here, but that was before Safari 1.0 shipped. We will no longer support
@@ -636,7 +672,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     
     // Ignores the date and item count limits; these are respected when loading instead of when saving, so
     // that clients can learn of discarded items by listening to WebHistoryItemsDiscardedWhileLoadingNotification.
-    WebHistoryWriter writer(_entriesByDate);
+    WebHistoryWriter writer(_entriesByDate.get());
     writer.writePropertyList();
     return [[(NSData *)writer.releaseData().get() retain] autorelease];
 }
@@ -734,8 +770,12 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 - (void)_sendNotification:(NSString *)name entries:(NSArray *)entries
 {
     NSDictionary *userInfo = [NSDictionary dictionaryWithObjectsAndKeys:entries, WebHistoryItemsKey, nil];
+#if PLATFORM(IOS)
+    WebThreadPostNotification(name, self, userInfo);
+#else    
     [[NSNotificationCenter defaultCenter]
         postNotificationName:name object:self userInfo:userInfo];
+#endif
 }
 
 - (void)removeItems:(NSArray *)entries
@@ -767,10 +807,15 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [_historyPrivate orderedLastVisitedDays];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (NSArray *)orderedItemsLastVisitedOnDay:(NSCalendarDate *)date
 {
     return [_historyPrivate orderedItemsLastVisitedOnDay:date];
 }
+
+#pragma clang diagnostic pop
 
 // MARK: URL MATCHING
 
@@ -794,9 +839,13 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         return NO;
     }
 
+#if PLATFORM(IOS)
+    WebThreadPostNotification(WebHistoryLoadedNotification, self, nil);
+#else        
     [[NSNotificationCenter defaultCenter]
         postNotificationName:WebHistoryLoadedNotification
                       object:self];
+#endif
 
     if ([discardedItems count])
         [self _sendNotification:WebHistoryItemsDiscardedWhileLoadingNotification entries:discardedItems];
@@ -809,9 +858,13 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 {
     if (![_historyPrivate saveToURL:URL error:error])
         return NO;
+#if PLATFORM(IOS)
+    WebThreadPostNotification(WebHistorySavedNotification, self, nil);
+#else        
     [[NSNotificationCenter defaultCenter]
         postNotificationName:WebHistorySavedNotification
                       object:self];
+#endif
     return YES;
 }
 
@@ -868,15 +921,12 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
 
 @implementation WebHistory (WebInternal)
 
-- (void)_visitedURL:(NSURL *)url withTitle:(NSString *)title method:(NSString *)method wasFailure:(BOOL)wasFailure increaseVisitCount:(BOOL)increaseVisitCount
+- (void)_visitedURL:(NSURL *)url withTitle:(NSString *)title method:(NSString *)method wasFailure:(BOOL)wasFailure
 {
-    WebHistoryItem *entry = [_historyPrivate visitedURL:url withTitle:title increaseVisitCount:increaseVisitCount];
+    WebHistoryItem *entry = [_historyPrivate visitedURL:url withTitle:title];
 
     HistoryItem* item = core(entry);
     item->setLastVisitWasFailure(wasFailure);
-
-    if ([method length])
-        item->setLastVisitWasHTTPNonGet([method caseInsensitiveCompare:@"GET"] && (![[url scheme] caseInsensitiveCompare:@"http"] || ![[url scheme] caseInsensitiveCompare:@"https"]));
 
     item->setRedirectURLs(nullptr);
 
@@ -908,6 +958,6 @@ void WebHistoryWriter::writeHistoryItems(BinaryPropertyListObjectStream& stream)
         NSArray *entries = m_entriesByDate->get(m_dateKeys[dateIndex]).get();
         NSUInteger entryCount = [entries count];
         for (NSUInteger entryIndex = 0; entryIndex < entryCount; ++entryIndex)
-            writeHistoryItem(stream, core([entries objectAtIndex:entryIndex]));
+            writeHistoryItem(stream, [entries objectAtIndex:entryIndex]);
     }
 }

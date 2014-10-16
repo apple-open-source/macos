@@ -32,18 +32,18 @@
 #include "ANGLEWebKitBridge.h"
 #include "GraphicsContext3D.h"
 
-#if PLATFORM(BLACKBERRY)
-#include <BlackBerryPlatformLog.h>
-#endif
-
+#if PLATFORM(IOS)
+#include <OpenGLES/ES2/glext.h>
+#else
 #if USE(OPENGL_ES_2)
 #include "OpenGLESShims.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #elif PLATFORM(MAC)
 #include <OpenGL/gl.h>
-#elif PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(QT)
+#elif PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN)
 #include "OpenGLShims.h"
+#endif
 #endif
 
 #include <wtf/MainThread.h>
@@ -57,10 +57,13 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context)
     , m_isNVIDIA(false)
     , m_isAMD(false)
     , m_isIntel(false)
+    , m_isImagination(false)
     , m_maySupportMultisampling(true)
     , m_requiresBuiltInFunctionEmulation(false)
+    , m_requiresRestrictedMaximumTextureSize(false)
 {
     m_vendor = String(reinterpret_cast<const char*>(::glGetString(GL_VENDOR)));
+    m_renderer = String(reinterpret_cast<const char*>(::glGetString(GL_RENDERER)));
 
     Vector<String> vendorComponents;
     m_vendor.lower().split(' ', vendorComponents);
@@ -70,6 +73,8 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context)
         m_isAMD = true;
     if (vendorComponents.contains("intel"))
         m_isIntel = true;
+    if (vendorComponents.contains("imagination"))
+        m_isImagination = true;
 
 #if PLATFORM(MAC)
     if (m_isAMD || m_isIntel)
@@ -93,6 +98,10 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context)
 
     if (m_isAMD && !systemSupportsMultisampling)
         m_maySupportMultisampling = false;
+
+    // Intel HD 3000 devices have problems with large textures. <rdar://problem/16649140>
+    if (m_isIntel)
+        m_requiresRestrictedMaximumTextureSize = m_renderer.startsWith("Intel HD Graphics 3000");
 #endif
 }
 
@@ -125,6 +134,14 @@ void Extensions3DOpenGLCommon::ensureEnabled(const String& name)
         if (!ANGLEResources.EXT_draw_buffers) {
             ANGLEResources.EXT_draw_buffers = 1;
             m_context->getIntegerv(Extensions3D::MAX_DRAW_BUFFERS_EXT, &ANGLEResources.MaxDrawBuffers);
+            compiler.setResources(ANGLEResources);
+        }
+    } else if (name == "GL_EXT_shader_texture_lod") {
+        // Enable support in ANGLE (if not enabled already)
+        ANGLEWebKitBridge& compiler = m_context->m_compiler;
+        ShBuiltInResources ANGLEResources = compiler.getResources();
+        if (!ANGLEResources.EXT_shader_texture_lod) {
+            ANGLEResources.EXT_shader_texture_lod = 1;
             compiler.setResources(ANGLEResources);
         }
     }
@@ -170,7 +187,7 @@ String Extensions3DOpenGLCommon::getTranslatedShaderSourceANGLE(Platform3DObject
 
     String translatedShaderSource;
     String shaderInfoLog;
-    int extraCompileOptions = SH_MAP_LONG_VARIABLE_NAMES | SH_CLAMP_INDIRECT_ARRAY_BOUNDS;
+    int extraCompileOptions = SH_CLAMP_INDIRECT_ARRAY_BOUNDS | SH_UNFOLD_SHORT_CIRCUIT | SH_ENFORCE_PACKING_RESTRICTIONS | SH_INIT_VARYINGS_WITHOUT_STATIC_USE | SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH;
 
     if (m_requiresBuiltInFunctionEmulation)
         extraCompileOptions |= SH_EMULATE_BUILT_IN_FUNCTIONS;
@@ -184,7 +201,7 @@ String Extensions3DOpenGLCommon::getTranslatedShaderSourceANGLE(Platform3DObject
     size_t numSymbols = symbols.size();
     for (size_t i = 0; i < numSymbols; ++i) {
         ANGLEShaderSymbol shaderSymbol = symbols[i];
-        GraphicsContext3D::SymbolInfo symbolInfo(shaderSymbol.dataType, shaderSymbol.size, shaderSymbol.mappedName);
+        GraphicsContext3D::SymbolInfo symbolInfo(shaderSymbol.dataType, shaderSymbol.size, shaderSymbol.mappedName, shaderSymbol.precision, shaderSymbol.staticUse);
         entry.symbolMap(shaderSymbol.symbolType).set(shaderSymbol.name, symbolInfo);
     }
 

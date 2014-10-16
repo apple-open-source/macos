@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2014 Collabora Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +34,6 @@
 #include <EGL/egl.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(BLACKBERRY)
-#include <BlackBerryPlatformLog.h>
-#endif
-
 namespace WebCore {
 
 Extensions3DOpenGLES::Extensions3DOpenGLES(GraphicsContext3D* context)
@@ -44,6 +41,7 @@ Extensions3DOpenGLES::Extensions3DOpenGLES(GraphicsContext3D* context)
     , m_contextResetStatus(GL_NO_ERROR)
     , m_supportsOESvertexArrayObject(false)
     , m_supportsIMGMultisampledRenderToTexture(false)
+    , m_supportsANGLEinstancedArrays(false)
     , m_glFramebufferTexture2DMultisampleIMG(0)
     , m_glRenderbufferStorageMultisampleIMG(0)
     , m_glBindVertexArrayOES(0)
@@ -54,6 +52,9 @@ Extensions3DOpenGLES::Extensions3DOpenGLES(GraphicsContext3D* context)
     , m_glReadnPixelsEXT(0)
     , m_glGetnUniformfvEXT(0)
     , m_glGetnUniformivEXT(0)
+    , m_glVertexAttribDivisorANGLE(nullptr)
+    , m_glDrawArraysInstancedANGLE(nullptr)
+    , m_glDrawElementsInstancedANGLE(nullptr)
 {
 }
 
@@ -77,7 +78,7 @@ void Extensions3DOpenGLES::renderbufferStorageMultisampleIMG(unsigned long targe
         m_context->synthesizeGLError(GL_INVALID_OPERATION);
 }
 
-void Extensions3DOpenGLES::blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter)
+void Extensions3DOpenGLES::blitFramebuffer(long /* srcX0 */, long /* srcY0 */, long /* srcX1 */, long /* srcY1 */, long /* dstX0 */, long /* dstY0 */, long /* dstX1 */, long /* dstY1 */, unsigned long /* mask */, unsigned long /* filter */)
 {
     notImplemented();
 }
@@ -88,11 +89,6 @@ void Extensions3DOpenGLES::renderbufferStorageMultisample(unsigned long target, 
         renderbufferStorageMultisampleIMG(target, samples, internalformat, width, height);
     else
         notImplemented();
-}
-
-void Extensions3DOpenGLES::copyTextureCHROMIUM(GC3Denum, Platform3DObject, Platform3DObject, GC3Dint, GC3Denum)
-{
-    notImplemented();
 }
 
 void Extensions3DOpenGLES::insertEventMarkerEXT(const String&)
@@ -160,9 +156,10 @@ void Extensions3DOpenGLES::bindVertexArrayOES(Platform3DObject array)
         m_context->synthesizeGLError(GL_INVALID_OPERATION);
 }
 
-void Extensions3DOpenGLES::drawBuffersEXT(GC3Dsizei n, const GC3Denum* bufs)
+void Extensions3DOpenGLES::drawBuffersEXT(GC3Dsizei /* n */, const GC3Denum* /* bufs */)
 {
     // FIXME: implement the support.
+    notImplemented();
 }
 
 int Extensions3DOpenGLES::getGraphicsResetStatusARB()
@@ -176,11 +173,6 @@ int Extensions3DOpenGLES::getGraphicsResetStatusARB()
         m_context->makeContextCurrent();
         int reasonForReset = m_glGetGraphicsResetStatusEXT();
         if (reasonForReset != GL_NO_ERROR) {
-#if PLATFORM(BLACKBERRY)
-            // We cannot yet recreate our compositing thread, so just quit.
-            BlackBerry::Platform::logAlways(BlackBerry::Platform::LogLevelCritical, "Robust OpenGL context has been reset. Aborting.");
-            CRASH();
-#endif
             ASSERT(m_contextLostCallback);
             if (m_contextLostCallback)
                 m_contextLostCallback->onContextLost();
@@ -193,9 +185,9 @@ int Extensions3DOpenGLES::getGraphicsResetStatusARB()
     return false;
 }
 
-void Extensions3DOpenGLES::setEXTContextLostCallback(PassOwnPtr<GraphicsContext3D::ContextLostCallback> callback)
+void Extensions3DOpenGLES::setEXTContextLostCallback(std::unique_ptr<GraphicsContext3D::ContextLostCallback> callback)
 {
-    m_contextLostCallback = callback;
+    m_contextLostCallback = WTF::move(callback);
 }
 
 void Extensions3DOpenGLES::readnPixelsEXT(int x, int y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, GC3Dsizei bufSize, void *data)
@@ -237,24 +229,62 @@ void Extensions3DOpenGLES::getnUniformivEXT(GC3Duint program, int location, GC3D
     m_context->synthesizeGLError(GL_INVALID_OPERATION);
 }
 
+void Extensions3DOpenGLES::drawArraysInstanced(GC3Denum mode, GC3Dint first, GC3Dsizei count, GC3Dsizei primcount)
+{
+    if (!m_glDrawArraysInstancedANGLE) {
+        m_context->synthesizeGLError(GL_INVALID_OPERATION);
+        return;
+    }
+
+    m_context->makeContextCurrent();
+    m_glDrawArraysInstancedANGLE(mode, first, count, primcount);
+}
+
+void Extensions3DOpenGLES::drawElementsInstanced(GC3Denum mode, GC3Dsizei count, GC3Denum type, long long offset, GC3Dsizei primcount)
+{
+    if (!m_glDrawElementsInstancedANGLE) {
+        m_context->synthesizeGLError(GL_INVALID_OPERATION);
+        return;
+    }
+
+    m_context->makeContextCurrent();
+    m_glDrawElementsInstancedANGLE(mode, count, type, reinterpret_cast<GLvoid*>(static_cast<intptr_t>(offset)), primcount);
+}
+
+void Extensions3DOpenGLES::vertexAttribDivisor(GC3Duint index, GC3Duint divisor)
+{
+    if (!m_glVertexAttribDivisorANGLE) {
+        m_context->synthesizeGLError(GL_INVALID_OPERATION);
+        return;
+    }
+
+    m_context->makeContextCurrent();
+    m_glVertexAttribDivisorANGLE(index, divisor);
+}
+
 bool Extensions3DOpenGLES::supportsExtension(const String& name)
 {
     if (m_availableExtensions.contains(name)) {
-        if (name == "GL_OES_vertex_array_object" && !m_supportsOESvertexArrayObject) {
+        if (!m_supportsOESvertexArrayObject && name == "GL_OES_vertex_array_object") {
             m_glBindVertexArrayOES = reinterpret_cast<PFNGLBINDVERTEXARRAYOESPROC>(eglGetProcAddress("glBindVertexArrayOES"));
             m_glGenVertexArraysOES = reinterpret_cast<PFNGLGENVERTEXARRAYSOESPROC>(eglGetProcAddress("glGenVertexArraysOES"));
             m_glDeleteVertexArraysOES = reinterpret_cast<PFNGLDELETEVERTEXARRAYSOESPROC>(eglGetProcAddress("glDeleteVertexArraysOES"));
             m_glIsVertexArrayOES = reinterpret_cast<PFNGLISVERTEXARRAYOESPROC>(eglGetProcAddress("glIsVertexArrayOES"));
             m_supportsOESvertexArrayObject = true;
-        } else if (name == "GL_IMG_multisampled_render_to_texture" && !m_supportsIMGMultisampledRenderToTexture) {
-            m_glFramebufferTexture2DMultisampleIMG = reinterpret_cast<PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMG>(eglGetProcAddress("glFramebufferTexture2DMultisampleIMG"));
-            m_glRenderbufferStorageMultisampleIMG = reinterpret_cast<PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMG>(eglGetProcAddress("glRenderbufferStorageMultisampleIMG"));
+        } else if (!m_supportsIMGMultisampledRenderToTexture && name == "GL_IMG_multisampled_render_to_texture") {
+            m_glFramebufferTexture2DMultisampleIMG = reinterpret_cast<PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC>(eglGetProcAddress("glFramebufferTexture2DMultisampleIMG"));
+            m_glRenderbufferStorageMultisampleIMG = reinterpret_cast<PFNGLRENDERBUFFERSTORAGEMULTISAMPLEIMGPROC>(eglGetProcAddress("glRenderbufferStorageMultisampleIMG"));
             m_supportsIMGMultisampledRenderToTexture = true;
-        } else if (name == "GL_EXT_robustness" && !m_glGetGraphicsResetStatusEXT) {
+        } else if (!m_glGetGraphicsResetStatusEXT && name == "GL_EXT_robustness") {
             m_glGetGraphicsResetStatusEXT = reinterpret_cast<PFNGLGETGRAPHICSRESETSTATUSEXTPROC>(eglGetProcAddress("glGetGraphicsResetStatusEXT"));
             m_glReadnPixelsEXT = reinterpret_cast<PFNGLREADNPIXELSEXTPROC>(eglGetProcAddress("glReadnPixelsEXT"));
             m_glGetnUniformfvEXT = reinterpret_cast<PFNGLGETNUNIFORMFVEXTPROC>(eglGetProcAddress("glGetnUniformfvEXT"));
             m_glGetnUniformivEXT = reinterpret_cast<PFNGLGETNUNIFORMIVEXTPROC>(eglGetProcAddress("glGetnUniformivEXT"));
+        } else if (!m_supportsANGLEinstancedArrays && name == "GL_ANGLE_instanced_arrays") {
+            m_glVertexAttribDivisorANGLE = reinterpret_cast<PFNGLVERTEXATTRIBDIVISORANGLEPROC>(eglGetProcAddress("glVertexAttribDivisorANGLE"));
+            m_glDrawArraysInstancedANGLE = reinterpret_cast<PFNGLDRAWARRAYSINSTANCEDANGLEPROC >(eglGetProcAddress("glDrawArraysInstancedANGLE"));
+            m_glDrawElementsInstancedANGLE = reinterpret_cast<PFNGLDRAWELEMENTSINSTANCEDANGLEPROC >(eglGetProcAddress("glDrawElementsInstancedANGLE"));
+            m_supportsANGLEinstancedArrays = true;
         } else if (name == "GL_EXT_draw_buffers") {
             // FIXME: implement the support.
             return false;

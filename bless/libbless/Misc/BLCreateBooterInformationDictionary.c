@@ -517,6 +517,9 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
 }
 
 
+#ifndef kIOPropertyPhysicalInterconnectTypePCIExpress
+#define kIOPropertyPhysicalInterconnectTypePCIExpress	"PCI-Express"
+#endif
 
 static bool _isPreferredSystemPartition(BLContextPtr context, io_service_t service)
 {
@@ -539,6 +542,7 @@ static bool _isPreferredSystemPartition(BLContextPtr context, io_service_t servi
         if(interconnect && location && CFGetTypeID(interconnect) == CFStringGetTypeID() && CFGetTypeID(location) == CFStringGetTypeID()) {
             if(  (  CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypeATA))
                   || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypeSerialATA))
+				  || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypePCIExpress))
 				  || CFEqual(interconnect,CFSTR(kIOPropertyPhysicalInterconnectTypePCI)))
                && CFEqual(location, CFSTR(kIOPropertyInternalKey))) {
                 // OK, found an internal ESP

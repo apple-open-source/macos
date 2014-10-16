@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
+ * Copyright (C) 2013-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,20 +33,36 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "MediaPlayer.h"
 #include "TimeRanges.h"
+#include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class SourceBufferPrivate {
+class MediaSample;
+class SourceBufferPrivateClient;
+class TimeRanges;
+
+class SourceBufferPrivate : public RefCounted<SourceBufferPrivate> {
 public:
-    SourceBufferPrivate() { }
     virtual ~SourceBufferPrivate() { }
 
-    virtual PassRefPtr<TimeRanges> buffered() = 0;
+    virtual void setClient(SourceBufferPrivateClient*) = 0;
+
     virtual void append(const unsigned char* data, unsigned length) = 0;
     virtual void abort() = 0;
-    virtual bool setTimestampOffset(double) = 0;
     virtual void removedFromMediaSource() = 0;
+
+    virtual MediaPlayer::ReadyState readyState() const = 0;
+    virtual void setReadyState(MediaPlayer::ReadyState) = 0;
+
+    virtual void flushAndEnqueueNonDisplayingSamples(Vector<RefPtr<MediaSample>>, AtomicString) { }
+    virtual void enqueueSample(PassRefPtr<MediaSample>, AtomicString) { }
+    virtual bool isReadyForMoreSamples(AtomicString) { return false; }
+    virtual void setActive(bool) { }
+    virtual void stopAskingForMoreSamples(AtomicString) { }
+    virtual void notifyClientWhenReadyForMoreSamples(AtomicString) { }
 };
 
 }

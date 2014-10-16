@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2008, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -31,59 +31,66 @@
 namespace WebCore {
 
 // NodeList that limits to a particular tag.
-class TagNodeList : public LiveNodeList {
+class TagNodeList final : public CachedLiveNodeList<TagNodeList> {
 public:
-    static PassRefPtr<TagNodeList> create(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
+    static PassRef<TagNodeList> create(ContainerNode& rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
     {
         ASSERT(namespaceURI != starAtom);
-        return adoptRef(new TagNodeList(rootNode, TagNodeListType, namespaceURI, localName));
+        return adoptRef(*new TagNodeList(rootNode, namespaceURI, localName));
     }
 
-    static PassRefPtr<TagNodeList> create(PassRefPtr<Node> rootNode, CollectionType type, const AtomicString& localName)
+    static PassRef<TagNodeList> create(ContainerNode& rootNode, const AtomicString& localName)
     {
-        ASSERT_UNUSED(type, type == TagNodeListType);
-        return adoptRef(new TagNodeList(rootNode, TagNodeListType, starAtom, localName));
+        return adoptRef(*new TagNodeList(rootNode, starAtom, localName));
     }
 
     virtual ~TagNodeList();
 
-protected:
-    TagNodeList(PassRefPtr<Node> rootNode, CollectionType, const AtomicString& namespaceURI, const AtomicString& localName);
+    virtual bool nodeMatches(Element*) const override;
+    virtual bool isRootedAtDocument() const override { return false; }
 
-    virtual bool nodeMatches(Element*) const;
+protected:
+    TagNodeList(ContainerNode& rootNode, const AtomicString& namespaceURI, const AtomicString& localName);
 
     AtomicString m_namespaceURI;
     AtomicString m_localName;
 };
 
-class HTMLTagNodeList : public TagNodeList {
+inline bool TagNodeList::nodeMatches(Element* element) const
+{
+    // Implements http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#concept-getelementsbytagnamens
+    if (m_localName != starAtom && m_localName != element->localName())
+        return false;
+
+    return m_namespaceURI == starAtom || m_namespaceURI == element->namespaceURI();
+}
+
+class HTMLTagNodeList final : public CachedLiveNodeList<HTMLTagNodeList> {
 public:
-    static PassRefPtr<HTMLTagNodeList> create(PassRefPtr<Node> rootNode, CollectionType type, const AtomicString& localName)
+    static PassRef<HTMLTagNodeList> create(ContainerNode& rootNode, const AtomicString& localName)
     {
-        ASSERT_UNUSED(type, type == HTMLTagNodeListType);
-        return adoptRef(new HTMLTagNodeList(rootNode, localName));
+        return adoptRef(*new HTMLTagNodeList(rootNode, localName));
     }
 
-    bool nodeMatchesInlined(Element*) const;
+    virtual ~HTMLTagNodeList();
+
+    virtual bool nodeMatches(Element*) const override;
+    virtual bool isRootedAtDocument() const override { return false; }
 
 private:
-    HTMLTagNodeList(PassRefPtr<Node> rootNode, const AtomicString& localName);
+    HTMLTagNodeList(ContainerNode& rootNode, const AtomicString& localName);
 
-    virtual bool nodeMatches(Element*) const;
-
+    AtomicString m_localName;
     AtomicString m_loweredLocalName;
 };
 
-inline bool HTMLTagNodeList::nodeMatchesInlined(Element* testNode) const
+inline bool HTMLTagNodeList::nodeMatches(Element* element) const
 {
     // Implements http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#concept-getelementsbytagname
-    if (m_localName != starAtom) {
-        const AtomicString& localName = testNode->isHTMLElement() ? m_loweredLocalName : m_localName;
-        if (localName != testNode->localName())
-            return false;
-    }
-    ASSERT(m_namespaceURI == starAtom);
-    return true;
+    if (m_localName == starAtom)
+        return true;
+    const AtomicString& localName = element->isHTMLElement() ? m_loweredLocalName : m_localName;
+    return localName == element->localName();
 }
 
 } // namespace WebCore

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -44,9 +44,7 @@
 #import "WebKitVersionChecks.h"
 #import "WebNSDictionaryExtras.h"
 #import "WebNSObjectExtras.h"
-#import "WebNSPasteboardExtras.h"
 #import "WebNSViewExtras.h"
-#import "WebNSWindowExtras.h"
 #import "WebPDFView.h"
 #import "WebPreferenceKeysPrivate.h"
 #import "WebResourceInternal.h"
@@ -54,32 +52,55 @@
 #import "WebViewInternal.h"
 #import "WebViewPrivate.h"
 #import <Foundation/NSURLRequest.h>
-#import <WebCore/BackForwardListImpl.h>
+#import <WebCore/BackForwardController.h>
+#import <WebCore/BackForwardList.h>
 #import <WebCore/DragController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/Page.h>
-#import <WebCore/RenderPart.h>
+#import <WebCore/RenderView.h>
+#import <WebCore/RenderWidget.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreFrameView.h>
 #import <WebCore/WebCoreView.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/Assertions.h>
 
+#if PLATFORM(IOS)
+#import "WebFrameInternal.h"
+#import "WebPDFViewIOS.h"
+#import "WebUIKitDelegate.h"
+#import <Foundation/NSURLRequest.h>
+#import <WebCore/GraphicsContext.h>
+#import <WebCore/KeyEventCodesIOS.h>
+#import <WebCore/MainFrame.h>
+#import <WebCore/WAKClipView.h>
+#import <WebCore/WAKScrollView.h>
+#import <WebCore/WAKViewPrivate.h>
+#import <WebCore/WAKWindow.h>
+#import <WebCore/WKGraphics.h>
+#import <WebCore/WebEvent.h>
+#else
+#import "WebNSPasteboardExtras.h"
+#import "WebNSWindowExtras.h"
+#endif
+
 using namespace WebCore;
 
+#if !PLATFORM(IOS)
 @interface NSWindow (WindowPrivate)
 - (BOOL)_needsToResetDragMargins;
 - (void)_setNeedsToResetDragMargins:(BOOL)s;
 @end
+#endif
 
 @interface NSClipView (AppKitSecretsIKnow)
 - (BOOL)_scrollTo:(const NSPoint *)newOrigin animate:(BOOL)animate; // need the boolean result from this method
 @end
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 @interface NSView (Details)
 - (void)setBackgroundColor:(NSColor *)color;
 @end
@@ -139,9 +160,10 @@ enum {
     WebDynamicScrollBarsView *sv = [self _scrollView];
     
 #if ENABLE(DRAG_SUPPORT)
-    core([self _webView])->dragController()->setDidInitiateDrag(false);
+    core([self _webView])->dragController().setDidInitiateDrag(false);
 #endif
     
+#if !PLATFORM(IOS)
     [sv setSuppressLayout:YES];
     
     // If the old view is the first responder, transfer first responder status to the new view as 
@@ -153,12 +175,25 @@ enum {
     // Suppress the resetting of drag margins since we know we can't affect them.
     BOOL resetDragMargins = [window _needsToResetDragMargins];
     [window _setNeedsToResetDragMargins:NO];
+#endif
     [sv setDocumentView:view];
+#if !PLATFORM(IOS)
     [window _setNeedsToResetDragMargins:resetDragMargins];
 
     if (makeNewViewFirstResponder)
         [window makeFirstResponder:view];
     [sv setSuppressLayout:NO];
+#else
+    ASSERT(_private->webFrame);
+
+    Frame* frame = core(_private->webFrame);
+
+    ASSERT(frame);
+    ASSERT(frame->page());
+
+    if (frame == &frame->page()->mainFrame())
+        [[self window] makeFirstResponder:[self documentView]];
+#endif
 }
 
 -(NSView <WebDocumentView> *)_makeDocumentViewForDataSource:(WebDataSource *)dataSource
@@ -215,7 +250,7 @@ enum {
 - (float)_verticalPageScrollDistance
 {
     float height = [[self _contentView] bounds].size.height;
-    return max<float>(height * Scrollbar::minFractionToStepWhenPaging(), height - Scrollbar::maxOverlapBetweenPages());
+    return std::max<float>(height * Scrollbar::minFractionToStepWhenPaging(), height - Scrollbar::maxOverlapBetweenPages());
 }
 
 static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *supportTypes)
@@ -242,7 +277,13 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         // Since this is a "secret default" we don't bother registering it.
         BOOL omitPDFSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitOmitPDFSupport"];
         if (!omitPDFSupport)
+#if PLATFORM(IOS)
+#define WebPDFView ([WebView _getPDFViewClass])
+#endif
             addTypesFromClass(viewTypes, [WebPDFView class], [WebPDFView supportedMIMETypes]);
+#if PLATFORM(IOS)
+#undef WebPDFView
+#endif
     }
     
     if (!addedImageTypes && !allowImageTypeOmission) {
@@ -266,7 +307,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (Class)_viewClassForMIMEType:(NSString *)MIMEType
 {
-    return [[self class] _viewClassForMIMEType:MIMEType allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
+    Class retVal = [[self class] _viewClassForMIMEType:MIMEType allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
+
+#if PLATFORM(IOS)   
+    if ([retVal respondsToSelector:@selector(_representationClassForWebFrame:)])
+        retVal = [retVal performSelector:@selector(_representationClassForWebFrame:) withObject:[self webFrame]];
+#endif
+        
+    return retVal;
 }
 
 - (void)_install
@@ -281,16 +329,16 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
     // If this isn't the main frame, it must have an owner element set, or it
     // won't ever get installed in the view hierarchy.
-    ASSERT(frame == frame->page()->mainFrame() || frame->ownerElement());
+    ASSERT(frame->isMainFrame() || frame->ownerElement());
 
     FrameView* view = frame->view();
 
     view->setPlatformWidget(_private->frameScrollView);
 
     // FIXME: Frame tries to do this too. Is this code needed?
-    if (RenderPart* owner = frame->ownerRenderer()) {
+    if (RenderWidget* owner = frame->ownerRenderer()) {
         owner->setWidget(view);
-        // Now the render part owns the view, so we don't any more.
+        // Now the RenderWidget owns the view, so we don't any more.
     }
 
     view->updateCanHaveScrollbars();
@@ -326,6 +374,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         // Note: We also do this in WebHistoryItem's init method.
         WebCore::notifyHistoryItemChanged = WKNotifyHistoryItemChanged;
 
+#if !PLATFORM(IOS)
 // FIXME: Remove the NSAppKitVersionNumberWithDeferredWindowDisplaySupport check once
 // once AppKit's Deferred Window Display support is available.
 #if !defined(NSAppKitVersionNumberWithDeferredWindowDisplaySupport)
@@ -338,20 +387,20 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
             setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundOne);
 
         bool throwExceptionsForRoundTwo = WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_ROUND_TWO_MAIN_THREAD_EXCEPTIONS);
-#ifdef MAIL_THREAD_WORKAROUND
-        // Even if old Mail is linked with new WebKit, don't throw exceptions.
-        if ([WebResource _needMailThreadWorkaroundIfCalledOffMainThread])
-            throwExceptionsForRoundTwo = false;
-#endif
         if (!throwExceptionsForRoundTwo)
             setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundTwo);
+#endif
     }
 
     _private = [[WebFrameViewPrivate alloc] init];
 
     WebDynamicScrollBarsView *scrollView = [[WebDynamicScrollBarsView alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, frame.size.width, frame.size.height)];
     _private->frameScrollView = scrollView;
+#if PLATFORM(IOS)
+    [scrollView setDelegate:self];
+#else
     [scrollView setContentView:[[[WebClipView alloc] initWithFrame:[scrollView bounds]] autorelease]];
+#endif
     [scrollView setDrawsBackground:NO];
     [scrollView setHasVerticalScroller:NO];
     [scrollView setHasHorizontalScroller:NO];
@@ -385,6 +434,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
     [super finalize];
 }
+
+#if PLATFORM(IOS)
+- (BOOL)scrollView:(WAKScrollView *)scrollView shouldScrollToPoint:(CGPoint)point
+{
+    WebView *webView = [self _webView];
+    return [[webView _UIKitDelegateForwarder] webView:webView shouldScrollToPoint:point forFrame:_private->webFrame];
+}
+#endif
 
 - (WebFrame *)webFrame
 {
@@ -464,23 +521,40 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)drawRect:(NSRect)rect
 {
-    if (![self documentView]) {
+#if !PLATFORM(IOS)
+    if (![self documentView])
+#else
+    if (![self documentView] || [[self documentView] frame].size.height == 0 || [[self webFrame] _isCommitting])
+#endif
+    {
         // Need to paint ourselves if there's no documentView to do it instead.
         if ([[self _webView] drawsBackground]) {
+#if !PLATFORM(IOS)
             [[[self _webView] backgroundColor] set];
             NSRectFill(rect);
+#else
+            CGContextRef cgContext = WKGetCurrentGraphicsContext();
+            setStrokeAndFillColor(cgContext, cachedCGColor(Color::white, ColorSpaceDeviceRGB));
+            WKRectFill(cgContext, rect);
+#endif
         }
     } else {
 #ifndef NDEBUG
         if ([[self _scrollView] drawsBackground]) {
+#if !PLATFORM(IOS)
             [[NSColor cyanColor] set];
             NSRectFill(rect);
+#else
+            CGContextRef cgContext = WKGetCurrentGraphicsContext();
+            setStrokeAndFillColor(cgContext, cachedCGColor(Color::cyan, ColorSpaceDeviceRGB));
+            WKRectFill(cgContext, rect);
+#endif
         }
 #endif
     }
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 - (BOOL)wantsUpdateLayer
 {
     return YES;
@@ -564,7 +638,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Frame* frame = core([self webFrame]);
     if (!frame)
         return NO;
-    return frame->eventHandler()->scrollOverflow(direction, granularity);
+    return frame->eventHandler().scrollOverflow(direction, granularity);
 }
 
 
@@ -576,10 +650,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Document* document = coreFrame->document();
     if (!document)
         return YES;
-    RenderObject* renderView = document->renderer();
+    RenderView* renderView = document->renderView();
     if (!renderView)
         return YES;
-    return renderView->style()->isHorizontalWritingMode();
+    return renderView->style().isHorizontalWritingMode();
 }
 
 - (BOOL)_isFlippedDocument
@@ -590,10 +664,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Document* document = coreFrame->document();
     if (!document)
         return NO;
-    RenderObject* renderView = document->renderer();
+    RenderView* renderView = document->renderView();
     if (!renderView)
         return NO;
-    return renderView->style()->isFlippedBlocksWritingMode();
+    return renderView->style().isFlippedBlocksWritingMode();
 }
 
 - (BOOL)_scrollToBeginningOfDocument
@@ -702,7 +776,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 - (float)_horizontalPageScrollDistance
 {
     float width = [[self _contentView] bounds].size.width;
-    return max<float>(width * Scrollbar::minFractionToStepWhenPaging(), width - Scrollbar::maxOverlapBetweenPages());
+    return std::max<float>(width * Scrollbar::minFractionToStepWhenPaging(), width - Scrollbar::maxOverlapBetweenPages());
 }
 
 - (BOOL)_pageVertically:(BOOL)up
@@ -793,6 +867,9 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_firstResponderIsFormControl
 {
+#if PLATFORM(IOS)
+    return NO;
+#else
     NSResponder *firstResponder = [[self window] firstResponder];
     
     // WebHTMLView is an NSControl subclass these days, but it's not a form control
@@ -800,9 +877,38 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         return NO;
     }
     return [firstResponder isKindOfClass:[NSControl class]];
+#endif
 }
 
+#if PLATFORM(IOS)
+// Unlike OS X WebKit, on iOS, unhandled mouse events are forwarded to allow for scrolling.
+// Since mouse events were forwarded to this WebFrameView, this means that the subviews didn't
+// handle the event. Pass the events to the next scroll view.
+- (void)_forwardMouseEvent:(WebEvent *)event
+{
+    WAKView *superview = [self superview];
+    if ([superview conformsToProtocol:@protocol(WebDocumentView)])
+        [[[superview _web_parentWebFrameView] _scrollView] handleEvent:event];
+    else
+        [[self nextResponder] handleEvent:event];
+}
+
+- (void)mouseDown:(WebEvent *)event
+{
+    [self _forwardMouseEvent:event];
+}
+
+- (void)mouseUp:(WebEvent *)event
+{
+    [self _forwardMouseEvent:event];
+}
+#endif
+
+#if !PLATFORM(IOS)
 - (void)keyDown:(NSEvent *)event
+#else
+- (void)keyDown:(WebEvent *)event
+#endif
 {
     // Implement common browser behaviors for all kinds of content.
 
@@ -811,11 +917,17 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     // This doesn't work automatically because most of the keys handled here are translated into moveXXX commands, which are not handled
     // by Editor when focus is not in editable content.
 
+#if !PLATFORM(IOS)
     NSString *characters = [event characters];
+    int modifierFlags = [event modifierFlags];
+#else
+    NSString *characters = event.characters;
+    int modifierFlags = event.modifierFlags;
+#endif
     int index, count;
     BOOL callSuper = YES;
     Frame* coreFrame = [self _web_frame];
-    BOOL maintainsBackForwardList = coreFrame && static_cast<BackForwardListImpl*>(coreFrame->page()->backForwardList())->enabled() ? YES : NO;
+    BOOL maintainsBackForwardList = coreFrame && static_cast<BackForwardList*>(coreFrame->page()->backForward().client())->enabled() ? YES : NO;
     
     count = [characters length];
     for (index = 0; index < count; ++index) {
@@ -827,7 +939,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 }
                 // This odd behavior matches some existing browsers,
                 // including Windows IE
-                if ([event modifierFlags] & NSShiftKeyMask) {
+                if (modifierFlags & NSShiftKeyMask) {
                     [self _goForward];
                 } else {
                     [self _goBack];
@@ -842,7 +954,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     callSuper = YES;
                     break;
                 }
-                if ([event modifierFlags] & NSShiftKeyMask) {
+                if (modifierFlags & NSShiftKeyMask) {
                     [self scrollPageUp:nil];
                 } else {
                     [self scrollPageDown:nil];
@@ -883,10 +995,11 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 break;
             case NSUpArrowFunctionKey:
                 // We don't handle shifted or control-arrow keys here, so let super have a chance.
-                if ([event modifierFlags] & (NSShiftKeyMask | NSControlKeyMask)) {
+                if (modifierFlags & (NSShiftKeyMask | NSControlKeyMask)) {
                     callSuper = YES;
                     break;
                 }
+#if !PLATFORM(IOS)
                 if ((![self allowsScrolling] && ![self _largestScrollableChild]) ||
                     [[[self window] firstResponder] isKindOfClass:[NSPopUpButton class]]) {
                     // Let arrow keys go through to pop up buttons
@@ -895,9 +1008,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     callSuper = YES;
                     break;
                 }
-                if ([event modifierFlags] & NSCommandKeyMask) {
+#endif
+                if (modifierFlags & NSCommandKeyMask) {
                     [self scrollToBeginningOfDocument:nil];
-                } else if ([event modifierFlags] & NSAlternateKeyMask) {
+                } else if (modifierFlags & NSAlternateKeyMask) {
                     [self scrollPageUp:nil];
                 } else {
                     [self scrollLineUp:nil];
@@ -906,10 +1020,11 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 break;
             case NSDownArrowFunctionKey:
                 // We don't handle shifted or control-arrow keys here, so let super have a chance.
-                if ([event modifierFlags] & (NSShiftKeyMask | NSControlKeyMask)) {
+                if (modifierFlags & (NSShiftKeyMask | NSControlKeyMask)) {
                     callSuper = YES;
                     break;
                 }
+#if !PLATFORM(IOS)
                 if ((![self allowsScrolling] && ![self _largestScrollableChild]) ||
                     [[[self window] firstResponder] isKindOfClass:[NSPopUpButton class]]) {
                     // Let arrow keys go through to pop up buttons
@@ -918,9 +1033,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     callSuper = YES;
                     break;
                 }
-                if ([event modifierFlags] & NSCommandKeyMask) {
+#endif
+                if (modifierFlags & NSCommandKeyMask) {
                     [self scrollToEndOfDocument:nil];
-                } else if ([event modifierFlags] & NSAlternateKeyMask) {
+                } else if (modifierFlags & NSAlternateKeyMask) {
                     [self scrollPageDown:nil];
                 } else {
                     [self scrollLineDown:nil];
@@ -929,12 +1045,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 break;
             case NSLeftArrowFunctionKey:
                 // We don't handle shifted or control-arrow keys here, so let super have a chance.
-                if ([event modifierFlags] & (NSShiftKeyMask | NSControlKeyMask)) {
+                if (modifierFlags & (NSShiftKeyMask | NSControlKeyMask)) {
                     callSuper = YES;
                     break;
                 }
                 // Check back/forward related keys.
-                if ([event modifierFlags] & NSCommandKeyMask) {
+                if (modifierFlags & NSCommandKeyMask) {
                     if (!maintainsBackForwardList) {
                         callSuper = YES;
                         break;
@@ -947,7 +1063,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                         break;
                     }
 
-                    if ([event modifierFlags] & NSAlternateKeyMask) {
+                    if (modifierFlags & NSAlternateKeyMask) {
                         [self _pageHorizontally:YES];
                     } else {
                         [self _scrollLineHorizontally:YES];
@@ -957,12 +1073,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 break;
             case NSRightArrowFunctionKey:
                 // We don't handle shifted or control-arrow keys here, so let super have a chance.
-                if ([event modifierFlags] & (NSShiftKeyMask | NSControlKeyMask)) {
+                if (modifierFlags & (NSShiftKeyMask | NSControlKeyMask)) {
                     callSuper = YES;
                     break;
                 }
                 // Check back/forward related keys.
-                if ([event modifierFlags] & NSCommandKeyMask) {
+                if (modifierFlags & NSCommandKeyMask) {
                     if (!maintainsBackForwardList) {
                         callSuper = YES;
                         break;
@@ -975,7 +1091,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                         break;
                     }
 
-                    if ([event modifierFlags] & NSAlternateKeyMask) {
+                    if (modifierFlags & NSAlternateKeyMask) {
                         [self _pageHorizontally:NO];
                     } else {
                         [self _scrollLineHorizontally:NO];
@@ -1000,6 +1116,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return view ? [view _webcore_effectiveFirstResponder] : [super _webcore_effectiveFirstResponder];
 }
 
+#if !PLATFORM(IOS)
 - (BOOL)canPrintHeadersAndFooters
 {
     NSView *documentView = [[self _scrollView] documentView];
@@ -1020,6 +1137,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     }
     return [NSPrintOperation printOperationWithView:documentView printInfo:printInfo];
 }
+#endif
 
 - (BOOL)documentViewShouldHandlePrint
 {
@@ -1049,8 +1167,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_isScrollable
 {
+#if !PLATFORM(IOS)
     WebDynamicScrollBarsView *scrollView = [self _scrollView];
     return [scrollView horizontalScrollingAllowed] || [scrollView verticalScrollingAllowed];
+#else
+    return [self _hasScrollBars];
+#endif
 }
 
 - (WebFrameView *)_largestScrollableChild
@@ -1129,6 +1251,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return [_private->frameScrollView class];
 }
 
+#if !PLATFORM(IOS)
 - (void)_setCustomScrollViewClass:(Class)customClass
 {
     if (!customClass)
@@ -1165,5 +1288,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [oldScrollView release];
     [documentView release];
 }
+#endif // !PLATFORM(IOS)
 
 @end

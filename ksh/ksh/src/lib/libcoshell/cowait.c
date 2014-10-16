@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1990-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -136,10 +136,13 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 	char*			e;
 	unsigned long		user;
 	unsigned long		sys;
+	int			active;
 	int			any;
 	int			id;
-	int			active;
-	char			buf[32];
+	int			loop;
+	int			to;
+	int			type;
+	char			buf[128];
 
 	static unsigned long	serial = 0;
 
@@ -156,6 +159,7 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 	 */
 
 	active = 0;
+	to = timeout >= 0 ? timeout : 60 * 1000;
  zombies:
 	do
 	{
@@ -212,8 +216,49 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 		co = state.coshells;
 	do
 	{
-		while (co->running > 0 && (timeout < 0 || sfpoll(&co->msgfp, 1, timeout) == 1) && (s = b = sfgetr(co->msgfp, '\n', 1)))
+		loop = 0;
+		for (;;)
 		{
+			if (co->flags & CO_DEBUG)
+			{
+				loop++;
+				errormsg(state.lib, 2, "coshell %d wait %lu.%d timeout=%d outstanding=<%d,%d> running=<%d,%d>", co->index, serial, loop, timeout, co->outstanding, co->svc_outstanding, co->running, co->svc_running);
+				for (cj = co->jobs; cj; cj = cj->next)
+					if (cj->pid != CO_PID_FREE)
+						errormsg(state.lib, 2, "\tjob %d pid=%d status=%d", cj->id, cj->pid, cj->status);
+			}
+			if (co->running <= 0)
+				break;
+			while ((n = sfpoll(&co->msgfp, 1, to)) < 1)
+			{
+				if (n < 0)
+				{
+					if (errno == EINTR)
+						return 0;
+					break;
+				}
+				if (timeout >= 0)
+					break;
+
+				/*
+				 * check for a killed job with no status
+				 */
+
+				for (cj = co->jobs; cj; cj = cj->next)
+					if (cj->pid > 0)
+					{
+						n = sfsprintf(buf, sizeof(buf), "kill -0 %d 2>/dev/null || echo k %d `wait %d 2>/dev/null; echo $?` >&$%s\n", cj->pid, cj->id, cj->pid, CO_ENV_MSGFD);
+						write(co->cmdfd, buf, n);
+						break;
+					}
+			}
+
+			/*
+			 * get one coshell message
+			 */
+
+			if (!(s = b = sfgetr(co->msgfp, '\n', 1)))
+				break;
 #if 0
 			errormsg(state.lib, 2, "coshell %d active wait %lu timeout=%d outstanding=<%d,%d> running=<%d,%d>", co->index, serial, timeout, co->outstanding, co->svc_outstanding, co->running, co->svc_running);
 #endif
@@ -227,7 +272,7 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 
 			while (isspace(*s))
 				s++;
-			if (!(n = *s) || n != 'a' && n != 'j' && n != 'x')
+			if (!(type = *s) || type != 'a' && type != 'j' && type != 'k' && type != 'x')
 				goto invalid;
 			while (*++s && !isspace(*s));
 			id = strtol(s, &e, 10);
@@ -243,9 +288,11 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 				if (id == cj->id)
 					break;
 			if ((co->flags | (cj ? cj->flags : 0)) & CO_DEBUG)
-				errormsg(state.lib, 2, "coshell %d message \"%c %d %s\"", co->index, n, id, s);
+				errormsg(state.lib, 2, "coshell %d message \"%c %d %s\"", co->index, type, id, s);
 			if (!cj)
 			{
+				if (type == 'k')
+					continue;
 				errormsg(state.lib, 2, "coshell %d job id %d not found [%s]", co->index, id, b);
 				errno = ESRCH;
 				return 0;
@@ -255,7 +302,7 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 			 * now interpret the message
 			 */
 
-			switch (n)
+			switch (type)
 			{
 
 			case 'a':
@@ -277,6 +324,15 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 				if (n == CO_PID_WARPED)
 					goto nuke;
 				break;
+
+			case 'k':
+				/*
+				 * <s> is a synthesized killed status
+				 */
+
+				if (cj->pid < 0)
+					continue;
+				/*FALLTHROUGH*/
 
 			case 'x':
 				/*
@@ -307,7 +363,7 @@ cowait(register Coshell_t* co, Cojob_t* job, int timeout)
 				if (cj->pid > 0 || cj->service || (co->flags & (CO_INIT|CO_SERVER)))
 				{
 				nuke:
-					if (cj->pid > 0)
+					if (cj->pid > 0 && type != 'k')
 					{
 						/*
 						 * nuke the zombies

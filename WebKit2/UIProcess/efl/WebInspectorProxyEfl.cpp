@@ -37,11 +37,10 @@
 #include "ewk_view_private.h"
 #include <WebCore/EflInspectorUtilities.h>
 #include <WebCore/NotImplemented.h>
-#include <WebKit2/WKPage.h>
-#include <WebKit2/WKPageGroup.h>
-#include <WebKit2/WKPreferencesPrivate.h>
-#include <WebKit2/WKString.h>
-#include <WebKit2/WKViewEfl.h>
+#include <WebKit/WKPage.h>
+#include <WebKit/WKPageGroup.h>
+#include <WebKit/WKString.h>
+#include <WebKit/WKViewEfl.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
@@ -105,7 +104,7 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     if (!m_inspectorWindow)
         return 0;
 
-    WKContextRef wkContext = toAPI(page()->process()->context());
+    WKContextRef wkContext = toAPI(&page()->process().context());
     WKPageGroupRef wkPageGroup = toAPI(inspectorPageGroup());
 
     m_inspectorView = EWKViewCreate(wkContext, wkPageGroup, ecore_evas_get(m_inspectorWindow), /* smart */ 0);
@@ -172,7 +171,16 @@ String WebInspectorProxy::inspectorPageURL() const
 {
     StringBuilder builder;
     builder.append(inspectorBaseURL());
-    builder.appendLiteral("/inspector.html");
+    builder.appendLiteral("/Main.html");
+
+    return builder.toString();
+}
+
+String WebInspectorProxy::inspectorTestPageURL() const
+{
+    StringBuilder builder;
+    builder.append(inspectorBaseURL());
+    builder.appendLiteral("/Test.html");
 
     return builder.toString();
 }
@@ -219,7 +227,7 @@ void WebInspectorProxy::platformSetToolbarHeight(unsigned)
     notImplemented();
 }
 
-void WebInspectorProxy::platformSave(const String&, const String&, bool)
+void WebInspectorProxy::platformSave(const String&, const String&, bool, bool)
 {
     notImplemented();
 }

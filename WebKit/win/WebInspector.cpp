@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -109,7 +109,7 @@ HRESULT STDMETHODCALLTYPE WebInspector::show()
 {
     if (m_webView)
         if (Page* page = m_webView->page())
-            page->inspectorController()->show();
+            page->inspectorController().show();
 
     return S_OK;
 }
@@ -131,7 +131,7 @@ HRESULT STDMETHODCALLTYPE WebInspector::close()
 {
     if (m_webView)
         if (Page* page = m_webView->page())
-            page->inspectorController()->close();
+            page->inspectorController().close();
 
     return S_OK;
 }
@@ -219,7 +219,7 @@ HRESULT STDMETHODCALLTYPE WebInspector::isJavaScriptProfilingEnabled(BOOL* isPro
     if (!page)
         return S_OK;
 
-    *isProfilingEnabled = page->inspectorController()->profilerEnabled();
+    *isProfilingEnabled = page->inspectorController().profilerEnabled();
     return S_OK;
 }
 
@@ -232,12 +232,12 @@ HRESULT STDMETHODCALLTYPE WebInspector::setJavaScriptProfilingEnabled(BOOL enabl
     if (!page)
         return S_OK;
 
-    page->inspectorController()->setProfilerEnabled(enabled);
+    page->inspectorController().setProfilerEnabled(enabled);
 
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE  WebInspector::evaluateInFrontend(ULONG callId, BSTR bScript)
+HRESULT STDMETHODCALLTYPE  WebInspector::evaluateInFrontend(BSTR bScript)
 {
     if (!m_webView)
         return S_OK;
@@ -247,7 +247,7 @@ HRESULT STDMETHODCALLTYPE  WebInspector::evaluateInFrontend(ULONG callId, BSTR b
         return S_OK;
 
     String script(bScript, SysStringLen(bScript));
-    page->inspectorController()->evaluateForTestInFrontend(callId, script);
+    page->inspectorController().evaluateForTestInFrontend(script);
     return S_OK;
 }
 

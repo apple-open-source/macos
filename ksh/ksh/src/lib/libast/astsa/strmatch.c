@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -121,7 +121,7 @@ gobble(Match_t* mp, register char* s, register int sub, int* g, int clear)
 		case '[':
 			if (!b)
 			{
-				if (*s == '!')
+				if (*s == '!' || *s == '^')
 					mbgetchar(s);
 				b = s;
 			}
@@ -351,7 +351,7 @@ onematch(Match_t* mp, int g, char* s, char* p, char* e, char* r, int flags)
 		return 0;
 	range = 0;
 	n = 0;
-	if (invert = *p == '!')
+	if (invert = *p == '!' || *p == '^')
 		p++;
 	for (;;)
 	{
@@ -544,7 +544,7 @@ grpmatch(Match_t* mp, int g, char* s, register char* p, char* e, int flags)
  */
 
 int
-strgrpmatch(const char* b, const char* p, int* sub, int n, int flags)
+strgrpmatch(const char* b, const char* p, ssize_t* sub, int n, int flags)
 {
 	register int	i;
 	register char*	s;

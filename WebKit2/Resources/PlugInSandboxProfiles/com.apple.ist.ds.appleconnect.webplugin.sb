@@ -27,8 +27,10 @@
     (global-name "com.apple.ist.ds.appleconnect2.service.kdctunnelcontroller")
     (global-name "com.apple.ist.ds.appleconnect2.service.menuextra")
     (global-name "com.apple.wifi.anqp")
+    (global-name "com.apple.GSSCred")
     (global-name "org.h5l.kcm"))
 (allow mach-lookup
+    (global-name-regex #"^com\.apple\.ist\.ds\.appleconnect2\.service\.com\.apple\.WebKit\.Plugin\.(32|64|Development)\[[0-9]+\]$")
     (global-name-regex #"^com\.apple\.ist\.ds\.appleconnect2\.service\.PluginProcess\[[0-9]+\]$"))
 
 (shared-preferences-read
@@ -43,6 +45,7 @@
 
 (allow file-read*
     (subpath "/Library/KerberosPlugins/GSSAPI")
+    (subpath "/Library/KerberosPlugins/KerberosFrameworkPlugins")
     (literal "/Library/Preferences/edu.mit.Kerberos")
     (literal "/Library/Preferences/SystemConfiguration/preferences.plist")
     (home-library-preferences-literal "/edu.mit.Kerberos"))
@@ -52,6 +55,7 @@
 
 (if (defined? 'mach-register)
     (allow mach-register
+        (global-name-regex #"^com\.apple\.ist\.ds\.appleconnect2\.service\.com\.apple\.WebKit\.Plugin\.(32|64|Development)\[[0-9]+\]$")
         (global-name-regex #"^com\.apple\.ist\.ds\.appleconnect2\.service\.PluginProcess\[[0-9]+\]$")))
 
 (allow system-socket)

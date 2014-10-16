@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EVRoots.plist</key>
+	<string>2DSUDoeDGu7n5qcQ4MJuqSe+mPux2gxdzRsZ2CC6/aM=</string>
+	<key>Signature</key>
+	<string>4joI/liDTHr0p0He4G8Hbqcb8O+hWxtwJOTTvr8+/AzFXeB+wpUDm8fDlNrDzVHgBfIsNdysrCwHhBf2pIPQYhJpA2UBr6Z2SNc89sBUcfxckSa2UfUyGOIH0JwOSMy/vvjn7mW/+6tdAdVyONodQwocZsy+cPT3ek5J3orLNuXVeLbXNP/C+tx05QCbgglPOwHhmOeTKfSD0FI5t6NevRD2iCDRd/GpPcjIVjupFWfZSfZD6nwqSHat5I+yqz1cqbnd/Po/pfBeQWc7La8qXph+5jY3wUYIrHja9rd0fZ8ne+OmKmZpn01obf6FvEfTnK0L3HVZklJmI+ZkOhVw5g==</string>
+	<key>Version</key>
+	<integer>100</integer>
+	<key>certs.plist</key>
+	<string>ddvbGaCoaSKIXoQByhxh5evEjZAaMdZPikDoWs63fTw=</string>
+	<key>distrusted.plist</key>
+	<string>fgUHS1biDcTRxgnxS2GLtf4Dc+q+Q+RUyMeXpzTX9uo=</string>
+	<key>revoked.plist</key>
+	<string>HHh8/j4++4pjm7gCOtha9CUZWV+4+C4V2s8aSSOuxeU=</string>
+	<key>roots.plist</key>
+	<string>rNmY9zrEPhSHWFzE8u9Ldm6Y6AjlZhALWWp4JKtqf1E=</string>
+</dict>
+</plist>

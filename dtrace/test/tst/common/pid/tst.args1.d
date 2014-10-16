@@ -42,11 +42,7 @@ BEGIN
 	timeout = timestamp + 1000000000;
 }
 
-#if !defined(__APPLE__)
-syscall::getpid:return
-#else
 syscall::geteuid:return
-#endif
 /pid == $1/
 {
 	i = 0;
@@ -57,14 +53,8 @@ syscall::geteuid:return
 	timeout = timestamp + 500000000;
 }
 
-#if !defined(__APPLE__)
-pid$1:a.out:go:entry
-/arg0 == 0 && arg1 == 1 && arg2 == 2 && arg3 == 3 && arg4 == 4 &&
-arg5 == 5 && arg6 == 6 && arg7 == 7 && arg8 == 8 && arg9 == 9/
-#else
 pid$1:a.out:go:entry
 /arg0 == 0 && arg1 == 1 && arg2 == 2 && arg3 == 3 && arg4 == 4/
-#endif /* __APPLE__ */
 {
 	exit(0);
 }

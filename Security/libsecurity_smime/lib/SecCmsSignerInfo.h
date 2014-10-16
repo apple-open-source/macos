@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010,2013 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsSignerInfo.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010,2013 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -48,38 +48,19 @@ extern "C" {
     @function
  */
 extern SecCmsSignerInfoRef
-SecCmsSignerInfoCreate(SecCmsMessageRef cmsg, SecIdentityRef identity, SECOidTag digestalgtag);
+SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOidTag digestalgtag);
 
 /*!
     @function
  */
 extern SecCmsSignerInfoRef
-SecCmsSignerInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, CSSM_DATA_PTR subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag);
-
-/*!
-    @function
-    @abstract Destroy a SignerInfo data structure.
- */
-extern void
-SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si);
+SecCmsSignerInfoCreateWithSubjKeyID(SecCmsSignedDataRef sigd, const SecAsn1Item *subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag);
 
 /*!
     @function
  */
 extern SecCmsVerificationStatus
 SecCmsSignerInfoGetVerificationStatus(SecCmsSignerInfoRef signerinfo);
-
-/*!
-    @function
- */
-extern OSStatus
-SecCmsSignerInfoVerifyUnAuthAttrs(SecCmsSignerInfoRef signerinfo);
-
-/*!
-    @function
- */
-extern CSSM_DATA *
-SecCmsSignerInfoGetEncDigest(SecCmsSignerInfoRef signerinfo);
 
 /*!
     @function
@@ -101,12 +82,6 @@ SecCmsSignerInfoGetCertList(SecCmsSignerInfoRef signerinfo);
 
 /*!
     @function
- */
-extern CFArrayRef
-SecCmsSignerInfoGetTimestampCertList(SecCmsSignerInfoRef signerinfo);
-
-/*!
-    @function
     @abstract Return the signing time, in UTCTime format, of a CMS signerInfo.
     @param sinfo SignerInfo data for this signer.
     @discussion Returns a pointer to XXXX (what?)
@@ -114,16 +89,6 @@ SecCmsSignerInfoGetTimestampCertList(SecCmsSignerInfoRef signerinfo);
  */
 extern OSStatus
 SecCmsSignerInfoGetSigningTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime);
-
-/*!
-    @function
-    @abstract Return the timestamp time, in UTCTime format, of a CMS signerInfo.
-    @param sinfo SignerInfo data for this signer.
-    @discussion Returns a pointer to XXXX (what?)
-    @result A return value of NULL is an error.
- */
-OSStatus
-SecCmsSignerInfoGetTimestampTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime);
 
 /*!
     @function
@@ -140,7 +105,7 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
     @discussion Returns a CFStringRef containing the common name of the signer.
     @result A return value of NULL is an error.
  */
-extern CFStringRef
+extern CF_RETURNS_RETAINED CFStringRef
 SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo);
 
 /*!
@@ -150,7 +115,7 @@ SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo);
     @discussion Returns a CFStringRef containing the name of the signer.
     @result A return value of NULL is an error.
  */
-extern CFStringRef
+extern CF_RETURNS_RETAINED CFStringRef
 SecCmsSignerInfoGetSignerEmailAddress(SecCmsSignerInfoRef sinfo);
 
 /*!
@@ -194,13 +159,6 @@ SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(SecCmsSignerInfoRef signerinfo, SecCertifi
 
 /*!
     @function
-    @abstract Create a timestamp unsigned attribute with a TimeStampToken.
- */
-OSStatus
-SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken);
-
-/*!
-    @function
     @abstract Countersign a signerinfo.
  */
 extern OSStatus
@@ -231,14 +189,6 @@ SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode
 extern const char *
 SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs);
 
-/*
- * Preference domain and key for the Microsoft ECDSA compatibility flag. 
- * Default if not present is TRUE, meaning we generate ECDSA-signed messages
- * which are compatible with Microsoft Entourage. FALSE means we adhere to 
- * the spec (RFC 3278 section 2.1.1).
- */
-#define kMSCompatibilityDomain	"com.apple.security.smime"
-#define kMSCompatibilityMode	CFSTR("MSCompatibilityMode")
 
 #if defined(__cplusplus)
 }

@@ -31,27 +31,26 @@
 #include "GeolocationClient.h"
 #include "GeolocationError.h"
 #include "GeolocationPosition.h"
-#include "InspectorInstrumentation.h"
 
 namespace WebCore {
 
-GeolocationController::GeolocationController(Page* page, GeolocationClient* client)
-    : m_client(client)
-    , m_page(page)
+GeolocationController::GeolocationController(Page& page, GeolocationClient* client)
+    : m_page(page)
+    , m_client(client)
 {
+    m_page.addViewStateChangeObserver(*this);
 }
 
 GeolocationController::~GeolocationController()
 {
     ASSERT(m_observers.isEmpty());
 
+    // NOTE: We don't have to remove ourselves from page's ViewStateChangeObserver set, since
+    // we are supplement of the Page, and our destructor getting called means the page is being
+    // torn down.
+
     if (m_client)
         m_client->geolocationDestroyed();
-}
-
-PassOwnPtr<GeolocationController> GeolocationController::create(Page* page, GeolocationClient* client)
-{
-    return adoptPtr(new GeolocationController(page, client));
 }
 
 void GeolocationController::addObserver(Geolocation* observer, bool enableHighAccuracy)
@@ -89,25 +88,28 @@ void GeolocationController::removeObserver(Geolocation* observer)
 
 void GeolocationController::requestPermission(Geolocation* geolocation)
 {
+    if (!m_page.isVisible()) {
+        m_pendedPermissionRequest.add(geolocation);
+        return;
+    }
+
     if (m_client)
         m_client->requestPermission(geolocation);
 }
 
 void GeolocationController::cancelPermissionRequest(Geolocation* geolocation)
 {
+    if (m_pendedPermissionRequest.remove(geolocation))
+        return;
+
     if (m_client)
         m_client->cancelPermissionRequest(geolocation);
 }
 
 void GeolocationController::positionChanged(GeolocationPosition* position)
 {
-    position = InspectorInstrumentation::overrideGeolocationPosition(m_page, position);
-    if (!position) {
-        errorOccurred(GeolocationError::create(GeolocationError::PositionUnavailable, ASCIILiteral("PositionUnavailable")).get());
-        return;
-    }
     m_lastPosition = position;
-    Vector<RefPtr<Geolocation> > observersVector;
+    Vector<RefPtr<Geolocation>> observersVector;
     copyToVector(m_observers, observersVector);
     for (size_t i = 0; i < observersVector.size(); ++i)
         observersVector[i]->positionChanged();
@@ -115,7 +117,7 @@ void GeolocationController::positionChanged(GeolocationPosition* position)
 
 void GeolocationController::errorOccurred(GeolocationError* error)
 {
-    Vector<RefPtr<Geolocation> > observersVector;
+    Vector<RefPtr<Geolocation>> observersVector;
     copyToVector(m_observers, observersVector);
     for (size_t i = 0; i < observersVector.size(); ++i)
         observersVector[i]->setError(error);
@@ -132,6 +134,16 @@ GeolocationPosition* GeolocationController::lastPosition()
     return m_client->lastPosition();
 }
 
+void GeolocationController::viewStateDidChange(ViewState::Flags, ViewState::Flags)
+{
+    if (!m_page.isVisible())
+        return;
+
+    HashSet<RefPtr<Geolocation>> pendedPermissionRequests = WTF::move(m_pendedPermissionRequest);
+    for (auto& permissionRequest : pendedPermissionRequests)
+        m_client->requestPermission(permissionRequest.get());
+}
+
 const char* GeolocationController::supplementName()
 {
     return "GeolocationController";
@@ -139,7 +151,7 @@ const char* GeolocationController::supplementName()
 
 void provideGeolocationTo(Page* page, GeolocationClient* client)
 {
-    Supplement<Page>::provideTo(page, GeolocationController::supplementName(), GeolocationController::create(page, client));
+    Supplement<Page>::provideTo(page, GeolocationController::supplementName(), std::make_unique<GeolocationController>(*page, client));
 }
     
 } // namespace WebCore

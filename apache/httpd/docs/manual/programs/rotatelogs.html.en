@@ -9,19 +9,20 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Programs</a></div><div id="page-content"><div id="preamble"><h1>rotatelogs - Piped logging program to rotate Apache logs</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Programs</a></div><div id="page-content"><div id="preamble"><h1>rotatelogs - Piped logging program to rotate Apache logs</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/programs/rotatelogs.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/programs/rotatelogs.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/programs/rotatelogs.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/programs/rotatelogs.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
@@ -41,9 +42,15 @@
 
      <p><code><strong>rotatelogs</strong>
      [ -<strong>l</strong> ]
+     [ -<strong>L</strong> <var>linkname</var> ]
+     [ -<strong>p</strong> <var>program</var> ]
      [ -<strong>f</strong> ]
+     [ -<strong>v</strong> ]
+     [ -<strong>e</strong> ]
+     [ -<strong>c</strong> ]
+     [ -<strong>n</strong> <var>number-of-files</var> ]
      <var>logfile</var>
-     <var>rotationtime</var>|<var>filesize</var>M 
+     <var>rotationtime</var>|<var>filesize</var>(B|K|M|G)
      [ <var>offset</var> ]</code></p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -53,10 +60,26 @@
 
 <dt><code>-l</code></dt>
 <dd>Causes the use of local time rather than GMT as the base for the
-interval or for <code>strftime(3)</code> formatting with size-based 
-rotation.  Note that using <code>-l</code> in an environment which
-changes the GMT offset (such as for BST or DST) can lead to unpredictable
-results!</dd>
+interval or for <code>strftime(3)</code> formatting with size-based
+rotation.</dd>
+
+<dt><code>-L</code> <var>linkname</var></dt>
+<dd>Causes a hard link to be made from the current logfile
+to the specified link name.  This can be used to watch
+the log continuously across rotations using a command like
+<code>tail -F linkname</code>.</dd>
+
+<dt><code>-p</code> <var>program</var></dt>
+
+<dd>If given, <code>rotatelogs</code> will execute the specified
+program every time a new log file is opened.  The filename of the
+newly opened file is passed as the first argument to the program.  If
+executing after a rotation, the old log file is passed as the second
+argument.  <code>rotatelogs</code> does not wait for the specified
+program to terminate before continuing to operate, and will not log
+any error code returned on termination.  The spawned program uses the
+same stdin, stdout, and stderr as rotatelogs itself, and also inherits
+the environment.</dd>
 
 <dt><code>-f</code></dt>
 <dd>Causes the logfile to be opened immediately, as soon as
@@ -65,8 +88,32 @@ first logfile entry to be read (for non-busy sites, there may be
 a substantial delay between when the server is started
 and when the first request is handled, meaning that the
 associated logfile does not "exist" until then, which
-causes problems from some automated logging tools).
-<em>Available in version 2.2.9 and later.</em></dd>
+causes problems from some automated logging tools)</dd>
+
+<dt><code>-t</code></dt>
+<dd>Causes the logfile to be truncated instead of rotated. This is
+useful when a log is processed in real time by a command like tail,
+and there is no need for archived data. No suffix will be added to
+the filename, however format strings containing '%' characters
+will be respected.
+</dd>
+
+<dt><code>-v</code></dt>
+<dd>Produce verbose output on STDERR. The output contains
+the result of the configuration parsing, and all file open and
+close actions.</dd>
+
+<dt><code>-e</code></dt>
+<dd>Echo logs through to stdout. Useful when logs need to be further
+processed in real time by a further tool in the chain.</dd>
+
+<dt><code>-c</code></dt>
+<dd>Create log file for each interval, even if empty.</dd>
+
+<dt><code>-n <var>number-of-files</var></code></dt>
+<dd>Use a circular list of filenames without timestamps.
+With -n 3, the series of log files opened would be
+"logfile", "logfile.1", "logfile.2", then overwriting "logfile".</dd>
 
 <dt><code><var>logfile</var></code></dt>
 
@@ -74,16 +121,17 @@ causes problems from some automated logging tools).
 includes any '%' characters, it is treated as a format string for
 <code>strftime(3)</code>.  Otherwise, the suffix
 <var>.nnnnnnnnnn</var> is automatically added and is the time in
-seconds.  Both formats compute the start time from the beginning of
-the current period.  For example, if a rotation time of 86400 is 
-specified, the hour, minute, and second fields created from the
-<code>strftime(3)</code> format will all be zero, referring to the
-beginning of the current 24-hour period (midnight).</p>
+seconds (unless the -t option is used). Both formats compute the
+start time from the beginning of the current period.  For example,
+if a rotation time of 86400 is specified, the hour, minute, and
+second fields created from the <code>strftime(3)</code> format will
+all be zero, referring to the beginning of the current 24-hour
+period (midnight).</p>
 <p>When using <code>strftime(3)</code> filename formatting,
 be sure the log file format has enough granularity to produce
 a different file name each time the logs are rotated.  Otherwise
 rotation will overwrite the same file instead of starting a new
-one.  For example, if <var>logfile</var> was 
+one.  For example, if <var>logfile</var> was
 <code>/var/logs/errorlog.%Y-%m-%d</code> with log rotation at 5
 megabytes, but 5 megabytes was reached twice in the same day, the
 same log file name would be produced and log rotation would keep
@@ -99,10 +147,16 @@ of every hour; if the rotation time is 86400, the log file will be
 rotated every night at midnight.  (If no data is logged during an
 interval, no file will be created.)</dd>
 
-<dt><code><var>filesize</var>M</code></dt>
+<dt><code><var>filesize</var>(B|K|M|G)</code></dt>
 
-<dd>The maximum file size in megabytes followed by the letter
-<code>M</code> to specify size rather than time.</dd>
+<dd>The maximum file size in followed by exactly one of the letters
+<code>B</code> (Bytes), <code>K</code> (KBytes), <code>M</code> (MBytes)
+or <code>G</code> (GBytes).
+<p>
+When time and size are specified, the size must be given after the time.
+Rotation will occur whenever either time or size limits are reached.
+</p>
+</dd>
 
 <dt><code><var>offset</var></code></dt>
 
@@ -120,7 +174,7 @@ an offset.</dd>
 <div class="example"><p><code>
      CustomLog "|bin/rotatelogs /var/logs/logfile 86400" common
 </code></p></div>
-	 
+
      <p>This creates the files /var/logs/logfile.nnnn where nnnn  is
      the system time at which the log nominally starts (this time
      will always be a multiple of the rotation time, so  you  can
@@ -130,7 +184,7 @@ an offset.</dd>
 <div class="example"><p><code>
      CustomLog "|bin/rotatelogs -l /var/logs/logfile.%Y.%m.%d 86400" common
 </code></p></div>
-	 
+
      <p>This creates the files /var/logs/logfile.yyyy.mm.dd where
      yyyy is the year, mm is the month, and dd is the day of the month.
      Logging will switch to a new file every day at midnight, local time.</p>
@@ -149,7 +203,16 @@ an offset.</dd>
      reaches a size of 5 megabytes, and the suffix to the logfile name
      will be created of the form
      <code>errorlog.YYYY-mm-dd-HH_MM_SS</code>.</p>
- 
+
+<div class="example"><p><code>
+     CustomLog "|bin/rotatelogs -t /var/logs/logfile 86400" common
+</code></p></div>
+
+     <p>This creates the file /var/logs/logfile, truncating the file at
+     startup and then truncating the file once per day. It is expected
+     in this scenario that a separate process (such as tail) would
+     process the file in real time.</p>
+
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="portability" id="portability">Portability</a></h2>
@@ -172,11 +235,11 @@ extensions.</p>
 <tr><td><code>%m</code></td><td>2-digit month</td></tr>
 <tr class="odd"><td><code>%p</code></td><td>am/pm of 12 hour clock (localized)</td></tr>
 <tr><td><code>%S</code></td><td>2-digit second</td></tr>
-<tr class="odd"><td><code>%U</code></td><td>2-digit week of year 
+<tr class="odd"><td><code>%U</code></td><td>2-digit week of year
 (Sunday first day of week)</td></tr>
-<tr><td><code>%W</code></td><td>2-digit week of year 
+<tr><td><code>%W</code></td><td>2-digit week of year
 (Monday first day of week)</td></tr>
-<tr class="odd"><td><code>%w</code></td><td>1-digit weekday 
+<tr class="odd"><td><code>%w</code></td><td>1-digit weekday
 (Sunday first day of week)</td></tr>
 <tr><td><code>%X</code></td><td>time (localized)</td></tr>
 <tr class="odd"><td><code>%x</code></td><td>date (localized)</td></tr>
@@ -189,12 +252,13 @@ extensions.</p>
 </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/programs/rotatelogs.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/programs/rotatelogs.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/programs/rotatelogs.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/programs/rotatelogs.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/programs/rotatelogs.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/rotatelogs.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -209,7 +273,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/programs/rotatelogs.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

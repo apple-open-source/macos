@@ -132,7 +132,56 @@ TESTBitString ::= BIT STRING {
 	      thirtyone(31)
 }
 
+-- inline SPNEGO
+
 TESTMechType::= OBJECT IDENTIFIER
+
 TESTMechTypeList ::= SEQUENCE OF TESTMechType
+
+TESTContextFlags ::= BIT STRING {
+    delegFlag       (0),
+    mutualFlag      (1),
+    replayFlag      (2),
+    sequenceFlag    (3),
+    anonFlag        (4),
+    confFlag        (5),
+    integFlag       (6)
+}
+
+TESTNegHints ::= SEQUENCE {
+    hintName       [0]  GeneralString	OPTIONAL,
+    hintAddress    [1]  OCTET STRING	OPTIONAL
+} 
+
+TESTNegTokenInit ::= SEQUENCE {
+    mechTypes       [0] TESTMechTypeList,
+    reqFlags        [1] TESTContextFlags   OPTIONAL,
+    mechToken       [2] OCTET STRING   OPTIONAL,
+    mechListMIC	    [3] OCTET STRING   OPTIONAL,
+    ...
+}
+
+TESTNegResultEnum ::= ENUMERATED {
+	accept_completed(0),
+	accept_incomplete(1),
+	reject(2),
+	request-mic(3)
+}
+
+-- NB: negResult is not OPTIONAL in the new SPNEGO spec but
+-- Windows clients do not always send it
+TESTNegTokenResp ::= SEQUENCE {
+    negResult      [0] TESTNegResultEnum OPTIONAL,
+    supportedMech  [1] TESTMechType	OPTIONAL,
+    responseToken  [2] OCTET STRING OPTIONAL,
+    mechListMIC    [3] OCTET STRING OPTIONAL,
+    ...
+}
+
+TESTNegotiationToken ::= CHOICE {
+	negTokenInit[0]		TESTNegTokenInit,
+	negTokenResp[1]		TESTNegTokenResp
+}
+
 
 END

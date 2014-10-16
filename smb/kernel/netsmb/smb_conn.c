@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -464,6 +464,9 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	vcp->vc_seqno = 0;
 	vcp->vc_mackey = NULL;
 	vcp->vc_mackeylen = 0;
+    vcp->vc_smb3_signing_key_len = 0;
+    vcp->vc_smb3_encrypt_key_len = 0;
+    vcp->vc_smb3_decrypt_key_len = 0;
 	vcp->vc_saddr = saddr;
 	vcp->vc_laddr = laddr;
 	/* Remove any user setable items */
@@ -510,12 +513,15 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	}
 	*vcpp = vcp;
 	
-	/* is SMB1 or SMB2 only flags set? */
+	/* is SMB 1 or SMB 2/3 only flags set? */
 	if (vcspec->ioc_extra_flags & SMB_SMB1_ONLY) {
 		vcp->vc_misc_flags |= SMBV_NEG_SMB1_ONLY;
 	}
 	else if (vcspec->ioc_extra_flags & SMB_SMB2_ONLY) {
 		vcp->vc_misc_flags |= SMBV_NEG_SMB2_ONLY;
+	}
+    else if (vcspec->ioc_extra_flags & SMB_SMB3_ONLY) {
+		vcp->vc_misc_flags |= SMBV_NEG_SMB3_ONLY;
 	}
 	
 	if (vcspec->ioc_extra_flags & SMB_SIGNING_REQUIRED) {
@@ -524,6 +530,16 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	
 	/* Save client Guid */
 	memcpy(vcp->vc_client_guid, vcspec->ioc_client_guid, sizeof(vcp->vc_client_guid));
+    
+    /* Set default max amount of time to wait for any response from server */
+    if ((vcspec->ioc_max_resp_timeout != 0) &&
+        (vcspec->ioc_max_resp_timeout <= 600)) {
+        vcp->vc_resp_wait_timeout = vcspec->ioc_max_resp_timeout;
+        SMBWARNING("vc_resp_wait_timeout changed from default to %d \n", vcp->vc_resp_wait_timeout);
+    }
+    else {
+        vcp->vc_resp_wait_timeout = SMB_RESP_WAIT_TIMO;
+    }
     
 	smb_sm_lockvclist();
 	smb_co_addchild(&smb_vclist, VCTOCP(vcp));
@@ -875,11 +891,22 @@ done:
 		 */ 
 		vcp->vc_flags &= ~(SMBV_GUEST_ACCESS | SMBV_PRIV_GUEST_ACCESS | 
 						   SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
-		SMB_FREE(vcp->vc_username, M_SMBSTR);
-		SMB_FREE(vcp->vc_pass, M_SMBSTR);
-		SMB_FREE(vcp->vc_domain, M_SMBSTR);
-		SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
-		SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
+        if (vcp->vc_username) {
+            SMB_FREE(vcp->vc_username, M_SMBSTR);
+        }
+        if (vcp->vc_pass) {
+            SMB_FREE(vcp->vc_pass, M_SMBSTR);
+        }
+        if (vcp->vc_domain) {
+            SMB_FREE(vcp->vc_domain, M_SMBSTR);
+        }
+        if (vcp->vc_gss.gss_cpn) {
+            SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
+        }
+        if (vcp->vc_gss.gss_spn) {
+            SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
+        }
+        
 		vcp->vc_gss.gss_spn_len = 0;
 		vcp->vc_gss.gss_cpn_len = 0;
 	}

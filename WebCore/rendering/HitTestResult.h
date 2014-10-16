@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -28,9 +28,9 @@
 #include "HitTestRequest.h"
 #include "LayoutRect.h"
 #include "TextDirection.h"
+#include <memory>
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -41,20 +41,19 @@ class Frame;
 class HTMLMediaElement;
 #endif
 class Image;
-class KURL;
+class URL;
 class Node;
-class RenderRegion;
 class Scrollbar;
 
 class HitTestResult {
 public:
-    typedef ListHashSet<RefPtr<Node> > NodeSet;
+    typedef ListHashSet<RefPtr<Node>> NodeSet;
 
     HitTestResult();
-    HitTestResult(const LayoutPoint&);
+    explicit HitTestResult(const LayoutPoint&);
     // Pass non-negative padding values to perform a rect-based hit test.
     HitTestResult(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
-    HitTestResult(const HitTestLocation&);
+    explicit HitTestResult(const HitTestLocation&);
     HitTestResult(const HitTestResult&);
     ~HitTestResult();
     HitTestResult& operator=(const HitTestResult&);
@@ -62,6 +61,7 @@ public:
     Node* innerNode() const { return m_innerNode.get(); }
     Element* innerElement() const;
     Node* innerNonSharedNode() const { return m_innerNonSharedNode.get(); }
+    Element* innerNonSharedElement() const;
     Element* URLElement() const { return m_innerURLElement.get(); }
     Scrollbar* scrollbar() const { return m_scrollbar.get(); }
     bool isOverWidget() const { return m_isOverWidget; }
@@ -102,10 +102,10 @@ public:
     String titleDisplayString() const;
     Image* image() const;
     IntRect imageRect() const;
-    KURL absoluteImageURL() const;
-    KURL absolutePDFURL() const;
-    KURL absoluteMediaURL() const;
-    KURL absoluteLinkURL() const;
+    URL absoluteImageURL() const;
+    URL absolutePDFURL() const;
+    URL absoluteMediaURL() const;
+    URL absoluteLinkURL() const;
     String textContent() const;
     bool isLiveLink() const;
     bool isOverLink() const;
@@ -157,7 +157,7 @@ private:
     RefPtr<Scrollbar> m_scrollbar;
     bool m_isOverWidget; // Returns true if we are over a widget (and not in the border/padding area of a RenderWidget for example).
 
-    mutable OwnPtr<NodeSet> m_rectBasedTestResult;
+    mutable std::unique_ptr<NodeSet> m_rectBasedTestResult;
 };
 
 String displayString(const String&, const Node*);

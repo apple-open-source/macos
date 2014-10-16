@@ -1,0 +1,559 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iso2022_jp3.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iso2022_jp3.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2004 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * ISO-2022-JP-3
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;jisx0213.h&quot;</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ESC</span> 0x1b
+
+<span class="enscript-comment">/*
+ * The state is composed of one of the following values
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_ASCII</span>             0  <span class="enscript-comment">/* Esc ( B */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0201ROMAN</span>     1  <span class="enscript-comment">/* Esc ( J */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0201KATAKANA</span>  2  <span class="enscript-comment">/* Esc ( I */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX0208</span>          3  <span class="enscript-comment">/* Esc $ @ or Esc $ B */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX02131</span>         4  <span class="enscript-comment">/* Esc $ ( O or Esc $ ( Q*/</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_JISX02132</span>         5  <span class="enscript-comment">/* Esc $ ( P */</span>
+
+<span class="enscript-comment">/*
+ * In the ISO-2022-JP-3 to UCS-4 direction, the state also holds the last
+ * character to be output, shifted by 3 bits.
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp3_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  ucs4_t last_wc = conv-&gt;istate &gt;&gt; 3;
+  <span class="enscript-keyword">if</span> (last_wc) {
+    <span class="enscript-comment">/* Output the buffered character. */</span>
+    conv-&gt;istate &amp;= 7;
+    *pwc = last_wc;
+    <span class="enscript-keyword">return</span> 0; <span class="enscript-comment">/* Don't advance the input pointer. */</span>
+  } <span class="enscript-keyword">else</span> {
+    state_t state = conv-&gt;istate;
+    <span class="enscript-type">int</span> count = 0;
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c;
+    <span class="enscript-keyword">for</span> (;;) {
+      c = *s;
+      <span class="enscript-keyword">if</span> (c == ESC) {
+        <span class="enscript-keyword">if</span> (n &lt; count+3)
+          <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+        <span class="enscript-keyword">if</span> (s[1] == <span class="enscript-string">'('</span>) {
+          <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'B'</span>) {
+            state = STATE_ASCII;
+            s += 3; count += 3;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+          <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'J'</span>) {
+            state = STATE_JISX0201ROMAN;
+            s += 3; count += 3;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+          <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'I'</span>) {
+            state = STATE_JISX0201KATAKANA;
+            s += 3; count += 3;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        }
+        <span class="enscript-keyword">if</span> (s[1] == <span class="enscript-string">'$'</span>) {
+          <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'@'</span> || s[2] == <span class="enscript-string">'B'</span>) {
+            <span class="enscript-comment">/* We don't distinguish JIS X 0208-1978 and JIS X 0208-1983. */</span>
+            state = STATE_JISX0208;
+            s += 3; count += 3;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+          <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">'('</span>) {
+            <span class="enscript-keyword">if</span> (n &lt; count+4)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">if</span> (s[3] == <span class="enscript-string">'O'</span> || s[3] == <span class="enscript-string">'Q'</span>) {
+              state = STATE_JISX02131;
+              s += 4; count += 4;
+              <span class="enscript-keyword">if</span> (n &lt; count+1)
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+              <span class="enscript-keyword">continue</span>;
+            }
+            <span class="enscript-keyword">if</span> (s[3] == <span class="enscript-string">'P'</span>) {
+              state = STATE_JISX02132;
+              s += 4; count += 4;
+              <span class="enscript-keyword">if</span> (n &lt; count+1)
+                <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+              <span class="enscript-keyword">continue</span>;
+            }
+          }
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        }
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+      }
+      <span class="enscript-keyword">break</span>;
+    }
+    <span class="enscript-keyword">switch</span> (state) {
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_ASCII</span>:
+        <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+          <span class="enscript-type">int</span> ret = ascii_mbtowc(conv,pwc,s,1);
+          <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+            <span class="enscript-keyword">return</span> RET_ILSEQ;
+          <span class="enscript-keyword">if</span> (ret != 1) abort();
+          conv-&gt;istate = state;
+          <span class="enscript-keyword">return</span> count+1;
+        } <span class="enscript-keyword">else</span>
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0201ROMAN</span>:
+        <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+          <span class="enscript-type">int</span> ret = jisx0201_mbtowc(conv,pwc,s,1);
+          <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+            <span class="enscript-keyword">return</span> RET_ILSEQ;
+          <span class="enscript-keyword">if</span> (ret != 1) abort();
+          conv-&gt;istate = state;
+          <span class="enscript-keyword">return</span> count+1;
+        } <span class="enscript-keyword">else</span>
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0201KATAKANA</span>:
+        <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+          <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf = c+0x80;
+          <span class="enscript-type">int</span> ret = jisx0201_mbtowc(conv,pwc,&amp;buf,1);
+          <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+            <span class="enscript-keyword">return</span> RET_ILSEQ;
+          <span class="enscript-keyword">if</span> (ret != 1) abort();
+          conv-&gt;istate = state;
+          <span class="enscript-keyword">return</span> count+1;
+        } <span class="enscript-keyword">else</span>
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX0208</span>:
+        <span class="enscript-keyword">if</span> (n &lt; count+2)
+          <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+        <span class="enscript-keyword">if</span> (s[0] &lt; 0x80 &amp;&amp; s[1] &lt; 0x80) {
+          <span class="enscript-type">int</span> ret = jisx0208_mbtowc(conv,pwc,s,2);
+          <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+            <span class="enscript-keyword">return</span> RET_ILSEQ;
+          <span class="enscript-keyword">if</span> (ret != 2) abort();
+          conv-&gt;istate = state;
+          <span class="enscript-keyword">return</span> count+2;
+        } <span class="enscript-keyword">else</span>
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX02131</span>:
+      <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_JISX02132</span>:
+        <span class="enscript-keyword">if</span> (n &lt; count+2)
+          <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+        <span class="enscript-keyword">if</span> (s[0] &lt; 0x80 &amp;&amp; s[1] &lt; 0x80) {
+          ucs4_t wc = jisx0213_to_ucs4(((state-STATE_JISX02131+1)&lt;&lt;8)+s[0],s[1]);
+          <span class="enscript-keyword">if</span> (wc) {
+            <span class="enscript-keyword">if</span> (wc &lt; 0x80) {
+              <span class="enscript-comment">/* It's a combining character. */</span>
+              ucs4_t wc1 = jisx0213_to_ucs_combining[wc - 1][0];
+              ucs4_t wc2 = jisx0213_to_ucs_combining[wc - 1][1];
+              <span class="enscript-comment">/* We cannot output two Unicode characters at once. So,
+                 output the first character and buffer the second one. */</span>
+              *pwc = wc1;
+              conv-&gt;istate = (wc2 &lt;&lt; 3) | state;
+            } <span class="enscript-keyword">else</span> {
+              *pwc = wc;
+              conv-&gt;istate = state;
+            }
+            <span class="enscript-keyword">return</span> count+2;
+          }
+        }
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+      <span class="enscript-reference">default</span>: abort();
+    }
+  <span class="enscript-reference">none</span>:
+    conv-&gt;istate = state;
+    <span class="enscript-keyword">return</span> RET_TOOFEW(count);
+  }
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp3_flushwc</span> (conv_t conv, ucs4_t *pwc)
+{
+  ucs4_t last_wc = conv-&gt;istate &gt;&gt; 3;
+  <span class="enscript-keyword">if</span> (last_wc) {
+    <span class="enscript-comment">/* Output the buffered character. */</span>
+    conv-&gt;istate &amp;= 7;
+    *pwc = last_wc;
+    <span class="enscript-keyword">return</span> 1;
+  } <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> 0;
+}
+
+<span class="enscript-comment">/*
+ * In the UCS-4 to ISO-2022-JP-3 direction, the state also holds the last two
+ * bytes to be output, shifted by 3 bits, and the STATE_xxxxx value that was
+ * effective before this buffered character, shifted by 19 bits.
+ */</span>
+
+<span class="enscript-comment">/* Composition tables for each of the relevant combining characters.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">struct</span> { <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> base; <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> composed; } iso2022_jp3_comp_table_data[] = {
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table02e5_idx</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table02e5_len</span> 1
+  { 0x2b64, 0x2b65 }, <span class="enscript-comment">/* 0x12B65 = 0x12B64 U+02E5 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table02e9_idx</span> (iso2022_jp3_comp_table02e5_idx+iso2022_jp3_comp_table02e5_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table02e9_len</span> 1
+  { 0x2b60, 0x2b66 }, <span class="enscript-comment">/* 0x12B66 = 0x12B60 U+02E9 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table0300_idx</span> (iso2022_jp3_comp_table02e9_idx+iso2022_jp3_comp_table02e9_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table0300_len</span> 5
+  { 0x295c, 0x2b44 }, <span class="enscript-comment">/* 0x12B44 = 0x1295C U+0300 */</span>
+  { 0x2b38, 0x2b48 }, <span class="enscript-comment">/* 0x12B48 = 0x12B38 U+0300 */</span>
+  { 0x2b37, 0x2b4a }, <span class="enscript-comment">/* 0x12B4A = 0x12B37 U+0300 */</span>
+  { 0x2b30, 0x2b4c }, <span class="enscript-comment">/* 0x12B4C = 0x12B30 U+0300 */</span>
+  { 0x2b43, 0x2b4e }, <span class="enscript-comment">/* 0x12B4E = 0x12B43 U+0300 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table0301_idx</span> (iso2022_jp3_comp_table0300_idx+iso2022_jp3_comp_table0300_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table0301_len</span> 4
+  { 0x2b38, 0x2b49 }, <span class="enscript-comment">/* 0x12B49 = 0x12B38 U+0301 */</span>
+  { 0x2b37, 0x2b4b }, <span class="enscript-comment">/* 0x12B4B = 0x12B37 U+0301 */</span>
+  { 0x2b30, 0x2b4d }, <span class="enscript-comment">/* 0x12B4D = 0x12B30 U+0301 */</span>
+  { 0x2b43, 0x2b4f }, <span class="enscript-comment">/* 0x12B4F = 0x12B43 U+0301 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table309a_idx</span> (iso2022_jp3_comp_table0301_idx+iso2022_jp3_comp_table0301_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">iso2022_jp3_comp_table309a_len</span> 14
+  { 0x242b, 0x2477 }, <span class="enscript-comment">/* 0x12477 = 0x1242B U+309A */</span>
+  { 0x242d, 0x2478 }, <span class="enscript-comment">/* 0x12478 = 0x1242D U+309A */</span>
+  { 0x242f, 0x2479 }, <span class="enscript-comment">/* 0x12479 = 0x1242F U+309A */</span>
+  { 0x2431, 0x247a }, <span class="enscript-comment">/* 0x1247A = 0x12431 U+309A */</span>
+  { 0x2433, 0x247b }, <span class="enscript-comment">/* 0x1247B = 0x12433 U+309A */</span>
+  { 0x252b, 0x2577 }, <span class="enscript-comment">/* 0x12577 = 0x1252B U+309A */</span>
+  { 0x252d, 0x2578 }, <span class="enscript-comment">/* 0x12578 = 0x1252D U+309A */</span>
+  { 0x252f, 0x2579 }, <span class="enscript-comment">/* 0x12579 = 0x1252F U+309A */</span>
+  { 0x2531, 0x257a }, <span class="enscript-comment">/* 0x1257A = 0x12531 U+309A */</span>
+  { 0x2533, 0x257b }, <span class="enscript-comment">/* 0x1257B = 0x12533 U+309A */</span>
+  { 0x253b, 0x257c }, <span class="enscript-comment">/* 0x1257C = 0x1253B U+309A */</span>
+  { 0x2544, 0x257d }, <span class="enscript-comment">/* 0x1257D = 0x12544 U+309A */</span>
+  { 0x2548, 0x257e }, <span class="enscript-comment">/* 0x1257E = 0x12548 U+309A */</span>
+  { 0x2675, 0x2678 }, <span class="enscript-comment">/* 0x12678 = 0x12675 U+309A */</span>
+};
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">SPLIT_STATE</span> \
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> lasttwo = state &gt;&gt; 3; state_t prevstate = state &gt;&gt; 19; state &amp;= 7
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">COMBINE_STATE</span> \
+  state |= (prevstate &lt;&lt; 19) | (lasttwo &lt;&lt; 3)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">COMBINE_STATE_NO_LASTTWO</span> \
+  <span class="enscript-comment">/* assume lasttwo == 0, then prevstate is ignored */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp3_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-type">int</span> count = 0;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> jch;
+  <span class="enscript-type">int</span> ret;
+  state_t state = conv-&gt;ostate;
+  SPLIT_STATE;
+
+  <span class="enscript-keyword">if</span> (lasttwo) {
+    <span class="enscript-comment">/* Attempt to combine the last character with this one. */</span>
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> idx;
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> len;
+
+    <span class="enscript-keyword">if</span> (wc == 0x02e5)
+      idx = iso2022_jp3_comp_table02e5_idx,
+      len = iso2022_jp3_comp_table02e5_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x02e9)
+      idx = iso2022_jp3_comp_table02e9_idx,
+      len = iso2022_jp3_comp_table02e9_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x0300)
+      idx = iso2022_jp3_comp_table0300_idx,
+      len = iso2022_jp3_comp_table0300_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x0301)
+      idx = iso2022_jp3_comp_table0301_idx,
+      len = iso2022_jp3_comp_table0301_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x309a)
+      idx = iso2022_jp3_comp_table309a_idx,
+      len = iso2022_jp3_comp_table309a_len;
+    <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">goto</span> <span class="enscript-reference">not_combining</span>;
+
+    <span class="enscript-keyword">do</span>
+      <span class="enscript-keyword">if</span> (iso2022_jp3_comp_table_data[idx].base == lasttwo)
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">while</span> (++idx, --len &gt; 0);
+
+    <span class="enscript-keyword">if</span> (len &gt; 0) {
+      <span class="enscript-comment">/* Output the combined character. */</span>
+      <span class="enscript-comment">/* We know the combined character is in JISX0213 plane 1, but
+         the buffered character may have been in JISX0208 or in
+         JISX0213 plane 1. */</span>
+      count = (state != STATE_JISX02131 ? 4 : 0) + 2;
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX02131) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'('</span>;
+        r[3] = <span class="enscript-string">'Q'</span>;
+        r += 4;
+        state = STATE_JISX02131;
+      }
+      lasttwo = iso2022_jp3_comp_table_data[idx].composed;
+      r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+      r[1] = lasttwo &amp; 0xff;
+      COMBINE_STATE_NO_LASTTWO;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+
+  <span class="enscript-reference">not_combining</span>:
+    <span class="enscript-comment">/* Output the buffered character. */</span>
+    <span class="enscript-comment">/* We know it is in JISX0208 or in JISX0213 plane 1. */</span>
+    count = (prevstate != state ? 3 : 0) + 2;
+    <span class="enscript-keyword">if</span> (n &lt; count)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    <span class="enscript-keyword">if</span> (prevstate != state) {
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0208) abort();
+      r[0] = ESC;
+      r[1] = <span class="enscript-string">'$'</span>;
+      r[2] = <span class="enscript-string">'B'</span>;
+      r += 3;
+    }
+    r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+    r[1] = lasttwo &amp; 0xff;
+    r += 2;
+  }
+
+  <span class="enscript-comment">/* Try ASCII. */</span>
+  ret = ascii_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80) {
+      count += (state == STATE_ASCII ? 1 : 4);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_ASCII) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'('</span>;
+        r[2] = <span class="enscript-string">'B'</span>;
+        r += 3;
+        state = STATE_ASCII;
+      }
+      r[0] = buf[0];
+      COMBINE_STATE_NO_LASTTWO;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0201-1976 Roman. */</span>
+  ret = jisx0201_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80) {
+      count += (state == STATE_JISX0201ROMAN ? 1 : 4);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0201ROMAN) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'('</span>;
+        r[2] = <span class="enscript-string">'J'</span>;
+        r += 3;
+        state = STATE_JISX0201ROMAN;
+      }
+      r[0] = buf[0];
+      COMBINE_STATE_NO_LASTTWO;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  jch = ucs4_to_jisx0213(wc);
+
+  <span class="enscript-comment">/* Try JIS X 0208-1990 in place of JIS X 0208-1978 and JIS X 0208-1983. */</span>
+  ret = jisx0208_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 2) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80 &amp;&amp; buf[1] &lt; 0x80) {
+      <span class="enscript-keyword">if</span> (jch &amp; 0x0080) {
+        <span class="enscript-comment">/* A possible match in comp_table_data. Buffer it. */</span>
+        prevstate = state;
+        lasttwo = jch &amp; 0x7f7f;
+        state = STATE_JISX0208;
+        COMBINE_STATE;
+        conv-&gt;ostate = state;
+        <span class="enscript-keyword">return</span> count;
+      } <span class="enscript-keyword">else</span> {
+        count += (state == STATE_JISX0208 ? 2 : 5);
+        <span class="enscript-keyword">if</span> (n &lt; count)
+          <span class="enscript-keyword">return</span> RET_TOOSMALL;
+        <span class="enscript-keyword">if</span> (state != STATE_JISX0208) {
+          r[0] = ESC;
+          r[1] = <span class="enscript-string">'$'</span>;
+          r[2] = <span class="enscript-string">'B'</span>;
+          r += 3;
+          state = STATE_JISX0208;
+        }
+        r[0] = buf[0];
+        r[1] = buf[1];
+        COMBINE_STATE_NO_LASTTWO;
+        conv-&gt;ostate = state;
+        <span class="enscript-keyword">return</span> count;
+      }
+    }
+  }
+
+  <span class="enscript-comment">/* Try JISX 0213 plane 1 and JISX 0213 plane 2. */</span>
+  <span class="enscript-keyword">if</span> (jch != 0) {
+    <span class="enscript-keyword">if</span> (jch &amp; 0x8000) {
+      <span class="enscript-comment">/* JISX 0213 plane 2. */</span>
+      <span class="enscript-keyword">if</span> (state != STATE_JISX02132) {
+        count += 4;
+        <span class="enscript-keyword">if</span> (n &lt; count)
+          <span class="enscript-keyword">return</span> RET_TOOSMALL;
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'('</span>;
+        r[3] = <span class="enscript-string">'P'</span>;
+        r += 4;
+        state = STATE_JISX02132;
+      }
+    } <span class="enscript-keyword">else</span> {
+      <span class="enscript-comment">/* JISX 0213 plane 1. */</span>
+      <span class="enscript-keyword">if</span> (state != STATE_JISX02131) {
+        count += 4;
+        <span class="enscript-keyword">if</span> (n &lt; count)
+          <span class="enscript-keyword">return</span> RET_TOOSMALL;
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'('</span>;
+        r[3] = <span class="enscript-string">'Q'</span>;
+        r += 4;
+        state = STATE_JISX02131;
+      }
+    }
+    <span class="enscript-keyword">if</span> (jch &amp; 0x0080) {
+      <span class="enscript-comment">/* A possible match in comp_table_data. We have to buffer it. */</span>
+      <span class="enscript-comment">/* We know it's a JISX 0213 plane 1 character. */</span>
+      <span class="enscript-keyword">if</span> (jch &amp; 0x8000) abort();
+      prevstate = state;
+      lasttwo = jch &amp; 0x7f7f;
+      COMBINE_STATE;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+    count += 2;
+    <span class="enscript-keyword">if</span> (n &lt; count)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    r[0] = (jch &gt;&gt; 8) &amp; 0x7f;
+    r[1] = jch &amp; 0x7f;
+    COMBINE_STATE_NO_LASTTWO;
+    conv-&gt;ostate = state;
+    <span class="enscript-keyword">return</span> count;
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0201-1976 Katakana. This is not officially part of
+     ISO-2022-JP-3. Therefore we try it after all other attempts. */</span>
+  ret = jisx0201_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &gt;= 0x80) {
+      count += (state == STATE_JISX0201KATAKANA ? 1 : 4);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state != STATE_JISX0201KATAKANA) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'('</span>;
+        r[2] = <span class="enscript-string">'I'</span>;
+        r += 3;
+        state = STATE_JISX0201KATAKANA;
+      }
+      r[0] = buf[0]-0x80;
+      COMBINE_STATE_NO_LASTTWO;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_jp3_reset</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, size_t n)
+{
+  state_t state = conv-&gt;ostate;
+  SPLIT_STATE;
+  {
+    <span class="enscript-type">int</span> count =
+      (lasttwo ? (prevstate != state ? 3 : 0) + 2 : 0)
+      + (state != STATE_ASCII ? 3 : 0);
+    <span class="enscript-keyword">if</span> (n &lt; count)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    <span class="enscript-keyword">if</span> (lasttwo) {
+      <span class="enscript-keyword">if</span> (prevstate != state) {
+        <span class="enscript-keyword">if</span> (state != STATE_JISX0208) abort();
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">'B'</span>;
+        r += 3;
+      }
+      r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+      r[1] = lasttwo &amp; 0xff;
+      r += 2;
+    }
+    <span class="enscript-keyword">if</span> (state != STATE_ASCII) {
+      r[0] = ESC;
+      r[1] = <span class="enscript-string">'('</span>;
+      r[2] = <span class="enscript-string">'B'</span>;
+    }
+    <span class="enscript-comment">/* conv-&gt;ostate = 0; will be done by the caller */</span>
+    <span class="enscript-keyword">return</span> count;
+  }
+}
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">COMBINE_STATE_NO_LASTTWO</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">COMBINE_STATE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">SPLIT_STATE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX02132</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX02131</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0208</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0201KATAKANA</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_JISX0201ROMAN</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_ASCII</span>
+</pre>
+<hr />
+</body></html>

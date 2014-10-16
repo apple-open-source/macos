@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-2000000000ns
-#else
 tick-2000000000ns
-#endif
 {
 	printf("This test is a simple profile-ns provider test");
 	exit(0);

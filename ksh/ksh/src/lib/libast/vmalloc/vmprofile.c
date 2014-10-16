@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -73,18 +73,18 @@ static Pfobj_t**	Pftable;	/* hash table		*/
 static Vmalloc_t*	Vmpf;		/* heap for our own use	*/
 
 #if __STD_C
-static Pfobj_t* pfsearch(Vmalloc_t* vm, const char* file, int line)
+static Pfobj_t* pfsearch(Vmalloc_t* vm, char* file, int line)
 #else
 static Pfobj_t* pfsearch(vm, file, line)
 Vmalloc_t*	vm;	/* region allocating from			*/
-const char*	file;	/* the file issuing the allocation request	*/
+char*		file;	/* the file issuing the allocation request	*/
 int		line;	/* line number					*/
 #endif
 {
-	reg Pfobj_t		*pf, *last;
-	reg Vmulong_t		h;
-	reg int			n;
-	reg const char*		cp;
+	reg Pfobj_t	*pf, *last;
+	reg Vmulong_t	h;
+	reg int		n;
+	reg char	*cp;
 
 	if(!Vmpf && !(Vmpf = vmopen(Vmdcheap,Vmpool,0)) )
 		return NIL(Pfobj_t*);
@@ -207,13 +207,13 @@ Vmalloc_t*	vm;
 }
 
 #if __STD_C
-static void pfsetinfo(Vmalloc_t* vm, Vmuchar_t* data, size_t size, const char* file, int line)
+static void pfsetinfo(Vmalloc_t* vm, Vmuchar_t* data, size_t size, char* file, int line)
 #else
 static void pfsetinfo(vm, data, size, file, line)
 Vmalloc_t*	vm;
 Vmuchar_t*	data;
 size_t		size;
-const char*	file;
+char*		file;
 int		line;
 #endif
 {
@@ -229,7 +229,7 @@ int		line;
 	}
 
 	if((pf = pfsearch(vm,file,line)) )
-	{	PFALLOC(pf) += size;
+	{	PFALLOC(pf) += (Vmulong_t)size;
 		PFNALLOC(pf) += 1;
 	}
 	PFOBJ(data) = pf;
@@ -238,7 +238,7 @@ int		line;
 	if(pf)
 	{	/* update region statistics */
 		pf = PFREGION(pf);
-		PFALLOC(pf) += size;
+		PFALLOC(pf) += (Vmulong_t)size;
 		PFNALLOC(pf) += 1;
 		if((s = PFALLOC(pf) - PFFREE(pf)) > PFMAX(pf) )
 			PFMAX(pf) = s;
@@ -361,7 +361,7 @@ int		fd;
 	reg Pfobj_t	*pf, *list, *next, *last;
 	reg int		n;
 	reg Vmulong_t	nalloc, alloc, nfree, free;
-	reg Seg_t*	seg;
+	reg Seg_t	*seg;
 	char		buf[1024], *bufp, *endbuf;
 #define INITBUF()	(bufp = buf, endbuf = buf+sizeof(buf)-128)
 #define CHKBUF()	(bufp >= endbuf ? (write(fd,buf,bufp-buf), bufp=buf) : bufp)
@@ -413,7 +413,7 @@ int		fd;
 			continue;
 		alloc = 0;
 		for(seg = PFVM(pf)->data->seg; seg; seg = seg->next)
-			alloc += seg->extent;
+			alloc += (Vmulong_t)seg->extent;
 		bufp = (*_Vmstrcpy)(bufp,"region", '=');
 		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(VLONG(PFVM(pf)),0), ':');
 		bufp = pfsummary(bufp,PFNALLOC(pf),PFALLOC(pf),
@@ -461,94 +461,72 @@ int		fd;
 }
 
 #if __STD_C
-static Void_t* pfalloc(Vmalloc_t* vm, size_t size)
+static Void_t* pfalloc(Vmalloc_t* vm, size_t size, int local)
 #else
-static Void_t* pfalloc(vm, size)
+static Void_t* pfalloc(vm, size, local)
 Vmalloc_t*	vm;
 size_t		size;
+int		local;
 #endif
 {
-	reg size_t		s;
-	reg Void_t*		data;
-	reg char*		file;
-	reg int			line, local, inuse;
-	reg Void_t*		func;
-	reg Vmdata_t*		vd = vm->data;
+	reg size_t	s;
+	reg Void_t	*data;
+	reg char	*file;
+	reg int		line;
+	reg Void_t	*func;
+	reg Vmdata_t	*vd = vm->data;
 
 	VMFLF(vm,file,line,func);
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST) )
-	{	GETLOCAL(vd, local);
-		if(ISLOCK(vd, local))
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd, local);
-	}
+
+	SETLOCK(vm, local);
 
 	s = ROUND(size,ALIGN) + PF_EXTRA;
-	if(!(data = KPVALLOC(vm,s,(*(Vmbest->allocf))) ) )
-		goto done;
+	if((data = KPVALLOC(vm,s,(*(Vmbest->allocf))) ) )
+	{	pfsetinfo(vm,(Vmuchar_t*)data,size,file,line);
 
-	pfsetinfo(vm,(Vmuchar_t*)data,size,file,line);
-
-	if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
-	{	vm->file = file; vm->line = line; vm->func = func;
-		(*_Vmtrace)(vm,NIL(Vmuchar_t*),(Vmuchar_t*)data,size,0);
+		if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
+		{	vm->file = file; vm->line = line; vm->func = func;
+			(*_Vmtrace)(vm,NIL(Vmuchar_t*),(Vmuchar_t*)data,size,0);
+		}
 	}
-done:
-	CLRLOCK(vd, local);
-	ANNOUNCE(local, vm, VM_ALLOC, (Void_t*)data, vm->disc);
-	CLRINUSE(vd, inuse);
+
+	CLRLOCK(vm, local);
+
 	return data;
 }
 
 #if __STD_C
-static int pffree(Vmalloc_t* vm, Void_t* data)
+static int pffree(Vmalloc_t* vm, Void_t* data, int local)
 #else
-static int pffree(vm, data)
+static int pffree(vm, data, local)
 Vmalloc_t*	vm;
 Void_t*		data;
+int		local;
 #endif
 {
-	reg Pfobj_t*		pf;
-	reg size_t		s;
-	reg char*		file;
-	reg int			line, rv, local, inuse;
-	reg Void_t*		func;
-	reg Vmdata_t*		vd = vm->data;
+	reg Pfobj_t	*pf;
+	reg size_t	s;
+	reg char	*file;
+	reg int		line, rv;
+	reg Void_t	*func;
+	reg Vmdata_t	*vd = vm->data;
 
 	VMFLF(vm,file,line,func);
 
 	if(!data)
 		return 0;
 
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST) )
-	{	GETLOCAL(vd,local);
-		if(ISLOCK(vd,local))
-		{	CLRINUSE(vd, inuse);
-			return -1;
-		}
-		SETLOCK(vd,local);
-	}
+	SETLOCK(vm,local);
 
-	if(KPVADDR(vm,data,Vmbest->addrf) != 0 )
-	{	if(vm->disc->exceptf)
-			(void)(*vm->disc->exceptf)(vm,VM_BADADDR,data,vm->disc);
-		CLRLOCK(vd,0);
-		CLRINUSE(vd, inuse);
-		return -1;
-	}
-
+	/**/ASSERT(KPVADDR(vm, data, Vmbest->addrf) == 0 );
 	pf = PFOBJ(data);
 	s = PFSIZE(data);
 	if(pf)
 	{	PFNFREE(pf) += 1;
-		PFFREE(pf) += s;
+		PFFREE(pf) += (Vmulong_t)s;
 		pf = PFREGION(pf);
 		PFNFREE(pf) += 1;
-		PFFREE(pf) += s;
+		PFFREE(pf) += (Vmulong_t)s;
 	}
 
 	if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
@@ -557,72 +535,58 @@ Void_t*		data;
 	}
 
 	rv = KPVFREE((vm), (Void_t*)data, (*Vmbest->freef));
-        CLRLOCK(vd,local);
-        ANNOUNCE(local, vm, VM_FREE, data, vm->disc);
-	CLRINUSE(vd, inuse);
+
+        CLRLOCK(vm, local);
+
 	return rv;
 }
 
 #if __STD_C
-static Void_t* pfresize(Vmalloc_t* vm, Void_t* data, size_t size, int type)
+static Void_t* pfresize(Vmalloc_t* vm, Void_t* data, size_t size, int type, int local)
 #else
-static Void_t* pfresize(vm, data, size, type)
+static Void_t* pfresize(vm, data, size, type, local)
 Vmalloc_t*	vm;
 Void_t*		data;
 size_t		size;
 int		type;
+int		local;
 #endif
 {
-	reg Pfobj_t*		pf;
-	reg size_t		s;
-	reg size_t		news;
-	reg Void_t*		addr;
-	reg char*		file;
-	reg int			line, local, inuse;
-	reg Void_t*		func;
-	reg size_t		oldsize;
-	reg Vmdata_t*		vd = vm->data;
+	reg Pfobj_t	*pf;
+	reg size_t	s, news;
+	reg Void_t	*addr;
+	reg char	*file;
+	reg int		line;
+	reg Void_t	*func;
+	reg size_t	oldsize;
+	reg Vmdata_t	*vd = vm->data;
 
-	SETINUSE(vd, inuse);
 	if(!data)
-	{	oldsize = 0;
-		addr = pfalloc(vm,size);
-		goto done;
+	{	addr = pfalloc(vm, size, local);
+		if(addr && (type&VM_RSZERO) )
+			memset(addr, 0, size);
+		return addr;
 	}
 	if(size == 0)
-	{	(void)pffree(vm,data);
-		CLRINUSE(vd, inuse);
+	{	(void)pffree(vm, data, local);
 		return NIL(Void_t*);
 	}
 
 	VMFLF(vm,file,line,func);
-	if(!(local = vd->mode&VM_TRUST))
-	{	GETLOCAL(vd, local);
-		if(ISLOCK(vd, local))
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd, local);
-	}
 
-	if(KPVADDR(vm,data,Vmbest->addrf) != 0 )
-	{	if(vm->disc->exceptf)
-			(void)(*vm->disc->exceptf)(vm,VM_BADADDR,data,vm->disc);
-		CLRLOCK(vd, local);
-		CLRINUSE(vd, inuse);
-		return NIL(Void_t*);
-	}
+	SETLOCK(vm, local);
 
+	/**/ASSERT(KPVADDR(vm,data,Vmbest->addrf) == 0 );
 	pf = PFOBJ(data);
 	s = oldsize = PFSIZE(data);
 
 	news = ROUND(size,ALIGN) + PF_EXTRA;
 	if((addr = KPVRESIZE(vm,data,news,(type&~VM_RSZERO),Vmbest->resizef)) )
 	{	if(pf)
-		{	PFFREE(pf) += s;
+		{	PFFREE(pf) += (Vmulong_t)s;
 			PFNFREE(pf) += 1;
 			pf = PFREGION(pf);
-			PFFREE(pf) += s;
+			PFFREE(pf) += (Vmulong_t)s;
 			PFNFREE(pf) += 1;
 			pfsetinfo(vm,(Vmuchar_t*)addr,size,file,line);
 		}
@@ -633,102 +597,94 @@ int		type;
 		}
 	}
 	else if(pf)	/* reset old info */
-	{	PFALLOC(pf) -= s;
+	{	PFALLOC(pf) -= (Vmulong_t)s;
 		PFNALLOC(pf) -= 1;
 		pf = PFREGION(pf);
-		PFALLOC(pf) -= s;
+		PFALLOC(pf) -= (Vmulong_t)s;
 		PFNALLOC(pf) -= 1;
 		file = PFFILE(pf);
 		line = PFLINE(pf);
 		pfsetinfo(vm,(Vmuchar_t*)data,s,file,line);
 	}
 
-	CLRLOCK(vd, local);
-	ANNOUNCE(local, vm, VM_RESIZE, (Void_t*)addr, vm->disc);
-
-done:	if(addr && (type&VM_RSZERO) && oldsize < size)
+	if(addr && (type&VM_RSZERO) && oldsize < size)
 	{	reg Vmuchar_t *d = (Vmuchar_t*)addr+oldsize, *ed = (Vmuchar_t*)addr+size;
 		do { *d++ = 0; } while(d < ed);
 	}
 
-	CLRINUSE(vd, inuse);
+	CLRLOCK(vm, local);
+
 	return addr;
 }
 
 #if __STD_C
-static long pfsize(Vmalloc_t* vm, Void_t* addr)
+static long pfsize(Vmalloc_t* vm, Void_t* addr, int local)
 #else
-static long pfsize(vm, addr)
+static long pfsize(vm, addr, local)
 Vmalloc_t*	vm;
 Void_t*		addr;
+int		local;
 #endif
 {
-	return (*Vmbest->addrf)(vm,addr) != 0 ? -1L : (long)PFSIZE(addr);
+	return (*Vmbest->addrf)(vm, addr, local) != 0 ? -1L : (long)PFSIZE(addr);
 }
 
 #if __STD_C
-static long pfaddr(Vmalloc_t* vm, Void_t* addr)
+static long pfaddr(Vmalloc_t* vm, Void_t* addr, int local)
 #else
-static long pfaddr(vm, addr)
+static long pfaddr(vm, addr, local)
 Vmalloc_t*	vm;
 Void_t*		addr;
+int		local;
 #endif
 {
-	return (*Vmbest->addrf)(vm,addr);
+	return (*Vmbest->addrf)(vm, addr, local);
 }
 
 #if __STD_C
-static int pfcompact(Vmalloc_t* vm)
+static int pfcompact(Vmalloc_t* vm, int local)
 #else
-static int pfcompact(vm)
+static int pfcompact(vm, local)
 Vmalloc_t*	vm;
+int		local;
 #endif
 {
-	return (*Vmbest->compactf)(vm);
+	return (*Vmbest->compactf)(vm, local);
 }
 
 #if __STD_C
-static Void_t* pfalign(Vmalloc_t* vm, size_t size, size_t align)
+static Void_t* pfalign(Vmalloc_t* vm, size_t size, size_t align, int local)
 #else
-static Void_t* pfalign(vm, size, align)
+static Void_t* pfalign(vm, size, align, local)
 Vmalloc_t*	vm;
 size_t		size;
 size_t		align;
+int		local;
 #endif
 {
-	reg size_t		s;
-	reg Void_t*		data;
-	reg char*		file;
-	reg int			line, local, inuse;
-	reg Void_t*		func;
-	reg Vmdata_t*		vd = vm->data;
+	reg size_t	s;
+	reg Void_t	*data;
+	reg char	*file;
+	reg int		line;
+	reg Void_t	*func;
+	reg Vmdata_t	*vd = vm->data;
 
 	VMFLF(vm,file,line,func);
 
-	SETINUSE(vd, inuse);
-	if(!(local = vd->mode&VM_TRUST) )
-	{	GETLOCAL(vd,local);
-		if(ISLOCK(vd, local))
-		{	CLRINUSE(vd, inuse);
-			return NIL(Void_t*);
-		}
-		SETLOCK(vd, local);
-	}
+	SETLOCK(vm, local);
 
 	s = (size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN)) + PF_EXTRA;
-	if(!(data = KPVALIGN(vm,s,align,Vmbest->alignf)) )
-		goto done;
+	if((data = KPVALIGN(vm,s,align,Vmbest->alignf)) )
+	{	pfsetinfo(vm,(Vmuchar_t*)data,size,file,line);
 
-	pfsetinfo(vm,(Vmuchar_t*)data,size,file,line);
-
-	if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
-	{	vm->file = file; vm->line = line; vm->func = func;
-		(*_Vmtrace)(vm,NIL(Vmuchar_t*),(Vmuchar_t*)data,size,align);
+		if(!local && (vd->mode&VM_TRACE) && _Vmtrace)
+		{	vm->file = file; vm->line = line; vm->func = func;
+			(*_Vmtrace)(vm,NIL(Vmuchar_t*),(Vmuchar_t*)data,size,align);
+		}
 	}
-done:
-	CLRLOCK(vd, local);
-	ANNOUNCE(local, vm, VM_ALLOC, data, vm->disc);
-	CLRINUSE(vd, inuse);
+
+	CLRLOCK(vm, local);
+
 	return data;
 }
 

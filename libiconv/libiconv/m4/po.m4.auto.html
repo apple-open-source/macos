@@ -1,0 +1,453 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>po.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">po.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># po.m4 serial 13 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 1995-2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span><span class="enscript-comment">dnl
+</span><span class="enscript-comment">dnl This file can can be used in projects which are not available under
+</span><span class="enscript-comment">dnl the GNU General Public License or the GNU Library General Public
+</span><span class="enscript-comment">dnl License but which still want to provide support for the GNU gettext
+</span><span class="enscript-comment">dnl functionality.
+</span><span class="enscript-comment">dnl Please note that the actual code of the GNU gettext library is covered
+</span><span class="enscript-comment">dnl by the GNU Library General Public License, and the rest of the GNU
+</span><span class="enscript-comment">dnl gettext package package is covered by the GNU General Public License.
+</span><span class="enscript-comment">dnl They are *not* in the public domain.
+</span>
+<span class="enscript-comment">dnl Authors:
+</span><span class="enscript-comment">dnl   Ulrich Drepper &lt;<a href="mailto:drepper@cygnus.com">drepper@cygnus.com</a>&gt;, 1995-2000.
+</span><span class="enscript-comment">dnl   Bruno Haible &lt;<a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a>&gt;, 2000-2003.
+</span>
+AC_PREREQ(2.50)
+
+<span class="enscript-comment">dnl Checks for all prerequisites of the po subdirectory.
+</span>AC_DEFUN([AM_PO_SUBDIRS],
+[
+  AC_REQUIRE([AC_PROG_MAKE_SET])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_PROG_INSTALL])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AM_PROG_MKDIR_P])<span class="enscript-comment">dnl defined by automake
+</span>  AC_REQUIRE([AM_NLS])<span class="enscript-comment">dnl
+</span>
+  <span class="enscript-comment">dnl Perform the following tests also if --disable-nls has been given,
+</span>  <span class="enscript-comment">dnl because they are needed for &quot;make dist&quot; to work.
+</span>
+  <span class="enscript-comment">dnl Search for GNU msgfmt in the PATH.
+</span>  <span class="enscript-comment">dnl The first test excludes Solaris msgfmt and early GNU msgfmt versions.
+</span>  <span class="enscript-comment">dnl The second test excludes FreeBSD msgfmt.
+</span>  AM_PATH_PROG_WITH_TEST(MSGFMT, msgfmt,
+    [$ac_dir/$ac_word --statistics /dev/null &gt;&amp;]AS_MESSAGE_LOG_FD[ 2&gt;&amp;1 &amp;&amp;
+     (if $ac_dir/$ac_word --statistics /dev/null 2&gt;&amp;1 &gt;/dev/null | grep usage &gt;/dev/null; then exit 1; else exit 0; fi)],
+    :)
+  AC_PATH_PROG(GMSGFMT, gmsgfmt, $MSGFMT)
+
+  <span class="enscript-comment">dnl Test whether it is GNU msgfmt &gt;= 0.15.
+</span><span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  case `$MSGFMT --version | sed 1q | sed -e 's,^[^0-9]*,,'` in
+    '' | 0.[0-9] | 0.[0-9].* | 0.1[0-4] | 0.1[0-4].*) MSGFMT_015=: ;;
+    *) MSGFMT_015=$MSGFMT ;;
+  esac
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>  AC_SUBST([MSGFMT_015])
+<span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  case `$GMSGFMT --version | sed 1q | sed -e 's,^[^0-9]*,,'` in
+    '' | 0.[0-9] | 0.[0-9].* | 0.1[0-4] | 0.1[0-4].*) GMSGFMT_015=: ;;
+    *) GMSGFMT_015=$GMSGFMT ;;
+  esac
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>  AC_SUBST([GMSGFMT_015])
+
+  <span class="enscript-comment">dnl Search for GNU xgettext 0.12 or newer in the PATH.
+</span>  <span class="enscript-comment">dnl The first test excludes Solaris xgettext and early GNU xgettext versions.
+</span>  <span class="enscript-comment">dnl The second test excludes FreeBSD xgettext.
+</span>  AM_PATH_PROG_WITH_TEST(XGETTEXT, xgettext,
+    [$ac_dir/$ac_word --omit-header --copyright-holder= --msgid-bugs-address= /dev/null &gt;&amp;]AS_MESSAGE_LOG_FD[ 2&gt;&amp;1 &amp;&amp;
+     (if $ac_dir/$ac_word --omit-header --copyright-holder= --msgid-bugs-address= /dev/null 2&gt;&amp;1 &gt;/dev/null | grep usage &gt;/dev/null; then exit 1; else exit 0; fi)],
+    :)
+  <span class="enscript-comment">dnl Remove leftover from FreeBSD xgettext call.
+</span>  rm -f messages.po
+
+  <span class="enscript-comment">dnl Test whether it is GNU xgettext &gt;= 0.15.
+</span><span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  case `$XGETTEXT --version | sed 1q | sed -e 's,^[^0-9]*,,'` in
+    '' | 0.[0-9] | 0.[0-9].* | 0.1[0-4] | 0.1[0-4].*) XGETTEXT_015=: ;;
+    *) XGETTEXT_015=$XGETTEXT ;;
+  esac
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>  AC_SUBST([XGETTEXT_015])
+
+  <span class="enscript-comment">dnl Search for GNU msgmerge 0.11 or newer in the PATH.
+</span>  AM_PATH_PROG_WITH_TEST(MSGMERGE, msgmerge,
+    [$ac_dir/$ac_word --update -q /dev/null /dev/null &gt;&amp;]AS_MESSAGE_LOG_FD[ 2&gt;&amp;1], :)
+
+  <span class="enscript-comment">dnl Installation directories.
+</span>  <span class="enscript-comment">dnl Autoconf &gt;= 2.60 defines localedir. For older versions of autoconf, we
+</span>  <span class="enscript-comment">dnl have to define it here, so that it can be used in po/Makefile.
+</span>  test -n &quot;$localedir&quot; || localedir='${datadir}/locale'
+  AC_SUBST([localedir])
+
+  AC_CONFIG_COMMANDS([po-directories], [[
+    for ac_file in $CONFIG_FILES; do
+      <span class="enscript-comment"># Support &quot;outfile[:infile[:infile...]]&quot;
+</span>      case &quot;$ac_file&quot; in
+        *:*) ac_file=`echo &quot;$ac_file&quot;|sed 's%:.*%%'` ;;
+      esac
+      <span class="enscript-comment"># PO directories have a Makefile.in generated from Makefile.in.in.
+</span>      case &quot;$ac_file&quot; in */Makefile.in)
+        <span class="enscript-comment"># Adjust a relative srcdir.
+</span>        ac_dir=`echo &quot;$ac_file&quot;|sed 's%/[^/][^/]*$%%'`
+        ac_dir_suffix=&quot;/`echo &quot;$ac_dir&quot;|sed 's%^\./%%'`&quot;
+        ac_dots=`echo &quot;$ac_dir_suffix&quot;|sed 's%/[^/]*%../%g'`
+        <span class="enscript-comment"># In autoconf-2.13 it is called $ac_given_srcdir.
+</span>        <span class="enscript-comment"># In autoconf-2.50 it is called $srcdir.
+</span>        test -n &quot;$ac_given_srcdir&quot; || ac_given_srcdir=&quot;$srcdir&quot;
+        case &quot;$ac_given_srcdir&quot; in
+          .)  top_srcdir=`echo $ac_dots|sed 's%/$%%'` ;;
+          /*) top_srcdir=&quot;$ac_given_srcdir&quot; ;;
+          *)  top_srcdir=&quot;$ac_dots$ac_given_srcdir&quot; ;;
+        esac
+        <span class="enscript-comment"># Treat a directory as a PO directory if and only if it has a
+</span>        <span class="enscript-comment"># POTFILES.in file. This allows packages to have multiple PO
+</span>        <span class="enscript-comment"># directories under different names or in different locations.
+</span>        if test -f &quot;$ac_given_srcdir/$ac_dir/POTFILES.in&quot;; then
+          rm -f &quot;$ac_dir/POTFILES&quot;
+          test -n &quot;$as_me&quot; &amp;&amp; echo &quot;$as_me: creating $ac_dir/POTFILES&quot; || echo &quot;creating $ac_dir/POTFILES&quot;
+          cat &quot;$ac_given_srcdir/$ac_dir/POTFILES.in&quot; | sed -e &quot;/^<span class="enscript-comment">#/d&quot; -e &quot;/^[ 	]*\$/d&quot; -e &quot;s,.*,     $top_srcdir/&amp; \\\\,&quot; | sed -e &quot;\$s/\(.*\) \\\\/\1/&quot; &gt; &quot;$ac_dir/POTFILES&quot;
+</span>          POMAKEFILEDEPS=&quot;POTFILES.in&quot;
+          <span class="enscript-comment"># ALL_LINGUAS, POFILES, UPDATEPOFILES, DUMMYPOFILES, GMOFILES depend
+</span>          <span class="enscript-comment"># on $ac_dir but don't depend on user-specified configuration
+</span>          <span class="enscript-comment"># parameters.
+</span>          if test -f &quot;$ac_given_srcdir/$ac_dir/LINGUAS&quot;; then
+            <span class="enscript-comment"># The LINGUAS file contains the set of available languages.
+</span>            if test -n &quot;$OBSOLETE_ALL_LINGUAS&quot;; then
+              test -n &quot;$as_me&quot; &amp;&amp; echo &quot;$as_me: setting ALL_LINGUAS in configure.in is obsolete&quot; || echo &quot;setting ALL_LINGUAS in configure.in is obsolete&quot;
+            fi
+            ALL_LINGUAS_=`sed -e &quot;/^<span class="enscript-comment">#/d&quot; -e &quot;s/#.*//&quot; &quot;$ac_given_srcdir/$ac_dir/LINGUAS&quot;`
+</span>            <span class="enscript-comment"># Hide the ALL_LINGUAS assigment from automake &lt; 1.5.
+</span>            <span class="enscript-keyword">eval</span> 'ALL_LINGUAS''=$ALL_LINGUAS_'
+            POMAKEFILEDEPS=&quot;$POMAKEFILEDEPS LINGUAS&quot;
+          else
+            <span class="enscript-comment"># The set of available languages was given in configure.in.
+</span>            <span class="enscript-comment"># Hide the ALL_LINGUAS assigment from automake &lt; 1.5.
+</span>            <span class="enscript-keyword">eval</span> 'ALL_LINGUAS''=$OBSOLETE_ALL_LINGUAS'
+          fi
+          <span class="enscript-comment"># Compute POFILES
+</span>          <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(lang).po)
+</span>          <span class="enscript-comment"># Compute UPDATEPOFILES
+</span>          <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(lang).po-update)
+</span>          <span class="enscript-comment"># Compute DUMMYPOFILES
+</span>          <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(lang).nop)
+</span>          <span class="enscript-comment"># Compute GMOFILES
+</span>          <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(lang).gmo)
+</span>          case &quot;$ac_given_srcdir&quot; in
+            .) srcdirpre= ;;
+            *) srcdirpre='$(srcdir)/' ;;
+          esac
+          POFILES=
+          UPDATEPOFILES=
+          DUMMYPOFILES=
+          GMOFILES=
+          for lang in $ALL_LINGUAS; do
+            POFILES=&quot;$POFILES $srcdirpre$lang.po&quot;
+            UPDATEPOFILES=&quot;$UPDATEPOFILES $lang.po-update&quot;
+            DUMMYPOFILES=&quot;$DUMMYPOFILES $lang.nop&quot;
+            GMOFILES=&quot;$GMOFILES $srcdirpre$lang.gmo&quot;
+          done
+          <span class="enscript-comment"># CATALOGS depends on both $ac_dir and the user's LINGUAS
+</span>          <span class="enscript-comment"># environment variable.
+</span>          INST_LINGUAS=
+          if test -n &quot;$ALL_LINGUAS&quot;; then
+            for presentlang in $ALL_LINGUAS; do
+              useit=no
+              if test &quot;%UNSET%&quot; != &quot;$LINGUAS&quot;; then
+                desiredlanguages=&quot;$LINGUAS&quot;
+              else
+                desiredlanguages=&quot;$ALL_LINGUAS&quot;
+              fi
+              for desiredlang in $desiredlanguages; do
+                <span class="enscript-comment"># Use the presentlang catalog if desiredlang is
+</span>                <span class="enscript-comment">#   a. equal to presentlang, or
+</span>                <span class="enscript-comment">#   b. a variant of presentlang (because in this case,
+</span>                <span class="enscript-comment">#      presentlang can be used as a fallback for messages
+</span>                <span class="enscript-comment">#      which are not translated in the desiredlang catalog).
+</span>                case &quot;$desiredlang&quot; in
+                  &quot;$presentlang&quot;*) useit=yes;;
+                esac
+              done
+              if test $useit = yes; then
+                INST_LINGUAS=&quot;$INST_LINGUAS $presentlang&quot;
+              fi
+            done
+          fi
+          CATALOGS=
+          if test -n &quot;$INST_LINGUAS&quot;; then
+            for lang in $INST_LINGUAS; do
+              CATALOGS=&quot;$CATALOGS $lang.gmo&quot;
+            done
+          fi
+          test -n &quot;$as_me&quot; &amp;&amp; echo &quot;$as_me: creating $ac_dir/Makefile&quot; || echo &quot;creating $ac_dir/Makefile&quot;
+          sed -e &quot;/^POTFILES =/r $ac_dir/POTFILES&quot; -e &quot;/^<span class="enscript-comment"># Makevars/r $ac_given_srcdir/$ac_dir/Makevars&quot; -e &quot;s|@POFILES@|$POFILES|g&quot; -e &quot;s|@UPDATEPOFILES@|$UPDATEPOFILES|g&quot; -e &quot;s|@DUMMYPOFILES@|$DUMMYPOFILES|g&quot; -e &quot;s|@GMOFILES@|$GMOFILES|g&quot; -e &quot;s|@CATALOGS@|$CATALOGS|g&quot; -e &quot;s|@POMAKEFILEDEPS@|$POMAKEFILEDEPS|g&quot; &quot;$ac_dir/Makefile.in&quot; &gt; &quot;$ac_dir/Makefile&quot;
+</span>          for f in &quot;$ac_given_srcdir/$ac_dir&quot;/Rules-*; do
+            if test -f &quot;$f&quot;; then
+              case &quot;$f&quot; in
+                *.orig | *.bak | *~) ;;
+                *) cat &quot;$f&quot; &gt;&gt; &quot;$ac_dir/Makefile&quot; ;;
+              esac
+            fi
+          done
+        fi
+        ;;
+      esac
+    done]],
+   [<span class="enscript-comment"># Capture the value of obsolete ALL_LINGUAS because we need it to compute
+</span>    <span class="enscript-comment"># POFILES, UPDATEPOFILES, DUMMYPOFILES, GMOFILES, CATALOGS. But hide it
+</span>    <span class="enscript-comment"># from automake &lt; 1.5.
+</span>    <span class="enscript-keyword">eval</span> 'OBSOLETE_ALL_LINGUAS''=&quot;$ALL_LINGUAS&quot;'
+    <span class="enscript-comment"># Capture the value of LINGUAS because we need it to compute CATALOGS.
+</span>    LINGUAS=&quot;${LINGUAS-%UNSET%}&quot;
+   ])
+])
+
+<span class="enscript-comment">dnl Postprocesses a Makefile in a directory containing PO files.
+</span>AC_DEFUN([AM_POSTPROCESS_PO_MAKEFILE],
+[
+  <span class="enscript-comment"># When this code is run, in config.status, two variables have already been
+</span>  <span class="enscript-comment"># set:
+</span>  <span class="enscript-comment"># - OBSOLETE_ALL_LINGUAS is the value of LINGUAS set in configure.in,
+</span>  <span class="enscript-comment"># - LINGUAS is the value of the environment variable LINGUAS at configure
+</span>  <span class="enscript-comment">#   time.
+</span>
+<span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  <span class="enscript-comment"># Adjust a relative srcdir.
+</span>  ac_dir=`echo &quot;$ac_file&quot;|sed 's%/[^/][^/]*$%%'`
+  ac_dir_suffix=&quot;/`echo &quot;$ac_dir&quot;|sed 's%^\./%%'`&quot;
+  ac_dots=`echo &quot;$ac_dir_suffix&quot;|sed 's%/[^/]*%../%g'`
+  <span class="enscript-comment"># In autoconf-2.13 it is called $ac_given_srcdir.
+</span>  <span class="enscript-comment"># In autoconf-2.50 it is called $srcdir.
+</span>  test -n &quot;$ac_given_srcdir&quot; || ac_given_srcdir=&quot;$srcdir&quot;
+  case &quot;$ac_given_srcdir&quot; in
+    .)  top_srcdir=`echo $ac_dots|sed 's%/$%%'` ;;
+    /*) top_srcdir=&quot;$ac_given_srcdir&quot; ;;
+    *)  top_srcdir=&quot;$ac_dots$ac_given_srcdir&quot; ;;
+  esac
+
+  <span class="enscript-comment"># Find a way to echo strings without interpreting backslash.
+</span>  if test &quot;X`(echo '\t') 2&gt;/dev/null`&quot; = 'X\t'; then
+    gt_echo='echo'
+  else
+    if test &quot;X`(printf '%s\n' '\t') 2&gt;/dev/null`&quot; = 'X\t'; then
+      gt_echo='printf %s\n'
+    else
+      echo_func () {
+        cat &lt;&lt;EOT
+$*
+EOT
+      }
+      gt_echo='echo_func'
+    fi
+  fi
+
+  <span class="enscript-comment"># A sed script that extracts the value of VARIABLE from a Makefile.
+</span>  sed_x_variable='
+<span class="enscript-comment"># Test if the hold space is empty.
+</span>x
+s/P/P/
+x
+ta
+<span class="enscript-comment"># Yes it was empty. Look if we have the expected variable definition.
+</span>/^[	 ]*VARIABLE[	 ]*=/{
+  <span class="enscript-comment"># Seen the first line of the variable definition.
+</span>  s/^[	 ]*VARIABLE[	 ]*=//
+  ba
+}
+bd
+:a
+<span class="enscript-comment"># Here we are processing a line from the variable definition.
+</span><span class="enscript-comment"># Remove comment, more precisely replace it with a space.
+</span>s/<span class="enscript-comment">#.*$/ /
+</span><span class="enscript-comment"># See if the line ends in a backslash.
+</span>tb
+:b
+s/\\$//
+<span class="enscript-comment"># Print the line, without the trailing backslash.
+</span>p
+tc
+<span class="enscript-comment"># There was no trailing backslash. The end of the variable definition is
+</span><span class="enscript-comment"># reached. Clear the hold space.
+</span>s/^.*$//
+x
+bd
+:c
+<span class="enscript-comment"># A trailing backslash means that the variable definition continues in the
+</span><span class="enscript-comment"># next line. Put a nonempty string into the hold space to indicate this.
+</span>s/^.*$/P/
+x
+:d
+'
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>
+  <span class="enscript-comment"># Set POTFILES to the value of the Makefile variable POTFILES.
+</span>  sed_x_POTFILES=`$gt_echo &quot;$sed_x_variable&quot; | sed -e '/^ *<span class="enscript-comment">#/d' -e 's/VARIABLE/POTFILES/g'`
+</span>  POTFILES=`sed -n -e &quot;$sed_x_POTFILES&quot; &lt; &quot;$ac_file&quot;`
+  <span class="enscript-comment"># Compute POTFILES_DEPS as
+</span>  <span class="enscript-comment">#   $(foreach file, $(POTFILES), $(top_srcdir)/$(file))
+</span>  POTFILES_DEPS=
+  for file in $POTFILES; do
+    POTFILES_DEPS=&quot;$POTFILES_DEPS &quot;'$(top_srcdir)/'&quot;$file&quot;
+  done
+  POMAKEFILEDEPS=&quot;&quot;
+
+  if test -n &quot;$OBSOLETE_ALL_LINGUAS&quot;; then
+    test -n &quot;$as_me&quot; &amp;&amp; echo &quot;$as_me: setting ALL_LINGUAS in configure.in is obsolete&quot; || echo &quot;setting ALL_LINGUAS in configure.in is obsolete&quot;
+  fi
+  if test -f &quot;$ac_given_srcdir/$ac_dir/LINGUAS&quot;; then
+    <span class="enscript-comment"># The LINGUAS file contains the set of available languages.
+</span>    ALL_LINGUAS_=`sed -e &quot;/^<span class="enscript-comment">#/d&quot; -e &quot;s/#.*//&quot; &quot;$ac_given_srcdir/$ac_dir/LINGUAS&quot;`
+</span>    POMAKEFILEDEPS=&quot;$POMAKEFILEDEPS LINGUAS&quot;
+  else
+    <span class="enscript-comment"># Set ALL_LINGUAS to the value of the Makefile variable LINGUAS.
+</span>    sed_x_LINGUAS=`$gt_echo &quot;$sed_x_variable&quot; | sed -e '/^ *<span class="enscript-comment">#/d' -e 's/VARIABLE/LINGUAS/g'`
+</span>    ALL_LINGUAS_=`sed -n -e &quot;$sed_x_LINGUAS&quot; &lt; &quot;$ac_file&quot;`
+  fi
+  <span class="enscript-comment"># Hide the ALL_LINGUAS assigment from automake &lt; 1.5.
+</span>  <span class="enscript-keyword">eval</span> 'ALL_LINGUAS''=$ALL_LINGUAS_'
+  <span class="enscript-comment"># Compute POFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(lang).po)
+</span>  <span class="enscript-comment"># Compute UPDATEPOFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(lang).po-update)
+</span>  <span class="enscript-comment"># Compute DUMMYPOFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(lang).nop)
+</span>  <span class="enscript-comment"># Compute GMOFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(lang).gmo)
+</span>  <span class="enscript-comment"># Compute PROPERTIESFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(top_srcdir)/$(DOMAIN)_$(lang).properties)
+</span>  <span class="enscript-comment"># Compute CLASSFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(top_srcdir)/$(DOMAIN)_$(lang).class)
+</span>  <span class="enscript-comment"># Compute QMFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(lang).qm)
+</span>  <span class="enscript-comment"># Compute MSGFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(frob $(lang)).msg)
+</span>  <span class="enscript-comment"># Compute RESOURCESDLLFILES
+</span>  <span class="enscript-comment"># as      $(foreach lang, $(ALL_LINGUAS), $(srcdir)/$(frob $(lang))/$(DOMAIN).resources.dll)
+</span>  case &quot;$ac_given_srcdir&quot; in
+    .) srcdirpre= ;;
+    *) srcdirpre='$(srcdir)/' ;;
+  esac
+  POFILES=
+  UPDATEPOFILES=
+  DUMMYPOFILES=
+  GMOFILES=
+  PROPERTIESFILES=
+  CLASSFILES=
+  QMFILES=
+  MSGFILES=
+  RESOURCESDLLFILES=
+  for lang in $ALL_LINGUAS; do
+    POFILES=&quot;$POFILES $srcdirpre$lang.po&quot;
+    UPDATEPOFILES=&quot;$UPDATEPOFILES $lang.po-update&quot;
+    DUMMYPOFILES=&quot;$DUMMYPOFILES $lang.nop&quot;
+    GMOFILES=&quot;$GMOFILES $srcdirpre$lang.gmo&quot;
+    PROPERTIESFILES=&quot;$PROPERTIESFILES \$(top_srcdir)/\$(DOMAIN)_$lang.properties&quot;
+    CLASSFILES=&quot;$CLASSFILES \$(top_srcdir)/\$(DOMAIN)_$lang.class&quot;
+    QMFILES=&quot;$QMFILES $srcdirpre$lang.qm&quot;
+    frobbedlang=`echo $lang | sed -e 's/\..*$//' -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'`
+    MSGFILES=&quot;$MSGFILES $srcdirpre$frobbedlang.msg&quot;
+    frobbedlang=`echo $lang | sed -e 's/_/-/g' -e 's/^sr-CS/sr-SP/' -e 's/@latin$/-Latn/' -e 's/@cyrillic$/-Cyrl/' -e 's/^sr-SP$/sr-SP-Latn/' -e 's/^uz-UZ$/uz-UZ-Latn/'`
+    RESOURCESDLLFILES=&quot;$RESOURCESDLLFILES $srcdirpre$frobbedlang/\$(DOMAIN).resources.dll&quot;
+  done
+  <span class="enscript-comment"># CATALOGS depends on both $ac_dir and the user's LINGUAS
+</span>  <span class="enscript-comment"># environment variable.
+</span>  INST_LINGUAS=
+  if test -n &quot;$ALL_LINGUAS&quot;; then
+    for presentlang in $ALL_LINGUAS; do
+      useit=no
+      if test &quot;%UNSET%&quot; != &quot;$LINGUAS&quot;; then
+        desiredlanguages=&quot;$LINGUAS&quot;
+      else
+        desiredlanguages=&quot;$ALL_LINGUAS&quot;
+      fi
+      for desiredlang in $desiredlanguages; do
+        <span class="enscript-comment"># Use the presentlang catalog if desiredlang is
+</span>        <span class="enscript-comment">#   a. equal to presentlang, or
+</span>        <span class="enscript-comment">#   b. a variant of presentlang (because in this case,
+</span>        <span class="enscript-comment">#      presentlang can be used as a fallback for messages
+</span>        <span class="enscript-comment">#      which are not translated in the desiredlang catalog).
+</span>        case &quot;$desiredlang&quot; in
+          &quot;$presentlang&quot;*) useit=yes;;
+        esac
+      done
+      if test $useit = yes; then
+        INST_LINGUAS=&quot;$INST_LINGUAS $presentlang&quot;
+      fi
+    done
+  fi
+  CATALOGS=
+  JAVACATALOGS=
+  QTCATALOGS=
+  TCLCATALOGS=
+  CSHARPCATALOGS=
+  if test -n &quot;$INST_LINGUAS&quot;; then
+    for lang in $INST_LINGUAS; do
+      CATALOGS=&quot;$CATALOGS $lang.gmo&quot;
+      JAVACATALOGS=&quot;$JAVACATALOGS \$(DOMAIN)_$lang.properties&quot;
+      QTCATALOGS=&quot;$QTCATALOGS $lang.qm&quot;
+      frobbedlang=`echo $lang | sed -e 's/\..*$//' -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'`
+      TCLCATALOGS=&quot;$TCLCATALOGS $frobbedlang.msg&quot;
+      frobbedlang=`echo $lang | sed -e 's/_/-/g' -e 's/^sr-CS/sr-SP/' -e 's/@latin$/-Latn/' -e 's/@cyrillic$/-Cyrl/' -e 's/^sr-SP$/sr-SP-Latn/' -e 's/^uz-UZ$/uz-UZ-Latn/'`
+      CSHARPCATALOGS=&quot;$CSHARPCATALOGS $frobbedlang/\$(DOMAIN).resources.dll&quot;
+    done
+  fi
+
+  sed -e &quot;s|@POTFILES_DEPS@|$POTFILES_DEPS|g&quot; -e &quot;s|@POFILES@|$POFILES|g&quot; -e &quot;s|@UPDATEPOFILES@|$UPDATEPOFILES|g&quot; -e &quot;s|@DUMMYPOFILES@|$DUMMYPOFILES|g&quot; -e &quot;s|@GMOFILES@|$GMOFILES|g&quot; -e &quot;s|@PROPERTIESFILES@|$PROPERTIESFILES|g&quot; -e &quot;s|@CLASSFILES@|$CLASSFILES|g&quot; -e &quot;s|@QMFILES@|$QMFILES|g&quot; -e &quot;s|@MSGFILES@|$MSGFILES|g&quot; -e &quot;s|@RESOURCESDLLFILES@|$RESOURCESDLLFILES|g&quot; -e &quot;s|@CATALOGS@|$CATALOGS|g&quot; -e &quot;s|@JAVACATALOGS@|$JAVACATALOGS|g&quot; -e &quot;s|@QTCATALOGS@|$QTCATALOGS|g&quot; -e &quot;s|@TCLCATALOGS@|$TCLCATALOGS|g&quot; -e &quot;s|@CSHARPCATALOGS@|$CSHARPCATALOGS|g&quot; -e 's,^<span class="enscript-comment">#distdir:,distdir:,' &lt; &quot;$ac_file&quot; &gt; &quot;$ac_file.tmp&quot;
+</span>  if grep -l '@TCLCATALOGS@' &quot;$ac_file&quot; &gt; /dev/null; then
+    <span class="enscript-comment"># Add dependencies that cannot be formulated as a simple suffix rule.
+</span>    for lang in $ALL_LINGUAS; do
+      frobbedlang=`echo $lang | sed -e 's/\..*$//' -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'`
+      cat &gt;&gt; &quot;$ac_file.tmp&quot; &lt;&lt;EOF
+$frobbedlang.msg: $lang.po
+	@echo &quot;\$(MSGFMT) -c --tcl -d \$(srcdir) -l $lang $srcdirpre$lang.po&quot;; \
+	\$(MSGFMT) -c --tcl -d &quot;\$(srcdir)&quot; -l $lang $srcdirpre$lang.po || { rm -f &quot;\$(srcdir)/$frobbedlang.msg&quot;; exit 1; }
+EOF
+    done
+  fi
+  if grep -l '@CSHARPCATALOGS@' &quot;$ac_file&quot; &gt; /dev/null; then
+    <span class="enscript-comment"># Add dependencies that cannot be formulated as a simple suffix rule.
+</span>    for lang in $ALL_LINGUAS; do
+      frobbedlang=`echo $lang | sed -e 's/_/-/g' -e 's/^sr-CS/sr-SP/' -e 's/@latin$/-Latn/' -e 's/@cyrillic$/-Cyrl/' -e 's/^sr-SP$/sr-SP-Latn/' -e 's/^uz-UZ$/uz-UZ-Latn/'`
+      cat &gt;&gt; &quot;$ac_file.tmp&quot; &lt;&lt;EOF
+$frobbedlang/\$(DOMAIN).resources.dll: $lang.po
+	@echo &quot;\$(MSGFMT) -c --csharp -d \$(srcdir) -l $lang $srcdirpre$lang.po -r \$(DOMAIN)&quot;; \
+	\$(MSGFMT) -c --csharp -d &quot;\$(srcdir)&quot; -l $lang $srcdirpre$lang.po -r &quot;\$(DOMAIN)&quot; || { rm -f &quot;\$(srcdir)/$frobbedlang.msg&quot;; exit 1; }
+EOF
+    done
+  fi
+  if test -n &quot;$POMAKEFILEDEPS&quot;; then
+    cat &gt;&gt; &quot;$ac_file.tmp&quot; &lt;&lt;EOF
+Makefile: $POMAKEFILEDEPS
+EOF
+  fi
+  mv &quot;$ac_file.tmp&quot; &quot;$ac_file&quot;
+])
+</pre>
+<hr />
+</body></html>

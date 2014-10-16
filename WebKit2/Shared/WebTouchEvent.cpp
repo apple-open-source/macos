@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WebEvent.h"
 
-#if ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
 
 #include "ArgumentCoders.h"
 #include "Arguments.h"
@@ -40,14 +40,14 @@ WebTouchEvent::WebTouchEvent(WebEvent::Type type, Vector<WebPlatformTouchPoint> 
     ASSERT(isTouchEventType(type));
 }
 
-void WebTouchEvent::encode(CoreIPC::ArgumentEncoder& encoder) const
+void WebTouchEvent::encode(IPC::ArgumentEncoder& encoder) const
 {
     WebEvent::encode(encoder);
 
     encoder << m_touchPoints;
 }
 
-bool WebTouchEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebTouchEvent& result)
+bool WebTouchEvent::decode(IPC::ArgumentDecoder& decoder, WebTouchEvent& result)
 {
     if (!WebEvent::decode(decoder, result))
         return false;
@@ -65,4 +65,4 @@ bool WebTouchEvent::isTouchEventType(Type type)
     
 } // namespace WebKit
 
-#endif // ENABLE(TOUCH_EVENTS)
+#endif // ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)

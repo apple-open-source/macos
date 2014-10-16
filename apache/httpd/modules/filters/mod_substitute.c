@@ -21,11 +21,13 @@
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
+#include "http_log.h"
 #include "apr_general.h"
 #include "apr_strings.h"
 #include "apr_strmatch.h"
 #include "apr_lib.h"
 #include "util_filter.h"
+#include "util_varbuf.h"
 #include "apr_buckets.h"
 #include "http_request.h"
 #define APR_WANT_STRFUNC
@@ -78,17 +80,11 @@ static void *merge_substitute_dcfg(apr_pool_t *p, void *basev, void *overv)
 }
 
 #define AP_MAX_BUCKETS 1000
-
-#define SEDSCAT(s1, s2, pool, buff, blen, repl) do { \
-    if (!s1) {                                       \
-        s1 = apr_pstrmemdup(pool, buff, blen);       \
-    }                                                \
-    else {                                           \
-        s2 = apr_pstrmemdup(pool, buff, blen);       \
-        s1 = apr_pstrcat(pool, s1, s2, NULL);        \
-    }                                                \
-    s1 = apr_pstrcat(pool, s1, repl, NULL);          \
-} while (0)
+/*
+ * We want to limit the memory usage in a way that is predictable. Therefore
+ * we limit the resulting length of the line to this value.
+ */
+#define AP_SUBST_MAX_LINE_LENGTH (128*MAX_STRING_LEN)
 
 #define SEDRMPATBCKT(b, offset, tmp_b, patlen) do {  \
     apr_bucket_split(b, offset);                     \
@@ -98,25 +94,19 @@ static void *merge_substitute_dcfg(apr_pool_t *p, void *basev, void *overv)
     apr_bucket_delete(tmp_b);                        \
 } while (0)
 
-static void do_pattmatch(ap_filter_t *f, apr_bucket *inb,
-                         apr_bucket_brigade *mybb,
-                         apr_pool_t *tmp_pool)
+static apr_status_t do_pattmatch(ap_filter_t *f, apr_bucket *inb,
+                                 apr_bucket_brigade *mybb,
+                                 apr_pool_t *pool)
 {
     int i;
     int force_quick = 0;
     ap_regmatch_t regm[AP_MAX_REG_MATCH];
     apr_size_t bytes;
     apr_size_t len;
-    apr_size_t fbytes;
     const char *buff;
-    const char *repl;
-    char *scratch;
-    char *p;
-    char *s1;
-    char *s2;
+    struct ap_varbuf vb;
     apr_bucket *b;
     apr_bucket *tmp_b;
-    apr_pool_t *tpool;
 
     subst_dir_conf *cfg =
     (subst_dir_conf *) ap_get_module_config(f->r->per_dir_config,
@@ -124,11 +114,9 @@ static void do_pattmatch(ap_filter_t *f, apr_bucket *inb,
     subst_pattern_t *script;
 
     APR_BRIGADE_INSERT_TAIL(mybb, inb);
-    
+    ap_varbuf_init(pool, &vb, 0);
+
     script = (subst_pattern_t *) cfg->patterns->elts;
-    apr_pool_create(&tpool, tmp_pool);
-    scratch = NULL;
-    fbytes = 0;
     /*
      * Simple optimization. If we only have one pattern, then
      * we can safely avoid the overhead of flattening
@@ -149,10 +137,19 @@ static void do_pattmatch(ap_filter_t *f, apr_bucket *inb,
             }
             if (apr_bucket_read(b, &buff, &bytes, APR_BLOCK_READ)
                     == APR_SUCCESS) {
-                s1 = NULL;
+                int have_match = 0;
+                vb.strlen = 0;
                 if (script->pattern) {
+                    const char *repl;
+                    /*
+                     * space_left counts how many bytes we have left until the
+                     * line length reaches AP_SUBST_MAX_LINE_LENGTH.
+                     */
+                    apr_size_t space_left = AP_SUBST_MAX_LINE_LENGTH;
+                    apr_size_t repl_len = strlen(script->replacement);
                     while ((repl = apr_strmatch(script->pattern, buff, bytes)))
                     {
+                        have_match = 1;
                         /* get offset into buff for pattern */
                         len = (apr_size_t) (repl - buff);
                         if (script->flatten && !force_quick) {
@@ -164,14 +161,25 @@ static void do_pattmatch(ap_filter_t *f, apr_bucket *inb,
                              * are constanting allocing space and copying
                              * strings.
                              */
-                            SEDSCAT(s1, s2, tmp_pool, buff, len,
-                                    script->replacement);
+                            if (vb.strlen + len + repl_len > AP_SUBST_MAX_LINE_LENGTH)
+                                return APR_ENOMEM;
+                            ap_varbuf_strmemcat(&vb, buff, len);
+                            ap_varbuf_strmemcat(&vb, script->replacement, repl_len);
                         }
                         else {
                             /*
-                             * We now split off the stuff before the regex
-                             * as its own bucket, then isolate the pattern
-                             * and delete it.
+                             * The string before the match but after the
+                             * previous match (if any) has length 'len'.
+                             * Check if we still have space for this string and
+                             * the replacement string.
+                             */
+                            if (space_left < len + repl_len)
+                                return APR_ENOMEM;
+                            space_left -= len + repl_len;
+                            /*
+                             * We now split off the string before the match
+                             * as its own bucket, then isolate the matched
+                             * string and delete it.
                              */
                             SEDRMPATBCKT(b, len, tmp_b, script->patlen);
                             /*
@@ -189,82 +197,104 @@ static void do_pattmatch(ap_filter_t *f, apr_bucket *inb,
                         bytes -= len;
                         buff += len;
                     }
-                    if (script->flatten && s1 && !force_quick) {
-                        /*
-                         * we've finished looking at the bucket, so remove the
-                         * old one and add in our new one
-                         */
-                        s2 = apr_pstrmemdup(tmp_pool, buff, bytes);
-                        s1 = apr_pstrcat(tmp_pool, s1, s2, NULL);
-                        tmp_b = apr_bucket_transient_create(s1, strlen(s1),
-                                            f->r->connection->bucket_alloc);
-                        APR_BUCKET_INSERT_BEFORE(b, tmp_b);
-                        apr_bucket_delete(b);
-                        b = tmp_b;
-                    }
-
-                }
-                else if (script->regexp) {
-                    /*
-                     * we need a null terminated string here :(. To hopefully
-                     * save time and memory, we don't alloc for each run
-                     * through, but only if we need to have a larger chunk
-                     * to save the string to. So we keep track of how much
-                     * we've allocated and only re-alloc when we need it.
-                     * NOTE: this screams for a macro.
-                     */
-                    if (!scratch || (bytes + 1 > fbytes)) {
-                        fbytes = bytes + 1;
-                        scratch = apr_palloc(tpool, fbytes);
-                    }
-                    /* reset pointer to the scratch space */
-                    p = scratch;
-                    memcpy(p, buff, bytes);
-                    p[bytes] = '\0';
-                    while (!ap_regexec(script->regexp, p,
-                                       AP_MAX_REG_MATCH, regm, 0)) {
-                        /* first, grab the replacement string */
-                        repl = ap_pregsub(tmp_pool, script->replacement, p,
-                                          AP_MAX_REG_MATCH, regm);
+                    if (have_match) {
                         if (script->flatten && !force_quick) {
-                            SEDSCAT(s1, s2, tmp_pool, p, regm[0].rm_so, repl);
+                            /* XXX: we should check for AP_MAX_BUCKETS here and
+                             * XXX: call ap_pass_brigade accordingly
+                             */
+                            char *copy = ap_varbuf_pdup(pool, &vb, NULL, 0,
+                                                        buff, bytes, &len);
+                            tmp_b = apr_bucket_pool_create(copy, len, pool,
+                                                           f->r->connection->bucket_alloc);
+                            APR_BUCKET_INSERT_BEFORE(b, tmp_b);
+                            apr_bucket_delete(b);
+                            b = tmp_b;
                         }
                         else {
+                            /*
+                             * We want the behaviour to be predictable.
+                             * Therefore we try to always error out if the
+                             * line length is larger than the limit,
+                             * regardless of the content of the line. So,
+                             * let's check if the remaining non-matching
+                             * string does not exceed the limit.
+                             */
+                            if (space_left < b->length)
+                                return APR_ENOMEM;
+                        }
+                    }
+                }
+                else if (script->regexp) {
+                    int left = bytes;
+                    const char *pos = buff;
+                    char *repl;
+                    apr_size_t space_left = AP_SUBST_MAX_LINE_LENGTH;
+                    while (!ap_regexec_len(script->regexp, pos, left,
+                                       AP_MAX_REG_MATCH, regm, 0)) {
+                        apr_status_t rv;
+                        have_match = 1;
+                        if (script->flatten && !force_quick) {
+                            /* copy bytes before the match */
+                            if (regm[0].rm_so > 0)
+                                ap_varbuf_strmemcat(&vb, pos, regm[0].rm_so);
+                            /* add replacement string */
+                            rv = ap_varbuf_regsub(&vb, script->replacement, pos,
+                                                  AP_MAX_REG_MATCH, regm,
+                                                  AP_SUBST_MAX_LINE_LENGTH - vb.strlen);
+                            if (rv != APR_SUCCESS)
+                                return rv;
+                        }
+                        else {
+                            apr_size_t repl_len;
+                            /* acount for string before the match */
+                            if (space_left <= regm[0].rm_so)
+                                return APR_ENOMEM;
+                            space_left -= regm[0].rm_so;
+                            rv = ap_pregsub_ex(pool, &repl,
+                                               script->replacement, pos,
+                                               AP_MAX_REG_MATCH, regm,
+                                               space_left);
+                            if (rv != APR_SUCCESS)
+                                return rv;
+                            repl_len = strlen(repl);
+                            space_left -= repl_len;
                             len = (apr_size_t) (regm[0].rm_eo - regm[0].rm_so);
                             SEDRMPATBCKT(b, regm[0].rm_so, tmp_b, len);
-                            tmp_b = apr_bucket_transient_create(repl,
-                                                                strlen(repl),
-                                             f->r->connection->bucket_alloc);
+                            tmp_b = apr_bucket_transient_create(repl, repl_len,
+                                                f->r->connection->bucket_alloc);
                             APR_BUCKET_INSERT_BEFORE(b, tmp_b);
                         }
                         /*
-                         * reset to past what we just did. buff now maps to b
+                         * reset to past what we just did. pos now maps to b
                          * again
                          */
-                        p += regm[0].rm_eo;
+                        pos += regm[0].rm_eo;
+                        left -= regm[0].rm_eo;
                     }
-                    if (script->flatten && s1 && !force_quick) {
-                        s1 = apr_pstrcat(tmp_pool, s1, p, NULL);
-                        tmp_b = apr_bucket_transient_create(s1, strlen(s1),
-                                            f->r->connection->bucket_alloc);
+                    if (have_match && script->flatten && !force_quick) {
+                        char *copy;
+                        /* Copy result plus the part after the last match into
+                         * a bucket.
+                         */
+                        copy = ap_varbuf_pdup(pool, &vb, NULL, 0, pos, left,
+                                              &len);
+                        tmp_b = apr_bucket_pool_create(copy, len, pool,
+                                           f->r->connection->bucket_alloc);
                         APR_BUCKET_INSERT_BEFORE(b, tmp_b);
                         apr_bucket_delete(b);
                         b = tmp_b;
                     }
-
                 }
                 else {
-                    /* huh? */
+                    ap_assert(0);
                     continue;
                 }
             }
         }
         script++;
     }
-
-    apr_pool_destroy(tpool);
-
-    return;
+    ap_varbuf_free(&vb);
+    return APR_SUCCESS;
 }
 
 static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
@@ -281,7 +311,7 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     apr_status_t rv;
 
     substitute_module_ctx *ctx = f->ctx;
-    
+
     /*
      * First time around? Create the saved bb that we used for each pass
      * through. Note that we can also get here when we explicitly clear ctx,
@@ -349,9 +379,17 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
             if (!APR_BRIGADE_EMPTY(ctx->linebb)) {
                 rv = apr_brigade_pflatten(ctx->linebb, &bflat,
                                           &fbytes, ctx->tpool);
+                if (rv != APR_SUCCESS)
+                    goto err;
+                if (fbytes > AP_SUBST_MAX_LINE_LENGTH) {
+                    rv = APR_ENOMEM;
+                    goto err;
+                }
                 tmp_b = apr_bucket_transient_create(bflat, fbytes,
                                                 f->r->connection->bucket_alloc);
-                do_pattmatch(f, tmp_b, ctx->pattbb, ctx->tpool);
+                rv = do_pattmatch(f, tmp_b, ctx->pattbb, ctx->tpool);
+                if (rv != APR_SUCCESS)
+                    goto err;
                 APR_BRIGADE_CONCAT(ctx->passbb, ctx->pattbb);
             }
             apr_brigade_cleanup(ctx->linebb);
@@ -407,11 +445,22 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
                             APR_BRIGADE_INSERT_TAIL(ctx->linebb, b);
                             rv = apr_brigade_pflatten(ctx->linebb, &bflat,
                                                       &fbytes, ctx->tpool);
+                            if (rv != APR_SUCCESS)
+                                goto err;
+                            if (fbytes > AP_SUBST_MAX_LINE_LENGTH) {
+                                /* Avoid pflattening further lines, we will
+                                 * abort later on anyway.
+                                 */
+                                rv = APR_ENOMEM;
+                                goto err;
+                            }
                             b = apr_bucket_transient_create(bflat, fbytes,
                                             f->r->connection->bucket_alloc);
                             apr_brigade_cleanup(ctx->linebb);
                         }
-                        do_pattmatch(f, b, ctx->pattbb, ctx->tpool);
+                        rv = do_pattmatch(f, b, ctx->pattbb, ctx->tpool);
+                        if (rv != APR_SUCCESS)
+                            goto err;
                         /*
                          * Count how many buckets we have in ctx->passbb
                          * so far. Yes, this is correct we count ctx->passbb
@@ -442,7 +491,7 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
                             num = 0;
                             apr_pool_clear(ctx->tpool);
                             if (rv != APR_SUCCESS)
-                                return rv;
+                                goto err;
                         }
                         b = tmp_b;
                     }
@@ -461,10 +510,8 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
         if (!APR_BRIGADE_EMPTY(ctx->passbb)) {
             rv = ap_pass_brigade(f->next, ctx->passbb);
             apr_brigade_cleanup(ctx->passbb);
-            if (rv != APR_SUCCESS) {
-                apr_pool_clear(ctx->tpool);
-                return rv;
-            }
+            if (rv != APR_SUCCESS)
+                goto err;
         }
         apr_pool_clear(ctx->tpool);
     }
@@ -482,6 +529,12 @@ static apr_status_t substitute_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     }
 
     return APR_SUCCESS;
+err:
+    if (rv == APR_ENOMEM)
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, f->r, APLOGNO(01328) "Line too long, URI %s",
+                      f->r->uri);
+    apr_pool_clear(ctx->tpool);
+    return rv;
 }
 
 static const char *set_pattern(cmd_parms *cmd, void *cfg, const char *line)
@@ -560,7 +613,7 @@ static const char *set_pattern(cmd_parms *cmd, void *cfg, const char *line)
 
     if (is_pattern) {
         nscript->patlen = strlen(from);
-        nscript->pattern = apr_strmatch_precompile(cmd->pool, from, 
+        nscript->pattern = apr_strmatch_precompile(cmd->pool, from,
                                                    !ignore_case);
     }
     else {
@@ -587,7 +640,7 @@ static const command_rec substitute_cmds[] = {
     {NULL}
 };
 
-module AP_MODULE_DECLARE_DATA substitute_module = {
+AP_DECLARE_MODULE(substitute) = {
     STANDARD20_MODULE_STUFF,
     create_substitute_dcfg,     /* dir config creater */
     merge_substitute_dcfg,      /* dir merger --- default is to override */

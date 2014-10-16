@@ -26,26 +26,42 @@
 #include "config.h"
 #include "WebCoreArgumentCoders.h"
 
+#include "DataReference.h"
 #include "ShareableBitmap.h"
 #include <WebCore/AuthenticationChallenge.h>
+#include <WebCore/BlobPart.h>
+#include <WebCore/CertificateInfo.h>
 #include <WebCore/Cookie.h>
 #include <WebCore/Credential.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/DatabaseDetails.h>
 #include <WebCore/DictationAlternative.h>
-#include <WebCore/DragSession.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FileChooser.h>
+#include <WebCore/FilterOperation.h>
+#include <WebCore/FilterOperations.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/GraphicsLayer.h>
+#include <WebCore/IDBDatabaseMetadata.h>
+#include <WebCore/IDBGetResult.h>
+#include <WebCore/IDBKeyData.h>
+#include <WebCore/IDBKeyPath.h>
+#include <WebCore/IDBKeyRangeData.h>
 #include <WebCore/Image.h>
-#include <WebCore/KURL.h>
+#include <WebCore/Length.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/ProtectionSpace.h>
+#include <WebCore/Region.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
+#include <WebCore/ScrollingConstraints.h>
+#include <WebCore/ScrollingCoordinator.h>
+#include <WebCore/SessionID.h>
 #include <WebCore/TextCheckerClient.h>
+#include <WebCore/TimingFunction.h>
+#include <WebCore/TransformationMatrix.h>
+#include <WebCore/URL.h>
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
 #include <WebCore/ViewportArguments.h>
@@ -53,10 +69,22 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 
+#if PLATFORM(COCOA)
+#include "ArgumentCodersCF.h"
+#endif
+
+#if PLATFORM(IOS)
+#include <WebCore/FloatQuad.h>
+#include <WebCore/InspectorOverlay.h>
+#include <WebCore/Pasteboard.h>
+#include <WebCore/SelectionRect.h>
+#include <WebCore/SharedBuffer.h>
+#endif // PLATFORM(IOS)
+
 using namespace WebCore;
 using namespace WebKit;
 
-namespace CoreIPC {
+namespace IPC {
 
 void ArgumentCoder<AffineTransform>::encode(ArgumentEncoder& encoder, const AffineTransform& affineTransform)
 {
@@ -68,6 +96,92 @@ bool ArgumentCoder<AffineTransform>::decode(ArgumentDecoder& decoder, AffineTran
     return SimpleArgumentCoder<AffineTransform>::decode(decoder, affineTransform);
 }
 
+void ArgumentCoder<TransformationMatrix>::encode(ArgumentEncoder& encoder, const TransformationMatrix& transformationMatrix)
+{
+    SimpleArgumentCoder<TransformationMatrix>::encode(encoder, transformationMatrix);
+}
+
+bool ArgumentCoder<TransformationMatrix>::decode(ArgumentDecoder& decoder, TransformationMatrix& transformationMatrix)
+{
+    return SimpleArgumentCoder<TransformationMatrix>::decode(decoder, transformationMatrix);
+}
+
+void ArgumentCoder<LinearTimingFunction>::encode(ArgumentEncoder& encoder, const LinearTimingFunction& timingFunction)
+{
+    encoder.encodeEnum(timingFunction.type());
+}
+
+bool ArgumentCoder<LinearTimingFunction>::decode(ArgumentDecoder&, LinearTimingFunction&)
+{
+    // Type is decoded by the caller. Nothing else to decode.
+    return true;
+}
+
+void ArgumentCoder<CubicBezierTimingFunction>::encode(ArgumentEncoder& encoder, const CubicBezierTimingFunction& timingFunction)
+{
+    encoder.encodeEnum(timingFunction.type());
+    
+    encoder << timingFunction.x1();
+    encoder << timingFunction.y1();
+    encoder << timingFunction.x2();
+    encoder << timingFunction.y2();
+    
+    encoder.encodeEnum(timingFunction.timingFunctionPreset());
+}
+
+bool ArgumentCoder<CubicBezierTimingFunction>::decode(ArgumentDecoder& decoder, CubicBezierTimingFunction& timingFunction)
+{
+    // Type is decoded by the caller.
+    double x1;
+    if (!decoder.decode(x1))
+        return false;
+
+    double y1;
+    if (!decoder.decode(y1))
+        return false;
+
+    double x2;
+    if (!decoder.decode(x2))
+        return false;
+
+    double y2;
+    if (!decoder.decode(y2))
+        return false;
+
+    CubicBezierTimingFunction::TimingFunctionPreset preset;
+    if (!decoder.decodeEnum(preset))
+        return false;
+
+    timingFunction.setValues(x1, y1, x2, y2);
+    timingFunction.setTimingFunctionPreset(preset);
+
+    return true;
+}
+
+void ArgumentCoder<StepsTimingFunction>::encode(ArgumentEncoder& encoder, const StepsTimingFunction& timingFunction)
+{
+    encoder.encodeEnum(timingFunction.type());
+    
+    encoder << timingFunction.numberOfSteps();
+    encoder << timingFunction.stepAtStart();
+}
+
+bool ArgumentCoder<StepsTimingFunction>::decode(ArgumentDecoder& decoder, StepsTimingFunction& timingFunction)
+{
+    // Type is decoded by the caller.
+    int numSteps;
+    if (!decoder.decode(numSteps))
+        return false;
+
+    bool stepAtStart;
+    if (!decoder.decode(stepAtStart))
+        return false;
+
+    timingFunction.setNumberOfSteps(numSteps);
+    timingFunction.setStepAtStart(stepAtStart);
+
+    return true;
+}
 
 void ArgumentCoder<FloatPoint>::encode(ArgumentEncoder& encoder, const FloatPoint& floatPoint)
 {
@@ -77,6 +191,17 @@ void ArgumentCoder<FloatPoint>::encode(ArgumentEncoder& encoder, const FloatPoin
 bool ArgumentCoder<FloatPoint>::decode(ArgumentDecoder& decoder, FloatPoint& floatPoint)
 {
     return SimpleArgumentCoder<FloatPoint>::decode(decoder, floatPoint);
+}
+
+
+void ArgumentCoder<FloatPoint3D>::encode(ArgumentEncoder& encoder, const FloatPoint3D& floatPoint)
+{
+    SimpleArgumentCoder<FloatPoint3D>::encode(encoder, floatPoint);
+}
+
+bool ArgumentCoder<FloatPoint3D>::decode(ArgumentDecoder& decoder, FloatPoint3D& floatPoint)
+{
+    return SimpleArgumentCoder<FloatPoint3D>::decode(decoder, floatPoint);
 }
 
 
@@ -100,6 +225,29 @@ bool ArgumentCoder<FloatSize>::decode(ArgumentDecoder& decoder, FloatSize& float
 {
     return SimpleArgumentCoder<FloatSize>::decode(decoder, floatSize);
 }
+
+
+#if PLATFORM(IOS)
+void ArgumentCoder<FloatQuad>::encode(ArgumentEncoder& encoder, const FloatQuad& floatQuad)
+{
+    SimpleArgumentCoder<FloatQuad>::encode(encoder, floatQuad);
+}
+
+bool ArgumentCoder<FloatQuad>::decode(ArgumentDecoder& decoder, FloatQuad& floatQuad)
+{
+    return SimpleArgumentCoder<FloatQuad>::decode(decoder, floatQuad);
+}
+
+void ArgumentCoder<ViewportArguments>::encode(ArgumentEncoder& encoder, const ViewportArguments& viewportArguments)
+{
+    SimpleArgumentCoder<ViewportArguments>::encode(encoder, viewportArguments);
+}
+
+bool ArgumentCoder<ViewportArguments>::decode(ArgumentDecoder& decoder, ViewportArguments& viewportArguments)
+{
+    return SimpleArgumentCoder<ViewportArguments>::decode(decoder, viewportArguments);
+}
+#endif // PLATFORM(IOS)
 
 
 void ArgumentCoder<IntPoint>::encode(ArgumentEncoder& encoder, const IntPoint& intPoint)
@@ -132,6 +280,66 @@ void ArgumentCoder<IntSize>::encode(ArgumentEncoder& encoder, const IntSize& int
 bool ArgumentCoder<IntSize>::decode(ArgumentDecoder& decoder, IntSize& intSize)
 {
     return SimpleArgumentCoder<IntSize>::decode(decoder, intSize);
+}
+
+template<> struct ArgumentCoder<Region::Span> {
+    static void encode(ArgumentEncoder&, const Region::Span&);
+    static bool decode(ArgumentDecoder&, Region::Span&);
+};
+
+void ArgumentCoder<Region::Span>::encode(ArgumentEncoder& encoder, const Region::Span& span)
+{
+    encoder << span.y;
+    encoder << (uint64_t)span.segmentIndex;
+}
+
+bool ArgumentCoder<Region::Span>::decode(ArgumentDecoder& decoder, Region::Span& span)
+{
+    if (!decoder.decode(span.y))
+        return false;
+    
+    uint64_t segmentIndex;
+    if (!decoder.decode(segmentIndex))
+        return false;
+    
+    span.segmentIndex = segmentIndex;
+    return true;
+}
+
+void ArgumentCoder<Region>::encode(ArgumentEncoder& encoder, const Region& region)
+{
+    encoder.encode(region.shapeSegments());
+    encoder.encode(region.shapeSpans());
+}
+
+bool ArgumentCoder<Region>::decode(ArgumentDecoder& decoder, Region& region)
+{
+    Vector<int> segments;
+    if (!decoder.decode(segments))
+        return false;
+
+    Vector<Region::Span> spans;
+    if (!decoder.decode(spans))
+        return false;
+    
+    region.setShapeSegments(segments);
+    region.setShapeSpans(spans);
+    region.updateBoundsFromShape();
+    
+    if (!region.isValid())
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<Length>::encode(ArgumentEncoder& encoder, const Length& length)
+{
+    SimpleArgumentCoder<Length>::encode(encoder, length);
+}
+
+bool ArgumentCoder<Length>::decode(ArgumentDecoder& decoder, Length& length)
+{
+    return SimpleArgumentCoder<Length>::decode(decoder, length);
 }
 
 
@@ -188,12 +396,32 @@ bool ArgumentCoder<PluginInfo>::decode(ArgumentDecoder& decoder, PluginInfo& plu
 
 void ArgumentCoder<HTTPHeaderMap>::encode(ArgumentEncoder& encoder, const HTTPHeaderMap& headerMap)
 {
-    encoder << static_cast<const HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap);
+    encoder << static_cast<uint64_t>(headerMap.size());
+    for (auto& keyValuePair : headerMap) {
+        encoder << keyValuePair.key;
+        encoder << keyValuePair.value;
+    }
 }
 
 bool ArgumentCoder<HTTPHeaderMap>::decode(ArgumentDecoder& decoder, HTTPHeaderMap& headerMap)
 {
-    return decoder.decode(static_cast<HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap));
+    uint64_t size;
+    if (!decoder.decode(size))
+        return false;
+
+    for (size_t i = 0; i < size; ++i) {
+        String name;
+        if (!decoder.decode(name))
+            return false;
+
+        String value;
+        if (!decoder.decode(value))
+            return false;
+
+        headerMap.set(name, value);
+    }
+
+    return true;
 }
 
 
@@ -231,6 +459,13 @@ bool ArgumentCoder<AuthenticationChallenge>::decode(ArgumentDecoder& decoder, Au
 
 void ArgumentCoder<ProtectionSpace>::encode(ArgumentEncoder& encoder, const ProtectionSpace& space)
 {
+    if (space.encodingRequiresPlatformData()) {
+        encoder << true;
+        encodePlatformData(encoder, space);
+        return;
+    }
+
+    encoder << false;
     encoder << space.host() << space.port() << space.realm();
     encoder.encodeEnum(space.authenticationScheme());
     encoder.encodeEnum(space.serverType());
@@ -238,6 +473,13 @@ void ArgumentCoder<ProtectionSpace>::encode(ArgumentEncoder& encoder, const Prot
 
 bool ArgumentCoder<ProtectionSpace>::decode(ArgumentDecoder& decoder, ProtectionSpace& space)
 {
+    bool hasPlatformData;
+    if (!decoder.decode(hasPlatformData))
+        return false;
+
+    if (hasPlatformData)
+        return decodePlatformData(decoder, space);
+
     String host;
     if (!decoder.decode(host))
         return false;
@@ -264,12 +506,57 @@ bool ArgumentCoder<ProtectionSpace>::decode(ArgumentDecoder& decoder, Protection
 
 void ArgumentCoder<Credential>::encode(ArgumentEncoder& encoder, const Credential& credential)
 {
+#if CERTIFICATE_CREDENTIALS_SUPPORTED
+    encoder.encodeEnum(credential.type());
+
+    if (credential.type() == CredentialTypeClientCertificate) {
+        IPC::encode(encoder, credential.identity());
+
+        encoder << !!credential.certificates();
+        if (credential.certificates())
+            IPC::encode(encoder, credential.certificates());
+
+        encoder.encodeEnum(credential.persistence());
+        return;
+    }
+#endif
     encoder << credential.user() << credential.password();
+
     encoder.encodeEnum(credential.persistence());
 }
 
 bool ArgumentCoder<Credential>::decode(ArgumentDecoder& decoder, Credential& credential)
 {
+#if CERTIFICATE_CREDENTIALS_SUPPORTED
+    CredentialType type;
+
+    if (!decoder.decodeEnum(type))
+        return false;
+
+    if (type == CredentialTypeClientCertificate) {
+        RetainPtr<SecIdentityRef> identity;
+        if (!IPC::decode(decoder, identity))
+            return false;
+
+        bool hasCertificates;
+        if (!decoder.decode(hasCertificates))
+            return false;
+
+        RetainPtr<CFArrayRef> certificates;
+        if (hasCertificates) {
+            if (!IPC::decode(decoder, certificates))
+                return false;
+        }
+
+        CredentialPersistence persistence;
+        if (!decoder.decodeEnum(persistence))
+            return false;
+
+        credential = Credential(identity.get(), certificates.get(), persistence);
+        return true;
+    }
+#endif
+
     String user;
     if (!decoder.decode(user))
         return false;
@@ -288,7 +575,7 @@ bool ArgumentCoder<Credential>::decode(ArgumentDecoder& decoder, Credential& cre
 
 static void encodeImage(ArgumentEncoder& encoder, Image* image)
 {
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(image->size(), ShareableBitmap::SupportsAlpha);
+    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(IntSize(image->size()), ShareableBitmap::SupportsAlpha);
     bitmap->createGraphicsContext()->drawImage(image, ColorSpaceDeviceRGB, IntPoint());
 
     ShareableBitmap::Handle handle;
@@ -312,6 +599,7 @@ static bool decodeImage(ArgumentDecoder& decoder, RefPtr<Image>& image)
     return true;
 }
 
+#if !PLATFORM(IOS)
 void ArgumentCoder<Cursor>::encode(ArgumentEncoder& encoder, const Cursor& cursor)
 {
     encoder.encodeEnum(cursor.type());
@@ -371,6 +659,7 @@ bool ArgumentCoder<Cursor>::decode(ArgumentDecoder& decoder, Cursor& cursor)
     cursor = Cursor(image.get(), hotSpot);
     return true;
 }
+#endif
 
 void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder& encoder, const ResourceRequest& resourceRequest)
 {
@@ -394,7 +683,17 @@ void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder& encoder, const Reso
     encoder << resourceRequest.cachePartition();
 #endif
 
-    encodePlatformData(encoder, resourceRequest);
+#if ENABLE(INSPECTOR)
+    encoder << resourceRequest.hiddenFromInspector();
+#endif
+
+    if (resourceRequest.encodingRequiresPlatformData()) {
+        encoder << true;
+        encodePlatformData(encoder, resourceRequest);
+        return;
+    }
+    encoder << false;
+    resourceRequest.encodeWithoutPlatformData(encoder);
 }
 
 bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRequest& resourceRequest)
@@ -405,7 +704,7 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
         String url;
         if (!decoder.decode(url))
             return false;
-        request.setURL(KURL(KURL(), url));
+        request.setURL(URL(URL(), url));
 
         String httpMethod;
         if (!decoder.decode(httpMethod))
@@ -415,7 +714,7 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
         HTTPHeaderMap headers;
         if (!decoder.decode(headers))
             return false;
-        request.addHTTPHeaderFields(headers);
+        request.setHTTPHeaderFields(WTF::move(headers));
 
         bool hasHTTPBody;
         if (!decoder.decode(hasHTTPBody))
@@ -430,7 +729,7 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
         String firstPartyForCookies;
         if (!decoder.decode(firstPartyForCookies))
             return false;
-        request.setFirstPartyForCookies(KURL(KURL(), firstPartyForCookies));
+        request.setFirstPartyForCookies(URL(URL(), firstPartyForCookies));
 
         resourceRequest = request;
     }
@@ -442,12 +741,25 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
     resourceRequest.setCachePartition(cachePartition);
 #endif
 
-    return decodePlatformData(decoder, resourceRequest);
+#if ENABLE(INSPECTOR)
+    bool isHiddenFromInspector;
+    if (!decoder.decode(isHiddenFromInspector))
+        return false;
+    resourceRequest.setHiddenFromInspector(isHiddenFromInspector);
+#endif
+
+    bool hasPlatformData;
+    if (!decoder.decode(hasPlatformData))
+        return false;
+    if (hasPlatformData)
+        return decodePlatformData(decoder, resourceRequest);
+
+    return resourceRequest.decodeWithoutPlatformData(decoder);
 }
 
 void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder& encoder, const ResourceResponse& resourceResponse)
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool shouldSerializeWebCoreData = !resourceResponse.platformResponseIsUpToDate();
     encoder << shouldSerializeWebCoreData;
 #else
@@ -472,11 +784,22 @@ void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder& encoder, const Res
         encoder << resourceResponse.httpStatusText();
         encoder << resourceResponse.suggestedFilename();
     }
+    
+#if ENABLE(WEB_TIMING)
+    const ResourceLoadTiming& timing = resourceResponse.resourceLoadTiming();
+    encoder << timing.domainLookupStart;
+    encoder << timing.domainLookupEnd;
+    encoder << timing.connectStart;
+    encoder << timing.connectEnd;
+    encoder << timing.requestStart;
+    encoder << timing.responseStart;
+    encoder << timing.secureConnectionStart;
+#endif
 }
 
 bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder& decoder, ResourceResponse& resourceResponse)
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool hasSerializedWebCoreData;
     if (!decoder.decode(hasSerializedWebCoreData))
         return false;
@@ -501,7 +824,7 @@ bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder& decoder, ResourceR
         String url;
         if (!decoder.decode(url))
             return false;
-        response.setURL(KURL(KURL(), url));
+        response.setURL(URL(URL(), url));
 
         int32_t httpStatusCode;
         if (!decoder.decode(httpStatusCode))
@@ -539,6 +862,18 @@ bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder& decoder, ResourceR
             return false;
         response.setSuggestedFilename(suggestedFilename);
     }
+    
+#if ENABLE(WEB_TIMING)
+    ResourceLoadTiming& timing = response.resourceLoadTiming();
+    if (!decoder.decode(timing.domainLookupStart)
+        || !decoder.decode(timing.domainLookupEnd)
+        || !decoder.decode(timing.connectStart)
+        || !decoder.decode(timing.connectEnd)
+        || !decoder.decode(timing.requestStart)
+        || !decoder.decode(timing.responseStart)
+        || !decoder.decode(timing.secureConnectionStart))
+        return false;
+#endif
 
     resourceResponse = response;
 
@@ -606,6 +941,83 @@ bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder& decoder, ResourceErro
 
     return decodePlatformData(decoder, resourceError);
 }
+
+#if PLATFORM(IOS)
+
+void ArgumentCoder<SelectionRect>::encode(ArgumentEncoder& encoder, const SelectionRect& selectionRect)
+{
+    encoder << selectionRect.rect();
+    encoder << static_cast<uint32_t>(selectionRect.direction());
+    encoder << selectionRect.minX();
+    encoder << selectionRect.maxX();
+    encoder << selectionRect.maxY();
+    encoder << selectionRect.lineNumber();
+    encoder << selectionRect.isLineBreak();
+    encoder << selectionRect.isFirstOnLine();
+    encoder << selectionRect.isLastOnLine();
+    encoder << selectionRect.containsStart();
+    encoder << selectionRect.containsEnd();
+    encoder << selectionRect.isHorizontal();
+}
+
+bool ArgumentCoder<SelectionRect>::decode(ArgumentDecoder& decoder, SelectionRect& selectionRect)
+{
+    IntRect rect;
+    if (!decoder.decode(rect))
+        return false;
+    selectionRect.setRect(rect);
+
+    uint32_t direction;
+    if (!decoder.decode(direction))
+        return false;
+    selectionRect.setDirection((TextDirection)direction);
+
+    int intValue;
+    if (!decoder.decode(intValue))
+        return false;
+    selectionRect.setMinX(intValue);
+
+    if (!decoder.decode(intValue))
+        return false;
+    selectionRect.setMaxX(intValue);
+
+    if (!decoder.decode(intValue))
+        return false;
+    selectionRect.setMaxY(intValue);
+
+    if (!decoder.decode(intValue))
+        return false;
+    selectionRect.setLineNumber(intValue);
+
+    bool boolValue;
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setIsLineBreak(boolValue);
+
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setIsFirstOnLine(boolValue);
+
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setIsLastOnLine(boolValue);
+
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setContainsStart(boolValue);
+
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setContainsEnd(boolValue);
+
+    if (!decoder.decode(boolValue))
+        return false;
+    selectionRect.setIsHorizontal(boolValue);
+
+    return true;
+}
+
+#endif
 
 void ArgumentCoder<WindowFeatures>::encode(ArgumentEncoder& encoder, const WindowFeatures& windowFeatures)
 {
@@ -761,6 +1173,8 @@ void ArgumentCoder<DatabaseDetails>::encode(ArgumentEncoder& encoder, const Data
     encoder << details.displayName();
     encoder << details.expectedUsage();
     encoder << details.currentUsage();
+    encoder << details.creationTime();
+    encoder << details.modificationTime();
 }
     
 bool ArgumentCoder<DatabaseDetails>::decode(ArgumentDecoder& decoder, DatabaseDetails& details)
@@ -780,10 +1194,153 @@ bool ArgumentCoder<DatabaseDetails>::decode(ArgumentDecoder& decoder, DatabaseDe
     uint64_t currentUsage;
     if (!decoder.decode(currentUsage))
         return false;
-    
-    details = DatabaseDetails(name, displayName, expectedUsage, currentUsage);
+
+    double creationTime;
+    if (!decoder.decode(creationTime))
+        return false;
+
+    double modificationTime;
+    if (!decoder.decode(modificationTime))
+        return false;
+
+    details = DatabaseDetails(name, displayName, expectedUsage, currentUsage, creationTime, modificationTime);
     return true;
 }
+
+#endif
+
+#if PLATFORM(IOS)
+
+void ArgumentCoder<Highlight>::encode(ArgumentEncoder& encoder, const Highlight& highlight)
+{
+    encoder << static_cast<uint32_t>(highlight.type);
+    encoder << highlight.usePageCoordinates;
+    encoder << highlight.contentColor;
+    encoder << highlight.contentOutlineColor;
+    encoder << highlight.paddingColor;
+    encoder << highlight.borderColor;
+    encoder << highlight.marginColor;
+    encoder << highlight.quads;
+}
+
+bool ArgumentCoder<Highlight>::decode(ArgumentDecoder& decoder, Highlight& highlight)
+{
+    uint32_t type;
+    if (!decoder.decode(type))
+        return false;
+    highlight.type = (HighlightType)type;
+
+    if (!decoder.decode(highlight.usePageCoordinates))
+        return false;
+    if (!decoder.decode(highlight.contentColor))
+        return false;
+    if (!decoder.decode(highlight.contentOutlineColor))
+        return false;
+    if (!decoder.decode(highlight.paddingColor))
+        return false;
+    if (!decoder.decode(highlight.borderColor))
+        return false;
+    if (!decoder.decode(highlight.marginColor))
+        return false;
+    if (!decoder.decode(highlight.quads))
+        return false;
+    return true;
+}
+
+static void encodeSharedBuffer(ArgumentEncoder& encoder, SharedBuffer* buffer)
+{
+    SharedMemory::Handle handle;
+    encoder << (buffer ? static_cast<uint64_t>(buffer->size()): 0);
+    if (buffer) {
+        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(buffer->size());
+        memcpy(sharedMemoryBuffer->data(), buffer->data(), buffer->size());
+        sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+        encoder << handle;
+    }
+}
+
+static bool decodeSharedBuffer(ArgumentDecoder& decoder, RefPtr<SharedBuffer>& buffer)
+{
+    uint64_t bufferSize = 0;
+    if (!decoder.decode(bufferSize))
+        return false;
+
+    if (bufferSize) {
+        SharedMemory::Handle handle;
+        if (!decoder.decode(handle))
+            return false;
+
+        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(handle, SharedMemory::ReadOnly);
+        buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), bufferSize);
+    }
+
+    return true;
+}
+
+void ArgumentCoder<PasteboardWebContent>::encode(ArgumentEncoder& encoder, const PasteboardWebContent& content)
+{
+    encoder << content.canSmartCopyOrDelete;
+    encoder << content.dataInStringFormat;
+
+    encodeSharedBuffer(encoder, content.dataInWebArchiveFormat.get());
+    encodeSharedBuffer(encoder, content.dataInRTFDFormat.get());
+    encodeSharedBuffer(encoder, content.dataInRTFFormat.get());
+
+    encoder << content.clientTypes;
+    encoder << static_cast<uint64_t>(content.clientData.size());
+    for (size_t i = 0; i < content.clientData.size(); i++)
+        encodeSharedBuffer(encoder, content.clientData[i].get());
+}
+
+bool ArgumentCoder<PasteboardWebContent>::decode(ArgumentDecoder& decoder, PasteboardWebContent& content)
+{
+    if (!decoder.decode(content.canSmartCopyOrDelete))
+        return false;
+    if (!decoder.decode(content.dataInStringFormat))
+        return false;
+    if (!decodeSharedBuffer(decoder, content.dataInWebArchiveFormat))
+        return false;
+    if (!decodeSharedBuffer(decoder, content.dataInRTFDFormat))
+        return false;
+    if (!decodeSharedBuffer(decoder, content.dataInRTFFormat))
+        return false;
+    if (!decoder.decode(content.clientTypes))
+        return false;
+    uint64_t clientDataSize;
+    if (!decoder.decode(clientDataSize))
+        return false;
+    if (clientDataSize)
+        content.clientData.resize(clientDataSize);
+    for (size_t i = 0; i < clientDataSize; i++)
+        decodeSharedBuffer(decoder, content.clientData[i]);
+    return true;
+}
+
+void ArgumentCoder<PasteboardImage>::encode(ArgumentEncoder& encoder, const PasteboardImage& pasteboardImage)
+{
+    encodeImage(encoder, pasteboardImage.image.get());
+    encoder << pasteboardImage.url.url;
+    encoder << pasteboardImage.url.title;
+    encoder << pasteboardImage.resourceMIMEType;
+    if (pasteboardImage.resourceData)
+        encodeSharedBuffer(encoder, pasteboardImage.resourceData.get());
+}
+
+bool ArgumentCoder<PasteboardImage>::decode(ArgumentDecoder& decoder, PasteboardImage& pasteboardImage)
+{
+    if (!decodeImage(decoder, pasteboardImage.image))
+        return false;
+    if (!decoder.decode(pasteboardImage.url.url))
+        return false;
+    if (!decoder.decode(pasteboardImage.url.title))
+        return false;
+    if (!decoder.decode(pasteboardImage.resourceMIMEType))
+        return false;
+    if (!decodeSharedBuffer(decoder, pasteboardImage.resourceData))
+        return false;
+    return true;
+}
+
 #endif
 
 void ArgumentCoder<DictationAlternative>::encode(ArgumentEncoder& encoder, const DictationAlternative& dictationAlternative)
@@ -808,9 +1365,6 @@ bool ArgumentCoder<DictationAlternative>::decode(ArgumentDecoder& decoder, Dicta
 void ArgumentCoder<FileChooserSettings>::encode(ArgumentEncoder& encoder, const FileChooserSettings& settings)
 {
     encoder << settings.allowsMultipleFiles;
-#if ENABLE(DIRECTORY_UPLOAD)
-    encoder << settings.allowsDirectoryUpload;
-#endif
     encoder << settings.acceptMIMETypes;
     encoder << settings.selectedFiles;
 #if ENABLE(MEDIA_CAPTURE)
@@ -822,10 +1376,6 @@ bool ArgumentCoder<FileChooserSettings>::decode(ArgumentDecoder& decoder, FileCh
 {
     if (!decoder.decode(settings.allowsMultipleFiles))
         return false;
-#if ENABLE(DIRECTORY_UPLOAD)
-    if (!decoder.decode(settings.allowsDirectoryUpload))
-        return false;
-#endif
     if (!decoder.decode(settings.acceptMIMETypes))
         return false;
     if (!decoder.decode(settings.selectedFiles))
@@ -915,39 +1465,21 @@ bool ArgumentCoder<TextCheckingResult>::decode(ArgumentDecoder& decoder, TextChe
     return true;
 }
 
-void ArgumentCoder<DragSession>::encode(ArgumentEncoder& encoder, const DragSession& result)
-{
-    encoder.encodeEnum(result.operation);
-    encoder << result.mouseIsOverFileInput;
-    encoder << result.numberOfItemsToBeAccepted;
-}
-
-bool ArgumentCoder<DragSession>::decode(ArgumentDecoder& decoder, DragSession& result)
-{
-    if (!decoder.decodeEnum(result.operation))
-        return false;
-    if (!decoder.decode(result.mouseIsOverFileInput))
-        return false;
-    if (!decoder.decode(result.numberOfItemsToBeAccepted))
-        return false;
-    return true;
-}
-
-void ArgumentCoder<KURL>::encode(ArgumentEncoder& encoder, const KURL& result)
+void ArgumentCoder<URL>::encode(ArgumentEncoder& encoder, const URL& result)
 {
     encoder << result.string();
 }
     
-bool ArgumentCoder<KURL>::decode(ArgumentDecoder& decoder, KURL& result)
+bool ArgumentCoder<URL>::decode(ArgumentDecoder& decoder, URL& result)
 {
     String urlAsString;
     if (!decoder.decode(urlAsString))
         return false;
-    result = KURL(WebCore::ParsedURLString, urlAsString);
+    result = URL(ParsedURLString, urlAsString);
     return true;
 }
 
-void ArgumentCoder<WebCore::UserStyleSheet>::encode(ArgumentEncoder& encoder, const WebCore::UserStyleSheet& userStyleSheet)
+void ArgumentCoder<UserStyleSheet>::encode(ArgumentEncoder& encoder, const UserStyleSheet& userStyleSheet)
 {
     encoder << userStyleSheet.source();
     encoder << userStyleSheet.url();
@@ -957,13 +1489,13 @@ void ArgumentCoder<WebCore::UserStyleSheet>::encode(ArgumentEncoder& encoder, co
     encoder.encodeEnum(userStyleSheet.level());
 }
 
-bool ArgumentCoder<WebCore::UserStyleSheet>::decode(ArgumentDecoder& decoder, WebCore::UserStyleSheet& userStyleSheet)
+bool ArgumentCoder<UserStyleSheet>::decode(ArgumentDecoder& decoder, UserStyleSheet& userStyleSheet)
 {
     String source;
     if (!decoder.decode(source))
         return false;
 
-    KURL url;
+    URL url;
     if (!decoder.decode(url))
         return false;
 
@@ -975,19 +1507,19 @@ bool ArgumentCoder<WebCore::UserStyleSheet>::decode(ArgumentDecoder& decoder, We
     if (!decoder.decode(blacklist))
         return false;
 
-    WebCore::UserContentInjectedFrames injectedFrames;
+    UserContentInjectedFrames injectedFrames;
     if (!decoder.decodeEnum(injectedFrames))
         return false;
 
-    WebCore::UserStyleLevel level;
+    UserStyleLevel level;
     if (!decoder.decodeEnum(level))
         return false;
 
-    userStyleSheet = WebCore::UserStyleSheet(source, url, whitelist, blacklist, injectedFrames, level);
+    userStyleSheet = UserStyleSheet(source, url, whitelist, blacklist, injectedFrames, level);
     return true;
 }
 
-void ArgumentCoder<WebCore::UserScript>::encode(ArgumentEncoder& encoder, const WebCore::UserScript& userScript)
+void ArgumentCoder<UserScript>::encode(ArgumentEncoder& encoder, const UserScript& userScript)
 {
     encoder << userScript.source();
     encoder << userScript.url();
@@ -997,13 +1529,13 @@ void ArgumentCoder<WebCore::UserScript>::encode(ArgumentEncoder& encoder, const 
     encoder.encodeEnum(userScript.injectedFrames());
 }
 
-bool ArgumentCoder<WebCore::UserScript>::decode(ArgumentDecoder& decoder, WebCore::UserScript& userScript)
+bool ArgumentCoder<UserScript>::decode(ArgumentDecoder& decoder, UserScript& userScript)
 {
     String source;
     if (!decoder.decode(source))
         return false;
 
-    KURL url;
+    URL url;
     if (!decoder.decode(url))
         return false;
 
@@ -1015,16 +1547,626 @@ bool ArgumentCoder<WebCore::UserScript>::decode(ArgumentDecoder& decoder, WebCor
     if (!decoder.decode(blacklist))
         return false;
 
-    WebCore::UserScriptInjectionTime injectionTime;
+    UserScriptInjectionTime injectionTime;
     if (!decoder.decodeEnum(injectionTime))
         return false;
 
-    WebCore::UserContentInjectedFrames injectedFrames;
+    UserContentInjectedFrames injectedFrames;
     if (!decoder.decodeEnum(injectedFrames))
         return false;
 
-    userScript = WebCore::UserScript(source, url, whitelist, blacklist, injectionTime, injectedFrames);
+    userScript = UserScript(source, url, whitelist, blacklist, injectionTime, injectedFrames);
     return true;
 }
 
-} // namespace CoreIPC
+void ArgumentCoder<ScrollableAreaParameters>::encode(ArgumentEncoder& encoder, const ScrollableAreaParameters& parameters)
+{
+    encoder.encodeEnum(parameters.horizontalScrollElasticity);
+    encoder.encodeEnum(parameters.verticalScrollElasticity);
+
+    encoder.encodeEnum(parameters.horizontalScrollbarMode);
+    encoder.encodeEnum(parameters.verticalScrollbarMode);
+
+    encoder << parameters.hasEnabledHorizontalScrollbar;
+    encoder << parameters.hasEnabledVerticalScrollbar;
+}
+
+bool ArgumentCoder<ScrollableAreaParameters>::decode(ArgumentDecoder& decoder, ScrollableAreaParameters& params)
+{
+    if (!decoder.decodeEnum(params.horizontalScrollElasticity))
+        return false;
+    if (!decoder.decodeEnum(params.verticalScrollElasticity))
+        return false;
+
+    if (!decoder.decodeEnum(params.horizontalScrollbarMode))
+        return false;
+    if (!decoder.decodeEnum(params.verticalScrollbarMode))
+        return false;
+
+    if (!decoder.decode(params.hasEnabledHorizontalScrollbar))
+        return false;
+    if (!decoder.decode(params.hasEnabledVerticalScrollbar))
+        return false;
+    
+    return true;
+}
+
+void ArgumentCoder<FixedPositionViewportConstraints>::encode(ArgumentEncoder& encoder, const FixedPositionViewportConstraints& viewportConstraints)
+{
+    encoder << viewportConstraints.alignmentOffset();
+    encoder << viewportConstraints.anchorEdges();
+
+    encoder << viewportConstraints.viewportRectAtLastLayout();
+    encoder << viewportConstraints.layerPositionAtLastLayout();
+}
+
+bool ArgumentCoder<FixedPositionViewportConstraints>::decode(ArgumentDecoder& decoder, FixedPositionViewportConstraints& viewportConstraints)
+{
+    FloatSize alignmentOffset;
+    if (!decoder.decode(alignmentOffset))
+        return false;
+    
+    ViewportConstraints::AnchorEdges anchorEdges;
+    if (!decoder.decode(anchorEdges))
+        return false;
+
+    FloatRect viewportRectAtLastLayout;
+    if (!decoder.decode(viewportRectAtLastLayout))
+        return false;
+
+    FloatPoint layerPositionAtLastLayout;
+    if (!decoder.decode(layerPositionAtLastLayout))
+        return false;
+
+    viewportConstraints = FixedPositionViewportConstraints();
+    viewportConstraints.setAlignmentOffset(alignmentOffset);
+    viewportConstraints.setAnchorEdges(anchorEdges);
+
+    viewportConstraints.setViewportRectAtLastLayout(viewportRectAtLastLayout);
+    viewportConstraints.setLayerPositionAtLastLayout(layerPositionAtLastLayout);
+    
+    return true;
+}
+
+void ArgumentCoder<StickyPositionViewportConstraints>::encode(ArgumentEncoder& encoder, const StickyPositionViewportConstraints& viewportConstraints)
+{
+    encoder << viewportConstraints.alignmentOffset();
+    encoder << viewportConstraints.anchorEdges();
+
+    encoder << viewportConstraints.leftOffset();
+    encoder << viewportConstraints.rightOffset();
+    encoder << viewportConstraints.topOffset();
+    encoder << viewportConstraints.bottomOffset();
+
+    encoder << viewportConstraints.constrainingRectAtLastLayout();
+    encoder << viewportConstraints.containingBlockRect();
+    encoder << viewportConstraints.stickyBoxRect();
+
+    encoder << viewportConstraints.stickyOffsetAtLastLayout();
+    encoder << viewportConstraints.layerPositionAtLastLayout();
+}
+
+bool ArgumentCoder<StickyPositionViewportConstraints>::decode(ArgumentDecoder& decoder, StickyPositionViewportConstraints& viewportConstraints)
+{
+    FloatSize alignmentOffset;
+    if (!decoder.decode(alignmentOffset))
+        return false;
+    
+    ViewportConstraints::AnchorEdges anchorEdges;
+    if (!decoder.decode(anchorEdges))
+        return false;
+    
+    float leftOffset;
+    if (!decoder.decode(leftOffset))
+        return false;
+
+    float rightOffset;
+    if (!decoder.decode(rightOffset))
+        return false;
+
+    float topOffset;
+    if (!decoder.decode(topOffset))
+        return false;
+
+    float bottomOffset;
+    if (!decoder.decode(bottomOffset))
+        return false;
+    
+    FloatRect constrainingRectAtLastLayout;
+    if (!decoder.decode(constrainingRectAtLastLayout))
+        return false;
+
+    FloatRect containingBlockRect;
+    if (!decoder.decode(containingBlockRect))
+        return false;
+
+    FloatRect stickyBoxRect;
+    if (!decoder.decode(stickyBoxRect))
+        return false;
+
+    FloatSize stickyOffsetAtLastLayout;
+    if (!decoder.decode(stickyOffsetAtLastLayout))
+        return false;
+    
+    FloatPoint layerPositionAtLastLayout;
+    if (!decoder.decode(layerPositionAtLastLayout))
+        return false;
+    
+    viewportConstraints = StickyPositionViewportConstraints();
+    viewportConstraints.setAlignmentOffset(alignmentOffset);
+    viewportConstraints.setAnchorEdges(anchorEdges);
+
+    viewportConstraints.setLeftOffset(leftOffset);
+    viewportConstraints.setRightOffset(rightOffset);
+    viewportConstraints.setTopOffset(topOffset);
+    viewportConstraints.setBottomOffset(bottomOffset);
+    
+    viewportConstraints.setConstrainingRectAtLastLayout(constrainingRectAtLastLayout);
+    viewportConstraints.setContainingBlockRect(containingBlockRect);
+    viewportConstraints.setStickyBoxRect(stickyBoxRect);
+
+    viewportConstraints.setStickyOffsetAtLastLayout(stickyOffsetAtLastLayout);
+    viewportConstraints.setLayerPositionAtLastLayout(layerPositionAtLastLayout);
+
+    return true;
+}
+
+#if ENABLE(CSS_FILTERS) && !USE(COORDINATED_GRAPHICS)
+void ArgumentCoder<FilterOperation>::encode(ArgumentEncoder& encoder, const FilterOperation& filter)
+{
+    encoder.encodeEnum(filter.type());
+
+    switch (filter.type()) {
+    case FilterOperation::NONE:
+    case FilterOperation::REFERENCE:
+        ASSERT_NOT_REACHED();
+        break;
+    case FilterOperation::GRAYSCALE:
+    case FilterOperation::SEPIA:
+    case FilterOperation::SATURATE:
+    case FilterOperation::HUE_ROTATE:
+        encoder << toBasicColorMatrixFilterOperation(filter).amount();
+        break;
+    case FilterOperation::INVERT:
+    case FilterOperation::OPACITY:
+    case FilterOperation::BRIGHTNESS:
+    case FilterOperation::CONTRAST:
+        encoder << toBasicComponentTransferFilterOperation(filter).amount();
+        break;
+    case FilterOperation::BLUR:
+        encoder << toBlurFilterOperation(filter).stdDeviation();
+        break;
+    case FilterOperation::DROP_SHADOW: {
+        const auto& dropShadowFilter = toDropShadowFilterOperation(filter);
+        encoder << dropShadowFilter.location();
+        encoder << dropShadowFilter.stdDeviation();
+        encoder << dropShadowFilter.color();
+        break;
+    }
+    case FilterOperation::DEFAULT:
+        encoder.encodeEnum(toDefaultFilterOperation(filter).representedType());
+        break;
+    case FilterOperation::PASSTHROUGH:
+        break;
+    }
+}
+
+bool decodeFilterOperation(ArgumentDecoder& decoder, RefPtr<FilterOperation>& filter)
+{
+    FilterOperation::OperationType type;
+    if (!decoder.decodeEnum(type))
+        return false;
+
+    switch (type) {
+    case FilterOperation::NONE:
+    case FilterOperation::REFERENCE:
+        ASSERT_NOT_REACHED();
+        decoder.markInvalid();
+        return false;
+    case FilterOperation::GRAYSCALE:
+    case FilterOperation::SEPIA:
+    case FilterOperation::SATURATE:
+    case FilterOperation::HUE_ROTATE: {
+        double amount;
+        if (!decoder.decode(amount))
+            return false;
+        filter = BasicColorMatrixFilterOperation::create(amount, type);
+        break;
+    }
+    case FilterOperation::INVERT:
+    case FilterOperation::OPACITY:
+    case FilterOperation::BRIGHTNESS:
+    case FilterOperation::CONTRAST: {
+        double amount;
+        if (!decoder.decode(amount))
+            return false;
+        filter = BasicComponentTransferFilterOperation::create(amount, type);
+        break;
+    }
+    case FilterOperation::BLUR: {
+        Length stdDeviation;
+        if (!decoder.decode(stdDeviation))
+            return false;
+        filter = BlurFilterOperation::create(stdDeviation);
+        break;
+    }
+    case FilterOperation::DROP_SHADOW: {
+        IntPoint location;
+        int stdDeviation;
+        Color color;
+        if (!decoder.decode(location))
+            return false;
+        if (!decoder.decode(stdDeviation))
+            return false;
+        if (!decoder.decode(color))
+            return false;
+        filter = DropShadowFilterOperation::create(location, stdDeviation, color);
+        break;
+    }
+    case FilterOperation::DEFAULT: {
+        FilterOperation::OperationType representedType;
+        if (!decoder.decodeEnum(representedType))
+            return false;
+        filter = DefaultFilterOperation::create(representedType);
+        break;
+    }
+    case FilterOperation::PASSTHROUGH:
+        filter = PassthroughFilterOperation::create();
+        break;
+    }
+            
+    return true;
+}
+
+
+void ArgumentCoder<FilterOperations>::encode(ArgumentEncoder& encoder, const FilterOperations& filters)
+{
+    encoder << static_cast<uint64_t>(filters.size());
+
+    for (const auto& filter : filters.operations())
+        encoder << *filter;
+}
+
+bool ArgumentCoder<FilterOperations>::decode(ArgumentDecoder& decoder, FilterOperations& filters)
+{
+    uint64_t filterCount;
+    if (!decoder.decode(filterCount))
+        return false;
+
+    for (uint64_t i = 0; i < filterCount; ++i) {
+        RefPtr<FilterOperation> filter;
+        if (!decodeFilterOperation(decoder, filter))
+            return false;
+        filters.operations().append(WTF::move(filter));
+    }
+
+    return true;
+}
+#endif // ENABLE(CSS_FILTERS) && !USE(COORDINATED_GRAPHICS)
+
+#if ENABLE(INDEXED_DATABASE)
+void ArgumentCoder<IDBDatabaseMetadata>::encode(ArgumentEncoder& encoder, const IDBDatabaseMetadata& metadata)
+{
+    encoder << metadata.name << metadata.id << metadata.version << metadata.maxObjectStoreId << metadata.objectStores;
+}
+
+bool ArgumentCoder<IDBDatabaseMetadata>::decode(ArgumentDecoder& decoder, IDBDatabaseMetadata& metadata)
+{
+    if (!decoder.decode(metadata.name))
+        return false;
+
+    if (!decoder.decode(metadata.id))
+        return false;
+
+    if (!decoder.decode(metadata.version))
+        return false;
+
+    if (!decoder.decode(metadata.maxObjectStoreId))
+        return false;
+
+    if (!decoder.decode(metadata.objectStores))
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<IDBIndexMetadata>::encode(ArgumentEncoder& encoder, const IDBIndexMetadata& metadata)
+{
+    encoder << metadata.name << metadata.id << metadata.keyPath << metadata.unique << metadata.multiEntry;
+}
+
+bool ArgumentCoder<IDBIndexMetadata>::decode(ArgumentDecoder& decoder, IDBIndexMetadata& metadata)
+{
+    if (!decoder.decode(metadata.name))
+        return false;
+
+    if (!decoder.decode(metadata.id))
+        return false;
+
+    if (!decoder.decode(metadata.keyPath))
+        return false;
+
+    if (!decoder.decode(metadata.unique))
+        return false;
+
+    if (!decoder.decode(metadata.multiEntry))
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<IDBGetResult>::encode(ArgumentEncoder& encoder, const IDBGetResult& result)
+{
+    bool nullData = !result.valueBuffer;
+    encoder << nullData;
+
+    if (!nullData)
+        encoder << DataReference(reinterpret_cast<const uint8_t*>(result.valueBuffer->data()), result.valueBuffer->size());
+
+    encoder << result.keyData << result.keyPath;
+}
+
+bool ArgumentCoder<IDBGetResult>::decode(ArgumentDecoder& decoder, IDBGetResult& result)
+{
+    bool nullData;
+    if (!decoder.decode(nullData))
+        return false;
+
+    if (nullData)
+        result.valueBuffer = nullptr;
+    else {
+        DataReference data;
+        if (!decoder.decode(data))
+            return false;
+
+        result.valueBuffer = SharedBuffer::create(data.data(), data.size());
+    }
+
+    if (!decoder.decode(result.keyData))
+        return false;
+
+    if (!decoder.decode(result.keyPath))
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<IDBKeyData>::encode(ArgumentEncoder& encoder, const IDBKeyData& keyData)
+{
+    encoder << keyData.isNull;
+    if (keyData.isNull)
+        return;
+
+    encoder.encodeEnum(keyData.type);
+
+    switch (keyData.type) {
+    case IDBKey::InvalidType:
+        break;
+    case IDBKey::ArrayType:
+        encoder << keyData.arrayValue;
+        break;
+    case IDBKey::StringType:
+        encoder << keyData.stringValue;
+        break;
+    case IDBKey::DateType:
+    case IDBKey::NumberType:
+        encoder << keyData.numberValue;
+        break;
+    case IDBKey::MaxType:
+    case IDBKey::MinType:
+        // MaxType and MinType are only used for comparison to other keys.
+        // They should never be sent across the wire.
+        ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
+bool ArgumentCoder<IDBKeyData>::decode(ArgumentDecoder& decoder, IDBKeyData& keyData)
+{
+    if (!decoder.decode(keyData.isNull))
+        return false;
+
+    if (keyData.isNull)
+        return true;
+
+    if (!decoder.decodeEnum(keyData.type))
+        return false;
+
+    switch (keyData.type) {
+    case IDBKey::InvalidType:
+        break;
+    case IDBKey::ArrayType:
+        if (!decoder.decode(keyData.arrayValue))
+            return false;
+        break;
+    case IDBKey::StringType:
+        if (!decoder.decode(keyData.stringValue))
+            return false;
+        break;
+    case IDBKey::DateType:
+    case IDBKey::NumberType:
+        if (!decoder.decode(keyData.numberValue))
+            return false;
+        break;
+    case IDBKey::MaxType:
+    case IDBKey::MinType:
+        // MaxType and MinType are only used for comparison to other keys.
+        // They should never be sent across the wire.
+        ASSERT_NOT_REACHED();
+        decoder.markInvalid();
+        return false;
+    }
+
+    return true;
+}
+
+void ArgumentCoder<IDBKeyPath>::encode(ArgumentEncoder& encoder, const IDBKeyPath& keyPath)
+{
+    encoder.encodeEnum(keyPath.type());
+
+    switch (keyPath.type()) {
+    case IDBKeyPath::NullType:
+        break;
+    case IDBKeyPath::StringType:
+        encoder << keyPath.string();
+        break;
+    case IDBKeyPath::ArrayType:
+        encoder << keyPath.array();
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+bool ArgumentCoder<IDBKeyPath>::decode(ArgumentDecoder& decoder, IDBKeyPath& keyPath)
+{
+    IDBKeyPath::Type type;
+    if (!decoder.decodeEnum(type))
+        return false;
+
+    switch (type) {
+    case IDBKeyPath::NullType:
+        keyPath = IDBKeyPath();
+        return true;
+
+    case IDBKeyPath::StringType: {
+        String string;
+        if (!decoder.decode(string))
+            return false;
+
+        keyPath = IDBKeyPath(string);
+        return true;
+    }
+    case IDBKeyPath::ArrayType: {
+        Vector<String> array;
+        if (!decoder.decode(array))
+            return false;
+
+        keyPath = IDBKeyPath(array);
+        return true;
+    }
+    default:
+        return false;
+    }
+}
+
+void ArgumentCoder<IDBKeyRangeData>::encode(ArgumentEncoder& encoder, const IDBKeyRangeData& keyRange)
+{
+    encoder << keyRange.isNull;
+    if (keyRange.isNull)
+        return;
+
+    encoder << keyRange.upperKey << keyRange.lowerKey << keyRange.upperOpen << keyRange.lowerOpen;
+}
+
+bool ArgumentCoder<IDBKeyRangeData>::decode(ArgumentDecoder& decoder, IDBKeyRangeData& keyRange)
+{
+    if (!decoder.decode(keyRange.isNull))
+        return false;
+
+    if (keyRange.isNull)
+        return true;
+
+    if (!decoder.decode(keyRange.upperKey))
+        return false;
+
+    if (!decoder.decode(keyRange.lowerKey))
+        return false;
+
+    if (!decoder.decode(keyRange.upperOpen))
+        return false;
+
+    if (!decoder.decode(keyRange.lowerOpen))
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<IDBObjectStoreMetadata>::encode(ArgumentEncoder& encoder, const IDBObjectStoreMetadata& metadata)
+{
+    encoder << metadata.name << metadata.id << metadata.keyPath << metadata.autoIncrement << metadata.maxIndexId << metadata.indexes;
+}
+
+bool ArgumentCoder<IDBObjectStoreMetadata>::decode(ArgumentDecoder& decoder, IDBObjectStoreMetadata& metadata)
+{
+    if (!decoder.decode(metadata.name))
+        return false;
+
+    if (!decoder.decode(metadata.id))
+        return false;
+
+    if (!decoder.decode(metadata.keyPath))
+        return false;
+
+    if (!decoder.decode(metadata.autoIncrement))
+        return false;
+
+    if (!decoder.decode(metadata.maxIndexId))
+        return false;
+
+    if (!decoder.decode(metadata.indexes))
+        return false;
+
+    return true;
+}
+
+#endif // ENABLE(INDEXED_DATABASE)
+
+void ArgumentCoder<SessionID>::encode(ArgumentEncoder& encoder, const SessionID& sessionID)
+{
+    encoder << sessionID.sessionID();
+}
+
+bool ArgumentCoder<SessionID>::decode(ArgumentDecoder& decoder, SessionID& sessionID)
+{
+    uint64_t session;
+    if (!decoder.decode(session))
+        return false;
+
+    sessionID = SessionID(session);
+
+    return true;
+}
+
+void ArgumentCoder<BlobPart>::encode(ArgumentEncoder& encoder, const BlobPart& blobPart)
+{
+    encoder << static_cast<uint32_t>(blobPart.type());
+    switch (blobPart.type()) {
+    case BlobPart::Data:
+        encoder << blobPart.data();
+        break;
+    case BlobPart::Blob:
+        encoder << blobPart.url();
+        break;
+    }
+}
+
+bool ArgumentCoder<BlobPart>::decode(ArgumentDecoder& decoder, BlobPart& blobPart)
+{
+    uint32_t type;
+    if (!decoder.decode(type))
+        return false;
+
+    switch (type) {
+    case BlobPart::Data: {
+        Vector<char> data;
+        if (!decoder.decode(data))
+            return false;
+        blobPart = BlobPart(WTF::move(data));
+        break;
+    }
+    case BlobPart::Blob: {
+        String url;
+        if (!decoder.decode(url))
+            return false;
+        blobPart = BlobPart(URL(URL(), url));
+        break;
+    }
+    default:
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace IPC

@@ -26,13 +26,11 @@
 #include "HTMLParserIdioms.h"
 
 #include "Decimal.h"
-#include "HTMLIdentifier.h"
-#include "QualifiedName.h"
+#include "URL.h"
 #include <limits>
 #include <wtf/MathExtras.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -73,7 +71,7 @@ String stripLeadingAndTrailingHTMLSpaces(const String& string)
     if (string.is8Bit())
         return stripLeadingAndTrailingHTMLSpaces(string, string.characters8(), length);
 
-    return stripLeadingAndTrailingHTMLSpaces(string, string.characters(), length);
+    return stripLeadingAndTrailingHTMLSpaces(string, string.characters16(), length);
 }
 
 String serializeForNumberType(const Decimal& number)
@@ -169,7 +167,7 @@ static bool parseHTMLIntegerInternal(const CharacterType* position, const Charac
     // Step 5
     if (position == end)
         return false;
-    ASSERT(position < end);
+    ASSERT_WITH_SECURITY_IMPLICATION(position < end);
 
     // Step 6
     if (*position == '-') {
@@ -179,7 +177,7 @@ static bool parseHTMLIntegerInternal(const CharacterType* position, const Charac
         ++position;
     if (position == end)
         return false;
-    ASSERT(position < end);
+    ASSERT_WITH_SECURITY_IMPLICATION(position < end);
 
     // Step 7
     if (!isASCIIDigit(*position))
@@ -208,12 +206,12 @@ bool parseHTMLInteger(const String& input, int& value)
     // Step 1
     // Step 2
     unsigned length = input.length();
-    if (length && input.is8Bit()) {
+    if (!length || input.is8Bit()) {
         const LChar* start = input.characters8();
         return parseHTMLIntegerInternal(start, start + length, value);
     }
 
-    const UChar* start = input.characters();
+    const UChar* start = input.characters16();
     return parseHTMLIntegerInternal(start, start + length, value);
 }
 
@@ -230,7 +228,7 @@ static bool parseHTMLNonNegativeIntegerInternal(const CharacterType* position, c
     // Step 4
     if (position == end)
         return false;
-    ASSERT(position < end);
+    ASSERT_WITH_SECURITY_IMPLICATION(position < end);
 
     // Step 5
     if (*position == '+')
@@ -239,7 +237,7 @@ static bool parseHTMLNonNegativeIntegerInternal(const CharacterType* position, c
     // Step 6
     if (position == end)
         return false;
-    ASSERT(position < end);
+    ASSERT_WITH_SECURITY_IMPLICATION(position < end);
 
     // Step 7
     if (!isASCIIDigit(*position))
@@ -269,34 +267,27 @@ bool parseHTMLNonNegativeInteger(const String& input, unsigned& value)
     // Step 1
     // Step 2
     unsigned length = input.length();
-    if (length && input.is8Bit()) {
+    if (!length || input.is8Bit()) {
         const LChar* start = input.characters8();
         return parseHTMLNonNegativeIntegerInternal(start, start + length, value);
     }
     
-    const UChar* start = input.characters();
+    const UChar* start = input.characters16();
     return parseHTMLNonNegativeIntegerInternal(start, start + length, value);
 }
 
-static bool threadSafeEqual(const StringImpl* a, const StringImpl* b)
+static bool threadSafeEqual(const StringImpl& a, const StringImpl& b)
 {
-    if (a == b)
+    if (&a == &b)
         return true;
-    if (a->hash() != b->hash())
+    if (a.hash() != b.hash())
         return false;
-    return equalNonNull(a, b);
+    return equal(a, b);
 }
 
 bool threadSafeMatch(const QualifiedName& a, const QualifiedName& b)
 {
-    return threadSafeEqual(a.localName().impl(), b.localName().impl());
+    return threadSafeEqual(*a.localName().impl(), *b.localName().impl());
 }
-
-#if ENABLE(THREADED_HTML_PARSER)
-bool threadSafeMatch(const HTMLIdentifier& localName, const QualifiedName& qName)
-{
-    return threadSafeEqual(localName.asStringImpl(), qName.localName().impl());
-}
-#endif
 
 }

@@ -44,24 +44,26 @@ DownloadProxyMap::~DownloadProxyMap()
     ASSERT(m_downloads.isEmpty());
 }
 
-DownloadProxy* DownloadProxyMap::createDownloadProxy(WebContext* webContext)
+DownloadProxy* DownloadProxyMap::createDownloadProxy(WebContext& webContext)
 {
     RefPtr<DownloadProxy> downloadProxy = DownloadProxy::create(*this, webContext);
     m_downloads.set(downloadProxy->downloadID(), downloadProxy);
 
-    m_process->addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID(), downloadProxy.get());
+    m_process->addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID(), *downloadProxy);
 
     return downloadProxy.get();
 }
 
 void DownloadProxyMap::downloadFinished(DownloadProxy* downloadProxy)
 {
-    ASSERT(m_downloads.contains(downloadProxy->downloadID()));
+    uint64_t downloadID = downloadProxy->downloadID();
+
+    ASSERT(m_downloads.contains(downloadID));
 
     downloadProxy->invalidate();
-    m_downloads.remove(downloadProxy->downloadID());
+    m_downloads.remove(downloadID);
 
-    m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID());
+    m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadID);
 }
 
 void DownloadProxyMap::processDidClose()

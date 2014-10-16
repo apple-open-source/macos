@@ -24,6 +24,7 @@
 #include "http_request.h"
 #include "http_log.h"
 #include "util_filter.h"
+#include "ap_expr.h"
 
 module AP_MODULE_DECLARE_DATA filter_module;
 
@@ -35,46 +36,14 @@ module AP_MODULE_DECLARE_DATA filter_module;
  * (2.0-compatible) ap_filter_rec_t* frec.
  */
 struct ap_filter_provider_t {
-    /** How to match this provider to filter dispatch criterion */
-    enum {
-        STRING_MATCH,
-        STRING_CONTAINS,
-        REGEX_MATCH,
-        INT_EQ,
-        INT_LT,
-        INT_LE,
-        INT_GT,
-        INT_GE,
-        DEFINED
-    } match_type;
-
-    /** negation on match_type */
-    int not;
-
-    /** The dispatch match itself - union member depends on match_type */
-    union {
-        const char *string;
-        ap_regex_t *regex;
-        int         number;
-    } match;
+    ap_expr_info_t *expr;
+    const char **types;
 
     /** The filter that implements this provider */
     ap_filter_rec_t *frec;
 
     /** The next provider in the list */
     ap_filter_provider_t *next;
-
-    /** Dispatch criteria for filter providers */
-    enum {
-        HANDLER,
-        REQUEST_HEADERS,
-        RESPONSE_HEADERS,
-        SUBPROCESS_ENV,
-        CONTENT_TYPE
-    } dispatch;
-
-    /** Match value for filter providers */
-    const char* value;
 };
 
 /** we need provider_ctx to save ctx values set by providers in filter_init */
@@ -114,12 +83,12 @@ static void filter_trace(conn_rec *c, int debug, const char *fname,
     case 0:        /* normal, operational use */
         return;
     case 1:        /* mod_diagnostics level */
-        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, "%s", fname);
+        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(01375) "%s", fname);
         for (b = APR_BRIGADE_FIRST(bb);
              b != APR_BRIGADE_SENTINEL(bb);
              b = APR_BUCKET_NEXT(b)) {
 
-            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, APLOGNO(01376)
                           "%s: type: %s, length: %" APR_SIZE_T_FMT,
                           fname, b->type->name ? b->type->name : "(unknown)",
                           b->length);
@@ -138,14 +107,14 @@ static int filter_init(ap_filter_t *f)
     harness_ctx *fctx = apr_pcalloc(f->r->pool, sizeof(harness_ctx));
     for (p = filter->providers; p; p = p->next) {
         if (p->frec->filter_init_func == filter_init) {
-            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, f->c,
+            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, f->c, APLOGNO(01377)
                           "Chaining of FilterProviders not supported");
             return HTTP_INTERNAL_SERVER_ERROR;
         }
         else if (p->frec->filter_init_func) {
             f->ctx = NULL;
             if ((err = p->frec->filter_init_func(f)) != OK) {
-                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, f->c,
+                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, f->c, APLOGNO(01378)
                               "filter_init for %s failed", p->frec->name);
                 return err;   /* if anyone errors out here, so do we */
             }
@@ -166,105 +135,65 @@ static int filter_init(ap_filter_t *f)
 static int filter_lookup(ap_filter_t *f, ap_filter_rec_t *filter)
 {
     ap_filter_provider_t *provider;
-    const char *str = NULL;
-    char *str1;
-    int match;
-    unsigned int proto_flags;
+    int match = 0;
+    const char *err = NULL;
     request_rec *r = f->r;
     harness_ctx *ctx = f->ctx;
     provider_ctx *pctx;
+#ifndef NO_PROTOCOL
+    unsigned int proto_flags;
     mod_filter_ctx *rctx = ap_get_module_config(r->request_config,
                                                 &filter_module);
+#endif
 
     /* Check registered providers in order */
     for (provider = filter->providers; provider; provider = provider->next) {
-        match = 1;
-        switch (provider->dispatch) {
-        case REQUEST_HEADERS:
-            str = apr_table_get(r->headers_in, provider->value);
-            break;
-        case RESPONSE_HEADERS:
-            /* Try r->headers_out first, fall back on err_headers_out. */
-            str = apr_table_get(r->headers_out, provider->value);
-            if (str) {
-                break;
+        if (provider->expr) {
+            match = ap_expr_exec(r, provider->expr, &err);
+            if (err) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01379)
+                              "Error evaluating filter dispatch condition: %s",
+                              err);
+                match = 0;
             }
-            str = apr_table_get(r->err_headers_out, provider->value);
-            break;
-        case SUBPROCESS_ENV:
-            str = apr_table_get(r->subprocess_env, provider->value);
-            break;
-        case CONTENT_TYPE:
-            str = r->content_type;
-            break;
-        case HANDLER:
-            str = r->handler;
-            break;
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
+                          "Expression condition for '%s' %s",
+                          provider->frec->name,
+                          match ? "matched" : "did not match");
         }
-
-        /* treat nulls so we don't have to check every strcmp individually
-         * Not sure if there's anything better to do with them
-         */
-        if (!str) {
-            match = 0;
+        else if (r->content_type) {
+            const char **type = provider->types;
+            size_t len = strcspn(r->content_type, "; \t");
+            AP_DEBUG_ASSERT(type != NULL);
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE4, 0, r,
+                          "Content-Type '%s' ...", r->content_type);
+            while (*type) {
+                /* Handle 'content-type;charset=...' correctly */
+                if (strncmp(*type, r->content_type, len) == 0
+                    && (*type)[len] == '\0') {
+                    ap_log_rerror(APLOG_MARK, APLOG_TRACE4, 0, r,
+                                  "... matched '%s'", *type);
+                    match = 1;
+                    break;
+                }
+                else {
+                    ap_log_rerror(APLOG_MARK, APLOG_TRACE4, 0, r,
+                                  "... did not match '%s'", *type);
+                }
+                type++;
+            }
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
+                          "Content-Type condition for '%s' %s",
+                          provider->frec->name,
+                          match ? "matched" : "did not match");
         }
-        /* we can't check for NULL in provider as that kills integer 0
-         * so we have to test each string/regexp case in the switch
-         */
         else {
-            switch (provider->match_type) {
-            case STRING_MATCH:
-                if (strcasecmp(str, provider->match.string)) {
-                    match = 0;
-                }
-                break;
-            case STRING_CONTAINS:
-                str1 = apr_pstrdup(r->pool, str);
-                ap_str_tolower(str1);
-                if (!strstr(str1, provider->match.string)) {
-                    match = 0;
-                }
-                break;
-            case REGEX_MATCH:
-                if (ap_regexec(provider->match.regex, str, 0, NULL, 0)
-                    == AP_REG_NOMATCH) {
-                    match = 0;
-                }
-                break;
-            case INT_EQ:
-                if (atoi(str) != provider->match.number) {
-                    match = 0;
-                }
-                break;
-            /* Integer comparisons should be [var] OP [match]
-             * We need to set match = 0 if the condition fails
-             */
-            case INT_LT:
-                if (atoi(str) >= provider->match.number) {
-                    match = 0;
-                }
-                break;
-            case INT_LE:
-                if (atoi(str) > provider->match.number) {
-                    match = 0;
-                }
-                break;
-            case INT_GT:
-                if (atoi(str) <= provider->match.number) {
-                    match = 0;
-                }
-                break;
-            case INT_GE:
-                if (atoi(str) < provider->match.number) {
-                    match = 0;
-                }
-                break;
-            case DEFINED:        /* we already handled this:-) */
-                break;
-            }
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
+                          "Content-Type condition for '%s' did not match: "
+                          "no Content-Type", provider->frec->name);
         }
 
-        if (match != provider->not) {
+        if (match) {
             /* condition matches this provider */
 #ifndef NO_PROTOCOL
             /* check protocol
@@ -289,11 +218,10 @@ static int filter_lookup(ap_filter_t *f, ap_filter_rec_t *filter)
                 }
 
                 if (proto_flags & AP_FILTER_PROTO_TRANSFORM) {
-                    str = apr_table_get(r->headers_out, "Cache-Control");
+                    const char *str = apr_table_get(r->headers_out,
+                                                    "Cache-Control");
                     if (str) {
-                        str1 = apr_pstrdup(r->pool, str);
-                        ap_str_tolower(str1);
-                        if (strstr(str1, "no-transform")) {
+                        if (ap_strcasestr(str, "no-transform")) {
                             /* can't use this provider; try next */
                             continue;
                         }
@@ -346,8 +274,9 @@ static int filter_lookup(ap_filter_t *f, ap_filter_rec_t *filter)
 static apr_status_t filter_harness(ap_filter_t *f, apr_bucket_brigade *bb)
 {
     apr_status_t ret;
+#ifndef NO_PROTOCOL
     const char *cachecontrol;
-    char *str;
+#endif
     harness_ctx *ctx = f->ctx;
     ap_filter_rec_t *filter = f->frec;
 
@@ -372,9 +301,7 @@ static apr_status_t filter_harness(ap_filter_t *f, apr_bucket_brigade *bb)
                 cachecontrol = apr_table_get(f->r->headers_out,
                                              "Cache-Control");
                 if (cachecontrol) {
-                    str = apr_pstrdup(f->r->pool,  cachecontrol);
-                    ap_str_tolower(str);
-                    if (strstr(str, "no-transform")) {
+                    if (ap_strcasestr(cachecontrol, "no-transform")) {
                         ap_remove_output_filter(f);
                         return ap_pass_brigade(f->next, bb);
                     }
@@ -386,6 +313,7 @@ static apr_status_t filter_harness(ap_filter_t *f, apr_bucket_brigade *bb)
             ap_remove_output_filter(f);
             return ap_pass_brigade(f->next, bb);
         }
+        AP_DEBUG_ASSERT(ctx->func != NULL);
     }
 
     /* call the content filter with its own context, then restore our
@@ -439,6 +367,9 @@ static const char *filter_protocol(cmd_parms *cmd, void *CFG, const char *fname,
 
         if (!strcasecmp(arg, "change=yes")) {
             flags |= AP_FILTER_PROTO_CHANGE | AP_FILTER_PROTO_CHANGE_LENGTH;
+        }
+        if (!strcasecmp(arg, "change=no")) {
+            flags &= ~(AP_FILTER_PROTO_CHANGE | AP_FILTER_PROTO_CHANGE_LENGTH);
         }
         else if (!strcasecmp(arg, "change=1:1")) {
             flags |= AP_FILTER_PROTO_CHANGE;
@@ -501,27 +432,17 @@ static const char *filter_declare(cmd_parms *cmd, void *CFG, const char *fname,
     return NULL;
 }
 
-static const char *filter_provider(cmd_parms *cmd, void *CFG, const char *args)
+static const char *add_filter(cmd_parms *cmd, void *CFG,
+                              const char *fname, const char *pname,
+                              const char *expr, const char **types)
 {
     mod_filter_cfg *cfg = CFG;
-    int flags;
     ap_filter_provider_t *provider;
-    const char *rxend;
     const char *c;
-    char *str;
-    const char *eq;
     ap_filter_rec_t* frec;
     ap_filter_rec_t* provider_frec;
-
-    /* insist on exactly four arguments */
-    const char *fname = ap_getword_conf(cmd->pool, &args) ;
-    const char *pname = ap_getword_conf(cmd->pool, &args) ;
-    const char *condition = ap_getword_conf(cmd->pool, &args) ;
-    const char *match = ap_getword_conf(cmd->pool, &args) ;
-    eq = ap_getword_conf(cmd->pool, &args) ;
-    if ( !*fname || !*pname || !*match || !*condition || *eq ) {
-        return "usage: FilterProvider filter provider condition match" ;
-    }
+    ap_expr_info_t *node;
+    const char *err = NULL;
 
     /* fname has been declared with DeclareFilter, so we can look it up */
     frec = apr_hash_get(cfg->live_filters, fname, APR_HASH_KEY_STRING);
@@ -544,116 +465,32 @@ static const char *filter_provider(cmd_parms *cmd, void *CFG, const char *args)
     if (!provider_frec) {
         return apr_psprintf(cmd->pool, "Unknown filter provider %s", pname);
     }
-
     provider = apr_palloc(cmd->pool, sizeof(ap_filter_provider_t));
-    if (*match == '!') {
-        provider->not = 1;
-        ++match;
+    if (expr) {
+        node = ap_expr_parse_cmd(cmd, expr, 0, &err, NULL);
+        if (err) {
+            return apr_pstrcat(cmd->pool,
+                               "Error parsing FilterProvider expression:", err,
+                               NULL);
+        }
+        provider->expr = node;
+        provider->types = NULL;
     }
     else {
-        provider->not = 0;
-    }
-
-    switch (*match++) {
-    case '<':
-        if (*match == '=') {
-            provider->match_type = INT_LE;
-            ++match;
-        }
-        else {
-            provider->match_type = INT_LT;
-        }
-        provider->match.number = atoi(match);
-        break;
-    case '>':
-        if (*match == '=') {
-            provider->match_type = INT_GE;
-            ++match;
-        }
-        else {
-            provider->match_type = INT_GT;
-        }
-        provider->match.number = atoi(match);
-        break;
-    case '=':
-        provider->match_type = INT_EQ;
-        provider->match.number = atoi(match);
-        break;
-    case '/':
-        provider->match_type = REGEX_MATCH;
-        rxend = ap_strrchr_c(match, '/');
-        if (!rxend) {
-              return "Bad regexp syntax";
-        }
-        flags = AP_REG_NOSUB;        /* we're not mod_rewrite:-) */
-        for (c = rxend+1; *c; ++c) {
-            switch (*c) {
-            case 'i': flags |= AP_REG_ICASE; break;
-            }
-        }
-        provider->match.regex = ap_pregcomp(cmd->pool,
-                                            apr_pstrndup(cmd->pool,
-                                                         match,
-                                                         rxend-match),
-                                            flags);
-        if (provider->match.regex == NULL) {
-            return "Bad regexp";
-        }
-        break;
-    case '*':
-        provider->match_type = DEFINED;
-        provider->match.number = -1;
-        break;
-    case '$':
-        provider->match_type = STRING_CONTAINS;
-        str = apr_pstrdup(cmd->pool, match);
-        ap_str_tolower(str);
-        provider->match.string = str;
-        break;
-    default:
-        provider->match_type = STRING_MATCH;
-        provider->match.string = apr_pstrdup(cmd->pool, match-1);
-        break;
+        provider->types = types;
+        provider->expr = NULL;
     }
     provider->frec = provider_frec;
     provider->next = frec->providers;
     frec->providers = provider;
-
-    /* determine what a filter will dispatch this provider on */
-    eq = ap_strchr_c(condition, '=');
-    if (eq) {
-        str = apr_pstrdup(cmd->pool, eq+1);
-        if (!strncasecmp(condition, "env=", 4)) {
-            provider->dispatch = SUBPROCESS_ENV;
-        }
-        else if (!strncasecmp(condition, "req=", 4)) {
-            provider->dispatch = REQUEST_HEADERS;
-        }
-        else if (!strncasecmp(condition, "resp=", 5)) {
-            provider->dispatch = RESPONSE_HEADERS;
-        }
-        else {
-            return "FilterProvider: unrecognized dispatch table";
-        }
-    }
-    else {
-        if (!strcasecmp(condition, "handler")) {
-            provider->dispatch = HANDLER;
-        }
-        else {
-            provider->dispatch = RESPONSE_HEADERS;
-        }
-        str = apr_pstrdup(cmd->pool, condition);
-        ap_str_tolower(str);
-    }
-
-    if (   (provider->dispatch == RESPONSE_HEADERS)
-        && !strcasecmp(str, "content-type")) {
-        provider->dispatch = CONTENT_TYPE;
-    }
-    provider->value = str;
-
     return NULL;
+}
+
+static const char *filter_provider(cmd_parms *cmd, void *CFG,
+                                   const char *fname, const char *pname,
+                                   const char *expr)
+{
+    return add_filter(cmd, CFG, fname, pname, expr, NULL);
 }
 
 static const char *filter_chain(cmd_parms *cmd, void *CFG, const char *arg)
@@ -698,8 +535,8 @@ static const char *filter_chain(cmd_parms *cmd, void *CFG, const char *arg)
         break;
 
     case '!':        /* Empty the chain */
-                     /** IG: Add a NULL provider to the beginning so that 
-                      *  we can ensure that we'll empty everything before 
+                     /** IG: Add a NULL provider to the beginning so that
+                      *  we can ensure that we'll empty everything before
                       *  this when doing config merges later */
         p = apr_pcalloc(cmd->pool, sizeof(mod_filter_chain));
         p->fname = NULL;
@@ -729,6 +566,56 @@ static const char *filter_chain(cmd_parms *cmd, void *CFG, const char *arg)
     }
 
     return NULL;
+}
+
+static const char *filter_bytype1(cmd_parms *cmd, void *CFG,
+                                  const char *pname, const char **types)
+{
+    const char *rv;
+    const char *fname;
+    int seen_name = 0;
+    mod_filter_cfg *cfg = CFG;
+
+    /* construct fname from name */
+    fname = apr_pstrcat(cmd->pool, "BYTYPE:", pname, NULL);
+
+    /* check whether this is already registered, in which case
+     * it's already in the filter chain
+     */
+    if (apr_hash_get(cfg->live_filters, fname, APR_HASH_KEY_STRING)) {
+        seen_name = 1;
+    }
+
+    rv = add_filter(cmd, CFG, fname, pname, NULL, types);
+
+    /* If it's the first time through, add to filterchain */
+    if (rv == NULL && !seen_name) {
+        rv = filter_chain(cmd, CFG, fname);
+    }
+    return rv;
+}
+
+static const char *filter_bytype(cmd_parms *cmd, void *CFG,
+                                 int argc, char *const argv[])
+{
+    /* back compatibility, need to parse multiple components in filter name */
+    char *pname;
+    char *strtok_state = NULL;
+    char *name;
+    const char **types;
+    const char *rv = NULL;
+    if (argc < 2)
+        return "AddOutputFilterByType requires at least two arguments";
+    name = apr_pstrdup(cmd->temp_pool, argv[0]);
+    types = apr_palloc(cmd->pool, argc * sizeof(char *));
+    memcpy(types, &argv[1], (argc - 1) * sizeof(char *));
+    types[argc-1] = NULL;
+    for (pname = apr_strtok(name, ";", &strtok_state);
+         pname != NULL && rv == NULL;
+         pname = apr_strtok(NULL, ";", &strtok_state)) {
+        rv = filter_bytype1(cmd, CFG, pname, types);
+    }
+    return rv;
 }
 
 static const char *filter_debug(cmd_parms *cmd, void *CFG, const char *fname,
@@ -761,14 +648,14 @@ static void filter_insert(request_rec *r)
      *  through the chain, and prune out the NULL filters */
 
     for (p = cfg->chain; p; p = p->next) {
-        if (p->fname == NULL) 
+        if (p->fname == NULL)
             cfg->chain = p->next;
     }
 
     for (p = cfg->chain; p; p = p->next) {
         filter = apr_hash_get(cfg->live_filters, p->fname, APR_HASH_KEY_STRING);
         if (filter == NULL) {
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(01380)
                           "Unknown filter %s not added", p->fname);
             continue;
         }
@@ -853,14 +740,15 @@ static void *filter_merge(apr_pool_t *pool, void *BASE, void *ADD)
 
 static const command_rec filter_cmds[] = {
     AP_INIT_TAKE12("FilterDeclare", filter_declare, NULL, OR_OPTIONS,
-        "filter-name [, filter-type]"),
-    /** we don't have a TAKE4, so we have to use RAW_ARGS */
-    AP_INIT_RAW_ARGS("FilterProvider", filter_provider, NULL, OR_OPTIONS,
-        "filter-name, provider-name, dispatch--criterion, dispatch-match"),
+        "filter-name [filter-type]"),
+    AP_INIT_TAKE3("FilterProvider", filter_provider, NULL, OR_OPTIONS,
+        "filter-name provider-name match-expression"),
     AP_INIT_ITERATE("FilterChain", filter_chain, NULL, OR_OPTIONS,
         "list of filter names with optional [+-=!@]"),
     AP_INIT_TAKE2("FilterTrace", filter_debug, NULL, RSRC_CONF | ACCESS_CONF,
-        "Debug level"),
+        "filter-name debug-level"),
+    AP_INIT_TAKE_ARGV("AddOutputFilterByType", filter_bytype, NULL, OR_FILEINFO,
+        "output filter name followed by one or more content-types"),
 #ifndef NO_PROTOCOL
     AP_INIT_TAKE23("FilterProtocol", filter_protocol, NULL, OR_OPTIONS,
         "filter-name [provider-name] protocol-args"),
@@ -868,7 +756,7 @@ static const command_rec filter_cmds[] = {
     { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA filter_module = {
+AP_DECLARE_MODULE(filter) = {
     STANDARD20_MODULE_STUFF,
     filter_config,
     filter_merge,

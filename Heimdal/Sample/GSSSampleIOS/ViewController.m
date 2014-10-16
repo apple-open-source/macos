@@ -203,6 +203,7 @@
 		res = TRUE;
 	}
         
+	gss_delete_sec_context(&min_stat, &ctx, NULL);
         gss_release_name(&min_stat, &server_name);
         gss_release_buffer(&min_stat, &buffer);
 

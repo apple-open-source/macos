@@ -80,7 +80,7 @@ static int			sock_fd;     /* descriptor for the socket          */
 static int			accept_fd;   /* descriptor for the accept lock     */
 static struct sockaddr_un	server;      /* domain socket control, server side */
 static struct sockaddr_un	client;      /* domain socket control, client side */
-static socklen_t		len;         /* length for the client sockaddr_un  */
+static SALEN_TYPE		len;         /* length for the client sockaddr_un  */
 static char			*sock_file;  /* path to the AF_UNIX socket         */
 static char			*accept_file;/* path to the accept() lock file     */
 
@@ -168,7 +168,7 @@ void ipc_init() {
 
 	umask(0);
 
-	if (bind(sock_fd, (struct sockaddr *)&server, (socklen_t)sizeof(server)) == -1) {
+	if (bind(sock_fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
 		rc = errno;
 		logger(L_ERR, L_FUNC, "could not bind to socket: %s", sock_file);
 		logger(L_ERR, L_FUNC, "bind: %s", strerror(rc));
@@ -221,7 +221,7 @@ void ipc_loop() {
 
 	while(1) {
 
-		len = (socklen_t)sizeof(client);
+		len = sizeof(client);
 
 		/**************************************************************
 		 * First, if needed, get the accept lock. If it fails, take a
@@ -232,7 +232,7 @@ void ipc_loop() {
 			continue;
 		}
 
-		conn_fd = accept(sock_fd, (struct sockaddr *)&client, &len);
+        	conn_fd = accept(sock_fd, (struct sockaddr *)&client, (socklen_t *)&len); /* APPLE: cast */
 		rc = errno;
 
 		rel_accept_lock();

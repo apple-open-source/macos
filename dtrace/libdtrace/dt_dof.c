@@ -26,9 +26,7 @@
 
 #pragma ident	"@(#)dt_dof.c	1.13	06/04/28 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/sysmacros.h>
 
 #include <strings.h>
 #include <alloca.h>
@@ -36,17 +34,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-
-#include <strings.h>
-#include <alloca.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <limits.h>
-#endif /* __APPLE__ */
 
 #include <dt_impl.h>
 #include <dt_strtab.h>

@@ -31,10 +31,8 @@
 #ifndef FileThread_h
 #define FileThread_h
 
-#if ENABLE(BLOB)
-
+#include <functional>
 #include <wtf/MessageQueue.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
@@ -57,15 +55,31 @@ public:
     class Task {
         WTF_MAKE_NONCOPYABLE(Task);
     public:
-        virtual ~Task() { }
-        virtual void performTask() = 0;
+        template<typename T, typename U, typename = typename std::enable_if<!std::is_base_of<Task, U>::value && std::is_convertible<U, std::function<void ()>>::value>::type>
+        Task(T* instance, U method)
+            : m_task(WTF::move(method))
+            , m_instance(instance)
+        {
+        }
+
+        Task(Task&& other)
+            : m_task(WTF::move(other.m_task))
+            , m_instance(other.m_instance)
+        {
+        }
+
+        void performTask()
+        {
+            m_task();
+        }
         void* instance() const { return m_instance; }
-    protected:
-        Task(void* instance) : m_instance(instance) { }
+
+    private:
+        std::function<void ()> m_task;
         void* m_instance;
     };
 
-    void postTask(PassOwnPtr<Task> task);
+    void postTask(Task);
 
     void unscheduleTasks(const void* instance);
 
@@ -83,7 +97,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(BLOB)
 
 #endif // FileThread_h

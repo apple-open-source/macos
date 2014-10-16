@@ -30,6 +30,7 @@
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IOInterruptController.h>
 #include <libkern/OSDebug.h>
+#include <IOKit/IOUserClient.h>
 
 #if !defined(__ppc__)
 #define USE_IOPCICONFIGURATOR   1
@@ -39,6 +40,8 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 #define ACPI_SUPPORT            1
+#else
+#define ACPI_SUPPORT            0
 #endif
 
 struct IOPCIDeviceExpansionData
@@ -54,14 +57,24 @@ struct IOPCIDeviceExpansionData
     uint16_t expressASPMDefault;
 	uint8_t  aspmCaps;
     uint16_t l1pmCapability;
-    uint32_t  l1pmCaps;
+    uint32_t l1pmCaps;
 
-    uint16_t msiCapability;
-    UInt8    msiBlockSize;
-    UInt8    msiMode;
-    UInt8    msiEnable;
+    uint16_t aerCapability;
+
+    uint16_t            msiCapability;
+    uint16_t            msiControl;
+	uint16_t            msiPhysVectorCount;
+	uint16_t            msiVectorCount;
+    uint8_t             msiMode;
+    uint8_t             msiEnable;
+	uint64_t            msiTable;
+	uint64_t            msiPBA;
+	IOInterruptVector * msiVectors;
 
     uint16_t latencyToleranceCapability;
+
+    uint8_t  headerType;
+    uint8_t  rootPort;
 
     uint8_t  configProt;
     uint8_t  pmActive;
@@ -81,54 +94,70 @@ struct IOPCIDeviceExpansionData
 	uint32_t      ltrReg1;
 	uint8_t       ltrReg2;
 
+    uint8_t       tunnelL1Allow;
+
 #if ACPI_SUPPORT
 	int8_t        psMethods[kIOPCIDevicePowerStateCount];
 	int8_t        lastPSMethod;
 #endif
 };
 
+enum
+{
+    kTunnelL1Disable = false,
+    kTunnelL1Enable  = true,
+    kTunnelL1NotSet  = 2
+};
+
 #define expressV2(device) ((15 & device->reserved->expressCapabilities) > 1)
 
 enum
 {
-    kIOPCIConfigShadowXPressCount = 6,
-    kIOPCIConfigShadowMSICount    = 6,
-    kIOPCIConfigShadowL1PMCount   = 2,
-    kIOPCIConfigShadowLTRCount    = 1,
     kIOPCIConfigShadowRegs        = 32,
     kIOPCIConfigEPShadowRegs      = 16,
     kIOPCIConfigBridgeShadowRegs  = 32,
 
-    kIOPCIConfigShadowSize        = kIOPCIConfigShadowRegs 
-    								+ kIOPCIConfigShadowXPressCount 
-    								+ kIOPCIConfigShadowMSICount
-    								+ kIOPCIConfigShadowL1PMCount
-    								+ kIOPCIConfigShadowLTRCount,
-    kIOPCIConfigShadowXPress      = kIOPCIConfigShadowSize   - kIOPCIConfigShadowXPressCount,
-    kIOPCIConfigShadowMSI         = kIOPCIConfigShadowXPress - kIOPCIConfigShadowMSICount,
-    kIOPCIConfigShadowL1PM        = kIOPCIConfigShadowMSI    - kIOPCIConfigShadowL1PMCount,
-    kIOPCIConfigShadowLTR         = kIOPCIConfigShadowL1PM   - kIOPCIConfigShadowLTRCount,
+    kIOPCIConfigShadowSize        = kIOPCIConfigShadowRegs,
 
-#if 0
-    kIOPCIVolatileRegsMask        = ((1 << kIOPCIConfigShadowRegs) - 1)
-                                   & ~(1 << (kIOPCIConfigVendorID >> 2))
-                                  & ~(1 << (kIOPCIConfigRevisionID >> 2))
-                                  & ~(1 << (kIOPCIConfigSubSystemVendorID >> 2)),
-
-    kIOPCISaveRegsMask          = kIOPCIVolatileRegsMask 
-                                | (1 << (kIOPCIConfigVendorID >> 2))
-
-#else
     kIOPCISaveRegsMask            = 0xFFFFFFFF
 //                                  & ~(1 << (kIOPCIConfigVendorID >> 2))
-#endif
 };
-
 
 struct IOPCIConfigShadow
 {
-    UInt32                   savedConfig[kIOPCIConfigShadowSize];
-    UInt32                   flags;
+    uint32_t                 savedConfig[kIOPCIConfigShadowSize];
+
+	// express save
+	uint16_t				 savedDeviceControl;
+	uint16_t				 savedLinkControl;
+	uint16_t				 savedSlotControl;
+	uint16_t				 savedDeviceControl2;
+	uint16_t				 savedLinkControl2;
+	uint16_t				 savedSlotControl2;
+
+	// msi save
+	uint32_t				 savedMSIAddress0;
+	uint32_t				 savedMSIAddress1;
+	uint32_t				 savedMSIData;
+	uint16_t				 savedMSIControl;
+	uint32_t				 savedMSIEnable;
+
+	// l1pm save	
+	uint32_t				 savedL1PM0;
+	uint32_t				 savedL1PM1;
+	
+	// ltr save
+	uint32_t				 savedLTR;
+
+	// aer save
+	uint32_t				 savedAERCapsControl; // 0x18
+	uint32_t				 savedAERSeverity;    // 0x0C
+	uint32_t				 savedAERUMask;       // 0x08
+	uint32_t				 savedAERCMask;       // 0x14
+	uint32_t				 savedAERRootCommand; // 0x2c
+
+	//
+    uint32_t                 flags;
     queue_chain_t            link;
 	queue_head_t             dependents;
 	IOPCIDevice *			 tunnelRoot;
@@ -137,6 +166,7 @@ struct IOPCIConfigShadow
     OSObject *               tunnelID;
     IOPCIDeviceConfigHandler handler;
     void *                   handlerRef;
+    uint64_t                 restoreCount;
 };
 
 #define configShadow(device)    ((IOPCIConfigShadow *) &device->savedConfig[0])
@@ -153,7 +183,8 @@ enum
 	kIOPCIConfigShadowSleepLinkDisable = 0x00000020,
 	kIOPCIConfigShadowSleepReset       = 0x00000040,
 	kIOPCIConfigShadowHotplug          = 0x00000080,
-	kIOPCIConfigShadowVolatile         = 0x00000100
+	kIOPCIConfigShadowVolatile         = 0x00000100,
+	kIOPCIConfigShadowWakeL1PMDisable  = 0x00000200,
 };
 
 // whatToDo for setDevicePowerState()
@@ -213,6 +244,14 @@ enum
 
 #define kIOPCIExpressMaxLatencyKey	"pci-max-latency"
 
+#define kIOPCIExpressErrorUncorrectableMaskKey	    "pci-aer-uncorrectable"
+#define kIOPCIExpressErrorUncorrectableSeverityKey	"pci-aer-uncorrectable-severity"
+#define kIOPCIExpressErrorCorrectableMaskKey	    "pci-aer-correctable"
+#define kIOPCIExpressErrorControlKey	            "pci-aer-control"
+
+// property to disable LTR on wake
+#define kIOPMPCIWakeL1PMDisableKey      "pci-wake-l1pm-disable"
+
 enum
 {
 	kIOPCIExpressASPML0s = 0x00000001,
@@ -220,8 +259,6 @@ enum
 };
 
 #define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
-
-#define kIOPCIDeviceDiagnosticsClassKey  "IOPCIDeviceDiagnosticsClass"
 
 #ifndef kIODebugArgumentsKey
 #define kIODebugArgumentsKey	 "IODebugArguments"
@@ -251,6 +288,7 @@ enum
     kMSIX       = 0x01
 };
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 class IOPCIMessagedInterruptController : public IOInterruptController
 {
@@ -263,28 +301,41 @@ protected:
     SInt32                  _vectorBase;
     UInt32                  _vectorCount;
     UInt32                  _parentOffset;
-    uint8_t               * _flags;
 
     IORangeAllocator *      _messagedInterruptsAllocator;
+
+public:
+
+  virtual IOReturn registerInterrupt(IOService *nub, int source,
+				     void *target,
+				     IOInterruptHandler handler,
+				     void *refCon);
+  virtual IOReturn unregisterInterrupt(IOService *nub, int source);
+  
+  virtual IOReturn getInterruptType(IOService *nub, int source,
+				    int *interruptType);
+  
+  virtual IOReturn enableInterrupt(IOService *nub, int source);
+  virtual IOReturn disableInterrupt(IOService *nub, int source);
+  
+  virtual IOReturn handleInterrupt(void *refCon, IOService *nub,
+				   int source);
+
+public:
+
+	static IOInterruptVector * allocVectors(uint32_t count);
+    static void initDevice(IOPCIDevice * device, IOPCIConfigShadow * shadow);
+	static void saveDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow);
+	static void restoreDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow);
 
     void enableDeviceMSI(IOPCIDevice *device);
     void disableDeviceMSI(IOPCIDevice *device);
 
-public:
     bool init(UInt32 numVectors, UInt32 baseVector);
 
     bool init(UInt32 numVectors);
 
 	bool reserveVectors(UInt32 vector, UInt32 count);
-
-    virtual IOReturn registerInterrupt( IOService *        nub,
-                                        int                source,
-                                        void *             target,
-                                        IOInterruptHandler handler,
-                                        void *             refCon );
-
-    virtual IOReturn unregisterInterrupt( IOService *      nub,
-                                        int                source);
 
     virtual void     initVector( IOInterruptVectorNumber vectorNumber,
                                  IOInterruptVector * vector );
@@ -300,11 +351,6 @@ public:
     virtual void     disableVectorHard( IOInterruptVectorNumber vectorNumber,
                                         IOInterruptVector * vector );
 
-    virtual IOReturn handleInterrupt( void * savedState,
-                                      IOService * nub,
-                                      int source );
-
-//
     virtual bool     addDeviceInterruptProperties(
                                     IORegistryEntry * device,
                                     UInt32            controllerIndex,
@@ -325,58 +371,29 @@ protected:
 
 };
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-class IOPCIProxyMessagedInterruptController : public IOPCIMessagedInterruptController
+class IOPCIDiagnosticsClient : public IOUserClient
 {
-    OSDeclareDefaultStructors( IOPCIProxyMessagedInterruptController )
+    OSDeclareDefaultStructors(IOPCIDiagnosticsClient)
 
-protected:
-    IOInterruptController * _parentInterruptController;
+    friend class IOPCIBridge;
+
+    IOPCIBridge * owner;
 
 public:
-    bool             init( UInt32 numVectors, SInt32 parentOffset,
-	                   IOInterruptController *parentController );
-
-    virtual IOReturn registerInterrupt( IOService *        nub,
-                                        int                source,
-                                        void *             target,
-                                        IOInterruptHandler handler,
-                                        void *             refCon );
-
-    virtual IOReturn unregisterInterrupt( IOService *      nub,
-                                        int                source);
-
-    virtual bool     addDeviceInterruptProperties(
-                                    IORegistryEntry * device,
-                                    UInt32            controllerIndex,
-                                    UInt32            interruptFlags,
-                                    SInt32 *          deviceIndex);
-
-    virtual void     deallocateInterrupt(UInt32 vector);
-
-    virtual void     initVector( IOInterruptVectorNumber vectorNumber,
-                                 IOInterruptVector * vector );
-
-    virtual void     enableVector( IOInterruptVectorNumber vectorNumber,
-                                   IOInterruptVector * vector );
-
-    virtual void     disableVectorHard( IOInterruptVectorNumber vectorNumber,
-                                        IOInterruptVector * vector );
-
-    virtual IOReturn handleInterrupt( void * savedState,
-                                      IOService * nub,
-                                      int source );
-
-    virtual IOReturn enableInterrupt(IOService *nub, int source);
-
-    virtual IOReturn disableInterrupt(IOService *nub, int source);
+    virtual IOReturn    clientClose(void);
+    virtual IOService * getService(void);
+    virtual IOReturn    setProperties(OSObject * properties);
+    virtual IOReturn    externalMethod(uint32_t selector, IOExternalMethodArguments * args,
+                                       IOExternalMethodDispatch * dispatch, OSObject * target, void * reference);
 };
 
 #endif /* defined(KERNEL) */
 
 enum
 {
-    kIOPCIDeviceDiagnosticsClientType = 0x99000001
+    kIOPCIDiagnosticsClientType = 0x99000001
 };
 
 enum
@@ -384,6 +401,34 @@ enum
     kIOPCIProbeOptionLinkInt      = 0x40000000,
 };
 
+
+enum {
+	kIOPCIDiagnosticsMethodRead  = 0,
+	kIOPCIDiagnosticsMethodWrite = 1,
+	kIOPCIDiagnosticsMethodCount
+};
+
+struct IOPCIDiagnosticsParameters
+{
+	uint32_t			          options;
+	uint32_t 		              spaceType;
+	uint32_t			          bitWidth;
+	uint32_t			          _resv;
+	uint64_t			          value;
+    union
+    {
+        uint64_t addr64;
+        struct {
+            unsigned int offset     :16;
+            unsigned int function   :3;
+            unsigned int device     :5;
+            unsigned int bus        :8;
+            unsigned int segment    :16;
+            unsigned int reserved   :16;
+        } pci;
+    }                             address;
+};
+typedef struct IOPCIDiagnosticsParameters IOPCIDiagnosticsParameters;
 
 #endif /* ! _IOKIT_IOPCIPRIVATE_H */
 

@@ -24,6 +24,7 @@
 
 #define CFRUNLOOP_NEW_API 1
 
+#include <AssertMacros.h>
 #include <CoreFoundation/CFMachPort.h>
 //#include <IOKit/hid/IOHIDLib.h>
 //#include <unistd.h>
@@ -160,43 +161,45 @@ IOReturn IOHIDTransactionClass::getDirection(IOHIDTransactionDirectionType * pDi
 
 IOReturn IOHIDTransactionClass::setDirection(IOHIDTransactionDirectionType direction, IOOptionBits options __unused)
 {
-    IOHIDTransactionElementRef *elementRefs = NULL;
-    IOHIDElementRef             element = NULL;
-    CFStringRef                *keyRefs= NULL;
-    CFIndex                     numElements	= 0;
+    CFIndex     numElements = 0;
+    IOReturn    result      = 0;
     
-    if (!fIsCreated || !fElementDictionaryRef) 
-        return kIOReturnError;
-     
+    require_action(fIsCreated && fElementDictionaryRef, exit, result=kIOReturnError);
+    
     // RY: If we change directions, we should remove the opposite direction elements
     // from the transaction.  I might decide to leave them alone in the future and 
     // just ignore them during the commit.
     numElements = CFDictionaryGetCount(fElementDictionaryRef);
-    
-    if (!numElements) 
-        return kIOReturnError;
-        
-    elementRefs = (IOHIDTransactionElementRef *)malloc(sizeof(IOHIDTransactionElementRef) * numElements);
-    keyRefs     = (CFStringRef *)malloc(sizeof(CFStringRef) * numElements);
-    CFDictionaryGetKeysAndValues(fElementDictionaryRef, (const void **)keyRefs, (const void **)elementRefs);
-    
-    for (int i=0;i<numElements && elementRefs[i] && keyRefs[i]; i++)
-    {
-        element = IOHIDTransactionElementGetElement(elementRefs[i]);
-        if (((IOHIDElementGetType(element) == kIOHIDElementTypeOutput) && (direction == kIOHIDTransactionDirectionTypeInput)) ||
-            ((IOHIDElementGetType(element) >= kIOHIDElementTypeInput_Misc) && (IOHIDElementGetType(element) <= kIOHIDElementTypeInput_ScanCodes) && (direction == kIOHIDTransactionDirectionTypeOutput)))
-            CFDictionaryRemoveValue(fElementDictionaryRef, keyRefs[i]);
-    }
+    if ( numElements ) {
+        IOHIDTransactionElementRef *    elementRefs = NULL;
+        IOHIDElementRef                 element     = NULL;
+        CFStringRef *                   keyRefs     = NULL;
 
-    if (elementRefs) 
-        free(elementRefs);
-    
-    if (keyRefs)
-        free(keyRefs);
+        elementRefs = (IOHIDTransactionElementRef *)malloc(sizeof(IOHIDTransactionElementRef) * numElements);
+        keyRefs     = (CFStringRef *)malloc(sizeof(CFStringRef) * numElements);
+        
+        CFDictionaryGetKeysAndValues(fElementDictionaryRef, (const void **)keyRefs, (const void **)elementRefs);
+        
+        for (int i=0;i<numElements && elementRefs[i] && keyRefs[i]; i++) {
+            element = IOHIDTransactionElementGetElement(elementRefs[i]);
+            if (((IOHIDElementGetType(element) == kIOHIDElementTypeOutput) && (direction == kIOHIDTransactionDirectionTypeInput)) ||
+                ((IOHIDElementGetType(element) >= kIOHIDElementTypeInput_Misc) && (IOHIDElementGetType(element) <= kIOHIDElementTypeInput_ScanCodes) && (direction == kIOHIDTransactionDirectionTypeOutput)))
+                CFDictionaryRemoveValue(fElementDictionaryRef, keyRefs[i]);
+        }
+
+        if (elementRefs) 
+            free(elementRefs);
+        
+        if (keyRefs)
+            free(keyRefs);
+    }
     
     fDirection = direction;
+
+    result = kIOReturnSuccess;
     
-    return kIOReturnSuccess;
+exit:
+    return result;
 }
 
 IOReturn IOHIDTransactionClass::create ()
@@ -357,18 +360,17 @@ IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS __unused, IOHIDCallbac
     uint64_t *                      cookies             = NULL;
     CFIndex                         numElements         = 0;
     IOReturn                        ret                 = kIOReturnError;
-    int                             numValidElements = 0;
+    int                             numValidElements    = 0;
     IOHIDValueRef                   event;
-
+    uint32_t                        outputCount         = 0;
+    
     allChecks();
     
-    if (!fIsCreated || !fElementDictionaryRef)
-        return kIOReturnError;
-     
+    require_action(fIsCreated && fElementDictionaryRef, exit, ret = kIOReturnError);
+
     numElements = CFDictionaryGetCount(fElementDictionaryRef);
     
-    if (!numElements) 
-        return kIOReturnError;
+    require_action(numElements, exit, ret = kIOReturnError);
     
     cookies     = (uint64_t *)malloc(sizeof(uint64_t) * numElements);
     elementRefs = (IOHIDTransactionElementRef *)malloc(sizeof(IOHIDTransactionElementRef) * numElements);
@@ -403,22 +405,22 @@ IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS __unused, IOHIDCallbac
         numValidElements++;
     }
     
-    uint32_t outputCount = 0;
     
-    if ( fDirection == kIOHIDTransactionDirectionTypeOutput )
-    {
-        ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientPostElementValues, cookies, numValidElements, 0, &outputCount); 
-    } 
-    else 
-    {
-        // put together an ioconnect here
-        ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientUpdateElementValues, cookies, numValidElements, 0, &outputCount); 
-
-        for (int i=0;i<numElements && elementRefs[i]; i++)
-        {        
-            fOwningDevice->getElementValue(IOHIDTransactionElementGetElement(elementRefs[i]), &event, 0, NULL, NULL, kHIDGetElementValuePreventPoll);
-            IOHIDTransactionElementSetValue(elementRefs[i], event);
-        }
+    switch ( fDirection ) {
+        case kIOHIDTransactionDirectionTypeOutput:
+            ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientPostElementValues, cookies, numValidElements, 0, &outputCount);
+            break;
+        case kIOHIDTransactionDirectionTypeInput:
+            // put together an ioconnect here
+            ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientUpdateElementValues, cookies, numValidElements, 0, &outputCount); 
+            for (int i=0;i<numElements && elementRefs[i]; i++)
+            {        
+                fOwningDevice->getElementValue(IOHIDTransactionElementGetElement(elementRefs[i]), &event, 0, NULL, NULL, kHIDGetElementValuePreventPoll);
+                IOHIDTransactionElementSetValue(elementRefs[i], event);
+            }
+            break;
+        default:
+            break;
     }
             
     if (elementRefs)  
@@ -426,9 +428,9 @@ IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS __unused, IOHIDCallbac
     
     if ( cookies ) 
         free(cookies);
-            
+
+exit:
     return ret;
-            
 }
 
 IOReturn IOHIDTransactionClass::clear (IOOptionBits options __unused)
@@ -628,7 +630,7 @@ IOReturn IOHIDOutputTransactionClass::createAsyncEventSource(CFRunLoopSourceRef 
 
 IOReturn IOHIDOutputTransactionClass::create ()
 {
-	fDirection = kIOHIDTransactionDirectionTypeOutput;
+    fDirection = kIOHIDTransactionDirectionTypeOutput;
 	
     return IOHIDTransactionClass::create();
 }

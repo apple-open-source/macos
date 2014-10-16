@@ -26,19 +26,10 @@
 
 #pragma ident	"@(#)dt_strtab.c	1.4	06/09/19 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/sysmacros.h>
 #include <strings.h>
 #include <stdlib.h>
 #include <assert.h>
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-#include <strings.h>
-#include <stdlib.h>
-#include <assert.h>
-#endif /* __APPLE__ */
 
 #include <dt_strtab.h>
 #include <dt_impl.h>

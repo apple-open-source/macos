@@ -65,6 +65,8 @@
 #define kHeimODACLAdd				CFSTR("kHeimODACLAdd")
 #define kHeimODACLGet				CFSTR("kHeimODACLGet")
 
+/* constants for the srptype argument to HeimODCreateSRPKeys */
+#define kHeimSRPGroupRFC5054_4096_PBKDF2_SHA512	CFSTR("kHeimSRPGroupRFC5054_4096_PBKDF2_SHA512")
 
 enum {
     kHeimODAdminSetKeysAppendKey			= 1,
@@ -116,6 +118,10 @@ time_t		HeimODGetKerberosMaxRenewable(ODNodeRef node, ODRecordRef record, CFErro
                 /* if password is NULL, a random password is used */
 int		HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error);
 CFArrayRef	HeimODCopyDefaultEnctypes(CFErrorRef *error);
+
+/* SRP */
+bool		HeimODSetVerifiers(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef types, CFTypeRef password, unsigned long flags, CFErrorRef *error);
+
 /**
  * Add/delete/modify keyset
  *
@@ -137,6 +143,9 @@ CFArrayRef	HeimODCopyDefaultEnctypes(CFErrorRef *error);
  * @return the new keyset or NULL on failure, error might be set
  */
 CFArrayRef	HeimODModifyKeys(CFArrayRef prevKeyset, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error) __attribute__((cf_returns_retained));
+
+
+CFArrayRef	HeimODCreateSRPKeys(CFArrayRef srptype, CFStringRef principal, CFTypeRef password, unsigned long flags, CFErrorRef *error);
 
 /**
  * Debug function to print content of a keyset element

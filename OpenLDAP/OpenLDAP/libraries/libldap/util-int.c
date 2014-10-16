@@ -742,10 +742,10 @@ char * ldap_pvt_get_fqdn_from_sys_conf ( void )
 			if ( sys2Dict != NULL ) {
 				CFStringRef hostString = (CFStringRef) CFDictionaryGetValue( sys2Dict, CFSTR("HostName") );
 				if ( hostString != NULL ) {
-					fqdn = malloc(CFStringGetLength(hostString) + 1);
+					fqdn = LDAP_MALLOC(CFStringGetLength(hostString) + 1);
 					if ( fqdn != NULL) {
 						if ( !CFStringGetCString(hostString, fqdn, CFStringGetLength(hostString) + 1 , kCFStringEncodingUTF8)) {
-							free(fqdn);
+							LDAP_FREE(fqdn);
 							fqdn = NULL;
 						}
 					}

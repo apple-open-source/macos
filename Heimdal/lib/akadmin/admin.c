@@ -52,6 +52,7 @@
 #include <sl.h>
 #include <err.h>
 #include <hex.h>
+#include "base64.h"
 
 #include "hod-commands.h"
 
@@ -183,7 +184,7 @@ password_command(struct password_options *opt, int argc, char **argv)
     CFStringRef principal = NULL, password = NULL;
     unsigned long flags = 0;
     int error = 1;
-    size_t i;
+    int i;
 
     if (opt->encryption_types_strings.num_strings) {
 
@@ -377,6 +378,70 @@ out:
 }
 
 int
+print_keyset(void *opt, int argc, char **argv)
+{
+    char *instr = NULL;
+    int ret;
+    void *data;
+    CFDataRef el;
+    CFStringRef str;
+
+    if (argc == 0) {
+	char buf[1024];
+
+	while (fgets(buf, sizeof(buf), stdin) != NULL) {
+	    buf[strcspn(buf, "\r\n")] = '\0';
+
+	    size_t n = 0;
+
+	    if (strncmp(&buf[n], "draft-krbKeySet::", 17) == 0)
+		n += 17;
+
+	    n += strspn(&buf[n], "\t ");
+
+	    if (strlen(&buf[n]) == 0)
+		break;
+
+	    char *str2;
+	    asprintf(&str2, "%s%s", instr ? instr : "", &buf[n]);
+	    free(instr);
+	    instr = str2;
+	}
+	if (instr == NULL) {
+	    printf("failed to parse line from stdin\n");
+	    return 1;
+	}
+    } else {
+	instr = strdup(argv[0]);
+    }
+
+    data = malloc(strlen(instr));
+    if (data == NULL)
+	errx(1, "malloc");
+		  
+    ret = base64_decode(instr, data);
+    if (ret < 0) {
+	printf("failed to parse as base64: %s\n", argv[0]);
+	return 1;
+    }
+
+    free(instr);
+
+    el = CFDataCreate(NULL, data, ret);
+
+    str = HeimODKeysetToString(el, NULL);
+    if (str) {
+	CFShow(str);
+	CFRelease(str);
+    } else {
+	printf("failed to print keyset\n");
+    }
+    CFRelease(el);
+
+    return str ? 0 : 1;
+}
+
+int
 principal_setacl(void *opt, int argc, char **argv)
 {
     return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
@@ -565,7 +630,7 @@ dump(void *opt, int argc, char **argv)
     if (url == NULL)
 	goto out;
 
-    xmldata = CFPropertyListCreateXMLData(NULL, entrydump);
+    xmldata = CFPropertyListCreateData(NULL, entrydump, kCFPropertyListXMLFormat_v1_0, 0, NULL);
     if (xmldata == NULL)
 	goto out;
 
@@ -573,8 +638,10 @@ dump(void *opt, int argc, char **argv)
     if (stream == NULL)
 	goto out;
 
-    if (!CFWriteStreamOpen(stream))
+    if (!CFWriteStreamOpen(stream)) {
+	CFRelease(stream);
 	goto out;
+    }
 
     CFWriteStreamWrite(stream, CFDataGetBytePtr(xmldata), CFDataGetLength(xmldata));
     CFWriteStreamClose(stream);
@@ -759,6 +826,55 @@ keyset(struct keyset_options *opt, int argc, char **argv)
     return 0;
 }
 
+int
+srp_verifier(struct srp_verifier_options *opt, int argc, char **argv)
+{
+    const char *principalstr = argv[0], *passwordstr = argv[1];
+    CFMutableArrayRef types = NULL;
+    CFArrayRef verifiers = NULL;
+    CFStringRef principal = NULL, password = NULL;
+    ODRecordRef record;
+    CFIndex n;
+    
+    record = find_record(principalstr);
+    if (record == NULL)
+	errx(1, "failed to find %s", principalstr);
+
+    if (opt->type_strings.num_strings) {
+
+	types = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	if (types == NULL)
+	    errx(1, "out of memory");
+	
+      	for (n = 0; n < opt->type_strings.num_strings; n++) {
+	    CFStringRef str = CFStringCreateWithCString(NULL, opt->type_strings.strings[n], kCFStringEncodingUTF8);
+	    if (str == NULL)
+		errx(1, "out of memory");
+	    CFArrayAppendValue(types, str);
+	    CFRelease(str);
+	}
+    }
+    
+    principal = CFStringCreateWithCString(NULL, principalstr, kCFStringEncodingUTF8);
+    password = CFStringCreateWithCString(NULL, passwordstr, kCFStringEncodingUTF8);
+    if (principal == NULL || password == NULL)
+	errx(1, "out of memory");
+
+    if (!HeimODSetVerifiers(node, record, principal, types, password, 0, NULL))
+	errx(1, "HeimODSetVerifiers");
+
+    if (types)
+	CFRelease(types);
+    if (principal)
+	CFRelease(principal);
+    if (password)
+	CFRelease(password);
+    if (verifiers)
+	CFRelease(verifiers);
+    
+    return 0;
+}
+
 static void
 set_if_lkdc_or_empty(CFStringRef key, CFStringRef value, CFStringRef prop)
 {
@@ -789,7 +905,7 @@ create_random_server_principal(krb5_context context,
 
     record = find_record(record_name);
     if (record == NULL) {
-	warnx("failed to create node %s", record_name);
+	warnx("failed to find user %s", record_name);
 	goto out;
     }
 
@@ -1177,6 +1293,7 @@ setup_lkdc(struct setup_lkdc_options *opt, int argc, char **argv)
 
     /* create users */
     create_random_server_principal(context, "/Users/_krbtgt", realm, 1, opt->verbose_flag, 0);
+    create_random_server_principal(context, "/Users/_krbfast", realm, 1, opt->verbose_flag, 0);
     create_random_server_principal(context, "/Computers/localhost", realm, 0, opt->verbose_flag, 1);
 
     if (opt->verbose_flag)

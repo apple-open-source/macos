@@ -37,6 +37,8 @@
 #include "parse_units.h"
 #include "kcc-commands.h"
 
+static char *json_version = "\"version\" : 1";
+
 static char*
 printable_time_internal(time_t t, int x)
 {
@@ -51,9 +53,22 @@ printable_time_internal(time_t t, int x)
     return s;
 }
 
-static char*
-printable_time(time_t t)
+static char *
+json_time(time_t t)
 {
+    static char s[128];
+    struct tm *tm;
+    tm = localtime(&t);
+    if (strftime(s, sizeof(s), "%Y%m%d%k%M%S", tm) == 0)
+	snprintf(s, sizeof(s), "%ld", (long)t);
+    return s;
+}
+
+static char*
+printable_time(time_t t, int do_json)
+{
+    if (do_json)
+	return json_time(t);
     return printable_time_internal(t, 20);
 }
 
@@ -71,9 +86,12 @@ printable_time_long(time_t t)
 #define COL_PRINCIPAL_KVNO	NP_("  Principal (kvno)", "in klist output")
 #define COL_CACHENAME		NP_("  Cache name", "name in klist output")
 #define COL_DEFCACHE		NP_("", "")
+#define COL_DEFCACHE_JSON	NP_("  Default Cache", "")
+#define COL_EXPIRED		NP_("  Expired", "")
 
 static void
-print_cred(krb5_context context, krb5_creds *cred, rtbl_t ct, int do_flags)
+print_cred(krb5_context context, krb5_creds *cred, rtbl_t ct,
+	   int do_flags, int do_json)
 {
     char *str;
     krb5_error_code ret;
@@ -81,17 +99,17 @@ print_cred(krb5_context context, krb5_creds *cred, rtbl_t ct, int do_flags)
 
     krb5_timeofday (context, &sec);
 
-
     if(cred->times.starttime)
 	rtbl_add_column_entry(ct, COL_ISSUED,
-			      printable_time(cred->times.starttime));
+			      printable_time(cred->times.starttime, do_json));
     else
 	rtbl_add_column_entry(ct, COL_ISSUED,
-			      printable_time(cred->times.authtime));
+			      printable_time(cred->times.authtime, do_json));
 
-    if(cred->times.endtime > sec)
+    /* JSON output always use a real date */
+    if(cred->times.endtime > sec || do_json)
 	rtbl_add_column_entry(ct, COL_EXPIRES,
-			      printable_time(cred->times.endtime));
+			      printable_time(cred->times.endtime, do_json));
     else
 	rtbl_add_column_entry(ct, COL_EXPIRES, N_(">>>Expired<<<", ""));
     ret = krb5_unparse_name (context, cred->server, &str);
@@ -137,7 +155,6 @@ print_cred_verbose(krb5_context context, krb5_creds *cred, int do_json)
     krb5_timestamp sec;
 
     if (do_json) { /* XXX support more json formating later */
-	printf("{ \"verbose-supported\" : false }");
 	return;
     }
 
@@ -292,7 +309,7 @@ print_tickets (krb5_context context,
 	}
 	printf("\n");
     } else {
-	printf ("{ \"cache\" : \"%s\", \"principal\" : \"%s\", ", fullname, str);
+	printf ("{ %s, \"cache\" : \"%s\", \"principal\" : \"%s\", ", json_version, fullname, str);
     }
 
     ret = krb5_cc_start_seq_get (context, ccache, &cursor);
@@ -313,17 +330,17 @@ print_tickets (krb5_context context,
 	}
     }
     if (do_verbose && do_json)
-	printf("\"tickets\" : [");
+	printf("\"tickets\" : [ { \"verbose-supported\" : false } ]");
     while ((ret = krb5_cc_next_cred (context,
 				     ccache,
 				     &cursor,
 				     &creds)) == 0) {
 	if (!do_hidden && krb5_is_config_principal(context, creds.server)) {
 	    ;
-	}else if(do_verbose){
+	} else if(do_verbose){
 	    print_cred_verbose(context, &creds, do_json);
 	}else{
-	    print_cred(context, &creds, ct, do_flags);
+	    print_cred(context, &creds, ct, do_flags, do_json);
 	}
 	krb5_free_cred_contents (context, &creds);
     }
@@ -337,8 +354,6 @@ print_tickets (krb5_context context,
 	rtbl_destroy(ct);
     }
     if (do_json) {
-	if (do_verbose)
-	    printf("]");
 	printf("}");
     }
 }
@@ -349,43 +364,21 @@ print_tickets (krb5_context context,
  */
 
 static int
-check_for_tgt (krb5_context context,
-	       krb5_ccache ccache,
-	       krb5_principal principal,
-	       time_t *expiration)
+check_expiration(krb5_context context,
+		 krb5_ccache ccache,
+		 time_t *expiration)
 {
     krb5_error_code ret;
-    krb5_creds pattern;
-    krb5_creds creds;
-    krb5_const_realm client_realm;
-    int expired;
+    time_t t;
 
-    krb5_cc_clear_mcred(&pattern);
-
-    client_realm = krb5_principal_get_realm(context, principal);
-
-    ret = krb5_make_principal (context, &pattern.server,
-			       client_realm, KRB5_TGS_NAME, client_realm, NULL);
-    if (ret)
-	krb5_err (context, 1, ret, "krb5_make_principal");
-    pattern.client = principal;
-
-    ret = krb5_cc_retrieve_cred (context, ccache, 0, &pattern, &creds);
-    krb5_free_principal (context, pattern.server);
-    if (ret) {
-	if (ret == KRB5_CC_NOTFOUND)
-	    return 1;
-	krb5_err (context, 1, ret, "krb5_cc_retrieve_cred");
-    }
-
-    expired = time(NULL) > creds.times.endtime;
+    ret = krb5_cc_get_lifetime(context, ccache, &t);
+    if (ret || t == 0)
+	return 1;
 
     if (expiration)
-	*expiration = creds.times.endtime;
+	*expiration = time(NULL) + t;
 
-    krb5_free_cred_contents (context, &creds);
-
-    return expired;
+    return 0;
 }
 
 /*
@@ -479,7 +472,7 @@ display_v5_ccache (krb5_context context, krb5_ccache ccache,
     ret = krb5_cc_get_principal (context, ccache, &principal);
     if (ret) {
 	if (do_json) {
-	    printf("{}");
+	    printf("{ %s }", json_version);
 	    return 0;
 	}
 	if(ret == ENOENT) {
@@ -491,7 +484,7 @@ display_v5_ccache (krb5_context context, krb5_ccache ccache,
 	    krb5_err (context, 1, ret, "krb5_cc_get_principal");
     }
     if (do_test)
-	exit_status = check_for_tgt (context, ccache, principal, NULL);
+	exit_status = check_expiration(context, ccache, NULL);
     else
 	print_tickets (context, ccache, principal, do_verbose,
 		       do_flags, do_hidden, do_json);
@@ -518,6 +511,7 @@ list_caches(krb5_context context, struct klist_options *opt)
     krb5_error_code ret;
     krb5_ccache id;
     rtbl_t ct;
+    char *DefCacheColumn = opt->json_flag ? COL_DEFCACHE_JSON : COL_DEFCACHE;
 
     cdef_name = krb5_cc_default_name(context);
     if (cdef_name == NULL)
@@ -532,41 +526,38 @@ list_caches(krb5_context context, struct klist_options *opt)
 	krb5_err (context, 1, ret, "krb5_cc_cache_get_first");
 
     ct = rtbl_create();
-    rtbl_add_column(ct, COL_DEFCACHE, 0);
+    rtbl_add_column(ct, DefCacheColumn, 0);
     rtbl_add_column(ct, COL_NAME, 0);
     rtbl_add_column(ct, COL_CACHENAME, 0);
     rtbl_add_column(ct, COL_EXPIRES, 0);
-    rtbl_add_column(ct, COL_DEFCACHE, 0);
+    if (opt->json_flag)
+	rtbl_add_column(ct, COL_EXPIRED, 0);
     rtbl_set_prefix(ct, "   ");
-    rtbl_set_column_prefix(ct, COL_DEFCACHE, "");
+    rtbl_set_column_prefix(ct, DefCacheColumn, "");
     rtbl_set_column_prefix(ct, COL_NAME, " ");
     if (opt->json_flag)
 	rtbl_set_flags(ct, RTBL_JSON);
 
     while (krb5_cccol_cursor_next(context, cursor, &id) == 0 && id != NULL) {
-	krb5_principal principal = NULL;
 	int expired = 0;
 	char *name;
 	time_t t;
 
-	ret = krb5_cc_get_principal(context, id, &principal);
-	if (ret)
-	    continue;
-
-	expired = check_for_tgt (context, id, principal, &t);
+	expired = check_expiration(context, id, &t);
 
 	ret = krb5_cc_get_friendly_name(context, id, &name);
 	if (ret == 0) {
 	    const char *str;
 	    char *fname;
+	    int defcache;
 
 	    rtbl_add_column_entry(ct, COL_NAME, name);
 	    free(name);
 
-	    if (expired)
+	    if (expired && !opt->json_flag)
 		str = N_(">>> Expired <<<", "");
 	    else
-		str = printable_time(t);
+		str = printable_time(t, opt->json_flag);
 	    rtbl_add_column_entry(ct, COL_EXPIRES, str);
 
 	    ret = krb5_cc_get_full_name(context, id, &fname);
@@ -574,18 +565,22 @@ list_caches(krb5_context context, struct klist_options *opt)
 		krb5_err (context, 1, ret, "krb5_cc_get_full_name");
 
 	    rtbl_add_column_entry(ct, COL_CACHENAME, fname);
-	    if (opt->json_flag)
-		;
-	    else if (strcmp(fname, def_name) == 0)
-		rtbl_add_column_entry(ct, COL_DEFCACHE, "*");
-	    else
-		rtbl_add_column_entry(ct, COL_DEFCACHE, "");
+
+	    defcache = strcmp(fname, def_name) == 0;
+	    
+	    if (opt->json_flag) {
+		rtbl_add_column_entry(ct, DefCacheColumn,
+				      defcache ? "yes" : "no");
+		rtbl_add_column_entry(ct, COL_EXPIRED,
+				      expired ? "yes" : "no");
+	    } else {
+		rtbl_add_column_entry(ct, DefCacheColumn,
+				      defcache ? "*" : "");
+	    }
 
 	    krb5_xfree(fname);
 	}
 	krb5_cc_close(context, id);
-
-	krb5_free_principal(context, principal);
     }
 
     krb5_cccol_cursor_free(context, &cursor);
@@ -640,7 +635,8 @@ klist(struct klist_options *opt, int argc, char **argv)
 		krb5_err(kcc_context, 1, ret, "krb5_cc_cache_get_first");
 
 	    if (opt->json_flag)
-		printf("[");
+		printf("{ %s, \"tickets\" : [", json_version);
+
 	    while (krb5_cc_cache_next(kcc_context, cursor, &id) == 0) {
 		if (opt->json_flag && !first)
 		    printf(",");
@@ -655,7 +651,7 @@ klist(struct klist_options *opt, int argc, char **argv)
 	    }
 	    krb5_cc_cache_end_seq_get(kcc_context, cursor);
 	    if (opt->json_flag)
-		printf("]");
+		printf("] }");
 	} else {
 	    if(opt->cache_string) {
 		ret = krb5_cc_resolve(kcc_context, opt->cache_string, &id);

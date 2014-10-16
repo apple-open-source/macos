@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -157,12 +157,6 @@ DHCPv6ClientGetInterface(DHCPv6ClientRef client)
     return (DHCPv6SocketGetInterface(client->sock));
 }
 
-STATIC const struct sockaddr_in6 dhcpv6_all_servers_and_relay_agents = {
-    sizeof(dhcpv6_all_servers_and_relay_agents),
-    AF_INET6, 0, 0,
-    All_DHCP_Relay_Agents_and_Servers_INIT, 0
-};
-
 STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
     kDHCPv6OPTION_DOMAIN_LIST
@@ -274,7 +268,8 @@ S_insert_duid(DHCPv6OptionAreaRef oa_p)
 	return (FALSE);
     }
     if (DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_CLIENTID,
-				  CFDataGetLength(data), CFDataGetBytePtr(data),
+				  (int)CFDataGetLength(data),
+				  CFDataGetBytePtr(data),
 				  &err) == FALSE) {
 	my_log(LOG_NOTICE, "DHCPv6Client: failed to add CLIENTID, %s",
 	       err.str);
@@ -1495,7 +1490,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 		   prefix_length, valid_lifetime, preferred_lifetime);
 	}
 	if (inet6_aifaddr(s, if_name(if_p), our_ip, NULL, 
-			  prefix_length, 
+			  prefix_length, IN6_IFF_DYNAMIC,
 			  valid_lifetime, preferred_lifetime) < 0) {
 	    my_log(LOG_DEBUG,
 		   "DHCPv6ClientBound(%s): adding %s failed, %s (%d)",
@@ -2133,7 +2128,7 @@ main(int argc, char * argv[])
 	exit(2);
     }
     (void) openlog("DHCPv6Client", LOG_PERROR | LOG_PID, LOG_DAEMON);
-    DHCPv6SocketVerbose(TRUE);
+    DHCPv6SocketSetVerbose(TRUE);
     client = DHCPv6ClientCreate(if_p);
     if (client == NULL) {
 	fprintf(stderr, "DHCPv6ClientCreate(%s) failed\n", ifname);

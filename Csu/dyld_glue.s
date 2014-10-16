@@ -276,9 +276,12 @@ dyld__mach_header:
 	Ldyld_base_addr =	0x00007fff5fc00000
 #elif __arm__
 	Ldyld_base_addr =	0x2fe00000
+#elif __arm64__
 #else
 #error unknown architecture
 #endif
+
+#if !__arm64__
 	.dyld
 	.align_pointer
 Ldyld_content_lazy_binder:
@@ -291,6 +294,7 @@ Ldyld_content_func_lookup:
 	.pointer		_NXArgv
 	.pointer		_environ
 	.pointer		___progname
+#endif
 #endif
 
 // This code has be written to allow dead code stripping

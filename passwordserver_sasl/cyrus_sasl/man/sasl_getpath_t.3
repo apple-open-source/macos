@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_getpath_t "10 July 2001" SASL "SASL man pages"
+.TH sasl_getpath_t 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_getpath_t \- The SASL callback to indicate location of the mechanism drivers
 
@@ -55,7 +55,7 @@ sasl_getpath_t \- The SASL callback to indicate location of the mechanism driver
 .SH DESCRIPTION
 
 .B sasl_getpath_t
-is used if the application wishes to use a different location for the SASL mechanism drivers (the shared library files). If this callback is not used SASL will either use the location in the enviornment variable SASL_PATH or /usr/lib/sasl2 by default.
+is used if the application wishes to use a different location for the SASL mechanism drivers (the shared library files). If this callback is not used SASL will either use the location in the environment variable SASL_PATH or /usr/lib/sasl2 by default.
 .PP
 
 .SH "RETURN VALUE"
@@ -63,6 +63,6 @@ is used if the application wishes to use a different location for the SASL mecha
 SASL callback functions should return SASL return codes. See sasl.h for a complete list. SASL_OK indicates success.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_callbacks(3), sasl_errors(3)

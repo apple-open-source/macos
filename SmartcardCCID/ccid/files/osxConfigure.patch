@@ -1,10 +1,8 @@
-diff --git MacOSX/configure MacOSX/configure
-index 8b42e38..b3fc826 100755
 --- MacOSX/configure
 +++ MacOSX/configure
-@@ -39,6 +39,10 @@
- 
- ./MacOSX/convert_reader_h.pl MacOSX/reader.h.in > MacOSX/reader.h
+@@ -39,6 +39,10 @@ then
+        exit;
+ fi
  
 +if [[ ("$*" =~ "--no-configure") ]]; then
 +       exit 0
@@ -13,4 +11,3 @@ index 8b42e38..b3fc826 100755
  # find pcsc-lite header files in MacOSX/
  # use ${varname:-word} to return word only if varname is not already defined
  PCSC_CFLAGS=${PCSC_CFLAGS:--I$(pwd)/MacOSX}
-

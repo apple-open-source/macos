@@ -12,7 +12,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -45,33 +45,25 @@ class Frame;
 class FrameLoaderClient;
 class HTMLAppletElement;
 class HTMLFrameOwnerElement;
+class HTMLMediaElement;
 class HTMLPlugInImageElement;
 class IntSize;
-class KURL;
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-class Node;
-#endif
+class URL;
 class Widget;
 
 // This is a slight misnomer. It handles the higher level logic of loading both subframes and plugins.
 class SubframeLoader {
     WTF_MAKE_NONCOPYABLE(SubframeLoader);
 public:
-    explicit SubframeLoader(Frame*);
+    explicit SubframeLoader(Frame&);
 
     void clear();
 
-    bool requestFrame(HTMLFrameOwnerElement*, const String& url, const AtomicString& frameName, bool lockHistory = true, bool lockBackForwardList = true);    
-    bool requestObject(HTMLPlugInImageElement*, const String& url, const AtomicString& frameName,
+    bool requestFrame(HTMLFrameOwnerElement&, const String& url, const AtomicString& frameName, LockHistory = LockHistory::Yes, LockBackForwardList = LockBackForwardList::Yes);
+    bool requestObject(HTMLPlugInImageElement&, const String& url, const AtomicString& frameName,
         const String& serviceType, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    // FIXME: This should take Element* instead of Node*, or better yet the
-    // specific type of Element which this code depends on.
-    PassRefPtr<Widget> loadMediaPlayerProxyPlugin(Node*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues);
-#endif
-
-    PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const Vector<String>& paramNames, const Vector<String>& paramValues);
+    PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement&, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
     bool allowPlugins(ReasonForCallingAllowPlugins);
 
@@ -80,21 +72,20 @@ public:
     bool resourceWillUsePlugin(const String& url, const String& mimeType, bool shouldPreferPlugInsForImages);
 
 private:
-    bool requestPlugin(HTMLPlugInImageElement*, const KURL&, const String& serviceType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
-    Frame* loadOrRedirectSubframe(HTMLFrameOwnerElement*, const KURL&, const AtomicString& frameName, bool lockHistory, bool lockBackForwardList);
-    Frame* loadSubframe(HTMLFrameOwnerElement*, const KURL&, const String& name, const String& referrer);
-    bool loadPlugin(HTMLPlugInImageElement*, const KURL&, const String& mimeType,
-        const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
+    bool requestPlugin(HTMLPlugInImageElement&, const URL&, const String& serviceType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
+    Frame* loadOrRedirectSubframe(HTMLFrameOwnerElement&, const URL&, const AtomicString& frameName, LockHistory, LockBackForwardList);
+    Frame* loadSubframe(HTMLFrameOwnerElement&, const URL&, const String& name, const String& referrer);
+    bool loadPlugin(HTMLPlugInImageElement&, const URL&, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
 
-    bool shouldUsePlugin(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages, bool hasFallback, bool& useFallback);
-    bool pluginIsLoadable(HTMLPlugInImageElement*, const KURL&, const String& mimeType);
+    bool shouldUsePlugin(const URL&, const String& mimeType, bool shouldPreferPlugInsForImages, bool hasFallback, bool& useFallback);
+    bool pluginIsLoadable(HTMLPlugInImageElement&, const URL&, const String& mimeType);
 
     Document* document() const;
 
     bool m_containsPlugins;
-    Frame* m_frame;
+    Frame& m_frame;
 
-    KURL completeURL(const String&) const;
+    URL completeURL(const String&) const;
 };
 
 } // namespace WebCore

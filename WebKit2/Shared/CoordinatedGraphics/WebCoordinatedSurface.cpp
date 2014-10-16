@@ -39,7 +39,7 @@ WebCoordinatedSurface::Handle::Handle()
 {
 }
 
-void WebCoordinatedSurface::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
+void WebCoordinatedSurface::Handle::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << m_size << m_flags;
 #if USE(GRAPHICS_SURFACE)
@@ -50,7 +50,7 @@ void WebCoordinatedSurface::Handle::encode(CoreIPC::ArgumentEncoder& encoder) co
     encoder << m_bitmapHandle;
 }
 
-bool WebCoordinatedSurface::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
+bool WebCoordinatedSurface::Handle::decode(IPC::ArgumentDecoder& decoder, Handle& handle)
 {
     if (!decoder.decode(handle.m_size))
         return false;
@@ -103,7 +103,7 @@ PassRefPtr<WebCoordinatedSurface> WebCoordinatedSurface::createWithSurface(const
 }
 #endif
 
-PassOwnPtr<WebCore::GraphicsContext> WebCoordinatedSurface::createGraphicsContext(const IntRect& rect)
+std::unique_ptr<GraphicsContext> WebCoordinatedSurface::createGraphicsContext(const IntRect& rect)
 {
 #if USE(GRAPHICS_SURFACE)
     if (isBackedByGraphicsSurface())
@@ -111,10 +111,10 @@ PassOwnPtr<WebCore::GraphicsContext> WebCoordinatedSurface::createGraphicsContex
 #endif
 
     ASSERT(m_bitmap);
-    OwnPtr<GraphicsContext> graphicsContext = m_bitmap->createGraphicsContext();
+    auto graphicsContext = m_bitmap->createGraphicsContext();
     graphicsContext->clip(rect);
     graphicsContext->translate(rect.x(), rect.y());
-    return graphicsContext.release();
+    return graphicsContext;
 }
 
 PassRefPtr<WebCoordinatedSurface> WebCoordinatedSurface::create(const IntSize& size, CoordinatedSurface::Flags flags, PassRefPtr<ShareableBitmap> bitmap)
@@ -123,16 +123,14 @@ PassRefPtr<WebCoordinatedSurface> WebCoordinatedSurface::create(const IntSize& s
 }
 
 WebCoordinatedSurface::WebCoordinatedSurface(const IntSize& size, CoordinatedSurface::Flags flags, PassRefPtr<ShareableBitmap> bitmap)
-    : m_size(size)
-    , m_flags(flags)
+    : CoordinatedSurface(size, flags)
     , m_bitmap(bitmap)
 {
 }
 
 #if USE(GRAPHICS_SURFACE)
 WebCoordinatedSurface::WebCoordinatedSurface(const WebCore::IntSize& size, CoordinatedSurface::Flags flags, PassRefPtr<WebCore::GraphicsSurface> surface)
-    : m_size(size)
-    , m_flags(flags)
+    : CoordinatedSurface(size, flags)
     , m_graphicsSurface(surface)
 {
 }
@@ -187,7 +185,7 @@ void WebCoordinatedSurface::paintToSurface(const IntRect& rect, CoordinatedSurfa
 {
     ASSERT(client);
 
-    OwnPtr<GraphicsContext> context = createGraphicsContext(rect);
+    auto context = createGraphicsContext(rect);
     client->paintToSurfaceContext(context.get());
 }
 

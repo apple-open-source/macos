@@ -800,9 +800,7 @@ start(IOService *provider)
     if (!fProvider)
         return false;
 
-    fThreadLock = IOLockAlloc();
-    if (!fThreadLock)
-        return false;
+    fThreadState = 0x0000;
 	
 	fOpenCloseLock = IOLockAlloc();
 	if (!fOpenCloseLock)
@@ -970,10 +968,8 @@ void IOSerialBSDClient::free()
 		sp->ftty = NULL;
 		debug(FLOW,"we free'd the ftty struct");
 	}
-	
-    if (fThreadLock)
-	IOLockFree(fThreadLock);
-	
+		
+    // TODO: <rdar://15605565>
 	if (fOpenCloseLock)
 		IOLockFree(fOpenCloseLock);
 	
@@ -1042,16 +1038,19 @@ didTerminate(IOService *provider, IOOptionBits options, bool *defer)
 			(void) bsdld_modem(tp, false);
 			tty_unlock(tp);
         }
-	fActiveSession = 0;
-	deferTerm = (frxThread || ftxThread || fInOpensPending);
-	if (deferTerm) {
-	    fKillThreads = true;
-	    fProvider->executeEvent(PD_E_ACTIVE, false);
-	    fDeferTerminate = true;
-	    *defer = true;	// Defer until the threads die
-	}
-	else
-	    SAFE_PORTRELEASE(fProvider);
+        fActiveSession = 0;
+        deferTerm =
+        ((fThreadState & THREAD_RX_MASK) == THREAD_RX_STARTED) ||
+        ((fThreadState & THREAD_TX_MASK) == THREAD_TX_STARTED) ||
+        fInOpensPending;
+        if (deferTerm) {
+            fKillThreads = true;
+            fProvider->executeEvent(PD_E_ACTIVE, false);
+            fDeferTerminate = true;
+            *defer = true;	// Defer until the threads die
+        }
+        else
+            SAFE_PORTRELEASE(fProvider);
 		
     }
 
@@ -1185,14 +1184,15 @@ iossread(dev_t dev, struct uio *uio, int ioflag)
 	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 	sBSDGlobals.releasefFunnelLock();
-    int error;
-
     assert(me);
-
+    if (!me)
+        return ENXIO;
+    
+    int error;
+    
     Session *sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
     struct tty *tp = sp->ftty;
-	
-
+    
     error = sp->fErrno;
     if (!error) {
 		tty_lock(tp);
@@ -1217,12 +1217,15 @@ iosswrite(dev_t dev, struct uio *uio, int ioflag)
 	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 	sBSDGlobals.releasefFunnelLock();
+    assert(me);
+    if (!me)
+        return ENXIO;
+    
     int error;
 	
 #if JLOG
 	kprintf("IOSerialBSDClient::iosswrite\n");
 #endif
-    assert(me);
 
     Session *sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
     struct tty *tp = sp->ftty;
@@ -1244,14 +1247,16 @@ iossselect(dev_t dev, int which, void *wql, struct proc *p)
 	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 	sBSDGlobals.releasefFunnelLock();
+    assert(me);
+    if (!me)
+        return ENXIO;
+    
     int error;
 	
 #if JLOG	
 	kprintf("IOSerialBSDClient::iossselect\n");
 #endif
-
-    assert(me);
-
+    
     Session *sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
     struct tty *tp = sp->ftty;
 	
@@ -1297,11 +1302,14 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,				// XXX64
 	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
 	sBSDGlobals.releasefFunnelLock();
+    assert(me);
+    if (!me)
+        return ENXIO;
+    
     int error = 0;
 	
     debug(FLOW, "begin");
     IOLockLock(me->fIoctlLock);
-    assert(me);
 
     Session *sp = &me->fSessions[IS_TTY_OUTWARD(dev)];
     struct tty *tp = sp->ftty;
@@ -2160,17 +2168,17 @@ close(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
     struct tty *tp;
     Session *sp;
     IOReturn rtn;
-#if JLOG	
+#if JLOG
 	kprintf("IOSerialBSDClient::close\n");
 #endif
-
+    
     startConnectTransit();
-
+    
     sp = &fSessions[IS_TTY_OUTWARD(dev)];
     tp = sp->ftty;
-
+    
     if (!tp->t_dev && fInOpensPending) {
-	// Never really opened - time to give up on this device
+        // Never really opened - time to give up on this device
         (void) fProvider->executeEvent(PD_E_ACTIVE, false);
         endConnectTransit();
         while (fInOpensPending)
@@ -2186,47 +2194,48 @@ close(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
     if (!sp->fErrno) {
         (void) sessionExecuteEvent(sp, PD_E_FLOW_CONTROL, 0);
         (void) sessionSetState(sp, -1U, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
-
+        
         // Clear any outstanding line breaks
         rtn = sessionEnqueueEvent(sp, PD_RS232_E_LINE_BREAK, false, true);
-	assert(!rtn || rtn == kIOReturnOffline || rtn == kIOReturnNotOpen);
+        assert(!rtn || rtn == kIOReturnOffline || rtn == kIOReturnNotOpen);
     }
 	tty_lock(tp);
     bsdld_close(tp, flags);
 	tty_unlock(tp);
     if (!sp->fErrno) {
         if (ISSET(tp->t_cflag, HUPCL) || !ISSET(tp->t_state, TS_ISOPEN)
-        || (IS_TTY_PREEMPT(dev, sp->fInitTerm.c_cflag)
-            && !ISSET(sessionGetState(sp), PD_RS232_S_CAR)) ) {
-            /*
-             * XXX we will miss any carrier drop between here and the
-             * next open.  Perhaps we should watch DCD even when the
-             * port is closed; it is not sufficient to check it at
-             * the next open because it might go up and down while
-             * we're not watching.
-             */
-            (void) mctl(RS232_S_OFF, DMSET);
-        }
+            || (IS_TTY_PREEMPT(dev, sp->fInitTerm.c_cflag)
+                && !ISSET(sessionGetState(sp), PD_RS232_S_CAR)) ) {
+                /*
+                 * XXX we will miss any carrier drop between here and the
+                 * next open.  Perhaps we should watch DCD even when the
+                 * port is closed; it is not sufficient to check it at
+                 * the next open because it might go up and down while
+                 * we're not watching.
+                 */
+                (void) mctl(RS232_S_OFF, DMSET);
+            }
     }
 	tty_lock(tp);
     ttyclose(tp);	// Drops TS_ISOPEN flag
     assert(!tp->t_outq.c_cc);
-
+    
     tty_unlock(tp);
     // Shut down the port, this will cause the RX && TX threads to terminate
     // Then wait for threads to terminate, this should be over very quickly.
+    
 
     if (!sp->fErrno)
         killThreads(); // Disable the chip
-
+    
     if (sp == fActiveSession)
     {
-	SAFE_PORTRELEASE(fProvider);
+        SAFE_PORTRELEASE(fProvider);
         fPreemptAllowed = false;
         fActiveSession = 0;
         wakeup(&fPreemptAllowed);	// Wakeup any pre-empters
     }
-
+    
     sp->fErrno = 0;	/* Clear the error condition on last close */
 	
     endConnectTransit();
@@ -2780,20 +2789,28 @@ void IOSerialBSDClient::
 rxFunc()
 {
     Session *sp;
+    struct tty *tp;
     int event;
     UInt32 wakeup_with;	// states
     IOReturn rtn;
-#if JLOG	
+#if JLOG
 	kprintf("IOSerialBSDClient::rxFunc\n");
 #endif
-    sp = fActiveSession;
-	struct tty *tp = sp->ftty;
-
     IOLockLock(fThreadLock);
-    frxThread = IOThreadSelf();
-    IOLockWakeup(fThreadLock, &frxThread, true);	// wakeup the thread launcher
+    sp = fActiveSession;
+    if (!sp || !(tp=sp->ftty) || fKillThreads) {
+        fThreadState |= THREAD_RX_STARTED | THREAD_RX_FINISHED;
+        IOLockWakeup(fThreadLock, &fThreadState, true);
+        IOLockUnlock(fThreadLock);
+        (void) thread_terminate(current_thread());
+        return;
+    }
+    
+    fThreadState |= THREAD_RX_STARTED;
+    
+    IOLockWakeup(fThreadLock, &fThreadState, true);	// wakeup the thread launcher
     IOLockUnlock(fThreadLock);
-
+    
     frxBlocked = false;
 
     while ( !fKillThreads ) {
@@ -2802,7 +2819,7 @@ rxFunc()
             rtn = sessionWatchState(sp, &wakeup_with, PD_S_RX_EVENT);
             sessionSetState(sp, 0, PD_S_RX_EVENT);
             if ( kIOReturnOffline == rtn || kIOReturnNotOpen == rtn
-	    ||   fKillThreads)
+                ||   fKillThreads)
                 break;	// Terminate thread loop
         }
 	event = (sessionNextEvent(sp) & PD_E_MASK);
@@ -2814,20 +2831,22 @@ rxFunc()
 
     // commit seppuku cleanly
 #ifdef DEBUG
-    debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+    debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+          state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
 #endif
 
     IOLockLock(fThreadLock);
-    frxThread = THREAD_NULL;
-    IOLockWakeup(fThreadLock, &frxThread, true);	// wakeup the thread killer
-	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
+    fThreadState |= THREAD_RX_FINISHED;
+    IOLockWakeup(fThreadLock, &fThreadState, true);	// wakeup the thread killer
+	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d",
+          fisCallout, fwantCallout, fisBlueTooth);
 	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
 
-    if (fDeferTerminate && !ftxThread && !fInOpensPending) {
-	SAFE_PORTRELEASE(fProvider);
-
-	bool defer = false;
-	super::didTerminate(fProvider, 0, &defer);
+    if (fDeferTerminate && (fThreadState & THREAD_TX_FINISHED) && !fInOpensPending) {
+        SAFE_PORTRELEASE(fProvider);
+        
+        bool defer = false;
+        super::didTerminate(fProvider, 0, &defer);
     }
     else // we shouldn't go down this path if we've already released the port
          // (and didTerminate handles the rest of the issues anyway)
@@ -2843,7 +2862,8 @@ rxFunc()
         // handling in ppp that contributes to this problem
         // 
         // benign except for the preemption case - fixed...
-        if (!ftxThread && !fInOpensPending && !fPreemptInProgress && fisBlueTooth)
+        if ((fThreadState & THREAD_TX_FINISHED) && !fInOpensPending &&
+            !fPreemptInProgress && fisBlueTooth)
         {
             // no transmit thread, we're about to kill the receive thread
             // tell the bsd side no more bytes (fErrno = 0)
@@ -2853,27 +2873,33 @@ rxFunc()
 
             // Enforce a zombie and unconnected state on the discipline
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
             debug(FLOW, "faking a CLOCAL drop");
             tty_lock(tp);
             CLR(tp->t_cflag, CLOCAL);  // Fake up a carrier drop
             debug(FLOW, "faked a CLOCAL drop, about to fake a carrier drop");
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
            
             (void) bsdld_modem(tp, false);
             tty_unlock(tp);
             debug(FLOW, "faked a carrier drop");
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
 
         }
     }
-    debug(FLOW, "thread be dead");
     IOLockUnlock(fThreadLock);
+    debug(FLOW, "thread be dead");
     (void) thread_terminate(current_thread());
 }
 
@@ -2960,12 +2986,20 @@ txFunc()
 #if JLOG	
 	kprintf("IOSerialBSDClient::txFunc\n");
 #endif
-    sp = fActiveSession;
-    tp = sp->ftty;
 
     IOLockLock(fThreadLock);
-    ftxThread = IOThreadSelf();
-    IOLockWakeup(fThreadLock, &ftxThread, true);	// wakeup the thread launcher
+    sp = fActiveSession;
+    if (!sp || !(tp=sp->ftty) || fKillThreads) {
+        fThreadState |= THREAD_TX_STARTED | THREAD_TX_FINISHED;
+        IOLockWakeup(fThreadLock, &fThreadState, true);
+        IOLockUnlock(fThreadLock);
+        (void) thread_terminate(current_thread());
+        return;
+    }
+    
+    fThreadState |= THREAD_TX_STARTED;
+    
+    IOLockWakeup(fThreadLock, &fThreadState, true);	// wakeup the thread launcher
     IOLockUnlock(fThreadLock);
 
     /*
@@ -2983,7 +3017,7 @@ txFunc()
 		rtn  = sessionWatchState(sp, &wakeup_with, waitfor_mask);
 		if ( rtn )
 			break;	// Terminate thread loop
-
+        
 		//
 		// interesting_bits are set to true if the wait_for = wakeup_with
 		// and we expressed an interest in the bit in waitfor_mask.
@@ -3003,7 +3037,7 @@ txFunc()
 		//
 		if ( ISSET(PD_RS232_S_CAR, interesting_bits) ) {
 			waitfor ^= PD_RS232_S_CAR;		/* toggle value */
-
+            
 			if (fDCDTimerDue) {
 				/* Stop dcd timer interval was too short */
 				if (thread_call_cancel(fDCDThreadCall)) {
@@ -3013,7 +3047,7 @@ txFunc()
 				}
 			} else {
 				AbsoluteTime dl;
-
+                
 				clock_interval_to_deadline(DCD_DELAY, kMicrosecondScale, &dl);
 				thread_call_enter1_delayed(fDCDThreadCall, sp, dl);
 				debug(DCDTRD,"DCD thread enter1 delayed");
@@ -3049,7 +3083,7 @@ txFunc()
 			CLR(waitfor_mask, PD_S_TX_BUSY); /* No longer interested */
 			tty_lock(tp);
 			CLR(tp->t_state,  TS_BUSY);
-
+            
 			/* Notify disc, not busy anymore */
 			bsdld_start(tp);
 			tty_unlock(tp);
@@ -3063,34 +3097,15 @@ txFunc()
 		release();
 		fDCDTimerDue = false;
     }
-
-    // Drop the carrier line and clear the BUSY bit
-	if (!fActiveSession || isInactive()) {
-		// we've been dropped via a hotplug
-		// cleanup on aisle 5
-		//
-		// since there are 2 ways to die (sigh) if we died due to isInactive
-		// notify upstream...
-		if(fActiveSession) sp->fErrno = ENXIO;
-		
-		SAFE_PORTRELEASE(fProvider);
-		
-		bool defer = false;
-		super::didTerminate(fProvider, 0, &defer);		
-	}
-	else // we're still gonna die, just cleanly
-	{
-	tty_lock(tp);
-    (void) bsdld_modem(tp, false);
-	tty_unlock(tp);
-
+    
     IOLockLock(fThreadLock);
-    ftxThread = THREAD_NULL;
-    IOLockWakeup(fThreadLock, &ftxThread, true);	// wakeup the thread killer
-	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
-	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
+    fThreadState |= THREAD_TX_FINISHED;
+    IOLockWakeup(fThreadLock, &fThreadState, true);	// wakeup the thread killer
+    debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d",
+          fisCallout, fwantCallout, fisBlueTooth);
+    debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
 
-    if (fDeferTerminate && !frxThread && !fInOpensPending) {
+    if (fDeferTerminate && (fThreadState & THREAD_RX_FINISHED) && !fInOpensPending) {
 		SAFE_PORTRELEASE(fProvider);
 
 		bool defer = false;
@@ -3111,7 +3126,8 @@ txFunc()
         // handling in ppp that contributes to this problem
         //
         // benign except in the preemption case - fixed...
-        if (!frxThread && !fInOpensPending && !fPreemptInProgress && fisBlueTooth)
+        if ((fThreadState & THREAD_RX_FINISHED) && !fInOpensPending &&
+            !fPreemptInProgress && fisBlueTooth)
         {
             // no receive thread, we're about to kill the transmit thread
             // tell the bsd side no more bytes (fErrno = 0)
@@ -3121,26 +3137,31 @@ txFunc()
 
             // Enforce a zombie and unconnected state on the discipline
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
             debug(FLOW, "faking a CLOCAL drop");
             tty_lock(tp);
             CLR(tp->t_cflag, CLOCAL);  // Fake up a carrier drop
             debug(FLOW, "faked a CLOCAL drop, about to fake a carrier drop");
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
            
             (void) bsdld_modem(tp, false);
             tty_unlock(tp);
             debug(FLOW, "faked a carrier drop");
 #ifdef DEBUG
-            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)), state2StringTTY(tp->t_state), state2StringTermios((int)tp->t_cflag));
+            debug(CONTROL, "%s\n%s\n%s", state2StringPD(sessionGetState(sp)),
+                  state2StringTTY(tp->t_state),
+                  state2StringTermios((int)tp->t_cflag));
 #endif
         }
     }
-		IOLockUnlock(fThreadLock);
-	}
+    IOLockUnlock(fThreadLock);
 
     debug(FLOW, "thread be dead");
     (void) thread_terminate(current_thread());
@@ -3154,9 +3175,23 @@ launchThreads()
 	kprintf("IOSerialBSDClient::launchThreads\n");
 #endif
 
+    if (fThreadState) {
+        // state should be zero
+        return;
+    }
+    
+    fThreadLock = IOLockAlloc();
+    if (!fThreadLock) {
+        // here, fThreadState is not protected by fThreadLock,
+        // this is to signal to killThreads that it can proceed
+        fThreadState = (THREAD_LAUNCH_FINISHED |
+                        THREAD_RX_FINISHED |
+                        THREAD_TX_FINISHED);
+        return;
+    }
+    
     IOLockLock(fThreadLock);
-
-    ftxThread = frxThread = THREAD_NULL;
+    fThreadState = THREAD_LAUNCH_STARTED;
 
     // Now launch the receive and transmitter threads
 #if JLOG	
@@ -3174,31 +3209,75 @@ launchThreads()
 	this);
 
     // Now wait for the threads to actually launch
-    while (!frxThread)
-	IOLockSleep(fThreadLock, &frxThread, THREAD_UNINT);
-    while (!ftxThread)
-	IOLockSleep(fThreadLock, &ftxThread, THREAD_UNINT);
-
+    while (!(fThreadState & THREAD_RX_MASK))
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    while (!(fThreadState & THREAD_TX_MASK))
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    
+    fThreadState |= THREAD_LAUNCH_FINISHED;
+    
+    // possibly need to wake up thread killer
+    IOLockWakeup(fThreadLock, &fThreadState, true);
+    
     IOLockUnlock(fThreadLock);
 }
 
+/* killThreads()
+ * killThreads is responsible for killing:
+ * - rx thread ("rxFunc"),
+ * - tx thread ("txFunc").
+ * It also has to make sure the launch thread ("launchThreads") has completed.
+ * Before exiting, killThreads frees fThreadLock and sets fThreadState = 0x0000.
+ * Note: killThreads can be called only if launchThreads was called previously.
+ */
 void IOSerialBSDClient::
 killThreads()
 {
 #if JLOG	
 	kprintf("IOSerialBSDClient::killThreads\n");
 #endif
-    if (frxThread || ftxThread || fInOpensPending) {
-        fKillThreads = true;
-	fProvider->executeEvent(PD_E_ACTIVE, false);
-
-	IOLockLock(fThreadLock);
-        while (frxThread)
-	    IOLockSleep(fThreadLock, &frxThread, THREAD_UNINT);
-        while (ftxThread)
-	    IOLockSleep(fThreadLock, &ftxThread, THREAD_UNINT);
-	IOLockUnlock(fThreadLock);
+    int count = 0;
+    fKillThreads = true;
+    
+    // Waiting for launchThreads to start
+    while (!fThreadState && count < 10) {
+        IOSleep(10);
+        count ++;
     }
+    if (!fThreadState || !fThreadLock) {
+        fThreadState = 0x0000;
+        return;
+    }
+    
+    // now we are sure that fThreadLock exists
+    IOLockLock(fThreadLock);
+    
+    // waiting for rx and tx to start
+    while(!(fThreadState & THREAD_RX_MASK)) {
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    }
+    while(!(fThreadState & THREAD_TX_MASK)) {
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    }
+    
+    if (!(fThreadState & THREAD_RX_FINISHED) ||
+        !(fThreadState & THREAD_TX_FINISHED) ||
+        fInOpensPending) {
+        fProvider->executeEvent(PD_E_ACTIVE, false);
+    }
+    
+    // waiting for rx and tx to finish
+    while(!(fThreadState & THREAD_LAUNCH_FINISHED)) {
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    }
+    while(!(fThreadState & THREAD_RX_FINISHED)) {
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    }
+    while(!(fThreadState & THREAD_TX_FINISHED)) {
+        IOLockSleep(fThreadLock, &fThreadState, THREAD_UNINT);
+    }
+    
+    IOLockUnlock(fThreadLock);
 #ifdef TARGET_OS_EMBEDDED
 	// bluetooth, modem and fax team need to validate change
 	// to remove this ifdef
@@ -3210,6 +3289,12 @@ killThreads()
 		fDCDThreadCall = 0;
 	}	
 #endif	
+
+    if (fThreadLock) {
+        IOLockFree(fThreadLock);
+        fThreadLock = NULL;
+    }
+    fThreadState = 0x0000;
 }
 
 void IOSerialBSDClient::
@@ -3365,20 +3450,21 @@ sessionDequeueData(Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, UInt3
         return fProvider->dequeueData(buffer, size, count, min);
 }
 
-IOThread IOSerialBSDClient::
+IOReturn IOSerialBSDClient::
 createThread(IOThreadFunc fcn, void *arg)
 {
-	kern_return_t        result;
-	thread_t                thread;
-#if JLOG	
-	kprintf("IOSerialBSDClient::createThread\n");
+    kern_return_t result;
+    thread_t thread;
+#if JLOG
+    kprintf("IOSerialBSDClient::createThread\n");
 #endif
-
-	result = kernel_thread_start((thread_continue_t)fcn, arg, &thread);
-	if (result != KERN_SUCCESS)
-		return (NULL);
-	thread_deallocate(thread);
-	return (thread);
+    
+    result = kernel_thread_start((thread_continue_t)fcn, arg, &thread);
+    
+    if (result == KERN_SUCCESS) {
+        thread_deallocate(thread);
+    }
+    return result;
 }
 
 #ifdef DEBUG

@@ -283,9 +283,8 @@ _hx509_Name_to_string(const Name *n, char **str)
 		len = k;
 		break;
 	    }
-	    default:
+	    case invalid_choice_DirectoryString:
 		_hx509_abort("unknown directory type: %d", ds->element);
-		exit(1);
 	    }
 	    append_string(str, &total_len, oidname, strlen(oidname), 0);
 	    free(oidname);
@@ -380,16 +379,16 @@ dsstringprep(const DirectoryString *ds, uint32_t **rname, size_t *rlen)
 	    return ret;
 	}
 	break;
-    default:
+    case invalid_choice_DirectoryString:
 	_hx509_abort("unknown directory type: %d", ds->element);
     }
 
     *rlen = len;
+#ifdef HAVE_WIND
     /* try a couple of times to get the length right, XXX gross */
     for (i = 0; i < 4; i++) {
 	*rlen = *rlen * 2;
 	*rname = malloc(*rlen * sizeof((*rname)[0]));
-#ifdef HAVE_WIND
 	ret = wind_stringprep(name, len, *rname, rlen,
 			      WIND_PROFILE_LDAP|flags);
 	if (ret == WIND_ERR_OVERRUN) {
@@ -398,13 +397,19 @@ dsstringprep(const DirectoryString *ds, uint32_t **rname, size_t *rlen)
 	    continue;
 	} else
 	    break;
-#else
-	ret = 0;
-	memcpy(*rname, name, len * sizeof(name[0]));
-	*rlen = len;
-	break;
-#endif
     }
+#else
+    {
+	ret = 0;
+	*rname = malloc(*rlen * sizeof((*rname)[0]));
+	if (*rname) {
+	    memcpy(*rname, name, len * sizeof(name[0]));
+	    *rlen = len;
+	} else {
+	    ret = ENOMEM;
+	}
+    }
+#endif
     free(name);
     if (ret) {
 	if (*rname)
@@ -507,7 +512,7 @@ hx509_name_cmp(hx509_name n1, hx509_name n2)
 }
 
 int
-hx509_name_get_component(hx509_name name, int rdn, const heim_oid *type, unsigned *count, char **str)
+hx509_name_get_component(hx509_name name, unsigned int rdn, const heim_oid *type, unsigned *count, char **str)
 {
     Name *n = &name->der_name;
     size_t len, ulen;
@@ -961,7 +966,7 @@ hx509_unparse_der_name(const void *data, size_t length, char **str)
 int
 hx509_name_binary(const hx509_name name, heim_octet_string *os)
 {
-    size_t size;
+    size_t size = 0;
     int ret;
 
     ASN1_MALLOC_ENCODE(Name, os->data, os->length, &name->der_name, &size, ret);
@@ -1095,7 +1100,7 @@ hx509_general_name_unparse(GeneralName *name, char **str)
 	free(oid);
 	break;
     }
-    default:
+    case invalid_choice_GeneralName:
 	return EINVAL;
     }
     if (strpool == NULL)

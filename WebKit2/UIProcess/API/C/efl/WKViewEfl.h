@@ -26,19 +26,47 @@
 #ifndef WKViewEfl_h
 #define WKViewEfl_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
+typedef struct _Evas_Event_Mouse_Down Evas_Event_Mouse_Down;
+typedef struct _Evas_Event_Mouse_Move Evas_Event_Mouse_Move;
+typedef struct _Evas_Event_Mouse_Up Evas_Event_Mouse_Up;
 typedef struct _cairo_surface cairo_surface_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef void (*WKShowColorPickerCallback)(WKViewRef view, WKStringRef initialColor, WKColorPickerResultListenerRef listener, const void* clientInfo);
+typedef void (*WKHideColorPickerCallback)(WKViewRef view, const void* clientInfo);
+
+typedef struct WKColorPickerClientBase {
+    int                                            version;
+    const void *                                   clientInfo;
+} WKColorPickerClientBase;
+
+typedef struct WKColorPickerClientV0 {
+    WKColorPickerClientBase                        base;
+    WKShowColorPickerCallback                      showColorPicker;
+    WKHideColorPickerCallback                      endColorPicker;
+} WKColorPickerClientV0;
+
+WK_EXPORT void WKViewSetColorPickerClient(WKViewRef page, const WKColorPickerClientBase* client);
+
 WK_EXPORT void WKViewPaintToCairoSurface(WKViewRef, cairo_surface_t*);
 
 WK_EXPORT WKImageRef WKViewCreateSnapshot(WKViewRef);
 
 WK_EXPORT void WKViewSetThemePath(WKViewRef, WKStringRef);
+
+WK_EXPORT void WKViewSendTouchEvent(WKViewRef, WKTouchEventRef);
+
+WK_EXPORT void WKViewSendMouseDownEvent(WKViewRef, Evas_Event_Mouse_Down*);
+WK_EXPORT void WKViewSendMouseUpEvent(WKViewRef, Evas_Event_Mouse_Up*);
+WK_EXPORT void WKViewSendMouseMoveEvent(WKViewRef, Evas_Event_Mouse_Move*);
+
+WK_EXPORT void WKViewSetBackgroundColor(WKViewRef, int red, int green, int blue, int alpha);
+WK_EXPORT void WKViewGetBackgroundColor(WKViewRef, int* red, int* green, int* blue, int* alpha);
 
 #ifdef __cplusplus
 }

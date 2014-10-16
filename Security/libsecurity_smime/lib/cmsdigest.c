@@ -34,22 +34,34 @@
 /*
  * CMS digesting.
  */
+#include <assert.h>
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
 
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
+#if USE_CDSA_CRYPTO
 #include <Security/cssmapi.h>
+#else
+#include <CommonCrypto/CommonDigest.h>
+#endif
 
-#include <Security/SecCmsDigestContext.h>
-
+#include "SecCmsDigestContext.h"
 
 struct SecCmsDigestContextStr {
+    PLArenaPool *	poolp;
     Boolean		saw_contents;
-    int			digcnt;
+    int                 digcnt;
+#if USE_CDSA_CRYPTO
     CSSM_CC_HANDLE *	digobjs;
+#else
+    void **             digobjs;
+#endif
+    SECAlgorithmID **   digestalgs;
 };
 
 /*
@@ -59,20 +71,40 @@ struct SecCmsDigestContextStr {
 SecCmsDigestContextRef
 SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 {
+    PLArenaPool *poolp;
     SecCmsDigestContextRef cmsdigcx;
+#if USE_CDSA_CRYPTO
     CSSM_CC_HANDLE digobj;
+#else
+    void * digobj;
+#endif
     int digcnt;
     int i;
 
+    poolp = PORT_NewArena(1024);
+    if (poolp == NULL)
+	goto loser;
+
     digcnt = (digestalgs == NULL) ? 0 : SecCmsArrayCount((void **)digestalgs);
 
-    cmsdigcx = (SecCmsDigestContextRef)PORT_Alloc(sizeof(struct SecCmsDigestContextStr));
+    cmsdigcx = (SecCmsDigestContextRef)PORT_ArenaAlloc(poolp, sizeof(struct SecCmsDigestContextStr));
     if (cmsdigcx == NULL)
 	return NULL;
+    cmsdigcx->poolp = poolp;
 
     if (digcnt > 0) {
-	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_Alloc(digcnt * sizeof(CSSM_CC_HANDLE));
+#if USE_CDSA_CRYPTO
+	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_ArenaAlloc(poolp, digcnt * sizeof(CSSM_CC_HANDLE));
 	if (cmsdigcx->digobjs == NULL)
+	    goto loser;
+#else
+	cmsdigcx->digobjs = (void**)PORT_ArenaAlloc(poolp, digcnt * sizeof(void *));
+	if (cmsdigcx->digobjs == NULL)
+	    goto loser;
+#endif
+	cmsdigcx->digestalgs = (SECAlgorithmID **)PORT_ArenaZAlloc(poolp,
+	    (digcnt + 1) * sizeof(SECAlgorithmID *));
+	if (cmsdigcx->digestalgs == NULL)
 	    goto loser;
     }
 
@@ -91,17 +123,21 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 	 * the particular algorithm may not actually be important,
 	 * but we cannot know that until later.
 	 */
+#if USE_CDSA_CRYPTO
 	if (digobj)
-        {
-            CSSM_RETURN result;
-	    result = CSSM_DigestDataInit(digobj);
-            if (result != CSSM_OK)
-            {
-                goto loser;
-            }
-        }
-        
+	    if (CSSM_DigestDataInit(digobj))
+		goto loser;
+#endif
+
 	cmsdigcx->digobjs[cmsdigcx->digcnt] = digobj;
+	cmsdigcx->digestalgs[cmsdigcx->digcnt] = PORT_ArenaAlloc(poolp, sizeof(SECAlgorithmID));
+	if (SECITEM_CopyItem(poolp,
+	    &(cmsdigcx->digestalgs[cmsdigcx->digcnt]->algorithm),
+	    &(digestalgs[i]->algorithm))
+	    || SECITEM_CopyItem(poolp,
+	    &(cmsdigcx->digestalgs[cmsdigcx->digcnt]->parameters),
+	    &(digestalgs[i]->parameters)))
+	    goto loser;
 	cmsdigcx->digcnt++;
     }
 
@@ -110,10 +146,9 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
     return cmsdigcx;
 
 loser:
-    if (cmsdigcx) {
-	if (cmsdigcx->digobjs)
-	    PORT_Free(cmsdigcx->digobjs);
-    }
+    if (poolp)
+	PORT_FreeArena(poolp, PR_FALSE);
+
     return NULL;
 }
 
@@ -136,15 +171,35 @@ SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg)
 void
 SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *data, size_t len)
 {
-    CSSM_DATA dataBuf;
+    SecAsn1Item dataBuf;
     int i;
 
     dataBuf.Length = len;
-    dataBuf.Data = (uint8 *)data;
+    dataBuf.Data = (uint8_t *)data;
     cmsdigcx->saw_contents = PR_TRUE;
-    for (i = 0; i < cmsdigcx->digcnt; i++)
-	if (cmsdigcx->digobjs[i])
+    for (i = 0; i < cmsdigcx->digcnt; i++) {
+	if (cmsdigcx->digobjs[i]) {
+#if USE_CDSA_CRYPTO
 	    CSSM_DigestDataUpdate(cmsdigcx->digobjs[i], &dataBuf, 1);
+#else
+            /* 64 bits cast: worst case is we truncate the length and we dont hash all the data.
+               This may cause an invalid CMS blob larger than 4GB to be validated. Unlikely, but
+               possible security issue. There is no way to return an error here, but a check at
+               the upper level may happen. */
+            assert(len<=UINT32_MAX); /* Debug check. Correct as long as CC_LONG is uint32_t */
+            switch (SECOID_GetAlgorithmTag(cmsdigcx->digestalgs[i])) {
+            case SEC_OID_SHA1: CC_SHA1_Update((CC_SHA1_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            case SEC_OID_MD5: CC_MD5_Update((CC_MD5_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            case SEC_OID_SHA224: CC_SHA224_Update((CC_SHA256_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            case SEC_OID_SHA256: CC_SHA256_Update((CC_SHA256_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            case SEC_OID_SHA384: CC_SHA384_Update((CC_SHA512_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            case SEC_OID_SHA512: CC_SHA512_Update((CC_SHA512_CTX *)cmsdigcx->digobjs[i], data, (CC_LONG)len); break;
+            default:
+                break;
+            }
+#endif
+        }
+    }
 }
 
 /*
@@ -157,92 +212,139 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
 
     for (i = 0; i < cmsdigcx->digcnt; i++)
 	if (cmsdigcx->digobjs[i])
+#if USE_CDSA_CRYPTO
 	    CSSM_DeleteContext(cmsdigcx->digobjs[i]);
+#else
+            free(cmsdigcx->digobjs[i]);
+#endif
+
+    PORT_FreeArena(cmsdigcx->poolp, PR_FALSE);
 }
 
 /*
- * SecCmsDigestContextFinishMultiple - finish the digests and put them
- *  into an array of CSSM_DATAs (allocated on poolp)
+ * SecCmsDigestContextDestroy - delete a digesting operation
+ */
+void
+SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
+{
+    SecCmsDigestContextCancel(cmsdigcx);
+}
+
+/*
+ * SecCmsDigestContextFinishMultiple - finish the digests
  */
 OSStatus
-SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef poolp,
-			    CSSM_DATA_PTR **digestsp)
+SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
+			    SECAlgorithmID ***digestalgsp,
+			    SecAsn1Item * **digestsp)
 {
-    CSSM_CC_HANDLE digobj;
-    CSSM_DATA_PTR *digests, digest;
+#if USE_CDSA_CRYPTO
+    CSSM_CC_HANDLE digboj;
+#else
+    void * digobj;
+#endif
+    SecAsn1Item **digests, *digest;
+    SECAlgorithmID **digestalgs;
     int i;
     void *mark;
     OSStatus rv = SECFailure;
 
+    assert(cmsdigcx != NULL);
+
+    /* A message with no contents (just signed attributes) is used within SCEP */
+#if 0
     /* no contents? do not update digests */
     if (digestsp == NULL || !cmsdigcx->saw_contents) {
 	for (i = 0; i < cmsdigcx->digcnt; i++)
 	    if (cmsdigcx->digobjs[i])
+#if USE_CDSA_CRYPTO
 		CSSM_DeleteContext(cmsdigcx->digobjs[i]);
+#else
+                free(cmsdigcx->digobjs[i]);
+#endif
 	rv = SECSuccess;
 	if (digestsp)
 	    *digestsp = NULL;
 	goto cleanup;
     }
+#endif
 
-    mark = PORT_ArenaMark ((PLArenaPool *)poolp);
+    assert(digestsp != NULL);
+    assert(digestalgsp != NULL);
 
-    /* allocate digest array & CSSM_DATAs on arena */
-    digests = (CSSM_DATA_PTR *)PORT_ArenaAlloc((PLArenaPool *)poolp, (cmsdigcx->digcnt+1) * sizeof(CSSM_DATA_PTR));
-    digest = (CSSM_DATA_PTR)PORT_ArenaZAlloc((PLArenaPool *)poolp, cmsdigcx->digcnt * sizeof(CSSM_DATA));
-    if (digests == NULL || digest == NULL) {
+    mark = PORT_ArenaMark (cmsdigcx->poolp);
+
+    /* allocate digest array & SecAsn1Items on arena */
+    digestalgs = (SECAlgorithmID **)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SECAlgorithmID *));
+    digests = (SecAsn1Item * *)PORT_ArenaZAlloc(cmsdigcx->poolp, (cmsdigcx->digcnt+1) * sizeof(SecAsn1Item *));
+    digest = (SecAsn1Item *)PORT_ArenaZAlloc(cmsdigcx->poolp, cmsdigcx->digcnt * sizeof(SecAsn1Item));
+    if (digestalgs == NULL || digests == NULL || digest == NULL) {
 	goto loser;
     }
 
     for (i = 0; i < cmsdigcx->digcnt; i++, digest++) {
-	digobj = cmsdigcx->digobjs[i];
-	CSSM_QUERY_SIZE_DATA dataSize;
-	rv = CSSM_QuerySize(digobj, CSSM_FALSE, 1, &dataSize);
-        if (rv != CSSM_OK)
-        {
-            goto loser;
+    
+        SECOidTag hash_alg = SECOID_GetAlgorithmTag(cmsdigcx->digestalgs[i]);
+	int diglength = 0;
+    
+        switch (hash_alg) {
+            case SEC_OID_SHA1: diglength = CC_SHA1_DIGEST_LENGTH; break;
+            case SEC_OID_MD5: diglength = CC_MD5_DIGEST_LENGTH; break;
+            case SEC_OID_SHA224: diglength = CC_SHA224_DIGEST_LENGTH; break;
+            case SEC_OID_SHA256: diglength = CC_SHA256_DIGEST_LENGTH; break;
+            case SEC_OID_SHA384: diglength = CC_SHA384_DIGEST_LENGTH; break;
+            case SEC_OID_SHA512: diglength = CC_SHA512_DIGEST_LENGTH; break;
+            default: goto loser; break;
         }
         
-	int diglength = dataSize.SizeOutputBlock;
-	
+	digobj = cmsdigcx->digobjs[i];
 	if (digobj)
 	{
-	    digest->Data = (unsigned char*)PORT_ArenaAlloc((PLArenaPool *)poolp, diglength);
+	    digest->Data = (unsigned char*)PORT_ArenaAlloc(cmsdigcx->poolp, diglength);
 	    if (digest->Data == NULL)
 		goto loser;
 	    digest->Length = diglength;
-	    rv = CSSM_DigestDataFinal(digobj, digest);
-            if (rv != CSSM_OK)
-            {
-                goto loser;
-            }
-            
+#if USE_CDSA_CRYPTO
+	    CSSM_DigestDataFinal(digobj, digest);
 	    CSSM_DeleteContext(digobj);
+#else
+            switch (hash_alg) {
+                case SEC_OID_SHA1: CC_SHA1_Final(digest->Data, digobj); break;
+                case SEC_OID_MD5: CC_MD5_Final(digest->Data, digobj); break;
+                case SEC_OID_SHA224: CC_SHA224_Final(digest->Data, digobj); break;
+                case SEC_OID_SHA256: CC_SHA256_Final(digest->Data, digobj); break;
+                case SEC_OID_SHA384: CC_SHA384_Final(digest->Data, digobj); break;
+                case SEC_OID_SHA512: CC_SHA512_Final(digest->Data, digobj); break;
+                default: goto loser; break;
+            }
+
+            free(digobj);
+#endif
+	    digestalgs[i] = cmsdigcx->digestalgs[i];
+	    digests[i] = digest;
 	}
 	else
 	{
 	    digest->Data = NULL;
 	    digest->Length = 0;
 	}
-	
-	digests[i] = digest;
-   }
+    }
+    digestalgs[i] = NULL;
     digests[i] = NULL;
+    *digestalgsp = digestalgs;
     *digestsp = digests;
 
     rv = SECSuccess;
 
 loser:
     if (rv == SECSuccess)
-	PORT_ArenaUnmark((PLArenaPool *)poolp, mark);
+	PORT_ArenaUnmark(cmsdigcx->poolp, mark);
     else
-	PORT_ArenaRelease((PLArenaPool *)poolp, mark);
+	PORT_ArenaRelease(cmsdigcx->poolp, mark);
 
-cleanup:
-    if (cmsdigcx->digcnt > 0) {
-	PORT_Free(cmsdigcx->digobjs);
-    }
-    PORT_Free(cmsdigcx);
+/*cleanup:*/
+    /* Set things up so SecCmsDigestContextDestroy won't call CSSM_DeleteContext again. */ 
+    cmsdigcx->digcnt = 0;
 
     return rv;
 }
@@ -252,29 +354,22 @@ cleanup:
  *  but for one digest.
  */
 OSStatus
-SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef poolp,
-			    CSSM_DATA_PTR digest)
+SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx,
+			    SecAsn1Item * digest)
 {
     OSStatus rv = SECFailure;
-    CSSM_DATA_PTR *dp;
-    PLArenaPool *arena = NULL;
-
-    if ((arena = PORT_NewArena(1024)) == NULL)
-	goto loser;
+    SecAsn1Item * *dp;
+    SECAlgorithmID **ap;
 
     /* get the digests into arena, then copy the first digest into poolp */
-    if (SecCmsDigestContextFinishMultiple(cmsdigcx, (SecArenaPoolRef)arena, &dp) != SECSuccess)
+    if (SecCmsDigestContextFinishMultiple(cmsdigcx, &ap, &dp) != SECSuccess)
 	goto loser;
 
-    /* now copy it into poolp */
-    if (SECITEM_CopyItem((PLArenaPool *)poolp, digest, dp[0]) != SECSuccess)
-	goto loser;
+    /* Return the first element in the digest array. */
+    digest = *dp;
 
     rv = SECSuccess;
 
 loser:
-    if (arena)
-	PORT_FreeArena(arena, PR_FALSE);
-
     return rv;
 }

@@ -1,0 +1,17 @@
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFSSpec : test0012.001
+   Results : 2
+     OSStatus 0
+     KeychainIndex : 0
+7 KCUnlockNoUI
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0

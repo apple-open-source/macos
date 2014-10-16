@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -49,6 +49,99 @@
 #import "Settings.h"
 #import "markup.h"
 
+#if PLATFORM(IOS)
+#import "Autocapitalize.h"
+#import "DOMHTMLElementInternal.h"
+#import "HTMLTextFormControlElement.h"
+#import "JSMainThreadExecState.h"
+#import "RenderLayer.h"
+#import "WAKWindow.h"
+#import "WebCoreThreadMessage.h"
+#endif
+
+#if PLATFORM(IOS)
+
+using namespace WebCore;
+
+@implementation DOMHTMLElement (DOMHTMLElementExtensions)
+
+- (int)scrollXOffset
+{
+    RenderObject *renderer = core(self)->renderer();
+    if (!renderer)
+        return 0;
+
+    if (!renderer->isRenderBlockFlow())
+        renderer = renderer->containingBlock();
+
+    if (!renderer->isBox() || !renderer->hasOverflowClip())
+        return 0;
+
+    RenderBox *renderBox = toRenderBox(renderer);
+    return renderBox->layer()->scrollXOffset();
+}
+
+- (int)scrollYOffset
+{
+    RenderObject *renderer = core(self)->renderer();
+    if (!renderer)
+        return 0;
+
+    if (!renderer->isRenderBlockFlow())
+        renderer = renderer->containingBlock();
+    if (!renderer->isBox() || !renderer->hasOverflowClip())
+        return 0;
+
+    RenderBox *renderBox = toRenderBox(renderer);
+    return renderBox->layer()->scrollYOffset();
+}
+
+- (void)setScrollXOffset:(int)x scrollYOffset:(int)y
+{
+    [self setScrollXOffset:x scrollYOffset:y adjustForIOSCaret:NO];
+}
+
+- (void)setScrollXOffset:(int)x scrollYOffset:(int)y adjustForIOSCaret:(BOOL)adjustForIOSCaret
+{
+    RenderObject *renderer = core(self)->renderer();
+    if (!renderer)
+        return;
+
+    if (!renderer->isRenderBlockFlow())
+        renderer = renderer->containingBlock();
+    if (!renderer->hasOverflowClip() || !renderer->isBox())
+        return;
+
+    RenderBox *renderBox = toRenderBox(renderer);
+    RenderLayer *layer = renderBox->layer();
+    if (adjustForIOSCaret)
+        layer->setAdjustForIOSCaretWhenScrolling(true);
+    layer->scrollToOffset(IntSize(x, y));
+    if (adjustForIOSCaret)
+        layer->setAdjustForIOSCaretWhenScrolling(false);
+}
+
+- (void)absolutePosition:(int *)x :(int *)y :(int *)w :(int *)h {
+    RenderBox *renderer = core(self)->renderBox();
+    if (renderer) {
+        if (w)
+            *w = renderer->width();
+        if (h)
+            *h = renderer->width();
+        if (x && y) {
+            FloatPoint floatPoint(*x, *y);
+            renderer->localToAbsolute(floatPoint);
+            IntPoint point = roundedIntPoint(floatPoint);
+            *x = point.x();
+            *y = point.y();
+        }
+    }
+}
+
+@end
+
+#endif // PLATFORM(IOS)
+
 //------------------------------------------------------------------------------------------
 // DOMHTMLDocument
 
@@ -56,13 +149,13 @@
 
 - (DOMDocumentFragment *)createDocumentFragmentWithMarkupString:(NSString *)markupString baseURL:(NSURL *)baseURL
 {
-    return kit(createFragmentFromMarkup(core(self), markupString, [baseURL absoluteString]).get());
+    return kit(createFragmentFromMarkup(*core(self), markupString, [baseURL absoluteString]).get());
 }
 
 - (DOMDocumentFragment *)createDocumentFragmentWithText:(NSString *)text
 {
     // FIXME: Since this is not a contextual fragment, it won't handle whitespace properly.
-    return kit(createFragmentFromText(core(self)->createRange().get(), text).get());
+    return kit(createFragmentFromText(*core(self)->createRange().get(), text).get());
 }
 
 @end
@@ -82,7 +175,6 @@
 
 @end
 
-
 @implementation DOMHTMLInputElement (FormAutoFillTransition)
 
 - (BOOL)_isTextField
@@ -90,41 +182,7 @@
     return core(self)->isTextField();
 }
 
-- (NSRect)_rectOnScreen
-{
-    // Returns bounding rect of text field, in screen coordinates.
-    NSRect result = [self boundingBox];
-    if (!core(self)->document()->view())
-        return result;
-
-    NSView* view = core(self)->document()->view()->documentView();
-    result = [view convertRect:result toView:nil];
-    result.origin = [[view window] convertBaseToScreen:result.origin];
-    return result;
-}
-
-- (void)_replaceCharactersInRange:(NSRange)targetRange withString:(NSString *)replacementString selectingFromIndex:(int)index
-{
-    WebCore::HTMLInputElement* inputElement = core(self);
-    if (inputElement) {
-        WTF::String newValue = inputElement->value();
-        newValue.replace(targetRange.location, targetRange.length, replacementString);
-        inputElement->setValue(newValue);
-        inputElement->setSelectionRange(index, newValue.length());
-    }
-}
-
-- (NSRange)_selectedRange
-{
-    WebCore::HTMLInputElement* inputElement = core(self);
-    if (inputElement) {
-        int start = inputElement->selectionStart();
-        int end = inputElement->selectionEnd();
-        return NSMakeRange(start, end - start); 
-    }
-    return NSMakeRange(NSNotFound, 0);
-}
-
+#if PLATFORM(IOS)
 - (BOOL)_isAutofilled
 {
     return core(self)->isAutofilled();
@@ -137,6 +195,7 @@
     // changes the background color.
     core(self)->setAutofilled(filled);
 }
+#endif // PLATFORM(IOS)
 
 @end
 
@@ -160,6 +219,8 @@
 
 @end
 
+#if PLATFORM(IOS)
+
 @implementation DOMHTMLInputElement (FormPromptAdditions)
 
 - (BOOL)_isEdited
@@ -177,6 +238,44 @@
 }
 
 @end
+
+@implementation DOMHTMLInputElement (AutocapitalizeAdditions)
+
+- (WebAutocapitalizeType)_autocapitalizeType
+{
+    WebCore::HTMLInputElement* inputElement = core(self);
+    return static_cast<WebAutocapitalizeType>(inputElement->autocapitalizeType());
+}
+
+@end
+
+@implementation DOMHTMLTextAreaElement (AutocapitalizeAdditions)
+
+- (WebAutocapitalizeType)_autocapitalizeType
+{
+    WebCore::HTMLTextAreaElement* textareaElement = core(self);
+    return static_cast<WebAutocapitalizeType>(textareaElement->autocapitalizeType());
+}
+
+@end
+
+@implementation DOMHTMLInputElement (WebInputChangeEventAdditions)
+
+- (void)setValueWithChangeEvent:(NSString *)newValue
+{
+    WebCore::JSMainThreadNullState state;
+    core(self)->setValue(newValue, DispatchInputAndChangeEvent);
+}
+
+- (void)setValueAsNumberWithChangeEvent:(double)newValueAsNumber
+{
+    WebCore::JSMainThreadNullState state;
+    WebCore::ExceptionCode ec = 0;
+    core(self)->setValueAsNumber(newValueAsNumber, ec, DispatchInputAndChangeEvent);
+}
+
+@end
+#endif
 
 Class kitClass(WebCore::HTMLCollection* collection)
 {

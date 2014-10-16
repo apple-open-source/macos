@@ -38,7 +38,7 @@
 
 #include <mach-o/arch.h>
 
-#include <Kernel/libkern/mkext.h>
+#include <System/libkern/mkext.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <IOKit/kext/OSKextPrivate.h>
 

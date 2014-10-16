@@ -866,6 +866,7 @@ void AppleUSBCDCACMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
 		
 			if (me->fPort.holdQueueIndxIn != me->fPort.holdQueueIndxOut)
 			{
+                XTRACE(me, me->fPort.holdQueueIndxIn, me->fPort.holdQueueIndxOut, "dataReadComplete - holdQueueIndxIn holdQueueIndxOut !!!");
 				putInQueue = 0;
 			} else {
 				putInQueue = me->AddtoRXQueue(&me->fPort.RX, buffs, length);
@@ -1710,6 +1711,21 @@ bool AppleUSBCDCACMData::createSerialStream()
 		}
 	} else {	
 			// Report the base name to be used for generating device nodes
+        
+        if (!fControlDriver)
+        {
+            fControlDriver = findControlDriverAD(this);
+            if (fControlDriver == NULL)
+            {
+                return false;
+            }
+        }
+               
+        if (!(fControlDriver->fCMCapabilities & CM_ManagementOnData))
+        {
+            XTRACE(this, 0, 0, "createSerialStream - Interface doesn't support Call Management on Data Interface Hiding port");
+            pNub->setProperty((const char *)hiddenTag, true);
+        }
 		
 		pNub->setProperty(kIOTTYBaseNameKey, baseName);
 		XTRACE(this, 0, fDataInterface->GetInterfaceNumber(), "createSerialStream - using default naming and suffix...");
@@ -1953,7 +1969,15 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
     {    	
         setStructureDefaults();				// Set the default values
         
-            // Set up and read the data-in bulk pipe
+ 
+        if (!createSerialRingBuffers())
+        {
+            XTRACE(this, 0, 0, "acquirePortGated failed to createSerialRingBuffers");
+            rtn = kIOReturnNoMemory;
+            break;
+        }
+      
+        // Set up and read the data-in bulk pipe
         
         for (i=0; i<fInBufPool; i++)
         {
@@ -2161,7 +2185,16 @@ IOReturn AppleUSBCDCACMData::releasePortGated()
 	}
 	    
     fSessions--;					// reduce number of active sessions
-            
+    
+    
+    if (fPort.ringsAllocated == true)
+    {
+        XTRACE(this, 0, 0, "releasePortGated - freeing rings");
+        freeRingBuffer(&fPort.TX);
+        freeRingBuffer(&fPort.RX);
+        fPort.ringsAllocated = false;
+    }
+    
     release(); 						// Dispose of the self-reference we took in acquirePortGated()
     
     XTRACE(this, 0, 0, "releasePort - Exit");
@@ -3886,23 +3919,7 @@ bool AppleUSBCDCACMData::allocateResources()
         XTRACEP(this, fPort.outPool[i].pipeMDP, fPort.outPool[i].pipeBuffer, "allocateResources - output buffer");
         fPort.outPool[i].avail = true;
     }
-    
-        // Now the ring buffers
         
-    if (!allocateRingBuffer(&fPort.TX, fPort.TXStats.BufferSize))
-    {
-        XTRACE(this, 0, 0, "allocateResources - Couldn't allocate TX ring buffer");
-        return false;
-    }
-    
-    XTRACEP(this, 0, fPort.TX.Start, "allocateResources - TX ring buffer");
-    
-    if (!allocateRingBuffer(&fPort.RX, fPort.RXStats.BufferSize)) 
-    {
-        XTRACE(this, 0, 0, "allocateResources - Couldn't allocate RX ring buffer");
-        return false;
-    }
-    
     XTRACEP(this, 0, fPort.RX.Start, "allocateResources - RX ring buffer");
 
     return true;
@@ -3995,6 +4012,50 @@ void AppleUSBCDCACMData::freeRingBuffer(CirQueue *Queue)
 	
 }/* end freeRingBuffer */
 
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMData::createSerialRingBuffers
+//
+//		Inputs:		Queue - the specified queue to allocate
+//				BufferSize - size to allocate
+//
+//		Outputs:	return Code - true (ring buffers allocated), false (it failed)
+//
+//		Desc:		Allocates serialRingBuffers . Moved this so this can be called at AquirePort time.
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCACMData::createSerialRingBuffers()
+{
+    
+    if (fPort.ringsAllocated == true)
+    {
+        XTRACE(this, 0, 0, "createSerialRingBuffers - rings already allocated");
+        return true;
+    }
+    
+    // Now the ring buffers
+    if (!allocateRingBuffer(&fPort.TX, fPort.TXStats.BufferSize))
+    {
+        XTRACE(this, 0, 0, "createSerialRingBuffers - Couldn't allocate TX ring buffer");
+        return false;
+    }
+    
+    XTRACEP(this, 0, fPort.TX.Start, "createSerialRingBuffers - TX ring buffer");
+    
+    if (!allocateRingBuffer(&fPort.RX, fPort.RXStats.BufferSize))
+    {
+        XTRACE(this, 0, 0, "createSerialRingBuffers - Couldn't allocate RX ring buffer");
+        return false;
+    }
+    
+    fPort.ringsAllocated = true;
+    
+    return true;
+}
+
+
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCACMData::allocateRingBuffer
@@ -4022,6 +4083,7 @@ bool AppleUSBCDCACMData::allocateRingBuffer(CirQueue *Queue, size_t BufferSize)
     if (Buffer)
         return true;
 
+    XTRACE(this, BufferSize, kMaxCirBufferSize, "allocateRingBuffer <<<");
     return false;
 	
 }/* end allocateRingBuffer */
@@ -4246,7 +4308,12 @@ void AppleUSBCDCACMData::resurrectRead()
 	IOReturn	rtn;
 	
 	XTRACE(this, 0, 0, "resurrectRead");
-	
+    
+    if (fTerminate || fStopping)
+    {
+        XTRACE(this, 0, 0, "resurrectRead - device is Offline");
+        return;
+    }
 		// Let's check the pipes first
 	
 	if (fPort.InPipe)

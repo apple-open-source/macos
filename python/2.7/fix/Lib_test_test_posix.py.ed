@@ -1,0 +1,4 @@
+/def test_getgroups(/a
+.
+/if float(dt) < 10\.6/s//if map(int, dt.split('.')) < map(int, '10.6'.split('.'))/
+w

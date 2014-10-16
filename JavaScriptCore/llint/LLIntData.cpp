@@ -25,37 +25,38 @@
 
 #include "config.h"
 #include "LLIntData.h"
-
-#if ENABLE(LLINT)
-
 #include "BytecodeConventions.h"
 #include "CodeType.h"
 #include "Instruction.h"
+#include "JSScope.h"
 #include "LLIntCLoop.h"
+#include "MaxFrameExtentForSlowPathCall.h"
 #include "Opcode.h"
+#include "PropertyOffset.h"
 
 namespace JSC { namespace LLInt {
 
 Instruction* Data::s_exceptionInstructions = 0;
-Opcode* Data::s_opcodeMap = 0;
+Opcode Data::s_opcodeMap[numOpcodeIDs] = { };
+
+#if ENABLE(JIT)
+extern "C" void llint_entry(void*);
+#endif
 
 void initialize()
 {
     Data::s_exceptionInstructions = new Instruction[maxOpcodeLength + 1];
-    Data::s_opcodeMap = new Opcode[numOpcodeIDs];
 
-    #if ENABLE(LLINT_C_LOOP)
+#if !ENABLE(JIT)
     CLoop::initialize();
 
-    #else // !ENABLE(LLINT_C_LOOP)
+#else // ENABLE(JIT)
+    llint_entry(&Data::s_opcodeMap);
+
     for (int i = 0; i < maxOpcodeLength + 1; ++i)
         Data::s_exceptionInstructions[i].u.pointer =
             LLInt::getCodePtr(llint_throw_from_slow_path_trampoline);
-    #define OPCODE_ENTRY(opcode, length) \
-        Data::s_opcodeMap[opcode] = LLInt::getCodePtr(llint_##opcode);
-    FOR_EACH_OPCODE_ID(OPCODE_ENTRY);
-    #undef OPCODE_ENTRY
-    #endif // !ENABLE(LLINT_C_LOOP)
+#endif // ENABLE(JIT)
 }
 
 #if COMPILER(CLANG)
@@ -68,14 +69,34 @@ void Data::performAssertions(VM& vm)
     
     // Assertions to match LowLevelInterpreter.asm.  If you change any of this code, be
     // prepared to change LowLevelInterpreter.asm as well!!
-    ASSERT(JSStack::CallFrameHeaderSize * 8 == 48);
-    ASSERT(JSStack::ArgumentCount * 8 == -48);
-    ASSERT(JSStack::CallerFrame * 8 == -40);
-    ASSERT(JSStack::Callee * 8 == -32);
-    ASSERT(JSStack::ScopeChain * 8 == -24);
-    ASSERT(JSStack::ReturnPC * 8 == -16);
-    ASSERT(JSStack::CodeBlock * 8 == -8);
-    ASSERT(CallFrame::argumentOffsetIncludingThis(0) == -JSStack::CallFrameHeaderSize - 1);
+
+#ifndef NDEBUG
+#if USE(JSVALUE64)
+    const ptrdiff_t PtrSize = 8;
+    const ptrdiff_t CallFrameHeaderSlots = 6;
+#else // USE(JSVALUE64) // i.e. 32-bit version
+    const ptrdiff_t PtrSize = 4;
+    const ptrdiff_t CallFrameHeaderSlots = 5;
+#endif
+    const ptrdiff_t SlotSize = 8;
+#endif
+
+    ASSERT(sizeof(void*) == PtrSize);
+    ASSERT(sizeof(Register) == SlotSize);
+    ASSERT(JSStack::CallFrameHeaderSize == CallFrameHeaderSlots);
+
+    ASSERT(!CallFrame::callerFrameOffset());
+    ASSERT(JSStack::CallerFrameAndPCSize == (PtrSize * 2) / SlotSize);
+    ASSERT(CallFrame::returnPCOffset() == CallFrame::callerFrameOffset() + PtrSize);
+    ASSERT(JSStack::CodeBlock * sizeof(Register) == CallFrame::returnPCOffset() + PtrSize);
+    ASSERT(JSStack::ScopeChain * sizeof(Register) == JSStack::CodeBlock * sizeof(Register) + SlotSize);
+    ASSERT(JSStack::Callee * sizeof(Register) == JSStack::ScopeChain * sizeof(Register) + SlotSize);
+    ASSERT(JSStack::ArgumentCount * sizeof(Register) == JSStack::Callee * sizeof(Register) + SlotSize);
+    ASSERT(JSStack::ThisArgument * sizeof(Register) == JSStack::ArgumentCount * sizeof(Register) + SlotSize);
+    ASSERT(JSStack::CallFrameHeaderSize == JSStack::ThisArgument);
+
+    ASSERT(CallFrame::argumentOffsetIncludingThis(0) == JSStack::ThisArgument);
+
 #if CPU(BIG_ENDIAN)
     ASSERT(OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.tag) == 0);
     ASSERT(OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload) == 4);
@@ -102,8 +123,18 @@ void Data::performAssertions(VM& vm)
     ASSERT(ValueUndefined == (TagBitTypeOther | TagBitUndefined));
     ASSERT(ValueNull == TagBitTypeOther);
 #endif
+#if (CPU(X86_64) && !OS(WINDOWS)) || CPU(ARM64) || !ENABLE(JIT)
+    ASSERT(!maxFrameExtentForSlowPathCall);
+#elif CPU(ARM) || CPU(SH4)
+    ASSERT(maxFrameExtentForSlowPathCall == 24);
+#elif CPU(X86) || CPU(MIPS)
+    ASSERT(maxFrameExtentForSlowPathCall == 40);
+#elif CPU(X86_64) && OS(WINDOWS)
+    ASSERT(maxFrameExtentForSlowPathCall == 64);
+#endif
     ASSERT(StringType == 5);
-    ASSERT(ObjectType == 17);
+    ASSERT(ObjectType == 18);
+    ASSERT(FinalObjectType == 19);
     ASSERT(MasqueradesAsUndefined == 1);
     ASSERT(ImplementsHasInstance == 2);
     ASSERT(ImplementsDefaultHasInstance == 8);
@@ -111,7 +142,19 @@ void Data::performAssertions(VM& vm)
     ASSERT(GlobalCode == 0);
     ASSERT(EvalCode == 1);
     ASSERT(FunctionCode == 2);
+
+    ASSERT(GlobalProperty == 0);
+    ASSERT(GlobalVar == 1);
+    ASSERT(ClosureVar == 2);
+    ASSERT(GlobalPropertyWithVarInjectionChecks == 3);
+    ASSERT(GlobalVarWithVarInjectionChecks == 4);
+    ASSERT(ClosureVarWithVarInjectionChecks == 5);
+    ASSERT(Dynamic == 6);
     
+    ASSERT(ResolveModeAndType::mask == 0xffff);
+
+    ASSERT(MarkedBlock::blockMask == ~static_cast<decltype(MarkedBlock::blockMask)>(0xffff));
+
     // FIXME: make these assertions less horrible.
 #if !ASSERT_DISABLED
     Vector<int> testVector;
@@ -120,12 +163,10 @@ void Data::performAssertions(VM& vm)
     ASSERT(bitwise_cast<int**>(&testVector)[0] == testVector.begin());
 #endif
 
-    ASSERT(StringImpl::s_hashFlag8BitBuffer == 64);
+    ASSERT(StringImpl::s_hashFlag8BitBuffer == 32);
 }
 #if COMPILER(CLANG)
 #pragma clang diagnostic pop
 #endif
 
 } } // namespace JSC::LLInt
-
-#endif // ENABLE(LLINT)

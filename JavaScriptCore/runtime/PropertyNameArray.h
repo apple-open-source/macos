@@ -24,7 +24,6 @@
 #include "CallFrame.h"
 #include "Identifier.h"
 #include <wtf/HashSet.h>
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -102,7 +101,7 @@ namespace JSC {
         }
 
     private:
-        typedef HashSet<StringImpl*, PtrHash<StringImpl*> > IdentifierSet;
+        typedef HashSet<StringImpl*, PtrHash<StringImpl*>> IdentifierSet;
 
         RefPtr<PropertyNameArrayData> m_data;
         IdentifierSet m_set;

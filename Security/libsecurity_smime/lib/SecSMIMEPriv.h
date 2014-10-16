@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecSMIMEPriv.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Private S/MIME Specific routines.
@@ -36,6 +36,7 @@
 #define _SECURITY_SECSMIMEPRIV_H_ 1
 
 #include <Security/SecCmsBase.h>
+#include <security_asn1/plarenas.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +62,9 @@ extern "C" {
 #define	SMIME_RC2_CBC_128		(CIPHER_FAMILYID_SMIME | 0003)
 #define	SMIME_DES_CBC_56		(CIPHER_FAMILYID_SMIME | 0011)
 #define	SMIME_DES_EDE3_168		(CIPHER_FAMILYID_SMIME | 0012)
-#define SMIME_AES_CBC_128		(CIPHER_FAMILYID_SMIME | 0013)
+#define	SMIME_AES_CBC_128		(CIPHER_FAMILYID_SMIME | 0013)
+#define	SMIME_AES_CBC_192		(CIPHER_FAMILYID_SMIME | 0014)
+#define	SMIME_AES_CBC_256		(CIPHER_FAMILYID_SMIME | 0015)
 #define	SMIME_RC5PAD_64_16_40		(CIPHER_FAMILYID_SMIME | 0021)
 #define	SMIME_RC5PAD_64_16_64		(CIPHER_FAMILYID_SMIME | 0022)
 #define	SMIME_RC5PAD_64_16_128		(CIPHER_FAMILYID_SMIME | 0023)
@@ -95,7 +98,7 @@ extern "C" {
  *	SEC_ERROR_XXX (function is being called more times than there
  *		are known/expected ciphers)
  */
-extern OSStatus SecSMIMEEnableCipher(uint32 which, Boolean on);
+extern OSStatus SecSMIMEEnableCipher(unsigned long which, Boolean on);
 
 /*
  * Initialize the local recording of the S/MIME policy.
@@ -110,7 +113,7 @@ extern OSStatus SecSMIMEEnableCipher(uint32 which, Boolean on);
  *  - If "on" is non-zero then the named cipher is enabled, otherwise
  *    it is disabled.
  */
-extern OSStatus SecSMIMEAllowCipher(uint32 which, Boolean on);
+extern OSStatus SecSMIMEAllowCipher(unsigned long which, Boolean on);
 
 /*
  * Does the current policy allow S/MIME decryption of this particular
@@ -144,23 +147,23 @@ extern Boolean SecSMIMEEncryptionPossible(void);
  * scans the list of allowed and enabled ciphers and construct a PKCS9-compliant
  * S/MIME capabilities attribute value.
  */
-extern OSStatus SecSMIMECreateSMIMECapabilities(SecArenaPoolRef pool, CSSM_DATA_PTR dest, Boolean includeFortezzaCiphers);
+extern OSStatus SecSMIMECreateSMIMECapabilities(PLArenaPool *poolp, SecAsn1Item * dest, Boolean includeFortezzaCiphers);
 
 /*
  * SecSMIMECreateSMIMEEncKeyPrefs - create S/MIME encryption key preferences attr value
  */
-extern OSStatus SecSMIMECreateSMIMEEncKeyPrefs(SecArenaPoolRef pool, CSSM_DATA_PTR dest, SecCertificateRef cert);
+extern OSStatus SecSMIMECreateSMIMEEncKeyPrefs(PLArenaPool *poolp, SecAsn1Item * dest, SecCertificateRef cert);
 
 /*
  * SecSMIMECreateMSSMIMEEncKeyPrefs - create S/MIME encryption key preferences attr value using MS oid
  */
-extern OSStatus SecSMIMECreateMSSMIMEEncKeyPrefs(SecArenaPoolRef pool, CSSM_DATA_PTR dest, SecCertificateRef cert);
+extern OSStatus SecSMIMECreateMSSMIMEEncKeyPrefs(PLArenaPool *poolp, SecAsn1Item * dest, SecCertificateRef cert);
 
 /*
  * SecSMIMEGetCertFromEncryptionKeyPreference - find cert marked by EncryptionKeyPreference
  *          attribute
  */
-extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_DATA_PTR DERekp);
+extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, SecAsn1Item * DERekp);
 
 
 #ifdef __cplusplus

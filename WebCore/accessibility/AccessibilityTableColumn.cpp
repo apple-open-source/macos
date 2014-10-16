@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,12 +31,11 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityTableCell.h"
+#include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "RenderTable.h"
 #include "RenderTableCell.h"
 #include "RenderTableSection.h"
-
-using namespace std;
 
 namespace WebCore {
     
@@ -82,12 +81,9 @@ AccessibilityObject* AccessibilityTableColumn::headerObject()
     
     AccessibilityTable* parentTable = toAccessibilityTable(m_parent);
     if (parentTable->isAriaTable()) {
-        AccessibilityChildrenVector rowChildren = children();
-        unsigned childrenCount = rowChildren.size();
-        for (unsigned i = 0; i < childrenCount; ++i) {
-            AccessibilityObject* cell = rowChildren[i].get();
+        for (const auto& cell : children()) {
             if (cell->ariaRoleAttribute() == ColumnHeaderRole)
-                return cell;
+                return cell.get();
         }
         
         return 0;
@@ -136,11 +132,10 @@ AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTabl
         if ((testCell->col() + (testCell->colSpan()-1)) < m_columnIndex)
             break;
         
-        Node* node = testCell->node();
-        if (!node)
+        if (!testCell->element())
             continue;
         
-        if (thTagRequired && !node->hasTagName(thTag))
+        if (thTagRequired && !testCell->element()->hasTagName(thTag))
             continue;
         
         cell = testCell;
@@ -157,7 +152,7 @@ bool AccessibilityTableColumn::computeAccessibilityIsIgnored() const
     if (!m_parent)
         return true;
     
-#if PLATFORM(GTK)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(EFL)
     return true;
 #endif
     

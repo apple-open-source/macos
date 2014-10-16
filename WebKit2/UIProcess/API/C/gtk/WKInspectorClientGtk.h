@@ -26,7 +26,7 @@
 #ifndef WKInspectorClientGtk_h
 #define WKInspectorClientGtk_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,10 +36,16 @@ typedef bool (*WKInspectorClientGtkInspectorCallback)(WKInspectorRef inspector, 
 typedef void (*WKInspectorClientGtkInspectorDidCloseCallback)(WKInspectorRef inspector, const void* clientInfo);
 typedef void (*WKInspectorClientGtkInspectedURLChangedCallback)(WKInspectorRef inspector, WKStringRef url, const void* clientInfo);
 typedef void (*WKInspectorClientGtkDidChangeAttachedHeightCallback)(WKInspectorRef inspector, unsigned height, const void* clientInfo);
+typedef void (*WKInspectorClientGtkDidChangeAttachedWidthCallback)(WKInspectorRef inspector, unsigned width, const void* clientInfo);
 
-struct WKInspectorClientGtk {
+typedef struct WKInspectorClientGtkBase {
     int                                                 version;
     const void*                                         clientInfo;
+} WKInspectorClientGtkBase;
+
+typedef struct WKInspectorClientGtkV0 {
+    WKInspectorClientGtkBase                            base;
+
     WKInspectorClientGtkInspectorCallback               openWindow;
     WKInspectorClientGtkInspectorDidCloseCallback       didClose;
     WKInspectorClientGtkInspectorCallback               bringToFront;
@@ -47,12 +53,10 @@ struct WKInspectorClientGtk {
     WKInspectorClientGtkInspectorCallback               attach;
     WKInspectorClientGtkInspectorCallback               detach;
     WKInspectorClientGtkDidChangeAttachedHeightCallback didChangeAttachedHeight;
-};
-typedef struct WKInspectorClientGtk WKInspectorClientGtk;
+    WKInspectorClientGtkDidChangeAttachedWidthCallback  didChangeAttachedWidth;
+} WKInspectorClientGtkV0;
 
-enum { kWKInspectorClientGtkCurrentVersion = 0 };
-
-WK_EXPORT void WKInspectorSetInspectorClientGtk(WKInspectorRef inspectorRef, const WKInspectorClientGtk* client);
+WK_EXPORT void WKInspectorSetInspectorClientGtk(WKInspectorRef inspectorRef, const WKInspectorClientGtkBase* client);
 
 #ifdef __cplusplus
 }

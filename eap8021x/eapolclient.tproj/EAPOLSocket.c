@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,10 @@
 #include "myCFUtil.h"
 #include "mylog.h"
 #include "printdata.h"
+#include "symbol_scope.h"
 #include <TargetConditionals.h>
+
+#define ALIGNED_BUF(name, size, type)	type 	name[(size) / (sizeof(type))]
 
 #if ! TARGET_OS_EMBEDDED
 #include "my_darwin.h"
@@ -293,7 +296,7 @@ S_get_plist_int_log(CFDictionaryRef plist, CFStringRef key, int def,
     return (ret);
 }
 
-__private_extern__ int
+PRIVATE_EXTERN int
 get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 {
     return (S_get_plist_int_log(plist, key, def, TRUE));
@@ -322,7 +325,7 @@ S_simulated_event_occurred(int percent)
     return (false);
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 {
     CFDictionaryRef	plist;
@@ -430,7 +433,7 @@ EAPOLSocketIsMain(EAPOLSocketRef sock)
     return (sock->source->sock == sock);
 }
 
-const char *
+PRIVATE_EXTERN const char *
 EAPOLSocketIfName(EAPOLSocketRef sock, uint32_t * name_length)
 {
     EAPOLSocketSourceRef	source = sock->source;
@@ -441,7 +444,7 @@ EAPOLSocketIfName(EAPOLSocketRef sock, uint32_t * name_length)
     return (source->if_name);
 }
 
-const char *
+PRIVATE_EXTERN const char *
 EAPOLSocketName(EAPOLSocketRef sock)
 {
     const char *	name;
@@ -455,7 +458,7 @@ EAPOLSocketName(EAPOLSocketRef sock)
     return (name);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 EAPOLSocketIsWireless(EAPOLSocketRef sock)
 {
     return (sock->source->is_wireless);
@@ -490,7 +493,7 @@ EAPOLSocketFree(EAPOLSocketRef * sock_p)
     return;
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type, 
 		  int index, const uint8_t * key, int key_length)
 {
@@ -504,7 +507,7 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 #endif /* NO_WIRELESS */
 }
 
-CFStringRef
+PRIVATE_EXTERN CFStringRef
 EAPOLSocketGetSSID(EAPOLSocketRef sock)
 {
 #ifdef NO_WIRELESS
@@ -517,7 +520,7 @@ EAPOLSocketGetSSID(EAPOLSocketRef sock)
 #endif /* NO_WIRELESS */
 }
 
-int
+PRIVATE_EXTERN int
 EAPOLSocketMTU(EAPOLSocketRef sock)
 {
     if (S_mtu != 0) {
@@ -526,7 +529,7 @@ EAPOLSocketMTU(EAPOLSocketRef sock)
     return (EAPOL_MTU_DEFAULT);
 }
 
-const struct ether_addr *
+PRIVATE_EXTERN const struct ether_addr *
 EAPOLSocketGetAuthenticatorMACAddress(EAPOLSocketRef sock)
 {
     EAPOLSocketSourceRef	source = sock->source;
@@ -537,7 +540,7 @@ EAPOLSocketGetAuthenticatorMACAddress(EAPOLSocketRef sock)
     return (&source->authenticator_mac);
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketEnableReceive(EAPOLSocketRef sock,
 			 EAPOLSocketReceiveCallback * func,
 			 void * arg1, void * arg2)
@@ -548,14 +551,14 @@ EAPOLSocketEnableReceive(EAPOLSocketRef sock,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketDisableReceive(EAPOLSocketRef sock)
 {
     sock->func = NULL;
     return;
 }
 
-int
+PRIVATE_EXTERN int
 EAPOLSocketTransmit(EAPOLSocketRef sock,
 		    EAPOLPacketType packet_type,
 		    void * body, unsigned int body_length)
@@ -570,7 +573,7 @@ EAPOLSocketTransmit(EAPOLSocketRef sock,
 				      body, body_length));
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketClearPMKCache(EAPOLSocketRef sock)
 {
 #ifndef NO_WIRELESS
@@ -586,10 +589,27 @@ EAPOLSocketClearPMKCache(EAPOLSocketRef sock)
     return;
 }
 
-boolean_t
-EAPOLSocketSetWPAKey(EAPOLSocketRef sock, 
-		     const uint8_t * session_key, int session_key_length,
-		     const uint8_t * server_key, int server_key_length)
+PRIVATE_EXTERN boolean_t
+EAPOLSocketHasPMK(EAPOLSocketRef sock)
+{
+#ifdef NO_WIRELESS
+    return (FALSE);
+#else /* NO_WIRELESS */
+    EAPOLSocketSourceRef	source = sock->source;
+
+    if (source->sock != sock
+	|| source->is_wireless == FALSE
+	|| source->is_wpa_enterprise == FALSE
+	|| source->bssid_valid == FALSE) {
+	return (FALSE);
+    }
+    return (wireless_has_pmk(source->wref, &source->bssid));
+#endif /* NO_WIRELESS */
+}
+
+
+PRIVATE_EXTERN boolean_t
+EAPOLSocketSetWPAKey(EAPOLSocketRef sock, const uint8_t * msk, int msk_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
@@ -603,7 +623,7 @@ EAPOLSocketSetWPAKey(EAPOLSocketRef sock,
     if (source->sock == sock) {
 	/* main supplicant */
 	bssid = NULL;
-	if (session_key_length != 0) {
+	if (msk_length != 0) {
 	    EAPOLSocketSourceScheduleHandshakeNotification(source);
 	}
 	else {
@@ -616,27 +636,24 @@ EAPOLSocketSetWPAKey(EAPOLSocketRef sock,
 	bssid = &sock->bssid;
     }
     if (bssid == NULL) {
-	eapolclient_log(kLogFlagBasic, "set_key %d/%d",
-			session_key_length, server_key_length);
+	eapolclient_log(kLogFlagBasic, "set_msk %d",
+			msk_length);
     }
     else {
-	eapolclient_log(kLogFlagBasic, 
-			"set_key %s %d/%d", ether_ntoa(bssid),
-			session_key_length, server_key_length);
+	eapolclient_log(kLogFlagBasic, "set_msk %s %d",
+			ether_ntoa(bssid), msk_length);
     }
-    return (wireless_set_wpa_key(source->wref, bssid,
-				 session_key, session_key_length,
-				 server_key, server_key_length));
+    return (wireless_set_wpa_msk(source->wref, bssid, msk, msk_length));
 #endif /* NO_WIRELESS */
 }
 
-bool
+PRIVATE_EXTERN bool
 EAPOLSocketIsLinkActive(EAPOLSocketRef sock)
 {
     return (sock->source->link_active);
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict)
 {
     EAPOLClientRef		client;
@@ -735,13 +752,13 @@ EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict)
     return;
 }
 
-EAPOLControlMode
+PRIVATE_EXTERN EAPOLControlMode
 EAPOLSocketGetMode(EAPOLSocketRef sock)
 {
     return (sock->source->mode);
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketStopClient(EAPOLSocketRef sock)
 {
     EAPOLSocketSourceRef	source = sock->source;
@@ -760,11 +777,14 @@ EAPOLSocketStopClient(EAPOLSocketRef sock)
     return;
 }
 
-boolean_t
+#if ! TARGET_OS_EMBEDDED
+PRIVATE_EXTERN boolean_t
 EAPOLSocketReassociate(EAPOLSocketRef sock)
 {
+#ifdef NO_WIRELESS
+    return (FALSE);
+#else /* NO_WIRELESS */
     boolean_t			ret;
-    CFDictionaryRef		scan_record;
     EAPOLSocketSourceRef	source = sock->source;
 
     if (EAPOLSocketIsWireless(sock) == FALSE) {
@@ -773,14 +793,13 @@ EAPOLSocketReassociate(EAPOLSocketRef sock)
     if (EAPOLSocketIsMain(sock) == FALSE) {
 	return (FALSE);
     }
-    scan_record = wireless_copy_scan_record(source->if_name, source->store);
-    if (scan_record == NULL) {
-	return (FALSE);
-    }
-    ret = wireless_reassociate(source->wref, scan_record);
-    CFRelease(scan_record);
+    ret = wireless_reassociate(source->wref,
+			       EAPOLSocketIfName(sock, NULL));
+    eapolclient_log(kLogFlagBasic, "re-associate%s", ret ? "" : " failed");
     return (ret);
+#endif /* NO_WIRELESS */
 }
+#endif /* ! TARGET_OS_EMBEDDED */
 
 /**
  ** packet printing
@@ -801,7 +820,7 @@ ether_header_print_to_string(CFMutableStringRef str, struct ether_header * eh_p)
  **/
 
 static SCDynamicStoreRef
-link_event_register(const char * if_name,
+link_event_register(const char * if_name, boolean_t is_wireless,
 		    SCDynamicStoreCallBack func, void * arg)
 {
     CFMutableArrayRef		keys = NULL;
@@ -826,7 +845,8 @@ link_event_register(const char * if_name,
 				  kSCCompNetwork,
 				  kSCCompInterface,
 				  if_name,
-				  kSCEntNetLink);
+				  is_wireless
+				  ? kSCEntNetAirPort : kSCEntNetLink);
     CFArrayAppendValue(keys, key);
     my_CFRelease(&key);
     SCDynamicStoreSetNotificationKeys(store, keys, NULL);
@@ -983,23 +1003,35 @@ EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 				   void * info)
 {
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)info;
+    boolean_t			tell_supplicant = FALSE;
 
-    source->link_active = is_link_active(source->if_name);
-    eapolclient_log(kLogFlagBasic, "link %s",
-		    source->link_active ? "active" : "inactive");
-
-    /* make sure our wireless information is up to date */
     if (source->is_wireless) {
-	EAPOLSocketSourceUpdateWirelessInfo(source, NULL);
-    }
+	boolean_t	link_active;
 
-    /* let the 802.1X Supplicant know about the link status change */
-    if (source->sock != NULL) {
-	if (source->link_active == FALSE) {
-	    /* toss last packet in case the Authenticator re-uses identifier */
-	    EAPOLSocketSetEAPTxPacket(source->sock, NULL, 0);
+	link_active = source->link_active;
+
+	/* make sure our wireless information is up to date */
+	EAPOLSocketSourceUpdateWirelessInfo(source, NULL);
+	if (link_active != source->link_active) {
+	    tell_supplicant = TRUE;
 	}
-	Supplicant_link_status_changed(source->sock->supp, source->link_active);
+    }
+    else {
+	source->link_active = is_link_active(source->if_name);
+	tell_supplicant = TRUE;
+    }
+    if (tell_supplicant) {
+	eapolclient_log(kLogFlagBasic, "link %s",
+			source->link_active ? "active" : "inactive");
+	/* let the 802.1X Supplicant know about the link status change */
+	if (source->sock != NULL) {
+	    if (source->link_active == FALSE) {
+		/* toss last packet in case Authenticator re-uses identifier */
+		EAPOLSocketSetEAPTxPacket(source->sock, NULL, 0);
+	    }
+	    Supplicant_link_status_changed(source->sock->supp,
+					   source->link_active);
+	}
     }
     return;
 }
@@ -1007,13 +1039,12 @@ EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 static void
 EAPOLSocketSourceReceive(void * arg1, void * arg2)
 {
-    uint32_t			buf[EAPOLSOCKET_RECV_BUFSIZE
-				    / sizeof(uint32_t)];
+    ALIGNED_BUF(buf, EAPOLSOCKET_RECV_BUFSIZE, uint32_t);
     EAPOLPacketRef		eapol_p;
     struct ether_header *	eh_p = (struct ether_header *)buf;
     uint16_t			ether_type;
     int				length;
-    int 			n;
+    ssize_t 			n;
     EAPOLSocketReceiveDataRef	rx;
     EAPOLSocketRef		sock = NULL;
     EAPOLSocketSourceRef 	source = (EAPOLSocketSourceRef)arg1;
@@ -1040,7 +1071,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	goto done;
     }
     eapol_p = (void *)(eh_p + 1);
-    length = n - sizeof(*eh_p);
+    length = (int)(n - sizeof(*eh_p));
     if (EAPOLPacketIsValid(eapol_p, length, NULL) == FALSE) {
 	if (eapolclient_should_log(kLogFlagBasic)) {
 	    CFMutableStringRef	log_msg;
@@ -1142,7 +1173,7 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 			  EAPOLPacketType packet_type,
 			  void * body, unsigned int body_length)
 {
-    uint32_t			buf[EAPOLSOCKET_SEND_BUFSIZE / sizeof(uint32_t)];
+    ALIGNED_BUF(buf, EAPOLSOCKET_SEND_BUFSIZE, uint32_t);
     EAPOLPacket *		eapol_p;
     struct ether_header *	eh_p;
     struct sockaddr_ndrv 	ndrv;
@@ -1293,7 +1324,7 @@ fd_is_socket(int fd)
     return (FALSE);
 }
 
-EAPOLSocketSourceRef
+PRIVATE_EXTERN EAPOLSocketSourceRef
 EAPOLSocketSourceCreate(const char * if_name,
 			const struct ether_addr * ether,
 			CFDictionaryRef * control_dict_p)
@@ -1357,7 +1388,7 @@ EAPOLSocketSourceCreate(const char * if_name,
 	    goto failed;
 	}
     }
-    store = link_event_register(if_name,
+    store = link_event_register(if_name, is_wireless,
 				EAPOLSocketSourceLinkStatusChanged,
 				source);
     if (store == NULL) {
@@ -1367,7 +1398,7 @@ EAPOLSocketSourceCreate(const char * if_name,
     }
     TAILQ_INIT(&source->preauth_sockets);
     strlcpy(source->if_name, if_name, sizeof(source->if_name));
-    source->if_name_length = strlen(source->if_name);
+    source->if_name_length = (int)strlen(source->if_name);
     source->ether = *ether;
     source->handler = handler;
     source->store = store;
@@ -1459,6 +1490,7 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source,
 	Timer_cancel(source->scan_timer);
 	wireless_scan_cancel(source->wref);
 	source->authenticated = FALSE;
+	source->link_active = FALSE;
     }
     else {
 	const struct ether_addr *	bssid;
@@ -1475,6 +1507,7 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source,
 	 * If we don't have a source MAC address, only update the BSSID if
 	 * we don't know a value yet.
 	 */
+	source->link_active = TRUE;
 	if (rx_source_mac != NULL) {
 	    bssid = rx_source_mac;
 	}
@@ -1523,7 +1556,7 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source,
 #endif /* NO_WIRELESS */
 }
 
-void
+PRIVATE_EXTERN void
 EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p)
 {
     EAPOLSocketSourceRef 	source;
@@ -1587,7 +1620,7 @@ EAPOLSocketSourceCreateSocket(EAPOLSocketSourceRef source,
     return (sock);
 }
 
-SupplicantRef
+PRIVATE_EXTERN SupplicantRef
 EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 				  CFDictionaryRef control_dict)
 {
@@ -1661,7 +1694,7 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 static void
 S_log_bssid_list(CFArrayRef bssid_list)
 {
-    int			count;
+    CFIndex		count;
     int			i;
     CFMutableStringRef	log_msg;
 
@@ -1695,7 +1728,7 @@ EAPOLSocketSourceScanCallback(wireless_t wref,
 	EAPLOG(LOG_NOTICE, "main Supplicant bssid is unknown, skipping");
     }
     else {
-	int	count;
+	CFIndex	count;
 	int	i;
 
 	if (eapolclient_should_log(kLogFlagBasic)) {

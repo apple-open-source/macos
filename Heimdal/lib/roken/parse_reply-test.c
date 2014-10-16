@@ -142,8 +142,8 @@ main(int argc, char **argv)
     return 77;			/* signal to automake that this test
                                    cannot be run */
 #else /* HAVE_MMAP */
-    size_t n, count = 10000;
-    int ret, i;
+    size_t i, n, count = 10000;
+    int ret;
     struct sigaction sa;
     
     struct testcase tests[4];
@@ -172,7 +172,7 @@ main(int argc, char **argv)
 	unsigned char *p1, *p2;
 	unsigned char *buf;
 
-	printf("test %d: ", i);
+	printf("test %lu: ", (unsigned long)i);
 
 	p1 = (unsigned char *)mmap(0, 2 * pagesize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 	if (p1 == (unsigned char *)MAP_FAILED)

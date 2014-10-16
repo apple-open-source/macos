@@ -102,6 +102,7 @@ enum JSTokenType {
     MODEQUAL,
     XOREQUAL,
     OREQUAL,
+    DOTDOTDOT,
     LastUntaggedToken,
 
     // Begin tagged tokens
@@ -148,6 +149,25 @@ enum JSTokenType {
     INVALID_NUMERIC_LITERAL_ERRORTOK = 7 | ErrorTokenFlag,
     UNTERMINATED_STRING_LITERAL_ERRORTOK = 8 | ErrorTokenFlag | UnterminatedErrorTokenFlag,
     INVALID_STRING_LITERAL_ERRORTOK = 9 | ErrorTokenFlag,
+    INVALID_PRIVATE_NAME_ERRORTOK = 10 | ErrorTokenFlag,
+    INVALID_HEX_NUMBER_ERRORTOK = 11 | ErrorTokenFlag
+};
+
+struct JSTextPosition {
+    JSTextPosition() : line(0), offset(0), lineStartOffset(0) { }
+    JSTextPosition(int _line, int _offset, int _lineStartOffset) : line(_line), offset(_offset), lineStartOffset(_lineStartOffset) { }
+    JSTextPosition(const JSTextPosition& other) : line(other.line), offset(other.offset), lineStartOffset(other.lineStartOffset) { }
+
+    JSTextPosition operator+(int adjustment) const { return JSTextPosition(line, offset + adjustment, lineStartOffset); }
+    JSTextPosition operator+(unsigned adjustment) const { return *this + static_cast<int>(adjustment); }
+    JSTextPosition operator-(int adjustment) const { return *this + (- adjustment); }
+    JSTextPosition operator-(unsigned adjustment) const { return *this + (- static_cast<int>(adjustment)); }
+
+    operator int() const { return offset; }
+
+    int line;
+    int offset;
+    int lineStartOffset;
 };
 
 union JSTokenData {
@@ -180,6 +200,8 @@ struct JSToken {
     JSTokenType m_type;
     JSTokenData m_data;
     JSTokenLocation m_location;
+    JSTextPosition m_startPosition;
+    JSTextPosition m_endPosition;
 };
 
 } // namespace JSC

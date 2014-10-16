@@ -26,12 +26,12 @@
 #ifndef ScrollingTreeNode_h
 #define ScrollingTreeNode_h
 
-#if ENABLE(THREADED_SCROLLING)
+#if ENABLE(ASYNC_SCROLLING)
 
 #include "IntRect.h"
 #include "ScrollTypes.h"
 #include "ScrollingCoordinator.h"
-#include <wtf/PassOwnPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -39,40 +39,53 @@ class ScrollingStateFixedNode;
 class ScrollingStateNode;
 class ScrollingStateScrollingNode;
 
-class ScrollingTreeNode {
+class ScrollingTreeNode : public RefCounted<ScrollingTreeNode> {
 public:
-    explicit ScrollingTreeNode(ScrollingTree*, ScrollingNodeID);
     virtual ~ScrollingTreeNode();
 
-    virtual void updateBeforeChildren(ScrollingStateNode*) = 0;
-    virtual void updateAfterChildren(ScrollingStateNode*) { }
-
-    virtual void parentScrollPositionDidChange(const IntRect& viewportRect, const FloatSize& cumulativeDelta) = 0;
-
+    ScrollingNodeType nodeType() const { return m_nodeType; }
     ScrollingNodeID scrollingNodeID() const { return m_nodeID; }
+    
+    bool isFixedNode() const { return nodeType() == FixedNode; }
+    bool isStickyNode() const { return nodeType() == StickyNode; }
+    bool isScrollingNode() const { return nodeType() == FrameScrollingNode || nodeType() == OverflowScrollingNode; }
+    bool isFrameScrollingNode() const { return nodeType() == FrameScrollingNode; }
+    bool isOverflowScrollingNode() const { return nodeType() == OverflowScrollingNode; }
+
+    virtual void updateBeforeChildren(const ScrollingStateNode&) = 0;
+    virtual void updateAfterChildren(const ScrollingStateNode&) { }
+
+    virtual void updateLayersAfterAncestorChange(const ScrollingTreeNode& changedNode, const FloatRect& fixedPositionRect, const FloatSize& cumulativeDelta) = 0;
 
     ScrollingTreeNode* parent() const { return m_parent; }
     void setParent(ScrollingTreeNode* parent) { m_parent = parent; }
 
-    void appendChild(PassOwnPtr<ScrollingTreeNode>);
+    typedef Vector<RefPtr<ScrollingTreeNode>> ScrollingTreeChildrenVector;
+    ScrollingTreeChildrenVector* children() { return m_children.get(); }
+    
+    void appendChild(PassRefPtr<ScrollingTreeNode>);
     void removeChild(ScrollingTreeNode*);
 
 protected:
-    ScrollingTree* scrollingTree() const { return m_scrollingTree; }
+    ScrollingTreeNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
+    ScrollingTree& scrollingTree() const { return m_scrollingTree; }
 
-    typedef Vector<OwnPtr<ScrollingTreeNode> > ScrollingTreeChildrenVector;
     OwnPtr<ScrollingTreeChildrenVector> m_children;
 
 private:
-    ScrollingTree* m_scrollingTree;
+    ScrollingTree& m_scrollingTree;
 
-    ScrollingNodeID m_nodeID;
+    const ScrollingNodeType m_nodeType;
+    const ScrollingNodeID m_nodeID;
 
     ScrollingTreeNode* m_parent;
 };
 
+#define SCROLLING_NODE_TYPE_CASTS(ToValueTypeName, predicate) \
+    TYPE_CASTS_BASE(ToValueTypeName, ScrollingTreeNode, value, value->predicate, value.predicate)
+
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // ENABLE(ASYNC_SCROLLING)
 
 #endif // ScrollingTreeNode_h

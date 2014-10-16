@@ -65,7 +65,7 @@ rr13(unsigned char *buf, size_t len)
 	    b1 = bb / 8;
 	    s1 = bb % 8;
 
-	    if(bb + 8 > bytes * 8)
+	    if((size_t)bb + 8 > bytes * 8)
 		/* watch for wraparound */
 		s2 = (len + 8 - s1) % 8;
 	    else

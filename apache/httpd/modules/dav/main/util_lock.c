@@ -21,16 +21,13 @@
 #include "apr.h"
 #include "apr_strings.h"
 
-#if APR_HAVE_STDIO_H
-#include <stdio.h>              /* for sprintf() */
-#endif
-
 #include "mod_dav.h"
 #include "http_log.h"
 #include "http_config.h"
 #include "http_protocol.h"
 #include "http_core.h"
 
+APLOG_USE_MODULE(dav);
 
 /* ---------------------------------------------------------------
 **
@@ -117,8 +114,8 @@ DAV_DECLARE(const char *) dav_lock_get_activelock(request_rec *r,
             break;
         }
         dav_buffer_append(p, pbuf, "</D:lockscope>" DEBUG_CR);
-        sprintf(tmp, "<D:depth>%s</D:depth>" DEBUG_CR,
-                lock->depth == DAV_INFINITY ? "infinity" : "0");
+        apr_snprintf(tmp, sizeof(tmp), "<D:depth>%s</D:depth>" DEBUG_CR,
+                     lock->depth == DAV_INFINITY ? "infinity" : "0");
         dav_buffer_append(p, pbuf, tmp);
 
         if (lock->owner) {
@@ -136,7 +133,7 @@ DAV_DECLARE(const char *) dav_lock_get_activelock(request_rec *r,
         }
         else {
             time_t now = time(NULL);
-            sprintf(tmp, "Second-%lu", (long unsigned int)(lock->timeout - now));
+            apr_snprintf(tmp, sizeof(tmp), "Second-%lu", (long unsigned int)(lock->timeout - now));
             dav_buffer_append(p, pbuf, tmp);
         }
 
@@ -172,7 +169,7 @@ DAV_DECLARE(dav_error *) dav_lock_parse_lockinfo(request_rec *r,
     dav_lock *lock;
 
     if (!dav_validate_root(doc, "lockinfo")) {
-        return dav_new_error(p, HTTP_BAD_REQUEST, 0,
+        return dav_new_error(p, HTTP_BAD_REQUEST, 0, 0,
                              "The request body contains an unexpected "
                              "XML root element.");
     }
@@ -187,7 +184,7 @@ DAV_DECLARE(dav_error *) dav_lock_parse_lockinfo(request_rec *r,
 
     lock->depth = dav_get_depth(r, DAV_INFINITY);
     if (lock->depth == -1) {
-        return dav_new_error(p, HTTP_BAD_REQUEST, 0,
+        return dav_new_error(p, HTTP_BAD_REQUEST, 0, 0,
                              "An invalid Depth header was specified.");
     }
     lock->timeout = dav_get_timeout(r);
@@ -230,7 +227,7 @@ DAV_DECLARE(dav_error *) dav_lock_parse_lockinfo(request_rec *r,
             continue;
         }
 
-        return dav_new_error(p, HTTP_PRECONDITION_FAILED, 0,
+        return dav_new_error(p, HTTP_PRECONDITION_FAILED, 0, 0,
                              apr_psprintf(p,
                                          "The server cannot satisfy the "
                                          "LOCK request due to an unknown XML "
@@ -346,7 +343,7 @@ DAV_DECLARE(dav_error *) dav_add_lock(request_rec *r,
         if (multi_status != NULL) {
             /* manufacture a 207 error for the multistatus response */
             *response = multi_status;
-            return dav_new_error(r->pool, HTTP_MULTI_STATUS, 0,
+            return dav_new_error(r->pool, HTTP_MULTI_STATUS, 0, 0,
                                  "Error(s) occurred on resources during the "
                                  "addition of a depth lock.");
         }
@@ -450,7 +447,7 @@ static dav_error * dav_get_direct_resource(apr_pool_t *p,
 
         /* not found! that's an error. */
         if (lock == NULL) {
-            return dav_new_error(p, HTTP_BAD_REQUEST, 0,
+            return dav_new_error(p, HTTP_BAD_REQUEST, 0, 0,
                                  "The specified locktoken does not correspond "
                                  "to an existing lock on this resource.");
         }
@@ -471,7 +468,7 @@ static dav_error * dav_get_direct_resource(apr_pool_t *p,
         resource = parent;
     }
 
-    return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+    return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
                          "The lock database is corrupt. A direct lock could "
                          "not be found for the corresponding indirect lock "
                          "on this resource.");
@@ -600,7 +597,7 @@ static dav_error * dav_inherit_locks(request_rec *r, dav_lockdb *lockdb,
         }
         if (parent == NULL) {
             /* ### map result to something nice; log an error */
-            return dav_new_error(r->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+            return dav_new_error(r->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
                                  "Could not fetch parent resource. Unable to "
                                  "inherit locks from the parent and apply "
                                  "them to this resource.");
@@ -721,7 +718,7 @@ DAV_DECLARE(int) dav_get_resource_state(request_rec *r,
         if (err != NULL) {
             /* ### don't log an error. return err. add higher-level desc. */
 
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00623)
                           "Failed to query lock-null status for %s",
                           r->filename);
 

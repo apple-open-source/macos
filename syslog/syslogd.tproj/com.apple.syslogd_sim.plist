@@ -14,6 +14,11 @@
 	<array>
 		<string>/usr/sbin/syslogd</string>
 	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ASL_DISABLE</key>
+		<string>1</string>
+	</dict>
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.system.logger</key>
@@ -26,12 +31,8 @@
 	<dict>
 		<key>BSDSystemLogger</key>
 		<dict>
-			<key>SecureSocketWithKey</key>
-			<string>IOS_SIMULATOR_SYSLOG_SOCKET</string>
-			<key>SockType</key>
-			<string>dgram</string>
-			<key>SockPathMode</key>
-			<integer>438</integer>
+			<key>SystemLoggingSocket</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

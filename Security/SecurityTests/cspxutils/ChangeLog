@@ -1,0 +1,28 @@
+As of April 9 2003, the cspxutils directory will be tagged 
+with the version of Security.framework with which the 
+particular version of cspxutils works. When a change
+is introduced into cspxutils which prevents the tests
+from building or running with previous version of Security,
+an entry will be made in this file and the whole directory
+will be tagged with the same tag as the version of Security
+needed to run with the current version of cspxutils. 
+
+Addenda: tags are now of the form cspxutils-XXX since the Security reorg. 
+
+  Date       Tag            Notes
+--------  -----------    -----------------------------------------------
+04/04/05  TigerGM        TigerGM (8A428) baseline. 
+02/19/05  cspxutils-102  SHA2 signature support.
+						 hashTime now also times performance of openssl, CryptKit, 
+							CommonCrypto.
+08/13/04  cspxutils-101  Radar 3609811, SHA2 digests.
+05/13/04  cspxutils-100  Radar 3537553, SPI for ASN.1 encode/decode.
+08/05/03  Security-132   Unnormalized subject/issuer names, 3347430
+07/16/03  Security-119   Add testing for 3300879, expired root handling
+			 		     Fix typos in Key Start/End Date per 3285824
+06/16/03  Security-114   KeyHeader.{Start,End}Date testing per 3251415
+					     Key Digest via CSPDL per 3151763
+06/16/03  Security-102   Tag for sync with clxutils
+05/02/03  Security-96    CAST, Blowfish
+                         EXTRACTABLE test in badattr
+04/09/03  Security-87    Partial DSA public key processing

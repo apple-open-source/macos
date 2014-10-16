@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ShareableResource.h"
 
+#if ENABLE(SHAREABLE_RESOURCE)
+
 #include "ArgumentCoders.h"
 #include <WebCore/SharedBuffer.h>
 
@@ -37,14 +39,14 @@ ShareableResource::Handle::Handle()
 {
 }
 
-void ShareableResource::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
+void ShareableResource::Handle::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << m_handle;
     encoder << m_offset;
     encoder << m_size;
 }
 
-bool ShareableResource::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
+bool ShareableResource::Handle::decode(IPC::ArgumentDecoder& decoder, Handle& handle)
 {
     if (!decoder.decode(handle.m_handle))
         return false;
@@ -78,7 +80,7 @@ static CFAllocatorRef createShareableResourceDeallocator(ShareableResource* reso
     return CFAllocatorCreate(kCFAllocatorDefault, &context);
 }
 
-PassRefPtr<SharedBuffer> ShareableResource::Handle::tryWrapInSharedBuffer() const
+RetainPtr<CFDataRef> ShareableResource::Handle::tryWrapInCFData() const
 {
     RefPtr<ShareableResource> resource = ShareableResource::create(*this);
     if (!resource) {
@@ -87,9 +89,12 @@ PassRefPtr<SharedBuffer> ShareableResource::Handle::tryWrapInSharedBuffer() cons
     }
 
     RetainPtr<CFAllocatorRef> deallocator = adoptCF(createShareableResourceDeallocator(resource.get()));
-    RetainPtr<CFDataRef> data = adoptCF(CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(resource->data()), static_cast<CFIndex>(resource->size()), deallocator.get()));
+    return adoptCF(CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(resource->data()), static_cast<CFIndex>(resource->size()), deallocator.get()));
+}
 
-    return SharedBuffer::wrapCFData(data.get());
+PassRefPtr<SharedBuffer> ShareableResource::Handle::tryWrapInSharedBuffer() const
+{
+    return SharedBuffer::wrapCFData(tryWrapInCFData().get());
 }
     
 PassRefPtr<ShareableResource> ShareableResource::create(PassRefPtr<SharedMemory> sharedMemory, unsigned offset, unsigned size)
@@ -143,3 +148,5 @@ unsigned ShareableResource::size() const
 }
     
 } // namespace WebKit
+
+#endif // ENABLE(SHAREABLE_RESOURCE)

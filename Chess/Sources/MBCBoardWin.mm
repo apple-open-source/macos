@@ -90,6 +90,7 @@
 
 - (void)dealloc
 {
+    [fCurAnimation cancel];
     [self removeChessObservers];
     [fObservers release];
     [primaryLocalization release];
@@ -296,7 +297,7 @@ typedef void (^MBCAlertCallback)(NSInteger returnCode);
                           didEndSelector:@selector(endAlertSheet:returnCode:contextInfo:)
                              contextInfo:Block_copy(
     ^(NSInteger returnCode) {
-        MBCController * controller = [NSApp delegate];
+        MBCController * controller = (MBCController *)[NSApp delegate];
         if (returnCode == NSAlertDefaultReturn) {
             [engine takeback];
             [controller setValue:100.0 forAchievement:@"AppleChess_Merciful"];
@@ -321,7 +322,7 @@ typedef void (^MBCAlertCallback)(NSInteger returnCode);
                           didEndSelector:@selector(endAlertSheet:returnCode:contextInfo:)
                              contextInfo:Block_copy(
         ^(NSInteger returnCode) {
-            MBCController * controller = [NSApp delegate];
+            MBCController * controller = (MBCController *)[NSApp delegate];
             if (returnCode == NSAlertDefaultReturn) {
                 [[NSNotificationCenter defaultCenter] 
                  postNotificationName:MBCGameEndNotification
@@ -486,7 +487,7 @@ uint32_t sAttributesForSides[] = {
     if (move->fCommand == kCmdBlackWins && SideIncludesBlack([[self document] humanSide]))
         weWon = YES;
     if (weWon) {
-        MBCController * controller      = [NSApp delegate];
+        MBCController * controller      = (MBCController *)[NSApp delegate];
         if ([[self document] engineSide] != kNeitherSide && [[self document] integerForKey:kMBCMinSearchTime] >= 0) 
             [controller setValue:100.0 forAchievement:@"AppleChess_Luddite"];
         if ([[self document] remoteSide] != kNeitherSide) {
@@ -516,7 +517,7 @@ uint32_t sAttributesForSides[] = {
     BOOL            humanMove;
     MBCVariant      variant         = [[self document] variant];
     BOOL            notAntiChess    = variant == kVarNormal || variant == kVarCrazyhouse;
-    MBCController * controller      = [NSApp delegate];
+    MBCController * controller      = (MBCController *)[NSApp delegate];
     MBCPieceCode    ourColor        = Color(move->fPiece);
     MBCPieceCode    oppColor        = MBCPieceCode(Opposite(ourColor));
     
@@ -851,7 +852,7 @@ uint32_t sAttributesForSides[] = {
 // Called when a users chooses to quit a match and that player has the current turn.  The developer should call playerQuitInTurnWithOutcome:nextPlayer:matchData:completionHandler: on the match passing in appropriate values.  They can also update matchOutcome for other players as appropriate.
 - (void)turnBasedMatchmakerViewController:(GKTurnBasedMatchmakerViewController *)vc playerQuitForMatch:(GKTurnBasedMatch *)match {
     for (GKTurnBasedParticipant * participant in[match participants])
-        if ([[participant playerID] isEqual:[[[NSApp delegate] localPlayer] playerID]])
+        if ([[participant playerID] isEqual:[[(MBCController *)[NSApp delegate] localPlayer] playerID]])
             [participant setMatchOutcome:GKTurnBasedMatchOutcomeQuit];
         else
             [participant setMatchOutcome:GKTurnBasedMatchOutcomeWon];

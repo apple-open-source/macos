@@ -1,3 +1,5 @@
+12-07-25 add debug diagnostics
+11-10-11 dll_lib.c: add { dllnames() dll_lib() }
 10-10-20 dllscan.c: version arg "-" => 0
 10-10-19 dllplug.c: fix bug that wiped out dlopen() error message
 10-10-19 dllplug.c: un-localize lookup names (happens with cut and paste)

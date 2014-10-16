@@ -1,6 +1,6 @@
 ;;
 ;; ntpd - sandbox profile
-;; Copyright (c) 2006-2009 Apple Inc.  All Rights reserved.
+;; Copyright (c) 2006-2009, 2014 Apple Inc.  All Rights reserved.
 ;;
 ;; WARNING: The sandbox rules in this file currently constitute 
 ;; Apple System Private Interface and are subject to change at any time and
@@ -15,18 +15,17 @@
 
 (allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
 
-;;; Allow NTP specific files
 (allow file-read-data file-read-metadata
        (literal "/private/etc/ntp-restrict.conf")
        (literal "/private/etc/ntp_opendirectory.conf")
+       (literal "/private/var/run/resolv.conf")
        (regex "^/private/etc/ntp\\.(conf|keys)$")
-       (literal "/private/var/mobile/Library/Preferences/ntp.conf")
        (regex "^/private/etc/(services|hosts)$")
        (regex "^/private/var/run/tmpntp.conf.*"))
 
 (allow file-write* file-read-data file-read-metadata
        (literal "/private/var/run/ntpd.pid")
-       (regex "^/private/var/(db|mobile/Library/Preferences)/ntp\\.drift(\\.TEMP)?$")
+       (regex "^/private/var/db/ntp\\.drift(\\.TEMP)?$")
        (subpath "/private/tmp")
        (subpath "/private/var/tmp"))
 

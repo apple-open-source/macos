@@ -19,8 +19,8 @@
  */
 
 [
+    JSCustomHeader,
     JSGenerateToNativeObject,
-    JSInlineGetOwnPropertySlot,
 ] interface Element : Node {
 
     // DOM Level 1 Core
@@ -62,21 +62,39 @@
 
     readonly attribute CSSStyleDeclaration style;
 
+    // DOM 4
+#if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
+    [Reflect] attribute DOMString id;
+#endif
+
     // Common extensions
 
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
     readonly attribute long offsetLeft;
     readonly attribute long offsetTop;
     readonly attribute long offsetWidth;
     readonly attribute long offsetHeight;
-    [ImplementedAs=bindingsOffsetParent] readonly attribute Element offsetParent;
     readonly attribute long clientLeft;
     readonly attribute long clientTop;
     readonly attribute long clientWidth;
     readonly attribute long clientHeight;
+#else
+    readonly attribute double offsetLeft;
+    readonly attribute double offsetTop;
+    readonly attribute double offsetWidth;
+    readonly attribute double offsetHeight;
+    readonly attribute double clientLeft;
+    readonly attribute double clientTop;
+    readonly attribute double clientWidth;
+    readonly attribute double clientHeight;
+#endif
+
     attribute long scrollLeft;
     attribute long scrollTop;
     readonly attribute long scrollWidth;
     readonly attribute long scrollHeight;
+
+    [ImplementedAs=bindingsOffsetParent] readonly attribute Element offsetParent;
 
     void focus();
     void blur();
@@ -102,8 +120,8 @@
     [RaisesException] Element querySelector(DOMString selectors);
     [RaisesException] NodeList querySelectorAll(DOMString selectors);
 
-    // WebKit extension, pending specification.
-    [RaisesException] boolean webkitMatchesSelector([Default=Undefined] optional DOMString selectors);
+    [RaisesException] boolean matches([Default=Undefined] optional DOMString selectors);
+    [ImplementedAs=matches, RaisesException] boolean webkitMatchesSelector([Default=Undefined] optional DOMString selectors);
 
     // ElementTraversal API
     readonly attribute Element firstElementChild;
@@ -111,17 +129,6 @@
     readonly attribute Element previousElementSibling;
     readonly attribute Element nextElementSibling;
     readonly attribute unsigned long childElementCount;
-
-    // ShadowAware API
-#if defined(ENABLE_SHADOW_DOM) && ENABLE_SHADOW_DOM && defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-    [Reflect=pseudo, ImplementedAs=pseudo] attribute DOMString webkitPseudo;
-    [ImplementedAs=createShadowRoot, RaisesException] ShadowRoot webkitCreateShadowRoot();
-    [ImplementedAs=authorShadowRoot] readonly attribute ShadowRoot webkitShadowRoot;
-    [ImplementedAs=insertionParentForBinding] readonly attribute Node webkitInsertionParent;
-#endif
-
-    // DOM 4
-    [RaisesException] void remove();
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
     // CSSOM View Module API
@@ -143,7 +150,11 @@
     void webkitRequestFullscreen();
 #endif
 
-    [Conditional=POINTER_LOCK] void webkitRequestPointerLock();
+#if defined(ENABLE_INDIE_UI) && ENABLE_INDIE_UI
+    [Reflect] attribute DOMString uiactions;
+#endif
+
+    [Conditional=POINTER_LOCK] void requestPointerLock();
 
     // CSS Regions API
     [Conditional=CSS_REGIONS] readonly attribute DOMString webkitRegionOverset;
@@ -183,6 +194,7 @@
     [NotEnumerable] attribute EventListener onscroll;
     [NotEnumerable] attribute EventListener onselect;
     [NotEnumerable] attribute EventListener onsubmit;
+    [NotEnumerable] attribute EventListener onwheel;
 
     // [NotEnumerable] attribute EventListener oncanplay;
     // [NotEnumerable] attribute EventListener oncanplaythrough;
@@ -223,6 +235,12 @@
     [NotEnumerable,Conditional=TOUCH_EVENTS] attribute EventListener ontouchcancel;
     [NotEnumerable, Conditional=FULLSCREEN_API] attribute EventListener onwebkitfullscreenchange;
     [NotEnumerable, Conditional=FULLSCREEN_API] attribute EventListener onwebkitfullscreenerror;
+    [NotEnumerable, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealbottom;
+    [NotEnumerable, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealleft;
+    [NotEnumerable, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealright;
+    [NotEnumerable, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealtop;
 #endif
 };
+
+Element implements ChildNode;
 

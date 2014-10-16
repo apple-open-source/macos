@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-July 15, 2012
+January 3, 2013
 ______________________________________________________________________
 
 Table of Contents:
@@ -267,7 +267,8 @@ Table of Contents:
 	and higher lsof?
 8.6.2	Why don't /usr/src/sys/sys/lockf.h and /usr/include/sys/lockf.h
 	match?
-8.7	Why won't lsof compile with clang?
+8.7	FreeBSD and clang
+8.7.1	Why does clang complain about VOP_FSYNC?
 
 9.0	HP-UX Problems
 9.1	What do /dev/kmem-based and PSTAT-based mean?
@@ -1417,10 +1418,10 @@ ______________________________________________________________________
 
 	If you're interested in certain Internet TCP and UDP states
 	(e.g., ESTABLISHED) or in excluding some (e.g., CLOSE_WAIT),
-	try lsof's "-s p:s" option, available in lsof 4.81 and later.
-	More information on it may be found in the answer to the "How
-	are protocol state name exclusion and inclusion used?"
-	question.
+	try lsof's "-s p:s" option, available where shown on the lsof
+	help output, obtained with -h or -?.  More information on it
+	may be found in the answer to the "How are protocol state name
+	exclusion and inclusion used?" question.
 
 	Your UNIX dialect may not support "-s p:s" and its associated
 	performance improvments to Internet-only file processing.  You
@@ -2022,11 +2023,11 @@ ______________________________________________________________________
 	Lsof won't report a file offset (position) value if the -s
 	option (without parameters) has been specified, or if the
 	dialect doesn't support the displaying of file offset
-	(position).  (Note that at revision 4.81 the -s option took on
-	added functionality when parameters are supplied to it; for
-	more information on that addition, see the answer to the "How
-	are protocol state name exclusion and inclusion used?"
-	question.)
+	(position).  (Note that on selected dialects the help output,
+	obtained with -h or -?, may show that the -s option can also be
+	supplied the "p:s" parameters; for more information on that
+	addition, see the answer to the "How are protocol state name
+	exclusion and inclusion used?" question.)
 
 	That lsof is reporting only file size is indicated by the
 	fact that the appropriate column header says SIZE instead
@@ -4673,11 +4674,17 @@ ______________________________________________________________________
 	until the "make buildworld" and "make installworld" steps have
 	been completed.
 
-8.7	Why won't lsof compile with clang?
+8.7	FreeBSD and clang
 
-	As of October 2011 lsof revision 4.85 will not compile with
-	clang on FreeBSD because the FreeBSD system header files do not
-	conform to clang requirements.  There is no work-around.
+	As of lsof revision 4.87, lsof may be compiled with clang.
+
+8.7.1	Why does clang complain about VOP_FSYNC?
+
+	There is an error in the Solaris ZFS compatibility vnode.h
+	header file with use of VOP_FSYNC before it is defined.  No
+	work-around is possible that will eliminate the clang
+	compile-time warning message about the invalid declaration of
+	the VOP_FSYNC function.
 
 
 9.0	HP-UX Problems
@@ -5410,13 +5417,22 @@ ______________________________________________________________________
 	/proc-based lsof examines these protocol files:
 
 	    /proc/net/ax25		(untested)
+	    /proc/net/icmp
 	    /proc/net/ipx		(needs kernel patch)
+	    /proc/net/netlink
+	    /proc/net/packet
 	    /proc/net/raw
 	    /proc/net/raw6
+	    /proc/net/sctp/assocs
+	    /proc/net/sctp/eps
+	    /proc/net/sockstat
+	    /proc/net/sockstat6
 	    /proc/net/tcp
 	    /proc/net/tcp6
 	    /proc/net/udp
 	    /proc/net/udp6
+	    /proc/net/udplite
+	    /proc/net/udplite6
 	    /proc/net/unix
 
 	If /proc-based lsof says it can't identify the protocol
@@ -6278,8 +6294,10 @@ ______________________________________________________________________
 
 	Protocol state name inclusion and exclusion with the ``-s p:s''
 	option and its arguments have some issues to consider.  Note:
-	the ``-s p:s'' option is only available in lsof 4.81 and
-	later.
+	the ``-s p:s'' option is only available when the help output,
+	obtained with -h or -?, shows it; it was a recent addition to
+	lsof and is supported only on dialects where it could be
+	tested.
 
 	First, there is the problem of determining what state names, if
 	any, the dialect produces.  Try running this lsof command to

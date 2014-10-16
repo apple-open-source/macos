@@ -308,6 +308,7 @@ cindex(parameters, editing)
 cindex(editing parameters)
 xitem(tt(vared) [ tt(-Aache) ] [ tt(-p) var(prompt) ] [ tt(-r) var(rprompt) ])
 xitem(  [ tt(-M) var(main-keymap) ] [ tt(-m) var(vicmd-keymap) ])
+xitem(  [ tt(-i) var(init-widget) ] [ tt(-f) var(finish-widget) ])
 item(  [ tt(-t) var(tty) ] var(name))(
 The value of the parameter var(name) is loaded into the edit
 buffer, and the line editor is invoked.  When the editor exits,
@@ -343,6 +344,10 @@ to override tt(viins) and tt(vicmd).  For emacs-style editing, only tt(-M)
 is normally needed but the tt(-m) option may still be used.  On exit, the
 previous keymaps will be restored.
 
+tt(Vared) calls the usual `tt(zle-line-init)' and `tt(zle-line-finish)'
+hooks before and after it takes control. Using the tt(-i) and tt(-f)
+options, it is possible to replace these with other custom widgets.
+
 If `tt(-t) var(tty)' is given, var(tty) is the name of a terminal device
 to be used instead of the default tt(/dev/tty).  If var(tty) does not
 refer to a terminal an error is reported.
@@ -368,7 +373,7 @@ xitem(tt(zle) tt(-R) [ tt(-c) ] [ var(display-string) ] [ var(string) ... ])
 xitem(tt(zle) tt(-M) var(string))
 xitem(tt(zle) tt(-U) var(string))
 xitem(tt(zle) tt(-K) var(keymap))
-xitem(tt(zle) tt(-F) [ tt(-L) ] [ var(fd) [ var(handler) ] ])
+xitem(tt(zle) tt(-F) [ tt(-L) | tt(-w) ] [ var(fd) [ var(handler) ] ])
 xitem(tt(zle) tt(-I))
 xitem(tt(zle) tt(-T) [ tt(tc) var(function) | tt(-r) tt(tc) | tt(-L) ] )
 item(tt(zle) var(widget) tt([ -n) var(num) tt(]) tt([ -Nw ] [ -K) var(keymap) tt(]) var(args) ...)(
@@ -482,7 +487,7 @@ This keymap selection affects the interpretation of following keystrokes
 within this invocation of ZLE.  Any following invocation (e.g., the next
 command line) will start as usual with the `tt(main)' keymap selected.
 )
-item(tt(-F) [ tt(-L) ] [ var(fd) [ var(handler) ] ])(
+item(tt(-F) [ tt(-L) | tt(-w) ] [ var(fd) [ var(handler) ] ])(
 Only available if your system supports one of the `poll' or `select' system
 calls; most modern systems do.
 
@@ -496,6 +501,13 @@ so (see below).  The handler should not attempt to read from the terminal.
 Note that zle makes no attempt to check whether this fd is actually
 readable when installing the handler.  The user must make their own
 arrangements for handling the file descriptor when zle is not active.
+
+If the option tt(-w) is also given, the var(handler) is instead a
+line editor widget, typically a shell function made into a widget using
+tt(zle -N).  In that case var(handler) can use all the facilities of
+zle to update the current editing line.  Note, however, that as handling
+var(fd) takes place at a low level changes to the display will not
+automatically appear; the widget should call tt(zle -R) to force redisplay.
 
 Any number of handlers for any number of readable file descriptors may be
 installed.  Installing a handler for an var(fd) which is already handled

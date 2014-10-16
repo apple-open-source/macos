@@ -188,6 +188,12 @@ extern HEIMDAL_MUTEX gssapi_keytab_mutex;
     }								\
 } while (0)
 
+#define GSSAPI_KRB5_INIT_GOTO(ctx,_label) do {			\
+    krb5_error_code kret_gss_init;				\
+    if((kret_gss_init = _gsskrb5_init (ctx)) != 0)		\
+	goto _label;						\
+} while (0)
+
 #define GSSAPI_KRB5_INIT_VOID(ctx) do {				\
     krb5_error_code kret_gss_init;				\
     if((kret_gss_init = _gsskrb5_init (ctx)) != 0)		\

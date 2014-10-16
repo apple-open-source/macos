@@ -531,7 +531,9 @@
 /* .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBrecipient_delimiter (empty)\fR"
-/*	The separator between user names and address extensions (user+foo).
+/*	The set of characters that can separate a user name from its
+/*	extension (example: user+foo), or a .forward file name from its
+/*	extension (example: .forward+foo).
 /* .IP "\fBrequire_home_directory (no)\fR"
 /*	Require that a \fBlocal\fR(8) recipient's home directory exists
 /*	before mail delivery is attempted.
@@ -661,11 +663,6 @@ int     local_ext_prop_mask;
 int     local_deliver_hdr_mask;
 int     local_mbox_lock_mask;
 MAPS   *alias_maps;
-
-#ifdef __APPLE_OS_X_SERVER__
-/* Apple Additions */
-bool    var_use_od_delivery_path;
-#endif /* __APPLE_OS_X_SERVER__ */
 
 /* local_deliver - deliver message with extreme prejudice */
 
@@ -911,9 +908,6 @@ int     main(int argc, char **argv)
 	VAR_FROZEN_DELIVERED, DEF_FROZEN_DELIVERED, &var_frozen_delivered,
 	VAR_RESET_OWNER_ATTR, DEF_RESET_OWNER_ATTR, &var_reset_owner_attr,
 	VAR_STRICT_MBOX_OWNER, DEF_STRICT_MBOX_OWNER, &var_strict_mbox_owner,
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_USE_OD_DELIVERY_PATH, DEF_USE_OD_DELIVERY_PATH, &var_use_od_delivery_path,
-#endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
 

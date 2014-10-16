@@ -37,17 +37,27 @@
 
 #include <Security/SecCmsEncoder.h> /* @@@ Remove this when we move the Encoder method. */
 #include <Security/SecCmsSignerInfo.h>
+
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
 #include "cryptohi.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
+#if USE_CDSA_CRYPTO
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecBase.h>
+
+#else
+#include <CommonCrypto/CommonDigest.h>
+#include <Security/SecBase.h>
+
+#endif
 
 
 /*
@@ -62,7 +72,7 @@ SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **obj
 {
     PRArenaPool *poolp;
     int num_objs;
-    CSSM_DATA_PTR *enc_objs;
+    SecAsn1Item **enc_objs;
     OSStatus rv = SECFailure;
     int i;
 
@@ -81,7 +91,7 @@ SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **obj
      * Allocate arrays to hold the individual encodings which we will use
      * for comparisons and the reordered attributes as they are sorted.
      */
-    enc_objs = (CSSM_DATA_PTR *)PORT_ArenaZAlloc(poolp, (num_objs + 1) * sizeof(CSSM_DATA_PTR));
+    enc_objs = (SecAsn1Item **)PORT_ArenaZAlloc(poolp, (num_objs + 1) * sizeof(SecAsn1Item *));
     if (enc_objs == NULL)
 	goto loser;
 
@@ -105,14 +115,13 @@ loser:
 
 /*
  * SecCmsUtilDERCompare - for use with SecCmsArraySort to
- *  sort arrays of CSSM_DATAs containing DER
+ *  sort arrays of SecAsn1Items containing DER
  */
 int
 SecCmsUtilDERCompare(void *a, void *b)
 {
-    CSSM_DATA_PTR der1 = (CSSM_DATA_PTR)a;
-    CSSM_DATA_PTR der2 = (CSSM_DATA_PTR)b;
-    int j;
+    SecAsn1Item * der1 = (SecAsn1Item *)a;
+    SecAsn1Item * der2 = (SecAsn1Item *)b;
 
     /*
      * Find the lowest (lexigraphically) encoding.  One that is
@@ -128,12 +137,17 @@ SecCmsUtilDERCompare(void *a, void *b)
     if (der1->Length != der2->Length)
 	return (der1->Length < der2->Length) ? -1 : 1;
 
+#if 1
+    return memcmp(der1->Data, der2->Data, der1->Length);
+#else
+    size_t j;
     for (j = 0; j < der1->Length; j++) {
 	if (der1->Data[j] == der2->Data[j])
 	    continue;
 	return (der1->Data[j] < der2->Data[j]) ? -1 : 1;
     }
     return 0;
+#endif
 }
 
 /*
@@ -209,12 +223,17 @@ SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray,
     return i;
 }
 
+#if USE_CDSA_CRYPTO
 CSSM_CC_HANDLE
+#else
+void *
+#endif
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
 {
     SECOidData *oidData = SECOID_FindOID(&(algid->algorithm));
     if (oidData)
     {
+#if USE_CDSA_CRYPTO
 	CSSM_ALGORITHMS alg = oidData->cssmAlgorithm;
 	if (alg)
 	{
@@ -224,6 +243,38 @@ SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
 	    if (!CSSM_CSP_CreateDigestContext(cspHandle, alg, &digobj))
 		return digobj;
 	}
+#else
+        void *digobj = NULL;
+        switch (oidData->offset) {
+        case SEC_OID_SHA1:
+            digobj = calloc(1, sizeof(CC_SHA1_CTX));
+            CC_SHA1_Init(digobj);
+            break;
+        case SEC_OID_MD5:
+            digobj = calloc(1, sizeof(CC_MD5_CTX));
+            CC_MD5_Init(digobj);
+            break;
+        case SEC_OID_SHA224:
+            digobj = calloc(1, sizeof(CC_SHA256_CTX));
+            CC_SHA224_Init(digobj);
+            break;
+        case SEC_OID_SHA256:
+            digobj = calloc(1, sizeof(CC_SHA256_CTX));
+            CC_SHA256_Init(digobj);
+            break;
+        case SEC_OID_SHA384:
+            digobj = calloc(1, sizeof(CC_SHA512_CTX));
+            CC_SHA384_Init(digobj);
+            break;
+        case SEC_OID_SHA512:
+            digobj = calloc(1, sizeof(CC_SHA512_CTX));
+            CC_SHA512_Init(digobj);
+            break;
+        default:
+            break;
+        }
+        return digobj;
+#endif
     }
 
     return 0;
@@ -263,17 +314,6 @@ SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg)
 	  default:
 	    return SEC_OID_UNKNOWN;
 	}
-      case SEC_OID_EC_PUBLIC_KEY:
-	switch(hashalg) {
-	  /* 
-	   * Note this is only used when signing and verifying signed attributes,
-	   * In which case we really do want the combined ECDSA_WithSHA1 alg...
-	   */
-	  case SEC_OID_SHA1:
-	    return SEC_OID_ECDSA_WithSHA1;
-	  default:
-	    return SEC_OID_UNKNOWN;
-	}
       default:
 	break;
     }
@@ -305,7 +345,6 @@ SecCmsUtilGetTemplateByTypeTag(SECOidTag type)
 	break;
     default:
     case SEC_OID_PKCS7_DATA:
-    case SEC_OID_OTHER:
 	template = NULL;
 	break;
     }
@@ -383,30 +422,4 @@ SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs)
     case SecCmsVSProcessingError:		return "ProcessingError";
     default:					return "Unknown";
     }
-}
-
-OSStatus
-SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef *outArena)
-{
-    OSStatus status;
-
-    if (!outArena) {
-        status = paramErr;
-        goto loser;
-    }
-
-    *outArena = (SecArenaPoolRef)PORT_NewArena(chunksize);
-    if (*outArena)
-        status = 0;
-    else
-        status = PORT_GetError();
-
-loser:
-    return status;
-}
-
-void
-SecArenaPoolFree(SecArenaPoolRef arena, Boolean zero)
-{
-    PORT_FreeArena((PLArenaPool *)arena, zero);
 }

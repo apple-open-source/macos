@@ -45,7 +45,7 @@ typedef HashMap<String, StorageNamespace*> LocalStorageNamespaceMap;
 
 static LocalStorageNamespaceMap& localStorageNamespaceMap()
 {
-    DEFINE_STATIC_LOCAL(LocalStorageNamespaceMap, localStorageNamespaceMap, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(LocalStorageNamespaceMap, localStorageNamespaceMap, ());
     return localStorageNamespaceMap;
 }
 
@@ -56,11 +56,11 @@ PassRefPtr<StorageNamespace> StorageNamespaceImpl::localStorageNamespace(PageGro
     // not per-page (and, in fact, we simply grab the settings from some page at random), but
     // at this point we're stuck with it.
     Page* page = *pageGroup->pages().begin();
-    const String& path = page->settings()->localStorageDatabasePath();
-    unsigned quota = pageGroup->groupSettings()->localStorageQuotaBytes();
+    const String& path = page->settings().localStorageDatabasePath();
+    unsigned quota = pageGroup->groupSettings().localStorageQuotaBytes();
     const String lookupPath = path.isNull() ? emptyString() : path;
 
-    LocalStorageNamespaceMap::AddResult result = localStorageNamespaceMap().add(lookupPath, 0);
+    LocalStorageNamespaceMap::AddResult result = localStorageNamespaceMap().add(lookupPath, nullptr);
     if (!result.isNewEntry)
         return result.iterator->value;
 
@@ -72,7 +72,7 @@ PassRefPtr<StorageNamespace> StorageNamespaceImpl::localStorageNamespace(PageGro
 
 PassRefPtr<StorageNamespace> StorageNamespaceImpl::sessionStorageNamespace(Page* page)
 {
-    return adoptRef(new StorageNamespaceImpl(SessionStorage, String(), page->settings()->sessionStorageQuota()));
+    return adoptRef(new StorageNamespaceImpl(SessionStorage, String(), page->settings().sessionStorageQuota()));
 }
 
 PassRefPtr<StorageNamespace> StorageNamespaceImpl::transientLocalStorageNamespace(PageGroup* pageGroup, SecurityOrigin*)

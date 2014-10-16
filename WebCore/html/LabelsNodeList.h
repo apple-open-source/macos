@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2007, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,24 +25,24 @@
 #ifndef LabelsNodeList_h
 #define LabelsNodeList_h
 
+#include "LabelableElement.h"
 #include "LiveNodeList.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class LabelsNodeList : public LiveNodeList {
+class LabelsNodeList final : public CachedLiveNodeList<LabelsNodeList> {
 public:
-    static PassRefPtr<LabelsNodeList> create(Node* forNode, CollectionType type, const AtomicString&)
+    static PassRef<LabelsNodeList> create(LabelableElement& forNode, const AtomicString&)
     {
-        ASSERT_UNUSED(type, type == LabelsNodeListType);
-        return adoptRef(new LabelsNodeList(forNode));
+        return adoptRef(*new LabelsNodeList(forNode));
     }
     ~LabelsNodeList();
 
-protected:
-    LabelsNodeList(Node* forNode);
+    virtual bool nodeMatches(Element*) const override;
+    virtual bool isRootedAtDocument() const override { return true; }
 
-    virtual bool nodeMatches(Element*) const;
+private:
+    explicit LabelsNodeList(LabelableElement& forNode);
 };
 
 } // namespace WebCore

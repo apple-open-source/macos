@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+/* APPLE: prefix sasl_ to fix conflict with System */ 
 extern void * sasl_dlopen(
     const char *path,
     int mode);

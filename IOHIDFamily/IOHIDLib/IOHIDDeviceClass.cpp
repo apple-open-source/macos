@@ -23,6 +23,7 @@
  */
 #define CFRUNLOOP_NEW_API 1
 
+#include <AssertMacros.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFPriv.h>
 //#include <IOKit/hid/IOHIDLib.h>
@@ -41,6 +42,7 @@ __BEGIN_DECLS
 #include <IOKit/IOMessage.h>
 #include <IOKit/IODataQueueClient.h>
 #include <System/libkern/OSCrossEndian.h>
+#include <syslog.h>
 __END_DECLS
 
 #define connectCheck() do {	    \
@@ -79,6 +81,8 @@ __END_DECLS
 #define min(a, b) \
     ((a < b) ? a:b)
 #endif
+
+#define kInputReportQueueDeptch_8ms 8
 
 typedef struct _IOHIDObsoleteCallbackArgs {
     IOHIDObsoleteDeviceClass * self;
@@ -339,7 +343,7 @@ HRESULT IOHIDDeviceClass::queryInterface(REFIID iid, void **ppv)
         *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOHIDDeviceDeviceInterfaceID))
+    else if (CFEqual(uuid, kIOHIDDeviceDeviceInterfaceID) || CFEqual(uuid, kIOHIDDeviceDeviceInterfaceID2))
     {
         *ppv = &fHIDDevice;
         addRef();
@@ -1431,43 +1435,50 @@ FINISH_ELEMENT_SEARCH:
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDDeviceClass::setInterruptReportCallback(uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, void * refcon, IOOptionBits options)
-                                
+IOReturn IOHIDDeviceClass::setInterruptReportCallback(uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, IOHIDReportWithTimeStampCallback callbackWithTimeStamp, void * refcon, IOOptionBits options)
 {
-    IOReturn ret = kIOReturnSuccess;
+	IOReturn ret = kIOReturnError;
 
-    fInputReportCallback 	= callback;
-    fInputReportRefcon		= refcon;
-    fInputReportBuffer		= report;
-    fInputReportBufferSize	= reportLength;
-    fInputReportOptions     = options;
-     
-    // Lazy set up of the queue.
-    if ( !fReportHandlerQueue )
-    {
-		fReportHandlerQueue = createQueue(true);
-
-        ret = fReportHandlerQueue->create(0, 8);
-        
-        if (ret != kIOReturnSuccess)
-            goto SET_REPORT_HANDLER_CLEANUP;
-        
-        for (uint32_t i=0; i<fReportHandlerElementCount; i++)
-        {
-            ret = fReportHandlerQueue->addElement(getElement((IOHIDElementCookie)fReportHandlerElements[i].cookieMin), 0);
+    fInputReportCallback                = callback;
+    fInputReportWithTimeStampCallback   = callbackWithTimeStamp;
+    fInputReportRefcon                  = refcon;
+    fInputReportBuffer                  = report;
+    fInputReportBufferSize              = reportLength;
+    fInputReportOptions                 = options;
     
-            if (ret != kIOReturnSuccess)
-                goto SET_REPORT_HANDLER_CLEANUP;
+    // Lazy set up of the queue.
+    if ( !fReportHandlerQueue ) {
+        
+        CFNumberRef reportInterval  = NULL;
+        uint32_t    queueDepth      = kInputReportQueueDeptch_8ms;
+        
+        fReportHandlerQueue = createQueue(true);
+        
+        getProperty(CFSTR(kIOHIDReportIntervalKey), (CFTypeRef *)&reportInterval);
+        if ( reportInterval ) {
+            UInt32 value;
+            
+            CFNumberGetValue(reportInterval, kCFNumberSInt32Type, &value);
+            
+            queueDepth *= ((double)8000/value);
+            if ( queueDepth < kInputReportQueueDeptch_8ms ) {
+                queueDepth = kInputReportQueueDeptch_8ms;
+            }
         }
-
-		
-		if ( fAsyncPort && fIsOpen )
-		{
-			ret = finishReportHandlerQueueSetup();
-			if (ret != kIOReturnSuccess)
-				goto SET_REPORT_HANDLER_CLEANUP;
-		}
-    }    
+                
+        require_noerr((ret = fReportHandlerQueue->create(0, queueDepth)), SET_REPORT_HANDLER_CLEANUP);
+        
+        for (uint32_t i=0; i<fReportHandlerElementCount; i++) {
+            ret = fReportHandlerQueue->addElement(getElement((IOHIDElementCookie)fReportHandlerElements[i].cookieMin), 0);
+            require_noerr(ret, SET_REPORT_HANDLER_CLEANUP);
+        }
+        
+        
+        if ( fAsyncPort && fIsOpen ) {
+            ret = finishReportHandlerQueueSetup();
+            require_noerr(ret, SET_REPORT_HANDLER_CLEANUP);
+        }
+    }
     
     return kIOReturnSuccess;
     
@@ -1477,6 +1488,7 @@ SET_REPORT_HANDLER_CLEANUP:
     
     return ret;
 }
+
 
 IOReturn IOHIDDeviceClass::finishReportHandlerQueueSetup()
 {
@@ -1534,7 +1546,7 @@ void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result,
             bcopy(IOHIDValueGetBytePtr(event), self->fInputReportBuffer, size);
         }
         
-        if (self->fInputReportCallback)            
+        if (self->fInputReportCallback)
             (self->fInputReportCallback)(
                                         self->fInputReportRefcon, 
                                         result, 
@@ -1543,7 +1555,17 @@ void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result,
                                         IOHIDElementGetReportID(IOHIDValueGetElement(event)),
                                         self->fInputReportBuffer,
                                         size);
-
+        if (self->fInputReportWithTimeStampCallback)
+            (self->fInputReportWithTimeStampCallback)(
+                                        self->fInputReportRefcon,
+                                        result, 
+                                        &(self->fHIDDevice),
+                                        kIOHIDReportTypeInput,
+                                        IOHIDElementGetReportID(IOHIDValueGetElement(event)),
+                                        self->fInputReportBuffer,
+                                        size,
+                                        IOHIDValueGetTimeStamp(event));
+        
         CFRelease(event);
     }
 }
@@ -1631,7 +1653,7 @@ IOCFPlugInInterface IOHIDDeviceClass::sIOCFPlugInInterfaceV1 =
     &IOHIDDeviceClass::_stop
 };
 
-IOHIDDeviceDeviceInterface IOHIDDeviceClass::sHIDDeviceInterfaceV2 =
+IOHIDDeviceTimeStampedDeviceInterface IOHIDDeviceClass::sHIDDeviceInterfaceV2 =
 {
     0,
     &IOHIDIUnknown::genericQueryInterface,
@@ -1647,7 +1669,8 @@ IOHIDDeviceDeviceInterface IOHIDDeviceClass::sHIDDeviceInterfaceV2 =
     &IOHIDDeviceClass::_getElementValue,
     &IOHIDDeviceClass::_setInterruptReportCallback,
     &IOHIDDeviceClass::_setReport,
-    &IOHIDDeviceClass::_getReport
+    &IOHIDDeviceClass::_getReport,
+    &IOHIDDeviceClass::_setInterruptReportWithTimeStampCallback
 };
 
 // Methods for routing iocfplugin interface
@@ -1686,9 +1709,13 @@ IOReturn IOHIDDeviceClass::_copyMatchingElements(void * self, CFDictionaryRef ma
 	return selfRef->copyMatchingElements(matchingDict, elements, 0, selfRef->fElementCache, options);        
 }
 
-IOReturn IOHIDDeviceClass::_setInterruptReportCallback(void * self, uint8_t * report, CFIndex reportLength, 
+IOReturn IOHIDDeviceClass::_setInterruptReportCallback(void * self, uint8_t * report, CFIndex reportLength,
                             IOHIDReportCallback callback, void * refcon, IOOptionBits options)
-{ return getThis(self)->setInterruptReportCallback(report, reportLength, callback, refcon, options); }
+{ return getThis(self)->setInterruptReportCallback(report, reportLength, callback, NULL, refcon, options); }
+
+IOReturn IOHIDDeviceClass::_setInterruptReportWithTimeStampCallback(void * self, uint8_t * report, CFIndex reportLength,
+                            IOHIDReportWithTimeStampCallback callback, void * refcon, IOOptionBits options)
+{ return getThis(self)->setInterruptReportCallback(report, reportLength, NULL, callback, refcon, options); }
 
 IOReturn IOHIDDeviceClass::_getReport(void * self, IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength,
                                 uint32_t timeout, IOHIDReportCallback callback, void * refcon, IOOptionBits options)
@@ -2375,7 +2402,7 @@ IOReturn IOHIDObsoleteDeviceClass::setInterruptReportHandlerCallback(void * repo
     reportContext->target     = target;
     reportContext->refcon     = refcon;
     
-    return IOHIDDeviceClass::setInterruptReportCallback((uint8_t*)report, length, IOHIDObsoleteDeviceClass::_reportCallback, reportContext);
+    return IOHIDDeviceClass::setInterruptReportCallback((uint8_t*)report, length, IOHIDObsoleteDeviceClass::_reportCallback, NULL, reportContext);
 }
 
 void IOHIDObsoleteDeviceClass::_elementValueCallback(void * context, IOReturn result, void * sender, IOHIDValueRef value)

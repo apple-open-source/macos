@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "PrivateLib.h"
+#include "PMConnection.h"
 
 #ifndef _HIDEvent_h_
 #define _HIDEvent_h_
@@ -28,7 +29,8 @@
 __private_extern__ kern_return_t _io_pm_hid_event_report_activity(
     mach_port_t server,
     audit_token_t token,                                                        
-    int         _action);
+    int         _action,
+    int         *alowEvent);
 
 __private_extern__ kern_return_t _io_pm_hid_event_copy_history(
             mach_port_t     server,

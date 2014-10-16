@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -82,7 +82,7 @@ WebDownload* WebDownload::createInstance(ResourceHandle* handle, const ResourceR
     return instance;
 }
 
-WebDownload* WebDownload::createInstance(const KURL& url, IWebDownloadDelegate* delegate)
+WebDownload* WebDownload::createInstance(const URL& url, IWebDownloadDelegate* delegate)
 {
     WebDownload* instance = new WebDownload();
     instance->AddRef();
@@ -149,7 +149,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::bundlePathForTargetPath(
         bundle.truncate(1);
 
     bundle.append(DownloadBundle::fileExtension());
-    *bundlePath = SysAllocStringLen(bundle.characters(), bundle.length());
+    *bundlePath = BString(bundle).release();
     if (!*bundlePath)
        return E_FAIL;
     return S_OK;

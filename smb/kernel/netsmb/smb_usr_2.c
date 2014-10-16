@@ -420,7 +420,7 @@ again:
          * <14281932> Could this be a server that can not handle
          * larger than 65535 bytes in an IOCTL? 
          */
-        SMBWARNING("SMB 2.x server cant handle large OutputBufferLength in DFS Referral. Reducing to 63Kb.\n");
+        SMBWARNING("SMB 2/3 server cant handle large OutputBufferLength in DFS Referral. Reducing to 63Kb.\n");
         vcp->vc_misc_flags |= SMBV_63K_IOCTL;
         
         ioctlp->ret_ntstatus = 0;
@@ -619,7 +619,7 @@ again:
          * <14281932> Could this be a server that can not handle
          * larger than 65535 bytes in an IOCTL?
          */
-        SMBWARNING("SMB 2.x server cant handle large OutputBufferLength in IOCTL. Reducing to 63Kb.\n");
+        SMBWARNING("SMB 2/3 server cant handle large OutputBufferLength in IOCTL. Reducing to 63Kb.\n");
         vcp->vc_misc_flags |= SMBV_63K_IOCTL;
         
         ioctlp->ret_ntstatus = 0;
@@ -677,6 +677,126 @@ bad:
 /*
  * Called from user land so we always have a reference on the share.
  */
+int
+smb_usr_query_dir(struct smb_share *share,
+                  struct smb2ioc_query_dir *query_dir_ioc,
+                  vfs_context_t context)
+{
+	int error;
+ 	struct smb2_query_dir_rq *queryp = NULL;
+
+    SMB_MALLOC(queryp,
+               struct smb2_query_dir_rq *,
+               sizeof(struct smb2_query_dir_rq),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (queryp == NULL) {
+		SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto bad;
+    }
+    
+    /* Take 32 bit world pointers and convert them to user_addr_t. */
+    if (query_dir_ioc->ioc_rcv_output_len > 0) {
+        if (vfs_context_is64bit(context)) {
+            queryp->rcv_output_uio = uio_create(1, 0, UIO_USERSPACE64, UIO_READ);
+        }
+        else {
+            query_dir_ioc->ioc_kern_rcv_output =
+            CAST_USER_ADDR_T(query_dir_ioc->ioc_rcv_output);
+            queryp->rcv_output_uio = uio_create(1, 0, UIO_USERSPACE32, UIO_READ);
+        }
+        
+        if (queryp->rcv_output_uio) {
+            uio_addiov(queryp->rcv_output_uio,
+                       query_dir_ioc->ioc_kern_rcv_output,
+                       query_dir_ioc->ioc_rcv_output_len);
+        }
+        else {
+            SMBERROR("uio_create failed\n");
+            error = ENOMEM;
+            goto bad;
+        }
+    }
+
+	/* Take the 32 bit world pointers and convert them to user_addr_t. */
+	if (!vfs_context_is64bit (context)) {
+		query_dir_ioc->ioc_kern_name = CAST_USER_ADDR_T(query_dir_ioc->ioc_name);
+	}
+	
+	/* ioc_name_len includes the null byte, ioc_kern_name is a c-style string */
+	if (query_dir_ioc->ioc_kern_name && query_dir_ioc->ioc_name_len) {
+        queryp->name_len = query_dir_ioc->ioc_name_len;
+		queryp->namep = smb_memdupin(query_dir_ioc->ioc_kern_name,
+                                      query_dir_ioc->ioc_name_len);
+		if (queryp->namep == NULL) {
+            SMBERROR("smb_memdupin failed\n");
+			error = ENOMEM;
+			goto bad;
+		}
+	}
+    
+	queryp->file_info_class = query_dir_ioc->ioc_file_info_class;
+	queryp->flags = query_dir_ioc->ioc_flags;
+	queryp->file_index = query_dir_ioc->ioc_file_index;
+	queryp->output_buffer_len = query_dir_ioc->ioc_rcv_output_len;
+	queryp->fid = query_dir_ioc->ioc_fid;
+	queryp->name_len = query_dir_ioc->ioc_name_len;
+	queryp->name_flags = query_dir_ioc->ioc_name_flags;
+    /* 
+     * Never used for user ioctl query dir. User must have already opened
+     * the dir to be searched.
+     */
+	queryp->dnp = NULL; 
+    
+    /* 
+     * Since this is from user space, there is no mounted file system, so 
+     * there are no vnodes and thus no queryp->dnp. This means that namep 
+     * must be non NULL.
+     *
+     * If ioc_rcv_output_len is not 0, then copy results directly to user 
+     * buffer and let them parse it.
+     */
+    if ((queryp->namep == NULL) || (queryp->name_len == 0)) {
+        SMBERROR("missing name \n");
+        error = EINVAL;
+        goto bad;
+    }
+    
+	/* Now do the real work */
+	error = smb2_smb_query_dir(share, queryp, NULL, context);
+    
+    /* always return the ntstatus error */
+    query_dir_ioc->ioc_ret_ntstatus = queryp->ret_ntstatus;
+	if (error) {
+		goto bad;
+	}
+    
+    /* Fill in amount of data returned in Query Dir reply */
+    query_dir_ioc->ioc_ret_output_len = queryp->ret_buffer_len;
+    
+    /* Fill in actual amount of data returned */
+    query_dir_ioc->ioc_rcv_output_len = queryp->output_buffer_len;
+    
+bad:
+    if (queryp != NULL) {
+        if (queryp->ret_rqp != NULL) {
+            smb_rq_done(queryp->ret_rqp);
+        }
+        if (queryp->namep)
+            SMB_FREE(queryp->namep, M_SMBSTR);
+        if (queryp->rcv_output_uio != NULL) {
+            uio_free(queryp->rcv_output_uio);
+        }
+        SMB_FREE(queryp, M_SMBTEMP);
+    }
+    
+	return error;
+}
+
+/*
+ * Called from user land so we always have a reference on the share.
+ */
 int 
 smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_ioc, vfs_context_t context)
 {
@@ -712,7 +832,7 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
     if (read_writep->auio) {
         /* <14516550> All IO requests from user space are done synchronously */
         read_writep->flags |= SMB2_SYNC_IO;
-
+        
         uio_addiov(read_writep->auio, rw_ioc->ioc_kern_base, rw_ioc->ioc_len);
         
         read_writep->remaining = rw_ioc->ioc_remaining;

@@ -271,9 +271,12 @@ IOReturn IOPMCopyPMSetting(
     *outValue = 0;
 
     if (!usePowerSource) {
-        psblob = IOPSCopyPowerSourcesInfo();
-        if (psblob) {
-            usePowerSource = IOPSGetProvidingPowerSourceType(psblob);
+        IOPSPowerSourceIndex activeps;
+        IOPSGetSupportedPowerSources(&activeps, NULL, NULL);
+        if (kIOPSProvidedByExternalBattery == activeps) {
+            usePowerSource = CFSTR(kIOPMUPSPowerKey);
+        } else if (kIOPSProvidedByBattery == activeps) {
+            usePowerSource = CFSTR(kIOPMBatteryPowerKey);
         } else {
             usePowerSource = CFSTR(kIOPMACPowerKey);
         }
@@ -760,9 +763,11 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         // These machines report a "DisplayDims" property in the 
         // supportedFeatures dictionary.
         // ReduceBrightness is never supported on AC Power.
-        CFTypeRef ps = IOPSCopyPowerSourcesInfo();
-        if ( ps 
-            && ( IOPSGetActiveBattery(ps) || IOPSGetActiveUPS(ps) ) 
+        bool hasBatt = false;
+        bool hasUPS = false;
+        IOPSGetSupportedPowerSources(NULL, &hasBatt, &hasUPS);
+
+        if (( hasBatt || hasUPS )
             && supportedFeatures
             && CFDictionaryGetValue(supportedFeatures, CFSTR("DisplayDims"))
             && !CFEqual(power_source, CFSTR(kIOPMACPowerKey)) )
@@ -772,8 +777,6 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
             ret = false;
         }
         
-        if (ps) 
-            CFRelease(ps);
         goto exit;
     }
 
@@ -1319,6 +1322,26 @@ featureSupportsPowerSource(CFTypeRef featureDetails, CFStringRef power_source)
 
 }
 
+static bool checkPowerSourceSupported(CFStringRef str)
+{
+    bool hasBatt;
+    bool hasUPS;
+
+    IOPSGetSupportedPowerSources(NULL, &hasBatt, &hasUPS);
+
+    if (CFEqual(str, CFSTR(kIOPMACPowerKey))) {
+        return true;
+    }
+
+    if (CFEqual(str, CFSTR(kIOPMBatteryPowerKey))) {
+        return hasBatt;
+    }
+
+    if (CFEqual(str, CFSTR(kIOPMUPSPowerKey))) {
+        return hasUPS;
+    }
+    return false;
+}
 
 /***
  * removeIrrelevantPMProperties
@@ -1335,12 +1358,10 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
     CFStringRef                 *dict_keys    = NULL;
     CFDictionaryRef             *dict_vals    = NULL;
     CFMutableDictionaryRef      this_profile  = NULL;
-    CFTypeRef                   ps_snapshot      = NULL;
     CFDictionaryRef                _supportedCached = NULL;
     io_registry_entry_t         _rootDomain   = IO_OBJECT_NULL;
     
-    ps_snapshot = IOPSCopyPowerSourcesInfo();
-    
+
     // Grab a copy of RootDomain's supported energy saver settings
     _rootDomain = getPMRootDomainRef();
     if (IO_OBJECT_NULL != _rootDomain) 
@@ -1365,7 +1386,7 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
     // For each CFDictionary at the top level (battery, AC)
     while(--profile_count >= 0)
     {
-        if(kCFBooleanTrue != IOPSPowerSourceSupported(ps_snapshot, profile_keys[profile_count]))
+        if(!checkPowerSourceSupported(profile_keys[profile_count]))
         {
             // Remove dictionary if the whole power source isn't supported on this machine.
             CFDictionaryRemoveValue(energyPrefs, profile_keys[profile_count]);        
@@ -1440,8 +1461,6 @@ exit:
         free(profile_keys);
     if (profile_vals)
         free(profile_vals);
-    if (ps_snapshot) 
-        CFRelease(ps_snapshot);
     if (_supportedCached)
         CFRelease(_supportedCached);
     return;
@@ -2146,24 +2165,21 @@ static int _isActiveProfileDictValid(CFDictionaryRef p)
 static void _purgeUnsupportedPowerSources(CFMutableDictionaryRef p)
 {
     CFStringRef                     *ps_names = NULL;
-    CFTypeRef                       ps_snap = NULL;
     int                             count;
     int                             i;
 
-    ps_snap = IOPSCopyPowerSourcesInfo();
-    if(!ps_snap) return;
     count = CFDictionaryGetCount(p);
     ps_names = (CFStringRef *)malloc(count*sizeof(CFStringRef));
     if(!ps_names) goto exit;
     CFDictionaryGetKeysAndValues(p, (CFTypeRef *)ps_names, NULL);
     for(i=0; i<count; i++)
     {
-        if(kCFBooleanTrue != IOPSPowerSourceSupported(ps_snap, ps_names[i])) {
+        if(!checkPowerSourceSupported(ps_names[i]))
+        {
             CFDictionaryRemoveValue(p, ps_names[i]);
         }    
     }
 exit:
-    if(ps_snap) CFRelease(ps_snap);
     if(ps_names) free(ps_names);
 }
 

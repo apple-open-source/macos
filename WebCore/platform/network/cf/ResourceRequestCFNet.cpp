@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,7 +26,9 @@
 #include "config.h"
 #include "ResourceRequestCFNet.h"
 
+#include "HTTPHeaderNames.h"
 #include "ResourceRequest.h"
+#include <wtf/PassOwnPtr.h>
 
 #if ENABLE(PUBLIC_SUFFIX_LIST)
 #include "PublicSuffix.h"
@@ -36,9 +38,12 @@
 #include "FormDataStreamCFNet.h"
 #include <CFNetwork/CFURLRequestPriv.h>
 #include <wtf/text/CString.h>
+#if PLATFORM(IOS)
+#include <CFNetwork/CFNetworkConnectionCachePriv.h>
+#endif
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "ResourceLoadPriority.h"
 #include "WebCoreSystemInterface.h"
 #include <dlfcn.h>
@@ -50,7 +55,12 @@
 
 namespace WebCore {
 
+// FIXME: Make this a NetworkingContext property.
+#if PLATFORM(IOS)
+bool ResourceRequest::s_httpPipeliningEnabled = true;
+#else
 bool ResourceRequest::s_httpPipeliningEnabled = false;
+#endif
 
 #if USE(CFNETWORK)
 
@@ -76,7 +86,7 @@ static CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction findCFURL
 {
     return reinterpret_cast<CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction>(GetProcAddress(findCFNetworkModule(), "_CFURLRequestCopyContentDispositionEncodingFallbackArray"));
 }
-#elif PLATFORM(MAC)
+#elif PLATFORM(COCOA)
 static CFURLRequestSetContentDispositionEncodingFallbackArrayFunction findCFURLRequestSetContentDispositionEncodingFallbackArrayFunction()
 {
     return reinterpret_cast<CFURLRequestSetContentDispositionEncodingFallbackArrayFunction>(dlsym(RTLD_DEFAULT, "_CFURLRequestSetContentDispositionEncodingFallbackArray"));
@@ -122,8 +132,8 @@ static inline void setHeaderFields(CFMutableURLRequestRef request, const HTTPHea
             CFURLRequestSetHTTPHeaderFieldValue(request, oldHeaderFieldNames[i], 0);
     }
 
-    for (HTTPHeaderMap::const_iterator it = requestHeaders.begin(), end = requestHeaders.end(); it != end; ++it)
-        CFURLRequestSetHTTPHeaderFieldValue(request, it->key.string().createCFString().get(), it->value.createCFString().get());
+    for (const auto& header : requestHeaders)
+        CFURLRequestSetHTTPHeaderFieldValue(request, header.key.createCFString().get(), header.value.createCFString().get());
 }
 
 void ResourceRequest::doUpdatePlatformRequest()
@@ -144,7 +154,11 @@ void ResourceRequest::doUpdatePlatformRequest()
     CFURLRequestSetHTTPRequestMethod(cfRequest, httpMethod().createCFString().get());
 
     if (httpPipeliningEnabled())
-        wkSetHTTPPipeliningPriority(cfRequest, toHTTPPipeliningPriority(m_priority));
+        wkHTTPRequestEnablePipelining(cfRequest);
+
+    if (resourcePrioritiesEnabled())
+        wkSetHTTPRequestPriority(cfRequest, toPlatformRequestPriority(m_priority));
+
 #if !PLATFORM(WIN)
     wkCFURLRequestAllowAllPostCaching(cfRequest);
 #endif
@@ -163,14 +177,6 @@ void ResourceRequest::doUpdatePlatformRequest()
     }
     setContentDispositionEncodingFallbackArray(cfRequest, encodingFallbacks.get());
 
-    if (m_cfRequest) {
-        RetainPtr<CFHTTPCookieStorageRef> cookieStorage = adoptCF(CFURLRequestCopyHTTPCookieStorage(m_cfRequest.get()));
-        if (cookieStorage)
-            CFURLRequestSetHTTPCookieStorage(cfRequest, cookieStorage.get());
-        CFURLRequestSetHTTPCookieStorageAcceptPolicy(cfRequest, CFURLRequestGetHTTPCookieStorageAcceptPolicy(m_cfRequest.get()));
-        CFURLRequestSetSSLProperties(cfRequest, CFURLRequestGetSSLProperties(m_cfRequest.get()));
-    }
-
 #if ENABLE(CACHE_PARTITIONING)
     String partition = cachePartition();
     if (!partition.isNull() && !partition.isEmpty()) {
@@ -181,8 +187,8 @@ void ResourceRequest::doUpdatePlatformRequest()
 #endif
 
     m_cfRequest = adoptCF(cfRequest);
-#if PLATFORM(MAC)
-    updateNSURLRequest();
+#if PLATFORM(COCOA)
+    clearOrUpdateNSURLRequest();
 #endif
 }
 
@@ -207,25 +213,54 @@ void ResourceRequest::doUpdatePlatformHTTPBody()
 
     if (RetainPtr<CFReadStreamRef> bodyStream = adoptCF(CFURLRequestCopyHTTPRequestBodyStream(cfRequest))) {
         // For streams, provide a Content-Length to avoid using chunked encoding, and to get accurate total length in callbacks.
-        RetainPtr<CFStringRef> lengthString = adoptCF(static_cast<CFStringRef>(CFReadStreamCopyProperty(bodyStream.get(), formDataStreamLengthPropertyName())));
-        if (lengthString) {
+        if (RetainPtr<CFStringRef> lengthString = adoptCF(static_cast<CFStringRef>(CFReadStreamCopyProperty(bodyStream.get(), formDataStreamLengthPropertyName())))) {
             CFURLRequestSetHTTPHeaderFieldValue(cfRequest, CFSTR("Content-Length"), lengthString.get());
             // Since resource request is already marked updated, we need to keep it up to date too.
             ASSERT(m_resourceRequestUpdated);
-            m_httpHeaderFields.set("Content-Length", lengthString.get());
+            m_httpHeaderFields.set(HTTPHeaderName::ContentLength, lengthString.get());
         }
     }
 
     m_cfRequest = adoptCF(cfRequest);
-#if PLATFORM(MAC)
-    updateNSURLRequest();
+#if PLATFORM(COCOA)
+    clearOrUpdateNSURLRequest();
+#endif
+}
+
+void ResourceRequest::updateFromDelegatePreservingOldProperties(const ResourceRequest& delegateProvidedRequest)
+{
+    RefPtr<FormData> oldHTTPBody = httpBody();
+#if ENABLE(INSPECTOR)
+    bool isHiddenFromInspector = hiddenFromInspector();
+#endif
+
+    *this = delegateProvidedRequest;
+
+    setHTTPBody(oldHTTPBody.release());
+#if ENABLE(INSPECTOR)
+    setHiddenFromInspector(isHiddenFromInspector);
 #endif
 }
 
 void ResourceRequest::doUpdateResourceRequest()
 {
     if (!m_cfRequest) {
+#if PLATFORM(IOS)
+        // <rdar://problem/9913526>
+        // This is a hack to mimic the subtle behaviour of the Foundation based ResourceRequest
+        // code. That code does not reset m_httpMethod if the NSURLRequest is nil. I filed
+        // <https://bugs.webkit.org/show_bug.cgi?id=66336> to track that.
+        // Another related bug is <https://bugs.webkit.org/show_bug.cgi?id=66350>. Fixing that
+        // would, ideally, allow us to not have this hack. But unfortunately that caused layout test
+        // failures.
+        // Removal of this hack is tracked by <rdar://problem/9970499>.
+
+        String httpMethod = m_httpMethod;
         *this = ResourceRequest();
+        m_httpMethod = httpMethod;
+#else
+        *this = ResourceRequest();
+#endif
         return;
     }
 
@@ -240,8 +275,8 @@ void ResourceRequest::doUpdateResourceRequest()
     }
     m_allowCookies = CFURLRequestShouldHandleHTTPCookies(m_cfRequest.get());
 
-    if (httpPipeliningEnabled())
-        m_priority = toResourceLoadPriority(wkGetHTTPPipeliningPriority(m_cfRequest.get()));
+    if (resourcePrioritiesEnabled())
+        m_priority = toResourceLoadPriority(wkGetHTTPRequestPriority(m_cfRequest.get()));
 
     m_httpHeaderFields.clear();
     if (CFDictionaryRef headers = CFURLRequestCopyAllHTTPHeaderFields(m_cfRequest.get())) {
@@ -299,18 +334,10 @@ void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
     CFMutableURLRequestRef cfRequest = CFURLRequestCreateMutableCopy(0, m_cfRequest.get());
     wkSetRequestStorageSession(storageSession, cfRequest);
     m_cfRequest = adoptCF(cfRequest);
-#if PLATFORM(MAC)
-    updateNSURLRequest();
+#if PLATFORM(COCOA)
+    clearOrUpdateNSURLRequest();
 #endif
 }
-
-#if PLATFORM(MAC)
-void ResourceRequest::applyWebArchiveHackForMail()
-{
-    // Hack because Mail checks for this property to detect data / archive loads
-    _CFURLRequestSetProtocolProperty(cfURLRequest(DoNotUpdateHTTPBody), CFSTR("WebDataRequest"), CFSTR(""));
-}
-#endif
 
 #endif // USE(CFNETWORK)
 
@@ -357,31 +384,46 @@ void ResourceRequest::doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>
 #endif
 }
 
+// FIXME: It is confusing that this function both sets connection count and determines maximum request count at network layer. This can and should be done separately.
 unsigned initializeMaximumHTTPConnectionCountPerHost()
 {
     static const unsigned preferredConnectionCount = 6;
+    static const unsigned unlimitedRequestCount = 10000;
 
-    // Always set the connection count per host, even when pipelining.
     unsigned maximumHTTPConnectionCountPerHost = wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
-
-    static const unsigned unlimitedConnectionCount = 10000;
 
     Boolean keyExistsAndHasValidFormat = false;
     Boolean prefValue = CFPreferencesGetAppBooleanValue(CFSTR("WebKitEnableHTTPPipelining"), kCFPreferencesCurrentApplication, &keyExistsAndHasValidFormat);
     if (keyExistsAndHasValidFormat)
         ResourceRequest::setHTTPPipeliningEnabled(prefValue);
 
-    if (ResourceRequest::httpPipeliningEnabled()) {
-        wkSetHTTPPipeliningMaximumPriority(toHTTPPipeliningPriority(ResourceLoadPriorityHighest));
-#if !PLATFORM(WIN)
-        // FIXME: <rdar://problem/9375609> Implement minimum fast lane priority setting on Windows
-        wkSetHTTPPipeliningMinimumFastLanePriority(toHTTPPipeliningPriority(ResourceLoadPriorityMedium));
-#endif
-        // When pipelining do not rate-limit requests sent from WebCore since CFNetwork handles that.
-        return unlimitedConnectionCount;
-    }
+    // Use WebCore scheduler when we can't use request priorities with CFNetwork.
+    if (!ResourceRequest::resourcePrioritiesEnabled())
+        return maximumHTTPConnectionCountPerHost;
 
-    return maximumHTTPConnectionCountPerHost;
+    wkSetHTTPRequestMaximumPriority(toPlatformRequestPriority(ResourceLoadPriorityHighest));
+#if !PLATFORM(WIN)
+    // FIXME: <rdar://problem/9375609> Implement minimum fast lane priority setting on Windows
+    wkSetHTTPRequestMinimumFastLanePriority(toPlatformRequestPriority(ResourceLoadPriorityMedium));
+#endif
+
+    return unlimitedRequestCount;
 }
+
+#if PLATFORM(IOS)
+void initializeHTTPConnectionSettingsOnStartup()
+{
+    // This need to be called from WebKitInitialize so the calls happen early enough, before any requests are made. <rdar://problem/9691871>
+    // Desktop doesn't have early initialization so it is not clear how this should be done there. The CFNetwork SPI probably
+    // needs to become more forgiving.
+    // We can't read settings here as this is called too early for that. All values need to be constants.
+    static const unsigned preferredConnectionCount = 6;
+    static const unsigned fastLaneConnectionCount = 1;
+    wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
+    wkSetHTTPRequestMaximumPriority(ResourceLoadPriorityHighest);
+    wkSetHTTPRequestMinimumFastLanePriority(ResourceLoadPriorityMedium);
+    _CFNetworkHTTPConnectionCacheSetLimit(kHTTPNumFastLanes, fastLaneConnectionCount);
+}
+#endif
 
 } // namespace WebCore

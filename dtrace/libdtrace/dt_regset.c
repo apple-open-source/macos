@@ -26,19 +26,11 @@
 
 #pragma ident	"@(#)dt_regset.c	1.2	05/06/08 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/bitmap.h>
-#include <assert.h>
-#include <strings.h>
-#include <stdlib.h>
-#else /* is Apple Mac OS X */
 #include <sys/types.h>
 #include "bitmap.h" /* In lieu of Solaris <sys/bitmap.h> */
 #include <assert.h>
 #include <strings.h>
 #include <stdlib.h>
-#endif /* __APPLE__ */
 
 #include <dt_regset.h>
 

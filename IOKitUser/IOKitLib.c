@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include <asl.h>
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h> 
+#include <xpc/xpc.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
@@ -59,7 +60,6 @@
 #include <IOKit/IOKitLibPrivate.h>
 
 #if __LP64__
-static const int kIsLP64 = 1;
 typedef struct OSNotificationHeader64 NotificationHeader;
 
 // XXX gvdl: Need to conditionalise this for LP64
@@ -84,11 +84,14 @@ typedef struct OSNotificationHeader64 NotificationHeader;
 #   endif
 
 typedef struct OSNotificationHeader NotificationHeader;
-static const int kIsLP64 = 0;
 #include <iokitmig32.h>
 
 #endif
 
+uint64_t 
+gIOKitLibServerVersion;
+CFOptionFlags
+gIOKitLibSerializeOptions = kIOCFSerializeToBinary;
 
 /*
  * Ports
@@ -131,9 +134,12 @@ IOMasterPort( mach_port_t bootstrapPort __unused, mach_port_t * masterPort )
             use_iokitsimd = (*value == '1');
         }
 
+/* Don't log about it until <rdar://problem/13141176> is addressed */
+#if 0
         if (!use_iokitsimd)
             asl_log(NULL, NULL, ASL_LEVEL_NOTICE,
                     "IOKit.framework:IOMasterPort bypassing iokitsimd");
+#endif
     });
 
     if (use_iokitsimd) {
@@ -145,6 +151,16 @@ IOMasterPort( mach_port_t bootstrapPort __unused, mach_port_t * masterPort )
 
     host_port = mach_host_self();
     result = host_get_io_master(host_port, masterPort);
+
+    static dispatch_once_t versionOnce;
+    dispatch_once(&versionOnce, ^{
+#if IOKIT_SERVER_VERSION >= 20140421
+        kern_return_t kr;
+	kr = io_server_version(*masterPort, &gIOKitLibServerVersion);
+	if (KERN_SUCCESS != kr) gIOKitLibServerVersion = 0;
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+	if (gIOKitLibServerVersion < 20140421) gIOKitLibSerializeOptions &= ~kIOCFSerializeToBinary;
+    });
 
    /* Dispose of the host port to prevent security breaches and port
     * leaks. We don't care about the kern_return_t value of this
@@ -388,28 +404,48 @@ IOServiceGetMatchingService(
     CFIndex		dataLen;
     mach_port_t		masterPort;
     io_service_t        service = MACH_PORT_NULL;
+    bool                ool;
     
     if( !matching)
 	return( MACH_PORT_NULL);
-
-    data = IOCFSerialize( matching, kNilOptions );
-    CFRelease( matching );
-    if( !data)
-	return( MACH_PORT_NULL );
-
-    dataLen = CFDataGetLength(data);
 
     if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
     else
 	masterPort = _masterPort;
 
-    if ((size_t) dataLen < sizeof(io_string_t))
-	kr = io_service_get_matching_service( masterPort,
-		    (char *) CFDataGetBytePtr(data), &service );
-    else {
-	kern_return_t result;
+    data = IOCFSerialize( matching, gIOKitLibSerializeOptions );
+    CFRelease( matching );
+    if( !data)
+	return( MACH_PORT_NULL );
 
+    dataLen = CFDataGetLength(data);
+
+    ool = true;
+#if IOKIT_SERVER_VERSION >= 20140421
+    if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	if ((size_t) dataLen < sizeof(io_struct_inband_t))
+	{
+	    kr = io_service_get_matching_service_bin(masterPort,
+			 (char *) CFDataGetBytePtr(data), dataLen, &service );
+	    ool = false;
+	}
+    }
+    else
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    {
+	if ((size_t) dataLen < sizeof(io_string_t))
+	{
+	    kr = io_service_get_matching_service( masterPort,
+		     (char *) CFDataGetBytePtr(data), &service );
+	    ool = false;
+	}
+    }
+
+    if (ool)
+    {
+	kern_return_t result;
 	kr = io_service_get_matching_service_ool( masterPort,
 		    (char *) CFDataGetBytePtr(data), dataLen, &result, &service );
 	if (KERN_SUCCESS == kr)
@@ -436,28 +472,47 @@ IOServiceGetMatchingServices(
     CFDataRef		data;
     CFIndex		dataLen;
     mach_port_t		masterPort;
+    bool                ool;
     
     if( !matching)
 	return( kIOReturnBadArgument);
-
-    data = IOCFSerialize( matching, kNilOptions );
-    CFRelease( matching );
-    if( !data)
-	return( kIOReturnUnsupported );
-
-    dataLen = CFDataGetLength(data);
 
     if (MACH_PORT_NULL == _masterPort)
 	masterPort = __IOGetDefaultMasterPort();
     else
 	masterPort = _masterPort;
 
-    if ((size_t) dataLen < sizeof(io_string_t))
-	kr = io_service_get_matching_services( masterPort,
-		    (char *) CFDataGetBytePtr(data), existing );
-    else {
-	kern_return_t result;
+    data = IOCFSerialize(matching, gIOKitLibSerializeOptions);
+    CFRelease( matching );
+    if( !data)
+	return( kIOReturnUnsupported );
 
+    dataLen = CFDataGetLength(data);
+
+    ool = true;
+#if IOKIT_SERVER_VERSION >= 20140421
+    if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	if ((size_t) dataLen < sizeof(io_struct_inband_t))
+	{
+	    kr = io_service_get_matching_services_bin(masterPort,
+			(char *) CFDataGetBytePtr(data), dataLen, existing);
+	    ool = false;
+	}
+    }
+    else
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    {
+	if ((size_t) dataLen < sizeof(io_string_t))
+	{
+	    kr = io_service_get_matching_services(masterPort,
+			(char *) CFDataGetBytePtr(data), existing);
+	    ool = false;
+	}
+    }
+    if (ool)
+    {
+	kern_return_t result;
 	kr = io_service_get_matching_services_ool( masterPort,
 		    (char *) CFDataGetBytePtr(data), dataLen, &result, existing );
 	if (KERN_SUCCESS == kr)
@@ -478,23 +533,42 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
     kern_return_t	kr;
     CFDataRef		data;
     CFIndex		dataLen;
+    bool                ool;
 
     if( !matching)
 	return( kIOReturnBadArgument);
 
-    data = IOCFSerialize( matching, kNilOptions );
+    data = IOCFSerialize( matching, gIOKitLibSerializeOptions );
     if( !data)
 	return( kIOReturnUnsupported );
 
-
     dataLen = CFDataGetLength(data);
 
-    if ((size_t) dataLen < sizeof(io_string_t))
-	kr = io_service_match_property_table( service,
-		    (char *) CFDataGetBytePtr(data), matches );
-    else {
-	kern_return_t result;
 
+    ool = true;
+#if IOKIT_SERVER_VERSION >= 20140421
+    if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	if ((size_t) dataLen < sizeof(io_struct_inband_t))
+	{
+	    kr = io_service_match_property_table_bin(service,
+			(char *) CFDataGetBytePtr(data), dataLen, matches);
+	    ool = false;
+	}
+    }
+    else
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    {
+	if ((size_t) dataLen < sizeof(io_string_t))
+	{
+	    kr = io_service_match_property_table(service,
+			(char *) CFDataGetBytePtr(data), matches);
+	    ool = false;
+	}
+    }
+    if (ool)
+    {
+	kern_return_t result;
 	kr = io_service_match_property_table_ool( service,
 		    (char *) CFDataGetBytePtr(data), dataLen, &result, matches );
 	if (KERN_SUCCESS == kr)
@@ -502,6 +576,80 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
     }
 
     CFRelease( data );
+
+    return( kr );
+}
+
+static kern_return_t
+InternalIOServiceAddNotification(
+        mach_port_t	      _masterPort,
+	const io_name_t	      notificationType,
+	CFDictionaryRef	      matching,
+	mach_port_t	      wakePort,
+	io_async_ref_t        asyncRef,
+	mach_msg_type_number_t referenceCnt,
+	io_iterator_t 	    * notification )
+{
+    kern_return_t	kr;
+    CFDataRef		data;
+    CFIndex		dataLen;
+    mach_port_t		masterPort;
+    bool                ool;
+
+    if( !matching)
+	return( kIOReturnBadArgument);
+
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    data = IOCFSerialize( matching, gIOKitLibSerializeOptions );
+    CFRelease( matching );
+    if( !data)
+	return( kIOReturnUnsupported );
+
+    dataLen = CFDataGetLength(data);
+
+    ool = true;
+#if IOKIT_SERVER_VERSION >= 20140421
+    if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	if ((size_t) dataLen < sizeof(io_struct_inband_t))
+	{
+	    kr = io_service_add_notification_bin( masterPort, (char *) notificationType,
+			(char *) CFDataGetBytePtr(data), dataLen,
+			wakePort, asyncRef, referenceCnt,
+			notification );
+	    ool = false;
+	}
+    }
+    else
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    {
+	if ((size_t) dataLen < sizeof(io_string_t))
+	{
+	    kr = io_service_add_notification( masterPort, (char *) notificationType,
+			(char *) CFDataGetBytePtr(data),
+			wakePort, asyncRef, referenceCnt,
+			notification );
+	    ool = false;
+	}
+    }
+    if (ool)
+    {
+	kern_return_t result;
+
+	kr = io_service_add_notification_ool( masterPort, (char *) notificationType,
+		    (char *) CFDataGetBytePtr(data), dataLen,
+		    wakePort, asyncRef, referenceCnt,
+		    &result, notification );
+	if (KERN_SUCCESS == kr) kr = result;
+    }
+
+    CFRelease( data );
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
 
     return( kr );
 }
@@ -515,47 +663,10 @@ IOServiceAddNotification(
 	uintptr_t	 reference,
 	io_iterator_t 	*notification )
 {
-    kern_return_t	kr;
-    CFDataRef		data;
-    CFIndex		dataLen;
-    mach_port_t		masterPort;
-
-    if( !matching)
-	return( kIOReturnBadArgument);
-
-    data = IOCFSerialize( matching, kNilOptions );
-    CFRelease( matching );
-    if( !data)
-	return( kIOReturnUnsupported );
-
-    dataLen = CFDataGetLength(data);
-
-    if (MACH_PORT_NULL == _masterPort)
-	masterPort = __IOGetDefaultMasterPort();
-    else
-	masterPort = _masterPort;
-
-    if ((size_t) dataLen < sizeof(io_string_t))
-	kr = io_service_add_notification( masterPort, (char *) notificationType,
-		    (char *) CFDataGetBytePtr(data),
-		    wakePort, (io_user_reference_t *) &reference, 1,
-		    notification );
-    else {
-	kern_return_t result;
-
-	kr = io_service_add_notification_ool( masterPort, (char *) notificationType,
-		    (char *) CFDataGetBytePtr(data), dataLen,
-		    wakePort, (io_user_reference_t *) &reference, 1,
-		    &result, notification );
-	if (KERN_SUCCESS == kr)
-	    kr = result;
-    }
-
-    CFRelease( data );
-    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
-	mach_port_deallocate(mach_task_self(), masterPort);
-
-    return( kr );
+    return (InternalIOServiceAddNotification(_masterPort, notificationType,
+					     matching, wakePort, 
+					     (io_user_reference_t *) &reference, 1,
+					     notification));
 }
 
 kern_return_t
@@ -567,45 +678,15 @@ IOServiceAddMatchingNotification(
         void *			refcon,
 	io_iterator_t * 	notification )
 {
-    kern_return_t	kr;
-    CFDataRef		data;
-    CFIndex		dataLen;
     io_user_reference_t	asyncRef[kIOMatchingCalloutCount];
-
-    if( !matching)
-	return( kIOReturnBadArgument);
-
-    data = IOCFSerialize( matching, kNilOptions );
-    CFRelease( matching );
-    if( !data)
-	return( kIOReturnUnsupported );
 
     asyncRef[kIOMatchingCalloutFuncIndex]   = (io_user_reference_t) callback;
     asyncRef[kIOMatchingCalloutRefconIndex] = (io_user_reference_t) refcon;
 
-    dataLen = CFDataGetLength(data);
-
-    if ((size_t) dataLen < sizeof(io_string_t))
-	kr = io_service_add_notification( notifyPort->masterPort,
-		    (char *) notificationType,
-		    (char *) CFDataGetBytePtr(data),
-		    notifyPort->wakePort,
-		    asyncRef, kIOMatchingCalloutCount, notification );
-    else {
-	kern_return_t result;
-
-	kr = io_service_add_notification_ool( notifyPort->masterPort,
-		    (char *) notificationType,
-		    (char *) CFDataGetBytePtr(data), dataLen,
-		    notifyPort->wakePort,
-		    asyncRef, kIOMatchingCalloutCount, &result, notification );
-	if (KERN_SUCCESS == kr)
-	    kr = result;
-    }
-
-    CFRelease( data );
-
-    return( kr );
+    return (InternalIOServiceAddNotification(notifyPort->masterPort, notificationType,
+					     matching, notifyPort->wakePort, 
+					     &asyncRef[0], kIOMatchingCalloutCount,
+					     notification));
 }
 
 kern_return_t
@@ -675,6 +756,7 @@ IONotificationPortDestroy(
     }
 
     if (notify->dispatchSource) {
+        dispatch_source_cancel(notify->dispatchSource);
         dispatch_release(notify->dispatchSource);
     }
 
@@ -760,18 +842,22 @@ boolean_t _IODispatchCalloutWithDispatch(mach_msg_header_t *msg, mach_msg_header
 void
 IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_t queue)
 {
-    if (!queue) return;
+    dispatch_source_t dispatchSource;
 
     if (notify->dispatchSource)
     {
+        dispatch_source_cancel(notify->dispatchSource);
         dispatch_release(notify->dispatchSource);
         notify->dispatchSource = NULL;
     }
 
-    notify->dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, notify->wakePort, 0, queue);
-    dispatch_source_set_event_handler(notify->dispatchSource, ^{
-        dispatch_mig_server(notify->dispatchSource, MAX_MSG_SIZE, _IODispatchCalloutWithDispatch);
+    if (!queue) return;
+
+    dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, notify->wakePort, 0, queue);
+    dispatch_source_set_event_handler(dispatchSource, ^{
+        dispatch_mig_server(dispatchSource, MAX_MSG_SIZE, _IODispatchCalloutWithDispatch);
     });
+    notify->dispatchSource = dispatchSource;
 
    /* Note: normally, dispatch sources for mach ports should destroy the underlying
     * mach port in their cancellation handler.  We take care to destroy the port
@@ -940,7 +1026,7 @@ OSGetNotificationFromMessage(
 
     header = (NotificationHeader *) (msg + 1);
     if( type)
-        *type = header->type;
+        *type = (kIOKitNoticationTypeMask & header->type);
     if( reference)
         *reference = (uintptr_t) header->reference[0];
     if( size)
@@ -1011,7 +1097,9 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port __unused,
 
     if(deliver)
     {
-      switch( header->type )
+      leftOver -= (kIOKitNoticationMsgSizeMask & (header->type >> kIOKitNoticationTypeSizeAdjShift));
+
+      switch( kIOKitNoticationTypeMask & header->type )
       {
 	case kIOAsyncCompletionNotificationType:
 	{
@@ -1238,6 +1326,194 @@ IOServiceRequestProbe(
 	uint32_t	options )
 {
     return( io_service_request_probe( service, options ));
+}
+
+kern_return_t
+IOServiceAuthorize(
+	io_service_t	service,
+	uint32_t	options )
+{
+    kern_return_t status;
+    uint64_t serviceID;
+
+    status = IORegistryEntryGetRegistryEntryID( service, &serviceID );
+
+    if ( status == kIOReturnSuccess )
+    {
+        xpc_object_t message;
+
+        message = xpc_dictionary_create( NULL, NULL, 0 );
+
+        if ( message )
+        {
+            xpc_connection_t connection;
+
+            xpc_dictionary_set_uint64( message, "options", options );
+            xpc_dictionary_set_uint64( message, "service", serviceID );
+
+            connection = xpc_connection_create( "com.apple.iokit.IOServiceAuthorizeAgent", NULL );
+
+            if ( connection )
+            {
+                xpc_object_t reply;
+
+                xpc_connection_set_event_handler( connection, ^( xpc_object_t object __unused ) { } );
+
+                xpc_connection_resume( connection );
+
+                reply = xpc_connection_send_message_with_reply_sync( connection, message );
+
+                if ( reply )
+                {
+                    xpc_type_t type;
+
+                    type = xpc_get_type( reply );
+
+                    if ( type == XPC_TYPE_DICTIONARY )
+                    {
+                        status = xpc_dictionary_get_uint64( reply, "status" );
+                    }
+                    else
+                    {
+                        status = kIOReturnBadMessageID;
+                    }
+
+                    xpc_release( reply );
+                }
+                else
+                {
+                    status = kIOReturnNotPrivileged;
+                }
+
+                xpc_release( connection );
+            }
+            else
+            {
+                status = kIOReturnUnsupported;
+            }
+            
+            xpc_release( message );
+        }
+        else
+        {
+            status = kIOReturnNoMemory;
+        }
+    }
+    else
+    {
+        status = kIOReturnBadArgument;
+    }
+
+    return status;
+}
+
+int
+IOServiceOpenAsFileDescriptor(
+	io_service_t	service,
+	int		oflag )
+{
+    kern_return_t status;
+    uint64_t serviceID;
+    int fd = -1;
+
+    status = IORegistryEntryGetRegistryEntryID( service, &serviceID );
+
+    if ( status == kIOReturnSuccess )
+    {
+        xpc_object_t message;
+
+        message = xpc_dictionary_create( NULL, NULL, 0 );
+
+        if ( message )
+        {
+            xpc_connection_t connection;
+
+            xpc_dictionary_set_int64( message, "oflag", oflag );
+            xpc_dictionary_set_uint64( message, "service", serviceID );
+
+            connection = xpc_connection_create( "com.apple.iokit.ioserviceauthorized", NULL );
+
+            if ( connection )
+            {
+                xpc_object_t reply;
+
+                xpc_connection_set_event_handler( connection, ^( xpc_object_t object __unused ) { } );
+
+                xpc_connection_resume( connection );
+
+                reply = xpc_connection_send_message_with_reply_sync( connection, message );
+
+                if ( reply )
+                {
+                    xpc_type_t type;
+
+                    type = xpc_get_type( reply );
+
+                    if ( type == XPC_TYPE_DICTIONARY )
+                    {
+                        status = xpc_dictionary_get_uint64( reply, "status" );
+
+                        if ( status == kIOReturnSuccess )
+                        {
+                            fd = xpc_dictionary_dup_fd( reply, "fd" );
+                        }
+                    }
+                    else
+                    {
+                        status = unix_err( EBADMSG );
+                    }
+
+                    xpc_release( reply );
+                }
+                else
+                {
+                    status = unix_err( EACCES );
+                }
+
+                xpc_release( connection );
+            }
+            else
+            {
+                status = unix_err( ENOTSUP );
+            }
+            
+            xpc_release( message );
+        }
+        else
+        {
+            status = unix_err( ENOMEM );
+        }
+    }
+    else
+    {
+        status = unix_err( EINVAL );
+    }
+
+    if ( status )
+    {
+        if ( unix_err( err_get_code( status ) ) == status )
+        {
+            errno = err_get_code( status );
+        }
+    }
+
+    return fd;
+}
+
+kern_return_t
+_IOServiceGetAuthorizationID(
+	io_service_t    service,
+	uint64_t *	authorizationID )
+{
+    return( io_service_get_authorization_id( service, authorizationID ) );
+}
+
+kern_return_t
+_IOServiceSetAuthorizationID(
+	io_service_t    service,
+	uint64_t	authorizationID )
+{
+    return( io_service_set_authorization_id( service, authorizationID ) );
 }
 
 /*
@@ -1687,7 +1963,7 @@ IOConnectSetCFProperties(
     kern_return_t	kr;
     kern_return_t	result;
 
-    data = IOCFSerialize( properties, kNilOptions );
+    data = IOCFSerialize( properties, gIOKitLibSerializeOptions );
     if( !data)
 	return( kIOReturnUnsupported );
 
@@ -1899,7 +2175,6 @@ IORegistryEntryGetRegistryEntryID(
     return (kr);
 }
 
-
 kern_return_t
 IORegistryEntryCreateCFProperties(
 	io_registry_entry_t	entry,
@@ -1913,17 +2188,24 @@ IORegistryEntryCreateCFProperties(
     CFStringRef  	errorString;
     const char * 	cstr;
 
-    kr = io_registry_entry_get_properties(entry, &propertiesBuffer, &size);
-    if (kr != kIOReturnSuccess) return kr;
+#if IOKIT_SERVER_VERSION >= 20140421
+    if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	kr = io_registry_entry_get_properties_bin(entry, &propertiesBuffer, &size);
+    }
+    else
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    {
+	kr = io_registry_entry_get_properties(entry, &propertiesBuffer, &size);
+    }
 
-    *properties = (CFMutableDictionaryRef)
-                        IOCFUnserialize(propertiesBuffer, allocator,
-					0, &errorString);
-    if (!(*properties) && errorString) {
+    if (kr != kIOReturnSuccess) return (kr);
 
-        if ((cstr = CFStringGetCStringPtr(errorString,
-					kCFStringEncodingMacRoman)))
-            printf("%s\n", cstr);
+    *properties = (CFMutableDictionaryRef) IOCFUnserializeWithSize(propertiesBuffer, size, allocator,
+								  0, &errorString);
+    if (!(*properties) && errorString)
+    {
+        if ((cstr = CFStringGetCStringPtr(errorString, kCFStringEncodingMacRoman))) printf("%s\n", cstr);
 	CFRelease(errorString);
     }
 
@@ -1940,49 +2222,7 @@ IORegistryEntryCreateCFProperty(
         CFAllocatorRef		allocator,
 	IOOptionBits   options __unused )
 {
-    IOReturn		kr;
-    CFTypeRef		type;
-    uint32_t	 	size;
-    char *	 	propertiesBuffer;
-    CFStringRef  	errorString;
-    const char *    	cStr;
-    char *	    	buffer = NULL;
-
-    cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
-    if( !cStr) {
-	CFIndex bufferSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength(key),
-	       kCFStringEncodingMacRoman) + sizeof('\0');
-        buffer = malloc( bufferSize);
-        if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
-            cStr = buffer;
-    }
-
-    if( cStr)
-        kr = io_registry_entry_get_property(entry, (char *) cStr, &propertiesBuffer, &size);
-    else
-        kr = kIOReturnError;
-
-    if( buffer)
-        free( buffer);
-
-    if( kr != kIOReturnSuccess)
-        return( NULL );
-
-    type = (CFMutableDictionaryRef)
-                        IOCFUnserialize(propertiesBuffer, allocator,
-					0, &errorString);
-    if (!type && errorString) {
-
-        if ((cStr = CFStringGetCStringPtr(errorString,
-					kCFStringEncodingMacRoman)))
-            printf("%s\n", cStr);
-	CFRelease(errorString);
-    }
-
-    // free propertiesBuffer !
-    vm_deallocate(mach_task_self(), (vm_address_t)propertiesBuffer, size);
-
-    return( type );
+    return (IORegistryEntrySearchCFProperty(entry, NULL, key, allocator, kNilOptions));
 }
 
 CFTypeRef
@@ -2002,7 +2242,8 @@ IORegistryEntrySearchCFProperty(
     char *	    	buffer = NULL;
 
     cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
-    if( !cStr) {
+    if( !cStr)
+    {
 	CFIndex bufferSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength(key),
 	       kCFStringEncodingMacRoman) + sizeof('\0');
         buffer = malloc( bufferSize);
@@ -2010,26 +2251,33 @@ IORegistryEntrySearchCFProperty(
             cStr = buffer;
     }
 
-    if( cStr)
+    if (!cStr) kr = kIOReturnError;
+#if IOKIT_SERVER_VERSION >= 20140421
+    else if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
+    {
+	if (!(kIORegistryIterateRecursively & options)) plane = "\0";
+        kr = io_registry_entry_get_property_bin(entry, (char *) plane, (char *) cStr,
+                                                options, &propertiesBuffer, &size);
+    }
+#endif /* IOKIT_SERVER_VERSION >= 20140421 */
+    else if (kIORegistryIterateRecursively & options)
+    {
         kr = io_registry_entry_get_property_recursively(entry, (char *) plane, (char *) cStr,
                                                         options, &propertiesBuffer, &size);
+    }
     else
-        kr = kIOReturnError;
+    {
+        kr = io_registry_entry_get_property(entry, (char *) cStr, &propertiesBuffer, &size);
+    }
 
-    if( buffer)
-        free( buffer);
+    if (buffer) free(buffer);
+    if (kr != kIOReturnSuccess) return (NULL);
 
-    if( kr != kIOReturnSuccess)
-        return( NULL );
-
-    type = (CFMutableDictionaryRef)
-                        IOCFUnserialize(propertiesBuffer, allocator,
-					0, &errorString);
-    if (!type && errorString) {
-
-        if ((cStr = CFStringGetCStringPtr(errorString,
-					kCFStringEncodingMacRoman)))
-            printf("%s\n", cStr);
+    type = (CFMutableDictionaryRef) IOCFUnserializeWithSize(propertiesBuffer, size, allocator,
+							    0, &errorString);
+    if (!type && errorString)
+    {
+        if ((cStr = CFStringGetCStringPtr(errorString, kCFStringEncodingMacRoman))) printf("%s\n", cStr);
 	CFRelease(errorString);
     }
 
@@ -2050,7 +2298,6 @@ IORegistryEntryGetProperty(
 						  buffer, size ));
 }
 
-
 kern_return_t
 IORegistryEntrySetCFProperties(
 	io_registry_entry_t	entry,
@@ -2060,7 +2307,7 @@ IORegistryEntrySetCFProperties(
     kern_return_t	kr;
     kern_return_t	result;
 
-    data = IOCFSerialize( properties, kNilOptions );
+    data = IOCFSerialize( properties, gIOKitLibSerializeOptions );
     if( !data)
 	return( kIOReturnUnsupported );
 

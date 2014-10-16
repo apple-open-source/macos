@@ -896,8 +896,8 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 
     handle = calloc(1, sizeof(*handle));
     if (handle == NULL) {
-	*minor_status = ENOMEM;
-        return (GSS_S_FAILURE);
+	kret = krb5_enomem(context);
+        goto out;
     }
 
     principal = (krb5_principal)desired_name;
@@ -908,7 +908,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     if (kret)
 	goto out;
 
-    kret = krb5_cc_new_unique(context, NULL, NULL, &ccache);
+    kret = krb5_cc_new_unique(context, cache_name, NULL, &ccache);
     if (kret)
 	goto out;
 
@@ -921,7 +921,8 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     krb5_get_init_creds_opt_set_forwardable(opt, 1);
     krb5_get_init_creds_opt_set_proxiable(opt, 1);
     krb5_get_init_creds_opt_set_renew_life(opt, 3600 * 24 * 30); /* 1 month */
-
+    krb5_get_init_creds_opt_set_canonicalize(context, opt, TRUE);
+    krb5_get_init_creds_opt_set_win2k(context, opt, TRUE);
 
     if (hxcert) {
 	char *cert_pool[2] = { "KEYCHAIN:", NULL };

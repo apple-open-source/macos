@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -56,37 +56,43 @@ struct stat
 #define sysfstatf(fd,st)	(-1)
 #endif /*_sys_stat*/
 
-#define SETLINEMODE		0
+#if _PACKAGE_ast && !defined(SFSETLINEMODE)
+#define SFSETLINEMODE		1
+#endif
 
-#if SETLINEMODE
+#if SFSETLINEMODE
 
-static int setlinemode()
+static int sfsetlinemode()
 {	char*			astsfio;
 	char*			endw;
 
 	static int		modes = -1;
 	static const char	sf_line[] = "SF_LINE";
+	static const char	sf_maxr[] = "SF_MAXR=";
 	static const char	sf_wcwidth[] = "SF_WCWIDTH";
 
 #define ISSEPAR(c)	((c) == ',' || (c) == ' ' || (c) == '\t')
 	if (modes < 0)
 	{	modes = 0;
-		if(astsfio = getenv("_AST_SFIO_OPTIONS"))
+		if(astsfio = getenv("SFIO_OPTIONS"))
 		{	for(; *astsfio != 0; astsfio = endw)
 			{	while(ISSEPAR(*astsfio) )
-					*astsfio++;
+					++astsfio;
 				for(endw = astsfio; *endw && !ISSEPAR(*endw); ++endw)
 					;
-				if((endw-astsfio) == (sizeof(sf_line)-1) &&
-				   strncmp(astsfio,sf_line,endw-astsfio) == 0)
-				{	if ((modes |= SF_LINE) == (SF_LINE|SF_WCWIDTH))
-						break;
-				}
-				else if((endw-astsfio) == (sizeof(sf_wcwidth)-1) &&
-				   strncmp(astsfio,sf_wcwidth,endw-astsfio) == 0)
-				{	if ((modes |= SF_WCWIDTH) == (SF_LINE|SF_WCWIDTH))
-						break;
-				}
+				if((endw-astsfio) > (sizeof(sf_line)-1) &&
+				   strncmp(astsfio,sf_line,sizeof(sf_line)-1) == 0)
+					modes |= SF_LINE;
+				else if((endw-astsfio) > (sizeof(sf_maxr)-1) &&
+				   strncmp(astsfio,sf_maxr,sizeof(sf_maxr)-1) == 0)
+#if _PACKAGE_ast
+					_Sfmaxr = (ssize_t)strtonll(astsfio+sizeof(sf_maxr)-1,NiL,NiL,0);
+#else
+					_Sfmaxr = (ssize_t)strtol(astsfio+sizeof(sf_maxr)-1,NiL,0);
+#endif
+				else if((endw-astsfio) > (sizeof(sf_wcwidth)-1) &&
+				   strncmp(astsfio,sf_wcwidth,sizeof(sf_wcwidth)-1) == 0)
+					modes |= SF_WCWIDTH;
 			}
 		}
 	}
@@ -248,9 +254,9 @@ size_t	size;	/* buffer size, -1 for default size */
 #endif
 		}
 
-#if SETLINEMODE
+#if SFSETLINEMODE
 		if(init)
-			f->flags |= setlinemode();
+			f->flags |= sfsetlinemode();
 #endif
 
 		if(f->here >= 0)

@@ -43,6 +43,11 @@ static const struct {
 	{ DTRACEOPT_MAX, 0 }
 };
 
+int dt_aggregate_setup(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs);
+int dtrace_aggregate_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs);
+int dtrace_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***cpu_bufs);
+int dtrace_analyze(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t **cpu_bufs, dtrace_bufdesc_t **agg_bufs, dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg);
+
 void
 dtrace_sleep(dtrace_hdl_t *dtp)
 {
@@ -297,127 +302,3 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 	return (rval);
 }
 
-#pragma mark vvv modified functions. test separate collect/analyze phases vvv
-int
-dtrace_setup(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs)
-{
-	void *dof;
-	int err;
-
-	if (dtp->dt_active)
-		return (dt_set_errno(dtp, EINVAL));
-
-	/*
-	 * If a dtrace:::ERROR program and callback are registered, enable the
-	 * program before we start tracing.  If this fails for a vector open
-	 * with ENOTTY, we permit dtrace_go() to succeed so that vector clients
-	 * such as mdb's dtrace module can execute the rest of dtrace_go() even
-	 * though they do not provide support for the DTRACEIOC_ENABLE ioctl.
-	 */
-	if (dtp->dt_errprog != NULL &&
-	    dtrace_program_exec(dtp, dtp->dt_errprog, NULL) == -1 && (
-	    dtp->dt_errno != ENOTTY || dtp->dt_vector == NULL))
-		return (-1); /* dt_errno has been set for us */
-
-	if ((dof = dtrace_getopt_dof(dtp)) == NULL)
-		return (-1); /* dt_errno has been set for us */
-
-	err = dt_ioctl(dtp, DTRACEIOC_ENABLE, dof);
-	dtrace_dof_destroy(dtp, dof);
-
-	if (err == -1 && (errno != ENOTTY || dtp->dt_vector == NULL))
-		return (dt_set_errno(dtp, errno));
-
-	if (dt_ioctl(dtp, DTRACEIOC_GO, &dtp->dt_beganon) == -1) {
-		if (errno == EACCES)
-			return (dt_set_errno(dtp, EDT_DESTRUCTIVE));
-
-		if (errno == EALREADY)
-			return (dt_set_errno(dtp, EDT_ISANON));
-
-		if (errno == ENOENT)
-			return (dt_set_errno(dtp, EDT_NOANON));
-
-		if (errno == E2BIG)
-			return (dt_set_errno(dtp, EDT_ENDTOOBIG));
-
-		if (errno == EBUSY)
-			return (dt_set_errno(dtp, EDT_ENABLING_ERR));
-
-		if (errno == ENOSPC)
-			return (dt_set_errno(dtp, EDT_BUFTOOSMALL));
-
-		return (dt_set_errno(dtp, errno));
-	}
-
-	dtp->dt_active = 1;
-
-	if (dt_options_load(dtp) == -1)
-		return (dt_set_errno(dtp, errno));
-
-	return (dt_aggregate_setup(dtp, agg_bufs));
-}
-
-dtrace_workstatus_t
-dtrace_farm(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t ***cpu_bufs, dtrace_bufdesc_t ***agg_bufs, dtrace_consume_probe_f *cp, dtrace_consume_rec_f *cr, void *p)
-{
-	int status = dtrace_status(dtp);
-	dtrace_optval_t policy = dtp->dt_options[DTRACEOPT_BUFPOLICY];
-	dtrace_workstatus_t rval;
-	int aggcollect=0, regcollect=0;
-	
-	switch (status) {
-	case DTRACE_STATUS_EXITED:
-	case DTRACE_STATUS_FILLED:
-	case DTRACE_STATUS_STOPPED:
-		/*
-		 * Tracing is stopped.  We now want to force dtrace_consume()
-		 * and dtrace_aggregate_snap() to proceed, regardless of
-		 * switchrate and aggrate.  We do this by clearing the times.
-		 */
-		dtp->dt_lastswitch = 0;
-		dtp->dt_lastagg = 0;
-		rval = DTRACE_WORKSTATUS_DONE;
-		break;
-
-	case DTRACE_STATUS_NONE:
-	case DTRACE_STATUS_OKAY:
-		rval = DTRACE_WORKSTATUS_OKAY;
-		break;
-
-	case -1:
-////printf("work status error return\n");
-		return (DTRACE_WORKSTATUS_ERROR);
-	}
-
-	if ((status == DTRACE_STATUS_NONE || status == DTRACE_STATUS_OKAY) &&
-	    policy != DTRACEOPT_BUFPOLICY_SWITCH) {
-		/*
-		 * There either isn't any status or things are fine -- and
-		 * this is a "ring" or "fill" buffer.  We don't want to consume
-		 * any of the trace data or snapshot the aggregations; we just
-		 * return.
-		 */
-////printf("no status, or we don't 'want' to consume return\n");
-		assert(rval == DTRACE_WORKSTATUS_OKAY);
-		return (rval);
-	}
-
-	aggcollect = dtrace_aggregate_collect(dtp, agg_bufs);
-
-	if (aggcollect < 0) {
-////printf("AGGCOLLECT work status error return\n");
-		return (DTRACE_WORKSTATUS_ERROR);
-	}
-	
-	regcollect = dtrace_collect(dtp, cpu_bufs);
-	if (regcollect < 0) {
-////printf("REGCOLLECT work status error return\n");
-		return (DTRACE_WORKSTATUS_ERROR);
-	}
-	dtrace_analyze(dtp, fp, (regcollect>0)?*cpu_bufs:NULL, (aggcollect>0)? *agg_bufs : NULL, cp, cr, NULL);
-
-////printf("plain old return\n");
-	return (rval);
-}
-#pragma mark ^^^ modified functions. test separate collect/analyze phases ^^^

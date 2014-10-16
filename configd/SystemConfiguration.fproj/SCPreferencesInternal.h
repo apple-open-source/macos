@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,9 @@
 #define	PREFS_DEFAULT_CONFIG_OLD	CFSTR("preferences.xml")
 
 #define	PREFS_DEFAULT_USER_DIR		CFSTR("Library/Preferences")
+
+#define	NETWORK_INTERFACES_PREFS	CFSTR("NetworkInterfaces.plist")
+#define	INTERFACES			CFSTR("Interfaces")
 
 
 /* Define the per-preference-handle structure */
@@ -97,6 +100,7 @@ typedef struct {
 	Boolean			accessed;
 	Boolean			changed;
 	Boolean			isRoot;
+	Boolean			limit_SCNetworkConfiguration;
 
 	/* authorization, helper */
 	CFDataRef		authorizationData;
@@ -141,6 +145,19 @@ CFStringRef
 _SCPNotificationKey			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,
 					 int			keyType);
+Boolean
+__SCPreferencesGetLimitSCNetworkConfiguration	(SCPreferencesRef prefs);
+
+void
+__SCPreferencesSetLimitSCNetworkConfiguration
+					(SCPreferencesRef	prefs,
+					 Boolean		limit_SCNetworkConfiguration);
+
+Boolean
+__SCPreferencesUsingDefaultPrefs		(SCPreferencesRef	prefs);
+
+SCPreferencesRef
+__SCPreferencesCreateNIPrefsFromPrefs	(SCPreferencesRef prefs);
 
 __END_DECLS
 

@@ -168,11 +168,8 @@ struct remoteconf {
     int in_list;            // in the linked list
     int refcount;           // ref count - in use
     int ike_version;
-
-	// IKEV2 configs
-    struct etypes *eap_types;
-    CFDictionaryRef eap_options;
-    CFDictionaryRef ikev2_cfg_request;
+    
+    struct sockaddr_storage *forced_local;	/* forced local IP address */
 
 	TAILQ_ENTRY(remoteconf) chain;	/* next remote conf */
 };

@@ -109,7 +109,7 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
 
     /* copy the packet data */
     CFDataGetBytes(pkt_data, pkt_data_range, lease_p->pkt);
-    lease_p->pkt_length = pkt_data_range.length;
+    lease_p->pkt_length = (int)pkt_data_range.length;
 
     /* get the lease information and router IP address */
     lease_p->lease_start = (absolute_time_t)CFDateGetAbsoluteTime(start_date);
@@ -117,7 +117,7 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
 	dhcpol_t			options;
 	
 	(void)dhcpol_parse_packet(&options, (void *)lease_p->pkt,
-				  pkt_data_range.length, NULL);
+				  (int)pkt_data_range.length, NULL);
 	dhcp_get_lease_from_options(&options, &lease_time, &t1_time, &t2_time);
 	router_p = dhcp_get_router_from_options(&options, lease_p->our_ip);
 	dhcpol_free(&options);
@@ -144,7 +144,7 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
 	    if (hwaddr_range.length > sizeof(lease_p->router_hwaddr)) {
 		hwaddr_range.length = sizeof(lease_p->router_hwaddr);
 	    }
-	    lease_p->router_hwaddr_length = hwaddr_range.length;
+	    lease_p->router_hwaddr_length = (int)hwaddr_range.length;
 	    CFDataGetBytes(hwaddr_data, hwaddr_range, lease_p->router_hwaddr);
 	}
     }
@@ -319,7 +319,7 @@ DHCPLeaseListLog(DHCPLeaseListRef list_p)
 	STRING_APPEND(str, "\n%d. ", i + 1);
 	DHCPLeasePrintToString(str, lease_p);
     }
-    my_log(-LOG_DEBUG, "DHCPLeaseList has %d element(s)%@", count, str);
+    my_log(~LOG_DEBUG, "DHCPLeaseList has %d element(s)%@", count, str);
     CFRelease(str);
     return;
 }

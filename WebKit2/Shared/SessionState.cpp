@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,57 +26,193 @@
 #include "config.h"
 #include "SessionState.h"
 
-namespace CoreIPC {
-
-// This assumes that when we encode a RefPtr we want to encode the object it points to and it is never null.
-template<typename T> struct ArgumentCoder<RefPtr<T>> {
-    static void encode(ArgumentEncoder& encoder, const RefPtr<T>& item)
-    {
-        item->encode(encoder);
-    }
-
-    static bool decode(ArgumentDecoder& decoder, RefPtr<T>& item)
-    {
-        item = T::decode(decoder);
-        return item;
-    }
-};
-
-} // namespace CoreIPC
+#include "WebCoreArgumentCoders.h"
 
 namespace WebKit {
 
-SessionState::SessionState()
-    : m_currentIndex(0)
+void HTTPBody::Element::encode(IPC::ArgumentEncoder& encoder) const
 {
+    encoder.encodeEnum(type);
+    encoder << data;
+    encoder << filePath;
+    encoder << fileStart;
+    encoder << fileLength;
+    encoder << expectedFileModificationTime;
+    encoder << blobURLString;
 }
 
-SessionState::SessionState(const BackForwardListItemVector& list, uint32_t currentIndex)
-    : m_list(list)
-    , m_currentIndex(currentIndex)
+static bool isValidEnum(HTTPBody::Element::Type type)
 {
+    switch (type) {
+    case HTTPBody::Element::Type::Data:
+    case HTTPBody::Element::Type::File:
+    case HTTPBody::Element::Type::Blob:
+        return true;
+    }
+
+    return false;
 }
 
-bool SessionState::isEmpty() const
+bool HTTPBody::Element::decode(IPC::ArgumentDecoder& decoder, Element& result)
 {
-    // Because this might change later, callers should use this instead of
-    // calling list().isEmpty() directly themselves.
-    return m_list.isEmpty();
-}
-    
-void SessionState::encode(CoreIPC::ArgumentEncoder& encoder) const
-{
-    encoder << m_list;
-    encoder << m_currentIndex;
-}
-
-bool SessionState::decode(CoreIPC::ArgumentDecoder& decoder, SessionState& state)
-{
-    if (!decoder.decode(state.m_list))
+    if (!decoder.decodeEnum(result.type) || !isValidEnum(result.type))
         return false;
-    if (!decoder.decode(state.m_currentIndex))
+    if (!decoder.decode(result.data))
         return false;
+    if (!decoder.decode(result.filePath))
+        return false;
+    if (!decoder.decode(result.fileStart))
+        return false;
+    if (!decoder.decode(result.fileLength))
+        return false;
+    if (!decoder.decode(result.expectedFileModificationTime))
+        return false;
+    if (!decoder.decode(result.blobURLString))
+        return false;
+
     return true;
 }
-    
+
+void HTTPBody::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << contentType;
+    encoder << elements;
+}
+
+bool HTTPBody::decode(IPC::ArgumentDecoder& decoder, HTTPBody& result)
+{
+    if (!decoder.decode(result.contentType))
+        return false;
+    if (!decoder.decode(result.elements))
+        return false;
+
+    return true;
+}
+
+void FrameState::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << urlString;
+    encoder << originalURLString;
+    encoder << referrer;
+    encoder << target;
+
+    encoder << documentState;
+    encoder << stateObjectData;
+
+    encoder << documentSequenceNumber;
+    encoder << itemSequenceNumber;
+
+    encoder << scrollPoint;
+    encoder << pageScaleFactor;
+
+    encoder << httpBody;
+
+#if PLATFORM(IOS)
+    encoder << exposedContentRect;
+    encoder << unobscuredContentRect;
+    encoder << minimumLayoutSizeInScrollViewCoordinates;
+    encoder << contentSize;
+    encoder << scaleIsInitial;
+#endif
+
+    encoder << children;
+}
+
+bool FrameState::decode(IPC::ArgumentDecoder& decoder, FrameState& result)
+{
+    if (!decoder.decode(result.urlString))
+        return false;
+    if (!decoder.decode(result.originalURLString))
+        return false;
+    if (!decoder.decode(result.referrer))
+        return false;
+    if (!decoder.decode(result.target))
+        return false;
+
+    if (!decoder.decode(result.documentState))
+        return false;
+    if (!decoder.decode(result.stateObjectData))
+        return false;
+
+    if (!decoder.decode(result.documentSequenceNumber))
+        return false;
+    if (!decoder.decode(result.itemSequenceNumber))
+        return false;
+
+    if (!decoder.decode(result.scrollPoint))
+        return false;
+    if (!decoder.decode(result.pageScaleFactor))
+        return false;
+
+    if (!decoder.decode(result.httpBody))
+        return false;
+
+#if PLATFORM(IOS)
+    if (!decoder.decode(result.exposedContentRect))
+        return false;
+    if (!decoder.decode(result.unobscuredContentRect))
+        return false;
+    if (!decoder.decode(result.minimumLayoutSizeInScrollViewCoordinates))
+        return false;
+    if (!decoder.decode(result.contentSize))
+        return false;
+    if (!decoder.decode(result.scaleIsInitial))
+        return false;
+#endif
+
+    if (!decoder.decode(result.children))
+        return false;
+
+    return true;
+}
+
+void PageState::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << title;
+    encoder << mainFrameState;
+}
+
+bool PageState::decode(IPC::ArgumentDecoder& decoder, PageState& result)
+{
+    if (!decoder.decode(result.title))
+        return false;
+    if (!decoder.decode(result.mainFrameState))
+        return false;
+
+    return true;
+}
+
+void BackForwardListItemState::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << identifier;
+    encoder << pageState;
+}
+
+bool BackForwardListItemState::decode(IPC::ArgumentDecoder& decoder, BackForwardListItemState& result)
+{
+    if (!decoder.decode(result.identifier))
+        return false;
+
+    if (!decoder.decode(result.pageState))
+        return false;
+
+    return true;
+}
+
+void BackForwardListState::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << items;
+    encoder << currentIndex;
+}
+
+bool BackForwardListState::decode(IPC::ArgumentDecoder& decoder, BackForwardListState& result)
+{
+    if (!decoder.decode(result.items))
+        return false;
+    if (!decoder.decode(result.currentIndex))
+        return false;
+
+    return true;
+}
+
 } // namespace WebKit

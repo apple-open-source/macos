@@ -57,7 +57,7 @@ reflect(uint64_t w, size_t bits)
     uint8_t *in = (uint8_t *) &w;
     uint8_t *out = (uint8_t *) &retval;
     size_t len = bits/8;
-    
+
     for(size_t i=0; i < len; i++) {
         out[len-i-1] = reflector[in[i]];
     }

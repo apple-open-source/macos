@@ -26,6 +26,13 @@
 #ifndef WKSharedAPICast_h
 #define WKSharedAPICast_h
 
+#include "APIError.h"
+#include "APINumber.h"
+#include "APISession.h"
+#include "APIString.h"
+#include "APIURL.h"
+#include "APIURLRequest.h"
+#include "APIURLResponse.h"
 #include "ImageOptions.h"
 #include "SameDocumentNavigationType.h"
 #include "WKBase.h"
@@ -37,15 +44,11 @@
 #include "WKPageLoadTypes.h"
 #include "WKPageLoadTypesPrivate.h"
 #include "WKPageVisibilityTypes.h"
-#include "WebError.h"
+#include "WKUserContentInjectedFrames.h"
+#include "WKUserScriptInjectionTime.h"
 #include "WebEvent.h"
 #include "WebFindOptions.h"
-#include "WebNumber.h"
 #include "WebSecurityOrigin.h"
-#include "WebString.h"
-#include "WebURL.h"
-#include "WebURLRequest.h"
-#include "WebURLResponse.h"
 #include <WebCore/ContextMenuItem.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -55,30 +58,29 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/UserContentTypes.h>
 #include <WebCore/UserScriptTypes.h>
-#include <wtf/TypeTraits.h>
+
+namespace API {
+class Array;
+class Data;
+class Point;
+class Rect;
+class Size;
+class WebArchive;
+class WebArchiveResource;
+}
 
 namespace WebKit {
 
-class ImmutableArray;
 class ImmutableDictionary;
-class MutableArray;
 class MutableDictionary;
 class ObjCObjectGraph;
-class WebArchive;
-class WebArchiveResource;
 class WebCertificateInfo;
 class WebConnection;
 class WebContextMenuItem;
-class WebData;
 class WebGraphicsContext;
 class WebImage;
-class WebPoint;
-class WebRect;
 class WebSecurityOrigin;
 class WebSerializedScriptValue;
-class WebSize;
-class WebURLRequest;
-class WebURLResponse;
 class WebUserContentURLPattern;
 
 template<typename APIType> struct APITypeInfo { };
@@ -88,37 +90,45 @@ template<typename ImplType> struct ImplTypeInfo { };
     template<> struct APITypeInfo<TheAPIType> { typedef TheImplType* ImplType; }; \
     template<> struct ImplTypeInfo<TheImplType*> { typedef TheAPIType APIType; };
 
-WK_ADD_API_MAPPING(WKArrayRef, ImmutableArray)
-WK_ADD_API_MAPPING(WKBooleanRef, WebBoolean)
+WK_ADD_API_MAPPING(WKArrayRef, API::Array)
+WK_ADD_API_MAPPING(WKBooleanRef, API::Boolean)
 WK_ADD_API_MAPPING(WKCertificateInfoRef, WebCertificateInfo)
 WK_ADD_API_MAPPING(WKConnectionRef, WebConnection)
 WK_ADD_API_MAPPING(WKContextMenuItemRef, WebContextMenuItem)
-WK_ADD_API_MAPPING(WKDataRef, WebData)
+WK_ADD_API_MAPPING(WKDataRef, API::Data)
 WK_ADD_API_MAPPING(WKDictionaryRef, ImmutableDictionary)
-WK_ADD_API_MAPPING(WKDoubleRef, WebDouble)
-WK_ADD_API_MAPPING(WKErrorRef, WebError)
+WK_ADD_API_MAPPING(WKDoubleRef, API::Double)
+WK_ADD_API_MAPPING(WKErrorRef, API::Error)
 WK_ADD_API_MAPPING(WKGraphicsContextRef, WebGraphicsContext)
 WK_ADD_API_MAPPING(WKImageRef, WebImage)
-WK_ADD_API_MAPPING(WKMutableArrayRef, MutableArray)
 WK_ADD_API_MAPPING(WKMutableDictionaryRef, MutableDictionary)
-WK_ADD_API_MAPPING(WKPointRef, WebPoint)
-WK_ADD_API_MAPPING(WKRectRef, WebRect)
+WK_ADD_API_MAPPING(WKPointRef, API::Point)
+WK_ADD_API_MAPPING(WKRectRef, API::Rect)
 WK_ADD_API_MAPPING(WKSecurityOriginRef, WebSecurityOrigin)
 WK_ADD_API_MAPPING(WKSerializedScriptValueRef, WebSerializedScriptValue)
-WK_ADD_API_MAPPING(WKSizeRef, WebSize)
-WK_ADD_API_MAPPING(WKStringRef, WebString)
-WK_ADD_API_MAPPING(WKTypeRef, APIObject)
-WK_ADD_API_MAPPING(WKUInt64Ref, WebUInt64)
-WK_ADD_API_MAPPING(WKURLRef, WebURL)
-WK_ADD_API_MAPPING(WKURLRequestRef, WebURLRequest)
-WK_ADD_API_MAPPING(WKURLResponseRef, WebURLResponse)
+WK_ADD_API_MAPPING(WKSizeRef, API::Size)
+WK_ADD_API_MAPPING(WKStringRef, API::String)
+WK_ADD_API_MAPPING(WKTypeRef, API::Object)
+WK_ADD_API_MAPPING(WKUInt64Ref, API::UInt64)
+WK_ADD_API_MAPPING(WKURLRef, API::URL)
+WK_ADD_API_MAPPING(WKURLRequestRef, API::URLRequest)
+WK_ADD_API_MAPPING(WKURLResponseRef, API::URLResponse)
 WK_ADD_API_MAPPING(WKUserContentURLPatternRef, WebUserContentURLPattern)
+WK_ADD_API_MAPPING(WKSessionRef, API::Session)
 
-#if PLATFORM(MAC)
-WK_ADD_API_MAPPING(WKWebArchiveRef, WebArchive)
-WK_ADD_API_MAPPING(WKWebArchiveResourceRef, WebArchiveResource)
+template<> struct APITypeInfo<WKMutableArrayRef> { typedef API::Array* ImplType; };
+
+#if PLATFORM(COCOA)
+WK_ADD_API_MAPPING(WKWebArchiveRef, API::WebArchive)
+WK_ADD_API_MAPPING(WKWebArchiveResourceRef, API::WebArchiveResource)
 WK_ADD_API_MAPPING(WKObjCTypeWrapperRef, ObjCObjectGraph)
 #endif
+
+template<typename T>
+inline typename ImplTypeInfo<T>::APIType toAPI(T t)
+{
+    return reinterpret_cast<typename ImplTypeInfo<T>::APIType>(t);
+}
 
 template<typename ImplType, typename APIType = typename ImplTypeInfo<ImplType*>::APIType>
 class ProxyingRefPtr {
@@ -140,46 +150,40 @@ template<typename T>
 inline typename APITypeInfo<T>::ImplType toImpl(T t)
 {
     // An example of the conversions that take place:
-    // const struct OpaqueWKArray* -> const struct OpaqueWKArray -> struct OpaqueWKArray -> struct OpaqueWKArray* -> ImmutableArray*
+    // const struct OpaqueWKArray* -> const struct OpaqueWKArray -> struct OpaqueWKArray -> struct OpaqueWKArray* -> API::Array*
     
-    typedef typename WTF::RemovePointer<T>::Type PotentiallyConstValueType;
-    typedef typename WTF::RemoveConst<PotentiallyConstValueType>::Type NonConstValueType;
+    typedef typename std::remove_pointer<T>::type PotentiallyConstValueType;
+    typedef typename std::remove_const<PotentiallyConstValueType>::type NonConstValueType;
 
     return reinterpret_cast<typename APITypeInfo<T>::ImplType>(const_cast<NonConstValueType*>(t));
 }
 
-template<typename T>
-inline typename ImplTypeInfo<T>::APIType toAPI(T t)
-{
-    return reinterpret_cast<typename ImplTypeInfo<T>::APIType>(t);
-}
-
 /* Special cases. */
 
-inline ProxyingRefPtr<WebString> toAPI(StringImpl* string)
+inline ProxyingRefPtr<API::String> toAPI(StringImpl* string)
 {
-    return ProxyingRefPtr<WebString>(WebString::create(string));
+    return ProxyingRefPtr<API::String>(API::String::create(string));
 }
 
 inline WKStringRef toCopiedAPI(const String& string)
 {
-    RefPtr<WebString> webString = WebString::create(string);
-    return toAPI(webString.release().leakRef());
+    RefPtr<API::String> apiString = API::String::create(string);
+    return toAPI(apiString.release().leakRef());
 }
 
-inline ProxyingRefPtr<WebURL> toURLRef(StringImpl* string)
+inline ProxyingRefPtr<API::URL> toURLRef(StringImpl* string)
 {
     if (!string)
-        return ProxyingRefPtr<WebURL>(0);
-    return ProxyingRefPtr<WebURL>(WebURL::create(String(string)));
+        return ProxyingRefPtr<API::URL>(0);
+    return ProxyingRefPtr<API::URL>(API::URL::create(String(string)));
 }
 
 inline WKURLRef toCopiedURLAPI(const String& string)
 {
     if (!string)
         return 0;
-    RefPtr<WebURL> webURL = WebURL::create(string);
-    return toAPI(webURL.release().leakRef());
+    RefPtr<API::URL> url = API::URL::create(string);
+    return toAPI(url.release().leakRef());
 }
 
 inline String toWTFString(WKStringRef stringRef)
@@ -196,19 +200,19 @@ inline String toWTFString(WKURLRef urlRef)
     return toImpl(urlRef)->string();
 }
 
-inline ProxyingRefPtr<WebError> toAPI(const WebCore::ResourceError& error)
+inline ProxyingRefPtr<API::Error> toAPI(const WebCore::ResourceError& error)
 {
-    return ProxyingRefPtr<WebError>(WebError::create(error));
+    return ProxyingRefPtr<API::Error>(API::Error::create(error));
 }
 
-inline ProxyingRefPtr<WebURLRequest> toAPI(const WebCore::ResourceRequest& request)
+inline ProxyingRefPtr<API::URLRequest> toAPI(const WebCore::ResourceRequest& request)
 {
-    return ProxyingRefPtr<WebURLRequest>(WebURLRequest::create(request));
+    return ProxyingRefPtr<API::URLRequest>(API::URLRequest::create(request));
 }
 
-inline ProxyingRefPtr<WebURLResponse> toAPI(const WebCore::ResourceResponse& response)
+inline ProxyingRefPtr<API::URLResponse> toAPI(const WebCore::ResourceResponse& response)
 {
-    return ProxyingRefPtr<WebURLResponse>(WebURLResponse::create(response));
+    return ProxyingRefPtr<API::URLResponse>(API::URLResponse::create(response));
 }
 
 inline WKSecurityOriginRef toCopiedAPI(WebCore::SecurityOrigin* origin)
@@ -280,7 +284,7 @@ inline WKPoint toAPI(const WebCore::IntPoint& point)
 
 /* Enum conversions */
 
-inline WKTypeID toAPI(APIObject::Type type)
+inline WKTypeID toAPI(API::Object::Type type)
 {
     return static_cast<WKTypeID>(type);
 }
@@ -338,7 +342,7 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagDownloadImageToDisk;
     case WebCore::ContextMenuItemTagCopyImageToClipboard:
         return kWKContextMenuItemTagCopyImageToClipboard;
-#if PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(EFL) || PLATFORM(GTK)
     case WebCore::ContextMenuItemTagCopyImageUrlToClipboard:
         return kWKContextMenuItemTagCopyImageUrlToClipboard;
 #endif
@@ -358,7 +362,7 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagCut;
     case WebCore::ContextMenuItemTagPaste:
         return kWKContextMenuItemTagPaste;
-#if PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(EFL) || PLATFORM(GTK)
     case WebCore::ContextMenuItemTagSelectAll:
         return kWKContextMenuItemTagSelectAll;
 #endif
@@ -478,7 +482,7 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagMediaPlayPause;
     case WebCore::ContextMenuItemTagMediaMute:
         return kWKContextMenuItemTagMediaMute;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     case WebCore::ContextMenuItemTagCorrectSpellingAutomatically:
         return kWKContextMenuItemTagCorrectSpellingAutomatically;
     case WebCore::ContextMenuItemTagSubstitutionsMenu:
@@ -533,7 +537,7 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
     case kWKContextMenuItemTagCopyImageToClipboard:
         return WebCore::ContextMenuItemTagCopyImageToClipboard;
     case kWKContextMenuItemTagOpenFrameInNewWindow:
-#if PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(EFL) || PLATFORM(GTK)
     case kWKContextMenuItemTagCopyImageUrlToClipboard:
         return WebCore::ContextMenuItemTagCopyImageUrlToClipboard;
 #endif
@@ -552,7 +556,7 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagCut;
     case kWKContextMenuItemTagPaste:
         return WebCore::ContextMenuItemTagPaste;
-#if PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(EFL) || PLATFORM(GTK)
     case kWKContextMenuItemTagSelectAll:
         return WebCore::ContextMenuItemTagSelectAll;
 #endif
@@ -672,7 +676,7 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagMediaPlayPause;
     case kWKContextMenuItemTagMediaMute:
         return WebCore::ContextMenuItemTagMediaMute;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     case kWKContextMenuItemTagCorrectSpellingAutomatically:
         return WebCore::ContextMenuItemTagCorrectSpellingAutomatically;
     case kWKContextMenuItemTagSubstitutionsMenu:
@@ -849,8 +853,6 @@ inline WebCore::PageVisibilityState toPageVisibilityState(WKPageVisibilityState 
         return WebCore::PageVisibilityStateHidden;
     case kWKPageVisibilityStatePrerender:
         return WebCore::PageVisibilityStatePrerender;
-    case kWKPageVisibilityStateUnloaded:
-        return WebCore::PageVisibilityStateUnloaded;
     }
 
     ASSERT_NOT_REACHED();
@@ -893,7 +895,7 @@ inline SnapshotOptions toSnapshotOptions(WKSnapshotOptions wkSnapshotOptions)
     return snapshotOptions;
 }
 
-inline WebCore::UserScriptInjectionTime toUserScriptInjectionTime(WKUserScriptInjectionTime wkInjectedTime)
+inline WebCore::UserScriptInjectionTime toUserScriptInjectionTime(_WKUserScriptInjectionTime wkInjectedTime)
 {
     switch (wkInjectedTime) {
     case kWKInjectAtDocumentStart:

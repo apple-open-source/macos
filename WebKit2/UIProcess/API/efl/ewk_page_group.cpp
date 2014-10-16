@@ -32,16 +32,16 @@
 #include "WKPageGroup.h"
 #include "WKString.h"
 #include "ewk_page_group_private.h"
+#include "ewk_settings_private.h"
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebKit;
-
-const char EwkPageGroup::defaultIdentifier[] = "defaultPageGroupIdentifier";
 
 typedef HashMap<WKPageGroupRef, EwkPageGroup*> PageGroupMap;
 
 static inline PageGroupMap& pageGroupMap()
 {
-    DEFINE_STATIC_LOCAL(PageGroupMap, map, ());
+    static NeverDestroyed<PageGroupMap> map;
     return map;
 }
 
@@ -58,9 +58,9 @@ PassRefPtr<EwkPageGroup> EwkPageGroup::findOrCreateWrapper(WKPageGroupRef pageGr
     return adoptRef(new EwkPageGroup(pageGroupRef));
 }
 
-PassRefPtr<EwkPageGroup> EwkPageGroup::create(const String& identifier)
+PassRefPtr<EwkPageGroup> EwkPageGroup::create(const char* identifier)
 {
-    WKRetainPtr<WKStringRef> identifierRef = adoptWK(toCopiedAPI(identifier.isEmpty() ? defaultIdentifier : identifier));
+    WKRetainPtr<WKStringRef> identifierRef = adoptWK(toCopiedAPI(identifier));
     WKRetainPtr<WKPageGroupRef> pageGroupRef = adoptWK(WKPageGroupCreateWithIdentifier(identifierRef.get()));
 
     return adoptRef(new EwkPageGroup(pageGroupRef.get()));
@@ -68,6 +68,7 @@ PassRefPtr<EwkPageGroup> EwkPageGroup::create(const String& identifier)
 
 EwkPageGroup::EwkPageGroup(WKPageGroupRef pageGroupRef)
     : m_pageGroupRef(pageGroupRef)
+    , m_settings(std::make_unique<EwkSettings>(WKPageGroupGetPreferences(pageGroupRef)))
 {
     PageGroupMap::AddResult result = pageGroupMap().add(pageGroupRef, this);
     ASSERT_UNUSED(result, result.isNewEntry);
@@ -100,6 +101,13 @@ void EwkPageGroup::removeAllUserStyleSheets()
 Ewk_Page_Group* ewk_page_group_create(const char* identifier)
 {
     return EwkPageGroup::create(identifier).leakRef();
+}
+
+Ewk_Settings* ewk_page_group_settings_get(const Ewk_Page_Group* ewkPageGroup)
+{
+    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkPageGroup, ewkPageGroup, impl, nullptr);
+
+    return impl->settings();
 }
 
 Eina_Bool ewk_page_group_user_style_sheet_add(Ewk_Page_Group* ewkPageGroup, const char* source, const char* baseURL, Eina_List* whiteList, Eina_List* blackList, Eina_Bool mainFrameOnly)

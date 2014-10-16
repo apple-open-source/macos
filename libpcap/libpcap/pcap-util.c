@@ -102,11 +102,13 @@ pcap_free_if_info(pcap_t * pcap, struct pcap_if_info *if_info)
 
 struct pcap_if_info *
 pcap_add_if_info(pcap_t * pcap, const char *name,
-					  int if_id, int linktype, int snaplen)
+		 int if_id, int linktype, int snaplen)
 {
 	struct pcap_if_info *if_info = NULL;
 	size_t ifname_len = strlen(name);
 	struct pcap_if_info **newarray;
+
+	pcap->cleanup_extra_op = pcap_ng_init_section_info;
 
 	/*
 	 * Stash the interface name after the structure
@@ -134,9 +136,9 @@ pcap_add_if_info(pcap_t * pcap, const char *name,
 	 */
 	if (pcap->filter_str != NULL && *pcap->filter_str != 0) {
 		if (pcap_compile_nopcap(if_info->if_snaplen,
-								if_info->if_linktype,
-								&if_info->if_filter_program,
-								pcap->filter_str, 0, PCAP_NETMASK_UNKNOWN) == -1) {
+					if_info->if_linktype,
+					&if_info->if_filter_program,
+					pcap->filter_str, 0, PCAP_NETMASK_UNKNOWN) == -1) {
 			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 					 "%s: pcap_compile_nopcap() failed", __func__);
 			free(if_info);
@@ -148,7 +150,7 @@ pcap_add_if_info(pcap_t * pcap, const char *name,
 	 * Resize pointer array
 	 */
 	newarray = realloc(pcap->if_infos,
-					   (pcap->if_info_count + 1) * sizeof(struct pcap_if_info *));
+			   (pcap->if_info_count + 1) * sizeof(struct pcap_if_info *));
 	if (newarray == NULL) {
 		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 				 "%s: realloc() failed", __func__);
@@ -231,6 +233,8 @@ pcap_add_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
 	struct pcap_proc_info *proc_info = NULL;
 	size_t name_len = strlen(name);
 	struct pcap_proc_info **newarray;
+	
+	pcap->cleanup_extra_op = pcap_ng_init_section_info;
 	
 	/*
 	 * Stash the process name after the structure

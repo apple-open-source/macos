@@ -33,7 +33,6 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
-#include "ElementShadow.h"
 #include "ExceptionCodePlaceholder.h"
 #include "HTMLBRElement.h"
 #include "HTMLDivElement.h"
@@ -47,13 +46,12 @@
 #include "StyleResolver.h"
 #include "Text.h"
 #include "ValidationMessageClient.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-ALWAYS_INLINE ValidationMessage::ValidationMessage(HTMLFormControlElement* element)
+ValidationMessage::ValidationMessage(HTMLFormControlElement* element)
     : m_element(element)
 {
     ASSERT(m_element);
@@ -69,14 +67,9 @@ ValidationMessage::~ValidationMessage()
     deleteBubbleTree();
 }
 
-PassOwnPtr<ValidationMessage> ValidationMessage::create(HTMLFormControlElement* element)
-{
-    return adoptPtr(new ValidationMessage(element));
-}
-
 ValidationMessageClient* ValidationMessage::validationMessageClient() const
 {
-    if (Page* page = m_element->document()->page())
+    if (Page* page = m_element->document().page())
         return page->validationMessageClient();
     return 0;
 }
@@ -88,10 +81,10 @@ void ValidationMessage::updateValidationMessage(const String& message)
         // HTML5 specification doesn't ask UA to show the title attribute value
         // with the validationMessage. However, this behavior is same as Opera
         // and the specification describes such behavior as an example.
-        const AtomicString& title = m_element->fastGetAttribute(titleAttr);
-        if (!updatedMessage.isEmpty() && !title.isEmpty()) {
-            updatedMessage.append('\n');
-            updatedMessage.append(title);
+        if (!updatedMessage.isEmpty()) {
+            const AtomicString& title = m_element->fastGetAttribute(titleAttr);
+            if (!title.isEmpty())
+                updatedMessage = updatedMessage + '\n' + title;
         }
     }
 
@@ -114,9 +107,9 @@ void ValidationMessage::setMessage(const String& message)
     ASSERT(!message.isEmpty());
     m_message = message;
     if (!m_bubble)
-        m_timer = adoptPtr(new Timer<ValidationMessage>(this, &ValidationMessage::buildBubbleTree));
+        m_timer = std::make_unique<Timer<ValidationMessage>>(this, &ValidationMessage::buildBubbleTree);
     else
-        m_timer = adoptPtr(new Timer<ValidationMessage>(this, &ValidationMessage::setMessageDOMAndStartTimer));
+        m_timer = std::make_unique<Timer<ValidationMessage>>(this, &ValidationMessage::setMessageDOMAndStartTimer);
     m_timer->startOneShot(0);
 }
 
@@ -129,22 +122,22 @@ void ValidationMessage::setMessageDOMAndStartTimer(Timer<ValidationMessage>*)
     m_messageBody->removeChildren();
     Vector<String> lines;
     m_message.split('\n', lines);
-    Document* doc = m_messageHeading->document();
+    Document& document = m_messageHeading->document();
     for (unsigned i = 0; i < lines.size(); ++i) {
         if (i) {
-            m_messageBody->appendChild(Text::create(doc, lines[i]), ASSERT_NO_EXCEPTION);
+            m_messageBody->appendChild(Text::create(document, lines[i]), ASSERT_NO_EXCEPTION);
             if (i < lines.size() - 1)
-                m_messageBody->appendChild(HTMLBRElement::create(doc), ASSERT_NO_EXCEPTION);
+                m_messageBody->appendChild(HTMLBRElement::create(document), ASSERT_NO_EXCEPTION);
         } else
             m_messageHeading->setInnerText(lines[i], ASSERT_NO_EXCEPTION);
     }
 
-    int magnification = doc->page() ? doc->page()->settings()->validationMessageTimerMagnification() : -1;
+    int magnification = document.page() ? document.page()->settings().validationMessageTimerMagnification() : -1;
     if (magnification <= 0)
-        m_timer.clear();
+        m_timer = nullptr;
     else {
-        m_timer = adoptPtr(new Timer<ValidationMessage>(this, &ValidationMessage::deleteBubbleTree));
-        m_timer->startOneShot(max(5.0, static_cast<double>(m_message.length()) * magnification / 1000));
+        m_timer = std::make_unique<Timer<ValidationMessage>>(this, &ValidationMessage::deleteBubbleTree);
+        m_timer->startOneShot(std::max(5.0, static_cast<double>(m_message.length()) * magnification / 1000));
     }
 }
 
@@ -168,43 +161,43 @@ static void adjustBubblePosition(const LayoutRect& hostRect, HTMLElement* bubble
     const int bubbleArrowTopOffset = 32;
     double bubbleX = hostX;
     if (hostRect.width() / 2 < bubbleArrowTopOffset)
-        bubbleX = max(hostX + hostRect.width() / 2 - bubbleArrowTopOffset, 0.0);
+        bubbleX = std::max(hostX + hostRect.width() / 2 - bubbleArrowTopOffset, 0.0);
     bubble->setInlineStyleProperty(CSSPropertyLeft, bubbleX, CSSPrimitiveValue::CSS_PX);
 }
 
 void ValidationMessage::buildBubbleTree(Timer<ValidationMessage>*)
 {
     ASSERT(!validationMessageClient());
-    ShadowRoot* shadowRoot = m_element->ensureUserAgentShadowRoot();
+    ShadowRoot& shadowRoot = m_element->ensureUserAgentShadowRoot();
 
-    Document* doc = m_element->document();
-    m_bubble = HTMLDivElement::create(doc);
+    Document& document = m_element->document();
+    m_bubble = HTMLDivElement::create(document);
     m_bubble->setPseudo(AtomicString("-webkit-validation-bubble", AtomicString::ConstructFromLiteral));
     // Need to force position:absolute because RenderMenuList doesn't assume it
     // contains non-absolute or non-fixed renderers as children.
     m_bubble->setInlineStyleProperty(CSSPropertyPosition, CSSValueAbsolute);
-    shadowRoot->appendChild(m_bubble.get(), ASSERT_NO_EXCEPTION);
-    m_element->document()->updateLayout();
+    shadowRoot.appendChild(m_bubble.get(), ASSERT_NO_EXCEPTION);
+    document.updateLayout();
     adjustBubblePosition(m_element->boundingBox(), m_bubble.get());
 
-    RefPtr<HTMLDivElement> clipper = HTMLDivElement::create(doc);
+    RefPtr<HTMLDivElement> clipper = HTMLDivElement::create(document);
     clipper->setPseudo(AtomicString("-webkit-validation-bubble-arrow-clipper", AtomicString::ConstructFromLiteral));
-    RefPtr<HTMLDivElement> bubbleArrow = HTMLDivElement::create(doc);
+    RefPtr<HTMLDivElement> bubbleArrow = HTMLDivElement::create(document);
     bubbleArrow->setPseudo(AtomicString("-webkit-validation-bubble-arrow", AtomicString::ConstructFromLiteral));
     clipper->appendChild(bubbleArrow.release(), ASSERT_NO_EXCEPTION);
     m_bubble->appendChild(clipper.release(), ASSERT_NO_EXCEPTION);
 
-    RefPtr<HTMLElement> message = HTMLDivElement::create(doc);
+    RefPtr<HTMLElement> message = HTMLDivElement::create(document);
     message->setPseudo(AtomicString("-webkit-validation-bubble-message", AtomicString::ConstructFromLiteral));
-    RefPtr<HTMLElement> icon = HTMLDivElement::create(doc);
+    RefPtr<HTMLElement> icon = HTMLDivElement::create(document);
     icon->setPseudo(AtomicString("-webkit-validation-bubble-icon", AtomicString::ConstructFromLiteral));
     message->appendChild(icon.release(), ASSERT_NO_EXCEPTION);
-    RefPtr<HTMLElement> textBlock = HTMLDivElement::create(doc);
+    RefPtr<HTMLElement> textBlock = HTMLDivElement::create(document);
     textBlock->setPseudo(AtomicString("-webkit-validation-bubble-text-block", AtomicString::ConstructFromLiteral));
-    m_messageHeading = HTMLDivElement::create(doc);
+    m_messageHeading = HTMLDivElement::create(document);
     m_messageHeading->setPseudo(AtomicString("-webkit-validation-bubble-heading", AtomicString::ConstructFromLiteral));
     textBlock->appendChild(m_messageHeading, ASSERT_NO_EXCEPTION);
-    m_messageBody = HTMLDivElement::create(doc);
+    m_messageBody = HTMLDivElement::create(document);
     m_messageBody->setPseudo(AtomicString("-webkit-validation-bubble-body", AtomicString::ConstructFromLiteral));
     textBlock->appendChild(m_messageBody, ASSERT_NO_EXCEPTION);
     message->appendChild(textBlock.release(), ASSERT_NO_EXCEPTION);
@@ -223,15 +216,15 @@ void ValidationMessage::requestToHideMessage()
     }
 
     // We must not modify the DOM tree in this context by the same reason as setMessage().
-    m_timer = adoptPtr(new Timer<ValidationMessage>(this, &ValidationMessage::deleteBubbleTree));
+    m_timer = std::make_unique<Timer<ValidationMessage>>(this, &ValidationMessage::deleteBubbleTree);
     m_timer->startOneShot(0);
 }
 
-bool ValidationMessage::shadowTreeContains(Node* node) const
+bool ValidationMessage::shadowTreeContains(const Node& node) const
 {
     if (validationMessageClient() || !m_bubble)
         return false;
-    return m_bubble->treeScope() == node->treeScope();
+    return &m_bubble->treeScope() == &node.treeScope();
 }
 
 void ValidationMessage::deleteBubbleTree(Timer<ValidationMessage>*)

@@ -1,0 +1,12 @@
+g/namespace_packages/s//#&/
+/^USE_SYSTEM_FFI /s/=.*/= True/
+/^USE_SYSTEM_LIBXML /s/=.*/= True/
+a
+
+SDKROOT = os.environ.get('SDKROOT')
+if SDKROOT is None or SDKROOT is '':
+    SDKROOT = '/'
+.
+/os\.path\.exists('\/usr\/include\/objc\/runtime\.h'):$/s/'\/usr\/include\/objc\/runtime\.h'/os.path.join(SDKROOT, 'usr\/include\/objc\/runtime\.h')/
+/"-I\/usr\/include\/ffi"/s//'-I' + os.path.join(SDKROOT, "usr\/include\/ffi")/
+w

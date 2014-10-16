@@ -31,8 +31,6 @@
 #ifndef FileStream_h
 #define FileStream_h
 
-#if ENABLE(BLOB)
-
 #include "FileSystem.h"
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
@@ -40,7 +38,7 @@
 
 namespace WebCore {
 
-class KURL;
+class URL;
 
 // All methods are synchronous.
 class FileStream : public RefCounted<FileStream> {
@@ -79,7 +77,7 @@ public:
 
     // Writes a blob to the file.
     // Returns number of bytes being written on success. -1 otherwise.
-    int write(const KURL& blobURL, long long position, int length);
+    int write(const URL& blobURL, long long position, int length);
 
     // Truncates the file to the specified position.
     // Returns true on success. False otherwise.
@@ -94,7 +92,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(BLOB)
 
 #endif // FileStream_h

@@ -52,11 +52,6 @@
 extern "C" {
 #endif
 
-#ifndef _REENTRANT
-#define	fork1			vfork
-#endif
-
-
 /*
  * OS X autofs configuration file location
  */
@@ -270,10 +265,10 @@ extern pthread_cond_t cleanup_done_cv;
  * allocated to be large enough, so we just abort if this fails.
  */
 #define CHECK_STRCPY(a, b, size) \
-	assert(strlcpy(a, b, (size)) < (size))
+	strlcpy(a, b, (size)) < (size) ? 0 : -1
 
 #define CHECK_STRCAT(a, b, size) \
-	assert(strlcat((a), (b), (size)) < (size))
+	strlcat((a), (b), (size)) < (size) ? 0 : -1
 
 /*
  * mnttab handling routines

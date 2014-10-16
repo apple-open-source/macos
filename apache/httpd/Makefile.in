@@ -4,7 +4,7 @@ CLEAN_SUBDIRS = test
 
 PROGRAM_NAME         = $(progname)
 PROGRAM_SOURCES      = modules.c
-PROGRAM_LDADD        = buildmark.o $(HTTPD_LDFLAGS) $(PROGRAM_DEPENDENCIES) $(EXTRA_LIBS) $(AP_LIBS) $(LIBS)
+PROGRAM_LDADD        = buildmark.o $(HTTPD_LDFLAGS) $(PROGRAM_DEPENDENCIES) $(PCRE_LIBS) $(EXTRA_LIBS) $(AP_LIBS) $(LIBS)
 PROGRAM_PRELINK      = $(COMPILE) -c $(top_srcdir)/server/buildmark.c
 PROGRAM_DEPENDENCIES = \
   server/libmain.la \
@@ -12,13 +12,14 @@ PROGRAM_DEPENDENCIES = \
   $(MPM_LIB) \
   os/$(OS_DIR)/libos.la
 
-PROGRAMS        = $(PROGRAM_NAME)
-TARGETS         = $(PROGRAMS) $(shared_build) $(other_targets)
+sbin_PROGRAMS   = $(PROGRAM_NAME)
+TARGETS         = $(sbin_PROGRAMS) $(shared_build) $(other_targets)
 INSTALL_TARGETS = install-conf install-htdocs install-error install-icons \
 	install-other install-cgi install-include install-suexec install-build \
 	install-man
 
 DISTCLEAN_TARGETS  = include/ap_config_auto.h include/ap_config_layout.h \
+	include/apache_probes.h \
 	modules.c config.cache config.log config.status build/config_vars.mk \
 	build/rules.mk docs/conf/httpd.conf docs/conf/extra/*.conf shlibtool \
 	build/pkg/pkginfo build/config_vars.sh
@@ -40,7 +41,7 @@ install-conf:
 	done; \
 	for j in $(top_srcdir)/docs/conf $(top_builddir)/docs/conf ; do \
 	    cd $$j ; \
-	    for i in httpd.conf extra/httpd-*.conf; do \
+	    for i in httpd.conf extra/*.conf; do \
 	    	if [ -f $$i ] ; then \
 	    	( \
 	    		n_lm=`awk 'BEGIN {n=0} /@@LoadModule@@/ {n+=1} END {print n}' < $$i`; \
@@ -59,7 +60,15 @@ install-conf:
 	    				< $$i; \
 	    			for j in $(DSO_MODULES) "^EOL^"; do \
 	    				if test $$j != "^EOL^"; then \
-	    					echo "LoadModule $${j}_module $(rel_libexecdir)/mod_$${j}.so"; \
+	    					if echo ",$(ENABLED_DSO_MODULES),"|$(EGREP) ",$$j," > /dev/null ; then \
+	    						loading_disabled=""; \
+	    					else \
+	    						loading_disabled="#"; \
+	    					fi; \
+	    					if test "$(LOAD_ALL_MODULES)" = "yes"; then \
+	    						loading_disabled=""; \
+	    					fi; \
+    						echo "$${loading_disabled}LoadModule $${j}_module $(rel_libexecdir)/mod_$${j}.so"; \
 	    				fi; \
 	    			done; \
 	    			sed -e '1,/@@LoadModule@@/d' \
@@ -111,6 +120,14 @@ htdocs-srcdir = $(top_srcdir)/docs/docroot
 docs:
 	@if test -d $(top_srcdir)/docs/manual/build; then \
 	    cd $(top_srcdir)/docs/manual/build && ./build.sh all; \
+	else \
+	    echo 'For details on generating the docs, please read:'; \
+	    echo '  http://httpd.apache.org/docs-project/docsformat.html'; \
+	fi
+
+validate-xml:
+	@if test -d $(top_srcdir)/docs/manual/build; then \
+	    cd $(top_srcdir)/docs/manual/build && ./build.sh validate-xml; \
 	else \
 	    echo 'For details on generating the docs, please read:'; \
 	    echo '  http://httpd.apache.org/docs-project/docsformat.html'; \
@@ -181,17 +198,21 @@ INSTALL_HEADERS = \
 	include/*.h \
 	$(srcdir)/include/*.h \
 	$(srcdir)/os/$(OS_DIR)/os.h \
-	$(srcdir)/server/mpm/$(MPM_SUBDIR_NAME)/*.h \
-	$(srcdir)/modules/aaa/mod_auth.h \
+	$(srcdir)/modules/arch/unix/mod_unixd.h \
+	$(srcdir)/modules/core/mod_so.h \
+	$(srcdir)/modules/core/mod_watchdog.h \
+	$(srcdir)/modules/cache/mod_cache.h \
+	$(srcdir)/modules/cache/cache_common.h \
 	$(srcdir)/modules/database/mod_dbd.h \
 	$(srcdir)/modules/dav/main/mod_dav.h \
 	$(srcdir)/modules/filters/mod_include.h \
+	$(srcdir)/modules/filters/mod_xml2enc.h \
 	$(srcdir)/modules/generators/mod_cgi.h \
 	$(srcdir)/modules/generators/mod_status.h \
 	$(srcdir)/modules/loggers/mod_log_config.h \
-	$(srcdir)/modules/http/mod_core.h \
 	$(srcdir)/modules/mappers/mod_rewrite.h \
 	$(srcdir)/modules/proxy/mod_proxy.h \
+        $(srcdir)/modules/session/mod_session.h \
 	$(srcdir)/modules/ssl/mod_ssl.h \
 	$(srcdir)/os/$(OS_DIR)/*.h
 
@@ -230,4 +251,5 @@ suexec:
 x-local-distclean:
 	@rm -rf autom4te.cache
 
+# XXX: This looks awfully platform-specific [read: bad form and style]
 include $(top_srcdir)/os/os2/core.mk

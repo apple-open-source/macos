@@ -21,7 +21,11 @@
 #include "tar.h"
 
 #include <TargetConditionals.h>
-#define HAVE_QUARANTINE (!TARGET_OS_EMBEDDED)
+#if defined(__has_include) && __has_include(<quarantine.h>)
+#define HAVE_QUARANTINE 1
+#else
+#define HAVE_QUARANTINE 0
+#endif
 
 #if HAVE_QUARANTINE
 #include <quarantine.h>

@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AllCertificatesanyPolicyTest11EE.crt</key>
+	<dict>
+		<key>valid</key>
+		<true/>
+		<key>reason</key>
+		<string>All Certificates AnyPolicy Test11 should validate successfully</string>
+	</dict>
+	<key>DifferentPoliciesTest12EE.crt</key>
+	<string>Check PDF</string>
+	<key>DifferentPoliciesTest4EE.crt</key>
+	<string>Check PDF</string>
+	<key>DifferentPoliciesTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>Validpre2000UTCnotBeforeDateTest3EE.crt</key>
+	<string>Can&apos;t parse 1950 UTCTime</string>
+	<key>DifferentPoliciesTest7EE.crt</key>
+	<string>Check PDF</string>
+	<key>DifferentPoliciesTest8EE.crt</key>
+	<string>Check PDF</string>
+	<key>DifferentPoliciesTest9EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidBasicSelfIssuedNewWithOldTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidBasicSelfIssuedOldWithNewTest2EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidLongSerialNumberTest18EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidMappingFromanyPolicyTest7EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidNegativeSerialNumberTest15EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidPolicyMappingTest2EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidcRLIssuerTest27EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidcRLIssuerTest31EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidcRLIssuerTest32EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidcRLIssuerTest34EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidcRLIssuerTest35EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidinhibitAnyPolicyTest1EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidinhibitAnyPolicyTest6EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidinhibitPolicyMappingTest1EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidkeyUsageCriticalcRLSignFalseTest4EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidkeyUsageNotCriticalcRLSignFalseTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlyContainsAttributeCertsTest14EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlyContainsCACertsTest12EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlyContainsUserCertsTest11EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlySomeReasonsTest15EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlySomeReasonsTest16EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlySomeReasonsTest17EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlySomeReasonsTest20EE.crt</key>
+	<string>Check PDF</string>
+	<key>InvalidonlySomeReasonsTest21EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNSnameConstraintsTest30EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNSnameConstraintsTest32EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNandRFC822nameConstraintsTest27EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest11EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest14EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest18EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest19EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest1EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest4EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest6EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDSAParameterInheritanceTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDSASignaturesTest4EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest11EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest12EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest1EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest3EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest5EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidPolicyMappingTest6EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidRFC822nameConstraintsTest21EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidRFC822nameConstraintsTest23EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidRFC822nameConstraintsTest25EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidRolloverfromPrintableStringtoUTF8StringTest10EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidSelfIssuedinhibitAnyPolicyTest7EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidSelfIssuedinhibitAnyPolicyTest9EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidSelfIssuedinhibitPolicyMappingTest7EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidSelfIssuedpathLenConstraintTest15EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidSelfIssuedpathLenConstraintTest17EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidURInameConstraintsTest34EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidURInameConstraintsTest36EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidUTF8StringCaseInsensitiveMatchTest11EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidinhibitPolicyMappingTest2EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidinhibitPolicyMappingTest4EE.crt</key>
+	<string>Check PDF</string>
+</dict>
+</plist>

@@ -23,6 +23,7 @@
 
 require "config"
 require "arm"
+require "arm64"
 require "ast"
 require "x86"
 require "mips"
@@ -32,10 +33,13 @@ require "cloop"
 BACKENDS =
     [
      "X86",
+     "X86_WIN",
      "X86_64",
+     "X86_64_WIN",
      "ARM",
      "ARMv7",
      "ARMv7_TRADITIONAL",
+     "ARM64",
      "MIPS",
      "SH4",
      "C_LOOP"
@@ -49,10 +53,13 @@ BACKENDS =
 WORKING_BACKENDS =
     [
      "X86",
+     "X86_WIN",
      "X86_64",
+     "X86_64_WIN",
      "ARM",
      "ARMv7",
      "ARMv7_TRADITIONAL",
+     "ARM64",
      "MIPS",
      "SH4",
      "C_LOOP"
@@ -76,7 +83,7 @@ end
 
 class Label
     def lower(name)
-        $asm.putsLabel(self.name[1..-1])
+        $asm.putsLabel(self.name[1..-1], @global)
     end
 end
 
@@ -88,8 +95,13 @@ end
 
 class LabelReference
     def asmLabel
-        Assembler.labelReference(name[1..-1])
+        if extern?
+            Assembler.externLabelReference(name[1..-1])
+        else
+            Assembler.labelReference(name[1..-1])
+        end
     end
+
     def cLabel
         Assembler.cLabelReference(name[1..-1])
     end
@@ -99,6 +111,7 @@ class LocalLabelReference
     def asmLabel
         Assembler.localLabelReference("_offlineasm_"+name[1..-1])
     end
+
     def cLabel
         Assembler.cLocalLabelReference("_offlineasm_"+name[1..-1])
     end

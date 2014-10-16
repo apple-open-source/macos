@@ -27,6 +27,7 @@
 #define ParserArena_h
 
 #include "Identifier.h"
+#include <array>
 #include <wtf/SegmentedVector.h>
 
 namespace JSC {
@@ -64,8 +65,8 @@ namespace JSC {
 
     private:
         IdentifierVector m_identifiers;
-        FixedArray<Identifier*, MaximumCachableCharacter> m_shortIdentifiers;
-        FixedArray<Identifier*, MaximumCachableCharacter> m_recentIdentifiers;
+        std::array<Identifier*, MaximumCachableCharacter> m_shortIdentifiers;
+        std::array<Identifier*, MaximumCachableCharacter> m_recentIdentifiers;
     };
 
     template <typename T>
@@ -186,7 +187,7 @@ namespace JSC {
         OwnPtr<IdentifierArena> m_identifierArena;
         Vector<void*> m_freeablePools;
         Vector<ParserArenaDeletable*> m_deletableObjects;
-        Vector<RefPtr<ParserArenaRefCounted> > m_refCountedObjects;
+        Vector<RefPtr<ParserArenaRefCounted>> m_refCountedObjects;
     };
 
 }

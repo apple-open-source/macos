@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -28,7 +28,7 @@
  */
 
 static const char usage_1[] =
-"[-?@(#)$Id: chgrp (AT&T Research) 2011-01-03 $\n]"
+"[-?@(#)$Id: chgrp (AT&T Research) 2012-04-20 $\n]"
 USAGE_LICENSE
 ;
 
@@ -53,8 +53,8 @@ static const char usage_2[] =
     "\bmtime\b of \afile\a.]:[file]"
 "[c:changes?Describe only files whose ownership actually changes.]"
 "[f:quiet|silent?Do not report files whose ownership fails to change.]"
-"[l|h:symlink?Change the ownership of symbolic links on systems that "
-    "support this. Implies \b--physical\b.]"
+"[h|l:symlink?Change the ownership of symbolic links on systems that "
+    "support \blchown\b(2). Implies \b--physical\b.]"
 "[m:map?The first operand is interpreted as a file that contains a map "
     "of space separated \afrom_uid:from_gid to_uid:to_gid\a pairs. The "
     "\auid\a or \agid\a part of each pair may be omitted to mean any \auid\a "
@@ -94,7 +94,7 @@ static const char usage_3[] =
 	"[+0?All files changed successfully.]"
 	"[+>0?Unable to change ownership of one or more files.]"
 "}"
-"[+SEE ALSO?\bchmod\b(1), \btw\b(1), \bgetconf\b(1), \bls\b(1)]"
+"[+SEE ALSO?\bchmod\b(1), \bchown\b(2), \btw\b(1), \bgetconf\b(1), \bls\b(1)]"
 ;
 
 #if defined(__STDPP__directive) && defined(__STDPP__hide)
@@ -108,6 +108,10 @@ __STDPP__directive pragma pp:hide lchown
 #include <ls.h>
 #include <ctype.h>
 #include <fts_fix.h>
+
+#ifndef ENOSYS
+#define ENOSYS	EINVAL
+#endif
 
 #include "FEATURE/symlink"
 
@@ -144,20 +148,6 @@ typedef struct Map_s			/* uid/gid map			*/
 #define OPT_VERBOSE	0x0200		/* have uid			*/
 
 extern int	lchown(const char*, uid_t, gid_t);
-
-#if !_lib_lchown
-
-#ifndef ENOSYS
-#define ENOSYS	EINVAL
-#endif
-
-int
-lchown(const char* path, uid_t uid, gid_t gid)
-{
-	return ENOSYS;
-}
-
-#endif /* _lib_chown */
 
 /*
  * parse uid and gid from s
@@ -221,8 +211,13 @@ getids(register char* s, char** e, Key_t* key, int options)
 		*e = t;
 }
 
+/*
+ * NOTE: we only use the native lchown() on symlinks just in case
+ *	 the implementation is a feckless stub
+ */
+
 int
-b_chgrp(int argc, char** argv, void* context)
+b_chgrp(int argc, char** argv, Shbltin_t* context)
 {
 	register int	options = 0;
 	register char*	s;
@@ -247,7 +242,7 @@ b_chgrp(int argc, char** argv, void* context)
 	int		(*chownf)(const char*, uid_t, gid_t);
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
-	flags = fts_flags() | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
+	flags = fts_flags() | FTS_META | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
 	before = ~0;
 	if (!(sp = sfstropen()))
 		error(ERROR_SYSTEM|3, "out of space");
@@ -283,14 +278,14 @@ b_chgrp(int argc, char** argv, void* context)
 		case 'f':
 			options |= OPT_FORCE;
 			continue;
-		case 'l':
+		case 'h':
 			options |= OPT_LCHOWN;
 			continue;
 		case 'm':
 			memset(&mapdisc, 0, sizeof(mapdisc));
 			mapdisc.key = offsetof(Map_t, key);
 			mapdisc.size = sizeof(Key_t);
-			if (!(map = dtopen(&mapdisc, Dthash)))
+			if (!(map = dtopen(&mapdisc, Dtset)))
 				error(ERROR_exit(1), "out of space [id map]");
 			continue;
 		case 'n':
@@ -402,11 +397,29 @@ b_chgrp(int argc, char** argv, void* context)
 	while (!sh_checksig(context) && (ent = fts_read(fts)))
 		switch (ent->fts_info)
 		{
-		case FTS_F:
-		case FTS_D:
 		case FTS_SL:
 		case FTS_SLNONE:
+			if (options & OPT_LCHOWN)
+			{
+#if _lib_lchown
+				chownf = lchown;
+				op = "lchown";
+				goto commit;
+#else
+				if (!(options & OPT_FORCE))
+				{
+					errno = ENOSYS;
+					error(ERROR_system(0), "%s: cannot change symlink owner/group", ent->fts_path);
+				}
+#endif
+			}
+			break;
+		case FTS_F:
+		case FTS_D:
 		anyway:
+			chownf = chown;
+			op = "chown";
+		commit:
 			if ((unsigned long)ent->fts_statp->st_ctime >= before)
 				break;
 			if (map)
@@ -451,16 +464,6 @@ b_chgrp(int argc, char** argv, void* context)
 			}
 			if (uid != ent->fts_statp->st_uid && uid != NOID || gid != ent->fts_statp->st_gid && gid != NOID)
 			{
-				if ((ent->fts_info & FTS_SL) && (flags & FTS_PHYSICAL) && (options & OPT_LCHOWN))
-				{
-					op = "lchown";
-					chownf = lchown;
-				}
-				else
-				{
-					op = "chown";
-					chownf = chown;
-				}
 				if (options & (OPT_SHOW|OPT_VERBOSE))
 				{
 					if (options & OPT_TEST)

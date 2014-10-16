@@ -3,8 +3,9 @@ DISTCLEAN_TARGETS = apxs apachectl dbmmanage log_server_status \
 
 CLEAN_TARGETS = suexec
 
-PROGRAMS = htpasswd htdigest rotatelogs logresolve ab htdbm htcacheclean httxt2dbm $(NONPORTABLE_SUPPORT)
-TARGETS  = $(PROGRAMS)
+bin_PROGRAMS = 
+sbin_PROGRAMS = htpasswd htdigest htdbm ab logresolve httxt2dbm htcacheclean rotatelogs $(NONPORTABLE_SUPPORT)
+TARGETS  = $(bin_PROGRAMS) $(sbin_PROGRAMS)
 
 PROGRAM_LDADD        = $(UTIL_LDFLAGS) $(PROGRAM_DEPENDENCIES) $(EXTRA_LIBS) $(AP_LIBS)
 PROGRAM_DEPENDENCIES = 
@@ -16,7 +17,7 @@ install:
 	@test -d $(DESTDIR)$(sbindir) || $(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
 	@test -d $(DESTDIR)$(libexecdir) || $(MKINSTALLDIRS) $(DESTDIR)$(libexecdir)
 	@cp -p $(top_builddir)/server/httpd.exp $(DESTDIR)$(libexecdir)
-	@for i in apxs apachectl dbmmanage; do \
+	@for i in apachectl apxs dbmmanage; do \
 	    if test -f "$(builddir)/$$i"; then \
 	        cp -p $$i $(DESTDIR)$(sbindir); \
 	        chmod 755 $(DESTDIR)$(sbindir)/$$i; \
@@ -29,7 +30,9 @@ install:
 	    fi ; \
 	fi
 
-htpasswd_OBJECTS = htpasswd.lo
+htpasswd.lo: passwd_common.h
+passwd_common.lo: passwd_common.h
+htpasswd_OBJECTS = htpasswd.lo passwd_common.lo
 htpasswd: $(htpasswd_OBJECTS)
 	$(LINK) $(htpasswd_LTFLAGS) $(htpasswd_OBJECTS) $(PROGRAM_LDADD) $(CRYPT_LIBS)
 
@@ -45,14 +48,19 @@ logresolve_OBJECTS = logresolve.lo
 logresolve: $(logresolve_OBJECTS)
 	$(LINK) $(logresolve_LTFLAGS) $(logresolve_OBJECTS) $(PROGRAM_LDADD)
 
-htdbm_OBJECTS = htdbm.lo
+htdbm.lo: passwd_common.h
+htdbm_OBJECTS = htdbm.lo passwd_common.lo
 htdbm: $(htdbm_OBJECTS)
 	$(LINK) $(htdbm_LTFLAGS) $(htdbm_OBJECTS) $(PROGRAM_LDADD) $(CRYPT_LIBS)
 
 ab_OBJECTS = ab.lo
-ab_LDADD = $(PROGRAM_LDADD) $(SSL_LIBS)
+ab_LDADD = $(PROGRAM_LDADD) $(MATH_LIBS)
+ab.lo: ab.c
+	$(LIBTOOL) --mode=compile $(CC) $(ab_CFLAGS) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
+	    $(ALL_INCLUDES) $(PICFLAGS) $(LTCFLAGS) -c $< && touch $@
 ab: $(ab_OBJECTS)
-	$(LINK) $(ab_LTFLAGS) $(ab_OBJECTS) $(ab_LDADD)
+	$(LIBTOOL) --mode=link $(CC) $(ALL_CFLAGS) $(ab_LDFLAGS) $(PILDFLAGS) \
+	    $(LT_LDFLAGS) $(ALL_LDFLAGS) -o $@ $(ab_LTFLAGS) $(ab_OBJECTS) $(ab_LDADD)
 
 checkgid_OBJECTS = checkgid.lo
 checkgid: $(checkgid_OBJECTS)
@@ -70,3 +78,6 @@ httxt2dbm_OBJECTS = httxt2dbm.lo
 httxt2dbm: $(httxt2dbm_OBJECTS)
 	$(LINK) $(httxt2dbm_LTFLAGS) $(httxt2dbm_OBJECTS) $(PROGRAM_LDADD)
 
+fcgistarter_OBJECTS = fcgistarter.lo
+fcgistarter: $(fcgistarter_OBJECTS)
+	$(LINK) $(fcgistarter_LTFLAGS) $(fcgistarter_OBJECTS) $(PROGRAM_LDADD)

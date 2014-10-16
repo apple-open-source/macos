@@ -1,0 +1,71 @@
+#
+# Test for NISCC Parasitic key bearing certs, with the RSAMaxKeySize set to > 16k. 
+# The easy way to set this is via the cspxutils/keySizePref program; compile it and
+# run it like this as root:
+#
+# keySizePref set keysize 20000
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "locally generated 6K keys"
+cert = ssSubjCert.der
+root = ssRootCert.der
+verifyTime = 20060726000000
+end
+
+test = "test1, uee8k"
+cert = uee8k.pem
+cert = shintca.pem
+root = shroot.pem
+verifyTime = 20060726000000
+# bad public exponent
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "test1, uee16k.pem"
+cert = uee16k.pem
+cert = shintca.pem
+root = shroot.pem
+verifyTime = 20060726000000
+# bad public exponent
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "test2a, huge pkint8k.pem CA"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = shroot.pem
+verifyTime = 20060726000000
+# leaf is OK, other certs have pub exponent too large
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2a, bad pkint8k.pem CA, wrong root"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = root.pem
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2b, huge pkint16k.pem CA"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = shroot.pem
+verifyTime = 20060726000000
+# leaf is OK, other certs have pub exponent too large
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2b, bad pkint16k.pem CA, wrong root"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = root.pem
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end

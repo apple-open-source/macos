@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -19,10 +19,10 @@
 ***********************************************************************/
 #pragma prototyped
 
-#include	<shell.h>
-#include	<signal.h>
+
 #include	"defs.h"
 #include	"shtable.h"
+#include	<signal.h>
 #include	"ulimit.h"
 #include	"name.h"
 #include	"version.h"
@@ -37,9 +37,14 @@
 #   define bltin(x)	0
 #endif
 
-#if defined(SHOPT_CMDLIB_DIR) && !defined(SHOPT_CMDLIB_HDR)
+#ifndef SHOPT_CMDLIB_DIR
+#   define SHOPT_CMDLIB_DIR	SH_CMDLIB_DIR
+#else
+#   ifndef SHOPT_CMDLIB_HDR
 #	define SHOPT_CMDLIB_HDR	<cmdlist.h>
+#   endif
 #endif
+
 #define Q(f)		#f	/* libpp cpp workaround -- fixed 2005-04-11 */
 #define CMDLIST(f)	SH_CMDLIB_DIR "/" Q(f), NV_BLTIN|NV_BLTINOPT|NV_NOFREE, bltin(f),
 
@@ -73,8 +78,8 @@ const struct shtable3 shtab_builtins[] =
 #if _bin_newgrp || _usr_bin_newgrp
 	"newgrp",	NV_BLTIN|BLT_ENV|BLT_SPC,	Bltin(login),
 #endif	/* _bin_newgrp || _usr_bin_newgrp */
-	"alias",	NV_BLTIN|BLT_SPC|BLT_DCL,	bltin(alias),
-	"hash",		NV_BLTIN|BLT_SPC|BLT_DCL,	bltin(alias),
+	"alias",	NV_BLTIN|BLT_SPC,		bltin(alias),
+	"hash",		NV_BLTIN|BLT_SPC,		bltin(alias),
 	"enum",		NV_BLTIN|BLT_ENV|BLT_SPC|BLT_DCL,bltin(enum),
 	"eval",		NV_BLTIN|BLT_ENV|BLT_SPC|BLT_EXIT,bltin(eval),
 	"exit",		NV_BLTIN|BLT_ENV|BLT_SPC,	bltin(return),
@@ -123,6 +128,7 @@ const struct shtable3 shtab_builtins[] =
 	"type",		NV_BLTIN|BLT_ENV,		bltin(whence),
 	"whence",	NV_BLTIN|BLT_ENV,		bltin(whence),
 #ifdef SHOPT_CMDLIB_HDR
+#undef	mktemp		/* undo possible map-libc mktemp => _ast_mktemp */
 #include SHOPT_CMDLIB_HDR
 #else
 	CMDLIST(basename)
@@ -199,6 +205,9 @@ const char sh_set[] =
 	"their current settings will be written to standard output.  When "
 	"invoked with a \b+\b the options will be written in a format "
 	"that can be reinput to the shell to restore the settings. "
+	"Options \b-o\b \aname\a can also be specified with \b--\b\aname\a "
+	"and \b+o \aname\a can be specifed with \b--no\b\aname\a  except that "
+	"options names beginning with \bno\b are turned on by omitting \bno\b."
 	"This option can be repeated to enable/disable multiple options. "
 	"The value of \aoption\a must be one of the following:]{"
 		"[+allexport?Equivalent to \b-a\b.]"
@@ -223,6 +232,8 @@ const char sh_set[] =
 		"[+ignoreeof?Prevents an interactive shell from exiting on "
 			"reading an end-of-file.]"
 		"[+keyword?Equivalent to \b-k\b.]"
+		"[+letoctal?The \blet\b builtin recognizes octal constants "
+			"with leading 0.]"
 		"[+markdirs?A trailing \b/\b is appended to directories "
 			"resulting from pathname expansion.]"
 		"[+monitor?Equivalent to \b-m\b.]"
@@ -250,6 +261,7 @@ const char sh_set[] =
 			"command to exit with non-zero exit status, or will "
 			"be zero if all commands return zero exit status.]"
 		"[+privileged?Equivalent to \b-p\b.]"
+		"[+rc?Do not run the \b.kshrc\b file for interactive shells.]"
 		"[+showme?Simple commands preceded by a \b;\b will be traced "
 			"as if \b-x\b were enabled but not executed.]"
 		"[+trackall?Equivalent to \b-h\b.]"
@@ -753,7 +765,14 @@ USAGE_LICENSE
     "\b--\b\alongname\a=\avalue\a. If the : or # is followed by ? then the "
     "option argument is optional. If only the option character form is "
     "specified then the optional argument value is not set if the next "
-    "argument starts with - or +.]"
+    "argument starts with - or +. The special attributes are currently "
+    "informational with respect to \boptget\b(3), but may be useful to "
+    "applications that parse \b--api\b output. The special attributes are:]{"
+    	"[+listof?zero or more of the possible option values may be specified, "
+		"separated by \b,\b or space.]"
+    	"[+oneof?exactly one of the possible option values must be specified]"
+    	"[+ignorecase?case ignored in matching the long option name]"
+    "}"
   "[+4.?A option value description.]"
   "[+5.?A argument specification. A list of valid option argument values "
     "can be specified by enclosing them inside a {...} following "
@@ -982,7 +1001,7 @@ USAGE_LICENSE
 ;
 
 const char sh_optkill[]	 = 
-"[-1c?\n@(#)$Id: kill (AT&T Research) 1999-06-17 $\n]"
+"[-1c?\n@(#)$Id: kill (AT&T Research) 2012-04-13 $\n]"
 USAGE_LICENSE
 "[+NAME?kill - terminate or signal process]"
 "[+DESCRIPTION?With the first form in which \b-l\b is not specified, "
@@ -1002,6 +1021,8 @@ _JOB_
 "[l?List signal names or signal numbers rather than sending signals as "
 	"described above.  "
 	"The \b-n\b and \b-s\b options cannot be specified.]"
+"[L?Same as \b-l\b except that of no argument is specified the signals will "
+	"be listed in menu format as with select compound command.]"
 "[n]#[signum?Specify a signal number to send.  Signal numbers are not "
 	"portable across platforms, except for the following:]{"
 		"[+0?No signal]"
@@ -1134,13 +1155,16 @@ USAGE_LICENSE
 	"[+%q?Output \astring\a quoted in a manner that it can be read in "
 		"by the shell to get back the same string.  However, empty "
 		"strings resulting from missing \astring\a operands will "
-		"not be quoted.]"
+		"not be quoted. When \bq\b is preceded by the alternative "
+		"format specifier, \b#\b, the string is quoted in manner "
+		" suitable as a field in a \b.csv\b format file.]"
 	"[+%B?Treat the argument as a variable name and output the value "
 		"without converting it to a string.  This is most useful for "
 		"variables of type \b-b\b.]"
 	"[+%H?Output \astring\a with characters \b<\b, \b&\b, \b>\b, "
 		"\b\"\b, and non-printable characters properly escaped for "
-		"use in HTML and XML documents.]"
+		"use in HTML and XML documents.  The alternate flag \b#\b "
+		"formats the output for use as a URI.]"
 	"[+%P?Treat \astring\a as an extended regular expression and  "
 		"convert it to a shell pattern.]"
 	"[+%R?Treat \astring\a as an shell pattern expression and  "
@@ -1150,7 +1174,11 @@ USAGE_LICENSE
 		"\adformat\a is a date format as defined by the \bdate\b "
 		"command.]"
 	"[+%Z?Output a byte whose value is \b0\b.]"
+	"\fextra\f"
 "}"
+"[+?The format modifier flag \bL\b can precede the width and/or precision "
+	"specifiers for the \bc\b and \bs\b to cause the width and/or "
+	"precision to be measured in character width rather than byte count.]"
 "[+?When performing conversions of \astring\a to satisfy a numeric "
 	"format specifier, if the first character of \astring\a "
 	"is \b\"\b or \b'\b, then the value will be the numeric value "
@@ -1169,12 +1197,14 @@ USAGE_LICENSE
 		"the collating element \aname\a.]"
 	"[+-?The escape sequence \b\\x{\b\ahex\a\b}\b expands to the "
 		"character corresponding to the hexidecimal value \ahex\a.]"
+	"[+-?The escape sequence \b\\u{\b\ahex\a\b}\b expands to the unicode "
+		"character corresponding to the hexidecimal value \ahex\a.]"
 	"[+-?The format modifier flag \b=\b can be used to center a field to "
 		"a specified width.]"
 	"[+-?The format modifier flag \bL\b can be used with the \bc\b and "
 		"\bs\b formats to treat precision as character width instead "
 		"of byte count.]"
-	"[+-?The format modifier flag \b,\b can be used with \bd\b and \bf\f "
+	"[+-?The format modifier flag \b,\b can be used with \bd\b and \bf\b "
 		"formats to cause group of digits.]"
 	"[+-?Each of the integral format specifiers can have a third "
 		"modifier after width and precision that specifies the "
@@ -1260,6 +1290,7 @@ USAGE_LICENSE
 	"can be created.]"
 "[r?Do not treat \b\\\b specially when processing the input line.]"
 "[s?Save a copy of the input as an entry in the shell history file.]"
+"[S?Treat the input as if it was saved from a spreasheet in csv format.]"
 "[u]#[fd:=0?Read from file descriptor number \afd\a instead of standard input.]"
 "[t]:[timeout?Specify a timeout \atimeout\a in seconds when reading from "
 	"a terminal or pipe.]"

@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>py2app</string>
+        <key>OpenSourceVersion</key>
+        <string>0.7.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/py2app</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/p/py2app/py2app-0.7.3.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-06-14</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>fad705e63d335c570fde3bee48129730</string>
+</dict>

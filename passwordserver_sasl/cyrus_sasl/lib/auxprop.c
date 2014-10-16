@@ -46,6 +46,7 @@
 #include <sasl.h>
 #include <prop.h>
 #include <ctype.h>
+#include <stdio.h>
 #include "saslint.h"
 
 struct proppool 
@@ -76,6 +77,7 @@ typedef struct auxprop_plug_list
 {
     struct auxprop_plug_list *next;
     const sasl_auxprop_plug_t *plug;
+    int version; // APPLE
 } auxprop_plug_list_t;
 
 static auxprop_plug_list_t *auxprop_head = NULL;
@@ -803,6 +805,7 @@ struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn)
 int sasl_auxprop_add_plugin(const char *plugname,
 			    sasl_auxprop_init_t *auxpropfunc)
 {
+/* APPLE: add and wrap _nolog function */
 	int result = sasl_auxprop_add_plugin_nolog(plugname, auxpropfunc);
 	if(result != SASL_OK) {
 		_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %s\n",
@@ -815,14 +818,25 @@ int sasl_auxprop_add_plugin(const char *plugname,
 int sasl_auxprop_add_plugin_nolog(const char *plugname,
 			    sasl_auxprop_init_t *auxpropfunc)
 {
+/* APPLE: end */
     int result, out_version;
     auxprop_plug_list_t *new_item;
     sasl_auxprop_plug_t *plug;
     
     result = auxpropfunc(sasl_global_utils, SASL_AUXPROP_PLUG_VERSION,
-			 &out_version, &plug, plugname);	
-	if(result != SASL_OK) {
-		return result;
+			 &out_version, &plug, plugname);
+
+    /* Check if out_version is too old.
+       We only support the current at the moment */
+    // APPLE: add support for versions from SASL_AUXPROP_PLUG_VERSION to SASL_AUXPROP_PLUG_MIN_VERSION
+    if (result == SASL_OK && out_version < SASL_AUXPROP_PLUG_MIN_VERSION) {
+        result = SASL_BADVERS;
+    }
+
+    if(result != SASL_OK) {
+	_sasl_log(NULL, SASL_LOG_ERR, "auxpropfunc error %s\n",
+		  sasl_errstring(result, NULL, NULL));
+	return result;
     }
 
     /* We require that this function is implemented */
@@ -834,6 +848,7 @@ int sasl_auxprop_add_plugin_nolog(const char *plugname,
     /* These will load from least-important to most important */
     new_item->plug = plug;
     new_item->next = auxprop_head;
+    new_item->version = out_version;
     auxprop_head = new_item;
 
     return SASL_OK;
@@ -854,9 +869,56 @@ void _sasl_auxprop_free()
     auxprop_head = NULL;
 }
 
+/* Return the updated account status based on the current ("so far") and
+   the specific status returned by the latest auxprop call */
+static int
+_sasl_account_status (int current_status,
+                      int specific_status)
+{
+    switch (specific_status) {
+	case SASL_NOVERIFY:
+	    specific_status = SASL_OK;
+	    /* fall through */
+	case SASL_OK:
+	    if (current_status == SASL_NOMECH ||
+		current_status == SASL_NOUSER) {
+		current_status = specific_status;
+	    }
+	    break;
+
+	case SASL_NOUSER:
+	    if (current_status == SASL_NOMECH) {
+		current_status = specific_status;
+	    }
+	    break;
+
+	/* NOTE: The disabled flag sticks, unless we hit an error */
+	case SASL_DISABLED:
+	    if (current_status == SASL_NOMECH ||
+		current_status == SASL_NOUSER ||
+		current_status == SASL_OK) {
+		current_status = specific_status;
+	    }
+	    break;
+
+	case SASL_NOMECH:
+	    /* ignore */
+	    break;
+
+	/* SASL_UNAVAIL overrides everything */
+	case SASL_UNAVAIL:
+	    current_status = specific_status;
+	    break;
+
+	default:
+	    current_status = specific_status;
+	    break;
+    }
+    return (current_status);
+}
 
 /* Do the callbacks for auxprop lookups */
-void _sasl_auxprop_lookup(sasl_server_params_t *sparams,
+int _sasl_auxprop_lookup(sasl_server_params_t *sparams,
 			  unsigned flags,
 			  const char *user, unsigned ulen) 
 {
@@ -865,24 +927,40 @@ void _sasl_auxprop_lookup(sasl_server_params_t *sparams,
     void *context;
     const char *plist = NULL;
     auxprop_plug_list_t *ptr;
+    int result = SASL_NOMECH;
 
     if(_sasl_getcallback(sparams->utils->conn,
-			 SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
+			 SASL_CB_GETOPT,
+			 (sasl_callback_ft *)&getopt,
+			 &context) == SASL_OK) {
 	ret = getopt(context, NULL, "auxprop_plugin", &plist, NULL);
 	if(ret != SASL_OK) plist = NULL;
     }
 
     if(!plist) {
 	/* Do lookup in all plugins */
+
+	/* TODO: Ideally, each auxprop plugin should be marked if its failure
+	   should be ignored or treated as a fatal error of the whole lookup. */
 	for(ptr = auxprop_head; ptr; ptr = ptr->next) {
-	    found=1;
-	    ptr->plug->auxprop_lookup(ptr->plug->glob_context,
+		found=1;
+
+		// APPLE: support v4 and v8 plugins
+		if (ptr->version == SASL_AUXPROP_PLUG_MIN_VERSION) {
+			ptr->plug->auxprop_lookup_v4(ptr->plug->glob_context,
 				      sparams, flags, user, ulen);
+			ret = SASL_OK;
+		} else {
+			ret = ptr->plug->auxprop_lookup(ptr->plug->glob_context,
+				      sparams, flags, user, ulen);
+		}
+
+		result = _sasl_account_status (result, ret);
 	}
     } else {
 	char *pluginlist = NULL, *freeptr = NULL, *thisplugin = NULL;
 
-	if(_sasl_strdup(plist, &pluginlist, NULL) != SASL_OK) return;
+	if(_sasl_strdup(plist, &pluginlist, NULL) != SASL_OK) return SASL_NOMEM;
 	thisplugin = freeptr = pluginlist;
 	
 	/* Do lookup in all *specified* plugins, in order */
@@ -904,8 +982,18 @@ void _sasl_auxprop_lookup(sasl_server_params_t *sparams,
 		    continue;
 	    
 		found=1;
-		ptr->plug->auxprop_lookup(ptr->plug->glob_context,
-					  sparams, flags, user, ulen);
+
+		// APPLE: support v4 and v8 plugins
+		if (ptr->version == SASL_AUXPROP_PLUG_MIN_VERSION) {
+			ptr->plug->auxprop_lookup_v4(ptr->plug->glob_context,
+				      sparams, flags, user, ulen);
+			ret = SASL_OK;
+		} else {
+			ret = ptr->plug->auxprop_lookup(ptr->plug->glob_context,
+				      sparams, flags, user, ulen);
+		}
+
+		result = _sasl_account_status (result, ret);
 	    }
 
 	    if(last) break;
@@ -916,10 +1004,13 @@ void _sasl_auxprop_lookup(sasl_server_params_t *sparams,
 	sasl_FREE(freeptr);
     }
 
-    if(!found)
+    if(!found) {
 	_sasl_log(sparams->utils->conn, SASL_LOG_DEBUG,
 		  "could not find auxprop plugin, was searching for '%s'",
 		  plist ? plist : "[all]");
+    }
+
+	return result;
 }
 
 /* Do the callbacks for auxprop stores */
@@ -927,12 +1018,14 @@ int sasl_auxprop_store(sasl_conn_t *conn,
 		       struct propctx *ctx, const char *user)
 {
     sasl_getopt_t *getopt;
-    int ret, found = 0;
+    int ret;
     void *context;
     const char *plist = NULL;
     auxprop_plug_list_t *ptr;
     sasl_server_params_t *sparams = NULL;
     unsigned userlen = 0;
+    int num_constraint_violations = 0;
+    int total_plugins = 0;
 
     if (ctx) {
 	if (!conn || !user)
@@ -943,7 +1036,7 @@ int sasl_auxprop_store(sasl_conn_t *conn,
     }
     
     /* Pickup getopt callback from the connection, if conn is not NULL */
-    if(_sasl_getcallback(conn, SASL_CB_GETOPT, &getopt, &context) == SASL_OK) {
+    if(_sasl_getcallback(conn, SASL_CB_GETOPT, (sasl_callback_ft *)&getopt, &context) == SASL_OK) {
 	ret = getopt(context, NULL, "auxprop_plugin", &plist, NULL);
 	if(ret != SASL_OK) plist = NULL;
     }
@@ -952,10 +1045,15 @@ int sasl_auxprop_store(sasl_conn_t *conn,
     if(!plist) {
 	/* Do store in all plugins */
 	for(ptr = auxprop_head; ptr && ret == SASL_OK; ptr = ptr->next) {
-	    found=1;
-	    if (ptr->plug->auxprop_store)
+	    total_plugins++;
+	    if (ptr->plug->auxprop_store) {
 		ret = ptr->plug->auxprop_store(ptr->plug->glob_context,
 					       sparams, ctx, user, userlen);
+		if (ret == SASL_CONSTRAINT_VIOLAT) {
+		    ret = SASL_OK;
+		    num_constraint_violations++;
+		}
+	    }
 	}
     } else {
 	char *pluginlist = NULL, *freeptr = NULL, *thisplugin = NULL;
@@ -981,10 +1079,15 @@ int sasl_auxprop_store(sasl_conn_t *conn,
 		    || strcasecmp(ptr->plug->name, thisplugin)))
 		    continue;
 
-		found=1;
-		if (ptr->plug->auxprop_store)
+		total_plugins++;
+		if (ptr->plug->auxprop_store) {
 		    ret = ptr->plug->auxprop_store(ptr->plug->glob_context,
 						   sparams, ctx, user, userlen);
+		    if (ret == SASL_CONSTRAINT_VIOLAT) {
+			ret = SASL_OK;
+			num_constraint_violations++;
+		    }
+		}
 	    }
 
 	    if(last) break;
@@ -995,12 +1098,136 @@ int sasl_auxprop_store(sasl_conn_t *conn,
 	sasl_FREE(freeptr);
     }
 
-    if(!found) {
+    if(total_plugins == 0) {
 	_sasl_log(NULL, SASL_LOG_ERR,
 		  "could not find auxprop plugin, was searching for %s",
 		  plist ? plist : "[all]");
 	return SASL_FAIL;
+    } else if (total_plugins == num_constraint_violations) {
+	ret = SASL_CONSTRAINT_VIOLAT;
     }
 
     return ret;
+}
+
+/* It would be nice if we can show other information like Author, Company, Year, plugin version */
+static void
+_sasl_print_mechanism (sasl_auxprop_plug_t *m,
+		       sasl_info_callback_stage_t stage,
+		       void *rock __attribute__((unused))
+)
+{
+    if (stage == SASL_INFO_LIST_START) {
+	printf ("List of auxprop plugins follows\n");
+	return;
+    } else if (stage == SASL_INFO_LIST_END) {
+	return;
+    }
+
+    /* Process the mechanism */
+    printf ("Plugin \"%s\" ", m->name);
+
+#ifdef NOT_YET
+    switch (m->condition) {
+	case SASL_OK:
+	    printf ("[loaded]");
+	    break;
+
+	case SASL_CONTINUE:
+	    printf ("[delayed]");
+	    break;
+
+	case SASL_NOUSER:
+	    printf ("[no users]");
+	    break;
+
+	default:
+	    printf ("[unknown]");
+	    break;
+    }
+#endif
+
+    printf (", \tAPI version: %d\n", /* m->version */ SASL_AUXPROP_PLUG_VERSION);
+
+    /* TODO - Update for auxprop_export, etc. */
+    printf ("\tsupports store: %s\n",
+	    (m->auxprop_store != NULL) ? "yes" : "no"
+	    );
+
+    /* No features defined yet */
+#ifdef NOT_YET
+    printf ("\n\tfeatures:");
+#endif
+
+    printf ("\n");
+}
+
+/* Dump information about available auxprop plugins (separate functions are
+   used for canon and server authentication plugins) */
+int auxprop_plugin_info (
+  const char *c_mech_list,		/* space separated mechanism list or NULL for ALL */
+  auxprop_info_callback_t *info_cb,
+  void *info_cb_rock
+)
+{
+    auxprop_plug_list_t *m;
+    sasl_auxprop_plug_t plug_data;
+    char * cur_mech;
+    char *mech_list = NULL;
+    char * p;
+
+    if (info_cb == NULL) {
+	info_cb = _sasl_print_mechanism;
+    }
+
+    if (auxprop_head != NULL) {
+	info_cb (NULL, SASL_INFO_LIST_START, info_cb_rock);
+
+	if (c_mech_list == NULL) {
+	    m = auxprop_head; /* m point to beginning of the list */
+
+	    while (m != NULL) {
+                /* TODO: Need to be careful when dealing with auxprop_export, etc. */
+		memcpy (&plug_data, m->plug, sizeof(plug_data));
+
+		info_cb (&plug_data, SASL_INFO_LIST_MECH, info_cb_rock);
+	    
+		m = m->next;
+	    }
+	} else {
+            mech_list = strdup(c_mech_list);
+
+	    cur_mech = mech_list;
+
+	    while (cur_mech != NULL) {
+		p = strchr (cur_mech, ' ');
+		if (p != NULL) {
+		    *p = '\0';
+		    p++;
+		}
+
+		m = auxprop_head; /* m point to beginning of the list */
+
+		while (m != NULL) {
+		    if (strcasecmp (cur_mech, m->plug->name) == 0) {
+			memcpy (&plug_data, m->plug, sizeof(plug_data));
+
+			info_cb (&plug_data, SASL_INFO_LIST_MECH, info_cb_rock);
+		    }
+	    
+		    m = m->next;
+		}
+
+		cur_mech = p;
+	    }
+
+            free (mech_list);
+	}
+
+	info_cb (NULL, SASL_INFO_LIST_END, info_cb_rock);
+
+	return (SASL_OK);
+    }
+
+    return (SASL_NOTINIT);
 }

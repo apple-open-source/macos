@@ -92,8 +92,8 @@ verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printd
 eapol_socket: eapol_socket.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_EAPOL_SOCKET -g -o $@ $^
 
-simaka_persist: EAPSIMAKAPersistentState.c EAPKeychainUtil.c myCFUtil.c EAPSecurity.c printdata.c
-	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPSIMAKA_PERSISTENT_STATE $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
+simaka_persist: EAPSIMAKAPersistentState.c EAPKeychainUtil.c myCFUtil.c EAPSecurity.c printdata.c EAPLog.c
+	$(CC) $(SCPRIV) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPSIMAKA_PERSISTENT_STATE $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
 	export CODESIGN_ALLOCATE=$(shell xcrun -sdk $(SDK) -find codesign_allocate)
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 

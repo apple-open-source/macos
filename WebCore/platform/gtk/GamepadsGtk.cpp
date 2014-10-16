@@ -26,7 +26,7 @@
 #include "config.h"
 #include "Gamepads.h"
 
-#if ENABLE(GAMEPAD)
+#if ENABLE(GAMEPAD_DEPRECATED)
 
 #include "GamepadDeviceLinux.h"
 #include "GamepadList.h"
@@ -35,8 +35,8 @@
 #include <gudev/gudev.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
-#include <wtf/gobject/GOwnPtr.h>
 #include <wtf/gobject/GRefPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 
@@ -79,7 +79,7 @@ GamepadDeviceGtk::~GamepadDeviceGtk()
 gboolean GamepadDeviceGtk::readCallback(GObject* pollableStream, gpointer data)
 {
     GamepadDeviceGtk* gamepadDevice = reinterpret_cast<GamepadDeviceGtk*>(data);
-    GOwnPtr<GError> error;
+    GUniqueOutPtr<GError> error;
     struct js_event event;
 
     gssize len = g_pollable_input_stream_read_nonblocking(G_POLLABLE_INPUT_STREAM(pollableStream),
@@ -123,7 +123,7 @@ GamepadsGtk::GamepadsGtk(unsigned length)
     m_gudevClient = adoptGRef(g_udev_client_new(subsystems));
     g_signal_connect(m_gudevClient.get(), "uevent", G_CALLBACK(onUEventCallback), this);
 
-    GOwnPtr<GList> devicesList(g_udev_client_query_by_subsystem(m_gudevClient.get(), subsystems[0]));
+    GUniquePtr<GList> devicesList(g_udev_client_query_by_subsystem(m_gudevClient.get(), subsystems[0]));
     for (GList* listItem = devicesList.get(); listItem; listItem = g_list_next(listItem)) {
         GUdevDevice* device = G_UDEV_DEVICE(listItem->data);
         String deviceFile = String::fromUTF8(g_udev_device_get_device_file(device));
@@ -187,7 +187,7 @@ void GamepadsGtk::updateGamepadList(GamepadList* into)
     }
 }
 
-void GamepadsGtk::onUEventCallback(GUdevClient* udevClient, gchar* action, GUdevDevice* device, gpointer data)
+void GamepadsGtk::onUEventCallback(GUdevClient*, gchar* action, GUdevDevice* device, gpointer data)
 {
     if (!isGamepadDevice(device))
         return;
@@ -216,10 +216,10 @@ gboolean GamepadsGtk::isGamepadDevice(GUdevDevice* device)
 
 void sampleGamepads(GamepadList* into)
 {
-    DEFINE_STATIC_LOCAL(GamepadsGtk, gamepadsGtk, (into->length()));
+    DEPRECATED_DEFINE_STATIC_LOCAL(GamepadsGtk, gamepadsGtk, (into->length()));
     gamepadsGtk.updateGamepadList(into);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(GAMEPAD)
+#endif // ENABLE(GAMEPAD_DEPRECATED)

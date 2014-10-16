@@ -19,6 +19,22 @@
 #include <stdlib.h>
 #endif
 
+#ifdef __APPLE__
+#include <msgtracer_client.h>
+#include <msgtracer_keys.h>
+
+void
+mt_log_BSDServices_ScriptingLanguageUse(const char *signature)
+{
+    aslmsg m = asl_new(ASL_TYPE_MSG);
+    asl_set(m, "com.apple.message.domain", "com.apple.BSDServices.ScriptingLanguageUse" );
+    asl_set(m, "com.apple.message.signature", signature);
+    asl_set(m, "com.apple.message.summarize", "YES");
+    asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
+    asl_free(m);
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
@@ -27,6 +43,10 @@ main(int argc, char **argv)
 #endif
 #ifdef HAVE_LOCALE_H
     setlocale(LC_CTYPE, "");
+#endif
+
+#ifdef __APPLE__
+    mt_log_BSDServices_ScriptingLanguageUse("ruby");
 #endif
 
     ruby_sysinit(&argc, &argv);

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,6 +35,7 @@ namespace WebCore {
 
 class Element;
 class HTMLMediaElement;
+class SourceBuffer;
 
 class TrackBase : public RefCounted<TrackBase> {
 public:
@@ -47,6 +48,9 @@ public:
     HTMLMediaElement* mediaElement() { return m_mediaElement; }
     virtual Element* element();
 
+    virtual AtomicString id() const { return m_id; }
+    virtual void setId(const AtomicString& id) { m_id = id; }
+
     AtomicString kind() const { return m_kind; }
     virtual void setKind(const AtomicString&);
 
@@ -54,20 +58,37 @@ public:
     void setLabel(const AtomicString& label) { m_label = label; }
 
     AtomicString language() const { return m_language; }
-    void setLanguage(const AtomicString& language) { m_language = language; }
+    virtual void setLanguage(const AtomicString& language) { m_language = language; }
 
     virtual void clearClient() = 0;
 
+    virtual int uniqueId() const { return m_uniqueId; }
+
+#if ENABLE(MEDIA_SOURCE)
+    SourceBuffer* sourceBuffer() const { return m_sourceBuffer; }
+    void setSourceBuffer(SourceBuffer* buffer) { m_sourceBuffer = buffer; }
+#endif
+
+    virtual bool enabled() const = 0;
+
 protected:
-    TrackBase(Type, const AtomicString& label, const AtomicString& language);
+    TrackBase(Type, const AtomicString& id, const AtomicString& label, const AtomicString& language);
 
     virtual bool isValidKind(const AtomicString&) const = 0;
     virtual const AtomicString& defaultKindKeyword() const = 0;
 
+    void setKindInternal(const AtomicString&);
+
     HTMLMediaElement* m_mediaElement;
+
+#if ENABLE(MEDIA_SOURCE)
+    SourceBuffer* m_sourceBuffer;
+#endif
 
 private:
     Type m_type;
+    int m_uniqueId;
+    AtomicString m_id;
     AtomicString m_kind;
     AtomicString m_label;
     AtomicString m_language;

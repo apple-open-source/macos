@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -54,13 +54,13 @@ typedef enum {
 
 interface IWebFramePrivate : IUnknown
 {
-    HRESULT unused1([out, retval] BSTR*);
+    HRESULT unused1();
     HRESULT scrollOffset([out, retval] SIZE* offset);
 
     // FIXME: This shouldn't be needed once IWebDocumentView is implemented.
     HRESULT layout();
     HRESULT firstLayoutDone([out, retval] BOOL* result);
-    HRESULT loadType([out, retval] WebFrameLoadType* type);
+    HRESULT unused2();
 
     HRESULT setInPrintingMode([in] BOOL value, [in] HDC printDC);
     HRESULT getPrintedPageCount([in] HDC printDC, [out, retval] UINT* pageCount);
@@ -78,9 +78,9 @@ interface IWebFramePrivate : IUnknown
 
     HRESULT pendingFrameUnloadEventCount([out, retval] UINT* result);
 
-    HRESULT unused2();
+    HRESULT unused3();
 
-    HRESULT paintDocumentRectToContext([in] RECT rect, [in] OLE_HANDLE deviceContext);
+    HRESULT paintDocumentRectToContext([in] RECT rect, [in] HDC deviceContext);
 
     HRESULT elementDoesAutoComplete([in] IDOMElement* element, [out, retval] BOOL* result);
 
@@ -96,7 +96,7 @@ interface IWebFramePrivate : IUnknown
 
     [local] JSGlobalContextRef globalContextForScriptWorld([in] IWebScriptWorld*);
 
-    HRESULT unused3([in] BSTR, [out, retval] BSTR*);
+    HRESULT unused4();
 
     HRESULT visibleContentRect([out, retval] RECT*);
 
@@ -106,7 +106,7 @@ interface IWebFramePrivate : IUnknown
 
     HRESULT layerTreeAsText([out, retval] BSTR* result);
 
-    HRESULT paintScrollViewRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE deviceContext);
+    HRESULT paintScrollViewRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] HDC deviceContext);
 
     HRESULT renderTreeAsExternalRepresentation([in] BOOL forPrinting, [out, retval] BSTR* result);
 

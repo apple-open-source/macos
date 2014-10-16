@@ -532,6 +532,9 @@ typedef struct krb5_cc_ops {
     krb5_error_code (KRB5_CALLCONV * tgt_req)(krb5_context, krb5_ccache, KERB_TGS_REQ_IN *, KERB_TGS_REQ_OUT *);
     krb5_error_code (KRB5_CALLCONV * tgt_rep)(krb5_context, krb5_ccache, KERB_TGS_REP_IN *, KERB_TGS_REP_OUT *);
     krb5_error_code (KRB5_CALLCONV * set_acl)(krb5_context, krb5_ccache, const char *, /* heim_object_t */ void *);
+    krb5_error_code (KRB5_CALLCONV * copy_data)(krb5_context, krb5_ccache, /* heim_array_t */ void *, /* heim_dict_t */ void **);
+    krb5_error_code (KRB5_CALLCONV * copy_query)(krb5_context, krb5_ccache, /* heim_dict_t */ void *, /* heim_array_t */ void **);
+    krb5_error_code (KRB5_CALLCONV * store_data)(krb5_context, krb5_ccache, /* heim_dict_t */ void *);
 } krb5_cc_ops;
 
 #define KRB5_ACL_BUNDLEID_ARRAY	"kHEIMAttrBundleIdentifierACL"
@@ -686,6 +689,8 @@ typedef struct krb5_auth_context_data {
 
     krb5_keytype keytype;	/* ¿requested key type ? */
     krb5_cksumtype cksumtype;	/* ¡requested checksum type! */
+    
+    AuthorizationData *auth_data;
 
 }krb5_auth_context_data, *krb5_auth_context;
 
@@ -720,6 +725,7 @@ typedef EncAPRepPart krb5_ap_rep_enc_part;
 #define KRB5_ANON_REALM ("WELLKNOWN:ANONYMOUS")
 #define KRB5_WELLKNOWN_ORG_H5L_REALM ("WELLKNOWN:ORG.H5L")
 #define KRB5_DIGEST_NAME ("digest")
+#define KRB5_FAST_COOKIE "org.h5l.fast-cookie"
 
 
 #define KRB5_PKU2U_REALM_NAME ("WELLKNOWN:PKU2U")
@@ -974,6 +980,7 @@ extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_akcm_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_scc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops;
+extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_api_ops;
 
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_fkt_ops;
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_wrfkt_ops;

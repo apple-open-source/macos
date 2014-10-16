@@ -1,0 +1,180 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>flags.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">flags.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Generated automatically by genflags. */</span>
+
+<span class="enscript-comment">/* Set if the encoding can encode
+   the acute and grave accents U+00B4 and U+0060. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_ACCENTS</span> 1
+
+<span class="enscript-comment">/* Set if the encoding can encode
+   the single quotation marks U+2018 and U+2019. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_QUOTATION_MARKS</span> 2
+
+<span class="enscript-comment">/* Set if the encoding can encode
+   the double-width Hangul letters (Jamo) U+3131 to U+3163. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_HANGUL_JAMO</span> 4
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ascii_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf8_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf8mac_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs2_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs2be_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs2le_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs4_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs4be_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs4le_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf16_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf16be_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf16le_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf32_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf32be_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf32le_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_utf7_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs2internal_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs2swapped_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs4internal_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ucs4swapped_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_c99_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_java_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_1_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_2_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_3_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_4_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_5_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_6_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_7_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_8_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_9_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_10_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_11_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_13_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_14_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_15_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso8859_16_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_koi8_r_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_koi8_u_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_koi8_ru_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1250_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1251_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1252_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1253_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1254_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1255_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1256_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1257_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1258_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp850_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp862_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp866_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_roman_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_centraleurope_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_iceland_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_croatian_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_romania_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_cyrillic_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_ukraine_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_greek_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_turkish_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_hebrew_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_arabic_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mac_thai_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_hp_roman8_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_nextstep_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_armscii_8_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_georgian_academy_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_georgian_ps_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_koi8_t_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_pt154_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_mulelao_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1133_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_tis620_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp874_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_viscii_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_tcvn_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso646_jp_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_jisx0201_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_jisx0208_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_jisx0212_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso646_cn_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_gb2312_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_isoir165_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ksc5601_oflags</span> (HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_euc_jp_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_sjis_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp932_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_jp_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_jp1_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_jp2_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_euc_cn_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ces_gbk_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp936_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_gb18030_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_cn_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_cn_ext_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_hz_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_euc_tw_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_ces_big5_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp950_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_big5hkscs1999_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_big5hkscs2001_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_big5hkscs2004_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_euc_kr_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp949_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_johab_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_kr_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS | HAVE_HANGUL_JAMO)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp856_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp922_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp943_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1046_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1124_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1129_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1161_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1162_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1163_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_dec_kanji_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_dec_hanyu_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp437_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp737_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp775_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp852_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp853_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp855_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp857_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp858_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp860_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp861_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp863_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp864_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp865_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp869_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_cp1125_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_euc_jisx0213_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_shift_jisx0213_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_iso2022_jp3_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_big5_2003_oflags</span> (HAVE_QUOTATION_MARKS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_tds565_oflags</span> (0)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_atarist_oflags</span> (HAVE_ACCENTS)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ei_riscos1_oflags</span> (HAVE_ACCENTS | HAVE_QUOTATION_MARKS)
+</pre>
+<hr />
+</body></html>

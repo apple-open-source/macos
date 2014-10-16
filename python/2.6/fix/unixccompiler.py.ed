@@ -6,4 +6,8 @@
                             i = i + 1
                     linker[i] = self.compiler_cxx[0]
 .
+/# On OSX users can specify an alternate SDK using/i
+          sysroot = os.environ.get('SDKROOT')
+          if sysroot is None:
+.
 w

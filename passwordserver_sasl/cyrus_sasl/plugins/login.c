@@ -2,7 +2,7 @@
  * Rob Siemborski (SASLv2 Conversion)
  * contributed by Rainer Schoepf <schoepf@uni-mainz.de>
  * based on PLAIN, by Tim Martin <tmartin@andrew.cmu.edu>
- * $Id: login.c,v 1.7 2006/01/24 20:37:09 snsimon Exp $
+ * $Id: login.c,v 1.31 2010/11/30 11:41:47 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -54,7 +54,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: login.c,v 1.7 2006/01/24 20:37:09 snsimon Exp $";
+static const char plugin_id[] = "$Id: login.c,v 1.31 2010/11/30 11:41:47 mel Exp $";
 
 /*****************************  Server Section  *****************************/
 
@@ -62,7 +62,7 @@ typedef struct context {
     int state;
 
     char *username;
-    size_t username_len;
+    unsigned username_len;
 } server_context_t;
 
 static int login_server_mech_new(void *glob_context __attribute__((unused)), 
@@ -105,6 +105,10 @@ static int login_server_mech_step(void *conn_context,
     *serverout = NULL;
     *serveroutlen = 0;
     
+    if (text == NULL) {
+	return SASL_BADPROT;
+    }
+
     switch (text->state) {
 
     case 1:
@@ -115,7 +119,7 @@ static int login_server_mech_step(void *conn_context,
 	if (clientinlen == 0) {
 	    /* demand username */
 	    
-	    *serveroutlen = strlen(USERNAME_CHALLENGE);
+	    *serveroutlen = (unsigned) strlen(USERNAME_CHALLENGE);
 	    *serverout = USERNAME_CHALLENGE;
 
 	    return SASL_CONTINUE;
@@ -142,7 +146,7 @@ static int login_server_mech_step(void *conn_context,
 	text->username[clientinlen] = '\0';
 	
 	/* demand password */
-	*serveroutlen = strlen(PASSWORD_CHALLENGE);
+	*serveroutlen = (unsigned) strlen(PASSWORD_CHALLENGE);
 	*serverout = PASSWORD_CHALLENGE;
 	
 	text->state = 3;
@@ -169,21 +173,23 @@ static int login_server_mech_step(void *conn_context,
 	    return SASL_NOMEM;
 	}
 	
-	strncpy((char *)password->data, clientin, clientinlen);
+	strncpy((char *) password->data, clientin, clientinlen);
 	password->data[clientinlen] = '\0';
 	password->len = clientinlen;
 
 	/* canonicalize username first, so that password verification is
 	 * done against the canonical id */
-	result = params->canon_user(params->utils->conn, text->username,
+	result = params->canon_user(params->utils->conn,
+				    text->username,
 				    text->username_len,
-				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
+				    SASL_CU_AUTHID | SASL_CU_AUTHZID | SASL_CU_EXTERNALLY_VERIFIED,
+				    oparams);
 	if (result != SASL_OK) return result;
 	
 	/* verify_password - return sasl_ok on success */
 	result = params->utils->checkpass(params->utils->conn,
 					  oparams->authid, oparams->alen,
-					  password->data, password->len);
+					  (char *) password->data, password->len);
 	
 	if (result != SASL_OK) {
 	    _plug_free_secret(params->utils, &password);
@@ -234,7 +240,8 @@ static sasl_server_plug_t login_server_plugins[] =
     {
 	"LOGIN",			/* mech_name */
 	0,				/* max_ssf */
-	SASL_SEC_NOANONYMOUS,		/* security_flags */
+	SASL_SEC_NOANONYMOUS
+	| SASL_SEC_PASS_CREDENTIALS,	/* security_flags */
 	0,				/* features */
 	NULL,				/* glob_context */
 	&login_server_mech_new,		/* mech_new */
@@ -315,9 +322,8 @@ static int login_client_mech_step(void *conn_context,
     switch (text->state) {
 
     case 1: {
-	const char *user;
+	const char *user = NULL;
 	int auth_result = SASL_OK;
-	int pass_result = SASL_OK;
 	int result;
 	
 	/* check if sec layer strong enough */
@@ -337,16 +343,7 @@ static int login_client_mech_step(void *conn_context,
 	    if ((auth_result != SASL_OK) && (auth_result != SASL_INTERACT))
 		return auth_result;
 	}
-	
-	/* try to get the password */
-	if (text->password == NULL) {
-	    pass_result = _plug_get_password(params->utils, &text->password,
-					     &text->free_password, prompt_need);
-	    
-	    if ((pass_result != SASL_OK) && (pass_result != SASL_INTERACT))
-		return pass_result;
-	}
-	
+		
 	/* free prompts we got */
 	if (prompt_need && *prompt_need) {
 	    params->utils->free(*prompt_need);
@@ -354,7 +351,7 @@ static int login_client_mech_step(void *conn_context,
 	}
 	
 	/* if there are prompts not filled in */
-	if ((auth_result == SASL_INTERACT) || (pass_result == SASL_INTERACT)) {
+	if (auth_result == SASL_INTERACT) {
 	    /* make the prompt list */
 	    result =
 		_plug_make_prompts(params->utils, prompt_need,
@@ -362,8 +359,7 @@ static int login_client_mech_step(void *conn_context,
 				   auth_result == SASL_INTERACT ?
 				   "Please enter your authentication name" : NULL,
 				   NULL,
-				   pass_result == SASL_INTERACT ?
-				   "Please enter your password" : NULL, NULL,
+				   NULL, NULL,
 				   NULL, NULL, NULL,
 				   NULL, NULL, NULL);
 	    if (result != SASL_OK) return result;
@@ -371,11 +367,6 @@ static int login_client_mech_step(void *conn_context,
 	    return SASL_INTERACT;
 	}
 	
-	if (!text->password) {
-	    PARAMERROR(params->utils);
-	    return SASL_BADPARAM;
-	}
-    
 	result = params->canon_user(params->utils->conn, user, 0,
 				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
 	if (result != SASL_OK) return result;
@@ -400,7 +391,10 @@ static int login_client_mech_step(void *conn_context,
 	return SASL_CONTINUE;
     }
 
-    case 2:
+    case 2: {
+	int pass_result = SASL_OK;
+	int result;
+
 	/* server should have sent request for password - we ignore it */
 	if (!serverin) {
 	    SETERROR( params->utils,
@@ -412,9 +406,45 @@ static int login_client_mech_step(void *conn_context,
 	    PARAMERROR(params->utils);
 	    return SASL_BADPARAM;
 	}
+			
+	/* try to get the password */
+	if (text->password == NULL) {
+		pass_result = _plug_get_password(params->utils, &text->password,
+										 &text->free_password, prompt_need);
+		
+		if ((pass_result != SASL_OK) && (pass_result != SASL_INTERACT))
+			return pass_result;
+	}
+	/* free prompts we got */
+	if (prompt_need && *prompt_need) {
+		params->utils->free(*prompt_need);
+		*prompt_need = NULL;
+	}
 	
+	/* if there are prompts not filled in */
+	if (pass_result == SASL_INTERACT) {
+		/* make the prompt list */
+		result =
+		_plug_make_prompts(params->utils, prompt_need,
+						   NULL, NULL,
+						   NULL,
+						   NULL,
+						   pass_result == SASL_INTERACT ?
+						   "Please enter your password" : NULL, NULL,
+						   NULL, NULL, NULL,
+						   NULL, NULL, NULL);
+		if (result != SASL_OK) return result;
+		
+		return SASL_INTERACT;
+	}
+		
+	if (!text->password) {
+		PARAMERROR(params->utils);
+		return SASL_BADPARAM;
+	}
+		
 	if (clientoutlen) *clientoutlen = text->password->len;
-	*clientout = (const char *)text->password->data;
+	*clientout = (char *) text->password->data;
 	
 	/* set oparams */
 	oparams->doneflag = 1;
@@ -427,7 +457,7 @@ static int login_client_mech_step(void *conn_context,
 	oparams->param_version = 0;
 	
 	return SASL_OK;
-
+	}
     default:
 	params->utils->log(NULL, SASL_LOG_ERR,
 			   "Invalid LOGIN client step %d\n", text->state);
@@ -455,7 +485,8 @@ static sasl_client_plug_t login_client_plugins[] =
     {
 	"LOGIN",			/* mech_name */
 	0,				/* max_ssf */
-	SASL_SEC_NOANONYMOUS,		/* security_flags */
+	SASL_SEC_NOANONYMOUS
+	| SASL_SEC_PASS_CREDENTIALS,	/* security_flags */
 	SASL_FEAT_SERVER_FIRST,		/* features */
 	NULL,				/* required_prompts */
 	NULL,				/* glob_context */

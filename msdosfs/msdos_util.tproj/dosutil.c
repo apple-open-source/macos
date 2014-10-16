@@ -75,6 +75,8 @@
 #include <stdlib.h> 
 #include <pwd.h>
 
+#include  <CommonCrypto/CommonDigest.h>
+
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
 
@@ -102,6 +104,10 @@
 #define LABEL_LENGTH		11
 #define MAX_DOS_BLOCKSIZE	4096
 
+#ifndef FSUC_GETUUID
+#define FSUC_GETUUID		'k'
+#endif
+
 #define FSUC_LABEL		'n'
 
 #define UNKNOWN_LABEL		"Unlabeled"
@@ -114,7 +120,6 @@
 
 #define	CLUST_FIRST	2			/* first legal cluster number */
 #define	CLUST_RSRVD	0x0ffffff6	/* reserved cluster range */
-
 
 
 /* globals */
@@ -132,6 +137,7 @@ static int fs_probe(char *devpath, int removable, int writable);
 static int fs_mount(char *devpath, char *mount_point, int removable, 
 	int writable, int suid, int dev);
 static int fs_unmount(char *devpath);
+int fs_get_uuid(char *device_path);
 static int fs_label(char *devpath, char *volName);
 static void fs_set_label_file(char *labelPtr);
 
@@ -145,29 +151,36 @@ static int checkLoadable(void);
 static int oklabel(const char *src);
 static void mklabel(char *dest, const char *src);
 
+int get_mount_point(char *device_path, char **mount_path);
+void uuid_create_md5_from_name(uuid_t result_uuid, const uuid_t namespace, const void *name, int namelen);
+int fs_get_uuid_attr(char *mount_path, uuid_t uuid);
+int fs_get_uuid_raw(char *device_path, uuid_t uuid);
+
+
 int ret = 0;
 
 
 void usage()
 {
-        fprintf(stderr, "usage: %s action_arg device_arg [mount_point_arg] [Flags]\n", progname);
-        fprintf(stderr, "action_arg:\n");
-        fprintf(stderr, "       -%c (Probe)\n", FSUC_PROBE);
-        fprintf(stderr, "       -%c (Mount)\n", FSUC_MOUNT);
-        fprintf(stderr, "       -%c (Unmount)\n", FSUC_UNMOUNT);
-        fprintf(stderr, "       -%c name\n", 'n');
-    fprintf(stderr, "device_arg:\n");
-    fprintf(stderr, "       device we are acting upon (for example, 'disk0s2')\n");
-    fprintf(stderr, "mount_point_arg:\n");
-    fprintf(stderr, "       required for Mount and Force Mount \n");
-    fprintf(stderr, "Flags:\n");
-    fprintf(stderr, "       required for Mount, Force Mount and Probe\n");
-    fprintf(stderr, "       indicates removable or fixed (for example 'fixed')\n");
-    fprintf(stderr, "       indicates readonly or writable (for example 'readonly')\n");
-    fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "		%s -p disk0s2 fixed writable\n", progname);
-    fprintf(stderr, "		%s -m disk0s2 /my/hfs removable readonly\n", progname);
-        exit(FSUR_INVAL);
+	fprintf(stderr, "usage: %s action_arg device_arg [mount_point_arg] [Flags]\n", progname);
+	fprintf(stderr, "action_arg:\n");
+	fprintf(stderr, "       -%c (Probe)\n", FSUC_PROBE);
+	fprintf(stderr, "       -%c (Mount)\n", FSUC_MOUNT);
+	fprintf(stderr, "       -%c (Unmount)\n", FSUC_UNMOUNT);
+	fprintf(stderr, "       -%c (Get UUID)\n", FSUC_GETUUID);
+	fprintf(stderr, "       -%c name\n", FSUC_LABEL);
+	fprintf(stderr, "device_arg:\n");
+	fprintf(stderr, "       device we are acting upon (for example, 'disk0s2')\n");
+	fprintf(stderr, "mount_point_arg:\n");
+	fprintf(stderr, "       required for Mount and Force Mount \n");
+	fprintf(stderr, "Flags:\n");
+	fprintf(stderr, "       required for Mount, Force Mount and Probe\n");
+	fprintf(stderr, "       indicates removable or fixed (for example 'fixed')\n");
+	fprintf(stderr, "       indicates readonly or writable (for example 'readonly')\n");
+	fprintf(stderr, "Examples:\n");
+	fprintf(stderr, "		%s -p disk0s2 fixed writable\n", progname);
+	fprintf(stderr, "		%s -m disk0s2 /my/hfs removable readonly\n", progname);
+	exit(FSUR_INVAL);
 }
 
 int main(int argc, char **argv)
@@ -194,7 +207,7 @@ int main(int argc, char **argv)
     if (argc < 2 || argv[0][0] != '-')
         usage();
     opt = argv[0][1];
-    if (opt != FSUC_PROBE && opt != FSUC_MOUNT && opt != FSUC_UNMOUNT && opt != FSUC_LABEL)
+    if (opt != FSUC_PROBE && opt != FSUC_MOUNT && opt != FSUC_UNMOUNT && opt != FSUC_GETUUID && opt != FSUC_LABEL)
         usage(); /* Not supported action */
     if ((opt == FSUC_MOUNT || opt == FSUC_UNMOUNT || opt == FSUC_LABEL) && argc < 3)
         usage(); /* mountpoint arg missing! */
@@ -255,6 +268,9 @@ int main(int argc, char **argv)
         case FSUC_UNMOUNT:
             ret = fs_unmount(rawdevpath);
             break;
+		case FSUC_GETUUID:
+			ret = fs_get_uuid(blockdevpath);
+			break;
         case FSUC_LABEL:
             ret = fs_label(rawdevpath, argv[2]);
             break;
@@ -270,37 +286,29 @@ int main(int argc, char **argv)
 /*
  * Begin Filesystem-specific code
  */
-static int fs_probe(char *devpath, int removable, int writable)
+static int valid_boot_sector(int fd, const char *devpath, char buf[MAX_DOS_BLOCKSIZE])
 {
-    int fd;
-    struct dosdirentry *dirp;
     union bootsector *bsp;
     struct byte_bpb33 *b33;
     struct byte_bpb50 *b50;
     struct byte_bpb710 *b710;
-    u_int32_t	dev_block_size;
+	u_int32_t dev_block_size;
     u_int16_t	bps;
     u_int8_t	spc;
-    unsigned	rootDirSectors;
-    unsigned	i,j, finished;
-    char diskLabel[LABEL_LENGTH];
-    char buf[MAX_DOS_BLOCKSIZE];
-
-    fd = safe_open(devpath, O_RDONLY, 0);
-
-    if (ioctl(fd, DKIOCGETBLOCKSIZE, &dev_block_size) < 0)
-    {
-        fprintf(stderr, "%s: ioctl(DKIOCGETBLOCKSIZE) for %s failed, %s\n",
-            progname, devpath, strerror(errno));
-        return FSUR_IO_FAIL;
-    }
-    if (dev_block_size > MAX_DOS_BLOCKSIZE)
-    {
-        fprintf(stderr, "%s: block size of %s is too big (%lu)\n",
-            progname, devpath, (unsigned long) dev_block_size);
-        return FSUR_UNRECOGNIZED;
-    }
-    
+	
+	if (ioctl(fd, DKIOCGETBLOCKSIZE, &dev_block_size) < 0)
+	{
+		fprintf(stderr, "%s: ioctl(DKIOCGETBLOCKSIZE) for %s failed, %s\n",
+				progname, devpath, strerror(errno));
+		return FSUR_IO_FAIL;
+	}
+	if (dev_block_size > MAX_DOS_BLOCKSIZE)
+	{
+		fprintf(stderr, "%s: block size of %s is too big (%lu)\n",
+				progname, devpath, (unsigned long) dev_block_size);
+		return FSUR_UNRECOGNIZED;
+	}
+	
     /*
      * Read the boot sector of the filesystem, and then check the
      * boot signature.  If not a dos boot sector then error out.
@@ -308,12 +316,12 @@ static int fs_probe(char *devpath, int removable, int writable)
      * NOTE: 4096 is a maximum sector size in current...
      */
     safe_read(fd, buf, MAX_DOS_BLOCKSIZE, 0);
-
+	
     bsp = (union bootsector *)buf;
     b33 = (struct byte_bpb33 *)bsp->bs33.bsBPB;
     b50 = (struct byte_bpb50 *)bsp->bs50.bsBPB;
     b710 = (struct byte_bpb710 *)bsp->bs710.bsBPB;
-    
+
     /* [2699033]
      *
      * The first three bytes are an Intel x86 jump instruction.  It should be one
@@ -332,24 +340,24 @@ static int fs_probe(char *devpath, int removable, int writable)
     {
         return FSUR_UNRECOGNIZED;
     }
-
+	
     /* It is possible that the above check could match a partition table, or some */
     /* non-FAT disk meant to boot a PC.  Check some more fields for sensible values. */
-
+	
     /* We only work with 512, 1024, 2048, and 4096 byte sectors */
     bps = getuint16(b33->bpbBytesPerSec);
     if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
 	{
         return(FSUR_UNRECOGNIZED);
 	}
-
+	
     /* Check to make sure valid sectors per cluster */
     spc = b33->bpbSecPerClust;
     if ((spc == 0 ) || (spc & (spc - 1)))
 	{
         return(FSUR_UNRECOGNIZED);
 	}
-
+	
 	/* Make sure the number of FATs is OK; on NTFS, this will be zero */
 	if (b33->bpbFATs == 0)
 	{
@@ -361,12 +369,47 @@ static int fs_probe(char *devpath, int removable, int writable)
 	{
 		return(FSUR_UNRECOGNIZED);
 	}
-
+	
 	/* Make sure there is a root directory */
 	if (getuint16(b33->bpbRootDirEnts) == 0 && getuint32(b710->bpbRootClust) == 0)
 	{
 		return(FSUR_UNRECOGNIZED);
 	}
+	
+	return FSUR_RECOGNIZED;
+}
+
+
+static int fs_probe(char *devpath, int removable, int writable)
+{
+    int fd;
+	int err;
+    struct dosdirentry *dirp;
+    union bootsector *bsp;
+    struct byte_bpb33 *b33;
+    struct byte_bpb50 *b50;
+    struct byte_bpb710 *b710;
+    u_int16_t	bps;
+    u_int8_t	spc;
+    unsigned	rootDirSectors;
+    unsigned	i,j, finished;
+    char diskLabel[LABEL_LENGTH];
+    char buf[MAX_DOS_BLOCKSIZE];
+
+    fd = safe_open(devpath, O_RDONLY, 0);
+
+	err = valid_boot_sector(fd, devpath, buf);
+	if (err != FSUR_RECOGNIZED)
+		return err;
+	
+    bsp = (union bootsector *)buf;
+    b33 = (struct byte_bpb33 *)bsp->bs33.bsBPB;
+    b50 = (struct byte_bpb50 *)bsp->bs50.bsBPB;
+    b710 = (struct byte_bpb710 *)bsp->bs710.bsBPB;
+    
+	/* valid_boot_sector sanity checked bytes-per-sector and sectors-per-cluster */
+    bps = getuint16(b33->bpbBytesPerSec);
+    spc = b33->bpbSecPerClust;
 
     /* we know this disk, find the volume label */
     /* First, find the root directory */
@@ -517,6 +560,207 @@ static int fs_unmount(char *devpath) {
 /*
  * Begin Filesystem-specific code
  */
+
+/*
+ * Check to see if a file system is mounted on the given device path.
+ * If it is, and it is FAT, then return a pointer to the volume's mount-on
+ * path and FSUR_IO_SUCCESS.  If a volume is mounted but is not FAT, return
+ * FSUR_UNRECOGNIZED.  If no volume is mounted, return a NULL pointer for the
+ * mount-on path and FSUR_IO_SUCCESS.
+ *
+ * We use this when asked to get or set the volume UUID.  If the volume is
+ * mounted, we go through the file system; otherwise, we access the device
+ * directly.
+ */
+int get_mount_point(char *device_path, char **mount_path)
+{
+	int result;
+	int i, num_mounts;
+	struct statfs *buf;
+	
+	/* Assume no mounted volume is found. */
+	*mount_path = NULL;
+	result = FSUR_IO_SUCCESS;
+	
+	num_mounts = getmntinfo(&buf, MNT_NOWAIT);
+	if (num_mounts == 0)
+		return FSUR_IO_FAIL;
+	
+	for (i = 0; i < num_mounts; ++i)
+	{
+		if (!strcmp(device_path, buf[i].f_mntfromname))
+		{
+			/* Found a mounted volume.  Check the file system type. */
+			if (!strcmp(buf[i].f_fstypename, FS_TYPE))
+			{
+				*mount_path = buf[i].f_mntonname;
+			}
+			else
+			{
+				result = FSUR_UNRECOGNIZED;
+			}
+			break;
+		}
+	}
+	
+	return result;
+}
+
+/*
+ * Create a version 3 UUID from unique data in the SHA1 "name space".
+ * Version 3 UUIDs are derived using MD5 checksum.  Here, the unique
+ * data is the 4-byte volume ID and the number of sectors (normalized
+ * to a 4-byte little endian value).
+ */
+static void msdosfs_generate_volume_uuid(uuid_t result_uuid, uint8_t volumeID[4], uint32_t totalSectors)
+{
+	CC_MD5_CTX c;
+	uint8_t sectorsLittleEndian[4];
+	
+	UUID_DEFINE( kFSUUIDNamespaceSHA1, 0xB3, 0xE2, 0x0F, 0x39, 0xF2, 0x92, 0x11, 0xD6, 0x97, 0xA4, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC );
+	
+	/*
+	 * Normalize totalSectors to a little endian value so that this returns the
+	 * same UUID regardless of endianness.
+	 */
+	putuint32(sectorsLittleEndian, totalSectors);
+	
+	/*
+	 * Generate an MD5 hash of our "name space", and our unique bits of data
+	 * (the volume ID and total sectors).
+	 */
+	CC_MD5_Init(&c);
+	CC_MD5_Update(&c, kFSUUIDNamespaceSHA1, sizeof(uuid_t));
+	CC_MD5_Update(&c, volumeID, 4);
+	CC_MD5_Update(&c, sectorsLittleEndian, sizeof(sectorsLittleEndian));
+	CC_MD5_Final(result_uuid, &c);
+	
+	/* Force the resulting UUID to be a version 3 UUID. */
+	result_uuid[6] = (result_uuid[6] & 0x0F) | 0x30;
+	result_uuid[8] = (result_uuid[8] & 0x3F) | 0x80;
+}
+
+/* Get the volume UUID of a mounted volume. */
+int fs_get_uuid_attr(char *mount_path, uuid_t uuid)
+{
+    struct attrlist attrlist;
+	struct {
+		uint32_t length;
+		uuid_t uuid;
+    } buf;
+    int result;
+    
+    attrlist.bitmapcount = 5;
+    attrlist.reserved = 0;
+    attrlist.commonattr = 0;
+    attrlist.volattr = ATTR_VOL_INFO | ATTR_VOL_UUID;
+    attrlist.dirattr = 0;
+    attrlist.fileattr = 0;
+    attrlist.forkattr = 0;
+    
+    result = getattrlist(mount_path, &attrlist, &buf, sizeof(buf), 0);
+    if (result)
+    {
+		/*
+		 * If the volume doesn't have a UUID (because it doesn't have an
+		 * extended boot parameter block, or because the volume ID in the
+		 * extended BPB was zero), then we'll get EINVAL here.  That's an
+		 * "expected failure" and we shouldn't print a message about it.
+		 */
+		if (debug || errno != EINVAL)
+			warn("fs_get_uuid_attr: getattrlist(\"%s\", ATTR_VOL_UUID)", mount_path);
+		return FSUR_RECOGNIZED;
+    }
+    
+    memcpy(uuid, buf.uuid, sizeof(uuid_t));
+    
+    return FSUR_IO_SUCCESS;
+}
+
+/* Get the volume UUID from an unmounted device. */
+int fs_get_uuid_raw(char *device_path, uuid_t uuid)
+{
+	int fd;
+	int result;
+    union bootsector *bsp;
+    struct byte_bpb50 *b50;
+    struct byte_bpb710 *b710;
+	struct extboot *extboot;
+    char buf[MAX_DOS_BLOCKSIZE];
+	
+	fd = safe_open(device_path, O_RDONLY, 0);
+	
+	result = valid_boot_sector(fd, device_path, buf);
+	if (result != FSUR_RECOGNIZED)
+		return result;
+
+    bsp = (union bootsector *)buf;
+    b50 = (struct byte_bpb50 *)bsp->bs50.bsBPB;
+    b710 = (struct byte_bpb710 *)bsp->bs710.bsBPB;
+
+	if (getuint16(b50->bpbRootDirEnts) == 0)
+	{
+		/* FAT32 */
+		extboot = (struct extboot *)(buf + 64);
+	}
+	else
+	{
+		/* FAT12 or FAT16 */
+		extboot = (struct extboot *)(buf + 36);
+	}
+	
+	/*
+	 * If it has a volume ID and it is non-zero, convert it to a UUID.
+	 */
+	if (extboot->exBootSignature == EXBOOTSIG &&
+		(extboot->exVolumeID[0] || extboot->exVolumeID[1] ||
+		 extboot->exVolumeID[2] || extboot->exVolumeID[3]))
+	{
+		uint32_t total_sectors;
+		
+		/* Get the total sectors as a 32-bit value */
+		total_sectors = getuint16(b50->bpbSectors);
+		if (total_sectors == 0)
+			total_sectors = getuint32(b50->bpbHugeSectors);
+
+		msdosfs_generate_volume_uuid(uuid, extboot->exVolumeID, total_sectors);
+		result = FSUR_IO_SUCCESS;
+	}
+	/* else, result = FSUR_RECOGNIZED from above */
+	
+	safe_close(fd);
+	
+	return result;
+}
+
+
+/* Get the volume UUID */
+int fs_get_uuid(char *device_path)
+{
+	char *mount_path;
+	uuid_t uuid;
+	char uuid_text[40];
+	int result;
+	
+	result = get_mount_point(device_path, &mount_path);
+	if (result != FSUR_IO_SUCCESS)
+		return result;
+	
+	if (mount_path)
+		result = fs_get_uuid_attr(mount_path, uuid);
+	else
+		result = fs_get_uuid_raw(device_path, uuid);
+	
+	if (result == FSUR_IO_SUCCESS)
+	{
+		uuid_unparse(uuid, uuid_text);
+		write(1, uuid_text, strlen(uuid_text));
+	}
+	
+	return result;
+}
+
+
 static int fs_label(char *devpath, char *volName)
 {
         int fd;

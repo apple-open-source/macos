@@ -28,7 +28,6 @@
 
 #include "APIObject.h"
 #include "GenericCallback.h"
-#include "ImmutableArray.h"
 #include "MessageReceiver.h"
 #include "WebContextSupplement.h"
 #include <wtf/PassRefPtr.h>
@@ -37,28 +36,33 @@
 
 namespace WebKit {
 
-typedef GenericCallback<WKArrayRef> ArrayCallback;
+typedef GenericCallback<API::Array*> ArrayCallback;
 
-class WebKeyValueStorageManager : public TypedAPIObject<APIObject::TypeKeyValueStorageManager>, public WebContextSupplement {
+class WebKeyValueStorageManager : public API::ObjectImpl<API::Object::Type::KeyValueStorageManager>, public WebContextSupplement {
 public:
     static const char* supplementName();
 
     static PassRefPtr<WebKeyValueStorageManager> create(WebContext*);
     virtual ~WebKeyValueStorageManager();
 
-    void getKeyValueStorageOrigins(PassRefPtr<ArrayCallback>);
+    void getKeyValueStorageOrigins(std::function<void (API::Array*, CallbackBase::Error)>);
+    void getStorageDetailsByOrigin(std::function<void (API::Array*, CallbackBase::Error)>);
     void deleteEntriesForOrigin(WebSecurityOrigin*);
     void deleteAllEntries();
 
-    using APIObject::ref;
-    using APIObject::deref;
+    using API::Object::ref;
+    using API::Object::deref;
+
+    static String originKey();
+    static String creationTimeKey();
+    static String modificationTimeKey();
 
 private:
     explicit WebKeyValueStorageManager(WebContext*);
 
     // WebContextSupplement
-    virtual void refWebContextSupplement() OVERRIDE;
-    virtual void derefWebContextSupplement() OVERRIDE;
+    virtual void refWebContextSupplement() override;
+    virtual void derefWebContextSupplement() override;
 };
 
 } // namespace WebKit

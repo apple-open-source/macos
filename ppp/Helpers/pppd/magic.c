@@ -126,8 +126,12 @@ random_bytes(unsigned char *buf, int len)
 {
 	int i;
 
-	for (i = 0; i < len; ++i)
+	for (i = 0; i < len; ++i) {
 		buf[i] = mrand48() >> 24;
+		if (buf[i] == '\0')
+			// work around a DS API bug that treats a challenge as a C-string instead of byte stream.
+			buf[i] = 1;
+	}
 }
 
 #ifdef NO_DRAND48

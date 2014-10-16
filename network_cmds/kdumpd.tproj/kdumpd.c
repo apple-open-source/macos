@@ -31,8 +31,10 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -433,7 +435,7 @@ validate_access(char **filep, int mode)
     return (errno);
 
 
-  fd = open(filename, O_RDWR|O_CREAT|O_TRUNC , S_IRUSR | S_IWUSR);
+  fd = open(filename, O_RDWR|O_CREAT|O_TRUNC , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
   if (fd < 0)
     return (errno + 100);
@@ -442,8 +444,6 @@ validate_access(char **filep, int mode)
   if (file == NULL) {
     return errno+100;
   }
-  if (fchmod(fd, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP) < 0)
-    return errno+100;
 
   return (0);  
 }

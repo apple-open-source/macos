@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ses.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ses.xml
+ * ICU <specials> source: <path>/common/main/ses.xml
  */
 ses{
     Currencies{
@@ -225,7 +225,7 @@ ses{
         }
         ZMK{
             "ZMK",
-            "Zambi Kwaca (1968-2012)",
+            "Zambi Kwaca (1968–2012)",
         }
         ZMW{
             "ZMW",
@@ -236,5 +236,5 @@ ses{
             "Zimbabwe Dollar",
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.97.28"}
 }

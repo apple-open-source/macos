@@ -143,6 +143,7 @@ OALSource::OALSource (ALuint 	 	inSelfToken, OALContext	*inOwningContext)
 		mASAReverbSendLevel(0.0),
 		mASAOcclusion(0.0),
 		mASAObstruction(0.0),
+        mRenderQuality(ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_LOW),
 		mRogerBeepNode(0),
 		mRogerBeepAU(0),
 		mASARogerBeepEnable(false),
@@ -189,6 +190,8 @@ OALSource::OALSource (ALuint 	 	inSelfToken, OALContext	*inOwningContext)
 
     mReferenceDistance = mOwningContext->GetDefaultReferenceDistance();
     mMaxDistance = mOwningContext->GetDefaultMaxDistance();
+    
+    mRenderQuality = mOwningContext->GetRenderQuality();
      
     if (Get3DMixerVersion() < k3DMixerVersion_2_0)
     {
@@ -1507,7 +1510,7 @@ void	OALSource::SetupMixerBus()
 			
 			if (Get3DMixerVersion() >= k3DMixerVersion_2_0)
 			{
-				Float32     rollOff = mRollOffFactor;
+//				Float32     rollOff = mRollOffFactor;
 				Float32     refDistance = mReferenceDistance;
 				Float32     maxDistance = mMaxDistance;
 
@@ -1515,7 +1518,7 @@ void	OALSource::SetupMixerBus()
 				{
 					refDistance = (mReferenceDistance/mMaxDistance) * kDistanceScalar;
 					maxDistance = kDistanceScalar;
-					rollOff *= (kDistanceScalar/mMaxDistance);
+//					rollOff *= (kDistanceScalar/mMaxDistance);
 				}
 				
 				Float32	testAttenuation = GetMaxAttenuation(mReferenceDistance, mMaxDistance, mRollOffFactor);
@@ -1548,7 +1551,7 @@ void	OALSource::SetupMixerBus()
 					if ((mReferenceDistance == mMaxDistance) && (Get3DMixerVersion() < k3DMixerVersion_2_2))
 						distanceParams.mMaxDistance = distanceParams.mReferenceDistance + .01; // pre 2.2 3DMixer may crash  if max and reference distances are equal
 
-					result = AudioUnitSetProperty(mOwningContext->GetMixerUnit(), kAudioUnitProperty_3DMixerDistanceParams, kAudioUnitScope_Input, mCurrentPlayBus, &distanceParams, sizeof(distanceParams));
+					/*result =*/ AudioUnitSetProperty(mOwningContext->GetMixerUnit(), kAudioUnitProperty_3DMixerDistanceParams, kAudioUnitScope_Input, mCurrentPlayBus, &distanceParams, sizeof(distanceParams));
 				}
 			}
 			else
@@ -1564,7 +1567,7 @@ void	OALSource::SetupMixerBus()
 
 		// get the sample rate of the bus
 		propSize = sizeof(desc);
-		result = AudioUnitGetProperty(mOwningContext->GetMixerUnit(), kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, mCurrentPlayBus, &desc, &propSize);
+		/*result =*/ AudioUnitGetProperty(mOwningContext->GetMixerUnit(), kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, mCurrentPlayBus, &desc, &propSize);
 		
 		mResetPitch = true;	
 		mCalculateDistance = true;				
@@ -1575,6 +1578,7 @@ void	OALSource::SetupMixerBus()
 		
 		ChangeChannelSettings();
 		UpdateBusGain();
+        UpdateBusRenderQuality();
 	}
 	catch (OSStatus	 result) {
 		DebugMessageN2("	SetupMixerBus FAILED, OALSource:error = %d:%d\n", (int) mSelfToken, (int)result);
@@ -2381,6 +2385,32 @@ void OALSource::RemoveNotification(ALuint notificationID, alSourceNotificationPr
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#pragma mark ***** Source Spatialization Ext*****
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+OSStatus    OALSource::SetRenderQuality(ALuint inValue)
+{
+    OSStatus err = noErr;
+    if (IsValidRenderQuality(inValue))
+    {
+        mRenderQuality = inValue;
+        UpdateBusRenderQuality();
+    }
+    else
+    {
+        err = -50; //invalid render quality
+    }
+    return err;
+}
+
+ALint       OALSource::GetRenderQuality()
+{
+    return mRenderQuality;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #pragma mark ***** PRIVATE *****
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2555,15 +2585,15 @@ void	OALSource::DisconnectFromBus()
 #endif
 	try {
 		ReleaseNotifyAndRenderProcs();
-		OSStatus result = noErr;
+//		OSStatus result = noErr;
 
 		// remove the connection between the AUs, if they exist
 		if(mRogerBeepNode || mDistortionNode)
 		{
 			if(mRogerBeepNode && mDistortionNode)
-				result = AUGraphDisconnectNodeInput(mOwningContext->GetGraph(), mRogerBeepNode, 0);
-			result = AUGraphDisconnectNodeInput(mOwningContext->GetGraph(), mOwningContext->GetMixerNode(), mCurrentPlayBus);
-			result = AUGraphUpdate(mOwningContext->GetGraph(), NULL);
+				/*result =*/ AUGraphDisconnectNodeInput(mOwningContext->GetGraph(), mRogerBeepNode, 0);
+			/*result =*/ AUGraphDisconnectNodeInput(mOwningContext->GetGraph(), mOwningContext->GetMixerNode(), mCurrentPlayBus);
+			/*result =*/ AUGraphUpdate(mOwningContext->GetGraph(), NULL);
 		}	
 			
 		if (mCurrentPlayBus != kSourceNeedsBus)
@@ -2586,8 +2616,8 @@ void	OALSource::ChangeChannelSettings()
 #endif
 #if CALCULATE_POSITION
 
-	bool	coneGainChange = false;
-	bool	attenuationGainChange = false;
+//	bool	coneGainChange = false;
+//	bool	attenuationGainChange = false;
 	
 	if (mCalculateDistance == true)
 	{
@@ -2632,7 +2662,7 @@ void	OALSource::ChangeChannelSettings()
 							}
 							mAttenuationGainScaler = (1 - mRollOffFactor * (rel_distance - mReferenceDistance) / (mMaxDistance-mReferenceDistance));
 							DebugMessageN1("AL_LINEAR_DISTANCE scaler =  %f\n", mAttenuationGainScaler);
-							attenuationGainChange = true;
+//							attenuationGainChange = true;
 							break;
 							
 						case AL_EXPONENT_DISTANCE:
@@ -2644,7 +2674,7 @@ void	OALSource::ChangeChannelSettings()
 							}
 							mAttenuationGainScaler = pow((rel_distance / mReferenceDistance), (-mRollOffFactor));
 							DebugMessageN1("AL_EXPONENT_DISTANCE scaler =  %f\n", mAttenuationGainScaler);
-							attenuationGainChange = true;
+//							attenuationGainChange = true;
 							break;
 							
 						case AL_NONE:
@@ -2663,7 +2693,7 @@ void	OALSource::ChangeChannelSettings()
 				}
 				
 				// Source Cone Support Here
-				coneGainChange = ConeAttenuation();
+				/*coneGainChange =*/ ConeAttenuation();
 			}
 		}
 		
@@ -2767,6 +2797,19 @@ void	OALSource::UpdateBusFormat ()
             }
         }
     }
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	OALSource::UpdateBusRenderQuality ()
+{
+#if LOG_VERBOSE
+    DebugMessageN1("OALSource::UpdateBusRenderQuality - OALSource = %ld\n", (long int) mSelfToken);
+#endif
+	
+	if (mCurrentPlayBus != kSourceNeedsBus)
+	{
+		mOwningContext->SetSourceDesiredRenderQualityOnBus(mRenderQuality, mCurrentPlayBus);
+	}
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

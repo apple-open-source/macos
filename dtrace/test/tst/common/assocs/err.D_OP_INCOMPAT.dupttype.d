@@ -37,11 +37,6 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	self->x[123] = `kmem_flags;
-	self->x[456] = *`rootvp;
-#else
 	self->x[123] = `proc0;
 	self->x[456] = *`rootvp;
-#endif /* __APPLE__ */
 }

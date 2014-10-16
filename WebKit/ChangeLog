@@ -1,330 +1,3097 @@
-2014-07-22  Dana Burkart  <dburkart@apple.com>
+2014-08-15  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Merge r169475
+        Merge r172019. <rdar://problem/18029617>
 
-    2014-05-28  Jon Honeycutt  <jhoneycutt@apple.com> 
+    2014-08-04  Matthew Hanson  <matthew_hanson@apple.com>
     
-            Roll r168668 back in. 
+            [Win] Temporarily deactivate WebGL.
+            https://bugs.webkit.org/show_bug.cgi?id=135543
     
-            <https://bugs.webkit.org/show_bug.cgi?id=132621> 
-     
-            Reviewed by Brent Fulgham. 
-     
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: 
-
-2014-05-19  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r169098
-
-    2013-09-19  Bear Travis  <betravis@adobe.com>
-
-            CSS_SHAPES not supported on AppleWin port
-            https://bugs.webkit.org/show_bug.cgi?id=118810
-
-            Reviewed by Brent Fulgham.
-
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add required symbol for enabling CSS Shapes.
-
-2014-03-12  Brent Fulgham  <bfulgham@apple.com>
-
-        [Win] Unreviewed build fix.
-
-        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Correct
-        64-bit debug symbol export definition.
-
-2014-03-10  Brent Fulgham  <bfulgham@apple.com>
-
-        Merge r165393.
-
-    2014-03-10  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] Pass environment to Pre-Build, Pre-Link, and Post-Build Stages.
-            https://bugs.webkit.org/show_bug.cgi?id=130023
-
-            Reviewed by Dean Jackson.
-
-            * WebKit.vcxproj/WebKit/Interfaces/InterfacesPreBuild.cmd: Use %PlatformArchitecture% rather than
-            hard-coded 32-bit path.
-            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Ditto.
-
-2014-03-07  Brent Fulgham  <bfulgham@apple.com>
-
-        [Win] Build fix for combined 32-bit and 64-bit target.
-
-        * WebKit.vcxproj/WebKit/WebKitDirectX.props: Use PlatformTarget so that path matches
-        what DirectX uses.
-        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Correct some symbols to
-        match sources in branch.
-
-2014-03-07  Brent Fulgham  <bfulgham@apple.com>
-
-        Merge r152930.
-
-    2013-07-19  Alex Christensen  <achristensen@apple.com> 
- 
-            Added 64-bit symbols to WebKitExports.def.in for 64-bit Windows builds 
-            and a macro to only use them for 64-bit builds. 
-            https://bugs.webkit.org/show_bug.cgi?id=118887 
-
-            Reviewed by Brent Fulgham. 
-
-            * WebKit.vcxproj/WebKit.make: Removed.
-            * WebKit.vcxproj/WebKit/WebKitDirectX.props: Correct link path
-            for 64-bit DirectX.
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Added 64-bit symbols. 
-            * WebKit.vcxproj/WebKitExportGenerator/make-export-file-generator: 
-            Added support for new symbolWithPointer macro. 
-
-2014-03-07  Brent Fulgham  <bfulgham@apple.com>
-
-        [Win] Unreviewed gardening.
-
-        Remove deprecated makefile now that MSBuild file is committed.
-
-        * WebKit.vcxproj/WebKit.make: Removed.
-
-2014-03-07  Brent Fulgham  <bfulgham@apple.com>
-
-        Merge r165270.
-
-    2014-03-07  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] Convert WebKit.make to an MSBuild file.
-            https://bugs.webkit.org/show_bug.cgi?id=129888
-
-            Reviewed by Dean Jackson.
-
-            * WebKit.vcxproj/WebKit.proj: Added.
-
-2014-02-04  Brent Fulgham  <bfulgham@apple.com>
-
-        Merge r154395.
-
-    2013-08-20  Brent Fulgham  <bfulgham@apple.com>
-
-            <https://webkit.org/b/120098> [Windows] Enable the new Web Inspector
-
-            Reviewed by Brian Weinstein.
-
-            * WebKit.vcxproj/WebKit.sln: Add reference to the new WebInspectorUI
-            project so that it will be included in new distributions.
-
-2014-01-23  Brent Fulgham  <bfulgham@apple.com>
-
-        Unreviewed build correction.
-
-        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Link 32-bit builds against QTMovieWin for the time being.
-
-2014-01-23  Brent Fulgham  <bfulgham@apple.com>
-
-        Merge r162621
-
-    2014-01-22  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] Update project and solution files for 64-bit builds
-            https://bugs.webkit.org/show_bug.cgi?id=127457
-
-            Reviewed by Eric Carlson.
-
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Specify v100 target
-            for all builds on this branch.
-            * WebKit.vcxproj/WebKit.submit.sln: Add 64-bit target.
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj: Specify v100 target for all
-            builds on this branch.
-            * WebKit.vcxproj/WebKit/WebKitApple.props: Remove unused QTMovieWin
-            library dependency.
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
-            Specify v100 target for all builds on this branch.
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Ditto
-
-2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
-
-        Merge r154513
-
-    2013-08-23  Alex Christensen  <achristensen@apple.com>
-
-            Re-separating Win32 and Win64 builds.
-            https://bugs.webkit.org/show_bug.cgi?id=120178
-
-            Reviewed by Brent Fulgham.
-
-            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
-            Use PlatformArchitecture to determine correct object directory (obj32 or obj64).
-
-2013-12-11  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r160118
-
-    2013-12-04  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] Correct WebKit.make copy command to land resources in proper directory.
-            https://bugs.webkit.org/show_bug.cgi?id=125249
-
-            Reviewed by Tim Horton.
-
-            * WebKit.vcxproj/WebKit.make: Correct the copy command.
-
-2013-12-11  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r160017
-
-    2013-12-03  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] WebKit.make Makefile doesn't copy resource bundle to DSTROOT
-            https://bugs.webkit.org/show_bug.cgi?id=125160
-
-            Reviewed by Tim Horton.
-
-            * WebKit.vcxproj/WebKit.make: Add copy command for resource bundle.
-
-2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
-
-        Merge 154333
-
-    2013-08-20  Alex Christensen  <achristensen@apple.com>
-
-            Use PlatformArchitecture to distinguish between 32-bit and 64-bit builds on Windows.
-            https://bugs.webkit.org/show_bug.cgi?id=119512
-
-            Reviewed by Brent Fulgham.
-
-            * WebKit.vcxproj/Interfaces/InterfacesCommon.props:
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj:
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
-            * WebKit.vcxproj/WebKit/WebKitCommon.props:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUIDCommon.props:
-            Replaced obj32, bin32, and lib32 with macros fo
-
-2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
-
-        Merge 152921
-
-    2013-07-19  Alex Christensen  <achristensen@apple.com>
-
-            Added x64 configuration to Visual Studio build.
-            https://bugs.webkit.org/show_bug.cgi?id=118888
-
-            Reviewed by Brent Fulgham.
-
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
-            * WebKit.vcxproj/WebKit.sln:
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
-
-2013-11-04  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r158602
-
-    2013-11-04  Brent Fulgham  <bfulgham@apple.com>
-
-            [Win] Use VersionStamper for official builds
-            https://bugs.webkit.org/show_bug.cgi?id=123758
-
-            Reviewed by Tim Horton.
-
-            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Restore command to
-            call VersionStamper on final stage of build.
-
-2013-10-24  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r154642
-
-    2013-08-26  Roger Fong  <roger_fong@apple.com>
-
-            AppleWin build fix following r154627.
-
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
-
-2013-10-24  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r154627
-
-    2013-08-21  Roger Fong  <roger_fong@apple.com>
-
-            <https://bugs.webkit.org/show_bug.cgi?id=119829> IAccessibleText and IAccessibleEditableText implementation for AppleWindows port.
-
-            Reviewed by Chris Fleizach.
-
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj:
-            * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
-            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
-
-2013-07-12  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r152571
-
-    2013-07-11  Timothy Hatcher  <timothy@apple.com>
-
-            Revert r152267 and soft link WebInspectorUI.framework again.
-
-            https://bugs.webkit.org/show_bug.cgi?id=118544
-
-            Reviewed by David Kilzer.
-
-            * WebKit.xcodeproj/project.pbxproj:
-
-2013-07-08  Lucas Forschler  <lforschler@apple.com>
-
-        Merge r152267
-
-    2013-07-01  Timothy Hatcher  <timothy@apple.com>
-
-            Link to WebInspectorUI.framework at build time instead of soft linking.
-
-            https://bugs.webkit.org/show_bug.cgi?id=118261
+            Unreviewed build fix.
+    
+            Landed on behalf of Brent Fulgham.
+    
+            * WebKit.vcxproj/WebKit/WebKitCommon.props: Avoid
+            linking to ANGLE-based libraries.
+    
+2014-08-07  Dana Burkart <dburkart@apple.com>
+
+        Merge r172241
+
+    2014-08-07  Timothy Hatcher  <timothy@apple.com>
+
+            Web Inspector: Update glyphs to be more like Xcode 6
+            https://bugs.webkit.org/show_bug.cgi?id=135705
 
             Reviewed by Joseph Pecoraro.
 
-            * WebKit.xcodeproj/project.pbxproj:
+            * WebKit.xcodeproj/project.pbxproj: Added new images.
 
-2013-07-01  Lucas Forschler  <lforschler@apple.com>
+2014-07-30  Lucas Forschler  <lforschler@apple.com>
 
-        Merge r152065
+        Merge r171825
 
-    2013-06-26  Roger Fong  <roger_fong@apple.com>
+    2014-07-29  Brent Fulgham  <bfulgham@apple.com>
+    
+            [Win] Modify version numbering scheme to support 5-tuple versions
+            https://bugs.webkit.org/show_bug.cgi?id=135400
+            <rdar://problem/17849033>
+    
+            Reviewed by David Kilzer.
+    
+            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Use the new
+            version-stamp.pl script to version JavaScriptCore.dll.
 
-            Add an accessibility delegate interface to AppleWin port.
-            https://bugs.webkit.org/show_bug.cgi?id=118094.
+2014-07-09  Brent Fulgham  <bfulgham@apple.com>
 
-            Reviewed by Brent Fulgham.
+        [Win] Remove uses of 'bash' in build system
+        https://bugs.webkit.org/show_bug.cgi?id=134782
+        <rdar://problem/17615533>
 
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
-            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
+        Reviewed by Dean Jackson.
 
-2013-06-21  Lucas Forschler  <lforschler@apple.com>
+        Remove uses of 'bash' by replacing Windows-specific bash scripts
+        with Perl equivalents.
 
-        Merge r151847
+        * WebKit.vcxproj/Interfaces/FixMIDLHeaders.pl:
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitVersion.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDPreBuild.cmd:
 
-    2013-06-21  Roger Fong  <roger_fong@apple.com>
+2014-07-09  Brent Fulgham  <bfulgham@apple.com>
 
-            Unreviewed. Fix a missing parenthesis in include directory path.
+        [Win] Remove use of 'grep' in build steps
+        https://bugs.webkit.org/show_bug.cgi?id=134770
+        <rdar://problem/17608783>
 
-            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+        Reviewed by Tim Horton.
 
-2013-06-21  Lucas Forschler  <lforschler@apple.com>
+        Replace uses of the grep command in Windows builds with the equivalent
+        Perl program.
 
-        Merge r151787
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDPreBuild.cmd:
 
-    2013-06-20  Roger Fong  <roger_fong@apple.com>
+2014-07-08  Brent Fulgham  <bfulgham@apple.com>
 
-            Make Windows makefile copy build output to a different folder.
-            <rdar://problem/14219184>.
+        [Win] Implement auto-version as a Perl program
+        https://bugs.webkit.org/show_bug.cgi?id=134745
+        <rdar://problem/17597801>
 
-            * WebKit.vcxproj/WebKit.make:
+        Reviewed by David Kilzer.
+
+        Modify build commands to use new Perl version of the
+        auto-version script.
+
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+
+2014-07-06  Yoav Weiss  <yoav@yoav.ws>
+
+        Turn on img@sizes compile flag
+        https://bugs.webkit.org/show_bug.cgi?id=134634
+
+        Reviewed by Benjamin Poulain.
+
+        * mac/Configurations/FeatureDefines.xcconfig: Moved compile flag to alphabetical order.
+
+2014-07-01  Alex Christensen  <achristensen@webkit.org>
+
+        [Win64] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbols.
+
+2014-06-27  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Implement parts of the AVFOUNDATION_LOADER_DELEGATE logic for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=134418
+
+        Reviewed by Eric Carlson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add new
+        export.
+
+2014-06-26  Brady Eidson  <beidson@apple.com>
+
+        Remove use of PlatformStrategies for Gamepad API.
+        https://bugs.webkit.org/show_bug.cgi?id=134348
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-06-25  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Expose Cache Information to WinLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=134318
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Copy the
+        CFDictionaryPropertyBag header to WebKit API directory.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Expose the dictionary accessor for the CFDictionaryPropertyBag.
+
+2014-06-25  Brady Eidson  <beidson@apple.com>
+
+        Add HID-based gamepad implementation for Mac
+        https://bugs.webkit.org/show_bug.cgi?id=134324
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-06-23  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Remove the WebKit1 EFL code
+        https://bugs.webkit.org/show_bug.cgi?id=134096
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Removed.
+        * efl: Removed entire efl directory.
+
+2014-06-18  Alex Christensen  <achristensen@webkit.org>
+
+        Add FTL to Windows build.
+        https://bugs.webkit.org/show_bug.cgi?id=134015
+
+        Reviewed by Filip Pizlo.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Added libllvmForJSC with a dependency on JavaScriptCoreGenerated, but don't build it yet.
+
+2014-06-11  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Fixed 64-bit linker symbol.
+
+2014-06-04  Alex Christensen  <achristensen@webkit.org>
+
+        Enable WebGL on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=133503
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Build ANGLE projects and add them as a dependency for linking WebKit.dll.
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+        Link to ANGLE libraries to get EGL, GLESv2, and GLSL translator symbols.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added 64-bit linker symbol.
+
+2014-05-28  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Roll r168668 back in.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=132621>
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-27  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Speculative Windows buildfix after r169358.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-22  Antti Koivisto  <antti@apple.com>
+
+        Try to fix windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-21  Alex Christensen  <achristensen@webkit.org>
+
+        [Win64] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbol.
+
+2014-05-13  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Revert "Don't dispatch 'beforeload' event inside FrameView::layout()",
+        commit 84fe8cf6fbe8b5de9a06300ca3ef6d0ffc96948c, and associated
+        follow-up fixes:
+
+            "platform/mac/plugins/testplugin-onnew-onpaint.html failing after
+                r168668", commit c17be3bf5127baf94310af4b4b9bf5a57d29aaf4
+            "[Win] Unreviewed build fix after r168668.", commit
+                4fa470ad12c38ee7d4c114541b6dd321181a8bc9
+
+        The original merged patch appears to have caused a regression in
+        fast/dom/HTMLObjectElement/object-as-frame.html.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=132886>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-13  Dean Jackson  <dino@apple.com>
+
+        Step 2 (of 2) fixing the Windows build. Add new setPageScaleFactor.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-13  Dean Jackson  <dino@apple.com>
+
+        Step 1 of fixing the windows build. Remove setPageScaleFactor.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-12  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix after r168668.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        missing export symbols.
+
+2014-05-12  Anders Carlsson  <andersca@apple.com>
+
+        Don't make a Frameworks symlink inside WebKitLegacy.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132842
+        <rdar://problem/16886939>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-05-09  Anders Carlsson  <andersca@apple.com>
+
+        Rename WebKit2.framework to WebKit.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132743
+        <rdar://problem/15920046>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Remove the WebKit framework, it lives inside WebKit2 now.
+
+2014-05-07  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed 64-bit build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        correct 64-bit symbol definitions.
+
+2014-05-07  Oliver Hunt  <oliver@apple.com>
+
+        Fix windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-05-06  Anders Carlsson  <andersca@apple.com>
+
+        Put the symlink in the right place.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-05-06  Anders Carlsson  <andersca@apple.com>
+
+        Put WebKitPluginHost.app in WebKitLegacy.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132592
+        <rdar://problem/15920046>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-05-05  Andreas Kling  <akling@apple.com>
+
+        Unreviewed, rolling out r168334.
+
+        Broke builds.
+
+        Reverted changeset:
+
+        "Put WebKitPluginHost.app in WebKitLegacy.framework"
+        https://bugs.webkit.org/show_bug.cgi?id=132592
+        http://trac.webkit.org/changeset/168334
+
+2014-05-05  Anders Carlsson  <andersca@apple.com>
+
+        Put WebKitPluginHost.app in WebKitLegacy.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132592
+        <rdar://problem/15920046>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-05-02  Anders Carlsson  <andersca@apple.com>
+
+        Remove unsuccessful build fix attempts
+        https://bugs.webkit.org/show_bug.cgi?id=132476
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-05-01  Anders Carlsson  <andersca@apple.com>
+
+        Support OS-version-specific install paths for WebKit.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132448
+        <rdar://problem/16784932>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Add a build step to put a symlink in place from PrivateFrameworks to Frameworks.
+
+2014-05-01  Dan Bernstein  <mitz@apple.com>
+
+        <rdar://problem/16780403> REGRESSION: Plugin tests failing on Mac/WebKit1.
+
+        * WebKit.xcodeproj/project.pbxproj: Keep the WebKitPluginHost.app symlink in
+        WebKit.framework for now.
+
+2014-04-30  Eric Carlson  <eric.carlson@apple.com>
+
+        [iOS] do not pause video when entering background while playing to external device
+        https://bugs.webkit.org/show_bug.cgi?id=132374
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Try yet again to fix the build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Another build fix attempt.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the iOS build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Another build fix attempt.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Remove headers if it seems like the WKWebViewPrivate header imports itself.
+        
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Another build fix.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Remove WK headers from WebKit.framework as well when WebKitLegacy WK headers are encountered.
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Remove old WK forwarding headers from WebKitLegacy.
+
+2014-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Move the legacy WebKit API into WebKitLegacy.framework and move it inside WebKit.framework
+        https://bugs.webkit.org/show_bug.cgi?id=132399
+        <rdar://problem/15920046>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Add a new build target that builds the legacy WebKit API in WebKitLegacy.framework. This framework
+        is then re-exported by WebKit.framework, and its headers are copied to WebKit.framework. All the WebKitLegacy
+        headers are made private, and the MigrateHeadersFromWebKitLegacy.make Makefile will copy all the headers specified
+        in WEBKIT_PUBLIC_HEADERS to WebKit/Headers.
+
+2014-04-29  Alex Christensen  <achristensen@webkit.org>
+
+        [WinCairo] Switch video from GStreamer to Media Foundation.
+        https://bugs.webkit.org/show_bug.cgi?id=132358
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        Removed dependencies on GStreamer.
+
+2014-04-22  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Support Python 2.7 in Cygwin
+        https://bugs.webkit.org/show_bug.cgi?id=132023
+
+        Reviewed by Michael Saboff.
+
+        * WebKit.vcxproj/WebKit/WebKitVersion.cmd: Use correct
+        path to Python under Cygwin.
+
+2014-04-20  Andreas Kling  <akling@apple.com>
+
+        Blind Windows build fix. Hope I guessed the 64-bit mangled form right.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-04-18  Philippe Normand  <pnormand@igalia.com>
+
+        Remove NETWORK_INFO support
+        https://bugs.webkit.org/show_bug.cgi?id=131841
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake:
+
+2014-04-17  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed 64-bit build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Do not
+        export 32-bit symbol in 64-bit build. 
+
+2014-04-17  Hyowon Kim  <hw1008.kim@samsung.com>
+
+        [EFL] Remove deprecated ewk_paint code.
+        https://bugs.webkit.org/show_bug.cgi?id=131266
+
+        Reviewed by Gyuyoung Kim.
+
+        ewk_paint related code was deprecated since r166637.
+
+        * PlatformEfl.cmake: Remove ewk_paint_context.cpp
+
+2014-04-16  Simon Fraser  <simon.fraser@apple.com>
+
+        Make Windows fail with a link error so I know what the new symbol is.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-04-10  Michael Saboff  <msaboff@apple.com>
+
+        LLInt interpreter code should be generated as part of one function
+        https://bugs.webkit.org/show_bug.cgi?id=131205
+
+        Reviewed by Mark Lam.
+
+        Updated VS dependencies for JavaScriptCore changes.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2014-04-10  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed 64-bit Build Fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Provide
+        proper mangled names for 64-bit build.
+
+2014-04-08  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] Remove the WebKitGTK+ WebKit 1 code
+        https://bugs.webkit.org/show_bug.cgi?id=131399
+
+        Reviewed by Anders Carlsson.
+
+        * PlatformGTK.cmake: Removed.
+        * gtk: Remove this entire directory.
+
+2014-04-06  Darin Adler  <darin@apple.com>
+
+        Make some bindings improvements, with smaller code size for error message generation
+        https://bugs.webkit.org/show_bug.cgi?id=131285
+
+        Reviewed by Andreas Kling.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Updated for
+        changes in JavaScript binding functions.
+
+2014-04-05  Brian J. Burg  <burg@cs.washington.edu>
+
+        Web Inspector: remove unused test hook setInspectorResourcesDataSizeLimits
+        https://bugs.webkit.org/show_bug.cgi?id=131268
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove symbols.
+
+2014-04-05  Brian J. Burg  <burg@cs.washington.edu>
+
+        Web Inspector: remove unused metrics and commands from the Timeline agent
+        https://bugs.webkit.org/show_bug.cgi?id=131184
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove symbols.
+
+2014-04-04  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing
+        symbol export.
+
+2014-04-03  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKit.sln: Make sure we don't generate the
+        WebInspectorUI before the generated JS is ready.
+
+2014-04-02  Benjamin Poulain  <bpoulain@apple.com>
+
+        [iOS] Remove the legacy string drawing code
+        https://bugs.webkit.org/show_bug.cgi?id=131088
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-04-02  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix for full Debug rebuild.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export JSC symbol needed by testing infrastructure.
+
+2014-04-01  Zalan Bujtas  <zalan@apple.com>
+
+        Subpixel rendering: Transition class Image (and its dependencies) from int to float to enable subpixel positioned/sized images.
+        https://bugs.webkit.org/show_bug.cgi?id=130643
+
+        Reviewed by Simon Fraser.
+
+        This is in preparation to support subpixel positioned/sized background images. While 1x bitmap images can't take
+        subpixel sizing on hidpi resolutions, both generated and hidpi images can.
+        This patch does not change Image behavior in general as both position and size are still snapped to integral values.  
+
+        No change in behavior.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-31  Andreas Kling  <akling@apple.com>
+
+        Blind Windows build fix. Check my mangle-fu.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-26  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build/test correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export the AXObjectCache::setEnhancedUserInterfaceEnabled
+        set function.
+
+2014-03-22  Darin Adler  <darin@apple.com>
+
+        Remove String::deprecatedCharacters
+        https://bugs.webkit.org/show_bug.cgi?id=126854
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Removed getData16SlowCase.
+
+2014-03-21  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Compile fixes with video not enabled.
+        https://bugs.webkit.org/show_bug.cgi?id=130597
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Only include MediaSessionManager symbols if video is enabled.
+
+2014-03-21  Pratik Solanki  <psolanki@apple.com>
+
+        Check for inappropriate macros in private headers
+        https://bugs.webkit.org/show_bug.cgi?id=130564
+
+        Reviewed by Filip Pizlo.
+
+        Check PrivateHeaders for inappropriate macros as well so that we avoid build breakages like
+        the one due to the original commit for bug 130142.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-03-20  Thiago de Barros Lacerda  <thiago.lacerda@openbossa.org>
+
+        [EFL][GTK] Get CMake to find Freetype2 properly
+        https://bugs.webkit.org/show_bug.cgi?id=130150
+
+        Reviewed by Martin Robinson.
+
+        Newer versions of CMake are not able to find Freetype2 correctly.
+        FindFreetype2.cmake checks for the version number in freetype.h header, since it seems that bug exists in
+        freetype2 repo, because a completely different version number is found in freetype2.pc.
+
+        * PlatformEfl.cmake:
+
+2014-03-20  Beth Dakin  <bdakin@apple.com>
+
+        Speculative build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-20  Alex Christensen  <achristensen@webkit.org>
+
+        Build fixes for Win64.
+        https://bugs.webkit.org/show_bug.cgi?id=130481
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Don't build ANGLE projects for now, corrected build configurations,
+        and build WebInspectorUI.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added 64-bit linker symbol.
+
+2014-03-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Merge AtomicString, Identifier
+        https://bugs.webkit.org/show_bug.cgi?id=128624
+
+        Reviewed by Geoff Garen.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+            - exports no longer needed.
+
+2014-03-20  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r165962.
+        https://bugs.webkit.org/show_bug.cgi?id=130512
+
+        It broke the build (Requested by Ossy on #webkit).
+
+        Reverted changeset:
+
+        "[EFL][GTK] Get CMake to find Freetype2 properly"
+        https://bugs.webkit.org/show_bug.cgi?id=130150
+        http://trac.webkit.org/changeset/165962
+
+2014-03-20  Thiago de Barros Lacerda  <thiago.lacerda@openbossa.org>
+
+        [EFL][GTK] Get CMake to find Freetype2 properly
+        https://bugs.webkit.org/show_bug.cgi?id=130150
+
+        Reviewed by Csaba Osztrogonác.
+
+        Newer versions of CMake are not able to find Freetype2 correctly.
+        FindFreetype2.cmake checks for the version number in freetype.h header, since it seems that bug exists in
+        freetype2 repo, because a completely different version number is found in freetype2.pc.
+
+        * PlatformEfl.cmake:
+
+2014-03-18  Samuel White  <samuel_white@apple.com>
+
+        AX: Not able to use arrow keys to read text with VoiceOver before selection is set someplace (anyplace).
+        https://bugs.webkit.org/show_bug.cgi?id=130250
+
+        Reviewed by Chris Fleizach.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-17  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Revert the erroneous change made by Xcode.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-03-16  Darin Adler  <darin@apple.com>
+
+        Optimize hasTagName when called on an HTMLElement
+        https://bugs.webkit.org/show_bug.cgi?id=130090
+
+        Reviewed by Antti Koivisto.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Updated exports for QualifiedName -> HTMLQualifiedName change.
+
+2014-03-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Replace "Apple Computer, Inc." with "Apple Inc." in copyright headers
+        https://bugs.webkit.org/show_bug.cgi?id=130276
+        <rdar://problem/16266927>
+
+        Reviewed by Simon Fraser.
+
+        * scripts/generate-webkitversion.pl:
+        (printLicenseHeader):
+
+2014-03-14  Oliver Hunt  <oliver@apple.com>
+
+        Improve dom error messages
+        https://bugs.webkit.org/show_bug.cgi?id=130103
+
+        Reviewed by Andreas Kling.
+
+        Make windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-12  Anders Carlsson  <andersca@apple.com>
+
+        <rdar://problem/16307346> Add new WebKitLegacy.framework.
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Add new files.
+
+2014-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Hook up image controls for WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=130062
+        <rdar://problem/15964809>
+
+        Reviewed by Brady Eidson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Add WebSharingServicePickerController.
+
+2014-03-11  Jae Hyun Park  <jaepark@webkit.org>
+
+        [GTK][CMake] Add HARFBUZZ_INCLUDE_DIRS to WebKit and WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=130070
+
+        Reviewed by Martin Robinson.
+
+        * PlatformGTK.cmake:
+
+2014-03-10  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix (64-bit).
+
+        * WebKit.vcxproj/WebKit/WebKitCommon.props: Put uuid.lib as the last link library so that
+        the MSIE DOM symbols don't conflict with WebKit's.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing 64-bit symbol definitions.
+
+2014-03-10  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Pass environment to Pre-Build, Pre-Link, and Post-Build Stages.
+        https://bugs.webkit.org/show_bug.cgi?id=130023
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.vcxproj/WebKit.make: Removed.
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Use %PlatformArchitecture% rather than
+        hard-coded 32-bit path.
+
+2014-03-10  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Clean up library linking
+        https://bugs.webkit.org/show_bug.cgi?id=129782
+
+        Reviewed by Philippe Normand.
+
+        * PlatformGTK.cmake: Use the new macro.
+
+2014-03-07  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Unreviewed build fix after r165310.
+
+        * WebKit.vcxproj/WebKit/WebKitDirectX.props:
+        Replaced Platform macro, which is either "Win32" or "x64"
+        with PlatformShortName macro, which is either "x86" or "x64".
+        This is correct for finding the DirectX libraries.
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed gardening (for 64-bit)
+
+        * WebKit.vcxproj/WebKit/WebKitDirectX.props: Use Platform macro, rather than
+        hard-coded path. This allows it to work on 32-bit or 64-bit builds.
+
+2014-03-07  Anders Carlsson  <andersca@apple.com>
+
+        Make it possible to copy WebKit2 headers to WebKit.framework
+        https://bugs.webkit.org/show_bug.cgi?id=129935
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Move the migrate headers script out into its own file.
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Convert WebKit.make to an MSBuild file.
+        https://bugs.webkit.org/show_bug.cgi?id=129888
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.vcxproj/WebKit.proj: Added.
+
+2014-03-06  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Unreviewed follow-up fix for Windows for r165199.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-05  Martin Hock  <mhock@apple.com>
+
+        Add support for sessions to MemoryCache.
+        https://bugs.webkit.org/show_bug.cgi?id=127794
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-03  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK][CMake] Generate documentation for the DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=126211
+
+        Reviewed by Carlos Garcia Campos.
+
+        * PlatformGTK.cmake: The list of headers for GIR generation has a better name
+        now.
+
+2014-03-03  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r165013.
+        http://trac.webkit.org/changeset/165013
+        https://bugs.webkit.org/show_bug.cgi?id=129646
+
+        New code is not thread safe, asserting on a worker test
+        (Requested by ap on #webkit).
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-03  Martin Hock  <mhock@apple.com>
+
+        Add support for sessions to MemoryCache.
+        https://bugs.webkit.org/show_bug.cgi?id=127794
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-03-02  Andreas Kling  <akling@apple.com>
+
+        Blind Windows build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+            Tweak JSDOMWindowBase::commonVM() return type to be a reference.
+
+2014-02-28  Dan Bernstein  <mitz@apple.com>
+
+        [Mac] Remove MailQuirksUserScript.js
+        https://bugs.webkit.org/show_bug.cgi?id=129536
+
+        Reviewed by Andy Estes.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed reference to the file.
+
+2014-02-26  Michael Saboff  <msaboff@apple.com>
+
+        Auto generate bytecode information for bytecode parser and LLInt
+        https://bugs.webkit.org/show_bug.cgi?id=129181
+
+        Reviewed by Mark Lam.
+
+        Added ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR} to WebKit_INCLUDE_DIRECTORIES due to new
+        generated Bytecodes.h include file.
+
+        * CMakeLists.txt:
+
+2014-02-26  Alex Christensen  <achristensen@webkit.org>
+
+        [WinCairo] Fixed linking after disabling WebGL.
+
+        * WebKit.vcxproj/WebKit/WebKitCFLite.props:
+        Don't link to ANGLE libraries, which are no longer built.
+
+2014-02-26  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: Remove console.profiles from window.console API
+        https://bugs.webkit.org/show_bug.cgi?id=116883
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-02-24  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] generate-gtkdoc should not generate documentation for source files for unbuilt source files
+        https://bugs.webkit.org/show_bug.cgi?id=128417
+
+        Reviewed by Carlos Garcia Campos.
+
+        * PlatformGTK.cmake: Correct the definition of WebKitGTK_ENUM_GENERATION_HEADERS and generate
+        a gtkdoc-webkitgtk.cfg file to be used by generate-gtkdoc.
+
+2014-02-24  Anders Carlsson  <andersca@apple.com>
+
+        Add WebViewGroup
+        https://bugs.webkit.org/show_bug.cgi?id=129280
+
+        Reviewed by Dan Bernstein.
+
+        Add new files.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-02-24  Roger Fong  <roger_fong@apple.com>
+
+        [WinCairo] Disable ANGLE build on WinCairo port.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2014-02-21  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix after r164505
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Update exports
+        definition for TreeScope::getElementById.
+
+2014-02-21  Eric Carlson  <eric.carlson@apple.com>
+
+        Fix TimeRanges layering violations
+        https://bugs.webkit.org/show_bug.cgi?id=128717
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: TimeRanges::create(void) for Internals.
+
+2014-02-20  Enrique Ocaña González  <eocanha@igalia.com>
+
+        WebKitGTK+ should stop using COMPILE_ASSERT_MATCHING_ENUM macros
+        https://bugs.webkit.org/show_bug.cgi?id=127800
+
+        Reviewed by Martin Robinson.
+
+        * PlatformGTK.cmake: Removed AssertMatchingEnums.cpp
+
+2014-02-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Changing selection shouldn't synchronously update editor UI components
+        https://bugs.webkit.org/show_bug.cgi?id=129024
+
+        Reviewed by Brent Fulgham.
+
+        Added symbols for internals.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-02-17  Sergio Correia  <sergio.correia@openbossa.org>
+
+        Replace uses of PassOwnPtr/OwnPtr with std::unique_ptr in WebCore/inspector
+        https://bugs.webkit.org/show_bug.cgi?id=128681
+
+        Reviewed by Timothy Hatcher.
+
+        Another step towards getting rid of PassOwnPtr/OwnPtr, now targeting
+        WebCore/inspector/*. Besides files in there, a few other files in
+        JavaScriptCore/inspector, WebKit/, WebKit2/WebProcess/WebCoreSupport/
+        and WebCore/testing were touched.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-02-15  Alexey Proskuryakov  <ap@apple.com>
+
+        [Mac] Remove WebSerializedJSValue SPI
+        https://bugs.webkit.org/show_bug.cgi?id=128720
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed WebSerializedJSValue files from the project.
+
+2014-02-11  Alex Christensen  <achristensen@webkit.org>
+
+        Fixed linking on Win64.
+        https://bugs.webkit.org/show_bug.cgi?id=128211
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected Win64 linker symbols.
+
+2014-02-09  Mark Rowe  <mrowe@apple.com>
+
+        Stop relinking WebKit on every build.
+
+        * WebKit.xcodeproj/project.pbxproj: Fix the case on an input file for the Generate Export Files
+        script phase so it will run only when the inputs change rather than on every build.
+
+2014-02-09  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Remove PageClientEfl
+        https://bugs.webkit.org/show_bug.cgi?id=128508
+
+        Reviewed by Andreas Kling.
+
+        * PlatformEfl.cmake: Removed PageClientEfl.cpp
+
+2014-02-06  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Unreviewed Windows Build Fix after r163568.
+
+        Remove old symbol export. It is now const. Waiting for bot to produce new symbol.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-02-05  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Remove ENABLE(SVG) guards
+        https://bugs.webkit.org/show_bug.cgi?id=127991
+
+        Reviewed by Sam Weinig.
+
+        * PlatformEfl.cmake:
+
+2014-02-04  Eric Carlson  <eric.carlson@apple.com>
+
+        Refine MediaSession interruptions
+        https://bugs.webkit.org/show_bug.cgi?id=128125
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export applicationWillEnterForeground
+            and applicationWillEnterBackground for Internals.
+
+2014-02-04  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r163376.
+        http://trac.webkit.org/changeset/163376
+        https://bugs.webkit.org/show_bug.cgi?id=128184
+
+        Unexpected test failures. (Requested by eric_carlson on
+        #webkit).
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-02-04  Eric Carlson  <eric.carlson@apple.com>
+
+        Refine MediaSession interruptions
+        https://bugs.webkit.org/show_bug.cgi?id=128125
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export applicationWillEnterForeground
+            and applicationWillEnterBackground for Internals.
+
+2014-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Rollout r163195 and related patches
+
+        * CMakeLists.txt:
+
+2014-01-29  Oliver Hunt  <oliver@apple.com>
+
+        Make it possible to implement JS builtins in JS
+        https://bugs.webkit.org/show_bug.cgi?id=127887
+
+        Reviewed by Michael Saboff.
+
+        CMake updates
+
+        * CMakeLists.txt:
+
+2014-01-30  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Add support for building against GTK+ 2
+        https://bugs.webkit.org/show_bug.cgi?id=127959
+
+        Reviewed by Anders Carlsson.
+
+        * PlatformGTK.cmake: Use the new API version variable and don't use GTK3 directly.
+
+2014-01-30  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r163052.
+        http://trac.webkit.org/changeset/163052
+        https://bugs.webkit.org/show_bug.cgi?id=127895
+
+        It was the buildfix after the rolled out r163048 (Requested by
+        Ossy on #webkit).
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-29  Dan Bernstein  <mitz@apple.com>
+
+        Moved linking against common frameworks and a library from the .xcconfig file into the target.
+
+        Reviewed by Tim Horton.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-29  Sam Weinig  <sam@webkit.org>
+
+        Fix windows.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-29  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        EFL port should stop using COMPILE_ASSERT_MATCHING_ENUM macros
+        https://bugs.webkit.org/show_bug.cgi?id=127801
+
+        Reviewed by Anders Carlsson.
+
+        * PlatformEfl.cmake: Removed AssertMatchingEnums.cpp
+
+2014-01-27  Roger Fong  <roger_fong@apple.com>
+
+        [Windows] Tests crashing on Windows after r162816.
+        https://bugs.webkit.org/show_bug.cgi?id=127703.
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove variable export in favor of function export.
+
+2014-01-26  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Disable accessibility after every test run
+        https://bugs.webkit.org/show_bug.cgi?id=127439
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-26  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+        
+        Make HistoryPropertyList an Objective-C++ class.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-25  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbol.
+
+2014-01-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Attempt to fix Windows DRT link issue.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Make visibleContentRect() return actualVisibleContentRect() on iOS most of the time
+        https://bugs.webkit.org/show_bug.cgi?id=127456
+        
+        Reviewed by Antti Koivisto.
+        
+        On iOS, visibleContentRect() returns the entire document rect for historical
+        reasons, and actualVisibleContentRect() returns what visibleContentRect()
+        returns on other platforms.
+        
+        In addition, actualVisibleContentRect() was returning an empty rect in WK2.
+        
+        Reduce the confusion of #ifdefs by making visibleContentRect() behave like
+        actualVisibleContentRect() by default on iOS. Where it needs the old behavior,
+        an optional parameter, LegacyIOSDocumentVisibleRect, provides this.
+        
+        Achieve this by having the virtual ScrollableArea::visibleContentRectInternal(),
+        which is called by non-virtual visibleContentRect() and visibleContentRectIncludingScrollbars().
+        
+        Similarly clean up visibleHeight/visibleWidth functions by having visibleSize() be virtual,
+        with non-virtual visibleHeight() and visibleWidth().
+        
+        ScrollableArea subclasses override visibleContentRectInternal() and visibleSize() where necessary.
+        
+        Mechanically change all the call sites of actualVisibleContentRect() to
+        use visibleContentRect(), and the call sites of visibleContentRect()
+        to visibleContentRect(..., LegacyIOSDocumentVisibleRect), adding comments
+        where this may not be appropriate.
+        
+        Change callers of visibleContentRect(IncludeScrollbars...) to visibleContentRectIncludingScrollbars().
+        
+        Also add actualScrollPosition(), and clean up some actualScroll* call sites.
+        
+        No behavior change.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-22  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Update project and solution files for 64-bit builds
+        https://bugs.webkit.org/show_bug.cgi?id=127457
+
+        Reviewed by Eric Carlson.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Update for VS2013.
+        * WebKit.vcxproj/WebKit.submit.sln: Add 64-bit target.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Update for VS2013
+        * WebKit.vcxproj/WebKit/WebKitApple.props: Remove unused QTMovieWin
+        library dependency.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        Update for VS2013.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Ditto
+
+2014-01-22  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] Avoid a circular dependency when building webkitenumtypes.h
+        https://bugs.webkit.org/show_bug.cgi?id=127199
+
+        Reviewed by Daniel Bates.
+
+        * PlatformGTK.cmake: Create a new list of headers consisting of all installed headers
+        except webkitenumtypes.h. Use this list when generating webkitenumtypes.h.
+
+2014-01-21  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbols.
+
+2014-01-18  Brian Burg  <bburg@apple.com>
+
+        Another build fix attempt for Windows and EFL WebKit1.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-18  Brian Burg  <bburg@apple.com>
+
+        Unreviewed build fix attempt for Windows.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-17  Martin Robinson  <mrobinson@igalia.com>
+
+        Build fix for the CMake GTK+ build
+
+        * PlatformGTK.cmake: We need to include ProgressTrackerClientGtk in the source list.
+
+2014-01-17  Beth Dakin  <bdakin@apple.com>
+
+        Need a way to test the tile cache with margins enabled
+        https://bugs.webkit.org/show_bug.cgi?id=127194
+        -and corresponding-
+        <rdar://problem/15571327>
+
+        Reviewed by Tim Horton.
+
+        Attempt to keep Windows building.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-16  Andy Estes  <aestes@apple.com>
+
+        [iOS] Fix build issues with exported headers
+
+        * WebKit.xcodeproj/project.pbxproj: Removed WebPluginPrivate.h from
+        the project.
+
+2014-01-15  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL][WK1] Implement ProgressTrackerClientEfl to fix the crash
+        https://bugs.webkit.org/show_bug.cgi?id=127031
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Added ProgressTrackerClientEfl.cpp into source lists.
+
+2014-01-14  Anders Carlsson  <andersca@apple.com>
+
+        Create separate progress tracker clients
+        https://bugs.webkit.org/show_bug.cgi?id=127025
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-14  Dean Jackson  <dino@apple.com>
+
+        Correct grave mistake in updating the pbxproj file rather than xcconfig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-14  Dean Jackson  <dino@apple.com>
+
+        Attempt to fix 32-bit Mac build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-14  Dean Jackson  <dino@apple.com>
+
+        [WK1] Allow generated export files on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=127008
+
+        Reviewed by Simon Fraser.
+
+        Modify the export file generation rule to read from
+        a shared and platform-specific input file.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-13  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbols.
+
+2014-01-13  Daniel Bates  <dabates@apple.com>
+
+        [iOS] More build fixes for WebKit
+
+        Add iOS-specific logic to build phases: "Symlink WebKitPluginHost in to place" and "Migrate Headers".
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-13  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Fix up WebKit build phases
+
+        Add iOS-specific logic to build phrases "Generate 64-bit Export File" and "Migrate Headers".
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-13  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Don't link to Mac-only frameworks when building WebKit
+
+        Currently the Xcode project always links against various Mac-only frameworks (e.g. Carbon.framework).
+        Instead the Xcode project should only link against {JavaScriptCore, WebCore}.framework and
+        libicucore.dylib, which are the frameworks/libraries that are shared by both the Mac and iOS port. We'll
+        use Configuration/WebCore.xcconfig to specify additional port-specific frameworks to link against.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-13  Eric Carlson  <eric.carlson@apple.com>
+
+        Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing
+            exports needed for Windows build after r161899.
+
+2014-01-13  Andy Estes  <aestes@apple.com>
+
+        [iOS] Build Fix: switch back to calling postprocess-headers.sh
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-12  Dan Bernstein  <mitz@apple.com>
+
+        Try to fix the Windows build after r161852.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2014-01-10  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Upstream WebCore and Tools miscellaneous changes
+        https://bugs.webkit.org/show_bug.cgi?id=126698
+
+        Reviewed by David Kilzer.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2014-01-09  Benjamin Poulain  <bpoulain@apple.com>
+
+        Remove the WebKit layer of the Blackberry port
+        https://bugs.webkit.org/show_bug.cgi?id=126715
+
+        Reviewed by Anders Carlsson.
+
+        * PlatformBlackBerry.cmake: Removed.
+        * blackberry: Removed.
+
+2014-01-08  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Merge ewk_view_single into ewk_view
+        https://bugs.webkit.org/show_bug.cgi?id=126508
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Removed ewk_view_single.cpp.
+
+2014-01-08  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [EFL] Move efl API test binaries to TestWebKitAPI/EWebKit|EWebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=126615
+
+        Reviewed by Martin Robinson.
+
+        Now EFL API test binaries created in *bin* directory with other executables.
+        It would be good to move them to their folder. This patch moves them to
+        *TestWebKitAPI/EWebKit|EWebKit2* directories.
+
+        * PlatformEfl.cmake:
+
+2014-01-08  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing
+        exports needed for Windows build.
+
+2014-01-07  Eric Carlson  <eric.carlson@apple.com>
+
+        Teach MediaSessionManager to manage interruptions
+        https://bugs.webkit.org/show_bug.cgi?id=126530
+
+        Reviewed by Sam Weinig.
+
+        * CMakeLists.txt: Add ${WEBCORE_DIR}/platform/animation to WebCore include directories.
+
+2014-01-06  Martin Robinson  <mrobinson@igalia.com>
+
+        Small build fix for the GTK+ CMake port
+
+        * PlatformGTK.cmake: Include a missing GeoClue include directory.
+
+2014-01-06  Martin Robinson  <mrobinson@igalia.com>
+
+        [CMake] [GTK] Fix the build for the WebKitGTK+ developer configuration
+        https://bugs.webkit.org/show_bug.cgi?id=126505
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * PlatformGTK.cmake: Add the geoclue platform directory to the include directory list.
+
+2014-01-06  Mark Rowe  <mrowe@apple.com>
+
+        <https://webkit.org/b/126499> Move WebKit off the legacy WebKit availability macros
+
+        The legacy WebKit availability macros are verbose, confusing, and provide no benefit
+        over using the system availability macros directly. The original vision was that
+        they'd serve a cross-platform purpose but that never came to be.
+
+        Since WebKit1 is API on OS X but SPI on iOS, some indirection is still needed in the
+        availability macros to allow the headers to advertise the API as unavailable on OS X
+        without interfering with the ability to build on iOS. This is achieved by defining
+        WEBKIT-prefixed versions of the Foundation availability macros that are defined to
+        their NS-prefixed equivalents. The installed headers are post-processed to map these
+        macros back to their Foundation equivalents.
+
+        Part of <rdar://problem/15512304>.
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj: Change the Postprocess Headers build phase to
+        invoke mac/postprocess-headers.sh.
+
+2014-01-05  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Ensure that the autotools build and the CMake install the same files
+        https://bugs.webkit.org/show_bug.cgi?id=116379
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * PlatformGTK.cmake: Install API headers, gir files, and the pkg-config file. Move
+        a couple installed and generated headers to the installed headers list.
+
+2014-01-04  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Improve the way we locate gobject-introspection
+        https://bugs.webkit.org/show_bug.cgi?id=126452
+
+        Reviewed by Philippe Normand.
+
+        * PlatformGTK.cmake: Use the new introspection variables.
+
+2014-01-03  Simon Fraser  <simon.fraser@apple.com>
+
+        Attempt to fix EFL build.
+
+        * CMakeLists.txt:
+
+2013-12-31  Andy Estes  <aestes@apple.com>
+
+        [iOS] Upstream PLATFORM(IOS) changes to Source/WebKit/
+        https://bugs.webkit.org/show_bug.cgi?id=125746
+
+        Reviewed by David Kilzer.
+
+        * WebKit.xcodeproj/project.pbxproj: Added WebDatabaseManagerInternal.h
+        and iOS.xcconfig.
+
+2013-12-30  Martin Robinson  <mrobinson@igalia.com>
+
+        [CMake] [GTK] Add support for GObject introspection
+        https://bugs.webkit.org/show_bug.cgi?id=126162
+
+        Reviewed by Daniel Bates.
+
+        * PlatformGTK.cmake: Add the GIR targets.
+
+2013-12-29  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Remove ewk_view_tiled
+        https://bugs.webkit.org/show_bug.cgi?id=125961
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Removed ewk_view_tiled related files.
+
+2013-12-29  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Convenience libraries that export API should be compiled with --whole-archive on Unix
+        https://bugs.webkit.org/show_bug.cgi?id=126232
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * PlatformGTK.cmake: Prefix libGObjectDOMBindings with --whole-archive so that
+        symbols are not omitted during final linking.
+
+2013-12-25  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Clean up generated sources directories
+        https://bugs.webkit.org/show_bug.cgi?id=126216
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * PlatformGTK.cmake: Use the new derived source variables.
+
+2013-12-22  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK][CMake] libtool-compatible soversion calculation
+        https://bugs.webkit.org/show_bug.cgi?id=125511
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Use the POPULATE_LIBRARY_VERSION macro and the
+        library-specific version information.
+
+2013-12-23  Gustavo Noronha Silva  <gns@gnome.org>
+
+        [GTK] [CMake] Generate pkg-config files
+        https://bugs.webkit.org/show_bug.cgi?id=125685
+
+        Reviewed by Martin Robinson.
+
+        * PlatformGTK.cmake: generate webkitgtk-3.0.pc.
+
+2013-12-22  Martin Robinson  <mrobinson@igalia.com>
+
+        Small build fix for GTK+ with the CMake build
+
+        * CMakeLists.txt: Remove duplicate include directory and add missing directories
+        necessary for GTK+.
+
+2013-12-20  Simon Fraser  <simon.fraser@apple.com>
+
+        Try to fix the Windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-12-20  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix after r160908.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        missing export.
+
+2013-12-18  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed cmake build fix for GTK+.
+
+        * PlatformGTK.cmake: add missing include directory.
+
+2013-12-16  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Add support for building WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=116377
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Updated WebCore include directory list for WebKitGTK+ and
+        added BUILDING_WEBKIT to the list of defines.
+        * PlatformGTK.cmake: Added.
+
+2013-12-18  Alex Christensen  <achristensen@webkit.org>
+
+        [WinCairo] Preparation for GStreamer on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=125946
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        Use new GStreamer property sheets for WinCairo.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Fixed 64-bit symbols, added GStreamer symbol.
+
+2013-12-16  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Unreviewed build fix for 64-bit.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbols.
+
+2013-12-16  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Correct typo that added a '\' at the
+        end of a line of the file.
+
+2013-12-16  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Remove dead code after conversion to VS2013
+        https://bugs.webkit.org/show_bug.cgi?id=125795
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Remove unused function exports.
+
+2013-12-16  Alex Christensen  <achristensen@webkit.org>
+
+        Fixed Win64 build on VS2013.
+        https://bugs.webkit.org/show_bug.cgi?id=125753
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Use new 64-bit WebInspectorUI configurations.
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        Added correct PlatformToolset for 64-bit builds.
+
+2013-12-15  Brent Fulgham  <bfulgham@webkit.org>
+
+        [Win] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKit.sln: Remove reference to QTMovieWin,
+        which we do not wish to build.
+
+2013-12-14  Brent Fulgham  <bfulgham@webkit.org>
+
+        [Win] Unreviewed build fix
+
+        QTMovieWin should not be build at the moment, but some builders
+        are continuing to attempt it. This change marks the project
+        file as excluded from building.
+
+        * WebKit.vcxproj/WebKit.sln: Mark QTMovieWin as excluded from build.
+
+2013-12-13  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build correction after r160548.
+
+        * WebKit.vcxproj/WebKit/WebKitApple.props: Exclude linking with QTMoveWin, which does
+        not build with VS2013.
+
+2013-12-13  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build correction after r160548
+
+        * WebKit.vcxproj/WebKit.sln: Revise build order to avoid errors with ANGLE included.
+
+2013-12-13  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix after r160548
+
+        * WebKit.vcxproj/WebKit.sln: Revised to build under VS2013.
+
+2013-12-13  Andy Estes  <aestes@apple.com>
+
+        Post-process exported WebKit headers based on PLATFORM_NAME
+        https://bugs.webkit.org/show_bug.cgi?id=125682
+
+        Reviewed by Dan Bernstein.
+
+        Added a build phase that calls unifdef(1) on each of WebKit's Public
+        and Private headers, defining TARGET_OS_EMBEDDED, TARGET_OS_IPHONE, and
+        TARGET_IPHONE_SIMULATOR based on the value of PLATFORM_NAME. This has
+        the effect of stripping out bits not needed by the SDK being built for.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-12-13  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Switch WebKit solution to Visual Studio 2013
+        https://bugs.webkit.org/show_bug.cgi?id=125192
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Update for VS2013
+        * WebKit.vcxproj/WebKit.sln: Ditto
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Ditto
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj: Ditto
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Ditto
+
+2013-12-11  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Build fix after r159768.
+        https://bugs.webkit.org/show_bug.cgi?id=125467
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKitVersion.cmd:
+        Set PATH environment variable to include cygwin bin directory.
+
+2013-12-11  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Unreviewed link fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Corrected 64-bit linker symbols.
+
+2013-12-11  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: Push More Inspector Required Classes Down into JavaScriptCore
+        https://bugs.webkit.org/show_bug.cgi?id=125324
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-12-11  Mark Rowe  <mrowe@apple.com>
+
+        <https://webkit.org/b/125562> Remove a Leopard-specific check from WebKit.xcodeproj
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-12-06  Roger Fong <roger_fong@apple.com> and Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Support compiling with VS2013.
+        https://bugs.webkit.org/show_bug.cgi?id=125353
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Provide
+        proper exports for VS2013 build.
+
+2013-12-06  Dániel Bátyai  <Batyai.Daniel@stud.u-szeged.hu>
+
+        Build fix after r160207, remove the BitmapImage::decodeSize symbol export
+        https://bugs.webkit.org/show_bug.cgi?id=125342
+
+        Reviewed by Csaba Osztrogonác.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-12-05  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Avoid copying compiled-in resources to DSTROOT
+        https://bugs.webkit.org/show_bug.cgi?id=125309
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Only copy Info.plist to the final WebKit.resource bundle.
+        The PNG and RC files are compiled into the WebKit.dll library.
+
+2013-12-04  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Correct WebKit.make copy command to land resources in proper directory.
+        https://bugs.webkit.org/show_bug.cgi?id=125249
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit.make: Correct the copy command.
+
+2013-12-04  peavo@outlook.com  <peavo@outlook.com>
+
+        [Win][64-bit] Link error.
+        https://bugs.webkit.org/show_bug.cgi?id=125234
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Changed 64-bit version of symbol.
+
+2013-12-03  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: Push Remote Inspector debugging connection management into JavaScriptCore
+        https://bugs.webkit.org/show_bug.cgi?id=124613
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-12-03  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] WebKit.make Makefile doesn't copy resource bundle to DSTROOT
+        https://bugs.webkit.org/show_bug.cgi?id=125160
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit.make: Add copy command for resource bundle.
+
+2013-12-02  Beth Dakin  <bdakin@apple.com>
+
+        Attempted build fix. I think this is no longer needed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-12-02  Beth Dakin  <bdakin@apple.com>
+
+        Add a setting to opt into a mode where the background extends and fixed elements 
+        don't move on rubber-band
+        https://bugs.webkit.org/show_bug.cgi?id=124745
+
+        Reviewed by Tim Horton.
+
+        Keep Windows happy.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-12-02  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] WebKit Project doesn't copy resource bundle
+        https://bugs.webkit.org/show_bug.cgi?id=125078
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Correct post-build step
+        to copy WebKit.resources to build target.
+
+2013-11-28  Thiago de Barros Lacerda  <thiago.lacerda@openbossa.org>
+
+        Building EFL Webkit again with mediastream enabled
+        https://bugs.webkit.org/show_bug.cgi?id=124930
+
+        Reviewed by Csaba Osztrogonác.
+
+        * CMakeLists.txt:
+
+2013-11-27  Sam Weinig  <sam@webkit.org>
+
+        Fix the iOS build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-11-25  peavo@outlook.com  <peavo@outlook.com>
+
+        [Win] WebKit version in user agent string is incorrect.
+        https://bugs.webkit.org/show_bug.cgi?id=124454
+
+        Reviewed by Brent Fulgham.
+
+        Generate WebKitVersion.h file from mac's Version.xcconfig file.
+
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
+        * WebKit.vcxproj/WebKit/WebKitVersion.cmd: Added.
+
+2013-11-23  Xabier Rodriguez Calvar  <calvaris@igalia.com>
+
+        [GStreamer] Remove 0.10 codepath
+        https://bugs.webkit.org/show_bug.cgi?id=124534
+
+        Reviewed by Philippe Normand.
+
+        * PlatformEfl.cmake: Removed FullscreenVideoControllerEfl.cpp.
+
+2013-11-21  Alex Christensen  <achristensen@webkit.org>
+
+        Remove ANGLEGenerated from Windows build.
+        https://bugs.webkit.org/show_bug.cgi?id=124759
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Remove references to ANGLEGenerated.vcxproj.
+
+2013-11-21  Peter Molnar  <pmolnar.u-szeged@partner.samsung.com>
+
+        Remove ENABLE_WORKERS
+        https://bugs.webkit.org/show_bug.cgi?id=105784
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-11-21  peavo@outlook.com  <peavo@outlook.com>
+
+        [WinCairo] Building ANGLE libraries fails.
+        https://bugs.webkit.org/show_bug.cgi?id=124679
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKitCFLite.props: Link with translator_hlsl.lib.
+
+2013-11-19  Mark Lam  <mark.lam@apple.com>
+
+        Add tracking of endColumn for Executables.
+        https://bugs.webkit.org/show_bug.cgi?id=124245.
+
+        Reviewed by Geoffrey Garen.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        - Added an exported symbol to make the Win32 build happy. The Win64 symbol
+          is currently a copy of the Win32 one. It'll need to be updated if the
+          mangled symbol is different for Win64.
+
+2013-11-18  Mark Rowe  <mrowe@apple.com>
+
+        Use hw.activecpu for determining how many processes to spawn.
+
+        It's documented as the preferred way to determine the number of threads
+        or processes to create in a SMP aware application.
+
+        Rubber-stamped by Tim Horton.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-11-18  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Add EWebKitConfig.cmake and EWebKit2Config.cmake
+        https://bugs.webkit.org/show_bug.cgi?id=124478
+
+        Reviewed by Gyuyoung Kim.
+
+        EWebKit is built using CMake but applications use *.pc to use it.
+        This patch provides EWebKitConfig.cmake and EWebKit2Config.cmake
+        for applications which use EWebkit and is compiled by CMake.
+
+        * PlatformEfl.cmake:
+        Configure and install EWebKitConfig.cmake and EWebKitConfigVersion.cmake
+
+2013-11-13  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Unreviewed rollout of r159271, broke Mountain Lion build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-11-13  Anders Carlsson  <andersca@apple.com>
+
+        Deprecate WebHistory methods that use NSCalendarDate
+        https://bugs.webkit.org/show_bug.cgi?id=124329
+        <rdar://problem/15441122>
+
+        Reviewed by Mark Rowe.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Add a shell script phase that uses unifdef to remove the __NSd_10_9 #define from
+        WebHistory on Mavericks.
+
+2013-11-11  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Fixed 64-bit linker symbols.
+
+2013-11-11  Dan Bernstein  <mitz@apple.com>
+
+        [Mac] .exp files are not source code
+        https://bugs.webkit.org/show_bug.cgi?id=124154
+
+        Reviewed by Andy Estes.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed WebKit.iOS.exp from the Compile Sources build
+        phase.
+
+2013-11-07  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Windows WebKit makefile fixes.
+
+        No need to copy over WebKit.resources.
+
+        * WebKit.vcxproj/WebKit.make:
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+
+2013-11-07  Denis Nomiyama  <d.nomiyama@samsung.com>
+
+        [GTK] Glyphs in vertical text tests are rotated 90 degrees clockwise
+        https://bugs.webkit.org/show_bug.cgi?id=50619
+
+        Reviewed by Martin Robinson.
+
+        Added WebCore/platform/graphics/opentype to the include path.
+
+        * PlatformEfl.cmake:
+
+2013-11-04  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Use VersionStamper for official builds
+        https://bugs.webkit.org/show_bug.cgi?id=123758
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Restore command to
+        call VersionStamper on final stage of build.
+
+2013-11-02  Christophe Dumez  <ch.dumez@samsung.com>
+
+        EnforceRange doesn't enforce range of a short
+        https://bugs.webkit.org/show_bug.cgi?id=123661
+
+        Reviewed by Alexey Proskuryakov.
+
+        Export symbols to fix Windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-11-01  Andy Estes  <aestes@apple.com>
+
+        [iOS] Make some headers Private
+        https://bugs.webkit.org/show_bug.cgi?id=123626
+
+        Reviewed by Andreas Kling.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-11-01  Afonso R. Costa Jr.  <afonso.costa@samsung.com>
+
+        Expose setApplicationCacheOriginQuota via window.internals
+        https://bugs.webkit.org/show_bug.cgi?id=87838
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        symbols for setApplicationCacheOriginQuota from Internals.
+
+2013-11-01  Andy Estes  <aestes@apple.com>
+
+        Reverted r158443. It broke the build.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-11-01  Andy Estes  <aestes@apple.com>
+
+        [iOS] Make some headers Private
+        https://bugs.webkit.org/show_bug.cgi?id=123626
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-31  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix attempt after r158421.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-10-29  Andy Estes  <aestes@apple.com>
+
+        [iOS] Upstream Source/WebKit/ios/
+        https://bugs.webkit.org/show_bug.cgi?id=123470
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        WebKit/win/WebKitGraphics.h:void WebDrawText(WebTextRenderInfo*); is never called
+        https://bugs.webkit.org/show_bug.cgi?id=123485
+
+        Reviewed by Brent Fulgham.
+
+        Deleting the function
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-10-30  Alex Christensen  <achristensen@webkit.org>
+
+        [Windows] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added missing 32-bit and 64-bit linker symbols.
+
+2013-10-30  Alex Christensen  <achristensen@webkit.org>
+
+        Disabled JIT on Win64.
+        https://bugs.webkit.org/show_bug.cgi?id=122472
+
+        Reviewed by Geoffrey Garen.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added missing 64-bit linker symbol.
+
+2013-10-28  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Upstream remaining PLATFORM(IOS) and ENABLE(REMOTE_INSPECTOR) pieces
+        https://bugs.webkit.org/show_bug.cgi?id=123411
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-25  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Upstream ENABLE(REMOTE_INSPECTOR) and enable on iOS and Mac
+        https://bugs.webkit.org/show_bug.cgi?id=123111
+
+        Reviewed by Timothy Hatcher.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-23  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Integrate css3-images image-orientation with existing EXIF support
+        https://bugs.webkit.org/show_bug.cgi?id=91566
+
+        Reviewed by Beth Dakin.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Update export symbols for draw functions.
+
+2013-10-15  Andy Estes  <aestes@apple.com>
+
+        Expose -[WebPluginPackage bundle] as SPI
+        https://bugs.webkit.org/show_bug.cgi?id=122814
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj: Added WebPluginPackagePrivate.h.
+
+2013-10-10  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix attempt.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-10-10  Marcelo Morais  <m.morais@samsung.com>
+
+        Web Inspector: Remove the old front-end from WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=122295
+
+        Reviewed by Timothy Hatcher.
+
+        * PlatformBlackBerry.cmake: Removed the references for the old
+        inspector front-end.
+
+2013-10-10  Anders Carlsson  <andersca@apple.com>
+
+        Remove WebScrollBar
+        https://bugs.webkit.org/show_bug.cgi?id=122623
+
+        Reviewed by Brent Fulgham.
+
+        Remove files from VS projects.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
+
+2013-10-08  Alex Christensen  <achristensen@webkit.org>
+
+        Fixed Win64 linking.
+        https://bugs.webkit.org/show_bug.cgi?id=122530
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added 64-bit linker symbols.
+
+2013-10-06  Andreas Kling  <akling@apple.com>
+
+        No? Okay, let's try that again..
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-10-06  Andreas Kling  <akling@apple.com>
+
+        Attempt to fix the Windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-10-06  Darin Adler  <darin@apple.com>
+
+        Try to fix the Windows build.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Removed export of non-existent Node::treeScope function returning
+        a TreeScope*. Probably will have to add an export to fix the next failure.
+
+2013-10-06  Darin Adler  <darin@apple.com>
+
+        Remove unneeded ScriptGCEvent class
+        https://bugs.webkit.org/show_bug.cgi?id=122390
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Replaced symbol from ScriptGCEvent with symbol from JSDOMWindowBase.
+
+2013-10-04  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Upstream disk image cache
+        https://bugs.webkit.org/show_bug.cgi?id=121985
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        * ios/WebCoreSupport/WebDiskImageCacheClientIOS.h: Added.
+        * ios/WebCoreSupport/WebDiskImageCacheClientIOS.mm: Added.
+
+2013-10-04  Anders Carlsson  <andersca@apple.com>
+
+        Remove WebAssertions.h
+        https://bugs.webkit.org/show_bug.cgi?id=122328
+
+        Reviewed by Jessie Berlin.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-03  Anders Carlsson  <andersca@apple.com>
+
+        Remove WebNSNotificationCenterExtras
+        https://bugs.webkit.org/show_bug.cgi?id=122316
+
+        Reviewed by Dan Bernstein.
+
+        Update Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-10-02  Anders Carlsson  <andersca@apple.com>
+
+        Remove WebKit/qt.
+
+        Rubber-stamped by Andreas Kling.
+
+        * qt/Api/qhttpheader.cpp: Removed.
+        * qt/Api/qhttpheader_p.h: Removed.
+        * qt/Api/qwebdatabase.cpp: Removed.
+        * qt/Api/qwebdatabase.h: Removed.
+        * qt/Api/qwebdatabase_p.h: Removed.
+        * qt/Api/qwebelement.cpp: Removed.
+        * qt/Api/qwebelement.h: Removed.
+        * qt/Api/qwebelement_p.h: Removed.
+        * qt/Api/qwebhistory.cpp: Removed.
+        * qt/Api/qwebhistory.h: Removed.
+        * qt/Api/qwebhistory_p.h: Removed.
+        * qt/Api/qwebhistoryinterface.cpp: Removed.
+        * qt/Api/qwebhistoryinterface.h: Removed.
+        * qt/Api/qwebkitglobal.cpp: Removed.
+        * qt/Api/qwebkitglobal.h: Removed.
+        * qt/Api/qwebkitplatformplugin.h: Removed.
+        * qt/Api/qwebplugindatabase.cpp: Removed.
+        * qt/Api/qwebplugindatabase_p.h: Removed.
+        * qt/Api/qwebpluginfactory.cpp: Removed.
+        * qt/Api/qwebpluginfactory.h: Removed.
+        * qt/Api/qwebscriptworld.cpp: Removed.
+        * qt/Api/qwebscriptworld.h: Removed.
+        * qt/Api/qwebscriptworld_p.h: Removed.
+        * qt/Api/qwebsecurityorigin.cpp: Removed.
+        * qt/Api/qwebsecurityorigin.h: Removed.
+        * qt/Api/qwebsecurityorigin_p.h: Removed.
+        * qt/Api/qwebsettings.cpp: Removed.
+        * qt/Api/qwebsettings.h: Removed.
+        * qt/ChangeLog-2011-02-16: Removed.
+        * qt/WebCoreSupport/ChromeClientQt.cpp: Removed.
+        * qt/WebCoreSupport/ChromeClientQt.h: Removed.
+        * qt/WebCoreSupport/ContextMenuClientQt.cpp: Removed.
+        * qt/WebCoreSupport/ContextMenuClientQt.h: Removed.
+        * qt/WebCoreSupport/DragClientQt.cpp: Removed.
+        * qt/WebCoreSupport/DragClientQt.h: Removed.
+        * qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp: Removed.
+        * qt/WebCoreSupport/DumpRenderTreeSupportQt.h: Removed.
+        * qt/WebCoreSupport/EditorClientQt.cpp: Removed.
+        * qt/WebCoreSupport/EditorClientQt.h: Removed.
+        * qt/WebCoreSupport/FrameLoaderClientQt.cpp: Removed.
+        * qt/WebCoreSupport/FrameLoaderClientQt.h: Removed.
+        * qt/WebCoreSupport/FrameNetworkingContextQt.cpp: Removed.
+        * qt/WebCoreSupport/FrameNetworkingContextQt.h: Removed.
+        * qt/WebCoreSupport/FullScreenVideoQt.cpp: Removed.
+        * qt/WebCoreSupport/FullScreenVideoQt.h: Removed.
+        * qt/WebCoreSupport/GeolocationClientQt.cpp: Removed.
+        * qt/WebCoreSupport/GeolocationClientQt.h: Removed.
+        * qt/WebCoreSupport/GeolocationPermissionClientQt.cpp: Removed.
+        * qt/WebCoreSupport/GeolocationPermissionClientQt.h: Removed.
+        * qt/WebCoreSupport/IconDatabaseClientQt.cpp: Removed.
+        * qt/WebCoreSupport/IconDatabaseClientQt.h: Removed.
+        * qt/WebCoreSupport/InitWebCoreQt.cpp: Removed.
+        * qt/WebCoreSupport/InitWebCoreQt.h: Removed.
+        * qt/WebCoreSupport/InspectorClientQt.cpp: Removed.
+        * qt/WebCoreSupport/InspectorClientQt.h: Removed.
+        * qt/WebCoreSupport/InspectorServerQt.cpp: Removed.
+        * qt/WebCoreSupport/InspectorServerQt.h: Removed.
+        * qt/WebCoreSupport/NotificationPresenterClientQt.cpp: Removed.
+        * qt/WebCoreSupport/NotificationPresenterClientQt.h: Removed.
+        * qt/WebCoreSupport/PlatformStrategiesQt.cpp: Removed.
+        * qt/WebCoreSupport/PlatformStrategiesQt.h: Removed.
+        * qt/WebCoreSupport/PopupMenuQt.cpp: Removed.
+        * qt/WebCoreSupport/PopupMenuQt.h: Removed.
+        * qt/WebCoreSupport/QWebFrameAdapter.cpp: Removed.
+        * qt/WebCoreSupport/QWebFrameAdapter.h: Removed.
+        * qt/WebCoreSupport/QWebPageAdapter.cpp: Removed.
+        * qt/WebCoreSupport/QWebPageAdapter.h: Removed.
+        * qt/WebCoreSupport/QtPlatformPlugin.cpp: Removed.
+        * qt/WebCoreSupport/QtPlatformPlugin.h: Removed.
+        * qt/WebCoreSupport/QtPluginWidgetAdapter.cpp: Removed.
+        * qt/WebCoreSupport/QtPluginWidgetAdapter.h: Removed.
+        * qt/WebCoreSupport/QtPrintContext.cpp: Removed.
+        * qt/WebCoreSupport/QtPrintContext.h: Removed.
+        * qt/WebCoreSupport/SearchPopupMenuQt.cpp: Removed.
+        * qt/WebCoreSupport/SearchPopupMenuQt.h: Removed.
+        * qt/WebCoreSupport/TextCheckerClientQt.cpp: Removed.
+        * qt/WebCoreSupport/TextCheckerClientQt.h: Removed.
+        * qt/WebCoreSupport/TextureMapperLayerClientQt.cpp: Removed.
+        * qt/WebCoreSupport/TextureMapperLayerClientQt.h: Removed.
+        * qt/WebCoreSupport/UndoStepQt.cpp: Removed.
+        * qt/WebCoreSupport/UndoStepQt.h: Removed.
+        * qt/WebCoreSupport/WebEventConversion.cpp: Removed.
+        * qt/WebCoreSupport/WebEventConversion.h: Removed.
+        * qt/WidgetApi/qgraphicswebview.cpp: Removed.
+        * qt/WidgetApi/qgraphicswebview.h: Removed.
+        * qt/WidgetApi/qwebframe.cpp: Removed.
+        * qt/WidgetApi/qwebframe.h: Removed.
+        * qt/WidgetApi/qwebframe_p.h: Removed.
+        * qt/WidgetApi/qwebinspector.cpp: Removed.
+        * qt/WidgetApi/qwebinspector.h: Removed.
+        * qt/WidgetApi/qwebinspector_p.h: Removed.
+        * qt/WidgetApi/qwebpage.cpp: Removed.
+        * qt/WidgetApi/qwebpage.h: Removed.
+        * qt/WidgetApi/qwebpage_p.h: Removed.
+        * qt/WidgetApi/qwebview.cpp: Removed.
+        * qt/WidgetApi/qwebview.h: Removed.
+        * qt/WidgetApi/qwebviewaccessible.cpp: Removed.
+        * qt/WidgetApi/qwebviewaccessible_p.h: Removed.
+        * qt/WidgetSupport/DefaultFullScreenVideoHandler.cpp: Removed.
+        * qt/WidgetSupport/DefaultFullScreenVideoHandler.h: Removed.
+        * qt/WidgetSupport/FullScreenVideoWidget.cpp: Removed.
+        * qt/WidgetSupport/FullScreenVideoWidget.h: Removed.
+        * qt/WidgetSupport/InitWebKitQt.cpp: Removed.
+        * qt/WidgetSupport/InitWebKitQt.h: Removed.
+        * qt/WidgetSupport/InspectorClientWebPage.cpp: Removed.
+        * qt/WidgetSupport/InspectorClientWebPage.h: Removed.
+        * qt/WidgetSupport/PageClientQt.cpp: Removed.
+        * qt/WidgetSupport/PageClientQt.h: Removed.
+        * qt/WidgetSupport/QGraphicsWidgetPluginImpl.cpp: Removed.
+        * qt/WidgetSupport/QGraphicsWidgetPluginImpl.h: Removed.
+        * qt/WidgetSupport/QStyleFacadeImp.cpp: Removed.
+        * qt/WidgetSupport/QStyleFacadeImp.h: Removed.
+        * qt/WidgetSupport/QWebUndoCommand.cpp: Removed.
+        * qt/WidgetSupport/QWebUndoCommand.h: Removed.
+        * qt/WidgetSupport/QWidgetPluginImpl.cpp: Removed.
+        * qt/WidgetSupport/QWidgetPluginImpl.h: Removed.
+        * qt/WidgetSupport/QtFallbackWebPopup.cpp: Removed.
+        * qt/WidgetSupport/QtFallbackWebPopup.h: Removed.
+        * qt/WidgetSupport/QtWebComboBox.cpp: Removed.
+        * qt/WidgetSupport/QtWebComboBox.h: Removed.
+        * qt/declarative/declarative.pro: Removed.
+        * qt/declarative/experimental/experimental.pri: Removed.
+        * qt/declarative/experimental/plugin.cpp: Removed.
+        * qt/declarative/experimental/plugin.json: Removed.
+        * qt/declarative/experimental/qmldir: Removed.
+        * qt/declarative/plugin.cpp: Removed.
+        * qt/declarative/plugin.json: Removed.
+        * qt/declarative/plugins.qmltypes: Removed.
+        * qt/declarative/public.pri: Removed.
+        * qt/declarative/qmldir: Removed.
+        * qt/docs/qtwebkit-bridge.qdoc: Removed.
+        * qt/docs/qtwebkit-goes-mobile.qdoc: Removed.
+        * qt/docs/qtwebkit.qdoc: Removed.
+        * qt/docs/qwebview-diagram.png: Removed.
+        * qt/docs/webkitsnippets/qtwebkit_bridge_snippets.cpp: Removed.
+        * qt/docs/webkitsnippets/qtwebkit_build_snippet.qdoc: Removed.
+        * qt/docs/webkitsnippets/qtwebkit_goes_mobile_snippets.cpp: Removed.
+        * qt/docs/webkitsnippets/qtwebkit_qwebinspector_snippet.cpp: Removed.
+        * qt/docs/webkitsnippets/qtwebkit_qwebview_snippet.cpp: Removed.
+        * qt/docs/webkitsnippets/simple/main.cpp: Removed.
+        * qt/docs/webkitsnippets/simple/simple.pro: Removed.
+        * qt/docs/webkitsnippets/webelement/main.cpp: Removed.
+        * qt/docs/webkitsnippets/webelement/webelement.pro: Removed.
+        * qt/docs/webkitsnippets/webpage/main.cpp: Removed.
+        * qt/docs/webkitsnippets/webpage/webpage.pro: Removed.
+        * qt/examples/examples.pro: Removed.
+        * qt/examples/platformplugin/README: Removed.
+        * qt/examples/platformplugin/WebNotificationPresenter.cpp: Removed.
+        * qt/examples/platformplugin/WebNotificationPresenter.h: Removed.
+        * qt/examples/platformplugin/WebPlugin.cpp: Removed.
+        * qt/examples/platformplugin/WebPlugin.h: Removed.
+        * qt/examples/platformplugin/platformplugin.pro: Removed.
+        * qt/examples/platformplugin/qwebkitplatformplugin.h: Removed.
+        * qt/tests/MIMESniffing/MIMESniffing.pro: Removed.
+        * qt/tests/MIMESniffing/TestData.h: Removed.
+        * qt/tests/MIMESniffing/resources.qrc: Removed.
+        * qt/tests/MIMESniffing/resources/application_atom+xml: Removed.
+        * qt/tests/MIMESniffing/resources/application_ogg: Removed.
+        * qt/tests/MIMESniffing/resources/application_pdf: Removed.
+        * qt/tests/MIMESniffing/resources/application_postscript: Removed.
+        * qt/tests/MIMESniffing/resources/application_rdf+xml: Removed.
+        * qt/tests/MIMESniffing/resources/application_rss+xml: Removed.
+        * qt/tests/MIMESniffing/resources/application_x-gzip: Removed.
+        * qt/tests/MIMESniffing/resources/application_x-rar-compressed: Removed.
+        * qt/tests/MIMESniffing/resources/application_zip: Removed.
+        * qt/tests/MIMESniffing/resources/audio_x-wave: Removed.
+        * qt/tests/MIMESniffing/resources/image_bmp: Removed.
+        * qt/tests/MIMESniffing/resources/image_gif: Removed.
+        * qt/tests/MIMESniffing/resources/image_jpeg: Removed.
+        * qt/tests/MIMESniffing/resources/image_png: Removed.
+        * qt/tests/MIMESniffing/resources/image_vnd.microsoft.icon: Removed.
+        * qt/tests/MIMESniffing/resources/image_webp: Removed.
+        * qt/tests/MIMESniffing/resources/text_html: Removed.
+        * qt/tests/MIMESniffing/resources/text_xml: Removed.
+        * qt/tests/MIMESniffing/resources/video_webm: Removed.
+        * qt/tests/MIMESniffing/tst_MIMESniffing.cpp: Removed.
+        * qt/tests/benchmarks/loading/loading.pro: Removed.
+        * qt/tests/benchmarks/loading/tst_loading.cpp: Removed.
+        * qt/tests/benchmarks/painting/painting.pro: Removed.
+        * qt/tests/benchmarks/painting/tst_painting.cpp: Removed.
+        * qt/tests/benchmarks/webgl/10000_triangles.html: Removed.
+        * qt/tests/benchmarks/webgl/tst_webgl.cpp: Removed.
+        * qt/tests/benchmarks/webgl/tst_webgl.qrc: Removed.
+        * qt/tests/benchmarks/webgl/webgl.pro: Removed.
+        * qt/tests/cmake/CMakeLists.txt: Removed.
+        * qt/tests/cmake/cmake.pro: Removed.
+        * qt/tests/hybridPixmap/hybridPixmap.pro: Removed.
+        * qt/tests/hybridPixmap/resources.qrc: Removed.
+        * qt/tests/hybridPixmap/test.html: Removed.
+        * qt/tests/hybridPixmap/tst_hybridPixmap.cpp: Removed.
+        * qt/tests/hybridPixmap/widget.cpp: Removed.
+        * qt/tests/hybridPixmap/widget.h: Removed.
+        * qt/tests/hybridPixmap/widget.ui: Removed.
+        * qt/tests/qgraphicswebview/qgraphicswebview.pro: Removed.
+        * qt/tests/qgraphicswebview/resources/greendiv.html: Removed.
+        * qt/tests/qgraphicswebview/resources/input_types.html: Removed.
+        * qt/tests/qgraphicswebview/resources/pointing_right.html: Removed.
+        * qt/tests/qgraphicswebview/resources/pointing_up.html: Removed.
+        * qt/tests/qgraphicswebview/resources/scrolltest_page.html: Removed.
+        * qt/tests/qgraphicswebview/tst_qgraphicswebview.cpp: Removed.
+        * qt/tests/qgraphicswebview/tst_qgraphicswebview.qrc: Removed.
+        * qt/tests/qobjectbridge/qobjectbridge.pro: Removed.
+        * qt/tests/qobjectbridge/tst_qobjectbridge.cpp: Removed.
+        * qt/tests/qwebelement/qwebelement.pro: Removed.
+        * qt/tests/qwebelement/resources/image.png: Removed.
+        * qt/tests/qwebelement/resources/style.css: Removed.
+        * qt/tests/qwebelement/resources/style2.css: Removed.
+        * qt/tests/qwebelement/tst_qwebelement.cpp: Removed.
+        * qt/tests/qwebelement/tst_qwebelement.qrc: Removed.
+        * qt/tests/qwebframe/qwebframe.pro: Removed.
+        * qt/tests/qwebframe/resources/image.png: Removed.
+        * qt/tests/qwebframe/resources/style.css: Removed.
+        * qt/tests/qwebframe/resources/test1.html: Removed.
+        * qt/tests/qwebframe/resources/test2.html: Removed.
+        * qt/tests/qwebframe/resources/testiframe.html: Removed.
+        * qt/tests/qwebframe/resources/testiframe2.html: Removed.
+        * qt/tests/qwebframe/tst_qwebframe.cpp: Removed.
+        * qt/tests/qwebframe/tst_qwebframe.qrc: Removed.
+        * qt/tests/qwebhistory/qwebhistory.pro: Removed.
+        * qt/tests/qwebhistory/resources/page1.html: Removed.
+        * qt/tests/qwebhistory/resources/page2.html: Removed.
+        * qt/tests/qwebhistory/resources/page3.html: Removed.
+        * qt/tests/qwebhistory/resources/page4.html: Removed.
+        * qt/tests/qwebhistory/resources/page5.html: Removed.
+        * qt/tests/qwebhistory/resources/page6.html: Removed.
+        * qt/tests/qwebhistory/tst_qwebhistory.cpp: Removed.
+        * qt/tests/qwebhistory/tst_qwebhistory.qrc: Removed.
+        * qt/tests/qwebhistoryinterface/qwebhistoryinterface.pro: Removed.
+        * qt/tests/qwebhistoryinterface/tst_qwebhistoryinterface.cpp: Removed.
+        * qt/tests/qwebinspector/qwebinspector.pro: Removed.
+        * qt/tests/qwebinspector/tst_qwebinspector.cpp: Removed.
+        * qt/tests/qwebpage/qwebpage.pro: Removed.
+        * qt/tests/qwebpage/resources/content.html: Removed.
+        * qt/tests/qwebpage/resources/frame_a.html: Removed.
+        * qt/tests/qwebpage/resources/frame_c.html: Removed.
+        * qt/tests/qwebpage/resources/framedindex.html: Removed.
+        * qt/tests/qwebpage/resources/iframe.html: Removed.
+        * qt/tests/qwebpage/resources/iframe2.html: Removed.
+        * qt/tests/qwebpage/resources/iframe3.html: Removed.
+        * qt/tests/qwebpage/resources/index.html: Removed.
+        * qt/tests/qwebpage/resources/script.html: Removed.
+        * qt/tests/qwebpage/resources/user.css: Removed.
+        * qt/tests/qwebpage/tst_qwebpage.cpp: Removed.
+        * qt/tests/qwebpage/tst_qwebpage.qrc: Removed.
+        * qt/tests/qwebplugindatabase/qwebplugindatabase.pro: Removed.
+        * qt/tests/qwebplugindatabase/tst_qwebplugindatabase.cpp: Removed.
+        * qt/tests/qwebsecurityorigin/qwebsecurityorigin.pro: Removed.
+        * qt/tests/qwebsecurityorigin/resources/test.html: Removed.
+        * qt/tests/qwebsecurityorigin/tst_qwebsecurityorigin.cpp: Removed.
+        * qt/tests/qwebsecurityorigin/tst_qwebsecurityorigin.qrc: Removed.
+        * qt/tests/qwebview/.gitignore: Removed.
+        * qt/tests/qwebview/qwebview.pro: Removed.
+        * qt/tests/qwebview/resources/frame_a.html: Removed.
+        * qt/tests/qwebview/resources/index.html: Removed.
+        * qt/tests/qwebview/resources/input_types.html: Removed.
+        * qt/tests/qwebview/resources/scrolltest_page.html: Removed.
+        * qt/tests/qwebview/tst_qwebview.cpp: Removed.
+        * qt/tests/qwebview/tst_qwebview.qrc: Removed.
+        * qt/tests/resources/image2.png: Removed.
+        * qt/tests/resources/test.swf: Removed.
+        * qt/tests/tests.pri: Removed.
+        * qt/tests/util.h: Removed.
+
+2013-09-30  Benjamin Poulain  <benjamin@webkit.org>
+
+        Remove the code guarded by STYLE_SCOPED
+        https://bugs.webkit.org/show_bug.cgi?id=122123
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-09-30  Alex Christensen  <achristensen@webkit.org>
+
+        [Windows] Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added correct 64-bit BitmapImage::create symbol.
+
+2013-09-30  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Compile errors in WebKit (via peavo@outlook.com).
+        https://bugs.webkit.org/show_bug.cgi?id=122106
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add link
+        declarations missed in r156655.
+
+2013-09-28  Mark Rowe  <mrowe@apple.com>
+
+        Take Xcode's advice and enable some extra warnings.
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-09-27  Alex Christensen  <achristensen@webkit.org>
+
+        [Windows] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Fixed linker symbols I broke last time.
+
+2013-09-27  Alex Christensen  <alex.christensen@flexsim.com>
+
+        [Windows] Unreviewed build fix for Win64.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added and fixed 64-bit linker symbols.
+
+2013-09-26  Darin Adler  <darin@apple.com>
+
+        rename KURL to URL
+        https://bugs.webkit.org/show_bug.cgi?id=16214
+
+        Reviewed by Andreas Kling.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Let the script to try to rename here.
+
+2013-09-26  Eric Carlson  <eric.carlson@apple.com>
+
+        [MediaStream] make MediaStream testable
+        https://bugs.webkit.org/show_bug.cgi?id=121967
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.xcodeproj/project.pbxproj: Add WebUserMediaClient.
+
+2013-09-26  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed Build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing
+        symbol export to support tests.
+
+2013-09-25  Roger Fong  <roger_fong@apple.com>
+
+        [Windows] Unreviewed Build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-09-25  Alex Christensen  <achristensen@webkit.org>
+
+        Enabled AssembleBuildLogs on WinCairo port.
+        https://bugs.webkit.org/show_bug.cgi?id=121923
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Build AssembleBuildLogs in WinCairo port.
+
+2013-09-24  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Refactor RuntimeEnabledFeatures as a Singleton 
+        https://bugs.webkit.org/show_bug.cgi?id=121883
+
+        Reviewed by Jer Noble.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Expose singleton accessor for DLL clients.
+
+2013-09-25  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r156408.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add new
+        version of symbol export declaration.
+
+2013-09-25  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r156408.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove
+        symbol export declaration for WebCore::CSSParserContext::CSSParserContext,
+        which is no longer provided by the system.
+
+2013-09-25  Allan Sandfeld Jensen  <allan.jensen@digia.com>
+
+        [Qt] Fix build with Qt 5.2 QtPosition module
+        https://bugs.webkit.org/show_bug.cgi?id=121089
+
+        Reviewed by Simon Hausmann.
+
+        QtLocation -> QtPositioning
+
+        * WebKit1.pri:
+
+2013-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Cleanup CMake files in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=121763
+
+        Reviewed by Gyuyoung Kim.
+
+        Sort files and unify style.
+
+        * PlatformBlackBerry.cmake:
+        * PlatformEfl.cmake:
+        * PlatformWinCE.cmake:
+
+2013-09-20  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r156216.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: I
+        accidentally exposed the symbol of the calling function, not
+        the missing symbol!
+
+2013-09-20  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r156215.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Expose
+        missing symbols needed by DRT.
+
+2013-09-20  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Use COMPILE_DEFINITIONS target property for setting BUILDING_* defines
+        https://bugs.webkit.org/show_bug.cgi?id=121672
+
+        Reviewed by Gyuyoung Kim.
+
+        Since the scope of add_definitions() is always a whole file, we need to use
+        target properties instead to set definitions only for specific targets.
+
+        * CMakeLists.txt:
+
+2013-09-19  Bear Travis  <betravis@adobe.com>
+
+        CSS_SHAPES not supported on AppleWin port
+        https://bugs.webkit.org/show_bug.cgi?id=118810
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add required symbol for enabling CSS Shapes.
+
+2013-09-18  peavo@outlook.com  <peavo@outlook.com>
+
+        [Win] TestWebKitAPI does not compile.
+        https://bugs.webkit.org/show_bug.cgi?id=121485
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export needed symbols.
+
+2013-09-17  Andreas Kling  <akling@apple.com>
+
+        Some build juice for Windows.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-09-13  Tim Horton  <timothy_horton@apple.com>
+
+        Unreviewed; part one of build fix for Windows.
+        Sorry for the noise, I thought I'd fixed it.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-09-12  peavo@outlook.com  <peavo@outlook.com>
+
+        [Win] TestWebKitAPI fails to link.
+        https://bugs.webkit.org/show_bug.cgi?id=121223
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add required symbol.
+
+2013-09-11  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Avoid converting from IntSize->SIZE->IntSize
+        https://bugs.webkit.org/show_bug.cgi?id=121180
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Remove unused symbol export.
+
+2013-09-08  Antti Koivisto  <antti@apple.com>
+
+        Fix window build.
+        
+        Not reviewed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build correction.
+        Update project dependencies so that build logs on machines will include output from the
+        WebInspectorUI project.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r154917
+
+        * WebKit.vcxproj/WebKit.sln: Establish build dependency from WebInspectorUI against
+        WebKit. Remove reverse dependency.
+
+2013-08-29  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r154809
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove two no-longer-existing
+        export symbols.
+
+2013-08-28  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        missing Cairo symbols; don't export CG symbols for Cairo build.
+
+2013-08-26  Roger Fong  <roger_fong@apple.com>
+
+        AppleWin build fix following r154627.
+
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+
+2013-08-21  Roger Fong  <roger_fong@apple.com>
+
+        <https://bugs.webkit.org/show_bug.cgi?id=119829> IAccessibleText and IAccessibleEditableText implementation for AppleWindows port.
+
+        Reviewed by Chris Fleizach.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+
+2013-08-26  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Build fix after r154541.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove reference
+        to deleted Element::pseudoElement(PseudoID), and add exports for new
+        beforePseudoElement() and afterPseudoElement().
+
+2013-08-23  Alex Christensen  <achristensen@apple.com>
+
+        Re-separating Win32 and Win64 builds.
+        https://bugs.webkit.org/show_bug.cgi?id=120178
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        Use PlatformArchitecture to determine correct object directory (obj32 or obj64).
+
+2013-08-21  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r154416.
+        http://trac.webkit.org/changeset/154416
+        https://bugs.webkit.org/show_bug.cgi?id=120147
+
+        Broke Windows builds (Requested by rniwa on #webkit).
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+
+2013-08-21  Alex Christensen  <achristensen@apple.com>
+
+        <https://webkit.org/b/120137> Separating Win32 and Win64 builds.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        Use PlatformArchitecture to determine correct object directory (obj32 or obj64).
+
+2013-08-20  Brent Fulgham  <bfulgham@apple.com>
+
+        <https://webkit.org/b/120098> [Windows] Enable the new Web Inspector
+
+        Reviewed by Brian Weinstein.
+
+        * WebKit.vcxproj/WebKit.sln: Add reference to the new WebInspectorUI
+        project so that it will be included in new distributions.
+
+2013-08-20  Alex Christensen  <achristensen@apple.com>
+
+        [Windows] Unreviewed build fix for Win64 after r154118.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-08-20  Alex Christensen  <achristensen@apple.com>
+
+        <https://webkit.org/b/120076> More work towards a Win64 build
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        Use PlatformArchitecture macro instead of bin32, lib32, and obj32.
+
+2013-08-20  Alex Christensen  <achristensen@apple.com>
+
+        Use PlatformArchitecture to distinguish between 32-bit and 64-bit builds on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=119512
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces/InterfacesCommon.props:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDCommon.props:
+        Replaced obj32, bin32, and lib32 with macros for 64-bit build.
+
+2013-08-17  Andreas Kling  <akling@apple.com>
+
+        [Windows] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+            Don't export Frame::settings() as it's an inline method now.
+
+2013-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build fix after r154127.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove two symbols that are
+        now part of JavaScriptCore.
+
+2013-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Build correctsion after r154106
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add missing symbol export.
+
+2013-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Correct build after r154088
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Remove unused
+        (and now renamed) export symbols.
+
+2013-08-14  Alex Christensen  <achristensen@apple.com>
+
+        Unreviewed build fix for Win64 after r153943.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Added 64-bit linker symbol for frameOrientationAtIndex.
+
+2013-08-12  peavo@outlook.com  <peavo@outlook.com>
+
+        [Win] TestWebKitAPI fails to link.
+        https://bugs.webkit.org/show_bug.cgi?id=119619
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export needed symbol.
+
+2013-08-07  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Unreviewed build fix on Efl port after r153785.
+
+        * CMakeLists.txt: Added "${WEBCORE_DIR}/style" in include list.
+
+2013-08-06  Alex Christensen  <achristensen@apple.com>
+
+        Enabled WebGL on WinCairo port.
+        https://bugs.webkit.org/show_bug.cgi?id=119502
+
+        Reviewed by Benjamin Poulain.
+
+        * WebKit.vcxproj/WebKit.sln: Build ANGLE libraries.
+        * WebKit.vcxproj/WebKit/WebKitCFLite.props: Link to ANGLE libraries.
+
+2013-08-05  Mark Lam  <mark.lam@apple.com>
+
+        Gardening: fix build after r153728.
+
+        Not reviewed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-07-29  Alex Christensen  <achristensen@apple.com>
+
+        Separated translator into preprocessor, translator_common,
+        translator_hlsl (for libGLESv2), and translator_glsl (for ANGLEWebKitBridge).
+        These projects are still not built by default.
+        https://bugs.webkit.org/show_bug.cgi?id=119221
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Added separate ANGLE translator projects.
+
+2013-07-25  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed build fix, AppleWin port.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-07-25  Alex Christensen  <achristensen@apple.com>
+
+        Made Windows build system for ANGLE.
+        https://bugs.webkit.org/show_bug.cgi?id=119103
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+        Added ANGLEGenerated, libEGL, libGLESv2, and translator projects.
+        These projects are currently not built.
+
+2013-07-23  Tim Horton  <timothy_horton@apple.com>
+
+        Unreviewed build fix after r153054.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-07-22  Alex Christensen  <achristensen@apple.com>
+
+        Fixed WinCairo build configurations.
+        https://bugs.webkit.org/show_bug.cgi?id=118932
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln: 
+        Made WinCairo not build AssembleBuildLogs (wasn't working, not necessary).
+        Made Debug_WinCairo build with Debug_WinCairo configuration.
+        Made 64-bit WinCairo not build QTMovieWin.
+
+2013-07-19  Alex Christensen  <achristensen@apple.com>
+
+        Unreviewed build fix on Windows after r152930.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Added missing close paren.
+
+2013-07-19  Alex Christensen  <achristensen@apple.com>
+
+        Added 64-bit symbols to WebKitExports.def.in for 64-bit Windows builds
+        and a macro to only use them for 64-bit builds.
+        https://bugs.webkit.org/show_bug.cgi?id=118887
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Added 64-bit symbols.
+        * WebKit.vcxproj/WebKitExportGenerator/make-export-file-generator:
+        Added support for new symbolWithPointer macro.
+
+2013-07-19  Alex Christensen  <achristensen@apple.com>
+
+        Added x64 configuration to Visual Studio build.
+        https://bugs.webkit.org/show_bug.cgi?id=118888
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/WebKit.sln:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+
+2013-07-16  Balazs Kelemen  <kbalazs@webkit.org>
+
+        [CMake] Undefined references should be detected at build time
+        https://bugs.webkit.org/show_bug.cgi?id=110236
+
+        Reviewed by Christophe Dumez.
+
+        Add library dependencies that were not defined explicitly before.
+
+        * CMakeLists.txt:
+        * PlatformEfl.cmake:
+
+2013-07-11  Timothy Hatcher  <timothy@apple.com>
+
+        Revert r152267 and soft link WebInspectorUI.framework again.
+
+        https://bugs.webkit.org/show_bug.cgi?id=118544
+
+        Reviewed by David Kilzer.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-07-01  Timothy Hatcher  <timothy@apple.com>
+
+        Link to WebInspectorUI.framework at build time instead of soft linking.
+
+        https://bugs.webkit.org/show_bug.cgi?id=118261
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-07-01  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Unreviewed build correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Need to export tag for textarea element.
+
+2013-06-26  Roger Fong  <roger_fong@apple.com>
+
+        Add an accessibility delegate interface to AppleWin port.
+        https://bugs.webkit.org/show_bug.cgi?id=118094.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
+
+2013-06-24  Alex Christensen  <achristensen@apple.com>
+
+        Windows build links to opengl32.lib to allow WebGL compiling.
+        https://bugs.webkit.org/show_bug.cgi?id=117949
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit/WebKitCommon.props: Added link to opengl32.lib.
+
+2013-06-17  Darin Adler  <darin@apple.com>
+
+        Sort all the Xcode project files
+        https://bugs.webkit.org/show_bug.cgi?id=117696
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj: Ran the sort-Xcode-project-file script.
+
+2013-06-21  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Fix a missing parenthesis in include directory path.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+
+2013-06-20  Roger Fong  <roger_fong@apple.com>
+
+        Make Windows makefile copy build output to a different folder.
+        <rdar://problem/14219184>.
+
+        * WebKit.vcxproj/WebKit.make:
 
 2013-06-18  Roger Fong  <roger_fong@apple.com>
 

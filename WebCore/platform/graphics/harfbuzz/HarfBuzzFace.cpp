@@ -39,6 +39,7 @@ namespace WebCore {
 
 const hb_tag_t HarfBuzzFace::vertTag = HB_TAG('v', 'e', 'r', 't');
 const hb_tag_t HarfBuzzFace::vrt2Tag = HB_TAG('v', 'r', 't', '2');
+const hb_tag_t HarfBuzzFace::kernTag = HB_TAG('k', 'e', 'r', 'n');
 
 // Though we have FontCache class, which provides the cache mechanism for
 // WebKit's font objects, we also need additional caching layer for HarfBuzz
@@ -73,7 +74,7 @@ typedef HashMap<uint64_t, RefPtr<FaceCacheEntry>, WTF::IntHash<uint64_t>, WTF::U
 
 static HarfBuzzFaceCache* harfBuzzFaceCache()
 {
-    DEFINE_STATIC_LOCAL(HarfBuzzFaceCache, s_harfBuzzFaceCache, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(HarfBuzzFaceCache, s_harfBuzzFaceCache, ());
     return &s_harfBuzzFaceCache;
 }
 
@@ -82,7 +83,7 @@ HarfBuzzFace::HarfBuzzFace(FontPlatformData* platformData, uint64_t uniqueID)
     , m_uniqueID(uniqueID)
     , m_scriptForVerticalText(HB_SCRIPT_INVALID)
 {
-    HarfBuzzFaceCache::AddResult result = harfBuzzFaceCache()->add(m_uniqueID, 0);
+    HarfBuzzFaceCache::AddResult result = harfBuzzFaceCache()->add(m_uniqueID, nullptr);
     if (result.isNewEntry)
         result.iterator->value = FaceCacheEntry::create(createFace());
     result.iterator->value->ref();

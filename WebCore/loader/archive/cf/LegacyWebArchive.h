@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,6 +30,7 @@
 #define LegacyWebArchive_h
 
 #include "Archive.h"
+#include <functional>
 
 namespace WebCore {
 
@@ -37,24 +38,18 @@ class Frame;
 class Node;
 class Range;
 
-class FrameFilter {
-public:
-    virtual ~FrameFilter() { }
-    virtual bool shouldIncludeSubframe(Frame*) const = 0;
-};
-
 class LegacyWebArchive : public Archive {
 public:
     static PassRefPtr<LegacyWebArchive> create();
     static PassRefPtr<LegacyWebArchive> create(SharedBuffer*);
-    static PassRefPtr<LegacyWebArchive> create(const KURL&, SharedBuffer*);
-    static PassRefPtr<LegacyWebArchive> create(PassRefPtr<ArchiveResource> mainResource, Vector<PassRefPtr<ArchiveResource> >& subresources, Vector<PassRefPtr<LegacyWebArchive> >& subframeArchives);
-    static PassRefPtr<LegacyWebArchive> create(Node*, FrameFilter* = 0);
+    static PassRefPtr<LegacyWebArchive> create(const URL&, SharedBuffer*);
+    static PassRefPtr<LegacyWebArchive> create(PassRefPtr<ArchiveResource> mainResource, Vector<RefPtr<ArchiveResource>> subresources, Vector<RefPtr<LegacyWebArchive>> subframeArchives);
+    static PassRefPtr<LegacyWebArchive> create(Node*, std::function<bool (Frame&)> frameFilter = nullptr);
     static PassRefPtr<LegacyWebArchive> create(Frame*);
     static PassRefPtr<LegacyWebArchive> createFromSelection(Frame*);
     static PassRefPtr<LegacyWebArchive> create(Range*);
 
-    virtual Type type() const;
+    virtual Type type() const override;
 
     RetainPtr<CFDataRef> rawDataRepresentation();
 
@@ -63,7 +58,7 @@ private:
 
     enum MainResourceStatus { Subresource, MainResource };
 
-    static PassRefPtr<LegacyWebArchive> create(const String& markupString, Frame*, const Vector<Node*>& nodes, FrameFilter*);
+    static PassRefPtr<LegacyWebArchive> create(const String& markupString, Frame*, const Vector<Node*>& nodes, std::function<bool (Frame&)> frameFilter);
     static PassRefPtr<ArchiveResource> createResource(CFDictionaryRef);
     static ResourceResponse createResourceResponseFromMacArchivedData(CFDataRef);
     static ResourceResponse createResourceResponseFromPropertyListData(CFDataRef, CFStringRef responseDataType);

@@ -90,7 +90,7 @@ configuring the driver for the serial reader
 You have to create or edit the file /etc/reader.conf. The file should
 contain something like:
 
-# Gemplus reader with serial communication
+# Gemalto reader with serial communication
 #  - reader is the reader name. It is needed for multi-slot readers.
 #    Possible reader values are: GemPCPinPad, GemCorePOSPro, GemCoreSIMPro,
 #    GemPCTwin (default value)
@@ -157,4 +157,4 @@ Test procedure:
   http://pcsclite.alioth.debian.org/ccid.html#CCID_compliant to know
   what to do.
 
-$Id: INSTALL 3001 2008-06-14 16:15:11Z rousseau $
+$Id: INSTALL 4814 2010-03-12 15:42:07Z rousseau $

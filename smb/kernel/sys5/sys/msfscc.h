@@ -106,6 +106,7 @@
 #define FSCTL_SRV_READ_HASH                         0x1441bb
 #define FSCTL_SRV_COPYCHUNK_WRITE                   0x001480F2
 #define FSCTL_LMR_REQUEST_RESILIENCY                0x001401D4
+#define FSCTL_VALIDATE_NEGOTIATE_INFO               0x00140204
 
 /* 
  * Symbolic Link Reparse Data Buffer

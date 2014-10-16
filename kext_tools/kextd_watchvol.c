@@ -160,18 +160,12 @@ static CFMutableDictionaryRef  sReplyPorts = NULL;  // cfports -> replyPorts
 static CFMachPortRef           sRebootLock = NULL;     // sys lock for reboot
 static CFMachPortRef           sRebootWaiter = NULL;   // only need one
 static CFRunLoopTimerRef       sAutoUpdateDelayer = NULL; // avoid boot / movie
-static Boolean                 sBootRootCheckedIn = false; // kc -U checked in?
 
-/* There are two things that could delay on-demand updates (e.g. of mkexts)
- * 1. time / load advisory hasn't given us clearance
- * 2. kextcache -U might be doing its thing if we're booting BootRoot
- * However, if kextcache -U for some reason never calls us (or if kextd
- * restarts sometime after boot), on-demand updates would end up disabled.
- *
- * Thus we assume that kextcache -U is never going to contact us
- * if it doesn't do so within the first five minutes after boot.
- * We use a simple interlock between a delay timer and two routines
- * vol_appeared() & fsys_changed() which trigger on-demand updates.
+/*
+ * For historical reasons (avoiding first boot movie, old kextcache -U
+ * race), kextd waits five minutes before performing automatic updates.
+ * Once the timer has expiered, vol_appeared() and fsys_changed() will
+ * trigger updates as needed.  6276173 tracks removal of the fixed delay.
  *
  * Updates are always performed at shutdown.
  */
@@ -367,16 +361,10 @@ finish:
 static void checkAutoUpdate(CFRunLoopTimerRef timer, void *ctx)
 {
     // assert(timer == sAutoUpdateDelayer)
-    // one-shot timer self-invalidates
     mountpoint_t ignore;
 
-    // XX We should work towards letting early-boot kextcache -U get a lock
-    if (isBootRootActive() && sBootRootCheckedIn == false) {
-        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                  "Warning: no record of Boot!=Root early boot check");
-    } 
-
-    // allow vol_appeared() to proceed with check_rebuild :)
+    // one-shot timer self-invalidates, so clear out our reference
+    // Also, vol_appeared() won't call check_rebuild() until this is clear.
     sAutoUpdateDelayer = NULL;
 
     // and check all of the watched volumes for updates
@@ -647,7 +635,7 @@ static int watch_path(char *path, mach_port_t port, struct watchedVol* watched)
     CFArrayAppendValue(watched->tokens, (void*)(intptr_t)token);
 
     rval = 0;
-
+    
 finish:
     if (rval && token != -1 && (errnum = notify_cancel(token)))
     OSKextLog(/* kext */ NULL,
@@ -669,6 +657,117 @@ finish:
             goto finish; \
     } while(0)
 #define kInstallCommitPath "/private/var/run/installd.commit.pid"
+
+#if DEV_KERNEL_SUPPORT
+/******************************************************************************
+ * watch_kernels gets the parent of the kernel file then enumerates the given
+ * directory and calls watch_path for each "valid" kernel file in that
+ * directory.  NOTE - "valid" currently means files named "kernel.SUFFIX"
+ *****************************************************************************/
+static void
+watch_kernels(
+              struct watchedVol *  watched,
+              const char *         kernelPath,
+              mach_port_t          fsPort )
+{
+    CFURLRef                kernelURL       = NULL; // must release
+    CFURLRef                kernelsDirURL   = NULL; // must release
+    CFURLEnumeratorRef      myEnumerator    = NULL; // must release
+    CFURLRef                enumURL         = NULL; // do not release
+    CFStringRef             tempCFString    = NULL; // must release
+    CFArrayRef              resultArray     = NULL; // must release
+    char                    tempPath[PATH_MAX];
+    
+    if (kernelPath == NULL || watched == NULL || watched->caches == NULL) {
+        goto finish;
+    }
+    
+    /* back up to the parent directory and enumerate from there */
+    if (strlcpy(tempPath,
+                watched->caches->root,
+                sizeof(tempPath)) >= sizeof(tempPath))
+        goto finish;
+    if (strlcat(tempPath,
+                kernelPath,
+                sizeof(tempPath)) >= sizeof(tempPath))
+        goto finish;
+    
+    kernelURL = CFURLCreateFromFileSystemRepresentation(
+                                                        NULL,
+                                                        (const UInt8 *)tempPath,
+                                                        strlen(tempPath),
+                                                        true );
+    if (kernelURL == NULL) {
+        goto finish;
+    }
+    
+    kernelsDirURL = CFURLCreateCopyDeletingLastPathComponent(NULL, kernelURL );
+    if (kernelsDirURL == NULL) {
+        goto finish;
+    }
+    
+    // watch /System/Library/Kernels directory
+    if (CFURLGetFileSystemRepresentation(kernelsDirURL,
+                                         true /*resolve*/,
+                                         (UInt8*)tempPath,
+                                         sizeof(tempPath)) ) {
+        watch_path(tempPath, fsPort, watched);
+    }
+    
+    myEnumerator = CFURLEnumeratorCreateForDirectoryURL(
+                                                        NULL,
+                                                        kernelsDirURL,
+                                                        kCFURLEnumeratorDefaultBehavior,
+                                                        NULL );
+    if (myEnumerator == NULL) {
+        goto finish;
+    }
+    
+    while (CFURLEnumeratorGetNextURL(myEnumerator,
+                                     &enumURL,
+                                     NULL) == kCFURLEnumeratorSuccess) {
+        // make sure we have a last component and it begins with "kernel."
+        // NOTE - we are already watching "/S/L/Kernels/kernel"
+        SAFE_RELEASE_NULL(tempCFString);
+        tempCFString = CFURLCopyLastPathComponent(enumURL);
+        if (tempCFString == NULL ||
+            CFStringHasPrefix(tempCFString, CFSTR("kernel.")) == false) {
+            continue;
+        }
+        
+        // skip any kernels with more than 1 '.' character.
+        // For example: kernel.foo.bar is not a valid kernel name
+        SAFE_RELEASE_NULL(resultArray);
+        resultArray = CFStringCreateArrayWithFindResults(
+                                                         NULL,
+                                                         tempCFString,
+                                                         CFSTR("."),
+                                                         CFRangeMake(0, CFStringGetLength(tempCFString)),
+                                                         0);
+        if (resultArray && CFArrayGetCount(resultArray) > 1) {
+            continue;
+        }
+        
+        if (CFURLGetFileSystemRepresentation(enumURL,
+                                             true /*resolve*/,
+                                             (UInt8*)tempPath,
+                                             sizeof(tempPath)) ) {
+            watch_path(tempPath, fsPort, watched);
+        }
+    } // while loop
+    
+finish:
+    SAFE_RELEASE(kernelURL);
+    SAFE_RELEASE(kernelsDirURL);
+    SAFE_RELEASE(myEnumerator);
+    SAFE_RELEASE(tempCFString);
+    SAFE_RELEASE(resultArray);
+    
+    return;
+}
+#endif
+
+
 static void vol_appeared(DADiskRef disk, void *launchCtx)
 {
     int result = 0; // for now, ignore inability to get basic data (4528851)
@@ -763,8 +862,25 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     }
 
     
-    WATCH(watched, path, caches->kernel, fsPort);
+    // newer systems kernelpath is /System/Library/Kernels/kernel
+    // older systems kernelpath is /mach_kernel
+    WATCH(watched, path, caches->kernelpath, fsPort);
+#if DEV_KERNEL_SUPPORT
+    // look for other kernels and watch them too.
+    if (caches->kernelsCount > 0) {
+        watch_kernels(watched, caches->kernelpath, fsPort);
+        
+        // watch any other kernelcache files (kernelcache.SUFFIX)
+        if (watched->caches->extraKernelCachePaths) {
+            for (i = 0; i < watched->caches->nekcp; i++) {
+                WATCH(watched, path, caches->extraKernelCachePaths[i].rpath, fsPort);
+           }
+        }
+    }
+#endif
+    
     WATCH(watched, path, caches->locSource, fsPort);
+    WATCH(watched, path, caches->bgImage, fsPort);
     // XXX commenting out until 9498428 makes watching this file
     // more efficient (and probably replaces locPref with an array).
     // WATCH(watched, path, caches->locPref, fsPort);
@@ -821,6 +937,8 @@ finish:
 
     return;
 }
+
+
 #undef WATCH
 
 /******************************************************************************
@@ -1317,6 +1435,10 @@ static Boolean check_rebuild(struct watchedVol *watched)
 {
     Boolean launched = false;
     Boolean rebuild = false;
+#if DEV_KERNEL_SUPPORT
+    char *  suffixPtr           = NULL; // must free
+    char *  tmpKernelPath       = NULL; // must free
+#endif
 
     // if we came in some other way and there's a timer pending, cancel it
     if (watched->delayer) {  
@@ -1336,18 +1458,51 @@ static Boolean check_rebuild(struct watchedVol *watched)
     // (it was 'goto' or ever-deeper nesting)
     if ((rebuild = check_kext_boot_cache_file(watched->caches,
         watched->caches->kext_boot_cache_file->rpath,
-        watched->caches->kernel))) {
+        watched->caches->kernelpath))) {
 
         goto dorebuild;
     }
+
+#if DEV_KERNEL_SUPPORT
+    if (watched->caches->extraKernelCachePaths) {
+        int             i;
+        cachedPath *    cp;
+        
+        tmpKernelPath = malloc(PATH_MAX);
+        
+        for (i = 0; i < watched->caches->nekcp; i++) {
+            
+            cp = &watched->caches->extraKernelCachePaths[i];
+            SAFE_FREE_NULL(suffixPtr);
+            
+            suffixPtr = getPathExtension(cp->rpath);
+            if (suffixPtr == NULL)
+                continue;
+            if (strlcpy(tmpKernelPath, watched->caches->kernelpath, PATH_MAX) >= PATH_MAX)
+                continue;
+            if (strlcat(tmpKernelPath, ".", PATH_MAX) >= PATH_MAX)
+                continue;
+            if (strlcat(tmpKernelPath, suffixPtr, PATH_MAX) >= PATH_MAX)
+                continue;
+            rebuild = check_kext_boot_cache_file(watched->caches,
+                                                 cp->rpath,
+                                                 tmpKernelPath);
+            if (rebuild)  goto dorebuild;
+        }
+    }
+#endif
+
     
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
 
+    // Boot!=Root-specific caches
+    // 16513211 tracks making this more lenient at shutdown
     if (watched->isBootRoot) {
         rebuild = check_csfde(watched->caches) ||
                   check_loccache(watched->caches) ||
-                  needUpdates(watched->caches, NULL, NULL, NULL,
+                  needUpdates(watched->caches, kBRUCachesAnyRoot,
+                        NULL, NULL, NULL,   // use return aggregate
                         kOSKextLogProgressLevel | kOSKextLogFileAccessFlag);
 
         if (rebuild)
@@ -1375,6 +1530,10 @@ dorebuild:
     }
 
 finish:
+#if DEV_KERNEL_SUPPORT
+    SAFE_FREE(tmpKernelPath);
+    SAFE_FREE(suffixPtr);
+#endif
     return launched;
 }
 
@@ -1566,21 +1725,7 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
         goto finish;
     }
 
-    // if BootRoot, first lock should be kextcache -U checking in
-    if (isBootRootActive() && sBootRootCheckedIn == false) {
-        // record the check-in so checkAutoUpdate() can proceed
-        sBootRootCheckedIn = true;
-
-        // XX could eliminate 5642331 race by touch'ing /S/L/E here
-
-        // if checkAutoUpdate waited for sBootRootCheckedIn, we'd kick it here
-
-        // if kextd restarted, this might not be kextcache -U
-        // so we fall through to granting the lock
-    }
-
     // still initializing, sorry (XX someday could allow client to wait)
-    // 5519500: init no longer delayed so only kextcache -U might hit this
     if (!sFsysWatchDict) {
         result = EAGAIN;
         rval = KERN_SUCCESS;    // for MiG

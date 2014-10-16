@@ -91,8 +91,10 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -148,6 +150,7 @@ static const char copyright[] =
 #ifdef HAVE_POLL_H
 #include <poll.h>
 #endif
+#include <sysexits.h>
 
 #ifdef IPSEC
 #include <netinet6/ah.h>
@@ -319,6 +322,7 @@ void	 summary(void);
 void	 tvsub(struct timeval *, struct timeval *);
 int	 setpolicy(int, char *);
 char	*nigroup(char *);
+static uint32_t str2svc(const char *);
 void	 usage(void);
 
 int
@@ -507,7 +511,10 @@ main(int argc, char *argv[])
 			break;
 		case 'k':
 			how_so_traffic_class++;
-			so_traffic_class = atoi(optarg);
+			so_traffic_class = str2svc(optarg);
+			if (so_traffic_class == UINT32_MAX)
+				errx(EX_USAGE, "bad traffic class: `%s'",
+				     optarg);
 			break;
 
 		case 'l':
@@ -2986,6 +2993,42 @@ nigroup(char *name)
 		return NULL;
 
 	return strdup(hbuf);
+}
+
+uint32_t
+str2svc(const char *str)
+{
+	uint32_t svc;
+	char *endptr;
+	
+	if (str == NULL || *str == '\0')
+		svc = UINT32_MAX;
+	else if (strcasecmp(str, "BK_SYS") == 0)
+		return SO_TC_BK_SYS;
+	else if (strcasecmp(str, "BK") == 0)
+		return SO_TC_BK;
+	else if (strcasecmp(str, "BE") == 0)
+		return SO_TC_BE;
+	else if (strcasecmp(str, "RD") == 0)
+		return SO_TC_RD;
+	else if (strcasecmp(str, "OAM") == 0)
+		return SO_TC_OAM;
+	else if (strcasecmp(str, "AV") == 0)
+		return SO_TC_AV;
+	else if (strcasecmp(str, "RV") == 0)
+		return SO_TC_RV;
+	else if (strcasecmp(str, "VI") == 0)
+		return SO_TC_VI;
+	else if (strcasecmp(str, "VO") == 0)
+		return SO_TC_VO;
+	else if (strcasecmp(str, "CTL") == 0)
+		return SO_TC_CTL;
+	else {
+		svc = strtoul(str, &endptr, 0);
+		if (*endptr != '\0')
+			svc = UINT32_MAX;
+	}
+	return (svc);
 }
 
 void

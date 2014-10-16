@@ -1,6 +1,7 @@
-iff
 set	prototyped
-set	stdio stdarg.h
+iff
+set	stdio ast_common.h
+set	include .
 
 cat{
 	#ifndef _AST_WCHAR_H
@@ -20,14 +21,17 @@ cat{
 }end
 
 if	tst note{ <wchar.h> requires native <stdio.h> }end nocompile{
+		/*<NOSTDIO>*/
 		#define _STDIO_INCLUDED 1
 		#define FILE		void
 		#include <wchar.h>
 		int tst;
 	}end
 	if	tst note{ <stdio.h> defines __va_list for <wchar.h> }end compile{
+			/*<NOSTDIO>*/
 			#define _STDIO_INCLUDED 1
 			#define FILE		void
+			#include <stdarg.h>
 			#define __va_list	va_list
 			#include <wchar.h>
 			int tst;
@@ -37,7 +41,7 @@ if	tst note{ <wchar.h> requires native <stdio.h> }end nocompile{
 	endif
 endif
 
-if	hdr - wctype
+if	hdr - wctype wchar.h
 	if	! npt - iswalpha wchar.h {
 			#include <wctype.h> /* <wchar.h> includes <wctype.h> */
 		}
@@ -47,7 +51,7 @@ endif
 run{
 cat <<!
 	#if _hdr_wchar && defined(_nxt_wchar)
-	#include $_nxt_wchar	/* the native wchar.h */
+	#include ${_nxt_wchar-_nxt_wchar}	/* the native wchar.h */
 	#endif
 
 	#ifndef WEOF
@@ -146,7 +150,7 @@ cat <<!
 	/* on some systems <wchar.h> is included multiple times with multiple effects */
 
 	#if _hdr_wchar && defined(_nxt_wchar)
-	#include $_nxt_wchar	/* the native wchar.h */
+	#include ${_nxt_wchar-_nxt_wchar}	/* the native wchar.h */
 	#endif
 
 	#endif

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -47,7 +47,7 @@ static WebRenderNode *copyRenderNode(RenderObject*);
 {
     [self release];
     
-    if (!frame->loader()->client()->hasHTMLView())
+    if (!frame->loader().client().hasHTMLView())
         return nil;
     
     RenderObject* renderer = frame->contentRenderer();
@@ -86,7 +86,7 @@ static WebRenderNode *copyRenderNode(RenderObject*);
 static WebRenderNode *copyRenderNode(RenderObject* node)
 {
     NSMutableArray *children = [[NSMutableArray alloc] init];
-    for (RenderObject* child = node->firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = node->firstChildSlow(); child; child = child->nextSibling()) {
         WebRenderNode *childCopy = copyRenderNode(child);
         [children addObject:childCopy];
         [childCopy release];
@@ -97,7 +97,7 @@ static WebRenderNode *copyRenderNode(RenderObject* node)
     RenderWidget* renderWidget = node->isWidget() ? toRenderWidget(node) : 0;
     Widget* widget = renderWidget ? renderWidget->widget() : 0;
     FrameView* frameView = widget && widget->isFrameView() ? toFrameView(widget) : 0;
-    Frame* frame = frameView ? frameView->frame() : 0;
+    Frame* frame = frameView ? &frameView->frame() : 0;
 
     // FIXME: broken with transforms
     FloatPoint absPos = node->localToAbsolute();
@@ -114,8 +114,9 @@ static WebRenderNode *copyRenderNode(RenderObject* node)
     } else if (node->isText()) {
         // FIXME: Preserve old behavior even though it's strange.
         RenderText* text = toRenderText(node);
-        x = text->firstRunX();
-        y = text->firstRunY();
+        IntPoint firstRunLocation = text->firstRunLocation();
+        x = firstRunLocation.x();
+        y = firstRunLocation.y();
         IntRect box = text->linesBoundingBox();
         width = box.width();
         height = box.height();

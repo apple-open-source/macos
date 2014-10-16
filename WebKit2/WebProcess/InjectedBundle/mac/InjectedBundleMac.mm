@@ -26,10 +26,13 @@
 #import "config.h"
 #import "InjectedBundle.h"
 
+#import "APIData.h"
 #import "ObjCObjectGraph.h"
 #import "WKBundleAPICast.h"
 #import "WKBundleInitialize.h"
+#import "WKWebProcessBundleParameters.h"
 #import "WKWebProcessPlugInInternal.h"
+#import "WebProcessCreationParameters.h"
 #import <Foundation/NSBundle.h>
 #import <stdio.h>
 #import <wtf/RetainPtr.h>
@@ -44,7 +47,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-bool InjectedBundle::load(APIObject* initializationUserData)
+bool InjectedBundle::initialize(const WebProcessCreationParameters& parameters, API::Object* initializationUserData)
 {
     if (m_sandboxExtension) {
         if (!m_sandboxExtension->consumePermanently()) {
@@ -55,7 +58,7 @@ bool InjectedBundle::load(APIObject* initializationUserData)
         m_sandboxExtension = 0;
     }
     
-    RetainPtr<CFStringRef> injectedBundlePathStr = adoptCF(CFStringCreateWithCharacters(0, reinterpret_cast<const UniChar*>(m_path.characters()), m_path.length()));
+    RetainPtr<CFStringRef> injectedBundlePathStr = m_path.createCFString();
     if (!injectedBundlePathStr) {
         WTFLogAlways("InjectedBundle::load failed - Could not create the path string.\n");
         return false;
@@ -85,7 +88,24 @@ bool InjectedBundle::load(APIObject* initializationUserData)
         return true;
     }
     
-#if defined(__LP64__) && defined(__clang__)
+#if WK_API_ENABLED
+    if (parameters.bundleParameterData) {
+        auto bundleParameterData = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(parameters.bundleParameterData->bytes())) length:parameters.bundleParameterData->size() freeWhenDone:NO]);
+
+        auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:bundleParameterData.get()]);
+        [unarchiver setRequiresSecureCoding:YES];
+
+        NSDictionary *dictionary = nil;
+        @try {
+            dictionary = [unarchiver.get() decodeObjectOfClass:[NSObject class] forKey:@"parameters"];
+            ASSERT([dictionary isKindOfClass:[NSDictionary class]]);
+        } @catch (NSException *exception) {
+            LOG_ERROR("Failed to decode bundle parameters: %@", exception);
+        }
+
+        m_bundleParameters = adoptNS([[WKWebProcessBundleParameters alloc] initWithDictionary:dictionary]);
+    }
+
     // Otherwise, look to see if the bundle has a principal class
     Class principalClass = [m_platformBundle principalClass];
     if (!principalClass) {
@@ -98,25 +118,20 @@ bool InjectedBundle::load(APIObject* initializationUserData)
         return false;
     }
 
-    id<WKWebProcessPlugIn> instance = (id<WKWebProcessPlugIn>)[[principalClass alloc] init];
+    id <WKWebProcessPlugIn> instance = (id <WKWebProcessPlugIn>)[[principalClass alloc] init];
     if (!instance) {
         WTFLogAlways("InjectedBundle::load failed - Could not initialize an instance of the principal class.\n");
         return false;
     }
 
-    // Create the shared WKWebProcessPlugInController.
-    [[WKWebProcessPlugInController alloc] _initWithPrincipalClassInstance:instance bundleRef:toAPI(this)];
+    WKWebProcessPlugInController* plugInController = WebKit::wrapper(*this);
+    [plugInController _setPrincipalClassInstance:instance];
 
     if ([instance respondsToSelector:@selector(webProcessPlugIn:initializeWithObject:)]) {
         RetainPtr<id> objCInitializationUserData;
-        if (initializationUserData && initializationUserData->type() == APIObject::TypeObjCObjectGraph)
+        if (initializationUserData && initializationUserData->type() == API::Object::Type::ObjCObjectGraph)
             objCInitializationUserData = static_cast<ObjCObjectGraph*>(initializationUserData)->rootObject();
-        [instance webProcessPlugIn:[WKWebProcessPlugInController _shared] initializeWithObject:objCInitializationUserData.get()];
-    } else if ([instance respondsToSelector:@selector(webProcessPlugInInitialize:)]) {
-        CLANG_PRAGMA("clang diagnostic push")
-        CLANG_PRAGMA("clang diagnostic ignored \"-Wdeprecated-declarations\"")
-        [instance webProcessPlugInInitialize:[WKWebProcessPlugInController _shared]];
-        CLANG_PRAGMA("clang diagnostic pop")
+        [instance webProcessPlugIn:plugInController initializeWithObject:objCInitializationUserData.get()];
     }
 
     return true;
@@ -125,8 +140,38 @@ bool InjectedBundle::load(APIObject* initializationUserData)
 #endif
 }
 
-void InjectedBundle::activateMacFontAscentHack()
+#if WK_API_ENABLED
+WKWebProcessBundleParameters *InjectedBundle::bundleParameters()
 {
+    // We must not return nil even if no parameters are currently set, in order to allow the client
+    // to use KVO.
+    if (!m_bundleParameters)
+        m_bundleParameters = adoptNS([[WKWebProcessBundleParameters alloc] initWithDictionary:@{ }]);
+
+    return m_bundleParameters.get();
+}
+#endif
+
+void InjectedBundle::setBundleParameter(const String& key, const IPC::DataReference& value)
+{
+#if WK_API_ENABLED
+    auto bundleParameterData = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<void*>(static_cast<const void*>(value.data())) length:value.size() freeWhenDone:NO]);
+
+    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingWithData:bundleParameterData.get()]);
+    [unarchiver setRequiresSecureCoding:YES];
+
+    id parameter = nil;
+    @try {
+        parameter = [unarchiver decodeObjectOfClass:[NSObject class] forKey:@"parameter"];
+    } @catch (NSException *exception) {
+        LOG_ERROR("Failed to decode bundle parameter: %@", exception);
+    }
+
+    if (!m_bundleParameters && parameter)
+        m_bundleParameters = adoptNS([[WKWebProcessBundleParameters alloc] initWithDictionary:[NSDictionary dictionary]]);
+
+    [m_bundleParameters setParameter:parameter forKey:key];
+#endif
 }
 
 } // namespace WebKit

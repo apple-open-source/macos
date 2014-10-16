@@ -25,7 +25,7 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	$ENV{"CURRENT_ARCH"} = $arch;
 	
 	my $platformName = $ENV{"PLATFORM_NAME"};
-	$platformName = "iphoneos" if ($platformName eq "iphonesimulator");
+	$platformName =~ s/simulator/os/;
 
 	my $platformPath = $ENV{"SRCROOT"} . "/Platforms/" . $platformName . "/Makefile.inc";
 	my $featuresHeaderDir = $ENV{"DERIVED_FILES_DIR"}."/".$arch;

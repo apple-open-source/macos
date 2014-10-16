@@ -132,29 +132,8 @@ dn2entry_retry:
 #ifdef __APPLE__
 		if( odusers_krb_auth(op, op->oq_bind.rb_cred.bv_val) ) {
 			rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
-			if(odusers_increment_failedlogin(&op->o_req_ndn) != 0) {
-				Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __func__, op->o_req_ndn.bv_val, 0);
-			}
 			goto done;
 		} else {
-			CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_req_ndn);
-			if(!poldict) {
-				Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
-				rs->sr_text = "Could not verify policy";
-				rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-				goto done;
-			}
-
-			if(odusers_isdisabled(poldict)) {
-				Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
-				CFRelease(poldict);
-				rs->sr_text = "Policy violation";
-				rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-				goto done;
-			}
-
-			odusers_successful_auth(&op->o_req_ndn, poldict);
-			CFRelease(poldict);
 			rs->sr_err = LDAP_SUCCESS;
 			goto done;
 		}

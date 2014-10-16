@@ -13,5 +13,7 @@
 		<key>com.apple.iokitsimd</key>
 		<true/>
 	</dict>
+	<key>EnableTransactions</key>
+	<true/>
 </dict>
 </plist>

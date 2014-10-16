@@ -27,15 +27,16 @@
 
 #pragma ident	"@(#)ctf_open.c	1.10	06/01/07 SMI"
 
-#if !defined(__APPLE__)
-#include <ctf_impl.h>
-#include <sys/mman.h>
-#include <sys/zmod.h>
-#else /* is Apple Mac OS X */
 #include <ctf_impl.h>
 #include <sys/mman.h>
 #define Z_OK            0	/* In lieu of Solaris <sys/zmod.h> */
-#endif /* __APPLE__ */
+
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
+#include <mach-o/stab.h>
+
+int z_uncompress(void *dst, size_t *dstlen, const void *src, size_t srclen);
+const char *z_strerror(int err);
 
 static const ctf_dmodel_t _libctf_models[] = {
 	{ "ILP32", CTF_MODEL_ILP32, 4, 1, 2, 4, 4 },
@@ -106,11 +107,6 @@ sym_to_gelf(const Elf32_Sym *src, Elf64_Sym *dst)
 
 	return (dst);
 }
-
-#if defined(__APPLE__)
-#include <mach-o/loader.h>
-#include <mach-o/nlist.h>
-#include <mach-o/stab.h>
 
 static Elf64_Sym *
 sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym, const char *base)
@@ -205,7 +201,6 @@ sym_to_gelf_macho_64(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym
 	
 	return sym;
 }
-#endif /* __APPLE__ */
 
 /*
  * Initialize the symtab translation table by filling each entry with the
@@ -235,16 +230,13 @@ init_symtab(ctf_file_t *fp, const ctf_header_t *hp,
 	 * anonymous or undefined symbols are omitted from the CTF data.
 	 */
 	for (; xp < xend; xp++, symp += sp->cts_entsize) {
-#if defined(__APPLE__)
 		if (sp->cts_entsize == sizeof (struct nlist)) {
 			gsp = sym_to_gelf_macho(sp, (Elf32_Sym *)(uintptr_t)symp, &sym, (const char *)strp->cts_data);
 		}
 		else if (sp->cts_entsize == sizeof (struct nlist_64)) {
 			gsp = sym_to_gelf_macho_64(sp, (Elf32_Sym *)(uintptr_t)symp, &sym, (const char *)strp->cts_data);
 		}
-		else
-#endif /* __APPLE__ */
-		if (sp->cts_entsize == sizeof (Elf32_Sym))
+		else if (sp->cts_entsize == sizeof (Elf32_Sym))
 			gsp = sym_to_gelf((Elf32_Sym *)(uintptr_t)symp, &sym);
 		else
 			gsp = (Elf64_Sym *)(uintptr_t)symp;
@@ -321,12 +313,8 @@ init_types(ctf_file_t *fp, const ctf_header_t *cth)
 	ulong_t pop[CTF_K_MAX + 1] = { 0 };
 	const ctf_type_t *tp;
 	ctf_hash_t *hp;
-#if !defined(__APPLE__)
-	ushort_t id, dst;
-#else
 	ushort_t dst;
 	ctf_id_t id;
-#endif
 	uint_t *xp;
 
 	/*
@@ -673,15 +661,9 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 	if (ctfsect == NULL || ((symsect == NULL) != (strsect == NULL)))
 		return (ctf_set_open_errno(errp, EINVAL));
 
-#if !defined(__APPLE__)
-	if (symsect != NULL && symsect->cts_entsize != sizeof (Elf32_Sym) &&
-	    symsect->cts_entsize != sizeof (Elf64_Sym))
-		return (ctf_set_open_errno(errp, ECTF_SYMTAB));
-#else
 	if (symsect != NULL && symsect->cts_entsize != sizeof (struct nlist) &&
 	    symsect->cts_entsize != sizeof (struct nlist_64))
 		return (ctf_set_open_errno(errp, ECTF_SYMTAB));
-#endif /* __APPLE__ */
 
 	if (symsect != NULL && symsect->cts_data == NULL)
 		return (ctf_set_open_errno(errp, ECTF_SYMBAD));
@@ -897,14 +879,11 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 	fp->ctf_lookups[4].ctl_hash = NULL;
 
 	if (symsect != NULL) {
-#if defined(__APPLE__)
 		if (symsect->cts_entsize == sizeof (struct nlist_64))
 			(void) ctf_setmodel(fp, CTF_MODEL_LP64);
 		else if (symsect->cts_entsize == sizeof (struct nlist))
 			(void) ctf_setmodel(fp, CTF_MODEL_ILP32);
-		else
-#endif /* __APPLE__ */
-		if (symsect->cts_entsize == sizeof (Elf64_Sym))
+		else if (symsect->cts_entsize == sizeof (Elf64_Sym))
 			(void) ctf_setmodel(fp, CTF_MODEL_LP64);
 		else
 			(void) ctf_setmodel(fp, CTF_MODEL_ILP32);

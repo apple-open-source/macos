@@ -258,6 +258,23 @@ AC_ARG_ENABLE(ansi2knr,
 AC_HELP_STRING([--enable-ansi2knr], [translate source to K&R C before compiling]),
 [ansi2knr="$enableval"], [ansi2knr=default])
 
+ifdef([runhelpdir],[undefine([runhelpdir])])dnl
+AC_ARG_ENABLE(runhelpdir,
+AC_HELP_STRING([--enable-runhelpdir=DIR], [the directory in which to install run-help files]),
+[if test x"$enableval" = xno; then
+  runhelpdir=
+else
+  runhelpdir="$enableval"
+fi], [runhelpdir=yes])
+if test x"$runhelpdir" = xyes; then
+  runhelpdir=${datadir}/${tzsh_name}/'${VERSION}'/help
+fi
+if test x"$runhelpdir" = x; then
+  runhelp=
+else
+  runhelp=runhelp
+fi
+
 ifdef([fndir],[undefine([fndir])])dnl
 AC_ARG_ENABLE(fndir,
 AC_HELP_STRING([--enable-fndir=DIR], [the directory in which to install functions]),
@@ -297,6 +314,8 @@ else
   additionalfpath="${enableval}"
 fi], [additionalfpath=""])
 
+AC_SUBST(runhelpdir)dnl
+AC_SUBST(runhelp)dnl
 AC_SUBST(additionalfpath)dnl
 AC_SUBST(fndir)dnl
 AC_SUBST(sitefndir)dnl
@@ -559,6 +578,7 @@ AC_PROG_MAKE_SET            dnl Does make define $MAKE
 AC_PROG_INSTALL             dnl Check for BSD compatible `install'
 AC_PROG_AWK                 dnl Check for mawk,gawk,nawk, then awk.
 AC_PROG_LN                  dnl Check for working ln, for "make install"
+AC_PROG_LN_S                dnl Use ln -s/ln/cp for "make install.runhelp"
 AC_PROG_EGREP               dnl sets $EGREP to grep -E or egrep
 AC_CHECK_PROGS([YODL], [yodl], [: yodl])
 
@@ -1222,7 +1242,7 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       getrlimit getrusage \
 	       setlocale \
 	       uname \
-	       signgam \
+	       signgam tgamma \
 	       putenv getenv setenv unsetenv xw\
 	       brk sbrk \
 	       pathconf sysconf \
@@ -1237,7 +1257,8 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       regcomp regexec regerror regfree \
 	       gdbm_open getxattr \
 	       realpath canonicalize_file_name \
-	       symlink getcwd)
+	       symlink getcwd \
+	       cygwin_conv_path)
 AC_FUNC_STRCOLL
 
 if test x$enable_cap = xyes; then
@@ -1811,6 +1832,10 @@ zsh_LIMIT_PRESENT(RLIMIT_SIGPENDING)
 zsh_LIMIT_PRESENT(RLIMIT_MSGQUEUE)
 zsh_LIMIT_PRESENT(RLIMIT_NICE)
 zsh_LIMIT_PRESENT(RLIMIT_RTPRIO)
+zsh_LIMIT_PRESENT(RLIMIT_POSIXLOCKS)
+zsh_LIMIT_PRESENT(RLIMIT_NPTS)
+zsh_LIMIT_PRESENT(RLIMIT_SWAP)
+zsh_LIMIT_PRESENT(RLIMIT_KQUEUES)
 
 AH_TEMPLATE([RLIMIT_VMEM_IS_RSS],
 [Define to 1 if RLIMIT_VMEM and RLIMIT_RSS both exist and are equal.])

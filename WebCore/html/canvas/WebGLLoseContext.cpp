@@ -47,11 +47,6 @@ WebGLExtension::ExtensionName WebGLLoseContext::getName() const
     return WebGLLoseContextName;
 }
 
-PassOwnPtr<WebGLLoseContext> WebGLLoseContext::create(WebGLRenderingContext* context)
-{
-    return adoptPtr(new WebGLLoseContext(context));
-}
-
 void WebGLLoseContext::loseContext()
 {
     m_context->forceLostContext(WebGLRenderingContext::SyntheticLostContext);

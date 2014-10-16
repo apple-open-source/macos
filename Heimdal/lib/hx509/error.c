@@ -33,6 +33,9 @@
 
 #include "hx_locl.h"
 
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+
 /**
  * @page page_error Hx509 error reporting functions
  *
@@ -79,6 +82,7 @@ hx509_clear_error_string(hx509_context context)
 void
 hx509_set_error_stringv(hx509_context context, int flags, int code,
 			const char *fmt, va_list ap)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
 {
     heim_error_t msg;
 
@@ -111,6 +115,7 @@ hx509_set_error_stringv(hx509_context context, int flags, int code,
 void
 hx509_set_error_string(hx509_context context, int flags, int code,
 		       const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     va_list ap;
 
@@ -189,6 +194,8 @@ hx509_free_error_string(char *str)
 void
 hx509_err(hx509_context context, int exit_code,
 	  int error_code, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     va_list ap;
     const char *msg;

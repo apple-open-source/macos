@@ -95,7 +95,7 @@
 #ifndef HAVE_DLFCN_H
 #include <dl.h>
 
-typedef shl_t dll_handle;
+typedef shl_t * dll_handle;
 typedef void * dll_func;
 
 dll_handle
@@ -117,11 +117,18 @@ dlopen(char *fname, int mode)
 }
 
 int
-dlclose(dll_handle h)
+dlclose(dll_handle hp)
 {
-    shl_t hp = *((shl_t *)h);
-    if (hp != NULL) free(hp);
-    return shl_unload(h);
+    shl_t h;
+
+    if (hp != NULL) {
+	h = *((shl_t *)hp);
+	free(hp);
+	return shl_unload(h);
+    } else {
+	/* Return error */
+	return -1;
+    }
 }
 
 dll_func
@@ -144,10 +151,19 @@ char *dlerror()
 }
 
 #endif /* HAVE_DLFCN_H */
+
+#ifdef __ia64
+#define SO_SUFFIX       ".so"
+#else
 #define SO_SUFFIX	".sl"
-#else /* __hpux */
+#endif /* __ia64 */
+#elif defined(__APPLE__)
+/* APPLE: support both .plugin and .so */
+#define PLUGIN_SUFFIX	".plugin"
 #define SO_SUFFIX	".so"
-#endif /* __hpux */
+#else /* __APPLE__ */
+#define SO_SUFFIX	".so"
+#endif
 
 #define LA_SUFFIX       ".la"
 
@@ -223,11 +239,11 @@ static int _sasl_plugin_load(char *plugin, void *library,
     
     result = _sasl_locate_entry(library, entryname, &entry_point);
     if(result == SASL_OK) {
-		result = add_plugin(plugin, entry_point);
+	result = add_plugin(plugin, entry_point);
 	if(result != SASL_OK)
-			_sasl_log(NULL, SASL_LOG_DEBUG,
-				  "_sasl_plugin_load failed on %s for plugin: %s\n",
-				  entryname, plugin);
+	    _sasl_log(NULL, SASL_LOG_DEBUG,
+		      "_sasl_plugin_load failed on %s for plugin: %s\n",
+		      entryname, plugin);
     }
 
     return result;
@@ -244,7 +260,7 @@ static int _parse_la(const char *prefix, const char *in, char *out)
 {
     FILE *file;
     size_t length;
-	int has64bit = 1;
+    int has64bit = 1; /* APPLE */
     char line[MAX_LINE];
     char *ntmp = NULL;
 
@@ -500,17 +516,15 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
 
 		if (length + pos>=PATH_MAX) continue; /* too big */
 
-#ifdef __APPLE__
-		/* require .la files */
-		if (strcmp(dir->d_name + (length - strlen(LA_SUFFIX)), LA_SUFFIX))
-		    continue;
-#else
 		if (strcmp(dir->d_name + (length - strlen(SO_SUFFIX)),
 			   SO_SUFFIX)
+#ifdef PLUGIN_SUFFIX
+		    && strcmp(dir->d_name + (length - strlen(PLUGIN_SUFFIX)),
+			   PLUGIN_SUFFIX)
+#endif
 		    && strcmp(dir->d_name + (length - strlen(LA_SUFFIX)),
 			   LA_SUFFIX))
 		    continue;
-#endif
 
 		memcpy(name,dir->d_name,length);
 		name[length]='\0';
@@ -521,10 +535,11 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
 		
 		/* skip "lib" and cut off suffix --
 		   this only need be approximate */
+                /* APPLE: strlcpy */
 		strlcpy(plugname, (strncmp(name, "lib", 3) == 0) ? (name + 3) : name, sizeof(plugname));
 		c = strchr(plugname, (int)'.');
 		if(c) *c = '\0';
-		
+
 		result = _sasl_get_plugin(tmp, verifyfile_cb, &library);
 
 		if(result != SASL_OK)
@@ -551,7 +566,7 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
     return SASL_OK;
 }
 
-/* gets the list of mechanisms */
+/* APPLE: gets the list of mechanisms */
 int _sasl_load_plugins_alt(const add_plugin_list_t *entrypoints,
 		       const sasl_callback_t *getpath_cb,
 		       const sasl_callback_t *verifyfile_cb)
@@ -663,17 +678,11 @@ int _sasl_load_plugins_alt(const add_plugin_list_t *entrypoints,
 
 				if (length + pos>=PATH_MAX) continue; /* too big */
 
-		#ifdef __APPLE__
-				/* require .la files */
-				if (strcmp(dir->d_name + (length - strlen(LA_SUFFIX)), LA_SUFFIX))
-					continue;
-		#else
 				if (strcmp(dir->d_name + (length - strlen(SO_SUFFIX)),
 					   SO_SUFFIX)
 					&& strcmp(dir->d_name + (length - strlen(LA_SUFFIX)),
 					   LA_SUFFIX))
 					continue;
-		#endif
 
 				memcpy(name,dir->d_name,length);
 				name[length]='\0';

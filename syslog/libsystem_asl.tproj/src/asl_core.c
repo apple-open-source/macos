@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,21 +23,38 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <asl.h>
+#include <asl_string.h>
 #include <asl_core.h>
 #include <asl_private.h>
 #include <string.h>
 #include <membership.h>
 #include <pthread.h>
 #include <libkern/OSAtomic.h>
-
+#include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 #include <mach/kern_return.h>
 #include <mach/mach_init.h>
 #include <mach/mach_vm.h>
 #include <mach/vm_map.h>
 #include <mach/vm_param.h>
+#include <dispatch/dispatch.h>
 
-#define ASL_STRING_QUANTUM 256
-static const char *cvis_7_13 = "abtnvfr";
+const char *ASL_LEVEL_TO_STRING[] =
+{
+	ASL_STRING_EMERG,
+	ASL_STRING_ALERT,
+	ASL_STRING_CRIT,
+	ASL_STRING_ERR,
+	ASL_STRING_WARNING,
+	ASL_STRING_NOTICE,
+	ASL_STRING_INFO,
+	ASL_STRING_DEBUG
+};
+
+static char *asl_filesystem_path_database = NULL;
+static char *asl_filesystem_path_archive = NULL;
 
 /*
  * Message ID generation
@@ -56,6 +73,44 @@ static pthread_mutex_t core_lock = PTHREAD_MUTEX_INITIALIZER;
 	a -= b; a -= c; a ^= (c>> 3); \
 	b -= c; b -= a; b ^= (a<<10); \
 	c -= a; c -= b; c ^= (b>>15); \
+}
+
+/*
+ * Get ASL server mach port.
+ * reset != 0 flushes cached port.
+ * reset < 0 returns MACH_PORT_NULL
+ */
+mach_port_t
+asl_core_get_service_port(int reset)
+{
+	static mach_port_t server_port = MACH_PORT_NULL;
+	mach_port_t tmp;
+	kern_return_t kstatus;
+	
+	if ((reset != 0) && (server_port != MACH_PORT_NULL))
+	{
+		mach_port_t tmp = server_port;
+		server_port = MACH_PORT_NULL;
+		mach_port_deallocate(mach_task_self(), tmp);
+	}
+
+	if (reset < 0) return MACH_PORT_NULL;
+
+	if (server_port != MACH_PORT_NULL) return server_port;
+
+	tmp = MACH_PORT_NULL;
+	char *str = getenv("ASL_DISABLE");
+	if ((str != NULL) && (!strcmp(str, "1"))) return MACH_PORT_NULL;
+
+	kstatus = bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &tmp, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+	if ((kstatus != KERN_SUCCESS) || (tmp == MACH_PORT_NULL)) return MACH_PORT_NULL;
+
+	if (!OSAtomicCompareAndSwap32Barrier(MACH_PORT_NULL, tmp, (int32_t *)&server_port))
+	{
+		mach_port_deallocate(mach_task_self(), tmp);
+	}
+
+	return server_port;
 }
 
 /*
@@ -140,7 +195,14 @@ asl_core_error(uint32_t code)
 	return "Operation Failed";
 }
 
-static uint32_t
+const char *
+asl_core_level_to_string(uint32_t level)
+{
+	if (level > ASL_LEVEL_DEBUG) return "invalid";
+	return ASL_LEVEL_TO_STRING[level];
+}
+
+static ASL_STATUS
 asl_core_check_user_access(int32_t msgu, int32_t readu)
 {
 	/* -1 means anyone may read */
@@ -152,7 +214,7 @@ asl_core_check_user_access(int32_t msgu, int32_t readu)
 	return ASL_STATUS_ACCESS_DENIED;
 }
 
-static uint32_t
+static ASL_STATUS
 asl_core_check_group_access(int32_t msgg, int32_t readu, int32_t readg)
 {
 	int check;
@@ -175,7 +237,7 @@ asl_core_check_group_access(int32_t msgg, int32_t readu, int32_t readg)
 	return ASL_STATUS_ACCESS_DENIED;
 }
 
-uint32_t
+ASL_STATUS
 asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags)
 {
 	uint16_t uset, gset;
@@ -261,6 +323,49 @@ asl_core_new_msg_id(uint64_t start)
 	return out;
 }
 
+const char *
+asl_filesystem_path(uint32_t place)
+{
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		char *asl_var_log = NULL;
+		const char *const_asl_var_log = "/var/log";
+
+#if TARGET_IPHONE_SIMULATOR
+		asl_var_log = getenv("SIMULATOR_LOG_ROOT");
+#endif
+
+		if (asl_var_log != NULL) const_asl_var_log = (const char *)asl_var_log;
+
+		asprintf(&asl_filesystem_path_database, "%s/asl", const_asl_var_log);
+		asprintf(&asl_filesystem_path_archive, "%s/asl.archive", const_asl_var_log);
+	});
+
+	switch (place)
+	{
+		case ASL_PLACE_DATABASE:
+		{
+			if (asl_filesystem_path_database == NULL) return ASL_PLACE_DATABASE_DEFAULT;
+			return asl_filesystem_path_database;
+		}
+		case ASL_PLACE_ARCHIVE:
+		{
+			if (asl_filesystem_path_archive == NULL) return ASL_PLACE_ARCHIVE_DEFAULT;
+			return asl_filesystem_path_archive;
+		}
+		default:
+		{
+			return NULL;
+		}
+	}
+
+	return NULL;
+}
+
+#pragma mark -
+#pragma mark data buffer encoding
+
 /*
  * asl_core_encode_buffer
  * encode arbitrary data as a C string without embedded zero (nul) characters
@@ -277,7 +382,7 @@ asl_core_new_msg_id(uint64_t start)
  * The output string is preceded by L[0] L[1], and is nul terminated.
  * The output length is 2 + n + N(L[0]) + N(L[1]) + 1
  * where N(x) is the number of occurrences of x in the input string.
- * The worst case occurs when all characters are equally frequent, 
+ * The worst case occurs when all characters are equally frequent,
  * In that case the output size will less that 1% larger than the input.
  */
 char *
@@ -439,462 +544,582 @@ asl_core_decode_buffer(const char *in, char **buf, uint32_t *len)
 	return 0;
 }
 
-/* asl_string_t support */
+#pragma mark -
+#pragma mark time parsing
 
-asl_string_t *
-asl_string_new(uint32_t encoding)
+/*
+ * utility for converting a time string into a time_t
+ * we only deal with the following formats:
+ * dotted form YYYY.MM.DD hh:mm:ss UTC
+ * ctime() form Mth dd hh:mm:ss (e.g. Aug 25 09:54:37)
+ * absolute form - # seconds since the epoch (e.g. 1095789191)
+ * relative time - seconds before or after now (e.g. -300, +43200)
+ * relative time - days/hours/minutes/seconds before or after now (e.g. -1d, +6h, +30m, -10s)
+ * ISO8601 - YYYY[-]MM[-]DDTHH[:]MM[:]SS optionally followed by Z or +/-HH[[:]MM]
+ */
+
+/*
+ * light(er)-weight replcaement (in place of regex) for asl_core_parse_time
+ */
+
+#define MFLAG_INCLUDE 0x00000001
+#define MFLAG_EXCLUDE 0x00000002
+
+#define DIGITS "0123456789"
+#define WHITESPACE "	 "
+
+#define SECONDS_PER_MINUTE 60
+#define SECONDS_PER_HOUR 3600
+#define SECONDS_PER_DAY 86400
+#define SECONDS_PER_WEEK 604800
+
+/*
+ * Match between mincount and maxcount characters in or not in mset.
+ * maxcount == 0 means no limit.
+ *
+ */
+bool
+asl_core_str_match(const char *target, const char *mset, uint32_t mincount, uint32_t maxcount, uint32_t flags, uint32_t *length)
 {
-	asl_string_t *str = (asl_string_t *)calloc(1, sizeof(asl_string_t));
-	if (str == NULL) return NULL;
-
-	str->encoding = encoding;
-	str->delta = ASL_STRING_QUANTUM;
-	if (encoding & ASL_STRING_VM) str->delta = PAGE_SIZE;
-	str->bufsize = 0;
-	str->cursor = 0;
-
-	if (encoding & ASL_STRING_LEN) asl_string_append_no_encoding(str, "         0 ");
-	return str;
+	const char *x;
+	uint32_t n;
+	
+	if (length == NULL) length = &n;
+	
+	if (target == NULL) return (mincount == 0);
+	
+	for (x = target, *length = 0; *x != '\0'; x++, *length = *length + 1)
+	{
+		char *s;
+		
+		if ((*length == maxcount) && (maxcount > 0)) return true;
+		if (mset == NULL) continue;
+		
+		s = strchr(mset, *x);
+		if ((s == NULL) && (flags & MFLAG_EXCLUDE)) continue;
+		if ((s != NULL) && (flags & MFLAG_INCLUDE)) continue;
+		
+		break;
+	}
+	
+	return (*length >= mincount);
 }
 
-void
-asl_string_free(asl_string_t *str)
+bool
+asl_core_str_match_char(const char *target, const char c, uint32_t mincount, uint32_t flags, uint32_t *length)
 {
-	if (str == NULL) return;
-
-	if (str->encoding & ASL_STRING_VM)
-	{
-		vm_deallocate(mach_task_self(), (vm_address_t)str->buf, str->bufsize);
-	}
-	else
-	{
-		free(str->buf);
-	}
-
-	free(str);
+	uint32_t n;
+	
+	if (length == NULL) length = &n;
+	*length = 0;
+	
+	if (target == NULL) return (mincount == 0);
+	
+	if ((*target == c) && (flags & MFLAG_INCLUDE)) *length = 1;
+	if ((*target != c) && (flags & MFLAG_EXCLUDE)) *length = 1;
+	
+	return (*length >= mincount);
 }
 
-char *
-asl_string_free_return_bytes(asl_string_t *str)
+uint32_t
+asl_core_str_to_uint32(const char *target, uint32_t length)
 {
-	char *out;
-	if (str == NULL) return NULL;
-
-	out = str->buf;	
-	free(str);
+	uint32_t i, d, out = 0;
+	
+	for (i = 0; i < length; i++)
+	{
+		d = target[i] - '0';
+		out = (out * 10) + d;
+	}
+	
 	return out;
 }
 
-char *
-asl_string_bytes(asl_string_t *str)
+static bool
+asl_core_str_match_absolute_or_relative_time(const char *target, time_t *tval, uint32_t *tlen)
 {
-	if (str == NULL) return NULL;
-	return str->buf;
-}
-
-/* length includes trailing nul */
-size_t
-asl_string_length(asl_string_t *str)
-{
-	if (str == NULL) return 0;
-	if (str->cursor == 0) return 0;
-
-	return str->cursor + 1;
-}
-
-size_t
-asl_string_allocated_size(asl_string_t *str)
-{
-	if (str == NULL) return 0;
-	return str->bufsize;
+	uint32_t len;
+	int32_t val, sign = 1;
+	bool test;
+	const char *p;
+	time_t start = 0;
+	
+	if (target == NULL) return false;
+	
+	/* [+-] */
+	p = target;
+	test = asl_core_str_match(p, "+-", 0, 1, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	if (len == 1)
+	{
+		/* relative time */
+		start = time(NULL);
+		if (*p == '-') sign = -1;
+	}
+	
+	/* [0-9]+ */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	val = asl_core_str_to_uint32(p, len);
+	
+	/* [shmdw] */
+	p += len;
+	test = asl_core_str_match(p, "SsMmHhDdWw", 0, 1, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	if ((*p == 'M') || (*p == 'm')) val *= SECONDS_PER_MINUTE;
+	else if ((*p == 'H') || (*p == 'h')) val *= SECONDS_PER_HOUR;
+	else if ((*p == 'D') || (*p == 'd')) val *= SECONDS_PER_DAY;
+	else if ((*p == 'W') || (*p == 'w')) val *= SECONDS_PER_WEEK;
+	
+	/* matched string must be followed by space, tab, newline (not counted in length) */
+	p += len;
+	if (*p != '\0')
+	{
+		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
+		if (!test) return false;
+	}
+	
+	if (tlen != NULL) *tlen = p - target;
+	if (tval != NULL) *tval = start + (sign * val);
+	
+	return true;
 }
 
 static int
-_asl_string_grow(asl_string_t *str, size_t len)
+_month_num(const char *s)
 {
-	size_t newlen = 0;
-
-	if (str == NULL) return -1;
-	if (len == 0) return 0;
-
-	if (str->bufsize == 0)
-	{
-		newlen = ((len + str->delta - 1) / str->delta) * str->delta;
-	}
-	else
-	{
-		/* used size is (str->cursor + 1) including tailiing nul */
-		if (len <= (str->bufsize - (str->cursor + 1))) return 0;
-
-		/* really this is ((str->cursor + 1) + len + (str->delta - 1)) */
-		newlen = ((str->cursor + len + str->delta) / str->delta) * str->delta;
-	}
-
-	if (str->encoding & ASL_STRING_VM)
-	{
-		kern_return_t kstatus;
-		vm_address_t new = 0;
-
-		kstatus = vm_allocate(mach_task_self(), &new, newlen, TRUE);
-		if (kstatus != KERN_SUCCESS)
-		{
-			new = 0;
-			newlen = 0;
-			return -1;
-		}
+	if (!strncasecmp(s, "jan", 3)) return  0;
+	if (!strncasecmp(s, "feb", 3)) return  1;
+	if (!strncasecmp(s, "mar", 3)) return  2;
+	if (!strncasecmp(s, "apr", 3)) return  3;
+	if (!strncasecmp(s, "may", 3)) return  4;
+	if (!strncasecmp(s, "jun", 3)) return  5;
+	if (!strncasecmp(s, "jul", 3)) return  6;
+	if (!strncasecmp(s, "aug", 3)) return  7;
+	if (!strncasecmp(s, "sep", 3)) return  8;
+	if (!strncasecmp(s, "oct", 3)) return  9;
+	if (!strncasecmp(s, "nov", 3)) return 10;
+	if (!strncasecmp(s, "dec", 3)) return 11;
+	return -1;
 	
-		if (str->buf != NULL)
-		{
-			memcpy((void *)new, str->buf, str->bufsize);
-			vm_deallocate(mach_task_self(), (vm_address_t)str->buf, str->bufsize);
-		}
-
-		str->buf = (char *)new;
-		str->bufsize = newlen;
-	}
-	else
-	{
-		str->buf = reallocf(str->buf, newlen);
-		if (str->buf == NULL)
-		{
-			str->cursor = 0;
-			str->bufsize = 0;
-			return -1;
-		}
-
-		str->bufsize = newlen;
-	}
-
-	return 0;
 }
 
-asl_string_t *
-asl_string_append_char_no_encoding(asl_string_t *str, const char c)
+/*
+ * Match ctime() format - Mth [D]D [h]h:mm:ss
+ */
+bool
+asl_core_str_match_c_time(const char *target, time_t *tval, uint32_t *tlen)
 {
-	size_t len;
-	
-	if (str == NULL) return NULL;
-
-	len = 1;
-	if (str->bufsize == 0) len++;
-
-	if (_asl_string_grow(str, len) < 0) return str;
-
-	str->buf[str->cursor] = c;
-	str->cursor++;
-	str->buf[str->cursor] = '\0';
-
-	if (str->encoding & ASL_STRING_LEN)
-	{
-		char tmp[11];
-		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
-		memcpy(str->buf, tmp, 10);
-	}
-
-	return str;
-}
-
-asl_string_t *
-asl_string_append_no_encoding(asl_string_t *str, const char *app)
-{
-	size_t len, applen;
-
-	if (str == NULL) return NULL;
-	if (app == NULL) return str;
-
-	applen = strlen(app);
-	len = applen;
-	if (str->bufsize == 0) len++;
-
-	if (_asl_string_grow(str, len) < 0) return str;
-
-	memcpy(str->buf + str->cursor, app, applen);
-
-	str->cursor += applen;
-	str->buf[str->cursor] = '\0';
-
-	if (str->encoding & ASL_STRING_LEN)
-	{
-		char tmp[11];
-		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
-		memcpy(str->buf, tmp, 10);
-	}
-
-	return str;
-}
-
-static asl_string_t *
-asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
-{
-	uint8_t x;
+	uint32_t len, y;
+	bool test;
 	const char *p;
-
-	if (str == NULL) return NULL;
-	if (app == NULL) return str;
-
-	switch (str->encoding & ASL_ENCODE_MASK)
-	{
-		case ASL_ENCODE_NONE:
-		{
-			return asl_string_append_no_encoding(str, app);
-		}
-		case ASL_ENCODE_SAFE: 
-		{
-			/* minor encoding to reduce the likelyhood of spoof attacks */
-			const char *p;
+	struct tm t;
+	time_t now;
 	
-			for (p = app; *p != '\0'; p++)
-			{
-				if ((*p == 10) || (*p == 13))
-				{
-					asl_string_append_no_encoding(str, "\n\t");
-				}
-				else if (*p == 8)
-				{
-					asl_string_append_no_encoding(str, "^H");
-				}
-				else
-				{
-					asl_string_append_char_no_encoding(str, *p);
-				}
-			}
-
-			return str;
-		}
-		case ASL_ENCODE_ASL:
-		{
-			for (p = app; *p != '\0'; p++)
-			{
-				int meta = 0;
-
-				x = *p;
-				
-				/* Meta chars get \M prefix */
-				if (x >= 128)
-				{
-					/* except meta-space, which is \240 */
-					if (x == 160)
-					{
-						asl_string_append_no_encoding(str, "\\240");
-						continue;
-					}
-					
-					asl_string_append_no_encoding(str, "\\M");
-					x &= 0x7f;
-					meta = 1;
-				}
-				
-				/* space is either ' ' or \s */
-				if (x == 32)
-				{
-					if (encode_space == 0)
-					{
-						asl_string_append_char_no_encoding(str, ' ');
-						continue;
-					}
-					
-					asl_string_append_no_encoding(str, "\\s");
-					continue;
-				}
-				
-				/* \ is escaped */
-				if ((meta == 0) && (x == 92))
-				{
-					asl_string_append_no_encoding(str, "\\\\");
-					continue;
-				}
-				
-				/* [ and ] are escaped in ASL encoding */
-				if ((str->encoding & ASL_ENCODE_ASL) && (meta == 0) && ((*p == 91) || (*p == 93)))
-				{
-					if (*p == '[') asl_string_append_no_encoding(str, "\\[");
-					else asl_string_append_no_encoding(str, "\\]");
-					continue;
-				}
-				
-				/* DEL is \^? */
-				if (x == 127)
-				{
-					if (meta == 0)
-					{
-						asl_string_append_char_no_encoding(str, '\\');
-					}
-					
-					asl_string_append_no_encoding(str, "^?");
-					continue;
-				}
-				
-				/* 33-126 are printable (add a '-' prefix for meta) */
-				if ((x >= 33) && (x <= 126))
-				{
-					if (meta == 1)
-					{
-						asl_string_append_char_no_encoding(str, '-');
-					}
-					
-					asl_string_append_char_no_encoding(str, x);
-					continue;
-				}
-				
-				/* non-meta BEL, BS, HT, NL, VT, NP, CR (7-13) are \a, \b, \t, \n, \v, \f, and \r */
-				if ((meta == 0) && (x >= 7) && (x <= 13))
-				{
-					asl_string_append_char_no_encoding(str, '\\');
-					asl_string_append_char_no_encoding(str, cvis_7_13[x - 7]);
-					continue;
-				}
-				
-				/* 0 - 31 are ^@ - ^_ (non-meta get a leading \) */
-				if (x <= 31)
-				{
-					if (meta == 0)
-					{
-						asl_string_append_char_no_encoding(str, '\\');
-					}
-					
-					asl_string_append_char_no_encoding(str, '^');
-					asl_string_append_char_no_encoding(str, 64 + x);
-					continue;
-				}
-
-				asl_string_append_char_no_encoding(str, x);
-			}
-
-			return str;
-		}
-		case ASL_ENCODE_XML:
-		{
-			for (p = app; *p != '\0'; p++)
-			{
-				x = *p;
-				
-				if (x == '&')
-				{
-					asl_string_append_no_encoding(str, "&amp;");
-				}
-				else if (x == '<')
-				{
-					asl_string_append_no_encoding(str, "&lt;");
-				}
-				else if (x == '>')
-				{
-					asl_string_append_no_encoding(str, "&gt;");
-				}
-				else if (x == '"')
-				{
-					asl_string_append_no_encoding(str, "&quot;");
-				}
-				else if (x == '\'')
-				{
-					asl_string_append_no_encoding(str, "&apos;");
-				}
-				else if (iscntrl(x))
-				{
-					char tmp[8];
-					snprintf(tmp, sizeof(tmp), "&#x%02hhx;", x);
-					asl_string_append_no_encoding(str, tmp);
-				}
-				else
-				{
-					asl_string_append_char_no_encoding(str, x);
-				}
-			}
-		}
-		default:
-		{
-			return str;
-		}
+	if (target == NULL) return false;
+	memset(&t, 0, sizeof(t));
+	
+	/* determine current date */
+	now = time(NULL);
+	localtime_r(&now, &t);
+	y = t.tm_year;
+	memset(&t, 0, sizeof(t));
+	t.tm_year = y;
+	
+	/* Mth */
+	p = target;
+	t.tm_mon = _month_num(p);
+	len = 3;
+	if (t.tm_mon == -1) return false;
+	
+	/* whitespace */
+	p += len;
+	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* [D]D */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_mday = asl_core_str_to_uint32(p, len);
+	if (t.tm_mday > 31) return false;
+	
+	/* whitespace */
+	p += len;
+	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* [h]h */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_hour = asl_core_str_to_uint32(p, len);
+	if (t.tm_hour > 23) return false;
+	
+	/* : */
+	p += len;
+	if (*p != ':') return false;
+	len = 1;
+	
+	/* mm */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_min = asl_core_str_to_uint32(p, len);
+	if (t.tm_min > 59) return false;
+	
+	/* : */
+	p += len;
+	if (*p != ':') return false;
+	len = 1;
+	
+	/* ss */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_sec = asl_core_str_to_uint32(p, len);
+	if (t.tm_sec > 59) return false;
+	
+	/* matched string must be followed by space, tab, newline (not counted in length) */
+	p += len;
+	if (*p != '\0')
+	{
+		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
+		if (!test) return false;
 	}
-
-	return str;
+	
+	t.tm_isdst = -1;
+	
+	if (tlen != NULL) *tlen = p - target;
+	if (tval != NULL) *tval = mktime(&t);
+	
+	return true;
 }
 
-asl_string_t *
-asl_string_append(asl_string_t *str, const char *app)
+/*
+ * Match YYYY.[M]M.[D]D [h]h:mm:ss UTC
+ */
+static bool
+asl_core_str_match_dotted_time(const char *target, time_t *tval, uint32_t *tlen)
 {
-	return asl_string_append_internal(str, app, 0);
+	uint32_t len;
+	bool test;
+	const char *p;
+	struct tm t;
+	
+	if (target == NULL) return false;
+	memset(&t, 0, sizeof(t));
+	
+	/* YYYY */
+	p = target;
+	test = asl_core_str_match(p, DIGITS, 4, 4, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_year = asl_core_str_to_uint32(p, len) - 1900;
+	
+	/* . */
+	p += len;
+	if (*p != '.') return false;
+	len = 1;
+	
+	/* [M]M */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_mon = asl_core_str_to_uint32(p, len);
+	if (t.tm_mon < 1) return false;
+	if (t.tm_mon > 12) return false;
+	t.tm_mon -= 1;
+	
+	/* . */
+	p += len;
+	if (*p != '.') return false;
+	len = 1;
+	
+	/* [D]D */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_mday = asl_core_str_to_uint32(p, len);
+	if (t.tm_mday > 31) return false;
+	
+	/* whitespace */
+	p += len;
+	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* [h]h */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_hour = asl_core_str_to_uint32(p, len);
+	if (t.tm_hour > 23) return false;
+	
+	/* : */
+	p += len;
+	if (*p != ':') return false;
+	len = 1;
+	
+	/* mm */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_min = asl_core_str_to_uint32(p, len);
+	if (t.tm_min > 59) return false;
+	
+	/* : */
+	p += len;
+	if (*p != ':') return false;
+	len = 1;
+	
+	/* ss */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_sec = asl_core_str_to_uint32(p, len);
+	if (t.tm_sec > 59) return false;
+	
+	/* whitespace */
+	p += len;
+	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* UTC */
+	p += len;
+	if (strncmp(p, "UTC", 3)) return false;
+	len = 3;
+	
+	/* matched string must be followed by space, tab, newline (not counted in length) */
+	p += len;
+	if (*p != '\0')
+	{
+		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
+		if (!test) return false;
+	}
+	
+	if (tlen != NULL) *tlen = p - target;
+	if (tval != NULL) *tval = timegm(&t);
+	
+	return true;
 }
 
-asl_string_t *
-asl_string_append_asl_key(asl_string_t *str, const char *app)
+/*
+ * Match YYYY[-]MM[-]DD[Tt]hh[:]hh[:]ss[Zz] or YYYY[-]MM[-]DD[Tt]hh[:]hh[:]ss[+-][H]H[[:]MM]
+ */
+static bool
+asl_core_str_match_iso_8601_time(const char *target, time_t *tval, uint32_t *tlen)
 {
-	return asl_string_append_internal(str, app, 1);
+	uint32_t len;
+	bool test;
+	const char *p;
+	struct tm t;
+	int32_t tzh, tzs, sign = -1;
+	
+	if (target == NULL) return false;
+	memset(&t, 0, sizeof(t));
+	
+	/* YYYY */
+	p = target;
+	test = asl_core_str_match(p, DIGITS, 4, 4, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_year = asl_core_str_to_uint32(p, len) - 1900;
+	
+	/* [-] */
+	p += len;
+	test = asl_core_str_match_char(p, '-', 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* MM */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_mon = asl_core_str_to_uint32(p, len);
+	if (t.tm_mon < 1) return false;
+	if (t.tm_mon > 12) return false;
+	t.tm_mon -= 1;
+	
+	/* [-] */
+	p += len;
+	test = asl_core_str_match_char(p, '-', 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* DD */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_mday = asl_core_str_to_uint32(p, len);
+	if (t.tm_mday > 31) return false;
+	
+	/* T or t */
+	p += len;
+	test = asl_core_str_match(p, "Tt", 1, 1, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* hh */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_hour = asl_core_str_to_uint32(p, len);
+	if (t.tm_hour > 23) return false;
+	
+	/* [:] */
+	p += len;
+	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* mm */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_min = asl_core_str_to_uint32(p, len);
+	if (t.tm_min > 59) return false;
+	
+	/* [:] */
+	p += len;
+	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* ss */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	t.tm_sec = asl_core_str_to_uint32(p, len);
+	if (t.tm_sec > 59) return false;
+	
+	p += len;
+	
+	/* default to local time if we hit the end of the string */
+	if ((*p == '\0') || (*p == ' ') || (*p == '\t') || (*p == '\n'))
+	{
+		t.tm_isdst = -1;
+		
+		if (tlen != NULL) *tlen = p - target;
+		if (tval != NULL) *tval = mktime(&t);
+		
+		return true;
+	}
+	
+	/* Z, z, +, or - */
+	test = asl_core_str_match(p, "Zz+-", 1, 1, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	if ((*p == 'Z') || (*p == 'z'))
+	{
+		/* matched string must be followed by space, tab, newline (not counted in length) */
+		p += len;
+		if (*p != '\0')
+		{
+			test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
+			if (!test) return false;
+		}
+		
+		if (tlen != NULL) *tlen = p - target;
+		if (tval != NULL) *tval = timegm(&t);
+		
+		return true;
+	}
+	
+	if (*p == '-') sign = 1;
+	
+	/* [h]h */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	tzh = asl_core_str_to_uint32(p, len);
+	if (tzh > 23) return false;
+	
+	/* [:] */
+	p += len;
+	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	
+	/* mm */
+	p += len;
+	test = asl_core_str_match(p, DIGITS, 0, 2, MFLAG_INCLUDE, &len);
+	if (!test) return false;
+	tzs = asl_core_str_to_uint32(p, len);
+	if (tzs > 59) return false;
+	
+	t.tm_sec += (sign * (tzh * SECONDS_PER_HOUR) + (tzs * SECONDS_PER_MINUTE));
+	
+	/* matched string must be followed by space, tab, newline (not counted in length) */
+	p += len;
+	if (*p != '\0')
+	{
+		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
+		if (!test) return false;
+	}
+	
+	if (tlen != NULL) *tlen = p - target;
+	if (tval != NULL) *tval = timegm(&t);
+	
+	return true;
 }
 
-asl_string_t *
-asl_string_append_op(asl_string_t *str, uint32_t op)
+time_t
+asl_core_parse_time(const char *in, uint32_t *tlen)
 {
-	char opstr[8];
-	uint32_t i;
+	time_t tval = 0;
+	uint32_t inlen;
 	
-	if (str == NULL) return NULL;
+	if (tlen != NULL) *tlen = 0;
+
+	if (in == NULL) return -1;
 	
-	if (op == ASL_QUERY_OP_NULL)
+	/*
+	 * Heuristics to determine the string format.
+	 * Warning: this code must be checked and may need to be adjusted if new formats are added.
+	 */
+	inlen = strlen(in);
+	if (inlen == 0) return -1;
+	
+	/* leading plus or minus means it must be a relative time */
+	if ((in[0] == '+') || (in[0] == '-'))
 	{
-		return asl_string_append_char_no_encoding(str, '.');
+		if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
+		return -1;
 	}
 	
-	i = 0;
-	if (op & ASL_QUERY_OP_CASEFOLD) opstr[i++] = 'C';
-	
-	if (op & ASL_QUERY_OP_REGEX) opstr[i++] = 'R';
-	
-	if (op & ASL_QUERY_OP_NUMERIC) opstr[i++] = 'N';
-	
-	if (op & ASL_QUERY_OP_PREFIX)
+	/* leading alphabetic char means it must be ctime() format */
+	if (((in[0] >= 'a') && (in[0] <= 'z')) || ((in[0] >= 'A') && (in[0] <= 'Z')))
 	{
-		if (op & ASL_QUERY_OP_SUFFIX) opstr[i++] = 'S';
-		else opstr[i++] = 'A';
-	}
-	if (op & ASL_QUERY_OP_SUFFIX) opstr[i++] = 'Z';
-	
-	switch (op & ASL_QUERY_OP_TRUE)
-	{
-		case ASL_QUERY_OP_EQUAL:
-			opstr[i++] = '=';
-			break;
-		case ASL_QUERY_OP_GREATER:
-			opstr[i++] = '>';
-			break;
-		case ASL_QUERY_OP_GREATER_EQUAL:
-			opstr[i++] = '>';
-			opstr[i++] = '=';
-			break;
-		case ASL_QUERY_OP_LESS:
-			opstr[i++] = '<';
-			break;
-		case ASL_QUERY_OP_LESS_EQUAL:
-			opstr[i++] = '<';
-			opstr[i++] = '=';
-			break;
-		case ASL_QUERY_OP_NOT_EQUAL:
-			opstr[i++] = '!';
-			break;
-		case ASL_QUERY_OP_TRUE:
-			opstr[i++] = 'T';
-			break;
-		default:
-			break;
+		if (asl_core_str_match_c_time(in, &tval, tlen)) return tval;
+		return -1;
 	}
 	
-	if (i == 0)
+	/* only absolute, dotted, or iso8601 formats at this point */
+	
+	/* one to for chars means it must be absolute */
+	if (inlen < 5)
 	{
-		return asl_string_append_char_no_encoding(str, '.');
+		if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
+		return -1;
 	}
 	
-	opstr[i] = '\0';
-	return asl_string_append_no_encoding(str, opstr);
+	/* check for dot */
+	if (in[4] == '.')
+	{
+		if (asl_core_str_match_dotted_time(in, &tval, tlen)) return tval;
+		return -1;
+	}
+	
+	/* only absolute or iso8601 at this point */
+	
+	/* check for absolute first, since that's quicker */
+	if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
+	
+	if (asl_core_str_match_iso_8601_time(in, &tval, tlen)) return tval;
+	
+	return -1;
 }
 
-asl_string_t *
-asl_string_append_xml_tag(asl_string_t *str, const char *tag, const char *s)
+/*
+ * asl_parse_time is old SPI used all over the place.
+ */
+time_t
+asl_parse_time(const char *in)
 {
-	asl_string_append_no_encoding(str, "\t\t<");
-	asl_string_append_no_encoding(str, tag);
-	asl_string_append_no_encoding(str, ">");
-	asl_string_append_internal(str, s, 0);
-	asl_string_append_no_encoding(str, "</");
-	asl_string_append_no_encoding(str, tag);
-	asl_string_append_no_encoding(str, ">\n");
-	return str;
+	return asl_core_parse_time(in, NULL);
 }

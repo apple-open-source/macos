@@ -172,14 +172,44 @@ gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_mechanism_oid_desc = { 9, rk_UNCONST
 /* GSS_NTLM_MECHANISM - 1.3.6.1.4.1.311.2.2.10 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_ntlm_mechanism_oid_desc = { 10, rk_UNCONST("\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a") };
 
-/* GSS_SPNEGO_MECHANISM - 1.3.6.1.5.5.2 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_spnego_mechanism_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x05\x02") };
-
 /* GSS_IAKERB_MECHANISM - 1.3.6.1.5.2.5 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_iakerb_mechanism_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x02\x05") };
 
 /* GSS_PKU2U_MECHANISM - 1.3.6.1.5.2.7 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_pku2u_mechanism_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x02\x07") };
+
+/* GSS_SPNEGO_MECHANISM - 1.3.6.1.5.5.2 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_spnego_mechanism_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x05\x02") };
+
+/* GSS_SCRAM_MECHANISM - 1.3.6.1.5.5.14 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_scram_mechanism_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x05\x0e") };
+
+/* GSS_C_NT_USER_NAME - 1.2.840.113554.1.2.1.1 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_user_name_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x01") };
+
+/* GSS_C_NT_MACHINE_UID_NAME - 1.2.840.113554.1.2.1.2 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_machine_uid_name_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x02") };
+
+/* GSS_C_NT_STRING_UID_NAME - 1.2.840.113554.1.2.1.3 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_string_uid_name_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x03") };
+
+/* GSS_C_NT_HOSTBASED_SERVICE_X - 1.3.6.1.5.6.2 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_hostbased_service_x_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x06\x02") };
+
+/* GSS_C_NT_HOSTBASED_SERVICE - 1.2.840.113554.1.2.1.4 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_hostbased_service_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x04") };
+
+/* GSS_C_NT_ANONYMOUS - 1.3.6.1.5.6.3 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_anonymous_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x06\x03") };
+
+/* GSS_C_NT_EXPORT_NAME - 1.3.6.1.5.6.4 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_export_name_oid_desc = { 6, rk_UNCONST("\x2b\x06\x01\x05\x06\x04") };
+
+/* GSS_KRB5_NT_PRINCIPAL_NAME - 1.2.840.113554.1.2.2.1 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_nt_principal_name_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x01") };
+
+/* GSS_KRB5_NT_PRINCIPAL - 1.2.840.113554.1.2.2.2 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_nt_principal_oid_desc = { 10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x02") };
 
 /* GSS_C_PEER_HAS_UPDATED_SPNEGO - 1.3.6.1.4.1.9513.19.5 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_peer_has_updated_spnego_oid_desc = { 9, rk_UNCONST("\x2b\x06\x01\x04\x01\xca\x29\x13\x05") };

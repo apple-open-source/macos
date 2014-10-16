@@ -25,6 +25,8 @@
 #include "ntp_refclock.h"
 #endif
 
+#include <os/trace.h>
+
 /*
  * This macro defines the authentication state. If x is 1 authentication
  * is required; othewise it is optional.
@@ -2021,16 +2023,22 @@ clock_filter(
 	int	i, j, k, m;
 	double	dtemp, etemp;
 	char	tbuf[80];
-
+	
 	if (mode_wakeup) {
 		if (fabs(sample_offset) > clock_max) {
 			step_systime(sample_offset);
-			msyslog(LOG_NOTICE, "ntpd: wake time set %+.6f s",
-				sample_offset);
+			msyslog(LOG_NOTICE, "wake time set %+.6f s", sample_offset);
+			os_trace("wake time set %+.6f s", sample_offset);
 			clear_all();
+		} else {
+			msyslog(LOG_DEBUG, "sample offset %+.6f s", sample_offset);
 		}
 		mode_wakeup = FALSE;
+		wake_timer = 0;
+	} else {
+		msyslog(LOG_DEBUG, "sample offset %+.6f s", sample_offset);
 	}
+
 	/*
 	 * A sample consists of the offset, delay, dispersion and epoch
 	 * of arrival. The offset and delay are determined by the on-
@@ -3507,7 +3515,7 @@ default_get_precision(void)
 	/*
 	 * Find the nearest power of two.
 	 */
-	msyslog(LOG_NOTICE, "proto: precision = %.3f usec", tick * 1e6);
+	msyslog(LOG_INFO, "proto: precision = %.3f usec", tick * 1e6);
 	for (i = 0; tick <= 1; i++)
 		tick *= 2;
 	if (tick - 1 > 1 - tick / 2)

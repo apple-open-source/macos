@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,12 +36,12 @@
  * February 22, 2010		Dieter Siegmund (dieter@apple.com)
  * - initial revision
  */
-#include <launch.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <bsm/libbsm.h>
 #include <sys/types.h>
 #include <sysexits.h>
+#include <servers/bootstrap.h>
 
 #include <CoreFoundation/CFRunLoop.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -65,34 +65,6 @@ my_vm_deallocate(vm_address_t data, int data_length)
 	(void)vm_deallocate(mach_task_self(), data, data_length);
     }
     return;
-}
-
-STATIC vm_address_t
-my_CFPropertyListCreateVMData(CFPropertyListRef plist,
-			      mach_msg_type_number_t * 	ret_data_len)
-{
-    vm_address_t	data;
-    int			data_len;
-    kern_return_t	status;
-    CFDataRef		xml_data;
-
-    data = 0;
-    *ret_data_len = 0;
-    xml_data = CFPropertyListCreateXMLData(NULL, plist);
-    if (xml_data == NULL) {
-	goto done;
-    }
-    data_len = CFDataGetLength(xml_data);
-    status = vm_allocate(mach_task_self(), &data, data_len, TRUE);
-    if (status != KERN_SUCCESS) {
-	goto done;
-    }
-    bcopy((char *)CFDataGetBytePtr(xml_data), (char *)data, data_len);
-    *ret_data_len = data_len;
-
- done:
-    my_CFRelease(&xml_data);
-    return (data);
 }
 
 STATIC Boolean
@@ -473,69 +445,39 @@ server_handle_request(CFMachPortRef port, void * msg, CFIndex size, void * info)
 }
 
 static void
-process_launchd_machport(const launch_data_t obj, const char *name, void *info)
+start_service(mach_port_t service_port)
 {
-    int	*		count_p = (int *)info;
     CFMachPortRef	mp;
     CFRunLoopSourceRef	rls;
-    mach_port_t		service_port;
     
-    if (obj == NULL 
-	|| launch_data_get_type(obj) != LAUNCH_DATA_MACHPORT) {
-	syslog(LOG_ERR, "eapolcfg_auth: bad type in MachServices entry");
-	return;
-    }
-    service_port = launch_data_get_machport(obj);
     mp = CFMachPortCreateWithPort(NULL, service_port, server_handle_request,
 				  NULL, NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, mp, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(mp);
     CFRelease(rls);
-    (*count_p)++;
     return;
 }
-
 
 int
 main(int argc, char **argv)
 {
-    int				count = 0;
-    launch_data_t		msg;
-    launch_data_t		machservices;
-    launch_data_t		response;
-    launch_data_type_t		type;
+    kern_return_t	kr;
+    mach_port_t		service_port = MACH_PORT_NULL;
 
-    openlog("eapolcfg_auth", LOG_CONS|LOG_PID, LOG_DAEMON);
+    openlog("eapolcfg_auth", LOG_CONS | LOG_PID, LOG_DAEMON);
     if (geteuid() != 0) {
-	syslog(LOG_ERR, "eapolcfg_auth must be run as root - exiting");
+	syslog(LOG_ERR, "not running as root - exiting");
 	exit(EX_CONFIG);
     }
-    msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-    response = launch_msg(msg);
-    launch_data_free(msg);
-    if (response == NULL) {
-	syslog(LOG_ERR, "eapolcf_auth: NULL response from launchd");
-	exit(EX_CONFIG);
+    kr = bootstrap_check_in(bootstrap_port, EAPOLCFG_AUTH_SERVER,
+			    &service_port);
+    if (kr != BOOTSTRAP_SUCCESS) {
+	syslog(LOG_ERR, "bootstrap_check_in() failed: %s",
+	       bootstrap_strerror(kr));
+	exit(EX_UNAVAILABLE);
     }
-    if (launch_data_get_type(response) != LAUNCH_DATA_DICTIONARY) {
-	syslog(LOG_ERR, "eapolcfg_auth: response type not a dictionary");
-	exit(EX_CONFIG);
-    }
-    machservices = launch_data_dict_lookup(response,
-					   LAUNCH_JOBKEY_MACHSERVICES);
-    if (machservices == NULL
-	|| launch_data_get_type(machservices) != LAUNCH_DATA_DICTIONARY) {
-	syslog(LOG_ERR, "eapolcfg_auth: MachServices is NULL/invalid");
-	exit(EX_CONFIG);
-    }
-    launch_data_dict_iterate(machservices, process_launchd_machport,
-			     (void *)&count);
-    if (count == 0) {
-	/* no ports to listen on, strange */
-	syslog(LOG_ERR, "eapolcfg_auth: no port to listen on");
-	exit(EX_OK);
-    }
+    start_service(service_port);
     while (1) {
 	SInt32	rlStatus;
 

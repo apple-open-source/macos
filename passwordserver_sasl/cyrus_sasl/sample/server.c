@@ -1,4 +1,4 @@
-/* $Id: server.c,v 1.5 2005/05/17 21:56:45 snsimon Exp $ */
+/* $Id: server.c,v 1.10 2010/12/01 14:51:53 mel Exp $ */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -38,8 +38,30 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#include <config.h>
+/*
+ * Copyright 2009  by the Massachusetts Institute of Technology.
+ * All Rights Reserved.
+ *
+ * Export of this software from the United States of America may
+ *   require a specific license from the United States Government.
+ *   It is the responsibility of any person or organization contemplating
+ *   export to obtain such a license before exporting.
+ *
+ * WITHIN THAT CONSTRAINT, permission to use, copy, modify, and
+ * distribute this software and its documentation for any purpose and
+ * without fee is hereby granted, provided that the above copyright
+ * notice appear in all copies and that both that copyright notice and
+ * this permission notice appear in supporting documentation, and that
+ * the name of M.I.T. not be used in advertising or publicity pertaining
+ * to distribution of the software without specific, written prior
+ * permission.  Furthermore if you modify this software you must label
+ * your software as modified software and not distribute it in such a
+ * fashion that it might be confused with the original M.I.T. software.
+ * M.I.T. makes no representations about the suitability of
+ * this software for any purpose.  It is provided "as is" without express
+ * or implied warranty.
+ *
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +69,8 @@
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
+#include <sysexits.h>
+#include <unistd.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -57,7 +81,12 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <sasl.h>
+#include <sasl/sasl.h>
+
+#ifdef HAVE_GSS_GET_NAME_ATTRIBUTE
+#include <gssapi/gssapi.h>
+#include <gssapi/gssapi_ext.h>
+#endif
 
 #include "common.h"
 
@@ -69,6 +98,13 @@
 #endif
 #ifndef IPV6_BINDV6ONLY
 #undef      IPV6_V6ONLY
+#endif
+
+#ifdef HAVE_GSS_GET_NAME_ATTRIBUTE
+static OM_uint32
+enumerateAttributes(OM_uint32 *minor,
+                    gss_name_t name,
+                    int noisy);
 #endif
 
 /* create a socket listening on port 'port' */
@@ -154,7 +190,7 @@ int *listensock(const char *port, const int af)
 
 void usage(void)
 {
-    fprintf(stderr, "usage: server [-p port] [-s service] [-m mech]\n");
+    fprintf(stderr, "usage: server [-C|-c] [-h hostname] [-p port] [-s service] [-m mech]\n");
     exit(EX_USAGE);
 }
 
@@ -170,6 +206,9 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
     int len;
     int r = SASL_FAIL;
     const char *userid;
+#ifdef HAVE_GSS_GET_NAME_ATTRIBUTE
+    gss_name_t peer = GSS_C_NO_NAME;
+#endif
     
     /* generate the capability list */
     if (mech) {
@@ -181,7 +220,7 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
 
 	dprintf(1, "generating client mechanism list... ");
 	r = sasl_listmech(conn, NULL, NULL, " ", NULL,
-			  &data, &len, &count);
+			  &data, (unsigned int *)&len, &count);
 	if (r != SASL_OK) saslfail(r, "generating mechanism list");
 	dprintf(1, "%d mechanisms\n", count);
     }
@@ -208,6 +247,7 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
     len = recv_string(in, buf, sizeof(buf));
     if(len != 1) {
 	saslerr(r, "didn't receive first-send parameter correctly");
+	fprintf(stderr, "%s\n", sasl_errdetail(conn));
 	fputc('N', out);
 	fflush(out);
 	return -1;
@@ -219,14 +259,15 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
 
         /* start libsasl negotiation */
         r = sasl_server_start(conn, chosenmech, buf, len,
-			      &data, &len);
+			      &data, (unsigned int *)&len);
     } else {
 	r = sasl_server_start(conn, chosenmech, NULL, 0,
-			      &data, &len);
+			      &data, (unsigned int *)&len);
     }
     
     if (r != SASL_OK && r != SASL_CONTINUE) {
 	saslerr(r, "starting SASL negotiation");
+	fprintf(stderr, "%s\n", sasl_errdetail(conn));
 	fputc('N', out); /* send NO to client */
 	fflush(out);
 	return -1;
@@ -250,9 +291,10 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
 	    return -1;
 	}
 
-	r = sasl_server_step(conn, buf, len, &data, &len);
+	r = sasl_server_step(conn, buf, len, &data, (unsigned int *)&len);
 	if (r != SASL_OK && r != SASL_CONTINUE) {
 	    saslerr(r, "performing SASL negotiation");
+	    fprintf(stderr, "%s\n", sasl_errdetail(conn));
 	    fputc('N', out); /* send NO to client */
 	    fflush(out);
 	    return -1;
@@ -261,6 +303,7 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
 
     if (r != SASL_OK) {
 	saslerr(r, "incorrect authentication");
+	fprintf(stderr, "%s\n", sasl_errdetail(conn));
 	fputc('N', out); /* send NO to client */
 	fflush(out);
 	return -1;
@@ -273,6 +316,14 @@ int mysasl_negotiate(FILE *in, FILE *out, sasl_conn_t *conn)
     r = sasl_getprop(conn, SASL_USERNAME, (const void **) &userid);
     printf("successful authentication '%s'\n", userid);
 
+#ifdef HAVE_GSS_GET_NAME_ATTRIBUTE
+    r = sasl_getprop(conn, SASL_GSS_PEER_NAME, (const void **) &peer);
+    if (peer != GSS_C_NO_NAME) {
+        OM_uint32 minor;
+        enumerateAttributes(&minor, peer, 1);
+    }
+#endif
+
     return 0;
 }
 
@@ -281,12 +332,26 @@ int main(int argc, char *argv[])
     int c;
     char *port = "12345";
     char *service = "rcmd";
+    char *hostname = NULL;
     int *l, maxfd=0;
     int r, i;
     sasl_conn_t *conn;
+    int cb_flag = 0;
 
-    while ((c = getopt(argc, argv, "p:s:m:")) != EOF) {
+    while ((c = getopt(argc, argv, "Cch:p:s:m:")) != EOF) {
 	switch(c) {
+	case 'C':
+	    cb_flag = 2;        /* channel bindings are critical */
+	    break;
+
+	case 'c':
+	    cb_flag = 1;        /* channel bindings are present */
+	    break;
+
+	case 'h':
+	    hostname = optarg;
+	    break;
+
 	case 'p':
 	    port = optarg;
 	    break;
@@ -326,10 +391,11 @@ int main(int argc, char *argv[])
 	char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
 	struct sockaddr_storage local_ip, remote_ip;
 	int niflags, error;
-	int salen;
+	socklen_t salen;
 	int nfds, fd = -1;
 	FILE *in, *out;
 	fd_set readfds;
+	sasl_channel_binding_t cb;
 
 	FD_ZERO(&readfds);
 	for (i = 1; i <= l[0]; i++)
@@ -394,18 +460,30 @@ int main(int argc, char *argv[])
 	}
 	snprintf(remoteaddr, sizeof(remoteaddr), "%s;%s", hbuf, pbuf);
 
-	r = gethostname(myhostname, sizeof(myhostname)-1);
-	if(r == -1) saslfail(r, "getting hostname");
+	if (hostname == NULL) {
+	    r = gethostname(myhostname, sizeof(myhostname)-1);
+	    if(r == -1) saslfail(r, "getting hostname");
+	    hostname = myhostname;
+	}
 
-	r = sasl_server_new(service, myhostname, NULL, localaddr, remoteaddr,
+	r = sasl_server_new(service, hostname, NULL, localaddr, remoteaddr,
 			    NULL, 0, &conn);
 	if (r != SASL_OK) saslfail(r, "allocating connection state");
 
+	cb.name = "sasl-sample";
+	cb.critical = cb_flag > 1;
+	cb.data = "this is a test of channel binding";
+	cb.len = strlen(cb.data);
+
+	if (cb_flag) {
+	    sasl_setprop(conn, SASL_CHANNEL_BINDING, &cb);
+	}
+
 	/* set external properties here
-	   sasl_setprop(conn, SASL_SSF_EXTERNAL, &extprops); */
+	sasl_setprop(conn, SASL_SSF_EXTERNAL, &extprops); */
 
 	/* set required security properties here
-	   sasl_setprop(conn, SASL_SEC_PROPS, &secprops); */
+	sasl_setprop(conn, SASL_SEC_PROPS, &secprops); */
 
 	in = fdopen(fd, "r");
 	out = fdopen(fd, "w");
@@ -426,3 +504,119 @@ int main(int argc, char *argv[])
 
     sasl_done();
 }
+
+#ifdef HAVE_GSS_GET_NAME_ATTRIBUTE
+static void displayStatus_1(m, code, type)
+    char *m;
+    OM_uint32 code;
+    int type;
+{
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_desc msg;
+    OM_uint32 msg_ctx;
+
+    msg_ctx = 0;
+    while (1) {
+        maj_stat = gss_display_status(&min_stat, code,
+                                      type, GSS_C_NULL_OID,
+                                      &msg_ctx, &msg);
+        fprintf(stderr, "%s: %s\n", m, (char *)msg.value);
+        (void) gss_release_buffer(&min_stat, &msg);
+
+        if (!msg_ctx)
+            break;
+    }
+}
+
+static void displayStatus(msg, maj_stat, min_stat)
+    char *msg;
+    OM_uint32 maj_stat;
+    OM_uint32 min_stat;
+{
+    displayStatus_1(msg, maj_stat, GSS_C_GSS_CODE);
+    displayStatus_1(msg, min_stat, GSS_C_MECH_CODE);
+}
+
+static void
+dumpAttribute(OM_uint32 *minor,
+              gss_name_t name,
+              gss_buffer_t attribute,
+              int noisy)
+{
+    OM_uint32 major, tmp;
+    gss_buffer_desc value;
+    gss_buffer_desc display_value;
+    int authenticated = 0;
+    int complete = 0;
+    int more = -1;
+    unsigned int i;
+
+    while (more != 0) {
+        value.value = NULL;
+        display_value.value = NULL;
+
+        major = gss_get_name_attribute(minor,
+                                       name,
+                                       attribute,
+                                       &authenticated,
+                                       &complete,
+                                       &value,
+                                       &display_value,
+                                       &more);
+        if (GSS_ERROR(major)) {
+            displayStatus("gss_get_name_attribute", major, *minor);
+            break;
+        }
+
+        printf("Attribute %.*s %s %s\n\n%.*s\n",
+               (int)attribute->length, (char *)attribute->value,
+               authenticated ? "Authenticated" : "",
+               complete ? "Complete" : "",
+               (int)display_value.length, (char *)display_value.value);
+
+        if (noisy) {
+            for (i = 0; i < value.length; i++) {
+                if ((i % 32) == 0)
+                    printf("\n");
+                printf("%02x", ((char *)value.value)[i] & 0xFF);
+            }
+            printf("\n\n");
+        }
+
+        gss_release_buffer(&tmp, &value);
+        gss_release_buffer(&tmp, &display_value);
+    }
+}
+
+static OM_uint32
+enumerateAttributes(OM_uint32 *minor,
+                    gss_name_t name,
+                    int noisy)
+{
+    OM_uint32 major, tmp;
+    int name_is_MN;
+    gss_OID mech = GSS_C_NO_OID;
+    gss_buffer_set_t attrs = GSS_C_NO_BUFFER_SET;
+    unsigned int i;
+
+    major = gss_inquire_name(minor,
+                             name,
+                             &name_is_MN,
+                             &mech,
+                             &attrs);
+    if (GSS_ERROR(major)) {
+        displayStatus("gss_inquire_name", major, *minor);
+        return major;
+    }
+
+    if (attrs != GSS_C_NO_BUFFER_SET) {
+        for (i = 0; i < attrs->count; i++)
+            dumpAttribute(minor, name, &attrs->elements[i], noisy);
+    }
+
+    gss_release_oid(&tmp, &mech);
+    gss_release_buffer_set(&tmp, &attrs);
+
+    return major;
+}
+#endif

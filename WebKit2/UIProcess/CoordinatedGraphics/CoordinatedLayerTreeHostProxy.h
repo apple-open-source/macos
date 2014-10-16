@@ -26,7 +26,7 @@
 #include "CoordinatedGraphicsArgumentCoders.h"
 #include "MessageReceiver.h"
 #include <WebCore/CoordinatedGraphicsScene.h>
-#include <wtf/Functional.h>
+#include <functional>
 
 namespace WebCore {
 class CoordinatedGraphicsState;
@@ -35,13 +35,13 @@ class IntSize;
 
 namespace WebKit {
 
-class DrawingAreaProxy;
+class CoordinatedDrawingAreaProxy;
 
-class CoordinatedLayerTreeHostProxy : public WebCore::CoordinatedGraphicsSceneClient, public CoreIPC::MessageReceiver {
+class CoordinatedLayerTreeHostProxy : public WebCore::CoordinatedGraphicsSceneClient, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(CoordinatedLayerTreeHostProxy);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit CoordinatedLayerTreeHostProxy(DrawingAreaProxy*);
+    explicit CoordinatedLayerTreeHostProxy(CoordinatedDrawingAreaProxy*);
     virtual ~CoordinatedLayerTreeHostProxy();
 
     void commitCoordinatedGraphicsState(const WebCore::CoordinatedGraphicsState&);
@@ -50,19 +50,19 @@ public:
     void setVisibleContentsRect(const WebCore::FloatRect&, const WebCore::FloatPoint& trajectoryVector);
     WebCore::CoordinatedGraphicsScene* coordinatedGraphicsScene() const { return m_scene.get(); }
 
-    virtual void updateViewport() OVERRIDE;
-    virtual void renderNextFrame() OVERRIDE;
-    virtual void purgeBackingStores() OVERRIDE;
+    virtual void updateViewport() override;
+    virtual void renderNextFrame() override;
+    virtual void purgeBackingStores() override;
 
     virtual void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset);
 
 protected:
-    void dispatchUpdate(const Function<void()>&);
+    void dispatchUpdate(std::function<void()>);
 
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
-    DrawingAreaProxy* m_drawingAreaProxy;
+    CoordinatedDrawingAreaProxy* m_drawingAreaProxy;
     RefPtr<WebCore::CoordinatedGraphicsScene> m_scene;
     WebCore::FloatRect m_lastSentVisibleRect;
     WebCore::FloatPoint m_lastSentTrajectoryVector;

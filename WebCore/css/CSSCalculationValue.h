@@ -32,19 +32,13 @@
 #define CSSCalculationValue_h
 
 #include "CSSParserValues.h"
-#include "CSSValue.h"
+#include "CSSPrimitiveValue.h"
 #include "CalculationValue.h"
-#include <wtf/PassOwnPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class CSSParserValueList;
-class CSSValueList;
+class CSSToLengthConversionData;
 class RenderStyle;
-class CalculationValue;
-class CalcExpressionNode;
 
 enum CalculationCategory {
     CalcNumber = 0,
@@ -52,12 +46,12 @@ enum CalculationCategory {
     CalcPercent,
     CalcPercentNumber,
     CalcPercentLength,
-#if ENABLE(CSS_VARIABLES)
-    CalcVariable,
-#endif
+    CalcAngle,
+    CalcTime,
+    CalcFrequency,
     CalcOther
 };
-    
+
 class CSSCalcExpressionNode : public RefCounted<CSSCalcExpressionNode> {
 public:
     enum Type {
@@ -65,69 +59,71 @@ public:
         CssCalcBinaryOperation
     };
 
-    virtual ~CSSCalcExpressionNode() = 0;
+    virtual ~CSSCalcExpressionNode() { }
     virtual bool isZero() const = 0;
-    virtual PassOwnPtr<CalcExpressionNode> toCalcValue(const RenderStyle*, const RenderStyle* rootStyle, double zoom = 1.0) const = 0;    
+    virtual std::unique_ptr<CalcExpressionNode> createCalcExpression(const CSSToLengthConversionData&) const = 0;
     virtual double doubleValue() const = 0;
-    virtual double computeLengthPx(const RenderStyle* currentStyle, const RenderStyle* rootStyle, double multiplier = 1.0, bool computingFontSize = false) const = 0;
-    virtual String customCssText() const = 0;
-#if ENABLE(CSS_VARIABLES)
-    virtual String serializeResolvingVariables(const HashMap<AtomicString, String>&) const = 0;
-    virtual bool hasVariableReference() const = 0;
-#endif
+    virtual double computeLengthPx(const CSSToLengthConversionData&) const = 0;
+    virtual String customCSSText() const = 0;
     virtual bool equals(const CSSCalcExpressionNode& other) const { return m_category == other.m_category && m_isInteger == other.m_isInteger; }
     virtual Type type() const = 0;
+    virtual CSSPrimitiveValue::UnitTypes primitiveType() const = 0;
 
-    CalculationCategory category() const { return m_category; }    
+    CalculationCategory category() const { return m_category; }
     bool isInteger() const { return m_isInteger; }
-    
+
 protected:
     CSSCalcExpressionNode(CalculationCategory category, bool isInteger)
         : m_category(category)
         , m_isInteger(isInteger)
     {
     }
-    
+
+private:
     CalculationCategory m_category;
     bool m_isInteger;
 };
-        
+
 class CSSCalcValue : public CSSValue {
 public:
-    static PassRefPtr<CSSCalcValue> create(CSSParserString name, CSSParserValueList*, CalculationPermittedValueRange);
-    static PassRefPtr<CSSCalcValue> create(CalculationValue*);
+    static PassRefPtr<CSSCalcValue> create(CSSParserString name, CSSParserValueList& arguments, CalculationPermittedValueRange);
+    static PassRefPtr<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
 
-    PassRefPtr<CalculationValue> toCalcValue(const RenderStyle* style, const RenderStyle* rootStyle, double zoom = 1.0) const
-    {
-        return CalculationValue::create(m_expression->toCalcValue(style, rootStyle, zoom), m_nonNegative ? CalculationRangeNonNegative : CalculationRangeAll);
-    }
     CalculationCategory category() const { return m_expression->category(); }
-    bool isInt() const { return m_expression->isInteger(); }    
+    bool isInt() const { return m_expression->isInteger(); }
     double doubleValue() const;
     bool isNegative() const { return m_expression->doubleValue() < 0; }
-    double computeLengthPx(const RenderStyle* currentStyle, const RenderStyle* rootStyle, double multiplier = 1.0, bool computingFontSize = false) const;
-        
-    String customCssText() const;
+    double computeLengthPx(const CSSToLengthConversionData&) const;
+
+    PassRef<CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
+
+    String customCSSText() const;
     bool equals(const CSSCalcValue&) const;
-#if ENABLE(CSS_VARIABLES)
-    String customSerializeResolvingVariables(const HashMap<AtomicString, String>&) const;
-    bool hasVariableReference() const;
-#endif
-    
-private:    
-    CSSCalcValue(PassRefPtr<CSSCalcExpressionNode> expression, CalculationPermittedValueRange range)
-        : CSSValue(CalculationClass)
-        , m_expression(expression)
-        , m_nonNegative(range == CalculationRangeNonNegative)
-    {
-    }
-    
+
+private:
+    CSSCalcValue(PassRef<CSSCalcExpressionNode>, bool shouldClampToNonNegative);
+
     double clampToPermittedRange(double) const;
 
-    const RefPtr<CSSCalcExpressionNode> m_expression;
-    const bool m_nonNegative;
+    const Ref<CSSCalcExpressionNode> m_expression;
+    const bool m_shouldClampToNonNegative;
 };
-    
+
+inline CSSCalcValue::CSSCalcValue(PassRef<CSSCalcExpressionNode> expression, bool shouldClampToNonNegative)
+    : CSSValue(CalculationClass)
+    , m_expression(WTF::move(expression))
+    , m_shouldClampToNonNegative(shouldClampToNonNegative)
+{
+}
+
+inline PassRef<CalculationValue> CSSCalcValue::createCalculationValue(const CSSToLengthConversionData& conversionData) const
+{
+    return CalculationValue::create(m_expression->createCalcExpression(conversionData),
+        m_shouldClampToNonNegative ? CalculationRangeNonNegative : CalculationRangeAll);
+}
+
+CSS_VALUE_TYPE_CASTS(CSSCalcValue, isCalcValue())
+
 } // namespace WebCore
 
 #endif // CSSCalculationValue_h

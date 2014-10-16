@@ -1076,8 +1076,8 @@ void parser_opendir_add(void *ctx, const xmlChar *localname, int length)
 static void parser_lock_add(void *ctx, const xmlChar *localname, int length)
 {
 	webdav_parse_lock_struct_t *lock_struct = (webdav_parse_lock_struct_t *)ctx;
-	UInt8 *text_ptr = malloc(length);
-	bzero(text_ptr,length);
+	UInt8 *text_ptr = malloc(length+1);
+	bzero(text_ptr,length+1);
 	memcpy(text_ptr,localname,length);
 	UInt8* ch = NULL;
 	
@@ -1089,9 +1089,6 @@ static void parser_lock_add(void *ctx, const xmlChar *localname, int length)
 		 * found the token and we have found the href indicating
 		 * that the locktoken is coming so squirrel it away.
 		 */
-		
-		/* null terminate the string */
-		text_ptr[length] = '\0';
 		
 		// Trim trailing whitespace
 		ch = &text_ptr[length-1];
@@ -1295,7 +1292,7 @@ static void parser_cachevalidators_add(void *ctx, const xmlChar *localname, int 
 				 {
 					 size_t	len = length + 1;
 					 
-					 cachevalidators_struct->entity_tag = malloc(len);
+					 cachevalidators_struct->entity_tag = calloc(1,len);
 					 if ( cachevalidators_struct->entity_tag != NULL )
 					 {
 						 strlcpy(cachevalidators_struct->entity_tag, (const char *)localname, len);
@@ -1566,9 +1563,12 @@ int parse_opendir(UInt8 *xmlp,					/* -> xml data returned by PROPFIND with dept
 	require(ftruncate(parent_node->file_fd, 0) == 0, ftruncate);
 	require(lseek(parent_node->file_fd, 0, SEEK_SET) == 0, lseek);
 	
-	int result = xmlSAXUserParseMemory( &sh,&opendir_struct,(char*)xmlp,(int)xmlp_len);
-	require(result == 0, ParserCreate);
-	/* parse the XML -- exit now if error during parse */
+	if(xmlp != NULL)
+	{
+		int result = xmlSAXUserParseMemory( &sh,&opendir_struct,(char*)xmlp,(int)xmlp_len);
+		require(result == 0, ParserCreate);
+		/* parse the XML -- exit now if error during parse */
+	}
 	
 	/* if the directory is not deleted, write "." and ".."  */
 	if ( !NODE_IS_DELETED(parent_node) )
@@ -1822,8 +1822,11 @@ parse_multi_status(
 	sh.endElementNs = parser_multistatus_end;
     sh.initialized = XML_SAX2_MAGIC;
 	
-	int result = xmlSAXUserParseMemory( &sh,multistatus_list,(char*)xmlp,(int)xmlp_len);
-	require(result == 0, ParserCreate);
+	if(xmlp != NULL)
+	{
+		int result = xmlSAXUserParseMemory( &sh,multistatus_list,(char*)xmlp,(int)xmlp_len);
+		require(result == 0, ParserCreate);
+	}
 
 ParserCreate:
 malloc_list:
@@ -1844,7 +1847,10 @@ int parse_file_count(const UInt8 *xmlp, CFIndex xmlp_len, int *file_count)
     sh.initialized = XML_SAX2_MAGIC;
 	*file_count = 0;
 	
-	xmlSAXUserParseMemory( &sh,file_count,(char*)xmlp,(int)xmlp_len);
+	if(xmlp != NULL)
+	{
+		xmlSAXUserParseMemory( &sh,file_count,(char*)xmlp,(int)xmlp_len);
+	}
 	
 	return ( 0 );
 }
@@ -1861,7 +1867,10 @@ int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct webdav_stat_attr *sta
     sh.initialized = XML_SAX2_MAGIC;
 	bzero((void *)statbuf, sizeof(struct webdav_stat_attr));
 	
-	xmlSAXUserParseMemory( &sh,statbuf,(char*)xmlp,(int)xmlp_len);
+	if(xmlp != NULL)
+	{
+		xmlSAXUserParseMemory( &sh,statbuf,(char*)xmlp,(int)xmlp_len);
+	}
 	/* Coming back from the parser:
 	 *   statbuf->attr_stat_info.attr_stat.st_mode will be 0 or will have S_IFDIR set if the object is a directory.
 	 *   statbuf->attr_stat_info.attr_stat.st_mtimespec will be 0 or will have the last modified time.
@@ -1924,7 +1933,11 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 	struct webdav_quotas quotas;
 	bzero((void *)statfsbuf, sizeof(struct statfs));
 	bzero((void *)&quotas, sizeof(struct webdav_quotas));
-	xmlSAXUserParseMemory( &sh,&quotas,(char*)xmlp,(int)xmlp_len);
+	
+	if(xmlp != NULL)
+	{
+		xmlSAXUserParseMemory( &sh,&quotas,(char*)xmlp,(int)xmlp_len);
+	}
 	/* were the IETF quota properties returned? */
 	if ( quotas.use_bytes_values )
 	{
@@ -2001,7 +2014,10 @@ int parse_lock(const UInt8 *xmlp, CFIndex xmlp_len, char **locktoken)
 	lock_struct.context = 0;
 	lock_struct.locktoken = NULL;	/* NULL coming into this function */
 	
-	xmlSAXUserParseMemory( &sh,&lock_struct,(char*)xmlp,(int)xmlp_len);
+	if(xmlp != NULL)
+	{
+		xmlSAXUserParseMemory( &sh,&lock_struct,(char*)xmlp,(int)xmlp_len);
+	}
 	
 	*locktoken = (char *)lock_struct.locktoken;
 	if (*locktoken == NULL)
@@ -2027,7 +2043,10 @@ int parse_cachevalidators(const UInt8 *xmlp, CFIndex xmlp_len, time_t *last_modi
 	cachevalidators_struct.last_modified = 0;
 	cachevalidators_struct.entity_tag = NULL;
 	
-	xmlSAXUserParseMemory( &sh,&cachevalidators_struct,(char*)xmlp,(int)xmlp_len);
+	if(xmlp != NULL)
+	{
+		xmlSAXUserParseMemory( &sh,&cachevalidators_struct,(char*)xmlp,(int)xmlp_len);
+	}
 	
 	if ( cachevalidators_struct.last_modified != 0 )
 	{

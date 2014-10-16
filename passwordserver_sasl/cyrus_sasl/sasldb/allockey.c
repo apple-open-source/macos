@@ -1,7 +1,7 @@
 /* db_berkeley.c--SASL berkeley db interface
  * Rob Siemborski
  * Tim Martin
- * $Id: allockey.c,v 1.6 2005/05/17 21:59:03 snsimon Exp $
+ * $Id: allockey.c,v 1.9 2008/10/30 14:17:08 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -94,7 +94,7 @@ int _sasldb_parse_key(const char *key, const size_t key_len,
 {
     unsigned i = 0;
     unsigned numnulls = 0;
-    unsigned alen = 0, rlen = 0, pnlen = 0;
+    size_t alen = 0, rlen = 0, pnlen = 0;
 
     if(!key || !key_len
        || (authid && !max_authid)
@@ -108,9 +108,9 @@ int _sasldb_parse_key(const char *key, const size_t key_len,
 
     if(numnulls != 2) return SASL_BADPARAM;
 
-    alen = (unsigned int)strlen(key);
-    rlen = (unsigned int)strlen(key + alen + 1);
-    pnlen = (unsigned int)key_len - alen - rlen - 2;
+    alen = strlen(key);
+    rlen = strlen(key + alen + 1);
+    pnlen = key_len - alen - rlen - 2;
     
 
     if(authid) {
@@ -169,7 +169,7 @@ int _sasldb_getsecret(const sasl_utils_t *utils,
 	return SASL_NOMEM;
     }
 
-    out->len = len;
+    out->len = (unsigned) len;
     memcpy(out->data, buf, len);
     out->data[len]='\0';
 
@@ -187,7 +187,7 @@ int _sasldb_putsecret(const sasl_utils_t *utils,
     const char *param = SASL_AUX_PASSWORD;
     param++; /* skip leading * */
     return _sasldb_putdata(utils, context, authid, realm, param,
-			   (const char *)(secret ? secret->data : NULL),
+			   (const char *) (secret ? secret->data : NULL),
 			   (secret ? secret->len : 0));
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,6 +129,8 @@ typedef struct EAPClientPluginData_s {
 #define kEAPClientPluginFuncNameFailureString	"failure_string"
 #define kEAPClientPluginFuncNameSessionKey	"session_key"
 #define kEAPClientPluginFuncNameServerKey	"server_key"
+#define kEAPClientPluginFuncNameMasterSessionKeyCopyBytes	\
+    "master_session_key_copy_bytes"
 #define kEAPClientPluginFuncNameRequireProperties	"require_properties"
 #define kEAPClientPluginFuncNamePublishProperties	"publish_properties"
 #define kEAPClientPluginFuncNamePacketDump	"packet_dump"
@@ -311,6 +313,25 @@ typedef void *
  */
 typedef void * 
 (EAPClientPluginFuncServerKey)(EAPClientPluginDataRef plugin, int * key_length);
+
+/*
+ * Type: EAPClientPluginFuncMasterSessionKeyCopyBytes
+ * Purpose:
+ *   Prototype for "master_session_key_copy_bytes" function.
+ *   
+ *   The buffer 'msk' must be at least kEAPMasterSessionKeyMinimumSize
+ *   bytes in length. 
+ *
+ *   'msk_size' must be set to at least kEAPMasterSessionKeyMinimumSize.
+ *   
+ *   Returns the actual number of bytes that were copied, not more than
+ *   'msk_size'.  Returns 0 if no MSK is available.
+ *
+ *   Called after the "process" function returns kEAPClientStateSuccess.
+ */
+typedef int
+(EAPClientPluginFuncMasterSessionKeyCopyBytes)(EAPClientPluginDataRef plugin,
+					       void * msk, int msk_size);
 
 /* 
  * Type: EAPClientPluginFuncRequireProperties

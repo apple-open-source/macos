@@ -32,6 +32,8 @@ namespace WebCore {
 class TimingFunction : public RefCounted<TimingFunction> {
 public:
 
+    virtual PassRefPtr<TimingFunction> clone() const = 0;
+
     enum TimingFunctionType {
         LinearFunction, CubicBezierFunction, StepsFunction
     };
@@ -62,20 +64,25 @@ public:
         return adoptRef(new LinearTimingFunction);
     }
     
-    ~LinearTimingFunction() { }
+    virtual ~LinearTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other)
+    virtual bool operator==(const TimingFunction& other) override
     {
         return other.isLinearTimingFunction();
     }
-    
+
 private:
     LinearTimingFunction()
         : TimingFunction(LinearFunction)
     {
     }
+
+    virtual PassRefPtr<TimingFunction> clone() const override
+    {
+        return adoptRef(new LinearTimingFunction);
+    }
 };
-    
+
 class CubicBezierTimingFunction : public TimingFunction {
 public:
     enum TimingFunctionPreset {
@@ -113,9 +120,9 @@ public:
         }
     }
 
-    ~CubicBezierTimingFunction() { }
+    virtual ~CubicBezierTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other)
+    virtual bool operator==(const TimingFunction& other) override
     {
         if (other.isCubicBezierTimingFunction()) {
             const CubicBezierTimingFunction* ctf = static_cast<const CubicBezierTimingFunction*>(&other);
@@ -132,7 +139,16 @@ public:
     double x2() const { return m_x2; }
     double y2() const { return m_y2; }
     
+    void setValues(double x1, double y1, double x2, double y2)
+    {
+        m_x1 = x1;
+        m_y1 = y1;
+        m_x2 = x2;
+        m_y2 = y2;
+    }
+    
     TimingFunctionPreset timingFunctionPreset() const { return m_timingFunctionPreset; }
+    void setTimingFunctionPreset(TimingFunctionPreset preset) { m_timingFunctionPreset = preset; }
     
     static const CubicBezierTimingFunction* defaultTimingFunction()
     {
@@ -156,6 +172,11 @@ private:
     {
     }
 
+    virtual PassRefPtr<TimingFunction> clone() const override
+    {
+        return adoptRef(new CubicBezierTimingFunction(m_timingFunctionPreset, m_x1, m_y1, m_x2, m_y2));
+    }
+
     double m_x1;
     double m_y1;
     double m_x2;
@@ -165,14 +186,19 @@ private:
 
 class StepsTimingFunction : public TimingFunction {
 public:
+    
     static PassRefPtr<StepsTimingFunction> create(int steps, bool stepAtStart)
     {
         return adoptRef(new StepsTimingFunction(steps, stepAtStart));
     }
+    static PassRefPtr<StepsTimingFunction> create()
+    {
+        return adoptRef(new StepsTimingFunction(1, true));
+    }
     
-    ~StepsTimingFunction() { }
+    virtual ~StepsTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other)
+    virtual bool operator==(const TimingFunction& other) override
     {
         if (other.isStepsTimingFunction()) {
             const StepsTimingFunction* stf = static_cast<const StepsTimingFunction*>(&other);
@@ -182,7 +208,10 @@ public:
     }
     
     int numberOfSteps() const { return m_steps; }
+    void setNumberOfSteps(int steps) { m_steps = steps; }
+
     bool stepAtStart() const { return m_stepAtStart; }
+    void setStepAtStart(bool stepAtStart) { m_stepAtStart = stepAtStart; }
     
 private:
     StepsTimingFunction(int steps, bool stepAtStart)
@@ -191,11 +220,16 @@ private:
         , m_stepAtStart(stepAtStart)
     {
     }
+
+    virtual PassRefPtr<TimingFunction> clone() const override
+    {
+        return adoptRef(new StepsTimingFunction(m_steps, m_stepAtStart));
+    }
     
     int m_steps;
     bool m_stepAtStart;
 };
-    
+
 } // namespace WebCore
 
 #endif // TimingFunction_h

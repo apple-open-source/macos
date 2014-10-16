@@ -6,6 +6,8 @@
 (import "system.sb")
 (import "gss-acceptor.sb")
 
+(system-network)
+
 (allow network-outbound)
   
 (allow system-socket)
@@ -18,9 +20,15 @@
 
 (allow mach-lookup 
 	(global-name-regex #"^com\.apple\.webdavfs\.msgport..*"))
+	
+(allow mach-lookup 
+	(global-name "com.apple.networkd"))
 
 (allow file*
 	(regex #"^/private/tmp/.webdavUDS\..+"))
 
 (allow file* 
 	(regex #"^/private/tmp/\.webdavcache\..+"))
+	
+(allow file-read*
+	(regex #"^.*/Library/Preferences/com\.apple\.security\.plist"))

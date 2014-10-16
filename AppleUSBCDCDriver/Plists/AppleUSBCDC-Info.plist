@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.2.1b5, USB CDC driver</string>
+	<string>$(COM_APPLE_CDC_DRIVER_COPYRIGHT_STRING)</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -15,15 +15,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>USB CDC driver</string>
+	<string>AppleUSBCDC</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>4.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.2.1b5</string>
+	<string>$(COM_APPLE_CDC_DRIVER_LONG_VERSION)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(COM_APPLE_CDC_DRIVER_SHORT_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AlcatelECMPreferred</key>

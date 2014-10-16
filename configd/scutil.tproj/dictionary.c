@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,7 +103,9 @@ do_dictSetKey(int argc, char **argv)
 			/* if array requested */
 			doArray = TRUE;
 		} else if (strcmp(argv[0], "-") == 0) {
-			/* if string values requested */
+			/* if string values follow */
+			argv++; argc--;
+			break;
 		} else if (strcmp(argv[0], "?") == 0) {
 			/* if boolean values requested */
 			doBoolean = TRUE;
@@ -159,7 +161,7 @@ do_dictSetKey(int argc, char **argv)
 			int			j;
 			int			n;
 
-			n = strlen(argv[0]);
+			n = (int)strlen(argv[0]);
 			if ((n % 2) == 1) {
 				SCPrint(TRUE, stdout, CFSTR("d.add: not enough bytes.\n"));
 				if (doArray) CFRelease(array);

@@ -24,6 +24,38 @@
 #ifndef webdavfs_webdav_utils_h
 #define webdavfs_webdav_utils_h
 
+/* Arrays of asctime-date day and month strs, rfc1123-date day and month strs, and rfc850-date day and month strs. */
+static const char* kDayStrs[] = {
+	"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+	"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+
+static const char* kMonthStrs[] = {
+	"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+	"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+
+/* NOTE that these are ordered this way on purpose. */
+static const char* kUSTimeZones[] = {"PST", "PDT", "MST", "MDT", "CST", "CDT", "EST", "EDT"};
+
+static const uint8_t daysInMonth[16] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0, 0, 0};
+
+typedef struct {
+    SInt32 year;
+    SInt8 month;
+    SInt8 day;
+    SInt8 hour;
+    SInt8 minute;
+    double second;
+}Date;
+
+const UInt8* CFGregorianDateCreateWithBytes(CFAllocatorRef alloc, const UInt8* bytes, CFIndex length, Date* date, CFTimeZoneRef* tz);
+
+CFIndex CFGregorianDateCreateWithString(CFAllocatorRef alloc, CFStringRef str, Date* date, CFTimeZoneRef* tz);
+
+Boolean IsLeapYear(SInt32 year);
+
+Boolean DateIsValid(Date gdate);
+
 /*
  * DateBytesToTime parses the RFC 850, RFC 1123, and asctime formatted
  * date/time bytes and returns time_t. If the parse fails, this function

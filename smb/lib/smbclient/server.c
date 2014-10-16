@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -358,7 +358,12 @@ SMBMountShareEx(
 		/* Mount the volume as a Time Machine mount. */
 		CFDictionarySetValue (mOptions, kTimeMachineMountKey, kCFBooleanTrue);
 	}
-
+    
+	if (mountOptions & kSMBMntForceNewSession) {
+		/* Force a new session */
+		CFDictionarySetValue (mOptions, kNetFSForceNewSessionKey, kCFBooleanTrue);
+	}
+    
 	/*
 	 * Specify permissions that should be assigned to files and directories. The 
 	 * value must be specified as an octal numbers. A value of zero means use the

@@ -109,7 +109,7 @@ int     setenv(const char *name, const char *value, int clobber)
 	return (-1);
     strncpy(destination, name, l_name);
     destination[l_name] = '=';
-    strlcpy(destination + l_name + 1, value, l_nameval - l_name); /* APPLE */
+    strcpy(destination + l_name + 1, value);
     return ((envp == 0) ? addenv(destination) : (*envp = destination, 0));
 }
 

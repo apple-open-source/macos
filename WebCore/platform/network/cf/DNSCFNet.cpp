@@ -15,7 +15,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,13 +29,17 @@
 #include "DNS.h"
 #include "DNSResolveQueue.h"
 
-#include "KURL.h"
+#include "URL.h"
 #include "Timer.h"
 #include <wtf/HashSet.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringHash.h>
+
+#if PLATFORM(IOS)
+#include <CFNetwork/CFNetwork.h>
+#endif
 
 #if PLATFORM(WIN)
 #include "LoaderRunLoopCF.h"
@@ -55,8 +59,8 @@ bool DNSResolveQueue::platformProxyIsEnabledInSystemPreferences()
     if (!proxySettings)
         return false;
 
-    RetainPtr<CFURLRef> httpCFURL = KURL(ParsedURLString, "http://example.com/").createCFURL();
-    RetainPtr<CFURLRef> httpsCFURL = KURL(ParsedURLString, "https://example.com/").createCFURL();
+    RetainPtr<CFURLRef> httpCFURL = URL(ParsedURLString, "http://example.com/").createCFURL();
+    RetainPtr<CFURLRef> httpsCFURL = URL(ParsedURLString, "https://example.com/").createCFURL();
 
     RetainPtr<CFArrayRef> httpProxyArray = adoptCF(CFNetworkCopyProxiesForURL(httpCFURL.get(), proxySettings.get()));
     RetainPtr<CFArrayRef> httpsProxyArray = adoptCF(CFNetworkCopyProxiesForURL(httpsCFURL.get(), proxySettings.get()));

@@ -61,6 +61,12 @@
 #define DEBUG_STDERR     0x00000010
 #define DEBUG_ASL        0x00000020
 
+#define AUX_URL_MINE "file:///var/log/asl/"
+#define AUX_URL_MINE_LEN 20
+
+/* length of "file://" */
+#define AUX_URL_PATH_OFFSET 7
+
 extern kern_return_t _asl_server_query
 (
  mach_port_t server,
@@ -92,6 +98,25 @@ typedef struct name_list_s
 	size_t size;
 	struct name_list_s *next;
 } name_list_t;
+
+static const char *
+keep_str(uint8_t mask)
+{
+	static char str[9];
+	uint32_t x = 0;
+
+	memset(str, 0, sizeof(str));
+	if (mask & 0x01) str[x++] = '0';
+	if (mask & 0x02) str[x++] = '1';
+	if (mask & 0x04) str[x++] = '2';
+	if (mask & 0x08) str[x++] = '3';
+	if (mask & 0x10) str[x++] = '4';
+	if (mask & 0x20) str[x++] = '5';
+	if (mask & 0x40) str[x++] = '6';
+	if (mask & 0x80) str[x++] = '7';
+	if (x == 0) str[x++] = '-';
+	return str;
+}
 
 void
 set_debug(int flag, const char *str)
@@ -133,12 +158,12 @@ debug_log(int level, const char *str, ...)
 		if (aslc == NULL)
 		{
 			aslc = asl_open("aslmanager", "syslog", 0);
-			aslmsg msg = asl_new(ASL_TYPE_MSG);
+			asl_msg_t *msg = asl_msg_new(ASL_TYPE_MSG);
 
-			asl_set(msg, ASL_KEY_MSG, "Status Report");
-			asl_set(msg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-			asl_create_auxiliary_file(msg, "Status Report", "public.text", &asl_aux_fd);
-			asl_free(msg);
+			asl_msg_set_key_val(msg, ASL_KEY_MSG, "Status Report");
+			asl_msg_set_key_val(msg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+			asl_create_auxiliary_file((asl_object_t)msg, "Status Report", "public.text", &asl_aux_fd);
+			asl_msg_release(msg);
 		}
 
 		va_start(v, str);
@@ -209,18 +234,17 @@ free_name_list(name_list_t *l)
 
 	free(l);
 }
-
 /*
  * Copy ASL files by reading and writing each record.
- * Setting ASL_FILE_FLAG_UNLIMITED_CACHE when copying optimizes tring uniquing.
  */
 uint32_t
 copy_asl_file(const char *src, const char *dst, mode_t mode)
 {
-	asl_search_result_t *res;
+	asl_msg_list_t *res;
 	asl_file_t *f;
 	uint32_t status, i;
 	uint64_t mid;
+	size_t rcount;
 
 	if (src == NULL) return ASL_STATUS_INVALID_ARG;
 	if (dst == NULL) return ASL_STATUS_INVALID_ARG;
@@ -232,14 +256,14 @@ copy_asl_file(const char *src, const char *dst, mode_t mode)
 	res = NULL;
 	mid = 0;
 
-	status = asl_file_match(f, NULL, &res, &mid, 0, 0, 1);
+	res = asl_file_match(f, NULL, &mid, 0, 0, 0, 1);
 	asl_file_close(f);
 
-	if (status != ASL_STATUS_OK) return status;
 	if (res == NULL) return ASL_STATUS_OK;
-	if (res->count == 0)
+	rcount = asl_msg_list_count(res);
+	if (rcount == 0)
 	{
-		aslresponse_free(res);
+		asl_msg_list_release(res);
 		return ASL_STATUS_OK;
 	}
 
@@ -248,12 +272,12 @@ copy_asl_file(const char *src, const char *dst, mode_t mode)
 	if (status != ASL_STATUS_OK) return status;
 	if (f == ASL_STATUS_OK) return ASL_STATUS_FAILED;
 
-	f->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
+	f->flags = ASL_FILE_FLAG_PRESERVE_MSG_ID;
 
-	for (i = 0; i < res->count; i++)
+	for (i = 0; i < rcount; i++)
 	{
 		mid = 0;
-		status = asl_file_save(f, (aslmsg)(res->msg[i]), &mid);
+		status = asl_file_save(f, asl_msg_list_get_index(res, i), &mid);
 		if (status != ASL_STATUS_OK) break;
 	}
 
@@ -298,6 +322,54 @@ copy_compress_file(asl_out_dst_data_t *asldst, const char *src, const char *dst)
 	close(out);
 
 	return 0;
+}
+
+void
+filesystem_rename(const char *src, const char *dst)
+{
+	int status = 0;
+
+	debug_log(ASL_LEVEL_NOTICE, "  rename %s ---> %s\n", src, dst);
+	if (dryrun == 1) return;
+
+	status = rename(src, dst);
+	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] rename %s ---> %s\n", status, errno, strerror(errno), src, dst);
+}
+
+void
+filesystem_unlink(const char *path)
+{
+	int status = 0;
+	
+	debug_log(ASL_LEVEL_NOTICE, "  remove %s\n", path);
+	if (dryrun == 1) return;
+	
+	status = unlink(path);
+	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] unlink %s\n", status, errno, strerror(errno), path);
+}
+
+void
+filesystem_truncate(const char *path)
+{
+	int status = 0;
+	
+	debug_log(ASL_LEVEL_NOTICE, "  truncate %s\n", path);
+	if (dryrun == 1) return;
+	
+	status = truncate(path, 0);
+	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] unlink %s\n", status, errno, strerror(errno), path);
+}
+
+void
+filesystem_rmdir(const char *path)
+{
+	int status = 0;
+
+	debug_log(ASL_LEVEL_NOTICE, "  remove directory %s\n", path);
+	if (dryrun == 1) return;
+
+	status = rmdir(path);
+	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] rmdir %s\n", status, errno, strerror(errno), path);
 }
 
 int32_t
@@ -353,42 +425,6 @@ filesystem_copy(asl_out_dst_data_t *asldst, const char *src, const char *dst, ui
 	return 1;
 }
 
-void
-filesystem_rename(const char *src, const char *dst)
-{
-	int status = 0;
-
-	debug_log(ASL_LEVEL_NOTICE, "  rename %s ---> %s\n", src, dst);
-	if (dryrun == 1) return;
-
-	status = rename(src, dst);
-	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] rename %s ---> %s\n", status, errno, strerror(errno), src, dst);
-}
-
-void
-filesystem_unlink(const char *path)
-{
-	int status = 0;
-
-	debug_log(ASL_LEVEL_NOTICE, "  remove %s\n", path);
-	if (dryrun == 1) return;
-
-	status = unlink(path);
-	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] unlink %s\n", status, errno, strerror(errno), path);
-}
-
-void
-filesystem_rmdir(const char *path)
-{
-	int status = 0;
-
-	debug_log(ASL_LEVEL_NOTICE, "  remove directory %s\n", path);
-	if (dryrun == 1) return;
-
-	status = rmdir(path);
-	if (status != 0) debug_log(ASL_LEVEL_ERR, "  FAILED status %d errno %d [%s] rmdir %s\n", status, errno, strerror(errno), path);
-}
-
 int
 remove_directory(const char *path)
 {
@@ -415,6 +451,123 @@ remove_directory(const char *path)
 	filesystem_rmdir(path);
 
 	return 0;
+}
+
+/*
+ * Determine the age (in whole days) of a YMD file from its name.
+ * Also determines UID and GID from ".Unnn.Gnnn" part of file name.
+ */
+uint32_t
+ymd_file_age(const char *name, time_t now, uid_t *u, gid_t *g)
+{
+	struct tm ftime;
+	time_t created;
+	uint32_t days;
+	const char *p;
+
+	if (name == NULL) return 0;
+
+	if (now == 0) now = time(NULL);
+
+	memset(&ftime, 0, sizeof(struct tm));
+	ftime.tm_hour = 24;
+
+	/* name is YYYY.MM.DD.<...> */
+
+	if ((name[0] < '0') || (name[0] > '9')) return 0;
+	ftime.tm_year = 1000 * (name[0] - '0');
+
+	if ((name[1] < '0') || (name[1] > '9')) return 0;
+	ftime.tm_year += 100 * (name[1] - '0');
+
+	if ((name[2] < '0') || (name[2] > '9')) return 0;
+	ftime.tm_year += 10 * (name[2] - '0');
+
+	if ((name[3] < '0') || (name[3] > '9')) return 0;
+	ftime.tm_year += name[3] - '0';
+	ftime.tm_year -= 1900;
+
+	if (name[4] != '.') return 0;
+
+	if ((name[5] < '0') || (name[5] > '9')) return 0;
+	ftime.tm_mon = 10 * (name[5] - '0');
+
+	if ((name[6] < '0') || (name[6] > '9')) return 0;
+	ftime.tm_mon += name[6] - '0';
+	ftime.tm_mon -= 1;
+
+	if (name[7] != '.') return 0;
+
+	if ((name[8] < '0') || (name[8] > '9')) return 0;
+	ftime.tm_mday = 10 * (name[8] - '0');
+
+	if ((name[9] < '0') || (name[9] > '9')) return 0;
+	ftime.tm_mday += name[9] - '0';
+
+	if (name[10] != '.') return 0;
+
+	created = mktime(&ftime);
+	if (created > now) return 0;
+
+	days = (now - created) / 86400;
+
+	if (u != NULL)
+	{
+		*u = -1;
+		p = strchr(name+10, 'U');
+		if (p != NULL) *u = atoi(p+1);
+	}
+
+	if (g != NULL)
+	{
+		*g = -1;
+		p = strchr(name+10, 'G');
+		if (p != NULL) *g = atoi(p+1);
+	}
+
+	return days;
+}
+
+void
+aux_url_callback(const char *url)
+{
+	if (url == NULL) return;
+	if (!strncmp(url, AUX_URL_MINE, AUX_URL_MINE_LEN)) filesystem_unlink(url + AUX_URL_PATH_OFFSET);
+}
+
+uint32_t
+ymd_file_filter(const char *name, const char *path, uint32_t keep_mask, mode_t ymd_mode, uid_t ymd_uid, gid_t ymd_gid)
+{
+	asl_file_t *f = NULL;
+	uint8_t km = keep_mask;
+	uint32_t status, len, dstcount = 0;
+	char src[MAXPATHLEN];
+	char dst[MAXPATHLEN];
+
+	if (snprintf(src, MAXPATHLEN, "%s/%s", path, name) >= MAXPATHLEN) return ASL_STATUS_FAILED;
+	if (snprintf(dst, MAXPATHLEN, "%s/%s", path, name) >= MAXPATHLEN) return ASL_STATUS_FAILED;
+	len = strlen(src) - 3;
+	snprintf(dst + len, 4, "tmp");
+
+	//TODO: check if src file is already filtered
+	debug_log(ASL_LEVEL_NOTICE, "  filter %s %s ---> %s\n", src, keep_str(km), dst);
+
+	status = ASL_STATUS_OK;
+
+	if (dryrun == 0)
+	{
+		status = asl_file_open_read(name, &f);
+		if (status != ASL_STATUS_OK) return status;
+
+		status = asl_file_filter_level(f, dst, keep_mask, ymd_mode, ymd_uid, ymd_gid, &dstcount, aux_url_callback);
+		asl_file_close(f);
+	}
+
+	filesystem_unlink(src);
+	if ((status != ASL_STATUS_OK) || (dstcount == 0)) filesystem_unlink(dst);
+	else filesystem_rename(dst, src);
+
+	return status;
 }
 
 /*
@@ -461,7 +614,7 @@ _aslmanager_set_param(asl_out_dst_data_t *dst, char *s)
 	else if (!strcasecmp(l[0], "store_ttl"))
 	{
 		/* = store_ttl days */
-		dst->ttl = (time_t)atoll(l[1]);
+		dst->ttl[LEVEL_ALL] = (time_t)atoll(l[1]);
 	}
 	else if (!strcasecmp(l[0], "module_ttl"))
 	{
@@ -597,7 +750,7 @@ process_asl_data_store(asl_out_dst_data_t *dst)
 
 	/* ttl 0 means files never expire */
 	ymd_expire = 0;
-	ttl = dst->ttl * SECONDS_PER_DAY;
+	ttl = dst->ttl[LEVEL_ALL] * SECONDS_PER_DAY;
 
 	if ((ttl > 0) && (ttl <= now)) ymd_expire = now - ttl;
 
@@ -677,22 +830,48 @@ process_asl_data_store(asl_out_dst_data_t *dst)
 	e = ymd_list;
 	while (e != NULL)
 	{
-		/* stop when a file name/date is after the expire date */
-		if (strncmp(e->name, expire_ymd_string, expire_ymd_stringlen) > 0) break;
-
-		if (dst->rotate_dir != NULL)
+		if (strncmp(e->name, expire_ymd_string, expire_ymd_stringlen) <= 0)
 		{
-			str = NULL;
-			asprintf(&str, "%s/%s", dst->rotate_dir, e->name);
-			if (str == NULL) return -1;
+			/* file has expired, archive it if required, then unlink it */
+			if (dst->rotate_dir != NULL)
+			{
+				str = NULL;
+				asprintf(&str, "%s/%s", dst->rotate_dir, e->name);
+				if (str == NULL) return -1;
 
-			filesystem_copy(dst, e->name, str, 0);
-			free(str);
+				filesystem_copy(dst, e->name, str, 0);
+				free(str);
+			}
+
+			filesystem_unlink(e->name);
+			store_size -= e->size;
+			e->size = 0;
 		}
+		else
+		{
+			/* check if there are any per-level TTLs and filter the file if required */
+			uint32_t i, bit, keep_mask;
+			uid_t ymd_uid = -1;
+			gid_t ymd_gid = -1;
+			mode_t ymd_mode = 0600;
+			uint32_t age = ymd_file_age(e->name, now, &ymd_uid, &ymd_gid);
 
-		filesystem_unlink(e->name);
-		store_size -= e->size;
-		e->size = 0;
+			if (age > 0)
+			{
+				keep_mask = 0x000000ff;
+				bit = 1;
+				for (i = 0; i <= 7; i++)
+				{
+					if ((dst->ttl[i] > 0) && (age >= dst->ttl[i])) keep_mask &= ~bit;
+					bit *= 2;
+				}
+
+				memset(&sb, 0, sizeof(struct stat));
+				if (stat(e->name, &sb) == 0) ymd_mode = sb.st_mode & 0777;
+
+				if (keep_mask != 0x000000ff) ymd_file_filter(e->name, dst->path, keep_mask, ymd_mode, ymd_uid, ymd_gid);
+			}
+		}
 
 		e = e->next;
 	}
@@ -794,8 +973,15 @@ process_asl_data_store(asl_out_dst_data_t *dst)
 		{
 			if (e->size != 0)
 			{
-				/* stop when we get to today's files */
-				if (strncmp(e->name, today_ymd_string, today_ymd_stringlen) == 0) break;
+				if (strncmp(e->name, today_ymd_string, today_ymd_stringlen) == 0)
+				{
+					/* do not touch active file YYYY.MM.DD.asl */
+					if (strcmp(e->name + today_ymd_stringlen, "asl") == 0)
+					{
+						e = e->next;
+						continue;
+					}
+				}
 
 				if (dst->rotate_dir != NULL)
 				{
@@ -925,7 +1111,11 @@ module_copy_rename(asl_out_dst_data_t *dst)
 			snprintf(fpathsrc, sizeof(fpathsrc), "%s/%s", dst->path, f->name);
 			snprintf(fpathdst, sizeof(fpathdst), "%s/%s.%d", dst_dir, base, x);
 			moved = filesystem_copy(dst, fpathsrc, fpathdst, dst->flags);
-			if (moved != 0) filesystem_unlink(fpathsrc);
+			if (moved != 0)
+			{
+				if (dst->flags & MODULE_FLAG_TRUNCATE) filesystem_truncate(fpathsrc);
+				else filesystem_unlink(fpathsrc);
+			}
 		}
 	}
 	else
@@ -951,7 +1141,11 @@ module_copy_rename(asl_out_dst_data_t *dst)
 			}
 
 			moved = filesystem_copy(dst, fpathsrc, fpathdst, dst->flags);
-			if (moved != 0) filesystem_unlink(fpathsrc);
+			if (moved != 0)
+			{
+				if (dst->flags & MODULE_FLAG_TRUNCATE) filesystem_truncate(fpathsrc);
+				else filesystem_unlink(fpathsrc);
+			}
 		}
 	}
 
@@ -973,11 +1167,11 @@ module_expire(asl_out_dst_data_t *dst)
 
 	if (dst == NULL) return -1;
 	if (dst->path == NULL) return -1;
-	if (dst->ttl == 0) return 0;
+	if (dst->ttl[LEVEL_ALL] == 0) return 0;
 
 	ttl = 0;
 	if (module_ttl > 0) ttl = module_ttl;
-	else ttl = dst->ttl;
+	else ttl = dst->ttl[LEVEL_ALL];
 
 	ttl *= SECONDS_PER_DAY;
 
@@ -1026,7 +1220,7 @@ module_expire(asl_out_dst_data_t *dst)
 static int
 module_check_size(asl_out_dst_data_t *dst)
 {
-	asl_out_file_list_t *dst_list, *f;
+	asl_out_file_list_t *dst_list, *f, *dst_end;
 	char *base, *dst_dir, fpath[MAXPATHLEN];
 	size_t total;
 
@@ -1035,32 +1229,40 @@ module_check_size(asl_out_dst_data_t *dst)
 
 	if (dst->all_max == 0) return 0;
 
+	dst_list = asl_list_dst_files(dst);
+	if (dst_list == NULL)
+	{
+		debug_log(ASL_LEVEL_INFO, "    no dst files\n");
+		return 0;
+	}
+
 	base = NULL;
 	dst_dir = dst->rotate_dir;
 	if (dst_dir == NULL)
 	{
 		dst_dir = dst->path;
 		base = strrchr(dst->path, '/');
-		if (base == NULL) return -1;
+		if (base == NULL)
+		{
+			asl_out_file_list_free(dst_list);
+			return -1;
+		}
+
 		*base = '\0';
 	}
 
-	dst_list = asl_list_dst_files(dst);
-
-	if (dst_list == NULL)
+	debug_log(ASL_LEVEL_INFO, "    dst files\n");
+	dst_end = dst_list;
+	for (f = dst_list; f != NULL; f = f->next)
 	{
-		debug_log(ASL_LEVEL_INFO, "    no dst files\n");
-	}
-	else
-	{
-		debug_log(ASL_LEVEL_INFO, "    dst files\n");
-		for (f = dst_list; f != NULL; f = f->next) debug_log(ASL_LEVEL_INFO, "      %s size %lu\n", f->name, f->size);
+		dst_end = f;
+		debug_log(ASL_LEVEL_INFO, "      %s size %lu\n", f->name, f->size);
 	}
 
 	total = 0;
 	for (f = dst_list; f != NULL; f = f->next) total += f->size;
-
-	for (f = dst_list; (total > dst->all_max) && (f != NULL); f = f->next)
+	
+	for (f = dst_end; (total > dst->all_max) && (f != NULL); f = f->prev)
 	{
 		snprintf(fpath, sizeof(fpath), "%s/%s", dst_dir, f->name);
 		filesystem_unlink(fpath);
@@ -1100,9 +1302,9 @@ process_module(asl_out_module_t *mod)
 
 				module_copy_rename(r->dst);
 
-				if (r->dst->ttl > 0)
+				if (r->dst->ttl[LEVEL_ALL] > 0)
 				{
-					debug_log(ASL_LEVEL_NOTICE, "- Check for expired files - TTL = %d days\n", r->dst->ttl);
+					debug_log(ASL_LEVEL_NOTICE, "- Check for expired files - TTL = %d days\n", r->dst->ttl[LEVEL_ALL]);
 					module_expire(r->dst);
 				}
 
@@ -1112,7 +1314,7 @@ process_module(asl_out_module_t *mod)
 					module_check_size(r->dst);
 				}
 			}
-			else if ((r->dst->flags & MODULE_FLAG_TYPE_ASL_DIR) && (r->dst->ttl > 0))
+			else if ((r->dst->flags & MODULE_FLAG_TYPE_ASL_DIR) && (r->dst->ttl[LEVEL_ALL] > 0))
 			{
 				process_asl_data_store(r->dst);
 			}
@@ -1123,10 +1325,10 @@ process_module(asl_out_module_t *mod)
 	return 0;
 }
 
-aslresponse
-control_query(aslmsg a)
+asl_msg_list_t *
+control_query(asl_msg_t *a)
 {
-	asl_search_result_t *out;
+	asl_msg_list_t *out;
 	char *qstr, *str, *res;
 	uint32_t len, reslen, status;
 	uint64_t cmax, qmin;
@@ -1179,7 +1381,7 @@ control_query(aslmsg a)
 
 	if (res == NULL) return NULL;
 
-	out = asl_list_from_string(res);
+	out = asl_msg_list_from_string(res);
 	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
 
 	return out;
@@ -1192,17 +1394,17 @@ checkpoint(const char *name)
 	debug_log(ASL_LEVEL_NOTICE, "Checkpoint module %s\n", (name == NULL) ? "*" : name);
 	if (dryrun != 0) return 0;
 
-	aslmsg qmsg = asl_new(ASL_TYPE_QUERY);
+	asl_msg_t *qmsg = asl_msg_new(ASL_TYPE_QUERY);
 	char *tmp = NULL;
-	aslresponse res;
+	asl_msg_list_t *res;
 
 	asprintf(&tmp, "%s checkpoint", (name == NULL) ? "*" : name);
-	asl_set_query(qmsg, "action", tmp, ASL_QUERY_OP_EQUAL);
+	asl_msg_set_key_val_op(qmsg, "action", tmp, ASL_QUERY_OP_EQUAL);
 	free(tmp);
 
 	res = control_query(qmsg);
 
-	aslresponse_free(res);
+	asl_msg_list_release(res);
 	return 0;
 }
 
@@ -1212,7 +1414,7 @@ cli_main(int argc, char *argv[])
 	int i, work;
 	asl_out_module_t *mod, *m;
 	asl_out_rule_t *r;
-	asl_out_dst_data_t store;
+	asl_out_dst_data_t store, *asl_store_dst = NULL;
 	const char *mname = NULL;
 
 	if (geteuid() != 0)
@@ -1226,10 +1428,22 @@ cli_main(int argc, char *argv[])
 
 	module_ttl = DEFAULT_TTL;
 
-	/* cobble up a dst_data for the main asl_store */
+	/* cobble up a dst_data with defaults and parameter settings */
 	memset(&store, 0, sizeof(store));
-	store.ttl = DEFAULT_TTL;
+	store.ttl[LEVEL_ALL] = DEFAULT_TTL;
 	store.all_max = DEFAULT_MAX_SIZE;
+
+	for (i = 1; i < argc; i++)
+	{
+		if (!strcmp(argv[i], "-s"))
+		{
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+			{
+				store.path = strdup(argv[++i]);
+				asl_store_dst = &store;
+			}
+		}
+	}
 
 	/* get parameters from asl.conf */
 	mod = asl_out_module_init();
@@ -1238,9 +1452,15 @@ cli_main(int argc, char *argv[])
 	{
 		for (r = mod->ruleset; r != NULL; r = r->next)
 		{
+			if ((asl_store_dst == NULL) && (r->action == ACTION_OUT_DEST) && (!strcmp(r->dst->path, PATH_ASL_STORE)))
+				asl_store_dst = r->dst;
+		}
+
+		for (r = mod->ruleset; r != NULL; r = r->next)
+		{
 			if (r->action == ACTION_SET_PARAM)
 			{
-				if (r->query == NULL) _aslmanager_set_param(&store, r->options);
+				if (r->query == NULL) _aslmanager_set_param(asl_store_dst, r->options);
 			}
 		}
 	}
@@ -1251,17 +1471,13 @@ cli_main(int argc, char *argv[])
 	{
 		if (!strcmp(argv[i], "-a"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store.rotate_dir = strdup(argv[++i]);
-			else store.rotate_dir = strdup(PATH_ASL_ARCHIVE);
-			store.mode = 0400;
-		}
-		else if (!strcmp(argv[i], "-s"))
-		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store.path = strdup(argv[++i]);
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) asl_store_dst->rotate_dir = strdup(argv[++i]);
+			else asl_store_dst->rotate_dir = strdup(PATH_ASL_ARCHIVE);
+			asl_store_dst->mode = 0400;
 		}
 		else if (!strcmp(argv[i], "-store_ttl"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store.ttl = atoi(argv[++i]);
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) asl_store_dst->ttl[LEVEL_ALL] = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-module_ttl"))
 		{
@@ -1269,11 +1485,11 @@ cli_main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "-ttl"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) module_ttl = store.ttl = atoi(argv[++i]);
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) module_ttl = asl_store_dst->ttl[LEVEL_ALL] = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-size"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store.all_max = asl_str_to_size(argv[++i]);
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) asl_store_dst->all_max = asl_str_to_size(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-checkpoint"))
 		{
@@ -1307,14 +1523,11 @@ cli_main(int argc, char *argv[])
 		}
 	}
 
-	if (store.path == NULL) store.path = strdup(PATH_ASL_STORE);
+	if (asl_store_dst->path == NULL) asl_store_dst->path = strdup(PATH_ASL_STORE);
 
 	debug_log(ASL_LEVEL_ERR, "aslmanager starting%s\n", (dryrun == 1) ? " dryrun" : "");
 
-	if (work & DO_ASLDB) process_asl_data_store(&store);
-
-	free(store.path);
-	free(store.rotate_dir);
+	if (work & DO_ASLDB) process_asl_data_store(asl_store_dst);
 
 	if (work & DO_MODULE)
 	{

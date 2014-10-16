@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -294,7 +294,7 @@ Sfdisc_t*	disc;
 	reg int		fd, m;
 	reg Sfio_t*	sf;
 	Sfio_t		newf, savf;
-	void		(*notifyf)_ARG_((Sfio_t*, int, void*));
+	Sfnotify_f	notify = _Sfnotify;
 
 	NOTUSED(val);
 
@@ -302,9 +302,6 @@ Sfdisc_t*	disc;
 	if(type != SF_WRITE && type != SF_SEEK &&
 	   type != SF_DPUSH && type != SF_DPOP && type != SF_DBUFFER)
 		return 0;
-
-	/* notify function */
-	notifyf = _Sfnotify;
 
 	/* try to create the temp file */
 	SFCLEAR(&newf,NIL(Vtmutex_t*));
@@ -318,7 +315,7 @@ Sfdisc_t*	disc;
 	   we are only interested in creating the file, not the stream */
 	_Sfnotify = 0;
 	sf = sfnew(&newf,NIL(Void_t*),(size_t)SF_UNBOUND,fd,SF_READ|SF_WRITE);
-	_Sfnotify = notifyf;
+	_Sfnotify = notify;
 	if(!sf)
 		return -1;
 
@@ -343,6 +340,10 @@ Sfdisc_t*	disc;
 	f->mutex = savf.mutex;
 	f->stdio = savf.stdio;
 
+	/* remove the SF_STATIC bit if it was only set above in making newf */
+	if(!(savf.flags&SF_STATIC) )
+		f->flags &= ~SF_STATIC;
+
 	if(savf.data)
 	{	SFSTRSIZE(&savf);
 		if(!(savf.flags&SF_MALLOC) )
@@ -355,15 +356,16 @@ Sfdisc_t*	disc;
 	}
 
 	/* announce change of status */
-	if(notifyf)
-		(*notifyf)(f, SF_NEW, (void*)((long)f->file));
-
-	f->disc = disc->disc;
+	f->disc = NIL(Sfdisc_t*);
+	if(_Sfnotify)
+		(*_Sfnotify)(f, SF_SETFD, (void*)((long)f->file));
 
 	/* erase all traces of newf */
 	newf.data = newf.endb = newf.endr = newf.endw = NIL(uchar*);
 	newf.file = -1;
+	_Sfnotify = 0;
 	sfclose(&newf);
+	_Sfnotify = notify;
 
 	return 1;
 }
@@ -375,7 +377,9 @@ Sfio_t* sftmp(s)
 size_t	s;
 #endif
 {
-	Sfio_t*		f;
+	Sfio_t		*f;
+	int		rv;
+	Sfnotify_f	notify = _Sfnotify;
 	static Sfdisc_t	Tmpdisc = 
 			{ NIL(Sfread_f), NIL(Sfwrite_f), NIL(Sfseek_f), _tmpexcept,
 #if _tmp_rmfail	
@@ -386,17 +390,27 @@ size_t	s;
 			};
 
 	/* start with a memory resident stream */
-	if(!(f = sfnew(NIL(Sfio_t*),NIL(char*),s,-1,SF_STRING|SF_READ|SF_WRITE)) )
+	_Sfnotify = 0; /* local computation so no notification */
+	f = sfnew(NIL(Sfio_t*),NIL(char*),s,-1,SF_STRING|SF_READ|SF_WRITE);
+	_Sfnotify = notify;
+	if(!f)
 		return NIL(Sfio_t*);
 
 	if(s != (size_t)SF_UNBOUND)	/* set up a discipline for out-of-bound, etc. */
 		f->disc = &Tmpdisc;
 
-	/* make the file now */
-	if(s == 0 && _tmpexcept(f,SF_DPOP,NIL(Void_t*),f->disc) < 0)
-	{	sfclose(f);
-		return NIL(Sfio_t*);
+	if(s == 0) /* make the file now */
+	{	_Sfnotify = 0; /* local computation so no notification */
+		rv =  _tmpexcept(f,SF_DPOP,NIL(Void_t*),f->disc);
+		_Sfnotify = notify;
+		if(rv < 0)
+		{	sfclose(f);
+			return NIL(Sfio_t*);
+		}
 	}
+
+	if(_Sfnotify)
+		(*_Sfnotify)(f, SF_NEW, (void*)((long)f->file));
 
 	return f;
 }

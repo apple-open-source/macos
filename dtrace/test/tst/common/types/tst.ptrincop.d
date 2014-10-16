@@ -37,25 +37,6 @@
 #pragma D option quiet
 
 
-#if !defined(__APPLE__)
-BEGIN
-{
-	ptr_orig = &`kmem_flags;
-	ptr_pos = &`kmem_flags+1;
-	ptr_neg = &`kmem_flags-1;
-
-	ptr_pos_before = ++ptr_orig;
-	ptr_orig = &`kmem_flags;
-	ptr_neg_before = --ptr_orig;
-
-	ptr_orig = &`kmem_flags;
-	ptr_pos_after = ptr_orig++;
-	ptr_orig = &`kmem_flags;
-	ptr_neg_after = ptr_orig--;
-	ptr_orig = &`kmem_flags;
-
-}
-#else
 BEGIN
 {
 	ptr_orig = &`max_ncpus;
@@ -73,7 +54,6 @@ BEGIN
 	ptr_orig = &`max_ncpus;
 
 }
-#endif /* __APPLE__ */
 
 tick-1
 /ptr_pos_before  == ptr_pos && ptr_neg_before == ptr_neg &&

@@ -45,18 +45,25 @@ class RepatchBuffer {
 
 public:
     RepatchBuffer(CodeBlock* codeBlock)
+        : m_codeBlock(codeBlock)
     {
-        JITCode& code = codeBlock->getJITCode();
-        m_start = code.start();
-        m_size = code.size();
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+        RefPtr<JITCode> code = codeBlock->jitCode();
+        m_start = code->start();
+        m_size = code->size();
 
         ExecutableAllocator::makeWritable(m_start, m_size);
+#endif
     }
 
     ~RepatchBuffer()
     {
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
         ExecutableAllocator::makeExecutable(m_start, m_size);
+#endif
     }
+    
+    CodeBlock* codeBlock() const { return m_codeBlock; }
 
     void relink(CodeLocationJump jump, CodeLocationLabel destination)
     {
@@ -150,6 +157,11 @@ public:
     {
         return MacroAssembler::startOfPatchableBranchPtrWithPatchOnAddress(label);
     }
+
+    static CodeLocationLabel startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32 label)
+    {
+        return MacroAssembler::startOfPatchableBranch32WithPatchOnAddress(label);
+    }
     
     void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
     {
@@ -169,9 +181,17 @@ public:
         MacroAssembler::revertJumpReplacementToPatchableBranchPtrWithPatch(instructionStart, address, value);
     }
 
+    void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel instructionStart, MacroAssembler::Address address, int32_t value)
+    {
+        MacroAssembler::revertJumpReplacementToPatchableBranch32WithPatch(instructionStart, address, value);
+    }
+
 private:
+    CodeBlock* m_codeBlock;
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
     void* m_start;
     size_t m_size;
+#endif
 };
 
 } // namespace JSC

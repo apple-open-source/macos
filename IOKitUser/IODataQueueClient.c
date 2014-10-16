@@ -226,6 +226,12 @@ __IODataQueueEnqueue(IODataQueueMemory *dataQueue, uint32_t dataSize, void *data
         {
             retVal = _IODataQueueSendDataAvailableNotification(dataQueue);
         }
+#if TARGET_IPHONE_SIMULATOR
+        else
+        {
+            retVal = _IODataQueueSendDataAvailableNotification(dataQueue);
+        }
+#endif
     }
 
     else if ( retVal == kIOReturnOverrun ) {

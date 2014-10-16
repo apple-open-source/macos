@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,7 +29,6 @@
 
 #include <utility>
 #include <wtf/HashMap.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/AtomicStringHash.h>
@@ -37,29 +36,65 @@
 
 namespace WebCore {
 
-    typedef Vector<std::pair<String, String> > CrossThreadHTTPHeaderMapData;
+enum class HTTPHeaderName;
 
-    // FIXME: Not every header fits into a map. Notably, multiple Set-Cookie header fields are needed to set multiple cookies.
-    class HTTPHeaderMap : public HashMap<AtomicString, String, CaseFoldingHash> {
-    public:
-        HTTPHeaderMap();
-        ~HTTPHeaderMap();
+typedef Vector<std::pair<String, String>> CrossThreadHTTPHeaderMapData;
 
-        // Gets a copy of the data suitable for passing to another thread.
-        PassOwnPtr<CrossThreadHTTPHeaderMapData> copyData() const;
+// FIXME: Not every header fits into a map. Notably, multiple Set-Cookie header fields are needed to set multiple cookies.
 
-        void adopt(PassOwnPtr<CrossThreadHTTPHeaderMapData>);
-        
-        String get(const AtomicString& name) const;
+class HTTPHeaderMap {
+    typedef HashMap<String, String, CaseFoldingHash> HashMapType;
+public:
+    typedef HashMapType::const_iterator const_iterator;
 
-        AddResult add(const AtomicString& name, const String& value);
+    HTTPHeaderMap();
+    ~HTTPHeaderMap();
 
-        // Alternate accessors that are faster than converting the char* to AtomicString first.
-        bool contains(const char*) const;
-        String get(const char*) const;
-        AddResult add(const char* name, const String& value);
-        
-    };
+    // Gets a copy of the data suitable for passing to another thread.
+    std::unique_ptr<CrossThreadHTTPHeaderMapData> copyData() const;
+    void adopt(std::unique_ptr<CrossThreadHTTPHeaderMapData>);
+
+    bool isEmpty() const { return m_headers.isEmpty(); }
+    int size() const { return m_headers.size(); }
+
+    void clear() { m_headers.clear(); }
+
+    String get(const String& name) const;
+    void set(const String& name, const String& value);
+    void add(const String& name, const String& value);
+
+    String get(HTTPHeaderName) const;
+    void set(HTTPHeaderName, const String& value);
+    bool contains(HTTPHeaderName) const;
+    const_iterator find(HTTPHeaderName) const;
+    bool remove(HTTPHeaderName);
+
+    // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
+    template<size_t length> String get(const char (&)[length]) const = delete;
+    template<size_t length> void set(const char (&)[length], const String&) = delete;
+    template<size_t length> bool contains(const char (&)[length]) = delete;
+    template<size_t length> const_iterator find(const char(&)[length]) = delete;
+    template<size_t length> bool remove(const char (&)[length]) = delete;
+
+    const_iterator begin() const { return m_headers.begin(); }
+    const_iterator end() const { return m_headers.end(); }
+
+    friend bool operator==(const HTTPHeaderMap& a, const HTTPHeaderMap& b)
+    {
+        return a.m_headers == b.m_headers;
+    }
+
+    friend bool operator!=(const HTTPHeaderMap& a, const HTTPHeaderMap& b)
+    {
+        return !(a == b);
+    }
+
+private:
+    // FIXME: Instead of having a HashMap<String, String>, we could have two hash maps,
+    // one HashMap<HTTPHeaderName, String> for common headers and another HashMap<String, String> for
+    // less common headers.
+    HashMapType m_headers;
+};
 
 } // namespace WebCore
 

@@ -1,0 +1,65 @@
+# 
+# test fix for Radar 3996792: handling of host name with trailing dot ("www.apple.com.")
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+##
+## common name testing 
+##
+
+test = "CommonName in leaf, no dot, no dot in app-specified hostname"
+cert = hostNameDotCommonName.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch
+end
+
+test = "CommonName in leaf, no dot, WITH dot in app-specified hostname"
+cert = hostNameDotCommonName.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch.
+end
+
+test = "CommonName in leaf, WITH dot, no dot in app-specified hostname"
+cert = hostNameDotCommonNameDot.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch
+end
+
+test = "CommonName in leaf, WITH dot, WITH dot in app-specified hostname"
+cert = hostNameDotCommonNameDot.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch.
+end
+
+##
+## SubjectAltName testing
+##
+
+test = "SubjectAltName in leaf, no dot, no dot in app-specified hostname"
+cert = hostNameDotSubjAltName.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch
+end
+
+test = "SubjectAltName in leaf, no dot, WITH dot in app-specified hostname"
+cert = hostNameDotSubjAltName.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch.
+end
+
+test = "SubjectAltName in leaf, WITH dot, no dot in app-specified hostname"
+cert = hostNameDotSubjAltNameDot.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch
+end
+
+test = "SubjectAltName in leaf, WITH dot, WITH dot in app-specified hostname"
+cert = hostNameDotSubjAltNameDot.cer
+root = hostNameDotRoot.cer
+sslHost = www.dmitch.
+end

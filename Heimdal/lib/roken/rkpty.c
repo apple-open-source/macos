@@ -273,8 +273,6 @@ eval_parent(pid_t pid)
 	    }
 	    break;
 	}
-	default:
-	    abort();
 	}
     }
     alarm(timeout);

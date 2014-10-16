@@ -26,7 +26,7 @@
 #ifndef PluginProcessProxy_h
 #define PluginProcessProxy_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "ChildProcessProxy.h"
 #include "Connection.h"
@@ -37,14 +37,14 @@
 #include "WebProcessProxyMessages.h"
 #include <wtf/Deque.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS NSObject;
 OBJC_CLASS WKPlaceholderModalWindow;
 #endif
 
 // FIXME: This is platform specific.
-namespace CoreIPC {
+namespace IPC {
     class MachPort;
 }
 
@@ -60,7 +60,16 @@ struct RawPluginMetaData {
     String name;
     String description;
     String mimeDescription;
+
+#if PLATFORM(GTK)
+    bool requiresGtk2;
+#endif
 };
+#endif
+
+#if PLATFORM(COCOA)
+int pluginProcessLatencyQOS();
+int pluginProcessThroughputQOS();
 #endif
 
 class PluginProcessProxy : public ChildProcessProxy {
@@ -83,7 +92,7 @@ public:
 
     bool isValid() const { return m_connection; }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     void setProcessSuppressionEnabled(bool);
 
     // Returns whether the plug-in needs the heap to be marked executable.
@@ -100,27 +109,27 @@ public:
 private:
     PluginProcessProxy(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
 
-    virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) OVERRIDE;
+    virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
 
     void pluginProcessCrashedOrFailedToLaunch();
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
-    virtual void didClose(CoreIPC::Connection*) OVERRIDE;
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName) OVERRIDE;
+    virtual void didClose(IPC::Connection*) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
 
     // ProcessLauncher::Client
-    virtual void didFinishLaunching(ProcessLauncher*, CoreIPC::Connection::Identifier);
+    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier);
 
     // Message handlers
-    void didCreateWebProcessConnection(const CoreIPC::Attachment&, bool supportsAsynchronousPluginInitialization);
+    void didCreateWebProcessConnection(const IPC::Attachment&, bool supportsAsynchronousPluginInitialization);
     void didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteData(uint64_t callbackID);
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool getPluginProcessSerialNumber(ProcessSerialNumber&);
     void makePluginProcessTheFrontProcess();
     void makeUIProcessTheFrontProcess();
@@ -150,7 +159,7 @@ private:
     uint64_t m_pluginProcessToken;
 
     // The connection to the plug-in host process.
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
 
     Deque<RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>> m_pendingConnectionReplies;
 
@@ -170,7 +179,7 @@ private:
     // when the process finishes launching.
     unsigned m_numPendingConnectionRequests;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     RetainPtr<NSObject> m_activationObserver;
     RetainPtr<WKPlaceholderModalWindow *> m_placeholderWindow;
     bool m_modalWindowIsShowing;
@@ -181,6 +190,6 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // PluginProcessProxy_h

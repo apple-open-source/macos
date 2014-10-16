@@ -10,9 +10,9 @@
 
   CVS Info :
 
-    $Author: iccir $
-    $Date: 2007/01/31 02:44:02 $
-    $Revision: 1.1 $
+    $Author$
+    $Date$
+    $Revision$
 
 -->
 <xsl:stylesheet version="1.0"
@@ -48,7 +48,7 @@
 
 <xsl:template name="header-section">
   <xsl:text/>.\" tidy man page for the Tidy Sourceforge project
-.TH tidy 1 "$Date: 2007/01/31 02:44:02 $" "HTML Tidy <xsl:value-of select="cmdline/@version" />" "User commands"
+.TH tidy 1 "$Date$" "HTML Tidy <xsl:value-of select="cmdline/@version" />" "User commands"
 </xsl:template>
 
 

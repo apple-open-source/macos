@@ -16,41 +16,68 @@
 
 #include "ajp.h"
 
+APLOG_USE_MODULE(proxy_ajp);
+
+#define AJP_MSG_DUMP_BYTES_PER_LINE 16
+/* 2 hex digits plus space plus one char per dumped byte */
+/* plus prefix plus separator plus '\0' */
+#define AJP_MSG_DUMP_PREFIX_LENGTH  strlen("XXXX    ")
+#define AJP_MSG_DUMP_LINE_LENGTH    ((AJP_MSG_DUMP_BYTES_PER_LINE * \
+                                    strlen("XX .")) + \
+                                    AJP_MSG_DUMP_PREFIX_LENGTH + \
+                                    strlen(" - ") + 1)
 
 static char *hex_table = "0123456789ABCDEF";
 
 /**
- * Dump up to the first 1024 bytes on an AJP Message
+ * Dump the given number of bytes on an AJP Message
  *
  * @param pool      pool to allocate from
  * @param msg       AJP Message to dump
  * @param err       error string to display
- * @return          dump message
+ * @param count     the number of bytes to dump
+ * @param buf       buffer pointer for dump message
+ * @return          APR_SUCCESS or error
  */
-char * ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err)
+apr_status_t ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err,
+                          apr_size_t count, char **buf)
 {
     apr_size_t  i, j;
-    char        line[80];
     char        *current;
-    char        *rv, *p;
-    apr_size_t  bl = 8192;
+    apr_size_t  bl, rl;
     apr_byte_t  x;
     apr_size_t  len = msg->len;
+    apr_size_t  line_len;
 
-    /* Display only first 1024 bytes */
-    if (len > 1024)
-        len = 1024;
-    rv = apr_palloc(pool, bl);
-    apr_snprintf(rv, bl,
-                 "ajp_msg_dump(): %s pos=%" APR_SIZE_T_FMT
+    /* Display only first "count" bytes */
+    if (len > count)
+        len = count;
+         /* First the space needed for the first line */
+    bl = strlen(err) + 3 * (strlen(" XXX=") + 20) + 1 +
+         /* Now for the data lines */
+         (len + 15) / 16 * AJP_MSG_DUMP_LINE_LENGTH;
+    *buf = apr_palloc(pool, bl);
+    if (!*buf)
+        return APR_ENOMEM;
+    apr_snprintf(*buf, bl,
+                 "%s pos=%" APR_SIZE_T_FMT
                  " len=%" APR_SIZE_T_FMT " max=%" APR_SIZE_T_FMT "\n",
                  err, msg->pos, msg->len, msg->max_size);
-    bl -= strlen(rv);
-    p = rv + strlen(rv);
-    for (i = 0; i < len; i += 16) {
-        current = line;
-
-        for (j = 0; j < 16; j++) {
+    current = *buf + strlen(*buf);
+    for (i = 0; i < len; i += AJP_MSG_DUMP_BYTES_PER_LINE) {
+        /* Safety check: do we have enough buffer for another line? */
+        rl = bl - (current - *buf);
+        if (AJP_MSG_DUMP_LINE_LENGTH > rl) {
+            *(current - 1) = '\0';
+            return APR_ENOMEM;
+        }
+        apr_snprintf(current, rl, "%.4lx    ", (unsigned long)i);
+        current += AJP_MSG_DUMP_PREFIX_LENGTH;
+        line_len = len - i;
+        if (line_len > AJP_MSG_DUMP_BYTES_PER_LINE) {
+            line_len = AJP_MSG_DUMP_BYTES_PER_LINE;
+        }
+        for (j = 0; j < line_len; j++) {
              x = msg->buf[i + j];
 
             *current++ = hex_table[x >> 4];
@@ -60,7 +87,7 @@ char * ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err)
         *current++ = ' ';
         *current++ = '-';
         *current++ = ' ';
-        for (j = 0; j < 16; j++) {
+        for (j = 0; j < line_len; j++) {
             x = msg->buf[i + j];
 
             if (x > 0x20 && x < 0x7F) {
@@ -70,19 +97,47 @@ char * ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err)
                 *current++ = '.';
             }
         }
-
-        *current++ = '\0';
-        apr_snprintf(p, bl,
-                     "ajp_msg_dump(): %.4lx    %s\n",
-                     (unsigned long)i, line);
-        bl -= strlen(rv);
-        p = rv + strlen(rv);
-
+        *current++ = '\n';
     }
+    *(current - 1) = '\0';
 
-    return rv;
+    return APR_SUCCESS;
 }
 
+/**
+ * Log an AJP message
+ *
+ * @param request   The current request
+ * @param msg       AJP Message to dump
+ * @param err       error string to display
+ * @return          APR_SUCCESS or error
+ */
+apr_status_t ajp_msg_log(request_rec *r, ajp_msg_t *msg, char *err)
+{
+    int level;
+    apr_size_t count;
+    char *buf, *next;
+    apr_status_t rc = APR_SUCCESS;
+
+    if (APLOGrtrace7(r)) {
+        level = APLOG_TRACE7;
+        count = 1024;
+        if (APLOGrtrace8(r)) {
+            level = APLOG_TRACE8;
+            count = AJP_MAX_BUFFER_SZ;
+        }
+        rc = ajp_msg_dump(r->pool, msg, err, count, &buf);
+        if (rc == APR_SUCCESS) {
+            while ((next = ap_strchr(buf, '\n'))) {
+                *next = '\0';
+                ap_log_rerror(APLOG_MARK, level, 0, r, "%s", buf);
+                buf = next + 1;
+            }
+            ap_log_rerror(APLOG_MARK, level, 0, r, "%s", buf);
+        }
+    }
+    return rc;
+}
 
 /**
  * Check a new AJP Message by looking at signature and return its size
@@ -99,8 +154,8 @@ apr_status_t ajp_msg_check_header(ajp_msg_t *msg, apr_size_t *len)
     if (!((head[0] == 0x41 && head[1] == 0x42) ||
           (head[0] == 0x12 && head[1] == 0x34))) {
 
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                      "ajp_check_msg_header() got bad signature %x%x",
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01080)
+                      "ajp_msg_check_header() got bad signature %02x%02x",
                       head[0], head[1]);
 
         return AJP_EBAD_SIGNATURE;
@@ -110,8 +165,8 @@ apr_status_t ajp_msg_check_header(ajp_msg_t *msg, apr_size_t *len)
     msglen += (head[3] & 0xFF);
 
     if (msglen > msg->max_size) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                     "ajp_check_msg_header() incoming message is "
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01081)
+                     "ajp_msg_check_header() incoming message is "
                      "too big %" APR_SIZE_T_FMT ", max is %" APR_SIZE_T_FMT,
                      msglen, msg->max_size);
         return AJP_ETOBIG;
@@ -281,7 +336,7 @@ apr_status_t ajp_msg_append_string_ex(ajp_msg_t *msg, const char *value,
     }
 
     len = strlen(value);
-    if ((msg->len + len + 2) > msg->max_size) {
+    if ((msg->len + len + 3) > msg->max_size) {
         return ajp_log_overflow(msg, "ajp_msg_append_cvt_string");
     }
 
@@ -291,8 +346,10 @@ apr_status_t ajp_msg_append_string_ex(ajp_msg_t *msg, const char *value,
     /* We checked for space !!  */
     memcpy(msg->buf + msg->len, value, len + 1); /* including \0 */
 
-    if (convert)   /* convert from EBCDIC if needed */
-        ajp_xlate_to_ascii((char *)msg->buf + msg->len, len + 1);
+    if (convert) {
+        /* convert from EBCDIC if needed */
+        ap_xlate_proto_to_ascii((char *)msg->buf + msg->len, len + 1);
+    }
 
     msg->len += len + 1;
 
@@ -503,28 +560,9 @@ apr_status_t ajp_msg_create(apr_pool_t *pool, apr_size_t size, ajp_msg_t **rmsg)
 {
     ajp_msg_t *msg = (ajp_msg_t *)apr_pcalloc(pool, sizeof(ajp_msg_t));
 
-    if (!msg) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                      "ajp_msg_create(): can't allocate AJP message memory");
-        return APR_ENOPOOL;
-    }
-
     msg->server_side = 0;
 
     msg->buf = (apr_byte_t *)apr_palloc(pool, size);
-
-    /* XXX: This should never happen
-     * In case if the OS cannont allocate 8K of data
-     * we are in serious trouble
-     * No need to check the alloc return value, cause the
-     * core dump is probably the best solution anyhow.
-     */
-    if (msg->buf == NULL) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                      "ajp_msg_create(): can't allocate AJP message memory");
-        return APR_ENOPOOL;
-    }
-
     msg->len = 0;
     msg->header_len = AJP_HEADER_LEN;
     msg->max_size = size;
@@ -542,14 +580,8 @@ apr_status_t ajp_msg_create(apr_pool_t *pool, apr_size_t size, ajp_msg_t **rmsg)
  */
 apr_status_t ajp_msg_copy(ajp_msg_t *smsg, ajp_msg_t *dmsg)
 {
-    if (dmsg == NULL) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                     "ajp_msg_copy(): destination msg is null");
-        return AJP_EINVAL;
-    }
-
     if (smsg->len > smsg->max_size) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01082)
                      "ajp_msg_copy(): destination buffer too "
                      "small %" APR_SIZE_T_FMT ", max size is %" APR_SIZE_T_FMT,
                      smsg->len, smsg->max_size);

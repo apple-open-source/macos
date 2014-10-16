@@ -49,6 +49,8 @@
 #include <heimbase.h>
 
 #include "heimscram.h"
+
+#include <ntlm_err.h>
 #include "crypto-headers.h"
 
 #ifndef __APPLE_TARGET_EMBEDDED__

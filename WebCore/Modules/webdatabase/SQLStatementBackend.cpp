@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -46,14 +46,14 @@
 //
 //     At birth (in SQLTransactionBackend::executeSQL()):
 //     =================================================
-//     SQLTransactionBackend           // Deque<RefPtr<SQLStatementBackend> > m_statementQueue points to ...
-//     --> SQLStatementBackend         // OwnPtr<SQLStatement> m_frontend points to ...
+//     SQLTransactionBackend           // Deque<RefPtr<SQLStatementBackend>> m_statementQueue points to ...
+//     --> SQLStatementBackend         // std::unique_ptr<SQLStatement> m_frontend points to ...
 //         --> SQLStatement
 //
 //     After grabbing the statement for execution (in SQLTransactionBackend::getNextStatement()):
 //     =========================================================================================
 //     SQLTransactionBackend           // RefPtr<SQLStatementBackend> m_currentStatementBackend points to ...
-//     --> SQLStatementBackend         // OwnPtr<SQLStatement> m_frontend points to ...
+//     --> SQLStatementBackend         // std::unique_ptr<SQLStatement> m_frontend points to ...
 //         --> SQLStatement
 //
 //     Then we execute the statement in SQLTransactionBackend::runCurrentStatementAndGetNextState().
@@ -74,15 +74,15 @@
 
 namespace WebCore {
 
-PassRefPtr<SQLStatementBackend> SQLStatementBackend::create(PassOwnPtr<AbstractSQLStatement> frontend,
+PassRefPtr<SQLStatementBackend> SQLStatementBackend::create(std::unique_ptr<AbstractSQLStatement> frontend,
     const String& statement, const Vector<SQLValue>& arguments, int permissions)
 {
-    return adoptRef(new SQLStatementBackend(frontend, statement, arguments, permissions));
+    return adoptRef(new SQLStatementBackend(WTF::move(frontend), statement, arguments, permissions));
 }
 
-SQLStatementBackend::SQLStatementBackend(PassOwnPtr<AbstractSQLStatement> frontend,
+SQLStatementBackend::SQLStatementBackend(std::unique_ptr<AbstractSQLStatement> frontend,
     const String& statement, const Vector<SQLValue>& arguments, int permissions)
-    : m_frontend(frontend)
+    : m_frontend(WTF::move(frontend))
     , m_statement(statement.isolatedCopy())
     , m_arguments(arguments)
     , m_hasCallback(m_frontend->hasCallback())

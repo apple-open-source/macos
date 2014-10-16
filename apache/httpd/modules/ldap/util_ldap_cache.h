@@ -33,15 +33,15 @@
 #include "util_ldap.h"
 
 typedef struct util_cache_node_t {
-    void *payload;		/* Pointer to the payload */
-    apr_time_t add_time;	/* Time node was added to cache */
+    void *payload;              /* Pointer to the payload */
+    apr_time_t add_time;        /* Time node was added to cache */
     struct util_cache_node_t *next;
 } util_cache_node_t;
 
 typedef struct util_ald_cache util_ald_cache_t;
 
 struct util_ald_cache {
-    unsigned long size;	                /* Size of cache array */
+    unsigned long size;                 /* Size of cache array */
     unsigned long maxentries;           /* Maximum number of cache entries */
     unsigned long numentries;           /* Current number of cache entries */
     unsigned long fullmark;             /* Used to keep track of when cache becomes 3/4 full */
@@ -57,7 +57,7 @@ struct util_ald_cache {
     double avg_purgetime;       /* Average time to purge the cache */
     apr_time_t last_purge;      /* Time of the last purge */
     unsigned long npurged;      /* Number of elements purged in last purge. This is not
-                                   obvious: it won't be 3/4 the size of the cache if 
+                                   obvious: it won't be 3/4 the size of the cache if
                                    there were a lot of expired entries. */
 
     unsigned long fetches;      /* Number of fetches */
@@ -97,30 +97,40 @@ typedef struct util_url_node_t {
 } util_url_node_t;
 
 /*
- * We cache every successful search and bind operation, using the username 
- * as the key. Each node in the cache contains the returned DN, plus the 
+ * When a group is found, subgroups are stored in the group's cache entry.
+ */
+typedef struct util_compare_subgroup_t {
+    const char **subgroupDNs;
+    int len;
+} util_compare_subgroup_t;
+
+/*
+ * We cache every successful search and bind operation, using the username
+ * as the key. Each node in the cache contains the returned DN, plus the
  * password used to bind.
  */
 typedef struct util_search_node_t {
-    const char *username;		/* Cache key */
-    const char *dn;			/* DN returned from search */
-    const char *bindpw;			/* The most recently used bind password; 
-					   NULL if the bind failed */
-    apr_time_t lastbind;		/* Time of last successful bind */
-    const char **vals;			/* Values of queried attributes */
+    const char *username;               /* Cache key */
+    const char *dn;                     /* DN returned from search */
+    const char *bindpw;                 /* The most recently used bind password;
+                                           NULL if the bind failed */
+    apr_time_t lastbind;                /* Time of last successful bind */
+    const char **vals;                  /* Values of queried attributes */
     int        numvals;         /* Number of queried attributes */
 } util_search_node_t;
 
 /*
  * We cache every successful compare operation, using the DN, attrib, and
- * value as the key. 
+ * value as the key.
  */
 typedef struct util_compare_node_t {
-    const char *dn;			/* DN, attrib and value combine to be the key */
-    const char *attrib;			
+    const char *dn;                     /* DN, attrib and value combine to be the key */
+    const char *attrib;
     const char *value;
     apr_time_t lastcompare;
     int result;
+    int sgl_processed;      /* 0 if no sgl processing yet. 1 if sgl has been processed (even if SGL is NULL). Saves repeat work on leaves. */
+    struct util_compare_subgroup_t *subgroupList;
 } util_compare_node_t;
 
 /*
@@ -128,8 +138,8 @@ typedef struct util_compare_node_t {
  * statement and the dn fetched based on the client-provided username.
  */
 typedef struct util_dn_compare_node_t {
-    const char *reqdn;		/* The DN in the require dn statement */
-    const char *dn;			/* The DN found in the search */
+    const char *reqdn;          /* The DN in the require dn statement */
+    const char *dn;                     /* The DN found in the search */
 } util_dn_compare_node_t;
 
 
@@ -169,6 +179,8 @@ void util_ldap_dn_compare_node_display(request_rec *r, util_ald_cache_t *cache, 
 void util_ald_free(util_ald_cache_t *cache, const void *ptr);
 void *util_ald_alloc(util_ald_cache_t *cache, unsigned long size);
 const char *util_ald_strdup(util_ald_cache_t *cache, const char *s);
+util_compare_subgroup_t *util_ald_sgl_dup(util_ald_cache_t *cache, util_compare_subgroup_t *sgl);
+void util_ald_sgl_free(util_ald_cache_t *cache, util_compare_subgroup_t **sgl);
 
 /* Cache managing function */
 unsigned long util_ald_hash_string(int nstr, ...);
@@ -176,12 +188,12 @@ void util_ald_cache_purge(util_ald_cache_t *cache);
 util_url_node_t *util_ald_create_caches(util_ldap_state_t *s, const char *url);
 util_ald_cache_t *util_ald_create_cache(util_ldap_state_t *st,
                                 long cache_size,
-                                unsigned long (*hashfunc)(void *), 
+                                unsigned long (*hashfunc)(void *),
                                 int (*comparefunc)(void *, void *),
                                 void * (*copyfunc)(util_ald_cache_t *cache, void *),
                                 void (*freefunc)(util_ald_cache_t *cache, void *),
                                 void (*displayfunc)(request_rec *r, util_ald_cache_t *cache, void *));
-                                
+
 void util_ald_destroy_cache(util_ald_cache_t *cache);
 void *util_ald_cache_fetch(util_ald_cache_t *cache, void *payload);
 void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload);

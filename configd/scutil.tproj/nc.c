@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,10 +42,6 @@
 #include "prefs.h"
 
 #include <SystemConfiguration/VPNConfiguration.h>
-
-#if	TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-#include <MobileInstallation/MobileInstallation.h>
-#endif	// TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
 
 #include <sys/time.h>
 
@@ -769,15 +765,14 @@ nc_print_VPN_service(SCNetworkServiceRef service)
 static void
 nc_list(int argc, char **argv)
 {
-	int			count;
-	int			i;
+	CFIndex			count;
+	CFIndex			i;
 	CFArrayRef		services	= NULL;
 
 	SCPrint(TRUE, stdout, CFSTR("Available network connection services in the current set (*=enabled):\n"));
 	services = SCNetworkConnectionCopyAvailableServices(NULL);
 	if (services != NULL) {
 		count = CFArrayGetCount(services);
-
 		for (i = 0; i < count; i++) {
 			SCNetworkServiceRef	service;
 
@@ -981,95 +976,6 @@ done:
 	exit(exit_code);
 }
 
-
-#if TARGET_OS_EMBEDDED
-static void
-nc_print_VPN_app_info(CFStringRef appInfo, CFDictionaryRef appInfoDict)
-{
-	CFStringRef appName = NULL;
-	Boolean isEnabled = FALSE;
-	CFStringRef paddedAppInfo = NULL;
-	CFStringRef paddedAppName = NULL;
-
-	if (appInfo == NULL) {
-		return;
-	}
-
-	isEnabled = VPNConfigurationIsVPNTypeEnabled(appInfo);
-
-	CFDictionaryGetValueIfPresent(appInfoDict, CFSTR("CFBundleDisplayName"), (const void **)&appName);
-	paddedAppName = copy_padded_string((appName == NULL) ? CFSTR("") : appName, 12, NULL, NULL);
-	paddedAppInfo = copy_padded_string(appInfo, 30, NULL, NULL);
-
-	SCPrint(TRUE, stdout, CFSTR("%@ %@ [%@]\n"),
-		isEnabled ? CFSTR("(Enabled) ") : CFSTR("(Disabled)"),
-		paddedAppName,
-		appInfo);
-
-	my_CFRelease(&paddedAppName);
-	my_CFRelease(&paddedAppInfo);
-}
-#endif
-
-/* -----------------------------------------------------------------------------
- ----------------------------------------------------------------------------- */
-#if	TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-static void
-nc_listvpn(int argc, char **argv)
-{
-
-	CFDictionaryRef		appDict = NULL;
-	CFArrayRef		appinfo = NULL;
-	int			i, j, count, subtypecount;
-	const void * *		keys = NULL;
-	CFMutableDictionaryRef optionsDict = NULL;
-	const void * *		values = NULL;
-	CFStringRef		vpntype = NULL;
-
-	optionsDict = CFDictionaryCreateMutable(NULL, 0,
-						&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(optionsDict, kLookupApplicationTypeKey, kApplicationTypeUser);
-	CFDictionarySetValue(optionsDict, kLookupAttributeKey, CFSTR("UIVPNPlugin"));
-
-	appDict = MobileInstallationLookup(optionsDict);
-	if (!isA_CFDictionary(appDict))
-		goto done;
-
-	count = CFDictionaryGetCount(appDict);
-	if (count > 0) {
-		keys = (const void * *)malloc(sizeof(CFTypeRef) * count);
-		values = (const void * *)malloc(sizeof(CFTypeRef) * count);
-
-		CFDictionaryGetKeysAndValues(appDict, keys, values);
-		for (i=0; i<count; i++) {
-			appinfo = CFDictionaryGetValue(values[i], CFSTR("UIVPNPlugin"));
-			if (appinfo) {
-
-
-
-				if (isA_CFString(appinfo)) {
-					nc_print_VPN_app_info((CFStringRef)appinfo, (CFDictionaryRef)values[i]);
-				}
-				else if (isA_CFArray(appinfo)) {
-					subtypecount = CFArrayGetCount((CFArrayRef)appinfo);
-					for(j=0; j<subtypecount; j++) {
-						vpntype = (CFStringRef)CFArrayGetValueAtIndex((CFArrayRef)appinfo, j);
-						nc_print_VPN_app_info(vpntype, (CFDictionaryRef)values[i]);
-					}
-				}
-			}
-		}
-	}
-done:
-	if (keys) free(keys);
-	if (values) free(values);
-	my_CFRelease(&optionsDict);
-	my_CFRelease(&appDict);
-
-	exit(0);
-}
-#endif	// TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static void
@@ -1202,7 +1108,7 @@ nc_select(int argc, char **argv)
 
 	current_set = SCNetworkSetCopyCurrent(prefs);
 	if (current_set == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("No current location\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stderr, CFSTR("No current location\n"));
 		goto done;
 	}
 
@@ -1277,11 +1183,6 @@ nc_help(int argc, char **argv)
 	SCPrint(TRUE, stderr, CFSTR("\ttrigger <hostname> [background] [port]\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tTrigger VPN on-demand with specified hostname, and optional port and background flag\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-#if TARGET_OS_EMBEDDED
-	SCPrint(TRUE, stderr, CFSTR("\tlistvpn\n"));
-	SCPrint(TRUE, stderr, CFSTR("\t\tDisplay the installed VPN applications\n"));
-	SCPrint(TRUE, stderr, CFSTR("\n"));
-#endif
 #if !TARGET_OS_IPHONE
 	SCPrint(TRUE, stderr, CFSTR("\tenablevpn <service or vpn type> [path]\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tEnables the given VPN application type. Takes either a service or VPN type. Pass a path to set ApplicationURL\n"));
@@ -1311,9 +1212,6 @@ static const struct {
 	{ "enablevpn",		nc_enablevpn	},
 	{ "help",		nc_help		},
 	{ "list",		nc_list		},
-#if	TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-	{ "listvpn",		nc_listvpn	},
-#endif	// TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
 	{ "ondemand",		nc_ondemand	},
 	{ "resume",		nc_resume	},
 	{ "select",		nc_select	},

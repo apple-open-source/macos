@@ -132,6 +132,15 @@ enum {
     kIOFBNotifyProbed           = 60,
 
     kIOFBNotifyVRAMReady        = 70,
+
+    kIOFBNotifyWillNotify       = 80,
+    kIOFBNotifyDidNotify        = 81,
+};
+
+struct IOFramebufferNotificationNotify
+{
+	IOIndex event;
+	void *  info;
 };
 
 enum {

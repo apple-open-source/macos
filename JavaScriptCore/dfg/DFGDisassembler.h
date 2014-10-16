@@ -26,18 +26,21 @@
 #ifndef DFGDisassembler_h
 #define DFGDisassembler_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
-#include "LinkBuffer.h"
+#include "DumpContext.h"
 #include "MacroAssembler.h"
+#include "ProfilerCompilation.h"
 #include <wtf/HashMap.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/Vector.h>
 
-namespace JSC { namespace DFG {
+namespace JSC {
+
+class LinkBuffer;
+
+namespace DFG {
 
 class Graph;
 
@@ -47,7 +50,7 @@ public:
     Disassembler(Graph&);
     
     void setStartOfCode(MacroAssembler::Label label) { m_startOfCode = label; }
-    void setForBlock(BlockIndex blockIndex, MacroAssembler::Label label)
+    void setForBlockIndex(BlockIndex blockIndex, MacroAssembler::Label label)
     {
         m_labelForBlockIndex[blockIndex] = label;
     }
@@ -88,6 +91,7 @@ private:
     void dumpDisassembly(PrintStream&, const char* prefix, LinkBuffer&, MacroAssembler::Label& previousLabel, MacroAssembler::Label currentLabel, Node* context);
     
     Graph& m_graph;
+    DumpContext m_dumpContext;
     MacroAssembler::Label m_startOfCode;
     Vector<MacroAssembler::Label> m_labelForBlockIndex;
     HashMap<Node*, MacroAssembler::Label> m_labelForNode;

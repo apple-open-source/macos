@@ -23,7 +23,7 @@
 
 #include <gtk/gtk.h>
 
-#ifdef GDK_WINDOWING_X11
+#if PLATFORM(X11) && defined(GDK_WINDOWING_X11)
 #include <X11/Xatom.h>
 #include <gdk/gdkx.h>
 #endif
@@ -34,6 +34,7 @@ GdkDevice *getDefaultGDKPointerDevice(GdkWindow* window)
     GdkDeviceManager *manager =  gdk_display_get_device_manager(gdk_window_get_display(window));
     return gdk_device_manager_get_client_pointer(manager);
 #else
+    UNUSED_PARAM(window);
     return gdk_device_get_core_pointer();
 #endif // GTK_API_VERSION_2
 }
@@ -86,6 +87,8 @@ convert_alpha(guchar * destData, int destStride,
               guchar * srcData, int srcStride,
               int srcX, int srcY, int width, int height)
 {
+    UNUSED_PARAM(srcX);
+
     int x, y;
 
     srcData += srcStride * srcY + srcY * 4;
@@ -200,7 +203,7 @@ gdk_pixbuf_get_from_surface(cairo_surface_t * surface,
     return dest;
 }
 
-#ifdef GDK_WINDOWING_X11
+#if PLATFORM(X11) && defined(GDK_WINDOWING_X11)
 static int getScreenCurrentDesktop(GdkScreen *screen)
 {
     Display *display = GDK_DISPLAY_XDISPLAY(gdk_screen_get_display(screen));
@@ -257,13 +260,13 @@ static void getScreenWorkArea(GdkScreen *screen, GdkRectangle *area)
 
     XFree(returnedData);
 }
-#endif // GDK_WINDOWING_X11
+#endif // PLATFORM(X11) && defined(GDK_WINDOWING_X11)
 
 void gdk_screen_get_monitor_workarea(GdkScreen *screen, int monitor, GdkRectangle *area)
 {
     gdk_screen_get_monitor_geometry(screen, monitor, area);
 
-#ifdef GDK_WINDOWING_X11
+#if PLATFORM(X11) && defined(GDK_WINDOWING_X11)
     GdkRectangle workArea;
     getScreenWorkArea(screen, &workArea);
     gdk_rectangle_intersect(&workArea, area, area);

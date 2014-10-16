@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2012, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -156,7 +156,7 @@ main(int argc, char **argv)
 		SCPrint(TRUE,
 			stderr,
 			CFSTR("AuthorizationCreate() failed: status = %d\n"),
-			status);
+			(int)status);
 		exit (1);
 	}
 

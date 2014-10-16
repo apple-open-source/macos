@@ -1,14 +1,10 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* bundle directory name */
 #undef BUNDLE
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
-
-/* Define to 1 if you have the declaration of `TAG_IFD_POLLING_THREAD', and to
-   0 if you don't. */
-#undef HAVE_DECL_TAG_IFD_POLLING_THREAD
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
@@ -22,6 +18,9 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the <libusb.h> header file. */
+#undef HAVE_LIBUSB_H
+
 /* Define to 1 if you have the `memcpy' function. */
 #undef HAVE_MEMCPY
 
@@ -30,6 +29,9 @@
 
 /* Define if you have POSIX threads libraries and header files. */
 #undef HAVE_PTHREAD
+
+/* Have PTHREAD_PRIO_INHERIT. */
+#undef HAVE_PTHREAD_PRIO_INHERIT
 
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT
@@ -76,18 +78,12 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define if usb_detach_kernel_driver_np() is available */
-#undef HAVE_USB_DETACH_KERNEL_DRIVER_NP
-
-/* Define to 1 if you have the <usb.h> header file. */
-#undef HAVE_USB_H
-
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
+/* Disable logging support */
+#undef NO_LOG
 
 /* Name of package */
 #undef PACKAGE
@@ -103,6 +99,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
@@ -122,9 +121,6 @@
 
 /* composite device are seen as multi-slots */
 #undef USE_COMPOSITE_AS_MULTISLOT
-
-/* use libusb usb_interrupt_read() instead of polling */
-#undef USE_USB_INTERRUPT
 
 /* Version number of package */
 #undef VERSION

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc.  All rights reserved.
  * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -37,7 +37,10 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/unicode/Unicode.h>
+
+#if PLATFORM(IOS)
+#include <CoreText/CTFont.h>
+#endif
 
 #if OS(WINDOWS)
 #include <windows.h>
@@ -101,10 +104,11 @@ struct FontDescriptionFontDataCacheKey {
 
 class FontCache {
     friend class FontCachePurgePreventer;
+    friend class WTF::NeverDestroyed<FontCache>;
 
     WTF_MAKE_NONCOPYABLE(FontCache); WTF_MAKE_FAST_ALLOCATED;
 public:
-    friend FontCache* fontCache();
+    friend FontCache& fontCache();
 
     enum ShouldRetain { Retain, DoNotRetain };
 
@@ -117,6 +121,9 @@ public:
     // Also implemented by the platform.
     void platformInit();
 
+#if PLATFORM(IOS)
+    static float weightOfCTFont(CTFontRef);
+#endif
 #if PLATFORM(WIN)
     IMLangFontLinkType* getFontLinkInterface();
     static void comInitialize();
@@ -154,11 +161,7 @@ public:
         bool isBold;
         bool isItalic;
     };
-#if PLATFORM(BLACKBERRY)
-    static void getFontFamilyForCharacters(const UChar* characters, size_t numCharacters, const char* preferredLocale, const FontDescription&, SimpleFontFamily*);
-#else
     static void getFontFamilyForCharacters(const UChar* characters, size_t numCharacters, const char* preferredLocale, SimpleFontFamily*);
-#endif
 
 private:
     FontCache();
@@ -178,8 +181,12 @@ private:
     FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName = false);
 
     // These methods are implemented by each platform.
+#if PLATFORM(IOS)
+    FontPlatformData* getCustomFallbackFont(const UInt32, const FontDescription&);
+    PassRefPtr<SimpleFontData> getSystemFontFallbackForCharacters(const FontDescription&, const SimpleFontData*, const UChar* characters, int length);
+#endif
     PassOwnPtr<FontPlatformData> createFontPlatformData(const FontDescription&, const AtomicString& family);
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     PassRefPtr<SimpleFontData> similarFontPlatformData(const FontDescription&);
 #endif
 
@@ -188,7 +195,7 @@ private:
     // Don't purge if this count is > 0;
     int m_purgePreventCount;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     friend class ComplexTextController;
 #endif
     friend class SimpleFontData; // For getCachedFontData(const FontPlatformData*)
@@ -196,12 +203,12 @@ private:
 };
 
 // Get the global fontCache.
-FontCache* fontCache();
+FontCache& fontCache();
 
 class FontCachePurgePreventer {
 public:
-    FontCachePurgePreventer() { fontCache()->disablePurging(); }
-    ~FontCachePurgePreventer() { fontCache()->enablePurging(); }
+    FontCachePurgePreventer() { fontCache().disablePurging(); }
+    ~FontCachePurgePreventer() { fontCache().enablePurging(); }
 };
 
 }

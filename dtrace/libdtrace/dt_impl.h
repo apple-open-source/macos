@@ -29,15 +29,6 @@
 
 #pragma ident	"@(#)dt_impl.h	1.23	08/04/09 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/param.h>
-#include <sys/objfs.h>
-#include <setjmp.h>
-#include <libctf.h>
-#include <dtrace.h>
-#include <gelf.h>
-#else /* is Apple Mac OS X */
-
 #if defined(__BIG_ENDIAN__)
 #if !defined(_BIG_ENDIAN)
 #define _BIG_ENDIAN /* Solaris vs. Darwin */
@@ -85,8 +76,6 @@ typedef struct objfs_info {
 
 #include <fcntl.h> /* For O_RDWR */
 #include <mach/machine.h>
-
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -223,6 +212,9 @@ typedef struct dt_print_aggdata {
 	dtrace_aggvarid_t dtpa_id;	/* aggregation variable of interest */
 	FILE *dtpa_fp;			/* file pointer */
 	int dtpa_allunprint;		/* print only unprinted aggregations */
+	int dtpa_agghist;		/* print aggregation as histogram */
+	int dtpa_agghisthdr;		/* aggregation histogram hdr printed */
+	int dtpa_aggpack;		/* pack quantized aggregations */
 } dt_print_aggdata_t;
 
 typedef struct dt_dirpath {
@@ -314,6 +306,7 @@ struct dtrace_hdl {
 	uint_t dt_linktype;	/* dtrace link output file type (see below) */
 	uint_t dt_xlatemode;	/* dtrace translator linking mode (see below) */
 	uint_t dt_stdcmode;	/* dtrace stdc compatibility mode (see below) */
+	uint_t dt_encoding;	/* dtrace output encoding (see below) */
 	uint_t dt_treedump;	/* dtrace tree debug bitmap (see below) */
 	uint64_t dt_options[DTRACEOPT_MAX]; /* dtrace run-time options */
 	int dt_version;		/* library version requested by client */
@@ -351,10 +344,8 @@ struct dtrace_hdl {
 	struct utsname dt_uts;	/* uname(2) information for system */
 	dt_list_t dt_lib_dep;	/* scratch linked-list of lib dependencies */
 	dt_list_t dt_lib_dep_sorted;	/* dependency sorted library list */
-#if defined(__APPLE__)
 	cpu_type_t dt_arch;	/* CPU architecture to generate objects for */
     dt_strtab_t *dt_apple_ids; /* IDs generated during apple_define actions */
-#endif /* __APPLE__ */
 };
 
 /*
@@ -394,6 +385,15 @@ struct dtrace_hdl {
 #define	DT_STDC_XC	1	/* Strict ISO C: __STDC__=1 */
 #define	DT_STDC_XS	2	/* K&R C: __STDC__ not defined */
 #define	DT_STDC_XT	3	/* ISO C + K&R C compat with ISO: __STDC__=0 */
+
+
+/*
+ * Values for the dt_encoding property, which is used to force a particular
+ * character encoding (overriding default behavior and/or automatic detection).
+ */
+#define	DT_ENCODING_UNSET	0
+#define	DT_ENCODING_ASCII	1
+#define	DT_ENCODING_UTF8	2
 
 /*
  * Macro to test whether a given pass bit is set in the dt_treedump bit-vector.
@@ -470,7 +470,6 @@ struct dtrace_hdl {
 #define	DT_ACT_UMOD		DT_ACT(26)	/* umod() action */
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
-#if defined(__APPLE__)
 #define DT_ACT_APPLEDEFINE  DT_ACT(101)  /* apple_define() action */
 #define DT_ACT_APPLELOG     DT_ACT(102)  /* apple_log() action */
 #define DT_ACT_APPLESTACK   DT_ACT(103)  /* apple_stack() action */
@@ -478,7 +477,6 @@ struct dtrace_hdl {
 #define DT_ACT_APPLEFLAG    DT_ACT(105)  /* apple_flag() action */
 #define DT_ACT_APPLEGEN     DT_ACT(106)  /* apple_general() action */
 #define DT_ACT_PIDRESUME    DT_ACT(107)  /* pidresume() action */
-#endif
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not
  * be ever valid for opening for write access via freopen(3C), which of
@@ -564,9 +562,8 @@ enum {
 	EDT_BADAGGVAR,		/* invalid aggregation variable identifier */
 	EDT_ENABLING_ERR,	/* failed to enable probe */
 	EDT_OVERSION,		/* client is requesting deprecated version */
-#if defined(__APPLE__)
     EDT_BADPID,			/* invalid pid in pid or objc probe */
-#endif /* __APPLE__ */
+    EDT_NOSYMBOLICATOR,	        /* no kernel symbols found */
 };
 
 /*
@@ -718,9 +715,7 @@ extern uint_t _dtrace_stkindent;	/* default indent for stack/ustack */
 extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
 extern int _dtrace_debug;		/* debugging messages enabled */
-#if defined(__APPLE__)
 extern int _dtrace_mangled;		/* enabled mangled names for C++ fns */
-#endif
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */
 

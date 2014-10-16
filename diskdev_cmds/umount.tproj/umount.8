@@ -99,13 +99,18 @@ For example, the
 .Nm umount
 command:
 .Bd -literal -offset indent
-umount -a -t nfs,hfs
+umount -A -t nfs,hfs
 .Ed
 .Pp
-umounts all filesystems of the type
+umounts all currently-mounted filesystems of the type
 .Tn NFS
 and
 .Tn HFS .
+(The
+.Fl a
+option only unmounts entries in the
+.Pa /etc/fstab
+list.)
 .It Fl v
 Verbose, additional information is printed out as each filesystem
 is unmounted.

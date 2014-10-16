@@ -164,7 +164,7 @@ NLM_VERSION	=
 #
 # If this is specified, it will override the default of 64K
 #
-NLM_STACK_SIZE	=
+NLM_STACK_SIZE	= 65536
 
 
 #
@@ -326,5 +326,5 @@ install :: nlms FORCE
 # in this makefile
 #
 
-include $(APBUILD)/NWGNUtail.inc
+include $(AP_WORK)/build/NWGNUtail.inc
 

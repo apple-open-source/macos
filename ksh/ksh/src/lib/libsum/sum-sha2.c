@@ -1,28 +1,10 @@
-/***********************************************************************
-*                                                                      *
-*               This software is part of the ast package               *
-*          Copyright (c) 1996-2011 AT&T Intellectual Property          *
-*                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
-*                    by AT&T Intellectual Property                     *
-*                                                                      *
-*                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
-*                                                                      *
-*              Information and Software Systems Research               *
-*                            AT&T Research                             *
-*                           Florham Park NJ                            *
-*                                                                      *
-*                 Glenn Fowler <gsf@research.att.com>                  *
-*                                                                      *
-***********************************************************************/
 #pragma prototyped
 
 #if _typ_int64_t
 
 /*
  * Aaron D. Gifford's SHA {256,384,512} code transcribed into a -lsum method
+ * with bitcount[] order reversed to allow a single noalias buffer copy
  */
 
 /*
@@ -211,9 +193,9 @@ typedef u_int64_t sha2_word64;	/* Exactly 8 bytes */
  */
 
 #define ADDINC128(w,n)	{ \
-	(w)[0] += (sha2_word64)(n); \
-	if ((w)[0] < (n)) { \
-		(w)[1]++; \
+	(w)[1] += (sha2_word64)(n); \
+	if ((w)[1] < (n)) { \
+		(w)[0]++; \
 	} \
 }
 
@@ -758,8 +740,8 @@ sha256_done(Sum_t* p)
 		/* Begin padding with a 1 bit: */
 		*sha->buffer = 0x80;
 	}
-	/* Set the bit count: */
-	*(sha2_word64*)&sha->buffer[SHA256_SHORT_BLOCK_LENGTH] = sha->bitcount;
+	/* Store the length of input data (in bits): */
+	MEMCPY_BCOPY(&sha->buffer[SHA256_SHORT_BLOCK_LENGTH], &sha->bitcount, 8);
 
 	/* Final transform: */
 	SHA256_Transform(sha, (sha2_word32*)sha->buffer);
@@ -1017,7 +999,7 @@ sha512_block(register Sum_t* p, const void* s, size_t len)
 
 	if (!len)
 		return 0;
-	usedspace = (sha->bitcount[0] >> 3) % SHA512_BLOCK_LENGTH;
+	usedspace = (sha->bitcount[1] >> 3) % SHA512_BLOCK_LENGTH;
 	if (usedspace > 0) {
 		/* Calculate how much free space is available in the buffer */
 		freespace = SHA512_BLOCK_LENGTH - usedspace;
@@ -1089,7 +1071,7 @@ sha512_done(Sum_t* p)
 	unsigned int	usedspace;
 	register int	i;
 
-	usedspace = (sha->bitcount[0] >> 3) % SHA512_BLOCK_LENGTH;
+	usedspace = (sha->bitcount[1] >> 3) % SHA512_BLOCK_LENGTH;
 #if BYTE_ORDER == LITTLE_ENDIAN
 	/* Convert FROM host byte order */
 	REVERSE64(sha->bitcount[0],sha->bitcount[0]);
@@ -1120,8 +1102,7 @@ sha512_done(Sum_t* p)
 		*sha->buffer = 0x80;
 	}
 	/* Store the length of input data (in bits): */
-	*(sha2_word64*)&sha->buffer[SHA512_SHORT_BLOCK_LENGTH] = sha->bitcount[1];
-	*(sha2_word64*)&sha->buffer[SHA512_SHORT_BLOCK_LENGTH+8] = sha->bitcount[0];
+	MEMCPY_BCOPY(&sha->buffer[SHA512_SHORT_BLOCK_LENGTH], &sha->bitcount[0], 16);
 
 	/* Final transform: */
 	SHA512_Transform(sha, (sha2_word64*)sha->buffer);

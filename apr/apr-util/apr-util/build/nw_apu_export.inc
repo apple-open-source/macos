@@ -12,6 +12,7 @@
 #include "apr_anylock.h"
 #include "apr_base64.h"
 #include "apr_buckets.h"
+#include "apr_crypto.h"
 #include "apr_date.h"
 #include "apr_dbd.h"
 #include "apr_dbm.h"

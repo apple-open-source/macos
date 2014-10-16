@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,11 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
+
+#ifdef mig_external
+#undef mig_external
+#endif
+#define mig_external __private_extern__
 
 #define IPCONFIG_IF_ANY		""
 #define MAX_IF_NAMELEN 		32

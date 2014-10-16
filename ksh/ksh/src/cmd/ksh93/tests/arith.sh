@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -479,10 +479,13 @@ y=$(printf "%a" x)
 r=$y
 [[ $r == $n ]] || err_exit "output of printf %a not self preserving -- expected $x, got $y"
 unset x y r
-x=-0
-y=$(printf "%g %g %g %g %g %g\n" -0. -0 $((-0)) x $x $((x)))
-r="-0 -0 -0 -0 -0 -0"
-[[ $y == "$r" ]] || err_exit "-0 vs -0.0 inconsistency -- expected '$r', got '$y'"
+float x=-0 y=-0.0
+r=-0
+[[ $((-0)) == 0 ]] || err_exit '$((-0)) should be 0'
+[[ $(( -1*0)) == 0 ]] || err_exit '$(( -1*0)) should be 0'
+[[ $(( -1.0*0)) == -0 ]] || err_exit '$(( -1.0*0)) should be -0'
+[[ $(printf "%g %g %g\n" x $x $((x)) ) == '-0 -0 -0' ]] || err_exit '%g of x $x $((x)) for x=-0 should all be -0'
+[[ $(printf "%g %g %g\n" y $x $((y)) ) == '-0 -0 -0' ]] || err_exit '%g of y $y $((y)) for y=-0.0 should all be -0'
 $SHELL -c '(( x=));:' 2> /dev/null && err_exit '((x=)) should be an error'
 $SHELL -c '(( x+=));:' 2> /dev/null && err_exit '((x+=)) should be an error'
 $SHELL -c '(( x=+));:' 2> /dev/null && err_exit '((x=+)) should be an error'
@@ -674,5 +677,89 @@ x=([0]=3 [1]=6 [2]=12)
 got=$($SHELL 2> /dev/null -c 'compound -a x;compound -a x[0].y; integer -a x[0].y[0].z; (( x[0].y[0].z[2]=3 )); typeset -p x')
 exp='typeset -C -a x=((typeset -C -a y=( [0]=(typeset -a -l -i z=([2]=3);));))'
 [[ $got == "$exp" ]] || err_exit '(( x[0].y[0].z[2]=3 )) not working'
+
+unset x
+let x=010
+[[ $x == 10 ]] || err_exit 'let treating 010 as octal'
+set -o letoctal
+let x=010
+[[ $x == 8 ]] || err_exit 'let not treating 010 as octal with letoctal on'
+
+float z=0
+integer aa=2 a=1
+typeset -A A
+A[a]=(typeset -A AA)
+A[a].AA[aa]=1
+(( z= A[a].AA[aa]++ ))
+(( z == 1 )) ||  err_exit "z should be 1 but is $z for associative array of
+associative array arithmetic"
+[[ ${A[a].AA[aa]} == 2 ]] || err_exit '${A[a].AA[aa]} should be 2 after ++ operation for associative array of associative array arithmetic'
+unset A[a]
+
+A[a]=(typeset -a AA)
+A[a].AA[aa]=1
+(( z += A[a].AA[aa++]++ ))
+(( z == 2 )) ||  err_exit "z should be 2 but is $z for associative array of
+index array arithmetic"
+(( aa == 3 )) || err_exit "subscript aa should be 3 but is $aa after ++"
+[[ ${A[a].AA[aa-1]} == 2 ]] || err_exit '${A[a].AA[aa]} should be 2 after ++ operation for ssociative array of index array arithmetic'
+unset A
+
+typeset -a A
+A[a]=(typeset -A AA)
+A[a].AA[aa]=1
+(( z += A[a].AA[aa]++ ))
+(( z == 3 )) ||  err_exit "z should be 3 but is $z for index array of
+associative array arithmetic"
+[[ ${A[a].AA[aa]} == 2 ]] || err_exit '${A[a].AA[aa]} should be 2 after ++ operation for index array of associative array arithmetic'
+unset A[a]
+
+A[a]=(typeset -a AA)
+A[a].AA[aa]=1
+(( z += A[a++].AA[aa++]++ ))
+(( z == 4 )) ||  err_exit "z should be 4 but is $z for index array of
+index array arithmetic"
+[[ ${A[a-1].AA[aa-1]} == 2 ]] || err_exit '${A[a].AA[aa]} should be 2 after ++ operation for index array of index array arithmetic'
+(( aa == 4 )) || err_exit "subscript aa should be 4 but is $aa after ++"
+(( a == 2 )) || err_exit "subscript a should be 2 but is $a after ++"
+unset A
+
+unset r x
+integer x
+r=020
+(($r == 16)) || err_exit 'leading 0 not treated as octal inside ((...))'
+x=$(($r))
+(( x == 16 )) || err_exit 'leading 0 not treated as octal inside $((...))'
+x=$r
+((x == 20 )) || err_exit 'leading 0 should not be treated as octal outside ((...))'
+print -- -020 | read x
+((x == -20)) || err_exit 'numbers with leading -0 should not be treated as octal outside ((...))'
+print -- -8#20 | read x
+((x == -16)) || err_exit 'numbers with leading -8# should be treated as octal'
+
+unset x
+x=0x1
+let "$x==1" || err_exit 'hex constants not working with let'
+(( $x == 1 )) || err_exit 'arithmetic with $x, where $x is hex constant not working'
+for i in 1
+do	(($x == 1)) || err_exit 'arithmetic in for loop with $x, where $x is hex constant not working'
+done
+x=010
+let "$x==10" || err_exit 'arithmetic with $x where $x is 010 should be decimal in let'
+(( 9.$x == 9.01 )) || err_exit 'arithmetic with 9.$x where x=010 should be 9.01' 
+(( 9$x == 9010 )) || err_exit 'arithmetic with 9$x where x=010 should be 9010' 
+x010=99
+((x$x == 99 )) || err_exit 'arithtmetic with x$x where x=010 should be $x010'
+(( 3+$x == 11 )) || err_exit '3+$x where x=010 should be 11 in ((...))'
+let "(3+$x)==13" || err_exit 'let should not recognize leading 0 as octal'
+unset x
+typeset -RZ3 x=10 
+(( $x == 10 )) || err_exit 'leading 0 in -RZ should not create octal constant with ((...))'
+let "$x==10" || err_exit 'leading 0 in -RZ should not create octal constant with let'
+
+unset v x
+x=0x1.0000000000000000000000000000p+6
+v=$(printf $'%.28a\n' 64)
+[[ $v == "$x" ]] || err_exit "'printf %.28a 64' failed -- expected '$x', got '$v'"
 
 exit $((Errors<125?Errors:125))

@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHMISC" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -1307,9 +1307,16 @@ before it is executed\&.  The sole argument is the complete history
 line (so that any terminating newline will still be present)\&.
 .RS
 .PP
-If any of the hook functions return a non\-zero value the history
-line will not be saved, although it lingers in the history until the
-next line is executed allow you to reuse or edit it immediately\&.
+If any of the hook functions returns status 1 (or any non\-zero value
+other than 2, though this is not guaranteed for future versions of the
+shell) the history line will not be saved, although it lingers in the
+history until the next line is executed, allowing you to reuse or edit
+it immediately\&.
+.PP
+If any of the hook functions returns status 2 the history line
+will be saved on the internal history list, but not written to
+the history file\&.  In case of a conflict, the first non\-zero status
+value is taken\&.
 .PP
 A hook function may call `\fBfc \-p\fP \fI\&.\&.\&.\fP\&' to switch the history
 context so that the history is saved in a different file from the
@@ -1317,10 +1324,13 @@ that in the global \fBHISTFILE\fP parameter\&.  This is handled specially:
 the history context is automatically restored after the processing
 of the history line is finished\&.
 .PP
-The following example function first adds the history line to the normal
-history with the newline stripped,  which is usually the correct behaviour\&.
-Then it switches the history context so that the line will
-be written to a history file in the current directory\&.
+The following example function works with one of the options
+\fBINC_APPEND_HISTORY\fP or \fBSHARE_HISTORY\fP set, in order that the line
+is written out immediately after the history entry is added\&.  It first
+adds the history line to the normal history with the newline stripped,
+which is usually the correct behaviour\&.  Then it switches the history
+context so that the line will be written to a history file in the
+current directory\&.
 .PP
 .RS
 .nf
@@ -1561,6 +1571,16 @@ The shell itself always ignores the \fBQUIT\fP signal\&.
 Otherwise, signals have the values
 inherited by the shell from its parent
 (but see the \fBTRAP\fP\fINAL\fP special functions in the section `Functions\&')\&.
+.PP
+Certain jobs are run asynchronously by the shell other than those
+explicitly put into the background; even in cases where the shell
+would usually wait for such jobs, an explicit \fBexit\fP command
+or exit due to the option \fBERR_EXIT\fP will cause the shell to
+exit without waiting\&.  Examples of such asynchronous jobs are
+process substitution, see
+the section PROCESS SUBSTITUTION in the \fIzshexpn\fP(1) manual page, and the handler processes for
+multios, see
+the section MULTIOS in the \fIzshmisc\fP(1) manual page\&.
 .\" Yodl file: Zsh/arith.yo
 .SH "ARITHMETIC EVALUATION"
 The shell can perform integer and floating point arithmetic, either using
@@ -2168,10 +2188,12 @@ directory to show; zero means the whole path\&.  A negative integer
 specifies leading components, i\&.e\&. \fB%\-1d\fP specifies the first component\&.
 .TP
 \fB%~\fP
-As \fB%d\fP and \fB%/\fP, but if the current working directory has a named
+As \fB%d\fP and \fB%/\fP, but if the current working directory starts with
+\fB$HOME\fP, that part is replaced by a `\fB~\fP\&'\&. Furthermore, if it has a named
 directory as its prefix, that part is replaced by a `\fB~\fP\&' followed by
-the name of the directory\&.  If it starts with \fB$HOME\fP, that part is
-replaced by a `\fB~\fP\&'\&.
+the name of the directory, but only if the result is shorter than
+the full path; 
+see \fIDynamic\fP and \fIStatic named directories\fP in \fIzshexpn\fP(1)\&.
 .TP
 .PD 0
 \fB%h\fP

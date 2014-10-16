@@ -72,53 +72,53 @@
 #define LLONG_MIN LONG_LONG_MIN
 #endif
 
+// IMPORTANT: Keep datamod count up to date in io.h!
 struct datamod xar_datamods[] = {
-	{ xar_hash_archived,
-	  xar_hash_unarchived_out,
-	  xar_hash_out_done,
-	  xar_hash_unarchived,
-	  xar_hash_archived_in,
-	  xar_hash_done
+	{ xar_hash_fromheap_in,
+		xar_hash_fromheap_out,
+		xar_hash_fromheap_done,
+		xar_hash_toheap_in,
+		xar_hash_toheap_out,
+		xar_hash_toheap_done
 	},
 	{ (fromheap_in)NULL,
-	  (fromheap_out)NULL,
-	  (fromheap_done)NULL,
-	  xar_script_in,
-	  (toheap_out)NULL,
-	  xar_script_done
+		(fromheap_out)NULL,
+		(fromheap_done)NULL,
+		xar_script_in,
+		(toheap_out)NULL,
+		xar_script_done
 	},
 	{ (fromheap_in)NULL,
-	  (fromheap_out)NULL,
-	  (fromheap_done)NULL,
-	  xar_macho_in,
-	  (toheap_out)NULL,
-	  xar_macho_done
+		(fromheap_out)NULL,
+		(fromheap_done)NULL,
+		xar_macho_in,
+		(toheap_out)NULL,
+		xar_macho_done
 	},
 	{ xar_gzip_fromheap_in,
-	  (fromheap_out)NULL,
-	  xar_gzip_fromheap_done,
-	  xar_gzip_toheap_in,
-	  (toheap_out)NULL,
-	  xar_gzip_toheap_done
+		(fromheap_out)NULL,
+		xar_gzip_fromheap_done,
+		xar_gzip_toheap_in,
+		(toheap_out)NULL,
+		xar_gzip_toheap_done
 	},
 	{ xar_bzip_fromheap_in,
-	  (fromheap_out)NULL,
-	  xar_bzip_fromheap_done,
-	  xar_bzip_toheap_in,
-	  (toheap_out)NULL,
-	  xar_bzip_toheap_done
+		(fromheap_out)NULL,
+		xar_bzip_fromheap_done,
+		xar_bzip_toheap_in,
+		(toheap_out)NULL,
+		xar_bzip_toheap_done
 	},
 	{ xar_lzma_fromheap_in,
-	  (fromheap_out)NULL,
-	  xar_lzma_fromheap_done,
-	  xar_lzma_toheap_in,
-	  (toheap_out)NULL,
-	  xar_lzma_toheap_done
+		(fromheap_out)NULL,
+		xar_lzma_fromheap_done,
+		xar_lzma_toheap_in,
+		(toheap_out)NULL,
+		xar_lzma_toheap_done
 	}
 };
 
-
-static size_t get_rsize(xar_t x) {
+size_t xar_io_get_rsize(xar_t x) {
 	size_t bsize;
 	const char *opt = NULL;
 
@@ -135,25 +135,59 @@ static size_t get_rsize(xar_t x) {
 	return bsize;
 }
 	
-static off_t get_offset(xar_t x, xar_file_t f, xar_prop_t p) {
-	off_t seekoff;
-	xar_prop_t tmpp;
-	const char *opt = NULL;
-
-	tmpp = xar_prop_pget(p, "offset");
-	if( tmpp )
-		opt = xar_prop_getvalue(tmpp);
-	
-	seekoff = strtoll(opt, NULL, 0);
-		
-	if( ((seekoff == LLONG_MAX) || (seekoff == LLONG_MIN)) && (errno == ERANGE) ) {
-		return -1;
-	}
-
-	return seekoff;
+off_t xar_io_get_heap_base_offset(xar_t x) {
+	return XAR(x)->toc_count + sizeof(xar_header_t);
 }
 
-static int64_t get_length(xar_prop_t p) {
+size_t xar_io_get_toc_checksum_length_for_type(const char *type) {
+	if( !type ) {
+		return 0;
+	} else if( strcmp(type, XAR_OPT_VAL_NONE) == 0 ) {
+		return 0;
+	} else if( strcmp(type, XAR_OPT_VAL_SHA1) == 0 ) {
+		return 20;
+	} else if( strcmp(type, XAR_OPT_VAL_SHA256) == 0 ) {
+		return 32;
+	} else if( strcmp(type, XAR_OPT_VAL_SHA512) == 0 ) {
+		return 64;
+	} else if( strcmp(type, XAR_OPT_VAL_MD5) == 0 ) {
+		return 16;
+	} else {
+		return 0;
+	}
+}
+
+size_t xar_io_get_toc_checksum_length(xar_t x) {
+	switch(XAR(x)->header.cksum_alg) {
+		case XAR_CKSUM_NONE:
+			return 0;
+		case XAR_CKSUM_SHA1:
+			return 20;
+		case XAR_CKSUM_SHA256:
+			return 32;
+		case XAR_CKSUM_SHA512:
+			return 64;
+		case XAR_CKSUM_MD5:
+			return 16;
+		default:
+			fprintf(stderr, "Unknown hashing algorithm, skipping\n");
+			return 0;
+	};
+}
+
+off_t xar_io_get_file_offset(xar_t x, xar_file_t f, xar_prop_t p) {
+	xar_prop_t tmpp;
+	const char *opt = NULL;
+	tmpp = xar_prop_pget(p, "offset");
+	if( tmpp ) {
+		opt = xar_prop_getvalue(tmpp);
+		return strtoll(opt, NULL, 0);
+	} else {
+		return -1;
+	}
+}
+
+int64_t xar_io_get_length(xar_prop_t p) {
 	const char *opt = NULL;
 	int64_t fsize = 0;
 	xar_prop_t tmpp;
@@ -217,10 +251,10 @@ static void xar_io_seek(xar_t x, xar_file_t f, off_t seekoff) {
 
 int32_t xar_attrcopy_to_heap(xar_t x, xar_file_t f, xar_prop_t p, read_callback rcb, void *context) {
 	int modulecount = (sizeof(xar_datamods)/sizeof(struct datamod));
-	void	*modulecontext[modulecount];
-	int r, off, i;
+	void *modulecontext[modulecount];
+	int r, i;
 	size_t bsize, rsize;
-	int64_t readsize=0, writesize=0, inc = 0;
+	int64_t readsize=0, writesize=0, inc = 0, this_write=0;
 	void *inbuf;
 	char *tmpstr = NULL;
 	const char *opt = NULL, *csum = NULL;
@@ -230,7 +264,7 @@ int32_t xar_attrcopy_to_heap(xar_t x, xar_file_t f, xar_prop_t p, read_callback 
 
 	memset(modulecontext, 0, sizeof(void*)*modulecount);
 
-	bsize = get_rsize(x);
+	bsize = xar_io_get_rsize(x);
 
 	r = 1;
 	
@@ -263,20 +297,24 @@ int32_t xar_attrcopy_to_heap(xar_t x, xar_file_t f, xar_prop_t p, read_callback 
 			if( xar_datamods[i].th_out )
 				xar_datamods[i].th_out(x, f, p, inbuf, rsize, &(modulecontext[i]));
 		}
-
-		off = 0;
+		
+		size_t written = 0;
 		if( rsize != 0 ) {
-			do {
-				r = write(XAR(x)->heap_fd, ((char *)inbuf)+off, rsize-off);
-				if( (r < 0) && (errno != EINTR) ) {
-					free(inbuf); // (Apple) don't leak inbuf
+			while(written < rsize) {
+				this_write = xar_write_fd(XAR(x)->heap_fd, inbuf, rsize);
+				if( this_write < 0 ) {
+					xar_err_new(x);
+					xar_err_set_string(x, "write(2) error when writing to heap");
+					xar_err_set_errno(x, errno);
+					xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_CREATION);
+					free(inbuf);
 					return -1;
 				}
-				off += r;
-				writesize += r;
-			} while( off < rsize );
+				written += this_write;
+			}
 		}
-		XAR(x)->heap_offset += off;		
+		XAR(x)->heap_offset += written;
+		writesize += written;
 	}
 	
 	free(inbuf);
@@ -405,27 +443,19 @@ int32_t xar_attrcopy_from_heap(xar_t x, xar_file_t f, xar_prop_t p, write_callba
 
 	memset(modulecontext, 0, sizeof(void*)*modulecount);
 
-	def_bsize = get_rsize(x);
-
-	opt = NULL;
-	tmpp = xar_prop_pget(p, "offset");
-	if( tmpp )
-		opt = xar_prop_getvalue(tmpp);
-	if( !opt ) {
-        if( wcb )
-            wcb(x, f, NULL, 0, context);
+	def_bsize = xar_io_get_rsize(x);
+	
+	seekoff = xar_io_get_file_offset(x, f, p);
+	if( seekoff == -1 ) {
+		wcb(x, f, NULL, 0, context);
 		return 0;
-	} else {
-		seekoff = strtoll(opt, NULL, 0);
-		if( ((seekoff == LLONG_MAX) || (seekoff == LLONG_MIN)) && (errno == ERANGE) ) {
-			return -1;
-		}
+	} else if( ((seekoff == LLONG_MAX) || (seekoff == LLONG_MIN)) && (errno == ERANGE) ) {
+		return -1;
 	}
-
-	seekoff += XAR(x)->toc_count + sizeof(xar_header_t);
+	seekoff += xar_io_get_heap_base_offset(x);
 	xar_io_seek(x, f, seekoff);
 
-	fsize = get_length(p);
+	fsize = xar_io_get_length(p);
 	if( fsize == 0 )
 		return 0;
 	if( fsize < 0 )
@@ -517,16 +547,16 @@ int32_t xar_attrcopy_from_heap_to_heap(xar_t xsource, xar_file_t fsource, xar_pr
 	char *tmpstr = NULL;
 	xar_prop_t tmpp;
 	
-	bsize = get_rsize(xsource);
+	bsize = xar_io_get_rsize(xsource);
 	
-	seekoff = get_offset(xsource, fsource, p);
+	seekoff = xar_io_get_file_offset(xsource, fsource, p);
 	if( seekoff < 0 )
 		return -1;
 	
 	seekoff += XAR(xsource)->toc_count + sizeof(xar_header_t);
 	xar_io_seek(xsource, fsource, seekoff);
 	
-	fsize = get_length(p);
+	fsize = xar_io_get_length(p);
 	if( fsize == 0 )
 		return 0;
 	if( fsize < 0 )
@@ -632,7 +662,7 @@ static int32_t write_to_stream(void *inbuf, size_t inlen, xar_stream *stream) {
 		state->pending_buf_size = inlen - len;
 		state->pending_buf = malloc(state->pending_buf_size);
 
-		memcpy(state->pending_buf, inbuf + len, state->pending_buf_size);
+		memcpy(state->pending_buf, ((char *)inbuf) + len, state->pending_buf_size);
 	}
 
 	return XAR_STREAM_OK;
@@ -642,7 +672,7 @@ int32_t xar_attrcopy_from_heap_to_stream_init(xar_t x, xar_file_t f, xar_prop_t 
 	xar_stream_state_t *state;
 	off_t seekoff;
 
-	seekoff = get_offset(x, f, p);
+	seekoff = xar_io_get_file_offset(x, f, p);
 	if( seekoff < 0 ) 
 		return XAR_STREAM_ERR;
 
@@ -651,7 +681,7 @@ int32_t xar_attrcopy_from_heap_to_stream_init(xar_t x, xar_file_t f, xar_prop_t 
 		return XAR_STREAM_ERR;
 	}
 	stream->state = (void*)state;
-	state->bsize = get_rsize(x);
+	state->bsize = xar_io_get_rsize(x);
 
 	state->modulecount = (sizeof(xar_datamods)/sizeof(struct datamod));
 	state->modulecontext = calloc(1, sizeof(void*)*state->modulecount);
@@ -666,7 +696,7 @@ int32_t xar_attrcopy_from_heap_to_stream_init(xar_t x, xar_file_t f, xar_prop_t 
 	stream->total_in = 0;
 	stream->total_out = 0;
 
-	state->fsize = get_length(p);
+	state->fsize = xar_io_get_length(p);
 
 	if(state->fsize == 0) {
 		return XAR_STREAM_OK;
@@ -799,10 +829,11 @@ int32_t xar_heap_to_archive(xar_t x) {
 			bsize = 4096;
 		}
 	}
-
+	
 	b = malloc(bsize);
 	if( !b ) return -1;
-
+	
+	lseek(XAR(x)->heap_fd, 0, SEEK_SET);
 	while(1) {
 		r = read(XAR(x)->heap_fd, b, bsize);
 		if( r == 0 ) break;
@@ -815,10 +846,13 @@ int32_t xar_heap_to_archive(xar_t x) {
 		off = 0;
 		do {
 			r = write(XAR(x)->fd, b+off, bsize-off);
-			if( (r < 0) && (errno != EINTR) )
+			if( (r < 0) && (errno != EINTR) ) {
+				free(b);
 				return -1;
+			}
 			off += r;
 		} while( off < bsize );
 	}
+	free(b);
 	return 0;
 }

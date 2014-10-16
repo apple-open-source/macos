@@ -82,6 +82,7 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	size_t optlen;
 	char *p, *pp;
 	char *optp;
+        int error = 0;
 
 	/*
 	 * Remove "net", "bg", and "fg" from the mount options;
@@ -153,9 +154,15 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 			 * We already have mount options; add
 			 * a comma before this one.
 			 */
-			CHECK_STRCAT(mntops_out, ",", optlen);
+			if ((error = CHECK_STRCAT(mntops_out, ",", optlen))) {
+                                error = ENAMETOOLONG;
+                                goto DONE;
+                        }
 		}
-		CHECK_STRCAT(mntops_out, optp, optlen);
+                if ((error = CHECK_STRCAT(mntops_out, optp, optlen))) {
+                        error = ENAMETOOLONG;
+                        goto DONE;
+                }
 	}
 	if (fs->fs_type[0] != '\0') {
 		/*
@@ -168,13 +175,20 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 			 * We already have mount options; add
 			 * a comma before this one.
 			 */
-			CHECK_STRCAT(mntops_out, ",", optlen);
+                        if ((error = CHECK_STRCAT(mntops_out, ",", optlen))) {
+                                error = ENAMETOOLONG;
+                                goto DONE;
+                        }
 		}
-		CHECK_STRCAT(mntops_out, fs->fs_type, optlen);
+                if ((error = CHECK_STRCAT(mntops_out, fs->fs_type, optlen))) {
+                        error = ENAMETOOLONG;
+                        goto DONE;
+                }
 	}
+DONE:
 	*mntops_outp = mntops_out;
 	free(mntops_copy);
-	return (0);
+	return error;
 }
 
 static void

@@ -88,7 +88,6 @@
 #endif
 
 #include "y.tab.h"
-#include "eap_sim.h"
 
 int yyerrorcount = 0;
 
@@ -306,6 +305,7 @@ hexstring	0x{hexdigit}+
 <S_RMTS>xauth_login	{ YYD; return(XAUTH_LOGIN); /* formerly identifier type login */ }
 <S_RMTS>peers_identifier	{ YYD; return(PEERS_IDENTIFIER); }
 <S_RMTS>verify_identifier	{ YYD; return(VERIFY_IDENTIFIER); }
+<S_RMTS>local_address	{ YYD; return(LOCAL_ADDRESS); }
 <S_RMTS>certificate_type	{ YYD; return(CERTIFICATE_TYPE); }
 <S_RMTS>ca_type		{ YYD; return(CA_TYPE); }
 <S_RMTS>x509		{ YYD; yylval.num = ISAKMP_CERT_X509SIGN; return(CERT_X509); }
@@ -375,11 +375,6 @@ hexstring	0x{hexdigit}+
 <S_RMTS>esp_frag	{ YYD; return(ESP_FRAG); }
 <S_RMTS>mode_cfg	{ YYD; return(MODE_CFG); }
 <S_RMTS>weak_phase1_check { YYD; return(WEAK_PHASE1_CHECK); }
-<S_RMTS>eap_types	{ YYD; return(EAP_TYPES); }
-<S_RMTS>eap_any     { YYD; yylval.num = EAP_TYPE_NONE; return(EAP_TYPE); }
-<S_RMTS>eap_sim     { YYD; yylval.num = EAP_TYPE_SIM; return(EAP_TYPE); }
-<S_RMTS>eap_aka     { YYD; yylval.num = EAP_TYPE_AKA; return(EAP_TYPE); }
-<S_RMTS>eap_options	{ YYD; return(EAP_OPTIONS); }
 	/* remote proposal */
 <S_RMTS>proposal	{ BEGIN S_RMTP; YYDB; return(PROPOSAL); }
 <S_RMTP>{bcl}		{ return(BOC); }
@@ -390,8 +385,6 @@ hexstring	0x{hexdigit}+
 <S_RMTP>encryption_algorithm { YYD; yylval.num = algclass_isakmp_enc; return(ALGORITHM_CLASS); }
 <S_RMTP>authentication_method { YYD; yylval.num = algclass_isakmp_ameth; return(ALGORITHM_CLASS); }
 <S_RMTP>hash_algorithm	{ YYD; yylval.num = algclass_isakmp_hash; return(ALGORITHM_CLASS); }
-<S_RMTP>prf_algorithm	{ YYD; yylval.num = algclass_ikev2_prf; return(ALGORITHM_CLASS); }
-<S_RMTP>integ_algorithm	{ YYD; yylval.num = algclass_ikev2_integ; return(ALGORITHM_CLASS); }
 <S_RMTP>dh_group	{ YYD; return(DH_GROUP); }
 <S_RMTP>gss_id		{ YYD; return(GSS_ID); }
 <S_RMTP>gssapi_id	{ YYD; return(GSS_ID); } /* for back compatibility */

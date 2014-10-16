@@ -3,6 +3,8 @@
 #  variable WITH_EXPERIMENTAL=1
 # To build with the mod_ssl module set the environment
 #  variable WITH_SSL=1
+# To build with the mod_lua module set the environment
+#  variable WITH_LUA=1
 
 #
 # Check if LDAP is enabled in APR-UTIL
@@ -31,10 +33,13 @@ endif
 SUBDIRS = \
 	aaa \
 	cache \
+	cluster \
+	core \
 	dav/main \
 	dav/fs \
 	dav/lock \
 	echo \
+	examples \
 	generators \
 	loggers \
 	mappers \
@@ -42,7 +47,9 @@ SUBDIRS = \
 	proxy \
 	filters \
 	database \
-	$(EOLIST) 
+	session \
+	slotmem \
+	$(EOLIST)
 
 # If WITH_LDAP and LDAPSDK have been defined then build the util_ldap module
 ifeq "$(WITH_LDAP)" "1"
@@ -58,6 +65,13 @@ SUBDIRS += ssl
 endif
 endif
 
+# If WITH_LUA and LUASRC have been defined then build the mod_lua module
+ifeq "$(WITH_LUA)" "1"
+ifneq "$(LUASRC)" ""
+SUBDIRS += lua
+endif
+endif
+
 # Allow the experimental modules to be built if WITH_EXPERIMENTAL is defined
 ifeq "$(WITH_EXPERIMENTAL)" "1"
 SUBDIRS += experimental
@@ -65,11 +79,16 @@ endif
 
 # Allow the debugging modules to be built if WITH_DEBUGGING is defined
 ifeq "$(WITH_DEBUGGING)" "1"
-SUBDIRS += debug
+SUBDIRS += debugging
 endif
 
-# If the mod_edir directory exists then build the mod_edir module
-ifeq "$(wildcard $(AP_WORK)\modules\mod_edir)" "$(AP_WORK)\modules\mod_edir"
+# Allow the test modules to be built if WITH_TEST is defined
+ifeq "$(WITH_TEST)" "1"
+SUBDIRS += test
+endif
+
+#If the mod_edir directory exists then build the mod_edir module
+ifeq "$(wildcard $(STDMOD)/mod_edir)" "$(STDMOD)/mod_edir"
 SUBDIRS += mod_edir
 endif
 
@@ -77,13 +96,12 @@ endif
 # Get the 'head' of the build environment.  This includes default targets and
 # paths to tools
 #
-
 include $(AP_WORK)/build/NWGNUhead.inc
 
 #
 # build this level's files
 
-ifeq "$(wildcard NWGNUmakefile.mak)" "NWGNUmakefile.mak" 
+ifeq "$(wildcard NWGNUmakefile.mak)" "NWGNUmakefile.mak"
 include NWGNUmakefile.mak
 endif
 
@@ -92,5 +110,4 @@ endif
 # installation area
 #
 install :: nlms FORCE
-
 

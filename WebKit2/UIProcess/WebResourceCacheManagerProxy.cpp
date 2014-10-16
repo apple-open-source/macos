@@ -26,7 +26,6 @@
 #include "config.h"
 #include "WebResourceCacheManagerProxy.h"
 
-#include "ImmutableArray.h"
 #include "ImmutableDictionary.h"
 #include "SecurityOriginData.h"
 #include "WebContext.h"
@@ -55,7 +54,7 @@ PassRefPtr<WebResourceCacheManagerProxy> WebResourceCacheManagerProxy::create(We
 WebResourceCacheManagerProxy::WebResourceCacheManagerProxy(WebContext* webContext)
     : WebContextSupplement(webContext)
 {
-    WebContextSupplement::context()->addMessageReceiver(Messages::WebResourceCacheManagerProxy::messageReceiverName(), this);
+    WebContextSupplement::context()->addMessageReceiver(Messages::WebResourceCacheManagerProxy::messageReceiverName(), *this);
 }
 
 WebResourceCacheManagerProxy::~WebResourceCacheManagerProxy()
@@ -66,12 +65,12 @@ WebResourceCacheManagerProxy::~WebResourceCacheManagerProxy()
 
 void WebResourceCacheManagerProxy::contextDestroyed()
 {
-    invalidateCallbackMap(m_arrayCallbacks);
+    invalidateCallbackMap(m_arrayCallbacks, CallbackBase::Error::OwnerWasInvalidated);
 }
 
 void WebResourceCacheManagerProxy::processDidClose(WebProcessProxy*)
 {
-    invalidateCallbackMap(m_arrayCallbacks);
+    invalidateCallbackMap(m_arrayCallbacks, CallbackBase::Error::ProcessExited);
 }
 
 bool WebResourceCacheManagerProxy::shouldTerminate(WebProcessProxy*) const
@@ -81,17 +80,17 @@ bool WebResourceCacheManagerProxy::shouldTerminate(WebProcessProxy*) const
 
 void WebResourceCacheManagerProxy::refWebContextSupplement()
 {
-    APIObject::ref();
+    API::Object::ref();
 }
 
 void WebResourceCacheManagerProxy::derefWebContextSupplement()
 {
-    APIObject::deref();
+    API::Object::deref();
 }
 
-void WebResourceCacheManagerProxy::getCacheOrigins(PassRefPtr<ArrayCallback> prpCallback)
+void WebResourceCacheManagerProxy::getCacheOrigins(std::function<void (API::Array*, CallbackBase::Error)> callbackFunction)
 {
-    RefPtr<ArrayCallback> callback = prpCallback;
+    RefPtr<ArrayCallback> callback = ArrayCallback::create(WTF::move(callbackFunction));
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
 
@@ -108,9 +107,9 @@ void WebResourceCacheManagerProxy::didGetCacheOrigins(const Vector<SecurityOrigi
 void WebResourceCacheManagerProxy::clearCacheForOrigin(WebSecurityOrigin* origin, ResourceCachesToClear cachesToClear)
 {
     SecurityOriginData securityOrigin;
-    securityOrigin.protocol = origin->protocol();
-    securityOrigin.host = origin->host();
-    securityOrigin.port = origin->port();
+    securityOrigin.protocol = origin->securityOrigin().protocol();
+    securityOrigin.host = origin->securityOrigin().host();
+    securityOrigin.port = origin->securityOrigin().port();
 
     // FIXME (Multi-WebProcess): <rdar://problem/12239765> There is no need to relaunch all processes. One process to take care of persistent cache is enough.
     context()->sendToAllProcessesRelaunchingThemIfNecessary(Messages::WebResourceCacheManager::ClearCacheForOrigin(securityOrigin, cachesToClear));

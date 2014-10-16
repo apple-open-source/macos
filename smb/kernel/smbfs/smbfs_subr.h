@@ -41,8 +41,6 @@
 MALLOC_DECLARE(M_SMBFSDATA);
 #endif
 
-#define SMBFSERR(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
-
 #ifdef SMB_VNODE_DEBUG
 #define SMBVDEBUG(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
 #else
@@ -94,7 +92,7 @@ struct smbfattr {
     uint64_t        fa_rsrc_size;       /* readdirattr support */
     uint64_t        fa_rsrc_alloc;      /* readdirattr support */
     uint8_t         fa_finder_info[32]; /* readdirattr support */
-	uint32_t		fa_max_access;      /* readdirattr and SMB 2.x Creates */
+	uint32_t		fa_max_access;      /* readdirattr and SMB 2/3 Creates */
 };
 
 /*
@@ -139,7 +137,7 @@ struct smbfs_fctx {
 	char *		f_rname;	/* resume name, always a network name */
 	uint32_t	f_rnameofs;
 	int			f_rkey;		/* resume key */
-    /* SMB2 fields */
+    /* SMB 2/3 fields */
     struct smb_rq *f_create_rqp;
     struct smb_rq *f_query_rqp;
     int         f_need_close;
@@ -215,8 +213,9 @@ int smb1fs_smb_lock(struct smb_share *share, int op, SMBFID fid, uint32_t pid,
                     vfs_context_t context);
 int smb1fs_smb_setpattr(struct smb_share *share, struct smbnode *np, const char *name,
                         size_t len, uint16_t attr, vfs_context_t context);
-int smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, const char *name,
-						 size_t len, Boolean hideit, vfs_context_t context);
+int smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, enum vtype vnode_type,
+                         const char *name, size_t len,
+                         Boolean hideit, vfs_context_t context);
 int smbfs_set_unix_info2(struct smb_share *share, struct smbnode *np, 
 						 struct timespec *crtime, struct timespec *mtime, 
 						 struct timespec *atime, uint64_t fsize, uint64_t perms, 

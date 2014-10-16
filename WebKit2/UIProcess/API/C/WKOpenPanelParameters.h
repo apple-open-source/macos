@@ -27,7 +27,7 @@
 #ifndef WKOpenPanelParameters_h
 #define WKOpenPanelParameters_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifndef __cplusplus
 #include <stdbool.h>
@@ -43,7 +43,10 @@ WK_EXPORT bool WKOpenPanelParametersGetAllowsMultipleFiles(WKOpenPanelParameters
 
 WK_EXPORT WKArrayRef WKOpenPanelParametersCopyAcceptedMIMETypes(WKOpenPanelParametersRef parameters);
 
+/* DEPRECATED - Please use WKOpenPanelParametersGetCaptureEnabled() instead. */
 WK_EXPORT WKStringRef WKOpenPanelParametersCopyCapture(WKOpenPanelParametersRef parameters);
+
+WK_EXPORT bool WKOpenPanelParametersGetCaptureEnabled(WKOpenPanelParametersRef parametersRef);
 
 WK_EXPORT WKArrayRef WKOpenPanelParametersCopySelectedFileNames(WKOpenPanelParametersRef parametersRef);
 

@@ -14,6 +14,9 @@
 		kdc = localhost:@port@
 		admin_server = localhost:@admport@
 		kpasswd_server = localhost:@pwport@
+
+		pkinit_anchors = FILE:@certdir@/ca.crt
+
 	}
 	SUB.TEST.H5L.SE = {
 		kdc = localhost:@port@
@@ -55,6 +58,7 @@
 	pkinit_allow_proxy_certificate = true
 	pkinit_kdc_friendly_name = CN=kdc,C=SE
 	pkinit_principal_in_certificate = true
+	pkinit_PKINIT_KX_mit_bug = true
 
 	database = {
 		label = { 

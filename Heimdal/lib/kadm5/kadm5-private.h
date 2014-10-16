@@ -624,6 +624,6 @@ krb5_error_code
 _kadm5_ret_ks_tuple(krb5_storage *sp, uint32_t *n_ks_tuple, krb5_key_salt_tuple **ks_tuple);
 
 int
-_kadm5_exists_keys_hist(Key *keys1, int len1, HDB_Ext_KeySet *hist_keys);
+_kadm5_exists_keys_hist(Key *keys1, unsigned len1, HDB_Ext_KeySet *hist_keys);
 
 #endif /* __kadm5_private_h__ */

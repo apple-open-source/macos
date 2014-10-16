@@ -26,10 +26,7 @@
 
 #pragma ident	"@(#)dt_provider.c	1.11	06/04/04 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/sysmacros.h>
-
 #include <assert.h>
 #include <limits.h>
 #include <strings.h>
@@ -37,17 +34,6 @@
 #include <alloca.h>
 #include <unistd.h>
 #include <errno.h>
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-#include <assert.h>
-#include <limits.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <alloca.h>
-#include <unistd.h>
-#include <errno.h>
-#endif /* __APPLE__ */
 
 #include <dt_provider.h>
 #include <dt_module.h>

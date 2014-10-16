@@ -23,14 +23,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import "WKWebProcessPlugInBrowserContextControllerPrivate.h"
 
-#import "WKWebProcessPlugInBrowserContextController.h"
+#if WK_API_ENABLED
 
-@interface WKWebProcessPlugInBrowserContextController (Internal)
+#import "WKObject.h"
+#import "WebPage.h"
 
-- (id)_initWithBundlePageRef:(WKBundlePageRef)bundlePageRef;
+namespace WebKit {
 
+inline WKWebProcessPlugInBrowserContextController *wrapper(WebPage& page)
+{
+    ASSERT([page.wrapper() isKindOfClass:[WKWebProcessPlugInBrowserContextController class]]);
+    return (WKWebProcessPlugInBrowserContextController *)page.wrapper();
+}
+
+}
+
+@interface WKWebProcessPlugInBrowserContextController () <WKObject>
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

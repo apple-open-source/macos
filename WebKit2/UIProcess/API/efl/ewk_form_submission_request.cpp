@@ -29,6 +29,7 @@
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKBase.h"
+#include "WKEinaSharedString.h"
 #include "WKString.h"
 #include "ewk_form_submission_request_private.h"
 
@@ -69,7 +70,7 @@ void EwkFormSubmissionRequest::submit()
 
 Eina_List* ewk_form_submission_request_field_names_get(Ewk_Form_Submission_Request* request)
 {
-    EWK_OBJ_GET_IMPL_OR_RETURN(EwkFormSubmissionRequest, request, impl, 0);
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkFormSubmissionRequest, request, impl, nullptr);
 
     Eina_List* fieldNames = 0;
 
@@ -85,8 +86,8 @@ Eina_List* ewk_form_submission_request_field_names_get(Ewk_Form_Submission_Reque
 
 const char* ewk_form_submission_request_field_value_get(Ewk_Form_Submission_Request* request, const char* name)
 {
-    EWK_OBJ_GET_IMPL_OR_RETURN(EwkFormSubmissionRequest, request, impl, 0);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(name, 0);
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkFormSubmissionRequest, request, impl, nullptr);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(name, nullptr);
 
     return impl->copyFieldValue(name);
 }

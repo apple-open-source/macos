@@ -25,8 +25,9 @@
  
  messages -> WebCookieManager {
     void GetHostnamesWithCookies(uint64_t callbackID)
-    void DeleteCookiesForHostname(WTF::String hostname)
+    void DeleteCookiesForHostname(String hostname)
     void DeleteAllCookies()
+    void DeleteAllCookiesModifiedAfterDate(double date)
 
     void SetHTTPCookieAcceptPolicy(uint32_t policy)
     void GetHTTPCookieAcceptPolicy(uint64_t callbackID)
@@ -35,6 +36,6 @@
     void StopObservingCookieChanges()
 
 #if USE(SOUP)
-    SetCookiePersistentStorage(WTF::String storagePath, uint32_t storageType)
+    SetCookiePersistentStorage(String storagePath, uint32_t storageType)
 #endif
 }

@@ -181,7 +181,6 @@ extern int dt_node_is_stack(const dt_node_t *);
 extern int dt_node_is_symaddr(const dt_node_t *);
 extern int dt_node_is_usymaddr(const dt_node_t *);
 extern int dt_node_is_string(const dt_node_t *);
-extern int dt_node_is_empty_string(const dt_node_t *);
 extern int dt_node_is_strcompat(const dt_node_t *);
 extern int dt_node_is_pointer(const dt_node_t *);
 extern int dt_node_is_void(const dt_node_t *);

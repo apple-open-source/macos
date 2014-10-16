@@ -24,7 +24,7 @@
 #ifndef _IOKIT_IOHIDEVENTSERVICECLASS_H
 #define _IOKIT_IOHIDEVENTSERVICECLASS_H
 
-#include <pthread.h>
+#include <dispatch/dispatch.h>
 #include <IOKit/hid/IOHIDServicePlugIn.h>
 #include <IOKit/IODataQueueClient.h>
 #include "IOHIDIUnknown.h"
@@ -49,9 +49,8 @@ protected:
     bool                                _isOpen;
     
     mach_port_t                         _asyncPort;
-    CFMachPortRef                       _asyncCFMachPort;
 
-    CFRunLoopSourceRef                  _asyncEventSource;
+    dispatch_source_t                   _asyncEventSource;
     
     CFMutableDictionaryRef              _serviceProperties;
     CFMutableDictionaryRef              _servicePreferences;
@@ -62,10 +61,8 @@ protected:
 
     IODataQueueMemory *                 _queueMappedMemory;
     vm_size_t                           _queueMappedMemorySize;
-    
-    bool                                _queueBusy;
-    pthread_mutex_t                     _queueLock;
-    pthread_cond_t                      _queueCondition;
+        
+    dispatch_queue_t                    _dispatchQueue;
     
 
     static inline IOHIDEventServiceClass *getThis(void *self) { return (IOHIDEventServiceClass *)((InterfaceMap *) self)->obj; };
@@ -81,17 +78,14 @@ protected:
     static CFTypeRef        _copyProperty(void *self, CFStringRef key);
     static boolean_t        _setProperty(void *self, CFStringRef key, CFTypeRef property);
     static IOHIDEventRef    _copyEvent(void *self, IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options);
-    static IOReturn         _setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value);
+    static IOReturn         _setOutputEvent(void *self, IOHIDEventRef event);
     static void             _setEventCallback(void *self, IOHIDServiceEventCallback callback, void * target, void * refcon);
-    static void             _scheduleWithRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode);
-    static void             _unscheduleFromRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode);
+    static void             _scheduleWithDispatchQueue(void *self, dispatch_queue_t queue);
+    static void             _unscheduleFromDispatchQueue(void *self, dispatch_queue_t queue);
     
     // Support methods
-    static void             _queueEventSourceCallback(
-                                            CFMachPortRef               cfPort, 
-                                            mach_msg_header_t *         msg, 
-                                            CFIndex                     size, 
-                                            void *                      info);
+    static void             _queueEventSourceCallback(void * info);
+    void                    dequeueHIDEvents(boolean_t suppress=false);
     void                    dispatchHIDEvent(IOHIDEventRef event, IOOptionBits options=0);
 
     CFDictionaryRef         createFixedProperties(CFDictionaryRef floatProperties);
@@ -109,10 +103,10 @@ public:
     virtual CFTypeRef       copyProperty(CFStringRef key);
     virtual boolean_t       setProperty(CFStringRef key, CFTypeRef property);
     virtual IOHIDEventRef   copyEvent(IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options);
-    virtual IOReturn        setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value);
+    virtual IOReturn        setOutputEvent(IOHIDEventRef event);
     virtual void            setEventCallback(IOHIDServiceEventCallback callback, void * target, void * refcon);
-    virtual void            scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode);
-    virtual void            unscheduleFromRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode);
+    virtual void            scheduleWithDispatchQueue(dispatch_queue_t queue);
+    virtual void            unscheduleFromDispatchQueue(dispatch_queue_t queue);
 };
 
 #endif /* !_IOKIT_IOHIDEVENTSERVICECLASS_H */

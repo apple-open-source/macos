@@ -28,10 +28,9 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include "RenderTreeAsText.h"
 #include "TextStream.h"
 
-#include <wtf/Uint8ClampedArray.h>
+#include <runtime/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -124,10 +123,10 @@ void FEDisplacementMap::platformApplySoftware()
 
     ASSERT(srcPixelArrayA->length() == srcPixelArrayB->length());
 
-    Filter* filter = this->filter();
+    Filter& filter = this->filter();
     IntSize paintSize = absolutePaintRect().size();
-    float scaleX = filter->applyHorizontalScale(m_scale);
-    float scaleY = filter->applyVerticalScale(m_scale);
+    float scaleX = filter.applyHorizontalScale(m_scale);
+    float scaleY = filter.applyVerticalScale(m_scale);
     float scaleForColorX = scaleX / 255.0;
     float scaleForColorY = scaleY / 255.0;
     float scaledOffsetX = 0.5 - scaleX * 0.5;

@@ -549,7 +549,7 @@ format1(const struct stat *st,
 	struct passwd *pw;
 	struct group *gr;
 	const struct timespec *tsp;
-	struct timespec ts;
+	struct timespec ts = {0,0};
 	struct tm *tm;
 	int l, small, formats;
 

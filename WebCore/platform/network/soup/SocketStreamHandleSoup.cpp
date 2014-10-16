@@ -32,7 +32,9 @@
 #include "config.h"
 #include "SocketStreamHandle.h"
 
-#include "KURL.h"
+#if USE(SOUP)
+
+#include "URL.h"
 #include "Logging.h"
 #include "NotImplemented.h"
 #include "SocketStreamError.h"
@@ -41,9 +43,8 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-#include <wtf/NotFound.h>
 #include <wtf/Vector.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 #define READ_BUFFER_SIZE 1024
@@ -81,9 +82,8 @@ static void* activateHandle(SocketStreamHandle* handle)
     return id;
 }
 
-SocketStreamHandle::SocketStreamHandle(const KURL& url, SocketStreamHandleClient* client)
+SocketStreamHandle::SocketStreamHandle(const URL& url, SocketStreamHandleClient* client)
     : SocketStreamHandleBase(url, client)
-    , m_readBuffer(0)
 {
     LOG(Network, "SocketStreamHandle %p new client %p", this, m_client);
     unsigned int port = url.hasPort() ? url.port() : (url.protocolIs("wss") ? 443 : 80);
@@ -97,8 +97,7 @@ SocketStreamHandle::SocketStreamHandle(const KURL& url, SocketStreamHandleClient
 }
 
 SocketStreamHandle::SocketStreamHandle(GSocketConnection* socketConnection, SocketStreamHandleClient* client)
-    : SocketStreamHandleBase(KURL(), client)
-    , m_readBuffer(0)
+    : SocketStreamHandleBase(URL(), client)
 {
     LOG(Network, "SocketStreamHandle %p new client %p", this, m_client);
     m_id = activateHandle(this);
@@ -124,8 +123,8 @@ void SocketStreamHandle::connected(GSocketConnection* socketConnection, GError* 
     m_outputStream = G_POLLABLE_OUTPUT_STREAM(g_io_stream_get_output_stream(G_IO_STREAM(m_socketConnection.get())));
     m_inputStream = g_io_stream_get_input_stream(G_IO_STREAM(m_socketConnection.get()));
 
-    m_readBuffer = new char[READ_BUFFER_SIZE];
-    g_input_stream_read_async(m_inputStream.get(), m_readBuffer, READ_BUFFER_SIZE, G_PRIORITY_DEFAULT, 0,
+    m_readBuffer = std::make_unique<char[]>(READ_BUFFER_SIZE);
+    g_input_stream_read_async(m_inputStream.get(), m_readBuffer.get(), READ_BUFFER_SIZE, G_PRIORITY_DEFAULT, 0,
         reinterpret_cast<GAsyncReadyCallback>(readReadyCallback), m_id);
 
     m_state = Open;
@@ -146,9 +145,9 @@ void SocketStreamHandle::readBytes(signed long bytesRead, GError* error)
 
     // The client can close the handle, potentially removing the last reference.
     RefPtr<SocketStreamHandle> protect(this); 
-    m_client->didReceiveSocketStreamData(this, m_readBuffer, bytesRead);
+    m_client->didReceiveSocketStreamData(this, m_readBuffer.get(), bytesRead);
     if (m_inputStream) // The client may have closed the connection.
-        g_input_stream_read_async(m_inputStream.get(), m_readBuffer, READ_BUFFER_SIZE, G_PRIORITY_DEFAULT, 0,
+        g_input_stream_read_async(m_inputStream.get(), m_readBuffer.get(), READ_BUFFER_SIZE, G_PRIORITY_DEFAULT, 0,
             reinterpret_cast<GAsyncReadyCallback>(readReadyCallback), m_id);
 }
 
@@ -169,7 +168,7 @@ int SocketStreamHandle::platformSend(const char* data, int length)
     if (!m_outputStream || !data)
         return 0;
 
-    GOwnPtr<GError> error;
+    GUniqueOutPtr<GError> error;
     gssize written = g_pollable_output_stream_write_nonblocking(m_outputStream.get(), data, length, 0, &error.outPtr());
     if (error) {
         if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
@@ -195,7 +194,7 @@ void SocketStreamHandle::platformClose()
     stopWaitingForSocketWritability();
 
     if (m_socketConnection) {
-        GOwnPtr<GError> error;
+        GUniqueOutPtr<GError> error;
         g_io_stream_close(G_IO_STREAM(m_socketConnection.get()), 0, &error.outPtr());
         if (error)
             m_client->didFailSocketStream(this, SocketStreamError(error->code, error->message));
@@ -204,8 +203,7 @@ void SocketStreamHandle::platformClose()
 
     m_outputStream = 0;
     m_inputStream = 0;
-    delete m_readBuffer;
-    m_readBuffer = 0;
+    m_readBuffer = nullptr;
 
     m_client->didCloseSocketStream(this);
 }
@@ -226,6 +224,16 @@ void SocketStreamHandle::receivedRequestToContinueWithoutCredential(const Authen
 }
 
 void SocketStreamHandle::receivedCancellation(const AuthenticationChallenge&)
+{
+    notImplemented();
+}
+
+void SocketStreamHandle::receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&)
+{
+    notImplemented();
+}
+
+void SocketStreamHandle::receivedChallengeRejection(const AuthenticationChallenge&)
 {
     notImplemented();
 }
@@ -252,7 +260,7 @@ void SocketStreamHandle::stopWaitingForSocketWritability()
 static void connectedCallback(GSocketClient* client, GAsyncResult* result, void* id)
 {
     // Always finish the connection, even if this SocketStreamHandle was deactivated earlier.
-    GOwnPtr<GError> error;
+    GUniqueOutPtr<GError> error;
     GSocketConnection* socketConnection = g_socket_client_connect_to_host_finish(client, result, &error.outPtr());
 
     // The SocketStreamHandle has been deactivated, so just close the connection, ignoring errors.
@@ -269,7 +277,7 @@ static void connectedCallback(GSocketClient* client, GAsyncResult* result, void*
 static void readReadyCallback(GInputStream* stream, GAsyncResult* result, void* id)
 {
     // Always finish the read, even if this SocketStreamHandle was deactivated earlier.
-    GOwnPtr<GError> error;
+    GUniqueOutPtr<GError> error;
     gssize bytesRead = g_input_stream_read_finish(stream, result, &error.outPtr());
 
     SocketStreamHandle* handle = getHandleFromId(id);
@@ -290,3 +298,5 @@ static gboolean writeReadyCallback(GPollableOutputStream*, void* id)
 }
 
 } // namespace WebCore
+
+#endif

@@ -40,7 +40,9 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/text/StringBuilder.h>
 
-using namespace std;
+#if PLATFORM(IOS)
+#import "LocalizedDateCache.h"
+#endif
 
 namespace WebCore {
 
@@ -83,7 +85,11 @@ static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCa
 
 LocaleMac::LocaleMac(NSLocale* locale)
     : m_locale(locale)
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+    , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]))
+#else
     , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSGregorianCalendar]))
+#endif
     , m_didInitializeNumberData(false)
 {
     NSArray* availableLanguages = [NSLocale ISOLanguageCodes];
@@ -98,12 +104,6 @@ LocaleMac::~LocaleMac()
 {
 }
 
-PassOwnPtr<LocaleMac> LocaleMac::create(const String& localeIdentifier)
-{
-    RetainPtr<NSLocale> locale = [[NSLocale alloc] initWithLocaleIdentifier:localeIdentifier];
-    return adoptPtr(new LocaleMac(locale.get()));
-}
-
 PassOwnPtr<LocaleMac> LocaleMac::create(NSLocale* locale)
 {
     return adoptPtr(new LocaleMac(locale));
@@ -113,6 +113,27 @@ RetainPtr<NSDateFormatter> LocaleMac::shortDateFormatter()
 {
     return createDateTimeFormatter(m_locale.get(), m_gregorianCalendar.get(), NSDateFormatterShortStyle, NSDateFormatterNoStyle);
 }
+
+#if PLATFORM(IOS)
+String LocaleMac::formatDateTime(const DateComponents& dateComponents, FormatType)
+{
+    double msec = dateComponents.millisecondsSinceEpoch();
+    DateComponents::Type type = dateComponents.type();
+
+    // "week" type not supported.
+    ASSERT(type != DateComponents::Invalid);
+    if (type == DateComponents::Week)
+        return String();
+
+    // Incoming msec value is milliseconds since 1970-01-01 00:00:00 UTC. The 1970 epoch.
+    NSTimeInterval secondsSince1970 = (msec / 1000);
+    NSDate *date = [NSDate dateWithTimeIntervalSince1970:secondsSince1970];
+
+    // Return a formatted string.
+    NSDateFormatter *dateFormatter = localizedDateCache().formatterForDateType(type);
+    return [dateFormatter stringFromDate:date];
+}
+#endif
 
 #if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 const Vector<String>& LocaleMac::monthLabels()

@@ -26,31 +26,50 @@
 #import "config.h"
 #import "LayerHostingContext.h"
 
-#import <wtf/OwnPtr.h>
-#import <wtf/PassOwnPtr.h>
 #import <WebKitSystemInterface.h>
+
+#if __has_include(<QuartzCore/QuartzCorePrivate.h>)
+#import <QuartzCore/QuartzCorePrivate.h>
+#else
+@interface CAContext : NSObject
+@end
+#endif
+
+@interface CAContext (Details)
++ (CAContext *)remoteContextWithOptions:(NSDictionary *)dict;
+@end
+
+extern NSString * const kCAContextIgnoresHitTest;
 
 namespace WebKit {
 
-PassOwnPtr<LayerHostingContext> LayerHostingContext::createForPort(mach_port_t serverPort)
+std::unique_ptr<LayerHostingContext> LayerHostingContext::createForPort(mach_port_t serverPort)
 {
-    OwnPtr<LayerHostingContext> layerHostingContext = adoptPtr(new LayerHostingContext);
+    auto layerHostingContext = std::make_unique<LayerHostingContext>();
 
-    layerHostingContext->m_layerHostingMode = LayerHostingModeDefault;
+    layerHostingContext->m_layerHostingMode = LayerHostingMode::InProcess;
     layerHostingContext->m_context = WKCAContextMakeRemoteWithServerPort(serverPort);
 
-    return layerHostingContext.release();
+    return layerHostingContext;
 }
 
-#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
-PassOwnPtr<LayerHostingContext> LayerHostingContext::createForWindowServer()
+#if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
+std::unique_ptr<LayerHostingContext> LayerHostingContext::createForExternalHostingProcess()
 {
-    OwnPtr<LayerHostingContext> layerHostingContext = adoptPtr(new LayerHostingContext);
+    auto layerHostingContext = std::make_unique<LayerHostingContext>();
+    layerHostingContext->m_layerHostingMode = LayerHostingMode::OutOfProcess;
 
-    layerHostingContext->m_layerHostingMode = LayerHostingModeInWindowServer;
+#if PLATFORM(IOS)
+    // Use a very large display ID to ensure that the context is never put on-screen 
+    // without being explicitly parented. See <rdar://problem/16089267> for details.
+    layerHostingContext->m_context = (WKCAContextRef)[CAContext remoteContextWithOptions:@{
+        kCAContextIgnoresHitTest : @YES,
+        kCAContextDisplayId : @10000 }];
+#else
     layerHostingContext->m_context = WKCAContextMakeRemoteForWindowServer();
-
-    return layerHostingContext.release();
+#endif
+    
+    return layerHostingContext;
 }
 #endif
 

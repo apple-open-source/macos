@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <IOKit/IOLib.h>
 
 #ifdef enqueue
@@ -29,7 +30,9 @@
 
 #include "IOHIDResourceUserClient.h"
 
-#define kHIDRTimeoutNS    1000000000
+#define kHIDClientTimeoutUS     1000000ULL
+
+#define kHIDQueueSize           16384
 
 #define super IOUserClient
 
@@ -43,7 +46,7 @@ OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, IOUserClient )
 const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDResourceDeviceUserClientMethodCount] = {
     {   // kIOHIDResourceDeviceUserClientMethodCreate
         (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_createDevice,
-        0, -1, /* 1 struct input : the report descriptor */
+        1, -1, /* 1 struct input : the report descriptor */
         0, 0
     },
     {   // kIOHIDResourceDeviceUserClientMethodTerminate
@@ -70,21 +73,20 @@ const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDRes
 //----------------------------------------------------------------------------------------------------
 bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * security_id, UInt32 type)
 {
+    bool result = false;
+    
 #if !TARGET_OS_EMBEDDED
-    if (kIOReturnSuccess != clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator))
-        return false;
+    require_noerr_action(clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator), exit, result=false);
 #endif
     
-    if (!super::initWithTask(owningTask, security_id, type)) {
-        IOLog("%s failed\n", __FUNCTION__);
-        return false;
-    }
+    result = super::initWithTask(owningTask, security_id, type);
+    require_action(result, exit, IOLog("%s failed\n", __FUNCTION__));
     
-    _device = NULL;
-    _lock   = IOLockAlloc();
-    _pending = OSSet::withCapacity(4);
+    _pending            = OSSet::withCapacity(4);
+    _maxClientTimeoutUS = kHIDClientTimeoutUS;
 
-    return true;
+exit:
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -92,15 +94,35 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
 //----------------------------------------------------------------------------------------------------
 bool IOHIDResourceDeviceUserClient::start(IOService * provider)
 {
-    if (!super::start(provider)) {
+    IOWorkLoop *    workLoop;
+    bool            result;
+    
+    _owner = OSDynamicCast(IOHIDResource, provider);
+    require_action(_owner, exit, result=false);
+    _owner->retain();
+    
+    require_action(super::start(provider), exit, result=false);
+    
+    workLoop = getWorkLoop();
+    require_action(workLoop, exit, result=false);
+    
+    _createDeviceTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDResourceDeviceUserClient::createAndStartDeviceAsyncCallback));
+    require_action(_createDeviceTimer, exit, result=false);
+    require_noerr_action(workLoop->addEventSource(_createDeviceTimer), exit, result=false);
+    
+    _commandGate = IOCommandGate::commandGate(this);
+    require_action(_commandGate, exit, result=false);
+    require_noerr_action(workLoop->addEventSource(_commandGate), exit, result=false);
+    
+    result = true;
+    
+exit:
+    if ( result==false ) {
         IOLog("%s failed\n", __FUNCTION__);
-        return false;
-    }    
+        stop(provider);
+    }
 
-    _owner = (IOHIDResource *) provider;
-    _device = NULL;
-
-    return true;
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -108,9 +130,22 @@ bool IOHIDResourceDeviceUserClient::start(IOService * provider)
 //----------------------------------------------------------------------------------------------------
 void IOHIDResourceDeviceUserClient::stop(IOService * provider)
 {
-    if ( _device )
-        _device->release();
-        
+    IOWorkLoop * workLoop = getWorkLoop();
+    
+    require(workLoop, exit);
+    
+    if ( _createDeviceTimer ) {
+        _createDeviceTimer->cancelTimeout();
+        workLoop->removeEventSource(_createDeviceTimer);
+    }
+    
+    if ( _commandGate ) {
+        cleanupPendingReports();
+
+        workLoop->removeEventSource(_commandGate);
+    }
+
+exit:
     super::stop(provider);
 }
 
@@ -119,11 +154,24 @@ void IOHIDResourceDeviceUserClient::stop(IOService * provider)
 //----------------------------------------------------------------------------------------------------
 void IOHIDResourceDeviceUserClient::free()
 {
+    if ( _properties )
+        _properties->release();
+    
+    if ( _commandGate ) {
+        _commandGate->release();
+    }
+
+    if ( _createDeviceTimer )
+        _createDeviceTimer->release();
+    
+    if ( _device )
+        _device->release();
+
     if ( _queue )
         _queue->release();
-
-    if ( _lock )
-        IOLockFree(_lock);
+    
+    if ( _owner )
+        _owner->release();
         
     return super::free();
 }
@@ -133,12 +181,31 @@ void IOHIDResourceDeviceUserClient::free()
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t port, UInt32 type __unused, io_user_reference_t refCon __unused)
 {
-    if ( isInactive() )
-        return kIOReturnNoDevice;
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::registerNotificationPortGated), port);
+    
+exit:
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::registerNotificationPortGated
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_t port)
+{
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
 
     _port = port;
     _queue->setNotificationPort(port);
-    return kIOReturnSuccess;
+    
+    result = kIOReturnSuccess;
+exit:
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -146,52 +213,46 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t por
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::clientMemoryForType(UInt32 type __unused, IOOptionBits * options, IOMemoryDescriptor ** memory )
 {
-    IOReturn ret = kIOReturnNoMemory;
-           
-    if ( isInactive() )
-        return kIOReturnNoDevice;
-
-    if ( !_queue ) {
-        UInt32 maxOutputReportSize  = 0;
-        UInt32 maxFeatureReportSize = 0;
-        OSNumber * number;
-        
-        number = (OSNumber*)_device->copyProperty(kIOHIDMaxOutputReportSizeKey);
-        if ( OSDynamicCast(OSNumber, number) )
-            maxOutputReportSize = number->unsigned32BitValue();
-        OSSafeReleaseNULL(number);
-
-        number = (OSNumber*)_device->copyProperty(kIOHIDMaxFeatureReportSizeKey);
-        if ( OSDynamicCast(OSNumber, number) )
-            maxFeatureReportSize = number->unsigned32BitValue();
-        OSSafeReleaseNULL(number);
-        
-        _queue = IOHIDResourceQueue::withEntries(4, max(maxFeatureReportSize, maxOutputReportSize)+sizeof(IOHIDResourceDataQueueHeader));
-    }
+    IOReturn result;
     
-    if ( _queue ) {
-        IOMemoryDescriptor * memoryToShare = _queue->getMemoryDescriptor();
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::clientMemoryForTypeGated), options, memory);
     
-        // if we got some memory
-        if (memoryToShare)
-        {
-            // Memory will be released by user client
-            // when last map is destroyed.
-
-            memoryToShare->retain();
-
-            ret = kIOReturnSuccess;
-        }
-        
-        // set the result
-        *options = 0;
-        *memory  = memoryToShare;
-    }
-        
-    return ret;
+exit:
+    return result;
 }
 
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::clientMemoryForTypeGated
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::clientMemoryForTypeGated(IOOptionBits * options, IOMemoryDescriptor ** memory )
+{
+    IOReturn ret;
+    IOMemoryDescriptor * memoryToShare = NULL;
+    
+    require_action(!isInactive(), exit, ret=kIOReturnOffline);
+    
+    if ( !_queue ) {
+        _queue = IOHIDResourceQueue::withCapacity(kHIDQueueSize);
+    }
+    
+    require_action(_queue, exit, ret = kIOReturnNoMemory);
+    
+    memoryToShare = _queue->getMemoryDescriptor();
+    require_action(memoryToShare, exit, ret = kIOReturnNoMemory);
 
+    memoryToShare->retain();
+
+    ret = kIOReturnSuccess;
+
+exit:
+    // set the result
+    *options = 0;
+    *memory  = memoryToShare;
+
+    return ret;
+}
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::externalMethod
 //----------------------------------------------------------------------------------------------------
@@ -202,17 +263,36 @@ IOReturn IOHIDResourceDeviceUserClient::externalMethod(
                                             OSObject *                  target, 
                                             void *                      reference)
 {
-    if ( isInactive() )
-        return kIOReturnNoDevice;
-        
-    if (selector < (uint32_t) kIOHIDResourceDeviceUserClientMethodCount)
-    {
-        dispatch = (IOExternalMethodDispatch *) &_methods[selector];
-        if (!target)
-            target = this;
-    }
+    ExternalMethodGatedArguments gatedArguments = {selector, arguments, dispatch, target, reference};
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::externalMethodGated), &gatedArguments);
+    
+exit:
+    return result;
+}
 
-    return super::externalMethod(selector, arguments, dispatch, target, reference);
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::externalMethodGated
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::externalMethodGated(ExternalMethodGatedArguments *arguments)
+{
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+
+    require_action(arguments->selector < (uint32_t) kIOHIDResourceDeviceUserClientMethodCount, exit, result=kIOReturnBadArgument);
+
+    arguments->dispatch = (IOExternalMethodDispatch *) &_methods[arguments->selector];
+    if (!arguments->target)
+        arguments->target = this;
+    
+    result = super::externalMethod(arguments->selector, arguments->arguments, arguments->dispatch, arguments->target, arguments->reference);
+    
+exit:
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -239,7 +319,7 @@ IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromIn
 //----------------------------------------------------------------------------------------------------
 IOService * IOHIDResourceDeviceUserClient::getService(void)
 {
-    return _owner;
+    return _owner ? _owner : NULL;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -247,95 +327,113 @@ IOService * IOHIDResourceDeviceUserClient::getService(void)
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::clientClose(void)
 {
-    cleanupPendingReports();
     terminate();
+    return kIOReturnSuccess;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::createAndStartDevice
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::createAndStartDevice()
+{
+    IOReturn    result;
+    OSNumber *  number = NULL;
+    
+    number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDRequestTimeoutKey));
+    if ( number )
+        _maxClientTimeoutUS = number->unsigned32BitValue();
+
+    // If after all the unwrapping we have a dictionary, let's create the device
+    _device = IOHIDUserDevice::withProperties(_properties);
+    require_action(_device, exit, result=kIOReturnNoResources);
+    
+    require_action(_device->attach(this), exit, result=kIOReturnInternalError);
+    
+    require_action(_device->start(this), exit, _device->detach(this); result=kIOReturnInternalError);
+    
+    result = kIOReturnSuccess;
+    
+exit:
+    if ( result!=kIOReturnSuccess ) {
+        IOLog("%s: result=0x%08x\n", __FUNCTION__, result);
+        OSSafeReleaseNULL(_device);
+    }
+
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::createAndStartDeviceAsyncCallback
+//----------------------------------------------------------------------------------------------------
+void IOHIDResourceDeviceUserClient::createAndStartDeviceAsyncCallback()
+{
+    createAndStartDevice();
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::createAndStartDeviceAsync
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::createAndStartDeviceAsync()
+{
+    _createDeviceTimer->setTimeoutMS(0);
     return kIOReturnSuccess;
 }
 
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::createDevice
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::createDevice(
-                                        IOHIDResourceDeviceUserClient * target __unused, 
-                                        void *                          reference __unused, 
-                                        IOExternalMethodArguments *     arguments)
+IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments * arguments)
 {
-    if (_device == NULL)  { // Report descriptor is static and thus can only be set on creation
-        
-        IOMemoryDescriptor *    propertiesDesc  = NULL;
-        OSDictionary *          properties      = NULL;
-        
-        // Let's deal with our device properties from data
-        propertiesDesc = createMemoryDescriptorFromInputArguments(arguments);
-        if ( !propertiesDesc ) {
-            IOLog("%s failed : could not create descriptor\n", __FUNCTION__);
-            return kIOReturnNoMemory;
-        }
+    IOMemoryDescriptor *    propertiesDesc      = NULL;
+    void *                  propertiesData      = NULL;
+    IOByteCount             propertiesLength    = 0;
+    OSObject *              object              = NULL;
+    IOReturn                result;
+    
+    // Report descriptor is static and thus can only be set on creation
+    require_action(_device==NULL, exit, result=kIOReturnInternalError);
+    
+    // Let's deal with our device properties from data
+    propertiesDesc = createMemoryDescriptorFromInputArguments(arguments);
+    require_action(propertiesDesc, exit, result=kIOReturnNoMemory);
+    
+    propertiesLength = propertiesDesc->getLength();
+    require_action(propertiesLength, exit, result=kIOReturnNoResources);
+    
+    propertiesData = IOMalloc(propertiesLength);
+    require_action(propertiesData, exit, result=kIOReturnNoMemory);
+    
+    propertiesDesc->readBytes(0, propertiesData, propertiesLength);
+    
+    require_action(strnlen((const char *) propertiesData, propertiesLength) < propertiesLength, exit, result=kIOReturnInternalError);
 
-        void *         propertiesData;
-        IOByteCount    propertiesLength;
-        
-        propertiesLength = propertiesDesc->getLength();
-        if ( propertiesLength ) { 
-            propertiesData = IOMalloc(propertiesLength);
-        
-            if ( propertiesData ) { 
-                OSObject * object;
-            
-                propertiesDesc->readBytes(0, propertiesData, propertiesLength);
+    object = OSUnserializeXML((const char *)propertiesData, propertiesLength);
+    require_action(object, exit, result=kIOReturnInternalError);
 
-                if (strnlen((const char *) propertiesData, propertiesLength) < propertiesLength) {
-                    object = OSUnserializeXML((const char *)propertiesData, propertiesLength);
-                if (object) {
-                    properties = OSDynamicCast(OSDictionary, object);
-                    if( !properties )
-                        object->release();
-                }
-                }
-                else {
-                    IOLog("%s failed: improperly sized data\n", __FUNCTION__);
-                }
-                IOFree(propertiesData, propertiesLength);
-            }
-        }
+    _properties = OSDynamicCast(OSDictionary, object);
+    require_action(_properties, exit, result=kIOReturnNoMemory);
+    
+    _properties->retain();
+    
+    if ( arguments->scalarInput[0] )
+        result = createAndStartDeviceAsync();
+    else
+        result = createAndStartDevice();
+    
+    require_noerr(result, exit);
+
+exit:
+    
+    if ( object )
+        object->release();
+    
+    if ( propertiesData && propertiesLength )
+        IOFree(propertiesData, propertiesLength);
+
+    if ( propertiesDesc )
         propertiesDesc->release();
-        
-        // If after all the unwrapping we have a dictionary, let's create the device
-        if ( properties ) { 
-            _device = IOHIDUserDevice::withProperties(properties);
-            properties->release();
-        }
-
-        
-    } else {/* We already have a device. Close it before opening a new one */
-        IOLog("%s failed : _device already exists\n", __FUNCTION__);
-        return kIOReturnInternalError;
-    }
-
-    if (_device == NULL) {
-        IOLog("%s failed : _device is NULL\n", __FUNCTION__);
-        return kIOReturnNoResources;
-    }
-
-    IOReturn ret = kIOReturnInternalError;
     
-    if (_device->attach(this) ) {
-        if ( _device->start(this) ) {
-            ret = kIOReturnSuccess;
-        } else {
-            IOLog("%s start failed\n", __FUNCTION__);
-            _device->detach(this);
-        }
-    } else {
-        IOLog("%s attach failed\n", __FUNCTION__);
-    }
-    
-    if ( ret != kIOReturnSuccess ) {
-        _device->release();
-        _device = NULL;
-    }
-
-    return ret;
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -343,10 +441,10 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::_createDevice(
                                         IOHIDResourceDeviceUserClient * target, 
-                                        void *                          reference, 
+                                        void *                          reference __unused,
                                         IOExternalMethodArguments *     arguments)
 {
-    return target->createDevice(target, reference, arguments);
+    return target->createDevice(arguments);
 }
 
 struct IOHIDResourceDeviceUserClientAsyncParamBlock {
@@ -367,25 +465,16 @@ void IOHIDResourceDeviceUserClient::ReportComplete(void *param, IOReturn res, UI
     release();
 }
 
-
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::handleReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::handleReport(
-                                        IOHIDResourceDeviceUserClient * target, 
-                                        void *                          reference __unused, 
-                                        IOExternalMethodArguments *     arguments)
+IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments * arguments)
 {
     AbsoluteTime timestamp;
     
     if (_device == NULL) {
         IOLog("%s failed : device is NULL\n", __FUNCTION__);
         return kIOReturnNotOpen;
-    }
-
-    if (target != this) {
-        IOLog("%s failed : this is not target\n", __FUNCTION__);
-        return kIOReturnInternalError;
     }
 
     IOReturn                ret;
@@ -396,7 +485,6 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
         IOLog("%s failed : could not create descriptor\n", __FUNCTION__);
         return kIOReturnNoMemory;
     }
-    
     
     if ( arguments->scalarInput[0] )
         AbsoluteTime_to_scalar(&timestamp) = arguments->scalarInput[0];
@@ -417,13 +505,13 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
             return kIOReturnNoMemory;   // need to release report
         }
         
-        target->retain();
+        retain();
         
         bcopy(arguments->asyncReference, pb->fAsyncRef, sizeof(OSAsyncReference64));
         pb->fAsyncCount = arguments->asyncReferenceCount;
         
-        tap.target = target;
-        tap.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDResourceDeviceUserClient::ReportComplete);
+        tap.target = this;
+        tap.action = OSMemberFunctionCast(IOHIDCompletionAction, this, &IOHIDResourceDeviceUserClient::ReportComplete);
         tap.parameter = pb;
                         
         ret = _device->handleReportWithTimeAsync(timestamp, report, kIOHIDReportTypeInput, 0, 0, &tap);
@@ -432,7 +520,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
         
         if (ret != kIOReturnSuccess) {
             IOFree(pb, sizeof(*pb));
-            target->release();
+            release();
         }
     }
     
@@ -443,10 +531,10 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
 // IOHIDResourceDeviceUserClient::_handleReport
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::_handleReport(IOHIDResourceDeviceUserClient    *target, 
-                                             void                        *reference, 
+                                             void                        *reference __unused,
                                              IOExternalMethodArguments    *arguments)
 {
-    return target->handleReport(target, reference, arguments);
+    return target->handleReport(arguments);
 }
 
 typedef struct {
@@ -459,48 +547,66 @@ typedef struct {
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options)
 {
+    ReportGatedArguments    arguments   = {report, reportType, options};
+    IOReturn                result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::getReportGated), &arguments);
+exit:
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::getReport
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * arguments)
+{
     IOHIDResourceDataQueueHeader    header;
     __ReportResult                  result;
-    IOReturn                        ret = kIOReturnNoMemory;
+    AbsoluteTime                    ts;
+    IOReturn                        ret;
     OSData *                        retData = NULL;
     
-    result.descriptor = report;
+    require_action(!isInactive(), exit, ret=kIOReturnOffline);
+    
+    result.descriptor = arguments->report;
     
     retData = OSData::withBytesNoCopy(&result, sizeof(__ReportResult));
-    if ( retData ) {
+    require_action(retData, exit, ret=kIOReturnNoMemory);
     
-        header.direction   = kIOHIDResourceReportDirectionIn;
-        header.type        = reportType;
-        header.reportID    = options&0xff;
-        header.length      = report->getLength();
-        header.token       = (intptr_t)retData;
+    header.direction   = kIOHIDResourceReportDirectionIn;
+    header.type        = arguments->reportType;
+    header.reportID    = arguments->options&0xff;
+    header.length      = (uint32_t)arguments->report->getLength();
+    header.token       = (intptr_t)retData;
 
-        IOLockLock(_lock);
-
-        _pending->setObject(retData);
-        retData->release();
-                
-        // if we successfully enqueue, let's sleep till we get a result from postReportResult
-        if ( _queue && _queue->enqueueReport(&header) ){
-            AbsoluteTime ts;
-            clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
-            switch ( IOLockSleepDeadline(_lock, (void *)retData, ts, THREAD_ABORTSAFE) ) {
-                case THREAD_AWAKENED:
-                    ret = result.ret;
-                    break;
-                case THREAD_TIMED_OUT:
-                    ret = kIOReturnTimeout;
-                    break;
-                default:
-                    ret = kIOReturnError;
-                    break;
-            }
-        }
-        _pending->removeObject(retData);
-        
-        IOLockUnlock(_lock);
+    _pending->setObject(retData);
+    
+    require_action(_queue && _queue->enqueueReport(&header), exit, ret=kIOReturnNoMemory);
+    
+    // if we successfully enqueue, let's sleep till we get a result from postReportResult
+    clock_interval_to_deadline(kMicrosecondScale, _maxClientTimeoutUS, &ts);
+    
+    switch ( _commandGate->commandSleep(retData, ts, THREAD_ABORTSAFE) ) {
+        case THREAD_AWAKENED:
+            ret = result.ret;
+            break;
+        case THREAD_TIMED_OUT:
+            ret = kIOReturnTimeout;
+            break;
+        default:
+            ret = kIOReturnError;
+            break;
     }
-
+    
+exit:
+    if ( retData ) {
+        _pending->removeObject(retData);
+        _commandGate->commandWakeup(&_pending);
+        retData->release();
+    }
+    
     return ret;
 }
 
@@ -509,64 +615,76 @@ IOReturn IOHIDResourceDeviceUserClient::getReport(IOMemoryDescriptor *report, IO
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::setReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options)
 {
+    ReportGatedArguments    arguments={report, reportType, options};
+    IOReturn                result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::setReportGated), &arguments);
+exit:
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::setReportGated
+//----------------------------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * arguments)
+{
     IOHIDResourceDataQueueHeader    header;
     __ReportResult                  result;
-    IOReturn                        ret = kIOReturnNoMemory;
+    AbsoluteTime                    ts;
+    IOReturn                        ret;
     OSData *                        retData = NULL;
     
+    require_action(!isInactive(), exit, ret=kIOReturnOffline);
+
     bzero(&result, sizeof(result));
     
     retData = OSData::withBytesNoCopy(&result, sizeof(result));
-    if ( retData ) {
+    require_action(retData, exit, ret=kIOReturnNoMemory);
     
-        header.direction   = kIOHIDResourceReportDirectionOut;
-        header.type        = reportType;
-        header.reportID    = options&0xff;
-        header.length      = report->getLength();
-        header.token       = (intptr_t)retData;
+    header.direction   = kIOHIDResourceReportDirectionOut;
+    header.type        = arguments->reportType;
+    header.reportID    = arguments->options&0xff;
+    header.length      = (uint32_t)arguments->report->getLength();
+    header.token       = (intptr_t)retData;
 
-        IOLockLock(_lock);
+    _pending->setObject(retData);
+    
+    require_action(_queue && _queue->enqueueReport(&header, arguments->report), exit, ret=kIOReturnNoMemory);
 
-        _pending->setObject(retData);
-        retData->release();
-                
-        // if we successfully enqueue, let's sleep till we get a result from postReportResult
-        if ( _queue && _queue->enqueueReport(&header, report) ) {   
-            AbsoluteTime ts;
-            clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
-            
-            switch ( IOLockSleepDeadline(_lock, (void *)retData, ts, THREAD_ABORTSAFE) ) {
-                case THREAD_AWAKENED:
-                    ret = result.ret;
-                    break;
-                case THREAD_TIMED_OUT:
-                    ret = kIOReturnTimeout;
-                    break;
-                default:
-                    ret = kIOReturnError;
-                    break;
-            }
-            
-        }
-        _pending->removeObject(retData);
-        
-        IOLockUnlock(_lock);
+    // if we successfully enqueue, let's sleep till we get a result from postReportResult
+    clock_interval_to_deadline(kMicrosecondScale, _maxClientTimeoutUS, (uint64_t *)&ts);
+    
+    switch ( _commandGate->commandSleep(retData, ts, THREAD_ABORTSAFE) ) {
+        case THREAD_AWAKENED:
+            ret = result.ret;
+            break;
+        case THREAD_TIMED_OUT:
+            ret = kIOReturnTimeout;
+            break;
+        default:
+            ret = kIOReturnError;
+            break;
     }
 
+exit:
+    if ( retData ) {
+        _pending->removeObject(retData);
+        _commandGate->commandWakeup(&_pending);
+        retData->release();
+    }
+    
     return ret;
 }
 
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::postReportResult
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::postReportResult(
-                                        IOHIDResourceDeviceUserClient * target __unused, 
-                                        void *                          reference __unused, 
-                                        IOExternalMethodArguments *     arguments)
+IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArguments * arguments)
 {
     OSObject * tokenObj = (OSObject*)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexToken];
 
-    IOLockLock(_lock);
     if ( tokenObj && _pending->containsObject(tokenObj) ) {
         OSData * data = OSDynamicCast(OSData, tokenObj);
         if ( data ) {
@@ -583,13 +701,13 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(
             
             }
                 
-            pResult->ret = arguments->scalarInput[kIOHIDResourceUserClientResponseIndexResult];
+            pResult->ret = (IOReturn)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexResult];
 
-            IOLockWakeup(_lock, (void *)data, false);  
+            _commandGate->commandWakeup(data);
         }
             
     }
-    IOLockUnlock(_lock);
+
     return kIOReturnSuccess;
 }
 
@@ -597,10 +715,10 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(
 // IOHIDResourceDeviceUserClient::_postReportResult
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::_postReportResult(IOHIDResourceDeviceUserClient    *target, 
-                                             void                        *reference, 
+                                             void                        *reference __unused,
                                              IOExternalMethodArguments    *arguments)
 {
-    return target->postReportResult(target, reference, arguments);
+    return target->postReportResult(arguments);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -615,10 +733,19 @@ void IOHIDResourceDeviceUserClient::cleanupPendingReports()
     if ( !iterator )
         return;
         
-    while ( (object = iterator->getNextObject()) )
-        IOLockWakeup(_lock, (void *)object, false);  
+    while ( (object = iterator->getNextObject()) ) {
+        __ReportResult * pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
+        
+        pResult->ret = kIOReturnAborted;
+        
+        _commandGate->commandWakeup(object);
+    }
     
     iterator->release();
+    
+    while ( _pending->getCount() ) {
+        _commandGate->commandSleep(&_pending);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -628,9 +755,8 @@ IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
 {
     if (_device) {
         _device->terminate();
-        _device->release();
     }
-    _device = NULL;
+    OSSafeRelease(_device);
 
     return kIOReturnSuccess;
 }
@@ -653,12 +779,12 @@ IOReturn IOHIDResourceDeviceUserClient::_terminateDevice(
 #include <IOKit/IODataQueueShared.h>
 OSDefineMetaClassAndStructors( IOHIDResourceQueue, IOSharedDataQueue )
 
-IOHIDResourceQueue *IOHIDResourceQueue::withEntries(UInt32 numEntries, UInt32 entrySize)
+IOHIDResourceQueue *IOHIDResourceQueue::withCapacity(UInt32 capacity)
 {
     IOHIDResourceQueue *dataQueue = new IOHIDResourceQueue;
 
     if (dataQueue) {
-        if  (!dataQueue->initWithEntries(numEntries, entrySize)) {
+        if (!dataQueue->initWithCapacity(capacity)) {
             dataQueue->release();
             dataQueue = 0;
         }
@@ -682,9 +808,9 @@ void IOHIDResourceQueue::free()
 
 Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report)
 {
-    IOByteCount         headerSize  = sizeof(IOHIDResourceDataQueueHeader);
-    IOByteCount         reportSize  = report ? report->getLength() : 0;
-    IOByteCount         dataSize    = ALIGNED_DATA_SIZE(headerSize + reportSize, sizeof(uint32_t));
+    UInt32              headerSize  = sizeof(IOHIDResourceDataQueueHeader);
+    UInt32              reportSize  = report ? (UInt32)report->getLength() : 0;
+    UInt32              dataSize    = ALIGNED_DATA_SIZE(headerSize + reportSize, sizeof(uint32_t));
     const UInt32        head        = dataQueue->head;  // volatile
     const UInt32        tail        = dataQueue->tail;
     const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;

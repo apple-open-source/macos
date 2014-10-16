@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -79,6 +79,7 @@ struct process
 #if SHOPT_COSHELL
 	Cojob_t		*p_cojob;	/* coshell job */
 #endif /* SHOPT_COSHELL */
+	int		*p_exitval;	/* place to store the exitval */
 	pid_t		p_pid;		/* process id */
 	pid_t		p_pgrp;		/* process group */
 	pid_t		p_fgrp;		/* process group when stopped */
@@ -96,11 +97,13 @@ struct process
 struct jobs
 {
 	struct process	*pwlist;	/* head of process list */
+	int		*exitval;	/* pipe exit values */
 	pid_t		curpgid;	/* current process gid id */
 	pid_t		parent;		/* set by fork() */
 	pid_t		mypid;		/* process id of shell */
 	pid_t		mypgid;		/* process group id of shell */
 	pid_t		mytgid;		/* terminal group id of shell */
+	int		curjobid;
 	unsigned int	in_critical;	/* >0 => in critical region */
 	int		savesig;	/* active signal */
 	int		numpost;	/* number of posted jobs */
@@ -134,8 +137,12 @@ extern struct jobs job;
 
 #if !_std_malloc
 #include <vmalloc.h>
+#ifdef vmlocked
+#define vmbusy()	vmlocked(Vmregion)
+#else
 #if VMALLOC_VERSION >= 20070911L
 #define vmbusy()	(vmstat(0,0)!=0)
+#endif
 #endif
 #endif
 #ifndef vmbusy
@@ -160,6 +167,7 @@ extern const char	e_running[];
 extern const char	e_coredump[];
 extern const char	e_no_proc[];
 extern const char	e_no_job[];
+extern const char	e_badpid[];
 extern const char	e_jobsrunning[];
 extern const char	e_nlspace[];
 extern const char	e_access[];

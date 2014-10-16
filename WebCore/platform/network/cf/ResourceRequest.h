@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,7 +32,7 @@
 
 OBJC_CLASS NSURLRequest;
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
 typedef const struct _CFURLRequest* CFURLRequestRef;
 typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
 #endif
@@ -42,39 +42,37 @@ namespace WebCore {
     class ResourceRequest : public ResourceRequestBase {
     public:
         ResourceRequest(const String& url) 
-            : ResourceRequestBase(KURL(ParsedURLString, url), UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(ParsedURLString, url), UseProtocolCachePolicy)
         {
         }
 
-        ResourceRequest(const KURL& url) 
+        ResourceRequest(const URL& url) 
             : ResourceRequestBase(url, UseProtocolCachePolicy)
         {
         }
 
-        ResourceRequest(const KURL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy) 
+        ResourceRequest(const URL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy)
             : ResourceRequestBase(url, policy)
         {
             setHTTPReferrer(referrer);
         }
         
         ResourceRequest()
-            : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(), UseProtocolCachePolicy)
         {
         }
         
 #if USE(CFNETWORK)
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         ResourceRequest(NSURLRequest *);
         void updateNSURLRequest();
+        void clearOrUpdateNSURLRequest();
 #endif
 
         ResourceRequest(CFURLRequestRef cfRequest)
             : ResourceRequestBase()
             , m_cfRequest(cfRequest)
         {
-#if PLATFORM(MAC)
-            updateNSURLRequest();
-#endif
         }
 #else
         ResourceRequest(NSURLRequest *nsRequest)
@@ -82,12 +80,19 @@ namespace WebCore {
             , m_nsRequest(nsRequest)
         {
         }
-
-        void updateFromDelegatePreservingOldHTTPBody(const ResourceRequest&);
 #endif
+
+        void updateFromDelegatePreservingOldProperties(const ResourceRequest&);
 
 #if PLATFORM(MAC)
         void applyWebArchiveHackForMail();
+#endif
+#if PLATFORM(COCOA)
+#if USE(CFNETWORK)
+        bool encodingRequiresPlatformData() const { return m_httpBody || m_cfRequest; }
+#else
+        bool encodingRequiresPlatformData() const { return m_httpBody || m_nsRequest; }
+#endif
         NSURLRequest *nsURLRequest(HTTPBodyUpdatePolicy) const;
 #endif
 
@@ -97,7 +102,7 @@ namespace WebCore {
         void setCachePartition(const String& cachePartition) { m_cachePartition = partitionName(cachePartition); }
 #endif
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
         CFURLRequestRef cfURLRequest(HTTPBodyUpdatePolicy) const;
         void setStorageSession(CFURLStorageSessionRef);
 #endif
@@ -105,8 +110,21 @@ namespace WebCore {
         static bool httpPipeliningEnabled();
         static void setHTTPPipeliningEnabled(bool);
 
-#if PLATFORM(MAC)
+        static bool resourcePrioritiesEnabled();
+
+#if PLATFORM(COCOA)
         static bool useQuickLookResourceCachingQuirks();
+#endif
+
+#if PLATFORM(IOS)
+        // FIXME: deprecatedIsMainResourceRequest() does not return the correct value if the ResourceRequest has been
+        // deserialized from an IPC message. As a result this function can only be relied on when networking is not in a
+        // separate process.
+        void deprecatedSetMainResourceRequest(bool isMainResourceRequest) const { m_mainResourceRequest = isMainResourceRequest; }
+        bool deprecatedIsMainResourceRequest() const { return m_mainResourceRequest; }
+
+    private:
+        mutable bool m_mainResourceRequest = false;
 #endif
 
     private:
@@ -123,7 +141,7 @@ namespace WebCore {
 #if USE(CFNETWORK)
         RetainPtr<CFURLRequestRef> m_cfRequest;
 #endif
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         RetainPtr<NSURLRequest> m_nsRequest;
 #endif
 #if ENABLE(CACHE_PARTITIONING)
@@ -138,6 +156,24 @@ namespace WebCore {
         String m_cachePartition;
 #endif
     };
+
+    inline bool ResourceRequest::resourcePrioritiesEnabled()
+    {
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+    return true;
+#elif PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 10100
+    // See <rdar://problem/16518595>, <rdar://problem/17168793> for issues we had before OS X 10.10.
+    // HTTP Pipelining could be enabled for experiments, but there is no point in doing so on old OS versions,
+    // and that can't work well because of the above issues.
+    ASSERT(!httpPipeliningEnabled());
+    return false;
+#elif PLATFORM(IOS)
+    return true;
+#elif PLATFORM(WIN)
+    return false;
+#endif
+    }
+
 
 } // namespace WebCore
 

@@ -4,22 +4,63 @@
 
 #include <stdarg.h>
 
+#ifndef HEIMDAL_NORETURN_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_NORETURN_ATTRIBUTE __attribute__((noreturn))
+#else
+#define HEIMDAL_NORETURN_ATTRIBUTE
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int
-asn1_fuzzer_method(const char *mode);
+#ifndef KRB5_LIB
+#ifndef KRB5_LIB_FUNCTION
+#if defined(_WIN32)
+#define KRB5_LIB_FUNCTION __declspec(dllimport)
+#define KRB5_LIB_CALL __stdcall
+#define KRB5_LIB_VARIABLE __declspec(dllimport)
+#else
+#define KRB5_LIB_FUNCTION
+#define KRB5_LIB_CALL
+#define KRB5_LIB_VARIABLE
+#endif
+#endif
+#endif
+
+#ifndef HEIMDAL_PRINTF_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_PRINTF_ATTRIBUTE(x) __attribute__((format x))
+#else
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+#endif
+#endif
+
+#ifndef HEIMDAL_NORETURN_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_NORETURN_ATTRIBUTE __attribute__((noreturn))
+#else
+#define HEIMDAL_NORETURN_ATTRIBUTE
+#endif
+#endif
 
 void
-asn1_fuzzer_reset(void);
+asn1_abort (const char */*fmt*/, ...) HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 2)) HEIMDAL_NORETURN_ATTRIBUTE;
 
-void
-asn1_fuzzer_next(void);
 
 int
-asn1_fuzzer_done(void);
+asn1_fuzzer_done (void);
 
+int
+asn1_fuzzer_method (const char */*mode*/);
+
+void
+asn1_fuzzer_next (void);
+
+void
+asn1_fuzzer_reset (void);
 
 int
 copy_heim_any (

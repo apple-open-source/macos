@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -37,22 +37,21 @@ namespace Bindings {
 
 const ClassInfo CRuntimeObject::s_info = { "CRuntimeObject", &RuntimeObject::s_info, 0, 0, CREATE_METHOD_TABLE(CRuntimeObject) };
 
-CRuntimeObject::CRuntimeObject(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, PassRefPtr<CInstance> instance)
-    : RuntimeObject(exec, globalObject, structure, instance)
+CRuntimeObject::CRuntimeObject(VM& vm, Structure* structure, PassRefPtr<CInstance> instance)
+    : RuntimeObject(vm, structure, instance)
 {
 }
 
-void CRuntimeObject::finishCreation(JSGlobalObject* globalObject)
+void CRuntimeObject::finishCreation(VM& vm)
 {
-    Base::finishCreation(globalObject);
-    ASSERT(inherits(&s_info));
+    Base::finishCreation(vm);
+    ASSERT(inherits(info()));
 }
 
 CInstance* CRuntimeObject::getInternalCInstance() const
 {
     return static_cast<CInstance*>(getInternalInstance());
 }
-
 
 }
 }

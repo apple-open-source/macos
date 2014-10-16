@@ -26,9 +26,9 @@
 #ifndef ewk_window_features_private_h
 #define ewk_window_features_private_h
 
+#include "EflTypedefs.h"
 #include "ewk_object_private.h"
-#include <Evas.h>
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 #include <wtf/RefCounted.h>
 
 class EwkView;

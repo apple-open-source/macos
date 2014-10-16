@@ -255,7 +255,9 @@ enum {
     PPP_EVT_DISC_STARTED,
     PPP_EVT_DISC_FINISHED,
     PPP_EVT_STOPPED,
-    PPP_EVT_CONTINUED
+    PPP_EVT_CONTINUED,
+    PPP_EVT_REQUEST_INSTALL,
+    PPP_EVT_REQUEST_UNINSTALL,
 };
 
 struct ppp_opt_echo {		// 0 for the following value will cancel echo option

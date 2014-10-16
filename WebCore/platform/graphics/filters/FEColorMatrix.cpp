@@ -27,11 +27,10 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include "RenderTreeAsText.h"
 #include "TextStream.h"
 
+#include <runtime/Uint8ClampedArray.h>
 #include <wtf/MathExtras.h>
-#include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 

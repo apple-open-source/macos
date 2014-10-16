@@ -165,16 +165,11 @@ _elf_cook(Elf * elf)
 	NOTE(ASSUMING_PROTECTED(*elf))
 	register int	inplace = 1;
 
-#if !defined(__APPLE__)
-	if (elf->ed_kind != ELF_K_ELF)
-		return (OK_YES);
-#else
 	if (elf->ed_kind != ELF_K_ELF && elf->ed_kind != ELF_K_MACHO)
 		return (OK_YES);
 		
 	if (elf->ed_kind == ELF_K_MACHO)
 		inplace = 0; /* Ensures ident structure gets fresh storage */
-#endif /*__APPLE__ */
 
 	if ((elf->ed_status == ES_COOKED) ||
 	    ((elf->ed_myflags & EDF_READ) == 0))

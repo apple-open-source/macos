@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,26 +31,18 @@
 
 #include "AudioBus.h"
 #include "AudioDestination.h"
+#include "MediaSession.h"
 #include <AudioUnit/AudioUnit.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class AudioSessionManagerToken;
-
 // An AudioDestination using CoreAudio's default output AudioUnit
 
-class AudioDestinationMac : public AudioDestination {
+class AudioDestinationMac : public AudioDestination, public MediaSessionClient {
 public:
     AudioDestinationMac(AudioIOCallback&, float sampleRate);
     virtual ~AudioDestinationMac();
-
-    virtual void start();
-    virtual void stop();
-    bool isPlaying() { return m_isPlaying; }
-
-    float sampleRate() const { return m_sampleRate; }
 
 private:
     void configure();
@@ -60,6 +52,21 @@ private:
 
     OSStatus render(UInt32 numberOfFrames, AudioBufferList* ioData);
 
+    virtual MediaSession::MediaType mediaType() const override { return MediaSession::WebAudio; }
+    virtual MediaSession::MediaType presentationType() const { return MediaSession::WebAudio; }
+    virtual bool canReceiveRemoteControlCommands() const override { return false; }
+    virtual void didReceiveRemoteControlCommand(MediaSession::RemoteControlCommandType) override { }
+    virtual bool overrideBackgroundPlaybackRestriction() const override { return false; }
+
+    virtual void start() override;
+    virtual void stop() override;
+    virtual bool isPlaying() override { return m_isPlaying; }
+
+    virtual void pausePlayback() override { stop(); }
+    virtual void resumePlayback() override { start(); }
+
+    virtual float sampleRate() const override { return m_sampleRate; }
+
     AudioUnit m_outputUnit;
     AudioIOCallback& m_callback;
     RefPtr<AudioBus> m_renderBus;
@@ -68,7 +75,7 @@ private:
     bool m_isPlaying;
 
 #if USE(AUDIO_SESSION)
-    OwnPtr<AudioSessionManagerToken> m_audioSessionManagerToken;
+    std::unique_ptr<MediaSession> m_mediaSession;
 #endif
 };
 

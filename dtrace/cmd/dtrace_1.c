@@ -44,12 +44,11 @@
 #include <libgen.h>
 #include <libproc.h>
 
-#ifdef __APPLE__
 #include "arch.h"
 #include <mach/mach.h>
 #include <mach/machine.h>
 #include <sys/sysctl.h>
-#endif
+#include <pthread.h>
 
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
@@ -72,14 +71,11 @@ typedef struct dtrace_cmd {
 #define	E_ERROR		1
 #define	E_USAGE		2
 
-#if !defined(__APPLE__)
-static const char DTRACE_OPTSTR[] =
-	"3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:X:Z";
-#else
 // XXX TODO: BX
 static const char DTRACE_OPTSTR[] =
-	":3:6:a:Ab:c:CD:ef:FhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:Z";
-#endif /* __APPLE__ */
+	":3:6:a:Ab:c:CD:ef:FhHi:I:lL:m:n:o:p:P:qs:SU:vVwW:x:Z";
+
+char *ctf_type_name(ctf_file_t *fp, ctf_id_t type, char *buf, size_t len);
 
 static char **g_argv;
 static int g_argc;
@@ -105,12 +101,8 @@ static int g_mode = DMODE_EXEC;
 static int g_status = E_SUCCESS;
 static int g_grabanon = 0;
 static const char *g_ofile = NULL;
-#if !defined(__APPLE__)
-static FILE *g_ofp = stdout;
-#else
 static const char *g_script_name = NULL;
 static FILE *g_ofp = NULL;
-#endif /* __APPLE__ */
 static dtrace_hdl_t *g_dtp;
 static char *g_etcfile = "/etc/system";
 static const char *g_etcbegin = "* vvvv Added by DTrace";
@@ -127,64 +119,6 @@ static const char *g_etc[] =  {
 "*",
 NULL };
 
-#if !defined(__APPLE__)
-static int
-usage(FILE *fp)
-{
-	static const char predact[] = "[[ predicate ] action ]";
-
-	(void) fprintf(fp, "Usage: %s [-32|-64] [-aACeFGhHlqSvVwZ] "
-	    "[-b bufsz] [-c cmd] [-D name[=def]]\n\t[-I path] [-L path] "
-	    "[-o output] [-p pid] [-s script] [-U name]\n\t"
-	    "[-x opt[=val]] [-X a|c|s|t]\n\n"
-	    "\t[-P provider %s]\n"
-	    "\t[-m [ provider: ] module %s]\n"
-	    "\t[-f [[ provider: ] module: ] func %s]\n"
-	    "\t[-n [[[ provider: ] module: ] func: ] name %s]\n"
-	    "\t[-i probe-id %s] [ args ... ]\n\n", g_pname,
-	    predact, predact, predact, predact, predact);
-
-	(void) fprintf(fp, "\tpredicate -> '/' D-expression '/'\n");
-	(void) fprintf(fp, "\t   action -> '{' D-statements '}'\n");
-
-	(void) fprintf(fp, "\n"
-	    "\t-32 generate 32-bit D programs and ELF files\n"
-	    "\t-64 generate 64-bit D programs and ELF files\n\n"
-	    "\t-a  claim anonymous tracing state\n"
-	    "\t-A  generate driver.conf(4) directives for anonymous tracing\n"
-	    "\t-b  set trace buffer size\n"
-	    "\t-c  run specified command and exit upon its completion\n"
-	    "\t-C  run cpp(1) preprocessor on script files\n"
-	    "\t-D  define symbol when invoking preprocessor\n"
-	    "\t-e  exit after compiling request but prior to enabling probes\n"
-	    "\t-f  enable or list probes matching the specified function name\n"
-	    "\t-F  coalesce trace output by function\n"
-	    "\t-G  generate an ELF file containing embedded dtrace program\n"
-	    "\t-h  generate a header file with definitions for static probes\n"
-	    "\t-H  print included files when invoking preprocessor\n"
-	    "\t-i  enable or list probes matching the specified probe id\n"
-	    "\t-I  add include directory to preprocessor search path\n"
-	    "\t-l  list probes matching specified criteria\n"
-	    "\t-L  add library directory to library search path\n"
-	    "\t-m  enable or list probes matching the specified module name\n"
-	    "\t-n  enable or list probes matching the specified probe name\n"
-	    "\t-o  set output file\n"
-	    "\t-p  grab specified process-ID and cache its symbol tables\n"
-	    "\t-P  enable or list probes matching the specified provider name\n"
-	    "\t-q  set quiet mode (only output explicitly traced data)\n"
-	    "\t-s  enable or list probes according to the specified D script\n"
-	    "\t-S  print D compiler intermediate code\n"
-	    "\t-U  undefine symbol when invoking preprocessor\n"
-	    "\t-v  set verbose mode (report stability attributes, arguments)\n"
-	    "\t-V  report DTrace API version\n"
-	    "\t-w  permit destructive actions\n"
-	    "\t-x  enable or modify compiler and tracing options\n"
-	    "\t-X  specify ISO C conformance settings for preprocessor\n"
-	    "\t-Z  permit probe descriptions that match zero probes\n");
-
-	return (E_USAGE);
-}
-#else
 static int
 usage(FILE *fp)
 {
@@ -271,7 +205,6 @@ static cpu_type_t current_kernel_arch(void)
         }
         return current_arch;
 }
-#endif /* __APPLE__ */
 
 static void
 verror(const char *fmt, va_list ap)
@@ -320,7 +253,6 @@ dfatal(const char *fmt, ...)
 		    dtrace_errmsg(g_dtp, dtrace_errno(g_dtp)));
 	}
 
-#if defined(__APPLE__)
 	if (g_dtp) {
 		int i;
 		for (i = 0; i < g_psc; i++) {
@@ -328,8 +260,7 @@ dfatal(const char *fmt, ...)
 			dtrace_proc_release(g_dtp, g_psv[i]);
 		}
 	}
-#endif
-	
+
 	/*
 	 * Close the DTrace handle to ensure that any controlled processes are
 	 * correctly restored and continued.
@@ -387,28 +318,6 @@ oprintf(const char *fmt, ...)
 	}
 }
 
-#if !defined(__APPLE__)
-static char **
-make_argv(char *s)
-{
-	const char *ws = "\f\n\r\t\v ";
-	char **argv = malloc(sizeof (char *) * (strlen(s) / 2 + 1));
-	int argc = 0;
-	char *p = s;
-
-	if (argv == NULL)
-		return (NULL);
-
-	for (p = strtok(s, ws); p != NULL; p = strtok(NULL, ws))
-		argv[argc++] = p;
-
-	if (argc == 0)
-		argv[argc++] = s;
-
-	argv[argc] = NULL;
-	return (argv);
-}
-#else
 /*
  * Accommodate embedded escaped whitespace in args.
  */
@@ -499,7 +408,6 @@ make_argv(char *s)
 	argv[argc] = NULL;
 	return (argv);
 }
-#endif /* __APPLE__ */
 
 static void
 dof_prune(const char *fname)
@@ -806,31 +714,6 @@ exec_prog(const dtrace_cmd_t *dcp)
 	g_total += dpi.dpi_matches;
 }
 
-#if !defined(__APPLE__)
-/*
- * Print out the specified DOF buffer as a set of ASCII bytes appropriate for
- * storing in a driver.conf(4) file associated with the dtrace driver.
- */
-static void
-anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n)
-{
-	const uchar_t *p, *q;
-
-	if (dof == NULL)
-		dfatal("failed to create DOF image for '%s'", dcp->dc_name);
-
-	p = (uchar_t *)dof;
-	q = p + dof->dofh_loadsz;
-
-	oprintf("dof-data-%d=0x%x", n, *p++);
-
-	while (p < q)
-		oprintf(",0x%x", *p++);
-
-	oprintf(";\n");
-	dtrace_dof_destroy(g_dtp, dof);
-}
-#else
 #include <CoreFoundation/CoreFoundation.h>
 
 // There are byte-order dependancies in the dof_hdr emitted by the byte code compiler.
@@ -971,8 +854,6 @@ dof_install_dictionary(const char *fname)
 	dof_update_dictionary(fname, AnonDOF);
 }
 
-#endif /* __APPLE__ */
-
 /*
  * Link the specified D program in DOF form into an ELF file for use in either
  * helpers, userland provider definitions, or both.  If -o was specified, that
@@ -1002,23 +883,6 @@ link_prog(dtrace_cmd_t *dcp)
 		dfatal("failed to link %s %s", dcp->dc_desc, dcp->dc_name);
 }
 
-#if !defined(__APPLE__)
-/*ARGSUSED*/
-static int
-list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
-{
-	dtrace_probeinfo_t p;
-
-	oprintf("%5d %10s %17s %33s %s\n", pdp->dtpd_id,
-	    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
-
-	if (g_verbose && dtrace_probe_info(dtp, pdp, &p) == 0)
-		print_probe_info(&p);
-
-	return (0);
-}
-#else
-
  /*ARGSUSED*/
 static int
 list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
@@ -1043,7 +907,6 @@ list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 	
 	return (0);
 }
-#endif /* __APPLE__ */
 
 /*ARGSUSED*/
 static int
@@ -1122,17 +985,11 @@ compile_str(dtrace_cmd_t *dcp)
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 {
-#if !defined(__APPLE__)
-	const psinfo_t *prp = Ppsinfo(P);
-	int pid = Pstatus(P)->pr_pid;
-	char name[SIG2STR_MAX];
-#else
 #define SIG2STR_MAX 32 /* Not referenced so long as prp just below is NULL. */
 #define proc_signame(x,y,z) "Unknown" /* Not referenced so long as prp just below is NULL. */
 	typedef struct psinfo { int pr_wstat; } psinfo_t;
 	const psinfo_t *prp = NULL;
 	int pid = Pstatus(P)->pr_pid;
-#endif /* __APPLE__ */
 
 	if (msg != NULL) {
 		notice("pid %d: %s\n", pid, msg);
@@ -1163,14 +1020,10 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 		break;
 
 	case PS_LOST:
-#if !defined(__APPLE__)
-		notice("pid %d exec'd a set-id or unobservable program\n", pid);
-#else
 		if (g_pslive)
 			notice("pid %d has exited\n", pid);
 		else
 			notice("pid %d exec'd a set-id or unobservable program\n", pid);
-#endif
 		g_pslive--;
 		break;
 	}
@@ -1546,114 +1399,10 @@ intr(int signo)
 		g_impatient = 1;
 }
 
-// #define SHARK_TEST_CODE
-
-#if defined(SHARK_TEST_CODE)
-static void
-setup(dtrace_bufdesc_t ***agg_bufs)
-{
-	int i;
-        
-	struct {
-		char *name;
-		char *optname;
-		dtrace_optval_t val;
-	} bufs[] = {
-		{ "buffer size", "bufsize" },
-		{ "aggregation size", "aggsize" },
-		{ "speculation size", "specsize" },
-		{ "dynamic variable size", "dynvarsize" },
-		{ NULL }
-	}, rates[] = {
-		{ "cleaning rate", "cleanrate" },
-		{ "status rate", "statusrate" },
-		{ NULL }
-	};
-        
-	for (i = 0; bufs[i].name != NULL; i++) {
-		if (dtrace_getopt(g_dtp, bufs[i].optname, &bufs[i].val) == -1)
-			fatal("couldn't get option %s", bufs[i].optname);
-	}
-        
-	for (i = 0; rates[i].name != NULL; i++) {
-		if (dtrace_getopt(g_dtp, rates[i].optname, &rates[i].val) == -1)
-			fatal("couldn't get option %s", rates[i].optname);
-	}
-        
-	if (dtrace_setup(g_dtp, agg_bufs) == -1)
-		dfatal("could not enable tracing");
-        
-	for (i = 0; bufs[i].name != NULL; i++) {
-		dtrace_optval_t j = 0, mul = 10;
-		dtrace_optval_t nsize;
-                
-		if (bufs[i].val == DTRACEOPT_UNSET)
-			continue;
-                
-		(void) dtrace_getopt(g_dtp, bufs[i].optname, &nsize);
-                
-		if (nsize == DTRACEOPT_UNSET || nsize == 0)
-			continue;
-                
-		if (nsize >= bufs[i].val - sizeof (uint64_t))
-			continue;
-                
-		for (; (INT64_C(1) << mul) <= nsize; j++, mul += 10)
-			continue;
-                
-		if (!(nsize & ((INT64_C(1) << (mul - 10)) - 1))) {
-			error("%s lowered to %lld%c\n", bufs[i].name,
-                              (long long)nsize >> (mul - 10), " kmgtpe"[j]);
-		} else {
-			error("%s lowered to %lld bytes\n", bufs[i].name,
-                              (long long)nsize);
-		}
-	}
-        
-	for (i = 0; rates[i].name != NULL; i++) {
-		dtrace_optval_t nval;
-		char *dir;
-                
-		if (rates[i].val == DTRACEOPT_UNSET)
-			continue;
-                
-		(void) dtrace_getopt(g_dtp, rates[i].optname, &nval);
-                
-		if (nval == DTRACEOPT_UNSET || nval == 0)
-			continue;
-                
-		if (rates[i].val == nval)
-			continue;
-                
-		dir = nval > rates[i].val ? "reduced" : "increased";
-                
-		if (nval <= NANOSEC && (NANOSEC % nval) == 0) {
-			error("%s %s to %lld hz\n", rates[i].name, dir,
-                              (long long)NANOSEC / (long long)nval);
-			continue;
-		}
-                
-		if ((nval % NANOSEC) == 0) {
-			error("%s %s to once every %lld seconds\n",
-                              rates[i].name, dir,
-                              (long long)nval / (long long)NANOSEC);
-			continue;
-		}
-                
-		error("%s %s to once every %lld nanoseconds\n",
-                      rates[i].name, dir, (long long)nval);
-	}
-}
-#endif // SHARK_TEST_CODE
-
 int
 main(int argc, char *argv[])
 {
 	dtrace_bufdesc_t buf;
-#if defined(SHARK_TEST_CODE)
-	dtrace_bufdesc_t **cpu_bufs;
-	dtrace_bufdesc_t **agg_bufs;
-#endif
 	struct sigaction act, oact;
 	dtrace_status_t status[2];
 	dtrace_optval_t opt;
@@ -1665,12 +1414,10 @@ main(int argc, char *argv[])
 	struct ps_prochandle *P;
 	pid_t pid;
 	int cc, k;
-#ifdef __APPLE__
 	cpu_type_t target_arch = CPU_TYPE_ANY;
 
-    // This assignment can no longer be done staticly, that causes a compiler error.
-    g_ofp = stdout;
-#endif
+	// This assignment can no longer be done staticly, that causes a compiler error.
+	g_ofp = stdout;
 
 	g_pname = basename(argv[0]);
 
@@ -1694,16 +1441,11 @@ main(int argc, char *argv[])
 	 * We also accumulate arguments that are not affiliated with getopt
 	 * options into g_argv[], and abort if any invalid options are found.
 	 */
-#if !defined(__APPLE__)
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-#else
 	/* Darwin's getopt(): Think different. */
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
-#endif /* __APPLE__ */
 			switch (c) {
 			case '3':
 				if (strcmp(optarg, "2") != 0) {
@@ -1712,13 +1454,8 @@ main(int argc, char *argv[])
 					    argv[0], optarg);
 					return (usage(stderr));
 				}
-#if !defined(__APPLE__)
-				g_oflags &= ~DTRACE_O_LP64;
-				g_oflags |= DTRACE_O_ILP32;
-#else
 				(void) fprintf(stderr, "%s: ignored option -- 3%s\n",
 					    argv[0], optarg);
-#endif /* __APPLE__ */
 				break;
 
 			case '6':
@@ -1728,20 +1465,11 @@ main(int argc, char *argv[])
 					    argv[0], optarg);
 					return (usage(stderr));
 				}
-#if !defined(__APPLE__)
-				g_oflags &= ~DTRACE_O_ILP32;
-				g_oflags |= DTRACE_O_LP64;
-#else
 				(void) fprintf(stderr, "%s: ignored option -- 6%s\n",
 					    argv[0], optarg);
-#endif /* __APPLE__ */
 				break;
 
 			case 'a':
-#if !defined(__APPLE__)
-				g_grabanon++; /* also checked in pass 2 below */
-				break;
-#else
 				if (0 == strcmp(optarg, "rch")) {
 					if (optind < argc && '-' != argv[optind][0]) {
 						const char* arch_string = argv[optind++];
@@ -1767,7 +1495,6 @@ main(int argc, char *argv[])
 					optind--;
 				}
 				break;
-#endif
 
 			case 'A':
 				g_mode = DMODE_ANON;
@@ -1806,8 +1533,7 @@ main(int argc, char *argv[])
 				g_mode = DMODE_VERS;
 				mode++;
 				break;
-				
-#if defined(__APPLE__)
+
 			case ':':
 				if ('a' == optopt) { // dangling '-a' without optarg is OK
 					g_grabanon++;
@@ -1821,18 +1547,13 @@ main(int argc, char *argv[])
 					return usage(stderr);
 				}
 				/* NOTREACHED */
-#endif /* __APPLE__ */
 
 			default:
 				if (strchr(DTRACE_OPTSTR, c) == NULL)
 					return (usage(stderr));
 			}
 		}
-		
-#if !defined(__APPLE__)
-		if (optind < argc)
-			g_argv[g_argc++] = argv[optind];
-#else
+
 		/* 'k' should track the advance of optind through argv.
 		 * When getopt() returns -1 and optind freezes, 'k' iterates 
 		 * over the remaining elements in argv.
@@ -1842,7 +1563,6 @@ main(int argc, char *argv[])
 
 		if (k < argc)
 			g_argv[g_argc++] = argv[k];
-#endif /* __APPLE__ */
 	}
 
 	if (mode > 1) {
@@ -1854,57 +1574,6 @@ main(int argc, char *argv[])
 	if (g_mode == DMODE_VERS)
 		return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
 
-#if !defined(__APPLE__)
-	/*
-	 * If we're in linker mode and the data model hasn't been specified,
-	 * we try to guess the appropriate setting by examining the object
-	 * files. We ignore certain errors since we'll catch them later when
-	 * we actually process the object files.
-	 */
-	if (g_mode == DMODE_LINK &&
-	    (g_oflags & (DTRACE_O_ILP32 | DTRACE_O_LP64)) == 0 &&
-	    elf_version(EV_CURRENT) != EV_NONE) {
-		int fd;
-		Elf *elf;
-		GElf_Ehdr ehdr;
-
-		for (i = 1; i < g_argc; i++) {
-			if ((fd = open64(g_argv[i], O_RDONLY)) == -1)
-				break;
-
-			if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-				(void) close(fd);
-				break;
-			}
-
-			if (elf_kind(elf) != ELF_K_ELF ||
-			    gelf_getehdr(elf, &ehdr) == NULL) {
-				(void) close(fd);
-				(void) elf_end(elf);
-				break;
-			}
-
-			(void) close(fd);
-			(void) elf_end(elf);
-
-			if (ehdr.e_ident[EI_CLASS] == ELFCLASS64) {
-				if (g_oflags & DTRACE_O_ILP32) {
-					fatal("can't mix 32-bit and 64-bit "
-					    "object files\n");
-				}
-				g_oflags |= DTRACE_O_LP64;
-			} else if (ehdr.e_ident[EI_CLASS] == ELFCLASS32) {
-				if (g_oflags & DTRACE_O_LP64) {
-					fatal("can't mix 32-bit and 64-bit "
-					    "object files\n");
-				}
-				g_oflags |= DTRACE_O_ILP32;
-			} else {
-				break;
-			}
-		}
-	}
-#else
 	/*
 	 * D compiler target_arch is current_kernel_arch() by default.
 	 * Can be set explicitly by "-arch".
@@ -1919,7 +1588,6 @@ main(int argc, char *argv[])
 		g_oflags &= ~DTRACE_O_LP64;
 		g_oflags |= DTRACE_O_ILP32;
 	}
-#endif
 
 	/*
 	 * Open libdtrace.  If we are not actually going to be enabling any
@@ -1938,10 +1606,8 @@ main(int argc, char *argv[])
 	(void) dtrace_setopt(g_dtp, "bufsize", "4m");
 	(void) dtrace_setopt(g_dtp, "aggsize", "4m");
 
-#if defined(__APPLE__)
 	(void) dtrace_setopt(g_dtp, "stacksymbols", "enabled");
 	(void) dtrace_setopt(g_dtp, "arch", string_for_arch(target_arch));
-#endif
 
 	/*
 	 * If -G is specified, enable -xlink=dynamic and -xunodefs to permit
@@ -1973,23 +1639,13 @@ main(int argc, char *argv[])
 	 * We also accumulate any program specifications into our g_cmdv[] at
 	 * this time; these will compiled as part of the fourth processing pass.
 	 */
-#if !defined(__APPLE__)
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-#else
 	optreset = 1;
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
-#endif /* __APPLE__ */
 			switch (c) {
 			case 'a':
-#ifndef __APPLE__
-				if (dtrace_setopt(g_dtp, "grabanon", 0) != 0)
-					dfatal("failed to set -a");
-				break;
-#else
 				if (0 == strcmp(optarg, "rch")) {
 					optind++;
 				}
@@ -2000,7 +1656,6 @@ main(int argc, char *argv[])
 					optind--;
 				}
 				break;
-#endif
 
 			case 'b':
 				if (dtrace_setopt(g_dtp,
@@ -2033,10 +1688,8 @@ main(int argc, char *argv[])
 					dfatal("failed to set -F");
 				break;
 
-#if defined(__APPLE__)
 			case 'h':
 				(void) dtrace_setopt(g_dtp, "nolibs", NULL); /* In case /usr/lib/dtrace/* is broken, -h can succeed. */
-#endif
 
 			case 'H':
 				if (dtrace_setopt(g_dtp, "cpphdrs", 0) != 0)
@@ -2091,12 +1744,6 @@ main(int argc, char *argv[])
 				break;
 
 			case 's':
-#if !defined(__APPLE__)
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_file;
-				dcp->dc_spec = DTRACE_PROBESPEC_NONE;
-				dcp->dc_arg = optarg;
-#else
 				if(g_mode == DMODE_LINK) {
 					g_script_name = optarg;
 				}
@@ -2106,7 +1753,6 @@ main(int argc, char *argv[])
 				dcp->dc_spec = DTRACE_PROBESPEC_NONE;
 				dcp->dc_arg = optarg;
 				}
-#endif
 				break;
 
 			case 'S':
@@ -2144,7 +1790,6 @@ main(int argc, char *argv[])
 				g_cflags |= DTRACE_C_ZDEFS;
 				break;
 
-#if defined(__APPLE__)
 			case ':':
 				if ('a' == optopt) { // dangling '-a' without optarg is OK
 					if (dtrace_setopt(g_dtp, "grabanon", 0) != 0)
@@ -2159,7 +1804,6 @@ main(int argc, char *argv[])
 					return usage(stderr);
 				}
 				/* NOTREACHED */
-#endif /* __APPLE__ */
 
 			default:
 				if (strchr(DTRACE_OPTSTR, c) == NULL)
@@ -2185,16 +1829,11 @@ main(int argc, char *argv[])
 	 * grabbing or creating victim processes.  The behavior of these calls
 	 * may been affected by any library options set by the second pass.
 	 */
-#if !defined(__APPLE__)
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-#else
 	optreset = 1;
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
-#endif /* __APPLE__ */
 			switch (c) {
 			case 'c':
 				if ((v = make_argv(optarg)) == NULL)
@@ -2221,14 +1860,20 @@ main(int argc, char *argv[])
 
 				g_psv[g_psc++] = P;
 				break;
-#if defined(__APPLE__)
-            case 'a':
-                if (0 == strcmp(optarg, "rch")) {
-                    optind++;
-                }	
-                break;
-#endif
-            }
+
+			case 'W':
+				P = dtrace_proc_waitfor(g_dtp, optarg);
+				if (P == NULL)
+					dfatal(NULL);
+				g_psv[g_psc++] = P;
+				break;
+
+			case 'a':
+				if (0 == strcmp(optarg, "rch")) {
+					optind++;
+				}
+				break;
+			}
 		}
 	}
 
@@ -2288,46 +1933,6 @@ main(int argc, char *argv[])
 		break;
 
 	case DMODE_ANON:
-#if !defined(__APPLE__)
-		if (g_ofile == NULL)
-			g_ofile = "/kernel/drv/dtrace.conf";
-
-		dof_prune(g_ofile); /* strip out any old DOF directives */
-		etcsystem_prune(); /* string out any forceload directives */
-
-		if (g_cmdc == 0) {
-			dtrace_close(g_dtp);
-			return (g_status);
-		}
-
-		if ((g_ofp = fopen(g_ofile, "a")) == NULL)
-			fatal("failed to open output file '%s'", g_ofile);
-
-		for (i = 0; i < g_cmdc; i++) {
-			anon_prog(&g_cmdv[i],
-			    dtrace_dof_create(g_dtp, g_cmdv[i].dc_prog, 0), i);
-		}
-
-		/*
-		 * Dump out the DOF corresponding to the error handler and the
-		 * current options as the final DOF property in the .conf file.
-		 */
-		anon_prog(NULL, dtrace_geterr_dof(g_dtp), i++);
-		anon_prog(NULL, dtrace_getopt_dof(g_dtp), i++);
-
-		if (fclose(g_ofp) == EOF)
-			fatal("failed to close output file '%s'", g_ofile);
-
-		/*
-		 * These messages would use notice() rather than error(), but
-		 * we don't want them suppressed when -A is run on a D program
-		 * that itself contains a #pragma D option quiet.
-		 */
-		error("saved anonymous enabling in %s\n", g_ofile);
-		etcsystem_add();
-		error("run update_drv(1M) or reboot to enable changes\n");
-		
-#else
 		if (g_ofile == NULL)
 			g_ofile = "/System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist";	
 				
@@ -2353,7 +1958,6 @@ main(int argc, char *argv[])
 		 */
 		error("saved anonymous enabling in %s\n", g_ofile);
 		error("do 'sudo touch /System/Library/Extensions/' and reboot to enable changes\n");
-#endif
 		dtrace_close(g_dtp);
 		return (g_status);
 
@@ -2364,22 +1968,6 @@ main(int argc, char *argv[])
 			dtrace_close(g_dtp);
 			return (E_USAGE);
 		}
-
-#if !defined(__APPLE__)
-		for (i = 0; i < g_cmdc; i++)
-			link_prog(&g_cmdv[i]);
-
-		if (g_cmdc > 1 && g_ofile != NULL) {
-			char **objv = alloca(g_cmdc * sizeof (char *));
-
-			for (i = 0; i < g_cmdc; i++)
-				objv[i] = g_cmdv[i].dc_ofile;
-
-			if (dtrace_program_link(g_dtp, NULL, DTRACE_D_PROBES,
-			    g_ofile, g_cmdc, objv) != 0)
-				dfatal(NULL); /* dtrace_errmsg() only */
-		}
-#endif
 
 		dtrace_close(g_dtp);
 		return (g_status);
@@ -2458,11 +2046,7 @@ main(int argc, char *argv[])
 	 * Start tracing.  Once we dtrace_go(), reload any options that affect
 	 * our globals in case consuming anonymous state has changed them.
 	 */
-#if !defined(SHARK_TEST_CODE)
 	go();
-#else
-	setup(&agg_bufs);
-#endif
 	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
 	g_flowindent = opt != DTRACEOPT_UNSET;
 
@@ -2515,11 +2099,8 @@ main(int argc, char *argv[])
 			if (dtrace_stop(g_dtp) == -1)
 				dfatal("couldn't stop tracing");
 		}
-#if !defined(SHARK_TEST_CODE)
+
 		switch (dtrace_work(g_dtp, g_ofp, chew, chewrec, NULL)) {
-#else	
-		switch (dtrace_farm(g_dtp, g_ofp, &cpu_bufs, &agg_bufs, chew, chewrec, NULL)) {
-#endif
 		case DTRACE_WORKSTATUS_DONE:
 			done = 1;
 			break;

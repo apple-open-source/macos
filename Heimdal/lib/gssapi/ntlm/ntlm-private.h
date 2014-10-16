@@ -4,6 +4,12 @@
 
 #include <stdarg.h>
 
+void
+_gss_ntlm_debug_hex(int level, const char *name, const void *ptr, size_t size);
+
+void
+_gss_ntlm_debug_key(int level, const char *name, const void *ptr, size_t len);
+
 gssapi_mech_interface
 __gss_ntlm_initialize (void);
 

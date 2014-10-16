@@ -176,7 +176,7 @@ set(char *t, NODE *ip)
 
 	for (; (kw = strtok(t, "= \t\n")); t = NULL) {
 		ip->flags |= type = parsekey(kw, &value);
-		if (value && (val = strtok(NULL, " \t\n")) == NULL)
+		if ((value == 0) || (val = strtok(NULL, " \t\n")) == NULL)
 			errx(1, "line %d: missing value", lineno);
 		switch(type) {
 		case F_CKSUM:

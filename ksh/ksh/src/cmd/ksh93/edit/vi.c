@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -43,16 +43,11 @@
 #include	"terminal.h"
 #include	"FEATURE/time"
 
-#if SHOPT_OLDTERMIO
-#   undef ECHOCTL
-#   define echoctl	(vp->ed->e_echoctl)
+#ifdef ECHOCTL
+#   define echoctl	ECHOCTL
 #else
-#   ifdef ECHOCTL
-#	define echoctl	ECHOCTL
-#   else
-#	define echoctl	0
-#   endif /* ECHOCTL */
-#endif /*SHOPT_OLDTERMIO */
+#   define echoctl	0
+#endif /* ECHOCTL */
 
 #ifndef FIORDCHK
 #   define NTICKS	5		/* number of ticks for typeahead */
@@ -737,6 +732,8 @@ static int cntlmode(Vi_t *vp)
 		/*** make sure cursor is at the last char ***/
 		sync_cursor(vp);
 	}
+	else if(last_virt > INVALID )
+		cur_virt++;
 
 	/*** Read control char until something happens to cause a ***/
 	/* return to APPEND/REPLACE mode	*/
@@ -828,6 +825,7 @@ static int cntlmode(Vi_t *vp)
 			refresh(vp,CONTROL);
 			ed_getchar(vp->ed,-1);
 			restore_v(vp);
+			ed_ungetchar(vp->ed,'a');
 			break;
 		}
 
@@ -1398,6 +1396,8 @@ static void getline(register Vi_t* vp,register int mode)
 			refresh(vp,INPUT);
 			continue;
 		}
+		if(c!='\t')
+			vp->ed->e_tabcount = 0;
 
 		switch( c )
 		{
@@ -1537,12 +1537,17 @@ static void getline(register Vi_t* vp,register int mode)
 			if( mode != SEARCH )
 				save_last(vp);
 			refresh(vp,INPUT);
-			last_phys++;
+			physical[++last_phys] = 0;
 			return;
 
 		case '\t':		/** command completion **/
 			if(mode!=SEARCH && last_virt>=0 && (vp->ed->e_tabcount|| !isblank(cur_virt)) && vp->ed->sh->nextprompt)
 			{
+				if(virtual[cur_virt]=='\\')
+				{
+					virtual[cur_virt] = '\t';
+					break;
+				}
 				if(vp->ed->e_tabcount==0)
 				{
 					ed_ungetchar(vp->ed,'\\');
@@ -1866,15 +1871,14 @@ static void putstring(register Vi_t *vp,register int col, register int nchars)
 static void refresh(register Vi_t* vp, int mode)
 {
 	register int p;
-	register int regb;
+	register int v;
 	register int first_w = vp->first_wind;
 	int p_differ;
 	int new_lw;
 	int ncur_phys;
 	int opflag;			/* search optimize flag */
 
-#	define	w	regb
-#	define	v	regb
+#	define	w	v
 
 	/*** find out if it's necessary to start translating at beginning ***/
 
@@ -1886,7 +1890,7 @@ static void refresh(register Vi_t* vp, int mode)
 	}
 	v = cur_virt;
 #if SHOPT_EDPREDICT
-	if(mode==INPUT && v>0 && virtual[0]=='#' && virtual[v]!='*')
+	if(mode==INPUT && v>0 && virtual[0]=='#' && v==last_virt && virtual[v]!='*' && sh_isoption(SH_VI))
 	{
 		int		n;
 		virtual[last_virt+1] = 0;
@@ -2193,7 +2197,7 @@ static void save_v(register Vi_t *vp)
  */
 static int curline_search(Vi_t *vp, const char *string)
 {
-	register int len=strlen(string);
+	register size_t len=strlen(string);
 	register const char *dp,*cp=string, *dpmax;
 #if SHOPT_MULTIBYTE
 	ed_external(vp->u_space,(char*)vp->u_space);
@@ -2274,6 +2278,7 @@ static int search(register Vi_t* vp,register int mode)
 	}
 	cur_virt = i;
 	strncpy(lsearch, ((char*)virtual)+1, SEARCHSIZE);
+	lsearch[SEARCHSIZE-1] = 0;
 	if( (curhline=location.hist_command) >=0 )
 	{
 		vp->ocur_virt = INVALID;
@@ -2428,7 +2433,7 @@ addin:
 			last_virt = i;
 			ed_ringbell();
 		}
-		else if(c == '=' && !vp->repeat_set)
+		else if((c=='=' || (c=='\\'&&virtual[i]=='/')) && !vp->repeat_set)
 		{
 			last_virt = i;
 			vp->nonewline++;

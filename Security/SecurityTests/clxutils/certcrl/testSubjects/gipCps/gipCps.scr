@@ -1,0 +1,28 @@
+# test verification of the odd cert from GIP_CPS - it's an intermediate
+# cert in which subjectName == issuerName. This specifically verifies
+# Radar 3374978.
+#
+# This is suppoedly a CRL signing cert, and ideally we'd actually use
+# it to verify a CRL but I haven't found any CRLs associated with this
+# organization. FOr now we just make sure that the TPO can verify the cert
+# with the associated root in system anchors. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+end
+#
+test = test1
+echo Verify the GIP-CPS CRL signing cert
+cert = gipCps0.cer
+leafCertIsCA = true
+verifyTime = 20061201000000
+# verify leaf does NOT appear as a root (even though its subject and issuer 
+# names are the same.... IS_IN_INPUT_CERTS only.
+certstatus = 0:0x04
+# ensure 2 certs come back and the second one is an anchor/root
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 1:0x18
+end

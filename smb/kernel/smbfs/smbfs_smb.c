@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,9 +80,9 @@
  * So, I'm decided to use a hash function to generate pseudo random (and unique)
  * inode numbers.
  *
- * SMB2.x - if server supports File IDs, then use inode number from the server 
+ * SMB 2/3 - if server supports File IDs, then use inode number from the server
  * and never call this function.
- * SMB1.x and SMB 2.x servers that do not support File IDs still hashes the 
+ * SMB 1 and SMB 2/3 servers that do not support File IDs still hashes the
  * name and thus still calls this function.
  */
 uint64_t
@@ -124,7 +124,7 @@ smb1fs_smb_lock(struct smb_share *share, int op, SMBFID fid, uint32_t pid,
 	struct mbchain *mbp;
 	u_char ltype = 0;
 	int error;
-    uint16_t smb1_fid = (uint16_t) fid; /* cast to smb1 fid */
+    uint16_t smb1_fid = (uint16_t) fid; /* cast to SMB 1 fid */
 
 	if (op == SMB_LOCK_SHARED)
 		ltype |= SMB_LOCKING_ANDX_SHARED_LOCK;
@@ -206,6 +206,7 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 	char *ntwrkname = NULL;
 	char *filename;
 	uint8_t sep = '\\';
+    char *snamep = NULL;
 
 	error = smb_t2_alloc(SSTOCP(share), SMB_TRANS2_QUERY_PATH_INFORMATION, 1, context, &t2p);
 	if (error)
@@ -217,7 +218,12 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 	/* mb_put_uint8(mbp, SMB_DT_ASCII); specs are wrong */
 	if ((np->n_vnode) && vnode_isnamedstream(np->n_vnode)) {
 		DBG_ASSERT((namep == NULL));
-		name = (const char *)np->n_sname;
+        
+        lck_rw_lock_shared(&np->n_name_rwlock);
+        snamep = smb_strndup(np->n_sname, np->n_snmlen);
+        name = snamep;
+        lck_rw_unlock_shared(&np->n_name_rwlock);
+        
 		nmlen = np->n_snmlen;
 		sep = ':';
 	}
@@ -226,14 +232,14 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 	
 	if (error) {
 		smb_t2_done(t2p);
-		return error;
+		goto done;
 	}
 	t2p->t2_maxpcount = 2;
 	t2p->t2_maxdcount = SSTOVC(share)->vc_txmax;
 	error = smb_t2_request(t2p);
 	if (error) {
 		smb_t2_done(t2p);
-		return error;
+		goto done;
 	}
 	mdp = &t2p->t2_rdata;
 	/*
@@ -243,7 +249,8 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 	if (mdp->md_cur == NULL) {
 		SMBWARNING("Parsing error reading the message\n");
 		smb_t2_done(t2p);
-		return EBADRPC;
+		error = EBADRPC;
+        goto done;
 	}
 	switch (infolevel) {
 	case SMB_QFILEINFO_ALL_INFO:								
@@ -361,6 +368,7 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 		 * but does put 4 bytes of zero padd at the end. So now add 
 		 * 4 bytes to our check.
 		 */
+        m_fixhdr(mdp->md_top);
 		if (mbuf_pkthdr_len(mdp->md_top) > (size+72+4)) {
 			SMBERROR("SMB_QFILEINFO_ALL_INFO: wrong size %ld\n", 
 					mbuf_pkthdr_len((mbuf_t)mdp->md_top));
@@ -458,7 +466,7 @@ smb1fs_smb_qpathinfo(struct smb_share *share,
 		*namep = smb_strndup(filename, nmlen);			
 		if (nmlenp)	/* Return the name length */
 			*nmlenp = nmlen;
-		if (*namep && nmlenp)	/* SMB 1.x only. Create the inode number */
+		if (*namep && nmlenp)	/* SMB 1 only. Create the inode number */
 			fap->fa_ino = smbfs_getino(np, *namep, *nmlenp);
 bad:
 		/* Free the buffer that holds the name from the network */
@@ -559,46 +567,92 @@ bad:
 		break;
 	}
 	smb_t2_done(t2p);
-	return error;
+
+done:
+    if (snamep) {
+        SMB_FREE(snamep, M_SMBSTR);
+    }
+    
+    return error;
 }
 
 int
-smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen)
+smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen,
+                       uint32_t *is_data)
 {
-	char *cp;
-	size_t len = sizeof(SMB_DATASTREAM) - 1;
+    char *cp;
+    size_t len = sizeof(SMB_DATASTREAM) - 1;
 
-	if (!name)	/* sanity check */
-		goto bad;
-	if (*nmlen < len + 1)	/* "::$DATA" at a minimum */
-		goto bad;
-	if (*name != ':')	/* leading colon - "always" */
-		goto bad;
-	cp =  &name[*nmlen - len]; /* point to 2nd colon */
-	if (bcmp(cp, SMB_DATASTREAM, len))
-		goto bad;
-	if (*nmlen == (len + 1))	/* merely the data fork? */
-		return (0);		/* skip it */
-	if ((*nmlen - len) > (XATTR_MAXNAMELEN + 1))
-		goto bad;	/* mustnt return more than 128 bytes */
-	/*
-	 * Un-count a colon and the $DATA, then the
-	 * 2nd colon is replaced by a terminating null.
-	 */
-	*nmlen -= len;
-	/* Skip protected system attrs */
-	if ((*nmlen >= 17) && (xattr_protected(name)))
-		return (0);
-	
-	*cp = '\0';
-	return (1);
+    /*
+     * Example stream names
+     * ::$DATA
+     * :AFP_AfpInfo:$DATA
+     * :AFP_Resource:$DATA
+     */
+    
+    *is_data = 0;
+
+    /* Sanity check for a stream name */
+    if (!name) {
+        goto bad;
+    }
+
+    /* Has to be "::$DATA" at a minimum length */
+    if (*nmlen < len + 1) {
+        goto bad;
+    }
+    
+    /* Has to have a leading colon */
+    if (*name != ':') {
+        goto bad;
+    }
+    
+    /* Point to 2nd colon */
+    cp =  &name[*nmlen - len];
+
+    /* Has to end with $DATA */
+    if (bcmp(cp, SMB_DATASTREAM, len)) {
+        goto bad;
+    }
+    
+    /* Merely the data fork? */
+    if (*nmlen == (len + 1)) {
+        /* Skip returning it. */
+        *is_data = 1;
+        return (0);
+    }
+
+	/* We can not return more than 128 bytes */
+    if ((*nmlen - len) > (XATTR_MAXNAMELEN + 1)) {
+        goto bad;
+    }
+    
+    /*
+     * Un-count a colon and the $DATA, then the
+     * 2nd colon is replaced by a terminating null.
+     */
+    *nmlen -= len;
+    *cp = '\0';
+
+    /* Skip protected system attrs */
+    if ((*nmlen >= 17) && (xattr_protected(name + 1))) {
+        return (0);
+    }
+
+    /* 
+     * Return the stream name. Examples:
+     * :AFP_AfpInfo
+     * :AFP_Resource
+     */
+    return (1);
+    
 bad:
-	/*
-	 * If the name exist then we malloc it so we can print it
-	 * out. So just make sure it exist before printing.
-	 */
-	SMBWARNING("file \"%s\" has bad stream \"%s\"\n", fname, (name) ? name : "");
-	return (0); /* skip it */
+    /*
+     * If the name exist then we malloc it so we can print it
+     * out. So just make sure it exist before printing.
+     */
+    SMBWARNING("file \"%s\" has bad stream \"%s\"\n", fname, (name) ? name : "");
+    return (0);
 }
 
 /*
@@ -619,7 +673,7 @@ smb1fs_smb_markfordelete(struct smb_share *share, SMBFID fid,
 	struct smb_t2rq *t2p;
 	struct mbchain *mbp;
 	int error;
-    uint16_t smb1_fid = (uint16_t) fid; /* cast to smb1 fid */
+    uint16_t smb1_fid = (uint16_t) fid; /* cast to SMB 1 fid */
 		
 	error = smb_t2_alloc(SSTOCP(share), SMB_TRANS2_SET_FILE_INFORMATION, 1, 
                          context, &t2p);
@@ -628,7 +682,7 @@ smb1fs_smb_markfordelete(struct smb_share *share, SMBFID fid,
 	}
 	mbp = &t2p->t2_tparam;
 	mb_init(mbp);
-    /* smb1 fid in volatile */
+    /* SMB 1 fid in volatile */
 	mb_put_mem(mbp, (caddr_t)&smb1_fid, sizeof(smb1_fid), MB_MSYSTEM);
 	if (VC_CAPS(SSTOVC(share)) & SMB_CAP_INFOLEVEL_PASSTHRU)
 		mb_put_uint16le(mbp, SMB_SFILEINFO_DISPOSITION_INFORMATION);
@@ -755,7 +809,7 @@ smbfs_smb_fsctl(struct smb_share *share,  uint32_t fsctl, SMBFID fid,
 {
 	struct smb_ntrq *ntp = NULL;
     int error;
-    uint16_t smb1_fid = (uint16_t) fid; /* cast to smb1 fid */
+    uint16_t smb1_fid = (uint16_t) fid; /* cast to SMB 1 fid */
 	
 	error = smb_nt_alloc(SSTOCP(share), NT_TRANSACT_IOCTL, context, &ntp);
 	if (error) {
@@ -917,7 +971,7 @@ smbfs_smb_create_unix_symlink(struct smb_share *share, struct smbnode *dnp,
 		fap->fa_atime = fap->fa_crtime;
 		fap->fa_chtime = fap->fa_crtime;
 		fap->fa_mtime = fap->fa_crtime;
-		fap->fa_ino = smbfs_getino(dnp, in_name, in_nmlen); /* SMB 1.x only */
+		fap->fa_ino = smbfs_getino(dnp, in_name, in_nmlen); /* SMB 1 only */
 		nanouptime(&fap->fa_reqtime);
 		fap->fa_valid_mask |= FA_VTYPE_VALID;
 		fap->fa_vtype = VLNK;
@@ -949,48 +1003,73 @@ done:
  */
 int 
 smbfs_smb_create_windows_symlink(struct smb_share *share, struct smbnode *dnp, 
-							  const char *name, size_t nmlen, char *target, 
-							  size_t targetlen, struct smbfattr *fap,
-							  vfs_context_t context)
+                                 const char *name, size_t nmlen,
+                                 char *target, size_t targetlen,
+                                 struct smbfattr *fap, vfs_context_t context)
 {
-	uint32_t wlen = 0;
-	uio_t uio;
-	char *wdata  = NULL;
-	int error;
+    uint32_t wlen = 0;
+    uio_t uio = NULL;
+    char *wdata = NULL;
+    int error;
     SMBFID fid = 0;
-    int need_close = 0;
-
-	error = smbfs_smb_create(share, dnp, name, nmlen, SMB2_FILE_WRITE_DATA, 
-							 &fid, FILE_CREATE, 0, fap, context);
-	if (error) {
-		goto done;		
-	}
-    need_close = 1;
-
-	wdata = smbfs_create_windows_symlink_data(target, targetlen, &wlen);
-	if (!wdata) {
-		error = ENOMEM;
-		goto done;		
-	}
+    uint64_t create_flags = SMB2_CREATE_DO_CREATE | SMB2_CREATE_GET_MAX_ACCESS;
     
-	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
-	uio_addiov(uio, CAST_USER_ADDR_T(wdata), wlen);
-	error = smb_smb_write(share, fid, uio, 0, context);
-	uio_free(uio);
-	if (!error)	{
-        /* We just changed the size of the file */
-		fap->fa_size = wlen;
+    wdata = smbfs_create_windows_symlink_data(target, targetlen, &wlen);
+    if (!wdata) {
+        error = ENOMEM;
+        goto done;
     }
     
+    uio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
+    if (uio == NULL) {
+        error = ENOMEM;
+        goto done;
+    }
+
+    uio_addiov(uio, CAST_USER_ADDR_T(wdata), wlen);
+    
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        /* SMB 2/3  - compound Create/Write/Close */
+        error = smb2fs_smb_cmpd_create_write(share, dnp,
+                                             name, nmlen,
+                                             NULL, 0,
+                                             SMB2_FILE_WRITE_DATA, fap,
+                                             create_flags, uio,
+                                             NULL, 0,
+                                             context);
+    }
+    else {
+        /* SMB 1 */
+        error = smbfs_smb_create(share, dnp, name, nmlen, SMB2_FILE_WRITE_DATA,
+                                 &fid, FILE_CREATE, 0, fap, context);
+        if (error) {
+            goto done;
+        }
+        
+        error = smb_smb_write(share, fid, uio, 0, context);
+        
+        (void) smbfs_smb_close(share, fid, context);
+    }
+    
+    if (!error)	{
+        /* We just changed the size of the file */
+        fap->fa_size = wlen;
+    }
+
 done:
-	SMB_FREE(wdata, M_TEMP);
-	if (need_close == 1) {
-		(void)smbfs_smb_close(share, fid, context);
-	}
-	if (error) {
-		SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
-	}
-	return error;
+    if (uio != NULL) {
+        uio_free(uio);
+    }
+
+    if (wdata) {
+        SMB_FREE(wdata, M_TEMP);
+    }
+    
+    if (error) {
+        SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
+    }
+    
+    return error;
 }
 
 /*
@@ -1190,7 +1269,7 @@ smbfs_smb_get_reparse_tag(struct smb_share *share, SMBFID fid,
 	/* Never allocate more than our transcation size buffer */
 	if ((SubstituteNameLength == 0) || (SubstituteNameLength > SSTOVC(share)->vc_txmax)) {
 		error = ENOMEM;
-		SMBSYMDEBUG("%s SubstituteNameLength too large or zero %d \n", np->n_name, SubstituteNameLength);
+		SMBSYMDEBUG("SubstituteNameLength too large or zero %d \n", SubstituteNameLength);
 		md_done(&mdp);
 		goto done;
 	}
@@ -1269,7 +1348,8 @@ smb1fs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np,
 	}
     
 	/* smbfs_update_symlink_cache will deal with the null pointer */
-	SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+    SMBSYMDEBUG_LOCK(np, "%s --> %s\n", np->n_name, target);
+    
 	smbfs_update_symlink_cache(np, target, targetlen);
 	error = uiomove(target, (int)targetlen, uiop);
 		
@@ -1281,7 +1361,7 @@ done:
 	}
     
 	if (error) {
-		SMBWARNING("%s failed %d\n", np->n_name, error);
+		SMBWARNING_LOCK(np, "%s failed %d\n", np->n_name, error);
 	}
     
 	return error;
@@ -1335,9 +1415,10 @@ smbfs_smb_windows_read_symlink(struct smb_share *share, struct smbnode *np,
 				   (unsigned)np->n_size, len);
 		np->n_size = len;
 	}
-    /* %%% is this function valid for SMB2, note the SMBHDRLEN below */
+    /* %%% is this function valid for SMB 2/3, note the SMBHDRLEN below */
 	target = (char *)(wbuf + SMB_SYMHDRLEN);
-	SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+
+    SMBSYMDEBUG_LOCK(np, "%s --> %s\n", np->n_name, target);
 
 	smbfs_update_symlink_cache(np, target, len);
 	error = uiomove(target, (int)len, uiop);
@@ -1345,7 +1426,7 @@ out:
 	SMB_FREE(wbuf, M_TEMP);
     
 	if (error) {
-		SMBWARNING("%s failed %d\n", np->n_name, error);
+		SMBWARNING_LOCK(np, "%s failed %d\n", np->n_name, error);
 	}
 	return (error);
 }
@@ -1370,9 +1451,9 @@ smbfs_smb_unix_read_symlink(struct smb_share *share, struct smbnode *np,
 	size_t targetlen;
 	size_t nmlen;
 	
-    /* %%% To Do - implement for SMB2 */
+    /* %%% To Do - implement for SMB 2/3 */
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        SMBERROR("smbfs_smb_unix_read_symlink not supported by SMB 2.x\n");
+        SMBERROR("smbfs_smb_unix_read_symlink not supported by SMB 2/3\n");
         error = ENOTSUP;
         return error;
     }
@@ -1403,6 +1484,7 @@ smbfs_smb_unix_read_symlink(struct smb_share *share, struct smbnode *np,
 	    goto out;
 	}
 	/* Get the size of the data that contains the symbolic link */
+    m_fixhdr(mdp->md_top);
 	nmlen = mbuf_pkthdr_len(mdp->md_top);
 	SMBSYMDEBUG("network len of the symbolic link = %ld\n", nmlen);
 	SMB_MALLOC(ntwrkname, char *, nmlen, M_TEMP, M_WAITOK);
@@ -1432,7 +1514,7 @@ smbfs_smb_unix_read_symlink(struct smb_share *share, struct smbnode *np,
 											&targetlen, '/', UTF_SFM_CONVERSIONS, 
 											SMB_UNICODE_STRINGS(SSTOVC(share)));
 	if (!error) {
-		SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+		SMBSYMDEBUG_LOCK(np, "%s --> %s\n", np->n_name, target);
 		smbfs_update_symlink_cache(np, target, targetlen);
 		error = uiomove(target, (int)targetlen, uiop);
 	}
@@ -1443,7 +1525,7 @@ out:
 	SMB_FREE(ntwrkname, M_TEMP);
 	smb_t2_done(t2p);
 	if (error) {
-		SMBWARNING("%s failed %d\n", np->n_name, error);
+		SMBWARNING_LOCK(np, "%s failed %d\n", np->n_name, error);
 	}
 	return error;
 }
@@ -1477,6 +1559,8 @@ smb1fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
 	size_t streamNameLen = 0;	/* name len */
     size_t in_name_len = name_len;
     const char *fname;
+    uint32_t is_data_stream = 0;
+    int n_name_locked = 0;
 	
     /* 
      * Two usage cases:
@@ -1597,6 +1681,8 @@ smb1fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
 		 * which is simply ::$DATA Otherwise we want to uiomove out <foo> with a null added.
 		 */
         if (namep == NULL) {
+            lck_rw_lock_shared(&np->n_name_rwlock);
+            n_name_locked = 1;
             fname = np->n_name;
         }
         else {
@@ -1604,9 +1690,15 @@ smb1fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
             fname = namep;
         }
 
-		if (smbfs_smb_undollardata(fname, streamName, &streamNameLen)) {
+		if (smbfs_smb_undollardata(fname, streamName, &streamNameLen,
+                                   &is_data_stream)) {
 			const char *s;
 
+            if (n_name_locked) {
+                lck_rw_unlock_shared(&np->n_name_rwlock);
+                n_name_locked = 0;
+            }
+            
 			/* the "+ 1" skips over the leading colon */
 			s = streamName + 1;
 			
@@ -1717,8 +1809,13 @@ smb1fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
 			if (sizep)
 				*sizep += streamNameLen;
 		}
-		
-skipentry:		
+
+        if (n_name_locked) {
+            lck_rw_unlock_shared(&np->n_name_rwlock);
+            n_name_locked = 0;
+        }
+
+skipentry:
 		SMB_FREE(streamName, M_SMBFSDATA);
 		/* 
 		 * Next should be the offset to the next entry. We have already move into 
@@ -1756,7 +1853,7 @@ done:
             /* Negative cache the Finder Info in the vnode */
             bzero(np->finfo, sizeof(np->finfo));
             nanouptime(&ts);
-            np->finfo_cache = ts.tv_sec;
+            np->finfo_cache_timer = ts.tv_sec;
         }
     }
 
@@ -2267,7 +2364,7 @@ smbfs_smb_t2rename(struct smb_share *share, struct smbnode *np,
     uint16_t smb1_fid = 0;
 
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        SMBERROR("smbfs_smb_t2rename not supported by SMB 2.x\n");
+        SMBERROR("smbfs_smb_t2rename not supported by SMB 2/3\n");
         error = ENOTSUP;
         return error;
     }
@@ -2383,7 +2480,7 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
     
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
         /*
-         * SMB 1.x 
+         * SMB 1
          *
          * smbfs_smb_t2rename requires passthru, so just return EBUSY since we 
          * are attempting to delete an open file.
@@ -2398,7 +2495,7 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
         }
         need_close = 1;
         
-        /* SMB 2.x will not hide the file as I deem it unnecessary work */
+        /* SMB 2/3 will not hide the file as I deem it unnecessary work */
         need_hide = 1;
     }
     
@@ -2406,7 +2503,9 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
         /* 
          * Use the unique File ID to create a unique name 
          */
+        lck_rw_lock_shared(&np->n_name_rwlock);
         ino = smb2fs_smb_file_id_get(smp, np->n_ino, np->n_name);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
         
         /* Just try once to rename in the same dir */
         MAKE_DELETED_NAME((char*) s_name, sizeof(s_name), ino);
@@ -2432,12 +2531,12 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
         do {
             if ((SSTOVC(share)->vc_flags & SMBV_SMB2) ||
                 (samba_bug == 1)) {
-                /* SMB 2.x or dealing with SAMBA buggy server */
+                /* SMB 2/3 or dealing with SAMBA buggy server */
                 error = smbfs_smb_rename(share, np, dnp, s_name, s_namlen,
                                          context);
             }
             else {
-                /* SMB 1.x */
+                /* SMB 1 */
                 error = smbfs_smb_t2rename(share, np, s_name, s_namlen, 0, &fid,
                                            context);
                 
@@ -2474,7 +2573,8 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
                  * if the file exists, keep trying otherwise just get out since 
                  * there is nothing else for us to do.
                  */
-                if (smbfs_smb_query_info(share, dnp, s_name, s_namlen, NULL, context) == 0) {
+                if (smbfs_smb_query_info(share, dnp, VREG,
+                                         s_name, s_namlen, NULL, context) == 0) {
                     /* That name exists on server, keep trying for a new name */
                     error = EEXIST;
                 }
@@ -2519,12 +2619,14 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
     
     if (need_hide) {
         /* ignore any errors return from hiding the item */
-        (void)smbfs_set_hidden_bit(share, dnp, s_name, s_namlen, TRUE, context);
+        (void)smbfs_set_hidden_bit(share, dnp, VREG,
+                                   s_name, s_namlen,
+                                   TRUE, context);
     }
 
     if ((SSTOVC(share)->vc_flags & SMBV_SMB2) || (samba_bug == 1)) {
         /* 
-         * SMB 2.x will always just wait until last close to do the delete.
+         * SMB 2/3 will always just wait until last close to do the delete.
          * This matches AFP behavior.
          * If we hit the SAMBA bug, then the file is closed so cant set the
          * Delete on Close because we have no fid.
@@ -2532,7 +2634,7 @@ smbfs_delete_openfile(struct smb_share *share, struct smbnode *dnp,
         np->n_flag |= NDELETEONCLOSE;
     }
     else {
-        /* SMB 1.x - Set file for Delete on Close */
+        /* SMB 1 - Set file for Delete on Close */
         cerror = smbfs_smb_markfordelete(share, fid, context);
         if (cerror) {
             /* 
@@ -2552,6 +2654,8 @@ out:
     }
     
     if (!error) {
+        lck_rw_lock_exclusive(&np->n_name_rwlock);
+
         new_name = smb_strndup(s_name, s_namlen);
         old_name = np->n_name;
 
@@ -2566,10 +2670,8 @@ out:
         
         /* Now reset the name, so other path lookups can use it. */
         if (new_name) {
-            lck_rw_lock_exclusive(&np->n_name_rwlock);
             np->n_name = new_name;
             np->n_nmlen = s_namlen;
-            lck_rw_unlock_exclusive(&np->n_name_rwlock);
             
             /* Mark smb node so Meta data cache never expires */
             np->n_flag |= NMARKEDFORDLETE;
@@ -2587,6 +2689,8 @@ out:
             /* Now its safe to free the old name */
             SMB_FREE(old_name, M_SMBNODENAME);
         }
+
+        lck_rw_unlock_exclusive(&np->n_name_rwlock);
     }
     else {
         /* All errors are mapped to EBUSY */
@@ -2745,40 +2849,57 @@ smbfs_smb_fsync(struct smb_share *share, struct smbnode *np, vfs_context_t conte
 	int error;
     SMBFID fid = 0;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_START, np->n_flag, 0, 0, 0, 0);
+
 	if ((np->n_flag & (NNEEDS_EOF_SET | NNEEDS_FLUSH)) == 0) {
 		/* Nothing to do here just return */
-		return 0;
+		error = 0;
+        goto done;
 	}
 	
-	if ((np->f_refcnt <= 0) || (!SMBTOV(np)) || (!vnode_isreg(SMBTOV(np))))
-		return 0; /* not a regular open file */
+	if ((np->f_refcnt <= 0) || (!SMBTOV(np)) || (!vnode_isreg(SMBTOV(np)))) {
+		error = 0; /* not a regular open file */
+        goto done;
+    }
 	
 	/* Before trying the flush see if the file needs to be reopened */
 	error = smbfs_smb_reopen_file(share, np, context);
 	if (error) {
-		SMBDEBUG(" %s waiting to be revoked\n", np->n_name);
-	    return(error);
+		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
+	    goto done;
 	}
+    SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_NONE, 0xabc001, error, 0, 0, 0);
 	
 	/* See if the file is opened for write access */
 	if (FindFileRef(SMBTOV(np), vfs_context_proc(context), kAccessWrite,
                     kCheckDenyOrLocks, 0, 0, NULL, &fid)) {
 		fid = np->f_fid;	/* Nope use the shared fid */
 		if ((fid == 0) || 
-            ((np->f_accessMode & kAccessWrite) != kAccessWrite))
-			return(0);	/* Nothing to do here get out */
+            ((np->f_accessMode & kAccessWrite) != kAccessWrite)) {
+			error = 0;	/* Nothing to do here get out */
+            SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_NONE,
+                           0xabc002, error, 0, 0, 0);
+            goto done;
+        }
 	}
 	/* We have a set eof pending do it here and clear the flag */
 	if (np->n_flag & NNEEDS_EOF_SET) {
 		error = smbfs_seteof(share, np, fid, np->n_size, context);
+        SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_NONE,
+                       0xabc003, error, 0, 0, 0);
 		if (error) {
-			return error;
+			goto done;
 		}
 	}
 	error = smbfs_smb_flush(share, fid, context);
 	if (!error) 
 		np->n_flag &= ~NNEEDS_FLUSH;
-	return error;
+
+    SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_NONE, 0xabc004, error, 0, 0, 0);
+
+done:
+	SMB_LOG_KTRACE(SMB_DBG_SMB_FSYNC | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return error;
 }
 
 /*
@@ -2878,14 +2999,17 @@ smb1fs_smb_setpattr(struct smb_share *share, struct smbnode *np,
  * The calling routine must hold a reference on the share
  */
 int 
-smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, const char *name,
-					 size_t len, Boolean hideit, vfs_context_t context)
+smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, enum vtype vnode_type,
+                     const char *name, size_t len,
+                     Boolean hideit, vfs_context_t context)
 {
 	int error;
 	uint32_t attr;
 	
 	/* Look it up and get the dos attributes */
-	error = smbfs_smb_query_info(share, dnp, name, len, &attr, context);
+	error = smbfs_smb_query_info(share, dnp, vnode_type,
+                                 name, len,
+                                 &attr, context);
 	if (error) {
 		return error;
 	}
@@ -2898,7 +3022,9 @@ smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, const char *n
 		return 0; /* Nothing to do here */
 	}
     
-	return smbfs_smb_setpattr(share, dnp, name, len, attr, context);
+	return smbfs_smb_setpattr(share, dnp, vnode_type,
+                              name, len,
+                              attr, context);
 }
 
 /*
@@ -3176,6 +3302,7 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	size_t nmlen = in_nmlen;	/* Don't change the input name length, we need it for making the ino number */
     int need_close = 0;
     SMBFID temp_fid = 0;
+    char *snamep = NULL;
 	
 	DBG_ASSERT(fap); /* Should never happen */
 	bzero(fap, sizeof(*fap));
@@ -3246,7 +3373,11 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 		uint8_t sep = xattr ? ':' : '\\';
 		/* Do they want to open the resource fork? */
 		if ((np->n_vnode) && (vnode_isnamedstream(np->n_vnode)) && (!name) && (!xattr)) {
-			name = (const char *)np->n_sname;
+            lck_rw_lock_shared(&np->n_name_rwlock);
+            snamep = smb_strndup(np->n_sname, np->n_snmlen);
+            name = snamep;
+            lck_rw_unlock_shared(&np->n_name_rwlock);
+
 			nmlen = np->n_snmlen;
 			sep = ':';
 		}
@@ -3294,7 +3425,7 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
                 (wc != NTCREATEX_BRKEN_SPEC_26_WDCNT) ) {
             if (need_close == 1) {
                 /* not much we can do if the close fails */
-                temp_fid = fid;    /* cast smb1 fid to full smb fid */
+                temp_fid = fid;    /* cast SMB 1 fid to full smb fid */
                 smbfs_smb_close(share, temp_fid, context);
             }
             
@@ -3379,10 +3510,10 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 				maxAccessRightsError = md_get_uint32le(mdp, &guestMaxAccessRights);
 			if (maxAccessRightsError) {
 				np->n_flag |= NO_EXTENDEDOPEN;
-				SMB_LOG_AUTH("Error %d getting extended reply for %s\n", maxAccessRightsError, np->n_name);
+				SMB_LOG_AUTH_LOCK(np, "Error %d getting extended reply for %s\n", maxAccessRightsError, np->n_name);
 			} else {
-				SMB_LOG_AUTH("%s fileID = %llx maxAccessRights = 0x%x guestMaxAccessRights = 0x%x\n",
-                             np->n_name, fileID, np->maxAccessRights, guestMaxAccessRights);
+				SMB_LOG_AUTH_LOCK(np, "%s fileID = %llx maxAccessRights = 0x%x guestMaxAccessRights = 0x%x\n",
+                                  np->n_name, fileID, np->maxAccessRights, guestMaxAccessRights);
 				np->n_flag &= ~NO_EXTENDEDOPEN;
 				/*
 				 * We weren't granted delete access, but the parent allows delete child
@@ -3390,13 +3521,12 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 				 * say we have delete access (let the server control it).
 				 */
                 
-                /* Lock protects np->n_parent. See <rdar://problem/11824956> */
-                lck_rw_lock_shared(&np->n_name_rwlock);
+                lck_rw_lock_shared(&np->n_parent_rwlock);
 				if (((np->maxAccessRights & SMB2_DELETE) != SMB2_DELETE) &&
 					(!np->n_parent || (np->n_parent->maxAccessRights & SMB2_FILE_DELETE_CHILD))) {
 					np->maxAccessRights |= SMB2_DELETE;
 				}
-                lck_rw_unlock_shared(&np->n_name_rwlock);
+                lck_rw_unlock_shared(&np->n_parent_rwlock);
 			}
 		} else {
 			np->n_flag |= NO_EXTENDEDOPEN;
@@ -3407,18 +3537,23 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 		 */
 		if (np->n_flag & NO_EXTENDEDOPEN) {
 			np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
-			SMBDEBUG("Extended reply not supported: %s setting maxAccessRights to 0x%x rights = 0x%x\n", 
-						   np->n_name, np->maxAccessRights, rights);
+			SMBDEBUG_LOCK(np, "Extended reply not supported: %s setting maxAccessRights to 0x%x rights = 0x%x\n",
+                          np->n_name, np->maxAccessRights, rights);
 		}
         np->maxAccessRightChTime = fap->fa_chtime;
 	} while(0);
 	smb_rq_done(rqp);
-	if (error)      
+	if (error) {
+        if (snamep) {
+            SMB_FREE(snamep, M_SMBSTR);
+        }
+        
 		return error;
+    }
 	
 	if (fidp) {
         /* note fid is in native form */
-        *fidp = fid;       /* save smb1 fid */
+        *fidp = fid;       /* save SMB 1 fid */
     }
     
     /*
@@ -3443,7 +3578,7 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	/* We are creating the item so create the ino number */
 	if (do_create == TRUE) {
 		DBG_ASSERT(name != NULL);	/* This is a create so better have a name */
-		fap->fa_ino = smbfs_getino(np, name, in_nmlen); /* SMB 1.x only */
+		fap->fa_ino = smbfs_getino(np, name, in_nmlen); /* SMB 1 only */
 		goto WeAreDone;			
 	}
 
@@ -3494,7 +3629,12 @@ smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 	 * haven't changed.
  	 */
 	smbfs_attr_cacheenter(share, np->n_vnode, fap, TRUE, context);
+
 WeAreDone:
+    if (snamep) {
+        SMB_FREE(snamep, M_SMBSTR);
+    }
+    
 	return (0);
 }
 
@@ -3516,9 +3656,10 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
 		/* Check to see if the file needs to be reopened */
 		error = smbfs_smb_reopen_file(share, np, context);
 		if (error) {
-			SMBDEBUG(" %s waiting to be revoked\n", np->n_name);
+			SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
 			return(error);
 		}
+        
 		/*
 		 * A normal open can have the following rights 
 		 *	SMB2_READ_CONTROL - always set
@@ -3580,12 +3721,12 @@ smbfs_tmpopen(struct smb_share *share, struct smbnode *np, uint32_t rights,
     uint32_t shareMode = NTCREATEX_SHARE_ACCESS_ALL;
 
     error = smbfs_smb_ntcreatex(share, np,
-                                rights, shareMode, (np->n_vnode  && vnode_isdir(np->n_vnode)) ? VDIR : VREG,
+                                rights, shareMode, (np->n_vnode && vnode_isdir(np->n_vnode)) ? VDIR : VREG,
                                 fidp, NULL, 0,
                                 FILE_OPEN, FALSE, &fattr,
                                 FALSE, NULL, context);
 	if (error) {
-		SMBWARNING("%s failed to open: error = %d\n", np->n_name, error);
+		SMBWARNING_LOCK(np, "%s failed to open: error = %d\n", np->n_name, error);
     }
     
 	return (error);
@@ -3623,8 +3764,12 @@ smbfs_tmpclose(struct smb_share *share, struct smbnode *np, SMBFID fid,
 		/* Open Mode does not matter becasue we closing everything */
 		return(smbfs_close(share, vp, 0, context));
 	}
+    
 	/* We borrowed the fid decrement the ref count */
-	np->f_refcnt--;
+    if (np->f_refcnt > 0) {
+        np->f_refcnt--;
+    }
+    
 	return (0);
 }
 
@@ -3749,7 +3894,7 @@ smb1fs_smb_openread(struct smb_share *share, struct smbnode *np, SMBFID *fid,
 	md_get_uint16le(mdp, &nextOffset);     /* andxoffset */
 	md_get_uint8(mdp, NULL);	/* oplock lvl granted */
 	md_get_uint16(mdp, &smb1_fid);       /* Get the fid */
-    *fid = smb1_fid;       /* save smb1 fid */
+    *fid = smb1_fid;       /* save SMB 1 fid */
 	md_get_uint32le(mdp, NULL);     /* create_action */
 	md_get_uint64le(mdp, NULL);   /* creation time */
 	md_get_uint64le(mdp, NULL);   /* access time */
@@ -3784,6 +3929,7 @@ smb1fs_smb_openread(struct smb_share *share, struct smbnode *np, SMBFID *fid,
 	
 	off = nextOffset;
 	/* Is the offset pass the end of our buffer? */
+    m_fixhdr(mdp->md_top);
 	if (nextOffset > mbuf_pkthdr_len(mdp->md_top)) {
 		error = EINVAL;
 		goto exit;
@@ -3916,7 +4062,7 @@ smb1fs_smb_open_maxaccess(struct smb_share *share, struct smbnode *dnp,
 	md_get_uint16le(mdp, &nextOffset);  /* andxoffset */
 	md_get_uint8(mdp, NULL);            /* oplock lvl granted */
 	md_get_uint16(mdp, &smb1_fid);      /* Get the fid */
-    *fidp = smb1_fid;                   /* save smb1 fid */
+    *fidp = smb1_fid;                   /* save SMB 1 fid */
 	md_get_uint32le(mdp, NULL);         /* create_action */
 	md_get_uint64le(mdp, NULL);         /* creation time */
 	md_get_uint64le(mdp, NULL);         /* access time */
@@ -4154,7 +4300,7 @@ smb1fs_smb_open_read(struct smb_share *share, struct smbnode *dnp,
         }
 		goto exit;
     }
-    *fidp = smb1_fid;       /* save smb1 fid */
+    *fidp = smb1_fid;       /* save SMB 1 fid */
 
 	if (error) {
         /* Now have FID so can do a close, now we can return with error */
@@ -4232,6 +4378,7 @@ smb1fs_smb_open_read(struct smb_share *share, struct smbnode *dnp,
 	
 	off = nextOffset;
 	/* Is the offset pass the end of our buffer? */
+    m_fixhdr(mdp->md_top);
 	if (nextOffset > mbuf_pkthdr_len(mdp->md_top)) {
 		error = EINVAL;
 		goto exit;
@@ -4379,7 +4526,19 @@ smbfs_smb_reopen_file(struct smb_share *share, struct smbnode *np,
     if (np->f_openState & kNeedRevoke) {
         lck_mtx_unlock(&np->f_openStateLock);
         return EIO;
-    } else if (!(np->f_openState & kNeedReopen)) {
+    } else if (!(np->f_openState & kNeedReopen) &&
+               !(np->f_openState & kInReopen)) {
+        /*
+         * Note smb2fs_reconnect() resets kNeedReopen before making this call
+         * so it can detect if another reconnect happened while trying to reopen
+         * the file. But this inadvertently prevents the file from being opened,
+         * since we would simply return here.
+         *
+         * Luckily smb2fs_reconnect() sets kInReopen at the same time,
+         * so now we check both kNeedReopen and kInReopen to decide
+         * whether to just return here or try to open the file below.
+         * Fixes <rdar://problem/17510490>.
+         */
         lck_mtx_unlock(&np->f_openStateLock);
         return 0;	/* Nothing wrong so just return */
     }
@@ -4395,10 +4554,10 @@ smbfs_smb_reopen_file(struct smb_share *share, struct smbnode *np,
     DBG_ASSERT(np->f_refcnt);	/* Better have an open at this point */
 
 	/*
-     * For SMB 1.x, if there was anything on f_openDenyList, then the file got
+     * For SMB 1, if there was anything on f_openDenyList, then the file got
      * revoked and thus no need for reopen.
      *
-     * For SMB 2.x, only uses this to reopen shared fid 
+     * For SMB 2/3, only uses this to reopen shared fid
      */
     /* POSIX Open: Reopen with the same modes we had it open with before the reconnect */
     error = smbfs_smb_open_file(share, np, np->f_rights,
@@ -4406,7 +4565,7 @@ smbfs_smb_reopen_file(struct smb_share *share, struct smbnode *np,
                                 &np->f_fid, NULL, 0, FALSE, &fattr,
                                 context);
     if (error) {
-        SMBERROR("Reopen %s failed because the open call failed!\n",  np->n_name);
+        SMBERROR_LOCK(np, "Reopen %s failed because the open call failed!\n", np->n_name);
     }
 
     /* If an error or no lock then we are done, nothing else to do */
@@ -4417,13 +4576,13 @@ smbfs_smb_reopen_file(struct smb_share *share, struct smbnode *np,
     if ((!(timespeccmp(&n_mtime, &fattr.fa_mtime, ==))) ||
         (n_size != fattr.fa_size)) {
         if (n_size != np->n_size) {
-            SMBERROR("Reopen %s failed because the size has changed was 0x%lld now 0x%lld!\n",  
-                     np->n_name, n_size, fattr.fa_size);
+            SMBERROR_LOCK(np, "Reopen %s failed because the size has changed was 0x%lld now 0x%lld!\n",
+                          np->n_name, n_size, fattr.fa_size);
         }
         else {
-            SMBERROR("Reopen %s failed because the modify time has changed was %lds %ldns now %lds %ldns!\n",  
-                     np->n_name, n_mtime.tv_sec, n_mtime.tv_nsec, 
-                     fattr.fa_mtime.tv_sec, fattr.fa_mtime.tv_nsec);
+            SMBERROR_LOCK(np, "Reopen %s failed because the modify time has changed was %lds %ldns now %lds %ldns!\n",
+                          np->n_name, n_mtime.tv_sec, n_mtime.tv_nsec,
+                          fattr.fa_mtime.tv_sec, fattr.fa_mtime.tv_nsec);
         }
         error = EIO;
     }
@@ -4433,7 +4592,7 @@ smbfs_smb_reopen_file(struct smb_share *share, struct smbnode *np,
                                flk->lck_pid, flk->start, flk->len,
                                0, context);
         if (error) {
-            SMBERROR("Reopen %s failed because we could not reestablish the lock! \n",  np->n_name);
+            SMBERROR_LOCK(np, "Reopen %s failed because we could not reestablish the lock! \n", np->n_name);
         }
     }
 
@@ -4452,8 +4611,10 @@ exit:
         int pid = proc_pid(vfs_context_proc(context));
 
         proc_name(pid, &errbuf[0], 32);
-        SMBERROR("Warning: pid %d(%.*s) reopening of %s failed with error %d\n", 
-                 pid, 32, &errbuf[0], np->n_name, error);
+
+        SMBERROR_LOCK(np, "Warning: pid %d(%.*s) reopening of %s failed with error %d\n",
+                      pid, 32, &errbuf[0], np->n_name, error);
+
         np->f_openState |= kNeedRevoke;
         error = EIO;
     }
@@ -4535,7 +4696,7 @@ smbfs_smb_create(struct smb_share *share, struct smbnode *dnp,
 	
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
         /* 
-         * SMB2 - do compound create/close, or create
+         * SMB 2/3 - do compound create/close, or create
          * If fidp == NULL, then it will do a create/close.
          */
         if (!xattr) {
@@ -4560,7 +4721,7 @@ smbfs_smb_create(struct smb_share *share, struct smbnode *dnp,
                                        NULL, context);
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         error = smbfs_smb_ntcreatex(share, dnp,
                                     desired_access, share_access, VREG,
                                     &fid, name, nmlen,
@@ -4740,8 +4901,8 @@ smb1fs_smb_rename(struct smb_share *share, struct smbnode *src,
 	 * to the best we can.
 	 */
 	if (error && retest) {
-		if ((smbfs_smb_query_info(share, src, NULL, 0, NULL, context) == ENOENT) &&
-			(smbfs_smb_query_info(share, tdnp, tname, tnmlen, NULL, context) == 0))
+		if ((smbfs_smb_query_info(share, src, VREG, NULL, 0, NULL, context) == ENOENT) &&
+			(smbfs_smb_query_info(share, tdnp, VREG, tname, tnmlen, NULL, context) == 0))
 			error = 0;
 	}
 	return error;
@@ -4767,7 +4928,7 @@ smbfs_smb_mkdir(struct smb_share *share, struct smbnode *dnp, const char *name,
 	 * easily be broken on some old or unusual servers.
 	 */
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        /* SMB2 - do compound create/close */
+        /* SMB 2 - do compound create/close */
         error = smb2fs_smb_cmpd_create(share, dnp,
                                        name, len,
                                        NULL, 0,
@@ -4778,7 +4939,7 @@ smbfs_smb_mkdir(struct smb_share *share, struct smbnode *dnp, const char *name,
                                        NULL, context);
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         error = smbfs_smb_ntcreatex(share, dnp,
                                     desired_access, share_access, VDIR, 
                                     &fid, name, len,
@@ -4961,6 +5122,7 @@ smbfs_smb_trans2find2(struct smbfs_fctx *ctx, vfs_context_t context)
 	 * can be mbufs with nothing in them. Need to make sure we have data in 
 	 * the mbuf chain, if not we received a bad message.
 	 */
+     m_fixhdr(mdp->md_top);
 	 if (mbuf_pkthdr_len(mdp->md_top) == 0) {
 		SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = %p (please report)\n", 
 				 ctx->f_ecnt, mbuf_next(mbp->mb_top));
@@ -5047,7 +5209,13 @@ smb1fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
 	}
 	t2p = ctx->f_t2;
 	mdp = &t2p->t2_rdata;
+    
 	ctx->f_NetworkNameLen = 0;
+    
+    /* Set default uid/gid values */
+    ctx->f_attr.fa_uid = KAUTH_UID_NONE;
+    ctx->f_attr.fa_gid = KAUTH_GID_NONE;
+    
 	switch (ctx->f_infolevel) {
 	case SMB_FIND_BOTH_DIRECTORY_INFO:
 		md_get_uint32le(mdp, &next);
@@ -5442,15 +5610,19 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
 	size_t nmlen = (nmlenp ? *nmlenp : 0);
 	struct smbmount *smp;
     struct smb_vc *vcp = SSTOVC(share);
+    enum vtype vnode_type = VREG;
 
 	DBG_ASSERT(dnp);
     
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
 	/* This should no longer happen, but just in case (should remove someday). */
 	if (dnp == NULL) {
 		SMBERROR("The parent node is NULL, shouldn't happen\n");
-		return EINVAL;
+		error = EINVAL;
+        goto done;
 	}
-    
+
     smp = dnp->n_mount;
 	if ((dnp->n_ino == smp->sm_root_ino) && (name == NULL)) {
 		uint64_t DIFF1980TO1601 = 11960035200ULL*10000000ULL;
@@ -5462,6 +5634,7 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
         
 		fap->fa_attr = SMB_EFA_DIRECTORY;
 		fap->fa_vtype = VDIR;
+        fap->fa_valid_mask |= FA_VTYPE_VALID;
 
         if (smp->sm_root_ino == 0) {
             /*
@@ -5476,19 +5649,27 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
             fap->fa_ino = smp->sm_root_ino;
         }
 
+        /* Its the root,thus its a dir */
+        vnode_type = VDIR;
+
         if (!(vcp->vc_misc_flags & SMBV_NO_QUERYINFO)) {
             /* Try the normal Query Info */
             if (UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP) {
-                error = smbfs_smb_qpathinfo(share, dnp, fap,
-                                            SMB_QFILEINFO_UNIX_INFO2, NULL, NULL,
+                error = smbfs_smb_qpathinfo(share, dnp, vnode_type,
+                                            fap, SMB_QFILEINFO_UNIX_INFO2,
+                                            NULL, NULL,
                                             context);
             }
             else {
-                error = smbfs_smb_qpathinfo(share, dnp, fap,
-                                            SMB_QFILEINFO_ALL_INFO, NULL, NULL,
+                error = smbfs_smb_qpathinfo(share, dnp, vnode_type,
+                                            fap, SMB_QFILEINFO_ALL_INFO,
+                                            NULL, NULL,
                                             context);
             }
             
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                           0xabc001, error, 0, 0, 0);
+           
             if (error) {
                 /* This server does not support Query Info? */
                 SMBERROR("Server failed Query Info %d\n", error);
@@ -5498,11 +5679,14 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
         
         if ((vcp->vc_flags & SMBV_SMB2) &&
             (vcp->vc_misc_flags & SMBV_NO_QUERYINFO)) {
-            /* Use Query Dir instead of Query Info, but only if SMB 2.x */
+            /* Use Query Dir instead of Query Info, but only if SMB 2/3 */
             error = smb2fs_smb_cmpd_query_dir_one(share, dnp,
                                                   NULL, 0,
                                                   fap, NULL, NULL,
                                                   context);
+            
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                           0xabc002, error, 0, 0, 0);
         }
 
 		/*
@@ -5529,26 +5713,30 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
 		if (fap->fa_chtime.tv_sec == 0)
 			fap->fa_chtime = fap->fa_mtime;
         
-		return error;
+		goto done;
 	}
 
 	if (nmlen == 1 && name && name[0] == '.') {
 		error = smbfs_lookup(share, dnp, NULL, NULL, fap, context);
-		return error;
+        SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                       0xabc003, error, 0, 0, 0);
+		goto done;
 	} else if (nmlen == 2 && name && name[0] == '.' && name[1] == '.') {
 		/* 
 		 * Remember that error is set to EINVAL. This should never happen, but
 		 * just in case make sure we have a parent, if not return EINVAL 
 		 */
-        
-        /* Lock protects dnp->n_parent. See <rdar://problem/11824956> */
-        lck_rw_lock_shared(&dnp->n_name_rwlock);
+        lck_rw_lock_shared(&dnp->n_parent_rwlock);
 		if (dnp->n_parent) {
 			error = smbfs_lookup(share, dnp->n_parent, NULL, NULL, fap, context);
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                           0xabc004, error, 0, 0, 0);
         }
-        lck_rw_unlock_shared(&dnp->n_name_rwlock);
-		return error;
+        lck_rw_unlock_shared(&dnp->n_parent_rwlock);
+        
+		goto done;
 	}
+    
 	bzero(fap, sizeof(*fap));
 	/* We keep track of the time the lookup call was requested */
 	nanouptime(&fap->fa_reqtime);
@@ -5564,11 +5752,13 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
 	}
 
     if (vcp->vc_flags & SMBV_SMB2) {
-        /* SMB 2.x can do this in in one compound req */
+        /* SMB 2/3 can do this in in one compound req */
         error = smb2fs_smb_cmpd_query_dir_one(share, dnp,
                                               name, nmlen,
                                               fap, (char **) namep, nmlenp,
                                               context);
+        SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                       0xabc005, error, 0, 0, 0);
     }
     else {
 		Boolean unix_symlink = ((UNIX_CAPS(share) & UNIX_SFILEINFO_UNIX_LINK_CAP)) ? TRUE : FALSE;
@@ -5599,15 +5789,17 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
 		*/
 		if (unix_symlink && !darwin && (namep == NULL) && dnp->n_vnode &&
 			(vnode_vtype(dnp->n_vnode) == VLNK)) {
-			return smbfs_smb_qpathinfo(share, dnp, fap, SMB_QFILEINFO_UNIX_INFO2,
-									   namep, nmlenp, context);
+			return smbfs_smb_qpathinfo(share, dnp, VREG,
+                                       fap, SMB_QFILEINFO_UNIX_INFO2,
+									   namep, nmlenp,
+                                       context);
 		}
 
-		/* SMB 1.x using old, slower way */
+		/* SMB 1 using old, slower way */
 		error = smbfs_smb_findopen(share, dnp, name, nmlen, &ctx, FALSE, context);
 		if (error) {
 			/* Can't happen we do wait ok */
-			return error;
+			goto done;
 		}
 		error = smbfs_findnext(ctx, context);
 		if (error == 0) {
@@ -5631,8 +5823,12 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
 		 */
 		if ((error == ENOENT) && unix_symlink && !darwin && (namep)) {
 			SMBWARNING("Working around Samba bug doing second lookup\n");
-			return smbfs_smb_qpathinfo(share, dnp, fap, SMB_QFILEINFO_UNIX_INFO2,
-									   namep, nmlenp, context);
+            vnode_type = (ctx->f_attr.fa_attr & SMB_EFA_DIRECTORY) ? VDIR : VREG;
+            error = smbfs_smb_qpathinfo(share, dnp, vnode_type,
+                                        fap, SMB_QFILEINFO_UNIX_INFO2,
+                                        namep, nmlenp,
+                                        context);
+            goto done;
 		}
     }
 
@@ -5707,7 +5903,7 @@ smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep,
      * NOTE: If we failed because of a low resources (EAGAIN) then try again.
 	 */
 	if ((error != EACCES) && (error != EPERM) && (error != EAGAIN)) {
-		return error;
+		goto done;
 	}
     
 doQueryInfo:
@@ -5715,19 +5911,34 @@ doQueryInfo:
      * Either its a named stream vnode, or the Query Dir failed so try
      * doing a Query Info instead
      */
-	if (UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP) {
+    
+     /* 
+      * Since we dont know what the item is, try VREG as that is least likely
+      * to return an error
+      */
+    vnode_type = VREG;
+    if (UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP) {
 		if (namep == NULL) {
-			error = smbfs_smb_qpathinfo(share, dnp, fap, 
-                                        SMB_QFILEINFO_UNIX_INFO2, namep, nmlenp, 
+			error = smbfs_smb_qpathinfo(share, dnp, vnode_type,
+                                        fap, SMB_QFILEINFO_UNIX_INFO2,
+                                        namep, nmlenp,
                                         context);
 		} else {
 			/* If they are requesting the name, return error nothing else we can do here. */
 			error = EACCES;
 		}
-	} else  {
-        error = smbfs_smb_qpathinfo(share, dnp, fap, SMB_QFILEINFO_ALL_INFO, 
-                                    namep, nmlenp, context);
 	}
+    else  {
+        error = smbfs_smb_qpathinfo(share, dnp, vnode_type,
+                                    fap, SMB_QFILEINFO_ALL_INFO,
+                                    namep, nmlenp,
+                                    context);
+	}
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_NONE,
+                   0xabc006, error, 0, 0, 0);
+    
+done:
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_LOOKUP | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 

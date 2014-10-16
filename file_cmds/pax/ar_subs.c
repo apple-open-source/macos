@@ -34,11 +34,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static const char sccsid[] = "@(#)ar_subs.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] = "$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $";
+__used static const char rcsid[] = "$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $";
 #endif
 #endif /* not lint */
 
@@ -255,7 +256,6 @@ extract(void)
 	struct copyfile_list_entry_t {
 	    char *src;
 	    char *dst;
-	    char *tmp;
 	    LIST_ENTRY(copyfile_list_entry_t) link;
 	} *cle;
 
@@ -443,21 +443,16 @@ extract(void)
 			(void)rd_skip(cnt + arcn->pad);
 
 #ifdef __APPLE__
-		if (!strncmp(basename(arcn->name), "._", 2))
-		{
+		if (!strncmp(basename(arcn->name), "._", 2)) {
 			cle = alloca(sizeof(struct copyfile_list_entry_t));
 			cle->src = strdup(arcn->name);
-
-			if (asprintf(&cle->tmp, "%s.XXX", cle->src) > MAXPATHLEN)
-			    continue;
-			if (mktemp(cle->tmp) == NULL)
-			    continue;
-			if (rename(cle->src, cle->tmp))
-			    continue;
-
+						
 			if (asprintf(&cle->dst, "%s/%s",
-				dirname(arcn->name), basename(arcn->name) + 2) != -1)
+				     dirname(arcn->name), basename(arcn->name) + 2) != -1) {
 				LIST_INSERT_HEAD(&copyfile_list, cle, link);
+			} else {
+				free(cle->src);
+			}
 		}
 #endif
 		/*
@@ -469,18 +464,16 @@ extract(void)
 #ifdef __APPLE__
 	LIST_FOREACH(cle, &copyfile_list, link)
 	{
-	    if(copyfile_disable || copyfile(cle->tmp, cle->dst, NULL,
-					    COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL)) {
-		    if (!copyfile_disable) {
-			    syswarn(1, errno, "Unable to set metadata on %s", cle->dst);
-		    }
-		rename(cle->tmp, cle->src);
-	    } else {
-		unlink(cle->tmp);
-	    }
-	    free(cle->dst);
-	    free(cle->src);
-	    free(cle->tmp);
+		if(copyfile_disable || copyfile(cle->src, cle->dst, NULL,
+						COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL)) {
+			if (!copyfile_disable) {
+				syswarn(1, errno, "Unable to set metadata on %s", cle->dst);
+			}
+		} else {
+			unlink(cle->src);
+		}
+		free(cle->dst);
+		free(cle->src);
 	}
 #endif
 
@@ -824,7 +817,7 @@ append(void)
 	ARCHD *arcn;
 	int res;
 	ARCHD archd;
-	FSUB *orgfrmt;
+	const FSUB *orgfrmt;
 	int udev;
 	off_t tlen;
 

@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <stdlib.h>
 #include <asl.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <libproc.h>
@@ -47,7 +48,8 @@ static const int kMaxPIDRecorded                    = 10;
 __private_extern__ kern_return_t _io_pm_hid_event_report_activity(
     mach_port_t server,
     audit_token_t token,                                                        
-    int         _action)
+    int         _action,
+    int         *allowEvent)
 {
     pid_t                               callerPID;
     CFNumberRef                         appPID = NULL;
@@ -60,6 +62,15 @@ __private_extern__ kern_return_t _io_pm_hid_event_report_activity(
     int                                 arrayCount = 0;
     int                                 i = 0;
     
+
+    if ((__NX_NULL_EVENT == _action) && (isA_NotificationDisplayWake())) {
+        *allowEvent = 0;
+    }
+    else {
+        *allowEvent = 1;
+    }
+
+
     // Unwrapping big data structure...
     if (!gHIDEventHistory) {
         gHIDEventHistory = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks);

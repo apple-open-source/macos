@@ -35,15 +35,21 @@
 #include <pthread.h>
 #include <bsm/libbsm.h>
 #include <sys/sysctl.h>
+#include <xpc/private.h>
 #if !TARGET_OS_EMBEDDED
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
+#include <AssertMacros.h>
 #endif
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/hid/IOHIDKeys.h>
+
+#include <Security/SecTask.h>
 
 #include "powermanagementServer.h" // mig generated
 
 #include "PMStore.h"
 #include "PMSettings.h"
-#include "PSLowPower.h"
+#include "UPSLowPower.h"
 #include "BatteryTimeRemaining.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
@@ -54,7 +60,7 @@
 #include "SystemLoad.h"
 #include "PMConnection.h"
 #include "ExternalMedia.h"
-//#include "Platform.h"
+#include "Platform.h"
 
 // To support importance donation across IPCs
 #include <libproc_internal.h>
@@ -65,7 +71,9 @@
 
 #ifndef kIOUPSDeviceKey
 // Also defined in ioupsd/IOUPSPrivate.h
-#define kIOUPSDeviceKey                 "UPSDevice" 
+#define kIOUPSDeviceKey             "UPSDevice"
+#define kIOPowerDeviceUsageKey      0x84
+#define kIOBatterySystemUsageKey    0x85
 #endif
 
 /*
@@ -88,6 +96,9 @@
 //   no longer abortable by anyone. Point of no return!
 #define kLWLogoutPointOfNoReturn    "com.apple.system.loginwindow.logoutNoReturn"
 
+// kLWSULogoutInitiated
+//   Loginwindow is beginning a sequence of 1. logout, 2. software update, 3. then restart.
+#define kLWSULogoutInitiated     "com.apple.system.loginwindow.sulogoutinitiated"
 
 #define kDWTMsgHandlerDelay         10  // Time(in secs) for which DW Thermal msg handler is delayed
 
@@ -97,7 +108,6 @@
         x, IOObjectGetKernelRetainCount(y), IOObjectGetUserRetainCount(y)); } while(0)
 */
 
-
 // Global keys
 static CFStringRef              gTZNotificationNameString           = NULL;
 
@@ -106,28 +116,37 @@ static SCPreferencesRef         gESPreferences                      = NULL;
 static io_connect_t             _pm_ack_port                        = 0;
 static io_iterator_t            _ups_added_noteref                  = 0;
 static int                      _alreadyRunningIOUPSD               = 0;
-static int                      _darkWakeThermalEventCount          = 0;
 
 static int                      gCPUPowerNotificationToken          = 0;
 static bool                     gExpectingWakeFromSleepClockResync  = false;
 static CFAbsoluteTime           *gLastWakeTime                      = NULL;
 static CFTimeInterval           *gLastSMCS3S0WakeInterval           = NULL;
 static CFStringRef              gCachedNextSleepWakeUUIDString      = NULL;
-static int                      gLWShutdownNotificationToken        = 0;
-static int                      gLWRestartNotificationToken         = 0;
-static int                      gLWLogoutCancelNotificationToken    = 0;
-static int                      gLWLogoutPointOfNoReturnNotificationToken = 0;
+#if !TARGET_OS_EMBEDDED
+static int                      gLastWakeTimeToken                  = -1;
+static int                      gLastSMCS3S0WakeIntervalToken       = -1;
+#endif
+
+typedef struct {
+    int  shutdown;
+    int  restart;
+    int  cancel;
+    int  pointofnoreturn;
+    int  su;
+} LoginWindowNotifyTokens;
+static LoginWindowNotifyTokens  lwNotify = {0,0,0,0,0};
+
 static CFStringRef              gConsoleNotifyKey                   = NULL;
-static bool                     gDisplayIsAsleep = true;
-static bool                     gUserWasActive = true;
+static bool                     gDisplayIsAsleep = false;
 static CFAbsoluteTime           gSleepFromUserWakeTime = 0;
 static struct timeval           gLastSleepTime                      = {0, 0};
-static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
 
 static mach_port_t              serverPort                          = MACH_PORT_NULL;
 __private_extern__ CFMachPortRef pmServerMachPort                   = NULL;
 #if !TARGET_OS_EMBEDDED
 static bool                     gSMCSupportsWakeupTimer             = true;
+static int                      _darkWakeThermalEventCount          = 0;
+static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
 #endif
 
 #if TCPKEEPALIVE
@@ -140,8 +159,10 @@ extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *
 
 // foward declarations
 static void initializeESPrefsDynamicStore(void);
-static void initializePowerSourceChangeNotification(void);
 static void initializeInterestNotifications(void);
+static void initializeHIDInterestNotifications(
+                int usagePage,
+                IONotificationPortRef notify_port);
 static void initializeTimezoneChangeNotifications(void);
 static void initializeCalendarResyncNotification(void);
 static void initializeShutdownNotifications(void);
@@ -159,10 +180,9 @@ static void ESPrefsHaveChanged(
                 void *info);
 static void _ioupsd_exited(pid_t, int, struct rusage *, void *);
 static void UPSDeviceAdded(void *, io_iterator_t);
-static void BatteryMatch(void *, io_iterator_t);
-static void BatteryInterest(void *, io_service_t, natural_t, void *);
+static void ioregBatteryMatch(void *, io_iterator_t);
+static void ioregBatteryInterest(void *, io_service_t, natural_t, void *);
 static void RootDomainInterest(void *, io_service_t, natural_t, void *);
-extern void PowerSourcesHaveChanged(void *info);
 static void broadcastGMTOffset(void);
 
 static void pushNewSleepWakeUUID(void);
@@ -203,6 +223,14 @@ static void mig_server_callback(
                 CFIndex size, 
                 void *info);
 
+static void incoming_XPC_connection(xpc_connection_t);
+static void xpc_register(void);
+
+static void AppClaimWakeReason(xpc_object_t claim);
+
+
+
+
 kern_return_t _io_pm_set_active_profile(
                 mach_port_t         server,
                 audit_token_t       token,
@@ -217,6 +245,7 @@ kern_return_t _io_pm_last_wake_time(
                 vm_offset_t             *out_delta_data,
                 mach_msg_type_number_t  *out_delta_len,
                 int                     *return_val);
+
 
 
 static CFStringRef              
@@ -238,12 +267,16 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  */
 
 
+
+
 int main(int argc __unused, char *argv[] __unused)
 {
     CFRunLoopSourceRef      cfmp_rls = 0;
     CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
     kern_return_t           kern_result = 0;
-
+    
+    xpc_register();
+    
     kern_result = bootstrap_check_in(
                             bootstrap_port, 
                             kIOPMServerBootstrapName,
@@ -298,7 +331,6 @@ int main(int argc __unused, char *argv[] __unused)
     
     PMStoreLoad();
     
-    initializePowerSourceChangeNotification();
     initializeESPrefsDynamicStore();
     initializeInterestNotifications();
     initializeTimezoneChangeNotifications();
@@ -316,9 +348,6 @@ int main(int argc __unused, char *argv[] __unused)
     // Prime the messagetracer UUID pump
     pushNewSleepWakeUUID();
     
-#if TCPKEEPALIVE
-    Platform_prime();
-#endif
     BatteryTimeRemaining_prime();
     PMSettings_prime();
     AutoWake_prime();
@@ -328,7 +357,7 @@ int main(int argc __unused, char *argv[] __unused)
     PMConnection_prime();
 
 #if !TARGET_OS_EMBEDDED
-    PSLowPower_prime();
+    UPSLowPower_prime();
     TTYKeepAwake_prime();
     ExternalMedia_prime();
 
@@ -339,6 +368,7 @@ int main(int argc __unused, char *argv[] __unused)
     _unclamp_silent_running(false);
     notify_post(kIOUserAssertionReSync);
     logASLMessagePMStart();
+
     CFRunLoopRun();
     return 0;
 }
@@ -346,7 +376,7 @@ int main(int argc __unused, char *argv[] __unused)
 
 
 
-static void BatteryMatch(
+static void ioregBatteryMatch(
     void *refcon, 
     io_iterator_t b_iter) 
 {
@@ -364,7 +394,7 @@ static void BatteryMatch(
         
         // And install an interest notification on it
         IOServiceAddInterestNotification(notify, battery, 
-                            kIOGeneralInterest, BatteryInterest,
+                            kIOGeneralInterest, ioregBatteryInterest,
                             (void *)tracking, &notification_ref);
 
         LogObjectRetainCount("PM::BatteryMatch(M1) me", battery);
@@ -378,7 +408,7 @@ static void BatteryMatch(
 }
 
 
-static void BatteryInterest(
+static void ioregBatteryInterest(
     void *refcon, 
     io_service_t batt, 
     natural_t messageType, 
@@ -396,25 +426,11 @@ static void BatteryInterest(
         LogObjectRetainCount("PM:BatteryInterest(B0) msg_port", changed_batt->msg_port);
         LogObjectRetainCount("PM:BatteryInterest(B1) msg_port", changed_batt->me);
 
-        batt_stats = _batteries();        
-        BatteryTimeRemainingBatteriesHaveChanged(batt_stats);
+        batt_stats = _batteries();
+        kernelPowerSourcesDidChange(changed_batt);
         SystemLoadBatteriesHaveChanged(batt_stats);
         InternalEvaluateAssertions();
         InternalEvalConnections();
-    }
-
-    if (kIOMessageServiceIsTerminated == messageType
-        && changed_batt && IO_OBJECT_NULL != changed_batt->msg_port)
-    {
-        LogObjectRetainCount("PM:BatteryInterest(T0) msg_port", changed_batt->msg_port);
-        LogObjectRetainCount("PM:BatteryInterest(T0) me", changed_batt->me);
-
-// TODO: Clean up left over objects upon kext removal
-//        IOObjectRelease(changed_batt->msg_port);
-//        IOObjectRelease(changed_batt->me);
-
-        LogObjectRetainCount("PM:BatteryInterest(T1) msg_port", changed_batt->msg_port);
-        LogObjectRetainCount("PM:BatteryInterest(T1) me", changed_batt->me);
     }
 
     return;
@@ -448,6 +464,12 @@ ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities old_cap,
         // as the wake time.
         gExpectingWakeFromSleepClockResync = true;
 
+#if !TARGET_OS_EMBEDDED
+        if (gLastWakeTimeToken >= 0)
+            notify_set_state(gLastWakeTimeToken, 0);
+        if (gLastSMCS3S0WakeIntervalToken >= 0)
+            notify_set_state(gLastSMCS3S0WakeIntervalToken, 0);
+#endif
         // tell clients what our timezone offset is
         broadcastGMTOffset();
     }
@@ -466,6 +488,7 @@ SleepWakeCallback(
     natural_t       messageType,
     void            *acknowledgementToken)
 {
+
     BatteryTimeRemainingSleepWakeNotification(messageType);
     PMSettingsSleepWakeNotification(messageType);
 
@@ -474,15 +497,20 @@ SleepWakeCallback(
     // Acknowledge message
     switch ( messageType ) {
         case kIOMessageSystemWillSleep:
-            if (gUserWasActive) {
+            if (isUserActiveRootDomain) {
                 gSleepFromUserWakeTime = CFAbsoluteTimeGetCurrent();
-                gUserWasActive = false;
+                userActiveHandleSleep();
             }
             // Fall thru
         case kIOMessageCanSystemSleep:
             IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
             break;
+
         case kIOMessageSystemHasPoweredOn:
+        case kIOMessageSystemWillNotSleep:
+            _set_sleep_revert(true);
+            break;
+
         default:
             break;
     }
@@ -509,7 +537,7 @@ ESPrefsHaveChanged(
         PMSettingsPrefsHaveChanged();
         mt2EvaluateSystemSupport();
 #if !TARGET_OS_EMBEDDED
-        PSLowPowerPrefsHaveChanged();
+        UPSLowPowerPrefsHaveChanged();
         TTYKeepAwakePrefsHaveChanged();
 #endif
         SystemLoadPrefsHaveChanged();
@@ -532,13 +560,16 @@ static void _ioupsd_exited(
     if(0 != status)
     {
         // ioupsd didn't exit cleanly.
-        // Intentionally leave _alreadyRunningIOUPSD set so that we don't 
-        // re-launch it.
         syslog(
             LOG_ERR, 
            "PowerManagement: /usr/libexec/ioupsd(%d) has exited with status %d\n", 
            pid, 
            status);
+        
+        // relaunch
+        char *argv[2] = {"/usr/libexec/ioupsd", NULL};
+        _SCDPluginExecCommand(&_ioupsd_exited, 0, 0, 0,
+                              "/usr/libexec/ioupsd", argv);
     } else {
         _alreadyRunningIOUPSD = 0;
     }
@@ -568,32 +599,6 @@ static void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
     }
 }
 
-
-/* PowerSourcesHaveChanged
- *
- * Is the handler that gets notified when power source (battery or UPS)
- * state changes. We might respond to this by posting a user notification
- * or performing emergency sleep/shutdown.
- */
-extern void
-PowerSourcesHaveChanged(void *info) 
-{
-    CFTypeRef            ps_blob;
-    
-    ps_blob = IOPSCopyPowerSourcesInfo();
-    if(!ps_blob)
-        return;
-
-#if !TARGET_OS_EMBEDDED
-    // Notifiy PSLowPower of power sources change
-    PSLowPowerPSChange(ps_blob);
-#endif
-    
-    // Notify PMSettings
-    PMSettingsPSChange(ps_blob);
-    
-    CFRelease(ps_blob);
-}
 
 /* timeZoneChangedCallback
  *
@@ -679,28 +684,34 @@ static void lwShutdownCallback(
     {
         // System CPU power status has changed
         SystemLoadCPUPowerHasChanged(NULL);
-    } else if (header->msgh_id == gLWShutdownNotificationToken) 
+    } else if (header->msgh_id == lwNotify.su)
+    {
+        // Loginwindow is logging out to begin a several-minute
+        // software update. We'll suppress the immediately next shoutdown
+        // and logout messages.
+        consoleShutdownState = kIOPMStateConsoleSULogoutInitiated;
+
+    } else if (header->msgh_id == lwNotify.shutdown)
     {
         // Loginwindow put a shutdown confirm panel up on screen
         // The user has not necessarily even clicked on it yet
         amidst_shutdown = true;        
         consoleShutdownState = kIOPMStateConsoleShutdownPossible;
 
-    } else if (header->msgh_id == gLWRestartNotificationToken) 
+    } else if (header->msgh_id == lwNotify.restart)
     {
         // Loginwindow put a restart confirm panel up on screen
         // The user has not necessarily even clicked on it yet
         amidst_shutdown = true;
         consoleShutdownState = kIOPMStateConsoleShutdownPossible;
 
-    } else if (header->msgh_id == gLWLogoutCancelNotificationToken) 
+    } else if (header->msgh_id == lwNotify.cancel)
     {
-        // Whatever shutdown, restart, or logout that was in progress has been cancelled.
         amidst_shutdown = false;
         consoleShutdownState = kIOPMStateConsoleShutdownNone;
 
     } else if (amidst_shutdown 
-            && (header->msgh_id == gLWLogoutPointOfNoReturnNotificationToken))
+            && (header->msgh_id == lwNotify.pointofnoreturn))
     {
         // Whatever shutdown or restart that was in progress has succeeded.
         // All apps are quit, there's no more user input required. We will
@@ -713,11 +724,13 @@ static void lwShutdownCallback(
     
     // Tell interested kernel drivers where we are in the GUI shutdown.
     if (lastConsoleShutdownState != consoleShutdownState) {
+    
         n = CFNumberCreate(0, kCFNumberIntType, &consoleShutdownState);
         if (n) {
             _setRootDomainProperty( CFSTR(kIOPMStateConsoleShutdown), n) ;
             CFRelease(n);
         }
+
         lastConsoleShutdownState = consoleShutdownState;
     }
     
@@ -741,6 +754,7 @@ static void
 displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, void *arg)
 {
     IOPowerStateChangeNotification *params = (IOPowerStateChangeNotification*) arg;
+    bool prevState = gDisplayIsAsleep;
 
     switch (messageType)
     {
@@ -774,6 +788,10 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
             }
 
             break;
+    }
+    
+    if (prevState != gDisplayIsAsleep) {
+        logASLDisplayStateChange();
     }
 }
 
@@ -810,22 +828,6 @@ initializeESPrefsDynamicStore(void)
     return;
 }
 
-/* initializePowerSourceChanges
- *
- * Registers a handler that gets called on power source (battery or UPS) changes
- */
-static void
-initializePowerSourceChangeNotification(void)
-{
-    CFRunLoopSourceRef         CFrls;
-        
-    // Create and add RunLoopSource
-    CFrls = IOPSNotificationCreateRunLoopSource(PowerSourcesHaveChanged, NULL);
-    if(CFrls) {
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), CFrls, kCFRunLoopDefaultMode);    
-        CFRelease(CFrls);
-    }
-}
 
 /* pushNewSleepWakeUUID
  *
@@ -864,6 +866,84 @@ static void pushNewSleepWakeUUID(void)
     return;
 }
 
+
+static void AppClaimWakeReason(xpc_object_t claim)
+{
+    const char              *id;
+    const char              *reason;
+    xpc_object_t            d;
+
+    if (!claim) {
+        return;
+    }
+
+    id = xpc_dictionary_get_string(claim, "identity"),
+    reason = xpc_dictionary_get_string(claim, "reason"),
+    d = xpc_dictionary_get_value(claim, "description");
+
+    logASLAppWakeReason(id, reason);
+}
+
+static void incoming_XPC_connection(xpc_connection_t peer)
+{
+    xpc_connection_set_event_handler(peer,
+             ^(xpc_object_t event) {
+                 SecTaskRef secTask = NULL;
+                 CFTypeRef  entitled_DarkWakeControl = NULL;
+                 audit_token_t token;
+
+                 xpc_connection_get_audit_token(peer, &token);
+
+                 secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
+                 if (secTask) {
+                     entitled_DarkWakeControl = SecTaskCopyValueForEntitlement(secTask, kIOPMDarkWakeControlEntitlement, NULL);
+                 }
+
+                 if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
+
+                     xpc_object_t inEvent;
+
+                     if (entitled_DarkWakeControl
+                         && (inEvent = xpc_dictionary_get_value(event, "claimSystemWakeEvent")))
+                     {
+                         AppClaimWakeReason(inEvent);
+                     }
+                 }
+
+                 if (secTask) {
+                     CFRelease(secTask);
+                 }
+                 if (entitled_DarkWakeControl) {
+                     CFRelease(entitled_DarkWakeControl);
+                 }
+             });
+
+    xpc_connection_resume(peer);
+    return;
+}
+
+static void xpc_register(void)
+{
+    xpc_connection_t        connection;
+
+    connection = xpc_connection_create_mach_service(
+                                                    "com.apple.iokit.powerdxpc",
+                                                    dispatch_get_main_queue(),
+                                                    XPC_CONNECTION_MACH_SERVICE_LISTENER);
+
+    xpc_connection_set_target_queue(connection, dispatch_get_main_queue());
+
+    xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+            xpc_type_t type = xpc_get_type(event);
+            if (type == XPC_TYPE_CONNECTION) {
+                incoming_XPC_connection((xpc_connection_t)event);
+            }
+        });
+    
+    xpc_connection_resume(connection);
+}
+
+
 static boolean_t 
 pm_mig_demux(
     mach_msg_header_t * request,
@@ -880,15 +960,10 @@ pm_mig_demux(
     
     if (MACH_NOTIFY_DEAD_NAME == request->msgh_id) 
     {
-        bool handled = false;
-
         __MACH_PORT_DEBUG(true, "pm_mig_demux: Dead name port should have 1+ send right(s)", deadRequest->not_port);
 
-        handled = BatteryHandleDeadName(deadRequest->not_port);
-        if (!handled) {
-            PMConnectionHandleDeadName(deadRequest->not_port);
-        }
-        
+        PMConnectionHandleDeadName(deadRequest->not_port);
+
         __MACH_PORT_DEBUG(true, "pm_mig_demux: Deallocating dead name port", deadRequest->not_port);
         mach_port_deallocate(mach_task_self(), deadRequest->not_port);
         
@@ -921,12 +996,8 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
         NULL, _powermanagement_subsystem.maxsize, 0);
     mach_msg_return_t   mr;
     int                 options;
-    int                 ret = 0;
-    uint64_t            token;
 
     __MACH_PORT_DEBUG(true, "mig_server_callback", serverPort);
-    
-    ret = proc_importance_assertion_begin_with_msg(&bufRequest->Head, NULL, &token);
     
     /* we have a request message */
     (void) pm_mig_demux(&bufRequest->Head, &bufReply->Head);
@@ -1001,8 +1072,6 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 
 out:
-    if (ret == 0)
-        proc_importance_assertion_complete(token);
     CFAllocatorDeallocate(NULL, bufReply);
     return;
 
@@ -1040,35 +1109,35 @@ kern_return_t _io_pm_set_value_int(
     mach_port_t   server,
     audit_token_t token,
     int           selector,
-    int           inValue)
+    int           inValue,
+    int           *result)
 {
     uid_t   callerUID;
     audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, 0, 0, NULL, NULL);
     
-    if (kIOPMSetNoPoll == selector)
-    {
+    *result = kIOReturnSuccess;
+    switch (selector) {
+    case kIOPMSetNoPoll:
         BatterySetNoPoll(inValue ? true:false);
-    }
-#if TCPKEEPALIVE
-    if ((kIOPMTCPKeepAliveExpirationOverride == selector)
-        && auditTokenHasEntitlement(token, kIOPMDarkWakeControlEntitlement))
-    {
-        if (gTCPKeepAlive) {
-            gTCPKeepAlive->overrideSec = inValue;
-        }
-    }
-    else if ((kIOPMTCPWakeQuotaInterval == selector)
-        && auditTokenHasEntitlement(token, kIOPMDarkWakeControlEntitlement))
-    {
-        TCPKeepAlive_adjustQuota(0, (CFTimeInterval)inValue);
-    }
-    else if ((kIOPMTCPWakeQuota == selector)
-        && auditTokenHasEntitlement(token, kIOPMDarkWakeControlEntitlement))
-    {
-        TCPKeepAlive_adjustQuota(inValue, 0.0);
-    }
+        break;
 
-#endif
+    case kIOPMSetAssertionActivityLog:
+        setAssertionActivityLog(inValue);
+        break;
+
+    case kIOPMSetAssertionActivityAggregate:
+        setAssertionActivityAggregate(inValue);
+        break;
+
+    case kIOPMSetReservePowerMode:
+        if (!auditTokenHasEntitlement(token, kIOPMReservePwrCtrlEntitlement))
+            *result = kIOReturnNotPrivileged;
+        else 
+            *result = setReservePwrMode(inValue);
+
+    default:
+        break;
+    }
     return KERN_SUCCESS;
 }
 
@@ -1115,19 +1184,7 @@ kern_return_t _io_pm_get_value_int(
             
     case kIOPMTCPKeepAliveIsActive:
             if (gTCPKeepAlive) {
-                *outValue = getTCPKeepAliveIsActive(NULL, 0);
-            }
-            break;
-            
-    case kIOPMTCPWakeQuotaInterval:
-            if (gTCPKeepAlive) {
-                *outValue = gTCPKeepAlive->wakeQuotaInterval;
-            }
-            break;
-
-    case kIOPMTCPWakeQuota:
-            if (gTCPKeepAlive) {
-                *outValue = gTCPKeepAlive->wakeQuota;
+                *outValue = (getTCPKeepAliveState(NULL, 0) == kActive) ? true : false;
             }
             break;
 #endif
@@ -1224,14 +1281,12 @@ initializeInterestNotifications()
     io_iterator_t               display_iter = 0;
     CFRunLoopSourceRef          rlser = 0;
     
-    CFMutableDictionaryRef      matchingDict = 0;
-    CFMutableDictionaryRef      propertyDict = 0;
     kern_return_t               kr;
     
     /* Notifier */
     notify_port = IONotificationPortCreate(0);
     rlser = IONotificationPortGetRunLoopSource(notify_port);
-    if(!rlser) goto finish;
+    if(!rlser) return;
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rlser, kCFRunLoopDefaultMode);
 
 
@@ -1239,13 +1294,13 @@ initializeInterestNotifications()
                                 notify_port,
                                 kIOFirstMatchNotification,
                                 IOServiceMatching("IOPMPowerSource"),
-                                BatteryMatch,
+                                ioregBatteryMatch,
                                 (void *)notify_port,
                                 &battery_iter);
     if(KERN_SUCCESS == kr)
     {
         // Install notifications on existing instances.
-        BatteryMatch((void *)notify_port, battery_iter);
+        ioregBatteryMatch((void *)notify_port, battery_iter);
     }
 
     kr = IOServiceAddMatchingNotification(
@@ -1265,40 +1320,51 @@ initializeInterestNotifications()
                 "Failed to match DisplayWrangler(0x%x)\n", kr);
     }
     
+    // Listen for Power devices and Battery Systems to start ioupsd
+    initializeHIDInterestNotifications(kIOPowerDeviceUsageKey, notify_port);
+    initializeHIDInterestNotifications(kIOBatterySystemUsageKey, notify_port);
+}
 
-    matchingDict = IOServiceMatching(kIOServiceClass); 
-    if (!matchingDict) goto finish;
-            
-    propertyDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 
-                    0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!propertyDict) goto finish;        
+static void
+initializeHIDInterestNotifications(int usagePage,
+                                   IONotificationPortRef notify_port)
+{
+    CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOHIDDeviceKey);
+    if (!matchingDict) {
+        return;
+    }
 
-    // We are only interested in devices that have kIOUPSDeviceKey property set
-    CFDictionarySetValue(propertyDict, CFSTR(kIOUPSDeviceKey), kCFBooleanTrue);    
-    CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), propertyDict);
+    // We need to box the Usage Page value up into a CFNumber... sorry bout that
+    CFNumberRef cfUsagePageKey = CFNumberCreate(kCFAllocatorDefault,
+                                                kCFNumberIntType,
+                                                &usagePage);
+    if (!cfUsagePageKey) {
+        CFRelease(matchingDict);
+        return;
+    }
+
+    CFDictionarySetValue(matchingDict,
+                         CFSTR(kIOHIDPrimaryUsagePageKey),
+                         cfUsagePageKey);
+    CFRelease(cfUsagePageKey);
     
-    // Now set up a notification to be called when a device is first matched by I/O Kit.
-    // Note that this will not catch any devices that were already plugged in so we take
-    // care of those later.
-    kr = IOServiceAddMatchingNotification(
-                              notify_port, 
-                              kIOFirstMatchNotification, 
-                              matchingDict,
-                              UPSDeviceAdded,
-                              NULL,
-                              &_ups_added_noteref);
+    
+    // Now set up a notification to be called when a device is first matched by
+    // I/O Kit. Note that this will not catch any devices that were already
+    // plugged in so we take care of those later.
+    kern_return_t kr =
+            IOServiceAddMatchingNotification(notify_port,
+                                             kIOFirstMatchNotification,
+                                             matchingDict,
+                                             UPSDeviceAdded,
+                                             NULL,
+                                             &_ups_added_noteref);
 
     matchingDict = 0; // reference consumed by AddMatchingNotification
-    if ( kr == kIOReturnSuccess )
-    {
+    if ( kr == kIOReturnSuccess ) {
         // Check for existing matching devices and launch ioupsd if present.
-        UPSDeviceAdded( NULL, _ups_added_noteref);        
+        UPSDeviceAdded( NULL, _ups_added_noteref);
     }
-    
-finish:   
-    if(matchingDict) CFRelease(matchingDict);
-    if(propertyDict) CFRelease(propertyDict);
-    return;
 }
 
 /* initializeTimezoneChangeNotifications
@@ -1431,6 +1497,11 @@ static void calendarRTCDidResync_getSMCWakeInterval(void)
         goto exit;
     }
     
+    if (gLastWakeTimeToken < 0)
+        notify_register_check(kIOPMLastWakeTimeString, &gLastWakeTimeToken);
+    if (gLastSMCS3S0WakeIntervalToken < 0)
+        notify_register_check(kIOPMLastWakeTimeSMCDataString, &gLastSMCS3S0WakeIntervalToken);
+
     // Read SMC key for precise timing between when the wake event physically occurred
     // and now (i.e. the moment we read the key).
     // - SMC key returns the delta in tens of milliseconds
@@ -1450,6 +1521,20 @@ static void calendarRTCDidResync_getSMCWakeInterval(void)
     
     // And we adjust backwards to determine the real time of physical wake.
     *gLastWakeTime -= *gLastSMCS3S0WakeInterval;
+
+    if (gLastWakeTimeToken >= 0) {
+        union {
+            uint64_t        u64;
+            CFAbsoluteTime  time;
+        } nstate;
+        __Check_Compile_Time(sizeof(nstate.time) <= sizeof(nstate.u64));
+
+        nstate.u64 = 0;
+        nstate.time = *gLastWakeTime;
+        notify_set_state(gLastWakeTimeToken, nstate.u64);
+    }
+    if (gLastSMCS3S0WakeIntervalToken >= 0)
+        notify_set_state(gLastSMCS3S0WakeIntervalToken, wakeup_smc_result);
 #endif
 exit:
     return;
@@ -1568,25 +1653,30 @@ initializeShutdownNotifications(void)
                         kLWShutdowntInitiated, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
-                        &gLWShutdownNotificationToken);
+                        &lwNotify.shutdown);
 
     notify_register_mach_port( 
                         kLWRestartInitiated, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
-                        &gLWRestartNotificationToken);
+                        &lwNotify.restart);
 
     notify_register_mach_port( 
                         kLWLogoutCancelled, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
-                        &gLWLogoutCancelNotificationToken);
+                        &lwNotify.cancel);
 
     notify_register_mach_port( 
                         kLWLogoutPointOfNoReturn, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
-                        &gLWLogoutPointOfNoReturnNotificationToken);
+                        &lwNotify.pointofnoreturn);
+    notify_register_mach_port( 
+                        kLWSULogoutInitiated,
+                        &our_port, 
+                        NOTIFY_REUSE, /* flags */ 
+                        &lwNotify.su);
 
     /* * * * * * * * * * * * * */
 
@@ -1606,19 +1696,19 @@ initializeShutdownNotifications(void)
     }
 }
 
+#if !TARGET_OS_EMBEDDED
 static void handleDWThermalMsg(CFStringRef wakeType)
 {
-
     CFMutableDictionaryRef options = NULL;
 
     if (wakeType == NULL)
-        getCFWakeReason(NULL, &wakeType);
+        getPlatformWakeReason(NULL, &wakeType);
 
     if ( (isA_BTMtnceWake() || isA_SleepSrvcWake()) && !isA_NotificationDisplayWake() && 
                (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) || 
                         CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService))
 #if TCPKEEPALIVE
-            && !(getTCPKeepAliveIsActive(NULL, 0) && checkForActivesByType(kInteractivePushServiceIndex)) ) {
+            && !((getTCPKeepAliveState(NULL, 0) == kActive) && checkForActivesByType(kInteractivePushServiceType)) ) {
 #else
         ) {
 #endif
@@ -1639,6 +1729,7 @@ static void handleDWThermalMsg(CFStringRef wakeType)
         logASLMessageIgnoredDWTEmergency();
     }
 }
+#endif
 
 
 static void 
@@ -1649,8 +1740,9 @@ RootDomainInterest(
     void *messageArgument)
 {
     static CFStringRef  _uuidString = NULL;
-    CFBooleanRef    userIsActive = NULL;
+#if !TARGET_OS_EMBEDDED
     CFStringRef wakeReason = NULL, wakeType = NULL;
+#endif
     
     if (messageType == kIOPMMessageDriverAssertionsChanged)
     {
@@ -1680,7 +1772,7 @@ RootDomainInterest(
         mt2RecordThermalEvent(kThermalStateSleepRequest);
         _darkWakeThermalEventCount++;
 
-        getCFWakeReason(&wakeReason, &wakeType);
+        getPlatformWakeReason(&wakeReason, &wakeType);
         if (CFEqual(wakeReason, CFSTR("")) && CFEqual(wakeType, CFSTR("")))
         {
             // Thermal emergency msg is received too early before wake type is 
@@ -1711,7 +1803,7 @@ RootDomainInterest(
         {
             handleDWThermalMsg(wakeType);
             CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode,
-                        ^{ logASLAssertionTypeSummary(kInteractivePushServiceIndex);});
+                        ^{ logASLAssertionTypeSummary(kInteractivePushServiceType);});
             CFRunLoopWakeUp(_getPMRunLoop());
         }
 
@@ -1760,19 +1852,7 @@ RootDomainInterest(
 
     if (messageType == kIOPMMessageUserIsActiveChanged)
     {
-        userIsActive = IORegistryEntryCreateCFProperty(getRootDomain(), CFSTR(kIOPMUserIsActiveKey), 0, 0);
-        if (userIsActive == kCFBooleanTrue) {
-            _unclamp_silent_running(true);
-            cancel_NotificationDisplayWake();
-            cancelPowerNapStates();
-#if TCPKEEPALIVE
-            TCPWakeQuotaRecordWake(kIsUserWake);
-#endif
-            gUserWasActive = true;
-        }
-        if (userIsActive) {
-            CFRelease(userIsActive);
-        }
+        userActiveHandleRootDomainActivity();
     }
 }
 
@@ -1841,7 +1921,7 @@ static void enableSleepWakeWdog()
     IOReturn                    ret;
 
     // Check if system supports NTS
-    if (IOAuthenticatedRestartSupported() == false) 
+    if (IONoteToSelfSupported() == false) 
         return;
 
     // Find it
@@ -1889,13 +1969,3 @@ static void initializeSleepWakeNotifications(void)
     }
 }
 
-
-__private_extern__ bool isA_userSession()
-{
-    return gUserWasActive ? true : false;
-}
-
-__private_extern__ CFAbsoluteTime get_SleepFromUserWakeTime()
-{
-    return gSleepFromUserWakeTime;
-}

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -37,7 +37,6 @@ struct FrameLoadRequest {
 public:
     explicit FrameLoadRequest(SecurityOrigin* requester)
         : m_requester(requester)
-        , m_lockHistory(false)
         , m_shouldCheckNewWindowPolicy(false)
     {
     }
@@ -45,7 +44,6 @@ public:
     FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest)
         : m_requester(requester)
         , m_resourceRequest(resourceRequest)
-        , m_lockHistory(false)
         , m_shouldCheckNewWindowPolicy(false)
     {
     }
@@ -54,7 +52,6 @@ public:
         : m_requester(requester)
         , m_resourceRequest(resourceRequest)
         , m_frameName(frameName)
-        , m_lockHistory(false)
         , m_shouldCheckNewWindowPolicy(false)
     {
     }
@@ -71,9 +68,6 @@ public:
     const String& frameName() const { return m_frameName; }
     void setFrameName(const String& frameName) { m_frameName = frameName; }
 
-    void setLockHistory(bool lockHistory) { m_lockHistory = lockHistory; }
-    bool lockHistory() const { return m_lockHistory; }
-
     void setShouldCheckNewWindowPolicy(bool checkPolicy) { m_shouldCheckNewWindowPolicy = checkPolicy; }
     bool shouldCheckNewWindowPolicy() const { return m_shouldCheckNewWindowPolicy; }
 
@@ -85,7 +79,6 @@ private:
     RefPtr<SecurityOrigin> m_requester;
     ResourceRequest m_resourceRequest;
     String m_frameName;
-    bool m_lockHistory;
     bool m_shouldCheckNewWindowPolicy;
     SubstituteData m_substituteData;
 };

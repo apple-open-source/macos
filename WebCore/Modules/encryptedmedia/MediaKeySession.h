@@ -28,24 +28,24 @@
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
 
-#include "ContextDestructionObserver.h"
+#include "ActiveDOMObject.h"
+#include "CDMSession.h"
 #include "EventTarget.h"
 #include "ExceptionCode.h"
+#include "GenericEventQueue.h"
 #include "Timer.h"
+#include <runtime/Uint8Array.h>
 #include <wtf/Deque.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Uint8Array.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class GenericEventQueue;
 class MediaKeyError;
 class MediaKeys;
-class CDMSession;
 
-class MediaKeySession : public RefCounted<MediaKeySession>, public EventTarget, public ContextDestructionObserver {
+class MediaKeySession final : public RefCounted<MediaKeySession>, public EventTargetWithInlineData, public ActiveDOMObject, public CDMSessionClient {
 public:
     static PassRefPtr<MediaKeySession> create(ScriptExecutionContext*, MediaKeys*, const String& keySystem);
     ~MediaKeySession();
@@ -61,6 +61,8 @@ public:
 
     void generateKeyRequest(const String& mimeType, Uint8Array* initData);
     void update(Uint8Array* key, ExceptionCode&);
+
+    bool isClosed() const { return !m_session; }
     void close();
 
     using RefCounted<MediaKeySession>::ref;
@@ -68,24 +70,31 @@ public:
 
     void enqueueEvent(PassRefPtr<Event>);
 
+    // ActiveDOMObject
+    virtual bool hasPendingActivity() const override { return (m_keys && !isClosed()) || m_asyncEventQueue.hasPendingEvents(); }
+
     DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitkeyadded);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitkeyerror);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitkeymessage);
 
-    virtual const AtomicString& interfaceName() const OVERRIDE;
-    virtual ScriptExecutionContext* scriptExecutionContext() const OVERRIDE;
+    virtual EventTargetInterface eventTargetInterface() const override { return MediaKeySessionEventTargetInterfaceType; }
+    virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
 protected:
     MediaKeySession(ScriptExecutionContext*, MediaKeys*, const String& keySystem);
-    void keyRequestTimerFired(Timer<MediaKeySession>*);
-    void addKeyTimerFired(Timer<MediaKeySession>*);
+    void keyRequestTimerFired(Timer<MediaKeySession>&);
+    void addKeyTimerFired(Timer<MediaKeySession>&);
+
+    // CDMSessionClient
+    virtual void sendMessage(Uint8Array*, String destinationURL);
+    virtual void sendError(MediaKeyErrorCode, unsigned long systemCode);
 
     MediaKeys* m_keys;
     String m_keySystem;
     String m_sessionId;
     RefPtr<MediaKeyError> m_error;
-    OwnPtr<GenericEventQueue> m_asyncEventQueue;
-    OwnPtr<CDMSession> m_session;
+    GenericEventQueue m_asyncEventQueue;
+    std::unique_ptr<CDMSession> m_session;
 
     struct PendingKeyRequest {
         PendingKeyRequest(const String& mimeType, Uint8Array* initData) : mimeType(mimeType), initData(initData) { }
@@ -95,17 +104,12 @@ protected:
     Deque<PendingKeyRequest> m_pendingKeyRequests;
     Timer<MediaKeySession> m_keyRequestTimer;
 
-    Deque<RefPtr<Uint8Array> > m_pendingKeys;
+    Deque<RefPtr<Uint8Array>> m_pendingKeys;
     Timer<MediaKeySession> m_addKeyTimer;
 
 private:
-    virtual void refEventTarget() OVERRIDE { ref(); }
-    virtual void derefEventTarget() OVERRIDE { deref(); }
-
-    virtual EventTargetData* eventTargetData() OVERRIDE { return &m_eventTargetData; }
-    virtual EventTargetData* ensureEventTargetData() OVERRIDE { return &m_eventTargetData; }
-
-    EventTargetData m_eventTargetData;
+    virtual void refEventTarget() override { ref(); }
+    virtual void derefEventTarget() override { deref(); }
 };
 
 }

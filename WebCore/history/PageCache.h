@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,9 +48,10 @@ namespace WebCore {
         void setCapacity(int); // number of pages to cache
         int capacity() { return m_capacity; }
         
-        void add(PassRefPtr<HistoryItem>, Page*); // Prunes if capacity() is exceeded.
+        void add(PassRefPtr<HistoryItem>, Page&); // Prunes if capacity() is exceeded.
         void remove(HistoryItem*);
         CachedPage* get(HistoryItem* item);
+        std::unique_ptr<CachedPage> take(HistoryItem*);
 
         int pageCount() const { return m_size; }
         int frameCount() const;
@@ -60,15 +61,16 @@ namespace WebCore {
         // Will mark all cached pages associated with the given page as needing style recalc.
         void markPagesForFullStyleRecalc(Page*);
 
+        // Used when memory is low to prune some cached pages.
+        void pruneToCapacityNow(int capacity);
+
 #if ENABLE(VIDEO_TRACK)
         void markPagesForCaptionPreferencesChanged();
 #endif
 
-#if USE(ACCELERATED_COMPOSITING)
         bool shouldClearBackingStores() const { return m_shouldClearBackingStores; }
         void setShouldClearBackingStores(bool flag) { m_shouldClearBackingStores = flag; }
         void markPagesForDeviceScaleChanged(Page*);
-#endif
 
     private:
         PageCache(); // Use pageCache() instead.
@@ -88,9 +90,7 @@ namespace WebCore {
         HistoryItem* m_head;
         HistoryItem* m_tail;
         
-#if USE(ACCELERATED_COMPOSITING)
         bool m_shouldClearBackingStores;
-#endif
      };
 
     // Function to obtain the global page cache.

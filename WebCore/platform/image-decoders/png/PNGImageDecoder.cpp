@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  *
@@ -41,10 +41,9 @@
 #include "PNGImageDecoder.h"
 
 #include "Color.h"
-#include "PlatformInstrumentation.h"
 #include "png.h"
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/StdLibExtras.h>
 
 #if USE(QCMSLIB)
 #include "qcms.h"
@@ -67,9 +66,6 @@ const double cInverseGamma = 0.45455;
 const unsigned long cMaxPNGSize = 1000000UL;
 
 // Called if the decoding of the image fails.
-#if PLATFORM(QT)
-static void PNGAPI decodingFailed(png_structp, png_const_charp) NO_RETURN;
-#endif
 static void PNGAPI decodingFailed(png_structp png, png_const_charp)
 {
     longjmp(JMPBUF(png), 1);
@@ -180,7 +176,7 @@ public:
     void createInterlaceBuffer(int size) { m_interlaceBuffer = new png_byte[size]; }
 #if USE(QCMSLIB)
     png_bytep rowBuffer() const { return m_rowBuffer.get(); }
-    void createRowBuffer(int size) { m_rowBuffer = adoptArrayPtr(new png_byte[size]); }
+    void createRowBuffer(int size) { m_rowBuffer = std::make_unique<png_byte[]>(size); }
     qcms_transform* colorTransform() const { return m_transform; }
 
     void createColorTransform(const ColorProfile& colorProfile, bool hasAlpha)
@@ -216,7 +212,7 @@ private:
     png_bytep m_interlaceBuffer;
 #if USE(QCMSLIB)
     qcms_transform* m_transform;
-    OwnArrayPtr<png_byte> m_rowBuffer;
+    std::unique_ptr<png_byte[]> m_rowBuffer;
 #endif
 };
 
@@ -259,11 +255,8 @@ ImageFrame* PNGImageDecoder::frameBufferAtIndex(size_t index)
     }
 
     ImageFrame& frame = m_frameBufferCache[0];
-    if (frame.status() != ImageFrame::FrameComplete) {
-        PlatformInstrumentation::willDecodeImage("PNG");
+    if (frame.status() != ImageFrame::FrameComplete)
         decode(false);
-        PlatformInstrumentation::didDecodeImage();
-    }
     return &frame;
 }
 

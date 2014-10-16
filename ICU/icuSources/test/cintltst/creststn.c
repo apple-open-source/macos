@@ -1,11 +1,11 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2013, International Business Machines Corporation and
+ * Copyright (c) 1997-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
 *
-* File CRESTST.C
+* File creststn.c
 *
 * Modification History:
 *        Name              Date               Description
@@ -208,6 +208,7 @@ void addNEWResourceBundleTest(TestNode** root)
     addTest(root, &TestFallbackCodes,         "tsutil/creststn/TestFallbackCodes");
     addTest(root, &TestGetUTF8String,         "tsutil/creststn/TestGetUTF8String");
     addTest(root, &TestCLDRVersion,           "tsutil/creststn/TestCLDRVersion");
+    addTest(root, &TestPreventFallback,       "tsutil/creststn/TestPreventFallback");
 #endif
     addTest(root, &TestFallback,              "tsutil/creststn/TestFallback");
     addTest(root, &TestGetVersion,            "tsutil/creststn/TestGetVersion");
@@ -279,14 +280,6 @@ static void TestErrorCodes(void) {
   status = U_USING_DEFAULT_WARNING;
   r = ures_open(U_ICUDATA_REGION, "ti", &status);
   checkStatus(__LINE__, U_USING_DEFAULT_WARNING, status);
-
-  /* we look up the resource which is aliased and at our level */
-  /* TODO: restore the following test when cldrbug 3058: is fixed - but CldrBug:3058 is WONTFIX */
-  if(U_SUCCESS(status) && r != NULL && isICUVersionAtLeast(52, 0, 1)) {
-    status = U_USING_DEFAULT_WARNING;
-    r2 = ures_getByKey(r, "Countries", r2, &status);
-    checkStatus(__LINE__, U_USING_DEFAULT_WARNING, status);
-  }
   ures_close(r);
 
   status = U_USING_FALLBACK_WARNING;
@@ -295,6 +288,7 @@ static void TestErrorCodes(void) {
   ures_close(r);
   ures_close(r2);
 
+#if !UCONFIG_NO_COLLATION
   /** Now, with the collation bundle **/
  
   /* first bundle should return fallback warning */
@@ -333,6 +327,7 @@ static void TestErrorCodes(void) {
   checkStatus(__LINE__, U_USING_DEFAULT_WARNING, status);
   ures_close(r);
   ures_close(r2);
+#endif  /* !UCONFIG_NO_COLLATION */
 }
 
 static void TestAliasConflict(void) {
@@ -768,7 +763,7 @@ static void TestEmptyTypes() {
     int32_t len = 0;
     int32_t intResult = 0;
     const UChar *zeroString;
-    const int32_t *zeroIntVect;
+    const int32_t *zeroIntVect = NULL;
 
     strcpy(action, "Construction of testtypes bundle");
     testdatapath=loadTestData(&status);
@@ -843,6 +838,7 @@ static void TestEmptyTypes() {
     }
     else {
         zeroIntVect=ures_getIntVector(res, &len, &status);
+        (void)zeroIntVect;    /* Suppress set but not used warning. */
         if(!U_SUCCESS(status) || resArray != NULL || len != 0) {
             log_err("Shouldn't get emptyintv\n");
         }
@@ -859,6 +855,7 @@ static void TestEmptyTypes() {
     }
     else {
         binResult=ures_getBinary(res, &len, &status);
+        (void)binResult;      /* Suppress set but not used warning. */
         if(!U_SUCCESS(status) || len != 0) {
             log_err("Couldn't get emptybin, or it's not empty\n");
         }
@@ -925,11 +922,10 @@ static void TestEmptyBundle(){
 }
 
 static void TestBinaryCollationData(){
+#if !UCONFIG_NO_COLLATION 
     UErrorCode status=U_ZERO_ERROR;
     const char*      locale="te";
-#if !UCONFIG_NO_COLLATION 
     const char* testdatapath;
-#endif
     UResourceBundle *teRes = NULL;
     UResourceBundle *coll=NULL;
     UResourceBundle *binColl = NULL;
@@ -937,7 +933,6 @@ static void TestBinaryCollationData(){
     int32_t len=0;
     const char* action="testing the binary collaton data";
 
-#if !UCONFIG_NO_COLLATION 
     log_verbose("Testing binary collation data resource......\n");
 
     testdatapath=loadTestData(&status);
@@ -964,6 +959,7 @@ static void TestBinaryCollationData(){
             CONFIRM_ErrorCode(status, U_ZERO_ERROR);
             CONFIRM_INT_EQ(ures_getType(binColl), URES_BINARY);
             binResult=(uint8_t*)ures_getBinary(binColl,  &len, &status);
+            (void)binResult;    /* Suppress set but not used warning. */
             if(U_SUCCESS(status)){
                 CONFIRM_ErrorCode(status, U_ZERO_ERROR);
                 CONFIRM_INT_GE(len, 1);
@@ -1056,6 +1052,7 @@ static void TestAPI() {
     teFillin=ures_getByKey(teRes, "tagged_array_in_te_te_IN", teFillin, &status);
     key=ures_getKey(teFillin);
     value=(UChar*)ures_getNextString(teFillin, &len, &key, &status);
+    (void)value;    /* Suppress set but not used warning. */
     ures_resetIterator(NULL);
     value=(UChar*)ures_getNextString(teFillin, &len, &key, &status);
     if(status !=U_INDEX_OUTOFBOUNDS_ERROR){
@@ -1410,6 +1407,7 @@ static void TestGetVersion(){
 
 
 static void TestGetVersionColl(){
+#if !UCONFIG_NO_COLLATION
     UVersionInfo minVersionArray = {0x00, 0x00, 0x00, 0x00};
     UVersionInfo maxVersionArray = {0x50, 0x80, 0xcf, 0xcf};
     UVersionInfo versionArray;
@@ -1463,6 +1461,7 @@ static void TestGetVersionColl(){
         log_err("Err %s testing Collation locales.\n", u_errorName(status));
     }
     uenum_close(locs);
+#endif  /* !UCONFIG_NO_COLLATION */
 }
 
 static void TestResourceBundles()
@@ -2004,6 +2003,61 @@ static void record_fail()
     ++fail;
 }
 
+static void TestPreventFallback() {
+    UResourceBundle* theBundle = NULL;
+    const char* testdatapath;
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t unused_len = 0;
+
+    testdatapath=loadTestData(&status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("Could not load testdata.dat %s \n",myErrorName(status));
+        return;
+    }
+
+    // In te_IN locale, fallback of string_in_te_no_te_IN_fallback is blocked
+    // with the three empty-set (U+2205) chars.
+    theBundle = ures_open(testdatapath, "te_IN_NE", &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("Could not open resource bundle te_IN_NE %s \n",myErrorName(status));
+        return;
+    }
+
+    // Fallback is blocked
+    ures_getStringByKeyWithFallback(theBundle, "string_in_te_no_te_IN_fallback", &unused_len, &status);
+    if (status != U_MISSING_RESOURCE_ERROR)
+    {
+        log_err("Expected missing resource error for string_in_te_no_te_IN_fallback.");
+    }
+    status = U_ZERO_ERROR;
+
+    // This fallback should succeed
+    ures_getStringByKeyWithFallback(theBundle, "string_only_in_te", &unused_len, &status);
+    if(U_FAILURE(status))
+    {
+        log_err("Expected to find string_only_in_te %s \n",myErrorName(status));
+    }
+    status = U_ZERO_ERROR;
+    ures_close(theBundle);
+
+    // From te locale, we should be able to fetch string_in_te_no_te_IN_fallback.
+    theBundle = ures_open(testdatapath, "te", &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("Could not open resource bundle te_IN_NE %s \n",myErrorName(status));
+        return;
+    }
+    ures_getStringByKeyWithFallback(theBundle, "string_in_te_no_te_IN_fallback", &unused_len, &status);
+    if(U_FAILURE(status))
+    {
+        log_err("Expected to find string_in_te_no_te_IN_fallback %s \n",myErrorName(status));
+    }
+    status = U_ZERO_ERROR;
+    ures_close(theBundle);
+}
+
 /**
  * Test to make sure that the U_USING_FALLBACK_ERROR and U_USING_DEFAULT_ERROR
  * are set correctly
@@ -2035,12 +2089,13 @@ static void TestFallback()
     status = U_ZERO_ERROR;
     junk = tres_getString(fr_FR, -1, "LocaleID", &resultLen, &status);
     status = U_ZERO_ERROR;
+    (void)junk;    /* Suppress set but not used warning. */
 
     /* OK first one. This should be a Default value. */
-    subResource = ures_getByKey(fr_FR, "MeasurementSystem", NULL, &status);
+    subResource = ures_getByKey(fr_FR, "layout", NULL, &status);
     if(status != U_USING_DEFAULT_WARNING)
     {
-        log_data_err("Expected U_USING_DEFAULT_ERROR when trying to get CurrencyMap from fr_FR, got %s\n", 
+        log_data_err("Expected U_USING_DEFAULT_ERROR when trying to get layout from fr_FR, got %s\n", 
             u_errorName(status));
     }
 
@@ -2067,7 +2122,7 @@ static void TestFallback()
         UResourceBundle* tResB;
         UResourceBundle* zoneResource;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0030, 0x002E, 0x0038, 0x0032, 0x002E, 0x0034, 0x0035, 0x0000};
+        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0030, 0x002E, 0x0039, 0x0030, 0x002E, 0x0036, 0x0031, 0x0000};
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2559,49 +2614,51 @@ static void TestGetFunctionalEquivalentOf(const char *path, const char *resName,
 }
 
 static void TestGetFunctionalEquivalent(void) {
+#if !UCONFIG_NO_COLLATION
     static const char * const collCases[] = {
         /*   avail   locale          equiv   */
-        "f",    "de_US_CALIFORNIA",               "de",
+        "f",    "sv_US_CALIFORNIA",               "sv",
         "f",    "zh_TW@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_TW */
-        "t",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
-        "f",    "de_CN@collation=pinyin",         "de",
+        "f",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
+        "f",    "sv_CN@collation=pinyin",         "sv",
         "t",    "zh@collation=pinyin",            "zh",
         "f",    "zh_CN@collation=pinyin",         "zh", /* alias of zh_Hans_CN */
-        "t",    "zh_Hans_CN@collation=pinyin",    "zh",
+        "f",    "zh_Hans_CN@collation=pinyin",    "zh",
         "f",    "zh_HK@collation=pinyin",         "zh", /* alias of zh_Hant_HK */
-        "t",    "zh_Hant_HK@collation=pinyin",    "zh",
+        "f",    "zh_Hant_HK@collation=pinyin",    "zh",
         "f",    "zh_HK@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_HK */
-        "t",    "zh_Hant_HK@collation=stroke",    "zh@collation=stroke",
+        "f",    "zh_Hant_HK@collation=stroke",    "zh@collation=stroke",
         "f",    "zh_HK",                          "zh@collation=stroke", /* alias of zh_Hant_HK */
-        "t",    "zh_Hant_HK",                     "zh@collation=stroke",
+        "f",    "zh_Hant_HK",                     "zh@collation=stroke",
         "f",    "zh_MO",                          "zh@collation=stroke", /* alias of zh_Hant_MO */
-        "t",    "zh_Hant_MO",                     "zh@collation=stroke",
+        "f",    "zh_Hant_MO",                     "zh@collation=stroke",
         "f",    "zh_TW_STROKE",                   "zh@collation=stroke",
         "f",    "zh_TW_STROKE@collation=big5han", "zh@collation=big5han",
-        "f",    "de_CN@calendar=japanese",        "de",
-        "t",    "de@calendar=japanese",           "de",
+        "f",    "sv_CN@calendar=japanese",        "sv",
+        "t",    "sv@calendar=japanese",           "sv",
         "f",    "zh_TW@collation=big5han",        "zh@collation=big5han", /* alias of zh_Hant_TW */
-        "t",    "zh_Hant_TW@collation=big5han",   "zh@collation=big5han",
+        "f",    "zh_Hant_TW@collation=big5han",   "zh@collation=big5han",
         "f",    "zh_TW@collation=gb2312han",      "zh@collation=gb2312han", /* alias of zh_Hant_TW */
-        "t",    "zh_Hant_TW@collation=gb2312han", "zh@collation=gb2312han",
+        "f",    "zh_Hant_TW@collation=gb2312han", "zh@collation=gb2312han",
         "f",    "zh_CN@collation=big5han",        "zh@collation=big5han", /* alias of zh_Hans_CN */
-        "t",    "zh_Hans_CN@collation=big5han",   "zh@collation=big5han",
+        "f",    "zh_Hans_CN@collation=big5han",   "zh@collation=big5han",
         "f",    "zh_CN@collation=gb2312han",      "zh@collation=gb2312han", /* alias of zh_Hans_CN */
-        "t",    "zh_Hans_CN@collation=gb2312han", "zh@collation=gb2312han",
+        "f",    "zh_Hans_CN@collation=gb2312han", "zh@collation=gb2312han",
         "t",    "zh@collation=big5han",           "zh@collation=big5han",
         "t",    "zh@collation=gb2312han",         "zh@collation=gb2312han",
         "t",    "hi@collation=standard",          "hi",
         "f",    "hi_AU@collation=standard;currency=CHF;calendar=buddhist",    "hi",
-        "t",    "de_DE@collation=pinyin",         "de", /* bug 4582 tests */
-        "f",    "de_DE_BONN@collation=pinyin",    "de",
+        "f",    "sv_SE@collation=pinyin",         "sv", /* bug 4582 tests */
+        "f",    "sv_SE_BONN@collation=pinyin",    "sv",
         "t",    "nl",                             "root",
-        "t",    "nl_NL",                          "root",
+        "f",    "nl_NL",                          "root",
         "f",    "nl_NL_EEXT",                     "root",
         "t",    "nl@collation=stroke",            "root",
-        "t",    "nl_NL@collation=stroke",         "root",
+        "f",    "nl_NL@collation=stroke",         "root",
         "f",    "nl_NL_EEXT@collation=stroke",    "root",
         NULL
     };
+#endif  /* !UCONFIG_NO_COLLATION */
 
     static const char *calCases[] = {
         /*   avail   locale                       equiv   */
@@ -2629,6 +2686,7 @@ static void TestGetFunctionalEquivalent(void) {
         len = ures_getFunctionalEquivalent(equivLocale, 255, U_ICUDATA_COLL,
             "calendar", "calendar", "ar_EG@calendar=islamic", 
             &gotAvail, FALSE, &status);
+        (void)len;    /* Suppress set but not used warning. */
 
         if(status == U_MISSING_RESOURCE_ERROR) {
             log_verbose("PASS: Got expected U_MISSING_RESOURCE_ERROR\n");
@@ -2944,6 +3002,7 @@ TestGetUTF8String() {
     status = U_ZERO_ERROR;
     length8 = (int32_t)sizeof(buffer8);
     s8 = ures_getUTF8StringByKey(res, "string_only_in_Root", buffer8, &length8, FALSE, &status);
+    (void)s8;    /* Suppress set but not used warning. */
     if(status != U_ZERO_ERROR) {
         log_err("ures_getUTF8StringByKey(testdata/root string) malfunctioned - %s\n", u_errorName(status));
     }

@@ -36,16 +36,8 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-BEGIN
-{
-	printf("symbol = %a", &`kmem_flags);
-	exit(0);
-}
-#else
 BEGIN
 {
 	printf("symbol = %a", &`max_ncpus);
 	exit(0);
 }
-#endif /* __APPLE__ */

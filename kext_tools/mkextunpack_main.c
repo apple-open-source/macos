@@ -25,7 +25,7 @@
 #include <IOKit/kext/OSKextPrivate.h>
 #include <IOKit/kext/fat_util.h>
 
-#include <Kernel/libkern/mkext.h>
+#include <System/libkern/mkext.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -789,9 +789,15 @@ CFDictionaryRef extractEntriesFromMkext1(
             continue;
         }
 
-        kextPlist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault,
-            kextPlistDataObject, kCFPropertyListImmutable, &errorString);
+        CFErrorRef  error;
+        kextPlist = CFPropertyListCreateWithData(kCFAllocatorDefault,
+                                                 kextPlistDataObject,
+                                                 kCFPropertyListImmutable,
+                                                 NULL,
+                                                 &error);
         if (!kextPlist) {
+            errorString = CFErrorCopyDescription(error);
+            CFRelease(error);
             if (errorString) {
                 CFIndex bufsize = CFStringGetMaximumSizeForEncoding(
                 CFStringGetLength(errorString), kCFStringEncodingUTF8);

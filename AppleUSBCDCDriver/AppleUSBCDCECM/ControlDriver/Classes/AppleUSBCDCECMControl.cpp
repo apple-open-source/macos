@@ -1039,7 +1039,7 @@ bool AppleUSBCDCECMControl::USBSetMulticastFilter(IOEthernetAddress *addrs, UInt
         }
         for (j=0; j<kIOEthernetAddressSize; j++)
         {
-            eaddrs[rnum++] = addrs->bytes[j];
+            eaddrs[rnum++] = addrs[i].bytes[j];
         }
     }
     

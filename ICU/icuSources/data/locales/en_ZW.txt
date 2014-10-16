@@ -1,20 +1,14 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en_ZW.xml
 // *
 // ***************************************************************************
 en_ZW{
-    NumberElements{
-        latn{
-            patterns{
-                currencyFormat{"¤#,##0.00"}
-            }
-        }
-    }
-    Version{"2.0.82.45"}
+    %%Parent{"en_001"}
+    Version{"2.0.92.80"}
     calendar{
         generic{
             DateTimePatterns{
@@ -37,10 +31,10 @@ en_ZW{
                 MMMEd{"E dd MMM"}
                 MMMd{"dd MMM"}
                 Md{"d/M"}
-                yMEd{"E, d/M/y"}
-                yMMMEd{"E, dd MMM, y"}
-                yMMMd{"dd MMM, y"}
-                yMd{"d/M/y"}
+                yyyyMEd{"E, d/M/y G"}
+                yyyyMMMEd{"E, dd MMM, y G"}
+                yyyyMMMd{"dd MMM, y G"}
+                yyyyMd{"d/M/y G"}
             }
         }
         gregorian{
@@ -52,7 +46,7 @@ en_ZW{
                 "EEEE dd MMMM y",
                 "dd MMMM y",
                 "dd MMM,y",
-                "d/M/yyyy",
+                "d/M/y",
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",

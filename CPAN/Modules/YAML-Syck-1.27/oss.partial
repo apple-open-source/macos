@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>YAML-Syck</string>
+        <key>OpenSourceVersion</key>
+        <string>1.27</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/T/TO/TODDR/YAML-Syck-1.27.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2014-02-03</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT/BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

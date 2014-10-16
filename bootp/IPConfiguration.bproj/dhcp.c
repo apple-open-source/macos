@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,9 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <TargetConditionals.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "rfc_options.h"
 #include "dhcp_options.h"
@@ -75,7 +78,6 @@
 #include "DHCPLease.h"
 #include "symbol_scope.h"
 #include "cfutil.h"
-#include "dprintf.h"
 
 #define SUGGESTED_LEASE_LENGTH		(60 * 60 * 24 * 30 * 3) /* 3 months */
 
@@ -90,6 +92,7 @@ typedef struct {
 } lease_info_t;
 
 typedef struct {
+    boolean_t		allow_wake_with_short_lease;
     arp_client_t *	arp;
     bootp_client_t *	client;
     void *		client_id;
@@ -100,9 +103,6 @@ typedef struct {
     boolean_t		got_nak;
     lease_info_t	lease;
     DHCPLeaseList	lease_list;
-    absolute_time_t	ip_assigned_time;
-    absolute_time_t	ip_conflict_time;
-    int			ip_conflict_count;
     boolean_t		must_broadcast;
     struct dhcp * 	request;
     int			request_size;
@@ -117,6 +117,7 @@ typedef struct {
     u_int32_t		xid;
     boolean_t		user_warned;
     int			wait_secs;
+    absolute_time_t	wake_time;
 } Service_dhcp_t;
 
 typedef struct {
@@ -360,7 +361,7 @@ add_computer_name(dhcpoa_t * options_p)
     char *	name = computer_name();
 
     if (name) {
-	if (dhcpoa_add(options_p, dhcptag_host_name_e, strlen(name), name)
+	if (dhcpoa_add(options_p, dhcptag_host_name_e, (int)strlen(name), name)
 	    != dhcpoa_success_e) {
 	    my_log(LOG_NOTICE, "make_dhcp_request: couldn't add host_name, %s",
 		   dhcpoa_err(options_p));
@@ -517,18 +518,12 @@ verify_packet(bootp_receive_data_t * pkt, u_int32_t xid, interface_t * if_p,
 static void
 inform_set_dhcp_info(Service_inform_t * inform, dhcp_info_t * dhcp_info_p)
 {
+    bzero(dhcp_info_p, sizeof(*dhcp_info_p));
     if (inform->saved.pkt_size != 0) {
 	dhcp_info_p->pkt = (uint8_t *)inform->saved.pkt;
 	dhcp_info_p->pkt_size = inform->saved.pkt_size;
 	dhcp_info_p->options = &inform->saved.options;
     }
-    else {
-	dhcp_info_p->pkt = NULL;
-	dhcp_info_p->pkt_size = 0;
-	dhcp_info_p->options = NULL;
-    }
-    dhcp_info_p->lease_start = 0;
-    dhcp_info_p->lease_expiration = 0;
     return;
 }
 
@@ -765,7 +760,7 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = inform->wait_secs;
-	  tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	  my_log(LOG_DEBUG, "INFORM %s: waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - inform->start_secs,
@@ -1066,6 +1061,10 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      != service_requested_ip_addr(service_p).s_addr) {
 	      break;
 	  }
+	  /* defend our address, don't just give it up */
+	  if (ServiceDefendIPv4Address(service_p, arpc)) {
+	      break;
+	  }
 	  snprintf(msg, sizeof(msg), 
 		   IP_FORMAT " in use by " EA_FORMAT,
 		   IP_LIST(&arpc->ip_addr), 
@@ -1121,6 +1120,47 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
  ** 
  */
 
+/*
+ * Function: S_time_in_future
+ * Purpose:
+ *   Returns whether the given time is in the future by at least the
+ *   time interval specified by 'time_interval'.
+ */
+INLINE boolean_t
+S_time_in_future(absolute_time_t current_time,
+		 absolute_time_t the_time,
+		 uint32_t time_interval)
+{
+    return (current_time < the_time
+	    && (the_time - current_time) >= time_interval);
+}
+
+/*
+ * Function: S_min_wake_ok
+ * Purpose:
+ *   Returns whether the given time is in the future by at least the
+ *   the minimum wake interval.
+ */
+INLINE boolean_t
+S_min_wake_ok(absolute_time_t current_time, absolute_time_t the_time)
+{
+    return (S_time_in_future(current_time, the_time,
+			     G_min_wake_interval_secs));
+}
+
+/*
+ * Function: S_short_wake_ok
+ * Purpose:
+ *   Returns whether the given time is in the future by at least the minimum
+ *   schedulable short wake.
+ */
+INLINE boolean_t
+S_short_wake_ok(absolute_time_t current_time, absolute_time_t the_time)
+{
+    return (S_time_in_future(current_time, the_time, 
+			     G_min_short_wake_interval_secs));
+}
+
 static void
 dhcp_set_dhcp_info(Service_dhcp_t * dhcp, dhcp_info_t * dhcp_info_p)
 {
@@ -1169,6 +1209,7 @@ dhcp_failed(ServiceRef service_p, ipconfig_status_t status)
     service_remove_address(service_p);
     service_publish_failure(service_p, status);
     dhcp->state = dhcp_cstate_none_e;
+    dhcp->allow_wake_with_short_lease = FALSE;
     return;
 }
 
@@ -1187,6 +1228,7 @@ dhcp_inactive(ServiceRef service_p)
     service_disable_autoaddr(service_p);
     service_publish_failure(service_p, ipconfig_status_media_inactive_e);
     dhcp->state = dhcp_cstate_none_e;
+    dhcp->allow_wake_with_short_lease = FALSE;
     return;
 }
 
@@ -1216,8 +1258,8 @@ dhcp_set_lease_params(ServiceRef service_p, char * descr, boolean_t is_dhcp,
 	dhcp->lease.t2 = dhcp->lease.start + t2;
     }
     my_log(LOG_DEBUG, 
-	   "DHCP %s: %s lease"
-	   " start = 0x%x, t1 = 0x%x, t2 = 0x%x, expiration 0x%x", 
+	   "DHCP %s: %s "
+	   "lease = { start 0x%lx, t1 0x%lx, t2 0x%lx, expiration 0x%lx }", 
 	   if_name(if_p), descr, dhcp->lease.start, 
 	   dhcp->lease.t1, dhcp->lease.t2, dhcp->lease.expiration);
     return;
@@ -1244,6 +1286,19 @@ dhcp_adjust_lease_info(ServiceRef service_p, absolute_time_t delta)
     return;
 }
 
+
+STATIC void
+dhcp_log_lease(int level, const char * ifname, absolute_time_t current_time,
+	       lease_info_t * lease_p)
+
+{
+    my_log(level, 
+	   "DHCP %s: now = 0x%lx, "
+	   "lease = { start 0x%lx, t1 0x%lx, t2 0x%lx, expiration 0x%lx }", 
+	   ifname, current_time,
+	   lease_p->start, lease_p->t1, lease_p->t2, lease_p->expiration);
+    return;
+}
 
 static void
 get_client_id(Service_dhcp_t * dhcp, interface_t * if_p, const void * * cid_p, 
@@ -1531,6 +1586,131 @@ S_dhcp_cstate_is_bound_renew_or_rebind(dhcp_cstate_t state)
     return (ret);
 }
 
+STATIC void
+dhcp_handle_active_during_sleep(ServiceRef service_p,
+				active_during_sleep_t * active_p)
+{
+    Service_dhcp_t *	dhcp = (Service_dhcp_t *)ServiceGetPrivate(service_p);
+    interface_t *	if_p = service_interface(service_p);
+    absolute_time_t	wake_time = 0;
+
+    if (active_p->requested
+	&& ServiceGetActiveIPAddress(service_p).s_addr != 0
+	&& dhcp->lease.valid
+	&& dhcp->lease.expiration != 0) {
+	/* try to schedule a wake */
+	absolute_time_t 	current_time;
+	const char *		reason = "";
+
+	current_time = timer_current_secs();
+	if (current_time >= dhcp->lease.expiration) {
+	    /* expired lease, this should not happen */
+	    my_log_fl(LOG_ERR,
+		      "DHCP %s: lease is already expired",
+		      if_name(if_p));
+	    reason = "lease is expired";
+	}
+	else if (S_min_wake_ok(current_time, dhcp->renew_rebind_time)) {
+	    wake_time = dhcp->renew_rebind_time;
+	    reason = "wake at renew_rebind_time";
+	}
+	else if (S_min_wake_ok(current_time, dhcp->lease.t2)) {
+	    wake_time = dhcp->lease.t2;
+	    reason = "wake at t2";
+	}
+	else if (dhcp->allow_wake_with_short_lease
+		 && S_short_wake_ok(current_time, dhcp->lease.t2)) {
+	    wake_time = dhcp->lease.t2;
+	    reason = "wake at t2 (allow short first wake)";
+	}
+	else if (S_min_wake_ok(current_time, dhcp->lease.expiration)) {
+	    wake_time = current_time + G_min_wake_interval_secs;
+	    reason = "wake in min_interval";
+	}
+	else {
+	    reason = "expiration is too soon";
+	}
+	if (wake_time == 0) {
+	    my_log(LOG_NOTICE, 
+		   "DHCP %s: can't schedule wake-up, %s",
+		   if_name(if_p), reason);
+	    dhcp_log_lease(LOG_NOTICE, if_name(if_p),
+			   current_time, &dhcp->lease);
+	    active_p->supported = FALSE;
+	    wake_time = 0;
+	}
+	else {
+	    my_log(LOG_DEBUG, 
+		   "DHCP %s: next wake-up at 0x%lx, %s",
+		   if_name(if_p), wake_time, reason);
+	    dhcp_log_lease(LOG_DEBUG, if_name(if_p),
+			   current_time, &dhcp->lease);
+	}
+    }
+    if (wake_time != 0) {
+	if (wake_time == dhcp->wake_time) {
+	    /* wake already scheduled */
+	    my_log(LOG_DEBUG,
+		   "DHCP %s: wake at 0x%lx already scheduled",
+		   if_name(if_p), wake_time);
+	}
+	else {
+	    CFDateRef		date;
+	    IOReturn		status;
+	    CFStringRef		wake_id;
+
+	    wake_id = ServiceCopyWakeID(service_p);
+	    if (dhcp->wake_time != 0) {
+		/* unschedule old wake up time */
+		date = CFDateCreate(NULL, dhcp->wake_time);
+		(void)IOPMCancelScheduledPowerEvent(date, wake_id, 
+						    CFSTR(kIOPMAutoWake));
+		my_log(LOG_DEBUG,
+		       "DHCP %s: unscheduled old wake at %@ (0x%lx)",
+		       if_name(if_p), date, dhcp->wake_time);
+		CFRelease(date);
+	    }
+
+	    /* schedule new wake up time */
+	    date = CFDateCreate(NULL, wake_time);
+	    status = IOPMSchedulePowerEvent(date, wake_id,
+					    CFSTR(kIOPMAutoWake));
+	    CFRelease(wake_id);
+	    if (status != kIOReturnSuccess) {
+		my_log(LOG_ERR,
+		       "DHCP %s: failed to schedule wake at %@ (0x%lx)",
+		       if_name(if_p), date, wake_time);
+		dhcp->wake_time = 0;
+		active_p->supported = FALSE;
+	    }
+	    else {
+		my_log(LOG_DEBUG,
+		       "DHCP %s: scheduled wake at %@ (0x%lx)",
+		       if_name(if_p), date, wake_time);
+		dhcp->wake_time = wake_time;
+	    }
+	    CFRelease(date);
+	}
+    }
+    else if (dhcp->wake_time != 0) {
+	CFDateRef			date;
+	CFStringRef		wake_id;
+
+	/* unschedule existing wake time */
+	wake_id = ServiceCopyWakeID(service_p);
+	date = CFDateCreate(NULL, dhcp->wake_time);
+	(void)IOPMCancelScheduledPowerEvent(date, wake_id, 
+					    CFSTR(kIOPMAutoWake));
+	CFRelease(wake_id);
+	my_log(LOG_DEBUG,
+	       "DHCP %s: unscheduled old wake at %@ (0x%lx)",
+	       if_name(if_p), date, dhcp->wake_time);
+	CFRelease(date);
+	dhcp->wake_time = 0;
+    }
+    return;
+}
+
 PRIVATE_EXTERN ipconfig_status_t
 dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 {
@@ -1683,7 +1863,6 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_arp_collision_e: {
 	  arp_collision_data_t *	arpc;
-	  absolute_time_t 		current_time;
 	  struct timeval 		tv;
 
 	  arpc = (arp_collision_data_t *)event_data;
@@ -1699,32 +1878,11 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 
 	  /* defend our address, don't just give it up */
-	  current_time = timer_current_secs();
-	  if ((current_time - dhcp->ip_assigned_time) > 
-	      G_dhcp_defend_ip_address_interval_secs) {
-	      if (dhcp->ip_conflict_count > 0
-		  && ((current_time - dhcp->ip_conflict_time)
-		      > G_dhcp_defend_ip_address_interval_secs)) {
-		  /*
-		   * if it's been awhile since we last had to defend
-		   * our IP address, assume we defended it successfully
-		   * and start the conflict counter over again
-		   */
-		  dhcp->ip_conflict_count = 0;
-	      }
-	      dhcp->ip_conflict_time = current_time;
-	      dhcp->ip_conflict_count++;
-	      if (dhcp->ip_conflict_count <= G_dhcp_defend_ip_address_count) {
-		  arp_client_defend(dhcp->arp, dhcp->saved.our_ip);
-		  my_log(LOG_ERR, "DHCP %s: defending IP " IP_FORMAT 
-			 " against " EA_FORMAT " %d (of %d)",
-			 if_name(if_p), IP_LIST(&dhcp->saved.our_ip),
-			 EA_LIST(arpc->hwaddr),
-			 dhcp->ip_conflict_count, 
-			 G_dhcp_defend_ip_address_count);
-		  break;
-	      }
+	  if (ServiceDefendIPv4Address(service_p, arpc)) {
+	      break;
 	  }
+
+	  /* address conflict, give up the address */
 	  my_log(LOG_ERR, "DHCP %s: " 
 		 IP_FORMAT " in use by " EA_FORMAT ", DHCP Server " 
 		 IP_FORMAT,
@@ -1732,8 +1890,11 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		 IP_LIST(&dhcp->saved.our_ip),
 		 EA_LIST(arpc->hwaddr),
 		 IP_LIST(&dhcp->saved.server_ip));
-	  ServiceReportIPv4AddressConflict(service_p,
-					   dhcp->saved.our_ip);
+	  if (dhcp->state != dhcp_cstate_init_reboot_e) {
+	      /* don't bother reporting it */
+	      ServiceReportIPv4AddressConflict(service_p,
+					       dhcp->saved.our_ip);
+	  }
 	  _dhcp_lease_clear(service_p, FALSE);
 	  service_publish_failure(service_p, 
 				  ipconfig_status_address_in_use_e);
@@ -1866,11 +2027,12 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  break;
 	      }
 	      /*
-	       * Check the timer we had scheduled.  If it is in the
+	       * Check the timer we had scheduled. If it is sufficiently in the
 	       * future, schedule a new timer to wakeup in RENEW/REBIND then.
-	       * If it is in the past, proceed immediately to RENEW/REBIND.
+	       * Otherwise, proceed to RENEW/REBIND.
 	       */
-	      else if (current_time < dhcp->renew_rebind_time) {
+	      if (S_time_in_future(current_time, dhcp->renew_rebind_time,
+				   G_wake_skew_secs)) {
 		  struct timeval	tv;
 		  
 		  tv.tv_sec = dhcp->renew_rebind_time - current_time;
@@ -1910,6 +2072,10 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  break;	
       }
+      case IFEventID_active_during_sleep_e:
+	  dhcp_handle_active_during_sleep(service_p, 
+					  (active_during_sleep_t *)event_data);
+	  break;
       default:
 	  break;
     } /* switch (event_id) */
@@ -1932,8 +2098,9 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp_cstate_t		prev_state = dhcp->state;
 
 	  my_log(LOG_DEBUG, "DHCP %s: INIT", if_name(if_p));
-
 	  dhcp->state = dhcp_cstate_init_e;
+
+	  dhcp->allow_wake_with_short_lease = TRUE;
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
@@ -2050,7 +2217,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = dhcp->wait_secs;
-	  tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	  my_log(LOG_DEBUG, "DHCP %s: INIT waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - dhcp->start_secs,
@@ -2181,10 +2348,11 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  dhcp_lease_time_t	lease_option = htonl(SUGGESTED_LEASE_LENGTH);
 	  dhcpoa_t	 	options;
 
+	  dhcp->state = dhcp_cstate_init_reboot_e;
+	  dhcp->allow_wake_with_short_lease = TRUE;
 	  dhcp->start_secs = current_time;
 	  dhcp->try = 0;
 	  dhcp->wait_secs = G_initial_wait_secs;
-	  dhcp->state = dhcp_cstate_init_reboot_e;
 	  if (source_ip.s_addr == 0) {
 	      our_ip = *((struct in_addr *)event_data);
 	  }
@@ -2312,7 +2480,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = dhcp->wait_secs;
-	  tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 
 	  if (G_IPConfiguration_verbose) {
 	      my_log(LOG_DEBUG, 
@@ -2910,8 +3078,6 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  (void)service_set_address(service_p, dhcp->saved.our_ip, 
 				    mask, G_ip_zeroes);
 	  dhcp_publish_success(service_p);
-	  dhcp->ip_assigned_time = timer_current_secs();
-	  dhcp->ip_conflict_count = 0;
 
 	  /* stop link local if necessary */
 	  if (G_dhcp_success_deconfigures_linklocal) {
@@ -3039,8 +3205,8 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  /* For renew/rebind and netboot cases, we don't
 	   * need to arp  
 	   */
-	  if (prev_state == dhcp_cstate_rebind_e || 
-	      prev_state == dhcp_cstate_renew_e
+	  if (prev_state == dhcp_cstate_rebind_e
+	      || prev_state == dhcp_cstate_renew_e
 	      || ServiceIsNetBoot(service_p)) {
 	     break;
 	  }
@@ -3055,23 +3221,21 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
                                (void *)IFEventID_arp_e, G_ip_zeroes,
                                dhcp->saved.our_ip);
               return;
-
 	  }
 
 	  if (ServiceGetActiveIPAddress(service_p).s_addr
-		  == dhcp->saved.our_ip.s_addr) {
+	      == dhcp->saved.our_ip.s_addr) {
 	      /* no need to probe, we're already using it */
-	      if (prev_state == dhcp_cstate_init_reboot_e ||
-		  prev_state == dhcp_cstate_init_e) {
+	      if (prev_state == dhcp_cstate_init_reboot_e
+		  || prev_state == dhcp_cstate_init_e) {
                   arp_client_announce(dhcp->arp,
-                                      (arp_result_func_t *)dhcp_bound, service_p,
+                                      (arp_result_func_t *)dhcp_bound,
+				      service_p,
                                       (void *)IFEventID_arp_e, G_ip_zeroes,
                                       dhcp->saved.our_ip, TRUE);
                   return;
 	      }
 	  }
-	  
-	  /* Leave for completeness. */
 	  break;
 	}
 	case IFEventID_arp_e: {
@@ -3118,8 +3282,6 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp_cancel_pending_events(service_p);
 	      (void)service_disable_autoaddr(service_p);
 	      dhcp->saved.our_ip.s_addr = 0;
-	      dhcp->lease.valid = FALSE;
-	      service_router_clear(service_p);
 	      tv.tv_sec = 10; /* retry in a bit */
 	      tv.tv_usec = 0;
 	      timer_set_relative(dhcp->timer, tv, 
@@ -3155,8 +3317,6 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    != ServiceGetActiveSubnetMask(service_p).s_addr)) {
 	(void)service_set_address(service_p, dhcp->saved.our_ip, 
 				  mask, G_ip_zeroes);
-	dhcp->ip_assigned_time = timer_current_secs();
-	dhcp->ip_conflict_count = 0;
     }
     /* stop link local if necessary */
     if (G_dhcp_success_deconfigures_linklocal) {
@@ -3384,7 +3544,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
-
+	  dhcp->allow_wake_with_short_lease = FALSE;
 	  dhcp->start_secs = current_time;
 
 	  dhcp->state = dhcp_cstate_renew_e;
@@ -3497,6 +3657,11 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  timer_set_relative(dhcp->timer, tv, 
 			     (timer_func_t *)dhcp_renew_rebind,
 			     service_p, (void *)IFEventID_timeout_e, NULL);
+	  if (dhcp->wake_time == 0
+	      || current_time > dhcp->wake_time
+	      || (dhcp->wake_time - current_time) < G_wake_skew_secs) {
+	      ServiceSetActiveDuringSleepNeedsAttention(service_p);
+	  }
 	  break;
       }
       case IFEventID_data_e: {

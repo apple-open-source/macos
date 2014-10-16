@@ -164,6 +164,11 @@ int     smtpd_sasl_auth_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	smtpd_chat_reply(state, "503 5.5.1 Error: authentication not enabled");
 	return (-1);
     }
+    if (SMTPD_IN_MAIL_TRANSACTION(state)) {
+	state->error_mask |= MAIL_ERROR_PROTOCOL;
+	smtpd_chat_reply(state, "503 5.5.1 Error: MAIL transaction in progress");
+	return (-1);
+    }
     if (smtpd_milters != 0 && (err = milter_other_event(smtpd_milters)) != 0) {
 	if (err[0] == '5') {
 	    state->error_mask |= MAIL_ERROR_POLICY;
@@ -220,25 +225,7 @@ int     smtpd_sasl_auth_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
      */
     auth_mechanism = argv[1].strval;
     initial_response = (argc == 3 ? argv[2].strval : 0);
-
-#ifdef __APPLE_OS_X_SERVER__
-	if ( var_smtpd_use_pw_server && (strcasecmp( auth_mechanism, "GSSAPI" ) != 0) )
-	{
-		err = smtpd_pw_server_authenticate(state, auth_mechanism, initial_response);
-		if (err != 0) {
-			msg_warn("%s[%s]: SASL %s authentication failed",
-				state->name, state->addr, auth_mechanism);
-			smtpd_chat_reply(state, "%s", err);
-			return (-1);
-		}
-		smtpd_chat_reply(state, "235 Authentication successful");
-		return (0);
-	}
-	else
-		return (smtpd_sasl_authenticate(state, auth_mechanism, initial_response));
-#else /* __APPLE_OS_X_SERVER__ */
     return (smtpd_sasl_authenticate(state, auth_mechanism, initial_response));
-#endif /* __APPLE_OS_X_SERVER__ */
 }
 
 /* smtpd_sasl_mail_opt - SASL-specific MAIL FROM option */

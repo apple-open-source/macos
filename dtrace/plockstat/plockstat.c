@@ -30,10 +30,6 @@
 #include <assert.h>
 #include <dtrace.h>
 #include <limits.h>
-#if !defined(__APPLE__)
-#include <link.h>
-#include <priv.h>
-#endif
 #include <signal.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -44,9 +40,7 @@
 #include <sys/wait.h>
 #include <libgen.h>
 #include <libproc.h>
-#if defined(__APPLE__)
 #include <getopt.h>
-#endif
 
 static char *g_pname;
 static dtrace_hdl_t *g_dtp;
@@ -375,7 +369,6 @@ usage(void)
 	    "\t%s [-vACHV] [-n count] [-s depth] [-e secs] [-x opt[=val]]\n"
 	    "\t    -p pid\n", g_pname, g_pname);
 
-#if defined(__APPLE__)
 	(void) fprintf(stderr, "\n");
 	(void) fprintf(stderr, "\t-v\t\tprint a message when tracing starts\n");
 	(void) fprintf(stderr, "\t-A\t\ttrace contention and hold events (same as -CH)\n");
@@ -387,7 +380,6 @@ usage(void)
 	(void) fprintf(stderr, "\t-e secs\t\texit after specified seconds\n");
 	(void) fprintf(stderr, "\t-x arg[=val]\tenable a DTrace runtime option or a D compiler option\n");
 	(void) fprintf(stderr, "\t-p pid\t\tattach and trace the specified process id\n");
-#endif
 
 	exit(E_USAGE);
 }
@@ -675,17 +667,11 @@ process_aggregate(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 {
-#if !defined(__APPLE__)
-	const psinfo_t *prp = Ppsinfo(P);
-	int pid = Pstatus(P)->pr_pid;
-	char name[SIG2STR_MAX];
-#else
 #define SIG2STR_MAX 32 /* Not referenced so long as prp just below is NULL. */
 #define proc_signame(x,y,z) "Unknown" /* Not referenced so long as prp just below is NULL. */
 	typedef struct psinfo { int pr_wstat; } psinfo_t;
 	const psinfo_t *prp = NULL;
 	int pid = Pstatus(P)->pr_pid;
-#endif /* __APPLE__ */
 
 	if (msg != NULL) {
 		notice("pid %d: %s\n", pid, msg);
@@ -716,11 +702,7 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 		break;
 
 	case PS_LOST:
-#if !defined(__APPLE__)
-		notice("pid %d exec'd a set-id or unobservable program\n", pid);
-#else
 		notice("pid %d has exited\n", pid);
-#endif
 		g_exited = 1;
 		break;
 	}
@@ -787,9 +769,6 @@ intr(int signo)
 int
 main(int argc, char **argv)
 {
-#if !defined(__APPLE__)
-	ucred_t *ucp;
-#endif
 	int err;
 	int opt_C = 0, opt_H = 0, opt_p = 0, opt_v = 0;
 	char c, *p, *end;
@@ -798,21 +777,6 @@ main(int argc, char **argv)
 
 	g_pname = basename(argv[0]);
 	argv[0] = g_pname; /* rewrite argv[0] for getopt errors */
-
-	/*
-	 * Make sure we have the required dtrace_proc privilege.
-	 */
-#if !defined(__APPLE__)
-	if ((ucp = ucred_get(getpid())) != NULL) {
-		const priv_set_t *psp;
-		if ((psp = ucred_getprivset(ucp, PRIV_EFFECTIVE)) != NULL &&
-		    !priv_ismember(psp, PRIV_DTRACE_PROC)) {
-			fatal("dtrace_proc privilege required\n");
-		}
-
-		ucred_free(ucp);
-	}
-#endif
 
 	while ((c = getopt(argc, argv, PLOCKSTAT_OPTSTR)) != EOF) {
 		switch (c) {

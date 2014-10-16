@@ -7,6 +7,7 @@ UNIT mamake
 TEST 01 macros
 
 	EXEC	-n
+		INPUT -n -
 		INPUT Mamfile $'info mam static 00000 1994-07-17 make (AT&T Research) 5.3 2009-05-05
 setv DEFINED defined
 setv EMPTY
@@ -59,3 +60,4 @@ echo __NoT_DeFiNeD__=VALUE ${__NoT_DeFiNeD__=VALUE}
 echo __NoT_DeFiNeD__[VALUE] ${__NoT_DeFiNeD__[VALUE]}
 echo __NoT_DeFiNeD__.COMPONENT 
 echo __NoT_DeFiNeD__.COMPONENT[VALUE] ${__NoT_DeFiNeD__.COMPONENT[VALUE]}'
+		ERROR -n -

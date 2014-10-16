@@ -122,5 +122,4 @@ extern const char *alg_oakley_hashdef_name (int);
 extern const char *alg_oakley_dhdef_name (int);
 extern const char *alg_oakley_authdef_name (int);
 
-
 #endif /* _ALGORITHM_H */

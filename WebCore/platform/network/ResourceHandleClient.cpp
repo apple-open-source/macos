@@ -49,11 +49,6 @@ void ResourceHandleClient::didReceiveResponseAsync(ResourceHandle* handle, const
     handle->continueDidReceiveResponse();
 }
 
-void ResourceHandleClient::shouldUseCredentialStorageAsync(ResourceHandle* handle)
-{
-    handle->continueShouldUseCredentialStorage(false);
-}
-
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 void ResourceHandleClient::canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle* handle, const ProtectionSpace&)
 {
@@ -61,7 +56,12 @@ void ResourceHandleClient::canAuthenticateAgainstProtectionSpaceAsync(ResourceHa
 }
 #endif
 
-#if PLATFORM(MAC)
+#if USE(CFNETWORK)
+void ResourceHandleClient::willCacheResponseAsync(ResourceHandle* handle, CFCachedURLResponseRef response)
+{
+    handle->continueWillCacheResponse(response);
+}
+#elif PLATFORM(COCOA)
 void ResourceHandleClient::willCacheResponseAsync(ResourceHandle* handle, NSCachedURLResponse *response)
 {
     handle->continueWillCacheResponse(response);

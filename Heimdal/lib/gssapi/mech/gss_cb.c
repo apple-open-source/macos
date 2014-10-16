@@ -72,7 +72,7 @@ gss_mg_gen_cb(OM_uint32 *minor_status,
     }
     sret = krb5_storage_write(sp, b->initiator_address.value,
 			     (uint32_t)b->initiator_address.length);
-    if (sret != b->initiator_address.length) {
+    if (sret < 0 || (size_t)sret != b->initiator_address.length) {
 	*minor_status = ENOMEM;
 	goto out;
     }
@@ -89,7 +89,7 @@ gss_mg_gen_cb(OM_uint32 *minor_status,
     }
     sret = krb5_storage_write(sp, b->acceptor_address.value,
 			     b->acceptor_address.length);
-    if (sret != b->acceptor_address.length) {
+    if (sret < 0 || (size_t)sret != b->acceptor_address.length) {
 	*minor_status = ENOMEM;
 	goto out;
     }
@@ -101,7 +101,7 @@ gss_mg_gen_cb(OM_uint32 *minor_status,
     }
     sret = krb5_storage_write(sp, b->application_data.value,
 			      b->application_data.length);
-    if (sret != b->application_data.length) {
+    if (sret < 0 || (size_t)sret != b->application_data.length) {
 	*minor_status = ENOMEM;
 	goto out;
     }

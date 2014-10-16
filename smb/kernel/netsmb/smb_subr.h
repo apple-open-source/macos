@@ -49,43 +49,97 @@ MALLOC_DECLARE(M_SMBTEMP);
 #define SMB_ACL_LOG_LEVEL		0x02
 #define SMB_IO_LOG_LEVEL		0x04
 #define SMB_AUTH_LOG_LEVEL		0x08
+#define SMB_KTRACE_LOG_LEVEL    0x10
 
 extern int smbfs_loglevel;
 
 #ifdef SMB_DEBUG
 #define SMBDEBUG(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
 
+#define SMBDEBUG_LOCK(np, format, args...) do { \
+    lck_rw_lock_shared(&(np)->n_name_rwlock); \
+    printf("%s: "format, __FUNCTION__ ,## args); \
+    lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } while(0)
+
 #ifdef DEBUG_SYMBOLIC_LINKS
-#define SMBSYMDEBUG	SMBDEBUG
+#define SMBSYMDEBUG SMBDEBUG
+#define SMBSYMDEBUG_LOCK SMBDEBUG_LOCK
 #else // DEBUG_SYMBOLIC_LINKS
 #define SMBSYMDEBUG(format, args...)
+#define SMBSYMDEBUG_LOCK(np, format, args...)
 #endif // DEBUG_SYMBOLIC_LINKS
 #else // SMB_DEBUG
 #define SMBDEBUG(format, args...)
+#define SMBDEBUG_LOCK(np, format, args...)
 #define SMBSYMDEBUG(format, args...)
+#define SMBSYMDEBUG_LOCK(np, format, args...)
 #endif // SMB_DEBUG
 
 #define SMBERROR(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
-#define SMBWARNING(format, args...) do { \
-	if (smbfs_loglevel) \
-		printf("%s: "format, __FUNCTION__ ,## args); \
-}while(0)
 
+#define SMBERROR_LOCK(np, format, args...) do { \
+    lck_rw_lock_shared(&(np)->n_name_rwlock); \
+    printf("%s: "format, __FUNCTION__ ,## args); \
+    lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } while(0)
+
+#define SMBWARNING_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
+
+#define SMBWARNING(format, args...) do { \
+    if (smbfs_loglevel) \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_AUTH_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_AUTH_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
 
 #define SMB_LOG_AUTH(format, args...) do { \
-if (smbfs_loglevel & SMB_AUTH_LOG_LEVEL) \
-printf("%s: "format, __FUNCTION__ ,## args); \
-}while(0)
+    if (smbfs_loglevel & SMB_AUTH_LOG_LEVEL) \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_ACCESS_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_ACL_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
 
 #define SMB_LOG_ACCESS(format, args...) do { \
-	if (smbfs_loglevel & SMB_ACL_LOG_LEVEL) \
-	printf("%s: "format, __FUNCTION__ ,## args); \
-}while(0)
+    if (smbfs_loglevel & SMB_ACL_LOG_LEVEL) \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_IO_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_IO_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+   } while(0)
 
 #define SMB_LOG_IO(format, args...) do { \
-if (smbfs_loglevel & SMB_IO_LOG_LEVEL) \
-printf("%s: "format, __FUNCTION__ ,## args); \
-}while(0)
+    if (smbfs_loglevel & SMB_IO_LOG_LEVEL) \
+        printf("%s: "format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_KTRACE(args...) do { \
+    if (smbfs_loglevel & SMB_KTRACE_LOG_LEVEL) \
+        KERNEL_DEBUG_CONSTANT(args); \
+    } while(0)
 
 #define SMB_ASSERT(a) { \
 	if (!(a)) { \
@@ -154,8 +208,17 @@ void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);
 
 void smb_reset_sig(struct smb_vc *vcp);
+
 int  smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN);
 void  smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN);
+
+int smb_ntlmv2hash(const u_char *apwd, const u_char *user,
+                   const u_char *destination, u_char *v2hash);
+int smb_ntlmv2response(u_char *v2hash, u_char *C8, const u_char *blob,
+                       size_t bloblen, u_char **RN, size_t *RNlen);
+
+
+
 void *make_target_info(struct smb_vc *vcp, uint16_t *target_len);
 uint32_t smb_errClassCodes_to_ntstatus(uint8_t errClass, uint16_t errCode);
 uint32_t smb_ntstatus_to_errno(uint32_t ntstatus);
@@ -170,4 +233,7 @@ int  smb_rq_sign(struct smb_rq *rqp);
 int  smb_rq_verify(struct smb_rq *rqp);
 int  smb2_rq_sign(struct smb_rq *rqp);
 int  smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature);
+int  smb3_derive_keys(struct smb_vc *vcp);
+int  smb3_rq_encrypt(struct smb_rq *rqp, mbuf_t *m);
+int  smb3_msg_decrypt(struct smb_vc *vcp, mbuf_t *m);
 #endif /* !_NETSMB_SMB_SUBR_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
  */
 #ifndef _S_DHCPSERVER_H
 #define _S_DHCPSERVER_H
+#include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 /**
@@ -46,6 +47,8 @@ extern const CFStringRef	kDHCPSPropName;
 extern const CFStringRef	kDHCPSPropDHCPLease;
 extern const CFStringRef	kDHCPSPropDHCPIPAddress;
 extern const CFStringRef	kDHCPSPropDHCPHWAddress;
+
+#if ! TARGET_OS_EMBEDDED
 
 /** 
  ** NetBoot client dictionary properties 
@@ -85,6 +88,7 @@ extern const CFStringRef	kDHCPSPropNetBootImageIsInstall;
  *   above.
  */
 extern const CFStringRef	kDHCPSPropNetBootImageID;
+#endif /* ! TARGET_OS_EMBEDDED */
 
 /*
  * Function: DHCPSDHCPLeaseListCreate
@@ -94,8 +98,41 @@ extern const CFStringRef	kDHCPSPropNetBootImageID;
  * Note:
  *   Returned array must be released using CFRelease().
  */
-extern CFArrayRef		DHCPSDHCPLeaseListCreate();
+extern CFArrayRef		DHCPSDHCPLeaseListCreate(void);
 
+
+/*
+ * Const: DHCPSDHCPLeaseListNotificationKey
+ * Purpose:
+ *   Use with notify(3) to be notified when the DHCP lease list
+ *   adds or removes a client binding.
+ */
+extern const char * 		DHCPSDHCPLeaseListNotificationKey;
+
+/*
+ * Function: DHCPSCopyDisabledInterfaces
+ * Purpose:
+ *   Retrieve the list of interfaces on which DHCP has been disabled.
+ *   The DHCP server can be configured to detect the presence of another
+ *   DHCP server on a link and disable DHCP on that link when another DHCP
+ *   server is detected.
+ *
+ * Returns:
+ *   NULL if DHCP hasn't been disabled on any interface,
+ *   non-NULL array of string interface names otherwise.
+ */
+extern CFArrayRef		DHCPSCopyDisabledInterfaces(void);
+
+/*
+ * Const: DHCPSDisabledInterfacesNotificationKey
+ * Purpose:
+ *   Use with notify(3) to be notified when the list of disabled
+ *   interfaces changes. Use DHCPSCopyDisabledInterfaces() to retrieve
+ *   the current list.
+ */
+extern const char *		DHCPSDisabledInterfacesNotificationKey;
+
+#if ! TARGET_OS_EMBEDDED
 /*
  * Function: DHCPSNetBootClientListCreate
  * Purpose:
@@ -104,6 +141,7 @@ extern CFArrayRef		DHCPSDHCPLeaseListCreate();
  * Note:
  *   Returned array must be released using CFRelease().
  */
-extern CFArrayRef		DHCPSNetBootClientListCreate();
+extern CFArrayRef		DHCPSNetBootClientListCreate(void);
+#endif /* ! TARGET_OS_EMBEDDED */
 
 #endif /* _S_DHCPSERVER_H */

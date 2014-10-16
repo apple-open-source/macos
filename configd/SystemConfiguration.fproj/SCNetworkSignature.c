@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -236,7 +236,7 @@ CFArrayRef /* of CFStringRef's */
 SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 {
 	CFMutableArrayRef	active = NULL;
-	int			count = 0;
+	CFIndex			count = 0;
 	CFStringRef		global_setup_v4_key = NULL;
 	CFDictionaryRef		global_v4_dict;
 	int			i;
@@ -280,7 +280,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 
 	global_v4_dict = CFDictionaryGetValue(info, global_setup_v4_key);
 
-	if (isA_CFDictionary(global_v4_dict) == NULL) {
+	if (isA_CFDictionary(global_v4_dict) != NULL) {
 		service_order = CFDictionaryGetValue(global_v4_dict,
 						     kSCPropNetServiceOrder);
 		if (isA_CFArray(service_order) != NULL) {
@@ -329,7 +329,6 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 	}
 
 	count = CFDictionaryGetCount(services_dict);
-
 	if (count != 0) {
 		if (count > KEYS_STATIC_COUNT) {
 			values = (const void * *)malloc(sizeof(*values) * count);
@@ -400,12 +399,12 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 {
 	CFStringRef		addresses_key;
 	int			af;
-	int			count;
+	CFIndex			count;
 	int			i;
 	char			if_name[IFNAMSIZ];
 	CFStringRef		if_name_cf	= NULL;
-	conninfo_t *		info		 = NULL;
-	const void * *		keys		 = NULL;
+	conninfo_t *		info		= NULL;
+	const void * *		keys		= NULL;
 #define KEYS_STATIC_COUNT	10
 	const void *		keys_static[KEYS_STATIC_COUNT];
 	const void *		local_ip_p;
@@ -479,16 +478,26 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 			continue;
 		}
 		if (if_name_cf != NULL) {
+			CFStringRef		confirmed_if;
 			CFStringRef		this_if;
 
 			this_if = CFDictionaryGetValue(value,
 						       kSCPropInterfaceName);
-			if (isA_CFString(this_if) != NULL
-			    && !CFEqual(this_if, if_name_cf)) {
-				/* interface name doesn't match */
+			if (isA_CFString(this_if) == NULL
+			    || !CFEqual(this_if, if_name_cf)) {
+				/* no interface or it doesn't match */
+				continue;
+			}
+			confirmed_if
+				= CFDictionaryGetValue(value,
+						       kSCPropConfirmedInterfaceName);
+			if (isA_CFString(confirmed_if) != NULL
+			    && !CFEqual(confirmed_if, if_name_cf)) {
+				/* confirmed interface doesn't match */
 				continue;
 			}
 		}
+
 		addrs = CFDictionaryGetValue(value, addresses_key);
 		if (isA_CFArray(addrs) == NULL) {
 			continue;

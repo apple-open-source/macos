@@ -93,7 +93,8 @@ check_neg_cache(OM_uint32 *minor_status,
     krb5_principal server = (krb5_principal)target_name;
     gsskrb5_cred cred = (gsskrb5_cred)gss_cred;
     OM_uint32 major;
-    int check = 0, i;
+    int check = 0;
+    size_t i;
 
     HEIMDAL_MUTEX_lock(&nc_mutex);
 
@@ -357,8 +358,7 @@ _gsskrb5_create_ctx(OM_uint32 * minor_status,
 
     krb5_auth_con_addflags(context,
 			   ctx->deleg_auth_context,
-			   KRB5_AUTH_CONTEXT_DO_SEQUENCE |
-			   KRB5_AUTH_CONTEXT_CLEAR_FORWARDED_CRED,
+			   KRB5_AUTH_CONTEXT_DO_SEQUENCE,
 			   NULL);
 
     *context_handle = (gss_ctx_id_t)ctx;
@@ -536,35 +536,22 @@ do_delegation (krb5_context context,
     fwd_flags.forwarded = 1;
     fwd_flags.forwardable = 1;
 
-    if ( /*target_name->name.name_type != KRB5_NT_SRV_HST ||*/
-	name->name.name_string.len < 2)
+    if (name->name.name_string.len < 2) {
+	krb5_set_error_message(context, GSS_KRB5_S_G_BAD_USAGE,
+			       "ISC: only support forwarding to services");
+	kret = GSS_KRB5_S_G_BAD_USAGE;
 	goto out;
-
-    /*
-     * First check for forward credentials in the cache instead of
-     * going out to the network (expensive).
-     */
-    kret = krb5_cc_get_config(context, ccache,
-			      name, "gss-forward-cache", fwd_data);
-    if (kret) {
-	kret = krb5_get_forwarded_creds(context,
-					ac,
-					ccache,
-					KDCOptions2int(fwd_flags),
-					name->name.name_string.val[1],
-					&creds,
-					fwd_data);
-	if (kret == 0) {
-	    /*
-	     * Ignore here here, its probably credential caches
-	     * that can't delete credentials (FILE), or store the,
-	     * or some other wierd configuration, anyway just
-	     * ignore it.
-	     */
-	    krb5_cc_set_config(context, ccache, name,
-			       "gss-forward-cache", fwd_data);
-	}
     }
+
+    kret = krb5_get_forwarded_creds(context,
+				    ac,
+				    ccache,
+				    KDCOptions2int(fwd_flags),
+				    name->name.name_string.val[1],
+				    &creds,
+				    fwd_data);
+    if (kret)
+	goto out;
 
  out:
     _gss_mg_log(1, "gss-krb5: delegation %s -> %s",
@@ -736,7 +723,7 @@ init_pku2u_auth(OM_uint32 * minor_status,
 	InitiatorNameAssertion na;
 	hx509_name subject;
 	krb5_data data;
-	size_t size;
+	size_t size = 0;
 	Name n;
 
 	memset(&na, 0, sizeof(na));
@@ -981,7 +968,7 @@ _gsskrb5_iakerb_make_header(OM_uint32 *minor_status,
 {
     IAKERB_HEADER header;
     unsigned char *data;
-    size_t length, size;
+    size_t length, size = 0;
     OM_uint32 maj_stat;
     krb5_data iadata;
     int ret;
@@ -1406,12 +1393,20 @@ init_krb5_auth(OM_uint32 * minor_status,
     }
 
     if (_gss_mg_log_level(1)) {
-	char *str;
+	char *str, *fullname;
 	ret = krb5_unparse_name(context, ctx->source, &str);
-	if (ret == 0) {
-	    _gss_mg_log(1, "gss-krb5: ISC client: %s", str);
+	if (ret)
+	    goto failure;
+
+	ret = krb5_cc_get_full_name(context, ctx->ccache, &fullname);
+	if (ret) {
 	    krb5_xfree(str);
+	    goto failure;
 	}
+	_gss_mg_log(1, "gss-krb5: ISC client: %s cache: %s", str, fullname);
+
+	krb5_xfree(str);
+	krb5_xfree(fullname);
     }
 
     /*
@@ -1488,9 +1483,8 @@ step_setup_keys(OM_uint32 * minor_status,
     
     heim_assert(ctx->kcred != NULL, "gsskrb5 context is missing kerberos credential");
 
-    krb5_auth_con_setkey(context,
-			 ctx->auth_context,
-			 &ctx->kcred->session);
+    krb5_auth_con_setkey(context, ctx->auth_context, &ctx->kcred->session);
+    krb5_auth_con_setkey(context, ctx->deleg_auth_context, &ctx->kcred->session);
 
     kret = krb5_auth_con_generatelocalsubkey(context,
 					     ctx->auth_context,
@@ -1626,7 +1620,7 @@ init_auth_step(OM_uint32 * minor_status,
     if (ctx->messages) {
 	GSS_KRB5_FINISHED pkt;
 	krb5_data pkts;
-	size_t size;
+	size_t size = 0;
 	
 	memset(&pkt, 0, sizeof(pkt));
 
@@ -1767,10 +1761,13 @@ handle_error_packet(OM_uint32 *minor_status,
     if (kret == 0) {
 	kret = krb5_error_from_rd_error(context, &error, NULL);
 
+	_gss_mg_log(1, "gss-krb5: server return KRB-ERROR with error code %d", kret);
+
 	/*
 	 * If we get back an error code that we know about, then lets retry again:
 	 * - KRB5KRB_AP_ERR_MODIFIED: delete entry and retry
 	 * - KRB5KRB_AP_ERR_SKEW: time skew sent, retry again with right time skew
+	 * - KRB5KRB_ERR_GENERIC: with edata, maybe get windows error code or time skew (windows style)
 	 */
 
 	if (kret == KRB5KRB_AP_ERR_MODIFIED && ctx->ccache) {
@@ -1778,6 +1775,8 @@ handle_error_packet(OM_uint32 *minor_status,
 	    if ((ctx->more_flags & RETRIED_NEWTICKET) == 0) {
 		krb5_creds mcreds; 
                        
+		_gss_mg_log(1, "gss-krb5: trying to renew ticket");
+
 		krb5_cc_clear_mcred(&mcreds);
 		mcreds.client = ctx->source;
 		mcreds.server = ctx->target;
@@ -1790,6 +1789,7 @@ handle_error_packet(OM_uint32 *minor_status,
 
 	} else if (kret == KRB5KRB_AP_ERR_SKEW && ctx->ccache) {
 
+	recover_skew:
 	    if ((ctx->more_flags & RETRIED_SKEW) == 0) {
 		krb5_data timedata;
 		uint8_t p[4];
@@ -1803,9 +1803,34 @@ handle_error_packet(OM_uint32 *minor_status,
 		krb5_cc_set_config(context, ctx->ccache, ctx->target,
 				   "time-offset", &timedata);
 		
+		_gss_mg_log(1, "gss-krb5: time skew of %d", (int)t);
+
 		ctx->initiator_state = init_auth_step;
 	    }
 	    ctx->more_flags |= RETRIED_SKEW;
+	} else if (kret == KRB5KRB_ERR_GENERIC && error.e_data) {
+	    KERB_ERROR_DATA data;
+	    krb5_error_code ret;
+
+	    _gss_mg_log(1, "gss-krb5: trying to decode a KRB5KRB_ERR_GENERIC");
+
+	    ret = decode_KERB_ERROR_DATA(error.e_data->data, error.e_data->length, &data, NULL);
+	    if (ret)
+		goto out;
+				   
+	    if (data.data_type == KRB5_AP_ERR_WINDOWS_ERROR_CODE) {
+		if (data.data_value && data.data_value->length >= 4) {
+		    uint32_t num;
+		    _gss_mg_decode_le_uint32(data.data_value->data, &num);
+		    _gss_mg_log(1, "gss-krb5: got an windows error code: %08x", (unsigned int)num);
+		}
+	    } else if (data.data_type == KRB5_AP_ERR_TYPE_SKEW_RECOVERY) {
+		free_KERB_ERROR_DATA(&data);
+		goto recover_skew;
+	    } else {
+		_gss_mg_log(1, "gss-krb5: got an KERB_ERROR_DATA of type %d", data.data_type);
+	    }
+	    free_KERB_ERROR_DATA(&data);
 	}
 	free_KRB_ERROR (&error);
     }
@@ -1813,6 +1838,7 @@ handle_error_packet(OM_uint32 *minor_status,
     if (ctx->initiator_state != wait_repl_mutual)
 	return GSS_S_COMPLETE;
 
+ out:
     *minor_status = kret;
     return GSS_S_FAILURE;
 
@@ -1876,9 +1902,14 @@ wait_repl_mutual(OM_uint32 * minor_status,
 					&indata,
 					"\x03\x00",
 					ctx->mech);
-	    if (ret == GSS_S_COMPLETE)
-		return handle_error_packet(minor_status, context, ctx, indata);
+	    if (ret != GSS_S_COMPLETE)
+		return ret;
+
+	    return handle_error_packet(minor_status, context, ctx, indata);
+	} else if (ret != GSS_S_COMPLETE) {
+	    return ret;
 	}
+
 	kret = krb5_rd_rep (context,
 			    ctx->auth_context,
 			    &indata,

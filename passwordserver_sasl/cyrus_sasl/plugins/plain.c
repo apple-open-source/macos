@@ -1,7 +1,7 @@
 /* Plain SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: plain.c,v 1.7 2006/02/03 22:33:14 snsimon Exp $
+ * $Id: plain.c,v 1.67 2009/06/10 16:05:19 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -57,7 +57,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: plain.c,v 1.7 2006/02/03 22:33:14 snsimon Exp $";
+static const char plugin_id[] = "$Id: plain.c,v 1.67 2009/06/10 16:05:19 mel Exp $";
 
 /*****************************  Server Section  *****************************/
 
@@ -89,10 +89,11 @@ static int plain_server_mech_step(void *conn_context __attribute__((unused)),
     const char *author;
     const char *authen;
     const char *password;
-    size_t password_len;
-    unsigned lup=0;
+    unsigned password_len;
+    unsigned lup = 0;
     int result;
     char *passcopy; 
+    unsigned canon_flags = 0;
     
     *serverout = NULL;
     *serveroutlen = 0;
@@ -124,7 +125,7 @@ static int plain_server_mech_step(void *conn_context __attribute__((unused)),
     password = clientin + lup;
     while ((lup < clientinlen) && (clientin[lup] != 0)) ++lup;
     
-    password_len = clientin + lup - password;
+    password_len = (unsigned) (clientin + lup - password);
     
     if (lup != clientinlen) {
 	SETERROR(params->utils,
@@ -146,20 +147,33 @@ static int plain_server_mech_step(void *conn_context __attribute__((unused)),
    
     /* Canonicalize userid first, so that password verification is only
      * against the canonical id */
-    if (!author || !*author)
+    if (!author || !*author) {
 	author = authen;
+	canon_flags = SASL_CU_AUTHZID;
+    } else if (strcmp(author, authen) == 0) {
+	/* While this isn't going to find out that <user> and <user>@<defaultdomain>
+	   are the same thing, this is good enough for many cases */
+	canon_flags = SASL_CU_AUTHZID;
+    }
     
     result = params->canon_user(params->utils->conn,
-				authen, 0, SASL_CU_AUTHID, oparams);
+				authen,
+				0,
+				SASL_CU_AUTHID | canon_flags | SASL_CU_EXTERNALLY_VERIFIED,
+				oparams);
     if (result != SASL_OK) {
 	_plug_free_string(params->utils, &passcopy);
 	return result;
     }
-    
-    /* verify password - return sasl_ok on success*/
+
+    /* verify password (and possibly fetch both authentication and
+       authorization identity related properties) - return SASL_OK
+       on success */
     result = params->utils->checkpass(params->utils->conn,
-				      oparams->authid, oparams->alen,
-				      passcopy, password_len);
+				      oparams->authid,
+				      oparams->alen,
+				      passcopy,
+				      password_len);
     
     _plug_free_string(params->utils, &passcopy);
     
@@ -172,10 +186,37 @@ static int plain_server_mech_step(void *conn_context __attribute__((unused)),
     /* Canonicalize and store the authorization ID */
     /* We need to do this after calling verify_user just in case verify_user
      * needed to get auxprops itself */
-    result = params->canon_user(params->utils->conn,
-				author, 0, SASL_CU_AUTHZID, oparams);
-    if (result != SASL_OK) return result;
+    if (canon_flags == 0) {
+	const struct propval *pr;
+	int i;
 
+	pr = params->utils->prop_get(params->propctx);
+	if (!pr) {
+	    return SASL_FAIL;
+	}
+
+	/* params->utils->checkpass() might have fetched authorization identity related properties
+	   for the wrong user name. Free these values. */
+	for (i = 0; pr[i].name; i++) {
+	    if (pr[i].name[0] == '*') {
+		continue;
+	    }
+
+            if (pr[i].values) {
+	    	params->utils->prop_erase(params->propctx, pr[i].name);
+            }
+	}
+
+	result = params->canon_user(params->utils->conn,
+				    author,
+				    0,
+				    SASL_CU_AUTHZID,
+				    oparams);
+	if (result != SASL_OK) {
+	    return result;
+	}
+    }
+    
     /* set oparams */
     oparams->doneflag = 1;
     oparams->mech_ssf = 0;
@@ -194,7 +235,8 @@ static sasl_server_plug_t plain_server_plugins[] =
     {
 	"PLAIN",			/* mech_name */
 	0,				/* max_ssf */
-	SASL_SEC_NOANONYMOUS,		/* security_flags */
+	SASL_SEC_NOANONYMOUS
+	| SASL_SEC_PASS_CREDENTIALS,	/* security_flags */
 	SASL_FEAT_WANT_CLIENT_FIRST
 	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* glob_context */
@@ -362,7 +404,7 @@ static int plain_client_mech_step(void *conn_context,
 		     1 + password->len);
     
     /* remember the extra NUL on the end for stupid clients */
-    result = _plug_buf_alloc(params->utils, (unsigned char **)&(text->out_buf),
+    result = _plug_buf_alloc(params->utils, &(text->out_buf),
 			     &(text->out_buf_len), *clientoutlen + 1);
     if (result != SASL_OK) goto cleanup;
     
@@ -414,7 +456,9 @@ static sasl_client_plug_t plain_client_plugins[] =
     {
 	"PLAIN",			/* mech_name */
 	0,				/* max_ssf */
-	SASL_SEC_NOANONYMOUS,		/* security_flags */
+	SASL_SEC_NOANONYMOUS
+	| SASL_SEC_NOLEGACY // APPLE: prefer PLAIN over LOGIN
+	| SASL_SEC_PASS_CREDENTIALS,	/* security_flags */
 	SASL_FEAT_WANT_CLIENT_FIRST
 	| SASL_FEAT_ALLOWS_PROXY,	/* features */
 	NULL,				/* required_prompts */

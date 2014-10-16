@@ -363,7 +363,8 @@ extern int	cal_enable;		/* refclock calibrate enable */
 extern int	allow_panic;		/* allow panic correction */
 extern int	mode_ntpdate;		/* exit on first clock set */
 extern int	peer_ntpdate;		/* count of ntpdate peers */
-extern int  mode_wakeup;    /* set clock on next receive */
+extern int	mode_wakeup;		/* set clock on next receive */
+extern u_long wake_timer;		/* left on until a transmit succeeds */
 
 /*
  * Clock state machine variables

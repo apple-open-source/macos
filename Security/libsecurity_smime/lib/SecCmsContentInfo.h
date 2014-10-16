@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsContentInfo.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -36,6 +36,7 @@
 #define _SECURITY_SECCMSCONTENTINFO_H_  1
 
 #include <Security/SecCmsBase.h>
+#include <CoreFoundation/CFData.h>
 
 
 #if defined(__cplusplus)
@@ -68,7 +69,7 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo);
     @abstract Get pointer to innermost content
     @discussion This is typically only called by SecCmsMessageGetContent().
  */
-extern CSSM_DATA_PTR
+extern const SecAsn1Item *
 SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo);
 
 /*!
@@ -83,7 +84,7 @@ SecCmsContentInfoGetContentTypeTag(SecCmsContentInfoRef cinfo);
     @abstract Find out and return the inner content type.
     @discussion Caches pointer to lookup result for future reference.
  */
-extern CSSM_OID *
+extern SecAsn1Oid *
 SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo);
 
 /*!
@@ -106,16 +107,15 @@ SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo);
 /*!
     @function
     @abstract Set a ContentInfos content to a Data
-    @param cmsg A Message object to which the cinfo object belongs.
     @param cinfo A ContentInfo object of which we want set the content.
-    @param data A pointer to a CSSM_DATA object or NULL if data will be provided during SecCmsEncoderUpdate calls.
+    @param data A CFDataRef or NULL if data will be provided during SecCmsEncoderUpdate calls.
     @param detached True if the content is to be deattched from the CMS message rather than included within it.
     @result A result code. See "SecCmsBase.h" for possible results.
-    @discussion This function requires a ContentInfo object which can be made by creating a SecCmsMessage object.  If the call succeeds the passed in data will be owned by the reciever.  The data->Data must have been allocated using the cmsg's SecArenaPool if it is present.
+    @discussion This function requires a ContentInfo object which can be made by creating a SecCmsMessage object.
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached);
+SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef data, Boolean detached);
 
 /*!
     @function
@@ -128,7 +128,7 @@ SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinf
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentSignedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd);
+SecCmsContentInfoSetContentSignedData(SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd);
 
 /*!
     @function
@@ -141,7 +141,7 @@ SecCmsContentInfoSetContentSignedData(SecCmsMessageRef cmsg, SecCmsContentInfoRe
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentEnvelopedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd);
+SecCmsContentInfoSetContentEnvelopedData(SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd);
 
 /*!
     @function
@@ -154,7 +154,7 @@ SecCmsContentInfoSetContentEnvelopedData(SecCmsMessageRef cmsg, SecCmsContentInf
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd);
+SecCmsContentInfoSetContentDigestedData(SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd);
 
 /*!
     @function
@@ -167,23 +167,20 @@ SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfo
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd);
-
-OSStatus
-SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType);
+SecCmsContentInfoSetContentEncryptedData(SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd);
 
 /*!
     @function
  */
 extern OSStatus
-SecCmsContentInfoSetContentEncAlg(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
-				    SECOidTag bulkalgtag, CSSM_DATA_PTR parameters, int keysize);
+SecCmsContentInfoSetContentEncAlg(SecCmsContentInfoRef cinfo,
+				    SECOidTag bulkalgtag, const SecAsn1Item *parameters, int keysize);
 
 /*!
     @function
  */
 extern OSStatus
-SecCmsContentInfoSetContentEncAlgID(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
+SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
 				    SECAlgorithmID *algid, int keysize);
 
 /*!

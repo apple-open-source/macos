@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,13 +35,17 @@
 #include "VisibleSelection.h"
 #include <wtf/Noncopyable.h>
 
+#if PLATFORM(IOS)
+#include "Color.h"
+#endif
+
 namespace WebCore {
 
 class CharacterData;
 class Frame;
 class GraphicsContext;
 class HTMLFormElement;
-class MutableStylePropertySet;
+class MutableStyleProperties;
 class RenderObject;
 class RenderView;
 class Settings;
@@ -64,7 +68,6 @@ protected:
     void invalidateCaretRect(Node*, bool caretRectChanged = false);
     void clearCaretRect();
     bool updateCaretRect(Document*, const VisiblePosition& caretPosition);
-    IntRect absoluteBoundsForLocalRect(Node*, const LayoutRect&) const;
     bool shouldRepaintCaret(const RenderView*, bool isContentEditable) const;
     void paintCaret(Node*, GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect) const;
 
@@ -87,7 +90,7 @@ class DragCaretController : private CaretBase {
     WTF_MAKE_NONCOPYABLE(DragCaretController);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<DragCaretController> create();
+    DragCaretController();
 
     RenderObject* caretRenderer() const;
     void paintDragCaret(Frame*, GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect) const;
@@ -103,8 +106,6 @@ public:
     void nodeWillBeRemoved(Node*);
 
 private:
-    DragCaretController();
-
     VisiblePosition m_position;
 };
 
@@ -116,53 +117,42 @@ public:
     enum CursorAlignOnScroll { AlignCursorOnScrollIfNeeded,
                                AlignCursorOnScrollAlways };
     enum SetSelectionOption {
-        // 1 << 0 is reserved for EUserTriggered
+        FireSelectEvent = 1 << 0,
         CloseTyping = 1 << 1,
         ClearTypingStyle = 1 << 2,
         SpellCorrectionTriggered = 1 << 3,
         DoNotSetFocus = 1 << 4,
         DictationTriggered = 1 << 5,
-        DoNotUpdateAppearance = 1 << 6,
+        RevealSelection = 1 << 6,
     };
     typedef unsigned SetSelectionOptions; // Union of values in SetSelectionOption and EUserTriggered
-    static inline EUserTriggered selectionOptionsToUserTriggered(SetSelectionOptions options)
+    static inline SetSelectionOptions defaultSetSelectionOptions(EUserTriggered userTriggered = NotUserTriggered)
     {
-        return static_cast<EUserTriggered>(options & UserTriggered);
+        return CloseTyping | ClearTypingStyle | (userTriggered ? (RevealSelection | FireSelectEvent) : 0);
     }
 
     explicit FrameSelection(Frame* = 0);
 
-    Element* rootEditableElement() const { return m_selection.rootEditableElement(); }
     Element* rootEditableElementOrDocumentElement() const;
-    Node* rootEditableElementOrTreeScopeRootNode() const;
-    Element* rootEditableElementRespectingShadowTree() const;
-
-    bool rendererIsEditable() const { return m_selection.rendererIsEditable(); }
-    bool isContentEditable() const { return m_selection.isContentEditable(); }
-    bool isContentRichlyEditable() const { return m_selection.isContentRichlyEditable(); }
      
-    void moveTo(const Range*, EAffinity, EUserTriggered = NotUserTriggered);
+    void moveTo(const Range*);
     void moveTo(const VisiblePosition&, EUserTriggered = NotUserTriggered, CursorAlignOnScroll = AlignCursorOnScrollIfNeeded);
     void moveTo(const VisiblePosition&, const VisiblePosition&, EUserTriggered = NotUserTriggered);
     void moveTo(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
     void moveTo(const Position&, const Position&, EAffinity, EUserTriggered = NotUserTriggered);
+    void moveWithoutValidationTo(const Position&, const Position&, bool selectionHasDirection, bool shouldSetFocus);
 
     const VisibleSelection& selection() const { return m_selection; }
-    void setSelection(const VisibleSelection&, SetSelectionOptions = CloseTyping | ClearTypingStyle, CursorAlignOnScroll = AlignCursorOnScrollIfNeeded, TextGranularity = CharacterGranularity);
-    void setSelection(const VisibleSelection& selection, TextGranularity granularity) { setSelection(selection, CloseTyping | ClearTypingStyle, AlignCursorOnScrollIfNeeded, granularity); }
+    void setSelection(const VisibleSelection&, SetSelectionOptions = defaultSetSelectionOptions(), CursorAlignOnScroll = AlignCursorOnScrollIfNeeded, TextGranularity = CharacterGranularity);
     bool setSelectedRange(Range*, EAffinity, bool closeTyping);
     void selectAll();
     void clear();
     void prepareForDestruction();
 
-    // Call this after doing user-triggered selections to make it easy to delete the frame you entirely selected.
-    void selectFrameElementInParentIfFullySelected();
+    void didLayout();
+    void setNeedsSelectionUpdate();
 
     bool contains(const LayoutPoint&);
-
-    VisibleSelection::SelectionType selectionType() const { return m_selection.selectionType(); }
-
-    EAffinity affinity() const { return m_selection.affinity(); }
 
     bool modify(EAlteration, SelectionDirection, TextGranularity, EUserTriggered = NotUserTriggered);
     enum VerticalDirection { DirectionUp, DirectionDown };
@@ -178,16 +168,8 @@ public:
     void setExtent(const VisiblePosition&, EUserTriggered = NotUserTriggered);
     void setExtent(const Position&, EAffinity, EUserTriggered = NotUserTriggered);
 
-    Position base() const { return m_selection.base(); }
-    Position extent() const { return m_selection.extent(); }
-    Position start() const { return m_selection.start(); }
-    Position end() const { return m_selection.end(); }
-
     // Return the renderer that is responsible for painting the caret (in the selection start node)
-    RenderObject* caretRenderer() const;
-
-    // Caret rect local to the caret's renderer
-    LayoutRect localCaretRect();
+    RenderObject* caretRendererWithoutUpdatingLayout() const;
 
     // Bounds of (possibly transformed) caret in absolute coords
     IntRect absoluteCaretBounds();
@@ -199,7 +181,6 @@ public:
     bool isCaret() const { return m_selection.isCaret(); }
     bool isRange() const { return m_selection.isRange(); }
     bool isCaretOrRange() const { return m_selection.isCaretOrRange(); }
-    bool isInPasswordField() const;
     bool isAll(EditingBoundaryCrossingRule rule = CannotCrossEditingBoundary) const { return m_selection.isAll(rule); }
     
     PassRefPtr<Range> toNormalizedRange() const { return m_selection.toNormalizedRange(); }
@@ -210,8 +191,6 @@ public:
     void textWasReplaced(CharacterData*, unsigned offset, unsigned oldLength, unsigned newLength);
 
     void setCaretVisible(bool caretIsVisible) { setCaretVisibility(caretIsVisible ? Visible : Hidden); }
-    bool recomputeCaretRect();
-    void invalidateCaretRect();
     void paintCaret(GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect);
 
     // Used to suspend caret blinking while the mouse is down.
@@ -232,20 +211,52 @@ public:
     void showTreeForThis() const;
 #endif
 
+#if PLATFORM(IOS)
+public:
+    void expandSelectionToElementContainingCaretSelection();
+    PassRefPtr<Range> elementRangeContainingCaretSelection() const;
+    void expandSelectionToWordContainingCaretSelection();
+    PassRefPtr<Range> wordRangeContainingCaretSelection();
+    void expandSelectionToStartOfWordContainingCaretSelection();
+    UChar characterInRelationToCaretSelection(int amount) const;
+    UChar characterBeforeCaretSelection() const;
+    UChar characterAfterCaretSelection() const;
+    int wordOffsetInRange(const Range*) const;
+    bool spaceFollowsWordInRange(const Range*) const;
+    bool selectionAtDocumentStart() const;
+    bool selectionAtSentenceStart() const;
+    bool selectionAtWordStart() const;
+    PassRefPtr<Range> rangeByMovingCurrentSelection(int amount) const;
+    PassRefPtr<Range> rangeByExtendingCurrentSelection(int amount) const;
+    void selectRangeOnElement(unsigned location, unsigned length, Node*);
+    void clearCurrentSelection();
+    void setCaretBlinks(bool caretBlinks = true);
+    void setCaretColor(const Color&);
+    static VisibleSelection wordSelectionContainingCaretSelection(const VisibleSelection&);
+    void setUpdateAppearanceEnabled(bool enabled) { m_updateAppearanceEnabled = enabled; }
+    void suppressScrolling() { ++m_scrollingSuppressCount; }
+    void restoreScrolling()
+    {
+        ASSERT(m_scrollingSuppressCount);
+        --m_scrollingSuppressCount;
+    }
+private:
+    bool actualSelectionAtSentenceStart(const VisibleSelection&) const;
+    PassRefPtr<Range> rangeByAlteringCurrentSelection(EAlteration, int amount) const;
+public:
+#endif
+
     bool shouldChangeSelection(const VisibleSelection&) const;
     bool shouldDeleteSelection(const VisibleSelection&) const;
     enum EndPointsAdjustmentMode { AdjustEndpointsAtBidiBoundary, DoNotAdjsutEndpoints };
-    void setNonDirectionalSelectionIfNeeded(const VisibleSelection&, TextGranularity, EndPointsAdjustmentMode = DoNotAdjsutEndpoints);
-    void notifyRendererOfSelectionChange(EUserTriggered);
-
-    void paintDragCaret(GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect) const;
+    void setSelectionByMouseIfDifferent(const VisibleSelection&, TextGranularity, EndPointsAdjustmentMode = DoNotAdjsutEndpoints);
 
     EditingStyle* typingStyle() const;
-    PassRefPtr<MutableStylePropertySet> copyTypingStyle() const;
+    PassRefPtr<MutableStyleProperties> copyTypingStyle() const;
     void setTypingStyle(PassRefPtr<EditingStyle>);
     void clearTypingStyle();
 
-    FloatRect bounds(bool clipToVisibleContent = true) const;
+    FloatRect selectionBounds(bool clipToVisibleContent = true) const;
 
     void getClippedVisibleTextRectangles(Vector<FloatRect>&) const;
 
@@ -259,6 +270,11 @@ public:
 
 private:
     enum EPositionType { START, END, BASE, EXTENT };
+
+    void updateAndRevealSelection();
+    void updateDataDetectorsForSelection();
+
+    bool setSelectionWithoutUpdatingAppearance(const VisibleSelection&, SetSelectionOptions, CursorAlignOnScroll, TextGranularity);
 
     void respondToNodeModification(Node*, bool baseRemoved, bool extentRemoved, bool startRemoved, bool endRemoved);
     TextDirection directionOfEnclosingBlock();
@@ -282,18 +298,24 @@ private:
 
 #if HAVE(ACCESSIBILITY)
     void notifyAccessibilityForSelectionChange();
+#else
+    void notifyAccessibilityForSelectionChange() { }
 #endif
+
+    void updateSelectionCachesIfSelectionIsInsideTextFormControl(EUserTriggered);
+
+    void selectFrameElementInParentIfFullySelected();
 
     void setFocusedElementIfNeeded();
     void focusedOrActiveStateChanged();
 
-    void caretBlinkTimerFired(Timer<FrameSelection>*);
+    void caretBlinkTimerFired(Timer<FrameSelection>&);
 
     void setCaretVisibility(CaretVisibility);
+    bool recomputeCaretRect();
+    void invalidateCaretRect();
 
     bool dispatchSelectStart();
-  
-    bool visualWordMovementEnabled() const;
 
     Frame* m_frame;
 
@@ -315,6 +337,16 @@ private:
     bool m_isCaretBlinkingSuspended : 1;
     bool m_focused : 1;
     bool m_shouldShowBlockCursor : 1;
+    bool m_pendingSelectionUpdate : 1;
+    bool m_shouldRevealSelection : 1;
+    bool m_alwaysAlignCursorOnScrollWhenRevealingSelection : 1;
+
+#if PLATFORM(IOS)
+    bool m_updateAppearanceEnabled : 1;
+    bool m_caretBlinks : 1;
+    Color m_caretColor;
+    int m_scrollingSuppressCount;
+#endif
 };
 
 inline EditingStyle* FrameSelection::typingStyle() const
@@ -332,7 +364,7 @@ inline void FrameSelection::setTypingStyle(PassRefPtr<EditingStyle> style)
     m_typingStyle = style;
 }
 
-#if !(PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(EFL))
+#if !(PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(EFL))
 #if HAVE(ACCESSIBILITY)
 inline void FrameSelection::notifyAccessibilityForSelectionChange()
 {

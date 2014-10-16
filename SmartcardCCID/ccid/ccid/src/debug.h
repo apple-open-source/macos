@@ -1,6 +1,6 @@
 /*
     debug.h: log (or not) messages using syslog
-    Copyright (C) 2003-2005   Ludovic Rousseau
+    Copyright (C) 2003-2008   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,12 +18,12 @@
 */
 
 /*
- * $Id: debug.h 3198 2008-11-10 12:11:28Z rousseau $
+ * $Id: debug.h 5916 2011-08-27 15:50:04Z rousseau $
  */
 
 /*
  * DEBUG_CRITICAL("text");
- * 	log "text" if (LogLevel & DEBUG_LEVEL_CRITICAL) is TRUE
+ *	log "text" if (LogLevel & DEBUG_LEVEL_CRITICAL) is TRUE
  *
  * DEBUG_CRITICAL2("text: %d", 1234);
  *  log "text: 1234" if (DEBUG_LEVEL_CRITICAL & DEBUG_LEVEL_CRITICAL) is TRUE
@@ -61,6 +61,8 @@ extern int LogLevel;
 #define DEBUG_CRITICAL3(fmt, data1, data2) if (LogLevel & DEBUG_LEVEL_CRITICAL) Log3(PCSC_LOG_CRITICAL, fmt, data1, data2)
 
 #define DEBUG_CRITICAL4(fmt, data1, data2, data3) if (LogLevel & DEBUG_LEVEL_CRITICAL) Log4(PCSC_LOG_CRITICAL, fmt, data1, data2, data3)
+
+#define DEBUG_CRITICAL5(fmt, data1, data2, data3, data4) if (LogLevel & DEBUG_LEVEL_CRITICAL) Log5(PCSC_LOG_CRITICAL, fmt, data1, data2, data3, data4)
 
 /* DEBUG_INFO */
 #define DEBUG_INFO(fmt) if (LogLevel & DEBUG_LEVEL_INFO) Log1(PCSC_LOG_INFO, fmt)

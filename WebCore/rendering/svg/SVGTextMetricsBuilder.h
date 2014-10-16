@@ -20,16 +20,13 @@
 #ifndef SVGTextMetricsBuilder_h
 #define SVGTextMetricsBuilder_h
 
-#if ENABLE(SVG)
 #include "SVGTextLayoutAttributes.h"
-#include "SVGTextMetrics.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class RenderObject;
+class RenderElement;
 class RenderSVGInlineText;
 class RenderSVGText;
 struct MeasureTextData;
@@ -48,7 +45,7 @@ private:
     bool currentCharacterStartsSurrogatePair() const;
 
     void initializeMeasurementWithTextRenderer(RenderSVGInlineText*);
-    void walkTree(RenderObject*, RenderSVGInlineText* stopAtLeaf, MeasureTextData*);
+    void walkTree(RenderElement&, RenderSVGInlineText* stopAtLeaf, MeasureTextData*);
     void measureTextRenderer(RenderSVGInlineText*, MeasureTextData*);
 
     RenderSVGInlineText* m_text;
@@ -59,7 +56,7 @@ private:
     float m_totalWidth;
 
     // Simple text only.
-    OwnPtr<WidthIterator> m_simpleWidthIterator;
+    std::unique_ptr<WidthIterator> m_simpleWidthIterator;
 
     // Complex text only.
     SVGTextMetrics m_complexStartToCurrentMetrics;
@@ -67,5 +64,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG)
 #endif

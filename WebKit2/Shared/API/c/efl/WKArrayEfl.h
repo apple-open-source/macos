@@ -26,13 +26,7 @@
 #ifndef WKArrayEfl_h
 #define WKArrayEfl_h
 
-#include <WebKit2/WKBase.h>
-
-/**
- * @typedef Eina_List
- * Type for a generic double linked list.
- */
-typedef struct _Eina_List Eina_List;
+#include <WebKit/WKBase.h>
 
 WK_EXPORT WKArrayRef WKArrayCreateWithEinaList(Eina_List*, WKTypeRef (*createWKType)(void*));
 

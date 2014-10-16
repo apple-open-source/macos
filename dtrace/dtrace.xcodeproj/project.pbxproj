@@ -7,22 +7,60 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		D21C2E0B0A2E8FF8002F65B9 /* All (Aggregate) */ = {
+		452637831819512000213CEA /* All (Aggregate) */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = D21C2E150A2E9045002F65B9 /* Build configuration list for PBXAggregateTarget "All (Aggregate)" */;
+			buildConfigurationList = 452637841819512000213CEA /* Build configuration list for PBXAggregateTarget "All (Aggregate)" */;
 			buildPhases = (
 			);
 			dependencies = (
-				D21C2E0D0A2E9012002F65B9 /* PBXTargetDependency */,
-				D21C2E0F0A2E9012002F65B9 /* PBXTargetDependency */,
-				D21C2E110A2E9012002F65B9 /* PBXTargetDependency */,
-				D21C2E130A2E9012002F65B9 /* PBXTargetDependency */,
-				D22922CA0B61825E001DEA67 /* PBXTargetDependency */,
-				7E7728700BB18F3D00D4EAEA /* PBXTargetDependency */,
-				183C01F10F80BB0A0061FD4F /* PBXTargetDependency */,
+				459D2F911819535A00F1C284 /* PBXTargetDependency */,
+				45FE58AB1819E13E00160B65 /* PBXTargetDependency */,
+				459D2F8F1819535A00F1C284 /* PBXTargetDependency */,
 			);
 			name = "All (Aggregate)";
-			productName = "All )Aggregate)";
+			productName = desktop_all;
+		};
+		45263791181951AC00213CEA /* dtrace_frameworks */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 45263792181951AC00213CEA /* Build configuration list for PBXAggregateTarget "dtrace_frameworks" */;
+			buildPhases = (
+			);
+			dependencies = (
+				459D2F811819526200F1C284 /* PBXTargetDependency */,
+				459D2F831819526200F1C284 /* PBXTargetDependency */,
+				459D2F851819526200F1C284 /* PBXTargetDependency */,
+				459D2F7D1819525900F1C284 /* PBXTargetDependency */,
+				459D2F7F1819525900F1C284 /* PBXTargetDependency */,
+				459D2F9B1819538300F1C284 /* PBXTargetDependency */,
+			);
+			name = dtrace_frameworks;
+			productName = embedded_frameworks;
+		};
+		45263795181951B300213CEA /* dtrace_binaries */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 45263796181951B300213CEA /* Build configuration list for PBXAggregateTarget "dtrace_binaries" */;
+			buildPhases = (
+			);
+			dependencies = (
+				45C3A4471885D92C0083C133 /* PBXTargetDependency */,
+				4526379A181951E700213CEA /* PBXTargetDependency */,
+				4526379C181951E700213CEA /* PBXTargetDependency */,
+			);
+			name = dtrace_binaries;
+			productName = embedded_binaries;
+		};
+		45FE589E1819DFCC00160B65 /* ctftools */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 45FE58A21819DFCC00160B65 /* Build configuration list for PBXAggregateTarget "ctftools" */;
+			buildPhases = (
+			);
+			dependencies = (
+				45FE58A41819DFE800160B65 /* PBXTargetDependency */,
+				45FE58A61819DFE800160B65 /* PBXTargetDependency */,
+				45FE58A81819DFE800160B65 /* PBXTargetDependency */,
+			);
+			name = ctftools;
+			productName = ctftools;
 		};
 		D23490E60B617D3200CAA3F1 /* DTTk */ = {
 			isa = PBXAggregateTarget;
@@ -61,6 +99,10 @@
 		2429654E0AA424030092EC56 /* dt_dof_byteswap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2429654C0AA424030092EC56 /* dt_dof_byteswap.c */; };
 		2429654F0AA424030092EC56 /* dt_dof_byteswap.h in Headers */ = {isa = PBXBuildFile; fileRef = 2429654D0AA424030092EC56 /* dt_dof_byteswap.h */; };
 		242965BC0AA426C80092EC56 /* arch.h in Headers */ = {isa = PBXBuildFile; fileRef = 242965BB0AA426C80092EC56 /* arch.h */; };
+		459D2F9D1819548400F1C284 /* dt_isadep_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 459D2F9C1819548400F1C284 /* dt_isadep_arm.c */; };
+		45BB66CB1883D7A400D579C9 /* lockstat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 45BB66CA1883D79900D579C9 /* lockstat.1 */; };
+		45BB66CC1883DA9D00D579C9 /* lockstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 456E1F551883D6E00039DA74 /* lockstat.c */; };
+		45C3A4491885DF2A0083C133 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */; };
 		6E63A16B099D69ED005979DE /* ctf_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC9730099BFA8A0001019C /* ctf_impl.h */; };
 		6E63A16C099D69F3005979DE /* libctf.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC9734099BFA8A0001019C /* libctf.h */; };
 		6E63A16D099D6A17005979DE /* gelf.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC9733099BFA8A0001019C /* gelf.h */; };
@@ -201,6 +243,7 @@
 		6EBC98CC099D5B350001019C /* elf.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC9746099BFAB80001019C /* elf.h */; settings = {ATTRIBUTES = (); }; };
 		6EBC98CD099D5B390001019C /* elftypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC9748099BFAB80001019C /* elftypes.h */; settings = {ATTRIBUTES = (); }; };
 		6EBC98F9099D64980001019C /* link.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EBC974B099BFAB80001019C /* link.h */; settings = {ATTRIBUTES = (); }; };
+		72F7BBFA188421E10077EB4E /* sym.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F7BBF9188421E10077EB4E /* sym.c */; };
 		7ED3A2D20C50171E0076905C /* plockstat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7ED3A2CF0C5016F20076905C /* plockstat.1 */; };
 		7EE82FBC0BB094ED0037B667 /* plockstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 7EE82F960BB092D30037B667 /* plockstat.c */; };
 		7EF9CBDA0B94F7AB007FDEDC /* dt_cpp.h in Headers */ = {isa = PBXBuildFile; fileRef = 7EF9CBD90B94F7AB007FDEDC /* dt_cpp.h */; };
@@ -506,19 +549,124 @@
 			remoteGlobalIDString = D2DF085C0A683FE100384A72;
 			remoteInfo = libdwarf.a;
 		};
-		183C01F00F80BB0A0061FD4F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 183C01C70F80B95C0061FD4F;
-			remoteInfo = dtrace_dyld;
-		};
 		18B54B6D0AF6772C00509A71 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 18B54B660AF6772C00509A71 /* dtrace_dof.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 32D94FD00562CBF700B6AF17;
 			remoteInfo = dtrace_dof;
+		};
+		45263799181951E700213CEA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76FA90486AB0100D96B5E;
+			remoteInfo = dtrace;
+		};
+		4526379B181951E700213CEA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7EE82FAD0BB094BF0037B667;
+			remoteInfo = plockstat;
+		};
+		456E1F581883D7040039DA74 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6EBC97ED099BFB9E0001019C;
+			remoteInfo = libdtrace;
+		};
+		459D2F7C1819525900F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6EBC97ED099BFB9E0001019C;
+			remoteInfo = libdtrace.so;
+		};
+		459D2F7E1819525900F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 183C01C70F80B95C0061FD4F;
+			remoteInfo = dtrace_dyld;
+		};
+		459D2F801819526200F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6EBC975F099BFB2C0001019C;
+			remoteInfo = libctf.a;
+		};
+		459D2F821819526200F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6EBC977D099BFB670001019C;
+			remoteInfo = libelf.a;
+		};
+		459D2F841819526200F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2DF085C0A683FE100384A72;
+			remoteInfo = libdwarf.a;
+		};
+		459D2F8E1819535A00F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45263795181951B300213CEA;
+			remoteInfo = dtrace_binaries;
+		};
+		459D2F901819535A00F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45263791181951AC00213CEA;
+			remoteInfo = dtrace_frameworks;
+		};
+		459D2F9A1819538300F1C284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D23490E60B617D3200CAA3F1;
+			remoteInfo = dtrace_DTTk;
+		};
+		45C3A4461885D92C0083C133 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 456E1F561883D7040039DA74;
+			remoteInfo = lockstat;
+		};
+		45FE58A31819DFE800160B65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2E5F03209D0DB2B0035AE2D;
+			remoteInfo = ctfconvert;
+		};
+		45FE58A51819DFE800160B65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D258E51C0A2CAA7A00B50A45;
+			remoteInfo = ctfdump;
+		};
+		45FE58A71819DFE800160B65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D24889310A2CC091000B141C;
+			remoteInfo = ctfmerge;
+		};
+		45FE58AA1819E13E00160B65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45FE589E1819DFCC00160B65;
+			remoteInfo = ctftools;
 		};
 		6EBC987E099D3F770001019C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -541,13 +689,6 @@
 			remoteGlobalIDString = 6EBC977D099BFB670001019C;
 			remoteInfo = libelf;
 		};
-		7E77286F0BB18F3D00D4EAEA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7EE82FAD0BB094BF0037B667;
-			remoteInfo = plockstat;
-		};
 		7EE82FAF0BB094BF0037B667 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -561,41 +702,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 6EBC977D099BFB670001019C;
 			remoteInfo = libelf.a;
-		};
-		D21C2E0C0A2E9012002F65B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 8DD76FA90486AB0100D96B5E;
-			remoteInfo = dtrace;
-		};
-		D21C2E0E0A2E9012002F65B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D2E5F03209D0DB2B0035AE2D;
-			remoteInfo = ctfconvert;
-		};
-		D21C2E100A2E9012002F65B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D258E51C0A2CAA7A00B50A45;
-			remoteInfo = ctfdump;
-		};
-		D21C2E120A2E9012002F65B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D24889310A2CC091000B141C;
-			remoteInfo = ctfmerge;
-		};
-		D22922C90B61825E001DEA67 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D23490E60B617D3200CAA3F1;
-			remoteInfo = DTTk;
 		};
 		D258E51F0A2CAA9400B50A45 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -639,6 +745,16 @@
 			files = (
 				E1A86B1B0EB7978B00E30655 /* coreprofile.d in CopyFiles */,
 				7EF9CBDC0B94F7FA007FDEDC /* dt_cpp.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		456E1F5C1883D7040039DA74 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				45BB66CB1883D7A400D579C9 /* lockstat.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -854,6 +970,16 @@
 		2429654C0AA424030092EC56 /* dt_dof_byteswap.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dt_dof_byteswap.c; path = libdtrace/dt_dof_byteswap.c; sourceTree = "<group>"; };
 		2429654D0AA424030092EC56 /* dt_dof_byteswap.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dt_dof_byteswap.h; path = libdtrace/dt_dof_byteswap.h; sourceTree = "<group>"; };
 		242965BB0AA426C80092EC56 /* arch.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = arch.h; path = head/arch.h; sourceTree = "<group>"; };
+		456E1F551883D6E00039DA74 /* lockstat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = lockstat.c; path = lockstat/lockstat.c; sourceTree = "<group>"; };
+		456E1F611883D7040039DA74 /* lockstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lockstat; sourceTree = BUILT_PRODUCTS_DIR; };
+		459D2F9C1819548400F1C284 /* dt_isadep_arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dt_isadep_arm.c; path = libdtrace/dt_isadep_arm.c; sourceTree = "<group>"; };
+		459D2F9F1819558900F1C284 /* AspenFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenFamily.xcconfig; path = AppleInternal/XcodeConfig/AspenFamily.xcconfig; sourceTree = DEVELOPER_DIR; };
+		45A48B3518194C410034E526 /* common.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = common.xcconfig; path = config/common.xcconfig; sourceTree = "<group>"; };
+		45A48B3618194C410034E526 /* ctftools.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = ctftools.xcconfig; path = config/ctftools.xcconfig; sourceTree = "<group>"; };
+		45A48B3718194C410034E526 /* dtrace.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = dtrace.xcconfig; path = config/dtrace.xcconfig; sourceTree = "<group>"; };
+		45A48B3818194C410034E526 /* frameworks.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = frameworks.xcconfig; path = config/frameworks.xcconfig; sourceTree = "<group>"; };
+		45A48B3918194C410034E526 /* plockstat.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = plockstat.xcconfig; path = config/plockstat.xcconfig; sourceTree = "<group>"; };
+		45BB66CA1883D79900D579C9 /* lockstat.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = lockstat.1; sourceTree = "<group>"; };
 		6EBC972B099BFA3A0001019C /* dtrace_1.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dtrace_1.c; path = cmd/dtrace_1.c; sourceTree = "<group>"; };
 		6EBC972D099BFA5D0001019C /* darwin_shim.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = darwin_shim.c; sourceTree = "<group>"; };
 		6EBC9730099BFA8A0001019C /* ctf_impl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ctf_impl.h; path = head/ctf_impl.h; sourceTree = "<group>"; };
@@ -1002,6 +1128,7 @@
 		6EBC982B099BFBBF0001019C /* mkerrtags.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = mkerrtags.sh; path = libdtrace/mkerrtags.sh; sourceTree = "<group>"; };
 		6EBC982C099BFBBF0001019C /* mknames.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = mknames.sh; path = libdtrace/mknames.sh; sourceTree = "<group>"; };
 		6EBC9889099D415F0001019C /* procfs.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = procfs.d; path = scripts/procfs.d; sourceTree = "<group>"; };
+		72F7BBF9188421E10077EB4E /* sym.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sym.c; path = lockstat/sym.c; sourceTree = "<group>"; };
 		7ED3A2CF0C5016F20076905C /* plockstat.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = plockstat.1; sourceTree = "<group>"; };
 		7EE82F960BB092D30037B667 /* plockstat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = plockstat.c; path = plockstat/plockstat.c; sourceTree = "<group>"; };
 		7EE82FBA0BB094BF0037B667 /* plockstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = plockstat; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1292,6 +1419,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		456E1F5B1883D7040039DA74 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45C3A4491885DF2A0083C133 /* CoreSymbolication.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6EBC975E099BFB2C0001019C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1374,6 +1509,7 @@
 				18B54B660AF6772C00509A71 /* dtrace_dof.xcodeproj */,
 				180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */,
 				183C023D0F80BFC90061FD4F /* libCoreSymbolicationSharedWithDyld.a */,
+				45A48B3418194BC00034E526 /* Config */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
@@ -1384,6 +1520,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				456E1F531883D6CB0039DA74 /* lockstat */,
 				7EE82F930BB0929E0037B667 /* plockstat */,
 				1824E64E0A9ACFFA00F794DD /* disassembler */,
 				6EBC972A099BFA160001019C /* cmd */,
@@ -1442,8 +1579,31 @@
 				D2DF085D0A683FE100384A72 /* libdwarf.a */,
 				7EE82FBA0BB094BF0037B667 /* plockstat */,
 				183C01C80F80B95C0061FD4F /* libdtrace_dyld.dylib */,
+				456E1F611883D7040039DA74 /* lockstat */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		456E1F531883D6CB0039DA74 /* lockstat */ = {
+			isa = PBXGroup;
+			children = (
+				72F7BBF9188421E10077EB4E /* sym.c */,
+				456E1F551883D6E00039DA74 /* lockstat.c */,
+			);
+			name = lockstat;
+			sourceTree = "<group>";
+		};
+		45A48B3418194BC00034E526 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				459D2F9F1819558900F1C284 /* AspenFamily.xcconfig */,
+				45A48B3518194C410034E526 /* common.xcconfig */,
+				45A48B3618194C410034E526 /* ctftools.xcconfig */,
+				45A48B3718194C410034E526 /* dtrace.xcconfig */,
+				45A48B3818194C410034E526 /* frameworks.xcconfig */,
+				45A48B3918194C410034E526 /* plockstat.xcconfig */,
+			);
+			name = Config;
 			sourceTree = "<group>";
 		};
 		6EBC972A099BFA160001019C /* cmd */ = {
@@ -1518,6 +1678,7 @@
 				6EBC9804099BFBBF0001019C /* dt_impl.h */,
 				6EBC9805099BFBBF0001019C /* dt_inttab.c */,
 				6EBC9806099BFBBF0001019C /* dt_inttab.h */,
+				459D2F9C1819548400F1C284 /* dt_isadep_arm.c */,
 				18D79D9D0B2E60FC005BEE83 /* dt_isadep_x86.c */,
 				1880D2950B49348A00A50B29 /* dt_ld.h */,
 				1880D2960B49348A00A50B29 /* dt_ld.cpp */,
@@ -1666,6 +1827,7 @@
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				45BB66CA1883D79900D579C9 /* lockstat.1 */,
 				7ED3A2CF0C5016F20076905C /* plockstat.1 */,
 				C6A0FF2C0290799A04C91782 /* dtrace.1 */,
 				D204CE880B5DD7AE00B38FA2 /* DTTk */,
@@ -2184,6 +2346,25 @@
 			productReference = 183C01C80F80B95C0061FD4F /* libdtrace_dyld.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		456E1F561883D7040039DA74 /* lockstat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 456E1F5E1883D7040039DA74 /* Build configuration list for PBXNativeTarget "lockstat" */;
+			buildPhases = (
+				456E1F591883D7040039DA74 /* Sources */,
+				456E1F5B1883D7040039DA74 /* Frameworks */,
+				456E1F5C1883D7040039DA74 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				456E1F571883D7040039DA74 /* PBXTargetDependency */,
+			);
+			name = lockstat;
+			productInstallPath = "$(HOME)/bin";
+			productName = dtrace;
+			productReference = 456E1F611883D7040039DA74 /* lockstat */;
+			productType = "com.apple.product-type.tool";
+		};
 		6EBC975F099BFB2C0001019C /* libctf.a */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6EBC9777099BFB530001019C /* Build configuration list for PBXNativeTarget "libctf.a" */;
@@ -2377,7 +2558,7 @@
 			);
 			projectRoot = "";
 			targets = (
-				D21C2E0B0A2E8FF8002F65B9 /* All (Aggregate) */,
+				452637831819512000213CEA /* All (Aggregate) */,
 				8DD76FA90486AB0100D96B5E /* dtrace */,
 				6EBC975F099BFB2C0001019C /* libctf.a */,
 				6EBC977D099BFB670001019C /* libelf.a */,
@@ -2387,8 +2568,12 @@
 				D24889310A2CC091000B141C /* ctfmerge */,
 				D2DF085C0A683FE100384A72 /* libdwarf.a */,
 				D23490E60B617D3200CAA3F1 /* DTTk */,
+				456E1F561883D7040039DA74 /* lockstat */,
 				7EE82FAD0BB094BF0037B667 /* plockstat */,
 				183C01C70F80B95C0061FD4F /* dtrace_dyld */,
+				45263795181951B300213CEA /* dtrace_binaries */,
+				45263791181951AC00213CEA /* dtrace_frameworks */,
+				45FE589E1819DFCC00160B65 /* ctftools */,
 			);
 		};
 /* End PBXProject section */
@@ -2425,6 +2610,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				183C01D10F80BA0B0061FD4F /* dtrace_dyld.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		456E1F591883D7040039DA74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45BB66CC1883DA9D00D579C9 /* lockstat.c in Sources */,
+				72F7BBFA188421E10077EB4E /* sym.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2523,6 +2717,7 @@
 				6EBC9847099BFBBF0001019C /* dt_link.c in Sources */,
 				6EBC9848099BFBBF0001019C /* dt_list.c in Sources */,
 				6EBC984A099BFBBF0001019C /* dt_map.c in Sources */,
+				459D2F9D1819548400F1C284 /* dt_isadep_arm.c in Sources */,
 				6EBC984B099BFBBF0001019C /* dt_module.c in Sources */,
 				6EBC984D099BFBBF0001019C /* dt_names.c in Sources */,
 				6EBC984E099BFBBF0001019C /* dt_open.c in Sources */,
@@ -2717,10 +2912,85 @@
 			target = D2DF085C0A683FE100384A72 /* libdwarf.a */;
 			targetProxy = 181DA762151ED55800E0103B /* PBXContainerItemProxy */;
 		};
-		183C01F10F80BB0A0061FD4F /* PBXTargetDependency */ = {
+		4526379A181951E700213CEA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DD76FA90486AB0100D96B5E /* dtrace */;
+			targetProxy = 45263799181951E700213CEA /* PBXContainerItemProxy */;
+		};
+		4526379C181951E700213CEA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7EE82FAD0BB094BF0037B667 /* plockstat */;
+			targetProxy = 4526379B181951E700213CEA /* PBXContainerItemProxy */;
+		};
+		456E1F571883D7040039DA74 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6EBC97ED099BFB9E0001019C /* libdtrace.so */;
+			targetProxy = 456E1F581883D7040039DA74 /* PBXContainerItemProxy */;
+		};
+		459D2F7D1819525900F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6EBC97ED099BFB9E0001019C /* libdtrace.so */;
+			targetProxy = 459D2F7C1819525900F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F7F1819525900F1C284 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 183C01C70F80B95C0061FD4F /* dtrace_dyld */;
-			targetProxy = 183C01F00F80BB0A0061FD4F /* PBXContainerItemProxy */;
+			targetProxy = 459D2F7E1819525900F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F811819526200F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6EBC975F099BFB2C0001019C /* libctf.a */;
+			targetProxy = 459D2F801819526200F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F831819526200F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6EBC977D099BFB670001019C /* libelf.a */;
+			targetProxy = 459D2F821819526200F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F851819526200F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2DF085C0A683FE100384A72 /* libdwarf.a */;
+			targetProxy = 459D2F841819526200F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F8F1819535A00F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45263795181951B300213CEA /* dtrace_binaries */;
+			targetProxy = 459D2F8E1819535A00F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F911819535A00F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45263791181951AC00213CEA /* dtrace_frameworks */;
+			targetProxy = 459D2F901819535A00F1C284 /* PBXContainerItemProxy */;
+		};
+		459D2F9B1819538300F1C284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D23490E60B617D3200CAA3F1 /* DTTk */;
+			targetProxy = 459D2F9A1819538300F1C284 /* PBXContainerItemProxy */;
+		};
+		45C3A4471885D92C0083C133 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 456E1F561883D7040039DA74 /* lockstat */;
+			targetProxy = 45C3A4461885D92C0083C133 /* PBXContainerItemProxy */;
+		};
+		45FE58A41819DFE800160B65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2E5F03209D0DB2B0035AE2D /* ctfconvert */;
+			targetProxy = 45FE58A31819DFE800160B65 /* PBXContainerItemProxy */;
+		};
+		45FE58A61819DFE800160B65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D258E51C0A2CAA7A00B50A45 /* ctfdump */;
+			targetProxy = 45FE58A51819DFE800160B65 /* PBXContainerItemProxy */;
+		};
+		45FE58A81819DFE800160B65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D24889310A2CC091000B141C /* ctfmerge */;
+			targetProxy = 45FE58A71819DFE800160B65 /* PBXContainerItemProxy */;
+		};
+		45FE58AB1819E13E00160B65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45FE589E1819DFCC00160B65 /* ctftools */;
+			targetProxy = 45FE58AA1819E13E00160B65 /* PBXContainerItemProxy */;
 		};
 		6EBC987F099D3F770001019C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2737,11 +3007,6 @@
 			target = 6EBC977D099BFB670001019C /* libelf.a */;
 			targetProxy = 6EBC9882099D3FA30001019C /* PBXContainerItemProxy */;
 		};
-		7E7728700BB18F3D00D4EAEA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7EE82FAD0BB094BF0037B667 /* plockstat */;
-			targetProxy = 7E77286F0BB18F3D00D4EAEA /* PBXContainerItemProxy */;
-		};
 		7EE82FAE0BB094BF0037B667 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 6EBC97ED099BFB9E0001019C /* libdtrace.so */;
@@ -2751,31 +3016,6 @@
 			isa = PBXTargetDependency;
 			target = 6EBC977D099BFB670001019C /* libelf.a */;
 			targetProxy = D215985809D0EA3C00110A74 /* PBXContainerItemProxy */;
-		};
-		D21C2E0D0A2E9012002F65B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 8DD76FA90486AB0100D96B5E /* dtrace */;
-			targetProxy = D21C2E0C0A2E9012002F65B9 /* PBXContainerItemProxy */;
-		};
-		D21C2E0F0A2E9012002F65B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D2E5F03209D0DB2B0035AE2D /* ctfconvert */;
-			targetProxy = D21C2E0E0A2E9012002F65B9 /* PBXContainerItemProxy */;
-		};
-		D21C2E110A2E9012002F65B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D258E51C0A2CAA7A00B50A45 /* ctfdump */;
-			targetProxy = D21C2E100A2E9012002F65B9 /* PBXContainerItemProxy */;
-		};
-		D21C2E130A2E9012002F65B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D24889310A2CC091000B141C /* ctfmerge */;
-			targetProxy = D21C2E120A2E9012002F65B9 /* PBXContainerItemProxy */;
-		};
-		D22922CA0B61825E001DEA67 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D23490E60B617D3200CAA3F1 /* DTTk */;
-			targetProxy = D22922C90B61825E001DEA67 /* PBXContainerItemProxy */;
 		};
 		D258E5200A2CAA9400B50A45 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2797,6 +3037,7 @@
 /* Begin XCBuildConfiguration section */
 		183C01C90F80B95D0061FD4F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
@@ -2813,6 +3054,7 @@
 		};
 		183C01CA0F80B95D0061FD4F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
@@ -2829,9 +3071,10 @@
 		};
 		1DEB928608733DD80010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3718194C410034E526 /* dtrace.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 118.1;
+				CURRENT_PROJECT_VERSION = 130;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2853,15 +3096,16 @@
 				);
 				PRODUCT_NAME = dtrace;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Debug;
 		};
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3718194C410034E526 /* dtrace.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 118.1;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CURRENT_PROJECT_VERSION = 130;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2880,7 +3124,6 @@
 				);
 				PRODUCT_NAME = dtrace;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -2888,25 +3131,25 @@
 		1DEB928A08733DD80010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				VALID_ARCHS = "armv6 i386 x86_64";
+				VALID_ARCHS = x86_64;
 			};
 			name = Debug;
 		};
 		1DEB928B08733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
@@ -2915,12 +3158,134 @@
 					"-DNDEBUG",
 					"-DNS_BLOCK_ASSERTIONS",
 				);
-				VALID_ARCHS = "armv6 i386 x86_64";
+				VALID_ARCHS = x86_64;
+			};
+			name = Release;
+		};
+		452637851819512000213CEA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		452637861819512000213CEA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		45263793181951AC00213CEA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		45263794181951AC00213CEA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		45263797181951B300213CEA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		45263798181951B300213CEA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		456E1F5F1883D7040039DA74 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3918194C410034E526 /* plockstat.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 130;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = (
+					"-D_INT64_TYPE",
+					"-D_LONGLONG_TYPE",
+					"-D_ILP32",
+				);
+				OTHER_LDFLAGS = (
+					"-ldtrace",
+					"-lSystem",
+				);
+				PRODUCT_NAME = lockstat;
+				STRIP_STYLE = debugging;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		456E1F601883D7040039DA74 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3918194C410034E526 /* plockstat.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CURRENT_PROJECT_VERSION = 130;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = (
+					"-D_INT64_TYPE",
+					"-D_LONGLONG_TYPE",
+					"-D_ILP32",
+				);
+				OTHER_LDFLAGS = (
+					"-ldtrace",
+					"-lSystem",
+				);
+				PRODUCT_NAME = lockstat;
+				STRIP_STYLE = debugging;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		45FE589F1819DFCC00160B65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = x86_64;
+			};
+			name = Debug;
+		};
+		45FE58A01819DFCC00160B65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = x86_64;
 			};
 			name = Release;
 		};
 		6EBC9778099BFB530001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -2939,12 +3304,12 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Debug;
 		};
 		6EBC9779099BFB530001019C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -2962,12 +3327,12 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
 		};
 		6EBC97E8099BFB850001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -2984,12 +3349,12 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Debug;
 		};
 		6EBC97E9099BFB850001019C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -3006,16 +3371,16 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
 		};
 		6EBC986A099BFBC00001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 118.1;
+				DYLIB_CURRENT_VERSION = 130;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3038,16 +3403,16 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include;
 				PRODUCT_NAME = libdtrace;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Debug;
 		};
 		6EBC986B099BFBC00001019C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 118.1;
+				DYLIB_CURRENT_VERSION = 130;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3070,16 +3435,16 @@
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include;
 				PRODUCT_NAME = libdtrace;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
 		};
 		7EE82FB80BB094BF0037B667 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3918194C410034E526 /* plockstat.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 118.1;
+				CURRENT_PROJECT_VERSION = 130;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3100,16 +3465,16 @@
 				);
 				PRODUCT_NAME = plockstat;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Debug;
 		};
 		7EE82FB90BB094BF0037B667 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3918194C410034E526 /* plockstat.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 118.1;
+				CURRENT_PROJECT_VERSION = 130;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3128,26 +3493,6 @@
 				);
 				PRODUCT_NAME = plockstat;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		D21C2E160A2E9045002F65B9 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = "All )Aggregate)";
-			};
-			name = Debug;
-		};
-		D21C2E170A2E9045002F65B9 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				PRODUCT_NAME = "All )Aggregate)";
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -3172,6 +3517,7 @@
 		};
 		D24889350A2CC0AF000B141C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3197,13 +3543,13 @@
 				);
 				PRODUCT_NAME = ctfmerge;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Debug;
 		};
 		D24889360A2CC0AF000B141C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3227,13 +3573,13 @@
 				);
 				PRODUCT_NAME = ctfmerge;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		D258E5220A2CAAB300B50A45 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3258,13 +3604,13 @@
 				);
 				PRODUCT_NAME = ctfdump;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Debug;
 		};
 		D258E5230A2CAAB300B50A45 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3287,13 +3633,13 @@
 				);
 				PRODUCT_NAME = ctfdump;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		D2DF085F0A68400000384A72 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -3305,13 +3651,13 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
 		};
 		D2DF08600A68400000384A72 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3818194C410034E526 /* frameworks.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -3322,13 +3668,13 @@
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
-				VALID_ARCHS = "x86_64 i386";
 				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		D2E5F03609D0DB4A0035AE2D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3354,13 +3700,13 @@
 				);
 				PRODUCT_NAME = ctfconvert;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Debug;
 		};
 		D2E5F03709D0DB4A0035AE2D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 45A48B3618194C410034E526 /* ctftools.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3384,7 +3730,6 @@
 				);
 				PRODUCT_NAME = ctfconvert;
 				STRIP_STYLE = debugging;
-				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -3415,6 +3760,51 @@
 			buildConfigurations = (
 				1DEB928A08733DD80010E9CD /* Debug */,
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		452637841819512000213CEA /* Build configuration list for PBXAggregateTarget "All (Aggregate)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				452637851819512000213CEA /* Debug */,
+				452637861819512000213CEA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45263792181951AC00213CEA /* Build configuration list for PBXAggregateTarget "dtrace_frameworks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45263793181951AC00213CEA /* Debug */,
+				45263794181951AC00213CEA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45263796181951B300213CEA /* Build configuration list for PBXAggregateTarget "dtrace_binaries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45263797181951B300213CEA /* Debug */,
+				45263798181951B300213CEA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		456E1F5E1883D7040039DA74 /* Build configuration list for PBXNativeTarget "lockstat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				456E1F5F1883D7040039DA74 /* Debug */,
+				456E1F601883D7040039DA74 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45FE58A21819DFCC00160B65 /* Build configuration list for PBXAggregateTarget "ctftools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45FE589F1819DFCC00160B65 /* Debug */,
+				45FE58A01819DFCC00160B65 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3451,15 +3841,6 @@
 			buildConfigurations = (
 				7EE82FB80BB094BF0037B667 /* Debug */,
 				7EE82FB90BB094BF0037B667 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		D21C2E150A2E9045002F65B9 /* Build configuration list for PBXAggregateTarget "All (Aggregate)" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D21C2E160A2E9045002F65B9 /* Debug */,
-				D21C2E170A2E9045002F65B9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

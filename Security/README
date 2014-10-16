@@ -1,29 +1,38 @@
-This code contains a Darwin version of CDSA along with many other security libraries.
+Update June 17, 2014
 
-Information about CDSA may be obtained from the OpenGroup web site at:
+Here lie the iOS and OS X versions of Security, including securityd and SecurityTool for OS X.
 
-	http://www.opengroup.org/pubs/catalog/c914.htm
-
-Further information regarding the security of the MacOSX product is available at:
-
-	http://www.apple.com/support/security/
-
-Developers wishing to know more about developing their products in a manner consistent with MacOS security should view:
-
-	http://developer.apple.com/macos/security.html
+-----------
 
 
-To build this project in a Darwin environment (as opposed to building in-house
-at Apple), use the Darwin buildstyle. If you're building with Xcode, select
-"Darwin" from the "Active Build Style" popup. If you're building from the command
-line, specify the build style like so:
+              Projects in Security
+               Last update Dec 1 2005
 
-% xcodebuild -buildstyle Darwin install
 
-This build style is necessitated by the fact that the CSP built at (and 
-shipped by) Apple includes some algorithms which are proprietary to Apple;
-the source code for these algorithms is not open source. Selecting the 
-Darwin build style allows the Security project (and also the CSP, in 
-the libsecurity_apple_csp project, which also must be built with the 
-Darwin build style) to be built from the Darwin open source tree without 
-requiring the source for these algorithms. 
+Standalone crypto libs
+----------------------
+
+libCert/
+	Library to parse and verify X509 certificates. Uses libgRSA,
+	libDER, libMD5, and libSHA1. 
+
+libDER/
+	DER decoding library, ROM_capable, no malloc. 
+
+libGiants/
+	General purpose ROM-capable giantIntegers package. No malloc. 
+	Performs unsigned arithmetic ONLY as of Nov. 28 2005. 
+		
+libgRSA/
+	Full ROM-capable RSA package based on libGiants. 
+	Provided to Mike Smith and Chris Aycock 8/23/05.
+	Converted to unsigned libGiants circa 11/30/05.
+
+libScripts/
+	Scripts to build and test all of these libraries. 
+
+====
+
+To regenerate strings file run:
+genstrings -o resources/English.lproj -s SecString sec/Security/SecFrameworkStrings.h
+in the top level dir.

@@ -1,0 +1,151 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>cjk_variants.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">cjk_variants.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 1999-2002 Free Software Foundation, Inc.
+   This file is part of the GNU LIBICONV Tools.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+<span class="enscript-comment">/*
+ * Generates Unicode variants table from Koichi Yasuoka's UniVariants file.
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ENTRIES</span>  8176  <span class="enscript-comment">/* number of lines in UniVariants file */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">MAX_PER_ENTRY</span>  10  <span class="enscript-comment">/* max number of entries per line in file */</span>
+
+<span class="enscript-type">int</span> <span class="enscript-function-name">main</span> (<span class="enscript-type">int</span> argc, <span class="enscript-type">char</span> *argv[])
+{
+  <span class="enscript-type">int</span> variants[MAX_PER_ENTRY*ENTRIES];
+  <span class="enscript-type">int</span> uni2index[0x10000];
+  <span class="enscript-type">int</span> index;
+
+  <span class="enscript-keyword">if</span> (argc != 1)
+    exit(1);
+
+  printf(<span class="enscript-string">&quot;/*\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Copyright (C) 1999-2002 Free Software Foundation, Inc.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * This file is part of the GNU LIBICONV Library.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * The GNU LIBICONV Library is free software; you can redistribute it\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * and/or modify it under the terms of the GNU Library General Public\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * License as published by the Free Software Foundation; either version 2\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * of the License, or (at your option) any later version.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * The GNU LIBICONV Library is distributed in the hope that it will be\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Library General Public License for more details.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * You should have received a copy of the GNU Library General Public\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Fifth Floor, Boston, MA 02110-1301, USA.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; */\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;/*\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * CJK variants table\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; */\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  {
+    <span class="enscript-type">int</span> c;
+    <span class="enscript-type">int</span> j;
+    <span class="enscript-keyword">for</span> (j = 0; j &lt; 0x10000; j++)
+      uni2index[j] = -1;
+    index = 0;
+    <span class="enscript-keyword">for</span> (;;) {
+      c = getc(stdin);
+      <span class="enscript-keyword">if</span> (c == EOF)
+        <span class="enscript-keyword">break</span>;
+      <span class="enscript-keyword">if</span> (c == <span class="enscript-string">'#'</span>) {
+        <span class="enscript-keyword">do</span> { c = getc(stdin); } <span class="enscript-keyword">while</span> (!(c == EOF || c == <span class="enscript-string">'\n'</span>));
+        <span class="enscript-keyword">continue</span>;
+      }
+      ungetc(c,stdin);
+      <span class="enscript-keyword">if</span> (scanf(<span class="enscript-string">&quot;%x&quot;</span>,&amp;j) != 1)
+        exit(1);
+      c = getc(stdin);
+      <span class="enscript-keyword">if</span> (c != <span class="enscript-string">'\t'</span>)
+        exit(1);
+      uni2index[j] = index;
+      <span class="enscript-keyword">for</span> (;;) {
+        <span class="enscript-type">int</span> i;
+        <span class="enscript-keyword">if</span> (scanf(<span class="enscript-string">&quot;%x&quot;</span>,&amp;i) != 1)
+          exit(1);
+        <span class="enscript-keyword">if</span> (!(i &gt;= 0x3000 &amp;&amp; i &lt; 0x3000+0x8000))
+          exit(1);
+        variants[index++] = i-0x3000;
+        c = getc(stdin);
+        <span class="enscript-keyword">if</span> (c != <span class="enscript-string">' '</span>)
+          <span class="enscript-keyword">break</span>;
+      }
+      variants[index-1] |= 0x8000; <span class="enscript-comment">/* end of list marker */</span>
+      <span class="enscript-keyword">if</span> (c != <span class="enscript-string">'\n'</span>)
+        exit(1);
+    }
+  }
+  printf(<span class="enscript-string">&quot;static const unsigned short cjk_variants[%d] = {&quot;</span>,index);
+  {
+    <span class="enscript-type">int</span> i;
+    <span class="enscript-keyword">for</span> (i = 0; i &lt; index; i++) {
+      <span class="enscript-keyword">if</span> ((i % 8) == 0)
+        printf(<span class="enscript-string">&quot;\n &quot;</span>);
+      printf(<span class="enscript-string">&quot; 0x%04x,&quot;</span>,variants[i]);
+    }
+    printf(<span class="enscript-string">&quot;\n};\n&quot;</span>);
+  }
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;static const short cjk_variants_indx[0x5200] = {\n&quot;</span>);
+  {
+    <span class="enscript-type">int</span> j;
+    <span class="enscript-keyword">for</span> (j = 0x4e00; j &lt; 0xa000; j++) {
+      <span class="enscript-keyword">if</span> ((j % 0x100) == 0)
+        printf(<span class="enscript-string">&quot;  /* 0x%04x */\n&quot;</span>, j);
+      <span class="enscript-keyword">if</span> ((j % 8) == 0)
+        printf(<span class="enscript-string">&quot; &quot;</span>);
+      printf(<span class="enscript-string">&quot; %5d,&quot;</span>,uni2index[j]);
+      <span class="enscript-keyword">if</span> ((j % 8) == 7)
+        printf(<span class="enscript-string">&quot;\n&quot;</span>);
+    }
+    printf(<span class="enscript-string">&quot;};\n&quot;</span>);
+  }
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+
+  <span class="enscript-keyword">return</span> 0;
+}
+</pre>
+<hr />
+</body></html>

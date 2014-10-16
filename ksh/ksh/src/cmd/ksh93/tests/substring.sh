@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -237,16 +237,10 @@ if	[[ $(export | grep "zzz=") ]]
 then	err_exit 'zzz exported after function call'
 fi
 set -- foo/bar bam/yes last/file/done
-if	[[ ${@/*\/@(*)/${.sh.match[1]}} != 'bar yes done' ]]
-then	err_exit '.sh.match not working with $@'
-fi
 if	[[ ${@/*\/@(*)/\1} != 'bar yes done' ]]
 then	err_exit '\1 not working with $@'
 fi
 var=(foo/bar bam/yes last/file/done)
-if	[[ ${var[@]/*\/@(*)/${.sh.match[1]}} != 'bar yes done' ]]
-then	err_exit '.sh.match not working with ${var[@]}'
-fi
 if	[[ ${var[@]/*\/@(*)/\1} != 'bar yes done' ]]
 then	err_exit '\1 not working with ${var[@]}'
 fi
@@ -260,6 +254,8 @@ fi
 if	[[ ${var//+(\S)/Q} != 'Q Q' ]]
 then	err_exit '${var//+(\S)/Q} not workding'
 fi
+var=$($SHELL -c 'v=/vin:/usr/vin r=vin; : ${v//vin/${r//v/b}};typeset -p .sh.match') 2> /dev/null
+[[ $var == 'typeset -a .sh.match=((vin vin) )' ]] || err_exit '.sh.match not correct when replacement pattern contains a substring match'
 foo='foo+bar+'
 [[ $(print -r -- ${foo//+/'|'}) != 'foo|bar|' ]] && err_exit "\${foobar//+/'|'}"
 [[ $(print -r -- ${foo//+/"|"}) != 'foo|bar|' ]] && err_exit '${foobar//+/"|"}'
@@ -596,5 +592,73 @@ x="111 222 333 444 555 666"
 [[ -v .sh.match[3] ]] ||   err_exit '[[ -v .sh.match[3] ]] should be true'
 [[ -v .sh.match[4] ]] &&   err_exit '[[ -v .sh.match[4] ]] should be false'
 [[ ${#.sh.match[@]} == 4 ]] || err_exit "\${#.sh.match[@]} should be 4, not ${#.sh.match[@]}"
+
+x="foo bar"
+dummy=${x/~(E)(*)/}
+[[ ${ print -v .sh.match;} ]] && err_exit 'print -v should show .sh.match empty when there are no matches'
+
+if	$SHELL -c 'set 1 2 3 4 5 6 7 8 9 10 11 12; : ${##[0-9]}' 2>/dev/null
+then	set 1 2 3 4 5 6 7 8 9 10 11 12
+	[[ ${##[0-9]} == 2 ]] || err_exit '${##[0-9]} should be 2 with $#==12'
+	[[ ${###[0-9]} == 2 ]] || err_exit '${###[0-9]} should be 2 with $#==12'
+	[[ ${#%[0-9]} == 1 ]] || err_exit '${#%[0-9]} should be 1 with $#==12'
+	[[ ${#%%[0-9]} == 1 ]] || err_exit '${#%%[0-9]} should be 1 with $#==12'
+else	err_exit '${##[0-9]} give syntax error'
+fi
+
+{
+  $SHELL -c 'x="a123 456 789z"; : ${x//{3}(\d)/ }' &
+  sleep .5; kill $!; wait $!
+} 2> /dev/null || err_exit $'tokenizer can\'t handle ${var op {..} }'
+
+
+function foo
+{
+	typeset x="123 456 789 abc"
+	typeset dummy="${x/~(E-g)([[:digit:]][[:digit:]])((X)|([[:digit:]]))([[:blank:]])/_}"
+	exp=$'(\n\t[0]=\'123 \'\n\t[1]=12\n\t[2]=3\n\t[4]=3\n\t[5]=\' \'\n)'
+	[[ $(print -v .sh.match) == "$exp" ]] || err_exit '.sh.match not correct with alternations'
+}
+foo
+
+x="a 1 b"
+d=${x/~(E)(([[:digit:]])[[:space:]]*|([[:alpha:]]))/X}
+[[ $(print -v .sh.match) == $'(\n\t[0]=a\n\t[1]=a\n\t[3]=a\n)' ]] || err_exit '.sh.match not sparse'
+
+unset v
+typeset -a arr=( 0 1 2 3 4 )
+for v in "${arr[@]:5}"
+do	err_exit "\${arr[@]:5} should not generate $v" 
+	break
+done
+for v in "${arr[@]:1:0}"
+do	err_exit "\${arr[@]:1:0} should not generate ${v:-empty_string}"
+	break
+done
+for v in "${arr[@]:0:-1}"
+do	err_exit "\${arr[@]:0:-1} should not generate ${v:-empty_string}"
+	break
+done
+
+set 1 2 3 4
+for v in "${@:5}"
+do	err_exit "\${@:5} should not generate $v" 
+	break
+done
+for v in "${@:1:0}"
+do	err_exit "\${@:1:0} should not generate ${v:-empty_string}"
+	break
+done
+for v in "${@:0:-1}"
+do	err_exit "\${@:0:-1} should not generate ${v:-empty_string}"
+	break
+done
+
+unset v d
+v=abbbc
+d="${v/~(E)b{2,4}/dummy}"
+[[ ${.sh.match} == bbb ]] || err_exit '.sh.match wrong after ${s/~(E)b{2,4}/dummy}'
+[[ $d == adummyc ]] || err_exit '${s/~(E)b{2,4}/dummy} not working'
+
 
 exit $((Errors<125?Errors:125))

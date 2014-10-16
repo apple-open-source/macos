@@ -126,19 +126,6 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 
 #define IDLE_HID_ACTIVITY_NSECS ((uint64_t)(5*60*NSEC_PER_SEC))
 
-static inline unsigned AbsoluteTimeToTick( AbsoluteTime * ts )
-{
-    UInt64  nano;
-    absolutetime_to_nanoseconds(*ts, &nano);
-    return( nano >> 24 );
-}
-
-static inline void TickToAbsoluteTime( unsigned tick, AbsoluteTime * ts )
-{
-    UInt64  nano = ((UInt64) tick) << 24;
-    nanoseconds_to_absolutetime(nano, ts);
-}
-
 static UInt8 ScalePressure(unsigned pressure)
 {
     return ((pressure * (unsigned long long)EV_MAXPRESSURE) / (unsigned)(65535LL));
@@ -247,6 +234,7 @@ enum {
 #define kIOHIDRelativeTickleThresholdPixel  3
 #define kIOHIDDispaySleepAbortThresholdNS   (5ULL * kSecondScale)           // 5 seconds
 #define kIOHIDChattyMouseSuppressionDelayNS kSecondScale                    // 1 second
+#define kIOHIDSystenDistantFuture           INT64_MAX
 
 static AbsoluteTime gIOHIDPowerOnThresoldAbsoluteTime;
 static AbsoluteTime gIOHIDRelativeTickleThresholdAbsoluteTime;
@@ -254,11 +242,6 @@ static AbsoluteTime gIOHIDRelativeTickleThresholdAbsoluteTime;
 // can be aborted by a mouse/scroll motion
 static AbsoluteTime gIOHIDDisplaySleepAbortThresholdAbsoluteTime;
 static AbsoluteTime gIOHIDZeroAbsoluteTime;
-
-typedef struct _stackShotMgs {
-    mach_msg_header_t   header;
-    UInt32              flavor;
-} _stackShotMessage;
 
 //************************************************************
 // Cached Mouse Event Info Support
@@ -453,7 +436,7 @@ static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *serv
     if ( !deviceInfo )
         return;
 
-    deviceID = OSNumber::withNumber((uintptr_t)hiDevice, 64);
+    deviceID = OSNumber::withNumber(hiDevice->getRegistryEntryID(), 64);
     if (deviceID)
     {
         deviceInfo->setObject("serviceID", deviceID);
@@ -534,7 +517,7 @@ static void RemoveNXSystemInfoForService(OSArray *systemInfo, IOService *service
     {
         if ( (deviceInfo = (OSDictionary *)systemInfo->getObject(i)) &&
              (serviceID = (OSNumber *)deviceInfo->getObject("serviceID")) &&
-             (serviceID->unsigned64BitValue() == (uintptr_t)service) )
+             (serviceID->unsigned64BitValue() == service->getRegistryEntryID()) )
         {
             systemInfo->removeObject(i);
             break;
@@ -679,6 +662,7 @@ struct IOHIDSystem::ExpansionData
 
     IONotifier *            displayWranglerMatching;
 
+    bool                    continuousCursor;
     bool                    hidActivityIdle; // Is HID activity idle for more than IDLE_HID_ACTIVITY_NSECS ?
     AbsoluteTime            lastTickleTime;
     thread_call_t           hidActivityThread;
@@ -687,6 +671,8 @@ struct IOHIDSystem::ExpansionData
     IOLock                  *delayedNotificationLock;
     OSArray                 *delayedNotificationArray;
     IOTimerEventSource      *delayedNotificationSource;
+    
+    OSDictionary            *senderIDDictionary;
 };
 
 #define _cursorHelper               (_privateData->cursorHelper)
@@ -717,6 +703,7 @@ struct IOHIDSystem::ExpansionData
 
 #define _displayWranglerMatching    (_privateData->displayWranglerMatching)
 
+#define _continuousCursor            (_privateData->continuousCursor)
 #define _hidActivityIdle            (_privateData->hidActivityIdle)
 #define _lastTickleTime             (_privateData->lastTickleTime)
 #define _hidActivityThread          (_privateData->hidActivityThread)
@@ -724,6 +711,8 @@ struct IOHIDSystem::ExpansionData
 #define _delayedNotificationLock    (_privateData->delayedNotificationLock)
 #define _delayedNotificationArray   (_privateData->delayedNotificationArray)
 #define _delayedNotificationSource  (_privateData->delayedNotificationSource)
+
+#define _senderIDDictionary         (_privateData->senderIDDictionary)
 
 enum {
     kScrollDirectionInvalid = 0,
@@ -770,7 +759,7 @@ bool IOHIDSystem::init(OSDictionary * properties)
     if (!_privateData)
         return false;
     bzero(_privateData, sizeof(ExpansionData));
-    _periodicEventNext = UINT64_MAX;
+    _periodicEventNext = kIOHIDSystenDistantFuture;
 
     if (!_cursorHelper.init())
         return false;
@@ -801,10 +790,11 @@ bool IOHIDSystem::init(OSDictionary * properties)
     displaySleepDrivenByPM = false;
 
 
-    ioHIDevices      = OSArray::withCapacity(2);
-    cachedButtonStates = OSArray::withCapacity(3);
-    touchEventPosters = OSSet::withCapacity(2);
-    consumedKeys = OSArray::withCapacity(5);
+    ioHIDevices         = OSArray::withCapacity(2);
+    cachedButtonStates  = OSArray::withCapacity(3);
+    touchEventPosters   = OSSet::withCapacity(2);
+    consumedKeys        = OSArray::withCapacity(5);
+    _senderIDDictionary = OSDictionary::withCapacity(2);
 
     // RY: Populate cachedButtonStates key=0 with a button State
     // This will cover all pointing devices that don't support
@@ -1093,6 +1083,7 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
             newService->retain();
             IOLockLock(_delayedNotificationLock);
             _delayedNotificationArray->setObject(data);
+            retain(); // Retain IOHIDSystem in case it tries to go away before this notification is processed.
             IOLockUnlock(_delayedNotificationLock);
             data->release();
             _delayedNotificationSource->setTimeoutUS(1);
@@ -1106,7 +1097,7 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
 void IOHIDSystem::doProcessNotifications(IOTimerEventSource *sender __unused)
 {
     bool reschedule = false;
-
+    
     while (_delayedNotificationArray->getCount() > 0) {
         // retrieve the first item from the queue
         IOLockLock(_delayedNotificationLock);
@@ -1116,16 +1107,17 @@ void IOHIDSystem::doProcessNotifications(IOTimerEventSource *sender __unused)
         }
         _delayedNotificationArray->removeObject(0);
         IOLockUnlock(_delayedNotificationLock);
-
+        
         // process the notification
         if (notificationData) {
             const IOHIDSystem_notificationData *data = (const IOHIDSystem_notificationData *)notificationData->getBytesNoCopy();
             cmdGate->runAction(data->handler, data->newService);
             data->newService->release();
             notificationData->release();
+            release(); // IOHIDSystem was retained in case it tried to go away before this notification was processed.
         }
     }
-
+    
     if (reschedule) {
         _delayedNotificationSource->setTimeoutUS(1);
     }
@@ -1138,6 +1130,11 @@ bool IOHIDSystem::handlePublishNotification(
 {
     IOHIDSystem * self = (IOHIDSystem *) target;
 
+    if (newService->isInactive()) {
+        // device went away before we could add it. ignore.
+        return true;
+    }
+    
     // avoiding OSDynamicCast & dependency on graphics family
     if( newService->metaCast("IODisplayWrangler")) {
         if( !self->displayManager) {
@@ -1151,6 +1148,11 @@ bool IOHIDSystem::handlePublishNotification(
 
     if( OSDynamicCast(IOHIDevice, newService) ||
         OSDynamicCast(IOHIDEventService, newService)) {
+        OSNumber *altSender = OSDynamicCast(OSNumber, newService->getProperty(kIOHIDAltSenderIdKey, gIOServicePlane));
+        if (altSender) {
+            self->_privateData->senderIDDictionary->setObject((const OSSymbol *)newService, altSender);
+        }
+        
         if (self->ioHIDevices) {
             if (self->ioHIDevices->getNextIndexOfObject(newService, 0) == (unsigned)-1)
                 self->ioHIDevices->setObject(newService);
@@ -1182,13 +1184,16 @@ bool IOHIDSystem::handleTerminateNotification(
             IOService * service )
 {
     IOHIDSystem * self = (IOHIDSystem *) target;
+    OSArray * newSystemInfo = NULL;
     int index;
-
+    
+    require(OSDynamicCast(IOHIDSystem, self), exit_early);
     if( self->eventsOpen && (
         OSDynamicCast(IOHIDevice, service) ||
         OSDynamicCast(IOHIDEventService, service)))
     {
         service->close(self);
+        self->_privateData->senderIDDictionary->removeObject((const OSSymbol *)service);
     }
 
     // <rdar://problem/14116334&14536084&14757282&14775621>
@@ -1199,7 +1204,7 @@ bool IOHIDSystem::handleTerminateNotification(
             self->ioHIDevices->removeObject(index);
     }
 
-    OSArray * newSystemInfo = OSArray::withArray(self->systemInfo);
+    newSystemInfo = OSArray::withArray(self->systemInfo);
     if ( newSystemInfo )
     {
         RemoveNXSystemInfoForService(newSystemInfo, service);
@@ -1234,7 +1239,8 @@ bool IOHIDSystem::handleTerminateNotification(
 
         RemoveCachedMouseEventForService(self->cachedButtonStates, service);
     }
-
+    
+exit_early:
     return true;
 }
 
@@ -2172,7 +2178,7 @@ void IOHIDSystem::setStackShotPort(mach_port_t port)
 {
     stackShotPort = port;
 
-    static _stackShotMessage init_msg =
+    static IOHIDSystem_stackShotMessage init_msg =
     {
         {                                           // mach_msg_header_t    header
             MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND,0),  // mach_msg_bits_t      msgh_bits;
@@ -2186,17 +2192,17 @@ void IOHIDSystem::setStackShotPort(mach_port_t port)
     };
 
     if ( stackShotMsg ) {
-        IOFree(stackShotMsg, sizeof(_stackShotMessage));
+        IOFree(stackShotMsg, sizeof(IOHIDSystem_stackShotMessage));
         stackShotMsg = NULL;
     }
 
     if ( stackShotPort ) {
-        if ( !(stackShotMsg = IOMalloc(sizeof(_stackShotMessage))) )
+        if ( !(stackShotMsg = IOMalloc(sizeof(IOHIDSystem_stackShotMessage))) )
             return;
 
         // Initialize the events available message.
         init_msg.header.msgh_remote_port = stackShotPort;
-        *((_stackShotMessage*)stackShotMsg) = init_msg;
+        *((IOHIDSystem_stackShotMessage*)stackShotMsg) = init_msg;
     }
 }
 
@@ -2334,11 +2340,14 @@ void IOHIDSystem::postEvent(int           what,
     lastEventTime = ts;
 
     // dispatch new event
+    // RY: doesn't appear there is any traction here after 6 years
+#if 0
     IOHIDEvent * event = IOHIDEvent::withEventData(ts, what, myData);
     if ( event ) {
         dispatchEvent(event);
         event->release();
     }
+#endif
 
     /* Some events affect screen dimming (idle time) */
     if (EventCodeMask(what) & NX_UNDIMMASK) {
@@ -2370,10 +2379,22 @@ void IOHIDSystem::postEvent(int           what,
         // theTail->event.service_id   = (uintptr_t)sender;
         theTail->event.service_id = 0;
         if (sender) {
-            IORegistryEntry *entry = OSDynamicCast(IORegistryEntry, sender);
-            if (entry) {
-                theTail->event.service_id = (uintptr_t)entry->getRegistryEntryID();
+            OSNumber *altSender = OSDynamicCast(OSNumber, _senderIDDictionary->getObject((const OSSymbol *)sender));
+            if (altSender) {
+                theTail->event.service_id = altSender->unsigned64BitValue();
             }
+            else {
+                IORegistryEntry *entry = OSDynamicCast(IORegistryEntry, sender);
+                if (entry) {
+                    theTail->event.service_id = (uintptr_t)entry->getRegistryEntryID();
+                }
+                else {
+                    theTail->event.service_id = getRegistryEntryID();
+                }
+            }
+        }
+        else {
+            theTail->event.service_id = getRegistryEntryID();
         }
         theTail->event.ext_pid      = extPID;
         theTail->event.location.x   = location->xValue().as64();
@@ -2509,7 +2530,7 @@ void IOHIDSystem::sendStackShotMessage(UInt32 flavor)
     xpr_ev_post("sendStackShotMessage\n", 1,2,3,4,5);
 
     if (stackShotMsg) {
-        ((_stackShotMessage*)stackShotMsg)->flavor = flavor;
+        ((IOHIDSystem_stackShotMessage*)stackShotMsg)->flavor = flavor;
         msgh = (mach_msg_header_t *)stackShotMsg;
         if( msgh) {
 
@@ -2616,50 +2637,85 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
         IOHID_DEBUG(kIOHIDDebugCode_Scheduling, 0, 0, 0, 0);
     }
     else {
-        uint64_t soon; // 1 ms from now
-        uint64_t scheduledEvent = _periodicEventNext;
-
-        clock_interval_to_deadline(1, kMillisecondScale, &soon);
-
-        if ((scheduledEvent > _periodicEventLast) && (scheduledEvent < soon)) {
-            // we have an event scheduled "soon". Do not reschedule.
+        uint64_t            scheduledEvent = _periodicEventNext;
+        uint64_t            now = 0;
+        static uint64_t     kOneMS = 0;
+        if (!kOneMS) {
+            clock_interval_to_absolutetime_interval(1, kMillisecondScale, &kOneMS);
+        }
+        clock_get_uptime(&now);
+        
+        if ((scheduledEvent > _periodicEventLast) && (scheduledEvent < (now + kOneMS))) {
+            // we have an event scheduled in the next MS. Do not reschedule.
         }
         else {
             if (scheduledEvent <= _periodicEventLast) {
                 // scheduledEvent is old. do not reuse.
-                scheduledEvent = UINT64_MAX;
+                scheduledEvent = kIOHIDSystenDistantFuture;
             }
-
+            
             if (screens && (kIOPMDeviceUsable | displayState)) {
+                // displays are on and nothing is scheduled.
+                // calculate deltas
                 uint64_t nextMove = _cursorMoveLast + _cursorMoveDelta;
                 uint64_t nextWait = _cursorWaitLast + _cursorWaitDelta;
-
+                
                 if (_cursorMoveDelta) {
                     if (_cursorEventLast > _cursorMoveLast) {
                         scheduledEvent = nextMove;
                     }
                 }
-
-                if (_cursorWaitDelta && evg->waitCursorEnabled && evg->globalWaitCursorEnabled) {
-                    if (scheduledEvent > nextWait) {
-                        scheduledEvent = nextWait;
+                
+                bool waitCursorShouldAlreadyBeUp =  evg->waitCursorEnabled &&
+                                                    evg->globalWaitCursorEnabled &&
+                                                    evg->ctxtTimedOut &&
+                                                    _cursorWaitDelta;
+                if (waitCursorShouldAlreadyBeUp) {
+                    if (evg->waitCursorUp) {
+                        if (scheduledEvent > nextWait) {
+                            // update the wait cursor
+                            scheduledEvent = nextWait;
+                        }
                     }
+                    else {
+                        // *show* the wait cursor immediately
+                        scheduledEvent = now + kOneMS;
+                    }
+                    
                 }
+                else if (evg->waitCursorUp) {
+                    // *hide* the wait cursor immediately
+                    scheduledEvent = now + kOneMS;
+                }
+#if 0
+                kprintf(" %d%d%d%d %lld : %lld %lld %lld %llu\n",
+                        evg->waitCursorEnabled, evg->globalWaitCursorEnabled, evg->ctxtTimedOut, evg->waitCursorUp,
+                        now,
+                        scheduledEvent, nextMove, nextWait, _cursorWaitDelta);
+#endif
                 IOHID_DEBUG(kIOHIDDebugCode_Scheduling, scheduledEvent, nextMove, nextWait, 0);
             }
             else {
                 // We have something to do, but no one is "listening".
-                // Try again in 30 ms.
-                clock_interval_to_deadline(30, kMillisecondScale, &scheduledEvent);
+                // Try again in 50 ms.
+                scheduledEvent = now + (50 * kOneMS);
                 IOHID_DEBUG(kIOHIDDebugCode_Scheduling, scheduledEvent, 0, 0, 0);
             }
-
-            if (UINT64_MAX == scheduledEvent) {
+            
+            if (kIOHIDSystenDistantFuture == scheduledEvent) {
                 // no periodic events. cancel any pending periodic timer.
                 periodicES->cancelTimeout();
             }
             else {
                 _periodicEventNext = scheduledEvent;
+                if (now + kOneMS > _periodicEventNext) {
+                    // do not schedule the event too soon.
+                    _periodicEventNext = now + kOneMS;
+                }
+                if (now + (100 * kOneMS) < _periodicEventNext) {
+                    // after 100 ms, we really should check again. *something* is happening.
+                    _periodicEventNext = now + (100 * kOneMS);
+                }
                 IOReturn err = periodicES->wakeAtTime(_periodicEventNext);
                 if (err) {
                     IOLog("%s:%d wakeAtTime failed for %lld: %08x (%s)\n", __func__, __LINE__, _periodicEventNext, err, stringFromReturn(err));
@@ -2692,8 +2748,8 @@ void IOHIDSystem::periodicEvents(IOTimerEventSource * timer __unused)
     if ( !eventsOpen )
         return;
 
-    clock_get_uptime(&_periodicEventLast);  // update last event
-    _periodicEventNext = UINT64_MAX;        // currently no next event
+    clock_get_uptime(&_periodicEventLast);          // update last event
+    _periodicEventNext = kIOHIDSystenDistantFuture; // currently no next event
 
     // Update cursor position if needed
     if (_periodicEventLast >= _cursorMoveLast + _cursorMoveDelta) {
@@ -2720,7 +2776,7 @@ void IOHIDSystem::periodicEvents(IOTimerEventSource * timer __unused)
             }
             else {
                 /* WAIT CURSOR SHOULD BE OFF */
-                if (evg->waitCursorUp && ((_cursorWaitLast + _cursorWaitDelta) < _periodicEventLast)) {
+                if (evg->waitCursorUp) {
                     hideWaitCursor();
                     _cursorWaitLast = _periodicEventLast;
                 }
@@ -3049,7 +3105,11 @@ IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
     switch (type)
     {
         case kIOMessageServiceIsTerminated:
-            provider->close( this );
+            if (provider) {
+                provider->close( this );
+            }
+            break;
+            
         case kIOMessageServiceWasClosed:
             break;
 
@@ -5229,6 +5289,21 @@ void IOHIDSystem::setCursorPosition(IOGPoint * newLoc, bool external, OSObject *
 // position by a _IOSetParameterFromIntArray() call, directly from the absolute or
 // relative pointer device routines, or on a timed event callback.
 //
+
+void IOHIDSystem::enableContinuousCursor()
+{
+    kprintf("%s called\n", __func__);
+    
+    _continuousCursor = true;
+}
+
+void IOHIDSystem::disableContinuousCursor()
+{
+    kprintf("%s called\n", __func__);
+    
+    _continuousCursor = false;
+}
+
 void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObject * sender)
 {
     bool cursorMoved = true;
@@ -5255,6 +5330,11 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
         SInt32 pinScreen = -1L;
         EvScreen *screen = (EvScreen *)evScreen;
 
+        bool foundFirstScreen = false;      // T => found first valid screen
+        bool foundSecondScreen = false;     // T => found second valid screen
+        int leftScreen = 0;
+        int rightScreen = 0;
+
         if (cursorPinned) {
             _cursorHelper.desktopLocation().clipToRect(cursorPin);
         }
@@ -5265,6 +5345,31 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
+                if (_continuousCursor) {
+                    if( !foundFirstScreen ) {
+                        foundFirstScreen = true;
+                        leftScreen = i;
+                        rightScreen = i;
+                    }
+                    else if( !foundSecondScreen ) {
+                        // I need this if I care about vertical stacks of displays
+    //                    foundSecondScreen =
+    //                            (screen[leftScreen].desktopBounds->minx != screen[i].desktopBounds->minx) ||
+    //                            (screen[leftScreen].desktopBounds->maxx != screen[i].desktopBounds->maxx) ||
+    //                            (screen[leftScreen].desktopBounds->miny != screen[i].desktopBounds->miny) ||
+    //                            (screen[leftScreen].desktopBounds->maxy != screen[i].desktopBounds->maxy);
+                    }
+
+    //                if (screen[i].desktopBounds->minx < screen[leftScreen].desktopBounds->minx) {     // overlaps can torroid
+                    if (screen[i].desktopBounds->maxx <= screen[leftScreen].desktopBounds->minx) {      // non-overlaps torroid
+                        leftScreen = i;
+                    }
+    //                if (screen[rightScreen].desktopBounds->maxx < screen[i].desktopBounds->maxx )     // overlaps can torroid
+                    if (screen[rightScreen].desktopBounds->maxx <= screen[i].desktopBounds->minx )  // non-overlaps torroid
+                    {
+                        rightScreen = i;
+                    }
+                }
                 if (_cursorHelper.desktopLocation().inRect(*screen[i].desktopBounds)) {
                     pinScreen = i;
                     newScreens |= (1 << i);
@@ -5280,18 +5385,71 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
             int64_t     dy;
             uint64_t    distance;
             uint64_t    bestDistance = -1ULL;
+            
+            const int64_t       kHackMiniumWrapDistance = 0; // 22 * 22;
+            const int64_t       kHackUpperNoWrap = 40;       // Amount of space at the top that does not wrap
+            const int64_t       kHackLowerNoWrap = 40;       // Amount of space at the bottom that does not wrap
+                                                            // TODO: decide if menubar is special for wrap (and how)
             for (int i = 0; i < screens; i++ ) {
                 if (!screen[i].desktopBounds)
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
+                if (_continuousCursor && (screen[i].desktopBounds->maxy - screen[i].desktopBounds->miny) < 128)
+                    continue;
+
                 IOFixedPoint64  pinnedLoc = aimLoc;
                 pinnedLoc.clipToRect(*screen[i].desktopBounds);
                 dx = (pinnedLoc.xValue() - aimLoc.xValue()).as64();
                 dy = (pinnedLoc.yValue() - aimLoc.yValue()).as64();
                 distance = dx * dx + dy * dy;
+                
                 if (distance <= bestDistance) {
                     bestDistance = distance;
+                    
+                    if (_continuousCursor &&
+                        leftScreen != rightScreen &&
+                        screen[i].desktopBounds->miny + kHackUpperNoWrap < pinnedLoc.yValue().as64()  &&
+                        pinnedLoc.yValue().as64() < screen[i].desktopBounds->maxy - kHackLowerNoWrap  &&
+                        kHackMiniumWrapDistance < bestDistance ) {
+                        
+                        IOFixed64   targetX;
+                        IOFixed64   targetY;
+                        int         targetDisplay = i;
+                        bool        shouldWrap = true;      // Assume we're wrapping (makes code below shorter)
+                        
+                        if (aimLoc.xValue().as64() < screen[leftScreen].desktopBounds->minx ) {
+                            // Wrap to right side of right screen
+                            targetX.fromIntFloor(screen[rightScreen].desktopBounds->maxx);
+                            targetY.fromIntFloor(screen[rightScreen].desktopBounds->maxy - screen[rightScreen].desktopBounds->miny);
+                            targetDisplay = rightScreen;
+                            kprintf("IOHIDSystem::_setCursorPosition Wrap to right side of right screen\n");
+                       }
+                        else if (screen[rightScreen].desktopBounds->maxx < aimLoc.xValue().as64()) {
+                            // Wrap to left side of left screen
+                            targetX.fromIntFloor(screen[leftScreen].desktopBounds->minx);
+                            targetY.fromIntFloor(screen[leftScreen].desktopBounds->maxy - screen[leftScreen].desktopBounds->miny);
+                            targetDisplay = leftScreen;
+                            kprintf("IOHIDSystem::_setCursorPosition Wrap to left side of left screen\n");
+                       }
+                        else {
+                            shouldWrap = false;
+                            kprintf("IOHIDSystem::_setCursorPosition don't wrap\n");
+                        }
+
+                        if (shouldWrap)
+                        {
+                            IOFixed64   closestYFraction;
+                            closestYFraction.fromIntFloor(pinnedLoc.yValue().as64() - screen[i].desktopBounds->miny);
+                            closestYFraction /= (screen[i].desktopBounds->maxy - screen[i].desktopBounds->miny);                            
+                            targetY *= closestYFraction;
+                            
+                            pinnedLoc.fromFixed64(targetX, targetY);
+                            pinnedLoc.clipToRect(*screen[targetDisplay].desktopBounds); // SHOULD NOT NEED - makes SURE we hit a screen
+
+                        }
+                    }
+                    
                     _cursorHelper.desktopLocation() = pinnedLoc;
                 }
             }
@@ -5645,7 +5803,7 @@ IOReturn IOHIDSystem::setCursorEnableGated(void* p1)
     }
 
     if (cursorCoupled != cursorEnabled) {
-        _periodicEventNext = UINT64_MAX;
+        _periodicEventNext = kIOHIDSystenDistantFuture;
         _cursorMoveDelta = 0;
         _cursorHelper.desktopLocationPosting().fromIntFloor(0, 0);
         _cursorHelper.clearEventCounts();
@@ -5653,6 +5811,47 @@ IOReturn IOHIDSystem::setCursorEnableGated(void* p1)
         scheduleNextPeriodicEvent();
         cursorCoupled = cursorEnabled;
     }
+
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDSystem::setContinuousCursorEnable(void*p1,void*,void*,void*,void*,void*)
+{                                                                    // IOMethod
+    kprintf("%s called\n", __func__);
+    
+    if (mac_iokit_check_hid_control(kauth_cred_get()))
+        return kIOReturnNotPermitted;
+
+    return cmdGate->runAction((IOCommandGate::Action)doSetContinuousCursorEnable, p1);
+
+}
+
+IOReturn IOHIDSystem::doSetContinuousCursorEnable(IOHIDSystem *self, void * arg0)
+                        /* IOCommandGate::Action */
+{
+    kprintf("%s called\n", __func__);
+    
+    return self->setContinuousCursorEnableGated(arg0);
+}
+
+IOReturn IOHIDSystem::setContinuousCursorEnableGated(void* p1)
+{
+    bool        enable = (bool)(intptr_t)p1;
+
+    kprintf("%s called\n", __func__);
+    
+    if ( !eventsOpen ) {
+        return kIOReturnNotOpen;
+    }
+
+    if( !screens) {
+        return kIOReturnNoDevice;
+    }
+
+    if( enable )
+        enableContinuousCursor();
+    else
+        disableContinuousCursor();
 
     return kIOReturnSuccess;
 }

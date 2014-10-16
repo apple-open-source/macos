@@ -61,14 +61,18 @@ include $(AP_WORK)/build/NWGNUhead.inc
 XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
-			$(AP_WORK)/include \
-			$(HTTPD) \
+			$(SRC)/include \
+			$(STDMOD)/aaa \
+			$(STDMOD)/core \
 			$(STDMOD)/filters \
 			$(STDMOD)/generators \
+			$(STDMOD)/http \
 			$(STDMOD)/loggers \
 			$(STDMOD)/mappers \
 			$(STDMOD)/proxy \
-			$(SERVER)/mpm/NetWare \
+			$(STDMOD)/ssl \
+			$(SERVER) \
+			$(SERVER)/mpm/netware \
 			$(PCRE) \
 			$(NWOS) \
 			$(EOLIST)
@@ -77,6 +81,7 @@ XINCDIRS	+= \
 # These flags will come after CFLAGS
 #
 XCFLAGS		+= \
+			-DHAVE_CONFIG_H \
 			$(EOLIST)
 
 #
@@ -154,7 +159,7 @@ NLM_DESCRIPTION	= Apache Web Server $(VERSION_STR) $(VERSION_SKT)
 # This is used by the '-threadname' directive.  If left blank,
 # NLM_NAME Thread will be used.
 #
-NLM_THREAD_NAME	= Apache
+NLM_THREAD_NAME	= $(NLM_NAME)
 
 #
 # This is used by the '-screenname' directive.  If left blank,
@@ -206,7 +211,7 @@ XDCDATA		=
 # If there is an NLM target, put it here
 #
 TARGET_nlm = \
-	$(OBJDIR)/Apache2.nlm \
+	$(OBJDIR)/$(NLM_NAME).nlm \
 	$(EOLIST)
 
 #
@@ -227,6 +232,7 @@ FILES_nlm_objs = \
 	$(OBJDIR)/core.o \
 	$(OBJDIR)/core_filters.o \
 	$(OBJDIR)/eoc_bucket.o \
+	$(OBJDIR)/eor_bucket.o \
 	$(OBJDIR)/error_bucket.o \
 	$(OBJDIR)/http_core.o \
 	$(OBJDIR)/http_protocol.o \
@@ -238,6 +244,8 @@ FILES_nlm_objs = \
 	$(OBJDIR)/listen.o \
 	$(OBJDIR)/log.o \
 	$(OBJDIR)/main.o \
+	$(OBJDIR)/mod_authn_core.o \
+	$(OBJDIR)/mod_authz_core.o \
 	$(OBJDIR)/mod_authz_host.o \
 	$(OBJDIR)/mod_alias.o \
 	$(OBJDIR)/mod_dir.o \
@@ -249,6 +257,7 @@ FILES_nlm_objs = \
 	$(OBJDIR)/mod_netware.o \
 	$(OBJDIR)/mod_setenvif.o \
 	$(OBJDIR)/mod_so.o \
+	$(OBJDIR)/mod_watchdog.o \
 	$(OBJDIR)/modules.o \
 	$(OBJDIR)/mpm_common.o \
 	$(OBJDIR)/mpm_netware.o \
@@ -259,11 +268,18 @@ FILES_nlm_objs = \
 	$(OBJDIR)/util.o \
 	$(OBJDIR)/util_cfgtree.o \
 	$(OBJDIR)/util_charset.o \
+	$(OBJDIR)/util_cookies.o \
 	$(OBJDIR)/util_debug.o \
+	$(OBJDIR)/util_expr_eval.o \
+	$(OBJDIR)/util_expr_parse.o \
+	$(OBJDIR)/util_expr_scan.o \
+	$(OBJDIR)/util_fcgi.o \
 	$(OBJDIR)/util_filter.o \
 	$(OBJDIR)/util_md5.o \
+	$(OBJDIR)/util_mutex.o \
 	$(OBJDIR)/util_nw.o \
 	$(OBJDIR)/util_pcre.o \
+	$(OBJDIR)/util_regex.o \
 	$(OBJDIR)/util_script.o \
 	$(OBJDIR)/util_time.o \
 	$(OBJDIR)/util_xml.o \
@@ -313,9 +329,9 @@ FILE_nlm_copyright =
 # Any additional imports go here
 #
 FILES_nlm_Ximports = \
-	@netware.imp \
 	@aprlib.imp \
 	@libc.imp \
+	@netware.imp \
 	GetCurrentAddressSpace \
 	$(EOLIST)
 
@@ -360,8 +376,6 @@ FILES_lib_objs += \
 	$(EOLIST)
 endif 
 
-XDEFINES += -DHAVE_CONFIG_H
-
 endif
 
 #
@@ -376,7 +390,7 @@ nlms :: libs $(TARGET_nlm)
 # Updated this target to create necessary directories and copy files to the
 # correct place.  (See $(AP_WORK)/build/NWGNUhead.inc for examples)
 #
-MKCNF	= $(AWK) -v BDIR=$(BASEDIR) -v PORT=$(PORT) -v SSLPORT=$(SSLPORT) -v MODSSL=$(WITH_MOD_SSL) -v BSDSKT=$(USE_STDSOCKETS) -f build/mkconfNW.awk $1 > $2
+MKCNF	= $(AWK) -v BDIR=$(BASEDIR) -v PORT=$(PORT) -v SSLPORT=$(SSLPORT) -v MODSSL=$(WITH_SSL) -v BSDSKT=$(USE_STDSOCKETS) -f build/mkconfNW.awk $1 > $2
 
 install :: nlms instscripts FORCE
 	$(call COPY,$(OBJDIR)/$(NLM_NAME).nlm,                         $(INSTALLBASE)/)
@@ -406,6 +420,7 @@ install :: nlms instscripts FORCE
 	$(call MKCNF,docs/conf/extra/httpd-userdir.conf.in,            $(INSTALLBASE)/conf/extra/httpd-userdir.conf)
 	$(call MKCNF,docs/conf/extra/httpd-vhosts.conf.in,             $(INSTALLBASE)/conf/extra/httpd-vhosts.conf)
 	$(call MKCNF,docs/conf/extra/httpd-ssl.conf.in,                $(INSTALLBASE)/conf/extra/httpd-ssl.conf)
+	$(call MKCNF,docs/conf/extra/proxy-html.conf.in,               $(INSTALLBASE)/conf/extra/proxy-html.conf)
 	$(call COPYR,docs/docroot,                                     $(INSTALLBASE)/htdocs)
 	$(call COPYR,docs/error,                                       $(INSTALLBASE)/error)
 	$(call COPYR,docs/icons,                                       $(INSTALLBASE)/icons)
@@ -417,7 +432,10 @@ installdev :: FORCE
 	$(call COPY,$(NWOS)/*.h,                                       $(INSTALLBASE)/include/)
 	$(call COPY,$(APR)/include/*.h,                                $(INSTALLBASE)/include/)
 	$(call COPY,$(APRUTIL)/include/*.h,                            $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/core/mod_so.h,                           $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/core/mod_watchdog.h,                     $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/cache/mod_cache.h,                       $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/cache/cache_common.h,                    $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/database/mod_dbd.h,                      $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/dav/main/mod_dav.h,                      $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/filters/mod_include.h,                   $(INSTALLBASE)/include/)
@@ -426,6 +444,7 @@ installdev :: FORCE
 	$(call COPY,$(STDMOD)/loggers/mod_log_config.h,                $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/mappers/mod_rewrite.h,                   $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/proxy/mod_proxy.h,                       $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/session/mod_session.h,                   $(INSTALLBASE)/include/)
 	$(call COPY,$(STDMOD)/ssl/mod_ssl.h,                           $(INSTALLBASE)/include/)
 	$(call COPY,$(APR)/*.imp,                                      $(INSTALLBASE)/lib/)
 	$(call COPY,$(NWOS)/*.imp,                                     $(INSTALLBASE)/lib/)
@@ -445,7 +464,9 @@ prebuild :: FORCE
 
 vpath %.c server:modules/arch/netware:modules/http:modules/aaa:modules/mappers
 vpath %.c modules/generators:modules/metadata:modules/filters:modules/loggers
-vpath %.c os/netware:server/mpm/netware:$(PCRE)
+vpath %.c modules/core:os/netware:server/mpm/netware:$(PCRE)
+
+$(OBJDIR)/chartables.o: os/netware/chartables.c
 
 #
 # Include the 'tail' makefile that has targets that depend on variables defined
@@ -454,6 +475,6 @@ vpath %.c os/netware:server/mpm/netware:$(PCRE)
 
 include $(APBUILD)/NWGNUtail.inc
 
-include $(AP_WORK)/build/NWGNUscripts.inc
+include $(APBUILD)/NWGNUscripts.inc
 
 

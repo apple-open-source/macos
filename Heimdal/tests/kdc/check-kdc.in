@@ -169,7 +169,7 @@ enctypes=`grep Keytypes: tempfile | sed 's/(pw-salt)//g' | sed 's/,//g' | sed 's
 enctype_sans_aes=`echo $enctypes | sed 's/aes256[^ ]*//g'`
 enctype_sans_des3=`echo $enctypes | sed 's/des3-cbc-sha1//g'`
 
-echo "deleting all but des enctypes on kt-des3 in keytab"
+echo "deleting all but des3 enctypes on kt-des3 in keytab"
 ${kadmin} ext -k ${keytab} kt-des3@${R} || exit 1
 for a in ${enctype_sans_des3} ; do
    ${ktutil} -k ${keytab} remove -p kt-des3@${R} -e $a
@@ -201,6 +201,7 @@ echo "Getting tickets"; > messages.log
 ${kgetcred} ${server}@${R} || { ec=1 ; eval "${testfailed}"; }
 echo "Listing tickets"; > ${logfile}
 ${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
+${klist} -s > /dev/null || { ec=1 ; eval "${testfailed}"; }
 ${test_ap_req} ${server}@${R} ${keytab} ${cache} || \
 	{ ec=1 ; eval "${testfailed}"; }
 ${kdestroy}
@@ -573,29 +574,42 @@ grep 'Issued' ${testdir}/klist-log.tmp &> /dev/null || \
 	{ ec=1 ; eval "${testfailed}"; }
 
 echo "checking klist --json"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--json"]))' || \
+KCC="${kcc_binary}"
+export KCC
+
+echo "checking klist --json"
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
 
-echo "checking klist --json -l"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--list", "--json"]))' || \
+echo "checking klist --json --list"
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "--list", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
 
 echo "checking klist --json -a"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "-a", "--json"]))' || \
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "-a", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
 
 echo "checking klist --json --verbose -a"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "-a", "--list", "--json"]))' || \
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "-a", "--verbose", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json -A"
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "-a", "--verbose", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
 
 ${kdestroy}
 
 echo "checking klist --json"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--json"]))' || \
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
 
 echo "checking klist --json -l"
-python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--list", "--json"]))' || \
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "--list", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json --verbose"
+python -c 'import subprocess, json, os; json.loads(subprocess.check_output([os.environ["KCC"], "list", "--verbose", "--json"]))' || \
 	{ ec=1 ; eval "${testfailed}"; }
 
 

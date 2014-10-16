@@ -67,9 +67,8 @@ static void rename_file(int old, int new)
     char    new_path[BUFSIZ];
     char    old_path[BUFSIZ];
 
-    /* APPLE */
-    snprintf(new_path, sizeof new_path, "%06d", new);
-    snprintf(old_path, sizeof old_path, "%06d", old);
+    sprintf(new_path, "%06d", new);
+    sprintf(old_path, "%06d", old);
     if (rename(old_path, new_path))
 	msg_fatal("rename %s to %s: %m", old_path, new_path);
 }
@@ -83,8 +82,7 @@ static void make_file(int seqno, int size)
     FILE   *fp;
     int     i;
 
-    /* APPLE */
-    snprintf(path, sizeof path, "%06d", seqno);
+    sprintf(path, "%06d", seqno);
     if ((fp = fopen(path, "w")) == 0)
 	msg_fatal("open %s: %m", path);
     memset(buf, 'x', sizeof(buf));
@@ -111,8 +109,7 @@ static void use_file(int seqno)
     FILE   *fp;
     int     i;
 
-    /* APPLE */
-    snprintf(path, sizeof path, "%06d", seqno);
+    sprintf(path, "%06d", seqno);
     if ((fp = fopen(path, "w")) == 0)
 	msg_fatal("open %s: %m", path);
     for (i = 0; i < 400; i++)
@@ -137,8 +134,7 @@ static void remove_file(int seq)
 {
     char    path[BUFSIZ];
 
-    /* APPLE */
-    snprintf(path, sizeof path, "%06d", seq);
+    sprintf(path, "%06d", seq);
     if (remove(path))
 	msg_fatal("remove %s: %m", path);
 }
@@ -149,8 +145,7 @@ static void remove_silent(int seq)
 {
     char    path[BUFSIZ];
 
-    /* APPLE */
-    snprintf(path, sizeof path, "%06d", seq);
+    sprintf(path, "%06d", seq);
     (void) remove(path);
 }
 

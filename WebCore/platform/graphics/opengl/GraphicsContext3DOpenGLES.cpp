@@ -13,10 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,9 +35,6 @@
 #include "Extensions3DOpenGLES.h"
 #include "IntRect.h"
 #include "IntSize.h"
-#if PLATFORM(BLACKBERRY)
-#include "LayerWebKitThread.h"
-#endif
 #include "NotImplemented.h"
 
 namespace WebCore {
@@ -54,15 +51,6 @@ void GraphicsContext3D::readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsi
     // FIXME: remove the two glFlush calls when the driver bug is fixed, i.e.,
     // all previous rendering calls should be done before reading pixels.
     ::glFlush();
-#if PLATFORM(BLACKBERRY)
-    if (m_isImaginationHardware && m_fbo == m_state.boundFBO) {
-        // FIXME: This workaround should always be used until the
-        // driver alignment bug is fixed, even when we aren't
-        // drawing to the canvas.
-        readPixelsIMG(x, y, width, height, format, type, data);
-    } else
-        ::glReadPixels(x, y, width, height, format, type, data);
-#else
     if (m_attrs.antialias && m_state.boundFBO == m_multisampleFBO) {
          resolveMultisamplingIfNecessary(IntRect(x, y, width, height));
         ::glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
@@ -73,22 +61,11 @@ void GraphicsContext3D::readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsi
 
     if (m_attrs.antialias && m_state.boundFBO == m_multisampleFBO)
         ::glBindFramebuffer(GL_FRAMEBUFFER, m_multisampleFBO);
-#endif
 }
 
 void GraphicsContext3D::readPixelsAndConvertToBGRAIfNecessary(int x, int y, int width, int height, unsigned char* pixels)
 {
-#if PLATFORM(BLACKBERRY)
-    if (m_isImaginationHardware && m_fbo == m_state.boundFBO) {
-        // FIXME: This workaround should always be used until the
-        // driver alignment bug is fixed, even when we aren't
-        // drawing to the canvas.
-        readPixelsIMG(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    } else
-        ::glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-#else
     ::glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-#endif
     int totalBytes = width * height * 4;
     if (isGLES2Compliant()) {
         for (int i = 0; i < totalBytes; i += 4)
@@ -96,8 +73,6 @@ void GraphicsContext3D::readPixelsAndConvertToBGRAIfNecessary(int x, int y, int 
     }
 }
 
-#if !PLATFORM(BLACKBERRY)
-// The BlackBerry port uses a special implementation of reshapeFBOs. See GraphicsContext3DBlackBerry.cpp
 bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
 {
     const int width = size.width();
@@ -124,37 +99,69 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
         ::glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     }
 
+    ASSERT(m_texture);
     ::glBindTexture(GL_TEXTURE_2D, m_texture);
     ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, pixelDataType, 0);
     ::glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0);
 
-    ::glBindTexture(GL_TEXTURE_2D, m_compositorTexture);
-    ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
-    ::glBindTexture(GL_TEXTURE_2D, 0);
+    if (m_compositorTexture) {
+        ::glBindTexture(GL_TEXTURE_2D, m_compositorTexture);
+        ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
+        ::glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
-    // We don't support antialiasing yet. See GraphicsContext3D::validateAttributes.
-    ASSERT(!m_attrs.antialias);
+    Extensions3DOpenGLES* extensions = static_cast<Extensions3DOpenGLES*>(getExtensions());
+    if (extensions->isImagination() && m_attrs.antialias) {
+        GLint maxSampleCount;
+        ::glGetIntegerv(Extensions3D::MAX_SAMPLES_IMG, &maxSampleCount); 
+        GLint sampleCount = std::min(8, maxSampleCount);
 
-    if (m_attrs.stencil || m_attrs.depth) {
-        // Use a 24 bit depth buffer where we know we have it.
-        if (supportPackedDepthStencilBuffer) {
-            ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
-            ::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
-            if (m_attrs.stencil)
-                ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
-            if (m_attrs.depth)
-                ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
-            ::glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        } else {
-            if (m_attrs.stencil) {
-                ::glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
-                ::glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
-                ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
+        extensions->framebufferTexture2DMultisampleIMG(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0, sampleCount);
+
+        if (m_attrs.stencil || m_attrs.depth) {
+            // Use a 24 bit depth buffer where we know we have it.
+            if (supportPackedDepthStencilBuffer) {
+                ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+                extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH24_STENCIL8_OES, width, height);
+                if (m_attrs.stencil)
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
+                if (m_attrs.depth)
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
+            } else {
+                if (m_attrs.stencil) {
+                    ::glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
+                    extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_STENCIL_INDEX8, width, height);
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
+                }
+                if (m_attrs.depth) {
+                    ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
+                    extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH_COMPONENT16, width, height);
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
+                }
             }
-            if (m_attrs.depth) {
-                ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
-                ::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
-                ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
+            ::glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        }
+    } else {
+        if (m_attrs.stencil || m_attrs.depth) {
+            // Use a 24 bit depth buffer where we know we have it.
+            if (supportPackedDepthStencilBuffer) {
+                ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+                ::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
+                if (m_attrs.stencil)
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
+                if (m_attrs.depth)
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
+            } else {
+                if (m_attrs.stencil) {
+                    ::glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
+                    ::glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
+                }
+                if (m_attrs.depth) {
+                    ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
+                    ::glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
+                    ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
+                }
             }
             ::glBindRenderbuffer(GL_RENDERBUFFER, 0);
         }
@@ -166,7 +173,6 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
 
     return mustRestoreFBO;
 }
-#endif
 
 void GraphicsContext3D::resolveMultisamplingIfNecessary(const IntRect& rect)
 {
@@ -228,7 +234,6 @@ void GraphicsContext3D::clearDepth(GC3Dclampf depth)
     makeContextCurrent();
     ::glClearDepthf(depth);
 }
-
 
 Extensions3D* GraphicsContext3D::getExtensions()
 {

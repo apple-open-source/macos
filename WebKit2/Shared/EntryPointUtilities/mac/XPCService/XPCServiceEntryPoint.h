@@ -26,46 +26,58 @@
 #ifndef XPCServiceEntryPoint_h
 #define XPCServiceEntryPoint_h
 
-#if HAVE(XPC)
-
 #import "ChildProcess.h"
 #import "WebKit2Initialize.h"
-#import <xpc/xpc.h>
+#import "XPCPtr.h"
+
+#if HAVE(VOUCHERS)
+#if __has_include(<os/voucher_private.h>)
+#include <os/voucher_private.h>
+#else
+extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
+#endif
+#endif
 
 namespace WebKit {
 
 class XPCServiceInitializerDelegate {
 public:
-    XPCServiceInitializerDelegate(xpc_connection_t connection, xpc_object_t initializerMessage)
-        : m_connection(connection)
+    XPCServiceInitializerDelegate(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+        : m_connection(WTF::move(connection))
         , m_initializerMessage(initializerMessage)
     {
     }
 
     virtual ~XPCServiceInitializerDelegate();
 
-    virtual bool getConnectionIdentifier(CoreIPC::Connection::Identifier& identifier);
+    virtual bool checkEntitlements();
+
+    virtual bool getConnectionIdentifier(IPC::Connection::Identifier& identifier);
     virtual bool getClientIdentifier(String& clientIdentifier);
     virtual bool getClientProcessName(String& clientProcessName);
     virtual bool getExtraInitializationData(HashMap<String, String>& extraInitializationData);
 
 protected:
+    bool hasEntitlement(const char* entitlement);
     bool isClientSandboxed();
-    
-    xpc_connection_t m_connection;
+
+    IPC::XPCPtr<xpc_connection_t> m_connection;
     xpc_object_t m_initializerMessage;
 };
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
-void XPCServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage)
+void XPCServiceInitializer(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
 {
-    XPCServiceInitializerDelegateType delegate(connection, initializerMessage);
+    XPCServiceInitializerDelegateType delegate(WTF::move(connection), initializerMessage);
 
     // We don't want XPC to be in charge of whether the process should be terminated or not,
     // so ensure that we have an outstanding transaction here.
     xpc_transaction_begin();
 
     InitializeWebKit2();
+
+    if (!delegate.checkEntitlements())
+        exit(EXIT_FAILURE);
 
     ChildProcessInitializationParameters parameters;
     if (!delegate.getConnectionIdentifier(parameters.connectionIdentifier))
@@ -80,11 +92,14 @@ void XPCServiceInitializer(xpc_connection_t connection, xpc_object_t initializer
     if (!delegate.getExtraInitializationData(parameters.extraInitializationData))
         exit(EXIT_FAILURE);
 
+#if HAVE(VOUCHERS)
+    // Set the task default voucher to the current value (as propagated by XPC).
+    voucher_replace_default_voucher();
+#endif
+
     XPCServiceType::shared().initialize(parameters);
 }
 
 } // namespace WebKit
-
-#endif // HAVE(XPC)
 
 #endif // XPCServiceEntryPoint_h

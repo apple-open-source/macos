@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Modules</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache Module mod_authz_dbm</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_authz_dbm.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_authz_dbm.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/mod/mod_authz_dbm.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Group authorization using DBM files</td></tr>
@@ -42,15 +43,65 @@
 <div id="quickview"><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#authdbmgroupfile">AuthDBMGroupFile</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#authzdbmauthoritative">AuthzDBMAuthoritative</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authzdbmtype">AuthzDBMType</a></li>
 </ul>
-<h3>See also</h3>
+<h3>Topics</h3>
+<ul id="topics">
+<li><img alt="" src="../images/down.gif" /> <a href="#requiredirectives">The Require Directives</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#examples">Example usage</a></li>
+</ul><h3>See also</h3>
 <ul class="seealso">
-<li><code class="directive"><a href="../mod/core.html#require">Require</a></code></li>
-<li><code class="directive"><a href="../mod/core.html#satisfy">Satisfy</a></code></li>
+<li><code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code></li>
 </ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="requiredirectives" id="requiredirectives">The Require Directives</a></h2>
 
+    <p>Apache's <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code>
+    directives are used during the authorization phase to ensure that
+    a user is allowed to access a resource.  mod_authz_dbm extends the
+    authorization types with <code>dbm-group</code>.</p>
+
+    <p>Since v2.5.0, <a href="../expr.html">expressions</a> are supported
+    within the DBM require directives.</p>
+
+<h3><a name="reqgroup" id="reqgroup">Require dbm-group</a></h3>
+
+    <p>This directive specifies group membership that is required for the
+    user to gain access.</p>
+
+    <pre class="prettyprint lang-config">Require dbm-group admin</pre>
+
+
+
+
+<h3><a name="reqfilegroup" id="reqfilegroup">Require dbm-file-group</a></h3>
+
+    <p>When this directive is specified, the user must be a member of the group
+    assigned to the file being accessed.</p>
+
+    <pre class="prettyprint lang-config">Require dbm-file-group</pre>
+
+
+
+
+</div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="examples" id="examples">Example usage</a></h2>
+
+<p><em>Note that using mod_authz_dbm requires you to require <code>dbm-group</code> 
+instead of <code>group</code>:</em>
+</p>
+<pre class="prettyprint lang-config">&lt;Directory "/foo/bar"&gt;
+  AuthType Basic 
+  AuthName "Secure Area"
+  AuthBasicProvider dbm 
+  AuthDBMUserFile site/data/users 
+  AuthDBMGroupFile site/data/users 
+  Require dbm-group admin 
+&lt;/Directory&gt;</pre>
+
+</div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AuthDBMGroupFile" id="AuthDBMGroupFile">AuthDBMGroupFile</a> <a name="authdbmgroupfile" id="authdbmgroupfile">Directive</a></h2>
 <table class="directive">
@@ -89,10 +140,9 @@ of user groups for authorization</td></tr>
     accomplished by first setting the group and password files to
     point to the same DBM:</p>
 
-    <div class="example"><p><code>
-      AuthDBMGroupFile /www/userbase<br />
-      AuthDBMUserFile /www/userbase
-    </code></p></div>
+    <pre class="prettyprint lang-config">AuthDBMGroupFile /www/userbase
+AuthDBMUserFile /www/userbase</pre>
+
 
     <p>The key for the single DBM is the username. The value consists
     of</p>
@@ -107,53 +157,6 @@ of user groups for authorization</td></tr>
     DBM file after another colon; it is ignored by the authorization
     module. This is what www.telescope.org uses for its combined
     password and group database.</p>
-
-</div>
-<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="AuthzDBMAuthoritative" id="AuthzDBMAuthoritative">AuthzDBMAuthoritative</a> <a name="authzdbmauthoritative" id="authzdbmauthoritative">Directive</a></h2>
-<table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Sets whether authorization will be passed on to lower level
-modules</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthzDBMAuthoritative On|Off</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthzDBMAuthoritative On</code></td></tr>
-<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory, .htaccess</td></tr>
-<tr><th><a href="directive-dict.html#Override">Override:</a></th><td>AuthConfig</td></tr>
-<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
-<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_authz_dbm</td></tr>
-</table>
-    <p>Setting the <code class="directive">AuthzDBMAuthoritative</code>
-    directive explicitly to <code>Off</code> allows group authorization
-    to be passed on to lower level modules (as defined in the
-    <code>modules.c</code> file) if there is no group found
-    for the supplied userID. If there are any groups
-    specified, the usual checks will be applied and a failure will
-    give an Authentication Required reply.</p>
-
-    <p>So if a userID appears in the database of more than one module;
-    or if a valid <code class="directive"><a href="../mod/core.html#require">Require</a></code>
-    directive applies to more than one module; then the first module
-    will verify the credentials; and no access is passed on;
-    regardless of the <code class="directive">AuthAuthoritative</code> setting.</p>
-
-    <p>A common use for this is in conjunction with one of the
-    auth providers; such as <code class="module"><a href="../mod/mod_authn_dbm.html">mod_authn_dbm</a></code> or
-    <code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code>. Whereas this DBM module supplies
-    the bulk of the user credential checking; a few (administrator) related
-    accesses fall through to a lower level with a well protected
-    <code>.htpasswd</code> file.</p>
-
-    <p>By default, control is not passed on and an unknown group
-    will result in an Authentication Required reply. Not
-    setting it thus keeps the system secure and forces an NCSA
-    compliant behaviour.</p>
-
-    <div class="warning"><h3>Security</h3>
-      <p>Do consider the implications of allowing a user to
-      allow fall-through in his .htaccess file; and verify that this
-      is really what you want; Generally it is easier to just secure
-      a single <code>.htpasswd</code> file, than it is to secure a
-      database which might have more access interfaces.</p>
-    </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -181,11 +184,12 @@ store list of user groups</td></tr>
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_authz_dbm.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_authz_dbm.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/mod/mod_authz_dbm.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_authz_dbm.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authz_dbm.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -200,7 +204,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_authz_dbm.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

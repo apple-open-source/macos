@@ -318,7 +318,7 @@ my_ether_ntoa(const struct ether_addr *e,
     }
 
     buf[0] = 0;
-    sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(buf, bufLen, "%02x:%02x:%02x:%02x:%02x:%02x",
             EI(0), EI(1), EI(2), EI(3), EI(4), EI(5));
     return (buf);
 }

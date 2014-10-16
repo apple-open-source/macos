@@ -1,0 +1,21 @@
+#! /bin/csh -f
+#
+# add test roots using /usr/bin/security.
+#
+# first the system certs
+#
+security add-root -s UnrestrictedSystemRoot.cer || exit(1)
+security add-root -s -p smime SMIME_SystemRoot.cer|| exit(1)
+security add-root -s -p ssl SSL_SystemRoot.cer || exit(1)
+security add-root -s  -a "/Applications/Utilities/Keychain Access.app" KeychainAccessSystemRoot.cer || exit(1)
+#
+# Now user certs - this will need UI 
+#
+security add-root UnrestrictedUserRoot.cer || exit(1)
+security add-root -p smime SMIME_UserRoot.cer || exit(1)
+security add-root -p ssl SSL_UserRoot.cer|| exit(1)
+security add-root -a "/Applications/Utilities/Keychain Access.app" KeychainAccessUserRoot.cer || exit(1)
+#
+echo ...complete.
+security dump-roots -A
+

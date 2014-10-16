@@ -35,7 +35,6 @@ class PasteboardStrategy;
 class PluginStrategy;
 class SharedWorkerStrategy;
 class StorageStrategy;
-class VisitedLinkStrategy;
 
 class PlatformStrategies {
 public:
@@ -81,13 +80,6 @@ public:
         return m_sharedWorkerStrategy;
     }
 
-    VisitedLinkStrategy* visitedLinkStrategy()
-    {
-        if (!m_visitedLinkStrategy)
-            m_visitedLinkStrategy = createVisitedLinkStrategy();
-        return m_visitedLinkStrategy;
-    }
-
     StorageStrategy* storageStrategy()
     {
         if (!m_storageStrategy)
@@ -97,14 +89,13 @@ public:
 
 protected:
     PlatformStrategies()
-        : m_cookiesStrategy(0)
-        , m_databaseStrategy(0)
-        , m_loaderStrategy(0)
-        , m_pasteboardStrategy(0)
-        , m_pluginStrategy(0)
-        , m_sharedWorkerStrategy(0)
-        , m_storageStrategy(0)
-        , m_visitedLinkStrategy(0)
+        : m_cookiesStrategy(nullptr)
+        , m_databaseStrategy(nullptr)
+        , m_loaderStrategy(nullptr)
+        , m_pasteboardStrategy(nullptr)
+        , m_pluginStrategy(nullptr)
+        , m_sharedWorkerStrategy(nullptr)
+        , m_storageStrategy(nullptr)
     {
     }
 
@@ -120,7 +111,6 @@ private:
     virtual PluginStrategy* createPluginStrategy() = 0;
     virtual SharedWorkerStrategy* createSharedWorkerStrategy() = 0;
     virtual StorageStrategy* createStorageStrategy() = 0;
-    virtual VisitedLinkStrategy* createVisitedLinkStrategy() = 0;
 
     CookiesStrategy* m_cookiesStrategy;
     DatabaseStrategy* m_databaseStrategy;
@@ -129,7 +119,6 @@ private:
     PluginStrategy* m_pluginStrategy;
     SharedWorkerStrategy* m_sharedWorkerStrategy;
     StorageStrategy* m_storageStrategy;
-    VisitedLinkStrategy* m_visitedLinkStrategy;
 };
 
 PlatformStrategies* platformStrategies();

@@ -18,6 +18,7 @@
 /*
  * Get a block from a given input device.
  */
+__private_extern__
 ssize_t
 GetBlock(DeviceInfo_t *devp, off_t offset, uint8_t *buffer)
 {
@@ -40,6 +41,7 @@ done:
 /*
  * Initialize a VolumeObject.  Simple function.
  */
+__private_extern__
 VolumeObjects_t *
 InitVolumeObject(struct DeviceInfo *devp, struct VolumeDescriptor *vdp)
 {
@@ -67,19 +69,28 @@ done:
  * number of objects we allocate, while still trying to keep
  * the waste memory allocation low.
  */
+__private_extern__
 int
 AddExtent(VolumeObjects_t *vdp, off_t start, off_t length)
+{
+	return AddExtentForFile(vdp, start, length, 0);
+}
+
+__private_extern__
+int
+AddExtentForFile(VolumeObjects_t *vdp, off_t start, off_t length, unsigned int fid)
 {
 	int retval = 0;
 	size_t indx;
 	ExtentList_t **ep = &vdp->list;
 
-	if (debug) printf("AddExtent(%p, %lld, %lld)\n", vdp, start, length);
+	if (debug) printf("AddExtent(%p, %lld, %lld) (file id %u)\n", vdp, start, length, fid);
 	while (*ep) {
 		if ((*ep)->count < kExtentCount) {
 			indx = (*ep)->count;
 			(*ep)->extents[indx].base = start;
 			(*ep)->extents[indx].length = length;
+			(*ep)->extents[indx].fid = fid;
 			(*ep)->count++;
 			break;
 		} else {
@@ -94,6 +105,7 @@ AddExtent(VolumeObjects_t *vdp, off_t start, off_t length)
 		(*ep)->count = 1;
 		(*ep)->extents[0].base = start;
 		(*ep)->extents[0].length = length;
+		(*ep)->extents[0].fid = fid;
 		(*ep)->next = NULL;
 	}
 	vdp->count++;
@@ -104,6 +116,7 @@ done:
 }
 
 // Debugging function
+__private_extern__
 void
 PrintVolumeObject(VolumeObjects_t *vop)
 {
@@ -124,7 +137,7 @@ PrintVolumeObject(VolumeObjects_t *vop)
 	     exts = exts->next) {
 		int indx;
 		for (indx = 0; indx < exts->count; indx++) {
-			printf("\t\t<%lld, %lld>\n", exts->extents[indx].base, exts->extents[indx].length);
+			printf("\t\t<%lld, %lld> (file %u)\n", exts->extents[indx].base, exts->extents[indx].length, exts->extents[indx].fid);
 		}
 	}
 	return;
@@ -136,6 +149,7 @@ PrintVolumeObject(VolumeObjects_t *vop)
  * track of progress, and also takes an amount to skip (which happens if it's
  * resuming an earlier, interrupted copy).
  */
+__private_extern__
 int
 CopyObjectsToDest(VolumeObjects_t *vop, struct IOWrapper *wrapper, off_t skip)
 {

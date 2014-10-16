@@ -489,7 +489,7 @@ krb5_set_error_string(krb5_context context, const char *fmt, ...)
  * Deprecated: use krb5_vset_error_message()
  *
  * @param context Kerberos context
- * @param msg error message to free
+ * @param fmt error message to free
  *
  * @return Return an error code or 0.
  *
@@ -499,7 +499,7 @@ krb5_set_error_string(krb5_context context, const char *fmt, ...)
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vset_error_string(krb5_context context, const char *fmt, va_list args)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0))
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_set_error_message instead")
 {
     krb5_vset_error_message(context, 0, fmt, args);
     return 0;
@@ -517,7 +517,7 @@ krb5_vset_error_string(krb5_context context, const char *fmt, va_list args)
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_clear_error_string(krb5_context context)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_clear_error_message instead")
 {
     krb5_clear_error_message(context);
 }
@@ -539,7 +539,7 @@ krb5_get_cred_from_kdc_opt(krb5_context context,
 {
     krb5_kdc_flags f;
     f.i = flags;
-    return _krb5_get_cred_kdc_any(context, f, ccache,
+    return _krb5_get_cred_kdc_any(context, f, ccache, NULL,
 				  in_creds, NULL, NULL,
 				  out_creds, ret_tgts);
 }

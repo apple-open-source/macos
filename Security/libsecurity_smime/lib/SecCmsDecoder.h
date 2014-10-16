@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010,2013 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsDecoder.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010,2013 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -47,8 +47,6 @@ extern "C" {
 /*!
     @function
     @abstract Set up decoding of a BER-encoded CMS message.
-    @param arena An ArenaPool object to use for the resulting message, or NULL if new ArenaPool
-	should be created.
     @param cb callback function for delivery of inner content inner
 	content will be stored in the message if cb is NULL.
     @param cb_arg first argument passed to cb when it is called.
@@ -61,13 +59,12 @@ extern "C" {
 	when it is called.
     @param outDecoder On success will contain a pointer to a newly created SecCmsDecoder.
     @result A result code. See "SecCmsBase.h" for possible results.
-    @discussion Create a SecCmsDecoder().  If this function returns noErr, the caller must dispose of the returned outDecoder by calling SecCmsDecoderDestroy() or SecCmsDecoderFinish().
+    @discussion Create a SecCmsDecoder().  If this function returns errSecSuccess, the caller must dispose of the returned outDecoder by calling SecCmsDecoderDestroy() or SecCmsDecoderFinish().
     @availability 10.4 and later
     @updated 2004-04-05
  */
 extern OSStatus
-SecCmsDecoderCreate(SecArenaPoolRef arena,
-                   SecCmsContentCallback cb, void *cb_arg,
+SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
                    PK11PasswordFunc pwfn, void *pwfn_arg,
                    SecCmsGetDecryptKeyCallback decrypt_key_cb, void
                    *decrypt_key_cb_arg,
@@ -113,7 +110,7 @@ SecCmsDecoderFinish(SecCmsDecoderRef decoder, SecCmsMessageRef *outMessage);
     @abstract Decode a CMS message from BER encoded data.
     @discussion This function basically does the same as calling
                 SecCmsDecoderStart(), SecCmsDecoderUpdate() and SecCmsDecoderFinish().
-    @param DERmessage Pointer to a CSSM_DATA containing the BER encoded cms
+    @param DERmessage Pointer to a SecAsn1Item containing the BER encoded cms
            message to decode.
     @param cb callback function for delivery of inner content inner
            content will be stored in the message if cb is NULL.
@@ -129,7 +126,7 @@ SecCmsDecoderFinish(SecCmsDecoderRef decoder, SecCmsMessageRef *outMessage);
     @availability 10.4 and later
  */
 extern OSStatus
-SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
+SecCmsMessageDecode(const SecAsn1Item *encodedMessage,
                     SecCmsContentCallback cb, void *cb_arg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,

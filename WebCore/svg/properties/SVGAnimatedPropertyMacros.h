@@ -22,7 +22,7 @@
 #ifndef SVGAnimatedPropertyMacros_h
 #define SVGAnimatedPropertyMacros_h
 
-#if ENABLE(SVG)
+#include "Element.h"
 #include "SVGAnimatedProperty.h"
 #include "SVGAttributeToPropertyMap.h"
 #include "SVGPropertyTraits.h"
@@ -56,7 +56,7 @@ struct SVGSynchronizableAnimatedProperty {
     {
     }
 
-    void synchronize(SVGElement* ownerElement, const QualifiedName& attrName, const AtomicString& value)
+    void synchronize(Element* ownerElement, const QualifiedName& attrName, const AtomicString& value)
     {
         ownerElement->setSynchronizedLazyAttribute(attrName, value);
     }
@@ -70,7 +70,7 @@ struct SVGSynchronizableAnimatedProperty {
 #define BEGIN_REGISTER_ANIMATED_PROPERTIES(OwnerType) \
 SVGAttributeToPropertyMap& OwnerType::attributeToPropertyMap() \
 { \
-    DEFINE_STATIC_LOCAL(SVGAttributeToPropertyMap, s_attributeToPropertyMap, ()); \
+    DEPRECATED_DEFINE_STATIC_LOCAL(SVGAttributeToPropertyMap, s_attributeToPropertyMap, ()); \
     return s_attributeToPropertyMap; \
 } \
 \
@@ -92,7 +92,7 @@ static void registerAnimatedPropertiesFor##OwnerType() \
 // Property definition helpers (used in SVG*.cpp files)
 #define DEFINE_ANIMATED_PROPERTY(AnimatedPropertyTypeEnum, OwnerType, DOMAttribute, SVGDOMAttributeIdentifier, UpperProperty, LowerProperty) \
 const SVGPropertyInfo* OwnerType::LowerProperty##PropertyInfo() { \
-    DEFINE_STATIC_LOCAL(const SVGPropertyInfo, s_propertyInfo, \
+    DEPRECATED_DEFINE_STATIC_LOCAL(const SVGPropertyInfo, s_propertyInfo, \
                         (AnimatedPropertyTypeEnum, \
                          PropertyIsReadWrite, \
                          DOMAttribute, \
@@ -184,5 +184,4 @@ void detachAnimated##UpperProperty##ListWrappers(unsigned newListSize) \
 
 }
 
-#endif // ENABLE(SVG)
 #endif // SVGAnimatedPropertyMacros_h

@@ -36,29 +36,36 @@ namespace JSC {
     public:
         Identifier() { }
         enum EmptyIdentifierFlag { EmptyIdentifier };
-        Identifier(EmptyIdentifierFlag) : m_string(StringImpl::empty()) { }
+        Identifier(EmptyIdentifierFlag) : m_string(StringImpl::empty()) { ASSERT(m_string.impl()->isAtomic()); }
 
         // Only to be used with string literals.
         template<unsigned charactersCount>
-        Identifier(ExecState* exec, const char (&characters)[charactersCount]) : m_string(add(exec, characters)) { }
+        Identifier(ExecState* exec, const char (&characters)[charactersCount]) : m_string(add(exec, characters)) { ASSERT(m_string.impl()->isAtomic()); }
         template<unsigned charactersCount>
-        Identifier(VM* vm, const char (&characters)[charactersCount]) : m_string(add(vm, characters)) { }
+        Identifier(VM* vm, const char (&characters)[charactersCount]) : m_string(add(vm, characters)) { ASSERT(m_string.impl()->isAtomic()); }
 
-        Identifier(ExecState* exec, StringImpl* rep) : m_string(add(exec, rep)) { }
-        Identifier(ExecState* exec, const String& s) : m_string(add(exec, s.impl())) { }
+        Identifier(ExecState* exec, StringImpl* rep) : m_string(add(exec, rep)) { ASSERT(m_string.impl()->isAtomic()); }
+        Identifier(ExecState* exec, const String& s) : m_string(add(exec, s.impl())) { ASSERT(m_string.impl()->isAtomic()); }
 
-        Identifier(VM* vm, const LChar* s, int length) : m_string(add(vm, s, length)) { }
-        Identifier(VM* vm, const UChar* s, int length) : m_string(add(vm, s, length)) { }
-        Identifier(VM* vm, StringImpl* rep) : m_string(add(vm, rep)) { } 
-        Identifier(VM* vm, const String& s) : m_string(add(vm, s.impl())) { }
+        Identifier(VM* vm, const LChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtomic()); }
+        Identifier(VM* vm, const UChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtomic()); }
+        Identifier(VM* vm, StringImpl* rep) : m_string(add(vm, rep)) { ASSERT(m_string.impl()->isAtomic()); }
+        Identifier(VM* vm, const String& s) : m_string(add(vm, s.impl())) { ASSERT(m_string.impl()->isAtomic()); }
 
         const String& string() const { return m_string; }
         StringImpl* impl() const { return m_string.impl(); }
         
-        const UChar* characters() const { return m_string.characters(); }
         int length() const { return m_string.length(); }
         
         CString ascii() const { return m_string.ascii(); }
+        CString utf8() const { return m_string.utf8(); }
+        
+        static Identifier from(const PrivateName& name)
+        {
+            Identifier result;
+            result.m_string = name.uid();
+            return result;
+        }
 
         static Identifier createLCharFromUChar(VM* vm, const UChar* s, int length) { return Identifier(vm, add8(vm, s, length)); }
 
@@ -87,8 +94,8 @@ namespace JSC {
         static bool equal(const StringImpl* a, const StringImpl* b) { return ::equal(a, b); }
 
         // Only to be used with string literals.
-        static PassRefPtr<StringImpl> add(VM*, const char*);
-        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> add(ExecState*, const char*);
+        JS_EXPORT_PRIVATE static PassRef<StringImpl> add(VM*, const char*);
+        JS_EXPORT_PRIVATE static PassRef<StringImpl> add(ExecState*, const char*);
 
     private:
         String m_string;
@@ -99,34 +106,15 @@ namespace JSC {
         static bool equal(const Identifier& a, const Identifier& b) { return a.m_string.impl() == b.m_string.impl(); }
         static bool equal(const Identifier& a, const LChar* b) { return equal(a.m_string.impl(), b); }
 
-        template <typename T> static PassRefPtr<StringImpl> add(VM*, const T*, int length);
-        static PassRefPtr<StringImpl> add8(VM*, const UChar*, int length);
+        template <typename T> static PassRef<StringImpl> add(VM*, const T*, int length);
+        static PassRef<StringImpl> add8(VM*, const UChar*, int length);
         template <typename T> ALWAYS_INLINE static bool canUseSingleCharacterString(T);
 
-        static PassRefPtr<StringImpl> add(ExecState* exec, StringImpl* r)
-        {
-#ifndef NDEBUG
-            checkCurrentIdentifierTable(exec);
-#endif
-            if (r->isIdentifier())
-                return r;
-            return addSlowCase(exec, r);
-        }
-        static PassRefPtr<StringImpl> add(VM* vm, StringImpl* r)
-        {
-#ifndef NDEBUG
-            checkCurrentIdentifierTable(vm);
-#endif
-            if (r->isIdentifier())
-                return r;
-            return addSlowCase(vm, r);
-        }
+        static PassRef<StringImpl> add(ExecState*, StringImpl*);
+        static PassRef<StringImpl> add(VM*, StringImpl*);
 
-        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(ExecState*, StringImpl* r);
-        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(VM*, StringImpl* r);
-
-        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(ExecState*);
-        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(VM*);
+        JS_EXPORT_PRIVATE static void checkCurrentAtomicStringTable(ExecState*);
+        JS_EXPORT_PRIVATE static void checkCurrentAtomicStringTable(VM*);
     };
 
     template <> ALWAYS_INLINE bool Identifier::canUseSingleCharacterString(LChar)
@@ -141,51 +129,17 @@ namespace JSC {
     }
 
     template <typename T>
-    struct CharBuffer {
-        const T* s;
-        unsigned int length;
-    };
-    
-    template <typename T>
-    struct IdentifierCharBufferTranslator {
-        static unsigned hash(const CharBuffer<T>& buf)
-        {
-            return StringHasher::computeHashAndMaskTop8Bits(buf.s, buf.length);
-        }
-        
-        static bool equal(StringImpl* str, const CharBuffer<T>& buf)
-        {
-            return Identifier::equal(str, buf.s, buf.length);
-        }
-
-        static void translate(StringImpl*& location, const CharBuffer<T>& buf, unsigned hash)
-        {
-            T* d;
-            StringImpl* r = StringImpl::createUninitialized(buf.length, d).leakRef();
-            for (unsigned i = 0; i != buf.length; i++)
-                d[i] = buf.s[i];
-            r->setHash(hash);
-            location = r; 
-        }
-    };
-
-    template <typename T>
-    PassRefPtr<StringImpl> Identifier::add(VM* vm, const T* s, int length)
+    PassRef<StringImpl> Identifier::add(VM* vm, const T* s, int length)
     {
         if (length == 1) {
             T c = s[0];
             if (canUseSingleCharacterString(c))
-                return add(vm, vm->smallStrings.singleCharacterStringRep(c));
+                return *vm->smallStrings.singleCharacterStringRep(c);
         }
-        
         if (!length)
-            return StringImpl::empty();
-        CharBuffer<T> buf = { s, static_cast<unsigned>(length) };
-        HashSet<StringImpl*>::AddResult addResult = vm->identifierTable->add<CharBuffer<T>, IdentifierCharBufferTranslator<T> >(buf);
+            return *StringImpl::empty();
         
-        // If the string is newly-translated, then we need to adopt it.
-        // The boolean in the pair tells us if that is so.
-        return addResult.isNewEntry ? adoptRef(*addResult.iterator) : *addResult.iterator;
+        return *AtomicString::add(s, length);
     }
 
     inline bool operator==(const Identifier& a, const Identifier& b)
@@ -233,10 +187,7 @@ namespace JSC {
         return WTF::equal(r, s, length);
     }
     
-    IdentifierTable* createIdentifierTable();
-    void deleteIdentifierTable(IdentifierTable*);
-
-    struct IdentifierRepHash : PtrHash<RefPtr<StringImpl> > {
+    struct IdentifierRepHash : PtrHash<RefPtr<StringImpl>> {
         static unsigned hash(const RefPtr<StringImpl>& key) { return key->existingHash(); }
         static unsigned hash(StringImpl* key) { return key->existingHash(); }
     };
@@ -246,15 +197,8 @@ namespace JSC {
         static const bool emptyValueIsZero = false;
     };
 
-    typedef HashMap<RefPtr<StringImpl>, int, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, IdentifierMapIndexHashTraits> IdentifierMap;
-
-    template<typename U, typename V>
-    HashSet<StringImpl*>::AddResult IdentifierTable::add(U value)
-    {
-        HashSet<StringImpl*>::AddResult result = m_table.add<U, V>(value);
-        (*result.iterator)->setIsIdentifier(true);
-        return result;
-    }
+    typedef HashMap<RefPtr<StringImpl>, int, IdentifierRepHash, HashTraits<RefPtr<StringImpl>>, IdentifierMapIndexHashTraits> IdentifierMap;
+    typedef HashMap<StringImpl*, int, IdentifierRepHash, HashTraits<StringImpl*>, IdentifierMapIndexHashTraits> BorrowedIdentifierMap;
 
 } // namespace JSC
 

@@ -32,10 +32,6 @@
 
 #pragma ident	"@(#)elf.h	1.70	08/05/13 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/elftypes.h>
-#else /* is Apple Mac OS X */
-
 #ifdef KERNEL
 #ifndef _KERNEL
 #define _KERNEL /* Solaris vs. Darwin */
@@ -43,7 +39,6 @@
 #endif
 
 #include "elftypes.h" /* In lieu of Solaris <sys/elftypes.h> */
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -477,10 +472,8 @@ typedef struct {
 #define	SHN_HIOS	0xff3f
 #define	SHN_ABS		0xfff1
 #define	SHN_COMMON	0xfff2
-#if defined(__APPLE__)
 #define SHN_MACHO_64	0xfffd		/* Mach-o_64 direct string access */
 #define SHN_MACHO	0xfffe		/* Mach-o direct string access */
-#endif /* __APPLE__ */
 #define	SHN_XINDEX	0xffff		/* extended sect index */
 #define	SHN_HIRESERVE	0xffff
 
@@ -497,20 +490,22 @@ typedef struct {
 	unsigned char	st_info;	/* bind, type: ELF_32_ST_... */
 	unsigned char	st_other;
 	Elf32_Half	st_shndx;	/* SHN_... */
+#if defined(__arm__) || defined(__arm64__)
+	uint32_t	st_arch_subinfo;
+#endif
 } Elf32_Sym;
 
 #if defined(_LP64) || defined(_LONGLONG_TYPE)
 typedef struct {
-#if !defined(__APPLE__)
-	Elf64_Word	st_name;
-#else
 	Elf64_Sxword	st_name;
-#endif /* __APPLE__ */
 	unsigned char	st_info;	/* bind, type: ELF_64_ST_... */
 	unsigned char	st_other;
 	Elf64_Half	st_shndx;	/* SHN_... */
 	Elf64_Addr	st_value;
 	Elf64_Xword	st_size;
+#if defined(__arm__) || defined(__arm64__)
+	uint32_t	st_arch_subinfo;
+#endif
 } Elf64_Sym;
 #endif	/* defined(_LP64) || defined(_LONGLONG_TYPE) */
 
@@ -772,11 +767,7 @@ int	elfheadcheck(unsigned char, Elf32_Half, Elf32_Word);
 
 #if defined(ELF_TARGET_ALL) || defined(ELF_TARGET_386)
 
-#if !defined(__APPLE__)
-#include <sys/elf_386.h>
-#else /* is Apple Mac OS X */
 #include "elf_386.h" /* In lieu of Solaris <sys/elf_386.h> */
-#endif /* __APPLE__ */
 #endif
 
 #if defined(ELF_TARGET_ALL) || defined(ELF_TARGET_AMD64)

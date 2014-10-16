@@ -1,0 +1,87 @@
+/^#include "Python.h"/a
+/* In python 3.x, the PyBytes family of routines, defined in bytesobject.h,
+ * manipulate byte strings, which is closest to the char * type of C.  However,
+ * python 2.x doesn't have PyBytes, but use the PyString family.  In python
+ * 2.6 and 2.7, bytesobject.h is a compatibility header that maps the PyBytes
+ * routines to the corresponding PyString routine.
+ */
+#include "bytesobject.h"
+.
+g/PyString/s//PyBytes/g
+/^static PyObject \*xattr_error(/s/void/const char *name/
+/^static PyObject \*xattr_error_with_filename(/s/(/(const char *file, const /
+/^xattr_error(/s/void/const char *name/
+/return/i
+    if (name && errno == ENOATTR) {
+	PyErr_SetString(PyExc_KeyError, name);
+	return NULL;
+    }
+.
+/^xattr_error_with_filename(/s/(/(const char *file, const /
+/return/c
+    if (name && errno == ENOATTR) {
+	PyErr_SetString(PyExc_KeyError, name);
+	return NULL;
+    }
+    return PyErr_SetFromErrnoWithFilename(PyExc_IOError, (char *)file);
+.
+/^py_getxattr(/a
+.
+/PyArg_ParseTuple(/+1s/"etet|I/"etet|k/
+/xattr_error_with_filename(/s/)/, name)/
+/xattr_error_with_filename(/s/)/, name)/
+/^py_fgetxattr(/a
+.
+/PyArg_ParseTuple(/+1s/"iet|I/"iet|k/
+/xattr_error(/s/(/(name/
+/xattr_error(/s/(/(name/
+/^py_setxattr(/a
+.
+/xattr_error_with_filename(/s/)/, name)/
+/^py_fsetxattr(/a
+.
+/xattr_error(/s/(/(name/
+/^py_removexattr(/a
+.
+/xattr_error_with_filename(/s/)/, name)/
+/^py_fremovexattr(/a
+.
+/xattr_error(/s/(/(name/
+/^py_listxattr(/a
+.
+/xattr_error_with_filename(/s/)/, NULL)/
+/xattr_error_with_filename(/s/)/, NULL)/
+/^py_flistxattr(/a
+.
+/xattr_error(/s/(/(NULL/
+/xattr_error(/s/(/(NULL/
+/^void init_xattr(/i
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "_xattr",
+    NULL,
+    0,
+    xattr_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+
+PyObject *
+PyInit__xattr(void)
+#else
+.
+/^init_xattr(/a
+#endif
+.
+/PyObject \*m;/i
+#if PY_MAJOR_VERSION >= 3
+    return PyModule_Create(&moduledef);
+#else
+.
+/^}/i
+#endif
+.
+w

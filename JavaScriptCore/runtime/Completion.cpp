@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2007 Apple Inc.
+ *  Copyright (C) 2003, 2007, 2013 Apple Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -29,17 +29,16 @@
 #include "Interpreter.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 #include "Parser.h"
 #include <wtf/WTFThreadData.h>
-#include <stdio.h>
 
 namespace JSC {
 
 bool checkSyntax(ExecState* exec, const SourceCode& source, JSValue* returnedException)
 {
     JSLockHolder lock(exec);
-    RELEASE_ASSERT(exec->vm().identifierTable == wtfThreadData().currentIdentifierTable());
+    RELEASE_ASSERT(exec->vm().atomicStringTable() == wtfThreadData().atomicStringTable());
 
     ProgramExecutable* program = ProgramExecutable::create(exec, source);
     JSObject* error = program->checkSyntax(exec);
@@ -55,7 +54,7 @@ bool checkSyntax(ExecState* exec, const SourceCode& source, JSValue* returnedExc
 bool checkSyntax(VM& vm, const SourceCode& source, ParserError& error)
 {
     JSLockHolder lock(vm);
-    RELEASE_ASSERT(vm.identifierTable == wtfThreadData().currentIdentifierTable());
+    RELEASE_ASSERT(vm.atomicStringTable() == wtfThreadData().atomicStringTable());
     RefPtr<ProgramNode> programNode = parse<ProgramNode>(&vm, source, 0, Identifier(), JSParseNormal, JSParseProgramCode, error);
     return programNode;
 }
@@ -63,7 +62,7 @@ bool checkSyntax(VM& vm, const SourceCode& source, ParserError& error)
 JSValue evaluate(ExecState* exec, const SourceCode& source, JSValue thisValue, JSValue* returnedException)
 {
     JSLockHolder lock(exec);
-    RELEASE_ASSERT(exec->vm().identifierTable == wtfThreadData().currentIdentifierTable());
+    RELEASE_ASSERT(exec->vm().atomicStringTable() == wtfThreadData().atomicStringTable());
     RELEASE_ASSERT(!exec->vm().isCollectorBusy());
 
     CodeProfiling profile(source);
@@ -71,15 +70,15 @@ JSValue evaluate(ExecState* exec, const SourceCode& source, JSValue thisValue, J
     ProgramExecutable* program = ProgramExecutable::create(exec, source);
     if (!program) {
         if (returnedException)
-            *returnedException = exec->vm().exception;
+            *returnedException = exec->vm().exception();
 
-        exec->vm().exception = JSValue();
+        exec->vm().clearException();
         return jsUndefined();
     }
 
     if (!thisValue || thisValue.isUndefinedOrNull())
-        thisValue = exec->dynamicGlobalObject();
-    JSObject* thisObj = thisValue.toThisObject(exec);
+        thisValue = exec->vmEntryGlobalObject();
+    JSObject* thisObj = jsCast<JSObject*>(thisValue.toThis(exec, NotStrictMode));
     JSValue result = exec->interpreter()->execute(program, exec, thisObj);
 
     if (exec->hadException()) {

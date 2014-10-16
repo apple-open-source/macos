@@ -45,7 +45,10 @@ VALID_ARCHS=ppc i386 x86_64 armv5 armv6 armv7
 //
 // <rdar://problem/7303485> generated header files don't get correct dependencies
 // <rdar://problem/7306702> dtrace header generation depends on USE_HEADERMAP=YES
-USE_HEADERMAP=YES
+// BUT
+// Xcode 5.1 claims to fix these issues. See :
+// <rdar://problem/16328950> Migrate 'dcerpc' to USE_HEADERMAP=NO build setting
+USE_HEADERMAP=NO
 HEADERMAP_INCLUDES_PROJECT_HEADERS=NO
 HEADERMAP_INCLUDES_FRAMEWORK_ENTRIES_FOR_ALL_PRODUCT_TYPES=NO
 HEADERMAP_INCLUDES_FLAT_ENTRIES_FOR_TARGET_BEING_BUILT=NO

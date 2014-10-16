@@ -28,6 +28,7 @@
 #include <libkern/OSAtomic.h>
 #undef enqueue
 #include "IOHIDEventServiceQueue.h"
+#include "IOHIDEventService.h"
 #include "IOHIDEvent.h"
 
 #define super IOSharedDataQueue
@@ -139,13 +140,15 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
 
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
-    if ( ( head == tail ) || ( dataQueue->head == tail ) || queueFull) {
-//        if (queueFull) {
-//            IOLog("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again\n");
-//        }
-        sendDataAvailableNotification();
+    if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
+        if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail ) || ( dataQueue->head == tail ) || queueFull) {
+    //        if (queueFull) {
+    //            IOLog("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again\n");
+    //        }
+            sendDataAvailableNotification();
+        }
     }
-
+    
     return result;
 }
 

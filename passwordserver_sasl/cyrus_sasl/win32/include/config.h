@@ -55,7 +55,7 @@
 #define PACKAGE "cyrus-sasl"
 
 /* Our version */
-#define VERSION "2.1.22"
+#define VERSION "2.1.26"
 
 /* Visual Studio supports prototypes */
 #define PROTOTYPES     1
@@ -79,8 +79,8 @@ typedef int		    intptr_t;
 
 /* Registry key that contains the locations of the plugins */
 #define SASL_ROOT_KEY "SOFTWARE\\Carnegie Mellon\\Project Cyrus\\SASL Library"
-#define SASL_KEY_V1 SASL_ROOT_KEY "\\Available Plugins"
-#define SASL_PATH_SUBKEY "SearchPath"
+#define SASL_PLUGIN_PATH_ATTR "SearchPath"
+#define SASL_CONF_PATH_ATTR "ConfFile"
 
 /* : This should probably be replaced with a call to a function
    : that gets the proper value from Registry */
@@ -95,6 +95,7 @@ typedef int		    intptr_t;
 #define STATIC_ANONYMOUS 1
 #define STATIC_CRAMMD5 1
 #define STATIC_DIGESTMD5 1
+#define STATIC_SCRAM 1
 #define STATIC_GSSAPIV2 1
 /* #undef STATIC_KERBEROS4 */
 #define STATIC_LOGIN 1
@@ -110,8 +111,8 @@ typedef int		    intptr_t;
  */
 #define HAVE_MEMCPY 1
 
-#define SASL_PATH_ENV_VAR "SASL_PATH"
 #define PLUGINDIR "C:\\CMU\\bin\\sasl2"
+#define CONFIGDIR "C:\\CMU\\bin\\sasl2"
 
 /* Windows calls these functions something else
  */
@@ -196,7 +197,14 @@ struct sockaddr_storage {
 
 #include <time.h>
 
-typedef int ssize_t;
+/* Keep in sync with SleepyCat definitions */
+typedef int int32_t;
+typedef __int64 int64_t;
+#ifdef _WIN64
+typedef int64_t ssize_t;
+#else
+typedef int32_t ssize_t;
+#endif
 
 #define HIER_DELIMITER '\\'
 

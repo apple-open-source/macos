@@ -1,0 +1,4 @@
+/^def get_platform_osx(/a
+.
+/if ((macrelease + '\.') >= '10\.4\.'/s//if (map(int, macrelease.split('.')) >= map(int, '10.4'.split('.'))/
+w

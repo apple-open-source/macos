@@ -46,6 +46,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#if APR_HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -53,29 +56,6 @@
 
 #ifdef HAVE_GRP_H
 #include <grp.h>
-#endif
-
-/*
- ***********************************************************************
- * There is no initgroups() in QNX, so I believe this is safe :-)
- * Use cc -osuexec -3 -O -mf -DQNX suexec.c to compile.
- *
- * May 17, 1997.
- * Igor N. Kovalenko -- infoh mail.wplus.net
- ***********************************************************************
- */
-
-#if defined(NEED_INITGROUPS)
-int initgroups(const char *name, gid_t basegid)
-{
-    /* QNX and MPE do not appear to support supplementary groups. */
-    return 0;
-}
-#endif
-
-#if defined(SUNOS4)
-extern char *sys_errlist[];
-#define strerror(x) sys_errlist[(x)]
 #endif
 
 #if defined(PATH_MAX)
@@ -101,6 +81,8 @@ static const char *const safe_env_lst[] =
     "AUTH_TYPE=",
     "CONTENT_LENGTH=",
     "CONTENT_TYPE=",
+    "CONTEXT_DOCUMENT_ROOT=",
+    "CONTEXT_PREFIX=",
     "DATE_GMT=",
     "DATE_LOCAL=",
     "DOCUMENT_NAME=",
@@ -119,13 +101,16 @@ static const char *const safe_env_lst[] =
     "REMOTE_IDENT=",
     "REMOTE_PORT=",
     "REMOTE_USER=",
+    "REDIRECT_ERROR_NOTES=",
     "REDIRECT_HANDLER=",
     "REDIRECT_QUERY_STRING=",
     "REDIRECT_REMOTE_USER=",
+    "REDIRECT_SCRIPT_FILENAME=",
     "REDIRECT_STATUS=",
     "REDIRECT_URL=",
     "REQUEST_METHOD=",
     "REQUEST_URI=",
+    "REQUEST_SCHEME=",
     "SCRIPT_FILENAME=",
     "SCRIPT_NAME=",
     "SCRIPT_URI=",
@@ -143,6 +128,12 @@ static const char *const safe_env_lst[] =
     NULL
 };
 
+static void log_err(const char *fmt,...) 
+    __attribute__((format(printf,1,2)));
+static void log_no_err(const char *fmt,...)  
+    __attribute__((format(printf,1,2)));
+static void err_output(int is_error, const char *fmt, va_list ap) 
+    __attribute__((format(printf,2,0)));
 
 static void err_output(int is_error, const char *fmt, va_list ap)
 {
@@ -151,7 +142,11 @@ static void err_output(int is_error, const char *fmt, va_list ap)
     struct tm *lt;
 
     if (!log) {
+#if defined(_LARGEFILE64_SOURCE) && HAVE_FOPEN64
+        if ((log = fopen64(AP_LOG_EXEC, "a")) == NULL) {
+#else
         if ((log = fopen(AP_LOG_EXEC, "a")) == NULL) {
+#endif
             fprintf(stderr, "suexec failure: could not open log file\n");
             perror("fopen");
             exit(1);
@@ -222,11 +217,15 @@ static void clean_env(void)
 
     if ((cleanenv = (char **) calloc(AP_ENVBUF, sizeof(char *))) == NULL) {
         log_err("failed to malloc memory for environment\n");
-        exit(120);
+        exit(123);
     }
 
     sprintf(pathbuf, "PATH=%s", AP_SAFE_PATH);
     cleanenv[cidx] = strdup(pathbuf);
+    if (cleanenv[cidx] == NULL) {
+        log_err("failed to malloc memory for environment\n");
+        exit(124);
+    }
     cidx++;
 
     for (ep = envp; *ep && cidx < AP_ENVBUF-1; ep++) {
@@ -255,7 +254,6 @@ int main(int argc, char *argv[])
     char *target_homedir;   /* target home directory     */
     char *actual_uname;     /* actual user name          */
     char *actual_gname;     /* actual group name         */
-    char *prog;             /* name of this program      */
     char *cmd;              /* command to be executed    */
     char cwd[AP_MAXPATH];   /* current working directory */
     char dwd[AP_MAXPATH];   /* docroot working directory */
@@ -269,14 +267,13 @@ int main(int argc, char *argv[])
      */
     clean_env();
 
-    prog = argv[0];
     /*
      * Check existence/validity of the UID of the user
      * running this program.  Error out if invalid.
      */
     uid = getuid();
     if ((pw = getpwuid(uid)) == NULL) {
-        log_err("crit: invalid uid: (%ld)\n", uid);
+        log_err("crit: invalid uid: (%lu)\n", (unsigned long)uid);
         exit(102);
     }
     /*
@@ -403,7 +400,10 @@ int main(int argc, char *argv[])
         }
     }
     gid = gr->gr_gid;
-    actual_gname = strdup(gr->gr_name);
+    if ((actual_gname = strdup(gr->gr_name)) == NULL) {
+        log_err("failed to alloc memory\n");
+        exit(125);
+    }
 
 #ifdef _OSD_POSIX
     /*
@@ -438,6 +438,10 @@ int main(int argc, char *argv[])
     uid = pw->pw_uid;
     actual_uname = strdup(pw->pw_name);
     target_homedir = strdup(pw->pw_dir);
+    if (actual_uname == NULL || target_homedir == NULL) {
+        log_err("failed to alloc memory\n");
+        exit(126);
+    }
 
     /*
      * Log the transaction here to be sure we have an open log
@@ -453,7 +457,7 @@ int main(int argc, char *argv[])
      * a UID less than AP_UID_MIN.  Tsk tsk.
      */
     if ((uid == 0) || (uid < AP_UID_MIN)) {
-        log_err("cannot run as forbidden uid (%d/%s)\n", uid, cmd);
+        log_err("cannot run as forbidden uid (%lu/%s)\n", (unsigned long)uid, cmd);
         exit(107);
     }
 
@@ -462,7 +466,7 @@ int main(int argc, char *argv[])
      * or as a GID less than AP_GID_MIN.  Tsk tsk.
      */
     if ((gid == 0) || (gid < AP_GID_MIN)) {
-        log_err("cannot run as forbidden gid (%d/%s)\n", gid, cmd);
+        log_err("cannot run as forbidden gid (%lu/%s)\n", (unsigned long)gid, cmd);
         exit(108);
     }
 
@@ -473,7 +477,7 @@ int main(int argc, char *argv[])
      * and setgid() to the target group. If unsuccessful, error out.
      */
     if (((setgid(gid)) != 0) || (initgroups(actual_uname, gid) != 0)) {
-        log_err("failed to setgid (%ld: %s)\n", gid, cmd);
+        log_err("failed to setgid (%lu: %s)\n", (unsigned long)gid, cmd);
         exit(109);
     }
 
@@ -481,7 +485,7 @@ int main(int argc, char *argv[])
      * setuid() to the target user.  Error out on fail.
      */
     if ((setuid(uid)) != 0) {
-        log_err("failed to setuid (%ld: %s)\n", uid, cmd);
+        log_err("failed to setuid (%lu: %s)\n", (unsigned long)uid, cmd);
         exit(110);
     }
 
@@ -569,11 +573,11 @@ int main(int argc, char *argv[])
         (gid != dir_info.st_gid) ||
         (uid != prg_info.st_uid) ||
         (gid != prg_info.st_gid)) {
-        log_err("target uid/gid (%ld/%ld) mismatch "
-                "with directory (%ld/%ld) or program (%ld/%ld)\n",
-                uid, gid,
-                dir_info.st_uid, dir_info.st_gid,
-                prg_info.st_uid, prg_info.st_gid);
+        log_err("target uid/gid (%lu/%lu) mismatch "
+                "with directory (%lu/%lu) or program (%lu/%lu)\n",
+                (unsigned long)uid, (unsigned long)gid,
+                (unsigned long)dir_info.st_uid, (unsigned long)dir_info.st_gid,
+                (unsigned long)prg_info.st_uid, (unsigned long)prg_info.st_gid);
         exit(120);
     }
     /*
@@ -597,18 +601,27 @@ int main(int argc, char *argv[])
     umask(AP_SUEXEC_UMASK);
 #endif /* AP_SUEXEC_UMASK */
 
-    /*
-     * Be sure to close the log file so the CGI can't
-     * mess with it.  If the exec fails, it will be reopened
-     * automatically when log_err is called.  Note that the log
-     * might not actually be open if AP_LOG_EXEC isn't defined.
-     * However, the "log" cell isn't ifdef'd so let's be defensive
-     * and assume someone might have done something with it
-     * outside an ifdef'd AP_LOG_EXEC block.
-     */
+    /* Be sure to close the log file so the CGI can't mess with it. */
     if (log != NULL) {
+#if APR_HAVE_FCNTL_H
+        /*
+         * ask fcntl(2) to set the FD_CLOEXEC flag on the log file,
+         * so it'll be automagically closed if the exec() call succeeds.
+         */
+        fflush(log);
+        setbuf(log, NULL);
+        if ((fcntl(fileno(log), F_SETFD, FD_CLOEXEC) == -1)) {
+            log_err("error: can't set close-on-exec flag");
+            exit(122);
+        }
+#else
+        /*
+         * In this case, exec() errors won't be logged because we have already
+         * dropped privileges and won't be able to reopen the log file.
+         */
         fclose(log);
         log = NULL;
+#endif
     }
 
     /*

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleGetInfoString</key>
+	<string>$(COM_APPLE_CDC_DRIVER_LONG_VERSION), USB CDC EEM driver</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
@@ -17,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2.1</string>
+	<string>$(COM_APPLE_CDC_DRIVER_SHORT_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.2.1b5</string>
+	<string>$(COM_APPLE_CDC_DRIVER_LONG_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCEEM</key>

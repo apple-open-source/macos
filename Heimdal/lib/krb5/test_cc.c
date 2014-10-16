@@ -336,21 +336,21 @@ test_def_cc_name(krb5_context context)
 {
     krb5_error_code ret;
     char *str;
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(cc_names)/sizeof(cc_names[0]); i++) {
 	ret = _krb5_expand_default_cc_name(context, cc_names[i].str, &str);
 	if (ret) {
 	    if (cc_names[i].fail == 0)
 		krb5_errx(context, 1, "test %d \"%s\" failed",
-			  i, cc_names[i].str);
+			  (int)i, cc_names[i].str);
 	} else {
 	    if (cc_names[i].fail)
 		krb5_errx(context, 1, "test %d \"%s\" was successful",
-			  i, cc_names[i].str);
+			  (int)i, cc_names[i].str);
 	    if (cc_names[i].res && strcmp(cc_names[i].res, str) != 0)
 		krb5_errx(context, 1, "test %d %s != %s",
-			  i, cc_names[i].res, str);
+			  (int)i, cc_names[i].res, str);
 	    if (debug_flag)
 		printf("%s => %s\n", cc_names[i].str, str);
 	    free(str);
@@ -661,22 +661,34 @@ test_threaded(krb5_context context)
 
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number, q, ^(size_t num) {
-				test_move(context, "API");
+				krb5_context c;
+				krb5_init_context(&c);
+				test_move(c, "API");
+				krb5_free_context(c);
 			    });
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number, q, ^(size_t num) {
-				test_move(context, "API");
+				krb5_context c;
+				krb5_init_context(&c);
+				test_move(c, "API");
+				krb5_free_context(c);
 			    });
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number / 10, q, ^(size_t num) {
-				test_cache_iter(context, type, 0);
+				krb5_context c;
+				krb5_init_context(&c);
+				test_cache_iter(c, type, 0);
+				krb5_free_context(c);
 			    });
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number / 10, q, ^(size_t num) {
-				test_cache_iter_all(context);
+				krb5_context c;
+				krb5_init_context(&c);
+				test_cache_iter_all(c);
+				krb5_free_context(c);
 			    });
 		    });
 

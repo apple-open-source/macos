@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static const char sccsid[] = "@(#)conv.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/hexdump/conv.c,v 1.8 2004/07/16 11:07:07 johan Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -57,7 +53,7 @@ conv_c(PR *pr, u_char *p, size_t bufsize)
 	wchar_t wc;
 	size_t clen, oclen;
 	int converr, pad, width;
-	char peekbuf[MB_LEN_MAX];
+	u_char peekbuf[MB_LEN_MAX];
 
 	if (pr->mbleft > 0) {
 		str = "**";
@@ -107,7 +103,7 @@ retry:
 		if (clen == 0)
 			clen = 1;
 		else if (clen == (size_t)-1 || (clen == (size_t)-2 &&
-		    buf == peekbuf)) {
+		    p == peekbuf)) {
 			memset(&pr->mbstate, 0, sizeof(pr->mbstate));
 			wc = *p;
 			clen = 1;
@@ -118,7 +114,7 @@ retry:
 			 * can complete it.
 			 */
 			oclen = bufsize;
-			bufsize = peek(p = (u_char *)peekbuf, MB_CUR_MAX);
+			bufsize = peek(p = peekbuf, MB_CUR_MAX);
 			goto retry;
 		}
 		clen += oclen;
@@ -134,7 +130,7 @@ retry:
 			*pr->cchar = 'C';
 			assert(strcmp(pr->fmt, "%3C") == 0);
 			width = wcwidth(wc);
-			assert(width > 0);
+			assert(width >= 0);
 			pad = 3 - width;
 			if (pad < 0)
 				pad = 0;

@@ -32,6 +32,11 @@ typedef struct {
     char *pwfile;
 } authn_file_config_rec;
 
+static APR_OPTIONAL_FN_TYPE(ap_authn_cache_store) *authn_cache_store = NULL;
+#define AUTHN_CACHE_STORE(r,user,realm,data) \
+    if (authn_cache_store != NULL) \
+        authn_cache_store((r), "file", (user), (realm), (data))
+
 static void *create_authn_file_dir_config(apr_pool_t *p, char *d)
 {
     authn_file_config_rec *conf = apr_palloc(p, sizeof(*conf));
@@ -40,21 +45,11 @@ static void *create_authn_file_dir_config(apr_pool_t *p, char *d)
     return conf;
 }
 
-static const char *set_authn_file_slot(cmd_parms *cmd, void *offset,
-                                       const char *f, const char *t)
-{
-    if (t && strcmp(t, "standard")) {
-        return apr_pstrcat(cmd->pool, "Invalid auth file type: ", t, NULL);
-    }
-
-    return ap_set_file_slot(cmd, offset, f);
-}
-
 static const command_rec authn_file_cmds[] =
 {
-    AP_INIT_TAKE12("AuthUserFile", set_authn_file_slot,
-                   (void *)APR_OFFSETOF(authn_file_config_rec, pwfile),
-                   OR_AUTHCFG, "text file containing user IDs and passwords"),
+    AP_INIT_TAKE1("AuthUserFile", ap_set_file_slot,
+                  (void *)APR_OFFSETOF(authn_file_config_rec, pwfile),
+                  OR_AUTHCFG, "text file containing user IDs and passwords"),
     {NULL}
 };
 
@@ -71,7 +66,7 @@ static authn_status check_password(request_rec *r, const char *user,
     char *file_password = NULL;
 
     if (!conf->pwfile) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01619)
                       "AuthUserFile not specified in the configuration");
         return AUTH_GENERAL_ERROR;
     }
@@ -79,7 +74,7 @@ static authn_status check_password(request_rec *r, const char *user,
     status = ap_pcfg_openfile(&f, r->pool, conf->pwfile);
 
     if (status != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(01620)
                       "Could not open password file: %s", conf->pwfile);
         return AUTH_GENERAL_ERROR;
     }
@@ -105,6 +100,7 @@ static authn_status check_password(request_rec *r, const char *user,
     if (!file_password) {
         return AUTH_USER_NOT_FOUND;
     }
+    AUTHN_CACHE_STORE(r, user, NULL, file_password);
 
     status = apr_password_validate(password, file_password);
     if (status != APR_SUCCESS) {
@@ -125,7 +121,7 @@ static authn_status get_realm_hash(request_rec *r, const char *user,
     char *file_hash = NULL;
 
     if (!conf->pwfile) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01621)
                       "AuthUserFile not specified in the configuration");
         return AUTH_GENERAL_ERROR;
     }
@@ -133,7 +129,7 @@ static authn_status get_realm_hash(request_rec *r, const char *user,
     status = ap_pcfg_openfile(&f, r->pool, conf->pwfile);
 
     if (status != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(01622)
                       "Could not open password file: %s", conf->pwfile);
         return AUTH_GENERAL_ERROR;
     }
@@ -163,6 +159,7 @@ static authn_status get_realm_hash(request_rec *r, const char *user,
     }
 
     *rethash = file_hash;
+    AUTHN_CACHE_STORE(r, user, realm, file_hash);
 
     return AUTH_USER_FOUND;
 }
@@ -173,13 +170,19 @@ static const authn_provider authn_file_provider =
     &get_realm_hash,
 };
 
+static void opt_retr(void)
+{
+    authn_cache_store = APR_RETRIEVE_OPTIONAL_FN(ap_authn_cache_store);
+}
 static void register_hooks(apr_pool_t *p)
 {
-    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "file", "0",
-                         &authn_file_provider);
+    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "file",
+                              AUTHN_PROVIDER_VERSION,
+                              &authn_file_provider, AP_AUTH_INTERNAL_PER_CONF);
+    ap_hook_optional_fn_retrieve(opt_retr, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA authn_file_module =
+AP_DECLARE_MODULE(authn_file) =
 {
     STANDARD20_MODULE_STUFF,
     create_authn_file_dir_config,    /* dir config creater */

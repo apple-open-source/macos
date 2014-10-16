@@ -115,13 +115,16 @@ void PopupMenuMac::populate()
         [menuItem setTitle:[[string string] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]];
         [menuItem setEnabled:m_client->itemIsEnabled(i)];
         [menuItem setToolTip:m_client->itemToolTip(i)];
-        
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         // Allow the accessible text of the item to be overriden if necessary.
         if (AXObjectCache::accessibilityEnabled()) {
             NSString *accessibilityOverride = m_client->itemAccessibilityText(i);
             if ([accessibilityOverride length])
                 [menuItem accessibilitySetOverrideValue:accessibilityOverride forAttribute:NSAccessibilityDescriptionAttribute];
         }
+#pragma clang diagnostic pop
     }
 
     [[m_popup menu] setMenuChangedMessagesEnabled:messagesEnabled];
@@ -172,10 +175,10 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int index)
 
     // Save the current event that triggered the popup, so we can clean up our event
     // state after the NSMenu goes away.
-    RefPtr<Frame> frame = v->frame();
-    RetainPtr<NSEvent> event = frame->eventHandler()->currentNSEvent();
+    Ref<Frame> frame(v->frame());
+    RetainPtr<NSEvent> event = frame->eventHandler().currentNSEvent();
     
-    RefPtr<PopupMenuMac> protector(this);
+    Ref<PopupMenuMac> protector(*this);
 
     RetainPtr<NSView> dummyView = adoptNS([[NSView alloc] initWithFrame:r]);
     [view addSubview:dummyView.get()];
@@ -188,7 +191,20 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int index)
         END_BLOCK_OBJC_EXCEPTIONS;
     }
 
-    wkPopupMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), index, font);
+    NSControlSize controlSize;
+    switch (m_client->menuStyle().menuSize()) {
+    case PopupMenuStyle::PopupMenuSizeNormal:
+        controlSize = NSRegularControlSize;
+        break;
+    case PopupMenuStyle::PopupMenuSizeSmall:
+        controlSize = NSSmallControlSize;
+        break;
+    case PopupMenuStyle::PopupMenuSizeMini:
+        controlSize = NSMiniControlSize;
+        break;
+    }
+
+    wkPopupMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), index, font, controlSize, !m_client->menuStyle().hasDefaultAppearance());
 
     [m_popup dismissPopUp];
     [dummyView removeFromSuperview];
@@ -208,7 +224,7 @@ void PopupMenuMac::show(const IntRect& r, FrameView* v, int index)
 
     // Give the frame a chance to fix up its event state, since the popup eats all the
     // events during tracking.
-    frame->eventHandler()->sendFakeEventsAfterWidgetTracking(event.get());
+    frame->eventHandler().sendFakeEventsAfterWidgetTracking(event.get());
 }
 
 void PopupMenuMac::hide()

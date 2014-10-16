@@ -1,5 +1,0 @@
-#!/bin/sh
-
-unset LAUNCHD_SOCKET
-
-exec launchctl bsexec / "$@"

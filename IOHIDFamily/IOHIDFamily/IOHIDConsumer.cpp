@@ -84,15 +84,20 @@ IOHIDConsumer::init(OSDictionary *properties)
 //====================================================================================================
 bool IOHIDConsumer::start(IOService * provider)
 {
-    _provider = OSDynamicCast ( IOHIDEventService, provider);
-    
-    if ( !_provider )
-        return false;
-
     setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
                 
     return super::start(provider);
 }
+
+//====================================================================================================
+// stop
+//====================================================================================================
+void IOHIDConsumer::stop(IOService * provider)
+{
+    OSSafeReleaseNULL(_keyboardNub);
+    super::stop(provider);
+}
+
 
 void IOHIDConsumer::dispatchConsumerEvent(
                                 IOHIDKeyboard *             sendingkeyboardNub,
@@ -143,6 +148,12 @@ void IOHIDConsumer::dispatchConsumerEvent(
                 break;
             case kHIDUsage_Csmr_Mute:
                 keyCode = NX_KEYTYPE_MUTE;
+                break;
+            case kHIDUsage_Csmr_DisplayBrightnessIncrement:
+                keyCode = NX_KEYTYPE_BRIGHTNESS_UP;
+                break;
+            case kHIDUsage_Csmr_DisplayBrightnessDecrement:
+                keyCode = NX_KEYTYPE_BRIGHTNESS_DOWN;
                 break;
             default:
                 break;
@@ -200,6 +211,7 @@ void IOHIDConsumer::dispatchConsumerEvent(
 	}
     
     //Copy the device flags (modifier flags) from the ADB keyboard driver
+    OSSafeReleaseNULL(_keyboardNub);
     if ( NULL != (_keyboardNub = sendingkeyboardNub) )
     {
         UInt32  currentFlags;
@@ -210,6 +222,7 @@ void IOHIDConsumer::dispatchConsumerEvent(
         _deviceType         = _keyboardNub->deviceType();
                     
         setDeviceFlags(currentFlags);
+        _keyboardNub->retain();
     }
     else 
     {

@@ -1,0 +1,119 @@
+#
+# Common makefile fragment for dmitch's SecurityX-style csputils,
+# tailored for building a library.
+# This is -included from project-specific Makefiles, assumed
+# to be one directory down from this file.
+#
+# See Makefile.template for sample project-specific Makefile.
+#
+
+# Defaults for variables provided by buildit
+# 
+# Object files written to '.' unless OBJROOT specified
+#
+OBJROOT ?= .
+SRCROOT ?= .
+#
+# Library written to SYMROOT if specified, else to LOCAL_BUILD_DIR
+# env var if specified, else to '.'.
+#
+SYMROOT ?= $(shell echo $(LOCAL_BUILD_DIR))
+LOCAL_BUILD=$(SYMROOT)
+ifeq "" "$(LOCAL_BUILD)"
+	LOCAL_BUILD = .
+endif
+
+# independent of SYMROOT
+CLEAN_DIR=$(shell echo $(LOCAL_BUILD_DIR))
+ifeq "" "$(CLEAN_DIR)"
+	CLEAN_DIR = .
+endif
+
+#
+# DSTROOT only used for install
+$
+DSTROOT ?= ""
+
+#
+# Sphinx can be overridden, else null
+# To use this source tree to test non-Sphinx code (I.e., SUJagGreen only,
+# uncomment the following:
+SPHINX ?= 
+# and comment out this, which makes Sphinx the default:
+# SPHINX=-DSPHINX
+
+
+INSTALLDIR := $(DSTROOT)/usr/local/lib
+INSTALLHDRDIR := $(DSTROOT)/usr/local/include/utilLib
+
+OFILES := $(CSOURCE:%.c=$(OBJROOT)/%.o) $(CPSOURCE:%.cpp=$(OBJROOT)/%.o)
+
+PRIV_FRAMEWORK_PATH= /System/Library/PrivateFrameworks
+
+ALL_LDFLAGS= -static $(PROJ_LDFLAGS)
+
+CC=c++
+
+#
+# to get to headers in frameworks - may not be necessary
+#
+STD_FINCLUDES= -F$(LOCAL_BUILD) -F$(PRIV_FRAMEWORK_PATH)
+
+ALL_INCLUDES= $(STD_INCLUDES) $(PROJ_INCLUDES)
+CINCLUDES= $(STD_FINCLUDES) $(ALL_INCLUDES)
+
+###WFLAGS= -Wno-four-char-constants -Wall -Werror 
+WFLAGS= -Wno-four-char-constants -Wall -Wno-deprecated-declarations
+STD_CFLAGS= -g $(VERBOSE) $(SPHINX)
+DEBUG_CFLAGS?=
+PROJ_CFLAGS?= -fvisibility=hidden
+
+ALL_CFLAGS= $(CINCLUDES) $(STD_CFLAGS) $(PROJ_CFLAGS) $(WFLAGS) $(DEBUG_CFLAGS)
+
+#
+# Executable has to be in build folder for MDS
+#
+BUILT_TARGET= $(LOCAL_BUILD)/$(EXECUTABLE)
+
+first:	$(PROJ_DEPENDS) $(BUILT_TARGET) 
+
+build: first
+
+sphinx:
+	make "SPHINX=-DSPHINX"
+
+# architecture options
+
+64bit:
+	make "DEBUG_CFLAGS=-arch x86_64"
+	
+64bitFat:
+	make "DEBUG_CFLAGS=-arch x86_64 -arch i386"
+
+fat:
+	make "DEBUG_CFLAGS=-arch i386" "CMDLINE_LDFLAGS=-arch i386" 
+	
+install: build
+	install -d -m 0755 $(INSTALLDIR)
+	install -p -m 0644 $(BUILT_TARGET) $(INSTALLDIR)
+	install -d -m 0755 $(INSTALLHDRDIR)
+	install -p -m 0644 *.h $(INSTALLHDRDIR)
+
+installhdrs:
+	install -d -m 0755 $(INSTALLHDRDIR)
+	install -p -m 0644 *.h $(INSTALLHDRDIR)
+
+$(BUILT_TARGET):	$(OFILES) 
+	@echo === building $(BUILT_TARGET) ===
+	libtool $(ALL_LDFLAGS) -o $(BUILT_TARGET) $^
+
+clean:
+	cd $(SRCROOT); rm -f $(OFILES) *.o
+	rm -f $(BUILT_TARGET)
+	rm -f $(CLEAN_DIR)/$(EXECUTABLE)
+
+$(OBJROOT)/%.o: %.c
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<
+
+$(OBJROOT)/%.o: %.cpp
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<

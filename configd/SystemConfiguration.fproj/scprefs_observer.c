@@ -68,7 +68,7 @@ iterate_dir(const char *d_name, const char *f_name,
 				 * the path and last modification time in
 				 * the digest
 				*/
-				CC_SHA1_Update(ctxP, full_path, strlen(full_path));
+				CC_SHA1_Update(ctxP, full_path, (CC_LONG)strlen(full_path));
 				CC_SHA1_Update(ctxP,
 					       (void *)&s.st_mtimespec.tv_sec,
 					       sizeof(s.st_mtimespec.tv_sec));
@@ -80,7 +80,7 @@ iterate_dir(const char *d_name, const char *f_name,
 	return;
 }
 
-static CFDataRef
+static CF_RETURNS_RETAINED CFDataRef
 build_digest(const char *top_dir, const char *file)
 {
 	unsigned char	bytes[CC_SHA1_DIGEST_LENGTH];
@@ -215,8 +215,8 @@ prefs_observer_priv_create(_scprefs_observer_type type,
 			   dispatch_queue_t queue,
 			   dispatch_block_t block)
 {
-	scprefs_observer_t observer;
-	int path_buflen;
+	scprefs_observer_t	observer;
+	size_t			path_buflen;
 
 	path_buflen = strlen(plist_name) + 1;
 
@@ -242,17 +242,18 @@ _scprefs_observer_watch(_scprefs_observer_type type, const char *plist_name,
 	scprefs_observer_t elem;
 	static dispatch_once_t initialized;
 
-	dispatch_once(&initialized, ^{ _prefs_observer_init(); } );
+	dispatch_once(&initialized, ^{
+		_prefs_observer_init();
+	});
 
 	elem = prefs_observer_priv_create(type, plist_name, queue, block);
 	SCLog(_sc_verbose, LOG_NOTICE, CFSTR("Created a new element to watch for %s \n"),
 	      elem->file);
 
-	dispatch_sync(prefs_observer_queue,
-		      ^{
-			  /* Enqueue the request */
-			  SLIST_INSERT_HEAD(&head, elem, next);
-		      });
+	dispatch_sync(prefs_observer_queue, ^{
+		/* Enqueue the request */
+		SLIST_INSERT_HEAD(&head, elem, next);
+	});
 	return (elem);
 }
 
@@ -261,9 +262,9 @@ _scprefs_observer_watch(_scprefs_observer_type type, const char *plist_name,
 void
 _scprefs_observer_cancel(scprefs_observer_t observer)
 {
-	dispatch_sync(prefs_observer_queue,
-		      ^{ prefs_observer_release((scprefs_observer_t)observer); });
-
+	dispatch_sync(prefs_observer_queue, ^{
+		prefs_observer_release((scprefs_observer_t)observer);
+	});
 }
 
 #pragma mark -
@@ -306,19 +307,29 @@ int main()
 	switch (random % 3)
 	{
 	    case 0:
-		dispatch_async(q, ^{ _SC_prefs_observer_cancel(observer1);
-				     observer1 = NULL; });
-		dispatch_async(q, ^{ if (observer != NULL)  _SC_prefs_observer_cancel(observer);
-				     observer = _SC_prefs_observer_watch(SC_prefs_observer_type_mcx,
-									 "test", q2, b2); } );
-		dispatch_sync( q, ^{observer1 = observer; });
+		dispatch_async(q, ^{
+			_SC_prefs_observer_cancel(observer1);
+			observer1 = NULL;
+		});
+		dispatch_async(q, ^{
+			if (observer != NULL)  _SC_prefs_observer_cancel(observer);
+			observer = _SC_prefs_observer_watch(SC_prefs_observer_type_mcx, "test", q2, b2);
+		});
+		dispatch_sync(q, ^{
+			observer1 = observer;
+		});
 		sleep(random);
 		break;
 	    case 1:
-		dispatch_async(q, ^{ _SC_prefs_observer_cancel(observer2); });
-		dispatch_async(q, ^{ if (observer != NULL)  _SC_prefs_observer_cancel(observer); });
-		dispatch_sync( q, ^{observer = _SC_prefs_observer_watch(SC_prefs_observer_type_mcx,
-									"test", q2, b2); } );
+		dispatch_async(q, ^{
+			_SC_prefs_observer_cancel(observer2);
+		});
+		dispatch_async(q, ^{
+			if (observer != NULL) _SC_prefs_observer_cancel(observer);
+		});
+		dispatch_sync(q, ^{
+			observer = _SC_prefs_observer_watch(SC_prefs_observer_type_mcx, "test", q2, b2);
+		});
 		sleep(random);
 		break;
 	    case 2:

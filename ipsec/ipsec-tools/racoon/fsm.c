@@ -389,4 +389,3 @@ fsm_ikev1_phase2_send_response(phase2_handle_t *iph2, vchar_t *msg)
     return error;
     
 }
-

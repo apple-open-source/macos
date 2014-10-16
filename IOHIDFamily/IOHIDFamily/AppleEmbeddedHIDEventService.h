@@ -54,9 +54,13 @@ protected:
 
     virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options = 0);
 
+    virtual void dispatchAtmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
+
     virtual IOHIDOrientationType getOrientation();
 
     virtual IOHIDPlacementType getPlacement();
+
+    virtual UInt32          getReportInterval();
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */

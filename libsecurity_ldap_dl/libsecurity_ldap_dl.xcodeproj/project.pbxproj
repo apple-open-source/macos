@@ -42,6 +42,7 @@
 		4803DC350F7AA54300DCA047 /* ODBridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ODBridge.h; sourceTree = "<group>"; };
 		4803DCC60F7AD99D00DCA047 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
 		4803DCEF0F7AD9D200DCA047 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		7D01051C19AD908500E2DCCB /* libsecurity_ldap_dl.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libsecurity_ldap_dl.xcconfig; path = config/libsecurity_ldap_dl.xcconfig; sourceTree = "<group>"; };
 		D64218A8064A89DE00ABB3AE /* Bridge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Bridge.cpp; sourceTree = "<group>"; };
 		D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataStorageLibrary.h; sourceTree = "<group>"; };
 		D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DataStorageLibrary.cpp; sourceTree = "<group>"; };
@@ -97,6 +98,7 @@
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				7D01051C19AD908500E2DCCB /* libsecurity_ldap_dl.xcconfig */,
 				D66B17010639E5B500E30944 /* Frameworks */,
 				4CA1FEBF052A3C8100F22E42 /* Products */,
 				C28436DB0534880F000AE0FC /* lib */,
@@ -264,7 +266,7 @@
 		C27AD3890987FCDE001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -290,7 +292,7 @@
 		C27AD38A0987FCDE001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";
@@ -314,7 +316,7 @@
 		C27AD38B0987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";
@@ -355,6 +357,7 @@
 		};
 		C27AD38F0987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7D01051C19AD908500E2DCCB /* libsecurity_ldap_dl.xcconfig */;
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";

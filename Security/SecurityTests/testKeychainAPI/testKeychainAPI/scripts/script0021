@@ -1,0 +1,41 @@
+//
+// script0021
+//
+//		KCMakeKCRefFromAlias
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0021.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 1
+      OSStatus 0
+      KeychainIndex : 1
+5 KCMakeAliasFromKCRef
+    Input Arguments : 1
+      KeychainIndex : 1
+    Results : 2
+      OSStatus 0
+      AliasIndex : 0
+4 KCMakeKCRefFromAlias
+   Input Arguments : 1
+     AliasIndex : 0
+   Results : 2
+     OSStatus 0
+     KeychainIndex : 2
+19 KCGetKeychainName
+   Input Arguments : 1
+     KeychainIndex : 2
+   Results : 2
+     OSStatus 0
+     KeychainName : test0021.001
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 1
+   Results : 1
+      OSStatus 0

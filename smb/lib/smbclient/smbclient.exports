@@ -33,6 +33,7 @@ _SMBNetFsUnlockSession
 _SMBOpenServer
 _SMBOpenServerEx
 _SMBOpenServerWithMountPoint
+_SMBQueryDir
 _SMBRawTransaction
 _SMBReadFile
 _SMBReleaseServer

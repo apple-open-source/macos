@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/en.xml
+ * ICU <specials> source: <path>/common/main/en.xml
  */
 en{
-    Version{"2.0.82.76"}
+    Version{"2.0.98.76"}
     zoneStrings{
         "Africa:Sao_Tome"{
             ec{"São Tomé"}
@@ -475,6 +475,16 @@ en{
         "meta:Mawson"{
             ls{"Mawson Time"}
         }
+        "meta:Mexico_Northwest"{
+            ld{"Northwest Mexico Daylight Time"}
+            lg{"Northwest Mexico Time"}
+            ls{"Northwest Mexico Standard Time"}
+        }
+        "meta:Mexico_Pacific"{
+            ld{"Mexican Pacific Daylight Time"}
+            lg{"Mexican Pacific Time"}
+            ls{"Mexican Pacific Standard Time"}
+        }
         "meta:Mongolia"{
             ld{"Ulan Bator Summer Time"}
             lg{"Ulan Bator Time"}
@@ -611,6 +621,9 @@ en{
         "meta:South_Georgia"{
             ls{"South Georgia Time"}
         }
+        "meta:Suriname"{
+            ls{"Suriname Time"}
+        }
         "meta:Syowa"{
             ls{"Syowa Time"}
         }
@@ -692,9 +705,10 @@ en{
             ls{"Yekaterinburg Standard Time"}
         }
         fallbackFormat{"{1} ({0})"}
-        fallbackRegionFormat{"{1} Time ({0})"}
         gmtFormat{"GMT{0}"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0} Time"}
+        regionFormatDaylight{"{0} Daylight Time"}
+        regionFormatStandard{"{0} Standard Time"}
     }
 }

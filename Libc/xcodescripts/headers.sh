@@ -25,13 +25,8 @@ UNIFDEFARGS=$(${SRCROOT}/xcodescripts/generate_features.pl --unifdef)
 
 INCDIR=${DSTROOT}/${PUBLIC_HEADERS_FOLDER_PATH}
 LOCINCDIR=${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}
-SYSTEMFRAMEWORK=${DSTROOT}/System/Library/Frameworks/System.framework
-KERNELFRAMEWORK=${DSTROOT}/System/Library/Frameworks/Kernel.framework
-
-if [ "$PLATFORM_NAME" = iphonesimulator ]; then
-	SYSTEMFRAMEWORK=${DSTROOT}/${SDKROOT}/System/Library/Frameworks/System.framework
-	KERNELFRAMEWORK=${DSTROOT}/${SDKROOT}/System/Library/Frameworks/Kernel.framework
-fi
+SYSTEMFRAMEWORK=${DSTROOT}/${INSTALL_PATH_PREFIX}/System/Library/Frameworks/System.framework
+KERNELFRAMEWORK=${DSTROOT}/${INSTALL_PATH_PREFIX}/System/Library/Frameworks/Kernel.framework
 
 PRIVHDRS=${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
 PRIVKERNELHDRS=${KERNELFRAMEWORK}/Versions/A/PrivateHeaders
@@ -43,15 +38,85 @@ INSTHDRS=(
 )
 
 INC_INSTHDRS=(
-	NSSystemDirectories.h _locale.h _structs.h _types.h _wctype.h _xlocale.h aio.h alloca.h \
-	ar.h assert.h asm.h bitstring.h cpio.h crt_externs.h ctype.h db.h dirent.h disktab.h err.h \
-	errno.h fcntl.h fmtmsg.h fnmatch.h fsproperties.h fstab.h fts.h ftw.h getopt.h glob.h inttypes.h \
-	iso646.h langinfo.h libc.h libgen.h limits.h locale.h memory.h monetary.h monitor.h mpool.h ndbm.h \
-	nlist.h paths.h printf.h poll.h ranlib.h readpassphrase.h regex.h runetype.h search.h \
-	semaphore.h sgtty.h signal.h stab.h standards.h stdbool.h stddef.h stdio.h stdint.h \
-	stdlib.h strhash.h string.h stringlist.h strings.h struct.h sysexits.h syslog.h tar.h termios.h time.h \
-	timeconv.h ttyent.h ulimit.h unistd.h util.h utime.h vis.h wchar.h wctype.h \
-	wordexp.h xlocale.h
+	_locale.h
+	_types.h
+	_wctype.h
+	_xlocale.h
+	aio.h
+	alloca.h
+	ar.h
+	assert.h
+	asm.h
+	bitstring.h
+	cpio.h
+	crt_externs.h
+	ctype.h
+	db.h
+	dirent.h
+	disktab.h
+	err.h
+	errno.h
+	fcntl.h
+	fmtmsg.h
+	fnmatch.h
+	fsproperties.h
+	fstab.h
+	fts.h
+	ftw.h
+	getopt.h
+	glob.h
+	inttypes.h
+	iso646.h
+	langinfo.h
+	libc.h
+	libgen.h
+	limits.h
+	locale.h
+	memory.h
+	monetary.h
+	monitor.h
+	mpool.h
+	ndbm.h
+	nlist.h
+	paths.h
+	printf.h
+	poll.h
+	ranlib.h
+	readpassphrase.h
+	regex.h
+	runetype.h
+	search.h
+	semaphore.h
+	sgtty.h
+	signal.h
+	stab.h
+	standards.h
+	stdbool.h
+	stddef.h
+	stdio.h
+	stdint.h
+	stdlib.h
+	strhash.h
+	string.h
+	stringlist.h
+	strings.h
+	struct.h
+	sysexits.h
+	syslog.h
+	tar.h
+	termios.h
+	time.h
+	timeconv.h
+	ttyent.h
+	ulimit.h
+	unistd.h
+	util.h
+	utime.h
+	vis.h
+	wchar.h
+	wctype.h
+	wordexp.h
+	xlocale.h
 )
 if [ "x${FEATURE_LEGACY_RUNE_APIS}" == "x1" ]; then
 	INC_INSTHDRS=( "${INC_INSTHDRS[@]}" rune.h )
@@ -71,12 +136,12 @@ INSTHDRS=( "${INSTHDRS[@]}" "${INC_INSTHDRS[@]}" )
 INC_ARPA_INSTHDRS=( ftp.h inet.h nameser_compat.h telnet.h tftp.h )
 ARPA_INSTHDRS=( "${INC_ARPA_INSTHDRS[@]/#/${SRCROOT}/include/arpa/}" )
 
-if [ "x${FEATURE_MEM_THERM_NOTIFICATION_APIS}" == "x1" ]; then
-	INC_LIBKERN_INSTHDRS=( OSMemoryNotification.h OSThermalNotification.h )
-	LIBKERN_INSTHDRS=( "${INC_LIBKERN_INSTHDRS[@]/#/${SRCROOT}/include/libkern/}" )
+if [ "x${FEATURE_THERM_NOTIFICATION_APIS}" == "x1" ]; then
+	INC_THERM_INSTHDRS=( OSThermalNotification.h )
+	THERM_INSTHDRS=( "${INC_THERM_INSTHDRS[@]/#/${SRCROOT}/include/libkern/}" )
 fi
 
-INC_PROTO_INSTHDRS=(routed.h rwhod.h talkd.h timed.h )
+INC_PROTO_INSTHDRS=( routed.h rwhod.h talkd.h timed.h )
 PROTO_INSTHDRS=( "${INC_PROTO_INSTHDRS[@]/#/${SRCROOT}/include/protocols/}" )
 
 INC_SECURE_INSTHDRS=( _common.h _string.h _stdio.h )
@@ -85,8 +150,18 @@ SECURE_INSTHDRS=( "${INC_SECURE_INSTHDRS[@]/#/${SRCROOT}/include/secure/}" )
 SYS_INSTHDRS=( ${SRCROOT}/include/sys/acl.h ${SRCROOT}/include/sys/statvfs.h )
 
 INC_XLOCALE_INSTHDRS=(
-	__wctype.h _ctype.h _inttypes.h _langinfo.h _monetary.h _regex.h
-	_stdio.h _stdlib.h _string.h _time.h _wchar.h _wctype.h
+	__wctype.h
+	_ctype.h
+	_inttypes.h
+	_langinfo.h
+	_monetary.h
+	_regex.h
+	_stdio.h
+	_stdlib.h
+	_string.h
+	_time.h
+	_wchar.h
+	_wctype.h
 )
 XLOCALE_INSTHDRS=( "${INC_XLOCALE_INSTHDRS[@]/#/${SRCROOT}/include/xlocale/}" )
 
@@ -103,14 +178,13 @@ TYPES_INSTHDRS=(
 )
 
 LOCALHDRS=(
-	${SRCROOT}/darwin/dirhelper.defs
-	${SRCROOT}/darwin/dirhelper_priv.h
+	${SRCROOT}/darwin/libc_private.h
 	${SRCROOT}/gen/assumes.h
 	${SRCROOT}/gen/utmpx_thread.h
 	${SRCROOT}/nls/FreeBSD/msgcat.h
 )
 
-OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/base.h ${SRCROOT}/os/trace.h )
+OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )
 
 PRIV_INSTHDRS=(
 	${SRCROOT}/stdlib/FreeBSD/atexit.h
@@ -121,7 +195,11 @@ PRIV_BTREEHDRS=(
 	${SRCROOT}/db/btree/FreeBSD/bt_extern.h
 )
 
-SYS_INSTHDRS=( ${SRCROOT}/include/sys/acl.h ${SRCROOT}/include/sys/rbtree.h ${SRCROOT}/include/sys/statvfs.h )
+SYS_INSTHDRS=(
+	${SRCROOT}/include/sys/acl.h
+	${SRCROOT}/include/sys/rbtree.h
+	${SRCROOT}/include/sys/statvfs.h
+)
 PRIVUUID_INSTHDRS=( ${SRCROOT}/uuid/namespace.h )
 
 ${MKDIR} ${INCDIR}/arpa
@@ -134,8 +212,11 @@ ${MKDIR} ${INCDIR}/xlocale
 ${MKDIR} ${INCDIR}/_types
 ${INSTALL} -m ${INSTALLMODE} ${INSTHDRS[@]} ${INCDIR}
 ${INSTALL} -m ${INSTALLMODE} ${ARPA_INSTHDRS[@]} ${INCDIR}/arpa
-if [ "x${FEATURE_MEM_THERM_NOTIFICATION_APIS}" == "x1" ]; then
-${INSTALL} -m ${INSTALLMODE} ${LIBKERN_INSTHDRS[@]} ${INCDIR}/libkern
+if [ "x${FEATURE_MEM_NOTIFICATION_APIS}" == "x1" ]; then
+${INSTALL} -m ${INSTALLMODE} ${MEM_INSTHDRS[@]} ${INCDIR}/libkern
+fi
+if [ "x${FEATURE_THERM_NOTIFICATION_APIS}" == "x1" ]; then
+${INSTALL} -m ${INSTALLMODE} ${THERM_INSTHDRS[@]} ${INCDIR}/libkern
 fi
 ${INSTALL} -m ${INSTALLMODE} ${PROTO_INSTHDRS[@]} ${INCDIR}/protocols
 ${INSTALL} -m ${INSTALLMODE} ${SECURE_INSTHDRS[@]} ${INCDIR}/secure

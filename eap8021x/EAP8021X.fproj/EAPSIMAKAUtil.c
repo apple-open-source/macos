@@ -293,7 +293,7 @@ EAPSIMAKAKeyInfoComputeMAC(EAPSIMAKAKeyInfoRef key_info_p,
     uint8_t		zero_mac[MAC_SIZE];
 
     bzero(&zero_mac, sizeof(zero_mac));
-    before_mac_size = mac_p - (const uint8_t *)pkt;
+    before_mac_size = (int)(mac_p - (const uint8_t *)pkt);
     after_mac_size = pkt_len - (before_mac_size + sizeof(zero_mac));
 
     /* compute the hash */
@@ -713,7 +713,7 @@ TLVBufferAddIdentityString(TLVBufferRef tb_p, CFStringRef identity,
 	return (FALSE);
     }
     result = TLVBufferAddIdentity(tb_p, CFDataGetBytePtr(data),
-				  CFDataGetLength(data));
+				  (int)CFDataGetLength(data));
     if (result == TRUE && ret_data != NULL) {
 	*ret_data = data;
     }

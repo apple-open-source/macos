@@ -918,36 +918,30 @@ void IOFireWireSBP2Target::configurePhysicalFilter( void )
         UInt32 deviceCount = 0;
 		
         // get self id property
-        OSData * data = OSDynamicCast( OSData, controller->copyProperty( "FireWire Self IDs" ) );
+        OSData * data = (OSData*)controller->getProperty( "FireWire Self IDs" );
         
-        if( data )
+        // get self id data
+        UInt32 	numIDs = data->getLength() / sizeof(UInt32);
+        UInt32 	*IDs = (UInt32*)data->getBytesNoCopy();
+        
+        // count nodes on bus
+        UInt32 	i;
+        for( i = 0; i < numIDs; i++ )
         {
-            // get self id data
-            UInt32 	numIDs = data->getLength() / sizeof(UInt32);
-            UInt32 	*IDs = (UInt32*)data->getBytesNoCopy();
-            
-            // count nodes on bus
-            UInt32 	i;
-            for( i = 0; i < numIDs; i++ )
+            UInt32 current_id = IDs[i];
+            // count all type zero selfid with the linkon bit set
+            if( (current_id & kFWSelfIDPacketType) == 0 &&
+                (current_id & kFWSelfID0L) )
             {
-                UInt32 current_id = IDs[i];
-                // count all type zero selfid with the linkon bit set
-                if( (current_id & kFWSelfIDPacketType) == 0 &&
-                    (current_id & kFWSelfID0L) )
-                {
-                    deviceCount++;
-                }
+                deviceCount++;
             }
-            
-            // if PhysicalUnitBlocksOnReads and more than one device on the bus, 
-            // then turn off the physical unit for this node
-            if( (deviceCount > 2) && (fwim->getProperty( "PhysicalUnitBlocksOnReads" ) != NULL) )
-            {
-                disablePhysicalAccess = true;
-            }
-            
-            data->release();
-            data = NULL;
+        }
+        
+		// if PhysicalUnitBlocksOnReads and more than one device on the bus, 
+        // then turn off the physical unit for this node
+        if( (deviceCount > 2) && (fwim->getProperty( "PhysicalUnitBlocksOnReads" ) != NULL) )
+        {
+            disablePhysicalAccess = true;
         }
 	}
     

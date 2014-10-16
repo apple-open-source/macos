@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "4.2.1b5"
+#define VersionNumber   "4.2.2b5"
 
     // USB CDC Common Defintions
 		
@@ -196,6 +196,7 @@ enum
   
 enum
 {
+    kPACKET_TYPE_DISABLED =		0x0000,
     kPACKET_TYPE_PROMISCUOUS =		0x0001,
     kPACKET_TYPE_ALL_MULTICAST =	0x0002,
     kPACKET_TYPE_DIRECTED =		0x0004,

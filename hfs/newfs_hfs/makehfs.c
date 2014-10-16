@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1436,6 +1436,24 @@ WriteJournalInfo(const DriveInfo *driveInfo, UInt64 startingSector,
     jibp->offset = SWAP_BE64(jibp->offset);
     jibp->size   = SWAP_BE64(jibp->size);
 
+	if (jibp->flags & kJIJournalInFSMask) {
+		/* 
+		 * Zero out the on-disk content of the journal file.
+		 *
+		 * This is a really ugly hack.  Right now, all of the logic in the code
+		 * that calls us (make_hfsplus), uses the value 'sectorsPerBlock' but it
+		 * is really hardcoded to assume the sector size is 512 bytes.  The code
+		 * in WriteBuffer will massage the I/O to use the actual physical sector
+		 * size.   Since WriteBuffer takes a sector # relative to 512 byte sectors,
+		 * We need to convert the journal offset in bytes to value that represents
+		 * its start LBA in 512 byte sectors.
+		 * 
+		 * Note further that we swapped to big endian prior to the WriteBuffer call,
+		 * but we have swapped back to native after the call.
+		 */
+		WriteBuffer(driveInfo, jibp->offset / kBytesPerSector, jibp->size, NULL);
+	}
+
     return 0;
 }
 
@@ -1560,7 +1578,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 	UInt16					nodeSize;
 	SInt16					offset;
 	size_t					unicodeBytes;
-	UInt8 canonicalName[256];
+	UInt8 canonicalName[kHFSPlusMaxFileNameBytes];	// UTF8 character may convert to three bytes, plus a NUL
 	CFStringRef cfstr;
 	Boolean	cfOK;
 	int index = 0;

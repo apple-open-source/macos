@@ -74,7 +74,7 @@ S_seconds_since_Jan_1_2000(void)
     tm.tm_mon = 0;	/* January (0 months since January) */
     tm.tm_mday = 1;	/* 1st (day of the month) */
     DHCPDUID_epoch = timegm(&tm);
-    seconds = time(NULL) - DHCPDUID_epoch;
+    seconds = (uint32_t)(time(NULL) - DHCPDUID_epoch);
     return (seconds);
 }
 
@@ -132,7 +132,7 @@ load_DUID_info(void)
     ia_list = CFDictionaryGetValue(duid_ia, kIAIDListKey);
     ia_list = isA_CFArray(ia_list);
     if (ia_list != NULL) {
-	int		count;
+	CFIndex		count;
 	int		i;
 
 	count = CFArrayGetCount(ia_list);
@@ -276,7 +276,7 @@ DHCPDUIDGet(interface_list_t * interfaces)
 PRIVATE_EXTERN DHCPIAID
 DHCPIAIDGet(const char * ifname)
 {
-    int			count;
+    CFIndex		count;
     DHCPIAID 		iaid;
     CFStringRef		ifname_cf;
     CFIndex		where = kCFNotFound;
@@ -294,11 +294,11 @@ DHCPIAIDGet(const char * ifname)
 	where = CFArrayGetFirstIndexOfValue(S_IAIDList, range, ifname_cf);
     }
     if (where != kCFNotFound) {
-	iaid = where;
+	iaid = (DHCPIAID)where;
     }
     else {
 	CFArrayAppendValue(S_IAIDList, ifname_cf);
-	iaid = count;
+	iaid = (DHCPIAID)count;
 	save_DUID_info();
     }
     CFRelease(ifname_cf);

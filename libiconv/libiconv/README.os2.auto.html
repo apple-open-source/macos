@@ -1,0 +1,71 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>README.os2</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">README.os2&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+Installation on OS/2:
+
+- Port done by Akira Hatakeyama &lt;<a href="mailto:akira@sra.co.jp">akira@sra.co.jp</a>&gt;, see
+  <a href="http://www.sra.co.jp/people/akira/os2/libiconv/index.html">http://www.sra.co.jp/people/akira/os2/libiconv/index.html</a>
+
+- Requires emx+gcc, recommend emx-0.9d with fix03 or newer.
+
+  Also requires a few GNU utilities to be installed: GNU fileutils (cp, mv,
+  rm, ...), GNU textutils (cat, cmp, uniq, ...), GNU sed, GNU make.
+
+- Cannot build in a separate directory.
+
+- Build instructions:
+
+  No configure script needs to be run. Just
+
+       make -f Makefile.os2 all
+
+  Checking it:
+
+       make -f Makefile.os2 check
+
+- Installation:
+
+       make -f Makefile.os2 install prefix=&quot;X:/emx&quot;
+
+  The prefix option specifies where you have EMX installed and wish the
+  iconv library and headers to be installed.
+
+  This will install
+   * an include file                                  $(prefix)/include/iconv.h
+   * a DLL                                            $(prefix)/dll/iconv.dll
+   * an import library for .o (use without &quot;-Zomf&quot;)   $(prefix)/lib/iconv.a
+   * an import library for .obj (use with &quot;-Zomf&quot;)    $(prefix)/lib/iconv.lib
+   * a few manual pages                            $(prefix)/man/man3/iconv*.3
+
+- Use:
+
+  Your main program should include &lt;iconv.h&gt; when using the iconv* functions.
+
+  If you compile as .o (no &quot;-Zomf&quot;), link with iconv.a.
+  If you compile as .obj (with &quot;-Zomf&quot;), link with iconv.lib.
+
+  The DLL was built with &quot;-Zmt -Zcrtdll&quot; options. So your main program must
+  be built with &quot;-Zmt -Zcrtdll&quot; as well (or the shorthand &quot;-Zmtd&quot;).
+
+</pre>
+<hr />
+</body></html>

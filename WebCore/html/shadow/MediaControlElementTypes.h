@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -74,8 +74,8 @@ enum MediaControlElementType {
     MediaClosedCaptionsTrackList,
 };
 
-HTMLMediaElement* toParentMediaElement(Node*);
-inline HTMLMediaElement* toParentMediaElement(RenderObject* renderer) { return toParentMediaElement(renderer->node()); }
+HTMLMediaElement* parentMediaElement(Node*);
+inline HTMLMediaElement* parentMediaElement(const RenderObject& renderer) { return parentMediaElement(renderer.node()); }
 
 MediaControlElementType mediaControlElementType(Node*);
 
@@ -110,16 +110,16 @@ private:
 
 class MediaControlDivElement : public HTMLDivElement, public MediaControlElement {
 protected:
-    virtual bool isMediaControlElement() const OVERRIDE { return MediaControlElement::isMediaControlElement(); }
-    explicit MediaControlDivElement(Document*, MediaControlElementType);
+    virtual bool isMediaControlElement() const override { return MediaControlElement::isMediaControlElement(); }
+    explicit MediaControlDivElement(Document&, MediaControlElementType);
 };
 
 // ----------------------------
 
 class MediaControlInputElement : public HTMLInputElement, public MediaControlElement {
 protected:
-    virtual bool isMediaControlElement() const OVERRIDE { return MediaControlElement::isMediaControlElement(); }
-    explicit MediaControlInputElement(Document*, MediaControlElementType);
+    virtual bool isMediaControlElement() const override { return MediaControlElement::isMediaControlElement(); }
+    explicit MediaControlInputElement(Document&, MediaControlElementType);
 
 private:
     virtual void updateDisplayType() { }
@@ -133,7 +133,7 @@ public:
     double currentValue() const { return m_currentValue; }
 
 protected:
-    explicit MediaControlTimeDisplayElement(Document*, MediaControlElementType);
+    explicit MediaControlTimeDisplayElement(Document&, MediaControlElementType);
 
 private:
     double m_currentValue;
@@ -145,57 +145,46 @@ class MediaControlMuteButtonElement : public MediaControlInputElement {
 public:
     void changedMute();
 
-    virtual bool willRespondToMouseClickEvents() OVERRIDE { return true; }
+    virtual bool willRespondToMouseClickEvents() override { return true; }
 
 protected:
-    explicit MediaControlMuteButtonElement(Document*, MediaControlElementType);
+    explicit MediaControlMuteButtonElement(Document&, MediaControlElementType);
 
-    virtual void defaultEventHandler(Event*) OVERRIDE;
+    virtual void defaultEventHandler(Event*) override;
 
 private:
-    virtual void updateDisplayType() OVERRIDE;
+    virtual void updateDisplayType() override;
 };
 
 // ----------------------------
 
 class MediaControlSeekButtonElement : public MediaControlInputElement {
 public:
-    virtual bool willRespondToMouseClickEvents() OVERRIDE { return true; }
+    virtual bool willRespondToMouseClickEvents() override { return true; }
 
 protected:
-    explicit MediaControlSeekButtonElement(Document*, MediaControlElementType);
+    explicit MediaControlSeekButtonElement(Document&, MediaControlElementType);
 
-    virtual void defaultEventHandler(Event*) OVERRIDE;
+    virtual void defaultEventHandler(Event*) override;
     virtual bool isForwardButton() const = 0;
 
 private:
-    void setActive(bool /*flag*/ = true, bool /*pause*/ = false) OVERRIDE FINAL;
-
-    void startTimer();
-    void stopTimer();
-    double nextRate() const;
-    void seekTimerFired(Timer<MediaControlSeekButtonElement>*);
-
-    enum ActionType { Nothing, Play, Pause };
-    ActionType m_actionOnStop;
-    enum SeekType { Skip, Scan };
-    SeekType m_seekType;
-    Timer<MediaControlSeekButtonElement> m_seekTimer;
+    virtual void setActive(bool /*flag*/ = true, bool /*pause*/ = false) override final;
 };
 
 // ----------------------------
 
 class MediaControlVolumeSliderElement : public MediaControlInputElement {
 public:
-    virtual bool willRespondToMouseMoveEvents() OVERRIDE;
-    virtual bool willRespondToMouseClickEvents() OVERRIDE;
+    virtual bool willRespondToMouseMoveEvents() override;
+    virtual bool willRespondToMouseClickEvents() override;
     void setVolume(double);
     void setClearMutedOnUserInteraction(bool);
 
 protected:
-    explicit MediaControlVolumeSliderElement(Document*);
+    explicit MediaControlVolumeSliderElement(Document&);
 
-    virtual void defaultEventHandler(Event*) OVERRIDE;
+    virtual void defaultEventHandler(Event*) override;
 
 private:
     bool m_clearMutedOnUserInteraction;

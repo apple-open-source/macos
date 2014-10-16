@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,7 +89,10 @@ static void
 dump_plist(FILE * f, CFTypeRef p)
 {
     CFDataRef	data;
-    data = CFPropertyListCreateXMLData(NULL, p);
+
+    data = CFPropertyListCreateData(NULL, p,
+				    kCFPropertyListXMLFormat_v1_0,
+				    0, NULL);
     if (data == NULL) {
 	return;
     }
@@ -173,13 +176,13 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
     (void)CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
 			   0, FALSE, (uint8_t *)str, len, &l);
     str[l] = '\0';
-    return (l);
+    return ((int)l);
 }
 
 static void
 monitor_eapol_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
-    int 		count;
+    CFIndex		count;
     int 		i;
 
     count = CFArrayGetCount(changes);
@@ -544,20 +547,6 @@ S_stress_start(int argc, char * argv[])
 
 #include <EAP8021X/EAPCertificateUtil.h>
 
-static void
-dump_as_xml(CFPropertyListRef p)
-{
-    CFDataRef	xml;
-    
-    xml = CFPropertyListCreateXMLData(NULL, p);
-    if (xml != NULL) {
-	fwrite(CFDataGetBytePtr(xml), CFDataGetLength(xml), 1,
-	       stdout);
-	CFRelease(xml);
-    }
-    return;
-}
-
 static CFStringRef
 identity_copy_username(SecIdentityRef identity)
 {
@@ -579,7 +568,7 @@ identity_copy_username(SecIdentityRef identity)
 static int
 S_show_identities(int argc, char * argv[])
 {
-    int				count;
+    CFIndex			count;
     int				i;
     CFArrayRef			list;
     OSStatus			status;
@@ -591,7 +580,7 @@ S_show_identities(int argc, char * argv[])
 	return (-1);
     }
     count = CFArrayGetCount(list);
-    printf("Number of identities: %d\n", count);
+    printf("Number of identities: %d\n", (int)count);
     for (i = 0; i < count; i++) {
 	EAPSecIdentityHandleRef	handle;
 	SecIdentityRef 		identity;
@@ -602,7 +591,7 @@ S_show_identities(int argc, char * argv[])
 	SCPrint(TRUE, stdout, CFSTR("\n%d. '%@'\n"), i + 1, username);
 	CFRelease(username);
 	handle = EAPSecIdentityHandleCreate(identity);
-	dump_as_xml(handle);
+	dump_plist(stdout, handle);
 	CFRelease(handle);
 
     }

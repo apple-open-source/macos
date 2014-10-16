@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#                     Copyright (c) 1994-2011 AT&T                     #
+#          Copyright (c) 1994-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
-#                               by AT&T                                #
+#                 Eclipse Public License, Version 1.0                  #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -30,7 +30,7 @@ case $-:$BASH_VERSION in
 esac
 
 command=iffe
-version=2011-01-07 # update in USAGE too #
+version=2012-07-17 # update in USAGE too #
 
 compile() # $cc ...
 {
@@ -94,8 +94,17 @@ is_hdr() # [ - ] [ file.c ] hdr
 pkg() # package
 {
 	case $1 in
-	'<')	shift ;;
-	*)	return ;;
+	'')	pth=`getconf PATH 2>/dev/null`
+		case $pth in
+		'')	pth="/bin /usr/bin" ;;
+		*:*)	pth=`echo "$pth" | sed 's/:/ /g'` ;;
+		esac
+		return
+		;;
+	'<')	shift
+		;;
+	*)	return
+		;;
 	esac
 	case $1 in
 	X|X11*)	i="openwin"
@@ -367,19 +376,34 @@ noisy()
 
 here_broken=0
 
-copy() # output-file data
+literal() # line that echo might process
 {
-	case $shell in
-	ksh)	case $1 in
-		-)	print -r - "$2" ;;
-		*)	print -r - "$2" > "$1" ;;
+	if	cat <<!
+$*
+!
+	then	: old here doc botch not present
+	else	case $here_broken in
+		0)	here_broken=1
+			echo "$command: your shell botches here documents; this was fixed back in the 80's" >&$stderr
+			;;
 		esac
-		;;
-	*)	case $1 in
-		-)	if	cat <<!
+		sh -c "cat <<!
+$*
+!
+"
+	fi
+}
+
+copy() # "output-file" "data-that-must-not-be-processed-by-echo"
+{
+	case $1 in
+	-)	case $shell in
+		ksh)	print -r - "$2"
+			;;
+		*)	if	cat <<!
 $2
 !
-			then	: old here doc botch not present
+			then	: ancient here doc botch not present
 			else	case $here_broken in
 				0)	here_broken=1
 					echo "$command: your shell botches here documents; this was fixed back in the 80's" >&$stderr
@@ -391,16 +415,21 @@ $2
 "
 			fi
 			;;
+		esac
+		;;
+	*)	case $shell in
+		ksh)	print -r - "$2" > "$1"
+			;;
 		*)	if	cat > "$1" <<!
 $2
 !
-			then	: old here doc botch not present
+			then	: ancient here doc botch not present
 			else	case $here_broken in
 				0)	here_broken=1
 					echo "$command: your shell botches here documents; this was fixed back in the 80's" >&$stderr
 					;;
 				esac
-				sh -c "cat > '$1' <<!
+				sh -c "cat > \"$1\" <<!
 $2
 !
 "
@@ -411,8 +440,51 @@ $2
 	esac
 }
 
+# verify that cc is a C compiler
+
+checkcc()
+{
+	# check for local package root directories
+
+	case $PACKAGE_PATH in
+	?*)	for i in `echo $PACKAGE_PATH | sed 's,:, ,g'`
+		do	if	test -d $i/include
+			then	cc="$cc -I$i/include"
+				occ="$occ -I$i/include"
+			fi
+			if	test -d $i/lib
+			then	cc="$cc -L$i/lib"
+				occ="$occ -L$i/lib"
+				for y in $libpaths
+				do	eval $y=\"\$$y:\$i/lib\$${y}_default\"
+					eval export $y
+				done
+			fi
+		done
+		;;
+	esac
+	echo "int i = 1;" > $tmp.c
+	if	compile $cc -c $tmp.c <&$nullin >&$nullout
+	then	echo "(;" > $tmp.c
+		if	compile $cc -c $tmp.c <&$nullin >&$nullout
+		then	cctest="should not compile '(;'"
+		fi
+	else	cctest="should compile 'int i = 1;'"
+	fi
+	case $cctest in
+	"")	cctest=0
+		;;
+	*)	echo "$command: $cc: not a C compiler: $cctest" >&$stderr
+		exit 1
+		;;
+	esac
+}
+
 checkread()
 {
+	case $cctest in
+	"")	checkcc ;;
+	esac
 	case $posix_read in
 	-no)	;;
 	*)	posix_read=`(read -r _checkread_line; echo $_checkread_line) 2>/dev/null <<!
@@ -471,14 +543,18 @@ a z
 
 execute()
 {
+	case $verbose in
+	0)	noteout=$nullout ;;
+	*)	noteout=$stderr ;;
+	esac
 	if	test "" != "$cross"
-	then	crossexec $cross "$@"
+	then	crossexec $cross "$@" 9>&$noteout
 		_execute_=$?
 	elif	test -d /NextDeveloper
-	then	"$@" <&$nullin >&$nullout
+	then	"$@" <&$nullin >&$nullout 9>&$noteout
 		_execute_=$?
 		"$@" <&$nullin | cat
-	else	"$@"
+	else	"$@" 9>&$noteout
 		_execute_=$?
 	fi
 	return $_execute_
@@ -639,7 +715,7 @@ set=
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	USAGE=$'
 [-?
-@(#)$Id: iffe (AT&T Research) 2011-01-07 $
+@(#)$Id: iffe (AT&T Research) 2012-07-17 $
 ]
 '$USAGE_LICENSE$'
 [+NAME?iffe - C compilation environment feature probe]
@@ -756,27 +832,29 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 [+?\abegin\a\b{\b ... \b}end\b delimit multiline code blocks that override
 	or augment the default code provided by \biffe\b. User supplied code
 	blocks should be compatible with the K&R, ANSI, and C++ C language
-	dialects for maximal portability. In addition to all macro definitions
-	generated by previous tests, all generated code contains the
-	following at the top to hide dialect differences:]{
-		[+#if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)?]
-		[+#define _STD_ 1?]
-		[+#define _ARG_(x) x?]
-		[+#define _VOID_ void?]
-		[+#else?]
-		[+#define _STD_ 0?]
-		[+#define _ARG_(x) ()?]
-		[+#define _VOID_ char?]
-		[+#endif?]
-		[+#if defined(__cplusplus)?]
-		[+#define _BEGIN_EXTERNS_ extern "C" {?]
-		[+#define _END_EXTERNS_ }?]
-		[+#else?]
-		[+#define _BEGIN_EXTERNS_?]
-		[+#define _END_EXTERNS_?]
-		[+#endif?]
-		[+#define _NIL_(x) ((x)0)?]
-		[+#include <stdio.h>?]
+	dialects for maximal portability. Test code may call the function
+	\bNOTE("...")\b to emit short text in \b--verbose\b output; only one
+	\bNOTE()\b should be called per test for readability. In addition to
+	all macro definitions generated by previous tests, all generated
+	code contains the following at the top to hide dialect differences:]{
+		[+ ?#if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)]
+		[+ ?#define _STD_ 1]
+		[+ ?#define _ARG_(x) x]
+		[+ ?#define _VOID_ void]
+		[+ ?#else]
+		[+ ?#define _STD_ 0]
+		[+ ?#define _ARG_(x) ()]
+		[+ ?#define _VOID_ char]
+		[+ ?#endif]
+		[+ ?#if defined(__cplusplus)]
+		[+ ?#define _BEGIN_EXTERNS_ extern "C" {]
+		[+ ?#define _END_EXTERNS_ }]
+		[+ ?#else]
+		[+ ?#define _BEGIN_EXTERNS_]
+		[+ ?#define _END_EXTERNS_]
+		[+ ?#endif]
+		[+ ?#define _NIL_(x) ((x)0)]
+		[+ ?#include <stdio.h>]
 	}
 [+?= \adefault\a may be specified for the \bkey\b, \blib\b, \bmac\b, \bmth\b
 	and \btyp\b tests. If the test fails for \aarg\a then
@@ -813,7 +891,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 	[+api \aname\a \aYYYYMMDD\a \asymbol ...\a?Emit api compatibility tests
 		for \aname\a and \b#define\b \asymbol\a \asymbol\a_\aYYYYMMDD\a
 		when \aNAME\a_API is >= \aYYYYMMDD\a (\aNAME\a is \aname\a
-		converted to upper case.) If \aNAME\a_API is not defined
+		converted to upper case). If \aNAME\a_API is not defined
 		then \asymbol\a maps to the newest \aYYYYMMDD\a for \aname\a.]
 	[+define \aname\a [ (\aarg,...\a) ]] [ \avalue\a ]]?Emit a macro
 		\b#define\b for \aname\a if it is not already defined. The
@@ -828,7 +906,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 	[+reference \aheader\a?If \aheader\a exists then add \b#include\b
 		\aheader\a to subsequent tests.]
 	[+ver \aname\a \aYYYYMMDD\a?\b#define\b \aNAME\a_VERSION \aYYYYMMDD\a
-		\aNAME\a is \aname\a converted to upper case.)]
+		(\aNAME\a is \aname\a converted to upper case).]
 	[+cmd \aname\a?Defines \b_cmd_\b\aname\a if \aname\a is an executable
 		in one of the standard system directories (\b/bin, /etc,
 		/usr/bin, /usr/etc, /usr/ucb\b).
@@ -901,8 +979,9 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 		\adir\a directories. \b{\b ... \b}\b forms a directory list
 		from the cross-product of \b-\b separated directory groups
 		\ag1\a ... \agn\a. < ... > forms a directory list for the
-		package \apkg\a with optional versions. The \b--config\b macro
-		name is \aNAME\a\b_PATH\b.]
+		package \apkg\a with optional versions. If no operands are
+		specified then the default PATH directories are used. The
+		\b--config\b macro name is \aNAME\a\b_PATH\b.]
 	[+run \afile\a?Runs the tests in \afile\a based on the \afile\a
 		suffix:]{
 		[+.c?\afile\a is compiled and executed and the output is copied
@@ -983,8 +1062,8 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 		\b{\b ... \b}\b.  Deprecated: use { \bif\b \belif\b \belse\b
 		\bendif\b } with unnamed \b{\b ... \b}\b blocks.]
 }
-[+SEE ALSO?\bautoconf\b(1), \bconfig\b(1), \bcrossexec\b(1), \bnmake\b(1),
-	\bpackage\b(1), \bproto\b(1), \bsh\b(1)]
+[+SEE ALSO?\bautoconf\b(1), \bconfig\b(1), \bgetconf\b(1), \bcrossexec\b(1),
+	\bnmake\b(1), \bpackage\b(1), \bproto\b(1), \bsh\b(1)]
 '
 	while	getopts -a "$command" "$USAGE" OPT
 	do	case $OPT in
@@ -1215,7 +1294,7 @@ case $debug in
 	fi
 	;;
 esac
-trap "rm -f $core $tmp*.*" EXIT
+trap "rm -f $core $tmp*" 0
 if	(:>$tmp.c) 2>/dev/null
 then	rm -f $tmp.c
 else	echo "$command: cannot create tmp files in current dir" >&2
@@ -1244,7 +1323,7 @@ std='#if defined(__STDC__) || defined(__cplusplus) || defined(c_plusplus)
 #define _NIL_(x)	((x)0)'
 tst=
 ext="#include <stdio.h>"
-noext='*[<"][Ss][Tt][Dd][Ii][Oo].[Hh][">]*|*<ast.h>*|*<sfio.h>*'
+noext='*[<"][Ss][Tt][Dd][Ii][Oo].[Hh][">]*|*<ast.h>*|*<sfio.h>*|*/[*]<NOSTDIO>[*]/*'
 
 # loop on op [ arg [ ... ] ] [ : op [ arg [ ... ] ] ]
 
@@ -1717,8 +1796,25 @@ do	case $in in
 			continue
 			;;
 		stdio)	case $arg in
-			'')	ext= ;;
-			*)	ext="#include \"$arg\"" ;;
+			'')	ext=
+				;;
+			*)	ext=
+				sep=
+				for i in $arg
+				do	case $i in
+					-)	case $ext in
+						'')	continue ;;
+						*)	break ;;
+						esac
+						;;
+					esac
+					echo "#include \"$i\"" > t.c
+					if	$cc -E t.c > /dev/null 2>&1
+					then	ext="$ext$sep#include \"$arg\""
+						sep=$nl
+					fi
+				done
+				;;
 			esac
 			continue
 			;;
@@ -2137,41 +2233,7 @@ $lin
 	"")	cc="$occ $includes" ;;
 	esac
 	case $cctest in
-	"")	# check for local package root directories
-
-		case $PACKAGE_PATH in
-		?*)	for i in `echo $PACKAGE_PATH | sed 's,:, ,g'`
-			do	if	test -d $i/include
-				then	cc="$cc -I$i/include"
-					occ="$occ -I$i/include"
-				fi
-				if	test -d $i/lib
-				then	cc="$cc -L$i/lib"
-					occ="$occ -L$i/lib"
-					for y in $libpaths
-					do	eval $y=\"\$$y:\$i/lib\$${y}_default\"
-						eval export $y
-					done
-				fi
-			done
-			;;
-		esac
-		echo "int i = 1;" > $tmp.c
-		if	compile $cc -c $tmp.c <&$nullin >&$nullout
-		then	echo "(;" > $tmp.c
-			if	compile $cc -c $tmp.c <&$nullin >&$nullout
-			then	cctest="should not compile '(;'"
-			fi
-		else	cctest="should compile 'int i = 1;'"
-		fi
-		case $cctest in
-		"")	cctest=0
-			;;
-		*)	echo "$command: $cc: not a C compiler: $cctest" >&$stderr
-			exit 1
-			;;
-		esac
-		;;
+	"")	checkcc ;;
 	esac
 
 	# some ops allow no args
@@ -2239,9 +2301,7 @@ $lin
 			;;
 		iff|ini)arg=-
 			;;
-		comment)cat <<!
-/* $* */
-!
+		comment)copy - "/* $* */"
 			continue
 			;;
 		define)	x=$1
@@ -2280,9 +2340,7 @@ int x;
 			if	compile $cc -c $tmp.c <&$nullin >&$nullout
 			then	success -
 			else	failure -
-				cat <<!
-#define $x$arg	$v
-!
+				copy - "#define $x$arg	$v"
 				usr="$usr${nl}#define $x$arg  $v"
 			fi
 			continue
@@ -2334,9 +2392,7 @@ _END_EXTERNS_
 				*)	v=$*
 					;;
 				esac
-				cat <<!
-extern $t	$x$v;
-!
+				copy - "extern $t	$x$v;"
 				# NOTE: technically if prototyped is on all tests should
 				#	be run through proto(1), but we'd like iffe to
 				#	work sans proto -- so we drop the extern's in
@@ -2379,9 +2435,7 @@ extern $t	$x$v;
 					*)	case $op in
 						reference)
 							;;
-						*)	cat <<!
-#include <$x>
-!
+						*)	copy - "#include <$x>"
 							;;
 						esac
 						usr="$usr${nl}#include <$x>"
@@ -2398,9 +2452,7 @@ int x;
 						case $op in
 						reference)
 							;;
-						*)	cat <<!
-#include <$x>
-!
+						*)	copy - "#include <$x>"
 							;;
 						esac
 						usr="$usr${nl}#include <$x>"
@@ -2428,9 +2480,7 @@ int x;
 			*)	v=$*
 				;;
 			esac
-			cat <<!
-$*
-!
+			copy - "$*"
 			usr="$usr${nl}$v"
 			continue
 			;;
@@ -2452,6 +2502,20 @@ $*
 				esac
 				shift
 			done
+			;;
+		esac
+		;;
+	esac
+
+	# NOTE() support
+
+	case $ext in
+	*"<stdio.h>"*)	
+		case $ext in
+		*"#define NOTE("*)
+			;;
+		*)	ext="$ext
+#define NOTE(s)	do{write(9,\" \",1);write(9,s,strlen(s));write(9,\" ...\",4);}while(0)"
 			;;
 		esac
 		;;
@@ -2612,7 +2676,10 @@ $*
 		# check the candidate libraries
 
 		case $lib in
-		?*)	z=$lib
+		?*)	z=
+			for p in $lib
+			do	z="$p $z"
+			done
 			lib=
 			p=
 			hit=0
@@ -2626,14 +2693,14 @@ $*
 					;;
 				*"+ $p "*)
 					success +
-					lib="$lib $p"
+					lib="$p $lib"
 					;;
 				*)	rm -f $tmp.exe
 					is LIB $p
-					if	compile $cc -o $tmp.exe $tmp.c $p <&$nullin >&$nullout
+					if	compile $cc -o $tmp.exe $tmp.c $p $lib <&$nullin >&$nullout
 					then	success
 						gotlib="$gotlib + $p"
-						lib="$lib $p"
+						lib="$p $lib"
 						e=0
 					else	a=
 						e=1
@@ -2655,7 +2722,7 @@ $*
 								if	compile $cc -o $tmp.exe $tmp.c $a <&$nullin >&$nullout
 								then	success
 									gotlib="$gotlib + $p"
-									lib="$lib $p"
+									lib="$p $lib"
 									e=0
 									break
 								fi
@@ -2960,11 +3027,18 @@ $*
 							esac
 							case $apis in
 							?*)	for api in $apis
-								do	map=
+								do	API=`echo $api | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+									echo "#define ${API}API(rel)	( _BLD_${api} || !_API_${api} || _API_${api} >= rel )"
+									map=
 									sep=
 									eval syms='"${'api_sym_${api}'}"'
 									# old solaris requires -k<space><junk> #
-									set x x `echo "$syms" | sort -t: -u -k 1,1 -k 2,2nr | sed 's/\(.*\):\(.*\)/\1 \2/'`
+									set x x `echo "$syms" | sort -t: -u -k 1,1 -k 2,2nr 2>/dev/null | sed 's/:/ /'`
+									case $# in
+									2)	# ancient sort doesn't have -k #
+										set x x `echo "$syms" | sort -t: -u +0 -1 +1 -2nr 2>/dev/null | sed 's/:/ /'`
+										;;
+									esac
 									sym=
 									while	:
 									do	shift 2
@@ -2987,7 +3061,7 @@ $*
 												;;
 											esac
 											echo
-											echo "#if ( _BLD_${api} || !_API_${api} || _API_${api} >= $rel )"
+											echo "#if ${API}API($rel)"
 											;;
 										esac
 										echo "#undef	${sym}"
@@ -4117,7 +4191,11 @@ $pre
 $inc
 _BEGIN_EXTERNS_
 struct _iffe_struct { int _iffe_member; };
-extern struct _iffe_struct* $v _ARG_((struct _iffe_struct*));
+#if _STD_
+extern struct _iffe_struct* $v(struct _iffe_struct*);
+#else
+extern struct _iffe_struct* $v();
+#endif
 _END_EXTERNS_
 "
 					# some compilers with -O only warn for invalid intrinsic prototypes
@@ -4275,10 +4353,8 @@ $inc"
 						execute $tmp.exe $opt <&$nullin
 						;;
 					*.sh)	{
-						cat <<!
-:
-set "cc='$cc' executable='$executable' id='$m' static='$static' tmp='$tmp'" $opt $hdr $test
-!
+						copy - ":
+set \"cc='$cc' executable='$executable' id='$m' static='$static' tmp='$tmp'\" $opt $hdr $test"
 						cat $a
 						} > $tmp.sh
 						chmod +x $tmp.sh

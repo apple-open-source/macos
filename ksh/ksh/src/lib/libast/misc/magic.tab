@@ -1,5 +1,5 @@
 #
-# @(#)magic (AT&T Research) 2010-10-10
+# @(#)magic (AT&T Research) 2012-05-11
 #
 # magic number database for file(1) and magic(3)
 #
@@ -58,6 +58,8 @@ o{
 }
 0	long		0177535		make object, old magic		application/x-nmake
 o()
+0	long		0x090f0301	jmake project db		application/x-jmake
++4	string		*		, version %s
 0	long		0x0b130800	ksh binary script		application/ksh
 +4	byte		*		, version %ld
 0	string		vkda		delta				application/x-vdelta
@@ -71,7 +73,7 @@ o()
 0	long		0x08091800
 +32	string		*		%s				application/x-cql
 +0	byte		*		hashed index
-+4	long		>0		, %d records
++4	long		>0		, %d record%s
 +8	long		>0		, %d max
 +12	date		>0		, stamp %s
 0	string		\1S\1B\1C\1S	sbcs delta			application/x-sbcs
@@ -1123,7 +1125,7 @@ o{
 +20	long		=2		, stereo
 +20	short		=3		, 3 channels
 +20	short		=4		, quad
-+20	short		>4		, %d channels
++20	short		>4		, %d channel%s
 +16	long		*		, %d hz
 }
 0	long		0x0064732E	dec audio data			audio/x-dec
@@ -1135,7 +1137,7 @@ o()
 
 0	string		MThd		standard midi data		audio/midi
 +9	byte		>0		, format %d
-+11	byte		>1		, %d channels
++11	byte		>1		, %d channel%s
 0	string		CTMF		creative music data
 0	string		SBI		soundblaster instrument data
 0	string		Creative\ Voice\ File	creative labs voice data
@@ -1153,7 +1155,7 @@ o()
 +22	leshort		=2		, stereo
 +22	leshort		=3		, 3 channels
 +22	leshort		=4		, quad
-+22	leshort		>4		, %d channels
++22	leshort		>4		, %d channel%s
 +24	lelong		>0		, %d hz
 
 8	long		0x41494646	aiff audio data			audio/aiff
@@ -1192,7 +1194,7 @@ o()
 +4	long	>0		, version %d
 +0	belong	0x00053162	, big-endian
 +0	lelong	0x00053162	, little-endian
-+16	long	*		, %d records
++16	long	*		, %d record%s
 +20	long	*		, flags 0x%x
 
 12	long	0x00053162	bsd db btree
@@ -1206,7 +1208,7 @@ o()
 +4	long	>0		version %d
 +8	long	4321		, big-endian
 +8	long	1234		, little-endian
-+56	long	*		, %d keys
++56	long	*		, %d key%s
 
 12	long	0x00061561	bsd db hash
 +16	long	>0		version %d
@@ -1215,7 +1217,7 @@ o()
 
 0	long	0x950412de	gnu message catalog	application/x-locale
 +4	long	*		, revision %d
-+8	long	*		, %d messages
++8	long	*		, %d message%s
 
 #
 # from the net
@@ -1227,12 +1229,12 @@ o()
 0	short		0x1f9d		compressed data			application/zip
 {
 2	byte		&0200
-&2	byte		&037>0		, %d bits
+&2	byte		&037>0		, %d bit%s
 }
 0	short		017436		packed data			application/zip
 0	short		0x9d1f		compressed data			application/zip
 +2	byte		&0200		, blocked
-+2	byte		&037>0		, with %d bits
++2	byte		&037>0		, with %d bit%s
 
 0	short		0x1f10		pzip compressed data		application/pzip
 &2	byte		>0		, version %d
@@ -1274,6 +1276,12 @@ v{
 v()
 0	long		0x0e13130d	NOC switch summary stats
 v()
+
+0	string		\x{FD}7zXZ	xz compressed data		application/xz
+
+0	leshort		0		windows icon resource		application/x-ms-icon
+&2	leshort		1
++4	leshort		x		, %d icon%s
 
 0	string		begin 0		uuencoded data			application/x-uuencode
 0	string		\x89PNG		PNG image data			image/png

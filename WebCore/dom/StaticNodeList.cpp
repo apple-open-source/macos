@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,8 +29,6 @@
 #include "config.h"
 #include "StaticNodeList.h"
 
-#include "Element.h"
-
 namespace WebCore {
 
 unsigned StaticNodeList::length() const
@@ -41,20 +39,40 @@ unsigned StaticNodeList::length() const
 Node* StaticNodeList::item(unsigned index) const
 {
     if (index < m_nodes.size())
-        return m_nodes[index].get();
-    return 0;
+        return &const_cast<Node&>(m_nodes[index].get());
+    return nullptr;
 }
 
 Node* StaticNodeList::namedItem(const AtomicString& elementId) const
 {
-    size_t length = m_nodes.size();
-    for (size_t i = 0; i < length; ++i) {
-        Node* node = m_nodes[i].get();
-        if (node->isElementNode() && toElement(node)->getIdAttribute() == elementId)
-            return node;
+    for (unsigned i = 0, length = m_nodes.size(); i < length; ++i) {
+        Node& node = const_cast<Node&>(m_nodes[i].get());
+        if (node.isElementNode() && toElement(node).getIdAttribute() == elementId)
+            return &node;
     }
+    return nullptr;
+}
 
-    return 0;
+unsigned StaticElementList::length() const
+{
+    return m_elements.size();
+}
+
+Node* StaticElementList::item(unsigned index) const
+{
+    if (index < m_elements.size())
+        return &const_cast<Element&>(m_elements[index].get());
+    return nullptr;
+}
+
+Node* StaticElementList::namedItem(const AtomicString& elementId) const
+{
+    for (unsigned i = 0, length = m_elements.size(); i < length; ++i) {
+        Element& element = const_cast<Element&>(m_elements[i].get());
+        if (element.getIdAttribute() == elementId)
+            return &element;
+    }
+    return nullptr;
 }
 
 } // namespace WebCore

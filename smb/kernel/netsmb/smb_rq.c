@@ -271,7 +271,7 @@ smb_rq_done(struct smb_rq *rqp)
     smb_rq_getreply(rqp, &mdp);
 
     /* 
-     * For SMB2, if the request was never sent, then recover the unused credits 
+     * For SMB 2/3, if the request was never sent, then recover the unused credits 
      * If the request was not sent due to reconnect, then no need to recover
      * unused credits as the crediting has been completely reset to start all
      * over.
@@ -332,7 +332,7 @@ smb_rq_reply(struct smb_rq *rqp)
         return (error);
     }
     else {
-        /* SMB1 Parsing */
+        /* SMB 1 Parsing */
         
         /* Get the Protocol */
         error = md_get_uint32(mdp, &tdw);

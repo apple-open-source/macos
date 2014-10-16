@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,11 +32,6 @@
 #include "runtime_root.h"
 #include "runtime/JSLock.h"
 #include "runtime/ObjectPrototype.h"
-
-
-#if PLATFORM(QT)
-#include "qt_instance.h"
-#endif
 
 namespace JSC {
 
@@ -82,7 +77,7 @@ JSObject* Instance::createRuntimeObject(ExecState* exec)
 
     JSLockHolder lock(exec);
     RuntimeObject* newObject = newRuntimeObject(exec);
-    m_runtimeObject = PassWeak<RuntimeObject>(newObject);
+    m_runtimeObject = JSC::Weak<RuntimeObject>(newObject);
     m_rootObject->addRuntimeObject(exec->vm(), newObject);
     return newObject;
 }
@@ -91,9 +86,8 @@ RuntimeObject* Instance::newRuntimeObject(ExecState* exec)
 {
     JSLockHolder lock(exec);
 
-    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
-    // We need to pass in the right global object for "i".
-    return RuntimeObject::create(exec, exec->lexicalGlobalObject(), WebCore::deprecatedGetDOMStructure<RuntimeObject>(exec), this);
+    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object.
+    return RuntimeObject::create(exec->vm(), WebCore::deprecatedGetDOMStructure<RuntimeObject>(exec), this);
 }
 
 void Instance::willInvalidateRuntimeObject()

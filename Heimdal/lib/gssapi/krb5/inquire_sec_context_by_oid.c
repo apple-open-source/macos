@@ -134,10 +134,6 @@ static OM_uint32 inquire_sec_context_get_subkey
     case TOKEN_KEY:
 	ret = _gsskrb5i_get_token_key(context_handle, context, &key);
 	break;
-    default:
-	_gsskrb5_set_status(EINVAL, "%d is not a valid subkey type", keytype);
-	ret = EINVAL;
-	break;
    }
     HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
     if (ret)

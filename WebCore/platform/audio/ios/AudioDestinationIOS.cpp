@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,9 +29,7 @@
 
 #include "config.h"
 
-#if ENABLE(WEB_AUDIO)
-
-#if PLATFORM(IOS)
+#if ENABLE(WEB_AUDIO) && PLATFORM(IOS)
 
 #include "AudioDestinationIOS.h"
 
@@ -64,12 +62,12 @@ const int kPreferredBufferSize = 256;
 typedef HashSet<AudioDestinationIOS*> AudioDestinationSet;
 static AudioDestinationSet& audioDestinations()
 {
-    DEFINE_STATIC_LOCAL(AudioDestinationSet, audioDestinationSet, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(AudioDestinationSet, audioDestinationSet, ());
     return audioDestinationSet;
 }
 
 // Factory method: iOS-implementation
-PassOwnPtr<AudioDestination> AudioDestination::create(AudioIOCallback& callback, const String&, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate)
+std::unique_ptr<AudioDestination> AudioDestination::create(AudioIOCallback& callback, const String&, unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate)
 {
     // FIXME: make use of inputDeviceId as appropriate.
 
@@ -81,7 +79,7 @@ PassOwnPtr<AudioDestination> AudioDestination::create(AudioIOCallback& callback,
     if (numberOfOutputChannels != 2)
         LOG(Media, "AudioDestination::create(%u, %u, %f) - unhandled output channels", numberOfInputChannels, numberOfOutputChannels, sampleRate);
 
-    return adoptPtr(new AudioDestinationIOS(callback, sampleRate));
+    return std::make_unique<AudioDestinationIOS>(callback, sampleRate);
 }
 
 float AudioDestination::hardwareSampleRate()
@@ -102,17 +100,11 @@ AudioDestinationIOS::AudioDestinationIOS(AudioIOCallback& callback, double sampl
     : m_outputUnit(0)
     , m_callback(callback)
     , m_renderBus(AudioBus::create(2, kRenderBufferSize, false))
+    , m_mediaSession(MediaSession::create(*this))
     , m_sampleRate(sampleRate)
     , m_isPlaying(false)
-    , m_interruptedOnPlayback(false)
 {
-    AudioSession& session = AudioSession::sharedSession();
-    session.addListener(this);
-    session.setCategory(AudioSession::AmbientSound);
-
     audioDestinations().add(this);
-    if (audioDestinations().size() == 1)
-        session.setActive(1);
 
     // Open and initialize DefaultOutputUnit
     AudioComponent comp;
@@ -151,8 +143,6 @@ AudioDestinationIOS::AudioDestinationIOS(AudioIOCallback& callback, double sampl
 AudioDestinationIOS::~AudioDestinationIOS()
 {
     audioDestinations().remove(this);
-    if (!audioDestinations().size())
-        AudioSession::sharedSession().setActive(0);
 
     if (m_outputUnit)
         AudioComponentInstanceDispose(m_outputUnit);
@@ -193,36 +183,28 @@ void AudioDestinationIOS::configure()
 
 void AudioDestinationIOS::start()
 {
-    OSStatus result = AudioOutputUnitStart(m_outputUnit);
+    LOG(Media, "AudioDestinationIOS::start");
+    if (!m_mediaSession->clientWillBeginPlayback()) {
+        LOG(Media, "  returning because of interruption");
+        return;
+    }
 
+    OSStatus result = AudioOutputUnitStart(m_outputUnit);
     if (!result)
         m_isPlaying = true;
 }
 
 void AudioDestinationIOS::stop()
 {
-    OSStatus result = AudioOutputUnitStop(m_outputUnit);
+    LOG(Media, "AudioDestinationIOS::stop");
+    if (!m_mediaSession->clientWillPausePlayback()) {
+        LOG(Media, "  returning because of interruption");
+        return;
+    }
 
+    OSStatus result = AudioOutputUnitStop(m_outputUnit);
     if (!result)
         m_isPlaying = false;
-}
-
-void AudioDestinationIOS::beganAudioInterruption()
-{
-    if (!m_isPlaying)
-        return;
-
-    stop();
-    m_interruptedOnPlayback = true;
-}
-
-void AudioDestinationIOS::endedAudioInterruption()
-{
-    if (!m_interruptedOnPlayback)
-        return;
-
-    m_interruptedOnPlayback = false;
-    start();
 }
 
 // Pulls on our provider to get rendered audio stream.
@@ -261,6 +243,5 @@ void AudioDestinationIOS::frameSizeChangedProc(void *inRefCon, AudioUnit, AudioU
 
 } // namespace WebCore
 
-#endif // PLATFORM(IOS)
+#endif // ENABLE(WEB_AUDIO) && PLATFORM(IOS)
 
-#endif // ENABLE(WEB_AUDIO)

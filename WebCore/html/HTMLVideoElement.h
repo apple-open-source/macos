@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,19 +27,18 @@
 #define HTMLVideoElement_h
 
 #if ENABLE(VIDEO)
+
 #include "HTMLMediaElement.h"
+#include <memory>
 
 namespace WebCore {
 
 class HTMLImageLoader;
 
-class HTMLVideoElement FINAL : public HTMLMediaElement {
+class HTMLVideoElement final : public HTMLMediaElement {
 public:
-    static PassRefPtr<HTMLVideoElement> create(const QualifiedName&, Document*, bool);
+    static PassRefPtr<HTMLVideoElement> create(const QualifiedName&, Document&, bool);
 
-    unsigned width() const;
-    unsigned height() const;
-    
     unsigned videoWidth() const;
     unsigned videoHeight() const;
     
@@ -54,6 +53,11 @@ public:
     void webkitEnterFullScreen(ExceptionCode& ec) { webkitEnterFullscreen(ec); }
     void webkitExitFullScreen() { webkitExitFullscreen(); }
 
+#if ENABLE(IOS_AIRPLAY)
+    bool webkitWirelessVideoPlaybackDisabled() const;
+    void setWebkitWirelessVideoPlaybackDisabled(bool);
+#endif
+
 #if ENABLE(MEDIA_STATISTICS)
     // Statistics
     unsigned webkitDecodedFrameCount() const;
@@ -63,40 +67,42 @@ public:
     // Used by canvas to gain raw pixel access
     void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
 
+    PassNativeImagePtr nativeImageForCurrentTime();
+
     // Used by WebGL to do GPU-GPU textures copy if possible.
     // See more details at MediaPlayer::copyVideoTextureToPlatformTexture() defined in Source/WebCore/platform/graphics/MediaPlayer.h.
     bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject texture, GC3Dint level, GC3Denum type, GC3Denum internalFormat, bool premultiplyAlpha, bool flipY);
 
     bool shouldDisplayPosterImage() const { return displayMode() == Poster || displayMode() == PosterWaitingForVideo; }
 
-    KURL posterImageURL() const;
+    URL posterImageURL() const;
+    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
 
 private:
-    HTMLVideoElement(const QualifiedName&, Document*, bool);
+    HTMLVideoElement(const QualifiedName&, Document&, bool);
 
-    virtual bool rendererIsNeeded(const NodeRenderingContext&);
-#if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-#endif
-    virtual void attach(const AttachContext& = AttachContext()) OVERRIDE;
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
-    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
-    virtual bool isVideo() const { return true; }
-    virtual bool hasVideo() const { return player() && player()->hasVideo(); }
-    virtual bool supportsFullscreen() const;
-    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
-    virtual const AtomicString& imageSourceURL() const OVERRIDE;
+    virtual bool rendererIsNeeded(const RenderStyle&) override;
+    virtual void didAttachRenderers() override;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    virtual bool isPresentationAttribute(const QualifiedName&) const override;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    virtual bool isVideo() const override { return true; }
+    virtual bool hasVideo() const override { return player() && player()->hasVideo(); }
+    virtual bool supportsFullscreen() const override;
+    virtual bool isURLAttribute(const Attribute&) const override;
+    virtual const AtomicString& imageSourceURL() const override;
 
     virtual bool hasAvailableVideoFrame() const;
-    virtual void updateDisplayState();
-    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
-    virtual void setDisplayMode(DisplayMode);
+    virtual void updateDisplayState() override;
+    virtual void didMoveToNewDocument(Document* oldDocument) override;
+    virtual void setDisplayMode(DisplayMode) override;
 
-    OwnPtr<HTMLImageLoader> m_imageLoader;
+    std::unique_ptr<HTMLImageLoader> m_imageLoader;
 
     AtomicString m_defaultPosterURL;
 };
+
+NODE_TYPE_CASTS(HTMLVideoElement)
 
 } //namespace
 

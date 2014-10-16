@@ -1,4 +1,6 @@
+#!/bin/sh
 #this must be run on a native system
 
-zic -y datfiles/yearistype.sh -d /tmp/zoneinfo -L /dev/null datfiles/africa datfiles/antarctica datfiles/asia datfiles/australasia datfiles/europe datfiles/northamerica datfiles/southamerica datfiles/pacificnew datfiles/etcetera datfiles/factory datfiles/backward datfiles/systemv
+ZONE_FILES="$(egrep --files-with-match '^(Zone|Rule|Link)' datfiles/*)"
+zic -y datfiles/yearistype.sh -d /tmp/zoneinfo -L /dev/null $ZONE_FILES
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -30,6 +30,7 @@
 #import "WebPluginController.h"
 
 #import "DOMNodeInternal.h"
+#import "WebBasePluginPackage.h"
 #import "WebDataSourceInternal.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
@@ -43,7 +44,6 @@
 #import "WebPluginContainer.h"
 #import "WebPluginContainerCheck.h"
 #import "WebPluginPackage.h"
-#import "WebPluginPrivate.h"
 #import "WebPluginViewFactory.h"
 #import "WebUIDelegate.h"
 #import "WebViewInternal.h"
@@ -62,6 +62,18 @@
 #import <runtime/JSLock.h>
 #import <wtf/text/WTFString.h>
 
+#if PLATFORM(IOS)
+#import "DOMElementInternal.h"
+#import "WebUIKitDelegate.h"
+#import <WebCore/AudioSession.h>
+#import <WebCore/FrameView.h>
+#import <WebCore/GraphicsLayer.h>
+#import <WebCore/Page.h>
+#import <WebCore/RuntimeApplicationChecksIOS.h>
+#import <WebCore/SoftLinking.h>
+#import <WebCore/WebCoreThreadRun.h>
+#endif
+
 using namespace WebCore;
 using namespace HTMLNames;
 
@@ -69,10 +81,12 @@ using namespace HTMLNames;
 - (void)setContainingWindow:(NSWindow *)w;
 @end
 
+#if !PLATFORM(IOS)
 // For compatibility only.
 @interface NSObject (OldPluginAPI)
 + (NSView *)pluginViewWithArguments:(NSDictionary *)arguments;
 @end
+#endif
 
 @interface NSView (OldPluginAPI)
 - (void)pluginInitialize;
@@ -81,21 +95,66 @@ using namespace HTMLNames;
 - (void)pluginDestroy;
 @end
 
+#if !PLATFORM(IOS)
 static bool isKindOfClass(id, NSString* className);
 static void installFlip4MacPlugInWorkaroundIfNecessary();
+#endif
 
 
 static NSMutableSet *pluginViews = nil;
 
+#if PLATFORM(IOS)
+static void initializeAudioSession()
+{
+    static bool wasAudioSessionInitialized;
+    if (wasAudioSessionInitialized)
+        return;
+
+    wasAudioSessionInitialized = true;
+    if (!WebCore::applicationIsMobileSafari())
+        return;
+
+    AudioSession::sharedSession().setCategory(AudioSession::MediaPlayback);
+}
+#endif
+
 @implementation WebPluginController
 
-+ (NSView *)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)pluginPackage
+#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
++ (id)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)pluginPackage
 {
+    initializeAudioSession();
     [pluginPackage load];
     Class viewFactory = [pluginPackage viewFactory];
-    
+
+    id view = nil;
+
+    if ([viewFactory respondsToSelector:@selector(plugInViewWithArguments:)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
+        view = [viewFactory plugInViewWithArguments:arguments];
+    }
+
+    return view;
+}
+#else
+- (NSView *)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)pluginPackage
+{
+#if PLATFORM(IOS)
+    initializeAudioSession();
+#endif
+
+    [pluginPackage load];
+
     NSView *view = nil;
 
+#if PLATFORM(IOS)
+    {
+        WebView *webView = [_documentView _webView];
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
+        view = [[webView _UIKitDelegateForwarder] webView:webView plugInViewWithArguments:arguments fromPlugInPackage:pluginPackage];
+    }
+#else
+    Class viewFactory = [pluginPackage viewFactory];
     if ([viewFactory respondsToSelector:@selector(plugInViewWithArguments:)]) {
         JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         view = [viewFactory plugInViewWithArguments:arguments];
@@ -103,7 +162,8 @@ static NSMutableSet *pluginViews = nil;
         JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         view = [viewFactory pluginViewWithArguments:arguments];
     }
-    
+#endif
+
     if (view == nil) {
         return nil;
     }
@@ -112,9 +172,22 @@ static NSMutableSet *pluginViews = nil;
         pluginViews = [[NSMutableSet alloc] init];
     }
     [pluginViews addObject:view];
-    
+
     return view;
 }
+#endif
+
+#if PLATFORM(IOS)
++ (void)addPlugInView:(NSView *)view
+{
+    if (pluginViews == nil)
+        pluginViews = [[NSMutableSet alloc] init];
+
+    ASSERT(view);
+    if (view)
+        [pluginViews addObject:view];
+}
+#endif
 
 + (BOOL)isPlugInView:(NSView *)view
 {
@@ -141,11 +214,31 @@ static NSMutableSet *pluginViews = nil;
 {
     [_views release];
     [_checksInProgress release];
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    [_viewsNotInDocument release];
-#endif
     [super dealloc];
 }
+
+#if PLATFORM(IOS)
+- (BOOL)plugInsAreRunning
+{
+    NSUInteger pluginViewCount = [_views count];
+    return _started && pluginViewCount;
+}
+
+- (CALayer *)superlayerForPluginView:(NSView *)view
+{
+    Frame* coreFrame = core([self webFrame]);
+    FrameView* coreView = coreFrame ? coreFrame->view() : nullptr;
+    if (!coreView)
+        return nil;
+
+    // Get a GraphicsLayer;
+    GraphicsLayer* layerForWidget = coreView->graphicsLayerForPlatformWidget(view);
+    if (!layerForWidget)
+        return nil;
+    
+    return layerForWidget->platformLayer();
+}
+#endif
 
 - (void)stopOnePlugin:(NSView *)view
 {
@@ -157,6 +250,17 @@ static NSMutableSet *pluginViews = nil;
         [view pluginStop];
     }
 }
+
+#if PLATFORM(IOS)
+- (void)stopOnePluginForPageCache:(NSView *)view
+{
+    if ([view respondsToSelector:@selector(webPlugInStopForPageCache)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
+        [view webPlugInStopForPageCache];
+    } else
+        [self stopOnePlugin:view];
+}
+#endif
 
 - (void)destroyOnePlugin:(NSView *)view
 {
@@ -204,29 +308,37 @@ static NSMutableSet *pluginViews = nil;
     for (int i = 0; i < viewsCount; i++)
         [self stopOnePlugin:[_views objectAtIndex:i]];
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    int viewsNotInDocumentCount = [_viewsNotInDocument count];
-    for (int i = 0; i < viewsNotInDocumentCount; i++)
-        [self stopOnePlugin:[_viewsNotInDocument objectAtIndex:i]];
-#endif
+    _started = NO;
+}
+
+#if PLATFORM(IOS)
+- (void)stopPluginsForPageCache
+{
+    if (!_started)
+        return;
+
+    NSUInteger viewsCount = [_views count];
+    if (viewsCount > 0)
+        LOG(Plugins, "stopping WebKit plugins for PageCache: %@", [_views description]);
+
+    for (NSUInteger i = 0; i < viewsCount; ++i)
+        [self stopOnePluginForPageCache:[_views objectAtIndex:i]];
 
     _started = NO;
 }
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-- (void)pluginViewCreated:(NSView *)view
+- (void)restorePluginsFromCache
 {
-    if (!_viewsNotInDocument)
-        _viewsNotInDocument= [[NSMutableArray alloc] init];
-    if (![_viewsNotInDocument containsObject:view])
-        [_viewsNotInDocument addObject:view];
-}
+    WebView *webView = [_documentView _webView];
 
-+ (void)pluginViewHidden:(NSView *)view
-{
-    [pluginViews removeObject:view];
+    NSUInteger viewsCount = [_views count];
+    if (viewsCount > 0)
+        LOG(Plugins, "restoring WebKit plugins from PageCache: %@", [_views description]);
+
+    for (NSUInteger i = 0; i < viewsCount; ++i)
+        [[webView _UIKitDelegateForwarder] webView:webView willAddPlugInView:[_views objectAtIndex:i]];
 }
-#endif
+#endif // PLATFORM(IOS)
 
 - (void)addPlugin:(NSView *)view
 {
@@ -237,19 +349,18 @@ static NSMutableSet *pluginViews = nil;
     
     if (![_views containsObject:view]) {
         [_views addObject:view];
+#if !PLATFORM(IOS)
         [[_documentView _webView] addPluginInstanceView:view];
-
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-        if ([_viewsNotInDocument containsObject:view])
-            [_viewsNotInDocument removeObject:view];
 #endif
 
+#if !PLATFORM(IOS)
         BOOL oldDefersCallbacks = [[self webView] defersCallbacks];
         if (!oldDefersCallbacks)
             [[self webView] setDefersCallbacks:YES];
 
         if (isKindOfClass(view, @"WmvPlugin"))
             installFlip4MacPlugInWorkaroundIfNecessary();
+#endif
 
         LOG(Plugins, "initializing plug-in %@", view);
         if ([view respondsToSelector:@selector(webPlugInInitialize)]) {
@@ -260,8 +371,10 @@ static NSMutableSet *pluginViews = nil;
             [view pluginInitialize];
         }
 
+#if !PLATFORM(IOS)
         if (!oldDefersCallbacks)
             [[self webView] setDefersCallbacks:NO];
+#endif
         
         if (_started) {
             LOG(Plugins, "starting plug-in %@", view);
@@ -283,26 +396,21 @@ static NSMutableSet *pluginViews = nil;
 
 - (void)destroyPlugin:(NSView *)view
 {
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    if ([_views containsObject:view] || [_viewsNotInDocument containsObject:view]) {
-#else
     if ([_views containsObject:view]) {
-#endif
         if (_started)
             [self stopOnePlugin:view];
         [self destroyOnePlugin:view];
-        
+
 #if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
-            frame->script()->cleanupScriptObjectsForPlugin(self);
+            frame->script().cleanupScriptObjectsForPlugin(self);
 #endif
         
         [pluginViews removeObject:view];
+#if !PLATFORM(IOS)
         [[_documentView _webView] removePluginInstanceView:view];
-        [_views removeObject:view];
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-        [_viewsNotInDocument removeObject:view];
 #endif
+        [_views removeObject:view];
     }
 }
 
@@ -343,25 +451,32 @@ static void cancelOutstandingCheck(const void *item, void *context)
         
 #if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
-            frame->script()->cleanupScriptObjectsForPlugin(self);
+            frame->script().cleanupScriptObjectsForPlugin(self);
 #endif
         
         [pluginViews removeObject:aView];
+#if !PLATFORM(IOS)
         [[_documentView _webView] removePluginInstanceView:aView];
+#endif
     }
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    int viewsNotInDocumentCount = [_viewsNotInDocument count];
-    for (int i = 0; i < viewsNotInDocumentCount; i++)
-        [self destroyOnePlugin:[_viewsNotInDocument objectAtIndex:i]];
-#endif
-
+#if !PLATFORM(IOS)
     [_views makeObjectsPerformSelector:@selector(removeFromSuperviewWithoutNeedingDisplay)];
+#else
+    [_views makeObjectsPerformSelector:@selector(removeFromSuperview)];
+#endif
     [_views release];
     _views = nil;
 
     _documentView = nil;
 }
+
+#if PLATFORM(IOS)
+- (BOOL)processingUserGesture
+{
+    return ScriptController::processingUserGesture();
+}
+#endif
 
 - (id)_webPluginContainerCheckIfAllowedToLoadRequest:(NSURLRequest *)request inFrame:(NSString *)target resultObject:(id)obj selector:(SEL)selector
 {
@@ -405,9 +520,23 @@ static void cancelOutstandingCheck(const void *item, void *context)
         FrameLoadRequest frameRequest(core(frame), request);
         frameRequest.setFrameName(target);
         frameRequest.setShouldCheckNewWindowPolicy(true);
-        core(frame)->loader()->load(frameRequest);
+        core(frame)->loader().load(frameRequest);
     }
 }
+
+#if PLATFORM(IOS)
+- (void)webPlugInContainerWillShowFullScreenForView:(id)plugInView
+{
+    WebView *webView = [_dataSource _webView];
+    [[webView _UIKitDelegateForwarder] webView:webView willShowFullScreenForPlugInView:plugInView];
+}
+
+- (void)webPlugInContainerDidHideFullScreenForView:(id)plugInView
+{
+    WebView *webView = [_dataSource _webView];
+    [[webView _UIKitDelegateForwarder] webView:webView didHideFullScreenForPlugInView:plugInView];
+}
+#endif
 
 - (void)webPlugInContainerShowStatus:(NSString *)message
 {
@@ -424,11 +553,12 @@ static void cancelOutstandingCheck(const void *item, void *context)
     [self webPlugInContainerShowStatus:message];
 }
 
+#if !PLATFORM(IOS)
 - (NSColor *)webPlugInContainerSelectionColor
 {
     bool primary = true;
     if (Frame* frame = core([self webFrame]))
-        primary = frame->selection()->isFocusedAndActive();
+        primary = frame->selection().isFocusedAndActive();
     return primary ? [NSColor selectedTextBackgroundColor] : [NSColor secondarySelectedControlColor];
 }
 
@@ -437,6 +567,7 @@ static void cancelOutstandingCheck(const void *item, void *context)
 {
     return [self webPlugInContainerSelectionColor];
 }
+#endif
 
 - (WebFrame *)webFrame
 {
@@ -490,40 +621,9 @@ static void cancelOutstandingCheck(const void *item, void *context)
         [pluginView webPlugInMainResourceDidFinishLoading];
 }
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-static WebCore::HTMLMediaElement* mediaProxyClient(DOMElement* element)
-{
-    if (!element) {
-        LOG_ERROR("nil element passed");
-        return nil;
-    }
-
-    Element* node = core(element);
-    if (!node || (!node->hasTagName(HTMLNames::videoTag) && !node->hasTagName(HTMLNames::audioTag))) {
-        LOG_ERROR("invalid media element passed");
-        return nil;
-    }
-
-    return static_cast<WebCore::HTMLMediaElement*>(node);
-}
-
-- (void)_webPluginContainerSetMediaPlayerProxy:(WebMediaPlayerProxy *)proxy forElement:(DOMElement *)element
-{
-    WebCore::HTMLMediaElement* client = mediaProxyClient(element);
-    if (client)
-        client->setMediaPlayerProxy(proxy);
-}
-
-- (void)_webPluginContainerPostMediaPlayerNotification:(int)notification forElement:(DOMElement *)element
-{
-    WebCore::HTMLMediaElement* client = mediaProxyClient(element);
-    if (client)
-        client->deliverNotification((MediaPlayerProxyNotificationType)notification);
-}
-#endif
-
 @end
 
+#if !PLATFORM(IOS)
 static bool isKindOfClass(id object, NSString *className)
 {
     Class cls = NSClassFromString(className);
@@ -605,3 +705,4 @@ static void installFlip4MacPlugInWorkaroundIfNecessary()
         hasInstalledFlip4MacPlugInWorkaround = true;
     }
 }
+#endif // !PLATFORM(IOS)

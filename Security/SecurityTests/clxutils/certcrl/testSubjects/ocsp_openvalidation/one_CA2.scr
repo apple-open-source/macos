@@ -1,0 +1,19 @@
+# one OCSP transaction test using http://ocsp.openvalidation.org
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = false
+cacheDisable = false
+end
+#
+echo "================================="
+test = "OCSP, good status, user cert"
+revokePolicy = ocsp
+cert = User_CA2.crt
+responderCert = Server_CA2.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:80
+allowUnverified = false
+generateOcspNonce = true
+requireOcspNonce = true
+end

@@ -46,6 +46,22 @@ IOCFUnserialize(const char *buffer,
                 CFOptionFlags options,
                 CFStringRef *errorString);
 
+CF_RETURNS_RETAINED
+CFTypeRef
+IOCFUnserializeBinary(const char	* buffer,
+					  size_t          bufferSize,
+					  CFAllocatorRef  allocator,
+					  CFOptionFlags	  options,
+					  CFStringRef	* errorString);
+
+CF_RETURNS_RETAINED
+CFTypeRef
+IOCFUnserializeWithSize(const char	  * buffer,
+						size_t          bufferSize,
+						CFAllocatorRef	allocator,
+						CFOptionFlags	options,
+						CFStringRef	  * errorString);
+
 #if defined(__cplusplus)
 }
 #endif

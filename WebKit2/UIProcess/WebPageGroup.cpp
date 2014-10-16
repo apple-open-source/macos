@@ -26,10 +26,12 @@
 #include "config.h"
 #include "WebPageGroup.h"
 
+#include "APIArray.h"
 #include "WebPageGroupProxyMessages.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
 #include <wtf/HashMap.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringConcatenate.h>
 
 namespace WebKit {
@@ -44,17 +46,18 @@ typedef HashMap<uint64_t, WebPageGroup*> WebPageGroupMap;
 
 static WebPageGroupMap& webPageGroupMap()
 {
-    DEFINE_STATIC_LOCAL(WebPageGroupMap, map, ());
+    static NeverDestroyed<WebPageGroupMap> map;
     return map;
 }
 
 PassRefPtr<WebPageGroup> WebPageGroup::create(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
 {
-    RefPtr<WebPageGroup> pageGroup = adoptRef(new WebPageGroup(identifier, visibleToInjectedBundle, visibleToHistoryClient));
+    return adoptRef(new WebPageGroup(identifier, visibleToInjectedBundle, visibleToHistoryClient));
+}
 
-    webPageGroupMap().set(pageGroup->pageGroupID(), pageGroup.get());
-
-    return pageGroup.release();
+PassRef<WebPageGroup> WebPageGroup::createNonNull(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
+{
+    return adoptRef(*new WebPageGroup(identifier, visibleToInjectedBundle, visibleToHistoryClient));
 }
 
 WebPageGroup* WebPageGroup::get(uint64_t pageGroupID)
@@ -62,23 +65,34 @@ WebPageGroup* WebPageGroup::get(uint64_t pageGroupID)
     return webPageGroupMap().get(pageGroupID);
 }
 
-WebPageGroup::WebPageGroup(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
+static WebPageGroupData pageGroupData(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
 {
-    m_data.pageGroupID = generatePageGroupID();
+    WebPageGroupData data;
 
-    if (!identifier.isNull())
-        m_data.identifer = identifier;
+    data.pageGroupID = generatePageGroupID();
+
+    if (!identifier.isEmpty())
+        data.identifer = identifier;
     else
-        m_data.identifer = m_data.identifer = makeString("__uniquePageGroupID-", String::number(m_data.pageGroupID));
+        data.identifer = makeString("__uniquePageGroupID-", String::number(data.pageGroupID));
 
-    m_data.visibleToInjectedBundle = visibleToInjectedBundle;
-    m_data.visibleToHistoryClient = visibleToHistoryClient;
+    data.visibleToInjectedBundle = visibleToInjectedBundle;
+    data.visibleToHistoryClient = visibleToHistoryClient;
+
+    return data;
+}
+
+// FIXME: Why does the WebPreferences object here use ".WebKit2" instead of "WebKit2." which all the other constructors use.
+// If it turns out that it's wrong, we can change it to to "WebKit2." and get rid of the globalDebugKeyPrefix from WebPreferences.
+WebPageGroup::WebPageGroup(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
+    : m_data(pageGroupData(identifier, visibleToInjectedBundle, visibleToHistoryClient))
+    , m_preferences(WebPreferences::createWithLegacyDefaults(m_data.identifer, ".WebKit2", "WebKit2."))
+{
+    webPageGroupMap().set(m_data.pageGroupID, this);
 }
 
 WebPageGroup::~WebPageGroup()
 {
-    if (m_preferences)
-        m_preferences->removePageGroup(this);
     webPageGroupMap().remove(pageGroupID());
 }
 
@@ -97,28 +111,15 @@ void WebPageGroup::setPreferences(WebPreferences* preferences)
     if (preferences == m_preferences)
         return;
 
-    if (!m_preferences) {
-        m_preferences = preferences;
-        m_preferences->addPageGroup(this);
-    } else {
-        m_preferences->removePageGroup(this);
-        m_preferences = preferences;
-        m_preferences->addPageGroup(this);
+    m_preferences = preferences;
 
-        preferencesDidChange();
-    }
+    for (auto& webPageProxy : m_pages)
+        webPageProxy->setPreferences(*m_preferences);
 }
 
-WebPreferences* WebPageGroup::preferences() const
+WebPreferences& WebPageGroup::preferences() const
 {
-    if (!m_preferences) {
-        if (!m_data.identifer.isNull())
-            m_preferences = WebPreferences::create(m_data.identifer);
-        else
-            m_preferences = WebPreferences::create();
-        m_preferences->addPageGroup(const_cast<WebPageGroup*>(this));
-    }
-    return m_preferences.get();
+    return *m_preferences;
 }
 
 void WebPageGroup::preferencesDidChange()
@@ -129,43 +130,23 @@ void WebPageGroup::preferencesDidChange()
     }
 }
 
-static Vector<String> toStringVector(ImmutableArray* array)
-{
-    Vector<String> patternVector;
-    if (!array)
-        return patternVector;
-
-    size_t size = array->size();
-    if (!size)
-        return patternVector;
-    
-    patternVector.reserveInitialCapacity(size);
-    for (size_t i = 0; i < size; ++i) {
-        WebString* webString = array->at<WebString>(i);
-        ASSERT(webString);
-        patternVector.uncheckedAppend(webString->string());
-    }
-    
-    return patternVector;
-}
-
-void WebPageGroup::addUserStyleSheet(const String& source, const String& baseURL, ImmutableArray* whitelist, ImmutableArray* blacklist, WebCore::UserContentInjectedFrames injectedFrames, WebCore::UserStyleLevel level)
+void WebPageGroup::addUserStyleSheet(const String& source, const String& baseURL, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames injectedFrames, WebCore::UserStyleLevel level)
 {
     if (source.isEmpty())
         return;
 
-    WebCore::UserStyleSheet userStyleSheet = WebCore::UserStyleSheet(source, (baseURL.isEmpty() ? WebCore::blankURL() : WebCore::KURL(WebCore::KURL(), baseURL)), toStringVector(whitelist), toStringVector(blacklist), injectedFrames, level);
+    WebCore::UserStyleSheet userStyleSheet = WebCore::UserStyleSheet(source, (baseURL.isEmpty() ? WebCore::blankURL() : WebCore::URL(WebCore::URL(), baseURL)), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectedFrames, level);
 
     m_data.userStyleSheets.append(userStyleSheet);
     sendToAllProcessesInGroup(Messages::WebPageGroupProxy::AddUserStyleSheet(userStyleSheet), m_data.pageGroupID);
 }
 
-void WebPageGroup::addUserScript(const String& source, const String& baseURL, ImmutableArray* whitelist, ImmutableArray* blacklist, WebCore::UserContentInjectedFrames injectedFrames, WebCore::UserScriptInjectionTime injectionTime)
+void WebPageGroup::addUserScript(const String& source, const String& baseURL, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames injectedFrames, WebCore::UserScriptInjectionTime injectionTime)
 {
     if (source.isEmpty())
         return;
 
-    WebCore::UserScript userScript = WebCore::UserScript(source, (baseURL.isEmpty() ? WebCore::blankURL() : WebCore::KURL(WebCore::KURL(), baseURL)), toStringVector(whitelist), toStringVector(blacklist), injectionTime, injectedFrames);
+    WebCore::UserScript userScript = WebCore::UserScript(source, (baseURL.isEmpty() ? WebCore::blankURL() : WebCore::URL(WebCore::URL(), baseURL)), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames);
 
     m_data.userScripts.append(userScript);
     sendToAllProcessesInGroup(Messages::WebPageGroupProxy::AddUserScript(userScript), m_data.pageGroupID);

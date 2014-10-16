@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,11 +69,13 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 
 boolean_t
 EAPOLSocketSetWPAKey(EAPOLSocketRef sock, 
-		     const uint8_t * session_key, int session_key_length,
-		     const uint8_t * server_key, int server_key_length);
+		     const uint8_t * msk, int msk_length);
 
 void
 EAPOLSocketClearPMKCache(EAPOLSocketRef sock);
+
+boolean_t
+EAPOLSocketHasPMK(EAPOLSocketRef sock);
 
 CFStringRef
 EAPOLSocketGetSSID(EAPOLSocketRef sock);

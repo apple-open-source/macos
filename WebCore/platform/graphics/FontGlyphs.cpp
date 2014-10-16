@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -32,7 +32,6 @@
 #include "Font.h"
 #include "FontCache.h"
 #include "SegmentedFontData.h"
-#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
@@ -43,7 +42,7 @@ FontGlyphs::FontGlyphs(PassRefPtr<FontSelector> fontSelector)
     , m_fontSelector(fontSelector)
     , m_fontSelectorVersion(m_fontSelector ? m_fontSelector->version() : 0)
     , m_familyIndex(0)
-    , m_generation(fontCache()->generation())
+    , m_generation(fontCache().generation())
     , m_pitch(UnknownPitch)
     , m_loadingCustomFonts(false)
     , m_isForPlatformFont(false)
@@ -56,12 +55,12 @@ FontGlyphs::FontGlyphs(const FontPlatformData& platformData)
     , m_fontSelector(0)
     , m_fontSelectorVersion(0)
     , m_familyIndex(cAllFamiliesScanned)
-    , m_generation(fontCache()->generation())
+    , m_generation(fontCache().generation())
     , m_pitch(UnknownPitch)
     , m_loadingCustomFonts(false)
     , m_isForPlatformFont(true)
 {
-    RefPtr<FontData> fontData = fontCache()->getCachedFontData(&platformData);
+    RefPtr<FontData> fontData = fontCache().getCachedFontData(&platformData);
     m_realizedFontData.append(fontData.release());
 }
 
@@ -72,7 +71,7 @@ void FontGlyphs::releaseFontData()
         if (m_realizedFontData[i]->isCustomFont())
             continue;
         ASSERT(!m_realizedFontData[i]->isSegmented());
-        fontCache()->releaseFontData(static_cast<const SimpleFontData*>(m_realizedFontData[i].get()));
+        fontCache().releaseFontData(static_cast<const SimpleFontData*>(m_realizedFontData[i].get()));
     }
 }
 
@@ -99,15 +98,27 @@ const FontData* FontGlyphs::realizeFontDataAt(const FontDescription& description
     // Make sure we're not passing in some crazy value here.
     ASSERT(realizedFontIndex == m_realizedFontData.size());
 
-    if (m_familyIndex == cAllFamiliesScanned)
-        return 0;
+    if (m_familyIndex <= cAllFamiliesScanned) {
+        if (!m_fontSelector)
+            return 0;
+
+        size_t index = cAllFamiliesScanned - m_familyIndex;
+        if (index == m_fontSelector->fallbackFontDataCount())
+            return 0;
+
+        m_familyIndex--;
+        RefPtr<FontData> fallback = m_fontSelector->getFallbackFontData(description, index);
+        if (fallback)
+            m_realizedFontData.append(fallback);
+        return fallback.get();
+    }
 
     // Ask the font cache for the font data.
     // We are obtaining this font for the first time. We keep track of the families we've looked at before
     // in |m_familyIndex|, so that we never scan the same spot in the list twice. getFontData will adjust our
     // |m_familyIndex| as it scans for the right font to make.
-    ASSERT(fontCache()->generation() == m_generation);
-    RefPtr<FontData> result = fontCache()->getFontData(description, m_familyIndex, m_fontSelector.get());
+    ASSERT(fontCache().generation() == m_generation);
+    RefPtr<FontData> result = fontCache().getFontData(description, m_familyIndex, m_fontSelector.get());
     if (result) {
         m_realizedFontData.append(result);
         if (result->isLoading())
@@ -253,7 +264,7 @@ std::pair<GlyphData, GlyphPage*> FontGlyphs::glyphDataAndPageForCharacter(const 
 
     if (variant == AutoVariant) {
         if (description.smallCaps() && !primarySimpleFontData(description)->isSVGFont()) {
-            UChar32 upperC = WTF::Unicode::toUpper(c);
+            UChar32 upperC = u_toupper(c);
             if (upperC != c) {
                 c = upperC;
                 variant = SmallCapsVariant;
@@ -264,7 +275,7 @@ std::pair<GlyphData, GlyphPage*> FontGlyphs::glyphDataAndPageForCharacter(const 
     }
 
     if (mirror)
-        c = WTF::Unicode::mirroredChar(c);
+        c = u_charMirror(c);
 
     unsigned pageNumber = (c / GlyphPage::size);
 
@@ -295,7 +306,7 @@ std::pair<GlyphData, GlyphPage*> FontGlyphs::glyphDataAndPageForCharacter(const 
                             variant = BrokenIdeographVariant;
                             break;
                         }
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
                         else if (data.fontData->platformData().syntheticOblique())
                             return glyphDataAndPageForCJKCharacterWithoutSyntheticItalic(c, data, page, pageNumber);
 #endif
@@ -370,7 +381,7 @@ std::pair<GlyphData, GlyphPage*> FontGlyphs::glyphDataAndPageForCharacter(const 
         codeUnitsLength = 2;
     }
     const SimpleFontData* originalFontData = primaryFontData(description)->fontDataForCharacter(c);
-    RefPtr<SimpleFontData> characterFontData = fontCache()->systemFallbackForCharacters(description, originalFontData, m_isForPlatformFont, codeUnits, codeUnitsLength);
+    RefPtr<SimpleFontData> characterFontData = fontCache().systemFallbackForCharacters(description, originalFontData, m_isForPlatformFont, codeUnits, codeUnitsLength);
     if (characterFontData) {
         if (characterFontData->platformData().orientation() == Vertical && !characterFontData->hasVerticalGlyphs() && Font::isCJKIdeographOrSymbol(c))
             variant = BrokenIdeographVariant;

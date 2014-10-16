@@ -31,9 +31,6 @@
  *                        Log to file fn with format given by the format
  *                        argument
  *
- *    CookieLog fn        For backwards compatability with old Cookie
- *                        logging module - now deprecated.
- *
  * There can be any number of TransferLog and CustomLog
  * commands. Each request will be logged to _ALL_ the
  * named files, in the appropriate format.
@@ -116,9 +113,11 @@
  *         'X' = connection aborted before the response completed.
  *         '+' = connection may be kept alive after the response is sent.
  *         '-' = connection will be closed after the response is sent.
-           (This directive was %...c in late versions of Apache 1.3, but
-            this conflicted with the historical ssl %...{var}c syntax.)
-*
+ *         (This directive was %...c in late versions of Apache 1.3, but
+ *          this conflicted with the historical ssl %...{var}c syntax.)
+ * %...L:  Log-Id of the Request (or '-' if none)
+ * %...{c}L:  Log-Id of the Connection (or '-' if none)
+ *
  * The '...' can be nothing at all (e.g. "%h %u %r %s %b"), or it can
  * indicate conditions for inclusion of the item (which will cause it
  * to be replaced with '-' if the condition is not met).  Note that
@@ -195,8 +194,8 @@ static void *ap_default_log_writer_init(apr_pool_t *p, server_rec *s,
 static void *ap_buffered_log_writer_init(apr_pool_t *p, server_rec *s,
                                         const char* name);
 
-static ap_log_writer_init* ap_log_set_writer_init(ap_log_writer_init *handle);
-static ap_log_writer* ap_log_set_writer(ap_log_writer *handle);
+static ap_log_writer_init *ap_log_set_writer_init(ap_log_writer_init *handle);
+static ap_log_writer *ap_log_set_writer(ap_log_writer *handle);
 static ap_log_writer *log_writer = ap_default_log_writer;
 static ap_log_writer_init *log_writer_init = ap_default_log_writer_init;
 static int buffered_logs = 0; /* default unbuffered */
@@ -263,7 +262,18 @@ typedef struct {
     apr_array_header_t *format;
     void *log_writer;
     char *condition_var;
+    ap_expr_info_t *condition_expr;
+    /** place of definition or NULL if already checked */
+    const ap_directive_t *directive;
 } config_log_state;
+
+/*
+ * log_request_state holds request specific log data that is not
+ * part of the request_rec.
+ */
+typedef struct {
+    apr_time_t request_end_time;
+} log_request_state;
 
 /*
  * Format items...
@@ -278,18 +288,13 @@ typedef struct {
     apr_array_header_t *conditions;
 } log_format_item;
 
-static char *format_integer(apr_pool_t *p, int i)
-{
-    return apr_itoa(p, i);
-}
-
 static char *pfmt(apr_pool_t *p, int i)
 {
     if (i <= 0) {
         return "-";
     }
     else {
-        return format_integer(p, i);
+        return apr_itoa(p, i);
     }
 }
 
@@ -307,7 +312,12 @@ static const char *log_remote_host(request_rec *r, char *a)
 
 static const char *log_remote_address(request_rec *r, char *a)
 {
-    return r->connection->remote_ip;
+    if (a && !strcmp(a, "c")) {
+        return r->connection->client_ip;
+    }
+    else {
+        return r->useragent_ip;
+    }
 }
 
 static const char *log_local_address(request_rec *r, char *a)
@@ -365,6 +375,15 @@ static const char *log_request_uri(request_rec *r, char *a)
 static const char *log_request_method(request_rec *r, char *a)
 {
     return ap_escape_logitem(r->pool, r->method);
+}
+static const char *log_log_id(request_rec *r, char *a)
+{
+    if (a && !strcmp(a, "c")) {
+        return r->connection->log_id ? r->connection->log_id : "-";
+    }
+    else {
+        return r->log_id ? r->log_id : "-";
+    }
 }
 static const char *log_request_protocol(request_rec *r, char *a)
 {
@@ -524,14 +543,24 @@ static const char *log_cookie(request_rec *r, char *a)
 
         while ((cookie = apr_strtok(cookies, ";", &last1))) {
             char *name = apr_strtok(cookie, "=", &last2);
-            if (name) {
-                char *value = name + strlen(name) + 1;
-                apr_collapse_spaces(name, name);
+            /* last2 points to the next char following an '=' delim,
+               or the trailing NUL char of the string */
+            char *value = last2;
+            if (name && *name &&  value && *value) {
+                char *last = value - 2;
+                /* Move past leading WS */
+                name += strspn(name, " \t");
+                while (last >= name && apr_isspace(*last)) {
+                    *last = '\0';
+                    --last;
+                }
 
                 if (!strcasecmp(name, a)) {
-                    char *last;
-                    value += strspn(value, " \t");  /* Move past leading WS */
-                    last = value + strlen(value) - 1;
+                    /* last1 points to the next char following the ';' delim,
+                       or the trailing NUL char of the string */
+                    last = last1 - (*last1 ? 2 : 1);
+                    /* Move past leading WS */
+                    value += strspn(value, " \t");
                     while (last >= value && apr_isspace(*last)) {
                        *last = '\0';
                        --last;
@@ -540,6 +569,7 @@ static const char *log_cookie(request_rec *r, char *a)
                     return ap_escape_logitem(r->pool, value);
                 }
             }
+            /* Iterate the remaining tokens using apr_strtok(NULL, ...) */
             cookies = NULL;
         }
     }
@@ -562,50 +592,134 @@ typedef struct {
     unsigned t_validate;
 } cached_request_time;
 
+#define TIME_FMT_CUSTOM          0
+#define TIME_FMT_CLF             1
+#define TIME_FMT_ABS_SEC         2
+#define TIME_FMT_ABS_MSEC        3
+#define TIME_FMT_ABS_USEC        4
+#define TIME_FMT_ABS_MSEC_FRAC   5
+#define TIME_FMT_ABS_USEC_FRAC   6
+
 #define TIME_CACHE_SIZE 4
 #define TIME_CACHE_MASK 3
 static cached_request_time request_time_cache[TIME_CACHE_SIZE];
 
+static apr_time_t get_request_end_time(request_rec *r)
+{
+    log_request_state *state = (log_request_state *)ap_get_module_config(r->request_config,
+                                                                         &log_config_module);
+    if (!state) {
+        state = apr_pcalloc(r->pool, sizeof(log_request_state));
+        ap_set_module_config(r->request_config, &log_config_module, state);
+    }
+    if (state->request_end_time == 0) {
+        state->request_end_time = apr_time_now();
+    }
+    return state->request_end_time;
+}
+
+
 static const char *log_request_time(request_rec *r, char *a)
 {
     apr_time_exp_t xt;
+    apr_time_t request_time = r->request_time;
+    int fmt_type = TIME_FMT_CUSTOM;
+    char *fmt = a;
 
-    /* ###  I think getting the time again at the end of the request
-     * just for logging is dumb.  i know it's "required" for CLF.
-     * folks writing log parsing tools don't realise that out of order
-     * times have always been possible (consider what happens if one
-     * process calculates the time to log, but then there's a context
-     * switch before it writes and before that process is run again the
-     * log rotation occurs) and they should just fix their tools rather
-     * than force the server to pay extra cpu cycles.  if you've got
-     * a problem with this, you can set the define.  -djg
-     */
-    if (a && *a) {              /* Custom format */
+    if (fmt && *fmt) {
+        if (!strncmp(fmt, "begin", 5)) {
+            fmt += 5;
+            if (!*fmt) {
+                fmt_type = TIME_FMT_CLF;
+            }
+            else if (*fmt == ':') {
+                fmt++;
+                a = fmt;
+            }
+        }
+        else if (!strncmp(fmt, "end", 3)) {
+            fmt += 3;
+            if (!*fmt) {
+                request_time = get_request_end_time(r);
+                fmt_type = TIME_FMT_CLF;
+            }
+            else if (*fmt == ':') {
+                fmt++;
+                a = fmt;
+                request_time = get_request_end_time(r);
+            }
+        }
+        if (!strncmp(fmt, "msec", 4)) {
+            fmt += 4;
+            if (!*fmt) {
+                fmt_type = TIME_FMT_ABS_MSEC;
+            }
+            else if (!strcmp(fmt, "_frac")) {
+                fmt_type = TIME_FMT_ABS_MSEC_FRAC;
+            }
+        }
+        else if (!strncmp(fmt, "usec", 4)) {
+            fmt += 4;
+            if (!*fmt) {
+                fmt_type = TIME_FMT_ABS_USEC;
+            }
+            else if (!strcmp(fmt, "_frac")) {
+                fmt_type = TIME_FMT_ABS_USEC_FRAC;
+            }
+        }
+        else if (!strcmp(fmt, "sec")) {
+            fmt_type = TIME_FMT_ABS_SEC;
+        }
+        else if (!*fmt) {
+            fmt_type = TIME_FMT_CLF;
+        }
+    }
+    else {
+        fmt_type = TIME_FMT_CLF;
+    }
+
+    if (fmt_type >= TIME_FMT_ABS_SEC) {      /* Absolute (micro-/milli-)second time
+                                              * or msec/usec fraction
+                                              */
+        char* buf = apr_palloc(r->pool, 20);
+        switch (fmt_type) {
+        case TIME_FMT_ABS_SEC:
+            apr_snprintf(buf, 20, "%" APR_TIME_T_FMT, apr_time_sec(request_time));
+            break;
+        case TIME_FMT_ABS_MSEC:
+            apr_snprintf(buf, 20, "%" APR_TIME_T_FMT, apr_time_as_msec(request_time));
+            break;
+        case TIME_FMT_ABS_USEC:
+            apr_snprintf(buf, 20, "%" APR_TIME_T_FMT, request_time);
+            break;
+        case TIME_FMT_ABS_MSEC_FRAC:
+            apr_snprintf(buf, 20, "%03" APR_TIME_T_FMT, apr_time_msec(request_time));
+            break;
+        case TIME_FMT_ABS_USEC_FRAC:
+            apr_snprintf(buf, 20, "%06" APR_TIME_T_FMT, apr_time_usec(request_time));
+            break;
+        default:
+            return "-";
+        }
+        return buf;
+    }
+    else if (fmt_type == TIME_FMT_CUSTOM) {  /* Custom format */
         /* The custom time formatting uses a very large temp buffer
          * on the stack.  To avoid using so much stack space in the
          * common case where we're not using a custom format, the code
          * for the custom format in a separate function.  (That's why
          * log_request_time_custom is not inlined right here.)
          */
-#ifdef I_INSIST_ON_EXTRA_CYCLES_FOR_CLF_COMPLIANCE
-        ap_explode_recent_localtime(&xt, apr_time_now());
-#else
-        ap_explode_recent_localtime(&xt, r->request_time);
-#endif
+        ap_explode_recent_localtime(&xt, request_time);
         return log_request_time_custom(r, a, &xt);
     }
-    else {                      /* CLF format */
+    else {                                   /* CLF format */
         /* This code uses the same technique as ap_explode_recent_localtime():
          * optimistic caching with logic to detect and correct race conditions.
          * See the comments in server/util_time.c for more information.
          */
         cached_request_time* cached_time = apr_palloc(r->pool,
                                                       sizeof(*cached_time));
-#ifdef I_INSIST_ON_EXTRA_CYCLES_FOR_CLF_COMPLIANCE
-        apr_time_t request_time = apr_time_now();
-#else
-        apr_time_t request_time = r->request_time;
-#endif
         unsigned t_seconds = (unsigned)apr_time_sec(request_time);
         unsigned i = t_seconds & TIME_CACHE_MASK;
         *cached_time = request_time_cache[i];
@@ -642,14 +756,14 @@ static const char *log_request_time(request_rec *r, char *a)
 
 static const char *log_request_duration(request_rec *r, char *a)
 {
-    apr_time_t duration = apr_time_now() - r->request_time;
+    apr_time_t duration = get_request_end_time(r) - r->request_time;
     return apr_psprintf(r->pool, "%" APR_TIME_T_FMT, apr_time_sec(duration));
 }
 
 static const char *log_request_duration_microseconds(request_rec *r, char *a)
 {
     return apr_psprintf(r->pool, "%" APR_TIME_T_FMT,
-                        (apr_time_now() - r->request_time));
+                        (get_request_end_time(r) - r->request_time));
 }
 
 /* These next two routines use the canonical name:port so that log
@@ -668,7 +782,7 @@ static const char *log_server_port(request_rec *r, char *a)
         port = r->server->port ? r->server->port : ap_default_port(r);
     }
     else if (!strcasecmp(a, "remote")) {
-        port = r->connection->remote_addr->port;
+        port = r->useragent_addr->port;
     }
     else if (!strcasecmp(a, "local")) {
         port = r->connection->local_addr->port;
@@ -690,10 +804,10 @@ static const char *log_server_name(request_rec *r, char *a)
 
 static const char *log_pid_tid(request_rec *r, char *a)
 {
-    if (*a == '\0' || !strcmp(a, "pid")) {
+    if (*a == '\0' || !strcasecmp(a, "pid")) {
         return ap_append_pid(r->pool, "", "");
     }
-    else if (!strcmp(a, "tid") || !strcmp(a, "hextid")) {
+    else if (!strcasecmp(a, "tid") || !strcasecmp(a, "hextid")) {
 #if APR_HAS_THREADS
         apr_os_thread_t tid = apr_os_thread_current();
 #else
@@ -989,6 +1103,15 @@ static int config_log_transaction(request_rec *r, config_log_state *cls,
             }
         }
     }
+    else if (cls->condition_expr != NULL) {
+        const char *err;
+        int rc = ap_expr_exec(r, cls->condition_expr, &err);
+        if (rc < 0)
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(00644)
+                           "Error evaluating log condition: %s", err);
+        if (rc <= 0)
+            return DECLINED;
+    }
 
     format = cls->format ? cls->format : default_format;
 
@@ -1012,12 +1135,14 @@ static int config_log_transaction(request_rec *r, config_log_state *cls,
         len += strl[i] = strlen(strs[i]);
     }
     if (!log_writer) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00645)
                 "log writer isn't correctly setup");
          return HTTP_INTERNAL_SERVER_ERROR;
     }
     rv = log_writer(r, cls->log_writer, strs, strl, format->nelts, len);
-    /* xxx: do we return an error on log_writer? */
+    if (rv != APR_SUCCESS)
+        ap_log_rerror(APLOG_MARK, APLOG_WARNING, rv, r, APLOGNO(00646) "Error writing to %s",
+                      cls->fname);
     return OK;
 }
 
@@ -1027,6 +1152,12 @@ static int multi_log_transaction(request_rec *r)
                                                 &log_config_module);
     config_log_state *clsarray;
     int i;
+
+    /*
+     * Initialize per request state
+     */
+    log_request_state *state = apr_pcalloc(r->pool, sizeof(log_request_state));
+    ap_set_module_config(r->request_config, &log_config_module, state);
 
     /*
      * Log this transaction..
@@ -1131,19 +1262,33 @@ static const char *add_custom_log(cmd_parms *cmd, void *dummy, const char *fn,
 
     cls = (config_log_state *) apr_array_push(mls->config_logs);
     cls->condition_var = NULL;
+    cls->condition_expr = NULL;
     if (envclause != NULL) {
-        if (strncasecmp(envclause, "env=", 4) != 0) {
+        if (strncasecmp(envclause, "env=", 4) == 0) {
+            if ((envclause[4] == '\0')
+                || ((envclause[4] == '!') && (envclause[5] == '\0'))) {
+                return "missing environment variable name";
+            }
+            cls->condition_var = apr_pstrdup(cmd->pool, &envclause[4]);
+        }
+        else if (strncasecmp(envclause, "expr=", 5) == 0) {
+            const char *err;
+            if ((envclause[5] == '\0'))
+                return "missing condition";
+            cls->condition_expr = ap_expr_parse_cmd(cmd, &envclause[5],
+                                                    AP_EXPR_FLAG_DONT_VARY,
+                                                    &err, NULL);
+            if (err)
+                return err;
+        }
+        else {
             return "error in condition clause";
         }
-        if ((envclause[4] == '\0')
-            || ((envclause[4] == '!') && (envclause[5] == '\0'))) {
-            return "missing environment variable name";
-        }
-        cls->condition_var = apr_pstrdup(cmd->pool, &envclause[4]);
     }
 
     cls->fname = fn;
     cls->format_string = fmt;
+    cls->directive = cmd->directive;
     if (fmt == NULL) {
         cls->format = NULL;
     }
@@ -1159,11 +1304,6 @@ static const char *set_transfer_log(cmd_parms *cmd, void *dummy,
                                     const char *fn)
 {
     return add_custom_log(cmd, dummy, fn, NULL, NULL);
-}
-
-static const char *set_cookie_log(cmd_parms *cmd, void *dummy, const char *fn)
-{
-    return add_custom_log(cmd, dummy, fn, "%{Cookie}n \"%r\" %t", NULL);
 }
 
 static const char *set_buffered_logs_on(cmd_parms *parms, void *dummy, int flag)
@@ -1183,13 +1323,11 @@ static const command_rec config_log_cmds[] =
 {
 AP_INIT_TAKE23("CustomLog", add_custom_log, NULL, RSRC_CONF,
      "a file name, a custom log format string or format name, "
-     "and an optional \"env=\" clause (see docs)"),
+     "and an optional \"env=\" or \"expr=\" clause (see docs)"),
 AP_INIT_TAKE1("TransferLog", set_transfer_log, NULL, RSRC_CONF,
      "the filename of the access log"),
 AP_INIT_TAKE12("LogFormat", log_format, NULL, RSRC_CONF,
      "a log format string (see docs) and an optional format name"),
-AP_INIT_TAKE1("CookieLog", set_cookie_log, NULL, RSRC_CONF,
-     "the filename of the cookie log"),
 AP_INIT_FLAG("BufferedLogs", set_buffered_logs_on, NULL, RSRC_CONF,
                  "Enable Buffered Logging (experimental)"),
     {NULL}
@@ -1356,7 +1494,7 @@ static void init_child(apr_pool_t *p, server_rec *s)
                                              APR_THREAD_MUTEX_DEFAULT,
                                              p);
                 if (rv != APR_SUCCESS) {
-                    ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s,
+                    ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(00647)
                                  "could not initialize buffered log mutex, "
                                  "transfer log may become corrupted");
                     this->mutex.type = apr_anylock_none;
@@ -1380,7 +1518,7 @@ static void ap_register_log_handler(apr_pool_t *p, char *tag,
 
     apr_hash_set(log_hash, tag, 1, (const void *)log_struct);
 }
-static ap_log_writer_init* ap_log_set_writer_init(ap_log_writer_init *handle)
+static ap_log_writer_init *ap_log_set_writer_init(ap_log_writer_init *handle)
 {
     ap_log_writer_init *old = log_writer_init;
     log_writer_init = handle;
@@ -1409,6 +1547,10 @@ static apr_status_t ap_default_log_writer( request_rec *r,
     int i;
     apr_status_t rv;
 
+    /*
+     * We do this memcpy dance because write() is atomic for len < PIPE_BUF,
+     * while writev() need not be.
+     */
     str = apr_palloc(r->pool, len + 1);
 
     for (i = 0, s = str; i < nelts; ++i) {
@@ -1428,7 +1570,7 @@ static void *ap_default_log_writer_init(apr_pool_t *p, server_rec *s,
 
         pl = ap_open_piped_log(p, name + 1);
         if (pl == NULL) {
-           return NULL;;
+           return NULL;
         }
         return ap_piped_log_write_fd(pl);
     }
@@ -1438,13 +1580,13 @@ static void *ap_default_log_writer_init(apr_pool_t *p, server_rec *s,
         apr_status_t rv;
 
         if (!fname) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, APR_EBADPATH, s,
+            ap_log_error(APLOG_MARK, APLOG_ERR, APR_EBADPATH, s, APLOGNO(00648)
                             "invalid transfer log path %s.", name);
             return NULL;
         }
         rv = apr_file_open(&fd, fname, xfer_flags, xfer_perms, p);
         if (rv != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(00649)
                             "could not open transfer log file %s.", fname);
             return NULL;
         }
@@ -1489,6 +1631,10 @@ static apr_status_t ap_buffered_log_writer(request_rec *r,
     if (len >= LOG_BUFSIZE) {
         apr_size_t w;
 
+        /*
+         * We do this memcpy dance because write() is atomic for
+         * len < PIPE_BUF, while writev() need not be.
+         */
         str = apr_palloc(r->pool, len + 1);
         for (i = 0, s = str; i < nelts; ++i) {
             memcpy(s, strs[i], strl[i]);
@@ -1530,6 +1676,7 @@ static int log_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
         log_pfn_register(p, "i", log_header_in, 0);
         log_pfn_register(p, "o", log_header_out, 0);
         log_pfn_register(p, "n", log_note, 0);
+        log_pfn_register(p, "L", log_log_id, 1);
         log_pfn_register(p, "e", log_env_var, 0);
         log_pfn_register(p, "V", log_server_name, 0);
         log_pfn_register(p, "v", log_virtual_host, 0);
@@ -1557,9 +1704,59 @@ static int log_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
     return OK;
 }
 
+static int check_log_dir(apr_pool_t *p, server_rec *s, config_log_state *cls)
+{
+    if (!cls->fname || cls->fname[0] == '|' || !cls->directive) {
+        return OK;
+    }
+    else {
+        char *abs = ap_server_root_relative(p, cls->fname);
+        char *dir = ap_make_dirstr_parent(p, abs);
+        apr_finfo_t finfo;
+        const ap_directive_t *directive = cls->directive;
+        apr_status_t rv = apr_stat(&finfo, dir, APR_FINFO_TYPE, p);
+        cls->directive = NULL; /* Don't check this config_log_state again */
+        if (rv == APR_SUCCESS && finfo.filetype != APR_DIR)
+            rv = APR_ENOTDIR;
+        if (rv != APR_SUCCESS) {
+            ap_log_error(APLOG_MARK, APLOG_STARTUP|APLOG_EMERG, rv, s,
+                         APLOGNO(02297)
+                         "Cannot access directory '%s' for log file '%s' "
+                         "defined at %s:%d", dir, cls->fname,
+                         directive->filename, directive->line_num);
+            return !OK;
+        }
+    }
+    return OK;
+}
+
+static int log_check_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s)
+{
+    int rv = OK;
+    while (s) {
+        multi_log_state *mls = ap_get_module_config(s->module_config,
+                                                    &log_config_module);
+        /*
+         * We don't need to check mls->server_config_logs because it just
+         * points to the parent server's mls->config_logs.
+         */
+        apr_array_header_t *log_list = mls->config_logs;
+        config_log_state *clsarray = (config_log_state *) log_list->elts;
+        int i;
+        for (i = 0; i < log_list->nelts; ++i) {
+            if (check_log_dir(ptemp, s, &clsarray[i]) != OK)
+                rv = !OK;
+        }
+
+        s = s->next;
+    }
+    return rv;
+}
+
 static void register_hooks(apr_pool_t *p)
 {
     ap_hook_pre_config(log_pre_config,NULL,NULL,APR_HOOK_REALLY_FIRST);
+    ap_hook_check_config(log_check_config,NULL,NULL,APR_HOOK_MIDDLE);
     ap_hook_child_init(init_child,NULL,NULL,APR_HOOK_MIDDLE);
     ap_hook_open_logs(init_config_log,NULL,NULL,APR_HOOK_MIDDLE);
     ap_hook_log_transaction(multi_log_transaction,NULL,NULL,APR_HOOK_MIDDLE);
@@ -1576,7 +1773,7 @@ static void register_hooks(apr_pool_t *p)
     APR_REGISTER_OPTIONAL_FN(ap_log_set_writer);
 }
 
-module AP_MODULE_DECLARE_DATA log_config_module =
+AP_DECLARE_MODULE(log_config) =
 {
     STANDARD20_MODULE_STUFF,
     NULL,                       /* create per-dir config */

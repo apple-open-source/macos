@@ -163,7 +163,7 @@ ts_print(register const struct timeval *tvp)
 	struct tm *tm;
 	time_t Time;
 	int d_usec;
-	int d_sec;
+	long d_sec;
 
 	/* Default */
 	if (tflag == 0 || t0flag) {
@@ -180,7 +180,7 @@ ts_print(register const struct timeval *tvp)
 	
 	/* Microseconds since previous packet */
 	if (tflag == 3 || t3flag) {
-		static unsigned p_sec = 0;
+		static unsigned long p_sec = 0;
 		static unsigned p_usec = 0;
 
 		if (p_sec == 0) {
@@ -194,10 +194,10 @@ ts_print(register const struct timeval *tvp)
 		
 		while (d_usec < 0) {
 			d_usec += 1000000;
-			p_sec--;
+			d_sec--;
 		}
 		
-		(void)printf("%s ", ts_format(d_sec, d_usec));
+		(void)printf("%s ", ts_format((int)d_sec, d_usec));
 	
 		/* set timestamp for last packet */
 		p_sec = tvp->tv_sec;
@@ -219,7 +219,7 @@ ts_print(register const struct timeval *tvp)
 
 	/* Microseconds since first packet */
 	if (tflag == 5 || t5flag) {
-		static unsigned b_sec = 0;
+		static unsigned long b_sec = 0;
 		static unsigned b_usec = 0;
 
 		/* init timestamp for first packet */
@@ -236,7 +236,7 @@ ts_print(register const struct timeval *tvp)
 			d_sec--;
 		}
 		
-		(void)printf("%s ", ts_format(d_sec, d_usec));
+		(void)printf("%s ", ts_format((int)d_sec, d_usec));
 	}
 }
 
@@ -286,7 +286,7 @@ print_unknown_data(const u_char *cp,const char *ident,int len)
 		return(0);
 	}
 	if (snapend - cp < len)
-		len = snapend - cp;
+		len = (int)(snapend - cp);
 	if (len < 0) {
 		printf("%sDissector error: print_unknown_data called with pointer past end of packet",
 		    ident);
@@ -585,7 +585,7 @@ read_infile(char *fname)
 	if (cp == NULL)
 		error("malloc(%d) for %s: %s", (u_int)buf.st_size + 1,
 			fname, pcap_strerror(errno));
-	cc = read(fd, cp, (u_int)buf.st_size);
+	cc = (int)read(fd, cp, (u_int)buf.st_size);
 	if (cc < 0)
 		error("read %s: %s", fname, pcap_strerror(errno));
 	if (cc != buf.st_size)

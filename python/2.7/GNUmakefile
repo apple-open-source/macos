@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.7.5
+VERSION = 2.7.6
 
 PWD := $(shell pwd)
 
@@ -47,7 +47,7 @@ endif
 NAME = Python
 export PYTHON_CURRENT_VERSION = $(shell echo $(VERSION) | sed 's/[a-z].*$$//')
 NAMEVERS = $(NAME)-$(VERSION)
-TARBALL = $(NAMEVERS).tar.bz2
+TARBALL = $(NAMEVERS).tar.xz
 FIX = '$(OBJROOT)/fix'
 
 VERS := $(shell echo $(VERSION) | sed 's/\(^[0-9]*\.[0-9]*\).*/\1/')
@@ -57,8 +57,7 @@ VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
 INCLUDEPYTHONVERS = $(VERSIONSVERS)/include/$(PROJECT)$(VERS)
 LIBPYTHONVERS = $(VERSIONSVERS)/lib/$(PROJECT)$(VERS)
 
-MAJORVERS := $(shell echo $(VERS) | sed 's/\..*//')
-DYLIB = lib$(PROJECT)$(MAJORVERS).dylib
+DYLIB = lib$(PROJECT)$(VERS).dylib
 USRINCLUDE = /usr/include
 USRLIB = /usr/lib
 EXTRAS = $(VERSIONSVERS)/Extras
@@ -84,21 +83,26 @@ python: $(OBJROOT)/$(PROJECT)
 $(OBJROOT)/$(PROJECT):
 	@set -x && \
 	cd '$(OBJROOT)' && \
-	bzcat $(TARBALL) | gnutar xof - && \
+	tar -xof $(TARBALL) && \
 	rm -rf $(PROJECT) && \
 	mv $(NAMEVERS) $(PROJECT) && \
 	ed - $(PROJECT)/configure < $(FIX)/configure.ed && \
 	ed - $(PROJECT)/Include/py_curses.h < $(FIX)/py_curses.h.ed && \
 	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/sysconfig.py < $(FIX)/sysconfig.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/tests/test_build_ext.py < $(FIX)/Lib_distutils_tests_test_build_ext.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
+	ed - $(PROJECT)/Lib/_osx_support.py < $(FIX)/Lib__osx_support.py.ed && \
 	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
 	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
 	ed - $(PROJECT)/Lib/rlcompleter.py < $(FIX)/rlcompleter.py.ed && \
 	ed - $(PROJECT)/Lib/site.py < $(FIX)/site.py.ed && \
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
+	ed - $(PROJECT)/Lib/test/test__osx_support.py < $(FIX)/Lib_test_test__osx_support.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
+	ed - $(PROJECT)/Lib/test/test_posix.py < $(FIX)/Lib_test_test_posix.py.ed && \
 	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
 	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
 	patch $(PROJECT)/Misc/python.man $(FIX)/python.man.patch && \
@@ -115,7 +119,6 @@ $(OBJROOT)/$(PROJECT):
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
-	ed - $(PROJECT)/Python/import.c < $(FIX)/import.c.ed && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
@@ -132,7 +135,10 @@ install: installpython
 
 ##---------------------------------------------------------------------
 # PR-3478215 - for backwards compatibility with non-framework python, we
-# create symbolic links in /usr/include and /usr/lib.
+# create symbolic links in /usr/include and /usr/lib.  We now create the
+# links w.r.t. multiple versioning.  In addition, the PYTHON_DEFAULT
+# environment variable will be set to YES if this version is the default
+# version of python.
 ##---------------------------------------------------------------------
 installpython: $(OBJROOT)/$(PROJECT)
 	install -d '$(DSTROOT)/usr/bin'
@@ -149,8 +155,9 @@ installpython: $(OBJROOT)/$(PROJECT)
 	install -d '$(DSTROOT)$(USRLIB)'
 	ln -sf ../..$(LIBPYTHONVERS) '$(DSTROOT)$(USRLIB)/$(PROJECT)$(VERS)'
 	ln -sf ../..$(VERSIONSVERS)/Python '$(DSTROOT)$(USRLIB)/$(DYLIB)'
-	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT)$(VERS).dylib'
+ifeq ($(PYTHON_DEFAULT),YES)
 	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib'
+endif
 	install -d '$(DSTROOT)$(SITEPACKAGES)'
 
 .DEFAULT:

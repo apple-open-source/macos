@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,6 +40,17 @@
 #include "pcap-common.h"
 #include "sf-pcap-ng.h"
 #include "pcap-util.h"
+
+/*
+ * Block cursor - used when processing the contents of a block.
+ * Contains a pointer into the data being processed and a count
+ * of bytes remaining in the block.
+ */
+struct block_cursor {
+	u_char		*data;
+	size_t		data_remaining;
+	bpf_u_int32	block_type;
+};
 
 
 #define PAD_32BIT(x) ((x + 3) & ~3)
@@ -488,6 +499,54 @@ pcap_ng_block_add_option_with_string(pcapng_block_t block, u_short code, const c
 	return (pcap_ng_block_add_option_with_value(block, code, str, strlen(str) + 1));
 }
 
+static struct pcapng_option_header *
+get_opthdr_from_block_data(struct pcapng_option_header *opthdr, int swapped,
+			   struct block_cursor *cursor, char *errbuf)
+{
+	struct pcapng_option_header *optp;
+	
+	optp = get_from_block_data(cursor, sizeof(*opthdr), errbuf);
+	if (optp == NULL) {
+		/*
+		 * Option header is cut short.
+		 */
+		return (NULL);
+	}
+	*opthdr = *optp;
+	/*
+	 * Byte-swap it if necessary.
+	 */
+	if (swapped) {
+		opthdr->option_code = SWAPSHORT(opthdr->option_code);
+		opthdr->option_length = SWAPSHORT(opthdr->option_length);
+	}
+	
+	return (opthdr);
+}
+
+static void *
+get_optvalue_from_block_data(struct block_cursor *cursor,
+			     struct pcapng_option_header *opthdr, char *errbuf)
+{
+	size_t padded_option_len;
+	void *optvalue;
+	
+	/* Pad option length to 4-byte boundary */
+	padded_option_len = opthdr->option_length;
+	padded_option_len = ((padded_option_len + 3)/4)*4;
+	
+	optvalue = get_from_block_data(cursor, padded_option_len, errbuf);
+	if (optvalue == NULL) {
+		/*
+		 * Option value is cut short.
+		 */
+		return (NULL);
+	}
+	
+	return (optvalue);
+}
+
+
 int
 pcap_ng_block_get_option(pcapng_block_t block, u_short code, struct pcapng_option_info *option_info)
 {
@@ -919,7 +978,7 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 		return (PCAP_ERROR);
 	
 	if (p != NULL)
-		swapped = p->sf.swapped;
+		swapped = p->swapped;
 	
 	if (swapped) {
 		bh.block_type = SWAPLONG(bh.block_type);

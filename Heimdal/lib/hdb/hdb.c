@@ -121,7 +121,7 @@ hdb_next_enctype2key(krb5_context context,
 
 krb5_error_code
 hdb_enctype2key(krb5_context context,
-		hdb_entry *e,
+		const hdb_entry *e,
 		krb5_enctype enctype,
 		Key **key)
 {
@@ -348,8 +348,8 @@ find_dynamic_method (krb5_context context,
     }
 
     if (mso->create == NULL) {
-	krb5_errx(context, 1,
-		  "no entry point function in shared mod %s ",
+	krb5_warnx(context,
+		   "no entry point function in shared mod %s ",
 		   prefix);
 	dlclose(dl);
 	free(prefix);

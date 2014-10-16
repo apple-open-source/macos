@@ -19,8 +19,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGLengthList.h"
 
 #include "SVGParserUtilities.h"
@@ -33,7 +31,8 @@ void SVGLengthList::parse(const String& value, SVGLengthMode mode)
     clear();
     ExceptionCode ec = 0;
 
-    const UChar* ptr = value.characters();
+    auto upconvertedCharacters = StringView(value).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + value.length();
     while (ptr < end) {
         const UChar* start = ptr;
@@ -70,5 +69,3 @@ String SVGLengthList::valueAsString() const
 }
 
 }
-
-#endif // ENABLE(SVG)

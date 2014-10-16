@@ -20,6 +20,7 @@
 #include "config.h"
 #include "WebKitWebExtension.h"
 
+#include "APIString.h"
 #include "ImmutableDictionary.h"
 #include "WKBundleAPICast.h"
 #include "WKBundlePage.h"
@@ -80,32 +81,32 @@ static void webkitWebExtensionPageDestroy(WebKitWebExtension* extension, WebPage
     extension->priv->pages.remove(page);
 }
 
-static void webkitWebExtensionDidReceiveMessage(WebKitWebExtension* extension, const String& messageName, ImmutableDictionary& message)
+static void webkitWebExtensionDidReceiveMessage(WebKitWebExtension*, const String& messageName, ImmutableDictionary& message)
 {
     if (messageName == String::fromUTF8("PrefetchDNS")) {
-        WebString* hostname = static_cast<WebString*>(message.get(String::fromUTF8("Hostname")));
+        API::String* hostname = static_cast<API::String*>(message.get(String::fromUTF8("Hostname")));
         WebCore::prefetchDNS(hostname->string());
     } else
         ASSERT_NOT_REACHED();
 }
 
-static void didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
+static void didCreatePage(WKBundleRef, WKBundlePageRef page, const void* clientInfo)
 {
     webkitWebExtensionPageCreated(WEBKIT_WEB_EXTENSION(clientInfo), toImpl(page));
 }
 
-static void willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
+static void willDestroyPage(WKBundleRef, WKBundlePageRef page, const void* clientInfo)
 {
     webkitWebExtensionPageDestroy(WEBKIT_WEB_EXTENSION(clientInfo), toImpl(page));
 }
 
-static void didReceiveMessage(WKBundleRef bundle, WKStringRef name, WKTypeRef messageBody, const void* clientInfo)
+static void didReceiveMessage(WKBundleRef, WKStringRef name, WKTypeRef messageBody, const void* clientInfo)
 {
     ASSERT(WKGetTypeID(messageBody) == WKDictionaryGetTypeID());
     webkitWebExtensionDidReceiveMessage(WEBKIT_WEB_EXTENSION(clientInfo), toImpl(name)->string(), *toImpl(static_cast<WKDictionaryRef>(messageBody)));
 }
 
-static void didReceiveMessageToPage(WKBundleRef bundle, WKBundlePageRef page, WKStringRef name, WKTypeRef messageBody, const void* clientInfo)
+static void didReceiveMessageToPage(WKBundleRef, WKBundlePageRef page, WKStringRef name, WKTypeRef messageBody, const void* clientInfo)
 {
     ASSERT(WKGetTypeID(messageBody) == WKDictionaryGetTypeID());
     if (WebKitWebPage* webPage = WEBKIT_WEB_EXTENSION(clientInfo)->priv->pages.get(toImpl(page)).get())
@@ -116,16 +117,18 @@ WebKitWebExtension* webkitWebExtensionCreate(InjectedBundle* bundle)
 {
     WebKitWebExtension* extension = WEBKIT_WEB_EXTENSION(g_object_new(WEBKIT_TYPE_WEB_EXTENSION, NULL));
 
-    WKBundleClient wkBundleClient = {
-        kWKBundleClientCurrentVersion,
-        extension, // clientInfo
+    WKBundleClientV1 wkBundleClient = {
+        {
+            1, // version
+            extension, // clientInfo
+        },
         didCreatePage,
         willDestroyPage,
         0, // didInitializePageGroup
         didReceiveMessage,
         didReceiveMessageToPage
     };
-    WKBundleSetClient(toAPI(bundle), &wkBundleClient);
+    WKBundleSetClient(toAPI(bundle), &wkBundleClient.base);
 
     return extension;
 }

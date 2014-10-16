@@ -41,7 +41,7 @@ static apr_uint32_t initialised = 0, in_init = 1;
 #if APR_HAS_THREADS
 /* deprecated, but required for existing providers.  Existing and new
  * providers should be refactored to use a provider-specific mutex so
- * that different providers do not block one another. 
+ * that different providers do not block one another.
  * In APR 1.3 this is no longer used for dso module loading, and
  * apu_dso_mutex_[un]lock is used instead.
  * In APR 2.0 this should become entirely local to libaprutil-2.so and
@@ -185,14 +185,14 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
 #if defined(NETWARE)
     apr_snprintf(modname, sizeof(modname), "dbd%s.nlm", name);
 #elif defined(WIN32)
-    apr_snprintf(modname, sizeof(modname), 
+    apr_snprintf(modname, sizeof(modname),
                  "apr_dbd_%s-" APU_STRINGIFY(APU_MAJOR_VERSION) ".dll", name);
 #else
-    apr_snprintf(modname, sizeof(modname), 
+    apr_snprintf(modname, sizeof(modname),
                  "apr_dbd_%s-" APU_STRINGIFY(APU_MAJOR_VERSION) ".so", name);
 #endif
     apr_snprintf(symname, sizeof(symname), "apr_dbd_%s_driver", name);
-    rv = apu_dso_load(&symbol, modname, symname, pool);
+    rv = apu_dso_load(NULL, &symbol, modname, symname, pool);
     if (rv == APR_SUCCESS || rv == APR_EINIT) { /* previously loaded?!? */
         *driver = symbol;
         name = apr_pstrdup(pool, name);
@@ -201,12 +201,7 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
         if ((*driver)->init) {
             (*driver)->init(pool);
         }
-        goto unlock;
     }
-    name = apr_pstrdup(pool, name);
-    apr_hash_set(drivers, name, APR_HASH_KEY_STRING, *driver);
-
-unlock:
     apu_dso_mutex_unlock();
 
 #else /* not builtin and !APR_HAS_DSO => not implemented */
@@ -448,7 +443,7 @@ APU_DECLARE(int) apr_dbd_prepare(const apr_dbd_driver_t *driver,
                         case 'c': t[i] = APR_DBD_TYPE_CLOB;       q += 2; break;
                         case 'n': t[i] = APR_DBD_TYPE_NULL;       q += 2; break;
                         }
-                    } 
+                    }
                     break;
                 }
                 q++;

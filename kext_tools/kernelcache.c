@@ -10,6 +10,21 @@
 #include "kernelcache.h"
 #include "compression.h"
 
+#if EMBEDDED_HOST
+size_t lzvn_encode(void *       dst,
+                   size_t       dst_size,
+                   const void * src,
+                   size_t       src_size,
+                   void *       work);
+size_t lzvn_decode(void *       dst,
+                   size_t       dst_size,
+                   const void * src,
+                   size_t       src_size);
+size_t lzvn_encode_work_size(void);
+#else
+#include <FastCompression.h>
+#endif
+
 #include <mach-o/arch.h>
 #include <mach-o/fat.h>
 #include <mach-o/swap.h>
@@ -755,15 +770,15 @@ uncompressPrelinkedSlice(
         goto finish;
     }
 
-    if (prelinkHeader->compressType != OSSwapHostToBigInt32('lzss')) {
+    if ( !(prelinkHeader->compressType == OSSwapHostToBigInt32(COMP_TYPE_LZSS) ||
+           prelinkHeader->compressType == OSSwapHostToBigInt32(COMP_TYPE_FASTLIB)) ) {
         OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                "Compressed prelinked kernel has invalid compressType: 0x%x.", 
-                prelinkHeader->compressType);
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                  "Compressed prelinked kernel has invalid compressType: 0x%x.",
+                  prelinkHeader->compressType);
         goto finish;
     }
-
-
+    
     /* Create a buffer to hold the uncompressed kernel.
      */
     bufsize = OSSwapBigToHostInt32(prelinkHeader->uncompressedSize);
@@ -784,9 +799,21 @@ uncompressPrelinkedSlice(
 
     /* Uncompress the kernel.
      */
-    uncompsize = decompress_lzss(buf, (u_int32_t)bufsize,
-            ((u_int8_t *)(CFDataGetBytePtr(prelinkImage))) + sizeof(*prelinkHeader),
-            (u_int32_t)(CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader)));
+    if (prelinkHeader->compressType == OSSwapHostToBigInt32(COMP_TYPE_LZSS)) {
+        uncompsize = decompress_lzss(buf, (u_int32_t)bufsize,
+                                     ((u_int8_t *)(CFDataGetBytePtr(prelinkImage))) + sizeof(*prelinkHeader),
+                                     (u_int32_t)(CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader)));
+    }
+    else if (prelinkHeader->compressType == OSSwapHostToBigInt32(COMP_TYPE_FASTLIB)) {
+        uncompsize = lzvn_decode(buf,
+                                 bufsize,
+                                 ((u_int8_t *)(CFDataGetBytePtr(prelinkImage))) + sizeof(*prelinkHeader),
+                                 (CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader)));
+    }
+    else {
+        goto finish;
+    }
+    
     if (uncompsize != bufsize) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -804,7 +831,6 @@ uncompressPrelinkedSlice(
                 "Checksum error for compressed prelinked kernel.");
         goto finish;
     }
-
     result = CFRetain(uncompressedImage);
 
 finish:
@@ -816,8 +842,9 @@ finish:
  *********************************************************************/
 CFDataRef 
 compressPrelinkedSlice(
-    CFDataRef      prelinkImage, 
-    Boolean        hasRelocs)
+                       uint32_t            compressionType,
+                       CFDataRef           prelinkImage,
+                       Boolean             hasRelocs)
 {
     CFDataRef               result          = NULL;
     CFMutableDataRef        compressedImage = NULL;  // must release
@@ -849,7 +876,7 @@ compressPrelinkedSlice(
     if (!compressedImage) {
         goto finish;
     }
-
+    
     /* We have to call CFDataSetLength explicitly to get CFData to allocate
      * its internal buffer.
      */
@@ -867,7 +894,6 @@ compressPrelinkedSlice(
     /* Fill in the compression information */
 
     kernelHeader->signature = OSSwapHostToBigInt32('comp');
-    kernelHeader->compressType = OSSwapHostToBigInt32('lzss');
     adler32 = local_adler32((u_int8_t *)CFDataGetBytePtr(prelinkImage),
             (int)CFDataGetLength(prelinkImage));
     kernelHeader->adler32 = OSSwapHostToBigInt32(adler32);
@@ -875,10 +901,36 @@ compressPrelinkedSlice(
         OSSwapHostToBigInt32(CFDataGetLength(prelinkImage));
 
     /* Compress the kernel */
-
-    bufend = compress_lzss(buf + offset, (u_int32_t)bufsize,
+    if (compressionType == COMP_TYPE_FASTLIB) {
+        size_t outSize = 0;
+        void * work_space = malloc(lzvn_encode_work_size());
+        
+        if (work_space != NULL) {
+            kernelHeader->compressType = OSSwapHostToBigInt32(COMP_TYPE_FASTLIB);
+            outSize = lzvn_encode(buf + offset,
+            bufsize,
             (u_int8_t *)CFDataGetBytePtr(prelinkImage),
-            (u_int32_t)CFDataGetLength(prelinkImage));
+            CFDataGetLength(prelinkImage),
+            work_space);
+            free(work_space);
+            if (outSize != 0) {
+                bufend = buf + offset + outSize;
+            }
+        }
+    }
+    else if (compressionType == COMP_TYPE_LZSS) {
+        kernelHeader->compressType = OSSwapHostToBigInt32(COMP_TYPE_LZSS);
+        bufend = compress_lzss(buf + offset, (u_int32_t)bufsize,
+                               (u_int8_t *)CFDataGetBytePtr(prelinkImage),
+                               (u_int32_t)CFDataGetLength(prelinkImage));
+    }
+    else {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                  "Unrecognized compression algorithm.");
+        goto finish;
+    }
+    
     if (!bufend) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -889,7 +941,7 @@ compressPrelinkedSlice(
     compsize = bufend - (buf + offset);
     kernelHeader->compressedSize = OSSwapHostToBigInt32(compsize);
     CFDataSetLength(compressedImage, bufend - buf);
-
+    
     result = CFRetain(compressedImage);
 
 finish:
@@ -999,3 +1051,50 @@ makeDirectoryWithURL(
 finish:
     return result;
 }
+
+#if __i386__ || EMBEDDED_HOST // no lzvn for embedded host tools yet
+
+Boolean supportsFastLibCompression(void)
+{
+    return(false);
+}
+
+size_t lzvn_encode(void *       dst,
+                   size_t       dst_size,
+                   const void * src,
+                   size_t       src_size,
+                   void *       work)
+{
+#pragma unused(dst)
+#pragma unused(dst_size)
+#pragma unused(src)
+#pragma unused(src_size)
+#pragma unused(work)
+    return 0;
+}
+
+size_t lzvn_decode(void *       dst,
+                   size_t       dst_size,
+                   const void * src,
+                   size_t       src_size)
+{
+#pragma unused(dst)
+#pragma unused(dst_size)
+#pragma unused(src)
+#pragma unused(src_size)
+    return 0;
+}
+
+size_t lzvn_encode_work_size(void)
+{
+    return 0;
+}
+
+#else 
+
+Boolean supportsFastLibCompression(void)
+{
+    return(true);
+}
+
+#endif // __i386__ || EMBEDDED_HOST

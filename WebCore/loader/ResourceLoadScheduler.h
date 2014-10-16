@@ -38,7 +38,7 @@ namespace WebCore {
 
 class CachedResource;
 class Frame;
-class KURL;
+class URL;
 class NetscapePlugInStreamLoader;
 class NetscapePlugInStreamLoaderClient;
 class ResourceLoader;
@@ -53,7 +53,8 @@ public:
     virtual PassRefPtr<SubresourceLoader> scheduleSubresourceLoad(Frame*, CachedResource*, const ResourceRequest&, ResourceLoadPriority, const ResourceLoaderOptions&);
     virtual PassRefPtr<NetscapePlugInStreamLoader> schedulePluginStreamLoad(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
     virtual void remove(ResourceLoader*);
-    virtual void crossOriginRedirectReceived(ResourceLoader*, const KURL& redirectURL);
+    virtual void setDefersLoading(ResourceLoader*, bool);
+    virtual void crossOriginRedirectReceived(ResourceLoader*, const URL& redirectURL);
     
     virtual void servePendingRequests(ResourceLoadPriority minimumPriority = ResourceLoadPriorityVeryLow);
     virtual void suspendPendingRequests();
@@ -76,10 +77,14 @@ protected:
 
     void notifyDidScheduleResourceRequest(ResourceLoader*);
 
+#if USE(QUICK_LOOK)
+    bool maybeLoadQuickLookResource(ResourceLoader&);
+#endif
+
 private:
     void scheduleLoad(ResourceLoader*, ResourceLoadPriority);
     void scheduleServePendingRequests();
-    void requestTimerFired(Timer<ResourceLoadScheduler>*);
+    void requestTimerFired(Timer<ResourceLoadScheduler>&);
 
     bool isSuspendingPendingRequests() const { return !!m_suspendPendingRequestsCount; }
 
@@ -96,12 +101,12 @@ private:
         bool hasRequests() const;
         bool limitRequests(ResourceLoadPriority) const;
 
-        typedef Deque<RefPtr<ResourceLoader> > RequestQueue;
+        typedef Deque<RefPtr<ResourceLoader>> RequestQueue;
         RequestQueue& requestsPending(ResourceLoadPriority priority) { return m_requestsPending[priority]; }
 
     private:                    
         RequestQueue m_requestsPending[ResourceLoadPriorityHighest + 1];
-        typedef HashSet<RefPtr<ResourceLoader> > RequestMap;
+        typedef HashSet<RefPtr<ResourceLoader>> RequestMap;
         RequestMap m_requestsLoading;
         const String m_name;
         const int m_maxRequestsInFlight;
@@ -112,7 +117,7 @@ private:
         FindOnly
     };
     
-    HostInformation* hostForURL(const KURL&, CreateHostPolicy = FindOnly);
+    HostInformation* hostForURL(const URL&, CreateHostPolicy = FindOnly);
     void servePendingRequests(HostInformation*, ResourceLoadPriority);
 
     typedef HashMap<String, HostInformation*, StringHash> HostMap;

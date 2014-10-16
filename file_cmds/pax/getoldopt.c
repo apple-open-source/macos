@@ -10,8 +10,9 @@
  * in the Public Domain for your edification and enjoyment.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char rcsid[] = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
+__used static const char rcsid[] = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>

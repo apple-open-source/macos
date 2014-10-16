@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,15 +75,14 @@ static const CFStringRef	pluginWhitelist[]	= {
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.EAPOLController"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPConfiguration"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPMonitor"),
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.ISPreference"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.InterfaceNamer"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.KernelEventMonitor"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.LinkConfiguration"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.Logger"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.PPPController"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor"),
-#ifdef	HAVE_REACHABILITY_SERVER
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.SCNetworkReachability"),
-#endif	// HAVE_REACHABILITY_SERVER
 	PLUGIN_MACOSX("com.apple.print.notification"),
 };
 #define	N_PLUGIN_WHITELIST	(sizeof(pluginWhitelist) / sizeof(pluginWhitelist[0]))
@@ -124,9 +123,7 @@ extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
 #endif	// !TARGET_IPHONE_SIMULATOR
-#ifdef	HAVE_REACHABILITY_SERVER
 extern SCDynamicStoreBundleLoadFunction		load_SCNetworkReachability;
-#endif	// HAVE_REACHABILITY_SERVER
 
 
 typedef struct {
@@ -176,7 +173,6 @@ static const builtin builtin_plugins[] = {
 		NULL
 	},
 #endif	// !TARGET_IPHONE_SIMULATOR
-#ifdef	HAVE_REACHABILITY_SERVER
 	{
 		CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"),
 		&load_SCNetworkReachability,
@@ -184,7 +180,6 @@ static const builtin builtin_plugins[] = {
 		NULL,
 		NULL
 	},
-#endif	// HAVE_REACHABILITY_SERVER
 };
 
 
@@ -308,7 +303,7 @@ static const char *
 getBundleDirNameAndPath(CFBundleRef bundle, char *buf, size_t buf_len)
 {
 	char		*cp;
-	int		len;
+	size_t		len;
 	Boolean		ok;
 	CFURLRef	url;
 
@@ -332,7 +327,7 @@ getBundleDirNameAndPath(CFBundleRef bundle, char *buf, size_t buf_len)
 
 	/* check if this directory entry is a valid bundle name */
 	len = strlen(cp);
-	if (len <= (int)sizeof(BUNDLE_DIR_EXTENSION)) {
+	if (len <= sizeof(BUNDLE_DIR_EXTENSION)) {
 		/* if entry name isn't long enough */
 		return NULL;
 	}
@@ -349,50 +344,6 @@ getBundleDirNameAndPath(CFBundleRef bundle, char *buf, size_t buf_len)
 
 #pragma mark -
 #pragma mark load
-
-
-static void
-forkBundle_setup(pid_t pid, void *setupContext)
-{
-	if (pid == 0) {
-		// if child
-		unsetenv("__LAUNCHD_FD");
-		setenv("__FORKED_PLUGIN__", "Yes", 1);
-	}
-
-	return;
-}
-
-
-static void
-forkBundle(CFBundleRef bundle, CFStringRef bundleID)
-{
-	char		*argv[]		= { "configd", "-d", "-t", NULL, NULL };
-	const char	*name;
-	char		path[MAXPATHLEN];
-	pid_t		pid;
-
-	// get the bundle's path
-	name = getBundleDirNameAndPath(bundle, path, sizeof(path));
-	if (name == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("skipped %@ (could not determine path)"), bundle);
-		return;
-	}
-
-	// fork and exec configd opting to load only this plugin
-	argv[3] = path;
-	pid = _SCDPluginExecCommand2(NULL, NULL, 0, 0, "/usr/libexec/configd", argv, forkBundle_setup, NULL);
-	if (pid == -1) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("skipped %@ (could not exec child) : %s"),
-		      bundle,
-		      strerror(errno));
-		return;
-	}
-
-	SCLog(TRUE, LOG_NOTICE, CFSTR("forked  %@, pid=%d"), bundleID, pid);
-	return;
-}
 
 
 static void
@@ -440,12 +391,6 @@ loadBundle(const void *value, void *context) {
 		goto done;
 	}
 
-	if (_plugins_fork &&
-	    !_SC_CFEqual(bundleID, CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"))) {
-		forkBundle(bundleInfo->bundle, bundleID);
-		goto done;
-	}
-
 	if (!bundleInfo->verbose) {
 		bundleInfo->verbose = CFSetContainsValue(_plugins_verbose, bundleID);
 		if (!bundleInfo->verbose) {
@@ -487,12 +432,20 @@ loadBundle(const void *value, void *context) {
 #endif	/* DEBUG */
 
 		if (!CFBundleLoadExecutableAndReturnError(bundleInfo->bundle, &error)) {
-			CFStringRef	description;
-
-			description = CFErrorCopyDescription(error);
+			CFDictionaryRef	user_info;
+			
 			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ load failed"), bundleID);
-			SCLog(TRUE, LOG_NOTICE, CFSTR("  %@"), description);
-			CFRelease(description);
+			user_info = CFErrorCopyUserInfo(error);
+			if (user_info != NULL) {
+				CFStringRef	link_error_string;
+
+				link_error_string = CFDictionaryGetValue(user_info,
+									 CFSTR("NSDebugDescription"));
+				if (link_error_string != NULL) {
+					SCLog(TRUE, LOG_NOTICE, CFSTR("%@"), link_error_string);
+				}
+				CFRelease(user_info);
+			}
 			CFRelease(error);
 			goto done;
 		}
@@ -550,7 +503,7 @@ callStartFunction(const void *value, void *context) {
 	bundleInfoRef	bundleInfo	= (bundleInfoRef)value;
 	char		bundleName[MAXNAMLEN + 1];
 	char		bundlePath[MAXPATHLEN];
-	int		len;
+	size_t		len;
 
 	if (!bundleInfo->loaded) {
 		return;
@@ -878,10 +831,10 @@ sortBundles(CFMutableArrayRef orig)
 		for (i = 0; i < n; i++) {
 			bundleInfoRef	bundleInfo1	= (bundleInfoRef)CFArrayGetValueAtIndex(orig, i);
 			CFStringRef	bundleID1	= CFBundleGetIdentifier(bundleInfo1->bundle);
-			int		count;
+			CFIndex		count;
 			CFDictionaryRef	dict;
-			int		j;
-			int		nRequires;
+			CFIndex		j;
+			CFIndex		nRequires;
 			CFArrayRef	requires  = NULL;
 
 			dict = isA_CFDictionary(CFBundleGetInfoDictionary(bundleInfo1->bundle));
@@ -897,8 +850,8 @@ sortBundles(CFMutableArrayRef orig)
 			}
 			count = nRequires = CFArrayGetCount(requires);
 			for (j = 0; j < nRequires; j++) {
-				int		k;
-				int		nNew;
+				CFIndex		k;
+				CFIndex		nNew;
 				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
 
 				if (!CFSetContainsValue(orig_bundleIDs, r)) {
@@ -1219,7 +1172,7 @@ plugin_init()
 //      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
 	pthread_create(&tid, &tattr, plugin_exec, NULL);
 	pthread_attr_destroy(&tattr);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  thread id=0x%08x"), tid);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  thread id=%p"), tid);
 
 	return;
 }

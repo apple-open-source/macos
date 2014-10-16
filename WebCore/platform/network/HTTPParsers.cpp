@@ -14,7 +14,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -351,14 +351,14 @@ void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, u
 
 ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL)
 {
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidToggle, (ASCIILiteral("expected 0 or 1")));
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidSeparator, (ASCIILiteral("expected semicolon")));
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidEquals, (ASCIILiteral("expected equals sign")));
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidMode, (ASCIILiteral("invalid mode directive")));
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidReport, (ASCIILiteral("invalid report directive")));
-    DEFINE_STATIC_LOCAL(String, failureReasonDuplicateMode, (ASCIILiteral("duplicate mode directive")));
-    DEFINE_STATIC_LOCAL(String, failureReasonDuplicateReport, (ASCIILiteral("duplicate report directive")));
-    DEFINE_STATIC_LOCAL(String, failureReasonInvalidDirective, (ASCIILiteral("unrecognized directive")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidToggle, (ASCIILiteral("expected 0 or 1")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidSeparator, (ASCIILiteral("expected semicolon")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidEquals, (ASCIILiteral("expected equals sign")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidMode, (ASCIILiteral("invalid mode directive")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidReport, (ASCIILiteral("invalid report directive")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonDuplicateMode, (ASCIILiteral("duplicate mode directive")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonDuplicateReport, (ASCIILiteral("duplicate report directive")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidDirective, (ASCIILiteral("unrecognized directive")));
 
     unsigned pos = 0;
 
@@ -605,14 +605,14 @@ size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReas
     return end - data;
 }
 
-size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, AtomicString& nameStr, String& valueStr)
+size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, String& nameStr, String& valueStr, bool strict)
 {
     const char* p = start;
     const char* end = start + length;
 
     Vector<char> name;
     Vector<char> value;
-    nameStr = AtomicString();
+    nameStr = String();
     valueStr = String();
 
     for (; p < end; p++) {
@@ -648,21 +648,24 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
         case '\r':
             break;
         case '\n':
-            failureReason = "Unexpected LF in value at " + trimInputSample(value.data(), value.size());
-            return 0;
+            if (strict) {
+                failureReason = "Unexpected LF in value at " + trimInputSample(value.data(), value.size());
+                return 0;
+            }
+            break;
         default:
             value.append(*p);
         }
-        if (*p == '\r') {
+        if (*p == '\r' || (!strict && *p == '\n')) {
             ++p;
             break;
         }
     }
-    if (p >= end || *p != '\n') {
+    if (p >= end || (strict && *p != '\n')) {
         failureReason = "CR doesn't follow LF after value at " + trimInputSample(p, end - p);
         return 0;
     }
-    nameStr = AtomicString::fromUTF8(name.data(), name.size());
+    nameStr = String::fromUTF8(name.data(), name.size());
     valueStr = String::fromUTF8(value.data(), value.size());
     if (nameStr.isNull()) {
         failureReason = "Invalid UTF-8 sequence in header name";

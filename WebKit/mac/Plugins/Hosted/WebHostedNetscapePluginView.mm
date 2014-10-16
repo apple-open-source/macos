@@ -46,12 +46,12 @@
 #import <WebCore/RenderEmbeddedObject.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebCore/RunLoop.h>
 #import <WebCore/runtime_root.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/RunLoop.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -61,7 +61,7 @@ extern "C" {
 #include "WebKitPluginHost.h"
 }
 
-#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
+#if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
 @interface NSWindow (Details)
 - (BOOL)_hostsLayersInWindowServer;
 @end
@@ -71,9 +71,11 @@ extern "C" {
 
 + (void)initialize
 {
+#if !PLATFORM(IOS)
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
+#endif
     WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
@@ -112,7 +114,7 @@ extern "C" {
 
 - (BOOL)windowHostsLayersInWindowServer
 {
-#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
+#if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
     return [[[self webView] window] _hostsLayersInWindowServer];
 #else
     return false;
@@ -125,9 +127,7 @@ extern "C" {
 
     NSString *userAgent = [[self webView] userAgentForURL:_baseURL.get()];
     BOOL acceleratedCompositingEnabled = false;
-#if USE(ACCELERATED_COMPOSITING)
     acceleratedCompositingEnabled = [[[self webView] preferences] acceleratedCompositingEnabled];
-#endif
     _hostsLayersInWindowServer = [self windowHostsLayersInWindowServer];
 
     _proxy = NetscapePluginHostManager::shared().instantiatePlugin([_pluginPackage.get() path], [_pluginPackage.get() pluginHostArchitecture], [_pluginPackage.get() bundleIdentifier], self, _MIMEType.get(), _attributeKeys.get(), _attributeValues.get(), userAgent, _sourceURL.get(),
@@ -149,9 +149,7 @@ extern "C" {
 - (void)createPluginLayer
 {
     BOOL acceleratedCompositingEnabled = false;
-#if USE(ACCELERATED_COMPOSITING)
     acceleratedCompositingEnabled = [[[self webView] preferences] acceleratedCompositingEnabled];
-#endif
 
     _pluginLayer = WKMakeRenderLayer(_proxy->renderContextID());
 
@@ -433,7 +431,6 @@ extern "C" {
 - (void)pluginHostDied
 {
     if (_element->renderer() && _element->renderer()->isEmbeddedObject()) {
-        // FIXME: The renderer could also be a RenderApplet, we should handle that.
         RenderEmbeddedObject* renderer = toRenderEmbeddedObject(_element->renderer());
         renderer->setPluginUnavailabilityReason(RenderEmbeddedObject::PluginCrashed);
     }
@@ -445,12 +442,6 @@ extern "C" {
     self.wantsLayer = NO;
     
     [self invalidatePluginContentRect:[self bounds]];
-}
-
-- (void)visibleRectDidChange
-{
-    [super visibleRectDidChange];
-    WKSyncSurfaceToView(self);
 }
 
 - (void)drawRect:(NSRect)rect
@@ -492,7 +483,7 @@ extern "C" {
     
     ASSERT(!_proxy->manualStream());
 
-    _proxy->setManualStream(HostedNetscapePluginStream::create(_proxy.get(), core([self webFrame])->loader()));
+    _proxy->setManualStream(HostedNetscapePluginStream::create(_proxy.get(), &core([self webFrame])->loader()));
     _proxy->manualStream()->startStreamWithResponse(response);
 }
 

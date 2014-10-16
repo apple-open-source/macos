@@ -4,11 +4,19 @@ dnl
 dnl     Use ./buildconf to produce a configure script
 dnl
 
-AC_PREREQ(2.13)
+AC_PREREQ(2.50)
 AC_INIT(ABOUT_APACHE)
 
 AC_CONFIG_HEADER(include/ap_config_auto.h)
 AC_CONFIG_AUX_DIR(build)
+
+dnl Absolute source/build directory
+abs_srcdir=`(cd $srcdir && pwd)`
+abs_builddir=`pwd`
+
+dnl Ensure that the httpd version is included
+HTTPD_VERSION=`$abs_srcdir/build/get-version.sh all $abs_srcdir/include/ap_release.h AP_SERVER`
+AC_SUBST(HTTPD_VERSION)
 
 dnl #
 dnl # Include our own M4 macros along with those for APR and libtool
@@ -59,6 +67,10 @@ nl='
 dnl Check that mkdir -p works
 APR_MKDIR_P_CHECK($top_srcdir/build/mkdir.sh)
 
+dnl get an EGREP to use in the Makefiles
+AC_PROG_EGREP
+APACHE_SUBST(EGREP)
+
 dnl ## Run configure for packages Apache uses
 
 dnl shared library support for these packages doesn't currently
@@ -68,19 +80,29 @@ AC_CANONICAL_SYSTEM
 
 orig_prefix="$prefix"
 
-echo $ac_n "${nl}Configuring Apache Portable Runtime library ...${nl}"
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Configuring Apache Portable Runtime library...])
+AC_MSG_NOTICE([])
 
 AC_ARG_WITH(included-apr,
 APACHE_HELP_STRING(--with-included-apr,Use bundled copies of APR/APR-Util))
 
-# Only APR 1.x is supported.
-apr_version=1
-
 if test "x$with_included_apr" = "xyes"; then
-   apr_found=reconfig
-   apr_config="$srcdir/srclib/apr/apr-${apr_version}-config"
+  apr_found=reconfig
+  if test ! -d srclib/apr && test ! -d $srcdir/srclib/apr; then
+    AC_MSG_ERROR([Bundled APR requested but not found at ./srclib/. Download and unpack the corresponding apr and apr-util packages to ./srclib/.])
+  fi
 else 
-   APR_FIND_APR("$srcdir/srclib/apr", "./srclib/apr", 1, ${apr_version})
+  APR_FIND_APR("$srcdir/srclib/apr", "./srclib/apr", 1, 1 2, [
+    version=`$apr_config --version`
+    case x${version} in
+    x1.[[0-3]].*) 
+      AC_MSG_WARN([APR version 1.4.0 or later is required, found $version])
+      apr_acceptable=no
+      ;;
+    esac
+    unset version
+   ])
 fi
 
 if test "$apr_found" = "no"; then
@@ -94,29 +116,49 @@ if test "$apr_found" = "reconfig"; then
   dnl We must be the first to build and the last to be cleaned
   AP_BUILD_SRCLIB_DIRS="apr $AP_BUILD_SRCLIB_DIRS"
   AP_CLEAN_SRCLIB_DIRS="$AP_CLEAN_SRCLIB_DIRS apr"
+
+  dnl We have to find apr-N-config when we reconfigure APR.
+  for majorver in 1 2; do
+    test_apr_config="./srclib/apr/apr-${majorver}-config"
+    if test -f "$test_apr_config"; then
+      apr_config="$test_apr_config"
+    fi
+  done
 fi
 
 APR_SETIFNULL(CC, `$apr_config --cc`)
 APR_SETIFNULL(CPP, `$apr_config --cpp`)
 APR_ADDTO(CFLAGS, `$apr_config --cflags`)
 APR_ADDTO(CPPFLAGS, `$apr_config --cppflags`)
+dnl internal-only CPPFLAGS (shouldn't affect third-party module builds)
+INTERNAL_CPPFLAGS=""
 APR_ADDTO(LDFLAGS, `$apr_config --ldflags`)
 SHLIBPATH_VAR=`$apr_config --shlib-path-var`
 APR_BINDIR=`$apr_config --bindir`
 APR_INCLUDEDIR=`$apr_config --includedir`
+APR_INCLUDES=`$apr_config --includes`
 APR_VERSION=`$apr_config --version`
-APR_CONFIG="$APR_BINDIR/apr-`echo ${APR_VERSION} | sed 's,\..*,,'`-config"
+apr_major_version=`echo ${APR_VERSION} | sed 's,\..*,,'`
+APR_CONFIG="$APR_BINDIR/apr-${apr_major_version}-config"
 
-echo $ac_n "${nl}Configuring Apache Portable Runtime Utility library...${nl}"
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Configuring Apache Portable Runtime Utility library...])
+AC_MSG_NOTICE([])
 
-# Only APR-util 1.x is supported.
-apu_version=1
-
-if test "x$with_included_apr" = "xyes"; then
-   apu_found=reconfig
-   apu_config="${srcdir}/srclib/apr-util/apu-${apu_version}-config"
+if test "x${apr_major_version}" = "x2"; then
+  apu_found=obsolete
+elif test "x$with_included_apr" = "xyes"; then
+  apu_found=reconfig
+  if test ! -d srclib/apr-util && test ! -d $srcdir/srclib/apr-util; then
+    AC_MSG_ERROR([Bundled APR-Util requested but not found at ./srclib/. Download and unpack the corresponding apr and apr-util packages to ./srclib/.])
+  fi
 else 
-   APR_FIND_APU("$srcdir/srclib/apr-util", "./srclib/apr-util", 1, ${apu_version})
+   dnl If httpd is buildconf'ed against an apr 2.x tree, then 1.x
+   dnl isn't supported. 
+   ifdef([APR_FIND_APU], [
+     APR_FIND_APU("$srcdir/srclib/apr-util", "./srclib/apr-util", 
+                  1, ${apr_major_version})
+   ], [apu_found=no])
 fi
 
 if test "$apu_found" = "no"; then
@@ -140,13 +182,20 @@ if test "$apu_found" = "reconfig"; then
   dnl We must be the last to build and the first to be cleaned
   AP_BUILD_SRCLIB_DIRS="$AP_BUILD_SRCLIB_DIRS apr-util"
   AP_CLEAN_SRCLIB_DIRS="apr-util $AP_CLEAN_SRCLIB_DIRS"
+  dnl APR and APR-Util major versions must match
+  apu_config="./srclib/apr-util/apu-${apr_major_version}-config"
 fi
 
-APR_ADDTO(LDFLAGS, `$apu_config --ldflags`)
-APU_BINDIR=`$apu_config --bindir`
-APU_INCLUDEDIR=`$apu_config --includedir`
-APU_VERSION=`$apu_config --version`
-APU_CONFIG="$APU_BINDIR/apu-`echo ${APU_VERSION} | sed 's,\..*,,'`-config"
+if test "$apu_found" = "obsolete"; then
+  AC_MSG_NOTICE([APR-util obsoleted, woohoo])
+else
+  APR_ADDTO(LDFLAGS, `$apu_config --ldflags`)
+  APU_BINDIR=`$apu_config --bindir`
+  APU_INCLUDEDIR=`$apu_config --includedir`
+  APU_INCLUDES=`$apu_config --includes`
+  APU_VERSION=`$apu_config --version`
+  APU_CONFIG="$APU_BINDIR/apu-`echo ${APU_VERSION} | sed 's,\..*,,'`-config"
+fi
 
 dnl In case we picked up CC and CPP from APR, get that info into the
 dnl config cache so that PCRE uses it.  Otherwise, CC and CPP used for
@@ -154,53 +203,45 @@ dnl PCRE and for our config tests will be whatever PCRE determines.
 AC_PROG_CC
 AC_PROG_CPP
 
+dnl Try to get c99 support for variadic macros
+ifdef([AC_PROG_CC_C99], [AC_PROG_CC_C99])
+
 if test "x${cache_file}" = "x/dev/null"; then
   # Likewise, ensure that CC and CPP are passed through to the pcre
   # configure script iff caching is disabled (the autoconf 2.5x default).
   export CC; export CPP
 fi
 
-dnl Absolute source/build directory
-abs_srcdir=`(cd $srcdir && pwd)`
-abs_builddir=`pwd`
-
 AC_ARG_WITH(pcre,
 APACHE_HELP_STRING(--with-pcre=PATH,Use external PCRE library))
 
-case $with_pcre in
-yes) AC_PATH_PROG(PCRE_CONFIG, pcre-config, false) ;;
- /*) if test -d "$with_pcre" && test -x "$with_pcre/bin/pcre-config"; then
-       PCRE_CONFIG=$with_pcre/bin/pcre-config
-     elif test -x "$with_pcre"; then
-       PCRE_CONFIG=$with_pcre
-     fi
-
-     if $PCRE_CONFIG --version >/dev/null 2>&1; then :; else
-       AC_MSG_ERROR([Did not find pcre-config script at $PCRE_CONFIG])
-     fi
-     ;;
-*) PCRE_CONFIG=false ;;
-esac
-
-if test "$PCRE_CONFIG" != "false"; then
-  AC_MSG_NOTICE([Using external PCRE library from $PCRE_CONFIG])
-  APR_ADDTO(CFLAGS, [`$PCRE_CONFIG --cflags`])
-  APR_ADDTO(LIBS, [`$PCRE_CONFIG --libs`])
-else
-  # Build the bundled PCRE
-  AC_MSG_NOTICE([Configuring PCRE regular expression library])
-
-  APR_SUBDIR_CONFIG(srclib/pcre,
-                  [--prefix=$prefix --exec-prefix=$exec_prefix --libdir=$libdir --includedir=$includedir --bindir=$bindir])
-
-  APR_ADDTO(AP_LIBS, [$abs_builddir/srclib/pcre/libpcre.la])
-  APR_ADDTO(INCLUDES, [-I\$(top_builddir)/srclib/pcre])
-
-  AP_BUILD_SRCLIB_DIRS="$AP_BUILD_SRCLIB_DIRS pcre"
-  AP_CLEAN_SRCLIB_DIRS="$AP_CLEAN_SRCLIB_DIRS pcre" 
+AC_PATH_PROG(PCRE_CONFIG, pcre-config, false)
+if test -d "$with_pcre" && test -x "$with_pcre/bin/pcre-config"; then
+   PCRE_CONFIG=$with_pcre/bin/pcre-config
+elif test -x "$with_pcre"; then
+   PCRE_CONFIG=$with_pcre
 fi
 
-echo $ac_n "${nl}Configuring Apache httpd ...${nl}"
+if test "$PCRE_CONFIG" != "false"; then
+  if $PCRE_CONFIG --version >/dev/null 2>&1; then :; else
+    AC_MSG_ERROR([Did not find pcre-config script at $PCRE_CONFIG])
+  fi
+  case `$PCRE_CONFIG --version` in
+  [[1-5].*])
+    AC_MSG_ERROR([Need at least pcre version 6.0])
+    ;;
+  esac
+  AC_MSG_NOTICE([Using external PCRE library from $PCRE_CONFIG])
+  APR_ADDTO(PCRE_INCLUDES, [`$PCRE_CONFIG --cflags`])
+  APR_ADDTO(PCRE_LIBS, [`$PCRE_CONFIG --libs`])
+else
+  AC_MSG_ERROR([pcre-config for libpcre not found. PCRE is required and available from http://pcre.org/])
+fi
+APACHE_SUBST(PCRE_LIBS)
+
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Configuring Apache httpd...])
+AC_MSG_NOTICE([])
 
 dnl If the source dir is not equal to the build dir, 
 dnl then we are running in VPATH mode.
@@ -211,15 +252,20 @@ if test "$abs_builddir" != "$abs_srcdir"; then
   APR_ADDTO(INCLUDES, [-I\$(top_builddir)/include])
 fi
 
-APR_ADDTO(INCLUDES, [-I\$(top_srcdir)/os/\$(OS_DIR) -I\$(top_srcdir)/server/mpm/\$(MPM_SUBDIR_NAME) -I\$(top_srcdir)/modules/http -I\$(top_srcdir)/modules/filters -I\$(top_srcdir)/modules/proxy -I\$(top_srcdir)/include -I\$(top_srcdir)/modules/generators -I\$(top_srcdir)/modules/mappers -I\$(top_srcdir)/modules/database])
+APR_ADDTO(INCLUDES, [-I\$(top_srcdir)/os/\$(OS_DIR) -I\$(top_srcdir)/include])
 
 # apr/apr-util --includes may pick up system paths for dependent
 # libraries, so ensure these are later in INCLUDES than local source
 # directories.
-APR_ADDTO(INCLUDES, `$apr_config --includes`)
-APR_ADDTO(INCLUDES, `$apu_config --includes`)
+APR_ADDTO(INCLUDES, $APR_INCLUDES)
+APR_ADDTO(INCLUDES, $APU_INCLUDES)
 
-echo $ac_n "${nl}Applying OS-specific hints for httpd ...${nl}"
+dnl Add in path to PCRE includes
+APR_ADDTO(INCLUDES, $PCRE_INCLUDES)
+
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Applying OS-specific hints for httpd...])
+AC_MSG_NOTICE([])
 
 case $host in
   *os2*)
@@ -262,15 +308,9 @@ APACHE_SUBST(LTCFLAGS)
 
 case $host in
   *-apple-aux3*)
-      APR_SETVAR(APACHE_MPM, [prefork])
-      APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
-      ;;
-  *-beos*)
-      APR_SETVAR(APACHE_MPM, [beos])
       APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
       ;;
   *os2-emx*)
-      APR_SETVAR(APACHE_MPM, [mpmt_os2])
       APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
       ;;
   *-linux-*)
@@ -300,12 +340,13 @@ case $host in
       esac
       ;;
   *cygwin*)
-      APR_SETVAR(APACHE_MPM, [prefork])
       APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
       ;;
   *mingw32*)
-      APR_SETVAR(APACHE_MPM, [winnt])
-      APR_ADDTO(CPPFLAGS, [-DAP_DECLARE_EXPORT])
+      APR_ADDTO(INTERNAL_CPPFLAGS, [-DAP_DECLARE_EXPORT])
+      APR_SETIFNULL(ac_cv_func_times, [no])
+      APR_SETIFNULL(ac_cv_func_getpwnam, [no])
+      APR_SETIFNULL(ac_cv_func_getgrnam, [no])
       ;;
   *aix*)
       aixver=`echo $host | sed 's/^[[^0-9]]*//' | sed 's/\.//g'`
@@ -356,20 +397,20 @@ AC_ISC_POSIX
 # Ensure that satisfactory versions of apr and apr-util are 
 # found if external copies are configured.
 if test "${apr_found}" = "yes"; then
-  # Require APR 1.2.x otherwise fail
-  APACHE_CHECK_APxVER([apr], 1, 2)
+  # Require at least APR 1.3.x otherwise fail
+  APACHE_CHECK_APxVER([apr], 1, 3)
 fi
 
 if test "${apu_found}" = "yes"; then
-  # Require APR-util 1.2.x otherwise fail
+  # Require at least APR-util 1.3.x otherwise fail
   if test "${apr_found}" = "yes"; then
     # we need to add the APR includes to CPPFLAGS
     apu_ckver_CPPFLAGS="$CPPFLAGS"
     CPPFLAGS="$CPPFLAGS `$apr_config --includes`"
-    APACHE_CHECK_APxVER([apu], 1, 2)
+    APACHE_CHECK_APxVER([apu], 1, 3)
     CPPFLAGS="$apu_ckver_CPPFLAGS"
   else
-    APACHE_CHECK_APxVER([apu], 1, 2)
+    APACHE_CHECK_APxVER([apu], 1, 3)
   fi
 fi
 
@@ -399,7 +440,9 @@ grp.h \
 strings.h \
 sys/prctl.h \
 sys/processor.h \
-sys/sem.h
+sys/sem.h \
+sys/sdt.h \
+sys/loadavg.h
 )
 AC_HEADER_SYS_WAIT
 
@@ -408,7 +451,13 @@ dnl ## Check for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
 dnl ## Check for library functions
+dnl ## sqrt() only needed in support/ab.c
+saved_LIBS="$LIBS"
+LIBS=""
 AC_SEARCH_LIBS(sqrt, m)
+MATH_LIBS="$LIBS"
+APACHE_SUBST(MATH_LIBS)
+LIBS="$saved_LIBS"
 
 saved_LIBS="$LIBS"
 LIBS=""
@@ -426,11 +475,25 @@ initgroups \
 bindprocessor \
 prctl \
 timegm \
-getpgid
+getpgid \
+fopen64 \
+getloadavg
 )
 
 dnl confirm that a void pointer is large enough to store a long integer
 APACHE_CHECK_VOID_PTR_LEN
+
+AC_CACHE_CHECK([for gettid()], ac_cv_gettid,
+[AC_TRY_RUN(#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+int main(int argc, char **argv) {
+pid_t t = syscall(SYS_gettid); return t == -1 ? 1 : 0; },
+[ac_cv_gettid=yes], [ac_cv_gettid=no], [ac_cv_gettid=no])])
+if test "$ac_cv_gettid" = "yes"; then
+    AC_DEFINE(HAVE_GETTID, 1, [Define if you have gettid()])
+fi
 
 dnl ## Check for the tm_gmtoff field in struct tm to get the timezone diffs
 AC_CACHE_CHECK([for tm_gmtoff in struct tm], ac_cv_struct_tm_gmtoff,
@@ -472,42 +535,101 @@ AC_ARG_WITH(sslport,APACHE_HELP_STRING(--with-sslport=SSLPORT,Port on which to s
         [if test "$withval" = "yes"; then AC_MSG_ERROR('option --with-sslport requires a value (the SSL TCP port number)'); else SSLPORT="$withval"; fi],
 	[SSLPORT=443])
 
-APR_CHECK_APR_DEFINE(APR_HAVE_IPV6)
-
-AC_ARG_ENABLE(v4-mapped,APACHE_HELP_STRING(--enable-v4-mapped,Allow IPv6 sockets to handle IPv4 connections),
-[ 
-  v4mapped=$enableval
+DTRACE=true
+AC_ARG_ENABLE(dtrace,APACHE_HELP_STRING(--enable-dtrace,Enable DTrace probes),
+[
+  enable_dtrace=$enableval
+  if test "$enableval" = "yes"; then
+    APR_ADDTO(CPPFLAGS, -DAPR_DTRACE_PROVIDER)
+    AC_MSG_ERROR('DTrace Support in the build system is not complete. Patches Welcome!')
+  fi
 ],
 [
-    case $host in
-    *freebsd5*|*netbsd*|*openbsd*)
-        v4mapped=no
-        ;;
-    *mingw*)
-        dnl WinNT is the only MPM on this platform, and it doesn't support
-        dnl this feature.
-        v4mapped=no
-        ;;
-    *)
-        v4mapped=yes
-        ;;
-esac
+  enable_dtrace=no
 ])
 
-if test $v4mapped = "yes" -a $ac_cv_define_APR_HAVE_IPV6 = "yes"; then
-    AC_DEFINE(AP_ENABLE_V4_MAPPED, 1,
-              [Allow IPv4 connections on IPv6 listening sockets])
-fi
+dnl Disabled dtrace build for now.
+enable_dtrace=no
+
+case $host in
+  *-solaris2*)
+    if test $enable_dtrace = "yes" -a "$ac_cv_header_sys_sdt_h" = "yes"; then
+        AC_DEFINE(AP_ENABLE_DTRACE, 1,
+                  [Enable DTrace probes])
+        DTRACE="/usr/sbin/dtrace $DTRACEFLAGS"
+        test -f include/apache_probes.h || $DTRACE -h -s apache_probes.d -o include/apache_probes.h
+    fi
+    ;;
+esac
+
+APACHE_SUBST(DTRACE)
+
+AC_ARG_ENABLE(hook-probes,APACHE_HELP_STRING(--enable-hook-probes,Enable APR hook probes),
+[
+    if test "$enableval" = "yes"; then
+        AC_DEFINE(AP_HOOK_PROBES_ENABLED, 1,
+                  [Enable the APR hook probes capability, reading from ap_hook_probes.h])
+        APR_ADDTO(INTERNAL_CPPFLAGS, -DAP_HOOK_PROBES_ENABLED)
+    fi
+])dnl
 
 AC_ARG_ENABLE(exception-hook,APACHE_HELP_STRING(--enable-exception-hook,Enable fatal exception hook),
 [
-    AC_DEFINE(AP_ENABLE_EXCEPTION_HOOK, 1,
-              [Allow modules to run hook after a fatal exception])
+    if test "$enableval" = "yes"; then
+        AC_DEFINE(AP_ENABLE_EXCEPTION_HOOK, 1,
+                  [Allow modules to run hook after a fatal exception])
+    fi
 ])dnl
 
-AC_ARG_ENABLE(maintainer-mode,APACHE_HELP_STRING(--enable-maintainer-mode,Turn on debugging and compile time warnings),
+AC_ARG_ENABLE(load-all-modules,APACHE_HELP_STRING(--enable-load-all-modules,Load all modules),
 [
-  APR_ADDTO(CPPFLAGS, -DAP_DEBUG)
+  LOAD_ALL_MODULES=$enableval
+  AC_MSG_NOTICE([Setting "LOAD_ALL_MODULES" to $LOAD_ALL_MODULES])
+],
+[
+  LOAD_ALL_MODULES="no"
+])
+
+AC_ARG_ENABLE(maintainer-mode,APACHE_HELP_STRING(--enable-maintainer-mode,Turn on debugging and compile time warnings and load all compiled modules),
+[
+  if test "$enableval" = "yes"; then
+    APR_ADDTO(CPPFLAGS, -DAP_DEBUG)
+    if test "$GCC" = "yes"; then
+      APR_ADDTO(CFLAGS,[-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith])
+      APACHE_ADD_GCC_CFLAG([-Wdeclaration-after-statement])
+      APACHE_ADD_GCC_CFLAG([-Werror=declaration-after-statement])
+      APACHE_ADD_GCC_CFLAG([-Wformat])
+      APACHE_ADD_GCC_CFLAG([-Wformat-security])
+      APACHE_ADD_GCC_CFLAG([-Werror=format-security])
+    elif test "$AIX_XLC" = "yes"; then
+      APR_ADDTO(CFLAGS,-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro)
+    fi
+    if test "x$enable_load_all_modules" = "x"; then
+      LOAD_ALL_MODULES=yes
+      AC_MSG_NOTICE([Maintainer mode setting "LOAD_ALL_MODULES" to $LOAD_ALL_MODULES])
+    fi
+    if test "x$enable_bucketeer" = "x"; then
+      enable_bucketeer=yes
+      AC_MSG_NOTICE([Maintainer mode setting "enable_bucketeer" to yes])
+    fi
+  fi
+])dnl
+
+AC_ARG_ENABLE(debugger-mode,APACHE_HELP_STRING(--enable-debugger-mode,Turn on debugging and compile time warnings and turn off optimization),
+[
+  if test "$enableval" = "yes"; then
+    APR_ADDTO(CPPFLAGS, -DAP_DEBUG)
+    if test "$GCC" = "yes"; then
+      APR_ADDTO(CFLAGS,[-Wall -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations -Wpointer-arith -O0])
+      APACHE_ADD_GCC_CFLAG([-Wdeclaration-after-statement])
+      APACHE_ADD_GCC_CFLAG([-Werror=declaration-after-statement])
+      APACHE_ADD_GCC_CFLAG([-Wformat])
+      APACHE_ADD_GCC_CFLAG([-Wformat-security])
+      APACHE_ADD_GCC_CFLAG([-Werror=format-security])
+    elif test "$AIX_XLC" = "yes"; then
+      APR_ADDTO(CFLAGS,-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro)
+    fi
+  fi
 ])dnl
 
 dnl Conditionally enable PIE support for GNU toolchains.
@@ -530,8 +652,8 @@ if test "$enable_pie" = "yes"; then
      AC_ERROR([--enable-pie requested but $CC failed using PIE flags])
    fi
 fi
-AC_SUBST(PICFLAGS)
-AC_SUBST(PILDFLAGS)
+APACHE_SUBST(PICFLAGS)
+APACHE_SUBST(PILDFLAGS)
 
 prefix="$orig_prefix"
 APACHE_ENABLE_MODULES
@@ -540,7 +662,6 @@ dnl reading config stubs
 esyscmd(./build/config-stubs .)
 
 APACHE_SUBST(progname)
-APACHE_SUBST(MPM_LIB)
 APACHE_SUBST(OS)
 APACHE_SUBST(OS_DIR)
 APACHE_SUBST(BUILTIN_LIBS)
@@ -561,23 +682,20 @@ fi
 
 dnl enable_so tells us if *any* modules can be built as DSOs
 
-if test "$enable_so" = "yes"; then
+if test "$enable_so" = "yes" -o "$enable_so" = "static"; then
   case $host in
     *-ibm-aix*)
-      HTTPD_LDFLAGS="$HTTPD_LDFLAGS -Wl,-uXML_Parse -Wl,-bE:$abs_builddir/server/httpd.exp"
-      SH_LDFLAGS="$SH_LDFLAGS \$(EXTRA_LDFLAGS) \$(EXTRA_LIBS)"
-      UTIL_LDFLAGS="$UTIL_LDFLAGS -Wl,-uXML_Parse"
-      ;;
-    *beos)
-      SH_LDFLAGS='$(top_builddir)/_APP_'
-      PRE_SHARED_CMDS='ln -s $(top_builddir)/httpd $(top_builddir)/_APP_'
-      POST_SHARED_CMDS='rm $(top_builddir)/_APP_'
+      APR_ADDTO(HTTPD_LDFLAGS, [-Wl,-uXML_Parse -Wl,-bE:$abs_builddir/server/httpd.exp])
+      APR_ADDTO(SH_LDFLAGS, [\$(EXTRA_LDFLAGS) \$(EXTRA_LIBS)])
+      APR_ADDTO(UTIL_LDFLAGS, [-Wl,-uXML_Parse])
       ;;
     *os390)
-      HTTPD_LDFLAGS="$HTTPD_LDFLAGS --main=$abs_srcdir/server/main.o --core-dll=$abs_srcdir/apachecore.dll"
-      SH_LDFLAGS="$SH_LDFLAGS --core-dll=$abs_srcdir/apachecore.dll"
+      APR_ADDTO(HTTPD_LDFLAGS, [--main=$abs_srcdir/server/main.o --core-dll=$abs_srcdir/apachecore.dll])
+      APR_ADDTO(SH_LDFLAGS, [--core-dll=$abs_srcdir/apachecore.dll])
   esac
+  MOD_SO_ENABLED=yes
 fi
+AC_SUBST(MOD_SO_ENABLED)
 
 APACHE_SUBST(PRE_SHARED_CMDS)
 APACHE_SUBST(POST_SHARED_CMDS)
@@ -627,9 +745,10 @@ APACHE_HELP_STRING(--with-suexec-umask,umask for suexec'd process),[
   AC_DEFINE_UNQUOTED(AP_SUEXEC_UMASK, 0$withval, [umask for suexec'd process] ) ] )
 
 dnl APR should go after the other libs, so the right symbols can be picked up
-apulinklibs="`$apu_config --avoid-ldap --link-libtool --libs`" \
- || apulinklibs="`$apu_config --link-libtool --libs`"
-AP_LIBS="$AP_LIBS $apulinklibs `$apr_config --link-libtool --libs`" 
+if test x${apu_found} != xobsolete; then
+  AP_LIBS="$AP_LIBS `$apu_config --avoid-ldap --link-libtool --libs`"
+fi
+AP_LIBS="$AP_LIBS `$apr_config --link-libtool --libs`" 
 APACHE_SUBST(AP_LIBS)
 APACHE_SUBST(AP_BUILD_SRCLIB_DIRS)
 APACHE_SUBST(AP_CLEAN_SRCLIB_DIRS)
@@ -647,16 +766,47 @@ if test "$AP_NONBLOCK_WHEN_MULTI_LISTEN" = "1"; then
               [Listening sockets are non-blocking when there are more than 1])
 fi
 
+APR_CHECK_APR_DEFINE(APR_HAVE_IPV6)
+
+AC_ARG_ENABLE(v4-mapped,APACHE_HELP_STRING(--enable-v4-mapped,Allow IPv6 sockets to handle IPv4 connections),
+[ 
+  v4mapped=$enableval
+],
+[
+    case $host in
+    *freebsd[1234].*)
+        v4mapped=yes
+        ;;
+    *freebsd*|*netbsd*|*openbsd*)
+        v4mapped=no
+        ;;
+    *)
+        v4mapped=yes
+        ;;
+    esac
+    if ap_mpm_is_enabled winnt; then
+        dnl WinNT MPM doesn't support this.
+        v4mapped=no
+    fi
+])
+
+if test $v4mapped = "yes" -a $ac_cv_define_APR_HAVE_IPV6 = "yes"; then
+    AC_DEFINE(AP_ENABLE_V4_MAPPED, 1,
+              [Allow IPv4 connections on IPv6 listening sockets])
+fi
+
 APACHE_FAST_OUTPUT(Makefile modules/Makefile srclib/Makefile) 
 APACHE_FAST_OUTPUT(os/Makefile server/Makefile)
-APACHE_FAST_OUTPUT(support/Makefile srclib/pcre/Makefile)
+APACHE_FAST_OUTPUT(support/Makefile)
 
 if test -d ./test; then
     APACHE_FAST_OUTPUT(test/Makefile)
 fi
 
 dnl ## Finalize the variables
-echo $ac_n "${nl}Restore user-defined environment settings...${nl}"
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Restore user-defined environment settings...])
+AC_MSG_NOTICE([])
 
 APR_RESTORE_THE_ENVIRONMENT(CPPFLAGS, EXTRA_)
 APR_RESTORE_THE_ENVIRONMENT(CFLAGS, EXTRA_)
@@ -665,7 +815,9 @@ APR_RESTORE_THE_ENVIRONMENT(LDFLAGS, EXTRA_)
 APR_RESTORE_THE_ENVIRONMENT(LIBS, EXTRA_)
 APR_RESTORE_THE_ENVIRONMENT(INCLUDES, EXTRA_)
 
-echo $ac_n "${nl}Construct makefiles and header files...${nl}"
+AC_MSG_NOTICE([])
+AC_MSG_NOTICE([Construct makefiles and header files...])
+AC_MSG_NOTICE([])
 
 APACHE_GEN_CONFIG_VARS
 
@@ -680,8 +832,6 @@ AC_DEFINE_UNQUOTED(SERVER_CONFIG_FILE, "${rel_sysconfdir}/${progname}.conf",
 	[Location of the config file, relative to the Apache root directory])
 AC_DEFINE_UNQUOTED(AP_TYPES_CONFIG_FILE, "${rel_sysconfdir}/mime.types",
 	[Location of the MIME types config file, relative to the Apache root directory])
-AC_DEFINE_UNQUOTED(APACHE_MPM_DIR, "$MPM_DIR",
-	[Location of the source for the current MPM])
 
 perlbin=`$ac_aux_dir/PrintPath perl`
 if test "x$perlbin" = "x"; then
@@ -712,30 +862,6 @@ AC_SUBST(ap_make_delimiter)
 dnl Ensure that docs/conf is created.
 test -d docs/conf||$mkdir_p docs/conf
 
-dnl Ensure that the httpd version is included
-HTTPD_VERSION=`$abs_srcdir/build/get-version.sh all $abs_srcdir/include/ap_release.h AP_SERVER`
-AC_SUBST(HTTPD_VERSION)
-
-AC_OUTPUT($APACHE_OUTPUT_FILES docs/conf/httpd.conf docs/conf/extra/httpd-autoindex.conf docs/conf/extra/httpd-dav.conf docs/conf/extra/httpd-default.conf docs/conf/extra/httpd-info.conf docs/conf/extra/httpd-languages.conf docs/conf/extra/httpd-manual.conf docs/conf/extra/httpd-mpm.conf docs/conf/extra/httpd-multilang-errordoc.conf docs/conf/extra/httpd-ssl.conf docs/conf/extra/httpd-userdir.conf docs/conf/extra/httpd-vhosts.conf include/ap_config_layout.h support/apxs support/apachectl support/dbmmanage support/envvars-std support/log_server_status support/logresolve.pl support/phf_abuse_log.cgi support/split-logfile build/rules.mk build/pkg/pkginfo build/config_vars.sh,[true],[
+AC_OUTPUT($APACHE_OUTPUT_FILES docs/conf/httpd.conf docs/conf/extra/httpd-autoindex.conf docs/conf/extra/httpd-dav.conf docs/conf/extra/httpd-default.conf docs/conf/extra/httpd-info.conf docs/conf/extra/httpd-languages.conf docs/conf/extra/httpd-manual.conf docs/conf/extra/httpd-mpm.conf docs/conf/extra/httpd-multilang-errordoc.conf docs/conf/extra/httpd-ssl.conf docs/conf/extra/httpd-userdir.conf docs/conf/extra/httpd-vhosts.conf docs/conf/extra/proxy-html.conf include/ap_config_layout.h support/apxs support/apachectl support/dbmmanage support/envvars-std support/log_server_status support/logresolve.pl support/phf_abuse_log.cgi support/split-logfile build/rules.mk build/pkg/pkginfo build/config_vars.sh,[true],[
   APACHE_GEN_MAKEFILES
 ])
-
-case $MPM_SUBDIR_NAME in
-*experimental*)
-    echo ""
-    echo ""
-    echo "============================================================"
-    echo "    WARNING: THE '${APACHE_MPM}' MPM IS EXPERIMENTAL"
-    echo "============================================================"
-    echo " The selected MPM might not be fully functional!"
-    echo ""
-    echo " Development of this MPM is not complete. Do not use this"
-    echo " MPM unless you are a programmer willing to help fix it."
-    echo ""
-    echo " If you are looking for a stable server, you should not use"
-    echo " the '${APACHE_MPM}' MPM until it is moved out of experimental."
-    echo "============================================================"
-    echo ""
-    echo ""
-    ;;
-esac

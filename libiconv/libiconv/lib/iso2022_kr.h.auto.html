@@ -1,0 +1,242 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iso2022_kr.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iso2022_kr.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * ISO-2022-KR
+ */</span>
+
+<span class="enscript-comment">/* Specification: RFC 1557 */</span>
+
+<span class="enscript-comment">/* Note: CJK.INF says the SO designator needs to appear only once at the
+   beginning of a text, but to decrease the risk of ambiguities, when
+   producing ISO-2022-KR, we repeat the designator in every line containing
+   SO characters. RFC 1557 does not mandate this. */</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ESC</span> 0x1b
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">SO</span>  0x0e
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">SI</span>  0x0f
+
+<span class="enscript-comment">/*
+ * The state is composed of one of the following values
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_ASCII</span>          0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE_TWOBYTE</span>        1
+<span class="enscript-comment">/*
+ * and one of the following values, &lt;&lt; 8
+ */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE2_NONE</span>                0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">STATE2_DESIGNATED_KSC5601</span>  1
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">SPLIT_STATE</span> \
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> state1 = state &amp; 0xff, state2 = state &gt;&gt; 8
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">COMBINE_STATE</span> \
+  state = (state2 &lt;&lt; 8) | state1
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_kr_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  state_t state = conv-&gt;istate;
+  SPLIT_STATE;
+  <span class="enscript-type">int</span> count = 0;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c;
+  <span class="enscript-keyword">for</span> (;;) {
+    c = *s;
+    <span class="enscript-keyword">if</span> (c == ESC) {
+      <span class="enscript-keyword">if</span> (n &lt; count+4)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">if</span> (s[1] == <span class="enscript-string">'$'</span>) {
+        <span class="enscript-keyword">if</span> (s[2] == <span class="enscript-string">')'</span>) {
+          <span class="enscript-keyword">if</span> (s[3] == <span class="enscript-string">'C'</span>) {
+            state2 = STATE2_DESIGNATED_KSC5601;
+            s += 4; count += 4;
+            <span class="enscript-keyword">if</span> (n &lt; count+1)
+              <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+            <span class="enscript-keyword">continue</span>;
+          }
+        }
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">if</span> (c == SO) {
+      <span class="enscript-keyword">if</span> (state2 != STATE2_DESIGNATED_KSC5601)
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+      state1 = STATE_TWOBYTE;
+      s++; count++;
+      <span class="enscript-keyword">if</span> (n &lt; count+1)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">continue</span>;
+    }
+    <span class="enscript-keyword">if</span> (c == SI) {
+      state1 = STATE_ASCII;
+      s++; count++;
+      <span class="enscript-keyword">if</span> (n &lt; count+1)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">continue</span>;
+    }
+    <span class="enscript-keyword">break</span>;
+  }
+  <span class="enscript-keyword">switch</span> (state1) {
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_ASCII</span>:
+      <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = ascii_mbtowc(conv,pwc,s,1);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 1) abort();
+#<span class="enscript-reference">if</span> 0 <span class="enscript-comment">/* Accept ISO-2022-KR according to CJK.INF. */</span>
+        <span class="enscript-keyword">if</span> (*pwc == 0x000a || *pwc == 0x000d)
+          state2 = STATE2_NONE;
+#<span class="enscript-reference">endif</span>
+        COMBINE_STATE;
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+1;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-keyword">case</span> <span class="enscript-reference">STATE_TWOBYTE</span>:
+      <span class="enscript-keyword">if</span> (n &lt; count+2)
+        <span class="enscript-keyword">goto</span> <span class="enscript-reference">none</span>;
+      <span class="enscript-keyword">if</span> (state2 != STATE2_DESIGNATED_KSC5601) abort();
+      <span class="enscript-keyword">if</span> (s[0] &lt; 0x80 &amp;&amp; s[1] &lt; 0x80) {
+        <span class="enscript-type">int</span> ret = ksc5601_mbtowc(conv,pwc,s,2);
+        <span class="enscript-keyword">if</span> (ret == RET_ILSEQ)
+          <span class="enscript-keyword">return</span> RET_ILSEQ;
+        <span class="enscript-keyword">if</span> (ret != 2) abort();
+        COMBINE_STATE;
+        conv-&gt;istate = state;
+        <span class="enscript-keyword">return</span> count+2;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_ILSEQ;
+    <span class="enscript-reference">default</span>: abort();
+  }
+
+<span class="enscript-reference">none</span>:
+  COMBINE_STATE;
+  conv-&gt;istate = state;
+  <span class="enscript-keyword">return</span> RET_TOOFEW(count);
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_kr_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  state_t state = conv-&gt;ostate;
+  SPLIT_STATE;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+  <span class="enscript-type">int</span> ret;
+
+  <span class="enscript-comment">/* Try ASCII. */</span>
+  ret = ascii_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state1 == STATE_ASCII ? 1 : 2);
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state1 != STATE_ASCII) {
+        r[0] = SI;
+        r += 1;
+        state1 = STATE_ASCII;
+      }
+      r[0] = buf[0];
+      <span class="enscript-keyword">if</span> (wc == 0x000a || wc == 0x000d)
+        state2 = STATE2_NONE;
+      COMBINE_STATE;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-comment">/* Try KS C 5601-1992. */</span>
+  ret = ksc5601_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-keyword">if</span> (ret != 2) abort();
+    <span class="enscript-keyword">if</span> (buf[0] &lt; 0x80 &amp;&amp; buf[1] &lt; 0x80) {
+      <span class="enscript-type">int</span> count = (state2 == STATE2_DESIGNATED_KSC5601 ? 0 : 4) + (state1 == STATE_TWOBYTE ? 0 : 1) + 2;
+      <span class="enscript-keyword">if</span> (n &lt; count)
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+      <span class="enscript-keyword">if</span> (state2 != STATE2_DESIGNATED_KSC5601) {
+        r[0] = ESC;
+        r[1] = <span class="enscript-string">'$'</span>;
+        r[2] = <span class="enscript-string">')'</span>;
+        r[3] = <span class="enscript-string">'C'</span>;
+        r += 4;
+        state2 = STATE2_DESIGNATED_KSC5601;
+      }
+      <span class="enscript-keyword">if</span> (state1 != STATE_TWOBYTE) {
+        r[0] = SO;
+        r += 1;
+        state1 = STATE_TWOBYTE;
+      }
+      r[0] = buf[0];
+      r[1] = buf[1];
+      COMBINE_STATE;
+      conv-&gt;ostate = state;
+      <span class="enscript-keyword">return</span> count;
+    }
+  }
+
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">iso2022_kr_reset</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, size_t n)
+{
+  state_t state = conv-&gt;ostate;
+  SPLIT_STATE;
+  (<span class="enscript-type">void</span>)state2;
+  <span class="enscript-keyword">if</span> (state1 != STATE_ASCII) {
+    <span class="enscript-keyword">if</span> (n &lt; 1)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    r[0] = SI;
+    <span class="enscript-comment">/* conv-&gt;ostate = 0; will be done by the caller */</span>
+    <span class="enscript-keyword">return</span> 1;
+  } <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> 0;
+}
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">COMBINE_STATE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">SPLIT_STATE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE2_DESIGNATED_KSC5601</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE2_NONE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_TWOBYTE</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">STATE_ASCII</span>
+</pre>
+<hr />
+</body></html>

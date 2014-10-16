@@ -21,13 +21,10 @@
 #ifndef SVGZoomAndPan_h
 #define SVGZoomAndPan_h
 
-#if ENABLE(SVG)
-#include "Attribute.h"
 #include "QualifiedName.h"
 #include "SVGNames.h"
 #include <wtf/HashSet.h>
-#include <wtf/RefCounted.h>
-#include <wtf/unicode/Unicode.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -62,9 +59,9 @@ public:
     static bool parseAttribute(SVGElementTarget* target, const QualifiedName& name, const AtomicString& value)
     {
         ASSERT(target);
-        ASSERT(target->document());
         if (name == SVGNames::zoomAndPanAttr) {
-            const UChar* start = value.characters();
+            auto upconvertedCharacters = StringView(value.string()).upconvertedCharacters();
+            const UChar* start = upconvertedCharacters;
             const UChar* end = start + value.length();
             SVGZoomAndPanType zoomAndPan = SVGZoomAndPanUnknown;
             parseZoomAndPan(start, end, zoomAndPan);
@@ -86,5 +83,4 @@ public:
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG)
 #endif // SVGZoomAndPan_h

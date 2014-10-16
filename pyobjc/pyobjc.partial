@@ -2,13 +2,51 @@
 	<key>OpenSourceProject</key>
 	<string>pyobjc</string>
 	<key>OpenSourceVersion</key>
-	<string>2.3.2a0</string>
+	<string>2.5.1</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://pyobjc.sourceforge.net/</string>
+	<string>http://pythonhosted.org/pyobjc/</string>
 	<key>OpenSourceImportDate</key>
-	<string>2011-02-08</string>
-	<key>OpenSourceSVN</key>
-	<string>https://svn.red-bean.com/pyobjc/branches/pyobjc-2.3.x</string>
+	<string>2013-06-13</string>
+	<key>OpenSourceURL</key>
+	<array>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-core/pyobjc-core-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Accounts/pyobjc-framework-Accounts-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-AddressBook/pyobjc-framework-AddressBook-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-AppleScriptKit/pyobjc-framework-AppleScriptKit-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-AppleScriptObjC/pyobjc-framework-AppleScriptObjC-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Automator/pyobjc-framework-Automator-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-CalendarStore/pyobjc-framework-CalendarStore-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-CFNetwork/pyobjc-framework-CFNetwork-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Cocoa/pyobjc-framework-Cocoa-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Collaboration/pyobjc-framework-Collaboration-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-CoreData/pyobjc-framework-CoreData-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-CoreLocation/pyobjc-framework-CoreLocation-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-CoreText/pyobjc-framework-CoreText-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-DictionaryServices/pyobjc-framework-DictionaryServices-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-EventKit/pyobjc-framework-EventKit-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-ExceptionHandling/pyobjc-framework-ExceptionHandling-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-FSEvents/pyobjc-framework-FSEvents-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-InputMethodKit/pyobjc-framework-InputMethodKit-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-InstallerPlugins/pyobjc-framework-InstallerPlugins-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-InstantMessage/pyobjc-framework-InstantMessage-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-LatentSemanticMapping/pyobjc-framework-LatentSemanticMapping-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-LaunchServices/pyobjc-framework-LaunchServices-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Message/pyobjc-framework-Message-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-OpenDirectory/pyobjc-framework-OpenDirectory-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-PreferencePanes/pyobjc-framework-PreferencePanes-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-PubSub/pyobjc-framework-PubSub-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-QTKit/pyobjc-framework-QTKit-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Quartz/pyobjc-framework-Quartz-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-ScreenSaver/pyobjc-framework-ScreenSaver-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-ScriptingBridge/pyobjc-framework-ScriptingBridge-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-SearchKit/pyobjc-framework-SearchKit-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-ServerNotification/pyobjc-framework-ServerNotification-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-ServiceManagement/pyobjc-framework-ServiceManagement-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-Social/pyobjc-framework-Social-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-SyncServices/pyobjc-framework-SyncServices-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-SystemConfiguration/pyobjc-framework-SystemConfiguration-2.5.1.tar.gz</string>
+		<string>https://pypi.python.org/packages/source/p/pyobjc-framework-WebKit/pyobjc-framework-WebKit-2.5.1.tar.gz</string>
+	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>

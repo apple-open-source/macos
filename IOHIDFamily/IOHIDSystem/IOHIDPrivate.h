@@ -23,6 +23,7 @@
 #ifndef _IOKIT_HID_IOHIDPRIVATE_H
 #define _IOKIT_HID_IOHIDPRIVATE_H
 #include <sys/cdefs.h>
+#include <mach/mach_types.h>
 
 enum {
     kIOHIDStackShotNotification = 1,
@@ -40,6 +41,10 @@ __BEGIN_DECLS
 __END_DECLS
 #endif
 
+struct IOHIDSystem_stackShotMessage {
+    mach_msg_header_t   header;
+    uint32_t            flavor;
+};
 
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATE_H */

@@ -1,0 +1,66 @@
+{
+   "abstract" : "Perl's Web Services Toolkit",
+   "author" : [
+      "Pavel Kulchenko, Randy J Ray, Byrne Reese, Martin Kutter (MKUTTER@cpan.org), Fred Moyer"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.120630",
+   "keywords" : [
+      "SOAP",
+      "SOAP client",
+      "SOAP server"
+   ],
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "SOAP-Lite",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc",
+         "examples",
+         "t"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Class::Inspector" : "0",
+            "Compress::Zlib" : "0",
+            "Crypt::SSLeay" : "0",
+            "IO::SessionData" : "1.03",
+            "IO::Socket::SSL" : "0",
+            "LWP::UserAgent" : "0",
+            "MIME::Base64" : "0",
+            "Scalar::Util" : "0",
+            "Task::Weaken" : "0",
+            "Test::More" : "0",
+            "URI" : "0",
+            "XML::Parser" : "2.23",
+            "constant" : "0",
+            "perl" : "5.006"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "repository" : {
+         "url" : "https://github.com/redhotpenguin/soaplite"
+      }
+   },
+   "version" : "1.11"
+}

@@ -26,24 +26,15 @@
 #include "config.h"
 #include "ScrollingTreeScrollingNode.h"
 
-#if ENABLE(THREADED_SCROLLING)
+#if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateTree.h"
+#include "ScrollingTree.h"
 
 namespace WebCore {
 
-ScrollingTreeScrollingNode::ScrollingTreeScrollingNode(ScrollingTree* scrollingTree, ScrollingNodeID nodeID)
-    : ScrollingTreeNode(scrollingTree, nodeID)
-    , m_frameScaleFactor(1)
-    , m_shouldUpdateScrollLayerPositionOnMainThread(0)
-    , m_horizontalScrollElasticity(ScrollElasticityNone)
-    , m_verticalScrollElasticity(ScrollElasticityNone)
-    , m_hasEnabledHorizontalScrollbar(false)
-    , m_hasEnabledVerticalScrollbar(false)
-    , m_horizontalScrollbarMode(ScrollbarAuto)
-    , m_verticalScrollbarMode(ScrollbarAuto)
-    , m_headerHeight(0)
-    , m_footerHeight(0)
+ScrollingTreeScrollingNode::ScrollingTreeScrollingNode(ScrollingTree& scrollingTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
+    : ScrollingTreeNode(scrollingTree, nodeType, nodeID)
 {
 }
 
@@ -51,50 +42,78 @@ ScrollingTreeScrollingNode::~ScrollingTreeScrollingNode()
 {
 }
 
-void ScrollingTreeScrollingNode::updateBeforeChildren(ScrollingStateNode* stateNode)
+void ScrollingTreeScrollingNode::updateBeforeChildren(const ScrollingStateNode& stateNode)
 {
-    ScrollingStateScrollingNode* state = toScrollingStateScrollingNode(stateNode);
+    const ScrollingStateScrollingNode& state = toScrollingStateScrollingNode(stateNode);
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::ViewportRect))
-        m_viewportRect = state->viewportRect();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaSize))
+        m_scrollableAreaSize = state.scrollableAreaSize();
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::TotalContentsSize))
-        m_totalContentsSize = state->totalContentsSize();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::TotalContentsSize)) {
+        if (scrollingTree().isRubberBandInProgress())
+            m_totalContentsSizeForRubberBand = m_totalContentsSize;
+        else
+            m_totalContentsSizeForRubberBand = state.totalContentsSize();
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::FrameScaleFactor))
-        m_frameScaleFactor = state->frameScaleFactor();
+        m_totalContentsSize = state.totalContentsSize();
+    }
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::ShouldUpdateScrollLayerPositionOnMainThread))
-        m_shouldUpdateScrollLayerPositionOnMainThread = state->shouldUpdateScrollLayerPositionOnMainThread();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ReachableContentsSize))
+        m_reachableContentsSize = state.reachableContentsSize();
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::HorizontalScrollElasticity))
-        m_horizontalScrollElasticity = state->horizontalScrollElasticity();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollPosition))
+        m_lastCommittedScrollPosition = state.scrollPosition();
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::VerticalScrollElasticity))
-        m_verticalScrollElasticity = state->verticalScrollElasticity();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollOrigin))
+        m_scrollOrigin = state.scrollOrigin();
 
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::HasEnabledHorizontalScrollbar))
-        m_hasEnabledHorizontalScrollbar = state->hasEnabledHorizontalScrollbar();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::HasEnabledVerticalScrollbar))
-        m_hasEnabledVerticalScrollbar = state->hasEnabledVerticalScrollbar();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::HorizontalScrollbarMode))
-        m_horizontalScrollbarMode = state->horizontalScrollbarMode();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::VerticalScrollbarMode))
-        m_verticalScrollbarMode = state->verticalScrollbarMode();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::ScrollOrigin))
-        m_scrollOrigin = state->scrollOrigin();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::HeaderHeight))
-        m_headerHeight = state->headerHeight();
-
-    if (state->hasChangedProperty(ScrollingStateScrollingNode::FooterHeight))
-        m_footerHeight = state->footerHeight();
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaParams))
+        m_scrollableAreaParameters = state.scrollableAreaParameters();
 }
+
+void ScrollingTreeScrollingNode::updateAfterChildren(const ScrollingStateNode& stateNode)
+{
+    const ScrollingStateScrollingNode& scrollingStateNode = toScrollingStateScrollingNode(stateNode);
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::RequestedScrollPosition))
+        scrollingTree().scrollingTreeNodeRequestsScroll(scrollingNodeID(), scrollingStateNode.requestedScrollPosition(), scrollingStateNode.requestedScrollPositionRepresentsProgrammaticScroll());
+}
+
+void ScrollingTreeScrollingNode::updateLayersAfterAncestorChange(const ScrollingTreeNode& changedNode, const FloatRect& fixedPositionRect, const FloatSize& cumulativeDelta)
+{
+    if (!m_children)
+        return;
+
+    for (auto& child : *m_children)
+        child->updateLayersAfterAncestorChange(changedNode, fixedPositionRect, cumulativeDelta);
+}
+
+void ScrollingTreeScrollingNode::setScrollPosition(const FloatPoint& scrollPosition)
+{
+    FloatPoint newScrollPosition = scrollPosition;
+    newScrollPosition = newScrollPosition.shrunkTo(maximumScrollPosition());
+    newScrollPosition = newScrollPosition.expandedTo(minimumScrollPosition());
+
+    setScrollPositionWithoutContentEdgeConstraints(newScrollPosition);
+}
+
+void ScrollingTreeScrollingNode::setScrollPositionWithoutContentEdgeConstraints(const FloatPoint& scrollPosition)
+{
+    setScrollLayerPosition(scrollPosition);
+    scrollingTree().scrollingTreeNodeDidScroll(scrollingNodeID(), scrollPosition);
+}
+
+FloatPoint ScrollingTreeScrollingNode::minimumScrollPosition() const
+{
+    return FloatPoint();
+}
+
+FloatPoint ScrollingTreeScrollingNode::maximumScrollPosition() const
+{
+    FloatPoint contentSizePoint(totalContentsSize());
+    return FloatPoint(contentSizePoint - scrollableAreaSize()).expandedTo(FloatPoint());
+}
+
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // ENABLE(ASYNC_SCROLLING)

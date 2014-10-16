@@ -1,4 +1,0 @@
--clean 
--info "CompanyName=soaplite.com;FileDescription=SOAP::Lite for Perl;ProductVersion=0.65;LegalCopyright=Copyright (C) 2000-2005 Paul Kulchenko"
--perl D:\Perl-5.8.6.811\bin\perl.exe
--lib D:\OpenSSL\bin

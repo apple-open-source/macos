@@ -86,10 +86,11 @@ IOHIDPostEvent( mach_port_t connect,
                 boolean_t setCursor, int flags, boolean_t setFlags)
 */
 
-static void _IOPMReportSoftwareHIDEvent(UInt32 eventType)
+static bool _IOPMReportSoftwareHIDEvent(UInt32 eventType)
 {
     mach_port_t         newConnection;
     kern_return_t       kern_result = KERN_SUCCESS;
+    int                 allowEvent = true;
 
     kern_result = bootstrap_look_up2(bootstrap_port, 
                                      kIOPMServerBootstrapName, 
@@ -97,10 +98,10 @@ static void _IOPMReportSoftwareHIDEvent(UInt32 eventType)
                                      0, 
                                      BOOTSTRAP_PRIVILEGED_SERVER);    
     if(KERN_SUCCESS == kern_result) {
-        io_pm_hid_event_report_activity(newConnection, eventType);
+        io_pm_hid_event_report_activity(newConnection, eventType, &allowEvent);
         mach_port_deallocate(mach_task_self(), newConnection);
     }
-    return;
+    return allowEvent;
 }
 
 kern_return_t
@@ -117,6 +118,7 @@ IOHIDPostEvent( io_connect_t        connect,
     char                data[dataSize];
     struct evioLLEvent* event;
     UInt32              eventDataSize = sizeof(NXEventData);
+    int                 allowEvent = true;
 
     bzero(data, dataSize);
     
@@ -151,11 +153,17 @@ IOHIDPostEvent( io_connect_t        connect,
 
 
     // Let PM log the software HID events
-    _IOPMReportSoftwareHIDEvent(event->type);
+    // also checks if NULL events are allowed in the current system state
+    allowEvent  = _IOPMReportSoftwareHIDEvent(event->type);
 
-    return IOConnectCallMethod(connect, 3,		// Index
-			   NULL, 0,    data, dataSize,	// Input
-			   NULL, NULL, NULL, NULL);	// Output
+    if (allowEvent) {
+        return IOConnectCallMethod(connect, 3,		// Index
+                   NULL, 0,    data, dataSize,	// Input
+                   NULL, NULL, NULL, NULL);	// Output
+    }
+    else {
+        return KERN_SUCCESS;
+    }
 }
 
 extern kern_return_t

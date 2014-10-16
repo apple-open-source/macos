@@ -26,13 +26,12 @@
 #include "config.h"
 
 #include "APICast.h"
-#include "APIShims.h"
 #include "Completion.h"
 #include "JSBasePrivate.h"
 #include "VM.h"
 #include "JSScriptRefPrivate.h"
 #include "OpaqueJSString.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 #include "Parser.h"
 #include "SourceCode.h"
 #include "SourceProvider.h"
@@ -46,7 +45,7 @@ public:
         return WTF::adoptRef(new OpaqueJSScript(vm, url, startingLineNumber, source));
     }
 
-    const String& source() const OVERRIDE
+    virtual const String& source() const override
     {
         return m_source;
     }
@@ -61,7 +60,7 @@ private:
     {
     }
 
-    ~OpaqueJSScript() { }
+    virtual ~OpaqueJSScript() { }
 
     VM* m_vm;
     String m_source;
@@ -77,11 +76,13 @@ extern "C" {
 JSScriptRef JSScriptCreateReferencingImmortalASCIIText(JSContextGroupRef contextGroup, JSStringRef url, int startingLineNumber, const char* source, size_t length, JSStringRef* errorMessage, int* errorLine)
 {
     VM* vm = toJS(contextGroup);
-    APIEntryShim entryShim(vm);
+    JSLockHolder locker(vm);
     for (size_t i = 0; i < length; i++) {
         if (!isASCII(source[i]))
             return 0;
     }
+
+    startingLineNumber = std::max(1, startingLineNumber);
 
     RefPtr<OpaqueJSScript> result = OpaqueJSScript::create(vm, url->string(), startingLineNumber, String(StringImpl::createFromLiteral(source, length)));
 
@@ -100,7 +101,9 @@ JSScriptRef JSScriptCreateReferencingImmortalASCIIText(JSContextGroupRef context
 JSScriptRef JSScriptCreateFromString(JSContextGroupRef contextGroup, JSStringRef url, int startingLineNumber, JSStringRef source, JSStringRef* errorMessage, int* errorLine)
 {
     VM* vm = toJS(contextGroup);
-    APIEntryShim entryShim(vm);
+    JSLockHolder locker(vm);
+
+    startingLineNumber = std::max(1, startingLineNumber);
 
     RefPtr<OpaqueJSScript> result = OpaqueJSScript::create(vm, url->string(), startingLineNumber, source->string());
 
@@ -118,20 +121,20 @@ JSScriptRef JSScriptCreateFromString(JSContextGroupRef contextGroup, JSStringRef
 
 void JSScriptRetain(JSScriptRef script)
 {
-    APIEntryShim entryShim(script->vm());
+    JSLockHolder locker(script->vm());
     script->ref();
 }
 
 void JSScriptRelease(JSScriptRef script)
 {
-    APIEntryShim entryShim(script->vm());
+    JSLockHolder locker(script->vm());
     script->deref();
 }
 
 JSValueRef JSScriptEvaluate(JSContextRef context, JSScriptRef script, JSValueRef thisValueRef, JSValueRef* exception)
 {
     ExecState* exec = toJS(context);
-    APIEntryShim entryShim(exec);
+    JSLockHolder locker(exec);
     if (script->vm() != &exec->vm()) {
         RELEASE_ASSERT_NOT_REACHED();
         return 0;

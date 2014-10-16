@@ -9,8 +9,8 @@ VERSION=$(shell basename `pwd -P` | sed -e 's/.*-\([0-9][0-9.]*$$\)/\1/')
 
 all :
 	/usr/local/bin/buildit .				\
-	  -noinstallsrc -noinstallhdrs -noverify -nosum		\
-	  -arch i386 -arch x86_64 -arch ppc 			\
+	  -noinstallsrc -noinstallhdrs -noverify		\
+	  -arch x86_64						\
 	  -target All						\
 	  -project ${PROJECT}-${VERSION}			\
 	  -configuration Debug					\
@@ -24,13 +24,14 @@ all :
 
 darwin :
 	/usr/local/bin/buildit .				\
-	  -noinstallsrc -noinstallhdrs -noverify -nosum		\
-	  -arch i386 -arch x86_64 -arch ppc 			\
+	  -novalidateParameters					\
+	  -noinstallsrc -noinstallhdrs -noverify		\
+	  -arch x86_64						\
 	  -target All						\
 	  -project ${PROJECT}_darwin-${VERSION}			\
 	  -configuration Debug					\
 	  -release $(shell cat /usr/share/buildit/.releaseName)	\
-	  -othercflags "\"-D_OPEN_SOURCE_\""			\
+	  -othercflags "\"-D__OPEN_SOURCE__\""			\
 
 #----------------------------------------------------------------------
 #
@@ -47,8 +48,8 @@ LION_SDKROOT=$(shell xcodebuild -version -sdk macosx10.7internal Path)
 
 lion :
 	/usr/local/bin/buildit .				\
-	  -noinstallsrc -noinstallhdrs -noverify -nosum		\
-	  -arch i386 -arch x86_64				\
+	  -noinstallsrc -noinstallhdrs -noverify		\
+	  -arch x86_64						\
 	  -target All						\
 	  -project ${PROJECT}-${VERSION}			\
 	  -configuration Debug					\

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2009-2012, International Business Machines
+*   Copyright (C) 2009-2012,2014 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -266,6 +266,83 @@ udatpg_getPatternForSkeleton(const UDateTimePatternGenerator *dtpg,
         *pLength=result.length();
     }
     return result.getBuffer();
+}
+
+U_CAPI int32_t U_EXPORT2
+uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
+                                const UChar *pattern, int32_t patternLength,
+                                UDateTimePatternMatchOptions options,
+                                UChar *newPattern, int32_t newPatternCapacity,
+                                UErrorCode *pErrorCode) {
+    if (U_FAILURE(*pErrorCode)) {
+        return 0;
+    }
+    if ( pattern==NULL || ((newPattern==NULL)? newPatternCapacity!=0: newPatternCapacity<0) ) {
+        *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    UnicodeString patternString((patternLength < 0), pattern, patternLength);
+    UBool force12 = ((options & UADATPG_FORCE_HOUR_CYCLE_MASK) == UADATPG_FORCE_12_HOUR_CYCLE);
+    UBool force24 = ((options & UADATPG_FORCE_HOUR_CYCLE_MASK) == UADATPG_FORCE_24_HOUR_CYCLE);
+    if (force12 || force24) {
+        UBool inQuoted = FALSE;
+        UBool inTimePat = FALSE;
+        UBool needReplacement = FALSE;
+        int32_t timePatStart = 0;
+        int32_t timePatLimit = 0;
+        UnicodeString skeleton;
+        int32_t patPos, patLen = patternString.length();
+        for (patPos = 0; patPos < patLen; patPos++) {
+            UChar patChr = patternString.charAt(patPos);
+            if (patChr == 0x27 /* ASCII-range single quote */) {
+                inQuoted = !inQuoted;
+            } else if (!inQuoted) {
+                if (patChr==0x61 || patChr==0x68 || patChr==0x48 || patChr==0x4B ||
+                    patChr==0x6B || patChr==0x6D || patChr==0x73 || patChr==0x53) { // ahHKkmsS
+                    // in a time pattern
+                    if (!inTimePat) {
+                        inTimePat = TRUE;
+                        timePatStart = patPos;
+                        skeleton.remove();
+                    }
+                    timePatLimit = patPos + 1;
+                    if (force12) {
+                        if (patChr==0x48 || patChr==0x6B) {
+                            patChr = 0x68;
+                            needReplacement = TRUE;
+                        }
+                    } else { // force24
+                        if (patChr==0x68 || patChr==0x4B) {
+                            patChr = 0x48;
+                            needReplacement = TRUE;
+                        }
+                    }
+                    skeleton.append(patChr);
+                } else if ((patChr >= 0x41 && patChr <= 0x5A) || (patChr >= 0x61 && patChr <= 0x7A)) {
+                    // a non-time pattern character, forces end of any time pattern
+                    if (inTimePat) {
+                        inTimePat = FALSE;
+                        if (needReplacement) {
+                            needReplacement = FALSE;
+                            // do replacement
+                            UnicodeString replacement=((DateTimePatternGenerator *)dtpg)->getBestPattern(skeleton, options, *pErrorCode);
+                            patternString.replaceBetween(timePatStart, timePatLimit, replacement);
+                            int32_t posAdjust = replacement.length() - (timePatLimit - timePatStart); // positive if replacement is longer
+                            patLen += posAdjust;
+                            patPos += posAdjust;
+                        }
+                    }
+                }
+            }
+        }
+        // end of string
+        if (inTimePat && needReplacement) {
+            // do replacement
+            UnicodeString replacement=((DateTimePatternGenerator *)dtpg)->getBestPattern(skeleton, options, *pErrorCode);
+            patternString.replaceBetween(timePatStart, timePatLimit, replacement);
+        }
+    }
+    return patternString.extract(newPattern, newPatternCapacity, *pErrorCode);
 }
 
 #endif

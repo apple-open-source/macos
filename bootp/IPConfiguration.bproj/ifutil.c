@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,11 +51,14 @@
 #include <sys/sysctl.h>
 #include <sys/errno.h>
 #include <sys/ioctl.h>
+#include "util.h"
 #include "ifutil.h"
 #include "rtutil.h"
 #include "symbol_scope.h"
 #include "mylog.h"
 #include "CGA.h"
+#include "cfutil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 PRIVATE_EXTERN int
 inet_dgram_socket()
@@ -375,7 +378,7 @@ set_sockaddr_in6(struct sockaddr_in6 * sin6_p, const struct in6_addr * addr)
 
 STATIC int
 siocgifaflag_in6(int s, const char * ifname, const struct in6_addr * in6_addr,
-		 uint16_t * ret_flags)
+		 int * ret_flags)
 {
     struct in6_ifreq	ifr6;
 
@@ -386,6 +389,25 @@ siocgifaflag_in6(int s, const char * ifname, const struct in6_addr * in6_addr,
 	return (-1);
     }
     *ret_flags = ifr6.ifr_ifru.ifru_flags6;
+    return (0);
+}
+
+STATIC int
+siocgifalifetime_in6(int s, const char * ifname,
+		     const struct in6_addr * in6_addr,
+		     u_int32_t * ret_valid_lifetime,
+		     u_int32_t * ret_preferred_lifetime)
+{
+    struct in6_ifreq	ifr6;
+
+    bzero((char *)&ifr6, sizeof(ifr6));
+    strncpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
+    set_sockaddr_in6(&ifr6.ifr_addr, in6_addr);
+    if (ioctl(s, SIOCGIFALIFETIME_IN6, &ifr6) < 0) {
+	return (-1);
+    }
+    *ret_valid_lifetime = ifr6.ifr_ifru.ifru_lifetime.ia6t_vltime;
+    *ret_preferred_lifetime = ifr6.ifr_ifru.ifru_lifetime.ia6t_pltime;
     return (0);
 }
 
@@ -442,6 +464,56 @@ inet6_detach_interface(const char * ifname)
     return (ret);
 }
 
+STATIC boolean_t
+nd_flags_set_with_socket(int s, const char * if_name, 
+			 uint32_t set_flags, uint32_t clear_flags)
+{
+    uint32_t		new_flags;
+    struct in6_ndireq 	nd;
+
+    bzero(&nd, sizeof(nd));
+    strncpy(nd.ifname, if_name, sizeof(nd.ifname));
+    if (ioctl(s, SIOCGIFINFO_IN6, &nd)) {
+	my_log_fl(LOG_ERR, "SIOCGIFINFO_IN6(%s) failed, %s",
+		  if_name, strerror(errno));
+	return (FALSE);
+    }
+    new_flags = nd.ndi.flags;
+    if (set_flags) {
+	new_flags |= set_flags;
+    }
+    if (clear_flags) {
+	new_flags &= ~clear_flags;
+    }
+    if (new_flags != nd.ndi.flags) {
+	nd.ndi.flags = new_flags;
+	if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd)) {
+	    my_log_fl(LOG_ERR, "SIOCSIFINFO_FLAGS(%s) failed, %s",
+		      if_name, strerror(errno));
+	    return (FALSE);
+	}
+    }
+    return (TRUE);
+}
+
+STATIC boolean_t
+nd_flags_set(const char * if_name, uint32_t set_flags, uint32_t clear_flags)
+{
+    int			s;
+    boolean_t		success = FALSE;
+
+    s = inet6_dgram_socket();
+    if (s < 0) {
+	my_log_fl(LOG_ERR, "socket failed, %s", strerror(errno));
+    }
+    else {
+	success = nd_flags_set_with_socket(s, if_name, set_flags, clear_flags);
+	close(s);
+    }
+    return (success);
+}
+
+
 PRIVATE_EXTERN int
 inet6_linklocal_start(const char * ifname, boolean_t use_cga)
 {
@@ -455,6 +527,7 @@ inet6_linklocal_start(const char * ifname, boolean_t use_cga)
 	       ifname, strerror(ret), ret);
 	goto done;
     }
+    nd_flags_set_with_socket(s, ifname, 0, ND6_IFF_IFDISABLED);
     if (ll_start(s, ifname, use_cga) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
@@ -666,7 +739,9 @@ inet6_get_prefix_length(const struct in6_addr * addr, int if_index)
 PRIVATE_EXTERN int
 inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
 	      const struct in6_addr * dstaddr, int prefix_length, 
-	      u_int32_t valid_lifetime, u_int32_t preferred_lifetime)
+	      int flags,
+	      u_int32_t valid_lifetime,
+	      u_int32_t preferred_lifetime)
 {
     struct in6_aliasreq	ifra_in6;
 
@@ -674,6 +749,7 @@ inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
     strncpy(ifra_in6.ifra_name, name, sizeof(ifra_in6.ifra_name));
     ifra_in6.ifra_lifetime.ia6t_vltime = valid_lifetime;
     ifra_in6.ifra_lifetime.ia6t_pltime = preferred_lifetime;
+    ifra_in6.ifra_flags = flags;
     if (addr != NULL) {
 	set_sockaddr_in6(&ifra_in6.ifra_addr, addr);
     }
@@ -757,47 +833,23 @@ inet6_forwarding_is_enabled(void)
 PRIVATE_EXTERN boolean_t
 inet6_set_perform_nud(const char * if_name, boolean_t perform_nud)
 {
-    boolean_t		need_set = FALSE;
-    struct in6_ndireq 	nd;
-    int			s;
-    boolean_t		success = FALSE;
+    uint32_t	clear_flags;
+    uint32_t	set_flags;
 
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	my_log_fl(LOG_ERR, "socket failed, %s", strerror(errno));
-	goto done;
-    }
-    bzero(&nd, sizeof(nd));
-    strncpy(nd.ifname, if_name, sizeof(nd.ifname));
-    if (ioctl(s, SIOCGIFINFO_IN6, &nd)) {
-	my_log_fl(LOG_ERR, "SIOCGIFINFO_IN6(%s) failed, %s",
-		  if_name, strerror(errno));
-	goto done;
-    }
     if (perform_nud) {
-	if ((nd.ndi.flags & ND6_IFF_PERFORMNUD) == 0) {
-	    nd.ndi.flags |= ND6_IFF_PERFORMNUD;
-	    need_set = TRUE;
-	}
+	set_flags = ND6_IFF_PERFORMNUD;
+	clear_flags = 0;
     }
-    else if ((nd.ndi.flags & ND6_IFF_PERFORMNUD) != 0) {
-	nd.ndi.flags &= ~ND6_IFF_PERFORMNUD;
-	need_set = TRUE;
+    else {
+	set_flags = 0;
+	clear_flags = ND6_IFF_PERFORMNUD;
     }
-    if (need_set) {
-	if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd)) {
-	    my_log_fl(LOG_ERR, "SIOCSIFINFO_FLAGS(%s) failed, %s",
-		      if_name, strerror(errno));
-	    goto done;
-	}
-    }
-    success = TRUE;
- done:
-    if (s >= 0) {
-	close(s);
-    }
-    return (success);
+    return (nd_flags_set(if_name, set_flags, clear_flags));
 }
+
+/**
+ ** inet6_addrlist_*
+ **/
 
 STATIC char *
 get_if_info(int if_index, int af, int * ret_len_p)
@@ -826,7 +878,7 @@ get_if_info(int if_index, int af, int * ret_len_p)
 	fprintf(stderr, "sysctl() failed: %s", strerror(errno));
 	goto failed;
     }
-    *ret_len_p = buf_len;
+    *ret_len_p = (int)buf_len;
 
  failed:
     return (buf);
@@ -843,6 +895,7 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     int				error;
     int				i;
     char			ifname[IFNAMSIZ + 1];
+    inet6_addrinfo_t *		linklocal = NULL;
     inet6_addrinfo_t *		list = NULL;
     char *			scan;
     struct rt_msghdr *		rtm;
@@ -853,8 +906,6 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 	goto done;
     }
     buf_end = buf + buf_len;
-
-    addr_list_p->linklocal = NULL;
 
     /* figure out how many IPv6 addresses there are */
     count = 0;
@@ -956,12 +1007,16 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 		    siocgifaflag_in6(s, ifname, 
 				     &list[addr_index].addr,
 				     &list[addr_index].addr_flags);
+		    siocgifalifetime_in6(s, ifname, 
+					 &list[addr_index].addr,
+					 &list[addr_index].valid_lifetime,
+					 &list[addr_index].preferred_lifetime);
 		}
 		/* Mask the v6 LL scope id */
 		if (IN6_IS_ADDR_LINKLOCAL(&list[addr_index].addr)) {
 		    list[addr_index].addr.s6_addr16[1] = 0;
-		    if (addr_list_p->linklocal == NULL) {
-			addr_list_p->linklocal = &list[addr_index];
+		    if (linklocal == NULL) {
+			linklocal = &list[addr_index];
 		    }
 		}
 		addr_index++;
@@ -984,24 +1039,61 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     }
     addr_list_p->list = list;
     addr_list_p->count = addr_index;
+    addr_list_p->linklocal = linklocal;
     return;
+}
+
+STATIC void
+lifetime_to_str(u_int32_t t, char * buf, size_t buf_size)
+{
+    if (t == -1) {
+	strlcpy(buf, "infinity", buf_size);
+    }
+    else {
+	snprintf(buf, buf_size, "%u", t);
+    }
+    return;
+}
+
+PRIVATE_EXTERN CFStringRef
+inet6_addrlist_copy_description(const inet6_addrlist_t * addr_list_p)
+{
+    int				i;
+    inet6_addrinfo_t *		scan;
+    CFMutableStringRef		str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    STRING_APPEND(str, "{");
+    for (i = 0, scan = addr_list_p->list; i < addr_list_p->count; i++, scan++) {
+	char 	ntopbuf[INET6_ADDRSTRLEN];
+	char	pltime_str[32];
+	char	vltime_str[32];
+
+	lifetime_to_str(scan->valid_lifetime,
+			vltime_str, sizeof(vltime_str));
+	lifetime_to_str(scan->preferred_lifetime,
+			pltime_str, sizeof(pltime_str));
+	STRING_APPEND(str, "%s%s/%d flags 0x%04x vltime=%s pltime=%s\n",
+		      i == 0 ? "\n" : "",
+		      inet_ntop(AF_INET6, &scan->addr,
+				ntopbuf, sizeof(ntopbuf)),
+		      scan->prefix_length,
+		      scan->addr_flags,
+		      vltime_str,
+		      pltime_str);
+    }
+    STRING_APPEND(str, "}");
+    return (str);
 }
 
 PRIVATE_EXTERN void
 inet6_addrlist_print(const inet6_addrlist_t * addr_list_p)
 {
-    int			i;
-    inet6_addrinfo_t *	scan;
+    CFStringRef		str;
 
-    for (i = 0, scan = addr_list_p->list; i < addr_list_p->count; i++, scan++) {
-	char 	ntopbuf[INET6_ADDRSTRLEN];
-
-	printf("%s/%d flags 0x%04x\n",
-	       inet_ntop(AF_INET6, &scan->addr,
-			 ntopbuf, sizeof(ntopbuf)),
-	       scan->prefix_length,
-	       scan->addr_flags);
-    }
+    str = inet6_addrlist_copy_description(addr_list_p);
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), str);
+    CFRelease(str);
     return;
 }
 
@@ -1028,6 +1120,22 @@ inet6_addrlist_init(inet6_addrlist_t * addr_list_p)
 }
 
 PRIVATE_EXTERN boolean_t
+inet6_addrlist_in6_addr_is_ready(const inet6_addrlist_t * addr_list_p,
+				 const struct in6_addr * addr)
+{
+    int			i;
+    inet6_addrinfo_t *	scan;
+
+#define NOT_READY	(IN6_IFF_NOTREADY | IN6_IFF_OPTIMISTIC)
+    for (i = 0, scan = addr_list_p->list; i < addr_list_p->count; i++, scan++) {
+	if (IN6_ARE_ADDR_EQUAL(&scan->addr, addr)) {
+	    return ((scan->addr_flags & NOT_READY) == 0);
+	}
+    }
+    return (FALSE);
+}
+
+PRIVATE_EXTERN boolean_t
 inet6_addrlist_contains_address(const inet6_addrlist_t * addr_list_p,
 				const inet6_addrinfo_t * addr)
 {
@@ -1051,6 +1159,10 @@ inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p)
     }
     return (NULL);
 }
+
+/**
+ ** Test Harnesses
+ **/
 
 #if TEST_INET6_ADDRLIST || TEST_IPV6_LL
 #include <stdio.h>

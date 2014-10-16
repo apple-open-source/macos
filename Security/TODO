@@ -1,0 +1,265 @@
+=== Advanced CFErrorRef usage ===
+
+Make SecError a macro with an extra argument (formatOptions) and make the arguments proper CFStringRef
+CFCopyDescription takes formatOptions as well, which it passes down to us.
+Make sure we plumb though formatOptions everywhere
+Have every cftype implement a proper copyDescriotion function that looks at a kSecDebugFormatOption key and use it to do debug printing.
+Have the CFGiblis macros automatically implement copyDebugDescription function that calls
+
+
+== Content Protection ==
+
+* Notice that the system keystore is unavailible during upgrade and
+  fail without removing old keychain since it won't work after an
+  upgrade either.
+
+* cert table should be AlwaysAvailable + migratable...
+
+====
+
+* security export - dump all classes and caches in unencrypted plist
+  genp, inet, cert, keys, ocsp, cair, crls.
+  security export genp, inet, cert, keys, ocsp, cair
+
+* security dh command should support decodePEM.
+
+== TESTCASES ==
+
+SSL EKU:
+Test ssl server and ssl client against certs with proper and wrong EKU.  Also
+test this for EV certs.
+IPSEC EKU:
+Add some ipsec certs with proper ipsec eku extensions and without them and
+ensure that the ipsec policy rejects (done in si-20-sectrust) and accepts
+each kind as it should.
+
+== AUDIT of securityd_server_request ==
+
+in_args are a valid plist.
+
+sec_item_add_id
+    _SecItemAdd() argument 1 is a dictionary, but its contents have not been checked.
+sec_item_copy_matching_id
+    _SecItemCopyMatching() argument 1 is a dictionary, but its contents have not been checked.
+sec_item_delete_id
+    _SecItemDelete() argument 1 is a dictionary, but its contents have not been checked.
+sec_item_update_id
+    _SecItemUpdate() argument 1 and 2 are dictionaries, but their contents have not been checked.
+sec_trust_store_contains_id (ok)
+    SecTrustStoreForDomainName() argument 1 is a string of any length (might be 0).
+    SecTrustStoreContainsCertificateWithDigest() argument 1 might be NULL, argument 2 is a data of any length (might be 0).
+sec_trust_store_set_trust_settings_id (ok)
+    SecCertificateCreateWithData() argument 2 is a data of any length (might be 0) (done)
+    _SecTrustStoreSetTrustSettings() argument 1 might be NULL, argument 3 is either NULL, a dictionary or an array, but its contents have not been checked.
+sec_trust_store_remove_certificate_id (ok)
+    SecTrustStoreRemoveCertificateWithDigest() argument 2 is a data of any length (might be 0) an its bound to a statement in sqlite.
+sec_delete_all_id (ok)
+    Audit done (args_in not used and its value is ignored).
+sec_trust_evaluate_id 
+    SecTrustServerEvaluateAsync() argument 1 is a dictionary, but its contents have not been checked.
+   The options field of each policy provided ends up in policy->_options unchecked, so every access
+   of policy->_options in SecPolicyServer.c needs to be sanitized.
+sec_restore_keychain (ok)
+    Audit done (args_in not used and its value is ignored).
+
+== GENERAL ==
+
+Function naming conventions:
+ - Use Sec@@@Finalaize only if the function does not free the thing it's finalizing.
+ - use Sec@@@Destroy otherwise.
+
+Move EVRoots.plist and system TrustStore.sqlite3 into perfect hashtable inside securityd.
+
+Stop using framework relative resources in securityd since it uses a few kb of ram just to get to them.
+
+Change the interfaces to securityd to use real argument lists and do all the encoding/decoding inside client.c and server.c.
+
+Remove SecCertificateCreate() now that <rdar://problem/5701851> iap submits a binary is fixed.
+
+SecKeyRawSign/SecKeyRawVerify should get better error codes.
+
+== OCSP ==
+
+Consider calling int sqlite3_release_memory(int); (after committing outstanding transactions); when we are low on ram.
+
+change api to asynchttp.h to take 2 arguments, a boolean flag to use http GET is the URL size is less than 256 bytes, two dictionary arguments of header name,values pairs to add to the GET and POST requests.  If only GET is present GET will always be used, if only POST is present only POST will be used.  If both are present, we use GET only if the URL size is less than 256 bytes and POST otherwise.  The callback should have a CFHTTPMessage() argument, which will go away when the callback returns.
+
+When receiving a stale response refetch by adding a Cache-Control: no-cache header.
+Implement a timeout and retry count (perhaps after timeout go to next responder, but possibly retry responders again if they all timeout).
+If id-pkix-ocsp-nocheck is not present in the responder cert, check revocation status of the responder cert itself (probably via crls, otherwise watch out for infinite recursion).
+
+Verify responder cert chain. (done)
+Verify singleResponse validity at usage time. (done)
+Verify signature of response. (done)
+Verify responder id. (done)
+
+== SSL Policy ==
+
+Check extended keyUsage and keyUsage of leaf.
+
+== Snowbird ==
+
+Priority 2
+
+<rdar://problem/4831694> Implement DSA using libGiants
+<rdar://problem/4831689> Add support for DSA ciphersuites in SecureTransport
+<rdar://problem/4831710> Implement DSS (DSA) Support for SecKeys
+<rdar://problem/4831700> Add support for DSS (DSA) signed certificates
+
+<rdar://problem/4831731> Support CRL Fetching and caching
+<rdar://problem/4831751> Support URL based certificate issuer fetching
+
+<rdar://problem/4831794> Suite B support for Blackberry feature parody
+
+== ==
+
+* Trust settings dialog (P2 for P3)
+* Trust settings ui (P2 for P3)
+
+=== Later ===
+
+* SecItemDelete for identities should be server-side so it's done in an exclusive transaction
+
+* SecKeyRef for DH public/private keys (P3)
+* AES support
+   - SecKey AES support?
+
+
+Notes on TrustStore trustsettings db.
+
+            // Version table has one record
+            CREATE TABLE version(version INTEGER);
+            CREATE TABLE cert{sha1 BLOB(20) UNIQUE PRIMARY KEY,subj BLOB,cert BLOB,mdat REAL);
+                CREATE INDEX isubj ON cert(subj);
+            CREATE TABLE trust(sha1 BLOB(20) UNIQUE PRIMARY KEY,
+                domain INTEGER,
+                policy BLOB,
+                application BLOB,
+                keyUsage INTEGER(4),
+                policyString TEXT,
+                allowedError INTEGER,
+                result INTEGER(1)
+                )
+
+            SELECT domain,policyString,allowedError,result FROM trust WHERE
+                (sha1=? OR sha1=defaut) AND
+                domain=? AND
+                (policy=? OR policy ISNULL) AND
+                (application=? OR application ISNULL) AND
+                (keyUsage&?)
+                ORDER BY COLLATE domain DESC;
+
+            BEGIN EXCLUSIVE;
+            INSERT OR REPLACE INTO cert(sha1,subj,cert,mdat)VALUES(?,?,?,?);
+            DELETE FROM trust WHERE sha1=? AND domain=?
+            INSERT INTO trust(sha1,domain,
+                policy,application,keyUsage,policyString,allowedError,result)
+                VALUES(?,?,?,?,?,?,?,?);
+
+To adopt libdispatch in SecTrustServer.c, we should make a queue per builder.
+That builders queue can then have
+The chain builder will look something like
+    dispatch_async(queue, builder, SecPathBuilderNext);
+    inside SecPathBuilderNext we dispatch_async(queue, builder, state);
+    where state is whatever the new state to be run is.
+    where today we invoke the client callback and free the builder in
+    SecPathBuilderStep(), that will be replaced by doing it in the level
+    that today sets builder->state to NULL, which of course just doesn't
+    dispatch any new blocks since invoking the callback completes the API.
+    If we want to allow the caller to use dispatch himself (for sending
+    the reply on a reply queue of some kind that can reschedule jobs when
+    a port_notify_send_ok (or whatever it's called) is received.
+    If async io is done it uses a dispatch_source to run (or it can use a
+    plain cfrunloop callback if the callback are low latency).  when the
+    async io operation has completed succesfully a callback is invoked,
+    this callback then pushes the new state onto the queue using
+    dispatch_async(queue, builder, builder->state);
+    so the new state runs after we return from the callback.
+
+    IO can be on the global hi priority queue if it's truely async.
+    Since only one runnable job is ever posted on a queue at a time for a
+    given request, all of the job can be run on the high (dispatching new
+    requests) normal (request handeling) and low (signature
+    verification).
+    priority global queues as we see fit.
+    If multiple requests where received, they would end up being
+    executed round robin on a single core, or in parallel on multi core
+    machines, since each request would get queued by the dispatcher as they
+    arrived, and then jobs for the queues would add their next job to the end
+    of the queue behind the other one again.
+
+    During parts of the code where we write to a databsse or read from a
+    database both of which could potentially block, we need to see if
+    sqlite3 has async APIs otherwise we might end up having to serialize all
+    db accesses to a single serial queue, which stops us from taking advantage
+    of the multiple reader / single writer paradigm.  We just might have to
+    create a sqlite3 io thread or threads.
+
+#if 0
+/* Idea sketch for state_engine to replace SecPathBuilderStep() one. */
+
+/* State engine api */
+typedef struct state_engine_s state_engine_t;
+typedef void(*state_engine_function_t)(void *);
+#ifdef __BLOCKS__
+typedef void(^state_engine_block_t)(void);
+void state_engine_init(state_engine_t *engine, state_engine_block_t completed);
+void state_engine_next(state_engine_t *engine, state_engine_block_t state);
+#endif
+void state_engine_init_f(state_engine_t *engine,
+    void *context, state_engine_function_t completed);
+
+void state_engine_next_f(state_engine_t *engine,
+    void *context, state_engine_function_t state);
+bool state_engine_step(state_engine_t **engine);
+void state_engine_push(state_engine_t **engine, state_engine_t *child);
+
+/* Complete engine, return parent, . */
+state_engine_t *state_engine_pop(state_engine_t *engine);
+
+/* State engine spi */
+struct state_engine_s {
+    state_engine_t *parent;
+    void *completed;
+    state_engine_function_t completed_f;
+    void *state;
+    state_engine_function_t state_f;
+};
+
+//static state_engine_t *current_engine;
+
+void state_engine_next_f(state_engine_t *engine,
+    void *state, state_engine_function_t state_f) {
+    engine->state_f = state_f;
+    engine->state = state;
+}
+
+bool state_engine_step(state_engine_t **engine) {
+    if (!engine)
+        return false;
+    for (;;) {
+        if (!*engine)
+            return false;
+        if (!(*engine)->state_f) {
+            *engine = state_engine_pop(*engine);
+        } else {
+            (*engine)->state_f((*engine)->state);
+        }
+    }
+}
+
+void state_engine_push(state_engine_t **engine,
+    state_engine_t *child) {
+    child->parent = *engine;
+    *engine = child;
+}
+
+state_engine_t *state_engine_pop(state_engine_t *engine) {
+    state_engine_t *parent = engine->parent;
+    if (engine->completed_f)
+        engine->completed_f(engine->completed);
+
+    return parent;
+}
+
+#endif

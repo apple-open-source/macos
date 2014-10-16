@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -116,13 +116,11 @@ tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
 	temp_session->auditToken		= auditToken;
 	temp_session->callerEUID		= 1;		/* not "root" */
 	temp_session->callerRootAccess		= UNKNOWN;
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 	if ((temp_session->callerWriteEntitlement != NULL) &&
 	    (temp_session->callerWriteEntitlement != kCFNull)) {
 		CFRelease(temp_session->callerWriteEntitlement);
 	}
 	temp_session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 	/* save name */
 	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
@@ -278,9 +276,7 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 //	sessions[n]->store			= NULL;
 	sessions[n]->callerEUID			= 1;		/* not "root" */
 	sessions[n]->callerRootAccess		= UNKNOWN;
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 	sessions[n]->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 	return newSession;
 }
@@ -327,7 +323,6 @@ cleanupSession(mach_port_t server)
 			(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif	// HAVE_MACHPORT_GUARDS
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 			/*
 			 * release any entitlement info
 			 */
@@ -335,7 +330,6 @@ cleanupSession(mach_port_t server)
 			    (thisSession->callerWriteEntitlement != kCFNull)) {
 				CFRelease(thisSession->callerWriteEntitlement);
 			}
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 			/*
 			 * We don't need any remaining information in the
@@ -427,8 +421,6 @@ listSessions(FILE *f)
 }
 
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
-
 #include <Security/Security.h>
 #include <Security/SecTask.h>
 
@@ -488,8 +480,6 @@ copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 
 	return value;
 }
-
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 
 static pid_t
@@ -602,7 +592,6 @@ hasWriteAccess(serverSessionRef session, CFStringRef key)
 		//return FALSE;		// return FALSE when rdar://9811832 has beed fixed
 	}
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 	if (session->callerWriteEntitlement == kCFNull) {
 		session->callerWriteEntitlement = copyEntitlement(session,
 								  kSCWriteEntitlementName);
@@ -652,7 +641,6 @@ hasWriteAccess(serverSessionRef session, CFStringRef key)
 			}
 		}
 	}
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 	return FALSE;
 }

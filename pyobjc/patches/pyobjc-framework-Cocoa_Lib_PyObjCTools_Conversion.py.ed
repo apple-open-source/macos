@@ -1,2 +1,79 @@
+/basestring, /i
+#ifdef PY3K
+.
+.+1,.+2t.
+.-1s/basestring/str, bytes/
+s/long, //
+.+1s/buffer, /memoryview, /
+a
+#else
+.
+.+2a
+#endif
+.
+/dataFromPropertyList_format_errorDescription_/s/)/, None)/
+/errStr = err.encode('utf-8')/i
+#ifdef PY3K
+.
+.+1t.
+s/err.encode('utf-8')/str(errStr)/
+a
+#else
+.
+.+1a
+#endif
+.
+/if isinstance(propertyListData, str):/a
+#ifdef PY3K
+        propertyListData = propertyListData.encode('utf-8')
+#else
+.
+/propertyListData = buffer(propertyListData.encode('utf-8'))/a
+#endif
+.
 /propertyListFromData_mutabilityOption_format_errorDescription_/s/)/, None, None)/
+/errStr = err.encode('utf-8')/i
+#ifdef PY3K
+.
+.+1t.
+s/err.encode('utf-8')/str(errStr)/
+a
+#else
+.
+.+1a
+#endif
+.
+/if not isinstance(aKey, basestring):/i
+#ifdef PY3K
+.
+.+1t.
+s/basestring/str/
+a
+#else
+.
+.+1a
+#endif
+.
+/if not isinstance(k, basestring):/i
+#ifdef PY3K
+.
+.+1t.
+s/basestring/str/
+a
+#else
+.
+.+1a
+#endif
+.
+/return buffer(aCollection)/i
+#ifdef PY3K
+.
+.+1t.
+s/buffer/memoryview/
+a
+#else
+.
+.+1a
+#endif
+.
 w

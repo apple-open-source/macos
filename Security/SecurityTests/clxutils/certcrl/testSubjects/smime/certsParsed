@@ -1,0 +1,320 @@
+AliceDSSSignByCarlNoInherit.cer
+Serial Number      : 00 C8 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : AliceDSS
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 01:10:49 Aug 17, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dsa (1 2 840 10040 4 1)
+   alg params      : 30 82 01 1E 02 81 81 00 ...
+Pub key Bytes      : Length 131 bytes : 02 81 80 5C E3 B9 5A 75 ...
+CSSM Key           :
+   Algorithm       : DSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY 
+Signature          : 47 bytes : 30 2D 02 15 00 98 B0 C6 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature NonRepudiation 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : BE 6C A1 B3 E3 C1 F7 ED ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : 70 44 3E 82 2E 6F 87 DE ...
+Extension struct   : subjectAltName (2 5 29 17)
+   Critical        : FALSE
+   RFC822Name      : aliceDss@examples.com
+   
+   
+AliceRSASignByCarl.cer
+Serial Number      : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E C4 10 B3 B0 
+Issuer Name        :
+   Common Name     : CarlRSA
+Subject Name       :
+   Common Name     : AliceRSA
+Cert Sig Algorithm : sha-1WithRSAEncryption (1 3 14 3 2 29)
+   alg params      : 05 00 
+Not Before         : 01:08:47 Sep 19, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : rsaEncryption (1 2 840 113549 1 1 1)
+   alg params      : 05 00 
+Pub key Bytes      : Length 140 bytes : 30 81 89 02 81 81 00 E0 ...
+CSSM Key           :
+   Algorithm       : RSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY 
+Signature          : 128 bytes : BF 34 32 E6 FC 6A 88 41 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature NonRepudiation 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 77 D2 B4 D1 B7 4C 8A 8A ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : E9 E0 90 27 AC 78 20 7A ...
+   
+   
+BobDHEncryptByCarl.cer
+Serial Number      : 00 C9 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : bobDH
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 01:18:28 Aug 17, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dhPublicNumber (1 2 840 10046 2 1)
+   alg params      : 30 82 01 AA 02 81 81 00 ...
+Pub key Bytes      : Length 131 bytes : 02 81 80 6F D4 F6 CD 94 ...
+CSSM Key           :
+   Algorithm       : Diffie-Hellman
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_DERIVE 
+Signature          : 47 bytes : 30 2D 02 14 15 EA 15 43 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : KeyAgreement 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 26 FF 19 48 C3 59 33 68 ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : 70 44 3E 82 2E 6F 87 DE ...
+Extension struct   : subjectAltName (2 5 29 17)
+   Critical        : FALSE
+   RFC822Name      : bobDh@examples.com
+   
+   
+BobRSASignByCarl.cer
+Serial Number      : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E CD 5D 71 D0 
+Issuer Name        :
+   Common Name     : CarlRSA
+Subject Name       :
+   Common Name     : BobRSA
+Cert Sig Algorithm : sha-1WithRSAEncryption (1 3 14 3 2 29)
+   alg params      : 05 00 
+Not Before         : 01:09:02 Sep 19, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : rsaEncryption (1 2 840 113549 1 1 1)
+   alg params      : 05 00 
+Pub key Bytes      : Length 140 bytes : 30 81 89 02 81 81 00 A9 ...
+CSSM Key           :
+   Algorithm       : RSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_WRAP 
+Signature          : 128 bytes : 09 21 6A 3B 62 50 DF 62 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : KeyEncipherment 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : E8 F4 B8 67 D8 B3 96 A4 ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : E9 E0 90 27 AC 78 20 7A ...
+   
+   
+CarlDSSSelf.cer
+Serial Number      : 01 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : CarlDSS
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 22:50:50 Aug 16, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dsa (1 2 840 10040 4 1)
+   alg params      : 30 82 01 1E 02 81 81 00 ...
+Pub key Bytes      : Length 132 bytes : 02 81 81 00 99 87 74 27 ...
+CSSM Key           :
+   Algorithm       : DSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY 
+Signature          : 47 bytes : 30 2D 02 14 6B A9 F0 4E ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature KeyCertSign CRLSign 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : TRUE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 70 44 3E 82 2E 6F 87 DE ...
+   
+   
+CarlRSASelf.cer
+Serial Number      : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E 9F F2 50 20 
+Issuer Name        :
+   Common Name     : CarlRSA
+Subject Name       :
+   Common Name     : CarlRSA
+Cert Sig Algorithm : sha1withRSAEncryption (1 2 840 113549 1 1 5)
+   alg params      : 05 00 
+Not Before         : 07:00:00 Aug 18, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : rsaEncryption (1 2 840 113549 1 1 1)
+   alg params      : 05 00 
+Pub key Bytes      : Length 140 bytes : 30 81 89 02 81 81 00 E4 ...
+CSSM Key           :
+   Algorithm       : RSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY 
+Signature          : 128 bytes : B7 9E D4 04 D3 ED 29 E4 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature KeyCertSign CRLSign 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : TRUE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : E9 E0 90 27 AC 78 20 7A ...
+   
+   
+DianeDHEncryptByCarl.cer
+Serial Number      : 00 D3 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : DianeDH
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 02:16:57 Aug 17, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dhPublicNumber (1 2 840 10046 2 1)
+   alg params      : 30 82 01 A9 02 81 81 00 ...
+Pub key Bytes      : Length 131 bytes : 02 81 80 60 5E 6E EF 61 ...
+CSSM Key           :
+   Algorithm       : Diffie-Hellman
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_DERIVE 
+Signature          : 46 bytes : 30 2C 02 14 7D 64 1E 1F ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : KeyAgreement 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 47 F3 4F CD 75 7D A8 52 ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : 70 44 3E 82 2E 6F 87 DE ...
+Extension struct   : subjectAltName (2 5 29 17)
+   Critical        : FALSE
+   RFC822Name      : dianeDh@examples.com
+   
+   
+DianeDSSSignByCarlInherit.cer
+Serial Number      : 00 D2 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : DianeDSS
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 02:08:10 Aug 17, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dsa (1 2 840 10040 4 1)
+Pub key Bytes      : Length 132 bytes : 02 81 81 00 A0 00 17 78 ...
+CSSM Key           :
+   Algorithm       : DSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY 
+Signature          : 47 bytes : 30 2D 02 14 7E 0C 0C 81 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature NonRepudiation 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 64 30 99 7D 5C DC 45 0B ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : 70 44 3E 82 2E 6F 87 DE ...
+Extension struct   : subjectAltName (2 5 29 17)
+   Critical        : FALSE
+   RFC822Name      : dianeDss@examples.com
+   
+   
+DianeRSASignByCarl.cer
+Serial Number      : 46 34 6B C7 80 00 56 BC 11 D3 6E 2E D5 9A 30 90 
+Issuer Name        :
+   Common Name     : CarlRSA
+Subject Name       :
+   Common Name     : DianeRSA
+Cert Sig Algorithm : sha1withRSAEncryption (1 2 840 113549 1 1 5)
+   alg params      : 05 00 
+Not Before         : 07:00:00 Aug 19, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : rsaEncryption (1 2 840 113549 1 1 1)
+   alg params      : 05 00 
+Pub key Bytes      : Length 140 bytes : 30 81 89 02 81 81 00 D6 ...
+CSSM Key           :
+   Algorithm       : RSA
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_VERIFY CSSM_KEYUSE_WRAP 
+Signature          : 128 bytes : 1D B3 51 B1 99 96 F0 44 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : DigitalSignature NonRepudiation KeyEncipherment 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 8C F3 CB 75 0E 8D 31 F6 ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : E9 E0 90 27 AC 78 20 7A ...
+   
+   
+EricaDHEncryptByCarl.cer
+Serial Number      : 00 D4 
+Issuer Name        :
+   Common Name     : CarlDSS
+Subject Name       :
+   Common Name     : EricaDH
+Cert Sig Algorithm : dsaWithSha1 (1 2 840 10040 4 3)
+Not Before         : 02:17:16 Aug 17, 1999
+Not After          : 23:59:59 Dec 31, 2039
+Pub Key Algorithm  : dhPublicNumber (1 2 840 10046 2 1)
+   alg params      : 30 82 01 2B 02 81 81 00 ...
+Pub key Bytes      : Length 132 bytes : 02 81 81 00 D1 2B E4 1D ...
+CSSM Key           :
+   Algorithm       : Diffie-Hellman
+   Key Size        : 1024 bits
+   Key Use         : CSSM_KEYUSE_DERIVE 
+Signature          : 47 bytes : 30 2D 02 14 3E 51 42 08 ...
+Extension struct   : keyUsage (2 5 29 15)
+   Critical        : TRUE
+   usage           : KeyAgreement 
+Extension struct   : basicConstraints (2 5 29 19)
+   Critical        : TRUE
+   CA              : FALSE
+Extension struct   : subjectKeyIdentifier (2 5 29 14)
+   Critical        : FALSE
+   Subject KeyID   : 8D 53 1D 61 55 7F 60 35 ...
+Extension struct   : authorityKeyIdentifier (2 5 29 35)
+   Critical        : FALSE
+   Auth KeyID      : 70 44 3E 82 2E 6F 87 DE ...
+Extension struct   : subjectAltName (2 5 29 17)
+   Critical        : FALSE
+   RFC822Name      : ericaDh@examples.com

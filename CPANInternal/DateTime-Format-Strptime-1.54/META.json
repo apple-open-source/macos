@@ -1,0 +1,60 @@
+{
+   "abstract" : "Parse and format strp and strf time patterns",
+   "author" : [
+      "Dave Rolsky <autarch@urth.org>",
+      "Rick Measham <rickm@cpan.org>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 4.300032, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "artistic_2"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "DateTime-Format-Strptime",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.30"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::Pod" : "1.41"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : "0",
+            "DateTime" : "1.00",
+            "DateTime::Locale" : "0.45",
+            "DateTime::TimeZone" : "0.79",
+            "Exporter" : "0",
+            "Params::Validate" : "0.64",
+            "strict" : "0",
+            "vars" : "0"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::More" : "0.88"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "mailto" : "bug-datetime-format-strptime@rt.cpan.org",
+         "web" : "http://rt.cpan.org/NoAuth/Bugs.html?Dist=DateTime-Format-Strptime"
+      },
+      "repository" : {
+         "type" : "git",
+         "url" : "git://git.urth.org/DateTime-Format-Strptime.git",
+         "web" : "http://git.urth.org/DateTime-Format-Strptime.git"
+      }
+   },
+   "version" : "1.54"
+}
+

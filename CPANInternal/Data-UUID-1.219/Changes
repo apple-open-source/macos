@@ -1,0 +1,138 @@
+Revision history for Perl extension Data::UUID.
+
+1.219     2013-07-06
+  - cygwin fixes (thanks, Reini Urban!)
+  - Skip t/threads.t unless perl version is 5.13.4 or greater (thanks, VPIT)
+  - compile with strict C89 compilers (thanks, VPIT)
+  - more bugfixes (thanks, VPIT)
+
+1.218
+  - support for Haiku OS (thanks, Tony Cook!)
+
+1.217 2010-09-14
+  - documentation fixes
+  - minor portability tweak to UUID.xs (thanks, Florian Ragwitz)
+
+1.216 2010-09-04
+  - documentation fixes only
+
+1.215 2010-05-24
+  - no changes, released as non-trial
+
+1.214 TRIAL RELEASE 2010-05-14
+  - Use gv_stashpv instead of gv_stashpvs (Florian Ragwitz)
+
+1.213 TRIAL RELEASE 2010-05-07
+  - Pass along the interpreter to ptable_store, if needed (Florian Ragwitz)
+
+1.212 TRIAL RELEASE 2010-05-07
+  - fix MANIFEST (thanks for noticing, Florian Ragwitz)
+
+1.211 TRIAL RELEASE 2010-05-07
+  - add a uniqueness test to threads.t (thanks, SCHWERN!)
+
+1.210 TRIAL RELEASE 2010-05-07
+  - thread safety, added by Florian Ragwitz
+
+1.203 Tue Nov  3 16:46:50 EST 2009
+  - avoid interactive configuration (thanks, DAXIM)
+
+1.202 Mon Jun 15 18:42:19 EDT 2009
+  - localize changes to $! (thanks, Jesse Vincent!)
+
+1.201 Sat Apr 18 14:09 2009
+  - replace Data-UUID's own md5 with Digest::MD5 (thanks, RUZ!)
+  - apply patch from tokuhirom to avoid segmentation violation
+
+1.149 Sat Nov  1 12:31 2008
+  - added explicit BSD license; code is basically RFC4122 + patches
+
+1.148 Thu Nov 16 10:21 2006
+  - Debian has chosen to distribute their own Data::UUID, which has a different
+    interface and breaks other modules.  They also use a grossly-inflated
+    version number, which means that this version number must be inflated to
+    allow modules to rely on the CPAN Data::UUID properly.
+
+    Tests added to EXPLICITLY assert the one known difference between genuine
+    Data::UUID and Debian's ersatz version in libossp-uuid-perl.
+
+    Thanks to ADAMK for bringing this to my attention.
+
+0.148 Thu Nov 16 10:21 2006
+  - more Win32 fixes by Alexandr Ciornii
+
+0.146 Tue Nov 14 18:02 2006
+  - packaging improvements
+
+0.145 Sun Sep 17 22:12 2006
+  - Win32 compatibility/compilation improvements (rt #21486) -- thanks MERIJNB!
+
+0.143 Sun Sep 17 22:12 2006
+  - more tick-tracking fixes (rt #21486) -- thanks MERIJNB!
+
+0.142 Tue Sep  5 22:41 2006
+  - fix incorrect initialization of tick-tracking (rt #2481)
+
+0.141 Tue Sep  5 22:16 2006
+  - partial fix for compilation under MSVC (thanks Alexandr Ciornii!)
+
+0.14 Sat Mar 18 08:40 2006
+  - added use strict
+  - added tests to shut up stupid Kwalitee tests
+
+0.13 Sat Feb 25 15:20 2006
+  - fixed compilation errors on Mac OS X: bugs 12389, 15829
+  - avoid hanging under CPAN tools by using EUMM prompt(): bug 8046
+    (thanks, Schwern)
+  - fix problems with "long" type on 64 big platforms: bug 14163
+    (thanks, Kevin Rosenberg)
+  - improve compilation on Cygwin: bug 7088 (thanks, maxb)
+  - improve compilation on Win32: bug 14082 (thanks, Christopher Laco)
+  - fixed link to UUID draft: bug 12169 (thanks, kcivey)
+  - fixed UUID collision on SMP machines: bug 15042 (thanks, Chia-liang Kao)
+
+0.11 Wed Aug 27 16:05:00 2003
+  - reformatted POD documentation as per David Wheeler
+  - added ref. links to articles on database keys reengineering problem
+
+0.10 Thu Jul 17 17:12:00 2003
+  - added support for PERL_MM_USE_DEFAULT as per Heath Malstrom
+  - replaced GetSystemTimeAsFileTime with QueryPerformanceCounter as per Paul
+    Stodghill
+
+0.08 Fri Nov 29 12:12:00 2002
+  - added default umask for state storage files (as per James A. Duncan,
+    Fotango.com)
+
+0.07 Wed Jun 12 17:31:00 2002
+  - changed get_system_time to use I64 ints (CPAN Ticket #737 - Incorrect Time
+    based UUIDs)
+
+0.06 Sun Mar 2 01:41:00 2002
+  - added code to fix ccflags on HP (as per Lincoln Baxter)
+  - fixed state/nodeid sharing problem (as per Lincoln Baxter)
+  - fixed most compiler warnings (as per Lincoln Baxter)
+  - replaced Base64-encode algorithm to fix buffer overflow
+    (as per Lincoln Baxter).
+  - fixed count of tests in test.pl (as per Lincoln Baxter)
+  - added ok() to every line of test.pl (as per Lincoln Baxter) 
+
+0.05 Tue Feb 12 09:46:00 2002
+  - added custom OS defines
+  - added LOCK/UNLOCK defines for Darwin OS
+
+0.04 Tue Dec 11 12:03:00 2001
+  - fixed padding in create_b64/to_b64string
+  - added advisory locking for state storage
+
+0.03  Mon Nov 5 12:47:00 2001
+  - fixed padding problem in from_b64string
+  - re-tested with Cygwin v2.78.2.15
+
+0.02  Wed Oct 31 12:11:00 2001
+  - fixed from_string/from_hexstring bug, which caused problems on little
+    endian machines (linux)
+
+0.01  Thu Oct 25 16:19:30 2001
+  - original version; created by h2xs 1.21 with options
+  -f -nData::UUID -v0.01

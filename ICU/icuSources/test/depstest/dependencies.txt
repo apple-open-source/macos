@@ -1,10 +1,12 @@
-# Copyright (C) 2011-2013, International Business Machines
+# Copyright (C) 2011-2014, International Business Machines
 # Corporation and others. All Rights Reserved.
 #
 # file name: dependencies.txt
 #
 # created on: 2011may26
 # created by: Markus W. Scherer
+#
+# See http://site.icu-project.org/processes/release/tasks/healthy-code#TOC-Check-library-dependencies
 
 # Standard library symbols used by ICU --------------------------------------- #
 
@@ -58,6 +60,7 @@ group: stdlib_qsort
 
 group: pthread
     pthread_mutex_init pthread_mutex_destroy pthread_mutex_lock pthread_mutex_unlock
+    pthread_cond_wait pthread_cond_broadcast
 
 group: system_locale
     getenv
@@ -131,7 +134,7 @@ library: common
     date_interval
     breakiterator
     uts46 filterednormalizer2 normalizer2 canonical_iterator
-    normlzr unormcmp unorm_it unorm
+    normlzr unormcmp unorm
     idna2003 stringprep
     stringenumeration
     unistr_core unistr_props unistr_case unistr_case_locale unistr_titlecase_brkiter unistr_cnv
@@ -144,9 +147,10 @@ library: common
     resourcebundle service_registration resbund_cnv ures_cnv icudataver ucat
     loclikely
     conversion converter_selector ucnv_set ucnvdisp
-    messagepattern
+    messagepattern simplepatternformatter
     icu_utility icu_utility_with_props
     ustr_wcs
+    lrucache
     ucharstriebuilder ucharstrieiterator
     bytestriebuilder bytestrieiterator
     hashtable uhash uvector uvector32 uvector64 ulist
@@ -183,11 +187,6 @@ group: unormcmp  # unorm_compare()
     filterednormalizer2
     uniset_props  # for uniset_getUnicode32Instance()
     ucase
-
-group: unorm_it  # UNormIterator
-    unorm_it.o
-  deps
-    unorm uiter
 
 group: unorm  # old normalization C API
     unorm.o
@@ -384,6 +383,11 @@ group: messagepattern  # for MessageFormat and tools
   deps
     patternprops unistr_core
 
+group: simplepatternformatter
+    simplepatternformatter.o
+  deps
+    unistr_core
+
 group: patternprops
     patternprops.o
   deps
@@ -505,7 +509,7 @@ group: service_registration
 group: listformatter
     listformatter.o
   deps
-    resourcebundle
+    resourcebundle simplepatternformatter
 
 group: ucat  # message-catalog-like API
     ucat.o
@@ -570,6 +574,12 @@ group: udata
   deps
     uhash charstr stringpiece platform stubdata
     file_io mmap_functions
+
+group: lrucache
+    lrucache.o
+  deps
+    uhash
+    platform
 
 group: ucharstriebuilder
     ucharstriebuilder.o
@@ -713,7 +723,7 @@ group: icuplug
 group: ucol_swp
     ucol_swp.o
   deps
-    platform
+    utrie2  # Format version 4 uses UTrie2.
 
 group: errorcode  # ErrorCode base class
     errorcode.o
@@ -735,7 +745,7 @@ group: platform
     ucln_cmn.o  # for putil.o which calls ucln_common_registerCleanup
     udataswp.o  # for uinvchar.o; TODO: move uinvchar.o swapper functions to udataswp.o?
     umath.o
-    mutex.o umutex.o
+    umutex.o sharedobject.o
     utrace.o
   deps
     # The "platform" group has no ICU dependencies.
@@ -750,12 +760,14 @@ group: platform
 library: i18n
   deps
     region localedata genderinfo charset_detector spoof_detection
-    alphabetic_index collation formatting formattable_cnv regex regex_cnv translit
+    alphabetic_index collation collation_builder string_search
+    formatting formattable_cnv regex regex_cnv translit
+    filteredbreakiterator
     universal_time_scale
     uclean_i18n
 
 group: region
-    region.o
+    region.o uregion.o
   deps
     formatting  # Temporary, TODO: Ticket #9982 class Region should use low-level ASCII-integer functions, and probably be moved to the common library.
     resourcebundle
@@ -766,6 +778,7 @@ group: localedata
   deps
     uniset_props resourcebundle
     uset_props  # TODO: change to using C++ UnicodeSet, remove this dependency
+    loclikely
 
 group: genderinfo
     gender.o
@@ -792,12 +805,36 @@ group: alphabetic_index
     uclean_i18n
 
 group: collation
-    bocsu.o coleitr.o coll.o sortkey.o tblcoll.o ucol.o
-    ucol_bld.o ucol_cnt.o ucol_elm.o ucol_res.o ucol_sit.o ucol_tok.o ucol_wgt.o ucoleitr.o
+    # The collation "runtime" code should not depend on the collation_builder code.
+    # For example, loading from resource bundles does not fall back to
+    # building from rules.
+    collation.o collationcompare.o collationdata.o
+    collationdatareader.o collationdatawriter.o
+    collationfastlatin.o collationfcd.o collationiterator.o collationkeys.o
+    collationroot.o collationrootelements.o collationsets.o
+    collationsettings.o collationtailoring.o rulebasedcollator.o
+    uitercollationiterator.o utf16collationiterator.o utf8collationiterator.o
+    bocsu.o coleitr.o coll.o sortkey.o ucol.o
+    ucol_res.o ucol_sit.o ucoleitr.o
+  deps
+    bytestream normalizer2 resourcebundle service_registration
+    ucharstrieiterator uiter ulist uset usetiter uvector32 uvector64
+    uclean_i18n
+
+group: collation_builder
+    # The CollationBaseDataBuilder is only called from genuca, and maybe from tests.
+    # It is in the i18n library so that it gets maintained and refactored together with
+    # related code.
+    collationbasedatabuilder.o
+    collationbuilder.o collationdatabuilder.o collationfastlatinbuilder.o
+    collationruleparser.o collationweights.o
+  deps
+    canonical_iterator collation ucharstriebuilder uset_props
+
+group: string_search
     search.o stsearch.o usearch.o
   deps
-    common  # TODO: Could be narrower.
-    uclean_i18n
+    breakiterator collation
 
 group: formatting
     # TODO: Try to subdivide this ball of wax.
@@ -808,12 +845,12 @@ group: formatting
     # currencyformat
     curramt.o currfmt.o currpinf.o currunit.o
     # decimalformat
-    dcfmtsym.o decfmtst.o decimfmt.o compactdecimalformat.o
-    numfmt.o numsys.o unum.o winnmfmt.o
+    dcfmtsym.o decfmtst.o decimfmt.o decimalformatpattern.o compactdecimalformat.o
+    numfmt.o numsys.o unumsys.o unum.o winnmfmt.o
     # rbnf
     nfrs.o nfrule.o nfsubs.o rbnf.o
     # measureformat
-    measfmt.o
+    measfmt.o measunit.o quantityformatter.o
     # dateformat
     astro.o buddhcal.o calendar.o cecal.o chnsecal.o coptccal.o dangical.o ethpccal.o
     gregocal.o gregoimp.o hebrwcal.o indiancal.o islamcal.o japancal.o persncal.o taiwncal.o
@@ -821,7 +858,7 @@ group: formatting
     basictz.o olsontz.o rbtz.o simpletz.o timezone.o tzrule.o tztrans.o
     vtzone.o vzone.o wintzimpl.o zonemeta.o zrule.o ztrans.o
     tzfmt.o tzgnames.o tznames.o tznames_impl.o
-    datefmt.o dtfmtsym.o dtitvfmt.o dtitvinf.o dtptngen.o dtrule.o reldtfmt.o
+    datefmt.o dtfmtsym.o dtitvfmt.o dtitvinf.o dtptngen.o dtrule.o reldtfmt.o reldatefmt.o
     smpdtfmt.o smpdtfst.o udateintervalformat.o udatpg.o windtfmt.o
     udat.o
     tmunit.o tmutamt.o tmutfmt.o
@@ -830,7 +867,7 @@ group: formatting
   deps
     digitlist formattable format
     pluralrules
-    collation  # for rbnf
+    collation collation_builder  # for rbnf
     common
     floating_point  # sqrt() for astro.o
     trigonometry  # for astro.o
@@ -861,8 +898,10 @@ group: format
 group: pluralrules
     plurrule.o upluralrules.o
   deps
-    patternprops resourcebundle uvector
+    digitlist  # plurals depend on decimals
+    patternprops resourcebundle uvector uvector32 lrucache
     unistr_case_locale
+    uclean_i18n
 
 group: regex_cnv
     uregexc.o
@@ -886,6 +925,11 @@ group: translit
     common
     formatting  # for Transliterator::getDisplayName()
     uclean_i18n
+
+group: filteredbreakiterator
+    filteredbrk.o
+  deps
+    breakiterator ucharstriebuilder
 
 group: universal_time_scale
     utmscale.o

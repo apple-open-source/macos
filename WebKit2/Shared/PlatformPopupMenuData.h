@@ -28,9 +28,10 @@
 
 #include "FontInfo.h"
 #include "ShareableBitmap.h"
+#include <WebCore/PopupMenuStyle.h>
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
@@ -40,14 +41,14 @@ namespace WebKit {
 struct PlatformPopupMenuData {
     PlatformPopupMenuData();
 
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, PlatformPopupMenuData&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, PlatformPopupMenuData&);
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     FontInfo fontInfo;
     bool shouldPopOver;
-#elif PLATFORM(QT)
-    bool multipleSelections;
+    bool hideArrows;
+    WebCore::PopupMenuStyle::PopupMenuSize menuSize;
 #endif
 };
 

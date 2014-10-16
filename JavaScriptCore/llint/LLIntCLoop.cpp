@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,51 +26,19 @@
 #include "config.h"
 #include "LLIntCLoop.h"
 
-#include "Instruction.h"
+#if !ENABLE(JIT)
+
+#include "LLIntData.h"
 
 namespace JSC {
-
 namespace LLInt {
-
-#if ENABLE(LLINT_C_LOOP)
 
 void CLoop::initialize()
 {
-    execute(0, llint_unused, true);
+    execute(llint_entry, 0, 0, 0, true);
 }
 
-void* CLoop::catchRoutineFor(Instruction* catchPCForInterpreter)
-{
-    return reinterpret_cast<Instruction*>(catchPCForInterpreter->u.opcode);
-}
+} // namespace LLInt
+} // namespace JSC
 
-MacroAssemblerCodePtr CLoop::hostCodeEntryFor(CodeSpecializationKind kind)
-{
-    MacroAssemblerCodePtr codePtr;
-    codePtr = (kind == CodeForCall) ?
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_native_call_trampoline) :
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_native_construct_trampoline);
-    return codePtr;
-}
-
-MacroAssemblerCodePtr CLoop::jsCodeEntryWithArityCheckFor(CodeSpecializationKind kind)
-{
-    MacroAssemblerCodePtr codePtr;
-    codePtr = (kind == CodeForCall) ?
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_function_for_call_arity_check) :
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_function_for_construct_arity_check);
-    return codePtr;
-}
-
-MacroAssemblerCodePtr CLoop::jsCodeEntryFor(CodeSpecializationKind kind)
-{
-    MacroAssemblerCodePtr codePtr;
-    codePtr = (kind == CodeForCall) ?
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_function_for_call_prologue) :
-        MacroAssemblerCodePtr::createLLIntCodePtr(llint_function_for_construct_prologue);
-    return codePtr;
-}
-
-#endif // ENABLE(LLINT_C_LOOP)
-
-} } // namespace JSC::LLInt
+#endif // !ENABLE(JIT)

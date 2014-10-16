@@ -178,6 +178,9 @@ struct AlgorithmIdentifier;
 typedef struct krb5_pk_init_ctx_data *krb5_pk_init_ctx;
 struct krb5_dh_moduli;
 struct _krb5_srv_query_ctx;
+struct krb5_fast_state;
+struct _krb5_srp_group;
+struct _krb5_srp;
 
 /* v4 glue */
 struct _krb5_krb_auth_data;
@@ -256,6 +259,7 @@ struct _krb5_get_init_creds_opt_private {
 #define KRB5_INIT_CREDS_NO_C_CANON_CHECK	4
 #define KRB5_INIT_CREDS_NO_C_NO_EKU_CHECK	8
 #define KRB5_INIT_CREDS_PKU2U			16
+#define KRB5_INIT_CREDS_PKINIT_KX_VALID		32
     struct {
         krb5_gic_process_last_req func;
         void *ctx;
@@ -386,6 +390,8 @@ enum krb5_pk_type {
     PKINIT_27 = 2
 };
 
+#endif /* PKINIT */
+
 struct srv_reply {
     krb5_krbhst_info *hi;
     uint16_t priority;
@@ -411,6 +417,38 @@ struct _krb5_srv_query_ctx {
 #endif
 };
 
-#endif /* PKINIT */
+struct krb5_fast_state {
+    enum PA_FX_FAST_REQUEST_enum type;
+    unsigned int flags;
+#define KRB5_FAST_REPLY_KEY_USE_TO_ENCRYPT_THE_REPLY	0x0001
+#define KRB5_FAST_REPLY_KEY_USE_IN_TRANSACTION		0x0002
+#define KRB5_FAST_KDC_REPLY_KEY_REPLACED		0x0004
+#define KRB5_FAST_REPLY_REPLY_VERIFED			0x0008
+#define KRB5_FAST_STRONG				0x0010
+#define KRB5_FAST_EXPECTED				0x0020 /* in exchange with KDC, fast was discovered */
+#define KRB5_FAST_REQUIRED				0x0040 /* fast required by action of caller */
+#define KRB5_FAST_DISABLED				0x0080
+
+#define KRB5_FAST_AP_ARMOR_SERVICE			0x0100
+#define KRB5_FAST_OPTIMISTIC				0x0200  /* Optimistic try, like Anon + PKINIT or service fast bit */
+#define KRB5_FAST_REQUIRE_ENC_PA			0x0400
+
+#define KRB5_FAST_AS_REQ				0x1000
+
+
+    krb5_keyblock *reply_key;
+    krb5_ccache armor_ccache;
+    krb5_auth_context armor_ac;
+    KrbFastArmor *armor_data;
+    krb5_principal armor_service;
+    krb5_crypto armor_crypto;
+    krb5_keyblock armor_key;
+    krb5_keyblock *strengthen_key;
+};
+
+struct krb5_decrypt_tkt_with_subkey_state {
+    krb5_keyblock *subkey;
+    struct krb5_fast_state *fast_state;
+};
 
 #endif /* __KRB5_LOCL_H__ */

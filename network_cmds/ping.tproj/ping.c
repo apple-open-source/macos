@@ -57,18 +57,13 @@
  * SUCH DAMAGE.
  */
 
-#if 0
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)ping.c	8.1 (Berkeley) 6/5/93";
-#endif /* not lint */
-#endif
-#include <sys/cdefs.h>
 
 /*
  *			P I N G . C
@@ -248,6 +243,7 @@ static void pr_retip(struct ip *);
 static void status(int);
 static void stopit(int);
 static void tvsub(struct timeval *, const struct timeval *);
+static uint32_t str2svc(const char *);
 static void usage(void) __dead2;
 
 int
@@ -425,7 +421,10 @@ main(int argc, char *const *argv)
 			break;
 		case 'k':
 			how_traffic_class++;
-			traffic_class = atoi(optarg);
+			traffic_class = str2svc(optarg);
+			if (traffic_class == UINT32_MAX)
+				errx(EX_USAGE, "bad traffic class: `%s'",
+				     optarg);
 			break;
 		case 'L':
 			options |= F_NOLOOP;
@@ -1849,6 +1848,42 @@ fill(char *bp, char *patp)
 	}
 }
 
+uint32_t
+str2svc(const char *str)
+{
+	uint32_t svc;
+	char *endptr;
+	
+	if (str == NULL || *str == '\0')
+		svc = UINT32_MAX;
+	else if (strcasecmp(str, "BK_SYS") == 0)
+		return SO_TC_BK_SYS;
+	else if (strcasecmp(str, "BK") == 0)
+		return SO_TC_BK;
+	else if (strcasecmp(str, "BE") == 0)
+		return SO_TC_BE;
+	else if (strcasecmp(str, "RD") == 0)
+		return SO_TC_RD;
+	else if (strcasecmp(str, "OAM") == 0)
+		return SO_TC_OAM;
+	else if (strcasecmp(str, "AV") == 0)
+		return SO_TC_AV;
+	else if (strcasecmp(str, "RV") == 0)
+		return SO_TC_RV;
+	else if (strcasecmp(str, "VI") == 0)
+		return SO_TC_VI;
+	else if (strcasecmp(str, "VO") == 0)
+		return SO_TC_VO;
+	else if (strcasecmp(str, "CTL") == 0)
+		return SO_TC_CTL;
+	else {
+		svc = strtoul(str, &endptr, 0);
+		if (*endptr != '\0')
+			svc = UINT32_MAX;
+	}
+	return (svc);
+}
+
 #if defined(IPSEC) && defined(IPSEC_POLICY_IPSEC)
 #define	SECOPT		" [-P policy]"
 #else
@@ -1858,13 +1893,14 @@ static void
 usage(void)
 {
 
-	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-"usage: ping [-AaDdfnoQqRrv] [-b boundif] [-c count] [-G sweepmaxsize] [-g sweepminsize]",
-"            [-h sweepincrsize] [-i wait] [-l preload] [-M mask | time] [-m ttl]",
-"           " SECOPT " [-p pattern] [-S src_addr] [-s packetsize] [-t timeout]",
-"            [-W waittime] [-z tos] host",
-"       ping [-AaDdfLnoQqRrv] [-c count] [-I iface] [-i wait] [-l preload]",
-"            [-M mask | time] [-m ttl]" SECOPT " [-p pattern] [-S src_addr]",
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+"usage: ping [-AaDdfnoQqRrv] [-b boundif] [-c count] [-G sweepmaxsize]",
+"            [-g sweepminsize] [-h sweepincrsize] [-i wait] [−k trafficclass]",
+"            [-l preload] [-M mask | time] [-m ttl]" SECOPT " [-p pattern]",
+"            [-S src_addr] [-s packetsize] [-t timeout][-W waittime] [-z tos]",
+"            host",
+"       ping [-AaDdfLnoQqRrv] [-b boundif] [-c count] [-I iface] [-i wait]",
+"            [−k trafficclass] [-l preload] [-M mask | time] [-m ttl]" SECOPT " [-p pattern] [-S src_addr]",
 "            [-s packetsize] [-T ttl] [-t timeout] [-W waittime]",
 "            [-z tos] mcast-group");
 	exit(EX_USAGE);

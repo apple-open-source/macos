@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,33 +29,29 @@
 
 #include <WebCore/BString.h>
 #include <WebCore/IntRect.h>
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
+#include <wtf/DateMath.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
-static const double secondsPerDay = 60 * 60 * 24;
-
 CFArrayCallBacks MarshallingHelpers::kIUnknownArrayCallBacks = {0, IUnknownRetainCallback, IUnknownReleaseCallback, 0, 0};
 CFDictionaryValueCallBacks MarshallingHelpers::kIUnknownDictionaryValueCallBacks = {0, IUnknownRetainCallback, IUnknownReleaseCallback, 0, 0};
 
-KURL MarshallingHelpers::BSTRToKURL(BSTR urlStr)
+URL MarshallingHelpers::BSTRToKURL(BSTR urlStr)
 {
-    return KURL(KURL(), String(urlStr, SysStringLen(urlStr)));
+    return URL(URL(), String(urlStr, SysStringLen(urlStr)));
 }
 
-BSTR MarshallingHelpers::KURLToBSTR(const KURL& url)
+BSTR MarshallingHelpers::URLToBSTR(const URL& url)
 {
     return BString(url.string()).release();
 }
 
 CFURLRef MarshallingHelpers::PathStringToFileCFURLRef(const String& string)
 {
-    CFStringRef cfPath = CFStringCreateWithCharactersNoCopy(0, (const UniChar*)string.characters(), string.length(), kCFAllocatorNull);
-    CFURLRef pathURL = CFURLCreateWithFileSystemPath(0, cfPath, kCFURLWindowsPathStyle, false);
-    CFRelease(cfPath);
-    return pathURL;
+    return CFURLCreateWithFileSystemPath(0, string.createCFString().get(), kCFURLWindowsPathStyle, false);
 }
 
 String MarshallingHelpers::FileCFURLRefToPathString(CFURLRef fileURL)

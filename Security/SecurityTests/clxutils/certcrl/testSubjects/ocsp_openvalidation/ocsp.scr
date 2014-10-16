@@ -1,0 +1,123 @@
+# OCSP test using http://ocsp.openvalidation.org
+#
+# See http://www.openvalidation.org/useocspservicenew.htm for details. We're
+# using the CA1 certs obtained from 
+# http://www.openvalidation.org/download/downloadrootcertsCA1.htm
+#
+# Apparently all requests are signed by Server_CA2, even the ones for 
+# certs which are themselves signed by Server_CA1. So, we need both roots.
+#
+# This test does not run as of 10/25/06 because the OCSP responses we get 
+# are past their nextUpdate time of 20060816111203Z. We'll keep this here in 
+# case openvalidation.org updates their server. 
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = false
+cacheDisable = false
+allowUnverified = false
+end
+#
+echo "================================="
+test = "no revocation just to make sure we have decent certs"
+revokePolicy = none
+cert = User_CA1.crt
+root = Root_CA1.crt
+verifyTime=20050101000000
+allowUnverified=true
+end
+#
+echo "================================="
+test = "OCSP, good status, user cert, cache disabled"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:80
+responderCert = Server_CA2.crt
+verifyTime=20050101000000
+cacheDisable = true
+end
+#
+echo "================================="
+test = "OCSP, good status, user cert, cache enable"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:80
+responderCert = Server_CA2.crt
+cacheDisable = false
+verifyTime=20050101000000
+end
+#
+echo "================================="
+test = "OCSP, good status, user cert, cache disable, net disable, fail"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+# responderURI = http://ocsp.openvalidation.org:80
+requireOcspIfPresent = true
+cacheDisable = true
+verifyTime=20050101000000
+error = APPLETP_OCSP_UNAVAILABLE
+certerror = 0:APPLETP_OCSP_UNAVAILABLE
+end
+#
+echo "================================="
+test = "OCSP, good status, user cert, cache enable, net disable, succeed"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+# responderURI = http://ocsp.openvalidation.org:80
+responderCert = Server_CA2.crt
+reqOcspIfPresent = true
+# no net but we get it from cache OK
+cacheDisable = false
+ocspNetFetchDisable = true
+verifyTime=20050101000000
+end
+#
+echo "================================="
+test = "OCSP, revoked status, user cert"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:8083
+responderCert = Server_CA2.crt
+verifyTime=20050101000000
+error = TP_CERT_REVOKED
+certerror = 0:TP_CERT_REVOKED
+reqOcspIfPresent = true
+end
+#
+echo "================================="
+test = "OCSP, unknown status, fail"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:8084
+responderCert = Server_CA2.crt
+allowUnverified = false
+verifyTime=20050101000000
+# port 8084 yields the "I don't know this cert" failure, so the overall result
+# when we require OCSP per cert is not available
+error = APPLETP_OCSP_UNAVAILABLE
+certerror = 0:APPLETP_OCSP_UNAVAILABLE
+end
+#
+echo "================================="
+test = "OCSP, unknown status, success"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+responderURI = http://ocsp.openvalidation.org:8084
+responderCert = Server_CA2.crt
+allowUnverified = true
+verifyTime=20050101000000
+end

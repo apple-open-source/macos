@@ -32,8 +32,19 @@
 #define _PMAssertions_h_
 
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 #include <sys/queue.h>
+
+#define IOREPORT_ABORT(str...) \
+do {    \
+    asl_log(0,0,ASL_LEVEL_ERR, (str));  \
+    abort(); \
+} while(0)
+
+
+#include <IOKit/IOReportMacros.h>
+#include <IOKit/IOReportTypes.h>
 
 /* ExternalMedia assertion
  * This assertion is only defined here in PM configd. 
@@ -79,6 +90,53 @@
 #define kIOPMRootDomainWakeTypeNotification CFSTR("Notification")
 #endif
 
+#define ID_FROM_INDEX(idx)          (idx + 300)
+#define INDEX_FROM_ID(id)           (id - 300)
+
+#define MAKE_UNIQAID(time, type, idx) \
+    ((((uint64_t)time) & 0xffffffff) << 32) | ((type) & 0xffff) << 16 | ((idx) & 0xffff)
+
+/*
+ * A 'assertion_t' stucture is created for each assertion created by the processes.
+ *
+ * Each assertion will be associated with one of the pre-defined assertion types. All
+ * assertion types are defined in kerAssertionType enum. A 'assertionType_t' strcture is 
+ * created for each assertion type at the start of the process and can be accessed from 
+ * 'gAssertionTypes' array.
+ *
+ * Each assertion type will have a pre-defined effect on the system. All possible effects are
+ * listed in 'kerAssertionEffect' enum. A 'assertionEffect_t' structure is created for each 
+ * assertion effect at the start of the process and can be accessed from 'gAssertionEffects' 
+ * array.
+ *
+ * An assertion type can change the effect it has on the system based on various conditions 
+ * like power source, wake type, user settings etc. When an assertion type's effect changes, 
+ * it is moved from assertionEffect_t structure to another one.
+ */
+typedef enum {
+    kNoEffect                       = 0,
+    kPrevIdleSlpEffect,
+    kPrevDemandSlpEffect,
+    kPrevDisplaySlpEffect,  // Stats are maintained for effects up to this one
+
+    kExternalMediaEffect,
+    kPreventDiskSleepEffect,
+    kTicklessDisplayWakeEffect,
+
+    kEnableIdleEffect,
+    kHighPerfEffect,
+    kDisableInflowEffect,
+    kInhibitChargeEffect,
+    kDisableWarningsEffect,
+    kNoRealPowerSourcesDebugEffect,
+
+    kMaxAssertionEffects
+} kerAssertionEffect;
+
+// Stats are maintained only for affects up to kPrevDisplaySlpEffect
+#define kMaxEffectStats     kPrevDisplaySlpEffect+1
+
+
 /* IOPMAssertion levels
  * 
  * Each assertion type has a corresponding bitfield index, here.
@@ -86,26 +144,26 @@
  */
 typedef enum {
     // These must be consecutive integers beginning at 0
-    kHighPerfIndex                  = 0,
-    kPreventIdleIndex               = 1,
-    kDisableInflowIndex             = 2,
-    kInhibitChargeIndex             = 3,
-    kDisableWarningsIndex           = 4,
-    kPreventDisplaySleepIndex       = 5,
-    kEnableIdleIndex                = 6,
-    kNoRealPowerSourcesDebugIndex   = 7,
-    kPreventSleepIndex              = 8,
-    kExternalMediaIndex             = 9,
-    kDeclareUserActivity            = 10,
-    kPushServiceTaskIndex           = 11,
-    kBackgroundTaskIndex            = 12,
-    kDeclareSystemActivity          = 13,
-    kSRPreventSleepIndex            = 14, /* Silent running Prevent Sleep, used as internal proxy */
-    kTicklessDisplayWake            = 15, /* Display wake without HID tick */
-    kPreventDiskSleepIndex          = 16,
-    kInternalPreventDisplaySleep    = 17, /* Prevent display sleep, used as internal proxy */
-    kNetworkAccessIndex             = 18, /* Prevent demand sleep on AC, prevent idle sleep on batt */
-    kInteractivePushServiceIndex    = 19,
+    kHighPerfType                   = 0,
+    kPreventIdleType                = 1,
+    kDisableInflowType              = 2,
+    kInhibitChargeType              = 3,
+    kDisableWarningsType            = 4,
+    kPreventDisplaySleepType        = 5,
+    kEnableIdleType                 = 6,
+    kPreventSleepType               = 7,
+    kExternalMediaType              = 8,
+    kDeclareUserActivityType        = 9,
+    kPushServiceTaskType            = 10,
+    kBackgroundTaskType             = 11,
+    kDeclareSystemActivityType      = 12,
+    kSRPreventSleepType             = 13, /* Silent running Prevent Sleep, used as internal proxy */
+    kTicklessDisplayWakeType        = 14, /* Display wake without HID tick */
+    kPreventDiskSleepType           = 15,
+    kIntPreventDisplaySleepType     = 16, /* Prevent display sleep, used as internal proxy */
+    kNetworkAccessType              = 17, /* Prevent demand sleep on AC, prevent idle sleep on batt */
+    kInteractivePushServiceType     = 18,
+    kReservePwrPreventIdleType      = 19, /* Prevents idle sleep in reserve power mode */
 
 
     // Make sure this is the last enum element, as it tells us the total
@@ -113,19 +171,32 @@ typedef enum {
     kIOPMNumAssertionTypes      
 } kerAssertionType;
 
+/*
+ * effectStats_t
+ *
+ * This structure accumulates the total duration for which a process is 
+ * holding each assertion effect.
+ */
+typedef struct {
+    uint32_t    cnt;            // Number of assertions of this effect currently held
+    uint64_t    startTime;      // Time at which first assertion is taken after last reset
+} effectStats_t;
 
 typedef struct {
 #if !TARGET_OS_EMBEDDED
     uint8_t    assert_cnt [kIOPMNumAssertionTypes];  // Number of assertions of each type.
                                                      // Set only for app sleep preventing assertions
-    uint32_t   aggregate;                            // Aggregate assertion types of this proc. 
-#endif
+    uint32_t   aggTypes;                             // Aggregate assertion types of this proc. 
                                                      // Set only for app sleep preventing assertions
+#endif
+    effectStats_t       stats[kMaxEffectStats]; // Stats per assertion effect
+    void                *reportBuf;                  // Stats buffer for IOReporter
                                   
-    uint32_t            retain_cnt;     // Total number of assertions raised by this process
+    uint32_t            retain_cnt;     // Retain cnt of this structure
     CFStringRef         name;           // Process name
     dispatch_source_t   disp_src;       // Dispatch src to handle process exit
     pid_t               pid;            // PID 
+    uint32_t            create_seq;
     uint32_t            anychange:1;    // Interested in any assertion changes notification
     uint32_t            aggchange:1;    // Interested in assertion aggregates change notifications
     uint32_t            timeoutchange:1;    // Interested in assertion timeout notification
@@ -148,6 +219,9 @@ typedef struct assertion {
     uint32_t        retainCnt;          // Number of retain calls
 
     ProcessInfo     *pinfo;             // Pointer to ProcessInfo structure
+
+    pid_t           causingPid;         // PID for process on whose behalf this assertion is raised
+    ProcessInfo     *causingPinfo;      // Corresponding ProcessInfo struct 
 } assertion_t;
 
 /* State bits for assertion_t structure */
@@ -157,6 +231,8 @@ typedef struct assertion {
 #define kAssertionLidStateModifier          0x08
 #define kAssertionTimeoutIsSystemTimer      0x10  // Assertion timeout value changes with system idle/display sleep timer 
 #define kAssertionSkipLogging               0x20  // Avoid logging this assertion, even if type is set to kAssertionTypeLogOnCreate
+#define kAssertionStateLogged               0x40
+#define kAssertionStateAddsToProcStats      0x80
 
 /* Mods bits for assertion_t structure */
 #define kAssertionModTimer              0x1
@@ -176,6 +252,10 @@ typedef enum {
 typedef struct assertionType assertionType_t;
 typedef void (*assertionHandler_f)(assertionType_t *a, assertionOps op);
 
+typedef struct {
+    LIST_HEAD(, assertionType)  assertTypes;
+    kerAssertionEffect  effectIdx;
+} assertionEffect_t;
 
 /* Structure per kernel assertion type */
 struct assertionType {
@@ -189,20 +269,23 @@ struct assertionType {
     dispatch_source_t   timer;          /* dispatch source for Per assertion timer */  
     dispatch_source_t   globalTimer;    /* dispatch source for all assertions of this type */
 
+    CFStringRef     entitlement;        /* if set, caller must have this entitlement to create this assertion */
     uint64_t        globalTimeout;      /* Relative time at which assertion is timedout */
     uint32_t        forceTimedoutCnt;   /* Count of assertions turned off due to global timer */
     CFStringRef     uuid;               /* Assertion type specific UUID */
     uint64_t        autoTimeout;        /* Automatic timeout for each assertion;set with kAssertionTypeAutoTimed flag */
 
+    kerAssertionEffect   effectIdx;         
+    LIST_ENTRY(assertionType)    link;
     assertionHandler_f  handler;        /* Function changing the required settings in the kernel for this assertion type */
-    uint32_t            linkedTypes;    /* Assertion types that need same kernel settings as this one, but different behavior
-                                           in powerd.  This field bits are indices into 'gAssertionTypes' array */
+
+    uint32_t            disableCnt;     /* Number of active disable requests for this type */
     CFArrayRef          procs;          /* ProcessInfo of processes holding this assertion type */
 
     // Fields changed by properties set on assertion. 
     // Not all fields are valid for all assertion types 
     uint32_t   validOnBattCount;        /* Count of assertions requesting to be active on Battery power */
-    uint32_t   lidSleepCount;           /* Count of assertions changing clamshellSleep state(For kDeclareUserActivity only) */
+    uint32_t   lidSleepCount;           /* Count of assertions changing clamshellSleep state(For kDeclareUserActivityType only) */
 } ;
 
 /* Flag bits for assertionType_t structure */
@@ -216,9 +299,11 @@ struct assertionType {
 /* Assertion logging actions */
 typedef enum {
     kACreateLog,
+    kACreateRetain,
     kAReleaseLog,
     kAClientDeathLog,
     kATimeoutLog,
+    kACapExpiryLog,
     kASummaryLog,
     kATurnOffLog,
     kATurnOnLog
@@ -270,6 +355,7 @@ __private_extern__ CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
                             CFTimeInterval Timeout,
                             CFStringRef TimeoutBehavior);
 
+
 __private_extern__ CFStringRef processInfoGetName(pid_t p);
 __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS);
 __private_extern__ bool systemBlockedInS0Dark( );
@@ -280,7 +366,21 @@ __private_extern__ void enableAssertionType(kerAssertionType type);
 __private_extern__ void applyToAllAssertionsSync(assertionType_t *assertType, 
       bool applyToInactives,  void (^performOnAssertion)(assertion_t *));
 __private_extern__ void configAssertionType(kerAssertionType idx, bool initialConfig);
+__private_extern__ void logAssertionEvent(assertLogAction assertionAction, assertion_t *assertion);
+__private_extern__ uint8_t getAssertionLevel(kerAssertionType idx);
+__private_extern__ void setAggregateLevel(kerAssertionType idx, uint8_t val);
+__private_extern__ uint32_t getKerAssertionBits( );
+__private_extern__ void setAssertionActivityLog(int value);
+__private_extern__ void setAssertionActivityAggregate(int value);
+__private_extern__ kern_return_t setReservePwrMode(int enable);
+
+__private_extern__ void logASLAllAssertions( );
+
 #if !TARGET_OS_EMBEDDED
+
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);
+
 #endif
+
+
 #endif

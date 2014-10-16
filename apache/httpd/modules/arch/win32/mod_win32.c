@@ -32,9 +32,6 @@
 #include "apr_lib.h"
 #include "ap_regkey.h"
 
-extern OSVERSIONINFO osver; /* hiding in mpm_winnt.c */
-static int win_nt;
-
 /*
  * CGI Script stuff for Win32...
  */
@@ -263,9 +260,7 @@ static apr_array_header_t *split_argv(apr_pool_t *p, const char *interp,
                     break;
                 }
                 ap_unescape_url(w);
-                if (win_nt) {
-                   prep_string(&w, p);
-                }
+                prep_string((const char**)&w, p);
                 arg = (const char**)apr_array_push(args);
                 *arg = ap_escape_shell_cmd(p, w);
             }
@@ -358,9 +353,7 @@ static apr_array_header_t *split_argv(apr_pool_t *p, const char *interp,
                 break;
             }
             ap_unescape_url(w);
-            if (win_nt) {
-                prep_string(&w, p);
-            }
+            prep_string((const char**)&w, p);
             arg = (const char**)apr_array_push(args);
             *arg = ap_escape_shell_cmd(p, w);
         }
@@ -446,12 +439,12 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
          */
         if ((rv = apr_file_open(&fh, *cmd, APR_READ | APR_BUFFERED,
                                  APR_OS_DEFAULT, r->pool)) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(02100)
                           "Failed to open cgi file %s for testing", *cmd);
             return rv;
         }
         if ((rv = apr_file_read(fh, buffer, &bytes)) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(02101)
                           "Failed to read cgi file %s for testing", *cmd);
             return rv;
         }
@@ -512,7 +505,7 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
         }
     }
     if (!interpreter) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02102)
                       "%s is not executable; ensure interpreted scripts have "
                       "\"#!\" or \"'!\" first line", *cmd);
         return APR_EBADF;
@@ -531,7 +524,7 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
      * application (following the OEM or Ansi code page in effect.)
      */
     for (i = 0; i < elts_arr->nelts; ++i) {
-        if (win_nt && elts[i].key && *elts[i].key && *elts[i].val
+        if (elts[i].key && *elts[i].key && *elts[i].val
                 && !(strncmp(elts[i].key, "REMOTE_", 7) == 0
                 || strcmp(elts[i].key, "GATEWAY_INTERFACE") == 0
                 || strcmp(elts[i].key, "REQUEST_METHOD") == 0
@@ -544,16 +537,9 @@ static apr_status_t ap_cgi_build_command(const char **cmd, const char ***argv,
     return APR_SUCCESS;
 }
 
-static int win32_pre_config(apr_pool_t *pconf_, apr_pool_t *plog, apr_pool_t *ptemp)
-{
-    win_nt = (osver.dwPlatformId != VER_PLATFORM_WIN32_WINDOWS);
-    return OK;
-}
-
 static void register_hooks(apr_pool_t *p)
 {
     APR_REGISTER_OPTIONAL_FN(ap_cgi_build_command);
-    ap_hook_pre_config(win32_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 static const command_rec win32_cmds[] = {
@@ -564,7 +550,7 @@ AP_INIT_TAKE1("ScriptInterpreterSource", set_interpreter_source, NULL,
 { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA win32_module = {
+AP_DECLARE_MODULE(win32) = {
    STANDARD20_MODULE_STUFF,
    create_win32_dir_config,     /* create per-dir config */
    merge_win32_dir_configs,     /* merge per-dir config */

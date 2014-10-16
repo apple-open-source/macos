@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,18 +28,17 @@
 
 #if ENABLE(VIDEO)
 
-#include "KURL.h"
-#include <wtf/PassOwnPtr.h>
+#include "URL.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class KURL;
+class URL;
 
-class MediaFragmentURIParser FINAL {
+class MediaFragmentURIParser final {
 public:
     
-    MediaFragmentURIParser(const KURL&);
+    MediaFragmentURIParser(const URL&);
 
     double startTime();
     double endTime();
@@ -55,11 +54,11 @@ private:
     bool parseNPTFragment(const LChar*, unsigned length, double& startTime, double& endTime);
     bool parseNPTTime(const LChar*, unsigned length, unsigned& offset, double& time);
 
-    KURL m_url;
+    URL m_url;
     TimeFormat m_timeFormat;
     double m_startTime;
     double m_endTime;
-    Vector<std::pair<String, String> > m_fragments;
+    Vector<std::pair<String, String>> m_fragments;
 };
 
 } // namespace WebCore

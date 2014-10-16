@@ -19,8 +19,8 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
 			$(AP_WORK)/include \
+			$(AP_WORK)/modules/http \
 			$(NWOS) \
-			$(HTTPD) \
 			$(EOLIST)
 
 #
@@ -164,7 +164,6 @@ TARGET_lib = \
 #
 FILES_nlm_objs = \
 	$(OBJDIR)/mod_proxy_ajp.o \
-	$(OBJDIR)/proxy_util.o \
 	$(OBJDIR)/ajp_header.o \
 	$(OBJDIR)/ajp_msg.o \
 	$(OBJDIR)/ajp_link.o \
@@ -218,7 +217,7 @@ FILES_nlm_Ximports = \
 # Don't link with Winsock if standard sockets are being used
 ifndef USE_STDSOCKETS
 FILES_nlm_Ximports += @ws2nlm.imp \
-	$(EOLIST)
+	       $(EOLIST)
 endif
  
 #   

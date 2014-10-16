@@ -134,7 +134,7 @@ _gsskrb5_pseudo_random(OM_uint32 *minor_status,
 
 	tsize = min(dol, output.length);
 	memcpy(p, output.data, tsize);
-	p += output.length;
+	p += tsize;
 	dol -= tsize;
 	krb5_data_free(&output);
 	num++;

@@ -1,5 +1,0 @@
-/^use vars/a
-require bytes;
-.
-/"Content-Length" => length/s/length/bytes::&/
-w

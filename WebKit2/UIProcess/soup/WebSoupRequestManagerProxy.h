@@ -29,42 +29,45 @@
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
+namespace API {
+class Data;
+}
+
 namespace WebKit {
 
 class WebContext;
-class WebData;
 
-class WebSoupRequestManagerProxy : public TypedAPIObject<APIObject::TypeSoupRequestManager>, public WebContextSupplement, private CoreIPC::MessageReceiver {
+class WebSoupRequestManagerProxy : public API::ObjectImpl<API::Object::Type::SoupRequestManager>, public WebContextSupplement, private IPC::MessageReceiver {
 public:
     static const char* supplementName();
 
     static PassRefPtr<WebSoupRequestManagerProxy> create(WebContext*);
     virtual ~WebSoupRequestManagerProxy();
 
-    void initializeClient(const WKSoupRequestManagerClient*);
+    void initializeClient(const WKSoupRequestManagerClientBase*);
 
     void registerURIScheme(const String& scheme);
-    void didHandleURIRequest(const WebData*, uint64_t contentLength, const String& mimeType, uint64_t requestID);
-    void didReceiveURIRequestData(const WebData*, uint64_t requestID);
+    void didHandleURIRequest(const API::Data*, uint64_t contentLength, const String& mimeType, uint64_t requestID);
+    void didReceiveURIRequestData(const API::Data*, uint64_t requestID);
     void didReceiveURIRequest(const String& uriString, WebPageProxy*, uint64_t requestID);
     void didFailURIRequest(const WebCore::ResourceError&, uint64_t requestID);
 
     const Vector<String>& registeredURISchemes() const { return m_registeredURISchemes; }
 
-    using APIObject::ref;
-    using APIObject::deref;
+    using API::Object::ref;
+    using API::Object::deref;
 
 private:
     WebSoupRequestManagerProxy(WebContext*);
 
     // WebContextSupplement
-    virtual void contextDestroyed() OVERRIDE;
-    virtual void processDidClose(WebProcessProxy*) OVERRIDE;
-    virtual void refWebContextSupplement() OVERRIDE;
-    virtual void derefWebContextSupplement() OVERRIDE;
+    virtual void contextDestroyed() override;
+    virtual void processDidClose(WebProcessProxy*) override;
+    virtual void refWebContextSupplement() override;
+    virtual void derefWebContextSupplement() override;
 
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
     void didFailToLoadURIRequest(uint64_t requestID);
 

@@ -42,12 +42,8 @@
 
 #pragma ident	"@(#)libctf.h	1.6	05/06/08 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/ctf_api.h>
-#else /* is Apple Mac OS X */
 #include "darwin_shim.h"
 #include "ctf_api.h" /* In lieu of Solaris <sys/ctf_api.h> */
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {

@@ -29,9 +29,20 @@
 #include "EwkView.h"
 #include "WKAPICast.h"
 #include "WebViewEfl.h"
-#include <WebKit2/WKImageCairo.h>
+#include <Evas.h>
+#include <WebKit/WKImageCairo.h>
 
 using namespace WebKit;
+
+void WKViewSetColorPickerClient(WKViewRef viewRef, const WKColorPickerClientBase* wkClient)
+{
+#if ENABLE(INPUT_TYPE_COLOR)
+    static_cast<WebViewEfl*>(toImpl(viewRef))->initializeColorPickerClient(wkClient);
+#else
+    UNUSED_PARAM(viewRef);
+    UNUSED_PARAM(wkClient);
+#endif
+}
 
 void WKViewPaintToCairoSurface(WKViewRef viewRef, cairo_surface_t* surface)
 {
@@ -47,4 +58,48 @@ WKImageRef WKViewCreateSnapshot(WKViewRef viewRef)
 void WKViewSetThemePath(WKViewRef viewRef, WKStringRef theme)
 {
     static_cast<WebViewEfl*>(toImpl(viewRef))->setThemePath(toImpl(theme)->string());
+}
+
+void WKViewSendTouchEvent(WKViewRef viewRef, WKTouchEventRef touchEventRef)
+{
+#if ENABLE(TOUCH_EVENTS)
+    static_cast<WebViewEfl*>(toImpl(viewRef))->sendTouchEvent(toImpl(touchEventRef));
+#else
+    UNUSED_PARAM(viewRef);
+    UNUSED_PARAM(touchEventRef);
+#endif
+}
+
+void WKViewSendMouseDownEvent(WKViewRef viewRef, Evas_Event_Mouse_Down* event)
+{
+    static_cast<WebViewEfl*>(toImpl(viewRef))->sendMouseEvent(event);
+}
+
+void WKViewSendMouseUpEvent(WKViewRef viewRef, Evas_Event_Mouse_Up* event)
+{
+    static_cast<WebViewEfl*>(toImpl(viewRef))->sendMouseEvent(event);
+}
+
+void WKViewSendMouseMoveEvent(WKViewRef viewRef, Evas_Event_Mouse_Move* event)
+{
+    static_cast<WebViewEfl*>(toImpl(viewRef))->sendMouseEvent(event);
+}
+
+void WKViewSetBackgroundColor(WKViewRef viewRef, int red, int green, int blue, int alpha)
+{
+    static_cast<WebViewEfl*>(toImpl(viewRef))->setViewBackgroundColor(WebCore::Color(red, green, blue, alpha));
+}
+
+void WKViewGetBackgroundColor(WKViewRef viewRef, int* red, int* green, int* blue, int* alpha)
+{
+    WebCore::Color backgroundColor = static_cast<WebViewEfl*>(toImpl(viewRef))->viewBackgroundColor();
+
+    if (red)
+        *red = backgroundColor.red();
+    if (green)
+        *green = backgroundColor.green();
+    if (blue)
+        *blue = backgroundColor.blue();
+    if (alpha)
+        *alpha = backgroundColor.alpha();
 }

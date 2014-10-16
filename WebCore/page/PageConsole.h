@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,41 +29,52 @@
 #ifndef PageConsole_h
 #define PageConsole_h
 
-#include "ConsoleTypes.h"
-#include "ScriptCallStack.h"
-#include "ScriptState.h"
+#include <inspector/ScriptCallStack.h>
+#include <runtime/ConsoleClient.h>
 #include <wtf/Forward.h>
-#include <wtf/PassOwnPtr.h>
+
+namespace JSC {
+class ExecState;
+class Profile;
+}
 
 namespace WebCore {
 
 class Document;
 class Page;
 
-class PageConsole {
+typedef Vector<RefPtr<JSC::Profile>> ProfilesArray;
+
+class PageConsole final : public JSC::ConsoleClient {
 public:
-    static PassOwnPtr<PageConsole> create(Page* page) { return adoptPtr(new PageConsole(page)); }
+    explicit PageConsole(Page&);
     virtual ~PageConsole();
-
-    static void printSourceURLAndLine(const String& sourceURL, unsigned lineNumber);
-    static void printMessageSourceAndLevelPrefix(MessageSource, MessageLevel);
-
-    void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, PassRefPtr<ScriptCallStack> = 0, ScriptState* = 0, unsigned long requestIdentifier = 0);
-    void addMessage(MessageSource, MessageLevel, const String& message, PassRefPtr<ScriptCallStack>);
-    void addMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0, Document* = 0);
-
-    static void mute();
-    static void unmute();
 
     static bool shouldPrintExceptions();
     static void setShouldPrintExceptions(bool);
 
+    static void mute();
+    static void unmute();
+
+    void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, PassRefPtr<Inspector::ScriptCallStack> = nullptr, JSC::ExecState* = nullptr, unsigned long requestIdentifier = 0);
+    void addMessage(MessageSource, MessageLevel, const String& message, PassRefPtr<Inspector::ScriptCallStack>);
+    void addMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0, Document* = nullptr);
+
+    const ProfilesArray& profiles() const { return m_profiles; }
+    void clearProfiles();
+
+protected:
+    virtual void messageWithTypeAndLevel(MessageType, MessageLevel, JSC::ExecState*, PassRefPtr<Inspector::ScriptArguments>) override;
+    virtual void count(JSC::ExecState*, PassRefPtr<Inspector::ScriptArguments>) override;
+    virtual void profile(JSC::ExecState*, const String& title) override;
+    virtual void profileEnd(JSC::ExecState*, const String& title) override;
+    virtual void time(JSC::ExecState*, const String& title) override;
+    virtual void timeEnd(JSC::ExecState*, const String& title) override;
+    virtual void timeStamp(JSC::ExecState*, PassRefPtr<Inspector::ScriptArguments>) override;
+
 private:
-    PageConsole(Page*);
-
-    Page* page() { return m_page; };
-
-    Page* m_page;
+    Page& m_page;
+    ProfilesArray m_profiles;
 };
 
 } // namespace WebCore

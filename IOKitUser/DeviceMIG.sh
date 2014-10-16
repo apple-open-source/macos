@@ -47,7 +47,7 @@ runMig()
 	migargs=$@
 	set -- $ARCHS
 	MIGARCH=$1; shift
-	cmd="$MIG -cc $MIGCC -arch $MIGARCH ${migargs} -server /dev/null -header $head -user $user $input";
+	cmd="$MIG -cc $MIGCC -arch $MIGARCH ${migargs} -novouchers -server /dev/null -header $head -user $user $input";
     echo $cmd
     eval $cmd
 }

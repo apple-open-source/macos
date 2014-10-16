@@ -603,7 +603,7 @@ static int register_probes(dtrace_hdl_t* dtp, int count, const char* labels[], c
                 
                 // Grab the provider name
                 
-                char* end = strstr(label, dtrace_separator);
+                const char* end = strstr(label, dtrace_separator);
                 if(!end) {
                         fprintf(stderr, "error: probe marker contains no provider name: %s\n", label0);
                         return -1;

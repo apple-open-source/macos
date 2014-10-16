@@ -7,7 +7,7 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ckb.xml
+ * ICU <specials> source: <path>/common/main/ckb.xml
  */
 ckb{
     Keys{
@@ -186,13 +186,13 @@ ckb{
             mymr{"ژمارە میانمارییەکان"}
         }
     }
-    Version{"2.0.82.15"}
+    Version{"2.0.92.90"}
     codePatterns{
         language{"زمان: {0}"}
         script{"خەت: {0}"}
         territory{"ناوچە: {0}"}
     }
     localeDisplayPattern{
-        separator{"، "}
+        separator{"،"}
     }
 }

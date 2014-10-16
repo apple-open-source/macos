@@ -26,6 +26,8 @@
 #import "config.h"
 #import "NetworkResourceLoader.h"
 
+#if ENABLE(NETWORK_PROCESS)
+
 #import "DiskCacheMonitor.h"
 #import "ShareableResource.h"
 #import <WebCore/ResourceHandle.h>
@@ -42,7 +44,7 @@ using namespace WebCore;
 #endif
 #endif
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 typedef const struct _CFURLCache* CFURLCacheRef;
 typedef const struct _CFCachedURLResponse* CFCachedURLResponseRef;
 extern "C" CFURLCacheRef CFURLCacheCopySharedURLCache();
@@ -57,7 +59,7 @@ extern "C" CFBooleanRef _CFURLCacheIsResponseDataMemMapped(CFURLCacheRef, CFData
 
 namespace WebKit {
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
 static void tryGetShareableHandleFromCFData(ShareableResource::Handle& handle, CFDataRef data)
 {
@@ -84,15 +86,21 @@ void NetworkResourceLoader::tryGetShareableHandleFromCFURLCachedResponse(Shareab
 
 void NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(ShareableResource::Handle& handle, SharedBuffer* buffer)
 {
-    RetainPtr<CFURLCacheRef> cache = adoptCF(CFURLCacheCopySharedURLCache());
+    static CFURLCacheRef cache = CFURLCacheCopySharedURLCache();
+    ASSERT(isMainThread());
+    ASSERT(cache == adoptCF(CFURLCacheCopySharedURLCache()));
+
     if (!cache)
         return;
 
-    RetainPtr<CFDataRef> data = adoptCF(buffer->createCFData());
-    if (_CFURLCacheIsResponseDataMemMapped(cache.get(), data.get()) == kCFBooleanFalse)
+    CFDataRef data = buffer->existingCFData();
+    if (!data)
         return;
 
-    tryGetShareableHandleFromCFData(handle, data.get());
+    if (_CFURLCacheIsResponseDataMemMapped(cache, data) == kCFBooleanFalse)
+        return;
+
+    tryGetShareableHandleFromCFData(handle, data);
 }
 #endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
@@ -100,6 +108,19 @@ size_t NetworkResourceLoader::fileBackedResourceMinimumSize()
 {
     return SharedMemory::systemPageSize();
 }
+
+#if USE(CFNETWORK)
+void NetworkResourceLoader::willCacheResponseAsync(ResourceHandle* handle, CFCachedURLResponseRef cfResponse)
+{
+    ASSERT_UNUSED(handle, handle == m_handle);
+
+    if (m_bytesReceived >= fileBackedResourceMinimumSize())
+        DiskCacheMonitor::monitorFileBackingStoreCreation(cfResponse, this);
+
+    m_handle->continueWillCacheResponse(cfResponse);
+}
+
+#else
 
 void NetworkResourceLoader::willCacheResponseAsync(ResourceHandle* handle, NSCachedURLResponse *nsResponse)
 {
@@ -112,5 +133,9 @@ void NetworkResourceLoader::willCacheResponseAsync(ResourceHandle* handle, NSCac
 
     m_handle->continueWillCacheResponse(nsResponse);
 }
+#endif // !USE(CFNETWORK)
 
 } // namespace WebKit
+
+#endif // ENABLE(NETWORK_PROCESS)
+

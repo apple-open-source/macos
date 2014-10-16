@@ -189,7 +189,7 @@ TRYAGAIN:
 		xar_ea_pset(f, e, "fstype", fsname);
 		context.attrname = i;
 		context.ea = e;
-		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_linuxattr_read,&context);
+		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_linuxattr_read,&context);
 		free(context.buf);
 		context.attrname = NULL;
 	}
@@ -261,7 +261,7 @@ int32_t xar_linuxattr_extract(xar_t x, xar_file_t f, const char* file, char *buf
 
 		context.file = file;
 		context.attrname = eaname;
-		xar_attrcopy_from_heap(x, f, p, xar_linuxattr_write, &context);
+		XAR(x)->attrcopy_from_heap(x, f, p, xar_linuxattr_write, &context);
 
 	}
 

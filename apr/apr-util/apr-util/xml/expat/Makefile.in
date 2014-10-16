@@ -77,7 +77,9 @@ distclean: clean
 
 extraclean: distclean
 	rm -f expat_config.h.in configure
-	rm -f conftools/ltconfig conftools/ltmain.sh conftools/libtool.m4
+	rm -f conftools/aclocal.m4 conftools/ltconfig conftools/ltmain.sh
+	rm -f conftools/argz.m4 conftools/libtool.m4 conftools/ltoptions.m4
+	rm -f conftools/ltsugar.m4 conftools/ltversion.m4 conftools/lt~obsolete.m4
 
 check: tests/runtests
 	tests/runtests

@@ -220,7 +220,7 @@ static const char *start_ifversion(cmd_parms *cmd, void *mconfig,
         case '=':
             /* normal comparison */
             if (*arg2 != '/') {
-                compare = compare_version(apr_pstrmemdup(cmd->pool, arg2,
+                compare = compare_version(apr_pstrmemdup(cmd->temp_pool, arg2,
                                                          endp-arg2),
                                           &error);
                 if (error) {
@@ -238,8 +238,9 @@ static const char *start_ifversion(cmd_parms *cmd, void *mconfig,
 
         case '~':
             /* regular expression */
-            match = match_version(cmd->pool, apr_pstrmemdup(cmd->pool, arg2,
-                                                            endp-arg2),
+            match = match_version(cmd->temp_pool,
+                                  apr_pstrmemdup(cmd->temp_pool, arg2,
+                                                 endp-arg2),
                                   &error);
             if (error) {
                 return error;
@@ -247,7 +248,7 @@ static const char *start_ifversion(cmd_parms *cmd, void *mconfig,
             break;
 
         case '<':
-            compare = compare_version(apr_pstrmemdup(cmd->pool, arg2,
+            compare = compare_version(apr_pstrmemdup(cmd->temp_pool, arg2,
                                                      endp-arg2),
                                       &error);
             if (error) {
@@ -258,7 +259,7 @@ static const char *start_ifversion(cmd_parms *cmd, void *mconfig,
             break;
 
         case '>':
-            compare = compare_version(apr_pstrmemdup(cmd->pool, arg2,
+            compare = compare_version(apr_pstrmemdup(cmd->temp_pool, arg2,
                                                      endp-arg2),
                                       &error);
             if (error) {
@@ -300,7 +301,7 @@ static const command_rec version_cmds[] = {
     { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA version_module =
+AP_DECLARE_MODULE(version) =
 {
     STANDARD20_MODULE_STUFF,
     NULL,             /* dir config creater */

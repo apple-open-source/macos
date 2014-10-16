@@ -75,6 +75,8 @@
                 same time.              
 */
 
+#include <CommonCrypto/CommonCryptoError.h>
+
 #ifndef _CC_COMMON_CRYPTOR_
 #define _CC_COMMON_CRYPTOR_
 
@@ -95,32 +97,6 @@ extern "C" {
  */
 typedef struct _CCCryptor *CCCryptorRef;
 
-/*!
-    @enum       CCCryptorStatus
-    @abstract   Return values from CommonCryptor operations.
-    
-    @constant   kCCSuccess          Operation completed normally.
-    @constant   kCCParamError       Illegal parameter value.
-    @constant   kCCBufferTooSmall   Insufficent buffer provided for specified 
-                                    operation.
-    @constant   kCCMemoryFailure    Memory allocation failure. 
-    @constant   kCCAlignmentError   Input size was not aligned properly. 
-    @constant   kCCDecodeError      Input data did not decode or decrypt 
-                                    properly.
-    @constant   kCCUnimplemented    Function not implemented for the current 
-                                    algorithm.
- */
-enum {
-    kCCSuccess          = 0,
-    kCCParamError       = -4300,
-    kCCBufferTooSmall   = -4301,
-    kCCMemoryFailure    = -4302,
-    kCCAlignmentError   = -4303,
-    kCCDecodeError      = -4304,
-    kCCUnimplemented    = -4305,
-    kCCOverflow         = -4306
-};
-typedef int32_t CCCryptorStatus;
 
 /*!
     @enum       CCOperation

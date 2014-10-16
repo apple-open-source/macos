@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -43,11 +43,11 @@ char*		file;		/* file/string to be opened */
 char*		mode;		/* mode of the stream */
 #endif
 {
-	int	fd, oldfd, oflags, sflags;
+	int	fd, oldfd, oflags, fflags, sflags;
 	SFMTXDECL(f);
 
 	/* get the control flags */
-	if((sflags = _sftype(mode,&oflags,NIL(int*))) == 0)
+	if((sflags = _sftype(mode,&oflags,&fflags,NIL(int*))) == 0)
 		return NIL(Sfio_t*);
 
 	/* changing the control flags */
@@ -74,11 +74,17 @@ char*		mode;		/* mode of the stream */
 				SFMTXRETURN(f,NIL(Sfio_t*));
 		}
 
-		if(f->file >= 0 && (oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0 )
-		{	/* set file access control */
-			int ctl = sysfcntlf(f->file, F_GETFL, 0);
-			ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
-			sysfcntlf(f->file, F_SETFL, ctl);
+		if(f->file >= 0 )
+		{	if ((oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0 )
+			{	/* set file access control */
+				int ctl = sysfcntlf(f->file, F_GETFL, 0);
+				ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
+				sysfcntlf(f->file, F_SETFL, ctl);
+			}
+#if !O_cloexec
+			if (fflags & SF_FD_CLOEXEC)
+				SETCLOEXEC(f->file);
+#endif
 		}
 
 		SFMTXRETURN(f,f);
@@ -137,21 +143,22 @@ char*		mode;		/* mode of the stream */
 }
 
 #if __STD_C
-int _sftype(reg const char* mode, int* oflagsp, int* uflagp)
+int _sftype(reg const char* mode, int* oflagsp, int* fflagsp, int* uflagp)
 #else
-int _sftype(mode, oflagsp, uflagp)
+int _sftype(mode, oflagsp, fflagsp, uflagp)
 reg char*	mode;
 int*		oflagsp;
+int*		fflagsp;
 int*		uflagp;
 #endif
 {
-	reg int	sflags, oflags, uflag;
+	reg int	sflags, oflags, fflags, uflag;
 
 	if(!mode)
 		return 0;
 
 	/* construct the open flags */
-	sflags = oflags = uflag = 0;
+	sflags = oflags = fflags = uflag = 0;
 	while(1) switch(*mode++)
 	{
 	case 'a' :
@@ -160,6 +167,10 @@ int*		uflagp;
 		continue;
 	case 'b' :
 		oflags |= O_BINARY;
+		continue;
+	case 'e' :
+		oflags |= O_cloexec;
+		fflags |= SF_FD_CLOEXEC;
 		continue;
 	case 'm' :
 		sflags |= SF_MTSAFE;
@@ -210,6 +221,8 @@ int*		uflagp;
 			oflags = (oflags&~O_ACCMODE)|O_RDWR;
 		if(oflagsp)
 			*oflagsp = oflags;
+		if(fflagsp)
+			*fflagsp = fflags;
 		if(uflagp)
 			*uflagp = uflag;
 		if((sflags&(SF_STRING|SF_RDWR)) == SF_STRING)

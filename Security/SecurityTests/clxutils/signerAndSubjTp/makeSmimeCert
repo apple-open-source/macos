@@ -1,0 +1,38 @@
+#! /bin/csh -f
+#
+# Make S/MIME cert and a root that signs it. Import the subject cert and 
+# its private key into keychain specified by argv[2]. Email address
+# of subject cert specified in argv[1]. Root cert written to ssRootCert.cer.
+# which should be imported into the system root DB via KCA. 
+#
+if( $#argv != 2 ) then
+	echo Usage: makeSmimeCert emailAddrs keychain
+	exit(1)
+endif
+#
+#
+# const names shared with signerAndSubjTp
+set subjCertFile=ssSubjCert.cer
+set subjKeyFile=ssSubjKey.der
+set rootCertFile=ssRootCert.cer
+#
+# args from command line 
+#
+set emailAddr=$argv[1]
+set kcName=$argv[2]
+#
+#
+#
+echo creating certs and keys...
+set cmd="signerAndSubjTp w e=$emailAddr"
+echo $cmd
+$cmd || exit(1)
+#
+echo Importing subject cert and private key into $kcName...
+set cmd="certtool i $subjCertFile k=$kcName r=$subjKeyFile f=8 d"
+echo $cmd
+$cmd || exit(1)
+#
+echo === Complete ===
+echo Remember to import $rootCertFile into X509Anchors.
+

@@ -59,7 +59,7 @@
  *
  * Examples:
  *
- * To set the enviroment variable LOCALHOST if the client is the local
+ * To set the environment variable LOCALHOST if the client is the local
  * machine:
  *
  *    SetEnvIf remote_addr 127.0.0.1 LOCALHOST
@@ -94,7 +94,6 @@
 #include "http_log.h"
 #include "http_protocol.h"
 
-
 enum special {
     SPECIAL_NOT,
     SPECIAL_REMOTE_ADDR,
@@ -110,6 +109,7 @@ typedef struct {
     char *regex;                /* regex to match against */
     ap_regex_t *preg;           /* compiled regex */
     const apr_strmatch_pattern *pattern; /* non-regex pattern to match */
+    ap_expr_info_t *expr;       /* parsed expression */
     apr_table_t *features;      /* env vars to set (or unset) */
     enum special special_type;  /* is it a "special" header ? */
     int icase;                  /* ignoring case? */
@@ -165,17 +165,15 @@ static void *merge_setenvif_config(apr_pool_t *p, void *basev, void *overridesv)
 #define ICASE_MAGIC  ((void *)(&setenvif_module))
 #define SEI_MAGIC_HEIRLOOM "setenvif-phase-flag"
 
+static ap_regex_t *is_header_regex_regex;
+
 static int is_header_regex(apr_pool_t *p, const char* name)
 {
     /* If a Header name contains characters other than:
      *    -,_,[A-Z\, [a-z] and [0-9].
      * assume the header name is a regular expression.
      */
-    ap_regex_t *preg = ap_pregcomp(p, "^[-A-Za-z0-9_]*$",
-                                   (AP_REG_EXTENDED | AP_REG_NOSUB ));
-    ap_assert(preg != NULL);
-
-    if (ap_regexec(preg, name, 0, NULL, 0)) {
+    if (ap_regexec(is_header_regex_regex, name, 0, NULL, 0)) {
         return 1;
     }
 
@@ -248,18 +246,48 @@ static const char *non_regex_pattern(apr_pool_t *p, const char *s)
     }
 }
 
+static const char *add_envvars(cmd_parms *cmd, const char *args, sei_entry *new)
+{
+    const char *feature;
+    int beenhere = 0;
+    char *var;
+
+    for ( ; ; ) {
+        feature = ap_getword_conf(cmd->pool, &args);
+        if (!*feature) {
+            break;
+        }
+        beenhere++;
+
+        var = ap_getword(cmd->pool, &feature, '=');
+        if (*feature) {
+            apr_table_setn(new->features, var, feature);
+        }
+        else if (*var == '!') {
+            apr_table_setn(new->features, var + 1, "!");
+        }
+        else {
+            apr_table_setn(new->features, var, "1");
+        }
+    }
+
+    if (!beenhere) {
+        return apr_pstrcat(cmd->pool, "Missing envariable expression for ",
+                           cmd->cmd->name, NULL);
+    }
+
+    return NULL;
+}
+
 static const char *add_setenvif_core(cmd_parms *cmd, void *mconfig,
                                      char *fname, const char *args)
 {
     char *regex;
     const char *simple_pattern;
-    const char *feature;
     sei_cfg_rec *sconf;
     sei_entry *new;
     sei_entry *entries;
-    char *var;
     int i;
-    int beenhere = 0;
     int icase;
 
     /*
@@ -286,7 +314,7 @@ static const char *add_setenvif_core(cmd_parms *cmd, void *mconfig,
      */
     for (i = 0; i < sconf->conditionals->nelts; ++i) {
         new = &entries[i];
-        if (!strcasecmp(new->name, fname)) {
+        if (new->name && !strcasecmp(new->name, fname)) {
             fname = new->name;
             break;
         }
@@ -352,7 +380,7 @@ static const char *add_setenvif_core(cmd_parms *cmd, void *mconfig,
              * (new->pnamereg = NULL) to avoid the overhead of searching
              * through headers_in for a regex match.
              */
-            if (is_header_regex(cmd->pool, fname)) {
+            if (is_header_regex(cmd->temp_pool, fname)) {
                 new->pnamereg = ap_pregcomp(cmd->pool, fname,
                                             (AP_REG_EXTENDED | AP_REG_NOSUB
                                              | (icase ? AP_REG_ICASE : 0)));
@@ -370,31 +398,7 @@ static const char *add_setenvif_core(cmd_parms *cmd, void *mconfig,
         new = &entries[i];
     }
 
-    for ( ; ; ) {
-        feature = ap_getword_conf(cmd->pool, &args);
-        if (!*feature) {
-            break;
-        }
-        beenhere++;
-
-        var = ap_getword(cmd->pool, &feature, '=');
-        if (*feature) {
-            apr_table_setn(new->features, var, feature);
-        }
-        else if (*var == '!') {
-            apr_table_setn(new->features, var + 1, "!");
-        }
-        else {
-            apr_table_setn(new->features, var, "1");
-        }
-    }
-
-    if (!beenhere) {
-        return apr_pstrcat(cmd->pool, "Missing envariable expression for ",
-                           cmd->cmd->name, NULL);
-    }
-
-    return NULL;
+    return add_envvars(cmd, args, new);
 }
 
 static const char *add_setenvif(cmd_parms *cmd, void *mconfig,
@@ -409,6 +413,44 @@ static const char *add_setenvif(cmd_parms *cmd, void *mconfig,
                            cmd->cmd->name, NULL);
     }
     return add_setenvif_core(cmd, mconfig, fname, args);
+}
+
+static const char *add_setenvifexpr(cmd_parms *cmd, void *mconfig,
+                                    const char *args)
+{
+    char *expr;
+    sei_cfg_rec *sconf;
+    sei_entry *new;
+    const char *err;
+
+    /*
+     * Determine from our context into which record to put the entry.
+     * cmd->path == NULL means we're in server-wide context; otherwise,
+     * we're dealing with a per-directory setting.
+     */
+    sconf = (cmd->path != NULL)
+      ? (sei_cfg_rec *) mconfig
+      : (sei_cfg_rec *) ap_get_module_config(cmd->server->module_config,
+                                               &setenvif_module);
+    /* get expr */
+    expr = ap_getword_conf(cmd->pool, &args);
+    if (!*expr) {
+        return apr_pstrcat(cmd->pool, "Missing expression for ",
+                           cmd->cmd->name, NULL);
+    }
+
+    new = apr_array_push(sconf->conditionals);
+    new->features = apr_table_make(cmd->pool, 2);
+    new->name = NULL;
+    new->regex = NULL;
+    new->pattern = NULL;
+    new->preg = NULL;
+    new->expr = ap_expr_parse_cmd(cmd, expr, 0, &err, NULL);
+    if (err)
+        return apr_psprintf(cmd->pool, "Could not parse expression \"%s\": %s",
+                            expr, err);
+
+    return add_envvars(cmd, args, new);
 }
 
 /*
@@ -427,6 +469,8 @@ static const command_rec setenvif_module_cmds[] =
                      "A header-name, regex and a list of variables."),
     AP_INIT_RAW_ARGS("SetEnvIfNoCase", add_setenvif, ICASE_MAGIC, OR_FILEINFO,
                      "a header-name, regex and a list of variables."),
+    AP_INIT_RAW_ARGS("SetEnvIfExpr", add_setenvifexpr, NULL, OR_FILEINFO,
+                     "an expression and a list of variables."),
     AP_INIT_RAW_ARGS("BrowserMatch", add_browser, NULL, OR_FILEINFO,
                      "A browser regex and a list of variables."),
     AP_INIT_RAW_ARGS("BrowserMatchNoCase", add_browser, ICASE_MAGIC,
@@ -449,7 +493,7 @@ static int match_headers(request_rec *r)
     sei_cfg_rec *sconf;
     sei_entry *entries;
     const apr_table_entry_t *elts;
-    const char *val;
+    const char *val, *err;
     apr_size_t val_len = 0;
     int i, j;
     char *last_name;
@@ -471,66 +515,71 @@ static int match_headers(request_rec *r)
     for (i = 0; i < sconf->conditionals->nelts; ++i) {
         sei_entry *b = &entries[i];
 
-        /* Optimize the case where a bunch of directives in a row use the
-         * same header.  Remember we don't need to strcmp the two header
-         * names because we made sure the pointers were equal during
-         * configuration.
-         */
-        if (b->name != last_name) {
-            last_name = b->name;
-            switch (b->special_type) {
-            case SPECIAL_REMOTE_ADDR:
-                val = r->connection->remote_ip;
-                break;
-            case SPECIAL_SERVER_ADDR:
-                val = r->connection->local_ip;
-                break;
-            case SPECIAL_REMOTE_HOST:
-                val =  ap_get_remote_host(r->connection, r->per_dir_config,
-                                          REMOTE_NAME, NULL);
-                break;
-            case SPECIAL_REQUEST_URI:
-                val = r->uri;
-                break;
-            case SPECIAL_REQUEST_METHOD:
-                val = r->method;
-                break;
-            case SPECIAL_REQUEST_PROTOCOL:
-                val = r->protocol;
-                break;
-            case SPECIAL_NOT:
-                if (b->pnamereg) {
-                    /* Matching headers_in against a regex. Iterate through
-                     * the headers_in until we find a match or run out of
-                     * headers.
-                     */
-                    const apr_array_header_t
-                        *arr = apr_table_elts(r->headers_in);
+        if (!b->expr) {
+            /* Optimize the case where a bunch of directives in a row use the
+             * same header.  Remember we don't need to strcmp the two header
+             * names because we made sure the pointers were equal during
+             * configuration.
+             */
+            if (b->name != last_name) {
+                last_name = b->name;
+                switch (b->special_type) {
+                case SPECIAL_REMOTE_ADDR:
+                    val = r->useragent_ip;
+                    break;
+                case SPECIAL_SERVER_ADDR:
+                    val = r->connection->local_ip;
+                    break;
+                case SPECIAL_REMOTE_HOST:
+                    val =  ap_get_remote_host(r->connection, r->per_dir_config,
+                                              REMOTE_NAME, NULL);
+                    break;
+                case SPECIAL_REQUEST_URI:
+                    val = r->uri;
+                    break;
+                case SPECIAL_REQUEST_METHOD:
+                    val = r->method;
+                    break;
+                case SPECIAL_REQUEST_PROTOCOL:
+                    val = r->protocol;
+                    break;
+                case SPECIAL_NOT:
+                    if (b->pnamereg) {
+                        /* Matching headers_in against a regex. Iterate through
+                         * the headers_in until we find a match or run out of
+                         * headers.
+                         */
+                        const apr_array_header_t
+                            *arr = apr_table_elts(r->headers_in);
 
-                    elts = (const apr_table_entry_t *) arr->elts;
-                    val = NULL;
-                    for (j = 0; j < arr->nelts; ++j) {
-                        if (!ap_regexec(b->pnamereg, elts[j].key, 0, NULL, 0)) {
-                            val = elts[j].val;
+                        elts = (const apr_table_entry_t *) arr->elts;
+                        val = NULL;
+                        for (j = 0; j < arr->nelts; ++j) {
+                            if (!ap_regexec(b->pnamereg, elts[j].key, 0, NULL, 0)) {
+                                val = elts[j].val;
+                            }
+                        }
+                    }
+                    else {
+                        /* Not matching against a regex */
+                        val = apr_table_get(r->headers_in, b->name);
+                        if (val == NULL) {
+                            val = apr_table_get(r->subprocess_env, b->name);
                         }
                     }
                 }
-                else {
-                    /* Not matching against a regex */
-                    val = apr_table_get(r->headers_in, b->name);
-                    if (val == NULL) {
-                        val = apr_table_get(r->subprocess_env, b->name);
-                    }
-                }
+                val_len = val ? strlen(val) : 0;
             }
-            val_len = val ? strlen(val) : 0;
+
         }
 
         /*
          * A NULL value indicates that the header field or special entity
          * wasn't present or is undefined.  Represent that as an empty string
          * so that REs like "^$" will work and allow envariable setting
-         * based on missing or empty field.
+         * based on missing or empty field. This is also necessary to make
+         * ap_pregsub work after evaluating an ap_expr_t which does set the
+         * regexp backref data.
          */
         if (val == NULL) {
             val = "";
@@ -538,8 +587,9 @@ static int match_headers(request_rec *r)
         }
 
         if ((b->pattern && apr_strmatch(b->pattern, val, val_len)) ||
-            (!b->pattern && !ap_regexec(b->preg, val, AP_MAX_REG_MATCH, regm,
-                                        0))) {
+            (b->preg && !ap_regexec(b->preg, val, AP_MAX_REG_MATCH, regm, 0)) ||
+            (b->expr && ap_expr_exec_re(r, b->expr, AP_MAX_REG_MATCH, regm, &val, &err) > 0))
+        {
             const apr_array_header_t *arr = apr_table_elts(b->features);
             elts = (const apr_table_entry_t *) arr->elts;
 
@@ -556,7 +606,7 @@ static int match_headers(request_rec *r)
                                            replaced);
                         }
                         else {
-                            ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
+                            ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, APLOGNO(01505)
                                           "Regular expression replacement "
                                           "failed for '%s', value too long?",
                                           elts[j].key);
@@ -568,6 +618,8 @@ static int match_headers(request_rec *r)
                                        elts[j].val);
                     }
                 }
+                ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "Setting %s",
+                              elts[j].key);
             }
         }
     }
@@ -579,9 +631,13 @@ static void register_hooks(apr_pool_t *p)
 {
     ap_hook_header_parser(match_headers, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_post_read_request(match_headers, NULL, NULL, APR_HOOK_MIDDLE);
+
+    is_header_regex_regex = ap_pregcomp(p, "^[-A-Za-z0-9_]*$",
+                                        (AP_REG_EXTENDED | AP_REG_NOSUB ));
+    ap_assert(is_header_regex_regex != NULL);
 }
 
-module AP_MODULE_DECLARE_DATA setenvif_module =
+AP_DECLARE_MODULE(setenvif) =
 {
     STANDARD20_MODULE_STUFF,
     create_setenvif_config_dir, /* dir config creater */

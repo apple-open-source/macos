@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,6 +77,7 @@ static EAPClientPluginFuncProcess eapttls_process;
 static EAPClientPluginFuncFreePacket eapttls_free_packet;
 static EAPClientPluginFuncSessionKey eapttls_session_key;
 static EAPClientPluginFuncServerKey eapttls_server_key;
+static EAPClientPluginFuncMasterSessionKeyCopyBytes eapttls_msk_copy_bytes;
 static EAPClientPluginFuncRequireProperties eapttls_require_props;
 static EAPClientPluginFuncPublishProperties eapttls_publish_props;
 static EAPClientPluginFuncCopyPacketDescription eapttls_copy_packet_description;
@@ -1441,6 +1442,24 @@ eapttls_server_key(EAPClientPluginDataRef plugin, int * key_length)
     return (context->key_data + 32);
 }
 
+static int
+eapttls_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+		      void * msk, int msk_size)
+{
+    EAPTTLSPluginDataRef 	context = (EAPTTLSPluginDataRef)plugin->private;
+    int				ret_msk_size;
+
+    if (msk_size < kEAPMasterSessionKeyMinimumSize
+	|| context->key_data_valid == FALSE) {
+	ret_msk_size = 0;
+    }
+    else {
+	ret_msk_size = kEAPMasterSessionKeyMinimumSize;
+	bcopy(context->key_data, msk, ret_msk_size);
+    }
+    return (ret_msk_size);
+}
+
 static CFArrayRef
 eapttls_require_props(EAPClientPluginDataRef plugin)
 {
@@ -1553,6 +1572,8 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameFailureString, eapttls_failure_string },
     { kEAPClientPluginFuncNameSessionKey, eapttls_session_key },
     { kEAPClientPluginFuncNameServerKey, eapttls_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes,
+      eapttls_msk_copy_bytes },
     { kEAPClientPluginFuncNameRequireProperties, eapttls_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapttls_publish_props },
     { kEAPClientPluginFuncNameCopyPacketDescription,

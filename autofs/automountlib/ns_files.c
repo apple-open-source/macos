@@ -599,7 +599,7 @@ stack_op(op, name, stack, stkptr)
 /*
  * read_execout(char *key, char **lp, char *fname, char *line, int linesz)
  * A simpler, multithreaded implementation of popen(). Used due to
- * non multithreaded implementation of popen() (it calls vfork()) and a
+ * non multithreaded implementation of popen() (it calls fork()) and a
  * significant bug in execl().
  * Returns 0 on OK or -1 on error.
  */
@@ -630,7 +630,7 @@ read_execout(const char *key, char **lp, char *fname, char *line, int linesz)
 	if (trace > 3)
 		trace_prt(1, "\tread_execout: forking .....\n");
 
-	switch ((child_pid = fork1())) {
+	switch ((child_pid = fork())) {
 	case -1:
 		syslog(LOG_ERR, "read_execout: Cannot fork");
 		return (-1);
@@ -694,7 +694,7 @@ read_execout(const char *key, char **lp, char *fname, char *line, int linesz)
 /*
  * read_execoutreaddir(struct dir_entry **list, char *fname, char *linebuf, int linebufsz)
  * A simpler, multithreaded implementation of popen(). Used due to
- * non multithreaded implementation of popen() (it calls vfork()) and a
+ * non multithreaded implementation of popen() (it calls fork()) and a
  * significant bug in execl().
  * Returns 0 on OK or -1 on error.
  */
@@ -727,7 +727,7 @@ read_execoutreaddir(struct dir_entry **list, char *fname, char *linebuf, int lin
 	if (trace > 3)
 		trace_prt(1, "\tread_execoutreaddir: forking .....\n");
 
-	switch ((child_pid = fork1())) {
+	switch ((child_pid = fork())) {
 	case -1:
 		error = errno;
 		syslog(LOG_ERR, "read_execoutreaddir: Cannot fork");

@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ /*
+ * Copyright (C) 2005-2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,6 +31,10 @@
 #import "WebTypesInternal.h"
 #import <JavaScriptCore/JSBase.h>
 
+#if PLATFORM(IOS)
+#import <WebKitLegacy/WAKAppKitStubs.h>
+#endif
+
 @class WebView;
 
 struct WebResourceDelegateImplementationCache {
@@ -39,6 +43,19 @@ struct WebResourceDelegateImplementationCache {
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     IMP canAuthenticateAgainstProtectionSpaceFunc;
 #endif
+
+#if PLATFORM(IOS)
+    IMP connectionPropertiesFunc;
+    IMP webThreadDidFinishLoadingFromDataSourceFunc;
+    IMP webThreadDidFailLoadingWithErrorFromDataSourceFunc;
+    IMP webThreadIdentifierForRequestFunc;
+    IMP webThreadDidLoadResourceFromMemoryCacheFunc;
+    IMP webThreadWillSendRequestFunc;
+    IMP webThreadDidReceiveResponseFunc;
+    IMP webThreadDidReceiveContentLengthFunc;
+    IMP webThreadWillCacheResponseFunc;
+#endif
+
     IMP identifierForRequestFunc;
     IMP willSendRequestFunc;
     IMP didReceiveResponseFunc;
@@ -84,6 +101,9 @@ struct WebFrameLoadDelegateImplementationCache {
     IMP didRunInsecureContentFunc;
     IMP didDetectXSSFunc;
     IMP didRemoveFrameFromHierarchyFunc;
+#if PLATFORM(IOS)
+    IMP webThreadDidLayoutFunc;
+#endif
 };
 
 struct WebScriptDebugDelegateImplementationCache {
@@ -91,9 +111,6 @@ struct WebScriptDebugDelegateImplementationCache {
     BOOL exceptionWasRaisedExpectsHasHandlerFlag;
     IMP didParseSourceFunc;
     IMP failedToParseSourceFunc;
-    IMP didEnterCallFrameFunc;
-    IMP willExecuteStatementFunc;
-    IMP willLeaveCallFrameFunc;
     IMP exceptionWasRaisedFunc;
 };
 
@@ -129,6 +146,9 @@ BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL, id);
+#if PLATFORM(IOS)
+BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, id, BOOL);
+#endif
 
 id CallFrameLoadDelegate(IMP, WebView *, SEL);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, NSUInteger);
@@ -137,6 +157,10 @@ id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id, id);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id, id, id);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, id, NSTimeInterval, id, id);
+#if PLATFORM(IOS)
+id CallFrameLoadDelegate(IMP, WebView *, SEL, id, double);
+id CallFrameLoadDelegateInWebThread(IMP, WebView *, SEL, NSUInteger);
+#endif
 
 BOOL CallFrameLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL);
 
@@ -145,6 +169,13 @@ id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, NSInteger, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
+#if PLATFORM(IOS)
+id CallResourceLoadDelegateInWebThread(IMP, WebView *, SEL, id, id);
+id CallResourceLoadDelegateInWebThread(IMP, WebView *, SEL, id, id, id);
+id CallResourceLoadDelegateInWebThread(IMP, WebView *, SEL, id, id, id, id);
+id CallResourceLoadDelegateInWebThread(IMP, WebView *, SEL, id, NSInteger, id);
+id CallResourceLoadDelegateInWebThread(IMP, WebView *, SEL, id, id, NSInteger, id);
+#endif
 
 BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id);
 BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id);

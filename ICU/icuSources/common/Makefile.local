@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (c) 2006-2008, Apple Inc.
+#   Copyright (c) 2006-2008,2014 Apple Inc.
 #   All Rights Reserved.
 #
 #******************************************************************************
@@ -8,9 +8,9 @@
 
 ifeq "$(WINDOWS)" "YES"
 else
-	OBJECTS += rbtok.o urbtok.o aaplbfct.o
+	OBJECTS += rbtok.o urbtok.o aaplbfct.o ualoc.o
 	
-	STATIC_OBJECT += rbtok.$(STATIC_O) urbtok.$(STATIC_O) aaplbfct.$(STATIC_O)
+	STATIC_OBJECT += rbtok.$(STATIC_O) urbtok.$(STATIC_O) aaplbfct.$(STATIC_O) ualoc.$(STATIC_O)
 	
-	DEPS += rbtok.d urbtok.d aaplbfct.d
+	DEPS += rbtok.d urbtok.d aaplbfct.d ualoc.d
 endif

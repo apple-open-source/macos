@@ -71,3 +71,5 @@ int		reply __P((char *question));
 void		start_progress(void);
 void		draw_progress(int);
 void		end_progress(void);
+void		DumpData(const void *, size_t);
+

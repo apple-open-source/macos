@@ -295,7 +295,7 @@ static bool attach(WKInspectorRef, const void* clientInfo)
     return returnValue;
 }
 
-static bool detach(WKInspectorRef inspector, const void* clientInfo)
+static bool detach(WKInspectorRef, const void* clientInfo)
 {
     gboolean returnValue;
     g_signal_emit(WEBKIT_WEB_INSPECTOR(clientInfo), signals[DETACH], 0, &returnValue);
@@ -316,18 +316,21 @@ WebKitWebInspector* webkitWebInspectorCreate(WebInspectorProxy* webInspector)
     WebKitWebInspector* inspector = WEBKIT_WEB_INSPECTOR(g_object_new(WEBKIT_TYPE_WEB_INSPECTOR, NULL));
     inspector->priv->webInspector = webInspector;
 
-    WKInspectorClientGtk wkInspectorClientGtk = {
-        kWKInspectorClientGtkCurrentVersion,
-        inspector, // clientInfo
+    WKInspectorClientGtkV0 wkInspectorClientGtk = {
+        {
+            0, // version
+            inspector, // clientInfo
+        },
         openWindow,
         didClose,
         bringToFront,
         inspectedURLChanged,
         attach,
         detach,
-        didChangeAttachedHeight
+        didChangeAttachedHeight,
+        nullptr // didChangeAttachedWidth
     };
-    WKInspectorSetInspectorClientGtk(toAPI(webInspector), &wkInspectorClientGtk);
+    WKInspectorSetInspectorClientGtk(toAPI(webInspector), &wkInspectorClientGtk.base);
 
     return inspector;
 }

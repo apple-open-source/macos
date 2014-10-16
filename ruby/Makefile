@@ -55,7 +55,8 @@ AEP_Patches    = ext_digest_md5_commoncrypto.diff \
 	tool_config.guess.diff \
 	tool_mkconfig.rb.diff \
 	ext_etc_etc.c.diff \
-	common.mk.diff
+	common.mk.diff \
+	message_tracing_main.c.diff
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)

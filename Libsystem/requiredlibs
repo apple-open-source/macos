@@ -1,26 +1,25 @@
-cache
+cache cache_sim
 commonCrypto
 compiler_rt
-copyfile
+copyfile copyfile_sim
 corecrypto
 dispatch
 dyld
-launch
-macho
-removefile
-system_asl
-system_blocks
-system_c
-system_configuration
-system_dnssd
-system_info
-system_kernel
-system_m
+launch launch_sim
+macho macho_sim
+removefile removefile_sim
+system_asl system_sim_asl
+system_blocks system_sim_blocks
+system_c system_sim_c
+system_configuration system_sim_configuration
+system_dnssd system_sim_dnssd
+system_info system_sim_info
+system_kernel system_sim_kernel
+system_m system_sim_m
 system_malloc
-system_network
-system_notify
-system_platform
-system_pthread
-system_sandbox
-unwind
+system_notify notify_sim
+system_platform system_sim_platform
+system_pthread system_sim_pthread
+system_sandbox system_sim_sandbox
+unwind unwind_sim
 xpc

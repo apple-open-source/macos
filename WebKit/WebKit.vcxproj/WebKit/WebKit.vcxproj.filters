@@ -220,9 +220,6 @@
     <ClCompile Include="..\..\win\WebScriptWorld.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\win\WebScrollBar.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\win\WebSecurityOrigin.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -502,9 +499,6 @@
     <ClInclude Include="..\..\win\WebScriptWorld.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\win\WebScrollBar.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\win\WebSecurityOrigin.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -628,10 +622,14 @@
     <None Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\WebKitExportGenerator\WebKitExports.def">
       <Filter>Generated</Filter>
     </None>
+    <None Include="WebKitVersion.cmd" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\win\WebKit.resources\WebKit.rc">
       <Filter>Resources</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\..\mac\Configurations\Version.xcconfig" />
   </ItemGroup>
 </Project>

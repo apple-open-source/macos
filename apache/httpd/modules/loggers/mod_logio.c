@@ -15,15 +15,7 @@
  */
 
 /*
- * Written by Bojan Smojver <bojan rexursive.com>:
- *
- * The argument to LogFormat and CustomLog is a string, which can include
- * literal characters copied into the log files, and '%' directives as
- * follows:
- *
- * %...I:  bytes received, including request and headers, cannot be zero
- * %...O:  bytes sent, including headers, cannot be zero
- *
+ * Written by Bojan Smojver <bojan rexursive.com>.
  */
 
 #include "apr_strings.h"
@@ -53,6 +45,7 @@ static const char logio_filter_name[] = "LOG_INPUT_OUTPUT";
 typedef struct logio_config_t {
     apr_off_t bytes_in;
     apr_off_t bytes_out;
+    apr_off_t bytes_last_request;
 } logio_config_t;
 
 /*
@@ -76,6 +69,18 @@ static void ap_logio_add_bytes_in(conn_rec *c, apr_off_t bytes){
 }
 
 /*
+ * Optional function to get total byte count of last request for
+ * ap_increment_counts.
+ */
+
+static apr_off_t ap_logio_get_last_bytes(conn_rec *c)
+{
+    logio_config_t *cf = ap_get_module_config(c->conn_config, &logio_module);
+
+    return cf->bytes_last_request;
+}
+
+/*
  * Format items...
  */
 
@@ -95,6 +100,14 @@ static const char *log_bytes_out(request_rec *r, char *a)
     return apr_off_t_toa(r->pool, cf->bytes_out);
 }
 
+static const char *log_bytes_combined(request_rec *r, char *a)
+{
+    logio_config_t *cf = ap_get_module_config(r->connection->conn_config,
+                                              &logio_module);
+
+    return apr_off_t_toa(r->pool, cf->bytes_out + cf->bytes_in);
+}
+
 /*
  * Reset counters after logging...
  */
@@ -104,13 +117,15 @@ static int logio_transaction(request_rec *r)
     logio_config_t *cf = ap_get_module_config(r->connection->conn_config,
                                               &logio_module);
 
+    /* need to save byte count of last request for ap_increment_counts */
+    cf->bytes_last_request = cf->bytes_in + cf->bytes_out;
     cf->bytes_in = cf->bytes_out = 0;
 
     return OK;
 }
 
 /*
- * Logging of input and output filters...
+ * Logging of input filter...
  */
 
 static apr_status_t logio_in_filter(ap_filter_t *f,
@@ -132,19 +147,6 @@ static apr_status_t logio_in_filter(ap_filter_t *f,
     return status;
 }
 
-static apr_status_t logio_out_filter(ap_filter_t *f,
-                                     apr_bucket_brigade *bb) {
-    apr_bucket *b = APR_BRIGADE_LAST(bb);
-
-    /* End of data, make sure we flush */
-    if (APR_BUCKET_IS_EOS(b)) {
-        APR_BUCKET_INSERT_BEFORE(b,
-                                 apr_bucket_flush_create(f->c->bucket_alloc));
-    }
-
-    return ap_pass_brigade(f->next, bb);
-}
-
 /*
  * The hooks...
  */
@@ -155,7 +157,6 @@ static int logio_pre_conn(conn_rec *c, void *csd) {
     ap_set_module_config(c->conn_config, &logio_module, cf);
 
     ap_add_input_filter(logio_filter_name, NULL, NULL, c);
-    ap_add_output_filter(logio_filter_name, NULL, NULL, c);
 
     return OK;
 }
@@ -169,6 +170,7 @@ static int logio_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
     if (log_pfn_register) {
         log_pfn_register(p, "I", log_bytes_in, 0);
         log_pfn_register(p, "O", log_bytes_out, 0);
+        log_pfn_register(p, "S", log_bytes_combined, 0);
     }
 
     return OK;
@@ -184,14 +186,13 @@ static void register_hooks(apr_pool_t *p)
 
     ap_register_input_filter(logio_filter_name, logio_in_filter, NULL,
                              AP_FTYPE_NETWORK - 1);
-    ap_register_output_filter(logio_filter_name, logio_out_filter, NULL,
-                              AP_FTYPE_NETWORK - 1);
 
     APR_REGISTER_OPTIONAL_FN(ap_logio_add_bytes_out);
     APR_REGISTER_OPTIONAL_FN(ap_logio_add_bytes_in);
+    APR_REGISTER_OPTIONAL_FN(ap_logio_get_last_bytes);
 }
 
-module AP_MODULE_DECLARE_DATA logio_module =
+AP_DECLARE_MODULE(logio) =
 {
     STANDARD20_MODULE_STUFF,
     NULL,                       /* create per-dir config */

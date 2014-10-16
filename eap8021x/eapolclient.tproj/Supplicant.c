@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -167,6 +167,7 @@ struct Supplicant_s {
 	CFMachPortRef		mp;
 	int			token;
     } config_change;
+    int				failure_count;
 #endif /* ! TARGET_OS_EMBEDDED */
 
     int				start_count;
@@ -262,7 +263,7 @@ log_eap_notification(SupplicantState state, EAPRequestPacketRef req_p)
 static bool
 S_array_contains_int(CFArrayRef array, int val)
 {
-    int		count;
+    CFIndex	count;
     int		i;
 
     if (array == NULL) {
@@ -548,6 +549,15 @@ eap_client_server_key(SupplicantRef supp, int * key_length)
 					   key_length));
 }
 
+static int
+eap_client_master_session_key_copy_bytes(SupplicantRef supp,
+					 void * msk, int msk_length)
+{
+    return (EAPClientModulePluginMasterSessionKeyCopyBytes(supp->eap.module,
+							   &supp->eap.plugin_data,
+							   msk, msk_length));
+}
+
 /**
  ** EAPAcceptTypes routines
  **/
@@ -575,7 +585,7 @@ static void
 EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFArrayRef accept_types)
 {
     int			i;
-    int			count;
+    CFIndex		count;
     int			tunneled_count;
     CFNumberRef		type_cf;
     int			type_i;
@@ -741,25 +751,23 @@ S_set_credentials_access_time(SupplicantRef supp)
     return;
 }
 
-static void
+static boolean_t
 S_check_for_updated_credentials(SupplicantRef supp)
 {
+    boolean_t	changed = FALSE;
     long	current_time;
     long	delta;
     
-    if (EAPOLSocketGetMode(supp->sock) != kEAPOLControlModeSystem) {
-	/* don't bother unless it's System mode */
-	return;
-    }
     current_time = Timer_current_secs();
     delta = current_time - supp->credentials_access_time;
     if (delta < 0
 	|| delta >= CREDENTIALS_ACCESS_DELAY_SECS) {
+	changed = S_set_credentials(supp);
 	eapolclient_log(kLogFlagBasic,
-			"Re-reading credentials");
-	(void)S_set_credentials(supp);
+			"Re-read credentials (%schanged)",
+			changed ? "" : "un");
     }
-    return;
+    return (changed);
 }
 
 #endif /* ! TARGET_OS_EMBEDDED */
@@ -852,7 +860,7 @@ S_update_identity_attributes(SupplicantRef supp, void * data, int length)
 	return;
     }
     props_start++;	/* skip '\0' */
-    props_length = length - (props_start - data);
+    props_length = length - (int)(props_start - data);
     if (length <= 0) {
 	/* no props there */
 	return;
@@ -1020,7 +1028,7 @@ process_key(SupplicantRef supp, EAPOLPacketRef eapol_p)
 static void
 clear_wpa_key_info(SupplicantRef supp)
 {
-    (void)EAPOLSocketSetWPAKey(supp->sock, NULL, 0, NULL, 0);
+    (void)EAPOLSocketSetWPAKey(supp->sock, NULL, 0);
     supp->pmk_set = FALSE;
     return;
 }
@@ -1028,22 +1036,18 @@ clear_wpa_key_info(SupplicantRef supp)
 static void
 set_wpa_key_info(SupplicantRef supp)
 {
-    const uint8_t *	server_key;
-    int			server_key_length;
-    const uint8_t *	session_key;
-    int			session_key_length;
+    uint8_t		msk[kEAPMasterSessionKeyMinimumSize];
+    int			msk_length = sizeof(msk);
 
     if (supp->pmk_set) {
 	/* already set */
 	return;
     }
-    session_key = eap_client_session_key(supp, &session_key_length);
-    server_key = eap_client_server_key(supp, &server_key_length);
-    if (session_key != NULL
-	&& server_key != NULL
-	&& EAPOLSocketSetWPAKey(supp->sock, 
-				session_key, session_key_length,
-				server_key, server_key_length)) {
+    msk_length = eap_client_master_session_key_copy_bytes(supp,
+							  msk,
+							  msk_length);
+    if (msk_length != 0
+	&& EAPOLSocketSetWPAKey(supp->sock, msk, msk_length)) {
 	supp->pmk_set = TRUE;
     }
     return;
@@ -1075,11 +1079,12 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 		supp->password = my_CFStringToCString(new_password,
 						      kCFStringEncodingUTF8);
 		if (supp->password != NULL) {
-		    supp->password_length = strlen(supp->password);
+		    supp->password_length = (int)strlen(supp->password);
 		}
 	    }
 	}
 #if ! TARGET_OS_EMBEDDED
+	supp->failure_count = 0;
 	AlertDialogue_free(&supp->alert_prompt);
 	CredentialsDialogue_free(&supp->cred_prompt);
 	TrustDialogue_free(&supp->trust_prompt);
@@ -1346,7 +1351,7 @@ S_retrieve_identity(SupplicantRef supp)
 	free(supp->username);
     }
     supp->username = identity;
-    supp->username_length = strlen(identity);
+    supp->username_length = (int)strlen(identity);
     supp->username_derived = TRUE;
 
  use_default:
@@ -1431,8 +1436,19 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 	    eapolclient_log(kLogFlagBasic,
 			    "EAP Request Identity");
 	    supp->previous_identifier = req_p->identifier;
-#if ! TARGET_OS_EMBEDDED	    
-	    S_check_for_updated_credentials(supp);
+#if ! TARGET_OS_EMBEDDED
+	    if (EAPOLSocketGetMode(supp->sock) == kEAPOLControlModeSystem) {
+#define MAX_AUTH_FAILURES	3
+		if (S_check_for_updated_credentials(supp) == FALSE
+		    && supp->failure_count >= MAX_AUTH_FAILURES) {
+		    EAPLOG(LOG_NOTICE,
+			   "maximum (%d) authentication failures reached",
+			   MAX_AUTH_FAILURES);
+		    supp->last_status = kEAPClientStatusAuthenticationStalled;
+		    Supplicant_held(supp, kSupplicantEventStart, NULL);
+		    break;
+		}
+	    }
 #endif /* ! TARGET_OS_EMBEDDED */
 
 	    if (respond_with_identity(supp, req_p->identifier)) {
@@ -2386,7 +2402,6 @@ Supplicant_report_status(SupplicantRef supp)
 	    Boolean			ask_for_password = TRUE;
 	    CFMutableDictionaryRef	details;
 	    CFArrayRef			identities = NULL;
-	    CFStringRef			ssid;
 
 	    if (need_new_password == FALSE && need_password == FALSE) {
 		Boolean			cert_required;
@@ -2425,8 +2440,13 @@ Supplicant_report_status(SupplicantRef supp)
 		= CFDictionaryCreateMutable(NULL, 0,
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
-	    ssid = EAPOLSocketGetSSID(supp->sock);
-	    if (ssid != NULL) {
+	    if (EAPOLSocketIsWireless(supp->sock)) {
+		CFStringRef	ssid;
+
+		ssid = EAPOLSocketGetSSID(supp->sock);
+		if (ssid == NULL) {
+		    ssid = CFSTR("");
+		}
 		CFDictionarySetValue(details, kCredentialsDialogueSSID, ssid);
 	    }
 	    if (supp->itemID != NULL && supp->one_time_password == FALSE) {
@@ -2476,10 +2496,18 @@ Supplicant_report_status(SupplicantRef supp)
     }
     if (need_trust) {
 	if (supp->trust_prompt == NULL) {
+	    CFStringRef	ssid = NULL;
+
+	    if (EAPOLSocketIsWireless(supp->sock)) {
+		ssid = EAPOLSocketGetSSID(supp->sock);
+		if (ssid == NULL) {
+		    ssid = CFSTR("");
+		}
+	    }
 	    supp->trust_prompt 
 		= TrustDialogue_create(trust_callback, supp, NULL,
 				       supp->eap.published_props,
-				       EAPOLSocketGetSSID(supp->sock));
+				       ssid);
 	}
     }
  no_ui:
@@ -2512,17 +2540,23 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	TrustDialogue_free(&supp->trust_prompt);
 #endif /* ! TARGET_OS_EMBEDDED */
 	if (supp->eap.module != NULL 
-	    && supp->no_ui == FALSE
 	    && (supp->last_status == kEAPClientStatusFailed
 		|| (supp->last_status == kEAPClientStatusSecurityError
 		    && supp->last_error == errSSLCrypto))) {
-	    clear_sec_identity(supp);
-	    clear_username(supp);
-	    clear_password(supp);
+	    if (supp->no_ui == FALSE) {
+		clear_sec_identity(supp);
+		clear_username(supp);
+		clear_password(supp);
 #if ! TARGET_OS_EMBEDDED
-	    if (EAPOLSocketIsWireless(supp->sock)) {
-		/* force a re-association so we immediately prompt the user */
-		EAPOLSocketReassociate(supp->sock);
+		if (EAPOLSocketIsWireless(supp->sock)) {
+		    /* force re-association to immediately prompt the user */
+		    EAPOLSocketReassociate(supp->sock);
+		}
+#endif /* ! TARGET_OS_EMBEDDED */
+	    }
+#if ! TARGET_OS_EMBEDDED
+	    else {
+		supp->failure_count++;
 	    }
 #endif /* ! TARGET_OS_EMBEDDED */
 	}
@@ -2689,7 +2723,7 @@ S_string_from_data(CFDataRef data)
     int		data_length;
     char *	str;
 
-    data_length = CFDataGetLength(data);
+    data_length = (int)CFDataGetLength(data);
     str = malloc(data_length + 1);
     bcopy(CFDataGetBytePtr(data), str, data_length);
     str[data_length] = '\0';
@@ -2853,10 +2887,12 @@ S_set_credentials(SupplicantRef supp)
 					    FALSE);
 #if ! TARGET_OS_EMBEDDED
 	domain = kEAPOLClientDomainUser;
-	remember_information
-	    = myCFDictionaryGetBooleanValue(supp->config_dict,
-					    kEAPClientPropSaveCredentialsOnSuccessfulAuthentication,
-					    FALSE);
+	if (supp->one_time_password == FALSE) {
+	    remember_information
+		= myCFDictionaryGetBooleanValue(supp->config_dict,
+						kEAPClientPropSaveCredentialsOnSuccessfulAuthentication,
+						FALSE);
+	}
 #endif /* ! TARGET_OS_EMBEDDED */
 	break;
     default:
@@ -3042,7 +3078,7 @@ S_set_credentials(SupplicantRef supp)
     }
     supp->username = name;
     if (name != NULL) {
-	supp->username_length = strlen(name);
+	supp->username_length = (int)strlen(name);
     }
     else {
 	supp->username_length = 0;
@@ -3050,12 +3086,15 @@ S_set_credentials(SupplicantRef supp)
     supp->username_derived = username_derived;
 
     /* password */
+    if (my_strcmp(supp->password, password) != 0) {
+	change = TRUE;
+    }
     if (supp->password != NULL) {
 	free(supp->password);
     }
     supp->password = password;
     if (password != NULL) {
-	supp->password_length = strlen(password);
+	supp->password_length = (int)strlen(password);
     }
     else {
 	supp->password_length = 0;
@@ -3079,7 +3118,7 @@ S_set_credentials(SupplicantRef supp)
     }
     supp->outer_identity = outer_identity;
     if (outer_identity != NULL) {
-	supp->outer_identity_length = strlen(outer_identity);
+	supp->outer_identity_length = (int)strlen(outer_identity);
     }
     else {
 	supp->outer_identity_length = 0;
@@ -3381,6 +3420,14 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
 	t.tv_sec = S_link_active_period_secs;
 	switch (supp->state) {
 	case kSupplicantStateInactive:
+	    if (supp->eap.module != NULL
+		&& EAPOLSocketHasPMK(supp->sock)) {
+		/* no need to re-start authentication */
+		eapolclient_log(kLogFlagBasic, "Valid PMK Exists");
+		Supplicant_authenticated(supp, kSupplicantEventStart, NULL);
+		break;
+	    }
+	    /* FALL THROUGH */
 	case kSupplicantStateConnecting:
 	    /* give the Authenticator a chance to initiate */
 	    t.tv_sec = 0;

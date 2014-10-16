@@ -48,8 +48,8 @@
  *
  * Argument:
  *	char** model: returns the model name
- *  UInt32 *majorRev: returns the major revision number
- *  UInt32 *minorRev: returns the minor revision number
+ *  uint32_t *majorRev: returns the major revision number
+ *  uint32_t *minorRev: returns the minor revision number
  * Return value:
  * 	true on success
  * Note: In case of success, CopyModel allocates memory for *model,
@@ -58,7 +58,7 @@
  *       If the revision number is partial, the value is assumed to be %u,0 or 0,0
  */
 
-static Boolean CopyModel(char** model, UInt32 *majorRev, UInt32 *minorRev)
+static Boolean CopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev)
 {
     int mib[2];
     char *machineModel; // must free
@@ -126,30 +126,30 @@ exit:
     return success;
 } // CopyModel
 
-/* IOAuthenticatedRestartSupported
+/* IOSMCKeyProxyPresent
  *
  * Return value:
- * 	true if system supports Authenticated Restart
+ * 	true if system has SMC Key Proxy
  */
-Boolean IOAuthenticatedRestartSupported()
+Boolean IOSMCKeyProxyPresent()
 {
     char* model = NULL; // must free
-    UInt32 majorRev;
-    UInt32 minorRev;
+    uint32_t majorRev;
+    uint32_t minorRev;
     Boolean success = false;
     
     Boolean modelFound = CopyModel(&model, &majorRev, &minorRev);
     if (!modelFound) {
-        DLOG_ERROR("IOAuthenticatedRestartSupported: Could not find machine model\n");
+        DLOG_ERROR("IOSMCKeyProxySupported: Could not find machine model\n");
         return false;
     }
-    if (!strncmp(model, "MacBookPro", 10) && (majorRev < 5 || (majorRev == 5 && minorRev <= 2)))
+    if (!strncmp(model, "MacBookPro", 10) && (majorRev <=7))
         goto exit;
     if (!strncmp(model, "MacBookAir", 10) && (majorRev <=2))
         goto exit;
-    if (!strncmp(model, "MacBook", 10)    && (majorRev <=5))
+    if (!strncmp(model, "MacBook", 10))
         goto exit;
-    if (!strncmp(model, "iMac", 10)       && (majorRev <=9))
+    if (!strncmp(model, "iMac", 10)       && (majorRev <=11))
         goto exit;
     if (!strncmp(model, "Macmini", 10)    && (majorRev <=3))
         goto exit;
@@ -159,11 +159,62 @@ Boolean IOAuthenticatedRestartSupported()
         goto exit;
     
     success = true;
-    DLOG("Machine appears to be auth restart capable\n");
+    DLOG("Machine appears to have SMC Key Proxy\n");
     
 exit:
     if (model) free(model);
     return success;
+} // IOSMCKeyProxyPresent
+
+/* IONoteToSelfSupported
+ *
+ * Return value:
+ * 	true if system supports Note To Self
+ */
+Boolean IONoteToSelfSupported()
+{
+    char* model = NULL; // must free
+    uint32_t majorRev;
+    uint32_t minorRev;
+    Boolean success = false;
+    
+    Boolean modelFound = CopyModel(&model, &majorRev, &minorRev);
+    if (!modelFound) {
+        DLOG_ERROR("IONoteToSelfSupported: Could not find machine model\n");
+        return false;
+    }
+    if (!strncmp(model, "MacBookPro", 10) && (majorRev < 5 ||
+                                              (majorRev == 5 && minorRev <= 2)))
+        goto exit;
+    if (!strncmp(model, "MacBookAir", 10) && (majorRev <=2))
+        goto exit;
+    if (!strncmp(model, "MacBook", 10)    && (majorRev <=5))
+        goto exit;
+    if (!strncmp(model, "iMac", 10)       && (majorRev <=9))
+        goto exit;
+    if (!strncmp(model, "Macmini", 10)    && (majorRev <=3))
+        goto exit;
+    if (!strncmp(model, "MacPro", 10))
+        goto exit;
+    if (!strncmp(model, "Xserve", 10))
+        goto exit;
+    
+    success = true;
+    DLOG("Machine appears to be capable of Note To Self\n");
+    
+exit:
+    if (model) free(model);
+    return success;
+} // IONoteToSelfSupported
+
+/* IOAuthenticatedRestartSupported
+ *
+ * Return value:
+ * 	true if system supports Authenticated Restart, using Note To Self or SMC Key Proxy
+ */
+Boolean IOAuthenticatedRestartSupported()
+{
+    return IONoteToSelfSupported() || IOSMCKeyProxyPresent();
 } // IOAuthenticatedRestartSupported
 
 static CFTypeRef _copyRootDomainProperty(CFStringRef key)
@@ -238,7 +289,6 @@ IOReturn IOPlatformCopyFeatureActive(
     
     if (CFEqual(platformSettingKey, kIOPlatformTCPKeepAliveDuringSleep))
     {
-#if TCPKEEPALIVE
         int keepAliveIsValid = 0;
         keepAliveIsValid = IOPMGetValueInt(kIOPMTCPKeepAliveIsActive);
         
@@ -247,9 +297,6 @@ IOReturn IOPlatformCopyFeatureActive(
         } else {
             *outValue = kCFBooleanFalse;
         }
-#else
-        *outValue = kCFBooleanFalse;
-#endif
         return kIOReturnSuccess;
     } else
     {

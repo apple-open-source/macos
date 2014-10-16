@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Building and Using Cyrus SASL on Mac OS X</title>
-<!-- $Id: macosx.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
+<!-- $Id: macosx.html,v 1.6 2003/12/12 00:43:03 rbraun Exp $ -->
 </head>
 <body>
 <h1>Cyrus SASL v2 on Mac OS X (and 9)</h1>
@@ -71,7 +71,7 @@ well as possibly newer autotools and other software.<br> </p>
 
 <p>As of version 2.1.16, SASL uses and requires a recent version of GNU
 autotools (autoconf, automake, and libtool) to build its configuration scripts.
-If you are building from CVS, you will need to have the autotools installed
+If you are building from GIT, you will need to have the autotools installed
 on your system. The version included with all releases of the developer tools
 for OS X 10.2.x is too old for this; if you aren't using OS X 10.3 or later,
 you should upgrade to more recent patchlevels of these tools. The easiest way
@@ -135,7 +135,7 @@ Carbon!</i></b> </p> <ul>
   <li><b>Important!</b> You must make sure that all files have their
 correct HFS filetype before starting to build this code! In
 particular, all source and text files must be of type <tt>'TEXT'</tt>,
-which is not the default if you use the Mac OS X cvs client to check
+which is not the default if you use the Mac OS X GIT client to check
 out the projects. If you run into this problem, you may want to use a
 utility such as FileTyper to recursively change the type on all
 files. CodeWarrior is less picky about the projects' filetypes, but

@@ -26,8 +26,6 @@
 #ifndef DFGOSRExitCompilationInfo_h
 #define DFGOSRExitCompilationInfo_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "CodeOrigin.h"
@@ -38,6 +36,8 @@ namespace JSC { namespace DFG {
 
 struct OSRExitCompilationInfo {
     MacroAssembler::JumpList m_failureJumps;
+    MacroAssembler::Label m_replacementSource;
+    MacroAssembler::Label m_replacementDestination;
 };
 
 } } // namespace JSC::DFG

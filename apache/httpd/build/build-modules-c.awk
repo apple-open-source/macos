@@ -14,6 +14,7 @@
 # limitations under the License.
 BEGIN {
     RS = " "
+    # the core module must come first
     modules[n++] = "core"
     pmodules[pn++] = "core"
 } 
@@ -33,7 +34,6 @@ END {
     print ""
     print "#include \"ap_config.h\""
     print "#include \"httpd.h\""
-    print "#define CORE_PRIVATE"
     print "#include \"http_config.h\""
     print ""
     for (i = 0; i < pn; ++i) {

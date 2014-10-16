@@ -202,6 +202,12 @@ Command name.
 .B cpu
 CPU usage.
 .TP
+.B cpu_me
+CPU time charged to me by other processes.
+.TP
+.B cpu_others
+CPU time charged to other processes by me.
+.TP
 .B csw
 Number of context switches.
 .TP
@@ -301,6 +307,12 @@ Total Mach syscalls.
 .TP
 .B pageins
 Total pageins.
+.TP
+.B boosts
+The number of boosts held by the process.
+This is followed by the number of times the process has transitioned from unboosted to boosted in brackets.
+An asterisk before the value indicates that the process was able to send boosts at some point since the previous update.
+For more information about boosts, see xpc_transaction_begin(3).
 .RE
 .TP
 .BI \-R " " ""

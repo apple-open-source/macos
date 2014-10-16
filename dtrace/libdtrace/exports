@@ -71,6 +71,7 @@ _ctf_strraw
 _ctf_type_align
 _ctf_type_cmp
 _ctf_type_compat
+_ctf_type_printf_compat
 _ctf_type_encoding
 _ctf_type_iter
 _ctf_type_kind
@@ -100,11 +101,9 @@ _dtrace_aggregate_walk_valrevsorted
 _dtrace_aggregate_walk_valsorted
 _dtrace_aggregate_walk_valvarrevsorted
 _dtrace_aggregate_walk_valvarsorted
-_dtrace_analyze
 _dtrace_attr2str
 _dtrace_class_name
 _dtrace_close
-_dtrace_collect
 _dtrace_consume
 _dtrace_ctlfd
 _dtrace_desc2str
@@ -112,7 +111,6 @@ _dtrace_dof_create
 _dtrace_dof_destroy
 _dtrace_errmsg
 _dtrace_errno
-_dtrace_farm
 _dtrace_faultstr
 _dtrace_fprinta
 _dtrace_fprintf
@@ -142,6 +140,7 @@ _dtrace_probe_iter
 _dtrace_proc_continue
 _dtrace_proc_create
 _dtrace_proc_grab
+_dtrace_proc_waitfor
 _dtrace_proc_release
 _dtrace_program_exec
 _dtrace_program_fcompile
@@ -151,7 +150,6 @@ _dtrace_program_link
 _dtrace_program_strcompile
 _dtrace_provider_modules
 _dtrace_setopt
-_dtrace_setup
 _dtrace_sleep
 _dtrace_sprintf
 _dtrace_stability_name

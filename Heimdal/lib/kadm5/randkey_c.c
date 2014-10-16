@@ -86,7 +86,7 @@ kadm5_c_randkey_principal(void *server_handle,
 	krb5_store_uint32(sp, keepold);
     if (n_ks_tuple > 0)
 	krb5_store_uint32(sp, n_ks_tuple);
-    for (i = 0; i < n_ks_tuple; i++) {
+    for (i = 0; i < (size_t)n_ks_tuple; i++) {
 	krb5_store_int32(sp, ks_tuple[i].ks_enctype);
 	krb5_store_int32(sp, ks_tuple[i].ks_salttype);
     }
@@ -121,7 +121,7 @@ kadm5_c_randkey_principal(void *server_handle,
 	    ret = ENOMEM;
 	    goto out;
 	}
-	for(i = 0; i < tmp; i++)
+	for(i = 0; i < (size_t)tmp; i++)
 	    krb5_ret_keyblock(sp, &k[i]);
 	if (n_keys && new_keys) {
 	    *n_keys = tmp;

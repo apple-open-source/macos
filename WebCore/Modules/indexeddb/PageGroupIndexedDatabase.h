@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "Supplementable.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -37,15 +38,17 @@ class PageGroup;
 
 class PageGroupIndexedDatabase : public Supplement<PageGroup> {
 public:
+    explicit PageGroupIndexedDatabase(const String& databaseDirectoryIdentifier);
     virtual ~PageGroupIndexedDatabase();
+
     static PageGroupIndexedDatabase* from(PageGroup&);
 
     IDBFactoryBackendInterface* factoryBackend();
 
 private:
-    PageGroupIndexedDatabase();
     static const char* supplementName();
 
+    String m_databaseDirectoryIdentifier;
     RefPtr<IDBFactoryBackendInterface> m_factoryBackend;
 };
 

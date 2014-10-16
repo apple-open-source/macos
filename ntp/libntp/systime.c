@@ -12,6 +12,8 @@
 #include "ntp_random.h"
 #include "ntpd.h"		/* for sys_precision */
 
+#include <os/trace.h>
+
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
 #endif
@@ -133,7 +135,8 @@ adj_systime(
 	double	dtemp;
 	long	ticks;
 	int	isneg = 0;
-
+	
+	os_trace("Adjust: %f", now);
 	/*
 	 * Most Unix adjtime() implementations adjust the system clock
 	 * in microsecond quanta, but some adjust in 10-ms quanta. We
@@ -187,7 +190,8 @@ step_systime(
 #if defined(HAVE_CLOCK_GETTIME) || defined(HAVE_GETCLOCK)
 	struct timespec ts;
 #endif
-
+    
+    os_trace("step: %f", now);
 	dtemp = sys_residual + now;
 	if (dtemp < 0) {
 		isneg = 1;

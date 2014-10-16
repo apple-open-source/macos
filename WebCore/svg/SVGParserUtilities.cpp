@@ -21,16 +21,14 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGParserUtilities.h"
 
 #include "Document.h"
 #include "FloatRect.h"
 #include "SVGPointList.h"
-
 #include <limits>
 #include <wtf/ASCIICType.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -166,7 +164,8 @@ bool parseNumber(const UChar*& ptr, const UChar* end, float& number, bool skip)
 
 bool parseNumberFromString(const String& string, float& number, bool skip)
 {
-    const UChar* ptr = string.characters();
+    auto upconvertedCharacters = StringView(string).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + string.length();
     return genericParseNumber(ptr, end, number, skip) && ptr == end;
 }
@@ -205,7 +204,9 @@ bool parseNumberOptionalNumber(const String& s, float& x, float& y)
 {
     if (s.isEmpty())
         return false;
-    const UChar* cur = s.characters();
+
+    auto upconvertedCharacters = StringView(s).upconvertedCharacters();
+    const UChar* cur = upconvertedCharacters;
     const UChar* end = cur + s.length();
 
     if (!parseNumber(cur, end, x))
@@ -221,7 +222,8 @@ bool parseNumberOptionalNumber(const String& s, float& x, float& y)
 
 bool parseRect(const String& string, FloatRect& rect)
 {
-    const UChar* ptr = string.characters();
+    auto upconvertedCharacters = StringView(string).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + string.length();
     skipOptionalSVGSpaces(ptr, end);
     
@@ -238,7 +240,8 @@ bool pointsListFromSVGData(SVGPointList& pointsList, const String& points)
 {
     if (points.isEmpty())
         return true;
-    const UChar* cur = points.characters();
+    auto upconvertedCharacters = StringView(points).upconvertedCharacters();
+    const UChar* cur = upconvertedCharacters;
     const UChar* end = cur + points.length();
 
     skipOptionalSVGSpaces(cur, end);
@@ -272,7 +275,8 @@ bool parseGlyphName(const String& input, HashSet<String>& values)
     // FIXME: Parsing error detection is missing.
     values.clear();
 
-    const UChar* ptr = input.characters();
+    auto upconvertedCharacters = StringView(input).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + input.length();
     skipOptionalSVGSpaces(ptr, end);
 
@@ -369,7 +373,8 @@ static bool parseUnicodeRange(const UChar* characters, unsigned length, UnicodeR
 bool parseKerningUnicodeString(const String& input, UnicodeRanges& rangeList, HashSet<String>& stringList)
 {
     // FIXME: Parsing error detection is missing.
-    const UChar* ptr = input.characters();
+    auto upconvertedCharacters = StringView(input).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + input.length();
 
     while (ptr < end) {
@@ -396,7 +401,8 @@ Vector<String> parseDelimitedString(const String& input, const char seperator)
 {
     Vector<String> values;
 
-    const UChar* ptr = input.characters();
+    auto upconvertedCharacters = StringView(input).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + input.length();
     skipOptionalSVGSpaces(ptr, end);
 
@@ -482,5 +488,3 @@ template bool parseFloatPoint3(const LChar*& current, const LChar* end, FloatPoi
 template bool parseFloatPoint3(const UChar*& current, const UChar* end, FloatPoint& point1, FloatPoint& point2, FloatPoint& point3);
 
 }
-
-#endif // ENABLE(SVG)

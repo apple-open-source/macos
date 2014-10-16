@@ -35,22 +35,17 @@ TextureMapperLayer* toTextureMapperLayer(GraphicsLayer* layer)
     return layer ? toGraphicsLayerTextureMapper(layer)->layer() : 0;
 }
 
-PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerFactory* factory, GraphicsLayerClient* client)
+std::unique_ptr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerFactory* factory, GraphicsLayerClient& client)
 {
     if (!factory)
-        return adoptPtr(new GraphicsLayerTextureMapper(client));
+        return std::make_unique<GraphicsLayerTextureMapper>(client);
 
     return factory->createGraphicsLayer(client);
 }
 
-PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
-{
-    return adoptPtr(new GraphicsLayerTextureMapper(client));
-}
-
-GraphicsLayerTextureMapper::GraphicsLayerTextureMapper(GraphicsLayerClient* client)
+GraphicsLayerTextureMapper::GraphicsLayerTextureMapper(GraphicsLayerClient& client)
     : GraphicsLayer(client)
-    , m_layer(adoptPtr(new TextureMapperLayer()))
+    , m_layer(std::make_unique<TextureMapperLayer>())
     , m_compositedNativeImagePtr(0)
     , m_changeMask(NoChanges)
     , m_needsDisplay(false)
@@ -65,9 +60,7 @@ GraphicsLayerTextureMapper::GraphicsLayerTextureMapper(GraphicsLayerClient* clie
 void GraphicsLayerTextureMapper::notifyChange(ChangeMask changeMask)
 {
     m_changeMask |= changeMask;
-    if (!client())
-        return;
-    client()->notifyFlushRequired(this);
+    client().notifyFlushRequired(this);
 }
 
 void GraphicsLayerTextureMapper::setName(const String& name)
@@ -77,6 +70,9 @@ void GraphicsLayerTextureMapper::setName(const String& name)
 
 GraphicsLayerTextureMapper::~GraphicsLayerTextureMapper()
 {
+    if (m_contentsLayer)
+        m_contentsLayer->setClient(0);
+
     willBeDestroyed();
 }
 
@@ -107,7 +103,7 @@ void GraphicsLayerTextureMapper::setContentsNeedsDisplay()
 
 /* \reimp (GraphicsLayer.h)
 */
-void GraphicsLayerTextureMapper::setNeedsDisplayInRect(const FloatRect& rect)
+void GraphicsLayerTextureMapper::setNeedsDisplayInRect(const FloatRect& rect, ShouldClipToLayer)
 {
     if (!drawsContent())
         return;
@@ -330,7 +326,7 @@ void GraphicsLayerTextureMapper::setOpacity(float value)
 
 /* \reimp (GraphicsLayer.h)
 */
-void GraphicsLayerTextureMapper::setContentsRect(const IntRect& value)
+void GraphicsLayerTextureMapper::setContentsRect(const FloatRect& value)
 {
     if (value == contentsRect())
         return;
@@ -384,9 +380,14 @@ void GraphicsLayerTextureMapper::setContentsToMedia(TextureMapperPlatformLayer* 
 
     GraphicsLayer::setContentsToMedia(media);
     notifyChange(ContentChange);
+
+    if (m_contentsLayer)
+        m_contentsLayer->setClient(0);
+
     m_contentsLayer = media;
 
-    m_contentsLayer->setClient(this);
+    if (m_contentsLayer)
+        m_contentsLayer->setClient(this);
 }
 
 void GraphicsLayerTextureMapper::setShowDebugBorder(bool show)
@@ -557,7 +558,7 @@ void GraphicsLayerTextureMapper::commitLayerChanges()
         m_layer->setAnimations(m_animations);
 
     if (m_changeMask & AnimationStarted)
-        client()->notifyAnimationStarted(this, m_animationStartTime);
+        client().notifyAnimationStarted(this, m_animationStartTime);
 
     if (m_changeMask & FixedToViewporChange)
         m_layer->setFixedToViewport(fixedToViewport());
@@ -606,9 +607,6 @@ void GraphicsLayerTextureMapper::updateBackingStoreIfNeeded()
     if (dirtyRect.isEmpty())
         return;
 
-#if PLATFORM(QT) && !defined(QT_NO_DYNAMIC_CAST)
-    ASSERT(dynamic_cast<TextureMapperTiledBackingStore*>(m_backingStore.get()));
-#endif
     TextureMapperTiledBackingStore* backingStore = static_cast<TextureMapperTiledBackingStore*>(m_backingStore.get());
 
     backingStore->updateContents(textureMapper, this, m_size, dirtyRect, BitmapTexture::UpdateCanModifyOriginalImageData);
@@ -635,7 +633,7 @@ bool GraphicsLayerTextureMapper::addAnimation(const KeyframeValueList& valueList
     if (valueList.property() == AnimatedPropertyWebkitTransform)
         listsMatch = validateTransformOperations(valueList, hasBigRotation) >= 0;
 
-    const double currentTime = WTF::currentTime();
+    const double currentTime = monotonicallyIncreasingTime();
     m_animations.add(GraphicsLayerAnimation(keyframesName, valueList, boxSize, anim, currentTime - timeOffset, listsMatch));
     // m_animationStartTime is the time of the first real frame of animation, now or delayed by a negative offset.
     if (timeOffset > 0)
@@ -667,6 +665,10 @@ void GraphicsLayerTextureMapper::removeAnimation(const String& animationName)
 #if ENABLE(CSS_FILTERS)
 bool GraphicsLayerTextureMapper::setFilters(const FilterOperations& filters)
 {
+    TextureMapper* textureMapper = m_layer->textureMapper();
+    // TextureMapperImageBuffer does not support CSS filters.
+    if (!textureMapper || textureMapper->accelerationMode() == TextureMapper::SoftwareMode)
+        return false;
     notifyChange(FilterChange);
     return GraphicsLayer::setFilters(filters);
 }

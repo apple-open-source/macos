@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,13 +43,18 @@
 #include "bsdp.h"
 #include "DHCPServer.h"
 
+const char * 		DHCPSDHCPLeaseListNotificationKey = DHCPD_LEASES_NOTIFICATION_KEY;
+
+const char * 		DHCPSDisabledInterfacesNotificationKey = DHCPD_DISABLED_INTERFACES_NOTIFICATION_KEY;
+
+
 const CFStringRef	kDHCPSPropName = CFSTR(NIPROP_NAME);
 const CFStringRef	kDHCPSPropIdentifier = CFSTR(NIPROP_IDENTIFIER);
 
 const CFStringRef	kDHCPSPropDHCPHWAddress = CFSTR(NIPROP_HWADDR);
 const CFStringRef	kDHCPSPropDHCPIPAddress = CFSTR(NIPROP_IPADDR);
 const CFStringRef	kDHCPSPropDHCPLease = CFSTR(NIPROP_DHCP_LEASE);
-
+#if ! TARGET_OS_EMBEDDED
 const CFStringRef	kDHCPSPropNetBootArch = CFSTR(NIPROP_NETBOOT_ARCH);
 const CFStringRef	kDHCPSPropNetBootSysid = CFSTR(NIPROP_NETBOOT_SYSID);
 const CFStringRef	kDHCPSPropNetBootLastBootTime = CFSTR(NIPROP_NETBOOT_LAST_BOOT_TIME);
@@ -58,6 +63,7 @@ const CFStringRef	kDHCPSPropNetBootImageID = CFSTR(NIPROP_NETBOOT_IMAGE_ID);
 const CFStringRef	kDHCPSPropNetBootImageIndex = CFSTR(NIPROP_NETBOOT_IMAGE_INDEX);
 const CFStringRef	kDHCPSPropNetBootImageKind = CFSTR(NIPROP_NETBOOT_IMAGE_KIND);
 const CFStringRef	kDHCPSPropNetBootImageIsInstall = CFSTR(NIPROP_NETBOOT_IMAGE_IS_INSTALL);
+#endif /* ! TARGET_OS_EMBEDDED */
 
 static CFStringRef
 create_cfstring(const char * name)
@@ -72,7 +78,7 @@ create_cfstring(const char * name)
 }
 
 static CFMutableArrayRef
-read_host_list(const char * filename)
+host_list_copy(const char * filename)
 {
     CFMutableArrayRef		arr = NULL;		
     PLCache_t			cache;
@@ -162,9 +168,7 @@ show_date(CFAbsoluteTime t)
     static CFTimeZoneRef tz = NULL;
 
     if (tz == NULL) {
-#if 1
 	tz = CFTimeZoneCopySystem();
-#endif
     }
 
     d = CFAbsoluteTimeGetGregorianDate(t, tz);
@@ -214,6 +218,7 @@ cook_for_dhcp(CFArrayRef arr)
     return (arr);
 }
 
+#if ! TARGET_OS_EMBEDDED
 static CFArrayRef
 cook_for_netboot(CFArrayRef arr) 
 {
@@ -291,13 +296,14 @@ cook_for_netboot(CFArrayRef arr)
     }
     return (arr);
 }
+#endif /* ! TARGET_OS_EMBEDDED */
 
 CFArrayRef
 DHCPSDHCPLeaseListCreate()
 {
     CFArrayRef arr;
 
-    arr = read_host_list("/var/db/dhcpd_leases");
+    arr = host_list_copy("/var/db/dhcpd_leases");
     if (arr == NULL) {
 	return (NULL);
     }
@@ -309,12 +315,13 @@ DHCPSDHCPLeaseListCreate()
     return (arr);
 }
 
+#if ! TARGET_OS_EMBEDDED
 CFArrayRef
 DHCPSNetBootClientListCreate()
 {
     CFArrayRef arr;
 
-    arr = read_host_list("/var/db/bsdpd_clients");
+    arr = host_list_copy("/var/db/bsdpd_clients");
     if (arr == NULL) {
 	return (NULL);
     }
@@ -323,6 +330,26 @@ DHCPSNetBootClientListCreate()
 	return (NULL);
     }
     return (arr);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
+#include <SystemConfiguration/SystemConfiguration.h>
+
+CFArrayRef
+DHCPSCopyDisabledInterfaces(void)
+{
+    CFDictionaryRef	dict;
+    CFArrayRef		list = NULL;
+
+    dict = SCDynamicStoreCopyValue(NULL, CFSTR(DHCPD_DYNAMIC_STORE_KEY));
+    if (dict != NULL) {
+	list = CFDictionaryGetValue(dict, CFSTR(DHCPD_DISABLED_INTERFACES));
+	if (list != NULL) {
+	    CFRetain(list);
+	}
+	CFRelease(dict);
+    }
+    return (list);
 }
 
 #ifdef TEST_DHCPHOSTLIST

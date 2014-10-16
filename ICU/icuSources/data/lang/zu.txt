@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zu.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/zu.xml
+ * ICU <specials> source: <path>/common/main/zu.xml
  */
 zu{
     Keys{
@@ -31,17 +31,16 @@ zu{
     Languages{
         ab{"isi-Abkhazian"}
         ach{"Isi-Acoli"}
-        af{"isiBhunu"}
+        af{"isi-Afrikaans"}
         ak{"I-Akan"}
         am{"isi-Amharic"}
-        ar{"isi-Alabhu"}
+        ar{"isi-Arabic"}
         as{"isi-Assamese"}
         ay{"isi-Aymara"}
         az{"isi-Azerbaijani"}
         be{"isi-Belarusian"}
         bem{"Isi-Bemba"}
         bg{"isi-Bulgari"}
-        bh{"IsiBhihari"}
         bn{"isi-Bengali"}
         bo{"isi-Tibetan"}
         br{"Isi-Breton"}
@@ -53,7 +52,7 @@ zu{
         cs{"isi-Czech"}
         cy{"isi-Welsh"}
         da{"isi-Danish"}
-        de{"isiJalimani"}
+        de{"isi-German"}
         de_AT{"isi-Austrian German"}
         de_CH{"isi-Swiss High German"}
         dv{"isi-Divehi"}
@@ -67,9 +66,10 @@ zu{
         en_GB{"i-British English"}
         en_US{"i-U.S. English"}
         eo{"isi-Esperanto"}
-        es{"isiSpeyini"}
+        es{"isi-Spanish"}
         es_419{"isi-Latin American Spanish"}
         es_ES{"Isipenishi saseYurophu"}
+        es_MX{"isi-Mexican Spanish"}
         et{"isi-Estonia"}
         eu{"isi-Basque"}
         fa{"isi-Persian"}
@@ -91,7 +91,7 @@ zu{
         ha{"isi-Hausa"}
         haw{"isi-Hawaiian"}
         he{"isi-Hebrew"}
-        hi{"isiHindi"}
+        hi{"isi-Hindi"}
         hr{"isi-Croatian"}
         ht{"isi-Haitian"}
         hu{"isi-Hungarian"}
@@ -270,6 +270,42 @@ zu{
             persian{"i-Persian Calendar"}
             roc{"i-Minguo Calender"}
         }
+        colAlternate{
+            non-ignorable{"Hlela Izimpawu"}
+            shifted{"Hlela Ukuziba Izimpawu"}
+        }
+        colBackwards{
+            no{"Hlela Izindlela Zokuphimisela Ngokujwayelekile"}
+            yes{"Ukuhlelwa Kokuphimisela Kuhlehlisiwe"}
+        }
+        colCaseFirst{
+            lower{"Hlela Okwezinhlamvu Eziphansi Kuqala"}
+            no{"Hlela Ngokwenhlamvu Ezejwayelekile"}
+            upper{"Hlela Izinhlamvu Ezinkulu Kuqala"}
+        }
+        colCaseLevel{
+            no{"Hlela Okungancikile Ezinkinobhweni"}
+            yes{"Hlela Okuncike Ekumeni Kwezinkinobho"}
+        }
+        colHiraganaQuaternary{
+            no{"Hlela i-Kana Eceleni"}
+            yes{"Hlela i-Kana Ngendlela Ehlukile"}
+        }
+        colNormalization{
+            no{"Hlela Ngaphandle Kokulinganisa"}
+            yes{"Ukuhlelwa Khekhodi Enye Kulinganisiwe"}
+        }
+        colNumeric{
+            no{"Hlela Izinhlamvu Zenombolo Ngazinye"}
+            yes{"Hlela Izinhlamvu Ngokwezinombolo"}
+        }
+        colStrength{
+            identical{"Hlela konke"}
+            primary{"Hlela Izinhlamvu Zaphansi Kuphela"}
+            quaternary{"Hlola Ukuphimisela/Ukuma kwezinhlamvu/Ububanzi/i-Kana"}
+            secondary{"Hlela Ukuphimisela"}
+            tertiary{"Hlela Ukuphimisela/Ukuma kwezinhlamvu/Ububanzi"}
+        }
         collation{
             big5han{"Ukuhlunga kwe-Traditional Chinese - Big5"}
             dictionary{"Ukuhlunga kwesichazimazwi"}
@@ -281,6 +317,7 @@ zu{
             reformed{"Ukuhlunga okwenziwe kabusha"}
             search{"Usesho olujwayelekile"}
             searchjl{"Sesha nge-Hangul Ongwaqa Basekuqaleni"}
+            standard{"I-oda yokuhlunga ejwayelekile"}
             stroke{"Ukuhlunga kwe-Stroke"}
             traditional{"Ukuhlunga ngokisiko"}
             unihan{"Ukuhlunga kwe-Radical-Stroke"}
@@ -327,9 +364,15 @@ zu{
             vaii{"Izinhlazu Zezinombolo ze-Vai"}
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.98.76"}
+    codePatterns{
+        language{"{0}"}
+        script{"{0}"}
+        territory{"{0}"}
+    }
     localeDisplayPattern{
+        keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}
-        separator{","}
+        separator{"{0}, {1}"}
     }
 }

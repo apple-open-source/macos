@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -79,7 +79,6 @@ _client_key(xpc_connection_t c)
 }
 
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 static void
 _handle_entitlement_check_failure(pid_t pid)
 {
@@ -113,7 +112,6 @@ _handle_entitlement_check_failure(pid_t pid)
 		CFRelease(pidNumber);
 	});
 }
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 
 
 /*
@@ -195,16 +193,19 @@ void
 _libSC_info_server_open(libSC_info_server_t	*server_info,
 			xpc_connection_t	c)
 {
-	CFDataRef	client_key;
-	CFDataRef	client_val;
-	client_val_t	val;
+	CFDataRef		client_key;
+	CFMutableDataRef	client_val;
+	client_val_t		*val;
 
 	client_key = _client_key(c);
 
-	val.pid                     = xpc_connection_get_pid(c);
-	val.generation_pushed       = 0;
-	val.generation_acknowledged = 0;
-	client_val = CFDataCreate(NULL, (UInt8 *)&val, sizeof(val));
+	client_val = CFDataCreateMutable(NULL, sizeof(*val));
+	CFDataSetLength(client_val, sizeof(*val));
+
+	val = (client_val_t *)(void *)CFDataGetMutableBytePtr(client_val);
+	val->pid                     = xpc_connection_get_pid(c);
+	val->generation_pushed       = 0;
+	val->generation_acknowledged = 0;
 
 	CFDictionarySetValue(server_info->info, client_key, client_val);
 	CFRelease(client_key);
@@ -227,16 +228,16 @@ _libSC_info_server_get_data(libSC_info_server_t	*server_info,
 			    xpc_connection_t	c,
 			    uint64_t		*generation)
 {
-	CFDataRef	client_key;
-	CFDataRef	client_val;
-	client_val_t	*val;
+	CFDataRef		client_key;
+	CFMutableDataRef	client_val;
+	client_val_t		*val;
 
 	// update last generation pushed to client
 	client_key = _client_key(c);
-	client_val = CFDictionaryGetValue(server_info->info, client_key);
+	client_val = (CFMutableDataRef)CFDictionaryGetValue(server_info->info, client_key);
 	CFRelease(client_key);
 
-	val = (client_val_t *)(void *)CFDataGetBytePtr(client_val);
+	val = (client_val_t *)(void *)CFDataGetMutableBytePtr(client_val);
 	val->generation_pushed = server_info->generation;
 
 	// return generation
@@ -265,16 +266,13 @@ _libSC_info_server_acknowledged(libSC_info_server_t	*server_info,
 				xpc_connection_t	c,
 				uint64_t		generation)
 {
-	CFDataRef	client_key;
-	CFDataRef	client_val;
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
-	xpc_object_t	ent_value;
-	Boolean		entitled	= FALSE;
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
-	Boolean		sync_updated	= FALSE;
-	client_val_t	*val;
+	CFDataRef		client_key;
+	CFMutableDataRef	client_val;
+	xpc_object_t		ent_value;
+	Boolean			entitled	= FALSE;
+	Boolean			sync_updated	= FALSE;
+	client_val_t		*val;
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 	ent_value = xpc_connection_copy_entitlement_value(c, kTrailingEdgeAgentEntitlement);
 	if (ent_value != NULL) {
 		if (xpc_get_type(ent_value) == XPC_TYPE_BOOL) {
@@ -287,13 +285,12 @@ _libSC_info_server_acknowledged(libSC_info_server_t	*server_info,
 		_handle_entitlement_check_failure(xpc_connection_get_pid(c));
 		return FALSE;
 	}
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 
 	client_key = _client_key(c);
-	client_val = CFDictionaryGetValue(server_info->info, client_key);
+	client_val = (CFMutableDataRef)CFDictionaryGetValue(server_info->info, client_key);
 	CFRelease(client_key);
 
-	val = (client_val_t *)(void *)CFDataGetBytePtr(client_val);
+	val = (client_val_t *)(void *)CFDataGetMutableBytePtr(client_val);
 
 	if (val->generation_acknowledged == 0) {
 		// if first ack
@@ -331,18 +328,18 @@ Boolean
 _libSC_info_server_close(libSC_info_server_t	*server_info,
 			 xpc_connection_t	c)
 {
-	CFDataRef	client_key;
-	CFDataRef	client_val;
-	Boolean		sync_updated	= FALSE;
+	CFDataRef		client_key;
+	CFMutableDataRef	client_val;
+	Boolean			sync_updated	= FALSE;
 
 	client_key = _client_key(c);
 
 	// get client info, remove ack'd info
-	client_val = CFDictionaryGetValue(server_info->info, client_key);
+	client_val = (CFMutableDataRef)CFDictionaryGetValue(server_info->info, client_key);
 	if (client_val != NULL) {
 		client_val_t	*val;
 
-		val = (client_val_t *)(void *)CFDataGetBytePtr(client_val);
+		val = (client_val_t *)(void *)CFDataGetMutableBytePtr(client_val);
 		if (val->generation_acknowledged > 0) {
 			// if we've previously ack'd a configuration
 			if (val->generation_acknowledged == server_info->generation) {

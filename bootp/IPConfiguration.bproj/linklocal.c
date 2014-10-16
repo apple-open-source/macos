@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,8 +73,6 @@
 #include "dhcplib.h"
 
 #include "ipconfigd_threads.h"
-
-#include "dprintf.h"
 
 #define LINKLOCAL_RANGE_START	IN_LINKLOCALNETNUM
 #define LINKLOCAL_RANGE_END	((u_int32_t)0xa9feffff) /* 169.254.255.255 */

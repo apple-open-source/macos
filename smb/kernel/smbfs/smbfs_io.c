@@ -132,9 +132,6 @@ smb_add_next_entry(struct smbnode *np, uio_t uio, int flags, int32_t *numdirent)
 	uint32_t delen;
 	int	error = 0;
 
-	SMBVDEBUG("%s, Using Next Entry %s\n",  np->n_name,   (flags & VNODE_READDIR_EXTENDED) ? 
-				  ((struct direntry *)(np->d_nextEntry))->d_name : ((struct dirent *)(np->d_nextEntry))->d_name);
-		
 	if (np->d_nextEntryFlags != (flags & VNODE_READDIR_EXTENDED)) {
 		SMBVDEBUG("Next Entry flags don't match was 0x%x now 0x%x\n",
 				  np->d_nextEntryFlags, (flags & VNODE_READDIR_EXTENDED));
@@ -192,7 +189,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 	share = smb_get_share_with_reference(VTOSMBFS(dvp));
 	if (!dnp->d_fctx || (dnp->d_fctx->f_share != share) || (offset == 0) || 
 		(offset != dnp->d_offset)) {
-		SMBVDEBUG("Reopening search for %s %lld:%lld\n", dnp->n_name, offset, dnp->d_offset);
+        
 		smbfs_closedirlookup(dnp, context);
 		error = smbfs_smb_findopen(share, dnp, "*", 1, &dnp->d_fctx, TRUE, 
                                    context);
@@ -204,13 +201,11 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 	smb_share_rele(share, context);
 	
 	if (error) {
-		SMBWARNING("Can't open search for %s, error = %d", dnp->n_name, error);
-		goto done;			
+		goto done;
 	}
 	ctx = dnp->d_fctx;
 	
-	SMBVDEBUG("dirname='%s' offset %lld \n", dnp->n_name, offset);
-	/* 
+	/*
 	 * SMB servers will return the dot and dotdot in most cases. If the share is a 
 	 * FAT Filesystem then the information return could be bogus, also if its a
 	 * FAT drive then they won't even return the dot or the dotdot. Since we already
@@ -220,14 +215,13 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 	if (offset == 0) {
 		int ii;
 		
-		for (ii=0; ii < 2; ii++) {
+		for (ii = 0; ii < 2; ii++) {
             if (ii == 0) {
                 node_ino = dnp->n_ino;
             } else {
-                /* Lock protects dnp->n_parent. See <rdar://problem/11824956> */
-                lck_rw_lock_shared(&dnp->n_name_rwlock);
+                lck_rw_lock_shared(&dnp->n_parent_rwlock);
                 node_ino = (dnp->n_parent) ? dnp->n_parent->n_ino : SMBFS_ROOT_INO;
-                lck_rw_unlock_shared(&dnp->n_name_rwlock);
+                lck_rw_unlock_shared(&dnp->n_parent_rwlock);
             }
 
 			delen = smbfs_fill_direntry(&de, "..", ii + 1, DT_DIR, node_ino, flags);
@@ -344,8 +338,6 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 			(*numdirent)++;
 			dnp->d_offset++;				
 		} else {
-			SMBVDEBUG("%s, Saving Next Entry %s,  resid == %lld\n", dnp->n_name, 
-					  ctx->f_LocalName, uio_resid(uio));
 			SMB_MALLOC(dnp->d_nextEntry, void *, delen, M_TEMP, M_WAITOK);
 			if (dnp->d_nextEntry) {
 				bcopy(&de, dnp->d_nextEntry, delen);
@@ -364,9 +356,6 @@ done:
 	 */
 	uio_setoffset(uio, dnp->d_offset);
 
-	if (error && (error != ENOENT)) {
-		SMBWARNING("%s directory lookup failed with error of %d\n", dnp->n_name, error);		
-	}
 	return error;
 }
 

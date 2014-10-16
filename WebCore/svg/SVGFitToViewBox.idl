@@ -26,9 +26,7 @@
 
 [
     NoInterfaceObject,
-    Conditional=SVG,
     ObjCProtocol,
-    SuppressToJSObject,
 ] interface SVGFitToViewBox {
     readonly attribute SVGAnimatedRect                viewBox;
     readonly attribute SVGAnimatedPreserveAspectRatio preserveAspectRatio;

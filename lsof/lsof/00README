@@ -1314,7 +1314,8 @@ files be installed -- e.g., in /usr/include/sys/fs.  (The location
 will depend in the dialect's header file conventions.)
 
 Some information on lsof support for Veritas extensions may be
-found in the lsof 00DIST file.
+found in the lsof 00DIST file.  (The ChangeLog file points to
+00DIST.)
 
 Chris Kordish and Andy Thomas have provided Solaris VxFS test
 systems.
@@ -1522,4 +1523,4 @@ you are trying to configure.
 
 
 Vic Abell <abe@purdue.edu>
-April 10, 2012
+January 2, 2013

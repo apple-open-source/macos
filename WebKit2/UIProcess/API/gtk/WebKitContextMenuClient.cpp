@@ -26,16 +26,18 @@
 
 using namespace WebKit;
 
-static void getContextMenuFromProposedMenu(WKPageRef, WKArrayRef proposedMenu, WKArrayRef*, WKHitTestResultRef hitTestResult, WKTypeRef userData, const void* clientInfo)
+static void getContextMenuFromProposedMenu(WKPageRef, WKArrayRef proposedMenu, WKArrayRef*, WKHitTestResultRef hitTestResult, WKTypeRef /* userData */, const void* clientInfo)
 {
     webkitWebViewPopulateContextMenu(WEBKIT_WEB_VIEW(clientInfo), toImpl(proposedMenu), toImpl(hitTestResult));
 }
 
 void attachContextMenuClientToView(WebKitWebView* webView)
 {
-    WKPageContextMenuClient wkContextMenuClient = {
-        kWKPageContextMenuClientCurrentVersion,
-        webView, // clientInfo
+    WKPageContextMenuClientV3 wkContextMenuClient = {
+        {
+            3, // version
+            webView, // clientInfo
+        },
         0, // getContextMenuFromProposedMenu_deprecatedForUseWithV0
         0, // customContextMenuItemSelected
         0, // contextMenuDismissed
@@ -44,6 +46,6 @@ void attachContextMenuClientToView(WebKitWebView* webView)
         0, // hideContextMenu
     };
     WKPageRef wkPage = toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView)));
-    WKPageSetPageContextMenuClient(wkPage, &wkContextMenuClient);
+    WKPageSetPageContextMenuClient(wkPage, &wkContextMenuClient.base);
 }
 

@@ -15,7 +15,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "aprapp"="..\apr\build\aprapp.dsp" - Package Owner=<4>
+Project: "apr_crypto_nss"=".\crypto\apr_crypto_nss.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -24,7 +24,28 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name preaprapp
+    Project_Dep_Name libapr
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libaprutil
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "apr_crypto_openssl"=".\crypto\apr_crypto_openssl.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libapr
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libaprutil
     End Project Dependency
 }}}
 
@@ -75,10 +96,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name libapr
+    Project_Dep_Name libaprutil
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libaprutil
+    Project_Dep_Name libapr
     End Project Dependency
 }}}
 
@@ -210,6 +231,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "aprapp"="..\apr\build\aprapp.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name preaprapp
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "apriconv"="..\apr-iconv\apriconv.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -219,7 +255,7 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name apr
+    Project_Dep_Name preapriconv
     End Project Dependency
 }}}
 
@@ -233,6 +269,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name preaprutil
+    End Project Dependency
     Begin Project Dependency
     Project_Dep_Name apriconv
     End Project Dependency
@@ -333,6 +372,9 @@ Package=<4>
     Project_Dep_Name libapr
     End Project Dependency
     Begin Project Dependency
+    Project_Dep_Name libaprapp
+    End Project Dependency
+    Begin Project Dependency
     Project_Dep_Name libapriconv
     End Project Dependency
     Begin Project Dependency
@@ -348,7 +390,7 @@ Package=<4>
 
 ###############################################################################
 
-Project: "preaprapp"="..\..\apr\build\preaprapp.dsp" - Package Owner=<4>
+Project: "preaprapp"="..\apr\build\preaprapp.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -363,7 +405,40 @@ Package=<4>
 
 ###############################################################################
 
-Project: "prelibaprapp"="..\..\apr\build\prelibaprapp.dsp" - Package Owner=<4>
+Project: "preapriconv"="..\apr-iconv\build\preapriconv.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name apr
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "preaprutil"=".\build\preaprutil.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name apr
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name aprapp
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "prelibaprapp"="..\apr\build\prelibaprapp.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{

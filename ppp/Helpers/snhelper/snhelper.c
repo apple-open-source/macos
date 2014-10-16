@@ -14,6 +14,7 @@
 
 #include "snhelper.h"
 #include "flow_divert.h"
+#include "launch_services.h"
 
 static bool
 has_entitlement(xpc_connection_t connection)
@@ -53,8 +54,13 @@ handle_message(xpc_connection_t connection, xpc_object_t message)
 				case kSNHelperMessageTypeFlowDivertUUIDClear:
 					handle_flow_divert_uuid_clear(connection, message);
 					break;
+#if TARGET_OS_EMBEDDED
+				case kSNHelperMessageTypeGetUUIDForApp:
+					handle_get_uuid_for_app(connection, message);
+					break;
+#endif
 				default:
-					send_reply(connection, message, EINVAL);
+					send_reply(connection, message, EINVAL, NULL);
 					break;
 			}
 
@@ -109,12 +115,18 @@ init_xpc_service(void)
 	return true;
 }
 
+#ifndef kSNHelperMessageResultData
+#define kSNHelperMessageResultData "result-data"
+#endif
 void
-send_reply(xpc_connection_t connection, xpc_object_t request, int64_t result)
+send_reply(xpc_connection_t connection, xpc_object_t request, int64_t result, xpc_object_t result_data)
 {
 	xpc_object_t reply = xpc_dictionary_create_reply(request);
 	if (reply != NULL) {
 		xpc_dictionary_set_int64(reply, kSNHelperMessageResult, result);
+		if (result_data) {
+			xpc_dictionary_set_value(reply, kSNHelperMessageResultData, result_data);
+		}
 		xpc_connection_send_message(connection, reply);
 		xpc_release(reply);
 	}

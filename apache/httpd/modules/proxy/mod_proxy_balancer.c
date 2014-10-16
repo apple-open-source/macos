@@ -16,18 +16,44 @@
 
 /* Load balancer module for Apache proxy */
 
-#define CORE_PRIVATE
-
 #include "mod_proxy.h"
 #include "scoreboard.h"
 #include "ap_mpm.h"
 #include "apr_version.h"
-#include "apr_hooks.h"
-#include "apr_uuid.h"
+#include "ap_hooks.h"
+#include "apr_date.h"
+
+static const char *balancer_mutex_type = "proxy-balancer-shm";
+ap_slotmem_provider_t *storage = NULL;
 
 module AP_MODULE_DECLARE_DATA proxy_balancer_module;
 
-static char balancer_nonce[APR_UUID_FORMATTED_LENGTH + 1];
+static int (*ap_proxy_retry_worker_fn)(const char *proxy_function,
+        proxy_worker *worker, server_rec *s) = NULL;
+
+/*
+ * Register our mutex type before the config is read so we
+ * can adjust the mutex settings using the Mutex directive.
+ */
+static int balancer_pre_config(apr_pool_t *pconf, apr_pool_t *plog,
+                               apr_pool_t *ptemp)
+{
+
+    apr_status_t rv;
+
+    rv = ap_mutex_register(pconf, balancer_mutex_type, NULL,
+                               APR_LOCK_DEFAULT, 0);
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
+
+    return OK;
+}
+
+#if 0
+extern void proxy_update_members(proxy_balancer **balancer, request_rec *r,
+                                 proxy_server_conf *conf);
+#endif
 
 static int proxy_balancer_canon(request_rec *r, char *url)
 {
@@ -36,6 +62,7 @@ static int proxy_balancer_canon(request_rec *r, char *url)
     const char *err;
     apr_port_t port = 0;
 
+    /* TODO: offset of BALANCER_PREFIX ?? */
     if (strncasecmp(url, "balancer:", 9) == 0) {
         url += 9;
     }
@@ -43,15 +70,14 @@ static int proxy_balancer_canon(request_rec *r, char *url)
         return DECLINED;
     }
 
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-             "proxy: BALANCER: canonicalising URL %s", url);
+    ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r, "canonicalising URL %s", url);
 
     /* do syntatic check.
      * We break the URL into host, port, path, search
      */
     err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
     if (err) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01157)
                       "error parsing URL %s: %s",
                       url, err);
         return HTTP_BAD_REQUEST;
@@ -72,43 +98,31 @@ static int proxy_balancer_canon(request_rec *r, char *url)
     if (path == NULL)
         return HTTP_BAD_REQUEST;
 
-    r->filename = apr_pstrcat(r->pool, "proxy:balancer://", host,
+    r->filename = apr_pstrcat(r->pool, "proxy:", BALANCER_PREFIX, host,
             "/", path, (search) ? "?" : "", (search) ? search : "", NULL);
+
+    r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+
     return OK;
 }
 
-static int init_balancer_members(proxy_server_conf *conf, server_rec *s,
+static void init_balancer_members(apr_pool_t *p, server_rec *s,
                                  proxy_balancer *balancer)
 {
     int i;
-    proxy_worker *workers;
-    int worker_is_initialized;
-    proxy_worker_stat *slot;
+    proxy_worker **workers;
 
-    workers = (proxy_worker *)balancer->workers->elts;
+    workers = (proxy_worker **)balancer->workers->elts;
 
     for (i = 0; i < balancer->workers->nelts; i++) {
-        worker_is_initialized = PROXY_WORKER_IS_INITIALIZED(workers);
+        int worker_is_initialized;
+        proxy_worker *worker = *workers;
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01158)
+                     "Looking at %s -> %s initialized?", balancer->s->name,
+                     ap_proxy_worker_name(p, worker));
+        worker_is_initialized = PROXY_WORKER_IS_INITIALIZED(worker);
         if (!worker_is_initialized) {
-            /*
-             * If the worker is not initialized check whether its scoreboard
-             * slot is already initialized.
-             */
-            slot = (proxy_worker_stat *) ap_get_scoreboard_lb(workers->id);
-            if (slot) {
-                worker_is_initialized = slot->status & PROXY_WORKER_INITIALIZED;
-            }
-            else {
-                worker_is_initialized = 0;
-            }
-        }
-        ap_proxy_initialize_worker_share(conf, workers, s);
-        ap_proxy_initialize_worker(workers, s);
-        if (!worker_is_initialized) {
-            /* Set to the original configuration */
-            workers->s->lbstatus = workers->s->lbfactor =
-            (workers->lbfactor ? workers->lbfactor : 1);
-            workers->s->lbset = workers->lbset;
+            ap_proxy_initialize_worker(worker, s, p);
         }
         ++workers;
     }
@@ -116,11 +130,10 @@ static int init_balancer_members(proxy_server_conf *conf, server_rec *s,
     /* Set default number of attempts to the number of
      * workers.
      */
-    if (!balancer->max_attempts_set && balancer->workers->nelts > 1) {
-        balancer->max_attempts = balancer->workers->nelts - 1;
-        balancer->max_attempts_set = 1;
+    if (!balancer->s->max_attempts_set && balancer->workers->nelts > 1) {
+        balancer->s->max_attempts = balancer->workers->nelts - 1;
+        balancer->s->max_attempts_set = 1;
     }
-    return 0;
 }
 
 /* Retrieve the parameter with the given name
@@ -139,10 +152,10 @@ static char *get_path_param(apr_pool_t *pool, char *url,
         path += strlen(name);
         if (*path == '=') {
             /*
-             * Session path was found, get it's value
+             * Session path was found, get its value
              */
             ++path;
-            if (strlen(path)) {
+            if (*path) {
                 char *q;
                 path = apr_strtok(apr_pstrdup(pool, path), pathdelims, &q);
                 return path;
@@ -168,12 +181,11 @@ static char *get_cookie_param(request_rec *r, const char *name)
                 start_cookie += strlen(name);
                 while(*start_cookie && isspace(*start_cookie))
                     ++start_cookie;
-                if (*start_cookie == '=' && start_cookie[1]) {
+                if (*start_cookie++ == '=' && *start_cookie) {
                     /*
-                     * Session cookie was found, get it's value
+                     * Session cookie was found, get its value
                      */
                     char *end_cookie, *cookie;
-                    ++start_cookie;
                     cookie = apr_pstrdup(r->pool, start_cookie);
                     if ((end_cookie = strchr(cookie, ';')) != NULL)
                         *end_cookie = '\0';
@@ -195,17 +207,18 @@ static proxy_worker *find_route_worker(proxy_balancer *balancer,
     int i;
     int checking_standby;
     int checked_standby;
-    
-    proxy_worker *worker;
+
+    proxy_worker **workers;
 
     checking_standby = checked_standby = 0;
     while (!checked_standby) {
-        worker = (proxy_worker *)balancer->workers->elts;
-        for (i = 0; i < balancer->workers->nelts; i++, worker++) {
+        workers = (proxy_worker **)balancer->workers->elts;
+        for (i = 0; i < balancer->workers->nelts; i++, workers++) {
+            proxy_worker *worker = *workers;
             if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
                 continue;
             if (*(worker->s->route) && strcmp(worker->s->route, route) == 0) {
-                if (worker && PROXY_WORKER_IS_USABLE(worker)) {
+                if (PROXY_WORKER_IS_USABLE(worker)) {
                     return worker;
                 } else {
                     /*
@@ -215,7 +228,7 @@ static proxy_worker *find_route_worker(proxy_balancer *balancer,
                      * The worker might still be unusable, but we try
                      * anyway.
                      */
-                    ap_proxy_retry_worker("BALANCER", worker, r->server);
+                    ap_proxy_retry_worker_fn("BALANCER", worker, r->server);
                     if (PROXY_WORKER_IS_USABLE(worker)) {
                             return worker;
                     } else {
@@ -239,7 +252,7 @@ static proxy_worker *find_route_worker(proxy_balancer *balancer,
                                  * The worker might still be unusable, but we try
                                  * anyway.
                                  */
-                                ap_proxy_retry_worker("BALANCER", rworker, r->server);
+                                ap_proxy_retry_worker_fn("BALANCER", rworker, r->server);
                             }
                             if (rworker && PROXY_WORKER_IS_USABLE(rworker))
                                 return rworker;
@@ -256,39 +269,39 @@ static proxy_worker *find_route_worker(proxy_balancer *balancer,
 static proxy_worker *find_session_route(proxy_balancer *balancer,
                                         request_rec *r,
                                         char **route,
-                                        char **sticky_used,
+                                        const char **sticky_used,
                                         char **url)
 {
     proxy_worker *worker = NULL;
-    char *sticky, *sticky_path, *path;
 
-    if (!balancer->sticky)
+    if (!*balancer->s->sticky)
         return NULL;
-    sticky = sticky_path = apr_pstrdup(r->pool, balancer->sticky);
-    if ((path = strchr(sticky, '|'))) {
-        *path++ = '\0';
-         sticky_path = path;
-    }
-    
     /* Try to find the sticky route inside url */
-    *sticky_used = sticky_path;
-    *route = get_path_param(r->pool, *url, sticky_path, balancer->scolonsep);
-    if (!*route) {
-        *route = get_cookie_param(r, sticky);
-        *sticky_used = sticky;
+    *route = get_path_param(r->pool, *url, balancer->s->sticky_path, balancer->s->scolonsep);
+    if (*route) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01159)
+                     "Found value %s for stickysession %s",
+                     *route, balancer->s->sticky_path);
+        *sticky_used =  balancer->s->sticky_path;
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                            "proxy: BALANCER: Found value %s for "
-                            "stickysession %s", *route, balancer->sticky);
+    else {
+        *route = get_cookie_param(r, balancer->s->sticky);
+        if (*route) {
+            *sticky_used =  balancer->s->sticky;
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01160)
+                         "Found value %s for stickysession %s",
+                         *route, balancer->s->sticky);
+        }
+    }
     /*
-     * If we found a value for sticksession, find the first '.' within.
-     * Everything after '.' (if present) is our route.
+     * If we found a value for stickysession, find the first '.' (or whatever
+     * sticky_separator is set to) within. Everything after '.' (if present)
+     * is our route. 
      */
-    if ((*route) && ((*route = strchr(*route, '.')) != NULL ))
+    if ((*route) && (balancer->s->sticky_separator != 0) && ((*route = strchr(*route, balancer->s->sticky_separator)) != NULL ))
         (*route)++;
     if ((*route) && (**route)) {
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                                  "proxy: BALANCER: Found route %s", *route);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01161) "Found route %s", *route);
         /* We have a route in path or in cookie
          * Find the worker that has this route defined.
          */
@@ -299,9 +312,9 @@ static proxy_worker *find_session_route(proxy_balancer *balancer,
              * the route supplied by the client.
              */
             apr_table_setn(r->subprocess_env, "BALANCER_ROUTE_CHANGED", "1");
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                         "proxy: BALANCER: Route changed from %s to %s",
-                         *route, worker->s->route);
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01162)
+                          "Route changed from %s to %s",
+                          *route, worker->s->route);
         }
         return worker;
     }
@@ -316,8 +329,9 @@ static proxy_worker *find_best_worker(proxy_balancer *balancer,
     apr_status_t rv;
 
     if ((rv = PROXY_THREAD_LOCK(balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-        "proxy: BALANCER: (%s). Lock failed for find_best_worker()", balancer->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01163)
+                      "%s: Lock failed for find_best_worker()",
+                      balancer->s->name);
         return NULL;
     }
 
@@ -326,14 +340,10 @@ static proxy_worker *find_best_worker(proxy_balancer *balancer,
     if (candidate)
         candidate->s->elected++;
 
-/*
-        PROXY_THREAD_UNLOCK(balancer);
-        return NULL;
-*/
-
     if ((rv = PROXY_THREAD_UNLOCK(balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-        "proxy: BALANCER: (%s). Unlock failed for find_best_worker()", balancer->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01164)
+                      "%s: Unlock failed for find_best_worker()",
+                      balancer->s->name);
     }
 
     if (candidate == NULL) {
@@ -344,19 +354,18 @@ static proxy_worker *find_best_worker(proxy_balancer *balancer,
          * By default the timeout is not set, and the server
          * returns SERVER_BUSY.
          */
-#if APR_HAS_THREADS
-        if (balancer->timeout) {
+        if (balancer->s->timeout) {
             /* XXX: This can perhaps be build using some
              * smarter mechanism, like tread_cond.
              * But since the statuses can came from
              * different childs, use the provided algo.
              */
-            apr_interval_time_t timeout = balancer->timeout;
+            apr_interval_time_t timeout = balancer->s->timeout;
             apr_interval_time_t step, tval = 0;
             /* Set the timeout to 0 so that we don't
              * end in infinite loop
              */
-            balancer->timeout = 0;
+            balancer->s->timeout = 0;
             step = timeout / 100;
             while (tval < timeout) {
                 apr_sleep(step);
@@ -366,9 +375,8 @@ static proxy_worker *find_best_worker(proxy_balancer *balancer,
                 tval += step;
             }
             /* restore the timeout */
-            balancer->timeout = timeout;
+            balancer->s->timeout = timeout;
         }
-#endif
     }
 
     return candidate;
@@ -391,7 +399,7 @@ static int rewrite_url(request_rec *r, proxy_worker *worker,
                              NULL));
     }
 
-    *url = apr_pstrcat(r->pool, worker->name, path, NULL);
+    *url = apr_pstrcat(r->pool, worker->s->name, path, NULL);
 
     return OK;
 }
@@ -400,33 +408,33 @@ static void force_recovery(proxy_balancer *balancer, server_rec *s)
 {
     int i;
     int ok = 0;
-    proxy_worker *worker;
+    proxy_worker **worker;
 
-    worker = (proxy_worker *)balancer->workers->elts;
+    worker = (proxy_worker **)balancer->workers->elts;
     for (i = 0; i < balancer->workers->nelts; i++, worker++) {
-        if (!(worker->s->status & PROXY_WORKER_IN_ERROR)) {
+        if (!((*worker)->s->status & PROXY_WORKER_IN_ERROR)) {
             ok = 1;
             break;
         }
         else {
             /* Try if we can recover */
-            ap_proxy_retry_worker("BALANCER", worker, s);
-            if (!(worker->s->status & PROXY_WORKER_IN_ERROR)) {
+            ap_proxy_retry_worker_fn("BALANCER", *worker, s);
+            if (!((*worker)->s->status & PROXY_WORKER_IN_ERROR)) {
                 ok = 1;
                 break;
             }
         }
     }
-    if (!ok && balancer->forcerecovery) {
+    if (!ok && balancer->s->forcerecovery) {
         /* If all workers are in error state force the recovery.
          */
-        worker = (proxy_worker *)balancer->workers->elts;
+        worker = (proxy_worker **)balancer->workers->elts;
         for (i = 0; i < balancer->workers->nelts; i++, worker++) {
-            ++worker->s->retries;
-            worker->s->status &= ~PROXY_WORKER_IN_ERROR;
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
-                         "proxy: BALANCER: (%s). Forcing recovery for worker (%s)",
-                         balancer->name, worker->hostname);
+            ++(*worker)->s->retries;
+            (*worker)->s->status &= ~PROXY_WORKER_IN_ERROR;
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01165)
+                         "%s: Forcing recovery for worker (%s)",
+                         balancer->s->name, (*worker)->s->hostname);
         }
     }
 }
@@ -450,7 +458,7 @@ static int proxy_balancer_pre_request(proxy_worker **worker,
     int access_status;
     proxy_worker *runtime;
     char *route = NULL;
-    char *sticky = NULL;
+    const char *sticky = NULL;
     apr_status_t rv;
 
     *worker = NULL;
@@ -460,95 +468,107 @@ static int proxy_balancer_pre_request(proxy_worker **worker,
      * for balancer, because this is failover attempt.
      */
     if (!*balancer &&
-        !(*balancer = ap_proxy_get_balancer(r->pool, conf, *url)))
+        !(*balancer = ap_proxy_get_balancer(r->pool, conf, *url, 1)))
         return DECLINED;
 
     /* Step 2: Lock the LoadBalancer
      * XXX: perhaps we need the process lock here
      */
     if ((rv = PROXY_THREAD_LOCK(*balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-                     "proxy: BALANCER: (%s). Lock failed for pre_request",
-                     (*balancer)->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01166)
+                      "%s: Lock failed for pre_request", (*balancer)->s->name);
         return DECLINED;
     }
 
     /* Step 3: force recovery */
     force_recovery(*balancer, r->server);
 
+    /* Step 3.5: Update member list for the balancer */
+    /* TODO: Implement as provider! */
+    ap_proxy_sync_balancer(*balancer, r->server, conf);
+
     /* Step 4: find the session route */
     runtime = find_session_route(*balancer, r, &route, &sticky, url);
     if (runtime) {
-        int i, total_factor = 0;
-        proxy_worker *workers;
-        /* We have a sticky load balancer
-         * Update the workers status
-         * so that even session routes get
-         * into account.
-         */
-        workers = (proxy_worker *)(*balancer)->workers->elts;
-        for (i = 0; i < (*balancer)->workers->nelts; i++) {
-            /* Take into calculation only the workers that are
-             * not in error state or not disabled.
-             *
-             * TODO: Abstract the below, since this is dependent
-             *       on the LB implementation
-             */
-            if (PROXY_WORKER_IS_USABLE(workers)) {
-                workers->s->lbstatus += workers->s->lbfactor;
-                total_factor += workers->s->lbfactor;
-            }
-            workers++;
+        if ((*balancer)->lbmethod && (*balancer)->lbmethod->updatelbstatus) {
+            /* Call the LB implementation */
+            (*balancer)->lbmethod->updatelbstatus(*balancer, runtime, r->server);
         }
-        runtime->s->lbstatus -= total_factor;
+        else { /* Use the default one */
+            int i, total_factor = 0;
+            proxy_worker **workers;
+            /* We have a sticky load balancer
+             * Update the workers status
+             * so that even session routes get
+             * into account.
+             */
+            workers = (proxy_worker **)(*balancer)->workers->elts;
+            for (i = 0; i < (*balancer)->workers->nelts; i++) {
+                /* Take into calculation only the workers that are
+                 * not in error state or not disabled.
+                 */
+                if (PROXY_WORKER_IS_USABLE(*workers)) {
+                    (*workers)->s->lbstatus += (*workers)->s->lbfactor;
+                    total_factor += (*workers)->s->lbfactor;
+                }
+                workers++;
+            }
+            runtime->s->lbstatus -= total_factor;
+        }
         runtime->s->elected++;
 
         *worker = runtime;
     }
-    else if (route && (*balancer)->sticky_force) {
+    else if (route && (*balancer)->s->sticky_force) {
         int i, member_of = 0;
-        proxy_worker *workers;
+        proxy_worker **workers;
         /*
          * We have a route provided that doesn't match the
          * balancer name. See if the provider route is the
          * member of the same balancer in which case return 503
          */
-        workers = (proxy_worker *)(*balancer)->workers->elts;
+        workers = (proxy_worker **)(*balancer)->workers->elts;
         for (i = 0; i < (*balancer)->workers->nelts; i++) {
-            if (*(workers->s->route) && strcmp(workers->s->route, route) == 0) {
+            if (*((*workers)->s->route) && strcmp((*workers)->s->route, route) == 0) {
                 member_of = 1;
                 break;
             }
             workers++;
         }
         if (member_of) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
-                         "proxy: BALANCER: (%s). All workers are in error state for route (%s)",
-                         (*balancer)->name, route);
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01167)
+                          "%s: All workers are in error state for route (%s)",
+                          (*balancer)->s->name, route);
             if ((rv = PROXY_THREAD_UNLOCK(*balancer)) != APR_SUCCESS) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-                             "proxy: BALANCER: (%s). Unlock failed for pre_request",
-                             (*balancer)->name);
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01168)
+                              "%s: Unlock failed for pre_request",
+                              (*balancer)->s->name);
             }
             return HTTP_SERVICE_UNAVAILABLE;
         }
     }
 
     if ((rv = PROXY_THREAD_UNLOCK(*balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-                     "proxy: BALANCER: (%s). Unlock failed for pre_request",
-                     (*balancer)->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01169)
+                      "%s: Unlock failed for pre_request",
+                      (*balancer)->s->name);
     }
     if (!*worker) {
         runtime = find_best_worker(*balancer, r);
         if (!runtime) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
-                         "proxy: BALANCER: (%s). All workers are in error state",
-                         (*balancer)->name);
+            if ((*balancer)->workers->nelts) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01170)
+                              "%s: All workers are in error state",
+                              (*balancer)->s->name);
+            } else {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01171)
+                              "%s: No workers in balancer",
+                              (*balancer)->s->name);
+            }
 
             return HTTP_SERVICE_UNAVAILABLE;
         }
-        if ((*balancer)->sticky && runtime) {
+        if (*(*balancer)->s->sticky && runtime) {
             /*
              * This balancer has sticky sessions and the client either has not
              * supplied any routing information or all workers for this route
@@ -568,9 +588,9 @@ static int proxy_balancer_pre_request(proxy_worker **worker,
 
     /* Add balancer/worker info to env. */
     apr_table_setn(r->subprocess_env,
-                   "BALANCER_NAME", (*balancer)->name);
+                   "BALANCER_NAME", (*balancer)->s->name);
     apr_table_setn(r->subprocess_env,
-                   "BALANCER_WORKER_NAME", (*worker)->name);
+                   "BALANCER_WORKER_NAME", (*worker)->s->name);
     apr_table_setn(r->subprocess_env,
                    "BALANCER_WORKER_ROUTE", (*worker)->s->route);
 
@@ -591,9 +611,9 @@ static int proxy_balancer_pre_request(proxy_worker **worker,
         apr_table_setn(r->subprocess_env,
                        "BALANCER_SESSION_ROUTE", route);
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                 "proxy: BALANCER (%s) worker (%s) rewritten to %s",
-                 (*balancer)->name, (*worker)->name, *url);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01172)
+                  "%s: worker (%s) rewritten to %s",
+                  (*balancer)->s->name, (*worker)->s->name, *url);
 
     return access_status;
 }
@@ -607,21 +627,23 @@ static int proxy_balancer_post_request(proxy_worker *worker,
     apr_status_t rv;
 
     if ((rv = PROXY_THREAD_LOCK(balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-            "proxy: BALANCER: (%s). Lock failed for post_request",
-            balancer->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01173)
+                      "%s: Lock failed for post_request",
+                      balancer->s->name);
         return HTTP_INTERNAL_SERVER_ERROR;
     }
+
     if (!apr_is_empty_array(balancer->errstatuses)) {
         int i;
         for (i = 0; i < balancer->errstatuses->nelts; i++) {
             int val = ((int *)balancer->errstatuses->elts)[i];
             if (r->status == val) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                             "proxy: BALANCER: (%s).  Forcing worker (%s) into error state "
-                             "due to status code %d matching 'failonstatus' "
-                             "balancer parameter",
-                             balancer->name, worker->name, val);
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01174)
+                              "%s: Forcing worker (%s) into error state "
+                              "due to status code %d matching 'failonstatus' "
+                              "balancer parameter",
+                              balancer->s->name, ap_proxy_worker_name(r->pool, worker),
+                              val);
                 worker->s->status |= PROXY_WORKER_IN_ERROR;
                 worker->s->error_time = apr_time_now();
                 break;
@@ -631,22 +653,21 @@ static int proxy_balancer_post_request(proxy_worker *worker,
 
     if (balancer->failontimeout
         && (apr_table_get(r->notes, "proxy_timedout")) != NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02460)
                       "%s: Forcing worker (%s) into error state "
                       "due to timeout and 'failonstatus' parameter being set",
-                       balancer->name, worker->name);
+                       balancer->s->name, ap_proxy_worker_name(r->pool, worker));
         worker->s->status |= PROXY_WORKER_IN_ERROR;
         worker->s->error_time = apr_time_now();
 
     }
 
     if ((rv = PROXY_THREAD_UNLOCK(balancer)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, r->server,
-            "proxy: BALANCER: (%s). Unlock failed for post_request",
-            balancer->name);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01175)
+                      "%s: Unlock failed for post_request", balancer->s->name);
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                 "proxy_balancer_post_request for (%s)", balancer->name);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01176)
+                  "proxy_balancer_post_request for (%s)", balancer->s->name);
 
     return OK;
 }
@@ -654,125 +675,408 @@ static int proxy_balancer_post_request(proxy_worker *worker,
 static void recalc_factors(proxy_balancer *balancer)
 {
     int i;
-    proxy_worker *workers;
+    proxy_worker **workers;
 
 
     /* Recalculate lbfactors */
-    workers = (proxy_worker *)balancer->workers->elts;
-    /* Special case if there is only one worker it's
+    workers = (proxy_worker **)balancer->workers->elts;
+    /* Special case if there is only one worker its
      * load factor will always be 1
      */
     if (balancer->workers->nelts == 1) {
-        workers->s->lbstatus = workers->s->lbfactor = 1;
+        (*workers)->s->lbstatus = (*workers)->s->lbfactor = 1;
         return;
     }
     for (i = 0; i < balancer->workers->nelts; i++) {
         /* Update the status entries */
-        workers[i].s->lbstatus = workers[i].s->lbfactor;
+        workers[i]->s->lbstatus = workers[i]->s->lbfactor;
     }
 }
 
+static apr_status_t lock_remove(void *data)
+{
+    int i;
+    proxy_balancer *balancer;
+    server_rec *s = data;
+    void *sconf = s->module_config;
+    proxy_server_conf *conf = (proxy_server_conf *) ap_get_module_config(sconf, &proxy_module);
+
+    balancer = (proxy_balancer *)conf->balancers->elts;
+    for (i = 0; i < conf->balancers->nelts; i++, balancer++) {
+        if (balancer->gmutex) {
+            apr_global_mutex_destroy(balancer->gmutex);
+            balancer->gmutex = NULL;
+        }
+    }
+    return(0);
+}
+
 /* post_config hook: */
-static int balancer_init(apr_pool_t *p, apr_pool_t *plog,
+static int balancer_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                          apr_pool_t *ptemp, server_rec *s)
 {
-    void *data;
-    const char *userdata_key = "mod_proxy_balancer_init";
-    apr_uuid_t uuid;
+    apr_status_t rv;
+    proxy_server_conf *conf;
+    ap_slotmem_instance_t *new = NULL;
+    apr_time_t tstamp;
 
-    /* balancer_init() will be called twice during startup.  So, only
-     * set up the static data the second time through. */
-    apr_pool_userdata_get(&data, userdata_key, s->process->pool);
-    if (!data) {
-        apr_pool_userdata_set((const void *)1, userdata_key,
-                               apr_pool_cleanup_null, s->process->pool);
+    /* balancer_post_config() will be called twice during startup.  So, don't
+     * set up the static data the 1st time through. */
+    if (ap_state_query(AP_SQ_MAIN_STATE) == AP_SQ_MS_CREATE_PRE_CONFIG) {
         return OK;
     }
 
-    /* Retrieve a UUID and store the nonce for the lifetime of
-     * the process. */
-    apr_uuid_get(&uuid);
-    apr_uuid_format(balancer_nonce, &uuid);
+    if (!ap_proxy_retry_worker_fn) {
+        ap_proxy_retry_worker_fn =
+                APR_RETRIEVE_OPTIONAL_FN(ap_proxy_retry_worker);
+        if (!ap_proxy_retry_worker_fn) {
+            ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(02230)
+                         "mod_proxy must be loaded for mod_proxy_balancer");
+            return !OK;
+        }
+    }
+
+    /*
+     * Get slotmem setups
+     */
+    storage = ap_lookup_provider(AP_SLOTMEM_PROVIDER_GROUP, "shm",
+                                 AP_SLOTMEM_PROVIDER_VERSION);
+    if (!storage) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(01177)
+                     "Failed to lookup provider 'shm' for '%s': is "
+                     "mod_slotmem_shm loaded??",
+                     AP_SLOTMEM_PROVIDER_GROUP);
+        return !OK;
+    }
+
+    tstamp = apr_time_now();
+    /*
+     * Go thru each Vhost and create the shared mem slotmem for
+     * each balancer's workers
+     */
+    while (s) {
+        int i,j;
+        char *id;
+        proxy_balancer *balancer;
+        ap_slotmem_type_t type;
+        void *sconf = s->module_config;
+        conf = (proxy_server_conf *)ap_get_module_config(sconf, &proxy_module);
+        /*
+         * During create_proxy_config() we created a dummy id. Now that
+         * we have identifying info, we can create the real id
+         */
+        id = apr_psprintf(pconf, "%s.%s.%d.%s.%s.%u.%s",
+                          (s->server_scheme ? s->server_scheme : "????"),
+                          (s->server_hostname ? s->server_hostname : "???"),
+                          (int)s->port,
+                          (s->server_admin ? s->server_admin : "??"),
+                          (s->defn_name ? s->defn_name : "?"),
+                          s->defn_line_number,
+                          (s->error_fname ? s->error_fname : DEFAULT_ERRORLOG));
+        conf->id = apr_psprintf(pconf, "p%x-%d",
+                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT),(int) tstamp);
+        if (conf->bslot) {
+            /* Shared memory already created for this proxy_server_conf.
+             */
+            s = s->next;
+            continue;
+        }
+        if (conf->bal_persist) {
+            type = AP_SLOTMEM_TYPE_PERSIST;
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is , AP_SLOTMEM_TYPE_CLEARINUSE");
+        } else {
+            type = AP_SLOTMEM_TYPE_CLEARINUSE;
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is FALSE, AP_SLOTMEM_TYPE_CLEARINUSE");
+        }
+        if (conf->balancers->nelts) {
+            conf->max_balancers = conf->balancers->nelts + conf->bgrowth;
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: %d, %d (%d)",
+                         (int)ALIGNED_PROXY_BALANCER_SHARED_SIZE,
+                         (int)conf->balancers->nelts, conf->max_balancers);
+
+            rv = storage->create(&new, conf->id,
+                                 ALIGNED_PROXY_BALANCER_SHARED_SIZE,
+                                 conf->max_balancers, type, pconf);
+            if (rv != APR_SUCCESS) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01179) "balancer slotmem_create failed for %s", conf->id);
+                return !OK;
+            }
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(01179) "balancer slotmem_create SUCCESS for %s", conf->id);
+            conf->bslot = new;
+        }
+        conf->storage = storage;
+
+        /* Initialize shared scoreboard data */
+        balancer = (proxy_balancer *)conf->balancers->elts;
+        for (i = 0; i < conf->balancers->nelts; i++, balancer++) {
+            proxy_worker **workers;
+            proxy_worker *worker;
+            proxy_balancer_shared *bshm;
+            const char *sname;
+            unsigned int index;
+
+            /* now that we have the right id, we need to redo the sname field */
+            ap_pstr2_alnum(pconf, balancer->s->name + sizeof(BALANCER_PREFIX) - 1,
+                           &sname);
+            sname = apr_pstrcat(pconf, conf->id, "_", sname, NULL);
+            PROXY_STRNCPY(balancer->s->sname, sname); /* We know this will succeed */
+
+            balancer->max_workers = balancer->workers->nelts + balancer->growth;
+
+            /* Create global mutex */
+            rv = ap_global_mutex_create(&(balancer->gmutex), NULL, balancer_mutex_type,
+                                        balancer->s->sname, s, pconf, 0);
+            if (rv != APR_SUCCESS || !balancer->gmutex) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01180)
+                             "mutex creation of %s : %s failed", balancer_mutex_type,
+                             balancer->s->sname);
+                return HTTP_INTERNAL_SERVER_ERROR;
+            }
+
+            apr_pool_cleanup_register(pconf, (void *)s, lock_remove,
+                                      apr_pool_cleanup_null);
+
+            /* setup shm for balancers */
+            bshm = ap_proxy_find_balancershm(storage, conf->bslot, balancer, &index);
+            if (bshm) {
+                if ((rv = storage->fgrab(conf->bslot, index)) != APR_SUCCESS) {
+                    ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(02408) "balancer slotmem_fgrab failed");
+                    return !OK;
+                }
+            }
+            else {
+                if ((rv = storage->grab(conf->bslot, &index)) != APR_SUCCESS) {
+                    ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01181) "balancer slotmem_grab failed");
+                    return !OK;
+                }
+                if ((rv = storage->dptr(conf->bslot, index, (void *)&bshm)) != APR_SUCCESS) {
+                    ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01182) "balancer slotmem_dptr failed");
+                    return !OK;
+                }
+            }
+            if ((rv = ap_proxy_share_balancer(balancer, bshm, index)) != APR_SUCCESS) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01183) "Cannot share balancer");
+                return !OK;
+            }
+
+            /* create slotmem slots for workers */
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01184) "Doing workers create: %s (%s), %d, %d [%u]",
+                         balancer->s->name, balancer->s->sname,
+                         (int)ALIGNED_PROXY_WORKER_SHARED_SIZE,
+                         (int)balancer->max_workers, i);
+
+            rv = storage->create(&new, balancer->s->sname,
+                                 ALIGNED_PROXY_WORKER_SHARED_SIZE,
+                                 balancer->max_workers, type, pconf);
+            if (rv != APR_SUCCESS) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01185) "worker slotmem_create failed");
+                return !OK;
+            }
+            balancer->wslot = new;
+            balancer->storage = storage;
+
+            /* sync all timestamps */
+            balancer->wupdated = balancer->s->wupdated = tstamp;
+
+            /* now go thru each worker */
+            workers = (proxy_worker **)balancer->workers->elts;
+            for (j = 0; j < balancer->workers->nelts; j++, workers++) {
+                proxy_worker_shared *shm;
+
+                worker = *workers;
+
+                shm = ap_proxy_find_workershm(storage, balancer->wslot, worker, &index);
+                if (shm) {
+                    if ((rv = storage->fgrab(balancer->wslot, index)) != APR_SUCCESS) {
+                        ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(02409) "worker slotmem_fgrab failed");
+                        return !OK;
+                    }
+                }
+                else {
+                    if ((rv = storage->grab(balancer->wslot, &index)) != APR_SUCCESS) {
+                        ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01186) "worker slotmem_grab failed");
+                        return !OK;
+
+                    }
+                    if ((rv = storage->dptr(balancer->wslot, index, (void *)&shm)) != APR_SUCCESS) {
+                        ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01187) "worker slotmem_dptr failed");
+                        return !OK;
+                    }
+                }
+                if ((rv = ap_proxy_share_worker(worker, shm, index)) != APR_SUCCESS) {
+                    ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01188) "Cannot share worker");
+                    return !OK;
+                }
+                worker->s->updated = tstamp;
+            }
+            if (conf->bal_persist) {
+                /* We could have just read-in a persisted config. Force a sync. */
+                balancer->wupdated--;
+                ap_proxy_sync_balancer(balancer, s, conf);
+            }
+        }
+        s = s->next;
+    }
 
     return OK;
 }
 
+static void create_radio(const char *name, unsigned int flag, request_rec *r)
+{
+    ap_rvputs(r, "<td>On <input name='", name, "' id='", name, "' value='1' type=radio", NULL);
+    if (flag)
+        ap_rputs(" checked", r);
+    ap_rvputs(r, "> <br/> Off <input name='", name, "' id='", name, "' value='0' type=radio", NULL);
+    if (!flag)
+        ap_rputs(" checked", r);
+    ap_rputs("></td>\n", r);
+}
+
+static void push2table(const char *input, apr_table_t *params,
+                       const char *allowed[], apr_pool_t *p)
+{
+    char *args;
+    char *tok, *val;
+    char *key;
+
+    if (input == NULL) {
+        return;
+    }
+    args = apr_pstrdup(p, input);
+
+    key = apr_strtok(args, "&", &tok);
+    while (key) {
+        val = strchr(key, '=');
+        if (val) {
+            *val++ = '\0';
+        }
+        else {
+            val = "";
+        }
+        ap_unescape_url(key);
+        ap_unescape_url(val);
+        if (allowed == NULL) { /* allow all */
+            apr_table_set(params, key, val);
+        }
+        else {
+            const char **ok = allowed;
+            while (*ok) {
+                if (strcmp(*ok, key) == 0) {
+                    apr_table_set(params, key, val);
+                    break;
+                }
+                ok++;
+            }
+        }
+        key = apr_strtok(NULL, "&", &tok);
+    }
+}
+
 /* Manages the loadfactors and member status
+ *   The balancer, worker and nonce are obtained from
+ *   the request args (?b=...&w=...&nonce=....).
+ *   All other params are pulled from any POST
+ *   data that exists.
+ * TODO:
+ *   /.../<whatever>/balancer/worker/nonce
  */
 static int balancer_handler(request_rec *r)
 {
-    void *sconf = r->server->module_config;
-    proxy_server_conf *conf = (proxy_server_conf *)
-        ap_get_module_config(sconf, &proxy_module);
+    void *sconf;
+    proxy_server_conf *conf;
     proxy_balancer *balancer, *bsel = NULL;
     proxy_worker *worker, *wsel = NULL;
-    apr_table_t *params = apr_table_make(r->pool, 10);
-    int access_status;
+    proxy_worker **workers = NULL;
+    apr_table_t *params;
     int i, n;
+    int ok2change = 1;
     const char *name;
+    const char *action;
+    apr_status_t rv;
 
     /* is this for us? */
-    if (strcmp(r->handler, "balancer-manager"))
+    if (strcmp(r->handler, "balancer-manager")) {
         return DECLINED;
-    r->allowed = (AP_METHOD_BIT << M_GET);
-    if (r->method_number != M_GET)
-        return DECLINED;
+    }
 
-    if (r->args) {
-        char *args = apr_pstrdup(r->pool, r->args);
-        char *tok, *val;
-        while (args && *args) {
-            if ((val = ap_strchr(args, '='))) {
-                *val++ = '\0';
-                if ((tok = ap_strchr(val, '&')))
-                    *tok++ = '\0';
-                /*
-                 * Special case: workers are allowed path information
-                 */
-                if ((access_status = ap_unescape_url(val)) != OK)
-                    if (strcmp(args, "w") || (access_status !=  HTTP_NOT_FOUND))
-                        return access_status;
-                apr_table_setn(params, args, val);
-                args = tok;
-            }
-            else
-                return HTTP_BAD_REQUEST;
+    r->allowed = 0
+    | (AP_METHOD_BIT << M_GET)
+    | (AP_METHOD_BIT << M_POST);
+    if ((r->method_number != M_GET) && (r->method_number != M_POST)) {
+        return DECLINED;
+    }
+
+    sconf = r->server->module_config;
+    conf = (proxy_server_conf *) ap_get_module_config(sconf, &proxy_module);
+    params = apr_table_make(r->pool, 10);
+
+    balancer = (proxy_balancer *)conf->balancers->elts;
+    for (i = 0; i < conf->balancers->nelts; i++, balancer++) {
+        if ((rv = PROXY_THREAD_LOCK(balancer)) != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01189)
+                          "%s: Lock failed for balancer_handler",
+                          balancer->s->name);
+        }
+        ap_proxy_sync_balancer(balancer, r->server, conf);
+        if ((rv = PROXY_THREAD_UNLOCK(balancer)) != APR_SUCCESS) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01190)
+                          "%s: Unlock failed for balancer_handler",
+                          balancer->s->name);
         }
     }
-    
-    /* Check that the supplied nonce matches this server's nonce;
-     * otherwise ignore all parameters, to prevent a CSRF attack. */
-    if ((name = apr_table_get(params, "nonce")) == NULL 
-        || strcmp(balancer_nonce, name) != 0) {
-        apr_table_clear(params);
-    }
 
+    if (r->args && (r->method_number == M_GET)) {
+        const char *allowed[] = { "w", "b", "nonce", "xml", NULL };
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01191) "parsing r->args");
+
+        push2table(r->args, params, allowed, r->pool);
+    }
+    if (r->method_number == M_POST) {
+        apr_bucket_brigade *ib;
+        apr_size_t len = 1024;
+        char *buf = apr_pcalloc(r->pool, len+1);
+
+        ib = apr_brigade_create(r->connection->pool, r->connection->bucket_alloc);
+        rv = ap_get_brigade(r->input_filters, ib, AP_MODE_READBYTES,
+                                APR_BLOCK_READ, len);
+        if (rv != APR_SUCCESS) {
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+        apr_brigade_flatten(ib, buf, &len);
+        buf[len] = '\0';
+        push2table(buf, params, NULL, r->pool);
+    }
     if ((name = apr_table_get(params, "b")))
         bsel = ap_proxy_get_balancer(r->pool, conf,
-            apr_pstrcat(r->pool, "balancer://", name, NULL));
-    if ((name = apr_table_get(params, "w"))) {
-        proxy_worker *ws;
+            apr_pstrcat(r->pool, BALANCER_PREFIX, name, NULL), 0);
 
-        ws = ap_proxy_get_worker(r->pool, conf, name);
-        if (bsel && ws) {
-            worker = (proxy_worker *)bsel->workers->elts;
-            for (n = 0; n < bsel->workers->nelts; n++) {
-                if (strcasecmp(worker->name, ws->name) == 0) {
-                    wsel = worker;
-                    break;
-                }
-                ++worker;
-            }
-        }
+    if ((name = apr_table_get(params, "w"))) {
+        wsel = ap_proxy_get_worker(r->pool, bsel, conf, name);
     }
+
+
+    /* Check that the supplied nonce matches this server's nonce;
+     * otherwise ignore all parameters, to prevent a CSRF attack. */
+    if (!bsel ||
+        (*bsel->s->nonce &&
+         (
+          (name = apr_table_get(params, "nonce")) == NULL ||
+          strcmp(bsel->s->nonce, name) != 0
+         )
+        )
+       ) {
+        apr_table_clear(params);
+        ok2change = 0;
+    }
+
     /* First set the params */
-    /*
-     * Note that it is not possible set the proxy_balancer because it is not
-     * in shared memory.
-     */
-    if (wsel) {
+    if (wsel && ok2change) {
         const char *val;
-        if ((val = apr_table_get(params, "lf"))) {
+        int was_usable = PROXY_WORKER_IS_USABLE(wsel);
+
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01192) "settings worker params");
+
+        if ((val = apr_table_get(params, "w_lf"))) {
             int ival = atoi(val);
             if (ival >= 1 && ival <= 100) {
                 wsel->s->lbfactor = ival;
@@ -780,53 +1084,345 @@ static int balancer_handler(request_rec *r)
                     recalc_factors(bsel);
             }
         }
-        if ((val = apr_table_get(params, "wr"))) {
-            if (strlen(val) && strlen(val) < PROXY_WORKER_MAX_ROUTE_SIZ)
+        if ((val = apr_table_get(params, "w_wr"))) {
+            if (strlen(val) && strlen(val) < sizeof(wsel->s->route))
                 strcpy(wsel->s->route, val);
             else
                 *wsel->s->route = '\0';
         }
-        if ((val = apr_table_get(params, "rr"))) {
-            if (strlen(val) && strlen(val) < PROXY_WORKER_MAX_ROUTE_SIZ)
+        if ((val = apr_table_get(params, "w_rr"))) {
+            if (strlen(val) && strlen(val) < sizeof(wsel->s->redirect))
                 strcpy(wsel->s->redirect, val);
             else
                 *wsel->s->redirect = '\0';
         }
-        if ((val = apr_table_get(params, "dw"))) {
-            if (!strcasecmp(val, "Disable"))
-                wsel->s->status |= PROXY_WORKER_DISABLED;
-            else if (!strcasecmp(val, "Enable"))
-                wsel->s->status &= ~PROXY_WORKER_DISABLED;
+        if ((val = apr_table_get(params, "w_status_I"))) {
+            ap_proxy_set_wstatus('I', atoi(val), wsel);
         }
-        if ((val = apr_table_get(params, "ls"))) {
+        if ((val = apr_table_get(params, "w_status_N"))) {
+            ap_proxy_set_wstatus('N', atoi(val), wsel);
+        }
+        if ((val = apr_table_get(params, "w_status_D"))) {
+            ap_proxy_set_wstatus('D', atoi(val), wsel);
+        }
+        if ((val = apr_table_get(params, "w_status_H"))) {
+            ap_proxy_set_wstatus('H', atoi(val), wsel);
+        }
+        if ((val = apr_table_get(params, "w_ls"))) {
             int ival = atoi(val);
             if (ival >= 0 && ival <= 99) {
                 wsel->s->lbset = ival;
              }
         }
+        /* if enabling, we need to reset all lb params */
+        if (bsel && !was_usable && PROXY_WORKER_IS_USABLE(wsel)) {
+            bsel->s->need_reset = 1;
+        }
 
     }
+
+    if (bsel && ok2change) {
+        const char *val;
+        int ival;
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01193)
+                      "settings balancer params");
+        if ((val = apr_table_get(params, "b_lbm"))) {
+            if ((strlen(val) < (sizeof(bsel->s->lbpname)-1)) &&
+                strcmp(val, bsel->s->lbpname)) {
+                proxy_balancer_method *lbmethod;
+                lbmethod = ap_lookup_provider(PROXY_LBMETHOD, val, "0");
+                if (lbmethod) {
+                    PROXY_STRNCPY(bsel->s->lbpname, val);
+                    bsel->lbmethod = lbmethod;
+                    bsel->s->wupdated = apr_time_now();
+                    bsel->s->need_reset = 1;
+                }
+            }
+        }
+        if ((val = apr_table_get(params, "b_tmo"))) {
+            ival = atoi(val);
+            if (ival >= 0 && ival <= 7200) { /* 2 hrs enuff? */
+                bsel->s->timeout = apr_time_from_sec(ival);
+            }
+        }
+        if ((val = apr_table_get(params, "b_max"))) {
+            ival = atoi(val);
+            if (ival >= 0 && ival <= 99) {
+                bsel->s->max_attempts = ival;
+            }
+        }
+        if ((val = apr_table_get(params, "b_sforce"))) {
+            ival = atoi(val);
+            bsel->s->sticky_force = (ival != 0);
+        }
+        if ((val = apr_table_get(params, "b_ss")) && *val) {
+            if (strlen(val) < (sizeof(bsel->s->sticky_path)-1)) {
+                if (*val == '-' && *(val+1) == '\0')
+                    *bsel->s->sticky_path = *bsel->s->sticky = '\0';
+                else {
+                    char *path;
+                    PROXY_STRNCPY(bsel->s->sticky_path, val);
+                    PROXY_STRNCPY(bsel->s->sticky, val);
+
+                    if ((path = strchr((char *)bsel->s->sticky, '|'))) {
+                        *path++ = '\0';
+                        PROXY_STRNCPY(bsel->s->sticky_path, path);
+                    }
+                }
+            }
+        }
+        if ((val = apr_table_get(params, "b_wyes")) &&
+            (*val == '1' && *(val+1) == '\0') &&
+            (val = apr_table_get(params, "b_nwrkr"))) {
+            char *ret;
+            proxy_worker *nworker;
+            nworker = ap_proxy_get_worker(r->pool, bsel, conf, val);
+            if (!nworker && storage->num_free_slots(bsel->wslot)) {
+                if ((rv = PROXY_GLOBAL_LOCK(bsel)) != APR_SUCCESS) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01194)
+                                  "%s: Lock failed for adding worker",
+                                  bsel->s->name);
+                }
+                ret = ap_proxy_define_worker(conf->pool, &nworker, bsel, conf, val, 0);
+                if (!ret) {
+                    unsigned int index;
+                    proxy_worker_shared *shm;
+                    PROXY_COPY_CONF_PARAMS(nworker, conf);
+                    if ((rv = storage->grab(bsel->wslot, &index)) != APR_SUCCESS) {
+                        ap_log_rerror(APLOG_MARK, APLOG_EMERG, rv, r, APLOGNO(01195)
+                                      "worker slotmem_grab failed");
+                        if ((rv = PROXY_GLOBAL_UNLOCK(bsel)) != APR_SUCCESS) {
+                            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01196)
+                                          "%s: Unlock failed for adding worker",
+                                          bsel->s->name);
+                        }
+                        return HTTP_BAD_REQUEST;
+                    }
+                    if ((rv = storage->dptr(bsel->wslot, index, (void *)&shm)) != APR_SUCCESS) {
+                        ap_log_rerror(APLOG_MARK, APLOG_EMERG, rv, r, APLOGNO(01197)
+                                      "worker slotmem_dptr failed");
+                        if ((rv = PROXY_GLOBAL_UNLOCK(bsel)) != APR_SUCCESS) {
+                            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01198)
+                                          "%s: Unlock failed for adding worker",
+                                          bsel->s->name);
+                        }
+                        return HTTP_BAD_REQUEST;
+                    }
+                    if ((rv = ap_proxy_share_worker(nworker, shm, index)) != APR_SUCCESS) {
+                        ap_log_rerror(APLOG_MARK, APLOG_EMERG, rv, r, APLOGNO(01199)
+                                      "Cannot share worker");
+                        if ((rv = PROXY_GLOBAL_UNLOCK(bsel)) != APR_SUCCESS) {
+                            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01200)
+                                          "%s: Unlock failed for adding worker",
+                                          bsel->s->name);
+                        }
+                        return HTTP_BAD_REQUEST;
+                    }
+                    if ((rv = ap_proxy_initialize_worker(nworker, r->server, conf->pool)) != APR_SUCCESS) {
+                        ap_log_rerror(APLOG_MARK, APLOG_EMERG, rv, r, APLOGNO(01201)
+                                      "Cannot init worker");
+                        if ((rv = PROXY_GLOBAL_UNLOCK(bsel)) != APR_SUCCESS) {
+                            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01202)
+                                          "%s: Unlock failed for adding worker",
+                                          bsel->s->name);
+                        }
+                        return HTTP_BAD_REQUEST;
+                    }
+                    /* sync all timestamps */
+                    bsel->wupdated = bsel->s->wupdated = nworker->s->updated = apr_time_now();
+                    /* by default, all new workers are disabled */
+                    ap_proxy_set_wstatus('D', 1, nworker);
+                }
+                if ((rv = PROXY_GLOBAL_UNLOCK(bsel)) != APR_SUCCESS) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01203)
+                                  "%s: Unlock failed for adding worker",
+                                  bsel->s->name);
+                }
+            }
+
+        }
+
+    }
+
+    action = ap_construct_url(r->pool, r->uri, r);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01204) "genning page");
+
     if (apr_table_get(params, "xml")) {
+        char date[APR_RFC822_DATE_LEN];
         ap_set_content_type(r, "text/xml");
-        ap_rputs("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n", r);
-        ap_rputs("<httpd:manager xmlns:httpd=\"http://httpd.apache.org\">\n", r);
+        ap_rputs("<?xml version='1.0' encoding='UTF-8' ?>\n", r);
+        ap_rputs("<httpd:manager xmlns:httpd='http://httpd.apache.org'>\n", r);
         ap_rputs("  <httpd:balancers>\n", r);
         balancer = (proxy_balancer *)conf->balancers->elts;
         for (i = 0; i < conf->balancers->nelts; i++) {
             ap_rputs("    <httpd:balancer>\n", r);
-            ap_rvputs(r, "      <httpd:name>", balancer->name, "</httpd:name>\n", NULL);
+            /* Start proxy_balancer */
+            ap_rvputs(r, "      <httpd:name>", balancer->s->name, "</httpd:name>\n", NULL);
+            if (balancer->s->sticky) {
+                ap_rvputs(r, "      <httpd:stickysession>", balancer->s->sticky,
+                          "</httpd:stickysession>\n", NULL);
+                ap_rprintf(r,
+                           "      <httpd:nofailover>%s</httpd:nofailover>\n",
+                           (balancer->s->sticky_force ? "On" : "Off"));
+            }
+            ap_rprintf(r,
+                       "      <httpd:timeout>%" APR_TIME_T_FMT "</httpd:timeout>",
+                       apr_time_sec(balancer->s->timeout));
+            if (balancer->s->max_attempts_set) {
+                ap_rprintf(r,
+                           "      <httpd:maxattempts>%d</httpd:maxattempts>\n",
+                           balancer->s->max_attempts);
+            }
+            ap_rvputs(r, "      <httpd:lbmethod>", balancer->lbmethod->name,
+                      "</httpd:lbmethod>\n", NULL);
+            if (balancer->s->sticky) {
+                ap_rprintf(r,
+                           "      <httpd:scolonpathdelim>%s</httpd:scolonpathdelim>\n",
+                           (balancer->s->scolonsep ? "On" : "Off"));
+            }
+            /* End proxy_balancer */
             ap_rputs("      <httpd:workers>\n", r);
-            worker = (proxy_worker *)balancer->workers->elts;
+            workers = (proxy_worker **)balancer->workers->elts;
             for (n = 0; n < balancer->workers->nelts; n++) {
+                worker = *workers;
+                /* Start proxy_worker */
                 ap_rputs("        <httpd:worker>\n", r);
-                ap_rvputs(r, "          <httpd:scheme>", worker->scheme,
+                ap_rvputs(r, "          <httpd:name>", ap_proxy_worker_name(r->pool, worker),
+                          "</httpd:name>\n", NULL);
+                ap_rvputs(r, "          <httpd:scheme>", worker->s->scheme,
                           "</httpd:scheme>\n", NULL);
-                ap_rvputs(r, "          <httpd:hostname>", worker->hostname,
+                ap_rvputs(r, "          <httpd:hostname>", worker->s->hostname,
                           "</httpd:hostname>\n", NULL);
-               ap_rprintf(r, "          <httpd:loadfactor>%d</httpd:loadfactor>\n",
+                ap_rprintf(r, "          <httpd:loadfactor>%d</httpd:loadfactor>\n",
                           worker->s->lbfactor);
+                ap_rprintf(r,
+                           "          <httpd:port>%d</httpd:port>\n",
+                           worker->s->port);
+                ap_rprintf(r, "          <httpd:min>%d</httpd:min>\n",
+                           worker->s->min);
+                ap_rprintf(r, "          <httpd:smax>%d</httpd:smax>\n",
+                           worker->s->smax);
+                ap_rprintf(r, "          <httpd:max>%d</httpd:max>\n",
+                           worker->s->hmax);
+                ap_rprintf(r,
+                           "          <httpd:ttl>%" APR_TIME_T_FMT "</httpd:ttl>\n",
+                           apr_time_sec(worker->s->ttl));
+                if (worker->s->timeout_set) {
+                    ap_rprintf(r,
+                               "          <httpd:timeout>%" APR_TIME_T_FMT "</httpd:timeout>\n",
+                               apr_time_sec(worker->s->timeout));
+                }
+                if (worker->s->acquire_set) {
+                    ap_rprintf(r,
+                               "          <httpd:acquire>%" APR_TIME_T_FMT "</httpd:acquire>\n",
+                               apr_time_msec(worker->s->acquire));
+                }
+                if (worker->s->recv_buffer_size_set) {
+                    ap_rprintf(r,
+                               "          <httpd:recv_buffer_size>%" APR_SIZE_T_FMT "</httpd:recv_buffer_size>\n",
+                               worker->s->recv_buffer_size);
+                }
+                if (worker->s->io_buffer_size_set) {
+                    ap_rprintf(r,
+                               "          <httpd:io_buffer_size>%" APR_SIZE_T_FMT "</httpd:io_buffer_size>\n",
+                               worker->s->io_buffer_size);
+                }
+                if (worker->s->keepalive_set) {
+                    ap_rprintf(r,
+                               "          <httpd:keepalive>%s</httpd:keepalive>\n",
+                               (worker->s->keepalive ? "On" : "Off"));
+                }
+                /* Begin proxy_worker_stat */
+                ap_rputs("          <httpd:status>", r);
+                if (worker->s->status & PROXY_WORKER_DISABLED)
+                    ap_rputs("Disabled", r);
+                else if (worker->s->status & PROXY_WORKER_IN_ERROR)
+                    ap_rputs("Error", r);
+                else if (worker->s->status & PROXY_WORKER_STOPPED)
+                    ap_rputs("Stopped", r);
+                else if (worker->s->status & PROXY_WORKER_HOT_STANDBY)
+                    ap_rputs("Standby", r);
+                else if (PROXY_WORKER_IS_USABLE(worker))
+                    ap_rputs("OK", r);
+                else if (!PROXY_WORKER_IS_INITIALIZED(worker))
+                    ap_rputs("Uninitialized", r);
+                ap_rputs("</httpd:status>\n", r);
+                if ((worker->s->error_time > 0) && apr_rfc822_date(date, worker->s->error_time) == APR_SUCCESS) {
+                    ap_rvputs(r, "          <httpd:error_time>", date,
+                              "</httpd:error_time>\n", NULL);
+                }
+                ap_rprintf(r,
+                           "          <httpd:retries>%d</httpd:retries>\n",
+                           worker->s->retries);
+                ap_rprintf(r,
+                           "          <httpd:lbstatus>%d</httpd:lbstatus>\n",
+                           worker->s->lbstatus);
+                ap_rprintf(r,
+                           "          <httpd:loadfactor>%d</httpd:loadfactor>\n",
+                           worker->s->lbfactor);
+                ap_rprintf(r,
+                           "          <httpd:transferred>%" APR_OFF_T_FMT "</httpd:transferred>\n",
+                           worker->s->transferred);
+                ap_rprintf(r,
+                           "          <httpd:read>%" APR_OFF_T_FMT "</httpd:read>\n",
+                           worker->s->read);
+                ap_rprintf(r,
+                           "          <httpd:elected>%" APR_SIZE_T_FMT "</httpd:elected>\n",
+                           worker->s->elected);
+                ap_rvputs(r, "          <httpd:route>",
+                          ap_escape_html(r->pool, worker->s->route),
+                          "</httpd:route>\n", NULL);
+                ap_rvputs(r, "          <httpd:redirect>",
+                          ap_escape_html(r->pool, worker->s->redirect),
+                          "</httpd:redirect>\n", NULL);
+                ap_rprintf(r,
+                           "          <httpd:busy>%" APR_SIZE_T_FMT "</httpd:busy>\n",
+                           worker->s->busy);
+                ap_rprintf(r, "          <httpd:lbset>%d</httpd:lbset>\n",
+                           worker->s->lbset);
+                /* End proxy_worker_stat */
+                if (!strcasecmp(worker->s->scheme, "ajp")) {
+                    ap_rputs("          <httpd:flushpackets>", r);
+                    switch (worker->s->flush_packets) {
+                        case flush_off:
+                            ap_rputs("Off", r);
+                            break;
+                        case flush_on:
+                            ap_rputs("On", r);
+                            break;
+                        case flush_auto:
+                            ap_rputs("Auto", r);
+                            break;
+                    }
+                    ap_rputs("</httpd:flushpackets>\n", r);
+                    if (worker->s->flush_packets == flush_auto) {
+                        ap_rprintf(r,
+                                   "          <httpd:flushwait>%d</httpd:flushwait>\n",
+                                   worker->s->flush_wait);
+                    }
+                    if (worker->s->ping_timeout_set) {
+                        ap_rprintf(r,
+                                   "          <httpd:ping>%" APR_TIME_T_FMT "</httpd:ping>",
+                                   apr_time_msec(worker->s->ping_timeout));
+                    }
+                }
+                if (worker->s->disablereuse_set) {
+                    ap_rprintf(r,
+                               "      <httpd:disablereuse>%s</httpd:disablereuse>\n",
+                               (worker->s->disablereuse ? "On" : "Off"));
+                }
+                if (worker->s->conn_timeout_set) {
+                    ap_rprintf(r,
+                               "          <httpd:connectiontimeout>%" APR_TIME_T_FMT "</httpd:connectiontimeout>\n",
+                               apr_time_msec(worker->s->conn_timeout));
+                }
+                if (worker->s->retry_set) {
+                    ap_rprintf(r,
+                               "          <httpd:retry>%" APR_TIME_T_FMT "</httpd:retry>\n",
+                               apr_time_sec(worker->s->retry));
+                }
                 ap_rputs("        </httpd:worker>\n", r);
-                ++worker;
+                ++workers;
             }
             ap_rputs("      </httpd:workers>\n", r);
             ap_rputs("    </httpd:balancer>\n", r);
@@ -838,77 +1434,127 @@ static int balancer_handler(request_rec *r)
     else {
         ap_set_content_type(r, "text/html; charset=ISO-8859-1");
         ap_rputs(DOCTYPE_HTML_3_2
-                 "<html><head><title>Balancer Manager</title></head>\n", r);
+                 "<html><head><title>Balancer Manager</title>\n", r);
+        ap_rputs("<style type='text/css'>\n"
+                 "table {\n"
+                 " border-width: 1px;\n"
+                 " border-spacing: 3px;\n"
+                 " border-style: solid;\n"
+                 " border-color: gray;\n"
+                 " border-collapse: collapse;\n"
+                 " background-color: white;\n"
+                 " text-align: center;\n"
+                 "}\n"
+                 "th {\n"
+                 " border-width: 1px;\n"
+                 " padding: 2px;\n"
+                 " border-style: dotted;\n"
+                 " border-color: gray;\n"
+                 " background-color: white;\n"
+                 " text-align: center;\n"
+                 "}\n"
+                 "td {\n"
+                 " border-width: 1px;\n"
+                 " padding: 2px;\n"
+                 " border-style: dotted;\n"
+                 " border-color: gray;\n"
+                 " background-color: white;\n"
+                 " text-align: center;\n"
+                 "}\n"
+                 "</style>\n</head>\n", r);
         ap_rputs("<body><h1>Load Balancer Manager for ", r);
         ap_rvputs(r, ap_escape_html(r->pool, ap_get_server_name(r)),
                   "</h1>\n\n", NULL);
         ap_rvputs(r, "<dl><dt>Server Version: ",
                   ap_get_server_description(), "</dt>\n", NULL);
         ap_rvputs(r, "<dt>Server Built: ",
-                  ap_get_server_built(), "\n</dt></dl>\n", NULL);
+                  ap_get_server_built(), "</dt>\n", NULL);
+        ap_rvputs(r, "<dt>Balancer changes will ", conf->bal_persist ? "" : "NOT ",
+                  "be persisted on restart.</dt>", NULL);
+        ap_rvputs(r, "<dt>Balancers are ", conf->inherit ? "" : "NOT ",
+                  "inherited from main server.</dt>", NULL);
+        ap_rvputs(r, "<dt>ProxyPass settings are ", conf->ppinherit ? "" : "NOT ",
+                  "inherited from main server.</dt>", NULL);
+        ap_rputs("</dl>\n", r);
         balancer = (proxy_balancer *)conf->balancers->elts;
         for (i = 0; i < conf->balancers->nelts; i++) {
 
             ap_rputs("<hr />\n<h3>LoadBalancer Status for ", r);
-            ap_rvputs(r, balancer->name, "</h3>\n\n", NULL);
-            ap_rputs("\n\n<table border=\"0\" style=\"text-align: left;\"><tr>"
-                "<th>StickySession</th><th>Timeout</th><th>FailoverAttempts</th><th>Method</th>"
-                "</tr>\n<tr>", r);
-            if (balancer->sticky) {
-                ap_rvputs(r, "<td>", balancer->sticky, NULL);
+            ap_rvputs(r, "<a href=\"", ap_escape_uri(r->pool, r->uri), "?b=",
+                      balancer->s->name + sizeof(BALANCER_PREFIX) - 1,
+                      "&nonce=", balancer->s->nonce,
+                      "\">", NULL);
+            ap_rvputs(r, balancer->s->name, "</a> [",balancer->s->sname, "]</h3>\n", NULL);
+            ap_rputs("\n\n<table><tr>"
+                "<th>MaxMembers</th><th>StickySession</th><th>DisableFailover</th><th>Timeout</th><th>FailoverAttempts</th><th>Method</th>"
+                "<th>Path</th><th>Active</th></tr>\n<tr>", r);
+            /* the below is a safe cast, since the number of slots total will
+             * never be more than max_workers, which is restricted to int */
+            ap_rprintf(r, "<td>%d [%d Used]</td>\n", balancer->max_workers,
+                       balancer->max_workers - (int)storage->num_free_slots(balancer->wslot));
+            if (*balancer->s->sticky) {
+                if (strcmp(balancer->s->sticky, balancer->s->sticky_path)) {
+                    ap_rvputs(r, "<td>", balancer->s->sticky, " | ",
+                              balancer->s->sticky_path, NULL);
+                }
+                else {
+                    ap_rvputs(r, "<td>", balancer->s->sticky, NULL);
+                }
             }
             else {
-                ap_rputs("<td> - ", r);
+                ap_rputs("<td> (None) ", r);
             }
-            ap_rprintf(r, "</td><td>%" APR_TIME_T_FMT "</td>",
-                apr_time_sec(balancer->timeout));
-            ap_rprintf(r, "<td>%d</td>\n", balancer->max_attempts);
             ap_rprintf(r, "<td>%s</td>\n",
-                       balancer->lbmethod->name);
+                       balancer->s->sticky_force ? "On" : "Off");
+            ap_rprintf(r, "</td><td>%" APR_TIME_T_FMT "</td>",
+                apr_time_sec(balancer->s->timeout));
+            ap_rprintf(r, "<td>%d</td>\n", balancer->s->max_attempts);
+            ap_rprintf(r, "<td>%s</td>\n",
+                       balancer->s->lbpname);
+            ap_rputs("<td>", r);
+            if (balancer->s->vhost && *(balancer->s->vhost)) {
+                ap_rvputs(r, balancer->s->vhost, " -> ", NULL);
+            }
+            ap_rvputs(r, balancer->s->vpath, "</td>\n", NULL);
+            ap_rprintf(r, "<td>%s</td>\n",
+                       !balancer->s->inactive ? "Yes" : "No");
             ap_rputs("</table>\n<br />", r);
-            ap_rputs("\n\n<table border=\"0\" style=\"text-align: left;\"><tr>"
+            ap_rputs("\n\n<table><tr>"
                 "<th>Worker URL</th>"
                 "<th>Route</th><th>RouteRedir</th>"
                 "<th>Factor</th><th>Set</th><th>Status</th>"
-                "<th>Elected</th><th>To</th><th>From</th>"
+                "<th>Elected</th><th>Busy</th><th>Load</th><th>To</th><th>From</th>"
                 "</tr>\n", r);
 
-            worker = (proxy_worker *)balancer->workers->elts;
+            workers = (proxy_worker **)balancer->workers->elts;
             for (n = 0; n < balancer->workers->nelts; n++) {
                 char fbuf[50];
+                worker = *workers;
                 ap_rvputs(r, "<tr>\n<td><a href=\"",
                           ap_escape_uri(r->pool, r->uri), "?b=",
-                          balancer->name + sizeof("balancer://") - 1, "&w=",
-                          ap_escape_uri(r->pool, worker->name),
-                          "&nonce=", balancer_nonce, 
+                          balancer->s->name + sizeof(BALANCER_PREFIX) - 1, "&w=",
+                          ap_escape_uri(r->pool, worker->s->name),
+                          "&nonce=", balancer->s->nonce,
                           "\">", NULL);
-                ap_rvputs(r, worker->name, "</a></td>", NULL);
+                ap_rvputs(r, (*worker->s->uds_path ? "<i>" : ""), ap_proxy_worker_name(r->pool, worker),
+                          (*worker->s->uds_path ? "</i>" : ""), "</a></td>", NULL);
                 ap_rvputs(r, "<td>", ap_escape_html(r->pool, worker->s->route),
                           NULL);
                 ap_rvputs(r, "</td><td>",
                           ap_escape_html(r->pool, worker->s->redirect), NULL);
                 ap_rprintf(r, "</td><td>%d</td>", worker->s->lbfactor);
                 ap_rprintf(r, "<td>%d</td><td>", worker->s->lbset);
-                if (worker->s->status & PROXY_WORKER_DISABLED)
-                   ap_rputs("Dis ", r);
-                if (worker->s->status & PROXY_WORKER_IN_ERROR)
-                   ap_rputs("Err ", r);
-                if (worker->s->status & PROXY_WORKER_STOPPED)
-                   ap_rputs("Stop ", r);
-                if (worker->s->status & PROXY_WORKER_HOT_STANDBY)
-                   ap_rputs("Stby ", r);
-                if (PROXY_WORKER_IS_USABLE(worker))
-                    ap_rputs("Ok", r);
-                if (!PROXY_WORKER_IS_INITIALIZED(worker))
-                    ap_rputs("-", r);
+                ap_rvputs(r, ap_proxy_parse_wstatus(r->pool, worker), NULL);
                 ap_rputs("</td>", r);
-                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td><td>", worker->s->elected);
+                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td>", worker->s->elected);
+                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td>", worker->s->busy);
+                ap_rprintf(r, "<td>%d</td><td>", worker->s->lbstatus);
                 ap_rputs(apr_strfsize(worker->s->transferred, fbuf), r);
                 ap_rputs("</td><td>", r);
                 ap_rputs(apr_strfsize(worker->s->read, fbuf), r);
                 ap_rputs("</td></tr>\n", r);
 
-                ++worker;
+                ++workers;
             }
             ap_rputs("</table>\n", r);
             ++balancer;
@@ -916,389 +1562,155 @@ static int balancer_handler(request_rec *r)
         ap_rputs("<hr />\n", r);
         if (wsel && bsel) {
             ap_rputs("<h3>Edit worker settings for ", r);
-            ap_rvputs(r, wsel->name, "</h3>\n", NULL);
-            ap_rvputs(r, "<form method=\"GET\" action=\"", NULL);
-            ap_rvputs(r, ap_escape_uri(r->pool, r->uri), "\">\n<dl>", NULL);
-            ap_rputs("<table><tr><td>Load factor:</td><td><input name=\"lf\" type=text ", r);
-            ap_rprintf(r, "value=\"%d\"></td></tr>\n", wsel->s->lbfactor);
-            ap_rputs("<tr><td>LB Set:</td><td><input name=\"ls\" type=text ", r);
-            ap_rprintf(r, "value=\"%d\"></td></tr>\n", wsel->s->lbset);
-            ap_rputs("<tr><td>Route:</td><td><input name=\"wr\" type=text ", r);
+            ap_rvputs(r, (*wsel->s->uds_path?"<i>":""), ap_proxy_worker_name(r->pool, wsel), (*wsel->s->uds_path?"</i>":""), "</h3>\n", NULL);
+            ap_rputs("<form method=\"POST\" enctype=\"application/x-www-form-urlencoded\" action=\"", r);
+            ap_rvputs(r, ap_escape_uri(r->pool, action), "\">\n", NULL);
+            ap_rputs("<dl>\n<table><tr><td>Load factor:</td><td><input name='w_lf' id='w_lf' type=text ", r);
+            ap_rprintf(r, "value='%d'></td></tr>\n", wsel->s->lbfactor);
+            ap_rputs("<tr><td>LB Set:</td><td><input name='w_ls' id='w_ls' type=text ", r);
+            ap_rprintf(r, "value='%d'></td></tr>\n", wsel->s->lbset);
+            ap_rputs("<tr><td>Route:</td><td><input name='w_wr' id='w_wr' type=text ", r);
             ap_rvputs(r, "value=\"", ap_escape_html(r->pool, wsel->s->route),
                       NULL);
             ap_rputs("\"></td></tr>\n", r);
-            ap_rputs("<tr><td>Route Redirect:</td><td><input name=\"rr\" type=text ", r);
+            ap_rputs("<tr><td>Route Redirect:</td><td><input name='w_rr' id='w_rr' type=text ", r);
             ap_rvputs(r, "value=\"", ap_escape_html(r->pool, wsel->s->redirect),
                       NULL);
             ap_rputs("\"></td></tr>\n", r);
-            ap_rputs("<tr><td>Status:</td><td>Disabled: <input name=\"dw\" value=\"Disable\" type=radio", r);
-            if (wsel->s->status & PROXY_WORKER_DISABLED)
-                ap_rputs(" checked", r);
-            ap_rputs("> | Enabled: <input name=\"dw\" value=\"Enable\" type=radio", r);
-            if (!(wsel->s->status & PROXY_WORKER_DISABLED))
-                ap_rputs(" checked", r);
-            ap_rputs("></td></tr>\n", r);
-            ap_rputs("<tr><td colspan=2><input type=submit value=\"Submit\"></td></tr>\n", r);
-            ap_rvputs(r, "</table>\n<input type=hidden name=\"w\" ",  NULL);
-            ap_rvputs(r, "value=\"", ap_escape_uri(r->pool, wsel->name), "\">\n", NULL);
-            ap_rvputs(r, "<input type=hidden name=\"b\" ", NULL);
-            ap_rvputs(r, "value=\"", bsel->name + sizeof("balancer://") - 1,
-                      "\">\n", NULL);
-            ap_rvputs(r, "<input type=hidden name=\"nonce\" value=\"", 
-                      balancer_nonce, "\">\n", NULL);
-            ap_rvputs(r, "</form>\n", NULL);
+            ap_rputs("<tr><td>Status:</td>", r);
+            ap_rputs("<td><table><tr>"
+                     "<th>Ignore Errors</th>"
+                     "<th>Draining Mode</th>"
+                     "<th>Disabled</th>"
+                     "<th>Hot Standby</th></tr>\n<tr>", r);
+            create_radio("w_status_I", (PROXY_WORKER_IGNORE_ERRORS & wsel->s->status), r);
+            create_radio("w_status_N", (PROXY_WORKER_DRAIN & wsel->s->status), r);
+            create_radio("w_status_D", (PROXY_WORKER_DISABLED & wsel->s->status), r);
+            create_radio("w_status_H", (PROXY_WORKER_HOT_STANDBY & wsel->s->status), r);
+            ap_rputs("</tr></table>\n", r);
+            ap_rputs("<tr><td colspan=2><input type=submit value='Submit'></td></tr>\n", r);
+            ap_rvputs(r, "</table>\n<input type=hidden name='w' id='w' ",  NULL);
+            ap_rvputs(r, "value='", ap_escape_uri(r->pool, wsel->s->name), "'>\n", NULL);
+            ap_rvputs(r, "<input type=hidden name='b' id='b' ", NULL);
+            ap_rvputs(r, "value='", bsel->s->name + sizeof(BALANCER_PREFIX) - 1,
+                      "'>\n", NULL);
+            ap_rvputs(r, "<input type=hidden name='nonce' id='nonce' value='",
+                      bsel->s->nonce, "'>\n", NULL);
+            ap_rputs("</form>\n", r);
+            ap_rputs("<hr />\n", r);
+        } else if (bsel) {
+            const apr_array_header_t *provs;
+            const ap_list_provider_names_t *pname;
+            int i;
+            ap_rputs("<h3>Edit balancer settings for ", r);
+            ap_rvputs(r, bsel->s->name, "</h3>\n", NULL);
+            ap_rputs("<form method='POST' enctype='application/x-www-form-urlencoded' action='", r);
+            ap_rvputs(r, action, "'>\n", NULL);
+            ap_rputs("<dl>\n<table>\n", r);
+            provs = ap_list_provider_names(r->pool, PROXY_LBMETHOD, "0");
+            if (provs) {
+                ap_rputs("<tr><td>LBmethod:</td>", r);
+                ap_rputs("<td>\n<select name='b_lbm' id='b_lbm'>", r);
+                pname = (ap_list_provider_names_t *)provs->elts;
+                for (i = 0; i < provs->nelts; i++, pname++) {
+                    ap_rvputs(r,"<option value='", pname->provider_name, "'", NULL);
+                    if (strcmp(pname->provider_name, bsel->s->lbpname) == 0)
+                        ap_rputs(" selected ", r);
+                    ap_rvputs(r, ">", pname->provider_name, "\n", NULL);
+                }
+                ap_rputs("</select>\n</td></tr>\n", r);
+            }
+            ap_rputs("<tr><td>Timeout:</td><td><input name='b_tmo' id='b_tmo' type=text ", r);
+            ap_rprintf(r, "value='%" APR_TIME_T_FMT "'></td></tr>\n", apr_time_sec(bsel->s->timeout));
+            ap_rputs("<tr><td>Failover Attempts:</td><td><input name='b_max' id='b_max' type=text ", r);
+            ap_rprintf(r, "value='%d'></td></tr>\n", bsel->s->max_attempts);
+            ap_rputs("<tr><td>Disable Failover:</td>", r);
+            create_radio("b_sforce", bsel->s->sticky_force, r);
+            ap_rputs("<tr><td>Sticky Session:</td><td><input name='b_ss' id='b_ss' size=64 type=text ", r);
+            if (strcmp(bsel->s->sticky, bsel->s->sticky_path)) {
+                ap_rvputs(r, "value ='", bsel->s->sticky, " | ",
+                          bsel->s->sticky_path, NULL);
+            }
+            else {
+                ap_rvputs(r, "value ='", bsel->s->sticky, NULL);
+            }
+            ap_rputs("'>&nbsp;&nbsp;&nbsp;&nbsp;(Use '-' to delete)</td></tr>\n", r);
+            if (storage->num_free_slots(bsel->wslot) != 0) {
+                ap_rputs("<tr><td>Add New Worker:</td><td><input name='b_nwrkr' id='b_nwrkr' size=32 type=text>"
+                         "&nbsp;&nbsp;&nbsp;&nbsp;Are you sure? <input name='b_wyes' id='b_wyes' type=checkbox value='1'>"
+                         "</td></tr>", r);
+            }
+            ap_rputs("<tr><td colspan=2><input type=submit value='Submit'></td></tr>\n", r);
+            ap_rvputs(r, "</table>\n<input type=hidden name='b' id='b' ", NULL);
+            ap_rvputs(r, "value='", bsel->s->name + sizeof(BALANCER_PREFIX) - 1,
+                      "'>\n", NULL);
+            ap_rvputs(r, "<input type=hidden name='nonce' id='nonce' value='",
+                      bsel->s->nonce, "'>\n", NULL);
+            ap_rputs("</form>\n", r);
             ap_rputs("<hr />\n", r);
         }
         ap_rputs(ap_psignature("",r), r);
         ap_rputs("</body></html>\n", r);
+        ap_rflush(r);
     }
-    return OK;
+    return DONE;
 }
 
-static void child_init(apr_pool_t *p, server_rec *s)
+static void balancer_child_init(apr_pool_t *p, server_rec *s)
 {
     while (s) {
-        void *sconf = s->module_config;
-        proxy_server_conf *conf;
         proxy_balancer *balancer;
         int i;
-        conf = (proxy_server_conf *)ap_get_module_config(sconf, &proxy_module);
+        void *sconf = s->module_config;
+        proxy_server_conf *conf = (proxy_server_conf *)ap_get_module_config(sconf, &proxy_module);
+        apr_status_t rv;
 
-        /* Initialize shared scoreboard data */
+        if (conf->balancers->nelts) {
+            apr_size_t size;
+            unsigned int num;
+            storage->attach(&(conf->bslot), conf->id, &size, &num, p);
+            if (!conf->bslot) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(01205) "slotmem_attach failed");
+                exit(1); /* Ugly, but what else? */
+            }
+        }
+
         balancer = (proxy_balancer *)conf->balancers->elts;
-        for (i = 0; i < conf->balancers->nelts; i++) {
-            init_balancer_members(conf, s, balancer);
-            balancer++;
+        for (i = 0; i < conf->balancers->nelts; i++, balancer++) {
+            rv = ap_proxy_initialize_balancer(balancer, s, p);
+
+            if (rv != APR_SUCCESS) {
+                ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(01206)
+                             "Failed to init balancer %s in child",
+                             balancer->s->name);
+                exit(1); /* Ugly, but what else? */
+            }
+            init_balancer_members(conf->pool, s, balancer);
         }
         s = s->next;
     }
 
 }
 
-/*
- * The idea behind the find_best_byrequests scheduler is the following:
- *
- * lbfactor is "how much we expect this worker to work", or "the worker's
- * normalized work quota".
- *
- * lbstatus is "how urgent this worker has to work to fulfill its quota
- * of work".
- *
- * We distribute each worker's work quota to the worker, and then look
- * which of them needs to work most urgently (biggest lbstatus).  This
- * worker is then selected for work, and its lbstatus reduced by the
- * total work quota we distributed to all workers.  Thus the sum of all
- * lbstatus does not change.(*)
- *
- * If some workers are disabled, the others will
- * still be scheduled correctly.
- *
- * If a balancer is configured as follows:
- *
- * worker     a    b    c    d
- * lbfactor  25   25   25   25
- *
- * And b gets disabled, the following schedule is produced:
- *
- *    a c d a c d a c d ...
- *
- * Note that the above lbfactor setting is the *exact* same as:
- *
- * worker     a    b    c    d
- * lbfactor   1    1    1    1
- *
- * Asymmetric configurations work as one would expect. For
- * example:
- *
- * worker     a    b    c    d
- * lbfactor   1    1    1    2
- *
- * would have a, b and c all handling about the same
- * amount of load with d handling twice what a or b
- * or c handles individually. So we could see:
- *
- *   b a d c d a c d b d ...
- *
- */
-
-static proxy_worker *find_best_byrequests(proxy_balancer *balancer,
-                                request_rec *r)
-{
-    int i;
-    int total_factor = 0;
-    proxy_worker *worker;
-    proxy_worker *mycandidate = NULL;
-    int cur_lbset = 0;
-    int max_lbset = 0;
-    int checking_standby;
-    int checked_standby;
-    
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                 "proxy: Entering byrequests for BALANCER (%s)",
-                 balancer->name);
-
-    /* First try to see if we have available candidate */
-    do {
-        checking_standby = checked_standby = 0;
-        while (!mycandidate && !checked_standby) {
-            worker = (proxy_worker *)balancer->workers->elts;
-            for (i = 0; i < balancer->workers->nelts; i++, worker++) {
-                if (!checking_standby) {    /* first time through */
-                    if (worker->s->lbset > max_lbset)
-                        max_lbset = worker->s->lbset;
-                }
-                if (worker->s->lbset != cur_lbset)
-                    continue;
-                if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
-                    continue;
-                /* If the worker is in error state run
-                 * retry on that worker. It will be marked as
-                 * operational if the retry timeout is elapsed.
-                 * The worker might still be unusable, but we try
-                 * anyway.
-                 */
-                if (!PROXY_WORKER_IS_USABLE(worker))
-                    ap_proxy_retry_worker("BALANCER", worker, r->server);
-                /* Take into calculation only the workers that are
-                 * not in error state or not disabled.
-                 */
-                if (PROXY_WORKER_IS_USABLE(worker)) {
-                    worker->s->lbstatus += worker->s->lbfactor;
-                    total_factor += worker->s->lbfactor;
-                    if (!mycandidate || worker->s->lbstatus > mycandidate->s->lbstatus)
-                        mycandidate = worker;
-                }
-            }
-            checked_standby = checking_standby++;
-        }
-        cur_lbset++;
-    } while (cur_lbset <= max_lbset && !mycandidate);
-
-    if (mycandidate) {
-        mycandidate->s->lbstatus -= total_factor;
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                     "proxy: byrequests selected worker \"%s\" : busy %" APR_SIZE_T_FMT " : lbstatus %d",
-                     mycandidate->name, mycandidate->s->busy, mycandidate->s->lbstatus);
-
-    }
-
-    return mycandidate;
-}
-
-/*
- * The idea behind the find_best_bytraffic scheduler is the following:
- *
- * We know the amount of traffic (bytes in and out) handled by each
- * worker. We normalize that traffic by each workers' weight. So assuming
- * a setup as below:
- *
- * worker     a    b    c
- * lbfactor   1    1    3
- *
- * the scheduler will allow worker c to handle 3 times the
- * traffic of a and b. If each request/response results in the
- * same amount of traffic, then c would be accessed 3 times as
- * often as a or b. If, for example, a handled a request that
- * resulted in a large i/o bytecount, then b and c would be
- * chosen more often, to even things out.
- */
-static proxy_worker *find_best_bytraffic(proxy_balancer *balancer,
-                                         request_rec *r)
-{
-    int i;
-    apr_off_t mytraffic = 0;
-    apr_off_t curmin = 0;
-    proxy_worker *worker;
-    proxy_worker *mycandidate = NULL;
-    int cur_lbset = 0;
-    int max_lbset = 0;
-    int checking_standby;
-    int checked_standby;
-
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                 "proxy: Entering bytraffic for BALANCER (%s)",
-                 balancer->name);
-
-    /* First try to see if we have available candidate */
-    do {
-        checking_standby = checked_standby = 0;
-        while (!mycandidate && !checked_standby) {
-            worker = (proxy_worker *)balancer->workers->elts;
-            for (i = 0; i < balancer->workers->nelts; i++, worker++) {
-                if (!checking_standby) {    /* first time through */
-                    if (worker->s->lbset > max_lbset)
-                        max_lbset = worker->s->lbset;
-                }
-                if (worker->s->lbset != cur_lbset)
-                    continue;
-                if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
-                    continue;
-                /* If the worker is in error state run
-                 * retry on that worker. It will be marked as
-                 * operational if the retry timeout is elapsed.
-                 * The worker might still be unusable, but we try
-                 * anyway.
-                 */
-                if (!PROXY_WORKER_IS_USABLE(worker))
-                    ap_proxy_retry_worker("BALANCER", worker, r->server);
-                /* Take into calculation only the workers that are
-                 * not in error state or not disabled.
-                 */
-                if (PROXY_WORKER_IS_USABLE(worker)) {
-                    mytraffic = (worker->s->transferred/worker->s->lbfactor) +
-                                (worker->s->read/worker->s->lbfactor);
-                    if (!mycandidate || mytraffic < curmin) {
-                        mycandidate = worker;
-                        curmin = mytraffic;
-                    }
-                }
-            }
-            checked_standby = checking_standby++;
-        }
-        cur_lbset++;
-    } while (cur_lbset <= max_lbset && !mycandidate);
-
-    if (mycandidate) {
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                     "proxy: bytraffic selected worker \"%s\" : busy %" APR_SIZE_T_FMT,
-                     mycandidate->name, mycandidate->s->busy);
-
-    }
-
-    return mycandidate;
-}
-
-static proxy_worker *find_best_bybusyness(proxy_balancer *balancer,
-                                request_rec *r)
-{
-
-    int i;
-    proxy_worker *worker;
-    proxy_worker *mycandidate = NULL;
-    int cur_lbset = 0;
-    int max_lbset = 0;
-    int checking_standby;
-    int checked_standby;
-
-    int total_factor = 0;
-    
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                 "proxy: Entering bybusyness for BALANCER (%s)",
-                 balancer->name);
-
-    /* First try to see if we have available candidate */
-    do {
-
-        checking_standby = checked_standby = 0;
-        while (!mycandidate && !checked_standby) {
-
-            worker = (proxy_worker *)balancer->workers->elts;
-            for (i = 0; i < balancer->workers->nelts; i++, worker++) {
-                if  (!checking_standby) {    /* first time through */
-                    if (worker->s->lbset > max_lbset)
-                        max_lbset = worker->s->lbset;
-                }
-
-                if (worker->s->lbset != cur_lbset)
-                    continue;
-
-                if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
-                    continue;
-
-                /* If the worker is in error state run
-                 * retry on that worker. It will be marked as
-                 * operational if the retry timeout is elapsed.
-                 * The worker might still be unusable, but we try
-                 * anyway.
-                 */
-                if (!PROXY_WORKER_IS_USABLE(worker))
-                    ap_proxy_retry_worker("BALANCER", worker, r->server);
-
-                /* Take into calculation only the workers that are
-                 * not in error state or not disabled.
-                 */
-                if (PROXY_WORKER_IS_USABLE(worker)) {
-
-                    worker->s->lbstatus += worker->s->lbfactor;
-                    total_factor += worker->s->lbfactor;
-                    
-                    if (!mycandidate
-                        || worker->s->busy < mycandidate->s->busy
-                        || (worker->s->busy == mycandidate->s->busy && worker->s->lbstatus > mycandidate->s->lbstatus))
-                        mycandidate = worker;
-
-                }
-
-            }
-
-            checked_standby = checking_standby++;
-
-        }
-
-        cur_lbset++;
-
-    } while (cur_lbset <= max_lbset && !mycandidate);
-
-    if (mycandidate) {
-        mycandidate->s->lbstatus -= total_factor;
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                     "proxy: bybusyness selected worker \"%s\" : busy %" APR_SIZE_T_FMT " : lbstatus %d",
-                     mycandidate->name, mycandidate->s->busy, mycandidate->s->lbstatus);
-
-    }
-
-    return mycandidate;
-
-}
-
-/*
- * How to add additional lbmethods:
- *   1. Create func which determines "best" candidate worker
- *      (eg: find_best_bytraffic, above)
- *   2. Register it as a provider.
- */
-static const proxy_balancer_method byrequests =
-{
-    "byrequests",
-    &find_best_byrequests,
-    NULL
-};
-
-static const proxy_balancer_method bytraffic =
-{
-    "bytraffic",
-    &find_best_bytraffic,
-    NULL
-};
-
-static const proxy_balancer_method bybusyness =
-{
-    "bybusyness",
-    &find_best_bybusyness,
-    NULL
-};
-
-
 static void ap_proxy_balancer_register_hook(apr_pool_t *p)
 {
     /* Only the mpm_winnt has child init hook handler.
      * make sure that we are called after the mpm
-     * initializes and after the mod_proxy
+     * initializes
      */
-    static const char *const aszPred[] = { "mpm_winnt.c", "mod_proxy.c", NULL};
+    static const char *const aszPred[] = { "mpm_winnt.c", "mod_slotmem_shm.c", NULL};
+    static const char *const aszPred2[] = { "mod_proxy.c", NULL};
      /* manager handler */
-    ap_hook_post_config(balancer_init, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_post_config(balancer_post_config, aszPred2, NULL, APR_HOOK_MIDDLE);
+    ap_hook_pre_config(balancer_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_handler(balancer_handler, NULL, NULL, APR_HOOK_FIRST);
-    ap_hook_child_init(child_init, aszPred, NULL, APR_HOOK_MIDDLE);
+    ap_hook_child_init(balancer_child_init, aszPred, NULL, APR_HOOK_MIDDLE);
     proxy_hook_pre_request(proxy_balancer_pre_request, NULL, NULL, APR_HOOK_FIRST);
     proxy_hook_post_request(proxy_balancer_post_request, NULL, NULL, APR_HOOK_FIRST);
     proxy_hook_canon_handler(proxy_balancer_canon, NULL, NULL, APR_HOOK_FIRST);
-    ap_register_provider(p, PROXY_LBMETHOD, "bytraffic", "0", &bytraffic);
-    ap_register_provider(p, PROXY_LBMETHOD, "byrequests", "0", &byrequests);
-    ap_register_provider(p, PROXY_LBMETHOD, "bybusyness", "0", &bybusyness);
 }
 
-module AP_MODULE_DECLARE_DATA proxy_balancer_module = {
+AP_DECLARE_MODULE(proxy_balancer) = {
     STANDARD20_MODULE_STUFF,
     NULL,       /* create per-directory config structure */
     NULL,       /* merge per-directory config structures */

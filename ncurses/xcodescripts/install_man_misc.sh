@@ -6,7 +6,7 @@ set -e -x
 
 # check if we're building for the simulator
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ]; then
-	DSTROOT="${DSTROOT}${SDKROOT}"
+	DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 fi
 
 mkdir -p "$DSTROOT"/usr/local/OpenSource{Licenses,Versions}

@@ -26,7 +26,7 @@
 #ifndef WebCoreAVFResourceLoader_h
 #define WebCoreAVFResourceLoader_h
 
-#if ENABLE(VIDEO) && USE(AVFOUNDATION) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if ENABLE(VIDEO) && USE(AVFOUNDATION) && HAVE(AVFOUNDATION_LOADER_DELEGATE)
 
 #include "CachedRawResourceClient.h"
 #include "CachedResourceHandle.h"
@@ -57,9 +57,9 @@ public:
 
 private:
     // CachedResourceClient
-    virtual void responseReceived(CachedResource*, const ResourceResponse&) OVERRIDE;
-    virtual void dataReceived(CachedResource*, const char*, int) OVERRIDE;
-    virtual void notifyFinished(CachedResource*) OVERRIDE;
+    virtual void responseReceived(CachedResource*, const ResourceResponse&) override;
+    virtual void dataReceived(CachedResource*, const char*, int) override;
+    virtual void notifyFinished(CachedResource*) override;
 
     void fulfillRequestWithResource(CachedResource*);
 

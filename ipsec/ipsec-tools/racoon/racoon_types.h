@@ -28,5 +28,4 @@
 typedef struct ike_session ike_session_t;
 typedef struct phase1handle phase1_handle_t;
 typedef struct phase2handle phase2_handle_t;
-typedef struct ikev2_ike_sa_window ikev2_ike_sa_window_t;
 #endif /* _RACOON_TYPES_H */

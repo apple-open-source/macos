@@ -24,6 +24,8 @@
  */
 
 #include "config.h"
+#if !PLATFORM(IOS)
+
 #include "WebCoreFullScreenWarningView.h"
 
 #include "LocalizedStrings.h"
@@ -40,11 +42,8 @@ static const CGFloat WarningViewBackgroundWhite = 0.1;
 static const CGFloat WarningViewBackgroundAlpha = 0.9;
 static const CGFloat WarningViewShadowWhite = 0.1;
 static const CGFloat WarningViewShadowAlpha = 1;
-static const float WarningViewShadowOpacity = 0.25;
 static const NSSize WarningViewShadowOffset = {0, -2};
 static const CGFloat WarningViewShadowRadius = 5;
-static const NSTimeInterval WarningViewHideDelay = 3;
-static const NSTimeInterval WarningViewFadeDuration = 0.5;
 
 @implementation WebCoreFullScreenWarningView
 
@@ -106,3 +105,5 @@ static const NSTimeInterval WarningViewFadeDuration = 0.5;
     return self;
 }
 @end
+
+#endif // !PLATFORM(IOS)

@@ -1,6 +1,6 @@
 /*
     utils.c:
-    Copyright (C) 2003-2004   Ludovic Rousseau
+    Copyright (C) 2003-2009   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: utils.h 4256 2009-06-14 11:17:00Z rousseau $
+ * $Id: utils.h 4973 2010-06-01 09:43:29Z rousseau $
  */
 
 #ifndef TRUE

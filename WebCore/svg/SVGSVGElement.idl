@@ -23,15 +23,7 @@
 // TODO: no css::ViewCSS available!
 // TODO: Fix SVGSVGElement inheritance (css::DocumentCSS)! 
 // TODO: no events::DocumentEvent available!
-[
-    Conditional=SVG
-] interface SVGSVGElement : SVGStyledElement,
-                                            SVGTests,
-                                            SVGLangSpace,
-                                            SVGExternalResourcesRequired,
-                                            SVGTransformable,
-                                            SVGFitToViewBox,
-                                            SVGZoomAndPan {
+interface SVGSVGElement : SVGGraphicsElement {
     readonly attribute SVGAnimatedLength x;
     readonly attribute SVGAnimatedLength y;
     readonly attribute SVGAnimatedLength width;
@@ -39,13 +31,13 @@
              attribute DOMString contentScriptType;
              attribute DOMString contentStyleType;
     readonly attribute SVGRect viewport;
-    readonly attribute float pixelUnitToMillimeterX;
-    readonly attribute float pixelUnitToMillimeterY;
-    readonly attribute float screenPixelToMillimeterX;
-    readonly attribute float screenPixelToMillimeterY;
+    readonly attribute unrestricted float pixelUnitToMillimeterX;
+    readonly attribute unrestricted float pixelUnitToMillimeterY;
+    readonly attribute unrestricted float screenPixelToMillimeterX;
+    readonly attribute unrestricted float screenPixelToMillimeterY;
     readonly attribute boolean useCurrentView;
     readonly attribute SVGViewSpec currentView;
-             attribute float currentScale;
+             attribute unrestricted float currentScale;
     readonly attribute SVGPoint currentTranslate;
 
     unsigned long suspendRedraw([Default=Undefined] optional unsigned long maxWaitMilliseconds);
@@ -55,8 +47,8 @@
     void pauseAnimations();
     void unpauseAnimations();
     boolean animationsPaused();
-    float getCurrentTime();
-    void setCurrentTime([Default=Undefined] optional float seconds);
+    unrestricted float getCurrentTime();
+    void setCurrentTime([Default=Undefined] optional unrestricted float seconds);
     NodeList getIntersectionList([Default=Undefined] optional SVGRect rect, 
                                  [Default=Undefined] optional SVGElement referenceElement);
     NodeList getEnclosureList([Default=Undefined] optional SVGRect rect, 
@@ -78,3 +70,6 @@
     Element getElementById([Default=Undefined] optional DOMString elementId);
 };
 
+SVGSVGElement implements SVGExternalResourcesRequired;
+SVGSVGElement implements SVGFitToViewBox;
+SVGSVGElement implements SVGZoomAndPan;

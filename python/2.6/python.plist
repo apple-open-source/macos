@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>python</string>
         <key>OpenSourceVersion</key>
-        <string>2.6.8</string>
+        <string>2.6.9</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.python.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.python.org/ftp/python/2.6.8/Python-2.6.8.tar.bz2</string>
+        <string>http://www.python.org/ftp/python/2.6.9/Python-2.6.9.tar.xz</string>
         <key>OpenSourceMD5</key>
-        <string>c6e0420a21d8b23dee8b0195c9b9a125</string>
+        <string>933a811f11e3db3d73ae492f6c3a7a76</string>
         <key>OpenSourceImportDate</key>
-        <string>2012-08-12</string>
+        <string>2014-02-18</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>
@@ -28,6 +28,7 @@
 		<string>man page explains readline modules use of libedit</string>
 		<string>initial dtrace probe support</string>
 		<string>CVE-2011-4944 patch</string>
+		<string>diagnostics and usage reporting</string>
 	</array>	
 </dict>
 </array>

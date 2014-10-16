@@ -14,25 +14,15 @@ For more information run
 Many of the packaged commands self-document via the --man and --html
 options; those that do have no separate man page.
 
-Each package has its own license file
+Each package is covered by one of the license files
 
-	lib/package/LICENSES/<prefix>
+	lib/package/LICENSES/<license>
 
-where <prefix> is the longest matching prefix of the package name.
-At the top of each license file is a URL; the license covers all
-software referring to this URL. For details run
+where <license> is the license type for the package.  At the top
+of each license file is a URL; the license covers all software that
+refers to this URL. For details run
 
 	bin/package license [<package>]
-
-A component within a package may have its own license file
-
-	lib/package/LICENSES/<prefix>-<component>
-
-or it may have a separate license detailed in the component
-source directory.
-
-Many of the commands self-document via the --man and --html
-options; those that do have no separate man page.
 
 Any archives, distributions or packages made from source or
 binaries covered by license(s) must contain the corresponding

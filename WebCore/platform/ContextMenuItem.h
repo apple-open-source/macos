@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,7 +33,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS NSMenuItem;
 #elif PLATFORM(GTK)
@@ -56,7 +56,7 @@ namespace WebCore {
         ContextMenuItemTagOpenImageInNewWindow,
         ContextMenuItemTagDownloadImageToDisk,
         ContextMenuItemTagCopyImageToClipboard,
-#if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK) || PLATFORM(EFL)
         ContextMenuItemTagCopyImageUrlToClipboard,
 #endif
         ContextMenuItemTagOpenFrameInNewWindow,
@@ -70,7 +70,7 @@ namespace WebCore {
 #if PLATFORM(GTK)
         ContextMenuItemTagDelete,
 #endif
-#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM (EFL)
+#if PLATFORM(GTK) || PLATFORM (EFL)
         ContextMenuItemTagSelectAll,
 #endif
 #if PLATFORM(GTK)
@@ -137,7 +137,7 @@ namespace WebCore {
         ContextMenuItemTagTextDirectionDefault,
         ContextMenuItemTagTextDirectionLeftToRight,
         ContextMenuItemTagTextDirectionRightToLeft,
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         ContextMenuItemTagCorrectSpellingAutomatically,
         ContextMenuItemTagSubstitutionsMenu,
         ContextMenuItemTagShowSubstitutions,
@@ -177,7 +177,7 @@ namespace WebCore {
     };
 
 #if ENABLE(CONTEXT_MENUS)
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     typedef NSMenuItem* PlatformMenuItemDescription;
 #elif PLATFORM(GTK)
     typedef GtkMenuItem* PlatformMenuItemDescription;
@@ -247,7 +247,7 @@ namespace WebCore {
         bool m_checked;
         Vector<ContextMenuItem> m_subMenuItems;
 #else
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         RetainPtr<NSMenuItem> m_platformDescription;
 #else
         PlatformMenuItemDescription m_platformDescription;

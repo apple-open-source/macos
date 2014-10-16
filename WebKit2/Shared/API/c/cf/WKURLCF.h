@@ -27,14 +27,14 @@
 #define WKURLCF_h
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 WK_EXPORT WKURLRef WKURLCreateWithCFURL(CFURLRef URL);
-WK_EXPORT CFURLRef WKURLCopyCFURL(CFAllocatorRef alloc, WKURLRef URL);
+WK_EXPORT CFURLRef WKURLCopyCFURL(CFAllocatorRef alloc, WKURLRef URL) CF_RETURNS_RETAINED;
 
 #ifdef __cplusplus
 }

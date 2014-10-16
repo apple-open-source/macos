@@ -1,0 +1,315 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>converters.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">converters.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2002, 2004-2006 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/* This file defines all the converters. */</span>
+
+
+<span class="enscript-comment">/* Our own notion of wide character, as UCS-4, according to ISO-10646-1. */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> ucs4_t;
+
+<span class="enscript-comment">/* State used by a conversion. 0 denotes the initial state. */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> state_t;
+
+<span class="enscript-comment">/* iconv_t is an opaque type. This is the real iconv_t type. */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">struct</span> conv_struct * conv_t;
+
+<span class="enscript-comment">/*
+ * Data type for conversion multibyte -&gt; unicode
+ */</span>
+<span class="enscript-type">struct</span> mbtowc_funcs {
+  <span class="enscript-type">int</span> (*xxx_mbtowc) (conv_t conv, ucs4_t *pwc, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> <span class="enscript-type">const</span> *s, size_t n);
+  <span class="enscript-comment">/*
+   * int xxx_mbtowc (conv_t conv, ucs4_t *pwc, unsigned char const *s, size_t n)
+   * converts the byte sequence starting at s to a wide character. Up to n bytes
+   * are available at s. n is &gt;= 1.
+   * Result is number of bytes consumed (if a wide character was read),
+   * or -1 if invalid, or -2 if n too small, or -2-(number of bytes consumed)
+   * if only a shift sequence was read.
+   */</span>
+  <span class="enscript-type">int</span> (*xxx_flushwc) (conv_t conv, ucs4_t *pwc);
+  <span class="enscript-comment">/*
+   * int xxx_flushwc (conv_t conv, ucs4_t *pwc)
+   * returns to the initial state and stores the pending wide character, if any.
+   * Result is 1 (if a wide character was read) or 0 if none was pending.
+   */</span>
+};
+
+<span class="enscript-comment">/* Return code if invalid. (xxx_mbtowc) */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">RET_ILSEQ</span>      -1
+<span class="enscript-comment">/* Return code if only a shift sequence of n bytes was read. (xxx_mbtowc) */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">RET_TOOFEW</span>(n)  (-2-(n))
+
+<span class="enscript-comment">/*
+ * Data type for conversion unicode -&gt; multibyte
+ */</span>
+<span class="enscript-type">struct</span> wctomb_funcs {
+  <span class="enscript-type">int</span> (*xxx_wctomb) (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n);
+  <span class="enscript-comment">/*
+   * int xxx_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
+   * converts the wide character wc to the character set xxx, and stores the
+   * result beginning at r. Up to n bytes may be written at r. n is &gt;= 1.
+   * Result is number of bytes written, or -1 if invalid, or -2 if n too small.
+   */</span>
+  <span class="enscript-type">int</span> (*xxx_reset) (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, size_t n);
+  <span class="enscript-comment">/*
+   * int xxx_reset (conv_t conv, unsigned char *r, size_t n)
+   * stores a shift sequences returning to the initial state beginning at r.
+   * Up to n bytes may be written at r. n is &gt;= 0.
+   * Result is number of bytes written, or -2 if n too small.
+   */</span>
+};
+
+<span class="enscript-comment">/* Return code if invalid. (xxx_wctomb) */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">RET_ILUNI</span>      -1
+<span class="enscript-comment">/* Return code if output buffer is too small. (xxx_wctomb, xxx_reset) */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">RET_TOOSMALL</span>   -2
+
+<span class="enscript-comment">/*
+ * Contents of a conversion descriptor.
+ */</span>
+<span class="enscript-type">struct</span> conv_struct {
+  <span class="enscript-type">struct</span> loop_funcs lfuncs;
+  <span class="enscript-comment">/* Input (conversion multibyte -&gt; unicode) */</span>
+  <span class="enscript-type">int</span> iindex;
+  <span class="enscript-type">struct</span> mbtowc_funcs ifuncs;
+  state_t istate;
+  <span class="enscript-comment">/* Output (conversion unicode -&gt; multibyte) */</span>
+  <span class="enscript-type">int</span> oindex;
+  <span class="enscript-type">struct</span> wctomb_funcs ofuncs;
+  <span class="enscript-type">int</span> oflags;
+  state_t ostate;
+  <span class="enscript-comment">/* Operation flags */</span>
+  <span class="enscript-type">int</span> transliterate;
+  <span class="enscript-type">int</span> discard_ilseq;
+  #ifndef LIBICONV_PLUG
+  <span class="enscript-type">struct</span> iconv_fallbacks fallbacks;
+  <span class="enscript-type">struct</span> iconv_hooks hooks;
+  #endif
+};
+
+<span class="enscript-comment">/*
+ * Include all the converters.
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ascii.h&quot;</span>
+
+<span class="enscript-comment">/* General multi-byte encodings */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf8.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs2.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf8mac.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs2be.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs2le.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs4.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs4be.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs4le.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf16.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf16be.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf16le.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf32.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf32be.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf32le.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;utf7.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs2internal.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs2swapped.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs4internal.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ucs4swapped.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;c99.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;java.h&quot;</span>
+
+<span class="enscript-comment">/* 8-bit encodings */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_1.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_2.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_3.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_4.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_5.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_6.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_7.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_8.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_9.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_10.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_11.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_13.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_14.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_15.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso8859_16.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;koi8_r.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;koi8_u.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;koi8_ru.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1250.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1251.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1252.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1253.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1254.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1255.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1256.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1257.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1258.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp850.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp862.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp866.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_roman.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_centraleurope.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_iceland.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_croatian.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_romania.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_cyrillic.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_ukraine.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_greek.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_turkish.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_hebrew.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_arabic.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mac_thai.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;hp_roman8.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;nextstep.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;armscii_8.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;georgian_academy.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;georgian_ps.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;koi8_t.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;pt154.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;mulelao.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1133.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;tis620.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp874.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;viscii.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;tcvn.h&quot;</span>
+
+<span class="enscript-comment">/* CJK character sets [CCS = coded character set] [CJKV.INF chapter 3] */</span>
+
+<span class="enscript-type">typedef</span> <span class="enscript-type">struct</span> {
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> indx; <span class="enscript-comment">/* index into big table */</span>
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> used; <span class="enscript-comment">/* bitmask of used entries */</span>
+} Summary16;
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso646_jp.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;jisx0201.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;jisx0208.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;jisx0212.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso646_cn.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;gb2312.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;isoir165.h&quot;</span>
+<span class="enscript-comment">/*#include &quot;gb12345.h&quot;*/</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;gbk.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cns11643.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;big5.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ksc5601.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;johab_hangul.h&quot;</span>
+
+<span class="enscript-comment">/* CJK encodings [CES = character encoding scheme] [CJKV.INF chapter 4] */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;euc_jp.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;sjis.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp932.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_jp.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_jp1.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_jp2.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;euc_cn.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ces_gbk.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp936.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;gb18030.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_cn.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_cnext.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;hz.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;euc_tw.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;ces_big5.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp950.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;big5hkscs1999.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;big5hkscs2001.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;big5hkscs2004.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;euc_kr.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp949.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;johab.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_kr.h&quot;</span>
+
+<span class="enscript-comment">/* Encodings used by system dependent locales. */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_AIX</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp856.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp922.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp943.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1046.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1124.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1129.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1161.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1162.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1163.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_OSF1</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;dec_kanji.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;dec_hanyu.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_DOS</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp437.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp737.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp775.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp852.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp853.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp855.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp857.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp858.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp860.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp861.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp863.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp864.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp865.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp869.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cp1125.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_EXTRA</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;euc_jisx0213.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;shift_jisx0213.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;iso2022_jp3.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;big5_2003.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;tds565.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;atarist.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;riscos1.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+</pre>
+<hr />
+</body></html>

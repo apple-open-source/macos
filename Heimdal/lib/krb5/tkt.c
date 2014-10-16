@@ -45,34 +45,32 @@ static krb5_error_code
 make_pa_tgs_req(krb5_context context,
 		krb5_auth_context ac,
 		KDC_REQ_BODY *body,
-		PA_DATA *padata,
 		krb5_ccache ccache,
-		krb5_creds *creds)
+		krb5_creds *creds,
+		krb5_data *tgs_req)
 {
-    u_char *buf;
+    krb5_error_code ret;
+    krb5_data in_data;
     size_t buf_size;
     size_t len = 0;
-    krb5_data in_data;
-    krb5_error_code ret;
+    uint8_t *buf;
 
     ASN1_MALLOC_ENCODE(KDC_REQ_BODY, buf, buf_size, body, &len, ret);
     if (ret)
-	goto out;
+	return ret;
+
     if(buf_size != len)
 	krb5_abortx(context, "internal error in ASN.1 encoder");
 
     in_data.length = len;
     in_data.data   = buf;
-    ret = _krb5_mk_req_internal(context, &ac, 0, &in_data, ccache, creds,
-				&padata->padata_value,
+    ret = _krb5_mk_req_internal(context, &ac, 0, &in_data,
+				ccache, creds,
+				tgs_req,
 				KRB5_KU_TGS_REQ_AUTH_CKSUM,
 				KRB5_KU_TGS_REQ_AUTH);
- out:
     free (buf);
-    if(ret)
-	return ret;
-    padata->padata_type = KRB5_PADATA_TGS_REQ;
-    return 0;
+    return ret;
 }
 
 /*
@@ -136,6 +134,7 @@ set_auth_data (krb5_context context,
 krb5_error_code
 _krb5_init_tgs_req(krb5_context context,
 		   krb5_ccache ccache,
+		   struct krb5_fast_state *state,
 		   krb5_addresses *addresses,
 		   krb5_kdc_flags flags,
 		   krb5_const_principal impersonate_principal,
@@ -149,7 +148,11 @@ _krb5_init_tgs_req(krb5_context context,
 {
     krb5_auth_context ac = NULL;
     krb5_error_code ret = 0;
+    krb5_data tgs_req;
     
+    memset(t, 0, sizeof(*t));
+    krb5_data_zero(&tgs_req);
+
     /* inherit the forwardable/proxyable flags from the krbtgt */
     flags.b.forwardable = krbtgt->flags.b.forwardable;
     flags.b.proxiable = krbtgt->flags.b.proxiable;
@@ -170,14 +173,12 @@ _krb5_init_tgs_req(krb5_context context,
     }
 
 
-    memset(t, 0, sizeof(*t));
-
     if (impersonate_principal) {
 	krb5_crypto crypto;
 	PA_S4U2Self self;
 	krb5_data data;
 	void *buf;
-	size_t size, len;
+	size_t size = 0, len;
 
 	self.name = impersonate_principal->name;
 	self.realm = impersonate_principal->realm;
@@ -286,28 +287,19 @@ _krb5_init_tgs_req(krb5_context context,
 	if (ret)
 	    goto fail;
     }
-    ALLOC(t->padata, 1);
-    if (t->padata == NULL) {
-	ret = ENOMEM;
-	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	goto fail;
-    }
-    ALLOC_SEQ(t->padata, 1 + padata->len);
-    if (t->padata->val == NULL) {
-	ret = ENOMEM;
-	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	goto fail;
-    }
-    {
-	size_t i;
-	for (i = 0; i < padata->len; i++) {
-	    ret = copy_PA_DATA(&padata->val[i], &t->padata->val[i + 1]);
-	    if (ret) {
-		krb5_set_error_message(context, ret,
-				       N_("malloc: out of memory", ""));
+
+    if (padata) {
+	if (t->padata == NULL) {
+	    ALLOC(t->padata, 1);
+	    if (t->padata == NULL) {
+		ret = krb5_enomem(context);
 		goto fail;
 	    }
 	}
+	
+	ret = copy_METHOD_DATA(padata, t->padata);
+	if (ret)
+	    goto fail;
     }
 
     ret = krb5_auth_con_init(context, &ac);
@@ -318,19 +310,50 @@ _krb5_init_tgs_req(krb5_context context,
     if (ret)
 	goto fail;
 
-    ret = set_auth_data (context, &t->req_body, &in_creds->authdata,
-			 ac->local_subkey);
+    ret = set_auth_data(context, &t->req_body,
+			&in_creds->authdata, ac->local_subkey);
     if (ret)
 	goto fail;
+
+    if (t->padata == NULL) {
+	ALLOC(t->padata, 1);
+	if (t->padata == NULL) {
+	    ret = krb5_enomem(context);
+	    goto fail;
+	}
+    }
 
     ret = make_pa_tgs_req(context,
 			  ac,
 			  &t->req_body,
-			  &t->padata->val[0],
 			  ccache,
-			  krbtgt);
+			  krbtgt,
+			  &tgs_req);
     if(ret)
 	goto fail;
+
+    if (state) {
+
+	state->armor_ac = ac;
+	ret = _krb5_fast_create_armor(context, state, NULL);
+	state->armor_ac = NULL;
+	if (ret)
+	    goto fail;
+
+	ret = _krb5_fast_wrap_req(context, state, &tgs_req, t);
+	if (ret)
+	    goto fail;
+
+	/* Its ok if there is no fast in the TGS-REP, older heimdal only support it in the AS code path */
+	state->flags &= ~KRB5_FAST_EXPECTED;
+    }
+
+    ret = krb5_padata_add(context, t->padata, KRB5_PADATA_TGS_REQ,
+			  tgs_req.data, tgs_req.length);
+    if (ret)
+	goto fail;
+
+    krb5_data_zero(&tgs_req);
 
     ret = krb5_auth_con_getlocalsubkey(context, ac, subkey);
     if (ret)
@@ -341,8 +364,10 @@ fail:
 	krb5_auth_con_free(context, ac);
     if (ret) {
 	t->req_body.addresses = NULL;
-	free_TGS_REQ (t);
+	free_TGS_REQ(t);
     }
+    krb5_data_free(&tgs_req);
+
     return ret;
 }
 
@@ -354,23 +379,34 @@ _krb5_decrypt_tkt_with_subkey (krb5_context context,
 			       krb5_const_pointer skey,
 			       krb5_kdc_rep *dec_rep)
 {
-    const krb5_keyblock *subkey = skey;
+    struct krb5_decrypt_tkt_with_subkey_state *state;
     krb5_error_code ret = 0;
     krb5_data data;
     size_t size;
     krb5_crypto crypto;
+    krb5_keyblock extract_key;
+
+    state = (struct krb5_decrypt_tkt_with_subkey_state *)skey;
 
     assert(usage == 0);
 
     krb5_data_zero(&data);
+    krb5_keyblock_zero(&extract_key);
 
     /*
      * start out with trying with subkey if we have one
      */
-    if (subkey) {
-	ret = krb5_crypto_init(context, subkey, 0, &crypto);
+    if (state->subkey) {
+
+	ret = _krb5_fast_tgs_strengthen_key(context, state->fast_state, state->subkey, &extract_key);
 	if (ret)
 	    return ret;
+
+	ret = krb5_crypto_init(context, &extract_key, 0, &crypto);
+	krb5_free_keyblock_contents(context, &extract_key);
+	if (ret)
+	    return ret;
+
 	ret = krb5_decrypt_EncryptedData (context,
 					  crypto,
 					  KRB5_KU_TGS_REP_ENC_PART_SUB_KEY,
@@ -380,7 +416,7 @@ _krb5_decrypt_tkt_with_subkey (krb5_context context,
 	 * If the is Windows 2000 DC, we need to retry with key usage
 	 * 8 when doing ARCFOUR.
 	 */
-	if (ret && subkey->keytype == ETYPE_ARCFOUR_HMAC_MD5) {
+	if (ret && state->subkey->keytype == ETYPE_ARCFOUR_HMAC_MD5) {
 	    ret = krb5_decrypt_EncryptedData(context,
 					     crypto,
 					     8,
@@ -389,8 +425,14 @@ _krb5_decrypt_tkt_with_subkey (krb5_context context,
 	}
 	krb5_crypto_destroy(context, crypto);
     }
-    if (subkey == NULL || ret) {
-	ret = krb5_crypto_init(context, key, 0, &crypto);
+    if (state->subkey == NULL || ret) {
+
+	ret = _krb5_fast_tgs_strengthen_key(context, state->fast_state, key, &extract_key);
+	if (ret)
+	    return ret;
+
+	ret = krb5_crypto_init(context, &extract_key, 0, &crypto);
+	krb5_free_keyblock_contents(context, &extract_key);
 	if (ret)
 	    return ret;
 	ret = krb5_decrypt_EncryptedData (context,
@@ -536,6 +578,8 @@ struct krb5_tkt_creds_context_data {
     krb5_creds **tickets;
     int ok_as_delegate;
 
+    struct krb5_fast_state fast_state;
+
     /* output */
     krb5_creds *cred;
 };
@@ -576,6 +620,8 @@ tkt_init(krb5_context context,
 static void
 tkt_reset(krb5_context context, krb5_tkt_creds_context ctx)
 {
+    _krb5_fast_free(context, &ctx->fast_state);
+
     krb5_free_cred_contents(context, &ctx->tgt);
     krb5_free_cred_contents(context, &ctx->next);
     krb5_free_keyblock(context, ctx->subkey);
@@ -659,8 +705,10 @@ tkt_referral_send(krb5_context context,
 {
     krb5_error_code ret;
     TGS_REQ req;
-    size_t len;
+    size_t len = 0;
     METHOD_DATA padata;
+
+    memset(&req, 0, sizeof(req));
 
     padata.val = NULL;
     padata.len = 0;
@@ -677,6 +725,7 @@ tkt_referral_send(krb5_context context,
 
     ret = _krb5_init_tgs_req(context,
 			     ctx->ccache,
+			     &ctx->fast_state,
 			     ctx->addreseses,
 			     ctx->kdc_flags,
 			     ctx->impersonate_principal,
@@ -715,6 +764,48 @@ out:
     return ret;
 }
 
+krb5_error_code
+_krb5_fast_tgs_strengthen_key(krb5_context context,
+			      struct krb5_fast_state *state,
+			      krb5_keyblock *reply_key,
+			      krb5_keyblock *extract_key)
+{
+    krb5_error_code ret;
+
+    if (state && state->strengthen_key) {
+
+	_krb5_debugx(context, 5, "_krb5_fast_tgs_strengthen_key");
+	
+	if (state->strengthen_key->keytype != reply_key->keytype) {
+	    krb5_set_error_message(context, KRB5KRB_AP_ERR_MODIFIED,
+				   N_("strengthen_key %d not same enctype as reply key %d", ""),
+				   state->strengthen_key->keytype, reply_key->keytype);
+	    return KRB5KRB_AP_ERR_MODIFIED;
+	}
+
+	_krb5_debug_keyblock(context, 10, "tkt: strengthen_key", state->strengthen_key);
+	_krb5_debug_keyblock(context, 10, "tkt: old reply_key", reply_key);
+
+	ret = _krb5_fast_cf2(context,
+			     state->strengthen_key,
+			     "strengthenkey", 
+			     reply_key,
+			     "replykey",
+			     extract_key,
+			     NULL);
+	if (ret)
+	    return ret;
+    } else {
+	ret = krb5_copy_keyblock_contents(context, reply_key, extract_key);
+	if (ret)
+	    return ret;
+    }
+
+    _krb5_debug_keyblock(context, 10, "tkt: extract key", extract_key);
+
+    return 0;
+}
+
 static krb5_error_code
 parse_tgs_rep(krb5_context context,
 	      krb5_tkt_creds_context ctx,
@@ -733,8 +824,14 @@ parse_tgs_rep(krb5_context context,
     }
 
     if(decode_TGS_REP(in->data, in->length, &rep.kdc_rep, &len) == 0) {
+	struct krb5_decrypt_tkt_with_subkey_state state;
 	unsigned eflags = 0;
 	
+	ret = _krb5_fast_unwrap_kdc_rep(context, ctx->nonce, NULL,
+					&ctx->fast_state, &rep.kdc_rep);
+	if (ret)
+	    return ret;
+
 	ret = krb5_copy_principal(context,
 				  ctx->next.client,
 				  &outcred->client);
@@ -748,9 +845,14 @@ parse_tgs_rep(krb5_context context,
 	/* this should go someplace else */
 	outcred->times.endtime = ctx->in_cred->times.endtime;
 	
+#define constrained_delegation request_anonymous
 	if (ctx->kdc_flags.b.constrained_delegation || ctx->impersonate_principal)
 	    eflags |= EXTRACT_TICKET_ALLOW_CNAME_MISMATCH;
-	
+#undef constrained_delegation
+
+	state.subkey = ctx->subkey;
+	state.fast_state = &ctx->fast_state;
+
 	ret = _krb5_extract_ticket(context,
 				   &rep,
 				   outcred,
@@ -761,14 +863,44 @@ parse_tgs_rep(krb5_context context,
 				   eflags,
 				   NULL,
 				   _krb5_decrypt_tkt_with_subkey,
-				   ctx->subkey);
+				   &state);
 
     } else if(krb5_rd_error(context, in, &rep.error) == 0) {
+	METHOD_DATA md;
+
+	memset(&md, 0, sizeof(md));
+
+	if (rep.error.e_data) {
+	    ret = decode_METHOD_DATA(rep.error.e_data->data,
+				     rep.error.e_data->length,
+				     &md, NULL);
+	    if (ret) {
+		krb5_set_error_message(context, ret,
+				       N_("Failed to decode METHOD-DATA", ""));
+		goto out;
+	    }
+	}
+
+	ret = _krb5_fast_unwrap_error(context, &ctx->fast_state,
+				      &md, &rep.error);
+	free_METHOD_DATA(&md);
+	if (ret)
+	    goto out;
+
 	ret = krb5_error_from_rd_error(context, &rep.error, ctx->in_cred);
+
+	/* log the failure */
+	if (_krb5_have_debug(context, 5)) {
+	    const char *str = krb5_get_error_message(context, ret);
+	    _krb5_debugx(context, 5, "parse_tgs_rep: KRB-ERROR %d/%s", ret, str);
+	    krb5_free_error_message(context, str);
+	}
+
     } else {
 	ret = KRB5KRB_AP_ERR_MSG_TYPE;
 	krb5_clear_error_message(context);
     }
+ out:
     krb5_free_kdc_rep(context, &rep);
     return ret;
 }

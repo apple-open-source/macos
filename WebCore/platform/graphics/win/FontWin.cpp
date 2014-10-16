@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,6 +30,7 @@
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
+#include "LayoutRect.h"
 #include "Logging.h"
 #include "SimpleFontData.h"
 #include "TextRun.h"
@@ -50,8 +51,7 @@ bool Font::canExpandAroundIdeographsInComplexText()
     return false;
 }
 
-FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint& point, int h,
-                                            int from, int to) const
+void Font::adjustSelectionRectForComplexText(const TextRun& run, LayoutRect& selectionRect, int from, int to) const
 {
     UniscribeController it(this, run);
     it.advance(from);
@@ -59,14 +59,12 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint
     it.advance(to);
     float afterWidth = it.runWidthSoFar();
 
-    // Using roundf() rather than ceilf() for the right edge as a compromise to ensure correct caret positioning
     if (run.rtl()) {
         it.advance(run.length());
-        float totalWidth = it.runWidthSoFar();
-        return FloatRect(point.x() + floorf(totalWidth - afterWidth), point.y(), roundf(totalWidth - beforeWidth) - floorf(totalWidth - afterWidth), h);
-    } 
-    
-    return FloatRect(point.x() + floorf(beforeWidth), point.y(), roundf(afterWidth) - floorf(beforeWidth), h);
+        selectionRect.move(it.runWidthSoFar() - afterWidth, 0);
+    } else
+        selectionRect.move(beforeWidth, 0);
+    selectionRect.setWidth(afterWidth - beforeWidth);
 }
 
 float Font::getGlyphsAndAdvancesForComplexText(const TextRun& run, int from, int to, GlyphBuffer& glyphBuffer, ForTextEmphasisOrNot forTextEmphasis) const
@@ -94,8 +92,7 @@ float Font::getGlyphsAndAdvancesForComplexText(const TextRun& run, int from, int
     return beforeWidth;
 }
 
-void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const FloatPoint& point,
-                           int from, int to) const
+float Font::drawComplexText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
 {
     // This glyph buffer holds our glyphs + advances + font data for each glyph.
     GlyphBuffer glyphBuffer;
@@ -104,11 +101,12 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 
     // We couldn't generate any glyphs for the run.  Give up.
     if (glyphBuffer.isEmpty())
-        return;
+        return 0;
 
     // Draw the glyph buffer now at the starting point returned in startX.
     FloatPoint startPoint(startX, point.y());
     drawGlyphBuffer(context, run, glyphBuffer, startPoint);
+    return startPoint.x() - startX;
 }
 
 void Font::drawEmphasisMarksForComplexText(GraphicsContext* context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const

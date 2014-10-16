@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
 #include <dispatch/dispatch.h>
 #include <uuid/uuid.h>
 #include <sys/types.h>
@@ -40,7 +41,7 @@
 #include <string.h>
 #include "os/assumes.h"
 #include "gen/assumes.h"
-#include <os/trace.h>
+#include <os/debug_private.h>
 
 #define OSX_ASSUMES_LOG_REDIRECT_SECT_NAME "__osx_log_func"
 #define os_atomic_cmpxchg(p, o, n) __sync_bool_compare_and_swap((p), (o), (n))
@@ -68,6 +69,13 @@ _os_get_build(char *build, size_t sz)
 	if (r == 0 && sz == 1) {
 		(void)strlcpy(build, "99Z999", oldsz);
 	}
+#if TARGET_IPHONE_SIMULATOR
+        char *simVersion = getenv("SIMULATOR_RUNTIME_BUILD_VERSION");
+        if (simVersion) {
+            strlcat(build, " ", oldsz);
+            strlcat(build, simVersion, oldsz);
+        }
+#endif
 }
 
 static void
@@ -203,7 +211,7 @@ _os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, 
 	char result[24];
 	(void)snprintf(result, sizeof(result), "0x%llx", code);
 
-	char build[16];
+	char build[32];
 	size_t bsz = sizeof(build);
 	_os_get_build(build, bsz);
 
@@ -227,7 +235,7 @@ _os_assumes_log_impl(uint64_t code)
 		char message[256];
 		_os_construct_message(code, asl_message, &info, message, sizeof(message));
 		if (!_os_log_redirect(info.dli_fbase, message)) {
-			_os_trace_error_str(message);
+			_os_debug_log_error_str(message);
 			_simple_asl_msg_set(asl_message, "Level", "Error");
 			_simple_asl_msg_set(asl_message, "Message", "");
 			_simple_asl_send(asl_message);
@@ -253,7 +261,7 @@ _os_assert_log_impl(uint64_t code)
 		char message[256];
 		_os_construct_message(code, asl_message, &info, message, sizeof(message));
 		if (!_os_log_redirect(info.dli_fbase, message)) {
-			_os_trace_error_str(message);
+			_os_debug_log_error_str(message);
 			_simple_asl_msg_set(asl_message, "Level", "Error");
 			_simple_asl_msg_set(asl_message, "Message", "");
 			_simple_asl_send(asl_message);

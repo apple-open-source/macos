@@ -26,14 +26,12 @@
 #ifndef DFGSlowPathGenerator_h
 #define DFGSlowPathGenerator_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
 #include "DFGSilentRegisterSavePlan.h"
 #include "DFGSpeculativeJIT.h"
-#include <wtf/FastAllocBase.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace JSC { namespace DFG {
@@ -48,15 +46,11 @@ public:
     virtual ~SlowPathGenerator() { }
     void generate(SpeculativeJIT* jit)
     {
-#if DFG_ENABLE(DEBUG_VERBOSE)
-        dataLogF("Generating slow path %p at offset 0x%x\n", this, jit->m_jit.debugOffset());
-#endif
         m_label = jit->m_jit.label();
         jit->m_currentNode = m_currentNode;
         generateInternal(jit);
-#if !ASSERT_DISABLED
-        jit->m_jit.breakpoint(); // make sure that the generator jumps back to somewhere
-#endif
+        if (!ASSERT_DISABLED)
+            jit->m_jit.abortWithReason(DFGSlowPathGeneratorFellThrough);
     }
     MacroAssembler::Label label() const { return m_label; }
     virtual MacroAssembler::Call call() const
@@ -107,10 +101,10 @@ public:
         , m_result(result)
     {
         if (m_spillMode == NeedToSpill)
-            jit->silentSpillAllRegistersImpl(false, m_plans, result);
+            jit->silentSpillAllRegistersImpl(false, m_plans, extractResult(result));
     }
     
-    virtual MacroAssembler::Call call() const
+    virtual MacroAssembler::Call call() const override
     {
         return m_call;
     }
@@ -133,7 +127,7 @@ protected:
     void tearDown(SpeculativeJIT* jit)
     {
         if (m_spillMode == NeedToSpill) {
-            GPRReg canTrample = SpeculativeJIT::pickCanTrample(m_result);
+            GPRReg canTrample = SpeculativeJIT::pickCanTrample(extractResult(m_result));
             for (unsigned i = m_plans.size(); i--;)
                 jit->silentFill(m_plans[i], canTrample);
         }
@@ -160,10 +154,10 @@ public:
     }
     
 protected:
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         this->setUp(jit);
-        this->recordCall(jit->callOperation(this->m_function, this->m_result));
+        this->recordCall(jit->callOperation(this->m_function, extractResult(this->m_result)));
         this->tearDown(jit);
     }
 };
@@ -184,10 +178,10 @@ public:
     }
     
 protected:
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         this->setUp(jit);
-        this->recordCall(jit->callOperation(this->m_function, this->m_result, m_argument1));
+        this->recordCall(jit->callOperation(this->m_function, extractResult(this->m_result), m_argument1));
         this->tearDown(jit);
     }
 
@@ -212,10 +206,10 @@ public:
     }
     
 protected:
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         this->setUp(jit);
-        this->recordCall(jit->callOperation(this->m_function, this->m_result, m_argument1, m_argument2));
+        this->recordCall(jit->callOperation(this->m_function, extractResult(this->m_result), m_argument1, m_argument2));
         this->tearDown(jit);
     }
 
@@ -242,12 +236,12 @@ public:
     }
 
 protected:    
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         this->setUp(jit);
         this->recordCall(
             jit->callOperation(
-                this->m_function, this->m_result, m_argument1, m_argument2,
+                this->m_function, extractResult(this->m_result), m_argument1, m_argument2,
                 m_argument3));
         this->tearDown(jit);
     }
@@ -283,7 +277,7 @@ protected:
         this->setUp(jit);
         this->recordCall(
             jit->callOperation(
-                this->m_function, this->m_result, m_argument1, m_argument2,
+                this->m_function, extractResult(this->m_result), m_argument1, m_argument2,
                 m_argument3, m_argument4));
         this->tearDown(jit);
     }
@@ -322,7 +316,7 @@ protected:
         this->setUp(jit);
         this->recordCall(
             jit->callOperation(
-                this->m_function, this->m_result, m_argument1, m_argument2,
+                this->m_function, extractResult(this->m_result), m_argument1, m_argument2,
                 m_argument3, m_argument4, m_argument5));
         this->tearDown(jit);
     }
@@ -441,7 +435,7 @@ public:
     }
 
 protected:
-    virtual void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         this->linkFrom(jit);
         for (unsigned i = numberOfAssignments; i--;)

@@ -9,17 +9,17 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Virtual Hosts</a></div><div id="page-content"><div id="preamble"><h1>Apache IP-based Virtual Host Support</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Virtual Hosts</a></div><div id="page-content"><div id="preamble"><h1>Apache IP-based Virtual Host Support</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/vhosts/ip-based.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/vhosts/ip-based.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -81,7 +81,7 @@ Virtual Hosts</a> to help you decide.  </p>
       <li>There are security partitioning issues, such as company1
       does not want anyone at company2 to be able to read their
       data except via the web. In this case you would need two
-      daemons, each running with different <code class="directive"><a href="../mod/mpm_common.html#user">User</a></code>, <code class="directive"><a href="../mod/mpm_common.html#group">Group</a></code>, <code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code>, and <code class="directive"><a href="../mod/core.html#serverroot">ServerRoot</a></code> settings.</li>
+      daemons, each running with different <code class="directive"><a href="../mod/mod_unixd.html#user">User</a></code>, <code class="directive"><a href="../mod/mod_unixd.html#group">Group</a></code>, <code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code>, and <code class="directive"><a href="../mod/core.html#serverroot">ServerRoot</a></code> settings.</li>
 
       <li>You can afford the memory and file descriptor
       requirements of listening to every IP alias on the
@@ -113,9 +113,8 @@ Virtual Hosts</a> to help you decide.  </p>
     configuration file to select which IP address (or virtual host)
     that daemon services. e.g.</p>
 
-    <div class="example"><p><code>
-    Listen 192.168.0.1:80
-    </code></p></div>
+    <pre class="prettyprint lang-config">Listen 192.0.2.100:80</pre>
+
 
     <p>It is recommended that you use an IP address instead of a
     hostname (see <a href="../dns-caveats.html">DNS caveats</a>).</p>
@@ -132,23 +131,22 @@ Virtual Hosts</a> to help you decide.  </p>
     configuration directives to different values for each virtual
     host. e.g.</p>
 
-    <div class="example"><p><code>
-    &lt;VirtualHost 192.168.0.1:80&gt;<br />
-    ServerAdmin webmaster@smallco.example.com<br />
-    DocumentRoot /groups/smallco/www<br />
-    ServerName smallco.example.com<br />
-    ErrorLog /groups/smallco/logs/error_log<br />
-    TransferLog /groups/smallco/logs/access_log<br />
-    &lt;/VirtualHost&gt;<br />
-                <br />
-    &lt;VirtualHost 192.168.0.2:80&gt;<br />
-    ServerAdmin webmaster@baygroup.example.org<br />
-    DocumentRoot /groups/baygroup/www<br />
-    ServerName baygroup.example.com<br />
-    ErrorLog /groups/baygroup/logs/error_log<br />
-    TransferLog /groups/baygroup/logs/access_log<br />
+    <pre class="prettyprint lang-config">&lt;VirtualHost 172.20.30.40:80&gt;
+    ServerAdmin webmaster@www1.example.com
+    DocumentRoot /www/vhosts/www1
+    ServerName www1.example.com
+    ErrorLog /www/logs/www1/error_log
+    CustomLog /www/logs/www1/access_log combined
 &lt;/VirtualHost&gt;
-                </code></p></div>
+
+&lt;VirtualHost 172.20.30.50:80&gt;
+    ServerAdmin webmaster@www2.example.org
+    DocumentRoot /www/vhosts/www2
+    ServerName www2.example.org
+    ErrorLog /www/logs/www2/error_log
+    CustomLog /www/logs/www2/access_log combined
+&lt;/VirtualHost&gt;</pre>
+
 
     <p>It is recommended that you use an IP address instead of a
     hostname in the &lt;VirtualHost&gt; directive
@@ -186,7 +184,7 @@ Virtual Hosts</a> to help you decide.  </p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/vhosts/ip-based.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/ip-based.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -201,7 +199,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/vhosts/ip-based.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -36,25 +36,6 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-#if !defined(__APPLE__)
-fbt::ioctl:entry
-{
-	self->traceme = 1;
-}
-
-fbt:::entry
-/self->traceme/
-{
-	printf("called %s\n", probefunc);
-}
-
-fbt::ioctl:return
-/self->traceme/
-{
-	self->traceme = 0;
-	exit (0);
-}
-#else
 fbt::sigprocmask:entry
 {
 	self->traceme = 1;
@@ -72,4 +53,3 @@ fbt::sigprocmask:return
 	self->traceme = 0;
 	exit (0);
 }
-#endif /* __APPLE__ */

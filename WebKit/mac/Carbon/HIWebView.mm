@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -190,14 +190,6 @@ static OSStatus			WindowHandler( EventHandlerCallRef inCallRef, EventRef inEvent
 
 static void				StartUpdateObserver( HIWebView* view );
 static void				StopUpdateObserver( HIWebView* view );
-
-static inline void HIRectToQDRect( const HIRect* inRect, Rect* outRect )
-{
-    outRect->top = (SInt16)CGRectGetMinY( *inRect );
-    outRect->left = (SInt16)CGRectGetMinX( *inRect );
-    outRect->bottom = (SInt16)CGRectGetMaxY( *inRect );
-    outRect->right = (SInt16)CGRectGetMaxX( *inRect );
-}
 
 //----------------------------------------------------------------------------------
 // HIWebViewCreate

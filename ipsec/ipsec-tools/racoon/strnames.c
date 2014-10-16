@@ -70,7 +70,6 @@
 #include "pfkey.h"
 #include "strnames.h"
 #include "algorithm.h"
-#include "ikev2_rfc.h"
 
 struct ksmap {
 	int key;

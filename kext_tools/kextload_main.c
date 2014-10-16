@@ -8,10 +8,12 @@
  */
 #include "kextload_main.h"
 #include "kext_tools_util.h"
+#include "security.h"
 
 #include <libc.h>
 #include <servers/bootstrap.h>
 #include <sysexits.h>
+#include <Security/SecKeychainPriv.h>
 
 #include <IOKit/kext/KextManager.h>
 #include <IOKit/kext/KextManagerPriv.h>
@@ -457,7 +459,11 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     OSReturn   loadResult = kOSReturnError;
     char       scratchCString[PATH_MAX];
     CFIndex    count, index;
-
+#if !TARGET_OS_EMBEDDED
+    Boolean     earlyBoot = false;
+    Boolean     readOnly = false;
+#endif
+    
     OSKextLog(/* kext */ NULL,
         kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
         "Reading extensions.");
@@ -470,13 +476,36 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         result = EX_OSERR;
         goto finish;
     }
+#if !TARGET_OS_EMBEDDED
+    // not perfect, but we check to see if kextd is running to determine
+    // if we are in early boot.
+    int     skc_result;
 
+    earlyBoot = (isKextdRunning() == false);
+    skc_result = callSecKeychainMDSInstall();
+    if (skc_result != 0) {
+        // SecKeychainMDSInstall should never fail, except on read only FS.
+        // We get -67674 when SecKeychainMDSInstall can't write to its DB.
+        // see 18367703
+        if (earlyBoot && skc_result == -67674) {
+           struct statfs statfsBuffer;
+            if (statfs("/System/Library", &statfsBuffer) == 0) {
+                if (statfsBuffer.f_flags & MNT_RDONLY) {
+                    readOnly = true;
+                }
+            }
+        }
+        else {
+            goto finish;
+        }
+    }
+#endif
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
         OSKextRef     theKext = NULL;  // do not release
         CFStringRef   kextID  = CFArrayGetValueAtIndex(
-            toolArgs->kextIDs,
-            index);
+                                                       toolArgs->kextIDs,
+                                                       index);
             
         if (!CFStringGetCString(kextID, scratchCString, sizeof(scratchCString),
             kCFStringEncodingUTF8)) {
@@ -498,8 +527,42 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             result = kOSKextReturnNotFound;
             goto finish;
         }
-
-       /* The codepath from this function will do any error logging
+        
+#if !TARGET_OS_EMBEDDED
+        // temp change for 18367703
+        if (readOnly &&
+            (CFStringCompare(kextID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo
+             ||
+             CFStringCompare(kextID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo)) {
+                OSKextLogCFString(NULL,
+                                  kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                  CFSTR("Netboot, loading '%@'"),
+                                  kextID);
+        }
+        else {
+            OSStatus  sigResult = checkKextSignature(theKext, true, earlyBoot);
+            if ( sigResult != 0 ) {
+                if ( isInvalidSignatureAllowed() ) {
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                      CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext '%s'"),
+                                      (long)sigResult, (long)sigResult,
+                                      scratchCString);
+                }
+                else {
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel |
+                                      kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                                      CFSTR("ERROR: invalid signature for '%s', will not load"),
+                                      scratchCString);
+                    result = sigResult;
+                    goto finish;
+                }
+            }
+        }
+#endif // not TARGET_OS_EMBEDDED
+        
+        /* The codepath from this function will do any error logging
         * and cleanup needed.
         */
         loadResult = OSKextLoadWithOptions(theKext,
@@ -548,18 +611,65 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         * because we already tried to open all kexts above.
         * That means we don't log here if we don't find the kext.
         */ 
+        loadResult = kOSKextReturnNotFound;
         theKext = OSKextGetKextWithURL(kextURL);
-        if (!theKext) {
-            loadResult = kOSKextReturnNotFound;
-        } else {
-           /* The codepath from this function will do any error logging
-            * and cleanup needed.
-            */
+        if (theKext) {
+            /* The codepath from OSKextLoadWithOptions will do any error logging
+             * and cleanup needed.
+             */
+#if !TARGET_OS_EMBEDDED
+            OSStatus        sigResult = 0;
+            CFStringRef     myBundleID = NULL;         // do not release
+
+            myBundleID = OSKextGetIdentifier(theKext);
+            
+            // temp change for 18367703
+            if (readOnly && myBundleID &&
+                (CFStringCompare(myBundleID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo
+                 ||
+                 CFStringCompare(myBundleID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo)) {
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                      CFSTR("Netboot, loading '%@'"),
+                                      myBundleID);
+            }
+            else {
+                sigResult = checkKextSignature(theKext, true, earlyBoot);
+                if ( sigResult != 0 ) {
+                    if ( isInvalidSignatureAllowed() ) {
+                        OSKextLogCFString(NULL,
+                                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                          CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext '%s'"),
+                                          (long)sigResult, (long)sigResult,
+                                          scratchCString);
+                        sigResult = 0;
+                    }
+                    else {
+                        OSKextLogCFString(NULL,
+                                          kOSKextLogErrorLevel |
+                                          kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                                          CFSTR("ERROR: invalid signature for '%s', will not load"),
+                                          scratchCString);
+                        loadResult = sigResult;
+                    }
+                }
+            }
+            
+            
+            if (sigResult == 0) {
+                loadResult = OSKextLoadWithOptions(theKext,
+                                                   kOSKextExcludeNone,
+                                                   kOSKextExcludeNone,
+                                                   NULL,
+                                                   false);
+            }
+#else
             loadResult = OSKextLoadWithOptions(theKext,
-                /* statExclusion */ kOSKextExcludeNone,
-                /* addPersonalitiesExclusion */ kOSKextExcludeNone,
-                /* personalityNames */ NULL,
-                /* delayAutounloadFlag */ false);
+                                               kOSKextExcludeNone,
+                                               kOSKextExcludeNone,
+                                               NULL,
+                                               false);
+#endif // not TARGET_OS_EMBEDDED
         }
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,

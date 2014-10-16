@@ -47,6 +47,7 @@ typedef struct
 	uint32_t ruid;
 	uint32_t rgid;
 	uint32_t refpid;
+	uint64_t os_activity_id;
 	uint32_t kvcount;
 	mem_string_t *host;
 	mem_string_t *sender;
@@ -66,16 +67,18 @@ typedef struct
 	uint32_t record_first;
 	mem_record_t **record;
 	mem_record_t *buffer_record;
+	uint32_t max_string_mem;
+	uint32_t curr_string_mem;
 } asl_memory_t;
 
-uint32_t asl_memory_open(uint32_t max_records, asl_memory_t **s);
+uint32_t asl_memory_open(uint32_t max_records, size_t max_str_mem, asl_memory_t **s);
 uint32_t asl_memory_close(asl_memory_t *s);
-uint32_t asl_memory_statistics(asl_memory_t *s, aslmsg *msg);
+uint32_t asl_memory_statistics(asl_memory_t *s, asl_msg_t **msg);
 
-uint32_t asl_memory_save(asl_memory_t *s, aslmsg msg, uint64_t *mid);
-uint32_t asl_memory_fetch(asl_memory_t *s, uint64_t mid, aslmsg *msg, int32_t ruid, int32_t rgid);
+uint32_t asl_memory_save(asl_memory_t *s, asl_msg_t *msg, uint64_t *mid);
+uint32_t asl_memory_fetch(asl_memory_t *s, uint64_t mid, asl_msg_t **msg, int32_t ruid, int32_t rgid);
 
-uint32_t asl_memory_match(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid);
-uint32_t asl_memory_match_restricted_uuid(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str);
+uint32_t asl_memory_match(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid);
+uint32_t asl_memory_match_restricted_uuid(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, uint32_t duration, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str);
 
 #endif /* __ASL_MEMORY_H__ */

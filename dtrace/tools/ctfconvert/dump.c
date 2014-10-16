@@ -73,6 +73,8 @@ struct ctf_buf {
 	int ntholes;		/* number of type holes */
 };
 
+void write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname, caddr_t ctfdata, size_t ctfsize, int flags);
+
 #endif /* __APPLE__ */
 
 #define	WARN(x)	{ warn(x); return (E_ERROR); }

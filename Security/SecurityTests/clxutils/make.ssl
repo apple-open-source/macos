@@ -1,0 +1,10 @@
+#
+# Makefile for SslExamples package
+#
+first:
+	(cd cspxutils/utilLib; make || exit 1)
+	(cd Examples; make || exit 1)
+	
+clean:
+	(cd Examples; make clean || exit 1)
+	(cd cspxutils/utilLib; make clean || exit 1)

@@ -36,12 +36,14 @@
 __FBSDID("$FreeBSD: src/usr.bin/wall/wall.c,v 1.25 2008/01/15 07:40:30 das Exp $");
 
 #ifndef lint
+__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1988, 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif
 
 #ifndef lint
+__attribute__((__used__))
 static const char sccsid[] = "@(#)wall.c	8.2 (Berkeley) 11/16/93";
 #endif
 

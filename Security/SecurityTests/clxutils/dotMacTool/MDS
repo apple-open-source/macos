@@ -1,0 +1,6 @@
+{87191ca1-0fc9-11d4-849a000502b52122}	d	*AppleDL
+{87191ca2-0fc9-11d4-849a000502b52122}	cm	*AppleCSP
+{87191ca3-0fc9-11d4-849a000502b52122}	cdm	*AppleCSPDL
+{87191ca4-0fc9-11d4-849a000502b52122}	Cm	*AppleX509CL
+{87191ca5-0fc9-11d4-849a000502b52122}	tm	*AppleX509TP
+{87191ca7-0fc9-11d4-849a000502b52122}	tm	/Volumes/Data_and_Apps/build/build/security_apple_dotmac_tp.bundle

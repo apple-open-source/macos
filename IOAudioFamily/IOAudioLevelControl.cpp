@@ -133,10 +133,10 @@ IOAudioLevelControl *IOAudioLevelControl::createVolumeControl(SInt32 initialValu
 }
 
 bool IOAudioLevelControl::init(SInt32 initialValue,
-                               SInt32 minValue,
-                               SInt32 maxValue,
-                               IOFixed minDB,
-                               IOFixed maxDB,
+                               SInt32 _minValue,
+                               SInt32 _maxValue,
+                               IOFixed _minDB,
+                               IOFixed _maxDB,
                                UInt32 channelID,
                                const char *channelName,
                                UInt32 cntrlID,
@@ -154,10 +154,10 @@ bool IOAudioLevelControl::init(SInt32 initialValue,
         goto Done;
     }
 
-    setMinValue(minValue);
-    setMaxValue(maxValue);
-    setMinDB(minDB);
-    setMaxDB(maxDB);
+    setMinValue(_minValue);
+    setMaxValue(_maxValue);
+    setMinDB(_minDB);
+    setMaxDB(_maxDB);
 
 Done:
     if (number) {

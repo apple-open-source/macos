@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,49 +27,12 @@
 #ifndef ScriptProfile_h
 #define ScriptProfile_h
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "ScriptProfileNode.h"
-#include <wtf/Forward.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
-
-#if ENABLE(INSPECTOR)
-#include "InspectorTypeBuilder.h"
-#endif
-
-namespace JSC {
-class Profile;
-}
+#include <profiler/Profile.h>
 
 namespace WebCore {
 
-class InspectorObject;
-
-class ScriptProfile : public RefCounted<ScriptProfile> {
-public:
-    static PassRefPtr<ScriptProfile> create(PassRefPtr<JSC::Profile> profile);
-    virtual ~ScriptProfile();
-
-    String title() const;
-    unsigned int uid() const;
-    ScriptProfileNode* head() const;
-    double idleTime() const;
-
-#if ENABLE(INSPECTOR)
-    PassRefPtr<TypeBuilder::Profiler::CPUProfileNode> buildInspectorObjectForHead() const;
-    PassRefPtr<TypeBuilder::Profiler::CPUProfileNode> buildInspectorObjectForBottomUpHead() const;
-#endif
-
-private:
-    ScriptProfile(PassRefPtr<JSC::Profile> profile);
-
-    RefPtr<JSC::Profile> m_profile;
-};
-
+typedef JSC::Profile ScriptProfile;
 
 } // namespace WebCore
-
-#endif // ENABLE(JAVASCRIPT_DEBUGGER)
 
 #endif // ScriptProfile_h

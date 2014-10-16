@@ -39,10 +39,12 @@
 #include "TextEncoding.h"
 #include <cairo-ft.h>
 #include <cairo.h>
-#include <freetype/freetype.h>
-#include <freetype/tttables.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_TRUETYPE_TABLES_H
 #include <hb.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -89,13 +91,15 @@ static void CairoGetGlyphWidthAndExtents(cairo_scaled_font_t* scaledFont, hb_cod
     glyph.y = 0;
     cairo_scaled_font_glyph_extents(scaledFont, &glyph, 1, &glyphExtents);
 
+    bool hasVerticalGlyphs = glyphExtents.y_advance;
     if (advance)
-        *advance = doubleToHarfBuzzPosition(glyphExtents.x_advance);
+        *advance = doubleToHarfBuzzPosition(hasVerticalGlyphs ? -glyphExtents.y_advance : glyphExtents.x_advance);
+
     if (extents) {
         extents->x_bearing = doubleToHarfBuzzPosition(glyphExtents.x_bearing);
-        extents->y_bearing = doubleToHarfBuzzPosition(glyphExtents.y_bearing);
-        extents->width = doubleToHarfBuzzPosition(glyphExtents.width);
-        extents->height = doubleToHarfBuzzPosition(glyphExtents.height);
+        extents->y_bearing = doubleToHarfBuzzPosition(hasVerticalGlyphs ? -glyphExtents.y_bearing : glyphExtents.y_bearing);
+        extents->width = doubleToHarfBuzzPosition(hasVerticalGlyphs ? -glyphExtents.height : glyphExtents.width);
+        extents->height = doubleToHarfBuzzPosition(hasVerticalGlyphs ? glyphExtents.width : glyphExtents.height);
     }
 }
 
@@ -109,7 +113,7 @@ static hb_bool_t harfBuzzGetGlyph(hb_font_t*, void* fontData, hb_codepoint_t uni
     if (result.isNewEntry) {
         cairo_glyph_t* glyphs = 0;
         int numGlyphs = 0;
-        CString utf8Codepoint = UTF8Encoding().encode(reinterpret_cast<UChar*>(&unicode), 1, QuestionMarksForUnencodables);
+        CString utf8Codepoint = UTF8Encoding().encode(StringView(reinterpret_cast<UChar*>(&unicode), 1), QuestionMarksForUnencodables);
         if (cairo_scaled_font_text_to_glyphs(scaledFont, 0, 0, utf8Codepoint.data(), utf8Codepoint.length(), &glyphs, &numGlyphs, 0, 0, 0) != CAIRO_STATUS_SUCCESS)
             return false;
         if (!numGlyphs)

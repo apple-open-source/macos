@@ -29,17 +29,22 @@
 #include "APIClient.h"
 #include "WKIconDatabase.h"
 
+namespace API {
+class URL;
+template<> struct ClientTraits<WKIconDatabaseClientBase> {
+    typedef std::tuple<WKIconDatabaseClientV0, WKIconDatabaseClientV1> Versions;
+};
+}
+
 namespace WebKit {
 
-class APIObject;
 class WebIconDatabase;
-class WebURL;
 
-class WebIconDatabaseClient : public APIClient<WKIconDatabaseClient, kWKIconDatabaseClientCurrentVersion> {
+class WebIconDatabaseClient : public API::Client<WKIconDatabaseClientBase> {
 public:
-    void didChangeIconForPageURL(WebIconDatabase*, WebURL*);
+    void didChangeIconForPageURL(WebIconDatabase*, API::URL*);
     void didRemoveAllIcons(WebIconDatabase*);
-    void iconDataReadyForPageURL(WebIconDatabase*, WebURL*);
+    void iconDataReadyForPageURL(WebIconDatabase*, API::URL*);
 };
 
 } // namespace WebKit

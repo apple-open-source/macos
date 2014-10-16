@@ -1,0 +1,70 @@
+#
+# Test for NISCC Parasitic key bearing certs.
+# This version runs with stock key size limits. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "locally generated 6K keys"
+cert = ssSubjCert.der
+root = ssRootCert.der
+# leaf cert has a bad public key
+verifyTime = 20060726000000
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "test1, uee8k"
+cert = uee8k.pem
+cert = shintca.pem
+root = shroot.pem
+# leaf cert has a bad public key
+verifyTime = 20060726000000
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "test1, uee16k.pem"
+cert = uee16k.pem
+cert = shintca.pem
+root = shroot.pem
+# leaf cert has a bad public key
+verifyTime = 20060726000000
+error = CSSMERR_TP_INVALID_CERTIFICATE
+end
+
+test = "test2a, huge pkint8k.pem CA"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = shroot.pem
+# leaf cert OK but subsequent certs have too-large keys
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2a, bad pkint8k.pem CA, wrong root"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = root.pem
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2b, huge pkint16k.pem CA"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = shroot.pem
+# leaf cert OK but subsequent certs have too-large keys
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = "test2b, bad pkint16k.pem CA, wrong root"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = root.pem
+verifyTime = 20060726000000
+error = CSSMERR_TP_NOT_TRUSTED
+end

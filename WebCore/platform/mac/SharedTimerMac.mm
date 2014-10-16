@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -39,24 +39,14 @@ static CFRunLoopTimerRef sharedTimer;
 static void (*sharedTimerFiredFunction)();
 static void timerFired(CFRunLoopTimerRef, void*);
 
-#if !defined(IOKIT_WITHOUT_LIBDISPATCH) && !PLATFORM(IOS) && __MAC_OS_X_VERSION_MAX_ALLOWED == 1060
-extern "C" void IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_t queue);
-#endif
-
 class PowerObserver {
     WTF_MAKE_NONCOPYABLE(PowerObserver);
     
 public:
-    static PassOwnPtr<PowerObserver> create()
-    {
-        return adoptPtr(new PowerObserver);
-    }
+    PowerObserver();
     ~PowerObserver();
 
 private:
-    PowerObserver();
-
-    static void didReceiveSystemPowerNotification(void* context, io_service_t, uint32_t messageType, void* messageArgument);
     void didReceiveSystemPowerNotification(io_service_t, uint32_t messageType, void* messageArgument);
 
     void restartSharedTimer();
@@ -69,11 +59,13 @@ private:
 
 PowerObserver::PowerObserver()
     : m_powerConnection(0)
-    , m_notificationPort(0)
+    , m_notificationPort(nullptr)
     , m_notifierReference(0)
     , m_dispatchQueue(dispatch_queue_create("com.apple.WebKit.PowerObserver", 0))
 {
-    m_powerConnection = IORegisterForSystemPower(this, &m_notificationPort, didReceiveSystemPowerNotification, &m_notifierReference);
+    m_powerConnection = IORegisterForSystemPower(this, &m_notificationPort, [](void* context, io_service_t service, uint32_t messageType, void* messageArgument) {
+        static_cast<PowerObserver*>(context)->didReceiveSystemPowerNotification(service, messageType, messageArgument);
+    }, &m_notifierReference);
     if (!m_powerConnection)
         return;
 
@@ -90,11 +82,6 @@ PowerObserver::~PowerObserver()
     IODeregisterForSystemPower(&m_notifierReference);
     IOServiceClose(m_powerConnection);
     IONotificationPortDestroy(m_notificationPort);
-}
-
-void PowerObserver::didReceiveSystemPowerNotification(void* context, io_service_t service, uint32_t messageType, void* messageArgument)
-{
-    static_cast<PowerObserver*>(context)->didReceiveSystemPowerNotification(service, messageType, messageArgument);
 }
 
 void PowerObserver::didReceiveSystemPowerNotification(io_service_t, uint32_t messageType, void* messageArgument)
@@ -122,7 +109,7 @@ void PowerObserver::restartSharedTimer()
     timerFired(0, 0);
 }
 
-static PowerObserver* PowerObserver;
+static PowerObserver* powerObserver;
 
 void setSharedTimerFiredFunction(void (*f)())
 {
@@ -133,9 +120,9 @@ void setSharedTimerFiredFunction(void (*f)())
 
 static void timerFired(CFRunLoopTimerRef, void*)
 {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    sharedTimerFiredFunction();
-    [pool drain];
+    @autoreleasepool {
+        sharedTimerFiredFunction();
+    }
 }
 
 void setSharedTimerFireInterval(double interval)
@@ -151,8 +138,8 @@ void setSharedTimerFireInterval(double interval)
     sharedTimer = CFRunLoopTimerCreate(0, fireDate, 0, 0, 0, timerFired, 0);
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), sharedTimer, kCFRunLoopCommonModes);
     
-    if (!PowerObserver)
-        PowerObserver = PowerObserver::create().leakPtr();
+    if (!powerObserver)
+        powerObserver = std::make_unique<PowerObserver>().release();
 }
 
 void stopSharedTimer()

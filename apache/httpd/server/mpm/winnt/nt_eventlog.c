@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define CORE_PRIVATE
-
 #include "httpd.h"
 #include "http_log.h"
 #include "mpm_winnt.h"
@@ -153,13 +151,13 @@ void mpm_nt_eventlog_stderr_open(const char *argv0, apr_pool_t *p)
     ap_assert(hPipeRead && hPipeWrite);
 
     stderr_ready = CreateEvent(NULL, FALSE, FALSE, NULL);
-    stderr_thread = CreateThread(NULL, 0, service_stderr_thread,
-                                 (LPVOID) hPipeRead, 0, &threadid);
+    stderr_thread = CreateThread(NULL, 65536, service_stderr_thread,
+                                 (LPVOID)hPipeRead, stack_res_flag, &threadid);
     ap_assert(stderr_ready && stderr_thread);
 
     WaitForSingleObject(stderr_ready, INFINITE);
 
-    if ((apr_file_open_stderr(&stderr_file, p) 
+    if ((apr_file_open_stderr(&stderr_file, p)
              == APR_SUCCESS)
      && (apr_os_file_put(&eventlog_file, &hPipeWrite, APR_WRITE, p)
              == APR_SUCCESS))

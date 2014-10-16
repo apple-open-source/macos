@@ -26,7 +26,7 @@
 #ifndef Watchdog_h
 #define Watchdog_h
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if OS(DARWIN)
 #include <dispatch/dispatch.h>    
 #endif
 
@@ -54,7 +54,7 @@ public:
     // This version of didFire() is a more efficient version for when we want
     // to know if the watchdog has fired in the past, and not whether it should
     // fire right now.
-    JS_EXPORT_PRIVATE bool didFire() { return m_didFire; }
+    bool didFire() { return m_didFire; }
     JS_EXPORT_PRIVATE void fire();
 
     void* timerDidFireAddress() { return &m_timerDidFire; }
@@ -93,7 +93,7 @@ private:
     void* m_callbackData1;
     void* m_callbackData2;
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if OS(DARWIN) && !PLATFORM(EFL) && !PLATFORM(GTK)
     dispatch_queue_t m_queue;
     dispatch_source_t m_timer;
 #endif
@@ -104,11 +104,23 @@ private:
 
 class Watchdog::Scope {
 public:
-    Scope(Watchdog&);
-    ~Scope();
+    Scope(Watchdog* watchdog)
+        : m_watchdog(watchdog)
+    {
+        if (!watchdog)
+            return;
+        m_watchdog->arm();
+    }
+    
+    ~Scope()
+    {
+        if (!m_watchdog)
+            return;
+        m_watchdog->disarm();
+    }
 
 private:
-    Watchdog& m_watchdog;
+    Watchdog* m_watchdog;
 };
 
 } // namespace JSC

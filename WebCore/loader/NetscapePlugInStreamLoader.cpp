@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -32,11 +32,12 @@
 #include "DocumentLoader.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
 NetscapePlugInStreamLoader::NetscapePlugInStreamLoader(Frame* frame, NetscapePlugInStreamLoaderClient* client)
-    : ResourceLoader(frame, ResourceLoaderOptions(SendCallbacks, SniffContent, DoNotBufferData, AllowStoredCredentials, AskClientForAllCredentials, SkipSecurityCheck))
+    : ResourceLoader(frame, ResourceLoaderOptions(SendCallbacks, SniffContent, DoNotBufferData, AllowStoredCredentials, AskClientForAllCredentials, SkipSecurityCheck, UseDefaultOriginRestrictionsForType))
     , m_client(client)
 {
 }
@@ -48,10 +49,10 @@ NetscapePlugInStreamLoader::~NetscapePlugInStreamLoader()
 PassRefPtr<NetscapePlugInStreamLoader> NetscapePlugInStreamLoader::create(Frame* frame, NetscapePlugInStreamLoaderClient* client, const ResourceRequest& request)
 {
     RefPtr<NetscapePlugInStreamLoader> loader(adoptRef(new NetscapePlugInStreamLoader(frame, client)));
-    loader->documentLoader()->addPlugInStreamLoader(loader.get());
     if (!loader->init(request))
         return 0;
 
+    loader->documentLoader()->addPlugInStreamLoader(loader.get());
     return loader.release();
 }
 
@@ -68,7 +69,7 @@ void NetscapePlugInStreamLoader::releaseResources()
 
 void NetscapePlugInStreamLoader::didReceiveResponse(const ResourceResponse& response)
 {
-    RefPtr<NetscapePlugInStreamLoader> protect(this);
+    Ref<NetscapePlugInStreamLoader> protect(*this);
 
     m_client->didReceiveResponse(this, response);
 
@@ -90,10 +91,10 @@ void NetscapePlugInStreamLoader::didReceiveResponse(const ResourceResponse& resp
 
     // Status code can be null when serving from a Web archive.
     if (response.httpStatusCode() && (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400))
-        cancel(frameLoader()->client()->fileDoesNotExistError(response));
+        cancel(frameLoader()->client().fileDoesNotExistError(response));
 }
 
-void NetscapePlugInStreamLoader::didReceiveData(const char* data, int length, long long encodedDataLength, DataPayloadType dataPayloadType)
+void NetscapePlugInStreamLoader::didReceiveData(const char* data, unsigned length, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
     didReceiveDataOrBuffer(data, length, 0, encodedDataLength, dataPayloadType);
 }
@@ -105,7 +106,7 @@ void NetscapePlugInStreamLoader::didReceiveBuffer(PassRefPtr<SharedBuffer> buffe
 
 void NetscapePlugInStreamLoader::didReceiveDataOrBuffer(const char* data, int length, PassRefPtr<SharedBuffer> buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
-    RefPtr<NetscapePlugInStreamLoader> protect(this);
+    Ref<NetscapePlugInStreamLoader> protect(*this);
     
     m_client->didReceiveData(this, buffer ? buffer->data() : data, buffer ? buffer->size() : length);
 
@@ -114,7 +115,7 @@ void NetscapePlugInStreamLoader::didReceiveDataOrBuffer(const char* data, int le
 
 void NetscapePlugInStreamLoader::didFinishLoading(double finishTime)
 {
-    RefPtr<NetscapePlugInStreamLoader> protect(this);
+    Ref<NetscapePlugInStreamLoader> protect(*this);
 
     m_documentLoader->removePlugInStreamLoader(this);
     m_client->didFinishLoading(this);
@@ -123,7 +124,7 @@ void NetscapePlugInStreamLoader::didFinishLoading(double finishTime)
 
 void NetscapePlugInStreamLoader::didFail(const ResourceError& error)
 {
-    RefPtr<NetscapePlugInStreamLoader> protect(this);
+    Ref<NetscapePlugInStreamLoader> protect(*this);
 
     m_documentLoader->removePlugInStreamLoader(this);
     m_client->didFail(this, error);

@@ -1,0 +1,34 @@
+API Notes: LaunchServices framework
+===================================
+
+.. note::
+
+   The LaunchServices bindings are fairly new and are not yet fully complete,
+   there are likely problems with these bindings that are not described in this
+   file.
+
+API Notes
+---------
+
+* ``LSSharedFileListSetAuthorization``
+
+  Not supported at the moment because the Authorization framweork isn't properly 
+  wrapped yet.
+
+* ``LSLaunchFSRefSpec``, ``LSLaunchURLSpec``
+
+  These types aren't supported in this version.
+
+* ``LSOpenApplication``
+
+  This function is not yet supported. The bridge itself isn't smart
+  enough yet to process the first argument without a manual wrapper.
+
+* ``LSOpenItemsWithRole``, ``LSOpenURLsWithRole``
+
+  The ``inAEParam`` and ``inAppParams`` must be None.
+
+* ``LSOpenFromRefSpec``, ``LSOpenFromURLSpec``
+
+  This functions are not yet supported and need manual wrappers.
+

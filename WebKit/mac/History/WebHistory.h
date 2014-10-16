@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -27,6 +27,8 @@
  */
 
 #import <Foundation/Foundation.h>
+
+#pragma GCC system_header
 
 @class NSError;
 
@@ -111,13 +113,14 @@ extern NSString *WebHistoryItemsKey;
 - (void)removeAllItems;
 
 /*!
-    @method orderedLastVisitedDays
-    @discussion Get an array of NSCalendarDates, each one representing a unique day that contains one
+    @property orderedLastVisitedDays
+    @abstract An array of NSCalendarDates for which history items exist in the WebHistory.
+    @discussion An array of NSCalendarDates, each one representing a unique day that contains one
     or more history items, ordered from most recent to oldest.
-    @result Returns an array of NSCalendarDates for which history items exist in the WebHistory.
 */
-- (NSArray *)orderedLastVisitedDays;
+@property (nonatomic, readonly, copy) NSArray *orderedLastVisitedDays;
 
+#if !TARGET_OS_IPHONE
 /*!
     @method orderedItemsLastVisitedOnDay:
     @discussion Get an array of WebHistoryItem that were last visited on the day represented by the
@@ -125,7 +128,11 @@ extern NSString *WebHistoryItemsKey;
     @param calendarDate A date identifying the unique day of interest.
     @result Returns an array of WebHistoryItems last visited on the indicated day.
 */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (NSArray *)orderedItemsLastVisitedOnDay:(NSCalendarDate *)calendarDate;
+#pragma clang diagnostic pop
+#endif
 
 /*!
     @method itemForURL:
@@ -136,30 +143,15 @@ extern NSString *WebHistoryItemsKey;
 - (WebHistoryItem *)itemForURL:(NSURL *)URL;
 
 /*!
-    @method setHistoryItemLimit:
-    @discussion Limits the number of items that will be stored by the WebHistory.
-    @param limit The maximum number of items that will be stored by the WebHistory.
+    @property historyItemLimit
+    @abstract The maximum number of items that will be stored by the WebHistory.
 */
-- (void)setHistoryItemLimit:(int)limit;
+@property (nonatomic) int historyItemLimit;
 
 /*!
-    @method historyItemLimit
-    @result The maximum number of items that will be stored by the WebHistory.
+    @property historyAgeInDaysLimit
+    @abstract The maximum number of days to be read from stored history.
 */
-- (int)historyItemLimit;
-
-/*!
-    @method setHistoryAgeInDaysLimit:
-    @discussion setHistoryAgeInDaysLimit: sets the maximum number of days to be read from
-    stored history.
-    @param limit The maximum number of days to be read from stored history.
-*/
-- (void)setHistoryAgeInDaysLimit:(int)limit;
-
-/*!
-    @method historyAgeInDaysLimit
-    @return Returns the maximum number of days to be read from stored history.
-*/
-- (int)historyAgeInDaysLimit;
+@property (nonatomic) int historyAgeInDaysLimit;
 
 @end

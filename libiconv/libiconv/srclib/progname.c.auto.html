@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>progname.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">progname.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Program name management.
+   Copyright (C) 2001-2003, 2005 Free Software Foundation, Inc.
+   Written by Bruno Haible &lt;<a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a>&gt;, 2001.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Specification.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;progname.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">set_program_name</span>
+
+
+<span class="enscript-comment">/* String containing name the program is called with.
+   To be initialized by main().  */</span>
+<span class="enscript-type">const</span> <span class="enscript-type">char</span> *program_name = NULL;
+
+<span class="enscript-comment">/* Set program_name, based on argv[0].  */</span>
+<span class="enscript-type">void</span>
+<span class="enscript-function-name">set_program_name</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *argv0)
+{
+  <span class="enscript-comment">/* libtool creates a temporary executable whose name is sometimes prefixed
+     with &quot;lt-&quot; (depends on the platform).  It also makes argv[0] absolute.
+     Remove this &quot;&lt;dirname&gt;/.libs/&quot; or &quot;&lt;dirname&gt;/.libs/lt-&quot; prefix here.  */</span>
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *slash;
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *base;
+
+  slash = strrchr (argv0, <span class="enscript-string">'/'</span>);
+  base = (slash != NULL ? slash + 1 : argv0);
+  <span class="enscript-keyword">if</span> (base - argv0 &gt;= 7 &amp;&amp; memcmp (base - 7, <span class="enscript-string">&quot;/.libs/&quot;</span>, 7) == 0)
+    argv0 = base;
+  <span class="enscript-keyword">if</span> (strncmp (base, <span class="enscript-string">&quot;lt-&quot;</span>, 3) == 0)
+    argv0 = base + 3;
+  program_name = argv0;
+}
+</pre>
+<hr />
+</body></html>

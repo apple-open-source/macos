@@ -29,24 +29,27 @@
 #if ENABLE(ENCRYPTED_MEDIA_V2)
 
 #include "CDM.h"
+#include "CDMSession.h"
 #include "MediaKeyError.h"
-#include <wtf/Uint8Array.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
+#include <runtime/Uint8Array.h>
 
 namespace WebCore {
 
 class MockCDMSession : public CDMSession {
 public:
-    static PassOwnPtr<MockCDMSession> create() { return adoptPtr(new MockCDMSession()); }
+    MockCDMSession();
     virtual ~MockCDMSession() { }
 
-    virtual const String& sessionId() const OVERRIDE { return m_sessionId; }
-    virtual PassRefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) OVERRIDE;
-    virtual void releaseKeys() OVERRIDE;
-    virtual bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) OVERRIDE;
+    virtual void setClient(CDMSessionClient* client) { m_client = client; }
+    virtual const String& sessionId() const override { return m_sessionId; }
+    virtual PassRefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) override;
+    virtual void releaseKeys() override;
+    virtual bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) override;
 
 protected:
-    MockCDMSession();
-
+    CDMSessionClient* m_client;
     String m_sessionId;
 };
 
@@ -68,45 +71,33 @@ bool MockCDM::supportsMIMEType(const String& mimeType)
     return equalIgnoringCase(mimeType, "video/mock");
 }
 
-PassOwnPtr<CDMSession> MockCDM::createSession()
+std::unique_ptr<CDMSession> MockCDM::createSession()
 {
-    return MockCDMSession::create();
+    return std::make_unique<MockCDMSession>();
 }
 
 static Uint8Array* initDataPrefix()
 {
-    static const unsigned char prefixData[] = {'m', 'o', 'c', 'k'};
-    DEFINE_STATIC_LOCAL(RefPtr<Uint8Array>, prefix, ());
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        prefix = Uint8Array::create(prefixData, sizeof(prefixData) / sizeof(prefixData[0]));
-    }
-    return prefix.get();
+    const unsigned char prefixData[] = { 'm', 'o', 'c', 'k' };
+    static Uint8Array* prefix = Uint8Array::create(prefixData, WTF_ARRAY_LENGTH(prefixData)).leakRef();
+
+    return prefix;
 }
 
 static Uint8Array* keyPrefix()
 {
     static const unsigned char prefixData[] = {'k', 'e', 'y'};
-    DEFINE_STATIC_LOCAL(RefPtr<WTF::Uint8Array>, prefix, ());
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        prefix = Uint8Array::create(prefixData, sizeof(prefixData) / sizeof(prefixData[0]));
-    }
-    return prefix.get();
+    static Uint8Array* prefix = Uint8Array::create(prefixData, WTF_ARRAY_LENGTH(prefixData)).leakRef();
+
+    return prefix;
 }
 
 static Uint8Array* keyRequest()
 {
     static const unsigned char requestData[] = {'r', 'e', 'q', 'u', 'e', 's', 't'};
-    DEFINE_STATIC_LOCAL(RefPtr<WTF::Uint8Array>, request, ());
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
-        request = Uint8Array::create(requestData, sizeof(requestData) / sizeof(requestData[0]));
-    }
-    return request.get();
+    static Uint8Array* request = Uint8Array::create(requestData, WTF_ARRAY_LENGTH(requestData)).leakRef();
+
+    return request;
 }
 
 static String generateSessionId()

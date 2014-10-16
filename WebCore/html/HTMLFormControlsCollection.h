@@ -37,20 +37,24 @@ class QualifiedName;
 
 class HTMLFormControlsCollection : public HTMLCollection {
 public:
-    static PassRefPtr<HTMLFormControlsCollection> create(Node*, CollectionType);
+    static PassRef<HTMLFormControlsCollection> create(ContainerNode&, CollectionType);
 
     virtual ~HTMLFormControlsCollection();
 
-    virtual Node* namedItem(const AtomicString& name) const;
+    virtual Node* namedItem(const AtomicString& name) const override;
 
 private:
-    HTMLFormControlsCollection(Node*);
+    explicit HTMLFormControlsCollection(ContainerNode&);
 
-    virtual void updateNameCache() const;
+    virtual void invalidateCache(Document&) const override;
+    virtual void updateNamedElementCache() const override;
 
     const Vector<FormAssociatedElement*>& formControlElements() const;
     const Vector<HTMLImageElement*>& formImageElements() const;
-    virtual Element* virtualItemAfter(unsigned& offsetInArray, Element*) const OVERRIDE;
+    virtual Element* customElementAfter(Element*) const override;
+
+    mutable Element* m_cachedElement;
+    mutable unsigned m_cachedElementOffsetInArray;
 };
 
 } // namespace

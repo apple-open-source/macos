@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Test-Tester</string>
+        <key>OpenSourceVersion</key>
+        <string>0.109</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/F/FD/FDALY/Test-Tester-0.109.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2014-02-03</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

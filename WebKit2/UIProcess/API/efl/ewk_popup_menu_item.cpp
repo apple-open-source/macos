@@ -34,17 +34,30 @@ EwkPopupMenuItem::EwkPopupMenuItem(WKPopupItemRef item)
     : m_wkItem(item)
 { }
 
-COMPILE_ASSERT_MATCHING_ENUM(EWK_POPUP_MENU_SEPARATOR, kWKPopupItemTypeSeparator);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_POPUP_MENU_ITEM, kWKPopupItemTypeItem);
-
 Ewk_Popup_Menu_Item_Type EwkPopupMenuItem::type() const
 {
-    return static_cast<Ewk_Popup_Menu_Item_Type>(WKPopupItemGetType(m_wkItem.get()));
+    switch (WKPopupItemGetType(m_wkItem.get())) {
+    case kWKPopupItemTypeSeparator:
+        return EWK_POPUP_MENU_SEPARATOR;
+    case kWKPopupItemTypeItem:
+        return EWK_POPUP_MENU_ITEM;
+    }
+    ASSERT_NOT_REACHED();
+
+    return EWK_POPUP_MENU_UNKNOWN;
 }
 
 Ewk_Text_Direction EwkPopupMenuItem::textDirection() const
 {
-    return static_cast<Ewk_Text_Direction>(WKPopupItemGetTextDirection(m_wkItem.get()));
+    switch (WKPopupItemGetTextDirection(m_wkItem.get())) {
+    case kWKPopupItemTextDirectionRTL:
+        return EWK_TEXT_DIRECTION_RIGHT_TO_LEFT;
+    case kWKPopupItemTextDirectionLTR:
+        return EWK_TEXT_DIRECTION_LEFT_TO_RIGHT;
+    }
+    ASSERT_NOT_REACHED();
+
+    return EWK_TEXT_DIRECTION_LEFT_TO_RIGHT;
 }
 
 const char* EwkPopupMenuItem::text() const
@@ -100,7 +113,7 @@ Ewk_Popup_Menu_Item_Type ewk_popup_menu_item_type_get(const Ewk_Popup_Menu_Item*
 
 const char* ewk_popup_menu_item_text_get(const Ewk_Popup_Menu_Item* item)
 {
-    EINA_SAFETY_ON_NULL_RETURN_VAL(item, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(item, nullptr);
 
     return item->text();
 }
@@ -121,14 +134,14 @@ Eina_Bool ewk_popup_menu_item_text_direction_override_get(const Ewk_Popup_Menu_I
 
 const char* ewk_popup_menu_item_tooltip_get(const Ewk_Popup_Menu_Item* item)
 {
-    EINA_SAFETY_ON_NULL_RETURN_VAL(item, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(item, nullptr);
 
     return item->tooltipText();
 }
 
 const char* ewk_popup_menu_item_accessibility_text_get(const Ewk_Popup_Menu_Item* item)
 {
-    EINA_SAFETY_ON_NULL_RETURN_VAL(item, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(item, nullptr);
 
     return item->accessibilityText();
 }

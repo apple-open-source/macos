@@ -1,0 +1,7 @@
+/^def os_release():/a
+.
+/return '\.'\.join(v\.split('\.')\[:2])/s//return tuple(map(int, v.split('.')[:2]))/
+/^def min_os_level(/a
+.
+/if os_release() >= release:/s/ release/ tuple(map(int, release.split('.')))/
+w

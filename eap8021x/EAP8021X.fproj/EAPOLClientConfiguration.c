@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -481,7 +481,6 @@ copy_def_auth_props(SCPreferencesRef eap_prefs)
     int				list[] = { 
 	kEAPTypePEAP,
 	kEAPTypeTTLS,
-	kEAPTypeCiscoLEAP,
 	kEAPTypeEAPFAST,
 	kEAPTypeTLS
     };

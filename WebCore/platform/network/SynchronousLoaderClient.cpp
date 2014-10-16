@@ -30,10 +30,6 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 
-#if USE(CFNETWORK)
-#include <CFNetwork/CFURLConnectionPriv.h>
-#endif
-
 namespace WebCore {
 
 SynchronousLoaderClient::~SynchronousLoaderClient()
@@ -49,7 +45,7 @@ void SynchronousLoaderClient::willSendRequest(ResourceHandle* handle, ResourceRe
     ASSERT(m_error.isNull());
     m_error = platformBadResponseError();
     m_isDone = true;
-    request = 0;
+    request = ResourceRequest();
 }
 
 bool SynchronousLoaderClient::shouldUseCredentialStorage(ResourceHandle*)
@@ -66,20 +62,12 @@ bool SynchronousLoaderClient::canAuthenticateAgainstProtectionSpace(ResourceHand
 }
 #endif
 
-#if USE(CFNETWORK)
-void SynchronousLoaderClient::didReceiveAuthenticationChallenge(ResourceHandle* handle, const AuthenticationChallenge& challenge)
-{
-    // FIXME: The user should be asked for credentials, as in async case.
-    CFURLConnectionUseCredential(handle->connection(), 0, challenge.cfURLAuthChallengeRef());
-}
-#endif
-
 void SynchronousLoaderClient::didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
 {
     m_response = response;
 }
 
-void SynchronousLoaderClient::didReceiveData(ResourceHandle*, const char* data, int length, int /*encodedDataLength*/)
+void SynchronousLoaderClient::didReceiveData(ResourceHandle*, const char* data, unsigned length, int /*encodedDataLength*/)
 {
     m_data.append(data, length);
 }
@@ -96,13 +84,5 @@ void SynchronousLoaderClient::didFail(ResourceHandle*, const ResourceError& erro
     m_error = error;
     m_isDone = true;
 }
-
-#if USE(CFNETWORK)
-ResourceError SynchronousLoaderClient::platformBadResponseError()
-{
-    RetainPtr<CFErrorRef> cfError = adoptCF(CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainCFNetwork, kCFURLErrorBadServerResponse, 0));
-    return cfError.get();
-}
-#endif
 
 }

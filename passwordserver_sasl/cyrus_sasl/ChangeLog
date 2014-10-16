@@ -1,3 +1,906 @@
+2012-10-12  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Getting ready for 2.1.25.
+
+2012-07-06  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_krb5.c: Fixed a crash in the auth_krb5.c
+	  (bug # 2706). Patch by Nalin Dahyabhai.
+
+2012-07-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* config/ltconfig: Fixed incorrect Darwin version matching in ltconfig
+	  (bug # 3713). Patch by Joshua Root.
+
+2012-06-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Fixed PLAIN/LOGIN authentication failure when using saslauthd
+	  with no auxprop plugins (bug # 3590).
+
+2012-06-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Added generation of pkg-config .pc file for Cyrus SASL.
+	  Patch by Dilyan Palauzov.
+
+2012-06-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Correctly updated libtool version for libsasl and its plugins due
+	  to ABI changes (bug # 3692).
+
+2012-06-02  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Better error reporting from auth_getpwent.c/auth_shadow.c
+	  (bug # 3134). Based on a patch by Greg A. Woods.
+
+2012-06-02  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Improved error logging on failure to load plugins.
+	  Patch by Greg A. Woods.
+
+2012-05-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/otp.c, plugins/srp.c: Removed calling of EVP_cleanup()
+	  on SRP/OTP plugin shutdown
+
+2012-05-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_httpform.c: Encode the parameter values passed to
+	  auth_httpform, not the whole POST data.
+
+2012-05-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/config.c, saslauthd/cfile.c: Fixed file descriptor leaks
+	  throughout the code (bug # 3702). Slightly reformatted patch
+	  by Manfred Weichel.
+
+2012-05-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* bug in "saslauthd -a rimap" - not reading the whole IMAP greeting
+	  (bug # 3211). Patch from Lutz Mark (via Red Hat)
+
+2012-05-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Modernize SASL malloc/realloc callback prototypes
+
+2012-05-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslutil.c: Fixed broken logic in get_fqhostname() when
+	  abort_if_no_fqdn is 0 (bug # 3589). Patch by baggins@pld-linux.org
+
+2012-05-28  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sasldb/db_berkeley.c, utils/dbconverter-2.c: Added support for
+	  BerkleyDB 5.X or later (Patch by Howard Chu)
+
+2012-04-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c, lib/server.c, lib/saslint.h: Make server and client
+	  side global callbacks private to server.c/client.c respectively
+
+2012-02-10  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/digestmd5.c: better handling of HTTP reauth cases.
+
+2012-01-28  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/digestmd5.c: Correctly send "stale" directive to prevent
+	  clients from (re)promtping for password
+
+2011-11-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gs2.c: Updated GS2 plugin not to lose minor GSS-API
+	  status codes on errors (based on a patch from Ralf Haferkamp
+	  <rhafer@suse.de>)
+
+2011-11-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Only check out_flags once authentication is
+	  successfully completed
+
+2011-11-09  Ken Murchison <murch@andrew.cmu.edu>
+	* cmulocal/sasl2.m4, plugins/gssapi.c, utils/testsuite.c:
+	  Added GSS-SPNEGO plugin which can also be used for HTTP
+	  Negotiate authentication (RFC 4559)
+
+2011-11-08  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/ntlm.c: Flag client-side of NTLM plugin as HTTP-ready
+
+2011-11-08  Ken Murchison <murch@andrew.cmu.edu>
+	* include/saslutil.h, lib/config.c, lib/server.c
+	  Added sasl_config_done() to plug a memory leak when using an
+	  application specific config file
+
+2011-10-07  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Fixed a segfault in gssapi.c
+	  (patch by Phil Pennock)
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* config/ltconfig, saslauthd/config/ltconfig: Fixed Cyrus SASL
+	  build on some versions of Mac OS.
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_rimap.c: qstring incorrectly appending
+	  the closing double quote. (Merge from RedHat)
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: unlock the mutex in sasl_dispose if the context
+	  was freed by another thread. (Merge from RedHat)
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* Makefile.am: "lib" should be built before "plugins"
+	  (Patch from marcandre.lureau@redhat.com)
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslutil.c: MINGW32 doesn't have rand_s
+	  (Patch from marcandre.lureau@redhat.com)
+
+2011-09-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in: Various build fixes for MINGW32
+	  (including defining sleep())
+	  (Patch from marcandre.lureau@redhat.com)
+
+2011-09-15  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sample/client.c: Added additional typecasts to kill warnings
+	  about incompatible callback types
+
+2011-09-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in, config/ltconfig, config/ltmain.sh:
+	  MacOS X related build fixes: use .plugin when building
+	  SASL plugins, fixed version number calculation,
+	  don't generate multiple symlinks.
+	  Also use LD_RUN_PATH as rpath. (patches by Chris Ridd)
+
+2011-09-12  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/common.mak: Add _CRT_SECURE_NO_DEPRECATE define
+	to suppress warnings about use of strdup, snprintf, etc.
+
+2011-09-12  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sasldb/db_berkeley.c:
+	  Fixed warnings about incompatible callback types.
+
+2011-09-12  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile plugins/NTMakefile:
+	  Make sure that copied .c files are only rebuilt when changed.
+
+2011-09-07  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/scram.c:
+	  Fixed 3 memory leaks in SCRAM. Final 2.1.25.
+
+2011-09-07  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in, plugins/NTMakefile, plugins/cram.c:
+	  Allow use of cmusaslsecretCRAM-MD5 property to be disabled.
+
+2011-09-02  Alexey Melnikov <alexey.melnikov@isode.com>
+	* config/config.guess, config/config.sub,
+	  saslauthd/config/config.guess, saslauthd/config/config.sub:
+	  Updated config to the latest GNU snapshot.
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Make sure that a failed authorization doesn't preclude
+	  further SASL authentication attempts from working.
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Fixed some aspects of mech_avail callback handling
+	  in the server side SASL code.
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* config/ltconfig, saslauthd/config/ltconfig: Fix SASL's libtool
+	  MacOS/X 64-bit file magic. (Patch by Kurt Zeilenga)
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Fixed some additional Windows warnings and
+	  a memory leak in SCRAM.
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Fix size_t * v. unsigned * bug.
+	  (Patch by Kurt Zeilenga)
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Fixed a crash caused by aborted SASL authentication
+	  and initiation of another one using the same SASL context.
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/md5.h, include/sasl.h, include/saslplug.h, lib/auxprop.c,
+	  lib/canonusr.c, lib/client.c, lib/common.c, lib/saslint.h, lib/server.c,
+	  lib/seterror.c, plugins/otp.c, plugins/plugin_common.c,
+	  sasldb/db_berkeley.c, sample/sample-client.c, sample/sample-server.c,
+	  utils/pluginviewer.c, utils/sasldblistusers.c, utils/saslpasswd.c,
+	  utils/testsuite.c: Many of the SASL includes define function pointers
+	  without specifying arguments. In C, the () is treated as unspecified,
+	  rather than (void), hence this is technically not a prototype,
+	  and gcc warns about it. (Patch by Dave Cridland and Alexey Melnikov)
+
+2011-09-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Better server plugin API mismatch reporting
+
+2011-05-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gs2.c, plugins/gs2_token.c, plugins/gs2_token.h,
+	  cmulocal/sasl2.m4: Use draft-josefsson-gss-capsulate-01 if present.
+	  Negative SASL errors are fatal. (Patch from Luke Howard.)
+
+2011-05-13  Ken Murchison <murch@andrew.cmu.edu>
+	* include/sasl.h, plugins/digest-md5.c:
+	  Allow for non-persistent connections when using DIGEST-MD5 plugin
+	  for server-side HTTP Digest (RFC 2617).  Also make sure that an
+	  HTTP request is handed to plugin when required.
+
+2011-04-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Fix to build GSSAPI with Heimdal (patch from
+	  Russ Allbery from Debian)
+
+2011-04-18  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gs2_token.h: Added gs2_token.h for the "make dist" target
+	  (patch by Dan White)
+
+2011-04-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* cmulocal/sasl2.m4: Only enable GS2 plugin if
+	  gss_inquire_mech_for_saslname is defined in gssapi.h
+
+2011-04-12  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/Makefile.am, plugins/makeinit.sh, plugins/ldapdb.c:
+	  LDAPDB build fixes from Dan White
+
+2011-04-05  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in, plugins/Makefile.am, plugins/NTMakefile,
+	  plugins/makeinit.sh, lib/staticopen.h, win32/include/config.h:
+	  Enabled SCRAM plugin build
+
+2011-03-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/Makefile.am, plugins/makeinit.sh, plugins/gs2_token.h,
+	  plugins/gs2_token.c, README.GS2, cmulocal/sasl2.m4: GS2 plugin
+	  from Luke Howard
+
+2011-01-25  Ken Murchison <murch@andrew.cmu.edu>
+	* include/sasl.h, include/saslplug.h, lib/client.c, lib/common.c,
+	  plugins/digest-md5.c sample/http_digest_client.c:
+	  Allow DIGEST-MD5 plugin to be used for client-side 
+	  HTTP Digest (RFC 2617)
+
+2011-01-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Added support for channel bindings to SCRAM-SHA-1.
+
+2011-01-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c, lib/server.c, lib/common.c, lib/saslint.h: Fixed libsasl
+	  to accept *-PLUS SASL mechanism names in client_mech_list/mech_list
+	  options. As *-PLUS mechanism names were synthesized and didn't
+	  correspond to real plugin names, setting client_mech_list to
+	  "SCRAM-SHA-1-PLUS" (for example) was resulting in authentication
+	  failure due to inability to find a matching SASL plugin.
+
+2011-01-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslplug.h, lib/client.c: Fixed handling of channel bindings
+	  on the client side. The client side was failing to select a suitable
+	  SASL mechanism when the application specified channel bindings, but
+	  didn't make them mandatory to use. In such a configuration, if a
+	  non channel binding capable mechanism was selected through
+	  "client_mech_list" SASL option, sasl_client_start would fail.
+	  For example if the server supports both SCRAM-SHA-1[-PLUS] and
+	  PLAIN and "client_mech_list" was set to "PLAIN", authentication
+	  would never work.
+
+2011-01-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c, lib/server.c: Better default ordering of SASL mechanisms.
+	  Ordering by plugins max_ssf produces wrong result in case an application
+	  using SASL doesn't care about SASL security layers. Before this change
+	  DIGEST-MD5 was always preferred over SCRAM-SHA-1[-PLUS]. In particular
+	  this change takes support for channel bindings into considerations.
+
+2011-01-19  Ken Murchison <murch@andrew.cmu.edu>
+	* include/sasl.h, include/saslplug.h,
+	  lib/common.c, lib/server.c, plugins/digest-md5.c:
+	  Changed server-side of HTTP Digest so that the application
+	  must pass an HTTP Request structure (Method/URI/Entity-Body)
+	  rather than just the HTTP Method
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Server side SASL context should list *-PLUS SASL
+	  mechanisms before the corresponding non-PLUS mechanisms for naive
+	  SASL clients.
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Fixed some Windows warnings in SASL security layer
+	  handling.
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Made the default number of SCRAM hash iterations
+	  configurable using a new SASL option called "scram_iteration_counter".
+	  Also fixed a couple of error messages.
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/pluginviewer.c: Fixed some Linux warnings in pluginviewer.
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Added support for storing SCRAM secrets in
+	  authPassword attribute. Also added the "scram_secret_generate" option
+	  for controlling if authPassword SCRAM secret should be generated
+	  or not. By default (when not specified) the authPassword SCRAM secret
+	  is NOT generated.
+
+2011-01-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/scram.c: Updated the SCRAM plugin not to use the hardcoded
+	  SCRAM-SHA-1 plugin name in logging.
+
+2011-01-18  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Use the same username for reauthentication
+	  cache lookup and update. Thanks to Ken for pointing out the
+	  problem.
+
+2011-01-14  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/ntlm.c: Flag NTLM plugin as HTTP-ready
+
+2011-01-14  Ken Murchison <murch@andrew.cmu.edu>
+	* include/sasl.h, include/saslplug.h,
+	  lib/common.c, lib/server.c, plugins/digest-md5.c:
+	  Allow DIGEST-MD5 plugin to be used for server-side 
+	  HTTP Digest (RFC 2617)
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Some reformatting and safer handling of 'free
+	  after SASL server shutdown' condition in server_dispose.
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: server_idle needs to obey server's SASL mechanism
+	  list from the server context.
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c, lib/saslint.h: Added support for ordering
+	  SASL mechanisms by strength (on the client side),
+	  or using the client_mech_list option.
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, include/saslplug.h, lib/client.c, lib/common.c,
+	  lib/saslint.h, lib/server.c, sample/Makefile.am, sample/client.c,
+	  sample/server.c: Added support for channel bindings
+	  (patch by Luke Howard).
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslutil.c: Fixed the random number generator on Windows
+	  to actually produce random output on each run.
+
+2010-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Updated textual representations of some error
+	  messages
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Eliminated some "signed/unsigned mismatch"
+	  warnings.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c, plugins/srp.c, plugins/otp.c,
+	  plugins/ntlm.c, plugins/login.c, plugins/cram.c:
+	  Be protective against calling sasl_server_step
+	  once authentication has failed.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Minimize the number of auxprop lookups
+	  in the server side DIGEST-MD5 plugin for the most common
+	  case when authentication and authorization identities are
+	  the same.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Updated digestmd5_server_mech_step2()
+	  to be more defensive against empty client input.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Fixed some memory leaks on failed
+	  plugin initialization. Prevent potential race condition
+	  when freeding plugin state. Set the freed reauthentication
+	  cache mutex to NULL, to make errors due to mutex access
+	  after free more obvious.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Test against broken UTF-8 based hashes
+	  if calculation using special ISO-8859-1 code fails.
+	  This affected some XMPP clients. Patch by Dave Cridland
+	  <dave.cridland@isode.com>.
+
+2010-11-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Fixed an interop problem with some
+	  LDAP clients ignoring server advertised realm
+	  and providing their own.
+
+2009-08-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_shadow.c: Rolled back the previous commit
+	  (#define _XOPEN_SOURCE before including unistd.h),
+	  as this seems to break Solaris 8 build. Note that crypt.h
+	  should be present on a Solaris 8 machine, as well is on Debian,
+	  so this shouldn't be a problem.
+
+2009-08-04  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Properly set serveroutlen to 0 in one place.
+	  Don't send empty challenge once server context establishment is done,
+	  as this is in violation of the RFC 2222 and its successor.
+
+2009-07-24  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Don't send maxbuf, if no security layer
+	  can be established. Added additional checks for buffer lengths.
+
+2009-05-20  Ken Murchison <murch@andrew.cmu.edu>
+	* configure.in, cmulocal/sasl2.m4,
+	  config/kerberos_v4.m4, config/plain.m4, config/sasldb.m4,
+	  lib/Makefile.am: Fixes to allow static libs to be built in the
+	  CMU build environment
+
+2009-05-07  Ken Murchison <murch@andrew.cmu.edu>
+	* configure.in, include/sasl.h, lib/Makefile.am,
+	  plugins/Makefile.am, saslauthd/configure.in, sasldb/Makefile.am,
+	  win32/common.mak, win32/include/config.h: 2.1.24
+
+2009-05-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sample/sample-client.c, sample/sample-server.c, utils/smtptest.c:
+	  Fixed bug # 2895 (passing LF to sasl_decode64)
+
+2009-05-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile: Disabled annoying warnings about use of
+	  deprecated standard C library functions, enabled
+	  warnings about Windows64 portability
+
+2009-05-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in: Added support for SQLite3
+	  (patch by Maxim Gorbachyov)
+
+2009-04-27  Ken Murchison <murch@andrew.cmu.edu>
+	* lib/saslutil.c: Fixed CERT VU#238019 (make sure sasl_encode64()
+	  always NUL terminates output or returns SASL_BUFOVER).
+
+2009-04-11  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sql.c: Fixed SQLite lookup function.
+	  Also fixed SASL PLAIN authentication when used with
+	  SQLite auxprop backend.
+
+2009-04-11  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/dlopen.c: Updated to use .plugin extension on MacOS
+
+2009-04-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c, lib/server.c: Removed unused mutexes
+	  (bug # 3141)
+
+2009-03-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, include/saslplug.h, lib/canonusr.c,
+	  lib/checkpw.c, plugins/sasldb.c, plugins/sql.c:
+	  Added direct support for hashed password to auxprop API
+
+2009-03-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, lib/canonusr.c, lib/external.c,
+	  plugins/gssapi.c, plugins/kerberos4.c: Make auxprop lookup
+	  calls in SASL GSSAPI/EXTERNAL optional
+
+2009-03-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sasldb.c: A better fix for spurious 'user not found'
+	  errors caused by an attempt to delete a non-existent property
+
+2009-02-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslutil.h, lib/saslint.h: Made sasl_config_init public
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslint.h, lib/client.c, lib/common.c, lib/server.c:
+	  Make sure that sasl_set_alloc() has no effect once sasl_client_init()
+	  or sasl_server_init() is called [patch from Debian by
+	  fabbe@debian.org]
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: GCC 4.4 requires that the #elif
+	  preprocessor directive have a test condition [patch from Debian by
+	  fabbe@paniq.net]
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/lak.c: Define LDAP_DEPRECATED so that ldap_get_values
+	  is properly defined when compiling [patch from Debian by
+	  Dann Frazier <dannf@debian.org>]
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_sasldb.c: pid_file_lock is created with a mask
+	  of 644 instead of 0644 [patch from Debian by Sam Hocevar <sam@zoy.org>]
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_sasldb.c: Include config.h so that MAXHOSTNAMELEN
+	  is available when building on hurd-i386 [patch from Debian
+	  by mbanck@debian.org]
+
+2009-02-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_shadow.c: Define _XOPEN_SOURCE before including
+	  unistd.h, so that crypt is correctly defined [patch from Debian
+	  by dannf@debian.org]
+
+2009-02-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/pluginviewer.c: Code cleanup, improved human readable messages
+
+2009-02-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/config.c: Strip trailing spaces from config file option
+	  values (bug # 3139, bug # 3041)
+
+2009-02-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/otp.c: Don't use a stack variable for an OTP prompt
+	  (bug # 2822)
+
+2009-02-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_getpwent.c: Fixed Solaris build (patch by Leena
+	  Heino for bug # 2666)
+
+2009-02-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslplug.h, lib/server.c, plugins/anonymous.c,
+	  plugins/gssapi.c, plugins/otp.c: Partial support for the
+	  SASL_FEAT_DONTUSE_USERPASSWD feature
+
+2009-01-28  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, lib/auxprop.c, lib/common.c, lib/server.c:
+	  Don't treat a constraint violation as an error to store an auxprop
+	  property
+
+2009-01-28  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, lib/server.c: Extended libsasl (auxprop) to support
+	  user deletion
+
+2009-01-28  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/otp.c: Downgrade the failure to store OTP secret to debug level
+
+2009-01-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/windlopen.c: Free handles of shared libraries on Windows
+	  that were loaded but are not SASL plugins (patch by Petr Prazak)
+	  [Bug # 2089].
+
+2008-11-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/NTMakefile, win32/common.mak: Added support for building
+	  SQLite3 on Windows.
+
+2008-11-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/ldapdb.c: Updated LDAPDB lookup function to match auxprop
+	  API changes
+
+2008-11-15  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sql.c: Added SQLITE3 support (patch by Maxim Gorbachyov)
+
+2008-10-31  Ken Murchison <murch@andrew.cmu.edu>
+	* lib/saslint.h, lib/server.c: order advertised mechanisms
+	  per the specified 'mech_list' option or by relative "strength"
+
+2008-10-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Fixed more portability warnings.
+	  Fixed some rare memory leaks. More detailed error reporting.
+
+2008-10-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/include/config.h, lib/canonusr.c, lib/config.c,
+	  sasldb/allockey.c, utils/saslpasswd.c, utils/testsuite.c,
+	  sample/sample-server.c, plugins/anonymous.c, plugins/digestmd5.c,
+	  plugins/login.c, plugins/ntlm.c, plugins/otp.c:
+	  Fixed Windows 64 portability and other types of warnings
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/common.mak: Added support for building libraries.
+	  Added support for Windows64.
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Prevent freeing of common state on a subsequent
+	  call to _sasl_common_init. Make sure that the last global callback
+	  always wins.
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslint.h, lib/canonusr.c, lib/checkpw.c, lib/client.c,
+	  lib/server.c: Further fixes to auxprop lookup and _sasl_canon_user
+	  cleanup
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslplug.h, lib/auxprop.c, lib/canonusr.c, lib/saslint.h,
+	  plugins/sasldb.c, plugins/sql.c:
+	  Extended SASL auxprop_lookup to return error code
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslutil.c: Fixed Mac OS X 10.3 build.
+
+2008-10-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sql.c: Uninitialized variables cause crash when
+	  the searched user is not found (patch from
+	  Maxim Gorbachyov <maxim.gorbachyov@gmail.com>)
+
+2008-10-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sasldb/db_berkeley.c:  Return SASL_NOUSER instead of SASL_FAIL
+	  when the database file doesn't exist
+
+2008-10-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/checkpw.c: Updated sasl_user_exists so that it can handle
+	  passwordless accounts (e.g. disabled)
+
+2008-10-23  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslutil.h, lib/saslint.h, lib/client.c, lib/common.c,
+	  lib/saslutil.c, lib/server.c: Added hostname canonicalization
+
+2008-10-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile, utils/NTMakefile, sample/NTMakefile,
+	  plugins/NTMakefile: Updated to build with VC 8.0 (VC++ 2005)
+
+2008-10-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile: Don't install .exp and .manifest files.
+	  Updated build dependencies.
+
+2008-10-21  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslint.h, lib/client.c, lib/common.c, lib/server.c:
+	  Implemented sasl_client_done/sasl_server_done
+
+2008-10-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/login.c, plugins/plain.c: Advertise
+	  SASL_SEC_PASS_CREDENTIALS feature in PLAIN and LOGIN
+
+2008-10-02  Ken Murchison <murch@andrew.cmu.edu>
+	* lib/checkpw.c: Fixed potential buffer overflow in
+	  saslautd_verify_password().
+
+2008-09-30  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Fixed sasl_set_mutex() to disallow changing
+	  mutex management functions once sasl_server_init/
+	  sasl_client_init is called. Failure to do this is causing
+	  a crash while locking mutexes. [Bug # 3083]
+
+2008-01-24  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/ntlm.c: Fixed crash in calculating NTv2 reponse
+	  (patch from Tim Costen from Isode)
+
+2008-01-23  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/ntlm.c, doc/options.html: allow a comma separated
+	  list of servernames in 'ntlm_server' option
+	  (patch from Enrico Persiani <enrico@ninfea-soft.org>)
+
+2008-01-23  Ken Murchison <murch@andrew.cmu.edu>
+	* plugins/ldapdb.c, plugins/makeinit.sh, doc/options.html:
+	  Added code to extend ldapdb into a canon_user plugin
+	  in addition to its existing auxprop plugin functionality
+	  (patch from Howard Chu <hyc@symas.com>
+	   and Torsten Schlabach <tschlabach@gmx.net>)
+
+2008-01-23  Ken Murchison <murch@andrew.cmu.edu>
+	* saslauthd/auth_rimap.c: fixed bug counting double-quotes in
+	  username/password.  Also fixed bug zeroing password.
+	  (patch from Robert Sanderson <rwsiv1@gmail.com>)
+
+2008-01-23  Ken Murchison <murch@andrew.cmu.edu>
+	* saslauthd/auth_krb.c: improved diagnostic in the
+	  k5support_verify_tgt() function. Now, detailed krb5 error
+	  information will be given out in the LOG_DEBUG syslog
+	  channel (based on patch from Enrico Scholz
+	  <enrico.scholz@informatik.tu-chemnitz.de>)
+
+2007-06-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/dlopen.c: 64bit HP-UX uses .so for shared libraries
+	  (patch by Nathan Kinder <nkinder@redhat.com>).
+
+2007-06-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Fixed a memory leak in the DIGEST-MD5
+	  security layer (based on patch from Nathan Kinder
+	  <nkinder@redhat.com>).
+
+2007-05-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* man/*: updated to reference RFC 4422 instead of
+	  RFC 2222.
+
+2007-03-02  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sasldb.c, plugins/sql.c: Ignore properties
+	  starting with '*' in the auxprop store function.
+
+2007-02-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Fixed parsing of challenges/
+	  responses with extra commas.
+
+2007-01-29  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/gssapi.c: Check that params->serverFQDN is
+	  not NULL before using strlen on it (reported by
+	  Steven Simon <simon.s@apple.com>)
+	
+2006-12-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Typecast iov_base to (char *),
+	  in case it is defined as "void *" on a platform
+	  like HPUX (Olaf Flebbe).
+
+2006-11-27  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Cleaned up comments and
+	  some error messages.
+
+2006-08-24  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/dlopen.c: Fixed segfault in dlclose on HPUX,
+	  based on feedback from <biswatosh2001@yahoo.com>.
+
+2006-07-16  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/common.mak: Abstracted out compiler command
+	  line options for exception handling.
+
+2006-07-04  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/auth_shadow.c: Include crypt.h, so that crypt()
+	  is defined. This fixes crash on x64 Suse where
+	  sizeof(int) != sizeof(char *). Based on patch from
+	  rhafer@suse.de.
+
+2006-06-26  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Allow for multiple qop options
+	  from the server and require a single qop option
+	  from the client.
+
+2006-05-19  Ken Murchison <murch@andrew.cmu.edu>
+	* Makefile.am: include INSTALL.TXT in distro
+	*** Ready for 2.1.22
+
+2006-05-18  Ken Murchison <murch@andrew.cmu.edu>
+	* cmulocal/sasl2.m4: patch to compile with MIT krb5 1.4.3
+	  (Philip Guenther <guenther@sendmail.com>)
+
+2006-05-18  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in: Fixed default value in help for the
+	  --with-authdaemond command line option (Philip Guenther).
+
+2006-05-17  Alexey Melnikov <alexey.melnikov@isode.com>
+	* NEWS: Ready for 2.1.22
+
+2006-05-17  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/Makefile.am: enable pluginviewer in the default build.
+
+2006-04-26  Ken Murchison <murch@andrew.cmu.edu>
+	* lib/server.c: call do_authorization() after successful APOP
+
+2006-04-26  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: If neither DES nor RC4 cipher is selected,
+	  advertise maxssf of 1 (integrity protection).
+
+2006-04-26  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/pluginviewer.c: Must set fully qualified domain name
+	  in sasl_client_new, or some plugins will not be shown.
+
+2006-04-26  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/client.c: Replaced wrong "break" statement with
+	  "continue" in the client side list function.
+
+2006-04-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/NTMakefile: Enable RC4 cipher in Windows build.
+
+2006-04-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Make sure that SASL packets
+	  shorter than 16 bytes don't cause buffer overrun.
+	  Also prevent an error report from BoundsChecker
+	  regarding pointer being out of range.
+
+2006-04-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/common.mak: Fixed bug of not setting CODEGEN
+	  (code generation option) if STATIC is set.
+
+2006-04-24  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/passdss.c, plugins/srp.c: Added include files required
+	  by OpenSSL 0.9.8 (original patch by Dan Nicholson).
+
+2006-04-24  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/NTMakefile: testsuite.exe doesn't depend on saslSASLDB.dll.
+
+2006-04-24  Alexey Melnikov <alexey.melnikov@isode.com>
+	* doc/windows.html: Updated Windows build instructions.
+
+2006-04-20  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/testsuite.c: Removed sasl_encode test which is no longer
+	  valid due to changed in sasl_encodev.
+	  Also properly terminated all property request lists with NULL.
+
+2006-04-19  Ken Murchison <murch@andrew.cmu.edu>
+	* saslauthd/auth_shadow.c, saslauthd/configure.in: Check for 4/5
+	argument versions of getXXname_r().
+
+2006-04-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Andrey V. Malyshev pointed out that the SASL
+	  context is always NULL when the default logging callback
+	  _sasl_syslog is called. In particular this means that
+	  the log_level configuration option is always ignored.
+
+2006-04-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in: Search for application configuration
+	  files in /usr/lib/sasl2 by default and fall back to
+	  /etc/sasl2 if not found.
+
+2006-04-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/digestmd5.c: Handle missing realm option from
+	  the client as the empty string. This match the behavior
+	  prescribed in RFC 2831.
+
+2006-04-19  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/Makefile.am: Enable testsaslauthd build
+	  by default.
+
+2006-04-18  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslint.h, lib/common.c: Added support for spliting
+	  big data blocks (bigger than maxbuf) into multiple SASL
+	  packets in sasl_encodev.
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/Makefile.am: Added the pluginviewer man page.
+	  Reordered link dependencies for saslpasswds/sasldblistusers2.
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/pluginviewer.8: Added man page for pluginviewer.
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/pluginviewer.c: Deleted unused command line parameters
+	  and cleaned up usage output.
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/gai.h: Use HAVE_GETADDRINFO (instead of HAVE_GETNAMEINFO)
+	  to protect definition of getaddrinfo().
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h: Allocated some GSSAPI specific properties
+	  for Nico Williams (Sun)
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/common.c: Free default_plugin_path and
+	  default_conf_path variables in sasl_done.
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sasldb/allockey.c: Cleaned up some warnings
+
+2006-04-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/include/config.h: Deleted a misleading comment
+
+2006-04-06 Jeffrey Teaton <jeaton@cmu.edu>
+	* saslauthd/auth_rimap.c: patch from Dale Sedivec to prevent
+	  segfault when saslauth free()s returned string
+	* plugins/sql.c: patch from Matthew Hardin to do better
+	  error checking for mysql_real_query
+
+2006-04-03  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in, plugins/NTMakefile, plugins/sasldb.c,
+	  sasldb/db_berkeley.c, sasldb/sasldb.h:
+	  Patch to keep BerkleyDB handle open between operations
+	  (for performance reason). New behavior can be enabled
+	  with --enable-keep-db-open. Original patch by Curtis King.
+
+2006-03-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/server.c: Fixed bug # 2796: load_config now
+	  looks in all directories for the config file,
+	  not just in the first one.
+
+2006-03-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslplug.h, lib/auxprop.c, lib/client.c
+	  lib/server.c, utils/Makefile.am, utils/NTMakefile,
+	  utils/pluginviewer.c [new]:
+	  Added support for reporting information about
+	  loaded auxprop plugins. Changed the first parameter
+	  to sasl_server_plugin_info/sasl_client_plugin_info
+	  to be "const char *". Added new utility for
+	  reporting information about client and server side
+	  authentication plugins and auxprop plugins (e.g.
+	  supported features, methods, etc.).
+
+2006-03-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* saslauthd/Makefile.am, saslauthd/auth_httpform.c,
+	  saslauthd/auth_httpform.h, saslauthd/configure.in,
+	  saslauthd/mechanisms.c, saslauthd/mechanisms.h:
+	  Added support for HTTP POST password validation
+	  in saslauthd (patch by Joe Ammann <joe@pyx.ch>)
+
+2006-03-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* cmulocal/openldap.m4: Allow for compilation
+	  with OpenLDAP 2.3+.
+
+2006-03-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslutil.c, utils/testsuite.c: Various
+	  fixes to sasl_decode64: don't ignore partial
+	  base64 data, don't allow any data after the '='
+	  sign, etc.).
+
+2006-03-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/saslint.h: Increase canonicalization buffer
+	  size to 1024 bytes, as Luke Howard has reported
+	  that 256 is too small for some certificates.
+
+2006-03-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile: Include Cyrus version of
+	  getnameinfo() when compiling with Visual Studio 6,
+	  as Windows SDK emulation is not available.
+
+2006-02-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, lib/common.c: Added sasl_set_path
+	  function (for a more convenient way of setting
+	  plugin and config paths. Changed the default
+	  sasl_getpath_t/sasl_getconfpath_t callbacks to
+	  calculate the value only once and cache it
+	  for later use.
+
+2006-02-13  Alexey Melnikov <alexey.melnikov@isode.com>
+	* configure.in, include/sasl.h, lib/common.c,
+	  lib/saslinit.h, lib/server.c, man/Makefile.am,
+	  man/sasl_callbacks.3, man/sasl_getconfpath_t.3,
+	  win32/include/config.h: Added a new sasl_getconf_t
+	  callback for specifying where SASL configuration files
+	  can be found. Based on patch from Artur Frysiak
+	  <wiget@pld.org.pl> for SASL v1, updated by Gentoo
+	  folks for SASL v2 and further modified by
+	  Andreas Hasenack <andreas@conectiva.com.br>.
+
+2006-01-31  Alexey Melnikov <alexey.melnikov@isode.com>
+	* INSTALL, INSTALL.TXT: Renamed INSTALL to INSTALL.TXT
+	  as the former conflicts with Windows "install" target
+	  (and Windows file names are case-insensitive).
+
+2005-08-11  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/sasldb.c: Return SASL_NOUSER only if all calls to
+	  _sasldb_putdata() return SASL_NOUSER. This prevents spurious
+	  SASL_NOUSER errors.
+
+2005-07-07  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/ntlm.c: Added <openssl/md5.h> include in order to fix
+	  building with OpenSSL 0.9.8.
+
 2005-05-19  Derrick Brashear <shadow@andrew.cmu.edu>    
 	* config/libtool.m4: do proper quoting, from Andreas Winkelmann
 	* configure.in: clean up enable switches, from Patrick Welche
@@ -1296,7 +2199,7 @@
 
 2002-08-01  Rob Siemborski <rjs3@andrew.cmu.edu>
 	* saslauthd/lak.c: allow use of more than one %u or %r in the filter
-	  (Laurent Larquère <llarquere@aacom.fr>)
+	  (Laurent Larquï¿¨re <llarquere@aacom.fr>)
 
 2002-07-30  Rob Siemborski <rjs3@andrew.cmu.edu>
 	* lib/client.c, lib/server.c: Add checks for SASL_NEED_PROXY and

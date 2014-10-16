@@ -746,7 +746,7 @@ log_write(level, buf)
     char s[64];
 #endif
 
-    syslog(level, "%s", buf);
+    sys_log(level, "%s", buf);
     if (log_to_fd >= 0 && (level != LOG_DEBUG || debug)) {
 	int n = strlen(buf);
 
@@ -1522,40 +1522,3 @@ dump_buffer(char *caller, unsigned char* binbuf, int size)
 	}
 }
 #endif
-
-// check to see if interface is captive and if it is not ready.
-int
-check_vpn_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
-										   char              *interface_buf)
-{
-	int rc = 0;
-
-	if (dynamicStoreRef) {
-		CFStringRef     captiveState = CFStringCreateWithFormat(NULL, NULL,
-																CFSTR("State:/Network/Interface/%s/CaptiveNetwork"),
-																interface_buf);
-		if (captiveState) {
-			CFStringRef key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, captiveState);
-			if (key) {
-				CFDictionaryRef dict = SCDynamicStoreCopyValue(dynamicStoreRef, key);
-				CFRelease(key);
-				if (dict) {
-					CFStringRef string = CFDictionaryGetValue(dict, CFSTR("Stage"));
-					if (string) {
-						// if string != Unknown && string != Online
-						if (CFStringCompare(string, CFSTR("Uknown"), 0) != kCFCompareEqualTo &&
-							CFStringCompare(string, CFSTR("Online"), 0) != kCFCompareEqualTo) {
-							notice("underlying interface %s is captive and not yet ready.", interface_buf);
-							rc = 1;
-						} else {
-							notice("underlying interface %s is either unknown or captive and ready.", interface_buf);
-						}
-					}
-					CFRelease(dict);
-				}
-			}
-			CFRelease(captiveState);
-		}
-	}
-	return rc;
-}

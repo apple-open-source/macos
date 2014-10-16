@@ -1,4 +1,9 @@
 _CCAESCmac
+_CCAESCmacCreate
+_CCAESCmacUpdate
+_CCAESCmacFinal
+_CCAESCmacDestroy
+_CCAESCmacOutputSizeFromContext
 _CCBigNumAdd
 _CCBigNumAddI
 _CCBigNumBitCount
@@ -47,6 +52,7 @@ _CCBigNumZeroLSBCount
 _CCCalibratePBKDF
 _CCCreateBigNum
 _CCCrypt
+_CCCryptorAddParameter
 _CCCryptorCreate
 _CCCryptorCreateFromData
 _CCCryptorCreateFromDataWithMode
@@ -65,6 +71,7 @@ _CCCryptorGCMFinal
 _CCCryptorGCMReset
 _CCCryptorGetIV
 _CCCryptorGetOutputLength
+_CCCryptorGetParameter
 _CCCryptorRelease
 _CCCryptorReset
 _CCCryptorUpdate
@@ -111,14 +118,17 @@ _CCECCryptorWrapKey
 _CCECGetKeySize
 _CCECGetKeyType
 _CCHmac
+_CCHmacClone
 _CCHmacCreate
 _CCHmacDestroy
 _CCHmacFinal
 _CCHmacInit
+_CCHmacOneShot
 _CCHmacOutputSize
 _CCHmacOutputSizeFromRef
 _CCHmacUpdate
 _CCKeyDerivationPBKDF
+_CCKeyDerivationHMac
 _CCRNGCreate
 _CCRNGRelease
 _CCRSACryptorCreateFromData
@@ -137,6 +147,7 @@ _CCRSAGetKeyComponents
 _CCRSAGetKeySize
 _CCRSAGetKeyType
 _CCRandomCopyBytes
+_CCRandomGenerateBytes
 _CCSymmetricKeyUnwrap
 _CCSymmetricKeyWrap
 _CCSymmetricUnwrappedSize

@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.2</a></div><div id="page-content"><div id="preamble"><h1>Günlük Dosyaları</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.4</a></div><div id="page-content"><div id="preamble"><h1>Günlük Dosyaları</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="./en/logs.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/logs.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -35,8 +35,10 @@
       yeteneğini nasıl yapılandıracağınızdan ve günlük kayıtlarını nasıl
       yorumlayacağınızdan bahsedilecektir.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#security">Güvenlik Uyarısı</a></li>
+<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Giriş</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#security">Güvenlik Uyarısı</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#errorlog">Hata Günlüğü</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#permodule">Modüllere göre günlükleme</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#accesslog">Erişim Günlüğü</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#rotation">Günlük Çevrimi</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#piped">Borulu Günlükler</a></li>
@@ -45,10 +47,29 @@
 </ul><ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
+<h2><a name="overview" id="overview">Giriş</a></h2>
+    
+
+  <table class="related"><tr><th>İlgili Modüller</th><th>İlgili Yönergeler</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_log_config.html">mod_log_config</a></code></li><li><code class="module"><a href="./mod/mod_log_forensic.html">mod_log_forensic</a></code></li><li><code class="module"><a href="./mod/mod_logio.html">mod_logio</a></code></li><li><code class="module"><a href="./mod/mod_cgi.html">mod_cgi</a></code></li></ul></td><td /></tr></table>
+
+  <p>Apache HTTP Sunucusu, isteğin ilk alınışından itibaren, URL eşleme
+    işlemleri, bağlantının son çözümlemesi ve bu işlemler sırasına ortaya çıkan
+    hatalar da dahil olmak üzere sunucunuzda meydana gelen herşeyi günlüklemek
+    için çok çeşitli mekanizmalar içerir. Buna ek olarak, günlükleme
+    yetenekleri sağlayan üçüncü parti modüller de kullanılabilir veya mevcut
+    günlük dosyalarına girdiler enjekte edilebilir. Ayrıca, CGI programları,
+    PHP betikleri ve benzerleri sunucu hata günlüğüne kendi iletilerini
+    gönderebilirler.</p>
+
+  <p>Bu belgede Apache HTTP Sunucusunun standart parçası olan günlükleme
+    modülleri hakkında bilgi verilecektir.</p>
+
+  </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
+<div class="section">
 <h2><a name="security" id="security">Güvenlik Uyarısı</a></h2>
     
 
-    <p>Apache’nin günlük dosyalarını yazdığı dizine yazabilen birinin sunucuyu
+    <p>Apache httpd’nin günlük dosyalarını yazdığı dizine yazabilen birinin sunucuyu
       başlatan kullanıcı kimliğine (bu genellikle root olur) erişim
       kazanabileceğine hemen hemen kesin gözüyle bakılabilir. Sonuçlarının
       neler olacağını kestiremiyorsanız günlüklerin yazıldığı dizinde <em>hiç
@@ -63,7 +84,7 @@
 <div class="section">
 <h2><a name="errorlog" id="errorlog">Hata Günlüğü</a></h2>
     
-    <table class="related"><tr><th>İlgili Modüller</th><th>İlgili Yönergeler</th></tr><tr><td /><td><ul><li><code class="directive"><a href="./mod/core.html#errorlog">ErrorLog</a></code></li><li><code class="directive"><a href="./mod/core.html#loglevel">LogLevel</a></code></li></ul></td></tr></table>
+    <table class="related"><tr><th>İlgili Modüller</th><th>İlgili Yönergeler</th></tr><tr><td><ul><li><code class="module"><a href="./mod/core.html">core</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/core.html#errorlog">ErrorLog</a></code></li><li><code class="directive"><a href="./mod/core.html#errorlogformat">ErrorLogFormat</a></code></li><li><code class="directive"><a href="./mod/core.html#loglevel">LogLevel</a></code></li></ul></td></tr></table>
 
     <p>İsmi ve yeri <code class="directive"><a href="./mod/core.html#errorlog">ErrorLog</a></code> yönergesi
       ile belirtilen sunucu hata günlüğü, en önemli günlük dosyasıdır. Apache
@@ -74,28 +95,27 @@
       düzeltileceği ile ilgili ayrıntıları da içerir.</p>
 
     <p>Hata günlüğü normal olarak bir dosyaya yazılır (genellikle, dosyanın
-      ismi Unix sistemlerinde <code>error_log</code>, Windows ve OS/2’de ise
+      ismi Unix sistemlerinde <code>error_log</code>, OS/2 ve Windows’ta ise
       <code>error.log</code>’dur). Ayrıca, Unix sistemlerinde sunucunun
       hataları <code>syslog</code>’a veya <a href="#piped">borulamak suretiyle
       bir programa</a> aktarması da mümkündür.</p>
 
-    <p>Hata günlüğünün biçemi anlaşılır olup içeriği kısmen serbestçe
-      belirlenir. Çoğu hata günlüğü girdisinde bulunan belli başlı bilgiler
-      vardır. Örnek tipik bir hata iletisi içermektedir:</p>
+    <p>Hata günlüğünün biçemi <code class="directive"><a href="./mod/core.html#errorlogformat">ErrorLogFormat</a></code> yönergesi ile belirlenir. Bu yönergeyi
+      kullanarak günlüklenen değerleri özelleştirebilirsiniz. Bir biçem
+      belirtmezseniz öntanımlı biçem kullanılır. Örnek tipik bir hata iletisi
+      içermektedir:</p>
 
     <div class="example"><p><code>
-      [Wed Oct 11 14:32:52 2000] [error] [client 127.0.0.1]
-      client denied by server configuration:
-      /export/home/live/ap/htdocs/test
+    [Fri Sep 09 10:42:29.902022 2011] [core:error] [pid 35708:tid 4328636416]
+    [client 72.15.99.187] Dosya yok: /usr/local/apache2/htdocs/favicon.ico
     </code></p></div>
 
     <p>Günlük girdisinin ilk öğesi iletinin yazıldığı tarih ve saatten oluşur.
-      İkinci öğe raporlanan bilginin önem derecesini belirtir. Hata günlüğüne
-      gönderilecek hata türlerinin önem seviyesini belirlemek için <code class="directive"><a href="./mod/core.html#loglevel">LogLevel</a></code> yönergesi kullanılır. Üçüncü öğe
-      hatanın üretilmesine sebep olan istemcinin IP adresini içerir. Kalanı
-      iletinin kendisidir (duruma bakılırsa sunucu istemci erişimini reddetmek
-      üzere yapılandırılmış). Sunucu istenen belgenin (belge yolunu değil)
-      dosya sistemindeki yolunu raporlamıştır.</p>
+      İkincisi iletiyi üreten modülün ismi (bu durumda: core) ile raporlanan
+      bilginin önem derecesini belirtir. Bunu varsa sürecin kimliği ve yine
+      varsa evre kimliği izler. Sonraki öğe hatanın üretilmesine sebep olan
+      istemcinin IP adresini içerir. Kalanı iletinin kendisidir (duruma
+      bakılırsa bir dosyaya yapılan istek yerine getirilememiş).</p>
 
     <p>Hata günlüğünde görünebilecek ileti çeşitliliği oldukça fazladır. Çoğu
       yukarıdaki örneğin benzeridir. Hata günlüğü ayrıca, CGI betiklerinin
@@ -103,13 +123,11 @@
       hataya (<code>stderr</code>) yazılan her türlü bilgi doğrudan hata
       günlüğüne kopyalanır.</p>
 
-    <p>Hata günlüğünü bilgi ekleyerek veya kaldırarak kişiselleştirmek
-      mümkündür. Bununla birlikte, hata günlüğü girdilerinin ilgili olduğu
-      isteklerin <a href="#accesslog">erişim günlüğünde</a> de girdileri
-      vardır. Örneğin, yukarıdaki girdi, erişim günlüğünde 403 durum kodlu bir
-      girdiyle ilgilidir. Erişim günlüğünü de kişiselleştirmek mümkün
-      olduğundan hata durumlarında bu günlük dosyasını da kullanarak daha
-      fazla bilgi sağlayabilirsiniz.</p>
+    <p>Hata günlüğüne ve erişim günlüğüne  <code>%L</code> dizgeciği konularak
+      erişim günlüğündeki girdi ile hata günlüğündeki girdiyi ilişkilendirecek
+      bir günlük girdisi kimliği oluşturulabilir.
+      <code class="module"><a href="./mod/mod_unique_id.html">mod_unique_id</a></code> yüklüyse günlük girdisi kimliği olarak
+      onun eşsiz istek kimliği de kullanılır.</p>
 
     <p>Sunucuyu denerken olası sorunlara karşı hata günlüğünü sürekli
       izlemelisiniz. Unix sistemlerinde bunu şöyle bir komutla
@@ -118,6 +136,33 @@
     <div class="example"><p><code>
       tail -f error_log
     </code></p></div>
+  </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="permodule" id="permodule">Modüllere göre günlükleme</a></h2>
+    
+
+    <p><code class="directive"><a href="./mod/core.html#loglevel">LogLevel</a></code> yönergesi, günlük
+      iletisinin üretilmesine sebep olan modüle bağlı bir önem seviyesi
+      belirleyebilmenizi sağlar. Bu yolla sorun yaşadığınız modülle ilgili
+      günlük musluklarını sonuna kadar açabiliri ek olarak ilgilendiğiniz diğer
+      modüllerle ilgili ayrıntıları da edinebilirsiniz. Özellikle
+      <code class="module"><a href="./mod/mod_proxy.html">mod_proxy</a></code> veya <code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code> gibi
+      modüllerde yapılmak isteneni denerken neler olup bittiğini ayrıntılarıyla
+      bilmek istediğiniz durumlarda kullanışlıdır.</p>
+
+    <p>Bunu <code class="directive">LogLevel</code> yönergesinde modülün ismini
+      belirterek yapabilirsiniz:</p>
+
+    <pre class="prettyprint lang-config">LogLevel info rewrite:trace5</pre>
+
+
+    <p>Bu satırla ana <code class="directive">LogLevel</code> info'ya ayarlanırken
+      <code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code> için musluk <code>trace5</code> seviyesine
+      kadar açılmaktadır.</p>
+
+    <div class="note">Bu yönerge, Apache HTTP Sunucusunun evvelki sürümlerinde mevcut olan
+      <code>RewriteLog</code> gibi günlükleme modüllerinin yerini almıştır.
+    </div>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="accesslog" id="accesslog">Erişim Günlüğü</a></h2>
@@ -157,10 +202,9 @@
 
       <p>Erişim günlüğü için sıklıkla kullanılan bir yapılandırma:</p>
 
-      <div class="example"><p><code>
-        LogFormat "%h %l %u %t \"%r\" %&gt;s %b" common<br />
-        CustomLog logs/access_log common
-      </code></p></div>
+      <pre class="prettyprint lang-config">LogFormat "%h %l %u %t \"%r\" %&gt;s %b" common
+CustomLog logs/access_log common</pre>
+
 
       <p>İlk satırda belli bir biçem dizgesi için <code>common</code> diye bir
         <em>takma ad</em> tanımlanmaktadır. Biçem dizgesi, sunucuya hangi
@@ -242,11 +286,14 @@
              saniye = 2 hane<br />
              dilim&nbsp; = (`+' | `-') 4 hane</code>
           </p>
-          Günlük biçem dizgesinde zaman gösterim biçemini
+          <p>Günlük biçem dizgesinde zaman gösterim biçemini
           <code>%{<em>biçem</em>}t</code> şeklinde belirtmek de mümkündür.
           Buradaki <code><em>biçem</em></code> dizgesi, stardart C
           kütüphanesindeki <code>strftime(3)</code> işlevi için tanımlanmış
-          biçem belirteçleriyle oluşturulabilir.
+          biçem belirteçleriyle veya desteklenen özel belirteçlerle
+          oluşturulabilir. Ayrıntılı bilgi için <code class="module"><a href="./mod/mod_log_config.html">mod_log_config</a></code>
+          <a href="mod/mod_log_config.html#formats">biçem dizgelerine</a>
+          bakın.</p>
         </dd>
 
         <dt><code>"GET /apache_pb.gif HTTP/1.0"</code>
@@ -288,11 +335,9 @@
       <p>Sıklıkla kullanılan diğer bir biçem dizgesi Birleşik Günlük Biçemi
         (Combined Log Format) olup şöyle kullanılabilir:</p>
 
-      <div class="example"><p><code>
-        LogFormat "%h %l %u %t \"%r\" %&gt;s %b \"%{Referer}i\"
-        \"%{User-agent}i\"" combined<br />
-         CustomLog log/access_log combined
-      </code></p></div>
+      <pre class="prettyprint lang-config">LogFormat "%h %l %u %t \"%r\" %&gt;s %b \"%{Referer}i\" \"%{User-agent}i\"" combined
+CustomLog log/access_log combined</pre>
+
 
       <p>Bu biçem ilaveten 2 alan içermesi dışında Ortak Günlük Biçemi ile
         aynıdır. İlave alanların ikisi de <code>%{<em>başlık</em>}i</code>
@@ -337,12 +382,11 @@
         <code>AgentLog</code> yönergelerinin etkilerinin nasıl taklit
         edileceğini de göstermektedir.</p>
 
-      <div class="example"><p><code>
-        LogFormat "%h %l %u %t \"%r\" %&gt;s %b" common<br />
-        CustomLog logs/access_log common<br />
-        CustomLog logs/referer_log "%{Referer}i -&gt; %U"<br />
-        CustomLog logs/agent_log "%{User-agent}i"
-      </code></p></div>
+      <pre class="prettyprint lang-config">LogFormat "%h %l %u %t \"%r\" %&gt;s %b" common
+CustomLog logs/access_log common
+CustomLog logs/referer_log "%{Referer}i -&gt; %U"
+CustomLog logs/agent_log "%{User-agent}i"</pre>
+
 
       <p>Bu örnek ayrıca, <code class="directive"><a href="./mod/mod_log_config.html#logformat">LogFormat</a></code> yönergesi ile bir takma ad tanımlamanın şart
         olmadığını da göstermektedir. Günlük biçemi doğrudan <code class="directive"><a href="./mod/mod_log_config.html#customlog">CustomLog</a></code> yönergesinde
@@ -360,25 +404,50 @@
         edilip edilmeyeceği <code class="directive"><a href="./mod/mod_log_config.html#customlog">CustomLog</a></code> yönergesinin
         <code>env=</code> deyimi kullanılarak belirtilir. Bazı örnekler:</p>
 
-      <div class="example"><p><code>
-        # yerel konaktan kaynaklanan istekleri imleyelim<br />
-        SetEnvIf Remote_Addr "127\.0\.0\.1" kaydetme<br />
-        # robots.txt dosyası isteklerini imleyelim<br />
-        SetEnvIf Request_URI "^/robots\.txt$" kaydetme<br />
-        # Kalanları günlüğe kaydedelim<br />
-        CustomLog logs/access_log common env=!kaydetme
-      </code></p></div>
+      <pre class="prettyprint lang-config"># yerel konaktan kaynaklanan istekleri imleyelim
+SetEnvIf Remote_Addr "127\.0\.0\.1" kaydetme
+# robots.txt dosyası isteklerini imleyelim
+SetEnvIf Request_URI "^/robots\.txt$" kaydetme
+# Kalanları günlüğe kaydedelim
+CustomLog logs/access_log common env=!kaydetme</pre>
+
 
       <p>Başka bir örnek olarak, Türkçe belge isteklerini bir dosyaya diğer
         dillerdeki istekleri başka bir dosyaya kaydedelim.</p>
 
-      <div class="example"><p><code>
-        SetEnvIf Accept-Language "tr" turkce<br />
-        CustomLog logs/turkce_log common env=turkce<br />
-        CustomLog logs/diger_diller_log common env=!turkce
-      </code></p></div>
+      <pre class="prettyprint lang-config">SetEnvIf Accept-Language "tr" turkce
+CustomLog logs/turkce_log common env=turkce
+CustomLog logs/diger_diller_log common env=!turkce</pre>
 
-      <p>Şarta bağlı günlük kaydının çok esnek ve güçlü olabileceğini
+
+      <p>Bir arabellekleme senaryosuna arabelleğin verimli kullanılıp
+        kullanılmadığını bilmek isteyelim. Bu basitçe şöyle yapılabilir:</p>
+
+      <pre class="prettyprint lang-config">SetEnv CACHE_MISS 1
+LogFormat "%h %l %u %t "%r " %&gt;s %b %{CACHE_MISS}e" common-cache
+CustomLog logs/access_log common-cache</pre>
+
+
+      <p><code class="module"><a href="./mod/mod_cache.html">mod_cache</a></code> önce <code class="module"><a href="./mod/mod_env.html">mod_env</a></code> modülünü
+        çalıştıracak ve başarılı olunduğu takdirde içeriği onsuz teslim
+        edecektir. Bu durumda arabellek kaybı <code>1</code> olarak
+        günlüklenirken arabellek sunumu <code>-</code> olarak
+        günlüklenecektir.</p>
+
+      <p><code>env=</code> sözdizimine ek olarak, <code class="directive"><a href="./mod/mod_log_config.html#logformat">LogFormat</a></code> HTTP yanıt kodudaki koşul
+        değerlerini günlüklemeyi de destekler:</p>
+
+      <pre class="prettyprint lang-config">LogFormat "%400,501{User-agent}i" browserlog
+LogFormat "%!200,304,302{Referer}i" refererlog</pre>
+
+
+      <p>Bu örnekte, HTTP durum kodu 400 veya 501 ise <code>User-agent</code>
+        başlığı günlüklenecektir. Aksi takdirde, günlüğe bir "-" yazılacaktır.
+        Benzer şekilde ikinci örnekte, HTTP durum kodu 200, 204 veya 302
+        <strong>değilse</strong> (durum kodlarının öncesindeki "!" imine
+        dikkat) <code>Referer</code> başlığı günlüklenecektir.</p>
+
+      <p>Koşulaa bağlı günlük kaydının çok esnek ve güçlü olabileceğini
         göstermiş olsak da günlük içeriğini denetlemenin tek yolu bu değildir.
         Günlük dosyaları sunucu etkinliğini eksiksiz olarak kaydedebildikleri
         takdirde daha yararlı olurlar. Günlük dosyalarını sonradan işleme tabi
@@ -393,7 +462,7 @@
     <p>Yükü ağır sunucularda günlük dosyalarına kaydedilen bilginin miktarı
       çok büyük boyutlara ulaşabilir. 10.000 istek içeren bir erişim günlüğü
       yaklaşık 1MB yer kaplar. Etkin günlük dosyasını belirli aralıklarla
-      değiştirmek veya silmek gerekebilir. Apache çalışırken dosyayı sürekli
+      değiştirmek veya silmek gerekebilir. Apache httpd çalışırken dosyayı sürekli
       açık tuttuğu ve yazdığı için bu işlem sunucu çalışırken yapılamaz. Bu
       bakımdan, günlük dosyası değiştirildikten veya silindikten sonra yeni
       dosyanın açılması için <a href="stopping.html">sunucunun yeniden
@@ -430,10 +499,10 @@
       derecede arttırır. Günlükler boruya yazılmak istenirse dosya ismini boru
       karakteriyle ("<code>|</code>") değiştirip ardına günlük girdilerini
       standart girdisinden kabul edecek programın ismini eklemek yeterlidir.
-      Apache sunucusu başlatıldığı zaman borulu günlük işlemini de
+      Apache httpd başlatıldığı zaman borulu günlük işlemini de
       başlatacaktır. Eğer sunucu çalışırken günlükleri kabul eden süreç
-      çökerse Apache bu programı yeniden başlatır. (Bu son özelliği sebebiyle
-      bu tekniğe “güvenilir borulu günlükleme” adını veriyoruz.)</p>
+      çökerse Apache httpd bu programı yeniden başlatır. (Bu son özelliği
+      sebebiyle bu tekniğe “güvenilir borulu günlükleme” adını veriyoruz.)</p>
 
     <p>Borulu günlük süreçleri ana Apache httpd süreci tarafından başlatılır
       ve bu süreçler ana Apache httpd sürecinin kullanıcı kimliğini miras
@@ -448,10 +517,8 @@
       günlükleri 24 saatte bir döndürmek isterseniz bunu şöyle
       yapabilirsiniz:</p>
 
-    <div class="example"><p><code>
-      CustomLog "|/usr/local/apache/bin/rotatelogs
-      /var/log/access_log 86400" common
-    </code></p></div>
+    <pre class="prettyprint lang-config">CustomLog "|/usr/local/apache/bin/rotatelogs /var/log/access_log 86400" common</pre>
+
 
     <p>Borunun diğer ucundaki süreci başlatacak komutun tırnak içine
       alındığına dikkat ediniz. Bu örnekler erişim günlüğü için verilmişse de
@@ -464,21 +531,23 @@
       çevrimdışı ardıl işlemler gibi daha basit çözümler için
       kullanılmamalıdır.</p>
 
-    <p>Öntanımlı olarak borulu günlük süreci bir kabuk sayesinde yeniden
-      oluşur. (normalde <code>/bin/sh -c</code> ile). Kabuk üzerinden kabuk
-      çağrılarının özelliğinden dolayı borulu günlük programı çalışırken ve
-      yeniden başlatma sırasındaki sinyal yakalama sorunlarından dolayı ek
-      bir kabuk sürecinin başlatılmasi ihtimal dahilindedir.</p>
+    <p>Öntanımlı olarak borulu günlük süreci bir kabuk kullanmadan
+      çalıştırılır. Kabuk kullanarak (genelde <code>/bin/sh -c</code> ile)
+      yapılmak istenirse "<code>|</code>" yerine "<code>|$</code>"
+      kullanılır:</p>
 
-    <p>Bir kabuk oluşturmaksızın borulu günlük sürecini yeniden oluşturmak
-      için "<code>|</code>" yerine "<code>||</code>" kullanın:</p>
+    <pre class="prettyprint lang-config"># Kabuk kullanarak "rotatelogs" çalıştırmak
+CustomLog "|$/usr/local/apache/bin/rotatelogs /var/log/access_log 86400" common</pre>
 
-    <div class="example"><p><code>
-      # Kabuk kullanmadan "rotatelogs" kullanımı<br />
-      CustomLog "||/usr/local/apache/bin/rotatelogs
-      /var/log/access_log 86400" common
-    </code></p></div>
-   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
+
+    <p>Bu, Apache 2.2 için öntanımlı davranıştı. Kabuk özelliklerine bağlı
+      olarak, yeniden başlatma sırasındaki sinyal işleme sorunları ve günlük
+      borulama uygulamasının yaşam süresi için ek bir kabuk süreci ile
+      sonuçlanabilir. Apache 2.2 ile uyumluluk açısından "<code>||</code>"
+      gösterimi de desteklenmekte olup "<code>|</code>" kullanımına
+      eşdeğerdir.</p>
+
+  </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="virtualhost" id="virtualhost">Sanal Konaklar</a></h2>
     
@@ -510,11 +579,9 @@
       ayrıştırılabilir. Örneğin, bu işlem için şu yönergeler kullanılıyor
       olsun:</p>
 
-    <div class="example"><p><code>
-      LogFormat "%v %l %u %t \"%r\" %&gt;s %b"
-      ortaksankon<br />
-      CustomLog logs/access_log ortaksankon
-    </code></p></div>
+    <pre class="prettyprint lang-config">LogFormat "%v %l %u %t \"%r\" %&gt;s %b" ortaksankon
+CustomLog logs/access_log ortaksankon</pre>
+
 
     <p><code>%v</code> belirteci isteği sunan sanal konağın ismini günlüğe
       yazmak için kullanılır. Daha sonra <a href="programs/other.html">split-logfile</a> gibi bir program
@@ -525,7 +592,7 @@
 <h2><a name="other" id="other">Diğer Günlük Dosyaları</a></h2>
     
 
-    <table class="related"><tr><th>İlgili Modüller</th><th>İlgili Yönergeler</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_logio.html">mod_logio</a></code></li><li><code class="module"><a href="./mod/mod_log_forensic.html">mod_log_forensic</a></code></li><li><code class="module"><a href="./mod/mod_cgi.html">mod_cgi</a></code></li><li><code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code></li><li><code class="module"><a href="./mod/mod_log_config.html">mod_log_config</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/mod_log_config.html#logformat">LogFormat</a></code></li><li><code class="directive"><a href="./mod/mod_log_config.html#bufferedlogs">BufferedLogs</a></code></li><li><code class="directive"><a href="./mod/mod_log_forensic.html#forensiclog">ForensicLog</a></code></li><li><code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewritelog">RewriteLog</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewriteloglevel">RewriteLogLevel</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlog">ScriptLog</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlogbuffer">ScriptLogBuffer</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptloglength">ScriptLogLength</a></code></li></ul></td></tr></table>
+    <table class="related"><tr><th>İlgili Modüller</th><th>İlgili Yönergeler</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_logio.html">mod_logio</a></code></li><li><code class="module"><a href="./mod/mod_log_config.html">mod_log_config</a></code></li><li><code class="module"><a href="./mod/mod_log_forensic.html">mod_log_forensic</a></code></li><li><code class="module"><a href="./mod/mod_cgi.html">mod_cgi</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/mod_log_config.html#logformat">LogFormat</a></code></li><li><code class="directive"><a href="./mod/mod_log_config.html#bufferedlogs">BufferedLogs</a></code></li><li><code class="directive"><a href="./mod/mod_log_forensic.html#forensiclog">ForensicLog</a></code></li><li><code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlog">ScriptLog</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlogbuffer">ScriptLogBuffer</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptloglength">ScriptLogLength</a></code></li></ul></td></tr></table>
 
     <h3>Gönderilen ve alınan bayt sayısının günlüklenmesi</h3>
       
@@ -570,17 +637,6 @@
         asıl sunucuya uygulanmamalıdır. <a href="mod/mod_cgi.html">mod_cgi</a>
         belgesinde daha fazla bilgi bulunabilir.</p>
     
-
-    <h3><a name="rewritelog" id="rewritelog">Yeniden Yazım Günlüğü</a></h3>
-      
-
-      <p>Güçlü ve karmaşık  <a href="mod/mod_rewrite.html">mod_rewrite</a>
-        özellikleri kullanılırken, hata ayıklamaya yardımcı olmak için
-        <code class="directive"><a href="./mod/mod_rewrite.html#rewritelog">RewriteLog</a></code> yönergesini
-        kullanmak gerekebilir. Yönerge, günlük dosyasında yeniden yazım
-        motorunun istekleri nasıl dönüştürdüğüyle ilgili ayrıntılı bir döküm
-        üretir. Ayrıntı seviyesi <code class="directive"><a href="./mod/mod_rewrite.html#rewriteloglevel">RewriteLogLevel</a></code> yönergesi ile belirlenir.</p>
-    
   </div></div>
 <div class="bottomlang">
 <p><span>Mevcut Diller: </span><a href="./en/logs.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -591,7 +647,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/logs.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/logs.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -606,7 +662,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/logs.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

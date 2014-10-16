@@ -84,6 +84,7 @@ extern CFBooleanRef timestampRequest;	// timestamp request option
 extern bool noTSAcerts;					// Don't request certificates with ts request
 extern const char *tsaURL;				// TimeStamping Authority URL
 extern uint32_t preserveMetadata;		// keep metadata from previous signature (if any)
+extern const char *dumpBinary;                // dump a binary image of the CodeDirectory to disk
 
 
 //

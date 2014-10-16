@@ -18,9 +18,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/02/08 05:55:18 $ 
-    $Revision: 1.5 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
   Contributing Author(s):
 

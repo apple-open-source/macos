@@ -1,0 +1,59 @@
+#
+# common keychain stuff shared by makeLocalCert and ssldvt
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+# generally used by ssl server side
+set LOCAL_KC=localcert
+set LOCAL_KC_PWD=localcert
+set LOCAL_CERT=$BUILD_DIR/$LOCAL_KC.cer
+
+# ssl client side
+set CLIENT_KC=clientcert
+set CLIENT_KC_PWD=clientcert
+set CLIENT_CERT=$BUILD_DIR/$CLIENT_KC.cer
+
+# one for DSA as well
+set DSA_KC=dsacert
+set DSA_KC_PWD=dsacert
+set DSA_CERT=$BUILD_DIR/$DSA_KC.cer
+
+# import P12_PFX to P12_KC  
+set P12_PFX=test1.p12
+set P12_KC=p12cert
+
+# passwords for P12_PFX, P12_KC
+set P12_PFX_PWD=password
+set P12_KC_PWD=p12cert
+# extract from P12_KC to this file base
+set P12_CERT_BASE=$BUILD_DIR/p12cert
+# and this one is the root
+set P12_ROOT_CERT=$BUILD_DIR/p12cert_1
+
+#
+# keychain directory, which varies depending on whether we are root.
+# Note since root behaves differently depending on whether we actually logged in 
+# as root, or is running via e.g. cron, we force the issue of "where are root's
+# keychains kept" by specifying a full path for the keychain for root in any case. 
+#
+set USERNAME=`whoami`
+if($USERNAME == root) then
+	set KC_DIR=$BUILD_DIR/Library/Keychains
+else
+	set KC_DIR=$HOME/Library/Keychains
+endif
+
+# full paths for when we refer to actual files
+set LOCAL_KC_PATH=$KC_DIR/$LOCAL_KC
+set CLIENT_KC_PATH=$KC_DIR/$CLIENT_KC
+set DSA_KC_PATH=$KC_DIR/$DSA_KC
+set P12_KC_PATH=$KC_DIR/$P12_KC
+
+# and re-set keychain names for root only 
+if($USERNAME == root) then
+	mkdir -p $KC_DIR
+	set LOCAL_KC=$LOCAL_KC_PATH
+	set CLIENT_KC=$CLIENT_KC_PATH
+	set DSA_KC=$DSA_KC_PATH
+	set P12_KC=$P12_KC_PATH
+endif

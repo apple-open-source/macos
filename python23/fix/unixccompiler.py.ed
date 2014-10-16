@@ -1,9 +1,0 @@
-/if target_lang == "c++"/+1c
-                    i = 0
-                    if os.path.basename(linker[0]) == "env":
-                        i = 1
-                        while '=' in linker[i]:
-                            i = i + 1
-                    linker[i] = self.compiler_cxx[0]
-.
-w

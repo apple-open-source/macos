@@ -21,19 +21,17 @@
 #include "config.h"
 #include "GraphicsContext3DPrivate.h"
 
-#if USE(3D_GRAPHICS) || USE(ACCELERATED_COMPOSITING)
-
 #include "HostWindow.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-PassOwnPtr<GraphicsContext3DPrivate> GraphicsContext3DPrivate::create(GraphicsContext3D* context, HostWindow* hostWindow)
+std::unique_ptr<GraphicsContext3DPrivate> GraphicsContext3DPrivate::create(GraphicsContext3D* context, HostWindow* hostWindow)
 {
-    OwnPtr<GraphicsContext3DPrivate> platformLayer = adoptPtr(new GraphicsContext3DPrivate(context, hostWindow));
+    std::unique_ptr<GraphicsContext3DPrivate> platformLayer = std::make_unique<GraphicsContext3DPrivate>(context, hostWindow);
 
     if (platformLayer && platformLayer->initialize())
-        return platformLayer.release();
+        return platformLayer;
 
     return nullptr;
 }
@@ -107,15 +105,9 @@ void GraphicsContext3DPrivate::releaseResources()
     }
 }
 
-bool GraphicsContext3DPrivate::createSurface(PageClientEfl*, bool)
+void GraphicsContext3DPrivate::setContextLostCallback(std::unique_ptr<GraphicsContext3D::ContextLostCallback> callBack)
 {
-    notImplemented();
-    return false;
-}
-
-void GraphicsContext3DPrivate::setContextLostCallback(PassOwnPtr<GraphicsContext3D::ContextLostCallback> callBack)
-{
-    m_contextLostCallback = callBack;
+    m_contextLostCallback = WTF::move(callBack);
 }
 
 PlatformGraphicsContext3D GraphicsContext3DPrivate::platformGraphicsContext3D() const
@@ -275,5 +267,3 @@ GraphicsSurface::Flags GraphicsContext3DPrivate::graphicsSurfaceFlags() const
 #endif
 
 } // namespace WebCore
-
-#endif // USE(3D_GRAPHICS) || USE(ACCELERATED_COMPOSITING)

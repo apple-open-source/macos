@@ -27,6 +27,7 @@
 #include "WKBundleFrame.h"
 #include "WKBundleFramePrivate.h"
 
+#include "APIArray.h"
 #include "InjectedBundleHitTestResult.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
@@ -72,11 +73,7 @@ WKFrameLoadState WKBundleFrameGetFrameLoadState(WKBundleFrameRef frameRef)
     if (!coreFrame)
         return kWKFrameLoadStateFinished;
 
-    FrameLoader* loader = coreFrame->loader();
-    if (!loader)
-        return kWKFrameLoadStateFinished;
-
-    switch (loader->state()) {
+    switch (coreFrame->loader().state()) {
     case FrameStateProvisional:
         return kWKFrameLoadStateProvisional;
     case FrameStateCommittedPage:
@@ -148,7 +145,7 @@ void WKBundleFrameClearOpener(WKBundleFrameRef frameRef)
 {
     Frame* coreFrame = toImpl(frameRef)->coreFrame();
     if (coreFrame)
-        coreFrame->loader()->setOpener(0);
+        coreFrame->loader().setOpener(0);
 }
 
 void WKBundleFrameStopLoading(WKBundleFrameRef frameRef)
@@ -163,7 +160,7 @@ WKStringRef WKBundleFrameCopyLayerTreeAsText(WKBundleFrameRef frameRef)
 
 bool WKBundleFrameAllowsFollowingLink(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toImpl(frameRef)->allowsFollowingLink(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef)));
+    return toImpl(frameRef)->allowsFollowingLink(WebCore::URL(WebCore::URL(), toWTFString(urlRef)));
 }
 
 bool WKBundleFrameHandlesPageScaleGesture(WKBundleFrameRef frameRef)
@@ -208,12 +205,12 @@ bool WKBundleFrameGetDocumentBackgroundColor(WKBundleFrameRef frameRef, double* 
 
 WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef))));
+    return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::URL(WebCore::URL(), toWTFString(urlRef))));
 }
 
 WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toCopiedAPI(toImpl(frameRef)->mimeTypeForResourceWithURL(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef))));
+    return toCopiedAPI(toImpl(frameRef)->mimeTypeForResourceWithURL(WebCore::URL(WebCore::URL(), toWTFString(urlRef))));
 }
 
 bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frameRef)
@@ -238,7 +235,7 @@ WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frameRef)
 
 WKDataRef WKBundleFrameCopyWebArchiveFilteringSubframes(WKBundleFrameRef frameRef, WKBundleFrameFrameFilterCallback frameFilterCallback, void* context)
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     RetainPtr<CFDataRef> data = toImpl(frameRef)->webArchiveData(frameFilterCallback, context);
     if (data)
         return WKDataCreate(CFDataGetBytePtr(data.get()), CFDataGetLength(data.get()));
@@ -257,7 +254,7 @@ bool WKBundleFrameCallShouldCloseOnWebView(WKBundleFrameRef frameRef)
     if (!coreFrame)
         return true;
 
-    return coreFrame->loader()->shouldClose();
+    return coreFrame->loader().shouldClose();
 }
 
 WKBundleHitTestResultRef WKBundleFrameCreateHitTestResult(WKBundleFrameRef frameRef, WKPoint point)

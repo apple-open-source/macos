@@ -1,0 +1,6 @@
+pwd [ -rLP ]
+       Print the absolute pathname of the  current  working  directory.
+       If the -r or the -P flag is specified, or the CHASE LINKS option
+                                                          -
+       is set and the -L flag is not given, the printed path  will  not
+       contain symbolic links.

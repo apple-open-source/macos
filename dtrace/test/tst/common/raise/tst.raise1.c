@@ -39,11 +39,7 @@ main(int argc, char **argv)
 	(void) sigprocmask(SIG_BLOCK, &ss, NULL);
 
 	do {
-#if !defined(__APPLE__)
-		(void) getpid();
-#else
 		(void) geteuid();
-#endif
 		(void) sigpending(&ss);
 	} while (!sigismember(&ss, SIGINT));
 

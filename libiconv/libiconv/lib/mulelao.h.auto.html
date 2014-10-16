@@ -1,0 +1,121 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>mulelao.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">mulelao.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * MULELAO-1
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> mulelao_2uni[96] = {
+  <span class="enscript-comment">/* 0xa0 */</span>
+  0x00a0, 0x0e81, 0x0e82, 0xfffd, 0x0e84, 0xfffd, 0xfffd, 0x0e87,
+  0x0e88, 0xfffd, 0x0e8a, 0xfffd, 0xfffd, 0x0e8d, 0xfffd, 0xfffd,
+  <span class="enscript-comment">/* 0xb0 */</span>
+  0xfffd, 0xfffd, 0xfffd, 0xfffd, 0x0e94, 0x0e95, 0x0e96, 0x0e97,
+  0xfffd, 0x0e99, 0x0e9a, 0x0e9b, 0x0e9c, 0x0e9d, 0x0e9e, 0x0e9f,
+  <span class="enscript-comment">/* 0xc0 */</span>
+  0xfffd, 0x0ea1, 0x0ea2, 0x0ea3, 0xfffd, 0x0ea5, 0xfffd, 0x0ea7,
+  0xfffd, 0xfffd, 0x0eaa, 0x0eab, 0xfffd, 0x0ead, 0x0eae, 0x0eaf,
+  <span class="enscript-comment">/* 0xd0 */</span>
+  0x0eb0, 0x0eb1, 0x0eb2, 0x0eb3, 0x0eb4, 0x0eb5, 0x0eb6, 0x0eb7,
+  0x0eb8, 0x0eb9, 0xfffd, 0x0ebb, 0x0ebc, 0x0ebd, 0xfffd, 0xfffd,
+  <span class="enscript-comment">/* 0xe0 */</span>
+  0x0ec0, 0x0ec1, 0x0ec2, 0x0ec3, 0x0ec4, 0xfffd, 0x0ec6, 0xfffd,
+  0x0ec8, 0x0ec9, 0x0eca, 0x0ecb, 0x0ecc, 0x0ecd, 0xfffd, 0xfffd,
+  <span class="enscript-comment">/* 0xf0 */</span>
+  0x0ed0, 0x0ed1, 0x0ed2, 0x0ed3, 0x0ed4, 0x0ed5, 0x0ed6, 0x0ed7,
+  0x0ed8, 0x0ed9, 0xfffd, 0xfffd, 0x0edc, 0x0edd, 0xfffd, 0xfffd,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">mulelao_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = *s;
+  <span class="enscript-keyword">if</span> (c &lt; 0xa0) {
+    *pwc = (ucs4_t) c;
+    <span class="enscript-keyword">return</span> 1;
+  }
+  <span class="enscript-keyword">else</span> {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> wc = mulelao_2uni[c-0xa0];
+    <span class="enscript-keyword">if</span> (wc != 0xfffd) {
+      *pwc = (ucs4_t) wc;
+      <span class="enscript-keyword">return</span> 1;
+    }
+  }
+  <span class="enscript-keyword">return</span> RET_ILSEQ;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> mulelao_page0e[96] = {
+  0x00, 0xa1, 0xa2, 0x00, 0xa4, 0x00, 0x00, 0xa7, <span class="enscript-comment">/* 0x80-0x87 */</span>
+  0xa8, 0x00, 0xaa, 0x00, 0x00, 0xad, 0x00, 0x00, <span class="enscript-comment">/* 0x88-0x8f */</span>
+  0x00, 0x00, 0x00, 0x00, 0xb4, 0xb5, 0xb6, 0xb7, <span class="enscript-comment">/* 0x90-0x97 */</span>
+  0x00, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf, <span class="enscript-comment">/* 0x98-0x9f */</span>
+  0x00, 0xc1, 0xc2, 0xc3, 0x00, 0xc5, 0x00, 0xc7, <span class="enscript-comment">/* 0xa0-0xa7 */</span>
+  0x00, 0x00, 0xca, 0xcb, 0x00, 0xcd, 0xce, 0xcf, <span class="enscript-comment">/* 0xa8-0xaf */</span>
+  0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, <span class="enscript-comment">/* 0xb0-0xb7 */</span>
+  0xd8, 0xd9, 0x00, 0xdb, 0xdc, 0xdd, 0x00, 0x00, <span class="enscript-comment">/* 0xb8-0xbf */</span>
+  0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0x00, 0xe6, 0x00, <span class="enscript-comment">/* 0xc0-0xc7 */</span>
+  0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0x00, 0x00, <span class="enscript-comment">/* 0xc8-0xcf */</span>
+  0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, <span class="enscript-comment">/* 0xd0-0xd7 */</span>
+  0xf8, 0xf9, 0x00, 0x00, 0xfc, 0xfd, 0x00, 0x00, <span class="enscript-comment">/* 0xd8-0xdf */</span>
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">mulelao_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = 0;
+  <span class="enscript-keyword">if</span> (wc &lt; 0x00a0) {
+    *r = wc;
+    <span class="enscript-keyword">return</span> 1;
+  }
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x00a0)
+    c = 0xa0;
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x0e80 &amp;&amp; wc &lt; 0x0ee0)
+    c = mulelao_page0e[wc-0x0e80];
+  <span class="enscript-keyword">if</span> (c != 0) {
+    *r = c;
+    <span class="enscript-keyword">return</span> 1;
+  }
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+</pre>
+<hr />
+</body></html>

@@ -20,15 +20,14 @@
 #ifndef SVGResources_h
 #define SVGResources_h
 
-#if ENABLE(SVG)
+#include <memory>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 class Document;
+class RenderElement;
 class RenderObject;
 class RenderSVGResourceClipper;
 class RenderSVGResourceContainer;
@@ -43,7 +42,7 @@ class SVGResources {
 public:
     SVGResources();
 
-    bool buildCachedResources(const RenderObject*, const SVGRenderStyle*);
+    bool buildCachedResources(const RenderElement&, const SVGRenderStyle&);
 
     // Ordinary resources
     RenderSVGResourceClipper* clipper() const { return m_clipperFilterMaskerData ? m_clipperFilterMaskerData->clipper : 0; }
@@ -71,8 +70,8 @@ public:
     void buildSetOfResources(HashSet<RenderSVGResourceContainer*>&);
 
     // Methods operating on all cached resources
-    void removeClientFromCache(RenderObject*, bool markForInvalidation = true) const;
-    void resourceDestroyed(RenderSVGResourceContainer*);
+    void removeClientFromCache(RenderElement&, bool markForInvalidation = true) const;
+    void resourceDestroyed(RenderSVGResourceContainer&);
 
 #ifndef NDEBUG
     void dump(const RenderObject*);
@@ -124,11 +123,6 @@ private:
         {
         }
 
-        static PassOwnPtr<ClipperFilterMaskerData> create()
-        {
-            return adoptPtr(new ClipperFilterMaskerData);
-        }
-
         RenderSVGResourceClipper* clipper;
 #if ENABLE(FILTERS)
         RenderSVGResourceFilter* filter;
@@ -146,11 +140,6 @@ private:
             , markerMid(0)
             , markerEnd(0)
         {
-        }
-
-        static PassOwnPtr<MarkerData> create()
-        {
-            return adoptPtr(new MarkerData);
         }
 
         RenderSVGResourceMarker* markerStart;
@@ -171,22 +160,16 @@ private:
         {
         }
 
-        static PassOwnPtr<FillStrokeData> create()
-        {
-            return adoptPtr(new FillStrokeData);
-        }
-
         RenderSVGResourceContainer* fill;
         RenderSVGResourceContainer* stroke;
     };
 
-    OwnPtr<ClipperFilterMaskerData> m_clipperFilterMaskerData;
-    OwnPtr<MarkerData> m_markerData;
-    OwnPtr<FillStrokeData> m_fillStrokeData;
+    std::unique_ptr<ClipperFilterMaskerData> m_clipperFilterMaskerData;
+    std::unique_ptr<MarkerData> m_markerData;
+    std::unique_ptr<FillStrokeData> m_fillStrokeData;
     RenderSVGResourceContainer* m_linkedResource;
 };
 
 }
 
-#endif
 #endif

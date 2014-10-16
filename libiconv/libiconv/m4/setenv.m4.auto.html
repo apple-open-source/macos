@@ -1,0 +1,95 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>setenv.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">setenv.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># setenv.m4 serial 5
+</span><span class="enscript-comment">dnl Copyright (C) 2001-2004 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+AC_DEFUN([gt_FUNC_SETENV],
+[
+  AC_REPLACE_FUNCS(setenv unsetenv)
+  if test $ac_cv_func_setenv = no; then
+    gl_PREREQ_SETENV
+  fi
+  if test $ac_cv_func_unsetenv = no; then
+    gl_PREREQ_UNSETENV
+  else
+    AC_CACHE_CHECK([for unsetenv() return type], gt_cv_func_unsetenv_ret,
+      [AC_TRY_COMPILE([<span class="enscript-comment">#include &lt;stdlib.h&gt;
+</span>extern
+<span class="enscript-comment">#ifdef __cplusplus
+</span>&quot;C&quot;
+<span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if defined(__STDC__) || defined(__cplusplus)
+</span>int unsetenv (const char *name);
+<span class="enscript-comment">#else
+</span>int unsetenv();
+<span class="enscript-comment">#endif
+</span>], , gt_cv_func_unsetenv_ret='int', gt_cv_func_unsetenv_ret='void')])
+    if test $gt_cv_func_unsetenv_ret = 'void'; then
+      AC_DEFINE(VOID_UNSETENV, 1, [Define if unsetenv() returns void, not int.])
+    fi
+  fi
+])
+
+<span class="enscript-comment"># Check if a variable is properly declared.
+</span><span class="enscript-comment"># gt_CHECK_VAR_DECL(includes,variable)
+</span>AC_DEFUN([gt_CHECK_VAR_DECL],
+[
+  <span class="enscript-keyword">define</span>([gt_cv_var], [gt_cv_var_]$2[_declaration])
+  AC_MSG_CHECKING([if $2 is properly declared])
+  AC_CACHE_VAL(gt_cv_var, [
+    AC_TRY_COMPILE([$1
+      extern struct { int foo; } $2;],
+      [$2.foo = 1;],
+      gt_cv_var=no,
+      gt_cv_var=yes)])
+  AC_MSG_RESULT($gt_cv_var)
+  if test $gt_cv_var = yes; then
+    AC_DEFINE([HAVE_]<span class="enscript-keyword">translit</span>($2, [a-z], [A-Z])[_DECL], 1,
+              [Define if you have the declaration of $2.])
+  fi
+])
+
+<span class="enscript-comment"># Prerequisites of lib/setenv.c.
+</span>AC_DEFUN([gl_PREREQ_SETENV],
+[
+  AC_REQUIRE([AC_FUNC_ALLOCA])
+  AC_CHECK_HEADERS_ONCE(unistd.h)
+  AC_CHECK_HEADERS(search.h)
+  AC_CHECK_FUNCS(tsearch)
+  gt_CHECK_VAR_DECL([<span class="enscript-comment">#include &lt;errno.h&gt;], errno)
+</span>  gt_CHECK_VAR_DECL([<span class="enscript-comment">#include &lt;unistd.h&gt;], environ)
+</span>])
+
+<span class="enscript-comment"># Prerequisites of lib/unsetenv.c.
+</span>AC_DEFUN([gl_PREREQ_UNSETENV],
+[
+  AC_CHECK_HEADERS_ONCE(unistd.h)
+  gt_CHECK_VAR_DECL([<span class="enscript-comment">#include &lt;errno.h&gt;], errno)
+</span>  gt_CHECK_VAR_DECL([<span class="enscript-comment">#include &lt;unistd.h&gt;], environ)
+</span>])
+</pre>
+<hr />
+</body></html>

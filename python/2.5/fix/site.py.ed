@@ -1,5 +1,0 @@
-/elif os.sep == '\/':/i
-            elif sys.platform == 'darwin' and prefix == sys.prefix:
-                sitedirs = [os.path.join("/Library/Python", sys.version[:3], "site-packages"), os.path.join(sys.prefix, "Extras", "lib", "python")]
-.
-w

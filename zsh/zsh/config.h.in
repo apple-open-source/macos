@@ -159,6 +159,9 @@
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
+/* Define to 1 if you have the `cygwin_conv_path' function. */
+#undef HAVE_CYGWIN_CONV_PATH
+
 /* Define to 1 if you have the `difftime' function. */
 #undef HAVE_DIFFTIME
 
@@ -502,6 +505,9 @@
 /* Define to 1 if RLIMIT_AS is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_AS
 
+/* Define to 1 if RLIMIT_KQUEUES is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_KQUEUES
+
 /* Define to 1 if RLIMIT_LOCKS is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_LOCKS
 
@@ -520,8 +526,14 @@
 /* Define to 1 if RLIMIT_NPROC is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_NPROC
 
+/* Define to 1 if RLIMIT_NPTS is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_NPTS
+
 /* Define to 1 if RLIMIT_NTHR is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_NTHR
+
+/* Define to 1 if RLIMIT_POSIXLOCKS is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_POSIXLOCKS
 
 /* Define to 1 if RLIMIT_PTHREAD is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_PTHREAD
@@ -537,6 +549,9 @@
 
 /* Define to 1 if RLIMIT_SIGPENDING is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_SIGPENDING
+
+/* Define to 1 if RLIMIT_SWAP is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_SWAP
 
 /* Define to 1 if RLIMIT_TCACHE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_TCACHE
@@ -847,6 +862,9 @@
 
 /* Define to 1 if you have the <term.h> header file. */
 #undef HAVE_TERM_H
+
+/* Define to 1 if you have the `tgamma' function. */
+#undef HAVE_TGAMMA
 
 /* Define to 1 if you have the `tgetent' function. */
 #undef HAVE_TGETENT

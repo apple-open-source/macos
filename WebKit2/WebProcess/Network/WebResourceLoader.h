@@ -35,11 +35,16 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-namespace CoreIPC {
+#if USE(QUICK_LOOK)
+#include <WebCore/QuickLook.h>
+#endif
+
+namespace IPC {
 class DataReference;
 }
 
 namespace WebCore {
+class CertificateInfo;
 class ProtectionSpace;
 class ResourceBuffer;
 class ResourceError;
@@ -50,16 +55,15 @@ class ResourceResponse;
 
 namespace WebKit {
 
-class PlatformCertificateInfo;
 typedef uint64_t ResourceLoadIdentifier;
 
-class WebResourceLoader : public RefCounted<WebResourceLoader>, public CoreIPC::MessageSender {
+class WebResourceLoader : public RefCounted<WebResourceLoader>, public IPC::MessageSender {
 public:
     static PassRefPtr<WebResourceLoader> create(PassRefPtr<WebCore::ResourceLoader>);
 
     ~WebResourceLoader();
 
-    void didReceiveWebResourceLoaderMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveWebResourceLoaderMessage(IPC::Connection*, IPC::MessageDecoder&);
 
     WebCore::ResourceLoader* resourceLoader() const { return m_coreLoader.get(); }
 
@@ -68,21 +72,25 @@ public:
 private:
     WebResourceLoader(PassRefPtr<WebCore::ResourceLoader>);
 
-    // CoreIPC::MessageSender
-    virtual CoreIPC::Connection* messageSenderConnection() OVERRIDE;
-    virtual uint64_t messageSenderDestinationID() OVERRIDE;
+    // IPC::MessageSender
+    virtual IPC::Connection* messageSenderConnection() override;
+    virtual uint64_t messageSenderDestinationID() override;
 
     void cancelResourceLoader();
 
     void willSendRequest(const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
-    void didReceiveResponseWithCertificateInfo(const WebCore::ResourceResponse&, const PlatformCertificateInfo&, bool needsContinueDidReceiveResponseMessage);
-    void didReceiveData(const CoreIPC::DataReference&, int64_t encodedDataLength);
+    void didReceiveResponseWithCertificateInfo(const WebCore::ResourceResponse&, const WebCore::CertificateInfo&, bool needsContinueDidReceiveResponseMessage);
+    void didReceiveData(const IPC::DataReference&, int64_t encodedDataLength);
     void didFinishResourceLoad(double finishTime);
     void didFailResourceLoad(const WebCore::ResourceError&);
+#if ENABLE(SHAREABLE_RESOURCE)
     void didReceiveResource(const ShareableResource::Handle&, double finishTime);
+#endif
 
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     void canAuthenticateAgainstProtectionSpace(const WebCore::ProtectionSpace&);
+#endif
 
     RefPtr<WebCore::ResourceLoader> m_coreLoader;
 };

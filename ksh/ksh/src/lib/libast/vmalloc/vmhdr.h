@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -71,31 +71,24 @@
 #define _npt_sbrk		1
 #endif
 
-#ifndef integralof
-#define integralof(x)		(((char*)(x))-((char*)0))
-#endif
+#undef free
+#undef malloc
+#undef realloc
 
 #endif /*_PACKAGE_ast*/
 
 #include	"FEATURE/vmalloc"
 
-#include	<setjmp.h>
+#include	<aso.h>		/* atomic scalor operations		*/
+#include	<setjmp.h>	/* use the type jmp_buf for alignment	*/
 
-/* the below macros decide which combinations of sbrk() or mmap() to used */
+/* extra information needed about methods to get memory from the system */
 #if defined(_WIN32)
-#define _mem_win32	1
-#undef _mem_sbrk
-#undef _mem_mmap_anon
-#undef _mem_mmap_zero
+#define _mem_win32	1	/* use the VirtualAlloc interface	*/
 #endif
-
-#if _mem_mmap_anon
-#undef _mem_mmap_zero
-#endif
-
 #if !_mem_win32 && !_mem_sbrk && !_mem_mmap_anon && !_mem_mmap_zero
 #undef _std_malloc
-#define _std_malloc	1	/* do not define malloc/free/realloc */
+#define _std_malloc	1	/* use native malloc/free/realloc	*/
 #endif
 
 typedef unsigned char	Vmuchar_t;
@@ -107,10 +100,6 @@ typedef struct _block_s	Block_t;
 typedef struct _seg_s	Seg_t;
 typedef struct _pfobj_s	Pfobj_t;
 
-#if !_typ_ssize_t
-typedef int		ssize_t;
-#endif
-
 #define NIL(t)		((t)0)
 #define reg		register
 #if __STD_C
@@ -119,8 +108,9 @@ typedef int		ssize_t;
 #define NOTUSED(x)	(&x,1)
 #endif
 
+
 /* convert an address to an integral value */
-#define VLONG(addr)	((Vmulong_t)((char*)(addr) - (char*)0) )
+#define VLONG(addr)	((Vmulong_t)((Vmuchar_t*)((Vmulong_t)addr) - (Vmuchar_t*)0) )
 
 /* Round x up to a multiple of y. ROUND2 does powers-of-2 and ROUNDX does others */
 #define ROUND2(x,y)	(((x) + ((y)-1)) & ~((y)-1))
@@ -130,10 +120,12 @@ typedef int		ssize_t;
 /* compute a value that is a common multiple of x and y */
 #define MULTIPLE(x,y)	((x)%(y) == 0 ? (x) : (y)%(x) == 0 ? (y) : (y)*(x))
 
-#define VM_check	0x0001	/* enable detailed checks		*/
-#define VM_abort	0x0002	/* abort() on assertion failure		*/
-#define VM_region	0x0004	/* enable region segment checks		*/
-#define VM_mmap		0x0010	/* favor mmap allocation		*/
+#define VM_abort	0x0001	/* abort() on assertion failure		*/
+#define VM_break	0x0002	/* try sbrk() block allocator first	*/
+#define VM_check	0x0004	/* enable detailed checks		*/
+#define VM_free		0x0008	/* disable addfreelist()		*/
+#define VM_keep		0x0010	/* disable free()			*/
+#define VM_mmap		0x0020	/* try mmap() block allocator first	*/
 
 #if _UWIN
 #include <ast_windows.h>
@@ -146,11 +138,11 @@ typedef int		ssize_t;
 #endif /*DEBUG*/
 #if DEBUG
 extern void		_vmmessage _ARG_((const char*, long, const char*, long));
+#define MESSAGE(s)	_vmmessage(__FILE__,__LINE__,s,0)
 #define ABORT()		(_Vmassert & VM_abort)
 #define CHECK()		(_Vmassert & VM_check)
 #define ASSERT(p)	((p) ? 0 : (MESSAGE("Assertion failed"), ABORT() ? (abort(),0) : 0))
 #define COUNT(n)	((n) += 1)
-#define MESSAGE(s)	_vmmessage(__FILE__,__LINE__,s,0)
 #else
 #define ABORT()		(0)
 #define ASSERT(p)
@@ -160,23 +152,10 @@ extern void		_vmmessage _ARG_((const char*, long, const char*, long));
 #endif /*DEBUG*/
 
 #define VMPAGESIZE	8192
-
-#if _AST_PAGESIZE > VMPAGESIZE
-#undef	VMPAGESIZE
-#define VMPAGESIZE	_AST_PAGESIZE
-#endif
-
-#if _lib_getpagesize && !defined(_AST_PAGESIZE)
-#define GETPAGESIZE(x)	((x) ? (x) : \
-			 (((x)=getpagesize()) < VMPAGESIZE ? ((x)=VMPAGESIZE) : (x)) )
+#if _lib_getpagesize
+#define GETPAGESIZE(x)	((x) ? (x) : ((x)=getpagesize()) )
 #else
 #define GETPAGESIZE(x)	((x) = VMPAGESIZE)
-#endif
-
-#ifdef	_AST_PAGESIZE
-#define VMHEAPINCR	(_Vmpagesize*1)
-#else
-#define VMHEAPINCR	(_Vmpagesize*sizeof(void*))
 #endif
 
 /* Blocks are allocated such that their sizes are 0%(BITS+1)
@@ -206,36 +185,20 @@ extern void		_vmmessage _ARG_((const char*, long, const char*, long));
 
 #define OFFSET(t,e)	((size_t)(&(((t*)0)->e)) )
 
-/* these bits share the "mode" field with the public bits */
-#define VM_AGAIN	0010000		/* research the arena for space */
-#define VM_LOCK		0020000		/* region is locked		*/
-#define VM_LOCAL	0040000		/* local call, bypass lock	*/
-#define VM_INUSE	0004000		/* some operation is running	*/
-#define VM_UNUSED	0100060
 #define VMETHOD(vd)	((vd)->mode&VM_METHODS)
 
-/* test/set/clear lock state */
-#define SETINUSE(vd,iu)	(((iu) = (vd)->mode&VM_INUSE), ((vd)->mode |= VM_INUSE) )
-#define CLRINUSE(vd,iu)	((iu) ? 0 : ((vd)->mode &= ~VM_INUSE) )
-#define SETLOCAL(vd)	((vd)->mode |= VM_LOCAL)
-#define GETLOCAL(vd,l)	(((l) = (vd)->mode&VM_LOCAL), ((vd)->mode &= ~VM_LOCAL) )
-#define ISLOCK(vd,l)	((l) ? 0 : ((vd)->mode &  VM_LOCK) )
-#define SETLOCK(vd,l)	((l) ? 0 : ((vd)->mode |= VM_LOCK) )
-#define CLRLOCK(vd,l)	((l) ? 0 : ((vd)->mode &= ~VM_LOCK) )
-
-/* announcing entry/exit of allocation calls */
-#define ANNOUNCE(lc, vm,ev,dt,dc) \
-		(( ((lc)&VM_LOCAL) || !(dc) || !(dc)->exceptf ) ? 0 : \
-			(*(dc)->exceptf)((vm), (ev), (Void_t*)(dt), (dc)) )
-			
+/* lock and unlock regions during concurrent accesses */
+#define SETLOCK(vm,l)	((l) ? 0 : _vmlock((vm), 1) )
+#define CLRLOCK(vm,l)	((l) ? 0 : _vmlock((vm), 0) )
 
 /* local calls */
-#define KPVALLOC(vm,sz,func)		(SETLOCAL((vm)->data), func((vm),(sz)) )
-#define KPVALIGN(vm,sz,al,func)		(SETLOCAL((vm)->data), func((vm),(sz),(al)) )
-#define KPVFREE(vm,d,func)		(SETLOCAL((vm)->data), func((vm),(d)) )
-#define KPVRESIZE(vm,d,sz,mv,func)	(SETLOCAL((vm)->data), func((vm),(d),(sz),(mv)) )
-#define KPVADDR(vm,addr,func)		(SETLOCAL((vm)->data), func((vm),(addr)) )
-#define KPVCOMPACT(vm,func)		(SETLOCAL((vm)->data), func((vm)) )
+#define KPVALLOC(vm,sz,func)		(func((vm),(sz),1) )
+#define KPVRESIZE(vm,dt,sz,mv,func)	(func((vm),(dt),(sz),(mv),1) )
+#define KPVFREE(vm,dt,func)		(func((vm),(dt),1) )
+#define KPVADDR(vm,addr,func)		(func((vm),(addr),1) )
+#define KPVSIZE(vm,addr,func)		(func((vm),(addr),1) )
+#define KPVCOMPACT(vm,func)		(func((vm),1) )
+#define KPVALIGN(vm,sz,al,func)		(func((vm),(sz),(al),1) )
 
 /* ALIGN is chosen so that a block can store all primitive types.
 ** It should also be a multiple of ALIGNB==(BITS+1) so the size field
@@ -299,9 +262,11 @@ struct _body_s
 	Block_t**	self;	/* self pointer when free	*/
 };
 #define BODYSIZE	ROUND(sizeof(struct _body_s),ALIGN)
+
 union _body_u
 {	Vmuchar_t	data[BODYSIZE];	/* to standardize size		*/
 	struct _body_s	body;
+	Block_t*	self[1];
 };
 
 /* After all the songs and dances, we should now have:
@@ -337,8 +302,9 @@ struct _tiny_s
 #define TINY(vd)	((vd)->tiny)
 #define CACHE(vd)	((vd)->cache)
 
-struct _vmdata_s
-{	int		mode;		/* current mode for region		*/
+struct _vmdata_s /* core region data - could be in shared/persistent memory	*/
+{	unsigned int	lock;		/* lock status				*/
+	int		mode;		/* current mode for region		*/
 	size_t		incr;		/* allocate in multiple of this		*/
 	size_t		pool;		/* size	of an elt in a Vmpool region	*/
 	Seg_t*		seg;		/* list of segments			*/
@@ -348,7 +314,6 @@ struct _vmdata_s
 	Block_t*	tiny[S_TINY];	/* small blocks				*/
 	Block_t*	cache[S_CACHE+1]; /* delayed free blocks		*/
 };
-/* Vmdata_t typedef in <vmalloc.h> */
 
 #include	"vmalloc.h"
 
@@ -382,11 +347,10 @@ struct _seg_s
 #define LINK(b)		((b)->body.body.link)
 #define LEFT(b)		((b)->body.body.left)
 #define RIGHT(b)	((b)->body.body.right)
-#define VM(b)		(SEG(b)->vm)
 
 #define DATA(b)		((Void_t*)((b)->body.data) )
 #define BLOCK(d)	((Block_t*)((char*)(d) - sizeof(Head_t)) )
-#define SELF(b)		((Block_t**)((b)->body.data + SIZE(b) - sizeof(Block_t*)) )
+#define SELF(b)		(b)->body.self[SIZE(b)/sizeof(Block_t*)-1]
 #define LAST(b)		(*((Block_t**)(((char*)(b)) - sizeof(Block_t*)) ) )
 #define NEXT(b)		((Block_t*)((b)->body.data + SIZE(b)) )
 
@@ -478,9 +442,10 @@ struct _seg_s
 #define DBTAIL(d,begp,endp) \
 		(((begp) = (Vmuchar_t*)(d)+DBSIZE(d)), ((endp) = (Vmuchar_t*)(&DBLN(d))) )
 
-/* external symbols for internal use by vmalloc */
+
+/* external symbols for use inside vmalloc only */
 typedef Block_t*	(*Vmsearch_f)_ARG_((Vmdata_t*, size_t, Block_t*));
-typedef struct _vmextern_
+typedef struct _vmextern_s
 {	Block_t*	(*vm_extend)_ARG_((Vmalloc_t*, size_t, Vmsearch_f ));
 	ssize_t		(*vm_truncate)_ARG_((Vmalloc_t*, Seg_t*, size_t, int));
 	size_t		vm_pagesize;
@@ -489,6 +454,7 @@ typedef struct _vmextern_
 	void		(*vm_trace)_ARG_((Vmalloc_t*,
 					  Vmuchar_t*, Vmuchar_t*, size_t, size_t));
 	void		(*vm_pfclose)_ARG_((Vmalloc_t*));
+	unsigned int	vm_lock;
 	int		vm_assert;
 	int		vm_options;
 } Vmextern_t;
@@ -500,13 +466,16 @@ typedef struct _vmextern_
 #define _Vmitoa		(_Vmextern.vm_itoa)
 #define _Vmtrace	(_Vmextern.vm_trace)
 #define _Vmpfclose	(_Vmextern.vm_pfclose)
+#define _Vmlock		(_Vmextern.vm_lock)
 #define _Vmassert	(_Vmextern.vm_assert)
 #define _Vmoptions	(_Vmextern.vm_options)
 
-#define VMOPTIONS()	do { if (!_Vmoptions) { _vmoptions(); } } while (0)
+#define VMOPTIONS()     do { if (!_Vmoptions) { _vmoptions(); } } while (0)
 
-extern void		_vmoptions _ARG_((void));
 extern int		_vmbestcheck _ARG_((Vmdata_t*, Block_t*));
+extern int		_vmfd _ARG_((int));
+extern int		_vmlock _ARG_((Vmalloc_t*, int));
+extern void		_vmoptions _ARG_((void));
 
 _BEGIN_EXTERNS_
 
@@ -553,10 +522,11 @@ extern void		_cleanup _ARG_(( void ));
 
 #endif /*_PACKAGE_ast*/
 
-_END_EXTERNS_
-
-#if _UWIN
-#define abort()		(DebugBreak(),abort())
+/* for vmdcsbrk.c */
+#if !_typ_ssize_t
+typedef int		ssize_t;
 #endif
+
+_END_EXTERNS_
 
 #endif /* _VMHDR_H */

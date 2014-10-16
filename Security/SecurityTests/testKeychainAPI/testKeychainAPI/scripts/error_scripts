@@ -1,0 +1,166 @@
+//
+// script0025
+//
+//		KCChangeSettings
+//		KCSetInteractionAllowed
+//		KCGetInteractionAllowed
+//
+// Change keychain settings w/ and w/o interaction allowed enabled
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0025.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 0
+   Results : 1
+     OSStatus 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+20 KCChangeSettings
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus -25308
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 1
+   Results : 1
+     OSStatus 0
+26 KCIsInteractionAllowed
+   Input Arguments : 0
+   Results : 2
+     OSStatus 0
+     AllowInteraction : 1
+     
+//
+## Click the Cancel button ##
+20 KCChangeSettings
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus -128
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0
+      
+      
+      24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 5
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 1
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 6
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 7
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 9
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 10
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 0
+     DataAccessCount : 1
+//										remove twice
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 1
+   Results : 12
+     OSStatus -25298
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 0
+     DataAccessCount : 0
+

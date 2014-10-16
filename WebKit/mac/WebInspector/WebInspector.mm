@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -39,6 +39,9 @@
 
 using namespace WebCore;
 
+NSString *WebInspectorDidStartSearchingForNode = @"WebInspectorDidStartSearchingForNode";
+NSString *WebInspectorDidStopSearchingForNode = @"WebInspectorDidStopSearchingForNode";
+
 @implementation WebInspector
 - (id)initWithWebView:(WebView *)webView
 {
@@ -63,7 +66,7 @@ using namespace WebCore;
 - (void)showWindow
 {
     if (Page* page = core(_webView))
-        page->inspectorController()->show();
+        page->inspectorController().show();
 }
 
 - (void)show:(id)sender
@@ -75,11 +78,6 @@ using namespace WebCore;
 {
     [self showWindow];
     [_frontend showConsole];
-}
-
-- (void)showTimeline:(id)sender
-{
-    // Not used anymore. Remove when a release of Safari non-longer calls this.
 }
 
 - (BOOL)isDebuggingJavaScript
@@ -111,45 +109,34 @@ using namespace WebCore;
 
 - (BOOL)isProfilingJavaScript
 {
-    return _frontend && [_frontend isProfilingJavaScript];
+    // No longer supported.
+    return NO;
 }
 
 - (void)toggleProfilingJavaScript:(id)sender
 {
-    [self showWindow];
-
-    if ([self isProfilingJavaScript])
-        [_frontend stopProfilingJavaScript];
-    else
-        [_frontend startProfilingJavaScript];
+    // No longer supported.
 }
 
 - (void)startProfilingJavaScript:(id)sender
 {
-    if (_frontend)
-        [_frontend startProfilingJavaScript];
+    // No longer supported.
 }
 
 - (void)stopProfilingJavaScript:(id)sender
 {
-    if (_frontend)
-        [_frontend stopProfilingJavaScript];
+    // No longer supported.
 }
 
 - (BOOL)isJavaScriptProfilingEnabled
 {
-    if (Page* page = core(_webView))
-        return page->inspectorController()->profilerEnabled();
+    // No longer supported.
     return NO;
 }
 
 - (void)setJavaScriptProfilingEnabled:(BOOL)enabled
 {
-    Page* page = core(_webView);
-    if (!page)
-        return;
-
-    page->inspectorController()->setProfilerEnabled(enabled);
+    // No longer supported.
 }
 
 - (BOOL)isTimelineProfilingEnabled
@@ -166,7 +153,7 @@ using namespace WebCore;
 - (void)close:(id)sender 
 {
     if (Page* page = core(_webView))
-        page->inspectorController()->close();
+        page->inspectorController().close();
 }
 
 - (void)attach:(id)sender
@@ -179,10 +166,10 @@ using namespace WebCore;
     [_frontend detach];
 }
 
-- (void)evaluateInFrontend:(id)sender callId:(long)callId script:(NSString *)script
+- (void)evaluateInFrontend:(id)sender script:(NSString *)script
 {
     if (Page* page = core(_webView))
-        page->inspectorController()->evaluateForTestInFrontend(callId, script);
+        page->inspectorController().evaluateForTestInFrontend(script);
 }
 
 - (void)setFrontend:(WebInspectorFrontend *)frontend
@@ -194,55 +181,5 @@ using namespace WebCore;
 {
     [_frontend release];
     _frontend = 0;
-}
-@end
-
-@implementation WebInspector (Obsolete)
-+ (WebInspector *)webInspector
-{
-    // Safari 3.0 calls this method
-    static BOOL logged = NO;
-    if (!logged) {
-        NSLog(@"+[WebInspector webInspector]: this method is obsolete.");
-        logged = YES;
-    }
-
-    return [[[WebInspector alloc] init] autorelease];
-}
-
-- (void)setWebFrame:(WebFrame *)frame
-{
-    // Safari 3.0 calls this method
-    static BOOL logged = NO;
-    if (!logged) {
-        NSLog(@"-[WebInspector setWebFrame:]: this method is obsolete.");
-        logged = YES;
-    }
-
-    _webView = [frame webView];
-}
-
-- (NSWindow *)window
-{
-    // Shiira calls this internal method, return nil since we can't easily return the window
-    static BOOL logged = NO;
-    if (!logged) {
-        NSLog(@"-[WebInspector window]: this method is obsolete and now returns nil.");
-        logged = YES;
-    }
-
-    return nil;
-}
-
-- (void)showWindow:(id)sender
-{
-    // Safari 3.0 calls this method
-    static BOOL logged = NO;
-    if (!logged) {
-        NSLog(@"-[WebInspector showWindow:]: this method is obsolete.");
-        logged = YES;
-    }
-
-    [self showWindow];
 }
 @end

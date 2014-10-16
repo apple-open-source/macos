@@ -63,7 +63,6 @@ extern	mkdir		int	(const char*, mode_t)
 extern	mkfifo		int	(const char*, mode_t)
 extern	mknod		int	(const char*, mode_t, dev_t)
 extern	stat		int	(const char*, struct stat*)
-extern	mkfifo		mode_t	(mode_t)
 
 define	FS_default	"ufs"
 
@@ -241,6 +240,10 @@ int	st_spare1 sys/types.h sys/stat.h note{ stat.st_spare1 is an int }end compile
 
 ary	st_spare4 sys/types.h sys/stat.h note{ stat.st_spare4 is an array }end compile{
 	int f(st)struct stat* st;{return st->st_spare4[0] = 1;}
+}end
+
+ary	st_extra sys/types.h sys/stat.h note{ stat.st_extra is an array }end compile{
+	int f(st)struct stat* st;{return st->st_extra[0] = 1;}
 }end
 
 ary	st_pad4 sys/types.h sys/stat.h note{ stat.st_pad4 is an array }end compile{

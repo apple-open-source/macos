@@ -217,7 +217,7 @@ static void
 cert_free(heim_object_t object)
 {
     hx509_cert cert = object;
-    int i;
+    size_t i;
 
     if (cert->release)
 	(cert->release)(cert, cert->ctx);
@@ -248,8 +248,8 @@ cert_free(heim_object_t object)
  * certificate `c´.
  *
  * @param context A hx509 context.
- * @param c
- * @param cert
+ * @param c certificate to parse
+ * @param cert return certificate, free with heim_release()
  *
  * @return Returns an hx509 error code.
  *
@@ -561,8 +561,6 @@ hx509_verify_set_strict_rfc3280_verification(hx509_verify_ctx ctx, int boolean)
  * @param boolean if non zero, useing the operating systems builtin
  * trust anchors.
  *
- *
- * @return An hx509 error code, see hx509_get_error_string().
  *
  * @ingroup hx509_cert
  */
@@ -1530,7 +1528,7 @@ get_x_unique_id(hx509_context context, const char *name,
     }
     ret = der_copy_bit_string(cert, subject);
     if (ret) {
-	hx509_set_error_string(context, 0, ret, "malloc out of memory", name);
+	hx509_set_error_string(context, 0, ret, "malloc out of memory");
 	return ret;
     }
     return 0;
@@ -1648,7 +1646,6 @@ _hx509_Time2time_t(const Time *t)
     case invalid_choice_Time:
 	return 0;
     }
-    return 0;
 }
 
 static void
@@ -1875,7 +1872,7 @@ match_general_name(const GeneralName *c, const GeneralName *n, int *match)
     case choice_GeneralName_uniformResourceIdentifier:
     case choice_GeneralName_iPAddress:
     case choice_GeneralName_registeredID:
-    default:
+    case invalid_choice_GeneralName:
 	return HX509_NAME_CONSTRAINT_ERROR;
     }
 }
@@ -2476,7 +2473,7 @@ hx509_verify_path(hx509_context context,
     return hx509_evaluate_cert(context, ctx, cert, pool, NULL);
 }
 
-#ifdef __APPLE_TARGET_EMBEDDED__
+#ifdef __APPLE__
 #include <Security/Security.h>
 
 static SecCertificateRef
@@ -2509,10 +2506,13 @@ hx509_evaluate_cert(hx509_context context,
 		    hx509_certs pool,
 		    hx509_evaluate *validate)
 {
-#ifdef __APPLE_TARGET_EMBEDDED__
+#ifdef __APPLE__
     __block CFMutableArrayRef certs;
     __block SecCertificateRef c;
     int ret;
+
+    if (validate)
+	*validate = NULL;
 
     certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     heim_assert(certs != NULL, "out of memory");
@@ -2560,6 +2560,26 @@ hx509_evaluate_cert(hx509_context context,
 	ret = HX509_ISSUER_NOT_FOUND;
 	hx509_set_error_string(context, 0, ret, "Failed to validate trust");
 	CFRelease(trust);
+
+#ifndef APPLE_TARGET_EMBEDDED
+	{
+	    static dispatch_once_t setup;
+	    static bool allow_hx509_validation = false;
+	    dispatch_once(&setup, ^{
+		    CFBooleanRef val;
+		    val = CFPreferencesCopyValue(CFSTR("AllowHX509Validation"),
+						 CFSTR("org.h5l.hx509"),
+						 kCFPreferencesCurrentUser,
+						 kCFPreferencesAnyHost);
+		    if (val && CFBooleanGetTypeID() == CFGetTypeID(val))
+			allow_hx509_validation = CFBooleanGetValue(val);
+		    if (val)
+			CFRelease(val);
+		});
+	    if (allow_hx509_validation)
+		ret = _hx509_verify_path_internal(context, ctx, cert, pool, validate);
+	}
+#endif
 	return ret;
     }
 
@@ -2599,105 +2619,12 @@ hx509_evaluate_cert(hx509_context context,
     CFRelease(trust);
 
     return 0;
-
-#else /* !__APPLE_TARGET_EMBEDDED__ */
-#ifdef HAVE_TRUSTEVALUATIONAGENT
-    TEACertificateChainRef in, out;
-    TEAErrorRef e = NULL;
-    TEAOptionsRef options;
-    
+#else /* __APPLE__ */
     if (validate)
 	*validate = NULL;
 
-    in = TEACertificateChainCreate();
-    
-    TEACertificateChainSetEncodingHandler(in, ^(uint8_t *dst, const TEACertificateRef c) {
-	    heim_octet_string os;
-	    int r;
-	    r = hx509_cert_binary(context, (void *)TEACertificateGetData(c), &os);
-	    if (r)
-		return r;
-	    if (TEACertificateGetSize(c) != os.length)
-		_hx509_abort("internal TEA encoder error");
-	    memcpy(dst, os.data, os.length);
-	    hx509_xfree(os.data);
-	    return 0;
-	});
-
-    TEACertificateChainAddCert(in, cert, length_Certificate(cert->data));
-    
-    hx509_certs_iter(context, pool, ^(hx509_cert c) {
-	    TEACertificateChainAddCert(in, c, length_Certificate(c->data));
-	    return 0;
-	});
-
-    options = TEAOptionsCreate();
-    if (options == NULL) {
-	TEACertificateChainRelease(in);
-	return ENOMEM;
-    }
-
-    TEAOptionsSetPurpose(options, kTEAPurposeDefault);
-    TEAOptionsSetTime(options, 0);
-
-    out = TEAVerifyCertChainTrust(in, options, &e);
-    TEAOptionsRelease(options);
-    TEACertificateChainRelease(in);
-    if (e)
-	TEAErrorRelease(e);
-    if (out != NULL) {
-	if (validate) {
-	    __block int ret2 = 0;
-
-	    *validate = _hx509_evaluate_alloc();
-	    if (*validate == NULL) {
-		TEACertificateChainRelease(out);
-		return ENOMEM;
-	    }
-
-	    TEACertificateChainEnumerateWithBlock(out, ^(void *data, size_t size, int *shouldStop){
-		    hx509_cert c;
-		    ret2 = hx509_cert_init_data(context, data, size, &c);
-		    if (ret2)
-			*shouldStop = 1;
-		    else {
-			heim_array_append_value((*validate)->path, c);
-			hx509_cert_free(c);
-		    }
-		});	    
-	    if (ret2) {
-		TEACertificateChainRelease(out);
-		hx509_evaluate_free(*validate);
-		*validate = NULL;
-		return ret2;
-	    }
-	}
-	TEACertificateChainRelease(out);
-	return 0;
-    }
-    static dispatch_once_t setup;
-    static bool allow_hx509_validation = false;
-    dispatch_once(&setup, ^{
-	CFBooleanRef val;
-	val = CFPreferencesCopyValue(CFSTR("AllowHX509Validation"),
-				     CFSTR("org.h5l.hx509"),
-				     kCFPreferencesCurrentUser,
-				     kCFPreferencesAnyHost);
-	if (val && CFBooleanGetTypeID() == CFGetTypeID(val))
-	    allow_hx509_validation = CFBooleanGetValue(val);
-	if (val)
-	    CFRelease(val);
-    });
-    if (!allow_hx509_validation) {
-	int ret = HX509_CRYPTO_SIG_INVALID_FORMAT;
-	hx509_set_error_string(context, 0, ret, "validation failed");
-	return ret;
-    }
-#endif
-    if (validate)
-	*validate = NULL;
     return _hx509_verify_path_internal(context, ctx, cert, pool, validate);
-#endif /* !__APPLE_TARGET_EMBEDDED__ */
+#endif
 }
 
 
@@ -2808,7 +2735,13 @@ hx509_verify_hostname(hx509_context context,
 		}
 		break;
 	    }
-	    default:
+	    case choice_GeneralName_directoryName:
+	    case choice_GeneralName_otherName:
+	    case choice_GeneralName_rfc822Name:
+	    case choice_GeneralName_uniformResourceIdentifier:
+	    case choice_GeneralName_iPAddress:
+	    case choice_GeneralName_registeredID:
+	    case invalid_choice_GeneralName:
 		break;
 	    }
 	}
@@ -2847,7 +2780,10 @@ hx509_verify_hostname(hx509_context context,
 		case choice_DirectoryString_utf8String:
 		    if (strcasecmp(ds->u.utf8String, hostname) == 0)
 			return 0;
-		default:
+		case choice_DirectoryString_teletexString:
+		case choice_DirectoryString_bmpString:
+		case choice_DirectoryString_universalString:
+		case invalid_choice_DirectoryString:
 		    break;
 		}
 		ret = HX509_NAME_CONSTRAINT_ERROR;
@@ -3073,8 +3009,6 @@ hx509_query_alloc(hx509_context context, hx509_query **q)
  * @param q query controller.
  * @param option options to control the query controller.
  *
- * @return An hx509 error code, see hx509_get_error_string().
- *
  * @ingroup hx509_cert
  */
 
@@ -3095,7 +3029,6 @@ hx509_query_match_option(hx509_query *q, hx509_query_option option)
 	q->match |= HX509_QUERY_KU_KEYCERTSIGN;
 	break;
     case HX509_QUERY_OPTION_END:
-    default:
 	break;
     }
 }
@@ -3591,7 +3524,7 @@ _hx509_cert_get_eku(hx509_context context,
 int
 hx509_cert_binary(hx509_context context, hx509_cert c, heim_octet_string *os)
 {
-    size_t size;
+    size_t size = 0;
     int ret;
 
     os->data = NULL;
@@ -3833,13 +3766,32 @@ hx509_print_cert(hx509_context context, hx509_cert cert, FILE *out)
 	free(str);
     }
 
-    printf("    keyusage: ");
+    fprintf(out, "    keyusage: ");
     ret = hx509_cert_keyusage_print(context, cert, &str);
     if (ret == 0) {
 	fprintf(out, "%s\n", str);
 	free(str);
     } else
-	fprintf(out, "no");
+	fprintf(out, "no\n");
+
+    {
+	heim_octet_string os;
+
+	fprintf(out, "    persistent: ");
+	ret = hx509_cert_get_persistent(cert, &os);
+	if (ret == 0) {
+	    ret = (int)hex_encode(os.data, os.length, &str);
+	    if (ret > 0) {
+		fprintf(out, "%s\n", str);
+		free(str);
+	    } else {
+		fprintf(out, "out of memory\n");
+	    }
+	    der_free_octet_string(&os);
+	} else {
+	    fprintf(out, "no\n");
+	}
+    }
 
     return 0;
 }

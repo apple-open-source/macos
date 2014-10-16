@@ -21,7 +21,7 @@
 #ifndef SVGFilter_h
 #define SVGFilter_h
 
-#if ENABLE(SVG) && ENABLE(FILTERS)
+#if ENABLE(FILTERS)
 #include "AffineTransform.h"
 #include "Filter.h"
 #include "FilterEffect.h"
@@ -39,13 +39,15 @@ public:
     static PassRefPtr<SVGFilter> create(const AffineTransform&, const FloatRect&, const FloatRect&, const FloatRect&, bool);
 
     FloatRect filterRegionInUserSpace() const { return m_filterRegion; }
-    virtual FloatRect filterRegion() const { return m_absoluteFilterRegion; }
+    virtual FloatRect filterRegion() const override { return m_absoluteFilterRegion; }
 
-    virtual float applyHorizontalScale(float value) const;
-    virtual float applyVerticalScale(float value) const;
+    virtual float applyHorizontalScale(float value) const override;
+    virtual float applyVerticalScale(float value) const override;
 
-    virtual FloatRect sourceImageRect() const { return m_absoluteSourceDrawingRegion; }
+    virtual FloatRect sourceImageRect() const override { return m_absoluteSourceDrawingRegion; }
     FloatRect targetBoundingBox() const { return m_targetBoundingBox; }
+
+    virtual bool isSVGFilter() const override final { return true; }
 
 private:
     SVGFilter(const AffineTransform& absoluteTransform, const FloatRect& absoluteSourceDrawingRegion, const FloatRect& targetBoundingBox, const FloatRect& filterRegion, bool effectBBoxMode);
@@ -57,8 +59,10 @@ private:
     bool m_effectBBoxMode;
 };
 
+FILTER_TYPE_CASTS(SVGFilter, isSVGFilter())
+
 } // namespace WebCore
 
-#endif // ENABLE(SVG) && ENABLE(FILTERS)
+#endif // ENABLE(FILTERS)
 
 #endif // SVGFilter_h

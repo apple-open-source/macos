@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2B9D61B8157D667600AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61B9157D667600AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BA157D667800AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BB157D667900AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BC157D667A00AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BD157D667A00AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BE157D667B00AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61BF157D667B00AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
-		2B9D61C0157D667C00AF25B8 /* trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D61B5157D667000AF25B8 /* trace.c */; };
+		2DF67CDE184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CDF184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE0184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE1184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE2184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE3184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE4184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE5184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
+		2DF67CE6184F9CBE00B83A3D /* debug_private.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DF67CDD184F9CBE00B83A3D /* debug_private.c */; };
 		3F169A3E1643B7BA0029E851 /* memccpy_chk.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F169A3C1643B7BA0029E851 /* memccpy_chk.c */; };
 		3F18DE21162A732C008B15AC /* memset_s.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F18DE20162A732C008B15AC /* memset_s.c */; };
 		3F267F38163FC8880089A0A6 /* rb.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F267F36163FC8880089A0A6 /* rb.c */; };
@@ -108,6 +108,7 @@
 		B1261400158818EC0077E3CC /* xprintf.c in Sources */ = {isa = PBXBuildFile; fileRef = B12613F7158818EC0077E3CC /* xprintf.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/stdio"; }; };
 		B126140515881A000077E3CC /* xprintf_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = B126140215881A000077E3CC /* xprintf_comp.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/stdio/FreeBSD"; }; };
 		B126140615881A000077E3CC /* xprintf_domain.c in Sources */ = {isa = PBXBuildFile; fileRef = B126140315881A000077E3CC /* xprintf_domain.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/stdio/FreeBSD"; }; };
+		B17726CD185A9AD600668DCA /* wordexp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53808138D9E990028D27C /* wordexp.c */; };
 		B1795373158B0E35008990E8 /* xprintf_all_in_one.c in Sources */ = {isa = PBXBuildFile; fileRef = B1795371158B0E35008990E8 /* xprintf_all_in_one.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/stdio/FreeBSD"; }; };
 		B1795374158B0E35008990E8 /* xprintf_exec.c in Sources */ = {isa = PBXBuildFile; fileRef = B1795372158B0E35008990E8 /* xprintf_exec.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/stdio/FreeBSD"; }; };
 		B19C645C1450F90200032373 /* sync_volume_np.c in Sources */ = {isa = PBXBuildFile; fileRef = B19C645B1450F90200032373 /* sync_volume_np.c */; };
@@ -511,7 +512,6 @@
 		C942104213900C8A004BA536 /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SETREUID"; }; };
 		C942104313900C8A004BA536 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C942104413900C8A004BA536 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C942104513900C8A004BA536 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C942104613900C8A004BA536 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C942104A13900C8A004BA536 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C942104B13900C8A004BA536 /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -672,7 +672,6 @@
 		C94210F413900C8A004BA536 /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C94210F513900C8A004BA536 /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_FTW -DLIBC_ALIAS_NFTW"; }; };
 		C94210F613900C8A004BA536 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C94210F713900C8A004BA536 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C94210F813900C8A004BA536 /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C94210FB13900C8A004BA536 /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C94210FC13900C8A004BA536 /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -989,7 +988,7 @@
 		C942128D13900C8A004BA536 /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C942128E13900C8A004BA536 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C942128F13900C8A004BA536 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C942129013900C8A004BA536 /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C942129013900C8A004BA536 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C942129113900C8A004BA536 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C942129213900C8A004BA536 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C942129413900C8A004BA536 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -1025,7 +1024,6 @@
 		C94212BA13900C8A004BA536 /* unpack.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53DE2138D9E9A0028D27C /* unpack.c */; };
 		C94212BB13900C8A004BA536 /* unparse.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53DE3138D9E9A0028D27C /* unparse.c */; };
 		C94212C613900C8A004BA536 /* scandir_b.c in Sources */ = {isa = PBXBuildFile; fileRef = C9EB350E138F769B0075BB52 /* scandir_b.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -include gen/__dirent.h"; }; };
-		C94212D113900ED1004BA536 /* dirhelper.defs in Sources */ = {isa = PBXBuildFile; fileRef = C9B53614138D9E980028D27C /* dirhelper.defs */; };
 		C94212E413901595004BA536 /* mcount.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53DF9138D9E9A0028D27C /* mcount.s */; };
 		C94212FA13901595004BA536 /* strcpy.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53E17138D9E9A0028D27C /* strcpy.s */; };
 		C94212FD13901595004BA536 /* strlen.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53E1A138D9E9A0028D27C /* strlen.s */; };
@@ -1053,7 +1051,6 @@
 		C95B7EED138F3C55004311DA /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; };
 		C95B7EEE138F3C55004311DA /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C95B7EEF138F3C55004311DA /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C95B7EF0138F3C55004311DA /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C95B7EF1138F3C55004311DA /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C95B7EF5138F3C55004311DA /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C95B7EF6138F3C55004311DA /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -1214,7 +1211,6 @@
 		C95B7F9F138F3C55004311DA /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C95B7FA0138F3C55004311DA /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; };
 		C95B7FA1138F3C55004311DA /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C95B7FA2138F3C55004311DA /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C95B7FA3138F3C55004311DA /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C95B7FA6138F3C55004311DA /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C95B7FA7138F3C55004311DA /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -1531,7 +1527,7 @@
 		C95B8138138F3C55004311DA /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C95B8139138F3C55004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B813A138F3C55004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C95B813B138F3C55004311DA /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C95B813B138F3C55004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C95B813C138F3C55004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C95B813D138F3C55004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B813F138F3C55004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -1579,7 +1575,6 @@
 		C95B8198138F52B0004311DA /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; };
 		C95B8199138F52B0004311DA /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C95B819A138F52B0004311DA /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C95B819B138F52B0004311DA /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C95B819C138F52B0004311DA /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C95B81A0138F52B0004311DA /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C95B81A1138F52B0004311DA /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -1740,7 +1735,6 @@
 		C95B824A138F52B0004311DA /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C95B824B138F52B0004311DA /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; };
 		C95B824C138F52B0004311DA /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C95B824D138F52B0004311DA /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C95B824E138F52B0004311DA /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C95B8251138F52B0004311DA /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C95B8252138F52B0004311DA /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -2057,7 +2051,7 @@
 		C95B83E3138F52B0004311DA /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C95B83E4138F52B0004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B83E5138F52B0004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C95B83E6138F52B0004311DA /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C95B83E6138F52B0004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C95B83E7138F52B0004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C95B83E8138F52B0004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B83EA138F52B0004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -2105,7 +2099,6 @@
 		C95B843E138F53DB004311DA /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; };
 		C95B843F138F53DB004311DA /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C95B8440138F53DB004311DA /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C95B8441138F53DB004311DA /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C95B8442138F53DB004311DA /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C95B8446138F53DB004311DA /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C95B8447138F53DB004311DA /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -2266,7 +2259,6 @@
 		C95B84F0138F53DB004311DA /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C95B84F1138F53DB004311DA /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; };
 		C95B84F2138F53DB004311DA /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C95B84F3138F53DB004311DA /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C95B84F4138F53DB004311DA /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C95B84F7138F53DB004311DA /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C95B84F8138F53DB004311DA /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -2583,7 +2575,7 @@
 		C95B8689138F53DB004311DA /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C95B868A138F53DB004311DA /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C95B868B138F53DB004311DA /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C95B868C138F53DB004311DA /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C95B868C138F53DB004311DA /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C95B868D138F53DB004311DA /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C95B868E138F53DB004311DA /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C95B8690138F53DB004311DA /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -2632,7 +2624,6 @@
 		C9765EC2138EC61900741512 /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; };
 		C9765EC3138EC61900741512 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C9765EC4138EC61900741512 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C9765EC5138EC61900741512 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C9765EC6138EC61900741512 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C9765ECA138EC61900741512 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C9765ECB138EC61900741512 /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -2793,7 +2784,6 @@
 		C9765F74138EC61900741512 /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C9765F75138EC61900741512 /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; };
 		C9765F76138EC61900741512 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C9765F77138EC61900741512 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C9765F78138EC61900741512 /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C9765F7B138EC61900741512 /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C9765F7C138EC61900741512 /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -3110,7 +3100,7 @@
 		C976610D138EC61A00741512 /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C976610E138EC61A00741512 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C976610F138EC61A00741512 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C9766110138EC61A00741512 /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C9766110138EC61A00741512 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C9766111138EC61A00741512 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C9766112138EC61A00741512 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9766114138EC61A00741512 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -3159,7 +3149,6 @@
 		C97A6F791517AF53005E1998 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		C97A6F7A1517AF53005E1998 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		C97A6F7E1517AF53005E1998 /* (null) in Sources */ = {isa = PBXBuildFile; };
-		C97A6F8D1517AF53005E1998 /* dirhelper.defs in Sources */ = {isa = PBXBuildFile; fileRef = C9B53614138D9E980028D27C /* dirhelper.defs */; };
 		C97A6F8F1517AF53005E1998 /* init_cpu_capabilities.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535B6138D9E980028D27C /* init_cpu_capabilities.c */; };
 		C97A6F961517AF53005E1998 /* creat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535F8138D9E980028D27C /* creat.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_CREAT"; }; };
 		C97A6F971517AF53005E1998 /* gethostid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B535FC138D9E980028D27C /* gethostid.c */; };
@@ -3173,7 +3162,6 @@
 		C97A6F9F1517AF53005E1998 /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SETREUID"; }; };
 		C97A6FA01517AF53005E1998 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C97A6FA11517AF53005E1998 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C97A6FA21517AF53005E1998 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C97A6FA31517AF53005E1998 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C97A6FA71517AF53005E1998 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C97A6FA81517AF53005E1998 /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -3334,7 +3322,6 @@
 		C97A70511517AF53005E1998 /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C97A70521517AF53005E1998 /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_FTW -DLIBC_ALIAS_NFTW"; }; };
 		C97A70531517AF53005E1998 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C97A70541517AF53005E1998 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C97A70551517AF53005E1998 /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C97A70581517AF53005E1998 /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C97A70591517AF53005E1998 /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -3665,7 +3652,7 @@
 		C97A71C31517AF53005E1998 /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C97A71C41517AF53005E1998 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C97A71C51517AF53005E1998 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C97A71C61517AF53005E1998 /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C97A71C61517AF53005E1998 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C97A71C71517AF53005E1998 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C97A71C81517AF53005E1998 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C97A71CA1517AF53005E1998 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -3767,8 +3754,6 @@
 		C9B53E7C138DA59F0028D27C /* strncpy.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B53E1C138D9E9A0028D27C /* strncpy.s */; };
 		C9C2A959138E025700287F00 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C9C2A95A138E025700287F00 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; };
-		C9C2A95B138E03C700287F00 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
-		C9C2A95C138E03C700287F00 /* dirhelper.defs in Sources */ = {isa = PBXBuildFile; fileRef = C9B53614138D9E980028D27C /* dirhelper.defs */; };
 		C9C2A97D138E058200287F00 /* brk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5366E138D9E980028D27C /* brk.c */; };
 		C9C2A97E138E058200287F00 /* bsd_signal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53670138D9E980028D27C /* bsd_signal.c */; };
 		C9C2A97F138E058200287F00 /* lchflags.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53672138D9E980028D27C /* lchflags.c */; };
@@ -3797,7 +3782,6 @@
 		C9C2A9BE138E072600287F00 /* thread_stack_pcs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53800138D9E990028D27C /* thread_stack_pcs.c */; };
 		C9C2A9BF138E072600287F00 /* uname.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53803138D9E990028D27C /* uname.c */; };
 		C9C2A9C0138E072600287F00 /* utmpx-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53804138D9E990028D27C /* utmpx-darwin.c */; };
-		C9C2A9C1138E072600287F00 /* wordexp.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53808138D9E990028D27C /* wordexp.c */; };
 		C9D94333138DB75B00FB7ACC /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C9D94359138EC0C600FB7ACC /* heapsort_b.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D94357138EC0C600FB7ACC /* heapsort_b.c */; };
 		C9D9435A138EC0C600FB7ACC /* heapsort_r.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D94358138EC0C600FB7ACC /* heapsort_r.c */; };
@@ -3811,7 +3795,6 @@
 		C9EB2F99138F68CB0075BB52 /* strlen.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B535CF138D9E980028D27C /* strlen.s */; };
 		C9EB2F9C138F68CB0075BB52 /* strnlen.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B535D2138D9E980028D27C /* strnlen.s */; };
 		C9EB2F9D138F68CB0075BB52 /* strstr.s in Sources */ = {isa = PBXBuildFile; fileRef = C9B535D3138D9E980028D27C /* strstr.s */; };
-		C9EB2FBB138F6A920075BB52 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C9EB2FC1138F6BB00075BB52 /* merge_b.c in Sources */ = {isa = PBXBuildFile; fileRef = C9EB2FC0138F6BB00075BB52 /* merge_b.c */; };
 		C9EB2FC4138F6C5C0075BB52 /* psort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9EB2FC3138F6C5C0075BB52 /* psort.c */; };
 		C9EB2FC7138F6CE10075BB52 /* psort_b.c in Sources */ = {isa = PBXBuildFile; fileRef = C9EB2FC5138F6CE10075BB52 /* psort_b.c */; settings = {COMPILER_FLAGS = "-DI_AM_PSORT_B"; }; };
@@ -3829,7 +3812,6 @@
 		C9EB2FDD138F6D880075BB52 /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SETREUID"; }; };
 		C9EB2FDE138F6D880075BB52 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C9EB2FDF138F6D880075BB52 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C9EB2FE0138F6D880075BB52 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C9EB2FE1138F6D880075BB52 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C9EB2FE5138F6D880075BB52 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C9EB2FE6138F6D880075BB52 /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -3990,7 +3972,6 @@
 		C9EB308F138F6D880075BB52 /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C9EB3090138F6D880075BB52 /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_FTW -DLIBC_ALIAS_NFTW"; }; };
 		C9EB3091138F6D880075BB52 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C9EB3092138F6D880075BB52 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C9EB3093138F6D880075BB52 /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C9EB3096138F6D880075BB52 /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C9EB3097138F6D880075BB52 /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -4307,7 +4288,7 @@
 		C9EB3228138F6D880075BB52 /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C9EB3229138F6D880075BB52 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C9EB322A138F6D880075BB52 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C9EB322B138F6D880075BB52 /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C9EB322B138F6D880075BB52 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C9EB322C138F6D880075BB52 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C9EB322D138F6D880075BB52 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9EB322F138F6D880075BB52 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -4355,7 +4336,6 @@
 		C9EB3284138F75580075BB52 /* setreuid.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360B138D9E980028D27C /* setreuid.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SETREUID"; }; };
 		C9EB3285138F75580075BB52 /* sigaltstk.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360C138D9E980028D27C /* sigaltstk.c */; };
 		C9EB3286138F75580075BB52 /* sigcompat.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5360E138D9E980028D27C /* sigcompat.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_SIGPAUSE"; }; };
-		C9EB3287138F75580075BB52 /* _dirhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53613138D9E980028D27C /* _dirhelper.c */; };
 		C9EB3288138F75580075BB52 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
 		C9EB328C138F75580075BB52 /* forceLibcToBuild.c in Sources */ = {isa = PBXBuildFile; fileRef = C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */; };
 		C9EB328D138F75580075BB52 /* bt_close.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53620138D9E980028D27C /* bt_close.c */; };
@@ -4516,7 +4496,6 @@
 		C9EB3336138F75580075BB52 /* utmpx.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E4138D9E990028D27C /* utmpx.c */; };
 		C9EB3337138F75580075BB52 /* nftw.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E6138D9E990028D27C /* nftw.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_FTW -DLIBC_ALIAS_NFTW"; }; };
 		C9EB3338138F75580075BB52 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
-		C9EB3339138F75580075BB52 /* NSSystemDirectories.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E9138D9E990028D27C /* NSSystemDirectories.c */; };
 		C9EB333A138F75580075BB52 /* oldsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537EA138D9E990028D27C /* oldsyslog.c */; };
 		C9EB333D138F75580075BB52 /* setlogin.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F2138D9E990028D27C /* setlogin.c */; };
 		C9EB333E138F75580075BB52 /* sigsetops.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537F4138D9E990028D27C /* sigsetops.c */; };
@@ -4833,7 +4812,7 @@
 		C9EB34CF138F75580075BB52 /* wmemcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8D138D9E9A0028D27C /* wmemcpy.c */; };
 		C9EB34D0138F75580075BB52 /* wmemmove.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8E138D9E9A0028D27C /* wmemmove.c */; };
 		C9EB34D1138F75580075BB52 /* wmemset.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D8F138D9E9A0028D27C /* wmemset.c */; };
-		C9EB34D2138F75580075BB52 /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C9EB34D2138F75580075BB52 /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C9EB34D3138F75580075BB52 /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C9EB34D4138F75580075BB52 /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9EB34D6138F75580075BB52 /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -4875,9 +4854,10 @@
 		C9EB3550138F7EA50075BB52 /* getmntinfo64.c in Sources */ = {isa = PBXBuildFile; fileRef = C9EB354F138F7EA50075BB52 /* getmntinfo64.c */; };
 		C9EB3558138F7FF40075BB52 /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B537E8138D9E990028D27C /* nlist.c */; };
 		C9EB355C138F81A40075BB52 /* kvm.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53616138D9E980028D27C /* kvm.c */; };
+		C9ECE2771950E384008E8672 /* atexit_receipt.c in Sources */ = {isa = PBXBuildFile; fileRef = C9ECE2761950E384008E8672 /* atexit_receipt.c */; };
 		C9FA32F4138E49550089A94B /* abort.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53C1D138D9E9A0028D27C /* abort.c */; };
 		C9FA32F9138E4A5C0089A94B /* utf2.c in Sources */ = {isa = PBXBuildFile; fileRef = C9FA32F8138E4A5C0089A94B /* utf2.c */; };
-		C9FA32FB138E4BD00089A94B /* __libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* __libc_init.c */; };
+		C9FA32FB138E4BD00089A94B /* _libc_init.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D94138D9E9A0028D27C /* _libc_init.c */; };
 		C9FA32FC138E4BD00089A94B /* _libc_fork_child.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */; };
 		C9FA32FD138E4BD00089A94B /* chmodx_np.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D99138D9E9A0028D27C /* chmodx_np.c */; };
 		C9FA32FF138E4BD00089A94B /* crt_externs.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53D9C138D9E9A0028D27C /* crt_externs.c */; };
@@ -5103,9 +5083,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		2B350EC1158FDC7600A58CD2 /* base.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = base.h; path = os/base.h; sourceTree = "<group>"; };
-		2B9D61B5157D667000AF25B8 /* trace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = trace.c; path = os/trace.c; sourceTree = "<group>"; };
 		2B9D61B6157D667000AF25B8 /* trace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = trace.h; path = os/trace.h; sourceTree = "<group>"; };
+		2DF67CDD184F9CBE00B83A3D /* debug_private.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debug_private.c; path = os/debug_private.c; sourceTree = "<group>"; };
+		2DF67CE7184F9CD000B83A3D /* debug_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = debug_private.h; path = os/debug_private.h; sourceTree = "<group>"; };
 		3F169A3C1643B7BA0029E851 /* memccpy_chk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = memccpy_chk.c; sourceTree = "<group>"; };
 		3F18DE1F162A732C008B15AC /* memset_s.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = memset_s.3; sourceTree = "<group>"; };
 		3F18DE20162A732C008B15AC /* memset_s.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = memset_s.c; sourceTree = "<group>"; };
@@ -5182,7 +5162,6 @@
 		C9257ED0138E1B5000B3107C /* libFreeBSD.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libFreeBSD.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9258105138E2D3100B3107C /* libNetBSD.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libNetBSD.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C925D1FB151805C6003D315B /* eos_stubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = eos_stubs.c; sourceTree = "<group>"; };
-		C9265D1113B1CF970090BA1C /* clean_simulator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = clean_simulator.sh; sourceTree = "<group>"; };
 		C93D6150143D31E300EB9023 /* sanitise_headers.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = sanitise_headers.sh; sourceTree = "<group>"; };
 		C94212CC13900C8A004BA536 /* libc.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libc.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C942135913904CBC004BA536 /* manpages.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = manpages.sh; sourceTree = "<group>"; };
@@ -5224,9 +5203,6 @@
 		C9B5360F138D9E980028D27C /* sigpause.2 */ = {isa = PBXFileReference; lastKnownFileType = text; path = sigpause.2; sourceTree = "<group>"; };
 		C9B53610138D9E980028D27C /* sigsetmask.2 */ = {isa = PBXFileReference; lastKnownFileType = text; path = sigsetmask.2; sourceTree = "<group>"; };
 		C9B53611138D9E980028D27C /* sigvec.2 */ = {isa = PBXFileReference; lastKnownFileType = text; path = sigvec.2; sourceTree = "<group>"; };
-		C9B53613138D9E980028D27C /* _dirhelper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _dirhelper.c; sourceTree = "<group>"; };
-		C9B53614138D9E980028D27C /* dirhelper.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = dirhelper.defs; sourceTree = "<group>"; };
-		C9B53615138D9E980028D27C /* dirhelper_priv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dirhelper_priv.h; sourceTree = "<group>"; };
 		C9B53616138D9E980028D27C /* kvm.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = kvm.c; sourceTree = "<group>"; };
 		C9B53620138D9E980028D27C /* bt_close.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bt_close.c; sourceTree = "<group>"; };
 		C9B53621138D9E980028D27C /* bt_conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bt_conv.c; sourceTree = "<group>"; };
@@ -5288,7 +5264,6 @@
 		C9B5367D138D9E980028D27C /* _fbsd_compat_.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _fbsd_compat_.h; sourceTree = "<group>"; };
 		C9B5367E138D9E980028D27C /* _fpmath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _fpmath.h; sourceTree = "<group>"; };
 		C9B5367F138D9E980028D27C /* fpmath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fpmath.h; sourceTree = "<group>"; };
-		C9B53680138D9E980028D27C /* libc_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libc_private.h; sourceTree = "<group>"; };
 		C9B53682138D9E980028D27C /* atomic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = atomic.h; sourceTree = "<group>"; };
 		C9B53683138D9E980028D27C /* namespace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = namespace.h; sourceTree = "<group>"; };
 		C9B53684138D9E980028D27C /* port_after.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = port_after.h; sourceTree = "<group>"; };
@@ -5500,7 +5475,6 @@
 		C9B537E6138D9E990028D27C /* nftw.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nftw.c; sourceTree = "<group>"; };
 		C9B537E7138D9E990028D27C /* nlist.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = nlist.3; sourceTree = "<group>"; };
 		C9B537E8138D9E990028D27C /* nlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nlist.c; sourceTree = "<group>"; };
-		C9B537E9138D9E990028D27C /* NSSystemDirectories.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = NSSystemDirectories.c; sourceTree = "<group>"; };
 		C9B537EA138D9E990028D27C /* oldsyslog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = oldsyslog.c; sourceTree = "<group>"; };
 		C9B537ED138D9E990028D27C /* posix_memalign.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = posix_memalign.3; sourceTree = "<group>"; };
 		C9B537EE138D9E990028D27C /* pwcache.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = pwcache.3; sourceTree = "<group>"; };
@@ -5531,7 +5505,6 @@
 		C9B53840138D9E990028D27C /* strlen.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = strlen.s; sourceTree = "<group>"; };
 		C9B53842138D9E990028D27C /* strncpy.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = strncpy.s; sourceTree = "<group>"; };
 		C9B53850138D9E990028D27C /* _locale.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _locale.h; sourceTree = "<group>"; };
-		C9B53851138D9E990028D27C /* _structs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _structs.h; sourceTree = "<group>"; };
 		C9B53852138D9E990028D27C /* _types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _types.h; sourceTree = "<group>"; };
 		C9B53853138D9E990028D27C /* _wctype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _wctype.h; sourceTree = "<group>"; };
 		C9B53854138D9E990028D27C /* _xlocale.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _xlocale.h; sourceTree = "<group>"; };
@@ -5547,7 +5520,6 @@
 		C9B53861138D9E990028D27C /* authentication.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = authentication.h; sourceTree = "<group>"; };
 		C9B53862138D9E990028D27C /* bitstring.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bitstring.h; sourceTree = "<group>"; };
 		C9B53863138D9E990028D27C /* cpio.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cpio.h; sourceTree = "<group>"; };
-		C9B53864138D9E990028D27C /* CrashReporterClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CrashReporterClient.h; sourceTree = "<group>"; };
 		C9B53865138D9E990028D27C /* crt_externs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = crt_externs.h; sourceTree = "<group>"; };
 		C9B53866138D9E990028D27C /* ctype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ctype.h; sourceTree = "<group>"; };
 		C9B53867138D9E990028D27C /* db.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
@@ -5571,7 +5543,6 @@
 		C9B5387C138D9E990028D27C /* langinfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = langinfo.h; sourceTree = "<group>"; };
 		C9B5387D138D9E990028D27C /* libc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libc.h; sourceTree = "<group>"; };
 		C9B5387E138D9E990028D27C /* libgen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libgen.h; sourceTree = "<group>"; };
-		C9B53883138D9E990028D27C /* OSMemoryNotification.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OSMemoryNotification.h; sourceTree = "<group>"; };
 		C9B53884138D9E990028D27C /* OSThermalNotification.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OSThermalNotification.h; sourceTree = "<group>"; };
 		C9B53885138D9E990028D27C /* limits.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = limits.h; sourceTree = "<group>"; };
 		C9B53886138D9E990028D27C /* locale.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = locale.h; sourceTree = "<group>"; };
@@ -5582,7 +5553,6 @@
 		C9B5388F138D9E990028D27C /* ndbm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ndbm.h; sourceTree = "<group>"; };
 		C9B53891138D9E990028D27C /* utmpx.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utmpx.h; sourceTree = "<group>"; };
 		C9B53893138D9E990028D27C /* nlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nlist.h; sourceTree = "<group>"; };
-		C9B53894138D9E990028D27C /* NSSystemDirectories.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSSystemDirectories.h; sourceTree = "<group>"; };
 		C9B53899138D9E990028D27C /* paths.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = paths.h; sourceTree = "<group>"; };
 		C9B5389A138D9E990028D27C /* poll.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = poll.h; sourceTree = "<group>"; };
 		C9B5389D138D9E990028D27C /* routed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = routed.h; sourceTree = "<group>"; };
@@ -6238,7 +6208,7 @@
 		C9B53D8F138D9E9A0028D27C /* wmemset.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = wmemset.c; sourceTree = "<group>"; };
 		C9B53D91138D9E9A0028D27C /* memset_pattern.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = memset_pattern.3; sourceTree = "<group>"; };
 		C9B53D92138D9E9A0028D27C /* strip-header.ed */ = {isa = PBXFileReference; lastKnownFileType = text; path = "strip-header.ed"; sourceTree = "<group>"; };
-		C9B53D94138D9E9A0028D27C /* __libc_init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = __libc_init.c; sourceTree = "<group>"; };
+		C9B53D94138D9E9A0028D27C /* _libc_init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_init.c; sourceTree = "<group>"; };
 		C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = _libc_fork_child.c; sourceTree = "<group>"; };
 		C9B53D99138D9E9A0028D27C /* chmodx_np.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = chmodx_np.c; sourceTree = "<group>"; };
 		C9B53D9C138D9E9A0028D27C /* crt_externs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = crt_externs.c; sourceTree = "<group>"; };
@@ -6311,7 +6281,9 @@
 		C9EB350D138F75580075BB52 /* libvInode32.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libvInode32.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9EB350E138F769B0075BB52 /* scandir_b.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scandir_b.c; sourceTree = "<group>"; };
 		C9EB354F138F7EA50075BB52 /* getmntinfo64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getmntinfo64.c; sourceTree = "<group>"; };
+		C9ECE2761950E384008E8672 /* atexit_receipt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = atexit_receipt.c; sourceTree = "<group>"; };
 		C9FA32F8138E4A5C0089A94B /* utf2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utf2.c; sourceTree = "<group>"; };
+		E41BEA97178E72E100E348BB /* Libc.order */ = {isa = PBXFileReference; lastKnownFileType = text; path = Libc.order; sourceTree = "<group>"; };
 		E4A877A6174D82FB000DBB55 /* alias.list */ = {isa = PBXFileReference; lastKnownFileType = text; path = alias.list; sourceTree = "<group>"; };
 		FC2ED60E157D4BE70098EC69 /* inet_ntop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet_ntop.c; sourceTree = "<group>"; };
 		FC2ED60F157D4BE70098EC69 /* inet_pton.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet_pton.c; sourceTree = "<group>"; };
@@ -6325,6 +6297,7 @@
 		FC60BAD716555A4A00033196 /* _uintmax_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _uintmax_t.h; sourceTree = "<group>"; };
 		FC60BAD816555A4A00033196 /* _wctrans_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _wctrans_t.h; sourceTree = "<group>"; };
 		FC60BAD916555A4A00033196 /* _wctype_t.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _wctype_t.h; sourceTree = "<group>"; };
+		FC960EF21850F33A005B9A9A /* libc_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libc_private.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -6452,9 +6425,9 @@
 		4B2C64A015519B0500342BFA /* os */ = {
 			isa = PBXGroup;
 			children = (
-				2B9D61B5157D667000AF25B8 /* trace.c */,
+				2DF67CE7184F9CD000B83A3D /* debug_private.h */,
+				2DF67CDD184F9CBE00B83A3D /* debug_private.c */,
 				2B9D61B6157D667000AF25B8 /* trace.h */,
-				2B350EC1158FDC7600A58CD2 /* base.h */,
 				4B2C64AB15519C3400342BFA /* assumes.h */,
 				4B2C64A215519BAF00342BFA /* assumes.c */,
 			);
@@ -6644,12 +6617,11 @@
 		C9B53612138D9E980028D27C /* darwin */ = {
 			isa = PBXGroup;
 			children = (
-				C9B53613138D9E980028D27C /* _dirhelper.c */,
-				C9B53614138D9E980028D27C /* dirhelper.defs */,
-				C9B53615138D9E980028D27C /* dirhelper_priv.h */,
+				C9ECE2761950E384008E8672 /* atexit_receipt.c */,
 				C9D9432A138DB72000FB7ACC /* forceLibcToBuild.c */,
 				C9B535B6138D9E980028D27C /* init_cpu_capabilities.c */,
 				C9B53616138D9E980028D27C /* kvm.c */,
+				FC960EF21850F33A005B9A9A /* libc_private.h */,
 			);
 			path = darwin;
 			sourceTree = "<group>";
@@ -6827,7 +6799,6 @@
 				C9B5367D138D9E980028D27C /* _fbsd_compat_.h */,
 				C9B5367E138D9E980028D27C /* _fpmath.h */,
 				C9B5367F138D9E980028D27C /* fpmath.h */,
-				C9B53680138D9E980028D27C /* libc_private.h */,
 				C9B53681138D9E980028D27C /* machine */,
 				C9B53683138D9E980028D27C /* namespace.h */,
 				C9B53684138D9E980028D27C /* port_after.h */,
@@ -6946,7 +6917,6 @@
 				C9B537E6138D9E990028D27C /* nftw.c */,
 				C9B537E7138D9E990028D27C /* nlist.3 */,
 				C9B537E8138D9E990028D27C /* nlist.c */,
-				C9B537E9138D9E990028D27C /* NSSystemDirectories.c */,
 				C9B537EA138D9E990028D27C /* oldsyslog.c */,
 				C9B537ED138D9E990028D27C /* posix_memalign.3 */,
 				C9B537EE138D9E990028D27C /* pwcache.3 */,
@@ -6968,8 +6938,6 @@
 				C9B53804138D9E990028D27C /* utmpx-darwin.c */,
 				C9B53805138D9E990028D27C /* utmpx-darwin.h */,
 				C9B53806138D9E990028D27C /* utmpx_thread.h */,
-				C9B53807138D9E990028D27C /* wordexp.3 */,
-				C9B53808138D9E990028D27C /* wordexp.c */,
 			);
 			path = gen;
 			sourceTree = "<group>";
@@ -7109,6 +7077,8 @@
 				C9B537BE138D9E990028D27C /* wait.c */,
 				C9B537C0138D9E990028D27C /* wait3.c */,
 				C9B537C1138D9E990028D27C /* waitpid.c */,
+				C9B53807138D9E990028D27C /* wordexp.3 */,
+				C9B53808138D9E990028D27C /* wordexp.c */,
 			);
 			path = FreeBSD;
 			sourceTree = "<group>";
@@ -7168,7 +7138,6 @@
 			isa = PBXGroup;
 			children = (
 				C9B53850138D9E990028D27C /* _locale.h */,
-				C9B53851138D9E990028D27C /* _structs.h */,
 				FC60BAD016555A4A00033196 /* _types */,
 				C9B53852138D9E990028D27C /* _types.h */,
 				C9B53853138D9E990028D27C /* _wctype.h */,
@@ -7182,7 +7151,6 @@
 				C9B53861138D9E990028D27C /* authentication.h */,
 				C9B53862138D9E990028D27C /* bitstring.h */,
 				C9B53863138D9E990028D27C /* cpio.h */,
-				C9B53864138D9E990028D27C /* CrashReporterClient.h */,
 				C9B53865138D9E990028D27C /* crt_externs.h */,
 				C9B53866138D9E990028D27C /* ctype.h */,
 				C9B53867138D9E990028D27C /* db.h */,
@@ -7216,7 +7184,6 @@
 				C9B5388F138D9E990028D27C /* ndbm.h */,
 				C9B53890138D9E990028D27C /* NetBSD */,
 				C9B53893138D9E990028D27C /* nlist.h */,
-				C9B53894138D9E990028D27C /* NSSystemDirectories.h */,
 				C9B53899138D9E990028D27C /* paths.h */,
 				C9B5389A138D9E990028D27C /* poll.h */,
 				B126140715881A420077E3CC /* printf.h */,
@@ -7290,7 +7257,6 @@
 		C9B5387F138D9E990028D27C /* libkern */ = {
 			isa = PBXGroup;
 			children = (
-				C9B53883138D9E990028D27C /* OSMemoryNotification.h */,
 				C9B53884138D9E990028D27C /* OSThermalNotification.h */,
 			);
 			path = libkern;
@@ -8185,7 +8151,7 @@
 		C9B53D93138D9E9A0028D27C /* sys */ = {
 			isa = PBXGroup;
 			children = (
-				C9B53D94138D9E9A0028D27C /* __libc_init.c */,
+				C9B53D94138D9E9A0028D27C /* _libc_init.c */,
 				C9B53D95138D9E9A0028D27C /* _libc_fork_child.c */,
 				C9B53D99138D9E9A0028D27C /* chmodx_np.c */,
 				C9B53D9C138D9E9A0028D27C /* crt_externs.c */,
@@ -8308,13 +8274,13 @@
 				C9C2A948138DF7DD00287F00 /* libc.xcconfig */,
 				C9766153138ECF0000741512 /* variants.xcconfig */,
 				C9AE91AE1517CDAC00A2626C /* eos.xcconfig */,
+				E41BEA97178E72E100E348BB /* Libc.order */,
 				C9194B4C140E3BC700BE0C3A /* build_linklists.sh */,
 				C9766150138EC9D400741512 /* patch_headers_variants.pl */,
 				C976616B138EF14100741512 /* generate_features.pl */,
 				C942135913904CBC004BA536 /* manpages.sh */,
 				C9950E6A1390D2CA009863B6 /* headers.sh */,
 				C9B53D92138D9E9A0028D27C /* strip-header.ed */,
-				C9265D1113B1CF970090BA1C /* clean_simulator.sh */,
 				C965CBF4143BC1BF003912CE /* force_libc_to_build.sh */,
 				C93D6150143D31E300EB9023 /* sanitise_headers.sh */,
 			);
@@ -8547,7 +8513,6 @@
 				C9D9432B138DB73300FB7ACC /* Sources */,
 				C9D9432C138DB73300FB7ACC /* Frameworks */,
 				C942135B13905EB9004BA536 /* Install Manpages */,
-				C9265D1313B1CFD10090BA1C /* Clean Simulator Binaries */,
 				C965CBF3143BBFF7003912CE /* Remove deps.c */,
 				C93D6152143D321000EB9023 /* Sanitise Headers (rdar://problem/10241868) */,
 			);
@@ -8712,22 +8677,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"";
-		};
-		C9265D1313B1CFD10090BA1C /* Clean Simulator Binaries */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/xcodescripts/clean_simulator.sh",
-			);
-			name = "Clean Simulator Binaries";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
 		};
 		C93D6152143D321000EB9023 /* Sanitise Headers (rdar://problem/10241868) */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -9494,6 +9443,7 @@
 				C925803D138E1CD200B3107C /* wcscmp.c in Sources */,
 				C925803E138E1CD200B3107C /* wcscoll.c in Sources */,
 				C925803F138E1CD200B3107C /* wcscpy.c in Sources */,
+				B17726CD185A9AD600668DCA /* wordexp.c in Sources */,
 				C9258040138E1CD200B3107C /* wcscspn.c in Sources */,
 				C9258041138E1CD200B3107C /* wcsdup.c in Sources */,
 				C9258042138E1CD200B3107C /* wcslcat.c in Sources */,
@@ -9631,7 +9581,6 @@
 				C94212FA13901595004BA536 /* strcpy.s in Sources */,
 				C94212FD13901595004BA536 /* strlen.s in Sources */,
 				C94212FF13901595004BA536 /* strncpy.s in Sources */,
-				C94212D113900ED1004BA536 /* dirhelper.defs in Sources */,
 				C942103213900C8A004BA536 /* init_cpu_capabilities.c in Sources */,
 				C942103913900C8A004BA536 /* creat.c in Sources */,
 				C942103A13900C8A004BA536 /* gethostid.c in Sources */,
@@ -9645,7 +9594,6 @@
 				C942104213900C8A004BA536 /* setreuid.c in Sources */,
 				C942104313900C8A004BA536 /* sigaltstk.c in Sources */,
 				C942104413900C8A004BA536 /* sigcompat.c in Sources */,
-				C942104513900C8A004BA536 /* _dirhelper.c in Sources */,
 				C942104613900C8A004BA536 /* kvm.c in Sources */,
 				C942104A13900C8A004BA536 /* forceLibcToBuild.c in Sources */,
 				C942104B13900C8A004BA536 /* bt_close.c in Sources */,
@@ -9807,7 +9755,6 @@
 				C94210F413900C8A004BA536 /* utmpx.c in Sources */,
 				C94210F513900C8A004BA536 /* nftw.c in Sources */,
 				C94210F613900C8A004BA536 /* nlist.c in Sources */,
-				C94210F713900C8A004BA536 /* NSSystemDirectories.c in Sources */,
 				C94210F813900C8A004BA536 /* oldsyslog.c in Sources */,
 				C94210FB13900C8A004BA536 /* setlogin.c in Sources */,
 				C94210FC13900C8A004BA536 /* sigsetops.c in Sources */,
@@ -9885,6 +9832,7 @@
 				C942116713900C8A004BA536 /* ascii2addr.c in Sources */,
 				C942116813900C8A004BA536 /* inet_addr.c in Sources */,
 				C942116913900C8A004BA536 /* inet_lnaof.c in Sources */,
+				2DF67CDE184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C942116A13900C8A004BA536 /* inet_makeaddr.c in Sources */,
 				C942116B13900C8A004BA536 /* inet_net_ntop.c in Sources */,
 				C942116C13900C8A004BA536 /* inet_net_pton.c in Sources */,
@@ -10124,7 +10072,7 @@
 				C942128D13900C8A004BA536 /* wmemcpy.c in Sources */,
 				C942128E13900C8A004BA536 /* wmemmove.c in Sources */,
 				C942128F13900C8A004BA536 /* wmemset.c in Sources */,
-				C942129013900C8A004BA536 /* __libc_init.c in Sources */,
+				C942129013900C8A004BA536 /* _libc_init.c in Sources */,
 				C942129113900C8A004BA536 /* _libc_fork_child.c in Sources */,
 				C942129213900C8A004BA536 /* chmodx_np.c in Sources */,
 				C942129413900C8A004BA536 /* crt_externs.c in Sources */,
@@ -10182,7 +10130,6 @@
 				FC2ED610157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED619157D4BE80098EC69 /* inet_pton.c in Sources */,
 				639D126A15595DDE00D0403A /* strnlen.s in Sources */,
-				2B9D61B8157D667600AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -10203,7 +10150,6 @@
 				C95B7EED138F3C55004311DA /* setreuid.c in Sources */,
 				C95B7EEE138F3C55004311DA /* sigaltstk.c in Sources */,
 				C95B7EEF138F3C55004311DA /* sigcompat.c in Sources */,
-				C95B7EF0138F3C55004311DA /* _dirhelper.c in Sources */,
 				C95B7EF1138F3C55004311DA /* kvm.c in Sources */,
 				C95B7EF5138F3C55004311DA /* forceLibcToBuild.c in Sources */,
 				C95B7EF6138F3C55004311DA /* bt_close.c in Sources */,
@@ -10364,7 +10310,6 @@
 				C95B7F9F138F3C55004311DA /* utmpx.c in Sources */,
 				C95B7FA0138F3C55004311DA /* nftw.c in Sources */,
 				C95B7FA1138F3C55004311DA /* nlist.c in Sources */,
-				C95B7FA2138F3C55004311DA /* NSSystemDirectories.c in Sources */,
 				C95B7FA3138F3C55004311DA /* oldsyslog.c in Sources */,
 				C95B7FA6138F3C55004311DA /* setlogin.c in Sources */,
 				C95B7FA7138F3C55004311DA /* sigsetops.c in Sources */,
@@ -10679,9 +10624,10 @@
 				C95B8136138F3C55004311DA /* wmemchr.c in Sources */,
 				C95B8137138F3C55004311DA /* wmemcmp.c in Sources */,
 				C95B8138138F3C55004311DA /* wmemcpy.c in Sources */,
+				2DF67CE2184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C95B8139138F3C55004311DA /* wmemmove.c in Sources */,
 				C95B813A138F3C55004311DA /* wmemset.c in Sources */,
-				C95B813B138F3C55004311DA /* __libc_init.c in Sources */,
+				C95B813B138F3C55004311DA /* _libc_init.c in Sources */,
 				C95B813C138F3C55004311DA /* _libc_fork_child.c in Sources */,
 				C95B813D138F3C55004311DA /* chmodx_np.c in Sources */,
 				C95B813F138F3C55004311DA /* crt_externs.c in Sources */,
@@ -10722,7 +10668,6 @@
 				4B2C64A615519BC600342BFA /* assumes.c in Sources */,
 				FC2ED614157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED61D157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BB157D667900AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -10743,7 +10688,6 @@
 				C95B8198138F52B0004311DA /* setreuid.c in Sources */,
 				C95B8199138F52B0004311DA /* sigaltstk.c in Sources */,
 				C95B819A138F52B0004311DA /* sigcompat.c in Sources */,
-				C95B819B138F52B0004311DA /* _dirhelper.c in Sources */,
 				C95B819C138F52B0004311DA /* kvm.c in Sources */,
 				C95B81A0138F52B0004311DA /* forceLibcToBuild.c in Sources */,
 				C95B81A1138F52B0004311DA /* bt_close.c in Sources */,
@@ -10904,7 +10848,6 @@
 				C95B824A138F52B0004311DA /* utmpx.c in Sources */,
 				C95B824B138F52B0004311DA /* nftw.c in Sources */,
 				C95B824C138F52B0004311DA /* nlist.c in Sources */,
-				C95B824D138F52B0004311DA /* NSSystemDirectories.c in Sources */,
 				C95B824E138F52B0004311DA /* oldsyslog.c in Sources */,
 				C95B8251138F52B0004311DA /* setlogin.c in Sources */,
 				C95B8252138F52B0004311DA /* sigsetops.c in Sources */,
@@ -11219,9 +11162,10 @@
 				C95B83E1138F52B0004311DA /* wmemchr.c in Sources */,
 				C95B83E2138F52B0004311DA /* wmemcmp.c in Sources */,
 				C95B83E3138F52B0004311DA /* wmemcpy.c in Sources */,
+				2DF67CE3184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C95B83E4138F52B0004311DA /* wmemmove.c in Sources */,
 				C95B83E5138F52B0004311DA /* wmemset.c in Sources */,
-				C95B83E6138F52B0004311DA /* __libc_init.c in Sources */,
+				C95B83E6138F52B0004311DA /* _libc_init.c in Sources */,
 				C95B83E7138F52B0004311DA /* _libc_fork_child.c in Sources */,
 				C95B83E8138F52B0004311DA /* chmodx_np.c in Sources */,
 				C95B83EA138F52B0004311DA /* crt_externs.c in Sources */,
@@ -11262,7 +11206,6 @@
 				4B2C64A715519BC700342BFA /* assumes.c in Sources */,
 				FC2ED615157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED61E157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BC157D667A00AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -11283,7 +11226,6 @@
 				C95B843E138F53DB004311DA /* setreuid.c in Sources */,
 				C95B843F138F53DB004311DA /* sigaltstk.c in Sources */,
 				C95B8440138F53DB004311DA /* sigcompat.c in Sources */,
-				C95B8441138F53DB004311DA /* _dirhelper.c in Sources */,
 				C95B8442138F53DB004311DA /* kvm.c in Sources */,
 				C95B8446138F53DB004311DA /* forceLibcToBuild.c in Sources */,
 				C95B8447138F53DB004311DA /* bt_close.c in Sources */,
@@ -11444,7 +11386,6 @@
 				C95B84F0138F53DB004311DA /* utmpx.c in Sources */,
 				C95B84F1138F53DB004311DA /* nftw.c in Sources */,
 				C95B84F2138F53DB004311DA /* nlist.c in Sources */,
-				C95B84F3138F53DB004311DA /* NSSystemDirectories.c in Sources */,
 				C95B84F4138F53DB004311DA /* oldsyslog.c in Sources */,
 				C95B84F7138F53DB004311DA /* setlogin.c in Sources */,
 				C95B84F8138F53DB004311DA /* sigsetops.c in Sources */,
@@ -11759,9 +11700,10 @@
 				C95B8687138F53DB004311DA /* wmemchr.c in Sources */,
 				C95B8688138F53DB004311DA /* wmemcmp.c in Sources */,
 				C95B8689138F53DB004311DA /* wmemcpy.c in Sources */,
+				2DF67CE4184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C95B868A138F53DB004311DA /* wmemmove.c in Sources */,
 				C95B868B138F53DB004311DA /* wmemset.c in Sources */,
-				C95B868C138F53DB004311DA /* __libc_init.c in Sources */,
+				C95B868C138F53DB004311DA /* _libc_init.c in Sources */,
 				C95B868D138F53DB004311DA /* _libc_fork_child.c in Sources */,
 				C95B868E138F53DB004311DA /* chmodx_np.c in Sources */,
 				C95B8690138F53DB004311DA /* crt_externs.c in Sources */,
@@ -11802,7 +11744,6 @@
 				4B2C64A815519BC700342BFA /* assumes.c in Sources */,
 				FC2ED616157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED61F157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BD157D667A00AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -11824,7 +11765,6 @@
 				C97A6F791517AF53005E1998 /* (null) in Sources */,
 				C97A6F7A1517AF53005E1998 /* (null) in Sources */,
 				C97A6F7E1517AF53005E1998 /* (null) in Sources */,
-				C97A6F8D1517AF53005E1998 /* dirhelper.defs in Sources */,
 				C97A6F8F1517AF53005E1998 /* init_cpu_capabilities.c in Sources */,
 				C97A6F961517AF53005E1998 /* creat.c in Sources */,
 				C97A6F971517AF53005E1998 /* gethostid.c in Sources */,
@@ -11838,7 +11778,6 @@
 				C97A6F9F1517AF53005E1998 /* setreuid.c in Sources */,
 				C97A6FA01517AF53005E1998 /* sigaltstk.c in Sources */,
 				C97A6FA11517AF53005E1998 /* sigcompat.c in Sources */,
-				C97A6FA21517AF53005E1998 /* _dirhelper.c in Sources */,
 				C97A6FA31517AF53005E1998 /* kvm.c in Sources */,
 				C97A6FA71517AF53005E1998 /* forceLibcToBuild.c in Sources */,
 				C97A6FA81517AF53005E1998 /* bt_close.c in Sources */,
@@ -11999,7 +11938,6 @@
 				C97A70511517AF53005E1998 /* utmpx.c in Sources */,
 				C97A70521517AF53005E1998 /* nftw.c in Sources */,
 				C97A70531517AF53005E1998 /* nlist.c in Sources */,
-				C97A70541517AF53005E1998 /* NSSystemDirectories.c in Sources */,
 				C97A70551517AF53005E1998 /* oldsyslog.c in Sources */,
 				C97A70581517AF53005E1998 /* setlogin.c in Sources */,
 				C97A70591517AF53005E1998 /* sigsetops.c in Sources */,
@@ -12040,6 +11978,7 @@
 				C97A708C1517AF53005E1998 /* rune.c in Sources */,
 				C97A708D1517AF53005E1998 /* runetype.c in Sources */,
 				C97A708E1517AF53005E1998 /* setlocale.c in Sources */,
+				2DF67CDF184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C97A708F1517AF53005E1998 /* setrunelocale.c in Sources */,
 				C97A70901517AF53005E1998 /* table.c in Sources */,
 				C97A70911517AF53005E1998 /* tolower.c in Sources */,
@@ -12333,7 +12272,7 @@
 				C97A71C31517AF53005E1998 /* wmemcpy.c in Sources */,
 				C97A71C41517AF53005E1998 /* wmemmove.c in Sources */,
 				C97A71C51517AF53005E1998 /* wmemset.c in Sources */,
-				C97A71C61517AF53005E1998 /* __libc_init.c in Sources */,
+				C97A71C61517AF53005E1998 /* _libc_init.c in Sources */,
 				C97A71C71517AF53005E1998 /* _libc_fork_child.c in Sources */,
 				C97A71C81517AF53005E1998 /* chmodx_np.c in Sources */,
 				C97A71CA1517AF53005E1998 /* crt_externs.c in Sources */,
@@ -12396,7 +12335,6 @@
 				4B2C64A415519BC400342BFA /* assumes.c in Sources */,
 				FC2ED611157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED61A157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61B9157D667600AF25B8 /* trace.c in Sources */,
 				3F169A3E1643B7BA0029E851 /* memccpy_chk.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -12434,7 +12372,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C9C2A95C138E03C700287F00 /* dirhelper.defs in Sources */,
 				C9C2A959138E025700287F00 /* sigaltstk.c in Sources */,
 				C9C2A95A138E025700287F00 /* sigcompat.c in Sources */,
 				C9C2A97D138E058200287F00 /* brk.c in Sources */,
@@ -12456,6 +12393,7 @@
 				C9C2A9AD138E072500287F00 /* getttyent.c in Sources */,
 				C9C2A9AE138E072500287F00 /* getusershell.c in Sources */,
 				C9C2A9AF138E072500287F00 /* getvfsbyname.c in Sources */,
+				C9ECE2771950E384008E8672 /* atexit_receipt.c in Sources */,
 				C9C2A9B5138E072500287F00 /* nanosleep.c in Sources */,
 				C9C2A9B6138E072500287F00 /* nftw.c in Sources */,
 				C9C2A9B8138E072500287F00 /* setlogin.c in Sources */,
@@ -12464,7 +12402,7 @@
 				C9C2A9BE138E072600287F00 /* thread_stack_pcs.c in Sources */,
 				C9C2A9BF138E072600287F00 /* uname.c in Sources */,
 				C9C2A9C0138E072600287F00 /* utmpx-darwin.c in Sources */,
-				C9C2A9C1138E072600287F00 /* wordexp.c in Sources */,
+				2DF67CE0184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C9A12853138E0BE00003880A /* gmon.c in Sources */,
 				C9A12854138E0C1C0003880A /* isctype.c in Sources */,
 				3FD14576171D42B300B7BAF5 /* bcopy.c in Sources */,
@@ -12497,9 +12435,8 @@
 				C9A12982138E10FB0003880A /* parse.c in Sources */,
 				C9A12983138E10FB0003880A /* unpack.c in Sources */,
 				C9A12984138E10FB0003880A /* unparse.c in Sources */,
-				C9C2A95B138E03C700287F00 /* _dirhelper.c in Sources */,
 				C9C2A983138E058200287F00 /* tcgetsid.c in Sources */,
-				C9FA32FB138E4BD00089A94B /* __libc_init.c in Sources */,
+				C9FA32FB138E4BD00089A94B /* _libc_init.c in Sources */,
 				C9FA32FC138E4BD00089A94B /* _libc_fork_child.c in Sources */,
 				C9FA32FD138E4BD00089A94B /* chmodx_np.c in Sources */,
 				C9FA32FF138E4BD00089A94B /* crt_externs.c in Sources */,
@@ -12515,7 +12452,6 @@
 				C9421015138F23CA004BA536 /* mbrune.c in Sources */,
 				C9421016138F23CA004BA536 /* runedepreciated.c in Sources */,
 				C9421017138F23CA004BA536 /* setinvalidrune.c in Sources */,
-				C9EB2FBB138F6A920075BB52 /* NSSystemDirectories.c in Sources */,
 				C9EB3542138F7D0A0075BB52 /* login.c in Sources */,
 				C9EB3543138F7D0A0075BB52 /* logout.c in Sources */,
 				C9EB3558138F7FF40075BB52 /* nlist.c in Sources */,
@@ -12533,7 +12469,6 @@
 				B19C645D1450F90200032373 /* sync_volume_np.c in Sources */,
 				3FB7E1B5146EF2E000843438 /* dirfd.c in Sources */,
 				4B2C64BA1551B03700342BFA /* assumes.c in Sources */,
-				2B9D61C0157D667C00AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -12563,7 +12498,6 @@
 				C9765EC2138EC61900741512 /* setreuid.c in Sources */,
 				C9765EC3138EC61900741512 /* sigaltstk.c in Sources */,
 				C9765EC4138EC61900741512 /* sigcompat.c in Sources */,
-				C9765EC5138EC61900741512 /* _dirhelper.c in Sources */,
 				C9765EC6138EC61900741512 /* kvm.c in Sources */,
 				C9765ECA138EC61900741512 /* forceLibcToBuild.c in Sources */,
 				C9765ECB138EC61900741512 /* bt_close.c in Sources */,
@@ -12724,7 +12658,6 @@
 				C9765F74138EC61900741512 /* utmpx.c in Sources */,
 				C9765F75138EC61900741512 /* nftw.c in Sources */,
 				C9765F76138EC61900741512 /* nlist.c in Sources */,
-				C9765F77138EC61900741512 /* NSSystemDirectories.c in Sources */,
 				C9765F78138EC61900741512 /* oldsyslog.c in Sources */,
 				C9765F7B138EC61900741512 /* setlogin.c in Sources */,
 				C9765F7C138EC61900741512 /* sigsetops.c in Sources */,
@@ -13039,9 +12972,10 @@
 				C976610B138EC61A00741512 /* wmemchr.c in Sources */,
 				C976610C138EC61A00741512 /* wmemcmp.c in Sources */,
 				C976610D138EC61A00741512 /* wmemcpy.c in Sources */,
+				2DF67CE1184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C976610E138EC61A00741512 /* wmemmove.c in Sources */,
 				C976610F138EC61A00741512 /* wmemset.c in Sources */,
-				C9766110138EC61A00741512 /* __libc_init.c in Sources */,
+				C9766110138EC61A00741512 /* _libc_init.c in Sources */,
 				C9766111138EC61A00741512 /* _libc_fork_child.c in Sources */,
 				C9766112138EC61A00741512 /* chmodx_np.c in Sources */,
 				C9766114138EC61A00741512 /* crt_externs.c in Sources */,
@@ -13082,7 +13016,6 @@
 				4B2C64A515519BC600342BFA /* assumes.c in Sources */,
 				FC2ED613157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED61C157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BA157D667800AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -13103,7 +13036,6 @@
 				C9EB2FDD138F6D880075BB52 /* setreuid.c in Sources */,
 				C9EB2FDE138F6D880075BB52 /* sigaltstk.c in Sources */,
 				C9EB2FDF138F6D880075BB52 /* sigcompat.c in Sources */,
-				C9EB2FE0138F6D880075BB52 /* _dirhelper.c in Sources */,
 				C9EB2FE1138F6D880075BB52 /* kvm.c in Sources */,
 				C9EB2FE5138F6D880075BB52 /* forceLibcToBuild.c in Sources */,
 				C9EB2FE6138F6D880075BB52 /* bt_close.c in Sources */,
@@ -13264,7 +13196,6 @@
 				C9EB308F138F6D880075BB52 /* utmpx.c in Sources */,
 				C9EB3090138F6D880075BB52 /* nftw.c in Sources */,
 				C9EB3091138F6D880075BB52 /* nlist.c in Sources */,
-				C9EB3092138F6D880075BB52 /* NSSystemDirectories.c in Sources */,
 				C9EB3093138F6D880075BB52 /* oldsyslog.c in Sources */,
 				C9EB3096138F6D880075BB52 /* setlogin.c in Sources */,
 				C9EB3097138F6D880075BB52 /* sigsetops.c in Sources */,
@@ -13570,6 +13501,7 @@
 				C9EB321D138F6D880075BB52 /* wcsncpy.c in Sources */,
 				C9EB321E138F6D880075BB52 /* wcsnlen.c in Sources */,
 				C9EB321F138F6D880075BB52 /* wcspbrk.c in Sources */,
+				2DF67CE5184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C9EB3220138F6D880075BB52 /* wcsrchr.c in Sources */,
 				C9EB3221138F6D880075BB52 /* wcsspn.c in Sources */,
 				C9EB3222138F6D880075BB52 /* wcsstr.c in Sources */,
@@ -13581,7 +13513,7 @@
 				C9EB3228138F6D880075BB52 /* wmemcpy.c in Sources */,
 				C9EB3229138F6D880075BB52 /* wmemmove.c in Sources */,
 				C9EB322A138F6D880075BB52 /* wmemset.c in Sources */,
-				C9EB322B138F6D880075BB52 /* __libc_init.c in Sources */,
+				C9EB322B138F6D880075BB52 /* _libc_init.c in Sources */,
 				C9EB322C138F6D880075BB52 /* _libc_fork_child.c in Sources */,
 				C9EB322D138F6D880075BB52 /* chmodx_np.c in Sources */,
 				C9EB322F138F6D880075BB52 /* crt_externs.c in Sources */,
@@ -13623,7 +13555,6 @@
 				4B2C64A915519BC800342BFA /* assumes.c in Sources */,
 				FC2ED617157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED620157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BE157D667B00AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -13644,7 +13575,6 @@
 				C9EB3284138F75580075BB52 /* setreuid.c in Sources */,
 				C9EB3285138F75580075BB52 /* sigaltstk.c in Sources */,
 				C9EB3286138F75580075BB52 /* sigcompat.c in Sources */,
-				C9EB3287138F75580075BB52 /* _dirhelper.c in Sources */,
 				C9EB3288138F75580075BB52 /* kvm.c in Sources */,
 				C9EB328C138F75580075BB52 /* forceLibcToBuild.c in Sources */,
 				C9EB328D138F75580075BB52 /* bt_close.c in Sources */,
@@ -13805,7 +13735,6 @@
 				C9EB3336138F75580075BB52 /* utmpx.c in Sources */,
 				C9EB3337138F75580075BB52 /* nftw.c in Sources */,
 				C9EB3338138F75580075BB52 /* nlist.c in Sources */,
-				C9EB3339138F75580075BB52 /* NSSystemDirectories.c in Sources */,
 				C9EB333A138F75580075BB52 /* oldsyslog.c in Sources */,
 				C9EB333D138F75580075BB52 /* setlogin.c in Sources */,
 				C9EB333E138F75580075BB52 /* sigsetops.c in Sources */,
@@ -14111,6 +14040,7 @@
 				C9EB34C4138F75580075BB52 /* wcsncpy.c in Sources */,
 				C9EB34C5138F75580075BB52 /* wcsnlen.c in Sources */,
 				C9EB34C6138F75580075BB52 /* wcspbrk.c in Sources */,
+				2DF67CE6184F9CBE00B83A3D /* debug_private.c in Sources */,
 				C9EB34C7138F75580075BB52 /* wcsrchr.c in Sources */,
 				C9EB34C8138F75580075BB52 /* wcsspn.c in Sources */,
 				C9EB34C9138F75580075BB52 /* wcsstr.c in Sources */,
@@ -14122,7 +14052,7 @@
 				C9EB34CF138F75580075BB52 /* wmemcpy.c in Sources */,
 				C9EB34D0138F75580075BB52 /* wmemmove.c in Sources */,
 				C9EB34D1138F75580075BB52 /* wmemset.c in Sources */,
-				C9EB34D2138F75580075BB52 /* __libc_init.c in Sources */,
+				C9EB34D2138F75580075BB52 /* _libc_init.c in Sources */,
 				C9EB34D3138F75580075BB52 /* _libc_fork_child.c in Sources */,
 				C9EB34D4138F75580075BB52 /* chmodx_np.c in Sources */,
 				C9EB34D6138F75580075BB52 /* crt_externs.c in Sources */,
@@ -14164,7 +14094,6 @@
 				4B2C64AA15519BCB00342BFA /* assumes.c in Sources */,
 				FC2ED618157D4BE80098EC69 /* inet_ntop.c in Sources */,
 				FC2ED621157D4BE80098EC69 /* inet_pton.c in Sources */,
-				2B9D61BF157D667B00AF25B8 /* trace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -14390,11 +14319,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9766153138ECF0000741512 /* variants.xcconfig */;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "$(VARIANT_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				INCLUDED_SOURCE_FILE_NAMES = "$(VARIANT_INCLUDED_SOURCE_FILE_NAMES)";
-				INSTALL_PATH = /usr/local/lib/dyld;
+				"INSTALL_PATH[sdk=macos*]" = "$(INSTALL_PATH_ACTUAL)";
+				INSTALL_PATH_ACTUAL = /usr/local/lib/dyld;
 				PRODUCT_NAME = c;
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -14406,11 +14337,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9766153138ECF0000741512 /* variants.xcconfig */;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "$(VARIANT_EXCLUDED_SOURCE_FILE_NAMES)";
 				EXECUTABLE_PREFIX = lib;
 				INCLUDED_SOURCE_FILE_NAMES = "$(VARIANT_INCLUDED_SOURCE_FILE_NAMES)";
-				INSTALL_PATH = /usr/local/lib/dyld;
+				"INSTALL_PATH[sdk=macos*]" = "$(INSTALL_PATH_ACTUAL)";
+				INSTALL_PATH_ACTUAL = /usr/local/lib/dyld;
 				PRODUCT_NAME = c;
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;

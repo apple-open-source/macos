@@ -1,6 +1,6 @@
 /*
     commands.h: Commands sent to the card
-    Copyright (C) 2003   Ludovic Rousseau
+    Copyright (C) 2003-2009   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: commands.h 3270 2009-01-05 14:46:36Z rousseau $
+ * $Id: commands.h 6783 2013-10-24 09:36:52Z rousseau $
  */
 
 #define SIZE_GET_SLOT_STATUS 10
@@ -39,7 +39,7 @@ RESPONSECODE SecurePINModify(unsigned int reader_index,
 
 RESPONSECODE CmdEscape(unsigned int reader_index,
 	const unsigned char TxBuffer[], unsigned int TxLength,
-	unsigned char RxBuffer[], unsigned int *RxLength);
+	unsigned char RxBuffer[], unsigned int *RxLength, unsigned int timeout);
 
 RESPONSECODE CmdPowerOff(unsigned int reader_index);
 

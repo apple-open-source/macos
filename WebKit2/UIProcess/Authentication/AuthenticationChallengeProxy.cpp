@@ -37,7 +37,7 @@
 
 namespace WebKit {
 
-AuthenticationChallengeProxy::AuthenticationChallengeProxy(const WebCore::AuthenticationChallenge& authenticationChallenge, uint64_t challengeID, CoreIPC::Connection* connection)
+AuthenticationChallengeProxy::AuthenticationChallengeProxy(const WebCore::AuthenticationChallenge& authenticationChallenge, uint64_t challengeID, IPC::Connection* connection)
     : m_coreAuthenticationChallenge(authenticationChallenge)
     , m_challengeID(challengeID)
     , m_connection(connection)
@@ -62,15 +62,19 @@ void AuthenticationChallengeProxy::useCredential(WebCredential* credential)
     if (!m_challengeID)
         return;
 
-    if (!credential)
-        m_connection->send(Messages::AuthenticationManager::ContinueWithoutCredentialForChallenge(m_challengeID), 0);
-    else {
-        WebCertificateInfo* certificateInfo = credential->certificateInfo();
-        PlatformCertificateInfo platformInfo = certificateInfo ? certificateInfo->platformCertificateInfo() : PlatformCertificateInfo();
-        m_connection->send(Messages::AuthenticationManager::UseCredentialForChallenge(m_challengeID, credential->core(), platformInfo), 0);
+    uint64_t challengeID = m_challengeID;
+    m_challengeID = 0;
+
+    if (!credential) {
+        m_connection->send(Messages::AuthenticationManager::ContinueWithoutCredentialForChallenge(challengeID), 0);
+        return;
     }
 
-    m_challengeID = 0;
+    WebCore::CertificateInfo certificateInfo;
+    if (credential->certificateInfo())
+        certificateInfo = credential->certificateInfo()->certificateInfo();
+
+    m_connection->send(Messages::AuthenticationManager::UseCredentialForChallenge(challengeID, credential->credential(), certificateInfo), 0);
 }
 
 void AuthenticationChallengeProxy::cancel()
@@ -79,6 +83,26 @@ void AuthenticationChallengeProxy::cancel()
         return;
 
     m_connection->send(Messages::AuthenticationManager::CancelChallenge(m_challengeID), 0);
+
+    m_challengeID = 0;
+}
+
+void AuthenticationChallengeProxy::performDefaultHandling()
+{
+    if (!m_challengeID)
+        return;
+
+    m_connection->send(Messages::AuthenticationManager::PerformDefaultHandling(m_challengeID), 0);
+
+    m_challengeID = 0;
+}
+
+void AuthenticationChallengeProxy::rejectProtectionSpaceAndContinue()
+{
+    if (!m_challengeID)
+        return;
+
+    m_connection->send(Messages::AuthenticationManager::RejectProtectionSpaceAndContinue(m_challengeID), 0);
 
     m_challengeID = 0;
 }

@@ -77,14 +77,16 @@ namespace JSC {
 
         static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(vm, globalObject, prototype, TypeInfo(LeafType, 0), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(LeafType, StructureFlags), info());
         }
         
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
         RegExpKey key() { return RegExpKey(m_flags, m_patternString); }
 
     protected:
+        static const unsigned StructureFlags = StructureIsImmortal;
+
         void finishCreation(VM&);
 
     private:
@@ -115,6 +117,10 @@ namespace JSC {
         const char* m_constructionError;
         unsigned m_numSubpatterns;
 #if ENABLE(REGEXP_TRACING)
+        double m_rtMatchOnlyTotalSubjectStringLen;
+        double m_rtMatchTotalSubjectStringLen;
+        unsigned m_rtMatchOnlyCallCount;
+        unsigned m_rtMatchOnlyFoundCount;
         unsigned m_rtMatchCallCount;
         unsigned m_rtMatchFoundCount;
 #endif

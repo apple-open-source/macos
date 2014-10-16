@@ -72,16 +72,12 @@ The output is formatted as specified by
 .St -p1003.2-92 .
 .El
 .Pp
-The
-.Xr csh 1
-has its own and syntactically different builtin version of
-.Nm .
-The utility described here
-is available as
-.Pa /usr/bin/time
-to
-.Xr csh
-users.
+Some shells may provide a builtin
+.Nm
+command which is similar or identical to this utility.
+Consult the
+.Xr builtin 1
+manual page.
 .Sh DIAGNOSTICS
 The
 .Nm
@@ -106,6 +102,7 @@ Otherwise, the exit status of
 shall be that of 
 .Ar utility .
 .Sh SEE ALSO
+.Xr builtin 1 ,
 .Xr csh 1 ,
 .Xr getrusage 2
 .Sh FILES

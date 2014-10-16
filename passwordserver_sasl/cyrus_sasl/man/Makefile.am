@@ -54,6 +54,6 @@ man_MANS = sasl_authorize_t.3 sasl_done.3 sasl_listmech.3 sasl_callbacks.3 \
 	   sasl_auxprop_getctx.3 sasl_auxprop.3 sasl_idle.3 \
 	   sasl_errdetail.3 sasl_user_exists.3 sasl_setpass.3 \
 	   sasl_server_userdb_checkpass_t.3 sasl_server_userdb_setpass_t.3 \
-	   sasl_global_listmech.3
+	   sasl_global_listmech.3 sasl_getconfpath_t.3
 
 EXTRA_DIST = $(man_MANS)

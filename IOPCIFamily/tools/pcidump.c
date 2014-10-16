@@ -1,241 +1,23 @@
 /*
-cc pcidump.c -o /tmp/pcidump -Wall -framework IOKit -framework CoreFoundation -arch i386
+cc tools/pcidump.c -o /tmp/pcidump -Wall -framework IOKit -framework CoreFoundation
  */
 
 #include <assert.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
-
-
-enum {
-	kACPIMethodAddressSpaceRead		= 0,
-	kACPIMethodAddressSpaceWrite	= 1,
-	kACPIMethodDebuggerCommand		= 2,
-	kACPIMethodCount
-};
-
-#pragma pack(1)
-
-typedef UInt32 IOACPIAddressSpaceID;
-
-enum {
-    kIOACPIAddressSpaceIDSystemMemory       = 0,
-    kIOACPIAddressSpaceIDSystemIO           = 1,
-    kIOACPIAddressSpaceIDPCIConfiguration   = 2,
-    kIOACPIAddressSpaceIDEmbeddedController = 3,
-    kIOACPIAddressSpaceIDSMBus              = 4
-};
-
-/*
- * 64-bit ACPI address
- */
-union IOACPIAddress {
-    UInt64 addr64;
-    struct {
-        unsigned int offset     :16;
-        unsigned int function   :3;
-        unsigned int device     :5;
-        unsigned int bus        :8;
-        unsigned int segment    :16;
-        unsigned int reserved   :16;
-    } pci;
-};
-typedef union IOACPIAddress IOACPIAddress;
-
-#pragma pack()
-
-/* Definitions of PCI Config Registers */
-enum {
-    kIOPCIConfigVendorID                = 0x00,
-    kIOPCIConfigDeviceID                = 0x02,
-    kIOPCIConfigCommand                 = 0x04,
-    kIOPCIConfigStatus                  = 0x06,
-    kIOPCIConfigRevisionID              = 0x08,
-    kIOPCIConfigClassCode               = 0x09,
-    kIOPCIConfigCacheLineSize           = 0x0C,
-    kIOPCIConfigLatencyTimer            = 0x0D,
-    kIOPCIConfigHeaderType              = 0x0E,
-    kIOPCIConfigBIST                    = 0x0F,
-    kIOPCIConfigBaseAddress0            = 0x10,
-    kIOPCIConfigBaseAddress1            = 0x14,
-    kIOPCIConfigBaseAddress2            = 0x18,
-    kIOPCIConfigBaseAddress3            = 0x1C,
-    kIOPCIConfigBaseAddress4            = 0x20,
-    kIOPCIConfigBaseAddress5            = 0x24,
-    kIOPCIConfigCardBusCISPtr           = 0x28,
-    kIOPCIConfigSubSystemVendorID       = 0x2C,
-    kIOPCIConfigSubSystemID             = 0x2E,
-    kIOPCIConfigExpansionROMBase        = 0x30,
-    kIOPCIConfigCapabilitiesPtr         = 0x34,
-    kIOPCIConfigInterruptLine           = 0x3C,
-    kIOPCIConfigInterruptPin            = 0x3D,
-    kIOPCIConfigMinimumGrant            = 0x3E,
-    kIOPCIConfigMaximumLatency          = 0x3F
-};
-
-/* Definitions of Capabilities PCI Config Register */
-enum {
-    kIOPCICapabilityIDOffset            = 0x00,
-    kIOPCINextCapabilityOffset          = 0x01,
-
-    kIOPCIPowerManagementCapability     = 0x01,
-    kIOPCIAGPCapability                 = 0x02,
-    kIOPCIVitalProductDataCapability    = 0x03,
-    kIOPCISlotIDCapability              = 0x04,
-    kIOPCIMSICapability                 = 0x05,
-    kIOPCICPCIHotswapCapability         = 0x06,
-    kIOPCIPCIXCapability                = 0x07,
-    kIOPCILDTCapability                 = 0x08,
-    kIOPCIVendorSpecificCapability      = 0x09,
-    kIOPCIDebugPortCapability           = 0x0a,
-    kIOPCICPCIResourceControlCapability = 0x0b,
-    kIOPCIHotplugCapability             = 0x0c,
-    kIOPCIAGP8Capability                = 0x0e,
-    kIOPCISecureCapability              = 0x0f,
-    kIOPCIPCIExpressCapability          = 0x10,
-    kIOPCIMSIXCapability                = 0x11,
-
-    kIOPCIExpressErrorReportingCapability     = -1UL,
-    kIOPCIExpressVirtualChannelCapability     = -2UL,
-    kIOPCIExpressDeviceSerialNumberCapability = -3UL,
-    kIOPCIExpressPowerBudgetCapability        = -4UL
-};
-
-/* Space definitions */
-enum {
-    kIOPCIConfigSpace           = 0,
-    kIOPCIIOSpace               = 1,
-    kIOPCI32BitMemorySpace      = 2,
-    kIOPCI64BitMemorySpace      = 3
-};
-
-/* Command register definitions */
-enum {
-    kIOPCICommandIOSpace                = 0x0001,
-    kIOPCICommandMemorySpace            = 0x0002,
-    kIOPCICommandBusMaster              = 0x0004,
-    kIOPCICommandSpecialCycles          = 0x0008,
-    kIOPCICommandMemWrInvalidate        = 0x0010,
-    kIOPCICommandPaletteSnoop           = 0x0020,
-    kIOPCICommandParityError            = 0x0040,
-    kIOPCICommandAddressStepping        = 0x0080,
-    kIOPCICommandSERR                   = 0x0100,
-    kIOPCICommandFastBack2Back          = 0x0200,
-    kIOPCICommandInterruptDisable       = 0x0400
-};
-
-/* Status register definitions */
-enum {
-    kIOPCIStatusCapabilities            = 0x0010,
-    kIOPCIStatusPCI66                   = 0x0020,
-    kIOPCIStatusUDF                     = 0x0040,
-    kIOPCIStatusFastBack2Back           = 0x0080,
-    kIOPCIStatusDevSel0                 = 0x0000,
-    kIOPCIStatusDevSel1                 = 0x0200,
-    kIOPCIStatusDevSel2                 = 0x0400,
-    kIOPCIStatusDevSel3                 = 0x0600,
-    kIOPCIStatusTargetAbortCapable      = 0x0800,
-    kIOPCIStatusTargetAbortActive       = 0x1000,
-    kIOPCIStatusMasterAbortActive       = 0x2000,
-    kIOPCIStatusSERRActive              = 0x4000,
-    kIOPCIStatusParityErrActive         = 0x8000
-};
-
-// constants which are part of the PCI Bus Power Management Spec.
-enum
-{
-    // capabilities bits in the 16 bit capabilities register
-    kPCIPMCPMESupportFromD3Cold = 0x8000,
-    kPCIPMCPMESupportFromD3Hot  = 0x4000,
-    kPCIPMCPMESupportFromD2             = 0x2000,
-    kPCIPMCPMESupportFromD1             = 0x1000,
-    kPCIPMCPMESupportFromD0             = 0x0800,
-    kPCIPMCD2Support                    = 0x0400,
-    kPCIPMCD1Support                    = 0x0200,
- 
-    kPCIPMCD3Support                    = 0x0001
-};
-
-enum
-{
-    // bits in the power management control/status register
-    kPCIPMCSPMEStatus                   = 0x8000,
-    kPCIPMCSPMEEnable                   = 0x0100,
-    kPCIPMCSPowerStateMask              = 0x0003,
-    kPCIPMCSPowerStateD3                = 0x0003,
-    kPCIPMCSPowerStateD2                = 0x0002,
-    kPCIPMCSPowerStateD1                = 0x0001,
-    kPCIPMCSPowerStateD0                = 0x0000,
-    
-    kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0)
-};
-
-union IOPCIAddressSpace {
-    UInt32              bits;
-    struct {
-#if __BIG_ENDIAN__
-        unsigned int    resv:4;
-        unsigned int    registerNumExtended:4;
-        unsigned int    busNum:8;
-        unsigned int    deviceNum:5;
-        unsigned int    functionNum:3;
-        unsigned int    registerNum:8;
-#elif __LITTLE_ENDIAN__
-        unsigned int    registerNum:8;
-        unsigned int    functionNum:3;
-        unsigned int    deviceNum:5;
-        unsigned int    busNum:8;
-        unsigned int    registerNumExtended:4;
-        unsigned int    resv:4;
-#endif
-    } es;
-};
-typedef union IOPCIAddressSpace IOPCIAddressSpace;
-
-
-enum {
-    kPCIHeaderType0 = 0,
-    kPCIHeaderType1 = 1,
-    kPCIHeaderType2 = 2
-};
-
-enum {
-    kPCI2PCIPrimaryBus          = 0x18,
-    kPCI2PCISecondaryBus        = 0x19,
-    kPCI2PCISubordinateBus      = 0x1a,
-    kPCI2PCISecondaryLT         = 0x1b,
-    kPCI2PCIIORange             = 0x1c,
-    kPCI2PCIMemoryRange         = 0x20,
-    kPCI2PCIPrefetchMemoryRange = 0x24,
-    kPCI2PCIPrefetchUpperBase   = 0x28,
-    kPCI2PCIPrefetchUpperLimit  = 0x2c,
-    kPCI2PCIUpperIORange        = 0x30,
-    kPCI2PCIBridgeControl       = 0x3e
-};
-
-
-
-struct AddressSpaceParam {
-	UInt64			value;
-	UInt32			spaceID;
-	IOACPIAddress	address;
-	UInt32			bitWidth;
-	UInt32			bitOffset;
-	UInt32			options;
-};
-typedef struct AddressSpaceParam AddressSpaceParam;
+#include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/pci/IOPCIPrivate.h>
 
 static uint32_t configRead32(io_connect_t connect, uint32_t segment,
                                 uint32_t bus, uint32_t device, uint32_t function,
                                 uint32_t offset)
 {
-    AddressSpaceParam param;
-    kern_return_t     status;
+    IOPCIDiagnosticsParameters param;
+    kern_return_t              status;
 
-    param.spaceID   = kIOACPIAddressSpaceIDPCIConfiguration;
+    param.spaceType = kIOPCIConfigSpace;
     param.bitWidth  = 32;
-    param.bitOffset = 0;
     param.options   = 0;
 
     param.address.pci.offset   = offset;
@@ -247,9 +29,9 @@ static uint32_t configRead32(io_connect_t connect, uint32_t segment,
     param.value                = -1ULL;
 
     size_t outSize = sizeof(param);
-    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceRead,
-                                            &param, sizeof(param),
-                                            &param, &outSize);
+    status = IOConnectCallStructMethod(connect, kIOPCIDiagnosticsMethodRead,
+                                       &param, sizeof(param),
+                                       &param, &outSize);
     assert(kIOReturnSuccess == status);
     return ((uint32_t) param.value);
 }
@@ -260,12 +42,11 @@ static void configWrite32(io_connect_t connect, uint32_t segment,
                                 uint32_t offset,
                                 uint32_t data)
 {
-    AddressSpaceParam param;
-    kern_return_t     status;
+    IOPCIDiagnosticsParameters param;
+    kern_return_t              status;
 
-    param.spaceID   = kIOACPIAddressSpaceIDPCIConfiguration;
+    param.spaceType = kIOPCIConfigSpace;
     param.bitWidth  = 32;
-    param.bitOffset = 0;
     param.options   = 0;
 
     param.address.pci.offset   = offset;
@@ -277,47 +58,45 @@ static void configWrite32(io_connect_t connect, uint32_t segment,
     param.value                = data;
 
     size_t outSize = 0;
-    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceWrite,
-                                            &param, sizeof(param),
-                                            NULL, &outSize);
+    status = IOConnectCallStructMethod(connect, kIOPCIDiagnosticsMethodWrite,
+                                       &param, sizeof(param),
+                                       NULL, &outSize);
     assert(kIOReturnSuccess == status);
 }
 
 static void physWrite32(io_connect_t connect, uint64_t offset, uint32_t data)
 {
-    AddressSpaceParam param;
-    kern_return_t     status;
+    IOPCIDiagnosticsParameters param;
+    kern_return_t              status;
 
-    param.spaceID   = kIOACPIAddressSpaceIDSystemMemory;
+    param.spaceType = kIOPCI64BitMemorySpace;
     param.bitWidth  = 32;
-    param.bitOffset = 0;
     param.options   = 0;
 
     param.address.addr64 = offset;
     param.value          = data;
 
     size_t outSize = 0;
-    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceWrite,
-                                            &param, sizeof(param),
-                                            NULL, &outSize);
+    status = IOConnectCallStructMethod(connect, kIOPCIDiagnosticsMethodWrite,
+                                       &param, sizeof(param),
+                                       NULL, &outSize);
     assert(kIOReturnSuccess == status);
 }
 
 static uint32_t physRead32(io_connect_t connect, uint64_t offset)
 {
-    AddressSpaceParam param;
-    kern_return_t     status;
+    IOPCIDiagnosticsParameters param;
+    kern_return_t              status;
 
-    param.spaceID   = kIOACPIAddressSpaceIDSystemMemory;
+    param.spaceType = kIOPCI64BitMemorySpace;
     param.bitWidth  = 32;
-    param.bitOffset = 0;
     param.options   = 0;
 
     param.address.addr64 = offset;
     param.value          = -1ULL;
 
     size_t outSize = sizeof(param);
-    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceRead,
+    status = IOConnectCallStructMethod(connect, kIOPCIDiagnosticsMethodRead,
                                             &param, sizeof(param),
                                             &param, &outSize);
     assert(kIOReturnSuccess == status);
@@ -327,19 +106,18 @@ static uint32_t physRead32(io_connect_t connect, uint64_t offset)
 
 static uint32_t ioRead32(io_connect_t connect, uint64_t offset)
 {
-    AddressSpaceParam param;
-    kern_return_t     status;
+    IOPCIDiagnosticsParameters param;
+    kern_return_t              status;
 
-    param.spaceID   = kIOACPIAddressSpaceIDSystemIO;
+    param.spaceType = kIOPCIIOSpace;
     param.bitWidth  = 16;
-    param.bitOffset = 0;
     param.options   = 0;
 
     param.address.addr64 = offset;
     param.value          = -1ULL;
 
     size_t outSize = sizeof(param);
-    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceRead,
+    status = IOConnectCallStructMethod(connect, kIOPCIDiagnosticsMethodRead,
                                             &param, sizeof(param),
                                             &param, &outSize);
     assert(kIOReturnSuccess == status);
@@ -477,11 +255,11 @@ int main(int argc, char **argv)
     kern_return_t          status;
 
     service = IOServiceGetMatchingService(kIOMasterPortDefault, 
-                                            IOServiceMatching("AppleACPIPlatformExpert"));
+                                            IOServiceMatching("IOPCIBridge"));
     assert(service);
     if (service) 
     {
-        status = IOServiceOpen(service, mach_task_self(), 0, &connect);
+        status = IOServiceOpen(service, mach_task_self(), kIOPCIDiagnosticsClientType, &connect);
         IOObjectRelease(service);
         assert(kIOReturnSuccess == status);
     }

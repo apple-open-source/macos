@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,28 +32,44 @@
 #include "MediaPlayerPrivateAVFoundationCF.h"
 
 #include "ApplicationCacheResource.h"
+#include "CDMSessionAVFoundationCF.h"
 #include "COMPtr.h"
 #include "FloatConversion.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#if HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
 #include "InbandTextTrackPrivateAVCF.h"
-#include "KURL.h"
+#else
+#include "InbandTextTrackPrivateLegacyAVCF.h"
+#endif
+#include "URL.h"
 #include "Logging.h"
-#include "PlatformCALayer.h"
+#include "PlatformCALayerWin.h"
 #include "SoftLinking.h"
 #include "TimeRanges.h"
+#include "WebCoreAVCFResourceLoader.h"
 
 #include <AVFoundationCF/AVCFPlayerItem.h>
+#if HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
 #include <AVFoundationCF/AVCFPlayerItemLegibleOutput.h>
+#endif
 #include <AVFoundationCF/AVCFPlayerLayer.h>
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE) || HAVE(ENCRYPTED_MEDIA_V2)
+#include <AVFoundationCF/AVCFAssetResourceLoader.h>
+#endif
 #include <AVFoundationCF/AVFoundationCF.h>
 #include <CoreMedia/CoreMedia.h>
+#include "WebKitQuartzCoreAdditions/WKCACFTypes.h"
 #include <delayimp.h>
 #include <dispatch/dispatch.h>
-#include <WebKitQuartzCoreAdditions/WKCACFTypes.h>
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+#include <runtime/DataView.h>
+#include <runtime/Uint16Array.h>
+#endif
 #include <wtf/HashMap.h>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringView.h>
 
 // The softlink header files must be included after the AVCF and CoreMedia header files.
 #include "AVFoundationCFSoftLinking.h"
@@ -101,14 +117,18 @@ public:
     void checkPlayability();
     void beginLoadingMetadata();
     
-    void seekToTime(float);
+    void seekToTime(double, double, double);
+    void updateVideoLayerGravity();
 
-    void setCurrentTrack(InbandTextTrackPrivateAVF*);
-    InbandTextTrackPrivateAVF* currentTrack() const { return m_currentTrack; }
+    void setCurrentTextTrack(InbandTextTrackPrivateAVF*);
+    InbandTextTrackPrivateAVF* currentTextTrack() const { return m_currentTextTrack; }
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
     static void legibleOutputCallback(void* context, AVCFPlayerItemLegibleOutputRef, CFArrayRef attributedString, CFArrayRef nativeSampleBuffers, CMTime itemTime);
     static void processCue(void* context);
+#endif
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    static Boolean resourceLoaderShouldWaitForLoadingOfRequestedResource(AVCFAssetResourceLoaderRef, AVCFAssetResourceLoadingRequestRef, void* context);
 #endif
     static void loadMetadataCompletionCallback(AVCFAssetRef, void*);
     static void loadPlayableCompletionCallback(AVCFAssetRef, void*);
@@ -129,6 +149,10 @@ public:
 #endif
     inline dispatch_queue_t dispatchQueue() const { return m_notificationQueue; }
 
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    RetainPtr<AVCFAssetResourceLoadingRequestRef> takeRequestForKeyURI(const String&);
+#endif
+
 private:
     inline void* callbackContext() const { return reinterpret_cast<void*>(m_objectID); }
 
@@ -137,6 +161,10 @@ private:
     static AVFWrapper* avfWrapperForCallbackContext(void*);
     void addToMap();
     void removeFromMap() const;
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    bool shouldWaitForLoadingOfResource(AVCFAssetResourceLoadingRequestRef avRequest);
+    static void processShouldWaitForLoadingOfResource(void* context);
+#endif
 
     static void disconnectAndDeleteAVFWrapper(void*);
 
@@ -155,6 +183,7 @@ private:
     RetainPtr<AVCFPlayerItemLegibleOutputRef> m_legibleOutput;
     RetainPtr<AVCFMediaSelectionGroupRef> m_selectionGroup;
 #endif
+
     dispatch_queue_t m_notificationQueue;
 
     mutable RetainPtr<CACFLayerRef> m_caVideoLayer;
@@ -163,7 +192,11 @@ private:
     OwnPtr<LayerClient> m_layerClient;
     COMPtr<IDirect3DDevice9Ex> m_d3dDevice;
 
-    InbandTextTrackPrivateAVF* m_currentTrack;
+    InbandTextTrackPrivateAVF* m_currentTextTrack;
+
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    HashMap<String, RetainPtr<AVCFAssetResourceLoadingRequestRef>> m_keyURIToRequestMap;
+#endif
 };
 
 uintptr_t AVFWrapper::s_nextAVFWrapperObjectID;
@@ -179,16 +212,14 @@ private:
 
     virtual void platformCALayerAnimationStarted(CFTimeInterval beginTime) { }
     virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
-    virtual void platformCALayerPaintContents(GraphicsContext&, const IntRect& inClip) { }
+    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&) { }
     virtual bool platformCALayerShowDebugBorders() const { return false; }
     virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }
-    virtual int platformCALayerIncrementRepaintCount() { return 0; }
+    virtual int platformCALayerIncrementRepaintCount(PlatformCALayer*) { return 0; }
 
     virtual bool platformCALayerContentsOpaque() const { return false; }
     virtual bool platformCALayerDrawsContent() const { return false; }
-    virtual void platformCALayerLayerDidDisplay(PlatformLayer*) { }
-    virtual void platformCALayerDidCreateTiles(const Vector<FloatRect>&) { }
-    virtual float platformCALayerDeviceScaleFactor() { return 1; }
+    virtual float platformCALayerDeviceScaleFactor() const { return 1; }
 
     AVFWrapper* m_parent;
 };
@@ -226,21 +257,21 @@ static CFArrayRef metadataKeyNames()
 // FIXME: It would be better if AVCFTimedMetadataGroup.h exported this key.
 static CFStringRef CMTimeRangeStartKey()
 {
-    DEFINE_STATIC_LOCAL(CFStringRef, key, (CFSTR("start")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(CFStringRef, key, (CFSTR("start")));
     return key;
 }
 
 // FIXME: It would be better if AVCFTimedMetadataGroup.h exported this key.
 static CFStringRef CMTimeRangeDurationKey()
 {
-    DEFINE_STATIC_LOCAL(CFStringRef, key, (CFSTR("duration")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(CFStringRef, key, (CFSTR("duration")));
     return key;
 }
 
 // FIXME: It would be better if AVCF exported this notification name.
 static CFStringRef CACFContextNeedsFlushNotification()
 {
-    DEFINE_STATIC_LOCAL(CFStringRef, name, (CFSTR("kCACFContextNeedsFlushNotification")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(CFStringRef, name, (CFSTR("kCACFContextNeedsFlushNotification")));
     return name;
 }
 
@@ -283,6 +314,24 @@ inline AVCFMediaSelectionGroupRef safeMediaSelectionGroupForLegibleMedia(AVFWrap
 }
 #endif
 
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+static dispatch_queue_t globalQueue = nullptr;
+
+static void initGlobalLoaderDelegateQueue(void* ctx)
+{
+    globalQueue = dispatch_queue_create("WebCoreAVFLoaderDelegate queue", DISPATCH_QUEUE_SERIAL);
+}
+
+static dispatch_queue_t globalLoaderDelegateQueue()
+{
+    static dispatch_once_t onceToken;
+
+    dispatch_once_f(&onceToken, nullptr, initGlobalLoaderDelegateQueue);
+
+    return globalQueue;
+}
+#endif
+
 PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivateAVFoundationCF::create(MediaPlayer* player) 
 { 
     return adoptPtr(new MediaPlayerPrivateAVFoundationCF(player));
@@ -291,7 +340,7 @@ PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivateAVFoundationCF::create
 void MediaPlayerPrivateAVFoundationCF::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
-        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
+        registrar(create, getSupportedTypes, supportsType, 0, 0, 0, 0);
 }
 
 MediaPlayerPrivateAVFoundationCF::MediaPlayerPrivateAVFoundationCF(MediaPlayer* player)
@@ -305,6 +354,10 @@ MediaPlayerPrivateAVFoundationCF::MediaPlayerPrivateAVFoundationCF(MediaPlayer* 
 MediaPlayerPrivateAVFoundationCF::~MediaPlayerPrivateAVFoundationCF()
 {
     LOG(Media, "MediaPlayerPrivateAVFoundationCF::~MediaPlayerPrivateAVFoundationCF(%p)", this);
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    for (auto& pair : m_resourceLoaderMap)
+        pair.value->invalidate();
+#endif
     cancelLoad();
 }
 
@@ -329,6 +382,14 @@ void MediaPlayerPrivateAVFoundationCF::cancelLoad()
 
     setIgnoreLoadStateChanges(false);
     setDelayCallbacks(false);
+}
+
+void MediaPlayerPrivateAVFoundationCF::updateVideoLayerGravity()
+{
+    ASSERT(supportsAcceleratedRendering());
+
+    if (m_avfWrapper)
+        m_avfWrapper->updateVideoLayerGravity();
 }
 
 bool MediaPlayerPrivateAVFoundationCF::hasLayerRenderer() const
@@ -378,16 +439,16 @@ bool MediaPlayerPrivateAVFoundationCF::hasAvailableVideoFrame() const
     return (m_videoFrameHasDrawn || (videoLayer(m_avfWrapper) && AVCFPlayerLayerIsReadyForDisplay(videoLayer(m_avfWrapper))));
 }
 
-void MediaPlayerPrivateAVFoundationCF::setCurrentTrack(InbandTextTrackPrivateAVF* track)
+void MediaPlayerPrivateAVFoundationCF::setCurrentTextTrack(InbandTextTrackPrivateAVF* track)
 {
     if (m_avfWrapper)
-        m_avfWrapper->setCurrentTrack(track);
+        m_avfWrapper->setCurrentTextTrack(track);
 }
 
-InbandTextTrackPrivateAVF* MediaPlayerPrivateAVFoundationCF::currentTrack() const
+InbandTextTrackPrivateAVF* MediaPlayerPrivateAVFoundationCF::currentTextTrack() const
 {
     if (m_avfWrapper)
-        return m_avfWrapper->currentTrack();
+        return m_avfWrapper->currentTextTrack();
 
     return 0;
 }
@@ -508,7 +569,7 @@ void MediaPlayerPrivateAVFoundationCF::platformPause()
     setDelayCallbacks(false);
 }
 
-float MediaPlayerPrivateAVFoundationCF::platformDuration() const
+double MediaPlayerPrivateAVFoundationCF::platformDuration() const
 {
     if (!metaDataAvailable() || !avAsset(m_avfWrapper))
         return 0;
@@ -522,35 +583,35 @@ float MediaPlayerPrivateAVFoundationCF::platformDuration() const
         cmDuration = AVCFAssetGetDuration(avAsset(m_avfWrapper));
 
     if (CMTIME_IS_NUMERIC(cmDuration))
-        return narrowPrecisionToFloat(CMTimeGetSeconds(cmDuration));
+        return CMTimeGetSeconds(cmDuration);
 
     if (CMTIME_IS_INDEFINITE(cmDuration))
-        return numeric_limits<float>::infinity();
+        return numeric_limits<double>::infinity();
 
     LOG(Media, "MediaPlayerPrivateAVFoundationCF::platformDuration(%p) - invalid duration, returning %.0f", this, static_cast<float>(MediaPlayer::invalidTime()));
     return static_cast<float>(MediaPlayer::invalidTime());
 }
 
-float MediaPlayerPrivateAVFoundationCF::currentTime() const
+double MediaPlayerPrivateAVFoundationCF::currentTimeDouble() const
 {
     if (!metaDataAvailable() || !avPlayerItem(m_avfWrapper))
         return 0;
 
     CMTime itemTime = AVCFPlayerItemGetCurrentTime(avPlayerItem(m_avfWrapper));
     if (CMTIME_IS_NUMERIC(itemTime))
-        return max(narrowPrecisionToFloat(CMTimeGetSeconds(itemTime)), 0.0f);
+        return std::max(CMTimeGetSeconds(itemTime), 0.0);
 
     return 0;
 }
 
-void MediaPlayerPrivateAVFoundationCF::seekToTime(double time)
+void MediaPlayerPrivateAVFoundationCF::seekToTime(double time, double negativeTolerance, double positiveTolerance)
 {
     if (!m_avfWrapper)
         return;
     
     // seekToTime generates several event callbacks, update afterwards.
     setDelayCallbacks(true);
-    m_avfWrapper->seekToTime(time);
+    m_avfWrapper->seekToTime(time, negativeTolerance, positiveTolerance);
     setDelayCallbacks(false);
 }
 
@@ -606,16 +667,16 @@ static bool timeRangeIsValidAndNotEmpty(CMTime start, CMTime duration)
     return true;
 }
 
-PassRefPtr<TimeRanges> MediaPlayerPrivateAVFoundationCF::platformBufferedTimeRanges() const
+std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateAVFoundationCF::platformBufferedTimeRanges() const
 {
-    RefPtr<TimeRanges> timeRanges = TimeRanges::create();
+    auto timeRanges = PlatformTimeRanges::create();
 
     if (!avPlayerItem(m_avfWrapper))
-        return timeRanges.release();
+        return timeRanges;
 
     RetainPtr<CFArrayRef> loadedRanges = adoptCF(AVCFPlayerItemCopyLoadedTimeRanges(avPlayerItem(m_avfWrapper)));
     if (!loadedRanges)
-        return timeRanges.release();
+        return timeRanges;
 
     CFIndex rangeCount = CFArrayGetCount(loadedRanges.get());
     for (CFIndex i = 0; i < rangeCount; i++) {
@@ -624,13 +685,13 @@ PassRefPtr<TimeRanges> MediaPlayerPrivateAVFoundationCF::platformBufferedTimeRan
         CMTime duration = CMTimeMakeFromDictionary(static_cast<CFDictionaryRef>(CFDictionaryGetValue(range, CMTimeRangeDurationKey())));
         
         if (timeRangeIsValidAndNotEmpty(start, duration)) {
-            float rangeStart = narrowPrecisionToFloat(CMTimeGetSeconds(start));
-            float rangeEnd = narrowPrecisionToFloat(CMTimeGetSeconds(CMTimeAdd(start, duration)));
-            timeRanges->add(rangeStart, rangeEnd);
+            double rangeStart = CMTimeGetSeconds(start);
+            double rangeEnd = rangeStart + CMTimeGetSeconds(duration);
+            timeRanges->add(MediaTime::createWithDouble(rangeStart), MediaTime::createWithDouble(rangeEnd));
         }
     }
 
-    return timeRanges.release();
+    return timeRanges;
 }
 
 double MediaPlayerPrivateAVFoundationCF::platformMinTimeSeekable() const 
@@ -709,7 +770,7 @@ float MediaPlayerPrivateAVFoundationCF::platformMaxTimeLoaded() const
     return maxTimeLoaded;   
 }
 
-unsigned MediaPlayerPrivateAVFoundationCF::totalBytes() const
+unsigned long long MediaPlayerPrivateAVFoundationCF::totalBytes() const
 {
     if (!metaDataAvailable() || !avAsset(m_avfWrapper))
         return 0;
@@ -722,8 +783,7 @@ unsigned MediaPlayerPrivateAVFoundationCF::totalBytes() const
         totalMediaSize += AVCFAssetTrackGetTotalSampleDataLength(assetTrack);
     }
 
-    // FIXME: It doesn't seem safe to cast an int64_t to unsigned.
-    return static_cast<unsigned>(totalMediaSize);
+    return static_cast<unsigned long long>(totalMediaSize);
 }
 
 MediaPlayerPrivateAVFoundation::AssetStatus MediaPlayerPrivateAVFoundationCF::assetStatus() const
@@ -805,7 +865,7 @@ void MediaPlayerPrivateAVFoundationCF::paint(GraphicsContext* context, const Int
 
 static HashSet<String> mimeTypeCache()
 {
-    DEFINE_STATIC_LOCAL(HashSet<String>, cache, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(HashSet<String>, cache, ());
     static bool typeListInitialized = false;
 
     if (typeListInitialized)
@@ -830,12 +890,21 @@ void MediaPlayerPrivateAVFoundationCF::getSupportedTypes(HashSet<String>& suppor
     supportedTypes = mimeTypeCache();
 } 
 
-MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationCF::supportsType(const String& type, const String& codecs, const KURL&)
+#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
+static bool keySystemIsSupported(const String& keySystem)
+{
+    if (equalIgnoringCase(keySystem, "com.apple.fps") || equalIgnoringCase(keySystem, "com.apple.fps.1_0"))
+        return true;
+    return false;
+}
+#endif
+
+MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationCF::supportsType(const MediaEngineSupportParameters& parameters)
 {
     // Only return "IsSupported" if there is no codecs parameter for now as there is no way to ask if it supports an
     // extended MIME type until rdar://8721715 is fixed.
-    if (mimeTypeCache().contains(type))
-        return codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
+    if (mimeTypeCache().contains(parameters.type))
+        return parameters.codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
 
     return MediaPlayer::IsNotSupported;
 }
@@ -845,6 +914,21 @@ bool MediaPlayerPrivateAVFoundationCF::isAvailable()
 {
     return AVFoundationCFLibrary() && CoreMediaLibrary();
 }
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+void MediaPlayerPrivateAVFoundationCF::didCancelLoadingRequest(AVCFAssetResourceLoadingRequestRef avRequest)
+{
+    WebCoreAVCFResourceLoader* resourceLoader = m_resourceLoaderMap.get(avRequest);
+
+    if (resourceLoader)
+        resourceLoader->stopLoading();
+}
+
+void MediaPlayerPrivateAVFoundationCF::didStopLoadingRequest(AVCFAssetResourceLoadingRequestRef avRequest)
+{
+    m_resourceLoaderMap.remove(avRequest);
+}
+#endif
 
 float MediaPlayerPrivateAVFoundationCF::mediaTimeForTimeValue(float timeValue) const
 {
@@ -993,6 +1077,24 @@ bool MediaPlayerPrivateAVFoundationCF::requiresImmediateCompositing() const
     return true;
 }
 
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+RetainPtr<AVCFAssetResourceLoadingRequestRef> MediaPlayerPrivateAVFoundationCF::takeRequestForKeyURI(const String& keyURI)
+{
+    if (!m_avfWrapper)
+        return nullptr;
+
+    return m_avfWrapper->takeRequestForKeyURI(keyURI);
+}
+
+std::unique_ptr<CDMSession> MediaPlayerPrivateAVFoundationCF::createSession(const String& keySystem)
+{
+    if (!keySystemIsSupported(keySystem))
+        return nullptr;
+
+    return std::make_unique<CDMSessionAVFoundationCF>(this);
+}
+#endif
+
 #if !HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
 void MediaPlayerPrivateAVFoundationCF::processLegacyClosedCaptionsTracks()
 {
@@ -1021,7 +1123,7 @@ void MediaPlayerPrivateAVFoundationCF::processLegacyClosedCaptionsTracks()
 
         bool newCCTrack = true;
         for (unsigned i = removedTextTracks.size(); i > 0; --i) {
-            if (!removedTextTracks[i - 1]->isLegacyClosedCaptionsTrack())
+            if (removedTextTracks[i - 1]->textTrackCategory() != InbandTextTrackPrivateAVF::LegacyClosedCaption)
                 continue;
 
             RefPtr<InbandTextTrackPrivateLegacyAVCF> track = static_cast<InbandTextTrackPrivateLegacyAVCF*>(m_textTracks[i - 1].get());
@@ -1068,7 +1170,7 @@ void MediaPlayerPrivateAVFoundationCF::processMediaSelectionOptions()
         AVCFMediaSelectionOptionRef option = static_cast<AVCFMediaSelectionOptionRef>(CFArrayGetValueAtIndex(legibleOptions.get(), i));
         bool newTrack = true;
         for (unsigned i = removedTextTracks.size(); i > 0; --i) {
-            if (removedTextTracks[i - 1]->isLegacyClosedCaptionsTrack())
+            if (removedTextTracks[i - 1]->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
                 continue;
 
             RefPtr<InbandTextTrackPrivateAVCF> track = static_cast<InbandTextTrackPrivateAVCF*>(removedTextTracks[i - 1].get());
@@ -1081,7 +1183,7 @@ void MediaPlayerPrivateAVFoundationCF::processMediaSelectionOptions()
         if (!newTrack)
             continue;
 
-        m_textTracks.append(InbandTextTrackPrivateAVCF::create(this, option));
+        m_textTracks.append(InbandTextTrackPrivateAVCF::create(this, option, InbandTextTrackPrivate::Generic));
     }
 
     processNewAndRemovedTextTracks(removedTextTracks);
@@ -1089,17 +1191,17 @@ void MediaPlayerPrivateAVFoundationCF::processMediaSelectionOptions()
 
 #endif // HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
 
-void AVFWrapper::setCurrentTrack(InbandTextTrackPrivateAVF* track)
+void AVFWrapper::setCurrentTextTrack(InbandTextTrackPrivateAVF* track)
 {
-    if (m_currentTrack == track)
+    if (m_currentTextTrack == track)
         return;
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationCF::setCurrentTrack(%p) - selecting track %p, language = %s", this, track, track ? track->language().string().utf8().data() : "");
+    LOG(Media, "MediaPlayerPrivateAVFoundationCF::setCurrentTextTrack(%p) - selecting track %p, language = %s", this, track, track ? track->language().string().utf8().data() : "");
         
-    m_currentTrack = track;
+    m_currentTextTrack = track;
 
     if (track) {
-        if (track->isLegacyClosedCaptionsTrack())
+        if (track->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
             AVCFPlayerSetClosedCaptionDisplayEnabled(avPlayer(), TRUE);
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
         else
@@ -1174,7 +1276,7 @@ void MediaPlayerPrivateAVFoundationCF::contentsNeedsDisplay()
 AVFWrapper::AVFWrapper(MediaPlayerPrivateAVFoundationCF* owner)
     : m_owner(owner)
     , m_objectID(s_nextAVFWrapperObjectID++)
-    , m_currentTrack(0)
+    , m_currentTextTrack(0)
 {
     ASSERT(isMainThread());
     ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
@@ -1317,15 +1419,25 @@ void AVFWrapper::createAssetForURL(const String& url, bool inheritURI)
 {
     ASSERT(!avAsset());
 
-    RetainPtr<CFURLRef> urlRef = KURL(ParsedURLString, url).createCFURL();
+    RetainPtr<CFURLRef> urlRef = URL(ParsedURLString, url).createCFURL();
 
     RetainPtr<CFMutableDictionaryRef> optionsRef = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
     if (inheritURI)
         CFDictionarySetValue(optionsRef.get(), AVCFURLAssetInheritURIQueryComponentFromReferencingURIKey, kCFBooleanTrue);
 
-    AVCFURLAssetRef assetRef = AVCFURLAssetCreateWithURLAndOptions(kCFAllocatorDefault, urlRef.get(), optionsRef.get(), m_notificationQueue);
-    m_avAsset = adoptCF(assetRef);
+    m_avAsset = adoptCF(AVCFURLAssetCreateWithURLAndOptions(kCFAllocatorDefault, urlRef.get(), optionsRef.get(), m_notificationQueue));
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    AVCFAssetResourceLoaderCallbacks loaderCallbacks;
+    loaderCallbacks.version = kAVCFAssetResourceLoader_CallbacksVersion_1;
+    ASSERT(callbackContext());
+    loaderCallbacks.context = callbackContext();
+    loaderCallbacks.resourceLoaderShouldWaitForLoadingOfRequestedResource = AVFWrapper::resourceLoaderShouldWaitForLoadingOfRequestedResource;
+
+    RetainPtr<AVCFAssetResourceLoaderRef> resourceLoader = adoptCF(AVCFURLAssetGetResourceLoader(m_avAsset.get()));
+    AVCFAssetResourceLoaderSetCallbacks(resourceLoader.get(), &loaderCallbacks, globalLoaderDelegateQueue());
+#endif
 }
 
 void AVFWrapper::createPlayer(IDirect3DDevice9* d3dDevice)
@@ -1570,21 +1682,24 @@ void AVFWrapper::seekCompletedCallback(AVCFPlayerItemRef, Boolean finished, void
     self->m_owner->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::SeekCompleted, static_cast<bool>(finished));
 }
 
-void AVFWrapper::seekToTime(float time)
+void AVFWrapper::seekToTime(double time, double negativeTolerance, double positiveTolerance)
 {
     ASSERT(avPlayerItem());
-    AVCFPlayerItemSeekToTimeWithToleranceAndCompletionCallback(avPlayerItem(), CMTimeMakeWithSeconds(time, 600),
-        kCMTimeZero, kCMTimeZero, &seekCompletedCallback, callbackContext());
+    CMTime cmTime = CMTimeMakeWithSeconds(time, 600);
+    CMTime cmBefore = CMTimeMakeWithSeconds(negativeTolerance, 600);
+    CMTime cmAfter = CMTimeMakeWithSeconds(positiveTolerance, 600);
+    AVCFPlayerItemSeekToTimeWithToleranceAndCompletionCallback(avPlayerItem(), cmTime, cmBefore, cmAfter, &seekCompletedCallback, callbackContext());
 }
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
 struct LegibleOutputData {
     RetainPtr<CFArrayRef> m_attributedStrings;
+    RetainPtr<CFArrayRef> m_samples;
     double m_time;
     void* m_context;
 
-    LegibleOutputData(CFArrayRef strings, double time, void* context)
-        : m_attributedStrings(strings), m_time(time), m_context(context)
+    LegibleOutputData(CFArrayRef strings, CFArrayRef samples, double time, void* context)
+        : m_attributedStrings(strings), m_samples(samples), m_time(time), m_context(context)
     {
     }
 };
@@ -1597,7 +1712,7 @@ void AVFWrapper::processCue(void* context)
     if (!context)
         return;
 
-    OwnPtr<LegibleOutputData> legibleOutputData = adoptPtr(reinterpret_cast<LegibleOutputData*>(context));
+    std::unique_ptr<LegibleOutputData> legibleOutputData(reinterpret_cast<LegibleOutputData*>(context));
 
     MutexLocker locker(mapLock());
     AVFWrapper* self = avfWrapperForCallbackContext(legibleOutputData->m_context);
@@ -1606,15 +1721,15 @@ void AVFWrapper::processCue(void* context)
         return;
     }
 
-    if (!self->m_currentTrack)
+    if (!self->m_currentTextTrack)
         return;
 
-    self->m_currentTrack->processCue(legibleOutputData->m_attributedStrings.get(), legibleOutputData->m_time);
+    self->m_currentTextTrack->processCue(legibleOutputData->m_attributedStrings.get(), legibleOutputData->m_samples.get(), legibleOutputData->m_time);
 }
 
-void AVFWrapper::legibleOutputCallback(void* context, AVCFPlayerItemLegibleOutputRef legibleOutput, CFArrayRef attributedStrings, CFArrayRef /*nativeSampleBuffers*/, CMTime itemTime)
+void AVFWrapper::legibleOutputCallback(void* context, AVCFPlayerItemLegibleOutputRef legibleOutput, CFArrayRef attributedStrings, CFArrayRef nativeSampleBuffers, CMTime itemTime)
 {
-    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
+    ASSERT(dispatch_get_main_queue() != dispatch_get_current_queue());
     MutexLocker locker(mapLock());
     AVFWrapper* self = avfWrapperForCallbackContext(context);
     if (!self) {
@@ -1626,9 +1741,100 @@ void AVFWrapper::legibleOutputCallback(void* context, AVCFPlayerItemLegibleOutpu
 
     ASSERT(legibleOutput == self->m_legibleOutput);
 
-    OwnPtr<LegibleOutputData> legibleOutputData = adoptPtr(new LegibleOutputData(attributedStrings, CMTimeGetSeconds(itemTime), context));
+    auto legibleOutputData = std::make_unique<LegibleOutputData>(attributedStrings, nativeSampleBuffers, CMTimeGetSeconds(itemTime), context);
 
-    dispatch_async_f(dispatch_get_main_queue(), legibleOutputData.leakPtr(), processCue);
+    dispatch_async_f(dispatch_get_main_queue(), legibleOutputData.release(), processCue);
+}
+#endif
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+struct LoadRequestData {
+    RetainPtr<AVCFAssetResourceLoadingRequestRef> m_request;
+    void* m_context;
+
+    LoadRequestData(AVCFAssetResourceLoadingRequestRef request, void* context)
+        : m_request(request), m_context(context)
+    {
+    }
+};
+
+void AVFWrapper::processShouldWaitForLoadingOfResource(void* context)
+{
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
+    ASSERT(context);
+
+    if (!context)
+        return;
+
+    std::unique_ptr<LoadRequestData> loadRequestData(reinterpret_cast<LoadRequestData*>(context));
+
+    MutexLocker locker(mapLock());
+    AVFWrapper* self = avfWrapperForCallbackContext(loadRequestData->m_context);
+    if (!self) {
+        LOG(Media, "AVFWrapper::processShouldWaitForLoadingOfResource invoked for deleted AVFWrapper %d", reinterpret_cast<uintptr_t>(context));
+        AVCFAssetResourceLoadingRequestFinishLoadingWithError(loadRequestData->m_request.get(), nullptr);
+        return;
+    }
+
+    if (!self->shouldWaitForLoadingOfResource(loadRequestData->m_request.get()))
+        AVCFAssetResourceLoadingRequestFinishLoadingWithError(loadRequestData->m_request.get(), nullptr);
+}
+
+bool AVFWrapper::shouldWaitForLoadingOfResource(AVCFAssetResourceLoadingRequestRef avRequest)
+{
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    RetainPtr<CFURLRequestRef> urlRequest = AVCFAssetResourceLoadingRequestGetURLRequest(avRequest);
+    RetainPtr<CFURLRef> requestURL = CFURLRequestGetURL(urlRequest.get());
+    RetainPtr<CFStringRef> schemeRef = adoptCF(CFURLCopyScheme(requestURL.get()));
+    String scheme = schemeRef.get();
+
+    if (scheme == "skd") {
+        RetainPtr<CFURLRef> absoluteURL = adoptCF(CFURLCopyAbsoluteURL(requestURL.get()));
+        RetainPtr<CFStringRef> keyURIRef = CFURLGetString(absoluteURL.get());
+        String keyURI = keyURIRef.get();
+
+        // Create an initData with the following layout:
+        // [4 bytes: keyURI size], [keyURI size bytes: keyURI]
+        unsigned keyURISize = keyURI.length() * sizeof(UChar);
+        RefPtr<ArrayBuffer> initDataBuffer = ArrayBuffer::create(4 + keyURISize, 1);
+        RefPtr<JSC::DataView> initDataView = JSC::DataView::create(initDataBuffer, 0, initDataBuffer->byteLength());
+        initDataView->set<uint32_t>(0, keyURISize, true);
+
+        RefPtr<Uint16Array> keyURIArray = Uint16Array::create(initDataBuffer, 4, keyURI.length());
+        keyURIArray->setRange(reinterpret_cast<const uint16_t*>(StringView(keyURI).upconvertedCharacters().get()), keyURI.length() / sizeof(unsigned char), 0);
+
+        RefPtr<Uint8Array> initData = Uint8Array::create(initDataBuffer, 0, initDataBuffer->byteLength());
+        if (!m_owner->player()->keyNeeded(initData.get()))
+            return false;
+
+        m_keyURIToRequestMap.set(keyURI, avRequest);
+        return true;
+    }
+#endif
+
+    RefPtr<WebCoreAVCFResourceLoader> resourceLoader = WebCoreAVCFResourceLoader::create(m_owner, avRequest);
+    m_owner->m_resourceLoaderMap.add(avRequest, resourceLoader);
+    resourceLoader->startLoading();
+    return true;
+}
+
+Boolean AVFWrapper::resourceLoaderShouldWaitForLoadingOfRequestedResource(AVCFAssetResourceLoaderRef resourceLoader, AVCFAssetResourceLoadingRequestRef loadingRequest, void *context)
+{
+    ASSERT(dispatch_get_main_queue() != dispatch_get_current_queue());
+    MutexLocker locker(mapLock());
+    AVFWrapper* self = avfWrapperForCallbackContext(context);
+    if (!self) {
+        LOG(Media, "AVFWrapper::resourceLoaderShouldWaitForLoadingOfRequestedResource invoked for deleted AVFWrapper %d", reinterpret_cast<uintptr_t>(context));
+        return false;
+    }
+
+    LOG(Media, "AVFWrapper::resourceLoaderShouldWaitForLoadingOfRequestedResource(%p)", self);
+
+    auto loadRequestData = std::make_unique<LoadRequestData>(loadingRequest, context);
+
+    dispatch_async_f(dispatch_get_main_queue(), loadRequestData.release(), processShouldWaitForLoadingOfResource);
+
+    return true;
 }
 #endif
 
@@ -1654,7 +1860,7 @@ PlatformLayer* AVFWrapper::platformLayer()
     if (!m_layerClient)
         return 0;
 
-    m_videoLayerWrapper = PlatformCALayer::create(PlatformCALayer::LayerTypeLayer, m_layerClient.get());
+    m_videoLayerWrapper = PlatformCALayerWin::create(PlatformCALayer::LayerTypeLayer, m_layerClient.get());
     if (!m_videoLayerWrapper)
         return 0;
 
@@ -1663,6 +1869,7 @@ PlatformLayer* AVFWrapper::platformLayer()
     CACFLayerInsertSublayer(m_videoLayerWrapper->platformLayer(), m_caVideoLayer.get(), 0);
     m_videoLayerWrapper->setAnchorPoint(FloatPoint3D());
     m_videoLayerWrapper->setNeedsLayout();
+    updateVideoLayerGravity();
 
     return m_videoLayerWrapper->platformLayer();
 }
@@ -1674,7 +1881,7 @@ void AVFWrapper::createAVCFVideoLayer()
     if (!avPlayer() || m_avCFVideoLayer)
         return;
 
-    // The layer will get hooked up via RenderLayerBacking::updateGraphicsLayerConfiguration().
+    // The layer will get hooked up via RenderLayerBacking::updateConfiguration().
     m_avCFVideoLayer = adoptCF(AVCFPlayerLayerCreateWithAVCFPlayer(kCFAllocatorDefault, avPlayer(), m_notificationQueue));
     LOG(Media, "AVFWrapper::createAVCFVideoLayer(%p) - returning %p", this, videoLayer());
 }
@@ -1737,21 +1944,22 @@ RetainPtr<CGImageRef> AVFWrapper::createImageForTimeInRect(float time, const Int
         return 0;
 
 #if !LOG_DISABLED
-    double start = WTF::currentTime();
+    double start = monotonicallyIncreasingTime();
 #endif
 
     AVCFAssetImageGeneratorSetMaximumSize(m_imageGenerator.get(), CGSize(rect.size()));
-    CGImageRef image = AVCFAssetImageGeneratorCopyCGImageAtTime(m_imageGenerator.get(), CMTimeMakeWithSeconds(time, 600), 0, 0);
+    RetainPtr<CGImageRef> rawimage = adoptCF(AVCFAssetImageGeneratorCopyCGImageAtTime(m_imageGenerator.get(), CMTimeMakeWithSeconds(time, 600), 0, 0));
+    RetainPtr<CGImageRef> image = adoptCF(CGImageCreateCopyWithColorSpace(rawimage.get(), adoptCF(CGColorSpaceCreateDeviceRGB()).get()));
 
 #if !LOG_DISABLED
-    double duration = WTF::currentTime() - start;
+    double duration = monotonicallyIncreasingTime() - start;
     LOG(Media, "AVFWrapper::createImageForTimeInRect(%p) - creating image took %.4f", this, narrowPrecisionToFloat(duration));
 #endif
 
     return image;
 }
 
-#if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
+#if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
 AVCFMediaSelectionGroupRef AVFWrapper::safeMediaSelectionGroupForLegibleMedia() const
 {
     if (!avAsset())
@@ -1761,6 +1969,19 @@ AVCFMediaSelectionGroupRef AVFWrapper::safeMediaSelectionGroupForLegibleMedia() 
         return 0;
 
     return AVCFAssetGetSelectionGroupForMediaCharacteristic(avAsset(), AVCFMediaCharacteristicLegible);
+}
+#endif
+
+void AVFWrapper::updateVideoLayerGravity()
+{
+    // We should call AVCFPlayerLayerSetVideoGravity() here, but it is not yet implemented.
+    // FIXME: <rdar://problem/14884340>
+}
+
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+RetainPtr<AVCFAssetResourceLoadingRequestRef> AVFWrapper::takeRequestForKeyURI(const String& keyURI)
+{
+    return m_keyURIToRequestMap.take(keyURI);
 }
 #endif
 
@@ -1784,7 +2005,7 @@ void LayerClient::platformCALayerLayoutSublayersOfLayer(PlatformCALayer* wrapper
 #else
 // AVFoundation should always be enabled for Apple production builds.
 #if __PRODUCTION__ && !USE(AVFOUNDATION)
-// #error AVFoundation is not enabled!
+#error AVFoundation is not enabled!
 #endif // __PRODUCTION__ && !USE(AVFOUNDATION)
 #endif // USE(AVFOUNDATION)
 #endif // PLATFORM(WIN) && ENABLE(VIDEO)

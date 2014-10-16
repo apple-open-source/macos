@@ -36,7 +36,7 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
-#if !defined(BUILDING_VARIANT) && !TARGET_IPHONE_SIMULATOR
+#if !defined(BUILDING_VARIANT)
 semaphore_t	clock_sem = MACH_PORT_NULL;
 mach_port_t	clock_port = MACH_PORT_NULL;
 

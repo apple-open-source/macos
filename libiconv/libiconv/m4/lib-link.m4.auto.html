@@ -1,0 +1,655 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>lib-link.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">lib-link.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># lib-link.m4 serial 8 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 2001-2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Bruno Haible.
+</span>
+AC_PREREQ(2.50)
+
+<span class="enscript-comment">dnl AC_LIB_LINKFLAGS(name [, dependencies]) searches for libname and
+</span><span class="enscript-comment">dnl the libraries corresponding to explicit and implicit dependencies.
+</span><span class="enscript-comment">dnl Sets and AC_SUBSTs the LIB${NAME} and LTLIB${NAME} variables and
+</span><span class="enscript-comment">dnl augments the CPPFLAGS variable.
+</span>AC_DEFUN([AC_LIB_LINKFLAGS],
+[
+  AC_REQUIRE([AC_LIB_PREPARE_PREFIX])
+  AC_REQUIRE([AC_LIB_RPATH])
+  <span class="enscript-keyword">define</span>([Name],[<span class="enscript-keyword">translit</span>([$1],[./-], [___])])
+  <span class="enscript-keyword">define</span>([NAME],[<span class="enscript-keyword">translit</span>([$1],[abcdefghijklmnopqrstuvwxyz./-],
+                               [ABCDEFGHIJKLMNOPQRSTUVWXYZ___])])
+  AC_CACHE_CHECK([how to link with lib[]$1], [ac_cv_lib[]Name[]_libs], [
+    AC_LIB_LINKFLAGS_BODY([$1], [$2])
+    ac_cv_lib[]Name[]_libs=&quot;$LIB[]NAME&quot;
+    ac_cv_lib[]Name[]_ltlibs=&quot;$LTLIB[]NAME&quot;
+    ac_cv_lib[]Name[]_cppflags=&quot;$INC[]NAME&quot;
+  ])
+  LIB[]NAME=&quot;$ac_cv_lib[]Name[]_libs&quot;
+  LTLIB[]NAME=&quot;$ac_cv_lib[]Name[]_ltlibs&quot;
+  INC[]NAME=&quot;$ac_cv_lib[]Name[]_cppflags&quot;
+  AC_LIB_APPENDTOVAR([CPPFLAGS], [$INC]NAME)
+  AC_SUBST([LIB]NAME)
+  AC_SUBST([LTLIB]NAME)
+  <span class="enscript-comment">dnl Also set HAVE_LIB[]NAME so that AC_LIB_HAVE_LINKFLAGS can reuse the
+</span>  <span class="enscript-comment">dnl results of this search when this library appears as a dependency.
+</span>  HAVE_LIB[]NAME=yes
+  <span class="enscript-keyword">undefine</span>([Name])
+  <span class="enscript-keyword">undefine</span>([NAME])
+])
+
+<span class="enscript-comment">dnl AC_LIB_HAVE_LINKFLAGS(name, dependencies, includes, testcode)
+</span><span class="enscript-comment">dnl searches for libname and the libraries corresponding to explicit and
+</span><span class="enscript-comment">dnl implicit dependencies, together with the specified include files and
+</span><span class="enscript-comment">dnl the ability to compile and link the specified testcode. If found, it
+</span><span class="enscript-comment">dnl sets and AC_SUBSTs HAVE_LIB${NAME}=yes and the LIB${NAME} and
+</span><span class="enscript-comment">dnl LTLIB${NAME} variables and augments the CPPFLAGS variable, and
+</span><span class="enscript-comment">dnl #defines HAVE_LIB${NAME} to 1. Otherwise, it sets and AC_SUBSTs
+</span><span class="enscript-comment">dnl HAVE_LIB${NAME}=no and LIB${NAME} and LTLIB${NAME} to empty.
+</span>AC_DEFUN([AC_LIB_HAVE_LINKFLAGS],
+[
+  AC_REQUIRE([AC_LIB_PREPARE_PREFIX])
+  AC_REQUIRE([AC_LIB_RPATH])
+  <span class="enscript-keyword">define</span>([Name],[<span class="enscript-keyword">translit</span>([$1],[./-], [___])])
+  <span class="enscript-keyword">define</span>([NAME],[<span class="enscript-keyword">translit</span>([$1],[abcdefghijklmnopqrstuvwxyz./-],
+                               [ABCDEFGHIJKLMNOPQRSTUVWXYZ___])])
+
+  <span class="enscript-comment">dnl Search for lib[]Name and define LIB[]NAME, LTLIB[]NAME and INC[]NAME
+</span>  <span class="enscript-comment">dnl accordingly.
+</span>  AC_LIB_LINKFLAGS_BODY([$1], [$2])
+
+  <span class="enscript-comment">dnl Add $INC[]NAME to CPPFLAGS before performing the following checks,
+</span>  <span class="enscript-comment">dnl because if the user has installed lib[]Name and not disabled its use
+</span>  <span class="enscript-comment">dnl via --without-lib[]Name-prefix, he wants to use it.
+</span>  ac_save_CPPFLAGS=&quot;$CPPFLAGS&quot;
+  AC_LIB_APPENDTOVAR([CPPFLAGS], [$INC]NAME)
+
+  AC_CACHE_CHECK([for lib[]$1], [ac_cv_lib[]Name], [
+    ac_save_LIBS=&quot;$LIBS&quot;
+    LIBS=&quot;$LIBS $LIB[]NAME&quot;
+    AC_TRY_LINK([$3], [$4], [ac_cv_lib[]Name=yes], [ac_cv_lib[]Name=no])
+    LIBS=&quot;$ac_save_LIBS&quot;
+  ])
+  if test &quot;$ac_cv_lib[]Name&quot; = yes; then
+    HAVE_LIB[]NAME=yes
+    AC_DEFINE([HAVE_LIB]NAME, 1, [Define if you have the $1 library.])
+    AC_MSG_CHECKING([how to link with lib[]$1])
+    AC_MSG_RESULT([$LIB[]NAME])
+  else
+    HAVE_LIB[]NAME=no
+    <span class="enscript-comment">dnl If $LIB[]NAME didn't lead to a usable library, we don't need
+</span>    <span class="enscript-comment">dnl $INC[]NAME either.
+</span>    CPPFLAGS=&quot;$ac_save_CPPFLAGS&quot;
+    LIB[]NAME=
+    LTLIB[]NAME=
+  fi
+  AC_SUBST([HAVE_LIB]NAME)
+  AC_SUBST([LIB]NAME)
+  AC_SUBST([LTLIB]NAME)
+  <span class="enscript-keyword">undefine</span>([Name])
+  <span class="enscript-keyword">undefine</span>([NAME])
+])
+
+<span class="enscript-comment">dnl Determine the platform dependent parameters needed to use rpath:
+</span><span class="enscript-comment">dnl libext, shlibext, hardcode_libdir_flag_spec, hardcode_libdir_separator,
+</span><span class="enscript-comment">dnl hardcode_direct, hardcode_minus_L.
+</span>AC_DEFUN([AC_LIB_RPATH],
+[
+  <span class="enscript-comment">dnl Tell automake &gt;= 1.10 to complain if config.rpath is missing.
+</span>  m4_ifdef([AC_REQUIRE_AUX_FILE], [AC_REQUIRE_AUX_FILE([config.rpath])])
+  AC_REQUIRE([AC_PROG_CC])                <span class="enscript-comment">dnl we use $CC, $GCC, $LDFLAGS
+</span>  AC_REQUIRE([AC_LIB_PROG_LD])            <span class="enscript-comment">dnl we use $LD, $with_gnu_ld
+</span>  AC_REQUIRE([AC_CANONICAL_HOST])         <span class="enscript-comment">dnl we use $host
+</span>  AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT]) <span class="enscript-comment">dnl we use $ac_aux_dir
+</span>  AC_CACHE_CHECK([for shared library run path origin], acl_cv_rpath, [
+    CC=&quot;$CC&quot; GCC=&quot;$GCC&quot; LDFLAGS=&quot;$LDFLAGS&quot; LD=&quot;$LD&quot; with_gnu_ld=&quot;$with_gnu_ld&quot; \
+    ${CONFIG_SHELL-/bin/sh} &quot;$ac_aux_dir/config.rpath&quot; &quot;$host&quot; &gt; conftest.sh
+    . ./conftest.sh
+    rm -f ./conftest.sh
+    acl_cv_rpath=done
+  ])
+  wl=&quot;$acl_cv_wl&quot;
+  libext=&quot;$acl_cv_libext&quot;
+  shlibext=&quot;$acl_cv_shlibext&quot;
+  hardcode_libdir_flag_spec=&quot;$acl_cv_hardcode_libdir_flag_spec&quot;
+  hardcode_libdir_separator=&quot;$acl_cv_hardcode_libdir_separator&quot;
+  hardcode_direct=&quot;$acl_cv_hardcode_direct&quot;
+  hardcode_minus_L=&quot;$acl_cv_hardcode_minus_L&quot;
+  <span class="enscript-comment">dnl Determine whether the user wants rpath handling at all.
+</span>  AC_ARG_ENABLE(rpath,
+    [  --disable-rpath         do not hardcode runtime library paths],
+    :, enable_rpath=yes)
+])
+
+<span class="enscript-comment">dnl AC_LIB_LINKFLAGS_BODY(name [, dependencies]) searches for libname and
+</span><span class="enscript-comment">dnl the libraries corresponding to explicit and implicit dependencies.
+</span><span class="enscript-comment">dnl Sets the LIB${NAME}, LTLIB${NAME} and INC${NAME} variables.
+</span>AC_DEFUN([AC_LIB_LINKFLAGS_BODY],
+[
+  AC_REQUIRE([AC_LIB_PREPARE_MULTILIB])
+  <span class="enscript-keyword">define</span>([NAME],[<span class="enscript-keyword">translit</span>([$1],[abcdefghijklmnopqrstuvwxyz./-],
+                               [ABCDEFGHIJKLMNOPQRSTUVWXYZ___])])
+  <span class="enscript-comment">dnl By default, look in $includedir and $libdir.
+</span>  use_additional=yes
+  AC_LIB_WITH_FINAL_PREFIX([
+    <span class="enscript-keyword">eval</span> additional_includedir=\&quot;$includedir\&quot;
+    <span class="enscript-keyword">eval</span> additional_libdir=\&quot;$libdir\&quot;
+  ])
+  AC_LIB_ARG_WITH([lib$1-prefix],
+[  --with-lib$1-prefix[=DIR]  search for lib$1 in DIR/<span class="enscript-keyword">include</span> and DIR/lib
+  --without-lib$1-prefix     don't search for lib$1 in includedir and libdir],
+[
+    if test &quot;X$withval&quot; = &quot;Xno&quot;; then
+      use_additional=no
+    else
+      if test &quot;X$withval&quot; = &quot;X&quot;; then
+        AC_LIB_WITH_FINAL_PREFIX([
+          <span class="enscript-keyword">eval</span> additional_includedir=\&quot;$includedir\&quot;
+          <span class="enscript-keyword">eval</span> additional_libdir=\&quot;$libdir\&quot;
+        ])
+      else
+        additional_includedir=&quot;$withval/<span class="enscript-keyword">include</span>&quot;
+        additional_libdir=&quot;$withval/$acl_libdirstem&quot;
+      fi
+    fi
+])
+  <span class="enscript-comment">dnl Search the library and its dependencies in $additional_libdir and
+</span>  <span class="enscript-comment">dnl $LDFLAGS. Using breadth-first-seach.
+</span>  LIB[]NAME=
+  LTLIB[]NAME=
+  INC[]NAME=
+  rpathdirs=
+  ltrpathdirs=
+  names_already_handled=
+  names_next_round='$1 $2'
+  while test -n &quot;$names_next_round&quot;; do
+    names_this_round=&quot;$names_next_round&quot;
+    names_next_round=
+    for name in $names_this_round; do
+      already_handled=
+      for n in $names_already_handled; do
+        if test &quot;$n&quot; = &quot;$name&quot;; then
+          already_handled=yes
+          break
+        fi
+      done
+      if test -z &quot;$already_handled&quot;; then
+        names_already_handled=&quot;$names_already_handled $name&quot;
+        <span class="enscript-comment">dnl See if it was already located by an earlier AC_LIB_LINKFLAGS
+</span>        <span class="enscript-comment">dnl or AC_LIB_HAVE_LINKFLAGS call.
+</span>        uppername=`echo &quot;$name&quot; | sed -e 'y|abcdefghijklmnopqrstuvwxyz./-|ABCDEFGHIJKLMNOPQRSTUVWXYZ___|'`
+        <span class="enscript-keyword">eval</span> value=\&quot;\$HAVE_LIB$uppername\&quot;
+        if test -n &quot;$value&quot;; then
+          if test &quot;$value&quot; = yes; then
+            <span class="enscript-keyword">eval</span> value=\&quot;\$LIB$uppername\&quot;
+            test -z &quot;$value&quot; || LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$value&quot;
+            <span class="enscript-keyword">eval</span> value=\&quot;\$LTLIB$uppername\&quot;
+            test -z &quot;$value&quot; || LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }$value&quot;
+          else
+            <span class="enscript-comment">dnl An earlier call to AC_LIB_HAVE_LINKFLAGS has determined
+</span>            <span class="enscript-comment">dnl that this library doesn't exist. So just drop it.
+</span>            :
+          fi
+        else
+          <span class="enscript-comment">dnl Search the library lib$name in $additional_libdir and $LDFLAGS
+</span>          <span class="enscript-comment">dnl and the already constructed $LIBNAME/$LTLIBNAME.
+</span>          found_dir=
+          found_la=
+          found_so=
+          found_a=
+          if test $use_additional = yes; then
+            if test -n &quot;$shlibext&quot; &amp;&amp; test -f &quot;$additional_libdir/lib$name.$shlibext&quot;; then
+              found_dir=&quot;$additional_libdir&quot;
+              found_so=&quot;$additional_libdir/lib$name.$shlibext&quot;
+              if test -f &quot;$additional_libdir/lib$name.la&quot;; then
+                found_la=&quot;$additional_libdir/lib$name.la&quot;
+              fi
+            else
+              if test -f &quot;$additional_libdir/lib$name.$libext&quot;; then
+                found_dir=&quot;$additional_libdir&quot;
+                found_a=&quot;$additional_libdir/lib$name.$libext&quot;
+                if test -f &quot;$additional_libdir/lib$name.la&quot;; then
+                  found_la=&quot;$additional_libdir/lib$name.la&quot;
+                fi
+              fi
+            fi
+          fi
+          if test &quot;X$found_dir&quot; = &quot;X&quot;; then
+            for x in $LDFLAGS $LTLIB[]NAME; do
+              AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+              case &quot;$x&quot; in
+                -L*)
+                  dir=`echo &quot;X$x&quot; | sed -e 's/^X-L//'`
+                  if test -n &quot;$shlibext&quot; &amp;&amp; test -f &quot;$dir/lib$name.$shlibext&quot;; then
+                    found_dir=&quot;$dir&quot;
+                    found_so=&quot;$dir/lib$name.$shlibext&quot;
+                    if test -f &quot;$dir/lib$name.la&quot;; then
+                      found_la=&quot;$dir/lib$name.la&quot;
+                    fi
+                  else
+                    if test -f &quot;$dir/lib$name.$libext&quot;; then
+                      found_dir=&quot;$dir&quot;
+                      found_a=&quot;$dir/lib$name.$libext&quot;
+                      if test -f &quot;$dir/lib$name.la&quot;; then
+                        found_la=&quot;$dir/lib$name.la&quot;
+                      fi
+                    fi
+                  fi
+                  ;;
+              esac
+              if test &quot;X$found_dir&quot; != &quot;X&quot;; then
+                break
+              fi
+            done
+          fi
+          if test &quot;X$found_dir&quot; != &quot;X&quot;; then
+            <span class="enscript-comment">dnl Found the library.
+</span>            LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }-L$found_dir -l$name&quot;
+            if test &quot;X$found_so&quot; != &quot;X&quot;; then
+              <span class="enscript-comment">dnl Linking with a shared library. We attempt to hardcode its
+</span>              <span class="enscript-comment">dnl directory into the executable's runpath, unless it's the
+</span>              <span class="enscript-comment">dnl standard /usr/lib.
+</span>              if test &quot;$enable_rpath&quot; = no || test &quot;X$found_dir&quot; = &quot;X/usr/$acl_libdirstem&quot;; then
+                <span class="enscript-comment">dnl No hardcoding is needed.
+</span>                LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$found_so&quot;
+              else
+                <span class="enscript-comment">dnl Use an explicit option to hardcode DIR into the resulting
+</span>                <span class="enscript-comment">dnl binary.
+</span>                <span class="enscript-comment">dnl Potentially add DIR to ltrpathdirs.
+</span>                <span class="enscript-comment">dnl The ltrpathdirs will be appended to $LTLIBNAME at the end.
+</span>                haveit=
+                for x in $ltrpathdirs; do
+                  if test &quot;X$x&quot; = &quot;X$found_dir&quot;; then
+                    haveit=yes
+                    break
+                  fi
+                done
+                if test -z &quot;$haveit&quot;; then
+                  ltrpathdirs=&quot;$ltrpathdirs $found_dir&quot;
+                fi
+                <span class="enscript-comment">dnl The hardcoding into $LIBNAME is system dependent.
+</span>                if test &quot;$hardcode_direct&quot; = yes; then
+                  <span class="enscript-comment">dnl Using DIR/libNAME.so during linking hardcodes DIR into the
+</span>                  <span class="enscript-comment">dnl resulting binary.
+</span>                  LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$found_so&quot;
+                else
+                  if test -n &quot;$hardcode_libdir_flag_spec&quot; &amp;&amp; test &quot;$hardcode_minus_L&quot; = no; then
+                    <span class="enscript-comment">dnl Use an explicit option to hardcode DIR into the resulting
+</span>                    <span class="enscript-comment">dnl binary.
+</span>                    LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$found_so&quot;
+                    <span class="enscript-comment">dnl Potentially add DIR to rpathdirs.
+</span>                    <span class="enscript-comment">dnl The rpathdirs will be appended to $LIBNAME at the end.
+</span>                    haveit=
+                    for x in $rpathdirs; do
+                      if test &quot;X$x&quot; = &quot;X$found_dir&quot;; then
+                        haveit=yes
+                        break
+                      fi
+                    done
+                    if test -z &quot;$haveit&quot;; then
+                      rpathdirs=&quot;$rpathdirs $found_dir&quot;
+                    fi
+                  else
+                    <span class="enscript-comment">dnl Rely on &quot;-L$found_dir&quot;.
+</span>                    <span class="enscript-comment">dnl But don't add it if it's already contained in the LDFLAGS
+</span>                    <span class="enscript-comment">dnl or the already constructed $LIBNAME
+</span>                    haveit=
+                    for x in $LDFLAGS $LIB[]NAME; do
+                      AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+                      if test &quot;X$x&quot; = &quot;X-L$found_dir&quot;; then
+                        haveit=yes
+                        break
+                      fi
+                    done
+                    if test -z &quot;$haveit&quot;; then
+                      LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }-L$found_dir&quot;
+                    fi
+                    if test &quot;$hardcode_minus_L&quot; != no; then
+                      <span class="enscript-comment">dnl FIXME: Not sure whether we should use
+</span>                      <span class="enscript-comment">dnl &quot;-L$found_dir -l$name&quot; or &quot;-L$found_dir $found_so&quot;
+</span>                      <span class="enscript-comment">dnl here.
+</span>                      LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$found_so&quot;
+                    else
+                      <span class="enscript-comment">dnl We cannot use $hardcode_runpath_var and LD_RUN_PATH
+</span>                      <span class="enscript-comment">dnl here, because this doesn't fit in flags passed to the
+</span>                      <span class="enscript-comment">dnl compiler. So give up. No hardcoding. This affects only
+</span>                      <span class="enscript-comment">dnl very old systems.
+</span>                      <span class="enscript-comment">dnl FIXME: Not sure whether we should use
+</span>                      <span class="enscript-comment">dnl &quot;-L$found_dir -l$name&quot; or &quot;-L$found_dir $found_so&quot;
+</span>                      <span class="enscript-comment">dnl here.
+</span>                      LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }-l$name&quot;
+                    fi
+                  fi
+                fi
+              fi
+            else
+              if test &quot;X$found_a&quot; != &quot;X&quot;; then
+                <span class="enscript-comment">dnl Linking with a static library.
+</span>                LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$found_a&quot;
+              else
+                <span class="enscript-comment">dnl We shouldn't come here, but anyway it's good to have a
+</span>                <span class="enscript-comment">dnl fallback.
+</span>                LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }-L$found_dir -l$name&quot;
+              fi
+            fi
+            <span class="enscript-comment">dnl Assume the include files are nearby.
+</span>            additional_includedir=
+            case &quot;$found_dir&quot; in
+              */$acl_libdirstem | */$acl_libdirstem/)
+                basedir=`echo &quot;X$found_dir&quot; | sed -e 's,^X,,' -e &quot;s,/$acl_libdirstem/&quot;'*$,,'`
+                additional_includedir=&quot;$basedir/<span class="enscript-keyword">include</span>&quot;
+                ;;
+            esac
+            if test &quot;X$additional_includedir&quot; != &quot;X&quot;; then
+              <span class="enscript-comment">dnl Potentially add $additional_includedir to $INCNAME.
+</span>              <span class="enscript-comment">dnl But don't add it
+</span>              <span class="enscript-comment">dnl   1. if it's the standard /usr/include,
+</span>              <span class="enscript-comment">dnl   2. if it's /usr/local/include and we are using GCC on Linux,
+</span>              <span class="enscript-comment">dnl   3. if it's already present in $CPPFLAGS or the already
+</span>              <span class="enscript-comment">dnl      constructed $INCNAME,
+</span>              <span class="enscript-comment">dnl   4. if it doesn't exist as a directory.
+</span>              if test &quot;X$additional_includedir&quot; != &quot;X/usr/<span class="enscript-keyword">include</span>&quot;; then
+                haveit=
+                if test &quot;X$additional_includedir&quot; = &quot;X/usr/local/<span class="enscript-keyword">include</span>&quot;; then
+                  if test -n &quot;$GCC&quot;; then
+                    case $host_os in
+                      linux* | gnu* | k*bsd*-gnu) haveit=yes;;
+                    esac
+                  fi
+                fi
+                if test -z &quot;$haveit&quot;; then
+                  for x in $CPPFLAGS $INC[]NAME; do
+                    AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+                    if test &quot;X$x&quot; = &quot;X-I$additional_includedir&quot;; then
+                      haveit=yes
+                      break
+                    fi
+                  done
+                  if test -z &quot;$haveit&quot;; then
+                    if test -d &quot;$additional_includedir&quot;; then
+                      <span class="enscript-comment">dnl Really add $additional_includedir to $INCNAME.
+</span>                      INC[]NAME=&quot;${INC[]NAME}${INC[]NAME:+ }-I$additional_includedir&quot;
+                    fi
+                  fi
+                fi
+              fi
+            fi
+            <span class="enscript-comment">dnl Look for dependencies.
+</span>            if test -n &quot;$found_la&quot;; then
+              <span class="enscript-comment">dnl Read the .la file. It defines the variables
+</span>              <span class="enscript-comment">dnl dlname, library_names, old_library, dependency_libs, current,
+</span>              <span class="enscript-comment">dnl age, revision, installed, dlopen, dlpreopen, libdir.
+</span>              save_libdir=&quot;$libdir&quot;
+              case &quot;$found_la&quot; in
+                */* | *\\*) . &quot;$found_la&quot; ;;
+                *) . &quot;./$found_la&quot; ;;
+              esac
+              libdir=&quot;$save_libdir&quot;
+              <span class="enscript-comment">dnl We use only dependency_libs.
+</span>              for dep in $dependency_libs; do
+                case &quot;$dep&quot; in
+                  -L*)
+                    additional_libdir=`echo &quot;X$dep&quot; | sed -e 's/^X-L//'`
+                    <span class="enscript-comment">dnl Potentially add $additional_libdir to $LIBNAME and $LTLIBNAME.
+</span>                    <span class="enscript-comment">dnl But don't add it
+</span>                    <span class="enscript-comment">dnl   1. if it's the standard /usr/lib,
+</span>                    <span class="enscript-comment">dnl   2. if it's /usr/local/lib and we are using GCC on Linux,
+</span>                    <span class="enscript-comment">dnl   3. if it's already present in $LDFLAGS or the already
+</span>                    <span class="enscript-comment">dnl      constructed $LIBNAME,
+</span>                    <span class="enscript-comment">dnl   4. if it doesn't exist as a directory.
+</span>                    if test &quot;X$additional_libdir&quot; != &quot;X/usr/$acl_libdirstem&quot;; then
+                      haveit=
+                      if test &quot;X$additional_libdir&quot; = &quot;X/usr/local/$acl_libdirstem&quot;; then
+                        if test -n &quot;$GCC&quot;; then
+                          case $host_os in
+                            linux* | gnu* | k*bsd*-gnu) haveit=yes;;
+                          esac
+                        fi
+                      fi
+                      if test -z &quot;$haveit&quot;; then
+                        haveit=
+                        for x in $LDFLAGS $LIB[]NAME; do
+                          AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+                          if test &quot;X$x&quot; = &quot;X-L$additional_libdir&quot;; then
+                            haveit=yes
+                            break
+                          fi
+                        done
+                        if test -z &quot;$haveit&quot;; then
+                          if test -d &quot;$additional_libdir&quot;; then
+                            <span class="enscript-comment">dnl Really add $additional_libdir to $LIBNAME.
+</span>                            LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }-L$additional_libdir&quot;
+                          fi
+                        fi
+                        haveit=
+                        for x in $LDFLAGS $LTLIB[]NAME; do
+                          AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+                          if test &quot;X$x&quot; = &quot;X-L$additional_libdir&quot;; then
+                            haveit=yes
+                            break
+                          fi
+                        done
+                        if test -z &quot;$haveit&quot;; then
+                          if test -d &quot;$additional_libdir&quot;; then
+                            <span class="enscript-comment">dnl Really add $additional_libdir to $LTLIBNAME.
+</span>                            LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }-L$additional_libdir&quot;
+                          fi
+                        fi
+                      fi
+                    fi
+                    ;;
+                  -R*)
+                    dir=`echo &quot;X$dep&quot; | sed -e 's/^X-R//'`
+                    if test &quot;$enable_rpath&quot; != no; then
+                      <span class="enscript-comment">dnl Potentially add DIR to rpathdirs.
+</span>                      <span class="enscript-comment">dnl The rpathdirs will be appended to $LIBNAME at the end.
+</span>                      haveit=
+                      for x in $rpathdirs; do
+                        if test &quot;X$x&quot; = &quot;X$dir&quot;; then
+                          haveit=yes
+                          break
+                        fi
+                      done
+                      if test -z &quot;$haveit&quot;; then
+                        rpathdirs=&quot;$rpathdirs $dir&quot;
+                      fi
+                      <span class="enscript-comment">dnl Potentially add DIR to ltrpathdirs.
+</span>                      <span class="enscript-comment">dnl The ltrpathdirs will be appended to $LTLIBNAME at the end.
+</span>                      haveit=
+                      for x in $ltrpathdirs; do
+                        if test &quot;X$x&quot; = &quot;X$dir&quot;; then
+                          haveit=yes
+                          break
+                        fi
+                      done
+                      if test -z &quot;$haveit&quot;; then
+                        ltrpathdirs=&quot;$ltrpathdirs $dir&quot;
+                      fi
+                    fi
+                    ;;
+                  -l*)
+                    <span class="enscript-comment">dnl Handle this in the next round.
+</span>                    names_next_round=&quot;$names_next_round &quot;`echo &quot;X$dep&quot; | sed -e 's/^X-l//'`
+                    ;;
+                  *.la)
+<span class="enscript-string">                    dnl Handle this in the next round. Throw away the .la'</span>s
+                    <span class="enscript-comment">dnl directory; it is already contained in a preceding -L
+</span>                    <span class="enscript-comment">dnl option.
+</span>                    names_next_round=&quot;$names_next_round &quot;`echo &quot;X$dep&quot; | sed -e 's,^X.*/,,' -e 's,^lib,,' -e 's,\.la$,,'`
+                    ;;
+                  *)
+                    <span class="enscript-comment">dnl Most likely an immediate library name.
+</span>                    LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$dep&quot;
+                    LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }$dep&quot;
+                    ;;
+                esac
+              done
+            fi
+          else
+            <span class="enscript-comment">dnl Didn't find the library; assume it is in the system directories
+</span>            <span class="enscript-comment">dnl known to the linker and runtime loader. (All the system
+</span>            <span class="enscript-comment">dnl directories known to the linker should also be known to the
+</span>            <span class="enscript-comment">dnl runtime loader, otherwise the system is severely misconfigured.)
+</span>            LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }-l$name&quot;
+            LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }-l$name&quot;
+          fi
+        fi
+      fi
+    done
+  done
+  if test &quot;X$rpathdirs&quot; != &quot;X&quot;; then
+    if test -n &quot;$hardcode_libdir_separator&quot;; then
+      <span class="enscript-comment">dnl Weird platform: only the last -rpath option counts, the user must
+</span>      <span class="enscript-comment">dnl pass all path elements in one option. We can arrange that for a
+</span>      <span class="enscript-comment">dnl single library, but not when more than one $LIBNAMEs are used.
+</span>      alldirs=
+      for found_dir in $rpathdirs; do
+        alldirs=&quot;${alldirs}${alldirs:+$hardcode_libdir_separator}$found_dir&quot;
+      done
+      <span class="enscript-comment">dnl Note: hardcode_libdir_flag_spec uses $libdir and $wl.
+</span>      acl_save_libdir=&quot;$libdir&quot;
+      libdir=&quot;$alldirs&quot;
+      <span class="enscript-keyword">eval</span> flag=\&quot;$hardcode_libdir_flag_spec\&quot;
+      libdir=&quot;$acl_save_libdir&quot;
+      LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$flag&quot;
+    else
+      <span class="enscript-comment">dnl The -rpath options are cumulative.
+</span>      for found_dir in $rpathdirs; do
+        acl_save_libdir=&quot;$libdir&quot;
+        libdir=&quot;$found_dir&quot;
+        <span class="enscript-keyword">eval</span> flag=\&quot;$hardcode_libdir_flag_spec\&quot;
+        libdir=&quot;$acl_save_libdir&quot;
+        LIB[]NAME=&quot;${LIB[]NAME}${LIB[]NAME:+ }$flag&quot;
+      done
+    fi
+  fi
+  if test &quot;X$ltrpathdirs&quot; != &quot;X&quot;; then
+    <span class="enscript-comment">dnl When using libtool, the option that works for both libraries and
+</span>    <span class="enscript-comment">dnl executables is -R. The -R options are cumulative.
+</span>    for found_dir in $ltrpathdirs; do
+      LTLIB[]NAME=&quot;${LTLIB[]NAME}${LTLIB[]NAME:+ }-R$found_dir&quot;
+    done
+  fi
+])
+
+<span class="enscript-comment">dnl AC_LIB_APPENDTOVAR(VAR, CONTENTS) appends the elements of CONTENTS to VAR,
+</span><span class="enscript-comment">dnl unless already present in VAR.
+</span><span class="enscript-comment">dnl Works only for CPPFLAGS, not for LIB* variables because that sometimes
+</span><span class="enscript-comment">dnl contains two or three consecutive elements that belong together.
+</span>AC_DEFUN([AC_LIB_APPENDTOVAR],
+[
+  for element in [$2]; do
+    haveit=
+    for x in $[$1]; do
+      AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+      if test &quot;X$x&quot; = &quot;X$element&quot;; then
+        haveit=yes
+        break
+      fi
+    done
+    if test -z &quot;$haveit&quot;; then
+      [$1]=&quot;${[$1]}${[$1]:+ }$element&quot;
+    fi
+  done
+])
+
+<span class="enscript-comment">dnl For those cases where a variable contains several -L and -l options
+</span><span class="enscript-comment">dnl referring to unknown libraries and directories, this macro determines the
+</span><span class="enscript-comment">dnl necessary additional linker options for the runtime path.
+</span><span class="enscript-comment">dnl AC_LIB_LINKFLAGS_FROM_LIBS([LDADDVAR], [LIBSVALUE], [USE-LIBTOOL])
+</span><span class="enscript-comment">dnl sets LDADDVAR to linker options needed together with LIBSVALUE.
+</span><span class="enscript-comment">dnl If USE-LIBTOOL evaluates to non-empty, linking with libtool is assumed,
+</span><span class="enscript-comment">dnl otherwise linking without libtool is assumed.
+</span>AC_DEFUN([AC_LIB_LINKFLAGS_FROM_LIBS],
+[
+  AC_REQUIRE([AC_LIB_RPATH])
+  AC_REQUIRE([AC_LIB_PREPARE_MULTILIB])
+  $1=
+  if test &quot;$enable_rpath&quot; != no; then
+    if test -n &quot;$hardcode_libdir_flag_spec&quot; &amp;&amp; test &quot;$hardcode_minus_L&quot; = no; then
+      <span class="enscript-comment">dnl Use an explicit option to hardcode directories into the resulting
+</span>      <span class="enscript-comment">dnl binary.
+</span>      rpathdirs=
+      next=
+      for opt in $2; do
+        if test -n &quot;$next&quot;; then
+          dir=&quot;$next&quot;
+          <span class="enscript-comment">dnl No need to hardcode the standard /usr/lib.
+</span>          if test &quot;X$dir&quot; != &quot;X/usr/$acl_libdirstem&quot;; then
+            rpathdirs=&quot;$rpathdirs $dir&quot;
+          fi
+          next=
+        else
+          case $opt in
+            -L) next=yes ;;
+            -L*) dir=`echo &quot;X$opt&quot; | sed -e 's,^X-L,,'`
+                 <span class="enscript-comment">dnl No need to hardcode the standard /usr/lib.
+</span>                 if test &quot;X$dir&quot; != &quot;X/usr/$acl_libdirstem&quot;; then
+                   rpathdirs=&quot;$rpathdirs $dir&quot;
+                 fi
+                 next= ;;
+            *) next= ;;
+          esac
+        fi
+      done
+      if test &quot;X$rpathdirs&quot; != &quot;X&quot;; then
+        if test -n &quot;&quot;$3&quot;&quot;; then
+          <span class="enscript-comment">dnl libtool is used for linking. Use -R options.
+</span>          for dir in $rpathdirs; do
+            $1=&quot;${$1}${$1:+ }-R$dir&quot;
+          done
+        else
+          <span class="enscript-comment">dnl The linker is used for linking directly.
+</span>          if test -n &quot;$hardcode_libdir_separator&quot;; then
+            <span class="enscript-comment">dnl Weird platform: only the last -rpath option counts, the user
+</span>            <span class="enscript-comment">dnl must pass all path elements in one option.
+</span>            alldirs=
+            for dir in $rpathdirs; do
+              alldirs=&quot;${alldirs}${alldirs:+$hardcode_libdir_separator}$dir&quot;
+            done
+            acl_save_libdir=&quot;$libdir&quot;
+            libdir=&quot;$alldirs&quot;
+            <span class="enscript-keyword">eval</span> flag=\&quot;$hardcode_libdir_flag_spec\&quot;
+            libdir=&quot;$acl_save_libdir&quot;
+            $1=&quot;$flag&quot;
+          else
+            <span class="enscript-comment">dnl The -rpath options are cumulative.
+</span>            for dir in $rpathdirs; do
+              acl_save_libdir=&quot;$libdir&quot;
+              libdir=&quot;$dir&quot;
+              <span class="enscript-keyword">eval</span> flag=\&quot;$hardcode_libdir_flag_spec\&quot;
+              libdir=&quot;$acl_save_libdir&quot;
+              $1=&quot;${$1}${$1:+ }$flag&quot;
+            done
+          fi
+        fi
+      fi
+    fi
+  fi
+  AC_SUBST([$1])
+])
+</pre>
+<hr />
+</body></html>

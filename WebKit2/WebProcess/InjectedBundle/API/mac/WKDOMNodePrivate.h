@@ -23,9 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import <WebKit/WKDOMNode.h>
+#import <WebKit/WKBase.h>
 
-#import <WebKit2/WKDOMNode.h>
+#if WK_API_ENABLED
 
 @interface WKDOMNode (WKPrivate)
 
@@ -33,4 +34,4 @@
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

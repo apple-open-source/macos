@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -37,26 +37,9 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <net/if.h>
-
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000))
-#define	HAVE_REACHABILITY_SERVER
 #include <xpc/xpc.h>
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000))
-
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
-#define	HAVE_GETADDRINFO_INTERFACE_ASYNC_CALL
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
-
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
-#define	HAVE_IPSEC_STATUS
-#define	HAVE_VPN_STATUS
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
 
 
-
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
-#define USE_DNSSERVICEGETADDRINFO
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 
 
 #pragma mark -
@@ -78,10 +61,16 @@ typedef	enum {
 
 
 typedef enum {
+	// by-address SCNetworkReachability targets
 	reachabilityTypeAddress,
 	reachabilityTypeAddressPair,
-	reachabilityTypeName
+	// by-name SCNetworkReachability targets
+	reachabilityTypeName,
+	reachabilityTypePTR
 } ReachabilityAddressType;
+
+#define isReachabilityTypeAddress(type)		(type < reachabilityTypeName)
+#define isReachabilityTypeName(type)		(type >= reachabilityTypeName)
 
 
 typedef struct {
@@ -101,13 +90,16 @@ typedef struct {
 	/* lock */
 	pthread_mutex_t			lock;
 
+	/* logging */
+	Boolean				quiet;
+
 	/* address type */
 	ReachabilityAddressType		type;
 
 	/* target host name */
 	const char			*name;
 	Boolean				needResolve;
-	CFArrayRef			resolvedAddresses;	/* CFArray[CFData] */
+	CFArrayRef			resolvedAddresses;	/* CFArray[CFData] or CFArray[CFString] */
 	int				resolvedError;
 	SCNetworkReachabilityFlags	resolverFlags;
 
@@ -130,16 +122,13 @@ typedef struct {
 	SCNetworkReachabilityCallBack	rlsFunction;
 	SCNetworkReachabilityContext	rlsContext;
 	CFMutableArrayRef		rlList;
+	unsigned int			pending;		// 0 == no notifications queued, else # to be delivered
 
 	dispatch_group_t		dispatchGroup;
 	dispatch_queue_t		dispatchQueue;		// SCNetworkReachabilitySetDispatchQueue
 
 	/* [async] DNS query info */
 	Boolean				haveDNS;
-	mach_port_t			dnsMP;			// != MACH_PORT_NULL (if active)
-	CFMachPortRef			dnsPort;		// for CFRunLoop queries
-	CFRunLoopSourceRef		dnsRLS;			// for CFRunLoop queries
-	dispatch_source_t		dnsSource;		// for dispatch queries
 	struct timeval			dnsQueryStart;
 	struct timeval			dnsQueryEnd;
 
@@ -167,16 +156,18 @@ typedef struct {
 			Boolean		dnsHaveError  :1;	// error during query
 			Boolean		dnsHaveV4     :1;	// have IPv4 (A) reply
 			Boolean		dnsHaveV6     :1;	// have IPv6 (AAAA) reply
-			Boolean		dnsHaveTimeout:1;	// no replies (A and/or AAAA)
+			Boolean		dnsHavePTR    :1;	// have PTR reply
+			Boolean		dnsHaveTimeout:1;	// no replies (A, AAAA, or PTR)
 		};
 	};
 	CFArrayRef			dnsAddresses;		// CFArray[CFData]
 	Boolean				dnsBlocked;		// if DNS query blocked
 	int				dnsError;
-	DNSServiceRef			dnsMain;
+	int				dnsFailures;		// # of unexpected DNSServiceXXX errors
+	int				dnsGeneration;
 	DNSServiceRef			dnsTarget;
+	Boolean				dnsNoAddressesSinceLastTimeout;
 
-#ifdef	HAVE_REACHABILITY_SERVER
 	/* SCNetworkReachability server "client" info */
 	Boolean				serverActive;
 	Boolean				serverBypass;
@@ -192,8 +183,11 @@ typedef struct {
 	unsigned int			serverReferences;	// how many [client] targets
 	CFMutableDictionaryRef		serverWatchers;		// [client_id/target_id] watchers
 
-	Boolean				useVPNAppLayer;		// if App-Layer VPN, only use client mode
-#endif	// HAVE_REACHABILITY_SERVER
+	Boolean				useNEVPN;
+	uid_t				uid;
+	void				*nePolicyResult;
+	Boolean				serverBypassForVPN;	// if serverBypassForVPN, only use client mode
+
 	Boolean				resolverBypass;		// set this flag to bypass resolving the name
 
 
@@ -204,7 +198,6 @@ typedef struct {
 } SCNetworkReachabilityPrivate, *SCNetworkReachabilityPrivateRef;
 
 
-#ifdef	HAVE_REACHABILITY_SERVER
 
 // ------------------------------------------------------------
 
@@ -242,10 +235,14 @@ enum {
 };
 
 #define	REACH_TARGET_NAME		"name"			// string
-#define	REACH_TARGET_IF_INDEX		"if_index"		// int64
-#define	REACH_TARGET_IF_NAME		"if_name"		// string
+
 #define	REACH_TARGET_LOCAL_ADDR		"local_address"		// data (struct sockaddr)
 #define	REACH_TARGET_REMOTE_ADDR	"remote_address"	// data (struct sockaddr)
+
+#define	REACH_TARGET_PTR_ADDR		"ptr_address"		// data (struct sockaddr)
+
+#define	REACH_TARGET_IF_INDEX		"if_index"		// int64
+#define	REACH_TARGET_IF_NAME		"if_name"		// string
 #define	REACH_TARGET_ONDEMAND_BYPASS	"ondemand_bypass"	// bool
 #define REACH_TARGET_RESOLVER_BYPASS	"resolver_bypass"	// bool
 
@@ -274,6 +271,7 @@ enum {
 };
 
 #define REACH_STATUS_CYCLE		"cycle"			// uint64
+#define REACH_STATUS_DNS_FLAGS		"dns_flags"		// uint64
 #define REACH_STATUS_FLAGS		"flags"			// uint64
 #define REACH_STATUS_IF_INDEX		"if_index"		// uint64
 #define REACH_STATUS_IF_NAME		"if_name"		// data (char if_name[IFNAMSIZ])
@@ -283,8 +281,6 @@ enum {
 
 
 // ------------------------------------------------------------
-
-#endif	// HAVE_REACHABILITY_SERVER
 
 
 __BEGIN_DECLS
@@ -296,12 +292,10 @@ CFStringRef
 _SCNetworkReachabilityCopyTargetFlags		(SCNetworkReachabilityRef	target);
 
 void
-__SCNetworkReachabilityPerform			(SCNetworkReachabilityRef	target);
+__SCNetworkReachabilityUpdate			(SCNetworkReachabilityRef	target);
 
 void
-__SCNetworkReachabilityPerformConcurrent	(SCNetworkReachabilityRef	target);
-
-#ifdef	HAVE_REACHABILITY_SERVER
+__SCNetworkReachabilityUpdateConcurrent		(SCNetworkReachabilityRef	target);
 
 dispatch_queue_t
 __SCNetworkReachability_concurrent_queue	(void);
@@ -335,8 +329,6 @@ __SC_checkResolverReachabilityInternal		(SCDynamicStoreRef		*storeP,
 						 const char			*nodename,
 						 uint32_t			*resolver_if_index,
 						 int				*dns_config_index);
-
-#endif	// HAVE_REACHABILITY_SERVER
 
 static __inline__ void
 __SCNetworkReachabilityPrintFlags(SCNetworkReachabilityFlags flags)
@@ -402,4 +394,4 @@ __SCNetworkReachabilityPrintFlags(SCNetworkReachabilityFlags flags)
 
 __END_DECLS
 
-#endif // _SCNETWORKREACHABILITYINTERNAL_H
+#endif	// _SCNETWORKREACHABILITYINTERNAL_H

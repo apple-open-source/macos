@@ -25,19 +25,16 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "RenderSVGEllipse.h"
 
 #include "SVGCircleElement.h"
 #include "SVGEllipseElement.h"
 #include "SVGNames.h"
-#include "SVGStyledTransformableElement.h"
 
 namespace WebCore {
 
-RenderSVGEllipse::RenderSVGEllipse(SVGStyledTransformableElement* node)
-    : RenderSVGShape(node)
+RenderSVGEllipse::RenderSVGEllipse(SVGGraphicsElement& element, PassRef<RenderStyle> style)
+    : RenderSVGShape(element, WTF::move(style))
     , m_usePathFallback(false)
 {
 }
@@ -55,46 +52,46 @@ void RenderSVGEllipse::updateShapeFromElement()
     m_center = FloatPoint();
     m_radii = FloatSize();
 
-    // Fallback to RenderSVGShape if shape has a non-scaling stroke.
-    if (hasNonScalingStroke()) {
-        RenderSVGShape::updateShapeFromElement();
-        m_usePathFallback = true;
-        return;
-    } else
-        m_usePathFallback = false;
-
     calculateRadiiAndCenter();
 
-    // Spec: "A value of zero disables rendering of the element."
-    if (m_radii.width() <= 0 || m_radii.height() <= 0)
+    // Element is invalid if either dimension is negative.
+    if (m_radii.width() < 0 || m_radii.height() < 0)
         return;
+
+    // Spec: "A value of zero disables rendering of the element."
+    if (!m_radii.isEmpty()) {
+        if (hasNonScalingStroke()) {
+            // Fallback to RenderSVGShape if shape has a non-scaling stroke.
+            RenderSVGShape::updateShapeFromElement();
+            m_usePathFallback = true;
+            return;
+        }
+        m_usePathFallback = false;
+    }
 
     m_fillBoundingBox = FloatRect(m_center.x() - m_radii.width(), m_center.y() - m_radii.height(), 2 * m_radii.width(), 2 * m_radii.height());
     m_strokeBoundingBox = m_fillBoundingBox;
-    if (style()->svgStyle()->hasStroke())
+    if (style().svgStyle().hasStroke())
         m_strokeBoundingBox.inflate(strokeWidth() / 2);
 }
 
 void RenderSVGEllipse::calculateRadiiAndCenter()
 {
-    ASSERT(node());
-    if (node()->hasTagName(SVGNames::circleTag)) {
-
-        SVGCircleElement* circle = static_cast<SVGCircleElement*>(node());
-
-        SVGLengthContext lengthContext(circle);
-        float radius = circle->r().value(lengthContext);
+    if (isSVGCircleElement(graphicsElement())) {
+        SVGCircleElement& circle = toSVGCircleElement(graphicsElement());
+        SVGLengthContext lengthContext(&circle);
+        float radius = circle.r().value(lengthContext);
         m_radii = FloatSize(radius, radius);
-        m_center = FloatPoint(circle->cx().value(lengthContext), circle->cy().value(lengthContext));
+        m_center = FloatPoint(circle.cx().value(lengthContext), circle.cy().value(lengthContext));
         return;
     }
 
-    ASSERT(node()->hasTagName(SVGNames::ellipseTag));
-    SVGEllipseElement* ellipse = static_cast<SVGEllipseElement*>(node());
+    ASSERT(isSVGEllipseElement(graphicsElement()));
+    SVGEllipseElement& ellipse = toSVGEllipseElement(graphicsElement());
 
-    SVGLengthContext lengthContext(ellipse);
-    m_radii = FloatSize(ellipse->rx().value(lengthContext), ellipse->ry().value(lengthContext));
-    m_center = FloatPoint(ellipse->cx().value(lengthContext), ellipse->cy().value(lengthContext));
+    SVGLengthContext lengthContext(&ellipse);
+    m_radii = FloatSize(ellipse.rx().value(lengthContext), ellipse.ry().value(lengthContext));
+    m_center = FloatPoint(ellipse.cx().value(lengthContext), ellipse.cy().value(lengthContext));
 }
 
 void RenderSVGEllipse::fillShape(GraphicsContext* context) const
@@ -108,7 +105,7 @@ void RenderSVGEllipse::fillShape(GraphicsContext* context) const
 
 void RenderSVGEllipse::strokeShape(GraphicsContext* context) const
 {
-    if (!style()->svgStyle()->hasVisibleStroke())
+    if (!style().svgStyle().hasVisibleStroke())
         return;
     if (m_usePathFallback) {
         RenderSVGShape::strokeShape(context);
@@ -156,6 +153,10 @@ bool RenderSVGEllipse::shapeDependentFillContains(const FloatPoint& point, const
     return xrX * xrX + yrY * yrY <= 1.0;
 }
 
+bool RenderSVGEllipse::isRenderingDisabled() const
+{
+    // A radius of zero disables rendering of the element, and results in an empty bounding box.
+    return m_fillBoundingBox.isEmpty();
 }
 
-#endif // ENABLE(SVG)
+}

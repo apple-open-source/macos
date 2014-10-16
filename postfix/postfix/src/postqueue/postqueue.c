@@ -60,7 +60,7 @@
 /* .RE
 /* .IP "\fB-s \fIsite\fR"
 /*	Schedule immediate delivery of all mail that is queued for the named
-/*	\fIsite\fR. A numerical site must be specified as a valid RFC 2821
+/*	\fIsite\fR. A numerical site must be specified as a valid RFC 5321
 /*	address literal enclosed in [], just like in email addresses.
 /*	The site must be eligible for the "fast flush" service.
 /*	See \fBflush\fR(8) for more information about the "fast flush"
@@ -187,6 +187,7 @@
 #include <connect.h>
 #include <valid_hostname.h>
 #include <warn_stat.h>
+#include <events.h>
 
 /* Global library. */
 
@@ -352,6 +353,7 @@ static void flush_queue(void)
     if (mail_flush_maildrop() < 0)
 	msg_fatal_status(EX_UNAVAILABLE,
 			 "Cannot flush mail queue - mail system is down");
+    event_drain(2);
 }
 
 /* flush_site - flush mail for site */

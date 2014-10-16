@@ -25,7 +25,7 @@
 
 #import "config.h"
 
-#if ENABLE(FULLSCREEN_API)
+#if ENABLE(FULLSCREEN_API) && !PLATFORM(IOS)
 
 #import "WebCoreFullScreenWindow.h"
 
@@ -42,7 +42,6 @@
     [self setAcceptsMouseMovedEvents:YES];
     [self setReleasedWhenClosed:NO];
     [self setHasShadow:NO];
-    [self setMovable:NO];
 
     return self;
 }
@@ -67,6 +66,20 @@
 - (void)performClose:(id)sender
 {
     [[self windowController] performClose:sender];
+}
+
+- (void)setStyleMask:(NSUInteger)styleMask
+{
+    // Changing the styleMask of a NSWindow can reset the firstResponder if the frame view changes,
+    // so save off the existing one, and restore it if necessary after the call to -setStyleMask:.
+    NSResponder* savedFirstResponder = [self firstResponder];
+
+    [super setStyleMask:styleMask];
+
+    if ([self firstResponder] != savedFirstResponder
+        && [savedFirstResponder isKindOfClass:[NSView class]]
+        && [(NSView*)savedFirstResponder isDescendantOf:[self contentView]])
+        [self makeFirstResponder:savedFirstResponder];
 }
 @end
 

@@ -10,9 +10,9 @@
 
   CVS Info :
 
-    $Author: iccir $
-    $Date: 2007/01/31 02:44:02 $
-    $Revision: 1.1 $
+    $Author$
+    $Date$
+    $Revision$
 
 -->
 

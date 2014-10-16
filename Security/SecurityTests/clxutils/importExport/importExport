@@ -1,0 +1,117 @@
+#! /bin/csh -f
+#
+# Run import/export tests.
+#
+# Run this from SecurityTests/clxutils/importExport. The 
+# kcImport and kcExport programs must exist in the location
+# specified by the LOCAL_BUILD_DIR env var.
+#
+if ( ! -e setupCommon ) then 
+	echo === You do not seem to be in the clxutils/importExport directory.
+	echo === Try running this script from there.
+	exit(1)
+endif
+
+
+source setupCommon
+
+# for debug only
+# echo importExport test running as `whoami`
+# echo importExport test using HOME $HOME
+# echo importExport test using keychain $KEYCHAIN at path $KEYCHAIN_PATH
+
+# user specified variables
+set QUIET=NO
+set QUIET_ARG=
+set NOACL_ARG=
+set INIT_ONLY=NO
+set NOCLEAN=NO
+set NOCLEAN_ARG=
+
+#
+# Verify existence of a few crucial things before we start.
+#
+if( ( ! -e $KCIMPORT ) || \
+    ( ! -e $KCEXPORT ) || \
+    ( ! -e $RSATOOL) ) then
+        echo === You do not seem to have all of the required executables.
+        echo === Please build all of cspxutils and clxutils. 
+        echo === See the README files in those directories for info.
+        exit(1)
+endif
+
+# user options
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+			set QUIET_ARG=q
+            shift
+            breaksw
+		case n:
+            set NOACL=YES
+			set NOACL_ARG=n
+            shift
+            breaksw
+		case i:
+            set INIT_ONLY=YES
+            shift
+            breaksw
+		case N:
+			set NOCLEAN_ARG=N
+			set NOCLEAN=YES
+            shift
+            breaksw
+        default:
+            echo Usage: importExport \[q\(uiet\)\] \[n\(oACL\)\] \[i\(nitOnly\)\] \[N\(oClean\)\]
+            exit(1)
+    endsw
+end
+
+if ($QUIET == NO) then
+	echo === Creating empty $KEYCHAIN... ===
+endif
+set cmd="$RM -f $KEYCHAIN_PATH"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# We have to use full path here because certtool doesn't follow the rules
+# w.r.t. root's keychain directory
+#
+set cmd="$CERTTOOL y k=$KEYCHAIN_PATH c p=$KEYCHAIN_PWD"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd > /dev/null || exit(1)
+
+if($INIT_ONLY == YES) then
+	echo ...init complete. Ready for standalone tests.
+	exit(0)
+endif
+
+./importExportRawKey $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportECDSA_P12 $QUIET_ARG $NOCLEAN_ARG || exit(1)
+./impExpOpensslEcdsa $QUIET_ARG $NOCLEAN_ARG || exit(1)
+./importExportPkcs7 $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportPkcs8 $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportPkcs12 $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportOpensslWrap $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportAgg $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+./importExportOpenssh $QUIET_ARG $NOACL_ARG $NOCLEAN_ARG || exit(1)
+
+# cleanup
+if ($NOCLEAN == NO) then 
+	set cmd="$SECURITY delete-keychain $KEYCHAIN_PATH"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif
+
+if ($QUIET == NO) then
+	echo "##### Import/Export Test complete #####"
+endif

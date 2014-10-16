@@ -1,0 +1,22 @@
+#! /bin/tcsh -f
+#
+# Generate a certcrl script based on files in current directory.
+#
+set dirName=$cwd:t
+echo test = $dirName
+echo "dir  =" $dirName
+foreach i (End*.crt)
+   echo cert = \"$i\"
+end
+foreach i (Intermediate*.crt)
+   echo cert = \"$i\"
+end
+foreach i (*.crl)
+   echo "crl  =" \"$i\"
+end
+foreach i (*Anchor*.crt)
+   echo root = \"$i\"
+end
+echo end
+echo ""
+

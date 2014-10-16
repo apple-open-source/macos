@@ -37,10 +37,6 @@
 extern "C" {
 #endif
 
-#if !defined(__APPLE__)
-#include <sys/feature_tests.h>
-#else /* is Apple Mac OS X */
-
 #ifdef KERNEL
 #ifndef _KERNEL
 #define _KERNEL /* Solaris vs. Darwin */
@@ -56,9 +52,6 @@ extern "C" {
 #define _ILP32 /* Solaris vs. Darwin */
 #endif
 #endif
-
-/* NOTHING */ /* In lieu of Solaris <sys/feature_tests.h> */
-#endif /* __APPLE__ */
 
 #if defined(__GNUC__) && defined(_ASM_INLINES) && \
 	(defined(__i386) || defined(__amd64))

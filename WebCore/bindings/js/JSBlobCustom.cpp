@@ -34,46 +34,48 @@
 #include "Blob.h"
 #include "ExceptionCode.h"
 #include "ExceptionCodePlaceholder.h"
-#include "JSArrayBuffer.h"
-#include "JSArrayBufferView.h"
 #include "JSDOMBinding.h"
 #include "JSDictionary.h"
 #include "JSFile.h"
 #include "WebKitBlobBuilder.h"
 #include <runtime/Error.h>
 #include <runtime/JSArray.h>
+#include <runtime/JSArrayBuffer.h>
+#include <runtime/JSArrayBufferView.h>
 #include <wtf/Assertions.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Blob* blob)
+JSValue toJS(ExecState*, JSDOMGlobalObject* globalObject, Blob* blob)
 {
     if (!blob)
         return jsNull();
 
     if (blob->isFile())
-        return wrap<JSFile>(exec, globalObject, static_cast<File*>(blob));
+        return wrap<JSFile>(globalObject, static_cast<File*>(blob));
 
-    return wrap<JSBlob>(exec, globalObject, blob);
+    return wrap<JSBlob>(globalObject, blob);
 }
 
-EncodedJSValue JSC_HOST_CALL JSBlobConstructor::constructJSBlob(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL constructJSBlob(ExecState* exec)
 {
-    JSBlobConstructor* jsConstructor = jsCast<JSBlobConstructor*>(exec->callee());
+    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec->callee());
     ScriptExecutionContext* context = jsConstructor->scriptExecutionContext();
     if (!context)
         return throwVMError(exec, createReferenceError(exec, "Blob constructor associated document is unavailable"));
 
     if (!exec->argumentCount()) {
         RefPtr<Blob> blob = Blob::create();
-        return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), Blob, blob.get()));
+        return JSValue::encode(CREATE_DOM_WRAPPER(jsConstructor->globalObject(), Blob, blob.get()));
     }
 
-    JSValue firstArg = exec->argument(0);
-    if (!isJSArray(firstArg))
-        return throwVMError(exec, createTypeError(exec, "First argument of the constructor is not of type Array"));
+    unsigned blobPartsLength = 0;
+    JSObject* blobParts = toJSSequence(exec, exec->argument(0), blobPartsLength);
+    if (exec->hadException())
+        return JSValue::encode(jsUndefined());
+    ASSERT(blobParts);
 
     String type;
     String endings = ASCIILiteral("transparent");
@@ -110,20 +112,17 @@ EncodedJSValue JSC_HOST_CALL JSBlobConstructor::constructJSBlob(ExecState* exec)
 
     BlobBuilder blobBuilder;
 
-    JSArray* array = asArray(firstArg);
-    unsigned length = array->length();
+    for (unsigned i = 0; i < blobPartsLength; ++i) {
+        JSValue item = blobParts->get(exec, i);
+        if (exec->hadException())
+            return JSValue::encode(jsUndefined());
 
-    for (unsigned i = 0; i < length; ++i) {
-        JSValue item = array->getIndex(exec, i);
-#if ENABLE(BLOB)
-        if (item.inherits(&JSArrayBuffer::s_info))
-            blobBuilder.append(toArrayBuffer(item));
-        else if (item.inherits(&JSArrayBufferView::s_info))
-            blobBuilder.append(toArrayBufferView(item));
-        else
-#endif
-        if (item.inherits(&JSBlob::s_info))
-            blobBuilder.append(toBlob(item));
+        if (ArrayBuffer* arrayBuffer = toArrayBuffer(item))
+            blobBuilder.append(arrayBuffer);
+        else if (RefPtr<ArrayBufferView> arrayBufferView = toArrayBufferView(item))
+            blobBuilder.append(arrayBufferView.release());
+        else if (Blob* blob = toBlob(item))
+            blobBuilder.append(blob);
         else {
             String string = item.toString(exec)->value(exec);
             if (exec->hadException())
@@ -132,8 +131,9 @@ EncodedJSValue JSC_HOST_CALL JSBlobConstructor::constructJSBlob(ExecState* exec)
         }
     }
 
-    RefPtr<Blob> blob = blobBuilder.getBlob(type);
-    return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), Blob, blob.get()));
+    RefPtr<Blob> blob = Blob::create(blobBuilder.finalize(), Blob::normalizedContentType(type));
+
+    return JSValue::encode(CREATE_DOM_WRAPPER(jsConstructor->globalObject(), Blob, blob.get()));
 }
 
 } // namespace WebCore

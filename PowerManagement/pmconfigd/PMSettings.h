@@ -51,7 +51,7 @@ __private_extern__ void PMSettingsSupportedPrefsListHasChanged(void);
 
 __private_extern__ void PMSettingsPrefsHaveChanged(void);
 
-__private_extern__ void PMSettingsPSChange(CFTypeRef);
+__private_extern__ void PMSettingsPSChange(void);
 
 __private_extern__ bool GetPMSettingBool(CFStringRef);
 
@@ -67,7 +67,7 @@ __private_extern__ void overrideSetting(int, int);
 __private_extern__ void activateSettingOverrides(void);
 
 __private_extern__ IOReturn getDisplaySleepTimer(uint32_t *displaySleepTimer);
-__private_extern__ IOReturn getIdleSleepTimer(uint32_t *idleSleepTimer);
+__private_extern__ IOReturn getIdleSleepTimer(unsigned long *idleSleepTimer);
 
 __private_extern__ bool _DWBT_allowed(void);
 __private_extern__ bool _DWBT_enabled(void);

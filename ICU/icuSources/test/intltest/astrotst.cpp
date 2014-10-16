@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1996-2010, International Business Machines Corporation and
+ * Copyright (c) 1996-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -17,8 +17,6 @@
 #include "gregoimp.h" // for Math
 #include "unicode/simpletz.h"
 
-
-static const double DAY_MS = 24.*60.*60.*1000.;
 
 #define CASE(id,test) case id: name = #test; if (exec) { logln(#test "---"); logln((UnicodeString)""); test(); } break
 
@@ -449,7 +447,7 @@ void AstroTest::TestMoonAge(void){
 	                {2099, 5, 20, 14, 55, 59}
 	        };
 	// Moon phase angle - Got from http://www.moonsystem.to/checkupe.htm
-	static const double angle[] = {356.8493418421329, 356.8386760059673, 0.09625415252237701, 355.9986960782416, 3.5714026601303317, 124.26906744384183, 59.80247650195558,
+	static const double angle[] = {356.8493418421329, 356.8386760059673, 0.09625415252237701, 355.9986960782416, 3.5714026601303317, 124.26906744384183, 53.50364630964228,
 									357.54163205513123, 268.41779281511094, 4.82340276581624};
 	static const double precision = CalendarAstronomer::PI/32;
 	for (int32_t i = 0; i < (int32_t)(sizeof(testcase)/sizeof(testcase[0])); i++) {

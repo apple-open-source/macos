@@ -63,6 +63,8 @@ struct IOWrapper {
 };
 typedef struct IOWrapper IOWrapper_t;
 
+extern ssize_t UnalignedRead(DeviceInfo_t *, void *, size_t, off_t);
+
 extern int debug, verbose, printProgress;
 
 #endif /* _HFS_META_H */

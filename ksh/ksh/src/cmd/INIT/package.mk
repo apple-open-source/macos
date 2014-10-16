@@ -1,7 +1,7 @@
 /*
  * source and binary package support
  *
- * @(#)package.mk (AT&T Research) 2011-02-02
+ * @(#)package.mk (AT&T Research) 2012-02-14
  *
  * usage:
  *
@@ -130,37 +130,29 @@ package.readme = $(@.package.readme.)
 	Many of the packaged commands self-document via the --man and --html
 	options; those that do have no separate man page.
 	$()
-	Each package has its own license file
+	Each package is covered by one of the license files
 	$()
-		$(PACKAGELIB)/LICENSES/<prefix>
+		$(PACKAGELIB)/LICENSES/<license>
 	$()
-	where <prefix> is the longest matching prefix of the package name.
-	At the top of each license file is a URL; the license covers all
-	software referring to this URL. For details run
+	where <license> is the license type for the package.  At the top
+	of each license file is a URL; the license covers all software that
+	refers to this URL. For details run
 	$()
 		bin/package license [<package>]
-	$()
-	A component within a package may have its own license file
-	$()
-		$(PACKAGELIB)/LICENSES/<prefix>-<component>
-	$()
-	or it may have a separate license detailed in the component
-	source directory.
-	$()
-	Many of the commands self-document via the --man and --html
-	options; those that do have no separate man page.
 	$()
 	Any archives, distributions or packages made from source or
 	binaries covered by license(s) must contain the corresponding
 	license file(s)$(notice:?, this README file, and the empty file$$("\n")$$(package.notice)?.?)
 
 .package.licenses. : .FUNCTION
-	local I F L R all text
+	local I F L R T all save text
 	L := $(%)
 	while L == "--*"
 		I := $(L:O=1)
 		if I == "--all"
 			all = 1
+		elif I == "--save"
+			save = 1
 		elif I == "--text"
 			text = 1
 		end
@@ -177,10 +169,13 @@ package.readme = $(@.package.readme.)
 		end
 		if F = "$(I:D=$(PACKAGESRC):B:S=.lic:T=F)"
 			R += $(F)
-			if text
-				R += $(I:D=$(PACKAGESRC)/LICENSES:B)
+			if save || text
+				T := $(.FIND. lib/package .lic $(F):P=W,query=type)
+				R += $(T:D=$(PACKAGESRC)/LICENSES:B)
 			end
-			if ! all
+			if save
+				R += $(F:T=I:N=*.def:D=$(PACKAGESRC):B:S:T=F)
+			elif ! all
 				break
 			end
 		end
@@ -248,9 +243,11 @@ package.closure = $(closure:?$$(package.all)?$$(package.pkg)?)
 
 package.init = $(.package.glob. $("$(init)$(name)":P=U):C%.*%$(INSTALLROOT)/src/*/&/($(MAKEFILES:/:/|/G))%:P=G:T=F:D::B)
 package.ini = ignore mamprobe manmake package silent
-package.src.pat = $(PACKAGESRC)/($(name).(ini|lic|pkg))
-package.src = $(package.src.pat:P=G)
+package.src.pat = $(PACKAGESRC)/($(name).(ini|pkg))
+package.src = $(package.src.pat:P=G) $(.package.licenses. --save $(name))
 package.bin = $(PACKAGEBIN)/$(name).ini
+
+package.mam = --never --force --mam=static --corrupt=accept --clobber --compare --link='lib*.a*' CC=$(CC.DIALECT:N=C++:?CC?cc?) package.license.class=$(license:Q) $(=) 'dontcare test' install test
 
 op = current
 stamp = [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]
@@ -295,8 +292,8 @@ package.requires = 0
 					version := $(I)
 				end
 			end
-			LICENSEFILE := $(.package.licenses. $(name):@/ /:/G)
-			export LICENSEFILE
+			LICENSEFILEDEFAULT := $(.package.licenses. $(name):@/ /:/G)
+			export LICENSEFILEDEFAULT
 		end
 		if "$(>)"
 			for I $(>:V)
@@ -709,7 +706,7 @@ vendor.cyg = gnu
 								then	cd $j
 									if	[[ ! '$(license)' ]] || $(MAKE) --noexec --silent 'exit $$(LICENSECLASS:N=$(license):?0?1?)' .
 									then	(( m++ ))
-										$(MAKE) --never --force --mam=static --corrupt=accept CC=$(CC.DIALECT:N=C++:?CC?cc?) package.license.class=$(license:Q) $(=) 'dontcare test' install test $(export.$(style):Q) > $tmp/$m.mam
+										$(MAKE) $(package.mam) $(export.$(style):Q) > $tmp/$m.mam
 										echo ";;;$tmp/$m.mam;$i/$j/Mamfile"
 									fi
 									cd $(INSTALLROOT)/$i
@@ -729,7 +726,7 @@ vendor.cyg = gnu
 								echo ";;;$tmp/$m.mam;$i/Mamfile"
 							fi
 						else	(( m++ ))
-							$(MAKE) --never --force --mam=static --corrupt=accept CC=$(CC.DIALECT:N=C++:?CC?cc?) package.license.class=$(license:Q) $(=) 'dontcare test' install test $(export.$(style):Q) > $tmp/$m.mam
+							$(MAKE) $(package.mam) $(export.$(style):Q) > $tmp/$m.mam
 							echo ";;;$tmp/$m.mam;$i/Mamfile"
 						fi
 					fi
@@ -779,6 +776,7 @@ vendor.cyg = gnu
 			do	tw -d $i -e "action:printf(';;;%s;%s\n',path,path);"
 			done
 		} |
+		sort -t';' -k5,5 -u |
 		$(PAX)	--filter=- \
 			--to=ascii \
 			$(op:N=delta:??--format=$(format)?) \
@@ -838,7 +836,7 @@ vendor.cyg = gnu
 			$(package.src:U:T=F:C%^$(PACKAGEROOT)/%%:C%.*%echo ";;;$(PACKAGEROOT)/&;&"$("\n")%)
 			if	[[ '$(~covers)' ]]
 			then	for i in $(~covers)
-				do	for j in pkg lic
+				do	for j in lib pkg
 					do	if	[[ -f $(PACKAGESRC)/$i.$j ]]
 						then	echo ";;;$(PACKAGESRC)/$i.$j;$(PACKAGELIB)/$i.$j"
 						fi
@@ -848,6 +846,9 @@ vendor.cyg = gnu
 						then	echo ";;;$(PACKAGEGEN)/$i.$j;$(PACKAGELIB)/$i.$j"
 						fi
 					done
+				done
+				for i in $(~covers:D=$(PACKAGESRC):B:S=.lic:T=F:T=I:N=*.def:D=$(PACKAGESRC):B:S:T=F:B:S)
+				do	echo ";;;$(PACKAGESRC)/$i;$(PACKAGELIB)/$i"
 				done
 			fi
 			if	[[ '$(PACKAGEDIR:B)' == '$(style)' ]]
@@ -989,7 +990,7 @@ vendor.cyg = gnu
 								then	cd $j
 									if	[[ ! '$(license)' ]] || $(MAKE) --noexec --silent 'exit $$(LICENSECLASS:N=$(license):?0?1?)' .
 									then	(( m++ ))
-										$(MAKE) --never --force --mam=static --corrupt=accept CC=$(CC.DIALECT:N=C++:?CC?cc?) package.license.class=$(license:Q) $(=) 'dontcare test' install test > $tmp/$m.mam
+										$(MAKE) $(package.mam) > $tmp/$m.mam
 										$(CMP) $(CMPFLAGS) $tmp/$m.mam $(PACKAGEROOT)/$i/$j/Mamfile && touch -r $(PACKAGEROOT)/$i/$j/Mamfile $tmp/$m.mam
 										echo ";;;$tmp/$m.mam;$i/$j/Mamfile"
 									fi
@@ -1011,7 +1012,7 @@ vendor.cyg = gnu
 								echo ";;;$tmp/$m.mam;$i/Mamfile"
 							fi
 						else	(( m++ ))
-							$(MAKE) --never --force --mam=static --corrupt=accept CC=$(CC.DIALECT:N=C++:?CC?cc?) package.license.class=$(license:Q) $(=) 'dontcare test' install test > $tmp/$m.mam
+							$(MAKE) $(package.mam) > $tmp/$m.mam
 							$(CMP) $(CMPFLAGS) $tmp/$m.mam $(PACKAGEROOT)/$i/Mamfile && touch -r $(PACKAGEROOT)/$i/Mamfile $tmp/$m.mam
 							echo ";;;$tmp/$m.mam;$i/Mamfile"
 						fi
@@ -1257,7 +1258,7 @@ binary : .binary.init .binary.gen .binary.$$(style)
 				echo ";;;$(PACKAGEGEN)/$(name).ver;$(PACKAGELIB)/$(name).ver"
 				if	[[ '$(~covers)' ]]
 				then	for i in $(~covers)
-					do	for j in pkg lic
+					do	for j in lic pkg
 						do	if	[[ -f $(PACKAGESRC)/$i.$j ]]
 							then	echo ";;;$(PACKAGESRC)/$i.$j;$(PACKAGELIB)/$i.$j"
 							fi
@@ -1267,6 +1268,9 @@ binary : .binary.init .binary.gen .binary.$$(style)
 							then	echo ";;;$(PACKAGEGEN)/$i.$j;$(PACKAGELIB)/$i.$j"
 							fi
 						done
+					done
+					for i in $(~covers:D=$(PACKAGESRC):B:S=.lic:T=F:T=I:N=*.def:D=$(PACKAGESRC):B:S:T=F:B:S)
+					do	echo ";;;$(PACKAGESRC)/$i;$(PACKAGELIB)/$i"
 					done
 				fi
 				sed 's,1$,0,' $(~req:D=$(PACKAGEGEN):B:S=.ver:T=F) < /dev/null > $(PACKAGEGEN)/$(name).req
@@ -1440,7 +1444,7 @@ runtime : .runtime.init .runtime.gen .runtime.$$(style)
 			echo ";;;$(PACKAGEGEN)/$(name).ver;$(PACKAGELIB)/$(name).ver"
 			if	[[ '$(~covers)' ]]
 			then	for i in $(~covers)
-				do	for j in pkg lic
+				do	for j in lic pkg
 					do	if	[[ -f $(PACKAGESRC)/$i.$j ]]
 						then	echo ";;;$(PACKAGESRC)/$i.$j;$(PACKAGELIB)/$i.$j"
 						fi
@@ -1450,6 +1454,9 @@ runtime : .runtime.init .runtime.gen .runtime.$$(style)
 						then	echo ";;;$(PACKAGEGEN)/$i.$j;$(PACKAGELIB)/$i.$j"
 						fi
 					done
+				done
+				for i in $(~covers:D=$(PACKAGESRC):B:S=.lic:T=F:T=I:N=*.def:D=$(PACKAGESRC):B:S:T=F:B:S)
+				do	echo ";;;$(PACKAGESRC)/$i;$(PACKAGELIB)/$i"
 				done
 			fi
 			sed 's,1$,0,' $(~req:D=$(PACKAGEGEN):B:S=.ver:T=F) < /dev/null > $(PACKAGEGEN)/$(name).req

@@ -26,7 +26,7 @@
 '* Hacked by Guenter Knauf
 '***************************************************************************
 Option Explicit
-Const myVersion = "0.3.7"
+Const myVersion = "0.3.8"
 
 Const myUrl = "http://mxr.mozilla.org/mozilla/source/security/nss/lib/ckfw/builtins/certdata.txt?raw=1"
 
@@ -130,9 +130,8 @@ For i = 0 To UBound(myLines)
       myInsideCert = FALSE
       While (i < UBound(myLines)) And Not (myLines(i) = "#")
         i = i + 1
-        If (InstrRev(myLines(i), "CKA_TRUST_SERVER_AUTH CK_TRUST CKT_NSS_NOT_TRUSTED") Or _
-           InstrRev(myLines(i), "CKA_TRUST_SERVER_AUTH CK_TRUST CKT_NSS_TRUST_UNKNOWN")) Then
-          myUntrusted = TRUE
+        If InstrRev(myLines(i), "CKA_TRUST_SERVER_AUTH CK_TRUST CKT_NSS_TRUSTED_DELEGATOR") Then
+          myUntrusted = FALSE
         End If
       Wend
       If (myUntrusted = TRUE) Then
@@ -182,7 +181,7 @@ For i = 0 To UBound(myLines)
   End If
   If InstrRev(myLines(i), "CKA_VALUE MULTILINE_OCTAL") Then
     myInsideCert = TRUE
-    myUntrusted = FALSE
+    myUntrusted = TRUE
     myData = ""
   End If
   If InstrRev(myLines(i), "***** BEGIN LICENSE BLOCK *****") Then

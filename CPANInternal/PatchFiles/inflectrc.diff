@@ -1,9 +1,0 @@
-*** Lingua-EN-Inflect/lib/Lingua/EN/.inflectrc.orig     Mon Jun  4 17:09:46 2007
---- Lingua-EN-Inflect/lib/Lingua/EN/.inflectrc  Mon Jun  4 17:09:35 2007
-***************
-*** 0 ****
---- 1,4 ----
-+ # The plural of hongo is hongos
-+ def_noun '(.*)hongo' => '$1hongos';
-+ 
-+ 1;

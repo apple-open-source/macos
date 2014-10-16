@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -34,74 +34,74 @@ Dt_t*		dt;
 Dtmethod_t*	meth;
 #endif
 {
-	reg Dtlink_t	*list, *r;
-	reg Dtdisc_t*	disc = dt->disc;
-	reg Dtmethod_t*	oldmeth = dt->meth;
+	Dtlink_t	*list;
+	Dtdisc_t	*disc = dt->disc;
+	Dtmethod_t	*oldmt = dt->meth;
+	Dtdata_t	*newdt, *olddt = dt->data;
 
-	if(!meth || meth->type == oldmeth->type)
-		return oldmeth;
+	if(!meth || meth == oldmt)
+		return oldmt;
 
-	if(disc->eventf &&
-	   (*disc->eventf)(dt,DT_METH,(Void_t*)meth,disc) < 0)
+	/* ask discipline if switching to new method is ok */
+	if(disc->eventf && (*disc->eventf)(dt,DT_METH,(Void_t*)meth,disc) < 0)
 		return NIL(Dtmethod_t*);
 
-	dt->data->minp = 0;
+	list = dtextract(dt); /* extract elements out of dictionary */
 
-	/* get the list of elements */
-	list = dtflatten(dt);
-
-	if(dt->data->type&(DT_LIST|DT_STACK|DT_QUEUE) )
-		dt->data->head = NIL(Dtlink_t*);
-	else if(dt->data->type&(DT_SET|DT_BAG) )
-	{	if(dt->data->ntab > 0)
-			(*dt->memoryf)(dt,(Void_t*)dt->data->htab,0,disc);
-		dt->data->ntab = 0;
-		dt->data->htab = NIL(Dtlink_t**);
-	}
-
-	dt->data->here = NIL(Dtlink_t*);
-	dt->data->type = (dt->data->type&~(DT_METHODS|DT_FLATTEN)) | meth->type;
-	dt->meth = meth;
-	if(dt->searchf == oldmeth->searchf)
+	/* try to create internal structure for new method */
+	if(dt->searchf == oldmt->searchf) /* ie, not viewpathing */
 		dt->searchf = meth->searchf;
+	dt->meth = meth;
+	dt->data = NIL(Dtdata_t*);
+	if((*dt->meth->eventf)(dt, DT_OPEN, NIL(Void_t*)) < 0 )
+		newdt = NIL(Dtdata_t*);
+	else	newdt = dt->data;
 
-	if(meth->type&(DT_LIST|DT_STACK|DT_QUEUE) )
-	{	if(!(oldmeth->type&(DT_LIST|DT_STACK|DT_QUEUE)) )
-		{	if((r = list) )
-			{	reg Dtlink_t*	t;
-				for(t = r->right; t; r = t, t = t->right )
-					t->left = r;
-				list->left = r;
-			}
-		}
-		dt->data->head = list;
-	}
-	else if(meth->type&(DT_OSET|DT_OBAG))
-	{	dt->data->size = 0;
-		while(list)
-		{	r = list->right;
-			(*meth->searchf)(dt,(Void_t*)list,DT_RENEW);
-			list = r;
-		}
-	}
-	else if(!((meth->type&DT_BAG) && (oldmeth->type&DT_SET)) )
-	{	int	rehash;
-		if((meth->type&(DT_SET|DT_BAG)) && !(oldmeth->type&(DT_SET|DT_BAG)))
-			rehash = 1;
-		else	rehash = 0;
+	/* see what need to be done to data of the old method */ 
+	if(dt->searchf == meth->searchf)
+		dt->searchf = oldmt->searchf;
+	dt->meth = oldmt;
+	dt->data = olddt;
+	if(newdt) /* switch was successful, remove old data */
+	{	(void)(*dt->meth->eventf)(dt, DT_CLOSE, NIL(Void_t*));
 
-		dt->data->size = dt->data->loop = 0;
-		while(list)
-		{	r = list->right;
-			if(rehash)
-			{	reg Void_t* key = _DTOBJ(list,disc->link);
-				key = _DTKEY(key,disc->key,disc->size);
-				list->hash = _DTHSH(dt,key,disc,disc->size);
-			}
-			(void)(*meth->searchf)(dt,(Void_t*)list,DT_RENEW);
-			list = r;
-		}
+		if(dt->searchf == oldmt->searchf)
+			dt->searchf = meth->searchf;
+		dt->meth = meth;
+		dt->data = newdt;
+		dtrestore(dt, list);
+		return oldmt;
+	}
+	else /* switch failed, restore dictionary to previous states */
+	{	dtrestore(dt, list); 
+		return NIL(Dtmethod_t*);
+	}
+}
+
+/* customize certain actions in a container data structure */
+int dtcustomize(Dt_t* dt, int type, int action)
+{
+	int	done = 0;
+
+	if((type&DT_SHARE) &&
+	   (!dt->meth->eventf || (*dt->meth->eventf)(dt, DT_SHARE, (Void_t*)((long)action)) >= 0) )
+	{	if(action <= 0 )
+			dt->data->type &= ~DT_SHARE;
+		else	dt->data->type |=  DT_SHARE;
+		done |= DT_SHARE;
 	}
 
-	return oldmeth;
+	if((type&DT_ANNOUNCE) &&
+	   (!dt->meth->eventf || (*dt->meth->eventf)(dt, DT_ANNOUNCE, (Void_t*)((long)action)) >= 0) )
+	{	if(action <= 0 )
+			dt->data->type &= ~DT_ANNOUNCE;
+		else	dt->data->type |=  DT_ANNOUNCE;
+		done |= DT_ANNOUNCE;
+	}
+
+	if((type&DT_OPTIMIZE) &&
+	   (!dt->meth->eventf || (*dt->meth->eventf)(dt, DT_OPTIMIZE, (Void_t*)((long)action)) >= 0) )
+		done |= DT_OPTIMIZE;
+
+	return done;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,18 +26,18 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebBasePluginPackage.h>
+#import <WebKitLegacy/WebBasePluginPackage.h>
 
 #import <algorithm>
-#import <WebCore/RunLoop.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebKit/WebKitNSStringExtras.h>
-#import <WebKit/WebNetscapePluginPackage.h>
-#import <WebKit/WebPluginPackage.h>
+#import <WebKitLegacy/WebKitNSStringExtras.h>
+#import <WebKitLegacy/WebNetscapePluginPackage.h>
+#import <WebKitLegacy/WebPluginPackage.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/RunLoop.h>
 #import <wtf/Vector.h>
 #import <wtf/text/CString.h>
 
@@ -66,9 +66,11 @@ using namespace WebCore;
 
 + (void)initialize
 {
+#if !PLATFORM(IOS)
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
+#endif
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -90,7 +92,7 @@ using namespace WebCore;
 
 + (NSString *)preferredLocalizationName
 {
-    return HardAutorelease(WKCopyCFLocalizationPreferredName(NULL));
+    return CFBridgingRelease(WKCopyCFLocalizationPreferredName(NULL));
 }
 
 #if COMPILER(CLANG)
@@ -102,6 +104,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 {
     NSString *newPath = [thePath stringByResolvingSymlinksInPath];
 
+#if !PLATFORM(IOS)
     FSRef fref;
     OSStatus err;
 
@@ -120,6 +123,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         newPath = [(NSURL *)URL path];
         CFRelease(URL);
     }
+#endif
 
     return newPath;
 }
@@ -162,12 +166,8 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
     
     NSDictionary *pList = nil;
     NSData *data = [NSData dataWithContentsOfFile:pListPath];
-    if (data) {
-        pList = [NSPropertyListSerialization propertyListFromData:data
-                                                 mutabilityOption:NSPropertyListImmutable
-                                                           format:nil
-                                                 errorDescription:nil];
-    }
+    if (data)
+        pList = [NSPropertyListSerialization propertyListWithData:data options:kCFPropertyListImmutable format:nil error:nil];
     
     return pList;
 }
@@ -212,8 +212,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 
     NSEnumerator *keyEnumerator = [MIMETypes keyEnumerator];
     NSDictionary *MIMEDictionary;
-    NSString *MIME, *description;
-    NSArray *extensions;
+    NSString *MIME;
 
     while ((MIME = [keyEnumerator nextObject]) != nil) {
         MIMEDictionary = [MIMETypes objectForKey:MIME];
@@ -225,7 +224,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 
         MimeClassInfo mimeClassInfo;
         
-        extensions = [[MIMEDictionary objectForKey:WebPluginExtensionsKey] _web_lowercaseStrings];
+        NSArray *extensions = [[MIMEDictionary objectForKey:WebPluginExtensionsKey] _web_lowercaseStrings];
         for (NSUInteger i = 0; i < [extensions count]; ++i) {
             // The DivX plug-in lists multiple extensions in a comma separated string instead of using
             // multiple array elements in the property list. Work around this here by splitting the
@@ -236,17 +235,11 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
                 mimeClassInfo.extensions.append(extension);
         }
 
-        if ([extensions count] == 0)
-            extensions = [NSArray arrayWithObject:@""];
-
         mimeClassInfo.type = String(MIME).lower();
 
-        description = [MIMEDictionary objectForKey:WebPluginTypeDescriptionKey];
-        mimeClassInfo.desc = description;
+        mimeClassInfo.desc = [MIMEDictionary objectForKey:WebPluginTypeDescriptionKey];
 
         pluginInfo.mimes.append(mimeClassInfo);
-        if (!description)
-            description = @"";
     }
 
     NSString *filename = [(NSString *)path lastPathComponent];
@@ -257,7 +250,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         theName = filename;
     pluginInfo.name = theName;
 
-    description = [self _objectForInfoDictionaryKey:WebPluginDescriptionKey];
+    NSString *description = [self _objectForInfoDictionaryKey:WebPluginDescriptionKey];
     if (!description)
         description = filename;
     pluginInfo.desc = description;

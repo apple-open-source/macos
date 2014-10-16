@@ -1,6 +1,6 @@
 /*
     ccid.h: CCID structures
-    Copyright (C) 2003-2009   Ludovic Rousseau
+    Copyright (C) 2003-2010   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid.h 4280 2009-06-26 14:58:23Z rousseau $
+ * $Id: ccid.h 6650 2013-06-10 08:43:24Z rousseau $
  */
 
 typedef struct
@@ -53,7 +53,7 @@ typedef struct
 	 * PIN support of the reader (directly from Class Descriptor)
 	 */
 	char bPINSupport;
-	
+
 	/*
 	 * Display dimensions of the reader (directly from Class Descriptor)
 	 */
@@ -86,7 +86,7 @@ typedef struct
 
 	/*
 	 * Read communication port timeout
-	 * value is seconds
+	 * value is milliseconds
 	 * this value can evolve dynamically if card request it (time processing).
 	 */
 	unsigned int readTimeout;
@@ -121,6 +121,31 @@ typedef struct
 	 * 4 = 1.8V
 	 */
 	int bVoltageSupport;
+
+	/*
+	 * USB serial number of the device (if any)
+	 */
+	char *sIFD_serial_number;
+
+	/*
+	 * USB iManufacturer string
+	 */
+	char *sIFD_iManufacturer;
+
+	/*
+	 * USB bcdDevice
+	 */
+	int IFD_bcdDevice;
+
+	/*
+	 * Gemalto extra features, if any
+	 */
+	struct GEMALTO_FIRMWARE_FEATURES *gemalto_firmware_features;
+
+	/*
+	 * Zero Length Packet fixup (boolean)
+	 */
+	char zlp;
 } _ccid_descriptor;
 
 /* Features from dwFeatures */
@@ -150,8 +175,9 @@ typedef struct
 #define CCID_TIME_EXTENSION			0x80	/* 10 0000 00 */
 
 /* bInterfaceProtocol for ICCD */
-#define ICCD_A	1	/* ICCD Version A */
-#define ICCD_B	2	/* ICCD Version B */
+#define PROTOCOL_CCID	0	/* plain CCID */
+#define PROTOCOL_ICCD_A	1	/* ICCD Version A */
+#define PROTOCOL_ICCD_B	2	/* ICCD Version B */
 
 /* Product identification for special treatments */
 #define GEMPC433	0x08E64433
@@ -162,6 +188,7 @@ typedef struct
 #define GEMCOREPOSPRO 0x08E63479
 #define GEMALTOPROXDU 0x08E65503
 #define GEMALTOPROXSU 0x08E65504
+#define GEMALTO_EZIO_CBP 0x08E634C3
 #define CARDMAN3121	0x076B3021
 #define LTC31		0x07830003
 #define SCR331DI	0x04E65111
@@ -175,11 +202,20 @@ typedef struct
 #define MYSMARTPAD	0x09BE0002
 #define CHERRYXX44	0x046a0010
 #define CL1356D		0x0B810200
-#define REINER_SCT	0x0C4B0300 
+#define REINER_SCT	0x0C4B0300
 #define SEG			0x08E68000
 #define BLUDRIVEII_CCID	0x1B0E1078
 #define DELLSCRK    0x413C2101
+#define DELLSK      0x413C2100
 #define KOBIL_TRIBANK	0x0D463010
+#define KOBIL_MIDENTITY_VISUAL	0x0D460D46
+#define VEGAALPHA   0x09820008
+#define HPSMARTCARDKEYBOARD 0x03F01024
+#define HP_CCIDSMARTCARDKEYBOARD 0x03F00036
+#define KOBIL_IDTOKEN 0x0D46301D
+
+#define VENDOR_GEMALTO 0x08E6
+#define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)
 
 /*
  * The O2Micro OZ776S reader has a wrong USB descriptor
@@ -230,4 +266,60 @@ _ccid_descriptor *get_ccid_descriptor(unsigned int reader_index);
 
 /* data rates supported by the secondary slots on the GemCore Pos Pro & SIM Pro */
 #define GEMPLUS_CUSTOM_DATA_RATES 10753, 21505, 43011, 125000
+
+/* Structure returned by Gemalto readers for the CCID Escape command 0x6A */
+struct GEMALTO_FIRMWARE_FEATURES
+{
+	UCHAR	bLogicalLCDLineNumber;	/* Logical number of LCD lines */
+	UCHAR	bLogicalLCDRowNumber;	/* Logical number of characters per LCD line */
+	UCHAR	bLcdInfo;				/* b0 indicates if scrolling is available */
+	UCHAR	bEntryValidationCondition;	/* See PIN_PROPERTIES */
+
+	/* Here come the PC/SC bit features to report */
+	UCHAR	VerifyPinStart:1;
+	UCHAR	VerifyPinFinish:1;
+	UCHAR	ModifyPinStart:1;
+	UCHAR	ModifyPinFinish:1;
+	UCHAR	GetKeyPressed:1;
+	UCHAR	VerifyPinDirect:1;
+	UCHAR	ModifyPinDirect:1;
+	UCHAR	Abort:1;
+
+	UCHAR	GetKey:1;
+	UCHAR	WriteDisplay:1;
+	UCHAR	SetSpeMessage:1;
+	UCHAR	RFUb1:5;
+
+	UCHAR	RFUb2[2];
+
+	/* Additional flags */
+	UCHAR	bTimeOut2:1;
+	UCHAR	bListSupportedLanguages:1;	/* Reader is able to indicate
+	   the list of supported languages through CCID-ESC 0x6B */
+	UCHAR	bNumberMessageFix:1;	/* Reader handles correctly shifts
+		made by bNumberMessage in PIN modification data structure */
+	UCHAR	bPPDUSupportOverXferBlock:1;	/* Reader supports PPDU over
+		PC_to_RDR_XferBlock command */
+	UCHAR	bPPDUSupportOverEscape:1;	/* Reader supports PPDU over
+		PC_to_RDR_Escape command with abData[0]=0xFF */
+	UCHAR	RFUb3:3;
+
+	UCHAR	RFUb4[3];
+
+	UCHAR	VersionNumber;	/* ?? */
+	UCHAR	MinimumPINSize;	/* for Verify and Modify */
+	UCHAR	MaximumPINSize;
+
+	/* Miscellaneous reader features */
+	UCHAR	Firewall:1;
+	UCHAR	RFUb5:7;
+
+	/* The following fields, FirewalledCommand_SW1 and
+	 * FirewalledCommand_SW2 are only valid if Firewall=1
+	 * These fields give the SW1 SW2 value used by the reader to
+	 * indicate a command has been firewalled */
+	UCHAR	FirewalledCommand_SW1;
+	UCHAR	FirewalledCommand_SW2;
+	UCHAR	RFUb6[3];
+};
 

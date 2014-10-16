@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2008, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -113,7 +113,7 @@ JSValue ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) 
 
 static id convertValueToObjcObject(ExecState* exec, JSValue value)
 {
-    RefPtr<RootObject> rootObject = findRootObject(exec->dynamicGlobalObject());
+    RefPtr<RootObject> rootObject = findRootObject(exec->vmEntryGlobalObject());
     if (!rootObject)
         return nil;
     return [webScriptObjectClass() _convertValueToObjcValue:value originRootObject:rootObject.get() rootObject:rootObject.get()];
@@ -149,12 +149,12 @@ ObjcArray::ObjcArray(ObjectStructPtr a, PassRefPtr<RootObject> rootObject)
 void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValue aValue) const
 {
     if (![_array.get() respondsToSelector:@selector(insertObject:atIndex:)]) {
-        throwError(exec, createTypeError(exec, "Array is not mutable."));
+        exec->vm().throwException(exec, createTypeError(exec, "Array is not mutable."));
         return;
     }
 
     if (index > [_array.get() count]) {
-        throwError(exec, createRangeError(exec, "Index exceeds array size."));
+        exec->vm().throwException(exec, createRangeError(exec, "Index exceeds array size."));
         return;
     }
     
@@ -165,20 +165,20 @@ void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValue aValue) 
     @try {
         [_array.get() insertObject:oValue.objectValue atIndex:index];
     } @catch(NSException* localException) {
-        throwError(exec, createError(exec, "Objective-C exception."));
+        exec->vm().throwException(exec, createError(exec, "Objective-C exception."));
     }
 }
 
 JSValue ObjcArray::valueAt(ExecState* exec, unsigned int index) const
 {
     if (index > [_array.get() count])
-        return throwError(exec, createRangeError(exec, "Index exceeds array size."));
+        return exec->vm().throwException(exec, createRangeError(exec, "Index exceeds array size."));
     @try {
         id obj = [_array.get() objectAtIndex:index];
         if (obj)
             return convertObjcValueToValue (exec, &obj, ObjcObjectType, m_rootObject.get());
     } @catch(NSException* localException) {
-        return throwError(exec, createError(exec, "Objective-C exception."));
+        return exec->vm().throwException(exec, createError(exec, "Objective-C exception."));
     }
     return jsUndefined();
 }
@@ -205,20 +205,13 @@ void ObjcFallbackObjectImp::destroy(JSCell* cell)
 void ObjcFallbackObjectImp::finishCreation(JSGlobalObject* globalObject)
 {
     Base::finishCreation(globalObject->vm());
-    ASSERT(inherits(&s_info));
+    ASSERT(inherits(info()));
 }
 
-bool ObjcFallbackObjectImp::getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot& slot)
+bool ObjcFallbackObjectImp::getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot& slot)
 {
     // keep the prototype from getting called instead of just returning false
     slot.setUndefined();
-    return true;
-}
-
-bool ObjcFallbackObjectImp::getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor& descriptor)
-{
-    // keep the prototype from getting called instead of just returning false
-    descriptor.setUndefined();
     return true;
 }
 
@@ -228,8 +221,8 @@ void ObjcFallbackObjectImp::put(JSCell*, ExecState*, PropertyName, JSValue, PutP
 
 static EncodedJSValue JSC_HOST_CALL callObjCFallbackObject(ExecState* exec)
 {
-    JSValue thisValue = exec->hostThisValue();
-    if (!thisValue.inherits(&ObjCRuntimeObject::s_info))
+    JSValue thisValue = exec->thisValue();
+    if (!thisValue.inherits(ObjCRuntimeObject::info()))
         return throwVMTypeError(exec);
 
     JSValue result = jsUndefined();

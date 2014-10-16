@@ -48,7 +48,11 @@
 #include <getopt.h>
 #include <regex.h>
 #include <errno.h>
+#ifdef XARSIG_BUILDING_WITH_XAR
+#include "xar.h"
+#else
 #include <xar/xar.h>
+#endif // XARSIG_BUILDING_WITH_XAR
 #include "filetree.h"
 
 #define SYMBOLIC 1
@@ -63,12 +67,14 @@ static int Local = 0;
 static char *Subdoc = NULL;
 static char *SubdocName = NULL;
 static char *Toccksum = NULL;
+static char *Filecksum = NULL;
 static char *Compression = NULL;
 static char *Rsize = NULL;
 static char *DataToSignDumpPath = NULL;
 static char *SigOffsetDumpPath = NULL;
 static char *LeafCertPath = NULL;
 static char *IntermediateCertPath = NULL;
+static char *RootCertPath = NULL;
 
 static int Err = 0;
 static int Verbose = 0;
@@ -104,6 +110,50 @@ struct lnode *NoCompress_Tail = NULL;
 static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *usrctx);
 static int32_t signingCallback(xar_signature_t sig, void *context, uint8_t *data, uint32_t length, uint8_t **signed_data, uint32_t *signed_len);
 static void insert_cert(xar_signature_t sig, const char *cert_path);
+static void add_subdoc(xar_t x);
+
+static void _set_xarsig_opts_from_args(xar_t x) {
+	// Update checksum algorithms before we start messing with the heap length in xar_signature_new()
+	if( Toccksum )
+		xar_opt_set(x, XAR_OPT_TOCCKSUM, Toccksum);
+	
+	if( Filecksum )
+		xar_opt_set(x, XAR_OPT_FILECKSUM, Filecksum);
+	
+	if ( SigSize ) {
+		xar_signature_t sig = xar_signature_new(x, "RSA", SigSize, &signingCallback, NULL);
+		if ( LeafCertPath )
+			insert_cert(sig, LeafCertPath);
+		if ( IntermediateCertPath )
+			insert_cert(sig, IntermediateCertPath);
+		if ( RootCertPath )
+			insert_cert(sig, RootCertPath);
+	}
+	
+	if( Compression )
+		xar_opt_set(x, XAR_OPT_COMPRESSION, Compression);
+	
+	if( Coalesce )
+		xar_opt_set(x, XAR_OPT_COALESCE, "true");
+	
+	if( LinkSame )
+		xar_opt_set(x, XAR_OPT_LINKSAME, "true");
+	
+	if ( Rsize != NULL )
+		xar_opt_set(x, XAR_OPT_RSIZE, Rsize);
+	
+	xar_register_errhandler(x, err_callback, NULL);
+	
+	if( Subdoc )
+		add_subdoc(x);
+	
+	if( Perms == SYMBOLIC ) {
+		xar_opt_set(x, XAR_OPT_OWNERSHIP, XAR_OPT_VAL_SYMBOLIC);
+	}
+	if( Perms == NUMERIC ) {
+		xar_opt_set(x, XAR_OPT_OWNERSHIP, XAR_OPT_VAL_NUMERIC);
+	}
+}
 
 static void print_file(xar_file_t f) {
 	if( Verbose ) {
@@ -187,13 +237,13 @@ static void extract_data_to_sign(const char *filename) {
 	}
 
 	// locate data to sign
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/offset" ,&value) ){
+	if( 0 != xar_prop_get((xar_file_t)x, "checksum/offset" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/offset in archive.\n");
 		exit(1);
 	}
 	dataToSignOffset = xar_get_heap_offset(x);
 	dataToSignOffset += strtoull(value, (char **)NULL, 10);
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/size" ,&value) ){
+	if( 0 != xar_prop_get((xar_file_t)x, "checksum/size" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/size in archive.\n");
 		exit(1);
 	}
@@ -379,16 +429,31 @@ static void replace_sign(const char *filename) {
 	char *systemcall;
 	int err;
 	
-	// open both archives
+	// open the first archive
 	old_xar = xar_open(filename, READ);
 	if ( old_xar == NULL ) {
 		fprintf(stderr, "Could not open archive %s!\n", filename);
 		exit(1);
 	}
+	
+	// use command-line arguments to set xar opts; the copy operation below won't work unless they're set in the first place!
+	_set_xarsig_opts_from_args(old_xar);
+	
+	// open the second archive
 	new_xar = xar_open(new_xar_path, WRITE);
 	if( !new_xar ) {
 		fprintf(stderr, "Error creating new archive %s\n", new_xar_path);
 		exit(1);
+	}
+	
+	// copy options
+	char *opts[7] = {XAR_OPT_TOCCKSUM, XAR_OPT_FILECKSUM, XAR_OPT_COMPRESSION, XAR_OPT_COALESCE, XAR_OPT_LINKSAME, XAR_OPT_RSIZE, XAR_OPT_OWNERSHIP};
+	int i;
+	const char *opt;
+	for (i=0; i<7; i++) {
+		opt = xar_opt_get(old_xar, opts[i]);
+		if (opt)
+			xar_opt_set(new_xar, opts[i], opt);
 	}
 	
 	// install new signature and new certs in new_xar
@@ -397,16 +462,8 @@ static void replace_sign(const char *filename) {
 		insert_cert(sig, LeafCertPath);
 	if ( IntermediateCertPath )
 		insert_cert(sig, IntermediateCertPath);
-	
-	// copy options
-	char *opts[6] = {XAR_OPT_TOCCKSUM, XAR_OPT_COMPRESSION, XAR_OPT_COALESCE, XAR_OPT_LINKSAME, XAR_OPT_RSIZE, XAR_OPT_OWNERSHIP};
-	int i;
-	const char *opt;
-	for (i=0; i<6; i++) {
-		opt = xar_opt_get(old_xar, opts[i]);
-		if (opt)
-			xar_opt_set(new_xar, opts[i], opt);
-	}
+	if ( RootCertPath )
+		insert_cert(sig, RootCertPath);
 
 	// skip copy subdocs for now since we don't use them yet
 	
@@ -415,7 +472,6 @@ static void replace_sign(const char *filename) {
 	xar_file_t f = xar_file_first(old_xar, iter);
 		// xar_file_next iterates the archive depth-first, i.e. all children are enumerated before the siblings.
 	const char *name;
-	char *f_dirname, *stack_top_dirname;
 	stack s_new = stack_new();
 	stack s_old = stack_new();
 	xar_file_t last_copied = NULL, last_added;
@@ -463,8 +519,8 @@ static void replace_sign(const char *filename) {
 			stack_push(s_new, (void *)last_added);
 			stack_push(s_old, (void *)last_copied);
 		}
-	} while (f = xar_file_next(iter));
-		
+	} while ((f = xar_file_next(iter)));
+	
 	loopIter = xar_iter_new();
 	for (current_xar_file = xar_file_first(new_xar, loopIter); current_xar_file; current_xar_file = xar_file_next(loopIter))
 	{
@@ -644,46 +700,13 @@ static int archive(const char *filename, int arglen, char *args[]) {
 		fprintf(stderr, "Error creating archive %s\n", filename);
 		exit(1);
 	}
-
-	if ( SigSize ) {
-		xar_signature_t sig = xar_signature_new(x, "RSA", SigSize, &signingCallback, NULL);
-		if ( LeafCertPath )
-			insert_cert(sig, LeafCertPath);
-		if ( IntermediateCertPath )
-			insert_cert(sig, IntermediateCertPath);
-	}
 	
-	if( Toccksum )
-		xar_opt_set(x, XAR_OPT_TOCCKSUM, Toccksum);
-
-	if( Compression )
-		xar_opt_set(x, XAR_OPT_COMPRESSION, Compression);
-
-	if( Coalesce )
-		xar_opt_set(x, XAR_OPT_COALESCE, "true");
-
-	if( LinkSame )
-		xar_opt_set(x, XAR_OPT_LINKSAME, "true");
-
-	if ( Rsize != NULL )
-		xar_opt_set(x, XAR_OPT_RSIZE, Rsize);
-
-	xar_register_errhandler(x, err_callback, NULL);
-
-	if( Subdoc )
-		add_subdoc(x);
-
-	if( Perms == SYMBOLIC ) {
-		xar_opt_set(x, XAR_OPT_OWNERSHIP, XAR_OPT_VAL_SYMBOLIC);
-	}
-	if( Perms == NUMERIC ) {
-		xar_opt_set(x, XAR_OPT_OWNERSHIP, XAR_OPT_VAL_NUMERIC);
-	}
-
+	_set_xarsig_opts_from_args(x);
+	
 	default_compression = strdup(xar_opt_get(x, XAR_OPT_COMPRESSION));
 	if( !default_compression )
 		default_compression = strdup(XAR_OPT_VAL_GZIP);
-
+	
 	flags = FTS_PHYSICAL|FTS_NOSTAT|FTS_NOCHDIR;
 	if( Local )
 		flags |= FTS_XDEV;
@@ -945,6 +968,10 @@ static int dump_header(const char *filename) {
 	                     break;
 	case XAR_CKSUM_SHA1: printf("(SHA1)\n");
 	                     break;
+	case XAR_CKSUM_SHA256: printf("(SHA256)\n");
+	                     break;
+	case XAR_CKSUM_SHA512: printf("(SHA512)\n");
+	                     break;
 	case XAR_CKSUM_MD5: printf("(MD5)\n");
 	                    break;
 	default: printf("(unknown)\n");
@@ -1037,7 +1064,11 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t-P               On extract, set ownership based on uid/gid.\n");
 	fprintf(stderr, "\t--toc-cksum      Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      xml header verification.\n");
-	fprintf(stderr, "\t                      Valid values: none, sha1, and md5\n");
+	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Default: sha1\n");
+	fprintf(stderr, "\t--file-cksum     Specifies the hashing algorithm to use for\n");
+	fprintf(stderr, "\t                      xml header verification.\n");
+	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--dump-toc=<filename> Has xar dump the xml header into the\n");
 	fprintf(stderr, "\t                      specified file.\n");
@@ -1065,6 +1096,7 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t                      within the xar.\n");
 	fprintf(stderr, "\t--leaf-cert-loc=file         Location of the leaf certificate\n");
 	fprintf(stderr, "\t--intermediate-cert-loc=file Location of the intermediate certificate\n");
+	fprintf(stderr, "\t--root-cert-loc=file         Location of the root certificate\n");
 	fprintf(stderr, "\t--version        Print xar's version number\n");
 
 	return;
@@ -1090,6 +1122,7 @@ int main(int argc, char *argv[]) {
 	struct stat stat_struct;
 	struct option o[] = { 
 		{"toc-cksum", 1, 0, 1},
+		{"file-cksum", 1, 0, 22}, // note out-of-order argument number
 		{"dump-toc", 1, 0, 'd'},
 		{"compression", 1, 0, 2},
 		{"list-subdocs", 0, 0, 3},
@@ -1112,6 +1145,7 @@ int main(int argc, char *argv[]) {
 		{"replace-sign", 0, 0, 19},
 		{"inject-sig", 1, 0, 20},
 		{"extract-certs", 1, 0, 21},
+		{"root-cert-loc", 1, 0, 23},
 		{ 0, 0, 0, 0}
 	};
 
@@ -1128,13 +1162,28 @@ int main(int argc, char *argv[]) {
 		          }
 		          if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
 		              (strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
+		              (strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
+		              (strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
 		              (strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
 		          	usage(argv[0]);
 		          	exit(1);
 		          }
 		          Toccksum = optarg;
-		
 		          break;
+		case  22: if( !optarg ) {
+		            usage(argv[0]);
+		            exit(1);
+				  }
+		          if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+		            (strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
+		            (strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
+		            (strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
+		            (strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
+				  usage(argv[0]);
+				  exit(1);
+				  }
+				  Filecksum = optarg;
+				  break;
 		case  2 : if( !optarg ) {
 		          	usage(argv[0]);
 		          	exit(1);
@@ -1289,6 +1338,13 @@ int main(int argc, char *argv[]) {
 			}
 			command = 'j';
 			break;
+		case 23 :
+			if( !optarg ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			RootCertPath = optarg;
+			break;
 		case 'c':
 		case 'x':
 		case 't':
@@ -1344,7 +1400,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	
-	if ( DoSign ) {
+	if ( DoSign ) { // XXX: should we require RootCertPath as well?
 		if (  ( !SigSize || !LeafCertPath || !IntermediateCertPath ) 
 			  || ((command != 'c') && (!filename)) ) {
 			usage(argv[0]);

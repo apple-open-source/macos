@@ -36,13 +36,17 @@ enum {
 
 #define kOptArch   'a'
 
-#define kOptChars  "a:hv"
+#define kOptUUID   'u'
+#define kOptNameUUID	"uuid"
+
+#define kOptChars  "a:hvu"
 
 int longopt = 0;
 
 struct option sOptInfo[] = {
     { kOptNameHelp,                  no_argument,        NULL,     kOptHelp },
     { kOptNameArch,                  required_argument,  NULL,     kOptArch },
+    { kOptNameUUID,                  no_argument,        NULL,     kOptUUID },
     { kOptNameVerbose,               no_argument,        NULL,     kOptVerbose },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
@@ -53,6 +57,7 @@ typedef struct {
     CFMutableSetRef    kextIDs;
     const NXArchInfo * archInfo;
     Boolean            verbose;
+    Boolean            printUUIDs;
 } KclistArgs;
 
 #pragma mark Function Prototypes
@@ -63,12 +68,9 @@ ExitStatus readArgs(
     int            * argc,
     char * const  ** argv,
     KclistArgs  * toolArgs);
-ExitStatus addBundleIdentifier(
-    KclistArgs * toolArgs,
-    char * ident);
 ExitStatus checkArgs(KclistArgs * toolArgs);
-void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist);
-void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose);
+void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress, uint64_t prelinkTextSourceSize);
+void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose, Boolean printUUIDs, const char *kextTextBytes);
 
 void usage(UsageLevel usageLevel);
 

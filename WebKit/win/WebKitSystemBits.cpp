@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -45,7 +45,7 @@ unsigned long long WebVolumeFreeSize(CFStringRef cfstringPath)
 {
     WTF::String path(cfstringPath);
     ULARGE_INTEGER freeBytesToCaller;
-    BOOL result = GetDiskFreeSpaceExW((LPCWSTR)path.charactersWithNullTermination(), &freeBytesToCaller, 0, 0);
+    BOOL result = GetDiskFreeSpaceExW((LPCWSTR)path.charactersWithNullTermination().data(), &freeBytesToCaller, 0, 0);
     if (!result)
         return 0;
 

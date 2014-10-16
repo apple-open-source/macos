@@ -1,0 +1,10 @@
+/INC *=>/s/^/#/
+/LIBS =>/s/-L[^ ]* //
+/sub ParseCONFIG/a
+.
+/^{/+1a
+.
+.,/$GZIP_OS_CODE/-1s/^/#/
+/$GZIP_OS_CODE/s/=.*/= 'AUTO_DETECT';/
+.+1,/$Info{'GZIP_OS_CODE'}/d
+w

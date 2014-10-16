@@ -81,6 +81,7 @@ $(SYMROOT)/dumpemacs: $(OBJROOT)/dumpemacs.o $(OBJROOT)/runit.o
 
 install-dumpemacs: $(SYMROOT)/dumpemacs
 	$(INSTALL) -s -o root -g wheel -m 555 $(SYMROOT)/dumpemacs $(DSTROOT)/usr/libexec/dumpemacs
+	$(DSYMUTIL) $(SYMROOT)/dumpemacs
 	$(INSTALL) -s -o root -g wheel -m 555 $(SYMROOT)/emacs $(DSTROOT)/usr/bin/emacs
 	$(INSTALL) -d "$(DSTROOT)"/usr/share/man/man{1,8}
 	$(INSTALL) -m 444 -o root -g wheel $(SRCROOT)/dumpemacs.8 "$(DSTROOT)"/usr/share/man/man8

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,9 +72,6 @@ __private_extern__
 CFMutableSetRef	_plugins_exclude	= NULL;		/* bundle identifiers to exclude from loading */
 
 __private_extern__
-Boolean	_plugins_fork			= FALSE;	/* TRUE if plugins should be exec'd in their own process */
-
-__private_extern__
 CFMutableSetRef	_plugins_verbose	= NULL;		/* bundle identifiers to enable verbose logging */
 
 static CFMachPortRef termRequested	= NULL;		/* Mach port used to notify runloop of a shutdown request */
@@ -85,7 +82,6 @@ static const struct option longopts[] = {
 //	{ "no-bundles",		no_argument,		0,	'b' },
 //	{ "exclude-plugin",	required_argument,	0,	'B' },
 //	{ "no-fork",		no_argument,		0,	'd' },
-//	{ "fork-all",		no_argument,		0,	'f' },
 //	{ "test-bundle",	required_argument,      0,	't' },
 //	{ "verbose",		no_argument,		0,	'v' },
 //	{ "verbose-bundle",	required_argument,	0,	'V' },
@@ -245,11 +241,11 @@ fork_child()
 			(void) wait4(child_pid, (int *)&status, 0, 0);
 			if (WIFEXITED(status)) {
 				fprintf(stderr,
-					"*** configd (daemon) failed to start, exit status=%d",
+					"*** configd (daemon) failed to start, exit status=%d\n",
 					WEXITSTATUS(status));
 			} else {
 				fprintf(stderr,
-					"*** configd (daemon) failed to start, received signal=%d",
+					"*** configd (daemon) failed to start, received signal=%d\n",
 					WTERMSIG(status));
 			}
 			fflush (stderr);
@@ -301,7 +297,7 @@ main(int argc, char * const argv[])
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "A:bB:dt:vV:f", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "A:bB:dt:vV:", longopts, NULL)) != -1) {
 		switch(opt) {
 			case 'A':
 				str = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingMacRoman);
@@ -333,9 +329,6 @@ main(int argc, char * const argv[])
 					CFSetSetValue(_plugins_verbose, str);
 					CFRelease(str);
 				}
-				break;
-			case 'f':
-				_plugins_fork = TRUE;
 				break;
 			case '?':
 			default :

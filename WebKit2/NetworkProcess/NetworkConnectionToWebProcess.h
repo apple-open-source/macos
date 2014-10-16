@@ -41,56 +41,59 @@ class ResourceRequest;
 
 namespace WebKit {
 
-class BlobRegistrationData;
 class NetworkConnectionToWebProcess;
 class NetworkResourceLoader;
 class SyncNetworkResourceLoader;
 typedef uint64_t ResourceLoadIdentifier;
 
-class NetworkConnectionToWebProcess : public RefCounted<NetworkConnectionToWebProcess>, CoreIPC::Connection::Client {
+class NetworkConnectionToWebProcess : public RefCounted<NetworkConnectionToWebProcess>, IPC::Connection::Client {
 public:
-    static PassRefPtr<NetworkConnectionToWebProcess> create(CoreIPC::Connection::Identifier);
+    static PassRefPtr<NetworkConnectionToWebProcess> create(IPC::Connection::Identifier);
     virtual ~NetworkConnectionToWebProcess();
 
-    CoreIPC::Connection* connection() const { return m_connection.get(); }
+    IPC::Connection* connection() const { return m_connection.get(); }
 
     bool isSerialLoadingEnabled() const { return m_serialLoadingEnabled; }
 
 private:
-    NetworkConnectionToWebProcess(CoreIPC::Connection::Identifier);
+    NetworkConnectionToWebProcess(IPC::Connection::Identifier);
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
-    virtual void didClose(CoreIPC::Connection*);
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName);
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&);
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    virtual void didClose(IPC::Connection*);
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName);
 
     // Message handlers.
-    void didReceiveNetworkConnectionToWebProcessMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
-    void didReceiveSyncNetworkConnectionToWebProcessMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
+    void didReceiveNetworkConnectionToWebProcessMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveSyncNetworkConnectionToWebProcessMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     
     void scheduleResourceLoad(const NetworkResourceLoadParameters&);
     void performSynchronousLoad(const NetworkResourceLoadParameters&, PassRefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>);
 
     void removeLoadIdentifier(ResourceLoadIdentifier);
-    void crossOriginRedirectReceived(ResourceLoadIdentifier, const WebCore::KURL& redirectURL);
+    void setDefersLoading(ResourceLoadIdentifier, bool);
+    void crossOriginRedirectReceived(ResourceLoadIdentifier, const WebCore::URL& redirectURL);
     void servePendingRequests(uint32_t resourceLoadPriority);
     void setSerialLoadingEnabled(bool);
-    void startDownload(bool privateBrowsingEnabled, uint64_t downloadID, const WebCore::ResourceRequest&);
+    void startDownload(WebCore::SessionID, uint64_t downloadID, const WebCore::ResourceRequest&);
     void convertMainResourceLoadToDownload(uint64_t mainResourceLoadIdentifier, uint64_t downloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
-    void cookiesForDOM(bool privateBrowsingEnabled, const WebCore::KURL& firstParty, const WebCore::KURL&, String& result);
-    void setCookiesFromDOM(bool privateBrowsingEnabled, const WebCore::KURL& firstParty, const WebCore::KURL&, const String&);
-    void cookiesEnabled(bool privateBrowsingEnabled, const WebCore::KURL& firstParty, const WebCore::KURL&, bool& result);
-    void cookieRequestHeaderFieldValue(bool privateBrowsingEnabled, const WebCore::KURL& firstParty, const WebCore::KURL&, String& result);
-    void getRawCookies(bool privateBrowsingEnabled, const WebCore::KURL& firstParty, const WebCore::KURL&, Vector<WebCore::Cookie>&);
-    void deleteCookie(bool privateBrowsingEnabled, const WebCore::KURL&, const String& cookieName);
+    void cookiesForDOM(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, String& result);
+    void setCookiesFromDOM(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, const String&);
+    void cookiesEnabled(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, bool& result);
+    void cookieRequestHeaderFieldValue(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, String& result);
+    void getRawCookies(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, Vector<WebCore::Cookie>&);
+    void deleteCookie(WebCore::SessionID, const WebCore::URL&, const String& cookieName);
 
-    void registerBlobURL(const WebCore::KURL&, const BlobRegistrationData&);
-    void registerBlobURLFromURL(const WebCore::KURL&, const WebCore::KURL& srcURL);
-    void unregisterBlobURL(const WebCore::KURL&);
+    void registerFileBlobURL(const WebCore::URL&, const String& path, const SandboxExtension::Handle&, const String& contentType);
+    void registerBlobURL(const WebCore::URL&, Vector<WebCore::BlobPart>, const String& contentType);
+    void registerBlobURLFromURL(const WebCore::URL&, const WebCore::URL& srcURL);
+    void registerBlobURLForSlice(const WebCore::URL&, const WebCore::URL& srcURL, int64_t start, int64_t end);
+    void blobSize(const WebCore::URL&, uint64_t& resultSize);
+    void unregisterBlobURL(const WebCore::URL&);
 
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
 
     HashMap<ResourceLoadIdentifier, RefPtr<NetworkResourceLoader>> m_networkResourceLoaders;
 

@@ -108,6 +108,7 @@ uint8_t* type_filter_bitmap;
 #define TRACE_STRING_NEWTHREAD	0x07010004
 #define TRACE_STRING_EXEC	0x07010008
 #define TRACE_LOST_EVENTS	0x07020008
+#define TRACE_INFO_STRING	0x07020010
 #define MACH_SCHEDULED		0x01400000
 #define MACH_MAKERUNNABLE	0x01400018
 #define MACH_STKHANDOFF		0x01400008
@@ -1253,6 +1254,12 @@ void read_trace()
 				fprintf(output_file, "%-8x   %-51s   %-8lx   %-2d  %s\n", (unsigned int)lkp->lk_dvp, &strptr[len], thread, cpunum, command);
 #endif
 				delete_lookup_event(thread, lkp);
+			} else if (debugid == TRACE_INFO_STRING) {
+#ifdef __LP64__
+				fprintf(output_file, "%-32s%-36s %-16lx  %-2d %s\n", (char *) &kdp->arg1, "", thread, cpunum, command);
+#else
+				fprintf(output_file, "%-16s%-46s   %-8lx   %-2d  %s\n", (char *) &kdp->arg1, "", thread, cpunum, command);
+#endif
 			} else {
 #ifdef __LP64__
 				fprintf(output_file, "%-16lx %-16lx %-16lx %-16lx  %-16lx  %-2d %s\n", kdp->arg1, kdp->arg2, kdp->arg3, kdp->arg4, thread, cpunum, command);
@@ -2770,6 +2777,8 @@ void find_thread_command(kd_buf *kbufp, char **command)
 	threadmap_t	tme;
 	int		debugid_base;
 
+	*command = EMPTYSTRING;
+
 	thread = kbufp->arg5;
 	debugid_base = kbufp->debugid & DBG_FUNC_MASK;
 
@@ -2784,8 +2793,7 @@ void find_thread_command(kd_buf *kbufp, char **command)
 
 			if (debugid_base == BSC_exit || tme->tm_deleteme == TRUE)
 				delete_thread_entry(thread);
-		} else
-			*command = EMPTYSTRING;
+		}
 	}
 	else if (debugid_base == TRACE_DATA_NEWTHREAD) {
 		/*

@@ -214,7 +214,11 @@ public:
                                 IOOptionBits                options,
                                 UInt32                      completionTimeout,
                                 CompletionAction *          completion          = 0);
-                                    
+    virtual IOReturn        message(
+                                UInt32 type,
+                                IOService * provider,
+                                void * argument = NULL);
+    
     OSMetaClassDeclareReservedUsed(IOHIDInterface,  0);
     virtual UInt32             getReportInterval ();
     

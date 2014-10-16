@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Portions Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ */
+
 #pragma ident	"@(#)dt_options.c	1.19	07/04/01 SMI"
 
 #include <sys/resource.h>
@@ -42,9 +46,7 @@
 #include <dt_impl.h>
 #include <dt_string.h>
 
-#ifdef __APPLE__
 #include "arch.h"
-#endif /*APPLE*/
 
 static int
 dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -82,7 +84,6 @@ dt_opt_amin(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
-#if defined(__APPLE__)
 static int
 dt_opt_arch(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
@@ -98,10 +99,9 @@ dt_opt_arch(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	default:
 		return dt_set_errno(dtp, EDT_BADOPTVAL);
 	}
-		
+
 	return 0;
 }
-#endif
 
 static void
 dt_coredump(void)
@@ -172,12 +172,8 @@ dt_opt_cpp_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if ((cpp = strdup(arg)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
-#if defined(__APPLE__)
 	// We use the full path to cpp
 	dtp->dt_cpp_argv[0] = cpp;
-#else
-	dtp->dt_cpp_argv[0] = (char *)strbasename(cpp);
-#endif
 	free(dtp->dt_cpp_path);
 	dtp->dt_cpp_path = cpp;
 
@@ -356,6 +352,23 @@ dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		dtp->dt_linktype = DT_LTYP_ELF;
 	else if (strcasecmp(arg, "dof") == 0)
 		dtp->dt_linktype = DT_LTYP_DOF;
+	else
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_encoding(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (strcmp(arg, "ascii") == 0)
+		dtp->dt_encoding = DT_ENCODING_ASCII;
+	else if (strcmp(arg, "utf8") == 0)
+		dtp->dt_encoding = DT_ENCODING_UTF8;
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -590,18 +603,16 @@ out:
 	return (0);
 }
 
-#if defined(__APPLE__)
 static int
 dt_opt_mangled(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
-	
+
 	_dtrace_mangled = 1;
-	
+
 	return 0;
 }
-#endif
 
 static int
 dt_optval_parse(const char *arg, dtrace_optval_t *rval)
@@ -916,9 +927,7 @@ typedef struct dt_option {
 static const dt_option_t _dtrace_ctoptions[] = {
 	{ "aggpercpu", dt_opt_agg, DTRACE_A_PERCPU },
 	{ "amin", dt_opt_amin },
-#ifdef __APPLE__
 	{ "arch", dt_opt_arch },
-#endif
 	{ "argref", dt_opt_cflags, DTRACE_C_ARGREF },
 	{ "core", dt_opt_core },
 	{ "cpp", dt_opt_cflags, DTRACE_C_CPP },
@@ -931,6 +940,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "define", dt_opt_cpp_opts, (uintptr_t)"-D" },
 	{ "droptags", dt_opt_droptags },
 	{ "empty", dt_opt_cflags, DTRACE_C_EMPTY },
+	{ "encoding", dt_opt_encoding },
 	{ "errtags", dt_opt_cflags, DTRACE_C_ETAGS },
 	{ "evaltime", dt_opt_evaltime },
 	{ "incdir", dt_opt_cpp_opts, (uintptr_t)"-I" },
@@ -943,9 +953,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "libdir", dt_opt_libdir },
 	{ "linkmode", dt_opt_linkmode },
 	{ "linktype", dt_opt_linktype },
-#if defined(__APPLE__)
 	{ "mangled", dt_opt_mangled },
-#endif
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
@@ -992,19 +1000,20 @@ static const dt_option_t _dtrace_rtoptions[] = {
  * Dynamic run-time options.
  */
 static const dt_option_t _dtrace_drtoptions[] = {
+	{ "agghist", dt_opt_runtime, DTRACEOPT_AGGHIST },
+	{ "aggpack", dt_opt_runtime, DTRACEOPT_AGGPACK },
 	{ "aggrate", dt_opt_rate, DTRACEOPT_AGGRATE },
 	{ "aggsortkey", dt_opt_runtime, DTRACEOPT_AGGSORTKEY },
 	{ "aggsortkeypos", dt_opt_runtime, DTRACEOPT_AGGSORTKEYPOS },
 	{ "aggsortpos", dt_opt_runtime, DTRACEOPT_AGGSORTPOS },
 	{ "aggsortrev", dt_opt_runtime, DTRACEOPT_AGGSORTREV },
+	{ "aggzoom", dt_opt_runtime, DTRACEOPT_AGGZOOM },
 	{ "flowindent", dt_opt_runtime, DTRACEOPT_FLOWINDENT },
 	{ "quiet", dt_opt_runtime, DTRACEOPT_QUIET },
 	{ "rawbytes", dt_opt_runtime, DTRACEOPT_RAWBYTES },
 	{ "stackindent", dt_opt_runtime, DTRACEOPT_STACKINDENT },
 	{ "switchrate", dt_opt_rate, DTRACEOPT_SWITCHRATE },
-#if defined(__APPLE__)
 	{ "stacksymbols", dt_opt_runtime, DTRACEOPT_STACKSYMBOLS },
-#endif
 	{ NULL }
 };
 

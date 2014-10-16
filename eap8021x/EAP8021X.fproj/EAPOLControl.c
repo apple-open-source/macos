@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,7 +104,9 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 	result = EINVAL;
 	goto done;
     }
-    data = CFPropertyListCreateXMLData(NULL, config_dict);
+    data = CFPropertyListCreateData(NULL, config_dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0, NULL);
     if (data == NULL) {
 	result = ENOMEM;
 	goto done;
@@ -113,7 +115,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
     status = eapolcontroller_start(server,
 				   if_name, 
 				   (xmlDataOut_t)CFDataGetBytePtr(data),
-				   CFDataGetLength(data),
+				   (int)CFDataGetLength(data),
 				   bootstrap_port,
 				   au_session,
 				   &result);
@@ -330,7 +332,9 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
 	result = EINVAL;
 	goto done;
     }
-    data = CFPropertyListCreateXMLData(NULL, config_dict);
+    data = CFPropertyListCreateData(NULL, config_dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0, NULL);
     if (data == NULL) {
 	result = ENOMEM;
 	goto done;
@@ -338,7 +342,7 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
     strncpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_update(server, if_name,
 				    (xmlDataOut_t)CFDataGetBytePtr(data),
-				    CFDataGetLength(data),
+				    (int)CFDataGetLength(data),
 				    &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_update failed", status);
@@ -394,7 +398,9 @@ EAPOLControlProvideUserInput(const char * interface_name,
 	    result = EINVAL;
 	    goto done;
 	}
-	data = CFPropertyListCreateXMLData(NULL, user_input);
+	data = CFPropertyListCreateData(NULL, user_input,
+					kCFPropertyListBinaryFormat_v1_0,
+					0, NULL);
 	if (data == NULL) {
 	    result = ENOMEM;
 	    goto done;
@@ -405,7 +411,7 @@ EAPOLControlProvideUserInput(const char * interface_name,
     strncpy(if_name, interface_name, sizeof(if_name));
     status = eapolcontroller_provide_user_input(server,
 						if_name, xml_data,
-						xml_data_len, &result);
+						(int)xml_data_len, &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_provide_user_input failed", status);
 	result = ENXIO;
@@ -502,7 +508,10 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
 	    result = EINVAL;
 	    goto done;
 	}
-	data = CFPropertyListCreateXMLData(NULL, options);
+	data = CFPropertyListCreateData(NULL, options,
+					kCFPropertyListBinaryFormat_v1_0,
+					0, NULL);
+
 	if (data == NULL) {
 	    result = ENOMEM;
 	    goto done;

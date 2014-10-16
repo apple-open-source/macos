@@ -1,0 +1,121 @@
+testing the NISCC test cases
+
+-- testing client certs, use good server cert --------
+
+1. Set up server KC
+
+   % rm -f ~/Library/Keychains/nisccServer
+   % certtool i server_crt.pem k=nisccServer r=server_key.pem c
+   
+2. Run server (from testcases dir)
+
+   % sslServer l k=nisccServer P=1300 a rootca.crt u=t
+   
+   -- not u=t --> try auth
+   
+3. Run client no auth 
+
+   % sv localhost P=1300 H a rootca.crt
+   
+   -- note 'H' - disable host name verify since server common name = 
+      "Simple Server"
+	  
+4. Set up client keychain
+
+   % rm -f ~/Library/Keychains/nisccClient
+   % certtool i client_crt.pem k=nisccClient r=client_key.pem c
+   
+5. Run client w/auth
+
+   % sv localhost P=1300 H a rootca.crt k=nisccClient
+   
+6. Bad client
+
+   # just once
+   % pemtool d client_key.pem client_key.der
+   #
+   % rm -f ~/Library/Keychains/nisccClient
+   % certtool i simple_client/00035377 k=nisccClient r=client_key.der c
+   % sv localhost P=1300 H k=nisccClient x
+   
+   ...note 'x' avoids client checking its own bogus cert, and we don't have to specify 
+      an anchor
+   
+   result on client side = errSSLPeerCertUnknown
+   clientCertState = ClientCertRejected
+   
+   result on server side = errSSLXCertChainInvalid
+   clientCertState = ClientCertRejected
+
+7. Mods needed to uses these certs
+
+  -- modified dbTool to allow importing a bad cert (via DL/DB, not Sec*)
+  -- wrote simple client app, clxutils/NISCC/TLS_SSL/nisccSimpleClient
+  
+  -- also SecureTransport needs the following mod to ignore bad certs on client side
+
+===================================================================
+RCS file: /cvs/root/Security/SecureTransport/sslKeychain.cpp,v
+retrieving revision 1.5
+diff -u -r1.5 sslKeychain.cpp
+--- sslKeychain.cpp     2003/04/25 19:40:18     1.5
++++ sslKeychain.cpp     2003/11/10 21:20:14
+@@ -174,6 +174,11 @@
+        /* FIXME = release keyRef? */
+ 
+        /* obtain public key from cert */
++       /*
++        * FIXME : THIS IS TOTALLY UNNECESSARY WHEN PARSING OUR OWN CERTS, except
++        * for the "separate signing and encryptionj certs" case. For now, to   
++        * facilitate NISCC testing, we ignore errors here. 
++        */
+        ortn = SecCertificateGetCLHandle(certRef, &clHand);
+        if(ortn) {
+                sslErrorLog("parseIncomingCerts: SecCertificateGetCLHandle err %d\n",
+@@ -183,10 +188,12 @@
+        certData.Data = thisSslCert->derCert.data;
+        certData.Length = thisSslCert->derCert.length;
+        crtn = CSSM_CL_CertGetKeyInfo(clHand, &certData, pubKey);
++       #if 0
+        if(crtn) {
+                sslErrorLog("parseIncomingCerts: CSSM_CL_CertGetKeyInfo err\n");
+                return (OSStatus)crtn;
+        }
++       #endif
+ 
+        /* obtain keychain from key, CSP handle from keychain */
+        ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)keyRef, &kcRef);
+
+........
+
+...with this in place cert 00070004 causes anything parsing it to get a seg fault. 
+
+...........
+
+problems found:
+
+1. Processing SEC_ASN1_SAVE, the destination item is mallocd once, with the length 
+   of the top-level item to be saved. However data gets added to this item on a 
+   leaf-by-leaf basis so that if the sizes of the leaves adds up to greater than
+   the stated/mallocd len of the otp-level item, overflow. 
+   
+   -- verified by disabling the SAVE in TBS_Cert
+   -- fixed using sec_asn1d_state.dest_alloc_len field to track alloc size in 
+      aggregate items
+   
+..............
+
+certs known to crash the Panther Security.framework:
+
+	"00000668",
+	"00000681",
+	"00001980",
+	"00002040",
+	"00007472",
+	"00008064",
+	"00008656",
+	"00009840",
+	"00010432",
+	"00011614",	
+	"00011615",
+	"00011616",

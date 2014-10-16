@@ -123,12 +123,7 @@ ssize_t tls_prng_dev_read(TLS_PRNG_SRC *dev, size_t len)
     else
 	rand_bytes = len;
     errno = 0;
-#ifdef __APPLE_OS_X_SERVER__
-    const char *p_no_poll = "apple-no-poll";
-    count = timed_read(dev->fd, buffer, rand_bytes, dev->timeout, (void *)p_no_poll);
-#else /* __APPLE_OS_X_SERVER__ */
     count = timed_read(dev->fd, buffer, rand_bytes, dev->timeout, (void *) 0);
-#endif /* __APPLE_OS_X_SERVER__ */
     if (count > 0) {
 	if (msg_verbose)
 	    msg_info("%s: read %ld bytes from entropy device %s",

@@ -59,6 +59,7 @@ static int Local = 0;
 static char *Subdoc = NULL;
 static char *SubdocName = NULL;
 static char *Toccksum = NULL;
+static char *Filecksum = NULL;
 static char *Compression = NULL;
 static char *Rsize = NULL;
 static char *CompressionArg = NULL;
@@ -186,12 +187,15 @@ static int archive(const char *filename, int arglen, char *args[]) {
 
 	if( Toccksum )
 		xar_opt_set(x, XAR_OPT_TOCCKSUM, Toccksum);
-
-	if( Compression )
-		xar_opt_set(x, XAR_OPT_COMPRESSION, Compression);
+	
+	if( Filecksum )
+		xar_opt_set(x, XAR_OPT_FILECKSUM, Filecksum);
 
 	if( CompressionArg )
 		xar_opt_set(x, XAR_OPT_COMPRESSIONARG, CompressionArg);
+	
+	if( Compression )
+		xar_opt_set(x, XAR_OPT_COMPRESSION, Compression);
 
 	if( Coalesce )
 		xar_opt_set(x, XAR_OPT_COALESCE, "true");
@@ -634,6 +638,10 @@ static int dump_header(const char *filename) {
 	                     break;
 	case XAR_CKSUM_SHA1: printf("(SHA1)\n");
 	                     break;
+	case XAR_CKSUM_SHA256: printf("(SHA256)\n");
+		break;
+	case XAR_CKSUM_SHA512: printf("(SHA512)\n");
+		break;
 	case XAR_CKSUM_MD5: printf("(MD5)\n");
 	                    break;
 	default: printf("(unknown)\n");
@@ -663,7 +671,7 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 		break;
 	case XAR_SEVERITY_NORMAL:
 		if( (err = XAR_ERR_ARCHIVE_CREATION) && f )
-    			print_file(x, f);
+			print_file(x, f);
 		break;
 	case XAR_SEVERITY_NONFATAL:
 	case XAR_SEVERITY_FATAL:
@@ -678,7 +686,7 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 			free((char *)file);
 		}
 		if( str ) printf(": %s", str);
-		if( err ) printf(" (%s)", strerror(e));
+		if( err && e ) printf(" (%s)", strerror(e));
 		if( sev == XAR_SEVERITY_NONFATAL ) {
 			printf(" - ignored");
 			printf("\n");
@@ -710,7 +718,11 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t-P               On extract, set ownership based on uid/gid.\n");
 	fprintf(stderr, "\t--toc-cksum      Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      xml header verification.\n");
-	fprintf(stderr, "\t                      Valid values: none, sha1, and md5\n");
+	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+	fprintf(stderr, "\t                      Default: sha1\n");
+	fprintf(stderr, "\t--file-cksum     Specifies the hashing algorithm to use for\n");
+	fprintf(stderr, "\t                      file content verification.\n");
+	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--dump-toc=<filename> Has xar dump the xml header into the\n");
 	fprintf(stderr, "\t                      specified file.\n");
@@ -723,6 +735,8 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t-z               Synonym for \"--compression=gzip\"\n");
 	fprintf(stderr, "\t--compression-args=arg Specifies arguments to be passed\n");
 	fprintf(stderr, "\t                       to the compression engine.\n");
+	fprintf(stderr, "\t--compress-heap  Compress entire heap instead of individual files.\n");
+	fprintf(stderr, "\t                      Currently limited to gzip compression.\n");
 	fprintf(stderr, "\t--list-subdocs   List the subdocuments in the xml header\n");
 	fprintf(stderr, "\t--extract-subdoc=name Extracts the specified subdocument\n");
 	fprintf(stderr, "\t                      to a document in cwd named <name>.xml\n");
@@ -765,25 +779,26 @@ int main(int argc, char *argv[]) {
 	struct lnode *tmp;
 	long int longtmp;
 	struct option o[] = { 
-		{"toc-cksum", 1, 0, 1},
-		{"dump-toc", 1, 0, 'd'},
-		{"compression", 1, 0, 2},
-		{"list-subdocs", 0, 0, 3},
-		{"help", 0, 0, 'h'},
-		{"version", 0, 0, 4},
-		{"dump-header", 0, 0, 5},
-		{"extract-subdoc", 1, 0, 6},
-		{"exclude", 1, 0, 7},
-		{"rsize", 1, 0, 8},
-		{"coalesce-heap", 0, 0, 9},
-		{"link-same", 0, 0, 10},
-		{"no-compress", 1, 0, 11},
-		{"prop-include", 1, 0, 12},
-		{"prop-exclude", 1, 0, 13},
-		{"distribution", 0, 0, 14},
-		{"keep-existing", 0, 0, 15},
-		{"keep-setuid", 0, 0, 16},
-		{"compression-args", 1, 0, 17},
+		{"toc-cksum",        required_argument, 0, 1},
+		{"file-cksum",       required_argument, 0, 19}, // out of order to avoid regressions
+		{"dump-toc",         required_argument, 0, 'd'},
+		{"compression",      required_argument, 0, 2},
+		{"list-subdocs",     no_argument,       0, 3},
+		{"help",             no_argument,       0, 'h'},
+		{"version",          no_argument,       0, 4},
+		{"dump-header",      no_argument,       0, 5},
+		{"extract-subdoc",   required_argument, 0, 6},
+		{"exclude",          required_argument, 0, 7},
+		{"rsize",            required_argument, 0, 8},
+		{"coalesce-heap",    no_argument,       0, 9},
+		{"link-same",        no_argument,       0, 10},
+		{"no-compress",      required_argument, 0, 11},
+		{"prop-include",     required_argument, 0, 12},
+		{"prop-exclude",     required_argument, 0, 13},
+		{"distribution",     no_argument,       0, 14},
+		{"keep-existing",    no_argument,       0, 15},
+		{"keep-setuid",      no_argument,       0, 16},
+		{"compression-args", required_argument, 0, 17},
 		{ 0, 0, 0, 0}
 	};
 
@@ -794,41 +809,61 @@ int main(int argc, char *argv[]) {
 
 	while( (c = getopt_long(argc, argv, "axcC:vtjzf:hpPln:s:d:vk", o, &loptind)) != -1 ) {
 		switch(c) {
-		case  1 : if( !optarg ) {
-		          	usage(argv[0]);
-		          	exit(1);
-		          }
-		          if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
-		          	usage(argv[0]);
-		          	exit(1);
-		          }
-		          Toccksum = optarg;
-		
-		          break;
-		case  2 : if( !optarg ) {
-		          	usage(argv[0]);
-		          	exit(1);
-		          }
-		          if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_GZIP) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_BZIP) != 0) &&
-		              (strcmp(optarg, XAR_OPT_VAL_LZMA) != 0) ) {
-		          	usage(argv[0]);
-		          	exit(1);
-		          }
-		          Compression = optarg;
-		          break;
-		case  3 : if( command && (command != 3) ) {
-		          	fprintf(stderr, "Conflicting commands specified\n");
+		case  1 : // toc-cksum
+			if( !optarg ) {
+				usage(argv[0]);
 				exit(1);
-		          }
-			  command = 3;
-			  break;
-		case  4 : print_version();
-		          exit(0);
-		case 'd':
+			}
+			if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			Toccksum = optarg;
+			break;
+		case 19 : // file-cksum
+			if( !optarg ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+			   (strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
+			   (strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
+			   (strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
+			   (strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			Filecksum = optarg;
+			break;
+		case  2 : // compression
+			if( !optarg ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_GZIP) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_BZIP) != 0) &&
+				(strcmp(optarg, XAR_OPT_VAL_LZMA) != 0) ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			Compression = optarg;
+			break;
+		case  3 : // list-subdocs
+			if( command && (command != 3) ) {
+				fprintf(stderr, "Conflicting commands specified\n");
+				exit(1);
+			}
+			command = 3;
+			break;
+		case  4 : // version
+			print_version();
+			exit(0);
+		case 'd': // dump-toc
 			if( !optarg ) {
 				usage(argv[0]);
 				exit(1);
@@ -836,15 +871,16 @@ int main(int argc, char *argv[]) {
 			tocfile = optarg;
 			command = 'd';
 			break;
-		case  5 : command = 5;
-		          break;
-		case  6 :
+		case  5 : // dump-header
+			command = 5;
+			break;
+		case  6 : // extract-subdoc
 			SubdocName = optarg;
 			asprintf(&Subdoc, "%s.xml", SubdocName);
 			if( !command )
 				command = 6;
 			break;
-		case  7 :
+		case  7 : // exclude
 			tmp = malloc(sizeof(struct lnode));
 			tmp->str = optarg;
 			tmp->next = NULL;
@@ -863,7 +899,7 @@ int main(int argc, char *argv[]) {
 				Exclude_Tail = tmp;
 			}
 			break;
-		case  8 :
+		case  8 : // rsize
 			if ( !optarg ) {
 				usage(argv[0]);
 				exit(1);
@@ -875,9 +911,9 @@ int main(int argc, char *argv[]) {
 			}
 			Rsize = optarg;
 			break;
-		case  9 : Coalesce = 1; break;
-		case 10 : LinkSame = 1; break;
-		case 11 :
+		case  9 : Coalesce = 1; break; // coalesce-heap
+		case 10 : LinkSame = 1; break; // link-same
+		case 11 : // no-compress
 			tmp = malloc(sizeof(struct lnode));
 			tmp->str = optarg;
 			tmp->next = NULL;
@@ -896,7 +932,7 @@ int main(int argc, char *argv[]) {
 				NoCompress_Tail = tmp;
 			}
 			break;
-		case 12 :
+		case 12 : // prop-include
 			tmp = malloc(sizeof(struct lnode));
 			tmp->str = optarg;
 			tmp->next = NULL;
@@ -908,7 +944,7 @@ int main(int argc, char *argv[]) {
 				PropInclude_Tail = tmp;
 			}
 			break;
-		case 13 :
+		case 13 : // prop-exclude
 			tmp = malloc(sizeof(struct lnode));
 			tmp->str = optarg;
 			tmp->next = NULL;
@@ -920,7 +956,7 @@ int main(int argc, char *argv[]) {
 				PropExclude_Tail = tmp;
 			}
 			break;
-		case 14 :
+		case 14 : // distribution
 		{
 			char *props[] = { "type", "data", "mode", "name" };
 			int i;
@@ -938,25 +974,26 @@ int main(int argc, char *argv[]) {
 			}
 		}
 			break;
-		case 'k':
+		case 'k': // keep-existing
 		case 15 :
 			NoOverwrite++;
 			break;
-		case 16 :
+		case 16 : // keep-setuid
 			SaveSuid++;
 			break;
-		case 17 :
+		case 17 : // compression-args
 			CompressionArg = optarg;
 			break;
-		case 'C': if( !optarg ) {
-		          	usage(argv[0]);
-		          	exit(1);
-		          }
-		          Chdir = optarg;
-		          break;
-		case 'c':
-		case 'x':
-		case 't':
+		case 'C': // chdir to
+			if( !optarg ) {
+				usage(argv[0]);
+				exit(1);
+			}
+			Chdir = optarg;
+			break;
+		case 'c': // create
+		case 'x': // extract
+		case 't': // list
 			if( command && (command != 's') ) {
 				usage(argv[0]);
 				fprintf(stderr, "Conflicting command flags: %c and %c specified\n", c, command);
@@ -975,31 +1012,31 @@ int main(int argc, char *argv[]) {
 		case 'z':
 			Compression = "gzip";
 			break;
-		case 'f':
-		        required_dash_f = 1;
+		case 'f': // filename
+			required_dash_f = 1;
 			filename = optarg;
 			break;
-		case 'p':
+		case 'p': // set ownership based on symbolic names (if possible)
 			Perms = SYMBOLIC;
 			break;
-		case 'P':
+		case 'P': // set ownership based on uid/gid
 			Perms = NUMERIC;
 			break;
-		case 'l':
+		case 'l': // stay on local device
 			Local = 1;
 			break;
-		case 'n':
+		case 'n': // provide subdocument name
 			SubdocName = optarg;
 			break;
-		case 's':
+		case 's': // extract subdocuments to/add subdocuments from
 			Subdoc = optarg;
 			if( !command )
 				command = 's';
 			break;
-		case 'v':
+		case 'v': // print filenames
 			Verbose++;
 			break;
-		case 'h':
+		case 'h': // help
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -1011,10 +1048,10 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "\n -f option is REQUIRED\n");
 		exit(1);
 	}
-
+	
 	switch(command) {
 		case  5 : 
-		        return dump_header(filename);
+			return dump_header(filename);
 		case  3 : 
 			return list_subdocs(filename);
 		case 'c':

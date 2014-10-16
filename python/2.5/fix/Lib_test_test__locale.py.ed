@@ -1,5 +1,0 @@
-/^import/a
-import re
-.
-/uname()\[2\]\.split("\.")/s//re.split('[.A-Za-z]', uname()[2])[:3]/
-w

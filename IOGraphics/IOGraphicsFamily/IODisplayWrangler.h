@@ -55,6 +55,8 @@ private:
     AbsoluteTime  fSettingsChanged;
     AbsoluteTime  fOffInterval[2];
 
+    AbsoluteTime  fPowerStateChangeTime;
+
 private:
 
     virtual void initForPM( void );

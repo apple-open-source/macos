@@ -1,24 +1,6 @@
 set -x
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	[ -z "${DSTROOT}" ] && exit 1
-
-	mv ${DSTROOT}/usr/lib/charset.alias ${DSTROOT}${SDKROOT}/usr/lib
-	mv ${DSTROOT}/usr/local ${DSTROOT}${SDKROOT}/usr
-
-	[ -d "${DSTROOT}/usr" ] && rm -rf "${DSTROOT}/usr"
-
-	DSTROOT="${DSTROOT}${SDKROOT}"
-	libs="libiconv.2.dylib libcharset.1.dylib"
-
-	for lib in ${libs} ; do
-		install_name_tool -id /usr/lib/${lib} ${DSTROOT}/usr/lib/${lib}
-		for lib2 in ${libs} ; do
-			install_name_tool -change ${SDKROOT}/usr/lib/${lib} /usr/lib/${lib} ${DSTROOT}/usr/lib/${lib2}
-		done
-	done
-fi
+DSTROOT="${DSTROOT}${INSTALL_PATH_PREFIX}"
 
 if [[ ${UID} -eq 0 ]]; then
 	chown -hR root:wheel ${DSTROOT}/usr

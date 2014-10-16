@@ -1,0 +1,27 @@
+---
+abstract: 'comprehensive template processing system'
+author:
+  - 'Andy Wardley <abw@wardley.org>'
+build_requires:
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.68, CPAN::Meta::Converter version 2.112621'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Template-Toolkit
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  AppConfig: 1.56
+  File::Spec: 0.8
+  File::Temp: 0.12
+  Scalar::Util: 0
+resources:
+  repository: https://github.com/abw/Template2
+version: 2.25

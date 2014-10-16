@@ -41,42 +41,46 @@
 
 enum 
 {
-    kHIDDispatchOptionPointerNoAcceleration            = 0x01,
-    kHIDDispatchOptionPointerAffixToScreen             = 0x02,
-    kHIDDispatchOptionPointerAbsolutToRelative         = 0x04
+    kHIDDispatchOptionPointerNoAcceleration         = 0x01,
+    kHIDDispatchOptionPointerDisplayIntegrated      = 0x02,
+    kHIDDispatchOptionPointerAffixToScreen          = kHIDDispatchOptionPointerDisplayIntegrated,
+    kHIDDispatchOptionPointerAbsolutToRelative      = 0x04
 };
 
 enum
 {
-    kHIDDispatchOptionScrollNoAcceleration      = 0x001,
+    kHIDDispatchOptionScrollNoAcceleration              = (1<<0),
 
-    kHIDDispatchOptionScrollMomentumAny         = 0x00e,
-    kHIDDispatchOptionScrollMomentumContinue    = 0x002,
-    kHIDDispatchOptionScrollMomentumStart       = 0x004,
-    kHIDDispatchOptionScrollMomentumEnd         = 0x008,
+    kHIDDispatchOptionScrollMomentumAny                 = 0x00e,
+    kHIDDispatchOptionScrollMomentumContinue            = (1<<1),
+    kHIDDispatchOptionScrollMomentumStart               = (1<<2),
+    kHIDDispatchOptionScrollMomentumEnd                 = (1<<3),
     
-    kHIDDispatchOptionPhaseAny                  = 0xff0,
-    kHIDDispatchOptionPhaseBegan                = 0x010,
-    kHIDDispatchOptionPhaseChanged              = 0x020,
-    kHIDDispatchOptionPhaseEnded                = 0x040,
-    kHIDDispatchOptionPhaseCanceled             = 0x080,
-    kHIDDispatchOptionPhaseMayBegin             = 0x800,
+    kHIDDispatchOptionPhaseAny                          = 0xff0,
+    kHIDDispatchOptionPhaseBegan                        = (1<<4),
+    kHIDDispatchOptionPhaseChanged                      = (1<<5),
+    kHIDDispatchOptionPhaseEnded                        = (1<<6),
+    kHIDDispatchOptionPhaseCanceled                     = (1<<7),
+    kHIDDispatchOptionPhaseMayBegin                     = (1<<11),
+    
+    kHIDDispatchOptionDeliveryNotificationForce         = (1<<30),
+    kHIDDispatchOptionDeliveryNotificationSuppress      = (1<<31)
 };
 
 enum 
 {
-    kHIDDispatchOptionKeyboardNoRepeat                 = 0x01
+    kHIDDispatchOptionKeyboardNoRepeat                  = (1<<0)
 };
 
-/*! @class IOHIDEventService : public IOService
-    @abstract
-    @discussion
-*/
 class   IOHIDPointing;
 class   IOHIDKeyboard;
 class   IOHIDConsumer;
 struct  TransducerData;
 
+/*! @class IOHIDEventService : public IOService
+ @abstract
+ @discussion
+ */
 class IOHIDEventService: public IOService
 {
     OSDeclareAbstractStructors( IOHIDEventService )
@@ -92,24 +96,25 @@ private:
     IOHIDPointing *         _pointingNub;
     IOHIDConsumer *         _consumerNub;
 
-    IONotifier *			_publishNotify;
+    IONotifier *            _publishNotify;
     IORecursiveLock *       _nubLock;
     
-    OSArray *               _transducerDataArray;
+    void *                  _reserved0;
     
     bool                    _readyForInputReports;
-
+    
     struct ExpansionData {
-		IOService *				provider;
+        IOService *             provider;
         IOWorkLoop *            workLoop;
         OSArray *               deviceUsagePairs;
-        IOCommandGate       *   commandGate;
+        IOCommandGate *         commandGate;
         
 #if TARGET_OS_EMBEDDED
         OSDictionary *          clientDict;
 #endif
 
         struct {
+            UInt32                  deviceID;
             bool                    range;
             bool                    touch;
             SInt32                  x;
@@ -120,13 +125,13 @@ private:
         struct {
             struct {
                 UInt32                  delayMS;
-                IOTimerEventSource 	*   timer;
+                IOTimerEventSource *    timer;
                 UInt32                  state;
                 IOOptionBits            options;
             } eject;
             struct {
                 UInt32                  delayMS;
-                IOTimerEventSource 	*   timer;
+                IOTimerEventSource *    timer;
                 UInt32                  state;
                 IOOptionBits            options;
             } caps;
@@ -135,11 +140,12 @@ private:
             struct {
                 UInt32                  startMask;
                 UInt32                  mask;
-                IOTimerEventSource 	*   timer;
+                IOTimerEventSource *    timer;
             } debug;
 
             bool                    swapISO;
 #endif
+            bool                    appleVendorSupported;
         } keyboard;
         
         struct {
@@ -153,11 +159,13 @@ private:
             IOOptionBits            options;
             IOTimerEventSource *    timer;
         } multiAxis;
+        
+        struct {
+            UInt32                  buttonState;
+        } relativePointer;
 
 
     };
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
     ExpansionData *         _reserved;
     
     IOHIDPointing *         newPointingShim (
@@ -178,15 +186,9 @@ private:
                                 
     void                    processTabletElement ( IOHIDElement * element );
 
-    void                    processTransducerData ();
-    
-    TransducerData *        createTransducerData ( UInt32 transducerID );
-    
-    TransducerData *        getTransducerData ( UInt32 transducerID );
-                                
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
-    static bool 			_publishMatchingNotificationHandler(void * target, void * ref, IOService * newService, IONotifier * notifier);
+    static bool             _publishMatchingNotificationHandler(void * target, void * ref, IOService * newService, IONotifier * notifier);
 
     void                    ejectTimerCallback(IOTimerEventSource *sender);
 
@@ -198,7 +200,7 @@ private:
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
 
-	void					calculateCapsLockDelay();
+    void                    calculateCapsLockDelay();
     
     void                    calculateStandardType();
 
@@ -407,7 +409,15 @@ protected:
                                 IOOptionBits                options = 0 );
 
     enum {
-        kDigitizerInvert = (1<<0)
+        kDigitizerInvert = (1<<0),
+        
+        kDigitizerCapabilityButtons             = (1<<16),
+        kDigitizerCapabilityPressure            = (1<<16),
+        kDigitizerCapabilityTangentialPressure  = (1<<16),
+        kDigitizerCapabilityZ                   = (1<<16),
+        kDigitizerCapabilityTiltX               = (1<<16),
+        kDigitizerCapabilityTiltY               = (1<<16),
+        kDigitizerCapabilityTwist               = (1<<16),
     };
     
     enum {
@@ -546,6 +556,37 @@ protected:
                                 IOFixed                         azimuth         = 0,
                                 IOOptionBits                    options         = 0 );
     
+    /*!
+     @function dispatchUnicodeEvent
+     @abstract Dispatch unicode events
+     @discussion The HID specificiation provides a means to dispatch unicode characters from HID
+     compliant devices.  The original method was to leverage the unicode page to deliver UTF-16 LE
+     characters by way of a usage page selector.
+     @param timeStamp   AbsoluteTime representing origination of event
+     @param length      Length of unicode payload
+     @param payload     character payload
+     @param quality     A fixed point value from 0.0 to 1.0 that represents that quality/confidence of the event.
+     @param options     Additional options to be used when dispatching event.
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  6);
+    enum {
+        kUnicodeEncodingTypeUTF8    = 0,
+        kUnicodeEncodingTypeUTF16LE,
+        kUnicodeEncodingTypeUTF16BE,
+        kUnicodeEncodingTypeUTF32LE,
+        kUnicodeEncodingTypeUTF32BE,
+    };
+    typedef UInt32 UnicodeEncodingType;
+
+    virtual void            dispatchUnicodeEvent(
+                                                 AbsoluteTime               timeStamp,
+                                                 UInt8 *                    payload,
+                                                 UInt32                     length,
+                                                 UnicodeEncodingType        encoding    = kUnicodeEncodingTypeUTF16LE,
+                                                 IOFixed                    quality     = (1<<16),
+                                                 IOOptionBits               options     = 0);
+
+    
 private:
     enum {
         kDigitizerOrientationTypeTilt = 0,
@@ -570,6 +611,7 @@ private:
                                 IOFixed *                       orientationParams       = NULL,
                                 UInt32                          orientationParamCount   = 0,
                                 IOOptionBits                    options                 = 0 );
+    
 
 
 
@@ -577,7 +619,7 @@ private:
 public:
     typedef void (*Action)(OSObject *target, OSObject * sender, void *context, OSObject *event, IOOptionBits options);
 
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  6);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  7);
     virtual bool            open(
                                 IOService *                 client,
                                 IOOptionBits                options,
@@ -585,17 +627,17 @@ public:
                                 Action                      action);
                                 
 protected:    
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  7);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  8);
     virtual void            dispatchEvent(IOHIDEvent * event, IOOptionBits options=0);
 
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  8);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  9);
     virtual UInt32          getPrimaryUsagePage();
     
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  9);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 10);
     virtual UInt32          getPrimaryUsage();
     
 public:
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  10);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  11);
     virtual IOHIDEvent *    copyEvent(
                                 IOHIDEventType              type, 
                                 IOHIDEvent *                matching = 0,
@@ -604,13 +646,12 @@ public:
 protected:
 
 #else
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  6);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  7);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  8);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  9);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 10);
-#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 11);
+#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 12);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 13);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 14);
@@ -637,8 +678,8 @@ public:
     virtual void            close( IOService * forClient, IOOptionBits options = 0 );
     
 private:
-    bool                    openGated( IOService *client, IOOptionBits options, void *context, Action action);
-    void                    closeGated( IOService * forClient, IOOptionBits options = 0 );
+    bool                    openGated( IOService *client, IOOptionBits *pOptions, void *context, Action action);
+    void                    closeGated( IOService * forClient, IOOptionBits *pOptions);
 #endif
 
 };

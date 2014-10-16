@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -50,30 +50,32 @@ public:
     
     void setHTMLElement(HTMLElement* element) { m_optionElement = element; }
     
-    virtual AccessibilityRole roleValue() const { return ListBoxOptionRole; }
-    virtual bool isSelected() const;
-    virtual bool isEnabled() const;
-    virtual bool isSelectedOptionActive() const;
-    virtual String stringValue() const;
-    virtual Element* actionElement() const;
-    virtual Node* node() const { return m_optionElement; }
-    virtual void setSelected(bool);
-    virtual bool canSetSelectedAttribute() const;
+    virtual AccessibilityRole roleValue() const override { return ListBoxOptionRole; }
+    virtual bool isSelected() const override;
+    virtual bool isEnabled() const override;
+    virtual bool isSelectedOptionActive() const override;
+    virtual String stringValue() const override;
+    virtual Element* actionElement() const override;
+    virtual Node* node() const override { return m_optionElement; }
+    virtual void setSelected(bool) override;
+    virtual bool canSetSelectedAttribute() const override;
 
-    virtual LayoutRect elementRect() const;
-    virtual AccessibilityObject* parentObject() const;
-    bool isListBoxOption() const { return true; }
-    
+    virtual LayoutRect elementRect() const override;
+    virtual AccessibilityObject* parentObject() const override;
+    virtual bool isListBoxOption() const override final { return true; }
+
 private:
     HTMLElement* m_optionElement;
     
-    virtual bool canHaveChildren() const { return false; }
+    virtual bool canHaveChildren() const override { return false; }
     HTMLSelectElement* listBoxOptionParentNode() const;
     int listBoxOptionIndex() const;
     IntRect listBoxOptionRect() const;
     AccessibilityObject* listBoxOptionAccessibilityObject(HTMLElement*) const;
-    virtual bool computeAccessibilityIsIgnored() const;
+    virtual bool computeAccessibilityIsIgnored() const override;
 };
+
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityListBoxOption, isListBoxOption())
     
 } // namespace WebCore 
 

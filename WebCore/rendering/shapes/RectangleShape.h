@@ -39,51 +39,32 @@
 
 namespace WebCore {
 
-class FloatRoundedRect : public FloatRect {
+class RectangleShape : public Shape {
 public:
-    FloatRoundedRect() { }
-    FloatRoundedRect(const FloatRect& bounds, const FloatSize& radii)
-        : FloatRect(bounds)
+    RectangleShape(const FloatRect& bounds, const FloatSize& radii)
+        : m_bounds(bounds)
         , m_radii(radii)
     {
     }
 
+    virtual LayoutRect shapeMarginLogicalBoundingBox() const override { return static_cast<LayoutRect>(shapeMarginBounds()); }
+    virtual bool isEmpty() const override { return m_bounds.isEmpty(); }
+    virtual void getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList&) const override;
+
+    virtual void buildDisplayPaths(DisplayPaths&) const override;
+
+private:
+    FloatRect shapeMarginBounds() const;
+
     float rx() const { return m_radii.width(); }
     float ry() const { return m_radii.height(); }
-    FloatRoundedRect marginBounds(float margin) const;
-    FloatRoundedRect paddingBounds(float padding) const;
-    FloatPoint cornerInterceptForWidth(float width) const;
+    float x() const { return m_bounds.x(); }
+    float y() const { return m_bounds.y(); }
+    float width() const { return m_bounds.width(); }
+    float height() const { return m_bounds.height(); }
 
-private:
+    FloatRect m_bounds;
     FloatSize m_radii;
-};
-
-class RectangleShape : public Shape {
-public:
-    RectangleShape(const FloatRect& bounds, const FloatSize& radii)
-        : Shape()
-        , m_bounds(bounds, radii)
-        , m_haveInitializedMarginBounds(false)
-        , m_haveInitializedPaddingBounds(false)
-    {
-    }
-
-    virtual LayoutRect shapeMarginLogicalBoundingBox() const OVERRIDE { return static_cast<LayoutRect>(shapeMarginBounds()); }
-    virtual LayoutRect shapePaddingLogicalBoundingBox() const OVERRIDE { return static_cast<LayoutRect>(shapePaddingBounds()); }
-    virtual bool isEmpty() const OVERRIDE { return m_bounds.isEmpty(); }
-    virtual void getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList&) const OVERRIDE;
-    virtual void getIncludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList&) const OVERRIDE;
-    virtual bool firstIncludedIntervalLogicalTop(LayoutUnit minLogicalIntervalTop, const LayoutSize& minLogicalIntervalSize, LayoutUnit&) const OVERRIDE;
-
-private:
-    FloatRoundedRect shapeMarginBounds() const;
-    FloatRoundedRect shapePaddingBounds() const;
-
-    FloatRoundedRect m_bounds;
-    mutable FloatRoundedRect m_marginBounds;
-    mutable FloatRoundedRect m_paddingBounds;
-    mutable bool m_haveInitializedMarginBounds : 1;
-    mutable bool m_haveInitializedPaddingBounds : 1;
 };
 
 } // namespace WebCore

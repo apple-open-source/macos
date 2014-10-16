@@ -54,6 +54,7 @@
 #define kHeimODKerberosUserName CFSTR("dsAttrTypeNative:KerberosUserName")
 #define kHeimODKerberosServerName CFSTR("dsAttrTypeNative:KerberosServerName")
 static CFStringRef kHeimASI = CFSTR("dsAttrTypeStandard:AltSecurityIdentities");
+static CFStringRef kHeimSRP = CFSTR("dsAttrTypeNative:HeimdalSRPKey");
 
 static CFStringRef kRealName = CFSTR("dsAttrTypeStandard:RealName");
 
@@ -83,15 +84,6 @@ static CFStringRef remove_keys_server[] = {
     kHeimLDAPKerberosFlags
 };
 static const int num_remove_keys_server = sizeof(remove_keys_server) / sizeof(remove_keys_server[0]);
-
-
-static CFStringRef server_fetch[] = {
-    kHeimLDAPKerberosUserName,
-    kHeimLDAPKerberosServerName,
-    kHeimLDAPKerberosKeys,
-    kHeimLDAPKerberosFlags
-};
-static const int num_server_fetch = sizeof(server_fetch) / sizeof(server_fetch[0]);
 
 
 #define kHeimODKerberosACL CFSTR("dsAttrTypeNative:KerberosACL")
@@ -127,7 +119,11 @@ struct s2k ACLKeys[] = {
 };
 
 static CFIndex
-createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
+createError(CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
+    CF_FORMAT_FUNCTION(3, 4);
+
+static CFIndex
+createError(CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
 {
     void *keys[1] = { (void *)CFSTR("HODErrorMessage") };
     void *values[1];
@@ -137,7 +133,7 @@ createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 	return errorcode;
 
     va_start(va, fmt);
-    values[0] = (void *)CFStringCreateWithFormatAndArguments(alloc, NULL, fmt, va);
+    values[0] = (void *)CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, va);
     va_end(va);
     if (values[0] == NULL) {
 	*error = NULL;
@@ -147,7 +143,7 @@ createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
     if (*error)
 	CFRelease(*error);
     
-    *error = CFErrorCreateWithUserInfoKeysAndValues(alloc, CFSTR("com.apple.Heimdal.ODAdmin"), errorcode,
+    *error = CFErrorCreateWithUserInfoKeysAndValues(NULL, CFSTR("com.apple.Heimdal.ODAdmin"), errorcode,
 						    (const void * const *)keys,
 						    (const void * const *)values, 1);
     CFRelease(values[0]);
@@ -176,6 +172,45 @@ cfstring2cstring(CFStringRef string)
 
     return s;
 }
+
+static krb5_principal
+krb5_principalCreateFromString(krb5_context context, CFStringRef principal)
+{
+    krb5_principal princ;
+    krb5_error_code ret;
+    char *princstr;
+
+    princstr = cfstring2cstring(principal);
+    if (princstr == NULL)
+	return NULL;
+
+    ret = krb5_parse_name(context, princstr, &princ);
+    free(princstr);
+    if (ret)
+	return NULL;
+
+    return princ;
+}
+
+static CFStringRef
+CFStringCreateWithkrb5_principal(krb5_context context,
+				 krb5_const_principal principal)
+{
+    krb5_error_code ret;
+    CFStringRef value;
+    char *name;
+
+    ret = krb5_unparse_name(context, principal, &name);
+    if (ret)
+	return NULL;
+    
+    value = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
+    krb5_xfree(name);
+
+    return value;
+}
+				 
+
 
 static unsigned int
 string2int(const struct s2k *t, CFStringRef s)
@@ -259,7 +294,7 @@ copyDataRecord(ODNodeRef node, ODRecordRef record,
             } else {
 	        record = ODNodeCopyRecordAuthenticationData(node, record, error);
 	        if (record == NULL && error != NULL && *error == NULL)
-		    createError(NULL, error, 1, CFSTR("can't map user record to UserAuthenticationRecord"));
+		    createError(error, 1, CFSTR("can't map user record to UserAuthenticationRecord"));
             }
 #else
 	    CFRetain(record);
@@ -382,7 +417,7 @@ HeimODCreatePrincipalData(ODNodeRef node, ODRecordRef record, CFTypeRef flags, C
     element = CFStringCreateWithFormat(kCFAllocatorDefault,
 				       NULL, CFSTR("%u"), nflags);
     if (element == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	goto out;
     }
     
@@ -435,7 +470,7 @@ HeimODRemovePrincipalData(ODNodeRef node, ODRecordRef record, CFStringRef princi
 
     array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if (array == NULL) {
-	createError(NULL, error, 1, CFSTR("out of memory"));
+	createError(error, 1, CFSTR("out of memory"));
 	goto out;
     }
     
@@ -504,7 +539,7 @@ flagop(ODRecordRef datarecord,
 
     uflags = flags2int(keys, flags);
     if (uflags == 0) {
-	createError(NULL, error, 1, CFSTR("failed to parse input flags"));
+	createError(error, 1, CFSTR("failed to parse input flags"));
 	goto out;
     }
     
@@ -515,7 +550,7 @@ flagop(ODRecordRef datarecord,
     element = CFStringCreateWithFormat(kCFAllocatorDefault,
 				       NULL, CFSTR("%lu"), uflags);
     if (element == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	goto out;
     }
     
@@ -579,7 +614,7 @@ HeimODCopyKerberosFlags(ODNodeRef node, ODRecordRef record, CFErrorRef *error)
 
     uflags = getflags(datarecord, kflags, error);
     if (uflags == 0) {
-	createError(NULL, error, 1, CFSTR("failed to parse input flags"));
+	createError(error, 1, CFSTR("failed to parse input flags"));
 	goto out;
     }
 
@@ -637,7 +672,7 @@ CopyReMapACL(CFTypeRef flags, CFErrorRef *error)
 	
 	nflags = CFArrayCreateMutable(NULL, sizeof(ACLKeys) / sizeof(ACLKeys[0]), &kCFTypeArrayCallBacks);
 	if (nflags == NULL) {
-	    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	    createError(error, ENOMEM, CFSTR("out of memory"));
 	    return NULL;
 	}
 	for (n = 0; ACLKeys[n].s; n++)
@@ -701,7 +736,7 @@ HeimODCopyACL(ODNodeRef node, ODRecordRef record, CFErrorRef *error)
 
     uflags = getflags(datarecord, kflags, error);
     if (uflags == 0) {
-	createError(NULL, error, 1, CFSTR("failed to parse input flags"));
+	createError(error, 1, CFSTR("failed to parse input flags"));
 	goto out;
     }
 
@@ -879,10 +914,9 @@ HeimODSetKerberosMaxRenewable(ODNodeRef node, ODRecordRef record, time_t t, CFEr
 time_t
 HeimODGetKerberosMaxRenewable(ODNodeRef node, ODRecordRef record, CFErrorRef *error)
 {
-    abort();
     if (error)
 	*error = NULL;
-    return 0;
+    abort();
 }
 
 static CFStringRef
@@ -896,7 +930,7 @@ getkeykey(ODRecordRef record)
 static unsigned
 last_kvno_array(CFArrayRef array, krb5_context context, krb5_principal principal)
 {
-    unsigned kvno = 0;
+    krb5_kvno kvno = 0;
     CFIndex i;
     
     for (i = 0; i < CFArrayGetCount(array); i++) {
@@ -1031,7 +1065,7 @@ update_keys(krb5_context context,
     __block krb5_error_code ret;
     CFArrayRef defaultenctypes = NULL;
     CFDataRef element = NULL;
-    size_t size;
+    size_t size = 0;
 
     memset(&key, 0, sizeof(key));
     
@@ -1050,7 +1084,7 @@ update_keys(krb5_context context,
     if (include_principal) {
 	ret = krb5_copy_principal(context, princ, &key.principal);
 	if (ret) {
-	    createError(NULL, error, ret, CFSTR("out of memory"));
+	    createError(error, ret, CFSTR("out of memory"));
 	    goto out;
 	}
     }
@@ -1119,7 +1153,7 @@ update_keys(krb5_context context,
     });
     if (key.keys.len == 0) {
 	ret = 1;
-	createError(NULL, error, ret, CFSTR("no Kerberos enctypes found"));
+	createError(error, ret, CFSTR("no Kerberos enctypes found"));
 	goto out;
     }
     
@@ -1133,7 +1167,7 @@ update_keys(krb5_context context,
 
     ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data.data, data.length, &key, &size, ret);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("Failed to encode keyset"));
+	createError(error, ret, CFSTR("Failed to encode keyset"));
 	goto out;
     }
     if (data.length != size)
@@ -1155,21 +1189,192 @@ out:
     return element;
 }
 
+CFArrayRef
+HeimODCreateSRPKeys(CFArrayRef srptype, /* XXX should be list of srp types */
+		    CFStringRef principal,
+		    CFTypeRef password,
+		    unsigned long flags,
+		    CFErrorRef *error)
+{
+    krb5_principal princ = NULL;
+    krb5_context context = NULL;
+    CFArrayRef array = NULL;
+    char *passwdstr = NULL;
+    krb5_error_code ret;
+    CFDataRef element;
+    void const *el[1];
+    krb5_data data;
+    size_t size = 0;
+    hdb_srp srp;
+
+    memset(&srp, 0, sizeof(srp));
+
+    ret = krb5_init_context(&context);
+    if (ret) {
+	createError(error, 1, CFSTR("can't create kerberos context"));
+	return NULL;
+    }
+
+    if (CFGetTypeID(password) == CFDataGetTypeID()) {
+
+	passwdstr = malloc(CFDataGetLength(password) + 1);
+	if (passwdstr == NULL) {
+	    createError(error, ENOMEM, CFSTR("out of memory"));
+	    goto out;
+	}
+
+	memcpy(passwdstr, CFDataGetBytePtr(password), CFDataGetLength(password));
+	passwdstr[CFDataGetLength(password)] = '\0';
+
+    } else if (CFGetTypeID(password) == CFStringGetTypeID()) {
+
+	passwdstr = cfstring2cstring(password);
+	if (passwdstr == NULL) {
+	    createError(error, ENOMEM, CFSTR("out of memory"));
+	    goto out;
+	}
+
+    } else {
+	createError(error, 1, CFSTR("password not a string"));
+	goto out;
+    }
+
+    princ = krb5_principalCreateFromString(context, principal);
+    if (princ == NULL) {
+	createError(error, ENOMEM, CFSTR("out of memory"));
+	goto out;
+    }
+
+
+    ret = hdb_set_srp_verifier(context,
+			       KRB5_SRP_GROUP_RFC5054_4096_PBKDF2_SHA512,
+			       princ,
+			       passwdstr,
+			       0,
+			       &srp);
+    if (ret) {
+	goto out;
+    }
+
+    ASN1_MALLOC_ENCODE(hdb_srp, data.data, data.length, &srp, &size, ret);
+    free_hdb_srp(&srp);
+    if (ret)
+	goto out;
+    if (size != data.length)
+	krb5_abortx(context, "internal asn.1 encoder error");
+
+    element = CFDataCreate(kCFAllocatorDefault, data.data, data.length);
+    free(data.data);
+    if (element == NULL)
+	goto out;
+
+    el[0] = element;
+
+    array = CFArrayCreate(kCFAllocatorDefault, el, 1, &kCFTypeArrayCallBacks);
+    CFRelease(element);
+    if (array == NULL) {
+	ret = ENOMEM;
+	goto out;
+    }
+
+ out:
+    if (context)
+	krb5_free_context(context);
+    if (passwdstr)
+	free(passwdstr);
+
+    free_hdb_srp(&srp);
+
+    return array;
+}
+
+
+
+static int
+SetSRP(krb5_context context, ODNodeRef node, ODRecordRef datarecord,
+       krb5_const_principal principal, CFTypeRef password,
+       unsigned long flags,
+       CFErrorRef *error)
+{
+    CFStringRef princ = NULL;
+    CFArrayRef array = NULL;
+    int ret;
+
+    princ = CFStringCreateWithkrb5_principal(context, principal);
+    if (princ == NULL)
+	return 1;
+
+    array = HeimODCreateSRPKeys(NULL, princ, password, flags, error);
+    CFRelease(princ);
+    if (array == NULL)
+	return 1;
+
+    if ((flags & kHeimODAdminSetKeysAppendKey) == 0) {
+	bool r = ODRecordSetValue(datarecord, kHeimSRP, array, error); 
+	if (!r) {
+	    ret = EINVAL;
+	    goto out;
+	}
+
+	ret = 0;
+
+    } else {
+	ret = EINVAL;
+    }
+
+ out:
+    if (array)
+	CFRelease(array);
+
+    return ret;
+}
+
+bool
+HeimODSetVerifiers(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef types, CFTypeRef password, unsigned long flags, CFErrorRef *error)
+{
+    ODRecordRef datarecord = NULL;
+    CFArrayRef array = NULL;
+    bool res = false;
+
+    datarecord = copyDataRecord(node, record, NULL, NULL, NULL, NULL, error);
+    if (datarecord == NULL)
+	goto out;
+
+    array = HeimODCreateSRPKeys(types, principal, password, 0, error);
+    if (array == NULL)
+	goto out;
+
+    if (!ODRecordSetValue(datarecord, kHeimSRP, array, error))
+	goto out;
+
+    if (!ODRecordSynchronize(datarecord, error))
+	goto out;
+
+    res = true;
+ out:
+    if (datarecord)
+	CFRelease(datarecord);
+    if (array)
+	CFRelease(array);
+
+    return res;
+}
+
 int
 HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error)
 {
     krb5_context context;
     CFDataRef element = NULL;
     __block krb5_error_code ret;
-    char *princstr = NULL, *passwordstr = NULL;
     krb5_principal princ = NULL;
     ODRecordRef datarecord = NULL;
+    char *passwordstr = NULL;
     bool is_server;
     unsigned kvno;
 
     ret = krb5_init_context(&context);
     if (ret) {
-	createError(NULL, error, 1, CFSTR("can't create kerberos context"));
+	createError(error, 1, CFSTR("can't create kerberos context"));
 	return 1;
     }
 
@@ -1178,10 +1383,10 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	goto out;
 
     if (principal) {
-	princstr = cfstring2cstring(principal);
+	princ = krb5_principalCreateFromString(context, principal);
     } else if (is_server == 0) {
 	CFStringRef name = ODRecordGetRecordName(record);
-	char *str;
+	char *str, *princstr;
 
 	str = cfstring2cstring(name);
 	if (str == NULL) {
@@ -1190,6 +1395,13 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	}
 	asprintf(&princstr, "%s@%s", str, KRB5_LKDC_REALM_NAME);
 	free(str);
+
+	ret = krb5_parse_name(context, princstr, &princ);
+	free(princstr);
+	if (ret) {
+	    createError(error, ret, CFSTR("failed to parse principal"));
+	    goto out;
+	}
 
     } else {
 	CFArrayRef array;
@@ -1204,7 +1416,7 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	if (CFArrayGetCount(array) < 1) {
 	    CFRelease(array);
 	    ret = 1;
-	    createError(NULL, error, ret, CFSTR("can't find user principal name"));
+	    createError(error, ret, CFSTR("can't find user principal name"));
 	    goto out;
 	}
 
@@ -1212,25 +1424,20 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	if (user == NULL || CFGetTypeID(user) != CFStringGetTypeID()) {
 	    CFRelease(array);
 	    ret = 1;
-	    createError(NULL, error, ret, CFSTR("user principal name not a string"));
+	    createError(error, ret, CFSTR("user principal name not a string"));
 	    goto out;
 	}
 
-	princstr = cfstring2cstring(user);
+	princ = krb5_principalCreateFromString(context, user);
 
 	CFRelease(array);
     }
-    if (princstr == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+    if (princ == NULL) {
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	ret = ENOMEM;
 	goto out;
     }
 
-    ret = krb5_parse_name(context, princstr, &princ);
-    if (ret) {
-	createError(NULL, error, ret, CFSTR("failed to parse principal"));
-	goto out;
-    }
 
     /*
      * Covert if we have a password, otherwise we'll use a random key.
@@ -1241,7 +1448,7 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	    CFDataRef data = (CFDataRef)password;
 	    passwordstr = malloc(CFDataGetLength(data) + 1);
 	    if (passwordstr == NULL) {
-		createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+		createError(error, ENOMEM, CFSTR("out of memory"));
 		ret = 1;
 		goto out;
 	    }
@@ -1252,12 +1459,12 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	} else if (CFStringGetTypeID() == CFGetTypeID(password)) {
 	    passwordstr = cfstring2cstring(password);
 	    if (passwordstr == NULL) {
-		createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+		createError(error, ENOMEM, CFSTR("out of memory"));
 		ret = 1;
 		goto out;
 	    }
 	} else {
-	    createError(NULL, error, EINVAL, CFSTR("invalid string type"));
+	    createError(error, EINVAL, CFSTR("invalid string type"));
 	    ret = 1;
 	    goto out;
 	}
@@ -1305,6 +1512,7 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	    ret = EINVAL;
 	    goto out;
 	}
+
     } else {
 	bool r = ODRecordAddValue(datarecord, getkeykey(datarecord), element, error); 
 	if (!r) {
@@ -1313,14 +1521,18 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 	}
     }
 
+    if (password && !is_server) {
+	ret = SetSRP(context, node, datarecord, princ, password, flags, error);
+	if (ret)
+	    goto out;
+    }
+
     if (!ODRecordSynchronize(datarecord, error))
 	ret = EINVAL;
 
  out:
     if (princ)
 	krb5_free_principal(context, princ);
-    if (princstr)
-	free(princstr);
     if (passwordstr) {
 	memset(passwordstr, 0, strlen(passwordstr));
 	free(passwordstr);
@@ -1338,8 +1550,9 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 static void
 delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef keyset)
 {
-    CFIndex n, m, o, count;
+    CFIndex n, m, count;
     krb5_enctype *etlist;
+    unsigned o;
 
     count = CFArrayGetCount(enctypes);
     if (count == 0)
@@ -1434,7 +1647,7 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
 {
     CFMutableArrayRef keyset = NULL;
     krb5_context context = NULL;
-    char *princstr = NULL, *passwordstr = NULL;
+    char *passwordstr = NULL;
     krb5_principal princ = NULL;
     CFDataRef element = NULL;
     krb5_error_code ret;
@@ -1445,7 +1658,7 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
 
     ret = krb5_init_context(&context);
     if (ret) {
-	createError(NULL, error, 1, CFSTR("can't create kerberos context"));
+	createError(error, 1, CFSTR("can't create kerberos context"));
 	return NULL;
     }
     
@@ -1463,15 +1676,9 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
 
     } else {
 
-	princstr = cfstring2cstring(principal);
-	if (princstr == NULL) {
-	    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
-	    goto out;
-	}
-	
-	ret = krb5_parse_name(context, princstr, &princ);
-	if (ret) {
-	    createError(NULL, error, ret, CFSTR("failed to parse principal"));
+	princ = krb5_principalCreateFromString(context, principal);
+	if (princ == NULL) {
+	    createError(error, ENOMEM, CFSTR("out of memory"));
 	    goto out;
 	}
 	
@@ -1480,7 +1687,7 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
                 CFDataRef data = (CFDataRef)password;
                 passwordstr = malloc(CFDataGetLength(data) + 1);
                 if (passwordstr == NULL) {
-                    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+                    createError(error, ENOMEM, CFSTR("out of memory"));
                     goto out;
                 }
 
@@ -1490,11 +1697,11 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
             } else if (CFStringGetTypeID() == CFGetTypeID(password)) {
                 passwordstr = cfstring2cstring(password);
                 if (passwordstr == NULL) {
-                    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+                    createError(error, ENOMEM, CFSTR("out of memory"));
                     goto out;
                 }
             } else {
-                createError(NULL, error, EINVAL, CFSTR("invalid string type"));
+                createError(error, EINVAL, CFSTR("invalid string type"));
                 goto out;
             }
         }
@@ -1521,8 +1728,6 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
     }
     
 out:
-    if (princstr)
-	free(princstr);
     if (passwordstr) {
 	memset(passwordstr, 0, strlen(passwordstr));
 	free(passwordstr);
@@ -1542,44 +1747,66 @@ HeimODKeysetToString(CFDataRef element, CFErrorRef *error)
 {
     krb5_context context;
     krb5_error_code ret;
-    CFStringRef str, str2;
-    hdb_keyset_aapl key;
-    size_t sz;
+    CFMutableStringRef str;
+    hdb_keyset_aapl keyset;
+    size_t sz, n;
     
     ret = krb5_init_context(&context);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("failed to create context"));
+	createError(error, ret, CFSTR("failed to create context"));
 	return NULL;
     }
     
     ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(element),
 			    CFDataGetLength(element),
-			    &key, &sz);
+			    &keyset, &sz);
     if (ret)
 	return NULL;
     
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR("key kvno %d"), key.kvno);
+    str = CFStringCreateMutable(NULL, 0);
     if (str == NULL)
 	goto out;
     
-    if (key.principal) {
+    CFStringAppendFormat(str, NULL, CFSTR("key kvno %d"), keyset.kvno);
+    
+    if (keyset.principal) {
 	char *p = NULL;
-	(void)krb5_unparse_name(context, key.principal, &p);
-	str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ principal: %s"), str, p);
-	free(p);
-	CFRelease(str);
-	str = str2;
-	if (str == NULL) {
-	    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	if (krb5_unparse_name(context, keyset.principal, &p) != 0) {
+	    CFRelease(str); str = NULL;
 	    goto out;
 	}
+
+	CFStringAppendFormat(str, NULL, CFSTR(" principal: %s"), p);
+	free(p);
     }
+
+    for (n = 0; n < keyset.keys.len; n++) {
+	Key *key = &keyset.keys.val[n];
+	size_t i;
+	
+	CFStringAppendFormat(str, NULL, CFSTR(" [key# %d:"), (int)n);
+	if (key->mkvno)
+	    CFStringAppendFormat(str, NULL, CFSTR(" masterkey %d:"), (int)*key->mkvno);
+	if (key->salt)
+	    CFStringAppendFormat(str, NULL, CFSTR(" salt %d:"), (int)key->salt->type);
+
+	char *enctype = NULL;
+	(void)krb5_enctype_to_string(context, key->key.keytype, &enctype);
+	CFStringAppendFormat(str, NULL, CFSTR(" enctype %s(%d):"), enctype, key->key.keytype);
+	free(enctype);
+
+	for(i = 0; i < key->key.keyvalue.length; i++)
+	    CFStringAppendFormat(str, NULL, CFSTR("%02x"), ((uint8_t *)key->key.keyvalue.data)[i]);
+
+	CFStringAppendFormat(str, NULL, CFSTR("]"));
+    }
+
 
 out:
     if (context)
 	krb5_free_context(context);
     
-    free_hdb_keyset_aapl(&key);
+    free_hdb_keyset_aapl(&keyset);
     
     return str;
 }
@@ -1595,7 +1822,7 @@ HeimODCopyDefaultEnctypes(CFErrorRef *error)
 
     enctypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (enctypes == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("Can't create enctype array ref"));
+	createError(error, ENOMEM, CFSTR("Can't create enctype array ref"));
 	return NULL;
     }
 
@@ -1689,81 +1916,81 @@ HeimODAddCertificate(ODNodeRef node, ODRecordRef record, SecCertificateRef ref, 
     ta = find_ta(ref);
     if (ta == NULL) {
 	ret = EINVAL;
-	createError(NULL, error, ret, CFSTR("Failed to find trust anchor"));
+	createError(error, ret, CFSTR("Failed to find trust anchor"));
 	goto out;
     }
 
     ret = hx509_context_init(&context);
     if (ret) {
 	ret = EINVAL;
-	createError(NULL, error, ret, CFSTR("Failed to create hx509 context"));
+	createError(error, ret, CFSTR("Failed to create hx509 context"));
 	goto out;
     }
 
     data = SecCertificateCopyData(ref);
     if (data == NULL) {
 	ret = ENOMEM;
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     ret = hx509_cert_init_data(context, CFDataGetBytePtr(data), CFDataGetLength(data), &cert); 
     CFRelease(data);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("failed to decode certificate"));
+	createError(error, ret, CFSTR("failed to decode certificate"));
 	goto out;
     }
 
     ret = hx509_cert_get_subject(cert, &subject);
     hx509_cert_free(cert);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     data = SecCertificateCopyData(ta);
     if (data == NULL) {
 	ret = ENOMEM;
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     ret = hx509_cert_init_data(context, CFDataGetBytePtr(data), CFDataGetLength(data), &cert); 
     CFRelease(data);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("failed to decode certificate"));
+	createError(error, ret, CFSTR("failed to decode certificate"));
 	goto out;
     }
 
     ret = hx509_cert_get_subject(cert, &taname);
     hx509_cert_free(cert);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     ret = hx509_name_to_string(subject, &subjectstr);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
     ret = hx509_name_to_string(taname, &tastr);
     if (ret) {
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     leaf = CFStringCreateWithCString(kCFAllocatorDefault, subjectstr, kCFStringEncodingUTF8);
     if (leaf == NULL) {
 	ret = ENOMEM;
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
     anchor = CFStringCreateWithCString(kCFAllocatorDefault, tastr, kCFStringEncodingUTF8);
     if (anchor == NULL) {
 	ret = ENOMEM;
-	createError(NULL, error, ret, CFSTR("out of memory"));
+	createError(error, ret, CFSTR("out of memory"));
 	goto out;
     }
 
@@ -1842,7 +2069,7 @@ HeimODAddCertificateSubjectAndTrustAnchor(ODNodeRef node, ODRecordRef record, CF
 
     ace = CFStringCreateWithFormat(NULL, 0, CFSTR("X509:<T>%@<S>%@"), trustAnchorSubject, leafSubject);
     if (ace == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	return 1;
     }	
 
@@ -1886,7 +2113,7 @@ HeimODRemoveCertificateSubjectAndTrustAnchor(ODNodeRef node, ODRecordRef record,
 
     ace = CFStringCreateWithFormat(NULL, 0, CFSTR("X509:<T>%@<S>%@"), trustAnchorSubject, leafSubject);
     if (ace == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	return 1;
     }	
 
@@ -1917,7 +2144,7 @@ HeimODAddAppleIDAlias(ODNodeRef node, ODRecordRef record, CFStringRef alias, CFE
 	*error = NULL;
 
     if (is_record_server(record)) {
-	createError(NULL, error, EINVAL, CFSTR("AppleID alias not supported for Server Mode"));
+	createError(error, EINVAL, CFSTR("AppleID alias not supported for Server Mode"));
 	return 1;
     }	
 
@@ -1955,7 +2182,7 @@ HeimODRemoveAppleIDAlias(ODNodeRef node, ODRecordRef record, CFStringRef alias, 
 	*error = NULL;
 
     if (is_record_server(record)) {
-	createError(NULL, error, EINVAL, CFSTR("AppleID alias not supported for Server Mode"));
+	createError(error, EINVAL, CFSTR("AppleID alias not supported for Server Mode"));
 	return 1;
     }	
 
@@ -2006,7 +2233,7 @@ load_simple(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFSt
 	ret = ODRecordSetValue(record, key, data, error);
     }
     if (!ret && *error == NULL)
-	createError(NULL, error, 1, CFSTR("Failed to load the key %@ with value %@"), key, data);
+	createError(error, 1, CFSTR("Failed to load the key %@ with value %@"), key, data);
     return ret;
 }
 
@@ -2020,19 +2247,13 @@ dump_simple(ODRecordRef record, CFArrayRef val, CFErrorRef *error)
 static CFArrayRef
 edump_principal(krb5_context context, hdb_entry *entry, CFErrorRef *error)
 {
-    krb5_error_code ret;
     CFArrayRef array;
     CFStringRef value;
-    char *name;
 
-    ret = krb5_unparse_name(context, entry->principal, &name);
-    if (ret)
-	return NULL;
-    
-    value = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
-    krb5_xfree(name);
+    value = CFStringCreateWithkrb5_principal(context, entry->principal);
     if (value == NULL)
 	return NULL;
+
     array = CFArrayCreate(kCFAllocatorDefault, (const void **)&value, 1, &kCFTypeArrayCallBacks);
     CFRelease(value);
 
@@ -2076,19 +2297,19 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 	
 	CFArrayRef aprinc = CFDictionaryGetValue(dict, CFSTR("KerberosPrincipal"));
 	if (aprinc == NULL || CFGetTypeID(aprinc) != CFArrayGetTypeID()) {
-	    createError(NULL, error, 1, CFSTR("Failed to find principal in load dictionary"));
+	    createError(error, 1, CFSTR("Failed to find principal in load dictionary"));
 	    b = false;
 	    goto out;
 	}
 	CFStringRef princ = CFArrayGetValueAtIndex(aprinc, 0);
 	if (princ == NULL || CFGetTypeID(princ) != CFStringGetTypeID()) {
-	    createError(NULL, error, 1, CFSTR("Failed to find principal in load dictionary"));
+	    createError(error, 1, CFSTR("Failed to find principal in load dictionary"));
 	    b = false;
 	    goto out;
 	}
 	char *str = cfstring2cstring(princ);
 	if (str == NULL) {
-	    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	    createError(error, ENOMEM, CFSTR("out of memory"));
 	    b = false;
 	    goto out;
 	}
@@ -2096,7 +2317,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 	ret = krb5_parse_name(context, str, &p);
 	free(str);
 	if (ret) {
-	    createError(NULL, error, ret, CFSTR("failed to parse name"));
+	    createError(error, ret, CFSTR("failed to parse name"));
 	    b = false;
 	    goto out;
 	}
@@ -2112,13 +2333,13 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 	    
 	    ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(d), CFDataGetLength(d), &keyset, NULL);
 	    if (ret) {
-		createError(NULL, error, 1, CFSTR("failed to decode hdb_keyset"));
+		createError(error, 1, CFSTR("failed to decode hdb_keyset"));
 		b = false;
 		goto out;
 	    }
 	    
 	    if (keyset.principal == NULL) {
-		size_t len, size;
+		size_t len = 0, size = 0;
 		void *to;
 		
 		(void)krb5_copy_principal(context, p, &keyset.principal);
@@ -2126,7 +2347,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 		ASN1_MALLOC_ENCODE(hdb_keyset_aapl, to, size, &keyset, &len, ret);
 		if (ret) {
 		    free_hdb_keyset_aapl(&keyset);
-		    createError(NULL, error, ret, CFSTR("failed to parse name"));
+		    createError(error, ret, CFSTR("failed to parse name"));
 		    b = false;
 		    goto out;
 		}
@@ -2137,7 +2358,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 		free(to);
 		free_hdb_keyset_aapl(&keyset);
 		if (keydata == NULL) {
-		    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+		    createError(error, ENOMEM, CFSTR("out of memory"));
 		    b = false;
 		    goto out;
 		}
@@ -2169,7 +2390,7 @@ edump_keys(krb5_context context, hdb_entry *entry, CFErrorRef *error)
     krb5_data data;
     CFDataRef value;
     hdb_keyset_aapl key;
-    size_t size;
+    size_t size = 0;
 
     key.kvno = entry->kvno;
     key.keys.len = entry->keys.len;
@@ -2258,7 +2479,7 @@ HeimODDumpRecord(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFEr
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     if (dict == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	return NULL;
     }
 
@@ -2318,7 +2539,7 @@ HeimODLoadRecord(ODNodeRef node, ODRecordRef record, CFDictionaryRef dict,
 
     status = krb5_init_context(&context);
     if (status) {
-	createError(NULL, error, status, CFSTR("can't create kerberos context"));
+	createError(error, status, CFSTR("can't create kerberos context"));
 	return false;
     }
 
@@ -2349,7 +2570,7 @@ HeimODLoadRecord(ODNodeRef node, ODRecordRef record, CFDictionaryRef dict,
     ret = ODRecordSynchronize(record, error);
     if (!ret) {
 	if (*error == NULL)
-	    createError(NULL, error, 1, CFSTR("Failed to syncronize the record"));
+	    createError(error, 1, CFSTR("Failed to syncronize the record"));
 	goto out;
     }
 
@@ -2377,7 +2598,7 @@ HeimODDumpHdbEntry(struct hdb_entry *entry, CFErrorRef *error)
 
     ret = krb5_init_context(&context);
     if (ret) {
-	createError(NULL, error, 1, CFSTR("can't create kerberos context"));
+	createError(error, 1, CFSTR("can't create kerberos context"));
 	goto out;
     }
 
@@ -2385,7 +2606,7 @@ HeimODDumpHdbEntry(struct hdb_entry *entry, CFErrorRef *error)
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     if (dict == NULL) {
-	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+	createError(error, ENOMEM, CFSTR("out of memory"));
 	goto out;
     }
 

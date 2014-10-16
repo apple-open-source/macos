@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,17 +45,17 @@ public:
 
     ~InbandTextTrackPrivateLegacyAVCF() { }
 
-    virtual InbandTextTrackPrivate::Kind kind() const OVERRIDE;
-    virtual bool isClosedCaptions() const OVERRIDE;
-    virtual bool containsOnlyForcedSubtitles() const OVERRIDE;
-    virtual bool isMainProgramContent() const OVERRIDE;
-    virtual bool isEasyToRead() const OVERRIDE;
-    virtual AtomicString label() const OVERRIDE;
-    virtual AtomicString language() const OVERRIDE;
+    virtual InbandTextTrackPrivate::Kind kind() const override;
+    virtual bool isClosedCaptions() const override;
+    virtual bool containsOnlyForcedSubtitles() const override;
+    virtual bool isMainProgramContent() const override;
+    virtual bool isEasyToRead() const override;
+    virtual AtomicString label() const override;
+    virtual AtomicString language() const override;
 
-    virtual void disconnect() OVERRIDE;
+    virtual void disconnect() override;
 
-    virtual bool isLegacyClosedCaptionsTrack() const OVERRIDE { return true; }
+    virtual Category textTrackCategory() const override { return LegacyClosedCaption; }
 
     AVCFPlayerItemTrackRef avPlayerItemTrack() const { return m_playerItemTrack.get(); }
 

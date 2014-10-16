@@ -31,6 +31,7 @@
 #ifndef LayoutUnit_h
 #define LayoutUnit_h
 
+#include "ValueToString.h"
 #include <limits.h>
 #include <limits>
 #include <math.h>
@@ -117,6 +118,11 @@ public:
     LayoutUnit(double value) { REPORT_OVERFLOW(isInBounds(value)); m_value = clampTo<int>(value); }
 #endif
 
+    static LayoutUnit fromPixel(int value)
+    {
+        return LayoutUnit(value);
+    }
+
     static LayoutUnit fromFloatCeil(float value)
     {
         LayoutUnit v;
@@ -184,7 +190,7 @@ public:
     operator double() const { return toDouble(); }
     operator bool() const { return m_value; }
 
-    LayoutUnit operator++(int)
+    LayoutUnit& operator++()
     {
         m_value += kEffectiveFixedPointDenominator;
         return *this;
@@ -929,6 +935,36 @@ inline int floorToInt(LayoutUnit value)
     return value.floor();
 }
 
+inline float roundToDevicePixel(LayoutUnit value, const float pixelSnappingFactor, bool needsDirectionalRounding = false)
+{
+    auto roundInternal = [&] (float valueToRound) { return roundf((valueToRound * pixelSnappingFactor) / kEffectiveFixedPointDenominator) / pixelSnappingFactor; };
+
+    float adjustedValue = value.rawValue() - (needsDirectionalRounding ? LayoutUnit::epsilon() / 2.0f : 0);
+    if (adjustedValue >= 0)
+        return roundInternal(adjustedValue);
+
+    // This adjusts directional rounding on negative halfway values. It produces the same direction for both negative and positive values.
+    // It helps snapping relative negative coordinates to the same position as if they were positive absolute coordinates.
+    float translateOrigin = fabsf(adjustedValue - LayoutUnit::fromPixel(1));
+    return roundInternal(adjustedValue + (translateOrigin * kEffectiveFixedPointDenominator)) - translateOrigin;
+}
+
+inline float floorToDevicePixel(LayoutUnit value, float pixelSnappingFactor)
+{
+    return floorf((value.rawValue() * pixelSnappingFactor) / kEffectiveFixedPointDenominator) / pixelSnappingFactor;
+}
+
+inline float ceilToDevicePixel(LayoutUnit value, float pixelSnappingFactor)
+{
+    return ceilf((value.rawValue() * pixelSnappingFactor) / kEffectiveFixedPointDenominator) / pixelSnappingFactor;
+}
+
+inline float snapSizeToDevicePixel(LayoutUnit size, LayoutUnit location, float pixelSnappingFactor)
+{
+    LayoutUnit fraction = location.fraction();
+    return roundToDevicePixel(fraction + size, pixelSnappingFactor) - roundToDevicePixel(fraction, pixelSnappingFactor);
+}
+
 inline LayoutUnit roundedLayoutUnit(float value)
 {
 #if ENABLE(SUBPIXEL_LAYOUT)
@@ -952,15 +988,18 @@ inline LayoutUnit absoluteValue(const LayoutUnit& value)
     return value.abs();
 }
 
-inline LayoutUnit layoutMod(const LayoutUnit& numerator, const LayoutUnit& denominator)
-{
-    return numerator % denominator;
-}
-
 inline bool isIntegerValue(const LayoutUnit value)
 {
     return value.toInt() == value;
 }
+
+#ifndef NDEBUG
+// This structure is used by PODIntervalTree for debugging.
+template <>
+struct ValueToString<LayoutUnit> {
+    static String string(const LayoutUnit value) { return String::number(value.toFloat()); }
+};
+#endif
 
 } // namespace WebCore
 

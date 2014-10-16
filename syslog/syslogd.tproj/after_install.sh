@@ -2,12 +2,12 @@
 set -e
 
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-    DESTDIR="${DSTROOT}${SDKROOT}"/System/Library/LaunchDaemons
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd_sim.plist
 else
-    DESTDIR="${DSTROOT}"/System/Library/LaunchDaemons
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
 fi
+
+DESTDIR="${DSTROOT}${INSTALL_PATH_PREFIX}"/System/Library/LaunchDaemons
 
 install -d -m 0755 -o root -g wheel "${DESTDIR}"
 install -m 0644 -o root -g wheel "${PLIST}" "${DESTDIR}"/com.apple.syslogd.plist

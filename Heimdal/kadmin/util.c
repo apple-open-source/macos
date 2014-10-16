@@ -644,6 +644,9 @@ foreach_principal(const char *exp_str,
  * in `buf, len'
  */
 
+static void interrupt(int sig) __attribute__((__noreturn__));
+
+
 #include <setjmp.h>
 
 static jmp_buf jmpbuf;

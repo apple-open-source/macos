@@ -29,17 +29,23 @@ messages -> NetworkProcess LegacyReceiver {
     # Creates a connection for communication with a WebProcess
     CreateNetworkConnectionToWebProcess()
 
-    EnsurePrivateBrowsingSession()
-    DestroyPrivateBrowsingSession()
+#if USE(SOUP)
+    SetIgnoreTLSErrors(bool ignoreTLSErrors)
+    UserPreferredLanguagesChanged(Vector<String> languages)
+#endif
+
+    EnsurePrivateBrowsingSession(WebCore::SessionID sessionID)
+    DestroyPrivateBrowsingSession(WebCore::SessionID sessionID)
 
     DownloadRequest(uint64_t downloadID, WebCore::ResourceRequest request)
     CancelDownload(uint64_t downloadID)
 
-#if PLATFORM(MAC)
     SetProcessSuppressionEnabled(bool flag)
+#if PLATFORM(COCOA)
+    SetQOS(int latencyQOS, int throughputQOS)
 #endif
 
-    AllowSpecificHTTPSCertificateForHost(WebKit::PlatformCertificateInfo certificate, WTF::String host)
+    AllowSpecificHTTPSCertificateForHost(WebCore::CertificateInfo certificate, String host)
     
     GetNetworkProcessStatistics(uint64_t callbackID)
     

@@ -64,8 +64,6 @@ bool IOHIDEvent::initWithCapacity(IOByteCount capacity)
     _data->size = _capacity;
     _children = NULL;
     
-    clock_get_uptime(&_creationTimeStamp);
-
     return true;
 }
 
@@ -156,6 +154,7 @@ IOHIDEvent * IOHIDEvent::withType(      IOHIDEventType          type,
     return me;
 }
 
+#if 0
 #if !TARGET_OS_EMBEDDED
 
 extern unsigned int hid_adb_2_usb_keymap[];
@@ -240,6 +239,7 @@ IOHIDEvent * IOHIDEvent::withEventData (
 }
 
 #endif /* TARGET_OS_EMBEDDED */
+#endif
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -264,6 +264,36 @@ IOHIDEvent * IOHIDEvent::keyboardEvent( AbsoluteTime            timeStamp,
     keyboard->down = down;
 
     return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::unicodeEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::unicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options)
+{
+    IOHIDEvent *            event   = new IOHIDEvent;
+    IOHIDEvent *            result  = NULL;
+    IOHIDUnicodeEventData * data    = NULL;
+    
+    require(payload && length, exit);
+    require(event, exit);
+    require(event->initWithTypeTimeStamp(kIOHIDEventTypeUnicode, timeStamp, options|kIOHIDEventOptionIsAbsolute, length), exit);
+    
+    data = (IOHIDUnicodeEventData *)event->_data;
+    
+    data->encoding  = encoding;
+    data->quality   = quality;
+    data->length    = length;
+    bcopy(payload, data->payload, length);
+    
+    result = event;
+    result->retain();
+
+exit:
+    if ( event )
+        event->release();
+    
+    return result;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -532,10 +562,35 @@ IOHIDEvent * IOHIDEvent::temperatureEvent(
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::buttonEvent(
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonMask,
+                                        UInt32                  mask,
+                                        UInt8                   number,
+                                        bool                    state,
                                         IOOptionBits            options)
 {
-    return IOHIDEvent::buttonEvent(timeStamp, buttonMask, 0, options);
+    IOHIDEvent *            event   = new IOHIDEvent;
+    IOHIDButtonEventData *  data    = NULL;
+    
+    require(event, exit);
+    
+    require(event->initWithTypeTimeStamp(kIOHIDEventTypeButton, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit);
+    
+    data = (IOHIDButtonEventData *)event->_data;
+    require(data, exit);
+        
+    data->mask          = mask;
+    data->number        = number;
+    data->state         = state;
+    data->pressure      = state ? 0x10000 : 0x00000;
+    data->clickCount    = 1;
+
+exit:
+    if ( !data ) {
+        if ( event ) {
+            event->release();
+            event = NULL;
+        }
+    }
+    return event;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -543,22 +598,25 @@ IOHIDEvent * IOHIDEvent::buttonEvent(
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::buttonEvent(
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonMask,
+                                        UInt32                  mask,
+                                        UInt8                   number,
                                         IOFixed                 pressure,
                                         IOOptionBits            options)
 {
-    IOHIDEvent *me = new IOHIDEvent;
+    IOHIDEvent *            event   = NULL;
+    IOHIDButtonEventData *  data    = NULL;
+    bool                    state   = (pressure>>16) & 0x1;
 
-    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeButton, timeStamp, options)) {
-        me->release();
-        return 0;
-    }
+    event = buttonEvent(timeStamp, mask, number, state, options);
+    require(event, exit);
+    
+    data = (IOHIDButtonEventData *)event->_data;
+    require(data, exit);
+    
+    data->pressure = pressure;
 
-    IOHIDButtonEventData * event = (IOHIDButtonEventData *)me->_data;
-    event->button.buttonMask = buttonMask;
-    event->button.pressure   = pressure;
-
-    return me;
+exit:
+    return event;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -570,23 +628,51 @@ IOHIDEvent * IOHIDEvent::relativePointerEvent(
                                         SInt32                  y,
                                         SInt32                  z,
                                         UInt32                  buttonState,
+                                        UInt32                  oldButtonState,
                                         IOOptionBits            options)
 {
-    IOHIDEvent *me = new IOHIDEvent;
+    IOHIDEvent *            event   = NULL;
+    IOHIDPointerEventData * data    = NULL;
+    UInt32                  index, delta;
+    
+    event = new IOHIDEvent;
+    require(event, exit);
 
-    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options)) {
-        me->release();
-        return NULL;
+    require(event->initWithTypeTimeStamp(kIOHIDEventTypePointer, timeStamp, options), exit);
+
+    data = (IOHIDPointerEventData *)event->_data;
+    require(data, exit);
+
+    data->position.x = x<<16;
+    data->position.y = y<<16;
+    data->position.z = z<<16;
+    data->button.mask = buttonState;
+    
+    
+    delta = buttonState ^ oldButtonState;
+    for ( index=0; delta; delta>>=1, buttonState>>=1) {
+        IOHIDEvent * subEvent;
+        
+        if ( (delta & 0x1) == 0 )
+            continue;
+        
+        subEvent = buttonEvent(timeStamp, data->button.mask, index+1, (bool)(buttonState&0x1));
+        if ( !subEvent )
+            continue;
+        
+        event->appendChild(subEvent);
+        
+        subEvent->release();
     }
 
-    IOHIDPointerEventData *event = (IOHIDPointerEventData *)me->_data;
-
-    event->position.x = x<<16;
-    event->position.y = y<<16;
-    event->position.z = z<<16;
-    event->button.buttonMask = buttonState;
-
-    return me;
+exit:
+    if ( !data ) {
+        if ( event ) {
+            event->release();
+            event = NULL;
+        }
+    }
+    return event;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -594,33 +680,60 @@ IOHIDEvent * IOHIDEvent::relativePointerEvent(
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::multiAxisPointerEvent(
                                         AbsoluteTime            timeStamp,
-                                        UInt32                  buttonState,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOFixed                 rX,
                                         IOFixed                 rY,
                                         IOFixed                 rZ,
+                                        UInt32                  buttonState,
+                                        UInt32                  oldButtonState,
                                         IOOptionBits            options)
 {
-    IOHIDEvent *me = new IOHIDEvent;
+    IOHIDEvent *                        event   = NULL;
+    IOHIDMultiAxisPointerEventData *    data    = NULL;
+    UInt32                              index, delta;
+    
+    event = new IOHIDEvent;
+    require(event, exit);
+    
+    require(event->initWithTypeTimeStamp(kIOHIDEventTypeMultiAxisPointer, timeStamp, options | kIOHIDEventOptionIsAbsolute | kIOHIDEventOptionIsCenterOrigin), exit);
+    
+    data = (IOHIDMultiAxisPointerEventData *)event->_data;
+    require(data, exit);
 
-    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeMultiAxisPointer, timeStamp, options | kIOHIDEventOptionIsAbsolute | kIOHIDEventOptionIsCenterOrigin)) {
-        me->release();
-        return NULL;
+    data->position.x    = x;
+    data->position.y    = y;
+    data->position.z    = z;
+    data->rotation.x    = rX;
+    data->rotation.y    = rY;
+    data->rotation.z    = rZ;
+    data->button.mask   = buttonState;
+    
+    delta = buttonState ^ oldButtonState;
+    for ( index=0; delta; delta>>=1, buttonState>>=1) {
+        IOHIDEvent * subEvent;
+        
+        if ( (delta & 0x1) == 0 )
+            continue;
+        
+        subEvent = buttonEvent(timeStamp, data->button.mask, index+1, (bool)(buttonState&0x1));
+        if ( !subEvent )
+            continue;
+        
+        event->appendChild(subEvent);
+        
+        subEvent->release();
     }
-
-    IOHIDMultiAxisPointerEventData *event = (IOHIDMultiAxisPointerEventData *)me->_data;
-
-    event->position.x = x;
-    event->position.y = y;
-    event->position.z = z;
-    event->rotation.x = rX;
-    event->rotation.y = rY;
-    event->rotation.z = rZ;
-    event->button.buttonMask = buttonState;
-
-    return me;
+    
+exit:
+    if ( !data ) {
+        if ( event ) {
+            event->release();
+            event = NULL;
+        }
+    }
+    return event;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -670,11 +783,12 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
         case kIOHIDDigitizerTransducerTypeFinger:
             event->identity = 2;        // Multitouch interprets this as 'finger', hard code to 2 or index finger
             event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
-            event->orientation.quality.quality = 0;
-            event->orientation.quality.density = 0;
-            event->orientation.quality.irregularity = 0;
-            event->orientation.quality.majorRadius = 6<<16;
-            event->orientation.quality.minorRadius = 6<<16;
+            event->orientation.quality.majorRadius = 5<<16;
+            event->orientation.quality.minorRadius = 5<<16;
+            break;
+        default:
+            event->orientation.quality.majorRadius = 3<<16;
+            event->orientation.quality.minorRadius = 3<<16;
             break;
     }
 
@@ -859,7 +973,6 @@ IOHIDEvent * IOHIDEvent::vendorDefinedEvent(
     return me;
 }
 
-#if TARGET_OS_EMBEDDED
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::biometricEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -867,7 +980,7 @@ IOHIDEvent * IOHIDEvent::biometricEvent(AbsoluteTime timeStamp, IOFixed level, I
 {
     IOHIDEvent *me = new IOHIDEvent;
 
-    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeBiometric, timeStamp, options)) {
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeBiometric, timeStamp, options | kIOHIDEventOptionIsAbsolute)) {
         me->release();
         return 0;
     }
@@ -879,6 +992,28 @@ IOHIDEvent * IOHIDEvent::biometricEvent(AbsoluteTime timeStamp, IOFixed level, I
 
     return me;
 }
+
+#if TARGET_OS_EMBEDDED
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::atmosphericPressureEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence, IOOptionBits options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+    
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeAtmosphericPressure, timeStamp, options | kIOHIDEventOptionIsAbsolute)) {
+        me->release();
+        return 0;
+    }
+    
+    IOHIDAtmosphericPressureEventData *event = (IOHIDAtmosphericPressureEventData *)me->_data;
+    
+    event->level = level;
+    event->sequence = sequence;
+    
+    return me;
+}
+
 #endif /* TARGET_OS_EMBEDDED */
 
 //==============================================================================
@@ -890,10 +1025,11 @@ void IOHIDEvent::appendChild(IOHIDEvent *childEvent)
         const OSObject *events[] = { childEvent };
 
         _children = OSArray::withObjects(events, 1);
+        
+        _data->options |= kIOHIDEventOptionIsCollection;
     } else {
         _children->setObject(childEvent);
     }
-
 }
 
 //==============================================================================
@@ -948,6 +1084,19 @@ IOFixed IOHIDEvent::getFixedValue(      IOHIDEventField         key,
 }
 
 //==============================================================================
+// IOHIDEvent::getDataValue
+//==============================================================================
+UInt8 * IOHIDEvent::getDataValue(IOHIDEventField key, IOOptionBits options)
+{
+    UInt8 * dataValue = NULL;
+    
+    GET_EVENT_DATA(this, key, dataValue, options)
+    
+    return dataValue;
+}
+
+
+//==============================================================================
 // IOHIDEvent::setIntegerValue
 //==============================================================================
 void IOHIDEvent::setIntegerValue(       IOHIDEventField         key,
@@ -966,7 +1115,6 @@ void IOHIDEvent::setFixedValue(         IOHIDEventField         key,
 {
     SET_EVENT_VALUE_FIXED(this, key, value, options);
 }
-
 
 //==============================================================================
 // IOHIDEvent::getLength
@@ -1065,7 +1213,6 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
 
         bcopy(eventData, event->_data, event->_data->size);
         AbsoluteTime_to_scalar(&(event->_timeStamp)) = queueElement->timeStamp;
-        AbsoluteTime_to_scalar(&(event->_creationTimeStamp)) = queueElement->creationTimeStamp;
         event->_options = queueElement->options;
         event->_senderID = queueElement->senderID;
 
@@ -1091,7 +1238,6 @@ IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
     queueElement    = (IOHIDSystemQueueElement *)bytes;
 
     queueElement->timeStamp         = *((uint64_t *)&_timeStamp);
-    queueElement->creationTimeStamp = *((uint64_t *)&_creationTimeStamp);
     queueElement->options           = _options;
     queueElement->eventCount        = _eventCount;
     queueElement->senderID          = _senderID;

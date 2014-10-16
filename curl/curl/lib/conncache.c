@@ -6,7 +6,7 @@
  *                             \___|\___/|_| \_\_____|
  *
  * Copyright (C) 2012, Linus Nielsen Feltzing, <linus@haxx.se>
- * Copyright (C) 2012 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2012 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -38,8 +38,6 @@
 /* The last #include file should be: */
 #include "memdebug.h"
 
-#define CONNECTION_HASH_SIZE 97
-
 static void free_bundle_hash_entry(void *freethis)
 {
   struct connectbundle *b = (struct connectbundle *) freethis;
@@ -47,7 +45,7 @@ static void free_bundle_hash_entry(void *freethis)
   Curl_bundle_destroy(b);
 }
 
-struct conncache *Curl_conncache_init(void)
+struct conncache *Curl_conncache_init(int size)
 {
   struct conncache *connc;
 
@@ -55,7 +53,7 @@ struct conncache *Curl_conncache_init(void)
   if(!connc)
     return NULL;
 
-  connc->hash = Curl_hash_alloc(CONNECTION_HASH_SIZE, Curl_hash_str,
+  connc->hash = Curl_hash_alloc(size, Curl_hash_str,
                                 Curl_str_key_compare, free_bundle_hash_entry);
 
   if(!connc->hash) {
@@ -151,6 +149,7 @@ CURLcode Curl_conncache_add_conn(struct conncache *connc,
     return result;
   }
 
+  conn->connection_id = connc->next_connection_id++;
   connc->num_connections++;
 
   return CURLE_OK;
@@ -168,10 +167,13 @@ void Curl_conncache_remove_conn(struct conncache *connc,
     if(bundle->num_connections == 0) {
       conncache_remove_bundle(connc, bundle);
     }
-    connc->num_connections--;
 
-    DEBUGF(infof(conn->data, "The cache now contains %d members\n",
-                 connc->num_connections));
+    if(connc) {
+      connc->num_connections--;
+
+      DEBUGF(infof(conn->data, "The cache now contains %d members\n",
+                   connc->num_connections));
+    }
   }
 }
 

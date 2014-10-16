@@ -7,7 +7,8 @@ cwd  := $(shell pwd)
 #PM := "${PPATH}/Contents/MacOS/PackageMaker"
 
 # grab the long version number out of my prefix file
-version  := $(word 3, $(shell grep VersionNumber ../Common/AppleUSBCDCCommon.h))
+#version  := $(word 3, $(shell grep VersionNumber ../Common/AppleUSBCDCCommon.h))
+version  := $(word 3, $(shell grep COM_APPLE_CDC_DRIVER_LONG_VERSION ../AppleUSBCDC.xcconfig))
 
 NAME := AppleUSBCDCDriver-${version}
 PKG  := ../build/${NAME}.pkg

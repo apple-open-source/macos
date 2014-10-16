@@ -1,0 +1,348 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>install-sh</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">install-sh&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-reference">#!/bin/sh
+</span><span class="enscript-comment"># install - install a program, script, or datafile
+</span>
+scriptversion=2005-02-02.21
+
+<span class="enscript-comment"># This originates from X11R5 (mit/util/scripts/install.sh), which was
+</span><span class="enscript-comment"># later released in X11R6 (xc/config/util/install.sh) with the
+</span><span class="enscript-comment"># following copyright and license.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Copyright (C) 1994 X Consortium
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Permission is hereby granted, free of charge, to any person obtaining a copy
+</span><span class="enscript-comment"># of this software and associated documentation files (the &quot;Software&quot;), to
+</span><span class="enscript-comment"># deal in the Software without restriction, including without limitation the
+</span><span class="enscript-comment"># rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+</span><span class="enscript-comment"># sell copies of the Software, and to permit persons to whom the Software is
+</span><span class="enscript-comment"># furnished to do so, subject to the following conditions:
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># The above copyright notice and this permission notice shall be included in
+</span><span class="enscript-comment"># all copies or substantial portions of the Software.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+</span><span class="enscript-comment"># IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+</span><span class="enscript-comment"># FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+</span><span class="enscript-comment"># X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+</span><span class="enscript-comment"># AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNEC-
+</span><span class="enscript-comment"># TION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Except as contained in this notice, the name of the X Consortium shall not
+</span><span class="enscript-comment"># be used in advertising or otherwise to promote the sale, use or other deal-
+</span><span class="enscript-comment"># ings in this Software without prior written authorization from the X Consor-
+</span><span class="enscript-comment"># tium.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># FSF changes to this file are in the public domain.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># Calling this script install-sh is preferred over install.sh, to prevent
+</span><span class="enscript-comment"># `make' implicit rules from creating a file called install from it
+</span><span class="enscript-comment"># when there is no Makefile.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># This script is compatible with the BSD install script, but was written
+</span><span class="enscript-comment"># from scratch.  It can only install one file at a time, a restriction
+</span><span class="enscript-comment"># shared with many OS's install programs.
+</span>
+<span class="enscript-comment"># set DOITPROG to echo to test this script
+</span>
+<span class="enscript-comment"># Don't use :- since 4.3BSD and earlier shells don't like it.
+</span>doit=<span class="enscript-string">&quot;${DOITPROG-}&quot;</span>
+
+<span class="enscript-comment"># put in absolute paths if you don't have them in your path; or use env. vars.
+</span>
+mvprog=<span class="enscript-string">&quot;${MVPROG-mv}&quot;</span>
+cpprog=<span class="enscript-string">&quot;${CPPROG-cp}&quot;</span>
+chmodprog=<span class="enscript-string">&quot;${CHMODPROG-chmod}&quot;</span>
+chownprog=<span class="enscript-string">&quot;${CHOWNPROG-chown}&quot;</span>
+chgrpprog=<span class="enscript-string">&quot;${CHGRPPROG-chgrp}&quot;</span>
+stripprog=<span class="enscript-string">&quot;${STRIPPROG-strip}&quot;</span>
+rmprog=<span class="enscript-string">&quot;${RMPROG-rm}&quot;</span>
+mkdirprog=<span class="enscript-string">&quot;${MKDIRPROG-mkdir}&quot;</span>
+
+chmodcmd=<span class="enscript-string">&quot;$chmodprog 0755&quot;</span>
+chowncmd=
+chgrpcmd=
+stripcmd=
+rmcmd=<span class="enscript-string">&quot;$rmprog -f&quot;</span>
+mvcmd=<span class="enscript-string">&quot;$mvprog&quot;</span>
+src=
+dst=
+dir_arg=
+dstarg=
+no_target_directory=
+
+usage=<span class="enscript-string">&quot;Usage: $0 [OPTION]... [-T] SRCFILE DSTFILE
+   or: $0 [OPTION]... SRCFILES... DIRECTORY
+   or: $0 [OPTION]... -t DIRECTORY SRCFILES...
+   or: $0 [OPTION]... -d DIRECTORIES...
+
+In the 1st form, copy SRCFILE to DSTFILE.
+In the 2nd and 3rd, copy all SRCFILES to DIRECTORY.
+In the 4th, create DIRECTORIES.
+
+Options:
+-c         (ignored)
+-d         create directories instead of installing files.
+-g GROUP   $chgrpprog installed files to GROUP.
+-m MODE    $chmodprog installed files to MODE.
+-o USER    $chownprog installed files to USER.
+-s         $stripprog installed files.
+-t DIRECTORY  install into DIRECTORY.
+-T         report an error if DSTFILE is a directory.
+--help     display this help and exit.
+--version  display version info and exit.
+
+Environment variables override the default commands:
+  CHGRPPROG CHMODPROG CHOWNPROG CPPROG MKDIRPROG MVPROG RMPROG STRIPPROG
+&quot;</span>
+
+<span class="enscript-keyword">while</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$1&quot;</span>; <span class="enscript-keyword">do</span>
+  <span class="enscript-keyword">case</span> $1 <span class="enscript-keyword">in</span>
+    -c) <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    -d) dir_arg=true
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    -g) chgrpcmd=<span class="enscript-string">&quot;$chgrpprog $2&quot;</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    --help) <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$usage&quot;</span>; <span class="enscript-keyword">exit</span> $?;;
+
+    -m) chmodcmd=<span class="enscript-string">&quot;$chmodprog $2&quot;</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    -o) chowncmd=<span class="enscript-string">&quot;$chownprog $2&quot;</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    -s) stripcmd=$stripprog
+        <span class="enscript-keyword">shift</span>
+        <span class="enscript-keyword">continue</span>;;
+
+    -t) dstarg=$2
+	<span class="enscript-keyword">shift</span>
+	<span class="enscript-keyword">shift</span>
+	<span class="enscript-keyword">continue</span>;;
+
+    -T) no_target_directory=true
+	<span class="enscript-keyword">shift</span>
+	<span class="enscript-keyword">continue</span>;;
+
+    --version) <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0 $scriptversion&quot;</span>; <span class="enscript-keyword">exit</span> $?;;
+
+    *)  <span class="enscript-comment"># When -d is used, all remaining arguments are directories to create.
+</span>	<span class="enscript-comment"># When -t is used, the destination is already specified.
+</span>	<span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$dir_arg$dstarg&quot;</span> &amp;&amp; <span class="enscript-keyword">break</span>
+        <span class="enscript-comment"># Otherwise, the last argument is the destination.  Remove it from $@.
+</span>	<span class="enscript-keyword">for</span> arg
+	<span class="enscript-keyword">do</span>
+          <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$dstarg&quot;</span>; <span class="enscript-keyword">then</span>
+	    <span class="enscript-comment"># $@ is not empty: it contains at least $arg.
+</span>	    <span class="enscript-keyword">set</span> fnord <span class="enscript-string">&quot;$@&quot;</span> <span class="enscript-string">&quot;$dstarg&quot;</span>
+	    <span class="enscript-keyword">shift</span> <span class="enscript-comment"># fnord
+</span>	  <span class="enscript-keyword">fi</span>
+	  <span class="enscript-keyword">shift</span> <span class="enscript-comment"># arg
+</span>	  dstarg=$arg
+	<span class="enscript-keyword">done</span>
+	<span class="enscript-keyword">break</span>;;
+  <span class="enscript-keyword">esac</span>
+<span class="enscript-keyword">done</span>
+
+<span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$1&quot;</span>; <span class="enscript-keyword">then</span>
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$dir_arg&quot;</span>; <span class="enscript-keyword">then</span>
+    <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0: no input file specified.&quot;</span> &gt;&amp;2
+    <span class="enscript-keyword">exit</span> 1
+  <span class="enscript-keyword">fi</span>
+  <span class="enscript-comment"># It's OK to call `install-sh -d' without argument.
+</span>  <span class="enscript-comment"># This can happen when creating conditional directories.
+</span>  <span class="enscript-keyword">exit</span> 0
+<span class="enscript-keyword">fi</span>
+
+<span class="enscript-keyword">for</span> src
+<span class="enscript-keyword">do</span>
+  <span class="enscript-comment"># Protect names starting with `-'.
+</span>  <span class="enscript-keyword">case</span> $src <span class="enscript-keyword">in</span>
+    -*) src=./$src ;;
+  <span class="enscript-keyword">esac</span>
+
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$dir_arg&quot;</span>; <span class="enscript-keyword">then</span>
+    dst=$src
+    src=
+
+    <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -d <span class="enscript-string">&quot;$dst&quot;</span>; <span class="enscript-keyword">then</span>
+      mkdircmd=:
+      chmodcmd=
+    <span class="enscript-keyword">else</span>
+      mkdircmd=$mkdirprog
+    <span class="enscript-keyword">fi</span>
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-comment"># Waiting for this to be detected by the &quot;$cpprog $src $dsttmp&quot; command
+</span>    <span class="enscript-comment"># might cause directories to be created, which would be especially bad
+</span>    <span class="enscript-comment"># if $src (and thus $dsttmp) contains '*'.
+</span>    <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -f <span class="enscript-string">&quot;$src&quot;</span> &amp;&amp; <span class="enscript-keyword">test</span> ! -d <span class="enscript-string">&quot;$src&quot;</span>; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0: $src does not exist.&quot;</span> &gt;&amp;2
+      <span class="enscript-keyword">exit</span> 1
+    <span class="enscript-keyword">fi</span>
+
+    <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$dstarg&quot;</span>; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0: no destination specified.&quot;</span> &gt;&amp;2
+      <span class="enscript-keyword">exit</span> 1
+    <span class="enscript-keyword">fi</span>
+
+    dst=$dstarg
+    <span class="enscript-comment"># Protect names starting with `-'.
+</span>    <span class="enscript-keyword">case</span> $dst <span class="enscript-keyword">in</span>
+      -*) dst=./$dst ;;
+    <span class="enscript-keyword">esac</span>
+
+    <span class="enscript-comment"># If destination is a directory, append the input filename; won't work
+</span>    <span class="enscript-comment"># if double slashes aren't ignored.
+</span>    <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -d <span class="enscript-string">&quot;$dst&quot;</span>; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$no_target_directory&quot;</span>; <span class="enscript-keyword">then</span>
+	<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0: $dstarg: Is a directory&quot;</span> &gt;&amp;2
+	<span class="enscript-keyword">exit</span> 1
+      <span class="enscript-keyword">fi</span>
+      dst=$dst/`basename <span class="enscript-string">&quot;$src&quot;</span>`
+    <span class="enscript-keyword">fi</span>
+  <span class="enscript-keyword">fi</span>
+
+  <span class="enscript-comment"># This sed command emulates the dirname command.
+</span>  dstdir=`<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$dst&quot;</span> | sed -e 's,/*$,,;s,[^/]*$,,;s,/*$,,;s,^$,.,'`
+
+  <span class="enscript-comment"># Make sure that the destination directory exists.
+</span>
+  <span class="enscript-comment"># Skip lots of stat calls in the usual case.
+</span>  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -d <span class="enscript-string">&quot;$dstdir&quot;</span>; <span class="enscript-keyword">then</span>
+    defaultIFS='
+	 '
+    <span class="enscript-keyword">IFS</span>=<span class="enscript-string">&quot;${IFS-$defaultIFS}&quot;</span>
+
+    oIFS=$<span class="enscript-keyword">IFS</span>
+    <span class="enscript-comment"># Some sh's can't handle IFS=/ for some reason.
+</span>    <span class="enscript-keyword">IFS</span>='%'
+    <span class="enscript-keyword">set</span> x `<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$dstdir&quot;</span> | sed -e 's@/@%@g' -e 's@^%@/@'`
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">IFS</span>=$oIFS
+
+    pathcomp=
+
+    <span class="enscript-keyword">while</span> <span class="enscript-keyword">test</span> $<span class="enscript-comment"># -ne 0 ; do
+</span>      pathcomp=$pathcomp$1
+      <span class="enscript-keyword">shift</span>
+      <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -d <span class="enscript-string">&quot;$pathcomp&quot;</span>; <span class="enscript-keyword">then</span>
+        $mkdirprog <span class="enscript-string">&quot;$pathcomp&quot;</span>
+	<span class="enscript-comment"># mkdir can fail with a `File exist' error in case several
+</span>	<span class="enscript-comment"># install-sh are creating the directory concurrently.  This
+</span>	<span class="enscript-comment"># is OK.
+</span>	<span class="enscript-keyword">test</span> -d <span class="enscript-string">&quot;$pathcomp&quot;</span> || <span class="enscript-keyword">exit</span>
+      <span class="enscript-keyword">fi</span>
+      pathcomp=$pathcomp/
+    <span class="enscript-keyword">done</span>
+  <span class="enscript-keyword">fi</span>
+
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$dir_arg&quot;</span>; <span class="enscript-keyword">then</span>
+    $doit $mkdircmd <span class="enscript-string">&quot;$dst&quot;</span> \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chowncmd&quot;</span> || $doit $chowncmd <span class="enscript-string">&quot;$dst&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chgrpcmd&quot;</span> || $doit $chgrpcmd <span class="enscript-string">&quot;$dst&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$stripcmd&quot;</span> || $doit $stripcmd <span class="enscript-string">&quot;$dst&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chmodcmd&quot;</span> || $doit $chmodcmd <span class="enscript-string">&quot;$dst&quot;</span>; }
+
+  <span class="enscript-keyword">else</span>
+    dstfile=`basename <span class="enscript-string">&quot;$dst&quot;</span>`
+
+    <span class="enscript-comment"># Make a couple of temp file names in the proper directory.
+</span>    dsttmp=$dstdir/_inst.$$_
+    rmtmp=$dstdir/_rm.$$_
+
+    <span class="enscript-comment"># Trap to clean up those temp files at exit.
+</span>    <span class="enscript-keyword">trap</span> 'ret=$?; rm -f <span class="enscript-string">&quot;$dsttmp&quot;</span> <span class="enscript-string">&quot;$rmtmp&quot;</span> &amp;&amp; <span class="enscript-keyword">exit</span> $ret' 0
+    <span class="enscript-keyword">trap</span> '(<span class="enscript-keyword">exit</span> $?); <span class="enscript-keyword">exit</span>' 1 2 13 15
+
+    <span class="enscript-comment"># Copy the file name to the temp name.
+</span>    $doit $cpprog <span class="enscript-string">&quot;$src&quot;</span> <span class="enscript-string">&quot;$dsttmp&quot;</span> &amp;&amp;
+
+    <span class="enscript-comment"># and set any options; do chmod last to preserve setuid bits.
+</span>    <span class="enscript-comment">#
+</span>    <span class="enscript-comment"># If any of these fail, we abort the whole thing.  If we want to
+</span>    <span class="enscript-comment"># ignore errors from any of these, just make sure not to ignore
+</span>    <span class="enscript-comment"># errors from the above &quot;$doit $cpprog $src $dsttmp&quot; command.
+</span>    <span class="enscript-comment">#
+</span>    { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chowncmd&quot;</span> || $doit $chowncmd <span class="enscript-string">&quot;$dsttmp&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chgrpcmd&quot;</span> || $doit $chgrpcmd <span class="enscript-string">&quot;$dsttmp&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$stripcmd&quot;</span> || $doit $stripcmd <span class="enscript-string">&quot;$dsttmp&quot;</span>; } \
+      &amp;&amp; { <span class="enscript-keyword">test</span> -z <span class="enscript-string">&quot;$chmodcmd&quot;</span> || $doit $chmodcmd <span class="enscript-string">&quot;$dsttmp&quot;</span>; } &amp;&amp;
+
+    <span class="enscript-comment"># Now rename the file to the real destination.
+</span>    { $doit $mvcmd -f <span class="enscript-string">&quot;$dsttmp&quot;</span> <span class="enscript-string">&quot;$dstdir/$dstfile&quot;</span> 2&gt;/dev/null \
+      || {
+	   <span class="enscript-comment"># The rename failed, perhaps because mv can't rename something else
+</span>	   <span class="enscript-comment"># to itself, or perhaps because mv is so ancient that it does not
+</span>	   <span class="enscript-comment"># support -f.
+</span>
+	   <span class="enscript-comment"># Now remove or move aside any old file at destination location.
+</span>	   <span class="enscript-comment"># We try this two ways since rm can't unlink itself on some
+</span>	   <span class="enscript-comment"># systems and the destination file might be busy for other
+</span>	   <span class="enscript-comment"># reasons.  In this case, the final cleanup might fail but the new
+</span>	   <span class="enscript-comment"># file should still install successfully.
+</span>	   {
+	     <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -f <span class="enscript-string">&quot;$dstdir/$dstfile&quot;</span>; <span class="enscript-keyword">then</span>
+	       $doit $rmcmd -f <span class="enscript-string">&quot;$dstdir/$dstfile&quot;</span> 2&gt;/dev/null \
+	       || $doit $mvcmd -f <span class="enscript-string">&quot;$dstdir/$dstfile&quot;</span> <span class="enscript-string">&quot;$rmtmp&quot;</span> 2&gt;/dev/null \
+	       || {
+		 <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$0: cannot unlink or rename $dstdir/$dstfile&quot;</span> &gt;&amp;2
+		 (<span class="enscript-keyword">exit</span> 1); <span class="enscript-keyword">exit</span> 1
+	       }
+	     <span class="enscript-keyword">else</span>
+	       :
+	     <span class="enscript-keyword">fi</span>
+	   } &amp;&amp;
+
+	   <span class="enscript-comment"># Now rename the file to the real destination.
+</span>	   $doit $mvcmd <span class="enscript-string">&quot;$dsttmp&quot;</span> <span class="enscript-string">&quot;$dstdir/$dstfile&quot;</span>
+	 }
+    }
+  <span class="enscript-keyword">fi</span> || { (<span class="enscript-keyword">exit</span> 1); <span class="enscript-keyword">exit</span> 1; }
+<span class="enscript-keyword">done</span>
+
+<span class="enscript-comment"># The final little trick to &quot;correctly&quot; pass the exit status to the exit trap.
+</span>{
+  (<span class="enscript-keyword">exit</span> 0); <span class="enscript-keyword">exit</span> 0
+}
+
+<span class="enscript-comment"># Local variables:
+</span><span class="enscript-comment"># eval: (add-hook 'write-file-hooks 'time-stamp)
+</span><span class="enscript-comment"># time-stamp-start: &quot;scriptversion=&quot;
+</span><span class="enscript-comment"># time-stamp-format: &quot;%:y-%02m-%02d.%02H&quot;
+</span><span class="enscript-comment"># time-stamp-end: &quot;$&quot;
+</span><span class="enscript-comment"># End:
+</span></pre>
+<hr />
+</body></html>

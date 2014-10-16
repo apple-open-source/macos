@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_client_start "10 July 2001" SASL "SASL man pages"
+.TH sasl_client_start 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_client_start \- Begin an authentication negotiation
 .SH SYNOPSIS
@@ -73,7 +73,7 @@ by the application).
 
 .PP
 .I mechlist
-is a list of mechanisms the server has available. Punctuation if ignored.
+is a list of mechanisms the server has available. Punctuation is ignored.
 .PP
 .I prompt_need
 is filled in with a list of prompts needed to continue (if necessary).
@@ -84,7 +84,7 @@ and
 is created. It is the initial client response to send to the
 server. It is the job of the
 client to send it over the network to the server.
-Any protocal specific encoding (such as base64
+Any protocol specific encoding (such as base64
 encoding) necessary needs to be done by the client.
 
 If the protocol lacks client-send-first capability, then set
@@ -101,12 +101,12 @@ contains the name of the chosen SASL mechanism (on success)
 .SH "RETURN VALUE"
 
 sasl_client_start returns an integer which corresponds to one of the
-following codes. SASL_CONTINUE indicates sucess and that there are
+following codes. SASL_CONTINUE indicates success and that there are
 more steps needed in the authentication. All other return codes
 indicate errors and should either be handled or the authentication
 session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_callbacks(3), sasl_errors(3), sasl_client_init(3), sasl_client_new(3), sasl_client_step(3)

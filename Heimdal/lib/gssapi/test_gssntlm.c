@@ -492,7 +492,7 @@ static char *password_string = NULL;
 static int version_flag = 0;
 static int help_flag	= 0;
 
-static int ntlmv1 = 1;
+static int ntlmv1 = 0;
 static int ntlmv2 = 1;
 
 static struct getargs args[] = {
@@ -500,7 +500,7 @@ static struct getargs args[] = {
     {"domain",	0,	arg_string,	&domain_string, "domain", "domain" },
     {"use-server-domain",0,arg_flag,	&use_server_domain, "use server domain" },
     {"password",0,	arg_string,	&password_string, "password", "password" },
-    {"ntlm1", 0,	arg_negative_flag, &ntlmv1, "don't test NTLMv1", NULL},
+    {"ntlm1", 0,	arg_flag,	&ntlmv1, "do test NTLMv1", NULL},
     {"ntlm2", 0,	arg_negative_flag, &ntlmv2, "don't test NTLMv2", NULL},
     {"session-key-broken",0,arg_flag,	&broken_session_key_flag, "session key is broken, we know", NULL },
     {"verbose",	0,	arg_flag,	&verbose_flag, "verbose debug output", NULL },

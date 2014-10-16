@@ -360,7 +360,7 @@ void _saslauthd_hmac_md5_init(HMAC_MD5_CTX *hmac,
     MD5_CTX      tctx;
 
     _saslauthd_MD5Init(&tctx); 
-    _saslauthd_MD5Update(&tctx, key, key_len); 
+    _saslauthd_MD5Update(&tctx, (unsigned char *)key, key_len); /* APPLE: cast */
     _saslauthd_MD5Final(tk, &tctx); 
 
     key = tk; 
@@ -381,8 +381,8 @@ void _saslauthd_hmac_md5_init(HMAC_MD5_CTX *hmac,
   /* start out by storing key in pads */
   MD5_memset(k_ipad, '\0', sizeof k_ipad);
   MD5_memset(k_opad, '\0', sizeof k_opad);
-  MD5_memcpy( k_ipad, key, key_len);
-  MD5_memcpy( k_opad, key, key_len);
+  MD5_memcpy( k_ipad, (unsigned char *)key, key_len); /* APPLE: cast */
+  MD5_memcpy( k_opad, (unsigned char *)key, key_len); /* APPLE: cast */
 
   /* XOR key with ipad and opad values */
   for (i=0; i<64; i++) {
@@ -397,9 +397,10 @@ void _saslauthd_hmac_md5_init(HMAC_MD5_CTX *hmac,
   _saslauthd_MD5Update(&hmac->octx, k_opad, 64);     /* apply outer pad */
 
   /* scrub the pads and key context (if used) */
-  MD5_memset(&k_ipad, 0, sizeof(k_ipad));
-  MD5_memset(&k_opad, 0, sizeof(k_opad));
-  MD5_memset(&tk, 0, sizeof(tk));
+  /* APPLE: casts */
+  MD5_memset((POINTER)&k_ipad, 0, sizeof(k_ipad));
+  MD5_memset((POINTER)&k_opad, 0, sizeof(k_opad));
+  MD5_memset((POINTER)&tk, 0, sizeof(tk));
 
   /* and we're done. */
 }
@@ -424,7 +425,7 @@ void _saslauthd_hmac_md5_precalc(HMAC_MD5_STATE *state,
     state->istate[lupe] = htonl(hmac.ictx.state[lupe]);
     state->ostate[lupe] = htonl(hmac.octx.state[lupe]);
   }
-  MD5_memset(&hmac, 0, sizeof(hmac));
+  MD5_memset((POINTER)&hmac, 0, sizeof(hmac)); /* APPLE: cast */
 }
 
 
@@ -432,7 +433,7 @@ void _saslauthd_hmac_md5_import(HMAC_MD5_CTX *hmac,
 				HMAC_MD5_STATE *state)
 {
   unsigned lupe;
-  MD5_memset(hmac, 0, sizeof(HMAC_MD5_CTX));
+  MD5_memset((POINTER)hmac, 0, sizeof(HMAC_MD5_CTX)); /* APPLE: cast */
   for (lupe = 0; lupe < 4; lupe++) {
     hmac->ictx.state[lupe] = ntohl(state->istate[lupe]);
     hmac->octx.state[lupe] = ntohl(state->ostate[lupe]);
@@ -475,7 +476,7 @@ unsigned char *digest; /* caller digest to be filled in */
     MD5_CTX      tctx;
 
     _saslauthd_MD5Init(&tctx); 
-    _saslauthd_MD5Update(&tctx, key, key_len); 
+    _saslauthd_MD5Update(&tctx, (unsigned char *)key, key_len); /* APPLE: cast */
     _saslauthd_MD5Final(tk, &tctx); 
 
     key = tk; 
@@ -496,8 +497,8 @@ unsigned char *digest; /* caller digest to be filled in */
   /* start out by storing key in pads */
   MD5_memset(k_ipad, '\0', sizeof k_ipad);
   MD5_memset(k_opad, '\0', sizeof k_opad);
-  MD5_memcpy( k_ipad, key, key_len);
-  MD5_memcpy( k_opad, key, key_len);
+  MD5_memcpy( k_ipad, (POINTER)key, key_len); /* APPLE: cast */
+  MD5_memcpy( k_opad, (POINTER)key, key_len); /* APPLE: cast */
 
   /* XOR key with ipad and opad values */
   for (i=0; i<64; i++) {
@@ -511,7 +512,7 @@ unsigned char *digest; /* caller digest to be filled in */
   _saslauthd_MD5Init(&context);                   /* init context for 1st
 					       * pass */
   _saslauthd_MD5Update(&context, k_ipad, 64);      /* start with inner pad */
-  _saslauthd_MD5Update(&context, text, text_len); /* then text of datagram */
+  _saslauthd_MD5Update(&context, (unsigned char *)text, text_len); /* then text of datagram */ /* APPLE: cast */
   _saslauthd_MD5Final(digest, &context);          /* finish up 1st pass */
 
   /*

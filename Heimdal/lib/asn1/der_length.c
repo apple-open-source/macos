@@ -82,23 +82,6 @@ _heim_len_int (int val)
     return ret;
 }
 
-static size_t
-len_oid (const heim_oid *oid)
-{
-    size_t ret = 1;
-    size_t n;
-
-    for (n = 2; n < oid->length; ++n) {
-	unsigned u = oid->components[n];
-
-	do {
-	    ++ret;
-	    u /= 128;
-	} while(u > 0);
-    }
-    return ret;
-}
-
 size_t
 der_length_len (size_t len)
 {
@@ -208,7 +191,18 @@ der_length_heim_integer (const heim_integer *k)
 size_t
 der_length_oid (const heim_oid *k)
 {
-    return len_oid (k);
+    size_t ret = 1;
+    size_t n;
+
+    for (n = 2; n < k->length; ++n) {
+	unsigned u = k->components[n];
+
+	do {
+	    ++ret;
+	    u /= 128;
+	} while(u > 0);
+    }
+    return ret;
 }
 
 size_t

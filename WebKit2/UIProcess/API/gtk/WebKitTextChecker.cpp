@@ -47,12 +47,12 @@ static void setContinuousSpellCheckingEnabledCallback(bool enabled, const void* 
     toTextChecker(clientInfo)->setSpellCheckingEnabled(enabled);
 }
 
-static void checkSpellingOfStringCallback(uint64_t tag, WKStringRef text, int32_t* misspellingLocation, int32_t* misspellingLength, const void* clientInfo)
+static void checkSpellingOfStringCallback(uint64_t /* tag */, WKStringRef text, int32_t* misspellingLocation, int32_t* misspellingLength, const void* clientInfo)
 {
     toTextChecker(clientInfo)->checkSpellingOfString(toImpl(text)->string(), *misspellingLocation, *misspellingLength);
 }
 
-static WKArrayRef guessesForWordCallback(uint64_t tag, WKStringRef word, const void* clientInfo)
+static WKArrayRef guessesForWordCallback(uint64_t /* tag */, WKStringRef word, const void* clientInfo)
 {
     Vector<String> guesses = toTextChecker(clientInfo)->getGuessesForWord(toImpl(word)->string());
     if (guesses.isEmpty())
@@ -67,12 +67,12 @@ static WKArrayRef guessesForWordCallback(uint64_t tag, WKStringRef word, const v
     return wkSuggestions;
 }
 
-static void learnWordCallback(uint64_t tag, WKStringRef word, const void* clientInfo)
+static void learnWordCallback(uint64_t /* tag */, WKStringRef word, const void* clientInfo)
 {
     toTextChecker(clientInfo)->learnWord(toImpl(word)->string());
 }
 
-static void ignoreWordCallback(uint64_t tag, WKStringRef word, const void* clientInfo)
+static void ignoreWordCallback(uint64_t /* tag */, WKStringRef word, const void* clientInfo)
 {
     toTextChecker(clientInfo)->ignoreWord(toImpl(word)->string());
 }
@@ -85,9 +85,11 @@ WebKitTextChecker::WebKitTextChecker()
     : m_textChecker(WebCore::TextCheckerEnchant::create())
     , m_spellCheckingEnabled(false)
 {
-    WKTextCheckerClient wkTextCheckerClient = {
-        kWKTextCheckerClientCurrentVersion,
-        this, // clientInfo
+    WKTextCheckerClientV0 wkTextCheckerClient = {
+        {
+            0, // version
+            this, // clientInfo
+        },
         0, // continuousSpellCheckingAllowed
         continuousSpellCheckingEnabledCallback,
         setContinuousSpellCheckingEnabledCallback,
@@ -105,7 +107,7 @@ WebKitTextChecker::WebKitTextChecker()
         learnWordCallback,
         ignoreWordCallback,
     };
-    WKTextCheckerSetClient(&wkTextCheckerClient);
+    WKTextCheckerSetClient(&wkTextCheckerClient.base);
 }
 
 void WebKitTextChecker::checkSpellingOfString(const String& string, int& misspellingLocation, int& misspellingLength)

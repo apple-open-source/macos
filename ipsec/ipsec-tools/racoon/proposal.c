@@ -72,7 +72,6 @@
 #ifdef ENABLE_NATT
 #include "nattraversal.h"
 #endif
-#include "ikev2_rfc.h"
 
 /* %%%
  * modules for ipsec sa spec
@@ -640,7 +639,7 @@ set_satrnsbysainfo(struct saproto *pr, struct sainfo *sainfo, u_int8_t ike_versi
 			}
 
 			newtr->trns_no = t++;
-                newtr->trns_id = ipsecdoi_authalg2trnsid(a->alg);   // IKEv1 only
+			newtr->trns_id = ipsecdoi_authalg2trnsid(a->alg);   // IKEv1 only
 			newtr->authtype = a->alg;
 
 			inssatrns(pr, newtr);
@@ -703,7 +702,7 @@ set_satrnsbysainfo(struct saproto *pr, struct sainfo *sainfo, u_int8_t ike_versi
 			"unknown proto_id (%d).\n", pr->proto_id);
 		goto err;
 	}
-    
+	
 	/* no proposal found */
 	if (pr->head == NULL) {
 		plog(ASL_LEVEL_ERR, "no algorithms found.\n");
@@ -1050,8 +1049,6 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 	}
 
     skip1:
-    //%%%%%%s IKEv2 - no support for bundle - fix this - return error if bundle ???
-    // %%%% need special handling for ipcomp
 	for (req = sp_main->req; req; req = req->next) {
 		struct saproto *newpr;
 		caddr_t paddr = NULL;
@@ -1153,13 +1150,14 @@ set_proposal_from_proposal(iph2)
 {
         struct saprop *newpp = NULL, *pp0, *pp_peer = NULL;
 	struct saproto *newpr = NULL, *pr;
-	struct prop_pair **pair;
+	struct prop_pair **pair = NULL;
 	int error = -1;
 	int i;
 
 	/* get proposal pair */
 	if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
 		pair = get_proppair(iph2->sa, IPSECDOI_TYPE_PH2);
+		
 	if (pair == NULL)
 		goto end;
 
@@ -1266,7 +1264,6 @@ dupsatrns_1(struct satrns *tr)
 	if (newtr == NULL)
 		return NULL;
     newtr->trns_no = tr->trns_no;
-    newtr->trns_type = tr->trns_type;
     newtr->trns_id = tr->trns_id;
     newtr->encklen = tr->encklen;
     newtr->authtype = tr->authtype;
@@ -1285,7 +1282,6 @@ dupsatrns(newpr, head)
 		newtr = newsatrns();
 		if (newtr) {
 			newtr->trns_no = p->trns_no;
-            newtr->trns_type = p->trns_type;
 			newtr->trns_id = p->trns_id;
 			newtr->encklen = p->encklen;
 			newtr->authtype = p->authtype;

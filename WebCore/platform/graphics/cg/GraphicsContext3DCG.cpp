@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -31,9 +31,12 @@
 #include "GraphicsContext3D.h"
 
 #include "BitmapImage.h"
-#include "GraphicsContext3DNEON.h"
 #include "GraphicsContextCG.h"
 #include "Image.h"
+
+#if HAVE(ARM_NEON_INTRINSICS)
+#include "GraphicsContext3DNEON.h"
+#endif
 
 #include <CoreGraphics/CGBitmapContext.h>
 #include <CoreGraphics/CGContext.h>
@@ -41,6 +44,7 @@
 #include <CoreGraphics/CGImage.h>
 
 #include <wtf/RetainPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -328,7 +332,17 @@ bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool
         decoder.setData(m_image->data(), true);
         if (!decoder.frameCount())
             return false;
+#if PLATFORM(IOS)
+        float scaleHint = 1;
+        if (m_image->isBitmapImage()) {
+            FloatSize originalSize = toBitmapImage(m_image)->originalSize();
+            if (!originalSize.isEmpty())
+                scaleHint = std::min<float>(1, std::max(m_image->size().width() / originalSize.width(), m_image->size().width() / originalSize.height()));
+        }
+        m_decodedImage = adoptCF(decoder.createFrameAtIndex(0, &scaleHint));
+#else
         m_decodedImage = adoptCF(decoder.createFrameAtIndex(0));
+#endif
         m_cgImage = m_decodedImage.get();
     } else
         m_cgImage = m_image->nativeImageForCurrentFrame();
@@ -476,7 +490,7 @@ bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool
     // but it would premultiply the alpha channel as a side effect.
     // Prefer to mannually Convert 16bit per-component formats to RGBA8 formats instead.
     if (bitsPerComponent == 16) {
-        m_formalizedRGBA8Data = adoptArrayPtr(new uint8_t[m_imageWidth * m_imageHeight * 4]);
+        m_formalizedRGBA8Data = std::make_unique<uint8_t[]>(m_imageWidth * m_imageHeight * 4);
         const uint16_t* source = reinterpret_cast<const uint16_t*>(m_imagePixelData);
         uint8_t* destination = m_formalizedRGBA8Data.get();
         const ptrdiff_t srcStrideInElements = bytesPerRow / sizeof(uint16_t);
@@ -531,7 +545,7 @@ void GraphicsContext3D::paintToCanvas(const unsigned char* imagePixels, int imag
     context->scale(FloatSize(1, -1));
     context->translate(0, -imageHeight);
     context->setImageInterpolationQuality(InterpolationNone);
-    context->drawNativeImage(cgImage.get(), imageSize, ColorSpaceDeviceRGB, canvasRect, FloatRect(FloatPoint(), imageSize), CompositeCopy);
+    context->drawNativeImage(cgImage.get(), imageSize, ColorSpaceDeviceRGB, canvasRect, FloatRect(FloatPoint(), imageSize), 1, CompositeCopy);
 }
 
 } // namespace WebCore

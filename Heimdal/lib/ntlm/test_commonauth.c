@@ -384,8 +384,7 @@ test_cram_md5(void)
      * Test prebuild blobs
      */
 
-    if (sizeof(state) != 32)
-	abort();
+    assert(sizeof(state) == 32);
 
     heim_cram_md5_export("foo", &state);
 

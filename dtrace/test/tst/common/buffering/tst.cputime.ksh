@@ -41,26 +41,14 @@ script()
 		thresh = 10;
 	}
 
-#if !defined(__APPLE__)
-	sched:::on-cpu
-	/pid == \$pid/
-	{
-		self->on = vtimestamp;
-	}
-#else
 	fbt::thread_run:entry
 	{
 		this->t = (thread_t)arg3;
 		this->pid = xlate <psinfo_t>(this->t).pr_pid;
 		self->on = (this->pid == \$pid) ? vtimestamp : 0;
 	}
-#endif /* __APPLE__ */
 
-#if !defined(__APPLE__)
-	sched:::off-cpu
-#else
 	fbt::thread_run:entry
-#endif /* __APPLE__ */
 	/self->on/
 	{
 		total += vtimestamp - self->on;

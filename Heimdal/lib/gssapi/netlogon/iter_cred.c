@@ -41,4 +41,5 @@ _netlogon_iter_creds_f(OM_uint32 flags,
                        void *userctx ,
                        void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
+    (*cred_iter)(userctx, NULL, NULL);
 }

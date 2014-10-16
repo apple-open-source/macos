@@ -30,20 +30,16 @@
 
 #include "APIObject.h"
 #include "Connection.h"
+#include <WebCore/InspectorForwarding.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
-
-namespace WebCore {
-class InspectorFrontendChannel;
-}
 
 namespace WebKit {
 
 class WebInspectorFrontendClient;
 class WebPage;
-struct WebPageCreationParameters;
 
-class WebInspector : public TypedAPIObject<APIObject::TypeBundleInspector> {
+class WebInspector : public API::ObjectImpl<API::Object::Type::BundleInspector> {
 public:
     static PassRefPtr<WebInspector> create(WebPage*, WebCore::InspectorFrontendChannel*);
 
@@ -51,7 +47,7 @@ public:
     WebPage* inspectorPage() const { return m_inspectorPage; }
 
     // Implemented in generated WebInspectorMessageReceiver.cpp
-    void didReceiveWebInspectorMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveWebInspectorMessage(IPC::Connection*, IPC::MessageDecoder&);
 
     // Called by WebInspector messages
     void show();
@@ -64,7 +60,7 @@ public:
     void attachedRight();
     void detached();
 
-    void evaluateScriptForTest(long callID, const String& script);
+    void evaluateScriptForTest(const String& script);
 
     void setJavaScriptProfilingEnabled(bool);
     void startPageProfiling();
@@ -78,10 +74,6 @@ public:
     void remoteFrontendDisconnected();
 #endif
 
-#if PLATFORM(MAC)
-    void setInspectorUsesWebKitUserInterface(bool);
-#endif
-
 private:
     friend class WebInspectorClient;
     friend class WebInspectorFrontendClient;
@@ -90,6 +82,7 @@ private:
 
     // Called from WebInspectorClient
     WebPage* createInspectorPage();
+    WebPage* createInspectorPageForTest();
     void destroyInspectorPage();
 
     // Called from WebInspectorFrontendClient
@@ -98,7 +91,7 @@ private:
     void inspectedURLChanged(const String&);
 
     bool canSave() const;
-    void save(const String& filename, const String& content, bool forceSaveAs);
+    void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void append(const String& filename, const String& content);
 
     void attachBottom();
@@ -130,10 +123,9 @@ private:
     WebPage* m_inspectorPage;
     WebInspectorFrontendClient* m_frontendClient;
     WebCore::InspectorFrontendChannel* m_frontendChannel;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     mutable String m_localizedStringsURL;
     mutable bool m_hasLocalizedStringsURL;
-    bool m_usesWebKitUserInterface;
 #endif
 #if ENABLE(INSPECTOR_SERVER)
     bool m_remoteFrontendConnected;

@@ -16,11 +16,12 @@ endif
 # INCDIRS
 #
 XINCDIRS	+= \
-			$(NWOS) \
+			$(STDMOD)/cache \
 			$(APR)/include \
 			$(APRUTIL)/include \
+			$(AP_WORK)/include \
 			$(APR)/misc/netware \
-			$(APR) \
+			$(NWOS) \
 			$(EOLIST)
 
 #
@@ -249,5 +250,4 @@ install :: nlms FORCE
 #
 
 include $(APBUILD)/NWGNUtail.inc
-
 

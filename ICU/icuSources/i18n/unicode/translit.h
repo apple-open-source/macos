@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (C) 1999-2013, International Business Machines
+* Copyright (C) 1999-2014, International Business Machines
 * Corporation and others. All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -965,6 +965,11 @@ public:
     /**
      * Registers a factory function that creates transliterators of
      * a given ID.
+     *
+     * Because ICU may choose to cache Transliterators internally, this must
+     * be called at application startup, prior to any calls to
+     * Transliterator::createXXX to avoid undefined behavior.
+     *
      * @param id the ID being registered
      * @param factory a function pointer that will be copied and
      * called later when the given ID is passed to createInstance()
@@ -986,6 +991,10 @@ public:
      *
      * After this call the Transliterator class owns the adoptedObj
      * and will delete it.
+     *
+     * Because ICU may choose to cache Transliterators internally, this must
+     * be called at application startup, prior to any calls to
+     * Transliterator::createXXX to avoid undefined behavior.
      *
      * @param adoptedObj an instance of subclass of
      * <code>Transliterator</code> that defines <tt>clone()</tt>
@@ -1084,6 +1093,10 @@ public:
      * a system transliterator or a user transliterator or class.
      * Any attempt to construct an unregistered transliterator based
      * on its ID will fail.
+     *
+     * Because ICU may choose to cache Transliterators internally, this should
+     * be called during application shutdown, after all calls to
+     * Transliterator::createXXX to avoid undefined behavior.
      *
      * @param ID the ID of the transliterator or class
      * @return the <code>Object</code> that was registered with
@@ -1308,6 +1321,7 @@ inline void Transliterator::setID(const UnicodeString& id) {
     ID.truncate(ID.length()-1);
 }
 
+#ifndef U_HIDE_INTERNAL_API
 inline Transliterator::Token Transliterator::integerToken(int32_t i) {
     Token t;
     t.integer = i;
@@ -1319,6 +1333,7 @@ inline Transliterator::Token Transliterator::pointerToken(void* p) {
     t.pointer = p;
     return t;
 }
+#endif  /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
 

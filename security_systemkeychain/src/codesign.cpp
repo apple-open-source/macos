@@ -85,6 +85,7 @@ uint32_t preserveMetadata = 0;		// what metadata to keep from previous signature
 CFBooleanRef timestampRequest = NULL; // timestamp service request
 bool noTSAcerts = false;			// Don't request certificates with ts request
 const char *tsaURL = NULL;			// TimeStamping Authority URL
+const char *dumpBinary = NULL;		// dump a binary image of the CodeDirectory to disk
 
 
 //
@@ -122,6 +123,7 @@ enum {
 	optBundleVersion,
 	optCheckExpiration,
 	optCheckRevocation,
+	optCodeDirectory,
 	optContinue,
 	optDeep,
 	optDetachedDatabase,
@@ -175,6 +177,7 @@ const struct option options[] = {
 	{ "bundle-version", required_argument,	NULL, optBundleVersion },
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "check-revocation", no_argument,		NULL, optCheckRevocation },
+	{ "codedirectory", required_argument,		NULL, optCodeDirectory },
 	{ "continue",	no_argument,			NULL, optContinue },
 	{ "deep",		no_argument,			NULL, optDeep },
 	{ "deep-verify", no_argument,			NULL, optDeep },	// legacy
@@ -310,6 +313,9 @@ int main(int argc, char *argv[])
 			case optDryRun:
 				dryrun = true;
 				break;
+			case optCodeDirectory:
+				dumpBinary = optarg;
+				break;
 			case optEntitlements:
 				entitlements = optarg;
 				break;
@@ -388,6 +394,7 @@ int main(int argc, char *argv[])
 				break;
 			case optResourceRules:
 				resourceRules = optarg;
+				note(0, "Warning: --resource-rules has been deprecated in Mac OS X >= 10.10!");
 				break;
 			case optSDKRoot:
 				sdkRoot = optarg;
@@ -579,14 +586,21 @@ static uint32_t parseMetadataFlags(const char *arg)
 		{ "team-identifier", kSecCodeSignerPreserveTeamIdentifier, true},
 		{ NULL }
 	};
+	uint32_t flags;
 	if (arg == NULL) {	// --preserve-metadata compatibility default
-		uint32_t flags = kSecCodeSignerPreserveRequirements | kSecCodeSignerPreserveEntitlements | kSecCodeSignerPreserveResourceRules | kSecCodeSignerPreserveFlags;
+		flags = kSecCodeSignerPreserveRequirements | kSecCodeSignerPreserveEntitlements | kSecCodeSignerPreserveResourceRules | kSecCodeSignerPreserveFlags;
 		if (!getenv("RC_XBS") || getenv("RC_BUILDIT"))	// if we're NOT in real B&I...
 			flags |= kSecCodeSignerPreserveIdentifier;				// ... then preserve identifier too
-		return flags;
+		note(0, "Warning: default usage of --preserve-metadata implies \"resource-rules\" (deprecated in Mac OS X >= 10.10)!");
 	} else {
-		return parseOptionTable(arg, metadataFlags);
+		flags = parseOptionTable(arg, metadataFlags);
+		if (flags & kSecCodeSignerPreserveResourceRules) {
+			note(0, "Warning: usage of --preserve-metadata with option \"resource-rules\" (deprecated in Mac OS X >= 10.10)!",
+				 options[optPreserveMetadata].name, options[optResourceRules]);
+		}
 	}
+
+	return flags;
 }
 
 

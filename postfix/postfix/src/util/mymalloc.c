@@ -219,20 +219,13 @@ void    myfree(char *ptr)
 
 char   *mystrdup(const char *str)
 {
-    size_t size; /* APPLE */
-    char *dst; /* APPLE */
-
     if (str == 0)
 	msg_panic("mystrdup: null pointer argument");
 #ifndef NO_SHARED_EMPTY_STRINGS
     if (*str == 0)
 	return ((char *) empty_string);
 #endif
-    /* APPLE */
-    size = strlen(str) + 1;
-    dst = mymalloc(size);
-    strlcpy(dst, str, size);
-    return dst;
+    return (strcpy(mymalloc(strlen(str) + 1), str));
 }
 
 /* mystrndup - save substring to heap */

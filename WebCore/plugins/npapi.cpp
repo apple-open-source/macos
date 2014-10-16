@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -202,13 +202,7 @@ NPError NPN_GetAuthenticationInfo(NPP instance, const char* protocol, const char
 
 NPError NPN_PopUpContextMenu(NPP instance, NPMenu* menu)
 {
-#if PLATFORM(QT) && defined(XP_MACOSX)
-    PluginView* plugin = pluginViewForInstance(instance);
-    plugin->popUpContextMenu(menu);
-    return NPERR_NO_ERROR;
-#else
     UNUSED_PARAM(instance);
     UNUSED_PARAM(menu);
     return NPERR_NO_ERROR;
-#endif // PLATFORM(QT) && defined(XP_MACOSX)
 }

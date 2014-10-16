@@ -7,7 +7,7 @@
     Copyright (C) 2000-2003 Lars Knoll (knoll@kde.org)
               (C) 2000 Antti Koivisto (koivisto@kde.org)
               (C) 2000-2003 Dirk Mueller (mueller@kde.org)
-              (C) 2002-2003 Apple Computer, Inc.
+              (C) 2002-2003 Apple Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -28,12 +28,9 @@
 #ifndef SVGRenderStyleDefs_h
 #define SVGRenderStyleDefs_h
 
-#if ENABLE(SVG)
 #include "SVGLength.h"
 #include "SVGPaint.h"
 #include "ShadowData.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -94,6 +91,23 @@ namespace WebCore {
         MT_ALPHA
     };
 
+    // These are all minimized combinations of paint-order.
+    enum PaintOrder {
+        PaintOrderNormal = 0,
+        PaintOrderFill = 1,
+        PaintOrderFillMarkers = 2,
+        PaintOrderStroke = 3,
+        PaintOrderStrokeMarkers = 4,
+        PaintOrderMarkers = 5,
+        PaintOrderMarkersStroke = 6
+    };
+
+    enum PaintType {
+        PaintTypeFill,
+        PaintTypeStroke,
+        PaintTypeMarkers
+    };
+
     class CSSValue;
     class CSSValueList;
     class SVGPaint;
@@ -101,8 +115,8 @@ namespace WebCore {
     // Inherited/Non-Inherited Style Datastructures
     class StyleFillData : public RefCounted<StyleFillData> {
     public:
-        static PassRefPtr<StyleFillData> create() { return adoptRef(new StyleFillData); }
-        PassRefPtr<StyleFillData> copy() const { return adoptRef(new StyleFillData(*this)); }
+        static PassRef<StyleFillData> create() { return adoptRef(*new StyleFillData); }
+        PassRef<StyleFillData> copy() const;
 
         bool operator==(const StyleFillData&) const;
         bool operator!=(const StyleFillData& other) const
@@ -125,8 +139,8 @@ namespace WebCore {
 
     class StyleStrokeData : public RefCounted<StyleStrokeData> {
     public:
-        static PassRefPtr<StyleStrokeData> create() { return adoptRef(new StyleStrokeData); }
-        PassRefPtr<StyleStrokeData> copy() const { return adoptRef(new StyleStrokeData(*this)); }
+        static PassRef<StyleStrokeData> create() { return adoptRef(*new StyleStrokeData); }
+        PassRef<StyleStrokeData> copy() const;
 
         bool operator==(const StyleStrokeData&) const;
         bool operator!=(const StyleStrokeData& other) const
@@ -155,8 +169,8 @@ namespace WebCore {
 
     class StyleStopData : public RefCounted<StyleStopData> {
     public:
-        static PassRefPtr<StyleStopData> create() { return adoptRef(new StyleStopData); }
-        PassRefPtr<StyleStopData> copy() const { return adoptRef(new StyleStopData(*this)); }
+        static PassRef<StyleStopData> create() { return adoptRef(*new StyleStopData); }
+        PassRef<StyleStopData> copy() const;
 
         bool operator==(const StyleStopData&) const;
         bool operator!=(const StyleStopData& other) const
@@ -174,8 +188,8 @@ namespace WebCore {
 
     class StyleTextData : public RefCounted<StyleTextData> {
     public:
-        static PassRefPtr<StyleTextData> create() { return adoptRef(new StyleTextData); }
-        PassRefPtr<StyleTextData> copy() const { return adoptRef(new StyleTextData(*this)); }
+        static PassRef<StyleTextData> create() { return adoptRef(*new StyleTextData); }
+        PassRef<StyleTextData> copy() const;
         
         bool operator==(const StyleTextData& other) const;
         bool operator!=(const StyleTextData& other) const
@@ -193,8 +207,8 @@ namespace WebCore {
     // Note: the rule for this class is, *no inheritance* of these props
     class StyleMiscData : public RefCounted<StyleMiscData> {
     public:
-        static PassRefPtr<StyleMiscData> create() { return adoptRef(new StyleMiscData); }
-        PassRefPtr<StyleMiscData> copy() const { return adoptRef(new StyleMiscData(*this)); }
+        static PassRef<StyleMiscData> create() { return adoptRef(*new StyleMiscData); }
+        PassRef<StyleMiscData> copy() const;
 
         bool operator==(const StyleMiscData&) const;
         bool operator!=(const StyleMiscData& other) const
@@ -216,8 +230,8 @@ namespace WebCore {
 
     class StyleShadowSVGData : public RefCounted<StyleShadowSVGData> {
     public:
-        static PassRefPtr<StyleShadowSVGData> create() { return adoptRef(new StyleShadowSVGData); }
-        PassRefPtr<StyleShadowSVGData> copy() const { return adoptRef(new StyleShadowSVGData(*this)); }
+        static PassRef<StyleShadowSVGData> create() { return adoptRef(*new StyleShadowSVGData); }
+        PassRef<StyleShadowSVGData> copy() const;
 
         bool operator==(const StyleShadowSVGData&) const;
         bool operator!=(const StyleShadowSVGData& other) const
@@ -225,7 +239,7 @@ namespace WebCore {
             return !(*this == other);
         }
 
-        OwnPtr<ShadowData> shadow;
+        std::unique_ptr<ShadowData> shadow;
 
     private:
         StyleShadowSVGData();
@@ -235,8 +249,8 @@ namespace WebCore {
     // Non-inherited resources
     class StyleResourceData : public RefCounted<StyleResourceData> {
     public:
-        static PassRefPtr<StyleResourceData> create() { return adoptRef(new StyleResourceData); }
-        PassRefPtr<StyleResourceData> copy() const { return adoptRef(new StyleResourceData(*this)); }
+        static PassRef<StyleResourceData> create() { return adoptRef(*new StyleResourceData); }
+        PassRef<StyleResourceData> copy() const;
 
         bool operator==(const StyleResourceData&) const;
         bool operator!=(const StyleResourceData& other) const
@@ -256,8 +270,8 @@ namespace WebCore {
     // Inherited resources
     class StyleInheritedResourceData : public RefCounted<StyleInheritedResourceData> {
     public:
-        static PassRefPtr<StyleInheritedResourceData> create() { return adoptRef(new StyleInheritedResourceData); }
-        PassRefPtr<StyleInheritedResourceData> copy() const { return adoptRef(new StyleInheritedResourceData(*this)); }
+        static PassRef<StyleInheritedResourceData> create() { return adoptRef(*new StyleInheritedResourceData); }
+        PassRef<StyleInheritedResourceData> copy() const;
 
         bool operator==(const StyleInheritedResourceData&) const;
         bool operator!=(const StyleInheritedResourceData& other) const
@@ -276,5 +290,4 @@ namespace WebCore {
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG)
 #endif // SVGRenderStyleDefs_h

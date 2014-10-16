@@ -292,6 +292,7 @@ IOHIDUPSClass::IOHIDUPSClass()
 
     _service			= 0;
 
+    _timerEventSource       = NULL;
     _asyncEventSource		= NULL;
     
     _hidDeviceInterface		= NULL;
@@ -354,11 +355,6 @@ IOHIDUPSClass::~IOHIDUPSClass()
         _upsCapabilities = NULL;
     }
 
-    if (_hidDeviceInterface) {
-        (*_hidDeviceInterface)->Release(_hidDeviceInterface);
-        _hidDeviceInterface = NULL;
-    }
-
     if (_hidQueueInterface) {
         (*_hidQueueInterface)->Release(_hidQueueInterface);
         _hidQueueInterface = NULL;
@@ -369,9 +365,9 @@ IOHIDUPSClass::~IOHIDUPSClass()
         _hidTransactionInterface = NULL;
     }
     
-    if (_asyncEventSource) {
-        CFRelease(_asyncEventSource);
-        _asyncEventSource = NULL;
+    if (_hidDeviceInterface) {
+        (*_hidDeviceInterface)->Release(_hidDeviceInterface);
+        _hidDeviceInterface = NULL;
     }
 }
 
@@ -804,9 +800,22 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
 //---------------------------------------------------------------------------
 IOReturn IOHIDUPSClass::createAsyncEventSource(CFTypeRef * eventSource)
 {
+    CFMutableArrayRef   eventSourceArray        = NULL;
+    IOReturn            status                  = kIOReturnError;
+    
     if (!eventSource)
-        return kIOReturnBadArgument;
-        
+    {
+        status = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    eventSourceArray = CFArrayCreateMutable(kCFAllocatorDefault, 2, &kCFTypeArrayCallBacks);
+    if (!eventSourceArray)
+    {
+        status = kIOReturnNoMemory;
+        goto exit;
+    }
+    
     // Set up CFTimerEventSource
     if ( ShouldPollDevice(_hidElements) )
     {
@@ -816,24 +825,43 @@ IOReturn IOHIDUPSClass::createAsyncEventSource(CFTypeRef * eventSource)
 
         timerContext.info = this;
 
-        _asyncEventSource = CFRunLoopTimerCreate(NULL,
+        _timerEventSource = CFRunLoopTimerCreate(NULL,
                              CFAbsoluteTimeGetCurrent(),    // fire date
                              (CFTimeInterval)5.0,           // interval (kUPSPollingInterval)
                              0, 
                              0, 
                              IOHIDUPSClass::_timerCallbackFunction, 
                              &timerContext);
+        
+        if (_timerEventSource)
+            CFArrayAppendValue(eventSourceArray, _timerEventSource);
     }
-    else if ( !setupQueue() )
-        return kIOReturnError;
-     
-    if ( !_asyncEventSource )
-        return kIOReturnError;
-     
-    *eventSource = _asyncEventSource;
-    CFRetain( _asyncEventSource );      // Retain for our own purposes
     
-    return kIOReturnSuccess;
+    if ( setupQueue() )
+    {
+        if (_asyncEventSource)
+        {
+            CFArrayAppendValue(eventSourceArray, _asyncEventSource);
+        }
+        else
+        {
+            status = kIOReturnError;
+            goto exit;
+        }
+    }
+    
+    else
+    {
+        status = kIOReturnError;
+        goto exit;
+    }
+    
+    *eventSource = eventSourceArray;
+
+    status = kIOReturnSuccess;
+    
+exit:
+    return status;
 }
 
 
@@ -938,6 +966,7 @@ bool IOHIDUPSClass::findElements()
                     }
                     break;
                 case kHIDUsage_PD_Voltage:
+                    // Normalize to mV (accounting for HID's units being 10^-7 V)
                     if ( newElement.unit == kIOHIDUnitVolt )
                         newElement.multiplier = pow(10, (3 + (newElement.unitExponent - kIOHIDUnitExponentVolt)));
                     else
@@ -946,8 +975,9 @@ bool IOHIDUPSClass::findElements()
                     psKey = CFSTR(kIOPSVoltageKey);
                     break;
                 case kHIDUsage_PD_Current:
+                    // Normalize to mA
                     if ( newElement.unit == kIOHIDUnitAmp )
-                        newElement.multiplier = pow(10, (3 + (newElement.unitExponent - kIOHIDUnitExponentAmp)));
+                        newElement.multiplier = pow(10, 3 + newElement.unitExponent);
                     else
                         newElement.multiplier = 1000.0;
                         
@@ -963,6 +993,15 @@ bool IOHIDUPSClass::findElements()
                         newElement.isCommand	= true;
                     }
                     break;
+                case kHIDUsage_PD_Temperature:
+                    // Normalize to deciKelvin (for precision)
+                    if ( newElement.unit == kIOHIDUnitKelvin )
+                        newElement.multiplier = pow(10, 1 + newElement.unitExponent);
+                    else
+                        newElement.multiplier = 1.0;
+                    
+                    psKey = CFSTR(kIOPSTemperatureKey);
+                    break;
             }
         }
         else if ( newElement.usagePage == kHIDPage_BatterySystem )
@@ -977,7 +1016,22 @@ bool IOHIDUPSClass::findElements()
                     psKey = CFSTR(kIOPSIsChargingKey);
                     break;
                 case kHIDUsage_BS_RemainingCapacity:
+                    // Capacity can be given in Amp-Seconds or %
+                    if (newElement.unit == kIOHIDUnitAmpSec )
+                        newElement.multiplier = 1.0 / 3.6;
+                    else
+                        newElement.multiplier = 1.0;
+                    
                     psKey = CFSTR(kIOPSCurrentCapacityKey);
+                    break;
+                case kHIDUsage_BS_FullChargeCapacity:
+                    // Capacity can be given in Amp-Seconds or %
+                    if (newElement.unit == kIOHIDUnitAmpSec )
+                        newElement.multiplier = 1.0 / 3.6;
+                    else
+                        newElement.multiplier = 1.0;
+                    
+                    psKey = CFSTR(kIOPSMaxCapacityKey);
                     break;
                 case kHIDUsage_BS_RunTimeToEmpty:
                     psKey = CFSTR(kIOPSTimeToEmptyKey);
@@ -1119,41 +1173,9 @@ void IOHIDUPSClass::_queueCallbackFunction(
                                         &event, 
                                         zeroTime, 
                                         0);
-                                        
-        if ( result != kIOReturnSuccess )
-            continue;
-        
-        // Only intersted in 32 values right now
-        if ((event.longValueSize != 0) && (event.longValue != NULL))
-        {
-            free(event.longValue);
-            continue;
-        }
-        
-        number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &event.elementCookie);        
-        if ( !number )  continue;
-        element = (CFMutableDataRef)CFDictionaryGetValue(self->_hidElements, number);
-        CFRelease(number);
-        
-        if ( !element || 
-            !(tempHIDElement = (UPSHIDElement *)CFDataGetMutableBytePtr(element)))  
-            continue;
-        
-        tempHIDElement->currentValue = event.value;
-
-        if (!self->processEvent(tempHIDElement)) 
-            continue;
-        
-        if (self->_eventCallback)
-        {
-            (self->_eventCallback)(
-                                self->_eventTarget,
-                                kIOReturnSuccess,
-                                self->_eventRefcon,
-                                (void *)&self->_upsDevice,
-                                self->_upsEvent);
-        }
     }
+    
+    _timerCallbackFunction(NULL, target);
 }
 
 //---------------------------------------------------------------------------
@@ -1248,6 +1270,13 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
                 value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSCurrentKey), value);
                 break;
+            case kHIDUsage_PD_Temperature:
+                const double kDeciKelvinToDeciCelsisusOffset = -2731.5;
+                // PS expects degrees Celsius but HID units are degrees Kelvin
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier
+                                 + kDeciKelvinToDeciCelsisusOffset);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTemperatureKey), value);
+                break;
         }
     }
     else if (hidElement->usagePage == kHIDPage_BatterySystem)
@@ -1273,24 +1302,35 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
 
                 break;
             case kHIDUsage_BS_RemainingCapacity:
-                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSCurrentCapacityKey), hidElement->currentValue);
+                // PS expects mAh but HID units are A-s. If units are %, multiplier is 1
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSCurrentCapacityKey), value);
                 
-                // Update time to full
-                value = 100 - hidElement->currentValue;
-                if ((hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToFullChargeKey))))
-                {
-                    value = (UInt32)(((float)hidElement->currentValue) * ((float)value / 100.0));
+                
+                // If units are in %, recalcualte time to empty and time to full
+                if ( hidElement->unit == 0 ) {
+                    // Update time to full
+                    value = 100 - hidElement->currentValue;
+                    if ((hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToFullChargeKey))))
+                    {
+                        value = (UInt32)(((float)hidElement->currentValue) * ((float)value / 100.0));
                     
+                        // PS expects minutes but HID units are secs
+                        update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTimeToFullChargeKey),(value/60));
+                    }
+                    // Update the Time to empty
                     // PS expects minutes but HID units are secs
-                    update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTimeToFullChargeKey),(value/60));
-                }
-                // Update the Time to empty
-                // PS expects minutes but HID units are secs
-                if ( (hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToEmptyKey))) && updateElementValue(hidElement, NULL) )
-                {
-                    FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTimeToEmptyKey), hidElement->currentValue/60);
+                    if ( (hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToEmptyKey))) && updateElementValue(hidElement, NULL) )
+                    {
+                        FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTimeToEmptyKey), hidElement->currentValue/60);
+                    }
                 }
                 
+                break;
+            case kHIDUsage_BS_FullChargeCapacity:
+                // PS expects mAh but HID units are A-s. If units are %, multiplier is 1
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSMaxCapacityKey), value);
                 break;
             case kHIDUsage_BS_RunTimeToEmpty:
                 // PS expects minutes but HID units are secs

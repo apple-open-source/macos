@@ -1,0 +1,77 @@
+//
+// script0005
+//
+//		KCSetData
+//		KCGetData
+//
+// Create & Add an Apple Share Password item a default Keychain, then modify the data
+// 
+35 KCNewItem
+   Input Arguments : 4
+     Class : ashp
+     Creator : hehe
+     Data : /5/Apple
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0005.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+38 KCSetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /3/Dog
+   Results : 1
+     OSStatus 0
+//
+// THIS IS WRONG NOW: - the rogueapp alert does come up and allow access (returns 0)
+//
+// NOTE! We return errKCInvalid (soon to change to access denied)
+// We want to prohibit processes from accessing data that is cached in 
+// memory that hasn't been written out.  We want to stop the process
+// from bypassing our rogue-app/access control UI
+//
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /5/00000
+   Results : 3
+     OSStatus 0
+     Data : /5/Apple
+     ActualLength : 5
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

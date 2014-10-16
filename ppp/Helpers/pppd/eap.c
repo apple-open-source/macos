@@ -312,7 +312,6 @@ EapLostFailure(unit)
     u_char inpacket[EAP_HEADERLEN];
 	u_char *inp = inpacket;
 	
-	MAKEHEADER(inp, PPP_EAP);		/* paste in a EAP header */
     PUTCHAR(EAP_FAILURE, inp);		/* simulate failure */
     PUTCHAR(cstate->resp_id, inp);  /* id must match the last response we sent */
     PUTSHORT(EAP_HEADERLEN, inp);

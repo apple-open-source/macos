@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -35,13 +35,21 @@ void _STUB_vmopen(){}
 **	Written by Kiem-Phong Vo, kpv@research.att.com, 01/16/94.
 */
 
-typedef struct _vminit_
-{
-	Vmdata_t	vd;		/* space for the region itself	*/
-	Seg_t		seg;		/* space for segment		*/
-	Block_t		block;		/* space for a block		*/
-	Head_t		head;		/* space for the fake header	*/
-	char		a[3*ALIGN];	/* extra to fuss with alignment	*/
+/* this structure lives in the top data segment of the region */
+typedef struct _vminit_s
+{	union
+	{ Vmdata_t	vd;		/* root of usable data space  	*/
+	  Vmuchar_t	a[ROUND(sizeof(Vmdata_t),ALIGN)];
+	} vd;
+	union
+	{ Vmalloc_t	vm;		/* embedded region if needed	*/
+	  Vmuchar_t	a[ROUND(sizeof(Vmalloc_t),ALIGN)];
+	} vm;
+	union
+	{ Seg_t		seg;		/* space for segment		*/
+	  Vmuchar_t	a[ROUND(sizeof(Seg_t),ALIGN)];
+	} seg;
+	Block_t		block[16];	/* space for a few blocks	*/
 } Vminit_t;
 
 #if __STD_C
@@ -53,122 +61,118 @@ Vmethod_t*	meth;	/* method to manage space	*/
 int		mode;	/* type of region		*/
 #endif
 {
-	reg Vmalloc_t*	vm;
-	reg Vmdata_t*	vd;
-	reg size_t	s, a, incr;
-	reg Block_t*	b;
-	reg Seg_t*	seg;
-	Vmuchar_t*	addr;
-	reg Vmemory_f	memoryf;
-	reg int		e;
+	Vmalloc_t	*vm, *vmp, vmproto;
+	Vmdata_t	*vd;
+	Vminit_t	*init;
+	size_t		algn, size, incr;
+	Block_t		*bp, *np;
+	Seg_t		*seg;
+	Vmuchar_t	*addr;
+	int		rv;
 
-	if(!meth || !disc || !(memoryf = disc->memoryf) )
+	if(!meth || !disc || !disc->memoryf )
 		return NIL(Vmalloc_t*);
 
 	GETPAGESIZE(_Vmpagesize);
 
-	/* note that Vmalloc_t space must be local to process since that's
-	   where the meth&disc function addresses are going to be stored */
-	if(!(vm = (Vmalloc_t*)vmalloc(Vmheap,sizeof(Vmalloc_t))) )
-		return NIL(Vmalloc_t*);
-	vm->meth = *meth;
-	vm->disc = disc;
-	vm->file = NIL(char*);
-	vm->line = 0;
+	vmp = &vmproto; /* avoid memory allocation here! */
+	memset(vmp, 0, sizeof(Vmalloc_t));
+	memcpy(&vmp->meth, meth, sizeof(Vmethod_t));
+	vmp->disc = disc;
+
+	mode &= VM_FLAGS; /* start with user-settable flags */
+	size = 0;
 
 	if(disc->exceptf)
 	{	addr = NIL(Vmuchar_t*);
-		if((e = (*disc->exceptf)(vm,VM_OPEN,(Void_t*)(&addr),disc)) != 0)
-		{	if(e < 0 || !addr)
-				goto open_error;
-
-			/* align this address */
-			if((a = (size_t)(VLONG(addr)%ALIGN)) != 0)
-				addr += ALIGN-a;
-
-			/* see if it's a valid region */
-			vd = (Vmdata_t*)addr;
-			if((vd->mode&meth->meth) != 0)
-			{	vm->data = vd;
-				goto done;
-			}
-			else
-			{ open_error:
-				vmfree(Vmheap,vm);
+		if((rv = (*disc->exceptf)(vmp,VM_OPEN,(Void_t*)(&addr),disc)) < 0)
+			return NIL(Vmalloc_t*);
+		else if(rv == 0 )
+		{	if(addr) /* vm itself is in memory from disc->memoryf */
+				mode |= VM_MEMORYF;
+		}
+		else if(rv > 0) /* the data section is being restored */
+		{	if(!(init = (Vminit_t*)addr) )
 				return NIL(Vmalloc_t*);
-			}
+			size = -1; /* to tell that addr was not from disc->memoryf */
+			vd = &init->vd.vd; /**/ASSERT(VLONG(vd)%ALIGN == 0);
+			goto done;
 		}
 	}
 
-	/* make sure vd->incr is properly rounded */
+	/* make sure vd->incr is properly rounded and get initial memory */
 	incr = disc->round <= 0 ? _Vmpagesize : disc->round;
 	incr = MULTIPLE(incr,ALIGN);
-
-	/* get space for region data */
-	s = ROUND(sizeof(Vminit_t),incr);
-	if(!(addr = (Vmuchar_t*)(*memoryf)(vm,NIL(Void_t*),0,s,disc)) )
-	{	vmfree(Vmheap,vm);
+	size = ROUND(sizeof(Vminit_t),incr); /* get initial memory */
+	if(!(addr = (Vmuchar_t*)(*disc->memoryf)(vmp, NIL(Void_t*), 0, size, disc)) )
 		return NIL(Vmalloc_t*);
-	}
+	memset(addr, 0, size);
 
-	/* make sure that addr is aligned */
-	if((a = (size_t)(VLONG(addr)%ALIGN)) != 0)
-		addr += ALIGN-a;
-
-	/* initialize region */
-	vd = (Vmdata_t*)addr;
-	vd->mode = (mode&VM_FLAGS) | meth->meth;
+	/* initialize region data */
+	algn = (size_t)(VLONG(addr)%ALIGN);
+	init = (Vminit_t*)(addr + (algn ? ALIGN-algn : 0)); /**/ASSERT(VLONG(init)%ALIGN == 0);
+	vd = &init->vd.vd; /**/ASSERT(VLONG(vd)%ALIGN == 0);
+	vd->mode = mode | meth->meth;
 	vd->incr = incr;
 	vd->pool = 0;
 	vd->free = vd->wild = NIL(Block_t*);
 
-	if(vd->mode&(VM_TRACE|VM_MTDEBUG))
-		vd->mode &= ~VM_TRUST;
-
 	if(vd->mode&(VM_MTBEST|VM_MTDEBUG|VM_MTPROFILE))
-	{	vd->root = NIL(Block_t*);
-		for(e = S_TINY-1; e >= 0; --e)
-			TINY(vd)[e] = NIL(Block_t*);
-		for(e = S_CACHE; e >= 0; --e)
-			CACHE(vd)[e] = NIL(Block_t*);
-		incr = sizeof(Vmdata_t);
+	{	int	k;
+		vd->root = NIL(Block_t*);
+		for(k = S_TINY-1; k >= 0; --k)
+			TINY(vd)[k] = NIL(Block_t*);
+		for(k = S_CACHE; k >= 0; --k)
+			CACHE(vd)[k] = NIL(Block_t*);
 	}
-	else	incr = OFFSET(Vmdata_t,root);
 
-	vd->seg = (Seg_t*)(addr + ROUND(incr,ALIGN));
-	/**/ ASSERT(VLONG(vd->seg)%ALIGN == 0);
-
+	vd->seg = &init->seg.seg; /**/ ASSERT(VLONG(vd->seg)%ALIGN == 0);
 	seg = vd->seg;
 	seg->next = NIL(Seg_t*);
 	seg->vmdt = vd;
-	seg->addr = (Void_t*)(addr - (a ? ALIGN-a : 0));
-	seg->extent = s;
-	seg->baddr = addr + s - (a ? ALIGN : 0);
-	seg->size = s;	/* this size is larger than usual so that the segment
-			   will not be freed until the region is closed. */
+	seg->addr = (Void_t*)addr;
+	seg->extent = size;
+	seg->baddr = addr + size;
+	seg->size = size; /* Note: this size is unusually large to mark seg as
+			   the root segment and can be freed only at closing */
 	seg->free = NIL(Block_t*);
 
 	/* make a data block out of the remainder */
-	b = SEGBLOCK(seg);
-	SEG(b) = seg;
-	SIZE(b) = seg->baddr - (Vmuchar_t*)b - 2*sizeof(Head_t);
-	*SELF(b) = b;
-	/**/ ASSERT(SIZE(b)%ALIGN == 0);
-	/**/ ASSERT(VLONG(b)%ALIGN == 0);
+	bp = SEGBLOCK(seg);
+	SEG(bp) = seg;
+	size = ((seg->baddr - (Vmuchar_t*)bp)/ALIGN) * ALIGN; /**/ ASSERT(size > 0);
+	SIZE(bp) = size - 2*sizeof(Head_t); /**/ASSERT(SIZE(bp) > 0 && (SIZE(bp)%ALIGN) == 0);
+	SELF(bp) = bp;
+	/**/ ASSERT(SIZE(bp)%ALIGN == 0);
+	/**/ ASSERT(VLONG(bp)%ALIGN == 0);
 
 	/* make a fake header for next block in case of noncontiguous segments */
-	SEG(NEXT(b)) = seg;
-	SIZE(NEXT(b)) = BUSY|PFREE;
+	np = NEXT(bp);
+	SEG(np) = seg;
+	SIZE(np) = BUSY|PFREE;
 
 	if(vd->mode&(VM_MTLAST|VM_MTPOOL))
-		seg->free = b;
-	else	vd->wild = b;
+		seg->free = bp;
+	else	vd->wild = bp;
 
+done:	/* now make the region handle */
+	if(vd->mode&VM_MEMORYF)
+		vm = &init->vm.vm;
+	else if(!(vm = vmalloc(Vmheap, sizeof(Vmalloc_t))) )
+	{	if(size > 0)
+			(void)(*disc->memoryf)(vmp, addr, size, 0, disc);
+		return NIL(Vmalloc_t*);
+	}
+	memcpy(vm, vmp, sizeof(Vmalloc_t));
 	vm->data = vd;
 
-done:	/* add to the linked list of regions */
-	vm->next = Vmheap->next;
-	Vmheap->next = vm;
+	if(disc->exceptf) /* signaling that vmopen succeeded */
+		(void)(*disc->exceptf)(vm, VM_ENDOPEN, NIL(Void_t*), disc);
+
+	/* add to the linked list of regions */
+	_vmlock(NIL(Vmalloc_t*), 1);
+	vm->next = Vmheap->next; Vmheap->next = vm;
+	_vmlock(NIL(Vmalloc_t*), 0);
 
 	return vm;
 }

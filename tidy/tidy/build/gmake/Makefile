@@ -2,9 +2,9 @@
 #
 #  CVS Info :
 #
-#     $Author: mrowe $ 
-#     $Date: 2011/08/29 23:32:47 $ 
-#     $Revision: 1.14 $ 
+#     $Author$ 
+#     $Date$ 
+#     $Revision$ 
 #
 #  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -92,12 +92,7 @@ DOCDIR = ${TOPDIR}/htmldoc
 # For optimised builds, flags such as "-O2" should be added and -D_DEBUG=1
 # disabled.
 ifdef TIDY_APPLE_CHANGES
-ifneq ($(SDKROOT),)
-CFLAGS+= -isysroot $(SDKROOT)
-CC= $(shell xcrun -find -sdk $(SDKROOT) cc)
-else
-CC= cc
-endif
+CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
 CFLAGS+= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR) \
     -fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'
 else
@@ -142,7 +137,7 @@ LIBSUFFIX = .a
 OBJSUF = .o
 
 LIBRARY = $(LIBDIR)/$(LIBPREFIX)$(PROJECT)$(LIBSUFFIX)
-AR=ar -r
+AR ?= ar
 
 XSLTPROC = xsltproc
 
@@ -195,7 +190,7 @@ doc:    $(DOCS)
 
 $(LIBRARY): $(OBJFILES)
 	if [ ! -d $(LIBDIR) ]; then mkdir $(LIBDIR); fi
-	$(AR) $@ $(OBJFILES)
+	$(AR) -r $@ $(OBJFILES)
 ifdef RANLIB
 	$(RANLIB) $@
 endif

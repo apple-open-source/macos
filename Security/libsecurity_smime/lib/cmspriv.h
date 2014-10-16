@@ -39,11 +39,11 @@
 #define _CMSPRIV_H_
 
 #include <Security/SecTrust.h>
+#include <security_asn1/seccomon.h> // SEC_BEGIN_PROTOS
 #include "cmstpriv.h"
 
 /************************************************************************/
 SEC_BEGIN_PROTOS
-
 
 /************************************************************************
  * cmsutil.c - CMS misc utility functions
@@ -62,7 +62,7 @@ SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **obj
 
 /*
  * SecCmsUtilDERCompare - for use with SecCmsArraySort to
- *  sort arrays of CSSM_DATAs containing DER
+ *  sort arrays of SecAsn1Items containing DER
  */
 extern int
 SecCmsUtilDERCompare(void *a, void *b);
@@ -95,7 +95,11 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
 extern int
 SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
 
+#if USE_CDSA_CRYPTO
 extern CSSM_CC_HANDLE
+#else
+extern void *
+#endif
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
 
 /*
@@ -136,14 +140,7 @@ SecCmsContentGetContentInfo(void *msg, SECOidTag type);
 extern void
 SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
                                PK11PasswordFunc pwfn, void *pwfn_arg,
-                               SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
-                               SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests);
-
-extern void
-SecCmsMessageSetTSACallback(SecCmsMessageRef cmsg, SecCmsTSACallback tsaCallback);
-
-extern void
-SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, const void *tsaContext);   //CFTypeRef
+                               SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg);
 
 /************************************************************************
  * cmscinfo.c - CMS contentInfo methods
@@ -160,7 +157,7 @@ SecCmsContentInfoDestroy(SecCmsContentInfoRef cinfo);
  * SecCmsContentInfoSetContent - set cinfo's content type & content to CMS object
  */
 extern OSStatus
-SecCmsContentInfoSetContent(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SECOidTag type, void *ptr);
+SecCmsContentInfoSetContent(SecCmsContentInfoRef cinfo, SECOidTag type, void *ptr);
 
 
 /************************************************************************
@@ -170,19 +167,34 @@ SecCmsContentInfoSetContent(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, S
 extern OSStatus
 SecCmsSignedDataSetDigestValue(SecCmsSignedDataRef sigd,
 				SECOidTag digestalgtag,
-				CSSM_DATA_PTR digestdata);
+				SecAsn1Item * digestdata);
 
 extern OSStatus
-SecCmsSignedDataAddDigest(SecArenaPoolRef pool,
+SecCmsSignedDataAddDigest(PRArenaPool *poolp,
 				SecCmsSignedDataRef sigd,
 				SECOidTag digestalgtag,
-				CSSM_DATA_PTR digest);
+				SecAsn1Item * digest);
 
-extern CSSM_DATA_PTR
+extern SecAsn1Item *
 SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag);
 
-extern CSSM_DATA_PTR
+extern SecAsn1Item *
 SecCmsSignedDataGetDigestValue(SecCmsSignedDataRef sigd, SECOidTag digestalgtag);
+
+/*!
+    @function
+ */
+extern OSStatus
+SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
+				SecCmsSignerInfoRef signerinfo);
+
+/*!
+	@function
+ */
+extern OSStatus
+SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
+				SECAlgorithmID **digestalgs,
+				SecAsn1Item * *digests);
 
 /*
  * SecCmsSignedDataEncodeBeforeStart - do all the necessary things to a SignedData
@@ -231,12 +243,6 @@ SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd);
 extern OSStatus
 SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd);
 
-/*
- * Get SecCmsSignedDataRawCerts - obtain raw certs as a NULL_terminated array 
- * of pointers.
- */
-extern OSStatus SecCmsSignedDataRawCerts(SecCmsSignedDataRef sigd,
-    CSSM_DATA_PTR **rawCerts);
 
 /************************************************************************
  * cmssiginfo.c - CMS signerInfo methods
@@ -247,7 +253,7 @@ extern OSStatus SecCmsSignedDataRawCerts(SecCmsSignedDataRef sigd,
  *
  */
 extern OSStatus
-SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_DATA_PTR contentType);
+SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAsn1Item * contentType);
 
 /*
  * If trustRef is NULL the cert chain is verified and the VerificationStatus is set accordingly.
@@ -264,7 +270,7 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
  * is done already.
  */
 extern OSStatus
-SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_DATA_PTR contentType);
+SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAsn1Item * contentType);
 
 /*
  * SecCmsSignerInfoAddAuthAttr - add an attribute to the
@@ -283,18 +289,25 @@ SecCmsSignerInfoAddUnauthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute *a
 extern int
 SecCmsSignerInfoGetVersion(SecCmsSignerInfoRef signerinfo);
 
-/* 
- * Determine whether Microsoft ECDSA compatibility mode is enabled. 
- * See comments in SecCmsSignerInfo.h for details. 
- * Implemented in siginfoUtils.cpp for access to C++ Dictionary class. 
+/*!
+    @function
+    @abstract Destroy a SignerInfo data structure.
  */
-extern bool
-SecCmsMsEcdsaCompatMode();
+extern void
+SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si);
 
 
 /************************************************************************
  * cmsenvdata.c - CMS envelopedData methods
  ************************************************************************/
+
+/*!
+    @function
+    @abstract Add a recipientinfo to the enveloped data msg.
+    @discussion Rip must be created on the same pool as edp - this is not enforced, though.
+ */
+extern OSStatus
+SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip);
 
 /*
  * SecCmsEnvelopedDataEncodeBeforeStart - prepare this envelopedData for encoding
@@ -350,7 +363,7 @@ SecCmsEnvelopedDataDecodeAfterEnd(SecCmsEnvelopedDataRef envd);
 extern int
 SecCmsRecipientInfoGetVersion(SecCmsRecipientInfoRef ri);
 
-extern CSSM_DATA_PTR
+extern SecAsn1Item *
 SecCmsRecipientInfoGetEncryptedKey(SecCmsRecipientInfoRef ri, int subIndex);
 
 
@@ -363,6 +376,12 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 extern SecSymmetricKeyRef
 SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 		SecCertificateRef cert, SecPrivateKeyRef privkey, SECOidTag bulkalgtag);
+
+/*!
+    @function
+ */
+extern void
+SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri);
 
 
 /************************************************************************
@@ -491,8 +510,29 @@ SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg);
  *  but for one digest.
  */
 extern OSStatus
-SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef arena,
-			    CSSM_DATA_PTR digest);
+SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx,
+			    SecAsn1Item * digest);
+
+/*!
+    @function
+    @abstract Finish the digests being calculated and put them into to parralel
+		arrays of SecAsn1Items.
+    @param cmsdigcx A DigestContext object.
+    @param digestalgsp will contain a to an array of digest algorithms on
+		success.
+    @param digestsp A EncryptedData object to set as the content of the cinfo
+		object.
+    @result A result code. See "SecCmsBase.h" for possible results.
+    @discussion This function requires a DigestContext object which can be made
+		by calling SecCmsDigestContextStartSingle or
+		SecCmsDigestContextStartMultiple.  The returned arrays remain valid
+		until SecCmsDigestContextDestroy is called.
+    @availability 10.4 and later
+ */
+extern OSStatus
+SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
+			    SECAlgorithmID ***digestalgsp,
+			    SecAsn1Item * **digestsp);
 
 
 /************************************************************************/

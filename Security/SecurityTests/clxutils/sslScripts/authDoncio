@@ -1,0 +1,47 @@
+#! /bin/csh -f
+#
+# run client-side authenticaiton tests on external servers. These
+# servers will undoubtedly change their behavior some day.
+#
+#
+set SSL_KEYCHAIN=localcert
+#
+# use this to explicitly open the keychain
+#
+# not yet
+#set KEYCHAIN_PWD=
+set KEYCHAIN_PWD="z=localcert"
+#
+# doncio root; we'll implicitly trust it for now 
+#
+set DONCIO_ROOT="a doncioRoot.cer"
+#
+set TEST_HOST=doncio.net
+set TEST_PATH=/secure/DoD_soft_cert
+echo =====
+echo ===== $TEST_HOST/$TEST_PATH requests authentication
+set cmd="sslViewer $TEST_HOST $TEST_PATH 3 $DONCIO_ROOT T=r"
+echo $cmd
+$cmd || exit(1)
+set cmd="sslViewer $TEST_HOST $TEST_PATH t $DONCIO_ROOT T=r"
+echo $cmd
+$cmd || exit(1)
+echo ===== Try with our bogus cert, expect fail
+set cmd="sslViewer $TEST_HOST $TEST_PATH k=$SSL_KEYCHAIN $KEYCHAIN_PWD t $DONCIO_ROOT T=j"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+set cmd="sslViewer $TEST_HOST $TEST_PATH k=$SSL_KEYCHAIN $KEYCHAIN_PWD 3 $DONCIO_ROOT T=j"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+
+echo =====
+echo ===== authExtern success
+echo =====

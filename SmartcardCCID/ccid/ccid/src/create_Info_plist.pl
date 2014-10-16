@@ -3,7 +3,7 @@
 #    create_Info_plist.pl: generate Infor.plist from a template and a
 #    list of suported readers
 #
-#    Copyright (C) 2004  Ludovic Rousseau  <ludovic.rousseau@free.fr>
+#    Copyright (C) 2004-2009  Ludovic Rousseau  <ludovic.rousseau@free.fr>
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -26,27 +26,22 @@ use Getopt::Long;
 
 my (@manuf, @product, @name);
 my ($manuf, $product, $name);
-my $ifdCapabilities = "0x00000000";
 my $target = "libccid.so";
 my $version = "1.0.0";
-my $bundle = "ifd-ccid.bundle";
 my $class = "<key>CFBundleName</key>
 	<string>CCIDCLASSDRIVER</string>";
 my $noclass = 0;
 
-GetOptions("ifdCapabilities=s" => \$ifdCapabilities,
+GetOptions(
 	"target=s" => \$target,
 	"version=s" => \$version,
-	"bundle=s" => \$bundle,
 	"no-class" => \$noclass);
 
 if ($#ARGV < 1)
 {
 	print "usage: $0 supported_readers.txt Info.plist
-	--ifdCapabilities=$ifdCapabilities
 	--target=$target
-	--version=$version
-	--bundle=$bundle\n";
+	--version=$version\n";
 	exit;
 }
 
@@ -61,6 +56,7 @@ while (<IN>)
 	# print "m: $manuf, p: $product, n: $name\n";
 	push @manuf, $manuf;
 	push @product, $product;
+	$name =~ s/&/&amp;/g;
 	push @name, $name
 }
 close IN;
@@ -88,12 +84,6 @@ while (<IN>)
 		print @name;
 		next;
 	}
-	if (m/MAGIC_IFDCAPABILITIES/)
-	{
-		s/MAGIC_IFDCAPABILITIES/$ifdCapabilities/;
-		print;
-		next;
-	}
 	if (m/MAGIC_TARGET/)
 	{
 		s/MAGIC_TARGET/$target/;
@@ -103,12 +93,6 @@ while (<IN>)
 	if (m/MAGIC_VERSION/)
 	{
 		s/MAGIC_VERSION/$version/;
-		print;
-		next;
-	}
-	if (m/MAGIC_BUNDLE/)
-	{
-		s/MAGIC_BUNDLE/$bundle/;
 		print;
 		next;
 	}

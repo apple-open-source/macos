@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -25,66 +25,33 @@
 
 #include "config.h"
 
-#if USE(ACCELERATED_COMPOSITING)
 #if ENABLE(CSS_FILTERS)
 
 #import "PlatformCAFilters.h"
-
 #import "BlockExceptions.h"
 #import "FloatConversion.h"
 #import "LengthFunctions.h" // This is a layering violation.
-#import "PlatformCALayer.h"
+#import "PlatformCAFiltersMac.h"
+#import "PlatformCALayerMac.h"
 #import <QuartzCore/QuartzCore.h>
 
 using namespace WebCore;
 
-#if USE_CA_FILTERS
-struct CAColorMatrix
-{
-    float m11, m12, m13, m14, m15;
-    float m21, m22, m23, m24, m25;
-    float m31, m32, m33, m34, m35;
-    float m41, m42, m43, m44, m45;
-};
-
-typedef struct CAColorMatrix CAColorMatrix;
-
-@interface NSValue (Details)
-+ (NSValue *)valueWithCAColorMatrix:(CAColorMatrix)t;
-@end
-
-@interface CAFilter : NSObject <NSCopying, NSMutableCopying, NSCoding>
-@end
-
-@interface CAFilter (Details)
-@property(copy) NSString *name;
-+ (CAFilter *)filterWithType:(NSString *)type;
-@end
-
-extern NSString * const kCAFilterColorMatrix;
-extern NSString * const kCAFilterColorMonochrome;
-extern NSString * const kCAFilterColorHueRotate;
-extern NSString * const kCAFilterColorSaturate;
-extern NSString * const kCAFilterGaussianBlur;
-#endif
-
 // FIXME: Should share these values with FilterEffectRenderer::build() (https://bugs.webkit.org/show_bug.cgi?id=76008).
-static double sepiaFullConstants[3][3] = {
+static const double sepiaFullConstants[3][3] = {
     { 0.393, 0.769, 0.189 },
     { 0.349, 0.686, 0.168 },
     { 0.272, 0.534, 0.131 }
 };
 
-static double sepiaNoneConstants[3][3] = {
+static const double sepiaNoneConstants[3][3] = {
     { 1, 0, 0 },
     { 0, 1, 0 },
     { 0, 0, 1 }
 };
 
-void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, const FilterOperations& filters)
+void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOperations& filters)
 {
-    CALayer* layer = platformCALayer->platformLayer();
-
     if (!filters.size()) {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [layer setFilters:nil];
@@ -98,7 +65,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
     }
     
     // Assume filtersCanBeComposited was called and it returned true.
-    ASSERT(platformCALayer->filtersCanBeComposited(filters));
+    ASSERT(PlatformCALayerMac::filtersCanBeComposited(filters));
     
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     
@@ -107,7 +74,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
     for (unsigned i = 0; i < filters.size(); ++i) {
         String filterName = String::format("filter_%d", i);
         const FilterOperation* filterOperation = filters.at(i);
-        switch (filterOperation->getOperationType()) {
+        switch (filterOperation->type()) {
         case FilterOperation::DEFAULT:
             ASSERT_NOT_REACHED();
             break;
@@ -136,7 +103,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
             break;
         }
         case FilterOperation::SEPIA: {
-            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->getOperationType(), filterOperation);
+            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->type(), filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
             [filter setName:filterName];
@@ -161,7 +128,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
             break;
         }
         case FilterOperation::INVERT: {
-            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->getOperationType(), filterOperation);
+            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->type(), filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
             [filter setName:filterName];
@@ -169,7 +136,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
             break;
         }
         case FilterOperation::OPACITY: {
-            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->getOperationType(), filterOperation);
+            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->type(), filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
             [filter setName:filterName];
@@ -177,7 +144,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
             break;
         }
         case FilterOperation::BRIGHTNESS: {
-            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->getOperationType(), filterOperation);
+            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->type(), filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
             [filter setName:filterName];
@@ -185,7 +152,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformCALayer* platformCALayer, cons
             break;
         }
         case FilterOperation::CONTRAST: {
-            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->getOperationType(), filterOperation);
+            RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation->type(), filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
             [filter setName:filterName];
@@ -334,7 +301,7 @@ RetainPtr<NSValue> PlatformCAFilters::filterValueForOperation(const FilterOperat
 #if USE_CA_FILTERS
     UNUSED_PARAM(internalFilterPropertyIndex);
 #endif
-    FilterOperation::OperationType type = operation->getOperationType();
+    FilterOperation::OperationType type = operation->type();
     RetainPtr<id> value;
     
     if (type == FilterOperation::DEFAULT) {
@@ -570,6 +537,63 @@ RetainPtr<NSValue> PlatformCAFilters::colorMatrixValueForFilter(FilterOperation:
 }
 #endif
 
+void PlatformCAFilters::setBlendingFiltersOnLayer(PlatformLayer* layer, const BlendMode blendMode)
+{
+#if USE_CA_FILTERS
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+
+    CAFilter* filter = nil;
+
+    switch (blendMode) {
+        case BlendModeNormal:
+            // No need to set an actual filter object in this case.
+            break;
+        case BlendModeOverlay:
+            filter = [CAFilter filterWithType:kCAFilterOverlayBlendMode];
+            break;
+        case BlendModeColorDodge:
+            filter = [CAFilter filterWithType:kCAFilterColorDodgeBlendMode];
+            break;
+        case BlendModeColorBurn:
+            filter = [CAFilter filterWithType:kCAFilterColorBurnBlendMode];
+            break;
+        case BlendModeDarken:
+            filter = [CAFilter filterWithType:kCAFilterDarkenBlendMode];
+            break;
+        case BlendModeDifference:
+            filter = [CAFilter filterWithType:kCAFilterDifferenceBlendMode];
+            break;
+        case BlendModeExclusion:
+            filter = [CAFilter filterWithType:kCAFilterExclusionBlendMode];
+            break;
+        case BlendModeHardLight:
+            filter = [CAFilter filterWithType:kCAFilterHardLightBlendMode];
+            break;
+        case BlendModeMultiply:
+            filter = [CAFilter filterWithType:kCAFilterMultiplyBlendMode];
+            break;
+        case BlendModeLighten:
+            filter = [CAFilter filterWithType:kCAFilterLightenBlendMode];
+            break;
+        case BlendModeSoftLight:
+            filter = [CAFilter filterWithType:kCAFilterSoftLightBlendMode];
+            break;
+        case BlendModeScreen:
+            filter = [CAFilter filterWithType:kCAFilterScreenBlendMode];
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+    }
+
+    [layer setCompositingFilter:filter];
+
+    END_BLOCK_OBJC_EXCEPTIONS
+#else
+    UNUSED_PARAM(layer);
+    UNUSED_PARAM(blendMode);
+#endif
+}
+
 int PlatformCAFilters::numAnimatedFilterProperties(FilterOperation::OperationType type)
 {
 #if USE_CA_FILTERS
@@ -647,4 +671,3 @@ const char* PlatformCAFilters::animatedFilterPropertyName(FilterOperation::Opera
 }
 
 #endif // ENABLE(CSS_FILTERS)
-#endif // USE(ACCELERATED_COMPOSITING)

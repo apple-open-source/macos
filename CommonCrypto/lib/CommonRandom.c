@@ -32,14 +32,14 @@
 #include <corecrypto/ccrng_system.h>
 #include "ccGlobals.h"
 #include "ccMemory.h"
+#include "ccErrors.h"
 #include "ccdebug.h"
-
 
 /*
  The types of refs including "undefined" and "user created".
 */
 
-static const uint32_t rng_undefined = 0;
+// static const uint32_t rng_undefined = 0;
 static const uint32_t rng_default = 1;
 static const uint32_t rng_devrandom = 2;
 static const uint32_t rng_created = 99;
@@ -69,14 +69,25 @@ struct ccrng_state *
 ccDevRandomGetRngState(void)
 {
     cc_globals_t globals = _cc_globals();
+
     dispatch_once(&globals->dev_random_init, ^{
         globals->dev_random.rngtype = rng_devrandom;
         globals->dev_random.state.devrandom.devrandom = (struct ccrng_system_state *)CC_XMALLOC(sizeof(struct ccrng_system_state));
-        ccrng_system_init(globals->dev_random.state.devrandom.devrandom);
-        
+        globals->dev_random.status=ccrng_system_init(globals->dev_random.state.devrandom.devrandom);
+        if (globals->dev_random.status<0)
+        {
+            CC_XFREE(globals->dev_random.state.devrandom.devrandom,sizeof(struct ccrng_system_state));
+            globals->dev_random.state.devrandom.devrandom=NULL;
+        }
     });
+    if (globals->dev_random.state.devrandom.devrandom==NULL)
+    {   // Unrecoverable error.
+        CC_FAILURE_LOG("Init DevRandom state error, status (%d). aborting\n", globals->dev_random.status);
+        CC_ABORT();
+    }
     return (struct ccrng_state *) globals->dev_random.state.devrandom.devrandom;
 }
+
 
 /*
  Read bytes from /dev/random
@@ -107,15 +118,16 @@ ccInitDRBG(ccInternalRandomRef drbg, struct ccdrbg_nistctr_custom *options, int 
 {
     CCRNGStatus retval = kCCSuccess;
     retval = kCCMemoryFailure; // errors following will be memory failures.
-    
     drbg->rngtype = rng_created;
     if((DRBG_INFO(drbg) = CC_XMALLOC(sizeof(struct ccdrbg_info))) == NULL) goto errOut;
     ccdrbg_factory_nistctr(DRBG_INFO(drbg), options);
     if((DRBG_DRBG_STATE(drbg) = CC_XMALLOC(DRBG_INFO(drbg)->size)) == NULL) goto errOut;
     if((DRBG_RNG_STATE(drbg) = CC_XMALLOC(sizeof(struct ccrng_CommonCrypto_state))) == NULL) goto errOut;
-    
-    if(ccrng_CommonCrypto_init(DRBG_RNG_STATE(drbg), DRBG_INFO(drbg), DRBG_DRBG_STATE(drbg), function_options)) {
-        retval = kCCDecodeError;
+    drbg->status=ccrng_CommonCrypto_init(DRBG_RNG_STATE(drbg), DRBG_INFO(drbg), DRBG_DRBG_STATE(drbg), function_options);
+    if(drbg->status) {
+        // Unrecoverable error.
+        CC_FAILURE_LOG("Init DRBG error, status (%d). aborting\n", drbg->status);
+        CC_ABORT();
         goto errOut;
     }
     
@@ -153,17 +165,28 @@ ccDRBGGetRngState(void)
 {
     cc_globals_t globals = _cc_globals();
     ccInternalRandomRef drbg = &globals->drbg;
-    
+
     dispatch_once(&globals->drbg_init, ^{
         drbg->rngtype = rng_default;
         DRBG_INFO(drbg) = calloc(1, sizeof(struct ccdrbg_info));
         ccdrbg_factory_nistctr(DRBG_INFO(drbg), &DRBGcustom);
         DRBG_DRBG_STATE(drbg) = calloc(1, DRBG_INFO(drbg)->size);
         DRBG_RNG_STATE(drbg) = calloc(1, sizeof(struct ccrng_CommonCrypto_state));
-        if (ccrng_CommonCrypto_init(DRBG_RNG_STATE(drbg), DRBG_INFO(drbg), DRBG_DRBG_STATE(drbg), 0)) {
-            ASSERT(0);
+        drbg->status = ccrng_CommonCrypto_init(DRBG_RNG_STATE(drbg), DRBG_INFO(drbg), DRBG_DRBG_STATE(drbg), 0);
+        if (drbg->status) {
+            free(DRBG_DRBG_STATE(drbg));
+            free(DRBG_RNG_STATE(drbg));
+            free(DRBG_INFO(drbg));
+            DRBG_INFO(drbg)=NULL;
+            DRBG_RNG_STATE(drbg)=NULL;
+            DRBG_DRBG_STATE(drbg)=NULL;
         }
     });
+    if (DRBG_RNG_STATE(drbg)==NULL)
+    {   // Unrecoverable error.
+        CC_FAILURE_LOG("Init DRBG state error, status (%d). aborting\n", drbg->status);
+        CC_ABORT();
+    }
     return (struct ccrng_state *) DRBG_RNG_STATE(drbg);
 }
 
@@ -175,8 +198,7 @@ ccDRBGGetRngState(void)
 static int
 ccDRBGReadBytes(struct ccrng_CommonCrypto_state *state, void *ptr, size_t length)
 {
-    ccrng_generate((struct ccrng_state *) state, length, ptr);
-    return 0;
+    return ccrng_generate((struct ccrng_state *) state, length, ptr);
 }
 
 
@@ -200,6 +222,7 @@ CCRNGCreate(uint32_t options, CCRandomRef *rngRef)
     
     if((retval = ccInitDRBG(ref, &custom_options, options)) != 0) {
         CC_XFREE(ref, sizeof(ccInternalRandom));
+        *rngRef = NULL;
         return retval;
     }
     *rngRef = ref;
@@ -238,7 +261,6 @@ int CCRandomCopyBytes(CCRandomRef rnd, void *bytes, size_t count)
             return ccDRBGReadBytes((struct ccrng_CommonCrypto_state *)rng, bytes, count);
             break;
         case rng_devrandom:
-            (void) ccDevRandomGetRngState();
             return ccDevRandomReadBytes(bytes, count);
             break;
         case rng_created:
@@ -249,6 +271,11 @@ int CCRandomCopyBytes(CCRandomRef rnd, void *bytes, size_t count)
             return ccDRBGReadBytes((struct ccrng_CommonCrypto_state *)rng, bytes, count);
             break;
     }
+}
+
+CCRNGStatus CCRandomGenerateBytes(void *bytes, size_t count) {
+    if(CCRandomCopyBytes(kCCRandomDefault, bytes, count) == 0) return kCCSuccess;
+    return kCCRNGFailure;
 }
 
 

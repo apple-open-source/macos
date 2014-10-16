@@ -26,7 +26,7 @@
 #ifndef WKTextChecker_h
 #define WKTextChecker_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,9 +50,14 @@ typedef WKArrayRef (*WKTextCheckerGuessesForWord)(uint64_t tag, WKStringRef word
 typedef void (*WKTextCheckerLearnWord)(uint64_t tag, WKStringRef word, const void *clientInfo);
 typedef void (*WKTextCheckerIgnoreWord)(uint64_t tag, WKStringRef word, const void *clientInfo);
 
-struct WKTextCheckerClient {
+typedef struct WKTextCheckerClientBase {
     int                                                                     version;
     const void *                                                            clientInfo;
+} WKTextCheckerClientBase;
+
+typedef struct WKTextCheckerClientV0 {
+    WKTextCheckerClientBase                                                 base;
+
     WKTextCheckerContinousSpellCheckingAllowed                              continuousSpellCheckingAllowed;
     WKTextCheckerContinousSpellCheckingEnabled                              continuousSpellCheckingEnabled;
     WKTextCheckerSetContinousSpellCheckingEnabled                           setContinuousSpellCheckingEnabled;
@@ -69,12 +74,9 @@ struct WKTextCheckerClient {
     WKTextCheckerGuessesForWord                                             guessesForWord;
     WKTextCheckerLearnWord                                                  learnWord;
     WKTextCheckerIgnoreWord                                                 ignoreWord;
-};
-typedef struct WKTextCheckerClient WKTextCheckerClient;
+} WKTextCheckerClientV0;
 
-enum { kWKTextCheckerClientCurrentVersion = 0 };
-
-WK_EXPORT void WKTextCheckerSetClient(const WKTextCheckerClient* client);
+WK_EXPORT void WKTextCheckerSetClient(const WKTextCheckerClientBase* client);
 
 WK_EXPORT void WKTextCheckerContinuousSpellCheckingEnabledStateChanged(bool);
 WK_EXPORT void WKTextCheckerGrammarCheckingEnabledStateChanged(bool);

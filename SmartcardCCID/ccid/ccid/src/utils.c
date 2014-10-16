@@ -1,6 +1,6 @@
 /*
     utils.c:
-    Copyright (C) 2003-2004   Ludovic Rousseau
+    Copyright (C) 2003-2008   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,11 +18,12 @@
 */
 
 /*
- * $Id: utils.c 2974 2008-05-28 18:32:52Z rousseau $
+ * $Id: utils.c 5185 2010-08-26 08:58:06Z rousseau $
  */
 
 #include <pcsclite.h>
 
+#include "config.h"
 #include "ccid.h"
 #include "defs.h"
 #include "ccid_ifdhandler.h"

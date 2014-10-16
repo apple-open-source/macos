@@ -45,11 +45,6 @@ WebGLExtension::ExtensionName OESStandardDerivatives::getName() const
     return OESStandardDerivativesName;
 }
 
-PassOwnPtr<OESStandardDerivatives> OESStandardDerivatives::create(WebGLRenderingContext* context)
-{
-    return adoptPtr(new OESStandardDerivatives(context));
-}
-
 } // namespace WebCore
 
 #endif // ENABLE(WEBGL)

@@ -27,38 +27,22 @@
 #include "config.h"
 #include "XSSAuditor.h"
 
-#include "Console.h"
 #include "ContentSecurityPolicy.h"
-#include "DOMWindow.h"
 #include "DecodeEscapeSequences.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "FormData.h"
-#include "FormDataList.h"
 #include "Frame.h"
-#include "FrameLoaderClient.h"
 #include "HTMLDocumentParser.h"
 #include "HTMLNames.h"
-#include "HTMLTokenizer.h"
 #include "HTMLParamElement.h"
 #include "HTMLParserIdioms.h"
-#include "InspectorInstrumentation.h"
-#include "InspectorValues.h"
-#include "KURL.h"
-#include "PingLoader.h"
+#include "SVGNames.h"
 #include "Settings.h"
-#include "TextEncoding.h"
 #include "TextResourceDecoder.h"
 #include "XLinkNames.h"
-#include "XSSAuditorDelegate.h"
-
-#if ENABLE(SVG)
-#include "SVGNames.h"
-#endif
-
-#include <wtf/Functional.h>
+#include <wtf/ASCIICType.h>
 #include <wtf/MainThread.h>
-#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -104,17 +88,28 @@ static bool isJSNewline(UChar c)
 
 static bool startsHTMLCommentAt(const String& string, size_t start)
 {
-    return (start + 3 < string.length() && string[start] == '<' && string[start+1] == '!' && string[start+2] == '-' && string[start+3] == '-');
+    return (start + 3 < string.length() && string[start] == '<' && string[start + 1] == '!' && string[start + 2] == '-' && string[start + 3] == '-');
 }
 
 static bool startsSingleLineCommentAt(const String& string, size_t start)
 {
-    return (start + 1 < string.length() && string[start] == '/' && string[start+1] == '/');
+    return (start + 1 < string.length() && string[start] == '/' && string[start + 1] == '/');
 }
 
 static bool startsMultiLineCommentAt(const String& string, size_t start)
 {
-    return (start + 1 < string.length() && string[start] == '/' && string[start+1] == '*');
+    return (start + 1 < string.length() && string[start] == '/' && string[start + 1] == '*');
+}
+
+static bool startsOpeningScriptTagAt(const String& string, size_t start)
+{
+    return start + 6 < string.length() && string[start] == '<'
+        && WTF::toASCIILowerUnchecked(string[start + 1]) == 's'
+        && WTF::toASCIILowerUnchecked(string[start + 2]) == 'c'
+        && WTF::toASCIILowerUnchecked(string[start + 3]) == 'r'
+        && WTF::toASCIILowerUnchecked(string[start + 4]) == 'i'
+        && WTF::toASCIILowerUnchecked(string[start + 5]) == 'p'
+        && WTF::toASCIILowerUnchecked(string[start + 6]) == 't';
 }
 
 // If other files need this, we should move this to HTMLParserIdioms.h
@@ -165,8 +160,8 @@ static inline String decode16BitUnicodeEscapeSequences(const String& string)
 
 static inline String decodeStandardURLEscapeSequences(const String& string, const TextEncoding& encoding)
 {
-    // We use decodeEscapeSequences() instead of decodeURLEscapeSequences() (declared in KURL.h) to
-    // avoid platform-specific URL decoding differences (e.g. KURLGoogle).
+    // We use decodeEscapeSequences() instead of decodeURLEscapeSequences() (declared in URL.h) to
+    // avoid platform-specific URL decoding differences (e.g. URLGoogle).
     return decodeEscapeSequences<URLEscapeSequence>(string, encoding);
 }
 
@@ -195,11 +190,7 @@ static ContentSecurityPolicy::ReflectedXSSDisposition combineXSSProtectionHeader
 
 static bool isSemicolonSeparatedAttribute(const HTMLToken::Attribute& attribute)
 {
-#if ENABLE(SVG)
     return threadSafeMatch(attribute.name, SVGNames::valuesAttr);
-#else
-    return false;
-#endif
 }
 
 static bool semicolonSeparatedValueContainsJavaScriptURL(const String& value)
@@ -238,7 +229,7 @@ void XSSAuditor::initForFragment()
 
 void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
 {
-    const size_t miniumLengthForSuffixTree = 512; // FIXME: Tune this parameter.
+    const size_t minimumLengthForSuffixTree = 512; // FIXME: Tune this parameter.
     const int suffixTreeDepth = 5;
 
     ASSERT(isMainThread());
@@ -248,8 +239,7 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
     m_state = Initialized;
 
     if (Frame* frame = document->frame())
-        if (Settings* settings = frame->settings())
-            m_isEnabled = settings->xssAuditorEnabled();
+        m_isEnabled = frame->settings().xssAuditorEnabled();
 
     if (!m_isEnabled)
         return;
@@ -282,13 +272,13 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
         m_decodedURL = String();
 
     String httpBodyAsString;
-    if (DocumentLoader* documentLoader = document->frame()->loader()->documentLoader()) {
-        DEFINE_STATIC_LOCAL(String, XSSProtectionHeader, (ASCIILiteral("X-XSS-Protection")));
+    if (DocumentLoader* documentLoader = document->frame()->loader().documentLoader()) {
+        DEPRECATED_DEFINE_STATIC_LOCAL(String, XSSProtectionHeader, (ASCIILiteral("X-XSS-Protection")));
         String headerValue = documentLoader->response().httpHeaderField(XSSProtectionHeader);
         String errorDetails;
         unsigned errorPosition = 0;
         String reportURL;
-        KURL xssProtectionReportURL;
+        URL xssProtectionReportURL;
 
         // Process the X-XSS-Protection header, then mix in the CSP header's value.
         ContentSecurityPolicy::ReflectedXSSDisposition xssProtectionHeader = parseXSSProtectionHeader(headerValue, errorDetails, errorPosition, reportURL);
@@ -298,11 +288,11 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
             if (MixedContentChecker::isMixedContent(document->securityOrigin(), xssProtectionReportURL)) {
                 errorDetails = "insecure reporting URL for secure page";
                 xssProtectionHeader = ContentSecurityPolicy::ReflectedXSSInvalid;
-                xssProtectionReportURL = KURL();
+                xssProtectionReportURL = URL();
             }
         }
         if (xssProtectionHeader == ContentSecurityPolicy::ReflectedXSSInvalid)
-            document->addConsoleMessage(SecurityMessageSource, ErrorMessageLevel, "Error parsing header X-XSS-Protection: " + headerValue + ": "  + errorDetails + " at character position " + String::format("%u", errorPosition) + ". The default protections will be applied.");
+            document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Error parsing header X-XSS-Protection: " + headerValue + ": "  + errorDetails + " at character position " + String::format("%u", errorPosition) + ". The default protections will be applied.");
 
         ContentSecurityPolicy::ReflectedXSSDisposition cspHeader = document->contentSecurityPolicy()->reflectedXSSDisposition();
         m_didSendValidCSPHeader = cspHeader != ContentSecurityPolicy::ReflectedXSSUnset && cspHeader != ContentSecurityPolicy::ReflectedXSSInvalid;
@@ -318,8 +308,8 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
                 m_decodedHTTPBody = fullyDecodeString(httpBodyAsString, m_encoding);
                 if (m_decodedHTTPBody.find(isRequiredForInjection) == notFound)
                     m_decodedHTTPBody = String();
-                if (m_decodedHTTPBody.length() >= miniumLengthForSuffixTree)
-                    m_decodedHTTPBodySuffixTree = adoptPtr(new SuffixTree<ASCIICodebook>(m_decodedHTTPBody, suffixTreeDepth));
+                if (m_decodedHTTPBody.length() >= minimumLengthForSuffixTree)
+                    m_decodedHTTPBodySuffixTree = std::make_unique<SuffixTree<ASCIICodebook>>(m_decodedHTTPBody, suffixTreeDepth);
             }
         }
     }
@@ -330,7 +320,7 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
     }
 }
 
-PassOwnPtr<XSSInfo> XSSAuditor::filterToken(const FilterTokenRequest& request)
+std::unique_ptr<XSSInfo> XSSAuditor::filterToken(const FilterTokenRequest& request)
 {
     ASSERT(m_state == Initialized);
     if (!m_isEnabled || m_xssProtection == ContentSecurityPolicy::AllowReflectedXSS)
@@ -346,12 +336,11 @@ PassOwnPtr<XSSInfo> XSSAuditor::filterToken(const FilterTokenRequest& request)
             filterEndToken(request);
     }
 
-    if (didBlockScript) {
-        bool didBlockEntirePage = (m_xssProtection == ContentSecurityPolicy::BlockReflectedXSS);
-        OwnPtr<XSSInfo> xssInfo = XSSInfo::create(didBlockEntirePage, m_didSendValidXSSProtectionHeader, m_didSendValidCSPHeader);
-        return xssInfo.release();
-    }
-    return nullptr;
+    if (!didBlockScript)
+        return nullptr;
+
+    bool didBlockEntirePage = (m_xssProtection == ContentSecurityPolicy::BlockReflectedXSS);
+    return std::make_unique<XSSInfo>(m_documentURL, didBlockEntirePage, m_didSendValidXSSProtectionHeader, m_didSendValidCSPHeader);
 }
 
 bool XSSAuditor::filterStartToken(const FilterTokenRequest& request)
@@ -370,8 +359,8 @@ bool XSSAuditor::filterStartToken(const FilterTokenRequest& request)
         didBlockScript |= filterEmbedToken(request);
     else if (hasName(request.token, appletTag))
         didBlockScript |= filterAppletToken(request);
-    else if (hasName(request.token, iframeTag))
-        didBlockScript |= filterIframeToken(request);
+    else if (hasName(request.token, iframeTag) || hasName(request.token, frameTag))
+        didBlockScript |= filterFrameToken(request);
     else if (hasName(request.token, metaTag))
         didBlockScript |= filterMetaToken(request);
     else if (hasName(request.token, baseTag))
@@ -479,10 +468,10 @@ bool XSSAuditor::filterAppletToken(const FilterTokenRequest& request)
     return didBlockScript;
 }
 
-bool XSSAuditor::filterIframeToken(const FilterTokenRequest& request)
+bool XSSAuditor::filterFrameToken(const FilterTokenRequest& request)
 {
     ASSERT(request.token.type() == HTMLToken::StartTag);
-    ASSERT(hasName(request.token, iframeTag));
+    ASSERT(hasName(request.token, iframeTag) || hasName(request.token, frameTag));
 
     bool didBlockScript = eraseAttributeIfInjected(request, srcdocAttr, String(), ScriptLikeAttribute);
     if (isContainedInRequest(decodedSnippetForName(request)))
@@ -533,7 +522,7 @@ bool XSSAuditor::filterButtonToken(const FilterTokenRequest& request)
 
 bool XSSAuditor::eraseDangerousAttributesIfInjected(const FilterTokenRequest& request)
 {
-    DEFINE_STATIC_LOCAL(String, safeJavaScriptURL, (ASCIILiteral("javascript:void(0)")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, safeJavaScriptURL, (ASCIILiteral("javascript:void(0)")));
 
     bool didBlockScript = false;
     for (size_t i = 0; i < request.token.attributes().size(); ++i) {
@@ -644,6 +633,7 @@ String XSSAuditor::decodedSnippetForJavaScript(const FilterTokenRequest& request
     size_t startPosition = 0;
     size_t endPosition = string.length();
     size_t foundPosition = notFound;
+    size_t lastNonSpacePosition = notFound;
 
     // Skip over initial comments to find start of code.
     while (startPosition < endPosition) {
@@ -672,13 +662,10 @@ String XSSAuditor::decodedSnippetForJavaScript(const FilterTokenRequest& request
 
     String result;
     while (startPosition < endPosition && !result.length()) {
-        // Stop at next comment (using the same rules as above for SVG/XML vs HTML), when we 
-        // encounter a comma, or when we  exceed the maximum length target. The comma rule
-        // covers a common parameter concatenation case performed by some webservers.
-        // After hitting the length target, we can only stop at a point where we know we are
-        // not in the middle of a %-escape sequence. For the sake of simplicity, approximate
-        // not stopping inside a (possibly multiply encoded) %-esacpe sequence by breaking on
-        // whitespace only. We should have enough text in these cases to avoid false positives.
+        // Stop at next comment (using the same rules as above for SVG/XML vs HTML), when we encounter a comma,
+        // when we hit an opening <script> tag, or when we exceed the maximum length target. The comma rule
+        // covers a common parameter concatenation case performed by some web servers.
+        lastNonSpacePosition = notFound;
         for (foundPosition = startPosition; foundPosition < endPosition; foundPosition++) {
             if (!request.shouldAllowCDATA) {
                 if (startsSingleLineCommentAt(string, foundPosition) || startsMultiLineCommentAt(string, foundPosition)) {
@@ -690,9 +677,25 @@ String XSSAuditor::decodedSnippetForJavaScript(const FilterTokenRequest& request
                     break;
                 }
             }
-            if (string[foundPosition] == ',' || (foundPosition > startPosition + kMaximumFragmentLengthTarget && isHTMLSpace(string[foundPosition]))) {
+            if (string[foundPosition] == ',')
+                break;
+
+            if (lastNonSpacePosition != notFound && startsOpeningScriptTagAt(string, foundPosition)) {
+                foundPosition = lastNonSpacePosition;
                 break;
             }
+
+            if (foundPosition > startPosition + kMaximumFragmentLengthTarget) {
+                // After hitting the length target, we can only stop at a point where we know we are
+                // not in the middle of a %-escape sequence. For the sake of simplicity, approximate
+                // not stopping inside a (possibly multiply encoded) %-escape sequence by breaking on
+                // whitespace only. We should have enough text in these cases to avoid false positives.
+                if (isHTMLSpace(string[foundPosition]))
+                    break;
+            }
+
+            if (!isHTMLSpace(string[foundPosition]))
+                lastNonSpacePosition = foundPosition;
         }
 
         result = fullyDecodeString(string.substring(startPosition, foundPosition - startPosition), m_encoding);
@@ -729,7 +732,7 @@ bool XSSAuditor::isLikelySafeResource(const String& url)
     if (m_documentURL.host().isEmpty())
         return false;
 
-    KURL resourceURL(m_documentURL, url);
+    URL resourceURL(m_documentURL, url);
     return (m_documentURL.host() == resourceURL.host() && resourceURL.query().isEmpty());
 }
 

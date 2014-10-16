@@ -32,24 +32,24 @@
     @constant kIOHIDResourceUserClientTypeDevice Type for creating an in kernel representation of a HID driver that resides in user space
 */
 typedef enum {
-	kIOHIDResourceUserClientTypeDevice = 0
+    kIOHIDResourceUserClientTypeDevice = 0
 } IOHIDResourceUserClientType;
 
 /*!
     @enum IOHIDResourceDeviceUserClientExternalMethods
     @abstract List of external methods to be called from user land
     @constant kIOHIDResourceDeviceUserClientMethodCreate Creates a device using a passed serialized property dictionary.
-	@constant kIOHIDResourceDeviceUserClientMethodTerminate Closes the device and releases memory.
+    @constant kIOHIDResourceDeviceUserClientMethodTerminate Closes the device and releases memory.
     @constant kIOHIDResourceDeviceUserClientMethodHandleReport Sends a report.
     @constant kIOHIDResourceDeviceUserClientMethodPostReportResult Posts a report requested via GetReport and SetReport
     @constant kIOHIDResourceDeviceUserClientMethodCount
 */
 typedef enum {
-	kIOHIDResourceDeviceUserClientMethodCreate,
-	kIOHIDResourceDeviceUserClientMethodTerminate,
-	kIOHIDResourceDeviceUserClientMethodHandleReport,
+    kIOHIDResourceDeviceUserClientMethodCreate,
+    kIOHIDResourceDeviceUserClientMethodTerminate,
+    kIOHIDResourceDeviceUserClientMethodHandleReport,
     kIOHIDResourceDeviceUserClientMethodPostReportResponse,
-	kIOHIDResourceDeviceUserClientMethodCount
+    kIOHIDResourceDeviceUserClientMethodCount
 } IOHIDResourceDeviceUserClientExternalMethods;
 
 /*!
@@ -57,9 +57,9 @@ typedef enum {
     @abstract reponse indexes for report response
 */
 typedef enum {
-	kIOHIDResourceUserClientResponseIndexResult = 0,
-	kIOHIDResourceUserClientResponseIndexToken,
-	kIOHIDResourceUserClientResponseIndexCount
+    kIOHIDResourceUserClientResponseIndexResult = 0,
+    kIOHIDResourceUserClientResponseIndexToken,
+    kIOHIDResourceUserClientResponseIndexCount
 } IOHIDResourceUserClientResponseIndex;
 
 typedef enum { 
@@ -85,6 +85,8 @@ typedef struct {
 
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOSharedDataQueue.h>
+#include <IOKit/IOCommandGate.h>
+#include <IOKit/IOTimerEventSource.h>
 #include "IOHIDResource.h"
 #include "IOHIDUserDevice.h"
 
@@ -103,7 +105,7 @@ protected:
     IOMemoryDescriptor *    _descriptor;
 
 public:
-    static IOHIDResourceQueue *withEntries(UInt32 numEntries, UInt32 entrySize);
+    static IOHIDResourceQueue *withCapacity(UInt32 capacity);
     virtual void free();
     
     virtual Boolean enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report = NULL);
@@ -115,27 +117,56 @@ public:
 class IOHIDResourceDeviceUserClient : public IOUserClient
 {
     OSDeclareDefaultStructors(IOHIDResourceDeviceUserClient);
-	
+    
 private:
 
     IOHIDResource *         _owner;
-	IOHIDUserDevice *       _device;
+    OSDictionary *          _properties;
+    IOHIDUserDevice *       _device;
+    IOTimerEventSource *    _createDeviceTimer;
+    IOCommandGate *         _commandGate;
     mach_port_t             _port;
     IOHIDResourceQueue *    _queue;
-    IOLock *                _lock;
     OSSet *                 _pending;
+    uint32_t                _maxClientTimeoutUS;
 
-	static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
+    static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
 
-	static IOReturn _createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
-	static IOReturn _terminateDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
-	static IOReturn _handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
-	static IOReturn _postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _terminateDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
 
-	IOReturn createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
-	IOReturn handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
-    IOReturn postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
-	IOReturn terminateDevice();
+
+    void createAndStartDeviceAsyncCallback();
+
+    typedef struct {
+        uint32_t                    selector;
+        IOExternalMethodArguments * arguments;
+        IOExternalMethodDispatch *  dispatch;
+        OSObject *                  target;
+        void *                      reference;
+    } ExternalMethodGatedArguments;
+
+    IOReturn externalMethodGated(ExternalMethodGatedArguments * arguments);
+    IOReturn registerNotificationPortGated(mach_port_t port);
+    IOReturn clientMemoryForTypeGated(IOOptionBits * options, IOMemoryDescriptor ** memory);
+    
+    typedef struct {
+        IOMemoryDescriptor *        report;
+        IOHIDReportType             reportType;
+        IOOptionBits                options;
+    } ReportGatedArguments;
+    
+    IOReturn getReportGated(ReportGatedArguments * arguments);
+    IOReturn setReportGated(ReportGatedArguments * arguments);
+    
+    IOReturn createAndStartDevice();
+    IOReturn createAndStartDeviceAsync();
+    IOReturn createDevice(IOExternalMethodArguments *arguments);
+    IOReturn handleReport(IOExternalMethodArguments *arguments);
+    IOReturn postReportResult(IOExternalMethodArguments *arguments);
+    IOReturn terminateDevice();
     void cleanupPendingReports();
 
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
@@ -143,45 +174,45 @@ private:
     void ReportComplete(void *param, IOReturn res, UInt32 remaining);
 
 public:
-	/*! @function initWithTask
-		@abstract 
-		@discussion 
-	*/
-	virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
+    /*! @function initWithTask
+        @abstract 
+        @discussion 
+    */
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
 
 
-	/*! @function clientClose
-		@abstract 
-		@discussion 
-	*/
-	virtual IOReturn clientClose(void);
+    /*! @function clientClose
+        @abstract 
+        @discussion 
+    */
+    virtual IOReturn clientClose(void);
 
 
-	/*! @function getService
-		@abstract 
-		@discussion 
-	*/
-	virtual IOService * getService(void);
+    /*! @function getService
+        @abstract 
+        @discussion 
+    */
+    virtual IOService * getService(void);
 
 
-	/*! @function externalMethod
-		@abstract 
-		@discussion 
-	*/
-	virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
-							   IOExternalMethodDispatch *dispatch, OSObject *target, 
-							   void *reference);
+    /*! @function externalMethod
+        @abstract 
+        @discussion 
+    */
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
+                               IOExternalMethodDispatch *dispatch, OSObject *target, 
+                               void *reference);
 
     virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory );
 
 
-	/*! @function start
-		@abstract 
-		@discussion 
-	*/
-	virtual bool start(IOService * provider);
+    /*! @function start
+        @abstract 
+        @discussion 
+    */
+    virtual bool start(IOService * provider);
     
-	virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider);
 
     virtual void free();
 

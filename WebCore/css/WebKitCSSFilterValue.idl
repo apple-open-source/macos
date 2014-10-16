@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,7 +26,7 @@
 [
     Conditional=CSS_FILTERS,
     DoNotCheckConstants,
-    ImplementationLacksVTable
+    ImplementationLacksVTable,
 ] interface WebKitCSSFilterValue : CSSValueList {
 
     // OperationTypes
@@ -42,10 +42,6 @@
     const unsigned short CSS_FILTER_CONTRAST = 9;
     const unsigned short CSS_FILTER_BLUR = 10;
     const unsigned short CSS_FILTER_DROP_SHADOW = 11;
-
-#if defined(ENABLE_CSS_SHADERS) && ENABLE_CSS_SHADERS
-    const unsigned short CSS_FILTER_CUSTOM = 12;
-#endif
 
     readonly attribute unsigned short operationType;
 

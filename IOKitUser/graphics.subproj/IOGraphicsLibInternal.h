@@ -494,6 +494,7 @@ struct IOFBConnect
     Boolean                     displayMirror;
     Boolean                     didPowerOff;
     Boolean						opened;
+    Boolean                     setKernelDisplayConfig;
 
     // <rdar://problem/16230274>
     // When rebuilding mode lists during a mux switch, the subsequent

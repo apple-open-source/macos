@@ -72,17 +72,11 @@
 
     // IE Extensions
     readonly attribute EventTarget      srcElement;
-             attribute boolean          returnValue;
+    [ImplementedAs=legacyReturnValue] attribute boolean returnValue;
              attribute boolean          cancelBubble;
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-    [Custom] readonly attribute Clipboard        clipboardData;
-#endif
-
-#if defined(LANGUAGE_CPP) && LANGUAGE_CPP
-    // Extra WebCore methods exposed to allow compile-time casting in C++
-    boolean isMouseEvent();
-    boolean isUIEvent();
+    [Custom] readonly attribute DataTransfer        clipboardData;
 #endif
 
 };

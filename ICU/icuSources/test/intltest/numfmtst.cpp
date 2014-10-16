@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2013, International Business Machines Corporation and
+ * Copyright (c) 1997-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /* Modification History:
@@ -43,6 +43,7 @@
 
 static const UChar EUR[] = {69,85,82,0}; // "EUR"
 static const UChar ISO_CURRENCY_USD[] = {0x55, 0x53, 0x44, 0}; // "USD"
+
 
 // *****************************************************************************
 // class NumberFormatTest
@@ -118,6 +119,21 @@ void NumberFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &n
   TESTCASE_AUTO(Test9087);
   TESTCASE_AUTO(TestFormatFastpaths);
   TESTCASE_AUTO(TestFormattableSize);
+  TESTCASE_AUTO(TestUFormattable);
+  TESTCASE_AUTO(TestSignificantDigits);
+  TESTCASE_AUTO(TestShowZero);
+  TESTCASE_AUTO(TestCompatibleCurrencies);
+  TESTCASE_AUTO(TestBug9936);
+  TESTCASE_AUTO(TestParseNegativeWithFaLocale);
+  TESTCASE_AUTO(TestParseNegativeWithAlternateMinusSign);
+  TESTCASE_AUTO(TestCustomCurrencySignAndSeparator);
+  TESTCASE_AUTO(TestParseSignsAndMarks);
+  TESTCASE_AUTO(Test10419RoundingWith0FractionDigits);
+  TESTCASE_AUTO(Test10468ApplyPattern);
+  TESTCASE_AUTO(TestRoundingScientific10542);
+  TESTCASE_AUTO(TestZeroScientific10547);
+  TESTCASE_AUTO(TestAccountingCurrency);
+  TESTCASE_AUTO(TestEquality);
   TESTCASE_AUTO_END;
 }
 
@@ -168,9 +184,9 @@ NumberFormatTest::TestAPI(void)
   }
 }
 
-class StubNumberForamt :public NumberFormat{
+class StubNumberFormat :public NumberFormat{
 public:
-    StubNumberForamt(){};
+    StubNumberFormat(){};
     virtual UnicodeString& format(double ,UnicodeString& appendTo,FieldPosition& ) const {
         return appendTo;
     }
@@ -198,7 +214,7 @@ public:
 
 void
 NumberFormatTest::TestCoverage(void){
-    StubNumberForamt stub;
+    StubNumberFormat stub;
     UnicodeString agent("agent");
     FieldPosition pos;
     int64_t num = 4;
@@ -726,6 +742,7 @@ NumberFormatTest::TestCurrency(void)
     s.truncate(0);
     char loc[256]={0};
     int len = uloc_canonicalize("de_DE_PREEURO", loc, 256, &status);
+    (void)len;  // Suppress unused variable warning.
     currencyFmt = NumberFormat::createCurrencyInstance(Locale(loc),status);
     currencyFmt->format(1.50, s);
     logln((UnicodeString)"Un pauvre en Allemagne a.." + s);
@@ -877,16 +894,17 @@ static const char *lenientCurrencyTestCases[] = {
         "1000.00"
 };
 
+// changed from () to - per cldrbug 5674
 static const char *lenientNegativeCurrencyTestCases[] = {
-        "($1,000)",
-        "($ 1,000)",
-        "($1000)",
-        "($ 1000)",
-        "($1 000.00)",
-        "($ 1 000.00)",
-        "( $ 1,000.00 )",
-        "($ 1\\u00A0000.00)",
-        "(1000.00)"
+        "-$1,000",
+        "-$ 1,000",
+        "-$1000",
+        "-$ 1000",
+        "-$1 000.00",
+        "-$ 1 000.00",
+        "- $ 1,000.00 ",
+        "-$ 1\\u00A0000.00",
+        "-1000.00"
 };
 
 static const char *lenientPercentTestCases[] = {
@@ -1881,6 +1899,8 @@ void NumberFormatTest::TestCurrencyNames(void) {
 void NumberFormatTest::TestCurrencyUnit(void){
     UErrorCode ec = U_ZERO_ERROR;
     static const UChar USD[] = {85, 83, 68, 0}; /*USD*/
+    static const UChar BAD[] = {63, 63, 63, 0}; /*???*/
+    static const UChar BAD2[] = {63, 63, 65, 0}; /*???*/
     CurrencyUnit cu(USD, ec);
     assertSuccess("CurrencyUnit", ec);
 
@@ -1895,6 +1915,23 @@ void NumberFormatTest::TestCurrencyUnit(void){
     CurrencyUnit * cu3 = (CurrencyUnit *)cu.clone();
     if (!(*cu3 == cu)){
         errln("CurrencyUnit cloned object should be same");
+    }
+    CurrencyUnit bad(BAD, ec);
+    assertSuccess("CurrencyUnit", ec);
+    if (cu.getIndex() == bad.getIndex()) {
+        errln("Indexes of different currencies should differ.");
+    }
+    CurrencyUnit bad2(BAD2, ec);
+    assertSuccess("CurrencyUnit", ec);
+    if (bad2.getIndex() != bad.getIndex()) {
+        errln("Indexes of unrecognized currencies should be the same.");
+    }
+    if (bad == bad2) {
+        errln("Different unrecognized currencies should not be equal.");
+    }
+    bad = bad2;
+    if (bad != bad2) {
+        errln("Currency unit assignment should be the same.");
     }
     delete cu3;
 }
@@ -2514,12 +2551,12 @@ void NumberFormatTest::expect(NumberFormat& fmt, const Formattable& n,
 }
 
 void NumberFormatTest::expect(NumberFormat* fmt, const Formattable& n,
-                              const UnicodeString& exp,
+                              const UnicodeString& exp, UBool rt,
                               UErrorCode status) {
     if (fmt == NULL || U_FAILURE(status)) {
         dataerrln("FAIL: NumberFormat constructor");
     } else {
-        expect(*fmt, n, exp);
+        expect(*fmt, n, exp, rt);
     }
     delete fmt;
 }
@@ -2610,6 +2647,74 @@ void NumberFormatTest::expectPad(DecimalFormat& fmt, const UnicodeString& pat,
               ", expected " + pos + " " + width + " " + pad);
     }
 }
+
+// This test is flaky b/c the symbols for CNY and JPY are equivalent in this locale  - FIXME
+void NumberFormatTest::TestCompatibleCurrencies() {
+/*
+    static const UChar JPY[] = {0x4A, 0x50, 0x59, 0};
+    static const UChar CNY[] = {0x43, 0x4E, 0x59, 0};
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<NumberFormat> fmt(
+        NumberFormat::createCurrencyInstance(Locale::getUS(), status));
+    if (U_FAILURE(status)) {
+        errln("Could not create number format instance.");
+        return;
+    }
+    logln("%s:%d - testing parse of halfwidth yen sign\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmt, JPY, 1235,  "\\u00A51,235");
+    logln("%s:%d - testing parse of fullwidth yen sign\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmt, JPY, 1235,  "\\uFFE51,235");
+    logln("%s:%d - testing parse of halfwidth yen sign\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmt, CNY, 1235,  "CN\\u00A51,235");
+
+    LocalPointer<NumberFormat> fmtTW(
+        NumberFormat::createCurrencyInstance(Locale::getTaiwan(), status));
+
+    logln("%s:%d - testing parse of halfwidth yen sign in TW\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmtTW, CNY, 1235,  "\\u00A51,235");
+    logln("%s:%d - testing parse of fullwidth yen sign in TW\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmtTW, CNY, 1235,  "\\uFFE51,235");
+
+    LocalPointer<NumberFormat> fmtJP(
+        NumberFormat::createCurrencyInstance(Locale::getJapan(), status));
+
+    logln("%s:%d - testing parse of halfwidth yen sign in JP\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmtJP, JPY, 1235,  "\\u00A51,235");
+    logln("%s:%d - testing parse of fullwidth yen sign in JP\n", __FILE__, __LINE__);
+    expectParseCurrency(*fmtJP, JPY, 1235,  "\\uFFE51,235");
+    
+    // more..
+*/
+}
+
+void NumberFormatTest::expectParseCurrency(const NumberFormat &fmt, const UChar* currency, double amount, const char *text) {
+    ParsePosition ppos;
+    UnicodeString utext = ctou(text);
+    LocalPointer<CurrencyAmount> currencyAmount(fmt.parseCurrency(utext, ppos));
+    if (!ppos.getIndex()) {
+        errln(UnicodeString("Parse of ") + utext + " should have succeeded.");
+        return;
+    }
+    UErrorCode status = U_ZERO_ERROR;
+
+    char theInfo[100];
+    sprintf(theInfo, "For locale %s, string \"%s\", currency ",
+            fmt.getLocale(ULOC_ACTUAL_LOCALE, status).getBaseName(),
+            text);
+    u_austrcpy(theInfo+uprv_strlen(theInfo), currency);
+    
+    char theOperation[100];
+
+    uprv_strcpy(theOperation, theInfo);
+    uprv_strcat(theOperation, ", check amount:");
+    assertTrue(theOperation, amount ==  currencyAmount->getNumber().getDouble(status));
+
+    uprv_strcpy(theOperation, theInfo);
+    uprv_strcat(theOperation, ", check currency:");
+    assertEquals(theOperation, currency, currencyAmount->getISOCurrency());
+}
+  
+
 void NumberFormatTest::TestJB3832(){
     const char* localeID = "pt_PT@currency=PTE";
     Locale loc(localeID);
@@ -3012,7 +3117,7 @@ void NumberFormatTest::TestNumberingSystems() {
         { "en_US@numbers=thai", 1234.567, FALSE, "\\u0E51,\\u0E52\\u0E53\\u0E54.\\u0E55\\u0E56\\u0E57" },
         { "en_US@numbers=hebr", 5678.0, TRUE, "\\u05D4\\u05F3\\u05EA\\u05E8\\u05E2\\u05F4\\u05D7" },
         { "en_US@numbers=arabext", 1234.567, FALSE, "\\u06F1\\u066c\\u06F2\\u06F3\\u06F4\\u066b\\u06F5\\u06F6\\u06F7" },
-        { "ar_EG", 1234.567, FALSE, "\\u0661\\u0662\\u0663\\u0664\\u066b\\u0665\\u0666\\u0667" },
+        { "ar_EG", 1234.567, FALSE, "\\u0661\\u066C\\u0662\\u0663\\u0664\\u066b\\u0665\\u0666\\u0667" },
         { "th_TH@numbers=traditional", 1234.567, FALSE, "\\u0E51,\\u0E52\\u0E53\\u0E54.\\u0E55\\u0E56\\u0E57" }, // fall back to native per TR35
         { "ar_MA", 1234.567, FALSE, "1.234,567" },
         { "en_US@numbers=hanidec", 1234.567, FALSE, "\\u4e00,\\u4e8c\\u4e09\\u56db.\\u4e94\\u516d\\u4e03" },
@@ -3031,12 +3136,16 @@ void NumberFormatTest::TestNumberingSystems() {
     for (item = DATA; item->localeName != NULL; item++) {
         ec = U_ZERO_ERROR;
         Locale loc = Locale::createFromName(item->localeName);
-        NumberFormat *fmt = NumberFormat::createInstance(loc,ec);
 
+        NumberFormat *origFmt = NumberFormat::createInstance(loc,ec);
         if (U_FAILURE(ec)) {
             dataerrln("FAIL: getInstance(%s) - %s", item->localeName, u_errorName(ec));
             continue;
         }
+        // Clone to test ticket #10682
+        NumberFormat *fmt = (NumberFormat *) origFmt->clone();
+        delete origFmt;
+
         
         if (item->isRBNF) {
             expect3(*fmt,item->value,CharsToUnicodeString(item->expectedResult));
@@ -3093,7 +3202,7 @@ NumberFormatTest::TestMultiCurrencySign() {
         // for US locale
         {"en_US", "\\u00A4#,##0.00;-\\u00A4#,##0.00", "1234.56", "$1,234.56", "USD1,234.56", "US dollars1,234.56"},
         {"en_US", "\\u00A4#,##0.00;-\\u00A4#,##0.00", "-1234.56", "-$1,234.56", "-USD1,234.56", "-US dollars1,234.56"},
-        {"en_US", "\\u00A4#,##0.00;-\\u00A4#,##0.00", "1", "$1.00", "USD1.00", "US dollar1.00"},
+        {"en_US", "\\u00A4#,##0.00;-\\u00A4#,##0.00", "1", "$1.00", "USD1.00", "US dollars1.00"},
         // for CHINA locale
         {"zh_CN", "\\u00A4#,##0.00;(\\u00A4#,##0.00)", "1234.56", "\\uFFE51,234.56", "CNY1,234.56", "\\u4EBA\\u6C11\\u5E011,234.56"},
         {"zh_CN", "\\u00A4#,##0.00;(\\u00A4#,##0.00)", "-1234.56", "(\\uFFE51,234.56)", "(CNY1,234.56)", "(\\u4EBA\\u6C11\\u5E011,234.56)"},
@@ -3270,22 +3379,22 @@ NumberFormatTest::TestCurrencyIsoPluralFormat() {
         // format result using ISOCURRENCYSTYLE,
         // format result using PLURALCURRENCYSTYLE,
 
-        {"en_US", "1", "USD", "$1.00", "USD1.00", "1.00 US dollar"},
+        {"en_US", "1", "USD", "$1.00", "USD1.00", "1.00 US dollars"},
         {"en_US", "1234.56", "USD", "$1,234.56", "USD1,234.56", "1,234.56 US dollars"},
-        {"en_US", "-1234.56", "USD", "($1,234.56)", "(USD1,234.56)", "-1,234.56 US dollars"},
-        {"zh_CN", "1", "USD", "US$1.00", "USD1.00", "1.00\\u7F8E\\u5143"},
-        {"zh_CN", "1234.56", "USD", "US$1,234.56", "USD1,234.56", "1,234.56\\u7F8E\\u5143"},
+        {"en_US", "-1234.56", "USD", "-$1,234.56", "-USD1,234.56", "-1,234.56 US dollars"},
+        {"zh_CN", "1", "USD", "US$\\u00A01.00", "USD\\u00A01.00", "1.00\\u7F8E\\u5143"},
+        {"zh_CN", "1234.56", "USD", "US$\\u00A01,234.56", "USD\\u00A01,234.56", "1,234.56\\u7F8E\\u5143"},
         // wrong ISO code {"zh_CN", "1", "CHY", "CHY1.00", "CHY1.00", "1.00 CHY"},
         // wrong ISO code {"zh_CN", "1234.56", "CHY", "CHY1,234.56", "CHY1,234.56", "1,234.56 CHY"},
-        {"zh_CN", "1", "CNY", "\\uFFE51.00", "CNY1.00", "1.00\\u4EBA\\u6C11\\u5E01"},
-        {"zh_CN", "1234.56", "CNY", "\\uFFE51,234.56", "CNY1,234.56", "1,234.56\\u4EBA\\u6C11\\u5E01"},
-        {"ru_RU", "1", "RUB", "1,00\\u00A0\\u0440\\u0443\\u0431.", "1,00\\u00A0RUB", "1,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u0438\\u0439 \\u0440\\u0443\\u0431\\u043B\\u044C"},
-        {"ru_RU", "2", "RUB", "2,00\\u00A0\\u0440\\u0443\\u0431.", "2,00\\u00A0RUB", "2,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u0438\\u0445 \\u0440\\u0443\\u0431\\u043B\\u044F"},
-        {"ru_RU", "5", "RUB", "5,00\\u00A0\\u0440\\u0443\\u0431.", "5,00\\u00A0RUB", "5,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u0438\\u0445 \\u0440\\u0443\\u0431\\u043B\\u0435\\u0439"},
+        {"zh_CN", "1", "CNY", "\\uFFE5\\u00A01.00", "CNY\\u00A01.00", "1.00\\u4EBA\\u6C11\\u5E01"},
+        {"zh_CN", "1234.56", "CNY", "\\uFFE5\\u00A01,234.56", "CNY\\u00A01,234.56", "1,234.56\\u4EBA\\u6C11\\u5E01"},
+        {"ru_RU", "1", "RUB", "1,00\\u00A0\\u20BD", "1,00\\u00A0RUB", "1,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u043E\\u0433\\u043E \\u0440\\u0443\\u0431\\u043B\\u044F"},
+        {"ru_RU", "2", "RUB", "2,00\\u00A0\\u20BD", "2,00\\u00A0RUB", "2,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u043E\\u0433\\u043E \\u0440\\u0443\\u0431\\u043B\\u044F"},
+        {"ru_RU", "5", "RUB", "5,00\\u00A0\\u20BD", "5,00\\u00A0RUB", "5,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u043E\\u0433\\u043E \\u0440\\u0443\\u0431\\u043B\\u044F"},
         // test locale without currency information
         {"root", "-1.23", "USD", "-US$\\u00A01.23", "-USD\\u00A01.23", "-1.23 USD"},
         // test choice format
-        {"es_AR", "1", "INR", "\\u20B91,00", "INR1,00", "1,00 rupia india"},
+        {"es_AR", "1", "INR", "INR1,00", "INR1,00", "1,00 rupia india"},
     };
     static const UNumberFormatStyle currencyStyles[] = {
         UNUM_CURRENCY,
@@ -3367,24 +3476,33 @@ NumberFormatTest::TestCurrencyParsing() {
         // format result using ISOCURRENCYSTYLE,
         // format result using PLURALCURRENCYSTYLE,
         {"en_US", "1", "USD", "$1.00", "USD1.00", "1.00 US dollar"},
-        {"pa_IN", "1", "USD", "US$\\u00a0\\u0a67.\\u0a66\\u0a66", "USD\\u00a0\\u0a67.\\u0a66\\u0a66", "\\u0a67.\\u0a66\\u0a66 USD"},
+        {"pa_IN", "1", "USD", "US$\\u00A01.00", "USD\\u00A01.00", "1.00 \\u0a2f\\u0a42.\\u0a10\\u0a38. \\u0a21\\u0a3e\\u0a32\\u0a30"},
         {"es_AR", "1", "USD", "US$1,00", "USD1,00", "1,00 d\\u00f3lar estadounidense"},
         {"ar_EG", "1", "USD", "\\u0661\\u066b\\u0660\\u0660\\u00a0US$", "\\u0661\\u066b\\u0660\\u0660\\u00a0USD", "\\u0661\\u066b\\u0660\\u0660 \\u062f\\u0648\\u0644\\u0627\\u0631 \\u0623\\u0645\\u0631\\u064a\\u0643\\u064a"},
-        {"fa_CA", "1", "USD", "\\u200eUS$\\u06f1\\u066b\\u06f0\\u06f0", "\\u200eUSD\\u06f1\\u066b\\u06f0\\u06f0", "\\u200e\\u062f\\u0644\\u0627\\u0631 \\u0627\\u0645\\u0631\\u06cc\\u06a9\\u0627\\u06f1\\u066b\\u06f0\\u06f0"},
+        {"fa_CA", "1", "USD", "\\u200e$\\u06f1\\u066b\\u06f0\\u06f0", "\\u200eUSD\\u06f1\\u066b\\u06f0\\u06f0", "\\u200e\\u062f\\u0644\\u0627\\u0631 \\u0627\\u0645\\u0631\\u06cc\\u06a9\\u0627\\u06f1\\u066b\\u06f0\\u06f0"},
         {"he_IL", "1", "USD", "1.00\\u00a0US$", "1.00\\u00a0USD", "1.00 \\u05d3\\u05d5\\u05dc\\u05e8 \\u05d0\\u05de\\u05e8\\u05d9\\u05e7\\u05d0\\u05d9"},
-        {"hr_HR", "1", "USD", "1,00\\u00a0$", "1,00\\u00a0USD", "1,00 Ameri\\u010dki dolar"},
+        {"hr_HR", "1", "USD", "1,00\\u00a0USD", "1,00\\u00a0USD", "1,00 Ameri\\u010dki dolar"},
         {"id_ID", "1", "USD", "US$1,00", "USD1,00", "1,00 Dolar Amerika Serikat"},
-        {"it_IT", "1", "USD", "US$\\u00a01,00", "USD\\u00a01,00", "1,00 Dollaro Statunitense"},
+        {"it_IT", "1", "USD", "1,00\\u00a0US$", "1,00\\u00a0USD", "1,00 Dollaro Statunitense"},
         {"ko_KR", "1", "USD", "US$1.00", "USD1.00", "1.00 \\ubbf8\\uad6d \\ub2ec\\ub7ec"},
         {"ja_JP", "1", "USD", "$1.00", "USD1.00", "1.00 \\u7c73\\u30c9\\u30eb"},
-        {"zh_CN", "1", "CNY", "\\uFFE51.00", "CNY1.00", "1.00\\u4EBA\\u6C11\\u5E01"},
-        {"zh_TW", "1", "CNY", "\\uFFE51.00", "CNY1.00", "1.00 \\u4eba\\u6c11\\u5e63"},
-        {"ru_RU", "1", "RUB", "1,00\\u00A0\\u0440\\u0443\\u0431.", "1,00\\u00A0RUB", "1,00 \\u0420\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u0438\\u0439 \\u0440\\u0443\\u0431\\u043B\\u044C"},
+        {"zh_CN", "1", "CNY", "\\uFFE5\\u00a01.00", "CNY\\u00a01.00", "1.00\\u4EBA\\u6C11\\u5E01"},
+        {"zh_TW", "1", "CNY", "CN\\u00A51.00", "CNY1.00", "1.00 \\u4eba\\u6c11\\u5e63"},
+        {"zh_Hant", "1", "CNY", "CN\\u00A51.00", "CNY1.00", "1.00 \\u4eba\\u6c11\\u5e63"},
+        {"zh_Hant", "1", "JPY", "\\u00A51.00", "JPY1.00", "1.00 \\u65e5\\u5713"},
+        {"ja_JP", "1", "JPY", "\\uFFE51.00", "JPY1.00", "1.00 \\u65e5\\u672c\\u5186"},
+        {"ja_JP", "1", "JPY", "\\u00A51.00", "JPY1.00", "1.00 \\u65e5\\u672c\\u5186"},
+        {"ru_RU", "1", "RUB", "1,00\\u00A0\\u20BD", "1,00\\u00A0RUB", "1,00 \\u0420\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u0438\\u0439 \\u0440\\u0443\\u0431\\u043B\\u044C"}
     };
     static const UNumberFormatStyle currencyStyles[] = {
         UNUM_CURRENCY,
         UNUM_CURRENCY_ISO,
         UNUM_CURRENCY_PLURAL
+    };
+    static const char* currencyStyleNames[] = {
+      "UNUM_CURRENCY",
+      "UNUM_CURRENCY_ISO",
+      "UNUM_CURRENCY_PLURAL"
     };
 
 #ifdef NUMFMTST_CACHE_DEBUG
@@ -3392,15 +3510,19 @@ int deadloop = 0;
 for (;;) {
     printf("loop: %d\n", deadloop++);
 #endif
-    for (uint32_t i=0; i<sizeof(DATA)/sizeof(DATA[0]); ++i) {
-      for (int32_t kIndex = 0; kIndex < LENGTHOF(currencyStyles); ++kIndex) {
-        UNumberFormatStyle k = currencyStyles[kIndex];
+    for (uint32_t i=0; i< sizeof(DATA)/sizeof(DATA[0]); ++i) {  /* i = test case #  - should be i=0*/
+      for (int32_t kIndex = 2; kIndex < LENGTHOF(currencyStyles); ++kIndex) {
+        UNumberFormatStyle k = currencyStyles[kIndex]; /* k = style */
         const char* localeString = DATA[i][0];
         double numberToBeFormat = atof(DATA[i][1]);
         const char* currencyISOCode = DATA[i][2];
         Locale locale(localeString);
         UErrorCode status = U_ZERO_ERROR;
         NumberFormat* numFmt = NumberFormat::createInstance(locale, k, status);
+        logln("#%d NumberFormat(%s, %s) Currency=%s\n",
+              i, localeString, currencyStyleNames[kIndex], 
+              currencyISOCode);
+
         if (U_FAILURE(status)) {
             delete numFmt;
             dataerrln((UnicodeString)"can not create instance, locale:" + localeString + ", style: " + k + " - " + u_errorName(status));
@@ -3415,9 +3537,9 @@ for (;;) {
             continue;
         }
 
-        /*
         UnicodeString strBuf;
         numFmt->format(numberToBeFormat, strBuf);
+        /*
         int resultDataIndex = 3 + kIndex;
         // DATA[i][resultDataIndex] is the currency format result
         // using 'k' currency style.
@@ -3437,20 +3559,21 @@ for (;;) {
             UnicodeString oneCurrencyFormatResult = ctou(DATA[i][j]);
             UErrorCode status = U_ZERO_ERROR;
             Formattable parseResult;
+            logln("parse(%s)", DATA[i][j]);
             numFmt->parse(oneCurrencyFormatResult, parseResult, status);
             if (U_FAILURE(status) ||
                 (parseResult.getType() == Formattable::kDouble &&
                  parseResult.getDouble() != numberToBeFormat) ||
                 (parseResult.getType() == Formattable::kLong &&
                  parseResult.getLong() != numberToBeFormat)) {
-                errln((UnicodeString)"FAIL: getCurrencyFormat of locale " +
-                      localeString + " failed roundtripping the number" +
-                      "(i,k,j): " + i + ", " + k + ", " + j);
+                errln((UnicodeString)"FAIL: NumberFormat(" + localeString +", " + currencyStyleNames[kIndex] +
+                      "), Currency="+currencyISOCode+", parse("+DATA[i][j]+") returned error " + (UnicodeString)u_errorName(status)+".  Testcase: data[" + i + "][" + currencyStyleNames[j-3] +"="+j+"]");
                 if (parseResult.getType() == Formattable::kDouble) {
-                    errln((UnicodeString)"expected: " + numberToBeFormat + "; actual: " +parseResult.getDouble());
+                    errln((UnicodeString)"expected: " + numberToBeFormat + "; actual (double): " +parseResult.getDouble());
                 } else {
-                    errln((UnicodeString)"expected: " + numberToBeFormat + "; actual: " +parseResult.getLong());
+                    errln((UnicodeString)"expected: " + numberToBeFormat + "; actual (long): " +parseResult.getLong());
                 }
+                errln((UnicodeString)" round-trip would be: " + strBuf);
             }
         }
         delete numFmt;
@@ -3502,8 +3625,8 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "AZM1.00",
         "AZM1.00",
         "AZN1.00",
-        "Afghan Afghani (1927-2002)1.00",
-        "Afghan afghani (1927-2002)1.00",
+        "Afghan Afghani (1927\\u20132002)1.00",
+        "Afghan afghani (1927\\u20132002)1.00",
         "Afghan Afghani1.00",
         "Afghan Afghanis1.00",
         "Albanian Lek1.00",
@@ -3515,26 +3638,26 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Andorran Peseta1.00",
         "Andorran peseta1.00",
         "Andorran pesetas1.00",
-        "Angolan Kwanza (1977-1991)1.00",
-        "Angolan Readjusted Kwanza (1995-1999)1.00",
+        "Angolan Kwanza (1977\\u20131991)1.00",
+        "Angolan Readjusted Kwanza (1995\\u20131999)1.00",
         "Angolan Kwanza1.00",
-        "Angolan New Kwanza (1990-2000)1.00",
-        "Angolan kwanza (1977-1991)1.00",
-        "Angolan readjusted kwanza (1995-1999)1.00",
+        "Angolan New Kwanza (1990\\u20132000)1.00",
+        "Angolan kwanza (1977\\u20131991)1.00",
+        "Angolan readjusted kwanza (1995\\u20131999)1.00",
         "Angolan kwanza1.00",
-        "Angolan kwanzas (1977-1991)1.00",
-        "Angolan readjusted kwanzas (1995-1999)1.00",
+        "Angolan kwanzas (1977\\u20131991)1.00",
+        "Angolan readjusted kwanzas (1995\\u20131999)1.00",
         "Angolan kwanzas1.00",
-        "Angolan new kwanza (1990-2000)1.00",
-        "Angolan new kwanzas (1990-2000)1.00",
+        "Angolan new kwanza (1990\\u20132000)1.00",
+        "Angolan new kwanzas (1990\\u20132000)1.00",
         "Argentine Austral1.00",
-        "Argentine Peso (1983-1985)1.00",
+        "Argentine Peso (1983\\u20131985)1.00",
         "Argentine Peso1.00",
         "Argentine austral1.00",
         "Argentine australs1.00",
-        "Argentine peso (1983-1985)1.00",
+        "Argentine peso (1983\\u20131985)1.00",
         "Argentine peso1.00",
-        "Argentine pesos (1983-1985)1.00",
+        "Argentine pesos (1983\\u20131985)1.00",
         "Argentine pesos1.00",
         "Armenian Dram1.00",
         "Armenian dram1.00",
@@ -3547,11 +3670,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Austrian Schilling1.00",
         "Austrian schilling1.00",
         "Austrian schillings1.00",
-        "Azerbaijani Manat (1993-2006)1.00",
+        "Azerbaijani Manat (1993\\u20132006)1.00",
         "Azerbaijani Manat1.00",
-        "Azerbaijani manat (1993-2006)1.00",
+        "Azerbaijani manat (1993\\u20132006)1.00",
         "Azerbaijani manat1.00",
-        "Azerbaijani manats (1993-2006)1.00",
+        "Azerbaijani manats (1993\\u20132006)1.00",
         "Azerbaijani manats1.00",
         "BAD1.00",
         "BAD1.00",
@@ -3608,10 +3731,10 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Barbadian Dollar1.00",
         "Barbadian dollar1.00",
         "Barbadian dollars1.00",
-        "Belarusian New Ruble (1994-1999)1.00",
+        "Belarusian New Ruble (1994\\u20131999)1.00",
         "Belarusian Ruble1.00",
-        "Belarusian new ruble (1994-1999)1.00",
-        "Belarusian new rubles (1994-1999)1.00",
+        "Belarusian new ruble (1994\\u20131999)1.00",
+        "Belarusian new rubles (1994\\u20131999)1.00",
         "Belarusian ruble1.00",
         "Belarusian rubles1.00",
         "Belgian Franc (convertible)1.00",
@@ -3642,30 +3765,30 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Bolivian Boliviano1.00",
         "Bolivian Bolivianos1.00",
         "Bosnia-Herzegovina Convertible Mark1.00",
-        "Bosnia-Herzegovina Dinar (1992-1994)1.00",
+        "Bosnia-Herzegovina Dinar (1992\\u20131994)1.00",
         "Bosnia-Herzegovina convertible mark1.00",
         "Bosnia-Herzegovina convertible marks1.00",
-        "Bosnia-Herzegovina dinar (1992-1994)1.00",
-        "Bosnia-Herzegovina dinars (1992-1994)1.00",
+        "Bosnia-Herzegovina dinar (1992\\u20131994)1.00",
+        "Bosnia-Herzegovina dinars (1992\\u20131994)1.00",
         "Botswanan Pula1.00",
         "Botswanan pula1.00",
         "Botswanan pulas1.00",
-        "Brazilian New Cruzado (1989-1990)1.00",
-        "Brazilian Cruzado (1986-1989)1.00",
-        "Brazilian Cruzeiro (1990-1993)1.00",
-        "Brazilian New Cruzeiro (1967-1986)1.00",
-        "Brazilian Cruzeiro (1993-1994)1.00",
+        "Brazilian New Cruzado (1989\\u20131990)1.00",
+        "Brazilian Cruzado (1986\\u20131989)1.00",
+        "Brazilian Cruzeiro (1990\\u20131993)1.00",
+        "Brazilian New Cruzeiro (1967\\u20131986)1.00",
+        "Brazilian Cruzeiro (1993\\u20131994)1.00",
         "Brazilian Real1.00",
-        "Brazilian new cruzado (1989-1990)1.00",
-        "Brazilian new cruzados (1989-1990)1.00",
-        "Brazilian cruzado (1986-1989)1.00",
-        "Brazilian cruzados (1986-1989)1.00",
-        "Brazilian cruzeiro (1990-1993)1.00",
-        "Brazilian new cruzeiro (1967-1986)1.00",
-        "Brazilian cruzeiro (1993-1994)1.00",
-        "Brazilian cruzeiros (1990-1993)1.00",
-        "Brazilian new cruzeiros (1967-1986)1.00",
-        "Brazilian cruzeiros (1993-1994)1.00",
+        "Brazilian new cruzado (1989\\u20131990)1.00",
+        "Brazilian new cruzados (1989\\u20131990)1.00",
+        "Brazilian cruzado (1986\\u20131989)1.00",
+        "Brazilian cruzados (1986\\u20131989)1.00",
+        "Brazilian cruzeiro (1990\\u20131993)1.00",
+        "Brazilian new cruzeiro (1967\\u20131986)1.00",
+        "Brazilian cruzeiro (1993\\u20131994)1.00",
+        "Brazilian cruzeiros (1990\\u20131993)1.00",
+        "Brazilian new cruzeiros (1967\\u20131986)1.00",
+        "Brazilian cruzeiros (1993\\u20131994)1.00",
         "Brazilian real1.00",
         "Brazilian reals1.00",
         "British Pound Sterling1.00",
@@ -3914,11 +4037,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Georgian kupon larits1.00",
         "Georgian lari1.00",
         "Georgian laris1.00",
-        "Ghanaian Cedi (1979-2007)1.00",
+        "Ghanaian Cedi (1979\\u20132007)1.00",
         "Ghanaian Cedi1.00",
-        "Ghanaian cedi (1979-2007)1.00",
+        "Ghanaian cedi (1979\\u20132007)1.00",
         "Ghanaian cedi1.00",
-        "Ghanaian cedis (1979-2007)1.00",
+        "Ghanaian cedis (1979\\u20132007)1.00",
         "Ghanaian cedis1.00",
         "Gibraltar Pound1.00",
         "Gibraltar pound1.00",
@@ -4169,12 +4292,12 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Mauritian rupee1.00",
         "Mauritian rupees1.00",
         "Mexican Peso1.00",
-        "Mexican Silver Peso (1861-1992)1.00",
+        "Mexican Silver Peso (1861\\u20131992)1.00",
         "Mexican Investment Unit1.00",
         "Mexican peso1.00",
         "Mexican pesos1.00",
-        "Mexican silver peso (1861-1992)1.00",
-        "Mexican silver pesos (1861-1992)1.00",
+        "Mexican silver peso (1861\\u20131992)1.00",
+        "Mexican silver pesos (1861\\u20131992)1.00",
         "Mexican investment unit1.00",
         "Mexican investment units1.00",
         "Moldovan Leu1.00",
@@ -4195,9 +4318,9 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Mozambican escudos1.00",
         "Mozambican metical1.00",
         "Mozambican meticals1.00",
-        "Myanma Kyat1.00",
-        "Myanma kyat1.00",
-        "Myanma kyats1.00",
+        "Myanmar Kyat1.00",
+        "Myanmar kyat1.00",
+        "Myanmar kyats1.00",
         "NAD1.00",
         "NGN1.00",
         "NIC1.00",
@@ -4228,11 +4351,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "New Zealand dollar1.00",
         "New Zealand dollars1.00",
         "Nicaraguan C\\u00f3rdoba1.00",
-        "Nicaraguan C\\u00f3rdoba (1988-1991)1.00",
+        "Nicaraguan C\\u00f3rdoba (1988\\u20131991)1.00",
         "Nicaraguan c\\u00f3rdoba1.00",
         "Nicaraguan c\\u00f3rdobas1.00",
-        "Nicaraguan c\\u00f3rdoba (1988-1991)1.00",
-        "Nicaraguan c\\u00f3rdobas (1988-1991)1.00",
+        "Nicaraguan c\\u00f3rdoba (1988\\u20131991)1.00",
+        "Nicaraguan c\\u00f3rdobas (1988\\u20131991)1.00",
         "Nigerian Naira1.00",
         "Nigerian naira1.00",
         "Nigerian nairas1.00",
@@ -4243,23 +4366,23 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Norwegian krone1.00",
         "Norwegian kroner1.00",
         "OMR1.00",
-        "Mozambican Metical (1980-2006)1.00",
-        "Mozambican metical (1980-2006)1.00",
-        "Mozambican meticals (1980-2006)1.00",
-        "Romanian Lei (1952-2006)1.00",
-        "Romanian Leu (1952-2006)1.00",
-        "Romanian leu (1952-2006)1.00",
-        "Serbian Dinar (2002-2006)1.00",
-        "Serbian dinar (2002-2006)1.00",
-        "Serbian dinars (2002-2006)1.00",
-        "Sudanese Dinar (1992-2007)1.00",
-        "Sudanese Pound (1957-1998)1.00",
-        "Sudanese dinar (1992-2007)1.00",
-        "Sudanese dinars (1992-2007)1.00",
-        "Sudanese pound (1957-1998)1.00",
-        "Sudanese pounds (1957-1998)1.00",
-        "Turkish Lira (1922-2005)1.00",
-        "Turkish Lira (1922-2005)1.00",
+        "Mozambican Metical (1980\\u20132006)1.00",
+        "Mozambican metical (1980\\u20132006)1.00",
+        "Mozambican meticals (1980\\u20132006)1.00",
+        "Romanian Lei (1952\\u20132006)1.00",
+        "Romanian Leu (1952\\u20132006)1.00",
+        "Romanian leu (1952\\u20132006)1.00",
+        "Serbian Dinar (2002\\u20132006)1.00",
+        "Serbian dinar (2002\\u20132006)1.00",
+        "Serbian dinars (2002\\u20132006)1.00",
+        "Sudanese Dinar (1992\\u20132007)1.00",
+        "Sudanese Pound (1957\\u20131998)1.00",
+        "Sudanese dinar (1992\\u20132007)1.00",
+        "Sudanese dinars (1992\\u20132007)1.00",
+        "Sudanese pound (1957\\u20131998)1.00",
+        "Sudanese pounds (1957\\u20131998)1.00",
+        "Turkish Lira (1922\\u20132005)1.00",
+        "Turkish Lira (1922\\u20132005)1.00",
         "Omani Rial1.00",
         "Omani rial1.00",
         "Omani rials1.00",
@@ -4297,19 +4420,19 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Paraguayan guaranis1.00",
         "Peruvian Inti1.00",
         "Peruvian Nuevo Sol1.00",
-        "Peruvian Sol (1863-1965)1.00",
+        "Peruvian Sol (1863\\u20131965)1.00",
         "Peruvian inti1.00",
         "Peruvian intis1.00",
         "Peruvian nuevo sol1.00",
         "Peruvian nuevos soles1.00",
-        "Peruvian sol (1863-1965)1.00",
-        "Peruvian soles (1863-1965)1.00",
+        "Peruvian sol (1863\\u20131965)1.00",
+        "Peruvian soles (1863\\u20131965)1.00",
         "Philippine Peso1.00",
         "Philippine peso1.00",
         "Philippine pesos1.00",
         "Platinum1.00",
         "Platinum1.00",
-        "Polish Zloty (1950-1995)1.00",
+        "Polish Zloty (1950\\u20131995)1.00",
         "Polish Zloty1.00",
         "Polish zlotys1.00",
         "Polish zloty (PLZ)1.00",
@@ -4349,11 +4472,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Romanian Leu1.00",
         "Romanian lei1.00",
         "Romanian leu1.00",
-        "Russian Ruble (1991-1998)1.00",
+        "Russian Ruble (1991\\u20131998)1.00",
         "Russian Ruble1.00",
-        "Russian ruble (1991-1998)1.00",
+        "Russian ruble (1991\\u20131998)1.00",
         "Russian ruble1.00",
-        "Russian rubles (1991-1998)1.00",
+        "Russian rubles (1991\\u20131998)1.00",
         "Russian rubles1.00",
         "Rwandan Franc1.00",
         "Rwandan franc1.00",
@@ -4550,11 +4673,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "UYU1.00",
         "UZS1.00",
         "UZS1.00",
-        "Ugandan Shilling (1966-1987)1.00",
+        "Ugandan Shilling (1966\\u20131987)1.00",
         "Ugandan Shilling1.00",
-        "Ugandan shilling (1966-1987)1.00",
+        "Ugandan shilling (1966\\u20131987)1.00",
         "Ugandan shilling1.00",
-        "Ugandan shillings (1966-1987)1.00",
+        "Ugandan shillings (1966\\u20131987)1.00",
         "Ugandan shillings1.00",
         "Ukrainian Hryvnia1.00",
         "Ukrainian Karbovanets1.00",
@@ -4565,13 +4688,13 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Colombian Real Value Unit1.00",
         "United Arab Emirates Dirham1.00",
         "Unknown Currency1.00",
-        "Uruguayan Peso (1975-1993)1.00",
+        "Uruguayan Peso (1975\\u20131993)1.00",
         "Uruguayan Peso1.00",
         "Uruguayan Peso (Indexed Units)1.00",
-        "Uruguayan peso (1975-1993)1.00",
+        "Uruguayan peso (1975\\u20131993)1.00",
         "Uruguayan peso (indexed units)1.00",
         "Uruguayan peso1.00",
-        "Uruguayan pesos (1975-1993)1.00",
+        "Uruguayan pesos (1975\\u20131993)1.00",
         "Uruguayan pesos (indexed units)1.00",
         "Uruguayan pesos1.00",
         "Uzbekistan Som1.00",
@@ -4585,11 +4708,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Vanuatu vatu1.00",
         "Vanuatu vatus1.00",
         "Venezuelan Bol\\u00edvar1.00",
-        "Venezuelan Bol\\u00edvar (1871-2008)1.00",
+        "Venezuelan Bol\\u00edvar (1871\\u20132008)1.00",
         "Venezuelan bol\\u00edvar1.00",
         "Venezuelan bol\\u00edvars1.00",
-        "Venezuelan bol\\u00edvar (1871-2008)1.00",
-        "Venezuelan bol\\u00edvars (1871-2008)1.00",
+        "Venezuelan bol\\u00edvar (1871\\u20132008)1.00",
+        "Venezuelan bol\\u00edvars (1871\\u20132008)1.00",
         "Vietnamese Dong1.00",
         "Vietnamese dong1.00",
         "Vietnamese dong1.00",
@@ -4655,15 +4778,15 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Yemeni dinars1.00",
         "Yemeni rial1.00",
         "Yemeni rials1.00",
-        "Yugoslavian Convertible Dinar (1990-1992)1.00",
-        "Yugoslavian Hard Dinar (1966-1990)1.00",
-        "Yugoslavian New Dinar (1994-2002)1.00",
-        "Yugoslavian convertible dinar (1990-1992)1.00",
-        "Yugoslavian convertible dinars (1990-1992)1.00",
-        "Yugoslavian hard dinar (1966-1990)1.00",
-        "Yugoslavian hard dinars (1966-1990)1.00",
-        "Yugoslavian new dinar (1994-2002)1.00",
-        "Yugoslavian new dinars (1994-2002)1.00",
+        "Yugoslavian Convertible Dinar (1990\\u20131992)1.00",
+        "Yugoslavian Hard Dinar (1966\\u20131990)1.00",
+        "Yugoslavian New Dinar (1994\\u20132002)1.00",
+        "Yugoslavian convertible dinar (1990\\u20131992)1.00",
+        "Yugoslavian convertible dinars (1990\\u20131992)1.00",
+        "Yugoslavian hard dinar (1966\\u20131990)1.00",
+        "Yugoslavian hard dinars (1966\\u20131990)1.00",
+        "Yugoslavian new dinar (1994\\u20132002)1.00",
+        "Yugoslavian new dinars (1994\\u20132002)1.00",
         "ZAL1.00",
         "ZAL1.00",
         "ZAR1.00",
@@ -4674,21 +4797,21 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "ZRZ1.00",
         "ZRZ1.00",
         "ZWD1.00",
-        "Zairean New Zaire (1993-1998)1.00",
-        "Zairean Zaire (1971-1993)1.00",
-        "Zairean new zaire (1993-1998)1.00",
-        "Zairean new zaires (1993-1998)1.00",
-        "Zairean zaire (1971-1993)1.00",
-        "Zairean zaires (1971-1993)1.00",
+        "Zairean New Zaire (1993\\u20131998)1.00",
+        "Zairean Zaire (1971\\u20131993)1.00",
+        "Zairean new zaire (1993\\u20131998)1.00",
+        "Zairean new zaires (1993\\u20131998)1.00",
+        "Zairean zaire (1971\\u20131993)1.00",
+        "Zairean zaires (1971\\u20131993)1.00",
         "Zambian Kwacha1.00",
         "Zambian kwacha1.00",
         "Zambian kwachas1.00",
-        "Zimbabwean Dollar (1980-2008)1.00",
-        "Zimbabwean dollar (1980-2008)1.00",
-        "Zimbabwean dollars (1980-2008)1.00",
+        "Zimbabwean Dollar (1980\\u20132008)1.00",
+        "Zimbabwean dollar (1980\\u20132008)1.00",
+        "Zimbabwean dollars (1980\\u20132008)1.00",
         "euro1.00",
         "euros1.00",
-        "Turkish lira (1922-2005)1.00",
+        "Turkish lira (1922\\u20132005)1.00",
         "special drawing rights1.00",
         "Colombian real value unit1.00",
         "Colombian real value units1.00",
@@ -4708,7 +4831,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 US dollars random",
         "1.00 Afghan Afghani random",
         "1.00 Afghan Afghani random",
-        "1.00 Afghan Afghanis (1927-1992) random",
+        "1.00 Afghan Afghanis (1927\\u20131992) random",
         "1.00 Afghan Afghanis random",
         "1.00 Albanian Lek random",
         "1.00 Albanian lek random",
@@ -4719,26 +4842,26 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Andorran Peseta random",
         "1.00 Andorran peseta random",
         "1.00 Andorran pesetas random",
-        "1.00 Angolan Kwanza (1977-1990) random",
-        "1.00 Angolan Readjusted Kwanza (1995-1999) random",
+        "1.00 Angolan Kwanza (1977\\u20131990) random",
+        "1.00 Angolan Readjusted Kwanza (1995\\u20131999) random",
         "1.00 Angolan Kwanza random",
-        "1.00 Angolan New Kwanza (1990-2000) random",
-        "1.00 Angolan kwanza (1977-1991) random",
-        "1.00 Angolan readjusted kwanza (1995-1999) random",
+        "1.00 Angolan New Kwanza (1990\\u20132000) random",
+        "1.00 Angolan kwanza (1977\\u20131991) random",
+        "1.00 Angolan readjusted kwanza (1995\\u20131999) random",
         "1.00 Angolan kwanza random",
-        "1.00 Angolan kwanzas (1977-1991) random",
-        "1.00 Angolan readjusted kwanzas (1995-1999) random",
+        "1.00 Angolan kwanzas (1977\\u20131991) random",
+        "1.00 Angolan readjusted kwanzas (1995\\u20131999) random",
         "1.00 Angolan kwanzas random",
-        "1.00 Angolan new kwanza (1990-2000) random",
-        "1.00 Angolan new kwanzas (1990-2000) random",
+        "1.00 Angolan new kwanza (1990\\u20132000) random",
+        "1.00 Angolan new kwanzas (1990\\u20132000) random",
         "1.00 Argentine Austral random",
-        "1.00 Argentine Peso (1983-1985) random",
+        "1.00 Argentine Peso (1983\\u20131985) random",
         "1.00 Argentine Peso random",
         "1.00 Argentine austral random",
         "1.00 Argentine australs random",
-        "1.00 Argentine peso (1983-1985) random",
+        "1.00 Argentine peso (1983\\u20131985) random",
         "1.00 Argentine peso random",
-        "1.00 Argentine pesos (1983-1985) random",
+        "1.00 Argentine pesos (1983\\u20131985) random",
         "1.00 Argentine pesos random",
         "1.00 Armenian Dram random",
         "1.00 Armenian dram random",
@@ -4751,11 +4874,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Austrian Schilling random",
         "1.00 Austrian schilling random",
         "1.00 Austrian schillings random",
-        "1.00 Azerbaijani Manat (1993-2006) random",
+        "1.00 Azerbaijani Manat (1993\\u20132006) random",
         "1.00 Azerbaijani Manat random",
-        "1.00 Azerbaijani manat (1993-2006) random",
+        "1.00 Azerbaijani manat (1993\\u20132006) random",
         "1.00 Azerbaijani manat random",
-        "1.00 Azerbaijani manats (1993-2006) random",
+        "1.00 Azerbaijani manats (1993\\u20132006) random",
         "1.00 Azerbaijani manats random",
         "1.00 Bahamian Dollar random",
         "1.00 Bahamian dollar random",
@@ -4769,10 +4892,10 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Barbadian Dollar random",
         "1.00 Barbadian dollar random",
         "1.00 Barbadian dollars random",
-        "1.00 Belarusian New Ruble (1994-1999) random",
+        "1.00 Belarusian New Ruble (1994\\u20131999) random",
         "1.00 Belarusian Ruble random",
-        "1.00 Belarusian new ruble (1994-1999) random",
-        "1.00 Belarusian new rubles (1994-1999) random",
+        "1.00 Belarusian new ruble (1994\\u20131999) random",
+        "1.00 Belarusian new rubles (1994\\u20131999) random",
         "1.00 Belarusian ruble random",
         "1.00 Belarusian rubles random",
         "1.00 Belgian Franc (convertible) random",
@@ -4803,30 +4926,30 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Bolivian Boliviano random",
         "1.00 Bolivian Bolivianos random",
         "1.00 Bosnia-Herzegovina Convertible Mark random",
-        "1.00 Bosnia-Herzegovina Dinar (1992-1994) random",
+        "1.00 Bosnia-Herzegovina Dinar (1992\\u20131994) random",
         "1.00 Bosnia-Herzegovina convertible mark random",
         "1.00 Bosnia-Herzegovina convertible marks random",
-        "1.00 Bosnia-Herzegovina dinar (1992-1994) random",
-        "1.00 Bosnia-Herzegovina dinars (1992-1994) random",
+        "1.00 Bosnia-Herzegovina dinar (1992\\u20131994) random",
+        "1.00 Bosnia-Herzegovina dinars (1992\\u20131994) random",
         "1.00 Botswanan Pula random",
         "1.00 Botswanan pula random",
         "1.00 Botswanan pulas random",
-        "1.00 Brazilian New Cruzado (1989-1990) random",
-        "1.00 Brazilian Cruzado (1986-1989) random",
-        "1.00 Brazilian Cruzeiro (1990-1993) random",
-        "1.00 Brazilian New Cruzeiro (1967-1986) random",
-        "1.00 Brazilian Cruzeiro (1993-1994) random",
+        "1.00 Brazilian New Cruzado (1989\\u20131990) random",
+        "1.00 Brazilian Cruzado (1986\\u20131989) random",
+        "1.00 Brazilian Cruzeiro (1990\\u20131993) random",
+        "1.00 Brazilian New Cruzeiro (1967\\u20131986) random",
+        "1.00 Brazilian Cruzeiro (1993\\u20131994) random",
         "1.00 Brazilian Real random",
-        "1.00 Brazilian new cruzado (1989-1990) random",
-        "1.00 Brazilian new cruzados (1989-1990) random",
-        "1.00 Brazilian cruzado (1986-1989) random",
-        "1.00 Brazilian cruzados (1986-1989) random",
-        "1.00 Brazilian cruzeiro (1990-1993) random",
-        "1.00 Brazilian new cruzeiro (1967-1986) random",
-        "1.00 Brazilian cruzeiro (1993-1994) random",
-        "1.00 Brazilian cruzeiros (1990-1993) random",
-        "1.00 Brazilian new cruzeiros (1967-1986) random",
-        "1.00 Brazilian cruzeiros (1993-1994) random",
+        "1.00 Brazilian new cruzado (1989\\u20131990) random",
+        "1.00 Brazilian new cruzados (1989\\u20131990) random",
+        "1.00 Brazilian cruzado (1986\\u20131989) random",
+        "1.00 Brazilian cruzados (1986\\u20131989) random",
+        "1.00 Brazilian cruzeiro (1990\\u20131993) random",
+        "1.00 Brazilian new cruzeiro (1967\\u20131986) random",
+        "1.00 Brazilian cruzeiro (1993\\u20131994) random",
+        "1.00 Brazilian cruzeiros (1990\\u20131993) random",
+        "1.00 Brazilian new cruzeiros (1967\\u20131986) random",
+        "1.00 Brazilian cruzeiros (1993\\u20131994) random",
         "1.00 Brazilian real random",
         "1.00 Brazilian reals random",
         "1.00 British Pound Sterling random",
@@ -4980,11 +5103,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Georgian kupon larits random",
         "1.00 Georgian lari random",
         "1.00 Georgian laris random",
-        "1.00 Ghanaian Cedi (1979-2007) random",
+        "1.00 Ghanaian Cedi (1979\\u20132007) random",
         "1.00 Ghanaian Cedi random",
-        "1.00 Ghanaian cedi (1979-2007) random",
+        "1.00 Ghanaian cedi (1979\\u20132007) random",
         "1.00 Ghanaian cedi random",
-        "1.00 Ghanaian cedis (1979-2007) random",
+        "1.00 Ghanaian cedis (1979\\u20132007) random",
         "1.00 Ghanaian cedis random",
         "1.00 Gibraltar Pound random",
         "1.00 Gibraltar pound random",
@@ -5139,12 +5262,12 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Mauritian rupee random",
         "1.00 Mauritian rupees random",
         "1.00 Mexican Peso random",
-        "1.00 Mexican Silver Peso (1861-1992) random",
+        "1.00 Mexican Silver Peso (1861\\u20131992) random",
         "1.00 Mexican Investment Unit random",
         "1.00 Mexican peso random",
         "1.00 Mexican pesos random",
-        "1.00 Mexican silver peso (1861-1992) random",
-        "1.00 Mexican silver pesos (1861-1992) random",
+        "1.00 Mexican silver peso (1861\\u20131992) random",
+        "1.00 Mexican silver pesos (1861\\u20131992) random",
         "1.00 Mexican investment unit random",
         "1.00 Mexican investment units random",
         "1.00 Moldovan Leu random",
@@ -5165,9 +5288,9 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Mozambican escudos random",
         "1.00 Mozambican metical random",
         "1.00 Mozambican meticals random",
-        "1.00 Myanma Kyat random",
-        "1.00 Myanma kyat random",
-        "1.00 Myanma kyats random",
+        "1.00 Myanmar Kyat random",
+        "1.00 Myanmar kyat random",
+        "1.00 Myanmar kyats random",
         "1.00 Namibian Dollar random",
         "1.00 Namibian dollar random",
         "1.00 Namibian dollars random",
@@ -5186,11 +5309,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 New Zealand dollar random",
         "1.00 New Zealand dollars random",
         "1.00 Nicaraguan C\\u00f3rdoba random",
-        "1.00 Nicaraguan C\\u00f3rdoba (1988-1991) random",
+        "1.00 Nicaraguan C\\u00f3rdoba (1988\\u20131991) random",
         "1.00 Nicaraguan c\\u00f3rdoba random",
         "1.00 Nicaraguan c\\u00f3rdoba random",
-        "1.00 Nicaraguan c\\u00f3rdoba (1988-1991) random",
-        "1.00 Nicaraguan c\\u00f3rdobas (1988-1991) random",
+        "1.00 Nicaraguan c\\u00f3rdoba (1988\\u20131991) random",
+        "1.00 Nicaraguan c\\u00f3rdobas (1988\\u20131991) random",
         "1.00 Nigerian Naira random",
         "1.00 Nigerian naira random",
         "1.00 Nigerian nairas random",
@@ -5200,23 +5323,23 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Norwegian Krone random",
         "1.00 Norwegian krone random",
         "1.00 Norwegian kroner random",
-        "1.00 Mozambican Metical (1980-2006) random",
-        "1.00 Mozambican metical (1980-2006) random",
-        "1.00 Mozambican meticals (1980-2006) random",
-        "1.00 Romanian Lei (1952-2006) random",
-        "1.00 Romanian Leu (1952-2006) random",
-        "1.00 Romanian leu (1952-2006) random",
-        "1.00 Serbian Dinar (2002-2006) random",
-        "1.00 Serbian dinar (2002-2006) random",
-        "1.00 Serbian dinars (2002-2006) random",
-        "1.00 Sudanese Dinar (1992-2007) random",
-        "1.00 Sudanese Pound (1957-1998) random",
-        "1.00 Sudanese dinar (1992-2007) random",
-        "1.00 Sudanese dinars (1992-2007) random",
-        "1.00 Sudanese pound (1957-1998) random",
-        "1.00 Sudanese pounds (1957-1998) random",
-        "1.00 Turkish Lira (1922-2005) random",
-        "1.00 Turkish Lira (1922-2005) random",
+        "1.00 Mozambican Metical (1980\\u20132006) random",
+        "1.00 Mozambican metical (1980\\u20132006) random",
+        "1.00 Mozambican meticals (1980\\u20132006) random",
+        "1.00 Romanian Lei (1952\\u20132006) random",
+        "1.00 Romanian Leu (1952\\u20132006) random",
+        "1.00 Romanian leu (1952\\u20132006) random",
+        "1.00 Serbian Dinar (2002\\u20132006) random",
+        "1.00 Serbian dinar (2002\\u20132006) random",
+        "1.00 Serbian dinars (2002\\u20132006) random",
+        "1.00 Sudanese Dinar (1992\\u20132007) random",
+        "1.00 Sudanese Pound (1957\\u20131998) random",
+        "1.00 Sudanese dinar (1992\\u20132007) random",
+        "1.00 Sudanese dinars (1992\\u20132007) random",
+        "1.00 Sudanese pound (1957\\u20131998) random",
+        "1.00 Sudanese pounds (1957\\u20131998) random",
+        "1.00 Turkish Lira (1922\\u20132005) random",
+        "1.00 Turkish Lira (1922\\u20132005) random",
         "1.00 Omani Rial random",
         "1.00 Omani rial random",
         "1.00 Omani rials random",
@@ -5236,19 +5359,19 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Paraguayan guaranis random",
         "1.00 Peruvian Inti random",
         "1.00 Peruvian Nuevo Sol random",
-        "1.00 Peruvian Sol (1863-1965) random",
+        "1.00 Peruvian Sol (1863\\u20131965) random",
         "1.00 Peruvian inti random",
         "1.00 Peruvian intis random",
         "1.00 Peruvian nuevo sol random",
         "1.00 Peruvian nuevos soles random",
-        "1.00 Peruvian sol (1863-1965) random",
-        "1.00 Peruvian soles (1863-1965) random",
+        "1.00 Peruvian sol (1863\\u20131965) random",
+        "1.00 Peruvian soles (1863\\u20131965) random",
         "1.00 Philippine Peso random",
         "1.00 Philippine peso random",
         "1.00 Philippine pesos random",
         "1.00 Platinum random",
         "1.00 Platinum random",
-        "1.00 Polish Zloty (1950-1995) random",
+        "1.00 Polish Zloty (1950\\u20131995) random",
         "1.00 Polish Zloty random",
         "1.00 Polish zlotys random",
         "1.00 Polish zloty (PLZ) random",
@@ -5271,11 +5394,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Romanian Leu random",
         "1.00 Romanian lei random",
         "1.00 Romanian leu random",
-        "1.00 Russian Ruble (1991-1998) random",
+        "1.00 Russian Ruble (1991\\u20131998) random",
         "1.00 Russian Ruble random",
-        "1.00 Russian ruble (1991-1998) random",
+        "1.00 Russian ruble (1991\\u20131998) random",
         "1.00 Russian ruble random",
-        "1.00 Russian rubles (1991-1998) random",
+        "1.00 Russian rubles (1991\\u20131998) random",
         "1.00 Russian rubles random",
         "1.00 Rwandan Franc random",
         "1.00 Rwandan franc random",
@@ -5400,11 +5523,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 US dollars (next day) random",
         "1.00 US dollars (same day) random",
         "1.00 US dollars random",
-        "1.00 Ugandan Shilling (1966-1987) random",
+        "1.00 Ugandan Shilling (1966\\u20131987) random",
         "1.00 Ugandan Shilling random",
-        "1.00 Ugandan shilling (1966-1987) random",
+        "1.00 Ugandan shilling (1966\\u20131987) random",
         "1.00 Ugandan shilling random",
-        "1.00 Ugandan shillings (1966-1987) random",
+        "1.00 Ugandan shillings (1966\\u20131987) random",
         "1.00 Ugandan shillings random",
         "1.00 Ukrainian Hryvnia random",
         "1.00 Ukrainian Karbovanets random",
@@ -5415,13 +5538,13 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Colombian Real Value Unit random",
         "1.00 United Arab Emirates Dirham random",
         "1.00 Unknown Currency random",
-        "1.00 Uruguayan Peso (1975-1993) random",
+        "1.00 Uruguayan Peso (1975\\u20131993) random",
         "1.00 Uruguayan Peso random",
         "1.00 Uruguayan Peso (Indexed Units) random",
-        "1.00 Uruguayan peso (1975-1993) random",
+        "1.00 Uruguayan peso (1975\\u20131993) random",
         "1.00 Uruguayan peso (indexed units) random",
         "1.00 Uruguayan peso random",
-        "1.00 Uruguayan pesos (1975-1993) random",
+        "1.00 Uruguayan pesos (1975\\u20131993) random",
         "1.00 Uruguayan pesos (indexed units) random",
         "1.00 Uzbekistan Som random",
         "1.00 Uzbekistan som random",
@@ -5430,11 +5553,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Vanuatu vatu random",
         "1.00 Vanuatu vatus random",
         "1.00 Venezuelan Bol\\u00edvar random",
-        "1.00 Venezuelan Bol\\u00edvar (1871-2008) random",
+        "1.00 Venezuelan Bol\\u00edvar (1871\\u20132008) random",
         "1.00 Venezuelan bol\\u00edvar random",
         "1.00 Venezuelan bol\\u00edvars random",
-        "1.00 Venezuelan bol\\u00edvar (1871-2008) random",
-        "1.00 Venezuelan bol\\u00edvars (1871-2008) random",
+        "1.00 Venezuelan bol\\u00edvar (1871\\u20132008) random",
+        "1.00 Venezuelan bol\\u00edvars (1871\\u20132008) random",
         "1.00 Vietnamese Dong random",
         "1.00 Vietnamese dong random",
         "1.00 Vietnamese dong random",
@@ -5453,30 +5576,30 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "1.00 Yemeni dinars random",
         "1.00 Yemeni rial random",
         "1.00 Yemeni rials random",
-        "1.00 Yugoslavian Convertible Dinar (1990-1992) random",
-        "1.00 Yugoslavian Hard Dinar (1966-1990) random",
-        "1.00 Yugoslavian New Dinar (1994-2002) random",
-        "1.00 Yugoslavian convertible dinar (1990-1992) random",
-        "1.00 Yugoslavian convertible dinars (1990-1992) random",
-        "1.00 Yugoslavian hard dinar (1966-1990) random",
-        "1.00 Yugoslavian hard dinars (1966-1990) random",
-        "1.00 Yugoslavian new dinar (1994-2002) random",
-        "1.00 Yugoslavian new dinars (1994-2002) random",
-        "1.00 Zairean New Zaire (1993-1998) random",
-        "1.00 Zairean Zaire (1971-1993) random",
-        "1.00 Zairean new zaire (1993-1998) random",
-        "1.00 Zairean new zaires (1993-1998) random",
-        "1.00 Zairean zaire (1971-1993) random",
-        "1.00 Zairean zaires (1971-1993) random",
+        "1.00 Yugoslavian Convertible Dinar (1990\\u20131992) random",
+        "1.00 Yugoslavian Hard Dinar (1966\\u20131990) random",
+        "1.00 Yugoslavian New Dinar (1994\\u20132002) random",
+        "1.00 Yugoslavian convertible dinar (1990\\u20131992) random",
+        "1.00 Yugoslavian convertible dinars (1990\\u20131992) random",
+        "1.00 Yugoslavian hard dinar (1966\\u20131990) random",
+        "1.00 Yugoslavian hard dinars (1966\\u20131990) random",
+        "1.00 Yugoslavian new dinar (1994\\u20132002) random",
+        "1.00 Yugoslavian new dinars (1994\\u20132002) random",
+        "1.00 Zairean New Zaire (1993\\u20131998) random",
+        "1.00 Zairean Zaire (1971\\u20131993) random",
+        "1.00 Zairean new zaire (1993\\u20131998) random",
+        "1.00 Zairean new zaires (1993\\u20131998) random",
+        "1.00 Zairean zaire (1971\\u20131993) random",
+        "1.00 Zairean zaires (1971\\u20131993) random",
         "1.00 Zambian Kwacha random",
         "1.00 Zambian kwacha random",
         "1.00 Zambian kwachas random",
-        "1.00 Zimbabwean Dollar (1980-2008) random",
-        "1.00 Zimbabwean dollar (1980-2008) random",
-        "1.00 Zimbabwean dollars (1980-2008) random",
+        "1.00 Zimbabwean Dollar (1980\\u20132008) random",
+        "1.00 Zimbabwean dollar (1980\\u20132008) random",
+        "1.00 Zimbabwean dollars (1980\\u20132008) random",
         "1.00 euro random",
         "1.00 euros random",
-        "1.00 Turkish lira (1922-2005) random",
+        "1.00 Turkish lira (1922\\u20132005) random",
         "1.00 special drawing rights random",
         "1.00 Colombian real value unit random",
         "1.00 Colombian real value units random",
@@ -5521,24 +5644,24 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "AW1.00",
         "AZ1.00",
         "Afghan Afghan1.00",
-        "Afghan Afghani (1927-20021.00",
+        "Afghan Afghani (1927\\u201320021.00",
         "Afl1.00",
         "Albanian Le1.00",
         "Algerian Dina1.00",
         "Andorran Peset1.00",
         "Angolan Kwanz1.00",
-        "Angolan Kwanza (1977-19901.00",
-        "Angolan Readjusted Kwanza (1995-19991.00",
-        "Angolan New Kwanza (1990-20001.00",
+        "Angolan Kwanza (1977\\u201319901.00",
+        "Angolan Readjusted Kwanza (1995\\u201319991.00",
+        "Angolan New Kwanza (1990\\u201320001.00",
         "Argentine Austra1.00",
         "Argentine Pes1.00",
-        "Argentine Peso (1983-19851.00",
+        "Argentine Peso (1983\\u201319851.00",
         "Armenian Dra1.00",
         "Aruban Flori1.00",
         "Australian Dolla1.00",
         "Austrian Schillin1.00",
         "Azerbaijani Mana1.00",
-        "Azerbaijani Manat (1993-20061.00",
+        "Azerbaijani Manat (1993\\u201320061.00",
         "B1.00",
         "BA1.00",
         "BB1.00",
@@ -5561,7 +5684,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Bangladeshi Tak1.00",
         "Barbadian Dolla1.00",
         "Bds1.00",
-        "Belarusian New Ruble (1994-19991.00",
+        "Belarusian New Ruble (1994\\u201319991.00",
         "Belarusian Rubl1.00",
         "Belgian Fran1.00",
         "Belgian Franc (convertible1.00",
@@ -5578,8 +5701,8 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Brazilian Cruzad1.00",
         "Brazilian Cruzado Nov1.00",
         "Brazilian Cruzeir1.00",
-        "Brazilian Cruzeiro (1990-19931.00",
-        "Brazilian New Cruzeiro (1967-19861.00",
+        "Brazilian Cruzeiro (1990\\u201319931.00",
+        "Brazilian New Cruzeiro (1967\\u201319861.00",
         "Brazilian Rea1.00",
         "British Pound Sterlin1.00",
         "Brunei Dolla1.00",
@@ -5688,7 +5811,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Georgian Kupon Lari1.00",
         "Georgian Lar1.00",
         "Ghanaian Ced1.00",
-        "Ghanaian Cedi (1979-20071.00",
+        "Ghanaian Cedi (1979\\u201320071.00",
         "Gibraltar Poun1.00",
         "Gol1.00",
         "Greek Drachm1.00",
@@ -5794,7 +5917,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Mauritanian Ouguiy1.00",
         "Mauritian Rupe1.00",
         "Mexican Pes1.00",
-        "Mexican Silver Peso (1861-19921.00",
+        "Mexican Silver Peso (1861\\u201319921.00",
         "Mexican Investment Uni1.00",
         "Moldovan Le1.00",
         "Mongolian Tugri1.00",
@@ -5802,7 +5925,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Moroccan Fran1.00",
         "Mozambican Escud1.00",
         "Mozambican Metica1.00",
-        "Myanma Kya1.00",
+        "Myanmar Kya1.00",
         "N1.00",
         "NA1.00",
         "NAf1.00",
@@ -5819,7 +5942,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Dutch Guilde1.00",
         "Israeli New Sheqe1.00",
         "New Zealand Dolla1.00",
-        "Nicaraguan C\\u00f3rdoba (1988-19911.00",
+        "Nicaraguan C\\u00f3rdoba (1988\\u201319911.00",
         "Nicaraguan C\\u00f3rdob1.00",
         "Nigerian Nair1.00",
         "North Korean Wo1.00",
@@ -5827,11 +5950,11 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Nr1.00",
         "OM1.00",
         "Old Mozambican Metica1.00",
-        "Romanian Leu (1952-20061.00",
-        "Serbian Dinar (2002-20061.00",
-        "Sudanese Dinar (1992-20071.00",
-        "Sudanese Pound (1957-19981.00",
-        "Turkish Lira (1922-20051.00",
+        "Romanian Leu (1952\\u201320061.00",
+        "Serbian Dinar (2002\\u201320061.00",
+        "Sudanese Dinar (1992\\u201320071.00",
+        "Sudanese Pound (1957\\u201319981.00",
+        "Turkish Lira (1922\\u201320051.00",
         "Omani Ria1.00",
         "PA1.00",
         "PE1.00",
@@ -5847,12 +5970,12 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Papua New Guinean Kin1.00",
         "Paraguayan Guaran1.00",
         "Peruvian Int1.00",
-        "Peruvian Sol (1863-19651.00",
+        "Peruvian Sol (1863\\u201319651.00",
         "Peruvian Sol Nuev1.00",
         "Philippine Pes1.00",
         "Platinu1.00",
         "Polish Zlot1.00",
-        "Polish Zloty (1950-19951.00",
+        "Polish Zloty (1950\\u201319951.00",
         "Portuguese Escud1.00",
         "Portuguese Guinea Escud1.00",
         "Pr1.00",
@@ -5868,7 +5991,7 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Rhodesian Dolla1.00",
         "Romanian Le1.00",
         "Russian Rubl1.00",
-        "Russian Ruble (1991-19981.00",
+        "Russian Ruble (1991\\u201319981.00",
         "Rwandan Fran1.00",
         "S1.00",
         "SA1.00",
@@ -5951,14 +6074,14 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "UY1.00",
         "UZ1.00",
         "Ugandan Shillin1.00",
-        "Ugandan Shilling (1966-19871.00",
+        "Ugandan Shilling (1966\\u201319871.00",
         "Ukrainian Hryvni1.00",
         "Ukrainian Karbovanet1.00",
         "Colombian Real Value Uni1.00",
         "United Arab Emirates Dirha1.00",
         "Unknown Currenc1.00",
         "Ur1.00",
-        "Uruguay Peso (1975-19931.00",
+        "Uruguay Peso (1975\\u201319931.00",
         "Uruguay Peso Uruguay1.00",
         "Uruguay Peso (Indexed Units1.00",
         "Uzbekistan So1.00",
@@ -5991,17 +6114,17 @@ NumberFormatTest::TestParseCurrencyInUCurr() {
         "Yemeni Dina1.00",
         "Yemeni Ria1.00",
         "Yugoslavian Convertible Dina1.00",
-        "Yugoslavian Hard Dinar (1966-19901.00",
+        "Yugoslavian Hard Dinar (1966\\u201319901.00",
         "Yugoslavian New Dina1.00",
         "Z1.00",
         "ZA1.00",
         "ZM1.00",
         "ZR1.00",
         "ZW1.00",
-        "Zairean New Zaire (1993-19981.00",
+        "Zairean New Zaire (1993\\u201319981.00",
         "Zairean Zair1.00",
         "Zambian Kwach1.00",
-        "Zimbabwean Dollar (1980-20081.00",
+        "Zimbabwean Dollar (1980\\u201320081.00",
         "dra1.00",
         "lar1.00",
         "le1.00",
@@ -6692,6 +6815,815 @@ void NumberFormatTest::TestFormattableSize(void) {
     logln("sizeof(FmtStackData)=%d, UNUM_INTERNAL_STACKARRAY_SIZE=%d\n",
         sizeof(FmtStackData), UNUM_INTERNAL_STACKARRAY_SIZE);
   }
+}
+
+UBool NumberFormatTest::testFormattableAsUFormattable(const char *file, int line, Formattable &f) {
+  UnicodeString fileLine = UnicodeString(file)+UnicodeString(":")+line+UnicodeString(": ");
+
+  UFormattable *u = f.toUFormattable();
+  logln();
+  if (u == NULL) {
+    errln("%s:%d: Error: f.toUFormattable() retuned NULL.");
+    return FALSE;
+  }
+  logln("%s:%d: comparing Formattable with UFormattable", file, line);
+  logln(fileLine + toString(f));
+
+  UErrorCode status = U_ZERO_ERROR;
+  UErrorCode valueStatus = U_ZERO_ERROR;
+  UFormattableType expectUType = UFMT_COUNT; // invalid
+
+  UBool triedExact = FALSE; // did we attempt an exact comparison?
+  UBool exactMatch = FALSE; // was the exact comparison true?
+
+  switch( f.getType() ) {
+  case Formattable::kDate:
+    expectUType = UFMT_DATE;
+    exactMatch = (f.getDate()==ufmt_getDate(u, &valueStatus));
+    triedExact = TRUE;
+    break;
+  case Formattable::kDouble:
+    expectUType = UFMT_DOUBLE;
+    exactMatch = (f.getDouble()==ufmt_getDouble(u, &valueStatus));
+    triedExact = TRUE;
+    break;
+  case Formattable::kLong:
+    expectUType = UFMT_LONG;
+    exactMatch = (f.getLong()==ufmt_getLong(u, &valueStatus));
+    triedExact = TRUE;
+    break;
+  case Formattable::kString:
+    expectUType = UFMT_STRING;
+    {
+      UnicodeString str;
+      f.getString(str);
+      int32_t len;
+      const UChar* uch = ufmt_getUChars(u, &len, &valueStatus);
+      if(U_SUCCESS(valueStatus)) {
+        UnicodeString str2(uch, len);
+        assertTrue("UChar* NULL-terminated", uch[len]==0);
+        exactMatch = (str == str2);
+      }
+      triedExact = TRUE;
+    }
+    break;
+  case Formattable::kArray:
+    expectUType = UFMT_ARRAY;
+    triedExact = TRUE;
+    {
+      int32_t count = ufmt_getArrayLength(u, &valueStatus);
+      int32_t count2;
+      const Formattable *array2 = f.getArray(count2);
+      exactMatch = assertEquals(fileLine + " array count", count, count2);
+
+      if(exactMatch) {
+        for(int i=0;U_SUCCESS(valueStatus) && i<count;i++) {
+          UFormattable *uu = ufmt_getArrayItemByIndex(u, i, &valueStatus);
+          if(*Formattable::fromUFormattable(uu) != (array2[i])) {
+            errln("%s:%d: operator== did not match at index[%d] - %p vs %p", file, line, i,
+                  (const void*)Formattable::fromUFormattable(uu), (const void*)&(array2[i]));
+            exactMatch = FALSE;
+          } else {
+            if(!testFormattableAsUFormattable("(sub item)",i,*Formattable::fromUFormattable(uu))) {
+              exactMatch = FALSE;
+            }
+          }
+        }
+      }
+    }
+    break;
+  case Formattable::kInt64:
+    expectUType = UFMT_INT64;
+    exactMatch = (f.getInt64()==ufmt_getInt64(u, &valueStatus));
+    triedExact = TRUE;
+    break;
+  case Formattable::kObject:
+    expectUType = UFMT_OBJECT;
+    exactMatch = (f.getObject()==ufmt_getObject(u, &valueStatus));
+    triedExact = TRUE;
+    break;
+  }
+  UFormattableType uType = ufmt_getType(u, &status);
+
+  if(U_FAILURE(status)) {
+    errln("%s:%d: Error calling ufmt_getType - %s", file, line, u_errorName(status));
+    return FALSE;
+  }
+
+  if(uType != expectUType) {
+    errln("%s:%d: got type (%d) expected (%d) from ufmt_getType", file, line, (int) uType, (int) expectUType);
+  }
+
+  if(triedExact) {
+    if(U_FAILURE(valueStatus)) {
+      errln("%s:%d: got err %s trying to ufmt_get...() for exact match check", file, line, u_errorName(valueStatus));
+    } else if(!exactMatch) {
+     errln("%s:%d: failed exact match for the Formattable type", file, line);
+    } else {
+      logln("%s:%d: exact match OK", file, line);
+    }
+  } else {
+    logln("%s:%d: note, did not attempt exact match for this formattable type", file, line);
+  }
+
+  if( assertEquals(fileLine + " isNumeric()", f.isNumeric(), ufmt_isNumeric(u))
+      && f.isNumeric()) {
+    UErrorCode convStatus = U_ZERO_ERROR;
+
+    if(uType != UFMT_INT64) { // may fail to compare
+      assertTrue(fileLine + " as doubles ==", f.getDouble(convStatus)==ufmt_getDouble(u, &convStatus));
+    }
+
+    if( assertSuccess(fileLine + " (numeric conversion status)", convStatus) ) {
+      StringPiece fDecNum = f.getDecimalNumber(convStatus);
+#if 1
+      int32_t len;
+      const char *decNumChars = ufmt_getDecNumChars(u, &len, &convStatus);
+#else
+      // copy version
+      char decNumChars[200];
+      int32_t len = ufmt_getDecNumChars(u, decNumChars, 200, &convStatus);
+#endif
+
+      if( assertSuccess(fileLine + " (decNumbers conversion)", convStatus) ) {
+        logln(fileLine + decNumChars);
+        assertEquals(fileLine + " decNumChars length==", len, fDecNum.length());
+        assertEquals(fileLine + " decNumChars digits", decNumChars, fDecNum.data());
+      }
+
+      UErrorCode int64ConversionF = U_ZERO_ERROR;
+      int64_t l = f.getInt64(int64ConversionF);
+      UErrorCode int64ConversionU = U_ZERO_ERROR;
+      int64_t r = ufmt_getInt64(u, &int64ConversionU);
+
+      if( (l==r) 
+          && ( uType != UFMT_INT64 ) // int64 better not overflow
+          && (U_INVALID_FORMAT_ERROR==int64ConversionU) 
+          && (U_INVALID_FORMAT_ERROR==int64ConversionF) ) {
+        logln("%s:%d: OK: 64 bit overflow", file, line);
+      } else {
+        assertEquals(fileLine + " as int64 ==", l, r);
+        assertSuccess(fileLine + " Formattable.getnt64()", int64ConversionF);
+        assertSuccess(fileLine + " ufmt_getInt64()", int64ConversionU);
+      }
+    }
+  }
+  return exactMatch || !triedExact;
+}
+
+void NumberFormatTest::TestUFormattable(void) {
+  {
+    // test that a default formattable is equal to Formattable()
+    UErrorCode status = U_ZERO_ERROR;
+    LocalUFormattablePointer defaultUFormattable(ufmt_open(&status));
+    assertSuccess("calling umt_open", status);
+    Formattable defaultFormattable;
+    assertTrue((UnicodeString)"comparing ufmt_open() with Formattable()",
+               (defaultFormattable
+                == *(Formattable::fromUFormattable(defaultUFormattable.getAlias()))));
+    assertTrue((UnicodeString)"comparing ufmt_open() with Formattable()",
+               (defaultFormattable
+                == *(Formattable::fromUFormattable(defaultUFormattable.getAlias()))));
+    assertTrue((UnicodeString)"comparing Formattable() round tripped through UFormattable",
+               (defaultFormattable
+                == *(Formattable::fromUFormattable(defaultFormattable.toUFormattable()))));
+    assertTrue((UnicodeString)"comparing &Formattable() round tripped through UFormattable",
+               ((&defaultFormattable)
+                == Formattable::fromUFormattable(defaultFormattable.toUFormattable())));
+    assertFalse((UnicodeString)"comparing &Formattable() with ufmt_open()",
+               ((&defaultFormattable)
+                == Formattable::fromUFormattable(defaultUFormattable.getAlias())));
+    testFormattableAsUFormattable(__FILE__, __LINE__, defaultFormattable);
+  }
+  // test some random Formattables
+  {
+    Formattable f(ucal_getNow(), Formattable::kIsDate);
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    Formattable f((double)1.61803398874989484820); // golden ratio
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    Formattable f((int64_t)80994231587905127LL); // weight of the moon, in kilotons http://solarsystem.nasa.gov/planets/profile.cfm?Display=Facts&Object=Moon
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    Formattable f((int32_t)4); // random number, source: http://www.xkcd.com/221/
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    Formattable f("Hello world."); // should be invariant?
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    UErrorCode status2 = U_ZERO_ERROR;
+    Formattable f(StringPiece("73476730924573500000000.0"), status2); // weight of the moon, kg
+    assertSuccess("Constructing a StringPiece", status2);
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    UErrorCode status2 = U_ZERO_ERROR;
+    UObject *obj = new Locale();
+    Formattable f(obj);
+    assertSuccess("Constructing a Formattable from a default constructed Locale()", status2);
+    testFormattableAsUFormattable(__FILE__, __LINE__,  f);
+  }
+  {
+    const Formattable array[] = {
+      Formattable(ucal_getNow(), Formattable::kIsDate),
+      Formattable((int32_t)4),
+      Formattable((double)1.234),
+    };
+
+    Formattable fa(array, 3);
+    testFormattableAsUFormattable(__FILE__, __LINE__, fa);
+  }
+}
+
+void NumberFormatTest::TestSignificantDigits(void) {
+  double input[] = {
+        0, 0,
+        0.1, -0.1,
+        123, -123,
+        12345, -12345,
+        123.45, -123.45,
+        123.44501, -123.44501,
+        0.001234, -0.001234,
+        0.00000000123, -0.00000000123,
+        0.0000000000000000000123, -0.0000000000000000000123,
+        1.2, -1.2,
+        0.0000000012344501, -0.0000000012344501,
+        123445.01, -123445.01,
+        12344501000000000000000000000000000.0, -12344501000000000000000000000000000.0,
+    };
+    const char* expected[] = {
+        "0.00", "0.00",
+        "0.100", "-0.100",
+        "123", "-123",
+        "12345", "-12345",
+        "123.45", "-123.45",
+        "123.45", "-123.45",
+        "0.001234", "-0.001234",
+        "0.00000000123", "-0.00000000123",
+        "0.0000000000000000000123", "-0.0000000000000000000123",
+        "1.20", "-1.20",
+        "0.0000000012345", "-0.0000000012345",
+        "123450", "-123450",
+        "12345000000000000000000000000000000", "-12345000000000000000000000000000000",
+    };
+
+    UErrorCode status = U_ZERO_ERROR;
+    Locale locale("en_US");
+    LocalPointer<DecimalFormat> numberFormat(static_cast<DecimalFormat*>(
+            NumberFormat::createInstance(locale, status)));
+    CHECK_DATA(status,"NumberFormat::createInstance")
+
+    numberFormat->setSignificantDigitsUsed(TRUE);
+    numberFormat->setMinimumSignificantDigits(3);
+    numberFormat->setMaximumSignificantDigits(5);
+    numberFormat->setGroupingUsed(false);
+    
+    UnicodeString result;
+    UnicodeString expectedResult;
+    for (unsigned int i = 0; i < sizeof(input)/sizeof(double); ++i) {
+        numberFormat->format(input[i], result);
+        UnicodeString expectedResult(expected[i]);
+        if (result != expectedResult) {
+          errln((UnicodeString)"Expected: '" + expectedResult + "' got '" + result);
+        }
+        result.remove();
+    }
+}
+
+void NumberFormatTest::TestShowZero() {
+    UErrorCode status = U_ZERO_ERROR;
+    Locale locale("en_US");
+    LocalPointer<DecimalFormat> numberFormat(static_cast<DecimalFormat*>(
+            NumberFormat::createInstance(locale, status)));
+    CHECK_DATA(status, "NumberFormat::createInstance")
+
+    numberFormat->setSignificantDigitsUsed(TRUE);
+    numberFormat->setMaximumSignificantDigits(3);
+    
+    UnicodeString result;
+    numberFormat->format(0.0, result);
+    if (result != "0") {
+        errln((UnicodeString)"Expected: 0, got " + result);
+    }
+}
+
+void NumberFormatTest::TestBug9936() {
+    UErrorCode status = U_ZERO_ERROR;
+    Locale locale("en_US");
+    LocalPointer<DecimalFormat> numberFormat(static_cast<DecimalFormat*>(
+            NumberFormat::createInstance(locale, status)));
+    if (U_FAILURE(status)) {
+        dataerrln("File %s, Line %d: status = %s.\n", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+        
+    if (numberFormat->areSignificantDigitsUsed() == TRUE) {
+        errln("File %s, Line %d: areSignificantDigitsUsed() was TRUE, expected FALSE.\n", __FILE__, __LINE__);
+    }
+    numberFormat->setSignificantDigitsUsed(TRUE);
+    if (numberFormat->areSignificantDigitsUsed() == FALSE) {
+        errln("File %s, Line %d: areSignificantDigitsUsed() was FALSE, expected TRUE.\n", __FILE__, __LINE__);
+    }
+
+    numberFormat->setSignificantDigitsUsed(FALSE);
+    if (numberFormat->areSignificantDigitsUsed() == TRUE) {
+        errln("File %s, Line %d: areSignificantDigitsUsed() was TRUE, expected FALSE.\n", __FILE__, __LINE__);
+    }
+
+    numberFormat->setMinimumSignificantDigits(3);
+    if (numberFormat->areSignificantDigitsUsed() == FALSE) {
+        errln("File %s, Line %d: areSignificantDigitsUsed() was FALSE, expected TRUE.\n", __FILE__, __LINE__);
+    }
+
+    numberFormat->setSignificantDigitsUsed(FALSE);
+    numberFormat->setMaximumSignificantDigits(6);
+    if (numberFormat->areSignificantDigitsUsed() == FALSE) {
+        errln("File %s, Line %d: areSignificantDigitsUsed() was FALSE, expected TRUE.\n", __FILE__, __LINE__);
+    }
+ 
+}
+
+void NumberFormatTest::TestParseNegativeWithFaLocale() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormat *test = (DecimalFormat *) NumberFormat::createInstance("fa", status);
+    CHECK_DATA(status, "NumberFormat::createInstance")
+    test->setLenient(TRUE);
+    Formattable af;
+    ParsePosition ppos;
+    UnicodeString value("\\u200e-0,5");
+    value = value.unescape();
+    test->parse(value, af, ppos);
+    if (ppos.getIndex() == 0) {
+        errln("Expected -0,5 to parse for Farsi.");
+    }
+    delete test;
+}
+
+void NumberFormatTest::TestParseNegativeWithAlternateMinusSign() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormat *test = (DecimalFormat *) NumberFormat::createInstance("en", status);
+    CHECK_DATA(status, "NumberFormat::createInstance")
+    test->setLenient(TRUE);
+    Formattable af;
+    ParsePosition ppos;
+    UnicodeString value("\\u208B0.5");
+    value = value.unescape();
+    test->parse(value, af, ppos);
+    if (ppos.getIndex() == 0) {
+        errln(UnicodeString("Expected ") + value + UnicodeString(" to parse."));
+    }
+    delete test;
+}
+
+void NumberFormatTest::TestCustomCurrencySignAndSeparator() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormatSymbols custom(Locale::getUS(), status);
+    CHECK(status, "DecimalFormatSymbols constructor");
+
+    custom.setSymbol(DecimalFormatSymbols::kCurrencySymbol, "*");
+    custom.setSymbol(DecimalFormatSymbols::kMonetaryGroupingSeparatorSymbol, "^");
+    custom.setSymbol(DecimalFormatSymbols::kMonetarySeparatorSymbol, ":");
+
+    UnicodeString pat(" #,##0.00");
+    pat.insert(0, (UChar)0x00A4);
+
+    DecimalFormat fmt(pat, custom, status);
+    CHECK(status, "DecimalFormat constructor");
+
+    UnicodeString numstr("* 1^234:56");
+    expect2(fmt, (Formattable)((double)1234.56), numstr);
+}
+
+typedef struct {
+    const char *   locale;
+    UBool          lenient;
+    UnicodeString  numString;
+    double         value;
+} SignsAndMarksItem;
+
+
+void NumberFormatTest::TestParseSignsAndMarks() {
+    const SignsAndMarksItem items[] = {
+        // locale               lenient numString                                                       value
+        { "en",                 FALSE,  CharsToUnicodeString("12"),                                      12 },
+        { "en",                 TRUE,   CharsToUnicodeString("12"),                                      12 },
+        { "en",                 FALSE,  CharsToUnicodeString("-23"),                                    -23 },
+        { "en",                 TRUE,   CharsToUnicodeString("-23"),                                    -23 },
+        { "en",                 TRUE,   CharsToUnicodeString("- 23"),                                   -23 },
+        { "en",                 FALSE,  CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "en",                 TRUE,   CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "en",                 TRUE,   CharsToUnicodeString("\\u200E- 23"),                            -23 },
+
+        { "en@numbers=arab",    FALSE,  CharsToUnicodeString("\\u0663\\u0664"),                          34 },
+        { "en@numbers=arab",    TRUE,   CharsToUnicodeString("\\u0663\\u0664"),                          34 },
+        { "en@numbers=arab",    FALSE,  CharsToUnicodeString("-\\u0664\\u0665"),                        -45 },
+        { "en@numbers=arab",    TRUE,   CharsToUnicodeString("-\\u0664\\u0665"),                        -45 },
+        { "en@numbers=arab",    TRUE,   CharsToUnicodeString("- \\u0664\\u0665"),                       -45 },
+        { "en@numbers=arab",    FALSE,  CharsToUnicodeString("\\u200F-\\u0664\\u0665"),                 -45 },
+        { "en@numbers=arab",    TRUE,   CharsToUnicodeString("\\u200F-\\u0664\\u0665"),                 -45 },
+        { "en@numbers=arab",    TRUE,   CharsToUnicodeString("\\u200F- \\u0664\\u0665"),                -45 },
+
+        { "en@numbers=arabext", FALSE,  CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "en@numbers=arabext", TRUE,   CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "en@numbers=arabext", FALSE,  CharsToUnicodeString("-\\u06F6\\u06F7"),                        -67 },
+        { "en@numbers=arabext", TRUE,   CharsToUnicodeString("-\\u06F6\\u06F7"),                        -67 },
+        { "en@numbers=arabext", TRUE,   CharsToUnicodeString("- \\u06F6\\u06F7"),                       -67 },
+        { "en@numbers=arabext", FALSE,  CharsToUnicodeString("\\u200E-\\u200E\\u06F6\\u06F7"),          -67 },
+        { "en@numbers=arabext", TRUE,   CharsToUnicodeString("\\u200E-\\u200E\\u06F6\\u06F7"),          -67 },
+        { "en@numbers=arabext", TRUE,   CharsToUnicodeString("\\u200E-\\u200E \\u06F6\\u06F7"),         -67 },
+ 
+        { "he",                 FALSE,  CharsToUnicodeString("12"),                                      12 },
+        { "he",                 TRUE,   CharsToUnicodeString("12"),                                      12 },
+        { "he",                 FALSE,  CharsToUnicodeString("-23"),                                    -23 },
+        { "he",                 TRUE,   CharsToUnicodeString("-23"),                                    -23 },
+        { "he",                 TRUE,   CharsToUnicodeString("- 23"),                                   -23 },
+        { "he",                 FALSE,  CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "he",                 TRUE,   CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "he",                 TRUE,   CharsToUnicodeString("\\u200E- 23"),                            -23 },
+
+        { "ar",                 FALSE,  CharsToUnicodeString("\\u0663\\u0664"),                          34 },
+        { "ar",                 TRUE,   CharsToUnicodeString("\\u0663\\u0664"),                          34 },
+        { "ar",                 FALSE,  CharsToUnicodeString("-\\u0664\\u0665"),                        -45 },
+        { "ar",                 TRUE,   CharsToUnicodeString("-\\u0664\\u0665"),                        -45 },
+        { "ar",                 TRUE,   CharsToUnicodeString("- \\u0664\\u0665"),                       -45 },
+        { "ar",                 FALSE,  CharsToUnicodeString("\\u200F-\\u0664\\u0665"),                 -45 },
+        { "ar",                 TRUE,   CharsToUnicodeString("\\u200F-\\u0664\\u0665"),                 -45 },
+        { "ar",                 TRUE,   CharsToUnicodeString("\\u200F- \\u0664\\u0665"),                -45 },
+
+        { "ar_MA",              FALSE,  CharsToUnicodeString("12"),                                      12 },
+        { "ar_MA",              TRUE,   CharsToUnicodeString("12"),                                      12 },
+        { "ar_MA",              FALSE,  CharsToUnicodeString("-23"),                                    -23 },
+        { "ar_MA",              TRUE,   CharsToUnicodeString("-23"),                                    -23 },
+        { "ar_MA",              TRUE,   CharsToUnicodeString("- 23"),                                   -23 },
+        { "ar_MA",              FALSE,  CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "ar_MA",              TRUE,   CharsToUnicodeString("\\u200E-23"),                             -23 },
+        { "ar_MA",              TRUE,   CharsToUnicodeString("\\u200E- 23"),                            -23 },
+
+        { "fa",                 FALSE,  CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "fa",                 TRUE,   CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "fa",                 FALSE,  CharsToUnicodeString("\\u2212\\u06F6\\u06F7"),                  -67 },
+        { "fa",                 TRUE,   CharsToUnicodeString("\\u2212\\u06F6\\u06F7"),                  -67 },
+        { "fa",                 TRUE,   CharsToUnicodeString("\\u2212 \\u06F6\\u06F7"),                 -67 },
+        { "fa",                 FALSE,  CharsToUnicodeString("\\u200E\\u2212\\u200E\\u06F6\\u06F7"),    -67 },
+        { "fa",                 TRUE,   CharsToUnicodeString("\\u200E\\u2212\\u200E\\u06F6\\u06F7"),    -67 },
+        { "fa",                 TRUE,   CharsToUnicodeString("\\u200E\\u2212\\u200E \\u06F6\\u06F7"),   -67 },
+
+        { "ps",                 FALSE,  CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "ps",                 TRUE,   CharsToUnicodeString("\\u06F5\\u06F6"),                          56 },
+        { "ps",                 FALSE,  CharsToUnicodeString("-\\u06F6\\u06F7"),                        -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("-\\u06F6\\u06F7"),                        -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("- \\u06F6\\u06F7"),                       -67 },
+        { "ps",                 FALSE,  CharsToUnicodeString("\\u200E-\\u200E\\u06F6\\u06F7"),          -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("\\u200E-\\u200E\\u06F6\\u06F7"),          -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("\\u200E-\\u200E \\u06F6\\u06F7"),         -67 },
+        { "ps",                 FALSE,  CharsToUnicodeString("-\\u200E\\u06F6\\u06F7"),                 -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("-\\u200E\\u06F6\\u06F7"),                 -67 },
+        { "ps",                 TRUE,   CharsToUnicodeString("-\\u200E \\u06F6\\u06F7"),                -67 },
+        // terminator
+        { NULL,                 0,      UnicodeString(""),                                                0 },
+    };
+
+    const SignsAndMarksItem * itemPtr;
+    for (itemPtr = items; itemPtr->locale != NULL; itemPtr++ ) {
+        UErrorCode status = U_ZERO_ERROR;
+        NumberFormat *numfmt = NumberFormat::createInstance(Locale(itemPtr->locale), status);
+        if (U_SUCCESS(status)) {
+            numfmt->setLenient(itemPtr->lenient);
+            Formattable fmtobj;
+            ParsePosition ppos;
+            numfmt->parse(itemPtr->numString, fmtobj, ppos);
+            if (ppos.getIndex() == itemPtr->numString.length()) {
+                double parsedValue = fmtobj.getDouble(status);
+                if (U_FAILURE(status) || parsedValue != itemPtr->value) {
+                    errln((UnicodeString)"FAIL: locale " + itemPtr->locale + ", lenient " + itemPtr->lenient + ", parse of \"" + itemPtr->numString + "\" gives value " + parsedValue);
+                }
+            } else {
+                errln((UnicodeString)"FAIL: locale " + itemPtr->locale + ", lenient " + itemPtr->lenient + ", parse of \"" + itemPtr->numString + "\" gives position " + ppos.getIndex());
+            }
+        } else {
+            dataerrln("FAIL: NumberFormat::createInstance for locale % gives error %s", itemPtr->locale, u_errorName(status));
+        }
+        delete numfmt;
+    }
+}
+
+typedef struct {
+  DecimalFormat::ERoundingMode mode;
+  double value;
+  UnicodeString expected;
+} Test10419Data;
+
+
+// Tests that rounding works right when fractional digits is set to 0.
+void NumberFormatTest::Test10419RoundingWith0FractionDigits() {
+    const Test10419Data items[] = {
+        { DecimalFormat::kRoundCeiling, 1.488,  "2"},
+        { DecimalFormat::kRoundDown, 1.588,  "1"},
+        { DecimalFormat::kRoundFloor, 1.888,  "1"},
+        { DecimalFormat::kRoundHalfDown, 1.5,  "1"},
+        { DecimalFormat::kRoundHalfEven, 2.5,  "2"},
+        { DecimalFormat::kRoundHalfUp, 2.5,  "3"},
+        { DecimalFormat::kRoundUp, 1.5,  "2"},
+    };
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<DecimalFormat> decfmt((DecimalFormat *) NumberFormat::createInstance(Locale("en_US"), status));
+    if (U_FAILURE(status)) {
+        dataerrln("Failure creating DecimalFormat %s", u_errorName(status));
+        return;
+    }
+    for (int32_t i = 0; i < (int32_t) (sizeof(items) / sizeof(items[0])); ++i) {
+        decfmt->setRoundingMode(items[i].mode);
+        decfmt->setMaximumFractionDigits(0);
+        UnicodeString actual;
+        if (items[i].expected != decfmt->format(items[i].value, actual)) {
+            errln("Expected " + items[i].expected + ", got " + actual);
+        }
+    }
+}
+
+void NumberFormatTest::Test10468ApplyPattern() {
+    // Padding char of fmt is now 'a'
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormat fmt("'I''ll'*a###.##", status);
+
+    if (U_FAILURE(status)) {
+        errcheckln(status, "DecimalFormat constructor failed - %s", u_errorName(status));
+        return;
+    }
+
+    if (fmt.getPadCharacterString() != UnicodeString("a")) {
+        errln("Padding character should be 'a'.");
+        return;
+    }
+
+    // Padding char of fmt ought to be '*' since that is the default and no
+    // explicit padding char is specified in the new pattern.
+    fmt.applyPattern("AA#,##0.00ZZ", status);
+
+    // Oops this still prints 'a' even though we changed the pattern. 
+    if (fmt.getPadCharacterString() != UnicodeString("*")) {
+        errln("applyPattern did not clear padding character.");
+    }
+}
+
+void NumberFormatTest::TestRoundingScientific10542() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormat format("0.00E0", status);
+    if (U_FAILURE(status)) {
+        errcheckln(status, "DecimalFormat constructor failed - %s", u_errorName(status));
+        return;
+    }
+        
+    DecimalFormat::ERoundingMode roundingModes[] = {
+            DecimalFormat::kRoundCeiling,
+            DecimalFormat::kRoundDown,
+            DecimalFormat::kRoundFloor,
+            DecimalFormat::kRoundHalfDown,
+            DecimalFormat::kRoundHalfEven,
+            DecimalFormat::kRoundHalfUp,
+            DecimalFormat::kRoundUp};
+    const char *descriptions[] = {
+            "Round Ceiling",
+            "Round Down",
+            "Round Floor",
+            "Round half down",
+            "Round half even",
+            "Round half up",
+            "Round up"};
+        
+    {
+        double values[] = {-0.003006, -0.003005, -0.003004, 0.003014, 0.003015, 0.003016};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "-3.00E-3", "-3.00E-3", "-3.00E-3", "3.02E-3", "3.02E-3", "3.02E-3",
+                "-3.00E-3", "-3.00E-3", "-3.00E-3", "3.01E-3", "3.01E-3", "3.01E-3",
+                "-3.01E-3", "-3.01E-3", "-3.01E-3", "3.01E-3", "3.01E-3", "3.01E-3",
+                "-3.01E-3", "-3.00E-3", "-3.00E-3", "3.01E-3", "3.01E-3", "3.02E-3",
+                "-3.01E-3", "-3.00E-3", "-3.00E-3", "3.01E-3", "3.02E-3", "3.02E-3",
+                "-3.01E-3", "-3.01E-3", "-3.00E-3", "3.01E-3", "3.02E-3", "3.02E-3",
+                "-3.01E-3", "-3.01E-3", "-3.01E-3", "3.02E-3", "3.02E-3", "3.02E-3"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+    }
+    {
+        double values[] = {-3006.0, -3005, -3004, 3014, 3015, 3016};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "-3.00E3", "-3.00E3", "-3.00E3", "3.02E3", "3.02E3", "3.02E3",
+                "-3.00E3", "-3.00E3", "-3.00E3", "3.01E3", "3.01E3", "3.01E3",
+                "-3.01E3", "-3.01E3", "-3.01E3", "3.01E3", "3.01E3", "3.01E3",
+                "-3.01E3", "-3.00E3", "-3.00E3", "3.01E3", "3.01E3", "3.02E3",
+                "-3.01E3", "-3.00E3", "-3.00E3", "3.01E3", "3.02E3", "3.02E3",
+                "-3.01E3", "-3.01E3", "-3.00E3", "3.01E3", "3.02E3", "3.02E3",
+                "-3.01E3", "-3.01E3", "-3.01E3", "3.02E3", "3.02E3", "3.02E3"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+    }
+/* Commented out for now until we decide how rounding to zero should work, +0 vs. -0
+    {
+        double values[] = {0.0, -0.0};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0",
+                "0.00E0", "-0.00E0"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+    }
+*/
+    {
+
+        double values[] = {1e25, 1e25 + 1e15, 1e25 - 1e15};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "1.00E25", "1.01E25", "1.00E25",
+                "1.00E25", "1.00E25", "9.99E24",
+                "1.00E25", "1.00E25", "9.99E24",
+                "1.00E25", "1.00E25", "1.00E25",
+                "1.00E25", "1.00E25", "1.00E25",
+                "1.00E25", "1.00E25", "1.00E25",
+                "1.00E25", "1.01E25", "1.00E25"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+        }
+    {
+        double values[] = {-1e25, -1e25 + 1e15, -1e25 - 1e15};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "-1.00E25", "-9.99E24", "-1.00E25",
+                "-1.00E25", "-9.99E24", "-1.00E25",
+                "-1.00E25", "-1.00E25", "-1.01E25",
+                "-1.00E25", "-1.00E25", "-1.00E25",
+                "-1.00E25", "-1.00E25", "-1.00E25",
+                "-1.00E25", "-1.00E25", "-1.00E25",
+                "-1.00E25", "-1.00E25", "-1.01E25"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+        }
+    {
+        double values[] = {1e-25, 1e-25 + 1e-35, 1e-25 - 1e-35};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "1.00E-25", "1.01E-25", "1.00E-25",
+                "1.00E-25", "1.00E-25", "9.99E-26",
+                "1.00E-25", "1.00E-25", "9.99E-26",
+                "1.00E-25", "1.00E-25", "1.00E-25",
+                "1.00E-25", "1.00E-25", "1.00E-25",
+                "1.00E-25", "1.00E-25", "1.00E-25",
+                "1.00E-25", "1.01E-25", "1.00E-25"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+        }
+    {
+        double values[] = {-1e-25, -1e-25 + 1e-35, -1e-25 - 1e-35};
+        // The order of these expected values correspond to the order of roundingModes and the order of values.
+        const char *expected[] = {
+                "-1.00E-25", "-9.99E-26", "-1.00E-25",
+                "-1.00E-25", "-9.99E-26", "-1.00E-25",
+                "-1.00E-25", "-1.00E-25", "-1.01E-25",
+                "-1.00E-25", "-1.00E-25", "-1.00E-25",
+                "-1.00E-25", "-1.00E-25", "-1.00E-25",
+                "-1.00E-25", "-1.00E-25", "-1.00E-25",
+                "-1.00E-25", "-1.00E-25", "-1.01E-25"};
+        verifyRounding(
+                format,
+                values,
+                expected,
+                roundingModes,
+                descriptions,
+                (int32_t) (sizeof(values) / sizeof(values[0])),
+                (int32_t) (sizeof(roundingModes) / sizeof(roundingModes[0])));
+    }
+}
+
+void NumberFormatTest::TestZeroScientific10547() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormat fmt("0.00E0", status);
+    if (!assertSuccess("Formt creation", status)) {
+        return;
+    }
+    UnicodeString out;
+    fmt.format(-0.0, out);
+    assertEquals("format", "-0.00E0", out);
+}
+
+void NumberFormatTest::verifyRounding(
+        DecimalFormat& format,
+        const double *values,
+        const char * const *expected,
+        const DecimalFormat::ERoundingMode *roundingModes,
+        const char * const *descriptions,
+        int32_t valueSize,
+        int32_t roundingModeSize) {
+    for (int32_t i = 0; i < roundingModeSize; ++i) {
+        format.setRoundingMode(roundingModes[i]);
+        for (int32_t j = 0; j < valueSize; j++) {
+            UnicodeString currentExpected(expected[i * valueSize + j]);
+            currentExpected = currentExpected.unescape();
+            UnicodeString actual;
+            format.format(values[j], actual);
+            if (currentExpected != actual) {
+                char buffer[256];
+                sprintf(
+                        buffer,
+                        "For %s value %f, expected ",
+                        descriptions[i],
+                        values[j]);
+                errln(UnicodeString(buffer) + currentExpected + ", got " + actual);
+            }
+        }
+    }
+}
+
+void NumberFormatTest::TestAccountingCurrency() {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormatStyle style = UNUM_CURRENCY_ACCOUNTING;
+
+    expect(NumberFormat::createInstance("en_US", style, status),
+        (Formattable)1234.5, "$1,234.50", TRUE, status);
+    expect(NumberFormat::createInstance("en_US", style, status),
+        (Formattable)-1234.5, "($1,234.50)", TRUE, status);
+    expect(NumberFormat::createInstance("en_US", style, status),
+        (Formattable)0, "$0.00", TRUE, status);
+    expect(NumberFormat::createInstance("en_US", style, status),
+        (Formattable)-0.2, "($0.20)", TRUE, status);
+    expect(NumberFormat::createInstance("ja_JP", style, status),
+        (Formattable)10000, UnicodeString("\\u00A510,000").unescape(), TRUE, status);
+    expect(NumberFormat::createInstance("ja_JP", style, status),
+        (Formattable)-1000.5, UnicodeString("(\\u00A51,000)").unescape(), FALSE, status);
+    expect(NumberFormat::createInstance("de_DE", style, status),
+        (Formattable)-23456.7, UnicodeString("-23.456,70\\u00A0\\u20AC").unescape(), TRUE, status);
+}
+
+// for #5186
+void NumberFormatTest::TestEquality() {
+    UErrorCode status = U_ZERO_ERROR;
+    DecimalFormatSymbols* symbols = new DecimalFormatSymbols(Locale("root"), status);
+    if (U_FAILURE(status)) {
+    	dataerrln("Fail: can't create DecimalFormatSymbols for root");
+    	return;
+    }
+    UnicodeString pattern("#,##0.###");
+    DecimalFormat* fmtBase = new DecimalFormat(pattern, symbols, status);
+    if (U_FAILURE(status)) {
+    	dataerrln("Fail: can't create DecimalFormat using root symbols");
+    	return;
+    }
+
+    DecimalFormat* fmtClone = (DecimalFormat*)fmtBase->clone();
+    fmtClone->setFormatWidth(fmtBase->getFormatWidth() + 32);
+    if (*fmtClone == *fmtBase) {
+        errln("Error: DecimalFormat == does not distinguish objects that differ only in FormatWidth");
+    }
+    delete fmtClone;
+
+    delete fmtBase;
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

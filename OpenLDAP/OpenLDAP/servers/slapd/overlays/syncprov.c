@@ -1395,8 +1395,10 @@ syncprov_op_cleanup( Operation *op, SlapReply *rs )
 	mt = opc->smt;
 	if ( mt ) {
 		ldap_pvt_thread_mutex_lock( &mt->mt_mutex );
-		mt->mt_mods = mt->mt_mods->mi_next;
 		/* If there are more, promote the next one */
+		if ( mt->mt_mods ) {
+			mt->mt_mods = mt->mt_mods->mi_next;
+		}
 		if ( mt->mt_mods ) {
 			ldap_pvt_thread_mutex_unlock( &mt->mt_mutex );
 		} else {
@@ -2079,6 +2081,7 @@ syncprov_op_mod( Operation *op, SlapReply *rs )
 
 		mi = (modinst *)(opc+1);
 		mi->mi_op = op;
+		mi->mi_next = NULL;
 
 		/* See if we're already modifying this entry... */
 		mtdummy.mt_dn = op->o_req_ndn;
@@ -2099,8 +2102,16 @@ syncprov_op_mod( Operation *op, SlapReply *rs )
 			mt->mt_tail->mi_next = mi;
 			mt->mt_tail = mi;
 			/* wait for this op to get to head of list */
-			while ( mt->mt_mods != mi ) {
+			while ( mt->mt_mods && mt->mt_mods != mi ) {
+				modinst *m2;
+				// If our op is no longer in the queue for any reason, allow
+				// the op to continue, rather than spinning here forever.
+				for ( m2 = mt->mt_mods; m2 && m2 != mi;
+						m2 = m2->mi_next );
+				if(!m2) break;
+
 				ldap_pvt_thread_mutex_unlock( &mt->mt_mutex );
+
 				/* FIXME: if dynamic config can delete overlays or
 				 * databases we'll have to check for cleanup here.
 				 * Currently it's not an issue because there are
@@ -2116,11 +2127,32 @@ syncprov_op_mod( Operation *op, SlapReply *rs )
 				/* clean up if the caller is giving up */
 				if ( op->o_abandon ) {
 					modinst *m2;
+					// Here, the abandoned op can be anywhere in the queue.
+					// op_cleanup will always dequeue the head of the queue,
+					// so if we call that and the abandoned op isn't the
+					// head, we will dequeue an op still in flight.
+
+					// Dequeue our op regardless of where it is in the queue.
 					for ( m2 = mt->mt_mods; m2 && m2->mi_next != mi;
 						m2 = m2->mi_next );
 					if ( m2 ) {
 						m2->mi_next = mi->mi_next;
-						if ( mt->mt_tail == mi ) mt->mt_tail = m2;
+						if(mt->mt_tail == mi) mt->mt_tail = m2;
+					}
+					if(mt->mt_mods == mi) {
+						mt->mt_mods = mt->mt_mods->mi_next;
+					}
+
+					if(mt->mt_mods) {
+						ldap_pvt_thread_mutex_unlock( &mt->mt_mutex );
+					} else {
+						ldap_pvt_thread_mutex_unlock( &mt->mt_mutex );
+						ldap_pvt_thread_mutex_lock( &si->si_mods_mutex );
+						avl_delete( &si->si_mods, mt, sp_avl_cmp );
+						ldap_pvt_thread_mutex_unlock( &si->si_mods_mutex );
+						ldap_pvt_thread_mutex_destroy( &mt->mt_mutex );
+						ch_free(mt->mt_dn.bv_val);
+						ch_free(mt);
 					}
 					
 					ldap_pvt_thread_mutex_lock( &si->si_ops_mutex );
@@ -2130,7 +2162,6 @@ syncprov_op_mod( Operation *op, SlapReply *rs )
 					si->si_active--; /* remove from active mods tally */
 					ldap_pvt_thread_mutex_unlock( &si->si_ops_mutex );
 					
-					ldap_pvt_thread_mutex_unlock( &mt->mt_mutex );
 					return SLAPD_ABANDON;
 				}
 			}

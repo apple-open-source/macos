@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,6 +26,7 @@
 #ifndef OpaqueJSString_h
 #define OpaqueJSString_h
 
+#include <atomic>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -35,8 +36,7 @@ namespace JSC {
 }
 
 struct OpaqueJSString : public ThreadSafeRefCounted<OpaqueJSString> {
-
-    static PassRefPtr<OpaqueJSString> create() // null
+    static PassRefPtr<OpaqueJSString> create()
     {
         return adoptRef(new OpaqueJSString);
     }
@@ -53,38 +53,50 @@ struct OpaqueJSString : public ThreadSafeRefCounted<OpaqueJSString> {
 
     JS_EXPORT_PRIVATE static PassRefPtr<OpaqueJSString> create(const String&);
 
-    const UChar* characters() { return !!this ? m_string.characters() : 0; }
-    unsigned length() { return !!this ? m_string.length() : 0; }
+    JS_EXPORT_PRIVATE ~OpaqueJSString();
+
+    bool is8Bit() { return this ? m_string.is8Bit() : false; }
+    const LChar* characters8() { return this ? m_string.characters8() : nullptr; }
+    const UChar* characters16() { return this ? m_string.characters16() : nullptr; }
+    unsigned length() { return this ? m_string.length() : 0; }
+
+    const UChar* characters();
 
     JS_EXPORT_PRIVATE String string() const;
     JSC::Identifier identifier(JSC::VM*) const;
-#if PLATFORM(QT)
-    QString qString() const { return m_string; }
-#endif
+
+    static bool equal(const OpaqueJSString*, const OpaqueJSString*);
 
 private:
     friend class WTF::ThreadSafeRefCounted<OpaqueJSString>;
 
     OpaqueJSString()
+        : m_characters(nullptr)
     {
     }
 
     OpaqueJSString(const String& string)
         : m_string(string.isolatedCopy())
+        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.characters16()))
     {
     }
 
     OpaqueJSString(const LChar* characters, unsigned length)
+        : m_string(characters, length)
+        , m_characters(nullptr)
     {
-        m_string = String(characters, length);
     }
 
     OpaqueJSString(const UChar* characters, unsigned length)
+        : m_string(characters, length)
+        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.characters16()))
     {
-        m_string = String(characters, length);
     }
 
     String m_string;
+
+    // This will be initialized on demand when characters() is called if the string needs up-conversion.
+    std::atomic<UChar*> m_characters;
 };
 
 #endif

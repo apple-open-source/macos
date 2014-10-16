@@ -1,0 +1,79 @@
+# test handling of expired root, per 3300879
+#
+# This uses two certs we got from store.apple.com and an old expired root 
+# which verifies them.
+#
+# The leaf cert is going to expire on April 1 2007; the intermediate cert is
+# going to expire on Oct 24, 2011. To replace them just grab new certs from
+# store.apple.com, or any other site with a cert chain originating with 
+# Verisign's Class 3 Public Primary Certification Authority. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+#
+# Simulate pre-3300879 failure, expired root in anchors
+#
+test = test1
+echo Expired root as anchor
+#cert = iproj_v3.100.cer
+#cert = iproj_v3.101.cer
+cert = applestore_v3.100.cer
+cert = applestore_v3.101.cer
+root = iproj_v3.102.cer
+sslHost = store.apple.com
+error = CSSMERR_TP_CERT_EXPIRED
+# EXPIRED  IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x19
+end
+#
+# Simulate pre-3300879 failure, expired root not in anchors
+#
+test = test2
+echo Expired root not in (empty) anchors
+cert = applestore_v3.100.cer
+cert = applestore_v3.101.cer
+cert = iproj_v3.102.cer
+sslHost = store.apple.com
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+# EXPIRED  IS_IN_INPUT_CERTS  IS_ROOT
+certstatus = 2:0x15
+end
+#
+# Ensure that this expired root successfully verifies the chain
+#
+test = test3
+echo Expired root passed as anchor, explicitly allowing expired root
+cert = applestore_v3.100.cer
+cert = applestore_v3.101.cer
+root = iproj_v3.102.cer
+allowExpiredRoot = true
+sslHost = store.apple.com
+end
+
+#
+test = test4
+echo Expired root in input chain, should be ignored in favor of system anchor
+useSystemAnchors = true
+cert = applestore_v3.100.cer
+cert = applestore_v3.101.cer
+cert = iproj_v3.102.cer
+sslHost = store.apple.com
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+test = test5
+echo Expired root in input chain, should be ignored in favor of system anchor, Trust Settings
+useSystemAnchors = true
+useTrustSettings = true
+cert = applestore_v3.100.cer
+cert = applestore_v3.101.cer
+cert = iproj_v3.102.cer
+sslHost = store.apple.com
+# IS_ROOT  TRUST_SETTINGS_FOUND_SYSTEM  TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end

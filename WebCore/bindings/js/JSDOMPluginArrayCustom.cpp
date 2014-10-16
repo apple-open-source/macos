@@ -21,6 +21,7 @@
 #include "JSDOMPluginArray.h"
 
 #include "DOMPluginArray.h"
+#include "JSDOMBinding.h"
 #include "JSDOMPlugin.h"
 #include <wtf/text/AtomicString.h>
 
@@ -33,10 +34,10 @@ bool JSDOMPluginArray::canGetItemsForName(ExecState*, DOMPluginArray* pluginArra
     return pluginArray->canGetItemsForName(propertyNameToAtomicString(propertyName));
 }
 
-JSValue JSDOMPluginArray::nameGetter(ExecState* exec, JSValue slotBase, PropertyName propertyName)
+EncodedJSValue JSDOMPluginArray::nameGetter(ExecState* exec, JSObject* slotBase, EncodedJSValue, PropertyName propertyName)
 {
-    JSDOMPluginArray* thisObj = jsCast<JSDOMPluginArray*>(asObject(slotBase));
-    return toJS(exec, thisObj->globalObject(), thisObj->impl()->namedItem(propertyNameToAtomicString(propertyName)));
+    JSDOMPluginArray* thisObj = jsCast<JSDOMPluginArray*>(slotBase);
+    return JSValue::encode(toJS(exec, thisObj->globalObject(), thisObj->impl().namedItem(propertyNameToAtomicString(propertyName))));
 }
 
 } // namespace WebCore

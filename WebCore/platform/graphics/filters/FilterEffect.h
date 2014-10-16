@@ -27,17 +27,16 @@
 #include "FloatRect.h"
 #include "IntRect.h"
 
-#include <wtf/PassOwnPtr.h>
+#include <runtime/Uint8ClampedArray.h>
+
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-#include <wtf/Uint8ClampedArray.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(OPENCL)
 #include "FilterContextOpenCL.h"
 #endif
 
-static const float kMaxFilterSize = 5000.0f;
 
 namespace WebCore {
 
@@ -46,7 +45,7 @@ class FilterEffect;
 class ImageBuffer;
 class TextStream;
 
-typedef Vector<RefPtr<FilterEffect> > FilterEffectVector;
+typedef Vector<RefPtr<FilterEffect>> FilterEffectVector;
 
 enum FilterEffectType {
     FilterEffectTypeUnknown,
@@ -58,6 +57,9 @@ enum FilterEffectType {
 class FilterEffect : public RefCounted<FilterEffect> {
 public:
     virtual ~FilterEffect();
+
+    static bool isFilterSizeValid(const FloatRect&);
+    static float maxFilterArea();
 
     void clearResult();
     void clearResultsRecursive();
@@ -89,7 +91,7 @@ public:
             || m_premultipliedImageResult;
     }
 
-    IntRect drawingRegionOfInputImage(const IntRect&) const;
+    FloatRect drawingRegionOfInputImage(const IntRect&) const;
     IntRect requestedRegionOfInputImageData(const IntRect&) const;
 
     // Solid black image with different alpha values.
@@ -147,7 +149,7 @@ public:
     FloatRect effectBoundaries() const { return m_effectBoundaries; }
     void setEffectBoundaries(const FloatRect& effectBoundaries) { m_effectBoundaries = effectBoundaries; }
 
-    Filter* filter() { return m_filter; }
+    Filter& filter() { ASSERT(m_filter); return *m_filter; }
 
     bool clipsToBounds() const { return m_clipsToBounds; }
     void setClipsToBounds(bool value) { m_clipsToBounds = value; }
@@ -178,7 +180,7 @@ protected:
     void forceValidPreMultipliedPixels();
 
 private:
-    OwnPtr<ImageBuffer> m_imageBufferResult;
+    std::unique_ptr<ImageBuffer> m_imageBufferResult;
     RefPtr<Uint8ClampedArray> m_unmultipliedImageResult;
     RefPtr<Uint8ClampedArray> m_premultipliedImageResult;
     FilterEffectVector m_inputEffects;

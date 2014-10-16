@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1997-2013, International Business Machines
+ *   Copyright (C) 1997-2014, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  *
@@ -251,8 +251,10 @@ typedef enum UScriptCode {
       USCRIPT_PHAGS_PA                      = 90, /* Phag */
       /** @stable ICU 3.6 */
       USCRIPT_PHOENICIAN                    = 91, /* Phnx */
+      /** @stable ICU 52 */
+      USCRIPT_MIAO                          = 92, /* Plrd */
       /** @stable ICU 3.6 */
-      USCRIPT_PHONETIC_POLLARD              = 92, /* Plrd */
+      USCRIPT_PHONETIC_POLLARD              = USCRIPT_MIAO,
       /** @stable ICU 3.6 */
       USCRIPT_RONGORONGO                    = 93, /* Roro */
       /** @stable ICU 3.6 */
@@ -396,10 +398,15 @@ typedef enum UScriptCode {
       /** @stable ICU 49 */
       USCRIPT_TIRHUTA                       = 158,/* Tirh */
 
+      /** @stable ICU 52 */
+      USCRIPT_CAUCASIAN_ALBANIAN            = 159,/* Aghb */
+      /** @stable ICU 52 */
+      USCRIPT_MAHAJANI                      = 160,/* Mahj */
+
       /* Private use codes from Qaaa - Qabx are not supported */
 
       /** @stable ICU 2.2 */
-      USCRIPT_CODE_LIMIT    = 159
+      USCRIPT_CODE_LIMIT    = 161
 } UScriptCode;
 
 /**
@@ -510,27 +517,25 @@ uscript_getScriptExtensions(UChar32 c,
                             UScriptCode *scripts, int32_t capacity,
                             UErrorCode *errorCode);
 
-#ifndef U_HIDE_DRAFT_API
-
 /**
  * Script usage constants.
  * See UAX #31 Unicode Identifier and Pattern Syntax.
  * http://www.unicode.org/reports/tr31/#Table_Candidate_Characters_for_Exclusion_from_Identifiers
  *
- * @draft ICU 51
+ * @stable ICU 51
  */
 typedef enum UScriptUsage {
-    /** Not encoded in Unicode. @draft ICU 51 */
+    /** Not encoded in Unicode. @stable ICU 51 */
     USCRIPT_USAGE_NOT_ENCODED,
-    /** Unknown script usage. @draft ICU 51 */
+    /** Unknown script usage. @stable ICU 51 */
     USCRIPT_USAGE_UNKNOWN,
-    /** Candidate for Exclusion from Identifiers. @draft ICU 51 */
+    /** Candidate for Exclusion from Identifiers. @stable ICU 51 */
     USCRIPT_USAGE_EXCLUDED,
-    /** Limited Use script. @draft ICU 51 */
+    /** Limited Use script. @stable ICU 51 */
     USCRIPT_USAGE_LIMITED_USE,
-    /** Aspirational Use script. @draft ICU 51 */
+    /** Aspirational Use script. @stable ICU 51 */
     USCRIPT_USAGE_ASPIRATIONAL,
-    /** Recommended script. @draft ICU 51 */
+    /** Recommended script. @stable ICU 51 */
     USCRIPT_USAGE_RECOMMENDED
 } UScriptUsage;
 
@@ -544,9 +549,9 @@ typedef enum UScriptUsage {
  * @param capacity number of UChars in the dest array
  * @param pErrorCode standard ICU in/out error code, must pass U_SUCCESS() on input
  * @return the string length, even if U_BUFFER_OVERFLOW_ERROR
- * @draft ICU 51
+ * @stable ICU 51
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 uscript_getSampleString(UScriptCode script, UChar *dest, int32_t capacity, UErrorCode *pErrorCode);
 
 #if U_SHOW_CPLUSPLUS_API
@@ -562,7 +567,7 @@ U_NAMESPACE_END
  *
  * @param script script code
  * @return the sample character string
- * @draft ICU 51
+ * @stable ICU 51
  */
 U_COMMON_API icu::UnicodeString U_EXPORT2
 uscript_getSampleUnicodeString(UScriptCode script);
@@ -576,9 +581,9 @@ uscript_getSampleUnicodeString(UScriptCode script);
  * @param script script code
  * @return script usage
  * @see UScriptUsage
- * @draft ICU 51
+ * @stable ICU 51
  */
-U_DRAFT UScriptUsage U_EXPORT2
+U_STABLE UScriptUsage U_EXPORT2
 uscript_getUsage(UScriptCode script);
 
 /**
@@ -587,9 +592,9 @@ uscript_getUsage(UScriptCode script);
  *
  * @param script script code
  * @return TRUE if the script is right-to-left
- * @draft ICU 51
+ * @stable ICU 51
  */
-U_DRAFT UBool U_EXPORT2
+U_STABLE UBool U_EXPORT2
 uscript_isRightToLeft(UScriptCode script);
 
 /**
@@ -599,9 +604,9 @@ uscript_isRightToLeft(UScriptCode script);
  *
  * @param script script code
  * @return TRUE if the script allows line breaks between letters
- * @draft ICU 51
+ * @stable ICU 51
  */
-U_DRAFT UBool U_EXPORT2
+U_STABLE UBool U_EXPORT2
 uscript_breaksBetweenLetters(UScriptCode script);
 
 /**
@@ -610,11 +615,9 @@ uscript_breaksBetweenLetters(UScriptCode script);
  *
  * @param script script code
  * @return TRUE if the script is cased
- * @draft ICU 51
+ * @stable ICU 51
  */
-U_DRAFT UBool U_EXPORT2
+U_STABLE UBool U_EXPORT2
 uscript_isCased(UScriptCode script);
-
-#endif  /* U_HIDE_DRAFT_API */
 
 #endif

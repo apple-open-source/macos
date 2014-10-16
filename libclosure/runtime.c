@@ -16,15 +16,15 @@
 #include <dlfcn.h>
 #if TARGET_IPHONE_SIMULATOR
 // workaround: 10682842
-#define osx_assumes(_x) (_x)
-#define osx_assert(_x) if (!(_x)) abort()
+#define os_assumes(_x) (_x)
+#define os_assert(_x) if (!(_x)) abort()
 #else
-#include <assumes.h>
-#ifndef osx_assumes
-#define osx_assumes(_x) os_assumes(_x)
+#include <os/assumes.h>
+#ifndef os_assumes
+#define os_assumes(_x) os_assumes(_x)
 #endif
-#ifndef osx_assert
-#define osx_assert(_x) os_assert(_x)
+#ifndef os_assert
+#define os_assert(_x) os_assert(_x)
 #endif
 #endif
 
@@ -465,7 +465,7 @@ static void _Block_byref_release(const void *arg) {
         return; // stack or GC or global
     }
     refcount = byref->flags & BLOCK_REFCOUNT_MASK;
-	osx_assert(refcount);
+	os_assert(refcount);
     if (latching_decr_int_should_deallocate(&byref->flags)) {
         if (byref->flags & BLOCK_BYREF_HAS_COPY_DISPOSE) {
             struct Block_byref_2 *byref2 = (struct Block_byref_2 *)(byref+1);
@@ -646,7 +646,7 @@ So the __block copy/dispose helpers will generate flag values of 3 or 7 for obje
 // to do the assignment.
 //
 void _Block_object_assign(void *destAddr, const void *object, const int flags) {
-    switch (osx_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
+    switch (os_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
       case BLOCK_FIELD_IS_OBJECT:
         /*******
         id object = ...;
@@ -712,7 +712,7 @@ void _Block_object_assign(void *destAddr, const void *object, const int flags) {
 // to help dispose of the contents
 // Used initially only for __attribute__((NSObject)) marked pointers.
 void _Block_object_dispose(const void *object, const int flags) {
-    switch (osx_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
+    switch (os_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
       case BLOCK_FIELD_IS_BYREF | BLOCK_FIELD_IS_WEAK:
       case BLOCK_FIELD_IS_BYREF:
         // get rid of the __block data structure held in a Block

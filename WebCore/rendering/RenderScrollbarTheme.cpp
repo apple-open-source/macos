@@ -33,7 +33,7 @@ namespace WebCore {
 
 RenderScrollbarTheme* RenderScrollbarTheme::renderScrollbarTheme()
 {
-    DEFINE_STATIC_LOCAL(RenderScrollbarTheme, theme, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(RenderScrollbarTheme, theme, ());
     return &theme;
 }
 
@@ -105,6 +105,25 @@ IntRect RenderScrollbarTheme::constrainTrackRectToTrackPieces(ScrollbarThemeClie
         result.setHeight(forwardRect.maxY() - backRect.y());
     }
     return result;
+}
+
+void RenderScrollbarTheme::willPaintScrollbar(GraphicsContext* context, ScrollbarThemeClient* scrollbar)
+{
+    float opacity = toRenderScrollbar(scrollbar)->opacity();
+    if (opacity != 1) {
+        context->save();
+        context->clip(scrollbar->frameRect());
+        context->beginTransparencyLayer(opacity);
+    }
+}
+
+void RenderScrollbarTheme::didPaintScrollbar(GraphicsContext* context, ScrollbarThemeClient* scrollbar)
+{
+    float opacity = toRenderScrollbar(scrollbar)->opacity();
+    if (opacity != 1) {
+        context->endTransparencyLayer();
+        context->restore();
+    }
 }
 
 void RenderScrollbarTheme::paintScrollCorner(ScrollView*, GraphicsContext* context, const IntRect& cornerRect)

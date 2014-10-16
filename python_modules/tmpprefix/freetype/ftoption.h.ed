@@ -1,3 +1,2 @@
-/^#define FT_CONFIG_OPTION_OLD_INTERNALS/s/define/undef/
 /^#undef TT_CONFIG_OPTION_COMPONENT_OFFSET_SCALED/s/undef/define/
 w

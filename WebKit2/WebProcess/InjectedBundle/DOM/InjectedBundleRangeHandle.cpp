@@ -30,6 +30,7 @@
 #include <WebCore/JSRange.h>
 #include <WebCore/Range.h>
 #include <wtf/HashMap.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -39,7 +40,7 @@ typedef HashMap<Range*, InjectedBundleRangeHandle*> DOMHandleCache;
 
 static DOMHandleCache& domHandleCache()
 {
-    DEFINE_STATIC_LOCAL(DOMHandleCache, cache, ());
+    static NeverDestroyed<DOMHandleCache> cache;
     return cache;
 }
 
@@ -54,7 +55,7 @@ PassRefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(Ran
     if (!range)
         return 0;
 
-    DOMHandleCache::AddResult result = domHandleCache().add(range, 0);
+    DOMHandleCache::AddResult result = domHandleCache().add(range, nullptr);
     if (!result.isNewEntry)
         return PassRefPtr<InjectedBundleRangeHandle>(result.iterator->value);
 

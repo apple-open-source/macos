@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2008, 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -137,6 +137,91 @@ _IOObjectRelease(io_object_t object)
 	}
 	return dyfunc ? dyfunc(object) : KERN_FAILURE;
 }
+
+
+#if	!TARGET_OS_IPHONE
+
+__private_extern__ IOReturn
+_IOPMConnectionAcknowledgeEvent(IOPMConnection myConnection, IOPMConnectionMessageToken token)
+{
+	#undef IOPMConnectionAcknowledgeEvent
+	static typeof (IOPMConnectionAcknowledgeEvent) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionAcknowledgeEvent");
+		}
+	return dyfunc ? dyfunc(myConnection, token) : kIOReturnError;
+}
+
+
+__private_extern__ IOReturn
+_IOPMConnectionCreate(CFStringRef myName, IOPMCapabilityBits interests, IOPMConnection *newConnection)
+{
+	#undef IOPMConnectionCreate
+	static typeof (IOPMConnectionCreate) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionCreate");
+	}
+	return dyfunc ? dyfunc(myName, interests, newConnection) : kIOReturnError;
+}
+
+
+__private_extern__ IOPMCapabilityBits
+_IOPMConnectionGetSystemCapabilities(void)
+{
+	#undef IOPMConnectionGetSystemCapabilities
+	static typeof (IOPMConnectionGetSystemCapabilities) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionGetSystemCapabilities");
+	}
+	return dyfunc ? dyfunc() : kIOPMSleepWakeInterest;
+}
+
+
+__private_extern__ IOReturn
+_IOPMConnectionRelease(IOPMConnection myConnection)
+{
+	#undef IOPMConnectionRelease
+	static typeof (IOPMConnectionRelease) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionRelease");
+	}
+	return dyfunc ? dyfunc(myConnection) : kIOReturnError;
+}
+
+
+__private_extern__ void
+_IOPMConnectionSetDispatchQueue(IOPMConnection myConnection, dispatch_queue_t myQueue)
+{
+	#undef IOPMConnectionSetDispatchQueue
+	static typeof (IOPMConnectionSetDispatchQueue) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionSetDispatchQueue");
+	}
+	if (dyfunc) {
+		dyfunc(myConnection, myQueue);
+	}
+	return;
+}
+
+
+__private_extern__ IOReturn
+_IOPMConnectionSetNotification(IOPMConnection myConnection, void *param, IOPMEventHandlerType handler)
+{
+	#undef IOPMConnectionSetNotification
+	static typeof (IOPMConnectionSetNotification) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = dlsym(image, "IOPMConnectionSetNotification");
+	}
+	return dyfunc ? dyfunc(myConnection, param, handler) : kIOReturnError;
+}
+
+#endif	// !TARGET_OS_IPHONE
 
 
 __private_extern__ CFTypeRef
@@ -416,18 +501,6 @@ _SecKeychainCopyDomainDefault(SecPreferencesDomain domain, SecKeychainRef *keych
 }
 
 __private_extern__ OSStatus
-_SecKeychainGetPreferenceDomain(SecPreferencesDomain *domain)
-{
-	#undef SecKeychainGetPreferenceDomain
-	static typeof (SecKeychainGetPreferenceDomain) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SecKeychainGetPreferenceDomain");
-	}
-	return dyfunc ? dyfunc(domain) : -1;
-}
-
-__private_extern__ OSStatus
 _SecKeychainOpen(const char *pathName, SecKeychainRef *keychain)
 {
 	#undef SecKeychainOpen
@@ -449,18 +522,6 @@ _SecKeychainSetDomainDefault(SecPreferencesDomain domain, SecKeychainRef keychai
 		if (image) dyfunc = dlsym(image, "SecKeychainSetDomainDefault");
 	}
 	return dyfunc ? dyfunc(domain, keychain) : -1;
-}
-
-__private_extern__ OSStatus
-_SecKeychainSetPreferenceDomain(SecPreferencesDomain domain)
-{
-	#undef SecKeychainSetPreferenceDomain
-	static typeof (SecKeychainSetPreferenceDomain) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SecKeychainSetPreferenceDomain");
-	}
-	return dyfunc ? dyfunc(domain) : -1;
 }
 
 __private_extern__ OSStatus
@@ -566,5 +627,8 @@ _SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
 	}
 	return dyfunc ? dyfunc(allocator, data) : NULL;
 }
+
+
+
 
 

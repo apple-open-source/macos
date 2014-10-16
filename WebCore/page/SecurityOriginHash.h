@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,7 +29,7 @@
 #ifndef SecurityOriginHash_h
 #define SecurityOriginHash_h
 
-#include "KURL.h"
+#include "URL.h"
 #include "SecurityOrigin.h"
 #include <wtf/RefPtr.h>
 
@@ -52,13 +52,9 @@ struct SecurityOriginHash {
 
     static bool equal(SecurityOrigin* a, SecurityOrigin* b)
     {
-        // FIXME: The hash function above compares three specific fields.
-        // This code to compare those three specific fields should be moved here from
-        // SecurityOrigin as mentioned in SecurityOrigin.h so we don't accidentally change
-        // equal without changing hash to match it.
         if (!a || !b)
             return a == b;
-        return a->equal(b);
+        return a->isSameSchemeHostPort(b);
     }
     static bool equal(SecurityOrigin* a, const RefPtr<SecurityOrigin>& b)
     {
@@ -81,7 +77,7 @@ struct SecurityOriginHash {
 namespace WTF {
     template<typename> struct DefaultHash;
 
-    template<> struct DefaultHash<RefPtr<WebCore::SecurityOrigin> > {
+    template<> struct DefaultHash<RefPtr<WebCore::SecurityOrigin>> {
         typedef WebCore::SecurityOriginHash Hash;
     };
 

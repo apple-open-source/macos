@@ -66,6 +66,7 @@ char*
 kdc_log_msg_va(krb5_context context,
 	       krb5_kdc_configuration *config,
 	       int level, const char *fmt, va_list ap)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
 {
     char *msg;
     krb5_vlog_msg(context, config->logf, &msg, level, fmt, ap);
@@ -76,6 +77,7 @@ char*
 kdc_log_msg(krb5_context context,
 	    krb5_kdc_configuration *config,
 	    int level, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     va_list ap;
     char *s;
@@ -89,6 +91,7 @@ void
 kdc_log(krb5_context context,
 	krb5_kdc_configuration *config,
 	int level, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     va_list ap;
     char *s;

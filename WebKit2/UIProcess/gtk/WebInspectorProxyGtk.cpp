@@ -2,6 +2,7 @@
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  * Copyright (C) 2012 Igalia S.L.
+ * Copyright (C) 2013 Gustavo Noronha Silva <gns@gnome.org>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,22 +38,11 @@
 #include <WebCore/NotImplemented.h>
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
-
-static const char* inspectorFilesBasePath()
-{
-    const gchar* environmentPath = g_getenv("WEBKIT_INSPECTOR_PATH");
-    if (environmentPath && g_file_test(environmentPath, G_FILE_TEST_IS_DIR))
-        return environmentPath;
-
-    static const char* inspectorFilesPath = DATA_DIR G_DIR_SEPARATOR_S "webkitgtk-" WEBKITGTK_API_VERSION_STRING
-        G_DIR_SEPARATOR_S "webinspector" G_DIR_SEPARATOR_S;
-    return inspectorFilesPath;
-}
 
 static void inspectorViewDestroyed(GtkWidget*, gpointer userData)
 {
@@ -63,7 +53,7 @@ static void inspectorViewDestroyed(GtkWidget*, gpointer userData)
     inspectorProxy->close();
 }
 
-void WebInspectorProxy::initializeInspectorClientGtk(const WKInspectorClientGtk* inspectorClient)
+void WebInspectorProxy::initializeInspectorClientGtk(const WKInspectorClientGtkBase* inspectorClient)
 {
     m_client.initialize(inspectorClient);
 }
@@ -72,7 +62,7 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
 {
     ASSERT(m_page);
     ASSERT(!m_inspectorView);
-    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(page()->process()->context(), inspectorPageGroup()));
+    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(&page()->process().context(), inspectorPageGroup(), nullptr, m_page));
     g_object_add_weak_pointer(G_OBJECT(m_inspectorView), reinterpret_cast<void**>(&m_inspectorView));
     return webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_inspectorView));
 }
@@ -154,21 +144,23 @@ void WebInspectorProxy::platformInspectedURLChanged(const String& url)
 
     if (!m_inspectorWindow)
         return;
-    GOwnPtr<gchar> title(g_strdup_printf("%s - %s", _("Web Inspector"), url.utf8().data()));
+    GUniquePtr<gchar> title(g_strdup_printf("%s - %s", _("Web Inspector"), url.utf8().data()));
     gtk_window_set_title(GTK_WINDOW(m_inspectorWindow), title.get());
 }
 
 String WebInspectorProxy::inspectorPageURL() const
 {
-    GOwnPtr<gchar> filePath(g_build_filename(inspectorFilesBasePath(), "inspector.html", NULL));
-    GOwnPtr<gchar> fileURI(g_filename_to_uri(filePath.get(), 0, 0));
-    return WebCore::filenameToString(fileURI.get());
+    return String("resource:///org/webkitgtk/inspector/UserInterface/Main.html");
+}
+
+String WebInspectorProxy::inspectorTestPageURL() const
+{
+    return String("resource:///org/webkitgtk/inspector/UserInterface/Test.html");
 }
 
 String WebInspectorProxy::inspectorBaseURL() const
 {
-    GOwnPtr<gchar> fileURI(g_filename_to_uri(inspectorFilesBasePath(), 0, 0));
-    return WebCore::filenameToString(fileURI.get());
+    return String("resource:///org/webkitgtk/inspector/UserInterface/");
 }
 
 unsigned WebInspectorProxy::platformInspectedWindowHeight()
@@ -190,15 +182,20 @@ void WebInspectorProxy::platformAttach()
         m_inspectorWindow = 0;
     }
 
-    // Set a default attached height based on InspectorFrontendClientLocal.
-    static const unsigned defaultAttachedHeight = 300;
-    unsigned maximumAttachedHeight = platformInspectedWindowHeight() * 3 / 4;
-    platformSetAttachedWindowHeight(std::max(minimumAttachedHeight, std::min(defaultAttachedHeight, maximumAttachedHeight)));
+    // Set a default attached size based on InspectorFrontendClientLocal.
+    static const unsigned defaultAttachedSize = 300;
+    if (m_attachmentSide == AttachmentSideBottom) {
+        unsigned maximumAttachedHeight = platformInspectedWindowHeight() * 3 / 4;
+        platformSetAttachedWindowHeight(std::max(minimumAttachedHeight, std::min(defaultAttachedSize, maximumAttachedHeight)));
+    } else {
+        unsigned maximumAttachedWidth = platformInspectedWindowWidth() * 3 / 4;
+        platformSetAttachedWindowWidth(std::max(minimumAttachedWidth, std::min(defaultAttachedSize, maximumAttachedWidth)));
+    }
 
     if (m_client.attach(this))
         return;
 
-    webkitWebViewBaseAddWebInspector(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), m_inspectorView);
+    webkitWebViewBaseAddWebInspector(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), m_inspectorView, m_attachmentSide);
     gtk_widget_show(m_inspectorView);
 }
 
@@ -226,12 +223,16 @@ void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned height)
         return;
 
     m_client.didChangeAttachedHeight(this, height);
-    webkitWebViewBaseSetInspectorViewHeight(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), height);
+    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), height);
 }
 
-void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned)
+void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
 {
-    notImplemented();
+    if (!m_isAttached)
+        return;
+
+    m_client.didChangeAttachedWidth(this, width);
+    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), width);
 }
 
 void WebInspectorProxy::platformSetToolbarHeight(unsigned)
@@ -239,7 +240,7 @@ void WebInspectorProxy::platformSetToolbarHeight(unsigned)
     notImplemented();
 }
 
-void WebInspectorProxy::platformSave(const String&, const String&, bool)
+void WebInspectorProxy::platformSave(const String&, const String&, bool, bool)
 {
     notImplemented();
 }

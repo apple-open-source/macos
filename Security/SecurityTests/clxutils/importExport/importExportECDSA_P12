@@ -1,0 +1,84 @@
+#! /bin/csh -f
+#
+# Run ECDSA/PKCS12 import/export tests.
+#
+# Run this from SecurityTests/clxutils/importExport. The 
+# kcImport and kcExport programs must exist in the location
+# specified by the LOCAL_BUILD_DIR env var.
+#
+# For this test we do the following for each of 3 PFX files created
+# by openssl and obtained from:
+#
+#     http://dev.experimentalstuff.com:8082/pkcs12/
+#
+# The three PFX files contain root certs and the keys that signed them.
+#
+# unlock and clear the keychain;
+# import the P12;
+# export the imported private key in the clear;
+# export the cert;
+# extract the public key from the cert;
+# sign using exported private key;
+# verify using the public key;
+#
+
+source setupCommon
+
+set ECDSA_SUBTOOL=./importExportECDSA_P12_Tool
+
+# user specified variables
+set QUIET=NO
+set QUIET_ARG=
+set NOCLEAN=NO
+set CLEAN=YES
+
+# user options
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+			set QUIET_ARG=-q
+            shift
+            breaksw
+		case N:
+			set CLEAN=NO
+            shift
+            breaksw
+        default:
+            echo Usage: importExportECDSA_P12 \[q\(uiet\)\] \[N\(oClean\)\]
+            exit(1)
+    endsw
+end
+
+echo === Begin ECDSA/PKCS12 test ===
+
+# always unlock first
+set cmd="$SECURITY unlock -p $KEYCHAIN_PWD $KEYCHAIN"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSA_SUBTOOL secp256r1ca.p12 $CLEAN $QUIET"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSA_SUBTOOL secp384r1ca.p12 $CLEAN $QUIET"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSA_SUBTOOL secp521r1ca.p12 $CLEAN $QUIET"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo === ECDSA/PKCS12 test complete ===
+endif
+

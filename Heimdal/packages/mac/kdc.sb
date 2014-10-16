@@ -60,7 +60,6 @@
        (subpath "/Library/Frameworks"))
 
 (allow file-write*
-       (literal "/dev/random")
        (literal "/private/var/log/krb5kdc/kdc.log")
        (literal "/private/var/run/kdc.pid"))
 

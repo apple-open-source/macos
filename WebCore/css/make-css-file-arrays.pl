@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-#  Copyright (C) 2006 Apple Computer, Inc.
+#  Copyright (C) 2006 Apple Inc.
 #
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
@@ -46,18 +46,8 @@ for my $in (@ARGV) {
 
     # Slurp in the CSS file.
     my $text;
-    # We should not set --defines option and run "moc" preprocessor on Qt.
-    # See http://webkit.org/b/37296.
-    if (!$defines) {
-        open IN, "<", $in or die;
-        { local $/; $text = <IN>; }
-        close IN;
-        # Remove preprocessor directives.
-        $text =~ s|^#.*?$||mg;
-    } else {
-        require preprocessor;
-        $text = join('', applyPreprocessor($in, $defines, $preprocessor));
-    }
+    require preprocessor;
+    $text = join('', applyPreprocessor($in, $defines, $preprocessor));
 
     # Remove comments in a simple-minded way that will work fine for our files.
     # Could do this a fancier way if we were worried about arbitrary CSS source.

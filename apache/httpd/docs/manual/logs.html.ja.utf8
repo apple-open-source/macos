@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="./">バージョン 2.2</a></div><div id="page-content"><div id="preamble"><h1>ログファイル</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="./">バージョン 2.4</a></div><div id="page-content"><div id="preamble"><h1>ログファイル</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="./en/logs.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/logs.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -78,7 +78,7 @@
     ところです。間違いの詳細や修正方法がそこに書かれていることが
     よくあります。</p>
 
-    <p>エラーログは普通はファイルに書かれます (通常 unix システムでは
+    <p>エラーログは普通はファイルに書かれます (通常 Unix システムでは
     <code>error_log</code>、Windows と OS/2 では <code>error.log</code>)。
     Unix システムではエラーを <code>syslog</code> や
     <a href="#piped">パイプでプログラムに送る</a> ことができます。</p>
@@ -230,7 +230,7 @@
 	環境変数として与えられます。リクエストのステータスコード
 	(以下を参照) が 401 であった場合は、ユーザは認証に失敗しているので、
 	この値は信用できません。ドキュメントがパスワードで保護されていない
-	場合は、このエントリは前のものと同じように "<code>-</code>" に
+	場合は、この部分は前のものと同じように "<code>-</code>" に
 	なります。</dd>
 
 	<dt><code>[10/Oct/2000:13:55:36 -0700]</code>
@@ -280,7 +280,7 @@
 
 	<dt><code>2326</code> (<code>%b</code>)</dt>
 
-	<dd>この最後のエントリはクライアントに送信されたオブジェクトの、
+	<dd>この最後の部分はクライアントに送信されたオブジェクトの、
 	応答ヘッダを除いたサイズを表します。コンテントがクライアントに送られなかった
 	場合は、この値は "<code>-</code>" になります。コンテントが無い場合に
 	"<code>0</code>" をログ収集するには、<code>%b</code> ではなく
@@ -579,7 +579,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/logs.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/logs.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -594,7 +594,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/logs.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

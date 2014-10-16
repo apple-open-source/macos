@@ -153,7 +153,8 @@ test_one_int(int val)
 static int
 test_integer_more (void)
 {
-    int i, n1, n2, n3, n4, n5, n6;
+    int n1, n2, n3, n4, n5, n6;
+    size_t i;
 
     n2 = 0;
     for (i = 0; i < (sizeof(int) * 8); i++) {
@@ -919,7 +920,8 @@ test_heim_oid_format(void)
 static int
 check_trailing_nul(void)
 {
-    int i, ret;
+    int ret;
+    size_t i;
     struct {
 	int fail;
 	const unsigned char *p;
@@ -943,15 +945,15 @@ check_trailing_nul(void)
 	ret = der_get_general_string(foo[i].p, foo[i].len, &s, &size);
 	if (foo[i].fail) {
 	    if (ret == 0)
-		errx(1, "check %d NULL didn't fail", i);
+		errx(1, "check %d NULL didn't fail", (int)i);
 	    continue;
 	}
 	if (ret)
-	    errx(1, "NULL check %d der_get_general_string failed", i);
+	    errx(1, "NULL check %d der_get_general_string failed", (int)i);
 	if (foo[i].size != size)
-	    errx(1, "NUL check i = %d size failed", i);
+	    errx(1, "NUL check i = %d size failed", (int)i);
 	if (strcmp(foo[i].s, s) != 0)
-	    errx(1, "NUL check i = %d content failed", i);
+	    errx(1, "NUL check i = %d content failed", (int)i);
 	free(s);
     }
     return 0;
@@ -1049,11 +1051,11 @@ corner_tag(void)
 	{ 0, "\xff", 1 },
 	{ 0, "\xff\xff\xff\xff\xff\xff\xff\xff", 8 }
     };
-    int i, ret;
+    int ret;
     Der_class cl;
     Der_type ty;
     unsigned int tag;
-    size_t size;
+    size_t size, i;
 
     for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
 	ret = der_get_tag((const unsigned char*)tests[i].ptr,

@@ -1,1 +1,0 @@
-DEFAULT_ARCHFLAGS = -arch x86_64

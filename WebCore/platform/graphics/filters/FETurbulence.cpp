@@ -28,12 +28,11 @@
 #include "FETurbulence.h"
 
 #include "Filter.h"
-#include "RenderTreeAsText.h"
 #include "TextStream.h"
 
+#include <runtime/Uint8ClampedArray.h>
 #include <wtf/MathExtras.h>
 #include <wtf/ParallelJobs.h>
-#include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -344,7 +343,7 @@ inline void FETurbulence::fillRegion(Uint8ClampedArray* pixelArray, PaintingData
         for (int x = 0; x < filterRegion.width(); ++x) {
             point.setX(point.x() + 1);
             for (channel = 0; channel < 4; ++channel, ++indexOfPixelChannel)
-                pixelArray->set(indexOfPixelChannel, calculateTurbulenceValueForPoint(channel, paintingData, stitchData, filter()->mapAbsolutePointToLocalPoint(point)));
+                pixelArray->set(indexOfPixelChannel, calculateTurbulenceValueForPoint(channel, paintingData, stitchData, filter().mapAbsolutePointToLocalPoint(point)));
         }
     }
 }

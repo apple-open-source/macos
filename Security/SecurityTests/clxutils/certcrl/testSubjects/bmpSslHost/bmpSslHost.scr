@@ -1,0 +1,19 @@
+#
+# test an SSL server certs with UNICODE-encoded commonName.
+# certs obtained from https://stone.tees.ac.uk
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+end
+test = stone.
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+verifyTime = 20061201000000
+# common name has wildcard *.tees.ac.uk
+sslHost = stone.tees.ac.uk
+end
+

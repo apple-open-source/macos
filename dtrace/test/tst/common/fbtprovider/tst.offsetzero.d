@@ -36,20 +36,6 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-#if !defined(__APPLE__)
-fbt::ioctl:entry
-{
-	printf("Entering the ioctl function\n");
-	printf("The few arguments are %u %u %u %u\n", arg0, arg1, arg2, arg3);
-	exit(0);
-}
-
-fbt::ioctl:return
-{
-	printf("Returning from ioctl function\n");
-	printf("The few arguments are %u %u %u %u\n", arg0, arg1, arg2, arg3);
-}
-#else
 fbt::sigprocmask:entry
 {
 	printf("Entering the sigprocmask function\n");
@@ -62,4 +48,3 @@ fbt::sigprocmask:return
 	printf("Returning from sigprocmask function\n");
 	printf("The few arguments are %u %u %u %u\n", arg0, arg1, arg2, arg3);
 }
-#endif /* __APPLE__ */

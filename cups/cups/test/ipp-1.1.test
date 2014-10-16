@@ -1,5 +1,5 @@
 #
-# "$Id: ipp-1.1.test 11433 2013-11-20 18:57:44Z msweet $"
+# "$Id: ipp-1.1.test 11468 2013-12-18 20:31:42Z msweet $"
 #
 #   IPP/1.1 test suite.
 #
@@ -2346,5 +2346,5 @@ DEFINE IPP_URI_SCHEME "/^ipps?://.+$$/"
 
 
 #
-# End of "$Id: ipp-1.1.test 11433 2013-11-20 18:57:44Z msweet $".
+# End of "$Id: ipp-1.1.test 11468 2013-12-18 20:31:42Z msweet $".
 #

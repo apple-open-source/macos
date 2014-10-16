@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_server_step "10 July 2001" SASL "SASL man pages"
+.TH sasl_server_step 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_server_step \- Perform a step in the authentication negotiation
 
@@ -58,7 +58,7 @@ sasl_server_step \- Perform a step in the authentication negotiation
 
 .B sasl_server_step()
 performs a step in the authentication negotiation. It returns SASL_OK
-if the whole negotiation is sucessful and SASL_CONTINUE if this step
+if the whole negotiation is successful and SASL_CONTINUE if this step
 is ok but at least one more step is needed.
 
 .PP
@@ -79,12 +79,12 @@ are set by the library and should be sent to the client.
 .SH "RETURN VALUE"
 
 sasl_server_step returns an integer which corresponds to one of the
-SASL error codes. SASL_CONTINUE indicates sucess and that there are
+SASL error codes. SASL_CONTINUE indicates success and that there are
 more steps needed in the authentication. SASL_OK indicates that the
 authentication is complete. All other return codes indicate errors and
 should either be handled or the authentication session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_server_init(3), sasl_server_new(3), sasl_server_start(3)

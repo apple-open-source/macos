@@ -29,7 +29,6 @@
 extern int		bootp_socket;
 extern int		debug;
 extern bool		dhcp_ignore_client_identifier;
-extern bool		detect_other_dhcp_server;
 extern int		quiet;
 extern unsigned short	server_priority;
 extern uint32_t		reply_threshold_seconds;

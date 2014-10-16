@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2009, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2009, 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -333,7 +333,7 @@ _dns_resolver_add_search(dns_create_resolver_t *_resolver, const char *search)
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
 	resolver->resolver.n_search = htonl(ntohl(resolver->resolver.n_search) + 1);
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SEARCH, strlen(search) + 1, (void *)search);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SEARCH, (uint32_t)strlen(search) + 1, (void *)search);
 	return;
 }
 
@@ -345,7 +345,7 @@ _dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sor
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
 	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, sizeof(dns_sortaddr_t), (void *)sortaddr);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, (uint32_t)sizeof(dns_sortaddr_t), (void *)sortaddr);
 	return;
 }
 
@@ -354,7 +354,7 @@ __private_extern__
 void
 _dns_resolver_set_domain(dns_create_resolver_t *_resolver, const char *domain)
 {
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_DOMAIN, strlen(domain) + 1, (void *)domain);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_DOMAIN, (uint32_t)strlen(domain) + 1, (void *)domain);
 	return;
 }
 
@@ -385,7 +385,7 @@ __private_extern__
 void
 _dns_resolver_set_options(dns_create_resolver_t *_resolver, const char *options)
 {
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_OPTIONS, strlen(options) + 1, (void *)options);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_OPTIONS, (uint32_t)strlen(options) + 1, (void *)options);
 	return;
 }
 

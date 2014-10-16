@@ -325,7 +325,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.5.2;
+				MODULE_VERSION = 2.5.3;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
@@ -359,7 +359,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.5.2;
+				MODULE_VERSION = 2.5.3;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
@@ -390,7 +390,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.5.2;
+				MODULE_VERSION = 2.5.3;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
@@ -419,7 +419,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.5.2;
+				MODULE_VERSION = 2.5.3;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;

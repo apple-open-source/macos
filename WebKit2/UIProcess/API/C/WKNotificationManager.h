@@ -27,14 +27,14 @@
 #define WKNotificationManager_h
 
 #include "WKNotificationProvider.h"
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 WK_EXPORT WKTypeID WKNotificationManagerGetTypeID();
-WK_EXPORT void WKNotificationManagerSetProvider(WKNotificationManagerRef managerRef, const WKNotificationProvider* wkProvider);
+WK_EXPORT void WKNotificationManagerSetProvider(WKNotificationManagerRef managerRef, const WKNotificationProviderBase* wkProvider);
 
 WK_EXPORT void WKNotificationManagerProviderDidShowNotification(WKNotificationManagerRef managerRef, uint64_t notificationID);
 WK_EXPORT void WKNotificationManagerProviderDidClickNotification(WKNotificationManagerRef managerRef, uint64_t notificationID);

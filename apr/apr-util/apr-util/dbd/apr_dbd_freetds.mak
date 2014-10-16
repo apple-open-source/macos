@@ -105,7 +105,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbd_freetds.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X86 /opt:ref 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF60000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X86 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_freetds.obj" \
 	"$(INTDIR)\apr_dbd_freetds-1.res" \
@@ -208,7 +208,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbd_freetds.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X86 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF60000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X86 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_freetds.obj" \
 	"$(INTDIR)\apr_dbd_freetds-1.res" \
@@ -311,7 +311,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbd_freetds.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X64 /opt:ref 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF60000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X64 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_freetds.obj" \
 	"$(INTDIR)\apr_dbd_freetds-1.res" \
@@ -414,7 +414,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\apr_dbd_freetds.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X64 
+LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib libTDS.lib /nologo /base:"0x6EF60000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_freetds-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_freetds-1.dll" /implib:"$(OUTDIR)\apr_dbd_freetds-1.lib" /MACHINE:X64 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_freetds.obj" \
 	"$(INTDIR)\apr_dbd_freetds-1.res" \
@@ -563,28 +563,28 @@ SOURCE=..\libaprutil.rc
 
 
 "$(INTDIR)\apr_dbd_freetds-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_freetds" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_freetds" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_freetds - Win32 Debug"
 
 
 "$(INTDIR)\apr_dbd_freetds-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_freetds" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_freetds" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_freetds - x64 Release"
 
 
 "$(INTDIR)\apr_dbd_freetds-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_freetds" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_freetds" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_freetds - x64 Debug"
 
 
 "$(INTDIR)\apr_dbd_freetds-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_freetds" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_freetds-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_freetds" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

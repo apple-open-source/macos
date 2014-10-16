@@ -26,7 +26,7 @@
 #define InspectorClientWinCE_h
 
 #include "InspectorClient.h"
-#include "InspectorFrontendChannel.h"
+#include "InspectorForwarding.h"
 
 class WebView;
 
@@ -37,21 +37,16 @@ public:
     explicit InspectorClientWinCE(WebView*);
     ~InspectorClientWinCE();
 
-    virtual void inspectorDestroyed();
+    virtual void inspectorDestroyed() override;
 
-    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*);
-    virtual void closeInspectorFrontend();
-    virtual void bringFrontendToFront();
+    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) override;
+    virtual void closeInspectorFrontend() override;
+    virtual void bringFrontendToFront() override;
 
-    virtual void highlight();
-    virtual void hideHighlight();
+    virtual void highlight() override;
+    virtual void hideHighlight() override;
 
-    virtual void populateSetting(const WTF::String& key, WTF::String* value);
-    virtual void storeSetting(const WTF::String& key, const WTF::String& value);
-
-    virtual bool sendMessageToFrontend(const WTF::String&);
-
-    void releaseFrontendPage();
+    virtual bool sendMessageToFrontend(const WTF::String&) override;
 
 private:
     WebView* m_inspectedWebView;

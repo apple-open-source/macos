@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2012, International Business Machines
+ *   Copyright (C) 2005-2013, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -274,6 +274,45 @@ void CharsetDetectionTest::ConstructionTest()
 #ifdef DEBUG_DETECT
         printf("%s\n", name);
 #endif
+    }
+
+    const char* defDisabled[] = {
+        "IBM420_rtl", "IBM420_ltr",
+        "IBM424_rtl", "IBM424_ltr",
+        0
+    };
+
+    LocalUEnumerationPointer eActive(ucsdet_getDetectableCharsets(csd.getAlias(), status));
+    const char *activeName = NULL;
+
+    while ((activeName = uenum_next(eActive.getAlias(), NULL, status))) {
+        // the charset must be included in all list
+        UBool found = FALSE;
+
+        const char *name = NULL;
+        uenum_reset(e.getAlias(), status);
+        while ((name = uenum_next(e.getAlias(), NULL, status))) {
+            if (strcmp(activeName, name) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+
+        if (!found) {
+            errln(UnicodeString(activeName) + " is not included in the all charset list.");
+        }
+
+        // some charsets are disabled by default
+        found = FALSE;
+        for (int32_t i = 0; defDisabled[i] != 0; i++) {
+            if (strcmp(activeName, defDisabled[i]) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+        if (found) {
+            errln(UnicodeString(activeName) + " should not be included in the default charset list.");
+        }
     }
 }
 
@@ -597,6 +636,10 @@ void CharsetDetectionTest::IBM424Test()
     char *bytes_r = extractBytes(s2, "IBM424", brLength);
     
     UCharsetDetector *csd = ucsdet_open(&status);
+	ucsdet_setDetectableCharset(csd, "IBM424_rtl", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM424_ltr", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM420_rtl", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM420_ltr", TRUE, &status);
     if (U_FAILURE(status)) {
         errln("Error opening charset detector. - %s", u_errorName(status));
     }
@@ -684,6 +727,10 @@ void CharsetDetectionTest::IBM420Test()
     if (U_FAILURE(status)) {
         errln("Error opening charset detector. - %s", u_errorName(status));
     }
+	ucsdet_setDetectableCharset(csd, "IBM424_rtl", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM424_ltr", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM420_rtl", TRUE, &status);
+	ucsdet_setDetectableCharset(csd, "IBM420_ltr", TRUE, &status);
     const UCharsetMatch *match;
     const char *name;
 
@@ -767,7 +814,7 @@ void CharsetDetectionTest::Ticket6394Test() {
 //               similar Windows and non-Windows SBCS encodings. State was kept in the shared
 //               Charset Recognizer objects, and could be overwritten.
 void CharsetDetectionTest::Ticket6954Test() {
-#if !UCONFIG_NO_CONVERSION
+#if !UCONFIG_NO_CONVERSION && !UCONFIG_NO_FORMATTING
     UErrorCode status = U_ZERO_ERROR;
     UnicodeString sISO = "This is a small sample of some English text. Just enough to be sure that it detects correctly.";
     UnicodeString ssWindows("This is another small sample of some English text. Just enough to be sure that it detects correctly."

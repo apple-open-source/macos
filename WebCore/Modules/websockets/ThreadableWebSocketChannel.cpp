@@ -39,12 +39,12 @@
 #include "ThreadableWebSocketChannelClientWrapper.h"
 #include "WebSocketChannel.h"
 #include "WebSocketChannelClient.h"
-#include "WorkerContext.h"
+#include "WorkerGlobalScope.h"
 #include "WorkerRunLoop.h"
 #include "WorkerThread.h"
 #include "WorkerThreadableWebSocketChannel.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -55,15 +55,14 @@ PassRefPtr<ThreadableWebSocketChannel> ThreadableWebSocketChannel::create(Script
     ASSERT(context);
     ASSERT(client);
 
-#if ENABLE(WORKERS)
-    if (context->isWorkerContext()) {
-        WorkerContext* workerContext = static_cast<WorkerContext*>(context);
-        WorkerRunLoop& runLoop = workerContext->thread()->runLoop();
-        String mode = webSocketChannelMode;
-        mode.append(String::number(runLoop.createUniqueId()));
-        return WorkerThreadableWebSocketChannel::create(workerContext, client, mode);
+    if (context->isWorkerGlobalScope()) {
+        WorkerGlobalScope* workerGlobalScope = toWorkerGlobalScope(context);
+        WorkerRunLoop& runLoop = workerGlobalScope->thread().runLoop();
+        StringBuilder mode;
+        mode.appendLiteral(webSocketChannelMode);
+        mode.appendNumber(runLoop.createUniqueId());
+        return WorkerThreadableWebSocketChannel::create(workerGlobalScope, client, mode.toString());
     }
-#endif // ENABLE(WORKERS)
 
     return WebSocketChannel::create(toDocument(context), client);
 }

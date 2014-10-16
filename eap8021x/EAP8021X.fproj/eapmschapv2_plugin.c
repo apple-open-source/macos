@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@ static EAPClientPluginFuncFreePacket eapmschapv2_free_packet;
 static EAPClientPluginFuncRequireProperties eapmschapv2_require_props;
 static EAPClientPluginFuncPublishProperties eapmschapv2_publish_props;
 static EAPClientPluginFuncSessionKey eapmschapv2_session_key;
+static EAPClientPluginFuncMasterSessionKeyCopyBytes eapmschapv2_msk_copy_bytes;
 static EAPClientPluginFuncServerKey eapmschapv2_server_key;
 static EAPClientPluginFuncCopyPacketDescription eapmschapv2_copy_packet_description;
 
@@ -230,6 +231,11 @@ typedef enum {
 } MSCHAPv2ClientState;
 
 typedef struct {
+    uint8_t			master_send_key[NT_SESSION_KEY_SIZE];
+    uint8_t			master_receive_key[NT_SESSION_KEY_SIZE];
+} eapmschap2_session_key;
+
+typedef struct {
     MSCHAPv2ClientState		state;
     EAPClientState		plugin_state;
     bool			need_password;
@@ -238,7 +244,7 @@ typedef struct {
     uint8_t			peer_challenge[MSCHAP2_CHALLENGE_SIZE];
     uint8_t			nt_response[MSCHAP_NT_RESPONSE_SIZE];
     uint8_t			auth_challenge[MSCHAP2_CHALLENGE_SIZE];
-    uint8_t			session_key[NT_SESSION_KEY_SIZE * 2];
+    eapmschap2_session_key	session_key;
     bool			session_key_valid;
     uint8_t			pkt_buffer[1024];
 } EAPMSCHAPv2PluginData, * EAPMSCHAPv2PluginDataRef;
@@ -446,12 +452,14 @@ eapmschapv2_compute_session_key(EAPMSCHAPv2PluginDataRef context,
     MSChap2_MPPEGetMasterKey((const uint8_t *)password, password_length,
 			     context->nt_response,
 			     master_key);
+    /* MasterSendKey */
     MSChap2_MPPEGetAsymetricStartKey(master_key,
-				     context->session_key,
+				     context->session_key.master_send_key,
 				     NT_SESSION_KEY_SIZE,
 				     TRUE, TRUE);
+    /* MasterReceiveKey */
     MSChap2_MPPEGetAsymetricStartKey(master_key,
-				     context->session_key + NT_SESSION_KEY_SIZE,
+				     context->session_key.master_receive_key,
 				     NT_SESSION_KEY_SIZE,
 				     FALSE, TRUE);
     context->session_key_valid = TRUE;
@@ -491,7 +499,7 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
 	new_password = my_CFStringToCString(new_password_cf,
 					    kCFStringEncodingUTF8);
 	password = new_password;
-	password_length = strlen(new_password);
+	password_length = (int)strlen(new_password);
 	break;
     case kMSCHAPv2ClientStateResponseSent:
     case kMSCHAPv2ClientStateSuccess:
@@ -568,7 +576,7 @@ mschap2_message_int32_attr(const char * message, uint16_t message_length,
     if (val != NULL && message_length > attr_len) {
 	val += attr_len;
 	
-	*int_value = strtol(val, NULL, 10);
+	*int_value = (int)strtol(val, NULL, 10);
 	present = TRUE;
     }
     return (present);
@@ -769,7 +777,7 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 		out_pkt_p = (EAPMSCHAPv2PacketRef)
 		    EAPMSCHAPv2ResponsePacketCreate(plugin, 
 						    r_p->identifier,
-						    r_p->mschapv2_id,
+						    r_p->mschapv2_id + 1,
 						    NULL);
 		if (out_pkt_p == NULL) {
 		    break;
@@ -804,6 +812,7 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 							  r_p->identifier,
 							  r_p->mschapv2_id + 1,
 							  new_password,
+							  (int)
 							  strlen(new_password),
 							  NULL);
 		free(new_password);
@@ -1293,7 +1302,7 @@ eapmschapv2_session_key(EAPClientPluginDataRef plugin, int * key_length)
 	return (NULL);
     }
     *key_length = sizeof(context->session_key);
-    return (context->session_key);
+    return (&context->session_key);
 }
 
 static void * 
@@ -1307,9 +1316,44 @@ eapmschapv2_server_key(EAPClientPluginDataRef plugin, int * key_length)
 	return (NULL);
     }
     *key_length = sizeof(context->session_key);
-    return (context->session_key);
+    return (&context->session_key);
 }
 
+static int
+eapmschapv2_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+			   void * msk, int msk_size)
+{
+    EAPMSCHAPv2PluginDataRef	context;
+    int				ret_msk_size;
+
+    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
+    if (msk_size < kEAPMasterSessionKeyMinimumSize
+	|| context->session_key_valid == FALSE) {
+	ret_msk_size = 0;
+    }
+    else {
+	void *	offset;
+
+	offset = msk;
+
+	/* MasterReceiveKey */
+	bcopy(context->session_key.master_receive_key, offset,
+	      sizeof(context->session_key.master_receive_key));
+	offset += sizeof(context->session_key.master_receive_key);
+	
+	/* MasterSendKey */
+	bcopy(context->session_key.master_send_key, offset,
+	      sizeof(context->session_key.master_send_key));
+	offset += sizeof(context->session_key.master_send_key);
+	
+	/* Zero-padding */
+	bzero(offset,
+	      kEAPMasterSessionKeyMinimumSize - sizeof(context->session_key));
+
+	ret_msk_size = kEAPMasterSessionKeyMinimumSize;
+    }
+    return (ret_msk_size);
+}
 
 static struct func_table_ent {
     const char *		name;
@@ -1327,6 +1371,8 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameFreePacket, eapmschapv2_free_packet },
     { kEAPClientPluginFuncNameSessionKey, eapmschapv2_session_key },
     { kEAPClientPluginFuncNameServerKey, eapmschapv2_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes,
+      eapmschapv2_msk_copy_bytes },
     { kEAPClientPluginFuncNameRequireProperties, eapmschapv2_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapmschapv2_publish_props },
     { kEAPClientPluginFuncNameCopyPacketDescription,

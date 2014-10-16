@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -30,9 +30,7 @@
 
 #import "WebHTMLViewPrivate.h"
 
-#if USE(ACCELERATED_COMPOSITING)
 @class CALayer;
-#endif
 @class WebFrame;
 
 namespace WebCore {
@@ -42,11 +40,13 @@ namespace WebCore {
 
 @interface WebHTMLView (WebInternal)
 - (void)_selectionChanged;
+#if !PLATFORM(IOS)
 - (void)_updateFontPanel;
+#endif
 - (BOOL)_canSmartCopyOrDelete;
 
-- (id <WebHTMLHighlighter>)_highlighterForType:(NSString*)type;
 - (WebFrame *)_frame;
+#if !PLATFORM(IOS)
 - (void)_lookUpInDictionaryFromMenu:(id)sender;
 - (BOOL)_interpretKeyEvent:(WebCore::KeyboardEvent *)event savingCommands:(BOOL)savingCommands;
 - (DOMDocumentFragment *)_documentFragmentFromPasteboard:(NSPasteboard *)pasteboard;
@@ -56,14 +56,27 @@ namespace WebCore {
 - (void)toggleGrammarChecking:(id)sender;
 - (WebCore::CachedImage*)promisedDragTIFFDataSource;
 - (void)setPromisedDragTIFFDataSource:(WebCore::CachedImage*)source;
+#else
+- (BOOL)_handleEditingKeyEvent:(WebCore::KeyboardEvent *)event;
+#endif
 - (void)_web_updateLayoutAndStyleIfNeededRecursive;
 - (void)_destroyAllWebPlugins;
 - (BOOL)_needsLayout;
 
-#if USE(ACCELERATED_COMPOSITING)
 - (void)attachRootLayer:(CALayer*)layer;
 - (void)detachRootLayer;
 - (BOOL)_web_isDrawingIntoLayer;
+
+#if PLATFORM(IOS)
+- (void)_layoutIfNeeded;
 #endif
 
 @end
+
+#if PLATFORM(IOS)
+@interface WebHTMLView (RemovedAppKitSuperclassMethods)
+- (void)delete:(id)sender;
+- (void)transpose:(id)sender;
+- (BOOL)hasMarkedText;
+@end
+#endif

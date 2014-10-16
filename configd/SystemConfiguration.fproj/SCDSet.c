@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -117,11 +117,11 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	/* send the keys and patterns, fetch the associated result from the server */
 	status = configset_m(storePrivate->server,
 			     mySetRef,
-			     mySetLen,
+			     (mach_msg_type_number_t)mySetLen,
 			     myRemoveRef,
-			     myRemoveLen,
+			     (mach_msg_type_number_t)myRemoveLen,
 			     myNotifyRef,
-			     myNotifyLen,
+			     (mach_msg_type_number_t)myNotifyLen,
 			     (int *)&sc_status);
 
 	if (__SCDynamicStoreCheckRetryAndHandleError(store,
@@ -192,9 +192,9 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	/* send the key & data to the server, get new instance id */
 	status = configset(storePrivate->server,
 			   myKeyRef,
-			   myKeyLen,
+			   (mach_msg_type_number_t)myKeyLen,
 			   myDataRef,
-			   myDataLen,
+			   (mach_msg_type_number_t)myDataLen,
 			   0,
 			   &newInstance,
 			   (int *)&sc_status);

@@ -416,7 +416,7 @@ _bsd_send_repeat_msg(struct config_rule *r)
 }
 
 static int
-_bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
+_bsd_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time_t now)
 {
 	char *sf, *outmsg;
 	const char *vlevel, *vfacility;
@@ -460,10 +460,10 @@ _bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 	if ((*fwd == NULL) && (r->type == DST_TYPE_SOCK))
 	{
 		pf = 7;
-		vlevel = asl_get(msg, ASL_KEY_LEVEL);
+		vlevel = asl_msg_get_val_for_key(msg, ASL_KEY_LEVEL);
 		if (vlevel != NULL) pf = atoi(vlevel);
 
-		fc = asl_syslog_faciliy_name_to_num(asl_get(msg, ASL_KEY_FACILITY));
+		fc = asl_syslog_faciliy_name_to_num(asl_msg_get_val_for_key(msg, ASL_KEY_FACILITY));
 		if (fc > 0) pf |= fc;
 
 		sf = NULL;
@@ -492,7 +492,7 @@ _bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 		 * The kernel printf routine already sends them to /dev/console
 		 * so writing them here would cause duplicates.
 		 */
-		vfacility = asl_get(msg, ASL_KEY_FACILITY);
+		vfacility = asl_msg_get_val_for_key(msg, ASL_KEY_FACILITY);
 		if ((vfacility != NULL) && (!strcmp(vfacility, FACILITY_KERNEL)) && (r->type == DST_TYPE_CONS)) do_write = 0;
 		if ((do_write == 1) && (r->type == DST_TYPE_FILE) && (is_dup == 1))
 		{
@@ -576,7 +576,7 @@ _bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 }
 
 static int
-_bsd_rule_match(aslmsg msg, struct config_rule *r)
+_bsd_rule_match(asl_msg_t *msg, struct config_rule *r)
 {
 	uint32_t i, test, f;
 	int32_t pri;
@@ -596,7 +596,7 @@ _bsd_rule_match(aslmsg msg, struct config_rule *r)
 		if ((test == 0) && (r->pri[i] == -2)) continue;
 
 		f = 0;
-		val = asl_get(msg, ASL_KEY_FACILITY);
+		val = asl_msg_get_val_for_key(msg, ASL_KEY_FACILITY);
 
 		if (strcmp(r->facility[i], "*") == 0)
 		{
@@ -620,7 +620,7 @@ _bsd_rule_match(aslmsg msg, struct config_rule *r)
 			continue;
 		}
 
-		val = asl_get(msg, ASL_KEY_LEVEL);
+		val = asl_msg_get_val_for_key(msg, ASL_KEY_LEVEL);
 		if (val == NULL) continue;
 
 		pri = atoi(val);
@@ -633,7 +633,7 @@ _bsd_rule_match(aslmsg msg, struct config_rule *r)
 }
 
 static int
-_bsd_match_and_send(aslmsg msg)
+_bsd_match_and_send(asl_msg_t *msg)
 {
 	struct config_rule *r;
 	char *out, *fwd;
@@ -658,7 +658,7 @@ _bsd_match_and_send(aslmsg msg)
 }
 
 void
-bsd_out_message(aslmsg msg)
+bsd_out_message(asl_msg_t *msg)
 {
 	if (msg == NULL) return;
 
@@ -732,7 +732,7 @@ bsd_out_init(void)
 
 		/* start a timer to close idle files */
 		bsd_idle_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, bsd_out_queue);
-		dispatch_source_set_event_handler(bsd_idle_timer, ^{ _bsd_close_idle_files(); });		
+		dispatch_source_set_event_handler(bsd_idle_timer, ^{ _bsd_close_idle_files(); });
 		dispatch_source_set_timer(bsd_idle_timer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * CLOSE_ON_IDLE_SEC), NSEC_PER_SEC * CLOSE_ON_IDLE_SEC, 0);
 		dispatch_resume(bsd_idle_timer);
 	});
@@ -775,7 +775,7 @@ _bsd_out_close_internal(void)
 			free(r->facility);
 		}
 
-		
+
 		TAILQ_REMOVE(&bsd_out_rule, r, entries);
 		free(r);
 	}

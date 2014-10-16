@@ -1,0 +1,704 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>stdint.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">stdint.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># stdint.m4 serial 11
+</span><span class="enscript-comment">dnl Copyright (C) 2001-2002, 2004-2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Bruno Haible.
+</span><span class="enscript-comment">dnl Test whether &lt;stdint.h&gt; is supported or must be substituted.
+</span>
+AC_DEFUN([gl_STDINT_H],
+[
+  <span class="enscript-comment">dnl Check for &lt;wchar.h&gt;.
+</span>  AC_CHECK_HEADERS_ONCE([wchar.h])
+  if test $ac_cv_header_wchar_h = yes; then
+    HAVE_WCHAR_H=1
+  else
+    HAVE_WCHAR_H=0
+  fi
+  AC_SUBST([HAVE_WCHAR_H])
+
+  <span class="enscript-comment">dnl Check for &lt;stdint.h&gt; that doesn't clash with &lt;sys/types.h&gt;.
+</span>  gl_HEADER_STDINT_H
+  if test $gl_cv_header_stdint_h = yes; then
+    ac_cv_header_stdint_h=yes; <span class="enscript-comment">dnl Hack for gl_FULL_HEADER_PATH.
+</span>    gl_FULL_HEADER_PATH([stdint.h])
+    FULL_PATH_STDINT_H='&lt;'$gl_cv_full_path_stdint_h'&gt;'
+    AC_SUBST([FULL_PATH_STDINT_H])
+    HAVE_STDINT_H=1
+  else
+    HAVE_STDINT_H=0
+  fi
+  AC_SUBST([HAVE_STDINT_H])
+
+  <span class="enscript-comment">dnl Check for &lt;inttypes.h&gt; that doesn't clash with &lt;sys/types.h&gt;.
+</span>  gl_HEADER_INTTYPES_H
+  if test $gl_cv_header_inttypes_h = yes; then
+    ac_cv_header_inttypes_h=yes; <span class="enscript-comment">dnl Hack for gl_FULL_HEADER_PATH.
+</span>    gl_FULL_HEADER_PATH([inttypes.h])
+    FULL_PATH_INTTYPES_H='&lt;'$gl_cv_full_path_inttypes_h'&gt;'
+    AC_SUBST([FULL_PATH_INTTYPES_H])
+    HAVE_INTTYPES_H=1
+  else
+    HAVE_INTTYPES_H=0
+  fi
+  AC_SUBST([HAVE_INTTYPES_H])
+
+  <span class="enscript-comment">dnl Check for &lt;sys/inttypes.h&gt;.
+</span>  AC_CHECK_HEADERS([sys/inttypes.h])
+  if test $ac_cv_header_sys_inttypes_h = yes; then
+    HAVE_SYS_INTTYPES_H=1
+  else
+    HAVE_SYS_INTTYPES_H=0
+  fi
+  AC_SUBST([HAVE_SYS_INTTYPES_H])
+
+  <span class="enscript-comment">dnl Check for &lt;sys/bitypes.h&gt; (used in Linux libc4 &gt;= 4.6.7 and libc5).
+</span>  AC_CHECK_HEADERS([sys/bitypes.h])
+  if test $ac_cv_header_sys_bitypes_h = yes; then
+    HAVE_SYS_BITYPES_H=1
+  else
+    HAVE_SYS_BITYPES_H=0
+  fi
+  AC_SUBST([HAVE_SYS_BITYPES_H])
+
+  <span class="enscript-comment">dnl Is long == int64_t ?
+</span>  AC_CACHE_CHECK([whether 'long' is 64 bit wide], gl_cv_long_bitsize_64, [
+    AC_TRY_COMPILE([
+<span class="enscript-comment">#define POW63  ((((((long) 1 &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 3)
+</span><span class="enscript-comment">#define POW64  ((((((long) 1 &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 4)
+</span>typedef int array [2 * (POW63 != 0 &amp;&amp; POW64 == 0) - 1];
+], , gl_cv_long_bitsize_64=yes, gl_cv_long_bitsize_64=no)])
+  if test $gl_cv_long_bitsize_64 = yes; then
+    HAVE_LONG_64BIT=1
+  else
+    HAVE_LONG_64BIT=0
+  fi
+  AC_SUBST(HAVE_LONG_64BIT)
+
+  <span class="enscript-comment">dnl Is long long == int64_t ?
+</span>  AC_CACHE_CHECK([whether 'long long' is 64 bit wide], gl_cv_longlong_bitsize_64, [
+    AC_TRY_COMPILE([
+<span class="enscript-comment">#define POW63  ((((((long long) 1 &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 3)
+</span><span class="enscript-comment">#define POW64  ((((((long long) 1 &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 15) &lt;&lt; 4)
+</span>typedef int array [2 * (POW63 != 0 &amp;&amp; POW64 == 0) - 1];
+], , gl_cv_longlong_bitsize_64=yes, gl_cv_longlong_bitsize_64=no)])
+  if test $gl_cv_longlong_bitsize_64 = yes; then
+    HAVE_LONG_LONG_64BIT=1
+  else
+    HAVE_LONG_LONG_64BIT=0
+  fi
+  AC_SUBST(HAVE_LONG_LONG_64BIT)
+
+  <span class="enscript-comment">dnl Here we use FULL_PATH_INTTYPES_H and FULL_PATH_STDINT_H, not just
+</span>  <span class="enscript-comment">dnl &lt;inttypes.h&gt; and &lt;stdint.h&gt;, so that it also works during a
+</span>  <span class="enscript-comment">dnl &quot;config.status --recheck&quot; if an inttypes.h or stdint.h have been
+</span>  <span class="enscript-comment">dnl created in the build directory.
+</span>  other_includes='
+/* Get those types that are already defined in other system <span class="enscript-keyword">include</span> files.  */
+<span class="enscript-comment">#if defined(__FreeBSD__) &amp;&amp; (__FreeBSD__ &gt;= 3) &amp;&amp; (__FreeBSD__ &lt;= 4)
+</span><span class="enscript-comment"># include &lt;sys/inttypes.h&gt;
+</span><span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if defined(__OpenBSD__) || defined(__bsdi__) || defined(__sgi)
+</span><span class="enscript-comment"># include &lt;sys/types.h&gt;
+</span><span class="enscript-comment"># if HAVE_INTTYPES_H
+</span><span class="enscript-comment">#  include FULL_PATH_INTTYPES_H
+</span><span class="enscript-comment"># endif
+</span><span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if defined(__linux__) &amp;&amp; HAVE_SYS_BITYPES_H
+</span><span class="enscript-comment"># include &lt;sys/bitypes.h&gt;
+</span><span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if defined(__sun) &amp;&amp; HAVE_SYS_INTTYPES_H
+</span><span class="enscript-comment"># include &lt;sys/inttypes.h&gt;
+</span><span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if (defined(__hpux) || defined(_AIX)) &amp;&amp; HAVE_INTTYPES_H
+</span><span class="enscript-comment"># include FULL_PATH_INTTYPES_H
+</span><span class="enscript-comment">#endif
+</span><span class="enscript-comment">#if HAVE_STDINT_H &amp;&amp; !(defined(__sgi) &amp;&amp; HAVE_INTTYPES_H &amp;&amp; !defined(__c99))
+</span><span class="enscript-comment"># include FULL_PATH_STDINT_H
+</span><span class="enscript-comment">#endif
+</span>'
+  gl_STDINT_CHECK_TYPES(
+    [int8_t int16_t int32_t int64_t \
+     uint8_t uint16_t uint32_t uint64_t \
+     int_least8_t int_least16_t int_least32_t int_least64_t \
+     uint_least8_t uint_least16_t uint_least32_t uint_least64_t \
+     int_fast8_t int_fast16_t int_fast32_t int_fast64_t \
+     uint_fast8_t uint_fast16_t uint_fast32_t uint_fast64_t \
+     intptr_t uintptr_t \
+     intmax_t uintmax_t],
+    [$other_includes],
+    [gl_cv_type_], [], [])
+
+  <span class="enscript-comment">dnl Now see if we need a substitute &lt;stdint.h&gt;.
+</span>  gl_cv_header_working_stdint_h=no
+  if test $gl_cv_header_stdint_h = yes; then
+    gl_STDINT_CHECK_TYPES(
+      [int64_t uint64_t \
+       int_least64_t uint_least64_t \
+       int_fast64_t uint_fast64_t],
+      [<span class="enscript-comment">#include &lt;stdint.h&gt;],
+</span>      [gl_cv_stdint_], [_IN_STDINT_H], [in &lt;stdint.h&gt;])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([
+<span class="enscript-comment">#define __STDC_LIMIT_MACROS 1 /* to make it work also in C++ mode */
+</span><span class="enscript-comment">#include &lt;stdint.h&gt;
+</span>int8_t a1 = INT8_C (17);
+int16_t a2 = INT16_C (17);
+int32_t a3 = INT32_C (17);
+<span class="enscript-comment">#if HAVE_INT64_T_IN_STDINT_H
+</span>int64_t a4 = INT64_C (17);
+<span class="enscript-comment">#endif
+</span>uint8_t b1 = UINT8_C (17);
+uint16_t b2 = UINT16_C (17);
+uint32_t b3 = UINT32_C (17);
+<span class="enscript-comment">#if HAVE_UINT64_T_IN_STDINT_H
+</span>uint64_t b4 = UINT64_C (17);
+<span class="enscript-comment">#endif
+</span>int_least8_t c1 = 17;
+int_least16_t c2 = 17;
+int_least32_t c3 = 17;
+<span class="enscript-comment">#if HAVE_INT_LEAST64_T_IN_STDINT_H
+</span>int_least64_t c4 = 17;
+<span class="enscript-comment">#endif
+</span>uint_least8_t d1 = 17;
+uint_least16_t d2 = 17;
+uint_least32_t d3 = 17;
+<span class="enscript-comment">#if HAVE_UINT_LEAST64_T_IN_STDINT_H
+</span>uint_least64_t d4 = 17;
+<span class="enscript-comment">#endif
+</span>int_fast8_t e1 = 17;
+int_fast16_t e2 = 17;
+int_fast32_t e3 = 17;
+<span class="enscript-comment">#if HAVE_INT_FAST64_T_IN_STDINT_H
+</span>int_fast64_t e4 = 17;
+<span class="enscript-comment">#endif
+</span>uint_fast8_t f1 = 17;
+uint_fast16_t f2 = 17;
+uint_fast32_t f3 = 17;
+<span class="enscript-comment">#if HAVE_UINT_FAST64_T_IN_STDINT_H
+</span>uint_fast64_t f4 = 17;
+<span class="enscript-comment">#endif
+</span>intptr_t g = 17;
+uintptr_t h = 17;
+intmax_t i = INTMAX_C (17);
+uintmax_t j = UINTMAX_C (17);
+      ])],
+      [gl_cv_header_working_stdint_h=yes])
+  fi
+  if test $gl_cv_header_working_stdint_h = yes; then
+    <span class="enscript-comment">dnl Use the existing &lt;stdint.h&gt;, adding missing macro definitions.
+</span>    suff64=
+    suffu64=
+    if test $HAVE_LONG_64BIT = 1; then
+      suff64=L
+      suffu64=UL
+    else
+      if test $HAVE_LONG_LONG_64BIT = 1; then
+        suff64=LL
+        suffu64=ULL
+      else
+        AC_EGREP_CPP([msvc compiler], [
+<span class="enscript-comment">#ifdef _MSC_VER
+</span>msvc compiler
+<span class="enscript-comment">#endif
+</span>          ], [
+          suff64=i64
+          suffu64=ui64
+        ])
+      fi
+    fi
+    <span class="enscript-comment">dnl Here we assume a standard architecture where the hardware integer
+</span>    <span class="enscript-comment">dnl types have 8, 16, 32, optionally 64 bits.
+</span>    gl_STDINT_MISSING_BOUND([INT8_MIN], [-128],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT8_MAX], [127],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT8_MAX], [255],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT16_MIN], [-32768],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT16_MAX], [32767],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT16_MAX], [65535],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT32_MIN], [(~INT32_MAX)],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT32_MAX], [2147483647],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT32_MAX], [4294967295U],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    if test $gl_cv_stdint_int64_t = yes; then
+      gl_STDINT_MISSING_BOUND([INT64_MIN], [(~INT64_MAX)],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the int64_t type.])
+      gl_STDINT_MISSING_BOUND([INT64_MAX], [9223372036854775807${suff64}],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the int64_t type.])
+    fi
+    if test $gl_cv_stdint_uint64_t = yes; then
+      gl_STDINT_MISSING_BOUND([UINT64_MAX], [18446744073709551615${suffu64}],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the uint64_t type.])
+    fi
+    <span class="enscript-comment">dnl Here we assume a standard architecture where the hardware integer
+</span>    <span class="enscript-comment">dnl types have 8, 16, 32, optionally 64 bits. Therefore the leastN_t types
+</span>    <span class="enscript-comment">dnl are the same as the corresponding N_t types.
+</span>    gl_STDINT_MISSING_BOUND([INT_LEAST8_MIN], [INT8_MIN],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT_LEAST8_MAX], [INT8_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT_LEAST8_MAX], [UINT8_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT_LEAST16_MIN], [INT16_MIN],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT_LEAST16_MAX], [INT16_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT_LEAST16_MAX], [UINT16_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT_LEAST32_MIN], [INT32_MIN],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([INT_LEAST32_MAX], [INT32_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    gl_STDINT_MISSING_BOUND([UINT_LEAST32_MAX], [UINT32_MAX],
+      [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    if test $gl_cv_stdint_int_least64_t = yes; then
+      gl_STDINT_MISSING_BOUND([INT_LEAST64_MIN], [INT64_MIN],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the int_least64_t type.])
+      gl_STDINT_MISSING_BOUND([INT_LEAST64_MAX], [INT64_MAX],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the int_least64_t type.])
+    fi
+    if test $gl_cv_stdint_uint_least64_t = yes; then
+      gl_STDINT_MISSING_BOUND([UINT_LEAST64_MAX], [UINT64_MAX],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it but has the uint_least64_t type.])
+    fi
+    <span class="enscript-comment">dnl Here we assume a standard architecture where the hardware integer
+</span>    <span class="enscript-comment">dnl types have 8, 16, 32, optionally 64 bits. Therefore the fastN_t types
+</span>    <span class="enscript-comment">dnl are taken from the same list of types.
+</span>    gl_STDINT_MISSING_BOUNDS([INT_FAST8_MIN INT_FAST8_MAX UINT_FAST8_MAX \
+                              INT_FAST16_MIN INT_FAST16_MAX UINT_FAST16_MAX \
+                              INT_FAST32_MIN INT_FAST32_MAX UINT_FAST32_MAX])
+    if test $gl_cv_stdint_uint_fast64_t = yes; then
+      gl_STDINT_MISSING_BOUNDS([INT_FAST64_MIN INT_FAST64_MAX])
+    fi
+    if test $gl_cv_stdint_uint_fast64_t = yes; then
+      gl_STDINT_MISSING_BOUNDS([UINT_FAST64_MAX])
+    fi
+    gl_STDINT_MISSING_BOUNDS([INTPTR_MIN INTPTR_MAX UINTPTR_MAX \
+                              INTMAX_MIN INTMAX_MAX UINTMAX_MAX])
+    gl_STDINT_MISSING_BOUNDS([PTRDIFF_MIN PTRDIFF_MAX], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    gl_SIZE_MAX
+    gl_STDINT_MISSING_BOUNDS2([SIG_ATOMIC_MIN SIG_ATOMIC_MAX],
+      [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    <span class="enscript-comment">dnl Don't bother defining WCHAR_MIN and WCHAR_MAX, since they should
+</span>    <span class="enscript-comment">dnl already be defined in &lt;stddef.h&gt; or &lt;wchar.h&gt;.
+</span>    <span class="enscript-comment">dnl For wint_t we need &lt;wchar.h&gt;.
+</span>    <span class="enscript-comment">dnl Tru64 with Desktop Toolkit C has a bug: &lt;stdio.h&gt; must be included
+</span>    <span class="enscript-comment">dnl before &lt;wchar.h&gt;.
+</span>    <span class="enscript-comment">dnl BSD/OS 4.1 has a bug: &lt;stdio.h&gt; and &lt;time.h&gt; must be included before
+</span>    <span class="enscript-comment">dnl &lt;wchar.h&gt;.
+</span>    gl_STDINT_MISSING_BOUNDS2([WINT_MIN WINT_MAX], [
+<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    STDINT_H=''
+  else
+
+    gl_STDINT_BITSIZEOF(
+      [int8_t int16_t int32_t int64_t \
+       uint8_t uint16_t uint32_t uint64_t \
+       int_least8_t int_least16_t int_least32_t int_least64_t \
+       uint_least8_t uint_least16_t uint_least32_t uint_least64_t \
+       int_fast8_t int_fast16_t int_fast32_t int_fast64_t \
+       uint_fast8_t uint_fast16_t uint_fast32_t uint_fast64_t \
+       intptr_t uintptr_t \
+       intmax_t uintmax_t],
+      [$other_includes])
+
+    gl_cv_type_unsigned_int=yes
+    gl_cv_type_long=yes
+    gl_cv_type_unsigned_long=yes
+    gl_STDINT_BITSIZEOF([unsigned_int long unsigned_long],
+      [typedef unsigned int unsigned_int;
+       typedef unsigned long unsigned_long;])
+
+    AC_CHECK_TYPES([ptrdiff_t])
+    gl_cv_type_ptrdiff_t=$ac_cv_type_ptrdiff_t
+    AC_REQUIRE([AC_TYPE_SIZE_T])
+    gl_cv_type_size_t=yes
+    gl_STDINT_BITSIZEOF([ptrdiff_t size_t], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    gl_CHECK_TYPE_SAME([ptrdiff_t], [long], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    gl_CHECK_TYPE_SAME([size_t], [unsigned long], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>
+    AC_CHECK_TYPES([sig_atomic_t], , , [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    gl_cv_type_sig_atomic_t=$ac_cv_type_sig_atomic_t
+    gl_STDINT_BITSIZEOF([sig_atomic_t], [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    gl_CHECK_TYPES_SIGNED([sig_atomic_t], [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    if test $HAVE_SIGNED_SIG_ATOMIC_T = 1; then
+      gl_CHECK_TYPE_SAME([sig_atomic_t], [long], [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    else
+      gl_CHECK_TYPE_SAME([sig_atomic_t], [unsigned long], [<span class="enscript-comment">#include &lt;signal.h&gt;])
+</span>    fi
+
+    AC_REQUIRE([gt_TYPE_WCHAR_T])
+    gl_cv_type_wchar_t=$gt_cv_c_wchar_t
+    gl_STDINT_BITSIZEOF([wchar_t], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    gl_CHECK_TYPES_SIGNED([wchar_t], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    if test $HAVE_SIGNED_WCHAR_T = 1; then
+      gl_CHECK_TYPE_SAME([wchar_t], [long], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    else
+      gl_CHECK_TYPE_SAME([wchar_t], [unsigned long], [<span class="enscript-comment">#include &lt;stddef.h&gt;])
+</span>    fi
+
+    <span class="enscript-comment">dnl For wint_t we need &lt;wchar.h&gt;.
+</span>    <span class="enscript-comment">dnl Tru64 with Desktop Toolkit C has a bug: &lt;stdio.h&gt; must be included
+</span>    <span class="enscript-comment">dnl before &lt;wchar.h&gt;.
+</span>    <span class="enscript-comment">dnl BSD/OS 4.1 has a bug: &lt;stdio.h&gt; and &lt;time.h&gt; must be included before
+</span>    <span class="enscript-comment">dnl &lt;wchar.h&gt;.
+</span>    AC_CHECK_TYPES([wint_t], , , [<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    gl_cv_type_wint_t=$ac_cv_type_wint_t
+    gl_STDINT_BITSIZEOF([wint_t], [<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    gl_CHECK_TYPES_SIGNED([wint_t], [<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    if test $HAVE_SIGNED_WINT_T = 1; then
+      gl_CHECK_TYPE_SAME([wint_t], [long], [<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    else
+      gl_CHECK_TYPE_SAME([wint_t], [unsigned long], [<span class="enscript-comment">#include &lt;stdio.h&gt;
+</span><span class="enscript-comment">#include &lt;time.h&gt;
+</span><span class="enscript-comment">#include &lt;wchar.h&gt;
+</span>])
+    fi
+
+    STDINT_H='stdint.h'
+  fi
+  AC_SUBST(STDINT_H)
+])
+
+<span class="enscript-comment">dnl Set gl_cv_header_stdint_h to yes and define HAVE_STDINT_H if
+</span><span class="enscript-comment">dnl &lt;stdint.h&gt; exists and doesn't clash with &lt;sys/types.h&gt;.
+</span>AC_DEFUN([gl_HEADER_STDINT_H],
+[
+  <span class="enscript-comment">dnl Check for &lt;stdint.h&gt; that doesn't clash with &lt;sys/types.h&gt;.
+</span>  AC_CACHE_CHECK([for stdint.h], gl_cv_header_stdint_h, [
+    AC_TRY_COMPILE([
+<span class="enscript-comment">#include &lt;sys/types.h&gt;
+</span><span class="enscript-comment">#include &lt;stdint.h&gt;],
+</span>      [], gl_cv_header_stdint_h=yes, gl_cv_header_stdint_h=no)
+  ])
+  if test $gl_cv_header_stdint_h = yes; then
+    AC_DEFINE_UNQUOTED(HAVE_STDINT_H, 1,
+      [Define if &lt;stdint.h&gt; exists and doesn't clash with &lt;sys/types.h&gt;.])
+  fi
+])
+
+<span class="enscript-comment">dnl Set gl_cv_header_inttypes_h to yes and define HAVE_INTTYPES_H if
+</span><span class="enscript-comment">dnl &lt;inttypes.h&gt; exists and doesn't clash with &lt;sys/types.h&gt;.
+</span>AC_DEFUN([gl_HEADER_INTTYPES_H],
+[
+  <span class="enscript-comment">dnl Check for &lt;inttypes.h&gt; that doesn't clash with &lt;sys/types.h&gt;.
+</span>  <span class="enscript-comment">dnl On IRIX 5.3, &lt;inttypes.h&gt; conflicts with &lt;sys/types.h&gt;.
+</span>  AC_CACHE_CHECK([for inttypes.h], gl_cv_header_inttypes_h, [
+    AC_TRY_COMPILE([
+<span class="enscript-comment">#include &lt;sys/types.h&gt;
+</span><span class="enscript-comment">#include &lt;inttypes.h&gt;],
+</span>      [], gl_cv_header_inttypes_h=yes, gl_cv_header_inttypes_h=no)
+  ])
+  if test $gl_cv_header_inttypes_h = yes; then
+    AC_DEFINE_UNQUOTED(HAVE_INTTYPES_H, 1,
+      [Define if &lt;inttypes.h&gt; exists and doesn't clash with &lt;sys/types.h&gt;.])
+  fi
+])
+
+<span class="enscript-comment">dnl gl_STDINT_CHECK_TYPES(TYPES, INCLUDES, CACHE_VAR_PREFIX, MACRO_SUFFIX, DESCRIPTION_SUFFIX)
+</span><span class="enscript-comment">dnl Check each of the given types, whether they are defined in the given
+</span><span class="enscript-comment">dnl include files.
+</span>AC_DEFUN([gl_STDINT_CHECK_TYPES],
+[
+  <span class="enscript-comment">dnl Use a shell loop, to avoid bloating configure, and
+</span>  <span class="enscript-comment">dnl - extra AH_TEMPLATE calls, so that autoheader knows what to put into
+</span>  <span class="enscript-comment">dnl   config.h.in,
+</span>  <span class="enscript-comment">dnl - extra AC_SUBST calls, so that the right substitutions are made.
+</span>  AC_FOREACH([gltype], [$1],
+    [AH_TEMPLATE([HAVE_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz],[ABCDEFGHIJKLMNOPQRSTUVWXYZ])[$4],
+       [Define to 1 if the type ']gltype[' is already defined$5.])])
+  for gltype in $1 ; do
+    AC_MSG_CHECKING([for $gltype])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([$2
+/* Test if the type exists.  */
+$gltype x = 17;
+      ])],
+      result=yes, result=no)
+    <span class="enscript-keyword">eval</span> $3${gltype}=\$result
+    AC_MSG_RESULT($result)
+    GLTYPE=`echo &quot;$gltype&quot; | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+    if test $result = yes; then
+      AC_DEFINE_UNQUOTED([HAVE_${GLTYPE}$4], 1)
+      <span class="enscript-keyword">eval</span> HAVE_${GLTYPE}$4=1
+    else
+      <span class="enscript-keyword">eval</span> HAVE_${GLTYPE}$4=0
+    fi
+  done
+  AC_FOREACH([gltype], [$1],
+    [AC_SUBST([HAVE_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz],[ABCDEFGHIJKLMNOPQRSTUVWXYZ])[$4])])
+])
+
+<span class="enscript-comment">dnl gl_STDINT_MISSING_BOUND(TYPE_BOUND, DEFAULT, DESCRIPTION)
+</span><span class="enscript-comment">dnl assumes an otherwise complete &lt;stdint.h&gt; and defines TYPE_BOUND if
+</span><span class="enscript-comment">dnl &lt;stdint.h&gt; doesn't define it.
+</span>AC_DEFUN([gl_STDINT_MISSING_BOUND],
+[
+  AC_CACHE_CHECK([for $1], [gl_cv_stdint_$1],
+    [AC_EGREP_CPP([found it], [<span class="enscript-comment">#include &lt;stdint.h&gt;
+</span><span class="enscript-comment">#ifdef $1
+</span>found it
+<span class="enscript-comment">#endif
+</span>       ], [gl_cv_stdint_$1=yes], [gl_cv_stdint_$1=&quot;$2&quot;])])
+  if test &quot;$gl_cv_stdint_$1&quot; != yes; then
+    AC_DEFINE_UNQUOTED([$1], [$2], [$3])
+  fi
+])
+
+<span class="enscript-comment">dnl gl_STDINT_MISSING_BOUNDS(BOUNDS, INCLUDES)
+</span><span class="enscript-comment">dnl assumes an otherwise complete &lt;stdint.h&gt; and defines each element of BOUNDS
+</span><span class="enscript-comment">dnl if &lt;stdint.h&gt; doesn't define it.
+</span><span class="enscript-comment">dnl Use this for types whose signedness is determined by the first letter
+</span><span class="enscript-comment">dnl ('u' or not).
+</span>AC_DEFUN([gl_STDINT_MISSING_BOUNDS],
+[
+  <span class="enscript-comment">dnl Use a shell loop, to avoid bloating configure, and
+</span>  <span class="enscript-comment">dnl - extra AH_TEMPLATE calls, so that autoheader knows what to put into
+</span>  <span class="enscript-comment">dnl   config.h.in.
+</span>  AC_FOREACH([bound], [$1],
+    [AH_TEMPLATE(bound, [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])])
+<span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  sed_unsigned='s,^\(U*\).*,\1,'
+  sed_limitkind='s,^.*\(_[^_]*\)$,\1,'
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>  for bound in $1; do
+    type=`echo $bound | sed -e 's,_MAX,_t,' -e 's,_MIN,_t,' | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
+    unsigned=`echo $bound | sed -e &quot;$sed_unsigned&quot; | tr U u`
+    width=`echo $bound | sed -e 's,^U*INT,,' -e 's,_MIN,,' -e 's,_MAX,,'`
+    limitkind=`echo $bound | sed -e &quot;$sed_limitkind&quot;`
+    AC_CACHE_CHECK([for $bound], [gl_cv_stdint_$bound],
+      [AC_EGREP_CPP([found it], [<span class="enscript-comment">#include &lt;stdint.h&gt;
+</span><span class="enscript-comment">#ifdef $bound
+</span>found it
+<span class="enscript-comment">#endif
+</span>         ], [<span class="enscript-keyword">eval</span> gl_cv_stdint_$bound=yes],
+         [result=
+          case $width in
+            *8) widthlist=&quot;8 16 32 64&quot; ;;
+            *16) widthlist=&quot;16 32 64&quot; ;;
+            *32 | PTR | MAX | PTRDIFF) widthlist=&quot;32 64&quot; ;;
+            *64) widthlist=&quot;64&quot; ;;
+          esac
+          for w in $widthlist; do
+            if test -z &quot;$result&quot;; then
+              AC_COMPILE_IFELSE([[$2
+<span class="enscript-comment">#include &lt;stdint.h&gt;
+</span>int verify[2 * (sizeof ($type) == sizeof (${unsigned}int${w}_t)) - 1];
+                ]], [result=`echo &quot;$unsigned&quot; | tr u U`INT${w}${limitkind}])
+            else
+              break
+            fi
+          done
+          if test -z &quot;$result&quot;; then
+            result=no
+          fi
+          <span class="enscript-keyword">eval</span> gl_cv_stdint_$bound=\$result
+         ])])
+    <span class="enscript-keyword">eval</span> result=\$gl_cv_stdint_$bound
+    if test &quot;$result&quot; != yes &amp;&amp; test &quot;$result&quot; != no; then
+      AC_DEFINE_UNQUOTED([$bound], [$result],
+        [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])
+    fi
+  done
+])
+
+<span class="enscript-comment">dnl gl_STDINT_MISSING_BOUNDS2(BOUNDS, INCLUDES)
+</span><span class="enscript-comment">dnl assumes an otherwise complete &lt;stdint.h&gt; and defines each element of BOUNDS
+</span><span class="enscript-comment">dnl if &lt;stdint.h&gt; doesn't define it.
+</span><span class="enscript-comment">dnl Use this for types whose signedness is a priori unknown.
+</span>AC_DEFUN([gl_STDINT_MISSING_BOUNDS2],
+[
+  <span class="enscript-comment">dnl Use a shell loop, to avoid bloating configure, and
+</span>  <span class="enscript-comment">dnl - extra AH_TEMPLATE calls, so that autoheader knows what to put into
+</span>  <span class="enscript-comment">dnl   config.h.in.
+</span>  AC_FOREACH([bound], [$1],
+    [AH_TEMPLATE(bound, [Define if &lt;stdint.h&gt; doesn't <span class="enscript-keyword">define</span> it.])])
+<span class="enscript-keyword">changequote</span>(,)<span class="enscript-comment">dnl
+</span>  sed_limitkind='s,^.*\(_[^_]*\)$,\1,'
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>  for bound in $1; do
+    type=`echo $bound | sed -e 's,_MAX,_t,' -e 's,_MIN,_t,' | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
+    limitkind=`echo $bound | sed -e &quot;$sed_limitkind&quot;`
+    AC_CACHE_CHECK([for $bound], [gl_cv_stdint_$bound],
+      [AC_EGREP_CPP([found it], [<span class="enscript-comment">#include &lt;stdint.h&gt;
+</span><span class="enscript-comment">#ifdef $bound
+</span>found it
+<span class="enscript-comment">#endif
+</span>         ], [<span class="enscript-keyword">eval</span> gl_cv_stdint_$bound=yes],
+         [result=
+          AC_COMPILE_IFELSE([[$2
+            int verify[2 * (($type) -1 &gt;= ($type) 0) - 1];
+            ]],
+            [<span class="enscript-keyword">eval</span> gl_cv_${type}_signed=no],
+            [<span class="enscript-keyword">eval</span> gl_cv_${type}_signed=yes])
+          if <span class="enscript-keyword">eval</span> test \$gl_cv_${type}_signed = yes; then
+            for w in 8 16 32 64; do
+              if test -z &quot;$result&quot;; then
+                AC_COMPILE_IFELSE([[$2
+<span class="enscript-comment">#include &lt;stdint.h&gt;
+</span>int verify[2 * (sizeof ($type) == sizeof (int${w}_t)) - 1];
+<span class="enscript-string">                  ]], [result=INT${w}${limitkind}])
+              else
+                break
+              fi
+            done
+          else
+            if test ${limitkind} = _MIN; then
+              result=0
+            else
+              for w in 8 16 32 64; do
+                if test -z &quot;$result&quot;; then
+                  AC_COMPILE_IFELSE([[$2
+#include &lt;stdint.h&gt;
+int verify[2 * (sizeof ($type) == sizeof (uint${w}_t)) - 1];
+                    ]], [result=UINT${w}${limitkind}])
+                else
+                  break
+                fi
+              done
+            fi
+          fi
+          if test -z &quot;$result&quot;; then
+            result=no
+          fi
+          eval gl_cv_stdint_$bound=\$result
+         ])])
+    eval result=\$gl_cv_stdint_$bound
+    if test &quot;$result&quot; != yes &amp;&amp; test &quot;$result&quot; != no; then
+      AC_DEFINE_UNQUOTED([$bound], [$result],
+        [Define if &lt;stdint.h&gt; doesn'</span>t <span class="enscript-keyword">define</span> it.])
+    fi
+  done
+])
+
+<span class="enscript-comment">dnl gl_STDINT_BITSIZEOF(TYPES, INCLUDES)
+</span><span class="enscript-comment">dnl Determine the size of each of the given types in bits.
+</span>AC_DEFUN([gl_STDINT_BITSIZEOF],
+[
+  <span class="enscript-comment">dnl Use a shell loop, to avoid bloating configure, and
+</span>  <span class="enscript-comment">dnl - extra AH_TEMPLATE calls, so that autoheader knows what to put into
+</span>  <span class="enscript-comment">dnl   config.h.in,
+</span>  <span class="enscript-comment">dnl - extra AC_SUBST calls, so that the right substitutions are made.
+</span>  AC_FOREACH([gltype], [$1],
+    [AH_TEMPLATE([BITSIZEOF_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz ],[ABCDEFGHIJKLMNOPQRSTUVWXYZ_]),
+       [Define to the number of bits in type ']gltype['.])])
+  for gltype in $1 ; do
+    if <span class="enscript-keyword">eval</span> test \$gl_cv_type_${gltype} = yes; then
+      AC_CACHE_CHECK([for bit size of $gltype], [gl_cv_bitsizeof_${gltype}],
+        [_AC_COMPUTE_INT([sizeof ($gltype) * CHAR_BIT], result,
+           [$2
+<span class="enscript-comment">#include &lt;limits.h&gt;], result=unknown)
+</span>         <span class="enscript-keyword">eval</span> gl_cv_bitsizeof_${gltype}=\$result
+        ])
+      <span class="enscript-keyword">eval</span> result=\$gl_cv_bitsizeof_${gltype}
+    else
+      <span class="enscript-comment">dnl Use a nonempty default, because some compilers, such as IRIX 5 cc,
+</span>      <span class="enscript-comment">dnl do a syntax check even on unused #if conditions and give an error
+</span>      <span class="enscript-comment">dnl on valid C code like this:
+</span>      <span class="enscript-comment">dnl   #if 0
+</span>      <span class="enscript-comment">dnl   # if  &gt; 32
+</span>      <span class="enscript-comment">dnl   # endif
+</span>      <span class="enscript-comment">dnl   #endif
+</span>      result=0
+    fi
+    GLTYPE=`echo &quot;$gltype&quot; | tr 'abcdefghijklmnopqrstuvwxyz ' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_'`
+    AC_DEFINE_UNQUOTED([BITSIZEOF_${GLTYPE}], [$result])
+    <span class="enscript-keyword">eval</span> BITSIZEOF_${GLTYPE}=\$result
+  done
+  AC_FOREACH([gltype], [$1],
+    [AC_SUBST([BITSIZEOF_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz ],[ABCDEFGHIJKLMNOPQRSTUVWXYZ_]))])
+])
+
+<span class="enscript-comment">dnl gl_CHECK_TYPES_SIGNED(TYPES, INCLUDES)
+</span><span class="enscript-comment">dnl Determine the signedness of each of the given types.
+</span><span class="enscript-comment">dnl Define HAVE_SIGNED_TYPE if type is signed.
+</span>AC_DEFUN([gl_CHECK_TYPES_SIGNED],
+[
+  <span class="enscript-comment">dnl Use a shell loop, to avoid bloating configure, and
+</span>  <span class="enscript-comment">dnl - extra AH_TEMPLATE calls, so that autoheader knows what to put into
+</span>  <span class="enscript-comment">dnl   config.h.in,
+</span>  <span class="enscript-comment">dnl - extra AC_SUBST calls, so that the right substitutions are made.
+</span>  AC_FOREACH([gltype], [$1],
+    [AH_TEMPLATE([HAVE_SIGNED_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz ],[ABCDEFGHIJKLMNOPQRSTUVWXYZ_]),
+       [Define to 1 if ']gltype[' is a signed integer type.])])
+  for gltype in $1 ; do
+    AC_CACHE_CHECK([whether $gltype is signed], [gl_cv_type_${gltype}_signed],
+      [AC_COMPILE_IFELSE(
+         [AC_LANG_PROGRAM([[$2
+            int verify[2 * (($1) -1 &lt; ($1) 0) - 1];
+            ]])],
+         result=yes, result=no)
+       <span class="enscript-keyword">eval</span> gl_cv_type_${gltype}_signed=\$result
+      ])
+    <span class="enscript-keyword">eval</span> result=\$gl_cv_type_${gltype}_signed
+    GLTYPE=`echo $gltype | tr 'abcdefghijklmnopqrstuvwxyz ' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_'`
+    if test &quot;$result&quot; = yes; then
+      AC_DEFINE_UNQUOTED([HAVE_SIGNED_${GLTYPE}], 1)
+      <span class="enscript-keyword">eval</span> HAVE_SIGNED_${GLTYPE}=1
+    else
+      <span class="enscript-keyword">eval</span> HAVE_SIGNED_${GLTYPE}=0
+    fi
+  done
+  AC_FOREACH([gltype], [$1],
+    [AC_SUBST([HAVE_SIGNED_]<span class="enscript-keyword">translit</span>(gltype,[abcdefghijklmnopqrstuvwxyz ],[ABCDEFGHIJKLMNOPQRSTUVWXYZ_]))])
+])
+
+<span class="enscript-comment">dnl gl_CHECK_TYPE_SAME(TYPE, KNOWNTYPE, INCLUDES)
+</span><span class="enscript-comment">dnl Determines whether two types are the same.
+</span>AC_DEFUN([gl_CHECK_TYPE_SAME],
+[
+  AC_TRY_COMPILE([$3
+    extern $1 foo;
+    extern $2 foo;], [],
+    [SAME_TYPE_]AS_TR_CPP([$1])[_]AS_TR_CPP([$2])[=1],
+    [SAME_TYPE_]AS_TR_CPP([$1])[_]AS_TR_CPP([$2])[=0])
+  AC_SUBST([SAME_TYPE_]AS_TR_CPP([$1])[_]AS_TR_CPP([$2]))
+])
+</pre>
+<hr />
+</body></html>

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -271,7 +271,7 @@ _win_iconv(_ast_iconv_t cd, char** fb, size_t* fn, char** tb, size_t* tn)
 #if DEBUG_TRACE
 error(DEBUG_TRACE, "AHA#%d _win_iconv from=0x%04x to=0x%04x\n", __LINE__, cc->from.index, cc->to.index);
 #endif
-	if (cc->from.index == cc->to.index)
+	if (cc->from.index == cc->to.index || cc->from.index != CP_UCS2 && cc->to.index == 0)
 	{
 		/*
 		 * easy
@@ -423,7 +423,7 @@ _ast_iconv_name(register const char* m, register char* b, size_t n)
 	const _ast_iconv_list_t*		bp;
 	register int				c;
 	register char*				e;
-	int					sub[2];
+	ssize_t					sub[2];
 	char					buf[16];
 #if DEBUG_TRACE
 	char*					o;

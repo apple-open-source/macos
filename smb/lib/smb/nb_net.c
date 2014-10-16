@@ -723,7 +723,8 @@ done:
     else {
         if (conn_port139 != NULL) {
             smb_log_info("%s: Using port 139 family = %d",
-                         ASL_LEVEL_ERR, __FUNCTION__, conn->addr.sa_family);
+                         ASL_LEVEL_ERR, __FUNCTION__,
+                         (conn != NULL) ? conn->addr.sa_family : 0);
             *dest = conn_port139;
         }
     }

@@ -357,7 +357,7 @@ RSA_sign(int type, const unsigned char *from, unsigned int flen,
     if (rsa->meth->rsa_priv_enc) {
 	heim_octet_string indata;
 	DigestInfo di;
-	size_t size;
+	size_t size = 0;
 	int ret;
 
 	memset(&di, 0, sizeof(di));
@@ -434,7 +434,7 @@ RSA_verify(int type, const unsigned char *from, unsigned int flen,
 	free(data);
 	if (ret2 != 0)
 	    return -3;
-	if (ret != size) {
+	if (ret < 0 || (size_t)ret != size) {
 	    free_DigestInfo(&di);
 	    return -4;
 	}
@@ -607,7 +607,7 @@ int
 i2d_RSAPrivateKey(RSA *rsa, unsigned char **pp)
 {
     RSAPrivateKey data;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     if (rsa->n == NULL || rsa->e == NULL || rsa->d == NULL || rsa->p == NULL ||
@@ -657,7 +657,7 @@ int
 i2d_RSAPublicKey(RSA *rsa, unsigned char **pp)
 {
     RSAPublicKey data;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     memset(&data, 0, sizeof(data));

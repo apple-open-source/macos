@@ -94,6 +94,50 @@ set_etypes (krb5_context context,
     return 0;
 }
 
+#ifdef __APPLE__
+
+static CFTypeRef
+CopyKeyFromFile(CFStringRef file, CFStringRef key)
+{
+    CFReadStreamRef s;
+    CFDictionaryRef d;
+    CFErrorRef e;
+    CFURLRef url;
+    CFTypeRef val;
+    
+    url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, file, kCFURLPOSIXPathStyle, false);
+    if (url == NULL)
+	return NULL;
+    
+    s = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+    CFRelease(url);
+    if (s == NULL)
+	return NULL;
+    
+    if (!CFReadStreamOpen(s)) {
+	CFRelease(s);
+	return NULL;
+    }
+    
+    d = (CFDictionaryRef)CFPropertyListCreateWithStream (kCFAllocatorDefault, s, 0, kCFPropertyListImmutable, NULL, &e);
+    CFRelease(s);
+    if (d == NULL)
+	return NULL;
+    
+    if (CFGetTypeID(d) != CFDictionaryGetTypeID()) {
+	CFRelease(d);
+	return NULL;
+    }
+    
+    val = CFDictionaryGetValue(d, key);
+    if (val)
+	CFRetain(val);
+    CFRelease(d);
+    return val;
+}
+
+#endif /* __APPLE__ */
+
 /*
  * read variables from the configuration file and set in `context'
  */
@@ -251,8 +295,66 @@ init_context_from_config_file(krb5_context context)
 	    krb5_addlog_dest(context, context->debug_dest, *p);
 	krb5_config_free_strings(s);
     } else if (context->debug_dest == NULL) {
+	char *logline = NULL;
+
+	if (!issuid()) {
+	    char *e = getenv("KRB5_TRACE");
+	    if (e)
+		asprintf(&logline, "0-/FILE:%s", e);
+	}
+
+#if __APPLE__
+
+#ifdef __APPLE_TARGET_EMBEDDED__
+#define GLOBAL_PREFERENCE_FILE CFSTR("/Library/Managed Preferences/mobile/.GlobalPreferences.plist")
+#else
+#define GLOBAL_PREFERENCE_FILE CFSTR("/Library/Managed Preferences/.GlobalPreferences.plist")
+#endif
+
+	if (logline == NULL) {
+	    CFTypeRef val = NULL;
+
+	    if (geteuid() && krb5_homedir_access(NULL)) {
+		/*
+		 * Pick up global preferences that can be configured via a
+		 * profile.
+		 */
+		val = CFPreferencesCopyAppValue(CFSTR("KerberosDebugLevel"), CFSTR(".GlobalPreferences"));
+	    } else {
+		val = CopyKeyFromFile(GLOBAL_PREFERENCE_FILE, CFSTR("KerberosDebugLevel"));
+	    }
+	    if (val) {
+		int logLevel = 1;
+
+		if (CFGetTypeID(val) == CFBooleanGetTypeID())
+		    logLevel = CFBooleanGetValue(val) ? 1 : 0;
+		else if (CFGetTypeID(val) == CFNumberGetTypeID())
+		    CFNumberGetValue(val, kCFNumberIntType, &logLevel);
+		else
+		    /* ignore other types */;
+		CFRelease(val);
+
+		asprintf(&logline, "0-%d/ASL:NOTICE:libkrb5", logLevel);
+	    }
+	}
+#endif /* __APPLE__ */
+
+#if __APPLE_TARGET_EMBEDDED__
+	/* on embedded, don't do any debug logging by default */
+	if (logline) {
+	    krb5_initlog(context, "libkrb5", &context->debug_dest);
+	    krb5_addlog_dest(context, context->debug_dest, logline);
+	    free(logline);
+	}
+#else
 	krb5_initlog(context, "libkrb5", &context->debug_dest);
-	krb5_addlog_dest(context, context->debug_dest, "0-1/ASL:DEBUG:libkrb5");
+	if (logline) {
+	    krb5_addlog_dest(context, context->debug_dest, logline);
+	    free(logline);
+	} else {
+	    krb5_addlog_dest(context, context->debug_dest, "0-1/ASL:DEBUG:libkrb5");
+	}
+#endif
     }
 
     tmp = krb5_config_get_string(context, NULL, "libdefaults",
@@ -273,7 +375,7 @@ cc_ops_register(krb5_context context)
     context->cc_ops = NULL;
     context->num_cc_ops = 0;
 
-#ifndef KCM_IS_API_CACHE
+#if HAVE_ACC
     krb5_cc_register(context, &krb5_acc_ops, TRUE);
 #endif
     krb5_cc_register(context, &krb5_fcc_ops, TRUE);
@@ -288,6 +390,9 @@ cc_ops_register(krb5_context context)
     krb5_cc_register(context, &krb5_kcm_ops, TRUE);
 #endif
 #ifdef HAVE_XCC
+#ifdef XCACHE_IS_API_CACHE
+    krb5_cc_register(context, &krb5_xcc_api_ops, TRUE);
+#endif
     krb5_cc_register(context, &krb5_xcc_ops, TRUE);
 #endif
     _krb5_load_ccache_plugins(context);
@@ -317,7 +422,7 @@ kt_ops_register(krb5_context context)
 
 #ifdef HAVE_NOTIFY_H
 static int check_token = -1;
-static time_t last_update;
+static int config_token = -1;
 #endif
 
 static const char *sysplugin_dirs[] = {
@@ -337,6 +442,8 @@ init_context_once(void *ctx)
 #ifdef HAVE_NOTIFY_H
     notify_register_check(KRB5_CONFIGURATION_CHANGE_NOTIFY_NAME,
 			  &check_token);
+    notify_register_check("com.apple.ManagedConfiguration.profileListChanged",
+			  &config_token);
 #endif
 
     krb5_load_plugins(context, "krb5", sysplugin_dirs);
@@ -454,8 +561,10 @@ krb5_init_context_flags(unsigned int flags, krb5_context *context)
     if (ret)
 	goto out;
 #endif
+#if rk_SOCK_INIT
     if (rk_SOCK_INIT())
 	p->flags |= KRB5_CTX_F_SOCKETS_INITIALIZED;
+#endif
 
 out:
     if (ret) {
@@ -917,9 +1026,6 @@ krb5_get_default_config_files(char ***pfilenames)
  *
  * @param filenames list, terminated with a NULL pointer, to be
  * freed. NULL is an valid argument.
- *
- * @return Returns 0 to indicate success. Otherwise an kerberos et
- * error code is returned, see krb5_get_error_message().
  *
  * @ingroup krb5
  */
@@ -1617,19 +1723,19 @@ _krb5_need_to_reload(krb5_context context)
 #ifdef HAVE_NOTIFY_H
     int check = 0, ret;
 
-    if (check_token == -1)
-	return FALSE;
-
-    ret = notify_check(check_token, &check);
-    
-    if (ret == NOTIFY_STATUS_OK && check) {
-	context->last_config_update = last_update = time(NULL);
-	return TRUE;
+    if (check_token != -1) {
+	ret = notify_check(check_token, &check);
+	if (ret == NOTIFY_STATUS_OK && check) {
+	    context->last_config_update = time(NULL);
+	    return TRUE;
+	}
     }
-    /* check if some other thread have checked the notify_check() before us */
-    if (last_update > context->last_config_update) {
-	context->last_config_update = last_update;
-	return TRUE;
+    if (config_token != -1) {
+	ret = notify_check(config_token, &check);
+	if (ret == NOTIFY_STATUS_OK && check) {
+	    context->last_config_update = time(NULL);
+	    return TRUE;
+	}
     }
 #endif
     /* because of the perfomance penalty we don't reload unless we know its needed */

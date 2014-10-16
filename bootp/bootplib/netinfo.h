@@ -2,7 +2,7 @@
 #ifndef _S_NETINFO_H
 #define _S_NETINFO_H
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,10 +41,35 @@
  * Constants
  */
 
-/* Important directories */
-#define	NIDIR_MACHINES		"/machines"
-#define NIDIR_USERS		"/users"
-#define NIDIR_GROUPS		"/groups"
+/*
+ * Constant: DHCPD_LEASES_NOTIFICATION_KEY
+ * Purpose:
+ *   notify(3) notification key when the lease list changes.
+ */
+#define DHCPD_LEASES_NOTIFICATION_KEY	"com.apple.bootpd.DHCPLeaseList"
+
+/*
+ * Constant: DHCPD_DISABLED_INTERFACES_NOTIFICATION_KEY
+ * Purpose:
+ *   notify(3) notification key when the list of disabled interfaces changes.
+ */
+#define DHCPD_DISABLED_INTERFACES_NOTIFICATION_KEY	\
+    "com.apple.bootpd.DHCPDisabledInterfaces"
+
+/*
+ * Key: DHCPD_DYNAMIC_STORE_KEY
+ * Purpose:
+ *   Key used in dynamic store to hold DHCP-related information.
+ */
+#define DHCPD_DYNAMIC_STORE_KEY		"com.apple.bootpd.DHCPServer"
+
+/*
+ * Key: DHCPD_DISABLED_INTERFACES
+ * Purpose:
+ *   Key used to indicate which interfaces have been disabled.
+ */
+#define DHCPD_DISABLED_INTERFACES	"DisabledInterfaces"
+
 
 /* Important properties */
 #define	NIPROP_NAME		"name"

@@ -26,36 +26,48 @@
 #ifndef NativeWebTouchEvent_h
 #define NativeWebTouchEvent_h
 
+#if ENABLE(TOUCH_EVENTS)
+
 #include "WebEvent.h"
 
-#if PLATFORM(QT)
-#include <QTouchEvent>
+#if PLATFORM(IOS)
+struct _UIWebTouchEvent;
+#elif PLATFORM(GTK)
+#include <WebCore/GUniquePtrGtk.h>
+#include <WebCore/GtkTouchContextHelper.h>
 #elif PLATFORM(EFL)
-#include "ewk_touch.h"
-#include <Evas.h>
+#include "EwkTouchEvent.h"
 #include <WebCore/AffineTransform.h>
+#include <wtf/RefPtr.h>
 #endif
 
 namespace WebKit {
 
 class NativeWebTouchEvent : public WebTouchEvent {
 public:
-#if PLATFORM(QT)
-    explicit NativeWebTouchEvent(const QTouchEvent*, const QTransform& fromItemTransform);
+#if PLATFORM(IOS)
+    explicit NativeWebTouchEvent(const _UIWebTouchEvent*);
+#elif PLATFORM(GTK)
+    NativeWebTouchEvent(const NativeWebTouchEvent&);
+    NativeWebTouchEvent(GdkEvent*, WebCore::GtkTouchContextHelper&);
+    const GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
+    const WebCore::GtkTouchContextHelper& touchContext() const { return m_touchContext; }
 #elif PLATFORM(EFL)
-    NativeWebTouchEvent(Ewk_Touch_Event_Type, const Eina_List*, const Evas_Modifier*, const WebCore::AffineTransform& toWebContent, const WebCore::AffineTransform& toDeviceScreen, double timestamp);
-#endif
-
-#if PLATFORM(QT)
-    const QTouchEvent* nativeEvent() const { return &m_nativeEvent; }
+    NativeWebTouchEvent(EwkTouchEvent*, const WebCore::AffineTransform&);
+    const EwkTouchEvent* nativeEvent() const { return m_nativeEvent.get(); }
 #endif
 
 private:
-#if PLATFORM(QT)
-    const QTouchEvent m_nativeEvent;
+#if PLATFORM(GTK)
+    GUniquePtr<GdkEvent> m_nativeEvent;
+    const WebCore::GtkTouchContextHelper& m_touchContext;
+#elif PLATFORM(EFL)
+    RefPtr<EwkTouchEvent> m_nativeEvent;
 #endif
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(TOUCH_EVENTS)
 
 #endif // NativeWebTouchEvent_h

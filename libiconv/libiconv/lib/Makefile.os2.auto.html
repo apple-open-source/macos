@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.os2</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.os2&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libiconv/lib, OS2/EMX specific
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#	requires EMX/GCC development environment and
+</span><span class="enscript-comment">#	GNU fileutils and GNU textutils installed
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#	define EMXPATH=&lt;your EMX path&gt; on install/uninstall
+</span><span class="enscript-comment">#
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = @prefix@
+exec_prefix = $(<span class="enscript-reference">prefix</span>)
+libdir = $(<span class="enscript-reference">exec_prefix</span>)/lib
+shlibdir = $(<span class="enscript-reference">exec_prefix</span>)/dll
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>CC = gcc
+CFLAGS = -O2 -Zomf -Zcrtdll -Zmt
+INCLUDES = -I. -I../include
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+<span class="enscript-keyword">.SUFFIXES:</span> .obj .o
+
+SOURCES = iconv.c
+
+OBJECTS = iconv.obj
+
+all : iconv.dll iconv.a iconv.lib
+
+config.h : force
+	sed -e 's/<span class="enscript-comment">#undef WORDS_LITTLEENDIAN$$/#define WORDS_LITTLEENDIAN 1/' &lt; config.h.in &gt; config.h
+</span>
+iconv.obj : iconv.c encodings.def encodings_local.def aliases.h config.h
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) -c iconv.c
+
+iconv.dll : $(<span class="enscript-reference">OBJECTS</span>) ../os2/iconv.def <span class="enscript-comment"># DLL itself
+</span>	$(<span class="enscript-reference">CC</span>) -Zdll $(<span class="enscript-reference">CFLAGS</span>) -o $@ $(<span class="enscript-reference">OBJECTS</span>) ../os2/iconv.def
+
+iconv.lib : ../os2/iconv.def            <span class="enscript-comment"># Import Lib. for -Zomf
+</span>	rm -f iconv.lib
+	emximp -o iconv.lib ../os2/iconv.def
+
+iconv.a : ../os2/iconv.def              <span class="enscript-comment"># Import Lib. for EMX .o format
+</span>	rm -f iconv.a
+	emximp -o iconv.a ../os2/iconv.def
+
+<span class="enscript-comment"># Installs the library and include files only. Typically called with only
+</span><span class="enscript-comment"># $(libdir), $(shlibdir) and $(includedir) - don't use $(prefix) and
+</span><span class="enscript-comment"># $(exec_prefix) here.
+</span>install-lib : all force
+	cp -i iconv.dll $(<span class="enscript-reference">shlibdir</span>)/iconv.dll
+	cp -i iconv.lib $(<span class="enscript-reference">libdir</span>)/iconv.lib
+	cp -i iconv.a   $(<span class="enscript-reference">libdir</span>)/iconv.a
+
+install : all force
+	cp -i iconv.dll $(<span class="enscript-reference">shlibdir</span>)/iconv.dll
+	cp -i iconv.lib $(<span class="enscript-reference">libdir</span>)/iconv.lib
+	cp -i iconv.a   $(<span class="enscript-reference">libdir</span>)/iconv.a
+
+uninstall : force
+	rm -f $(<span class="enscript-reference">shlibdir</span>)/iconv.dll
+	rm -f $(<span class="enscript-reference">libdir</span>)/iconv.lib
+	rm -f $(<span class="enscript-reference">libdir</span>)/iconv.a
+
+check : all
+
+clean : force
+	rm -f *.obj *.lib *.a *.dll core
+
+distclean : clean
+	rm -f config.h
+
+maintainer-clean : distclean
+
+force :
+</pre>
+<hr />
+</body></html>

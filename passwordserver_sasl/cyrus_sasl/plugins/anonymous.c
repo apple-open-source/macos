@@ -157,7 +157,8 @@ static sasl_server_plug_t anonymous_server_plugins[] =
 	"ANONYMOUS",			/* mech_name */
 	0,				/* max_ssf */
 	SASL_SEC_NOPLAINTEXT,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_DONTUSE_USERPASSWD,	/* features */
 	NULL,				/* glob_context */
 	&anonymous_server_mech_new,	/* mech_new */
 	&anonymous_server_mech_step,	/* mech_step */
@@ -310,7 +311,7 @@ anonymous_client_mech_step(void *conn_context,
     
     *clientoutlen = (unsigned) (userlen + strlen(hostname) + 1);
     
-    result = _plug_buf_alloc(cparams->utils, (unsigned char **)&text->out_buf,
+    result = _plug_buf_alloc(cparams->utils, &text->out_buf,
 			     &text->out_buf_len, *clientoutlen);
     
     if (result != SASL_OK) return result;

@@ -1,0 +1,23 @@
+#
+# miscellaneous policies tested here.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Resource signing"
+policy = resourceSign
+cert = resourceSignLeaf.cer
+root = miscPoliciesRoot.cer
+end
+
+test = "Resource signing, no EKU"
+policy = resourceSign
+cert = noEKU.cer
+root = miscPoliciesRoot.cer
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+

@@ -46,11 +46,7 @@ BEGIN
 
 tick-1
 {
-#if !defined(__APPLE__)
-	bcopy((void *)&`kmem_flags, ptr, sizeof (int));
-#else
 	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
-#endif /* __APPLE__ */
 }
 
 ERROR

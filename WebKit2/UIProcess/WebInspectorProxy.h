@@ -69,7 +69,7 @@ enum AttachmentSide {
     AttachmentSideRight
 };
 
-class WebInspectorProxy : public TypedAPIObject<APIObject::TypeInspector>, public CoreIPC::MessageReceiver {
+class WebInspectorProxy : public API::ObjectImpl<API::Object::Type::Inspector>, public IPC::MessageReceiver {
 public:
     static PassRefPtr<WebInspectorProxy> create(WebPageProxy* page)
     {
@@ -106,7 +106,7 @@ public:
 
 #if PLATFORM(GTK)
     GtkWidget* inspectorView() const { return m_inspectorView; };
-    void initializeInspectorClientGtk(const WKInspectorClientGtk*);
+    void initializeInspectorClientGtk(const WKInspectorClientGtkBase*);
 #endif
 
     void showConsole();
@@ -132,10 +132,11 @@ public:
     bool isProfilingPage() const { return m_isProfilingPage; }
     void togglePageProfiling();
 
-    static bool isInspectorPage(WebPageProxy*);
+    static bool isInspectorPage(WebPageProxy&);
 
-    // Implemented the platform WebInspectorProxy file
+    // Provided by platform WebInspectorProxy implementations.
     String inspectorPageURL() const;
+    String inspectorTestPageURL() const;
     String inspectorBaseURL() const;
 
 #if ENABLE(INSPECTOR_SERVER)
@@ -149,9 +150,9 @@ public:
 private:
     explicit WebInspectorProxy(WebPageProxy*);
 
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
     WebPageProxy* platformCreateInspectorPage();
     void platformOpen();
@@ -168,17 +169,18 @@ private:
     void platformSetAttachedWindowHeight(unsigned);
     void platformSetAttachedWindowWidth(unsigned);
     void platformSetToolbarHeight(unsigned);
-    void platformSave(const String& filename, const String& content, bool forceSaveAs);
+    void platformSave(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void platformAppend(const String& filename, const String& content);
 
     // Called by WebInspectorProxy messages
     void createInspectorPage(uint64_t& inspectorPageID, WebPageCreationParameters&);
+    void createInspectorPageForTest(uint64_t& inspectorPageID, WebPageCreationParameters&);
     void didClose();
     void bringToFront();
     void attachAvailabilityChanged(bool);
     void inspectedURLChanged(const String&);
 
-    void save(const String& filename, const String& content, bool forceSaveAs);
+    void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void append(const String& filename, const String& content);
 
 #if ENABLE(INSPECTOR_SERVER)
@@ -190,7 +192,7 @@ private:
 
     void open();
 
-    static WebPageGroup* inspectorPageGroup();
+    WebPageGroup* inspectorPageGroup() const;
 
 #if PLATFORM(GTK) || PLATFORM(EFL)
     void createInspectorWindow();
@@ -216,6 +218,11 @@ private:
     bool m_showMessageSent;
     bool m_createdInspectorPage;
     bool m_ignoreFirstBringToFront;
+
+    // The debugger stops all the pages in the same PageGroup. Having
+    // all the inspectors in the same group will make it impossible to debug
+    // the inspector code, so we use the level to make different page groups.
+    unsigned m_level;
 
     AttachmentSide m_attachmentSide;
 

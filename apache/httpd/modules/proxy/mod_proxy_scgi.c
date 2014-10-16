@@ -25,7 +25,7 @@
 #define APR_WANT_MEMFUNC
 #define APR_WANT_STRFUNC
 #include "apr_strings.h"
-#include "apr_hooks.h"
+#include "ap_hooks.h"
 #include "apr_optional_hooks.h"
 #include "apr_buckets.h"
 
@@ -143,7 +143,7 @@ static const apr_bucket_type_t bucket_type_socket_ex = {
     "SOCKET_EX", 5, APR_BUCKET_DATA,
     apr_bucket_destroy_noop,
     bucket_socket_ex_read,
-    apr_bucket_setaside_notimpl, 
+    apr_bucket_setaside_notimpl,
     apr_bucket_split_notimpl,
     apr_bucket_copy_notimpl
 };
@@ -185,13 +185,13 @@ static int scgi_canon(request_rec *r, char *url)
 
     err = ap_proxy_canon_netloc(r->pool, &url, NULL, NULL, &host, &port);
     if (err) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00857)
                       "error parsing URL %s: %s", url, err);
         return HTTP_BAD_REQUEST;
     }
-        
+
     apr_snprintf(sport, sizeof(sport), ":%u", port);
-        
+
     if (ap_strchr(host, ':')) { /* if literal IPv6 address */
         host = apr_pstrcat(r->pool, "[", host, "]", NULL);
     }
@@ -204,7 +204,11 @@ static int scgi_canon(request_rec *r, char *url)
 
     r->filename = apr_pstrcat(r->pool, "proxy:" SCHEME "://", host, sport, "/",
                               path, NULL);
-    r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+
+    if (apr_table_get(r->subprocess_env, "proxy-scgi-pathinfo")) {
+        r->path_info = apr_pstrcat(r->pool, "/", path, NULL);
+    }
+
     return OK;
 }
 
@@ -221,9 +225,9 @@ static int sendall(proxy_conn_rec *conn, const char *buf, apr_size_t length,
     while (length > 0) {
         written = length;
         if ((rv = apr_socket_send(conn->sock, buf, &written)) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                          "proxy: " PROXY_FUNCTION ": sending data to "
-                          "%s:%u failed", conn->hostname, conn->port);
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(00858)
+                          "sending data to %s:%u failed",
+                          conn->hostname, conn->port);
             return HTTP_SERVICE_UNAVAILABLE;
         }
 
@@ -266,7 +270,7 @@ static int send_headers(request_rec *r, proxy_conn_rec *conn)
      */
     env_table = apr_table_elts(r->subprocess_env);
     env = (apr_table_entry_t *)env_table->elts;
-    for (j=0; j<env_table->nelts; ++j) {
+    for (j = 0; j < env_table->nelts; ++j) {
         if (   (!strcmp(env[j].key, GATEWAY_INTERFACE))
             || (!strcmp(env[j].key, CONTENT_LENGTH))
             || (!strcmp(env[j].key, SCGI_MAGIC))) {
@@ -294,7 +298,7 @@ static int send_headers(request_rec *r, proxy_conn_rec *conn)
     memcpy(cp, SCGI_PROTOCOL_VERSION, sizeof(SCGI_PROTOCOL_VERSION));
     cp += sizeof(SCGI_PROTOCOL_VERSION);
 
-    for (j=0; j<env_table->nelts; ++j) {
+    for (j = 0; j < env_table->nelts; ++j) {
         if (   (!strcmp(env[j].key, GATEWAY_INTERFACE))
             || (!strcmp(env[j].key, CONTENT_LENGTH))
             || (!strcmp(env[j].key, SCGI_MAGIC))) {
@@ -332,9 +336,8 @@ static int send_request_body(request_rec *r, proxy_conn_rec *conn)
             readlen = ap_get_client_block(r, buf, AP_IOBUFSIZE);
         }
         if (readlen == -1) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                          "proxy: " PROXY_FUNCTION ": receiving request body "
-                          "failed");
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00859)
+                          "receiving request body failed");
             return HTTP_INTERNAL_SERVER_ERROR;
         }
     }
@@ -365,11 +368,12 @@ static int pass_response(request_rec *r, proxy_conn_rec *conn)
     b = apr_bucket_eos_create(r->connection->bucket_alloc);
     APR_BRIGADE_INSERT_TAIL(bb, b);
 
-    status = ap_scan_script_header_err_brigade(r, bb, NULL);
+    status = ap_scan_script_header_err_brigade_ex(r, bb, NULL,
+                                                  APLOG_MODULE_INDEX);
     if (status != OK) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "proxy: " PROXY_FUNCTION ": error reading response "
-                      "headers from %s:%u", conn->hostname, conn->port);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00860)
+                      "error reading response headers from %s:%u",
+                      conn->hostname, conn->port);
         r->status_line = NULL;
         apr_brigade_destroy(bb);
         return status;
@@ -387,9 +391,8 @@ static int pass_response(request_rec *r, proxy_conn_rec *conn)
         if (location) {
             scgi_request_config *req_conf = apr_palloc(r->pool,
                                                        sizeof(*req_conf));
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                          "proxy: " PROXY_FUNCTION ": Found %s: %s - "
-                          "preparing subrequest.",
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00861)
+                          "Found %s: %s - preparing subrequest.",
                           conf->sendfile, location);
 
             if (err) {
@@ -439,9 +442,8 @@ static int scgi_request_status(int *status, request_rec *r)
                                             &proxy_scgi_module))) {
         switch (req_conf->type) {
         case scgi_internal_redirect:
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                          "proxy: " PROXY_FUNCTION ": Internal redirect to %s",
-                          req_conf->location);
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00862)
+                          "Internal redirect to %s", req_conf->location);
 
             r->status_line = NULL;
             if (r->method_number != M_GET) {
@@ -455,15 +457,14 @@ static int scgi_request_status(int *status, request_rec *r)
             /* break; */
 
         case scgi_sendfile:
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                          "proxy: " PROXY_FUNCTION ": File subrequest to %s",
-                          req_conf->location);
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00863)
+                          "File subrequest to %s", req_conf->location);
             do {
                 request_rec *rr;
 
                 rr = ap_sub_req_lookup_file(req_conf->location, r,
                                             r->output_filters);
-                if (rr->status == HTTP_OK && rr->finfo.filetype != 0) {
+                if (rr->status == HTTP_OK && rr->finfo.filetype != APR_NOFILE) {
                     /*
                      * We don't touch Content-Length here. It might be
                      * borked (there's plenty of room for a race condition).
@@ -472,7 +473,7 @@ static int scgi_request_status(int *status, request_rec *r)
                     ap_run_sub_req(rr);
                 }
                 else {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00864)
                                   "Subrequest to file '%s' not possible. "
                                   "(rr->status=%d, rr->finfo.filetype=%d)",
                                   req_conf->location, rr->status,
@@ -505,12 +506,11 @@ static int scgi_handler(request_rec *r, proxy_worker *worker,
     char dummy;
 
     if (strncasecmp(url, SCHEME "://", sizeof(SCHEME) + 2)) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                      "proxy: " PROXY_FUNCTION ": declining URL %s", url);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00865)
+                      "declining URL %s", url);
         return DECLINED;
     }
-    url += sizeof(SCHEME); /* keep the slashes */
-    
+
     /* Create space for state information */
     status = ap_proxy_acquire_connection(PROXY_FUNCTION, &backend, worker,
                                          r->server);
@@ -529,9 +529,9 @@ static int scgi_handler(request_rec *r, proxy_worker *worker,
 
     /* Step Two: Make the Connection */
     if (ap_proxy_connect_backend(PROXY_FUNCTION, backend, worker, r->server)) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
-                     "proxy: " PROXY_FUNCTION ": failed to make connection "
-                     "to backend: %s:%u", backend->hostname, backend->port);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00866)
+                      "failed to make connection to backend: %s:%u",
+                      backend->hostname, backend->port);
         status = HTTP_SERVICE_UNAVAILABLE;
         goto cleanup;
     }
@@ -617,7 +617,7 @@ static void register_hooks(apr_pool_t *p)
 }
 
 
-module AP_MODULE_DECLARE_DATA proxy_scgi_module = {
+AP_DECLARE_MODULE(proxy_scgi) = {
     STANDARD20_MODULE_STUFF,
     create_scgi_config,  /* create per-directory config structure */
     merge_scgi_config,   /* merge per-directory config structures */

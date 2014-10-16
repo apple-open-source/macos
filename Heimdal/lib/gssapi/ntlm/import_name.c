@@ -141,6 +141,7 @@ parse_name(OM_uint32 *minor_status,
 	user = name;
 	domain = ""; /* no domain */
     } else {
+	free(name);
 	*minor_status = HNTLM_ERR_MISSING_NAME_SEPARATOR;
 	return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_BAD_NAME,
 				       HNTLM_ERR_MISSING_NAME_SEPARATOR,

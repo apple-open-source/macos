@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,6 +199,11 @@ packattrblk(struct attrblock *abp,
     uint32_t finder_info_from_cache = 0;
     uint32_t max_access_from_cache = 0;
 
+    SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_START,
+                   attrlistp->commonattr,
+                   attrlistp->fileattr,
+                   attrlistp->dirattr, 0, 0);
+
     /* Do we need Resource Fork info? */
     is_dir = (ctx->f_attr.fa_attr & SMB_EFA_DIRECTORY) ? 1 : 0;
     if ((!is_dir) &&
@@ -218,6 +223,8 @@ packattrblk(struct attrblock *abp,
     if (((need_rsrc_fork) && (ctx->f_attr.fa_valid_mask & FA_RSRC_FORK_VALID)) &&
         ((ATTR_CMN_FNDRINFO & common_attr) && (ctx->f_attr.fa_valid_mask & FA_FINDERINFO_VALID)) &&
         ((ATTR_CMN_USERACCESS & common_attr) && (ctx->f_attr.fa_valid_mask & FA_MAX_ACCESS_VALID))) {
+        SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                       0xabc001, 0, 0, 0, 0);
         goto update_caches;
     }
     
@@ -244,7 +251,10 @@ packattrblk(struct attrblock *abp,
                 ctx->f_attr.fa_valid_mask |= FA_RSRC_FORK_VALID;
                 ctx->f_attr.fa_rsrc_size = np->rfrk_size;
                 ctx->f_attr.fa_rsrc_alloc = np->rfrk_alloc_size;
-            }
+                
+                SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                               0xabc002, 0, 0, 0, 0);
+          }
             
             lck_mtx_unlock(&np->rfrkMetaLock);
         }
@@ -253,11 +263,14 @@ packattrblk(struct attrblock *abp,
         if ((ATTR_CMN_FNDRINFO & common_attr) &&
             !(ctx->f_attr.fa_valid_mask & FA_FINDERINFO_VALID)) {
 
-            if (np->finfo_cache != 0) {
+            if (np->finfo_cache_timer != 0) {
                 /* Finder Info data is valid in vnode so use it */
                 finder_info_from_cache = 1;
                 ctx->f_attr.fa_valid_mask |= FA_FINDERINFO_VALID;
                 bcopy(&np->finfo, ctx->f_attr.fa_finder_info, sizeof(u_int8_t) * 32);
+                
+                SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                               0xabc003, 0, 0, 0, 0);
             }
         }
 
@@ -270,6 +283,9 @@ packattrblk(struct attrblock *abp,
                 max_access_from_cache = 1;
                 ctx->f_attr.fa_valid_mask |= FA_MAX_ACCESS_VALID;
                 ctx->f_attr.fa_max_access = np->maxAccessRights;
+                
+                SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                               0xabc004, 0, 0, 0, 0);
             }
         }
     }
@@ -282,23 +298,23 @@ packattrblk(struct attrblock *abp,
         * This will get us
         * 1) Resource Fork sizes
         * 2) Whether Finder Info exists or not on the item
-        * 3) For SMB 2.x, gets the max access on the item
+        * 3) For SMB 2/3, gets the max access on the item
         *
         * If we have to ask the server for the resource fork info or the 
         * user access, do it now as this will also tell us if there is any
-        * Finder Info on the file or not. For SMB 2.x, it will also get us the
+        * Finder Info on the file or not. For SMB 2/3, it will also get us the
         * max access which is used for ATTR_CMN_USERACCESS.
         *
-        * Best case (SMB 2.x) - Just this one call because no Finder Info found
-        * Worst case (SMB 2.x) - This call and another call to read Finder Info
+        * Best case (SMB 2/3) - Just this one call because no Finder Info found
+        * Worst case (SMB 2/3) - This call and another call to read Finder Info
         *
-        * Best case (SMB 1.x) - This call and 2 calls (Create/Read + Close) to 
+        * Best case (SMB 1) - This call and 2 calls (Create/Read + Close) to
         *                       read Finder Info which will get the max access 
-        *                       for SMB 1.x
-        * Worst case (SMB 1.x) - This call and 2 calls (Create + Close) to get 
+        *                       for SMB 1
+        * Worst case (SMB 1) - This call and 2 calls (Create + Close) to get
         *                        max access because there is no Finder Info
         */
-        error = smbfs_smb_qstreaminfo(ctx->f_share, ctx->f_dnp,
+        error = smbfs_smb_qstreaminfo(ctx->f_share, ctx->f_dnp, (is_dir) ? VDIR : VREG,
                                       ctx->f_LocalName, ctx->f_LocalNameLen,
                                       SFM_RESOURCEFORK_NAME,
                                       NULL, NULL,
@@ -306,8 +322,22 @@ packattrblk(struct attrblock *abp,
                                       &stream_flags, &ctx->f_attr.fa_max_access,
                                       context);
 
-         if ((!error) || (error == ENOATTR)) {
+        SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                       0xabc005, error, 0, 0, 0);
+
+        if ((!error) || (error == ENOATTR)) {
              /* smbfs_smb_qstreaminfo worked */
+             
+             if (stream_flags & SMB_NO_SUBSTREAMS) {
+                 /* No named streams at all on item */
+                 ctx->f_attr.fa_valid_mask |= FA_FSTATUS_VALID;
+                 ctx->f_attr.fa_fstatus = kNO_SUBSTREAMS;
+             }
+             else {
+                 /* At least one named stream on item */
+                 ctx->f_attr.fa_valid_mask |= FA_FSTATUS_VALID;
+                 ctx->f_attr.fa_fstatus = 0;
+             }
              
              /* Did we need Resource Fork info? */
              if ((need_rsrc_fork) &&
@@ -347,7 +377,7 @@ packattrblk(struct attrblock *abp,
                  !(ctx->f_attr.fa_valid_mask & FA_MAX_ACCESS_VALID)) {
                  if (SSTOVC(ctx->f_share)->vc_flags & SMBV_SMB2) {
                      /*
-                      * Only SMB 2.x can get max access from 
+                      * Only SMB 2/3 can get max access from 
                       * smbfs_smb_qstreaminfo call 
                       */
                      ctx->f_attr.fa_valid_mask |= FA_MAX_ACCESS_VALID;
@@ -366,7 +396,7 @@ packattrblk(struct attrblock *abp,
      * (1) Either no vnode or the cached finder info is not present
      * (2) smbfs_smb_qstreaminfo told us that there is Finder Info on the item
      *
-     * <11615553> For SMB 1.x, we can NOT get both the Finder Info and max 
+     * <11615553> For SMB 1, we can NOT get both the Finder Info and max
      * access at the same time. Windows based servers will often give 
      * "Unspecified error" when you do a CreateAndX with extended response (ie 
      * max access) combined with Read of a named stream.
@@ -397,6 +427,10 @@ packattrblk(struct attrblock *abp,
                                                      afp_uio, &afp_size,
                                                      NULL,
                                                      context);
+            
+            SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_NONE,
+                           0xabc006, error, 0, 0, 0);
+            
             if (!error) {
                 /* Successfully got Finder Info */
                 ctx->f_attr.fa_valid_mask |= FA_FINDERINFO_VALID;
@@ -437,7 +471,7 @@ packattrblk(struct attrblock *abp,
         } while (0);
     }
     
-    /* Do we still need Max Access and its SMB 1.x? */
+    /* Do we still need Max Access and its SMB 1? */
     if ((ATTR_CMN_USERACCESS & common_attr) &&
         !(ctx->f_attr.fa_valid_mask & FA_MAX_ACCESS_VALID) &&
         !(SSTOVC(ctx->f_share)->vc_flags & SMBV_SMB2))
@@ -456,10 +490,14 @@ packattrblk(struct attrblock *abp,
     }
     
 update_caches:
-
     /* Update vnodes caches if the data did not come from the vnode caches */
     if (vp) {
         np = VTOSMB(vp);
+
+        if (ctx->f_attr.fa_valid_mask & FA_FSTATUS_VALID) {
+            /* Update whether there is a named streams or not */
+            np->n_fstatus = ctx->f_attr.fa_fstatus;
+        }
 
         /* Do we have updated resource fork info? */
         if ((rsrc_fork_from_cache == 0) &&
@@ -482,7 +520,7 @@ update_caches:
            bcopy(ctx->f_attr.fa_finder_info, &np->finfo,
                  sizeof(u_int8_t) * 32);
            nanouptime(&ts);
-           np->finfo_cache = ts.tv_sec;
+           np->finfo_cache_timer = ts.tv_sec;
         }
 
         /* Do we have updated Max Access? */
@@ -493,6 +531,16 @@ update_caches:
             np->maxAccessRights = ctx->f_attr.fa_max_access;
             np->maxAccessRightChTime = ctx->f_attr.fa_chtime;
         }
+        
+        /* We can get the unix mode from the vnode */
+        if (np->n_flag & NHAS_POSIXMODES) {
+            ctx->f_attr.fa_permissions = np->n_mode;
+            ctx->f_attr.fa_valid_mask |= FA_UNIX_MODES_VALID;
+        }
+        
+        /* We can get the uid/gid from the vnode */
+        ctx->f_attr.fa_uid = np->n_uid;
+        ctx->f_attr.fa_gid = np->n_gid;
     }
     
     /*
@@ -536,6 +584,8 @@ update_caches:
 	if (attrlistp->fileattr && !is_dir) {
 		packfileattr(abp, smp, ctx, context);
     }
+    
+    SMB_LOG_KTRACE(SMB_DBG_PACK_ATTR_BLK | DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
 
 static void
@@ -552,8 +602,13 @@ packcommonattr(struct attrblock *abp,
 	uid_t cuid = 1;
 	int isroot = 0;
 	struct timespec temp_time;
-    uid_t uid = KAUTH_UID_NONE;
-    gid_t gid = KAUTH_GID_NONE;
+    
+    /* 
+     * If there was a vnode np, then ctx->f_attr.fa_uid/fa_gid was set to
+     * np->n_uid/n_gid which could have been updated by a Get ACL
+     */
+    uid_t uid = (uid_t) ctx->f_attr.fa_uid;
+    gid_t gid = (gid_t) ctx->f_attr.fa_gid;
     mode_t mode = 0;
     uint32_t flags = 0;
     uint32_t cmn_user_rights = 0;
@@ -564,6 +619,11 @@ packcommonattr(struct attrblock *abp,
         flags |= SMBFS_GET_UGM_IS_DIR;
     }
     
+    if (!(ctx->f_attr.fa_valid_mask & FA_UNIX_MODES_VALID)) {
+        /* Must not have had a vnode to get unix mode from */
+        flags |= SMBFS_GET_UGM_REMOVE_POSIX_MODES;
+    }
+
     /* Get the uid, gid and mode */
     smb_get_uid_gid_mode(ctx->f_share, smp,
                          &ctx->f_attr, flags,
@@ -653,8 +713,10 @@ packcommonattr(struct attrblock *abp,
         /*
          * VOL_CAP_FMT_64BIT_OBJECT_IDS is set so this value is undefined
          */
+        lck_rw_lock_shared(&ctx->f_dnp->n_name_rwlock);
         ino = (uint32_t) smb2fs_smb_file_id_get(smp, ctx->f_dnp->n_ino,
                                                 ctx->f_dnp->n_name);
+        lck_rw_unlock_shared(&ctx->f_dnp->n_name_rwlock);
 
         ((fsobj_id_t *)attrbufptr)->fid_objno = ino;
 		((fsobj_id_t *)attrbufptr)->fid_generation = 0;
@@ -849,11 +911,18 @@ packcommonattr(struct attrblock *abp,
             va_flags |= UF_HIDDEN;
         }
         
-        if (ctx->f_attr.fa_attr & SMB_EFA_ARCHIVE) {
+        /*
+         * Remember that SMB_EFA_ARCHIVE means the items needs to be
+         * archived and SF_ARCHIVED means the item has been archive.
+         *
+         * NOTE: Windows does not set ATTR_ARCHIVE bit for directories.
+         */
+        if ((ctx->f_attr.fa_vtype != VDIR) &&
+            !(ctx->f_attr.fa_attr & SMB_EFA_ARCHIVE)) {
             va_flags |= SF_ARCHIVED;
         }
         
-        if (ctx->f_attr.fa_attr & SMB_EFA_RDONLY) {
+		if (node_isimmutable(ctx->f_share, NULL, &ctx->f_attr)) {
             va_flags |= UF_IMMUTABLE;
         }
         
@@ -892,9 +961,11 @@ packcommonattr(struct attrblock *abp,
 	}
     
 	if (ATTR_CMN_PARENTID & attr) {
+        lck_rw_lock_shared(&ctx->f_dnp->n_name_rwlock);
         *((u_int64_t *)attrbufptr) = smb2fs_smb_file_id_get(smp,
                                                             ctx->f_dnp->n_ino,
                                                             ctx->f_dnp->n_name);
+        lck_rw_unlock_shared(&ctx->f_dnp->n_name_rwlock);
 		attrbufptr = ((u_int64_t *)attrbufptr) + 1;
 	}
 	
@@ -1103,8 +1174,8 @@ packnameattr(struct attrblock *abp, struct smbfs_fctx *ctx,
  * simpler, this call will only return entries in its directory, hfs like.
  */
 int
-smbfs_vnop_readdirattr(ap)
-struct vnop_readdirattr_args /* {
+smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
+/* struct vnop_readdirattr_args {
                               struct vnode *a_vp;
                               struct attrlist *a_alist;
                               struct uio *a_uio;
@@ -1114,7 +1185,7 @@ struct vnop_readdirattr_args /* {
                               int *a_eofflag;
                               u_long *a_actualcount;
                               vfs_context_t a_context;
-                              } */ *ap;
+                              } *ap; */
 {
 	struct vnode *vp = NULL;
 	struct vnode *dvp = ap->a_vp;
@@ -1164,10 +1235,13 @@ struct vnop_readdirattr_args /* {
      */
 	if ((error = smbnode_lock(VTOSMB(dvp), SMBFS_EXCLUSIVE_LOCK)))
 		return (error);
-	VTOSMB(dvp)->n_lastvop = smbfs_vnop_readdirattr;
+
+    VTOSMB(dvp)->n_lastvop = smbfs_vnop_readdirattr;
     
 	dnp = VTOSMB(dvp);
 	smp = VTOSMBFS(dvp);
+
+	SMB_LOG_KTRACE(SMB_DBG_READ_DIR_ATTR | DBG_FUNC_START, dnp->d_fid, 0, 0, 0, 0);
 
 	/*
      * Do we need to start or restart the directory listing 
@@ -1179,7 +1253,23 @@ struct vnop_readdirattr_args /* {
 	
     /* Get Share reference */
 	share = smb_get_share_with_reference(VTOSMBFS(dvp));
-	if (!dnp->d_fctx || (dnp->d_fctx->f_share != share) || (offset == 0) || 
+
+    /* Non FAT Filesystem and named streams are required */
+    if ((share->ss_fstype == SMB_FS_FAT) ||
+        !(share->ss_attributes & FILE_NAMED_STREAMS)) {
+        smb_share_rele(share, context);
+        SMBDEBUG("FAT or no named streams so smbfs_vnop_readdirattr not supported\n");
+        error = ENOTSUP;
+        goto done;
+    }
+
+    /*
+     * Do we need to start or restart the directory listing
+     *
+     * The uio_offset is actually just used to store whatever we want.  In HFS,
+     * they store an index and a dir tag. For SMB, we will store just the offset
+     */
+    if (!dnp->d_fctx || (dnp->d_fctx->f_share != share) || (offset == 0) ||
 		(offset != dnp->d_offset)) {
 		smbfs_closedirlookup(dnp, context);
 		error = smbfs_smb_findopen(share, dnp, "*", 1, &dnp->d_fctx, TRUE, 
@@ -1193,7 +1283,7 @@ struct vnop_readdirattr_args /* {
 	smb_share_rele(share, context);
 	
 	if (error) {
-		SMBERROR("Can't open search for %s, error = %d", dnp->n_name, error);
+		SMBERROR_LOCK(dnp, "Can't open search for %s, error = %d", dnp->n_name, error);
 		goto done;
 	}
 	ctx = dnp->d_fctx;
@@ -1253,12 +1343,19 @@ struct vnop_readdirattr_args /* {
         /* 
          * Check to see if vnode already exists. If so, then can pull the data
          * from the inode instead of having to poll the server for missing info
+         *
+         * Go ahead and create the vnode if its not already there. Hopefully
+         * this will improve Finder browsing performance
          */
         error = smbfs_nget(share, vnode_mount(dvp),
                            dvp, ctx->f_LocalName, ctx->f_LocalNameLen,
                            &ctx->f_attr, &vp,
-                           0, SMBFS_NGET_LOOKUP_ONLY,
+                           MAKEENTRY, SMBFS_NGET_CREATE_VNODE,
                            ap->a_context);
+        
+        SMB_LOG_KTRACE(SMB_DBG_READ_DIR_ATTR | DBG_FUNC_NONE,
+                        0xabc001, error, 0, 0, 0);
+
         /* dont care if we got an error or not, just whether vp == NULL or not */
         if ((error == 0) && (vp != NULL)) {
             /*
@@ -1343,6 +1440,8 @@ done:
     
 	smbnode_unlock(VTOSMB(dvp));
     
+    SMB_LOG_KTRACE(SMB_DBG_READ_DIR_ATTR | DBG_FUNC_END,
+                   error, *ap->a_actualcount, 0, 0, 0);
 	return (error);
 }
 

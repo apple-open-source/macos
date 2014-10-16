@@ -341,7 +341,7 @@ int CacheRead (Cache_t *cache, uint64_t off, uint32_t len, Buf_t **bufp)
 	while (searchBuf != NULL) {
 		if ((searchBuf->Offset >= off) && (searchBuf->Offset < off + len)) {
 #if CACHE_DEBUG
-			printf ("ERROR: CacheRead: Deadlock\n");
+			printf ("ERROR: CacheRead: Deadlock (searchBuff = <%llu, %u>, off = %llu, off+len = %llu)\n", searchBuf->Offset, searchBuf->Length, off, off+len);
 #endif
 			return (EDEADLK);
 		}
@@ -372,6 +372,9 @@ int CacheRead (Cache_t *cache, uint64_t off, uint32_t len, Buf_t **bufp)
 		buf->Flags |= BUF_SPAN;
 	}
 	/* Fetch the first cache block */
+#if CACHE_DEBUG
+	printf("%s(%d):  Looking up cache block %llu for offset %llu, cache blockSize %u\n", __FUNCTION__, __LINE__, cblk, off, cache->BlockSize);
+#endif
 	error = CacheLookup (cache, cblk, &tag);
 	if (error != EOK) {
 #if CACHE_DEBUG

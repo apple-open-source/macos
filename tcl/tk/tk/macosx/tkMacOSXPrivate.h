@@ -179,6 +179,15 @@ typedef struct TkMacOSXDrawingContext {
 MODULE_SCOPE CGFloat tkMacOSXZeroScreenHeight;
 MODULE_SCOPE CGFloat tkMacOSXZeroScreenTop;
 MODULE_SCOPE int tkMacOSXGCEnabled;
+/*
+ * the TkMacOSXMajorVersion() macro is used to convert MAC_OS_X_VERSION_MIN_REQUIRED
+ * and the like from 4 or 6 digit form, to 4 digit with major version only
+ */
+#define TkMacOSXMajorVersion(x) ((x) > 100000 ? ((x) / 100) : (1000 + (((x) / 10) - 100)))
+/*
+ * tkMacOSXMacOSXVersion now only contains the major version
+ *     = 1000 + major_vers
+ */
 MODULE_SCOPE long tkMacOSXMacOSXVersion;
 #if TK_MAC_BUTTON_USE_COMPATIBILITY_METRICS
 MODULE_SCOPE int tkMacOSXUseCompatibilityMetrics;

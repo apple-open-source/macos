@@ -1,0 +1,18 @@
+--- configure.orig	2014-02-04 14:14:09.000000000 -0800
++++ configure	2014-02-04 15:23:34.000000000 -0800
+@@ -26786,6 +26786,9 @@ case $host in
+         # Tru64: -H is for setting, not retrieving
+         APACHECTL_ULIMIT="ulimit -S -n \`ulimit -h -n\`"
+         ;;
++    *-apple-darwin*)
++        APACHECTL_ULIMIT=""
++        ;;
+     *)
+         if TMP_ULIMIT=`ulimit -H -n` && ulimit -S -n $TMP_ULIMIT >/dev/null 2>&1; then
+             APACHECTL_ULIMIT="ulimit -S -n \`ulimit -H -n\`"
+@@ -26794,6 +26797,7 @@ case $host in
+         fi
+         ;;
+ esac
++echo "checking ulimit for host ($host)... APACHECTL_ULIMIT=\"$APACHECTL_ULIMIT\" "
+

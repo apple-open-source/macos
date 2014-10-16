@@ -1,0 +1,57 @@
+Licensed under the same terms as Perl:
+http://perldoc.perl.org/perlartistic.html
+http://perldoc.perl.org/perlgpl.html
+
+Some parts of this software distribution are derived from the APNIC,
+LACNIC, ARIN, AFRINIC and RIPE databases (copyright details below).
+I am not a lawyer, so please direct questions about the RIR's 
+licenses to them, not me.
+
+APNIC conditions of use
+
+The files are freely available for download and use on the condition 
+that APNIC will not be held responsible for any loss or damage 
+arising from the application of the information contained in these 
+reports.
+
+APNIC endeavours to the best of its ability to ensure the accuracy 
+of these reports; however, APNIC makes no guarantee in this regard.
+
+In particular, it should be noted that these reports seek to 
+indicate the country where resources were first allocated or 
+assigned. It is not intended that these reports be considered 
+as an authoritative statement of the location in which any specific 
+resource may currently be in use.
+
+ARIN database copyright
+
+Copyright (c) American Registry for Internet Numbers. All rights reserved.
+
+The ARIN WHOIS data is for Internet operational or technical research
+purposes pertaining to Internet operations only.  It may not be used for
+advertising, direct marketing, marketing research, or similar purposes.
+Use of the ARIN WHOIS data for these activities is explicitly forbidden.
+ARIN requests to be notified of any such activities or suspicions thereof.
+
+RIPE database copyright
+
+The information in the RIPE Database is available to the public 
+for agreed Internet operation purposes, but is under copyright.
+The copyright statement is:
+
+"Except for agreed Internet operational purposes, no part of this 
+publication may be reproduced, stored in a retrieval system, or transmitted, 
+in any form or by any means, electronic, mechanical, recording, or otherwise, without prior permission of the RIPE NCC on behalf of the 
+copyright holders. Any use of this material to target advertising 
+or similar activities is explicitly forbidden and may be prosecuted. 
+The RIPE NCC requests to be notified of any such activities or 
+suspicions thereof."
+
+LACNIC database copyright
+
+Copyright (c) Latin American and Caribbean IP address Regional Registry. All rig
+hts reserved.
+
+AFRINIC copyright
+
+Seems to be the RIPE copyright. I'm sure they'll correct this in due course.

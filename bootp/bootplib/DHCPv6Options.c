@@ -258,7 +258,7 @@ DHCPv6OptionAreaAddOptionRequestOption(DHCPv6OptionAreaRef oa_p,
 	oro[i] = htons(requested_options[i]);
     }
     return (DHCPv6OptionAreaAddOption(oa_p, kDHCPv6OPTION_ORO,
-				      sizeof(oro), oro, err_p));
+				      (int)sizeof(oro), oro, err_p));
 }
 
 

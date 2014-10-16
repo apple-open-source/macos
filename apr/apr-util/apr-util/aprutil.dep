@@ -65,6 +65,16 @@
 	".\include\apu.h"\
 	
 
+.\crypto\apr_crypto.c : \
+	".\include\apr_crypto.h"\
+	".\include\apu.h"\
+	".\include\apu_errno.h"\
+	".\include\apu_version.h"\
+	".\include\private\apr_crypto_internal.h"\
+	".\include\private\apu_config.h"\
+	".\include\private\apu_internal.h"\
+	
+
 .\crypto\apr_md4.c : \
 	".\include\apr_md4.h"\
 	".\include\apr_xlate.h"\
@@ -72,6 +82,14 @@
 	
 
 .\crypto\apr_md5.c : \
+	".\include\apr_md5.h"\
+	".\include\apr_xlate.h"\
+	".\include\apu.h"\
+	".\include\private\apu_config.h"\
+	
+
+.\crypto\apr_passwd.c : \
+	".\crypto\crypt_blowfish.h"\
 	".\include\apr_md5.h"\
 	".\include\apr_sha1.h"\
 	".\include\apr_xlate.h"\
@@ -84,6 +102,10 @@
 	".\include\apr_sha1.h"\
 	".\include\apr_xlate.h"\
 	".\include\apu.h"\
+	
+
+.\crypto\crypt_blowfish.c : \
+	".\crypto\crypt_blowfish.h"\
 	
 
 .\crypto\getuuid.c : \

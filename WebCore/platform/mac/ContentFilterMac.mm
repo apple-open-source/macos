@@ -29,57 +29,239 @@
 #if USE(CONTENT_FILTERING)
 
 #import "ResourceResponse.h"
-#import "WebCoreSystemInterface.h"
+#import "SoftLinking.h"
+#import <objc/runtime.h>
+
+#if defined(__has_include) && __has_include(<WebContentAnalysis/WebFilterEvaluator.h>)
+#import <WebContentAnalysis/WebFilterEvaluator.h>
+#else
+static const OSStatus kWFEStateBuffering = 2;
+@interface WebFilterEvaluator : NSObject
++ (BOOL)isManagedSession;
+- (BOOL)wasBlocked;
+- (NSData *)addData:(NSData *)receivedData;
+- (NSData *)dataComplete;
+- (OSStatus)filterState;
+- (id)initWithResponse:(NSURLResponse *)response;
+@end
+#endif
+
+SOFT_LINK_PRIVATE_FRAMEWORK(WebContentAnalysis);
+SOFT_LINK_CLASS(WebContentAnalysis, WebFilterEvaluator);
+
+#if HAVE(NE_FILTER_SOURCE)
+
+#if defined(__has_include) && __has_include(<NetworkExtension/NEFilterSource.h>)
+#import <NetworkExtension/NEFilterSource.h>
+#else
+typedef NS_ENUM(NSInteger, NEFilterSourceStatus) {
+    NEFilterSourceStatusPass = 1,
+    NEFilterSourceStatusBlock = 2,
+    NEFilterSourceStatusNeedsMoreData = 3,
+    NEFilterSourceStatusError = 4,
+};
+
+typedef NS_ENUM(NSInteger, NEFilterSourceDirection) {
+    NEFilterSourceDirectionOutbound = 1,
+    NEFilterSourceDirectionInbound = 2,
+};
+
+@interface NEFilterSource : NSObject
++ (BOOL)filterRequired;
+- (id)initWithURL:(NSURL *)url direction:(NEFilterSourceDirection)direction socketIdentifier:(uint64_t)socketIdentifier;
+- (void)addData:(NSData *)data withCompletionQueue:(dispatch_queue_t)queue completionHandler:(void (^)(NEFilterSourceStatus, NSData *))completionHandler;
+- (void)dataCompleteWithCompletionQueue:(dispatch_queue_t)queue completionHandler:(void (^)(NEFilterSourceStatus, NSData *))completionHandler;
+@property (readonly) NEFilterSourceStatus status;
+@property (readonly) NSURL *url;
+@property (readonly) NEFilterSourceDirection direction;
+@property (readonly) uint64_t socketIdentifier;
+@end
+#endif
+
+SOFT_LINK_FRAMEWORK(NetworkExtension);
+SOFT_LINK_CLASS(NetworkExtension, NEFilterSource);
+
+#endif // HAVE(NE_FILTER_SOURCE)
 
 namespace WebCore {
 
-PassRefPtr<ContentFilter> ContentFilter::create(const ResourceResponse& response)
+ContentFilter::ContentFilter()
+#if HAVE(NE_FILTER_SOURCE)
+    : m_neFilterSourceStatus(NEFilterSourceStatusNeedsMoreData)
+    , m_neFilterSourceQueue(0)
+#endif
 {
-    return adoptRef(new ContentFilter(response));
 }
 
 ContentFilter::ContentFilter(const ResourceResponse& response)
-    : m_platformContentFilter(adoptNS(wkFilterCreateInstance(response.nsURLResponse())))
+#if HAVE(NE_FILTER_SOURCE)
+    : m_neFilterSourceStatus(NEFilterSourceStatusNeedsMoreData)
+    , m_neFilterSourceQueue(0)
+#endif
 {
-    ASSERT(m_platformContentFilter);
+    if ([getWebFilterEvaluatorClass() isManagedSession])
+        m_platformContentFilter = adoptNS([[getWebFilterEvaluatorClass() alloc] initWithResponse:response.nsURLResponse()]);
+
+#if HAVE(NE_FILTER_SOURCE)
+    if ([getNEFilterSourceClass() filterRequired]) {
+        m_neFilterSource = adoptNS([[getNEFilterSourceClass() alloc] initWithURL:[response.nsURLResponse() URL] direction:NEFilterSourceDirectionInbound socketIdentifier:0]);
+        m_neFilterSourceQueue = dispatch_queue_create("com.apple.WebCore.NEFilterSourceQueue", DISPATCH_QUEUE_SERIAL);
+        
+        long long expectedContentSize = [response.nsURLResponse() expectedContentLength];
+        if (expectedContentSize < 0)
+            m_originalData = adoptNS([[NSMutableData alloc] init]);
+        else
+            m_originalData = adoptNS([[NSMutableData alloc] initWithCapacity:(NSUInteger)expectedContentSize]);
+    }
+#endif
 }
 
-bool ContentFilter::isEnabled()
+ContentFilter::~ContentFilter()
 {
-    return wkFilterIsManagedSession();
+#if HAVE(NE_FILTER_SOURCE)
+    if (m_neFilterSourceQueue)
+        dispatch_release(m_neFilterSourceQueue);
+#endif
+}
+
+bool ContentFilter::canHandleResponse(const ResourceResponse& response)
+{
+    if (!response.url().protocolIsInHTTPFamily())
+        return false;
+
+    if ([getWebFilterEvaluatorClass() isManagedSession]) {
+#if PLATFORM(MAC)
+        if (response.url().protocolIs("https"))
+#endif
+            return true;
+    }
+
+#if HAVE(NE_FILTER_SOURCE)
+    return [getNEFilterSourceClass() filterRequired];
+#else
+    return false;
+#endif
 }
 
 void ContentFilter::addData(const char* data, int length)
 {
     ASSERT(needsMoreData());
-    ASSERT(![m_replacementData.get() length]);
-    m_replacementData = wkFilterAddData(m_platformContentFilter.get(), [NSData dataWithBytesNoCopy:(void*)data length:length freeWhenDone:NO]);
-    ASSERT(needsMoreData() || [m_replacementData.get() length]);
+
+    if (m_platformContentFilter) {
+        ASSERT(![m_replacementData.get() length]);
+        m_replacementData = [m_platformContentFilter addData:[NSData dataWithBytesNoCopy:(void*)data length:length freeWhenDone:NO]];
+        ASSERT(needsMoreData() || [m_replacementData.get() length]);
+    }
+
+#if HAVE(NE_FILTER_SOURCE)
+    if (!m_neFilterSource)
+        return;
+
+    // FIXME: NEFilterSource doesn't buffer data like WebFilterEvaluator does,
+    // so we need to do it ourselves so getReplacementData() can return the
+    // original bytes back to the loader. We should find a way to remove this
+    // additional copy.
+    [m_originalData appendBytes:data length:length];
+
+    dispatch_semaphore_t neFilterSourceSemaphore = dispatch_semaphore_create(0);
+    [m_neFilterSource addData:[NSData dataWithBytes:(void*)data length:length] withCompletionQueue:m_neFilterSourceQueue completionHandler:^(NEFilterSourceStatus status, NSData *) {
+        m_neFilterSourceStatus = status;
+        dispatch_semaphore_signal(neFilterSourceSemaphore);
+    }];
+
+    // FIXME: We have to block here since DocumentLoader expects to have a
+    // blocked/not blocked answer from the filter immediately after calling
+    // addData(). We should find a way to make this asynchronous.
+    dispatch_semaphore_wait(neFilterSourceSemaphore, DISPATCH_TIME_FOREVER);
+    dispatch_release(neFilterSourceSemaphore);
+#endif
 }
     
 void ContentFilter::finishedAddingData()
 {
     ASSERT(needsMoreData());
-    ASSERT(![m_replacementData.get() length]);
-    m_replacementData = wkFilterDataComplete(m_platformContentFilter.get());
+
+    if (m_platformContentFilter) {
+        ASSERT(![m_replacementData.get() length]);
+        m_replacementData = [m_platformContentFilter dataComplete];
+    }
+
+#if HAVE(NE_FILTER_SOURCE)
+    if (!m_neFilterSource)
+        return;
+
+    dispatch_semaphore_t neFilterSourceSemaphore = dispatch_semaphore_create(0);
+    [m_neFilterSource dataCompleteWithCompletionQueue:m_neFilterSourceQueue completionHandler:^(NEFilterSourceStatus status, NSData *) {
+        m_neFilterSourceStatus = status;
+        dispatch_semaphore_signal(neFilterSourceSemaphore);
+    }];
+
+    // FIXME: We have to block here since DocumentLoader expects to have a
+    // blocked/not blocked answer from the filter immediately after calling
+    // finishedAddingData(). We should find a way to make this asynchronous.
+    dispatch_semaphore_wait(neFilterSourceSemaphore, DISPATCH_TIME_FOREVER);
+    dispatch_release(neFilterSourceSemaphore);
+#endif
+
     ASSERT(!needsMoreData());
 }
 
 bool ContentFilter::needsMoreData() const
 {
-    return wkFilterIsBuffering(m_platformContentFilter.get());
+    return [m_platformContentFilter filterState] == kWFEStateBuffering
+#if HAVE(NE_FILTER_SOURCE)
+        || (m_neFilterSource && m_neFilterSourceStatus == NEFilterSourceStatusNeedsMoreData)
+#endif
+    ;
 }
 
 bool ContentFilter::didBlockData() const
 {
-    return wkFilterWasBlocked(m_platformContentFilter.get());
+    return [m_platformContentFilter wasBlocked]
+#if HAVE(NE_FILTER_SOURCE)
+        || (m_neFilterSource && m_neFilterSourceStatus == NEFilterSourceStatusBlock)
+#endif
+    ;
 }
 
 const char* ContentFilter::getReplacementData(int& length) const
 {
     ASSERT(!needsMoreData());
-    length = [m_replacementData.get() length];
-    return static_cast<const char*>([m_replacementData.get() bytes]);
+
+    if (didBlockData()) {
+        length = [m_replacementData length];
+        return static_cast<const char*>([m_replacementData bytes]);
+    }
+
+    NSData *originalData = m_replacementData.get();
+#if HAVE(NE_FILTER_SOURCE)
+    if (!originalData)
+        originalData = m_originalData.get();
+#endif
+
+    length = [originalData length];
+    return static_cast<const char*>([originalData bytes]);
+}
+
+static NSString * const platformContentFilterKey = @"platformContentFilter";
+
+void ContentFilter::encode(NSKeyedArchiver *archiver) const
+{
+    if ([getWebFilterEvaluatorClass() conformsToProtocol:@protocol(NSSecureCoding)])
+        [archiver encodeObject:m_platformContentFilter.get() forKey:platformContentFilterKey];
+}
+
+bool ContentFilter::decode(NSKeyedUnarchiver *unarchiver, ContentFilter& contentFilter)
+{
+    @try {
+        if ([getWebFilterEvaluatorClass() conformsToProtocol:@protocol(NSSecureCoding)])
+            contentFilter.m_platformContentFilter = (WebFilterEvaluator *)[unarchiver decodeObjectOfClass:getWebFilterEvaluatorClass() forKey:platformContentFilterKey];
+        return true;
+    } @catch (NSException *exception) {
+        LOG_ERROR("The platform content filter being decoded is not a WebFilterEvaluator.");
+    }
+
+    return false;
 }
 
 } // namespace WebCore

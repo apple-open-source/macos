@@ -262,25 +262,51 @@ CCDigestDestroy(CCDigestRef ctx)
 
 #define CC_COMPAT_DIGEST_RETURN 1
 
+// corecrypto to CommonCrypto
+#define CC_ccToCC_DIGEST_CTX(di,cc_c,CC_c)                                \
+    CC_XMEMCPY((uint8_t*)CC_c, ccdigest_state_u8(di, cc_c), di->state_size); \
+    CC_XMEMCPY(&CC_c->data[0], ccdigest_data(di, cc_c), di->block_size);  \
+    CC_XMEMCPY(&CC_c->Nl, &ccdigest_nbits(di, cc_c), 2*sizeof(CC_c->Nl)); \
+    CC_c->num=ccdigest_num(di, cc_c);
+
+// CommonCrypto to corecrypto
+#define CC_CCTocc_DIGEST_CTX(di,CC_c,cc_c)                                \
+    CC_XMEMCPY(ccdigest_state_u8(di, cc_c), (uint8_t*)CC_c, di->state_size); \
+    CC_XMEMCPY(ccdigest_data(di, cc_c), &CC_c->data[0], di->block_size);  \
+    CC_XMEMCPY(&ccdigest_nbits(di, cc_c), &CC_c->Nl, 2*sizeof(CC_c->Nl)); \
+    ccdigest_num(di, cc_c)=CC_c->num;
+
+
 #define DIGEST_SHIMS(_name_,_constant_) \
 \
-int CC_##_name_##_Init(CC_##_name_##_CTX *c) { \
+int CC_##_name_##_Init(CC_##_name_##_CTX *CC_ctx) { \
     ASSERT(sizeof(CC_##_name_##_CTX) <= ccdigest_di_size(CCDigestGetDigestInfo(_constant_))); \
-    ccdigest_init(CCDigestGetDigestInfo(_constant_), (struct ccdigest_ctx *) c); \
+    const struct ccdigest_info *di=CCDigestGetDigestInfo(_constant_); \
+    ccdigest_di_decl(di, cc_ctx); \
+    ccdigest_init(di, cc_ctx); \
+    CC_ccToCC_DIGEST_CTX(di,cc_ctx,CC_ctx); \
 	return 1; \
 } \
  \
 int \
-CC_##_name_##_Update(CC_##_name_##_CTX *c, const void *data, CC_LONG len) \
+CC_##_name_##_Update(CC_##_name_##_CTX *CC_ctx, const void *data, CC_LONG len) \
 { \
-    ccdigest_update(CCDigestGetDigestInfo(_constant_), (struct ccdigest_ctx *) c, len, data); \
+    const struct ccdigest_info *di=CCDigestGetDigestInfo(_constant_); \
+    ccdigest_di_decl(di, cc_ctx); \
+    CC_CCTocc_DIGEST_CTX(di,CC_ctx,cc_ctx); \
+    ccdigest_update(di, cc_ctx, len, data); \
+    CC_ccToCC_DIGEST_CTX(di,cc_ctx,CC_ctx); \
 	return 1; \
 } \
  \
 int \
-CC_##_name_##_Final(unsigned char *md, CC_##_name_##_CTX *c) \
+CC_##_name_##_Final(unsigned char *md, CC_##_name_##_CTX *CC_ctx) \
 { \
-    ccdigest_final(CCDigestGetDigestInfo(_constant_), (struct ccdigest_ctx *) c, md); \
+    const struct ccdigest_info *di=CCDigestGetDigestInfo(_constant_); \
+    ccdigest_di_decl(di, cc_ctx); \
+    CC_CCTocc_DIGEST_CTX(di,CC_ctx,cc_ctx); \
+    ccdigest_final(di, cc_ctx, md); \
+    CC_ccToCC_DIGEST_CTX(di,cc_ctx,CC_ctx); \
 	return 1; \
 } \
  \
@@ -417,7 +443,7 @@ int CC_MD2_Update(CC_MD2_CTX *c, const void *data, CC_LONG len)
     return CC_COMPAT_DIGEST_RETURN;
 }
 
-extern int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c)
+int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c)
 {
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestMD2);
     ccdigest_di_decl(di, ctx);

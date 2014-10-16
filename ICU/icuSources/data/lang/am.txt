@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/am.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/am.xml
+ * ICU <specials> source: <path>/common/main/am.xml
  */
 am{
     Keys{
@@ -36,6 +36,7 @@ am{
         ak{"አካንኛ"}
         am{"አማርኛ"}
         ar{"ዐርቢኛ"}
+        ar_001{"ዘመናዊ መደበኛ አረብኛ"}
         as{"አሳሜዛዊ"}
         ay{"አያማርኛ"}
         az{"አዘርባጃንኛ"}
@@ -43,7 +44,6 @@ am{
         be{"ቤላራሻኛ"}
         bem{"ቤምባ"}
         bg{"ቡልጋሪኛ"}
-        bh{"ቢሃሪ"}
         bi{"ቢስላምኛ"}
         bn{"ቤንጋሊኛ"}
         bo{"ቲቤታንኛ"}
@@ -69,7 +69,7 @@ am{
         en_AU{"የአውስትራሊያ እንግሊዝኛ"}
         en_CA{"የካናዳ እንግሊዝኛ"}
         en_GB{"የብሪቲሽ እንግሊዝኛ"}
-        en_US{"የዩ ኤስ እንግሊዝኛ"}
+        en_US{"የአሜሪካ እንግሊዝኛ"}
         eo{"ኤስፐራንቶ"}
         es{"ስፓኒሽ"}
         es_419{"የላቲን አሜሪካ ስፓኒሽ"}
@@ -136,7 +136,6 @@ am{
         mk{"ማሴዶንኛ"}
         ml{"ማላያላምኛ"}
         mn{"ሞንጎላዊኛ"}
-        mo{"ሞልዳቫዊና"}
         mr{"ማራቲኛ"}
         ms{"ማላይኛ"}
         mt{"ማልቲስኛ"}
@@ -166,6 +165,7 @@ am{
         rm{"ሮማንሽ"}
         rn{"ሩንዲኛ"}
         ro{"ሮማኒያን"}
+        ro_MD{"ሞልዳቫዊና"}
         ru{"ራሽኛ"}
         rw{"ኪንያርዋንድኛ"}
         sa{"ሳንስክሪትኛ"}
@@ -218,6 +218,7 @@ am{
         yi{"ይዲሽኛ"}
         yo{"ዮሩባዊኛ"}
         za{"ዡዋንግኛ"}
+        zgh{"zgh"}
         zh{"ቻይንኛ"}
         zh_Hans{"ቀለል ያለ ቻይንኛ"}
         zh_Hant{"ባህላዊ ቻይንኛ"}
@@ -226,6 +227,8 @@ am{
     }
     LanguagesShort{
         az{"አዜሪ"}
+        en_GB{"የዩናይትድ ኪንግደም እንግሊዝኛ"}
+        en_US{"የዩ ኤስ እንግሊዝኛ"}
     }
     Scripts{
         Arab{"ዓረብኛ"}
@@ -288,6 +291,42 @@ am{
             persian{"የፐርሽያ የቀን አቆጣጠር"}
             roc{"የሚንጉ የቀን አቆጣጠር"}
         }
+        colAlternate{
+            non-ignorable{"ምልክቶችን ደርድር"}
+            shifted{"ችላ ባይ ምልክቶችን ደርድር"}
+        }
+        colBackwards{
+            no{"የፊደል ጭረቶችን እንደመደበኛ ደርድር"}
+            yes{"የፊደል ጭረቶች በኋሊዮሽ ደርድር"}
+        }
+        colCaseFirst{
+            lower{"ንዑስ ሆሄ መጀመሪያ ደርድር"}
+            no{"መደበኛ የመልከፊደል አቀማመጥ ደርድር"}
+            upper{"አቢይ ሆሄ መጀመሪያ ደርድር"}
+        }
+        colCaseLevel{
+            no{"ያለመልከፊደል ትብ ደርድር"}
+            yes{"በመልከፊደል ትብ ደርድር"}
+        }
+        colHiraganaQuaternary{
+            no{"ካና ለይተህ ደርድር"}
+            yes{"ካና ለይተህ ደርድር"}
+        }
+        colNormalization{
+            no{"ያለመደበኛ ሁኔታ ደርድር"}
+            yes{"ዩኒኮድ በመደበኛ ሁኔታ ደርድር"}
+        }
+        colNumeric{
+            no{"አሃዞችን በየግል ደርድር"}
+            yes{"አሃዞች በቁጥር ደርድር"}
+        }
+        colStrength{
+            identical{"ሁሉንም ደርድር"}
+            primary{"የመሠረት ፊደላት ብቻ ደርድር"}
+            quaternary{"የፊደል ጭረቶች/መልከፊደል/ስፋት/ካና ደርድር"}
+            secondary{"የፊደል ጭረቶችን ደርድር"}
+            tertiary{"የፊደል ጭረቶች/መልከፊደል/ስፋት ደርድር"}
+        }
         collation{
             big5han{"የባህላዊ ቻይንኛ የድርድር ቅደም ተከተል - ትልቅ5"}
             dictionary{"የመዝገበ ቃላት የድርድር ቅደም ተከተል"}
@@ -346,7 +385,7 @@ am{
             vaii{"የቫይ አሃዞች"}
         }
     }
-    Version{"2.0.82.52"}
+    Version{"2.0.98.76"}
     codePatterns{
         language{"{0}"}
         script{"{0}"}
@@ -355,6 +394,6 @@ am{
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}
-        separator{","}
+        separator{"{0},{1}"}
     }
 }

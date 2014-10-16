@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2013, International Business Machines
+*   Copyright (C) 1997-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -290,6 +290,52 @@ public:
      */
     virtual int32_t next(int32_t n) = 0;
 
+   /**
+     * For RuleBasedBreakIterators, return the status tag from the 
+     * break rule that determined the most recently
+     * returned break position.
+     * <p>
+     * For break iterator types that do not support a rule status,
+     * a default value of 0 is returned.
+     * <p>
+     * @return the status from the break rule that determined the most recently
+     *         returned break position.
+     * @see RuleBaseBreakIterator::getRuleStatus()
+     * @see UWordBreak
+     * @draft ICU 52
+     */
+    virtual int32_t getRuleStatus() const;
+
+   /**
+    * For RuleBasedBreakIterators, get the status (tag) values from the break rule(s) 
+    * that determined the most recently returned break position.
+    * <p>
+    * For break iterator types that do not support rule status,
+    * no values are returned.
+    * <p>
+    * The returned status value(s) are stored into an array provided by the caller.
+    * The values are stored in sorted (ascending) order.
+    * If the capacity of the output array is insufficient to hold the data,
+    *  the output will be truncated to the available length, and a
+    *  U_BUFFER_OVERFLOW_ERROR will be signaled.
+    * <p>
+    * @see RuleBaseBreakIterator::getRuleStatusVec
+    *
+    * @param fillInVec an array to be filled in with the status values.
+    * @param capacity  the length of the supplied vector.  A length of zero causes
+    *                  the function to return the number of status values, in the
+    *                  normal way, without attemtping to store any values.
+    * @param status    receives error codes.
+    * @return          The number of rule status values from rules that determined
+    *                  the most recent boundary returned by the break iterator.
+    *                  In the event of a U_BUFFER_OVERFLOW_ERROR, the return value
+    *                  is the total number of status values that were available,
+    *                  not the reduced number that were actually returned.
+    * @see getRuleStatus
+    * @draft ICU 52
+    */
+    virtual int32_t getRuleStatusVec(int32_t *fillInVec, int32_t capacity, UErrorCode &status);
+
     /**
      * Create BreakIterator for word-breaks using the given locale.
      * Returns an instance of a BreakIterator implementing word breaks.
@@ -440,6 +486,8 @@ public:
                                          UnicodeString& name);
 
     /**
+     * Deprecated functionality. Use clone() instead.
+     *
      * Thread safe client-buffer-based cloning operation
      *    Do NOT call delete on a safeclone, since 'new' is not used to create it.
      * @param stackBuffer user allocated space for the new clone. If NULL new memory will be allocated.
@@ -454,19 +502,23 @@ public:
      *  necessary.
      * @return pointer to the new clone
      *
-     * @stable ICU 2.0
+     * @deprecated ICU 52. Use clone() instead.
      */
     virtual BreakIterator *  createBufferClone(void *stackBuffer,
                                                int32_t &BufferSize,
                                                UErrorCode &status) = 0;
 
+#ifndef U_HIDE_DEPRECATED_API
+
     /**
      *   Determine whether the BreakIterator was created in user memory by
      *   createBufferClone(), and thus should not be deleted.  Such objects
      *   must be closed by an explicit call to the destructor (not delete).
-     *  @stable ICU 2.0
+     * @deprecated ICU 52. Always delete the BreakIterator.
      */
     inline UBool isBufferClone(void);
+
+#endif /* U_HIDE_DEPRECATED_API */
 
 #if !UCONFIG_NO_SERVICE
     /**
@@ -474,6 +526,9 @@ public:
      * The break iterator will be adopted.  Clones of the iterator will be returned
      * if a request for a break iterator of the given kind matches or falls back to
      * this locale.
+     * Because ICU may choose to cache BreakIterators internally, this must
+     * be called at application startup, prior to any calls to
+     * BreakIterator::createXXXInstance to avoid undefined behavior.
      * @param toAdopt the BreakIterator instance to be adopted
      * @param locale the Locale for which this instance is to be registered
      * @param kind the type of iterator for which this instance is to be registered
@@ -490,6 +545,9 @@ public:
      * Unregister a previously-registered BreakIterator using the key returned from the
      * register call.  Key becomes invalid after a successful call and should not be used again.
      * The BreakIterator corresponding to the key will be deleted.
+     * Because ICU may choose to cache BreakIterators internally, this should
+     * be called during application shutdown, after all calls to
+     * BreakIterator::createXXXInstance to avoid undefined behavior.
      * @param key the registry key returned by a previous call to registerInstance
      * @param status the in/out status code, no special meanings are assigned
      * @return TRUE if the iterator for the key was successfully unregistered
@@ -564,10 +622,9 @@ protected:
     /** @internal */
     BreakIterator();
     /** @internal */
-    UBool fBufferClone;
+    BreakIterator (const BreakIterator &other) : UObject(other) {}
     /** @internal */
-    BreakIterator (const BreakIterator &other) : UObject(other), fBufferClone(FALSE) {}
-
+    BreakIterator (const Locale& valid, const Locale& actual);
 private:
 
     /** @internal */
@@ -581,10 +638,14 @@ private:
     BreakIterator& operator=(const BreakIterator&);
 };
 
+#ifndef U_HIDE_DEPRECATED_API
+
 inline UBool BreakIterator::isBufferClone()
 {
-    return fBufferClone;
+    return FALSE;
 }
+
+#endif /* U_HIDE_DEPRECATED_API */
 
 U_NAMESPACE_END
 
@@ -592,4 +653,3 @@ U_NAMESPACE_END
 
 #endif // _BRKITER
 //eof
-

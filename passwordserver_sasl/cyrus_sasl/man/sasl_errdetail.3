@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_errdetail "10 July 2001" SASL "SASL man pages"
+.TH sasl_errdetail 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_errdetail \- Retrieve detailed information about an error
 
@@ -53,17 +53,17 @@ sasl_errdetail \- Retrieve detailed information about an error
 .SH DESCRIPTION
 
 .B sasl_errdetail
-provides more detailed informatio about the most recent error to occur,
+provides more detailed information about the most recent error to occur,
 beyond the information contained in the SASL result code.
 
 .I conn
 the connection context to inquire about.
 
 .SH "RETURN VALUE"
-Returns the string describing the error that occured, or NULL if
-no error has occured, or there was an error retreiving it.
+Returns the string describing the error that occurred, or NULL if
+no error has occurred, or there was an error retrieving it.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3)

@@ -42,13 +42,8 @@
 typedef char new_char;
 inline new_char char_var = 'c';
 
-#if !defined(__APPLE__)
-typedef int * pointer;
-inline pointer p = &`kmem_flags;
-#else
 typedef unsigned int * pointer;
 inline pointer p = &`max_ncpus;
-#endif /* __APPLE__ */
 
 BEGIN
 {

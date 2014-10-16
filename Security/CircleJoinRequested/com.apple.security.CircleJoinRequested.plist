@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UserName</key>
+	<string>mobile</string>
+	<key>Label</key>
+	<string>com.apple.security.CircleJoinRequested</string>
+	<key>enabletransactions</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/System/Library/Frameworks/Security.framework/CircleJoinRequested/CircleJoinRequested</string>
+	</array>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.notifyd.matching</key>
+		<dict>
+			<key>com.apple.mobile.keybagd.first_unlock</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.mobile.keybagd.first_unlock</string>
+			</dict>
+			<key>TICK</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.tick</string>
+			</dict>
+			<key>kSOSCCCircleChangedNotification</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.secureobjectsync.circlechanged</string>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

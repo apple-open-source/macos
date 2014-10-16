@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2013 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2013 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,9 +29,17 @@
 
 #if USE(CG)
 
+#if PLATFORM(IOS)
+#import <CoreGraphics/CGContextPrivate.h>
+#import <CoreGraphics/CGContextGState.h>
+#import <CoreGraphics/CoreGraphics.h>
+#import <ImageIO/ImageIO.h>
+#endif
+
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "ImageObserver.h"
+#include "IntRect.h"
 #include "Length.h"
 #include "SharedBuffer.h"
 #include <CoreGraphics/CGContext.h>
@@ -39,7 +47,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(COCOA)
 #include "ImageSourceCG.h"
 #endif
 
@@ -62,9 +70,9 @@ String PDFDocumentImage::filenameExtension() const
     return "pdf";
 }
 
-IntSize PDFDocumentImage::size() const
+FloatSize PDFDocumentImage::size() const
 {
-    IntSize expandedCropBoxSize = expandedIntSize(m_cropBox.size());
+    FloatSize expandedCropBoxSize = FloatSize(expandedIntSize(m_cropBox.size()));
 
     if (m_rotationDegrees == 90 || m_rotationDegrees == 270)
         return expandedCropBoxSize.transposedSize();
@@ -142,7 +150,7 @@ void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext* context, const
     bool useLowQualityInterpolation = interpolationQuality == InterpolationNone || interpolationQuality == InterpolationLow;
 
     if (!m_cachedImageBuffer || (!cacheParametersMatch(context, dstRect, srcRect) && !useLowQualityInterpolation)) {
-        m_cachedImageBuffer = context->createCompatibleBuffer(enclosingIntRect(dstRect).size());
+        m_cachedImageBuffer = context->createCompatibleBuffer(FloatRect(enclosingIntRect(dstRect)).size());
         if (!m_cachedImageBuffer)
             return;
         GraphicsContext* bufferContext = m_cachedImageBuffer->context();
@@ -167,7 +175,7 @@ void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext* context, const
     }
 }
 
-void PDFDocumentImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator op, BlendMode)
+void PDFDocumentImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator op, BlendMode, ImageOrientationDescription)
 {
     if (!m_document || !m_hasPage)
         return;
@@ -200,34 +208,25 @@ void PDFDocumentImage::destroyDecodedData(bool)
     m_cachedBytes = 0;
 }
 
-unsigned PDFDocumentImage::decodedSize() const
-{
-    // FIXME: PDFDocumentImage is underreporting decoded sizes because this
-    // only includes the cached image and nothing else.
-
-    return m_cachedBytes;
-}
-
 #if !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
+
 void PDFDocumentImage::createPDFDocument()
 {
-    RetainPtr<CFDataRef> data = adoptCF(this->data()->createCFData());
-    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
-    m_document = CGPDFDocumentCreateWithProvider(dataProvider.get());
+    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data()->createCFData().get()));
+    m_document = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get()));
 }
 
 void PDFDocumentImage::computeBoundsForCurrentPage()
 {
     CGPDFPageRef cgPage = CGPDFDocumentGetPage(m_document.get(), 1);
-
-    m_mediaBox = CGPDFPageGetBoxRect(cgPage, kCGPDFMediaBox);
+    CGRect mediaBox = CGPDFPageGetBoxRect(cgPage, kCGPDFMediaBox);
 
     // Get crop box (not always there). If not, use media box.
     CGRect r = CGPDFPageGetBoxRect(cgPage, kCGPDFCropBox);
     if (!CGRectIsEmpty(r))
         m_cropBox = r;
     else
-        m_cropBox = m_mediaBox;
+        m_cropBox = mediaBox;
 
     m_rotationDegrees = CGPDFPageGetRotationAngle(cgPage);
 }
@@ -237,7 +236,7 @@ unsigned PDFDocumentImage::pageCount() const
     return CGPDFDocumentGetNumberOfPages(m_document.get());
 }
 
-static void applyRotationForPainting(GraphicsContext* context, IntSize size, int rotationDegrees) 
+static void applyRotationForPainting(GraphicsContext* context, FloatSize size, int rotationDegrees)
 {
     if (rotationDegrees == 90)
         context->translate(0, size.height());
@@ -258,6 +257,7 @@ void PDFDocumentImage::drawPDFPage(GraphicsContext* context)
     // CGPDF pages are indexed from 1.
     CGContextDrawPDFPage(context->platformContext(), CGPDFDocumentGetPage(m_document.get(), 1));
 }
+
 #endif // !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
 
 }

@@ -27,8 +27,6 @@
 #define SmallStrings_h
 
 #include "WriteBarrier.h"
-
-#include <wtf/FixedArray.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 
@@ -68,16 +66,12 @@ namespace JSC {
             return m_emptyString;
         }
 
-        JSString* singleCharacterString(VM* vm, unsigned char character)
+        JSString* singleCharacterString(unsigned char character)
         {
-            if (!m_singleCharacterStrings[character])
-                createSingleCharacterString(vm, character);
             return m_singleCharacterStrings[character];
         }
 
         JS_EXPORT_PRIVATE WTF::StringImpl* singleCharacterStringRep(unsigned char character);
-
-        void finalizeSmallStrings();
 
         JSString** singleCharacterStrings() { return &m_singleCharacterStrings[0]; }
 
@@ -92,6 +86,9 @@ namespace JSC {
         JSC_COMMON_STRINGS_EACH_NAME(JSC_COMMON_STRINGS_ACCESSOR_DEFINITION)
 #undef JSC_COMMON_STRINGS_ACCESSOR_DEFINITION
 
+        JSString* nullObjectString() const { return m_nullObjectString; }
+        JSString* undefinedObjectString() const { return m_undefinedObjectString; }
+
     private:
         static const unsigned singleCharacterStringCount = maxSingleCharacterString + 1;
 
@@ -104,6 +101,8 @@ namespace JSC {
 #define JSC_COMMON_STRINGS_ATTRIBUTE_DECLARATION(name) JSString* m_##name;
         JSC_COMMON_STRINGS_EACH_NAME(JSC_COMMON_STRINGS_ATTRIBUTE_DECLARATION)
 #undef JSC_COMMON_STRINGS_ATTRIBUTE_DECLARATION
+        JSString* m_nullObjectString;
+        JSString* m_undefinedObjectString;
         JSString* m_singleCharacterStrings[singleCharacterStringCount];
         OwnPtr<SmallStringsStorage> m_storage;
     };

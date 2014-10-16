@@ -20,19 +20,23 @@
 .Nd DOS/Windows (FAT) file system utility
 .Sh SYNOPSIS
 .Nm
-.Op Fl m Ar mountflag1 mountflag2 mountflag3 mountflag4
+.Fl m Ar mountflag1 mountflag2 mountflag3 mountflag4
 .Ar device node
 .Pp
 .Nm
-.Op Fl p Ar mountflag1 mountflag2 mountflag3 mountflag4
+.Fl p Ar mountflag1 mountflag2 mountflag3 mountflag4
 .Ar device
 .Pp
 .Nm
-.Op Fl u 
+.Fl u
 .Ar device
 .Pp
 .Nm
-.Op Fl n
+.Fl k
+.Ar device
+.Pp
+.Nm
+.Fl n
 .Ar device name
 .Sh DESCRIPTION
 The
@@ -49,6 +53,8 @@ set name
 probe for mounting
 .It Fl u 
 unmount
+.It Fl k
+print volume UUID
 .El
 .Pp
 .Ar mountflags 
@@ -71,6 +77,20 @@ or
 or
 .Ar nodev
 .El
+.Pp
+FAT volumes do not actually have a volume UUID.
+They have an optional 4-byte volume ID.
+If a volume has an ID, then it will be converted to a version 3 UUID
+using MD5 to checksum the kFSUUIDNamespaceSHA1 UUID folowed by the volume ID.
+.Pp
+For the
+.Fl k
+option, if the volume has a volume ID, the exit status will be 253 and the UUID
+will be printed to standard out, without any trailing newline.
+Otherwise, if the volume appears to be FAT, the exit status will be 255.
+If the volume does not appear to be FAT, the exit status will be 254.
+.Sh FILES
+.Pa /System/Library/Filesystems/msdos.fs/msdos.util
 .Sh SEE ALSO 
 .Xr diskarbitrationd 8
 .Sh HISTORY

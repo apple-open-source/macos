@@ -37,8 +37,8 @@ enum ENinePieceImageRule {
 
 class NinePieceImageData : public RefCounted<NinePieceImageData> {
 public:
-    static PassRefPtr<NinePieceImageData> create() { return adoptRef(new NinePieceImageData); }
-    PassRefPtr<NinePieceImageData> copy() const { return adoptRef(new NinePieceImageData(*this)); }
+    static PassRef<NinePieceImageData> create() { return adoptRef(*new NinePieceImageData); }
+    PassRef<NinePieceImageData> copy() const;
 
     bool operator==(const NinePieceImageData&) const;
     bool operator!=(const NinePieceImageData& o) const { return !(*this == o); }
@@ -69,16 +69,16 @@ public:
     void setImage(PassRefPtr<StyleImage> image) { m_data.access()->image = image; }
     
     const LengthBox& imageSlices() const { return m_data->imageSlices; }
-    void setImageSlices(const LengthBox& slices) { m_data.access()->imageSlices = slices; }
+    void setImageSlices(LengthBox slices) { m_data.access()->imageSlices = WTF::move(slices); }
 
     bool fill() const { return m_data->fill; }
     void setFill(bool fill) { m_data.access()->fill = fill; }
 
     const LengthBox& borderSlices() const { return m_data->borderSlices; }
-    void setBorderSlices(const LengthBox& slices) { m_data.access()->borderSlices = slices; }
+    void setBorderSlices(LengthBox slices) { m_data.access()->borderSlices = WTF::move(slices); }
 
     const LengthBox& outset() const { return m_data->outset; }
-    void setOutset(const LengthBox& outset) { m_data.access()->outset = outset; }
+    void setOutset(LengthBox outset) { m_data.access()->outset = WTF::move(outset); }
 
     ENinePieceImageRule horizontalRule() const { return static_cast<ENinePieceImageRule>(m_data->horizontalRule); }
     void setHorizontalRule(ENinePieceImageRule rule) { m_data.access()->horizontalRule = rule; }
@@ -115,7 +115,7 @@ public:
         m_data.access()->borderSlices = LengthBox();
     }
 
-    static LayoutUnit computeOutset(Length outsetSide, LayoutUnit borderSide)
+    static LayoutUnit computeOutset(const Length& outsetSide, LayoutUnit borderSide)
     {
         if (outsetSide.isRelative())
             return outsetSide.value() * borderSide;

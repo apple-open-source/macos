@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -67,6 +66,10 @@ extern int f_color;		/* add type in color for non-regular files */
 #endif
 extern int f_numericonly;	/* don't convert uid/gid to name */
 
+#ifdef __APPLE__
+#include <sys/acl.h>
+#endif // __APPLE__
+
 typedef struct {
 	FTSENT *list;
 	u_int64_t btotal;
@@ -89,6 +92,12 @@ typedef struct {
 	char *flags;
 #ifndef __APPLE__
 	char *lattr;
+#else
+	char	*xattr_names;	/* f_xattr */
+	int	*xattr_sizes;
+	acl_t	acl;		/* f_acl */
+        int	xattr_count;
+	char	mode_suffix;	/* @ | + | <space> */
 #endif /* __APPLE__ */
 	char data[1];
 } NAMES;

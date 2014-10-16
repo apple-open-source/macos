@@ -96,10 +96,9 @@
 /*	char   *var_proxywrite_service;
 /*	int	var_db_create_buf;
 /*	int	var_db_read_buf;
+/*	long	var_lmdb_map_size;
+/*	int	var_proc_limit;
 /*	int	var_mime_maxdepth;
-/*#ifdef __APPLE_OS_X_SERVER__
-/*	int	var_mime_max_body_size;
-/*#endif /* __APPLE_OS_X_SERVER__
 /*	int	var_mime_bound_len;
 /*	int	var_header_limit;
 /*	int	var_token_limit;
@@ -111,9 +110,6 @@
 /*	int     var_strict_encoding;
 /*	int     var_verify_neg_cache;
 /*	int	var_oldlog_compat;
-/*#ifdef __APPLE_OS_X_SERVER__
-/*	char	*var_mydomain_fallback;
-/*#endif /* __APPLE_OS_X_SERVER__
 /*	int	var_delay_max_res;
 /*	char	*var_int_filt_classes;
 /*	int	var_cyrus_sasl_authzid;
@@ -183,6 +179,9 @@
 #ifdef HAS_DB
 #include <dict_db.h>
 #endif
+#ifdef HAS_LMDB
+#include <dict_lmdb.h>
+#endif
 #include <inet_proto.h>
 #include <vstring_vstream.h>
 #include <iostuff.h>
@@ -202,9 +201,6 @@
   */
 char   *var_myhostname;
 char   *var_mydomain;
-#ifdef __APPLE_OS_X_SERVER__
-char   *var_mydomain_fallback;
-#endif /* __APPLE_OS_X_SERVER__ */
 char   *var_myorigin;
 char   *var_mydest;
 char   *var_relayhost;
@@ -293,10 +289,9 @@ char   *var_proxymap_service;
 char   *var_proxywrite_service;
 int     var_db_create_buf;
 int     var_db_read_buf;
+long    var_lmdb_map_size;
+int     var_proc_limit;
 int     var_mime_maxdepth;
-#ifdef __APPLE_OS_X_SERVER__
-int	var_mime_max_body_size;
-#endif
 int     var_mime_bound_len;
 int     var_header_limit;
 int     var_token_limit;
@@ -308,14 +303,6 @@ int     var_strict_8bit_body;
 int     var_strict_encoding;
 int     var_verify_neg_cache;
 int     var_oldlog_compat;
-#ifdef __APPLE_OS_X_SERVER__
-int	var_minimum_valid_uid;
-bool	var_enable_server_options;
-bool    var_check_for_od_forward;
-bool	var_use_getpwnam_ext;
-bool	var_use_sacl_cache;
-char   *var_sacl_cache_service;
-#endif /* __APPLE_OS_X_SERVER__ */
 int     var_delay_max_res;
 char   *var_int_filt_classes;
 int     var_cyrus_sasl_authzid;
@@ -350,12 +337,7 @@ static const char *check_myhostname(void)
      */
     name = get_hostname();
     if ((dot = strchr(name, '.')) == 0) {
-#ifdef __APPLE_OS_X_SERVER__
-	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0 &&
-	    (domain = mail_conf_lookup_eval(VAR_MYDOMAIN_FALLBACK)) == 0)
-#else
 	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0)
-#endif /* __APPLE_OS_X_SERVER__ */
 	    domain = DEF_MYDOMAIN;
 	name = concatenate(name, ".", domain, (char *) 0);
     }
@@ -505,14 +487,17 @@ static char *read_param_from_file(const char *path)
     /*
      * Ugly macros to make complex expressions less unreadable.
      */
-#define SKIP(start, var, cond) \
-	for (var = start; *var && (cond); var++);
+#define SKIP(start, var, cond) do { \
+	for (var = start; *var && (cond); var++) \
+	    /* void */; \
+    } while (0)
 
-#define TRIM(s) { \
+#define TRIM(s) do { \
 	char *p; \
-	for (p = (s) + strlen(s); p > (s) && ISSPACE(p[-1]); p--); \
+	for (p = (s) + strlen(s); p > (s) && ISSPACE(p[-1]); p--) \
+	    /* void */; \
 	*p = 0; \
-    }
+    } while (0)
 
     fp = safe_open(path, O_RDONLY, 0, (struct stat *) 0, -1, -1, why);
     if (fp == 0)
@@ -556,9 +541,6 @@ void    mail_params_init()
 	0,
     };
     static const CONFIG_STR_TABLE other_str_defaults[] = {
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_MYDOMAIN_FALLBACK, DEF_MYDOMAIN_FALLBACK, &var_mydomain_fallback, 1, 0,
-#endif /* __APPLE_OS_X_SERVER__ */
 	VAR_MAIL_NAME, DEF_MAIL_NAME, &var_mail_name, 1, 0,
 	VAR_SYSLOG_NAME, DEF_SYSLOG_NAME, &var_syslog_name, 1, 0,
 	VAR_MAIL_OWNER, DEF_MAIL_OWNER, &var_mail_owner, 1, 0,
@@ -580,7 +562,7 @@ void    mail_params_init()
 	VAR_MAIL_VERSION, DEF_MAIL_VERSION, &var_mail_version, 1, 0,
 	VAR_DB_TYPE, DEF_DB_TYPE, &var_db_type, 1, 0,
 	VAR_HASH_QUEUE_NAMES, DEF_HASH_QUEUE_NAMES, &var_hash_queue_names, 1, 0,
-	VAR_RCPT_DELIM, DEF_RCPT_DELIM, &var_rcpt_delim, 0, 1,
+	VAR_RCPT_DELIM, DEF_RCPT_DELIM, &var_rcpt_delim, 0, 0,
 	VAR_RELAY_DOMAINS, DEF_RELAY_DOMAINS, &var_relay_domains, 0, 0,
 	VAR_FFLUSH_DOMAINS, DEF_FFLUSH_DOMAINS, &var_fflush_domains, 0, 0,
 	VAR_EXPORT_ENVIRON, DEF_EXPORT_ENVIRON, &var_export_environ, 0, 0,
@@ -601,9 +583,6 @@ void    mail_params_init()
 	VAR_ERROR_SERVICE, DEF_ERROR_SERVICE, &var_error_service, 1, 0,
 	VAR_FLUSH_SERVICE, DEF_FLUSH_SERVICE, &var_flush_service, 1, 0,
 	VAR_VERIFY_SERVICE, DEF_VERIFY_SERVICE, &var_verify_service, 1, 0,
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_SACL_CACHE_SERVICE, DEF_SACL_CACHE_SERVICE, &var_sacl_cache_service, 1, 0,
-#endif
 	VAR_TRACE_SERVICE, DEF_TRACE_SERVICE, &var_trace_service, 1, 0,
 	VAR_PROXYMAP_SERVICE, DEF_PROXYMAP_SERVICE, &var_proxymap_service, 1, 0,
 	VAR_PROXYWRITE_SERVICE, DEF_PROXYWRITE_SERVICE, &var_proxywrite_service, 1, 0,
@@ -617,6 +596,7 @@ void    mail_params_init()
 	0,
     };
     static const CONFIG_INT_TABLE other_int_defaults[] = {
+	VAR_PROC_LIMIT, DEF_PROC_LIMIT, &var_proc_limit, 1, 0,
 	VAR_MAX_USE, DEF_MAX_USE, &var_use_limit, 1, 0,
 	VAR_DONT_REMOVE, DEF_DONT_REMOVE, &var_dont_remove, 0, 0,
 	VAR_LINE_LIMIT, DEF_LINE_LIMIT, &var_line_limit, 512, 0,
@@ -633,14 +613,11 @@ void    mail_params_init()
 	VAR_MIME_BOUND_LEN, DEF_MIME_BOUND_LEN, &var_mime_bound_len, 1, 0,
 	VAR_DELAY_MAX_RES, DEF_DELAY_MAX_RES, &var_delay_max_res, MIN_DELAY_MAX_RES, MAX_DELAY_MAX_RES,
 	VAR_INET_WINDOW, DEF_INET_WINDOW, &var_inet_windowsize, 0, 0,
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_MINIMUM_VALID_UID, DEF_MINIMUM_VALID_UID, &var_minimum_valid_uid, 2, 0,
-	VAR_MIME_MAX_BODY_SIZE, DEF_MIME_MAX_BODY_SIZE, &var_mime_max_body_size, 0, 0,
-#endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
     static const CONFIG_LONG_TABLE long_defaults[] = {
 	VAR_MESSAGE_LIMIT, DEF_MESSAGE_LIMIT, &var_message_limit, 0, 0,
+	VAR_LMDB_MAP_SIZE, DEF_LMDB_MAP_SIZE, &var_lmdb_map_size, 1, 0,
 	0,
     };
     static const CONFIG_TIME_TABLE time_defaults[] = {
@@ -673,12 +650,6 @@ void    mail_params_init()
 	VAR_CYRUS_SASL_AUTHZID, DEF_CYRUS_SASL_AUTHZID, &var_cyrus_sasl_authzid,
 	VAR_MULTI_ENABLE, DEF_MULTI_ENABLE, &var_multi_enable,
 	VAR_LONG_QUEUE_IDS, DEF_LONG_QUEUE_IDS, &var_long_queue_ids,
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_ENABLE_SERVER_OPTIONS, DEF_ENABLE_SERVER_OPTIONS, &var_enable_server_options,
-	VAR_CHECK_FOR_OD_FORWARD, DEF_CHECK_FOR_OD_FORWARD, &var_check_for_od_forward,
-	VAR_USE_GETPWNAM_EXT, DEF_USE_GETPWNAM_EXT, &var_use_getpwnam_ext,
-	VAR_USE_SACL_CACHE, DEF_USE_SACL_CACHE, &var_use_sacl_cache,
-#endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
     const char *cp;
@@ -753,6 +724,9 @@ void    mail_params_init()
     check_overlap();
 #ifdef HAS_DB
     dict_db_cache_size = var_db_read_buf;
+#endif
+#ifdef HAS_LMDB
+    dict_lmdb_map_size = var_lmdb_map_size;
 #endif
     inet_windowsize = var_inet_windowsize;
 

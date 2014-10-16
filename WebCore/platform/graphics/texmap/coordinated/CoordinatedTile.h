@@ -56,7 +56,7 @@ public:
     const IntRect& rect() const { return m_rect; }
     void resize(const IntSize&);
 
-    virtual void paintToSurfaceContext(GraphicsContext*) OVERRIDE;
+    virtual void paintToSurfaceContext(GraphicsContext*) override;
 
 private:
     CoordinatedTile(CoordinatedTileClient*, TiledBackingStore*, const Coordinate&);
@@ -68,8 +68,6 @@ private:
 
     uint32_t m_ID;
     IntRect m_dirtyRect;
-
-    OwnPtr<ImageBuffer> m_localBuffer;
 };
 
 class CoordinatedTileClient {
@@ -83,12 +81,11 @@ public:
 
 class CoordinatedTileBackend : public TiledBackingStoreBackend {
 public:
-    static PassOwnPtr<TiledBackingStoreBackend> create(CoordinatedTileClient* client) { return adoptPtr(new CoordinatedTileBackend(client)); }
+    explicit CoordinatedTileBackend(CoordinatedTileClient*);
     PassRefPtr<Tile> createTile(TiledBackingStore*, const Tile::Coordinate&);
     void paintCheckerPattern(GraphicsContext*, const FloatRect&);
 
 private:
-    explicit CoordinatedTileBackend(CoordinatedTileClient*);
     CoordinatedTileClient* m_client;
 };
 

@@ -142,6 +142,7 @@ public:
     IOUSBInterface		*fDataInterface;
     IOWorkLoop			*fWorkLoop;
     UInt8			fDataInterfaceNumber;
+    UInt16			fAltInterface;
     
     UInt16			fInBufPool;
     UInt16			fOutBufPool;
@@ -170,7 +171,8 @@ public:
     virtual bool		init(OSDictionary *properties = 0);
 	virtual IOService   *probe(IOService *provider, SInt32 *score);
     virtual bool		start(IOService *provider);
-    virtual void		stop(IOService *provider);
+    virtual void		stop(IOService *provider);  
+    virtual bool            willTerminate( IOService * provider, IOOptionBits options );
     virtual IOReturn 		message(UInt32 type, IOService *provider, void *argument = 0);
 
         // IOEthernetController methods

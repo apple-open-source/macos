@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2013, International Business Machines
+*   Copyright (C) 1997-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -187,7 +187,26 @@ public:
      *                  failure code upon return.
      * @stable ICU 2.0
      */
-    DecimalFormatSymbols( UErrorCode& status);
+    DecimalFormatSymbols(UErrorCode& status);
+
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Creates a DecimalFormatSymbols object with last-resort data.
+     * Intended for callers who cache the symbols data and
+     * set all symbols on the resulting object.
+     *
+     * The last-resort symbols are similar to those for the root data,
+     * except that the grouping separators are empty,
+     * the NaN symbol is U+FFFD rather than "NaN",
+     * and the CurrencySpacing patterns are empty.
+     *
+     * @param status    Input/output parameter, set to success or
+     *                  failure code upon return.
+     * @return last-resort symbols
+     * @draft ICU 52
+     */
+    static DecimalFormatSymbols* createWithLastResortData(UErrorCode& status);
+#endif  /* U_HIDE_DRAFT_API */
 
     /**
      * Copy constructor.
@@ -311,7 +330,7 @@ public:
     static UClassID U_EXPORT2 getStaticClassID();
 
 private:
-    DecimalFormatSymbols(); // default constructor not implemented
+    DecimalFormatSymbols();
 
     /**
      * Initializes the symbols from the LocaleElements resource bundle.
@@ -333,13 +352,13 @@ private:
     void setCurrencyForSymbols();
 
 public:
-#ifndef U_HIDE_INTERNAL_API
     /**
      * _Internal_ function - more efficient version of getSymbol,
      * returning a const reference to one of the symbol strings.
      * The returned reference becomes invalid when the symbol is changed
      * or when the DecimalFormatSymbols are destroyed.
      * ### TODO markus 2002oct11: Consider proposing getConstSymbol() to be really public.
+     * Note: moved #ifndef U_HIDE_INTERNAL_API after this, it is needed for inline in DecimalFormat
      *
      * @param symbol Constant to indicate a number format symbol.
      * @return the format symbol by the param 'symbol'
@@ -347,6 +366,7 @@ public:
      */
     inline const UnicodeString &getConstSymbol(ENumberFormatSymbol symbol) const;
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Returns that pattern stored in currecy info. Internal API for use by NumberFormat API.
      * @internal
@@ -401,6 +421,8 @@ DecimalFormatSymbols::getSymbol(ENumberFormatSymbol symbol) const {
     return *strPtr;
 }
 
+#ifndef U_HIDE_INTERNAL_API
+
 inline const UnicodeString &
 DecimalFormatSymbols::getConstSymbol(ENumberFormatSymbol symbol) const {
     const UnicodeString *strPtr;
@@ -411,6 +433,8 @@ DecimalFormatSymbols::getConstSymbol(ENumberFormatSymbol symbol) const {
     }
     return *strPtr;
 }
+
+#endif  /* U_HIDE_INTERNAL_API */
 
 
 // -------------------------------------
@@ -441,10 +465,12 @@ DecimalFormatSymbols::getLocale() const {
     return locale;
 }
 
+#ifndef U_HIDE_INTERNAL_API
 inline const UChar*
 DecimalFormatSymbols::getCurrencyPattern() const {
     return currPattern;
 }
+#endif /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
 

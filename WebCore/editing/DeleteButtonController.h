@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -42,7 +42,7 @@ class VisibleSelection;
 class DeleteButtonController {
     WTF_MAKE_NONCOPYABLE(DeleteButtonController); WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit DeleteButtonController(Frame*);
+    explicit DeleteButtonController(Frame&);
 
     HTMLElement* containerElement() const { return m_containerElement.get(); }
 
@@ -67,7 +67,7 @@ private:
     void createDeletionUI();
     bool enabled() const { return (!m_disableStack); }
 
-    Frame* m_frame;
+    Frame& m_frame;
     RefPtr<HTMLElement> m_target;
     RefPtr<HTMLElement> m_containerElement;
     RefPtr<HTMLElement> m_outlineElement;
@@ -83,13 +83,13 @@ public:
         : m_frame(frame)
     {
         if (frame)
-            frame->editor().deleteButtonController()->disable();
+            frame->editor().deleteButtonController().disable();
     }
 
     ~DeleteButtonControllerDisableScope()
     {
         if (m_frame)
-            m_frame->editor().deleteButtonController()->enable();
+            m_frame->editor().deleteButtonController().enable();
     }
 
 private:

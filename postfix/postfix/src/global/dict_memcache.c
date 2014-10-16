@@ -592,5 +592,7 @@ DICT   *dict_memcache_open(const char *name, int open_flags, int dict_flags)
     else
 	dict_mc->dict.flags |= DICT_FLAG_FIXED;
 
+    dict_mc->dict.flags |= DICT_FLAG_MULTI_WRITER;
+
     return (&dict_mc->dict);
 }

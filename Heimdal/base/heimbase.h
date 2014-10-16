@@ -45,6 +45,7 @@ typedef void * heim_object_t;
 typedef unsigned int heim_tid_t;
 typedef heim_object_t heim_bool_t;
 typedef heim_object_t heim_null_t;
+typedef struct heim_error * heim_error_t;
 #define HEIM_BASE_ONCE_INIT 0
 typedef long heim_base_once_t; /* XXX arch dependant */
 
@@ -65,6 +66,8 @@ typedef long heim_base_once_t; /* XXX arch dependant */
 
 void *	heim_retain(heim_object_t);
 void	heim_release(heim_object_t);
+
+void	heim_show(heim_object_t);
 
 /*
  *
@@ -171,10 +174,10 @@ typedef struct heim_dict_data *heim_dict_t;
 heim_dict_t heim_dict_create(size_t size);
 heim_tid_t heim_dict_get_type_id(void);
 
-typedef void (*heim_dict_iterator_f_t)(heim_dict_t, heim_object_t, heim_object_t, void *);
+typedef void (*heim_dict_iterator_f_t)(heim_object_t, heim_object_t, void *);
 
-int	heim_dict_add_value(heim_dict_t, heim_object_t, heim_object_t);
-void	heim_dict_iterate_f(heim_dict_t, heim_dict_iterator_f_t, void *);
+int	heim_dict_set_value(heim_dict_t, heim_object_t, heim_object_t);
+void	heim_dict_iterate_f(heim_dict_t, void *, heim_dict_iterator_f_t);
 #ifdef __BLOCKS__
 void	heim_dict_iterate(heim_dict_t, void (^)(heim_object_t, heim_object_t));
 #endif
@@ -189,9 +192,13 @@ void	heim_dict_delete_key(heim_dict_t, heim_object_t);
 
 typedef struct heim_string_data *heim_string_t;
 
-heim_string_t heim_string_create(const char *);
-heim_tid_t heim_string_get_type_id(void);
-char * heim_string_copy_utf8(heim_string_t);
+heim_string_t	heim_string_create(const char *);
+heim_string_t	heim_string_create_with_format(const char *, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 2));
+heim_string_t	heim_string_create_with_bytes(const void *data, size_t len);
+heim_tid_t	heim_string_get_type_id(void);
+char *		heim_string_copy_utf8(heim_string_t);
+heim_data_t	heim_string_copy_utf16(heim_string_t);
 
 /*
  * Number
@@ -214,16 +221,38 @@ void heim_auto_release_drain(heim_auto_release_t);
 void heim_auto_release(heim_object_t);
 
 /*
+ * JSON
+ */
+typedef enum heim_json_flags {
+	HEIM_JSON_F_NO_C_NULL = 1,
+	HEIM_JSON_F_STRICT_STRINGS = 2,
+	HEIM_JSON_F_NO_DATA = 4,
+	HEIM_JSON_F_NO_DATA_DICT = 8,
+	HEIM_JSON_F_STRICT_DICT = 16,
+	HEIM_JSON_F_STRICT = 31,
+	HEIM_JSON_F_CNULL2JSNULL = 32,
+	HEIM_JSON_F_TRY_DECODE_DATA = 64,
+	HEIM_JSON_F_ONE_LINE = 128
+} heim_json_flags_t;
+
+heim_object_t heim_json_create(const char *, size_t, heim_json_flags_t,
+			       heim_error_t *);
+heim_object_t heim_json_create_with_bytes(const void *, size_t, size_t,
+					  heim_json_flags_t,
+					  heim_error_t *);
+heim_string_t heim_json_copy_serialize(heim_object_t, heim_json_flags_t,
+				       heim_error_t *);
+/*
  *
  */
-
-typedef struct heim_error * heim_error_t;
 
 heim_error_t	heim_error_create(int, const char *, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3));
 
 heim_error_t	heim_error_createv(int, const char *, va_list)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0));
+
+heim_error_t	heim_error_create_enomem(void);
 
 heim_string_t heim_error_copy_string(heim_error_t);
 int heim_error_get_code(heim_error_t);

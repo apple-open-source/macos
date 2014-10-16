@@ -49,7 +49,7 @@ typedef struct {
 	u_char	bytes[2];
 } _GB2312State;
 
-__private_extern__ int
+int
 _GB2312_init(struct __xlocale_st_runelocale *xrl)
 {
 

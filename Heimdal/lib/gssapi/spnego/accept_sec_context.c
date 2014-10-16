@@ -210,12 +210,12 @@ send_accept (OM_uint32 *minor_status,
 	    *(nt.u.negTokenResp.negResult)  = accept_incomplete;
     }
 
-    if (initial_response) {
+    if (initial_response && context_handle->preferred_mech_type) {
 	ALLOC(nt.u.negTokenResp.supportedMech, 1);
 	if (nt.u.negTokenResp.supportedMech == NULL) {
-	    free_NegotiationToken(&nt);
 	    *minor_status = ENOMEM;
-	    return GSS_S_FAILURE;
+	    ret = GSS_S_FAILURE;
+	    goto out;
 	}
 
 	ret = der_get_oid(context_handle->preferred_mech_type->elements,
@@ -223,8 +223,8 @@ send_accept (OM_uint32 *minor_status,
 			  nt.u.negTokenResp.supportedMech,
 			  NULL);
 	if (ret) {
-	    ret = GSS_S_FAILURE;
 	    *minor_status = ENOMEM;
+	    ret = GSS_S_FAILURE;
 	    goto out;
 	}
     } else {
@@ -234,9 +234,9 @@ send_accept (OM_uint32 *minor_status,
     if (mech_token != GSS_C_NO_BUFFER && mech_token->length != 0) {
 	ALLOC(nt.u.negTokenResp.responseToken, 1);
 	if (nt.u.negTokenResp.responseToken == NULL) {
-	    free_NegotiationToken(&nt);
 	    *minor_status = ENOMEM;
-	    return GSS_S_FAILURE;
+	    ret = GSS_S_FAILURE;
+	    goto out;
 	}
 	nt.u.negTokenResp.responseToken->length = mech_token->length;
 	nt.u.negTokenResp.responseToken->data   = mech_token->value;
@@ -265,8 +265,8 @@ send_accept (OM_uint32 *minor_status,
 	    ALLOC(nt.u.negTokenResp.mechListMIC, 1);
 	    if (nt.u.negTokenResp.mechListMIC == NULL) {
 		gss_release_buffer(minor_status, &mech_mic_buf);
-		ret = GSS_S_FAILURE;
 		*minor_status = ENOMEM;
+		ret = GSS_S_FAILURE;
 		goto out;
 	    }
 	    nt.u.negTokenResp.mechListMIC->length = mech_mic_buf.length;
@@ -285,8 +285,8 @@ send_accept (OM_uint32 *minor_status,
 		       output_token->value, output_token->length,
 		       &nt, &size, ret);
     if (ret) {
-	ret = GSS_S_FAILURE;
 	*minor_status = ENOMEM;
+	ret = GSS_S_FAILURE;
 	goto out;
     }
 
@@ -300,6 +300,7 @@ send_accept (OM_uint32 *minor_status,
 	ret = GSS_S_COMPLETE;
     else
 	ret = GSS_S_CONTINUE_NEEDED;
+
  out:
     free_NegotiationToken(&nt);
     return ret;
@@ -310,16 +311,13 @@ send_accept (OM_uint32 *minor_status,
  */
 
 static OM_uint32
-select_mech(OM_uint32 *minor_status, MechType *mechType, int verify_p,
-	    gss_OID *mech_p)
+select_mech(OM_uint32 *minor_status, MechType *mechType, int verify_p, gss_OID *selected_mech, gss_OID *prefered_mech)
 {
     char mechbuf[64];
     size_t mech_len;
     gss_OID_desc oid;
     gss_OID oidp;
-    gss_OID_set mechs;
     OM_uint32 ret, junk;
-    unsigned int n;
 
     ret = der_put_oid ((unsigned char *)mechbuf + sizeof(mechbuf) - 1,
 		       sizeof(mechbuf),
@@ -345,57 +343,37 @@ select_mech(OM_uint32 *minor_status, MechType *mechType, int verify_p,
 	oidp = &oid;
 
 
-    ret = gss_indicate_mechs(&junk, &mechs);
-    if (ret) {
-	return (ret);
-    }
+    *selected_mech = _gss_mg_support_mechanism(oidp);
+    if (*selected_mech == NULL)
+    	return GSS_S_BAD_MECH;
 
-    for (n = 0; n < mechs->count; n++) {
-	    if (gss_oid_equal(&mechs->elements[n], oidp))
-		    break;
+    if (prefered_mech) {
+	if (gss_oid_equal(&oid, &_gss_spnego_mskrb_mechanism_oid_desc)) {
+	    *prefered_mech = &_gss_spnego_mskrb_mechanism_oid_desc;
+	} else {
+	    *prefered_mech = *selected_mech;
+	}
     }
-
-    if (n == mechs->count) {
-	    gss_release_oid_set(&junk, &mechs);
-	    return GSS_S_BAD_MECH;
-    }
-
-    ret = gss_duplicate_oid(minor_status, &oid, mech_p);
-    gss_release_oid_set(&junk, &mechs);
-    if (ret)
-	return ret;
 
     if (verify_p) {
 	gss_name_t name = GSS_C_NO_NAME;
 	gss_buffer_desc namebuf;
-	char *str = NULL, *host, hostname[MAXHOSTNAMELEN];
+	char *host = NULL;
 
-	host = getenv("GSSAPI_SPNEGO_NAME");
-	if (host == NULL || issuid()) {
-	    int rv;
-	    if (gethostname(hostname, sizeof(hostname)) != 0) {
-		*minor_status = errno;
-		return GSS_S_FAILURE;
-	    }
-	    rv = asprintf(&str, "host@%s", hostname);
-	    if (rv < 0 || str == NULL) {
-		*minor_status = ENOMEM;
-		return GSS_S_FAILURE;
-	    }
-	    host = str;
-	}
+	if (!issuid())
+	    host = getenv("GSSAPI_SPNEGO_NAME");
+	if (host == NULL)
+	    host = "host@";
 
 	namebuf.length = strlen(host);
 	namebuf.value = host;
 
 	ret = gss_import_name(minor_status, &namebuf,
 			      GSS_C_NT_HOSTBASED_SERVICE, &name);
-	if (str)
-	    free(str);
 	if (ret != GSS_S_COMPLETE)
 	    return ret;
 
-	ret = acceptor_approved(NULL, name, GSS_C_NO_CREDENTIAL, *mech_p);
+	ret = acceptor_approved(NULL, name, GSS_C_NO_CREDENTIAL, *selected_mech);
 	gss_release_name(&junk, &name);
     }
 
@@ -480,7 +458,6 @@ acceptor_start
     gss_buffer_desc data;
     gss_buffer_t mech_input_token = GSS_C_NO_BUFFER;
     gss_buffer_desc mech_output_token;
-    gss_OID preferred_mech_type = GSS_C_NO_OID;
     gssspnego_ctx ctx;
     int get_mic = 0;
     int first_ok = 0;
@@ -560,7 +537,8 @@ acceptor_start
     ret = select_mech(minor_status,
 		      &ni->mechTypes.val[0],
 		      0,
-		      &preferred_mech_type);
+		      &ctx->selected_mech_type,
+		      &ctx->preferred_mech_type);
 
     if (ret == 0 && ni->mechToken != NULL) {
 	gss_buffer_desc ibuf;
@@ -585,12 +563,17 @@ acceptor_start
 				     delegated_cred_handle);
 
 	if (ret == GSS_S_COMPLETE || ret == GSS_S_CONTINUE_NEEDED) {
-	    ctx->preferred_mech_type = preferred_mech_type;
-	    preferred_mech_type = GSS_C_NO_OID;
+	    /*
+	     * Check that client sent what they said the would
+	     */
+	    if (!gss_oid_equal(&ctx->negotiated_mech_type, &ctx->selected_mech_type)) {
+		_gss_mg_log(1, "client didn't send the mech they said they would");
+	    }
+
 	    first_ok = 1;
 	} else {
-	    gss_mg_collect_error(preferred_mech_type, ret, *minor_status);
-	    gss_release_oid(&junk, &preferred_mech_type);
+	    gss_mg_collect_error(ctx->selected_mech_type, ret, *minor_status);
+	    ctx->preferred_mech_type = GSS_C_NO_OID;
 	}
 
 	if (ret == GSS_S_COMPLETE) {
@@ -607,6 +590,7 @@ acceptor_start
 	}
     } else {
 	*minor_status = 0;
+	HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
 	return gss_mg_set_error_string(GSS_C_NO_OID, GSS_S_NO_CONTEXT,
 				       *minor_status,
 				       "SPNEGO acceptor didn't find a prefered mechanism");
@@ -619,24 +603,20 @@ acceptor_start
     if (!first_ok && ni->mechToken != NULL) {
 	size_t j;
 
-	gss_release_oid(&junk, &preferred_mech_type);
-
 	/* Call glue layer to find first mech we support */
 	for (j = 1; j < ni->mechTypes.len; ++j) {
 	    ret = select_mech(&junk,
 			      &ni->mechTypes.val[j],
 			      1,
-			      &preferred_mech_type);
+			      &ctx->preferred_mech_type,
+			      NULL);
 	    if (ret == 0)
 		break;
-	    gss_release_oid(&junk, &preferred_mech_type);
 	}
-	if (preferred_mech_type == GSS_C_NO_OID) {
+	if (ctx->preferred_mech_type == GSS_C_NO_OID) {
+	    heim_assert(ret != 0, "no oid and no error code?");
 	    goto out;
 	}
-
-	ctx->preferred_mech_type = preferred_mech_type;
-	preferred_mech_type = GSS_C_NO_OID;
     }
 
     /*
@@ -653,9 +633,6 @@ acceptor_start
 	goto out;
 
 out:
-    if(preferred_mech_type)
-	gss_release_oid(&junk, &preferred_mech_type);
-
     if (mech_output_token.value != NULL)
 	gss_release_buffer(&junk, &mech_output_token);
     free_NegotiationToken(&nt);

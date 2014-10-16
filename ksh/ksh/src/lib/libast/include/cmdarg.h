@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -28,11 +28,16 @@
  */
 
 #ifndef _CMDARG_H
-#define _CMDARG_H
+#define _CMDARG_H	1
+
+#include <error.h>
+
+#define CMD_VERSION	20120411L
 
 #define CMD_CHECKED	(1<<9)		/* cmdopen() argv[0] ok		*/
 #define CMD_EMPTY	(1<<0)		/* run once, even if no args	*/
 #define CMD_EXACT	(1<<1)		/* last command must have argmax*/
+#define CMD_EXIT	(1<<11)		/* fatal error_info.exit()	*/
 #define CMD_IGNORE	(1<<2)		/* ignore EXIT_QUIT exit	*/
 #define CMD_INSERT	(1<<3)		/* argpat for insertion		*/
 #define CMD_MINIMUM	(1<<4)		/* argmax is a minimum		*/
@@ -44,37 +49,40 @@
 
 #define CMD_USER	(1<<12)
 
-typedef struct				/* cmd + args info		*/
+#define CMDDISC(d,f,e)	(memset(d,0,sizeof(*(d))),(d)->version=CMD_VERSION,(d)->flags=(f),(d)->errorf=(e))
+
+struct Cmddisc_s;
+typedef struct Cmddisc_s Cmddisc_t;
+
+typedef int (*Cmdrun_f)(int, char**, Cmddisc_t*);
+
+struct Cmddisc_s
 {
-	struct
-	{
-	size_t		args;		/* total args			*/
-	size_t		commands;	/* total commands		*/
-	}		total;
+	uint32_t	version;	/* CMD_VERSION			*/
+	uint32_t	flags;		/* CMD_* flags			*/
+	Error_f		errorf;		/* optional error function	*/
+	Cmdrun_f	runf;		/* optional exec function	*/
+};
 
-	int		argcount;	/* current arg count		*/
-	int		argmax;		/* max # args			*/
-	int		echo;		/* just an echo			*/
-	int		flags;		/* CMD_* flags			*/
-	int		insertlen;	/* strlen(insert)		*/
-	int		offset;		/* post arg offset		*/
+typedef struct Cmdarg_s			/* cmdopen() handle		*/
+{
+	const char*	id;		/* library id string		*/
 
-	char**		argv;		/* exec argv			*/
-	char**		firstarg;	/* first argv file arg		*/
-	char**		insertarg;	/* argv before insert		*/
-	char**		postarg;	/* start of post arg list	*/
-	char**		nextarg;	/* next argv file arg		*/
-	char*		nextstr;	/* next string ends before here	*/
-	char*		laststr;	/* last string ends before here	*/
-	char*		insert;		/* replace with current arg	*/
-	char		buf[1];		/* argv and arg buffer		*/
+#ifdef _CMDARG_PRIVATE_
+	_CMDARG_PRIVATE_
+#endif
+
 } Cmdarg_t;
 
 #if _BLD_ast && defined(__EXPORT__)
 #define extern		__EXPORT__
 #endif
 
+#ifndef cmdopen
 extern Cmdarg_t*	cmdopen(char**, int, int, const char*, int);
+#endif
+extern Cmdarg_t*	cmdopen_20110505(char**, int, int, const char*, int, Error_f);
+extern Cmdarg_t*	cmdopen_20120411(char**, int, int, const char*, Cmddisc_t*);
 extern int		cmdflush(Cmdarg_t*);
 extern int		cmdarg(Cmdarg_t*, const char*, int);
 extern int		cmdclose(Cmdarg_t*);

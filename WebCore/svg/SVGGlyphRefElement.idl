@@ -17,14 +17,16 @@
  * Boston, MA 02110-1301, USA.
  */
 
-[Conditional=SVG&SVG_FONTS] interface SVGGlyphRefElement : SVGStyledElement,
-                                                           SVGURIReference {
+[
+    Conditional=SVG_FONTS
+] interface SVGGlyphRefElement : SVGElement {
     // FIXME: Use [Reflect] after https://bugs.webkit.org/show_bug.cgi?id=64843 is fixed.
     [SetterRaisesException] attribute DOMString glyphRef;
     [Reflect] attribute DOMString format;
-    [SetterRaisesException] attribute float x;
-    [SetterRaisesException] attribute float y;
-    [SetterRaisesException] attribute float dx;
-    [SetterRaisesException] attribute float dy;
+    [SetterRaisesException] attribute unrestricted float x;
+    [SetterRaisesException] attribute unrestricted float y;
+    [SetterRaisesException] attribute unrestricted float dx;
+    [SetterRaisesException] attribute unrestricted float dy;
 };
 
+SVGGlyphRefElement implements SVGURIReference;

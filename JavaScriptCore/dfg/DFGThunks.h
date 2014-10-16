@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,6 @@
 #ifndef DFGThunks_h
 #define DFGThunks_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "MacroAssemblerCodeRef.h"
@@ -39,16 +37,7 @@ class VM;
 namespace DFG {
 
 MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM*);
-
-MacroAssemblerCodeRef throwExceptionFromCallSlowPathGenerator(VM*);
-
-MacroAssemblerCodeRef linkCallThunkGenerator(VM*);
-MacroAssemblerCodeRef linkConstructThunkGenerator(VM*);
-
-MacroAssemblerCodeRef linkClosureCallThunkGenerator(VM*);
-
-MacroAssemblerCodeRef virtualCallThunkGenerator(VM*);
-MacroAssemblerCodeRef virtualConstructThunkGenerator(VM*);
+MacroAssemblerCodeRef osrEntryThunkGenerator(VM*);
 
 } } // namespace JSC::DFG
 

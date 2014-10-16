@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -48,10 +48,9 @@ golly(int argc, char* const* argv, const char* optstring, const struct option* l
 
 	if (!up || optstring != lastoptstring || longopts != lastlongopts)
 	{
-		if (!up && !(up = sfstropen()))
+		if (!up && !(up = sfstropen()) || !(t = strdup(optstring)))
 			return -1;
 		sfprintf(up, "[-1p%d]", flags);
-		t = strdup(optstring);
 		for (o = longopts; o->name; o++)
 		{
 			if (o->flag || o->val <= 0 || o->val > UCHAR_MAX || !isalnum(o->val))
@@ -96,6 +95,7 @@ golly(int argc, char* const* argv, const char* optstring, const struct option* l
 				}
 			}
 		sfputc(up, '\n');
+		free(t);
 		if (!(usage = sfstruse(up)))
 			return -1;
 		lastoptstring = optstring;

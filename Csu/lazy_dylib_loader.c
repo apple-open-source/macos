@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,9 @@
 #ifndef S_LAZY_DYLIB_SYMBOL_POINTERS
 	#define S_LAZY_DYLIB_SYMBOL_POINTERS  0x10
 #endif
+#ifndef LC_LOAD_UPWARD_DYLIB
+    #define	LC_LOAD_UPWARD_DYLIB (0x23 | LC_REQ_DYLD) /* load upward dylib */
+#endif
 
 #if __LP64__
 	#define LC_SEGMENT_COMMAND			LC_SEGMENT_64
@@ -67,6 +70,15 @@ int dyld_lazy_dylib_proxy()
 }
 
 
+// This function may be overriden by application code
+// to dynamically change the path to a loaded lazy dylib. 
+const char* dyld_lazy_dylib_path_fix(const char*) __attribute__((weak,visibility("hidden")));
+const char* dyld_lazy_dylib_path_fix(const char* path)
+{
+	return path;
+}
+
+
 static void* getHandleForLazyOrdinal(const macho_header* mh, void* handles[], uint8_t ordinal)
 {
 	const uint32_t cmd_count = mh->ncmds;
@@ -80,6 +92,7 @@ static void* getHandleForLazyOrdinal(const macho_header* mh, void* handles[], ui
 		switch ( cmd->cmd ) {
 			case LC_LOAD_DYLIB:
 			case LC_LOAD_WEAK_DYLIB:
+			case LC_LOAD_UPWARD_DYLIB:
 				++loadDylibCount;
 				break;
 			case LC_LAZY_LOAD_DYLIB:
@@ -88,7 +101,8 @@ static void* getHandleForLazyOrdinal(const macho_header* mh, void* handles[], ui
 					if ( handles[loadLazyDylibCount] == NULL ) {
 						const struct dylib_command* dylib = (struct dylib_command*)cmd;
 						const char* path = (char*)cmd + dylib->dylib.name.offset;
-						handles[loadLazyDylibCount] = dlopen(path, RTLD_LAZY);
+						const char* fixedPath = dyld_lazy_dylib_path_fix(path);
+						handles[loadLazyDylibCount] = dlopen(fixedPath, RTLD_LAZY);
 					}
 					return handles[loadLazyDylibCount];
 				}

@@ -54,7 +54,7 @@ typedef struct {
 	u_char	bytes[4];
 } _GB18030State;
 
-__private_extern__ int
+int
 _GB18030_init(struct __xlocale_st_runelocale *xrl)
 {
 

@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>ChangeLog</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">ChangeLog&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-string">2003-05-10  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">iconv_string.c </span>(<span class="enscript-keyword">iconv_string</span>): Don't return -1 just because the
+	string is longer than 4 KB.
+
+<span class="enscript-string">2002-02-13  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">iconv.m4</span>: Remove file. Obsoleted by m4/iconv.m4.
+
+<span class="enscript-string">2000-06-16  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4: Change prefix to AM.
+
+<span class="enscript-string">2001-05-23  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4 (jm_ICONV): Accept --with-libiconv-prefix option.
+
+<span class="enscript-string">2001-03-23  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4 (jm_ICONV): Tweak printing of prototype.
+
+<span class="enscript-string">2001-03-20  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4 (jm_ICONV): Recommend GNU libiconv.
+
+<span class="enscript-string">2001-01-03  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4 (jm_ICONV): Also check whether the iconv declaration
+          has const.
+
+<span class="enscript-string">2000-02-02  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv.m4: New file.
+
+<span class="enscript-string">2001-01-29  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * locale_charset.c: Remove file. Obsoleted by libcharset.
+
+<span class="enscript-string">2000-10-22  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * locale_charset.c (get_locale_charset): Accept french and spanish
+          names in both ISO-8859-1 and UTF-8.
+
+<span class="enscript-string">2000-08-24  </span><span class="enscript-reference">Jim Blackson  </span>&lt;<span class="enscript-variable-name"><a href="mailto:blackson@ontrack-japan.com">blackson@ontrack-japan.com</a></span>&gt;
+
+        * iconv_string.c (iconv_string): Fix return value for autodetect.
+
+<span class="enscript-string">2000-01-24  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * iconv_string.c (iconv_string): Stop recognizing JOHAB.
+          Fix typo for EUC-JP.
+
+<span class="enscript-string">1999-12-18  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+        * locale_charset.c (get_locale_charset): Recognize more language codes:
+          &quot;af&quot; (afrikaans), &quot;ca&quot; (catalan), &quot;eu&quot; (basque), &quot;fo&quot; (faeroese),
+          &quot;ga&quot; (irish), &quot;gd&quot; (scottish), &quot;gl&quot; (galician), &quot;sq&quot; (albanian),
+          &quot;eo&quot; (esperanto), &quot;mt&quot; (maltese), &quot;be&quot; (byelorussian),
+          &quot;et&quot; (estonian), &quot;lt&quot; (lithuanian), &quot;lv&quot; (latvian), &quot;uk&quot; (ukrainian).
+          Recognize more aliases: &quot;english&quot;, &quot;slovenian&quot;, &quot;macedonian&quot;,
+          &quot;serbian&quot;, &quot;arabic&quot;.
+          Change default: KOI8-R for &quot;ru&quot; (russian) instead of ISO-8859-5,
+          ISO-8859-5 for &quot;sr&quot; instead of ISO-8859-2.
+
+</pre>
+<hr />
+</body></html>

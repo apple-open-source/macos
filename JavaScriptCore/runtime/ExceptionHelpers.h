@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -33,19 +33,22 @@
 
 namespace JSC {
 
+typedef JSObject* (*ErrorFactory)(ExecState*, const String&);
+
 JSObject* createTerminatedExecutionException(VM*);
 bool isTerminatedExecutionException(JSObject*);
 JS_EXPORT_PRIVATE bool isTerminatedExecutionException(JSValue);
-
+JS_EXPORT_PRIVATE JSObject* createError(ExecState*, ErrorFactory, JSValue, const String&);
 JS_EXPORT_PRIVATE JSObject* createStackOverflowError(ExecState*);
 JSObject* createStackOverflowError(JSGlobalObject*);
 JSObject* createOutOfMemoryError(JSGlobalObject*);
 JSObject* createUndefinedVariableError(ExecState*, const Identifier&);
 JSObject* createNotAnObjectError(ExecState*, JSValue);
-JSObject* createInvalidParamError(ExecState*, const char* op, JSValue);
+JSObject* createInvalidParameterError(ExecState*, const char* op, JSValue);
 JSObject* createNotAConstructorError(ExecState*, JSValue);
 JSObject* createNotAFunctionError(ExecState*, JSValue);
 JSObject* createErrorForInvalidGlobalAssignment(ExecState*, const String&);
+JSString* errorDescriptionForValue(ExecState*, JSValue);
 
 JSObject* throwOutOfMemoryError(ExecState*);
 JSObject* throwStackOverflowError(ExecState*);
@@ -73,10 +76,10 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
-    static JS_EXPORTDATA const ClassInfo s_info;
+    DECLARE_EXPORT_INFO;
 };
 
 } // namespace JSC

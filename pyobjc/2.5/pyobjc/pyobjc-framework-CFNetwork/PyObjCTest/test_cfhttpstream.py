@@ -45,8 +45,6 @@ class TestCFHTTPStream (TestCase):
            self.failUnlessArgIsBOOL(CFHTTPReadStreamSetRedirectsAutomatically, 1)
            CFHTTPReadStreamSetRedirectsAutomatically(v, True)
 
-           CFHTTPReadStreamSetProxy(v, u"localhost", 8080)
-
        finally:
            os.dup2(fd_2, 2)
 

@@ -7,15 +7,15 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ckb.xml
+ * ICU <specials> source: <path>/common/main/ckb.xml
  */
 ckb{
     AuxExemplarCharacters{
-        "[\u064B \u064C \u064D \u064E \u064F \u0650 \u0651 \u0652 ء آ أ ؤ إ ئ ا ب ة ث"
-        " ذ ص ض ط ظ ك ه ى ي]"
+        "[\u200E\u200F \u064B \u064C \u064D \u064E \u064F \u0650 \u0651 \u0652 ء آ أ "
+        "ؤ إ ئ ا ب ة ث ذ ص ض ط ظ ك ه ى ي]"
     }
-    ExemplarCharacters{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ە ھ و ۆ ی ێ]"}
-    ExemplarCharactersIndex{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ە ھ و ۆ ی ێ]"}
+    ExemplarCharacters{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
+    ExemplarCharactersIndex{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
     LocaleScript{
         "Arab",
     }
@@ -23,12 +23,14 @@ ckb{
         default{"arab"}
         latn{
             symbols{
+                minusSign{"‎-"}
                 percentSign{"٪"}
+                plusSign{"‎+"}
             }
         }
         native{"arab"}
     }
-    Version{"2.0.82.15"}
+    Version{"2.0.92.90"}
     calendar{
         generic{
             AmPmMarkers{
@@ -138,9 +140,9 @@ ckb{
                     d{"d–dی MMM"}
                 }
                 yMEd{
-                    M{"E، d/M/yy – E، d/M/yy"}
-                    d{"E، d/M/yy – E، d/M/yy"}
-                    y{"E، d/M/yy – E، d/M/yy"}
+                    M{"E، d/M/y – E، d/M/y"}
+                    d{"E، d/M/y – E، d/M/y"}
+                    y{"E، d/M/y – E، d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMMی y"}
@@ -152,7 +154,7 @@ ckb{
                     y{"dی MMMMی y – dی MMMMی y"}
                 }
                 yMd{
-                    y{"d/M/yy – d/M/yy"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
             quarters{
@@ -296,9 +298,9 @@ ckb{
                     d{"d–dی MMM"}
                 }
                 yMEd{
-                    M{"E، d/M/yy – E، d/M/yy"}
-                    d{"E، d/M/yy – E، d/M/yy"}
-                    y{"E، d/M/yy – E، d/M/yy"}
+                    M{"E، d/M/y – E، d/M/y"}
+                    d{"E، d/M/y – E، d/M/y"}
+                    y{"E، d/M/y – E، d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMMی y"}
@@ -310,7 +312,7 @@ ckb{
                     y{"dی MMMMی y – dی MMMMی y"}
                 }
                 yMd{
-                    y{"d/M/yy – d/M/yy"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
             monthNames{
@@ -526,8 +528,10 @@ ckb{
         metric{"مەتریک"}
     }
     units{
-        day{
-            one{"{0} ڕۆژ"}
+        duration{
+            day{
+                one{"{0} ڕۆژ"}
+            }
         }
     }
 }

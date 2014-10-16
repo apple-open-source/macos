@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -40,31 +40,37 @@ Vmalloc_t*	vm;
 Vmstat_t*	st;
 #endif
 {
-	reg Seg_t*	seg;
-	reg Block_t	*b, *endb;
-	reg size_t	s = 0;
-	reg Vmdata_t*	vd = vm ? vm->data : Vmregion->data;
-	reg int		inuse;
+	size_t		s;
+	Seg_t		*seg;
+	Block_t		*b, *endb;
+	Vmdata_t	*vd;
+	Void_t		*d;
 
-	SETINUSE(vd, inuse);
-	if(!st)
-	{	CLRINUSE(vd, inuse);
-		return inuse ? 1 : 0;
+	if(!st) /* just checking lock state of region */
+		return (vm ? vm : Vmregion)->data->lock;
+
+	memset(st, 0, sizeof(Vmstat_t));
+
+	if(!vm)
+	{	/* getting data for malloc */
+#if ( !_std_malloc || !_BLD_ast ) && !_AST_std_malloc
+		extern int	_mallocstat(Vmstat_t*);
+		return _mallocstat(st);
+#else
+		return -1;
+#endif
 	}
-	if(!(vd->mode&VM_TRUST))
-	{	if(ISLOCK(vd,0))
-		{	CLRINUSE(vd, inuse);
-			return -1;
-		}
-		SETLOCK(vd,0);
-	}
+
+	SETLOCK(vm, 0);
 
 	st->n_busy = st->n_free = 0;
 	st->s_busy = st->s_free = st->m_busy = st->m_free = 0;
 	st->n_seg = 0;
 	st->extent = 0;
-	st->mode = vd->mode;
 
+	vd = vm->data;
+	st->mode = vd->mode;
+	s = 0;
 	if(vd->mode&VM_MTLAST)
 		st->n_busy = 0;
 	else if((vd->mode&VM_MTPOOL) && (s = vd->pool) > 0)
@@ -90,13 +96,11 @@ Vmstat_t*	st;
 					st->n_free += 1;
 				}
 				else	/* get the real size */
-				{	if(vd->mode&VM_MTDEBUG)
-					{	/* strict-aliasing dance */
-						void*	d = DB2DEBUG(DATA(b));
-						s = DBSIZE(d);
-					}
+				{	d = DATA(b);
+					if(vd->mode&VM_MTDEBUG)
+						s = DBSIZE(DB2DEBUG(d));
 					else if(vd->mode&VM_MTPROFILE)
-						s = PFSIZE(DATA(b));
+						s = PFSIZE(d);
 					if(s > st->m_busy)
 						st->m_busy = s;
 					st->s_busy += s;
@@ -105,6 +109,7 @@ Vmstat_t*	st;
 
 				b = (Block_t*)((Vmuchar_t*)DATA(b) + (SIZE(b)&~BITS) );
 			}
+			/**/ASSERT(st->extent >= (st->s_busy + st->s_free));
 		}
 		else if(vd->mode&VM_MTLAST)
 		{	if((s = seg->free ? (SIZE(seg->free) + sizeof(Head_t)) : 0) > 0)
@@ -118,8 +123,8 @@ Vmstat_t*	st;
 		}
 		else if((vd->mode&VM_MTPOOL) && s > 0)
 		{	if(seg->free)
-				st->n_free += ((int)SIZE(seg->free)+sizeof(Head_t))/(int)s;
-			st->n_busy += ((int)(seg->baddr - (Vmuchar_t*)b) - sizeof(Head_t))/(int)s;
+				st->n_free += (SIZE(seg->free)+sizeof(Head_t))/s;
+			st->n_busy += ((seg->baddr - (Vmuchar_t*)b) - sizeof(Head_t))/s;
 		}
 	}
 
@@ -131,9 +136,9 @@ Vmstat_t*	st;
 			st->s_free = (st->m_free = vd->pool)*st->n_free;
 	}
 
-	CLRLOCK(vd,0);
-	CLRINUSE(vd, inuse);
-	return inuse ? 1 : 0;
+	CLRLOCK(vm, 0);
+
+	return 0;
 }
 
 #endif

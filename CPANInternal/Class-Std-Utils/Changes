@@ -1,9 +1,0 @@
-Revision history for Class-Std-Utils
-
-0.0.1  Sat Apr  9 09:54:03 2005
-       Initial release.
-
-
-0.0.2  Sun May 22 05:44:09 2005
-
-    - added dependency on version.pm

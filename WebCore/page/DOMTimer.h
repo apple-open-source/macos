@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,25 +28,19 @@
 #define DOMTimer_h
 
 #include "SuspendableTimer.h"
-#include "UserGestureIndicator.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <memory>
 
 namespace WebCore {
 
     class ScheduledAction;
 
-    class DOMTimer : public SuspendableTimer {
+    class DOMTimer final : public SuspendableTimer {
     public:
         virtual ~DOMTimer();
         // Creates a new timer owned by specified ScriptExecutionContext, starts it
         // and returns its Id.
-        static int install(ScriptExecutionContext*, PassOwnPtr<ScheduledAction>, int timeout, bool singleShot);
+        static int install(ScriptExecutionContext*, std::unique_ptr<ScheduledAction>, int timeout, bool singleShot);
         static void removeById(ScriptExecutionContext*, int timeoutId);
-
-        // ActiveDOMObject
-        virtual void contextDestroyed();
-        virtual void stop();
 
         // Adjust to a change in the ScriptExecutionContext's minimum timer interval.
         // This allows the minimum allowable interval time to be changed in response
@@ -54,19 +48,25 @@ namespace WebCore {
         void adjustMinimumTimerInterval(double oldMinimumTimerInterval);
 
     private:
-        DOMTimer(ScriptExecutionContext*, PassOwnPtr<ScheduledAction>, int interval, bool singleShot);
-        virtual void fired();
+        DOMTimer(ScriptExecutionContext*, std::unique_ptr<ScheduledAction>, int interval, bool singleShot);
+        virtual void fired() override;
+
+        // ActiveDOMObject
+        virtual void contextDestroyed() override;
+
+        // SuspendableTimer
+        virtual void didStop() override;
 
         double intervalClampedToMinimum(int timeout, double minimumTimerInterval) const;
 
         // Retuns timer fire time rounded to the next multiple of timer alignment interval.
-        virtual double alignedFireTime(double) const;
+        virtual double alignedFireTime(double) const override;
 
         int m_timeoutId;
         int m_nestingLevel;
-        OwnPtr<ScheduledAction> m_action;
+        std::unique_ptr<ScheduledAction> m_action;
         int m_originalInterval;
-        RefPtr<UserGestureToken> m_userGestureToken;
+        bool m_shouldForwardUserGesture;
     };
 
 } // namespace WebCore

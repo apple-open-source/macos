@@ -462,7 +462,7 @@ dwarf_create_cie_from_after_start(Dwarf_Debug dbg,
     Dwarf_Small version = *(Dwarf_Small *) frame_ptr;
 
     frame_ptr++;
-    if (version != DW_CIE_VERSION && version != DW_CIE_VERSION3) {
+    if (version != DW_CIE_VERSION && version != DW_CIE_VERSION3 && version != DW_CIE_VERSION4) {
 	_dwarf_error(dbg, error, DW_DLE_FRAME_VERSION_BAD);
 	return (DW_DLV_ERROR);
     }

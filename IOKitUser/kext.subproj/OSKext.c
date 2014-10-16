@@ -4371,10 +4371,6 @@ OSKextRef OSKextGetLoadedKextWithIdentifier(
     OSKextRef result     = NULL;
     CFTypeRef foundEntry = NULL;  // do not release
     OSKextRef theKext    = NULL;  // do not release
- 
-    if (!__sOSKextsByIdentifier) {
-        goto finish;
-    }
 
    /* Make sure the lookup dict only contains realized kexts with the
     * requested identifier.
@@ -5189,7 +5185,7 @@ const NXArchInfo ** OSKextCopyArchitectures(OSKextRef aKext)
     if (!OSKextDeclaresExecutable(aKext) || !__OSKextReadExecutable(aKext)) {
         goto finish;
     }
-
+    
     executable = CFDataGetBytePtr(aKext->loadInfo->executable);
     executableEnd = executable + CFDataGetLength(aKext->loadInfo->executable);
     fatIterator = fat_iterator_for_data(executable, executableEnd,
@@ -5216,7 +5212,6 @@ const NXArchInfo ** OSKextCopyArchitectures(OSKextRef aKext)
     
     bzero(result, resultSize);
 
-    index = 0;
     for (index = 0;
          (machHeader = (struct mach_header *)fat_iterator_next_arch(
             fatIterator, NULL));
@@ -5944,6 +5939,7 @@ finish:
             munmap(executableBuffer, length);
         }
     }
+
     return result;
 }
 
@@ -6001,13 +5997,12 @@ Boolean __OSKextReadExecutable(OSKextRef aKext)
             if (!__OSKextCreateLoadInfo(aKext)) {
                 goto finish;
             }
-
             aKext->loadInfo->executable = __OSKextMapExecutable(aKext,
                 /* offset */ 0, /* length (0 => whole file) */ 0);
             if (!aKext->loadInfo->executable) {
                 goto finish;
             }
-        }
+       }
     }
 
     result = true;
@@ -6036,7 +6031,6 @@ CFDataRef OSKextCopyExecutableForArchitecture(
     CFBundleRef  kextBundle      = NULL;  // must release
     CFURLRef     execURL         = NULL;  // must release
     CFDataRef    executable      = NULL;  // must release
-    CFDataRef    thinExecutable  = NULL;  // must release
     CFStringRef  archName        = NULL;  // must release
     fat_iterator fatIterator     = NULL;  // must fat_iterator_close()
     char         kextPath[PATH_MAX];
@@ -6120,7 +6114,7 @@ CFDataRef OSKextCopyExecutableForArchitecture(
         if (thinExec) {
             result = CFDataCreate(CFGetAllocator(aKext), thinExec,
                 thinExecEnd - thinExec);
-        }
+       }
     }
 
     if (!result) {
@@ -6148,7 +6142,6 @@ finish:
     SAFE_RELEASE(execURL);
     SAFE_RELEASE(kextBundle);
     SAFE_RELEASE(executable);
-    SAFE_RELEASE(thinExecutable);
     if (fatIterator) fat_iterator_close(fatIterator);
     return result;
 }
@@ -6330,6 +6323,17 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
      *      number less than 2.0.0 will not load).
      *      NOTE - we cannot use the characters "<=" or "<" because code in the
      *      kernel that serializes plists treats '<' as a special character.
+     *
+     *      We also support version ranges to exclude.  The pattern would look 
+     *      like:  
+     *          2.0.0 thru 3.1.4
+     *      Which would exclude versions 2.0.0 thru 3.1.4 (inclusive)
+     *          
+     *      An extreme example would look like:
+     *          LE 1.5.0, 2.0.0 thru 3.1.4, 4.2.2, 4.9.0 thru 5.1.0
+     *      Which would exclude all versions less than or equal to 1.5.0,
+     *      versions 2.0.0 thru 3.1.4, version 4.2.2 and versions 4.9.0 thru 
+     *      5.1.0
      *********************************************************************/
     if (theKext != NULL) {
         CFStringRef     bundleID                = NULL;  // do NOT release
@@ -6339,6 +6343,7 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
         size_t          i, j;
         Boolean         wantLessThan            = FALSE;
         Boolean         wantLessThanEqualTo     = FALSE;
+        Boolean         needUpperRange          = FALSE;
         char            versBuffer[256];
         
         bundleID = OSKextGetIdentifier(theKext);
@@ -6389,6 +6394,7 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
         for (i = 0, j = 0; i < strlen(versCString) + 1; i++) {
             Boolean         excludeIt = FALSE;
             char            myBuffer[32];
+            char            myUpperBuffer[32];
             
             /* skip whitespace */
             if ( isWhiteSpace(*(versCString + i)) ) {
@@ -6397,26 +6403,52 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
             
             /* look for version string separator or null terminator */
             if (*(versCString + i) == ',' ||
-                *(versCString + i) == 0x00) {
+                *(versCString + i) == 0x00 ||
+                strncmp(versCString + i, "thru", strlen("thru")) == 0) {
                 
-                /* OK, we have a version string */
-                myBuffer[j] = 0x00;
+                if (needUpperRange) {
+                    myUpperBuffer[j] = 0x00;
+                }
+                else {
+                    if (strncmp(versCString + i, "thru", strlen("thru")) == 0) {
+                        needUpperRange = TRUE;
+                        /* OK, we have lower range of version */
+                        myBuffer[j] = 0x00;
+                        i += 3;
+                        j = 0;
+                        continue;
+                   }
+                    else {
+                        /* OK, we have a version string */
+                        myBuffer[j] = 0x00;
+                    }
+                }
  
                 OSKextVersion excludedKextVers;
-                excludedKextVers = OSKextParseVersionString(myBuffer);
+                OSKextVersion excludedKextVersUpper;
                 
-                if (wantLessThanEqualTo) {
-                    if (kextVers <= excludedKextVers) {
+                excludedKextVers = OSKextParseVersionString(myBuffer);
+                if (needUpperRange) {
+                    excludedKextVersUpper = OSKextParseVersionString(myUpperBuffer);
+                    if (kextVers >= excludedKextVers &&
+                        kextVers <= excludedKextVersUpper) {
                         excludeIt = TRUE;
                     }
                 }
-                else if (wantLessThan) {
-                    if (kextVers < excludedKextVers) {
+                else {
+                    if (wantLessThanEqualTo) {
+                        if (kextVers <= excludedKextVers) {
+                            excludeIt = TRUE;
+                        }
+                    }
+                    else if (wantLessThan) {
+                        if (kextVers < excludedKextVers) {
+                            excludeIt = TRUE;
+                        }
+                    }
+                    else if (kextVers == excludedKextVers)  {
                         excludeIt = TRUE;
                     }
-                }
-                else if (kextVers == excludedKextVers)  {
-                    excludeIt = TRUE;
                 }
                 
                 if (excludeIt) {
@@ -6425,11 +6457,19 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
                     char            tempBuffer[256];
                     
                     GET_CSTRING_PTR(bundleID, cp, tempBuffer, sizeof(tempBuffer));
-                    OSKextLog(/* kext */ NULL,
-                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                              "bundleID \"%s\" %lld is in exclude list %lld",
-                              cp, kextVers, excludedKextVers);
+                    
+                    if (needUpperRange) {
+                        OSKextLog(/* kext */ NULL,
+                                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                                  "bundleID \"%s\" %lld is in exclude list range %lld - %lld",
+                                  cp, kextVers, excludedKextVers, excludedKextVersUpper);
+                    }
+                    else {
+                        OSKextLog(/* kext */ NULL,
+                                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                                  "bundleID \"%s\" %lld is in exclude list %lld",
+                                  cp, kextVers, excludedKextVers);
+                    }
 #endif
                     
                     result = true;
@@ -6440,18 +6480,27 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
                 j = 0;
                 wantLessThan = FALSE;
                 wantLessThanEqualTo = FALSE;
+                needUpperRange = FALSE;
             }
             else {
                 /* save valid version character */
-                myBuffer[j++] = *(versCString + i);
-                
-                /* make sure bogus version string doesn't overrun local buffer */
-                if ( j >= sizeof(myBuffer) ) {
-                    break; /* bogus form of version string */
+                if (needUpperRange) {
+                    myUpperBuffer[j++] = *(versCString + i);
+                    /* make sure bogus version string doesn't overrun local buffer */
+                    if ( j >= sizeof(myUpperBuffer) ) {
+                        break; /* bogus form of version string */
+                    }
+                }
+                else {
+                    myBuffer[j++] = *(versCString + i);
+                    /* make sure bogus version string doesn't overrun local buffer */
+                    if ( j >= sizeof(myBuffer) ) {
+                        break; /* bogus form of version string */
+                    }
                 }
             }
-        }
-    }
+        } // for ...
+    } // theKext != NULL
     
 finish:
     SAFE_RELEASE(kextID);
@@ -7807,6 +7856,7 @@ finish:
             POSIX_MADV_DONTNEED);
     }
     SAFE_RELEASE(cfSymbolName);
+    SAFE_RELEASE(executable);
     return result;
 }
 
@@ -8619,7 +8669,7 @@ OSReturn __OSKextLoadWithArgsDict(
 
     if (!OSKextDependenciesAreLoadableInSafeBoot(aKext)) {
         CFDictionaryRef bootLevelDiagnostics         = NULL;  // do not release
-        CFArrayRef      ineligibleDependencies       = NULL;  // must release
+        CFArrayRef      ineligibleDependencies       = NULL;  // do not release
         CFStringRef     ineligibleDependenciesString = NULL;  // must release
 
         bootLevelDiagnostics = __OSKextGetDiagnostics(aKext,
@@ -8635,15 +8685,13 @@ OSReturn __OSKextLoadWithArgsDict(
 
         if (ineligibleDependenciesString) {
             OSKextLogCFString(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                CFSTR("Can't load %s - dependencies not elibible during safe boot:\n%@"),
+                CFSTR("Can't load %s - dependencies ineligible during safe boot:\n%@"),
                 kextPath, ineligibleDependenciesString);
         } else {
             OSKextLogCFString(aKext, kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                CFSTR("Can't load %s - dependencies not elibible during safe boot."),
+                CFSTR("Can't load %s - dependencies ineligible during safe boot."),
                 kextPath);
         }
-        
-        SAFE_RELEASE_NULL(ineligibleDependencies);
         SAFE_RELEASE_NULL(ineligibleDependenciesString);
 
         result = kOSKextReturnBootLevel;
@@ -8880,7 +8928,7 @@ Boolean __OSKextInitKXLDDependency(
 {
     Boolean result = FALSE;
     char    kextPath[PATH_MAX];
-
+    
     if (!aKext->loadInfo->linkedExecutable) {
         __OSKextGetFileSystemPath(aKext,
             /* otherURL */ NULL,
@@ -9271,7 +9319,7 @@ Boolean __OSKextExtractDebugSymbols(
             OSKextLogMemError();
             goto finish;
         }
-
+        
         CFDictionarySetValue(symbols, relocName, aKext->loadInfo->linkedExecutable);
     }
 
@@ -9439,9 +9487,6 @@ CFDictionaryRef OSKextGenerateDebugSymbols(
     fat_iterator             fatIterator        = NULL; // must fat_iterator_close()
     struct mach_header_64 *  machHeader         = NULL; // do not free
 
-   /* If the kernelImage is not given, then the current architecture must match
-    * that of the running kernel.
-    */
     if (!kernelImage) {
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
                   "Can't generate debug symbols; no kernel file provided ");
@@ -12239,6 +12284,7 @@ void __OSKextAddDiagnostic(
     CFMutableArrayRef      createdArray   = NULL;  // must release
     CFStringRef            combinedValue  = NULL;  // must release
     CFStringRef            valueWithNote  = NULL;  // must release
+    CFStringRef            pathValue      = NULL;  // must release
     CFStringRef            valueToSet     = NULL;  // do not release
 
     if (!(type & __sOSKextRecordsDiagnositcs)) {
@@ -12251,7 +12297,17 @@ void __OSKextAddDiagnostic(
     }
 
     valueToSet = value;
-    if (CFGetTypeID(value) == CFArrayGetTypeID()) {
+    
+    if (CFGetTypeID(value) == CFURLGetTypeID()) {
+        // some clients cannot handle CFURL so make it CFString 15974038
+        pathValue = CFURLCopyFileSystemPath(value, kCFURLPOSIXPathStyle);
+        if (!pathValue) {
+            OSKextLogMemError();
+            goto finish;
+        }
+        valueToSet = pathValue;
+    }
+    else if (CFGetTypeID(value) == CFArrayGetTypeID()) {
         combinedValue = CFStringCreateByCombiningStrings(kCFAllocatorDefault,
             (CFArrayRef)value, CFSTR("."));
         if (!combinedValue) {
@@ -12298,6 +12354,7 @@ finish:
     SAFE_RELEASE(createdArray);
     SAFE_RELEASE(combinedValue);
     SAFE_RELEASE(valueWithNote);
+    SAFE_RELEASE(pathValue);
     return;
 }
 
@@ -14345,7 +14402,6 @@ finish:
 static uint64_t __OSKextGetFakeLoadAddress(CFDataRef kernelImage)
 {    
     uint64_t                    result         = 0;
-    CFNumberRef                 loadAddressNum = NULL;  // must release
     const UInt8               * executable     = NULL;  // do not free
     const UInt8               * executableEnd  = NULL;  // do not free
     fat_iterator                fatIterator    = NULL;  // must fat_iterator_close
@@ -14361,20 +14417,7 @@ static uint64_t __OSKextGetFakeLoadAddress(CFDataRef kernelImage)
     }
 
     if (!kernelImage) {
-        if ((kOSReturnSuccess != __OSKextSimpleKextRequest(/* kext */ NULL,
-            CFSTR(kKextRequestPredicateGetKernelLoadAddress),
-            (CFTypeRef *)&loadAddressNum)) ||
-            !loadAddressNum ||
-            (CFGetTypeID(loadAddressNum) != CFNumberGetTypeID()) ||
-            !CFNumberGetValue(loadAddressNum, kCFNumberSInt64Type, &result)) {
-
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                "Can't get running kernel load address.");
-            result = 0;
-            goto finish;
-        }
-        
+        /* kernelImage is required if not 32-bit */
         goto finish;
     }
 
@@ -14416,7 +14459,6 @@ finish:
     if (fatIterator) {
         fat_iterator_close(fatIterator);
     }
-    SAFE_RELEASE(loadAddressNum);
     return result;
 }
 

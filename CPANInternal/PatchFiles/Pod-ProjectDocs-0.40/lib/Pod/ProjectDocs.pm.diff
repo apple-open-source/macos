@@ -1,0 +1,22 @@
+diff --git a/Pod-ProjectDocs-0.40/lib/Pod/ProjectDocs.pm b/Pod-ProjectDocs-0.40/lib/Pod/ProjectDocs.pm
+index b066298..a44eaff 100644
+--- Pod-ProjectDocs-0.40/lib/Pod/ProjectDocs.pm
++++ Pod-ProjectDocs-0.40/lib/Pod/ProjectDocs.pm
+@@ -5,7 +5,7 @@ use warnings;
+ use base qw/Class::Accessor::Fast/;
+ 
+ use File::Spec;
+-use JSON;
++use JSON::PP;
+ use Pod::ProjectDocs::DocManager;
+ use Pod::ProjectDocs::Config;
+ use Pod::ProjectDocs::Parser::PerlPod;
+@@ -145,7 +145,7 @@ sub gen {
+ 
+ sub get_managers_json {
+     my $self    = shift;
+-    my $js      = JSON->new;
++    my $js      = JSON::PP->new;
+     my $records = [];
+     foreach my $manager ( @{ $self->managers } ) {
+         my $record = {

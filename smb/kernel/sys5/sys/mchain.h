@@ -49,14 +49,14 @@ struct mbchain {
 	mbuf_t		mb_cur;		/* current mbuf */
 	size_t		mb_mleft;	/* free space in the current mbuf */
 	size_t		mb_count;	/* used for byte counting */
-	size_t		mb_len;     /* nbr bytes added in SMB2 compound requests */
+	size_t		mb_len;     /* nbr bytes added in SMB 2/3 compound requests */
 };
 
 struct mdchain {
 	mbuf_t		md_top;		/* head of mbufs chain */
 	mbuf_t		md_cur;		/* current mbuf */
 	u_char *	md_pos;		/* offset in the current mbuf */
-	size_t		md_len;     /* nbr bytes parsed in SMB2 compound replies */
+	size_t		md_len;     /* nbr bytes parsed in SMB 2/3 compound replies */
 };
 
 typedef	struct mbchain* mbchain_t;

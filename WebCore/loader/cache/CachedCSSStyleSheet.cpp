@@ -3,7 +3,7 @@
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006 Apple Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -30,6 +30,7 @@
 #include "CSSStyleSheet.h"
 #include "CachedResourceClientWalker.h"
 #include "CachedStyleSheetClient.h"
+#include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "MemoryCache.h"
 #include "ResourceBuffer.h"
@@ -40,8 +41,8 @@
 
 namespace WebCore {
 
-CachedCSSStyleSheet::CachedCSSStyleSheet(const ResourceRequest& resourceRequest, const String& charset)
-    : CachedResource(resourceRequest, CSSStyleSheet)
+CachedCSSStyleSheet::CachedCSSStyleSheet(const ResourceRequest& resourceRequest, const String& charset, SessionID sessionID)
+    : CachedResource(resourceRequest, CSSStyleSheet, sessionID)
     , m_decoder(TextResourceDecoder::create("text/css", charset))
 {
     // Prefer text/css but accept any type (dell.com serves a stylesheet
@@ -88,9 +89,7 @@ const String CachedCSSStyleSheet::sheetText(bool enforceMIMEType, bool* hasValid
         return m_decodedSheetText;
     
     // Don't cache the decoded text, regenerating is cheap and it can use quite a bit of memory
-    String sheetText = m_decoder->decode(m_data->data(), m_data->size());
-    sheetText.append(m_decoder->flush());
-    return sheetText;
+    return m_decoder->decodeAndFlush(m_data->data(), m_data->size());
 }
 
 void CachedCSSStyleSheet::finishLoading(ResourceBuffer* data)
@@ -98,10 +97,8 @@ void CachedCSSStyleSheet::finishLoading(ResourceBuffer* data)
     m_data = data;
     setEncodedSize(m_data.get() ? m_data->size() : 0);
     // Decode the data to find out the encoding and keep the sheet text around during checkNotify()
-    if (m_data) {
-        m_decodedSheetText = m_decoder->decode(m_data->data(), m_data->size());
-        m_decodedSheetText.append(m_decoder->flush());
-    }
+    if (m_data)
+        m_decodedSheetText = m_decoder->decodeAndFlush(m_data->data(), m_data->size());
     setLoading(false);
     checkNotify();
     // Clear the decoded text as it is unlikely to be needed immediately again and is cheap to regenerate.
@@ -133,7 +130,7 @@ bool CachedCSSStyleSheet::canUseSheet(bool enforceMIMEType, bool* hasValidMIMETy
     //
     // This code defaults to allowing the stylesheet for non-HTTP protocols so
     // folks can use standards mode for local HTML documents.
-    String mimeType = extractMIMETypeFromMediaType(response().httpHeaderField("Content-Type"));
+    String mimeType = extractMIMETypeFromMediaType(response().httpHeaderField(HTTPHeaderName::ContentType));
     bool typeOK = mimeType.isEmpty() || equalIgnoringCase(mimeType, "text/css") || equalIgnoringCase(mimeType, "application/x-unknown-content-type");
     if (hasValidMIMEType)
         *hasValidMIMEType = typeOK;
@@ -173,18 +170,18 @@ PassRefPtr<StyleSheetContents> CachedCSSStyleSheet::restoreParsedStyleSheet(cons
     if (m_parsedStyleSheetCache->parserContext() != context)
         return 0;
 
-    didAccessDecodedData(currentTime());
+    didAccessDecodedData(monotonicallyIncreasingTime());
 
     return m_parsedStyleSheetCache;
 }
 
-void CachedCSSStyleSheet::saveParsedStyleSheet(PassRefPtr<StyleSheetContents> sheet)
+void CachedCSSStyleSheet::saveParsedStyleSheet(PassRef<StyleSheetContents> sheet)
 {
-    ASSERT(sheet && sheet->isCacheable());
+    ASSERT(sheet.get().isCacheable());
 
     if (m_parsedStyleSheetCache)
         m_parsedStyleSheetCache->removedFromMemoryCache();
-    m_parsedStyleSheetCache = sheet;
+    m_parsedStyleSheetCache = WTF::move(sheet);
     m_parsedStyleSheetCache->addedToMemoryCache();
 
     setDecodedSize(m_parsedStyleSheetCache->estimatedSizeInBytes());

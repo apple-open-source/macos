@@ -50,8 +50,14 @@ public:
     DOMMimeTypeArray* mimeTypes() const;
     bool cookieEnabled() const;
     bool javaEnabled() const;
-
+#if defined(ENABLE_NAVIGATOR_HWCONCURRENCY)
+    int hardwareConcurrency() const;
+#endif
     virtual String userAgent() const;
+
+#if PLATFORM(IOS)
+    bool standalone() const;
+#endif
 
     // Relinquishes the storage lock, if one exists.
     void getStorageUpdates();

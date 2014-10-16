@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,19 +30,14 @@
 #include "AffineTransform.h"
 #include "FloatConversion.h"
 #include "IntPoint.h"
-#include "LayoutPoint.h"
-#include "LayoutSize.h"
 #include "TransformationMatrix.h"
 #include <limits>
 #include <math.h>
+#include <wtf/PrintStream.h>
 
 namespace WebCore {
 
 FloatPoint::FloatPoint(const IntPoint& p) : m_x(p.x()), m_y(p.y())
-{
-}
-
-FloatPoint::FloatPoint(const LayoutPoint& p) : m_x(p.x()), m_y(p.y())
 {
 }
 
@@ -66,18 +61,6 @@ float FloatPoint::length() const
     return sqrtf(lengthSquared());
 }
 
-void FloatPoint::move(const LayoutSize& size)
-{
-    m_x += size.width();
-    m_y += size.height();
-}
-
-void FloatPoint::moveBy(const LayoutPoint& point)
-{
-    m_x += point.x();
-    m_y += point.y();
-}
-
 FloatPoint FloatPoint::matrixTransform(const AffineTransform& transform) const
 {
     double newX, newY;
@@ -97,43 +80,9 @@ FloatPoint FloatPoint::narrowPrecision(double x, double y)
     return FloatPoint(narrowPrecisionToFloat(x), narrowPrecisionToFloat(y));
 }
 
-float findSlope(const FloatPoint& p1, const FloatPoint& p2, float& c)
+void FloatPoint::dump(PrintStream& out) const
 {
-    if (p2.x() == p1.x())
-        return std::numeric_limits<float>::infinity();
-
-    // y = mx + c
-    float slope = (p2.y() - p1.y()) / (p2.x() - p1.x());
-    c = p1.y() - slope * p1.x();
-    return slope;
-}
-
-bool findIntersection(const FloatPoint& p1, const FloatPoint& p2, const FloatPoint& d1, const FloatPoint& d2, FloatPoint& intersection) 
-{
-    float pOffset = 0;
-    float pSlope = findSlope(p1, p2, pOffset);
-
-    float dOffset = 0;
-    float dSlope = findSlope(d1, d2, dOffset);
-
-    if (dSlope == pSlope)
-        return false;
-    
-    if (pSlope == std::numeric_limits<float>::infinity()) {
-        intersection.setX(p1.x());
-        intersection.setY(dSlope * intersection.x() + dOffset);
-        return true;
-    }
-    if (dSlope == std::numeric_limits<float>::infinity()) {
-        intersection.setX(d1.x());
-        intersection.setY(pSlope * intersection.x() + pOffset);
-        return true;
-    }
-    
-    // Find x at intersection, where ys overlap; x = (c' - c) / (m - m')
-    intersection.setX((dOffset - pOffset) / (pSlope - dSlope));
-    intersection.setY(pSlope * intersection.x() + pOffset);
-    return true;
+    out.printf("(%f, %f)", x(), y());
 }
 
 }

@@ -37,16 +37,6 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-BEGIN
-{
-	kmemAddress = &`kmem_flags;
-	kmemValue = *kmemAddress;
-	printf("Address of kmem_flags: %x\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", kmemValue);
-	exit(0);
-}
-#else
 BEGIN
 {
 	ncpusAddress = &`max_ncpus;
@@ -55,4 +45,3 @@ BEGIN
 	printf("Value of max_ncpus: %d\n", ncpusValue);
 	exit(0);
 }
-#endif /* __APPLE__ */

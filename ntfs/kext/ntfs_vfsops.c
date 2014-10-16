@@ -2,7 +2,7 @@
  * ntfs_vfsops.c - NTFS kernel vfs operations.
  *
  * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2014 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1906,6 +1906,28 @@ put_err:
 		}
 		vol->name = (char*)utf8_name;
 		vol->name_size = utf8_size;
+	}
+	/* Get the volume UUID (GUID), if there is one. */
+	ntfs_attr_search_ctx_reinit(ctx);
+	err = ntfs_attr_lookup(AT_OBJECT_ID, AT_UNNAMED, 0, 0, NULL, 0, ctx);
+	a = ctx->a;
+	if (!err && !a->non_resident &&
+	    le32_to_cpu(a->value_length) >= offsetof(OBJECT_ID_ATTR, extended_info)) {
+		OBJECT_ID_ATTR *object_id;
+		object_id = (OBJECT_ID_ATTR*)((u8*)a + le16_to_cpu(a->value_offset));
+		
+		/*
+		 * In the on-disk GUID, the first three fields are little
+		 * endian.  We want to be able to return a big endian UUID.
+		 * So we unconditionally swap those fields now.  We'll do this
+		 * in a local copy of the GUID for safety.
+		 */
+		GUID guid = object_id->object_id;
+		guid.data1 = OSSwapInt32(guid.data1);
+		guid.data2 = OSSwapInt16(guid.data2);
+		guid.data3 = OSSwapInt16(guid.data3);
+		bcopy(&guid, vol->uuid, sizeof(guid));
+		NVolSetHasGUID(vol);
 	}
 	ntfs_attr_search_ctx_put(ctx);
 	ntfs_mft_record_unmap(ni);
@@ -5121,6 +5143,11 @@ static int ntfs_getattr(mount_t mp, struct vfs_attr *fsa,
 	 * value of zero.  ZFS also returns zero so we do that, too.
 	 */
 	VFSATTR_RETURN(fsa, f_carbon_fsid, 0);
+	/* Volume UUID (GUID).  May not exist. */
+	if (VFSATTR_IS_ACTIVE(fsa, f_uuid) && NVolHasGUID(vol)) {
+		bcopy(vol->uuid, fsa->f_uuid, sizeof(uuid_t));
+		VFSATTR_SET_SUPPORTED(fsa, f_uuid);
+	}
 	ntfs_debug("Done.");
 	return 0;
 }

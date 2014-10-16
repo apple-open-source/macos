@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -506,7 +506,39 @@ $SHELL -uc 'var=foo;unset var;: ${#var}' >/dev/null 2>&1 && err_exit '${#var} sh
 $SHELL -uc 'var=foo;unset var;: ${var-OK}' >/dev/null 2>&1 || err_exit '${var-OK} should not fail with set -u'
 $SHELL -uc 'var=foo;nset var;: ${var:-OK}' >/dev/null 2>&1 || err_exit '${var:-OK} should not fail with set -u'
 
-z=$($SHELL 2>&1  -uc 'print ${X23456789012345}')
+z=$($SHELL 2>&1 -uc 'print ${X23456789012345}')
 [[ $z == *X23456789012345:* ]] || err_exit "error message garbled with set -u got $z"
+
+# pipe hang bug fixed 2011-03-15
+float start=SECONDS toolong=3
+( $SHELL <<-EOF
+	set -o pipefail
+	(sleep $toolong;kill \$\$> /dev/null) &
+	cat $SHELL | for ((i=0; i < 5; i++))
+	do
+		date | wc > /dev/null
+		$SHELL -c 'read -N1'
+	done
+EOF
+) 2> /dev/null
+(( (SECONDS-start) > (toolong-0.5) )) && err_exit "pipefail causes script to hang"
+
+# showme with arithmetic for loops
+$SHELL -n -c $'for((;1;))\ndo ; nothing\ndone'  2>/dev/null  || err_exit 'showme commands give syntax error inside arithmetic for loops'
+
+#set -x
+float t1=SECONDS
+set -o pipefail
+print  | while read
+do		if	{ date | true;} ; true
+		then	sleep 2 &
+		fi
+done
+(( (SECONDS-t1) > .5 )) && err_exit 'pipefail should not wait for background processes'
+
+# process source files from profiles as profile files
+print '. ./dotfile' > envfile
+print $'alias print=:\nprint foobar' > dotfile
+[[ $(ENV=$PWD/envfile $SHELL -i -c : 2>/dev/null) == foobar ]] && err_exit 'files source from profile does not process aliases correctly'
 
 exit $((Errors<125?Errors:125))

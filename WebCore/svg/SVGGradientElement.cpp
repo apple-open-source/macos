@@ -20,11 +20,9 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGGradientElement.h"
 
-#include "Attribute.h"
+#include "ElementIterator.h"
 #include "RenderSVGHiddenContainer.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResourceLinearGradient.h"
@@ -35,6 +33,8 @@
 #include "SVGTransformList.h"
 #include "SVGTransformable.h"
 #include "StyleResolver.h"
+#include "XLinkNames.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -51,11 +51,11 @@ BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGGradientElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(gradientTransform)
     REGISTER_LOCAL_ANIMATED_PROPERTY(href)
     REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
-    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGElement)
 END_REGISTER_ANIMATED_PROPERTIES
  
-SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* document)
-    : SVGStyledElement(tagName, document)
+SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document& document)
+    : SVGElement(tagName, document)
     , m_spreadMethod(SVGSpreadMethodPad)
     , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
 {
@@ -64,21 +64,21 @@ SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* d
 
 bool SVGGradientElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
-    if (supportedAttributes.isEmpty()) {
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
         SVGURIReference::addSupportedAttributes(supportedAttributes);
         SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.add(SVGNames::gradientUnitsAttr);
-        supportedAttributes.add(SVGNames::gradientTransformAttr);
-        supportedAttributes.add(SVGNames::spreadMethodAttr);
+        supportedAttributes.get().add(SVGNames::gradientUnitsAttr);
+        supportedAttributes.get().add(SVGNames::gradientTransformAttr);
+        supportedAttributes.get().add(SVGNames::spreadMethodAttr);
     }
-    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (!isSupportedAttribute(name)) {
-        SVGStyledElement::parseAttribute(name, value);
+        SVGElement::parseAttribute(name, value);
         return;
     }
 
@@ -115,42 +115,37 @@ void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicS
 void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     if (!isSupportedAttribute(attrName)) {
-        SVGStyledElement::svgAttributeChanged(attrName);
+        SVGElement::svgAttributeChanged(attrName);
         return;
     }
 
     SVGElementInstance::InvalidationGuard invalidationGuard(this);
     
     if (RenderObject* object = renderer())
-        object->setNeedsLayout(true);
+        object->setNeedsLayout();
 }
     
-void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGGradientElement::childrenChanged(const ChildChange& change)
 {
-    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGElement::childrenChanged(change);
 
-    if (changedByParser)
+    if (change.source == ChildChangeSourceParser)
         return;
 
     if (RenderObject* object = renderer())
-        object->setNeedsLayout(true);
+        object->setNeedsLayout();
 }
 
 Vector<Gradient::ColorStop> SVGGradientElement::buildStops()
 {
     Vector<Gradient::ColorStop> stops;
-
     float previousOffset = 0.0f;
-    for (Node* n = firstChild(); n; n = n->nextSibling()) {
-        SVGElement* element = n->isSVGElement() ? toSVGElement(n) : 0;
-        if (!element || !element->isGradientStop())
-            continue;
 
-        SVGStopElement* stop = toSVGStopElement(element);
-        Color color = stop->stopColorIncludingOpacity();
+    for (auto& stop : childrenOfType<SVGStopElement>(*this)) {
+        Color color = stop.stopColorIncludingOpacity();
 
         // Figure out right monotonic offset
-        float offset = stop->offset();
+        float offset = stop.offset();
         offset = std::min(std::max(previousOffset, offset), 1.0f);
         previousOffset = offset;
 
@@ -165,6 +160,9 @@ Vector<Gradient::ColorStop> SVGGradientElement::buildStops()
     return stops;
 }
 
+bool isSVGGradientElement(const Node& node)
+{
+    return node.hasTagName(SVGNames::radialGradientTag) || node.hasTagName(SVGNames::linearGradientTag);
 }
 
-#endif // ENABLE(SVG)
+}

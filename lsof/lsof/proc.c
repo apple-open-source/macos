@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.46 2010/07/29 15:59:28 abe Exp abe $";
+static char *rcsid = "$Id: proc.c,v 1.47 2013/01/02 17:14:59 abe Exp $";
 #endif
 
 

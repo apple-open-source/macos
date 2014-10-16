@@ -28,9 +28,9 @@
 
 #include "DataReference.h"
 #include "NetworkResourceLoader.h"
-#include "PlatformCertificateInfo.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebResourceLoaderMessages.h"
+#include <WebCore/CertificateInfo.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/CurrentTime.h>
@@ -47,26 +47,24 @@ AsynchronousNetworkLoaderClient::AsynchronousNetworkLoaderClient()
 
 void AsynchronousNetworkLoaderClient::willSendRequest(NetworkResourceLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
-    // This message is DispatchMessageEvenWhenWaitingForSyncReply to avoid a situation where the NetworkProcess is deadlocked
-    // waiting for 6 connections to complete while the WebProcess is waiting for a 7th (Synchronous XHR) to complete.
-    loader->sendAbortingOnFailure(Messages::WebResourceLoader::WillSendRequest(request, redirectResponse), CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
+    loader->sendAbortingOnFailure(Messages::WebResourceLoader::WillSendRequest(request, redirectResponse));
 }
 
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 void AsynchronousNetworkLoaderClient::canAuthenticateAgainstProtectionSpace(NetworkResourceLoader* loader, const ProtectionSpace& protectionSpace)
 {
-    // This message is DispatchMessageEvenWhenWaitingForSyncReply to avoid a situation where the NetworkProcess is deadlocked
-    // waiting for 6 connections to complete while the WebProcess is waiting for a 7th (Synchronous XHR) to complete.
-    loader->sendAbortingOnFailure(Messages::WebResourceLoader::CanAuthenticateAgainstProtectionSpace(protectionSpace), CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
+    loader->sendAbortingOnFailure(Messages::WebResourceLoader::CanAuthenticateAgainstProtectionSpace(protectionSpace));
 }
+#endif
 
 void AsynchronousNetworkLoaderClient::didReceiveResponse(NetworkResourceLoader* loader, const ResourceResponse& response)
 {
-    loader->sendAbortingOnFailure(Messages::WebResourceLoader::DidReceiveResponseWithCertificateInfo(response, PlatformCertificateInfo(response), loader->isLoadingMainResource()));
+    loader->sendAbortingOnFailure(Messages::WebResourceLoader::DidReceiveResponseWithCertificateInfo(response, CertificateInfo(response), loader->isLoadingMainResource()));
 }
 
 void AsynchronousNetworkLoaderClient::didReceiveBuffer(NetworkResourceLoader* loader, SharedBuffer* buffer, int encodedDataLength)
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
     ShareableResource::Handle shareableResourceHandle;
     NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(shareableResourceHandle, buffer);
     if (!shareableResourceHandle.isNull()) {
@@ -77,7 +75,7 @@ void AsynchronousNetworkLoaderClient::didReceiveBuffer(NetworkResourceLoader* lo
     }
 #endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
-    CoreIPC::DataReference dataReference(reinterpret_cast<const uint8_t*>(buffer->data()), buffer->size());
+    IPC::SharedBufferDataReference dataReference(buffer);
     loader->sendAbortingOnFailure(Messages::WebResourceLoader::DidReceiveData(dataReference, encodedDataLength));
 }
 

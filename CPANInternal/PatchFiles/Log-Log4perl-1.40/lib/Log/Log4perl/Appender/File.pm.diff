@@ -1,0 +1,13 @@
+--- Log-Log4perl-1.40/lib/Log/Log4perl/Appender/File.pm
++++ Log-Log4perl-1.40/lib/Log/Log4perl/Appender/File.pm
+162c162
+<     if(defined $self->{fh}) {
+---
+>     if(defined $self->{fh} && defined fileno $self->{fh}) {
+255,257c255,256
+<     if ($self->{fh}) {
+<         my $fh = $self->{fh};
+<         close $fh;
+---
+>     if(defined $self->{fh} && defined fileno $self->{fh}) {
+>         close $self->{fh};

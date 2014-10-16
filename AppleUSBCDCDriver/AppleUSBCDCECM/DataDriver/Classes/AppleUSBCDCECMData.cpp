@@ -425,6 +425,9 @@ void AppleUSBCDCECMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
 	pipeInBuffers		*pipeInBuff = (pipeInBuffers *)param;
     
     XTRACE(me, 0, pipeInBuff->indx, "dataReadComplete");
+    
+    if (me->fTerminate) //rcs revisit for IOUSBFamily 2.0
+        return;
 
     if (rc == kIOReturnSuccess)	// If operation returned ok
     {	
@@ -600,7 +603,9 @@ bool AppleUSBCDCECMData::init(OSDictionary *properties)
         XTRACE(this, 0, 0, "init - initialize super failed");
         return false;
     }
-	
+    
+    fAltInterface = -1;
+    fTerminate = false;
 	fResetState = kResetNormal;
 	fSleeping = false;
 	fDeferredClear = false;
@@ -692,6 +697,8 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     OSNumber	*bufNumber = NULL;
     OSBoolean   *enumerateOnWake;
     UInt16		bufValue = 0;
+    IOUSBDevice *usbDevice;
+
 
     XTRACE(this, 0, 0, "start");
     
@@ -845,16 +852,9 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 		}
 	}
     
-    enumerateOnWake = OSDynamicCast(OSBoolean, provider->getProperty("EnumerateOnWake"));
-    if (enumerateOnWake && enumerateOnWake->isFalse())
-    {
-		fEnumOnWake = FALSE;
-        XTRACE(this, 0, 0, "start - Enumerate on wake is on");
-    } else {
-		fEnumOnWake = TRUE;
-	}
-
     
+    //Do not automatically re-enumerate CDC ECM devices on wake
+    fEnumOnWake = FALSE;
     UInt16 myVID = fDataInterface->GetDevice()->GetVendorID();
     UInt16 myPID = fDataInterface->GetDevice()->GetProductID();
     
@@ -1021,6 +1021,7 @@ bool AppleUSBCDCECMData::configureData()
                 ior = fDataInterface->SetAlternateInterface(this, alt);
                 if (ior == kIOReturnSuccess)
                 {
+                    fAltInterface = alt;
                     XTRACE(this, 0, 0, "configureData - Alternate set");
                     break;
                 } else {
@@ -1122,6 +1123,7 @@ bool AppleUSBCDCECMData::createNetworkInterface()
 
 IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
 {
+    IOReturn				ior = kIOReturnSuccess;
     
     XTRACEP(this, 0, netif, "enable");
     
@@ -1162,13 +1164,16 @@ IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
     }
 
         // Mark the controller as enabled by the interface.
+    
+    setLinkStatusDown();
+
 
     fNetifEnabled = true;
     
     fControlDriver->USBSetPacketFilter();
-    XTRACE(this, 0, 0, "enable - packet filter applied");
+    XTRACE(this, 0, fControlDriver->fPacketFilter, "enable - packet filter applied+");
 
-    return kIOReturnSuccess;
+    return ior;
     
 }/* end enable */
 
@@ -1188,6 +1193,10 @@ IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
  
 IOReturn AppleUSBCDCECMData::disable(IONetworkInterface *netif)
 {
+    UInt16	packetFilter;
+    bool    result;
+    IOReturn err;
+
 
     XTRACE(this, 0, 0, "AppleUSBCDCECMData::disable");
 	
@@ -1203,11 +1212,27 @@ IOReturn AppleUSBCDCECMData::disable(IONetworkInterface *netif)
 	{
 		if (fControlDriver)
 		{
+            packetFilter = fControlDriver->fPacketFilter;           //save the packet filter setting
+            
+            fControlDriver->fPacketFilter = kPACKET_TYPE_DISABLED;  //Per Realtech SetPacketFilter (0)
+            result = fControlDriver->USBSetPacketFilter();
 			fControlDriver->dataReleased();
+            XTRACE(this, 0, result, "AppleUSBCDCECMData::disable USBSetPacketFilter");
+            
+            fControlDriver->fPacketFilter = packetFilter;
 		}
 	}
 	
 //	fDataInterface->GetDevice()->ReEnumerateDevice(0);
+    
+    err = fDataInterface->SetAlternateInterface (this, kResetNormal);  //Per Realtech set Alternate Interface setting 0
+
+    XTRACE(this, err, kResetNormal, "AppleUSBCDCECMData::disable -- SetAlternateInterface <<<");
+    
+    fDataInterface->GetDevice()->SuspendDevice(true);
+    
+    XTRACE(this, 0, true, "AppleUSBCDCECMData::disable -- SuspendDevice <<<");
+
 
     return kIOReturnSuccess;
     
@@ -1535,12 +1560,12 @@ IOReturn AppleUSBCDCECMData::setMulticastMode(IOEnetMulticastMode active)
     { 
         if (active)
         {
-            fControlDriver->fPacketFilter |= kPACKET_TYPE_ALL_MULTICAST;
+            fControlDriver->fPacketFilter |= kPACKET_TYPE_MULTICAST;
         } else {
-            fControlDriver->fPacketFilter &= ~kPACKET_TYPE_ALL_MULTICAST;
+            fControlDriver->fPacketFilter &= ~kPACKET_TYPE_MULTICAST;
         }
     
-        fControlDriver->USBSetPacketFilter();
+   fControlDriver->USBSetPacketFilter();
     
         return kIOReturnSuccess;
     }
@@ -1575,13 +1600,23 @@ IOReturn AppleUSBCDCECMData::setMulticastList(IOEthernetAddress *addrs, UInt32 c
     
     if (fControlDriver)
     {
-        if (count != 0)
+        
+        if (count > fControlDriver->fMcFilters)
         {
-            uStat = fControlDriver->USBSetMulticastFilter(addrs, count);
-            if (!uStat)
-            {
-                return kIOReturnIOError;
-            }
+            fControlDriver->fPacketFilter |= kPACKET_TYPE_ALL_MULTICAST;
+        }
+        else
+        {
+            fControlDriver->fPacketFilter &= ~kPACKET_TYPE_ALL_MULTICAST;
+
+        }
+
+        fControlDriver->USBSetPacketFilter();
+
+        uStat = fControlDriver->USBSetMulticastFilter(addrs, count);
+        if (!uStat)
+        {
+            return kIOReturnIOError;
         }
 
         return kIOReturnSuccess;
@@ -1804,6 +1839,8 @@ bool AppleUSBCDCECMData::wakeUp()
         }
     }
     
+    fDataInterface->GetDevice()->SuspendDevice(false);
+    
     fReady = false;
     
     if (fTimerSource)
@@ -1879,10 +1916,9 @@ bool AppleUSBCDCECMData::wakeUp()
 
 void AppleUSBCDCECMData::putToSleep()
 {
-
-    XTRACE(this, 0, 0, "putToSleep");
+    XTRACE(this, 0, 0, "putToSleep >>>");
         
-	if (!fReady)							// We've been here before...
+	if ( (!fReady) || (fTerminate == true))							// We've been here before...
 	{
 		return;
 	}
@@ -1902,11 +1938,9 @@ void AppleUSBCDCECMData::putToSleep()
     }
     
     releaseResources();
-    
     linkStatusChange(kLinkDown);
-
 	fSleeping = true;
-
+    
 }/* end putToSleep */
 
 /****************************************************************************************************/
@@ -2708,6 +2742,18 @@ void AppleUSBCDCECMData::timeoutOccurred(IOTimerEventSource * /*timer*/)
 
 }/* end timeoutOccurred */
 
+
+
+bool AppleUSBCDCECMData::willTerminate( IOService * provider, IOOptionBits options )
+{
+    bool result = true;
+    Log(DEBUG_NAME ":willTerminate\n");
+    
+    fTerminate = true;
+    return result;
+}
+
+
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCECMData::message
@@ -2792,6 +2838,14 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
             break;
         case kIOUSBMessagePortHasBeenResumed: 	
             XTRACE(this, 0, type, "message - kIOUSBMessagePortHasBeenResumed");
+            
+            ior = fDataInterface->SetAlternateInterface(this, fAltInterface);
+            if (ior != kIOReturnSuccess)
+            {
+                ALERT(0, 0, "AppleUSBCDCECMData::enable - SetAlternateInterface  failed");
+                XTRACE(this, 0, 0, "enable - SetAlternateInterface  failed");
+            }
+          
             for (i=0; i<fInBufPool; i++)
             {
                 if (fPipeInBuff[i].dead)			// If it's dead try and resurrect it

@@ -29,6 +29,10 @@
 #define READ_BLOCKSIZE 2048
 
 
+/* we know core's module_index is 0 */
+#undef APLOG_MODULE_INDEX
+#define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
+
 AP_DECLARE(int) ap_xml_parse_input(request_rec * r, apr_xml_doc **pdoc)
 {
     apr_xml_parser *parser;
@@ -81,7 +85,7 @@ AP_DECLARE(int) ap_xml_parse_input(request_rec * r, apr_xml_doc **pdoc)
 
             total_read += len;
             if (limit_xml_body && total_read > limit_xml_body) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00539)
                               "XML request body is larger than the configured "
                               "limit of %lu", (unsigned long)limit_xml_body);
                 result = HTTP_REQUEST_ENTITY_TOO_LARGE;
@@ -107,7 +111,7 @@ AP_DECLARE(int) ap_xml_parse_input(request_rec * r, apr_xml_doc **pdoc)
             *pdoc = NULL;
             return OK;
         }
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00540)
                       "XML parser error (at end). status=%d", status);
         return HTTP_BAD_REQUEST;
     }
@@ -119,7 +123,7 @@ AP_DECLARE(int) ap_xml_parse_input(request_rec * r, apr_xml_doc **pdoc)
 
   parser_error:
     (void) apr_xml_parser_geterror(parser, errbuf, sizeof(errbuf));
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00541)
                   "XML Parser Error: %s", errbuf);
 
     /* FALLTHRU */

@@ -327,7 +327,7 @@ static int smb_get_uint32le(mdchain_t mdp, void **curr_ptr,
     int error = 0;
     
     if (mdp == NULL) {
-        /* SMB2 */
+        /* SMB 2/3 */
         if (*bytes_unparsed >= 4) {
             *ret_value = letohl(*((uint32_t *) *curr_ptr));
             *curr_ptr = ((uint32_t *) *curr_ptr) + 1;
@@ -339,7 +339,7 @@ static int smb_get_uint32le(mdchain_t mdp, void **curr_ptr,
         }
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         error = md_get_uint32le(mdp, ret_value);
     }
     
@@ -352,7 +352,7 @@ static int smb_get_uint16le(mdchain_t mdp, void **curr_ptr,
     int error = 0;
     
     if (mdp == NULL) {
-        /* SMB2 */
+        /* SMB 2/3 */
         if (*bytes_unparsed >= 2) {
             *ret_value = letohs(*((uint16_t *) *curr_ptr));
             *curr_ptr = ((uint16_t *) *curr_ptr) + 1;
@@ -364,7 +364,7 @@ static int smb_get_uint16le(mdchain_t mdp, void **curr_ptr,
         }
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         error = md_get_uint16le(mdp, ret_value);
     }
     
@@ -377,7 +377,7 @@ static int smb_get_mem(mdchain_t mdp, void **curr_ptr, uint32_t *bytes_unparsed,
     int error = 0;
     
     if (mdp == NULL) {
-        /* SMB2 */
+        /* SMB 2/3 */
         if (*bytes_unparsed >= size) {
             if (target != NULL) {
                 bcopy(*curr_ptr, target, size);
@@ -392,7 +392,7 @@ static int smb_get_mem(mdchain_t mdp, void **curr_ptr, uint32_t *bytes_unparsed,
         }
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         error = md_get_mem(mdp, target, size, type);
     }
     
@@ -408,7 +408,7 @@ static size_t smb_get_utf16_strlen(mdchain_t mdp, void **curr_ptr,
     uint16_t *ustr;
 
     if (mdp == NULL) {
-        /* SMB2 */
+        /* SMB 2/3 */
 		/* Max amount of data we can scan in this mbuf */
 		max_count = count = *bytes_unparsed;
 
@@ -423,7 +423,7 @@ static size_t smb_get_utf16_strlen(mdchain_t mdp, void **curr_ptr,
 		}
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         size = md_get_utf16_strlen(mdp);
     }
 
@@ -659,12 +659,12 @@ getUTF8String(struct smb_ctx *inConn, mdchain_t mdp,
 	
     /* Dont alter the original mdp or curr_ptr */
     if (curr_ptr != NULL) {
-        /* SMB2 */
+        /* SMB 2/3 */
         shadow_ptr = curr_ptr;
         shadow_bytes_unparsed = *bytes_unparsed;
     }
     else {
-        /* SMB1 */
+        /* SMB 1 */
         md_shadow_copy(mdp, &mdShadow);
         shadow_mdp = &mdShadow;
     }
@@ -971,12 +971,12 @@ int decodeDfsReferral(struct smb_ctx *inConn, mdchain_t mdp,
          * copy of the beginning of the referral.
          */
         if (curr_ptr != NULL) {
-            /* SMB2 */
+            /* SMB 2/3 */
             ref_bytes_unparsed = bytes_unparsed;
             ref_ptr = curr_ptr;
         }
         else {
-            /* SMB1 */
+            /* SMB 1 */
             md_shadow_copy(mdp, &md_referral_shadow);
         }
         

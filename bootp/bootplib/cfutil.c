@@ -139,9 +139,11 @@ my_CFPropertyListCreateFromFile(const char * filename)
     if (data == NULL) {
 	goto done;
     }
-    plist = CFPropertyListCreateFromXMLData(NULL, data, 
-					    kCFPropertyListImmutable,
-					    NULL);
+    plist = CFPropertyListCreateWithData(NULL,
+					 data, 
+					 kCFPropertyListImmutable,
+					 NULL,
+					 NULL);
  done:
     if (data)
 	CFRelease(data);
@@ -160,7 +162,11 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename,
     if (plist == NULL)
 	return (0);
 
-    data = CFPropertyListCreateXMLData(NULL, plist);
+    data = CFPropertyListCreateData(NULL,
+				    plist,
+				    kCFPropertyListXMLFormat_v1_0,
+				    0,
+				    NULL);
     if (data == NULL) {
 	return (0);
     }
@@ -184,20 +190,20 @@ my_CFStringToCStringAndLengthExt(CFStringRef cfstr, char * str, int len,
     if (str != NULL) {
 	str[ret_len] = '\0';
     }
-    return (ret_len + 1); /* leave 1 byte for nul-termination */
+    return ((int)ret_len + 1); /* leave 1 byte for nul-termination */
 }
 
 PRIVATE_EXTERN Boolean
 my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
 			       int * ret_count)
 {
-    int		count = CFArrayGetCount(arr);
+    CFIndex	count = CFArrayGetCount(arr);
     int 	i;
     char *	offset = NULL;	
     int		space;
     char * *	strlist = NULL;
 
-    space = count * sizeof(char *);
+    space = (int)count * sizeof(char *);
     if (buffer != NULL) {
 	if (*buffer_size < space) {
 	    /* not enough space for even the pointer list */
@@ -207,7 +213,7 @@ my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
 	offset = buffer + space; /* the start of the 1st string */
     }
     for (i = 0; i < count; i++) {
-	CFIndex		len = 0;
+	int		len = 0;
 	CFStringRef	str;
 
 	str = CFArrayGetValueAtIndex(arr, i);
@@ -228,7 +234,7 @@ my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
 	space += len;
     }
     *buffer_size = roundup(space, sizeof(char *));
-    *ret_count = count;
+    *ret_count = (int)count;
     return (TRUE);
 }
 
@@ -236,12 +242,12 @@ PRIVATE_EXTERN Boolean
 my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
 			     int * ret_count)
 {
-    int			count = CFArrayGetCount(array);
+    CFIndex		count = CFArrayGetCount(array);
     int 		i;
     struct ether_addr * list = NULL;
     int			space;
 
-    space = roundup(count * sizeof(*list), sizeof(char *));
+    space = roundup((int)count * sizeof(*list), sizeof(char *));
     if (buffer != NULL) {
 	if (*buffer_size < space) {
 	    /* not enough space for all elements */
@@ -270,7 +276,7 @@ my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
 	}
     }
     *buffer_size = space;
-    *ret_count = count;
+    *ret_count = (int)count;
     return (TRUE);
 }
 
@@ -363,7 +369,7 @@ my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
 PRIVATE_EXTERN void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
 {
-    int count;
+    CFIndex count;
     int i;
 
     count = CFArrayGetCount(arr);

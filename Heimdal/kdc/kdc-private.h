@@ -75,12 +75,12 @@ _kdc_do_kx509 (
 krb5_error_code
 _kdc_encode_reply(krb5_context context,
 		  krb5_kdc_configuration *config,
-		  krb5_crypto armor_crypto,
+		  kdc_request_t r,
 		  uint32_t nonce,
 		  KDC_REP *rep, EncTicketPart *et, EncKDCRepPart *ek,
 		  krb5_enctype etype,
 		  int skvno, const EncryptionKey *skey,
-		  int ckvno, const EncryptionKey *reply_key,
+		  int ckvno,
 		  int rk_is_subkey,
 		  const char **e_text,
 		  krb5_data *reply);
@@ -175,16 +175,8 @@ _kdc_pk_free_client_param (
 
 krb5_error_code
 _kdc_pk_mk_pa_reply (
-	krb5_context /*context*/,
-	krb5_kdc_configuration */*config*/,
-	pk_client_params */*cp*/,
-	const hdb_entry_ex */*client*/,
-	krb5_enctype /*sessionetype*/,
-	const KDC_REQ */*req*/,
-	const krb5_data */*req_buffer*/,
-	krb5_keyblock */*reply_key*/,
-	krb5_keyblock */*sessionkey*/,
-	METHOD_DATA */*md*/);
+	kdc_request_t /* r */,
+	pk_client_params */*cp*/);
 
 krb5_error_code
 _kdc_pk_rd_padata (
@@ -196,9 +188,7 @@ _kdc_pk_rd_padata (
 	pk_client_params **/*ret_params*/);
 
 krb5_error_code
-_kdc_tgs_rep(krb5_context context,
-	     krb5_kdc_configuration *config,
-	     KDC_REQ *req,
+_kdc_tgs_rep(kdc_request_t r,
 	     krb5_data *data,
 	     const char *from,
 	     struct sockaddr *from_addr,
@@ -241,6 +231,21 @@ _kdc_fast_mk_response(krb5_context context,
 		      krb5_data *data);
 
 krb5_error_code
-_kdc_fast_unwrap_request(kdc_request_t r);
+_kdc_fast_unwrap_request(kdc_request_t r,
+			 krb5_ticket *tgs_ticket,
+			 krb5_auth_context tgs_ac);
+
+
+krb5_error_code
+_kdc_fast_strengthen_reply_key(kdc_request_t r);
+
+krb5_error_code
+_kdc_get_preferred_enctype(krb5_context context,
+			   krb5_kdc_configuration *config,
+			   const hdb_entry_ex *entry,
+			   const char *name,
+			   krb5_enctype *etypes,
+			   unsigned num_etypes,
+			   krb5_enctype *etype);
 
 #endif /* __kdc_private_h__ */

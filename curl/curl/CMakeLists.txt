@@ -1,3 +1,24 @@
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+###########################################################################
 # cURL/libcurl CMake script
 # by Tetetest and Sukender (Benoit Neil)
 
@@ -22,6 +43,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 include(Utilities)
 
 project( CURL C )
+
+message(WARNING "the curl cmake build system is poorly maintained. Be aware")
 
 file (READ ${CURL_SOURCE_DIR}/include/curl/curlver.h CURL_VERSION_H_CONTENTS)
 string (REGEX MATCH "LIBCURL_VERSION_MAJOR[ \t]+([0-9]+)"
@@ -782,6 +805,17 @@ else()
   set(CURL_TYPEOF_CURL_SOCKLEN_T int)
   set(CURL_SIZEOF_CURL_SOCKLEN_T ${SIZEOF_INT})
 endif()
+
+# TODO test which of these headers are required for the typedefs used in curlbuild.h
+if(WIN32)
+  set(CURL_PULL_WS2TCPIP_H ${HAVE_WS2TCPIP_H})
+else()
+  set(CURL_PULL_SYS_TYPES_H ${HAVE_SYS_TYPES_H})
+  set(CURL_PULL_SYS_SOCKET_H ${HAVE_SYS_SOCKET_H})
+  set(CURL_PULL_SYS_POLL_H ${HAVE_SYS_POLL_H})
+endif()
+set(CURL_PULL_STDINT_H ${HAVE_STDINT_H})
+set(CURL_PULL_INTTYPES_H ${HAVE_INTTYPES_H})
 
 include(CMake/OtherTests.cmake)
 

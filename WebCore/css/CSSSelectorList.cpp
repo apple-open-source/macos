@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012, 2013, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,31 +32,27 @@
 
 namespace WebCore {
 
-CSSSelectorList::~CSSSelectorList()
-{
-    deleteSelectors();
-}
-
 CSSSelectorList::CSSSelectorList(const CSSSelectorList& other)
 {
     unsigned otherComponentCount = other.componentCount();
     ASSERT_WITH_SECURITY_IMPLICATION(otherComponentCount);
+
     m_selectorArray = reinterpret_cast<CSSSelector*>(fastMalloc(sizeof(CSSSelector) * otherComponentCount));
     for (unsigned i = 0; i < otherComponentCount; ++i)
         new (NotNull, &m_selectorArray[i]) CSSSelector(other.m_selectorArray[i]);
 }
 
-void CSSSelectorList::adopt(CSSSelectorList& list)
+CSSSelectorList::CSSSelectorList(CSSSelectorList&& other)
+    : m_selectorArray(other.m_selectorArray)
 {
-    deleteSelectors();
-    m_selectorArray = list.m_selectorArray;
-    list.m_selectorArray = 0;
+    ASSERT_WITH_SECURITY_IMPLICATION(componentCount());
+    other.m_selectorArray = nullptr;
 }
 
-void CSSSelectorList::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector)
+void CSSSelectorList::adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectorVector)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(!selectorVector.isEmpty());
-    
+
     deleteSelectors();
     size_t flattenedSize = 0;
     for (size_t i = 0; i < selectorVector.size(); ++i) {
@@ -71,9 +67,11 @@ void CSSSelectorList::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& se
         while (current) {
             {
                 // Move item from the parser selector vector into m_selectorArray without invoking destructor (Ugh.)
-                CSSSelector* currentSelector = current->releaseSelector().leakPtr();
+                CSSSelector* currentSelector = current->releaseSelector().release();
                 memcpy(&m_selectorArray[arrayIndex], currentSelector, sizeof(CSSSelector));
-                fastDeleteSkippingDestructor(currentSelector);
+
+                // Free the underlying memory without invoking the destructor.
+                operator delete (currentSelector);
             }
             current = current->tagHistory();
             ASSERT(!m_selectorArray[arrayIndex].isLastInSelectorList());
@@ -96,6 +94,16 @@ unsigned CSSSelectorList::componentCount() const
     while (!current->isLastInSelectorList())
         ++current;
     return (current - m_selectorArray) + 1;
+}
+
+CSSSelectorList& CSSSelectorList::operator=(CSSSelectorList&& other)
+{
+    deleteSelectors();
+    m_selectorArray = other.m_selectorArray;
+    other.m_selectorArray = nullptr;
+
+    ASSERT_WITH_SECURITY_IMPLICATION(componentCount());
+    return *this;
 }
 
 void CSSSelectorList::deleteSelectors()

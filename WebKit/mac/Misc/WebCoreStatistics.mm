@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -59,25 +59,25 @@ using namespace WebCore;
 + (size_t)javaScriptObjectsCount
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return JSDOMWindow::commonVM()->heap.objectCount();
+    return JSDOMWindow::commonVM().heap.objectCount();
 }
 
 + (size_t)javaScriptGlobalObjectsCount
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return JSDOMWindow::commonVM()->heap.globalObjectCount();
+    return JSDOMWindow::commonVM().heap.globalObjectCount();
 }
 
 + (size_t)javaScriptProtectedObjectsCount
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return JSDOMWindow::commonVM()->heap.protectedObjectCount();
+    return JSDOMWindow::commonVM().heap.protectedObjectCount();
 }
 
 + (size_t)javaScriptProtectedGlobalObjectsCount
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return JSDOMWindow::commonVM()->heap.protectedGlobalObjectCount();
+    return JSDOMWindow::commonVM().heap.protectedGlobalObjectCount();
 }
 
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts
@@ -86,7 +86,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM()->heap.protectedObjectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.protectedObjectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->value; ++i)
@@ -101,7 +101,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM()->heap.objectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.objectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->value; ++i)
@@ -147,17 +147,17 @@ using namespace WebCore;
 
 + (size_t)cachedFontDataCount
 {
-    return fontCache()->fontDataCount();
+    return fontCache().fontDataCount();
 }
 
 + (size_t)cachedFontDataInactiveCount
 {
-    return fontCache()->inactiveFontDataCount();
+    return fontCache().inactiveFontDataCount();
 }
 
 + (void)purgeInactiveFontData
 {
-    fontCache()->purgeInactiveFontData();
+    fontCache().purgeInactiveFontData();
 }
 
 + (size_t)glyphPageCount
@@ -202,8 +202,8 @@ using namespace WebCore;
     WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
     
     JSLockHolder lock(JSDOMWindow::commonVM());
-    size_t heapSize = JSDOMWindow::commonVM()->heap.size();
-    size_t heapFree = JSDOMWindow::commonVM()->heap.capacity() - heapSize;
+    size_t heapSize = JSDOMWindow::commonVM().heap.size();
+    size_t heapFree = JSDOMWindow::commonVM().heap.capacity() - heapSize;
     GlobalMemoryStatistics globalMemoryStats = globalMemoryStatistics();
     
     return [NSDictionary dictionaryWithObjectsAndKeys:
@@ -247,7 +247,7 @@ using namespace WebCore;
 + (size_t)javaScriptReferencedObjectsCount
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return JSDOMWindow::commonVM()->heap.protectedObjectCount();
+    return JSDOMWindow::commonVM().heap.protectedObjectCount();
 }
 
 + (NSSet *)javaScriptRootObjectClasses

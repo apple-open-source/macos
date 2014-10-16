@@ -27,48 +27,61 @@
 #include "config.h"
 #include "NetworkStorageSession.h"
 
+#if USE(SOUP)
+
 #include "ResourceHandle.h"
+#include "SoupNetworkSession.h"
 #include <wtf/MainThread.h>
-#include <wtf/PassOwnPtr.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-NetworkStorageSession::NetworkStorageSession(SoupSession* session)
-    : m_session(session)
+NetworkStorageSession::NetworkStorageSession(std::unique_ptr<SoupNetworkSession> session)
+    : m_session(WTF::move(session))
+    , m_isPrivate(false)
 {
 }
 
-static OwnPtr<NetworkStorageSession>& defaultSession()
+NetworkStorageSession::~NetworkStorageSession()
+{
+}
+
+static std::unique_ptr<NetworkStorageSession>& defaultSession()
 {
     ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(OwnPtr<NetworkStorageSession>, session, ());
+    static NeverDestroyed<std::unique_ptr<NetworkStorageSession>> session;
     return session;
 }
 
 NetworkStorageSession& NetworkStorageSession::defaultStorageSession()
 {
     if (!defaultSession())
-        defaultSession() = adoptPtr(new NetworkStorageSession(ResourceHandle::defaultSession()));
+        defaultSession() = std::make_unique<NetworkStorageSession>(nullptr);
     return *defaultSession();
 }
 
-PassOwnPtr<NetworkStorageSession> NetworkStorageSession::createDefaultSession(const String&)
+std::unique_ptr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(const String&)
 {
-    ASSERT(isMainThread());
-    return adoptPtr(new NetworkStorageSession(ResourceHandle::defaultSession()));
-}
-
-PassOwnPtr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(const String&)
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
+    auto session = std::make_unique<NetworkStorageSession>(SoupNetworkSession::createPrivateBrowsingSession());
+    session->m_isPrivate = true;
+    return session;
 }
 
 void NetworkStorageSession::switchToNewTestingSession()
 {
-    // A null session will make us fall back to the default cookie jar, which is currently
-    // the expected behavior for tests.
-    defaultSession() = adoptPtr(new NetworkStorageSession(0));
+    defaultSession() = std::make_unique<NetworkStorageSession>(SoupNetworkSession::createTestingSession());
+}
+
+SoupNetworkSession& NetworkStorageSession::soupNetworkSession() const
+{
+    return m_session ? *m_session : SoupNetworkSession::defaultSession();
+}
+
+void NetworkStorageSession::setSoupNetworkSession(std::unique_ptr<SoupNetworkSession> session)
+{
+    m_session = WTF::move(session);
 }
 
 }
+
+#endif

@@ -33,30 +33,30 @@ using namespace WebCore;
 
 namespace WebKit {
 
-void WebContextInjectedBundleClient::didReceiveMessageFromInjectedBundle(WebContext* context, const String& messageName, APIObject* messageBody)
+void WebContextInjectedBundleClient::didReceiveMessageFromInjectedBundle(WebContext* context, const String& messageName, API::Object* messageBody)
 {
     if (!m_client.didReceiveMessageFromInjectedBundle)
         return;
 
-    m_client.didReceiveMessageFromInjectedBundle(toAPI(context), toAPI(messageName.impl()), toAPI(messageBody), m_client.clientInfo);
+    m_client.didReceiveMessageFromInjectedBundle(toAPI(context), toAPI(messageName.impl()), toAPI(messageBody), m_client.base.clientInfo);
 }
 
-void WebContextInjectedBundleClient::didReceiveSynchronousMessageFromInjectedBundle(WebContext* context, const String& messageName, APIObject* messageBody, RefPtr<APIObject>& returnData)
+void WebContextInjectedBundleClient::didReceiveSynchronousMessageFromInjectedBundle(WebContext* context, const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData)
 {
     if (!m_client.didReceiveSynchronousMessageFromInjectedBundle)
         return;
 
     WKTypeRef returnDataRef = 0;
-    m_client.didReceiveSynchronousMessageFromInjectedBundle(toAPI(context), toAPI(messageName.impl()), toAPI(messageBody), &returnDataRef, m_client.clientInfo);
+    m_client.didReceiveSynchronousMessageFromInjectedBundle(toAPI(context), toAPI(messageName.impl()), toAPI(messageBody), &returnDataRef, m_client.base.clientInfo);
     returnData = adoptRef(toImpl(returnDataRef));
 }
 
-PassRefPtr<APIObject> WebContextInjectedBundleClient::getInjectedBundleInitializationUserData(WebContext* context)
+PassRefPtr<API::Object> WebContextInjectedBundleClient::getInjectedBundleInitializationUserData(WebContext* context)
 {
     if (!m_client.getInjectedBundleInitializationUserData)
         return 0;
 
-    return toImpl(m_client.getInjectedBundleInitializationUserData(toAPI(context), m_client.clientInfo));
+    return toImpl(m_client.getInjectedBundleInitializationUserData(toAPI(context), m_client.base.clientInfo));
 }
 
 } // namespace WebKit

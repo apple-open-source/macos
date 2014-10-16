@@ -26,10 +26,10 @@
 #include "config.h"
 #include "PositionIterator.h"
 
+#include "HTMLElement.h"
 #include "HTMLNames.h"
-#include "Node.h"
 #include "RenderBlock.h"
-#include "TextIterator.h"
+#include "RenderText.h"
 #include "htmlediting.h"
 
 namespace WebCore {
@@ -148,23 +148,24 @@ bool PositionIterator::isCandidate() const
     if (!renderer)
         return false;
     
-    if (renderer->style()->visibility() != VISIBLE)
+    if (renderer->style().visibility() != VISIBLE)
         return false;
 
     if (renderer->isBR())
         return !m_offsetInAnchor && !Position::nodeIsUserSelectNone(m_anchorNode->parentNode());
 
     if (renderer->isText())
-        return !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).inRenderedText();
+        return !Position::nodeIsUserSelectNone(m_anchorNode) && toRenderText(renderer)->containsCaretOffset(m_offsetInAnchor);
 
-    if (isTableElement(m_anchorNode) || editingIgnoresContent(m_anchorNode))
+    if (isRenderedTable(m_anchorNode) || editingIgnoresContent(m_anchorNode))
         return (atStartOfNode() || atEndOfNode()) && !Position::nodeIsUserSelectNone(m_anchorNode->parentNode());
 
-    if (!m_anchorNode->hasTagName(htmlTag) && renderer->isBlockFlow()) {
-        if (toRenderBlock(renderer)->logicalHeight() || m_anchorNode->hasTagName(bodyTag)) {
-            if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
+    if (!m_anchorNode->hasTagName(htmlTag) && renderer->isRenderBlockFlow()) {
+        RenderBlock& block = toRenderBlock(*renderer);
+        if (block.logicalHeight() || m_anchorNode->hasTagName(bodyTag)) {
+            if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(block))
                 return atStartOfNode() && !Position::nodeIsUserSelectNone(m_anchorNode);
-            return m_anchorNode->rendererIsEditable() && !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).atEditingBoundary();
+            return m_anchorNode->hasEditableStyle() && !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).atEditingBoundary();
         }
     }
 

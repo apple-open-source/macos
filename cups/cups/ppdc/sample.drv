@@ -1,16 +1,16 @@
 //
-// "$Id: sample.drv 3893 2012-08-29 00:38:36Z msweet $"
+// "$Id: sample.drv 12107 2014-08-20 15:28:54Z msweet $"
 //
-//   Driver info file for CUPS-supplied PPDs.
+// Driver info file for CUPS-supplied PPDs.
 //
-//   Copyright 2007-2012 by Apple Inc.
-//   Copyright 1993-2006 by Easy Software Products.
+// Copyright 2007-2014 by Apple Inc.
+// Copyright 1993-2006 by Easy Software Products.
 //
-//   These coded instructions, statements, and computer programs are the
-//   property of Apple Inc. and are protected by Federal copyright
-//   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-//   which should have been included with this file.  If this file is
-//   file is missing or damaged, see the license at "http://www.cups.org/".
+// These coded instructions, statements, and computer programs are the
+// property of Apple Inc. and are protected by Federal copyright
+// law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+// which should have been included with this file.  If this file is
+// file is missing or damaged, see the license at "http://www.cups.org/".
 //
 
 // Include necessary files...
@@ -22,26 +22,37 @@
 
 // Localizations are provided for all of the base languages supported by
 // CUPS...
-//#po da ""
-//#po de ""
-//#po es ""
-//#po et ""
-//#po fi ""
-//#po fr ""
-//#po he ""
-//#po id ""
-//#po it ""
-//#po ja ""
-//#po ko ""
-//#po nl ""
-//#po no ""
-//#po pl ""
-//#po pt ""
-//#po pt_BR ""
-//#po ru ""
-//#po sv ""
-//#po zh ""
-//#po zh_TW ""
+#po ar ""
+#po ca ""
+#po cs ""
+#po da ""
+#po de ""
+#po el ""
+#po es ""
+#po fi ""
+#po fr ""
+#po he ""
+#po hr ""
+#po hu ""
+#po id ""
+#po it ""
+#po ja ""
+#po ko ""
+#po ms ""
+#po no ""
+#po pl ""
+#po pt ""
+#po pt_PT ""
+#po ro ""
+#po ru ""
+#po sk ""
+#po sv ""
+#po th ""
+#po tr ""
+#po uk ""
+#po vi ""
+#po zh_CN ""
+#po zh_TW ""
 
 // MediaSize sizes used by label drivers...
 #media "w90h18/1.25x0.25\"" 90 18
@@ -103,12 +114,12 @@
 #media "w576h468/8.00x6.50\"" 576 468
 
 // Common stuff for all drivers...
-Attribute "cupsVersion" "" "1.7"
+Attribute "cupsVersion" "" "2.0"
 Attribute "FileSystem" "" "False"
 Attribute "LandscapeOrientation" "" "Plus90"
 Attribute "TTRasterizer" "" "Type42"
 
-Copyright "Copyright 2007-2012 by Apple Inc."
+Copyright "Copyright 2007-2014 by Apple Inc."
 Copyright "Copyright 1997-2007 by Easy Software Products."
 Copyright ""
 Copyright "These coded instructions, statements, and computer programs are the"
@@ -119,7 +130,7 @@ Copyright "file is missing or damaged, see the license at \"http://www.cups.org/
 
 Font *
 
-Version "1.5"
+Version "2.0"
 
 // Dymo Label Printer
 {
@@ -205,90 +216,6 @@ Version "1.5"
     Resolution k 1 8 0 0 60x72dpi
     *Resolution k 1 8 0 0 120x72dpi
     Resolution k 1 8 0 0 240x72dpi
-  }
-
-  // Epson Stylus Color Series
-  {
-    ModelName "Stylus Color Series"
-    Attribute NickName "" "Epson Stylus Color Series"
-    PCFileName "stcolor.ppd"
-    ModelNumber $EPSON_COLOR
-    ColorDevice Yes
-
-    HWMargins 8.6 39.6 8.6 25.51
-    *MediaSize Letter
-    MediaSize Legal
-    MediaSize A4
-
-    Resolution - 1 0 0 0 180dpi
-    *Resolution - 1 0 0 0 360dpi
-    Resolution - 1 0 0 0 720dpi
-
-    *ColorModel CMYK cmyk banded 1
-    ColorModel Gray/Grayscale k chunky 1
-  }
-
-  // Epson New Stylus Color Series
-  {
-    ModelName "New Stylus Color Series"
-    Attribute NickName "" "Epson New Stylus Color Series"
-    PCFileName "stcolor2.ppd"
-    ModelNumber $EPSON_ICOLOR
-    ColorDevice Yes
-
-    HWMargins 8.6 39.6 8.6 25.51
-    *MediaSize Letter
-    MediaSize Legal
-    MediaSize A4
-
-    Resolution - 1 0 0 0 180dpi
-    *Resolution - 1 0 0 0 360dpi
-    Resolution - 1 0 0 0 720dpi
-
-    *ColorModel CMYK cmyk banded 1
-    ColorModel Gray/Grayscale k chunky 1
-  }
-
-  // Epson Stylus Color Series
-  {
-    ModelName "Stylus Photo Series"
-    Attribute NickName "" "Epson Stylus Photo Series"
-    PCFileName "stphoto.ppd"
-    ModelNumber $EPSON_PHOTO
-    ColorDevice Yes
-
-    HWMargins 8.6 39.6 8.6 25.51
-    *MediaSize Letter
-    MediaSize Legal
-    MediaSize A4
-
-    Resolution - 1 0 0 0 180dpi
-    *Resolution - 1 0 0 0 360dpi
-    Resolution - 1 0 0 0 720dpi
-
-    *ColorModel CMYK cmykcm banded 1
-    ColorModel Gray/Grayscale k chunky 1
-  }
-
-  // Epson New Stylus Color Series
-  {
-    ModelName "New Stylus Photo Series"
-    Attribute NickName "" "Epson New Stylus Photo Series"
-    PCFileName "stphoto2.ppd"
-    ModelNumber $EPSON_IPHOTO
-    ColorDevice Yes
-
-    HWMargins 8.6 39.6 8.6 25.51
-    *MediaSize Letter
-    MediaSize Legal
-    MediaSize A4
-
-    Resolution - 1 0 0 0 180dpi
-    *Resolution - 1 0 0 0 360dpi
-    Resolution - 1 0 0 0 720dpi
-
-    *ColorModel CMYK cmykcm banded 1
-    ColorModel Gray/Grayscale k chunky 1
   }
 }
 
@@ -1241,5 +1168,5 @@ Version "1.5"
 }
 
 //
-// End of "$Id: sample.drv 3893 2012-08-29 00:38:36Z msweet $".
+// End of "$Id: sample.drv 12107 2014-08-20 15:28:54Z msweet $".
 //

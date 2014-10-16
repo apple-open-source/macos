@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Computer, Inc.
+ * Copyright (C) 2007 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,6 +27,7 @@
 #include <CoreFoundation/CFBase.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/RetainPtr.h>
 
 typedef struct CGFont* CGFontRef;
 typedef UInt32 ATSFontContainerRef;
@@ -53,10 +54,10 @@ public:
     static bool supportsFormat(const String&);
 
     ATSFontContainerRef m_atsContainer;
-    CGFontRef m_cgFont;
+    RetainPtr<CGFontRef> m_cgFont;
 };
 
-FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer*);
+std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer&);
 
 }
 

@@ -38,9 +38,9 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_auxprop "10 July 2001" SASL "SASL man pages"
+.TH sasl_auxprop 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
-sasl_auxprop \- How to work with SASL auxilliary properties
+sasl_auxprop \- How to work with SASL auxiliary properties
 
 .SH SYNOPSIS
 .nf
@@ -75,25 +75,25 @@ sasl_auxprop \- How to work with SASL auxilliary properties
 .BI "                 const char " **values ")"
 .SH DESCRIPTION
 
-.B SASL auxilliary properties
+.B SASL auxiliary properties
 are used to obtain properties from external sources during the authentication
 process.  For example, a mechanism might need to query an LDAP server to
-obtain the authentication secret.  The application probabally needs other
+obtain the authentication secret.  The application probably needs other
 information from there as well, such as home directory or UID.  The
-auxilliary property interface allows the two to cooperate, and only results
-in a single query agains the LDAP server (or other property sources).
+auxiliary property interface allows the two to cooperate, and only results
+in a single query against the LDAP server (or other property sources).
 
 Property lookups take place directly after user canonicalization occurs.
-Therefore, all requests should be registered witht he context before that
+Therefore, all requests should be registered with he context before that
 time.  Note that requests can also be registered using the
 sasl_auxprop_request(3) function.  Most of the functions listed below, 
-however, require a property context whch can be obtained by calling
+however, require a property context which can be obtained by calling
 sasl_auxprop_getctx(3).
 
 .SH API Description
 .TP 0.8i
 struct propctx *prop_new(unsigned estimate)
-Create a new property context.  Probabally unnecessary for appplication
+Create a new property context.  Probably unnecessary for application
 developers to call this at any point.
 
 .I estimate
@@ -128,7 +128,7 @@ Fill in a (provided) array of struct propval based on a list of property
 names.  This implies that the vals array is at least as long as the
 names array. The values that are filled in by this call
 persist until next call to prop_request, prop_clear,
-or prop_dispose on context.  If a name secified here was never requested,
+or prop_dispose on context.  If a name specified here was never requested,
 that its associated values entry will be set to NULL.
 
 Returns number of matching properties that were found, or a SASL error code.
@@ -162,7 +162,7 @@ Format the requested property names into a string.  This not intended
 for use by the application (only by auxprop plugins).
 
 .I sep
-Is the seperator to use for the string
+Is the separator to use for the string
 
 .I outbuf
 Is the caller-allocated buffer of length
@@ -176,11 +176,11 @@ if non-NULL, will contain the length of the resulting string (excluding NUL term
 int prop_set(struct propctx *ctx, const char *name, const char *value,
              int vallen)
 
-Adds a property vaue to the context.  This is intended for use by auxprop
+Adds a property value to the context.  This is intended for use by auxprop
 plugins only.
 
 .I name
-is the name of the property to recieve the new value, or NULL, which
+is the name of the property to receive the new value, or NULL, which
 implies that the value will be added to the same property as the last
 call to either prop_set or prop_setvals.
 
@@ -207,7 +207,7 @@ See sasl_errors(3).  Those that return pointers will return a valid pointer
 on success, or NULL on any error.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_auxprop_request(3), sasl_auxprop_getctx(3)

@@ -166,7 +166,7 @@ ScanNode(VolumeObjects_t *vop, uint8_t *nodePtr, size_t nodeSize, off_t blockSiz
 				off_t start = S32((*datap)[i].startBlock) * (off_t)blockSize;
 				off_t len = S32((*datap)[i].blockCount) * (off_t)blockSize;
 				if (start && len)
-					AddExtent(vop, start, len);
+					AddExtentForFile(vop, start, len, S32(keyp->fileID));
 			}
 		}
 	}
@@ -179,6 +179,7 @@ ScanNode(VolumeObjects_t *vop, uint8_t *nodePtr, size_t nodeSize, off_t blockSiz
  * looking for system-file extents (those with a CNID < 16).  If useAltHdr
  * is set, it'll use the extents overflow descriptor in the alternate header.
  */
+__private_extern__
 int
 ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 {

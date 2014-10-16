@@ -137,7 +137,7 @@ ChallengeHash(const uint8_t peer_challenge[MSCHAP2_CHALLENGE_SIZE],
     CC_SHA1_Init(&context);
     CC_SHA1_Update(&context, peer_challenge, MSCHAP2_CHALLENGE_SIZE);
     CC_SHA1_Update(&context, auth_challenge, MSCHAP2_CHALLENGE_SIZE);
-    CC_SHA1_Update(&context, user, strlen((const char *)user));
+    CC_SHA1_Update(&context, user, (int)strlen((const char *)user));
     CC_SHA1_Final(hash, &context);
     bcopy(hash, challenge, MSCHAP_NT_CHALLENGE_SIZE);
     return;

@@ -39,7 +39,7 @@
 #else
     [SetterRaisesException] attribute unsigned long length;
 #endif
-    getter Node item([IsIndex,Default=Undefined] optional unsigned long index);
+    getter Node item(unsigned long index);
     Node namedItem([Default=Undefined] optional DOMString name);
     [ObjCLegacyUnnamedParameters, RaisesException] void add([Default=Undefined] optional HTMLElement element,
                             [Default=Undefined] optional HTMLElement before);
@@ -48,7 +48,7 @@
     // As of this writing this cannot be auto-generated.
     [Custom] void remove(/* indexOrOption */);
 #else
-    void remove(long index);
+    [ImplementedAs=removeByIndex] void remove(long index);
 #endif
     readonly attribute HTMLCollection selectedOptions;
     attribute long selectedIndex;

@@ -16,7 +16,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -31,7 +31,7 @@
 
 #include "CSSValue.h"
 #include "MediaFeatureNames.h"
-#include <wtf/PassOwnPtr.h>
+#include <memory>
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
 
@@ -41,7 +41,7 @@ class CSSParserValueList;
 class MediaQueryExp {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<MediaQueryExp> create(const AtomicString& mediaFeature, CSSParserValueList* values);
+    MediaQueryExp(const AtomicString& mediaFeature, CSSParserValueList* values);
     ~MediaQueryExp();
 
     AtomicString mediaFeature() const { return m_mediaFeature; }
@@ -70,11 +70,9 @@ public:
 
     String serialize() const;
 
-    PassOwnPtr<MediaQueryExp> copy() const { return adoptPtr(new MediaQueryExp(*this)); }
+    std::unique_ptr<MediaQueryExp> copy() const { return std::make_unique<MediaQueryExp>(*this); }
 
 private:
-    MediaQueryExp(const AtomicString& mediaFeature, CSSParserValueList* values);
-
     AtomicString m_mediaFeature;
     RefPtr<CSSValue> m_value;
     bool m_isValid;

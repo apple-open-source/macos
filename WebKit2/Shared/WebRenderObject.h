@@ -27,10 +27,13 @@
 #define WebRenderObject_h
 
 #include "APIObject.h"
-#include "MutableArray.h"
 #include <WebCore/IntRect.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/WTFString.h>
+
+namespace API {
+class Array;
+}
 
 namespace WebCore {
     class RenderObject;
@@ -40,7 +43,7 @@ namespace WebKit {
 
 class WebPage;
 
-class WebRenderObject : public TypedAPIObject<APIObject::TypeRenderObject> {
+class WebRenderObject : public API::ObjectImpl<API::Object::Type::RenderObject> {
 public:
     static PassRefPtr<WebRenderObject> create(WebPage*);
     static PassRefPtr<WebRenderObject> create(WebCore::RenderObject* renderer)
@@ -48,41 +51,29 @@ public:
         return adoptRef(new WebRenderObject(renderer, false));
     }
 
-    static PassRefPtr<WebRenderObject> create(const String& name, const String& elementTagName, const String& elementID,
-        PassRefPtr<MutableArray> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<MutableArray> children)
-    {
-        return adoptRef(new WebRenderObject(name, elementTagName, elementID, elementClassNames, absolutePosition, frameRect, children));
-    }
+    static PassRefPtr<WebRenderObject> create(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<API::Array> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<API::Array> children);
 
-    RefPtr<ImmutableArray> children() const { return m_children; }
+    virtual ~WebRenderObject();
+
+    API::Array* children() const { return m_children.get(); }
 
     const String& name() const { return m_name; }
     const String& elementTagName() const { return m_elementTagName; }
     const String& elementID() const { return m_elementID; }
-    ImmutableArray* elementClassNames() const { return m_elementClassNames.get(); }
+    API::Array* elementClassNames() const { return m_elementClassNames.get(); }
     WebCore::IntPoint absolutePosition() const { return m_absolutePosition; }
     WebCore::IntRect frameRect() const { return m_frameRect; }
 
 private:
     WebRenderObject(WebCore::RenderObject*, bool shouldIncludeDescendants);
-    WebRenderObject(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<MutableArray> elementClassNames,
-        WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<MutableArray> children)
-        : m_children(children)
-        , m_name(name)
-        , m_elementTagName(elementTagName)
-        , m_elementID(elementID)
-        , m_elementClassNames(elementClassNames)
-        , m_absolutePosition(absolutePosition)
-        , m_frameRect(frameRect)
-    {
-    }
+    WebRenderObject(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<API::Array> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<API::Array> children);
 
-    RefPtr<MutableArray> m_children;
+    RefPtr<API::Array> m_children;
 
     String m_name;
     String m_elementTagName;
     String m_elementID;
-    RefPtr<MutableArray> m_elementClassNames;
+    RefPtr<API::Array> m_elementClassNames;
     WebCore::IntPoint m_absolutePosition;
     WebCore::IntRect m_frameRect;
 };

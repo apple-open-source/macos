@@ -612,10 +612,12 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	rootfnp->fn_linkcnt = 1;
 	error = vnode_ref(myrootvp);	/* released in auto_unmount */
 	if (error) {
-		vnode_put(myrootvp);
 		vnode_recycle(myrootvp);
+		vnode_put(myrootvp);
 		goto errout;
 	}
+	rootfnp->fn_parentvp = myrootvp;
+	rootfnp->fn_parentvid = vnode_vid(myrootvp);
 	fnip->fi_rootvp = myrootvp;
 
 	/*
@@ -625,6 +627,8 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	if (args.mount_type == MOUNT_TYPE_MAP) {
 		lck_rw_lock_exclusive(fngp->fng_rootfnnodep->fn_rwlock);
 		rootfnp->fn_parent = fngp->fng_rootfnnodep;
+		/*fngp->fng_rootfnnodep does not have an associated vp */
+		rootfnp->fn_parentvp = NULL;
 		rootfnp->fn_next = fngp->fng_rootfnnodep->fn_dirents;
 		fngp->fng_rootfnnodep->fn_dirents = rootfnp;
 		lck_rw_unlock_exclusive(fngp->fng_rootfnnodep->fn_rwlock);

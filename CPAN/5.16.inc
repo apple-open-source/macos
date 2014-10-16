@@ -216,7 +216,6 @@ CPAN_PROJECTS := \
     MooseX-Storage-0.31
 
 SVK_PROJECTS := \
-    Algorithm-Diff-1.1902 \
     Algorithm-Annotate-0.10 \
     YAML-Syck-1.21 \
     Data-Hierarchy-0.34 \
@@ -228,7 +227,6 @@ SVK_PROJECTS := \
     Class-Autouse-2.01 \
     App-CLI-0.313 \
     Class-Data-Inheritable-0.08 \
-    Path-Class-0.26 \
     TermReadKey-2.30 \
     Locale-Maketext-Lexicon-0.91 \
     IPC-Run3-0.045 \

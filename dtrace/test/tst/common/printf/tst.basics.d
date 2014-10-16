@@ -44,11 +44,7 @@ BEGIN
 
 	printf("\n");
 
-#if !defined(__APPLE__)
-	printf("%%a = %a\n", &`kmem_alloc);
-#else
 	printf("%%a = %a\n", &`max_ncpus);
-#endif /* __APPLE__ */
 	printf("%%c = %c\n", i);
 	printf("%%d = %d\n", i);
 	printf("%%hd = %hd\n", (short)i);
@@ -69,11 +65,7 @@ BEGIN
 	printf("%%p = %p\n", (void *)i);
 	printf("%%s = %s\n", "hello");
 	printf("%%u = %u\n", (uint_t)i);
-#if !defined(__APPLE__)
-	printf("%%wc = %wc\n", i);
-#else
 	printf("%%wc = %lc\n", i);
-#endif /* __APPLE__ */
 	printf("%%x = %x\n", (uint_t)i);
 	printf("%%X = %X\n", (uint_t)i);
 

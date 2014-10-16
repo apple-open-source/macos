@@ -453,14 +453,15 @@ do_boot_cache()
 		// Add the login playlist of user we expect to log in to the boot playlist
 		if (0 != add_playlist_for_preheated_user(pc, isCompositeDisk)) {
 			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
-#if defined __x86_64__
 			add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
 			warnx("Added 32-bit shared cache to the low priority batch");
-#endif
 		}
 		
 		// rdar://9021675 Always warm the shared cache
-		add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
+		// Try subtypes we know about first. <rdar://problem/16093388>
+		if (0 != add_file(pc, BC_DYLD_SHARED_CACHE_H, -1, true, false)) {
+			add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
+		}
 	}
 
 	error = BC_start(pc);
@@ -500,9 +501,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	char playlist_path[MAX_PLAYLIST_PATH_LENGTH];
 	char login_user[128] = DEFAULT_USER;
 	struct BC_playlist* user_playlist = NULL;
-#if defined __x86_64__
 	bool already_added_i386_shared_cache = false;
-#endif
 	
 	// Limit the playlist size
 	ssize_t playlist_size = 0;
@@ -546,7 +545,6 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	error = BC_read_playlist(playlist_path, &user_playlist);
 	
 	if (error == 0) {
-#if defined __x86_64__
 		int i386_shared_cache_batch_num = I386_SHARED_CACHE_NULL_BATCH_NUM;
 		if (-1 != getxattr(playlist_path, I386_XATTR_NAME, &i386_shared_cache_batch_num, sizeof(i386_shared_cache_batch_num), 0, 0x0)) {
 			if (i386_shared_cache_batch_num != I386_SHARED_CACHE_NULL_BATCH_NUM) {
@@ -560,7 +558,6 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 				// already_added_i386_shared_cache = true; dead store...
 			}
 		}
-#endif
 		
 	} else if (ENOENT == error) {
 		// No merged playlist for the preheated user. Try to create one from its login and app playlists
@@ -628,14 +625,12 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 										goto out;
 									}
 									
-#if defined __x86_64__
 									if (!already_added_i386_shared_cache) {
 										if (-1 != getxattr(playlist_path, I386_XATTR_NAME, NULL, 0, 0, 0x0)) {
 											add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, batch_offset, true, flags & BC_PE_LOWPRIORITY);
 											already_added_i386_shared_cache = true;
 										}
 									}
-#endif
 									
 									PC_FREE_ZERO(app_playlist);
 									// warnx("Added playlist for app %s", playlist_path);

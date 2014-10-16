@@ -131,10 +131,9 @@ typedef struct  OpaqueIOPSPowerSourceID *IOPSPowerSourceID;
  * @param       outPS Upon success, this parameter outPS will contain a reference to the new power source.
  *              This reference must be released with IOPSReleasePowerSource when (and if) the power source is no longer available
  *              as a power source to the OS.
- * @param       powerSourceType is the caller's type of power source, defined in IOPSKeys.h
  * @result      Returns kIOReturnSuccess on success, see IOReturn.h for possible failure codes.
  */
-IOReturn        IOPSCreatePowerSource(IOPSPowerSourceID *outPS, CFStringRef powerSourceType);
+IOReturn IOPSCreatePowerSource(IOPSPowerSourceID *outPS);
 
 /*! 
  *  @function   IOPSSetPowerSourceDetails
@@ -167,6 +166,58 @@ IOReturn        IOPSSetPowerSourceDetails(IOPSPowerSourceID whichPS, CFDictionar
  */
 IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 
+/*!
+ * @define      kIOPSNotifyPercentChange
+ * @abstract    Notify(3) key. The system delivers notifications on this key when
+ *              an attached power source’s percent charge remaining changes;
+ *              Also delivers this notification when the active power source
+ *              changes (from limited to unlimited and vice versa).
+ *
+ * @discussion  See API <code>@link IOPSGetPercentRemaining @/link</code> to determine the percent charge remaining;
+ *              and API <code>@link IOPSDrawingUnlimitedPower @/link</code> to determine if the active power source
+ *              is unlimited.
+ *
+ *              See also kIOPSNotifyPowerSource and kIOPSNotifyLowBattery
+ */
+#define kIOPSNotifyPercentChange                "com.apple.system.powersources.percent"
+
+/*!
+ * @function    IOPSGetPercentRemaining
+ * @abstract    Get the percent charge remaining for the device’s power source(s).
+ * @param       Returns the percent charge remaining (0 to 100).
+ * @param       Returns true if the power source is being charged.
+ * @param       Returns true if the power source is fully charged.
+ * @result      Returns kIOReturnSuccess on success, or an error code from IOReturn.h and
+ *              also report the percent remaining as 100%.
+ */
+IOReturn        IOPSGetPercentRemaining(int *percent, bool *isCharging, bool *isFullyCharged);
+
+/*!
+ * @function    IOPSDrawingUnlimitedPower
+ * @abstract    Indicates whether the active power source is unlimited.
+ * @result      Returns true if drawing from unlimited power (a wall adapter),
+ *              or false if drawing from a limited source. (battery power)
+ */
+bool            IOPSDrawingUnlimitedPower(void);
+
+typedef enum {
+    kIOPSProvidedByAC = 1,
+    kIOPSProvidedByBattery,
+    kIOPSProvidedByExternalBattery
+} IOPSPowerSourceIndex;
+/*!
+ * @function      IOPSGetSupportedPowerSources
+ * Returns an integer describing which power source the system is currently 
+ * drawing from.
+ * Also returns true/false indicating whether the system has battery/UPS 
+ * supported and/or attached.
+ * This may return an error if called very early during system boot.
+ *
+ */
+IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
+                                      bool *batterySupport,
+                                      bool *externalBatteryAttached);
+
 
 /*!
  * These bits decipher battery state stored in notify_get_state(kIOPSTimeRemainingNotificationKey)
@@ -178,6 +229,79 @@ IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 #define kPSTimeRemainingNotifyUnknownBit        (1 << 18)
 #define kPSTimeRemainingNotifyValidBit          (1 << 19)
 #define kPSTimeRemainingNotifyNoPollBit         (1 << 20)
+#define kPSTimeRemainingNotifyFullyChargedBit   (1 << 21)
+#define kPSTimeRemainingNotifyBattSupportBit    (1 << 22)
+#define kPSTimeRemainingNotifyUPSSupportBit     (1 << 23)
+#if TARGET_OS_IPHONE
+#define kPSCriticalLevelBit                     (1 << 24)
+#define kPSRestrictedLevelBit                   (1 << 25)
+#endif
+#define kPSTimeRemainingNotifyActivePS8BitsStarts   56
+
+#if TARGET_OS_IPHONE
+/*
+ * Notify(3) string on which powerd posts a notification when system enters critical level
+ */
+#define kIOPSNotifyCriticalLevel            "com.apple.system.powersources.criticallevel"
+/*
+ * Notify(3) string on which powerd posts a notification when system enters restricted mode
+ */
+#define kIOPSNotifyRestrictedMode           "com.apple.system.powersources.restrictedmode"
+#endif
+
+/*!
+ * @define      kIOPSBattLogEntryTime
+ * @abstract    CFDictionary key used by IOPSCopyChargeLog
+ * @discussion
+ *              CFDate type. Specifies the time at which an log entry is made.
+ */
+#define kIOPSBattLogEntryTime       "Log Entry Timestamp"
+
+/*!
+ * @define      kIOPSBattLogEntryTZ
+ * @abstract    CFDictionary key used by IOPSCopyChargeLog
+ * @discussion
+ *              CFNumber type with CFNumberType set to kCFNumberDoubleType.
+ *              This value specifies difference in seconds between current system 
+ *              time zone and GMT. Obtained with CFTimeZoneGetSecondsFromGMT().
+ */
+#define kIOPSBattLogEntryTZ         "Log Entry Timezone"
+
+
+/*
+ *!  @function IOPSCopyChargeLog
+ *
+ *   @abstract Returns an array of historical battery data collected over the past 2 hours.
+ *             This records a maximum of 2 hours of history at 5 minute intervals.
+ *             This charge log resets upon system boot and every time this SPI is called.
+ *             Caller must be signed with the 'com.apple.private.iokit.powerlogging' entitlement.
+ *             It is intended for Apple internal use only.
+ *
+ *   @param sinceTime   IOPSCopyChargeLog will return all power source history (if any) since this date.
+ *                      This should be UTC based timestamp.
+ *
+ *   @param chargeLog   If successful, the dictionary returned will have the name of batteries as keys. A CFArray
+ *                      is associated with each key and this array contains log entries collected since the
+ *                      specified time 'sinceTime'.
+ *                      Each entry in this array will be a CFDictionary.
+ *                      Each dictionary will contain some or all of the following keys as defined in <IOKit/ps/IOPSKeys.h>.
+ *                            - kIOPSBattLogEntryTime   - CFDate - the GMT time when the entry is recorded.
+ *                            - kIOPSBattLogEntryTZ     - CFNumber double type. Specifies the difference in seconds 
+ *                                                        between system's current time zone and GMT
+ *                            - kIOPSCurrentCapacityKey - mAh. A CFNumber int type.
+ *                            - kIOPSMaxCapacityKey     - mAh. This is the Full Charge Capacity. CFNumber int type.
+ *                            - kIOPSPowerSourceStateKey   - CFString - with string kIOPSACPowerValue or kIOPSBatteryPowerValue
+ *                            - kIOPSIsChargingKey      - CFBoolean - is charging or not.
+ *                            - kIOPSIsChargedKey       - CFBoolean - fully charged or not
+ *                            - kIOPSCurrentKey         - mA. Roughly a one minute average of the battery's amperage.
+ *
+ *                      Upon error, or when no history is available, IOPSCopyChargeLog shall return 
+ *                      an empty array in this parameter.
+ *
+ *  @result             Returns kIOReturnSuccess on success. Can return kIOReturnError or 
+ *                      kIOReturnNotSupported on platforms with power sources.
+ */
+IOReturn IOPSCopyChargeLog(CFAbsoluteTime sinceTime, CFDictionaryRef *chargeLog);
 
 __END_DECLS
 

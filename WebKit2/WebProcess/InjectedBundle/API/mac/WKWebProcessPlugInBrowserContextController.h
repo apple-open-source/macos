@@ -23,21 +23,31 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import <WebKit/WKFoundation.h>
+
+#if WK_API_ENABLED
 
 #import <Foundation/Foundation.h>
-#import <WebKit2/WKBase.h>
 
 @class WKDOMDocument;
 @class WKDOMRange;
+@class WKWebProcessPlugInFrame;
+@class WKWebProcessPlugInPageGroup;
+@protocol WKWebProcessPlugInLoadDelegate;
 
-WK_EXPORT
+WK_CLASS_AVAILABLE(10_10, 8_0)
 @interface WKWebProcessPlugInBrowserContextController : NSObject
 
-@property(readonly) WKDOMDocument *mainFrameDocument;
+@property (readonly) WKDOMDocument *mainFrameDocument;
 
-@property(readonly) WKDOMRange *selectedRange;
+@property (readonly) WKDOMRange *selectedRange;
+
+@property (readonly) WKWebProcessPlugInFrame *mainFrame;
+
+@property (readonly) WKWebProcessPlugInPageGroup *pageGroup;
+
+@property (weak) id <WKWebProcessPlugInLoadDelegate> loadDelegate;
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

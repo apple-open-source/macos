@@ -864,6 +864,13 @@ Set the maximum number of hosts allowed from an interface, packets with unknown
 source addresses are dropped until an existing host cache entry expires or is
 removed.
 Set to 0 to disable.
+.It Cm hostfilter Ar interface Ar address
+Configure the bridge to accept incoming packet on the interface
+only if they match the given MAC address and IP address
+-- use the command twice to set both type of addresses.
+Other filtering restrictions apply.
+.It Cm -hostfilter Ar interface
+Allow traffic from any host on that interface.
 .El
 .Pp
 The following parameters are specific to vlan interfaces:

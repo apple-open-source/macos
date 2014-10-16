@@ -1,4 +1,4 @@
-#!/bin/sh -x
+#!/bin/bash -x
 
 if [ $# -ne 5 ]; then
     echo "Usage: $0 <archs> <variants> <outputdir> <sdkroot> <srcroot>" 1>&2
@@ -19,6 +19,7 @@ mkdir -p "${OUTPUTDIR}"
 for arch in ${ARCHS}; do
     for variant in ${VARIANTS}; do
 	OUTPUTFILE="${OUTPUTDIR}/linker_arguments.${arch}.${variant}.txt"
+	OUTPUTCONFIG="${OUTPUTDIR}/config.${arch}.${variant}.h"
 	TEMPDIR="${OUTPUTDIR}/linker_arguments_tmp"
 
 	mkdir -p "${TEMPDIR}"
@@ -58,17 +59,39 @@ for arch in ${ARCHS}; do
 		echo "${l}"
 	    fi
 	done | sed -E -e 's/^lib//' -e 's/\..*$$//' | sort -u > ${INUSRLOCALLIBSYSTEM}
-	comm -12 ${ALLLIBS} ${INUSRLIBSYSTEM} > ${FROMUSRLIBSYSTEM}
-	comm -12 ${ALLLIBS} ${INUSRLOCALLIBSYSTEM} > ${POSSIBLEUSRLOCALLIBSYSTEM}
+
+	while read line ; do
+	    for lib in ${line} ; do
+		egrep "^${lib}$" ${INUSRLIBSYSTEM} && break
+	    done
+	done < ${ALLLIBS} > ${FROMUSRLIBSYSTEM}
+
+	while read line ; do
+	    for lib in ${line} ; do
+		egrep "^${lib}$" ${INUSRLOCALLIBSYSTEM} && break
+	    done
+	done < ${ALLLIBS} > ${POSSIBLEUSRLOCALLIBSYSTEM}
+
 	comm -13 ${FROMUSRLIBSYSTEM} ${POSSIBLEUSRLOCALLIBSYSTEM} > ${FROMUSRLOCALLIBSYSTEM}
 	cat ${FROMUSRLIBSYSTEM} ${FROMUSRLOCALLIBSYSTEM} | sort > ${ACTUALLIBS}
-	comm -23 ${REQUIREDLIBS} ${ACTUALLIBS} > ${MISSINGLIBS}
+
+	while read line ; do
+	    found=0
+	    for lib in ${line} ; do
+		egrep -q "^${lib}$" ${ACTUALLIBS} && found=1
+	    done
+	    [[ $found == 0 ]] && echo ${line}
+	done < ${REQUIREDLIBS} > ${MISSINGLIBS}
 
 	if [ -s ${MISSINGLIBS} ]; then
 	    echo '*** missing required libs ***'
 	    cat ${MISSINGLIBS}
 	    exit 1
 	fi
+
+	cat ${FROMUSRLIBSYSTEM} | while read lib; do
+		echo "#define HAVE_"$(echo "${lib/_sim/}" | tr 'a-z' 'A-Z')" 1"
+	done >> "${OUTPUTCONFIG}"
 
 	cat ${FROMUSRLIBSYSTEM} | while read lib; do
 	    echo "-Wl,-reexport-l${lib}"

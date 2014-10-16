@@ -1,6 +1,6 @@
 /*
     ccid.c: CCID common code
-    Copyright (C) 2003-2005   Ludovic Rousseau
+    Copyright (C) 2003-2010   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid.c 4346 2009-07-28 13:39:37Z rousseau $
+ * $Id: ccid.c 6783 2013-10-24 09:36:52Z rousseau $
  */
 
 #include <stdio.h>
@@ -33,7 +33,11 @@
 #include "defs.h"
 #include "ccid_ifdhandler.h"
 #include "commands.h"
-#include "ccid_usb.h"
+#include "utils.h"
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 /*****************************************************************************
  *
@@ -43,7 +47,6 @@
 int ccid_open_hack_pre(unsigned int reader_index)
 {
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
-	int doInterruptRead = 1;
 
 	switch (ccid_descriptor->readerID)
 	{
@@ -60,26 +63,35 @@ int ccid_open_hack_pre(unsigned int reader_index)
 		case CL1356D:
 			/* the firmware needs some time to initialize */
 			(void)sleep(1);
-			ccid_descriptor->readTimeout = 60; /* 60 seconds */
+			ccid_descriptor->readTimeout = 60*1000; /* 60 seconds */
 			break;
 
-		case KOBIL_TRIBANK:
-			/* the InterruptRead does not timeout (on Mac OS X) */
-			doInterruptRead = 0;
+		case GEMPCTWIN:
+		case GEMPCKEY:
+		case DELLSCRK:
+			/* Only the chipset with firmware version 2.00 is "bogus"
+			 * The reader may send packets of 0 bytes when the reader is
+			 * connected to a USB 3 port */
+			if (0x0200 == ccid_descriptor->IFD_bcdDevice)
+			{
+				ccid_descriptor->zlp = TRUE;
+				DEBUG_INFO("ZLP fixup");
+			}
 			break;
 	}
 
 	/* CCID */
-	if (doInterruptRead && (0 == ccid_descriptor->bInterfaceProtocol))
+	if ((PROTOCOL_CCID == ccid_descriptor->bInterfaceProtocol)
+		&& (3 == ccid_descriptor -> bNumEndpoints))
 	{
 #ifndef TWIN_SERIAL
-		/* just wait for 10ms in case a notification is in the pipe */
-		(void)InterruptRead(reader_index, 10);
+		/* just wait for 100ms in case a notification is in the pipe */
+		(void)InterruptRead(reader_index, 100);
 #endif
 	}
 
 	/* ICCD type A */
-	if (ICCD_A == ccid_descriptor->bInterfaceProtocol)
+	if (PROTOCOL_ICCD_A == ccid_descriptor->bInterfaceProtocol)
 	{
 		unsigned char tmp[MAX_ATR_SIZE];
 		unsigned int n = sizeof(tmp);
@@ -91,7 +103,7 @@ int ccid_open_hack_pre(unsigned int reader_index)
 	}
 
 	/* ICCD type B */
-	if (ICCD_B == ccid_descriptor->bInterfaceProtocol)
+	if (PROTOCOL_ICCD_B == ccid_descriptor->bInterfaceProtocol)
 	{
 		unsigned char tmp[MAX_ATR_SIZE];
 		unsigned int n = sizeof(tmp);
@@ -113,6 +125,102 @@ int ccid_open_hack_pre(unsigned int reader_index)
 	return 0;
 } /* ccid_open_hack_pre */
 
+#ifndef NO_LOG
+/*****************************************************************************
+ *
+ *					dump_gemalto_firmware_features
+ *
+ ****************************************************************************/
+static void dump_gemalto_firmware_features(struct GEMALTO_FIRMWARE_FEATURES *gff)
+{
+	DEBUG_INFO2("Dumping Gemalto firmware features (%zd bytes):",
+		sizeof(struct GEMALTO_FIRMWARE_FEATURES));
+
+#define YESNO(x) (x) ? "yes" : "no"
+
+	DEBUG_INFO2(" bLogicalLCDLineNumber: %d", gff->bLogicalLCDLineNumber);
+	DEBUG_INFO2(" bLogicalLCDRowNumber: %d", gff->bLogicalLCDRowNumber);
+	DEBUG_INFO2(" bLcdInfo: 0x%02X", gff->bLcdInfo);
+	DEBUG_INFO2(" bEntryValidationCondition: 0x%02X",
+		gff->bEntryValidationCondition);
+
+	DEBUG_INFO(" Reader supports PC/SCv2 features:");
+	DEBUG_INFO2("  VerifyPinStart: %s", YESNO(gff->VerifyPinStart));
+	DEBUG_INFO2("  VerifyPinFinish: %s", YESNO(gff->VerifyPinFinish));
+	DEBUG_INFO2("  ModifyPinStart: %s", YESNO(gff->ModifyPinStart));
+	DEBUG_INFO2("  ModifyPinFinish: %s", YESNO(gff->ModifyPinFinish));
+	DEBUG_INFO2("  GetKeyPressed: %s", YESNO(gff->GetKeyPressed));
+	DEBUG_INFO2("  VerifyPinDirect: %s", YESNO(gff->VerifyPinDirect));
+	DEBUG_INFO2("  ModifyPinDirect: %s", YESNO(gff->ModifyPinDirect));
+	DEBUG_INFO2("  Abort: %s", YESNO(gff->Abort));
+	DEBUG_INFO2("  GetKey: %s", YESNO(gff->GetKey));
+	DEBUG_INFO2("  WriteDisplay: %s", YESNO(gff->WriteDisplay));
+	DEBUG_INFO2("  SetSpeMessage: %s", YESNO(gff->SetSpeMessage));
+	DEBUG_INFO2("  bTimeOut2: %s", YESNO(gff->bTimeOut2));
+	DEBUG_INFO2("  bPPDUSupportOverXferBlock: %s",
+		YESNO(gff->bPPDUSupportOverXferBlock));
+	DEBUG_INFO2("  bPPDUSupportOverEscape: %s",
+		YESNO(gff->bPPDUSupportOverEscape));
+
+	DEBUG_INFO2(" bListSupportedLanguages: %s",
+		YESNO(gff->bListSupportedLanguages));
+	DEBUG_INFO2(" bNumberMessageFix: %s", YESNO(gff->bNumberMessageFix));
+
+	DEBUG_INFO2(" VersionNumber: 0x%02X", gff->VersionNumber);
+	DEBUG_INFO2(" MinimumPINSize: %d", gff->MinimumPINSize);
+	DEBUG_INFO2(" MaximumPINSize: %d", gff->MaximumPINSize);
+	DEBUG_INFO2(" Firewall: %s", YESNO(gff->Firewall));
+	if (gff->Firewall && gff->FirewalledCommand_SW1
+		&& gff->FirewalledCommand_SW2)
+	{
+		DEBUG_INFO2("  FirewalledCommand_SW1: 0x%02X",
+			gff->FirewalledCommand_SW1);
+		DEBUG_INFO2("  FirewalledCommand_SW2: 0x%02X",
+			gff->FirewalledCommand_SW2);
+	}
+
+} /* dump_gemalto_firmware_features */
+#endif
+
+/*****************************************************************************
+ *
+ *					set_gemalto_firmware_features
+ *
+ ****************************************************************************/
+static void set_gemalto_firmware_features(unsigned int reader_index)
+{
+	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
+	struct GEMALTO_FIRMWARE_FEATURES *gf_features;
+
+	gf_features = malloc(sizeof(struct GEMALTO_FIRMWARE_FEATURES));
+	if (gf_features)
+	{
+		unsigned char cmd[] = { 0x6A }; /* GET_FIRMWARE_FEATURES command id */
+		unsigned int len_features = sizeof *gf_features;
+		RESPONSECODE ret;
+
+		ret = CmdEscape(reader_index, cmd, sizeof cmd,
+			(unsigned char*)gf_features, &len_features, 0);
+		if ((IFD_SUCCESS == ret) &&
+		    (len_features == sizeof *gf_features))
+		{
+			/* Command is supported if it succeeds at CCID level */
+			/* and returned size matches our expectation */
+			ccid_descriptor->gemalto_firmware_features = gf_features;
+#ifndef NO_LOG
+			dump_gemalto_firmware_features(gf_features);
+#endif
+		}
+		else
+		{
+			/* Command is not supported, let's free allocated memory */
+			free(gf_features);
+			DEBUG_INFO3("GET_FIRMWARE_FEATURES failed: " DWORD_D ", len=%d",
+				ret, len_features);
+		}
+	}
+} /* set_gemalto_firmware_features */
+
 /*****************************************************************************
  *
  *					ccid_open_hack_post
@@ -121,19 +229,20 @@ int ccid_open_hack_pre(unsigned int reader_index)
 int ccid_open_hack_post(unsigned int reader_index)
 {
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
+	RESPONSECODE return_value = IFD_SUCCESS;
 
 	switch (ccid_descriptor->readerID)
 	{
 		case GEMPCKEY:
 		case GEMPCTWIN:
-			/* Reader announces TPDU but can do APDU */
+			/* Reader announces TPDU but can do APDU (EMV in fact) */
 			if (DriverOptions & DRIVER_OPTION_GEMPC_TWIN_KEY_APDU)
 			{
-				unsigned char cmd[] = { 0xA0, 0x02 };
+				unsigned char cmd[] = { 0x1F, 0x02 };
 				unsigned char res[10];
 				unsigned int length_res = sizeof(res);
 
-				if (CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res) == IFD_SUCCESS)
+				if (CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res, 0) == IFD_SUCCESS)
 				{
 					ccid_descriptor->dwFeatures &= ~CCID_CLASS_EXCHANGE_MASK;
 					ccid_descriptor->dwFeatures |= CCID_CLASS_SHORT_APDU;
@@ -141,6 +250,7 @@ int ccid_open_hack_post(unsigned int reader_index)
 			}
 			break;
 
+		case VEGAALPHA:
 		case GEMPCPINPAD:
 			/* load the l10n strings in the pinpad memory */
 			{
@@ -249,10 +359,28 @@ int ccid_open_hack_post(unsigned int reader_index)
 					"Card Error",
 					"PIN blocked" };
 
-				char *lang;
+				const char *lang;
 				const char **l10n;
 
+#ifdef __APPLE__
+				CFArrayRef cfa;
+				CFStringRef slang;
+
+				/* Get the complete ordered list */
+				cfa = CFLocaleCopyPreferredLanguages();
+
+				/* Use the first/preferred language
+				 * As the driver is run as root we get the language
+				 * selected during install */
+				slang = CFArrayGetValueAtIndex(cfa, 0);
+
+				/* CFString -> C string */
+				lang = CFStringGetCStringPtr(slang, kCFStringEncodingMacRoman);
+#else
+				/* The other Unixes just use the LANG env variable */
 				lang = getenv("LANG");
+#endif
+				DEBUG_COMM2("Using lang: %s", lang);
 				if (NULL == lang)
 					l10n = en;
 				else
@@ -275,6 +403,10 @@ int ccid_open_hack_post(unsigned int reader_index)
 						l10n = en;
 				}
 
+#ifdef __APPLE__
+				/* Release the allocated array */
+				CFRelease(cfa);
+#endif
 				offset = 0;
 				cmd[offset++] = 0xB2;	/* load strings */
 				cmd[offset++] = 0xA0;	/* address of the memory */
@@ -295,15 +427,24 @@ int ccid_open_hack_post(unsigned int reader_index)
 				}
 
 				(void)sleep(1);
-				if (IFD_SUCCESS == CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res))
+				if (IFD_SUCCESS == CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res, 0))
 				{
 					DEBUG_COMM("l10n string loaded successfully");
 				}
 				else
 				{
 					DEBUG_COMM("Failed to load l10n strings");
+					return_value = IFD_COMMUNICATION_ERROR;
 				}
 			}
+			break;
+
+		case HPSMARTCARDKEYBOARD:
+		case HP_CCIDSMARTCARDKEYBOARD:
+			/* the Secure Pin Entry is bogus so disable it
+			 * http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
+			 */
+			ccid_descriptor->bPINSupport = 0;
 			break;
 
 #if 0
@@ -326,8 +467,8 @@ int ccid_open_hack_post(unsigned int reader_index)
 				unsigned char res[20];
 				unsigned int length_res = sizeof(res);
 
-				if ((IFD_SUCCESS == CmdEscape(reader_index, cmd1, sizeof(cmd1), res, &length_res))
-					&& (IFD_SUCCESS == CmdEscape(reader_index, cmd2, sizeof(cmd2), res, &length_res)))
+				if ((IFD_SUCCESS == CmdEscape(reader_index, cmd1, sizeof(cmd1), res, &length_res, 0))
+					&& (IFD_SUCCESS == CmdEscape(reader_index, cmd2, sizeof(cmd2), res, &length_res, 0)))
 				{
 					DEBUG_COMM("SCM SCR331-DI contactless detected");
 				}
@@ -346,7 +487,11 @@ int ccid_open_hack_post(unsigned int reader_index)
 #endif
 	}
 
-	return 0;
+	/* Gemalto readers may report additional information */
+	if (GET_VENDOR(ccid_descriptor->readerID) == VENDOR_GEMALTO)
+		set_gemalto_firmware_features(reader_index);
+
+	return return_value;
 } /* ccid_open_hack_post */
 
 /*****************************************************************************
@@ -463,15 +608,13 @@ void ccid_error(int error, const char *file, int line, const char *function)
 
 		default:
 			if ((error >= 1) && (error <= 127))
-			{
 				(void)snprintf(var_text, sizeof(var_text), "error on byte %d",
 					error);
-				text = var_text;
-			}
 			else
 				(void)snprintf(var_text, sizeof(var_text),
 					"Unknown CCID error: 0x%02X", error);
-				text = var_text;
+
+			text = var_text;
 			break;
 	}
 	log_msg(PCSC_LOG_ERROR, "%s:%d:%s %s", file, line, function, text);

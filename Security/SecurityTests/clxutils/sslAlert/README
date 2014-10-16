@@ -1,0 +1,1 @@
+This test relies on two keychains and two root certs being present and up to date. These are ~/Library/Keychains/{localcert,clientcert}, localcert.cer, and clientcert.cer. TO get up-to-date versions of these, run the script in ../sslScripts/makeLocalCert and copy the resulting certs to this directory. The keychains will be in the right place. 

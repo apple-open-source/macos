@@ -1,0 +1,38 @@
+LICENSE.txt
+MANIFEST.in
+README.txt
+distribute_setup.py
+pyobjc_setup.py
+setup.py
+Doc/api-notes-AddressBook.txt
+Examples/Plugins/Python Address Label/plugin.py
+Examples/Plugins/Python Address Label/readme.txt
+Examples/Plugins/Python Address Label/setup.py
+Examples/Plugins/Python Address Label/summary.txt
+Examples/Scripts/exportBook.py
+Examples/Scripts/meInC.py
+Lib/AddressBook/__init__.py
+Lib/AddressBook/_metadata.py
+Lib/pyobjc_framework_AddressBook.egg-info/PKG-INFO
+Lib/pyobjc_framework_AddressBook.egg-info/SOURCES.txt
+Lib/pyobjc_framework_AddressBook.egg-info/dependency_links.txt
+Lib/pyobjc_framework_AddressBook.egg-info/not-zip-safe
+Lib/pyobjc_framework_AddressBook.egg-info/requires.txt
+Lib/pyobjc_framework_AddressBook.egg-info/top_level.txt
+Modules/_AddressBook.m
+Modules/_AddressBook_protocols.m
+PyObjCTest/__init__.py
+PyObjCTest/test_abactions.py
+PyObjCTest/test_abaddressbook.py
+PyObjCTest/test_abaddressbookc.py
+PyObjCTest/test_abglobals.py
+PyObjCTest/test_abgroup.py
+PyObjCTest/test_abimageloading.py
+PyObjCTest/test_abmultivalue.py
+PyObjCTest/test_abpeoplepickerc.py
+PyObjCTest/test_abpeoplepickerview.py
+PyObjCTest/test_abpersonview.py
+PyObjCTest/test_abrecord.py
+PyObjCTest/test_absearchelement.py
+PyObjCTest/test_abtypedefs.py
+PyObjCTest/test_addressbook.py

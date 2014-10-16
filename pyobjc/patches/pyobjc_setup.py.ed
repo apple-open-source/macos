@@ -1,0 +1,12 @@
+/^def get_os_level():/a
+.
+/return '\.'\.join(v.split('\.')\[:2])/s//return tuple(map(int, v.split('.')[:2]))/
+/^def Extension(/a
+.
+/"-DPyObjC_BUILD_RELEASE=/s/(tuple(map(int, os_level.split('\.'))))/os_level/
+/if os_level/s/'10.4'/(10, 4)/
+/^def setup(/a
+.
+/if os_level < min_os_level/s/min_os_level/tuple(map(int, min_os_level.split('.')))/
+/if os_level > max_os_level/s/max_os_level/tuple(map(int, max_os_level.split('.')))/
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -685,6 +685,8 @@ set_service(int argc, char **argv)
 					rank = kSCNetworkServicePrimaryRankFirst;
 				} else if ((service != net_service) && (strcasecmp(argv[0], "Last") == 0)) {
 					rank = kSCNetworkServicePrimaryRankLast;
+				} else if ((service != net_service) && (strcasecmp(argv[0], "Scoped") == 0)) {
+					rank = kSCNetworkServicePrimaryRankScoped;
 				} else {
 					SCPrint(TRUE, stdout, CFSTR("rank not valid\n"));
 					return;
@@ -717,6 +719,26 @@ set_service(int argc, char **argv)
 				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 				return;
 			}
+		} else if (strcmp(command, "id") == 0) {
+			CFStringRef	serviceID;
+
+			if ((argc < 1) || (strlen(argv[0]) == 0)) {
+				SCPrint(TRUE, stdout, CFSTR("set id not specified\n"));
+				return;
+			}
+
+			serviceID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			argv++;
+			argc--;
+
+			ok = _SCNetworkServiceSetServiceID(net_service, serviceID);
+			CFRelease(serviceID);
+			if (!ok) {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+				return;
+			}
+
+			_prefs_changed = TRUE;
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
 		}
@@ -783,7 +805,7 @@ __show_service_protocols(SCNetworkServiceRef service, const char *prefix, Boolea
 				CFSTR("%s%@%*s : %@\n"),
 				prefix,
 				protocolType,
-				sizeof("Interface") - CFStringGetLength(protocolType) - 1,
+				(int)(sizeof("Interface") - CFStringGetLength(protocolType) - 1),
 				"",
 				description);
 			CFRelease(description);
@@ -839,6 +861,9 @@ show_service(int argc, char **argv)
 			break;
 		case kSCNetworkServicePrimaryRankNever :
 			SCPrint(TRUE, stdout, CFSTR("primary rank         = NEVER\n"));
+			break;
+		case kSCNetworkServicePrimaryRankScoped :
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = SCOPED\n"));
 			break;
 		default :
 			SCPrint(TRUE, stdout, CFSTR("primary rank         = %d\n"), serviceRank);
@@ -965,11 +990,11 @@ show_services(int argc, char **argv)
 		serviceName = SCNetworkServiceGetName(service);
 		if (serviceName == NULL) serviceName = CFSTR("");
 
-		SCPrint(TRUE, stdout, CFSTR("%c%2d: %@%-*s (%@)%s\n"),
+		SCPrint(TRUE, stdout, CFSTR("%c%2ld: %@%-*s (%@)%s\n"),
 			((net_service != NULL) && CFEqual(service, net_service)) ? '>' : ' ',
 			i + 1,
 			serviceName,
-			30 - CFStringGetLength(serviceName),
+			(int)(30 - CFStringGetLength(serviceName)),
 			" ",
 			serviceID,
 			SCNetworkServiceGetEnabled(service) ? "" : " *DISABLED*");

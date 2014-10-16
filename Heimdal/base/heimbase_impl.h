@@ -1,7 +1,7 @@
 
 #ifndef OPENSOURCE
-#import <CoreFoundation/CoreFoundation.h>
-#import <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFRuntime.h>
 #endif
 
 struct heim_base {

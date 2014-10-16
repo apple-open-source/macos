@@ -9,6 +9,7 @@
 #include "kextutil_main.h"
 #include "kext_tools_util.h"
 #include "security.h"
+#include "bootcaches.h"
 
 #include <libc.h>
 #include <sysexits.h>
@@ -788,19 +789,46 @@ checkArgs(KextutilArgs * toolArgs)
         goto finish;
     }
 
-    /* <rdar://problem/10678221> */
-    /* If no explicit kernel image was provided by the user, default it */
-    /* to the /mach_kernel currently being used to run the system */
+    /* If no explicit kernel image was provided by the user, default it
+     * to KernelPath from /usr/standalone/bootcaches.plist
+     * <= 10.9 /mach_kernel 
+     * > 10.9 /System/Library/Kernels/kernel
+     */
     if (!toolArgs->kernelURL) {
-        CFURLRef scratchURL = CFURLCreateFromFileSystemRepresentation(
-                kCFAllocatorDefault,
-                (const UInt8 *)kDefaultKernel, strlen(kDefaultKernel), TRUE);
+        CFURLRef        scratchURL = NULL;
+      
+        // use KernelPath from /usr/standalone/bootcaches.plist
+        if (getKernelPathForURL(NULL,
+                                kernelPathCString,
+                                sizeof(kernelPathCString)) == FALSE) {
+            // no bootcaches.plist?  Forced to hardwire...
+            strlcpy(kernelPathCString, "/System/Library/Kernels/kernel",
+                    sizeof(kernelPathCString));
+        }
+        
+        if (useDevelopmentKernel(kernelPathCString)) {
+            if (strlen(kernelPathCString) + strlen(kDefaultKernelSuffix) + 1 < sizeof(kernelPathCString)) {
+                strlcat(kernelPathCString,
+                        kDefaultKernelSuffix,
+                        sizeof(kernelPathCString));
+            }
+        }
+        
+        scratchURL = CFURLCreateFromFileSystemRepresentation(
+                                                             kCFAllocatorDefault,
+                                                             (const UInt8 *)kernelPathCString,
+                                                             strlen(kernelPathCString),
+                                                             false );
         if (!scratchURL) {
             OSKextLogStringError(/* kext */ NULL);
             result = EX_OSERR;
             goto finish;
         }
         toolArgs->kernelURL = scratchURL;
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogBasicLevel | kOSKextLogLoadFlag,
+                  "Defaulting to kernel file '%s'",
+                  kernelPathCString);
     }
 
     if (toolArgs->kernelURL) {
@@ -819,8 +847,8 @@ checkArgs(KextutilArgs * toolArgs)
                                   kernelPathCString)) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                      "%s: Can't read kernel file '%s'",
-                      __func__, kernelPathCString);
+                      "Can't read kernel file '%s'",
+                      kernelPathCString);
             result = EX_OSFILE; 
             goto finish;
         }
@@ -1184,40 +1212,15 @@ processKext(
     }
 
     if (toolArgs->doLoad) {
-        OSStatus  sigResult = checkKextSignature(aKext, true);
+        OSStatus  sigResult = checkKextSignature(aKext, true, false);
         if ( sigResult != 0 ) {
-            /* notify kextd we are trying to load a kext with invalid signature.
-             */
-            CFMutableDictionaryRef myAlertInfoDict = NULL; // must release
-            Boolean inLibExtFolder = isInLibraryExtensionsFolder(aKext);
- 
-            addKextToAlertDict(&myAlertInfoDict, aKext);
-            if (myAlertInfoDict) {
-                if (inLibExtFolder) {
-                    postNoteAboutKexts(CFSTR("No Load Kext Notification"),
-                                       myAlertInfoDict );
-                }
-                else if (sigResult == CSSMERR_TP_CERT_REVOKED) {
-                    postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
-                                       myAlertInfoDict);
-                }
-#if 0 // not yet
-                else if (sigResult == errSecCSUnsigned) {
-                    postNoteAboutKexts( CFSTR("Unsigned Kext Notification"),
-                                       myAlertInfoDict );
-                }
-#endif
-                else {
-                    postNoteAboutKexts( CFSTR("Invalid Signature Kext Notification"),
-                                       myAlertInfoDict );
-                }
-                SAFE_RELEASE(myAlertInfoDict);
+            if ( isInvalidSignatureAllowed() ) {
+                OSKextLogCFString(NULL,
+                                  kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                  CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext \"%s\""),
+                                  (long)sigResult, (long)sigResult, kextPathCString);
             }
-            
-            /* Do not load if kext has invalid signature and comes from
-             *  /Library/Extensions/
-             */
-            if ( inLibExtFolder || sigResult == CSSMERR_TP_CERT_REVOKED ) {
+            else {
                 CFStringRef myBundleID;         // do not release
                 
                 myBundleID = OSKextGetIdentifier(aKext);
@@ -1228,10 +1231,6 @@ processKext(
                                   myBundleID ? myBundleID : CFSTR("Unknown"));
                 goto finish;
             }
-            OSKextLogCFString(NULL,
-                kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%s\""),
-                (long)sigResult, (long)sigResult, kextPathCString);
         }
         
         result = loadKext(aKext, kextPathCString, toolArgs, fatal);
@@ -1369,9 +1368,8 @@ runTestsOnKext(
     }
 
     /* Check code signature for diagnotic messages.  
-     * kext signature failures are not fatal in 10.9
      */
-    sigResult = checkKextSignature(aKext, false); 
+    sigResult = checkKextSignature(aKext, false, false);
 
    /*****
     * Print diagnostics/warnings as needed, set status if kext can't be used.
@@ -2416,7 +2414,7 @@ void usage(UsageLevel usageLevel)
         "(for symbol generation)\n",
         kOptNameUseKernelAddresses, kOptUseKernelAddresses);
     fprintf(stderr, "-%s <kernelFile> (-%c):\n"
-        "        link against <kernelFile> (default is /mach_kernel)\n",
+        "        link against <kernelFile> (default is /System/Library/Kernels/kernel)\n",
         kOptNameKernel, kOptKernel);
     fprintf(stderr, "\n");
 

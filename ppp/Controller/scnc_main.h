@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,8 @@
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #endif
 #include <sys/types.h>
+
+#include "ne_sm_bridge_private.h"
 
 //#define PRINTF(x) 	printf x
 #define PRINTF(x)
@@ -199,6 +201,8 @@ struct ipsec_service {
 	CFSocketRef	controlref;		/* racoon control socket ref */
 	int			eventfd;		/* kernel event socket */
 	CFSocketRef	eventref;		/* kernel event socket ref */
+    u_int8_t		*modecfg_msg;	// saved modecfg message from client
+    u_int32_t		modecfg_msglen;	// modecfg message length
     u_int8_t		*msg;			// message in pogress from client
     u_int32_t		msglen;			// current message length
     u_int32_t		msgtotallen;	// total expected len
@@ -207,10 +211,10 @@ struct ipsec_service {
 	int				policies_installed; // were ipsec policies installed ?
 	/* dynamically installed mode config policies */
 	int				modecfg_installed; 
+	int				modecfg_policies_installed;
     CFMutableDictionaryRef modecfg_policies;		/* mode config policies */ 
 	int				modecfg_defaultroute; /* is default route intalled for that service ? */
-	int				modecfg_peer_route_set; 
-	int				modecfg_routes_installed;
+	int				dummy_ipv6_installed;
 	u_int32_t		inner_local_addr;
 	u_int32_t		inner_local_mask;
 	int				kernctl_sock;		/* kernel control socket to the virtual interface */
@@ -235,7 +239,7 @@ struct ipsec_service {
 	CFArrayRef				resolvedAddress;	/* CFArray[CFData] */
 	int						resolvedAddressError;
 	int						next_address; // next address to use in the array
-	CFAbsoluteTime			display_reenroll_alert_time;
+	Boolean					has_displayed_reenroll_alert;
 	/* routes */
 	service_route_t         *routes;
 };
@@ -247,6 +251,8 @@ typedef enum {
     ONDEMAND_PAUSE_STATE_TYPE_UNTIL_NETCHANGE = 2,
 } onDemandPauseStateType;
 
+#define MAX_ENV_KEYVALUE_SIZE           256
+typedef char envKeyValue_t[MAX_ENV_KEYVALUE_SIZE];
 
 struct service {
  
@@ -293,7 +299,7 @@ struct service {
 	vproc_transaction_t	vt;		/* opaque handle used to track outstanding transactions, used by instant off */
 #endif
 	u_int32_t 	connecttime;		/* time when connection occured */
-    u_int32_t   establishtime;      /* time when connection established */
+	u_int32_t	establishtime;      /* time when connection established */
 	u_int32_t	connectionslepttime;	/* amount of time connection slept for */
 	u_int32_t	sleepwaketimeout;	/* disconnect if sleep-wake duration is longer than this */
 	mdns_nat_mapping_t nat_mapping[MDNS_NAT_MAPPING_MAX];
@@ -318,7 +324,10 @@ struct service {
 #if !TARGET_OS_EMBEDDED
 	void              *connection_nap_monitor;
 #endif
-	CFDictionaryRef    environmentVars;
+	envKeyValue_t     *envKeys;
+	envKeyValue_t     *envValues;
+	int                envCount;
+
 	SCNetworkReachabilityRef	remote_address_reachability;
 	SCNetworkReachabilityFlags	remote_address_reach_flags;
 	int							remote_address_reach_ifindex;
@@ -328,6 +337,8 @@ struct service {
 
 	// list of clients for this service. used to arbitrate connection/disconnection
 	TAILQ_HEAD(, service_client) 	client_head;
+
+	ne_sm_bridge_t			ne_sm_bridge;
 
 	/* specific portion of the service */
 	union {
@@ -407,6 +418,10 @@ int scnc_copyextendedstatus(struct service *serv, void **reply, u_int16_t *reply
 int scnc_copystatistics(struct service *serv, void **reply, u_int16_t *replylen);
 int scnc_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all);
 int scnc_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *replylen);
+#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+double scnc_getsleepwaketimeout (struct service *serv);
+#endif
+void scnc_idle_disconnect (struct service *serv);
 int scnc_suspend(struct service *serv);
 int scnc_resume(struct service *serv);
 int scnc_sendmsg(struct service *serv, uint32_t msg_type, CFDataRef cfdata, uid_t uid, gid_t gid, int pid, mach_port_t bootstrap, mach_port_t au_session);
@@ -419,10 +434,6 @@ u_int32_t makeref(struct service *serv);
 int scnc_disconnectifoverslept(const char *function, struct service *serv, char *if_name);
 void nat_port_mapping_set(struct service *serv);
 void nat_port_mapping_clear(struct service *serv);
-void initVPNConnectionLocation(struct service *serv);
-void clearVPNLocation(struct service *serv);
-Boolean disconnectIfVPNLocationChanged(struct service *serv);
-Boolean didVPNLocationChange (struct service *serv);
 void check_network_refresh(void);
 void ondemand_set_pause(struct service *serv, uint32_t pauseflag, Boolean update_store);
 Boolean set_ondemand_pause_timer(struct service *serv, uint32_t timeout, uint32_t pause_type, uint32_t pause_type_on_expire);
@@ -430,10 +441,11 @@ void clear_ondemand_pause_timer(struct service *serv);
 void ondemand_clear_pause_all(onDemandPauseStateType type_to_clear);
 Boolean ondemand_unpublish_dns_triggering_dicts (struct service *serv);
 int ondemand_add_service(struct service *serv, Boolean update_configuration);
+void scnc_init_resources(CFBundleRef bundle);
+
+u_short findfreeunit(u_short type, u_short subtype);
 
 #define DISCONNECT_VPN_IFOVERSLEPT(f,s,i) scnc_disconnectifoverslept(f,s,i)
-
-#if TARGET_OS_EMBEDDED
 
 #define SET_VPN_PORTMAPPING(s)
 
@@ -446,21 +458,5 @@ int ondemand_add_service(struct service *serv, Boolean update_configuration);
 #define DISCONNECT_VPN_IFLOCATIONCHANGED(s) 0
 
 #define DID_VPN_LOCATIONCHANGE(s) 0
-
-#else
-
-#define SET_VPN_PORTMAPPING(s) nat_port_mapping_set(s)
-
-#define CLEAR_VPN_PORTMAPPING(s) nat_port_mapping_clear(s)
-
-#define TRACK_VPN_LOCATION(s) initVPNConnectionLocation(s)
-
-#define STOP_TRACKING_VPN_LOCATION(s) clearVPNLocation(s)
-
-#define DISCONNECT_VPN_IFLOCATIONCHANGED(s) disconnectIfVPNLocationChanged(s)
-
-#define DID_VPN_LOCATIONCHANGE(s) didVPNLocationChange(s)
-
-#endif
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,6 +49,9 @@
     CFSTR("MTU")		/* number */
 #define _kIPConfigurationServiceOptionPerformNUD \
     CFSTR("PerformNUD")		/* boolean */
+
+#define _kIPConfigurationServiceOptionIPv6Entity \
+    CFSTR("IPv6Entity")	/* dictionary */
 
 #define IPCONFIGURATION_SERVICE_FORMAT CFSTR("Plugin:IPConfigurationService:%@")
 

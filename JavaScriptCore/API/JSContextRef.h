@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,17 +10,17 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef JSContextRef_h
@@ -48,7 +48,7 @@ extern "C" {
  synchronization is required.
 @result The created JSContextGroup.
 */
-JS_EXPORT JSContextGroupRef JSContextGroupCreate() AVAILABLE_IN_WEBKIT_VERSION_4_0;
+JS_EXPORT JSContextGroupRef JSContextGroupCreate() CF_AVAILABLE(10_6, 7_0);
 
 /*!
 @function
@@ -56,14 +56,14 @@ JS_EXPORT JSContextGroupRef JSContextGroupCreate() AVAILABLE_IN_WEBKIT_VERSION_4
 @param group The JSContextGroup to retain.
 @result A JSContextGroup that is the same as group.
 */
-JS_EXPORT JSContextGroupRef JSContextGroupRetain(JSContextGroupRef group) AVAILABLE_IN_WEBKIT_VERSION_4_0;
+JS_EXPORT JSContextGroupRef JSContextGroupRetain(JSContextGroupRef group) CF_AVAILABLE(10_6, 7_0);
 
 /*!
 @function
 @abstract Releases a JavaScript context group.
 @param group The JSContextGroup to release.
 */
-JS_EXPORT void JSContextGroupRelease(JSContextGroupRef group) AVAILABLE_IN_WEBKIT_VERSION_4_0;
+JS_EXPORT void JSContextGroupRelease(JSContextGroupRef group) CF_AVAILABLE(10_6, 7_0);
 
 /*!
 @function
@@ -78,7 +78,7 @@ JS_EXPORT void JSContextGroupRelease(JSContextGroupRef group) AVAILABLE_IN_WEBKI
  NULL to use the default object class.
 @result A JSGlobalContext with a global object of class globalObjectClass.
 */
-JS_EXPORT JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass) AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
+JS_EXPORT JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass) CF_AVAILABLE(10_5, 7_0);
 
 /*!
 @function
@@ -92,7 +92,7 @@ JS_EXPORT JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass)
 @result A JSGlobalContext with a global object of class globalObjectClass and a context
  group equal to group.
 */
-JS_EXPORT JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClassRef globalObjectClass) AVAILABLE_IN_WEBKIT_VERSION_4_0;
+JS_EXPORT JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClassRef globalObjectClass) CF_AVAILABLE(10_6, 7_0);
 
 /*!
 @function
@@ -123,7 +123,33 @@ JS_EXPORT JSObjectRef JSContextGetGlobalObject(JSContextRef ctx);
 @param ctx The JSContext whose group you want to get.
 @result ctx's group.
 */
-JS_EXPORT JSContextGroupRef JSContextGetGroup(JSContextRef ctx) AVAILABLE_IN_WEBKIT_VERSION_4_0;
+JS_EXPORT JSContextGroupRef JSContextGetGroup(JSContextRef ctx) CF_AVAILABLE(10_6, 7_0);
+
+/*!
+@function
+@abstract Gets the global context of a JavaScript execution context.
+@param ctx The JSContext whose global context you want to get.
+@result ctx's global context.
+*/
+JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef ctx) CF_AVAILABLE(10_7, 7_0);
+
+/*!
+@function
+@abstract Gets a copy of the name of a context.
+@param ctx The JSGlobalContext whose name you want to get.
+@result The name for ctx.
+@discussion A JSGlobalContext's name is exposed for remote debugging to make it
+easier to identify the context you would like to attach to.
+*/
+JS_EXPORT JSStringRef JSGlobalContextCopyName(JSGlobalContextRef ctx) CF_AVAILABLE(10_10, 8_0);
+
+/*!
+@function
+@abstract Sets the remote debugging name for a context.
+@param ctx The JSGlobalContext that you want to name.
+@param name The remote debugging name to set on ctx.
+*/
+JS_EXPORT void JSGlobalContextSetName(JSGlobalContextRef ctx, JSStringRef name) CF_AVAILABLE(10_10, 8_0);
 
 #ifdef __cplusplus
 }

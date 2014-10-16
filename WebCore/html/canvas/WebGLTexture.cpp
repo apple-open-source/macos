@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -50,6 +50,9 @@ WebGLTexture::WebGLTexture(WebGLRenderingContext* ctx)
     , m_isNPOT(false)
     , m_isComplete(false)
     , m_needToUseBlackTexture(false)
+    , m_isCompressed(false)
+    , m_isFloatType(false)
+    , m_isHalfFloatType(false)
 {
     setObject(ctx->graphicsContext3D()->createTexture());
 }
@@ -215,6 +218,15 @@ bool WebGLTexture::isValid(GC3Denum target, GC3Dint level) const
     return info->valid;
 }
 
+void WebGLTexture::markInvalid(GC3Denum target, GC3Dint level)
+{
+    int index = mapTargetToIndex(target);
+    if (index < 0)
+        return;
+    m_info[index][level].valid = false;
+    update();
+}
+
 bool WebGLTexture::isNPOT(GC3Dsizei width, GC3Dsizei height)
 {
     ASSERT(width >= 0 && height >= 0);
@@ -232,11 +244,30 @@ bool WebGLTexture::isNPOT() const
     return m_isNPOT;
 }
 
-bool WebGLTexture::needToUseBlackTexture() const
+bool WebGLTexture::needToUseBlackTexture(TextureExtensionFlag extensions) const
 {
     if (!object())
         return false;
-    return m_needToUseBlackTexture;
+    if (m_needToUseBlackTexture)
+        return true;
+    if ((m_isFloatType && !(extensions & TextureExtensionFloatLinearEnabled)) || (m_isHalfFloatType && !(extensions & TextureExtensionHalfFloatLinearEnabled))) {
+        if (m_magFilter != GraphicsContext3D::NEAREST || (m_minFilter != GraphicsContext3D::NEAREST && m_minFilter != GraphicsContext3D::NEAREST_MIPMAP_NEAREST))
+            return true;
+    }
+    return false;
+}
+
+bool WebGLTexture::isCompressed() const
+{
+    if (!object())
+        return false;
+    return m_isCompressed;
+}
+
+void WebGLTexture::setCompressed()
+{
+    ASSERT(object());
+    m_isCompressed = true;
 }
 
 void WebGLTexture::deleteObjectImpl(GraphicsContext3D* context3d, Platform3DObject object)
@@ -339,6 +370,30 @@ void WebGLTexture::update()
                     break;
                 }
 
+            }
+        }
+    }
+
+    m_isFloatType = false;
+    if (m_isComplete)
+        m_isFloatType = m_info[0][0].type == GraphicsContext3D::FLOAT;
+    else {
+        for (size_t ii = 0; ii < m_info.size(); ++ii) {
+            if (m_info[ii][0].type == GraphicsContext3D::FLOAT) {
+                m_isFloatType = true;
+                break;
+            }
+        }
+    }
+
+    m_isHalfFloatType = false;
+    if (m_isComplete)
+        m_isHalfFloatType = m_info[0][0].type == GraphicsContext3D::HALF_FLOAT_OES;
+    else {
+        for (size_t ii = 0; ii < m_info.size(); ++ii) {
+            if (m_info[ii][0].type == GraphicsContext3D::HALF_FLOAT_OES) {
+                m_isHalfFloatType = true;
+                break;
             }
         }
     }

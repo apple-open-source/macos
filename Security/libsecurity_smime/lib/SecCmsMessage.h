@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsMessage.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract CMS message object interfaces
@@ -57,7 +57,7 @@ extern "C" {
         wrong.
  */
 extern SecCmsMessageRef
-SecCmsMessageCreate(SecArenaPoolRef poolp);
+SecCmsMessageCreate(void);
 
 /*!
     @function
@@ -80,13 +80,6 @@ SecCmsMessageCopy(SecCmsMessageRef cmsg);
 
 /*!
     @function
-    @abstract Return a pointer to the message's arena pool.
- */
-extern SecArenaPoolRef
-SecCmsMessageGetArena(SecCmsMessageRef cmsg);
-
-/*!
-    @function
     @abstract Return a pointer to the top level contentInfo.
  */
 extern SecCmsContentInfoRef
@@ -98,7 +91,7 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg);
     @discussion In the case of those types which are encrypted, this returns the *plain* content.
                 In case of nested contentInfos, this descends and retrieves the innermost content.
  */
-extern CSSM_DATA_PTR
+extern const SecAsn1Item *
 SecCmsMessageGetContent(SecCmsMessageRef cmsg);
 
 /*!
@@ -153,8 +146,6 @@ SecCmsMessageIsSigned(SecCmsMessageRef cmsg);
 extern Boolean
 SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen);
 
-extern Boolean
-SecCmsMessageContainsTSTInfo(SecCmsMessageRef cmsg);
 
 #if defined(__cplusplus)
 }

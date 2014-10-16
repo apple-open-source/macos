@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -18,7 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 [
-    ImplementationLacksVTable
+    ImplementationLacksVTable,
 ] interface XPathExpression {
     [ObjCLegacyUnnamedParameters, RaisesException] XPathResult evaluate([Default=Undefined] optional Node contextNode, 
                                         [Default=Undefined] optional unsigned short type, 

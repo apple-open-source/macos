@@ -19,7 +19,7 @@
 #include "config.h"
 #include "GtkClickCounter.h"
 
-#include "GOwnPtrGtk.h"
+#include "GUniquePtrGtk.h"
 #include <gtk/gtk.h>
 
 namespace WebCore {
@@ -39,14 +39,14 @@ void GtkClickCounter::reset()
     m_previousClickButton = 0;
 }
 
-bool GtkClickCounter::shouldProcessButtonEvent(GdkEventButton* buttonEvent)
+bool GtkClickCounter::shouldProcessButtonEvent(GdkEventButton*)
 {
     // For double and triple clicks GDK sends both a normal button press event
     // and a specific type (like GDK_2BUTTON_PRESS). If we detect a special press
     // coming up, ignore this event as it certainly generated the double or triple
     // click. The consequence of not eating this event is two DOM button press events
     // are generated.
-    GOwnPtr<GdkEvent> nextEvent(gdk_event_peek());
+    GUniquePtr<GdkEvent> nextEvent(gdk_event_peek());
     if (!nextEvent)
         return true;
     if (nextEvent->any.type == GDK_2BUTTON_PRESS || nextEvent->any.type == GDK_3BUTTON_PRESS)

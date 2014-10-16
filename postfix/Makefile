@@ -3,6 +3,7 @@
 #
 
 PROJECT=postfix
+OPEN_SOURCE_VERSION=2.11.0
 
 SHELL := /bin/sh
 
@@ -15,6 +16,9 @@ SDKROOT=
 RC_ARCHS=
 CFLAGS=-g -Os $(RC_CFLAGS)
 
+WARN = -Wall -Wno-comment -Wformat -Wimplicit -Wmissing-prototypes \
+	-Wparentheses -Wstrict-prototypes -Wswitch -Wuninitialized \
+	-Wunused -Wno-missing-braces
 
 BuildDirectory	= $(OBJROOT)/Build
 TMPDIR		= $(OBJROOT)/Build/tmp
@@ -23,6 +27,11 @@ Sources		= $(SRCROOT)
 SMTPSTONE	= $(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-sink $(BuildDirectory)/$(PROJECT)/src/smtpstone/smtp-sink \
 			$(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-source $(BuildDirectory)/$(PROJECT)/src/smtpstone/smtp-source
 
+ifneq "" "$(SDKROOT)"
+  CC_PATH = $(shell xcrun -find -sdk $(SDKROOT) cc)
+else
+  CC_PATH = $(shell xcrun -find cc)
+endif
 
 install :: copy-src apply-patches build-postfix install-postfix archive-strip-binaries \
 		post-install install-extras set-defaults
@@ -47,8 +56,8 @@ copy-src :
 
 apply-patches :
 	@echo "***** applying patches"
-	cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch03.txt"
-	cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch04.txt"
+	#cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch03.txt"
+	#cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch04.txt"
 	@echo "***** applying patches complete"
 	@echo "***** creating MIG API files "
 	$(_v) cd $(BuildDirectory)/$(PROJECT)/src/global && mig -v "$(SDKROOT)/usr/local/include/opendirectory/DSlibinfoMIG.defs"
@@ -57,9 +66,10 @@ apply-patches :
 build-postfix :
 	@echo "***** building $(PROJECT)"
 	@echo "*** build environment = $(ENV)"
-	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles OPT="-DNO_NETINFO -DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ \
+	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles CC="$(CC_PATH)" OPT=" -DNO_NETINFO \
+			-DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ \
 			-DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
-			-DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP \
+			-DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP $(WARN)\
 			-I$(SDKROOT)/usr/include \
 			-I$(SDKROOT)/usr/include/sasl \
 			-I$(SDKROOT)/usr/local/include \
@@ -165,12 +175,12 @@ install-extras :
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-source $(DSTROOT)/usr/libexec/postfix
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/smtp-source $(DSTROOT)/usr/libexec/postfix
 	@echo "*** Installing open source version files"
-	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/postfix.plist $(DSTROOT)/usr/local/OpenSourceVersions
-	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/postfix.txt $(DSTROOT)/usr/local/OpenSourceLicenses
+	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/Postfix.plist $(DSTROOT)/usr/local/OpenSourceVersions
+	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/Postfix.txt $(DSTROOT)/usr/local/OpenSourceLicenses
 	@echo "*** installing custome runtime files"
-	install -m 644 $(SRCROOT)/Postfix.Config/postfix-files $(DSTROOT)/private/etc/postfix/postfix-files
-	rm $(DSTROOT)/usr/libexec/postfix/postfix-files
-	ln -s ../../../etc/postfix/postfix-files $(DSTROOT)/usr/libexec/postfix/postfix-files
+	#install -m 644 $(SRCROOT)/Postfix.Config/postfix-files $(DSTROOT)/private/etc/postfix/postfix-files
+	#rm $(DSTROOT)/usr/libexec/postfix/postfix-files
+	#ln -s ../../../etc/postfix/postfix-files $(DSTROOT)/usr/libexec/postfix/postfix-files
 	install -m 755 $(SRCROOT)/postfix/examples/smtpd-policy/greylist.pl $(DSTROOT)/usr/libexec/postfix
 	install -m 0644 $(SRCROOT)/Postfix.Config/custom_header_checks $(DSTROOT)/private/etc/postfix
 	cd $(DSTROOT)/usr/bin && ln -s ../sbin/sendmail newaliases
@@ -182,7 +192,7 @@ set-defaults :
 	@echo "***** setting default cofig values"
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mail_owner=_postfix
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e setgid_group=_postdrop
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mydomain_fallback=localhost
+	#$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mydomain_fallback=localhost
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e queue_directory=/private/var/spool/postfix
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e command_directory=/usr/sbin
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e daemon_directory=/usr/libexec/postfix

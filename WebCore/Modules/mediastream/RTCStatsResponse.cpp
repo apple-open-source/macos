@@ -43,7 +43,12 @@ PassRefPtr<RTCStatsReport> RTCStatsResponse::namedItem(const AtomicString& name)
 {
     if (m_idmap.find(name) != m_idmap.end())
         return m_result[m_idmap.get(name)];
-    return 0;
+    return nullptr;
+}
+
+bool RTCStatsResponse::canGetItemsForName(const AtomicString& name)
+{
+    return m_idmap.contains(name);
 }
 
 size_t RTCStatsResponse::addReport(String id, String type, double timestamp)
@@ -55,7 +60,7 @@ size_t RTCStatsResponse::addReport(String id, String type, double timestamp)
 
 void RTCStatsResponse::addStatistic(size_t report, String name, String value)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(report >= 0 && report < m_result.size());
+    ASSERT_WITH_SECURITY_IMPLICATION(report < m_result.size());
     m_result[report]->addStatistic(name, value);
 }
 

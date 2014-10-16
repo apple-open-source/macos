@@ -106,7 +106,7 @@ char *xar_get_path(xar_file_t f) {
 	return ret;
 }
 
-off_t	xar_get_heap_offset(xar_t x) {
+off_t xar_get_heap_offset(xar_t x) {
 	return XAR(x)->toc_count + sizeof(xar_header_t);
 }
 
@@ -115,37 +115,91 @@ off_t	xar_get_heap_offset(xar_t x) {
  * buffer.  This simple wrapper just handles certain retryable error situations.
  * Returns -1 when it fails fatally; the number of bytes read otherwise.
  */
-ssize_t xar_read_fd( int fd, void * buffer, size_t nbytes ) {
+ssize_t xar_read_fd( int fd, void * buffer, size_t nbyte ) {
 	ssize_t rb;
-	ssize_t off = 0;
+	ssize_t total = 0;
 
-	while ( off < nbytes ) {
-		rb = read(fd, ((char *)buffer)+off, nbytes-off);
-		if( (rb < 1 ) && (errno != EINTR) && (errno != EAGAIN) )
-			return -1;
-		off += rb;
+	while ( total < nbyte ) {
+		rb = read(fd, ((char *)buffer)+total, nbyte-total);
+		if( rb == 0 ) {
+			return total;
+		} else if( rb < 0 ) {
+			if( (errno == EINTR) || (errno == EAGAIN) )
+				continue;
+			return rb;
+		}
+		total += rb;
 	}
 
-	return off;
+	return total;
+}
+
+/* xar_pread_fd
+ * Summary: Does the same as xar_read_fd, but uses pread(2) instead of read(2).
+ */
+ssize_t xar_pread_fd(int fd, void * buffer, size_t nbyte, off_t offset) {
+	ssize_t rb;
+	ssize_t total = 0;
+	
+	while ( total < nbyte ) {
+		rb = pread(fd, ((char *)buffer)+total, nbyte-total, offset+total);
+		if( rb == 0 ) {
+			return total;
+		} else if( rb < 0 ) {
+			if( (errno == EINTR) || (errno == EAGAIN) )
+				continue;
+			return rb;
+		}
+		total += rb;
+	}
+	
+	return total;
 }
 
 /* xar_write_fd
  * Summary: Writes from a buffer to a file descriptor.  Like xar_read_fd it
  * also just handles certain retryable error situations.
- * Returs -1 when it fails fatally; the number of bytes written otherwise.
+ * Returns -1 when it fails fatally; the number of bytes written otherwise.
  */
-ssize_t xar_write_fd( int fd, void * buffer, size_t nbytes ) {
+ssize_t xar_write_fd( int fd, void * buffer, size_t nbyte ) {
 	ssize_t rb;
-	ssize_t off = 0;
+	ssize_t total = 0;
 
-	while ( off < nbytes ) {
-		rb = write(fd, ((char *)buffer)+off, nbytes-off);
-		if( (rb < 1 ) && (errno != EINTR) && (errno != EAGAIN) )
-			return -1;
-		off += rb;
+	while ( total < nbyte ) {
+		rb = write(fd, ((char *)buffer)+total, nbyte-total);
+		if( rb == 0 ) {
+			return total;
+		} else if( rb < 0 ) {
+			if( (errno == EINTR) || (errno == EAGAIN) )
+				continue;
+			return rb;
+		}
+		total += rb;
 	}
 
-	return off;
+	return total;
+}
+
+/* xar_pwrite_fd
+ * Summary: Does the same as xar_write_fd, but uses pwrite(2) instead of write(2).
+ */
+ssize_t xar_pwrite_fd( int fd, void * buffer, size_t nbyte, off_t offset ) {
+	ssize_t rb;
+	size_t total = 0;
+	
+	while( total < nbyte ) {
+		rb = pwrite(fd, ((char *)buffer)+total, nbyte-total, offset+total);
+		if( rb == 0 ) {
+			return total;
+		} else if( rb < 0 ) {
+			if( (errno == EINTR) || (errno == EAGAIN) )
+				continue;
+			return rb;
+		}
+		total += rb;
+	}
+	
+	return total;
 }
 
 dev_t xar_makedev(uint32_t major, uint32_t minor)
@@ -210,7 +264,7 @@ int xar_path_issane(char* path) {
 	if (strlen(path) == 0 || path[0] == '/')
 		return 0;
 	
-	while (component = xar_path_nextcomponent(&path_walker)) {
+	while ((component = xar_path_nextcomponent(&path_walker))) {
 		
 		if (strlen(component) == 0 || strcmp(component, ".") == 0) { // Since // is legal, and '.' is legal it's possible to have empty path elements. Ignore them
 			free(component);

@@ -32,6 +32,8 @@
 #include "HTMLParserIdioms.h"
 #include "InspectorStyleSheet.h"
 
+using namespace Inspector;
+
 namespace WebCore {
 
 InspectorStyleTextEditor::InspectorStyleTextEditor(Vector<InspectorStyleProperty>* allProperties, Vector<InspectorStyleProperty>* disabledProperties, const String& styleText, const NewLineAndWhitespace& format)
@@ -80,15 +82,13 @@ void InspectorStyleTextEditor::insertProperty(unsigned index, const String& prop
     if (insertLast && !insertFirstInSource) {
         propertyStart = styleBodyLength;
         if (propertyStart && textToSet.length()) {
-            const UChar* characters = m_styleText.characters();
-
             long curPos = propertyStart - 1; // The last position of style declaration, since propertyStart points past one.
-            while (curPos && isHTMLSpace(characters[curPos]))
+            while (curPos && isHTMLSpace(m_styleText[curPos]))
                 --curPos;
-            if (curPos && characters[curPos] != ';') {
+            if (curPos && m_styleText[curPos] != ';') {
                 // Prepend a ";" to the property text if appending to a style declaration where
                 // the last property has no trailing ";".
-                textToSet.insert(";", 0);
+                textToSet = makeString(';', textToSet);
                 formattingPrependOffset = 1;
             }
         }
@@ -228,7 +228,6 @@ void InspectorStyleTextEditor::internalReplaceProperty(const InspectorStylePrope
     const SourceRange& range = property.sourceData.range;
     long replaceRangeStart = range.start;
     long replaceRangeEnd = range.end;
-    const UChar* characters = m_styleText.characters();
     long newTextLength = newText.length();
     String finalNewText = newText;
 
@@ -239,14 +238,14 @@ void InspectorStyleTextEditor::internalReplaceProperty(const InspectorStylePrope
         if (replaceRangeStart >= fullPrefixLength && m_styleText.substring(replaceRangeStart - fullPrefixLength, fullPrefixLength) == fullPrefix)
             replaceRangeStart -= fullPrefixLength;
     } else if (newTextLength) {
-        if (isHTMLLineBreak(newText.characters()[newTextLength - 1])) {
+        if (isHTMLLineBreak(newText[newTextLength - 1])) {
             // Coalesce newlines of the original and new property values (to avoid a lot of blank lines while incrementally applying property values).
             bool foundNewline = false;
             bool isLastNewline = false;
             int i;
             int textLength = m_styleText.length();
-            for (i = replaceRangeEnd; i < textLength && isSpaceOrNewline(characters[i]); ++i) {
-                isLastNewline = isHTMLLineBreak(characters[i]);
+            for (i = replaceRangeEnd; i < textLength && isSpaceOrNewline(m_styleText[i]); ++i) {
+                isLastNewline = isHTMLLineBreak(m_styleText[i]);
                 if (isLastNewline)
                     foundNewline = true;
                 else if (foundNewline && !isLastNewline) {
@@ -259,7 +258,7 @@ void InspectorStyleTextEditor::internalReplaceProperty(const InspectorStylePrope
         }
 
         if (fullPrefixLength > replaceRangeStart || m_styleText.substring(replaceRangeStart - fullPrefixLength, fullPrefixLength) != fullPrefix)
-            finalNewText.insert(fullPrefix, 0);
+            finalNewText = fullPrefix + finalNewText;
     }
 
     int replacedLength = replaceRangeEnd - replaceRangeStart;

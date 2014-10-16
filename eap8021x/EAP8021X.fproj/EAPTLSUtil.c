@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -470,7 +470,7 @@ EAPSSLMemoryIORead(SSLConnectionRef connection, void * data_buf,
 	CFMutableStringRef	str;
 
 	str = CFStringCreateMutable(NULL, 0);
-	print_data_cfstr(str, data_buf, length);
+	print_data_cfstr(str, data_buf, (int)length);
 	EAPLOG_FL(-LOG_DEBUG, "Read %d bytes:\n%@", (int)length,
 		  str);
 	CFRelease(str);
@@ -510,7 +510,7 @@ EAPSSLMemoryIOWrite(SSLConnectionRef connection, const void * data_buf,
 	CFMutableStringRef	str;
 
 	str = CFStringCreateMutable(NULL, 0);
-	print_data_cfstr(str, data_buf, length);
+	print_data_cfstr(str, data_buf, (int)length);
 	EAPLOG_FL(-LOG_DEBUG, "Wrote %s%d bytes:\n%@",
 		  additional ? "additional " : "",
 		  (int)length, str);
@@ -696,7 +696,7 @@ EAPTLSPacketCreate2(EAPCode code, int type, u_char identifier, int mtu,
     }
 
     if (ret_fraglen != NULL) {
-	*ret_fraglen = fraglen;
+	*ret_fraglen = (int)fraglen;
     }
     pkt_size += fraglen;
     eaptls = malloc(pkt_size);
@@ -723,7 +723,7 @@ EAPTLSPacketCreate2(EAPCode code, int type, u_char identifier, int mtu,
 	    first = (EAPTLSLengthIncludedPacket *)(void *)eaptls;
 	    eaptls->flags |= kEAPTLSPacketFlagsLengthIncluded;
             EAPTLSLengthIncludedPacketSetMessageLength(first, 
-						       buf->length);
+						       (int)buf->length);
 	    dest = first->tls_data;
 	}
 	bcopy(buf->data + buf->offset, dest, fraglen);
@@ -743,7 +743,7 @@ OSStatus
 EAPSSLCopyPeerCertificates(SSLContextRef context, CFArrayRef * certs)
 {
     CFMutableArrayRef	array = NULL;
-    int			count = 0;
+    CFIndex		count = 0;
     int			i;
     OSStatus		status;
     SecTrustRef		trust = NULL;
@@ -892,7 +892,7 @@ copy_user_trust_proceed_certs(CFDictionaryRef properties)
 static CFArrayRef
 get_trusted_server_names(CFDictionaryRef properties)
 {
-    int		count;
+    CFIndex	count;
     int		i;
     CFArrayRef	list;
 
@@ -1221,7 +1221,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 {
     bool		allow_exceptions;
     EAPClientStatus	client_status;
-    int			count;
+    CFIndex		count;
     CFStringRef		domain = NULL;
     CFStringRef		identifier = NULL;
     SecPolicyRef	policy = NULL;
@@ -1265,9 +1265,8 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     }
 
     /*
-     * Don't allow exceptions by default if either trusted certs or trusted 
-     * server names is specified.  Trust exceptions must be explicitly enabled
-     * in that case using the kEAPClientPropTLSAllowTrustExceptions property.
+     * Don't allow exceptions if either trusted certs or trusted 
+     * server names is specified. 
      */
     if (trusted_certs != NULL || trusted_server_names != NULL) {
 	allow_exceptions = FALSE;
@@ -1275,10 +1274,6 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     else {
 	allow_exceptions = TRUE;
     }
-    allow_exceptions
-	= my_CFDictionaryGetBooleanValue(properties, 
-					 kEAPClientPropTLSAllowTrustExceptions,
-					 allow_exceptions);
 
     /* both the trust exception domain and identifier must be specified */
     domain 
@@ -1659,10 +1654,8 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     trusted_server_names = get_trusted_server_names(properties);
 
     /*
-     * Don't allow trust decisions by the user by default if either trusted
-     * certs or trusted server names is specified. Trust decisions must be
-     * explicitly enabled in that case using the 
-     * kEAPClientPropTLSAllowTrustDecisions property.
+     * Don't allow trust decisions by the user if either trusted
+     * certs or trusted server names is specified.
      */
     if (trusted_certs != NULL || trusted_server_names != NULL) {
 	allow_trust_decisions = FALSE;
@@ -1670,10 +1663,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     else {
 	allow_trust_decisions = TRUE;
     }
-    allow_trust_decisions
-	= my_CFDictionaryGetBooleanValue(properties, 
-					 kEAPClientPropTLSAllowTrustDecisions,
-					 allow_trust_decisions);
     client_status = kEAPClientStatusSecurityError;
     status = EAPSecPolicyCopy(&policy);
     if (status != noErr) {

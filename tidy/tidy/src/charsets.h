@@ -3,7 +3,7 @@
   (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
-  $Id: charsets.h,v 1.3 2007/01/30 23:46:51 iccir Exp $
+  $Id$
 */
 
 uint TY_(GetEncodingIdFromName)(ctmbstr name);

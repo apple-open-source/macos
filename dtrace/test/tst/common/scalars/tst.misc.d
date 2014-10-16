@@ -39,14 +39,8 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	printf("\nkmem_flags = 0x%x\n", `kmem_flags);
-	printf("ufs`ufs_allow_shared_writes = %d\n",
-	    ufs`ufs_allow_shared_writes);
-#else
 	printf("\nmax_ncpus = %d\n", `max_ncpus);
 	printf("ERROR: no case for kernel scoped scalar!\n");
-#endif /* __APPLE__ */
 	x = 123;
 	printf("x = %u\n", x);
 	self->x = 456;

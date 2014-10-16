@@ -63,11 +63,18 @@ static HEIMDAL_MUTEX plugin_mutex = HEIMDAL_MUTEX_INITIALIZER;
 static struct plugin *registered = NULL;
 static int plugins_needs_scan = 1;
 
+#if TARGET_IPHONE_SIMULATOR
+#define PLUGIN_PREFIX "%{IPHONE_SIMULATOR_ROOT}"
+#else
+#define PLUGIN_PREFIX ""
+#endif
+
+
 static const char *sysplugin_dirs[] =  {
-    LIBDIR "/plugin/krb5",
+    PLUGIN_PREFIX LIBDIR "/plugin/krb5",
 #ifdef __APPLE__
-    "/Library/KerberosPlugins/KerberosFrameworkPlugins",
-    "/System/Library/KerberosPlugins/KerberosFrameworkPlugins",
+    PLUGIN_PREFIX "/Library/KerberosPlugins/KerberosFrameworkPlugins",
+    PLUGIN_PREFIX "/System/Library/KerberosPlugins/KerberosFrameworkPlugins",
 #endif
     NULL
 };
@@ -241,10 +248,8 @@ load_plugins(krb5_context context)
     for (di = dirs; *di != NULL; di++) {
         char * dir = *di;
 
-#ifdef KRB5_USE_PATH_TOKENS
         if (_krb5_expand_path_tokens(context, *di, &dir))
             goto next_dir;
-#endif
 
         trim_trailing_slash(dir);
 
@@ -267,8 +272,17 @@ load_plugins(krb5_context context)
 #ifdef __APPLE__
 	    { /* support loading bundles on MacOS */
 		size_t len = strlen(n);
-		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0)
+		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0) {
 		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", dir, n, (int)(len - 7), n);
+		    /*
+		     * Check if its a flat bundle
+		     */
+		    if (ret == 0 && access(path, X_OK) != 0) {
+			ret = errno;
+			free(path);
+			path = NULL;
+		    }
+		}
 	    }
 #endif
 	    if (ret < 0 || path == NULL)
@@ -417,7 +431,7 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
     struct dirent *entry;
     krb5_error_code ret;
     const char **di;
-    DIR *d;
+    DIR *d = NULL;
 
     HEIMDAL_MUTEX_lock(&plugin_mutex);
 
@@ -437,14 +451,21 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 	    heim_release(s);
 	    return;
 	}
-	heim_dict_add_value(modules, s, module);
+	heim_dict_set_value(modules, s, module);
     }
     heim_release(s);
 
     for (di = paths; *di != NULL; di++) {
-	d = opendir(*di);
+	char *dir = NULL;
+
+        if (_krb5_expand_path_tokens(context, *di, &dir))
+            goto next_dir;
+
+        trim_trailing_slash(dir);
+
+	d = opendir(dir);
 	if (d == NULL)
-	    continue;
+	    goto next_dir;
 	rk_cloexec_dir(d);
 
 	while ((entry = readdir(d)) != NULL) {
@@ -456,25 +477,33 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 	    /* skip . and .. */
 	    if (n[0] == '.' && (n[1] == '\0' || (n[1] == '.' && n[2] == '\0')))
 		continue;
-
+	    
 	    ret = 0;
 #ifdef __APPLE__
 	    { /* support loading bundles on MacOS */
 		size_t len = strlen(n);
 		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0)
-		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", *di, n, (int)(len - 7), n);
+		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", dir, n, (int)(len - 7), n);
+		    /*
+		     * Check if its a flat bundle
+		     */
+		    if (ret == 0 && access(path, X_OK) != 0) {
+			ret = errno;
+			free(path);
+			path = NULL;
+		    }
 	    }
 #endif
 	    if (ret < 0 || path == NULL)
-		ret = asprintf(&path, "%s/%s", *di, n);
+		ret = asprintf(&path, "%s/%s", dir, n);
 
 	    if (ret < 0 || path == NULL)
-		continue;
+		goto next_dir;
 
 	    spath = heim_string_create(n);
 	    if (spath == NULL) {
 		free(path);
-		continue;
+		goto next_dir;
 	    }
 
 	    /* check if already cached */
@@ -487,14 +516,21 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 		if (p && p->dsohandle) {
 		    p->path = heim_retain(spath);
 		    p->names = heim_dict_create(11);
-		    heim_dict_add_value(module, spath, p);
+		    heim_dict_set_value(module, spath, p);
 		}
 	    }
 	    heim_release(spath);
 	    heim_release(p);
 	    free(path);
 	}
-	closedir(d);
+
+    next_dir:
+	if (d) {
+	    closedir(d);
+	    d = NULL;
+	}
+        if (dir)
+            free(dir);
     }
     heim_release(module);
     HEIMDAL_MUTEX_unlock(&plugin_mutex);
@@ -548,7 +584,7 @@ struct iter_ctx {
 };
 
 static void
-search_modules(heim_dict_t dict, heim_object_t key, heim_object_t value, void *ctx)
+search_modules(heim_object_t key, heim_object_t value, void *ctx)
 {
     struct iter_ctx *s = ctx;
     struct plugin2 *p = value;
@@ -569,7 +605,7 @@ search_modules(heim_dict_t dict, heim_object_t key, heim_object_t value, void *c
 	    if (ret)
 		cpm = pl->dataptr = NULL;
 	}
-	heim_dict_add_value(p->names, s->n, pl);
+	heim_dict_set_value(p->names, s->n, pl);
     } else {
 	cpm = pl->dataptr;
     }
@@ -621,7 +657,7 @@ krb5_plugin_run_f(krb5_context context,
     s.func = func;
     s.userctx = userctx;
 
-    heim_dict_iterate_f(dict, search_modules, &s);
+    heim_dict_iterate_f(dict, &s, search_modules);
 
     heim_release(dict);
 

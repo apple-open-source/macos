@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2013 Apple Inc.
+ * Copyright (C) 2004, 2005, 2006, 2013, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,19 +17,15 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  *
- */ 
+ */
 
-#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H
-#ifdef BUILDING_WITH_CMAKE
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H && defined(BUILDING_WITH_CMAKE)
 #include "cmakeconfig.h"
-#else
-#include "autotoolsconfig.h"
-#endif
 #endif
 
 #include <wtf/Platform.h>
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(COCOA)
 #define WTF_USE_FILE_LOCK 1
 #endif
 
@@ -101,9 +97,8 @@
 #endif
 
 #if PLATFORM(MAC)
-// New theme
 #define WTF_USE_NEW_THEME 1
-#endif // PLATFORM(MAC)
+#endif
 
 #if USE(CG)
 #ifndef CGFLOAT_DEFINED
@@ -120,14 +115,14 @@ typedef float CGFloat;
 #define WTF_USE_SAFARI_THEME 1
 #endif
 
-// CoreAnimation is available to IOS, Mac and Windows if using CG
-#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && USE(CG))
-#define WTF_USE_CA 1
+#if PLATFORM(IOS)
+#define WEBCORE_NAVIGATOR_PLATFORM wkGetPlatformNameForNavigator();
+#define WEBCORE_NAVIGATOR_VENDOR wkGetVendorNameForNavigator();
 #endif
 
 // FIXME: Move this to JavaScriptCore/wtf/Platform.h, which is where we define WTF_USE_AVFOUNDATION on the Mac.
 // https://bugs.webkit.org/show_bug.cgi?id=67334
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && USE(CG) && HAVE(AVCF)
 #define WTF_USE_AVFOUNDATION 1
 
 #if HAVE(AVCF_LEGIBLE_OUTPUT)

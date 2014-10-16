@@ -1,0 +1,20 @@
+/def __delitem__(/a
+.
+/try:/,/raise KeyError(/c
+        self.remove(item)
+.
+/def __getitem__(/a
+.
+/try:/,/raise KeyError(/c
+        return self.get(item)
+.
+/def has_key(/a
+.
+/except IOError:/s//except:/
+/def setdefault(/a
+.
+/try:/,/return d/-1c
+        d = self.get(k)
+        self[k] = d
+.
+w

@@ -25,10 +25,11 @@
 #include <ldap_utf8.h>
 #include <ldap_pvt_uc.h>
 
+#if 0
 #define	malloc(x)	ber_memalloc_x(x,ctx)
 #define	realloc(x,y)	ber_memrealloc_x(x,y,ctx)
 #define	free(x)		ber_memfree_x(x,ctx)
-
+#endif
 int ucstrncmp(
 	const ldap_unicode_t *u1,
 	const ldap_unicode_t *u2,

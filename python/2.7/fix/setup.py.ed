@@ -18,26 +18,32 @@
             if sp == dirname:
 .
 /return \[ p ]/s/p/sp/
-g/('-Wl,-search_paths_first',)/s//()/
 /'-arch' in ext.extra_link_args/s//'-no64' in ext.extra_link_args/
+/# Ensure that \/usr\/local is always used/a
+.
+.,/\/usr\/local\/include/s/^/#/
+/inc_dirs = self.compiler.include_dirs\[:]/a
+        for d in ('/usr/local/include', '/usr/include',):
+            if d not in inc_dirs:
+                inc_dirs.insert(0, d)
+.
+/lib_dirs = self.compiler.library_dirs\[:]/a
+        for d in ('/usr/local/lib',):
+            if d not in lib_dirs:
+                lib_dirs.append(d)
+.
 /Disabled on 64-bit platforms/a
 .
-/sys.maxint != 9223372036854775807L/s//True/
+/if sys\.maxint != 9223372036854775807L:/s//if True:/
 /\['imageop.c'\]/s//&, extra_compile_args = ['-no64'], extra_link_args = ['-no64']/
 /# readline$/a
 .
 /if host_platform == 'darwin':/a
 .
 .,/if do_readline:/-1s/^/#/
-/readline_extra_link_args/a
-.
-?darwin?,.+1d
-s/    //
-/if sys.maxint == 0x7fffffff:/d
-.,/missing\.append('dl')/s/    //
-/else:/a
-.
-.,/missing\.append('dl')/d
+/if host_platform == 'darwin' and os_release < 9:/s//if True:/
+/library_dirs=\['\/usr\/lib\/termcap'],/s/^/#/
+/if sys\.maxint == 0x7fffffff:/s//if True:/
 ?Extension('dl'?s/]/&, extra_compile_args = ['-no64'], extra_link_args = ['-no64']/
 /carbon_kwds =/a
 .
@@ -58,12 +64,21 @@ s/'.*/'Nav', '_Win']/
 /carbon_kwds/s//&32/
 /Workaround for a bug/a
 .
-.,/^$/d
+.,/^$/-1s/^/#/
 /extra_compile_args=carbon_extra_compile_args/s//& + ['-no64']/
 /'-framework', 'Carbon'/s//&, '-no64'/
 /def detect_tkinter_darwin/a
 .
-/don't support 64-bit$/-1a
+/if not exists(join(sysroot, F\[1:], fw + '\.framework')):/c
+                    F = join(sysroot, F[1:])
+                    if not exists(join(F, fw + '.framework')):
 .
-.,/frameworks.append(a)/d
+/include_dirs\.append('\/usr\/X11R6\/include')/s/^/#/
+/don't support 64-bit$/a
+.
+.,/frameworks.append(a)/s/^/#/
+/# Check for various platform-specific directories/a
+.
+.,/^$/-1s/^/#/
+g/('-Wl,-search_paths_first',)/s//()/
 w

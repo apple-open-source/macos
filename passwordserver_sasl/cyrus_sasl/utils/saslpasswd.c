@@ -195,7 +195,7 @@ void read_password(const char *prompt,
       fflush(stdout);
     }
 #else
-	SetConsoleMode(hStdin, fdwOldMode);
+    SetConsoleMode(hStdin, fdwOldMode);
     putchar('\n');
     fflush(stdout);
 #endif /*WIN32*/
@@ -227,10 +227,17 @@ void exit_sasl(int result, const char *errstr) __attribute__((noreturn));
 void
 exit_sasl(int result, const char *errstr)
 {
-  (void)fprintf(stderr, errstr ? "%s: %s: %s\n" : "%s: %s\n",
-		progname,
-		sasl_errstring(result, NULL, NULL),
-		errstr);
+  /* APPLE: split condition to fix unused format string parameter */
+  if (errstr)
+      (void)fprintf(stderr, "%s: %s: %s\n",
+                    progname,
+                    sasl_errstring(result, NULL, NULL),
+                    errstr);
+  else
+      (void)fprintf(stderr, "%s: %s\n",
+                    progname,
+                    sasl_errstring(result, NULL, NULL));
+    
   exit(result < 0 ? -result : result);
 }
 
@@ -243,7 +250,7 @@ int good_getopt(void *context __attribute__((unused)),
     if (sasldb_path && !strcmp(option, "sasldb_path")) {
 	*result = sasldb_path;
 	if (len)
-	    *len = (unsigned int)strlen(sasldb_path);
+	    *len = (unsigned) strlen(sasldb_path);
 	return SASL_OK;
     }
 
@@ -251,7 +258,7 @@ int good_getopt(void *context __attribute__((unused)),
 }
 
 static struct sasl_callback goodsasl_cb[] = {
-    { SASL_CB_GETOPT, &good_getopt, NULL },
+    { SASL_CB_GETOPT, (sasl_callback_ft)&good_getopt, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -261,8 +268,11 @@ main(int argc, char *argv[])
   int flag_pipe = 0, flag_create = 0, flag_disable = 0, flag_error = 0;
   int flag_nouserpass = 0;
   int c;
-  char *userid, *password, *verify;
-  unsigned passlen, verifylen;
+  char *userid;
+  char *password = NULL;
+  char *verify;
+  unsigned passlen = 0;
+  unsigned verifylen;
   const char *errstr = NULL;
   int result;
   sasl_conn_t *conn;

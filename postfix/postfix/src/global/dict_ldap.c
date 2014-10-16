@@ -152,7 +152,7 @@
 /*	Wietse Venema
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
-/*	Yorktown Heights, NY 10532, USA
+/*	Yorktown Heights, NY 10598, USA
 /*
 /*	John Hensley
 /*	john@sunislelodge.com
@@ -930,8 +930,11 @@ static void dict_ldap_conn_find(DICT_LDAP *dict_ldap)
 #endif
     LDAP_CONN *conn;
 
+    /*
+     * Join key fields with null characters.
+     */
 #define ADDSTR(vp, s) vstring_memcat((vp), (s), strlen((s))+1)
-#define ADDINT(vp, i) vstring_sprintf_append((vp), "%lu", (unsigned long)(i))
+#define ADDINT(vp, i) vstring_sprintf_append((vp), "%lu%c", (unsigned long)(i), 0)
 
     ADDSTR(keybuf, dict_ldap->server_host);
     ADDINT(keybuf, dict_ldap->server_port);

@@ -36,9 +36,8 @@
 #include "SharedWorker.h"
 
 #include "ExceptionCode.h"
-#include "FeatureObserver.h"
 #include "InspectorInstrumentation.h"
-#include "KURL.h"
+#include "URL.h"
 #include "MessageChannel.h"
 #include "MessagePort.h"
 #include "ScriptExecutionContext.h"
@@ -47,49 +46,44 @@
 
 namespace WebCore {
 
-inline SharedWorker::SharedWorker(ScriptExecutionContext* context)
+inline SharedWorker::SharedWorker(ScriptExecutionContext& context)
     : AbstractWorker(context)
 {
 }
 
-PassRefPtr<SharedWorker> SharedWorker::create(ScriptExecutionContext* context, const String& url, const String& name, ExceptionCode& ec)
+PassRefPtr<SharedWorker> SharedWorker::create(ScriptExecutionContext& context, const String& url, const String& name, ExceptionCode& ec)
 {
     ASSERT(isMainThread());
-    FeatureObserver::observe(static_cast<Document*>(context)->domWindow(), FeatureObserver::SharedWorkerStart);
+
+    // We don't currently support nested workers, so workers can only be created from documents.
+    ASSERT_WITH_SECURITY_IMPLICATION(context.isDocument());
+    Document& document = static_cast<Document&>(context);
 
     RefPtr<SharedWorker> worker = adoptRef(new SharedWorker(context));
 
     RefPtr<MessageChannel> channel = MessageChannel::create(context);
     worker->m_port = channel->port1();
-    OwnPtr<MessagePortChannel> remotePort = channel->port2()->disentangle();
+    std::unique_ptr<MessagePortChannel> remotePort = channel->port2()->disentangle();
     ASSERT(remotePort);
 
     worker->suspendIfNeeded();
 
-    KURL scriptURL = worker->resolveURL(url, ec);
+    URL scriptURL = worker->resolveURL(url, ec);
     if (scriptURL.isEmpty())
         return 0;
 
-    // We don't currently support nested workers, so workers can only be created from documents.
-    ASSERT_WITH_SECURITY_IMPLICATION(context->isDocument());
-    Document* document = static_cast<Document*>(context);
-    if (!document->securityOrigin()->canAccessSharedWorkers(document->topOrigin())) {
+    if (!document.securityOrigin()->canAccessSharedWorkers(document.topOrigin())) {
         ec = SECURITY_ERR;
         return 0;
     }
 
-    SharedWorkerRepository::connect(worker.get(), remotePort.release(), scriptURL, name, ec);
+    SharedWorkerRepository::connect(worker.get(), WTF::move(remotePort), scriptURL, name, ec);
 
     return worker.release();
 }
 
 SharedWorker::~SharedWorker()
 {
-}
-
-const AtomicString& SharedWorker::interfaceName() const
-{
-    return eventNames().interfaceForSharedWorker;
 }
 
 } // namespace WebCore

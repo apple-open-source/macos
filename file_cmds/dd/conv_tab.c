@@ -35,11 +35,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)conv_tab.c	8.1 (Berkeley) 5/31/93";
 #endif
-static const char rcsid[] =
+__used static const char rcsid[] =
   "$FreeBSD: src/bin/dd/conv_tab.c,v 1.10 1999/09/12 16:51:53 green Exp $";
 #endif /* not lint */
 

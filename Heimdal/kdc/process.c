@@ -91,19 +91,27 @@ kdc_tgs_req(krb5_context context,
 	    size_t max_reply_size,
 	    int *claim)
 {
+    struct kdc_request_desc r;
     krb5_error_code ret;
-    KDC_REQ req;
     size_t len;
 
-    ret = decode_TGS_REQ(req_buffer->data, req_buffer->length, &req, &len);
+    memset(&r, 0, sizeof(r));
+
+    ret = decode_TGS_REQ(req_buffer->data, req_buffer->length, &r.req, &len);
     if (ret)
 	return ret;
 
+    r.context = context;
+    r.config = config;
+    r.request.data = req_buffer->data;
+    r.request.length = req_buffer->length;
+
     *claim = 1;
 
-    ret = _kdc_tgs_rep(context, config, &req, reply, 
-		       from, addr, max_reply_size);
-    free_TGS_REQ(&req);
+    ret = _kdc_tgs_rep(&r, reply, from, addr, max_reply_size);
+
+    free_TGS_REQ(&r.req);
+
     return ret;
 }
 

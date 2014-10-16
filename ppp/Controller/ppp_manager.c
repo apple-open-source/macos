@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,7 @@ includes
 #include "ppp_socket_server.h"
 #include "scnc_utils.h"
 #include "controller_options.h"
+#include "ne_sm_bridge_private.h"
 
 #include "../Drivers/PPTP/PPTP-plugin/pptp.h"
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
@@ -136,7 +137,7 @@ int ppp_new_service(struct service *serv)
     CFURLRef		url;
     u_char			str[MAXPATHLEN], str2[32];
 
-   //  SCLog(TRUE, LOG_INFO, CFSTR("ppp_new_service, subtype = %%@, serviceID = %@."), serv->subtypeRef, serv->serviceID);
+   //  scnc_log(LOG_INFO, CFSTR("ppp_new_service, subtype = %%@, serviceID = %@."), serv->subtypeRef, serv->serviceID);
 
     serv->u.ppp.ndrv_socket = -1;
     serv->u.ppp.phase = PPP_IDLE;
@@ -363,6 +364,7 @@ changed for this ppp occured in configd cache
 int ppp_setup_service(struct service *serv)
 {
     u_int32_t 		lval;
+	CFDictionaryRef serviceConfig = NULL;
     
 	/* get some general setting flags first */
 	serv->flags &= ~(
@@ -377,7 +379,17 @@ int ppp_setup_service(struct service *serv)
 		FLAG_SETUP_DISCONNECTONWAKE);
 
 	my_CFRelease(&serv->systemprefs);
-	serv->systemprefs = copyEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, kSCEntNetPPP);
+	if (serv->ne_sm_bridge != NULL) {
+		serviceConfig = ne_sm_bridge_copy_configuration(serv->ne_sm_bridge);
+		if (serviceConfig != NULL) {
+			CFDictionaryRef pppDict = CFDictionaryGetValue(serviceConfig, kSCEntNetPPP);
+			if (pppDict != NULL) {
+				serv->systemprefs = CFRetain(pppDict);
+			}
+		}
+	} else {
+		serv->systemprefs = copyEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, kSCEntNetPPP);
+	}
 	if (serv->systemprefs) {
 		lval = 0;
 		getNumber(serv->systemprefs, kSCPropNetPPPDialOnDemand, &lval);
@@ -470,14 +482,16 @@ int ppp_setup_service(struct service *serv)
 //                    if (ppp->dialontraffic)
 //                        ppp_disconnect(ppp, 0, SIGTERM);
 
-			CFDictionaryRef	dict;
-			dict = copyService(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID);
-			if (dict) {
-				change_pppd_params(serv, dict, serv->connectopts);
-				CFRelease(dict);
+			if (serviceConfig == NULL) {
+				serviceConfig = copyService(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID);
+			}
+			if (serviceConfig) {
+				change_pppd_params(serv, serviceConfig, serv->connectopts);
 			}
 			break;
 	}
+
+	my_CFRelease(&serviceConfig);
 	return 0;
 }
 
@@ -708,6 +722,7 @@ void writestrparam(int fd, char *param, char *val)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
+
 static 
 int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionaryRef options, u_int8_t onTraffic)
 {
@@ -795,6 +810,12 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
         writeparam(optfd, str);
     }
         
+    // Scoped interface
+    char outgoingInterfaceString[IFXNAMSIZ];
+    if (options && GetStrFromDict(options, CFSTR(NESessionStartOptionOutgoingInterface), outgoingInterfaceString, IFXNAMSIZ, "")) {
+        writestrparam(optfd, "ifscope", outgoingInterfaceString);
+    }
+    
     // -----------------
     // subtype specific parameters 
 
@@ -1081,7 +1102,7 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
 
     // -----------------
     // ipcp options 
-    if (!existEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, kSCEntNetIPv4)) {
+	if (!CFDictionaryContainsKey(service, kSCEntNetIPv4)) {
         writeparam(optfd, "noip");
     }
     else {
@@ -1141,7 +1162,7 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
 		// usepeerwins if a SMB dictionary is present
 		// but make sure it is not disabled in PPP
 #if !TARGET_OS_EMBEDDED
-		if (existEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, kSCEntNetSMB)) {
+		if (CFDictionaryContainsKey(service, kSCEntNetSMB)) {
 			get_int_option(serv, kSCEntNetPPP, CFSTR("IPCPUsePeerWINS"), options, service, &lval, 1);
 			if (lval)
 				writeparam(optfd, "usepeerwins");
@@ -1168,7 +1189,7 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
     
     // -----------------
     // ip6cp options 
-    if (!existEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, kSCEntNetIPv6)) {
+	if (!CFDictionaryContainsKey(service, kSCEntNetIPv6)) {
         // ipv6 is not started by default
     }
     else {
@@ -1469,9 +1490,35 @@ int change_pppd_params(struct service *serv, CFDictionaryRef service, CFDictiona
     ppp_getoptval(serv, options, service, PPP_OPT_COMM_IDLETIMER, &lval, sizeof(lval), &len);
     writeintparam(optfd, "idle", lval);
 
+    // Scoped interface
+    char outgoingInterfaceString[IFXNAMSIZ];
+    if (options && GetStrFromDict(options, CFSTR(NESessionStartOptionOutgoingInterface), outgoingInterfaceString, IFXNAMSIZ, "")) {
+        writestrparam(optfd, "ifscope", outgoingInterfaceString);
+    }
+		
     writeparam(optfd, "[EOP]");
 
     return 0;
+}
+
+int ppp_install(struct service *serv)
+{
+	int optfd;
+	
+	optfd = serv->u.ppp.controlfd[WRITE];
+	
+	writeparam(optfd, "[INSTALL]");
+	return 0;
+}
+
+int ppp_uninstall(struct service *serv)
+{
+	int optfd;
+	
+	optfd = serv->u.ppp.controlfd[WRITE];
+	
+	writeparam(optfd, "[UNINSTALL]");
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1482,6 +1529,8 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
 	char 			*cmdarg[MAXARG];
 	u_int32_t		i, argi = 0;
 	CFDictionaryRef		service;
+	CFDictionaryRef		environmentVars = NULL;
+	int yes = 1;
 	
 	// reset setup flag
 	serv->flags &= ~FLAG_CONFIGCHANGEDNOW;
@@ -1517,8 +1566,10 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
 			return EIO;	// not the right time to dial
 	}
 	
-	SCLog(gSCNCDebug, LOG_DEBUG, CFSTR("PPP Controller: VPN System Prefs %@"), serv->systemprefs);
-	SCLog(gSCNCDebug, LOG_DEBUG, CFSTR("PPP Controller: VPN User Options %@"), options);
+#if DEBUG
+	scnc_log(LOG_DEBUG, CFSTR("PPP Controller: VPN System Prefs %@"), serv->systemprefs);
+	scnc_log(LOG_DEBUG, CFSTR("PPP Controller: VPN User Options %@"), options);
+#endif
     
 	/* remove any pending notification */
 	if (serv->userNotificationRef) {
@@ -1531,7 +1582,11 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
 	serv->u.ppp.laststatus =  EXIT_FATAL_ERROR;
     serv->u.ppp.lastdevstatus = 0;
 
-    service = copyService(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID);
+	if (serv->ne_sm_bridge != NULL) {
+		service = ne_sm_bridge_copy_configuration(serv->ne_sm_bridge);
+	} else {
+		service = copyService(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID);
+	}
     if (!service)
         goto end;	// that's bad...
 
@@ -1547,6 +1602,10 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
 		|| (socketpair(AF_LOCAL, SOCK_STREAM, 0, serv->u.ppp.statusfd) == -1))
         goto end;
 
+    if (setsockopt(serv->u.ppp.controlfd[WRITE], SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes)) == -1) {
+        goto end;
+    }
+
     if (onDemand)
         serv->flags |= FLAG_ONDEMAND;
 	else
@@ -1558,11 +1617,20 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
     scnc_bootstrap_retain(serv, bootstrap);
     scnc_ausession_retain(serv, au_session);
     
-    if (serv->environmentVars) {
-	    CFRelease(serv->environmentVars);
-    }
-    serv->environmentVars = collectEnvironmentVariables(gDynamicStore, serv->serviceID);
+	if (serv->ne_sm_bridge != NULL) {
+		CFDictionaryRef vars = CFDictionaryGetValue(service, CFSTR("EnvironmentVariables"));
+		if (vars) {
+			environmentVars = CFRetain(vars);
+		}
+	} else {
+		environmentVars = collectEnvironmentVariables(gDynamicStore, serv->serviceID);
+	}
 
+    if (environmentVars) {
+        extractEnvironmentVariables(environmentVars, serv);
+        CFRelease(environmentVars);
+    }
+    
     serv->u.ppp.pid = SCNCPluginExecCommand2(NULL,
 					     exec_callback, 
 					     (void*)(uintptr_t)makeref(serv), 
@@ -1686,7 +1754,7 @@ exec_postfork(pid_t pid, void *arg)
             (void) setruid(serv->uid);
         }
 
-        applyEnvironmentVariables(serv->environmentVars);
+        applyEnvironmentVariables(serv);
     }
 
     return;
@@ -1704,11 +1772,11 @@ ppp_persist_connection_exec_callback (struct service *serv, int exitcode)
 			((serv->u.ppp.laststatus && serv->u.ppp.laststatus != EXIT_USER_REQUEST && serv->u.ppp.laststatus != EXIT_FATAL_ERROR) || serv->u.ppp.lastdevstatus) ||
 			((exitcode == EXIT_HANGUP || exitcode == EXIT_PEER_DEAD) && serv->u.ppp.laststatus != EXIT_USER_REQUEST && serv->u.ppp.laststatus != EXIT_FATAL_ERROR)) {
 
-			SCLog(TRUE, LOG_ERR, CFSTR("PPP Controller: disconnected with status  %d.%d. Will try reconnect shortly."),
+			scnc_log(LOG_ERR, CFSTR("PPP Controller: disconnected with status  %d.%d. Will try reconnect shortly."),
 				  serv->persist_connect_status? serv->persist_connect_status: serv->u.ppp.laststatus,
 				  serv->persist_connect_devstatus? serv->persist_connect_devstatus : serv->u.ppp.lastdevstatus);
 
-			SCLog(TRUE, LOG_ERR, CFSTR("PPP Controller: reconnecting"));
+			scnc_log(LOG_ERR, CFSTR("PPP Controller: reconnecting"));
 			// start over
 			SESSIONTRACERSTOP(serv);
 			my_CFRelease(&serv->connection_nid);
@@ -1777,10 +1845,15 @@ void exec_callback(pid_t pid, int status, struct rusage *rusage, void *context)
 
 	/* clean up dynamic store */
 	cleanup_dynamicstore((void*)serv);
+
+	if (serv->ne_sm_bridge != NULL) {
+		ne_sm_bridge_acknowledge_sleep(serv->ne_sm_bridge);
+	} else {
+		allow_sleep();
+	}
+
 	if (allow_dispose(serv))
 		serv = 0;
-
-    allow_sleep();
 
     if (serv == 0)
         return;
@@ -1925,7 +1998,7 @@ ppp_check_status_for_disconnect_by_recoverable_error (struct service *serv, int 
             serv->persist_connect = 1;
             serv->persist_connect_status = status;
             serv->persist_connect_devstatus = devstatus;
-			SCLog(TRUE, LOG_INFO, CFSTR("PPP Controller: status-checked, preparing for persistence status  %d.%d."),
+			scnc_log(LOG_INFO, CFSTR("PPP Controller: status-checked, preparing for persistence status  %d.%d."),
 				  serv->persist_connect_status,
 				  serv->persist_connect_devstatus);
             return TRUE;
@@ -1977,7 +2050,7 @@ ppp_check_phase_for_disconnect_by_recoverable_error (struct service *serv, int p
             } else {
 				serv->persist_connect_devstatus = 0;
             }
-			SCLog(TRUE, LOG_INFO, CFSTR("PPP Controller: phase-checked, preparing for persistence status  %d.%d."),
+			scnc_log(LOG_INFO, CFSTR("PPP Controller: phase-checked, preparing for persistence status  %d.%d."),
 				  serv->persist_connect_status,
 				  serv->persist_connect_devstatus);
 			return TRUE;
@@ -1996,8 +2069,8 @@ ppp_disconnect_if_location_changed (struct service *serv, int phase)
 {
 #if !TARGET_OS_EMBEDDED
 	if (serv->was_running && (phase == PPP_WAITING || phase == PPP_RUNNING) && (serv->subtype == PPP_TYPE_L2TP || serv->subtype == PPP_TYPE_PPTP)) {
-		if (disconnectIfVPNLocationChanged(serv)) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("PPP Controller: the underlying interface has changed networks."));
+		if (DISCONNECT_VPN_IFLOCATIONCHANGED(serv)) {
+			scnc_log(LOG_NOTICE, CFSTR("PPP Controller: the underlying interface has changed networks."));
 			return TRUE;
 		}
 	}
@@ -2203,125 +2276,125 @@ int ppp_getstatus1(struct service *serv, void **reply, u_int16_t *replylen)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_copyextendedstatus(struct service *serv, void **reply, u_int16_t *replylen)
+int ppp_copyextendedstatus(struct service *serv, CFDictionaryRef *statusdict)
 {
-    CFMutableDictionaryRef	statusdict = 0, dict = 0;
-    CFDataRef			dataref = 0;
-    void			*dataptr = 0;
-    u_int32_t			datalen = 0;
+    CFMutableDictionaryRef dict = NULL;
+	CFMutableDictionaryRef pppdict = NULL;
+	int error = 0;
+
+	*statusdict = NULL;
     
-    if ((statusdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
+    if ((dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
+		error = ENOMEM;
         goto fail;
+	}
 
     /* create and add PPP dictionary */
-    if ((dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
+    if ((pppdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
+		error = ENOMEM;
         goto fail;
+	}
     
-    AddNumber(dict, kSCPropNetPPPStatus, serv->u.ppp.phase);
+    AddNumber(pppdict, kSCPropNetPPPStatus, serv->u.ppp.phase);
     
     if (serv->u.ppp.phase != PPP_IDLE)
-        AddStringFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, dict);
+        AddStringFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, pppdict);
 
     switch (serv->u.ppp.phase) {
         case PPP_RUNNING:
         case PPP_ONHOLD:
 
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPConnectTime, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPDisconnectTime, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPMRU, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPMTU, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM, dict);
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ, dict);
+			if (serv->ne_sm_bridge != NULL) {
+				AddNumber64(pppdict, kSCPropNetPPPConnectTime, ne_sm_bridge_get_connect_time(serv->ne_sm_bridge));
+			} else {
+				AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPConnectTime, pppdict);
+			}
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPDisconnectTime, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPMRU, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPMTU, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM, pppdict);
+            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ, pppdict);
             break;
             
         case PPP_WAITONBUSY:
-            AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPRetryConnectTime, dict);
+			if (serv->ne_sm_bridge != NULL) {
+				AddNumber64(pppdict, kSCPropNetPPPConnectTime, ne_sm_bridge_get_connect_time(serv->ne_sm_bridge));
+			} else {
+				AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetPPP, kSCPropNetPPPRetryConnectTime, pppdict);
+			}
             break;
          
         case PPP_DORMANT:
             break;
             
         default:
-            AddNumber(dict, kSCPropNetPPPLastCause, serv->u.ppp.laststatus);
-            AddNumber(dict, kSCPropNetPPPDeviceLastCause, serv->u.ppp.lastdevstatus);
+            AddNumber(pppdict, kSCPropNetPPPLastCause, serv->u.ppp.laststatus);
+            AddNumber(pppdict, kSCPropNetPPPDeviceLastCause, serv->u.ppp.lastdevstatus);
     }
 
-    CFDictionaryAddValue(statusdict, kSCEntNetPPP, dict);
-    my_CFRelease(&dict);
+    CFDictionaryAddValue(dict, kSCEntNetPPP, pppdict);
+    my_CFRelease(&pppdict);
 
     /* create and add Modem dictionary */
     if (serv->subtype == PPP_TYPE_SERIAL
         && (serv->u.ppp.phase == PPP_RUNNING || serv->u.ppp.phase == PPP_ONHOLD)) {
-        if ((dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
+        if ((pppdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
+			error = ENOMEM;
             goto fail;
+		}
 
-        AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetModem, kSCPropNetModemConnectSpeed, dict);
+        AddNumberFromState(gDynamicStore, serv->serviceID, kSCEntNetModem, kSCPropNetModemConnectSpeed, pppdict);
             
-        CFDictionaryAddValue(statusdict, kSCEntNetModem, dict);
-        my_CFRelease(&dict);
+        CFDictionaryAddValue(dict, kSCEntNetModem, pppdict);
+        my_CFRelease(&pppdict);
     }
 
     /* create and add IPv4 dictionary */
     if (serv->u.ppp.phase == PPP_RUNNING || serv->u.ppp.phase == PPP_ONHOLD) {
-        dict = (CFMutableDictionaryRef)copyEntity(gDynamicStore, kSCDynamicStoreDomainState, serv->serviceID, kSCEntNetIPv4);
-        if (dict) {
-            CFDictionaryAddValue(statusdict, kSCEntNetIPv4, dict);
-            my_CFRelease(&dict);
+        pppdict = (CFMutableDictionaryRef)copyEntity(gDynamicStore, kSCDynamicStoreDomainState, serv->serviceID, kSCEntNetIPv4);
+        if (pppdict) {
+            CFDictionaryAddValue(dict, kSCEntNetIPv4, pppdict);
+            my_CFRelease(&pppdict);
         }
     }
     
-    AddNumber(statusdict, kSCNetworkConnectionStatus, ppp_getstatus(serv));
-    
-    /* We are done, now serialize it */
-    if ((dataref = Serialize(statusdict, &dataptr, &datalen)) == 0)
-        goto fail;
-    
-    *reply = my_Allocate(datalen);
-    if (*reply == 0)
-        goto fail;
+    AddNumber(dict, kSCNetworkConnectionStatus, ppp_getstatus(serv));
 
-    bcopy(dataptr, *reply, datalen);    
-    CFRelease(statusdict);
-    CFRelease(dataref);
-    *replylen = datalen;
-    return 0;
-
+	*statusdict = CFRetain(dict);
+    
 fail:
-    if (statusdict)
-        CFRelease(statusdict);
-    if (dict)
-        CFRelease(dict);
-    if (dataref)
-        CFRelease(dataref);
-    return ENOMEM;
+	my_CFRelease(&pppdict);
+	my_CFRelease(&dict);
+
+    return error;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_copystatistics(struct service *serv, void **reply, u_int16_t *replylen)
+int ppp_copystatistics(struct service *serv, CFDictionaryRef *statsdict)
 {
-    CFMutableDictionaryRef	statsdict = 0, dict = 0;
-    CFDataRef			dataref = 0;
-    void				*dataptr = 0;
-    u_int32_t			datalen = 0;
-    int					s = -1;
-    struct ifpppstatsreq 	rq;
-	int					error = 0;
+    CFMutableDictionaryRef dict = NULL;
+    CFMutableDictionaryRef pppdict = NULL;
+    int s = -1;
+    struct ifpppstatsreq rq;
+	int	error = 0;
+
+	*statsdict = NULL;
 	
 	if (serv->u.ppp.phase != PPP_RUNNING
 		&& serv->u.ppp.phase != PPP_ONHOLD)
 			return EINVAL;
 			
-    if ((statsdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
+    if ((dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
 		error = ENOMEM;
 		goto fail;
 	}
 
     /* create and add PPP dictionary */
-    if ((dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
+    if ((pppdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0) {
 		error = ENOMEM;
 		goto fail;
 	}
@@ -2340,47 +2413,23 @@ int ppp_copystatistics(struct service *serv, void **reply, u_int16_t *replylen)
         goto fail;
 	}
 
-	close(s);
-	s = -1;
+	AddNumber(pppdict, kSCNetworkConnectionBytesIn, rq.stats.p.ppp_ibytes);
+	AddNumber(pppdict, kSCNetworkConnectionBytesOut, rq.stats.p.ppp_obytes);
+	AddNumber(pppdict, kSCNetworkConnectionPacketsIn, rq.stats.p.ppp_ipackets);
+	AddNumber(pppdict, kSCNetworkConnectionPacketsOut, rq.stats.p.ppp_opackets);
+	AddNumber(pppdict, kSCNetworkConnectionErrorsIn, rq.stats.p.ppp_ierrors);
+	AddNumber(pppdict, kSCNetworkConnectionErrorsOut, rq.stats.p.ppp_ierrors);
 
-	AddNumber(dict, kSCNetworkConnectionBytesIn, rq.stats.p.ppp_ibytes);
-	AddNumber(dict, kSCNetworkConnectionBytesOut, rq.stats.p.ppp_obytes);
-	AddNumber(dict, kSCNetworkConnectionPacketsIn, rq.stats.p.ppp_ipackets);
-	AddNumber(dict, kSCNetworkConnectionPacketsOut, rq.stats.p.ppp_opackets);
-	AddNumber(dict, kSCNetworkConnectionErrorsIn, rq.stats.p.ppp_ierrors);
-	AddNumber(dict, kSCNetworkConnectionErrorsOut, rq.stats.p.ppp_ierrors);
+    CFDictionaryAddValue(dict, kSCEntNetPPP, pppdict);
 
-    CFDictionaryAddValue(statsdict, kSCEntNetPPP, dict);
-    my_CFRelease(&dict);
-
-    /* We are done, now serialize it */
-    if ((dataref = Serialize(statsdict, &dataptr, &datalen)) == 0) {
-		error = ENOMEM;
-        goto fail;
-	}
-    
-    *reply = my_Allocate(datalen);
-    if (*reply == 0) {
-		error = ENOMEM;
-        goto fail;
-	}
-
-    bcopy(dataptr, *reply, datalen);
-
-    CFRelease(statsdict);
-    CFRelease(dataref);
-    *replylen = datalen;
-    return 0;
+	*statsdict = CFRetain(dict);
 
 fail:
-	if (s != -1)
+    my_CFRelease(&pppdict);
+    my_CFRelease(&dict);
+	if (s != -1) {
 		close(s);
-    if (statsdict)
-        CFRelease(statsdict);
-    if (dict)
-        CFRelease(dict);
-    if (dataref)
-        CFRelease(dataref);
+	}
     return error;
 }
 
@@ -2426,32 +2475,30 @@ end:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all)
+int ppp_getconnectdata(struct service *serv, CFDictionaryRef *options, int all)
 {
-    CFDataRef			dataref = NULL;
-    void			*dataptr = 0;
-    u_int32_t			datalen = 0;
     CFDictionaryRef		opts;
-    CFMutableDictionaryRef	mdict = NULL, mdict1;
+    CFMutableDictionaryRef	mdict = NULL;
     CFDictionaryRef	dict;
 	int err = 0;
+
+	*options = NULL;
         
     /* return saved data */
     opts = serv->connectopts;
 
     if (opts == 0) {
         // no data
-        *replylen = 0;
         return 0;
     }
     
 	if (!all) {
 		/* special code to remove secret information */
+		CFMutableDictionaryRef mdict1 = NULL;
 
 		mdict = CFDictionaryCreateMutableCopy(0, 0, opts);
 		if (mdict == 0) {
 			// no data
-			*replylen = 0;
 			return 0;
 		}
 		
@@ -2484,28 +2531,13 @@ int ppp_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, 
 				CFRelease(mdict1);
 			}
 		}
+		*options = CFRetain(mdict);
+	} else {
+		*options = CFRetain(opts);
 	}
 
-    if ((dataref = Serialize(all ? opts : mdict, &dataptr, &datalen)) == 0) {
-		err = ENOMEM;
-        goto end;
-    }
-    
-    *reply = my_Allocate(datalen);
-    if (*reply == 0) {
-		err = ENOMEM;
-        goto end;
-    }
-    else {
-        bcopy(dataptr, *reply, datalen);
-        *replylen = datalen;
-    }
-
-end:
     if (mdict)
 		CFRelease(mdict);
-    if (dataref)
-		CFRelease(dataref);
     return err;
 }
 

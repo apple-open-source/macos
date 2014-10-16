@@ -26,14 +26,14 @@
 #ifndef ArgumentCodersCF_h
 #define ArgumentCodersCF_h
 
+#include <Security/SecCertificate.h>
 #include <wtf/RetainPtr.h>
 
-#if USE(SECURITY_FRAMEWORK)
-#include <Security/SecCertificate.h>
+#if HAVE(SEC_KEYCHAIN)
 #include <Security/SecKeychainItem.h>
 #endif
 
-namespace CoreIPC {
+namespace IPC {
 
 class ArgumentEncoder;
 class ArgumentDecoder;
@@ -74,18 +74,32 @@ bool decode(ArgumentDecoder&, RetainPtr<CFTypeRef>& result);
 void encode(ArgumentEncoder&, CFURLRef);
 bool decode(ArgumentDecoder&, RetainPtr<CFURLRef>& result);
 
-#if USE(SECURITY_FRAMEWORK)
 // SecCertificateRef
 void encode(ArgumentEncoder&, SecCertificateRef);
 bool decode(ArgumentDecoder&, RetainPtr<SecCertificateRef>& result);
 
+// SecIdentityRef
+void encode(ArgumentEncoder&, SecIdentityRef);
+bool decode(ArgumentDecoder&, RetainPtr<SecIdentityRef>& result);
+
+#if HAVE(SEC_KEYCHAIN)
 // SecKeychainItemRef
 void encode(ArgumentEncoder&, SecKeychainItemRef);
 bool decode(ArgumentDecoder&, RetainPtr<SecKeychainItemRef>& result);
 #endif
 
+#if HAVE(SEC_ACCESS_CONTROL)
+// SecAccessControlRef
+void encode(ArgumentEncoder&, SecAccessControlRef);
+bool decode(ArgumentDecoder&, RetainPtr<SecAccessControlRef>& result);
+#endif
+
+#if PLATFORM(IOS)
+void setAllowsDecodingSecKeyRef(bool);
+#endif
+
 CFTypeRef tokenNullTypeRef();
 
-} // namespace CoreIPC
+} // namespace IPC
 
 #endif // ArgumentCodersCF_h

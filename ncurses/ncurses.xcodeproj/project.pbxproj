@@ -619,7 +619,7 @@
 		4CD05000103F1BEB001C87D5 /* libform.5.4.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libform.5.4.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CD05104103F1BFD001C87D5 /* libmenu.5.4.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libmenu.5.4.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CD05208103F1C12001C87D5 /* libpanel.5.4.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libpanel.5.4.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CE980911034D62D00BA0D88 /* static_tic */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = static_tic; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CE980911034D62D00BA0D88 /* tic_static */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tic_static; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CF085F00FFC2BA900CE4372 /* aclocal.m4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = aclocal.m4; sourceTree = "<group>"; };
 		4CF085F30FFC2BA900CE4372 /* adacurses-config.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "adacurses-config.in"; sourceTree = "<group>"; };
 		4CF085F40FFC2BA900CE4372 /* gen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gen.c; sourceTree = "<group>"; };
@@ -1649,6 +1649,9 @@
 		4CF08A0D0FFC2BB300CE4372 /* xterm-16color.dat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "xterm-16color.dat"; sourceTree = "<group>"; };
 		4CF08A0E0FFC2BB300CE4372 /* xterm-88color.dat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "xterm-88color.dat"; sourceTree = "<group>"; };
 		4CF08A0F0FFC2BB300CE4372 /* TO-DO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "TO-DO"; sourceTree = "<group>"; };
+		81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libraries.xcconfig; path = xcodeconfig/libraries.xcconfig; sourceTree = "<group>"; };
+		81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = executables.xcconfig; path = xcodeconfig/executables.xcconfig; sourceTree = "<group>"; };
+		81AAC2EF185E8D3F00B94A94 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcodeconfig/base.xcconfig; sourceTree = "<group>"; };
 		FCD5D3E114E4A8F400752D20 /* init_keytry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = init_keytry.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/init_keytry.h"; sourceTree = "<group>"; };
 		FCD5D3E214E4A8F400752D20 /* parametrized.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parametrized.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/parametrized.h"; sourceTree = "<group>"; };
 		FCD5D40714E516EC00752D20 /* curses.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = curses.h; path = "../../../Library/Developer/Xcode/DerivedData/ncurses-bpduobhbsbacipgyzlrmhydlmust/Build/Products/Release/curses.h"; sourceTree = "<group>"; };
@@ -1697,6 +1700,9 @@
 		08FB7794FE84155DC02AAC07 /* ncurses */ = {
 			isa = PBXGroup;
 			children = (
+				81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */,
+				81AAC2EF185E8D3F00B94A94 /* base.xcconfig */,
+				81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */,
 				4CF085EF0FFC2BA700CE4372 /* ncurses */,
 				4CC76F6B1027919500C87ED0 /* Open Source */,
 				FCD5D3E014E4A88D00752D20 /* Derived Sources */,
@@ -1717,7 +1723,7 @@
 				4C29FAA91020EBED001D8279 /* tic */,
 				4C29FBBA10223559001D8279 /* make_hash */,
 				4C29FC2F10225768001D8279 /* libncurses.5.4.dylib */,
-				4CE980911034D62D00BA0D88 /* static_tic */,
+				4CE980911034D62D00BA0D88 /* tic_static */,
 				4CD05000103F1BEB001C87D5 /* libform.5.4.dylib */,
 				4CD05104103F1BFD001C87D5 /* libmenu.5.4.dylib */,
 				4CD05208103F1C12001C87D5 /* libpanel.5.4.dylib */,
@@ -3246,7 +3252,7 @@
 			);
 			name = tic_static;
 			productName = clear;
-			productReference = 4CE980911034D62D00BA0D88 /* static_tic */;
+			productReference = 4CE980911034D62D00BA0D88 /* tic_static */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -3987,6 +3993,7 @@
 		};
 		4C29FA621020DDBD001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3994,67 +4001,49 @@
 		};
 		4C29FA6A1020E62C001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = clear;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		4C29FA7C1020E959001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = infocmp;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		4C29FA861020EB4A001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = tput;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		4C29FA8F1020EB4E001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = tset;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		4C29FA981020EB52001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = toe;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		4C29FAA81020EBED001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
-				OTHER_LDFLAGS = "-lncurses";
 				PRODUCT_NAME = tic;
-				STRIP_INSTALLED_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -4074,23 +4063,11 @@
 		};
 		4C29FC3110225769001D8279 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					"_XOPEN_SOURCE=600",
-					_XOPEN_SOURCE_EXTENDED,
-					NDEBUG,
-					"SIGWINCH=28",
-				);
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
 				PRODUCT_NAME = ncurses.5.4;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};
@@ -4119,67 +4096,31 @@
 		};
 		4CD04FFF103F1BEB001C87D5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					"_XOPEN_SOURCE=500",
-					"SIGWINCH=28",
-					NDEBUG,
-					_XOPEN_SOURCE_EXTENDED,
-				);
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
 				PRODUCT_NAME = form.5.4;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};
 		4CD05103103F1BFD001C87D5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					"_XOPEN_SOURCE=500",
-					"SIGWINCH=28",
-					NDEBUG,
-					_XOPEN_SOURCE_EXTENDED,
-				);
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
 				PRODUCT_NAME = menu.5.4;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};
 		4CD05207103F1C12001C87D5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2ED185E8B2400B94A94 /* libraries.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					"_XOPEN_SOURCE=500",
-					"SIGWINCH=28",
-					NDEBUG,
-					_XOPEN_SOURCE_EXTENDED,
-				);
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
 				PRODUCT_NAME = panel.5.4;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};
@@ -4206,6 +4147,7 @@
 		};
 		FC00FC7814E9FB13000AD1B3 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81AAC2EE185E8C5F00B94A94 /* executables.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4369,6 +4311,7 @@
 				FC00FC7514E9FB09000AD1B3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		FC00FC7714E9FB13000AD1B3 /* Build configuration list for PBXAggregateTarget "executables" */ = {
 			isa = XCConfigurationList;
@@ -4376,6 +4319,7 @@
 				FC00FC7814E9FB13000AD1B3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		FCD5D3F514E4F61700752D20 /* Build configuration list for PBXAggregateTarget "Bootstrap Sources" */ = {
 			isa = XCConfigurationList;

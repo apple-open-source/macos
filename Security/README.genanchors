@@ -1,0 +1,14 @@
+# Build the genanchors target against the Base SDK.
+
+# Run the following commands:
+
+rm -rf resources/roots
+svn export svn+ssh://src.apple.com/svn/security/tla/trunk/security_certificates/roots resources/roots
+svn cat svn+ssh://src.apple.com/svn/security/tla/trunk/security_certificates/buildEVRoots | awk '
+BEGIN {s = 0}
+/# ------------------------------------------------------------------------------/ { s = 1 }
+/EOF/ {s = 0}
+{ if(s == 1) { print }}' > resources/evroot.config
+~/build/Debug/genanchors -a resources/roots -e resources/evroot.config -a resources/roots > evroots.h
+
+#Then commit the new evroots.h and evroot.config

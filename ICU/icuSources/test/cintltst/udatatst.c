@@ -1,10 +1,10 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1998-2012, International Business Machines Corporation and
+ * Copyright (c) 1998-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
-* File test.c
+* File udatatst.c
 *
 * Modification History:
 *
@@ -27,18 +27,9 @@
 #include "udatamem.h"
 #include "cintltst.h"
 #include "ubrkimpl.h"
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include "toolutil.h" /* for uprv_fileExists() */
 #include <stdlib.h>
 #include <stdio.h>
-
-#if U_PLATFORM_USES_ONLY_WIN32_API
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 
 /* includes for TestSwapData() */
 #include "udataswp.h"
@@ -136,10 +127,9 @@ static void TestUDataOpen(){
 
     char* path=(char*)malloc(sizeof(char) * (strlen(ctest_dataOutDir())
                                            + strlen(U_ICUDATA_NAME)
-                                           + strlen("/build")+1 ) );
+                                           + strlen("/build/tmp/..")+1 ) );
 
     char        *icuDataFilePath = 0;
-    struct stat stat_buf;
     
     const char* testPath=loadTestData(&status);
     if(U_FAILURE(status)) {
@@ -149,10 +139,7 @@ static void TestUDataOpen(){
     }
 
     /* lots_of_mallocs(); */
-
-    strcat(strcpy(path, ctest_dataOutDir()), U_ICUDATA_NAME);
-
-    log_verbose("Testing udata_open()\n");
+    log_verbose("Testing udata_open(%s)\n", testPath);
     result=udata_open(testPath, type, name, &status);
     if(U_FAILURE(status)){
         log_data_err("FAIL: udata_open() failed for path = %s, name=%s, type=%s, \n errorcode=%s\n", testPath, name, type, myErrorName(status));
@@ -161,20 +148,23 @@ static void TestUDataOpen(){
         udata_close(result);
     }
 
-    /* If the ICU system common data file is present in this confiugration,   
-     *   verify that udata_open can explicitly fetch items from it.
-     *   If packaging mode == dll, the file may not exist.  So, if the file is 
-     *   missing, skip this test without error.
-     */
-    icuDataFilePath = (char *)malloc(strlen(path) + 10);
-    strcpy(icuDataFilePath, path);
-    strcat(icuDataFilePath, ".dat");
-    /* lots_of_mallocs(); */
-    if (stat(icuDataFilePath, &stat_buf) == 0)
     {
-        int i;
-        log_verbose("Testing udata_open() on %s\n", icuDataFilePath);
-        for(i=0; i<sizeof(memMap)/sizeof(memMap[0]); i++){
+      strcat(strcpy(path, ctest_dataOutDir()), U_ICUDATA_NAME);
+
+      /* If the ICU system common data file is present in this confiugration,   
+       *   verify that udata_open can explicitly fetch items from it.
+       *   If packaging mode == dll, the file may not exist.  So, if the file is 
+       *   missing, skip this test without error.
+       */
+      icuDataFilePath = (char *)uprv_malloc(strlen(path) + 10);
+      strcpy(icuDataFilePath, path);
+      strcat(icuDataFilePath, ".dat");
+      /* lots_of_mallocs(); */
+      if (uprv_fileExists(icuDataFilePath))
+      {
+          int i;
+          log_verbose("Testing udata_open() on %s\n", icuDataFilePath);
+          for(i=0; i<sizeof(memMap)/sizeof(memMap[0]); i++){
             /* lots_of_mallocs(); */
             status=U_ZERO_ERROR;
             result=udata_open(path, memMap[i][1], memMap[i][0], &status);
@@ -184,14 +174,56 @@ static void TestUDataOpen(){
                 log_verbose("PASS: udata_open worked for path = %s, name=%s, type=%s\n",  path, memMap[i][0], memMap[i][1]);
                 udata_close(result);
             }
-        }
+          }
+      }
+      else
+      {
+          /* lots_of_mallocs(); */
+          log_verbose("Skipping tests of udata_open() on %s.  File not present in this configuration.\n",
+                  icuDataFilePath);
+      }
+      uprv_free(icuDataFilePath);
     }
-    else
+    /* try again, adding /tmp */
     {
-    /* lots_of_mallocs(); */
-         log_verbose("Skipping tests of udata_open() on %s.  File not present in this configuration.\n",
-             icuDataFilePath);
+      strcpy(path, ctest_dataOutDir());
+      strcat(path, "tmp");
+      strcat(path, dirSepString);
+      strcat(path, U_ICUDATA_NAME);
+
+      /* If the ICU system common data file is present in this confiugration,   
+       *   verify that udata_open can explicitly fetch items from it.
+       *   If packaging mode == dll, the file may not exist.  So, if the file is 
+       *   missing, skip this test without error.
+       */
+      icuDataFilePath = (char *)malloc(strlen(path) + 10);
+      strcpy(icuDataFilePath, path);
+      strcat(icuDataFilePath, ".dat");
+      /* lots_of_mallocs(); */
+      if (uprv_fileExists(icuDataFilePath))
+	{
+	  int i;
+	  log_verbose("Testing udata_open() on %s\n", icuDataFilePath);
+	  for(i=0; i<sizeof(memMap)/sizeof(memMap[0]); i++){
+            /* lots_of_mallocs(); */
+            status=U_ZERO_ERROR;
+            result=udata_open(path, memMap[i][1], memMap[i][0], &status);
+            if(U_FAILURE(status)) {
+	      log_data_err("FAIL: udata_open() failed for path = %s, name=%s, type=%s, \n errorcode=%s\n", path, memMap[i][0], memMap[i][1], myErrorName(status));
+            } else {
+	      log_verbose("PASS: udata_open worked for path = %s, name=%s, type=%s\n",  path, memMap[i][0], memMap[i][1]);
+	      udata_close(result);
+            }
+	  }
+	}
+      else
+	{
+	  /* lots_of_mallocs(); */
+	  log_verbose("Skipping tests of udata_open() on %s.  File not present in this configuration.\n",
+		      icuDataFilePath);
+	}
     }
+
     free(icuDataFilePath);
     icuDataFilePath = NULL;
     /* lots_of_mallocs(); */
@@ -210,11 +242,11 @@ static void TestUDataOpen(){
     strcat(icuDataFilePath, "build");
     strcat(icuDataFilePath, dirSepString);
     strcat(icuDataFilePath, U_ICUDATA_NAME);
-    strcat(icuDataFilePath, "_");
+    strcat(icuDataFilePath, dirSepString);
     strcat(icuDataFilePath, "cnvalias.icu");
 
     /* lots_of_mallocs(); */
-    if (stat(icuDataFilePath, &stat_buf) == 0)
+    if (uprv_fileExists(icuDataFilePath))
     {
         int i;
         log_verbose("%s exists, so..\n", icuDataFilePath);
@@ -1096,7 +1128,7 @@ static void TestICUDataName()
     switch(U_CHARSET_FAMILY)
     {
     case U_ASCII_FAMILY:
-          switch(U_IS_BIG_ENDIAN)
+          switch((int)U_IS_BIG_ENDIAN)
           {
           case 1:
                 typeChar = 'b';
@@ -1272,7 +1304,10 @@ static const struct {
 #if !UCONFIG_NO_COLLATION
     /* standalone collation data files */
     {"ucadata",                  "icu", ucol_swap},
+#if 0
+    /* Starting with ICU 53, the "inverse UCA" data is integrated into ucadata.icu. */
     {"invuca",                   "icu", ucol_swapInverseUCA},
+#endif
 #endif
 
 #if !UCONFIG_NO_LEGACY_CONVERSION
@@ -1644,12 +1679,11 @@ TestSwapData() {
     }
     errorCode=U_ZERO_ERROR;
 
-    /* Test argument checking. ucol_swapBinary is normally tested via ures_swap, and isn't normally called directly. */
+    /* Test argument checking. ucol_swap is normally tested via ures_swap, and isn't normally called directly. */
 #if !UCONFIG_NO_COLLATION
-    ucol_swapBinary(NULL, NULL, -1, NULL, NULL);
-    ucol_swapBinary(NULL, NULL, -1, NULL, &errorCode);
+    ucol_swap(NULL, NULL, -1, NULL, &errorCode);
     if (errorCode != U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("ucol_swapBinary did not fail as expected\n", name);
+        log_err("ucol_swap did not fail as expected\n", name);
     }
     errorCode=U_ZERO_ERROR;
 #endif
@@ -1666,11 +1700,13 @@ TestSwapData() {
             pkg=U_ICUDATA_BRKITR;
             nm=swapCases[i].name;
             uprv_strcpy(name, U_ICUDATA_BRKITR);
+#if !UCONFIG_NO_COLLATION
         } else if (uprv_strcmp(swapCases[i].name, "ucadata")==0
             || uprv_strcmp(swapCases[i].name, "invuca")==0) {
             pkg=U_ICUDATA_COLL;
             nm=swapCases[i].name;
             uprv_strcpy(name, U_ICUDATA_COLL);
+#endif  /* !UCONFIG_NO_COLLATION */
         } else {
             pkg=NULL;
             nm=swapCases[i].name;

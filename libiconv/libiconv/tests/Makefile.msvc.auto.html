@@ -1,0 +1,257 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.msvc</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.msvc&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># -*- Makefile -*- for libiconv/tests
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Flags that can be set on the nmake command line:
+</span><span class="enscript-comment">#   DLL=1     for compiling a .dll with a stub .lib (default is a static .lib)
+</span><span class="enscript-comment">#             Note that this works only with MFLAGS=-MD.
+</span><span class="enscript-comment">#   MFLAGS={-ML|-MT|-MD} for defining the compilation model
+</span><span class="enscript-comment">#     MFLAGS=-ML (the default)  Single-threaded, statically linked - libc.lib
+</span><span class="enscript-comment">#     MFLAGS=-MT                Multi-threaded, statically linked  - libcmt.lib
+</span><span class="enscript-comment">#     MFLAGS=-MD                Multi-threaded, dynamically linked - msvcrt.lib
+</span><span class="enscript-comment">#   DEBUG=1   for compiling with debugging information
+</span>!if !defined(DLL)
+DLL=0
+!endif
+!if !defined(DEBUG)
+DEBUG=0
+!endif
+!if !defined(MFLAGS)
+!if !$(<span class="enscript-reference">DLL</span>)
+MFLAGS=
+!else
+MFLAGS=-MD
+!endif
+!endif
+
+!if $(<span class="enscript-reference">DEBUG</span>)
+OPTIMFLAGS = -Od -Z7
+DEBUGFLAGS = -Z7
+!else
+<span class="enscript-comment"># Some people prefer -O2 -G6 instead of -O1, but -O2 is not reliable in MSVC5.
+</span>OPTIMFLAGS = -D_NDEBUG -O1
+DEBUGFLAGS =
+!endif
+
+<span class="enscript-comment"># Directories used by &quot;make&quot;:
+</span>srcdir = .
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>CC = cl
+CFLAGS = $(<span class="enscript-reference">MFLAGS</span>) -W1 $(<span class="enscript-reference">OPTIMFLAGS</span>)
+INCLUDES = -I. -I..\include -I..\srclib -I..\lib
+RM = -del
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+SHELL = /bin/sh
+
+all :
+
+install : all
+
+installdirs :
+
+uninstall :
+
+check : all table-from.exe table-to.exe ../src/iconv.exe uniq-u.exe
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ASCII
+<span class="enscript-comment">#	/* General multi-byte encodings */
+</span>	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">srcdir</span>)\genutf8.c -Fegenutf8.exe
+	$(<span class="enscript-reference">RM</span>) genutf8.obj
+	.\genutf8 &gt; UTF-8.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat . UTF-8
+	$(<span class="enscript-reference">RM</span>) genutf8.exe
+	$(<span class="enscript-reference">RM</span>) UTF-8.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UCS-2BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UCS-2LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UCS-4BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UCS-4LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-16
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-16BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-16LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-32
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-32BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-32LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) UTF-7
+<span class="enscript-comment">#	/* 8-bit encodings */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-2
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-3
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-4
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-5
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-6
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-7
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-9
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-10
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-11
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-13
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-14
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-15
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-8859-16
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) KOI8-R
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) KOI8-U
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) KOI8-RU
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1250
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1251
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1252
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1253
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1254
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1255
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) CP1255
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1256
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1257
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1258
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) CP1258
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP850
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP862
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP866
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacRoman
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacCentralEurope
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacIceland
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacCroatian
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacRomania
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacCyrillic
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacUkraine
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacGreek
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacTurkish
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacHebrew
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacArabic
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MacThai
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) HP-ROMAN8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) NEXTSTEP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ARMSCII-8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) Georgian-Academy
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) Georgian-PS
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) KOI8-T
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) PT154
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) MuleLao-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1133
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) TIS-620
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP874
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) VISCII
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) TCVN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) TCVN
+<span class="enscript-comment">#	/* CJK character sets */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO646-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) JIS_X0201
+<span class="enscript-comment">#	$(srcdir)\check-stateless.bat $(srcdir) JIS_X0208 # redundant, see EUC-JP
+</span><span class="enscript-comment">#	$(srcdir)\check-stateless.bat $(srcdir) JIS_X0212 # redundant, see EUC-JP
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO646-CN
+<span class="enscript-comment">#	$(srcdir)\check-stateless.bat $(srcdir) GB_2312-80 # redundant, see EUC-CN
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) ISO-IR-165
+<span class="enscript-comment">#	$(srcdir)\check-stateless.bat $(srcdir) KSC_5601 # redundant, see EUC-KR
+</span><span class="enscript-comment">#	/* CJK encodings */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) EUC-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) SHIFT_JIS
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP932
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP-2
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) EUC-CN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) GBK
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP936
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">srcdir</span>)\gengb18030z.c -Fegengb18030z.exe
+	$(<span class="enscript-reference">RM</span>) gengb18030z.obj
+	.\gengb18030z &gt; GB18030Z.TXT
+	copy /b $(<span class="enscript-reference">srcdir</span>)\GB18030-BMP.TXT + GB18030Z.TXT GB18030TMP.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030Z.TXT
+	sort &lt; GB18030TMP.TXT &gt; GB18030.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030TMP.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat . GB18030
+	$(<span class="enscript-reference">RM</span>) gengb18030z.exe
+	$(<span class="enscript-reference">RM</span>) GB18030.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-CN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-CN-EXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) HZ
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) EUC-TW
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) BIG5
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP950
+<span class="enscript-comment">#	$(srcdir)\check-stateless.bat $(srcdir) BIG5-HKSCS
+</span><span class="enscript-comment">#	$(srcdir)\check-stateful.bat $(srcdir) BIG5-HKSCS
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) EUC-KR
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP949
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) JOHAB
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful.bat $(<span class="enscript-reference">srcdir</span>) ISO-2022-KR
+<span class="enscript-comment">#	/* DOS encodings */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP437
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP737
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP775
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP852
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP853
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP855
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP857
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP858
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP860
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP861
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP863
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP864
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP865
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP869
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless.bat $(<span class="enscript-reference">srcdir</span>) CP1125
+<span class="enscript-comment">#	/* transliteration */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-translit.bat $(<span class="enscript-reference">srcdir</span>) Quotes UTF-8 ISO-8859-1
+	$(<span class="enscript-reference">srcdir</span>)\check-translit.bat $(<span class="enscript-reference">srcdir</span>) Quotes UTF-8 ASCII
+	$(<span class="enscript-reference">srcdir</span>)\check-translit.bat $(<span class="enscript-reference">srcdir</span>) Translit1 ISO-8859-1 ASCII
+
+table-from.exe : $(<span class="enscript-reference">srcdir</span>)/table-from.c ../lib/iconv.lib
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">srcdir</span>)/table-from.c ../lib/iconv.lib -Fetable-from.exe
+	$(<span class="enscript-reference">RM</span>) table-from.obj
+!if $(<span class="enscript-reference">DLL</span>)
+	copy ..\lib\iconv.dll iconv.dll
+!endif
+
+table-to.exe : $(<span class="enscript-reference">srcdir</span>)/table-to.c ../lib/iconv.lib
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">srcdir</span>)/table-to.c ../lib/iconv.lib -Fetable-to.exe
+	$(<span class="enscript-reference">RM</span>) table-to.obj
+!if $(<span class="enscript-reference">DLL</span>)
+	copy ..\lib\iconv.dll iconv.dll
+!endif
+
+uniq-u.exe : $(<span class="enscript-reference">srcdir</span>)/uniq-u.c
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">srcdir</span>)/uniq-u.c -Feuniq-u.exe
+	$(<span class="enscript-reference">RM</span>) uniq-u.obj
+
+mostlyclean : clean
+
+clean : force
+	$(<span class="enscript-reference">RM</span>) *.obj
+	$(<span class="enscript-reference">RM</span>) *.dll
+	$(<span class="enscript-reference">RM</span>) *.exe
+	$(<span class="enscript-reference">RM</span>) tmp*
+	$(<span class="enscript-reference">RM</span>) UTF-8.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030Z.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030TMP.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030.TXT
+
+distclean : clean
+
+maintainer-clean : distclean
+
+force :
+</pre>
+<hr />
+</body></html>

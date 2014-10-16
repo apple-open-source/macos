@@ -100,6 +100,4 @@ main(int argc, char **argv)
     heim_sipc_service_unix("org.h5l.test-ipc",
 			   test_service, NULL, &u);
     heim_ipc_main();
-
-    return 0;
 }

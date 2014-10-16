@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include <netinet/in.h>
 #include <netinet6/in6_var.h>
 #include <mach/boolean.h>
+#include <CoreFoundation/CFString.h>
 
 #define s6_addr16 __u6_addr.__u6_addr16
 
@@ -67,7 +68,9 @@ inet_set_autoaddr(const char * ifname, int val);
 typedef struct {
     struct in6_addr		addr;
     int				prefix_length;
-    uint16_t			addr_flags; 	/* from SIOCGIFAFLAG_IN6 */
+    int				addr_flags;	/* from SIOCGIFAFLAG_IN6 */
+    u_int32_t			valid_lifetime;	/* from SIOCGALIFETIME_IN6 */
+    u_int32_t			preferred_lifetime;
 } inet6_addrinfo_t;
 
 #define INET6_ADDRLIST_N_STATIC		5
@@ -94,10 +97,13 @@ int
 inet6_difaddr(int s, const char * name, const struct in6_addr * addr);
 
 int
-inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
-	      const struct in6_addr * dstaddr, int prefix_length,
-	      u_int32_t valid_lifetime, u_int32_t preferred_lifetime);
-
+inet6_aifaddr(int s, const char * name,
+	      const struct in6_addr * addr,
+	      const struct in6_addr * dstaddr,
+	      int prefix_length,
+	      int flags,
+	      u_int32_t valid_lifetime, 
+	      u_int32_t preferred_lifetime);
 
 int	inet6_rtadv_enable(const char * if_name);
 int	inet6_rtadv_disable(const char * if_name);
@@ -126,9 +132,16 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index);
 void
 inet6_addrlist_print(const inet6_addrlist_t * addr_list_p);
 
+CFStringRef
+inet6_addrlist_copy_description(const inet6_addrlist_t * addr_list_p);
+
 boolean_t
 inet6_addrlist_contains_address(const inet6_addrlist_t * addr_list_p,
 				const inet6_addrinfo_t * addr);
+
+boolean_t
+inet6_addrlist_in6_addr_is_ready(const inet6_addrlist_t * addr_list_p,
+				 const struct in6_addr * addr);
 
 inet6_addrinfo_t *
 inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p);

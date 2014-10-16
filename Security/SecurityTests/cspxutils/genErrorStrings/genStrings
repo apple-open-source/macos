@@ -1,0 +1,33 @@
+#! /bin/csh -f
+#
+# Generate CSSM_RETURN error string table from specified tla root, place 
+# result in specified header file.
+#
+# This is used to generate the error table in utilLib/cssmErrorStrings.h.
+# Normally this only needs to be run when a new error is added and a test
+# verifies that error using certcrl or the certVerify() function.
+#
+if ( $#argv != 2 ) then
+	echo Usage: genStrings tla_source header_dest
+	echo "The most common usage of this script is like so:"
+	echo "genStrings ../../../ ../utilLib/cssmErrorStrings.h"
+	exit(1)
+endif
+
+set TLA_SRC=$argv[1]
+set DST=$argv[2]
+set CSSM_SRC=$TLA_SRC/libsecurity_cssm/lib
+
+if ( ! -e $CSSM_SRC ) then
+   echo "$CSSM_SRC not found. Try another tla directory."
+   echo "The most common usage of this script is like so:"
+   echo "genStrings ../../../ ../utilLib/cssmErrorStrings.h"
+   exit(1)
+endif
+
+set ERRFILE1=$CSSM_SRC/cssmerr.h
+set ERRFILE2=$CSSM_SRC/cssmapple.h
+
+./genErrorStrings $ERRFILE1 $ERRFILE2 > $DST || exit(1)
+
+echo "=== Error strings generated in $DST. ==="

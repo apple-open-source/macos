@@ -44,8 +44,6 @@ static  char sccsid[] = "@(#)ether_addr.c	1.2 88/05/10 4.0NFSSRC; from 1.9 88/02
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 
-static const char ethers[] = "/etc/ethers";
-
 /*
  * Parses a line from /etc/ethers into its components.  The line has the form
  * 8:0:20:1:17:c8	krypton

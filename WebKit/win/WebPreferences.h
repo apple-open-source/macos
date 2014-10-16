@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -169,11 +169,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCSSRegionsEnabled(
         /* [in] */ BOOL);
     
-    virtual HRESULT STDMETHODCALLTYPE areSeamlessIFramesEnabled(
-        /* [retval][out] */ BOOL* enabled);
-    
-    virtual HRESULT STDMETHODCALLTYPE setSeamlessIFramesEnabled(
-        /* [in] */ BOOL);
+    virtual HRESULT STDMETHODCALLTYPE unused7();
+    virtual HRESULT STDMETHODCALLTYPE unused8();
     
     virtual HRESULT STDMETHODCALLTYPE allowsAnimatedImages( 
         /* [retval][out] */ BOOL* enabled);
@@ -480,6 +477,12 @@ public:
     virtual HRESULT STDMETHODCALLTYPE requestAnimationFrameEnabled(BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setRequestAnimationFrameEnabled(BOOL);
 
+    virtual HRESULT STDMETHODCALLTYPE mockScrollbarsEnabled(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setMockScrollbarsEnabled(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE screenFontSubstitutionEnabled(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setScreenFontSubstitutionEnabled(BOOL);
+
     virtual HRESULT STDMETHODCALLTYPE isInheritURIQueryComponentEnabled(BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setEnableInheritURIQueryComponent(BOOL);
 
@@ -510,16 +513,18 @@ public:
 protected:
     void setValueForKey(CFStringRef key, CFPropertyListRef value);
     RetainPtr<CFPropertyListRef> valueForKey(CFStringRef key);
-    BSTR stringValueForKey(CFStringRef key);
-    int integerValueForKey(CFStringRef key);
-    BOOL boolValueForKey(CFStringRef key);
-    float floatValueForKey(CFStringRef key);
-    LONGLONG longlongValueForKey(CFStringRef key);
-    void setStringValue(CFStringRef key, LPCTSTR value);
-    void setIntegerValue(CFStringRef key, int value);
-    void setBoolValue(CFStringRef key, BOOL value);
-    void setFloatValue(CFStringRef key, float value);
-    void setLongLongValue(CFStringRef key, LONGLONG value);
+    void setValueForKey(const char* key, CFPropertyListRef value);
+    RetainPtr<CFPropertyListRef> valueForKey(const char* key);
+    BSTR stringValueForKey(const char* key);
+    int integerValueForKey(const char* key);
+    BOOL boolValueForKey(const char* key);
+    float floatValueForKey(const char* key);
+    LONGLONG longlongValueForKey(const char* key);
+    void setStringValue(const char* key, BSTR value);
+    void setIntegerValue(const char* key, int value);
+    void setBoolValue(const char* key, BOOL value);
+    void setFloatValue(const char* key, float value);
+    void setLongLongValue(const char* key, LONGLONG value);
     static WebPreferences* getInstanceForIdentifier(BSTR identifier);
     static void initializeDefaultSettings();
     void save();

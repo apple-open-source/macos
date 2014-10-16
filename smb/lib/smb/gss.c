@@ -326,6 +326,7 @@ int
 smb_gss_get_cred_list(struct smb_gss_cred_list **list, gss_OID mech)
 {
 	struct cred_iter_ctx ctx;
+	uint32_t M;
 	
 	ctx.s = dispatch_semaphore_create(0);
 	if (ctx.s == NULL)
@@ -339,9 +340,15 @@ smb_gss_get_cred_list(struct smb_gss_cred_list **list, gss_OID mech)
 	}
 	
 	TAILQ_INIT(ctx.clist);
-	gss_iter_creds_f(NULL, 0, mech, &ctx, cred_iter);
+	M = gss_iter_creds_f(NULL, 0, mech, &ctx, cred_iter);
 	
-	dispatch_semaphore_wait(ctx.s, DISPATCH_TIME_FOREVER);
+	if (M == GSS_S_COMPLETE) {
+		/* Only wait if gss_iter_creds_f did NOT return an error */
+		dispatch_semaphore_wait(ctx.s, DISPATCH_TIME_FOREVER);
+	} else {
+		smb_log_info("%s: gss_iter_creds returned: 0x%x", ASL_LEVEL_DEBUG, __FUNCTION__, M);
+	}
+    
 	dispatch_release(ctx.s);
 	*list = ctx.clist;
 	
@@ -396,8 +403,7 @@ smb_gss_match_cred_entry(struct smb_gss_cred_list_entry *entry, const gss_OID me
 	tofree = principal = strdup(entry->principal);
 	if (tofree == NULL)
 		return (FALSE); //XXX?
-	
-	
+
 #if 0 /* Use mech specific format */
 	if (gss_oid_equal(mech, GSS_KRB5_MECHANISM)) {
 		n = strsep(&principal, "/@");	// Set principal to point to the 
@@ -430,7 +436,7 @@ smb_gss_match_cred_entry(struct smb_gss_cred_list_entry *entry, const gss_OID me
 	} else {
 		match = TRUE;
 	}
-	if (match && domain) {
+	if (match && domain && realm) {
 		match = (strncmp(realm, domain, strlen(domain) + 1) == 0);
 	}
 	

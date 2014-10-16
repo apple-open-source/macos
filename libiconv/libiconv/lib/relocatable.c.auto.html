@@ -1,0 +1,474 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>relocatable.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">relocatable.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Provide relocatable packages.
+   Copyright (C) 2003 Free Software Foundation, Inc.
+   Written by Bruno Haible &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;, 2003.
+
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU Library General Public License as published
+   by the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+   USA.  */</span>
+
+
+<span class="enscript-comment">/* Tell glibc's &lt;stdio.h&gt; to provide a prototype for getline().
+   This must come before &lt;config.h&gt; because &lt;config.h&gt; may include
+   &lt;features.h&gt;, and once &lt;features.h&gt; has been included, it's too late.  */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_GNU_SOURCE</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_GNU_SOURCE</span>	1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Specification.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;relocatable.h&quot;</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE_RELOCATABLE</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">NO_XMALLOC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">xmalloc</span> malloc
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;xalloc.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_WIN32</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__WIN32__</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">WIN32_LEAN_AND_MEAN</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;windows.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBCHARSET</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;libcharset.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBICONV</span> &amp;&amp; <span class="enscript-variable-name">HAVE_ICONV</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;iconv.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBINTL</span> &amp;&amp; <span class="enscript-variable-name">ENABLE_NLS</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;libintl.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Faked cheap 'bool'.  */</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">bool</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">false</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">true</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">bool</span> int
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">false</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">true</span> 1
+
+<span class="enscript-comment">/* Pathname support.
+   ISSLASH(C)           tests whether C is a directory separator character.
+   IS_PATH_WITH_DIR(P)  tests whether P contains a directory specification.
+ */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_WIN32</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__WIN32__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__EMX__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__DJGPP__</span>
+  <span class="enscript-comment">/* Win32, OS/2, DOS */</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">ISSLASH</span>(C) ((C) == <span class="enscript-string">'/'</span> || (C) == <span class="enscript-string">'\\'</span>)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">HAS_DEVICE</span>(P) \
+    ((((P)[0] &gt;= <span class="enscript-string">'A'</span> &amp;&amp; (P)[0] &lt;= <span class="enscript-string">'Z'</span>) || ((P)[0] &gt;= <span class="enscript-string">'a'</span> &amp;&amp; (P)[0] &lt;= <span class="enscript-string">'z'</span>)) \
+     &amp;&amp; (P)[1] == <span class="enscript-string">':'</span>)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">IS_PATH_WITH_DIR</span>(P) \
+    (strchr (P, <span class="enscript-string">'/'</span>) != NULL || strchr (P, <span class="enscript-string">'\\'</span>) != NULL || HAS_DEVICE (P))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">FILESYSTEM_PREFIX_LEN</span>(P) (HAS_DEVICE (P) ? 2 : 0)
+#<span class="enscript-reference">else</span>
+  <span class="enscript-comment">/* Unix */</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">ISSLASH</span>(C) ((C) == <span class="enscript-string">'/'</span>)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">IS_PATH_WITH_DIR</span>(P) (strchr (P, <span class="enscript-string">'/'</span>) != NULL)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">FILESYSTEM_PREFIX_LEN</span>(P) 0
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Original installation prefix.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">char</span> *orig_prefix;
+<span class="enscript-type">static</span> size_t orig_prefix_len;
+<span class="enscript-comment">/* Current installation prefix.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">char</span> *curr_prefix;
+<span class="enscript-type">static</span> size_t curr_prefix_len;
+<span class="enscript-comment">/* These prefixes do not end in a slash.  Anything that will be concatenated
+   to them must start with a slash.  */</span>
+
+<span class="enscript-comment">/* Sets the original and the current installation prefix of this module.
+   Relocation simply replaces a pathname starting with the original prefix
+   by the corresponding pathname with the current prefix instead.  Both
+   prefixes should be directory names without trailing slash (i.e. use &quot;&quot;
+   instead of &quot;/&quot;).  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">void</span>
+<span class="enscript-function-name">set_this_relocation_prefix</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_prefix_arg,
+			    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *curr_prefix_arg)
+{
+  <span class="enscript-keyword">if</span> (orig_prefix_arg != NULL &amp;&amp; curr_prefix_arg != NULL
+      <span class="enscript-comment">/* Optimization: if orig_prefix and curr_prefix are equal, the
+	 relocation is a nop.  */</span>
+      &amp;&amp; strcmp (orig_prefix_arg, curr_prefix_arg) != 0)
+    {
+      <span class="enscript-comment">/* Duplicate the argument strings.  */</span>
+      <span class="enscript-type">char</span> *memory;
+
+      orig_prefix_len = strlen (orig_prefix_arg);
+      curr_prefix_len = strlen (curr_prefix_arg);
+      memory = (<span class="enscript-type">char</span> *) xmalloc (orig_prefix_len + 1 + curr_prefix_len + 1);
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">NO_XMALLOC</span>
+      <span class="enscript-keyword">if</span> (memory != NULL)
+#<span class="enscript-reference">endif</span>
+	{
+	  memcpy (memory, orig_prefix_arg, orig_prefix_len + 1);
+	  orig_prefix = memory;
+	  memory += orig_prefix_len + 1;
+	  memcpy (memory, curr_prefix_arg, curr_prefix_len + 1);
+	  curr_prefix = memory;
+	  <span class="enscript-keyword">return</span>;
+	}
+    }
+  orig_prefix = NULL;
+  curr_prefix = NULL;
+  <span class="enscript-comment">/* Don't worry about wasted memory here - this function is usually only
+     called once.  */</span>
+}
+
+<span class="enscript-comment">/* Sets the original and the current installation prefix of the package.
+   Relocation simply replaces a pathname starting with the original prefix
+   by the corresponding pathname with the current prefix instead.  Both
+   prefixes should be directory names without trailing slash (i.e. use &quot;&quot;
+   instead of &quot;/&quot;).  */</span>
+<span class="enscript-type">void</span>
+<span class="enscript-function-name">set_relocation_prefix</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_prefix_arg, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *curr_prefix_arg)
+{
+  set_this_relocation_prefix (orig_prefix_arg, curr_prefix_arg);
+
+  <span class="enscript-comment">/* Now notify all dependent libraries.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBCHARSET</span>
+  libcharset_set_relocation_prefix (orig_prefix_arg, curr_prefix_arg);
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBICONV</span> &amp;&amp; <span class="enscript-variable-name">HAVE_ICONV</span> &amp;&amp; <span class="enscript-variable-name">_LIBICONV_VERSION</span> &gt;= 0x0109
+  libiconv_set_relocation_prefix (orig_prefix_arg, curr_prefix_arg);
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">DEPENDS_ON_LIBINTL</span> &amp;&amp; <span class="enscript-variable-name">ENABLE_NLS</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">libintl_set_relocation_prefix</span>
+  libintl_set_relocation_prefix (orig_prefix_arg, curr_prefix_arg);
+#<span class="enscript-reference">endif</span>
+}
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">IN_LIBRARY</span> || (<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PIC</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">INSTALLDIR</span>)
+
+<span class="enscript-comment">/* Convenience function:
+   Computes the current installation prefix, based on the original
+   installation prefix, the original installation directory of a particular
+   file, and the current pathname of this file.  Returns NULL upon failure.  */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">IN_LIBRARY</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">compute_curr_prefix</span> local_compute_curr_prefix
+<span class="enscript-type">static</span>
+#<span class="enscript-reference">endif</span>
+<span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">compute_curr_prefix</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_installprefix,
+		     <span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_installdir,
+		     <span class="enscript-type">const</span> <span class="enscript-type">char</span> *curr_pathname)
+{
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *curr_installdir;
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *rel_installdir;
+
+  <span class="enscript-keyword">if</span> (curr_pathname == NULL)
+    <span class="enscript-keyword">return</span> NULL;
+
+  <span class="enscript-comment">/* Determine the relative installation directory, relative to the prefix.
+     This is simply the difference between orig_installprefix and
+     orig_installdir.  */</span>
+  <span class="enscript-keyword">if</span> (strncmp (orig_installprefix, orig_installdir, strlen (orig_installprefix))
+      != 0)
+    <span class="enscript-comment">/* Shouldn't happen - nothing should be installed outside $(prefix).  */</span>
+    <span class="enscript-keyword">return</span> NULL;
+  rel_installdir = orig_installdir + strlen (orig_installprefix);
+
+  <span class="enscript-comment">/* Determine the current installation directory.  */</span>
+  {
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *p_base = curr_pathname + FILESYSTEM_PREFIX_LEN (curr_pathname);
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *p = curr_pathname + strlen (curr_pathname);
+    <span class="enscript-type">char</span> *q;
+
+    <span class="enscript-keyword">while</span> (p &gt; p_base)
+      {
+	p--;
+	<span class="enscript-keyword">if</span> (ISSLASH (*p))
+	  <span class="enscript-keyword">break</span>;
+      }
+
+    q = (<span class="enscript-type">char</span> *) xmalloc (p - curr_pathname + 1);
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">NO_XMALLOC</span>
+    <span class="enscript-keyword">if</span> (q == NULL)
+      <span class="enscript-keyword">return</span> NULL;
+#<span class="enscript-reference">endif</span>
+    memcpy (q, curr_pathname, p - curr_pathname);
+    q[p - curr_pathname] = <span class="enscript-string">'\0'</span>;
+    curr_installdir = q;
+  }
+
+  <span class="enscript-comment">/* Compute the current installation prefix by removing the trailing
+     rel_installdir from it.  */</span>
+  {
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *rp = rel_installdir + strlen (rel_installdir);
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *cp = curr_installdir + strlen (curr_installdir);
+    <span class="enscript-type">const</span> <span class="enscript-type">char</span> *cp_base =
+      curr_installdir + FILESYSTEM_PREFIX_LEN (curr_installdir);
+
+    <span class="enscript-keyword">while</span> (rp &gt; rel_installdir &amp;&amp; cp &gt; cp_base)
+      {
+	bool same = false;
+	<span class="enscript-type">const</span> <span class="enscript-type">char</span> *rpi = rp;
+	<span class="enscript-type">const</span> <span class="enscript-type">char</span> *cpi = cp;
+
+	<span class="enscript-keyword">while</span> (rpi &gt; rel_installdir &amp;&amp; cpi &gt; cp_base)
+	  {
+	    rpi--;
+	    cpi--;
+	    <span class="enscript-keyword">if</span> (ISSLASH (*rpi) || ISSLASH (*cpi))
+	      {
+		<span class="enscript-keyword">if</span> (ISSLASH (*rpi) &amp;&amp; ISSLASH (*cpi))
+		  same = true;
+		<span class="enscript-keyword">break</span>;
+	      }
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_WIN32</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__WIN32__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__EMX__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__DJGPP__</span>
+	    <span class="enscript-comment">/* Win32, OS/2, DOS - case insignificant filesystem */</span>
+	    <span class="enscript-keyword">if</span> ((*rpi &gt;= <span class="enscript-string">'a'</span> &amp;&amp; *rpi &lt;= <span class="enscript-string">'z'</span> ? *rpi - <span class="enscript-string">'a'</span> + <span class="enscript-string">'A'</span> : *rpi)
+		!= (*cpi &gt;= <span class="enscript-string">'a'</span> &amp;&amp; *cpi &lt;= <span class="enscript-string">'z'</span> ? *cpi - <span class="enscript-string">'a'</span> + <span class="enscript-string">'A'</span> : *cpi))
+	      <span class="enscript-keyword">break</span>;
+#<span class="enscript-reference">else</span>
+	    <span class="enscript-keyword">if</span> (*rpi != *cpi)
+	      <span class="enscript-keyword">break</span>;
+#<span class="enscript-reference">endif</span>
+	  }
+	<span class="enscript-keyword">if</span> (!same)
+	  <span class="enscript-keyword">break</span>;
+	<span class="enscript-comment">/* The last pathname component was the same.  opi and cpi now point
+	   to the slash before it.  */</span>
+	rp = rpi;
+	cp = cpi;
+      }
+
+    <span class="enscript-keyword">if</span> (rp &gt; rel_installdir)
+      <span class="enscript-comment">/* Unexpected: The curr_installdir does not end with rel_installdir.  */</span>
+      <span class="enscript-keyword">return</span> NULL;
+
+    {
+      size_t curr_prefix_len = cp - curr_installdir;
+      <span class="enscript-type">char</span> *curr_prefix;
+
+      curr_prefix = (<span class="enscript-type">char</span> *) xmalloc (curr_prefix_len + 1);
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">NO_XMALLOC</span>
+      <span class="enscript-keyword">if</span> (curr_prefix == NULL)
+	<span class="enscript-keyword">return</span> NULL;
+#<span class="enscript-reference">endif</span>
+      memcpy (curr_prefix, curr_installdir, curr_prefix_len);
+      curr_prefix[curr_prefix_len] = <span class="enscript-string">'\0'</span>;
+
+      <span class="enscript-keyword">return</span> curr_prefix;
+    }
+  }
+}
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* !IN_LIBRARY || PIC */</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PIC</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">INSTALLDIR</span>
+
+<span class="enscript-comment">/* Full pathname of shared library, or NULL.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">char</span> *shared_library_fullname;
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_WIN32</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__WIN32__</span>
+
+<span class="enscript-comment">/* Determine the full pathname of the shared library when it is loaded.  */</span>
+
+BOOL WINAPI
+<span class="enscript-function-name">DllMain</span> (HINSTANCE module_handle, DWORD event, LPVOID reserved)
+{
+  (<span class="enscript-type">void</span>) reserved;
+
+  <span class="enscript-keyword">if</span> (event == DLL_PROCESS_ATTACH)
+    {
+      <span class="enscript-comment">/* The DLL is being loaded into an application's address range.  */</span>
+      <span class="enscript-type">static</span> <span class="enscript-type">char</span> location[MAX_PATH];
+
+      <span class="enscript-keyword">if</span> (!GetModuleFileName (module_handle, location, <span class="enscript-keyword">sizeof</span> (location)))
+	<span class="enscript-comment">/* Shouldn't happen.  */</span>
+	<span class="enscript-keyword">return</span> FALSE;
+
+      <span class="enscript-keyword">if</span> (!IS_PATH_WITH_DIR (location))
+	<span class="enscript-comment">/* Shouldn't happen.  */</span>
+	<span class="enscript-keyword">return</span> FALSE;
+
+      shared_library_fullname = strdup (location);
+    }
+
+  <span class="enscript-keyword">return</span> TRUE;
+}
+
+#<span class="enscript-reference">else</span> <span class="enscript-comment">/* Unix */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">void</span>
+<span class="enscript-function-name">find_shared_library_fullname</span> ()
+{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__linux__</span> &amp;&amp; <span class="enscript-variable-name">__GLIBC__</span> &gt;= 2
+  <span class="enscript-comment">/* Linux has /proc/self/maps. glibc 2 has the getline() function.  */</span>
+  FILE *fp;
+
+  <span class="enscript-comment">/* Open the current process' maps file.  It describes one VMA per line.  */</span>
+  fp = fopen (<span class="enscript-string">&quot;/proc/self/maps&quot;</span>, <span class="enscript-string">&quot;r&quot;</span>);
+  <span class="enscript-keyword">if</span> (fp)
+    {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> address = (<span class="enscript-type">unsigned</span> <span class="enscript-type">long</span>) &amp;find_shared_library_fullname;
+      <span class="enscript-keyword">for</span> (;;)
+	{
+	  <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> start, end;
+	  <span class="enscript-type">int</span> c;
+
+	  <span class="enscript-keyword">if</span> (fscanf (fp, <span class="enscript-string">&quot;%lx-%lx&quot;</span>, &amp;start, &amp;end) != 2)
+	    <span class="enscript-keyword">break</span>;
+	  <span class="enscript-keyword">if</span> (address &gt;= start &amp;&amp; address &lt;= end - 1)
+	    {
+	      <span class="enscript-comment">/* Found it.  Now see if this line contains a filename.  */</span>
+	      <span class="enscript-keyword">while</span> (c = getc (fp), c != EOF &amp;&amp; c != <span class="enscript-string">'\n'</span> &amp;&amp; c != <span class="enscript-string">'/'</span>)
+		<span class="enscript-keyword">continue</span>;
+	      <span class="enscript-keyword">if</span> (c == <span class="enscript-string">'/'</span>)
+		{
+		  size_t size;
+		  <span class="enscript-type">int</span> len;
+
+		  ungetc (c, fp);
+		  shared_library_fullname = NULL; size = 0;
+		  len = getline (&amp;shared_library_fullname, &amp;size, fp);
+		  <span class="enscript-keyword">if</span> (len &gt;= 0)
+		    {
+		      <span class="enscript-comment">/* Success: filled shared_library_fullname.  */</span>
+		      <span class="enscript-keyword">if</span> (len &gt; 0 &amp;&amp; shared_library_fullname[len - 1] == <span class="enscript-string">'\n'</span>)
+			shared_library_fullname[len - 1] = <span class="enscript-string">'\0'</span>;
+		    }
+		}
+	      <span class="enscript-keyword">break</span>;
+	    }
+	  <span class="enscript-keyword">while</span> (c = getc (fp), c != EOF &amp;&amp; c != <span class="enscript-string">'\n'</span>)
+	    <span class="enscript-keyword">continue</span>;
+	}
+      fclose (fp);
+    }
+#<span class="enscript-reference">endif</span>
+}
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* WIN32 / Unix */</span>
+
+<span class="enscript-comment">/* Return the full pathname of the current shared library.
+   Return NULL if unknown.
+   Guaranteed to work only on Linux and Woe32.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">get_shared_library_fullname</span> ()
+{
+#<span class="enscript-reference">if</span> !(<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_WIN32</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__WIN32__</span>)
+  <span class="enscript-type">static</span> bool tried_find_shared_library_fullname;
+  <span class="enscript-keyword">if</span> (!tried_find_shared_library_fullname)
+    {
+      find_shared_library_fullname ();
+      tried_find_shared_library_fullname = true;
+    }
+#<span class="enscript-reference">endif</span>
+  <span class="enscript-keyword">return</span> shared_library_fullname;
+}
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* PIC */</span>
+
+<span class="enscript-comment">/* Returns the pathname, relocated according to the current installation
+   directory.  */</span>
+<span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">relocate</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *pathname)
+{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PIC</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">INSTALLDIR</span>
+  <span class="enscript-type">static</span> <span class="enscript-type">int</span> initialized;
+
+  <span class="enscript-comment">/* Initialization code for a shared library.  */</span>
+  <span class="enscript-keyword">if</span> (!initialized)
+    {
+      <span class="enscript-comment">/* At this point, orig_prefix and curr_prefix likely have already been
+	 set through the main program's set_program_name_and_installdir
+	 function.  This is sufficient in the case that the library has
+	 initially been installed in the same orig_prefix.  But we can do
+	 better, to also cover the cases that 1. it has been installed
+	 in a different prefix before being moved to orig_prefix and (later)
+	 to curr_prefix, 2. unlike the program, it has not moved away from
+	 orig_prefix.  */</span>
+      <span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_installprefix = INSTALLPREFIX;
+      <span class="enscript-type">const</span> <span class="enscript-type">char</span> *orig_installdir = INSTALLDIR;
+      <span class="enscript-type">const</span> <span class="enscript-type">char</span> *curr_prefix_better;
+
+      curr_prefix_better =
+	compute_curr_prefix (orig_installprefix, orig_installdir,
+			     get_shared_library_fullname ());
+      <span class="enscript-keyword">if</span> (curr_prefix_better == NULL)
+	curr_prefix_better = curr_prefix;
+
+      set_relocation_prefix (orig_installprefix, curr_prefix_better);
+
+      initialized = 1;
+    }
+#<span class="enscript-reference">endif</span>
+
+  <span class="enscript-comment">/* Note: It is not necessary to perform case insensitive comparison here,
+     even for DOS-like filesystems, because the pathname argument was
+     typically created from the same Makefile variable as orig_prefix came
+     from.  */</span>
+  <span class="enscript-keyword">if</span> (orig_prefix != NULL &amp;&amp; curr_prefix != NULL
+      &amp;&amp; strncmp (pathname, orig_prefix, orig_prefix_len) == 0)
+    {
+      <span class="enscript-keyword">if</span> (pathname[orig_prefix_len] == <span class="enscript-string">'\0'</span>)
+	<span class="enscript-comment">/* pathname equals orig_prefix.  */</span>
+	<span class="enscript-keyword">return</span> curr_prefix;
+      <span class="enscript-keyword">if</span> (ISSLASH (pathname[orig_prefix_len]))
+	{
+	  <span class="enscript-comment">/* pathname starts with orig_prefix.  */</span>
+	  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *pathname_tail = &amp;pathname[orig_prefix_len];
+	  <span class="enscript-type">char</span> *result =
+	    (<span class="enscript-type">char</span> *) xmalloc (curr_prefix_len + strlen (pathname_tail) + 1);
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">NO_XMALLOC</span>
+	  <span class="enscript-keyword">if</span> (result != NULL)
+#<span class="enscript-reference">endif</span>
+	    {
+	      memcpy (result, curr_prefix, curr_prefix_len);
+	      strcpy (result + curr_prefix_len, pathname_tail);
+	      <span class="enscript-keyword">return</span> result;
+	    }
+	}
+    }
+  <span class="enscript-comment">/* Nothing to relocate.  */</span>
+  <span class="enscript-keyword">return</span> pathname;
+}
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

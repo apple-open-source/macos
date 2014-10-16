@@ -12,7 +12,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,21 +32,21 @@
 #define InspectorDatabaseResource_h
 
 #if ENABLE(SQL_DATABASE) && ENABLE(INSPECTOR)
-#include "InspectorFrontend.h"
+#include "InspectorWebFrontendDispatchers.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
 class Database;
-class InspectorFrontend;
 
 class InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 public:
     static PassRefPtr<InspectorDatabaseResource> create(PassRefPtr<Database> database, const String& domain, const String& name, const String& version);
 
-    void bind(InspectorFrontend::Database*);
+    void bind(Inspector::InspectorDatabaseFrontendDispatcher*);
     Database* database() { return m_database.get(); }
     void setDatabase(PassRefPtr<Database> database) { m_database = database; }
     String id() const { return m_id; }

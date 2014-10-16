@@ -1,4 +1,4 @@
-The 'curl' subdirectory is based on ^/curl/vendor/curl-7.30.0
+The 'curl' subdirectory is based on ^/curl/vendor/curl-7.37.1
 
 == Updating ==
 
@@ -11,8 +11,8 @@ Update CURL_SUPPORT_* in xcconfigs/common.xcconfig
 If options change (see below), update CURL_CONFIGURE_OPTIONS in xcconfigs/common.xcconfig
 
 Make sure all files are being compiled.
-curl: CURL_CFILES and CURLX_ONES in curl/src/Makefile.inc 
-libcurl: CSOURCES in curl/lib/Makefile.inc
+curl: CURL_CFILES and CURLX_CFILES in curl/src/Makefile.inc 
+libcurl: LIB_CFILES and LIB_VTLS_CFILES in curl/lib/Makefile.inc
 The Xcode targets list the files in the same order.
 Might be able to process the Makefile.inc files into Xcode file lists at some point.
 

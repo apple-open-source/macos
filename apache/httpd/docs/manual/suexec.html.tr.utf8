@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.2</a></div><div id="page-content"><div id="preamble"><h1>SuEXEC Desteği</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.4</a></div><div id="page-content"><div id="preamble"><h1>SuEXEC Desteği</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="./en/suexec.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/suexec.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -28,7 +28,7 @@
 <a href="./tr/suexec.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 
-    <p><strong>SuEXEC</strong> özelliği, Apache kullanıcılarına
+    <p><strong>SuEXEC</strong> özelliği, Apache HTTP Sunucusu kullanıcılarına
       <strong>CGI</strong> ve <strong>SSI</strong> programlarını sunucunun
       aidiyetinde çalıştığı kullanıcıdan farklı bir kullanıcının aidiyetinde
       çalıştırma olanağı verir. Normalde, <strong>CGI</strong> ve
@@ -58,8 +58,9 @@
 <div class="section">
 <h2><a name="before" id="before">Başlamadan önce</a></h2>
 
-    <p>Belgeye balıklama dalmadan önce, Apache Grubu ve bu belge ile ilgili
-      kabuller hakkında bilgi sahibi olmalısınız.</p>
+    <p>Belgeye balıklama dalmadan önce, suexec'i kullanacağınız ortam ve
+      kendiniz hakkında yapılmış çeşitli kabuller hakkında bilgi sahibi
+      olmalısınız.</p>
 
     <p>Öncelikle, üzerinde <strong>setuid</strong> va <strong>setgid</strong>
       işlemlerinin yapılabildiği Unix türevi bir işletim sistemi
@@ -81,19 +82,20 @@
       yeni güvenlik risklerine yol açabilir. Özellikle güvenlikle ilgili
       programlarda deneyimli değilseniz suEXEC kodunda kesinlikle bir
       değişiklik yapmamalısınız. Değişiklik yaparsanız kodlarınızı gözden
-      geçirmek ve tartışmak üzere Apache Grubu ile paylaşmanızı öneririz.</p>
+      geçirmek ve tartışmak üzere Apache HTTP Sunucusu geliştirme ekibi ile
+      paylaşmanızı öneririz.</p>
 
-    <p>Dördüncü ve son olarak, Apache Grubunun suEXEC’i öntanımlı Apache
-      kurulumunun bir parçası yapmama kararından bahsetmek gerekir. Bunun
-      sonucu olarak, suEXEC yapılandırması sistem yöneticisinin ayrıntılı bir
-      incelemesini gerektirir. Gerekli incelemeden sonra yönetici tarafından
-      suEXEC yapılandırma seçeneklerine karar verilip, normal yollardan
-      sisteme kurulumu yapılır. Bu seçeneklerin belirlenmesi, suEXEC
-      işlevselliğinin kullanımı sırasında sistem güvenliğini gerektiği gibi
-      sağlamak için yönetici tarafından dikkatle saptanmayı gerektirir. Bu
-      sürecin ayrıntılarının yöneticiye bırakılma sebebi, Apache Grubunun
-      suEXEC kurulumunu, suEXEC’i dikkatle kullanacak yeterliliğe sahip
-      olanlarla sınırlama beklentisidir.</p>
+    <p>Dördüncü ve son olarak, Apache HTTP Sunucusu geliştirme ekibinin
+      suEXEC’i öntanımlı httpd kurulumunun bir parçası yapmama kararından
+      bahsetmek gerekir. Bunun sonucu olarak, suEXEC yapılandırması sistem
+      yöneticisinin ayrıntılı bir incelemesini gerektirir. Gerekli incelemeden
+      sonra yönetici tarafından suEXEC yapılandırma seçeneklerine karar
+      verilip, normal yollardan sisteme kurulumu yapılır. Bu seçeneklerin
+      belirlenmesi, suEXEC işlevselliğinin kullanımı sırasında sistem
+      güvenliğini gerektiği gibi sağlamak için yönetici tarafından dikkatle
+      saptanmayı gerektirir. Bu sürecin ayrıntılarının yöneticiye bırakılma
+      sebebi, suEXEC kurulumunu, suEXEC’i dikkatle kullanacak yeterliliğe sahip
+      olanlarla sınırlama  beklentimizdir.</p>
 
     <p>Hala bizimle misiniz? Evet mi? Pekala, o halde devam!</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -110,7 +112,7 @@
       Bu program, bir CGI veya SSI betiğine bir HTTP isteği yapıldığı zaman,
       bu betiği, yöneticinin ana sunucunun aidiyetinde çalıştığı kullanıcıdan
       farklı olarak seçtiği bir kullanıcının aidiyetinde çalıştırmak için
-      çağrılır. Böyle bir istek geldiğinde, Apache artalandaki setuid
+      çağrılır. Böyle bir istek geldiğinde, Apache httpd artalandaki setuid
       programına, HTTP isteği yapılan programın ismiyle beraber aidiyetinde
       çalışacağı kullanıcı ve grup kimliklerini de aktarır.</p>
 
@@ -133,11 +135,11 @@
         <strong>Setuid program yeterli sayıda argümanla çağrılmış mı?
         </strong>
 
-        <p class="indent">Apache’nin artalanda çağırdığı setuid program
-          ancak yeterli sayıda argüman sağlandığı takdirde çalışacaktır.
-          Argümanların sayısını ve sırasını Apache HTTP sunucusu bilir. Eğer
-          setuid program yeterli sayıda argümanla çağrılmamışsa ya
-          kendisinde bir değişiklik yapılmıştır ya da kurulu Apache
+        <p class="indent">Apache HTTP Sunucusunun artalanda çağırdığı
+          setuid program ancak yeterli sayıda argüman sağlandığı takdirde
+          çalışacaktır. Argümanların sayısını ve sırasını Apache HTTP sunucusu
+          bilir. Eğer setuid program yeterli sayıda argümanla çağrılmamışsa
+          ya kendisinde bir değişiklik yapılmıştır ya da kurulu Apache httpd
           çalıştırılabilirinin suEXEC ile ilgili kısmında yanlış giden bir
           şeyler vardır.</p>
       </li>
@@ -195,7 +197,7 @@
         <strong>Hedef grup <code>root</code>  değil, değil mi?</strong>
 
         <p class="indent"><code>root</code> grubunun CGI/SSI
-          programlarını çalıştırmasına izin verilmez.</p>
+          programlarını çalıştırmasına izin verilmemektedir.</p>
       </li>
 
       <li>
@@ -330,8 +332,8 @@
 
       <dt><code>--with-suexec-caller=<em>KULLANICI</em></code></dt>
 
-      <dd>Normalde Apache’nin aidiyetinde çalıştığı <a href="mod/mpm_common.html#user">kullanıcı</a>dır. Bu, bu programı
-        çalıştırmasına izin verilen tek kullanıcıdır.</dd>
+      <dd>Normalde httpd’nin aidiyetinde çalıştığı <a href="mod/mpm_common.html#user">kullanıcı</a>dır. Bu, suEXEC
+        çalıştırıcısını çalıştırmasına izin verilen tek kullanıcıdır.</dd>
 
       <dt><code>--with-suexec-userdir=<em>DİZİN</em></code></dt>
 
@@ -353,7 +355,7 @@
 
       <dt><code>--with-suexec-docroot=<em>DİZİN</em></code></dt>
 
-      <dd>Apache için belge kök dizinini belirler. Bu, (<code class="directive"><a href="./mod/mod_userdir.html#userdir">UserDir</a></code>’lardan başka) suEXEC için
+      <dd>httpd için belge kök dizinini belirler. Bu, (<code class="directive"><a href="./mod/mod_userdir.html#userdir">UserDir</a></code>’lardan başka) suEXEC için
         kullanılacak tek hiyerarşi olacaktır. Öntanımlı dizin sonuna
         "<code>/htdocs</code>" eklenmiş <code>--datadir</code> dizinidir.
         Yani, seçeneği "<code>--datadir=/home/apache</code>" olarak
@@ -391,7 +393,7 @@
       
 
       <p>SuEXEC özelliğini <code>--enable-suexec</code> seçeneği ile
-        etkinleştirdiyseniz <code>make</code> komutunu verdiğinizde Apache
+        etkinleştirdiyseniz <code>make</code> komutunu verdiğinizde httpd
         ile birlikte <code>suexec</code> çalıştırılabilir dosyası da
         derlenecektir.</p>
 
@@ -418,16 +420,15 @@
         olup olmadığına bakacaksa da, bu sınamanın da bir sistem veya
         kütüphane çağrısı ile istismar edilmiş olma ihtimali gözardı
         edilmemelidir. Bunun meydana gelmesini önlemek için ve genelde
-        yapıldığı gibi dosyanın izinlerini suEXEC çalıştırıcısı sadece Apache
-        sunucusunun aidiyetinde çalıştığı kullanıcı tarafından çalıştırılacak
+        yapıldığı gibi dosyanın izinlerini suEXEC çalıştırıcısı sadece
+        httpd'nin aidiyetinde çalıştığı grup tarafından çalıştırılacak
         şekilde ayarlayınız.</p>
 
       <p>Örneğin, sunucunuz şöyle yapılandırılmışsa:</p>
 
-      <div class="example"><p><code>
-          User apache<br />
-          Group apache-grup<br />
-      </code></p></div>
+      <pre class="prettyprint lang-config">User www
+Group webgroup</pre>
+
 
       <p>Ve <code class="program"><a href="./programs/suexec.html">suexec</a></code> çalıştırılabilir de
         <code>/usr/local/apache2/bin/</code> dizinine kurulmuşsa şu komutları
@@ -438,7 +439,7 @@
           chmod 4750 /usr/local/apache2/bin/suexec<br />
       </code></p></div>
 
-      <p>Böylece suEXEC çalıştırıcısını Apache’yi çalıştıran grubun
+      <p>Böylece suEXEC çalıştırıcısını httpd’yi çalıştıran grubun
         üyelerinden başkasının çalıştıramayacağından emin olabilirsiniz.</p>
     
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -446,11 +447,10 @@
 <h2><a name="enable" id="enable">suEXEC’in etkin kılınması ve iptal edilmesi</a></h2>
     
 
-    <p>Apache başlatıldığı sırada <code class="program"><a href="./programs/suexec.html">suexec</a></code> çalıştırıcısı
-      için <code>--sbindir</code> seçeneği ile tanımlanan dizine bakar
-      (seçeneğin öntanımlı değeri
-      <code>/usr/local/apache/sbin/suexec</code>’tir). Apache düzgün
-      yapılandırılmış bir suEXEC çalıştırıcısı bulduğu takdirde hata
+    <p>httpd başlatıldığı sırada <code class="program"><a href="./programs/suexec.html">suexec</a></code> çalıştırıcısı için
+      <code>--sbindir</code> seçeneği ile tanımlanan dizine bakar (seçeneğin
+      öntanımlı değeri <code>/usr/local/apache/sbin/suexec</code>’tir). httpd
+      düzgün yapılandırılmış bir suEXEC çalıştırıcısı bulduğu takdirde hata
       günlüğüne şöyle bir ileti yazacaktır:</p>
 
 <div class="example"><p><code>
@@ -467,8 +467,7 @@
       sağlamak yeterli olmayacaktır.</p>
 
      <p>SuEXEC mekanizmasını iptal etmek için ise <code class="program"><a href="./programs/suexec.html">suexec</a></code>
-      dosyasını sildikten sonra Apache sunucusunu öldürüp yeniden
-      başlamalısınız.</p>
+      dosyasını sildikten sonra httpd'yi öldürüp yeniden başlamalısınız.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="usage" id="usage">SuEXEC’in kullanımı</a></h2>
@@ -510,7 +509,7 @@
     
 
     <p><strong>UYARI!</strong> Bu bölüm henüz bitmedi. Bu bölümün son hali
-      için <a href="http://httpd.apache.org/docs/2.2/suexec.html">çevrimiçi
+      için <a href="http://httpd.apache.org/docs/2.4/suexec.html">çevrimiçi
       belgelere</a> bakınız.</p>
 
     <p>SuEXEC çalıştırıcısından dolayı sunucu ayarlarına bazı sınırlamalar
@@ -558,7 +557,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/suexec.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/suexec.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -573,7 +572,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/suexec.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

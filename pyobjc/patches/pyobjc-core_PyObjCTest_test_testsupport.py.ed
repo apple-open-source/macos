@@ -1,0 +1,6 @@
+/os_rel = tuple(map(int, os_release()\.split('\.')))/s//os_rel = os_release()/
+/TestSupport\._os_release = '10\.10'/s/'10\.10'/(10, 10)/
+/self\.assertEqual(os_release(), '10\.10')/s/'10\.10'/(10, 10)/
+/'\.'\.join(platform\.mac_ver()\[0]\.split('\.')\[:2])/s//tuple(map(int, platform.mac_ver()[0].split('.')[:2]))/
+/TestSupport\.os_release = lambda: '10\.5'/s/'10\.5'/(10, 5)/
+w

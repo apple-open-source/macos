@@ -40,22 +40,46 @@ __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t mess
 
 __private_extern__ void BatteryTimeRemainingRTCDidResync(void);
 
-__private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **battery_info);
+/*!
+ * Pass kInternalBattery to kernelPowerSourcesDidChange when you need 
+ * PM to re-evaluate the single internal battery (modeled as an IOPMPowerSource)
+ * inside your device.
+ */
+#define kInternalBattery      NULL
+__private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *battery_info);
 
 __private_extern__ bool BatteryHandleDeadName(mach_port_t deadName);
 
 __private_extern__ void BatterySetNoPoll(bool noPoll);
 
-/* switchActiveBatterySet
- An argument of kBatteryShowFake indicates the system should respect fake, software controlled batteries only.
- An argument of kBatteryShowReal indicates the system should use only real, physical batteries.
- */
-enum {
-    kBatteryShowFake = 0xF,
-    kBatteryShowReal = 0xB
-};
-__private_extern__ void switchActiveBatterySet(int which);
+__private_extern__ bool isFullyCharged(IOPMBattery *b);
 
-bool isFullyCharged(IOPMBattery *b);
+
+/* getActivePSType
+ * returns one of AC, Internal Battery, or External Battery
+ */
+__private_extern__ int getActivePSType(void);
+__private_extern__ CFDictionaryRef getActiveBatteryDictionary(void);
+__private_extern__ CFDictionaryRef getActiveUPSDictionary(void);
+
+
+#ifndef kIOPSFailureKey
+#define kIOPSFailureKey                         "Failure"
+#endif
+
+#define kBatteryPermFailureString               "Permanent Battery Failure"
+
+#ifndef kIOPMBatteryPercentageFactors
+#define kIOPMBatteryPercentageFactors           CFSTR("IOPMBatteryPercentageFactors")
+#endif
+
+#ifndef kIOPSDynamicStorePowerAdapterKey
+#define kIOPSDynamicStorePowerAdapterKey        "/IOKit/PowerAdapter"
+#endif
+
+#ifndef kIOPSDynamicStoreLowBattPathKey
+#define kIOPSDynamicStoreLowBattPathKey         "/IOKit/LowBatteryWarning"
+#endif
+
 
 #endif //_BatteryTimeRemaining_h_

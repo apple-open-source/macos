@@ -25,7 +25,7 @@
 
 #ifndef SVGSMILElement_h
 #define SVGSMILElement_h
-#if ENABLE(SVG)
+
 #include "SMILTime.h"
 #include "SVGElement.h"
 
@@ -39,22 +39,20 @@ class SMILTimeContainer;
 // This class implements SMIL interval timing model as needed for SVG animation.
 class SVGSMILElement : public SVGElement {
 public:
-    SVGSMILElement(const QualifiedName&, Document*);
+    SVGSMILElement(const QualifiedName&, Document&);
     virtual ~SVGSMILElement();
 
-    static bool isSMILElement(Node*);
-
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
-    virtual void svgAttributeChanged(const QualifiedName&) OVERRIDE;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
-    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    virtual void svgAttributeChanged(const QualifiedName&) override;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    virtual void removedFrom(ContainerNode&) override;
     
     virtual bool hasValidAttributeType() = 0;
     virtual bool hasValidAttributeName();
     virtual void animationAttributeChanged() = 0;
 
-    SMILTimeContainer* timeContainer() const { return m_timeContainer.get(); }
+    SMILTimeContainer* timeContainer() { return m_timeContainer.get(); }
 
     SVGElement* targetElement() const { return m_targetElement; }
     const QualifiedName& attributeName() const { return m_attributeName; }
@@ -116,6 +114,8 @@ protected:
 
     void setInactive() { m_activeState = Inactive; }
 
+    virtual bool rendererIsNeeded(const RenderStyle&) override { return false; }
+
     // Sub-classes may need to take action when the target is changed.
     virtual void setTargetElement(SVGElement*);
     virtual void setAttributeName(const QualifiedName&);
@@ -123,17 +123,16 @@ protected:
     virtual void didNotifySubtreeInsertions(ContainerNode*) override;
 
 private:
-    void buildPendingResource();
+    void buildPendingResource() override;
     void clearResourceReferences();
+
+    virtual void clearTarget() override;
 
     virtual void startedActiveInterval() = 0;
     void endedActiveInterval();
     virtual void updateAnimation(float percent, unsigned repeat, SVGSMILElement* resultElement) = 0;
 
-    enum BeginOrEnd {
-        Begin,
-        End
-    };
+    enum BeginOrEnd { Begin, End };
     
     SMILTime findInstanceTime(BeginOrEnd, SMILTime minimumTime, bool equalsMinimumOK) const;
     void resolveFirstInterval();
@@ -197,7 +196,9 @@ private:
     float calculateAnimationPercentAndRepeat(SMILTime elapsed, unsigned& repeat) const;
     SMILTime calculateNextProgressTime(SMILTime elapsed) const;
 
-    mutable SVGElement* m_targetElement;
+    virtual bool isSMILElement() const override final { return true; }
+
+    SVGElement* m_targetElement;
 
     Vector<Condition> m_conditions;
     bool m_conditionsConnected;
@@ -236,7 +237,13 @@ private:
     friend class ConditionEventListener;
 };
 
+void isSVGSMILElement(const SVGSMILElement&); // Catch unnecessary runtime check of type known at compile time.
+inline bool isSVGSMILElement(const SVGElement& element) { return element.isSMILElement(); }
+inline bool isSVGSMILElement(const Node& node) { return node.isSVGElement() && toSVGElement(node).isSMILElement(); }
+template <> inline bool isElementOfType<const SVGSMILElement>(const Element& element) { return isSVGSMILElement(element); }
+
+NODE_TYPE_CASTS(SVGSMILElement)
+
 }
 
-#endif // ENABLE(SVG)
 #endif // SVGSMILElement_h

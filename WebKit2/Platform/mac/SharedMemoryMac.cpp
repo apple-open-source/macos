@@ -46,8 +46,7 @@ SharedMemory::Handle::Handle()
 
 SharedMemory::Handle::~Handle()
 {
-    if (m_port)
-        mach_port_deallocate(mach_task_self(), m_port);
+    clear();
 }
 
 bool SharedMemory::Handle::isNull() const
@@ -55,14 +54,23 @@ bool SharedMemory::Handle::isNull() const
     return !m_port;
 }
 
-void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SharedMemory::Handle::clear()
+{
+    if (m_port)
+        mach_port_deallocate(mach_task_self(), m_port);
+
+    m_port = MACH_PORT_NULL;
+    m_size = 0;
+}
+
+void SharedMemory::Handle::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << static_cast<uint64_t>(m_size);
-    encoder << CoreIPC::MachPort(m_port, MACH_MSG_TYPE_MOVE_SEND);
+    encoder << IPC::MachPort(m_port, MACH_MSG_TYPE_MOVE_SEND);
     m_port = MACH_PORT_NULL;
 }
 
-bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
+bool SharedMemory::Handle::decode(IPC::ArgumentDecoder& decoder, Handle& handle)
 {
     ASSERT(!handle.m_port);
     ASSERT(!handle.m_size);
@@ -71,7 +79,7 @@ bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& han
     if (!decoder.decode(size))
         return false;
 
-    CoreIPC::MachPort machPort;
+    IPC::MachPort machPort;
     if (!decoder.decode(machPort))
         return false;
     
@@ -125,8 +133,9 @@ PassRefPtr<SharedMemory> SharedMemory::createFromVMBuffer(void* data, size_t siz
         return 0;
     }
 
-    ASSERT(memoryObjectSize >= round_page(size));
     if (memoryObjectSize < round_page(size)) {
+        // There is a limit on how large a shared memory object can be (see <rdar://problem/16595870>).
+        LOG_ERROR("Failed to create a mach port for shared memory of size %lu (got %llu bytes).", round_page(size), memoryObjectSize);
         mach_port_deallocate(mach_task_self(), port);
         return 0;
     }

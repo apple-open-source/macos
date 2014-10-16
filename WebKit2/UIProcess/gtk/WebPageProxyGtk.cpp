@@ -35,12 +35,17 @@
 #include "WebProcessProxy.h"
 #include <WebCore/UserAgentGtk.h>
 #include <gtk/gtkx.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
 
+void WebPageProxy::platformInitialize()
+{
+}
+
 GtkWidget* WebPageProxy::viewWidget()
 {
-    return static_cast<PageClientImpl*>(m_pageClient)->viewWidget();
+    return static_cast<PageClientImpl&>(m_pageClient).viewWidget();
 }
 
 String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent)
@@ -50,7 +55,10 @@ String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent
 
 void WebPageProxy::getEditorCommandsForKeyEvent(const AtomicString& eventType, Vector<WTF::String>& commandsList)
 {
-    m_pageClient->getEditorCommandsForKeyEvent(m_keyEventQueue.first(), eventType, commandsList);
+    // When the keyboard event is started in the WebProcess side (e.g. from the Inspector)
+    // it will arrive without a GdkEvent associated, so the keyEventQueue will be empty.
+    if (!m_keyEventQueue.isEmpty())
+        m_pageClient.getEditorCommandsForKeyEvent(m_keyEventQueue.first(), eventType, commandsList);
 }
 
 void WebPageProxy::bindAccessibilityTree(const String& plugID)
@@ -68,10 +76,11 @@ void WebPageProxy::loadRecentSearches(const String&, Vector<String>&)
     notImplemented();
 }
 
+#if PLUGIN_ARCHITECTURE(X11)
 typedef HashMap<uint64_t, GtkWidget* > PluginWindowMap;
 static PluginWindowMap& pluginWindowMap()
 {
-    DEFINE_STATIC_LOCAL(PluginWindowMap, map, ());
+    static NeverDestroyed<PluginWindowMap> map;
     return map;
 }
 
@@ -87,7 +96,6 @@ void WebPageProxy::createPluginContainer(uint64_t& windowID)
     GtkWidget* socket = gtk_socket_new();
     g_signal_connect(socket, "plug-removed", G_CALLBACK(pluginContainerPlugRemoved), 0);
     gtk_container_add(GTK_CONTAINER(viewWidget()), socket);
-    gtk_widget_show(socket);
 
     windowID = static_cast<uint64_t>(gtk_socket_get_id(GTK_SOCKET(socket)));
     pluginWindowMap().set(windowID, socket);
@@ -109,6 +117,19 @@ void WebPageProxy::windowedPluginGeometryDidChange(const WebCore::IntRect& frame
     webkitWebViewBaseChildMoveResize(WEBKIT_WEB_VIEW_BASE(viewWidget()), plugin, frameRect);
 }
 
+void WebPageProxy::windowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID)
+{
+    GtkWidget* plugin = pluginWindowMap().get(windowID);
+    if (!plugin)
+        return;
+
+    if (isVisible)
+        gtk_widget_show(plugin);
+    else
+        gtk_widget_hide(plugin);
+}
+#endif // PLUGIN_ARCHITECTURE(X11)
+
 void WebPageProxy::setInputMethodState(bool enabled)
 {
     webkitWebViewBaseSetInputMethodState(WEBKIT_WEB_VIEW_BASE(viewWidget()), enabled);
@@ -117,7 +138,7 @@ void WebPageProxy::setInputMethodState(bool enabled)
 #if USE(TEXTURE_MAPPER_GL)
 void WebPageProxy::setAcceleratedCompositingWindowId(uint64_t nativeWindowId)
 {
-    process()->send(Messages::WebPage::SetAcceleratedCompositingWindowId(nativeWindowId), m_pageID);
+    process().send(Messages::WebPage::SetAcceleratedCompositingWindowId(nativeWindowId), m_pageID);
 }
 #endif
 

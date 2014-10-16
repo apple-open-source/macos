@@ -26,26 +26,27 @@
 #ifndef ewk_page_group_private_h
 #define ewk_page_group_private_h
 
+#include "EflTypedefs.h"
 #include "ewk_object_private.h"
-#include <Evas.h>
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKRetainPtr.h>
-#include <WebKit2/WKURL.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKRetainPtr.h>
+#include <WebKit/WKURL.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-class EwkView;
+class EwkSettings;
 
 class EwkPageGroup : public EwkObject {
 public:
     EWK_OBJECT_DECLARE(EwkPageGroup)
 
     static PassRefPtr<EwkPageGroup> findOrCreateWrapper(WKPageGroupRef pageGroupRef);
-    static PassRefPtr<EwkPageGroup> create(const String& identifier = String());
+    static PassRefPtr<EwkPageGroup> create(const char*);
 
     ~EwkPageGroup();
 
     WKPageGroupRef wkPageGroup() const { return m_pageGroupRef.get(); }
+    EwkSettings* settings() const { return m_settings.get(); }
 
     void addUserStyleSheet(const String& source, const String& baseURL, Eina_List* whitelist, Eina_List* blacklist, bool mainFrameOnly);
     void removeAllUserStyleSheets();
@@ -53,9 +54,8 @@ public:
 private:
     explicit EwkPageGroup(WKPageGroupRef pageGroupRef);    
 
-    static const char defaultIdentifier[];
-
     WKRetainPtr<WKPageGroupRef> m_pageGroupRef;
+    std::unique_ptr<EwkSettings> m_settings;
 };
 
 #endif // ewk_page_group_private_h

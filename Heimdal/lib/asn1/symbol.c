@@ -83,6 +83,8 @@ addsym(char *name)
 	s->gen_name = estrdup(name);
 	output_name(s->gen_name);
 	s->stype = SUndefined;
+	s->flags.used = 0;
+	s->flags.external = 0;
 	hashtabadd(htab, s);
     }
     return s;
@@ -96,11 +98,22 @@ checkfunc(void *ptr, void *arg)
 	lex_error_message("%s is still undefined\n", s->name);
 	*(int *) arg = 1;
     }
+
+    if (!s->flags.used) {
+	if (s->flags.external) {
+	    lex_error_message("external symbol %s is no used\n", s->name);
+	    *(int *) arg = 1;
+	} else if (s->stype == Stype && !is_export(s->name)) {
+	    lex_error_message("%s is still unused (not referenced internally or exported)\n", s->name);
+	    *(int *) arg = 1;
+	}
+    }
+
     return 0;
 }
 
 int
-checkundefined(void)
+checksymbols(void)
 {
     int f = 0;
     hashtabforeach(htab, checkfunc, &f);

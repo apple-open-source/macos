@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#define CORE_PRIVATE
-
 #include "mod_cache.h"
+
+#include "cache_storage.h"
+#include "cache_util.h"
+
+APLOG_USE_MODULE(cache);
 
 extern APR_OPTIONAL_FN_TYPE(ap_cache_generate_key) *cache_generate_key;
 
@@ -28,7 +31,7 @@ extern module AP_MODULE_DECLARE_DATA cache_module;
  * delete all URL entities from the cache
  *
  */
-int cache_remove_url(cache_request_rec *cache, apr_pool_t *p)
+int cache_remove_url(cache_request_rec *cache, request_rec *r)
 {
     cache_provider_list *list;
     cache_handle_t *h;
@@ -43,12 +46,12 @@ int cache_remove_url(cache_request_rec *cache, apr_pool_t *p)
     if (!h) {
        return OK;
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL,
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00691)
                  "cache: Removing url %s from the cache", h->cache_obj->key);
 
     /* for each specified cache type, delete the URL */
     while(list) {
-        list->provider->remove_url(h, p);
+        list->provider->remove_url(h, r);
         list = list->next;
     }
     return OK;
@@ -66,24 +69,32 @@ int cache_remove_url(cache_request_rec *cache, apr_pool_t *p)
  * decide whether or not it wants to cache this particular entity.
  * If the size is unknown, a size of -1 should be set.
  */
-int cache_create_entity(request_rec *r, apr_off_t size)
+int cache_create_entity(cache_request_rec *cache, request_rec *r,
+                        apr_off_t size, apr_bucket_brigade *in)
 {
     cache_provider_list *list;
     cache_handle_t *h = apr_pcalloc(r->pool, sizeof(cache_handle_t));
-    char *key;
     apr_status_t rv;
-    cache_request_rec *cache = (cache_request_rec *)
-                         ap_get_module_config(r->request_config, &cache_module);
 
-    rv = cache_generate_key(r, r->pool, &key);
-    if (rv != APR_SUCCESS) {
-        return rv;
+    if (!cache) {
+        /* This should never happen */
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL, r, APLOGNO(00692)
+                "cache: No cache request information available for key"
+                " generation");
+        return APR_EGENERAL;
+    }
+
+    if (!cache->key) {
+        rv = cache_generate_key(r, r->pool, &cache->key);
+        if (rv != APR_SUCCESS) {
+            return rv;
+        }
     }
 
     list = cache->providers;
     /* for each specified cache type, delete the URL */
     while (list) {
-        switch (rv = list->provider->create_entity(h, r, key, size)) {
+        switch (rv = list->provider->create_entity(h, r, cache->key, size, in)) {
         case OK: {
             cache->handle = h;
             cache->provider = list->provider;
@@ -102,22 +113,69 @@ int cache_create_entity(request_rec *r, apr_off_t size)
     return DECLINED;
 }
 
-static int set_cookie_doo_doo(void *v, const char *key, const char *val)
+static int filter_header_do(void *v, const char *key, const char *val)
+{
+    if ((*key == 'W' || *key == 'w') && !strcasecmp(key, "Warning")
+            && *val == '1') {
+        /* any stored Warning headers with warn-code 1xx (see section
+         * 14.46) MUST be deleted from the cache entry and the forwarded
+         * response.
+         */
+    }
+    else {
+        apr_table_addn(v, key, val);
+    }
+    return 1;
+}
+static int remove_header_do(void *v, const char *key, const char *val)
+{
+    if ((*key == 'W' || *key == 'w') && !strcasecmp(key, "Warning")) {
+        /* any stored Warning headers with warn-code 2xx MUST be retained
+         * in the cache entry and the forwarded response.
+         */
+    }
+    else {
+        apr_table_unset(v, key);
+    }
+    return 1;
+}
+static int add_header_do(void *v, const char *key, const char *val)
 {
     apr_table_addn(v, key, val);
     return 1;
 }
 
-CACHE_DECLARE(void) ap_cache_accept_headers(cache_handle_t *h, request_rec *r,
-                                            int preserve_orig)
+/**
+ * Take two sets of headers, sandwich them together, and apply the result to
+ * r->headers_out.
+ *
+ * To complicate this, a header may be duplicated in either table. Should a
+ * header exist in the top table, all matching headers will be removed from
+ * the bottom table before the headers are combined. The Warning headers are
+ * handled specially. Warnings are added rather than being replaced, while
+ * in the case of revalidation 1xx Warnings are stripped.
+ *
+ * The Content-Type and Last-Modified headers are then re-parsed and inserted
+ * into the request.
+ */
+void cache_accept_headers(cache_handle_t *h, request_rec *r, apr_table_t *top,
+        apr_table_t *bottom, int revalidation)
 {
-    apr_table_t *cookie_table, *hdr_copy;
     const char *v;
 
-    v = apr_table_get(h->resp_hdrs, "Content-Type");
+    if (revalidation) {
+        r->headers_out = apr_table_make(r->pool, 10);
+        apr_table_do(filter_header_do, r->headers_out, bottom, NULL);
+    }
+    else if (r->headers_out != bottom) {
+        r->headers_out = apr_table_copy(r->pool, bottom);
+    }
+    apr_table_do(remove_header_do, r->headers_out, top, NULL);
+    apr_table_do(add_header_do, r->headers_out, top, NULL);
+
+    v = apr_table_get(r->headers_out, "Content-Type");
     if (v) {
         ap_set_content_type(r, v);
-        apr_table_unset(h->resp_hdrs, "Content-Type");
         /*
          * Also unset possible Content-Type headers in r->headers_out and
          * r->err_headers_out as they may be different to what we have received
@@ -134,39 +192,12 @@ CACHE_DECLARE(void) ap_cache_accept_headers(cache_handle_t *h, request_rec *r,
     /* If the cache gave us a Last-Modified header, we can't just
      * pass it on blindly because of restrictions on future values.
      */
-    v = apr_table_get(h->resp_hdrs, "Last-Modified");
+    v = apr_table_get(r->headers_out, "Last-Modified");
     if (v) {
         ap_update_mtime(r, apr_date_parse_http(v));
         ap_set_last_modified(r);
-        apr_table_unset(h->resp_hdrs, "Last-Modified");
     }
 
-    /* The HTTP specification says that it is legal to merge duplicate
-     * headers into one.  Some browsers that support Cookies don't like
-     * merged headers and prefer that each Set-Cookie header is sent
-     * separately.  Lets humour those browsers by not merging.
-     * Oh what a pain it is.
-     */
-    cookie_table = apr_table_make(r->pool, 2);
-    apr_table_do(set_cookie_doo_doo, cookie_table, r->err_headers_out,
-                 "Set-Cookie", NULL);
-    apr_table_do(set_cookie_doo_doo, cookie_table, h->resp_hdrs,
-                 "Set-Cookie", NULL);
-    apr_table_unset(r->err_headers_out, "Set-Cookie");
-    apr_table_unset(h->resp_hdrs, "Set-Cookie");
-
-    if (preserve_orig) {
-        hdr_copy = apr_table_copy(r->pool, h->resp_hdrs);
-        apr_table_overlap(hdr_copy, r->headers_out, APR_OVERLAP_TABLES_SET);
-        r->headers_out = hdr_copy;
-    }
-    else {
-        apr_table_overlap(r->headers_out, h->resp_hdrs, APR_OVERLAP_TABLES_SET);
-    }
-    if (!apr_is_empty_table(cookie_table)) {
-        r->err_headers_out = apr_table_overlay(r->pool, r->err_headers_out,
-                                               cookie_table);
-    }
 }
 
 /*
@@ -180,22 +211,32 @@ CACHE_DECLARE(void) ap_cache_accept_headers(cache_handle_t *h, request_rec *r,
  * This function returns OK if successful, DECLINED if no
  * cached entity fits the bill.
  */
-int cache_select(request_rec *r)
+int cache_select(cache_request_rec *cache, request_rec *r)
 {
     cache_provider_list *list;
     apr_status_t rv;
     cache_handle_t *h;
-    char *key;
-    cache_request_rec *cache = (cache_request_rec *)
-                         ap_get_module_config(r->request_config, &cache_module);
 
-    rv = cache_generate_key(r, r->pool, &key);
-    if (rv != APR_SUCCESS) {
-        return rv;
+    if (!cache) {
+        /* This should never happen */
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL, r, APLOGNO(00693)
+                "cache: No cache request information available for key"
+                " generation");
+        return DECLINED;
     }
 
-    if (!ap_cache_check_allowed(r)) {
+    /* if no-cache, we can't serve from the cache, but we may store to the
+     * cache.
+     */
+    if (!ap_cache_check_no_cache(cache, r)) {
         return DECLINED;
+    }
+
+    if (!cache->key) {
+        rv = cache_generate_key(r, r->pool, &cache->key);
+        if (rv != APR_SUCCESS) {
+            return DECLINED;
+        }
     }
 
     /* go through the cache types till we get a match */
@@ -204,14 +245,16 @@ int cache_select(request_rec *r)
     list = cache->providers;
 
     while (list) {
-        switch ((rv = list->provider->open_entity(h, r, key))) {
+        switch ((rv = list->provider->open_entity(h, r, cache->key))) {
         case OK: {
             char *vary = NULL;
-            int fresh;
+            int mismatch = 0;
+            char *last = NULL;
 
             if (list->provider->recall_headers(h, r) != APR_SUCCESS) {
-                /* TODO: Handle this error */
-                return DECLINED;
+                /* try again with next cache type */
+                list = list->next;
+                continue;
             }
 
             /*
@@ -232,25 +275,19 @@ int cache_select(request_rec *r)
              *
              * RFC2616 13.6 and 14.44 describe the Vary mechanism.
              */
-            vary = apr_pstrdup(r->pool, apr_table_get(h->resp_hdrs, "Vary"));
-            while (vary && *vary) {
-                char *name = vary;
+            vary = cache_strqtok(
+                    apr_pstrdup(r->pool,
+                            cache_table_getm(r->pool, h->resp_hdrs, "Vary")),
+                    CACHE_SEPARATOR, &last);
+            while (vary) {
                 const char *h1, *h2;
-
-                /* isolate header name */
-                while (*vary && !apr_isspace(*vary) && (*vary != ','))
-                    ++vary;
-                while (*vary && (apr_isspace(*vary) || (*vary == ','))) {
-                    *vary = '\0';
-                    ++vary;
-                }
 
                 /*
                  * is this header in the request and the header in the cached
                  * request identical? If not, we give up and do a straight get
                  */
-                h1 = apr_table_get(r->headers_in, name);
-                h2 = apr_table_get(h->req_hdrs, name);
+                h1 = cache_table_getm(r->pool, r->headers_in, vary);
+                h2 = cache_table_getm(r->pool, h->req_hdrs, vary);
                 if (h1 == h2) {
                     /* both headers NULL, so a match - do nothing */
                 }
@@ -259,83 +296,109 @@ int cache_select(request_rec *r)
                 }
                 else {
                     /* headers do not match, so Vary failed */
-                    ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS,
-                                r->server,
-                                "cache_select_url(): Vary header mismatch.");
-                    return DECLINED;
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS,
+                            r, APLOGNO(00694) "cache_select(): Vary header mismatch.");
+                    mismatch = 1;
+                    break;
                 }
+                vary = cache_strqtok(NULL, CACHE_SEPARATOR, &last);
+            }
+
+            /* no vary match, try next provider */
+            if (mismatch) {
+                /* try again with next cache type */
+                list = list->next;
+                continue;
             }
 
             cache->provider = list->provider;
             cache->provider_name = list->provider_name;
 
+            /*
+             * RFC2616 13.3.4 Rules for When to Use Entity Tags and Last-Modified
+             * Dates: An HTTP/1.1 caching proxy, upon receiving a conditional request
+             * that includes both a Last-Modified date and one or more entity tags as
+             * cache validators, MUST NOT return a locally cached response to the
+             * client unless that cached response is consistent with all of the
+             * conditional header fields in the request.
+             */
+            if (ap_condition_if_match(r, h->resp_hdrs) == AP_CONDITION_NOMATCH
+                    || ap_condition_if_unmodified_since(r, h->resp_hdrs)
+                            == AP_CONDITION_NOMATCH
+                    || ap_condition_if_none_match(r, h->resp_hdrs)
+                            == AP_CONDITION_NOMATCH
+                    || ap_condition_if_modified_since(r, h->resp_hdrs)
+                            == AP_CONDITION_NOMATCH
+                    || ap_condition_if_range(r, h->resp_hdrs) == AP_CONDITION_NOMATCH) {
+                mismatch = 1;
+            }
+
             /* Is our cached response fresh enough? */
-            fresh = ap_cache_check_freshness(h, r);
-            if (!fresh) {
+            if (mismatch || !cache_check_freshness(h, cache, r)) {
                 const char *etag, *lastmod;
 
-                ap_log_error(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r->server,
-                  "Cached response for %s isn't fresh.  Adding/replacing "
-                  "conditional request headers.", r->uri);
+                /* Cache-Control: only-if-cached and revalidation required, try
+                 * the next provider
+                 */
+                if (cache->control_in.only_if_cached) {
+                    /* try again with next cache type */
+                    list = list->next;
+                    continue;
+                }
 
-                /* Make response into a conditional */
+                /* set aside the stale entry for accessing later */
                 cache->stale_headers = apr_table_copy(r->pool,
-                                                      r->headers_in);
+                        r->headers_in);
+                cache->stale_handle = h;
 
-                /* We can only revalidate with our own conditionals: remove the
-                 * conditions from the original request.
-                 */
-                apr_table_unset(r->headers_in, "If-Match");
-                apr_table_unset(r->headers_in, "If-Modified-Since");
-                apr_table_unset(r->headers_in, "If-None-Match");
-                apr_table_unset(r->headers_in, "If-Range");
-                apr_table_unset(r->headers_in, "If-Unmodified-Since");
+                /* if no existing conditionals, use conditionals of our own */
+                if (!mismatch) {
 
-                /*
-                 * Do not do Range requests with our own conditionals: If
-                 * we get 304 the Range does not matter and otherwise the
-                 * entity changed and we want to have the complete entity
-                 */
-                apr_table_unset(r->headers_in, "Range");
+                    ap_log_rerror(
+                            APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r, APLOGNO(00695) "Cached response for %s isn't fresh. Adding "
+                            "conditional request headers.", r->uri);
 
-                etag = apr_table_get(h->resp_hdrs, "ETag");
-                lastmod = apr_table_get(h->resp_hdrs, "Last-Modified");
+                    /* Remove existing conditionals that might conflict with ours */
+                    apr_table_unset(r->headers_in, "If-Match");
+                    apr_table_unset(r->headers_in, "If-Modified-Since");
+                    apr_table_unset(r->headers_in, "If-None-Match");
+                    apr_table_unset(r->headers_in, "If-Range");
+                    apr_table_unset(r->headers_in, "If-Unmodified-Since");
 
-                if (etag || lastmod) {
-                    /* If we have a cached etag and/or Last-Modified add in
-                     * our own conditionals.
-                     */
+                    etag = apr_table_get(h->resp_hdrs, "ETag");
+                    lastmod = apr_table_get(h->resp_hdrs, "Last-Modified");
 
-                    if (etag) {
-                        apr_table_set(r->headers_in, "If-None-Match", etag);
+                    if (etag || lastmod) {
+                        /* If we have a cached etag and/or Last-Modified add in
+                         * our own conditionals.
+                         */
+
+                        if (etag) {
+                            apr_table_set(r->headers_in, "If-None-Match", etag);
+                        }
+
+                        if (lastmod) {
+                            apr_table_set(r->headers_in, "If-Modified-Since",
+                                    lastmod);
+                        }
+
+                        /*
+                         * Do not do Range requests with our own conditionals: If
+                         * we get 304 the Range does not matter and otherwise the
+                         * entity changed and we want to have the complete entity
+                         */
+                        apr_table_unset(r->headers_in, "Range");
+
                     }
 
-                    if (lastmod) {
-                        apr_table_set(r->headers_in, "If-Modified-Since",
-                                      lastmod);
-                    }
-                    cache->stale_handle = h;
-                }
-                else {
-                    int irv;
-
-                    /*
-                     * The copy isn't fresh enough, but we cannot revalidate.
-                     * So it is the same case as if there had not been a cached
-                     * entry at all. Thus delete the entry from cache.
-                     */
-                    irv = cache->provider->remove_url(h, r->pool);
-                    if (irv != OK) {
-                        ap_log_error(APLOG_MARK, APLOG_DEBUG, irv, r->server,
-                                     "cache: attempt to remove url from cache unsuccessful.");
-                    }
                 }
 
+                /* ready to revalidate, pretend we were never here */
                 return DECLINED;
             }
 
             /* Okay, this response looks okay.  Merge in our stuff and go. */
-            ap_cache_accept_headers(h, r, 0);
+            cache_accept_headers(h, r, h->resp_hdrs, r->headers_out, 0);
 
             cache->handle = h;
             return OK;
@@ -351,35 +414,32 @@ int cache_select(request_rec *r)
         }
         }
     }
+
+    /* if Cache-Control: only-if-cached, and not cached, return 504 */
+    if (cache->control_in.only_if_cached) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r, APLOGNO(00696)
+                "cache: 'only-if-cached' requested and no cached entity, "
+                "returning 504 Gateway Timeout for: %s", r->uri);
+        return HTTP_GATEWAY_TIME_OUT;
+    }
+
     return DECLINED;
 }
 
-apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
-                                        char**key)
+static apr_status_t cache_canonicalise_key(request_rec *r, apr_pool_t* p,
+        const char *uri, apr_uri_t *parsed_uri, const char **key)
 {
     cache_server_conf *conf;
-    cache_request_rec *cache;
     char *port_str, *hn, *lcs;
     const char *hostname, *scheme;
     int i;
-    char *path, *querystring;
+    const char *path;
+    char *querystring;
 
-    cache = (cache_request_rec *) ap_get_module_config(r->request_config,
-                                                       &cache_module);
-    if (!cache) {
-        /* This should never happen */
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
-                     "cache: No cache request information available for key"
-                     " generation");
-        *key = "";
-        return APR_EGENERAL;
-    }
-    if (cache->key) {
+    if (*key) {
         /*
          * We have been here before during the processing of this request.
-         * So return the key we already have.
          */
-        *key = apr_pstrdup(p, cache->key);
         return APR_SUCCESS;
     }
 
@@ -388,7 +448,7 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
      * option below.
      */
     conf = (cache_server_conf *) ap_get_module_config(r->server->module_config,
-                                                      &cache_module);
+            &cache_module);
 
     /*
      * Use the canonical name to improve cache hit rate, but only if this is
@@ -409,15 +469,20 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
      * in the reverse proxy case.
      */
     if (!r->proxyreq || (r->proxyreq == PROXYREQ_REVERSE)) {
-        /* Use _default_ as the hostname if none present, as in mod_vhost */
-        hostname =  ap_get_server_name(r);
-        if (!hostname) {
-            hostname = "_default_";
+        if (conf->base_uri && conf->base_uri->hostname) {
+            hostname = conf->base_uri->hostname;
+        }
+        else {
+            /* Use _default_ as the hostname if none present, as in mod_vhost */
+            hostname = ap_get_server_name(r);
+            if (!hostname) {
+                hostname = "_default_";
+            }
         }
     }
-    else if(r->parsed_uri.hostname) {
+    else if (parsed_uri->hostname) {
         /* Copy the parsed uri hostname */
-        hn = apr_pstrdup(p, r->parsed_uri.hostname);
+        hn = apr_pstrdup(p, parsed_uri->hostname);
         ap_str_tolower(hn);
         /* const work-around */
         hostname = hn;
@@ -436,15 +501,20 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
      * "no proxy request" and "reverse proxy request" are handled in the same
      * manner (see above why this is needed).
      */
-    if (r->proxyreq && r->parsed_uri.scheme) {
+    if (r->proxyreq && parsed_uri->scheme) {
         /* Copy the scheme and lower-case it */
-        lcs = apr_pstrdup(p, r->parsed_uri.scheme);
+        lcs = apr_pstrdup(p, parsed_uri->scheme);
         ap_str_tolower(lcs);
         /* const work-around */
         scheme = lcs;
     }
     else {
-        scheme = ap_http_scheme(r);
+        if (conf->base_uri && conf->base_uri->scheme) {
+            scheme = conf->base_uri->scheme;
+        }
+        else {
+            scheme = ap_http_scheme(r);
+        }
     }
 
     /*
@@ -455,12 +525,12 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
      * scheme - if available. Otherwise use the port-number of the current
      * server.
      */
-    if(r->proxyreq && (r->proxyreq != PROXYREQ_REVERSE)) {
-        if (r->parsed_uri.port_str) {
-            port_str = apr_pcalloc(p, strlen(r->parsed_uri.port_str) + 2);
+    if (r->proxyreq && (r->proxyreq != PROXYREQ_REVERSE)) {
+        if (parsed_uri->port_str) {
+            port_str = apr_pcalloc(p, strlen(parsed_uri->port_str) + 2);
             port_str[0] = ':';
-            for (i = 0; r->parsed_uri.port_str[i]; i++) {
-                port_str[i + 1] = apr_tolower(r->parsed_uri.port_str[i]);
+            for (i = 0; parsed_uri->port_str[i]; i++) {
+                port_str[i + 1] = apr_tolower(parsed_uri->port_str[i]);
             }
         }
         else if (apr_uri_port_of_scheme(scheme)) {
@@ -476,69 +546,110 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
         }
     }
     else {
-        /* Use the server port */
-        port_str = apr_psprintf(p, ":%u", ap_get_server_port(r));
+        if (conf->base_uri && conf->base_uri->port_str) {
+            port_str = conf->base_uri->port_str;
+        }
+        else if (conf->base_uri && conf->base_uri->hostname) {
+            port_str = "";
+        }
+        else {
+            /* Use the server port */
+            port_str = apr_psprintf(p, ":%u", ap_get_server_port(r));
+        }
     }
 
     /*
      * Check if we need to ignore session identifiers in the URL and do so
      * if needed.
      */
-    path = r->uri;
-    querystring = r->parsed_uri.query;
+    path = uri;
+    querystring = parsed_uri->query;
     if (conf->ignore_session_id->nelts) {
         int i;
         char **identifier;
 
-        identifier = (char **)conf->ignore_session_id->elts;
+        identifier = (char **) conf->ignore_session_id->elts;
         for (i = 0; i < conf->ignore_session_id->nelts; i++, identifier++) {
             int len;
-            char *param;
+            const char *param;
 
             len = strlen(*identifier);
             /*
              * Check that we have a parameter separator in the last segment
              * of the path and that the parameter matches our identifier
              */
-            if ((param = strrchr(path, ';'))
-                && !strncmp(param + 1, *identifier, len)
-                && (*(param + len + 1) == '=')
-                && !strchr(param + len + 2, '/')) {
-                path = apr_pstrndup(p, path, param - path);
-                break;
+            if ((param = ap_strrchr_c(path, ';'))
+                    && !strncmp(param + 1, *identifier, len)
+                    && (*(param + len + 1) == '=')
+                    && !ap_strchr_c(param + len + 2, '/')) {
+                path = apr_pstrmemdup(p, path, param - path);
+                continue;
             }
             /*
              * Check if the identifier is in the querystring and cut it out.
              */
-            if (querystring
-                && (param = strstr(querystring, *identifier))
-                && (*(param + len) == '=')
-                ) {
-                char *amp;
-
-                if (querystring != param) {
-                    querystring = apr_pstrndup(p, querystring,
-                                               param - querystring);
+            if (querystring) {
+                /*
+                 * First check if the identifier is at the beginning of the
+                 * querystring and followed by a '='
+                 */
+                if (!strncmp(querystring, *identifier, len)
+                        && (*(querystring + len) == '=')) {
+                    param = querystring;
                 }
                 else {
-                    querystring = "";
+                    char *complete;
+
+                    /*
+                     * In order to avoid subkey matching (PR 48401) prepend
+                     * identifier with a '&' and append a '='
+                     */
+                    complete = apr_pstrcat(p, "&", *identifier, "=", NULL);
+                    param = strstr(querystring, complete);
+                    /* If we found something we are sitting on the '&' */
+                    if (param) {
+                        param++;
+                    }
                 }
-                if ((amp = strchr(param + len + 1, '&'))) {
-                    querystring = apr_pstrcat(p, querystring, amp + 1, NULL);
+                if (param) {
+                    const char *amp;
+
+                    if (querystring != param) {
+                        querystring = apr_pstrndup(p, querystring,
+                                param - querystring);
+                    }
+                    else {
+                        querystring = "";
+                    }
+
+                    if ((amp = ap_strchr_c(param + len + 1, '&'))) {
+                        querystring = apr_pstrcat(p, querystring, amp + 1,
+                                NULL);
+                    }
+                    else {
+                        /*
+                         * If querystring is not "", then we have the case
+                         * that the identifier parameter we removed was the
+                         * last one in the original querystring. Hence we have
+                         * a trailing '&' which needs to be removed.
+                         */
+                        if (*querystring) {
+                            querystring[strlen(querystring) - 1] = '\0';
+                        }
+                    }
                 }
-                break;
             }
         }
     }
 
     /* Key format is a URI, optionally without the query-string */
     if (conf->ignorequerystring) {
-        *key = apr_pstrcat(p, scheme, "://", hostname, port_str,
-                           path, "?", NULL);
+        *key = apr_pstrcat(p, scheme, "://", hostname, port_str, path, "?",
+                NULL);
     }
     else {
-        *key = apr_pstrcat(p, scheme, "://", hostname, port_str,
-                           path, "?", querystring, NULL);
+        *key = apr_pstrcat(p, scheme, "://", hostname, port_str, path, "?",
+                querystring, NULL);
     }
 
     /*
@@ -549,10 +660,121 @@ apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
      * resource in the cache under a key where it is never found by the quick
      * handler during following requests.
      */
-    cache->key = apr_pstrdup(r->pool, *key);
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL,
-                 "cache: Key for entity %s?%s is %s", r->uri,
-                 r->parsed_uri.query, *key);
+    ap_log_rerror(
+            APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r, APLOGNO(00698) "cache: Key for entity %s?%s is %s", uri, parsed_uri->query, *key);
 
     return APR_SUCCESS;
+}
+
+apr_status_t cache_generate_key_default(request_rec *r, apr_pool_t* p,
+        const char **key)
+{
+    return cache_canonicalise_key(r, p, r->uri, &r->parsed_uri, key);
+}
+
+/*
+ * Invalidate a specific URL entity in all caches
+ *
+ * All cached entities for this URL are removed, usually in
+ * response to a POST/PUT or DELETE.
+ *
+ * This function returns OK if at least one entity was found and
+ * removed, and DECLINED if no cached entities were removed.
+ */
+int cache_invalidate(cache_request_rec *cache, request_rec *r)
+{
+    cache_provider_list *list;
+    apr_status_t rv, status = DECLINED;
+    cache_handle_t *h;
+    apr_uri_t location_uri;
+    apr_uri_t content_location_uri;
+
+    const char *location, *location_key = NULL;
+    const char *content_location, *content_location_key = NULL;
+
+    if (!cache) {
+        /* This should never happen */
+        ap_log_rerror(
+                APLOG_MARK, APLOG_ERR, APR_EGENERAL, r, APLOGNO(00697) "cache: No cache request information available for key"
+                " generation");
+        return DECLINED;
+    }
+
+    if (!cache->key) {
+        rv = cache_generate_key(r, r->pool, &cache->key);
+        if (rv != APR_SUCCESS) {
+            return DECLINED;
+        }
+    }
+
+    location = apr_table_get(r->headers_out, "Location");
+    if (location) {
+        if (APR_SUCCESS != apr_uri_parse(r->pool, location, &location_uri)
+                || APR_SUCCESS
+                        != cache_canonicalise_key(r, r->pool, location,
+                                &location_uri, &location_key)
+                || !(r->parsed_uri.hostname && location_uri.hostname
+                        && !strcmp(r->parsed_uri.hostname,
+                                location_uri.hostname))) {
+            location_key = NULL;
+        }
+    }
+
+    content_location = apr_table_get(r->headers_out, "Content-Location");
+    if (content_location) {
+        if (APR_SUCCESS
+                != apr_uri_parse(r->pool, content_location,
+                        &content_location_uri)
+                || APR_SUCCESS
+                        != cache_canonicalise_key(r, r->pool, content_location,
+                                &content_location_uri, &content_location_key)
+                || !(r->parsed_uri.hostname && content_location_uri.hostname
+                        && !strcmp(r->parsed_uri.hostname,
+                                content_location_uri.hostname))) {
+            content_location_key = NULL;
+        }
+    }
+
+    /* go through the cache types */
+    h = apr_palloc(r->pool, sizeof(cache_handle_t));
+
+    list = cache->providers;
+
+    while (list) {
+
+        /* invalidate the request uri */
+        rv = list->provider->open_entity(h, r, cache->key);
+        if (OK == rv) {
+            rv = list->provider->invalidate_entity(h, r);
+            status = OK;
+        }
+        ap_log_rerror(
+                APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(02468) "cache: Attempted to invalidate cached entity with key: %s", cache->key);
+
+        /* invalidate the Location */
+        if (location_key) {
+            rv = list->provider->open_entity(h, r, location_key);
+            if (OK == rv) {
+                rv = list->provider->invalidate_entity(h, r);
+                status = OK;
+            }
+            ap_log_rerror(
+                    APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(02469) "cache: Attempted to invalidate cached entity with key: %s", location_key);
+        }
+
+        /* invalidate the Content-Location */
+        if (content_location_key) {
+            rv = list->provider->open_entity(h, r, content_location_key);
+            if (OK == rv) {
+                rv = list->provider->invalidate_entity(h, r);
+                status = OK;
+            }
+            ap_log_rerror(
+                    APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(02470) "cache: Attempted to invalidate cached entity with key: %s", content_location_key);
+        }
+
+        list = list->next;
+    }
+
+    return status;
 }

@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -51,10 +51,6 @@ class SimpleFontData;
 typedef cairo_glyph_t GlyphBufferGlyph;
 #elif USE(WINGDI)
 typedef wchar_t GlyphBufferGlyph;
-#elif PLATFORM(QT)
-typedef quint32 GlyphBufferGlyph;
-#elif PLATFORM(BLACKBERRY)
-typedef unsigned GlyphBufferGlyph;
 #else
 typedef Glyph GlyphBufferGlyph;
 #endif
@@ -73,19 +69,6 @@ public:
     CGFloat width() const { return this->CGSize::width; }
     CGFloat height() const { return this->CGSize::height; }
 };
-#elif PLATFORM(QT)
-struct GlyphBufferAdvance : public QPointF {
-public:
-    GlyphBufferAdvance() : QPointF() { }
-    GlyphBufferAdvance(const QPointF& advance)
-        : QPointF(advance)
-    {
-    }
-
-    void setWidth(qreal width) { QPointF::setX(width); }
-    qreal width() const { return QPointF::x(); }
-    qreal height() const { return QPointF::y(); }
-};
 #else
 typedef FloatSize GlyphBufferAdvance;
 #endif
@@ -100,6 +83,8 @@ public:
         m_fontData.clear();
         m_glyphs.clear();
         m_advances.clear();
+        if (m_offsetsInString)
+            m_offsetsInString->clear();
 #if PLATFORM(WIN)
         m_offsets.clear();
 #endif
@@ -138,8 +123,9 @@ public:
         return FloatSize();
 #endif
     }
-
-    void add(Glyph glyph, const SimpleFontData* font, float width, const FloatSize* offset = 0)
+    
+    static const int kNoOffset = -1;
+    void add(Glyph glyph, const SimpleFontData* font, float width, int offsetInString = kNoOffset, const FloatSize* offset = 0)
     {
         m_fontData.append(font);
 
@@ -154,8 +140,6 @@ public:
 #if USE(CG)
         CGSize advance = { width, 0 };
         m_advances.append(advance);
-#elif PLATFORM(QT)
-        m_advances.append(QPointF(width, 0));
 #else
         m_advances.append(FloatSize(width, 0));
 #endif
@@ -168,10 +152,13 @@ public:
 #else
         UNUSED_PARAM(offset);
 #endif
+        
+        if (offsetInString != kNoOffset && m_offsetsInString)
+            m_offsetsInString->append(offsetInString);
     }
     
 #if !USE(WINGDI)
-    void add(Glyph glyph, const SimpleFontData* font, GlyphBufferAdvance advance)
+    void add(Glyph glyph, const SimpleFontData* font, GlyphBufferAdvance advance, int offsetInString = kNoOffset)
     {
         m_fontData.append(font);
 #if USE(CAIRO)
@@ -183,6 +170,9 @@ public:
 #endif
 
         m_advances.append(advance);
+        
+        if (offsetInString != kNoOffset && m_offsetsInString)
+            m_offsetsInString->append(offsetInString);
     }
 #endif
 
@@ -197,6 +187,17 @@ public:
         ASSERT(!isEmpty());
         GlyphBufferAdvance& lastAdvance = m_advances.last();
         lastAdvance.setWidth(lastAdvance.width() + width);
+    }
+    
+    void saveOffsetsInString()
+    {
+        m_offsetsInString.reset(new Vector<int, 2048>());
+    }
+    
+    int offsetInString(int index) const
+    {
+        ASSERT(m_offsetsInString);
+        return (*m_offsetsInString)[index];
     }
 
 private:
@@ -225,6 +226,7 @@ private:
     Vector<GlyphBufferGlyph, 2048> m_glyphs;
     Vector<GlyphBufferAdvance, 2048> m_advances;
     GlyphBufferAdvance m_initialAdvance;
+    std::unique_ptr<Vector<int, 2048>> m_offsetsInString;
 #if PLATFORM(WIN)
     Vector<FloatSize, 2048> m_offsets;
 #endif

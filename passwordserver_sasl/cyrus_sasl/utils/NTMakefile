@@ -1,13 +1,14 @@
 !INCLUDE ..\win32\common.mak
 
-sasl_apps=saslpasswd2.exe sasldblistusers2.exe testsuite.exe
-sasl_out=saslpasswd2.pdb sasldblistusers2.pdb testsuite.pdb
+sasl_apps=saslpasswd2.exe sasldblistusers2.exe testsuite.exe pluginviewer.exe
+sasl_out=saslpasswd2.pdb sasldblistusers2.pdb testsuite.pdb pluginviewer.pdb
 
 saslpwd_objs = saslpasswd.obj
 sasldblistusers_objs = sasldblistusers.obj
 testsuite_objs = testsuite.obj
+pluginviewer_objs = pluginviewer.obj
 
-all_objs = $(saslpwd_objs) $(sasldblistusers_objs) $(testsuite_objs)
+all_objs = $(saslpwd_objs) $(sasldblistusers_objs) $(testsuite_objs) $(pluginviewer_objs)
 all_out = $(sasl_apps) $(sasl_out)
 
 DB_FLAGS = /I $(DB_INCLUDE) /I "..\sasldb"
@@ -46,20 +47,29 @@ all-recursive : $(sasl_apps)
 saslpasswd2.exe: $(saslpwd_objs)
 	$(LINK32EXE) @<< $(LINK32EXE_FLAGS) /pdb:"saslpasswd2.pdb" /out:"saslpasswd2.exe" $(saslpwd_objs)
 <<
+	IF EXIST $@.manifest mt -manifest $@.manifest -outputresource:$@;1
 
 sasldblistusers2.exe: $(sasldblistusers_objs)
 	$(LINK32EXE) @<< $(LINK32EXE_FLAGS) $(SASL_DB_LIB) /pdb:"sasldblistusers2.pdb" /out:"sasldblistusers2.exe" $(sasldblistusers_objs)
 <<
+	IF EXIST $@.manifest mt -manifest $@.manifest -outputresource:$@;1
 
 testsuite.exe: $(testsuite_objs)
-	$(LINK32EXE) @<< $(LINK32EXE_FLAGS) $(SASL_DB_LIB) /pdb:"testsuite.pdb" /out:"testsuite.exe" $(testsuite_objs)
+	$(LINK32EXE) @<< $(LINK32EXE_FLAGS) /pdb:"testsuite.pdb" /out:"testsuite.exe" $(testsuite_objs)
 <<
+	IF EXIST $@.manifest mt -manifest $@.manifest -outputresource:$@;1
+
+pluginviewer.exe: $(pluginviewer_objs)
+	$(LINK32EXE) @<< $(LINK32EXE_FLAGS) /pdb:"pluginviewer.pdb" /out:"pluginviewer.exe" $(pluginviewer_objs)
+<<
+	IF EXIST $@.manifest mt -manifest $@.manifest -outputresource:$@;1
 
 CLEAN :
 	-@erase $(all_objs)
 	-@erase "*.idb"
 	-@erase "*.pch"
 	-@erase "*.pdb"
+	-@erase "*.manifest"
 	-@erase $(all_out)
 
 .c.obj::

@@ -1,5 +1,5 @@
 #
-# "$Id: cancel-current-job.test 11433 2013-11-20 18:57:44Z msweet $"
+# "$Id: cancel-current-job.test 11468 2013-12-18 20:31:42Z msweet $"
 #
 #   Cancel the currently printing job.
 #
@@ -61,5 +61,5 @@
 
 
 #
-# End of "$Id: cancel-current-job.test 11433 2013-11-20 18:57:44Z msweet $".
+# End of "$Id: cancel-current-job.test 11468 2013-12-18 20:31:42Z msweet $".
 #

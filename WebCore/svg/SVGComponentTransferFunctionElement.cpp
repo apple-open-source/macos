@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#if ENABLE(SVG) && ENABLE(FILTERS)
+#if ENABLE(FILTERS)
 #include "SVGComponentTransferFunctionElement.h"
 
 #include "Attribute.h"
@@ -28,6 +28,7 @@
 #include "SVGFEComponentTransferElement.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -50,7 +51,7 @@ BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGComponentTransferFunctionElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(offset)
 END_REGISTER_ANIMATED_PROPERTIES
 
-SVGComponentTransferFunctionElement::SVGComponentTransferFunctionElement(const QualifiedName& tagName, Document* document)
+SVGComponentTransferFunctionElement::SVGComponentTransferFunctionElement(const QualifiedName& tagName, Document& document)
     : SVGElement(tagName, document)
     , m_type(FECOMPONENTTRANSFER_TYPE_IDENTITY)
     , m_slope(1)
@@ -62,17 +63,17 @@ SVGComponentTransferFunctionElement::SVGComponentTransferFunctionElement(const Q
 
 bool SVGComponentTransferFunctionElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
-    if (supportedAttributes.isEmpty()) {
-        supportedAttributes.add(SVGNames::typeAttr);
-        supportedAttributes.add(SVGNames::tableValuesAttr);
-        supportedAttributes.add(SVGNames::slopeAttr);
-        supportedAttributes.add(SVGNames::interceptAttr);
-        supportedAttributes.add(SVGNames::amplitudeAttr);
-        supportedAttributes.add(SVGNames::exponentAttr);
-        supportedAttributes.add(SVGNames::offsetAttr);
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
+        supportedAttributes.get().add(SVGNames::typeAttr);
+        supportedAttributes.get().add(SVGNames::tableValuesAttr);
+        supportedAttributes.get().add(SVGNames::slopeAttr);
+        supportedAttributes.get().add(SVGNames::interceptAttr);
+        supportedAttributes.get().add(SVGNames::amplitudeAttr);
+        supportedAttributes.get().add(SVGNames::exponentAttr);
+        supportedAttributes.get().add(SVGNames::offsetAttr);
     }
-    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGComponentTransferFunctionElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -152,4 +153,4 @@ ComponentTransferFunction SVGComponentTransferFunctionElement::transferFunction(
 
 }
 
-#endif // ENABLE(SVG)
+#endif

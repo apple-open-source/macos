@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,14 @@
 
 #define kEAPSIMAKAPrefsChangedNotification		\
     "com.apple.network.eapclient.eapsimaka.prefs"
+
+typedef Boolean
+(*IMSIMatchFuncRef)(CFStringRef imsi, CFDictionaryRef info,
+		    const void * context);
+    
+STATIC void
+IMSIListRemoveMatches(EAPType type, IMSIMatchFuncRef iter,
+		      const void * context);
 
 STATIC Boolean
 prefs_did_change(uint32_t * gen_p)
@@ -126,7 +134,7 @@ MasterKeyCopyFromKeychain(CFStringRef proto, CFStringRef imsi)
     key = MasterKeyItemIDCreate(proto, imsi);
     result = EAPSecKeychainPasswordItemCopy(NULL, key, &data);
     CFRelease(key);
-    if (result != noErr) {
+    if (result != noErr && result != errSecItemNotFound) {
 	EAPLOG_FL(LOG_NOTICE, "Failed to read a keychain item: %d",
 		  (int)result);
 	return NULL;
@@ -257,7 +265,7 @@ struct EAPSIMAKAPersistentState {
 INLINE unsigned int
 EAPSIMAKAPersistentStateComputeSize(unsigned int n)
 {
-    return (offsetof(struct EAPSIMAKAPersistentState, master_key[n]));
+    return ((int)offsetof(struct EAPSIMAKAPersistentState, master_key[n]));
 }
 
 PRIVATE_EXTERN uint8_t *
@@ -416,6 +424,16 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 }
 
 
+STATIC Boolean
+IMSIDoesNotMatch(CFStringRef imsi, CFDictionaryRef info,
+		 const void * context)
+{
+    CFStringRef		imsi_to_check = (CFStringRef)context;
+
+    return (my_CFEqual(imsi, imsi_to_check) == FALSE);
+}
+    
+
 PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
 			     Boolean master_key_valid,
@@ -428,12 +446,15 @@ EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
 	return;
     }
 
+    /* remove any entry that does not match this IMSI */
+    IMSIListRemoveMatches(persist->type, IMSIDoesNotMatch, persist->imsi);
+
     /* Pseudonym */
     if (EAPSIMAKAPersistentStateGetPseudonym(persist) != NULL) {
 	info = CFDictionaryCreateMutable(NULL, 0,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(info, kPrefsPseudonym, 
+	CFDictionarySetValue(info, kPrefsPseudonym,
 			     EAPSIMAKAPersistentStateGetPseudonym(persist));
     }
 
@@ -497,7 +518,8 @@ EAPSIMAKAPersistentStateRelease(EAPSIMAKAPersistentStateRef persist)
 }
     
 STATIC void
-ForgetSSID(EAPType type, CFStringRef ssid)
+IMSIListRemoveMatches(EAPType type, IMSIMatchFuncRef iter,
+		      const void * context)
 {
     Boolean		changed = FALSE;
     int			i;
@@ -528,10 +550,8 @@ ForgetSSID(EAPType type, CFStringRef ssid)
 	}
 	if (isA_CFDictionary(prefs) != NULL) {
 	    CFDictionaryRef 	info = (CFDictionaryRef)prefs;
-	    CFStringRef 	saved_ssid;
-	    
-	    saved_ssid = CFDictionaryGetValue(info, kPrefsSSID);
-	    if (my_CFEqual(ssid, saved_ssid)) {
+
+	    if ((*iter)(imsi, info, context)) {
 		CFPreferencesSetValue(imsi, NULL,
 				      proto_info->appID,
 				      kCFPreferencesCurrentUser,
@@ -552,11 +572,26 @@ ForgetSSID(EAPType type, CFStringRef ssid)
     return;
 }
 
+STATIC Boolean
+IMSIMatchesSSID(CFStringRef imsi, CFDictionaryRef info,
+		const void * context)
+{
+    Boolean		match = FALSE;
+    CFStringRef 	saved_ssid;
+    CFStringRef		ssid = (CFStringRef)context;
+	    
+    saved_ssid = CFDictionaryGetValue(info, kPrefsSSID);
+    if (my_CFEqual(ssid, saved_ssid)) {
+	match = TRUE;
+    }
+    return (match);
+}
+
 PRIVATE_EXTERN void
 EAPSIMAKAPersistentStateForgetSSID(CFStringRef ssid)
 {
-    ForgetSSID(kEAPTypeEAPSIM, ssid);
-    ForgetSSID(kEAPTypeEAPAKA, ssid);
+    IMSIListRemoveMatches(kEAPTypeEAPSIM, IMSIMatchesSSID, ssid);
+    IMSIListRemoveMatches(kEAPTypeEAPAKA, IMSIMatchesSSID, ssid);
     return;
 }
 
@@ -611,7 +646,8 @@ handle_get(const char * progname, EAPType type, int argc, char * argv[])
     imsi = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
     persist = EAPSIMAKAPersistentStateCreate(type, 
 					     CC_SHA1_DIGEST_LENGTH,
-					     imsi);
+					     imsi,
+					     kAT_ANY_ID_REQ);
     CFRelease(imsi);
     EAPSIMAKAPersistentStatePrint(persist);
     EAPSIMAKAPersistentStateRelease(persist);
@@ -646,7 +682,8 @@ handle_set(const char * progname, EAPType type, int argc, char * argv[])
     imsi = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
     persist = EAPSIMAKAPersistentStateCreate(type, 
 					     CC_SHA1_DIGEST_LENGTH,
-					     imsi);
+					     imsi,
+					     kAT_ANY_ID_REQ);
     CFRelease(imsi);
     while ((ch = getopt(argc, argv, "c:p:r:s:")) != EOF) {
 	switch (ch) {
@@ -727,7 +764,7 @@ handle_remove(const char * progname, EAPType type, int argc, char * argv[])
 	exit(EX_USAGE);
     }
     ssid = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-    ForgetSSID(type, ssid);
+    IMSIListRemoveMatches(type, IMSIMatchesSSID, ssid);
     CFRelease(ssid);
     return;
 }

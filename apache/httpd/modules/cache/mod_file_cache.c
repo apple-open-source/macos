@@ -86,8 +86,6 @@
 #include <sys/types.h>
 #endif
 
-#define CORE_PRIVATE
-
 #include "httpd.h"
 #include "http_config.h"
 #include "http_log.h"
@@ -135,33 +133,33 @@ static void cache_the_file(cmd_parms *cmd, const char *filename, int mmap)
 
     fspec = ap_server_root_relative(cmd->pool, filename);
     if (!fspec) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, APR_EBADPATH, cmd->server,
-                     "mod_file_cache: invalid file path "
+        ap_log_error(APLOG_MARK, APLOG_WARNING, APR_EBADPATH, cmd->server, APLOGNO(00794)
+                     "invalid file path "
                      "%s, skipping", filename);
         return;
     }
     if ((rc = apr_stat(&tmp.finfo, fspec, APR_FINFO_MIN,
                                  cmd->temp_pool)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server,
-            "mod_file_cache: unable to stat(%s), skipping", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server, APLOGNO(00795)
+                     "unable to stat(%s), skipping", fspec);
         return;
     }
     if (tmp.finfo.filetype != APR_REG) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-            "mod_file_cache: %s isn't a regular file, skipping", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(00796)
+                     "%s isn't a regular file, skipping", fspec);
         return;
     }
     if (tmp.finfo.size > AP_MAX_SENDFILE) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-            "mod_file_cache: %s is too large to cache, skipping", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(00797)
+                     "%s is too large to cache, skipping", fspec);
         return;
     }
 
     rc = apr_file_open(&fd, fspec, APR_READ | APR_BINARY | APR_XTHREAD,
                        APR_OS_DEFAULT, cmd->pool);
     if (rc != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server,
-                     "mod_file_cache: unable to open(%s, O_RDONLY), skipping", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server, APLOGNO(00798)
+                     "unable to open(%s, O_RDONLY), skipping", fspec);
         return;
     }
     apr_file_inherit_set(fd);
@@ -180,8 +178,8 @@ static void cache_the_file(cmd_parms *cmd, const char *filename, int mmap)
                                   (apr_size_t)new_file->finfo.size,
                                   APR_MMAP_READ, cmd->pool)) != APR_SUCCESS) {
             apr_file_close(fd);
-            ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server,
-                         "mod_file_cache: unable to mmap %s, skipping", filename);
+            ap_log_error(APLOG_MARK, APLOG_WARNING, rc, cmd->server, APLOGNO(00799)
+                         "unable to mmap %s, skipping", filename);
             return;
         }
         apr_file_close(fd);
@@ -211,8 +209,8 @@ static const char *cachefilehandle(cmd_parms *cmd, void *dummy, const char *file
     cache_the_file(cmd, filename, 0);
 #else
     /* Sendfile not supported by this OS */
-    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-                 "mod_file_cache: unable to cache file: %s. Sendfile is not supported on this OS", filename);
+    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(00800)
+                 "unable to cache file: %s. Sendfile is not supported on this OS", filename);
 #endif
     return NULL;
 }
@@ -222,8 +220,8 @@ static const char *cachefilemmap(cmd_parms *cmd, void *dummy, const char *filena
     cache_the_file(cmd, filename, 1);
 #else
     /* MMAP not supported by this OS */
-    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-                 "mod_file_cache: unable to cache file: %s. MMAP is not supported by this OS", filename);
+    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(00801)
+                 "unable to cache file: %s. MMAP is not supported by this OS", filename);
 #endif
     return NULL;
 }
@@ -297,9 +295,8 @@ static int sendfile_handler(request_rec *r, a_file *file)
     apr_bucket *b;
     apr_bucket_brigade *bb = apr_brigade_create(r->pool, c->bucket_alloc);
 
-    b = apr_bucket_file_create(file->file, 0, (apr_size_t)file->finfo.size,
-                               r->pool, c->bucket_alloc);
-    APR_BRIGADE_INSERT_TAIL(bb, b);
+    apr_brigade_insert_file(bb, file->file, 0, file->finfo.size, r->pool);
+
     b = apr_bucket_eos_create(c->bucket_alloc);
     APR_BRIGADE_INSERT_TAIL(bb, b);
 
@@ -361,16 +358,16 @@ static int file_cache_handler(request_rec *r)
         apr_table_setn(r->headers_out, "Last-Modified", datestr);
     }
 
-    ap_set_etag(r);
-    if ((errstatus = ap_meets_conditions(r)) != OK) {
-       return errstatus;
-    }
-
     /* ap_set_content_length() always converts the same number and never
      * returns an error.  Accelerate it.
      */
     r->clength = match->finfo.size;
     apr_table_setn(r->headers_out, "Content-Length", match->sizestr);
+
+    ap_set_etag(r);
+    if ((errstatus = ap_meets_conditions(r)) != OK) {
+       return errstatus;
+    }
 
     /* Call appropriate handler */
     if (!r->header_only) {
@@ -405,7 +402,7 @@ static void register_hooks(apr_pool_t *p)
 
 }
 
-module AP_MODULE_DECLARE_DATA file_cache_module =
+AP_DECLARE_MODULE(file_cache) =
 {
     STANDARD20_MODULE_STUFF,
     NULL,                     /* create per-directory config structure */

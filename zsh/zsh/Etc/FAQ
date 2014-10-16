@@ -68,6 +68,7 @@ Chapter 3:  How to get various things to work
 3.24. What's wrong with cut and paste on my xterm?
 3.25. How do I get coloured prompts on my colour xterm?
 3.26. Why is my output duplicated with `foo 2>&1 >foo.out | bar'?
+3.27. What are these `^' and `~' pattern characters, anyway?
 
 Chapter 4:  The mysteries of completion
 4.1. What is completion?
@@ -231,7 +232,7 @@ Chapter 1: Introducing zsh and how to install it
 
 1.5: What's the latest version?
 
-  Zsh 5.0.2 is the latest production version.  For details of all the
+  Zsh 5.0.5 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
@@ -471,14 +472,8 @@ your shell' posted frequently to the USENET group comp.unix.shell.
       option KSH_GLOB is in effect; for previous versions you
       must use the table above.
 
-      [1] Note that `~' is the only globbing operator to have a lower
-        precedence than `/'.  For example, `**/foo~*bar*' matches any
-        file in a subdirectory called `foo', except where `bar'
-        occurred somewhere in the path (e.g. `users/barstaff/foo' will
-        be excluded by the `~' operator).  As the `**' operator cannot
-        be grouped (inside parentheses it is treated as `*'), this is
-        one way to exclude some subdirectories from matching a `**'.
-	The form (^foo/)# also works.
+      [1] See question 3.27 for more on the mysteries of
+        `~' and `^'.
     o   Unquoted assignments do file expansion after `:'s (intended for
         PATHs). 
     o * `typeset' and `integer' have special behaviour for
@@ -1334,6 +1329,8 @@ Chapter 3: How to get various things to work
   are metacharacters.  ^a matches any file except one called a, so the
   line is interpreted as bindkey followed by a list of files.  Quote the
   ^ with a backslash or put quotation marks around ^a.
+  See 3.27 if you want to know more about the pattern
+  character `^'.
 
 3.15: Why can't I bind \C-s and \C-q any more?
 
@@ -1646,6 +1643,129 @@ Chapter 3: How to get various things to work
   first example is exactly the same, however the second redirector is
   disguised as a pipe.  So if you want to turn this effect off, you need
   to unset the option `MULTIOS'.
+
+3.27: What are these `^' and `~' pattern characters, anyway?
+
+  The characters `^' and `~' are active when the option
+  EXTENDED_GLOB is set.  Both are used to exclude patterns, i.e.  to
+  say `match something other than ...'.  There are some confusing
+  differences, however.  Here are the descriptions for `^' and `~'.
+
+  `^' means `anything except the pattern that follows'.  You can
+  think of the combination ^pat as being like a * except
+  that it doesn't match pat.  So, for example, `myfile^.txt'
+  matches anything that begins with myfile except myfile.txt.
+  Because it works with patterns, not just strings, `myfile^*.c'
+  matches anything that begins with myfile unless it ends with
+  .c, whatever comes in the middle --- so it matches myfile1.h
+  but not myfile1.c.
+
+  Also like `*', `^' doesn't match across directories if you're
+  matching files when `globbing', i.e. when you use an unquoted pattern
+  in an ordinary command line to generate file names.  So
+  `^dir1/^file1' matches any subdirectory of the current directory
+  except one called dir1, and within any directory it matches it
+  picks any file except one called file1.  So the overall pattern
+  matches dir2/file2 but not dir1/file1 nor dir1/file2 nor
+  dir2/file1.  (The rule that all the different bits of the pattern
+  must match is exactly the same as for any other pattern character,
+  it's just a little confusing that what does match in each bit is
+  found by telling the shell not to match something or other.)
+
+  As with any other pattern, a `^' expression doesn't treat the
+  character `/' specially if it's not matching files, for example
+  when pattern matching in a command like `[[ $string = ^pat1/pat2 ]]'.
+  Here the whole string pat1/pat2 is treated as the argument that
+  follows the `^'.  So anything matches but that one string
+  pat1/pat1.
+
+  It's not obvious what something like `[[ $string = ^pat1^pat2 ]]'
+  means.  You won't often have cause to use it, but the rule is that
+  each `^' takes everything that follows as an argument (unless
+  it's already inside parentheses --- I'll explain this below).  To see
+  this more clearly, put those arguments in parentheses: the pattern is
+  equivalent to `^(pat1^(pat2))'. where now you can see exactly what
+  each `^' takes as its argument.  I'll leave it as an exercise for
+  you to work out what this does and doesn't match.
+
+  `~' is always used between two patterns --- never right at the
+  beginning or right at the end.  Note that the other special meaning of
+  `~', at the start of a filename to refer to your home directory or
+  to another named directory, doesn't require the option
+  EXTENDED_GLOB to be set.  (At the end of an argument `~' is
+  never special at all.  This is useful if you have Emacs backup files.)
+  It means `match what's in front of the tilde, but only if it doesn't
+  match what's after the tilde'.  So `*.c~f*' matches any file
+  ending in .c except one that begins with f.  You'll see that,
+  unlike `^', the parts before and after the `~' both refer
+  separately to the entire test string.
+
+  For matching files by globbing, `~' is the only globbing operator
+  to have a lower precedence than `/'.  In other words, when you
+  have `/a/path/to/match~/a/path/not/to/match' the `~' considers
+  what's before as a complete path to a file name, and what's after as a
+  pattern to match against that file.  You can put any other pattern
+  characters in the expressions before and after the `~', but as I
+  said the pattern after the ~ is really just a single pattern to
+  match against the name of every file found rather than a pattern to
+  generate a file.  That means, for example, that a * after the
+  ~ will match a /.  If that's confusing, you can think of
+  how `~' works like this: take the pattern on the left, use it as
+  normal to make a list of files, then for each file found see if it
+  matches the pattern on the right and if it does take that file out of
+  the list.  Note, however, that this removal of files happens
+  immediately, before anything else happens to the file list --- before
+  any glob qualifiers are applied, for example.
+
+  One rule that is common to both `^' and `~' is that they can
+  be put inside parentheses and the arguments to them don't extend past
+  the parentheses.  So `(^README).txt' matches any file ending in
+  .txt unless the string before that was README, the same as
+  `*.txt~README.txt' or `(*~README).txt'.  In fact, you can
+  always turn `^something' into `(*~something)', where
+  `something' mustn't contain / if the pattern is being used for
+  globbing.
+
+  Likewise, `abc(<->~<10-100>).txt' matches a file consisting of
+  abc, then some digits, then .txt, unless the digits happen to
+  match a number from 10 to 100 inclusive (remember the handy `<->'
+  pattern for matching integers with optional limits to the range).  So
+  this pattern matches abc1.txt or abc200.txt but not
+  abc20.txt nor abc100.txt nor even abc0030.txt.  However,
+  if you're matching files by globbing note you can't put `/'s
+  inside the parentheses since the groups can't stretch across multiple
+  directories.  (You can do that, of course, whenever the character
+  `/' isn't special.)  This means that you need to take care when
+  using exclusions across multiple directories; see some examples below.
+
+  You may like to know that from zsh 5.0.3 you can disable any pattern
+  character separately.  So if you find `^' gets in your way and
+  you're happy using `~', put `disable -p "^"' in ~/.zshrc.
+  You still need to turn on EXTENDED_GLOB; the disable command
+  only deactivates things that would otherwise be active, you can't
+  specially enable something not allowed by the syntax options in effect.
+
+  Here are some examples with files to illustrate the points.  We'll
+  assume the option EXTENDED_GLOB is set and none of the pattern
+  characters is disabled.
+
+  1) `**/foo~*bar*' matches any file called `foo' in any
+     subdirectory, except where `bar' occurred somewhere in the path.
+     For example, `users/barstaff/foo' will be excluded by the `~'
+     operator.  As the `**' operator cannot be grouped (inside
+     parentheses it is treated as `*'), this is one way to exclude some
+     subdirectories from matching a `**'.  Note that this can be quite
+     inefficent because the shell performs a complete search for
+     `**/foo' before it uses the pattern after the `~' to exclude
+     files from the match.  The file is excluded if `bar' occurs
+     anywhere, in any directory segment or the final file name.
+  2) The form `(^foo/)#' can be used to match any hierarchy of
+     directories where none of the path components is foo.  For
+     example, `(^CVS/)#' selects all subdirectories to any depth
+     except where one component is named `CVS'.  (The form
+     `(pat/)#' is very useful in other cases; for example,
+     `(../)#.cvsignore' finds the file .cvsignore if it exists
+     in the current directory or any parent.)
 
 Chapter 4: The mysteries of completion
 

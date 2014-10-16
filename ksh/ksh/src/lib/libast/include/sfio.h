@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -22,7 +22,7 @@
 #ifndef _SFIO_H
 #define _SFIO_H	1
 
-#define SFIO_VERSION	20080717L
+#define SFIO_VERSION	20090915L
 
 /*	Public header file for the sfio library
 **
@@ -110,7 +110,8 @@ struct _sffmt_s
 #define SFFMT_IFLAG	002000000 /* 'I' flag				*/
 #define SFFMT_JFLAG	004000000 /* 'j' flag, intmax_t			*/
 #define SFFMT_CENTER	010000000 /* '=' flag, center justification	*/
-#define SFFMT_SET	017777770 /* flags settable on calling extf	*/
+#define SFFMT_CHOP	020000000 /* chop long string values from left	*/
+#define SFFMT_SET	037777770 /* flags settable on calling extf	*/
 
 /* for sfmutex() call */
 #define SFMTX_LOCK	0	/* up mutex count			*/
@@ -197,8 +198,6 @@ struct _sffmt_s
 
 _BEGIN_EXTERNS_
 
-/* standard in/out/err streams */
-
 #if _BLD_sfio && defined(__EXPORT__)
 #define extern		extern __EXPORT__
 #endif
@@ -209,6 +208,7 @@ _BEGIN_EXTERNS_
 extern ssize_t		_Sfi;
 extern ssize_t		_Sfmaxr;
 
+/* standard in/out/err streams */
 extern Sfio_t*		sfstdin;
 extern Sfio_t*		sfstdout;
 extern Sfio_t*		sfstderr;
@@ -259,8 +259,10 @@ extern ssize_t		sfnputc _ARG_((Sfio_t*, int, size_t));
 extern int		sfungetc _ARG_((Sfio_t*, int));
 extern int		sfprintf _ARG_((Sfio_t*, const char*, ...));
 extern char*		sfprints _ARG_((const char*, ...));
+extern ssize_t		sfaprints _ARG_((char**, const char*, ...));
 extern ssize_t		sfsprintf _ARG_((char*, size_t, const char*, ...));
 extern ssize_t		sfvsprintf _ARG_((char*, size_t, const char*, va_list));
+extern ssize_t		sfvasprints _ARG_((char**, const char*, va_list));
 extern int		sfvprintf _ARG_((Sfio_t*, const char*, va_list));
 extern int		sfscanf _ARG_((Sfio_t*, const char*, ...));
 extern int		sfsscanf _ARG_((const char*, const char*, ...));
@@ -426,7 +428,7 @@ __INLINE__ ssize_t sfmaxr(ssize_t n, int s)	{ return __sf_maxr(n,s); }
 		 (((f)->_next < (f)->_data || (f)->_next > (f)->_data+(f)->_size) ? \
 			((f)->_next -= (p), (char*)0) : (char*)(f)->_next ) ) \
 	: (m) == SEEK_END ? \
-		( ((p) > 0 || (f)->_size+(p) < 0) ? (char*)0 : \
+		( ((p) > 0 || (f)->_size < -(p)) ? (char*)0 : \
 			(char*)((f)->_next = (f)->_data+(f)->_size+(p)) ) \
 	: (char*)0 \
 	)

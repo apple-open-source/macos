@@ -108,8 +108,6 @@ static uint32_t  lastday;
 static uint16_t lastddate;
 static uint16_t lastdtime;
 
-static __inline u_int8_t find_lcode(u_int16_t code, u_int16_t *u2w);
-
 /*
  * This variable contains the number of seconds that local time is west of GMT
  * It is updated every time an msdosfs volume is mounted.  This value is
@@ -238,8 +236,6 @@ void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp)
 		months = year & 0x03 ? regyear : leapyear;
 		month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
 		if (month < 1 || month > 12) {
-			printf("msdosfs_dos2unixtime(): month value out of range (%d)\n",
-			    month);
 			month = 1;
 		}
 		if (month > 1)
@@ -318,6 +314,12 @@ dos2unicode[32] = {
 };
 
 
+/*
+ * Case folding table for Latin-1.
+ *
+ * Maps 'A'..'Z' to 'a'..'z' and 0xc0..0xd6 to 0xe0..0xf6 and
+ * 0xd8..0xde to 0xf8..0xfe.
+ */
 __private_extern__ u_char
 l2u[256] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, /* 00-07 */
@@ -906,17 +908,6 @@ done:
 	*wcp   = 0;
 	wep->weCnt |= WIN_LAST;
 	return 0;
-}
-
-static __inline u_int8_t
-find_lcode(u_int16_t code, u_int16_t *u2w)
-{
-	int i;
-
-	for (i = 0; i < 128; i++)
-		if (u2w[i] == code)
-			return (i | 0x80);
-	return '?';
 }
 
 

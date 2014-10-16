@@ -9,7 +9,6 @@
 #define HEIMDAL_SMALLER 1
 #define NO_NTLM 1
 #define NO_AFS 1
-#define KCM_IS_API_CACHE 1
 #define KRB5_DNS_DOMAIN_REALM_DEFAULT 0
 #define NO_RAND_FORTUNA_METHOD 1
 #define NO_RAND_UNIX_METHOD 1
@@ -35,32 +34,30 @@
 #define HAVE_CCDESISWEAKKEY 1
 #define HAVE_CCDIGESTCREATE 1
 
-#ifdef __APPLE_TARGET_EMBEDDED__
-
 #define HEIM_KRB5_DES3 1
 #define HEIM_KRB5_ARCFOUR 1
 
+#ifdef __APPLE_TARGET_EMBEDDED__
+
 #define KRB5_DEFAULT_CCTYPE (&krb5_xcc_ops)
+
 #define HAVE_XCC 1
 
 #define HEIM_HC_SF 1
 
 #else
 
+#define KCM_IS_API_CACHE 1
+#define KRB5_DEFAULT_CCTYPE (&krb5_akcm_ops)
+
 #define HAVE_KCM 1
-#define HAVE_TRUSTEVALUATIONAGENT 1
+#define HAVE_XCC 1
 #define HAVE_OPENDIRECTORY 1
 #define HAVE_CDSA 1
 #define HAVE_COMMONCRYPTO_COMMONCRYPTORSPI_H 1
 
 #define ENABLE_NTLM 1
 #define ENABLE_SCRAM 1
-
-#define HEIM_KRB5_DES 1
-#define HEIM_KRB5_DES3 1
-#define HEIM_KRB5_ARCFOUR 1
-
-#define KRB5_DEFAULT_CCTYPE (&krb5_akcm_ops)
 
 
 #endif

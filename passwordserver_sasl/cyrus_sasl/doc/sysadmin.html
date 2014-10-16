@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>Cyrus SASL for System Administrators</title>
-<!-- $Id: sysadmin.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
+<!-- $Id: sysadmin.html,v 1.52 2007/04/23 14:34:53 murch Exp $ -->
 </HEAD>
 <BODY>
 <H1>Cyrus SASL for System Administrators</H1>
@@ -183,7 +183,7 @@ Courier-IMAP 2.2.1.
 
 <p>To enable <tt>authdaemond</tt> support, pass <tt>--with-authdaemon</tt> to the 
 configuration script, set pwcheck_method to ``authdaemond'' and point 
-authdaemon_path to <tt>authdaemond</tt>'s unix socket. Optionally, you can
+authdaemond_path to <tt>authdaemond</tt>'s unix socket. Optionally, you can
 specify --with-authdaemond=PATH to the configure script so that
 authdaemond_path points to a default, static, location.
 
@@ -463,7 +463,7 @@ env CPPFLAGS="-I/usr/local/BerkeleyDB.3.1/include" \
 <p><b>A:</b> Check syslog output (usually stored in
 <tt>/var/log</tt>) for more information. You might want to change your
 syslog configuration (usually <tt>/etc/syslogd.conf</tt>) to log
-"debug.*" to a file while debugging a problem.</p>
+"*.debug" to a file while debugging a problem.</p>
 
 <p>The developers make heavy use of <tt>strace</tt> or <tt>truss</tt>
 when debugging a problem that isn't outputting any useful

@@ -874,3 +874,40 @@ _gss_ntlm_wrap_iov_length(OM_uint32 * minor_status,
     return GSS_S_COMPLETE;
 }
 
+
+void
+_gss_ntlm_debug_hex(int level, const char *name, const void *data, size_t size)
+{
+    char *hex;
+
+    if (!_gss_mg_log_level(level))
+	return;
+
+    if (hex_encode(data, size, &hex) < 0)
+	return;
+
+    _gss_mg_log(level, "%s %s", name, hex);
+    free(hex);
+}
+
+void
+_gss_ntlm_debug_key(int level, const char *name, const void *data, size_t size)
+{
+    char *hex;
+
+    /**
+     * Only print the first 2 bytes though since we really don't want
+     * the full key sprinkled though logs.
+     */
+    size = min(size, 2);
+
+    if (!_gss_mg_log_level(level))
+	return;
+
+    if (hex_encode(data, size, &hex) < 0)
+	return;
+
+    _gss_mg_log(level, "%s %s", name, hex);
+    memset(hex, 0, strlen(hex));
+    free(hex);
+}

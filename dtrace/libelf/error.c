@@ -26,16 +26,6 @@
 
 #pragma ident	"@(#)error.c	1.22	08/06/03 SMI"
 
-#if !defined(__APPLE__)
-#include	<thread.h>
-#include <pthread.h>
-#include	<stdlib.h>
-#include	<string.h>
-#include	<stdio.h>
-#include	<libelf.h>
-#include <libintl.h>
-#include	"msg.h"
-#else /* is Apple Mac OS X */
 #include	<pthread.h> /* In lieu of Solaris <thread.h> */
 #define thr_keycreate pthread_key_create /* In lieu of Solaris <thread.h> */
 #define thr_getspecific(key, pval) (*pval = pthread_getspecific( key )) /* In lieu of Solaris <thread.h> */
@@ -65,7 +55,6 @@ int	__libc_threaded = 1; /* In lieu of Solaris <thread.h> */
 char *_dgettext(const char *x, const char *y) { return "libelf internal error"; }
 #define dgettext(x,y) _dgettext(x,y)
 #define NATIVE_BUILD 1
-#endif /* __APPLE__ */
 
 #include	"decl.h"
 

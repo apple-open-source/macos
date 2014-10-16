@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,7 +78,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	/* send the pattern & fetch the associated data from the server */
 	status = configlist(storePrivate->server,
 			    myPatternRef,
-			    myPatternLen,
+			    (mach_msg_type_number_t)myPatternLen,
 			    TRUE,		/* isRegex == TRUE */
 			    &xmlDataRef,
 			    &xmlDataLen,

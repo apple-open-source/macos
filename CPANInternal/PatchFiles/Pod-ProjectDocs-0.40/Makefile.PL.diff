@@ -1,0 +1,12 @@
+diff --git a/Pod-ProjectDocs-0.40/Makefile.PL b/Pod-ProjectDocs-0.40/Makefile.PL
+index 278777d..c34154b 100644
+--- Pod-ProjectDocs-0.40/Makefile.PL
++++ Pod-ProjectDocs-0.40/Makefile.PL
+@@ -15,7 +15,6 @@ requires 'MIME::Base64'             => 0;
+ requires 'Template'                 => 0;
+ requires 'Readonly'                 => 0;
+ requires 'URI::Escape'              => 0;
+-requires 'JSON'                     => 2.04;
+ features(
+   'Syntax Highlighten' => [
+     -default => 1,

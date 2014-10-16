@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -159,7 +159,7 @@ typedef struct Join_s
 	int		mb;
 	char*		same;
 	int		samesize;
-	void*		context;
+	Shbltin_t*	context;
 	File_t		file[2];
 } Join_t;
 
@@ -255,9 +255,9 @@ getolist(Join_t* jp, const char* first, char** arglist)
 		cp = str;
 	}
 	/* need to accept obsolescent command syntax */
-	while (1)
+	while (cp = *argv)
 	{
-		if (!(cp= *argv) || cp[1]!='.' || (*cp!='1' && *cp!='2'))
+		if (cp[1]!='.' || (*cp!='1' && *cp!='2'))
 		{
 			if (*cp=='0' && cp[1]==0)
 			{
@@ -447,18 +447,8 @@ getrec(Join_t* jp, int index, int discard)
 	return (unsigned char*)"";
 }
 
-static unsigned char*
-_trace_getrec(Join_t* jp, int index, int discard)
-{
-	unsigned char*	r;
-
-	r = getrec(jp, index, discard);
-	return r;
-}
-#define getrec	_trace_getrec
-
 #if DEBUG_TRACE
-static unsigned char* u1,u2,u3;
+static unsigned char* u1;
 #define getrec(p,n,d)	(u1 = getrec(p, n, d), sfprintf(sfstdout, "[G%d#%d@%I*d:%-.8s]", __LINE__, n, sizeof(Sfoff_t), sftell(p->file[n].iop), u1), u1)
 #endif
 
@@ -780,7 +770,7 @@ sfprintf(sfstdout, "[2#%d:0,%lld,%lld]", __LINE__, lo, hi);
 		}
 	}
 #if DEBUG_TRACE
-sfprintf(sfstdout, "[X#%d:?,%p,%p,%d%,%d,%d%s]", __LINE__, cp1, cp2, cmp, lo, hi, (jp->outmode & C_COMMON) ? ",COMMON" : "");
+sfprintf(sfstdout, "[X#%d:?,%p,%p,%d,%d,%d%s]", __LINE__, cp1, cp2, cmp, lo, hi, (jp->outmode & C_COMMON) ? ",COMMON" : "");
 #endif
 	if (cp2)
 	{
@@ -823,7 +813,7 @@ sfprintf(sfstdout, "[X#%d:%d,%p,%p,%d,%02o,%02o%s]", __LINE__, n, cp1, cp2, cmp,
 }
 
 int
-b_join(int argc, char** argv, void* context)
+b_join(int argc, char** argv, Shbltin_t* context)
 {
 	register int		n;
 	register char*		cp;

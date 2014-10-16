@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -34,7 +34,7 @@
 #import "WebNSDataExtras.h"
 #import "WebSystemInterface.h"
 #import <Foundation/NSURLRequest.h>
-#import <WebCore/KURL.h>
+#import <WebCore/URL.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebCore/WebCoreNSURLExtras.h>
 #import <WebKitSystemInterface.h>
@@ -43,8 +43,17 @@
 #import <unicode/uchar.h>
 #import <unicode/uscript.h>
 
+#if PLATFORM(IOS)
+#import <Foundation/NSString_NSURLExtras.h>
+#endif
+
 using namespace WebCore;
 using namespace WTF;
+
+#if PLATFORM(IOS)
+// Fake URL scheme.
+#define WebDataProtocolScheme @"webkit-fake-url"
+#endif
 
 #define URL_BYTES_BUFFER_LENGTH 2048
 
@@ -119,24 +128,8 @@ using namespace WTF;
  }
 
 - (NSURL *)_webkit_canonicalize
-{    
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:self];
-    Class concreteClass = WKNSURLProtocolClassForRequest(request);
-    if (!concreteClass) {
-        [request release];
-        return self;
-    }
-    
-    // This applies NSURL's concept of canonicalization, but not KURL's concept. It would
-    // make sense to apply both, but when we tried that it caused a performance degradation
-    // (see 5315926). It might make sense to apply only the KURL concept and not the NSURL
-    // concept, but it's too risky to make that change for WebKit 3.0.
-    NSURLRequest *newRequest = [concreteClass canonicalRequestForRequest:request];
-    NSURL *newURL = [newRequest URL]; 
-    NSURL *result = [[newURL retain] autorelease]; 
-    [request release];
-    
-    return result;
+{
+    return URLByCanonicalizingURL(self);
 }
 
 - (NSURL *)_web_URLByTruncatingOneCharacterBeforeComponent:(CFURLComponentType)component
@@ -214,8 +207,8 @@ using namespace WTF;
     }
     
     NSURL *result = changed
-        ? (NSURL *)HardAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, buffer, bytesFilled, kCFStringEncodingUTF8, nil, YES))
-        : (NSURL *)self;
+        ? CFBridgingRelease(CFURLCreateAbsoluteURLWithBytes(NULL, buffer, bytesFilled, kCFStringEncodingUTF8, nil, YES))
+        : self;
 
     if (buffer != static_buffer) {
         free(buffer);
@@ -264,10 +257,6 @@ using namespace WTF;
 
 - (NSString *)_web_hostString
 {
-    NSData *data = [self _web_hostData];
-    if (!data) {
-        data = [NSData data];
-    }
     return [[[NSString alloc] initWithData:[self _web_hostData] encoding:NSUTF8StringEncoding] autorelease];
 }
 
@@ -284,6 +273,19 @@ using namespace WTF;
     return [NSURL URLWithString:[@"file:" stringByAppendingString:[self absoluteString]]];
 }
 
+#if PLATFORM(IOS)
++ (NSURL *)uniqueURLWithRelativePart:(NSString *)relativePart
+{
+    CFUUIDRef UUIDRef = CFUUIDCreate(kCFAllocatorDefault);
+    NSString *UUIDString = (NSString *)CFUUIDCreateString(kCFAllocatorDefault, UUIDRef);
+    CFRelease(UUIDRef);
+    NSURL *URL = [NSURL URLWithString:[NSString stringWithFormat:@"%@://%@/%@", WebDataProtocolScheme, UUIDString, relativePart]];
+    CFRelease(UUIDString);
+    
+    return URL;
+}
+
+#endif // PLATFORM(IOS)
 @end
 
 @implementation NSString (WebNSURLExtras)
@@ -393,5 +395,74 @@ using namespace WTF;
         return nil;
     return [self substringFromIndex:fragmentRange.location + 1];
 }
+
+#if PLATFORM(IOS)
+
+- (NSString *)_webkit_unescapedQueryValue
+{
+    NSMutableString *string = [[[self stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding] mutableCopy] autorelease];
+    if (!string) // If we failed to decode the URL as UTF8, fall back to Latin1
+        string = [[[self stringByReplacingPercentEscapesUsingEncoding:NSISOLatin1StringEncoding] mutableCopy] autorelease];
+    [string replaceOccurrencesOfString:@"+" withString:@" " options:NSLiteralSearch range:NSMakeRange(0, [string length])];
+    return string;
+}
+
+- (NSDictionary *)_webkit_queryKeysAndValues
+{
+    unsigned queryLength = [self length];
+    if (!queryLength)
+        return nil;
+
+    NSMutableDictionary *queryKeysAndValues = nil;
+    NSRange equalSearchRange = NSMakeRange(0, queryLength);
+
+    while (equalSearchRange.location < queryLength - 1 && equalSearchRange.length) {
+
+        // Search for "=".
+        NSRange equalRange = [self rangeOfString:@"=" options:NSLiteralSearch range:equalSearchRange];
+        if (equalRange.location == NSNotFound)
+            break;
+
+        unsigned indexAfterEqual = equalRange.location + 1;
+        if (indexAfterEqual > queryLength - 1)
+            break;
+
+        // Get the key before the "=".
+        NSRange keyRange = NSMakeRange(equalSearchRange.location, equalRange.location - equalSearchRange.location);
+
+        // Seach for the ampersand.
+        NSRange ampersandSearchRange = NSMakeRange(indexAfterEqual, queryLength - indexAfterEqual);
+        NSRange ampersandRange = [self rangeOfString:@"&" options:NSLiteralSearch range:ampersandSearchRange];
+
+        // Get the value after the "=", before the ampersand.
+        NSRange valueRange;
+        if (ampersandRange.location != NSNotFound)
+            valueRange = NSMakeRange(indexAfterEqual, ampersandRange.location - indexAfterEqual);
+        else
+            valueRange = NSMakeRange(indexAfterEqual, queryLength - indexAfterEqual);
+
+        // Save the key and the value.
+        if (keyRange.length && valueRange.length) {
+            if (queryKeysAndValues == nil)
+                queryKeysAndValues = [NSMutableDictionary dictionary];
+            NSString *key = [[self substringWithRange:keyRange] lowercaseString];
+            NSString *value = [[self substringWithRange:valueRange] _webkit_unescapedQueryValue];
+            if ([key length] && [value length])
+                [queryKeysAndValues setObject:value forKey:key];
+        }
+
+        // At the end.
+        if (ampersandRange.location == NSNotFound)
+            break;
+
+        // Continue searching after the ampersand.
+        unsigned indexAfterAmpersand = ampersandRange.location + 1;
+        equalSearchRange = NSMakeRange(indexAfterAmpersand, queryLength - indexAfterAmpersand);
+    }
+
+    return queryKeysAndValues;
+}
+
+#endif // PLATFORM(IOS)
 
 @end

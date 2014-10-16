@@ -1,6 +1,6 @@
 /*
  ********************************************************************************
- *   Copyright (C) 1997-2012, International Business Machines
+ *   Copyright (C) 1997-2014, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  ********************************************************************************
  *
@@ -28,6 +28,8 @@
 #include "unicode/numfmt.h"
 #include "unicode/format.h"
 #include "unicode/locid.h"
+#include "unicode/enumset.h"
+#include "unicode/udisplaycontext.h"
 
 /**
  * \file
@@ -38,6 +40,13 @@ U_NAMESPACE_BEGIN
 
 class TimeZone;
 class DateTimePatternGenerator;
+
+// explicit template instantiation. see digitlst.h
+#if defined (_MSC_VER)
+template class U_I18N_API EnumSet<UDateFormatBooleanAttribute,
+            0, 
+            UDAT_BOOLEAN_ATTRIBUTE_COUNT>;
+#endif
 
 /**
  * DateFormat is an abstract class for a family of classes that convert dates and
@@ -373,20 +382,6 @@ public:
     UnicodeString& format(UDate date, UnicodeString& appendTo) const;
 
     /**
-     * Redeclared Format method.
-     *
-     * @param obj       The object to be formatted into a string.
-     * @param appendTo  Output parameter to receive result.
-     *                  Result is appended to existing contents.
-     * @param status    Output param filled with success/failure status.
-     * @return          Reference to 'appendTo' parameter.
-     * @stable ICU 2.0
-     */
-    UnicodeString& format(const Formattable& obj,
-                          UnicodeString& appendTo,
-                          UErrorCode& status) const;
-
-    /**
      * Parse a date/time string. For example, a time text "07/10/96 4:5 PM, PDT"
      * will be parsed into a UDate that is equivalent to Date(837039928046).
      * Parsing begins at the beginning of the string and proceeds as far as
@@ -586,25 +581,61 @@ public:
     static const Locale* U_EXPORT2 getAvailableLocales(int32_t& count);
 
     /**
-     * Returns true if the formatter is set for lenient parsing.
+     * Returns whether both date/time parsing in the encapsulated Calendar object and DateFormat whitespace &
+     * numeric processing is lenient.
      * @stable ICU 2.0
      */
     virtual UBool isLenient(void) const;
 
     /**
-     * Specify whether or not date/time parsing is to be lenient. With lenient
-     * parsing, the parser may use heuristics to interpret inputs that do not
-     * precisely match this object's format. With strict parsing, inputs must
-     * match this object's format.
+     * Specifies whether date/time parsing is to be lenient.  With
+     * lenient parsing, the parser may use heuristics to interpret inputs that
+     * do not precisely match this object's format.  Without lenient parsing,
+     * inputs must match this object's format more closely.
+     * 
+     * Note: ICU 53 introduced finer grained control of leniency (and added 
+     * new control points) making the preferred method a combination of 
+     * setCalendarLenient() & setBooleanAttribute() calls. 
+     * This method supports prior functionality but may not support all 
+     * future leniency control & behavior of DateFormat. For control of pre 53 leniency,  
+     * Calendar and DateFormat whitespace & numeric tolerance, this method is safe to 
+     * use. However, mixing leniency control via this method and modification of the 
+     * newer attributes via setBooleanAttribute() may produce undesirable 
+     * results.
      *
      * @param lenient  True specifies date/time interpretation to be lenient.
      * @see Calendar::setLenient
-     * @stable ICU 2.0
+     * @stable ICU 2.0     
      */
     virtual void setLenient(UBool lenient);
 
+
+    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+    /**
+     * Returns whether date/time parsing in the encapsulated Calendar object processing is lenient.
+     * @draft ICU 53
+     */
+    virtual UBool isCalendarLenient(void) const;
+
+
+    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+    /**
+     * Specifies whether encapsulated Calendar date/time parsing is to be lenient.  With
+     * lenient parsing, the parser may use heuristics to interpret inputs that
+     * do not precisely match this object's format.  Without lenient parsing,
+     * inputs must match this object's format more closely.
+     * @param lenient when true, parsing is lenient
+     * @see com.ibm.icu.util.Calendar#setLenient
+     * @draft ICU 53
+     */
+    virtual void setCalendarLenient(UBool lenient);
+
+
     /**
      * Gets the calendar associated with this date/time formatter.
+     * The calendar is owned by the formatter and must not be modified.
+     * Also, the calendar does not reflect the results of a parse operation.
+     * To parse to a calendar, use {@link #parse(const UnicodeString&, Calendar& cal, ParsePosition&) const parse(const UnicodeString&, Calendar& cal, ParsePosition&)}
      * @return the calendar associated with this date/time formatter.
      * @stable ICU 2.0
      */
@@ -676,6 +707,59 @@ public:
      */
     virtual void setTimeZone(const TimeZone& zone);
 
+    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+    /**
+     * Set a particular UDisplayContext value in the formatter, such as
+     * UDISPCTX_CAPITALIZATION_FOR_STANDALONE.
+     * @param value The UDisplayContext value to set.
+     * @param status Input/output status. If at entry this indicates a failure
+     *               status, the function will do nothing; otherwise this will be
+     *               updated with any new status from the function. 
+     * @draft ICU 53
+     */
+    virtual void setContext(UDisplayContext value, UErrorCode& status);
+
+    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+    /**
+     * Get the formatter's UDisplayContext value for the specified UDisplayContextType,
+     * such as UDISPCTX_TYPE_CAPITALIZATION.
+     * @param type The UDisplayContextType whose value to return
+     * @param status Input/output status. If at entry this indicates a failure
+     *               status, the function will do nothing; otherwise this will be
+     *               updated with any new status from the function. 
+     * @return The UDisplayContextValue for the specified type.
+     * @draft ICU 53
+     */
+    virtual UDisplayContext getContext(UDisplayContextType type, UErrorCode& status) const;
+
+   /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+   /**
+     * Sets an boolean attribute on this DateFormat.
+     * May return U_UNSUPPORTED_ERROR if this instance does not support
+     * the specified attribute.
+     * @param attr the attribute to set
+     * @param newvalue new value
+     * @param status the error type
+     * @return *this - for chaining (example: format.setAttribute(...).setAttribute(...) )
+     * @draft ICU 53
+     */
+
+    virtual DateFormat&  U_EXPORT2 setBooleanAttribute(UDateFormatBooleanAttribute attr,
+    									UBool newvalue,
+    									UErrorCode &status);
+
+    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
+    /**
+     * Returns a boolean from this DateFormat
+     * May return U_UNSUPPORTED_ERROR if this instance does not support
+     * the specified attribute.
+     * @param attr the attribute to set
+     * @param status the error type
+     * @return the attribute value. Undefined if there is an error.
+     * @draft ICU 53
+     */
+    virtual UBool U_EXPORT2 getBooleanAttribute(UDateFormatBooleanAttribute attr, UErrorCode &status) const;
+
 protected:
     /**
      * Default constructor.  Creates a DateFormat with no Calendar or NumberFormat
@@ -713,6 +797,7 @@ protected:
      */
     NumberFormat* fNumberFormat;
 
+
 private:
     /**
      * Gets the date/time formatter with the given formatting styles for the
@@ -723,6 +808,15 @@ private:
      * @return a date/time formatter, or 0 on failure.
      */
     static DateFormat* U_EXPORT2 create(EStyle timeStyle, EStyle dateStyle, const Locale& inLocale);
+
+     
+    /**
+     * enum set of active boolean attributes for this instance
+     */
+    EnumSet<UDateFormatBooleanAttribute, 0, UDAT_BOOLEAN_ATTRIBUTE_COUNT> fBoolFlags;
+
+
+    UDisplayContext fCapitalizationContext;
 
 public:
 #ifndef U_HIDE_OBSOLETE_API
@@ -781,12 +875,6 @@ public:
 #endif  /* U_HIDE_OBSOLETE_API */
 };
 
-inline UnicodeString&
-DateFormat::format(const Formattable& obj,
-                   UnicodeString& appendTo,
-                   UErrorCode& status) const {
-    return Format::format(obj, appendTo, status);
-}
 U_NAMESPACE_END
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

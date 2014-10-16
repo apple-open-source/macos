@@ -26,37 +26,37 @@
 #ifndef TiledCoreAnimationDrawingAreaProxy_h
 #define TiledCoreAnimationDrawingAreaProxy_h
 
-#if ENABLE(THREADED_SCROLLING)
+#if !PLATFORM(IOS)
 
 #include "DrawingAreaProxy.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace WebKit {
 
 class TiledCoreAnimationDrawingAreaProxy : public DrawingAreaProxy {
 public:
-    static PassOwnPtr<TiledCoreAnimationDrawingAreaProxy> create(WebPageProxy*);
+    explicit TiledCoreAnimationDrawingAreaProxy(WebPageProxy*);
     virtual ~TiledCoreAnimationDrawingAreaProxy();
 
 private:
-    explicit TiledCoreAnimationDrawingAreaProxy(WebPageProxy*);
-
     // DrawingAreaProxy
-    virtual void deviceScaleFactorDidChange() OVERRIDE;
-    virtual void layerHostingModeDidChange() OVERRIDE;
-    virtual void visibilityDidChange() OVERRIDE;
-    virtual void sizeDidChange() OVERRIDE;
-    virtual void waitForPossibleGeometryUpdate(double timeout = didUpdateBackingStoreStateTimeout) OVERRIDE;
-    virtual void colorSpaceDidChange() OVERRIDE;
-    virtual void minimumLayoutSizeDidChange() OVERRIDE;
+    virtual void deviceScaleFactorDidChange() override;
+    virtual void sizeDidChange() override;
+    virtual void waitForPossibleGeometryUpdate(std::chrono::milliseconds timeout = didUpdateBackingStoreStateTimeout()) override;
+    virtual void colorSpaceDidChange() override;
+    virtual void minimumLayoutSizeDidChange() override;
 
-    virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) OVERRIDE;
-    virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) OVERRIDE;
-    virtual void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) OVERRIDE;
+    virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) override;
+    virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) override;
+    virtual void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) override;
+
+    virtual void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
+    virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
+
+    virtual void waitForDidUpdateViewState() override;
 
     // Message handlers.
-    virtual void didUpdateGeometry() OVERRIDE;
-    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& newIntrinsicContentSize) OVERRIDE;
+    virtual void didUpdateGeometry() override;
+    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& newIntrinsicContentSize) override;
 
     void sendUpdateGeometry();
 
@@ -71,8 +71,10 @@ private:
     WebCore::IntSize m_lastSentMinimumLayoutSize;
 };
 
+DRAWING_AREA_PROXY_TYPE_CASTS(TiledCoreAnimationDrawingAreaProxy, type() == DrawingAreaTypeTiledCoreAnimation);
+
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // !PLATFORM(IOS)
 
 #endif // TiledCoreAnimationDrawingAreaProxy_h

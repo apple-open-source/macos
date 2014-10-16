@@ -19,8 +19,10 @@
 #
 
 ActiveDOMObject
+AtomicString
 CPPPureInterface
 CachedAttribute
+CallbackNeedsOperatorEqual
 CallWith=ScriptExecutionContext|ScriptState|ScriptArguments|CallStack
 CheckSecurity
 CheckSecurityForNode
@@ -42,6 +44,7 @@ CustomIndexedSetter
 CustomIsReachable
 CustomNamedGetter
 CustomNamedSetter
+CustomProxyToJSObject
 CustomPutFunction
 CustomReturn
 CustomSetter
@@ -56,10 +59,10 @@ EnabledAtRuntime=*
 EnabledBySetting=*
 EnforceRange
 EventTarget
-ExtendsDOMGlobalObject
-GenerateIsReachable=|Impl|ImplContext|ImplDocument|ImplElementRoot|ImplFrame|ImplOwnerNodeRoot
+ForwardDeclareInHeader
+GenerateIsReachable=|Impl|ImplWebGLRenderingContext|ImplDocument|ImplElementRoot|ImplFrame|ImplOwnerNodeRoot
 GetterRaisesException
-GlobalContext=WindowOnly|WorkerOnly|WindowAndWorker
+GlobalContext=DOMWindow|WorkerGlobalScope|SharedWorkerGlobalScope|DedicatedWorkerGlobalScope
 Immutable
 ImplementationLacksVTable
 ImplementationNamespace=*
@@ -67,7 +70,6 @@ ImplementedAs=*
 InitializedByEventConstructor
 InterfaceName=*
 IsIndex
-IsWorkerContext
 JSCustomDefineOwnProperty
 JSCustomDefineOwnPropertyOnPrototype
 JSCustomFinalize
@@ -79,24 +81,29 @@ JSCustomPushEventHandlerScope
 JSCustomToNativeObject
 JSGenerateToJSObject
 JSGenerateToNativeObject
-JSInlineGetOwnPropertySlot
 JSLegacyParent=*
 JSNoStaticTables
 JSWindowEventListener
 MasqueradesAsUndefined
 NamedConstructor=*
+NewImpurePropertyFiresWatchpoints
 NoInterfaceObject
+Nondeterministic
 NotEnumerable
+NotDeletable
 ObjCCustomImplementation
+ObjCExplicitAtomicString
 ObjCLegacyUnnamedParameters
 ObjCPolymorphic
 ObjCProtocol
+OperationsNotDeletable
 PassContext
-PassThisToCallback=*
 RaisesException
 Reflect=*
 Replaceable
 ReplaceableConstructor
+ReportExtraMemoryCost
+RequiresExistingAtomicString
 ReturnNewObject
 SetterRaisesException
 SkipVTableValidation
@@ -107,3 +114,6 @@ TreatReturnedNullStringAs=Null|Undefined
 TreatUndefinedAs=NullString
 TypedArray=*
 URL
+
+# PLATFORM(IOS)
+AppleCopyright

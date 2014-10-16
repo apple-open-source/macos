@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <Availability.h>
 
 #if __ppc__ && __DYNAMIC__
 //
@@ -202,7 +203,7 @@ Lapple:
 	cmp	r4, #0
 	bne	Lapple			
 					// "apple" param now in r3
-#if __STATIC__
+#if __STATIC__ || ((__IPHONE_OS_VERSION_MIN_REQUIRED >= 30100) && !__ARM_ARCH_4T__)
 	bl	_main
 	b	_exit
 #else
@@ -237,6 +238,26 @@ L_exit$non_lazy_ptr:
 
 #endif
 #endif /* __arm__ */
+
+
+#if __arm64__
+
+start:
+	mov     x5, sp
+	ldr     x0, [x5]            ; get argc into x0 (kernel passes 32-bit int argc as 64-bits on stack to keep alignment)
+	add     x1, x5, #8          ; get argv into x1
+	add     x4, x0, #1          ; argc + 1
+	add     x2, x1, x4, lsl #3  ; &env[0] = (argc+1)*8
+	and     sp, x5, #~15        ; force 16-byte alignment of stack
+	mov     x3, x2
+L1: ldr     x4, [x3], #8
+	cmp     x4, #0              ; look for NULL ending env[] array
+	b.ne     L1
+	bl      _main               ; main(x0=argc, x1=argv, x2=envp, x3=apple)
+	b       _exit
+
+#endif /* __arm64__ */
+
 
 // This code has be written to allow dead code stripping
 	.subsections_via_symbols

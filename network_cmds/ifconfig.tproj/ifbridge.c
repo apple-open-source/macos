@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -81,6 +81,8 @@
 #include <unistd.h>
 #include <err.h>
 #include <errno.h>
+
+#include <arpa/inet.h>
 
 #include "ifconfig.h"
 
@@ -172,7 +174,7 @@ bridge_interfaces(int s, const char *prefix)
 	char *inbuf = NULL, *ninbuf;
 	char *p, *pad;
 	int i, len = 8192;
-
+	
 	pad = strdup(prefix);
 	if (pad == NULL)
 		err(1, "strdup");
@@ -230,9 +232,36 @@ bridge_interfaces(int s, const char *prefix)
 				    req->ifbr_state);
 		}
 		printf("\n");
+		
+		if (verbose) {
+			struct ifbrhostfilter ifbrfh;
+			struct in_addr in;
+			struct ether_addr ea;
+			
+			bzero(&ifbrfh, sizeof(struct ifbrhostfilter));
+			strlcpy(ifbrfh.ifbrhf_ifsname, req->ifbr_ifsname, sizeof(ifbrfh.ifbrhf_ifsname));
+			if (do_cmd(s, BRDGGHOSTFILTER, &ifbrfh, sizeof(ifbrfh), 0) < 0)
+				err(1, "unable to get host filter settings for %s",
+				    ifbrfh.ifbrhf_ifsname);
+			
+			if (ifbrfh.ifbrhf_flags & IFBRHF_ENABLED) {
+				in.s_addr = ifbrfh.ifbrhf_ipsrc;
+				bcopy(ifbrfh.ifbrhf_hwsrca, ea.octet, ETHER_ADDR_LEN);
+			} else {
+				in.s_addr = INADDR_ANY;
+				bzero(ea.octet, ETHER_ADDR_LEN);
+			}
+			printf("%s", pad);
+			printf("hostfilter %d hw: %s ip: %s",
+			       ifbrfh.ifbrhf_flags & IFBRHF_ENABLED ? 1 : 0,
+				ether_ntoa(&ea), inet_ntoa(in));
+			
+			printf("\n");
+		}
 	}
 
 	free(inbuf);
+	free(pad);
 }
 
 static void
@@ -745,6 +774,46 @@ unsetbridge_private(const char *val, int d, int s, const struct afswtch *afp)
 }
 #endif
 
+
+static void
+setbridge_hostfilter(const char *ifn, const char *addr, int s,
+		     const struct afswtch *afp)
+{
+	struct ifbrhostfilter req;
+	struct ether_addr *ea;
+	struct in_addr in;
+	
+	memset(&req, 0, sizeof(req));
+	req.ifbrhf_flags = IFBRHF_ENABLED;
+	
+	strlcpy(req.ifbrhf_ifsname, ifn, sizeof(req.ifbrhf_ifsname));
+	
+	ea = ether_aton(addr);
+	if (ea != NULL) {
+		req.ifbrhf_flags |= IFBRHF_HWSRC;
+		bcopy(ea, req.ifbrhf_hwsrca, sizeof(req.ifbrhf_hwsrca));
+	} else if (inet_aton(addr, &in) != 0) {
+		req.ifbrhf_flags |= IFBRHF_IPSRC;
+		req.ifbrhf_ipsrc = in.s_addr;
+	} else
+		errx(1, "invalid address: %s", addr);
+	
+	if (do_cmd(s, BRDGSHOSTFILTER, &req, sizeof(req), 1) < 0)
+		err(1, "BRDGSHOSTFILTER %s %s", ifn, addr);
+}
+
+static void
+unsetbridge_hostfilter(const char *ifn, int d, int s, const struct afswtch *afp)
+{
+	struct ifbrhostfilter req;
+	
+	memset(&req, 0, sizeof(req));
+	strlcpy(req.ifbrhf_ifsname, ifn, sizeof(req.ifbrhf_ifsname));
+	
+	if (do_cmd(s, BRDGSHOSTFILTER, &req, sizeof(req), 1) < 0)
+		err(1, "BRDGSHOSTFILTER");
+}
+
 static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("addm",		setbridge_add),
 	DEF_CMD_ARG("deletem",		setbridge_delete),
@@ -794,6 +863,8 @@ static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("private",		setbridge_private),
 	DEF_CMD_ARG("-private",		unsetbridge_private),
 #endif
+        DEF_CMD_ARG2("hostfilter",	setbridge_hostfilter),
+        DEF_CMD_ARG("-hostfilter",	unsetbridge_hostfilter),
 };
 static struct afswtch af_bridge = {
 	.af_name	= "af_bridge",

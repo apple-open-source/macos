@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,9 @@ kIPConfigurationServiceOptionMTU = _kIPConfigurationServiceOptionMTU;
 const CFStringRef 
 kIPConfigurationServiceOptionPerformNUD = _kIPConfigurationServiceOptionPerformNUD;
 
+const CFStringRef 
+kIPConfigurationServiceOptionIPv6Entity = _kIPConfigurationServiceOptionIPv6Entity;
+
 /**
  ** IPConfigurationService
  **/
@@ -65,7 +68,7 @@ struct __IPConfigurationService {
     CFRuntimeBase		cf_base;
 
     mach_port_t			server;
-    CFStringRef			ifname;
+    if_name_t			ifname;
     CFDataRef			serviceID_data;
     CFStringRef			store_key;
 };
@@ -102,7 +105,7 @@ __IPConfigurationServiceCopyDebugDesc(CFTypeRef cf)
     CFStringAppendFormat(result, NULL,
 			 CFSTR("<IPConfigurationService %p [%p]> {"),
 			 cf, allocator);
-    CFStringAppendFormat(result, NULL, CFSTR("ifname = %@, serviceID = %.*s"),
+    CFStringAppendFormat(result, NULL, CFSTR("ifname = %s, serviceID = %.*s"),
 			 service->ifname,
 			 (int)CFDataGetLength(service->serviceID_data),
 			 CFDataGetBytePtr(service->serviceID_data));
@@ -119,27 +122,30 @@ __IPConfigurationServiceDeallocate(CFTypeRef cf)
     int				service_id_len;
     ipconfig_status_t		status;
 
-    service_id_len = CFDataGetLength(service->serviceID_data);
+    service_id_len = (int)CFDataGetLength(service->serviceID_data);
 
     bcopy(CFDataGetBytePtr(service->serviceID_data), &service_id,
 	  service_id_len);
-    kret = ipconfig_remove_service_with_id(service->server,
-					   service_id, service_id_len,
-					   &status);
+    kret = ipconfig_remove_service_on_interface(service->server,
+						service->ifname,
+						service_id, service_id_len,
+						&status);
     if (kret != KERN_SUCCESS) {
 	IPConfigLogFL(LOG_NOTICE,
-		      "ipconfig_remove_service_with_id(%.*s) failed, %s",
-		      service_id_len, service_id, mach_error_string(kret));
+		      "ipconfig_remove_service_on_interface(%s %.*s) "
+		      "failed, %s",
+		      service->ifname, service_id_len, service_id, 
+		      mach_error_string(kret));
     }
     else if (status != ipconfig_status_success_e) {
 	IPConfigLogFL(LOG_NOTICE,
-		      "ipconfig_add_service(%.*s) failed: %s",
-		      service_id_len, service_id, 
+		      "ipconfig_remove_service_on_interface(%s %.*s)"
+		      " failed: %s",
+		      service->ifname, service_id_len, service_id, 
 		      ipconfig_status_string(status));
     }
     mach_port_deallocate(mach_task_self(), service->server);
     service->server = MACH_PORT_NULL;
-    my_CFRelease(&service->ifname);
     my_CFRelease(&service->serviceID_data);
     my_CFRelease(&service->store_key);
     return;
@@ -180,12 +186,13 @@ __IPConfigurationServiceAllocate(CFAllocatorRef allocator)
 }
 
 STATIC CFDictionaryRef
-config_dict_create(pid_t pid, CFNumberRef mtu, CFBooleanRef perform_nud)
+config_dict_create(pid_t pid, CFDictionaryRef requested_ipv6_config,
+		   CFNumberRef mtu, CFBooleanRef perform_nud)
 {
     int			count;
     CFDictionaryRef	config_dict;
+    CFDictionaryRef 	ipv6_dict;
     const void *	keys[4];
-    CFDictionaryRef	ipv6_dict;
     CFDictionaryRef	options;
     const void *	values[4];
 
@@ -219,14 +226,19 @@ config_dict_create(pid_t pid, CFNumberRef mtu, CFBooleanRef perform_nud)
 			     &kCFTypeDictionaryKeyCallBacks,
 			     &kCFTypeDictionaryValueCallBacks);
 
-    /* create the IPv6 dictionary */
-    ipv6_dict
-	= CFDictionaryCreate(NULL,
-			     (const void * *)&kSCPropNetIPv6ConfigMethod,
-			     (const void * *)&kSCValNetIPv6ConfigMethodAutomatic,
-			     1,
-			     &kCFTypeDictionaryKeyCallBacks,
-			     &kCFTypeDictionaryValueCallBacks);
+    if (requested_ipv6_config != NULL) {
+	ipv6_dict = requested_ipv6_config;
+    }
+    else {
+	/* create the default IPv6 dictionary */
+	ipv6_dict
+	    = CFDictionaryCreate(NULL,
+				 (const void * *)&kSCPropNetIPv6ConfigMethod,
+				 (const void * *)&kSCValNetIPv6ConfigMethodAutomatic,
+				 1,
+				 &kCFTypeDictionaryKeyCallBacks,
+				 &kCFTypeDictionaryValueCallBacks);
+    }
     keys[0] = kIPConfigurationServiceOptions;
     values[0] = options;
     keys[1] = kSCEntNetIPv6;
@@ -236,8 +248,51 @@ config_dict_create(pid_t pid, CFNumberRef mtu, CFBooleanRef perform_nud)
 			     &kCFTypeDictionaryKeyCallBacks,
 			     &kCFTypeDictionaryValueCallBacks);
     CFRelease(options);
-    CFRelease(ipv6_dict);
+    if (ipv6_dict != requested_ipv6_config) {
+	CFRelease(ipv6_dict);
+    }
     return (config_dict);
+}
+
+static Boolean
+ipv6_config_is_valid(CFDictionaryRef config)
+{
+    CFStringRef		config_method;
+    Boolean		is_valid = FALSE;
+
+    config_method = CFDictionaryGetValue(config, kSCPropNetIPv6ConfigMethod);
+    if (isA_CFString(config_method) == NULL) {
+	goto done;
+    }
+    if (CFEqual(config_method, kSCValNetIPv6ConfigMethodManual)) {
+	CFArrayRef	addresses;
+	CFIndex		count;
+	CFArrayRef	prefix_lengths;
+
+	/* must contain Addresses, PrefixLength */
+	addresses = CFDictionaryGetValue(config, kSCPropNetIPv6Addresses);
+	prefix_lengths = CFDictionaryGetValue(config, 
+					      kSCPropNetIPv6PrefixLength);
+	if (isA_CFArray(addresses) == NULL
+	    || isA_CFArray(prefix_lengths) == NULL) {
+	    goto done;
+	}
+	count = CFArrayGetCount(addresses);
+	if (count == 0 || count != CFArrayGetCount(prefix_lengths)) {
+	    goto done;
+	}
+    }
+    else if (CFEqual(config_method, kSCValNetIPv6ConfigMethodAutomatic)
+	     || CFEqual(config_method, kSCValNetIPv6ConfigMethodLinkLocal)) {
+	/* no other parameters are required */
+    }
+    else {
+	goto done;
+    }
+    is_valid = TRUE;
+
+ done:
+    return (is_valid);
 }
 
 /**
@@ -261,6 +316,7 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     kern_return_t		kret;
     CFNumberRef			mtu = NULL;
     CFBooleanRef		perform_nud = NULL;
+    CFDictionaryRef		requested_ipv6_config = NULL;
     mach_port_t			server = MACH_PORT_NULL;
     IPConfigurationServiceRef	service = NULL;
     CFStringRef			serviceID;
@@ -287,6 +343,16 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 			  kIPConfigurationServiceOptionPerformNUD);
 	    perform_nud = NULL;
 	}
+	requested_ipv6_config
+	    = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionIPv6Entity);
+	if (requested_ipv6_config != NULL
+	    && ipv6_config_is_valid(requested_ipv6_config) == FALSE) {
+	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			  kIPConfigurationServiceOptionIPv6Entity);
+	    requested_ipv6_config = NULL;
+	}
+	    
     }
     kret = ipconfig_server_port(&server);
     if (kret != BOOTSTRAP_SUCCESS) {
@@ -295,11 +361,16 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 		      mach_error_string(kret));
 	return (NULL);
     }
-    config_dict = config_dict_create(getpid(), mtu, perform_nud);
-    data = CFPropertyListCreateXMLData(NULL, config_dict);
+    config_dict = config_dict_create(getpid(), requested_ipv6_config,
+				     mtu, perform_nud);
+    data = CFPropertyListCreateData(NULL, 
+				    config_dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0,
+				    NULL);
     CFRelease(config_dict);
     xml_data_ptr = (void *)CFDataGetBytePtr(data);
-    xml_data_len = CFDataGetLength(data);
+    xml_data_len = (int)CFDataGetLength(data);
     my_CFStringToCStringAndLength(interface_name, if_name,
 				  sizeof(if_name));
     while (1) {
@@ -337,7 +408,7 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     if (service == NULL) {
 	goto done;
     }
-    service->ifname = CFStringCreateCopy(NULL, interface_name);
+    bcopy(if_name, service->ifname, sizeof(service->ifname));
     service->serviceID_data = CFDataCreate(NULL, (const UInt8 *)service_id,
 					   service_id_len);
     service->server = server;
@@ -392,4 +463,34 @@ IPConfigurationServiceCopyInformation(IPConfigurationServiceRef service)
     }
     CFRelease(store);
     return (info);
+}
+
+void
+IPConfigurationServiceRefreshConfiguration(IPConfigurationServiceRef service)
+{
+    kern_return_t		kret;
+    inline_data_t 		service_id;
+    int				service_id_len;
+    ipconfig_status_t		status;
+
+    service_id_len = (int)CFDataGetLength(service->serviceID_data);
+    bcopy(CFDataGetBytePtr(service->serviceID_data), &service_id,
+	  service_id_len);
+    kret = ipconfig_refresh_service(service->server,
+				    service->ifname,
+				    service_id, service_id_len,
+				    &status);
+    if (kret != KERN_SUCCESS) {
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_refresh_service(%s %.*s) failed, %s",
+		      service->ifname, service_id_len, service_id, 
+		      mach_error_string(kret));
+    }
+    else if (status != ipconfig_status_success_e) {
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_refresh_service(%s %.*s) failed: %s",
+		      service->ifname, service_id_len, service_id, 
+		      ipconfig_status_string(status));
+    }
+    return;
 }

@@ -28,22 +28,20 @@
 
 namespace WebCore {
 
-class RenderStyle;
-
 struct LengthBox {
     LengthBox()
     {
     }
 
-    LengthBox(LengthType t)
-        : m_left(t)
-        , m_right(t)
-        , m_top(t)
-        , m_bottom(t)
+    explicit LengthBox(LengthType type)
+        : m_left(type)
+        , m_right(type)
+        , m_top(type)
+        , m_bottom(type)
     {
     }
 
-    LengthBox(int v)
+    explicit LengthBox(int v)
         : m_left(Length(v, Fixed))
         , m_right(Length(v, Fixed))
         , m_top(Length(v, Fixed))
@@ -51,43 +49,43 @@ struct LengthBox {
     {
     }
 
-    LengthBox(Length t, Length r, Length b, Length l)
-        : m_left(l)
-        , m_right(r)
-        , m_top(t)
-        , m_bottom(b)
-    {
-    }
-    
-    LengthBox(int t, int r, int b, int l)
-        : m_left(Length(l, Fixed))
-        , m_right(Length(r, Fixed))
-        , m_top(Length(t, Fixed))
-        , m_bottom(Length(b, Fixed))
+    LengthBox(Length top, Length right, Length bottom, Length left)
+        : m_left(WTF::move(left))
+        , m_right(WTF::move(right))
+        , m_top(WTF::move(top))
+        , m_bottom(WTF::move(bottom))
     {
     }
 
-    Length left() const { return m_left; }
-    Length right() const { return m_right; }
-    Length top() const { return m_top; }
-    Length bottom() const { return m_bottom; }
-
-    Length logicalLeft(WritingMode) const;
-    Length logicalRight(WritingMode) const;
-
-    Length before(WritingMode) const;
-    Length after(WritingMode) const;
-    Length start(WritingMode, TextDirection) const;
-    Length end(WritingMode, TextDirection) const;
-
-    bool operator==(const LengthBox& o) const
+    LengthBox(int top, int right, int bottom, int left)
+        : m_left(Length(left, Fixed))
+        , m_right(Length(right, Fixed))
+        , m_top(Length(top, Fixed))
+        , m_bottom(Length(bottom, Fixed))
     {
-        return m_left == o.m_left && m_right == o.m_right && m_top == o.m_top && m_bottom == o.m_bottom;
     }
 
-    bool operator!=(const LengthBox& o) const
+    const Length& left() const { return m_left; }
+    const Length& right() const { return m_right; }
+    const Length& top() const { return m_top; }
+    const Length& bottom() const { return m_bottom; }
+
+    const Length& logicalLeft(WritingMode) const;
+    const Length& logicalRight(WritingMode) const;
+
+    const Length& before(WritingMode) const;
+    const Length& after(WritingMode) const;
+    const Length& start(WritingMode, TextDirection) const;
+    const Length& end(WritingMode, TextDirection) const;
+
+    bool operator==(const LengthBox& other) const
     {
-        return !(*this == o);
+        return m_left == other.m_left && m_right == other.m_right && m_top == other.m_top && m_bottom == other.m_bottom;
+    }
+
+    bool operator!=(const LengthBox& other) const
+    {
+        return !(*this == other);
     }
 
     bool nonZero() const

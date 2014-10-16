@@ -68,8 +68,6 @@
   overflow content.
 */
 
-using namespace std;
-
 namespace WebCore {
 
 FixedTableLayout::FixedTableLayout(RenderTable* table)
@@ -98,7 +96,7 @@ int FixedTableLayout::calcWidthArray()
         if (col->isTableColumnGroupWithColumnChildren())
             continue;
 
-        Length colStyleLogicalWidth = col->style()->logicalWidth();
+        Length colStyleLogicalWidth = col->style().logicalWidth();
         int effectiveColWidth = 0;
         if (colStyleLogicalWidth.isFixed() && colStyleLogicalWidth.value() > 0)
             effectiveColWidth = colStyleLogicalWidth.value();
@@ -136,13 +134,8 @@ int FixedTableLayout::calcWidthArray()
 
     unsigned currentColumn = 0;
 
-    RenderObject* firstRow = section->firstChild();
-    for (RenderObject* child = firstRow->firstChild(); child; child = child->nextSibling()) {
-        if (!child->isTableCell())
-            continue;
-
-        RenderTableCell* cell = toRenderTableCell(child);
-
+    RenderTableRow* firstRow = section->firstRow();
+    for (RenderTableCell* cell = firstRow->firstCell(); cell; cell = cell->nextCell()) {
         Length logicalWidth = cell->styleOrColLogicalWidth();
         unsigned span = cell->colSpan();
         int fixedBorderBoxLogicalWidth = 0;
@@ -150,7 +143,7 @@ int FixedTableLayout::calcWidthArray()
         // RenderBox::computeLogicalWidthInRegionUsing to compute the width.
         if (logicalWidth.isFixed() && logicalWidth.isPositive()) {
             fixedBorderBoxLogicalWidth = cell->adjustBorderBoxLogicalWidthForBoxSizing(logicalWidth.value());
-            logicalWidth.setValue(fixedBorderBoxLogicalWidth);
+            logicalWidth.setValue(Fixed, fixedBorderBoxLogicalWidth);
         }
 
         unsigned usedSpan = 0;
@@ -183,9 +176,9 @@ void FixedTableLayout::computeIntrinsicLogicalWidths(LayoutUnit& minWidth, Layou
 
 void FixedTableLayout::applyPreferredLogicalWidthQuirks(LayoutUnit& minWidth, LayoutUnit& maxWidth) const
 {
-    Length tableLogicalWidth = m_table->style()->logicalWidth();
+    Length tableLogicalWidth = m_table->style().logicalWidth();
     if (tableLogicalWidth.isFixed() && tableLogicalWidth.isPositive())
-        minWidth = maxWidth = max<int>(minWidth, tableLogicalWidth.value() - m_table->bordersPaddingAndSpacingInRowDirection());
+        minWidth = maxWidth = std::max<int>(minWidth, tableLogicalWidth.value() - m_table->bordersPaddingAndSpacingInRowDirection());
 
     /*
         <table style="width:100%; background-color:red"><tr><td>
@@ -199,7 +192,7 @@ void FixedTableLayout::applyPreferredLogicalWidthQuirks(LayoutUnit& minWidth, La
     // In this example, the two inner tables should be as large as the outer table. 
     // We can achieve this effect by making the maxwidth of fixed tables with percentage
     // widths be infinite.
-    if (m_table->style()->logicalWidth().isPercent() && maxWidth < tableMaxWidth)
+    if (m_table->style().logicalWidth().isPercent() && maxWidth < tableMaxWidth)
         maxWidth = tableMaxWidth;
 }
 
@@ -232,7 +225,7 @@ void FixedTableLayout::layout()
         if (m_width[i].isFixed()) {
             calcWidth[i] = m_width[i].value();
             totalFixedWidth += calcWidth[i];
-        } else if (m_width[i].isPercent()) {
+        } else if (m_width[i].isPercentNotCalculated()) {
             calcWidth[i] = valueForLength(m_width[i], tableLogicalWidth);
             totalPercentWidth += calcWidth[i];
             totalPercent += m_width[i].percent();
@@ -261,7 +254,7 @@ void FixedTableLayout::layout()
             if (totalPercent) {
                 totalPercentWidth = 0;
                 for (unsigned i = 0; i < nEffCols; i++) {
-                    if (m_width[i].isPercent()) {
+                    if (m_width[i].isPercentNotCalculated()) {
                         calcWidth[i] = m_width[i].percent() * (tableLogicalWidth - totalFixedWidth) / totalPercent;
                         totalPercentWidth += calcWidth[i];
                     }

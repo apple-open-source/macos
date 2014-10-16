@@ -1,0 +1,94 @@
+fc [ -e ename ] [ -m match ] [ old=new ... ] [ first [ last ] ]
+fc -l [ -nrdfEiD ] [ -t timefmt ] [ -m match ]
+      [ old=new ... ] [ first [ last ] ]
+fc -p [ -a ] [ filename [ histsize [ savehistsize ] ] ]
+fc -P
+fc -ARWI [ filename ]
+       Select a range of commands from first to last from  the  history
+       list.  The arguments first and last may be specified as a number
+       or as a string.  A negative number is used as an offset  to  the
+       current  history  event  number.   A  string  specifies the most
+       recent event beginning with the given string.  All substitutions
+       old=new, if any, are then performed on the commands.
+
+       If  the  -l  flag is given, the resulting commands are listed on
+       standard output.  If the -m flag is also given the  first  argu-
+       ment  is taken as a pattern (should be quoted) and only the his-
+       tory events matching this pattern will be shown.  Otherwise  the
+       editor  program ename is invoked on a file containing these his-
+       tory events.  If ename is not given, the value of the  parameter
+       FCEDIT  is  used;  if that is not set the value of the parameter
+       EDITOR is used; if that is not set a  builtin  default,  usually
+       `vi'  is  used.   If  ename  is `-', no editor is invoked.  When
+       editing is complete, the edited command is executed.
+
+       If first is not specified, it will be set to -1 (the most recent
+       event), or to -16 if the -l flag is given.  If last is not spec-
+       ified, it will be set to first, or to  -1  if  the  -l  flag  is
+       given.
+
+       The  flag  -r reverses the order of the commands and the flag -n
+       suppresses command numbers when listing.
+
+       Also when listing,
+       -d     prints timestamps for each command
+       -f     prints full time-date stamps in the US  `MM/DD/YY  hh:mm'
+              format
+       -E     prints  full time-date stamps in the European `dd.mm.yyyy
+              hh:mm' format
+       -i     prints  full  time-date  stamps  in  ISO8601  `yyyy-mm-dd
+              hh:mm' format
+       -t fmt prints  time  and date stamps in the given format; fmt is
+              formatted with the strftime function with the zsh  exten-
+              sions  described  for the %D{string} prompt format in the
+              section EXPANSION OF PROMPT SEQUENCES in zshmisc(1).  The
+              resulting formatted string must be no more than 256 char-
+              acters or will not be printed.
+       -D     prints elapsed times; may be combined  with  one  of  the
+              options above.
+
+       `fc  -p'  pushes  the  current  history  list  onto  a stack and
+       switches to a new history list.  If the -a option is also speci-
+       fied,  this  history  list will be automatically popped when the
+       current function scope is exited, which is a much  better  solu-
+       tion than creating a trap function to call `fc -P' manually.  If
+       no arguments are specified, the  history  list  is  left  empty,
+       $HISTFILE  is  unset, and $HISTSIZE & $SAVEHIST are set to their
+       default values.  If one argument is given, $HISTFILE is  set  to
+       that filename, $HISTSIZE & $SAVEHIST are left unchanged, and the
+       history file is read in (if it exists)  to  initialize  the  new
+       list.   If a second argument is specified, $HISTSIZE & $SAVEHIST
+       are instead set to the single specified numeric value.  Finally,
+       if a third argument is specified, $SAVEHIST is set to a separate
+       value from $HISTSIZE.  You are free to change these  environment
+       values  for  the new history list however you desire in order to
+       manipulate the new history list.
+
+       `fc -P' pops the history list back to an older list saved by `fc
+       -p'.   The  current  list is saved to its $HISTFILE before it is
+       destroyed (assuming that $HISTFILE and $SAVEHIST are set  appro-
+       priately,  of  course).  The values of $HISTFILE, $HISTSIZE, and
+       $SAVEHIST are restored to the values they had when `fc  -p'  was
+       called.   Note  that  this  restoration can conflict with making
+       these variables "local", so your best bet is to avoid local dec-
+       larations  for  these  variables  in functions that use `fc -p'.
+       The one other guaranteed-safe  combination  is  declaring  these
+       variables  to be local at the top of your function and using the
+       automatic option (-a) with `fc -p'.  Finally, note  that  it  is
+       legal to manually pop a push marked for automatic popping if you
+       need to do so before the function exits.
+
+       `fc -R' reads the history from the given file,  `fc  -W'  writes
+       the  history out to the given file, and `fc -A' appends the his-
+       tory out to the given file.  If no filename  is  specified,  the
+       $HISTFILE  is  assumed.   If  the -I option is added to -R, only
+       those events that are not already contained within the  internal
+       history  list are added.  If the -I option is added to -A or -W,
+       only  those  events  that  are  new   since   last   incremental
+       append/write  to  the history file are appended/written.  In any
+       case, the created file will have no more than $SAVEHIST entries.
+
+history
+       Same as fc -l.
+
+r      Same as fc -e -.

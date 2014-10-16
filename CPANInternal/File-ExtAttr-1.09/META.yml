@@ -1,0 +1,12 @@
+# http://module-build.sourceforge.net/META-spec.html
+name:         File-ExtAttr
+version:      1.09
+version_from: lib/File/ExtAttr.pm
+installdirs:  site
+requires:
+  Carp: 0
+  Scalar::Util: 0
+license:      perl
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

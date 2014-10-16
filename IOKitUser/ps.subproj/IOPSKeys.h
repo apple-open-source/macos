@@ -398,6 +398,18 @@
 #define kIOPSCurrentKey                "Current"
 
 /*!
+ * @define      kIOPSTemperatureKey
+ * @abstract    CFDictionary key for the current power source's temperature.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources will publish this key.
+ *              <li> For power source creators: Providing this key is RECOMMENDED.
+ *              <li> Type CFNumber kCFNumberIntType (signed integer) - units are C
+ *              </ul>
+ */
+#define kIOPSTemperatureKey                         "Temperature"
+
+/*!
  * @define      kIOPSNameKey
  * @abstract    CFDictionary key for the current power source's name.
  * @discussion
@@ -790,6 +802,5 @@
  *  @abstract   Potential value for key <code>@link kIOPSBatteryFailureModesKey@/link</code>
  */
 #define kIOPSFailureFuseBlown                       "Fuse Blown"
-
 
 #endif

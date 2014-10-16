@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "ip_plugin.h"
 
 
 #define DEFAULT_MATCH_ORDER    200000   /* match order for the "default" proxy configuration */
@@ -215,7 +216,7 @@ add_supplemental_proxies(CFMutableArrayRef proxies, CFDictionaryRef services, CF
 
 		defaultOrder = DEFAULT_MATCH_ORDER
 			       - (DEFAULT_MATCH_ORDER / 2)
-			       + ((DEFAULT_MATCH_ORDER / 1000) * i);
+			       + ((DEFAULT_MATCH_ORDER / 1000) * (uint32_t)i);
 		if ((n_order > 0) &&
 		    !CFArrayContainsValue(service_order, CFRangeMake(0, n_order), keys[i])) {
 			// push out services not specified in service order
@@ -412,7 +413,7 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 		CFRelease(vpn_key);
 
 		if (!isA_CFDictionary(vpn) || !CFDictionaryContainsKey(vpn, kSCPropNetVPNAppRules)) {
-			// if not app-layer vpn
+			// if not App Layer vpn
 			continue;
 		}
 
@@ -486,7 +487,7 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef order)
 					     if_name,
 					     sizeof(if_name),
 					     kCFStringEncodingASCII) == NULL) ||
-		    ((if_nametoindex(if_name)) == 0)) {
+		    ((my_if_nametoindex(if_name)) == 0)) {
 			// if interface index not available
 			continue;
 		}

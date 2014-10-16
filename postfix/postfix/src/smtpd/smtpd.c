@@ -52,6 +52,7 @@
 /*	RFC 3848 (ESMTP transmission types)
 /*	RFC 4409 (Message submission)
 /*	RFC 4954 (AUTH command)
+/*	RFC 5321 (SMTP protocol)
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /*
@@ -89,10 +90,6 @@
 /*	not contain RFC 822 style comments or phrases.
 /* .PP
 /*	Available in Postfix version 2.1 and later:
-/* .IP "\fBresolve_null_domain (no)\fR"
-/*	Resolve an address that ends in the "@" null domain as if the
-/*	local hostname were specified, instead of rejecting the address as
-/*	invalid.
 /* .IP "\fBsmtpd_reject_unlisted_sender (no)\fR"
 /*	Request that the Postfix SMTP server rejects mail from unknown
 /*	sender addresses, even when no explicit reject_unlisted_sender
@@ -133,7 +130,8 @@
 /* .PP
 /*	Available in Postfix version 2.9 and later:
 /* .IP "\fBsmtpd_per_record_deadline (normal: no, overload: yes)\fR"
-/*	Change the behavior of the smtpd_timeout time limit, from a
+/*	Change the behavior of the smtpd_timeout and smtpd_starttls_timeout
+/*	time limits, from a
 /*	time limit per read or write system call, to a time limit to send
 /*	or receive a complete record (an SMTP command line, SMTP response
 /*	line, SMTP message content line, or TLS protocol message).
@@ -154,6 +152,16 @@
 /*	at all, or rewrite message headers and update incomplete addresses
 /*	with the domain specified in the remote_header_rewrite_domain
 /*	parameter.
+/* BEFORE-SMTPD PROXY AGENT
+/* .ad
+/* .fi
+/*	Available in Postfix version 2.10 and later:
+/* .IP "\fBsmtpd_upstream_proxy_protocol (empty)\fR"
+/*	The name of the proxy protocol used by an optional before-smtpd
+/*	proxy agent.
+/* .IP "\fBsmtpd_upstream_proxy_timeout (5s)\fR"
+/*	The time limit for the proxy protocol specified with the
+/*	smtpd_upstream_proxy_protocol parameter.
 /* AFTER QUEUE EXTERNAL CONTENT INSPECTION CONTROLS
 /* .ad
 /* .fi
@@ -307,6 +315,11 @@
 /* .IP "\fBcyrus_sasl_config_path (empty)\fR"
 /*	Search path for Cyrus SASL application configuration files,
 /*	currently used only to locate the $smtpd_sasl_path.conf file.
+/* .PP
+/*	Available in Postfix version 2.11 and later:
+/* .IP "\fBsmtpd_sasl_service (smtp)\fR"
+/*	The service name that is passed to the SASL plug-in that is
+/*	selected with \fBsmtpd_sasl_type\fR and \fBsmtpd_sasl_path\fR.
 /* STARTTLS SUPPORT CONTROLS
 /* .ad
 /* .fi
@@ -351,10 +364,10 @@
 /*	File with the Postfix SMTP server DSA certificate in PEM format.
 /* .IP "\fBsmtpd_tls_dh1024_param_file (empty)\fR"
 /*	File with DH parameters that the Postfix SMTP server should
-/*	use with EDH ciphers.
+/*	use with non-export EDH ciphers.
 /* .IP "\fBsmtpd_tls_dh512_param_file (empty)\fR"
 /*	File with DH parameters that the Postfix SMTP server should
-/*	use with EDH ciphers.
+/*	use with export-grade EDH ciphers.
 /* .IP "\fBsmtpd_tls_dkey_file ($smtpd_tls_dcert_file)\fR"
 /*	File with the Postfix SMTP server DSA private key in PEM format.
 /* .IP "\fBsmtpd_tls_key_file ($smtpd_tls_cert_file)\fR"
@@ -378,12 +391,6 @@
 /* .IP "\fBsmtpd_tls_req_ccert (no)\fR"
 /*	With mandatory TLS encryption, require a trusted remote SMTP client
 /*	certificate in order to allow TLS connections to proceed.
-/* .IP "\fBsmtpd_tls_session_cache_database (empty)\fR"
-/*	Name of the file containing the optional Postfix SMTP server
-/*	TLS session cache.
-/* .IP "\fBsmtpd_tls_session_cache_timeout (3600s)\fR"
-/*	The expiration time of Postfix SMTP server TLS session cache
-/*	information.
 /* .IP "\fBsmtpd_tls_wrappermode (no)\fR"
 /*	Run the Postfix SMTP server in the non-standard "wrapper" mode,
 /*	instead of using the STARTTLS command.
@@ -440,6 +447,10 @@
 /*	order.
 /* .IP "\fBtls_disable_workarounds (see 'postconf -d' output)\fR"
 /*	List or bit-mask of OpenSSL bug work-arounds to disable.
+/* .PP
+/*	Available in Postfix version 2.11 and later:
+/* .IP "\fBtlsmgr_service_name (tlsmgr)\fR"
+/*	The name of the \fBtlsmgr\fR(8) service entry in master.cf.
 /* OBSOLETE STARTTLS CONTROLS
 /* .ad
 /* .fi
@@ -514,6 +525,12 @@
 /*	Available in Postfix version 2.1 and later:
 /* .IP "\fBsmtpd_authorized_xclient_hosts (empty)\fR"
 /*	What remote SMTP clients are allowed to use the XCLIENT feature.
+/* .PP
+/*	Available in Postfix version 2.10 and later:
+/* .IP "\fBsmtpd_log_access_permit_actions (empty)\fR"
+/*	Enable logging of the named "permit" actions in SMTP server
+/*	access lists (by default, the SMTP server logs "reject" actions but
+/*	not "permit" actions).
 /* KNOWN VERSUS UNKNOWN RECIPIENT CONTROLS
 /* .ad
 /* .fi
@@ -649,7 +666,8 @@
 /* .PP
 /*	Available in Postfix version 2.9 and later:
 /* .IP "\fBsmtpd_per_record_deadline (normal: no, overload: yes)\fR"
-/*	Change the behavior of the smtpd_timeout time limit, from a
+/*	Change the behavior of the smtpd_timeout and smtpd_starttls_timeout
+/*	time limits, from a
 /*	time limit per read or write system call, to a time limit to send
 /*	or receive a complete record (an SMTP command line, SMTP response
 /*	line, SMTP message content line, or TLS protocol message).
@@ -712,24 +730,24 @@
 /*	What Postfix features match subdomains of "domain.tld" automatically,
 /*	instead of requiring an explicit ".domain.tld" pattern.
 /* .IP "\fBsmtpd_client_restrictions (empty)\fR"
-/*	Optional Postfix SMTP server access restrictions in the context of
-/*	a remote SMTP client connection request.
+/*	Optional restrictions that the Postfix SMTP server applies in the
+/*	context of a client connection request.
 /* .IP "\fBsmtpd_helo_required (no)\fR"
 /*	Require that a remote SMTP client introduces itself with the HELO
 /*	or EHLO command before sending the MAIL command or other commands
 /*	that require EHLO negotiation.
 /* .IP "\fBsmtpd_helo_restrictions (empty)\fR"
 /*	Optional restrictions that the Postfix SMTP server applies in the
-/*	context of the SMTP HELO command.
+/*	context of a client HELO command.
 /* .IP "\fBsmtpd_sender_restrictions (empty)\fR"
 /*	Optional restrictions that the Postfix SMTP server applies in the
-/*	context of the MAIL FROM command.
-/* .IP "\fBsmtpd_recipient_restrictions (permit_mynetworks, reject_unauth_destination)\fR"
-/*	The access restrictions that the Postfix SMTP server applies in
-/*	the context of the RCPT TO command.
+/*	context of a client MAIL FROM command.
+/* .IP "\fBsmtpd_recipient_restrictions (see 'postconf -d' output)\fR"
+/*	Optional restrictions that the Postfix SMTP server applies in the
+/*	context of a client RCPT TO command, after smtpd_relay_restrictions.
 /* .IP "\fBsmtpd_etrn_restrictions (empty)\fR"
-/*	Optional SMTP server access restrictions in the context of a client
-/*	ETRN request.
+/*	Optional restrictions that the Postfix SMTP server applies in the
+/*	context of a client ETRN command.
 /* .IP "\fBallow_untrusted_routing (no)\fR"
 /*	Forward mail with sender-specified routing (user[@%!]remote[@%!]site)
 /*	from untrusted clients to destinations matching $relay_domains.
@@ -764,6 +782,12 @@
 /* .IP "\fBsmtpd_end_of_data_restrictions (empty)\fR"
 /*	Optional access restrictions that the Postfix SMTP server
 /*	applies in the context of the SMTP END-OF-DATA command.
+/* .PP
+/*	Available in Postfix version 2.10 and later:
+/* .IP "\fBsmtpd_relay_restrictions (permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination)\fR"
+/*	Access restrictions for mail relay control that the Postfix
+/*	SMTP server applies in the context of the RCPT TO command, before
+/*	smtpd_recipient_restrictions.
 /* SENDER AND RECIPIENT ADDRESS VERIFICATION CONTROLS
 /* .ad
 /* .fi
@@ -933,7 +957,9 @@
 /* .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBrecipient_delimiter (empty)\fR"
-/*	The separator between user names and address extensions (user+foo).
+/*	The set of characters that can separate a user name from its
+/*	extension (example: user+foo), or a .forward file name from its
+/*	extension (example: .forward+foo).
 /* .IP "\fBsmtpd_banner ($myhostname ESMTP $mail_name)\fR"
 /*	The text that follows the 220 status code in the SMTP greeting
 /*	banner.
@@ -1048,10 +1074,6 @@
 #include <name_code.h>
 #include <inet_proto.h>
 
-#ifdef __APPLE_OS_X_SERVER__
-#include <dtrace-postfix.h>
-#endif
-
 /* Global library. */
 
 #include <mail_params.h>
@@ -1106,13 +1128,6 @@
 #include <smtpd_milter.h>
 #include <smtpd_expand.h>
 
-/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-#include <smtpd_imap.h>
-#endif
-
-#include <smtpd_binary.h>					/* APPLE - RFC 3030 */
-
  /*
   * Tunable parameters. Make sure that there is some bound on the length of
   * an SMTP command, so that the mail system stays in control even when a
@@ -1131,6 +1146,7 @@ char   *var_notify_classes;
 char   *var_client_checks;
 char   *var_helo_checks;
 char   *var_mail_checks;
+char   *var_relay_checks;
 char   *var_rcpt_checks;
 char   *var_etrn_checks;
 char   *var_data_checks;
@@ -1168,6 +1184,7 @@ bool    var_smtpd_sasl_enable;
 bool    var_smtpd_sasl_auth_hdr;
 char   *var_smtpd_sasl_opts;
 char   *var_smtpd_sasl_path;
+char   *var_smtpd_sasl_service;
 char   *var_cyrus_conf_path;
 char   *var_smtpd_sasl_realm;
 char   *var_smtpd_sasl_exceptions_networks;
@@ -1227,6 +1244,7 @@ bool    var_smtpd_tls_wrappermode;
 bool    var_smtpd_tls_auth_only;
 char   *var_smtpd_cmd_filter;
 char   *var_smtpd_rej_footer;
+char   *var_smtpd_acl_perm_log;
 
 #ifdef USE_TLS
 char   *var_smtpd_relay_ccerts;
@@ -1249,7 +1267,6 @@ char   *var_smtpd_tls_loglevel;
 char   *var_smtpd_tls_mand_proto;
 bool    var_smtpd_tls_received_header;
 bool    var_smtpd_tls_req_ccert;
-int     var_smtpd_tls_scache_timeout;
 bool    var_smtpd_tls_set_sessid;
 char   *var_smtpd_tls_fpt_dgst;
 char   *var_smtpd_tls_ciph;
@@ -1296,12 +1313,8 @@ char   *var_tlsproxy_service;
 
 #endif
 
-/* Apple Additions */
-#ifdef __APPLE_OS_X_SERVER__
-bool    var_smtpd_use_pw_server;
-int		smtpd_pw_server_sasl_opts;
-char   *var_smtpd_pw_server_opts;
-#endif /*__APPLE_OS_X_SERVER__*/
+char   *var_smtpd_uproxy_proto;
+int     var_smtpd_uproxy_tmout;
 
  /*
   * Silly little macros.
@@ -1729,38 +1742,6 @@ static int ehlo_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	if (var_smtpd_use_tls && (!state->tls_context))
 	    EHLO_APPEND(state, SMTPD_CMD_STARTTLS);
 #endif
-
-#ifdef __APPLE_OS_X_SERVER__
-#define XCLIENT_LOGIN_KLUDGE	" " XCLIENT_LOGIN
-    if ((discard_mask & EHLO_MASK_AUTH) == 0) {
-	if (smtpd_sasl_is_active(state) && !sasl_client_exception(state)) {
-		if ( var_smtpd_use_pw_server ) {
-			if ( smtpd_pw_server_sasl_opts ) {
-				char	mechanism_list[256];	/* Password server auth mechanism list */
-				mechanism_list[0] = '\0';
-				if ( smtpd_pw_server_sasl_opts & PW_SERVER_LOGIN )
-					strlcpy( mechanism_list, " LOGIN", sizeof mechanism_list );
-				if ( smtpd_pw_server_sasl_opts & PW_SERVER_PLAIN )
-					strlcat( mechanism_list, " PLAIN", sizeof mechanism_list );
-				if ( smtpd_pw_server_sasl_opts & PW_SERVER_CRAM_MD5 )
-					strlcat( mechanism_list, " CRAM-MD5", sizeof mechanism_list );
-				if ( smtpd_pw_server_sasl_opts & PW_SERVER_DIGEST_MD5 )
-					strlcat( mechanism_list, " DIGEST-MD5", sizeof mechanism_list );
-				if ( smtpd_pw_server_sasl_opts & PW_SERVER_GSSAPI )
-					strlcat( mechanism_list, " GSSAPI", sizeof mechanism_list );
-
-				EHLO_APPEND1( state, "AUTH%s", mechanism_list );
-				if ( var_broken_auth_clients )
-					EHLO_APPEND1(state, "AUTH=%s", (char *)&mechanism_list[1] );
-			}
-		} else {
-			EHLO_APPEND1(state, "AUTH %s", state->sasl_mechanism_list);
-			if (var_broken_auth_clients)
-				EHLO_APPEND1(state, "AUTH=%s", state->sasl_mechanism_list);
-		}
-	}
-    }
-#else /* __APPLE_OS_X_SERVER__ */
 #ifdef USE_SASL_AUTH
 #ifndef AUTH_CMD
 #define AUTH_CMD	"AUTH"
@@ -1777,8 +1758,6 @@ static int ehlo_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 #else
 #define XCLIENT_LOGIN_KLUDGE	""
 #endif
-#endif /*__APPLE_OS_X_SERVER__*/
-
     if ((discard_mask & EHLO_MASK_VERP) == 0) {
 	if (namadr_list_match(verp_clients, state->name, state->addr))
 	    EHLO_APPEND(state, VERP_CMD);
@@ -1812,23 +1791,6 @@ static int ehlo_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	EHLO_APPEND(state, "8BITMIME");
     if ((discard_mask & EHLO_MASK_DSN) == 0)
 	EHLO_APPEND(state, "DSN");
-
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - RFC 3030 */
-    if (!USE_SMTPD_PROXY(state)) {
-	if ((discard_mask & EHLO_MASK_BINARYMIME) == 0)
-	    EHLO_APPEND(state, "BINARYMIME");
-	if ((discard_mask & EHLO_MASK_CHUNKING) == 0)
-	    EHLO_APPEND(state, "CHUNKING");
-
-/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-	if ((discard_mask & EHLO_MASK_BURL) == 0 && imap_allowed(state))
-	    EHLO_APPEND(state, state->sasl_username != NULL &&
-			      *state->sasl_username != '\0' ? "BURL imap" : "BURL");
-#endif
-    }
-#endif /*__APPLE_OS_X_SERVER__*/
 
     /*
      * Send the reply.
@@ -1887,7 +1849,7 @@ static int mail_open_stream(SMTPD_STATE *state)
 	if (smtpd_proxy_create(state, smtpd_proxy_opts, var_smtpd_proxy_filt,
 			       var_smtpd_proxy_tmout, var_smtpd_proxy_ehlo,
 			       state->proxy_mail) != 0) {
-	    smtpd_chat_reply(state, "%s", STR(state->proxy->buffer));
+	    smtpd_chat_reply(state, "%s", STR(state->proxy->reply));
 	    smtpd_proxy_free(state);
 	    return (-1);
 	}
@@ -2095,12 +2057,6 @@ static int mail_open_stream(SMTPD_STATE *state)
 				", orig_queue_id=", FORWARD_IDENT(state)),
 		 PRINT2_OR_NULL(HAVE_FORWARDED_CLIENT_ATTR(state),
 				", orig_client=", FORWARD_NAMADDR(state)));
-
-#ifdef __APPLE_OS_X_SERVER__
-    if (POSTFIX_SMTP_RECEIVE_ENABLED())
-	POSTFIX_SMTP_RECEIVE(state);
-#endif
-
     return (0);
 }
 
@@ -2273,9 +2229,7 @@ static int mail_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	smtpd_chat_reply(state, "503 5.5.1 Error: send HELO/EHLO first");
 	return (-1);
     }
-#define IN_MAIL_TRANSACTION(state) ((state)->sender != 0)
-
-    if (IN_MAIL_TRANSACTION(state)) {
+    if (SMTPD_IN_MAIL_TRANSACTION(state)) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "503 5.5.1 Error: nested MAIL command");
 	return (-1);
@@ -2319,16 +2273,6 @@ static int mail_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
     }
     for (narg = 3; narg < argc; narg++) {
 	arg = argv[narg].strval;
-#ifdef __APPLE_OS_X_SERVER__
-	/* APPLE - RFC 3030 */
-	if (strcasecmp(arg, "BODY=BINARYMIME") == 0 &&
-	    !USE_SMTPD_PROXY(state)) {
-	    /* downgrade binary to base64 now, rather than when passing
-	       to a non-chunking server */
-	    state->encoding = MAIL_ATTR_ENC_7BIT;
-	    state->chunking |= SMTPD_CHUNKING_BINARYMIME;
-	} else	/* reduce code deltas */
-#endif /*__APPLE_OS_X_SERVER__*/
 	if (strcasecmp(arg, "BODY=8BITMIME") == 0) {	/* RFC 1652 */
 	    state->encoding = MAIL_ATTR_ENC_8BIT;
 	} else if (strcasecmp(arg, "BODY=7BIT") == 0) {	/* RFC 1652 */
@@ -2412,6 +2356,21 @@ static int mail_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 			 VERP_CMD);
 	return (-1);
     }
+    if (SMTPD_STAND_ALONE(state) == 0) {
+	const char *verify_sender;
+
+	/*
+	 * XXX Don't reject the address when we're probed with our own
+	 * address verification sender address. Otherwise, some timeout or
+	 * some UCE block may result in mutual negative caching, making it
+	 * painful to get the mail through. Unfortunately we still have to
+	 * send the address to the Milters otherwise they may bail out with a
+	 * "missing recipient" protocol error.
+	 */
+	verify_sender = valid_verify_sender_addr(STR(state->addr_buf));
+	if (verify_sender != 0)
+	    vstring_strcpy(state->addr_buf, verify_sender);
+    }
     if (SMTPD_STAND_ALONE(state) == 0
 	&& var_smtpd_delay_reject == 0
 	&& (err = smtpd_check_mail(state, STR(state->addr_buf))) != 0) {
@@ -2492,13 +2451,6 @@ static int mail_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 
 static void mail_reset(SMTPD_STATE *state)
 {
-    /* APPLE - RFC 3030 */
-    state->chunking = 0;
-    if (state->chunking_context) {
-	binary_filter_destroy(state->chunking_context);
-	state->chunking_context = 0;
-    }
-
     state->msg_size = 0;
     state->act_size = 0;
     state->flags &= SMTPD_MASK_MAIL_KEEP;
@@ -2598,7 +2550,7 @@ static int rcpt_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
      * command with a 501 response. So much for the principle of "be liberal
      * in what you accept, be strict in what you send".
      */
-    if (!IN_MAIL_TRANSACTION(state)) {
+    if (!SMTPD_IN_MAIL_TRANSACTION(state)) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "503 5.5.1 Error: need MAIL command");
 	return (-1);
@@ -2740,7 +2692,7 @@ static int rcpt_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
     proxy = state->proxy;
     if (proxy != 0 && proxy->cmd(state, SMTPD_PROX_WANT_OK,
 				 "%s", STR(state->buffer)) != 0) {
-	smtpd_chat_reply(state, "%s", STR(proxy->buffer));
+	smtpd_chat_reply(state, "%s", STR(proxy->reply));
 	return (-1);
     }
 
@@ -2925,12 +2877,7 @@ static void comment_sanitize(VSTRING *comment_string)
 
 /* data_cmd - process DATA command */
 
-#ifdef __APPLE_OS_X_SERVER__
-/* APPLE - burl and RFC 3030 */
-static int data_common(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv, bool burl, off_t bdat_size)
-#else
 static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
-#endif
 {
     SMTPD_PROXY *proxy;
     const char *err;
@@ -2950,18 +2897,6 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
     const char *rfc3848_sess;
     const char *rfc3848_auth;
 
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - burl */
-    VSTREAM *in_stream;
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-    int status;
-    const char *url;
-#endif
-
-    /* APPLE - RFC 3030 */
-    int (*in_get)(VSTRING *, VSTREAM *, ssize_t, int);
-#endif /*__APPLE_OS_X_SERVER__*/
-
 #ifdef USE_TLS
     VSTRING *peer_CN;
     VSTRING *issuer_CN;
@@ -2978,7 +2913,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
      * error.
      */
     if (state->rcpt_count == 0) {
-	if (!IN_MAIL_TRANSACTION(state)) {
+	if (!SMTPD_IN_MAIL_TRANSACTION(state)) {
 	    state->error_mask |= MAIL_ERROR_PROTOCOL;
 	    smtpd_chat_reply(state, "503 5.5.1 Error: need RCPT command");
 	} else {
@@ -2986,20 +2921,11 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	}
 	return (-1);
     }
-#ifdef __APPLE_OS_X_SERVER__
-    if (state->chunking & SMTPD_CHUNKING)   /* APPLE - burl and RFC 3030 */
-	first = (state->chunking & SMTPD_CHUNKING_NONZERO) == 0;
-    else    /* reduce code deltas */
-#endif /*__APPLE_OS_X_SERVER__*/
     if (argc != 1) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "501 5.5.4 Syntax: DATA");
 	return (-1);
     }
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - RFC 3030 */
-    if ((state->chunking & SMTPD_CHUNKING_CONT) == 0) {
-#endif
     if (SMTPD_STAND_ALONE(state) == 0 && (err = smtpd_check_data(state)) != 0) {
 	smtpd_chat_reply(state, "%s", err);
 	return (-1);
@@ -3015,13 +2941,9 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
     proxy = state->proxy;
     if (proxy != 0 && proxy->cmd(state, SMTPD_PROX_WANT_MORE,
 				 "%s", STR(state->buffer)) != 0) {
-	smtpd_chat_reply(state, "%s", STR(proxy->buffer));
+	smtpd_chat_reply(state, "%s", STR(proxy->reply));
 	return (-1);
     }
-#ifdef __APPLE_OS_X_SERVER__
-    } else	/* APPLE - RFC 3030 - reduce code deltas */
-	proxy = state->proxy;
-#endif
 
     /*
      * One level of indirection to choose between normal or proxied
@@ -3040,10 +2962,6 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	out_error = CLEANUP_STAT_WRITE;
     }
 
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - RFC 3030 - reduce code deltas */
-    if ((state->chunking & SMTPD_CHUNKING_CONT) == 0) {
-#endif
     /*
      * Flush out a first batch of access table actions that are delegated to
      * the cleanup server, and that may trigger before we accept the first
@@ -3162,77 +3080,8 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 		    "\t(envelope-from %s)", STR(state->buffer));
 #endif
     }
-#ifdef __APPLE_OS_X_SERVER__
-    }	/* APPLE - RFC 3030 - reduce code deltas */
-
-    /* APPLE - burl */
-    in_stream = state->client;
-    in_get = smtp_get;
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-    if (burl) {
-	url = argv[1].strval;
-	len = strlen(url);
-	if (len >= 2 && url[0] == '"' && url[len - 1] == '"')
-	    url = mystrndup(url + 1, len - 2);
-	in_stream = imap_open(state, url);
-	in_get = smtp_get_to_eof;
-	if (url != argv[1].strval) {
-	    myfree((char *) url);
-	    url = NULL;
-	}
-	if (in_stream == NULL) {
-	    /* must fail the entire transaction */
-	    chat_reset(state, var_smtpd_hist_thrsh);
-	    mail_reset(state);
-	    rcpt_reset(state);
-	    return -1;
-	}
-	status = vstream_setjmp(in_stream);
-	if (status != 0) {
-	    imap_close(in_stream);
-	    in_stream = NULL;
-	}
-	switch (status) {
-	case 0:
-	case SMTP_ERR_NONE:
-	    break;
-	case SMTP_ERR_EOF:
-	    smtpd_chat_reply(state, "454 4.6.6 EOF from IMAP server");
-	    vstream_longjmp(state->client, SMTP_ERR_QUIET);
-	    break;
-	case SMTP_ERR_TIME:
-	    smtpd_chat_reply(state, "454 4.6.6 Timeout from IMAP server");
-	    vstream_longjmp(state->client, SMTP_ERR_QUIET);
-	    break;
-	case SMTP_ERR_QUIET:
-	    vstream_longjmp(state->client, SMTP_ERR_QUIET);
-	    break;
-	default:
-	    msg_panic("data_common: unknown error %d", status);
-	    break;
-	}
-    } else
-#endif
-    if (state->chunking & SMTPD_CHUNKING) {	/* APPLE - RFC 3030 */
-	vstream_limit_init(in_stream, bdat_size);
-	in_get = smtp_get_to_eof;
-    } else  /* reduce code deltas */
-#endif /*__APPLE_OS_X_SERVER__*/
     smtpd_chat_reply(state, "354 End data with <CR><LF>.<CR><LF>");
     state->where = SMTPD_AFTER_DATA;
-
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - RFC 3030 */
-    if (state->chunking & SMTPD_CHUNKING_BINARYMIME) {
-	/* in_get == smtp_get_to_eof */
-	in_get = smtp_get_binary_to_eof;
-	if (state->chunking_context == NULL)
-	    state->chunking_context = binary_filter_create();
-	binary_filter_start(state->chunking_context, out_stream, out_record);
-	out_record = binary_filter_rec_put;
-	/* leave out_fprintf and out_error alone */
-    }
-#endif /*__APPLE_OS_X_SERVER__*/
 
     /*
      * Copy the message content. If the cleanup process has a problem, keep
@@ -3246,16 +3095,9 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
      * XXX Deal with UNIX-style From_ lines at the start of message content
      * because sendmail permits it.
      */
-#ifdef __APPLE_OS_X_SERVER__
-    /* APPLE - burl and RFC 3030 */
-    for (prev_rec_type = 0; in_stream != NULL; prev_rec_type = curr_rec_type) {
-	if (in_get(state->buffer, in_stream, var_line_limit,
-		     SMTP_GET_FLAG_NONE) == '\n')
-#else
     for (prev_rec_type = 0; /* void */ ; prev_rec_type = curr_rec_type) {
 	if (smtp_get(state->buffer, state->client, var_line_limit,
 		     SMTP_GET_FLAG_NONE) == '\n')
-#endif /*__APPLE_OS_X_SERVER__*/
 	    curr_rec_type = REC_TYPE_NORM;
 	else
 	    curr_rec_type = REC_TYPE_CONT;
@@ -3270,28 +3112,10 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	    first = 0;
 	    if (len > 0 && IS_SPACE_TAB(start[0]))
 		out_record(out_stream, REC_TYPE_NORM, "", 0);
-#ifdef __APPLE_OS_X_SERVER__
-	    /* APPLE - RFC 3030 */
-	    if ((state->chunking & SMTPD_CHUNKING) &&
-		(len > 0 || curr_rec_type == REC_TYPE_NORM)) {
-		/* Have first byte of message so don't do "first" processing
-		   again.  Clients using chunking shouldn't send From_ lines
-		   so don't worry if first chunk is, say, only "Fr". */
-		state->chunking |= SMTPD_CHUNKING_NONZERO;
-	    }
-#endif /*__APPLE_OS_X_SERVER__*/
 	}
-#ifdef __APPLE_OS_X_SERVER__
-	/* APPLE - burl and RFC 3030 - reduce code deltas */
-	if ((state->chunking & SMTPD_CHUNKING) == 0)
-#endif /*__APPLE_OS_X_SERVER__*/
 	if (prev_rec_type != REC_TYPE_CONT && *start == '.'
 	    && (proxy == 0 ? (++start, --len) == 0 : len == 1))
 	    break;
-#ifdef __APPLE_OS_X_SERVER__
-	/* APPLE - RFC 3030 - reduce code deltas */
-	if ((state->chunking & SMTPD_CHUNKING) == 0 || burl || bdat_size > 0)
-#endif /*__APPLE_OS_X_SERVER__*/
 	if (state->err == CLEANUP_STAT_OK) {
 	    if (var_message_limit > 0 && var_message_limit - state->act_size < len + 2) {
 		state->err = CLEANUP_STAT_SIZE;
@@ -3303,70 +3127,6 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 		    state->err = out_error;
 	    }
 	}
-#ifdef __APPLE_OS_X_SERVER__
-	/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-	if (burl) {
-	    if (imap_isdone(in_stream)) {
-		imap_close(in_stream);
-		in_stream = NULL;
-
-		if (state->chunking & SMTPD_CHUNKING_BINARYMIME) {
-		    if (state->chunking & SMTPD_CHUNKING_LAST) {
-			if (binary_filter_flush(state->chunking_context,
-						out_stream) < 0)
-			    state->err = out_error;
-		    }
-		    binary_filter_stop(state->chunking_context, out_stream);
-		}
-
-		/* just in case */
-		out_stream = NULL;
-		out_record = NULL;
-		out_fprintf = NULL;
-
-		if ((state->chunking & SMTPD_CHUNKING_LAST) == 0 &&
-		    state->err == CLEANUP_STAT_OK) {
-		    smtpd_chat_reply(state, "250 2.5.0 BURL OK");
-		    return 0;
-		}
-		break;
-	    } else if (vstream_feof(in_stream))
-		vstream_longjmp(in_stream, SMTP_ERR_EOF);
-	}
-#endif
-	/* APPLE - RFC 3030 */
-	if (!burl && (state->chunking & SMTPD_CHUNKING)) {
-	    if (vstream_limit_reached(in_stream)) {
-		vstream_limit_deinit(in_stream);
-		vstream_clearerr(in_stream);
-
-		if (state->chunking & SMTPD_CHUNKING_BINARYMIME) {
-		    if (state->chunking & SMTPD_CHUNKING_LAST) {
-			if (binary_filter_flush(state->chunking_context,
-						out_stream) < 0)
-			    state->err = out_error;
-		    }
-		    binary_filter_stop(state->chunking_context, out_stream);
-		}
-
-		/* just in case */
-		out_stream = NULL;
-		out_record = NULL;
-		out_fprintf = NULL;
-
-		if ((state->chunking & SMTPD_CHUNKING_LAST) == 0 &&
-		    state->err == CLEANUP_STAT_OK) {
-		    smtpd_chat_reply(state, "250 2.5.0 BDAT OK");
-		    return 0;
-		}
-		break;
-	    } else if (vstream_feof(in_stream)) {
-		vstream_limit_deinit(in_stream);
-		vstream_longjmp(in_stream, SMTP_ERR_EOF);
-	    }
-	}
-#endif /*__APPLE_OS_X_SERVER__*/
     }
     state->where = SMTPD_AFTER_DOT;
     if (state->err == CLEANUP_STAT_OK
@@ -3391,7 +3151,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	if (state->err == CLEANUP_STAT_OK) {
 	    (void) proxy->cmd(state, SMTPD_PROX_WANT_ANY, ".");
 	    if (state->err == CLEANUP_STAT_OK &&
-		*STR(proxy->buffer) != '2')
+		*STR(proxy->reply) != '2')
 		state->err = CLEANUP_STAT_CONT;
 	}
     }
@@ -3480,7 +3240,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	state->error_mask = 0;
 	state->junk_cmds = 0;
 	if (proxy)
-	    smtpd_chat_reply(state, "%s", STR(proxy->buffer));
+	    smtpd_chat_reply(state, "%s", STR(proxy->reply));
 	else
 	    smtpd_chat_reply(state,
 			     "250 2.0.0 Ok: queued as %s", state->queue_id);
@@ -3516,7 +3276,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	state->error_mask |= MAIL_ERROR_POLICY;
 	detail = cleanup_stat_detail(CLEANUP_STAT_CONT);
 	if (proxy) {
-	    smtpd_chat_reply(state, "%s", STR(proxy->buffer));
+	    smtpd_chat_reply(state, "%s", STR(proxy->reply));
 	} else if (why && LEN(why) > 0) {
 	    /* Allow address-specific DSN status in header/body_checks. */
 	    smtpd_chat_reply(state, "%d %s", detail->smtp, STR(why));
@@ -3531,7 +3291,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 			 detail->smtp, detail->dsn, detail->text);
     } else if ((state->err & CLEANUP_STAT_PROXY) != 0) {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
-	smtpd_chat_reply(state, "%s", STR(proxy->buffer));
+	smtpd_chat_reply(state, "%s", STR(proxy->reply));
     } else {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
 	detail = cleanup_stat_detail(CLEANUP_STAT_BAD);
@@ -3545,7 +3305,7 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
     if (proxy)
 	msg_info("proxy-%s: %s: %s;%s",
 		 (state->err == CLEANUP_STAT_OK) ? "accept" : "reject",
-		 state->where, STR(proxy->buffer), smtpd_whatsup(state));
+		 state->where, STR(proxy->reply), smtpd_whatsup(state));
 
     /*
      * Cleanup. The client may send another MAIL command.
@@ -3558,101 +3318,6 @@ static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 	vstring_free(why);
     return (saved_err);
 }
-
-#ifdef __APPLE_OS_X_SERVER__
-/* APPLE - burl */
-static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
-{
-    /* APPLE - RFC 3030 */
-    if (state->chunking != 0) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "503 5.5.1 Can't mix BURL/BDAT/BODY=BINARYMIME and DATA");
-	return (-1);
-    }
-
-    return data_common(state, argc, argv, 0, 0);
-}
-
-/* APPLE - burl and RFC 3030 */
-static int chunking_common(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv,
-			   bool burl, bool last, off_t bdat_size)
-{
-    int old_chunking = state->chunking;
-    int chunking = SMTPD_CHUNKING;
-    int ret;
-
-    if (last)
-	chunking |= SMTPD_CHUNKING_LAST;
-
-    state->chunking |= chunking;
-    ret = data_common(state, argc, argv, burl, bdat_size);
-    if (ret == 0 && !last)
-	state->chunking |= SMTPD_CHUNKING_CONT;
-    else if (ret != 0)
-	state->chunking = old_chunking;
-
-    return ret;
-}
-
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-static int burl_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
-{
-    if (USE_SMTPD_PROXY(state) || !imap_allowed(state)) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "502 5.5.2 Error: command not recognized");
-	return -1;
-    }
-
-    if (state->sasl_username == NULL || *state->sasl_username == '\0') {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "503 5.5.1 Error: send AUTH command first");
-	return -1;
-    }
-
-    if (argc < 2 || argc > 3 ||
-	(argc == 3 && strcasecmp(argv[2].strval, "LAST") != 0)) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "501 5.5.4 Syntax: BURL <url> [LAST]");
-	return -1;
-    }
-
-    return chunking_common(state, argc, argv, 1, argc == 3, 0);
-}
-#endif
-
-/* APPLE - RFC 3030 */
-static int bdat_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
-{
-    off_t size = -1;
-    int ret;
-
-    if (USE_SMTPD_PROXY(state)) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "502 5.5.2 Error: command not recognized");
-	return -1;
-    }
-
-    errno = 0;
-    if (argc < 2 || argc > 3 ||
-	!alldig(argv[1].strval) ||
-	(size = off_cvt_string(argv[1].strval)) < 0 ||
-	(argc == 3 && strcasecmp(argv[2].strval, "LAST") != 0)) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "501 5.5.4 Syntax: BDAT <octet-count> [LAST]");
-	return -1;
-    }
-
-    ret = chunking_common(state, argc, argv, 0, argc == 3, size);
-
-    if (ret < 0 && strcmp(state->where, SMTPD_AFTER_DOT) != 0) {
-	/* error occurred before reading any of the data.
-	   must read and discard all of the data. */
-	smtp_discard(state->client, size);
-    }
-
-    return ret;
-}
-#endif /*__APPLE_OS_X_SERVER__*/
 
 /* rset_cmd - process RSET */
 
@@ -3710,6 +3375,7 @@ static int noop_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 static int vrfy_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 {
     const char *err = 0;
+    int     rate;
 
     /*
      * The SMTP standard (RFC 821) disallows unquoted special characters in
@@ -3740,15 +3406,36 @@ static int vrfy_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	smtpd_chat_reply(state, "502 5.5.1 VRFY command is disabled");
 	return (-1);
     }
+    if (argc < 2) {
+	state->error_mask |= MAIL_ERROR_PROTOCOL;
+	smtpd_chat_reply(state, "501 5.5.4 Syntax: VRFY address");
+	return (-1);
+    }
+
+    /*
+     * XXX The client event count/rate control must be consistent in its use
+     * of client address information in connect and disconnect events. For
+     * now we exclude xclient authorized hosts from event count/rate control.
+     */
+    if (SMTPD_STAND_ALONE(state) == 0
+	&& !xclient_allowed
+	&& anvil_clnt
+	&& var_smtpd_crcpt_limit > 0
+	&& !namadr_list_match(hogger_list, state->name, state->addr)
+	&& anvil_clnt_rcpt(anvil_clnt, state->service, state->addr,
+			   &rate) == ANVIL_STAT_OK
+	&& rate > var_smtpd_crcpt_limit) {
+	state->error_mask |= MAIL_ERROR_POLICY;
+	msg_warn("Recipient address rate limit exceeded: %d from %s for service %s",
+		 rate, state->namaddr, state->service);
+	smtpd_chat_reply(state, "450 4.7.1 Error: too many recipients from %s",
+			 state->addr);
+	return (-1);
+    }
     if (smtpd_milters != 0 && (err = milter_other_event(smtpd_milters)) != 0
 	&& (err[0] == '5' || err[0] == '4')) {
 	state->error_mask |= MAIL_ERROR_POLICY;
 	smtpd_chat_reply(state, "%s", err);
-	return (-1);
-    }
-    if (argc < 2) {
-	state->error_mask |= MAIL_ERROR_PROTOCOL;
-	smtpd_chat_reply(state, "501 5.5.4 Syntax: VRFY address");
 	return (-1);
     }
     if (argc > 2)
@@ -3798,7 +3485,7 @@ static int etrn_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
 	smtpd_chat_reply(state, "%s", err);
 	return (-1);
     }
-    if (IN_MAIL_TRANSACTION(state)) {
+    if (SMTPD_IN_MAIL_TRANSACTION(state)) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "503 Error: MAIL transaction in progress");
 	return (-1);
@@ -3913,7 +3600,7 @@ static int xclient_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
      * XXX The XCLIENT command will override its own access control, so that
      * connection count/rate restrictions can be correctly simulated.
      */
-    if (IN_MAIL_TRANSACTION(state)) {
+    if (SMTPD_IN_MAIL_TRANSACTION(state)) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "503 5.5.1 Error: MAIL transaction in progress");
 	return (-1);
@@ -4209,7 +3896,7 @@ static int xforward_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
     /*
      * Sanity checks.
      */
-    if (IN_MAIL_TRANSACTION(state)) {
+    if (SMTPD_IN_MAIL_TRANSACTION(state)) {
 	state->error_mask |= MAIL_ERROR_PROTOCOL;
 	smtpd_chat_reply(state, "503 5.5.1 Error: MAIL transaction in progress");
 	return (-1);
@@ -4545,7 +4232,7 @@ static void smtpd_start_tls(SMTPD_STATE *state)
 			 namaddr = state->namaddr,
 			 cipher_grade = cipher_grade,
 			 cipher_exclusions = STR(cipher_exclusions),
-			 fpt_dgst = var_smtpd_tls_fpt_dgst);
+			 mdalg = var_smtpd_tls_fpt_dgst);
 
 #endif						/* USE_TLSPROXY */
 
@@ -4685,14 +4372,14 @@ static int starttls_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
 				     state->port, var_smtpd_tmout);
     if (state->tlsproxy == 0) {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
-	/* RFC 4954 Section 6. */
+	/* RFC 3207 Section 4. */
 	smtpd_chat_reply(state, "454 4.7.0 TLS not available due to local problem");
 	return (-1);
     }
 #else						/* USE_TLSPROXY */
     if (smtpd_tls_ctx == 0) {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
-	/* RFC 4954 Section 6. */
+	/* RFC 3207 Section 4. */
 	smtpd_chat_reply(state, "454 4.7.0 TLS not available due to local problem");
 	return (-1);
     }
@@ -4802,13 +4489,6 @@ static SMTPD_CMD smtpd_cmd_table[] = {
     SMTPD_CMD_MAIL, mail_cmd, 0,
     SMTPD_CMD_RCPT, rcpt_cmd, 0,
     SMTPD_CMD_DATA, data_cmd, SMTPD_CMD_FLAG_LAST,
-#ifdef __APPLE_OS_X_SERVER__
-	/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-    SMTPD_CMD_BURL, burl_cmd, 0,
-#endif
-    SMTPD_CMD_BDAT, bdat_cmd, 0, /* APPLE - RFC 3030 */
-#endif /*__APPLE_OS_X_SERVER__*/
     SMTPD_CMD_RSET, rset_cmd, SMTPD_CMD_FLAG_LIMIT,
     SMTPD_CMD_NOOP, noop_cmd, SMTPD_CMD_FLAG_LIMIT | SMTPD_CMD_FLAG_PRE_TLS | SMTPD_CMD_FLAG_LAST,
     SMTPD_CMD_VRFY, vrfy_cmd, SMTPD_CMD_FLAG_LIMIT | SMTPD_CMD_FLAG_LAST,
@@ -5304,7 +4984,8 @@ static void smtpd_service(VSTREAM *stream, char *service, char **argv)
     /*
      * Provide the SMTP service.
      */
-    smtpd_proto(&state);
+    if ((state.flags & SMTPD_FLAG_HANGUP) == 0)
+	smtpd_proto(&state);
 
     /*
      * After the client has gone away, clean up whatever we have set up at
@@ -5360,11 +5041,7 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 
     if (var_smtpd_sasl_enable)
 #ifdef USE_SASL_AUTH
-#ifdef __APPLE_OS_X_SERVER__
-	smtpd_sasl_initialize( var_smtpd_use_pw_server );
-#else
 	smtpd_sasl_initialize();
-#endif /*__APPLE_OS_X_SERVER__*/
 
     if (*var_smtpd_sasl_exceptions_networks)
 	sasl_exceptions_networks =
@@ -5477,8 +5154,6 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 				    log_level = var_smtpd_tls_loglevel,
 				    verifydepth = var_smtpd_tls_ccert_vd,
 				    cache_type = TLS_MGR_SCACHE_SMTPD,
-				    scache_timeout
-				    = var_smtpd_tls_scache_timeout,
 				    set_sessid = var_smtpd_tls_set_sessid,
 				    cert_file = cert_file,
 				    key_file = var_smtpd_tls_key_file,
@@ -5497,7 +5172,7 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 				    var_smtpd_tls_mand_proto :
 				    var_smtpd_tls_proto,
 				    ask_ccert = ask_client_cert,
-				    fpt_dgst = var_smtpd_tls_fpt_dgst);
+				    mdalg = var_smtpd_tls_fpt_dgst);
 	    else
 		msg_warn("No server certs available. TLS won't be enabled");
 #endif						/* USE_TLSPROXY */
@@ -5519,12 +5194,6 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 	ehlo_discard_maps = maps_create(VAR_SMTPD_EHLO_DIS_MAPS,
 					var_smtpd_ehlo_dis_maps,
 					DICT_FLAG_LOCK);
-#ifdef __APPLE_OS_X_SERVER__
-/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-    imap_read_config();
-#endif
-#endif /*__APPLE_OS_X_SERVER__*/
 }
 
 /* post_jail_init - post-jail initialization */
@@ -5657,12 +5326,12 @@ int     main(int argc, char **argv)
 	VAR_SMTPD_POLICY_TTL, DEF_SMTPD_POLICY_TTL, &var_smtpd_policy_ttl, 1, 0,
 #ifdef USE_TLS
 	VAR_SMTPD_STARTTLS_TMOUT, DEF_SMTPD_STARTTLS_TMOUT, &var_smtpd_starttls_tmout, 1, 0,
-	VAR_SMTPD_TLS_SCACHTIME, DEF_SMTPD_TLS_SCACHTIME, &var_smtpd_tls_scache_timeout, 0, 0,
 #endif
 	VAR_MILT_CONN_TIME, DEF_MILT_CONN_TIME, &var_milt_conn_time, 1, 0,
 	VAR_MILT_CMD_TIME, DEF_MILT_CMD_TIME, &var_milt_cmd_time, 1, 0,
 	VAR_MILT_MSG_TIME, DEF_MILT_MSG_TIME, &var_milt_msg_time, 1, 0,
 	VAR_VERIFY_SENDER_TTL, DEF_VERIFY_SENDER_TTL, &var_verify_sender_ttl, 0, 0,
+	VAR_SMTPD_UPROXY_TMOUT, DEF_SMTPD_UPROXY_TMOUT, &var_smtpd_uproxy_tmout, 1, 0,
 	0,
     };
     static const CONFIG_BOOL_TABLE bool_table[] = {
@@ -5690,9 +5359,6 @@ int     main(int argc, char **argv)
 	VAR_SMTPD_PEERNAME_LOOKUP, DEF_SMTPD_PEERNAME_LOOKUP, &var_smtpd_peername_lookup,
 	VAR_SMTPD_DELAY_OPEN, DEF_SMTPD_DELAY_OPEN, &var_smtpd_delay_open,
 	VAR_SMTPD_CLIENT_PORT_LOG, DEF_SMTPD_CLIENT_PORT_LOG, &var_smtpd_client_port_log,
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_SMTPD_USE_PW_SERVER, DEF_SMTPD_USE_PW_SERVER, &var_smtpd_use_pw_server,
-#endif /*__APPLE_OS_X_SERVER__*/
 	0,
     };
     static const CONFIG_NBOOL_TABLE nbool_table[] = {
@@ -5705,6 +5371,7 @@ int     main(int argc, char **argv)
 	VAR_CLIENT_CHECKS, DEF_CLIENT_CHECKS, &var_client_checks, 0, 0,
 	VAR_HELO_CHECKS, DEF_HELO_CHECKS, &var_helo_checks, 0, 0,
 	VAR_MAIL_CHECKS, DEF_MAIL_CHECKS, &var_mail_checks, 0, 0,
+	VAR_RELAY_CHECKS, DEF_RELAY_CHECKS, &var_relay_checks, 0, 0,
 	VAR_RCPT_CHECKS, DEF_RCPT_CHECKS, &var_rcpt_checks, 0, 0,
 	VAR_ETRN_CHECKS, DEF_ETRN_CHECKS, &var_etrn_checks, 0, 0,
 	VAR_DATA_CHECKS, DEF_DATA_CHECKS, &var_data_checks, 0, 0,
@@ -5721,6 +5388,7 @@ int     main(int argc, char **argv)
 	VAR_LOCAL_RCPT_MAPS, DEF_LOCAL_RCPT_MAPS, &var_local_rcpt_maps, 0, 0,
 	VAR_SMTPD_SASL_OPTS, DEF_SMTPD_SASL_OPTS, &var_smtpd_sasl_opts, 0, 0,
 	VAR_SMTPD_SASL_PATH, DEF_SMTPD_SASL_PATH, &var_smtpd_sasl_path, 1, 0,
+	VAR_SMTPD_SASL_SERVICE, DEF_SMTPD_SASL_SERVICE, &var_smtpd_sasl_service, 1, 0,
 	VAR_CYRUS_CONF_PATH, DEF_CYRUS_CONF_PATH, &var_cyrus_conf_path, 0, 0,
 	VAR_SMTPD_SASL_REALM, DEF_SMTPD_SASL_REALM, &var_smtpd_sasl_realm, 0, 0,
 	VAR_SMTPD_SASL_EXCEPTIONS_NETWORKS, DEF_SMTPD_SASL_EXCEPTIONS_NETWORKS, &var_smtpd_sasl_exceptions_networks, 0, 0,
@@ -5793,12 +5461,8 @@ int     main(int argc, char **argv)
 #ifdef USE_TLSPROXY
 	VAR_TLSPROXY_SERVICE, DEF_TLSPROXY_SERVICE, &var_tlsproxy_service, 1, 0,
 #endif
-#ifdef __APPLE_OS_X_SERVER__
-	VAR_SMTPD_PW_SERVER_OPTS, DEF_SMTPD_PW_SERVER_OPTS, &var_smtpd_pw_server_opts, 0, 0,
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-	VAR_IMAP_SUBMIT_CRED_FILE, DEF_IMAP_SUBMIT_CRED_FILE, &var_imap_submit_cred_file, 0, 0, /* APPLE - burl */
-#endif
-#endif /*__APPLE_OS_X_SERVER__*/
+	VAR_SMTPD_ACL_PERM_LOG, DEF_SMTPD_ACL_PERM_LOG, &var_smtpd_acl_perm_log, 0, 0,
+	VAR_SMTPD_UPROXY_PROTO, DEF_SMTPD_UPROXY_PROTO, &var_smtpd_uproxy_proto, 0, 0,
 	0,
     };
     static const CONFIG_RAW_TABLE raw_table[] = {

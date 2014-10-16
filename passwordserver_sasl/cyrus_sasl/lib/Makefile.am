@@ -1,6 +1,6 @@
 # Makefile.am for the SASL library
 # Rob Earhart
-# $Id: Makefile.am,v 1.7 2006/01/24 20:37:08 snsimon Exp $
+# $Id: Makefile.am,v 1.88 2011/09/05 14:18:10 murch Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,14 +41,18 @@
 #
 
 # Library version info - here at the top, for sanity
-sasl_version = 2:22:0
+# See <http://www.gnu.org/software/libtool/manual/libtool.html#Versioning>
+# CURRENT:REVISION:AGE
+sasl_version = 3:0:0
 
-INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include -I$(top_srcdir)/sasldb
+INCLUDES=-DLIBSASL_EXPORTS=1 -I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include -I$(top_srcdir)/sasldb
 
 EXTRA_DIST = windlopen.c staticopen.h NTMakefile
 EXTRA_LIBRARIES = libsasl2.a
 noinst_LIBRARIES = @SASL_STATIC_LIBS@
 libsasl2_a_SOURCES=
+
+BUILT_SOURCES = $(SASL_STATIC_SRCS)
 
 common_headers = saslint.h
 common_sources = auxprop.c canonusr.c checkpw.c client.c common.c config.c external.c md5.c saslutil.c server.c seterror.c dlopen.c ../plugins/plugin_common.c
@@ -93,7 +97,7 @@ libsasl2.a: libsasl2.la $(SASL_STATIC_OBJS)
 	rm -f $@
 	ln -s .libs/$@ $@
 
-$(SASL_STATIC_OBJS): linksrcs
+$(SASL_STATIC_SRCS): linksrcs
 
 linksrcs:
 	-ln -s $(SASL_STATIC_SRCS) .

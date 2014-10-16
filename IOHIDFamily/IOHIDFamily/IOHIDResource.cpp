@@ -45,8 +45,7 @@ bool IOHIDResource::start(IOService *provider)
 
 void IOHIDResource::free()
 {
-    if ( _workLoop )
-        _workLoop->release();
+    OSSafeReleaseNULL(_workLoop);
 }
 
 IOWorkLoop * IOHIDResource::getWorkLoop() const

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -37,13 +37,13 @@ Archive::~Archive()
 
 void Archive::clearAllSubframeArchives()
 {
-    Vector<RefPtr<Archive> > clearedArchives;
+    Vector<RefPtr<Archive>> clearedArchives;
     clearAllSubframeArchivesImpl(&clearedArchives);
 }
 
-void Archive::clearAllSubframeArchivesImpl(Vector<RefPtr<Archive> >* clearedArchives)
+void Archive::clearAllSubframeArchivesImpl(Vector<RefPtr<Archive>>* clearedArchives)
 {
-    for (Vector<RefPtr<Archive> >::iterator it = m_subframeArchives.begin(); it != m_subframeArchives.end(); ++it) {
+    for (Vector<RefPtr<Archive>>::iterator it = m_subframeArchives.begin(); it != m_subframeArchives.end(); ++it) {
         if (!clearedArchives->contains(*it)) {
             clearedArchives->append(*it);
             (*it)->clearAllSubframeArchivesImpl(clearedArchives);

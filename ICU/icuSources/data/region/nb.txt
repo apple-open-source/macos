@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/nb.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/nb.xml
+ * ICU <specials> source: <path>/common/main/nb.xml
  */
 nb{
     Countries{
@@ -136,7 +136,7 @@ nb{
         GP{"Guadeloupe"}
         GQ{"Ekvatorial-Guinea"}
         GR{"Hellas"}
-        GS{"Sør-Georgia og de sørlige Sandwich-øyene"}
+        GS{"Sør-Georgia og Sør-Sandwichøyene"}
         GT{"Guatemala"}
         GU{"Guam"}
         GW{"Guinea-Bissau"}
@@ -193,7 +193,7 @@ nb{
         MH{"Marshalløyene"}
         MK{"Makedonia"}
         ML{"Mali"}
-        MM{"Myanmar [Burma]"}
+        MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
         MO{"Macao S.A.R. Kina"}
         MP{"Nord-Marianene"}
@@ -235,7 +235,7 @@ nb{
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Qatar"}
-        QO{"avsidesliggende Oceania"}
+        QO{"ytre Oseania"}
         RE{"Réunion"}
         RO{"Romania"}
         RS{"Serbia"}
@@ -281,7 +281,7 @@ nb{
         TZ{"Tanzania"}
         UA{"Ukraina"}
         UG{"Uganda"}
-        UM{"USAs ytre småøyer"}
+        UM{"USAs ytre øyer"}
         US{"USA"}
         UY{"Uruguay"}
         UZ{"Usbekistan"}
@@ -294,6 +294,7 @@ nb{
         VU{"Vanuatu"}
         WF{"Wallis og Futuna"}
         WS{"Samoa"}
+        XK{"Kosovo"}
         YE{"Jemen"}
         YT{"Mayotte"}
         ZA{"Sør-Afrika"}
@@ -301,5 +302,12 @@ nb{
         ZW{"Zimbabwe"}
         ZZ{"ukjent område"}
     }
-    Version{"2.0.82.47"}
+    CountriesShort{
+        GB{"Storbritannia"}
+        HK{"Hongkong"}
+        MO{"Macao"}
+        PS{"Palestina"}
+        US{"USA"}
+    }
+    Version{"2.0.98.52"}
 }

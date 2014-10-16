@@ -31,15 +31,9 @@
 
 #pragma ident	"@(#)libelf.h	1.30	07/10/02 SMI"	/* SVr4.0 1.9	*/
 
-#if !defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/elf.h>
-#else /* is Apple Mac OS X */
 #include <sys/types.h>
 #include "elf.h" /* In lieu of Solaris <sys/elf.h> */
 #define _FILE_OFFSET_BITS 32
-#endif /* __APPLE__ */
-
 
 #ifdef	__cplusplus
 extern "C" {
@@ -77,9 +71,7 @@ typedef enum {
 	ELF_C_RDWR,
 	ELF_C_WRIMAGE,
 	ELF_C_IMAGE,
-#if defined(__APPLE__)
 	ELF_C_RDKERNTYPE,
-#endif /* __APPLE__ */
 	ELF_C_NUM	/* must be last */
 } Elf_Cmd;
 
@@ -99,9 +91,7 @@ typedef enum {
 	ELF_K_AR,
 	ELF_K_COFF,
 	ELF_K_ELF,
-#if defined(__APPLE__)
 	ELF_K_MACHO,
-#endif /* __APPLE__ */
 	ELF_K_NUM	/* must be last */
 } Elf_Kind;
 
@@ -206,11 +196,7 @@ int		elf_getphnum	_((Elf *, size_t *));
 int		elf_getshnum	_((Elf *, size_t *));
 int		elf_getshstrndx	_((Elf *, size_t *));
 unsigned long	elf_hash	_((const char *));
-#if !defined(__APPLE__)
-uint_t		elf_sys_encoding _((void));
-#else
 unsigned int	elf_sys_encoding _((void));
-#endif /* __APPLE__ */
 long		elf32_checksum	_((Elf *));
 Elf_Kind	elf_kind	_((Elf *));
 Elf		*elf_memory	_((char *, size_t));

@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFArray.h>
 #include <IOKit/hid/IOHIDElement.h>
@@ -87,8 +88,9 @@ static const CFRuntimeClass __IOHIDElementClass = {
     NULL
 };
 
-static CFTypeID __kIOHIDElementTypeID = _kCFRuntimeNotATypeID;
-static CFStringRef __KIOHIDElementSpecialKeys[] = {
+static pthread_once_t   __elementTypeInit               = PTHREAD_ONCE_INIT;
+static CFTypeID         __elementTypeID                 = _kCFRuntimeNotATypeID;
+static CFStringRef      __KIOHIDElementSpecialKeys[]    = {
     CFSTR(kIOHIDElementCalibrationMinKey),
     CFSTR(kIOHIDElementCalibrationMaxKey),
     CFSTR(kIOHIDElementCalibrationSaturationMinKey),
@@ -101,9 +103,17 @@ static CFStringRef __KIOHIDElementSpecialKeys[] = {
 
 
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// __IOHIDElementRegister
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void __IOHIDElementRegister(void)
+{
+    __elementTypeID = _CFRuntimeRegisterClass(&__IOHIDElementClass);
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDElementCreate
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDElementRef __IOHIDElementCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused)
@@ -125,9 +135,9 @@ IOHIDElementRef __IOHIDElementCreate(
     return element;
 }
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDElementRelease
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void __IOHIDElementRelease( CFTypeRef object )
 {
     IOHIDElementRef element = ( IOHIDElementRef ) object;
@@ -144,9 +154,9 @@ void __IOHIDElementRelease( CFTypeRef object )
     element->calibrationPtr = NULL;
 }
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDElementEqual
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Boolean __IOHIDElementEqual(CFTypeRef cf1, CFTypeRef cf2)
 {
     if ((CFGetTypeID(cf1) != IOHIDElementGetTypeID()) || 
@@ -157,9 +167,9 @@ Boolean __IOHIDElementEqual(CFTypeRef cf1, CFTypeRef cf2)
     return TRUE;
 }
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDElementHash
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 CFHashCode __IOHIDElementHash(CFTypeRef cf)
 {
     if (CFGetTypeID(cf) == IOHIDElementGetTypeID())
@@ -168,9 +178,9 @@ CFHashCode __IOHIDElementHash(CFTypeRef cf)
     return  0;
 }
 
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDElementGetElementStruct
-//------------------------------------------------------------------------------
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDElementStruct * __IOHIDElementGetElementStruct(IOHIDElementRef element)
 {
     return element->elementStructPtr;
@@ -182,10 +192,10 @@ IOHIDElementStruct * __IOHIDElementGetElementStruct(IOHIDElementRef element)
 CFTypeID IOHIDElementGetTypeID(void)
 {
     /* initialize runtime */
-    if ( __kIOHIDElementTypeID == _kCFRuntimeNotATypeID )
-        __kIOHIDElementTypeID = _CFRuntimeRegisterClass(&__IOHIDElementClass);
+    if ( __elementTypeID == _kCFRuntimeNotATypeID )
+        pthread_once(&__elementTypeInit, __IOHIDElementRegister);
 
-    return __kIOHIDElementTypeID;
+    return __elementTypeID;
 }
 
 //------------------------------------------------------------------------------

@@ -271,6 +271,21 @@ command = {
 	help = "Copies credential caches"
 }
 command = {
+	name = "dump-credentials"
+	option = {
+	       long = "type"
+	       type = "string"
+	       help = "only credentials of type"
+	}
+	option = {
+		long = "verbose"
+		short = "v"
+		type = "flag"
+		help = "Verbose output"
+	}
+	help = "Dump credential cache"
+}
+command = {
 	name = "help"
 	name = "?"
 	argument = "[command]"

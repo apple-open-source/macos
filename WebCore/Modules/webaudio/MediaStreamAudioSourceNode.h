@@ -31,9 +31,8 @@
 #include "AudioSourceProvider.h"
 #include "AudioSourceProviderClient.h"
 #include "MediaStream.h"
-#include <wtf/OwnPtr.h>
+#include <mutex>
 #include <wtf/PassRefPtr.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -41,7 +40,7 @@ class AudioContext;
 
 class MediaStreamAudioSourceNode : public AudioNode, public AudioSourceProviderClient {
 public:
-    static PassRefPtr<MediaStreamAudioSourceNode> create(AudioContext*, MediaStream*, AudioSourceProvider*);
+    static PassRefPtr<MediaStreamAudioSourceNode> create(AudioContext*, MediaStream*, MediaStreamTrack*, AudioSourceProvider*);
 
     virtual ~MediaStreamAudioSourceNode();
 
@@ -57,18 +56,19 @@ public:
     AudioSourceProvider* audioSourceProvider() const { return m_audioSourceProvider; }
 
 private:
-    MediaStreamAudioSourceNode(AudioContext*, MediaStream*, AudioSourceProvider*);
+    MediaStreamAudioSourceNode(AudioContext*, MediaStream*, MediaStreamTrack*, AudioSourceProvider*);
 
-    virtual double tailTime() const OVERRIDE { return 0; }
-    virtual double latencyTime() const OVERRIDE { return 0; }
+    virtual double tailTime() const override { return 0; }
+    virtual double latencyTime() const override { return 0; }
 
     // As an audio source, we will never propagate silence.
-    virtual bool propagatesSilence() const OVERRIDE { return false; }
+    virtual bool propagatesSilence() const override { return false; }
 
     RefPtr<MediaStream> m_mediaStream;
+    RefPtr<MediaStreamTrack> m_audioTrack;
     AudioSourceProvider* m_audioSourceProvider;
 
-    Mutex m_processLock;
+    std::mutex m_processMutex;
 
     unsigned m_sourceNumberOfChannels;
 };

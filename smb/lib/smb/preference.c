@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,9 +54,59 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		rc_getint(rcfile, sname, "debug_level", &prefs->KernelLogLevel);
 		rc_getint(rcfile, sname, "kloglevel", &prefs->KernelLogLevel);
 		
+        /*
+         * Check for SMB 1, SMB 2/3 Negotiation. Default is to start with SMB 1
+         * and try to negotiate to SMB 2/3
+         * 0 = try both SMB 1/2/3
+         * 1 = SMB 1 only
+         * 2 = SMB 2 only
+         * 3 = SMB 3 only
+         */
+        rc_getstringptr(rcfile, sname, "smb_neg", &p);
+        if (p) {
+            if (strcmp(p, "normal") == 0) {
+                /* start with SMB 1 and try for SMB 2/3 */
+                prefs->smb_negotiate = 0;
+                
+                /* if SMB 1 or SMB 2/3, then also turn off netbios */
+                if (prefs->tryBothPorts) {
+                    prefs->tryBothPorts = FALSE;
+                    prefs->tcp_port = SMB_TCP_PORT_445;
+                }
+            }
+            else {
+                if (strcmp(p, "smb1_only") == 0) {
+                    prefs->smb_negotiate = 1;
+                }
+                else if ((strcmp(p, "smb2_only") == 0) ||
+                         (strcmp(p, "smb3_only") == 0)) {
+                    if (strcmp(p, "smb2_only") == 0) {
+                        prefs->smb_negotiate = 2;
+                    }
+                    else {
+                        prefs->smb_negotiate = 3;
+                    }
+                    
+                    /* if SMB 2/3 only, then also turn off netbios */
+                    if (prefs->tryBothPorts) {
+                        prefs->tryBothPorts = FALSE;
+                        prefs->tcp_port = SMB_TCP_PORT_445;
+                    }
+                }
+            }
+        }
+        
 		/* Check for Require Signing */
 		/* Only get the value if it exist, ignore any error we don't care */
 		(void)rc_getbool(rcfile, sname, "signing_required", (int *) &prefs->signing_required);
+
+		/* Only get the value if it exists */
+        if (rc_getbool(rcfile, sname, "validate_neg_off", &altflags) == 0) {
+            if (altflags)
+                prefs->altflags |= SMBFS_MNT_VALIDATE_NEG_OFF;
+            else
+                prefs->altflags &= ~SMBFS_MNT_VALIDATE_NEG_OFF;
+        }
 	}
 	
 	/* server only preferences */
@@ -97,40 +147,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 			}
 		}
 
-        /* 
-         * Check for SMB1, SMB2 Negotiation. Default is to start with SMB 1.x
-         * and try to negotiate to SMB 2.x
-         * 0 = try both SMB 1.x and 2.x
-         * 1 = SMB 1.x only
-         * 2 = SMB 2.x only
-         */
-        rc_getstringptr(rcfile, sname, "smb_neg", &p);
-        if (p) {
-            if (strcmp(p, "normal") == 0) {
-                /* start with SMB1 and try for SMB2 */
-                prefs->smb_negotiate = 0;
-                
-                /* if SMB 1.x or SMB2.x, then also turn off netbios */
-                if (prefs->tryBothPorts) {
-                    prefs->tryBothPorts = FALSE;
-                    prefs->tcp_port = SMB_TCP_PORT_445;
-                }
-            }
-            else {
-                if (strcmp(p, "smb1_only") == 0) {
-                   prefs->smb_negotiate = 1;
-                }
-                else if (strcmp(p, "smb2_only") == 0) {
-                    prefs->smb_negotiate = 2;
-                    /* if SMB2.x only, then also turn off netbios */
-                    if (prefs->tryBothPorts) {
-                        prefs->tryBothPorts = FALSE;
-                        prefs->tcp_port = SMB_TCP_PORT_445;
-                    }
-                }
-            }
-        }
-
 		/* Really should be getting this from System Configuration */
 		rc_getstringptr(rcfile, sname, "minauth", &p);
 		if (p) {
@@ -169,6 +185,12 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 				 */
 				prefs->minAuthAllowed = SMB_MINAUTH;
 			}
+		}
+        
+        rc_getint(rcfile, sname, "max_resp_timeout", &prefs->max_resp_timeout);
+		/* Make sure they set it to something reasonable */
+		if (prefs->max_resp_timeout > 600) {
+			prefs->max_resp_timeout = 600; /* 10 mins is a long, long time */
 		}
 	}
 	
@@ -384,8 +406,9 @@ void getDefaultPreferences(struct smb_prefs *prefs)
 	prefs->tryBothPorts = TRUE;
 	prefs->tcp_port = SMB_TCP_PORT_445;
 	prefs->altflags = SMBFS_MNT_STREAMS_ON | SMBFS_MNT_COMPOUND_ON;
-	prefs->minAuthAllowed = SMB_MINAUTH_NTLM;
+	prefs->minAuthAllowed = SMB_MINAUTH_NTLMV2;
 	prefs->NetBIOSResolverTimeout = DefaultNetBIOSResolverTimeout;
+    
 	/* Now get any values stored in the System Configuration */
 	getSCPreferences(prefs);
 }

@@ -64,12 +64,6 @@ static char const copyright[] =
 "@(#) Copyright (c) 1984, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
-
-#ifndef lint
-static char const sccsid[] = "@(#)from: arp.c	8.2 (Berkeley) 1/2/94";
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.sbin/arp/arp.c,v 1.65.2.1 2008/04/25 16:38:14 sam Exp $");
 #endif
 
 /*

@@ -134,7 +134,7 @@ Allowed only with the
 option to generate debug symbols.
 By default
 .Nm
-attempts to get link symbols from the kernel at /mach_kernel.
+attempts to get link symbols from the kernel at /System/Library/Kernels/kernel.
 .It Fl l , Fl load-only
 Load and start the kext only; don't send I/O Kit personalities
 to the kernel to begin matching.
@@ -159,7 +159,7 @@ or when diagnosing kexts with the
 .Fl print-diagnostics
 option.
 For convenience in development, this option implies the
-.Fl no-authenticate
+.Fl no-authentication
 option.
 See also the
 .Fl address
@@ -275,7 +275,7 @@ Note that if the system has actually started up in safe boot mode,
 this option is redundant.
 There is no way to simulate non-safe boot mode
 for a system running in safe boot mode.
-.It Fl z , Fl no-authenticate
+.It Fl z , Fl no-authentication
 Don't authenticate kexts.
 This option is for convenience during development,
 and is allowed only for operations
@@ -590,7 +590,7 @@ The standard repository of non Apple kernel extensions.
 .It Pa /System/Library/Caches/com.apple.kext.caches/*
 Contains all kext caches for a Mac OS X 10.6 (Snow Leopard) system: prelinked kernel,
 mkext, and system kext info caches.
-.It Pa /mach_kernel
+.It Pa /System/Library/Kernels/kernel
 The default kernel file.
 .El
 .Sh DIAGNOSTICS

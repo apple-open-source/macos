@@ -1,0 +1,51 @@
+#! /bin/csh -f
+#
+# Build trust settings needed for the test script trustSettings.scr.
+# The result is placed in userTrustSettings.plist in the build directory.
+#
+if ( $#argv != 0 ) then
+	echo "Usage: makeTrustSettings"
+	exit(1)
+endif
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set TRUST_SETTINGS=userTrustSettings.plist
+set TRUST_SETTINGS_PATH=$BUILD_DIR/$TRUST_SETTINGS
+
+echo Creating empty $TRUST_SETTINGS in build directory...
+rm -f "$TRUST_SETTINGS_PATH"
+security add-trusted-cert -o "$TRUST_SETTINGS_PATH" || exit(1)
+
+set SECTOOL=security
+set SECCMD="$SECTOOL add-trusted-cert -i $TRUST_SETTINGS_PATH -o $TRUST_SETTINGS_PATH"
+set cmd="$SECCMD -p ssl debugRoot.cer"
+echo $cmd
+$cmd || exit(1)
+
+# allowedError = CSSMERR_APPLETP_HOSTNAME_MISMATCH
+set cmd="$SECCMD -p ssl -e -2147408896 -r unspecified localhost.cer "
+echo $cmd
+$cmd || exit(1)
+
+# allowedError = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH
+set cmd="$SECCMD -p swUpdate -e -2147408849 -r unspecified csLeafShortPath.cer"
+echo $cmd
+$cmd || exit(1)
+
+set cmd="$SECCMD -p swUpdate csRoot.cer"
+echo $cmd
+$cmd || exit(1)
+
+# allowedError = CSSMERR_TP_CERT_REVOKED
+set cmd="$SECCMD -e -2147409652 -r unspecified crlTestLeaf.cer"
+echo $cmd
+$cmd || exit(1)
+
+set cmd="$SECCMD crlTestRoot.cer"
+echo $cmd
+$cmd || exit(1)
+
+# default root setting for SMIME : Deny
+set cmd="$SECCMD -D -p smime -r deny"
+echo $cmd
+$cmd || exit(1)

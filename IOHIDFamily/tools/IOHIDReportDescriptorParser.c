@@ -7,6 +7,15 @@
 //
 
 #include <string.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <IOKit/hid/IOHIDUsageTables.h>
 #include "IOHIDReportDescriptorParser.h"
 
 #define    UnpackReportSize(packedByte)    ((packedByte) & 0x03)
@@ -78,85 +87,41 @@ enum
     kIO_BitField_or_BufferedBytes        = 0x0100
 };
 
-// Usage pages from HID Usage Tables spec 1.0
-enum
-{
-    kUsage_PageGenericDesktop            = 0x01,
-    kUsage_PageSimulationControls        = 0x02,
-    kUsage_PageVRControls                = 0x03,
-    kUsage_PageSportControls            = 0x04,
-    kUsage_PageGameControls                = 0x05,
-    kUsage_PageKeyboard                    = 0x07,
-    kUsage_PageLED                        = 0x08,
-    kUsage_PageButton                    = 0x09,
-    kUsage_PageOrdinal                    = 0x0A,
-    kUsage_PageTelephonyDevice            = 0x0B,
-    kUsage_PageConsumer                    = 0x0C,
-    kUsage_PageDigitizers                = 0x0D,
-    kUsage_PagePID                = 0x0F,
-    kUsage_PageUnicode                    = 0x10,
-    kUsage_PageAlphanumericDisplay        = 0x14,
-    kUsage_PageMonitor                    = 0x80,
-    kUsage_PageMonitorEnumeratedValues    = 0x81,
-    kUsage_PageMonitorVirtualControl     = 0x82,
-    kUsage_PageMonitorReserved            = 0x83,
-    kUsage_PagePowerDevice                = 0x84,
-    kUsage_PageBatterySystem            = 0x85,
-    kUsage_PowerClassReserved            = 0x86,
-    kUsage_PowerClassReserved2            = 0x87
-};
 
-// Usage constants for Generic Desktop page (01) from HID Usage Tables spec 1.0
-enum
+static void PrintAtIndentLevel(unsigned int level, const char * format, ...)
 {
-    kUsage_01_Pointer        = 0x01,
-    kUsage_01_Mouse            = 0x02,
-    kUsage_01_Joystick        = 0x04,
-    kUsage_01_GamePad        = 0x05,
-    kUsage_01_Keyboard        = 0x06,
-    kUsage_01_Keypad        = 0x07,
+    va_list     ap;
     
-    kUsage_01_X                = 0x30,
-    kUsage_01_Y                = 0x31,
-    kUsage_01_Z                = 0x32,
-    kUsage_01_Rx            = 0x33,
-    kUsage_01_Ry            = 0x34,
-    kUsage_01_Rz            = 0x35,
-    kUsage_01_Slider        = 0x36,
-    kUsage_01_Dial            = 0x37,
-    kUsage_01_Wheel            = 0x38,
-    kUsage_01_HatSwitch        = 0x39,
-    kUsage_01_CountedBuffer    = 0x3A,
-    kUsage_01_ByteCount        = 0x3B,
-    kUsage_01_MotionWakeup    = 0x3C,
+    for (unsigned int i = 0; i < level; i++) {
+        fputs("    ", stdout);
+    }
     
-    kUsage_01_Vx            = 0x40,
-    kUsage_01_Vy            = 0x41,
-    kUsage_01_Vz            = 0x42,
-    kUsage_01_Vbrx            = 0x43,
-    kUsage_01_Vbry            = 0x44,
-    kUsage_01_Vbrz            = 0x45,
-    kUsage_01_Vno            = 0x46,
-    
-    kUsage_01_SystemControl        = 0x80,
-    kUsage_01_SystemPowerDown     = 0x81,
-    kUsage_01_SystemSleep         = 0x82,
-    kUsage_01_SystemWakeup        = 0x83,
-    kUsage_01_SystemContextMenu = 0x84,
-    kUsage_01_SystemMainMenu    = 0x85,
-    kUsage_01_SystemAppMenu        = 0x86,
-    kUsage_01_SystemMenuHelp    = 0x87,
-    kUsage_01_SystemMenuExit    = 0x88,
-    kUsage_01_SystemMenuSelect    = 0x89,
-    kUsage_01_SystemMenuRight    = 0x8A,
-    kUsage_01_SystemMenuLeft    = 0x8B,
-    kUsage_01_SystemMenuUp        = 0x8C,
-    kUsage_01_SystemMenuDown    = 0x8D
-};
+    va_start(ap, format);
+    vprintf(format, ap);
+    va_end(ap);
+}
 
-void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
+static void PrintBytesAtIndentLevel(unsigned int level, const uint8_t * data, uint32_t length)
 {
-    uint8_t *               end = reportDesc + length;
+    uint32_t index;
+    
+    for ( index=0; index<length; index+=16 ) {
+        uint32_t innerIndex;
+        uint32_t innerLength = length-index;
+        if ( innerLength > 16 )
+            innerLength = 16;
+        
+        PrintAtIndentLevel(level, "%08X: ", index);
+        for ( innerIndex=0; innerIndex<innerLength; innerIndex++)
+            printf("%02X ", data[index+innerIndex]);
+        
+        printf("\n");
+    }
+}
+
+void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
+{
+    const uint8_t *         end = reportDesc + length;
     uint8_t                 size, type, tag;
     uint32_t                usagePage = 0;
     uint32_t                value=0;
@@ -164,24 +129,45 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
     static unsigned char    buf[350], tempbuf[350], bufvalue[350], tempbufvalue[350];
     int                     i, indentLevel;
     int                     datahandled=0;
-    int                     usagesigned=0;
+    int                     itemsigned=0;
+    int                     len;
     
+    printf("\n");
+    printf("Raw HID Descriptor:\n");
+    printf("---------------------------------------------------------\n");
     
-    indentLevel = 1;
+    PrintBytesAtIndentLevel(0, reportDesc, length);
     
+    printf("\n");
+    printf("Parsed HID Descriptor:\n");
+    printf("---------------------------------------------------------\n");
+    indentLevel = 0;
     while (reportDesc < end)
     {
+        int padLevel = 7;
+        
+        buf[0] = 0;
+        bufvalue[0] = 0;
         size = UnpackReportSize(*reportDesc);
         if (size == 3) size = 4;    // 0 == 0 bytes, 1 == 1 bytes, 2 == 2 bytes, but 3 == 4 bytes
         
         type = UnpackReportType(*reportDesc);
         tag = UnpackReportTag(*reportDesc);
-        reportDesc++;
+
+        sprintf((char *)tempbuf, "0x%02X, ", *(reportDesc++));
+        strcat((char *)buf, (char *)tempbuf);
+        padLevel--;
         
         if (tag == kReport_TagLongItem)
         {
-            size = *reportDesc++;
-            tag = *reportDesc++;
+            size = *reportDesc;
+            sprintf((char *)tempbuf, "0x%02X, ", *(reportDesc++));
+            strcat((char *)buf, (char *)tempbuf);
+            tag = *reportDesc;
+            sprintf((char *)tempbuf, "0x%02X, ", *(reportDesc++));
+            strcat((char *)buf, (char *)tempbuf);
+            
+            padLevel -= 2;
         }
         
         
@@ -189,8 +175,12 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
         if (size <= 4)
         {
             value = 0;
-            for (i = 0; i < size; i++)
-                value += (*(reportDesc++)) << (i * 8);
+            for (i = 0; i < size; i++) {
+                value += (*(reportDesc)) << (i * 8);
+                sprintf((char *)tempbuf, "0x%02X, ", *(reportDesc++));
+                strcat((char *)buf, (char *)tempbuf);
+                padLevel--;
+            }
             
             svalue = 0;
             switch (size)
@@ -204,9 +194,13 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
             }
         }
         
+        // pad it a bit
+        for (i = 0; i < padLevel; i++)
+            strcat((char *)buf, "      ");
+        
+        strcat((char *)buf, "// ");
+
         // indent this line
-        buf[0] = 0;
-        bufvalue[0] = 0;
         for (i = 0; i < indentLevel; i++)
             strcat((char *)buf, "  ");
         
@@ -232,26 +226,41 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
                     
                     strcat((char *)bufvalue, (value & kIO_Data_or_Constant) ? "Constant, " : "Data, ");
                     
-                    strcat((char *)bufvalue, (value & kIO_Array_or_Variable) ? "Variable, ": "Array, ");
+                    if ( (value & kIO_Data_or_Constant) == 0 ) {
                     
-                    strcat((char *)bufvalue, (value & kIO_Absolute_or_Relative) ? "Relative" : "Absolute");
-                    
-                    if (((tag == kReport_TagInput) && (value & kIO_Array_or_Variable)) || tag != kReport_TagInput)
-                    {    // these are only valid for variable inputs, and feature/output tags
-                        strcat((char *)bufvalue, (value & kIO_NoWrap_or_Wrap) ? ", Wrap, " : ", No Wrap, ");
+                        strcat((char *)bufvalue, (value & kIO_Array_or_Variable) ? "Variable, ": "Array, ");
                         
-                        strcat((char *)bufvalue, (value & kIO_Linear_or_NonLinear) ? "Nonlinear, " : "Linear, ");
+                        strcat((char *)bufvalue, (value & kIO_Absolute_or_Relative) ? "Relative, " : "Absolute, ");
                         
-                        strcat((char *)bufvalue, (value & kIO_PreferredState_or_NoPreferred) ? "No Preferred, " : "Preferred State, ");
-                        
-                        strcat((char *)bufvalue, (value & kIO_NoNullPosition_or_NullState) ? "Null State, " : "No Null Position, ");
-                        
-                        if (tag != kReport_TagInput)
-                            strcat((char *)bufvalue, (value & kIO_NonVolatile_or_Volatile) ? "Volatile, " : "Nonvolatile, ");
-                        
-                        strcat((char *)bufvalue, (value & kIO_BitField_or_BufferedBytes) ? "Buffered bytes" : "Bitfield");
+                        if (((tag == kReport_TagInput) && (value & kIO_Array_or_Variable)) || tag != kReport_TagInput)
+                        {
+    #if VERBOSE
+                            // these are only valid for variable inputs, and feature/output tags
+                            strcat((char *)bufvalue, (value & kIO_NoWrap_or_Wrap) ? "Wrap, " : "No Wrap, ");
+                            strcat((char *)bufvalue, (value & kIO_Linear_or_NonLinear) ? "Nonlinear, " : "Linear, ");
+                            strcat((char *)bufvalue, (value & kIO_PreferredState_or_NoPreferred) ? "No Preferred, " : "Preferred State, ");
+                            strcat((char *)bufvalue, (value & kIO_NoNullPosition_or_NullState) ? "Null State, " : "No Null Position, ");
+                            
+                            if (tag != kReport_TagInput)
+                                strcat((char *)bufvalue, (value & kIO_NonVolatile_or_Volatile) ? "Volatile, " : "Nonvolatile, ");
+                            strcat((char *)bufvalue, (value & kIO_BitField_or_BufferedBytes) ? "Buffered bytes" : "Bitfield");
+    #else
+                            // these are only valid for variable inputs, and feature/output tags
+                            strcat((char *)bufvalue, (value & kIO_NoWrap_or_Wrap) ? "Wrap, " : "");
+                            strcat((char *)bufvalue, (value & kIO_Linear_or_NonLinear) ? "Nonlinear, " : "");
+                            strcat((char *)bufvalue, (value & kIO_PreferredState_or_NoPreferred) ? "No Preferred, " : "");
+                            strcat((char *)bufvalue, (value & kIO_NoNullPosition_or_NullState) ? "Null State, " : "");
+                            
+                            if (tag != kReport_TagInput)
+                                strcat((char *)bufvalue, (value & kIO_NonVolatile_or_Volatile) ? "Volatile, " : "");
+                            strcat((char *)bufvalue, (value & kIO_BitField_or_BufferedBytes) ? "Buffered bytes" : "");
+    #endif
+                        }
                     }
                     
+                    len = strlen((char *)bufvalue);
+                    if ( strcmp((const char *)&bufvalue[len-2], ", ") == 0 )
+                        bufvalue[len-2]=0;
                     strcat((char *)bufvalue, (char *)")");
                     
                     tempbuf[0] = 0;    // we don't want to add this again outside the switch
@@ -283,17 +292,18 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
                     break;
                     
                 case kReport_TagEndCollection:
+                {
                     // recalc indentation, since we want this line to start earlier
-                    indentLevel--;
                     
-                    buf[0] = 0;
-                    for (i = 0; i < indentLevel; i++) {
-                        strcat((char *)buf, "  ");
+                    len = strlen((char *)buf);
+                    
+                    if (indentLevel-- && len > 2) {
+                        buf[len-2]=0;
                     }
                     
                     sprintf((char *)tempbuf, "End Collection ");
                     
-                    
+                }
                     break;
             }
                 break;
@@ -303,43 +313,37 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
             {
                 case kReport_TagUsagePage:
                     strcat((char *)buf, "Usage Page ");
-                    
-                    usagesigned = 1;
                     usagePage = value;
                     strcat((char *)bufvalue, (char *)"(");
                     switch (usagePage)
-                {
-                    case kUsage_PageGenericDesktop: sprintf((char *)tempbufvalue, "Generic Desktop"); break;
-                    case kUsage_PageSimulationControls: sprintf((char *)tempbufvalue, "Simulation Controls"); break;
-                    case kUsage_PageVRControls: sprintf((char *)tempbufvalue, "VR Controls"); break;
-                    case kUsage_PageSportControls: sprintf((char *)tempbufvalue, "Sports Controls"); break;
-                    case kUsage_PageGameControls: sprintf((char *)tempbufvalue, "Game Controls"); break;
-                    case kUsage_PageKeyboard:
-                        sprintf((char *)tempbufvalue, "Keyboard/Keypad");
-                        usagesigned = 0;
-                        break;
-                        
-                    case kUsage_PageLED: sprintf((char *)tempbufvalue, "LED"); break;
-                    case kUsage_PageButton: sprintf((char *)tempbufvalue, "Button"); break;
-                    case kUsage_PageOrdinal: sprintf((char *)tempbufvalue, "Ordinal"); break;
-                    case kUsage_PageTelephonyDevice: sprintf((char *)tempbufvalue, "Telephony Device"); break;
-                    case kUsage_PageConsumer: sprintf((char *)tempbufvalue, "Consumer"); break;
-                    case kUsage_PageDigitizers: sprintf((char *)tempbufvalue, "Digitizer"); break;
-                    case kUsage_PagePID: sprintf((char *)tempbufvalue, "PID"); break;
-                    case kUsage_PageUnicode: sprintf((char *)tempbufvalue, "Unicode"); break;
-                    case kUsage_PageAlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
-                    case kUsage_PageMonitor: sprintf((char *)tempbufvalue, "Monitor"); break;
-                    case kUsage_PageMonitorEnumeratedValues: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
-                    case kUsage_PageMonitorVirtualControl: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
-                    case kUsage_PageMonitorReserved: sprintf((char *)tempbufvalue, "Monitor Class reserved"); break;
-                    case kUsage_PagePowerDevice: sprintf((char *)tempbufvalue, "Power Device"); break;
-                    case kUsage_PageBatterySystem: sprintf((char *)tempbufvalue, "Battery System"); break;
-                    case kUsage_PowerClassReserved: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
-                    case kUsage_PowerClassReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
-                    case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;
-                        
-                    default: sprintf((char *)tempbufvalue, "%u", usagePage); break;
-                }
+                    {
+                        case kHIDPage_GenericDesktop: sprintf((char *)tempbufvalue, "Generic Desktop"); break;
+                        case kHIDPage_Simulation: sprintf((char *)tempbufvalue, "Simulation Controls"); break;
+                        case kHIDPage_VR: sprintf((char *)tempbufvalue, "VR Controls"); break;
+                        case kHIDPage_Sport: sprintf((char *)tempbufvalue, "Sports Controls"); break;
+                        case kHIDPage_Game: sprintf((char *)tempbufvalue, "Game Controls"); break;
+                        case kHIDPage_KeyboardOrKeypad: sprintf((char *)tempbufvalue, "Keyboard/Keypad"); break;
+                        case kHIDPage_LEDs: sprintf((char *)tempbufvalue, "LED"); break;
+                        case kHIDPage_Button: sprintf((char *)tempbufvalue, "Button"); break;
+                        case kHIDPage_Ordinal: sprintf((char *)tempbufvalue, "Ordinal"); break;
+                        case kHIDPage_Telephony: sprintf((char *)tempbufvalue, "Telephony Device"); break;
+                        case kHIDPage_Consumer: sprintf((char *)tempbufvalue, "Consumer"); break;
+                        case kHIDPage_Digitizer: sprintf((char *)tempbufvalue, "Digitizer"); break;
+                        case kHIDPage_PID: sprintf((char *)tempbufvalue, "PID"); break;
+                        case kHIDPage_Unicode: sprintf((char *)tempbufvalue, "Unicode"); break;
+                        case kHIDPage_AlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
+                        case kHIDPage_Monitor: sprintf((char *)tempbufvalue, "Monitor"); break;
+                        case kHIDPage_MonitorEnumerated: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
+                        case kHIDPage_MonitorVirtual: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
+                        case kHIDPage_MonitorReserved: sprintf((char *)tempbufvalue, "Monitor Class reserved"); break;
+                        case kHIDPage_PowerDevice: sprintf((char *)tempbufvalue, "Power Device"); break;
+                        case kHIDPage_BatterySystem: sprintf((char *)tempbufvalue, "Battery System"); break;
+                        case kHIDPage_PowerReserved: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
+                        case kHIDPage_PowerReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
+                        case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;
+                            
+                        default: sprintf((char *)tempbufvalue, "%u", usagePage); break;
+                    }
                     
                     //strcat((char *)buf, (char *)tempbuf);
                     strcat((char *)bufvalue, (char *)tempbufvalue);
@@ -349,10 +353,10 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
                     datahandled = 1;
                     break;
                     
-                case kReport_TagLogicalMin: sprintf((char *)tempbuf,      "Logical Minimum......... "); break;
-                case kReport_TagLogicalMax: sprintf((char *)tempbuf,      "Logical Maximum......... "); break;
-                case kReport_TagPhysicalMin: sprintf((char *)tempbuf,     "Physical Minimum........ "); break;
-                case kReport_TagPhysicalMax: sprintf((char *)tempbuf,     "Physical Maximum........ "); break;
+                case kReport_TagLogicalMin: sprintf((char *)tempbuf,      "Logical Minimum......... "); itemsigned=1; break;
+                case kReport_TagLogicalMax: sprintf((char *)tempbuf,      "Logical Maximum......... "); itemsigned=1; break;
+                case kReport_TagPhysicalMin: sprintf((char *)tempbuf,     "Physical Minimum........ "); itemsigned=1; break;
+                case kReport_TagPhysicalMax: sprintf((char *)tempbuf,     "Physical Maximum........ "); itemsigned=1; break;
                 case kReport_TagUnitExponent: sprintf((char *)tempbuf,    "Unit Exponent........... "); break;
                 case kReport_TagUnit: sprintf((char *)tempbuf,            "Unit.................... "); break;
                 case kReport_TagReportSize: sprintf((char *)tempbuf,      "Report Size............. "); break;
@@ -369,60 +373,126 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
                 case kReport_TagUsage:
                     sprintf((char *)tempbuf, "Usage ");
                     strcat((char *)buf, (char *)tempbuf);
-                    if (usagePage == kUsage_PageGenericDesktop)
+                    if (usagePage == kHIDPage_GenericDesktop)
                     {
                         strcat((char *)buf, (char *)"(");
                         switch (value)
                         {
-                            case kUsage_01_Pointer: sprintf((char *)tempbuf, "Pointer"); break;
-                            case kUsage_01_Mouse: sprintf((char *)tempbuf, "Mouse"); break;
-                            case kUsage_01_Joystick: sprintf((char *)tempbuf, "Joystick"); break;
-                            case kUsage_01_GamePad: sprintf((char *)tempbuf, "GamePad"); break;
-                            case kUsage_01_Keyboard: sprintf((char *)tempbuf, "Keyboard"); break;
-                            case kUsage_01_Keypad: sprintf((char *)tempbuf, "Keypad"); break;
+                            case kHIDUsage_GD_Pointer: sprintf((char *)tempbuf, "Pointer"); break;
+                            case kHIDUsage_GD_Mouse: sprintf((char *)tempbuf, "Mouse"); break;
+                            case kHIDUsage_GD_Joystick: sprintf((char *)tempbuf, "Joystick"); break;
+                            case kHIDUsage_GD_GamePad: sprintf((char *)tempbuf, "GamePad"); break;
+                            case kHIDUsage_GD_Keyboard: sprintf((char *)tempbuf, "Keyboard"); break;
+                            case kHIDUsage_GD_Keypad: sprintf((char *)tempbuf, "Keypad"); break;
+                            case kHIDUsage_GD_MultiAxisController:  sprintf((char *)tempbuf, "MultiAxisController"); break;
                                 
-                            case kUsage_01_X: sprintf((char *)tempbuf, "X"); break;
-                            case kUsage_01_Y: sprintf((char *)tempbuf, "Y"); break;
-                            case kUsage_01_Z: sprintf((char *)tempbuf, "Z"); break;
-                            case kUsage_01_Rx: sprintf((char *)tempbuf, "Rx"); break;
-                            case kUsage_01_Ry: sprintf((char *)tempbuf, "Ry"); break;
-                            case kUsage_01_Rz: sprintf((char *)tempbuf, "Rz"); break;
-                            case kUsage_01_Slider: sprintf((char *)tempbuf, "Slider"); break;
-                            case kUsage_01_Dial: sprintf((char *)tempbuf, "Dial"); break;
-                            case kUsage_01_Wheel: sprintf((char *)tempbuf, "Wheel"); break;
-                            case kUsage_01_HatSwitch: sprintf((char *)tempbuf, "Hat Switch"); break;
-                            case kUsage_01_CountedBuffer: sprintf((char *)tempbuf, "Counted Buffer"); break;
-                            case kUsage_01_ByteCount: sprintf((char *)tempbuf, "Byte Count"); break;
-                            case kUsage_01_MotionWakeup: sprintf((char *)tempbuf, "Motion Wakeup"); break;
+                            case kHIDUsage_GD_X: sprintf((char *)tempbuf, "X"); break;
+                            case kHIDUsage_GD_Y: sprintf((char *)tempbuf, "Y"); break;
+                            case kHIDUsage_GD_Z: sprintf((char *)tempbuf, "Z"); break;
+                            case kHIDUsage_GD_Rx: sprintf((char *)tempbuf, "Rx"); break;
+                            case kHIDUsage_GD_Ry: sprintf((char *)tempbuf, "Ry"); break;
+                            case kHIDUsage_GD_Rz: sprintf((char *)tempbuf, "Rz"); break;
+                            case kHIDUsage_GD_Slider: sprintf((char *)tempbuf, "Slider"); break;
+                            case kHIDUsage_GD_Dial: sprintf((char *)tempbuf, "Dial"); break;
+                            case kHIDUsage_GD_Wheel: sprintf((char *)tempbuf, "Wheel"); break;
+                            case kHIDUsage_GD_Hatswitch: sprintf((char *)tempbuf, "Hat Switch"); break;
+                            case kHIDUsage_GD_CountedBuffer: sprintf((char *)tempbuf, "Counted Buffer"); break;
+                            case kHIDUsage_GD_ByteCount: sprintf((char *)tempbuf, "Byte Count"); break;
+                            case kHIDUsage_GD_MotionWakeup: sprintf((char *)tempbuf, "Motion Wakeup"); break;
                                 
-                            case kUsage_01_Vx: sprintf((char *)tempbuf, "Vx"); break;
-                            case kUsage_01_Vy: sprintf((char *)tempbuf, "Vy"); break;
-                            case kUsage_01_Vz: sprintf((char *)tempbuf, "Vz"); break;
-                            case kUsage_01_Vbrx: sprintf((char *)tempbuf, "Vbrx"); break;
-                            case kUsage_01_Vbry: sprintf((char *)tempbuf, "Vbry"); break;
-                            case kUsage_01_Vbrz: sprintf((char *)tempbuf, "Vbrz"); break;
-                            case kUsage_01_Vno: sprintf((char *)tempbuf, "Vno"); break;
+                            case kHIDUsage_GD_Vx: sprintf((char *)tempbuf, "Vx"); break;
+                            case kHIDUsage_GD_Vy: sprintf((char *)tempbuf, "Vy"); break;
+                            case kHIDUsage_GD_Vz: sprintf((char *)tempbuf, "Vz"); break;
+                            case kHIDUsage_GD_Vbrx: sprintf((char *)tempbuf, "Vbrx"); break;
+                            case kHIDUsage_GD_Vbry: sprintf((char *)tempbuf, "Vbry"); break;
+                            case kHIDUsage_GD_Vbrz: sprintf((char *)tempbuf, "Vbrz"); break;
+                            case kHIDUsage_GD_Vno: sprintf((char *)tempbuf, "Vno"); break;
                                 
-                            case kUsage_01_SystemControl: sprintf((char *)tempbuf, "System Control"); break;
-                            case kUsage_01_SystemPowerDown: sprintf((char *)tempbuf, "System Power Down"); break;
-                            case kUsage_01_SystemSleep: sprintf((char *)tempbuf, "System Sleep"); break;
-                            case kUsage_01_SystemWakeup: sprintf((char *)tempbuf, "System Wakeup"); break;
-                            case kUsage_01_SystemContextMenu: sprintf((char *)tempbuf, "System Context Menu"); break;
-                            case kUsage_01_SystemMainMenu: sprintf((char *)tempbuf, "System Main Menu"); break;
-                            case kUsage_01_SystemAppMenu: sprintf((char *)tempbuf, "System App Menu"); break;
-                            case kUsage_01_SystemMenuHelp: sprintf((char *)tempbuf, "System Menu Help"); break;
-                            case kUsage_01_SystemMenuExit: sprintf((char *)tempbuf, "System Menu Exit"); break;
-                            case kUsage_01_SystemMenuSelect: sprintf((char *)tempbuf, "System Menu Select"); break;
-                            case kUsage_01_SystemMenuRight: sprintf((char *)tempbuf, "System Menu Right"); break;
-                            case kUsage_01_SystemMenuLeft: sprintf((char *)tempbuf, "System Menu Left"); break;
-                            case kUsage_01_SystemMenuUp: sprintf((char *)tempbuf, "System Menu Up"); break;
-                            case kUsage_01_SystemMenuDown: sprintf((char *)tempbuf, "System Menu Down"); break;
+                            case kHIDUsage_GD_SystemControl: sprintf((char *)tempbuf, "System Control"); break;
+                            case kHIDUsage_GD_SystemPowerDown: sprintf((char *)tempbuf, "System Power Down"); break;
+                            case kHIDUsage_GD_SystemSleep: sprintf((char *)tempbuf, "System Sleep"); break;
+                            case kHIDUsage_GD_SystemWakeUp: sprintf((char *)tempbuf, "System Wakeup"); break;
+                            case kHIDUsage_GD_SystemContextMenu: sprintf((char *)tempbuf, "System Context Menu"); break;
+                            case kHIDUsage_GD_SystemMainMenu: sprintf((char *)tempbuf, "System Main Menu"); break;
+                            case kHIDUsage_GD_SystemAppMenu: sprintf((char *)tempbuf, "System App Menu"); break;
+                            case kHIDUsage_GD_SystemMenuHelp: sprintf((char *)tempbuf, "System Menu Help"); break;
+                            case kHIDUsage_GD_SystemMenuExit: sprintf((char *)tempbuf, "System Menu Exit"); break;
+                            case kHIDUsage_GD_SystemMenuSelect: sprintf((char *)tempbuf, "System Menu Select"); break;
+                            case kHIDUsage_GD_SystemMenuRight: sprintf((char *)tempbuf, "System Menu Right"); break;
+                            case kHIDUsage_GD_SystemMenuLeft: sprintf((char *)tempbuf, "System Menu Left"); break;
+                            case kHIDUsage_GD_SystemMenuUp: sprintf((char *)tempbuf, "System Menu Up"); break;
+                            case kHIDUsage_GD_SystemMenuDown: sprintf((char *)tempbuf, "System Menu Down"); break;
                                 
                             default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
                         }
                         strcat((char *)tempbuf, (char *)")");
                     }
-                    else if (usagePage == kUsage_PagePID)
+                    else if (usagePage == kHIDPage_Digitizer)
+                    {
+                        strcat((char *)buf, (char *)"(");
+                        switch (value)
+                        {
+                            case kHIDUsage_Dig_Digitizer: sprintf((char *)tempbuf, "Digitizer"); break;
+                            case kHIDUsage_Dig_Pen: sprintf((char *)tempbuf, "Pen"); break;
+                            case kHIDUsage_Dig_LightPen: sprintf((char *)tempbuf, "Light Pen"); break;
+                            case kHIDUsage_Dig_TouchScreen: sprintf((char *)tempbuf, "Touch Screen"); break;
+                            case kHIDUsage_Dig_TouchPad: sprintf((char *)tempbuf, "Touch Pad"); break;
+                            case kHIDUsage_Dig_WhiteBoard: sprintf((char *)tempbuf, "White Board"); break;
+                            case kHIDUsage_Dig_CoordinateMeasuringMachine: sprintf((char *)tempbuf, "Coordinate Measuring Machine"); break;
+                            case kHIDUsage_Dig_3DDigitizer: sprintf((char *)tempbuf, "3D Digitizer"); break;
+                            case kHIDUsage_Dig_StereoPlotter: sprintf((char *)tempbuf, "Stereo Plotter"); break;
+                            case kHIDUsage_Dig_ArticulatedArm: sprintf((char *)tempbuf, "Articulated Arm"); break;
+                            case kHIDUsage_Dig_Armature: sprintf((char *)tempbuf, "Armature"); break;
+                            case kHIDUsage_Dig_MultiplePointDigitizer: sprintf((char *)tempbuf, "Multi Point Digitizer"); break;
+                            case kHIDUsage_Dig_FreeSpaceWand: sprintf((char *)tempbuf, "Free Space Wand"); break;
+                            case kHIDUsage_Dig_DeviceConfiguration: sprintf((char *)tempbuf, "Device Configuration"); break;
+                            case kHIDUsage_Dig_Stylus: sprintf((char *)tempbuf, "Stylus"); break;
+                            case kHIDUsage_Dig_Puck: sprintf((char *)tempbuf, "Puck"); break;
+                            case kHIDUsage_Dig_Finger: sprintf((char *)tempbuf, "Finger"); break;
+                            case kHIDUsage_Dig_DeviceSettings: sprintf((char *)tempbuf, "Device Settings"); break;
+                            case kHIDUsage_Dig_GestureCharacter: sprintf((char *)tempbuf, "Gesture Character"); break;
+                            case kHIDUsage_Dig_TipPressure: sprintf((char *)tempbuf, "Tip Pressure"); break;
+                            case kHIDUsage_Dig_BarrelPressure: sprintf((char *)tempbuf, "Barrel Pressure"); break;
+                            case kHIDUsage_Dig_InRange: sprintf((char *)tempbuf, "In Range"); break;
+                            case kHIDUsage_Dig_Touch: sprintf((char *)tempbuf, "Touch"); break;
+                            case kHIDUsage_Dig_Untouch: sprintf((char *)tempbuf, "Untouch"); break;
+                            case kHIDUsage_Dig_Tap: sprintf((char *)tempbuf, "Tap"); break;
+                            case kHIDUsage_Dig_Quality: sprintf((char *)tempbuf, "Quality"); break;
+                            case kHIDUsage_Dig_DataValid: sprintf((char *)tempbuf, "Data Valid"); break;
+                            case kHIDUsage_Dig_TransducerIndex: sprintf((char *)tempbuf, "Transducer Index"); break;
+                            case kHIDUsage_Dig_TabletFunctionKeys: sprintf((char *)tempbuf, "Tablet Function Keys"); break;
+                            case kHIDUsage_Dig_ProgramChangeKeys: sprintf((char *)tempbuf, "Program Change Buttons"); break;
+                            case kHIDUsage_Dig_BatteryStrength: sprintf((char *)tempbuf, "Battery Strength"); break;
+                            case kHIDUsage_Dig_Invert: sprintf((char *)tempbuf, "Invert"); break;
+                            case kHIDUsage_Dig_XTilt: sprintf((char *)tempbuf, "X Tilt"); break;
+                            case kHIDUsage_Dig_YTilt: sprintf((char *)tempbuf, "Y Tilt"); break;
+                            case kHIDUsage_Dig_Azimuth: sprintf((char *)tempbuf, "Azimuth"); break;
+                            case kHIDUsage_Dig_Altitude: sprintf((char *)tempbuf, "Altitude"); break;
+                            case kHIDUsage_Dig_Twist: sprintf((char *)tempbuf, "Twist"); break;
+                            case kHIDUsage_Dig_TipSwitch: sprintf((char *)tempbuf, "Tip Switch"); break;
+                            case kHIDUsage_Dig_SecondaryTipSwitch: sprintf((char *)tempbuf, "Secondary Tip Switch"); break;
+                            case kHIDUsage_Dig_BarrelSwitch: sprintf((char *)tempbuf, "Barrel Switch"); break;
+                            case kHIDUsage_Dig_Eraser: sprintf((char *)tempbuf, "Eraser"); break;
+                            case kHIDUsage_Dig_TabletPick: sprintf((char *)tempbuf, "Tablet Pick"); break;
+                            case kHIDUsage_Dig_TouchValid: sprintf((char *)tempbuf, "Touch Valid"); break;
+                            case kHIDUsage_Dig_Width: sprintf((char *)tempbuf, "Width"); break;
+                            case kHIDUsage_Dig_Height: sprintf((char *)tempbuf, "Height"); break;
+                            case kHIDUsage_Dig_GestureCharacterEnable: sprintf((char *)tempbuf, "Gesture Character Enable"); break;
+                            case kHIDUsage_Dig_GestureCharacterQuality: sprintf((char *)tempbuf, "Gesture Character Quality"); break;
+                            case kHIDUsage_Dig_GestureCharacterDataLength: sprintf((char *)tempbuf, "Gesture Character Data Length"); break;
+                            case kHIDUsage_Dig_GestureCharacterData: sprintf((char *)tempbuf, "Gesture Character Data"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncoding: sprintf((char *)tempbuf, "Gesture Character Encoding"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncodingUTF8: sprintf((char *)tempbuf, "Gesture Character Encoding UTF8"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncodingUTF16LE: sprintf((char *)tempbuf, "Gesture Character Encoding UTF16 Little Endian"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncodingUTF16BE: sprintf((char *)tempbuf, "Gesture Character Encoding UTF16 Big Endian"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncodingUTF32LE: sprintf((char *)tempbuf, "Gesture Character Encoding UTF32 Little Endian"); break;
+                            case kHIDUsage_Dig_GestureCharacterEncodingUTF32BE: sprintf((char *)tempbuf, "Gesture Character Encoding UTF32 Big Endian"); break;
+
+                            default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
+                        }
+                        strcat((char *)tempbuf, (char *)")");
+                    }
+                    else if (usagePage == kHIDPage_PID)
                     {
                         strcat((char *)buf, (char *)"(");
                         switch (value)
@@ -570,28 +640,31 @@ void PrintHIDReport(uint8_t *reportDesc, uint32_t length)
         strcat((char *)buf, (char *)tempbuf);
         
         // if we didn't handle the data before, print in generic fashion
-        if (!datahandled && size)
+        if (!datahandled )
         {
-            strcat((char *)bufvalue, (char *)"(");
-            if (size <= 4)
-            {
-                if (usagesigned)
+            if (size) {
+                strcat((char *)bufvalue, (char *)"(");
+                if (size <= 4)
                 {
-                    sprintf((char *)tempbufvalue, "%d", (int32_t)svalue);
-                }
-                else
-                {
-                    sprintf((char *)tempbufvalue, "%u", (uint32_t)value);
-                }
-                strcat((char *)bufvalue, (char *)tempbufvalue);
-            }
-            else
-                for (i = 0; i < size; i++)
-                {
-                    sprintf((char *)tempbufvalue, "%02X ", *(reportDesc++));
+                    if (itemsigned)
+                    {
+                        sprintf((char *)tempbufvalue, "%d", (int32_t)svalue);
+                    }
+                    else
+                    {
+                        sprintf((char *)tempbufvalue, "%u", (uint32_t)value);
+                    }
                     strcat((char *)bufvalue, (char *)tempbufvalue);
                 }
-            strcat((char *)bufvalue, (char *)") ");
+                else
+                    for (i = 0; i < size; i++)
+                    {
+                        sprintf((char *)tempbufvalue, "%02X ", *(reportDesc++));
+                        strcat((char *)bufvalue, (char *)tempbufvalue);
+                    }
+                strcat((char *)bufvalue, (char *)") ");
+            }
+            itemsigned=0;
         }
         
         

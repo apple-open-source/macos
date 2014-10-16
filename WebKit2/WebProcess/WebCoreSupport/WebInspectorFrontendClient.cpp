@@ -31,8 +31,8 @@
 #include "WebInspector.h"
 #include "WebPage.h"
 #include <WebCore/InspectorController.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
+#include <inspector/InspectorAgentBase.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -40,7 +40,7 @@ using namespace WebCore;
 namespace WebKit {
 
 WebInspectorFrontendClient::WebInspectorFrontendClient(WebPage* page, WebPage* inspectorPage)
-    : InspectorFrontendClientLocal(page->corePage()->inspectorController(), inspectorPage->corePage(), adoptPtr(new Settings()))
+    : InspectorFrontendClientLocal(&page->corePage()->inspectorController(), inspectorPage->corePage(), std::make_unique<Settings>())
     , m_page(page)
 {
 }
@@ -57,7 +57,7 @@ void WebInspectorFrontendClient::bringToFront()
 
 void WebInspectorFrontendClient::closeWindow()
 {
-    m_page->corePage()->inspectorController()->disconnectFrontend();
+    m_page->corePage()->inspectorController().disconnectFrontend(Inspector::InspectorDisconnectReason::InspectorDestroyed);
     m_page->inspector()->didClose();
 }
 
@@ -66,9 +66,9 @@ bool WebInspectorFrontendClient::canSave()
     return m_page->inspector()->canSave();
 }
 
-void WebInspectorFrontendClient::save(const String& filename, const String& content, bool forceSaveAs)
+void WebInspectorFrontendClient::save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs)
 {
-    m_page->inspector()->save(filename, content, forceSaveAs);
+    m_page->inspector()->save(filename, content, base64Encoded, forceSaveAs);
 }
 
 void WebInspectorFrontendClient::append(const String& filename, const String& content)

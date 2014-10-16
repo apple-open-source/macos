@@ -39,6 +39,8 @@
             <string>/System/Library/PrivateFrameworks/EFILogin.framework/Resources/EFIResourceBuilder.bundle/Contents/Resources</string>
             <key>LanguagesPref</key>
             <string>/Library/Preferences/.GlobalPreferences.plist</string>
+            <key>BackgroundImage</key>
+            <string>/Library/Caches/com.apple.desktop.admin.png</string>
             <key>LocalizedResourcesCache</key>
             <string>/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations</string>
         </dict>
@@ -52,11 +54,15 @@
             <key>Path</key>
             <string>/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache</string>
             <key>KernelPath</key>
-            <string>/mach_kernel</string>
+            <string>/System/Library/Kernels/kernel</string>
+            <key>KernelsDir</key>
+            <string>/System/Library/Kernels</string>
             <key>Archs</key>
             <array>
                 <string>x86_64</string>
             </array>
+            <key>Preferred Compression</key>
+            <string>lzvn</string>
         </dict>
     </dict>
 </dict>

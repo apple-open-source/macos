@@ -40,24 +40,12 @@
 #include <netinet/in.h>
 #include <mach/boolean.h>
 
-int
-subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask);
-
-boolean_t
-host_route(int cmd, struct in_addr iaddr);
-
 boolean_t
 subnet_route_add(struct in_addr gateway, struct in_addr netaddr, 
 		 struct in_addr netmask, const char * ifname);
 
-boolean_t
-subnet_route_delete(struct in_addr gateway, struct in_addr netaddr, 
-		    struct in_addr netmask);
 void
 flush_routes(int if_index, const struct in_addr ip,
 	     const struct in_addr broadcast);
-
-int
-rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
 
 #endif /* _S_RTUTIL_H */

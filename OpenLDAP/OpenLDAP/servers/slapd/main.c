@@ -904,7 +904,11 @@ unhandled_option:;
 		  "main: Enabling TLS failed; continuing with TLS disabled.\n",
 		  rc, 0, 0 );
 
+#ifdef HAVE_SECURE_TRANSPORT
+	    ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_IDENTITY, NULL);
+#else
 	    ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CERT_IDENTITY, NULL );
+#endif
             rc = 0;
 	}
 

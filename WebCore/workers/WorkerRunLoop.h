@@ -31,17 +31,14 @@
 #ifndef WorkerRunLoop_h
 #define WorkerRunLoop_h
 
-#if ENABLE(WORKERS)
-
 #include "ScriptExecutionContext.h"
+#include <memory>
 #include <wtf/MessageQueue.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
     class ModePredicate;
-    class WorkerContext;
+    class WorkerGlobalScope;
     class WorkerSharedTimer;
 
     class WorkerRunLoop {
@@ -50,19 +47,19 @@ namespace WebCore {
         ~WorkerRunLoop();
         
         // Blocking call. Waits for tasks and timers, invokes the callbacks.
-        void run(WorkerContext*);
+        void run(WorkerGlobalScope*);
 
         enum WaitMode { WaitForMessage, DontWaitForMessage };
 
         // Waits for a single task and returns.
-        MessageQueueWaitResult runInMode(WorkerContext*, const String& mode, WaitMode = WaitForMessage);
+        MessageQueueWaitResult runInMode(WorkerGlobalScope*, const String& mode, WaitMode = WaitForMessage);
 
         void terminate();
         bool terminated() const { return m_messageQueue.killed(); }
 
-        void postTask(PassOwnPtr<ScriptExecutionContext::Task>);
-        void postTaskAndTerminate(PassOwnPtr<ScriptExecutionContext::Task>);
-        void postTaskForMode(PassOwnPtr<ScriptExecutionContext::Task>, const String& mode);
+        void postTask(ScriptExecutionContext::Task);
+        void postTaskAndTerminate(ScriptExecutionContext::Task);
+        void postTaskForMode(ScriptExecutionContext::Task, const String& mode);
 
         unsigned long createUniqueId() { return ++m_uniqueId; }
 
@@ -71,34 +68,32 @@ namespace WebCore {
         class Task {
             WTF_MAKE_NONCOPYABLE(Task); WTF_MAKE_FAST_ALLOCATED;
         public:
-            static PassOwnPtr<Task> create(PassOwnPtr<ScriptExecutionContext::Task> task, const String& mode);
+            static std::unique_ptr<Task> create(ScriptExecutionContext::Task, const String& mode);
             ~Task() { }
             const String& mode() const { return m_mode; }
-            void performTask(const WorkerRunLoop&, ScriptExecutionContext*);
+            void performTask(const WorkerRunLoop&, WorkerGlobalScope*);
 
         private:
-            Task(PassOwnPtr<ScriptExecutionContext::Task> task, const String& mode);
+            Task(ScriptExecutionContext::Task, const String& mode);
         
-            OwnPtr<ScriptExecutionContext::Task> m_task;
+            ScriptExecutionContext::Task m_task;
             String m_mode;
         };
 
     private:
         friend class RunLoopSetup;
-        MessageQueueWaitResult runInMode(WorkerContext*, const ModePredicate&, WaitMode);
+        MessageQueueWaitResult runInMode(WorkerGlobalScope*, const ModePredicate&, WaitMode);
 
         // Runs any clean up tasks that are currently in the queue and returns.
         // This should only be called when the context is closed or loop has been terminated.
-        void runCleanupTasks(WorkerContext*);
+        void runCleanupTasks(WorkerGlobalScope*);
 
         MessageQueue<Task> m_messageQueue;
-        OwnPtr<WorkerSharedTimer> m_sharedTimer;
+        std::unique_ptr<WorkerSharedTimer> m_sharedTimer;
         int m_nestedCount;
         unsigned long m_uniqueId;
     };
 
 } // namespace WebCore
-
-#endif // ENABLE(WORKERS)
 
 #endif // WorkerRunLoop_h

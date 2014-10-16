@@ -125,6 +125,13 @@
 #define APU_HAVE_ODBC           1
 #endif
 
+#define APU_HAVE_CRYPTO         0
+
+#ifndef APU_DSO_MODULE_BUILD
+#define APU_HAVE_OPENSSL        0
+#define APU_HAVE_NSS            0
+#endif
+
 #define APU_HAVE_APR_ICONV      1
 #define APU_HAVE_ICONV          0
 #define APR_HAS_XLATE           (APU_HAVE_APR_ICONV || APU_HAVE_ICONV)

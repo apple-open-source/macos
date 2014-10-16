@@ -289,10 +289,14 @@ process_opts(char *options, uint32_t *directp)
 	char *opt, *opts, *lasts;
 	char buf[AUTOFS_MAXOPTSLEN];
 
-	CHECK_STRCPY(buf, options, sizeof buf);
+        *directp = 0;
+        
+	if (CHECK_STRCPY(buf, options, sizeof buf)) {
+                return -1;
+        }
+        
 	opts = buf;
 	options[0] = '\0';
-	*directp = 0;
 
 	while ((opt = strtok_r(opts, ",", &lasts)) != NULL) {
 		opts = NULL;
@@ -305,9 +309,14 @@ process_opts(char *options, uint32_t *directp)
 			*directp = 0;
 		} else if (strcmp(opt, "ignore") != 0) {
 			if (options[0] != '\0') {
-				CHECK_STRCAT(options, ",", AUTOFS_MAXOPTSLEN);
+				if (CHECK_STRCAT(
+                                        options, ",", AUTOFS_MAXOPTSLEN)) {
+                                        return -1;
+                                }
 			}
-			CHECK_STRCAT(options, opt, AUTOFS_MAXOPTSLEN);
+			if (CHECK_STRCAT(options, opt, AUTOFS_MAXOPTSLEN)) {
+                                return -1;
+                        }
 		}
 	};
 	return (0);

@@ -1,0 +1,43 @@
+#! /bin/csh -f
+#
+# run NISCC "bad certificate" tests.
+#
+# For now this assumed that an sslServer task is already running. 
+#
+if ( $#argv < 1 ) then
+        echo Usage: nisccSslTest port
+        exit(1)
+endif
+#
+set TESTCASES=testcases
+set SIMPLE_CERT_DIR=$TESTCASES/simple_client
+set CLIENT_KC=nisccClient
+set FULL_CLIENT_KC=$HOME/Library/Keychains/$CLIENT_KC
+set CLIENT_KEY=client_key.der
+#
+set cmd="cd $SIMPLE_CERT_DIR"
+echo $cmd
+$cmd || exit(1)
+
+#
+# Just once - create KC from scratch
+#
+set cmd="rm -f $FULL_CLIENT_KC"
+echo $cmd
+$cmd || exit(1)
+set cmd="certtool y k=$FULL_CLIENT_KC p=$CLIENT_KC c"
+echo $cmd
+$cmd > /dev/null || exit(1)
+foreach cert ( * )
+	echo cert $cert...
+	skipThisNisccCert $cert
+	if($status == 1) then
+		echo "=skip="
+	else 
+		dbTool $FULL_CLIENT_KC D R
+		dbTool $FULL_CLIENT_KC i c=$cert k=../$CLIENT_KEY || exit(1)
+		nisccSimpleClient localhost $argv[1] $CLIENT_KC || exit(1)
+	endif
+end
+echo ===== NISCC SSL Test SUCCESS =====
+

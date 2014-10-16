@@ -51,12 +51,12 @@ routine _asl_server_query_timeout
 	request : ooline_data, dealloc;
 	startid : uint64_t;
 	count : int;
-	flags : int;
 	WaitTime timeout: natural_t;
+	flags : int;
 	out reply : ooline_data, dealloc;
 	out lastid : uint64_t;
 	out status : int;
-	SecToken token : security_token_t
+	ServerAuditToken token : audit_token_t
 );
 
 routine _asl_server_prune
@@ -105,6 +105,20 @@ routine _asl_server_query_2
 	startid : uint64_t;
 	count : int;
 	flags : int;
+	out reply : ooline_data, dealloc;
+	out lastid : uint64_t;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);
+
+routine _asl_server_match
+(
+	server : mach_port_t;
+	request : ooline_data, dealloc;
+	startid : uint64_t;
+	count : uint64_t;
+	duration : uint32_t;
+	direction : int;
 	out reply : ooline_data, dealloc;
 	out lastid : uint64_t;
 	out status : int;

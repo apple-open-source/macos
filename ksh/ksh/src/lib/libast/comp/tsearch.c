@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -51,6 +51,8 @@ void _STUB_tsearch(){}
 #undef	twalk
 
 #include	"dthdr.h"
+
+extern Void_t*		dtfinger(Dt_t*);
 
 /*	POSIX tsearch library based on libcdt
 **	Written by Kiem-Phong Vo (AT&T Research, 07/19/95)
@@ -111,7 +113,7 @@ int(*		comparf)();
 	reg Tree_t*	o;
 
 	if(!rootp ||
-	   (!(dt = *((Dt_t**)rootp)) && !(dt = dtopen((Dtdisc_t*)(&Treedisc),Dtorder))) )
+	   (!(dt = *((Dt_t**)rootp)) && !(dt = dtopen((Dtdisc_t*)(&Treedisc),Dtoset))) )
 		return NIL(Void_t*);
 
 	/* dangerous to set comparf on each call but that's tsearch */
@@ -192,8 +194,8 @@ int(*		comparf)();
 /* the below routine assumes a particular layout of Dtlink_t.
 ** If this ever gets changed, this routine should be redone.
 */
-#define lchild	link.hl._left
-#define rchild	link.right
+#define lchild	link.lh.__left
+#define rchild	link.rh.__rght
 
 #if __STD_C
 static void _twalk(Tree_t* obj, void(*action)(const Void_t*,VISIT,int), int level)

@@ -241,7 +241,7 @@ static int default_tag_env = TE_EXPLICIT;
 ModuleDefinition: IDENTIFIER objid_opt kw_DEFINITIONS TagDefault ExtensionDefault
 			EEQUAL kw_BEGIN ModuleBody kw_END
 		{
-			checkundefined();
+			checksymbols();
 		}
 		;
 
@@ -282,6 +282,7 @@ SymbolsFromModule: referencenames kw_FROM IDENTIFIER objid_opt
 			Symbol *s = addsym(sl->string);
 			s->stype = Stype;
 			gen_template_import(s);
+			s->flags.external = 1;
 		    }
 		    add_import($3);
 		}
@@ -560,6 +561,7 @@ DefinedType	: IDENTIFIER
 		    lex_error_message ("%s is not a type\n", $1);
 		  else
 		    $$->symbol = s;
+		  s->flags.used = 1;
 		}
 		;
 

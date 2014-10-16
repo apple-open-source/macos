@@ -67,6 +67,7 @@ struct dlopen_handle {
     struct dlopen_handle *prev;
     struct dlopen_handle *next;
 };
+/* APPLE: prefix sasl_ to fix conflict with System */ 
 static struct dlopen_handle *sasl_dlopen_handles = NULL;
 static const struct dlopen_handle sasl_main_program_handle = {NULL};
 static char *sasl_dlerror_pointer = NULL;
@@ -77,16 +78,12 @@ static char *sasl_dlerror_pointer = NULL;
  * __dyld_NSMakePrivateModulePublic is returned so thats all that maters to get
  * the functionality need to implement the dlopen() interfaces.
  */
- 
-// Jaguar does not have an enum named bool
-enum bool { false, true };
-
 static
-enum bool
+int
 NSMakePrivateModulePublic(
 NSModule module)
 {
-    static enum bool (*p)(NSModule module) = NULL;
+    static int (*p)(NSModule module) = NULL;
 
 	if(p == NULL)
 	    _dyld_func_lookup("__dyld_NSMakePrivateModulePublic",
@@ -139,7 +136,8 @@ struct stat *stat_buf)
 	            /* extract path list element */
 		    p = element;
 		    q = pathbuf;
-		    while(*p && *p != ':' && q < pathbuf_end) *q++ = *p++;
+		    while(*p && *p != ':' && q < pathbuf_end)
+                        *q++ = *p++;
 		    if(q == pathbuf){  /* empty element */
 		        if(*p){
 		            element = p+1;

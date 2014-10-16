@@ -47,6 +47,9 @@
 /* Enable samode-unspec */
 #undef ENABLE_SAMODE_UNSPECIFIED
 
+/* Enable no SA flush */
+#define ENABLE_NO_SA_FLUSH 1
+
 /* Enable statictics */
 /* #define ENABLE_STATS 1*/	  /* causes too many logs to syslog */
 

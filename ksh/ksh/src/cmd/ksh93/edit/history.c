@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -177,7 +177,7 @@ static History_t *hist_ptr;
 #if SHOPT_AUDIT
 static int sh_checkaudit(History_t *hp, const char *name, char *logbuf, size_t len)
 {
-	char	*buff, *cp, *last;
+	char	*cp, *last;
 	int	id1, id2, r=0, n, fd;
 	if((fd=open(name, O_RDONLY)) < 0)
 		return(0);
@@ -334,6 +334,7 @@ retry:
 		int first,last;
 		off_t mark,size = (HIST_MAX/4)+maxlines*HIST_LINE;
 		hp->histind = first = hist_nearend(hp,hp->histfp,hsize-size);
+		histinit = 1;
 		hist_eof(hp);	 /* this sets histind to last command */
 		if((hist_start = (last=(int)hp->histind)-maxlines) <=0)
 			hist_start = 1;
@@ -480,7 +481,10 @@ static History_t* hist_trim(History_t *hp, int n)
 		else
 			pathtmp(tmpname,".","hist",NIL(int*));
 		if(rename(name,tmpname) < 0)
+		{
+			free(tmpname);
 			tmpname = name;
+		}
 		fd = open(tmpname,O_RDONLY);
 		sfsetfd(hist_old->histfp,fd);
 		if(tmpname==name)
@@ -671,10 +675,10 @@ again:
 							hp->histmarker=count+2;
 							cp += (HIST_MARKSZ-1);
 							hp->histind--;
-							if(cp <= endbuff)
+							if(!histinit && (cp <= endbuff))
 							{
 								unsigned char *marker = (unsigned char*)(cp-4);
-								hp->histind = ((marker[0]<<16)|(marker[1]<<8)|marker[2]);
+								hp->histind = ((marker[0]<<16)|(marker[1]<<8)|marker[2] -1);
 							}
 						}
 						break;

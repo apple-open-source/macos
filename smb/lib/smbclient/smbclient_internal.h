@@ -44,6 +44,7 @@ extern "C" {
 #define SMBFS_MNT_KERBEROS_OFF      0x0100  /* tmp until <12991970> is fixed */
 #define SMBFS_MNT_FILE_IDS_OFF      0x0200
 #define SMBFS_MNT_AAPL_OFF          0x0400
+#define SMBFS_MNT_VALIDATE_NEG_OFF  0x0800
 
 #ifndef KERNEL
 #include <asl.h>	
@@ -83,7 +84,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 /*!
  * @function SMBMountShare
  * @abstract Mount a SMB share
- * @param inConnection A SMBHANDLE created by SMBOpenServer.
+ * @param inConnection A handle to the connection
  * @param targetShare A UTF-8 encoded share name, may be null.
  * @param mountPoint A UTF-8 encoded mount point that must exist.
  * @param mountFlags See man mount.
@@ -151,7 +152,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
  * @function SMBSetNetworkIdentity
  * @abstract Private routine for getting identity information of a users 
  * connection.
- * @inConnection - A handle to the users connection
+ * @inConnection - A handle to the connection
  * @network_sid - On success the users network sid
  * @account - On success the users account name
  * @domain - On success the domain the user belongs to
@@ -170,8 +171,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 /*!
  * @function SMBRemountServer
  * @abstract Private routine for remouting Dfs 
- * @param inputBuffer Internal only should never be looked at.
- * @param inputBufferLen Size of the inputBuffer.
+ * @inputBuffer - Internal only should never be looked at.
+ * @inputBufferLen - Size of the inputBuffer.
  */
 SMBCLIENT_EXPORT
 void
@@ -181,10 +182,49 @@ SMBRemountServer(
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
 	
+/*!
+ * @function SMBGetDfsReferral
+ * @abstract Private routine for resolving a dfs referral for smbutil
+ * @url - dfs referral to resolve
+ * @dfsReferralDict - dfs resolution results
+ */
 SMBCLIENT_EXPORT
 int SMBGetDfsReferral(
 		const char * url, 
 		CFMutableDictionaryRef dfsReferralDict);
+
+/*!
+ * @function SMBQueryDir
+ * @abstract Private routine for enumerating a directory, only SMB 2 or later
+ * @inConnection - A handle to the connection
+ * @file_info_class - file info class that describes return data format
+ * @flags - controls how the query dir should be done
+ * @file_index - starting byte offset within the dir
+ * @fid - dir File ID to do query dir on
+ * @name - search pattern
+ * @name_len - length of the search pattern
+ * @rcv_output_buffer - buffer to return Query Dir results in
+ * @rcv_max_output_len - size of the rcv_output_buffer
+ * @rcv_output_len - actual number of bytes returned in rcv_output_buffer
+ * @query_dir_reply_len - number of bytes returned in Query Dir reply
+ */
+SMBCLIENT_EXPORT
+NTSTATUS
+SMBQueryDir(
+    SMBHANDLE       inConnection,
+    uint8_t         file_info_class,
+    uint8_t         flags,
+    uint32_t        file_index,
+    SMBFID          fid,
+    const char *    name,
+    uint32_t        name_len,
+    char *          rcv_output_buffer,
+    uint32_t        rcv_max_output_len,
+    uint32_t *      rcv_output_len,
+    uint32_t *      query_dir_reply_len)
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA)
+;
+
 
 #endif // KERNEL
 

@@ -22,9 +22,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOLib.h>
-#include <AssertMacros.h>
 #include "IOHIDElementPrivate.h"
 #include "IOHIDEventQueue.h"
 #include "IOHIDParserPriv.h"
@@ -1555,6 +1555,7 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
     // is complete. 
     element->_elementValue->generation ++;
     
+    element->_previousValue = element->_elementValue->value[0];
     element->_elementValue->value[0] = value;
     element->_elementValue->timestamp = _elementValue->timestamp;
     
@@ -1725,21 +1726,32 @@ UInt32 IOHIDElementPrivate::getUnitExponent()
 
 UInt32 IOHIDElementPrivate::getValue()
 {   
-	return getValue(0);
+    return getValue(0);
 }
 
 OSData * IOHIDElementPrivate::getDataValue()
 {   
-	UInt32  bitsToCopy	= (_reportBits * _reportCount);
-	
-	if ( !_dataValue)
-	{
-		_dataValue = OSData::withCapacity(getByteSize());
-	}
+    UInt32 byteSize = (UInt32)getByteSize();
+    
+#if defined(__LITTLE_ENDIAN__)
+    if ( _dataValue )
+        bcopy((const void *)_elementValue->value, (void *)_dataValue->getBytesNoCopy(), byteSize);
+    else
+        _dataValue = OSData::withBytes((const void *)_elementValue->value, byteSize);
+#else
+    UInt32 bitsToCopy = (_reportBits * _reportCount);
+    if ( !_dataValue) {
+        UInt8 * bytes[byteSize];
+        _dataValue = OSData::withBytes(bytes, byteSize);
+    }
 
-	writeReportBits((const UInt32*)_elementValue->value, (UInt8 *)_dataValue->getBytesNoCopy(), bitsToCopy);
-	
-	return _dataValue;
+    if ( _dataValue ) {
+        bzero((void *)_dataValue->getBytesNoCopy(), byteSize);
+        writeReportBits((const UInt32*)_elementValue->value, (UInt8 *)_dataValue->getBytesNoCopy(), bitsToCopy);
+    }
+#endif
+    
+    return _dataValue;
 }
 
 void IOHIDElementPrivate::setValue(UInt32 value)
@@ -1759,29 +1771,27 @@ void IOHIDElementPrivate::setValue(UInt32 value)
 
 void IOHIDElementPrivate::setDataValue(OSData * value)
 {
-	OSData * previousValue;
-	
-	
-	if ( !value ) return;
-	
-	previousValue = getDataValue();
-	
-	setDataBits(value);
-	
-	if (_owner->postElementValues(&_cookie, 1) != kIOReturnSuccess)
-		setDataBits(previousValue);
+    OSData * previousValue;
+    
+    if ( !value ) return;
+    
+    previousValue = getDataValue();
+    
+    setDataBits(value);
+    
+    if (_owner->postElementValues(&_cookie, 1) != kIOReturnSuccess)
+        setDataBits(previousValue);
 }
 
 void IOHIDElementPrivate::setDataBits(OSData *value)
 {
-	UInt32  bitsToCopy;
+    UInt32  bitsToCopy;
 
-	if ( !value ) return;
+    if ( !value ) return;
 
-	bitsToCopy = min ( (value->getLength() << 3), (_reportBits * _reportCount) );
+    bitsToCopy = min ( (value->getLength() << 3), (_reportBits * _reportCount) );
 	
-	readReportBits((const UInt8*)value->getBytesNoCopy(), _elementValue->value, bitsToCopy);
-
+    readReportBits((const UInt8*)value->getBytesNoCopy(), _elementValue->value, bitsToCopy);
 }
 
 AbsoluteTime IOHIDElementPrivate::getTimeStamp()
@@ -1791,13 +1801,13 @@ AbsoluteTime IOHIDElementPrivate::getTimeStamp()
 
 IOByteCount IOHIDElementPrivate::getByteSize()
 {
-	IOByteCount byteSize;
-	UInt32		bitCount = (_reportBits * _reportCount);
+    IOByteCount byteSize;
+    UInt32      bitCount = (_reportBits * _reportCount);
+    
+    byteSize = bitCount >> 3;
+    byteSize += (bitCount % 8) ? 1 : 0;
 	
-	byteSize = bitCount >> 3;
-	byteSize += (bitCount % 8) ? 1 : 0;
-	
-	return byteSize;
+    return byteSize;
 }
 
 unsigned int IOHIDElementPrivate::iteratorSize() const
@@ -2062,7 +2072,7 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
     
     logicalRange    = logicalMax - logicalMin;
     scaledRange     = scaledMax - scaledMin;
-    returnValue     = (logicalValue - logicalMin)<<16;
+    returnValue     = (IOFixed)((logicalValue - logicalMin)<<16);
     returnValue     = (IOFixedMultiply(returnValue, scaledRange) / logicalRange) + scaledMin;
     
     return returnValue;
@@ -2070,15 +2080,20 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
 
 UInt32 IOHIDElementPrivate::getValue(IOOptionBits options) {
     
-    UInt32 newValue = ((_reportBits * _reportCount) < 32) ? _elementValue->value[0] : 0;
+    UInt32 newValue = 0;
     
-    if ( options & kIOHIDValueOptionsFlagRelativeSimple ) {
-        if ( (getFlags() & kIOHIDElementFlagsWrapMask) && newValue == getLogicalMin() && _previousValue == getLogicalMax())
-            newValue = 1;
-        else if ( (getFlags() & kIOHIDElementFlagsWrapMask) &&  newValue == getLogicalMax() && _previousValue == getLogicalMin())
-            newValue = -1;
-        else
-            newValue -= _previousValue;
+    if ((_reportBits * _reportCount) < 32) {
+        
+        newValue = ( options & kIOHIDValueOptionsFlagPrevious ) ? _previousValue : _elementValue->value[0];
+
+        if ( options & kIOHIDValueOptionsFlagRelativeSimple ) {
+            if ( (getFlags() & kIOHIDElementFlagsWrapMask) && newValue == getLogicalMin() && _previousValue == getLogicalMax())
+                newValue = 1;
+            else if ( (getFlags() & kIOHIDElementFlagsWrapMask) &&  newValue == getLogicalMax() && _previousValue == getLogicalMin())
+                newValue = -1;
+            else
+                newValue -= _previousValue;
+        }
     }
     
     return newValue;

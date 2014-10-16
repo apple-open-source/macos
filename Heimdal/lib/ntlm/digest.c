@@ -294,7 +294,7 @@ parse_values(const char *string, struct md5_value **val)
 
     p1 = str;
 
-    while (p1 - str < size) {
+    while ((size_t)(p1 - str) < size) {
 	sz = strspn(p1, " \t\n\r,");
 	if (p1[sz] == '\0')
 	    break;
@@ -720,10 +720,8 @@ build_server_response(heim_digest_t context, char *a1, char **response)
     char *str;
     
     str = build_digest(context, a1, NULL);
-    if (str == NULL) {
-	MEMSET_FREE_AND_CLEAR(a1);
+    if (str == NULL)
 	return;
-    }
     
     FREE_AND_CLEAR(context->serverReply);
     asprintf(&context->serverReply, "%srspauth=%s",

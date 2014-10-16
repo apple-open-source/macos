@@ -78,23 +78,8 @@
  * up using this condition and will then call the client handler as necessary.
  */
 
-#if !defined(__APPLE__)
-#include <sys/wait.h>
-#include <sys/lwp.h>
-#include <strings.h>
-#include <signal.h>
-#include <assert.h>
-#include <errno.h>
-
-#include <dt_proc.h>
-#include <dt_pid.h>
-#include <dt_impl.h>
-
-#define	IS_SYS_EXEC(w)	(w == SYS_exec || w == SYS_execve)
-#define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_fork1 ||	\
-			w == SYS_forkall || w == SYS_forksys)
-
-#else /* is Apple Mac OS X */
+#include <System/sys/time.h>
+#include <System/sys/proc.h>
 #include <sys/wait.h>
 #include <strings.h>
 #include <signal.h>
@@ -108,7 +93,7 @@
 extern void dt_proc_rdwatch(dt_proc_t *, rd_event_e, const char *);
 extern void *dt_proc_control(void *arg);
 
-#endif /* __APPLE__ */
+void Pcheckpoint_syms(struct ps_prochandle *P);
 
 dt_bkpt_t *
 dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
@@ -152,37 +137,6 @@ dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
 	}
 }
 
-#if !defined(__APPLE__)
-static void
-dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
-{
-	const lwpstatus_t *psp = &Pstatus(dpr->dpr_proc)->pr_lwp;
-	dt_bkpt_t *dbp;
-
-	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-		if (psp->pr_reg[R_PC] == dbp->dbp_addr)
-			break;
-	}
-
-	if (dbp == NULL) {
-		dt_dprintf("pid %d: spurious breakpoint wakeup for %lx\n",
-		    (int)dpr->dpr_pid, (ulong_t)psp->pr_reg[R_PC]);
-		return;
-	}
-
-	dt_dprintf("pid %d: hit breakpoint at %lx (%lu)\n",
-	    (int)dpr->dpr_pid, (ulong_t)dbp->dbp_addr, ++dbp->dbp_hits);
-
-	dbp->dbp_func(dtp, dpr, dbp->dbp_data);
-	(void) Pxecbkpt(dpr->dpr_proc, dbp->dbp_instr);
-}
-#else
-// Moved dt_proc_bpmatch() to dt_proc_apple.m
-#endif /* !__APPLE__ */
-
 /*
  * APPLE NOTE:
  *
@@ -192,39 +146,13 @@ dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 void
 dt_proc_bpenable(dt_proc_t *dpr)
 {
-#if !defined(__APPLE__)
-	dt_bkpt_t *dbp;
-
-	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-		if (!dbp->dbp_active && Psetbkpt(dpr->dpr_proc,
-		    dbp->dbp_addr, &dbp->dbp_instr) == 0)
-			dbp->dbp_active = B_TRUE;
-	}
-
-	dt_dprintf("breakpoints enabled\n");
-#endif
+	/* NOOP */
 }
 
 void
 dt_proc_bpdisable(dt_proc_t *dpr)
 {
-#if !defined(__APPLE__)
-	dt_bkpt_t *dbp;
-
-	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-		if (dbp->dbp_active && Pdelbkpt(dpr->dpr_proc,
-		    dbp->dbp_addr, dbp->dbp_instr) == 0)
-			dbp->dbp_active = B_FALSE;
-	}
-
-	dt_dprintf("breakpoints disabled\n");
-#endif
+	/* NOOP */
 }
 
 void
@@ -329,11 +257,9 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 		break;
 	}
 	
-#if defined(__APPLE__)
 	// Take note of symbol owners (i.e. modules) already processed. */
 	if (!(dpr->dpr_stop & ~DT_PROC_STOP_IDLE))
 		Pcheckpoint_syms(dpr->dpr_proc);
-#endif /* __APPLE__ */
 }
 
 void
@@ -358,344 +284,10 @@ dt_proc_rdwatch(dt_proc_t *dpr, rd_event_e event, const char *evname)
 	    (dt_bkpt_f *)dt_proc_rdevent, (void *)evname);
 }
 
-#if !defined(__APPLE__)
-/*
- * Common code for enabling events associated with the run-time linker after
- * attaching to a process or after a victim process completes an exec(2).
- */
-static void
-dt_proc_attach(dt_proc_t *dpr, int exec)
-{
-	const pstatus_t *psp = Pstatus(dpr->dpr_proc);
-	rd_err_e err;
-	GElf_Sym sym;
-
-	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-
-	if (exec) {
-		if (psp->pr_lwp.pr_errno != 0)
-			return; /* exec failed: nothing needs to be done */
-
-		dt_proc_bpdestroy(dpr, B_FALSE);
-		Preset_maps(dpr->dpr_proc);
-	}
-
-	if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL &&
-	    (err = rd_event_enable(dpr->dpr_rtld, B_TRUE)) == RD_OK) {
-		dt_proc_rdwatch(dpr, RD_PREINIT, "RD_PREINIT");
-		dt_proc_rdwatch(dpr, RD_POSTINIT, "RD_POSTINIT");
-		dt_proc_rdwatch(dpr, RD_DLACTIVITY, "RD_DLACTIVITY");
-	} else {
-		dt_dprintf("pid %d: failed to enable rtld events: %s\n",
-		    (int)dpr->dpr_pid, dpr->dpr_rtld ? rd_errstr(err) :
-		    "rtld_db agent initialization failed");
-	}
-
-	Pupdate_maps(dpr->dpr_proc);
-
-	if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
-	    "a.out", "main", &sym, NULL) == 0) {
-		(void) dt_proc_bpcreate(dpr, (uintptr_t)sym.st_value,
-		    (dt_bkpt_f *)dt_proc_bpmain, "a.out`main");
-	} else {
-		dt_dprintf("pid %d: failed to find a.out`main: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
-	}
-}
-
-/*
- * Wait for a stopped process to be set running again by some other debugger.
- * This is typically not required by /proc-based debuggers, since the usual
- * model is that one debugger controls one victim.  But DTrace, as usual, has
- * its own needs: the stop() action assumes that prun(1) or some other tool
- * will be applied to resume the victim process.  This could be solved by
- * adding a PCWRUN directive to /proc, but that seems like overkill unless
- * other debuggers end up needing this functionality, so we implement a cheap
- * equivalent to PCWRUN using the set of existing kernel mechanisms.
- *
- * Our intent is really not just to wait for the victim to run, but rather to
- * wait for it to run and then stop again for a reason other than the current
- * PR_REQUESTED stop.  Since PCWSTOP/Pstopstatus() can be applied repeatedly
- * to a stopped process and will return the same result without affecting the
- * victim, we can just perform these operations repeatedly until Pstate()
- * changes, the representative LWP ID changes, or the stop timestamp advances.
- * dt_proc_control() will then rediscover the new state and continue as usual.
- * When the process is still stopped in the same exact state, we sleep for a
- * brief interval before waiting again so as not to spin consuming CPU cycles.
- */
-static void
-dt_proc_waitrun(dt_proc_t *dpr)
-{
-	struct ps_prochandle *P = dpr->dpr_proc;
-	const lwpstatus_t *psp = &Pstatus(P)->pr_lwp;
-
-	int krflag = psp->pr_flags & (PR_KLC | PR_RLC);
-	timestruc_t tstamp = psp->pr_tstamp;
-	lwpid_t lwpid = psp->pr_lwpid;
-
-	const long wstop = PCWSTOP;
-	int pfd = Pctlfd(P);
-
-	assert(DT_MUTEX_HELD(&dpr->dpr_lock));
-	assert(psp->pr_flags & PR_STOPPED);
-	assert(Pstate(P) == PS_STOP);
-
-	/*
-	 * While we are waiting for the victim to run, clear PR_KLC and PR_RLC
-	 * so that if the libdtrace client is killed, the victim stays stopped.
-	 * dt_proc_destroy() will also observe this and perform PRELEASE_HANG.
-	 */
-	(void) Punsetflags(P, krflag);
-	Psync(P);
-
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
-	while (!dpr->dpr_quit) {
-		if (write(pfd, &wstop, sizeof (wstop)) == -1 && errno == EINTR)
-			continue; /* check dpr_quit and continue waiting */
-
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
-		(void) Pstopstatus(P, PCNULL, 0);
-		psp = &Pstatus(P)->pr_lwp;
-
-		/*
-		 * If we've reached a new state, found a new representative, or
-		 * the stop timestamp has changed, restore PR_KLC/PR_RLC to its
-		 * original setting and then return with dpr_lock held.
-		 */
-		if (Pstate(P) != PS_STOP || psp->pr_lwpid != lwpid ||
-		    bcmp(&psp->pr_tstamp, &tstamp, sizeof (tstamp)) != 0) {
-			(void) Psetflags(P, krflag);
-			Psync(P);
-			return;
-		}
-
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
-		(void) poll(NULL, 0, MILLISEC / 2);
-	}
-
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
-}
-#else
-// Moved dt_proc_attach() to dt_proc_apple.m
-#endif /* !__APPLE__ */
-
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* proccess to control */
 } dt_proc_control_data_t;
-
-/*
- * Main loop for all victim process control threads.  We initialize all the
- * appropriate /proc control mechanisms, and then enter a loop waiting for
- * the process to stop on an event or die.  We process any events by calling
- * appropriate subroutines, and exit when the victim dies or we lose control.
- *
- * The control thread synchronizes the use of dpr_proc with other libdtrace
- * threads using dpr_lock.  We hold the lock for all of our operations except
- * waiting while the process is running: this is accomplished by writing a
- * PCWSTOP directive directly to the underlying /proc/<pid>/ctl file.  If the
- * libdtrace client wishes to exit or abort our wait, SIGCANCEL can be used.
- */
-#if !defined(__APPLE__)
-static void *
-dt_proc_control(void *arg)
-{
-	dt_proc_control_data_t *datap = arg;
-	dtrace_hdl_t *dtp = datap->dpcd_hdl;
-	dt_proc_t *dpr = datap->dpcd_proc;
-	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
-	struct ps_prochandle *P = dpr->dpr_proc;
-
-	int pfd = Pctlfd(P);
-	int pid = dpr->dpr_pid;
-
-	const long wstop = PCWSTOP;
-	int notify = B_FALSE;
-
-	/*
-	 * We disable the POSIX thread cancellation mechanism so that the
-	 * client program using libdtrace can't accidentally cancel our thread.
-	 * dt_proc_destroy() uses SIGCANCEL explicitly to simply poke us out
-	 * of PCWSTOP with EINTR, at which point we will see dpr_quit and exit.
-	 */
-	(void) pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-
-	/*
-	 * Set up the corresponding process for tracing by libdtrace.  We want
-	 * to be able to catch breakpoints and efficiently single-step over
-	 * them, and we need to enable librtld_db to watch libdl activity.
-	 */
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
-
-	(void) Punsetflags(P, PR_ASYNC);	/* require synchronous mode */
-	(void) Psetflags(P, PR_BPTADJ);		/* always adjust eip on x86 */
-	(void) Punsetflags(P, PR_FORK);		/* do not inherit on fork */
-
-	(void) Pfault(P, FLTBPT, B_TRUE);	/* always trace breakpoints */
-	(void) Pfault(P, FLTTRACE, B_TRUE);	/* always trace single-step */
-
-	/*
-	 * We must trace exit from exec() system calls so that if the exec is
-	 * successful, we can reset our breakpoints and re-initialize libproc.
-	 */
-	(void) Psysexit(P, SYS_exec, B_TRUE);
-	(void) Psysexit(P, SYS_execve, B_TRUE);
-
-	/*
-	 * We must trace entry and exit for fork() system calls in order to
-	 * disable our breakpoints temporarily during the fork.  We do not set
-	 * the PR_FORK flag, so if fork succeeds the child begins executing and
-	 * does not inherit any other tracing behaviors or a control thread.
-	 */
-	(void) Psysentry(P, SYS_vfork, B_TRUE);
-	(void) Psysexit(P, SYS_vfork, B_TRUE);
-	(void) Psysentry(P, SYS_fork1, B_TRUE);
-	(void) Psysexit(P, SYS_fork1, B_TRUE);
-	(void) Psysentry(P, SYS_forkall, B_TRUE);
-	(void) Psysexit(P, SYS_forkall, B_TRUE);
-	(void) Psysentry(P, SYS_forksys, B_TRUE);
-	(void) Psysexit(P, SYS_forksys, B_TRUE);
-
-	Psync(P);				/* enable all /proc changes */
-	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
-
-	/*
-	 * If PR_KLC is set, we created the process; otherwise we grabbed it.
-	 * Check for an appropriate stop request and wait for dt_proc_continue.
-	 */
-	if (Pstatus(P)->pr_flags & PR_KLC)
-		dt_proc_stop(dpr, DT_PROC_STOP_CREATE);
-	else
-		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
-
-	if (Psetrun(P, 0, 0) == -1) {
-		dt_dprintf("pid %d: failed to set running: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
-	}
-
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
-	/*
-	 * Wait for the process corresponding to this control thread to stop,
-	 * process the event, and then set it running again.  We want to sleep
-	 * with dpr_lock *unheld* so that other parts of libdtrace can use the
-	 * ps_prochandle in the meantime (e.g. ustack()).  To do this, we write
-	 * a PCWSTOP directive directly to the underlying /proc/<pid>/ctl file.
-	 * Once the process stops, we wake up, grab dpr_lock, and then call
-	 * Pwait() (which will return immediately) and do our processing.
-	 */
-	while (!dpr->dpr_quit) {
-		const lwpstatus_t *psp;
-
-		if (write(pfd, &wstop, sizeof (wstop)) == -1 && errno == EINTR)
-			continue; /* check dpr_quit and continue waiting */
-
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
-pwait_locked:
-		if (Pstopstatus(P, PCNULL, 0) == -1 && errno == EINTR) {
-			(void) pthread_mutex_unlock(&dpr->dpr_lock);
-			continue; /* check dpr_quit and continue waiting */
-		}
-
-		switch (Pstate(P)) {
-		case PS_STOP:
-			psp = &Pstatus(P)->pr_lwp;
-
-			dt_dprintf("pid %d: proc stopped showing %d/%d\n",
-			    pid, psp->pr_why, psp->pr_what);
-
-			/*
-			 * If the process stops showing PR_REQUESTED, then the
-			 * DTrace stop() action was applied to it or another
-			 * debugging utility (e.g. pstop(1)) asked it to stop.
-			 * In either case, the user's intention is for the
-			 * process to remain stopped until another external
-			 * mechanism (e.g. prun(1)) is applied.  So instead of
-			 * setting the process running ourself, we wait for
-			 * someone else to do so.  Once that happens, we return
-			 * to our normal loop waiting for an event of interest.
-			 */
-			if (psp->pr_why == PR_REQUESTED) {
-				dt_proc_waitrun(dpr);
-				(void) pthread_mutex_unlock(&dpr->dpr_lock);
-				continue;
-			}
-
-			/*
-			 * If the process stops showing one of the events that
-			 * we are tracing, perform the appropriate response.
-			 * Note that we ignore PR_SUSPENDED, PR_CHECKPOINT, and
-			 * PR_JOBCONTROL by design: if one of these conditions
-			 * occurs, we will fall through to Psetrun() but the
-			 * process will remain stopped in the kernel by the
-			 * corresponding mechanism (e.g. job control stop).
-			 */
-			if (psp->pr_why == PR_FAULTED && psp->pr_what == FLTBPT)
-				dt_proc_bpmatch(dtp, dpr);
-			else if (psp->pr_why == PR_SYSENTRY &&
-			    IS_SYS_FORK(psp->pr_what))
-				dt_proc_bpdisable(dpr);
-			else if (psp->pr_why == PR_SYSEXIT &&
-			    IS_SYS_FORK(psp->pr_what))
-				dt_proc_bpenable(dpr);
-			else if (psp->pr_why == PR_SYSEXIT &&
-			    IS_SYS_EXEC(psp->pr_what))
-				dt_proc_attach(dpr, B_TRUE);
-			break;
-
-		case PS_LOST:
-			if (Preopen(P) == 0)
-				goto pwait_locked;
-
-			dt_dprintf("pid %d: proc lost: %s\n",
-			    pid, strerror(errno));
-
-			dpr->dpr_quit = B_TRUE;
-			notify = B_TRUE;
-			break;
-
-		case PS_UNDEAD:
-			dt_dprintf("pid %d: proc died\n", pid);
-			dpr->dpr_quit = B_TRUE;
-			notify = B_TRUE;
-			break;
-		}
-
-		if (Pstate(P) != PS_UNDEAD && Psetrun(P, 0, 0) == -1) {
-			dt_dprintf("pid %d: failed to set running: %s\n",
-			    (int)dpr->dpr_pid, strerror(errno));
-		}
-
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
-	}
-
-	/*
-	 * If the control thread detected PS_UNDEAD or PS_LOST, then enqueue
-	 * the dt_proc_t structure on the dt_proc_hash_t notification list.
-	 */
-	if (notify)
-		dt_proc_notify(dtp, dph, dpr, NULL);
-
-	/*
-	 * Destroy and remove any remaining breakpoints, set dpr_done and clear
-	 * dpr_tid to indicate the control thread has exited, and notify any
-	 * waiting thread in dt_proc_destroy() that we have succesfully exited.
-	 */
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
-
-	dt_proc_bpdestroy(dpr, B_TRUE);
-	dpr->dpr_done = B_TRUE;
-	dpr->dpr_tid = 0;
-
-	(void) pthread_cond_broadcast(&dpr->dpr_cv);
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
-	return (NULL);
-}
-#else
-// Moved dt_proc_control() to dt_proc_apple.m
-#endif /* __APPLE__ */
 
 /*PRINTFLIKE3*/
 static struct ps_prochandle *
@@ -778,11 +370,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		 */
 		(void) pthread_mutex_lock(&dpr->dpr_lock);
 		dpr->dpr_quit = B_TRUE;
-#if !defined(__APPLE__)
-		(void) _lwp_kill(dpr->dpr_tid, SIGCANCEL);
-#else
 		Pcreate_async_proc_activity(dpr->dpr_proc, RD_NONE);
-#endif /* __APPLE__ */
 		
 		/*
 		 * If the process is currently idling in dt_proc_stop(), re-
@@ -850,9 +438,6 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
     
 	(void) sigfillset(&nset);
 	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
-#if !defined(__APPLE__)
-	(void) sigdelset(&nset, SIGCANCEL);	/* see dt_proc_destroy() */
-#endif /* __APPLE__ */
     
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -880,12 +465,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 		 * small amount of useful information to help figure it out.
 		 */
 		if (dpr->dpr_done) {
-#if !defined(__APPLE__)
-			const psinfo_t *prp = Ppsinfo(dpr->dpr_proc);
-			int stat = prp ? prp->pr_wstat : 0;
-#else
 			int stat = 0;
-#endif /* __APPLE__ */
 			int pid = dpr->dpr_pid;
 
 			if (Pstate(dpr->dpr_proc) == PS_LOST) {
@@ -928,11 +508,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
-#if !defined(__APPLE__)
-	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0)) == NULL) {
-#else
 	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0, dtp->dt_arch)) == NULL) {
-#endif
 		return (dt_proc_error(dtp, dpr,
 		    "failed to execute %s: %s\n", file, Pcreate_error(err)));
 	}
@@ -1144,6 +720,52 @@ dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 		idp->di_id = pid; /* $target = grabbed pid */
 
 	return (P);
+}
+
+struct ps_prochandle *
+dtrace_proc_waitfor(dtrace_hdl_t *dtp, char const *pname)
+{
+	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
+	struct ps_prochandle *P = NULL;
+	int err;
+
+	dtrace_procdesc_t pdesc;
+
+	assert(dtp);
+	assert(pname);
+	assert(*pname != '\0');
+
+	size_t max_len = sizeof(pdesc.p_comm);
+	if (strlcpy(pdesc.p_comm, pname, max_len) >= max_len) {
+		fprintf(stderr, "Error, the process name (%s) exceeded the %lu characters limit\n",
+		       pname, sizeof(pdesc.p_comm) - 1);
+		return NULL;
+	}
+
+	if ((err = dt_ioctl(dtp, DTRACEIOC_PROCWAITFOR, &pdesc)) != 0) {
+		fprintf(stderr, "Error, dt_ioctl() failed (%s)\n", strerror(errno));
+		return NULL;
+	}
+
+	assert(pdesc.p_pid != -1);
+
+	/*
+ 	 * The process is already stopped by the previous ioctl call.
+	 * The function dt_proc_grab() will stop and resume the process,
+	 * but the process will remain stopped until we call pid_resume().
+	 */
+	P = dt_proc_grab(dtp, pdesc.p_pid, 0, 0);
+
+	/* Waking-up a process can fail if there is another client waiting for the same process. */
+	if ((err = pid_resume(pdesc.p_pid)) != 0) {
+		dt_dprintf("Unable to resume the process (pid=%d), the process is still suspended\n",
+		           pdesc.p_pid);
+	}
+
+	if (P != NULL && idp != NULL && idp->di_id == 0)
+		idp->di_id = pdesc.p_pid; /* $target = grabbed pid */
+
+	return P;
 }
 
 void

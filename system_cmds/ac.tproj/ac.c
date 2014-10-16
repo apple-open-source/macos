@@ -141,7 +141,7 @@ add_tty(name)
 	tp->name[sizeof (tp->name) - 1] = '\0';
 	if ((rcp = strchr(tp->name, '*')) != NULL) {	/* wild card */
 		*rcp = '\0';
-		tp->len = strlen(tp->name);	/* match len bytes only */
+		tp->len = (int)strlen(tp->name);	/* match len bytes only */
 	}
 	tp->next = Ttys;
 	Ttys = tp;

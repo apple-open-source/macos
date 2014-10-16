@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,20 +36,29 @@ class WebAlternativeTextClient : public WebCore::AlternativeTextClient {
 public:
     WebAlternativeTextClient(WebView *);
     virtual ~WebAlternativeTextClient();
-    virtual void pageDestroyed() OVERRIDE;
+    virtual void pageDestroyed() override;
 #if USE(AUTOCORRECTION_PANEL)
-    virtual void showCorrectionAlternative(WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings) OVERRIDE;
-    virtual void dismissAlternative(WebCore::ReasonForDismissingAlternativeText) OVERRIDE;
-    virtual String dismissAlternativeSoon(WebCore::ReasonForDismissingAlternativeText) OVERRIDE;
-    virtual void recordAutocorrectionResponse(WebCore::AutocorrectionResponseType, const String& replacedString, const String& replacementString) OVERRIDE;
+    virtual void showCorrectionAlternative(WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings) override;
+    virtual void dismissAlternative(WebCore::ReasonForDismissingAlternativeText) override;
+    virtual String dismissAlternativeSoon(WebCore::ReasonForDismissingAlternativeText) override;
+    virtual void recordAutocorrectionResponse(WebCore::AutocorrectionResponseType, const String& replacedString, const String& replacementString) override;
 #endif
 #if USE(DICTATION_ALTERNATIVES)
-    virtual void showDictationAlternativeUI(const WebCore::FloatRect& boundingBoxOfDictatedText, uint64_t dictationContext) OVERRIDE;
-    virtual void removeDictationAlternatives(uint64_t dictationContext) OVERRIDE;
-    virtual Vector<String> dictationAlternatives(uint64_t dictationContext) OVERRIDE;
+    virtual void showDictationAlternativeUI(const WebCore::FloatRect& boundingBoxOfDictatedText, uint64_t dictationContext) override;
+    virtual void removeDictationAlternatives(uint64_t dictationContext) override;
+    virtual Vector<String> dictationAlternatives(uint64_t dictationContext) override;
 #endif
 private:
+#if PLATFORM(IOS)
+#pragma clang diagnostic push
+#if defined(__has_warning) && __has_warning("-Wunused-private-field")
+#pragma clang diagnostic ignored "-Wunused-private-field"
+#endif
+#endif
     WebView* m_webView;
+#if PLATFORM(IOS)
+#pragma clang diagnostic pop
+#endif
 #if USE(AUTOCORRECTION_PANEL)
     CorrectionPanel m_correctionPanel;
 #endif

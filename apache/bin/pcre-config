@@ -1,0 +1,14 @@
+
+if  [ "x$SDKROOT" != "x" ] && [ "$1" == "--cflags" ] ; then
+	echo "-I$SDKROOT/usr/local/include/"
+	exit
+fi
+
+SDKOPTION=""
+if  [ "x$SDKROOT" != "x" ] ; then
+	SDKOPTION="--sdk"
+fi
+
+XCRUN_COMMAND="/usr/bin/xcrun --find pcre-config $SDKOPTION $SDKROOT"
+PCRE_CONFIG_TOOL=`$XCRUN_COMMAND`
+echo `$PCRE_CONFIG_TOOL $*`

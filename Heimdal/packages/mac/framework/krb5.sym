@@ -23,6 +23,7 @@ _krb5_get_init_creds_opt_set_pkinit_user_cert
 _krb5_get_int
 _krb5_get_krbtgt
 _krb5_have_debug
+_krb5_debug_keyblock
 _krb5_init_creds_set_pku2u
 %ifdef HAVE_KCM
 _krb5_kcm_get_initial_ticket
@@ -87,6 +88,7 @@ krb5_appdefault_string
 krb5_appdefault_time
 krb5_append_addresses
 krb5_auth_con_addflags
+krb5_auth_con_add_AuthorizationData
 krb5_auth_con_free
 krb5_auth_con_genaddrs
 krb5_auth_con_generatelocalsubkey
@@ -115,6 +117,7 @@ krb5_auth_con_setrcache
 krb5_auth_con_setremoteseqnumber
 krb5_auth_con_setremotesubkey
 krb5_auth_con_setuserkey
+_krb5_get_ad
 krb5_build_ap_req
 krb5_build_principal
 krb5_build_principal_ext
@@ -213,6 +216,7 @@ krb5_crypto_prf
 krb5_crypto_prf_length
 krb5_data_alloc
 krb5_data_cmp
+krb5_data_ct_cmp
 krb5_data_copy
 krb5_data_free
 krb5_data_realloc
@@ -429,6 +433,7 @@ krb5_principal_set_realm
 krb5_principal_set_type
 krb5_print_address
 krb5_prompter_posix
+krb5_prompter_print_only
 krb5_random_to_key
 krb5_rc_close
 krb5_rc_default
@@ -666,3 +671,32 @@ _krb5_init_creds_get_cred_endtime
 krb5_cc_set_acl
 _krb5_init_creds_get_cred_client
 _krb5_state_srv_sort
+_krb5_fast_cf2
+_krb5_validate_pa_enc_challange
+_krb5_make_pa_enc_challange
+HeimCredCreate
+HeimCredGetUUID
+HeimCredCopyFromUUID
+HeimCredSetAttribute
+HeimCredSetAttributes
+HeimCredCopyAttributes
+HeimCredCopyAttribute
+HeimCredCopyQuery
+HeimCredDeleteQuery
+HeimCredDelete
+HeimCredDeleteByUUID
+HeimCredRetainTransient
+HeimCredReleaseTransient
+HeimCredMove
+&kHEIMTypeKerberos
+&kHEIMAttrType
+&kHEIMTypeConfiguration
+&kHEIMTypeGeneric
+&kHEIMTypeNTLM
+&kHEIMTypeSchema
+_krb5_srp_create
+_krb5_srp_create_pa
+_krb5_srp_keysize
+_krb5_srp_pkisize
+_krb5_srp_reply_key
+_krb5_srp_validate_group

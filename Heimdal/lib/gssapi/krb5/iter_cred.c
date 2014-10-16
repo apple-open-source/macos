@@ -47,7 +47,7 @@ iter_creds_f(OM_uint32 flags,
     krb5_error_code ret;
     krb5_ccache id;
 
-    GSSAPI_KRB5_INIT_VOID(&context);
+    GSSAPI_KRB5_INIT_GOTO(&context, out);
 
     ret = krb5_cccol_cursor_new (context, &cursor);
     if (ret)

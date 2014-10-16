@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,10 @@
 #include "Dialogue.h"
 #include "mylog.h"
 #include "myCFUtil.h"
+
+#define kNetwork	CFSTR("Network")
+#define kAirport	CFSTR("Airport")
+#define kAirPort	CFSTR("AirPort")
 
 /**
  ** CredentialsDialogue
@@ -400,30 +404,61 @@ CredentialsDialogue_response(CFUserNotificationRef notif,
     return;
 }
 
-#define kNetworkPrefPanePath	"/System/Library/PreferencePanes/Network.prefPane"
+#define kNetworkPrefPanePath	CFSTR("/System/Library/PreferencePanes/Network.prefPane")
+#define kCoreWLANKitPath 	CFSTR("/System/Library/PrivateFrameworks/CoreWLANKit.framework")
 
 static CFURLRef
-copy_icon_url(CFStringRef icon)
+copy_icon_url_with_bundle(CFBundleRef bundle, CFStringRef icon_name)
 {
-    CFBundleRef		np_bundle;
-    CFURLRef		np_url;
+    CFURLRef	url;
+
+    url = CFBundleCopyResourceURL(bundle, icon_name, 
+				  CFSTR("icns"), NULL);
+    if (url == NULL) {
+	url = CFBundleCopyResourceURL(bundle, icon_name, 
+				      CFSTR("tiff"), NULL);
+    }
+    return (url);
+}
+
+static CFURLRef
+copy_icon_url_with_path(CFStringRef path, CFStringRef icon_name)
+{
+    CFURLRef		path_url;
     CFURLRef		url = NULL;
 
-    np_url = CFURLCreateWithFileSystemPath(NULL,
-					   CFSTR(kNetworkPrefPanePath),
-					   kCFURLPOSIXPathStyle, FALSE);
-    if (np_url != NULL) {
-	np_bundle = CFBundleCreate(NULL, np_url);
-	if (np_bundle != NULL) {
-	    url = CFBundleCopyResourceURL(np_bundle, icon, 
-					  CFSTR("icns"), NULL);
-	    if (url == NULL) {
-		url = CFBundleCopyResourceURL(np_bundle, icon, 
-					      CFSTR("tiff"), NULL);
-	    }
-	    CFRelease(np_bundle);
+    path_url = CFURLCreateWithFileSystemPath(NULL,
+					     path,
+					     kCFURLPOSIXPathStyle, FALSE);
+    if (path_url != NULL) {
+	CFBundleRef	path_bundle;
+
+	path_bundle = CFBundleCreate(NULL, path_url);
+	if (path_bundle != NULL) {
+	    url = copy_icon_url_with_bundle(path_bundle, icon_name);
+	    CFRelease(path_bundle);
 	}
-	CFRelease(np_url);
+	CFRelease(path_url);
+    }
+    return (url);
+}
+
+static CFURLRef
+copy_icon_url(Boolean is_ethernet)
+{
+    CFURLRef		url = NULL;
+
+    if (is_ethernet) {
+	url = copy_icon_url_with_path(kNetworkPrefPanePath,
+				      kNetwork);
+    }
+    else {
+	/* CoreWLAN uses "AirPort" */
+	url = copy_icon_url_with_path(kCoreWLANKitPath, kAirPort);
+	if (url == NULL) {
+	    /* NetworkPrefPane uses "Airport" */
+	    url = copy_icon_url_with_path(kNetworkPrefPanePath, kAirport);
+	}
     }
     return (url);
 }
@@ -431,15 +466,8 @@ copy_icon_url(CFStringRef icon)
 static CFStringRef
 interface_type_for_ssid(CFStringRef ssid)
 {
-    return ((ssid != NULL) ? CFSTR("Airport") : CFSTR("Ethernet"));
+    return ((ssid != NULL) ? CFSTR("Airport") : kNetwork);
 }
-
-static CFURLRef
-copy_icon_url_for_ssid(CFStringRef ssid)
-{
-    return (copy_icon_url(interface_type_for_ssid(ssid)));
-}
-
 
 #define kTitleAirPortCertificate	CFSTR("TitleAirPortCertificate")
 #define kTitleAirPortCertificateAndPassword CFSTR("TitleAirPortCertificateAndPassword")
@@ -517,7 +545,7 @@ CredentialsDialogueInit(CredentialsDialogueRef dialogue_p,
 	dialogue_p->ssid = CFRetain(ssid);
     }
     dialogue_p->localization_url = CFBundleCopyBundleURL(bundle);
-    dialogue_p->icon_url = copy_icon_url_for_ssid(ssid);
+    dialogue_p->icon_url = copy_icon_url(ssid == NULL);
     return (TRUE);
 
  failed:
@@ -868,9 +896,9 @@ TrustDialogue_setup_parent(TrustDialogueRef dialogue_p)
     
     close(dialogue_p->fdp[0]); 	/* close the read end */
     dialogue_p->fdp[0] = -1;
-
-    data = CFPropertyListCreateXMLData(NULL, 
-				       dialogue_p->trust_plist);
+    data = CFPropertyListCreateData(NULL, dialogue_p->trust_plist,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0, NULL);
     count = CFDataGetLength(data);
     /* disable SIGPIPE if it's currently enabled? XXX */
     write_count = write(dialogue_p->fdp[1], 
@@ -1058,7 +1086,7 @@ AlertDialogueCopy(AlertDialogueRef dialogue_p,
 			     url);
 	CFRelease(url);
     }
-    url = copy_icon_url_for_ssid(ssid);
+    url = copy_icon_url(ssid == NULL);
     if (url != NULL) {
 	CFDictionarySetValue(dict, kCFUserNotificationIconURLKey,
 			     url);

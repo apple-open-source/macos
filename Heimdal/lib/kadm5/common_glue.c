@@ -163,7 +163,7 @@ kadm5_decrypt_key(void *server_handle,
     if (kvno < 1 || stype != -1)
 	return KADM5_DECRYPT_USAGE_NOSUPP;
 
-    for (i = 0; i < entry->n_key_data; i++) {
+    for (i = 0; i < (size_t)entry->n_key_data; i++) {
 	if (ktype != entry->key_data[i].key_data_kvno)
 	    continue;
 
@@ -305,7 +305,7 @@ kadm5_setkey_principal_3(void *server_handle,
     }
 
     princ_ent.kvno++;
-    for (i = 0; i < n_keys; i++) {
+    for (i = 0; i < (size_t)n_keys; i++) {
 	new_key_data[i].key_data_ver = 2;
 
 	/* Key */
@@ -339,7 +339,7 @@ kadm5_setkey_principal_3(void *server_handle,
 
     /* Free old keys */
     if (!keepold) {
-	for (i = 0; i < princ_ent.n_key_data; i++) {
+	for (i = 0; i < (size_t)princ_ent.n_key_data; i++) {
 	    free(princ_ent.key_data[i].key_data_contents[0]);
 	    free(princ_ent.key_data[i].key_data_contents[1]);
 	}
@@ -354,7 +354,7 @@ kadm5_setkey_principal_3(void *server_handle,
 
 out:
     if (new_key_data != NULL) {
-	for (i = 0; i < n_keys; i++) {
+	for (i = 0; i < (size_t)n_keys; i++) {
 	    free(new_key_data[i].key_data_contents[0]);
 	    free(new_key_data[i].key_data_contents[1]);
 	}

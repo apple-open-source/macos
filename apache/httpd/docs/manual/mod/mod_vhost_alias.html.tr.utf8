@@ -9,26 +9,26 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.2</a> &gt; <a href="./">Modüller</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.4</a> &gt; <a href="./">Modüller</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache Modülü mod_vhost_alias</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="../en/mod/mod_vhost_alias.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_vhost_alias.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../tr/mod/mod_vhost_alias.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
-<table class="module"><tr><th><a href="module-dict.html#Description">Açıklama:</a></th><td>Kitlesel sanal konakların devingen olarak yapılandırılmasını
-sağlar</td></tr>
+<table class="module"><tr><th><a href="module-dict.html#Description">Açıklama:</a></th><td>Kitlesel sanal konakların devingen olarak yapılandırılmasını sağlar</td></tr>
 <tr><th><a href="module-dict.html#Status">Durum:</a></th><td>Eklenti</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Modül Betimleyici:</a></th><td>vhost_alias_module</td></tr>
 <tr><th><a href="module-dict.html#SourceFile">Kaynak Dosyası:</a></th><td>mod_vhost_alias.c</td></tr></table>
@@ -48,10 +48,9 @@ sağlar</td></tr>
         her durumda <code>/cgi-bin/script.pl</code> betiğini <code>
         /usr/local/apache2/cgi-bin/script.pl</code> betiğine eşleyecektir:</p>
 
-      <div class="example"><p><code>
-        ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/<br />
-        VirtualScriptAlias /nerede/bilinmiyor/%0/cgi-bin/
-      </code></p></div>
+      <pre class="prettyprint lang-config">ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/
+VirtualScriptAlias /nerede/bilinmiyor/%0/cgi-bin/</pre>
+
     </div>
 </div>
 <div id="quickview"><h3 class="directives">Yönergeler</h3>
@@ -141,65 +140,79 @@ Sanal Barındırma</a></li>
     <p>Sunucu yapılandırma dosyanızda isme dayalı sanal konaklar için
       aşağıdaki yönergeler kullanılıyor olsun:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName    Off<br />
-      VirtualDocumentRoot /usr/local/apache/sankonlar/%0
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName    Off
+VirtualDocumentRoot /usr/local/apache/sankonlar/%0</pre>
 
-    <p><code>http://mesela.dom/dizin/dosya.html</code> için yapılan bir istek
-      <code>/usr/local/apache/sankonlar/mesela.dom/dizin/dosya.html</code>
+
+    <p><code>http://example.com/dizin/dosya.html</code> için yapılan bir istek
+      <code>/usr/local/apache/sankonlar/example.com/dizin/dosya.html</code>
       dosyası ile yerine getirilecektir.</p>
 
     <p>Çok büyük sayıda sanal konak için <code>sankonlar</code> dizininin
       boyutlarını küçük tutmak amacıyla dosyalar düzenlenebilir. Bunu
       yapılandırma dosyanızda şöyle yapabilirsiniz:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName    Off<br />
-      VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.1/%2.2/%2.3/%2
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName    Off
+VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.1/%2.2/%2.3/%2</pre>
 
-    <p><code>http://falan.filan.mesela.dom/dizin/dosya.html</code> için
+
+    <p><code>http://falan.filan.example.com/dizin/dosya.html</code> için
       yapılan bir istek
-      <code>/usr/local/apache/sankonlar/mesela.dom/f/i/l/filan/dizin/dosya.html
+    <code>/usr/local/apache/sankonlar/example.com/f/i/l/filan/dizin/dosya.html
       </code> ile yerine getirilecektir.</p>
 
     <p>Bu sefer de parçaları ismin sonundan toplayalım: </p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.-1/%2.-2/%2.-3/%2
-</code></p></div>
+    <pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.-1/%2.-2/%2.-3/%2</pre>
+
 
     <p>Bu durumda istek
-      <code>/usr/local/apache/sankonlar/mesela.dom/n/a/l/filan/dizin/dosya.html
-      </code> ile karşılanırdı.</p>
+    <code>/usr/local/apache/sankonlar/example.com/n/a/l/filan/dizin/dosya.html
+    </code>ile karşılanırdı.</p>
 
     <p>Şöyle bir şey de yapabilirsiniz:</p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.1/%2.2/%2.3/%2.4+
-</code></p></div>
+    <pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/sankonlar/%3+/%2.1/%2.2/%2.3/%2.4+</pre>
+
 
     <p>Bu örnek için istek
-      <code>/usr/local/apache/sankonlar/mesela.dom/f/i/l/an/dizin/dosya.html
+      <code>/usr/local/apache/sankonlar/example.com/f/i/l/an/dizin/dosya.html
       </code> dosyasından karşılanırdı.</p>
+
+    <p>Kullanıcıların çoğunun ortak isteği, istenen konak adının uzunluğu veya
+      sayısı için endişelenmeksizin çok sayıda belge köküne çok sayıda alan
+      adından erişilebilmesidir. Eğer istenen konak adı
+      <code>www.domain.example.com</code> değil de
+      <code>sub.www.domain.example.com</code> ise %3+ kullanımı, belge kök
+      dizininin düşünüldüğü gibi <code>example.com</code> değil
+      <code>/usr/local/apache/vhosts/domain.example.com/...</code> olmasını
+      sağlar. Böyle durumlarda, daima alan adı ve tld ile sonuçlanan
+      <code>%-2.0.%-1.0</code> birleşiminin kullanımı daha yararlı olabilir.
+      Böylece, tüm ilk, ikinci ve üçüncü seviye alt alan adlarını aynı dizine
+      yönlendirecek bir yapılandırma yapılabilir:</p>
+
+    <pre class="prettyprint lang-config">VirtualDocumentRoot "/usr/local/apache/vhosts/%-2.0.%-1.0"</pre>
+
+
+    <p>Yukarıdaki örnekte, <code>example.com</code>,
+      <code>www.example.com</code> ve hatta <code>www.sub.example.com</code>
+      bile <code>/usr/local/apache/vhosts/example.com</code> dizinine
+      yönlendirilecektir.</p>
 
     <p>IP’ye dayalı sanal konaklar için yapılandırma dosyanızda şu satırlar
       olabilirdi:</p>
 
-    <div class="example"><p><code>
-      UseCanonicalName DNS<br />
-      VirtualDocumentRootIP
-      /usr/local/apache/sankonlar/%1/%2/%3/%4/belgeler<br />
-      VirtualScriptAliasIP  /usr/local/apache/sankonlar/%1/%2/%3/%4/cgi-bin
-    </code></p></div>
+    <pre class="prettyprint lang-config">UseCanonicalName DNS
+VirtualDocumentRootIP /usr/local/apache/sankonlar/%1/%2/%3/%4/belgeler
+VirtualScriptAliasIP  /usr/local/apache/sankonlar/%1/%2/%3/%4/cgi-bin</pre>
 
-    <p><code>http://falan.filan.mesela.dom/dizin/dosya.html</code> için
-      yapılan bir istek eğer <code>falan.filan.mesela.dom</code>’un IP adresi
+
+    <p><code>http://falan.filan.example.com/dizin/dosya.html</code> için
+      yapılan bir istek eğer <code>falan.filan.example.com</code>’un IP adresi
       10.20.30.40 olsaydı,
       <code>/usr/local/apache/sankonlar/10/20/30/40/belgeler/dizin/dosya.html
       </code> dosyası ile karşılanırdı.
-      <code>http://falan.filan.mesela.dom/cgi-bin/betik.pl</code> için yapılan
+      <code>http://falan.filan.example.com/cgi-bin/betik.pl</code> için yapılan
       bir istek ise
       <code>/usr/local/apache/sankonlar/10/20/30/40/cgi-bin/betik.pl</code>
       betiğinin çalıştırılması ile sağlanırdı.</p>
@@ -208,11 +221,10 @@ Sanal Barındırma</a></li>
       karakterini içermesini isterseniz, bir biçem belirteci ile karışıklığa
       sebep olmaksızın bunu şöyle sağlayabilirsiniz:</p>
 
-<div class="example"><p><code>
-    VirtualDocumentRoot /usr/local/apache/sankonlar/%2.0.%3.0
-</code></p></div>
+    <pre class="prettyprint lang-config">VirtualDocumentRoot /usr/local/apache/sankonlar/%2.0.%3.0</pre>
 
-    <p>Bu durumda <code>http://falan.filan.mesela.dom/dizin/dosya.html</code>
+
+    <p>Bu durumda <code>http://falan.filan.example.com/dizin/dosya.html</code>
       için yapılan bir istek
       <code>/usr/local/apache/sankonlar/filan.mesela/dizin/dosya.html</code>
       dosyası ile karşılanacaktır.</p>
@@ -234,7 +246,7 @@ Sanal Barındırma</a></li>
 </table>
 
     <p><code class="directive">VirtualDocumentRoot</code> yönergesi sunucu ismine göre
-      belgelerin bulunacağı yeri Apache’nin saptamasını sağlar.
+      belgelerin bulunacağı yeri Apache HTTP Sunucusunun saptamasını sağlar.
       <code><em>hesaplanan-dizin</em></code>’in dönüşüm sonucu <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> yönergesinin değeriymiş gibi
       belge ağacının kök dizini olarak kullanılır.
       <code><em>hesaplanan-dizin</em></code> yerine <code>none</code>
@@ -242,6 +254,14 @@ Sanal Barındırma</a></li>
       olur. Bu yönerge <code class="directive"><a href="#virtualdocumentrootip">VirtualDocumentRootIP</a></code> yönergesinin kullanıldığı bağlamda
       yer alamaz.</p>
 
+    <div class="warning"><h3>Bilginize</h3>
+      <code class="directive">VirtualDocumentRoot</code> yönergesi aynı bağlamda veya
+      alt bağlamlarda da kullanılabilen <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> yönergelerini geçersiz kılar.
+      Genel sunucu etki alanına bir <code class="directive">VirtualDocumentRoot</code>
+      konulması, daha sonra yer alan her sanal konak tanımı içinde
+      <code class="directive">VirtualDocumentRoot</code> yönergesine <code>None</code>
+      atamadıkça bu sanal konaklarda yapılmış <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> atamalarını geçersiz kılacaktır.
+    </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -274,10 +294,11 @@ Sanal Barındırma</a></li>
 </table>
 
     <p><code class="directive">VirtualScriptAlias</code> yönergesi, CGI betiklerinin
-      bulunacağı yeri Apache’nin saptamasını sağlamak bakımından <code class="directive"><a href="#virtualdocumentroot">VirtualDocumentRoot</a></code> yönergesinin
-      yaptığını yapar. <code>/cgi-bin/</code> ile başlayan istekler için ise
-      <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code> yönergesinin
-      yaptığını yapar.</p>
+      bulunacağı yeri Apache httpd’nin saptamasını sağlamak bakımından
+      <code class="directive"><a href="#virtualdocumentroot">VirtualDocumentRoot</a></code>
+      yönergesinin yaptığını yapar. <code>/cgi-bin/</code> ile başlayan
+      istekler için ise <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>
+      yönergesinin yaptığını yapar.</p>
 
 
 </div>
@@ -302,11 +323,12 @@ Sanal Barındırma</a></li>
 </div>
 <div class="bottomlang">
 <p><span>Mevcut Diller: </span><a href="../en/mod/mod_vhost_alias.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_vhost_alias.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../tr/mod/mod_vhost_alias.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_vhost_alias.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_vhost_alias.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -321,7 +343,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_vhost_alias.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

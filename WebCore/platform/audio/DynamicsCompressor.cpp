@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,6 +35,7 @@
 #include "AudioBus.h"
 #include "AudioUtilities.h"
 #include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -270,12 +271,12 @@ void DynamicsCompressor::setNumberOfChannels(unsigned numberOfChannels)
     m_preFilterPacks.clear();
     m_postFilterPacks.clear();
     for (unsigned i = 0; i < numberOfChannels; ++i) {
-        m_preFilterPacks.append(adoptPtr(new ZeroPoleFilterPack4()));
-        m_postFilterPacks.append(adoptPtr(new ZeroPoleFilterPack4()));
+        m_preFilterPacks.append(std::make_unique<ZeroPoleFilterPack4>());
+        m_postFilterPacks.append(std::make_unique<ZeroPoleFilterPack4>());
     }
 
-    m_sourceChannels = adoptArrayPtr(new const float* [numberOfChannels]);
-    m_destinationChannels = adoptArrayPtr(new float* [numberOfChannels]);
+    m_sourceChannels = std::make_unique<const float*[]>(numberOfChannels);
+    m_destinationChannels = std::make_unique<float*[]>(numberOfChannels);
 
     m_compressor.setNumberOfChannels(numberOfChannels);
     m_numberOfChannels = numberOfChannels;

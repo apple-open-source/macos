@@ -32,7 +32,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: auth_getpwent.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
+#ident "$Id: auth_getpwent.c,v 1.9 2009/02/13 14:23:26 mel Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -40,18 +40,25 @@
 #include <unistd.h>
 #include <string.h>
 #include <pwd.h>
+#include <errno.h>
+#include <syslog.h>
+
+#ifdef HAVE_CRYPT_H
+#include <crypt.h>
+#endif
 
 # ifdef WITH_DES
 #  ifdef WITH_SSL_DES
+#   ifndef OPENSSL_DISABLE_OLD_DES_SUPPORT
+#    define OPENSSL_DISABLE_OLD_DES_SUPPORT
+#   endif
 #   include <openssl/des.h>
 #  else
 #   include <des.h>
 #  endif /* WITH_SSL_DES */
 # endif /* WITH_DES */
 
-#ifdef HAVE_CRYPT_H
-#include <crypt.h>
-#endif
+# include "globals.h"
 /* END PUBLIC DEPENDENCIES */
 
 #define RETURN(x) return strdup(x)
@@ -70,19 +77,44 @@ auth_getpwent (
 {
     /* VARIABLES */
     struct passwd *pw;			/* pointer to passwd file entry */
+    int errnum;
     /* END VARIABLES */
   
+    errno = 0;
     pw = getpwnam(login);
+    errnum = errno;
     endpwent();
 
     if (pw == NULL) {
-	RETURN("NO");
+	if (errnum != 0) {
+	    char *errstr;
+
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_getpwent: getpwnam(%s) failure: %m", login);
+	    }
+	    if (asprintf(&errstr, "NO Username lookup failure: %s", strerror(errno)) == -1) {
+		/* XXX the hidden strdup() will likely fail and return NULL here.... */
+		RETURN("NO Username lookup failure: unknown error (ENOMEM formatting strerror())");
+	    }
+	    return errstr;
+	} else {
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_getpwent: getpwnam(%s): invalid username", login);
+	    }
+	    RETURN("NO Invalid username");
+	}
     }
 
     if (strcmp(pw->pw_passwd, (const char *)crypt(password, pw->pw_passwd))) {
-	RETURN("NO");
+	if (flags & VERBOSE) {
+	    syslog(LOG_DEBUG, "DEBUG: auth_getpwent: %s: invalid password", login);
+	}
+	RETURN("NO Incorrect password");
     }
 
+    if (flags & VERBOSE) {
+	syslog(LOG_DEBUG, "DEBUG: auth_getpwent: OK: %s", login);
+    }
     RETURN("OK");
 }
 

@@ -403,7 +403,7 @@ void OALDevice::InitializeGraph (const char* 		inDeviceName)
 		result = AudioDeviceGetProperty(device, 0, false, kAudioDevicePropertyBufferFrameSize, &dataSize, &mFramesPerSlice);
 		if (result == noErr)
 		{
-			result = AudioUnitSetProperty(  mOutputUnit, kAudioUnitProperty_MaximumFramesPerSlice, 
+			/*result =*/ AudioUnitSetProperty(  mOutputUnit, kAudioUnitProperty_MaximumFramesPerSlice,
 											kAudioUnitScope_Global, 0, &mFramesPerSlice, sizeof(mFramesPerSlice));
 		}
 	}
@@ -446,7 +446,7 @@ UInt32 OALDevice::GetDesiredRenderChannelCount ()
 		AudioChannelLayout* layout = (AudioChannelLayout *) calloc(1, propSize);
 		if (layout != NULL)
 		{
-			result = AudioDeviceGetProperty(deviceID, 0, false, kAudioDevicePropertyPreferredChannelLayout, &propSize, layout);
+			/*result =*/ AudioDeviceGetProperty(deviceID, 0, false, kAudioDevicePropertyPreferredChannelLayout, &propSize, layout);
 
 			if (layout->mChannelLayoutTag == kAudioChannelLayoutTag_UseChannelDescriptions)
 			{

@@ -47,11 +47,7 @@ pid$1:::return
 	@[stack()] = sum(0);
 }
 
-#if !defined(__APPLE__)
-pid$1:a.out::
-#else
 pid$1:libsystem_c.dylib:w*:
-#endif
 {
 	@[stack()] = sum(0);
 }

@@ -1418,9 +1418,6 @@ do_conf(
 			req_ack(srcadr, inter, inpkt, INFO_ERR_NODATA);
 			return;
 		}
-#if TARGET_OS_EMBEDDED
-		awake_timer = current_time;
-#endif
 		/*
 		 * ntp_intres.c uses REQ_CONFIG/doconf() to add each
 		 * server after its name is resolved.  If we have been

@@ -26,19 +26,17 @@
 #ifndef NPIdentifierData_h
 #define NPIdentifierData_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include <WebCore/npruntime_internal.h>
 #include <wtf/text/CString.h>
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
 
 namespace WebKit {
-
-// The CoreIPC representation of an NPIdentifier.
 
 class NPIdentifierData {
 public:
@@ -47,8 +45,8 @@ public:
     static NPIdentifierData fromNPIdentifier(NPIdentifier);
     NPIdentifier createNPIdentifier() const;
 
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, NPIdentifierData&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, NPIdentifierData&);
 
 private:
     bool m_isString;
@@ -58,6 +56,6 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
     
 #endif // NPIdentifierData_h

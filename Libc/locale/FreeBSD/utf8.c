@@ -93,7 +93,7 @@ typedef struct {
 	SecondByte sb;
 } _UTF8State;
 
-__private_extern__ int
+int
 _UTF8_init(struct __xlocale_st_runelocale *xrl)
 {
 

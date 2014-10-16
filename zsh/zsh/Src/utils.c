@@ -1287,9 +1287,17 @@ void
 preprompt(void)
 {
     static time_t lastperiodic;
+    time_t currentmailcheck;
     LinkNode ln;
-    int period = getiparam("PERIOD");
-    int mailcheck = getiparam("MAILCHECK");
+    zlong period = getiparam("PERIOD");
+    zlong mailcheck = getiparam("MAILCHECK");
+
+    /*
+     * Handle any pending window size changes before we compute prompts,
+     * then block them again to avoid interrupts during prompt display.
+     */
+    winch_unblock();
+    winch_block();
 
     if (isset(PROMPTSP) && isset(PROMPTCR) && !use_exit_printed && shout) {
 	/* The PROMPT_SP heuristic will move the prompt down to a new line
@@ -1330,7 +1338,7 @@ preprompt(void)
     /* If 1) the parameter PERIOD exists, 2) a hook function for    *
      * "periodic" exists, 3) it's been greater than PERIOD since we *
      * executed any such hook, then execute it now.                 */
-    if (period && (time(NULL) > lastperiodic + period) &&
+    if (period && ((zlong)time(NULL) > (zlong)lastperiodic + period) &&
 	!callhookfunc("periodic", NULL, 1, NULL))
 	lastperiodic = time(NULL);
     if (errflag)
@@ -1348,7 +1356,9 @@ preprompt(void)
 	return;
 
     /* Check mail */
-    if (mailcheck && (int) difftime(time(NULL), lastmailcheck) > mailcheck) {
+    currentmailcheck = time(NULL);
+    if (mailcheck &&
+	(zlong) difftime(currentmailcheck, lastmailcheck) > mailcheck) {
 	char *mailfile;
 
 	if (mailpath && *mailpath && **mailpath)
@@ -1364,7 +1374,7 @@ preprompt(void)
 	    }
 	    unqueue_signals();
 	}
-	lastmailcheck = time(NULL);
+	lastmailcheck = currentmailcheck;
     }
 
     if (prepromptfns) {
@@ -1424,7 +1434,7 @@ checkmailpath(char **s)
 	    }
 	} else if (shout) {
 	    if (st.st_size && st.st_atime <= st.st_mtime &&
-		st.st_mtime > lastmailcheck) {
+		st.st_mtime >= lastmailcheck) {
 		if (!u) {
 		    fprintf(shout, "You have new mail.\n");
 		    fflush(shout);
@@ -2289,6 +2299,8 @@ checkrmall(char *s)
 	sleep(10);
 	fputc('\n', shout);
     }
+    if (errflag)
+      return 0;
     fputs(" [yn]? ", shout);
     fflush(shout);
     zbeep();
@@ -3973,7 +3985,7 @@ metafy(char *buf, int len, int heap)
 	    if (imeta(*e++))
 		meta++;
 
-    if (meta || heap == META_DUP || heap == META_HEAPDUP || *e != '\0') {
+    if (meta || heap == META_DUP || heap == META_HEAPDUP) {
 	switch (heap) {
 	case META_REALLOC:
 	    buf = zrealloc(buf, len + meta + 1);
@@ -4016,8 +4028,8 @@ metafy(char *buf, int len, int heap)
 		meta--;
 	    }
 	}
-	*e = '\0';
     }
+    *e = '\0';
     return buf;
 }
 

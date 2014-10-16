@@ -833,7 +833,6 @@ static apr_status_t odbc_parse_params(apr_pool_t *pool, const char *params,
         return SQL_SUCCESS;
 
     do {
-        /* XXX: segfault on last=NULL, assumption from above we have parms */
         if (last[strspn(last, seps)] == CSINGLEQUOTE) {
             last += strspn(last, seps);
             seps=SSINGLEQUOTE;

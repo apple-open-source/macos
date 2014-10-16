@@ -57,7 +57,7 @@ ccdebug_init(cc_globals_t globals) {
 #define LINESIZE 256
 
 void
-ccdebug_imp(int level, char *funcname, const char *format, ...) {
+ccdebug_imp(int level, const char *funcname, const char *format, ...) {
 	va_list argp;
 	char fmtbuffer[LINESIZE];
 

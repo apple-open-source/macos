@@ -167,17 +167,28 @@ struct ldapmsg {
 
 #ifdef HAVE_TLS
 struct ldaptls {
+#ifdef HAVE_SECURE_TRANSPORT
+	char		*lt_identity;
+	char		*lt_trusted_certs;
+#else
 	char		*lt_certfile;
 	char		*lt_keyfile;
+#endif
 	char		*lt_dhfile;
+#ifndef HAVE_SECURE_TRANSPORT
 	char		*lt_cacertfile;
 	char		*lt_cacertdir;
+#endif
 	char		*lt_ciphersuite;
+#ifndef HAVE_SECURE_TRANSPORT
 	char		*lt_passphrase;
+#endif
 	char		*lt_crlfile;
+#ifndef HAVE_SECURE_TRANSPORT
 	char		*lt_randfile;	/* OpenSSL only */
+#endif
 	int		lt_protocol_min;
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 	void		*lt_cert_ref;
     void        *lt_server_ident_ref_name;
     void        *lt_server_key_ref;
@@ -233,17 +244,26 @@ struct ldapoptions {
 	LDAP_TLS_CONNECT_CB	*ldo_tls_connect_cb;
 	void*			ldo_tls_connect_arg;
 	struct ldaptls ldo_tls_info;
+#ifdef HAVE_SECURE_TRANSPORT
+#define ldo_tls_identity	ldo_tls_info.lt_identity
+#define ldo_tls_trusted_certs	ldo_tls_info.lt_trusted_certs
+#else
 #define ldo_tls_certfile	ldo_tls_info.lt_certfile
 #define ldo_tls_keyfile	ldo_tls_info.lt_keyfile
+#endif
 #define ldo_tls_dhfile	ldo_tls_info.lt_dhfile
+#ifndef HAVE_SECURE_TRANSPORT
 #define ldo_tls_cacertfile	ldo_tls_info.lt_cacertfile
 #define ldo_tls_cacertdir	ldo_tls_info.lt_cacertdir
+#endif
 #define ldo_tls_ciphersuite	ldo_tls_info.lt_ciphersuite
 #define ldo_tls_protocol_min	ldo_tls_info.lt_protocol_min
 #define ldo_tls_crlfile	ldo_tls_info.lt_crlfile
+#ifndef HAVE_SECURE_TRANSPORT
 #define ldo_tls_randfile	ldo_tls_info.lt_randfile	
 #define ldo_tls_passphrase	ldo_tls_info.lt_passphrase
-#ifdef __APPLE__
+#endif
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 #define ldo_tls_cert_ref	    ldo_tls_info.lt_cert_ref
 #define ldo_tls_server_ident_ref_name	ldo_tls_info.lt_server_ident_ref_name
 #define ldo_tls_server_key_ref     ldo_tls_info.lt_server_key_ref
@@ -253,7 +273,7 @@ struct ldapoptions {
    	int			ldo_tls_mode;
    	int			ldo_tls_require_cert;
 	int			ldo_tls_impl;
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
    	int			ldo_tls_crlcheck;
 #endif
 #endif

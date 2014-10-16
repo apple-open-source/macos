@@ -546,24 +546,49 @@ static
 void socket_extendedstatus(struct client *client, struct msg *msg, void **reply)
 {
     struct service			*serv = ppp_find(msg);
-    u_int16_t			replylen = 0;
-	int					err;
-    
-    if (!serv) {
-        msg->hdr.m_result = ENODEV;
-        msg->hdr.m_len = 0;
-        return;
-    }
+	int					err = 0;
+	uint32_t			replylen = 0;
+	CFDictionaryRef		status = NULL;
+	CFDataRef			data = NULL;
 
-	err = ppp_copyextendedstatus(serv, reply, &replylen);
-	if (err) {
-		msg->hdr.m_result = err;
-		msg->hdr.m_len = 0;
-        return;
+	if (!serv) {
+		err = ENODEV;
+		goto done;
 	}
 
-    msg->hdr.m_result = 0;
-    msg->hdr.m_len = replylen;
+	err = ppp_copyextendedstatus(serv, &status);
+	if (err) {
+		goto done;
+	}
+
+	if (status != NULL) {
+		void *dataptr = NULL;
+
+		data = Serialize(status, &dataptr, &replylen);
+		if (data == NULL) {
+			err = ENOMEM;
+			goto done;
+		}
+
+		*reply = my_Allocate(replylen);
+		if (*reply == NULL) {
+			err = ENOMEM;
+			goto done;
+		}
+
+		bcopy(dataptr, *reply, replylen);
+	}
+
+done:
+	msg->hdr.m_result = err;
+	msg->hdr.m_len = (err == 0 ? (uint16_t)replylen : 0);
+
+	if (status != NULL) {
+		CFRelease(status);
+	}
+	if (data != NULL) {
+		CFRelease(data);
+	}
 }
 
 /* -----------------------------------------------------------------------------
@@ -670,25 +695,50 @@ void socket_resume(struct client *client, struct msg *msg, void **reply)
 static
 void socket_getconnectdata(struct client *client, struct msg *msg, void **reply)
 {
-    struct service			*serv = ppp_find(msg);
-    int					err;
-	u_int16_t			replylen;
+	struct service		*serv = ppp_find(msg);
+	int					err = 0;
+	uint32_t			replylen = 0;
+	CFDictionaryRef		userOptions = NULL;
+	CFDataRef			data = NULL;
 
-    if (!serv) {
-        msg->hdr.m_result = ENODEV;
-        msg->hdr.m_len = 0;
-        return;
-    }
-
-	err = ppp_getconnectdata(serv, reply, &replylen, 0);
-	if (err) {
-		msg->hdr.m_result = err;
-		msg->hdr.m_len = 0;
-        return;
+	if (!serv) {
+		err = ENODEV;
+		goto done;
 	}
 
-    msg->hdr.m_result = 0;
-    msg->hdr.m_len = replylen;
+	err = ppp_getconnectdata(serv, &userOptions, 0);
+	if (err) {
+		goto done;
+	}
+
+	if (userOptions != NULL) {
+		void *dataptr = NULL;
+
+		data = Serialize(userOptions, &dataptr, &replylen);
+		if (data == NULL) {
+			err = ENOMEM;
+			goto done;
+		}
+
+		*reply = my_Allocate(replylen);
+		if (*reply == NULL) {
+			err = ENOMEM;
+			goto done;
+		}
+
+		bcopy(dataptr, *reply, replylen);
+	}
+
+done:
+	msg->hdr.m_result = err;
+	msg->hdr.m_len = (err == 0 ? (uint16_t)replylen : 0);
+
+	if (userOptions != NULL) {
+		CFRelease(userOptions);
+	}
+	if (data != NULL) {
+		CFRelease(data);
+	}
 }
 
 /* -----------------------------------------------------------------------------
@@ -944,18 +994,29 @@ void socket_pppd_event(struct client *client, struct msg *msg)
 
     msg->hdr.m_len = 0xFFFFFFFF; // no reply
     //printf("ppp_event, event = 0x%x, cause = 0x%x, serviceid = '%s'\n", event, error, serviceid);
-
     if (!serv)
         return;
 
-    if (event == PPP_EVT_DISCONNECTED) {
-        //if (error == EXIT_USER_REQUEST)
-        //    return;	// PPP API generates PPP_EVT_DISCONNECTED only for unrequested disconnections
-        error = ppp_translate_error(serv->subtype, error, 0);
-    }
-    else 
-        error = 0;
-        
+	if (event == PPP_EVT_DISCONNECTED) {
+		//if (error == EXIT_USER_REQUEST)
+		//    return;	// PPP API generates PPP_EVT_DISCONNECTED only for unrequested disconnections
+		error = ppp_translate_error(serv->subtype, error, 0);
+		if (serv->ne_sm_bridge != NULL) {
+			ne_sm_bridge_request_uninstall(serv->ne_sm_bridge);
+		}
+	} else if (event == PPP_EVT_REQUEST_INSTALL) {
+		if (serv->ne_sm_bridge != NULL) {
+			// error is used as a flag for exclusivity
+			ne_sm_bridge_request_install(serv->ne_sm_bridge, error);
+		}
+	} else if (event == PPP_EVT_REQUEST_UNINSTALL) {
+		if (serv->ne_sm_bridge != NULL) {
+			ne_sm_bridge_request_uninstall(serv->ne_sm_bridge);
+		}
+	} else {
+		error = 0;
+	}
+	
     client_notify(serv->serviceID, serv->sid, makeref(serv), event, error, CLIENT_FLAG_NOTIFY_EVENT, ppp_getstatus(serv));
 }
 

@@ -1,0 +1,135 @@
+#! /bin/csh -f
+#
+# Run import/export tests for PKCS7.
+#
+# Run this from SecurityTests/clxutils/importExport. The 
+# kcImport and kcExport programs must exist in the location
+# specified by the LOCAL_BUILD_DIR env var.
+#
+
+source setupCommon
+
+# PKCS7 blob
+set PKCS7_FILE=${BUILD_DIR}/certs.p7r
+set PKCS7_FILE_PEM=${PKCS7_FILE}.pem
+
+# user specified variables
+set QUIET=NO
+set KEYSIZE=512
+set NOACL=NO
+set NOACL_ARG=
+set NOCLEAN=NO
+
+#
+# Verify existence of a few crucial things before we start.
+#
+if( ( ! -e $KCIMPORT ) || \
+    ( ! -e $KCEXPORT ) || \
+    ( ! -e $RSATOOL) ) then
+        echo === You do not seem to have all of the required executables.
+        echo === Please build all of cspxutils and clxutils. 
+        echo === See the README files in those directories for info.
+        exit(1)
+endif
+
+# user options
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+            shift
+            breaksw
+        case n:
+            set NOACL=YES
+			set NOACL_ARG=-n
+            shift
+            breaksw
+		case N:
+			set NOCLEAN=YES
+            shift
+            breaksw
+        default:
+            echo Usage: importExportPkcs7 \[q\(uiet\)\] \[n\(oACL\)\] \[N\(oClean\)\]
+            exit(1)
+    endsw
+end
+
+echo === Begin PKCS7 test ====
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+if ($QUIET == NO) then
+	echo Creating PKCS7 DER blob with openssl...
+endif
+set cmd="$OPENSSL crl2pkcs7 -outform DER -nocrl -certfile cdnow_v300.pem -certfile amazon_v3.100.pem -certfile localcert.pem -out $PKCS7_FILE"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if ($QUIET == NO) then
+	echo Importing result...
+endif
+set cmd="$KCIMPORT $PKCS7_FILE -k $KEYCHAIN  -C 3 -K 0 -I 0 -T agg -F pkcs7 -q $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Creating PKCS7 PEM blob with openssl...
+endif
+set cmd="$OPENSSL crl2pkcs7 -outform PEM -nocrl -certfile cdnow_v300.pem -certfile amazon_v3.100.pem -certfile localcert.pem -out $PKCS7_FILE_PEM"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if ($QUIET == NO) then
+	echo Importing result...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PKCS7_FILE_PEM -f pkcs7 -k $KEYCHAIN  -C 3 -K 0 -I 0 -T agg -F pkcs7 -q $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Exporting PKCS7 PEM blob...
+endif
+set cmd="$RM $PKCS7_FILE_PEM $PKCS7_FILE"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t all -f pkcs7 -o $PKCS7_FILE -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if ($QUIET == NO) then
+	echo Importing result...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PKCS7_FILE -k $KEYCHAIN  -C 3 -K 0 -I 0 -T agg -F pkcs7 -q $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# cleanup
+if($NOCLEAN == NO) then
+set cmd="rm -f $PKCS7_FILE $PKCS7_FILE_PEM"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif
+
+if ($QUIET == NO) then
+	echo === PKCS7 test complete ===
+endif
+

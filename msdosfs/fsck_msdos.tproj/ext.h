@@ -84,7 +84,7 @@ int ask __P((int, const char *, ...));
 /*
  * Check filesystem given as arg
  */
-int checkfilesys __P((const char *));
+int checkfilesys(const char *);
 
 /*
  * Return values of various functions

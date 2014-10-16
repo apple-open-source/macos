@@ -102,12 +102,12 @@ chgpw_prexmit(krb5_context context, int proto,
     ret = krb5_store_uint16(sp, ap_req_data.length);
     if (ret) goto out;
     slen = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
-    if (slen != ap_req_data.length) {
+    if (slen < 0 || (size_t)slen != ap_req_data.length) {
 	ret = EINVAL;
 	goto out;
     }
     slen = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
-    if (slen != krb_priv_data.length) {
+    if (slen < 0 || (size_t)slen != krb_priv_data.length) {
 	ret = EINVAL;
 	goto out;
     }
@@ -139,7 +139,7 @@ setpw_prexmit(krb5_context context, int proto,
     ChangePasswdDataMS chpw;
     krb5_storage *sp = NULL;
     ssize_t slen;
-    size_t len;
+    size_t len = 0;
 
     krb5_data_zero(&ap_req_data);
     krb5_data_zero(&krb_priv_data);
@@ -199,12 +199,12 @@ setpw_prexmit(krb5_context context, int proto,
     ret = krb5_store_uint16(sp, ap_req_data.length);
     if (ret) goto out;
     slen = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
-    if (slen != ap_req_data.length) {
+    if (slen < 0 || (size_t)slen != ap_req_data.length) {
 	ret = EINVAL;
 	goto out;
     }
     slen = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
-    if (slen != krb_priv_data.length) {
+    if (slen < 0 || (size_t)slen != krb_priv_data.length) {
 	ret = EINVAL;
 	goto out;
     }
@@ -497,15 +497,6 @@ find_chpw_proto(const char *name)
 /**
  * Deprecated: krb5_change_password() is deprecated, use krb5_set_password().
  *
- * @param context a Keberos context
- * @param creds
- * @param newpw
- * @param result_code
- * @param result_code_string
- * @param result_string
- *
- * @return On sucess password is changed.
-
  * @ingroup @krb5_deprecated
  */
 
@@ -516,7 +507,7 @@ krb5_change_password (krb5_context	context,
 		      int		*result_code,
 		      krb5_data		*result_code_string,
 		      krb5_data		*result_string)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_set_password instead")
 {
     struct kpwd_proc *p = find_chpw_proto("change password");
     struct request request;

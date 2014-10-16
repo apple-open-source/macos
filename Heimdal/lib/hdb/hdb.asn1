@@ -2,7 +2,7 @@
 HDB DEFINITIONS ::=
 BEGIN
 
-IMPORTS EncryptionKey, KerberosTime, Principal FROM krb5;
+IMPORTS EncryptionKey, KerberosTime, Principal, KRB5-SRP-PA FROM krb5;
 
 HDB_DB_FORMAT INTEGER ::= 2	-- format of database, 
 				-- update when making changes
@@ -48,6 +48,7 @@ HDBFlags ::= BIT STRING {
 	allow-digest(16),		-- Allow digest requests
 	locked-out(17),			-- Account is locked out,
 					-- authentication will be denied
+	require-pwchange(18),		-- require a passwd change
 	do-not-store(31)		-- Not to be modified and stored in HDB
 }
 
@@ -90,7 +91,7 @@ HDB-Ext-Aliases ::= SEQUENCE {
 
 Keys ::= SEQUENCE OF Key
 
--- notice the intresting order of the tags
+-- notice the interesting order of the tags
 hdb_keyset_aapl ::= SEQUENCE {
 	kvno[1]		INTEGER (-2147483648..2147483647),
 	keys[0]		Keys,
@@ -104,6 +105,13 @@ hdb_keyset ::= SEQUENCE {
 	principal[3]	Principal OPTIONAL,
 	...
 }
+
+hdb-srp ::= SEQUENCE {
+	verifier[0]	OCTET STRING,
+	param[1]	KRB5-SRP-PA
+}
+
+hdb-srp-set ::= SET OF hdb-srp
 
 HDB-Ext-KeySet ::= SEQUENCE OF hdb_keyset
 
@@ -126,6 +134,7 @@ HDB-extension ::= SEQUENCE {
 		hist-kvno-diff-clnt[10]		INTEGER (-2147483648..2147483647),
 		hist-kvno-diff-svc[11]		INTEGER (-2147483648..2147483647),
 	        policy[12]			UTF8String,
+		srp[13]				hdb-srp-set,
 		...
 	},
 	...

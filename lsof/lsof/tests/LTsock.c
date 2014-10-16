@@ -77,6 +77,15 @@ static char copyright[] =
 #endif	/* defined(LT_DIAL_darwin) */
 
 
+#if	defined(LT_DIAL_freebsd)
+/*
+ * FreeBSD-specific items
+ */
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	socklen_t
+#endif	/* defined(LT_DIAL_freebsd) */
+
+
 #if	defined(LT_DIAL_hpux)
 /*
  * HP-UX-specific items

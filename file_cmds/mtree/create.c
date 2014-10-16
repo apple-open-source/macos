@@ -269,8 +269,12 @@ statf(int indent, FTSENT *p)
 	}
 #endif /* ENABLE_SHA256 */
 	if (keys & F_SLINK &&
-	    (p->fts_info == FTS_SL || p->fts_info == FTS_SLNONE))
-		output(indent, &offset, "link=%s", rlink(p->fts_accpath));
+	    (p->fts_info == FTS_SL || p->fts_info == FTS_SLNONE)) {
+		char visbuf[MAXPATHLEN * 4];
+		char *s = rlink(p->fts_accpath);
+		strvis(visbuf, s, VIS_WHITE | VIS_OCTAL);
+		output(indent, &offset, "link=%s", visbuf);
+	}
 	if (keys & F_FLAGS && p->fts_statp->st_flags != flags) {
 		fflags = flags_to_string(p->fts_statp->st_flags);
 		output(indent, &offset, "flags=%s", fflags);

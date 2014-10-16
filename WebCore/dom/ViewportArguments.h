@@ -58,10 +58,9 @@ struct ViewportArguments {
     enum Type {
         // These are ordered in increasing importance.
         Implicit,
-#if ENABLE(LEGACY_VIEWPORT_ADAPTION)
-        XHTMLMobileProfile,
-        HandheldFriendlyMeta,
-        MobileOptimizedMeta,
+#if PLATFORM(IOS)
+        PluginDocument,
+        ImageDocument,
 #endif
         ViewportMeta,
         CSSDeviceAdaptation
@@ -75,7 +74,7 @@ struct ViewportArguments {
         ValueLandscape = -5
     };
 
-    ViewportArguments(Type type = Implicit)
+    explicit ViewportArguments(Type type = Implicit)
         : type(type)
         , width(ValueAuto)
         , minWidth(ValueAuto)
@@ -88,6 +87,9 @@ struct ViewportArguments {
         , maxZoom(ValueAuto)
         , userZoom(ValueAuto)
         , orientation(ValueAuto)
+#if PLATFORM(IOS)
+        , minimalUI(false)
+#endif
     {
     }
 
@@ -105,6 +107,9 @@ struct ViewportArguments {
     float maxZoom;
     float userZoom;
     float orientation;
+#if PLATFORM(IOS)
+    bool minimalUI;
+#endif
 
     bool operator==(const ViewportArguments& other) const
     {
@@ -120,6 +125,9 @@ struct ViewportArguments {
             && minZoom == other.minZoom
             && maxZoom == other.maxZoom
             && userZoom == other.userZoom
+#if PLATFORM(IOS)
+            && minimalUI == other.minimalUI
+#endif
             && orientation == other.orientation;
     }
 
@@ -128,7 +136,7 @@ struct ViewportArguments {
         return !(*this == other);
     }
 
-#if PLATFORM(BLACKBERRY) || PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(GTK)
     // FIXME: We're going to keep this constant around until all embedders
     // refactor their code to no longer need it.
     static const float deprecatedTargetDPI;
@@ -143,6 +151,10 @@ float computeMinimumScaleFactorForContentContained(const ViewportAttributes& res
 
 void setViewportFeature(const String& keyString, const String& valueString, Document*, void* data);
 void reportViewportWarning(Document*, ViewportErrorCode, const String& replacement1, const String& replacement2);
+
+#if PLATFORM(IOS)
+void finalizeViewportArguments(ViewportArguments&, const FloatSize& screenSize);
+#endif
 
 } // namespace WebCore
 

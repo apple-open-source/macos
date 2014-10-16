@@ -1,0 +1,10 @@
+#! /bin/csh -f
+#
+# make private key in all keychains we use trusted by a list of usual suspects
+# be running.
+#
+trustAll localcert
+trustAll clientcert
+trustAll p12cert
+
+

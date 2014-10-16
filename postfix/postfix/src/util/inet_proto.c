@@ -85,15 +85,10 @@
 #include <sys_defs.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
-#ifdef __APPLE_OS_X_SERVER__
-#include <arpa/nameser_compat.h>
-#endif
 #ifdef RESOLVE_H_NEEDS_STDIO_H
 #include <stdio.h>
 #endif
-#ifndef __APPLE_OS_X_SERVER__
 #include <resolv.h>
-#endif
 #include <stdarg.h>
 #include <unistd.h>
 

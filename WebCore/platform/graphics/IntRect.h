@@ -27,7 +27,7 @@
 #define IntRect_h
 
 #include "IntPoint.h"
-#include <wtf/Vector.h>
+#include "LayoutUnit.h"
 
 #if USE(CG)
 typedef struct CGRect CGRect;
@@ -41,24 +41,18 @@ typedef struct _NSRect NSRect;
 #endif
 #endif
 
+#if PLATFORM(IOS)
+#ifndef NSRect
+#define NSRect CGRect
+#endif
+#endif
+
 #if PLATFORM(WIN)
 typedef struct tagRECT RECT;
-#elif PLATFORM(QT)
-QT_BEGIN_NAMESPACE
-class QRect;
-QT_END_NAMESPACE
 #elif PLATFORM(GTK)
 #ifdef GTK_API_VERSION_2
 typedef struct _GdkRectangle GdkRectangle;
 #endif
-#elif PLATFORM(EFL)
-typedef struct _Eina_Rectangle Eina_Rectangle;
-#elif PLATFORM(BLACKBERRY)
-namespace BlackBerry {
-namespace Platform {
-class IntRect;
-}
-}
 #endif
 
 #if USE(CAIRO)
@@ -177,9 +171,6 @@ public:
 #if PLATFORM(WIN)
     IntRect(const RECT&);
     operator RECT() const;
-#elif PLATFORM(QT)
-    IntRect(const QRect&);
-    operator QRect() const;
 #elif PLATFORM(GTK)
 #ifdef GTK_API_VERSION_2
     IntRect(const GdkRectangle&);
@@ -199,14 +190,11 @@ public:
     operator CGRect() const;
 #endif
 
-#if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES))
+#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
     operator NSRect() const;
 #endif
 
-#if PLATFORM(BLACKBERRY)
-    IntRect(const BlackBerry::Platform::IntRect&);
-    operator BlackBerry::Platform::IntRect() const;
-#endif
+    void dump(WTF::PrintStream& out) const;
 
 private:
     IntPoint m_location;
@@ -227,8 +215,6 @@ inline IntRect unionRect(const IntRect& a, const IntRect& b)
     return c;
 }
 
-IntRect unionRect(const Vector<IntRect>&);
-
 inline bool operator==(const IntRect& a, const IntRect& b)
 {
     return a.location() == b.location() && a.size() == b.size();
@@ -243,7 +229,7 @@ inline bool operator!=(const IntRect& a, const IntRect& b)
 IntRect enclosingIntRect(const CGRect&);
 #endif
 
-#if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES))
+#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
 IntRect enclosingIntRect(const NSRect&);
 #endif
 

@@ -31,13 +31,13 @@ extern "C" {
  * continue to initialize modules by multiple threads, the caller
  * of apu_dso_load must lock first, and not unlock until any init
  * finalization is complete.
- */ 
+ */
 apr_status_t apu_dso_init(apr_pool_t *pool);
 
 apr_status_t apu_dso_mutex_lock(void);
 apr_status_t apu_dso_mutex_unlock(void);
 
-apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr, const char *module,
+apr_status_t apu_dso_load(apr_dso_handle_t **dso, apr_dso_handle_sym_t *dsoptr, const char *module,
                           const char *modsym, apr_pool_t *pool);
 
 #if APR_HAS_LDAP

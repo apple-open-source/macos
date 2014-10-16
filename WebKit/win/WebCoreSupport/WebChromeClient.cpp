@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,17 +11,17 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -38,7 +38,6 @@
 #include "WebSecurityOrigin.h"
 #include "WebView.h"
 #include <WebCore/BString.h>
-#include <WebCore/Console.h>
 #include <WebCore/ContextMenu.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/FileChooser.h>
@@ -48,7 +47,9 @@
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/FullScreenController.h>
+#include <WebCore/GraphicsLayer.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLVideoElement.h>
 #include <WebCore/Icon.h>
 #include <WebCore/LocalWindowsContext.h>
 #include <WebCore/LocalizedStrings.h>
@@ -60,10 +61,6 @@
 #include <WebCore/SearchPopupMenuWin.h>
 #include <WebCore/WindowFeatures.h>
 #include <wchar.h>
-
-#if USE(ACCELERATED_COMPOSITING)
-#include <WebCore/GraphicsLayer.h>
-#endif
 
 using namespace WebCore;
 
@@ -163,7 +160,7 @@ void WebChromeClient::takeFocus(FocusDirection direction)
     }
 }
 
-void WebChromeClient::focusedNodeChanged(Node*)
+void WebChromeClient::focusedElementChanged(Element*)
 {
 }
 
@@ -193,14 +190,18 @@ static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures
     return COMPtr<IPropertyBag>(AdoptCOM, COMPropertyBag<COMVariant>::adopt(map));
 }
 
-Page* WebChromeClient::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction&)
+Page* WebChromeClient::createWindow(Frame* frame, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction& navigationAction)
 {
     COMPtr<IWebUIDelegate> delegate = uiDelegate();
     if (!delegate)
         return 0;
 
-    // Just create a blank request because createWindow() is only required to create window but not to load URL.
-    COMPtr<IWebMutableURLRequest> request(AdoptCOM, WebMutableURLRequest::createInstance());
+#if ENABLE(FULLSCREEN_API)
+    if (frame->document() && frame->document()->webkitCurrentFullScreenElement())
+        frame->document()->webkitCancelFullScreen();
+#endif
+
+    COMPtr<WebMutableURLRequest> request = adoptCOM(WebMutableURLRequest::createInstance(ResourceRequest(navigationAction.url())));
 
     COMPtr<IWebUIDelegatePrivate2> delegatePrivate(Query, delegate);
     if (delegatePrivate) {
@@ -460,22 +461,22 @@ IntRect WebChromeClient::windowResizerRect() const
     return IntRect();
 }
 
-void WebChromeClient::invalidateRootView(const IntRect& windowRect, bool immediate)
+void WebChromeClient::invalidateRootView(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, false /*contentChanged*/, immediate, false /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, false /*contentChanged*/, false /*repaintContentOnly*/);
 }
 
-void WebChromeClient::invalidateContentsAndRootView(const IntRect& windowRect, bool immediate)
+void WebChromeClient::invalidateContentsAndRootView(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, true /*contentChanged*/, immediate /*immediate*/, false /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, true /*contentChanged*/, false /*repaintContentOnly*/);
 }
 
-void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& windowRect, bool immediate)
+void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, true /*contentChanged*/, immediate, true /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, true /*contentChanged*/, true /*repaintContentOnly*/);
 }
 
 void WebChromeClient::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect& clipRect)
@@ -488,7 +489,7 @@ void WebChromeClient::scroll(const IntSize& delta, const IntRect& scrollViewRect
 IntRect WebChromeClient::rootViewToScreen(const IntRect& rect) const
 {
     HWND viewWindow;
-    if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
+    if (FAILED(m_webView->viewWindow(&viewWindow)))
         return rect;
 
     // Find the top left corner of the Widget's containing window in screen coords,
@@ -506,7 +507,7 @@ IntPoint WebChromeClient::screenToRootView(const IntPoint& point) const
     POINT result = point;
 
     HWND viewWindow;
-    if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
+    if (FAILED(m_webView->viewWindow(&viewWindow)))
         return point;
 
     ::ScreenToClient(viewWindow, &result);
@@ -517,7 +518,7 @@ IntPoint WebChromeClient::screenToRootView(const IntPoint& point) const
 PlatformPageClient WebChromeClient::platformPageClient() const
 {
     HWND viewWindow;
-    if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
+    if (FAILED(m_webView->viewWindow(&viewWindow)))
         return 0;
     return viewWindow;
 }
@@ -653,7 +654,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     RefPtr<FileChooser> fileChooser = prpFileChooser;
 
     HWND viewWindow;
-    if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
+    if (FAILED(m_webView->viewWindow(&viewWindow)))
         return;
 
     bool multiFile = fileChooser->settings().allowsMultipleFiles;
@@ -670,11 +671,15 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     ofn.hwndOwner = viewWindow;
     String allFiles = allFilesText();
     allFiles.append(L"\0*.*\0\0", 6);
-    ofn.lpstrFilter = allFiles.charactersWithNullTermination();
+
+    Vector<UChar> filterCharacters = allFiles.charactersWithNullTermination(); // Retain buffer long enough to make the GetOpenFileName call
+    ofn.lpstrFilter = filterCharacters.data();
+
     ofn.lpstrFile = fileBuf.data();
     ofn.nMaxFile = fileBuf.size();
     String dialogTitle = uploadFileText();
-    ofn.lpstrTitle = dialogTitle.charactersWithNullTermination();
+    Vector<UChar> dialogTitleCharacters = dialogTitle.charactersWithNullTermination(); // Retain buffer long enough to make the GetOpenFileName call
+    ofn.lpstrTitle = dialogTitleCharacters.data();
     ofn.Flags = OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER;
     if (multiFile)
         ofn.Flags = ofn.Flags | OFN_ALLOWMULTISELECT;
@@ -721,7 +726,7 @@ void WebChromeClient::setCursor(const Cursor& cursor)
     if (COMPtr<IWebUIDelegate> delegate = uiDelegate()) {
         COMPtr<IWebUIDelegatePrivate> delegatePrivate(Query, delegate);
         if (delegatePrivate) {
-            if (SUCCEEDED(delegatePrivate->webViewSetCursor(m_webView, reinterpret_cast<OLE_HANDLE>(platformCursor))))
+            if (SUCCEEDED(delegatePrivate->webViewSetCursor(m_webView, platformCursor)))
                 shouldSetCursor = false;
         }
     }
@@ -742,7 +747,6 @@ void WebChromeClient::setLastSetCursorToCurrentCursor()
     m_webView->setLastCursor(::GetCursor());
 }
 
-#if USE(ACCELERATED_COMPOSITING)
 void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
 {
     m_webView->setRootChildLayer(graphicsLayer);
@@ -752,7 +756,6 @@ void WebChromeClient::scheduleCompositingLayerFlush()
 {
     m_webView->flushPendingGraphicsLayerChangesSoon();
 }
-#endif
 
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
 WebCore::GraphicsDeviceAdapter* WebChromeClient::graphicsDeviceAdapter() const
@@ -772,7 +775,7 @@ COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
 
 bool WebChromeClient::supportsFullscreenForNode(const Node* node)
 {
-    return node->hasTagName(HTMLNames::videoTag);
+    return isHTMLVideoElement(node);
 }
 
 void WebChromeClient::enterFullscreenForNode(Node* node)
@@ -789,12 +792,12 @@ void WebChromeClient::exitFullscreenForNode(Node*)
 
 bool WebChromeClient::selectItemWritingDirectionIsNatural()
 {
-    return true;
+    return false;
 }
 
 bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
 {
-    return false;
+    return true;
 }
 
 bool WebChromeClient::hasOpenedPopup() const
@@ -856,6 +859,7 @@ void WebChromeClient::exitFullScreenForElement(Element* element)
     ASSERT(element == m_webView->fullScreenElement());
     m_webView->fullScreenController()->exitFullScreen();
 }
+#endif
 
 void WebChromeClient::AXStartFrameLoad()
 {
@@ -872,5 +876,3 @@ void WebChromeClient::AXFinishFrameLoad()
     if (delegate)
         delegate->fireFrameLoadFinishedEvents();
 }
-
-#endif

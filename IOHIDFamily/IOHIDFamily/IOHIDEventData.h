@@ -88,6 +88,20 @@ typedef struct _IOHIDKeyboardEventData {
     boolean_t       down;
 } IOHIDKeyboardEventData;
 
+typedef struct _IOHIDUnicodeEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        encoding;
+    IOFixed         quality;
+    uint32_t        length;
+    uint8_t         payload[0];
+} IOHIDUnicodeEventData;
+
+typedef struct _IOHIDLEDEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        mask;
+    uint8_t         number;
+    boolean_t       state;
+} IOHIDLEDEventData;
 
 enum {
     kIOHIDTransducerRange               = 0x00010000,
@@ -154,29 +168,30 @@ typedef struct _IOHIDZoomToggleEventData {
     IOHIDEVENT_BASE;
 } IOHIDZoomToggleEventData;
 
-#define IOHIDBUTTONEVENT_BASE           \
+#define IOHIDBUTTONLITEEVENT_BASE       \
     struct {                            \
-        uint32_t        buttonMask;     \
-        IOFixed         pressure;       \
-        uint8_t         buttonNumber;   \
-        uint8_t         clickState;     \
+        uint32_t mask;                  \
     } button;
 
 typedef struct _IOHIDButtonEventData {
     IOHIDEVENT_BASE;
-    IOHIDBUTTONEVENT_BASE;
+    uint32_t        mask;
+    IOFixed         pressure;
+    uint8_t         number;
+    uint8_t         clickCount;
+    boolean_t       state;
 } IOHIDButtonEventData;
 
 typedef struct _IOHIDPointerEventData {
     IOHIDEVENT_BASE;
     IOHIDAXISEVENT_BASE;
-    IOHIDBUTTONEVENT_BASE;
+    IOHIDBUTTONLITEEVENT_BASE;
 } IOHIDPointerEventData, IOHIDMouseEventData;
 
 typedef struct _IOHIDMultiAxisPointerEventData {
     IOHIDEVENT_BASE;
     IOHIDAXISEVENT_BASE;
-    IOHIDBUTTONEVENT_BASE;
+    IOHIDBUTTONLITEEVENT_BASE;
     struct {
         IOFixed x;
         IOFixed y;
@@ -202,6 +217,7 @@ typedef struct _IOHIDDigitizerEventData {
     IOFixed         auxPressure;                // Force exerted directly by the user on a transducer sensor.
     
     IOFixed         twist;                      // Specifies the clockwise rotation of the cursor around its own major axis.  Unsure it the device should declare units via properties or event.  My first inclination is force degrees as the is the unit already expected by AppKit, Carbon and OpenGL.
+    
     uint32_t        orientationType;            // Specifies the orientation type used by the transducer.
     union {
         struct {                                // X Tilt and Y Tilt are used together to specify the tilt away from normal of a digitizer transducer. In its normal position, the values of X Tilt and Y Tilt for a transducer are both zero.
@@ -218,6 +234,7 @@ typedef struct _IOHIDDigitizerEventData {
             IOFixed  irregularity;
             IOFixed  majorRadius;                // units in mm
             IOFixed  minorRadius;                // units in mm
+            IOFixed  accuracy;                   // The accuracy of the major/minor radius measurement, in mm. 0 indicates no data.
         } quality;
     }orientation;
 } IOHIDDigitizerEventData;
@@ -251,6 +268,12 @@ typedef struct _IOHIDPowerEventData {
     uint32_t        powerSubType;
 } IOHIDPowerEventData;
 
+typedef struct _IOHIDAtmosphericPressureEventData {
+    IOHIDEVENT_BASE;
+    IOFixed        level;
+    uint32_t        sequence;
+} IOHIDAtmosphericPressureEventData;
+
 /*!
     @typedef    IOHIDSystemQueueElement
     @abstract   Memory structure defining the layout of each event queue element
@@ -267,7 +290,6 @@ typedef struct _IOHIDPowerEventData {
 */
 typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
     uint64_t        timeStamp;
-    uint64_t        creationTimeStamp;
     uint64_t        senderID;
     uint32_t        options;
     uint32_t        attributeLength;
@@ -281,6 +303,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 
 #define IOHIDEventFieldEventType(field) ((field >> 16) & 0xffff)
 #define IOHIDEventFieldOffset(field) (field & 0xffff)
+
 #define IOHIDEventGetSize(type,size)    \
 {                                       \
     switch ( type ) {                   \
@@ -344,6 +367,15 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
         case kIOHIDEventTypePower:\
             size = sizeof(IOHIDPowerEventData);\
             break;                      \
+        case kIOHIDEventTypeLED:\
+            size = sizeof(IOHIDLEDEventData);\
+            break;                      \
+        case kIOHIDEventTypeUnicode:    \
+            size = sizeof(IOHIDUnicodeEventData);\
+            break;                      \
+        case kIOHIDEventTypeAtmosphericPressure:\
+            size = sizeof(IOHIDAtmosphericPressureEventData);\
+            break;                      \
         default:                        \
             size = 0;                   \
             break;                      \
@@ -369,6 +401,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 //==============================================================================
 // IOHIDEventGetValue MACRO
 //==============================================================================
+
 #define GET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed)\
 {                                                       \
     switch ( fieldEvType ) {                            \
@@ -413,8 +446,28 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeBiometric:                    \
-        case kIOHIDEventTypeProgress:                     \
+        case kIOHIDEventTypeUnicode:                    \
+            {                                           \
+                IOHIDUnicodeEventData * character = (IOHIDUnicodeEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeEncoding): \
+                        value = character->encoding;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeQuality): \
+                        value = IOHIDEventValueFloat(character->quality, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeLength): \
+                        value = character->length;      \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodePayload): \
+                        if (character->payload)         \
+                            value = *((typeof(value)*) character->payload); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeBiometric:                  \
+        case kIOHIDEventTypeProgress:                   \
             {                                           \
                 IOHIDProgressEventData * progress = (IOHIDProgressEventData*)eventData; \
                 switch ( fieldOffset ) {                \
@@ -434,21 +487,24 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 IOHIDButtonEventData * button = (IOHIDButtonEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonMask): \
-                        value = button->button.buttonMask;     \
+                        value = button->mask;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonNumber): \
-                        value = button->button.buttonNumber;   \
+                        value = button->number;   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonClickCount): \
-                        value = button->button.clickState;     \
+                        value = button->clickCount;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        value = IOHIDEventValueFloat(button->button.pressure, isFixed); \
+                        value = IOHIDEventValueFloat(button->pressure, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldButtonState): \
+                        value = button->state;          \
                         break;                          \
                 };                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeCompass:                     \
+        case kIOHIDEventTypeCompass:                    \
         case kIOHIDEventTypeGyro:                       \
         case kIOHIDEventTypeAccelerometer:              \
             {                                           \
@@ -501,17 +557,8 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         value = IOHIDEventValueFloat(pointer->position.z, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldPointerButtonMask): \
-                        value = pointer->button.buttonMask;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerNumber): \
-                        value = pointer->button.buttonNumber;   \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerClickCount): \
-                        value = pointer->button.clickState;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerPressure): \
-                        value = IOHIDEventValueFloat(pointer->button.pressure, isFixed); \
-                        break;                          \
+                        value = pointer->button.mask;       \
+                        break;                              \
                 };                                      \
             }                                           \
             break;                                      \
@@ -528,18 +575,6 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerZ): \
                         value = IOHIDEventValueFloat(pointer->position.z, isFixed); \
                         break;                              \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerButtonMask): \
-                        value = pointer->button.buttonMask;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerNumber): \
-                        value = pointer->button.buttonNumber;   \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerClickCount): \
-                        value = pointer->button.clickState;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerPressure): \
-                        value = IOHIDEventValueFloat(pointer->button.pressure, isFixed); \
-                        break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerRx): \
                         value = IOHIDEventValueFloat(pointer->rotation.x, isFixed); \
                         break;                              \
@@ -548,6 +583,9 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerRz): \
                         value = IOHIDEventValueFloat(pointer->rotation.z, isFixed); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerButtonMask): \
+                        value = pointer->button.mask;       \
                         break;                              \
                 };                                      \
             }                                           \
@@ -641,7 +679,6 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScrollX):            \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScaleX):             \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldVelocityX):          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerX);         \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationRadius):  \
                     */                                                              \
                         value = IOHIDEventValueFloat(axis->position.x, isFixed); \
@@ -652,7 +689,6 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScrollY):            \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScaleY):             \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldVelocityY):          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerY);         \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAzimuth): \
                     */                                                              \
                         value = IOHIDEventValueFloat(axis->position.y, isFixed); \
@@ -663,7 +699,6 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScrollZ):            \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScaleZ):             \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldVelocityZ):          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerZ);         \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAltitude):\
                     */                                                              \
                         value = IOHIDEventValueFloat(axis->position.z, isFixed); \
@@ -710,6 +745,22 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         value = proxEvent->level; \
                         break;                          \
                     };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeLED:                   \
+            {                                           \
+                IOHIDLEDEventData * ledEvent = (IOHIDLEDEventData *)eventData;\
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDMask):    \
+                        value = ledEvent->mask;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDNumber):  \
+                        value = ledEvent->number;        \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDState):   \
+                        value = ledEvent->state;         \
+                        break;                          \
+                };                                      \
             }                                           \
             break;                                      \
         case kIOHIDEventTypeKeyboard:                   \
@@ -792,6 +843,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerIrregularity): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQualityRadiiAccuracy): \
                         switch ( digEvent->orientationType ) {\
                             case kIOHIDDigitizerOrientationTypeTilt:\
                                 switch ( fieldOffset ) {\
@@ -830,6 +882,9 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
                                         value = IOHIDEventValueFloat(digEvent->orientation.quality.minorRadius, isFixed); \
                                         break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQualityRadiiAccuracy): \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.accuracy, isFixed); \
+                                        break;          \
                                 };                      \
                                 break;                  \
                         };                              \
@@ -858,7 +913,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
             }                                           \
             break;                                      \
         case kIOHIDEventTypePower:                      \
-            {\
+            {                                           \
                 IOHIDPowerEventData * pwrEvent = (IOHIDPowerEventData *)eventData; \
                 switch ( fieldOffset ) {\
                     case IOHIDEventFieldOffset(kIOHIDEventFieldPowerMeasurement): \
@@ -873,6 +928,46 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeAtmosphericPressure:        \
+            {                                           \
+                IOHIDAtmosphericPressureEventData * apEvent = (IOHIDAtmosphericPressureEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAtmosphericPressureLevel): \
+                        value = IOHIDEventValueFloat(apEvent->level, isFixed);  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAtmosphericSequence): \
+                        value = apEvent->sequence;      \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+    };                                                  \
+}
+
+#define GET_EVENTDATA_DATA(eventData, fieldEvType, fieldOffset, value)\
+{                                                       \
+    value = NULL;                                       \
+    switch ( fieldEvType ) {                            \
+        case kIOHIDEventTypeVendorDefined:              \
+        {                                               \
+            IOHIDVendorDefinedEventData * sysDef = (IOHIDVendorDefinedEventData*)eventData; \
+            switch ( fieldOffset ) {                    \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldVendorDefinedData): \
+                    value = sysDef->data;               \
+                    break;                              \
+            };                                          \
+        }                                               \
+        break;                                          \
+        case kIOHIDEventTypeUnicode:                    \
+        {                                               \
+            IOHIDUnicodeEventData * charEvent = (IOHIDUnicodeEventData*)eventData; \
+            switch ( fieldOffset ) {                    \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodePayload): \
+                    value = charEvent->payload;         \
+                    break;                              \
+            };                                          \
+        }                                               \
+        break;                                          \
     };                                                  \
 }
 
@@ -894,9 +989,19 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
     }                                                               \
 }
 
+#define GET_EVENT_DATA(event, field, value, options) \
+{   IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);  \
+    uint32_t        fieldOffset = IOHIDEventFieldOffset(field);     \
+    IOHIDEventRef   ev          = (fieldEvType == kIOHIDEventTypeNULL) ? event : NULL;  \
+    if ( ev || (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {\
+        GET_EVENTDATA_DATA(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value);\
+    }                                                               \
+}
+
 //==============================================================================
 // IOHIDEventSetValue MACRO
 //==============================================================================
+
 #define SET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed) \
 {   switch ( fieldEvType ) {                            \
         case kIOHIDEventTypeNULL:                       \
@@ -955,6 +1060,26 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeUnicode:                    \
+            {                                           \
+                IOHIDUnicodeEventData * character = (IOHIDUnicodeEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeEncoding): \
+                        character->encoding = value;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeQuality): \
+                        character->quality = IOHIDEventValueFixed(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodeLength): \
+                        character->length = value;      \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldUnicodePayload): \
+                        if (character->payload)         \
+                            *((typeof(value)*) character->payload) = value; \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeBiometric:                     \
         case kIOHIDEventTypeProgress:                     \
             {                                           \
@@ -976,16 +1101,19 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                 IOHIDButtonEventData * button = (IOHIDButtonEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonMask): \
-                        button->button.buttonMask = value;     \
+                        button->mask = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonNumber): \
-                        button->button.buttonNumber = value;   \
+                        button->number = value;   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonClickCount): \
-                        button->button.clickState = value;     \
+                        button->clickCount = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        button->button.pressure = IOHIDEventValueFixed(value, isFixed); \
+                        button->pressure = IOHIDEventValueFixed(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldButtonState): \
+                        button->state = value;          \
                         break;                          \
                 };                                      \
             }                                           \
@@ -1043,17 +1171,8 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         pointer->position.z = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldPointerButtonMask): \
-                        pointer->button.buttonMask = value;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerNumber): \
-                        pointer->button.buttonNumber = value;   \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerClickCount): \
-                        pointer->button.clickState = value;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldPointerPressure): \
-                        pointer->button.pressure = IOHIDEventValueFixed(value, isFixed); \
-                        break;                          \
+                        pointer->button.mask = value;       \
+                        break;                              \
                 };                                      \
             }                                           \
             break;                                      \
@@ -1070,18 +1189,6 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerZ): \
                         pointer->position.z = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerButtonMask): \
-                        pointer->button.buttonMask = value;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerNumber): \
-                        pointer->button.buttonNumber = value;   \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerClickCount): \
-                        pointer->button.clickState = value;     \
-                        break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerPressure): \
-                        pointer->button.pressure = IOHIDEventValueFixed(value, isFixed); \
-                        break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerRx): \
                         pointer->rotation.x = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
@@ -1090,6 +1197,9 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerRz): \
                         pointer->rotation.z = IOHIDEventValueFixed(value, isFixed); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMultiAxisPointerButtonMask): \
+                        pointer->button.mask = value;       \
                         break;                              \
                 };                                      \
             }                                           \
@@ -1257,6 +1367,22 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeLED:                   \
+            {                                           \
+                IOHIDLEDEventData * ledEvent = (IOHIDLEDEventData *)eventData;\
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDMask):    \
+                        ledEvent->mask = value;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDNumber):  \
+                        ledEvent->number = value;        \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldLEDState):   \
+                        ledEvent->state = value;         \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeKeyboard:                       \
             {                                               \
                 IOHIDKeyboardEventData * keyEvent = (IOHIDKeyboardEventData *)eventData;\
@@ -1352,6 +1478,7 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerIrregularity): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQualityRadiiAccuracy): \
                         switch ( digEvent->orientationType ) {\
                             case kIOHIDDigitizerOrientationTypeTilt:\
                                 switch ( fieldOffset ) {\
@@ -1389,6 +1516,9 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
                                         digEvent->orientation.quality.minorRadius = IOHIDEventValueFixed(value, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQualityRadiiAccuracy): \
+                                        digEvent->orientation.quality.accuracy = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
@@ -1432,6 +1562,19 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldPowerSubType): \
                         pwrEvent->powerSubType = value; \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeAtmosphericPressure:        \
+            {                                           \
+                IOHIDAtmosphericPressureEventData * apEvent = (IOHIDAtmosphericPressureEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAtmosphericPressureLevel): \
+                        apEvent->level = IOHIDEventValueFixed(value, isFixed);  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAtmosphericSequence): \
+                        apEvent->sequence = value;      \
                         break;                          \
                 };                                      \
             }                                           \

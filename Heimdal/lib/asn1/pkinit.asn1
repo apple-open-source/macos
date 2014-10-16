@@ -3,7 +3,7 @@
 PKINIT DEFINITIONS ::= BEGIN
 
 IMPORTS EncryptionKey, PrincipalName, Realm, KerberosTime, Checksum, Ticket FROM krb5
-	IssuerAndSerialNumber, ContentInfo FROM cms
+	IssuerAndSerialNumber FROM cms
 	SubjectPublicKeyInfo, AlgorithmIdentifier FROM rfc2459
 	heim_any FROM heim;
 
@@ -193,9 +193,9 @@ PkinitSP80056AOtherInfo ::= SEQUENCE {
 
 PkinitSuppPubInfo ::= SEQUENCE {
        enctype           [0] INTEGER (-2147483648..2147483647),
-       as-REQ            [1] OCTET STRING,
-       pk-as-rep         [2] OCTET STRING,
-       ticket            [3] Ticket,
+       as-REQ            [1] OCTET STRING OPTIONAL,
+       pk-as-rep         [2] OCTET STRING OPTIONAL,
+       ticket            [3] Ticket OPTIONAL,
        ...
 }
 

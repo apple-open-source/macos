@@ -233,6 +233,27 @@ init_generate (const char *filename, const char *base)
 	  "    }                                                          \\\n"
 	  "  } while (0)\n\n",
 	  headerfile);
+    fputs("#define ASN1_ENCODE_CFMutableData(_TYPE, _CFDATA, S, R)        \\\n"
+	  "  do {                                                         \\\n"
+	  "    size_t __length##_TYPE;			                  \\\n"
+	  "    size_t __size##_TYPE = length_##_TYPE((S));                \\\n"
+	  "    (_CFDATA) = CFDataCreateMutable(NULL, (__size##_TYPE));    \\\n"
+	  "    if((_CFDATA) == NULL) {                                    \\\n"
+	  "      (R) = ENOMEM;                                            \\\n"
+	  "    } else {                                                   \\\n"
+	  "      CFDataSetLength((_CFDATA), (__size##_TYPE));             \\\n"
+	  "      (R) = encode_##_TYPE(((unsigned char*)(CFDataGetMutableBytePtr((_CFDATA)))) + (__size##_TYPE) - 1, (__size##_TYPE), \\\n"
+	  "                       (S), &(__length##_TYPE));               \\\n"
+	  "      if((R) != 0) {                                           \\\n"
+	  "        CFRelease((_CFDATA));                                  \\\n"
+	  "        (_CFDATA) = NULL;                                      \\\n"
+	  "      }                                                        \\\n"
+	  "      if((__size##_TYPE) != (__length##_TYPE)) {               \\\n"
+	  "        asn1_abort(\"internal asn1 error\");                   \\\n"
+	  "      }                                                        \\\n"
+	  "    }                                                          \\\n"
+	  "  } while (0)\n\n",
+	  headerfile);
     fputs("#ifdef _WIN32\n"
 	  "#ifndef ASN1_LIB\n"
 	  "#define ASN1EXP  __declspec(dllimport)\n"
@@ -476,8 +497,6 @@ generate_constant (const Symbol *s)
 
 	break;
     }
-    default:
-	abort();
     }
 }
 
@@ -688,8 +707,6 @@ define_asn1 (int level, Type *t)
 	space(level);
 	fprintf (headerfile, "NULL");
 	break;
-    default:
-	abort ();
     }
 }
 
@@ -708,10 +725,27 @@ getnewbasename(char **newbasename, int typedefp, const char *basename, const cha
 	err(1, "malloc");
 }
 
+void
+check_preserve_type(const char *name, Type *t)
+{
+    while(t && t->type == TTag)
+	t = t->subtype;
+
+    if (t == NULL)
+	errx(1, "%s: no real type ?", name);
+
+    if (t->type != TSequence && t->type != TChoice)
+	errx(1, "%s: preserve only supportd for SEQUENCE and CHOICE: %d",
+	     name, (int)t->type);
+}
+
 static void
 define_type (int level, const char *name, const char *basename, Type *t, int typedefp, int preservep)
 {
     char *newbasename = NULL;
+
+    if (preservep)
+	check_preserve_type(name, t);
 
     switch (t->type) {
     case TType:
@@ -733,7 +767,7 @@ define_type (int level, const char *name, const char *basename, Type *t, int typ
 	    fprintf (headerfile, "heim_integer %s;\n", name);
 	} else if (t->range->min == INT_MIN && t->range->max == INT_MAX) {
 	    fprintf (headerfile, "int %s;\n", name);
-	} else if (t->range->min == 0 && t->range->max == UINT_MAX) {
+	} else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX) {
 	    fprintf (headerfile, "unsigned int %s;\n", name);
 	} else if (t->range->min == 0 && t->range->max == INT_MAX) {
 	    fprintf (headerfile, "unsigned int %s;\n", name);
@@ -974,8 +1008,6 @@ define_type (int level, const char *name, const char *basename, Type *t, int typ
 	space(level);
 	fprintf (headerfile, "int %s;\n", name);
 	break;
-    default:
-	abort ();
     }
     if (newbasename)
 	free(newbasename);

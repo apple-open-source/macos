@@ -43,11 +43,7 @@ syscall:::entry
 	@[jstack()] = count();
 }
 
-#if !defined(__APPLE__)
-proc:::exit
-#else
 fbt::exit:entry
-#endif /* __APPLE__ */
 /progenyof($pid) && execname == "java"/
 {
 	exit(0);

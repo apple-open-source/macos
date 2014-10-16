@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,7 +27,7 @@
 #include "CSSCanvasValue.h"
 
 #include "ImageBuffer.h"
-#include "RenderObject.h"
+#include "RenderElement.h"
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -35,10 +35,10 @@ namespace WebCore {
 CSSCanvasValue::~CSSCanvasValue()
 {
     if (m_element)
-        m_element->removeObserver(&m_canvasObserver);
+        m_element->removeObserver(m_canvasObserver);
 }
 
-String CSSCanvasValue::customCssText() const
+String CSSCanvasValue::customCSSText() const
 {
     StringBuilder result;
     result.appendLiteral("-webkit-canvas(");
@@ -47,52 +47,50 @@ String CSSCanvasValue::customCssText() const
     return result.toString();
 }
 
-void CSSCanvasValue::canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect)
+void CSSCanvasValue::canvasChanged(HTMLCanvasElement&, const FloatRect& changedRect)
 {
     IntRect imageChangeRect = enclosingIntRect(changedRect);
-    HashCountedSet<RenderObject*>::const_iterator end = clients().end();
-    for (HashCountedSet<RenderObject*>::const_iterator curr = clients().begin(); curr != end; ++curr)
-        const_cast<RenderObject*>(curr->key)->imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
+    for (auto it = clients().begin(), end = clients().end(); it != end; ++it)
+        it->key->imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
 }
 
-void CSSCanvasValue::canvasResized(HTMLCanvasElement*)
+void CSSCanvasValue::canvasResized(HTMLCanvasElement&)
 {
-    HashCountedSet<RenderObject*>::const_iterator end = clients().end();
-    for (HashCountedSet<RenderObject*>::const_iterator curr = clients().begin(); curr != end; ++curr)
-        const_cast<RenderObject*>(curr->key)->imageChanged(static_cast<WrappedImagePtr>(this));
+    for (auto it = clients().begin(), end = clients().end(); it != end; ++it)
+        it->key->imageChanged(static_cast<WrappedImagePtr>(this));
 }
 
-void CSSCanvasValue::canvasDestroyed(HTMLCanvasElement* element)
+void CSSCanvasValue::canvasDestroyed(HTMLCanvasElement& element)
 {
-    ASSERT_UNUSED(element, element == m_element);
-    m_element = 0;
+    ASSERT_UNUSED(&element, &element == m_element);
+    m_element = nullptr;
 }
 
-IntSize CSSCanvasValue::fixedSize(const RenderObject* renderer)
+FloatSize CSSCanvasValue::fixedSize(const RenderElement* renderer)
 {
     if (HTMLCanvasElement* elt = element(renderer->document()))
-        return IntSize(elt->width(), elt->height());
-    return IntSize();
+        return FloatSize(elt->width(), elt->height());
+    return FloatSize();
 }
 
-HTMLCanvasElement* CSSCanvasValue::element(Document* document)
+HTMLCanvasElement* CSSCanvasValue::element(Document& document)
 {
      if (!m_element) {
-        m_element = document->getCSSCanvasElement(m_name);
+        m_element = document.getCSSCanvasElement(m_name);
         if (!m_element)
-            return 0;
-        m_element->addObserver(&m_canvasObserver);
+            return nullptr;
+        m_element->addObserver(m_canvasObserver);
     }
     return m_element;
 }
 
-PassRefPtr<Image> CSSCanvasValue::image(RenderObject* renderer, const IntSize& /*size*/)
+PassRefPtr<Image> CSSCanvasValue::image(RenderElement* renderer, const FloatSize& /*size*/)
 {
     ASSERT(clients().contains(renderer));
-    HTMLCanvasElement* elt = element(renderer->document());
-    if (!elt || !elt->buffer())
+    HTMLCanvasElement* element = this->element(renderer->document());
+    if (!element || !element->buffer())
         return 0;
-    return elt->copiedImage();
+    return element->copiedImage();
 }
 
 bool CSSCanvasValue::equals(const CSSCanvasValue& other) const

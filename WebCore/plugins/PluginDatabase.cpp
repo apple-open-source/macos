@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,17 +28,13 @@
 #include "PluginDatabase.h"
 
 #include "Frame.h"
-#include "KURL.h"
+#include "URL.h"
 #include "PluginPackage.h"
 #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
 #include "FileSystem.h"
 #endif
 #include <stdlib.h>
 #include <wtf/text/CString.h>
-
-#if PLATFORM(BLACKBERRY)
-#include <BlackBerryPlatformSettings.h>
-#endif
 
 namespace WebCore {
 
@@ -51,7 +47,7 @@ static bool gPersistentPluginMetadataCacheIsEnabled;
 
 String& persistentPluginMetadataCachePath()
 {
-    DEFINE_STATIC_LOCAL(String, cachePath, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, cachePath, ());
     return cachePath;
 }
 #endif
@@ -281,7 +277,7 @@ String PluginDatabase::MIMETypeForExtension(const String& extension) const
     return mimeTypeForPlugin.get(pluginChoices[0]);
 }
 
-PluginPackage* PluginDatabase::findPlugin(const KURL& url, String& mimeType)
+PluginPackage* PluginDatabase::findPlugin(const URL& url, String& mimeType)
 {
     if (!mimeType.isEmpty())
         return pluginForMIMEType(mimeType);
@@ -371,11 +367,7 @@ void PluginDatabase::clear()
 
 bool PluginDatabase::removeDisabledPluginFile(const String& fileName)
 {
-    if (!m_disabledPluginFiles.contains(fileName))
-        return false;
-
-    m_disabledPluginFiles.remove(fileName);
-    return true;
+    return m_disabledPluginFiles.remove(fileName);
 }
 
 bool PluginDatabase::addDisabledPluginFile(const String& fileName)
@@ -393,7 +385,7 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     Vector<String> paths;
 
     // Add paths specific to each platform
-#if defined(XP_UNIX) && !PLATFORM(BLACKBERRY)
+#if defined(XP_UNIX)
     String userPluginPath = homeDirectoryPath();
     userPluginPath.append(String("/.mozilla/plugins"));
     paths.append(userPluginPath);
@@ -429,8 +421,6 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     String mozPath(getenv("MOZ_PLUGIN_PATH"));
     mozPath.split(UChar(':'), /* allowEmptyEntries */ false, mozPaths);
     paths.appendVector(mozPaths);
-#elif PLATFORM(BLACKBERRY)
-    paths.append(BlackBerry::Platform::Settings::instance()->applicationPluginDirectory().c_str());
 #elif defined(XP_MACOSX)
     String userPluginPath = homeDirectoryPath();
     userPluginPath.append(String("/Library/Internet Plug-Ins"));
@@ -442,14 +432,6 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     paths.append(userPluginPath);
 #endif
 
-    // Add paths specific to each port
-#if PLATFORM(QT)
-    Vector<String> qtPaths;
-    String qtPath(qgetenv("QTWEBKIT_PLUGIN_PATH").constData());
-    qtPath.split(UChar(':'), /* allowEmptyEntries */ false, qtPaths);
-    paths.appendVector(qtPaths);
-#endif
-
     return paths;
 }
 
@@ -457,10 +439,8 @@ bool PluginDatabase::isPreferredPluginDirectory(const String& path)
 {
     String preferredPath = homeDirectoryPath();
 
-#if defined(XP_UNIX) && !PLATFORM(BLACKBERRY)
+#if defined(XP_UNIX)
     preferredPath.append(String("/.mozilla/plugins"));
-#elif PLATFORM(BLACKBERRY)
-    preferredPath = BlackBerry::Platform::Settings::instance()->applicationPluginDirectory().c_str();
 #elif defined(XP_MACOSX)
     preferredPath.append(String("/Library/Internet Plug-Ins"));
 #elif defined(XP_WIN)

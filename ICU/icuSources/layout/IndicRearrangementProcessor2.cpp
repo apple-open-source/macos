@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp.  and others 1998-2013 - All Rights Reserved
+ * (C) Copyright IBM Corp.  and others 1998-2014 - All Rights Reserved
  *
  */
 
@@ -18,11 +18,11 @@ U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(IndicRearrangementProcessor2)
 
-IndicRearrangementProcessor2::IndicRearrangementProcessor2(const MorphSubtableHeader2 *morphSubtableHeader)
-  : StateTableProcessor2(morphSubtableHeader)
+IndicRearrangementProcessor2::IndicRearrangementProcessor2(
+      const LEReferenceTo<MorphSubtableHeader2> &morphSubtableHeader, LEErrorCode &success)
+  : StateTableProcessor2(morphSubtableHeader, success), entryTable(stHeader, success, entryTableOffset, LE_UNBOUNDED_ARRAY), 
+    indicRearrangementSubtableHeader(morphSubtableHeader, success)
 {
-    indicRearrangementSubtableHeader = (const IndicRearrangementSubtableHeader2 *) morphSubtableHeader;
-    entryTable = (const IndicRearrangementStateEntry2 *) ((char *) &stateTableHeader->stHeader + entryTableOffset);
 }
 
 IndicRearrangementProcessor2::~IndicRearrangementProcessor2()
@@ -35,9 +35,11 @@ void IndicRearrangementProcessor2::beginStateTable()
     lastGlyph = 0;
 }
 
-le_uint16 IndicRearrangementProcessor2::processStateEntry(LEGlyphStorage &glyphStorage, le_int32 &currGlyph, EntryTableIndex2 index)
+le_uint16 IndicRearrangementProcessor2::processStateEntry(LEGlyphStorage &glyphStorage, le_int32 &currGlyph, 
+                                                          EntryTableIndex2 index, LEErrorCode &success)
 {
-    const IndicRearrangementStateEntry2 *entry = &entryTable[index];
+    const IndicRearrangementStateEntry2 *entry = entryTable.getAlias(index, success);
+    if (LE_FAILURE(success)) return 0; // TODO - what to return in bad state?
     le_uint16 newState = SWAPW(entry->newStateIndex); // index to the new state
     IndicRearrangementFlags  flags =  (IndicRearrangementFlags) SWAPW(entry->flags);
     

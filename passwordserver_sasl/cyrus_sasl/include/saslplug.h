@@ -33,9 +33,10 @@ extern "C" {
  *  SASL_FAIL -- unable to find a callback of the requested type
  *  SASL_INTERACT -- caller must use interaction to get data
  */
+typedef int (*sasl_callback_ft)(); // APPLE: remove void
 typedef int sasl_getcallback_t(sasl_conn_t *conn,
 			       unsigned long callbackid,
-			       int (**pproc)(),
+			       sasl_callback_ft * pproc,
 			       void **pcontext);
 
 /* The sasl_utils structure will remain backwards compatible unless
@@ -132,7 +133,7 @@ typedef struct sasl_utils {
     void (*seterror)(sasl_conn_t *conn, unsigned flags, const char *fmt, ...);
 
     /* spare function pointer */
-    int *(*spare_fptr)();
+    int *(*spare_fptr)(void);
 
     /* auxiliary property utilities */
     struct propctx *(*prop_new)(unsigned estimate);
@@ -154,8 +155,8 @@ typedef struct sasl_utils {
 			 struct propctx *ctx, const char *user);
 
     /* for additions which don't require a version upgrade; set to 0 */
-    int (*spare_fptr1)();
-    int (*spare_fptr2)();
+    int (*spare_fptr1)(void);
+    int (*spare_fptr2)(void);
 } sasl_utils_t;
 
 /*
@@ -175,7 +176,9 @@ typedef struct sasl_out_params {
     unsigned alen;		/* length of canonicalized authid */
 
     /* security layer information */
-    unsigned maxoutbuf;
+    unsigned maxoutbuf;         /* Maximum buffer size, which will
+                                   produce buffer no bigger than the
+                                   negotiated SASL maximum buffer size */
     sasl_ssf_t mech_ssf;   /* Should be set non-zero if negotiation of a
 	 		    * security layer was *attempted*, even if
 			    * the negotiation failed */
@@ -191,12 +194,25 @@ typedef struct sasl_out_params {
     void *client_creds;
 
     /* for additions which don't require a version upgrade; set to 0 */
-    void *spare_ptr2;
-    void *spare_ptr3;
-    void *spare_ptr4;
+    /* APPLE: unions for compatibility with 2.1.22 and 2.1.26 */
+    union {
+        void *spare_ptr2;
+        const void *gss_peer_name;
+    };
+    union {
+        void *spare_ptr3;
+        const void *gss_local_name;
+    };
+    union {
+        void *spare_ptr4;
+        const char *cbindingname;   /* channel binding name from packet */
+    };
     int (*spare_fptr1)();
     int (*spare_fptr2)();
-    int spare_int1;
+    union {
+        int spare_int1;
+        unsigned int cbindingdisp;  /* channel binding disposition from client */
+    };
     int spare_int2;
     int spare_int3;
     int spare_int4;
@@ -217,7 +233,21 @@ typedef enum  {
     SASL_INFO_LIST_END
 } sasl_info_callback_stage_t;
 
+/******************************
+ * Channel binding macros     **
+ ******************************/
 
+typedef enum {
+    SASL_CB_DISP_NONE = 0,          /* client did not support CB */
+    SASL_CB_DISP_WANT,              /* client supports CB, thinks server does not */
+    SASL_CB_DISP_USED               /* client supports and used CB */
+} sasl_cbinding_disp_t;
+
+/* TRUE if channel binding is non-NULL */
+#define SASL_CB_PRESENT(params)     ((params)->cbinding != NULL)
+/* TRUE if channel binding is marked critical */
+#define SASL_CB_CRITICAL(params)    (SASL_CB_PRESENT(params) && \
+				     (params)->cbinding->critical)
 
 /******************************
  * Client Mechanism Functions *
@@ -252,9 +282,19 @@ typedef struct sasl_client_params {
     sasl_ssf_t external_ssf;	/* external SSF active */
 
     /* for additions which don't require a version upgrade; set to 0 */
-    void *spare_ptr1;
-    void *spare_ptr2;
-    void *spare_ptr3;
+    /* APPLE: unions for compatibility with 2.1.22 and 2.1.26 */
+    union {
+        void *spare_ptr1;
+        const void *gss_creds;                  /* GSS credential handle */
+    };
+    union {
+        void *spare_ptr2;
+        const sasl_channel_binding_t *cbinding; /* client channel binding */
+    };
+    union {
+        void *spare_ptr3;
+        const sasl_http_request_t *http_request;/* HTTP Digest request method */
+    };
     void *spare_ptr4;
 
     /* Canonicalize a user name from on-wire to internal format
@@ -285,9 +325,12 @@ typedef struct sasl_client_params {
                     unsigned flags,
                     sasl_out_params_t *oparams);
 
-    int (*spare_fptr1)();
+    int (*spare_fptr1)(void);
 
-    int spare_int1;
+    union {
+        int spare_int1;
+        unsigned int cbindingdisp;
+    };
     int spare_int2;
     int spare_int3;
 
@@ -308,24 +351,38 @@ typedef struct sasl_client_params {
  * if the protocol allows it. */
 #define SASL_FEAT_WANT_CLIENT_FIRST 0x0002
 
-/* This feature is deprecated, instead, plugins should set *serverout to
+/* This feature is deprecated.  Instead, plugins should set *serverout to
  * non-NULL and return SASL_OK intelligently to allow flexible use of
- * server-last semantics */
-/* #define SASL_FEAT_WANT_SERVER_LAST 0x0004 */
+ * server-last semantics
+#define SASL_FEAT_WANT_SERVER_LAST	0x0004
+*/
 
-/* This feature is deprecated, instead plugins should correctly set
- * SASL_FEAT_SERVER_FIRST as needed */
-/* #define SASL_FEAT_INTERNAL_CLIENT_FIRST 0x0008 */
+/* This feature is deprecated.  Instead, plugins should correctly set
+ * SASL_FEAT_SERVER_FIRST as needed
+#define SASL_FEAT_INTERNAL_CLIENT_FIRST	0x0008
+*/
 
 /* This indicates that the plugin is server-first only. 
  * Not defining either of SASL_FEAT_SERVER_FIRST or 
- * SASL_FEAT_WANT_CLIENT_FIRST indicates that the mechanism will take care 
- * of the client-first situation internally.
+ * SASL_FEAT_WANT_CLIENT_FIRST indicates that the mechanism
+ * will handle the client-first situation internally.
  */
 #define SASL_FEAT_SERVER_FIRST 0x0010
 
 /* This plugin allows proxying */
 #define SASL_FEAT_ALLOWS_PROXY 0x0020
+
+/* server plugin don't use cleartext userPassword attribute */
+#define SASL_FEAT_DONTUSE_USERPASSWD 	0x0080
+
+/* Underlying mechanism uses GSS framing */
+#define SASL_FEAT_GSS_FRAMING	 	0x0100
+
+/* Underlying mechanism supports channel binding */
+#define SASL_FEAT_CHANNEL_BINDING	0x0800
+
+/* This plugin can be used for HTTP authentication */
+#define SASL_FEAT_SUPPORTS_HTTP	    	0x1000
 
 /* client plug-in features */
 #define SASL_FEAT_NEEDSERVERFQDN 0x0001
@@ -399,8 +456,8 @@ typedef struct sasl_client_plug {
 		sasl_client_params_t *cparams);
 
     /* for additions which don't require a version upgrade; set to 0 */
-    int (*spare_fptr1)();
-    int (*spare_fptr2)();
+    int (*spare_fptr1)(void);
+    int (*spare_fptr2)(void);
 } sasl_client_plug_t;
 
 #define SASL_CLIENT_PLUG_VERSION         4
@@ -444,7 +501,7 @@ typedef void sasl_client_info_callback_t (client_sasl_mechanism_t *m,
 					  void *rock);
 
 /* Dump information about available client plugins */
-LIBSASL_API int sasl_client_plugin_info (char *mech_list,
+LIBSASL_API int sasl_client_plugin_info (const char *mech_list,
 	sasl_client_info_callback_t *info_cb,
 	void *info_cb_rock);
 
@@ -548,12 +605,22 @@ typedef struct sasl_server_params {
     struct propctx *propctx;
 
     /* for additions which don't require a version upgrade; set to 0 */
-    void *spare_ptr1;
-    void *spare_ptr2;
-    void *spare_ptr3;
+    /* APPLE: unions for compatibility with 2.1.22 and 2.1.26 */
+    union {
+        void *spare_ptr1;
+        const void *gss_creds;                  /* GSS credential handle */
+    };
+    union {
+        void *spare_ptr2;
+        const sasl_channel_binding_t *cbinding; /* server channel binding */;
+    };
+    union {
+        void *spare_ptr3;
+        const sasl_http_request_t *http_request;/* HTTP Digest request method */
+    };
     void *spare_ptr4;
-    int (*spare_fptr1)();
-    int (*spare_fptr2)();
+    int (*spare_fptr1)(void);
+    int (*spare_fptr2)(void);
     int spare_int1;
     int spare_int2;
     int spare_int3;
@@ -737,7 +804,7 @@ typedef struct sasl_server_plug {
 		      void **conn_context);
 
     /* for additions which don't require a version upgrade; set to 0 */
-    int (*spare_fptr2)();
+    int (*spare_fptr2)(void);
 } sasl_server_plug_t;
 
 #define SASL_SERVER_PLUG_VERSION 4
@@ -785,9 +852,9 @@ typedef void sasl_server_info_callback_t (server_sasl_mechanism_t *m,
 					  void *rock);
 
 
-/* Dump information about available server plugins (separate functions should be
-   used for canon and auxprop plugins */
-LIBSASL_API int sasl_server_plugin_info (char *mech_list,
+/* Dump information about available server plugins (separate functions are
+   used for canon and auxprop plugins) */
+LIBSASL_API int sasl_server_plugin_info (const char *mech_list,
 	sasl_server_info_callback_t *info_cb,
 	void *info_cb_rock);
 
@@ -843,9 +910,9 @@ typedef struct sasl_canonuser {
 			     unsigned out_max, unsigned *out_len);
 
     /* for additions which don't require a version upgrade; set to 0 */
-    int (*spare_fptr1)();
-    int (*spare_fptr2)();
-    int (*spare_fptr3)();
+    int (*spare_fptr1)(void);
+    int (*spare_fptr2)(void);
+    int (*spare_fptr3)(void);
 } sasl_canonuser_plug_t;
 
 #define SASL_CANONUSER_PLUG_VERSION 5
@@ -886,10 +953,17 @@ typedef struct sasl_auxprop_plug {
      *  last element in array has id of SASL_AUX_END
      *  elements with non-0 len should be ignored.
      */
-    void (*auxprop_lookup)(void *glob_context,
+    // APPLE: union for v4 auxprop plugins
+    union {
+        int (*auxprop_lookup)(void *glob_context,
 			   sasl_server_params_t *sparams,
 			   unsigned flags,
 			   const char *user, unsigned ulen);
+        void (*auxprop_lookup_v4)(void *glob_context,
+			   sasl_server_params_t *sparams,
+			   unsigned flags,
+			   const char *user, unsigned ulen);
+    };
 
     /* name of the auxprop plugin */
     char *name;
@@ -917,7 +991,12 @@ typedef struct sasl_auxprop_plug {
 				    * we are looking up the authzid flags
 				    * (no prefix) */
 
-#define SASL_AUXPROP_PLUG_VERSION 4
+/* NOTE: Keep in sync with SASL_CU_<XXX> flags */
+#define SASL_AUXPROP_VERIFY_AGAINST_HASH 0x10
+
+
+#define SASL_AUXPROP_PLUG_VERSION  8
+#define SASL_AUXPROP_PLUG_MIN_VERSION  4
 
 /* default name for auxprop plug-in entry point is "sasl_auxprop_init"
  *  similar to sasl_server_plug_init model, except only returns one
@@ -933,8 +1012,19 @@ typedef int sasl_auxprop_init_t(const sasl_utils_t *utils,
  */
 LIBSASL_API int sasl_auxprop_add_plugin(const char *plugname,
 					sasl_auxprop_init_t *auxpropfunc);
+/* APPLE */
 LIBSASL_API int sasl_auxprop_add_plugin_nolog(const char *plugname,
 					sasl_auxprop_init_t *auxpropfunc);
+
+typedef void auxprop_info_callback_t (sasl_auxprop_plug_t *m,
+			              sasl_info_callback_stage_t stage,
+				      void *rock);
+
+/* Dump information about available auxprop plugins (separate functions are
+   used for canon and server authentication plugins) */
+LIBSASL_API int auxprop_plugin_info (const char *mech_list,
+	auxprop_info_callback_t *info_cb,
+	void *info_cb_rock);
 
 #ifdef __cplusplus
 }

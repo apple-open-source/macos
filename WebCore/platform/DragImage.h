@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,60 +26,66 @@
 #ifndef DragImage_h
 #define DragImage_h
 
+#include "FloatSize.h"
 #include "FontRenderingMode.h"
 #include "ImageOrientation.h"
 #include "IntSize.h"
-#include "FloatSize.h"
 #include <wtf/Forward.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(IOS)
+#include <wtf/RetainPtr.h>
+typedef struct CGImage *CGImageRef;
+#elif PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS NSImage;
-#elif PLATFORM(QT)
-QT_BEGIN_NAMESPACE
-class QPixmap;
-QT_END_NAMESPACE
 #elif PLATFORM(WIN)
 typedef struct HBITMAP__* HBITMAP;
 #elif PLATFORM(GTK)
 typedef struct _cairo_surface cairo_surface_t;
 #endif
 
-//We need to #define YOffset as it needs to be shared with WebKit
+// We need to #define YOffset as it needs to be shared with WebKit
 #define DragLabelBorderYOffset 2
 
 namespace WebCore {
 
-    class Image;
-    class KURL;
-    class Range;
+class Frame;
+class Image;
+class IntRect;
+class Node;
+class Range;
+class URL;
 
-#if PLATFORM(MAC)
-    typedef RetainPtr<NSImage> DragImageRef;
-#elif PLATFORM(QT)
-    typedef QPixmap* DragImageRef;
+#if PLATFORM(IOS)
+typedef RetainPtr<CGImageRef> DragImageRef;
+#elif PLATFORM(MAC)
+typedef RetainPtr<NSImage> DragImageRef;
 #elif PLATFORM(WIN)
-    typedef HBITMAP DragImageRef;
+typedef HBITMAP DragImageRef;
 #elif PLATFORM(GTK)
-    typedef cairo_surface_t* DragImageRef;
-#elif PLATFORM(EFL) || PLATFORM(BLACKBERRY)
-    typedef void* DragImageRef;
+typedef cairo_surface_t* DragImageRef;
+#elif PLATFORM(EFL)
+typedef void* DragImageRef;
 #endif
-    
-    IntSize dragImageSize(DragImageRef);
-    
-    //These functions should be memory neutral, eg. if they return a newly allocated image, 
-    //they should release the input image.  As a corollary these methods don't guarantee
-    //the input image ref will still be valid after they have been called
-    DragImageRef fitDragImageToMaxSize(DragImageRef image, const IntSize& srcSize, const IntSize& size);
-    DragImageRef scaleDragImage(DragImageRef, FloatSize scale);
-    DragImageRef dissolveDragImageToFraction(DragImageRef image, float delta);
-    
-    DragImageRef createDragImageFromImage(Image*, RespectImageOrientationEnum = DoNotRespectImageOrientation);
-    DragImageRef createDragImageIconForCachedImageFilename(const String&);
-    DragImageRef createDragImageForLink(KURL&, const String& label, FontRenderingMode);
-    void deleteDragImage(DragImageRef);
+
+IntSize dragImageSize(DragImageRef);
+
+// These functions should be memory neutral, eg. if they return a newly allocated image,
+// they should release the input image. As a corollary these methods don't guarantee
+// the input image ref will still be valid after they have been called.
+DragImageRef fitDragImageToMaxSize(DragImageRef, const IntSize& srcSize, const IntSize& dstSize);
+DragImageRef scaleDragImage(DragImageRef, FloatSize scale);
+DragImageRef dissolveDragImageToFraction(DragImageRef, float delta);
+
+DragImageRef createDragImageFromImage(Image*, ImageOrientationDescription);
+DragImageRef createDragImageIconForCachedImageFilename(const String&);
+
+DragImageRef createDragImageForNode(Frame&, Node&);
+DragImageRef createDragImageForSelection(Frame&, bool forceBlackText = false);
+DragImageRef createDragImageForRange(Frame&, Range&, bool forceBlackText = false);
+DragImageRef createDragImageForImage(Frame&, Node&, IntRect& imageRect, IntRect& elementRect);
+DragImageRef createDragImageForLink(URL&, const String& label, FontRenderingMode);
+void deleteDragImage(DragImageRef);
 }
 
-
-#endif //!DragImage_h
+#endif // DragImage_h

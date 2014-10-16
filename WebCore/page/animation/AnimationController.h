@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -29,39 +29,37 @@
 #ifndef AnimationController_h
 #define AnimationController_h
 
+#include "AnimationBase.h"
 #include "CSSPropertyNames.h"
 #include <wtf/Forward.h>
-#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-class AnimationBase;
 class AnimationControllerPrivate;
 class Document;
 class Element;
 class Frame;
-class Node;
-class RenderObject;
+class RenderElement;
 class RenderStyle;
 
 class AnimationController {
 public:
-    AnimationController(Frame*);
+    explicit AnimationController(Frame&);
     ~AnimationController();
 
-    void cancelAnimations(RenderObject*);
-    PassRefPtr<RenderStyle> updateAnimations(RenderObject*, RenderStyle* newStyle);
-    PassRefPtr<RenderStyle> getAnimatedStyleForRenderer(RenderObject*);
+    void cancelAnimations(RenderElement*);
+    PassRef<RenderStyle> updateAnimations(RenderElement&, PassRef<RenderStyle> newStyle);
+    PassRefPtr<RenderStyle> getAnimatedStyleForRenderer(RenderElement*);
 
     // This is called when an accelerated animation or transition has actually started to animate.
-    void notifyAnimationStarted(RenderObject*, double startTime);
+    void notifyAnimationStarted(RenderElement*, double startTime);
 
-    bool pauseAnimationAtTime(RenderObject*, const AtomicString& name, double t); // To be used only for testing
-    bool pauseTransitionAtTime(RenderObject*, const String& property, double t); // To be used only for testing
+    bool pauseAnimationAtTime(RenderElement*, const AtomicString& name, double t); // To be used only for testing
+    bool pauseTransitionAtTime(RenderElement*, const String& property, double t); // To be used only for testing
     unsigned numberOfActiveAnimations(Document*) const; // To be used only for testing
     
-    bool isRunningAnimationOnRenderer(RenderObject*, CSSPropertyID, bool isRunningNow = true) const;
-    bool isRunningAcceleratedAnimationOnRenderer(RenderObject*, CSSPropertyID, bool isRunningNow = true) const;
+    bool isRunningAnimationOnRenderer(RenderElement*, CSSPropertyID, AnimationBase::RunningState) const;
+    bool isRunningAcceleratedAnimationOnRenderer(RenderElement*, CSSPropertyID, AnimationBase::RunningState) const;
 
     bool isSuspended() const;
     void suspendAnimations();
@@ -76,11 +74,14 @@ public:
 
     void beginAnimationUpdate();
     void endAnimationUpdate();
+
+    bool allowsNewAnimationsWhileSuspended() const;
+    void setAllowsNewAnimationsWhileSuspended(bool);
     
     static bool supportsAcceleratedAnimationOfProperty(CSSPropertyID);
 
 private:
-    OwnPtr<AnimationControllerPrivate> m_data;
+    const std::unique_ptr<AnimationControllerPrivate> m_data;
     int m_beginAnimationUpdateCount;
 };
 

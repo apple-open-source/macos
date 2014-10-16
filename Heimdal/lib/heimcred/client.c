@@ -27,13 +27,16 @@
  * SUCH DAMAGE.
  */
 
-#import <CoreFoundation/CFRuntime.h>
-#import <CoreFoundation/CFXPCBridge.h>
-#import <xpc/xpc.h>
+#include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CFXPCBridge.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
+#include <syslog.h>
 
-#import "heimcred.h"
-#import "common.h"
-#import "heimbase.h"
+#include "heimcred.h"
+#include "common.h"
+#include "heimbase.h"
+#include "hc_err.h"
 
 /*
  *
@@ -60,6 +63,36 @@ static void HeimWakeupVersion(void);
  *
  */
 
+static char *
+cfstring2cstring(CFStringRef string)
+{
+    CFIndex len;
+    char *str;
+    
+    str = (char *) CFStringGetCStringPtr(string, kCFStringEncodingUTF8);
+    if (str)
+	return strdup(str);
+
+    len = CFStringGetLength(string);
+    len = 1 + CFStringGetMaximumSizeForEncoding(len, kCFStringEncodingUTF8);
+    str = malloc(len);
+    if (str == NULL)
+	return NULL;
+	
+    if (!CFStringGetCString (string, str, len, kCFStringEncodingUTF8)) {
+	free (str);
+	return NULL;
+    }
+    return str;
+}
+
+
+
+
+/*
+ *
+ */
+
 static void
 _HeimCredInit(void)
 {
@@ -68,7 +101,9 @@ _HeimCredInit(void)
     dispatch_once(&once, ^{
 	    _HeimCredInitCommon();
 
-	    HeimCredCTX.conn = xpc_connection_create("com.apple.GSSCred", HeimCredCTX.queue);
+	    HeimCredCTX.conn = xpc_connection_create_mach_service("com.apple.GSSCred",
+								  HeimCredCTX.queue,
+								  XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
 
 	    xpc_connection_set_event_handler(HeimCredCTX.conn, ^(xpc_object_t object){ HeimItemNotify(object); });
 	    xpc_connection_resume(HeimCredCTX.conn);
@@ -78,12 +113,51 @@ _HeimCredInit(void)
 }
 
 /*
+ *
+ */
+
+static bool
+CreateCFError(CFErrorRef *error, int error_code, CFStringRef fmt, ...)
+    CF_FORMAT_FUNCTION(3, 4);
+
+static bool
+CreateCFError(CFErrorRef *error, int error_code, CFStringRef fmt, ...)
+{
+#define NUM_ERROR_DESC 2
+    void const *keys[NUM_ERROR_DESC] = { 
+	kCFErrorDescriptionKey,
+	CFSTR("CommonErrorCode")
+    };
+    void const *values[NUM_ERROR_DESC] = { 0, kCFBooleanTrue };
+    va_list va;
+
+    if (error == NULL)
+	return false;
+
+    va_start(va, fmt);
+    values[0] = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, va);
+    va_end(va);
+
+    *error = CFErrorCreateWithUserInfoKeysAndValues(NULL,
+						    CFSTR("org.h5l.HeimdalCredential"),
+						    (CFIndex)error_code,
+						    keys,
+						    values,
+						    NUM_ERROR_DESC);
+    CFRelease(values[0]);
+    
+    return true;
+    
+}
+
+
+/*
  * Let the server know we are awake
  */
 static void
 HeimWakeupVersion(void)
 {
-    if (HeimCredCTX.conn == NULL) abort();
+    heim_assert(HeimCredCTX.conn != NULL, "no connection to XPCService");
     xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(request, "command", "wakeup");
     xpc_dictionary_set_int64(request, "version", 0);
@@ -149,7 +223,7 @@ HeimItemNotify(xpc_object_t object)
 static HeimCredRef
 HeimCredAddItem(xpc_object_t object)
 {
-    CFDictionaryRef attributes = HeimCredMessageCopyAttributes(object, "attributes");
+    CFDictionaryRef attributes = HeimCredMessageCopyAttributes(object, "attributes", CFDictionaryGetTypeID());
     if (attributes == NULL)
 	return NULL;
     
@@ -182,7 +256,7 @@ HeimCredAddItem(xpc_object_t object)
 HeimCredRef
 HeimCredCreate(CFDictionaryRef attributes, CFErrorRef *error)
 {
-    __block HeimCredRef cred;
+    HeimCredRef cred = NULL;
 
     HC_INIT_ERROR(error);
 
@@ -199,13 +273,19 @@ HeimCredCreate(CFDictionaryRef attributes, CFErrorRef *error)
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
-    if (reply == NULL)
+    if (reply == NULL) {
+	CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
 	return NULL;
-    
-    heim_assert(reply != XPC_ERROR_CONNECTION_INTERRUPTED, "got XPC_ERROR_CONNECTION_INTERRUPTED");
-    heim_assert(reply != XPC_ERROR_CONNECTION_INVALID, "got XPC_ERROR_CONNECTION_INVALID");
+    }
 
-    cred = HeimCredAddItem(reply);
+    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+	return NULL;
+    }
+  
+    if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY)
+        cred = HeimCredAddItem(reply);
+
     xpc_release(reply);
 
     return cred;
@@ -250,7 +330,7 @@ HeimCredCopyFromUUID(CFUUIDRef uuid)
  */
 
 bool
-HeimCredSetAttribute(HeimCredRef cred, CFTypeRef key, CFTypeID value, CFErrorRef *error)
+HeimCredSetAttribute(HeimCredRef cred, CFTypeRef key, CFTypeRef value, CFErrorRef *error)
 {
     const void *keys[1] = { (void *)key };
     const void *values[1] = { (void *)value };
@@ -272,6 +352,9 @@ HeimCredSetAttributes(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *
 {
     HC_INIT_ERROR(error);
     
+    if (cred == NULL)
+	return false;
+
     xpc_object_t xpcquery = _CFXPCCreateXPCObjectFromCFObject(attributes);
     if (xpcquery == NULL)
 	return false;
@@ -283,12 +366,17 @@ HeimCredSetAttributes(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *
     xpc_release(xpcquery);
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
-    if (reply == NULL)
-	return false;
+    if (reply == NULL) {
+	CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
+	return NULL;
+    }
+    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	return NULL;
+    }
     
     dispatch_sync(HeimCredCTX.queue, ^{
 	CFRELEASE_NULL(cred->attributes);
-	cred->attributes = HeimCredMessageCopyAttributes(reply, "attributes");
+	cred->attributes = HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
     });
     xpc_release(reply);
 
@@ -332,12 +420,19 @@ HeimCredCopyAttributes(HeimCredRef cred, CFSetRef attributes, CFErrorRef *error)
 	HeimCredSetUUID(request, "uuid", cred->uuid);
 	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
 	xpc_release(request);
-	if (reply == NULL)
+	if (reply == NULL) {
+	    CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
 	    return NULL;
+	}
+	if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	    CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+	    return NULL;
+	}
 
 	dispatch_sync(HeimCredCTX.queue, ^{
 		CFRELEASE_NULL(cred->attributes);
-		attrs = cred->attributes = HeimCredMessageCopyAttributes(reply, "attributes");
+		attrs = cred->attributes = 
+		    HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
 		if (attrs)
 		    CFRetain(attrs);
 	    });
@@ -416,11 +511,16 @@ HeimCredDeleteQuery(CFDictionaryRef query, CFErrorRef *error)
     
     xpc_object_t reply = SendQueryCommand("delete", query);
     if (reply == NULL)
-	return NULL;
+	return false;
+
+    bool result = false;
+
+    if (xpc_dictionary_get_value(reply, "error") == NULL)
+	result = true;
 
     xpc_release(reply);
 
-    return false;
+    return result;
 }
 
 static xpc_object_t
@@ -497,6 +597,68 @@ HeimCredMove(CFUUIDRef from, CFUUIDRef to)
     return true;
 }
 
+CFDictionaryRef
+HeimCredCopyStatus(CFStringRef mech)
+{
+    CFDictionaryRef status = NULL;
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "status");
+    if (mech) {
+	xpc_object_t m = _CFXPCCreateXPCObjectFromCFObject(mech);
+	if (m == NULL) {
+	    xpc_release(request);
+	    return NULL;
+	}
+	xpc_dictionary_set_value(request, "mech", m);
+	xpc_release(m);
+    }
+	
+    HC_INIT();
+
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    if (reply) {
+	status = _CFXPCCreateCFObjectFromXPCObject(reply);
+	xpc_release(reply);
+    }
+    return status;
+}
+
+CFUUIDRef
+HeimCredCopyDefaultCredential(CFStringRef mech, CFErrorRef *error)
+{
+    CFUUIDRef defaultCred;
+
+    HC_INIT();
+
+    if (error)
+	*error = NULL;
+    
+    char *mechName = cfstring2cstring(mech);
+    if (mechName == NULL)
+	return NULL;
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "default");
+    xpc_dictionary_set_string(request, "mech", mechName);
+    free(mechName);
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+
+    if (reply == NULL) {
+	CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
+	return NULL;
+    }
+    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+	return NULL;
+    }
+
+    defaultCred = HeimCredMessageCopyAttributes(reply, "default", CFUUIDGetTypeID());
+    xpc_release(reply);
+
+    return defaultCred;
+}
 
 /*
  *

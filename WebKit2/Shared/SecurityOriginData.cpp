@@ -26,16 +26,16 @@
 #include "config.h"
 #include "SecurityOriginData.h"
 
-#include "APIObject.h"
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebSecurityOrigin.h"
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-SecurityOriginData SecurityOriginData::fromSecurityOrigin(SecurityOrigin* securityOrigin)
+SecurityOriginData SecurityOriginData::fromSecurityOrigin(const SecurityOrigin* securityOrigin)
 {
     SecurityOriginData securityOriginData;
 
@@ -51,14 +51,14 @@ PassRefPtr<SecurityOrigin> SecurityOriginData::securityOrigin() const
     return SecurityOrigin::create(protocol, host, port);
 }
 
-void SecurityOriginData::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SecurityOriginData::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << protocol;
     encoder << host;
     encoder << port;
 }
 
-bool SecurityOriginData::decode(CoreIPC::ArgumentDecoder& decoder, SecurityOriginData& securityOriginData)
+bool SecurityOriginData::decode(IPC::ArgumentDecoder& decoder, SecurityOriginData& securityOriginData)
 {
     if (!decoder.decode(securityOriginData.protocol))
         return false;
@@ -70,6 +70,17 @@ bool SecurityOriginData::decode(CoreIPC::ArgumentDecoder& decoder, SecurityOrigi
     return true;
 }
 
+SecurityOriginData SecurityOriginData::isolatedCopy() const
+{
+    SecurityOriginData result;
+
+    result.protocol = protocol.isolatedCopy();
+    result.host = host.isolatedCopy();
+    result.port = port;
+
+    return result;
+}
+
 void performAPICallbackWithSecurityOriginDataVector(const Vector<SecurityOriginData>& originDatas, ArrayCallback* callback)
 {
     if (!callback) {
@@ -77,19 +88,27 @@ void performAPICallbackWithSecurityOriginDataVector(const Vector<SecurityOriginD
         return;
     }
     
-    size_t originDataCount = originDatas.size();
-    Vector<RefPtr<APIObject>> securityOrigins;
-    securityOrigins.reserveCapacity(originDataCount);
+    Vector<RefPtr<API::Object>> securityOrigins;
+    securityOrigins.reserveInitialCapacity(originDatas.size());
 
-    for (size_t i = 0; i < originDataCount; ++i) {
-        SecurityOriginData originData = originDatas[i];
-        RefPtr<APIObject> origin = WebSecurityOrigin::create(originData.protocol, originData.host, originData.port);
+    for (const auto& originData : originDatas) {
+        RefPtr<API::Object> origin = WebSecurityOrigin::create(originData.protocol, originData.host, originData.port);
         if (!origin)
             continue;
-        securityOrigins.uncheckedAppend(origin);
+        securityOrigins.uncheckedAppend(WTF::move(origin));
     }
 
-    callback->performCallbackWithReturnValue(ImmutableArray::adopt(securityOrigins).get());
+    callback->performCallbackWithReturnValue(API::Array::create(WTF::move(securityOrigins)).get());
+}
+
+bool operator==(const SecurityOriginData& a, const SecurityOriginData& b)
+{
+    if (&a == &b)
+        return true;
+
+    return a.protocol == b.protocol
+        && a.host == b.host
+        && a.port == b.port;
 }
 
 } // namespace WebKit

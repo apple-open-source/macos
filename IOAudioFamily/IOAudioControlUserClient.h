@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 #ifndef _IOKIT_IOAUDIOCONTROLUSERCLIENT_H
 #define _IOKIT_IOAUDIOCONTROLUSERCLIENT_H
 
+#include <AvailabilityMacros.h>
 #include <IOKit/IOUserClient.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
@@ -42,8 +43,8 @@ protected:
     IOAudioControl *			audioControl;
     IOAudioNotificationMessage *	notificationMessage;
 
-    virtual IOReturn clientClose();
-    virtual IOReturn clientDied();
+    virtual IOReturn clientClose( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn clientDied( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
     struct ExpansionData { };
@@ -51,9 +52,9 @@ protected:
     ExpansionData *reserved;
 
 public:
-	virtual void sendChangeNotification(UInt32 notificationType);
+	virtual void sendChangeNotification(UInt32 notificationType ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     // OSMetaClassDeclareReservedUsed(IOAudioControlUserClient, 1);
-    virtual bool initWithAudioControl(IOAudioControl *control, task_t owningTask, void *securityID, UInt32 type, OSDictionary *properties);
+    virtual bool initWithAudioControl(IOAudioControl *control, task_t owningTask, void *securityID, UInt32 type, OSDictionary *properties ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioControlUserClient, 0);
@@ -75,16 +76,16 @@ private:
     OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 15);
 
 public:
-    static IOAudioControlUserClient *withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type);
-    static IOAudioControlUserClient *withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type, OSDictionary *properties);
+    static IOAudioControlUserClient *withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    static IOAudioControlUserClient *withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type, OSDictionary *properties ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual bool initWithAudioControl(IOAudioControl *control, task_t owningTask, void *securityID, UInt32 type);
+    virtual bool initWithAudioControl(IOAudioControl *control, task_t owningTask, void *securityID, UInt32 type ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-    virtual void free();
+    virtual void free( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon);
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void sendValueChangeNotification();
+    virtual void sendValueChangeNotification( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 };
 
 #endif /* _IOKIT_IOAUDIOCONTROLUSERCLIENT_H */

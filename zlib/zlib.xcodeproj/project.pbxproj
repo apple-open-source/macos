@@ -56,13 +56,14 @@
 		4CE5F21A107AB6D200DCB1EB /* zlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zlib.h; path = zlib/zlib.h; sourceTree = "<group>"; };
 		4CE5F21B107AB6D200DCB1EB /* zutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = zutil.c; path = zlib/zutil.c; sourceTree = "<group>"; };
 		4CE5F21C107AB6D200DCB1EB /* zutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zutil.h; path = zlib/zutil.h; sourceTree = "<group>"; };
+		814E93D1185D7A3A009656FB /* zlib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = zlib.xcconfig; sourceTree = "<group>"; };
 		B1EA68CD1318904800CB9362 /* gzclose.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzclose.c; path = zlib/gzclose.c; sourceTree = "<group>"; };
 		B1EA68CE1318904800CB9362 /* gzguts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gzguts.h; path = zlib/gzguts.h; sourceTree = "<group>"; };
 		B1EA68CF1318904800CB9362 /* gzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzlib.c; path = zlib/gzlib.c; sourceTree = "<group>"; };
 		B1EA68D01318904800CB9362 /* gzread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzread.c; path = zlib/gzread.c; sourceTree = "<group>"; };
 		B1EA68D11318904800CB9362 /* gzwrite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzwrite.c; path = zlib/gzwrite.c; sourceTree = "<group>"; };
 		B1EA68D21318904800CB9362 /* inffixed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inffixed.h; path = zlib/inffixed.h; sourceTree = "<group>"; };
-		D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libz.1.2.5.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2AAC0630554660B00DB518D /* libz.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libz.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +80,7 @@
 		08FB7794FE84155DC02AAC07 /* zlib */ = {
 			isa = PBXGroup;
 			children = (
+				814E93D1185D7A3A009656FB /* zlib.xcconfig */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
@@ -121,7 +123,7 @@
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */,
+				D2AAC0630554660B00DB518D /* libz.1.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -165,7 +167,7 @@
 			);
 			name = libz;
 			productName = zlib;
-			productReference = D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */;
+			productReference = D2AAC0630554660B00DB518D /* libz.1.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
@@ -173,6 +175,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "zlib" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -201,7 +205,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -x\nif [ \"${RC_ProjectName%_Sim}\" != \"${RC_ProjectName}\" ] ; then\n    DSTROOT=\"$DSTROOT$SDKROOT\"\ninstall_name_tool -id /usr/lib/libz.1.dylib ${DSTROOT}/usr/lib/libz.${DYLIB_CURRENT_VERSION}.dylib\nfi\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\ngzip \"$DSTROOT\"/usr/share/man/man3/*\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.dylib libz.dylib; do\n\techo l: $l\nln -s libz.${DYLIB_CURRENT_VERSION}.dylib \"$DSTROOT\"/usr/lib/$l\ndone\n";
+			shellScript = "set -x\nDSTROOT=\"$DSTROOT$INSTALL_PATH_PREFIX\"\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.2.5.dylib libz.dylib; do\n    echo l: $l\n    ln -s ${EXECUTABLE_NAME} \"$DSTROOT\"/usr/lib/$l\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -233,25 +237,8 @@
 /* Begin XCBuildConfiguration section */
 		1DEB914C08733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 814E93D1185D7A3A009656FB /* zlib.xcconfig */;
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 1.2.5;
-				EXECUTABLE_PREFIX = lib;
-				EXPORTED_SYMBOLS_FILE = libz.exp;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					USE_MMAP,
-				);
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphoneos*]" = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				"INSTALL_PATH[sdk=macosx*]" = /usr/lib;
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/libz.1.dylib";
-				PRODUCT_NAME = "z.$(DYLIB_CURRENT_VERSION)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphoneos*]" = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = /usr/include;
 				STRIP_STYLE = "non-global";
 			};
 			name = Release;
@@ -259,21 +246,6 @@
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				ONLY_ACTIVE_ARCH = NO;
-				PREBINDING = NO;
-				USE_HEADERMAP = NO;
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = __;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};

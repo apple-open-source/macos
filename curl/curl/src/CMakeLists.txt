@@ -20,7 +20,7 @@ add_executable(
   ${curl_SOURCES}
   )
 
-source_group("cURLX source files" FILES ${CURLX_ONES})
+source_group("cURLX source files" FILES ${CURLX_CFILES})
 source_group("cURL source files" FILES ${CURL_CFILES})
 source_group("cURL header files" FILES ${CURL_HFILES})
 
@@ -45,13 +45,6 @@ target_link_libraries( ${EXE_NAME} libcurl )
 # Add the postfix to the executable since it is not added automatically as for modules and shared libraries
 set_target_properties(${EXE_NAME} PROPERTIES
   DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
-
-if(MSVC)
-  if(NOT BUILD_RELEASE_DEBUG_DIRS)
-    # Ugly workaround to remove the "/debug" or "/release" in each output
-    set_target_properties(${EXE_NAME} PROPERTIES PREFIX "../")
-  endif()
-endif()
 
 #INCLUDE(ModuleInstall OPTIONAL)
 

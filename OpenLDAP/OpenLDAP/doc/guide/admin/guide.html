@@ -1086,7 +1086,7 @@ Support Pages
 <P><EM>slapd</EM>(8) is an LDAP directory server that runs on many different platforms. You can use it to provide a directory service of your very own.  Your directory can contain pretty much anything you want to put in it. You can connect it to the global LDAP directory service, or run a service all by yourself. Some of slapd's more interesting features and capabilities include:</P>
 <P><B>LDAPv3</B>: <EM>slapd</EM> implements version 3 of <TERM>Lightweight Directory Access Protocol</TERM>. <EM>slapd</EM> supports LDAP over both <TERM>IPv4</TERM> and <TERM>IPv6</TERM> and Unix <TERM>IPC</TERM>.</P>
 <P><B><TERM>Simple Authentication and Security Layer</TERM></B>: <EM>slapd</EM> supports strong authentication and data security (integrity and confidentiality) services through the use of SASL.  <EM>slapd</EM>'s SASL implementation utilizes <A HREF="http://asg.web.cmu.edu/sasl/sasl-library.html">Cyrus SASL</A> software which supports a number of mechanisms including <TERM>DIGEST-MD5</TERM>, <TERM>EXTERNAL</TERM>, and <TERM>GSSAPI</TERM>.</P>
-<P><B><TERM>Transport Layer Security</TERM></B>: <EM>slapd</EM> supports certificate-based authentication and data security (integrity and confidentiality) services through the use of TLS (or SSL).  <EM>slapd</EM>'s TLS implementation can utilize <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> software.</P>
+<P><B><TERM>Transport Layer Security</TERM></B>: <EM>slapd</EM> supports certificate-based authentication and data security (integrity and confidentiality) services through the use of TLS (or SSL).  <EM>slapd</EM>'s TLS implementation can utilize <A HREF="http://developer.apple.com/library/mac/documentation/Security/Reference/secureTransportRef/Reference/reference.html">SecureTransport</A>, <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> software.</P>
 <P><B>Topology control</B>: <EM>slapd</EM> can be configured to restrict access at the socket layer based upon network topology information. This feature utilizes <EM>TCP wrappers</EM>.</P>
 <P><B>Access control</B>: <EM>slapd</EM> provides a rich and powerful access control facility, allowing you to control access to the information in your database(s). You can control access to entries based on LDAP authorization information, <TERM>IP</TERM> address, domain name and other criteria.  <EM>slapd</EM> supports both <EM>static</EM> and <EM>dynamic</EM> access control information.</P>
 <P><B>Internationalization</B>: <EM>slapd</EM> supports Unicode and language tags.</P>
@@ -1328,8 +1328,8 @@ This command will search for and retrieve every entry in the database.</OL>
 <H2><A NAME="Prerequisite software">4.2. Prerequisite software</A></H2>
 <P>OpenLDAP Software relies upon a number of software packages distributed by third parties.  Depending on the features you intend to use, you may have to download and install a number of additional software packages.  This section details commonly needed third party software packages you might have to install.  However, for an up-to-date prerequisite information, the <TT>README</TT> document should be consulted.  Note that some of these third party packages may depend on additional software packages.  Install each package per the installation instructions provided with it.</P>
 <H3><A NAME="{{TERM[expand]TLS}}">4.2.1. <TERM>Transport Layer Security</TERM></A></H3>
-<P>OpenLDAP clients and servers require installation of <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> <TERM>TLS</TERM> libraries to provide <TERM>Transport Layer Security</TERM> services.  Though some operating systems may provide these libraries as part of the base system or as an optional software component, OpenSSL, GnuTLS, and Mozilla NSS often require separate installation.</P>
-<P>OpenSSL is available from <A HREF="http://www.openssl.org/">http://www.openssl.org/</A>. GnuTLS is available from <A HREF="http://www.gnu.org/software/gnutls/">http://www.gnu.org/software/gnutls/</A>. Mozilla NSS is available from <A HREF="http://developer.mozilla.org/en/NSS">http://developer.mozilla.org/en/NSS</A>.</P>
+<P>OpenLDAP clients and servers require installation of <A HREF="http://developer.apple.com/library/mac/documentation/Security/Reference/secureTransportRef/Reference/reference.html">SecureTransport</A>, <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> <TERM>TLS</TERM> libraries to provide <TERM>Transport Layer Security</TERM> services.  Though some operating systems may provide these libraries as part of the base system or as an optional software component, OpenSSL, GnuTLS, and Mozilla NSS often require separate installation.</P>
+<P>SecureTransport is part of OS X. OpenSSL is available from <A HREF="http://www.openssl.org/">http://www.openssl.org/</A>. GnuTLS is available from <A HREF="http://www.gnu.org/software/gnutls/">http://www.gnu.org/software/gnutls/</A>. Mozilla NSS is available from <A HREF="http://developer.mozilla.org/en/NSS">http://developer.mozilla.org/en/NSS</A>.</P>
 <P>OpenLDAP Software will not be fully LDAPv3 compliant unless OpenLDAP's <TT>configure</TT> detects a usable TLS library.</P>
 <H3><A NAME="{{TERM[expand]SASL}}">4.2.2. <TERM>Simple Authentication and Security Layer</TERM></A></H3>
 <P>OpenLDAP clients and servers require installation of <A HREF="http://asg.web.cmu.edu/sasl/sasl-library.html">Cyrus SASL</A> libraries to provide <TERM>Simple Authentication and Security Layer</TERM> services.  Though some operating systems may provide this library as part of the base system or as an optional software component, Cyrus SASL often requires separate installation.</P>
@@ -2036,6 +2036,8 @@ SQL Programmable backend
                 [tls_key=&lt;file&gt;]
                 [tls_cacert=&lt;file&gt;]
                 [tls_cacertdir=&lt;path&gt;]
+                [tls_identity=&lt;name&gt;]
+                [tls_trusted_certs=&lt;list&gt;]
                 [tls_reqcert=never|allow|try|demand]
                 [tls_ciphersuite=&lt;ciphers&gt;]
                 [tls_crlcheck=none|peer|all]
@@ -2772,6 +2774,8 @@ SQL Programmable backend
                 [tls_key=&lt;file&gt;]
                 [tls_cacert=&lt;file&gt;]
                 [tls_cacertdir=&lt;path&gt;]
+                [tls_identity=&lt;name&gt;]
+                [tls_trusted_certs=&lt;list&gt;]
                 [tls_reqcert=never|allow|try|demand]
                 [tls_ciphersuite=&lt;ciphers&gt;]
                 [tls_crlcheck=none|peer|all]
@@ -6947,12 +6951,13 @@ object identifier
 <H3><A NAME="Client Certificates">16.1.2. Client Certificates</A></H3>
 <P>The DN of a client certificate can be used directly as an authentication DN. Since X.509 is a part of the <TERM>X.500</TERM> standard and LDAP is also based on X.500, both use the same DN formats and generally the DN in a user's X.509 certificate should be identical to the DN of their LDAP entry. However, sometimes the DNs may not be exactly the same, and so the mapping facility described in <A HREF="#Mapping Authentication Identities">Mapping Authentication Identities</A> can be applied to these DNs as well.</P>
 <H2><A NAME="TLS Configuration">16.2. TLS Configuration</A></H2>
-<P>After obtaining the required certificates, a number of options must be configured on both the client and the server to enable TLS and make use of the certificates.  At a minimum, the clients must be configured with the name of the file containing all of the <TERM>Certificate Authority</TERM> (CA) certificates it will trust. The server must be configured with the <TERM>CA</TERM> certificates and also its own server certificate and private key.</P>
+<P>After obtaining the required certificates, a number of options must be configured on both the client and the server to enable TLS and make use of the certificates.  At a minimum, the clients must be configured with all of the <TERM>Certificate Authority</TERM> (CA) certificates it will trust. The server must be configured with the <TERM>CA</TERM> certificates and also its own server certificate and private key.</P>
 <P>Typically a single CA will have issued the server certificate and all of the trusted client certificates, so the server only needs to trust that one signing CA. However, a client may wish to connect to a variety of secure servers managed by different organizations, with server certificates generated by many different CAs. As such, a client is likely to need a list of many different trusted CAs in its configuration.</P>
 <H3><A NAME="Server Configuration">16.2.1. Server Configuration</A></H3>
 <P>The configuration directives for slapd belong in the global directives section of <EM>slapd.conf</EM>(5).</P>
 <H4><A NAME="TLSCACertificateFile &lt;filename&gt;">16.2.1.1. TLSCACertificateFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the <TERM>PEM</TERM>-format file containing certificates for the CA's that slapd will trust. The certificate for the CA that signed the server certificate must be included among these certificates. If the signing CA was not a top-level (root) CA, certificates for the entire sequence of CA's from the signing CA to the top-level CA should be present. Multiple certificates are simply appended to the file; the order is not significant.</P>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLSTrustedCerts">TLSTrustedCerts</A> directive.</P>
 <H4><A NAME="TLSCACertificatePath &lt;path&gt;">16.2.1.2. TLSCACertificatePath &lt;path&gt;</A></H4>
 <P>This directive specifies the path of a directory that contains individual <TERM>CA</TERM> certificates in separate files.  In addition, this directory must be specially managed using the OpenSSL <EM>c_rehash</EM> utility. When using this feature, the OpenSSL library will attempt to locate certificate files based on a hash of their name and serial number. The <EM>c_rehash</EM> utility is used to generate symbolic links with the hashed names that point to the actual certificate files. As such, this option can only be used with a filesystem that actually supports symbolic links. In general, it is simpler to use the <TT>TLSCACertificateFile</TT> directive instead.</P>
 <P>When using Mozilla NSS, this directive can be used to specify the path of the directory containing the NSS certificate and key database files.  The <EM>certutil</EM> command can be used to add a <TERM>CA</TERM> certificate:</P>
@@ -6965,6 +6970,7 @@ This command will add a CA certficate stored in the PEM (ASCII) formatted
 file named /path/to/cacertfile.pem.  <TT>-t CT,,</TT> means that the certificate is
 <BR>
 trusted to be a CA issuing certs for use in TLS clients and servers.</UL>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLSTrustedCerts">TLSTrustedCerts</A> directive.</P>
 <H4><A NAME="TLSCertificateFile &lt;filename&gt;">16.2.1.3. TLSCertificateFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the slapd server certificate. Certificates are generally public information and require no special protection.</P>
 <P>When using Mozilla NSS, if using a cert/key database (specified with <TT>TLSCACertificatePath</TT>), this directive specifies the name of the certificate to use:</P>
@@ -6983,6 +6989,7 @@ Use <TT>certutil -L</TT> to list the certificates by name:</UL>
 <PRE>
        certutil -d /path/to/certdbdir -L
 </PRE>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLSIdentity">TLSIdentity</A> directive.</P>
 <H4><A NAME="TLSCertificateKeyFile &lt;filename&gt;">16.2.1.4. TLSCertificateKeyFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the private key that matches the certificate stored in the <TT>TLSCertificateFile</TT> file. Private keys themselves are sensitive data and are usually password encrypted for protection. However, the current implementation doesn't support encrypted keys so the key must not be encrypted and the file itself must be protected carefully.</P>
 <P>When using Mozilla NSS, this directive specifies the name of a file that contains the password for the key for the certificate specified with <TT>TLSCertificateFile</TT>.  The modutil command can be used to turn off password protection for the cert/key database.  For example, if <TT>TLSCACertificatePath</TT> specifes /etc/openldap/certdb as the location of the cert/key database, use modutil to change the password to the empty string:</P>
@@ -6993,6 +7000,7 @@ Use <TT>certutil -L</TT> to list the certificates by name:</UL>
 You must have the old password, if any.  Ignore the WARNING about the running
 <BR>
 browser.  Press 'Enter' for the new password.</UL>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLSIdentity">TLSIdentity</A> directive.</P>
 <H4><A NAME="TLSCipherSuite &lt;cipher-suite-spec&gt;">16.2.1.5. TLSCipherSuite &lt;cipher-suite-spec&gt;</A></H4>
 <P>This directive configures what ciphers will be accepted and the preference order. <TT>&lt;cipher-suite-spec&gt;</TT> should be a cipher specification for OpenSSL. You can use the command</P>
 <PRE>
@@ -7008,9 +7016,10 @@ browser.  Press 'Enter' for the new password.</UL>
 <PRE>
        static const SSLCipherSuiteInfo suiteInfo[]
 </PRE>
+<P>When using SecureTransport this directive uses <A HREF="http://developer.apple.com/library/mac/documentation/Security/Reference/secureTransportRef/Reference/reference.html">cipher names known to the Security framework</A> unless you prefix the value with <TT>OpenSSL:</TT> in which case it uses cipher names known to OpenSSL.</P>
 <H4><A NAME="TLSRandFile &lt;filename&gt;">16.2.1.6. TLSRandFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file to obtain random bits from when <TT>/dev/urandom</TT> is not available. If the system provides <TT>/dev/urandom</TT> then this option is not needed, otherwise a source of random data must be configured.  Some systems (e.g. Linux) provide <TT>/dev/urandom</TT> by default, while others (e.g. Solaris) require the installation of a patch to provide it, and others may not support it at all. In the latter case, EGD or PRNGD should be installed, and this directive should specify the name of the EGD/PRNGD socket. The environment variable <TT>RANDFILE</TT> can also be used to specify the filename. Also, in the absence of these options, the <TT>.rnd</TT> file in the slapd user's home directory may be used if it exists. To use the <TT>.rnd</TT> file, just create the file and copy a few hundred bytes of arbitrary data into the file. The file is only used to provide a seed for the pseudo-random number generator, and it doesn't need very much data to work.</P>
-<P>This directive is ignored with GnuTLS and Mozilla NSS.</P>
+<P>This directive is ignored with SecureTransport, GnuTLS and Mozilla NSS.</P>
 <H4><A NAME="TLSEphemeralDHParamFile &lt;filename&gt;">16.2.1.7. TLSEphemeralDHParamFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains parameters for Diffie-Hellman ephemeral key exchange.  This is required in order to use a DSA certificate on the server side (i.e. <TT>TLSCertificateKeyFile</TT> points to a DSA key).  Multiple sets of parameters can be included in the file; all of them will be processed.  Parameters can be generated using the following command</P>
 <PRE>
@@ -7022,14 +7031,22 @@ browser.  Press 'Enter' for the new password.</UL>
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>The server must request a client certificate in order to use the SASL EXTERNAL authentication mechanism with a TLS session. As such, a non-default <TT>TLSVerifyClient</TT> setting must be configured before SASL EXTERNAL authentication may be attempted, and the SASL EXTERNAL mechanism will only be offered to the client if a valid client certificate was received.
 <HR WIDTH="80%" ALIGN="Left"></P>
+<H4><A NAME="TLSIdentity">16.2.1.9. TLSIdentity &lt;name&gt;</A></H4>
+<P>When using SecureTransport this directive replaces the TLSCertificateFile and TLSCertificateKeyFile directives.  It names an identity in the system keychain.  An identity is a certificate paired with a private key.  Beware application-restricted private keys; make sure the one you use is available to all applications.</P>
+<P>This directive is ignored with OpenSSL, GnuTLS and Mozilla NSS.</P>
+<H4><A NAME="TLSTrustedCerts">16.2.1.10. TLSTrustedCerts &lt;list&gt;</A></H4>
+<P>When using SecureTransport this directive replaces the TLSCACertificateFile and TLSCACertificatePath directives.  It lists names of certificates in the system keychain, separated by '|' characters.  For example:  <TT>TLSTrustedCerts Frobozz, Inc.|Widgets R Us|www.example.com</TT></P>
+<P>This directive is ignored with OpenSSL, GnuTLS and Mozilla NSS.</P>
 <H3><A NAME="Client Configuration">16.2.2. Client Configuration</A></H3>
 <P>Most of the client configuration directives parallel the server directives. The names of the directives are different, and they go into <EM>ldap.conf</EM>(5) instead of <EM>slapd.conf</EM>(5), but their functionality is mostly the same. Also, while most of these options may be configured on a system-wide basis, they may all be overridden by individual users in their <EM>.ldaprc</EM> files.</P>
 <P>The LDAP Start TLS operation is used in LDAP to initiate TLS negotiation.  All OpenLDAP command line tools support a <TT>-Z</TT> and <TT>-ZZ</TT> flag to indicate whether a Start TLS operation is to be issued.  The latter flag indicates that the tool is to cease processing if TLS cannot be started while the former allows the command to continue.</P>
 <P>In LDAPv2 environments, TLS is normally started using the LDAP Secure URI scheme (<TT>ldaps://</TT>) instead of the normal LDAP URI scheme (<TT>ldap://</TT>).  OpenLDAP command line tools allow either scheme to used with the <TT>-H</TT> flag and with the <TT>URI</TT> <EM>ldap.conf</EM>(5) option.</P>
 <H4><A NAME="TLS_CACERT &lt;filename&gt;">16.2.2.1. TLS_CACERT &lt;filename&gt;</A></H4>
 <P>This is equivalent to the server's <TT>TLSCACertificateFile</TT> option. As noted in the <A HREF="#TLS Configuration">TLS Configuration</A> section, a client typically may need to know about more CAs than a server, but otherwise the same considerations apply.</P>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLS_TRUSTED_CERTS">TLS_TRUSTED_CERTS</A> directive.</P>
 <H4><A NAME="TLS_CACERTDIR &lt;path&gt;">16.2.2.2. TLS_CACERTDIR &lt;path&gt;</A></H4>
 <P>This is equivalent to the server's <TT>TLSCACertificatePath</TT> option. The specified directory must be managed with the OpenSSL <EM>c_rehash</EM> utility as well.  If using Mozilla NSS, &lt;path&gt; may contain a cert/key database.</P>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLS_TRUSTED_CERTS">TLS_TRUSTED_CERTS</A> directive.</P>
 <H4><A NAME="TLS_CERT &lt;filename&gt;">16.2.2.3. TLS_CERT &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the client certificate. This is a user-only directive and can only be specified in a user's <EM>.ldaprc</EM> file.</P>
 <P>When using Mozilla NSS, if using a cert/key database (specified with <TT>TLS_CACERTDIR</TT>), this directive specifies the name of the certificate to use:</P>
@@ -7048,12 +7065,18 @@ Use <TT>certutil -L</TT> to list the certificates by name:</UL>
 <PRE>
        certutil -d /path/to/certdbdir -L
 </PRE>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLS_IDENTITY">TLS_IDENTITY</A> directive.</P>
 <H4><A NAME="TLS_KEY &lt;filename&gt;">16.2.2.4. TLS_KEY &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the private key that matches the certificate stored in the <TT>TLS_CERT</TT> file. The same constraints mentioned for <TT>TLSCertificateKeyFile</TT> apply here. This is also a user-only directive.</P>
+<P>When using SecureTransport this directive is not used.  Instead use the <A HREF="#TLS_IDENTITY">TLS_IDENTITY</A> directive.</P>
 <H4><A NAME="TLS_RANDFILE &lt;filename&gt;">16.2.2.5. TLS_RANDFILE &lt;filename&gt;</A></H4>
 <P>This directive is the same as the server's <TT>TLSRandFile</TT> option.</P>
 <H4><A NAME="TLS_REQCERT { never | allow | try | demand }">16.2.2.6. TLS_REQCERT { never | allow | try | demand }</A></H4>
 <P>This directive is equivalent to the server's <TT>TLSVerifyClient</TT> option. However, for clients the default value is <TT>demand</TT> and there generally is no good reason to change this setting.</P>
+<H4><A NAME="TLS_IDENTITY">16.2.2.7. TLS_IDENTITY &lt;name&gt;</A></H4>
+<P>This directive is equivalent to the server's <TT>TLSIdentity</TT> option.  When using SecureTransport it replaces the TLS_CERT and TLS_KEY directives.</P>
+<H4><A NAME="TLS_TRUSTED_CERTS">16.2.2.8. TLS_TRUSTED_CERTS &lt;list&gt;</A></H4>
+<P>This directive is equivalent to the server's <TT>TLS_TRUSTED_CERTS</TT> option.  When using SecureTransport it replaces the TLS_CACERT and TLS_CACERTDIR directives.</P>
 <P></P>
 <HR>
 <H1><A NAME="Constructing a Distributed Directory Service">17. Constructing a Distributed Directory Service</A></H1>

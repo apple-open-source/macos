@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -200,7 +200,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 	if (save) {
 		int		fd;
 		CFDataRef	newPrefs;
-		int		pathLen;
+		CFIndex		pathLen;
 		char *		thePath;
 
 		if (stat(prefsPrivate->path, &statBuf) == -1) {
@@ -260,27 +260,6 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			CFRelease(newPrefs);
 			goto done;
 		}
-
-#if	!TARGET_OS_IPHONE
-		/* synchronize the file's in-core state with that on disk */
-		if (fsync(fd) == -1) {
-			_SCErrorSet(errno);
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges fsync() failed: %s"), strerror(errno));
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("  path = %s"), thePath);
-			(void) unlink(thePath);
-			CFAllocatorDeallocate(NULL, thePath);
-			(void) close(fd);
-			CFRelease(newPrefs);
-			goto done;
-		}
-
-		/*
-		 * ... and ask the drive to flush to the media
-		 *
-		 * Note: at present, this only works on HFS filesystems
-		 */
-		(void) fcntl(fd, F_FULLFSYNC, 0);
-#endif	// !TARGET_OS_IPHONE
 
 		/* new preferences have been written */
 		if (close(fd) == -1) {

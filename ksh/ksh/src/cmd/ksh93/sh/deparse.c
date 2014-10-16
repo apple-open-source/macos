@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -401,7 +401,15 @@ static void p_arg(register const struct argnod *arg,register int endchar,int opt
 		else if(opts)
 			flag = ' ';
 		cp = arg->argval;
-		if(*cp==0 && opts==POST && arg->argchn.ap)
+		if(*cp==0 && (arg->argflag&ARG_EXP)  && arg->argchn.ap)
+		{
+			int c = (arg->argflag&ARG_RAW)?'>':'<';
+			sfputc(outfile,c);
+			sfputc(outfile,'(');
+			p_tree((Shnode_t*)arg->argchn.ap,0);
+			sfputc(outfile,')');
+		}
+		else if(*cp==0 && opts==POST && arg->argchn.ap)
 		{
 			/* compound assignment */
 			struct fornod *fp=(struct fornod*)arg->argchn.ap;

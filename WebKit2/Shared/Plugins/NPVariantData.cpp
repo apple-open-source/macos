@@ -26,7 +26,7 @@
 #include "config.h"
 #include "NPVariantData.h"
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
@@ -118,7 +118,7 @@ NPVariantData NPVariantData::makeRemoteNPObjectID(uint64_t value)
     return npVariantData;
 }
 
-void NPVariantData::encode(CoreIPC::ArgumentEncoder& encoder) const
+void NPVariantData::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << m_type;
 
@@ -147,7 +147,7 @@ void NPVariantData::encode(CoreIPC::ArgumentEncoder& encoder) const
     }
 }
 
-bool NPVariantData::decode(CoreIPC::ArgumentDecoder& decoder, NPVariantData& result)
+bool NPVariantData::decode(IPC::ArgumentDecoder& decoder, NPVariantData& result)
 {
     uint32_t type;
     if (!decoder.decode(type))
@@ -187,4 +187,4 @@ bool NPVariantData::decode(CoreIPC::ArgumentDecoder& decoder, NPVariantData& res
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

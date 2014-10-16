@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,6 @@
 #include "interfaces.h"
 #include "util.h"
 
-#include "dprintf.h"
 #include "dhcp_options.h"
 #include "ipconfigd_threads.h"
 #include "symbol_scope.h"
@@ -124,8 +123,6 @@ manual_resolve_router_callback(ServiceRef service_p,
     case router_arp_status_failed_e:
 	my_log(LOG_ERR, "MANUAL %s: router arp resolution failed, %s", 
 	       if_name(if_p), arp_client_errmsg(manual->arp));
-	break;
-    default:
 	break;
     }
     return;
@@ -397,6 +394,10 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      != service_requested_ip_addr(service_p).s_addr) {
 	      break;
 	  }
+	  /* defend our address, don't just give it up */
+	  if (ServiceDefendIPv4Address(service_p, arpc)) {
+	      break;
+	  }
 	  snprintf(msg, sizeof(msg), 
 		   IP_FORMAT " in use by " EA_FORMAT,
 		   IP_LIST(&arpc->ip_addr), 
@@ -410,6 +411,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		 if_name(if_p), msg);
 	  break;
       }
+      case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
 	  link_status_t		link_status;
 

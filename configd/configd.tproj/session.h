@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,6 @@
 #include <TargetConditionals.h>
 
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 /*
  * SCDynamicStore write access entitlement
  *
@@ -57,7 +56,6 @@
  *                     each SCDynamicStore key matching the regex pattern(s)
  */
 #define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 
 
 typedef	enum { NO = 0, YES, UNKNOWN } lazyBoolean;
@@ -85,7 +83,6 @@ typedef struct {
 	/* root access credential associated with this "open" session */
 	lazyBoolean		callerRootAccess;
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 	/*
 	 * write access entitlement associated with this "open" session
 	 *
@@ -96,7 +93,6 @@ typedef struct {
 	 *			"patterns" = CFArray[writable patterns]
 	 */
 	CFTypeRef		callerWriteEntitlement;
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 } serverSession, *serverSessionRef;
 

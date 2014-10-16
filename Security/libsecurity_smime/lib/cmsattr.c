@@ -38,10 +38,13 @@
 #include "cmslocal.h"
 
 #include "secoid.h"
-#include "secitem.h"
+#include "SecAsn1Item.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
+#include <Security/SecAsn1Templates.h>
 
 /*
  * -------------------------------------------------------------------
@@ -61,10 +64,10 @@
  * with SecCmsAttributeAddValue.
  */
 SecCmsAttribute *
-SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, CSSM_DATA_PTR value, Boolean encoded)
+SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, SecAsn1Item * value, Boolean encoded)
 {
     SecCmsAttribute *attr;
-    CSSM_DATA_PTR copiedvalue;
+    SecAsn1Item * copiedvalue;
     void *mark;
 
     PORT_Assert (poolp != NULL);
@@ -83,7 +86,7 @@ SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, CSSM_DATA_PTR value,
 	goto loser;
 
     if (value != NULL) {
-	if ((copiedvalue = SECITEM_AllocItem(poolp, NULL, (unsigned int)value->Length)) == NULL)
+	if ((copiedvalue = SECITEM_AllocItem(poolp, NULL, value->Length)) == NULL)
 	    goto loser;
 
 	if (SECITEM_CopyItem(poolp, copiedvalue, value) != SECSuccess)
@@ -108,9 +111,9 @@ loser:
  * SecCmsAttributeAddValue - add another value to an attribute
  */
 OSStatus
-SecCmsAttributeAddValue(PLArenaPool *poolp, SecCmsAttribute *attr, CSSM_DATA_PTR value)
+SecCmsAttributeAddValue(PLArenaPool *poolp, SecCmsAttribute *attr, SecAsn1Item * value)
 {
-    CSSM_DATA copiedvalue;
+    SecAsn1Item copiedvalue;
     void *mark;
 
     PORT_Assert (poolp != NULL);
@@ -155,10 +158,10 @@ SecCmsAttributeGetType(SecCmsAttribute *attr)
  * - Multiple values are *not* expected.
  * - Empty values are *not* expected.
  */
-CSSM_DATA_PTR
+SecAsn1Item *
 SecCmsAttributeGetValue(SecCmsAttribute *attr)
 {
-    CSSM_DATA_PTR value;
+    SecAsn1Item * value;
 
     if (attr == NULL)
 	return NULL;
@@ -178,9 +181,9 @@ SecCmsAttributeGetValue(SecCmsAttribute *attr)
  * SecCmsAttributeCompareValue - compare the attribute's first value against data
  */
 Boolean
-SecCmsAttributeCompareValue(SecCmsAttribute *attr, CSSM_DATA_PTR av)
+SecCmsAttributeCompareValue(SecCmsAttribute *attr, SecAsn1Item * av)
 {
-    CSSM_DATA_PTR value;
+    SecAsn1Item * value;
     
     if (attr == NULL)
 	return PR_FALSE;
@@ -312,8 +315,8 @@ const SecAsn1Template nss_cms_set_of_attribute_template[] = {
  * and think long and hard about the implications of making it always
  * do the reordering.)
  */
-CSSM_DATA_PTR
-SecCmsAttributeArrayEncode(PRArenaPool *poolp, SecCmsAttribute ***attrs, CSSM_DATA_PTR dest)
+SecAsn1Item *
+SecCmsAttributeArrayEncode(PRArenaPool *poolp, SecCmsAttribute ***attrs, SecAsn1Item * dest)
 {
     return SEC_ASN1EncodeItem (poolp, dest, (void *)attrs, nss_cms_set_of_attribute_template);
 }
@@ -416,7 +419,7 @@ loser:
  * SecCmsAttributeArraySetAttr - set an attribute's value in a set of attributes
  */
 OSStatus
-SecCmsAttributeArraySetAttr(PLArenaPool *poolp, SecCmsAttribute ***attrs, SECOidTag type, CSSM_DATA_PTR value, Boolean encoded)
+SecCmsAttributeArraySetAttr(PLArenaPool *poolp, SecCmsAttribute ***attrs, SECOidTag type, SecAsn1Item * value, Boolean encoded)
 {
     SecCmsAttribute *attr;
     void *mark;

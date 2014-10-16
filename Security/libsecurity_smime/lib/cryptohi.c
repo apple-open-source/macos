@@ -99,26 +99,8 @@ SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
     return oidData ? oidData->cssmAlgorithm : CSSM_ALGID_NONE;
 }
 
-static SECStatus SEC_CssmRtnToSECStatus(CSSM_RETURN rv)
-{
-    CSSM_RETURN crtn = CSSM_ERRCODE(rv);
-    switch(crtn) {
-	case CSSM_ERRCODE_USER_CANCELED:
-	case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
-	case CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED:
-	    return SEC_ERROR_USER_CANCELLED;
-	case CSSM_ERRCODE_NO_USER_INTERACTION:
-	    return SEC_ERROR_NO_USER_INTERACTION;
-	case CSSMERR_CSP_KEY_USAGE_INCORRECT:
-	    return SEC_ERROR_INADEQUATE_KEY_USAGE;
-	default:
-	    fprintf(stderr, "CSSM_SignData returned: %08X\n", (uint32_t)rv);
-	    return SEC_ERROR_LIBRARY_FAILURE;
-    }
-}
-
 SECStatus
-SEC_SignData(SECItem *result, unsigned char *buf, int len,
+SEC_SignData(SecAsn1Item *result, unsigned char *buf, int len,
 	    SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag)
 {
     const CSSM_ACCESS_CREDENTIALS *accessCred;
@@ -126,8 +108,8 @@ SEC_SignData(SECItem *result, unsigned char *buf, int len,
     CSSM_CC_HANDLE cc = 0;
     CSSM_CSP_HANDLE csp;
     OSStatus rv;
-    CSSM_DATA dataBuf = { (uint32)len, (uint8 *)buf };
-    CSSM_DATA sig = {};
+    SecAsn1Item dataBuf = { (uint32)len, (uint8_t *)buf };
+    SecAsn1Item sig = {};
     const CSSM_KEY *key;
 
     algorithm = SECOID_FindyCssmAlgorithmByTag(SecCmsUtilMakeSignatureAlgorithm(digAlgTag, sigAlgTag));
@@ -162,7 +144,16 @@ SEC_SignData(SECItem *result, unsigned char *buf, int len,
 
     rv = CSSM_SignData(cc, &dataBuf, 1, CSSM_ALGID_NONE, &sig);
     if (rv) {
-        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
+        SECErrorCodes code;
+        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
+            code = SEC_ERROR_USER_CANCELLED;
+        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
+                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
+            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
+        else
+            code = SEC_ERROR_LIBRARY_FAILURE;
+
         PORT_SetError(code);
 	goto loser;
     }
@@ -178,14 +169,14 @@ loser:
 }
 
 SECStatus
-SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem *result, SECItem *digest)
+SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SecAsn1Item *result, SecAsn1Item *digest)
 {
     const CSSM_ACCESS_CREDENTIALS *accessCred;
     CSSM_ALGORITHMS digalg, sigalg;
     CSSM_CC_HANDLE cc = 0;
     CSSM_CSP_HANDLE csp;
     const CSSM_KEY *key;
-    CSSM_DATA sig = {};
+    SecAsn1Item sig = {};
     OSStatus rv;
 
     digalg = SECOID_FindyCssmAlgorithmByTag(digAlgTag);
@@ -221,7 +212,16 @@ SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECIte
 
     rv = CSSM_SignData(cc, digest, 1, digalg, &sig);
     if (rv) {
-        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
+        SECErrorCodes code;
+        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
+            code = SEC_ERROR_USER_CANCELLED;
+        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
+                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
+            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
+        else
+            code = SEC_ERROR_LIBRARY_FAILURE;
+
         PORT_SetError(code);
 	goto loser;
     }
@@ -238,7 +238,7 @@ loser:
 
 SECStatus
 VFY_VerifyData(unsigned char *buf, int len,
-		SecPublicKeyRef pk, SECItem *sig,
+		SecPublicKeyRef pk, SecAsn1Item *sig,
 		SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
 {
     SECOidTag algTag;
@@ -246,7 +246,7 @@ VFY_VerifyData(unsigned char *buf, int len,
     CSSM_CC_HANDLE cc = 0;
     CSSM_CSP_HANDLE csp;
     OSStatus rv = SECFailure;
-    CSSM_DATA dataBuf = { (uint32)len, (uint8 *)buf };
+    SecAsn1Item dataBuf = { (uint32)len, (uint8_t *)buf };
     const CSSM_KEY *key;
 
     algTag = SecCmsUtilMakeSignatureAlgorithm(digAlgTag, sigAlgTag);
@@ -278,8 +278,8 @@ loser:
 }
 
 SECStatus
-VFY_VerifyDigest(SECItem *digest, SecPublicKeyRef pk,
-		SECItem *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
+VFY_VerifyDigest(SecAsn1Item *digest, SecPublicKeyRef pk,
+		SecAsn1Item *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
 {
     CSSM_ALGORITHMS sigalg, digalg;
     CSSM_CC_HANDLE cc = 0;
@@ -318,7 +318,7 @@ loser:
 SECStatus
 WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
 		   SecSymmetricKeyRef bulkkey,
-		   CSSM_DATA_PTR encKey)
+		   SecAsn1Item * encKey)
 {
     CSSM_WRAP_KEY wrappedKey = {};
     //CSSM_WRAP_KEY wrappedPk = {}
@@ -416,8 +416,8 @@ WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
 
     {
 	// @@@ Stick in an empty initVector to work around a csp bug.
-	CSSM_DATA initVector = {};
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(CSSM_DATA_PTR) };
+	SecAsn1Item initVector = {};
+	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(SecAsn1Item *) };
 	contextAttribute.Attribute.Data = &initVector;
 	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
 	if (rv)
@@ -447,7 +447,7 @@ loser:
 }
 
 SecSymmetricKeyRef
-WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
+WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, const SecAsn1Item *encKey, SECOidTag bulkalgtag)
 {
     SecSymmetricKeyRef bulkkey = NULL;
     CSSM_WRAP_KEY wrappedKey = {};
@@ -456,7 +456,7 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
     const CSSM_KEY *pk;
     CSSM_KEY unwrappedKey = {};
     const CSSM_ACCESS_CREDENTIALS *accessCred;
-    CSSM_DATA descriptiveData = {};
+    SecAsn1Item descriptiveData = {};
     CSSM_ALGORITHMS bulkalg;
     OSStatus rv;
 
@@ -491,8 +491,8 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
 
     {
 	// @@@ Stick in an empty initvector to work around a csp bug.
-	CSSM_DATA initVector = {};
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(CSSM_DATA_PTR) };
+	SecAsn1Item initVector = {};
+	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(SecAsn1Item *) };
 	contextAttribute.Attribute.Data = &initVector;
 	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
 	if (rv)
@@ -520,24 +520,20 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
     if (rv) {
         SECErrorCodes code;
         if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
-            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED
-	    || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED)
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
             code = SEC_ERROR_USER_CANCELLED;
         else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
                  || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
             code = SEC_ERROR_INADEQUATE_KEY_USAGE;
         else
-	{
-	    fprintf(stderr, "CSSM_UnwrapKey returned: %08X\n", (uint32_t)rv);
             code = SEC_ERROR_LIBRARY_FAILURE;
-	}
 
         PORT_SetError(code);
 	goto loser;
     }
 
     // @@@ Export this key from the csp/dl and import it to the standard csp
-    rv = SecKeyCreateWithCSSMKey(&unwrappedKey, &bulkkey);
+    rv = SecKeyCreate(&unwrappedKey, &bulkkey);
     if (rv)
 	goto loser;
 

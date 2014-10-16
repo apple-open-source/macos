@@ -45,15 +45,25 @@ class FloatQuad;
 class Node;
 class NodeWithIndex;
 class Text;
+#if PLATFORM(IOS)
+class SelectionRect;
+class VisiblePosition;
+#endif
 
 class Range : public RefCounted<Range> {
 public:
-    static PassRefPtr<Range> create(PassRefPtr<Document>);
-    static PassRefPtr<Range> create(PassRefPtr<Document>, PassRefPtr<Node> startContainer, int startOffset, PassRefPtr<Node> endContainer, int endOffset);
-    static PassRefPtr<Range> create(PassRefPtr<Document>, const Position&, const Position&);
+    static PassRefPtr<Range> create(Document&);
+    static PassRefPtr<Range> create(Document&, PassRefPtr<Node> startContainer, int startOffset, PassRefPtr<Node> endContainer, int endOffset);
+    static PassRefPtr<Range> create(Document&, const Position&, const Position&);
+    static PassRefPtr<Range> create(ScriptExecutionContext&);
+#if PLATFORM(IOS)
+    // FIXME: Consider making this a static non-member, non-friend function.
+    static PassRefPtr<Range> create(Document&, const VisiblePosition&, const VisiblePosition&);
+#endif
     ~Range();
 
-    Document* ownerDocument() const { return m_ownerDocument.get(); }
+    Document& ownerDocument() const { return const_cast<Document&>(m_ownerDocument.get()); }
+
     Node* startContainer() const { return m_start.container(); }
     int startOffset() const { return m_start.offset(); }
     Node* endContainer() const { return m_end.container(); }
@@ -126,9 +136,12 @@ public:
     void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false, RangeInFixedPosition* = 0) const;
     void getBorderAndTextQuads(Vector<FloatQuad>&) const;
     FloatRect boundingRect() const;
+#if PLATFORM(IOS)
+    void collectSelectionRects(Vector<SelectionRect>&);
+#endif
 
-    void nodeChildrenChanged(ContainerNode*);
-    void nodeChildrenWillBeRemoved(ContainerNode*);
+    void nodeChildrenChanged(ContainerNode&);
+    void nodeChildrenWillBeRemoved(ContainerNode&);
     void nodeWillBeRemoved(Node*);
 
     void textInserted(Node*, unsigned offset, unsigned length);
@@ -148,11 +161,13 @@ public:
     void formatForDebugger(char* buffer, unsigned length) const;
 #endif
 
-private:
-    explicit Range(PassRefPtr<Document>);
-    Range(PassRefPtr<Document>, PassRefPtr<Node> startContainer, int startOffset, PassRefPtr<Node> endContainer, int endOffset);
+    bool contains(const Range&) const;
 
-    void setDocument(Document*);
+private:
+    explicit Range(Document&);
+    Range(Document&, PassRefPtr<Node> startContainer, int startOffset, PassRefPtr<Node> endContainer, int endOffset);
+
+    void setDocument(Document&);
 
     Node* checkNodeWOffset(Node*, int offset, ExceptionCode&) const;
     void checkNodeBA(Node*, ExceptionCode&) const;
@@ -161,21 +176,22 @@ private:
     int maxStartOffset() const;
     int maxEndOffset() const;
 
-    enum ActionType { DELETE_CONTENTS, EXTRACT_CONTENTS, CLONE_CONTENTS };
+    enum ActionType { Delete, Extract, Clone };
     PassRefPtr<DocumentFragment> processContents(ActionType, ExceptionCode&);
     static PassRefPtr<Node> processContentsBetweenOffsets(ActionType, PassRefPtr<DocumentFragment>, Node*, unsigned startOffset, unsigned endOffset, ExceptionCode&);
-    static void processNodes(ActionType, Vector<RefPtr<Node> >&, PassRefPtr<Node> oldContainer, PassRefPtr<Node> newContainer, ExceptionCode&);
+    static void processNodes(ActionType, Vector<RefPtr<Node>>&, PassRefPtr<Node> oldContainer, PassRefPtr<Node> newContainer, ExceptionCode&);
     enum ContentsProcessDirection { ProcessContentsForward, ProcessContentsBackward };
     static PassRefPtr<Node> processAncestorsAndTheirSiblings(ActionType, Node* container, ContentsProcessDirection, PassRefPtr<Node> clonedContainer, Node* commonRoot, ExceptionCode&);
 
-    RefPtr<Document> m_ownerDocument;
+    Ref<Document> m_ownerDocument;
     RangeBoundaryPoint m_start;
     RangeBoundaryPoint m_end;
 };
 
-PassRefPtr<Range> rangeOfContents(Node*);
+PassRefPtr<Range> rangeOfContents(Node&);
 
 bool areRangesEqual(const Range*, const Range*);
+bool rangesOverlap(const Range*, const Range*);
 
 } // namespace
 

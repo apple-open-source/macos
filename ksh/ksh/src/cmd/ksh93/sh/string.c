@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -31,10 +31,6 @@
 #include	"shtable.h"
 #include	"lexstates.h"
 #include	"national.h"
-
-#if !SHOPT_MULTIBYTE
-#define mbchar(p)	(*(unsigned char*)p++)
-#endif
 
 #if _hdr_wctype
 #   include <wctype.h>
@@ -295,6 +291,41 @@ void sh_utol(register char const *str1,register char *str2)
 }
 
 /*
+ * format string as a csv field
+ */
+static char	*sh_fmtcsv(const char *string)
+{
+	register const char *cp = string;
+	register int c;
+	int offset;
+	if(!cp)
+		return((char*)0);
+	offset = staktell();
+	while((c=mbchar(cp)),isaname(c));
+	if(c==0)
+		return((char*)string);
+	stakputc('"');
+	stakwrite(string,cp-string);
+	if(c=='"')
+		stakputc('"');
+	string = cp;
+	while(c=mbchar(cp))
+	{
+		if(c=='"')
+		{
+			stakwrite(string,cp-string);
+			string = cp;
+			stakputc('"');
+		}
+	}
+	if(--cp>string)
+		stakwrite(string,cp-string);
+	stakputc('"');
+	stakputc(0);
+	return(stakptr(offset));
+}
+
+/*
  * print <str> quoting chars so that it can be read by the shell
  * puts null terminated result on stack, but doesn't freeze it
  */
@@ -329,7 +360,7 @@ char	*sh_fmtq(const char *string)
 	for(;c;c= mbchar(cp))
 	{
 #if SHOPT_MULTIBYTE
-		if(c=='\'' || !iswprint(c))
+		if(c=='\'' || c>=128 || c<0 || !iswprint(c)) 
 #else
 		if(c=='\'' || !isprint(c))
 #endif /* SHOPT_MULTIBYTE */
@@ -348,6 +379,7 @@ char	*sh_fmtq(const char *string)
 	}
 	else
 	{
+		int isbyte=0;
 		stakwrite("$'",2);
 		cp = string;
 #if SHOPT_MULTIBYTE
@@ -384,19 +416,26 @@ char	*sh_fmtq(const char *string)
 				break;
 			    default:
 #if SHOPT_MULTIBYTE
-				if(!iswprint(c))
+				isbyte = 0;
+				if(c<0)
 				{
-					while(op<cp)
-						sfprintf(staksp,"\\%.3o",*(unsigned char*)op++);
+					c = *((unsigned char *)op);
+					cp = op+1;
+					isbyte = 1;
+				}
+				if(mbwide() && ((cp-op)>1))
+				{
+					sfprintf(staksp,"\\u[%x]",c);
 					continue;
 				}
+				else if(!iswprint(c) || isbyte)
 #else
 				if(!isprint(c))
+#endif
 				{
-					sfprintf(staksp,"\\%.3o",c);
+					sfprintf(staksp,"\\x%.2x",c);
 					continue;
 				}
-#endif
 				state=0;
 				break;
 			}
@@ -434,7 +473,9 @@ char	*sh_fmtqf(const char *string, int single, int fold)
 
 	if (--fold < 8)
 		fold = 0;
-	if (!cp || !*cp || !single && !fold || fold && strlen(string) < fold)
+	if(single)
+		return sh_fmtcsv(cp);
+	if (!cp || !*cp || !fold || fold && strlen(string) < fold)
 		return sh_fmtq(cp);
 	offset = staktell();
 	single = single ? 1 : 3;

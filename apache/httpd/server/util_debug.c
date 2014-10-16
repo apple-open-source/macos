@@ -19,6 +19,7 @@
 
 #include "httpd.h"
 #include "http_config.h"
+#include "http_core.h"
 
 /* Possibly get rid of the macros we defined in httpd.h */
 #if defined(strchr)
@@ -106,6 +107,91 @@ AP_DECLARE(void *) ap_get_module_config(const ap_conf_vector_t *cv,
     return ((void **)cv)[m->module_index];
 }
 
+#if defined(ap_get_core_module_config)
+#undef ap_get_core_module_config
+AP_DECLARE(void *) ap_get_core_module_config(const ap_conf_vector_t *cv);
+#endif
+
+AP_DECLARE(void *) ap_get_core_module_config(const ap_conf_vector_t *cv)
+{
+    return ((void **)cv)[AP_CORE_MODULE_INDEX];
+}
+
+
+#if defined(ap_get_server_module_loglevel)
+#undef ap_get_server_module_loglevel
+AP_DECLARE(int) ap_get_server_module_loglevel(const server_rec *s, int module_index);
+#endif
+
+AP_DECLARE(int) ap_get_server_module_loglevel(const server_rec *s, int module_index)
+{
+    if (module_index < 0 || s->log.module_levels == NULL ||
+        s->log.module_levels[module_index] < 0)
+    {
+        return s->log.level;
+    }
+
+    return s->log.module_levels[module_index];
+}
+
+#if defined(ap_get_conn_module_loglevel)
+#undef ap_get_conn_module_loglevel
+AP_DECLARE(int) ap_get_conn_module_loglevel(const conn_rec *c, int module_index);
+#endif
+
+AP_DECLARE(int) ap_get_conn_module_loglevel(const conn_rec *c, int module_index)
+{
+    const struct ap_logconf *l = (c)->log ? (c)->log : &(c)->base_server->log;
+    if (module_index < 0 || l->module_levels == NULL ||
+        l->module_levels[module_index] < 0)
+    {
+        return l->level;
+    }
+
+    return l->module_levels[module_index];
+}
+
+#if defined(ap_get_conn_server_module_loglevel)
+#undef ap_get_conn_server_module_loglevel
+AP_DECLARE(int) ap_get_conn_server_module_loglevel(const conn_rec *c,
+                                                   const server_rec *s,
+                                                   int module_index);
+#endif
+
+AP_DECLARE(int) ap_get_conn_server_module_loglevel(const conn_rec *c,
+                                                   const server_rec *s,
+                                                   int module_index)
+{
+    const struct ap_logconf *l = (c->log && c->log != &c->base_server->log) ?
+                                 c->log : &s->log;
+    if (module_index < 0 || l->module_levels == NULL ||
+        l->module_levels[module_index] < 0)
+    {
+        return l->level;
+    }
+
+    return l->module_levels[module_index];
+}
+
+#if defined(ap_get_request_module_loglevel)
+#undef ap_get_request_module_loglevel
+AP_DECLARE(int) ap_get_request_module_loglevel(const request_rec *c, int module_index);
+#endif
+
+AP_DECLARE(int) ap_get_request_module_loglevel(const request_rec *r, int module_index)
+{
+    const struct ap_logconf *l = r->log             ? r->log             :
+                                 r->connection->log ? r->connection->log :
+                                 &r->server->log;
+    if (module_index < 0 || l->module_levels == NULL ||
+        l->module_levels[module_index] < 0)
+    {
+        return l->level;
+    }
+
+    return l->module_levels[module_index];
+}
+
 /**
  * Generic accessors for other modules to set at their own module-specific
  * data
@@ -113,7 +199,7 @@ AP_DECLARE(void *) ap_get_module_config(const ap_conf_vector_t *cv,
  *        usually r->per_dir_config or s->module_config
  * @param m The module to set the data for.
  * @param val The module-specific data to set
- * @deffunc void ap_set_module_config(ap_conf_vector_t *cv, const module *m, void *val)
+ * @fn void ap_set_module_config(ap_conf_vector_t *cv, const module *m, void *val)
  */
 #if defined(ap_set_module_config)
 #undef ap_set_module_config
@@ -125,4 +211,15 @@ AP_DECLARE(void) ap_set_module_config(ap_conf_vector_t *cv, const module *m,
                                       void *val)
 {
     ((void **)cv)[m->module_index] = val;
+}
+
+
+#if defined(ap_set_core_module_config)
+#undef ap_set_core_module_config
+AP_DECLARE(void) ap_set_core_module_config(ap_conf_vector_t *cv, void *val);
+#endif
+
+AP_DECLARE(void) ap_set_core_module_config(ap_conf_vector_t *cv, void *val)
+{
+    ((void **)cv)[AP_CORE_MODULE_INDEX] = val;
 }

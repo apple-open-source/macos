@@ -55,7 +55,6 @@ void		hostfree(struct hosts * * hosts, struct hosts * hp);
 void		hostinsert(struct hosts * * hosts, struct hosts * hp);
 void		hostprint(struct hosts * hp);
 void		hostremove(struct hosts * * hosts, struct hosts * hp);
-void		hostlistfree(struct hosts * * hosts);
 
 typedef boolean_t subnet_match_func_t(void * arg, struct in_addr iaddr);
 

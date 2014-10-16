@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dproc.c,v 1.8 2012/04/10 16:41:04 abe Exp abe $";
+static char *rcsid = "$Id: dproc.c,v 1.9 2013/01/02 17:03:05 abe Exp $";
 #endif
 
 #include "lsof.h"

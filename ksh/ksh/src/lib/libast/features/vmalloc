@@ -152,6 +152,59 @@ tst	stk_down note{ stack grows downward }end execute{
 	int main() { return growdown() ? 0 : 1; }
 }end
 
+tst	malloc_hook note{ gnu malloc hooks work }end execute{
+	#include <malloc.h>
+
+	static int      	test_free_hit = 0;
+	static int      	test_malloc_hit = 0;
+	static int      	test_memalign_hit = 0;
+	static int      	test_realloc_hit = 0;
+
+	static void test_free_hook(void* ptr, const void* caller)
+	{
+	        test_free_hit++;
+	}
+
+	static void* test_malloc_hook(size_t size, const void* caller)
+	{
+	        test_malloc_hit++;
+	        return 0;
+	}
+
+	static void* test_memalign_hook(size_t align, size_t size, const void* caller)
+	{
+	        test_memalign_hit++;
+	        return 0;
+	}
+
+	static void* test_realloc_hook(void* ptr, size_t size, const void* caller)
+	{
+	        test_realloc_hit++;
+	        return 0;
+	}
+
+	static void test_initialize_hook(void)
+	{
+	        __free_hook = test_free_hook;
+	        __malloc_hook = test_malloc_hook;
+	        __memalign_hook = test_memalign_hook;
+	        __realloc_hook = test_realloc_hook;
+	}
+
+	void    (*__malloc_initialize_hook)(void) = test_initialize_hook;
+
+	int main()
+	{
+	        void*   p;
+
+	        p = malloc(16);
+	        p = realloc(p, 32);
+	        free(p);
+	        p = memalign(32, 32);
+	        return !test_free_hit || !test_malloc_hit || !test_memalign_hit || !test_realloc_hit;
+	}
+}end
+
 cat{
 	#include "FEATURE/mmap"
 	#if _BLD_INSTRUMENT || cray || _UWIN && _BLD_ast

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2014 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,19 +28,17 @@
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebTypesInternal.h"
-#import <wtf/Vector.h>
-#import <WebCore/RunLoop.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
-
-using namespace JSC;
-using namespace WebCore;
+#import <wtf/RunLoop.h>
+#import <wtf/Vector.h>
 
 @interface WebTextIteratorPrivate : NSObject {
 @public
-    OwnPtr<TextIterator> _textIterator;
+    std::unique_ptr<WebCore::TextIterator> _textIterator;
+    Vector<unichar> _upconvertedText;
 }
 @end
 
@@ -48,9 +46,11 @@ using namespace WebCore;
 
 + (void)initialize
 {
+#if !PLATFORM(IOS)
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
+#endif
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -71,13 +71,14 @@ using namespace WebCore;
         return self;
     
     _private = [[WebTextIteratorPrivate alloc] init];
-    _private->_textIterator = adoptPtr(new TextIterator(core(range)));
+    _private->_textIterator = std::make_unique<WebCore::TextIterator>(core(range));
     return self;
 }
 
 - (void)advance
 {
     _private->_textIterator->advance();
+    _private->_upconvertedText.shrink(0);
 }
 
 - (BOOL)atEnd
@@ -87,17 +88,30 @@ using namespace WebCore;
 
 - (DOMRange *)currentRange
 {
-    return kit(_private->_textIterator->range().get());
+    WebCore::TextIterator& textIterator = *_private->_textIterator;
+    if (textIterator.atEnd())
+        return nullptr;
+    return kit(textIterator.range().get());
 }
 
-- (const unichar *)currentTextPointer
+// FIXME: Consider deprecating this method and creating one that does not require copying 8-bit characters.
+- (const unichar*)currentTextPointer
 {
-    return _private->_textIterator->characters();
+    StringView text = _private->_textIterator->text();
+    unsigned length = text.length();
+    if (!length)
+        return nullptr;
+    if (!text.is8Bit())
+        return text.characters16();
+    if (_private->_upconvertedText.isEmpty())
+        _private->_upconvertedText.appendRange(text.characters8(), text.characters8() + length);
+    ASSERT(_private->_upconvertedText.size() == text.length());
+    return _private->_upconvertedText.data();
 }
 
 - (NSUInteger)currentTextLength
 {
-    return _private->_textIterator->length();
+    return _private->_textIterator->text().length();
 }
 
 @end
@@ -111,7 +125,7 @@ using namespace WebCore;
 
 - (NSString *)currentText
 {
-    return [NSString stringWithCharacters:_private->_textIterator->characters() length:_private->_textIterator->length()];
+    return [[_private->_textIterator->text().createNSString().get() retain] autorelease];
 }
 
 @end

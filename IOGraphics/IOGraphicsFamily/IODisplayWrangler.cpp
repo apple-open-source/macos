@@ -124,7 +124,8 @@ bool IODisplayWrangler::serverStart(void)
     if (!gIODisplayWrangler)
         waitForService(serviceMatching("IODisplayWrangler"), &timeout);
 
-    if (gIODisplayWrangler)
+    if (!gIODisplayWrangler) IOLog("IODisplayWrangler not started, IOResources hung\n");
+    else
     {
         gIODisplayWrangler->fOpen = true;
         if (gIODisplayWrangler->fMinutesToDim) gIODisplayWrangler->setIdleTimerPeriod(60);
@@ -514,6 +515,8 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 {
     fPendingPowerState = powerStateOrdinal;
 
+	fPowerStateChangeTime = mach_absolute_time();
+
     DEBG2("W", " (%ld), pwr %d open %d\n", 
                 powerStateOrdinal, gIOGraphicsSystemPower, fOpen);
 
@@ -588,19 +591,31 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
     {
         case 4:
             // The system is currently in its 'on' state
-        case 3:
-            // The system is currently in its 'dim' state
             // The transition into the next 'display sleep' state must occur
             // fMinutesToDim after last UI activity
 			deadline = lastActivity;
 			ADD_ABSOLUTETIME(&deadline, &fOffInterval[fAnnoyed]);
-			if (4 == fPendingPowerState) SUB_ABSOLUTETIME(&deadline, &fDimInterval);
+			//if (4 == fPendingPowerState) 
+			SUB_ABSOLUTETIME(&deadline, &fDimInterval);
 			if (CMP_ABSOLUTETIME(&deadline, &currentTime) > 0)
 			{
 				SUB_ABSOLUTETIME(&deadline, &currentTime);
 				absolutetime_to_nanoseconds(deadline, &delayNS);
 				delaySecs = delayNS / kSecondScale;
 			}
+            break;
+
+        case 3:
+            // The system is currently in its 'dim' state
+			deadline = fPowerStateChangeTime;
+			ADD_ABSOLUTETIME(&deadline, &fDimInterval);
+			if (CMP_ABSOLUTETIME(&deadline, &currentTime) > 0)
+			{
+				SUB_ABSOLUTETIME(&deadline, &currentTime);
+				absolutetime_to_nanoseconds(deadline, &delayNS);
+				delaySecs = delayNS / kSecondScale;
+			}
+			else changePowerStateToPriv(2);
             break;
 
         case 2:
@@ -715,8 +730,17 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 		DEBG1("W", " idleFor(%d)\n", idleFor);
 
         clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
-        if (getPowerState() > 1)
-            changePowerStateToPriv(1);
+
+		if (2 == gIODisplayFadeStyle)
+		{
+			if (getPowerState() > 3) 
+			{
+				changePowerStateToPriv(3);
+				setIdleTimerPeriod(60);
+			}
+		}
+		else if (getPowerState() > 1) changePowerStateToPriv(1);
+
         return (kIOReturnSuccess);
     }
 

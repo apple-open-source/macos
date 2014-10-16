@@ -19,16 +19,20 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGTests.h"
 
 #include "Attribute.h"
 #include "DOMImplementation.h"
+#include "HTMLNames.h"
 #include "Language.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
 #include "SVGStringList.h"
+#include <wtf/NeverDestroyed.h>
+
+#if ENABLE(MATHML)
+#include "MathMLNames.h"
+#endif
 
 namespace WebCore {
 
@@ -86,39 +90,41 @@ SVGTests::SVGTests()
 
 SVGAttributeToPropertyMap& SVGTests::attributeToPropertyMap()
 {
-    DEFINE_STATIC_LOCAL(SVGAttributeToPropertyMap, map, ());
-    if (!map.isEmpty())
+    static NeverDestroyed<SVGAttributeToPropertyMap> map;
+    if (!map.get().isEmpty())
         return map;
-    map.addProperty(requiredFeaturesPropertyInfo());
-    map.addProperty(requiredExtensionsPropertyInfo());
-    map.addProperty(systemLanguagePropertyInfo());
+    map.get().addProperty(requiredFeaturesPropertyInfo());
+    map.get().addProperty(requiredExtensionsPropertyInfo());
+    map.get().addProperty(systemLanguagePropertyInfo());
     return map;
 }
 
-bool SVGTests::hasExtension(const String&) const
+bool SVGTests::hasExtension(const String& extension) const
 {
-    // FIXME: Implement me!
-    return false;
+    // We recognize XHTML and MathML, as implemented in Gecko and suggested in the SVG Tiny recommendation (http://www.w3.org/TR/SVG11/struct.html#RequiredExtensionsAttribute).
+#if ENABLE(MATHML)
+    return extension == HTMLNames::xhtmlNamespaceURI || extension == MathMLNames::mathmlNamespaceURI;
+#else
+    return extension == HTMLNames::xhtmlNamespaceURI;
+#endif
 }
 
 bool SVGTests::isValid() const
 {
-    unsigned featuresSize = m_requiredFeatures.value.size();
-    for (unsigned i = 0; i < featuresSize; ++i) {
-        String value = m_requiredFeatures.value.at(i);
-        if (value.isEmpty() || !DOMImplementation::hasFeature(value, String()))
+    for (auto& feature : m_requiredFeatures.value) {
+        if (feature.isEmpty() || !DOMImplementation::hasFeature(feature, String()))
             return false;
     }
 
-    unsigned systemLanguageSize = m_systemLanguage.value.size();
-    for (unsigned i = 0; i < systemLanguageSize; ++i) {
-        String value = m_systemLanguage.value.at(i);
-        if (value != defaultLanguage().substring(0, 2))
+    for (auto& language : m_systemLanguage.value) {
+        if (language != defaultLanguage().substring(0, 2))
             return false;
     }
 
-    if (!m_requiredExtensions.value.isEmpty())
-        return false;
+    for (auto& extension : m_requiredExtensions.value) {
+        if (!hasExtension(extension))
+            return false;
+    }
 
     return true;
 }
@@ -156,12 +162,7 @@ bool SVGTests::handleAttributeChange(SVGElement* targetElement, const QualifiedN
     if (!targetElement->inDocument())
         return true;
 
-    bool valid = targetElement->isValid();
-    bool attached = targetElement->attached();
-    if (valid && !attached && targetElement->parentNode()->attached())
-        targetElement->attach();
-    else if (!valid && attached)
-        targetElement->detach();
+    targetElement->setNeedsStyleRecalc(ReconstructRenderTree);
 
     return true;
 }
@@ -219,5 +220,3 @@ SVGStringList& SVGTests::systemLanguage()
 }
 
 }
-
-#endif // ENABLE(SVG)

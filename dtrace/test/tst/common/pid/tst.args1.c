@@ -27,11 +27,7 @@
 #pragma ident	"@(#)tst.args1.c	1.1	06/08/28 SMI"
 
 #include <signal.h>
-#if !defined(__APPLE__)
-#include <unistd.h>
-#else
 #include <stdlib.h>
-#endif /* __APPLE__ */
 
 int
 go(int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6,
@@ -52,9 +48,5 @@ main(int argc, char **argv)
 {
 	(void) signal(SIGUSR1, handle);
 	for (;;)
-#if !defined(__APPLE__)
-		getpid();
-#else
 		geteuid();
-#endif
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,6 +80,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <CoreFoundation/CFBundle.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <ppp_defs.h>
 #include <ppp_domain.h>
 #include <ppp_msg.h>
@@ -106,8 +107,11 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
+#include <ne_session.h>
+
 #include "pppcontroller.h"
 #include <ppp/pppcontroller_types.h>
+#include "scnc_utils_common.h"
 
 #include "../vpnd/RASSchemaDefinitions.h"
 
@@ -179,6 +183,9 @@ int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_a
 static void ppp_ip_probe_timeout (void *arg);
 static void republish_dict();
 static int commit_publish_dict();
+
+extern bool nelog_is_logging_at_level(int level);
+extern void nelogv(int level, const char *format, va_list args) __attribute__((format(__printf__, 2, 0)));
 
 /* -----------------------------------------------------------------------------
  Globals
@@ -276,6 +283,99 @@ extern bool	acsp_use_dhcp; // To check if we need to wait for DHCP information
 static bool protocols_ready = false;
 static bool acspdhcp_ready = false;
 
+static bool
+ne_is_controller(void)
+{
+	static bool result = false;
+	static dispatch_once_t init_check = 0;
+
+	dispatch_once(&init_check, ^{ result = (getenv(NESMControllerKey) != NULL); });
+
+	return result;
+}
+
+static ne_session_t
+ne_get_session(void)
+{
+	static ne_session_t session = NULL;
+	static dispatch_once_t session_init = 0;
+
+	dispatch_once(&session_init,
+		^{
+			char *env = getenv(NESMControllerKey);
+			if (env != NULL) {
+				uuid_t service_id;
+				if (uuid_parse(env, service_id) == 0) {
+					session = ne_session_create(service_id, NESessionTypeVPN);
+				}
+			}
+		});
+
+	return session;
+}
+
+static bool
+ne_setup_security_session(void)
+{
+	mach_port_t bootstrap_port = MACH_PORT_NULL;
+	mach_port_t audit_session_port = MACH_PORT_NULL;
+	ne_session_t session = ne_get_session();
+	bool success;
+
+	success = (session != NULL &&
+	           ne_session_copy_security_session_info(session, &bootstrap_port, &audit_session_port) &&
+	           bootstrap_port != MACH_PORT_NULL &&
+	           audit_session_port != MACH_PORT_NULL &&
+	           task_set_bootstrap_port(mach_task_self(), bootstrap_port) == KERN_SUCCESS &&
+	           audit_session_join(audit_session_port) != AU_DEFAUDITSID);
+
+	if (bootstrap_port != MACH_PORT_NULL) {
+		mach_port_deallocate(mach_task_self(), bootstrap_port);
+	}
+	if (audit_session_port != MACH_PORT_NULL) {
+		mach_port_deallocate(mach_task_self(), audit_session_port);
+	}
+
+	return success;
+}
+
+static void
+ne_copy_controller_data(void)
+{
+	ne_session_t session = ne_get_session();
+	if (session != NULL) {
+		__block xpc_object_t configuration = NULL;
+		dispatch_semaphore_t ne_sema = dispatch_semaphore_create(0);
+		ne_session_get_info(session, NESessionInfoTypeConfiguration, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+			^(xpc_object_t result) {
+				if (result != NULL) {
+					configuration = xpc_retain(result);
+				}
+				dispatch_semaphore_signal(ne_sema);
+			});
+		dispatch_semaphore_wait(ne_sema, DISPATCH_TIME_FOREVER);
+		dispatch_release(ne_sema);
+
+		if (configuration && xpc_get_type(configuration) == XPC_TYPE_DICTIONARY) {
+			xpc_object_t plist = xpc_dictionary_get_value(configuration, NESMSessionLegacyServiceConfigurationKey);
+
+			if (plist) {
+				systemOptions = _CFXPCCreateCFObjectFromXPCObject(plist);
+			}
+
+			plist = xpc_dictionary_get_value(configuration, NESMSessionLegacyUserConfigurationKey);
+
+			if (plist) {
+				userOptions = _CFXPCCreateCFObjectFromXPCObject(plist);
+			}
+		}
+
+		if (configuration != NULL) {
+			xpc_release(configuration);
+		}
+	}
+}
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void closeall()
@@ -339,6 +439,36 @@ u_long load_kext(char *kext, int byBundleID)
     return 0;
 }
 
+void sys_install(void)
+{
+	if (ne_is_controller()) {
+		notice("Committed PPP store on install command\n");
+		SCDynamicStoreSetMultiple(cfgCache, publish_dict, NULL, NULL);
+	}
+}
+
+void sys_uninstall(void)
+{
+	if (ne_is_controller()) {
+		notice("Received uninstall command\n");
+		if (publish_dict) {
+			CFIndex count = CFDictionaryGetCount(publish_dict);
+			if (count > 0) {
+				CFStringRef *keys = CFAllocatorAllocate(kCFAllocatorDefault, count * sizeof(*keys), 0);
+				if (keys != NULL) {
+					CFDictionaryGetKeysAndValues(publish_dict, (const void **)keys, NULL);
+					CFArrayRef keyArray = CFArrayCreate(kCFAllocatorDefault, (const void **)keys, count, &kCFTypeArrayCallBacks);
+					SCDynamicStoreSetMultiple(cfgCache, NULL, keyArray, NULL);
+					if (keyArray) {
+						CFRelease(keyArray);
+					}
+					CFAllocatorDeallocate(kCFAllocatorDefault, keys);
+				}
+			}
+		}
+	}
+}
+
 /* -----------------------------------------------------------------------------
 preinitialize options, called before sysinit
 ----------------------------------------------------------------------------- */
@@ -356,6 +486,11 @@ int sys_check_controller()
 	int					result;
 	audit_token_t		audit_token;
 	uid_t               euid;
+
+	if (ne_is_controller()) {
+		sys_log(LOG_NOTICE, "NetworkExtension is the controller");
+		return true;
+	}
 
 	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER_PRIV, &server);
 	switch (status) {
@@ -541,34 +676,38 @@ static int commit_publish_dict()
 	if (demand) {
 		goto fail;
 	}
+
+	/* Check if we are RUNNING, there are NO WAITING protocols, and NO WAITING DHCP info */
+	int result = 1;
+
+	/* Make sure we're RUNNING */
+	if (phase != PHASE_RUNNING) {
+		goto fail;
+	}
+
+	/* Make sure all protocols ready */
+	if (!protocols_ready) {
+		goto fail;
+	}
+
+	/* Make sure all DHCP info acquired */
+	if ((acsp_use_dhcp || acscp_protent.enabled_flag) && !acspdhcp_ready) {
+		goto fail;
+	}
+
+	/* Publish! */
+	if (publish_dict) {
+		if (ne_is_controller()) {
+			sys_eventnotify((void*)PPP_EVT_REQUEST_INSTALL, override_primary);
+		} else {
+			notice("Committed PPP store\n");
+			if (!SCDynamicStoreSetMultiple(cfgCache, publish_dict, NULL, NULL))
+				result = 0;
+		}
+	}
+
+	return result;
 	
-    /* Check if we are RUNNING, there are NO WAITING protocols, and NO WAITING DHCP info */
-    int result = 1;
-    
-    /* Make sure we're RUNNING */
-    if (phase != PHASE_RUNNING) {
-        goto fail;
-    }
- 
-    /* Make sure all protocols ready */
-    if (!protocols_ready) {
-        goto fail;
-    }
-    
-    /* Make sure all DHCP info acquired */
-    if ((acsp_use_dhcp || acscp_protent.enabled_flag) && !acspdhcp_ready) {
-        goto fail;
-    }
-    
-    /* Publish! */
-    if (publish_dict) {
-        notice("Committed PPP store\n");
-        if (!SCDynamicStoreSetMultiple(cfgCache, publish_dict, NULL, NULL))
-            result = 0;
-    }
-    
-    return result;
-    
 fail:
     return 0;
 }
@@ -651,7 +790,11 @@ void sys_init()
 	/*	if started as a client by PPPController 
 		copy user and system options from the controller */
     if (controlled) {
-		CopyControllerData();
+		if (ne_is_controller()) {
+			ne_copy_controller_data();
+		} else {
+			CopyControllerData();
+		}
 	}
 
     //sys_pidchange(0, getpid());
@@ -2211,8 +2354,9 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
     /* actually, this part is not kame local - RFC2553 conformant */
     ifindex = if_nametoindex(ifname);
     if (ifindex == 0) {
-	error("sifaddr6: no interface %s", ifname);
-	return 0;
+        error("sifaddr6: no interface %s", ifname);
+        close(s);
+        return 0;
     }
 
     strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
@@ -2566,7 +2710,16 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     /* update the store now */
     if ((key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4))) {
         CFPropertyListRef ref;
-        if ((ref = SCDynamicStoreCopyValue(cfgCache, key)) == NULL ||
+        if (publish_dict != NULL) {
+            ref = CFDictionaryGetValue(publish_dict, key);
+            if (ref) {
+                CFRetain(ref);
+            }
+        } else {
+            ref = SCDynamicStoreCopyValue(cfgCache, key);
+        }
+		
+        if (ref == NULL ||
             CFGetTypeID(ref) != CFDictionaryGetTypeID()) {
             warning("SCDynamicStoreCopyValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
             if (ref) {
@@ -2611,7 +2764,7 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     }
        
     /* set the router */
-    addr.s_addr = h;
+    addr.s_addr = o;
     if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
@@ -2686,7 +2839,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     }
 
     /* set the router */
-    addr.s_addr = h;
+    addr.s_addr = o;
     if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
@@ -3563,6 +3716,7 @@ void sys_phasechange(void *arg, uintptr_t p)
             unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress);
             unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPConnectTime);
             unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPDisconnectTime);
+            sys_eventnotify((void*)PPP_EVT_REQUEST_UNINSTALL, 0);
             break;
     }
 
@@ -3716,7 +3870,7 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "route_interface: write routing socket failed, %s. (address %s, mask %s, interface %s, host %d).",
+		sys_log((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "route_interface: write routing socket failed, %s. (address %s, mask %s, interface %s, host %d).",
 			   strerror(errno),
 			  addr2ascii(AF_INET, &host, sizeof(host), host_str),
 			  addr2ascii(AF_INET, &addr_mask, sizeof(addr_mask), mask_str),
@@ -3752,7 +3906,7 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
     int 			sockfd = -1;
     
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
-		syslog(LOG_INFO, "host_gateway: open routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
+		sys_log(LOG_INFO, "host_gateway: open routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
 			   strerror(errno),
 			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
 			   addr2ascii(AF_INET, &mask, sizeof(mask), mask_str),
@@ -3782,7 +3936,7 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "host_gateway: write routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
+		sys_log((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "host_gateway: write routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
 			   strerror(errno),
 			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
 			   addr2ascii(AF_INET, &mask, sizeof(mask), mask_str),
@@ -4289,7 +4443,7 @@ ppp_public_nat_port_mapping_timeout (void *arg)
 
 	if (session->nat_mapping_timer_running) {
 		session->nat_mapping_timer_running = 0;
-		syslog(LOG_ERR, "NAT's public interface down for more than %d secs... starting faster probe.\n",
+		sys_log(LOG_ERR, "NAT's public interface down for more than %d secs... starting faster probe.\n",
 			   PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
 		// our public interface didn't come back... start faster probe
 		if (session->failure_func) {
@@ -4515,7 +4669,7 @@ ppp_set_nat_port_mapping_callback (DNSServiceRef        sdRef,
 					  sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.addr, publicAddress);
 				if (is_connected) {
 					if (!privatePort || publicAddress) {
-						syslog(LOG_ERR, "NAT's public address down or changed... starting faster probe.\n");
+						sys_log(LOG_ERR, "NAT's public address down or changed... starting faster probe.\n");
 						if (session->failure_func) {
                             wait_port_mapping_changed = 1;
 							session->failure_func();
@@ -4533,7 +4687,7 @@ ppp_set_nat_port_mapping_callback (DNSServiceRef        sdRef,
 					  sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.port, publicPort);
 				if (is_connected) {
 					if (!privatePort || publicPort) {
-						syslog(LOG_ERR, "NAT's public port down or changed... starting faster probe.\n");
+						sys_log(LOG_ERR, "NAT's public port down or changed... starting faster probe.\n");
 						if (session->failure_func) {
 							wait_port_mapping_changed = 1;
 							session->failure_func();
@@ -4748,4 +4902,33 @@ ppp_process_nat_port_mapping_events (void)
 		}
 	}
 #endif // TARGET_OS_EMBEDDED
+}
+
+int
+sys_setup_security_session(void)
+{
+	if (ne_is_controller()) {
+		return (!ne_setup_security_session());
+	} else {
+		return setup_security_context();
+	}
+}
+
+void
+sys_log(int priority, const char *message, ...)
+{
+	if (ne_is_controller()) {
+		if (nelog_is_logging_at_level(priority)) {
+			va_list args;
+
+			va_start(args, message);
+			nelogv(priority, message, args);
+			va_end(args);
+		}
+	} else {
+		va_list args;
+		va_start(args, message);
+		vsyslog(priority, message, args);
+		va_end(args);
+	}
 }

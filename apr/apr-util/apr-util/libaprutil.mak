@@ -42,12 +42,12 @@ ALL : ".\include\apu_want.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "xml - Win32 Release" "libapriconv_ces_modules - Win32 Release" "libapriconv_ccs_modules - Win32 Release" "libapriconv - Win32 Release" "libapr - Win32 Release" ".\include\apu_want.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "xml - Win32 Release" "libapriconv - Win32 Release" "libapr - Win32 Release" ".\include\apu_want.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libapr - Win32 ReleaseCLEAN" "libapriconv - Win32 ReleaseCLEAN" "libapriconv_ccs_modules - Win32 ReleaseCLEAN" "libapriconv_ces_modules - Win32 ReleaseCLEAN" "xml - Win32 ReleaseCLEAN" 
+CLEAN :"libapr - Win32 ReleaseCLEAN" "libapriconv - Win32 ReleaseCLEAN" "xml - Win32 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -65,6 +65,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbm.obj"
@@ -75,6 +76,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -85,6 +87,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_xml.obj"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\libaprutil.res"
 	-@erase "$(INTDIR)\libaprutil_src.idb"
@@ -161,9 +164,12 @@ LINK32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -227,12 +233,12 @@ ALL : ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\i
 
 !ELSE 
 
-ALL : "xml - Win32 Debug" "libapriconv_ces_modules - Win32 Debug" "libapriconv_ccs_modules - Win32 Debug" "libapriconv - Win32 Debug" "libapr - Win32 Debug" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "xml - Win32 Debug" "libapriconv - Win32 Debug" "libapr - Win32 Debug" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libapr - Win32 DebugCLEAN" "libapriconv - Win32 DebugCLEAN" "libapriconv_ccs_modules - Win32 DebugCLEAN" "libapriconv_ces_modules - Win32 DebugCLEAN" "xml - Win32 DebugCLEAN" 
+CLEAN :"libapr - Win32 DebugCLEAN" "libapriconv - Win32 DebugCLEAN" "xml - Win32 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -250,6 +256,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbm.obj"
@@ -260,6 +267,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -270,6 +278,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_xml.obj"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\libaprutil.res"
 	-@erase "$(INTDIR)\libaprutil_src.idb"
@@ -350,9 +359,12 @@ LINK32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -416,12 +428,12 @@ ALL : ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\i
 
 !ELSE 
 
-ALL : "xml - x64 Release" "libapriconv_ces_modules - x64 Release" "libapriconv_ccs_modules - x64 Release" "libapriconv - x64 Release" "libapr - x64 Release" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "xml - x64 Release" "libapriconv - x64 Release" "libapr - x64 Release" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libapr - x64 ReleaseCLEAN" "libapriconv - x64 ReleaseCLEAN" "libapriconv_ccs_modules - x64 ReleaseCLEAN" "libapriconv_ces_modules - x64 ReleaseCLEAN" "xml - x64 ReleaseCLEAN" 
+CLEAN :"libapr - x64 ReleaseCLEAN" "libapriconv - x64 ReleaseCLEAN" "xml - x64 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -439,6 +451,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbm.obj"
@@ -449,6 +462,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -459,6 +473,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_xml.obj"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\libaprutil.res"
 	-@erase "$(INTDIR)\libaprutil_src.idb"
@@ -539,9 +554,12 @@ LINK32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -605,12 +623,12 @@ ALL : ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\i
 
 !ELSE 
 
-ALL : "xml - x64 Debug" "libapriconv_ces_modules - x64 Debug" "libapriconv_ccs_modules - x64 Debug" "libapriconv - x64 Debug" "libapr - x64 Debug" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "xml - x64 Debug" "libapriconv - x64 Debug" "libapr - x64 Debug" ".\include\private\apu_select_dbm.h" ".\include\private\apu_config.h" ".\include\apu_want.h" ".\include\apu.h" ".\include\apr_ldap.h" "$(OUTDIR)\libaprutil-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libapr - x64 DebugCLEAN" "libapriconv - x64 DebugCLEAN" "libapriconv_ccs_modules - x64 DebugCLEAN" "libapriconv_ces_modules - x64 DebugCLEAN" "xml - x64 DebugCLEAN" 
+CLEAN :"libapr - x64 DebugCLEAN" "libapriconv - x64 DebugCLEAN" "xml - x64 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -628,6 +646,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbm.obj"
@@ -638,6 +657,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -648,6 +668,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_xml.obj"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\libaprutil.res"
 	-@erase "$(INTDIR)\libaprutil_src.idb"
@@ -728,9 +749,12 @@ LINK32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -870,6 +894,12 @@ SOURCE=.\buckets\apr_buckets_socket.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=.\crypto\apr_crypto.c
+
+"$(INTDIR)\apr_crypto.obj" : $(SOURCE) "$(INTDIR)" ".\include\private\apu_config.h" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\crypto\apr_md4.c
 
 "$(INTDIR)\apr_md4.obj" : $(SOURCE) "$(INTDIR)" ".\include\apu.h"
@@ -882,9 +912,21 @@ SOURCE=.\crypto\apr_md5.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=.\crypto\apr_passwd.c
+
+"$(INTDIR)\apr_passwd.obj" : $(SOURCE) "$(INTDIR)" ".\include\private\apu_config.h" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\crypto\apr_sha1.c
 
 "$(INTDIR)\apr_sha1.obj" : $(SOURCE) "$(INTDIR)" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=.\crypto\crypt_blowfish.c
+
+"$(INTDIR)\crypt_blowfish.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1387,98 +1429,6 @@ InputPath=.\include\apu_want.hw
    cd ".\..\apr-iconv"
    $(MAKE) /$(MAKEFLAGS) /F ".\libapriconv.mak" CFG="libapriconv - x64 Debug" RECURSE=1 CLEAN 
    cd "..\apr-util"
-
-!ENDIF 
-
-!IF  "$(CFG)" == "libaprutil - Win32 Release"
-
-"libapriconv_ccs_modules - Win32 Release" : 
-   cd ".\..\apr-iconv\ccs"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="Win32 Release" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ccs_modules - Win32 ReleaseCLEAN" : 
-   cd ".\..\apr-iconv\ccs"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - Win32 Debug"
-
-"libapriconv_ccs_modules - Win32 Debug" : 
-   cd ".\..\apr-iconv\ccs"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="Win32 Debug" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ccs_modules - Win32 DebugCLEAN" : 
-   cd ".\..\apr-iconv\ccs"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - x64 Release"
-
-"libapriconv_ccs_modules - x64 Release" : 
-   cd ".\..\apr-iconv\ccs"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="x64 Release" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ccs_modules - x64 ReleaseCLEAN" : 
-   cd ".\..\apr-iconv\ccs"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - x64 Debug"
-
-"libapriconv_ccs_modules - x64 Debug" : 
-   cd ".\..\apr-iconv\ccs"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="x64 Debug" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ccs_modules - x64 DebugCLEAN" : 
-   cd ".\..\apr-iconv\ccs"
-   cd "..\..\apr-util"
-
-!ENDIF 
-
-!IF  "$(CFG)" == "libaprutil - Win32 Release"
-
-"libapriconv_ces_modules - Win32 Release" : 
-   cd ".\..\apr-iconv\ces"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="Win32 Release" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ces_modules - Win32 ReleaseCLEAN" : 
-   cd ".\..\apr-iconv\ces"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - Win32 Debug"
-
-"libapriconv_ces_modules - Win32 Debug" : 
-   cd ".\..\apr-iconv\ces"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="Win32 Debug" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ces_modules - Win32 DebugCLEAN" : 
-   cd ".\..\apr-iconv\ces"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - x64 Release"
-
-"libapriconv_ces_modules - x64 Release" : 
-   cd ".\..\apr-iconv\ces"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="x64 Release" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ces_modules - x64 ReleaseCLEAN" : 
-   cd ".\..\apr-iconv\ces"
-   cd "..\..\apr-util"
-
-!ELSEIF  "$(CFG)" == "libaprutil - x64 Debug"
-
-"libapriconv_ces_modules - x64 Debug" : 
-   cd ".\..\apr-iconv\ces"
-   NMAKE /nologo /f Makefile.win BUILD_MODE="x64 Debug" BIND_MODE=shared
-   cd "..\..\apr-util"
-
-"libapriconv_ces_modules - x64 DebugCLEAN" : 
-   cd ".\..\apr-iconv\ces"
-   cd "..\..\apr-util"
 
 !ENDIF 
 

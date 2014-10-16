@@ -1,0 +1,51 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>all-locales</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">all-locales&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-reference">#! /bin/sh
+</span><span class="enscript-comment"># Prints the list of all locale names, one per line.
+</span>
+locale -a
+<span class="enscript-keyword">test</span> $? = 0 &amp;&amp; <span class="enscript-keyword">exit</span> 0
+
+host=`/bin/sh ../build-aux/config.guess`
+host_cpu=`<span class="enscript-keyword">echo</span> $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
+host_vendor=`<span class="enscript-keyword">echo</span> $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
+host_os=`<span class="enscript-keyword">echo</span> $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
+
+<span class="enscript-keyword">case</span> <span class="enscript-string">&quot;$host_os&quot;</span> <span class="enscript-keyword">in</span>
+  sunos* | solaris*)
+    <span class="enscript-keyword">cd</span> /usr/lib/locale &amp;&amp; ls -1
+    ;;
+  freebsd*)
+    <span class="enscript-keyword">cd</span> /usr/share/locale &amp;&amp; ls -1
+    ;;
+  darwin*)
+    <span class="enscript-keyword">cd</span> /usr/share/locale &amp;&amp; ls -1 */LC_CTYPE | sed -e 's,/LC_CTYPE$,,'
+    ;;
+  *)
+    <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;Don't know how to determine list of locales on $host_os&quot;</span> 1&gt;&amp;2
+    <span class="enscript-keyword">exit</span> 1
+    ;;
+<span class="enscript-keyword">esac</span>
+</pre>
+<hr />
+</body></html>

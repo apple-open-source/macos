@@ -40,9 +40,5 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	trace(offsetof(tcp_t, tcp_hwcksum));
-#else
 	trace(offsetof(dtrace_aggkey_t, dtak_size));
-#endif
 }

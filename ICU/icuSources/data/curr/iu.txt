@@ -7,8 +7,8 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/iu.xml
+ * ICU <specials> source: <path>/common/main/iu.xml
  */
 iu{
-    Version{"2.0.82.15"}
+    Version{"2.0.92.90"}
 }

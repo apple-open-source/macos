@@ -1,0 +1,32 @@
+#! /bin/csh -f
+#
+# Build a standalone CDSA example package consisting of rsaTool,
+# dhTest, cryptTool, and the library upon which they depend. 
+#
+set packageName=CDSA_Examples
+set targetDirs=( rsatool dhTest cryptTool utilLib )
+set targetFiles=( Makefile Makefile.lib Makefile.cdsa )
+set readmeSrc=EXAMPLES_README
+set readmeDst=README
+
+if ( $#argv != 1 ) then
+	echo target_dir/$packageName must not exist
+	exit(1)
+endif
+
+# packageDir is root
+set packageDir=$argv[1]/$packageName
+if (-e $packageDir) then
+	echo target_dir/$packageName must not exist
+	exit(1)
+endif
+
+echo Creating destination directory...
+mkdir -p $packageDir || exit(1)
+echo Copying source files...
+cp -pr $targetDirs $targetFiles $packageDir || exit(1)
+echo Installing README...
+cp -p $readmeSrc $packageDir/$readmeDst
+echo Cleaning destination directories...
+cd $packageDir; make clean
+echo Done.

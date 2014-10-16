@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.6.8
+VERSION = 2.6.9
 
 PWD := $(shell pwd)
 
@@ -47,7 +47,7 @@ endif
 NAME = Python
 export PYTHON_CURRENT_VERSION = $(shell echo $(VERSION) | sed 's/[a-z].*$$//')
 NAMEVERS = $(NAME)-$(VERSION)
-TARBALL = $(NAMEVERS).tar.bz2
+TARBALL = $(NAMEVERS).tar.xz
 FIX = '$(OBJROOT)/fix'
 
 VERS := $(shell echo $(VERSION) | sed 's/\(^[0-9]*\.[0-9]*\).*/\1/')
@@ -57,8 +57,7 @@ VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
 INCLUDEPYTHONVERS = $(VERSIONSVERS)/include/$(PROJECT)$(VERS)
 LIBPYTHONVERS = $(VERSIONSVERS)/lib/$(PROJECT)$(VERS)
 
-MAJORVERS := $(shell echo $(VERS) | sed 's/\..*//')
-DYLIB = lib$(PROJECT)$(MAJORVERS).dylib
+DYLIB = lib$(PROJECT)$(VERS).dylib
 USRINCLUDE = /usr/include
 USRLIB = /usr/lib
 EXTRAS = $(VERSIONSVERS)/Extras
@@ -96,7 +95,7 @@ python: $(OBJROOT)/$(PROJECT)
 #    % make `pwd`/python OBJROOT=`pwd` PYTHON_AUTOCONF=YES
 #    % diff -r --brief python.bak python
 #
-# Copy the difference files to fix/autoconf.
+# Make a tarball out of the differences and put in $(FIX)/autoconf.tar.bz2
 ##---------------------------------------------------------------------
 defarchflags = $(foreach u,$(RC_ARCHS),-arch $(u))
 
@@ -114,6 +113,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/distutils/config.py < $(FIX)/Lib_distutils_config.py.ed && \
 	sed 's/@DEFARCHFLAGS@/$(defarchflags)/' $(FIX)/sysconfig.py.ed | ed - $(PROJECT)/Lib/distutils/sysconfig.py && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/util.py < $(FIX)/Lib_distutils_util.py.ed && \
 	ed - $(PROJECT)/Lib/locale.py < $(FIX)/locale.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
 	ed - $(PROJECT)/Lib/os.py < $(FIX)/Lib_os.py.ed && \
@@ -147,7 +147,6 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
-	ed - $(PROJECT)/Python/import.c < $(FIX)/import.c.ed && \
 	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
@@ -175,7 +174,10 @@ install: installpython
 
 ##---------------------------------------------------------------------
 # PR-3478215 - for backwards compatibility with non-framework python, we
-# create symbolic links in /usr/include and /usr/lib.
+# create symbolic links in /usr/include and /usr/lib.  We now create the
+# links w.r.t. multiple versioning.  In addition, the PYTHON_DEFAULT
+# environment variable will be set to YES if this version is the default
+# version of python.
 ##---------------------------------------------------------------------
 installpython: $(OBJROOT)/$(PROJECT)
 	install -d '$(DSTROOT)/usr/bin'
@@ -192,8 +194,9 @@ installpython: $(OBJROOT)/$(PROJECT)
 	install -d '$(DSTROOT)$(USRLIB)'
 	ln -sf ../..$(LIBPYTHONVERS) '$(DSTROOT)$(USRLIB)/$(PROJECT)$(VERS)'
 	ln -sf ../..$(VERSIONSVERS)/Python '$(DSTROOT)$(USRLIB)/$(DYLIB)'
-	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT)$(VERS).dylib'
+ifeq ($(PYTHON_DEFAULT),YES)
 	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib'
+endif
 	install -d '$(DSTROOT)$(SITEPACKAGES)'
 
 .DEFAULT:

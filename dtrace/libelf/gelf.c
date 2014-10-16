@@ -271,11 +271,7 @@ gelf_update_phdr(Elf *elf, int ndx, GElf_Phdr *src)
 		return (0);
 
 	if (elf_getphnum(elf, &phnum) == 0)
-#if !defined(__APPLE__)
-		return (NULL);
-#else 
 		return (0);
-#endif /* __ALPPLE__ */
 
 	if (phnum < ndx) {
 		_elf_seterr(EREQ_RAND, 0);

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,17 +30,16 @@
 #include "WebElementPropertyBag.h"
 #include "WebLocalizableStrings.h"
 #include "WebView.h"
-
 #include <WebCore/ContextMenu.h>
 #include <WebCore/ContextMenuController.h>
 #include <WebCore/Editor.h>
 #include <WebCore/Event.h>
-#include <WebCore/Frame.h>
-#include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoadRequest.h>
+#include <WebCore/FrameLoader.h>
+#include <WebCore/MainFrame.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/ResourceRequest.h>
-#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
@@ -66,9 +65,9 @@ PassOwnPtr<ContextMenu> WebContextMenuClient::customizeMenu(PassOwnPtr<ContextMe
 
     HMENU nativeMenu = menu->platformContextMenu();
     COMPtr<WebElementPropertyBag> propertyBag;
-    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController()->hitTestResult()));
+    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController().hitTestResult()));
     // FIXME: We need to decide whether to do the default before calling this delegate method
-    if (FAILED(uiDelegate->contextMenuItemsForElement(m_webView, propertyBag.get(), (OLE_HANDLE)(ULONG64)nativeMenu, (OLE_HANDLE*)&nativeMenu))) {
+    if (FAILED(uiDelegate->contextMenuItemsForElement(m_webView, propertyBag.get(), nativeMenu, &nativeMenu))) {
         ::DestroyMenu(nativeMenu);
         return menu.release();
     }
@@ -90,7 +89,7 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     ASSERT(uiDelegate);
 
     COMPtr<WebElementPropertyBag> propertyBag;
-    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController()->hitTestResult()));
+    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController().hitTestResult()));
 
     // This call would leak the MENUITEMINFO's subMenu if it had one, but on Windows, subMenus can't be selected, so there is
     // no way we would get to this point. Also, it can't be a separator, because separators cannot be selected.
@@ -104,7 +103,7 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     uiDelegate->contextMenuItemSelected(m_webView, &selectedItem, propertyBag.get());
 }
 
-void WebContextMenuClient::downloadURL(const KURL& url)
+void WebContextMenuClient::downloadURL(const URL& url)
 {
     m_webView->downloadURL(url);
 }
@@ -121,8 +120,8 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
     url.append("&ie=UTF-8&oe=UTF-8");
 
     if (Page* page = frame->page()) {
-        UserGestureIndicator indicator(DefinitelyProcessingNewUserGesture);
-        page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, MaybeSendReferrer);
+        UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+        page->mainFrame().loader().urlSelected(URL(ParsedURLString, url), String(), 0, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer);
     }
 }
 

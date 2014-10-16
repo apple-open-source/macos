@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -26,7 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(SQL_DATABASE)
+#if !defined(ENABLE_SQL_DATABASE)
+#define ENABLE_SQL_DATABASE 1
+#endif
+
+#if ENABLE_SQL_DATABASE
 
 extern NSString *WebDatabaseDirectoryDefaultsKey;
 
@@ -43,6 +47,13 @@ extern NSString *WebDatabaseDidModifyOriginNotification;
 // The notification userInfo will have a WebDatabaseNameKey whose value is the database name.
 extern NSString *WebDatabaseDidModifyDatabaseNotification;
 extern NSString *WebDatabaseIdentifierKey;
+
+#if TARGET_OS_IPHONE
+#import <WebKitLegacy/WebUIKitSupport.h>
+
+// Posted when origins have changed.
+extern CFStringRef WebDatabaseOriginsDidChangeNotification;
+#endif
 
 @class WebSecurityOrigin;
 
@@ -63,6 +74,9 @@ extern NSString *WebDatabaseIdentifierKey;
 - (BOOL)deleteOrigin:(WebSecurityOrigin *)origin;
 - (BOOL)deleteDatabase:(NSString *)databaseIdentifier withOrigin:(WebSecurityOrigin *)origin;
 
+#if TARGET_OS_IPHONE
++ (void)scheduleEmptyDatabaseRemoval;
+#endif
 @end
 
-#endif
+#endif // ENABLE_SQL_DATABASE

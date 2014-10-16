@@ -986,6 +986,11 @@ section.)
 .IP
 Where the FreeBSD version supports threads, all threads will be
 listed with their IDs.
+.IP
+In general threads and tasks inherit the files of the caller, but
+may close some and open others, so
+.I lsof
+always reports all the open files of threads and tasks.
 .TP \w'names'u+4
 .BI \-k " k"
 specifies a kernel name list file,
@@ -1360,7 +1365,17 @@ to display file size at all times.
 It causes the SIZE/OFF output column title to be changed to SIZE.
 If the file does not have a size, nothing is displayed.
 .IP
-When followed by a protocol name (\fIp\fR), either TCP or UDP,
+The optional
+.BI \-s " p:s"
+form is available only for selected dialects, and only when the
+.B \-h
+or
+.B \-?
+help output lists it.
+.IP
+When the optional form is available, the
+.B s
+may be followed by a protocol name (\fIp\fR), either TCP or UDP,
 a colon (`:') and a comma\-separated protocol state name list,
 the option causes open TCP and UDP files to be excluded if their
 state name(s) are in the list (\fIs\fP) preceded by a `^'; or
@@ -2987,7 +3002,9 @@ when available, followed by ``->'' and the remote path name or kernel
 socket address in hexadecimal when available;
 .IP
 or the association value, association index, endpoint value, local address,
-local port, remote address and remote port for Linux SCTP sockets.
+local port, remote address and remote port for Linux SCTP sockets;
+.IP
+or ``protocol: '' followed by the Linux socket's protocol attribute.
 .PP
 For dialects that support a ``namefs'' file system, allowing one
 file to be attached to another with

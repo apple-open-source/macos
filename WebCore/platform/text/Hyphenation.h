@@ -26,13 +26,13 @@
 #ifndef Hyphenation_h
 #define Hyphenation_h
 
+#include <unicode/utypes.h>
 #include <wtf/Forward.h>
-#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
 bool canHyphenate(const AtomicString& localeIdentifier);
-size_t lastHyphenLocation(const UChar*, size_t length, size_t beforeIndex, const AtomicString& localeIdentifier);
+size_t lastHyphenLocation(StringView, size_t beforeIndex, const AtomicString& localeIdentifier);
 
 } // namespace WebCore
 

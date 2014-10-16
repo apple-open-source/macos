@@ -55,6 +55,7 @@
 #include <openssl/des.h>
 #endif
 
+#define LDAP_DEPRECATED 1
 #include <ldap.h>
 #include <lber.h>
 #include <sasl.h>
@@ -159,8 +160,8 @@ static int lak_config_read(
 		if (buf[strlen(buf)-1] == '\n') 
 			buf[strlen(buf)-1] = '\0';
 		for (p = buf; *p && isspace((int) *p); p++);
-			if (!*p || *p == '#') 
-				continue;
+		if (!*p || *p == '#') 
+		    continue;
 
 		key = p;
 		while (*p && (isalnum((int) *p) || *p == '-' || *p == '_')) {
@@ -168,16 +169,20 @@ static int lak_config_read(
 				*p = tolower(*p);
 			p++;
 		}
-		if (*p != ':')
+		if (*p != ':') {
+			fclose(infile);
 			return LAK_FAIL;
+		}
 		
 		*p++ = '\0';
 
 		while (*p && isspace((int) *p)) 
 			p++;
 
-		if (!*p)
+		if (!*p) {
+			fclose(infile);
 			return LAK_FAIL;
+		}
 
 		if (!strcasecmp(key, "ldap_servers"))
 			strlcpy(conf->servers, p, LAK_URL_LEN);

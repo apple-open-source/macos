@@ -87,12 +87,15 @@ slap_op_free( Operation *op, void *ctx )
 	}
 	if ( !BER_BVISNULL( &op->o_dn ) ) {
 		ch_free( op->o_dn.bv_val );
+		op->o_dn.bv_val = NULL;
 	}
 	if ( !BER_BVISNULL( &op->o_ndn ) ) {
 		ch_free( op->o_ndn.bv_val );
+		op->o_ndn.bv_val = NULL;
 	}
 	if ( !BER_BVISNULL( &op->o_authmech ) ) {
 		ch_free( op->o_authmech.bv_val );
+		op->o_authmech.bv_val = NULL;
 	}
 	if ( op->o_ctrls != NULL ) {
 		slap_free_ctrls( op, op->o_ctrls );

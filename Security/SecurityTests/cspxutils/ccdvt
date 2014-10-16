@@ -1,0 +1,29 @@
+#! /bin/csh -f
+#
+# run CommonCrypto regression tests.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+set QUIET= 
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET = q
+            shift
+            breaksw
+        default:
+            cat cspdvt_usage
+            exit(1)
+    endsw
+end
+set CSPXUTILS=`pwd`
+#TODO $BUILD_DIR/ccSymCompat $QUIET || exit(1)
+#TODO $BUILD_DIR/ccSymCompat o $QUIET || exit(1)
+$BUILD_DIR/ccSymTest $QUIET || exit(1)
+$BUILD_DIR/ccHmacCompat $QUIET || exit(1)
+$BUILD_DIR/ccHmacClone $QUIET || exit(1)
+$BUILD_DIR/ccOneShot $QUIET || exit(1)
+$BUILD_DIR/ccOpensslCompat $QUIET || exit(1)
+
+echo ===== ccdvt success =====

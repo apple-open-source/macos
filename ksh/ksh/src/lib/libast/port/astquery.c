@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -45,26 +45,29 @@ astquery(int quit, const char* format, ...)
 	va_list		ap;
 	register int	n;
 	register int	c;
+	int		r;
 	Sfio_t*		ip;
 	Sfio_t*		op;
 
 	static Sfio_t*	rfp;
 	static Sfio_t*	wfp;
 
+	r = 0;
 	va_start(ap, format);
 	if (!format)
-		return 0;
+		goto done;
+	r = -1;
 	if (!rfp)
 	{
 		c = errno;
 		if (isatty(sffileno(sfstdin)))
 			rfp = sfstdin;
 		else if (!(rfp = sfopen(NiL, "/dev/tty", "r")))
-			return -1;
+			goto done;
 		if (isatty(sffileno(sfstderr)))
 			wfp = sfstderr;
 		else if (!(wfp = sfopen(NiL, "/dev/tty", "w")))
-			return -1;
+			goto done;
 		errno = c;
 	}
 	if (quit & ERROR_PROMPT)
@@ -95,15 +98,17 @@ astquery(int quit, const char* format, ...)
 			case 'Q':
 				if (quit >= 0)
 					exit(quit);
-				return -1;
+				goto done;
 			case '1':
 			case 'y':
 			case 'Y':
 			case '+':
-				return 0;
+				r = 0;
+				goto done;
 			}
 			return 1;
 		}
+ done:
 	va_end(ap);
-	/*NOTREACHED*/
+	return r;
 }

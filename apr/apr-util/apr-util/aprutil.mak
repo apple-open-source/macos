@@ -64,6 +64,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbd_freetds.obj"
@@ -86,6 +87,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -98,6 +100,7 @@ CLEAN :
 	-@erase "$(INTDIR)\aprutil-1.pdb"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\sdbm.obj"
 	-@erase "$(INTDIR)\sdbm_hash.obj"
@@ -164,9 +167,12 @@ LIB32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -249,6 +255,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbd_freetds.obj"
@@ -271,6 +278,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -283,6 +291,7 @@ CLEAN :
 	-@erase "$(INTDIR)\aprutil-1.pdb"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\sdbm.obj"
 	-@erase "$(INTDIR)\sdbm_hash.obj"
@@ -354,9 +363,12 @@ LIB32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -439,6 +451,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbd_freetds.obj"
@@ -461,6 +474,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -473,6 +487,7 @@ CLEAN :
 	-@erase "$(INTDIR)\aprutil-1.pdb"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\sdbm.obj"
 	-@erase "$(INTDIR)\sdbm_hash.obj"
@@ -544,9 +559,12 @@ LIB32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -629,6 +647,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_buckets_refcount.obj"
 	-@erase "$(INTDIR)\apr_buckets_simple.obj"
 	-@erase "$(INTDIR)\apr_buckets_socket.obj"
+	-@erase "$(INTDIR)\apr_crypto.obj"
 	-@erase "$(INTDIR)\apr_date.obj"
 	-@erase "$(INTDIR)\apr_dbd.obj"
 	-@erase "$(INTDIR)\apr_dbd_freetds.obj"
@@ -651,6 +670,7 @@ CLEAN :
 	-@erase "$(INTDIR)\apr_md4.obj"
 	-@erase "$(INTDIR)\apr_md5.obj"
 	-@erase "$(INTDIR)\apr_memcache.obj"
+	-@erase "$(INTDIR)\apr_passwd.obj"
 	-@erase "$(INTDIR)\apr_queue.obj"
 	-@erase "$(INTDIR)\apr_reslist.obj"
 	-@erase "$(INTDIR)\apr_rmm.obj"
@@ -663,6 +683,7 @@ CLEAN :
 	-@erase "$(INTDIR)\aprutil-1.pdb"
 	-@erase "$(INTDIR)\apu_dso.obj"
 	-@erase "$(INTDIR)\apu_version.obj"
+	-@erase "$(INTDIR)\crypt_blowfish.obj"
 	-@erase "$(INTDIR)\getuuid.obj"
 	-@erase "$(INTDIR)\sdbm.obj"
 	-@erase "$(INTDIR)\sdbm_hash.obj"
@@ -734,9 +755,12 @@ LIB32_OBJS= \
 	"$(INTDIR)\apr_buckets_refcount.obj" \
 	"$(INTDIR)\apr_buckets_simple.obj" \
 	"$(INTDIR)\apr_buckets_socket.obj" \
+	"$(INTDIR)\apr_crypto.obj" \
 	"$(INTDIR)\apr_md4.obj" \
 	"$(INTDIR)\apr_md5.obj" \
+	"$(INTDIR)\apr_passwd.obj" \
 	"$(INTDIR)\apr_sha1.obj" \
+	"$(INTDIR)\crypt_blowfish.obj" \
 	"$(INTDIR)\getuuid.obj" \
 	"$(INTDIR)\uuid.obj" \
 	"$(INTDIR)\apr_dbd.obj" \
@@ -873,6 +897,12 @@ SOURCE=.\buckets\apr_buckets_socket.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=.\crypto\apr_crypto.c
+
+"$(INTDIR)\apr_crypto.obj" : $(SOURCE) "$(INTDIR)" ".\include\private\apu_config.h" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\crypto\apr_md4.c
 
 "$(INTDIR)\apr_md4.obj" : $(SOURCE) "$(INTDIR)" ".\include\apu.h"
@@ -885,9 +915,21 @@ SOURCE=.\crypto\apr_md5.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=.\crypto\apr_passwd.c
+
+"$(INTDIR)\apr_passwd.obj" : $(SOURCE) "$(INTDIR)" ".\include\private\apu_config.h" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\crypto\apr_sha1.c
 
 "$(INTDIR)\apr_sha1.obj" : $(SOURCE) "$(INTDIR)" ".\include\apu.h"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=.\crypto\crypt_blowfish.c
+
+"$(INTDIR)\crypt_blowfish.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

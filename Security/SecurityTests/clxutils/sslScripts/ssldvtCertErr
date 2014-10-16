@@ -1,0 +1,2 @@
+echo "*** Required certs and/or keychains invalid."
+echo "*** Please run makeLocalCert."

@@ -115,7 +115,7 @@
 		4.84, July 29, 2010
 		4.85, September 27, 2011
 		4.86, April 10, 2012
-		4.87, ??? ??? 2012
+		4.87, January 2, 2013
 
 
 Dialects Supported
@@ -4637,7 +4637,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Added code to handle a Linux NFS-mounted root.  Jia He
 		<hejianet@linux.vnet.ibm.com> reported the need for this.
 
-4.87		??? ??? 2012
+4.87		January 2, 2013
 		Added an entry to 00FAQ about lsof behavior when the
 		HASSECURITY and HASNOSOCKSECURITY options are defined.
 		Carson Gaspar <carson@taltos.org> pointed out the need
@@ -4678,6 +4678,19 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Trawick reported problems with FreeBSD lsof when threads
 		are present and this addition solves those problems.
 
+		Made changes to 00FAQ and the distribution, suggested by
+		Warren Young <warren@etr-usa.com>.  The 00FAQ changes
+		center on sections that discuss the -s option.  The changes
+		to the distribution include a ChangeLog file that is either
+		a pointer to or a copy of 00DIST, the distribution notes.
+
+		Added support to FreeBSD for using the clang compiler.
+
+		Added Linux support for using the getxattr() call to obtain
+		socket protocol identification when it is can't be obtained
+		from the /proc/net files that lsof examines.  Masatake YAMATO
+		<yamato@redhat.com> developed the kernel patch to getxattr()
+		and supplied the lsof patch.
 
 Vic Abell <abe@purdue.edu>
-??? ??? 2012
+January 2, 2013

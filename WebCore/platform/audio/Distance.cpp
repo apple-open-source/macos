@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,8 +35,6 @@
 #include <algorithm>
 #include <math.h>
 
-using namespace std;
-
 namespace WebCore {
 
 DistanceEffect::DistanceEffect()
@@ -51,11 +49,11 @@ DistanceEffect::DistanceEffect()
 double DistanceEffect::gain(double distance)
 {
     // don't go beyond maximum distance
-    distance = min(distance, m_maxDistance);
+    distance = std::min(distance, m_maxDistance);
 
     // if clamped, don't get closer than reference distance
     if (m_isClamped)
-        distance = max(distance, m_refDistance);
+        distance = std::max(distance, m_refDistance);
 
     switch (m_model) {
     case ModelLinear:

@@ -22,51 +22,48 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
+#include "GStreamerUtilities.h"
+
 #include <cairo.h>
 #include <gst/gst.h>
-#include <gst/video/video.h>
-#include <wtf/gobject/GOwnPtr.h>
-
-#ifdef GST_API_VERSION_1
 #include <gst/video/gstvideometa.h>
-#endif
 
 
 using namespace std;
 using namespace WebCore;
 
 ImageGStreamer::ImageGStreamer(GstBuffer* buffer, GstCaps* caps)
-#ifdef GST_API_VERSION_1
-    : m_buffer(buffer)
-#endif
 {
-    GstVideoFormat format;
-    IntSize size;
-    int pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride;
-    getVideoSizeAndFormatFromCaps(caps, size, format, pixelAspectRatioNumerator, pixelAspectRatioDenominator, stride);
+    GstVideoInfo videoInfo;
+    gst_video_info_init(&videoInfo);
+    if (!gst_video_info_from_caps(&videoInfo, caps))
+        return;
 
-#ifdef GST_API_VERSION_1
-    gst_buffer_map(buffer, &m_mapInfo, GST_MAP_READ);
-    unsigned char* bufferData = reinterpret_cast<unsigned char*>(m_mapInfo.data);
-#else
-    unsigned char* bufferData = reinterpret_cast<unsigned char*>(GST_BUFFER_DATA(buffer));
-#endif
+    // Right now the TextureMapper only supports chromas with one plane
+    ASSERT(GST_VIDEO_INFO_N_PLANES(&videoInfo) == 1);
+
+    if (!gst_video_frame_map(&m_videoFrame, &videoInfo, buffer, GST_MAP_READ))
+        return;
+
+    unsigned char* bufferData = reinterpret_cast<unsigned char*>(GST_VIDEO_FRAME_PLANE_DATA(&m_videoFrame, 0));
 
     cairo_format_t cairoFormat;
 #if G_BYTE_ORDER == G_LITTLE_ENDIAN
-    cairoFormat = (format == GST_VIDEO_FORMAT_BGRA) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
+    cairoFormat = (GST_VIDEO_FRAME_FORMAT(&m_videoFrame) == GST_VIDEO_FORMAT_BGRA) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
 #else
-    cairoFormat = (format == GST_VIDEO_FORMAT_ARGB) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
+    cairoFormat = (GST_VIDEO_FRAME_FORMAT(&m_videoFrame) == GST_VIDEO_FORMAT_ARGB) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
 #endif
 
-    RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create_for_data(bufferData, cairoFormat, size.width(), size.height(), stride));
+    int stride = GST_VIDEO_FRAME_PLANE_STRIDE(&m_videoFrame, 0);
+    int width = GST_VIDEO_FRAME_WIDTH(&m_videoFrame);
+    int height = GST_VIDEO_FRAME_HEIGHT(&m_videoFrame);
+
+    RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create_for_data(bufferData, cairoFormat, width, height, stride));
     ASSERT(cairo_surface_status(surface.get()) == CAIRO_STATUS_SUCCESS);
     m_image = BitmapImage::create(surface.release());
 
-#ifdef GST_API_VERSION_1
     if (GstVideoCropMeta* cropMeta = gst_buffer_get_video_crop_meta(buffer))
         setCropRect(FloatRect(cropMeta->x, cropMeta->y, cropMeta->width, cropMeta->height));
-#endif
 }
 
 ImageGStreamer::~ImageGStreamer()
@@ -76,10 +73,8 @@ ImageGStreamer::~ImageGStreamer()
 
     m_image = 0;
 
-#ifdef GST_API_VERSION_1
     // We keep the buffer memory mapped until the image is destroyed because the internal
     // cairo_surface_t was created using cairo_image_surface_create_for_data().
-    gst_buffer_unmap(m_buffer.get(), &m_mapInfo);
-#endif
+    gst_video_frame_unmap(&m_videoFrame);
 }
 #endif // USE(GSTREAMER)

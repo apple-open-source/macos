@@ -40,9 +40,5 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	trace(offsetof(vnode_t, v_no_such_member));
-#else
 	trace(offsetof(struct proc, p_no_such_member));
-#endif /* __APPLE__ */
 }

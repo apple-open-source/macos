@@ -1,0 +1,22 @@
+#! /bin/csh -f
+#
+# run FEE tests for CSP/X.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+set CMD_ARGS=
+#
+while ( $#argv > 0 )
+	set CMD_ARGS = "$CMD_ARGS $argv[1]"
+	shift
+end
+#
+# run thru the known curves
+#
+./feeCurve $CMD_ARGS k=31 C=m || exit(1)
+./feeCurve $CMD_ARGS k=31 C=w || exit(1)
+./feeCurve $CMD_ARGS k=127 C=m || exit(1)
+./feeCurve $CMD_ARGS k=128 C=w || exit(1)
+./feeCurve $CMD_ARGS k=161 C=w || exit(1)
+./feeCurve $CMD_ARGS k=161 P=g || exit(1)
+./feeCurve $CMD_ARGS k=192 C=w || exit(1)

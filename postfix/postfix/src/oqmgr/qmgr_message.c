@@ -749,7 +749,7 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	if (rec_type > 0)
 	    msg_warn("%s: ignoring out-of-order DSN original recipient <%.200s>",
 		     message->queue_id, dsn_orcpt);
-	myfree(orig_rcpt);
+	myfree(dsn_orcpt);
     }
     if (orig_rcpt != 0) {
 	if (rec_type > 0)
@@ -1175,7 +1175,7 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 		   : strlen(STR(reply.recipient)));
 	    vstring_strncpy(queue_name, STR(reply.recipient), len);
 	    /* Remove the address extension from the recipient localpart. */
-	    if (*var_rcpt_delim && split_addr(STR(queue_name), *var_rcpt_delim))
+	    if (*var_rcpt_delim && split_addr(STR(queue_name), var_rcpt_delim))
 		vstring_truncate(queue_name, strlen(STR(queue_name)));
 	    /* Assume the recipient domain is equivalent to nexthop. */
 	    vstring_sprintf_append(queue_name, "@%s", STR(reply.nexthop));

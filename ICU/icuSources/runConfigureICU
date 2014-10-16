@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 1999-2012, International Business Machines Corporation and
+# Copyright (c) 1999-2013, International Business Machines Corporation and
 # others. All Rights Reserved.
 
 # runConfigureICU: This script will run the "configure" script for the appropriate platform
@@ -48,7 +48,8 @@ The following names can be supplied as the argument for platform:
     Linux/ECC           Use the Intel ECC compiler on Linux
     Linux/ICC           Use the Intel ICC compiler on Linux
     Linux/VA            Use the IBM Visual Age compiler on Power PC Linux
-    MacOSX              Use the GNU gcc/g++ compilers on MacOS X (Darwin)
+    MacOSX              Use the default compilers on MacOS X (Darwin)
+    MacOSX/GCC          Use the GNU gcc/g++ compilers on MacOSX (Darwin)
     MinGW               Use the GNU gcc/g++ compilers on MinGW
     QNX                 Use the QNX QCC compiler on QNX/Neutrino
     Solaris             Use the Sun cc/CC compilers on Solaris
@@ -259,11 +260,11 @@ case $platform in
         THE_COMP="Microsoft Visual C++"
         CC=cl; export CC
         CXX=cl; export CXX
-        RELEASE_CFLAGS='/Gy /MD'
-        RELEASE_CXXFLAGS='/Gy /MD'
-        DEBUG_CFLAGS='/Zi /MDd'
-        DEBUG_CXXFLAGS='/Zi /MDd'
-        DEBUG_LDFLAGS='/DEBUG'
+        RELEASE_CFLAGS='-Gy -MD'
+        RELEASE_CXXFLAGS='-Gy -MD'
+        DEBUG_CFLAGS='-Zi -MDd'
+        DEBUG_CXXFLAGS='-Zi -MDd'
+        DEBUG_LDFLAGS='-DEBUG'
         ;;
     Cygwin/MSVC2005)
         THE_OS="Windows with Cygwin"
@@ -290,17 +291,29 @@ case $platform in
         ;;
     MacOSX)
         THE_OS="MacOS X (Darwin)"
+        THE_COMP="the default"
+        RELEASE_CFLAGS='-O2'
+        RELEASE_CXXFLAGS='-O2'
+        DEBUG_CFLAGS='-g -O0'
+        DEBUG_CXXFLAGS='-g -O0'
+        ;;
+    MacOSX/GCC)
+        THE_OS="MacOS X (Darwin)"
         THE_COMP="the GNU C++"
         RELEASE_CFLAGS='-O2'
         RELEASE_CXXFLAGS='-O2'
         DEBUG_CFLAGS='-g -O0'
         DEBUG_CXXFLAGS='-g -O0'
+        CC=gcc; export CC
+        CXX=g++; export CXX
         ;;
     MinGW)
         THE_OS="MinGW"
         THE_COMP="the GNU C++"
         RELEASE_CFLAGS='-O3'
         RELEASE_CXXFLAGS='-O3'
+        CXXFLAGS="--std=c++03"
+        export CXXFLAGS
         ;;
     *BSD)
         THE_OS="BSD"

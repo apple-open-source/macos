@@ -446,24 +446,44 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 }
 
 
-CFArrayRef
-SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
-			     CFStringRef	server,
-			     CFStringRef	interface)
+static CFArrayRef
+_SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
+				      CFStringRef	server,
+				      CFStringRef	interface,
+				      CFDictionaryRef	options)
 {
 	CFMutableDictionaryRef		newProxy;
-	static const audit_token_t	null_audit	= KERNEL_AUDIT_TOKEN_VALUE;
-	UUID_DEFINE(null_uuid, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	uuid_t				match_uuid;
 	CFArrayRef			proxies		= NULL;
 	CFDictionaryRef			proxy;
 	int				sc_status	= kSCStatusOK;
-	CFStringRef			serviceID;
 	CFStringRef			trimmed		= NULL;
+
 
 	if (!isA_CFDictionary(globalConfiguration)) {
 		// if no proxy configuration
 		_SCErrorSet(kSCStatusOK);
 		return NULL;
+	}
+
+	uuid_clear(match_uuid);
+
+	if (isA_CFDictionary(options)) {
+		CFUUIDRef euuid;
+
+		interface = CFDictionaryGetValue(options, kSCProxiesMatchInterface);
+		interface = isA_CFString(interface);
+
+		server = CFDictionaryGetValue(options, kSCProxiesMatchServer);
+		server = isA_CFString(server);
+
+		euuid = CFDictionaryGetValue(options, kSCProxiesMatchExecutableUUID);
+		euuid = isA_CFType(euuid, CFUUIDGetTypeID());
+
+		if (euuid != NULL) {
+			CFUUIDBytes uuid_bytes = CFUUIDGetUUIDBytes(euuid);
+			uuid_copy(match_uuid, (const uint8_t *)&uuid_bytes);
+		}
 	}
 
 	if (interface != NULL) {
@@ -506,48 +526,6 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 		return proxies;
 	}
 
-	// Check for app-layer VPN proxy results (with or without server)
-	serviceID = VPNAppLayerCopyMatchingService(null_audit, 0, null_uuid, NULL, server, NULL, NULL);
-	if (serviceID != NULL) {
-		CFDictionaryRef	serviceProxies	= NULL;
-
-		serviceProxies = CFDictionaryGetValue(globalConfiguration, kSCPropNetProxiesServices);
-		if (serviceProxies == NULL) {
-			_SCErrorSet(kSCStatusOK);
-			CFRelease(serviceID);
-			goto app_layer_no_proxies;
-		}
-		if (!isA_CFDictionary(serviceProxies)) {
-			_SCErrorSet(kSCStatusFailed);
-			CFRelease(serviceID);
-			goto app_layer_no_proxies;
-		}
-
-		proxy = CFDictionaryGetValue(serviceProxies, serviceID);
-		CFRelease(serviceID);
-		if (proxy == NULL) {
-			_SCErrorSet(kSCStatusOK);
-			goto app_layer_no_proxies;
-		}
-		if (!isA_CFDictionary(proxy)) {
-			_SCErrorSet(kSCStatusFailed);
-			goto app_layer_no_proxies;
-		}
-
-		proxies = CFArrayCreate(NULL, (const void **)&proxy, 1, &kCFTypeArrayCallBacks);
-		return proxies;
-
-	    app_layer_no_proxies:
-
-		/*
-		 * Rather than returning NULL, return an empty proxy configuration.
-		 * This ensures that the global proxy configuration will not be used.
-		 */
-		proxy = CFDictionaryCreate(NULL, NULL, NULL, 0, NULL, NULL);
-		proxies = CFArrayCreate(NULL, (const void **)&proxy, 1, &kCFTypeArrayCallBacks);
-		CFRelease(proxy);
-		return proxies;
-	}
 
 	if (server != NULL) {
 		CFIndex			i;
@@ -661,4 +639,19 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 	if (trimmed != NULL) CFRelease(trimmed);
 
 	return proxies;
+}
+
+CFArrayRef
+SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
+			     CFStringRef	server,
+			     CFStringRef	interface)
+{
+	return _SCNetworkProxiesCopyMatchingInternal(globalConfiguration, server, interface, NULL);
+}
+
+CFArrayRef
+SCNetworkProxiesCopyMatchingWithOptions(CFDictionaryRef		globalConfiguration,
+					CFDictionaryRef		options)
+{
+	return _SCNetworkProxiesCopyMatchingInternal(globalConfiguration, NULL, NULL, options);
 }

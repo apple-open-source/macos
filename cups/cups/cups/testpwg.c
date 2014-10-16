@@ -1,5 +1,5 @@
 /*
- * "$Id: testpwg.c 11433 2013-11-20 18:57:44Z msweet $"
+ * "$Id: testpwg.c 11468 2013-12-18 20:31:42Z msweet $"
  *
  *   PWG test program for CUPS.
  *
@@ -566,5 +566,5 @@ test_ppd_cache(_ppd_cache_t *pc,	/* I - PWG mapping data */
 
 
 /*
- * End of "$Id: testpwg.c 11433 2013-11-20 18:57:44Z msweet $".
+ * End of "$Id: testpwg.c 11468 2013-12-18 20:31:42Z msweet $".
  */

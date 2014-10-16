@@ -47,9 +47,9 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
+#include <wtf/StdLibExtras.h>
 
-namespace CoreIPC {
+namespace IPC {
 class ArgumentDecoder;
 class ArgumentEncoder;
 }
@@ -65,8 +65,8 @@ class Syscall {
 public:
     virtual ~Syscall() { }
 
-    static PassOwnPtr<Syscall> createFromContext(ucontext_t*);
-    static PassOwnPtr<Syscall> createFromDecoder(CoreIPC::ArgumentDecoder*);
+    static std::unique_ptr<Syscall> createFromContext(ucontext_t*);
+    static std::unique_ptr<Syscall> createFromDecoder(IPC::ArgumentDecoder*);
 
     int type() const { return m_type; }
 
@@ -74,9 +74,9 @@ public:
     mcontext_t* context() const { return m_context; }
 
     virtual void setResult(const SyscallResult*) = 0;
-    virtual PassOwnPtr<SyscallResult> execute(const SyscallPolicy&) = 0;
-    virtual void encode(CoreIPC::ArgumentEncoder&) const = 0;
-    virtual bool decode(CoreIPC::ArgumentDecoder*) = 0;
+    virtual std::unique_ptr<SyscallResult> execute(const SyscallPolicy&) = 0;
+    virtual void encode(IPC::ArgumentEncoder&) const = 0;
+    virtual bool decode(IPC::ArgumentDecoder*) = 0;
 
 protected:
     Syscall(int type, mcontext_t*);
@@ -92,12 +92,12 @@ class SyscallResult {
 public:
     virtual ~SyscallResult() { }
 
-    static PassOwnPtr<SyscallResult> createFromDecoder(CoreIPC::ArgumentDecoder*, int fd);
+    static std::unique_ptr<SyscallResult> createFromDecoder(IPC::ArgumentDecoder*, int fd);
 
     int type() const { return m_type; }
 
-    virtual void encode(CoreIPC::ArgumentEncoder&) const = 0;
-    virtual bool decode(CoreIPC::ArgumentDecoder*, int fd=-1) = 0;
+    virtual void encode(IPC::ArgumentEncoder&) const = 0;
+    virtual bool decode(IPC::ArgumentDecoder*, int fd=-1) = 0;
 
 protected:
     SyscallResult(int type);

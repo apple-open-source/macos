@@ -31,6 +31,7 @@
 #define ShapeValue_h
 
 #include "BasicShapes.h"
+#include "CSSValueKeywords.h"
 #include "StyleImage.h"
 #include <wtf/PassRefPtr.h>
 
@@ -38,21 +39,21 @@ namespace WebCore {
 
 class ShapeValue : public RefCounted<ShapeValue> {
 public:
-    enum ShapeValueType {
-        // The Auto value is defined by a null ShapeValue*
+    enum class Type {
+        // The None value is defined by a null ShapeValue*
         Shape,
-        Outside,
+        Box,
         Image
     };
 
-    static PassRefPtr<ShapeValue> createShapeValue(PassRefPtr<BasicShape> shape)
+    static PassRefPtr<ShapeValue> createShapeValue(PassRefPtr<BasicShape> shape, CSSBoxType cssBox)
     {
-        return adoptRef(new ShapeValue(shape));
+        return adoptRef(new ShapeValue(shape, cssBox));
     }
 
-    static PassRefPtr<ShapeValue> createOutsideValue()
+    static PassRefPtr<ShapeValue> createBoxShapeValue(CSSBoxType boxShape)
     {
-        return adoptRef(new ShapeValue(Outside));
+        return adoptRef(new ShapeValue(boxShape));
     }
 
     static PassRefPtr<ShapeValue> createImageValue(PassRefPtr<StyleImage> image)
@@ -60,34 +61,52 @@ public:
         return adoptRef(new ShapeValue(image));
     }
 
-    ShapeValueType type() const { return m_type; }
+    Type type() const { return m_type; }
     BasicShape* shape() const { return m_shape.get(); }
+    CSSBoxType cssBox() const { return m_cssBox; }
+
     StyleImage* image() const { return m_image.get(); }
+
+    bool isImageValid() const;
+
     void setImage(PassRefPtr<StyleImage> image)
     {
+        ASSERT(type() == Type::Image);
         if (m_image != image)
             m_image = image;
     }
+
     bool operator==(const ShapeValue& other) const { return type() == other.type(); }
 
 private:
-    ShapeValue(PassRefPtr<BasicShape> shape)
-        : m_type(Shape)
+    ShapeValue(PassRefPtr<BasicShape> shape, CSSBoxType cssBox)
+        : m_type(Type::Shape)
         , m_shape(shape)
+        , m_cssBox(cssBox)
     {
     }
-    ShapeValue(ShapeValueType type)
+    ShapeValue(Type type)
         : m_type(type)
+        , m_cssBox(BoxMissing)
     {
     }
     ShapeValue(PassRefPtr<StyleImage> image)
-        : m_type(Image)
+        : m_type(Type::Image)
         , m_image(image)
+        , m_cssBox(BoxMissing)
     {
     }
-    ShapeValueType m_type;
+
+    ShapeValue(CSSBoxType cssBox)
+        : m_type(Type::Box)
+        , m_cssBox(cssBox)
+    {
+    }
+
+    Type m_type;
     RefPtr<BasicShape> m_shape;
     RefPtr<StyleImage> m_image;
+    CSSBoxType m_cssBox;
 };
 
 }

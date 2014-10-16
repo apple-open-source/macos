@@ -31,6 +31,7 @@
  */
 
 #ifndef lint
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/libexec/revnetgroup/hash.c,v 1.7 2002/02/07 23:57:01 imp Exp $";
 #endif /* not lint */

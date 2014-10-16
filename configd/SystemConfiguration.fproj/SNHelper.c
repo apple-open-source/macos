@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc.
+ * Copyright (c) 2013, 2014 Apple Inc.
  * All rights reserved.
  */
 #include <errno.h>
@@ -60,7 +60,7 @@ flow_divert_uuid_policy_operate(const uuid_t uuid, int operation)
 	response = copy_response(request);
 
 	if (isa_xpc_dictionary(response)) {
-		result = xpc_dictionary_get_int64(request, kSNHelperMessageResult);
+		result = (int)xpc_dictionary_get_int64(response, kSNHelperMessageResult);
 	} else {
 		result = EINVAL;
 	}
@@ -95,7 +95,35 @@ snhelper_flow_divert_uuid_policy_clear(void)
 	response = copy_response(request);
 
 	if (isa_xpc_dictionary(response)) {
-		result = xpc_dictionary_get_int64(request, kSNHelperMessageResult);
+		result = (int)xpc_dictionary_get_int64(response, kSNHelperMessageResult);
+	} else {
+		result = EINVAL;
+	}
+
+	xpc_release(response);
+	xpc_release(request);
+
+	return result;
+}
+
+int
+snhelper_get_uuid_for_app(const char *appID, uuid_t uuid)
+{
+	int result;
+	xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_object_t response;
+
+	xpc_dictionary_set_uint64(request, kSNHelperMessageType, kSNHelperMessageTypeGetUUIDForApp);
+	xpc_dictionary_set_string(request, kSNHelperMessageAppID, appID);
+
+	response = copy_response(request);
+
+	if (isa_xpc_dictionary(response)) {
+		result = (int)xpc_dictionary_get_int64(response, kSNHelperMessageResult);
+		const uint8_t *uuidBytes = xpc_dictionary_get_uuid(response, kSNHelperMessageResultData);
+		if (result == 0 && uuid != NULL && uuidBytes != NULL) {
+			memcpy(uuid, uuidBytes, sizeof(uuid_t));
+		}
 	} else {
 		result = EINVAL;
 	}

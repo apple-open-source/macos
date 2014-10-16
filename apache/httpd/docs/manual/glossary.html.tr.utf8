@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page" class="no-sidebar"><div id="page-header">
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.2</a></div><div id="page-content"><div id="preamble"><h1>Terim Sözlüğü</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.4</a></div><div id="page-content"><div id="preamble"><h1>Terim Sözlüğü</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="./de/glossary.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/glossary.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -53,6 +53,15 @@
       (IETF) tarafından oluşturulmuş protokol. TLS’nin 1. sürümü ile SSL’in 3.
       sürümü hemen hemen aynıdır.<br />
       Bakınız: <a href="ssl/">SSL/TLS Şifrelemesi</a>
+    </dd>
+
+    <dt><a name="subrequest" id="subrequest">Alt istek</a></dt>
+    <dd>Diğer dosya sistemlerini veya URL yollarını kısmen veya tamamen
+      değerlendiren modüller için sunucuda bir alt istek API'si mevcuttur. Bu
+      API'nin olası müşterileri için
+      <code class="directive"><a href="./mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>,
+      <code class="module"><a href="./mod/mod_autoindex.html">mod_autoindex</a></code> ve <code class="module"><a href="./mod/mod_include.html">mod_include</a></code> örnek
+      verilebilir.
     </dd>
 
     <dt><a name="passphrase" id="passphrase">Anahtar Parolası</a></dt>
@@ -125,9 +134,16 @@
       toplamak için esnek bir yol sağlamasından ötürü oldukça yararlıdır.
       Örneğin, “resimler” dizini altındaki dosyalardan .gif ve .jpg uzantılı
       olanları toplamak için “<code>/resimler/.*(jpg|gif)$</code>” düzenli
-      ifadesi yazılabilir. Apache, <a href="http://www.pcre.org/">PCRE</a>
-      kütüphanesi ile sağlanan Perl uyumlu düzenli ifadeleri kullanır. PCRE'nin
-      düzenli ifade sözdizimi hakkıda bilgi edinmek için bu siteye veya <a href="http://en.wikipedia.org/wiki/PCRE">Wikipedia</a>'ya bakabilirsiniz.
+      ifadesi yazılabilir. Dizgileri değiştirmek için düzenli ifadelerin
+      kullanıldığı yerlerde, eşleşen (parantezlerin içinde) gruplanmış
+      parçalara başvurmak için $1 ... $9 özel değişkenleri kullanılır. $0 özel
+      değişkeni eşleşen ifadenin tamamına karşılık gelir. Bir dizgi içinde $
+      işaretini kendisi olarak kullanmak isterseniz önüne bir \ imi
+      koymalısınız. Geçmişe uyumluluk adına bazı yerlerde $0 yerine &amp;
+      değişkeni kullanılabilir. Ancak 2.3.6 sürümünden beri bu artık mümkün
+      değildir. Apache, <a href="http://www.pcre.org/">PCRE</a> kütüphanesi ile
+      sağlanan Perl uyumlu düzenli ifadeleri kullanır. PCRE düzenli
+      ifadelerinin sözdizimi ile ilgili ayrıntılı bilgiyi <a href="http://en.wikipedia.org/wiki/PCRE">Wikipedia</a>'da bulabilirsiniz.
     </dd>
 
     <dt><a name="accesscontrol" id="accesscontrol">Erişim Denetimi</a></dt>
@@ -282,8 +298,9 @@
     <dd>İngilizcesi: Common Gateway Interface (CGI)</dd>
     <dd>Bir HTTP sunucusunun bir harici programa hizmet istekleri yapmasını
       mümkün kılan, sunucu ile bir harici program arasındaki bir arayüz
-      standardı. Özgün arayüz <a href="http://hoohoo.ncsa.uiuc.edu/cgi/overview.html">NCSA</a> tarafından
-      tanımlanmış olmakla birlikte ayrıca bir <a href="http://www.ietf.org/rfc/rfc3875">CGI RFC’si</a> de vardır.<br />
+      standardı. Özellikleri kapsayan bir
+      <a href="http://www.ietf.org/rfc/rfc3875">Bilgilendirici RFC </a>
+      vardır.<br />
       Bakınız: <a href="howto/cgi.html">CGI ile Devingen İçerik</a>
     </dd>
 
@@ -367,15 +384,15 @@
       gerçeklenim kütüphanesi.
     </dd>
 
-    <dt><a name="servernameindication" id="servernameindication">Sunucu İsmi
+    <dt><a name="servernameindication" id="servernameindication">Sunucu Adı
       Belirtimi</a></dt>
-    <dd>İngilizcesi: Server Name Indication <a name="sni" id="sni">(SNI)</a>
-    </dd>
-    <dd>İstenen sunucunun konak ismini ilk SSL uzlaşım iletisinde aktarmayı ve
-      böylece SSL uzlaşım işleminde kullanılacak sanal konak yapılandırmasının
-      doğru seçilebilmesini sağlayan bir SSL işlevi. RFC 3546'da TLS eklentileri
-      ile birlikte SSL'ye eklenmiştir.<br />
-      Bakınız: <a href="ssl/ssl_faq.html">SSL FAQ</a>
+      <dd>İngilizcesi: Server Name Indication <a name="sni" id="sni">(SNI)</a></dd>
+    <dd>İlk SSL uzlaşımı sırasında istenen sunucu isminin aktarılmasını
+      mümkün kılan bir SSL işlevidir. Böylece sunucunun, SSL uzlaşım
+      işlemlerlerinde kullanılacak sanal konak yapılandırmasını doğru
+      bir şekilde seçebilmesi sağlanmıştır. Bu özellik RFC 3546'da TLS
+      eklentili SSL başlatma bölümüne eklenmiştir.<br />
+      Bakınız: <a href="ssl/ssl_faq.html">SSL SSS</a>
       ve <a href="http://www.ietf.org/rfc/rfc3546.txt">RFC 3546</a>
     </dd>
 
@@ -435,7 +452,7 @@
       denilen terimin gayrı resmi karşılığıdır. URL’ler <code>http</code> veya
       <code>https</code> gibi bir şemayı takip eden bir konak adı ve bir dosya
       yolundan oluşurlar.  Örneğin, bu sayfanın URL’si
-      <code>http://httpd.apache.org/docs/2.2/glossary.html</code> olurdu.
+      <code>http://httpd.apache.org/docs/2.4/glossary.html</code> olurdu.
     </dd>
 
     <dt><a name="proxy" id="proxy">Vekil</a></dt>
@@ -486,7 +503,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/glossary.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/glossary.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -501,7 +518,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/glossary.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,6 +47,7 @@
 #include <WebCore/UndoStep.h>
 #include <WebCore/UserTypingGestureIndicator.h>
 #include <WebCore/VisibleSelection.h>
+#include <wtf/text/StringView.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -239,11 +240,6 @@ void WebEditorClient::getClientPasteboardDataForRange(WebCore::Range*, Vector<St
     notImplemented();
 }
 
-void WebEditorClient::didSetSelectionTypesForPasteboard()
-{
-    notImplemented();
-}
-
 bool WebEditorClient::shouldDeleteRange(Range* /*range*/)
 {
     notImplemented(); 
@@ -288,13 +284,13 @@ bool WebEditorClient::shouldInsertText(const String& /*str*/, Range* /* replacin
 //bool WebEditorClient::shouldChangeSelectedRange(Range *currentRange, Range *toProposedRange, SelectionAffinity selectionAffinity, bool stillSelecting)
 //{ notImplemented(); return false; }
 
-bool WebEditorClient::shouldApplyStyle(StylePropertySet* /*style*/, Range* /*toElementsInDOMRange*/)
+bool WebEditorClient::shouldApplyStyle(StyleProperties* /*style*/, Range* /*toElementsInDOMRange*/)
 { notImplemented(); return true; }
 
 bool WebEditorClient::shouldMoveRangeAfterDelete(Range* /*range*/, Range* /*rangeToBeReplaced*/)
 { notImplemented(); return true; }
 
-bool WebEditorClient::shouldChangeTypingStyle(StylePropertySet* /*currentStyle*/, StylePropertySet* /*toProposedStyle*/)
+bool WebEditorClient::shouldChangeTypingStyle(StyleProperties* /*currentStyle*/, StyleProperties* /*toProposedStyle*/)
 { notImplemented(); return false; }
 
 void WebEditorClient::webViewDidChangeTypingStyle(WebNotification* /*notification*/)
@@ -308,7 +304,7 @@ bool WebEditorClient::smartInsertDeleteEnabled(void)
     Page* page = m_webView->page();
     if (!page)
         return false;
-    return page->settings()->smartInsertDeleteEnabled();
+    return page->settings().smartInsertDeleteEnabled();
 }
 
 bool WebEditorClient::isSelectTrailingWhitespaceEnabled(void)
@@ -316,7 +312,7 @@ bool WebEditorClient::isSelectTrailingWhitespaceEnabled(void)
     Page* page = m_webView->page();
     if (!page)
         return false;
-    return page->settings()->selectTrailingWhitespaceEnabled();
+    return page->settings().selectTrailingWhitespaceEnabled();
 }
 
 bool WebEditorClient::shouldChangeSelectedRange(WebCore::Range*, WebCore::Range*, WebCore::EAffinity, bool)
@@ -330,7 +326,7 @@ void WebEditorClient::textFieldDidBeginEditing(Element* e)
         if (domElement) {
             IDOMHTMLInputElement* domInputElement;
             if (SUCCEEDED(domElement->QueryInterface(IID_IDOMHTMLInputElement, (void**)&domInputElement))) {
-                formDelegate->textFieldDidBeginEditing(domInputElement, kit(e->document()->frame()));
+                formDelegate->textFieldDidBeginEditing(domInputElement, kit(e->document().frame()));
                 domInputElement->Release();
             }
             domElement->Release();
@@ -347,7 +343,7 @@ void WebEditorClient::textFieldDidEndEditing(Element* e)
         if (domElement) {
             IDOMHTMLInputElement* domInputElement;
             if (SUCCEEDED(domElement->QueryInterface(IID_IDOMHTMLInputElement, (void**)&domInputElement))) {
-                formDelegate->textFieldDidEndEditing(domInputElement, kit(e->document()->frame()));
+                formDelegate->textFieldDidEndEditing(domInputElement, kit(e->document().frame()));
                 domInputElement->Release();
             }
             domElement->Release();
@@ -367,7 +363,7 @@ void WebEditorClient::textDidChangeInTextField(Element* e)
         if (domElement) {
             IDOMHTMLInputElement* domInputElement;
             if (SUCCEEDED(domElement->QueryInterface(IID_IDOMHTMLInputElement, (void**)&domInputElement))) {
-                formDelegate->textDidChangeInTextField(domInputElement, kit(e->document()->frame()));
+                formDelegate->textDidChangeInTextField(domInputElement, kit(e->document().frame()));
                 domInputElement->Release();
             }
             domElement->Release();
@@ -388,7 +384,7 @@ bool WebEditorClient::doTextFieldCommandFromEvent(Element* e, KeyboardEvent* ke)
                 String command = m_webView->interpretKeyEvent(ke);
                 // We allow empty commands here because the app code actually depends on this being called for all key presses.
                 // We may want to revisit this later because it doesn't really make sense to send an empty command.
-                formDelegate->doPlatformCommand(domInputElement, BString(command), kit(e->document()->frame()), &result);
+                formDelegate->doPlatformCommand(domInputElement, BString(command), kit(e->document().frame()), &result);
                 domInputElement->Release();
             }
             domElement->Release();
@@ -408,7 +404,7 @@ void WebEditorClient::textWillBeDeletedInTextField(Element* e)
             IDOMHTMLInputElement* domInputElement;
             if (SUCCEEDED(domElement->QueryInterface(IID_IDOMHTMLInputElement, (void**)&domInputElement))) {
                 BOOL result;
-                formDelegate->doPlatformCommand(domInputElement, BString(L"DeleteBackward"), kit(e->document()->frame()), &result);
+                formDelegate->doPlatformCommand(domInputElement, BString(L"DeleteBackward"), kit(e->document().frame()), &result);
                 domInputElement->Release();
             }
             domElement->Release();
@@ -425,7 +421,7 @@ void WebEditorClient::textDidChangeInTextArea(Element* e)
         if (domElement) {
             IDOMHTMLTextAreaElement* domTextAreaElement;
             if (SUCCEEDED(domElement->QueryInterface(IID_IDOMHTMLTextAreaElement, (void**)&domTextAreaElement))) {
-                formDelegate->textDidChangeInTextArea(domTextAreaElement, kit(e->document()->frame()));
+                formDelegate->textDidChangeInTextArea(domTextAreaElement, kit(e->document().frame()));
                 domTextAreaElement->Release();
             }
             domElement->Release();
@@ -662,7 +658,7 @@ void WebEditorClient::learnWord(const String& word)
     ed->learnWord(BString(word));
 }
 
-void WebEditorClient::checkSpellingOfString(const UChar* text, int length, int* misspellingLocation, int* misspellingLength)
+void WebEditorClient::checkSpellingOfString(StringView text, int* misspellingLocation, int* misspellingLength)
 {
     *misspellingLocation = -1;
     *misspellingLength = 0;
@@ -672,7 +668,7 @@ void WebEditorClient::checkSpellingOfString(const UChar* text, int length, int* 
         return;
 
     initViewSpecificSpelling(m_webView);
-    ed->checkSpellingOfString(m_webView, text, length, misspellingLocation, misspellingLength);
+    ed->checkSpellingOfString(m_webView, text.upconvertedCharacters(), text.length(), misspellingLocation, misspellingLength);
 }
 
 String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String& inputWord)
@@ -682,7 +678,7 @@ String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String& 
     return String();
 }
 
-void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector<GrammarDetail>& details, int* badGrammarLocation, int* badGrammarLength)
+void WebEditorClient::checkGrammarOfString(StringView text, Vector<GrammarDetail>& details, int* badGrammarLocation, int* badGrammarLength)
 {
     details.clear();
     *badGrammarLocation = -1;
@@ -694,7 +690,7 @@ void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector
 
     initViewSpecificSpelling(m_webView);
     COMPtr<IEnumWebGrammarDetails> enumDetailsObj;
-    if (FAILED(ed->checkGrammarOfString(m_webView, text, length, &enumDetailsObj, badGrammarLocation, badGrammarLength)))
+    if (FAILED(ed->checkGrammarOfString(m_webView, text.upconvertedCharacters(), text.length(), &enumDetailsObj, badGrammarLocation, badGrammarLength)))
         return;
 
     while (true) {

@@ -18,7 +18,8 @@
  * @file  worker/mpm_default.h
  * @brief Worker MPM defaults
  *
- * @addtogroup APACHE_MPM_WORKER
+ * @defgroup APACHE_MPM_WORKER Worker MPM
+ * @ingroup APACHE_INTERNAL
  * @{
  */
 
@@ -48,30 +49,6 @@
 
 #ifndef DEFAULT_THREADS_PER_CHILD
 #define DEFAULT_THREADS_PER_CHILD 25
-#endif
-
-/* File used for accept locking, when we use a file */
-#ifndef DEFAULT_LOCKFILE
-#define DEFAULT_LOCKFILE DEFAULT_REL_RUNTIMEDIR "/accept.lock"
-#endif
-
-/* Where the main/parent process's pid is logged */
-#ifndef DEFAULT_PIDLOG
-#define DEFAULT_PIDLOG DEFAULT_REL_RUNTIMEDIR "/httpd.pid"
-#endif
-
-/*
- * Interval, in microseconds, between scoreboard maintenance.
- */
-#ifndef SCOREBOARD_MAINTENANCE_INTERVAL
-#define SCOREBOARD_MAINTENANCE_INTERVAL 1000000
-#endif
-
-/* Number of requests to try to handle in a single process.  If <= 0,
- * the children don't die off.
- */
-#ifndef DEFAULT_MAX_REQUESTS_PER_CHILD
-#define DEFAULT_MAX_REQUESTS_PER_CHILD 10000
 #endif
 
 #endif /* AP_MPM_DEFAULT_H */

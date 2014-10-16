@@ -25,9 +25,10 @@
 struct conncache {
   struct curl_hash *hash;
   size_t num_connections;
+  size_t next_connection_id;
 };
 
-struct conncache *Curl_conncache_init(void);
+struct conncache *Curl_conncache_init(int size);
 
 void Curl_conncache_destroy(struct conncache *connc);
 

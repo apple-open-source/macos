@@ -498,7 +498,6 @@ update_myaddrs(void *unused)
     isakmp_close_unused();
     autoconf_myaddrsport();
     isakmp_open();
-    ASIKEUpdateLocalAddressesFromIKE();
 }
 
 

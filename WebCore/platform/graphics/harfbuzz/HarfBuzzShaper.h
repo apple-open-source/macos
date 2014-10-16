@@ -35,8 +35,8 @@
 #include "GlyphBuffer.h"
 #include "TextRun.h"
 #include "hb.h"
+#include <memory>
 #include <wtf/HashSet.h>
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
@@ -57,7 +57,6 @@ public:
     HarfBuzzShaper(const Font*, const TextRun&);
     virtual ~HarfBuzzShaper();
 
-    void setDrawRange(int from, int to);
     bool shape(GlyphBuffer* = 0);
     FloatPoint adjustStartPoint(const FloatPoint&);
     float totalWidth() { return m_totalWidth; }
@@ -129,7 +128,7 @@ private:
     GlyphBufferAdvance createGlyphBufferAdvance(float, float);
 
     const Font* m_font;
-    OwnArrayPtr<UChar> m_normalizedBuffer;
+    std::unique_ptr<UChar[]> m_normalizedBuffer;
     unsigned m_normalizedBufferLength;
     const TextRun& m_run;
 
@@ -143,9 +142,6 @@ private:
     Vector<OwnPtr<HarfBuzzRun>, 16> m_harfBuzzRuns;
 
     FloatPoint m_startOffset;
-
-    int m_fromIndex;
-    int m_toIndex;
 
     float m_totalWidth;
 };

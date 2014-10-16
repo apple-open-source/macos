@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -27,6 +27,9 @@ alias err_exit='err_exit $LINENO'
 
 integer Errors=0
 Command=${0##*/}
+compiled=''
+read -n4 c < $0 2> /dev/null
+[[ $c == *$'\ck'* ]] && compiled=1
 
 ulimit -c 0
 
@@ -1119,5 +1122,89 @@ x=$(
 	print ok
 )
 [[ $x == ok ]] || err_exit 'TERM signal sent to last process of function kills the script'
+
+# verify that $0 does not change with functions defined as fun()
+func1()
+{
+	[[ $0 == "$dol0" ]] || err_exit "\$0 changed in func1() to $0"
+}
+function func2
+{
+	[[ $0 == func2 ]] || err_exit "\$0 changed in func2() to $0"
+	dol0=func2
+	func1
+}
+func2
+
+{ $SHELL <<- \EOF
+	function foo
+	{
+	        typeset rc=0
+		unset -f foo
+		return $rc;
+	}
+	foo
+EOF
+} 2> /dev/null || err_exit  'problem with unset -f  foo within function foo'
+
+val=$($SHELL 2> /dev/null <<- \EOF
+	.sh.fun.set() { set -x; }
+	function f1 { print -n ${.sh.fun}; set -o | grep xtrace;}
+	function f2 { print -n ${.sh.fun}; set -o | grep xtrace;}
+	f1
+	set -o | grep xtrace
+	f2
+EOF)
+[[ $val == f1xtrace*on*off*f2xtrace*on* ]] || err_exit "'.sh.fun.set() { set -x; }' not tracing all functions"
+
+function foo
+{
+	typeset opt OPTIND=1 OPTARG hflag=
+	while getopts hi: opt
+	do	case $opt in
+		h)	hflag=1;;
+	        i)	[[ $OPTARG == foobar ]] || err_exit 'OPTARG should be set to foobar in function foo';;
+		esac
+	done
+	shift $((OPTIND - 1))
+	(( OPTIND == 4 )) || err_exit "OPTIND is $OPTIND at end of function foo; it should be 4"  
+	[[ $1 == foo2 ]] || err_exit "\$1 is $1, not foo after getopts in function"
+}
+OPTIND=6 OPTARG=xxx
+foo -h -i foobar foo2
+[[ $OPTARG == xxx ]] || err_exit 'getopts in function changes global OPTARG'
+(( OPTIND == 6 )) || err_exit 'getopts in function changes global OPTIND'
+
+if	[[ ! $compiled ]]
+then	function foo { getopts --man; }
+	[[ $(typeset -f foo) == 'function foo { getopts --man; }' ]] || err_exit 'typeset -f not work for function with getopts'
+fi
+
+function foo
+{
+	let 1
+	return $1
+}
+invals=(135 255 256 267 -1)
+outvals=(135 255 0 267 255)
+for ((i=0; i < ${#invals[@]}; i++))
+do	foo ${invals[i]}
+	[[ $? == "${outvals[i]}" ]] || err_exit "function exit ${invals[i]} should set \$? to ${outvals[i]}"
+done
+
+function foo
+{
+	typeset pid
+	sleep 2 & pid=$!
+	sleep 1
+	kill -TERM $pid
+	wait $pid
+	rc=$?
+	return $rc
+}
+foo  2> /dev/null
+rc=$?
+exp=$((256+$(kill -l TERM) ))
+[[  $rc == "$exp" ]] || err_exit "expected exitval $exp got $rc"
 
 exit $((Errors<125?Errors:125))

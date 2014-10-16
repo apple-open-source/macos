@@ -273,6 +273,18 @@ dt_decl_attr(ushort_t attr)
 		return (ddp);
 	}
 
+	/*
+	 * Check if the declaration is not using too many attributes.
+	 */
+	if ((attr & DT_DA_UNSIGNED) && (ddp->dd_attr & DT_DA_UNSIGNED))
+		xyerror(D_DECL_COMBO,  "The 'unsigned' attribute must not be used more than once in a declaration\n");
+	if ((attr & DT_DA_SIGNED) && (ddp->dd_attr & DT_DA_SIGNED))
+		xyerror(D_DECL_COMBO,  "The 'signed' attribute must not be used more than once in a declaration\n");
+	if ((attr & DT_DA_SHORT) && (ddp->dd_attr & DT_DA_SHORT))
+		xyerror(D_DECL_COMBO,  "The 'short' attribute must not be used more than once in a declaration\n");
+	if ((attr & DT_DA_LONG) && (ddp->dd_attr & DT_DA_LONGLONG))
+		xyerror(D_DECL_COMBO,  "The 'long' attribute must not be used more than twice in a declaration\n");
+
 	if (attr == DT_DA_LONG && (ddp->dd_attr & DT_DA_LONG)) {
 		ddp->dd_attr &= ~DT_DA_LONG;
 		attr = DT_DA_LONGLONG;

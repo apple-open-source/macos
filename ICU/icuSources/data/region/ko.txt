@@ -1,20 +1,20 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ko.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ko.xml
+ * ICU <specials> source: <path>/common/main/ko.xml
  */
 ko{
     Countries{
         001{"세계"}
         002{"아프리카"}
         003{"북아메리카"}
-        005{"남아메리카[남미]"}
+        005{"남아메리카(남미)"}
         009{"오세아니아"}
         011{"서아프리카"}
         013{"중앙 아메리카"}
@@ -125,7 +125,7 @@ ko{
         GA{"가봉"}
         GB{"영국"}
         GD{"그레나다"}
-        GE{"그루지야"}
+        GE{"조지아"}
         GF{"프랑스령 기아나"}
         GG{"건지"}
         GH{"가나"}
@@ -294,6 +294,7 @@ ko{
         VU{"바누아투"}
         WF{"왈리스-푸투나 제도"}
         WS{"사모아"}
+        XK{"코소보"}
         YE{"예멘"}
         YT{"마요티"}
         ZA{"남아프리카"}
@@ -301,5 +302,12 @@ ko{
         ZW{"짐바브웨"}
         ZZ{"알수없거나 유효하지 않은 지역"}
     }
-    Version{"2.0.82.57"}
+    CountriesShort{
+        GB{"영국"}
+        HK{"홍콩"}
+        MO{"마카오"}
+        PS{"팔레스타인"}
+        US{"미국"}
+    }
+    Version{"2.0.99.67"}
 }

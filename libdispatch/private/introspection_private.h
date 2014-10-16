@@ -800,26 +800,6 @@ extern void
 dispatch_introspection_hook_callout_queue_item_complete(
 		dispatch_continuation_t object);
 
-/*!
- * @function dispatch_introspection_hook_queue_item_complete
- *
- * @abstract
- * Interposable hook function called when an item previously dequeued from a
- * dispatch queue has completed processing.
- *
- * @discussion
- * The object pointer value passed to this function must be treated as a value
- * only. It is intended solely for matching up with an earlier call to a
- * dequeue hook function and must NOT be dereferenced.
- *
- * @param item
- * Opaque dentifier for completed item. Must NOT be dereferenced.
- */
-
-DISPATCH_EXPORT
-void
-dispatch_introspection_hook_queue_item_complete(dispatch_object_t item);
-
 __END_DECLS
 
 #endif

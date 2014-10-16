@@ -31,6 +31,23 @@ small-caption
 -webkit-mini-control
 -webkit-small-control
 -webkit-control
+
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+-apple-system-headline
+-apple-system-body
+-apple-system-subheadline
+-apple-system-footnote
+-apple-system-caption1
+-apple-system-caption2
+-apple-system-short-headline
+-apple-system-short-body
+-apple-system-short-subheadline
+-apple-system-short-footnote
+-apple-system-short-caption1
+-apple-system-tall-body
+#endif
+
+// This has to go after the -apple-system versions.
 status-bar
 
 //
@@ -114,6 +131,7 @@ monospace
 //
 // CSS_PROP_*_COLOR
 //
+alpha
 aqua
 black
 blue
@@ -151,6 +169,7 @@ inactivecaption
 inactivecaptiontext
 infobackground
 infotext
+luminance
 menutext
 scrollbar
 threeddarkshadow
@@ -326,7 +345,6 @@ katakana-iroha
 inline
 block
 list-item
-run-in
 compact
 inline-block
 table
@@ -465,9 +483,9 @@ static
 thick
 thin
 underline
-#if defined(ENABLE_CSS3_TEXT) && ENABLE_CSS3_TEXT
 wavy
-#endif
+ink
+objects
 -webkit-nowrap
 
 // CSS3 Values
@@ -525,6 +543,22 @@ space-around
 // center
 // space-between
 // space-around
+
+// CSS_PROP_JUSTIFY_SELF
+// auto
+// stretch
+// baseline
+// center
+// start
+// end
+self-start
+self-end
+// flex-start
+// flex-end
+// left
+// right
+true
+safe
 
 // CSS_PROP_FLEX_FLOW
 row
@@ -700,6 +734,9 @@ relevancy-level-indicator
 continuous-capacity-level-indicator
 discrete-capacity-level-indicator
 rating-level-indicator
+#if defined(ENABLE_SERVICE_CONTROLS) && ENABLE_SERVICE_CONTROLS
+image-controls-button
+#endif
 textarea
 // An appearance value that should not be accepted by the parser:
 caps-lock-indicator
@@ -723,6 +760,12 @@ content
 content-box
 padding
 padding-box
+
+// CSS_SHAPES
+margin-box
+
+// clip-path
+view-box
 
 //
 // background-size
@@ -868,6 +911,10 @@ no-limit
 manual
 // auto
 
+#if defined(ENABLE_LETTERPRESS) && ENABLE_LETTERPRESS
+-webkit-letterpress
+#endif
+
 #if defined(ENABLE_ACCELERATED_OVERFLOW_SCROLLING) && ENABLE_ACCELERATED_OVERFLOW_SCROLLING
 // -webkit-overflow-scrolling
 // auto
@@ -938,57 +985,32 @@ optimizeQuality
 -webkit-crisp-edges
 -webkit-optimize-contrast
 
-// -webkit-shape-inside
 // -webkit-shape-outside
 nonzero
 evenodd
-outside-shape
+at
+// closest-side
+// farthest-side
 
 // -webkit-region-fragment
 // auto
 break
 
-// -webkit-wrap-flow
-// auto
-// both
-// left
-// right
-maximum
-// clear
-
-// -webkit-wrap-through
 wrap
-// none
 
 // -webkit-line-align
 edges
 
-#if (defined(ENABLE_SVG) && ENABLE_SVG) || (defined(ENABLE_CSS3_TEXT) && ENABLE_CSS3_TEXT)
 alphabetic
-#endif
 
 // position
-#if defined(ENABLE_CSS_STICKY_POSITION) && ENABLE_CSS_STICKY_POSITION
 -webkit-sticky
-#endif // CSS_STICKY_POSITION
 
 // (pointer:) media feature
 // none
 coarse
 fine
 
-#if (defined(ENABLE_CSS_FILTERS) && ENABLE_CSS_FILTERS) || (defined(ENABLE_CSS_COMPOSITING) && ENABLE_CSS_COMPOSITING)
-// -webkit-filter
-#if defined(ENABLE_CSS_SHADERS) && ENABLE_CSS_SHADERS
-// values for the custom() function
-// border-box
-// padding-box
-// content-box
-attached
-filter-box
-detached
-#endif // CSS_SHADERS
-#endif // CSS_FILTERS
 // blend modes
 // normal
 multiply
@@ -1007,6 +1029,17 @@ saturation
 color
 luminosity
 
+// isolation
+// auto
+isolate
+
+// object-fit
+// fill
+// contain
+// cover
+// none
+scale-down
+
 #if defined(ENABLE_CSS_IMAGE_RESOLUTION) && ENABLE_CSS_IMAGE_RESOLUTION
 from-image
 snap
@@ -1016,11 +1049,18 @@ snap
 -webkit-paged-x
 -webkit-paged-y
 
-// -webkit-app-region
-#if defined(ENABLE_DRAGGABLE_REGION) && ENABLE_DRAGGABLE_REGION
-drag
-no-drag
-#endif
+// paint-order
+// normal
+// fill
+// stroke
+markers
+
+// -webkit-grid-{column-start|column-end|row-start|row-end}
+span
+
+// -webkit-grid-auto-flow
+dense
+stack
 
 #if defined(ENABLE_CSS3_TEXT) && ENABLE_CSS3_TEXT
 // text-indent
@@ -1028,3 +1068,9 @@ no-drag
 -webkit-hanging
 #endif
 
+// -webkit-column-fill
+balance
+
+// -webkit-aspect-ratio
+from-dimensions
+from-intrinsic

@@ -1,4 +1,4 @@
-# $Id: Makefile.am 4310 2009-07-06 15:03:37Z rousseau $
+# $Id: Makefile.am 6752 2013-09-16 18:27:04Z rousseau $
 
 CCID_BUNDLE = $(bundle)
 CCID_LIB = libccid.$(DYN_LIB_EXT)
@@ -8,14 +8,17 @@ CCID_VERSION=CCID_VERSION=`$(srcdir)/convert_version.pl $(PACKAGE_VERSION)`
 
 lib_LTLIBRARIES =
 LIBS_TO_INSTALL =
+LIBS_TO_UNINSTALL =
 if WITH_LIBUSB
 lib_LTLIBRARIES += libccid.la
 LIBS_TO_INSTALL += install_ccid
-bin_PROGRAMS = parse
+LIBS_TO_UNINSTALL += uninstall_ccid
+noinst_PROGRAMS = parse
 endif
 if WITH_TWIN_SERIAL
 lib_LTLIBRARIES += libccidtwin.la
 LIBS_TO_INSTALL += install_ccidtwin
+LIBS_TO_UNINSTALL += uninstall_ccidtwin
 endif
 
 COMMON = ccid.c \
@@ -44,69 +47,64 @@ T1 = towitoko/atr.c \
 TOKEN_PARSER = tokenparser.l parser.h \
 	strlcpy.c \
 	misc.h \
-	strlcpycat.h
+	strlcpycat.h \
+	simclist.c \
+	simclist.h
 
 PROVIDED_BY_PCSC = debug.c
 
 libccid_la_SOURCES = $(COMMON) $(USB) $(TOKEN_PARSER) $(PROVIDED_BY_PCSC) $(T1)
 libccid_la_LIBADD = $(LEXLIB) $(LIBUSB_LIBS) $(PTHREAD_LIBS)
 libccid_la_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) $(PTHREAD_CFLAGS) \
-	$(SYMBOL_VISIBILITY) -D$(CCID_VERSION)
+	$(SYMBOL_VISIBILITY) -D$(CCID_VERSION) -DSIMCLIST_NO_DUMPRESTORE
+libccid_la_LDFLAGS = -avoid-version
 
 libccidtwin_la_SOURCES = $(COMMON) $(SERIAL) $(TOKEN_PARSER) \
 	$(PROVIDED_BY_PCSC) $(T1)
 libccidtwin_la_CFLAGS = $(PCSC_CFLAGS) $(PTHREAD_CFLAGS) $(SYMBOL_VISIBILITY) \
-	-DTWIN_SERIAL -D$(CCID_VERSION)
+	-DTWIN_SERIAL -D$(CCID_VERSION) -DSIMCLIST_NO_DUMPRESTORE
 libccidtwin_la_LIBADD = $(PTHREAD_LIBS)
+libccidtwin_la_LDFLAGS = -avoid-version
 
-parse_SOURCES = parse.c debug.c
-parse_LDADD = libccid.la $(LIBUSB_LIBS)
-parse_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS)
+parse_SOURCES = parse.c debug.c ccid_usb.c $(TOKEN_PARSER)
+parse_LDADD = $(LIBUSB_LIBS)
+parse_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) -DSIMCLIST_NO_DUMPRESTORE
 
 EXTRA_DIST = Info.plist.src create_Info_plist.pl reader.conf.in \
 	towitoko/COPYING towitoko/README openct/LICENSE \
-	convert_version.pl pcscd_ccid.rules
+	convert_version.pl 92_pcscd_ccid.rules
 
+# We can't use install-exec-local since we want to overwrite the install
+# rule. We do not want to _add_ files to install
 install: $(LIBS_TO_INSTALL)
 
-if UDEV
-ifdCapabilities=0x00000001
-INSTALL_UDEV_RULE_FILE=@echo -e "\n\33[01;31m***************\n" ; echo "copy the src/pcscd_ccid.rules file in udev directory (/etc/udev/rules.d/)" ; echo -e "\n***************\n\33[0m"
-else
-ifdCapabilities=0x00000000
-endif
+INSTALL_UDEV_RULE_FILE=@/bin/echo -e "\n\33[01;31m***************\n" ; echo "copy the src/92_pcscd_ccid.rules file in udev directory (/etc/udev/rules.d/)" ; /bin/echo -e "\n***************\n\33[0m"
 
 Info.plist: Info.plist.src $(srcdir)/../readers/supported_readers.txt
-	$(srcdir)/create_Info_plist.pl $(srcdir)/../readers/supported_readers.txt $(srcdir)/Info.plist.src --ifdCapabilities=$(ifdCapabilities) --target=$(CCID_LIB) --version=$(VERSION) --bundle=$(CCID_BUNDLE) $(NOCLASS) > Info.plist
-	
+	$(srcdir)/create_Info_plist.pl $(srcdir)/../readers/supported_readers.txt $(srcdir)/Info.plist.src --target=$(CCID_LIB) --version=$(VERSION) $(NOCLASS) > Info.plist
+
 DISTCLEANFILES = tokenparser.c Info.plist
 
 install_ccid: libccid.la Info.plist
 	$(mkinstalldirs) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
 	cp Info.plist $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
-	cp .libs/$(CCID_LIB) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB).$(VERSION)
-	ln -fs $(CCID_LIB).$(VERSION) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
+	cp .libs/$(CCID_LIB) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
 	$(INSTALL_UDEV_RULE_FILE)
 
 install_ccidtwin: libccidtwin.la
 	$(mkinstalldirs) $(DESTDIR)$(ccidtwindir)
-	cp .libs/$(CCIDTWIN_LIB) $(DESTDIR)$(ccidtwindir)/$(CCIDTWIN_LIB).$(VERSION)
-	ln -fs $(CCIDTWIN_LIB).$(VERSION) $(DESTDIR)$(ccidtwindir)/$(CCIDTWIN_LIB)
-	if [ -e $(DESTDIR)/etc/reader.conf ] ; \
-	then \
-		echo "Edit existing /etc/reader.conf" ; \
-	else \
-		$(mkinstalldirs) $(DESTDIR)/etc ; \
-		perl -ne "s|TARGET|$(ccidtwindir)/$(CCIDTWIN_LIB)| ; print" $(srcdir)/reader.conf.in > $(DESTDIR)/etc/reader.conf ; \
-	fi
+	cp .libs/$(CCIDTWIN_LIB) $(DESTDIR)$(ccidtwindir)/$(CCIDTWIN_LIB)
+	$(mkinstalldirs) $(DESTDIR)/$(serialconfdir) ; \
+		perl -ne "s|TARGET|$(ccidtwindir)/$(CCIDTWIN_LIB)| ; print" $(srcdir)/reader.conf.in > $(DESTDIR)/$(serialconfdir)/libccidtwin
 
 # do not uninstall the serial driver by default
 # use explicitely 'make uninstall_ccidtwin'
-uninstall: uninstall_ccid
+uninstall: $(LIBS_TO_UNINSTALL)
 
 uninstall_ccid:
 	rm -rf $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)
 
 uninstall_ccidtwin:
-	rm -f $(DESTDIR)$(ccidtwindir)/$(CCIDTWIN_LIB).$(VERSION)
+	rm -f $(DESTDIR)$(ccidtwindir)/$(CCIDTWIN_LIB)
+	rm -f $(DESTDIR)/$(serialconfdir)/libccidtwin
 

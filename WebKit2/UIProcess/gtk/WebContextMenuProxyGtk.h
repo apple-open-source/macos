@@ -31,6 +31,7 @@
 #include "WebContextMenuProxy.h"
 #include <WebCore/ContextMenu.h>
 #include <WebCore/IntPoint.h>
+#include <wtf/HashMap.h>
 
 namespace WebKit {
 
@@ -45,7 +46,7 @@ public:
     }
     ~WebContextMenuProxyGtk();
 
-    virtual void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&);
+    virtual void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&, const ContextMenuContextData&);
     virtual void hideContextMenu();
 
     void populate(Vector<WebCore::ContextMenuItem>&);
@@ -62,6 +63,7 @@ private:
     WebPageProxy* m_page;
     WebCore::ContextMenu m_menu;
     WebCore::IntPoint m_popupPosition;
+    HashMap<unsigned long, GtkAction*> m_signalHandlers;
 };
 
 

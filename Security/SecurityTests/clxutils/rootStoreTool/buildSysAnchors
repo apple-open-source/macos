@@ -1,0 +1,45 @@
+#! /bin/csh -f
+#
+# Build SystemRootCerts.keychain and SystemTrustSettings.plist from
+# all the certs in a given directory. Creates these two files in 
+# $LOCAL_BUILD_DIR and copies the results into /System/Library/Keychains/.
+#
+if ( $#argv != 1 ) then
+        echo "Usage: buildSysAnchors cert_dir"
+		echo "A typical run, when in the rootStoreTool dir, would be:"
+		echo "buildSysAnchors ../../../security_certificates/roots"
+        exit(1)
+endif
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set ROOT_KC=SystemRootCerts.keychain
+set ROOT_KC_PATH=$BUILD_DIR/$ROOT_KC
+set SETTINGS_FILE=SystemTrustSettings.plist
+set SETTINGS_FILE_PATH=$BUILD_DIR/$SETTINGS_FILE
+
+echo Creating empty $ROOT_KC in build directory...
+rm -f "$ROOT_KC_PATH" || exit(1)
+security create-keychain -p password "$ROOT_KC_PATH" || exit(1)
+
+echo Creating empty $SETTINGS_FILE in build directory....
+rm -f "$SETTINGS_FILE_PATH" || exit(1)
+security add-trusted-cert -o "$SETTINGS_FILE_PATH" || exit(1)
+
+set cmd="cd $argv[1]"
+echo $cmd
+$cmd 
+
+set GOT_ERROR=NO
+
+foreach root (*)
+	echo Processing $root...
+	security import "$root" -k "$ROOT_KC_PATH" -t cert || exit(1)
+	security add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" "$root" || exit(1)
+end
+
+set DST_PATH=/System/Library/Keychains
+
+echo Copying $ROOT_KC and $SETTINGS_FILE to $DST_PATH...
+cp $ROOT_KC_PATH $SETTINGS_FILE_PATH $DST_PATH || exit(1)
+
+echo "=== Done. ==="

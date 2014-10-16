@@ -1075,6 +1075,7 @@ EVP_CipherFinal_ex(EVP_CIPHER_CTX *ctx, void *out, int *outlen)
 	assert(left > 0);
 
 	/* zero fill local buffer */
+	// <rdar://problem/13110768> ssh key created on cab can't be used on zin
 	// use PKCS11 padding with pad value of number of pad byes.
 	memset(ctx->buf + ctx->buf_len, left, left);
 	

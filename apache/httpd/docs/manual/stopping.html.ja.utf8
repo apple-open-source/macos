@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="./">バージョン 2.2</a></div><div id="page-content"><div id="preamble"><h1>停止と再起動</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="./">バージョン 2.4</a></div><div id="page-content"><div id="preamble"><h1>停止と再起動</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="./de/stopping.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/stopping.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -43,10 +43,10 @@
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">イントロダクション</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#term">急な停止</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#graceful">緩やかな再起動 (Graceful Restart)</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#graceful">緩やかな再起動</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#hup">急な再起動</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#gracefulstop">緩やかな停止 (Graceful Stop)</a></li>
-</ul><h3>参照</h3><ul class="seealso"><li><code class="program"><a href="./programs/httpd.html">httpd</a></code></li><li><code class="program"><a href="./programs/apachectl.html">apachectl</a></code></li></ul><ul class="seealso"><li><a href="#comments_section">コメント</a></li></ul></div>
+<li><img alt="" src="./images/down.gif" /> <a href="#gracefulstop">緩やかな停止</a></li>
+</ul><h3>参照</h3><ul class="seealso"><li><code class="program"><a href="./programs/httpd.html">httpd</a></code></li><li><code class="program"><a href="./programs/apachectl.html">apachectl</a></code></li><li><a href="invoking.html">Starting</a></li></ul><ul class="seealso"><li><a href="#comments_section">コメント</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="introduction" id="introduction">イントロダクション</a></h2>
@@ -63,10 +63,11 @@
     <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code>
     に書かれています。これはつまり、親以外のプロセスに
     シグナルを送る必要すらない、ということです。
-    親プロセスに送ることができる 3 種類のシグナルがあります:
+    親プロセスに送ることができる 4 種類のシグナルがあります:
     <code><a href="#term">TERM</a></code>,
     <code><a href="#hup">HUP</a></code>, 
-    <code><a href="#graceful">USR1</a></code>
+    <code><a href="#graceful">USR1</a></code>,
+    <code><a href="#gracefulstop">WINCH</a></code>
     です。これらの説明については続きをご覧下さい。</p>
 
     <p>親プロセスにシグナルを送るには、
@@ -107,7 +108,7 @@
     応答はされません。</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="graceful" id="graceful">緩やかな再起動 (Graceful Restart)</a></h2>
+<h2><a name="graceful" id="graceful">緩やかな再起動</a></h2>
 
 <dl><dt>シグナル: USR1</dt>
 <dd><code>apachectl -k graceful</code></dd>
@@ -157,18 +158,13 @@
     分以下で完了しているということが分かっていれば、
     古いログに何かする前に 15 分待つということです。</p>
 
-    <div class="note">再起動時に設定ファイルに誤りがあると、
-    親プロセスは再起動せずにエラーとともに終了します。
-    緩やかな再起動の場合は、親プロセスが終了した後でも子プロセスが
-    実行されたまま放置されたりもします。
-    (最後のリクエストを処理した後「緩やかに終了」する
-    子プロセスとなります。)
-    サーバを再起動する際に、これが問題になるかもしれません
-    -- サーバは listen するポートにバインドできないかもしれません。
-    再起動する前に、設定ファイルの構文を <code>-t</code>
-    コマンドライン引数
-    (<code class="program"><a href="./programs/httpd.html">httpd</a></code> をご覧下さい)
-    を使って検証することができます。
+    <div class="note"><p>再起動が発行されると設定ファイルの構文チェックがまず走り、
+    設定ファイルに (構文上の) 誤りがないかチェックされます。
+    誤りがあった場合エラーメッセージでその旨が示され、サーバは再起動されません。
+    こうすることでサーバが終了しているけれども再起動できないという状況を
+    防ぎ、サーバが機能不全な状態になるのを防いでいます。</p>
+
+    <p>ただしこれでもサーバが正しく再起動することは保証されません。
     設定ファイルの意味的な内容を構文と同様に検証したい場合は、
     非 root ユーザで <code class="program"><a href="./programs/httpd.html">httpd</a></code> を起動しようとすればわかります。
     もしエラーがなければ、ソケットやログを開こうとして
@@ -178,7 +174,8 @@
     に失敗するでしょう。
     これ以外の理由で起動に失敗したのであれば、
     それは設定ファイルのエラーで、
-    緩やかな再起動を行う前にその誤りを修正しなければなりません。</div>
+    緩やかな再起動を行う前にその誤りを修正しなければなりません。</p>
+    </div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="hup" id="hup">急な再起動</a></h2>
@@ -197,54 +194,57 @@
     を使っている場合は、<code>HUP</code> が送られた場合に
     サーバ統計がゼロに設定されることに注意してください。</p>
 
-    <div class="note">再起動時に設定ファイルに誤りがあると、
-    親プロセスは再起動せずにエラーとともに終了します。
-    これを避けるには次の方法をご覧下さい。</div>
+    <div class="note">graceful 再起動時は、再起動前に構文チェックが行われます。
+    もし構文エラーがあればその旨が示され、再起動は行われません。</div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="gracefulstop" id="gracefulstop">緩やかな停止 (Graceful Stop)</a></h2>
+<h2><a name="gracefulstop" id="gracefulstop">緩やかな停止</a></h2>
 
 <dl><dt>Signal: WINCH</dt>
 <dd><code>apachectl -k graceful-stop</code></dd>
 </dl>
 
-    <p>親プロセスは <code>WINCH</code> あるいは <code>graceful-stop</code>
-    シグナルを受け取ると、子プロセスに現在のリクエストの処理の後に終了する
-    (あるいは何もしていなければすぐに終了する)
-    ように<em>助言</em>します。
-    その後に親プロセスは <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code>
-    を削除し、全ポートからの Listen をやめます。
-    親プロセスはこのまま継続し、子プロセスがリクエストを処理する
-    のを監視しています。子プロセスが全て処理を終えて終了するか、<code class="directive"><a href="./mod/mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></code>
-    で指定されたタイムアウトに達した後で、親プロセスも終了します。
-    タイムアウトに達した場合は、残りの子プロセスには <code>TERM</code>
-    シグナルが送信され、強制終了されます。</p>
+    <p><code>WINCH</code> や <code>graceful-stop</code> シグナルを受け取ると、
+    親プロセスは子プロセスに現在処理中のリクエストの後に終了する
+    (あるいは処理中のものが何もなければ直ちに終了する)
+    ように<em>アドバイス</em>します。
+    その後親プロセスは <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code>
+    を削除し、ポートでの Listen を全て停止します。
+    親プロセスはどの子プロセスがリクエスト処理中かを監視し続けています。
+    全ての子プロセスが終了するか
+    <code class="directive"><a href="./mod/mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></code>
+    で設定した時間が過ぎると、親プロセスも終了します。
+    タイムアウトに達した場合、残りの子プロセスには <code>TERM</code>
+    シグナルが送信され強制的に終了されます。</p>
     
-    <p><code>TERM</code> シグナルによって、"graceful" 状態にある親プロセスと
-    子プロセスの全てが直ちに終了します。ただし、
-    <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code> は既に削除
-    されてしまっていますので、<code>apachectl</code> や <code>httpd</code>
-    でこれらにシグナルを送ることはできません。</p>
+    <p>"graceful" 状態の場合 <code>TERM</code> シグナルを受け取ると、
+    親プロセスも子プロセスもすぐに終了します。しかしながら
+    <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code>
+    が削除されてしまっているので、<code>apachectl</code>
+    や <code>httpd</code> にこのシグナルを送ることはできません。</p>
 
-    <div class="note"><p><code>graceful-stop</code> シグナルを使うと、まったく同一の設定
-    ファイルを使った <code class="program"><a href="./programs/httpd.html">httpd</a></code> を同時に複数起動することが
-    できるようになります。
-    この機能を使うと、Apache をアップグレードする際にとても便利でしょう。
-    ただし、設定によってはデッドロックや競合状態 (レースコンディション) 
-    を引き起こすかもしれません。</p>
+    <div class="note"><p><code>graceful-stop</code> を使うとまったく同一に設定された
+    複数の <code class="program"><a href="./programs/httpd.html">httpd</a></code> を同時に実行することができます。
+    Apache を緩やかにアップグレードするのにはとても便利ですが、
+    設定ファイルによってはデッドロックやレースコンディションを
+    引き起こすこともあります。</p>
 
-    <p><code class="directive"><a href="./mod/core.html#lockfile">Lockfile</a></code> や <code class="directive"><a href="./mod/mod_cgid.html#scriptsock">ScriptSock</a></code> などでのディスク上のファイルについては、
-    ファイルにサーバの PID が含まれるようになっていて、httpd が複数同時に動作していても
-    問題がおきないように注意が払われています。
-    しかし、設定ディレクティブやサードパーティ製モジュール、CGI で使用される永続的な
-    ディスクを使ったロックや状態ファイルを活用している場合についても、
-    複数の <code class="program"><a href="./programs/httpd.html">httpd</a></code> が動作している状態であっても、それぞれで
-    ファイルを上書きしないように注意しなければなりません。</p>
+    <p>ディスク上のファイルを使うもの、たとえば
+    <code class="directive"><a href="./mod/core.html#lockfile">Lockfile</a></code> や 
+    <code class="directive"><a href="./mod/mod_cgid.html#scriptsock">ScriptSock</a></code> 
+    のファイルなどはサーバの PID を含めて管理されていて、
+    共存できるよう注意が払われています。
+    しかしその他設定ディレクティブやサードパーティ製のモジュール、
+    CGI ユーティリティのパーシステント層などで
+    ディスク上にロックファイルや状態管理ファイルを
+    使っている場合は、実行されている複数の <code class="program"><a href="./programs/httpd.html">httpd</a></code>
+    が互いに衝突しないように気をつけなければなりません。</p>
 
-    <p>潜在的な競合状態についても心配する必要があるでしょう。
-    たとえば <code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code> 形式のパイプによるログなどが該当します。
-    複数の <code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code> インスタンスが同時に同じログファイルを
-    rotate しようとすると、ログファイルが破壊されるかもしれません。</p></div>
+    <p><code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code> 形式のパイプを使ったログといった、
+    その他潜在的なレースコンディションについても注意しなければなりません。
+    複数の <code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code> が同じファイルを同時に
+    rotate しようとすると、互いにログファイルを破壊してしまいます。</p>
+    </div>
 </div></div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="./de/stopping.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
@@ -257,7 +257,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/stopping.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/stopping.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -272,7 +272,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/stopping.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

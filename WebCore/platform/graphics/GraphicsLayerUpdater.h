@@ -26,9 +26,7 @@
 #ifndef GraphicsLayerUpdater_h
 #define GraphicsLayerUpdater_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
-#include "DisplayRefreshMonitor.h"
+#include "DisplayRefreshMonitorClient.h"
 #include "PlatformScreen.h"
 
 namespace WebCore {
@@ -38,7 +36,10 @@ class GraphicsLayerUpdater;
 class GraphicsLayerUpdaterClient {
 public:
     virtual ~GraphicsLayerUpdaterClient() { }
-    virtual void flushLayers(GraphicsLayerUpdater*) = 0;
+    virtual void flushLayersSoon(GraphicsLayerUpdater*) = 0;
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    virtual PassRefPtr<DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const = 0;
+#endif
 };
 
 class GraphicsLayerUpdater
@@ -53,6 +54,10 @@ public:
     void scheduleUpdate();
     void screenDidChange(PlatformDisplayID);
 
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    virtual PassRefPtr<DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const override;
+#endif
+
 private:
     virtual void displayRefreshFired(double timestamp);
 
@@ -61,7 +66,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // GraphicsLayerUpdater_h

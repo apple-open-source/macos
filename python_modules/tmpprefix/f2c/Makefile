@@ -60,5 +60,5 @@ buildsrc:
 	make
 
 afterinstallsrc:
-	perl $(TOPSRCROOT)/tar-remove.pl '^f2c/(?:msdos|mswin)/' $(F2CSRC)/$(F2CNAME)$(TARSUFFIX) $(F2CNAME)-mod$(TARSUFFIX)
+	perl $(SRCROOT)/tar-remove.pl '^f2c/(?:msdos|mswin)/' $(F2CSRC)/$(F2CNAME)$(TARSUFFIX) $(F2CNAME)-mod$(TARSUFFIX)
 	rm -f $(F2CSRC)/$(F2CNAME)$(TARSUFFIX)

@@ -169,8 +169,7 @@ void    set_mail_conf_long(const char *name, long value)
 {
     char    buf[BUFSIZ];		/* yeah! crappy code! */
 
-    /* APPLE */
-    snprintf(buf, sizeof buf, "%ld", value);			/* yeah! more crappy code! */
+    sprintf(buf, "%ld", value);			/* yeah! more crappy code! */
     mail_conf_update(name, buf);
 }
 

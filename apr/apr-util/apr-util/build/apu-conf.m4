@@ -195,7 +195,7 @@ AC_DEFUN([APU_FIND_LDAPLIB], [
     unset ac_cv_lib_${ldaplib_cache_id}___ldap_init
     AC_CHECK_LIB(${ldaplib}, ldap_init, 
       [
-        LDADD_ldap="-l${ldaplib} ${extralib}"
+        LDADD_ldap_found="-l${ldaplib} ${extralib}"
         AC_CHECK_LIB(${ldaplib}, ldapssl_client_init, apu_has_ldapssl_client_init="1", , ${extralib})
         AC_CHECK_LIB(${ldaplib}, ldapssl_client_deinit, apu_has_ldapssl_client_deinit="1", , ${extralib})
         AC_CHECK_LIB(${ldaplib}, ldapssl_add_trusted_cert, apu_has_ldapssl_add_trusted_cert="1", , ${extralib})
@@ -233,7 +233,7 @@ apu_has_ldap_mozilla="0"
 apu_has_ldap_tivoli="0"
 apu_has_ldap_zos="0"
 apu_has_ldap_other="0"
-LDADD_ldap=""
+LDADD_ldap_found=""
 
 AC_ARG_WITH(lber,[  --with-lber=library     lber library to use],
   [
@@ -286,8 +286,9 @@ AC_ARG_WITH(ldap,[  --with-ldap=library     ldap library to use],
       fi
 
       test ${apu_has_ldap} != "1" && AC_MSG_ERROR(could not find an LDAP library)
+      test ${apu_has_ldap} == "1" && APR_ADDTO(LDADD_ldap, [$LDADD_ldap_found])
       AC_CHECK_LIB($apu_liblber_name, ber_init,
-        [LDADD_ldap="${LDADD_ldap} -l${apu_liblber_name}"])
+        [APR_ADDTO(LDADD_ldap, [-l${apu_liblber_name}])])
 
       AC_CHECK_HEADERS(lber.h, lber_h=["#include <lber.h>"])
 
@@ -391,9 +392,7 @@ if test "$apu_has_ldap_openldap" = "1"; then
     #include <ldap.h>
     #endif
     ], [
-    int tmp = ldap_set_rebind_proc((LDAP *)0, (LDAP_REBIND_PROC *)0, (void *)0);
-    /* use tmp to suppress the warning */
-    tmp=0;
+    ldap_set_rebind_proc((LDAP *)0, (LDAP_REBIND_PROC *)0, (void *)0);
     ], ac_cv_ldap_set_rebind_proc_style=three, ac_cv_ldap_set_rebind_proc_style=two))
 
     if test "$ac_cv_ldap_set_rebind_proc_style" = "three"; then

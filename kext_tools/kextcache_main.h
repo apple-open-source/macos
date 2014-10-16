@@ -19,6 +19,7 @@
 
 #include "kext_tools_util.h"
 #include "kernelcache.h"
+#include "bootroot_internal.h"
 
 #pragma mark Basic Types & Constants
 /*******************************************************************************
@@ -86,10 +87,12 @@ enum {
 
 /* Boot!=root flags.
  */
+#define kOptNameInvalidate              "invalidate"
 #define kOptNameUpdate                  "update-volume"
 #define kOptNameForce                   "force"
 #define kOptNameInstaller               "Installer"
 #define kOptNameCachesOnly              "caches-only"
+#define kOptNameEarlyBoot               "Boot"
 
 /* Misc flags.
  */
@@ -109,6 +112,7 @@ enum {
 // xxx - do we want a longopt for this?
 #define kOptLowPriorityFork       'F'
 // 'h' in kext_tools_util.h
+#define kOptInvalidate            'i'
 #define kOptRepositoryCaches      'k'
 #define kOptKernel                'K'
 #define kOptLocalRoot             'l'
@@ -148,9 +152,10 @@ enum {
 #define kLongOptStripSymbols             (-13)
 #define kLongOptInstaller                (-14)
 #define kLongOptCachesOnly               (-15)
+#define kLongOptEarlyBoot                (-16)
 
 #if !NO_BOOT_ROOT
-#define kOptChars                ":a:b:c:efFhkK:lLm:nNqrsStu:U:vz"
+#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStu:U:vz"
 #else
 #define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvz"
 #endif /* !NO_BOOT_ROOT */
@@ -200,10 +205,12 @@ struct option sOptInfo[] = {
     { kOptNameStripSymbols,          no_argument,        &longopt, kLongOptStripSymbols },
 
 #if !NO_BOOT_ROOT
+    { kOptNameInvalidate,            required_argument,  NULL,     kOptInvalidate },
     { kOptNameUpdate,                required_argument,  NULL,     kOptUpdate },
     { kOptNameForce,                 no_argument,        NULL,     kOptForce },
     { kOptNameInstaller,             no_argument,        &longopt, kLongOptInstaller },
     { kOptNameCachesOnly,            no_argument,        &longopt, kLongOptCachesOnly },
+    { kOptNameEarlyBoot,             no_argument,        &longopt, kLongOptEarlyBoot },
 #endif /* !NO_BOOT_ROOT */
 
     { kOptNameNoAuthentication,      no_argument,        NULL,     kOptNoAuthentication },
@@ -245,13 +252,12 @@ typedef struct {
     Boolean   stripSymbols;                 // -strip-symbols option
     CFURLRef  compressedPrelinkedKernelURL; // -uncompress option
 
-    CFURLRef  updateVolumeURL;  // -u/-U options
-    Boolean   expectUpToDate;   // -U
-    Boolean   forceUpdateFlag;  // -f
-    Boolean   installerCalled;  // -Installer
-    Boolean   cachesOnly;   // -caches-only
+    CFURLRef  updateVolumeURL;      // -u / -U OR -i / -invalidate options
+    
+    // see BRUpdateOpts_t in bootroot_internal.h
+    BRUpdateOpts_t updateOpts;      // -U, -f, -Installer, ...
 
-    char    * kernelPath;    // overriden by -k option
+    char    * kernelPath;    // overriden by -kernel option
     CFDataRef kernelFile;    // contents of kernelURL
     CFURLRef  symbolDirURL;  // -s option;
 
@@ -360,6 +366,7 @@ ExitStatus getExpectedPrelinkedKernelModTime(
     struct timeval   cacheFileTimes[2],
     Boolean        * updateModTimeOut);
 ExitStatus compressPrelinkedKernel(
+    CFURLRef            volumeRootURL,  
     const char        * prelinkedKernelPath,
     Boolean             compress);
 

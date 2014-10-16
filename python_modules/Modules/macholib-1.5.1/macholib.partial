@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>macholib</string>
+        <key>OpenSourceVersion</key>
+        <string>1.5.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/macholib/</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/m/macholib/macholib-1.5.1.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-06-14</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>2665525cdc9edaf4d1de5566bb004c56</string>
+</dict>

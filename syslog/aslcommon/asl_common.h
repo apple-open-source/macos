@@ -29,6 +29,7 @@
 
 #define ASL_MODULE_NAME "com.apple.asl"
 #define _PATH_CRASHREPORTER "/Library/Logs/CrashReporter"
+#define _PATH_CRASHREPORTER_MOBILE "/var/mobile/Library/Logs/CrashReporter"
 
 #define ASL_SERVICE_NAME "com.apple.system.logger"
 
@@ -46,15 +47,17 @@
 #define ACTION_NOTIFY     6
 #define ACTION_BROADCAST  7
 #define ACTION_ACCESS     8
-#define ACTION_ASL_STORE  9 /* Save in main ASL Database */
-#define ACTION_ASL_FILE  10 /* Save in an ASL format data file */
-#define ACTION_ASL_DIR   11 /* Save in an ASL directory */
-#define ACTION_FILE      12 /* Save in a text file */
-#define ACTION_FORWARD   13
-#define ACTION_CONTROL   14
-#define ACTION_SET_FILE  15 /* = foo [File /a/b/c] */
-#define ACTION_SET_PLIST 16 /* = foo [Plist /a/b/c] ... */
-#define ACTION_SET_PROF  17 /* = foo [Profile abc] ... */
+#define ACTION_SET_KEY    9
+#define ACTION_UNSET_KEY 10
+#define ACTION_ASL_STORE 11 /* Save in main ASL Database */
+#define ACTION_ASL_FILE  12 /* Save in an ASL format data file */
+#define ACTION_ASL_DIR   13 /* Save in an ASL directory */
+#define ACTION_FILE      14 /* Save in a text file */
+#define ACTION_FORWARD   15
+#define ACTION_CONTROL   16
+#define ACTION_SET_FILE  17 /* = foo [File /a/b/c] */
+#define ACTION_SET_PLIST 18 /* = foo [Plist /a/b/c] ... */
+#define ACTION_SET_PROF  19 /* = foo [Profile abc] ... */
 
 #define STYLE_SEC_PREFIX_CHAR 'T'
 
@@ -65,7 +68,9 @@
 #define MODULE_FLAG_ROTATE       0x00000004
 #define MODULE_FLAG_COALESCE     0x00000008
 #define MODULE_FLAG_COMPRESS     0x00000010
-#define MODULE_FLAG_EXTERNAL     0x00000020
+#define MODULE_FLAG_NONSTD_DIR   0x00000020
+#define MODULE_FLAG_EXTERNAL     0x00000040
+#define MODULE_FLAG_TRUNCATE     0x00000080
 #define MODULE_FLAG_STYLE_SEC    0x00000100 /* foo.T1332799722 (note STYLE_SEC_PREFIX_CHAR) */
 #define MODULE_FLAG_STYLE_SEQ    0x00000200 /* foo.0 */
 #define MODULE_FLAG_STYLE_UTC    0x00000400 /* foo.2012-04-06T13:45:00Z */
@@ -79,11 +84,12 @@
 #define MODULE_FLAG_TYPE_ASL_DIR 0x00040000 /* asl format directory */
 #define MODULE_FLAG_STD_BSD_MSG  0x00080000 /* print format is std, bsd, or msg */
 
+#define MODULE_FLAG_STYLE_BITS   (MODULE_FLAG_STYLE_SEC | MODULE_FLAG_STYLE_SEQ | MODULE_FLAG_STYLE_UTC | MODULE_FLAG_STYLE_UTC_B | MODULE_FLAG_STYLE_LCL | MODULE_FLAG_STYLE_LCL_B)
 #define CHECKPOINT_TEST   0x00000000
-#define CHECKPOINT_FORCE  0xffffffff
-#define CHECKPOINT_SIZE   0x00000001
-#define CHECKPOINT_TIME   0x00000002
-#define CHECKPOINT_CRASH  0x00000004
+#define CHECKPOINT_FORCE  0x00000001
+#define CHECKPOINT_CRASH  0x00000002
+
+#define LEVEL_ALL 8
 
 typedef struct
 {
@@ -92,9 +98,10 @@ typedef struct
 	char *fmt;
 	const char *tfmt;
 	char *rotate_dir;
+	uint32_t pvt_flags;
 	uint32_t flags;
 	uint32_t fails;
-	uint32_t ttl;
+	uint32_t ttl[9];
 	mode_t mode;
 #if !TARGET_IPHONE_SIMULATOR
 	uid_t *uid;
@@ -145,7 +152,7 @@ char *next_word_from_string(char **s);
 size_t asl_str_to_size(char *s);
 asl_msg_t *xpc_object_to_asl_msg(xpc_object_t xobj);
 
-int asl_check_option(aslmsg msg, const char *opt);
+int asl_check_option(asl_msg_t *msg, const char *opt);
 
 /* ASL OUT MODULES */
 asl_out_module_t *asl_out_module_new(const char *name);
@@ -157,9 +164,9 @@ asl_out_rule_t *asl_out_module_parse_line(asl_out_module_t *m, char *s);
 void asl_out_module_print(FILE *f, asl_out_module_t *m);
 char *asl_out_module_rule_to_string(asl_out_rule_t *r);
 
-int asl_out_mkpath(asl_out_rule_t *r);
+int asl_out_mkpath(asl_out_module_t *mlist, asl_out_rule_t *r);
 int asl_out_dst_checkpoint(asl_out_dst_data_t *dst, uint32_t force);
-int asl_out_dst_file_create_open(asl_out_dst_data_t *dst);
+int asl_out_dst_file_create_open(asl_out_dst_data_t *dst, char **pathp);
 int asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst);
 void asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len);
 void asl_make_dst_filename(asl_out_dst_data_t *dst, char *buf, size_t len);
@@ -174,5 +181,7 @@ asl_out_file_list_t * asl_list_dst_files(asl_out_dst_data_t *dst);
 void asl_out_file_list_free(asl_out_file_list_t *l);
 
 asl_msg_t *configuration_profile_to_asl_msg(const char *ident);
+
+int asl_secure_chown_chmod_dir(const char *path, uid_t uid, gid_t gid, mode_t mode);
 
 #endif /* __ASL_COMMON_H__ */

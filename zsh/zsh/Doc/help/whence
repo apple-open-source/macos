@@ -1,0 +1,43 @@
+whence [ -vcwfpams ] name ...
+       For each name, indicate how it would be interpreted if used as a
+       command name.
+
+       -v     Produce a more verbose report.
+
+       -c     Print the results  in  a  csh-like  format.   This  takes
+              precedence over -v.
+
+       -w     For  each  name,  print `name: word' where word is one of
+              alias, builtin, command, function,  hashed,  reserved  or
+              none,  according  as  name  corresponds  to  an  alias, a
+              built-in command, an external command, a shell  function,
+              a command defined with the hash builtin, a reserved word,
+              or is not recognised.  This takes precedence over -v  and
+              -c.
+
+       -f     Causes  the contents of a shell function to be displayed,
+              which would otherwise not happen unless the -c flag  were
+              used.
+
+       -p     Do  a  path  search  for  name  even  if  it is an alias,
+              reserved word, shell function or builtin.
+
+       -a     Do a search for all occurrences of  name  throughout  the
+              command  path.   Normally  only  the  first occurrence is
+              printed.
+
+       -m     The arguments are taken as patterns (should  be  quoted),
+              and  the information is displayed for each command match-
+              ing one of these patterns.
+
+       -s     If a pathname contains symlinks, print  the  symlink-free
+              pathname as well.
+
+type [ -wfpams ] name ...
+       Equivalent to whence -v.
+
+where [ -wpms ] name ...
+       Equivalent to whence -ca.
+
+which [ -wpams ] name ...
+       Equivalent to whence -c.

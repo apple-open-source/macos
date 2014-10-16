@@ -43,11 +43,7 @@ BEGIN
 	timeout = timestamp + 1000000000;
 }
 
-#if !defined(__APPLE__)
-syscall::getpid:return
-#else
 syscall::geteuid:return
-#endif
 /pid == $1/
 {
 	trace("raised");
@@ -58,11 +54,7 @@ syscall::geteuid:return
 	timeout = timestamp + 500000000;
 }
 
-#if !defined(__APPLE__)
-syscall::rexit:entry
-#else
 syscall::exit:entry
-#endif
 {
 	exit(0);
 }

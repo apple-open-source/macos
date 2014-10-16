@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,6 +30,7 @@
 
 #include "PlatformSpeechSynthesisVoice.h"
 #include "PlatformSpeechSynthesizer.h"
+#include "ScriptController.h"
 #include "SpeechSynthesisEvent.h"
 #include "SpeechSynthesisUtterance.h"
 #include <wtf/CurrentTime.h>
@@ -44,12 +45,15 @@ PassRefPtr<SpeechSynthesis> SpeechSynthesis::create()
 SpeechSynthesis::SpeechSynthesis()
     : m_currentSpeechUtterance(0)
     , m_isPaused(false)
+#if PLATFORM(IOS)
+    , m_restrictions(RequireUserGestureForSpeechStartRestriction)
+#endif
 {
 }
     
-void SpeechSynthesis::setPlatformSynthesizer(PassOwnPtr<PlatformSpeechSynthesizer> synthesizer)
+void SpeechSynthesis::setPlatformSynthesizer(std::unique_ptr<PlatformSpeechSynthesizer> synthesizer)
 {
-    m_platformSpeechSynthesizer = synthesizer;
+    m_platformSpeechSynthesizer = WTF::move(synthesizer);
     m_voiceList.clear();
     m_currentSpeechUtterance = 0;
     m_utteranceQueue.clear();
@@ -61,16 +65,16 @@ void SpeechSynthesis::voicesDidChange()
     m_voiceList.clear();
 }
     
-const Vector<RefPtr<SpeechSynthesisVoice> >& SpeechSynthesis::getVoices()
+const Vector<RefPtr<SpeechSynthesisVoice>>& SpeechSynthesis::getVoices()
 {
     if (m_voiceList.size())
         return m_voiceList;
 
     if (!m_platformSpeechSynthesizer)
-        m_platformSpeechSynthesizer = PlatformSpeechSynthesizer::create(this);
+        m_platformSpeechSynthesizer = std::make_unique<PlatformSpeechSynthesizer>(this);
 
     // If the voiceList is empty, that's the cue to get the voices from the platform again.
-    const Vector<RefPtr<PlatformSpeechSynthesisVoice> >& platformVoices = m_platformSpeechSynthesizer->voiceList();
+    const Vector<RefPtr<PlatformSpeechSynthesisVoice>>& platformVoices = m_platformSpeechSynthesizer->voiceList();
     size_t voiceCount = platformVoices.size();
     for (size_t k = 0; k < voiceCount; k++)
         m_voiceList.append(SpeechSynthesisVoice::create(platformVoices[k]));
@@ -103,8 +107,15 @@ void SpeechSynthesis::startSpeakingImmediately(SpeechSynthesisUtterance* utteran
     utterance->setStartTime(monotonicallyIncreasingTime());
     m_currentSpeechUtterance = utterance;
     m_isPaused = false;
+    
+    // Zero lengthed strings should immediately notify that the event is complete.
+    if (utterance->text().isEmpty()) {
+        handleSpeakingCompleted(utterance, false);
+        return;
+    }
+    
     if (!m_platformSpeechSynthesizer)
-        m_platformSpeechSynthesizer = PlatformSpeechSynthesizer::create(this);
+        m_platformSpeechSynthesizer = std::make_unique<PlatformSpeechSynthesizer>(this);
     m_platformSpeechSynthesizer->speak(utterance->platformUtterance());
 }
 
@@ -112,6 +123,14 @@ void SpeechSynthesis::speak(SpeechSynthesisUtterance* utterance)
 {
     if (!utterance)
         return;
+ 
+    // Like Audio, we should require that the user interact to start a speech synthesis session.
+#if PLATFORM(IOS)
+    if (ScriptController::processingUserGesture())
+        removeBehaviorRestriction(RequireUserGestureForSpeechStartRestriction);
+    else if (userGestureRequiredForSpeechStart())
+        return;
+#endif
     
     m_utteranceQueue.append(utterance);
     
@@ -175,8 +194,8 @@ void SpeechSynthesis::handleSpeakingCompleted(SpeechSynthesisUtterance* utteranc
     
 void SpeechSynthesis::boundaryEventOccurred(PassRefPtr<PlatformSpeechSynthesisUtterance> utterance, SpeechBoundary boundary, unsigned charIndex)
 {
-    DEFINE_STATIC_LOCAL(const String, wordBoundaryString, (ASCIILiteral("word")));
-    DEFINE_STATIC_LOCAL(const String, sentenceBoundaryString, (ASCIILiteral("sentence")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, wordBoundaryString, (ASCIILiteral("word")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, sentenceBoundaryString, (ASCIILiteral("sentence")));
 
     switch (boundary) {
     case SpeechWordBoundary:

@@ -475,6 +475,9 @@
 /* Define to 1 if you have the `sched_yield' function. */
 #undef HAVE_SCHED_YIELD
 
+/* define if you have SecureTransport */
+#undef HAVE_SECURE_TRANSPORT
+
 /* Define to 1 if you have the `send' function. */
 #undef HAVE_SEND
 

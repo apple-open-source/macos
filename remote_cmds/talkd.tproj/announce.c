@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)announce.c	8.3 (Berkeley) 4/28/95";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/libexec/talkd/announce.c,v 1.16 2003/04/03 05:13:27 jmallett Exp $";
 #endif /* not lint */

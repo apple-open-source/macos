@@ -1620,6 +1620,9 @@ IOFixed	IOHIPointing::scrollReportRate()
             result = number->unsigned32BitValue();
     OSSafeRelease(number);
 
+    if (result == 0)
+        result = FRAME_RATE;
+
     return result;
 }
 

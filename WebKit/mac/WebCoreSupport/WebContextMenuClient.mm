@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,8 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !PLATFORM(IOS)
+
 #import "WebContextMenuClient.h"
 
+#import <WebCore/BitmapImage.h>
 #import "WebDelegateImplementationCaching.h"
 #import "WebElementDictionary.h"
 #import "WebFrame.h"
@@ -36,6 +39,7 @@
 #import "WebHTMLViewInternal.h"
 #import "WebKitVersionChecks.h"
 #import "WebNSPasteboardExtras.h"
+#import "WebSharingServicePickerController.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
@@ -43,13 +47,18 @@
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
 #import <WebCore/Document.h>
-#import <WebCore/KURL.h>
-#import <WebCore/LocalizedStrings.h>
-#import <WebCore/Page.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/GraphicsContext.h>
+#import <WebCore/ImageBuffer.h>
+#import <WebCore/LocalizedStrings.h>
+#import <WebCore/Page.h>
+#import <WebCore/RenderBox.h>
+#import <WebCore/RenderObject.h>
+#import <WebCore/SharedBuffer.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebKit/DOMPrivate.h>
+#import <WebCore/URL.h>
+#import <WebKitLegacy/DOMPrivate.h>
 
 using namespace WebCore;
 
@@ -60,6 +69,14 @@ using namespace WebCore;
 WebContextMenuClient::WebContextMenuClient(WebView *webView) 
     : m_webView(webView)
 {
+}
+
+WebContextMenuClient::~WebContextMenuClient()
+{
+#if ENABLE(SERVICE_CONTROLS)
+    if (m_sharingServicePickerController)
+        [m_sharingServicePickerController clear];
+#endif
 }
 
 void WebContextMenuClient::contextMenuDestroyed()
@@ -272,7 +289,7 @@ NSMutableArray* WebContextMenuClient::getCustomMenuFromDefaultItems(ContextMenu*
     if (![delegate respondsToSelector:selector])
         return defaultMenu->platformDescription();
 
-    NSDictionary *element = [[[WebElementDictionary alloc] initWithHitTestResult:[m_webView page]->contextMenuController()->hitTestResult()] autorelease];
+    NSDictionary *element = [[[WebElementDictionary alloc] initWithHitTestResult:[m_webView page]->contextMenuController().hitTestResult()] autorelease];
 
     BOOL preVersion3Client = isPreVersion3Client();
     if (preVersion3Client) {
@@ -302,7 +319,7 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:contextMenuItemSelected:forElement:);
     if ([delegate respondsToSelector:selector]) {
-        NSDictionary *element = [[WebElementDictionary alloc] initWithHitTestResult:[m_webView page]->contextMenuController()->hitTestResult()];
+        NSDictionary *element = [[WebElementDictionary alloc] initWithHitTestResult:[m_webView page]->contextMenuController().hitTestResult()];
         NSMenuItem *platformItem = item->releasePlatformDescription();
 
         CallUIDelegate(m_webView, selector, platformItem, element);
@@ -312,7 +329,7 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     }
 }
 
-void WebContextMenuClient::downloadURL(const KURL& url)
+void WebContextMenuClient::downloadURL(const URL& url)
 {
     [m_webView _downloadURL:url];
 }
@@ -350,25 +367,157 @@ void WebContextMenuClient::stopSpeaking()
     [NSApp stopSpeaking:nil];
 }
 
+bool WebContextMenuClient::clientFloatRectForNode(Node& node, FloatRect& rect) const
+{
+    RenderObject* renderer = node.renderer();
+    if (!renderer) {
+        // This method shouldn't be called in cases where the controlled node hasn't rendered.
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
+    if (!renderer->isBox())
+        return false;
+    RenderBox* renderBox = toRenderBox(renderer);
+
+    LayoutRect layoutRect = renderBox->clientBoxRect();
+    FloatQuad floatQuad = renderBox->localToAbsoluteQuad(FloatQuad(layoutRect));
+    rect = floatQuad.boundingBox();
+
+    return true;
+}
+
+NSRect WebContextMenuClient::screenRectForHitTestNode() const
+{
+    Page* page = [m_webView page];
+    if (!page)
+        return NSZeroRect;
+
+    Node* node = page->contextMenuController().context().hitTestResult().innerNode();
+    if (!node)
+        return NSZeroRect;
+
+    FrameView* frameView = node->document().view();
+    if (!frameView) {
+        // This method shouldn't be called in cases where the controlled node isn't in a rendered view.
+        ASSERT_NOT_REACHED();
+        return NSZeroRect;
+    }
+
+    FloatRect rect;
+    if (!clientFloatRectForNode(*node, rect))
+        return NSZeroRect;
+
+    // FIXME: https://webkit.org/b/132915
+    // Ideally we'd like to convert the content rect to screen coordinates without the lossy float -> int conversion.
+    // Creating a rounded int rect works well in practice, but might still lead to off-by-one-pixel problems in edge cases.
+    IntRect intRect = roundedIntRect(rect);
+    return frameView->contentsToScreen(intRect);
+}
+
+#if ENABLE(SERVICE_CONTROLS)
+NSImage *WebContextMenuClient::renderedImageForControlledImage() const
+{
+    Page* page = [m_webView page];
+    if (!page)
+        return nil;
+
+    Node* node = page->contextMenuController().context().hitTestResult().innerNode();
+    if (!node)
+        return nil;
+
+    FrameView* frameView = node->document().view();
+    if (!frameView) {
+        // This method shouldn't be called in cases where the controlled node isn't in a rendered view.
+        ASSERT_NOT_REACHED();
+        return nil;
+    }
+
+    FloatRect rect;
+    if (!clientFloatRectForNode(*node, rect))
+        return nil;
+
+    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(rect.size());
+    if (!buffer)
+        return nil;
+
+    VisibleSelection oldSelection = frameView->frame().selection().selection();
+    RefPtr<Range> range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
+    frameView->frame().selection().setSelection(VisibleSelection(range.get()), FrameSelection::DoNotSetFocus);
+
+    PaintBehavior oldPaintBehavior = frameView->paintBehavior();
+    frameView->setPaintBehavior(PaintBehaviorSelectionOnly);
+
+    buffer->context()->translate(-toFloatSize(rect.location()));
+    frameView->paintContents(buffer->context(), roundedIntRect(rect));
+
+    frameView->frame().selection().setSelection(oldSelection);
+    frameView->setPaintBehavior(oldPaintBehavior);
+
+    RefPtr<Image> image = buffer->copyImage(DontCopyBackingStore);
+    return [[image->getNSImage() retain] autorelease];
+}
+#endif
+
+
+NSMenu *WebContextMenuClient::contextMenuForEvent(NSEvent *event, NSView *view, bool& isServicesMenu)
+{
+    isServicesMenu = false;
+
+    Page* page = [m_webView page];
+    if (!page)
+        return nil;
+
+#if ENABLE(SERVICE_CONTROLS)
+    if (Image* image = page->contextMenuController().context().controlledImage()) {
+        ASSERT(page->contextMenuController().context().hitTestResult().innerNode());
+
+        RefPtr<SharedBuffer> data = image->data();
+        ASSERT(data);
+        RetainPtr<CFDataRef> cfData = data->createCFData();
+
+        bool isContentEditable = page->contextMenuController().context().hitTestResult().innerNode()->isContentEditable();
+        m_sharingServicePickerController = adoptNS([[WebSharingServicePickerController alloc] initWithData:(NSData *)cfData.get() includeEditorServices:isContentEditable menuClient:this]);
+
+        isServicesMenu = true;
+        return [m_sharingServicePickerController menu];
+    }
+#endif
+
+    return [view menuForEvent:event];
+}
+
 void WebContextMenuClient::showContextMenu()
 {
     Page* page = [m_webView page];
     if (!page)
         return;
-    ContextMenuController* controller = page->contextMenuController();
-    Frame* frame = controller->hitTestResult().innerNodeFrame();
+    Frame* frame = page->contextMenuController().hitTestResult().innerNodeFrame();
     if (!frame)
         return;
     FrameView* frameView = frame->view();
     if (!frameView)
         return;
 
-    IntPoint point = frameView->contentsToWindow(controller->hitTestResult().roundedPointInInnerNodeFrame());
     NSView* view = frameView->documentView();
-    NSPoint nsScreenPoint = [view convertPoint:point toView:nil];
+    IntPoint point = frameView->contentsToWindow(page->contextMenuController().hitTestResult().roundedPointInInnerNodeFrame());
+    NSEvent* event = [NSEvent mouseEventWithType:NSRightMouseDown location:point modifierFlags:0 timestamp:0 windowNumber:[[view window] windowNumber] context:0 eventNumber:0 clickCount:1 pressure:1];
+
     // Show the contextual menu for this event.
-    NSEvent* event = [NSEvent mouseEventWithType:NSRightMouseDown location:nsScreenPoint modifierFlags:0 timestamp:0 windowNumber:[[view window] windowNumber] context:0 eventNumber:0 clickCount:1 pressure:1];
-    NSMenu* nsMenu = [view menuForEvent:event];
-    if (nsMenu)
-        [NSMenu popUpContextMenu:nsMenu withEvent:event forView:view];
+    bool isServicesMenu;
+    if (NSMenu *menu = contextMenuForEvent(event, view, isServicesMenu)) {
+        if (isServicesMenu)
+            [menu popUpMenuPositioningItem:nil atLocation:[view convertPoint:point toView:nil] inView:view];
+        else
+            [NSMenu popUpContextMenu:menu withEvent:event forView:view];
+    }
 }
+
+#if ENABLE(SERVICE_CONTROLS)
+void WebContextMenuClient::clearSharingServicePickerController()
+{
+    m_sharingServicePickerController = nil;
+}
+#endif
+
+#endif // !PLATFORM(IOS)

@@ -1,0 +1,13 @@
+diff --git a/JSON-RPC-0.96/t/02_server.t b/JSON-RPC-0.96/t/02_server.t
+index cab97d6..aa28f78 100644
+--- JSON-RPC-0.96/t/02_server.t
++++ JSON-RPC-0.96/t/02_server.t
+@@ -8,7 +8,7 @@ my $server = JSON::RPC::Server->new;
+ 
+ isa_ok($server, 'JSON::RPC::Server');
+ 
+-isa_ok($server->json, 'JSON');
++isa_ok($server->json, 'JSON::PP');
+ 
+ my $test = JSON::RPC::Server::Test->new;
+ 

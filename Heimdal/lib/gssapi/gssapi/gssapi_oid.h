@@ -186,14 +186,47 @@ extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_krb5_mechanism_oid_desc;
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_ntlm_mechanism_oid_desc;
 #define GSS_NTLM_MECHANISM (&__gss_ntlm_mechanism_oid_desc)
 
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_spnego_mechanism_oid_desc;
-#define GSS_SPNEGO_MECHANISM (&__gss_spnego_mechanism_oid_desc)
-
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_iakerb_mechanism_oid_desc;
 #define GSS_IAKERB_MECHANISM (&__gss_iakerb_mechanism_oid_desc)
 
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_pku2u_mechanism_oid_desc;
 #define GSS_PKU2U_MECHANISM (&__gss_pku2u_mechanism_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_spnego_mechanism_oid_desc;
+#define GSS_SPNEGO_MECHANISM (&__gss_spnego_mechanism_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_scram_mechanism_oid_desc;
+#define GSS_SCRAM_MECHANISM (&__gss_scram_mechanism_oid_desc)
+
+/*
+ * GSS names
+ */
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_user_name_oid_desc;
+#define GSS_C_NT_USER_NAME (&__gss_c_nt_user_name_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_machine_uid_name_oid_desc;
+#define GSS_C_NT_MACHINE_UID_NAME (&__gss_c_nt_machine_uid_name_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_string_uid_name_oid_desc;
+#define GSS_C_NT_STRING_UID_NAME (&__gss_c_nt_string_uid_name_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_hostbased_service_x_oid_desc;
+#define GSS_C_NT_HOSTBASED_SERVICE_X (&__gss_c_nt_hostbased_service_x_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_hostbased_service_oid_desc;
+#define GSS_C_NT_HOSTBASED_SERVICE (&__gss_c_nt_hostbased_service_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_anonymous_oid_desc;
+#define GSS_C_NT_ANONYMOUS (&__gss_c_nt_anonymous_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_export_name_oid_desc;
+#define GSS_C_NT_EXPORT_NAME (&__gss_c_nt_export_name_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_krb5_nt_principal_name_oid_desc;
+#define GSS_KRB5_NT_PRINCIPAL_NAME (&__gss_krb5_nt_principal_name_oid_desc)
+
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_krb5_nt_principal_oid_desc;
+#define GSS_KRB5_NT_PRINCIPAL (&__gss_krb5_nt_principal_oid_desc)
 
  /* From Luke Howard */
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_peer_has_updated_spnego_oid_desc;

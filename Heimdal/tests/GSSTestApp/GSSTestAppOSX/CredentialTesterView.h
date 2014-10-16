@@ -17,6 +17,9 @@
 @property (assign) IBOutlet NSTextField *serverName;
 @property (assign) IBOutlet NSTextField *iscStatus;
 
+@property (assign) IBOutlet NSTextField *url;
+@property (assign) IBOutlet NSTextField *urlStatus;
+
 @property (assign) NSTabViewItem *tabViewItem;
 
 

@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>error.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">error.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Declaration for error-reporting function
+   Copyright (C) 1995, 1996, 1997, 2003 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_ERROR_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_ERROR_H</span> 1
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__attribute__</span>
+<span class="enscript-comment">/* This feature is available in gcc versions 2.5 and later.  */</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">__GNUC__</span> &lt; 2 || (<span class="enscript-variable-name">__GNUC__</span> == 2 &amp;&amp; <span class="enscript-variable-name">__GNUC_MINOR__</span> &lt; 5)
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">__attribute__</span>(Spec) <span class="enscript-comment">/* empty */</span>
+# <span class="enscript-reference">endif</span>
+<span class="enscript-comment">/* The __-protected variants of `format' and `printf' attributes
+   are accepted by gcc versions 2.6.4 (effectively 2.7) and later.  */</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">__GNUC__</span> &lt; 2 || (<span class="enscript-variable-name">__GNUC__</span> == 2 &amp;&amp; <span class="enscript-variable-name">__GNUC_MINOR__</span> &lt; 7)
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">__format__</span> format
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">__printf__</span> printf
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">ifdef</span>	<span class="enscript-variable-name">__cplusplus</span>
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> {
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Print a message with `fprintf (stderr, FORMAT, ...)';
+   if ERRNUM is nonzero, follow it with &quot;: &quot; and strerror (ERRNUM).
+   If STATUS is nonzero, terminate the program with `exit (STATUS)'.  */</span>
+
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> <span class="enscript-function-name">error</span> (<span class="enscript-type">int</span> __status, <span class="enscript-type">int</span> __errnum, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *__format, ...)
+     __attribute__ ((__format__ (__printf__, 3, 4)));
+
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> <span class="enscript-function-name">error_at_line</span> (<span class="enscript-type">int</span> __status, <span class="enscript-type">int</span> __errnum, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *__fname,
+			   <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> __lineno, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *__format, ...)
+     __attribute__ ((__format__ (__printf__, 5, 6)));
+
+<span class="enscript-comment">/* If NULL, error will flush stdout, then print on stderr the program
+   name, a colon and a space.  Otherwise, error will call this
+   function without parameters instead.  */</span>
+<span class="enscript-type">extern</span> DLL_VARIABLE <span class="enscript-function-name">void</span> (*error_print_progname) (<span class="enscript-type">void</span>);
+
+<span class="enscript-comment">/* This variable is incremented each time `error' is called.  */</span>
+<span class="enscript-type">extern</span> DLL_VARIABLE <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> error_message_count;
+
+<span class="enscript-comment">/* Sometimes we want to have at most one error per line.  This
+   variable controls whether this mode is selected or not.  */</span>
+<span class="enscript-type">extern</span> DLL_VARIABLE <span class="enscript-type">int</span> error_one_per_line;
+
+#<span class="enscript-reference">ifdef</span>	<span class="enscript-variable-name">__cplusplus</span>
+}
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* error.h */</span>
+</pre>
+<hr />
+</body></html>

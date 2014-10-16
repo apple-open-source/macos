@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 #include <bsm/libbsm.h>
 #include <TargetConditionals.h>
 
-#include "dprintf.h"
+#include "symbol_scope.h"
 #include "ipconfigServer.h"
 #include "ipconfigd.h"
 #include "ipconfig_ext.h"
@@ -96,6 +96,17 @@ S_process_audit_token(audit_token_t audit_token)
     return;
 }
 
+static boolean_t
+S_IPConfigurationServiceOperationAllowed(audit_token_t audit_token)
+{
+    S_process_audit_token(audit_token);
+    if (S_uid == 0
+	|| S_has_entitlement(audit_token,
+			     kIPConfigurationServiceEntitlement)) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
 
 static CFPropertyListRef
 my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
@@ -109,10 +120,11 @@ my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
     if (xml_data == NULL) {
 	return (NULL);
     }
-    plist = CFPropertyListCreateFromXMLData(NULL,
-					    xml_data,
-					    kCFPropertyListImmutable,
-					    NULL);
+    plist = CFPropertyListCreateWithData(NULL,
+					 xml_data,
+					 kCFPropertyListImmutable,
+					 NULL,
+					 NULL);
     CFRelease(xml_data);
     return (plist);
 }
@@ -137,24 +149,22 @@ method_info_from_xml_data(xmlData_t xml_data,
     return (status);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_if_addr(mach_port_t p, if_name_t name, 
 		  u_int32_t * addr, ipconfig_status_t * status)
 {
-    dprintf(("Getting interface address\n"));
     *status = get_if_addr(name, addr);
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_if_count(mach_port_t p, int * count)
 {
-    dprintf(("Getting interface count\n"));
     *count = get_if_count();
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_get_option(mach_port_t p, if_name_t name, int option_code,
 		     inline_data_t option_data,
 		     mach_msg_type_number_t * option_dataCnt,
@@ -165,7 +175,7 @@ _ipconfig_get_option(mach_port_t p, if_name_t name, int option_code,
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_get_packet(mach_port_t p, if_name_t name,
 		     inline_data_t packet_data,
 		     mach_msg_type_number_t * packet_dataCnt,
@@ -175,7 +185,7 @@ _ipconfig_get_packet(mach_port_t p, if_name_t name,
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_get_v6_packet(mach_port_t p, if_name_t name,
 		     inline_data_t packet_data,
 		     mach_msg_type_number_t * packet_dataCnt,
@@ -185,7 +195,7 @@ _ipconfig_get_v6_packet(mach_port_t p, if_name_t name,
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_set(mach_port_t p, if_name_t name,
 	      xmlData_t xml_data,
 	      mach_msg_type_number_t xml_data_len,
@@ -219,7 +229,7 @@ _ipconfig_set(mach_port_t p, if_name_t name,
     return (KERN_SUCCESS);
 }
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_set_verbose(mach_port_t p, int verbose,
 		      ipconfig_status_t * status,
 		      audit_token_t audit_token)
@@ -229,7 +239,7 @@ _ipconfig_set_verbose(mach_port_t p, int verbose,
 }
 
 #ifdef IPCONFIG_TEST_NO_ENTRY
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_set_something(mach_port_t p, int verbose,
 			ipconfig_status_t * status)
 {
@@ -237,7 +247,7 @@ _ipconfig_set_something(mach_port_t p, int verbose,
 }
 #endif /* IPCONFIG_TEST_NO_ENTRY */
 
-kern_return_t
+PRIVATE_EXTERN kern_return_t
 _ipconfig_add_service(mach_port_t p, 
 		      if_name_t name,
 		      xmlData_t xml_data,
@@ -252,10 +262,7 @@ _ipconfig_add_service(mach_port_t p,
     CFPropertyListRef		plist = NULL;
     ipconfig_status_t		status;
 
-    S_process_audit_token(audit_token);
-    if (S_uid != 0
-	&& !S_has_entitlement(audit_token,
-			      kIPConfigurationServiceEntitlement)) {
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -298,10 +305,7 @@ _ipconfig_set_service(mach_port_t p,
     ipconfig_method_data_t *	method_data;
     ipconfig_status_t		status;
 
-    S_process_audit_token(audit_token);
-    if (S_uid != 0
-	&& !S_has_entitlement(audit_token,
-			      kIPConfigurationServiceEntitlement)) {
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -324,30 +328,40 @@ _ipconfig_set_service(mach_port_t p,
     return (KERN_SUCCESS);
 }
 
-kern_return_t 
+PRIVATE_EXTERN kern_return_t 
 _ipconfig_remove_service_with_id(mach_port_t server,
 				 inline_data_t service_id,
 				 mach_msg_type_number_t service_id_len,
 				 ipconfig_status_t * ret_status,
 				 audit_token_t audit_token)
 {
-    ipconfig_status_t	status;
-
-    S_process_audit_token(audit_token);
-    if (S_uid != 0
-	&& !S_has_entitlement(audit_token,
-			      kIPConfigurationServiceEntitlement)) {
-	status = ipconfig_status_permission_denied_e;
-	goto done;
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
+	*ret_status = ipconfig_status_permission_denied_e;
     }
-    status = remove_service_with_id(service_id, service_id_len);
-
- done:
-    *ret_status = status;
+    else {
+	*ret_status = remove_service_with_id(NULL, service_id, service_id_len);
+    }
     return (KERN_SUCCESS);
 }
 
-kern_return_t 
+PRIVATE_EXTERN kern_return_t 
+_ipconfig_remove_service_on_interface(mach_port_t server,
+				      if_name_t name,
+				      inline_data_t service_id,
+				      mach_msg_type_number_t service_id_len,
+				      ipconfig_status_t * ret_status,
+				      audit_token_t audit_token)
+{
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
+	*ret_status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*ret_status = remove_service_with_id(name, service_id, service_id_len);
+    }
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t 
 _ipconfig_find_service(mach_port_t server,
 		       if_name_t name,
 		       boolean_t exact,
@@ -381,7 +395,7 @@ _ipconfig_find_service(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
-kern_return_t 
+PRIVATE_EXTERN kern_return_t 
 _ipconfig_remove_service(mach_port_t server,
 			 if_name_t name,
 			 xmlData_t xml_data,
@@ -393,10 +407,7 @@ _ipconfig_remove_service(mach_port_t server,
     ipconfig_method_data_t *	method_data;
     ipconfig_status_t		status;
 
-    S_process_audit_token(audit_token);
-    if (S_uid != 0
-	&& !S_has_entitlement(audit_token,
-			      kIPConfigurationServiceEntitlement)) {
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -419,17 +430,21 @@ _ipconfig_remove_service(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
-boolean_t
-server_active()
+PRIVATE_EXTERN kern_return_t 
+_ipconfig_refresh_service(mach_port_t server,
+			  if_name_t name,
+			  inline_data_t service_id,
+			  mach_msg_type_number_t service_id_len,
+			  ipconfig_status_t * ret_status,
+			  audit_token_t audit_token)
 {
-    mach_port_t		server;
-    kern_return_t	status;
-
-    status = ipconfig_server_port(&server);
-    if (status == BOOTSTRAP_SUCCESS) {
-	return (TRUE);
+    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
+	*ret_status = ipconfig_status_permission_denied_e;
     }
-    return (FALSE);
+    else {
+	*ret_status = refresh_service(name, service_id, service_id_len);
+    }
+    return (KERN_SUCCESS);
 }
 
 static void
@@ -504,7 +519,7 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 server_init()
 {
     CFRunLoopSourceRef	rls;

@@ -2,12 +2,14 @@
 # This is the Apache server configuration file providing SSL support.
 # It contains the configuration directives to instruct the server how to
 # serve pages over an https connection. For detailed information about these 
-# directives see <URL:http://httpd.apache.org/docs/2.2/mod/mod_ssl.html>
+# directives see <URL:http://httpd.apache.org/docs/2.4/mod/mod_ssl.html>
 # 
 # Do NOT simply read the instructions in here without understanding
 # what they do.  They're here only as hints or reminders.  If you are unsure
 # consult the online docs. You have been warned.  
 #
+# Required modules: mod_log_config, mod_setenvif, mod_ssl,
+#          socache_shmcb_module (for default value of SSLSessionCache)
 
 #
 # Pseudo Random Number Generator (PRNG):
@@ -31,9 +33,6 @@
 # When we also provide SSL we have to listen to the 
 # standard HTTP port (see above) and to the HTTPS port
 #
-# Note: Configurations that use IPv6 but not IPv4-mapped addresses need two
-#       Listen directives: "Listen [::]:@@SSLPort@@" and "Listen 0.0.0.0:@@SSLPort@@"
-#
 Listen @@SSLPort@@
 
 ##
@@ -42,52 +41,6 @@ Listen @@SSLPort@@
 ##  All SSL configuration in this context applies both to
 ##  the main server and all SSL-enabled virtual hosts.
 ##
-
-#
-#   Some MIME-types for downloading Certificates and CRLs
-#
-AddType application/x-x509-ca-cert .crt
-AddType application/x-pkcs7-crl    .crl
-
-#   Pass Phrase Dialog:
-#   Configure the pass phrase gathering process.
-#   The filtering dialog program (`builtin' is a internal
-#   terminal dialog) has to provide the pass phrase on stdout.
-SSLPassPhraseDialog  builtin
-
-#   Inter-Process Session Cache:
-#   Configure the SSL Session Cache: First the mechanism 
-#   to use and second the expiring timeout (in seconds).
-#SSLSessionCache         "dbm:@exp_runtimedir@/ssl_scache"
-SSLSessionCache        "shmcb:@exp_runtimedir@/ssl_scache(512000)"
-SSLSessionCacheTimeout  300
-
-#   Semaphore:
-#   Configure the path to the mutual exclusion semaphore the
-#   SSL engine uses internally for inter-process synchronization. 
-SSLMutex  "file:@exp_runtimedir@/ssl_mutex"
-
-##
-## SSL Virtual Host Context
-##
-
-<VirtualHost _default_:@@SSLPort@@>
-
-#   General setup for the virtual host
-DocumentRoot "@exp_htdocsdir@"
-ServerName www.example.com:@@SSLPort@@
-ServerAdmin you@example.com
-ErrorLog "@exp_logfiledir@/error_log"
-TransferLog "@exp_logfiledir@/access_log"
-
-#   SSL Engine Switch:
-#   Enable/Disable SSL for this virtual host.
-SSLEngine on
-
-#   SSL Protocol support:
-#   List the protocol versions which clients are allowed to
-#   connect with. Disable SSLv2 by default (cf. RFC 6176).
-SSLProtocol all -SSLv2
 
 #   SSL Cipher Suite:
 #   List the ciphers that the client is permitted to negotiate.
@@ -106,7 +59,37 @@ SSLCipherSuite HIGH:MEDIUM:!aNULL:!MD5
 #   considered compromised, too.
 #SSLCipherSuite RC4-SHA:AES128-SHA:HIGH:MEDIUM:!aNULL:!MD5
 #SSLHonorCipherOrder on 
- 
+
+#   Pass Phrase Dialog:
+#   Configure the pass phrase gathering process.
+#   The filtering dialog program (`builtin' is an internal
+#   terminal dialog) has to provide the pass phrase on stdout.
+SSLPassPhraseDialog  builtin
+
+#   Inter-Process Session Cache:
+#   Configure the SSL Session Cache: First the mechanism 
+#   to use and second the expiring timeout (in seconds).
+#SSLSessionCache         "dbm:@exp_runtimedir@/ssl_scache"
+SSLSessionCache        "shmcb:@exp_runtimedir@/ssl_scache(512000)"
+SSLSessionCacheTimeout  300
+
+##
+## SSL Virtual Host Context
+##
+
+<VirtualHost _default_:@@SSLPort@@>
+
+#   General setup for the virtual host
+DocumentRoot "@exp_htdocsdir@"
+ServerName www.example.com:@@SSLPort@@
+ServerAdmin you@example.com
+ErrorLog "@exp_logfiledir@/error_log"
+TransferLog "@exp_logfiledir@/access_log"
+
+#   SSL Engine Switch:
+#   Enable/Disable SSL for this virtual host.
+SSLEngine on
+
 #   Server Certificate:
 #   Point SSLCertificateFile at a PEM encoded certificate.  If
 #   the certificate is encrypted, then you will be prompted for a
@@ -153,12 +136,15 @@ SSLCertificateKeyFile "@exp_sysconfdir@/server.key"
 #   Certificate Revocation Lists (CRL):
 #   Set the CA revocation path where to find CA CRLs for client
 #   authentication or alternatively one huge file containing all
-#   of them (file must be PEM encoded)
+#   of them (file must be PEM encoded).
+#   The CRL checking mode needs to be configured explicitly
+#   through SSLCARevocationCheck (defaults to "none" otherwise).
 #   Note: Inside SSLCARevocationPath you need hash symlinks
 #         to point to the certificate files. Use the provided
 #         Makefile to update the hash symlinks after changes.
 #SSLCARevocationPath "@exp_sysconfdir@/ssl.crl"
 #SSLCARevocationFile "@exp_sysconfdir@/ssl.crl/ca-bundle.crl"
+#SSLCARevocationCheck chain
 
 #   Client Authentication (Type):
 #   Client certificate verification type and depth.  Types are
@@ -167,6 +153,14 @@ SSLCertificateKeyFile "@exp_sysconfdir@/server.key"
 #   issuer chain before deciding the certificate is not valid.
 #SSLVerifyClient require
 #SSLVerifyDepth  10
+
+#   TLS-SRP mutual authentication:
+#   Enable TLS-SRP and set the path to the OpenSSL SRP verifier
+#   file (containing login information for SRP user accounts). 
+#   Requires OpenSSL 1.0.1 or newer. See the mod_ssl FAQ for
+#   detailed instructions on creating this file. Example:
+#   "openssl srp -srpvfile @exp_sysconfdir@/passwd.srpv -add username"
+#SSLSRPVerifierFile "@exp_sysconfdir@/passwd.srpv"
 
 #   Access Control:
 #   With SSLRequire you can do per-directory access control based

@@ -155,6 +155,9 @@ int main(int argc, char **argv) {
 	char            *auth_mech_name = NULL;
 	size_t		pid_file_size;
 
+	/* XXX  force openlog() before any of our mechs try syslog() */
+	logger(L_INFO, L_FUNC, "starting %s", argv[0]);
+
 	SET_AUTH_PARAMETERS(argc, argv);
 
 	g_argc = argc;
@@ -248,6 +251,14 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
+	/* Create our working directory */
+	if (mkdir(run_path, 0755) == -1 && errno != EEXIST) {
+		logger(L_ERR, L_FUNC, "can not mkdir: %s", run_path);
+		logger(L_ERR, L_FUNC, "Check to make sure the parent directory exists and is");
+		logger(L_ERR, L_FUNC, "writeable by the user this process runs as.");
+		exit(1);
+	}
+
 	set_auth_mech(auth_mech_name);
 
 	if (flags & VERBOSE)  {
@@ -276,7 +287,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	umask(077);
+	umask(0077);
 
 	pid_file_size = strlen(run_path) + sizeof(PID_FILE_LOCK) + 1;
 	if ((pid_file_lock = malloc(pid_file_size)) == NULL) {
@@ -287,7 +298,7 @@ int main(int argc, char **argv) {
 	strlcpy(pid_file_lock, run_path, pid_file_size);
 	strlcat(pid_file_lock, PID_FILE_LOCK, pid_file_size);
 
-	if ((pid_file_lock_fd = open(pid_file_lock, O_CREAT|O_TRUNC|O_RDWR, 644)) < 0) {
+	if ((pid_file_lock_fd = open(pid_file_lock, O_CREAT|O_TRUNC|O_RDWR, 0644)) < 0) {
 		rc = errno;
 		logger(L_ERR, L_FUNC, "could not open pid lock file: %s", pid_file_lock);
 		logger(L_ERR, L_FUNC, "open: %s", strerror(rc));

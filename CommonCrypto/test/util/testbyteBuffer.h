@@ -25,10 +25,16 @@ byteBuffer
 mallocByteBuffer(size_t len);
 
 byteBuffer
-hexStringToBytes(char *inhex);
+hexStringToBytes(const char *inhex);
 
 byteBuffer
 hexStringToBytesWithSpaces(char *inhex, int breaks);
+
+static inline byteBuffer
+hexStringToBytesIfNotNULL(char *inhex) {
+    if(inhex) return hexStringToBytes(inhex);
+    return NULL;
+}
 
 char
 *bytesToHexStringWithSpaces(byteBuffer bb, int breaks);

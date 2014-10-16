@@ -91,6 +91,9 @@ packets to network hosts
 .Op Fl i Ar wait
 .Ek
 .Bk -words
+.Op Fl k Ar trafficclass
+.Ek
+.Bk -words
 .Op Fl l Ar preload
 .Ek
 .Bk -words
@@ -228,6 +231,13 @@ values less than 0.1 second.
 This option is incompatible with the
 .Fl f
 option.
+.It Fl k Ar trafficlass
+Specifies the traffic class to use for sending ICMPv6 packets.
+The supported traffic classes are
+BK_SYS, BK, BE, RD, OAM, AV, RV, VI, VO and CTL.
+By default 
+.Nm
+uses the control traffic class (CTL).
 .It Fl l Ar preload
 If
 .Ar preload

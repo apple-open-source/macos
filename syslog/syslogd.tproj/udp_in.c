@@ -71,7 +71,7 @@ udp_in_acceptmsg(int fd)
 	char fromstr[64], *r, *p;
 	struct sockaddr_in *s4;
 	struct sockaddr_in6 *s6;
-	aslmsg m;
+	asl_msg_t *m;
 
 	fromlen = sizeof(struct sockaddr_storage);
 	memset(&from, 0, fromlen);

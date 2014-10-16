@@ -39,27 +39,17 @@
 
 extern module AP_MODULE_DECLARE_DATA dbd_module;
 
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(dbd, DBD, apr_status_t, post_connect,
+                                    (apr_pool_t *pool, dbd_cfg_t *cfg,
+                                    ap_dbd_t *dbd),
+                                    (pool, cfg, dbd), OK, DECLINED)
+
 /************ svr cfg: manage db connection pool ****************/
 
 #define NMIN_SET     0x1
 #define NKEEP_SET    0x2
 #define NMAX_SET     0x4
 #define EXPTIME_SET  0x8
-
-typedef struct {
-    server_rec *server;
-    const char *name;
-    const char *params;
-    int persist;
-#if APR_HAS_THREADS
-    int nmin;
-    int nkeep;
-    int nmax;
-    int exptime;
-    int set;
-#endif
-    apr_hash_t *queries;
-} dbd_cfg_t;
 
 typedef struct dbd_group_t dbd_group_t;
 
@@ -99,6 +89,8 @@ static const char *const no_dbdriver = "[DBDriver unset]";
 #define DEFAULT_NMAX 10
 #define DEFAULT_EXPTIME 300
 
+#define DEFAULT_SQL_INIT_ARRAY_SIZE 5
+
 static void *create_dbd_config(apr_pool_t *pool, server_rec *s)
 {
     svr_cfg *svr = apr_pcalloc(pool, sizeof(svr_cfg));
@@ -115,6 +107,8 @@ static void *create_dbd_config(apr_pool_t *pool, server_rec *s)
     cfg->exptime = DEFAULT_EXPTIME;
 #endif
     cfg->queries = apr_hash_make(pool);
+    cfg->init_queries = apr_array_make(pool, DEFAULT_SQL_INIT_ARRAY_SIZE,
+                                       sizeof(const char *));
 
     return svr;
 }
@@ -137,22 +131,36 @@ static void *merge_dbd_config(apr_pool_t *pool, void *basev, void *addv)
     new->exptime = (add->set&EXPTIME_SET) ? add->exptime : base->exptime;
 #endif
     new->queries = apr_hash_overlay(pool, add->queries, base->queries);
+    new->init_queries = apr_array_append(pool, add->init_queries,
+                                         base->init_queries);
 
     return svr;
 }
 
-#define ISINT(val) do {                                                 \
-        const char *p;                                                  \
-                                                                        \
-        for (p = val; *p; ++p) {                                        \
-            if (!apr_isdigit(*p)) {                                     \
-                return "Argument must be numeric!";                     \
-            }                                                           \
-        }                                                               \
-    } while (0)
+static void ap_dbd_sql_init(server_rec *s, const char *query)
+{
+    svr_cfg *svr;
+    const char **arr_item;
+
+    svr = ap_get_module_config(s->module_config, &dbd_module);
+    if (!svr) {
+         /* some modules may call from within config directive handlers, and
+          * if these are called in a server context that contains no mod_dbd
+          * config directives, then we have to create our own server config
+          */
+         svr = create_dbd_config(config_pool, s);
+         ap_set_module_config(s->module_config, &dbd_module, svr);
+    }
+
+    if (query) {
+        arr_item = apr_array_push(svr->cfg->init_queries);
+        *arr_item = query;
+    }
+}
 
 static const char *dbd_param(cmd_parms *cmd, void *dconf, const char *val)
 {
+    apr_status_t rv;
     const apr_dbd_driver_t *driver = NULL;
     svr_cfg *svr = ap_get_module_config(cmd->server->module_config,
                                         &dbd_module);
@@ -165,52 +173,69 @@ static const char *dbd_param(cmd_parms *cmd, void *dconf, const char *val)
          * best done at server startup.  This also guarantees that
          * we won't return an error later.
          */
-        switch (apr_dbd_get_driver(cmd->pool, cfg->name, &driver)) {
-        case APR_ENOTIMPL:
-            return apr_psprintf(cmd->pool, "DBD: No driver for %s", cfg->name);
-        case APR_EDSOOPEN:
+        rv = apr_dbd_get_driver(cmd->pool, cfg->name, &driver);
+        if (APR_STATUS_IS_ENOTIMPL(rv)) {
+            return apr_psprintf(cmd->pool, "No driver for %s", cfg->name);
+        }
+        else if (APR_STATUS_IS_EDSOOPEN(rv)) {
             return apr_psprintf(cmd->pool,
 #ifdef NETWARE
-                                "DBD: Can't load driver file dbd%s.nlm",
+                                "Can't load driver file dbd%s.nlm",
 #else
-                                "DBD: Can't load driver file apr_dbd_%s.so",
+                                "Can't load driver file apr_dbd_%s.so",
 #endif
                                 cfg->name);
-        case APR_ESYMNOTFOUND:
+        }
+        else if (APR_STATUS_IS_ESYMNOTFOUND(rv)) {
             return apr_psprintf(cmd->pool,
-                                "DBD: Failed to load driver apr_dbd_%s_driver",
+                                "Failed to load driver apr_dbd_%s_driver",
                                 cfg->name);
         }
         break;
     case cmd_params:
         cfg->params = val;
         break;
-#if APR_HAS_THREADS
-    case cmd_min:
-        ISINT(val);
-        cfg->nmin = atoi(val);
-        cfg->set |= NMIN_SET;
-        break;
-    case cmd_keep:
-        ISINT(val);
-        cfg->nkeep = atoi(val);
-        cfg->set |= NKEEP_SET;
-        break;
-    case cmd_max:
-        ISINT(val);
-        cfg->nmax = atoi(val);
-        cfg->set |= NMAX_SET;
-        break;
-    case cmd_exp:
-        ISINT(val);
-        cfg->exptime = atoi(val);
-        cfg->set |= EXPTIME_SET;
-        break;
-#endif
     }
 
     return NULL;
 }
+
+#if APR_HAS_THREADS
+static const char *dbd_param_int(cmd_parms *cmd, void *dconf, const char *val)
+{
+    svr_cfg *svr = ap_get_module_config(cmd->server->module_config,
+                                        &dbd_module);
+    dbd_cfg_t *cfg = svr->cfg;
+    const char *p;
+
+    for (p = val; *p; ++p) {
+        if (!apr_isdigit(*p)) {
+            return "Argument must be numeric!";
+        }
+    }
+
+    switch ((long) cmd->info) {
+    case cmd_min:
+        cfg->nmin = atoi(val);
+        cfg->set |= NMIN_SET;
+        break;
+    case cmd_keep:
+        cfg->nkeep = atoi(val);
+        cfg->set |= NKEEP_SET;
+        break;
+    case cmd_max:
+        cfg->nmax = atoi(val);
+        cfg->set |= NMAX_SET;
+        break;
+    case cmd_exp:
+        cfg->exptime = atoi(val);
+        cfg->set |= EXPTIME_SET;
+        break;
+    }
+
+    return NULL;
+}
+#endif
 
 static const char *dbd_param_flag(cmd_parms *cmd, void *dconf, int flag)
 {
@@ -239,6 +264,17 @@ static const char *dbd_prepare(cmd_parms *cmd, void *dconf, const char *query,
     return NULL;
 }
 
+static const char *dbd_init_sql(cmd_parms *cmd, void *dconf, const char *query)
+{
+    if (!query || *query == '\n') {
+        return "You should specify SQL statement";
+    }
+
+    ap_dbd_sql_init(cmd->server, query);
+
+    return NULL;
+}
+
 static const command_rec dbd_cmds[] = {
     AP_INIT_TAKE1("DBDriver", dbd_param, (void*)cmd_name, RSRC_CONF,
                   "SQL Driver"),
@@ -249,16 +285,18 @@ static const command_rec dbd_cmds[] = {
     AP_INIT_TAKE12("DBDPrepareSQL", dbd_prepare, NULL, RSRC_CONF,
                    "SQL statement to prepare (or nothing, to override "
                    "statement inherited from main server) and label"),
+    AP_INIT_TAKE1("DBDInitSQL", dbd_init_sql, NULL, RSRC_CONF,
+                   "SQL statement to be executed after connection is created"),
 #if APR_HAS_THREADS
-    AP_INIT_TAKE1("DBDMin", dbd_param, (void*)cmd_min, RSRC_CONF,
+    AP_INIT_TAKE1("DBDMin", dbd_param_int, (void*)cmd_min, RSRC_CONF,
                   "Minimum number of connections"),
     /* XXX: note that mod_proxy calls this "smax" */
-    AP_INIT_TAKE1("DBDKeep", dbd_param, (void*)cmd_keep, RSRC_CONF,
+    AP_INIT_TAKE1("DBDKeep", dbd_param_int, (void*)cmd_keep, RSRC_CONF,
                   "Maximum number of sustained connections"),
-    AP_INIT_TAKE1("DBDMax", dbd_param, (void*)cmd_max, RSRC_CONF,
+    AP_INIT_TAKE1("DBDMax", dbd_param_int, (void*)cmd_max, RSRC_CONF,
                   "Maximum number of connections"),
     /* XXX: note that mod_proxy calls this "ttl" (time to live) */
-    AP_INIT_TAKE1("DBDExptime", dbd_param, (void*)cmd_exp, RSRC_CONF,
+    AP_INIT_TAKE1("DBDExptime", dbd_param_int, (void*)cmd_exp, RSRC_CONF,
                   "Keepalive time for idle connections"),
 #endif
     {NULL}
@@ -397,7 +435,6 @@ static apr_status_t dbd_prepared_init(apr_pool_t *pool, dbd_cfg_t *cfg,
                                       ap_dbd_t *rec)
 {
     apr_hash_index_t *hi;
-    apr_status_t rv = APR_SUCCESS;
 
     rec->prepared = apr_hash_make(pool);
 
@@ -415,10 +452,31 @@ static apr_status_t dbd_prepared_init(apr_pool_t *pool, dbd_cfg_t *cfg,
         stmt = NULL;
         if (apr_dbd_prepare(rec->driver, pool, rec->handle, query,
                             label, &stmt)) {
-            rv = APR_EGENERAL;
+            return APR_EGENERAL;
         }
         else {
             apr_hash_set(rec->prepared, label, APR_HASH_KEY_STRING, stmt);
+        }
+    }
+
+    return APR_SUCCESS;
+}
+
+static apr_status_t dbd_init_sql_init(apr_pool_t *pool, dbd_cfg_t *cfg,
+                                      ap_dbd_t *rec)
+{
+    int i;
+    apr_status_t rv = APR_SUCCESS;
+
+    for (i = 0; i < cfg->init_queries->nelts; i++) {
+        int nrows;
+        char **query_p;
+
+        query_p = (char **)cfg->init_queries->elts + i;
+
+        if (apr_dbd_query(rec->driver, rec->handle, &nrows, *query_p)) {
+            rv = APR_EGENERAL;
+            break;
         }
     }
 
@@ -459,11 +517,12 @@ static apr_status_t dbd_construct(void **data_ptr,
     apr_pool_t *rec_pool, *prepared_pool;
     ap_dbd_t *rec;
     apr_status_t rv;
+    const char *err = "";
 
     rv = apr_pool_create(&rec_pool, pool);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, cfg->server,
-                     "DBD: Failed to create memory pool");
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, cfg->server, APLOGNO(00624)
+                     "Failed to create memory pool");
         return rv;
     }
 
@@ -478,40 +537,37 @@ static apr_status_t dbd_construct(void **data_ptr,
      */
     rv = apr_dbd_get_driver(rec->pool, cfg->name, &rec->driver);
     if (rv != APR_SUCCESS) {
-        switch (rv) {
-        case APR_ENOTIMPL:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: driver for %s not available", cfg->name);
-            break;
-        case APR_EDSOOPEN:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: can't find driver for %s", cfg->name);
-            break;
-        case APR_ESYMNOTFOUND:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: driver for %s is invalid or corrupted",
-                         cfg->name);
-            break;
-        default:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: mod_dbd not compatible with APR in get_driver");
-            break;
+        if (APR_STATUS_IS_ENOTIMPL(rv)) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00625)
+                         "driver for %s not available", cfg->name);
         }
-
+        else if (APR_STATUS_IS_EDSOOPEN(rv)) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00626)
+                         "can't find driver for %s", cfg->name);
+        }
+        else if (APR_STATUS_IS_ESYMNOTFOUND(rv)) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00627)
+                         "driver for %s is invalid or corrupted",
+                         cfg->name);
+        }
+        else {
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00628)
+                         "mod_dbd not compatible with APR in get_driver");
+        }
         apr_pool_destroy(rec->pool);
         return rv;
     }
 
-    rv = apr_dbd_open(rec->driver, rec->pool, cfg->params, &rec->handle);
+    rv = apr_dbd_open_ex(rec->driver, rec->pool, cfg->params, &rec->handle, &err);
     if (rv != APR_SUCCESS) {
         switch (rv) {
         case APR_EGENERAL:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: Can't connect to %s", cfg->name);
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00629)
+                         "Can't connect to %s: %s", cfg->name, err);
             break;
         default:
-            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                         "DBD: mod_dbd not compatible with APR in open");
+            ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00630)
+                         "mod_dbd not compatible with APR in open");
             break;
         }
 
@@ -527,8 +583,8 @@ static apr_status_t dbd_construct(void **data_ptr,
      */
     rv = apr_pool_create(&prepared_pool, rec->pool);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, cfg->server,
-                     "DBD: Failed to create memory pool");
+        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, cfg->server, APLOGNO(00631)
+                     "Failed to create memory pool");
 
         apr_pool_destroy(rec->pool);
         return rv;
@@ -537,13 +593,15 @@ static apr_status_t dbd_construct(void **data_ptr,
     rv = dbd_prepared_init(prepared_pool, cfg, rec);
     if (rv != APR_SUCCESS) {
         const char *errmsg = apr_dbd_error(rec->driver, rec->handle, rv);
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server,
-                     "DBD: failed to prepare SQL statements: %s",
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, cfg->server, APLOGNO(00632)
+                     "failed to prepare SQL statements: %s",
                      (errmsg ? errmsg : "[???]"));
 
         apr_pool_destroy(rec->pool);
         return rv;
     }
+
+    dbd_run_post_connect(prepared_pool, cfg, rec);
 
     *data_ptr = rec;
 
@@ -589,8 +647,8 @@ static apr_status_t dbd_setup(server_rec *s, dbd_group_t *group)
                             dbd_construct, dbd_destruct, group,
                             group->pool);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
-                     "DBD: failed to initialise");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(00633)
+                     "failed to initialise");
         return rv;
     }
 
@@ -611,8 +669,8 @@ static apr_status_t dbd_setup_init(apr_pool_t *pool, server_rec *s)
 
         rv2 = apr_pool_create(&group->pool, pool);
         if (rv2 != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_CRIT, rv2, s,
-                         "DBD: Failed to create reslist cleanup memory pool");
+            ap_log_error(APLOG_MARK, APLOG_CRIT, rv2, s, APLOGNO(00634)
+                         "Failed to create reslist cleanup memory pool");
             return rv2;
         }
 
@@ -631,8 +689,8 @@ static apr_status_t dbd_setup_init(apr_pool_t *pool, server_rec *s)
         rv2 = apr_thread_mutex_create(&group->mutex,
                                       APR_THREAD_MUTEX_DEFAULT, pool);
         if (rv2 != APR_SUCCESS) {
-             ap_log_error(APLOG_MARK, APLOG_CRIT, rv2, s,
-                          "DBD: Failed to create thread mutex");
+             ap_log_error(APLOG_MARK, APLOG_CRIT, rv2, s, APLOGNO(00635)
+                          "Failed to create thread mutex");
              return rv2;
         }
 #endif
@@ -645,8 +703,8 @@ static void dbd_child_init(apr_pool_t *p, server_rec *s)
 {
   apr_status_t rv = dbd_setup_init(p, s);
   if (rv) {
-    ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s,
-                 "DBD: child init failed!");
+    ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(00636)
+                 "child init failed!");
   }
 }
 
@@ -665,8 +723,8 @@ static apr_status_t dbd_setup_lock(server_rec *s, dbd_group_t *group)
 
     rv2 = apr_thread_mutex_lock(group->mutex);
     if (rv2 != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv2, s,
-                     "DBD: Failed to acquire thread mutex");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv2, s, APLOGNO(00637)
+                     "Failed to acquire thread mutex");
         return rv2;
     }
 
@@ -676,8 +734,8 @@ static apr_status_t dbd_setup_lock(server_rec *s, dbd_group_t *group)
 
     rv2 = apr_thread_mutex_unlock(group->mutex);
     if (rv2 != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv2, s,
-                     "DBD: Failed to release thread mutex");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv2, s, APLOGNO(00638)
+                     "Failed to release thread mutex");
         if (rv == APR_SUCCESS) {
             rv = rv2;
         }
@@ -715,13 +773,16 @@ static apr_status_t dbd_check(apr_pool_t *pool, server_rec *s, ap_dbd_t *rec)
         return APR_SUCCESS;
     }
 
-    errmsg = apr_dbd_error(rec->driver, rec->handle, rv);
+    /* we don't have a driver-specific error code, so we'll just pass
+     * a "success" value and rely on the driver to ignore it
+     */
+    errmsg = apr_dbd_error(rec->driver, rec->handle, 0);
     if (!errmsg) {
         errmsg = "(unknown)";
     }
 
     svr = ap_get_module_config(s->module_config, &dbd_module);
-    ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
+    ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(00639)
                  "DBD [%s] Error: %s", svr->cfg->name, errmsg);
     return rv;
 }
@@ -738,7 +799,7 @@ DBD_DECLARE_NONSTD(ap_dbd_t*) ap_dbd_open(apr_pool_t *pool, server_rec *s)
 
     /* If nothing is configured, we shouldn't be here */
     if (cfg->name == no_dbdriver) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "DBD: not configured");
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, "not configured");
         return NULL;
     }
 
@@ -912,10 +973,13 @@ static void dbd_hooks(apr_pool_t *pool)
     APR_REGISTER_OPTIONAL_FN(ap_dbd_acquire);
     APR_REGISTER_OPTIONAL_FN(ap_dbd_cacquire);
 
+    APR_OPTIONAL_HOOK(dbd, post_connect, dbd_init_sql_init,
+                      NULL, NULL, APR_HOOK_MIDDLE);
+
     apr_dbd_init(pool);
 }
 
-module AP_MODULE_DECLARE_DATA dbd_module = {
+AP_DECLARE_MODULE(dbd) = {
     STANDARD20_MODULE_STUFF,
     NULL,
     NULL,

@@ -33,6 +33,9 @@
 
 #include "kuser_locl.h"
 
+static void usage (int ret) __attribute__((noreturn));
+
+
 static char *cache_str;
 static char *out_cache_str;
 static char *delegation_cred_str;

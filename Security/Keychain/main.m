@@ -2,13 +2,17 @@
 //  main.m
 //  Keychain
 //
-//  Created by J Osborne on 2/13/13.
+//  Created by john on 10/22/12.
 //
 //
 
-#import <Cocoa/Cocoa.h>
+#import <UIKit/UIKit.h>
+
+#import "AppDelegate.h"
 
 int main(int argc, char *argv[])
 {
-    return NSApplicationMain(argc, (const char **)argv);
+    @autoreleasepool {
+        return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+    }
 }

@@ -45,7 +45,7 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
     krb5_error_code ret;
     krb5_storage *request, *response;
     krb5_data response_data;
-    OM_uint32 major;
+    OM_uint32 major = GSS_S_FAILURE;
     ntlm_name cred;
     kcmuuid_t uuid;
     ssize_t sret;
@@ -80,13 +80,14 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 
     if (sret != sizeof(uuid)) {
 	krb5_clear_error_message(context);
-	return KRB5_CC_IO;
+	ret = KRB5_CC_IO;
+	goto out;
     }
 
     major = _gss_ntlm_duplicate_name(minor, (gss_name_t)target_name,
 				     (gss_name_t *)&cred);
     if (major)
-	return major;
+	goto out;
 
     cred->flags |= NTLM_UUID;
     memcpy(cred->uuid, uuid, sizeof(cred->uuid));
@@ -168,7 +169,7 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
 			   gss_cred_id_t * output_cred_handle)
 {
     ntlm_name name = (ntlm_name) desired_name;
-    OM_uint32 major;
+    OM_uint32 major = GSS_S_FAILURE;
     krb5_storage *request, *response;
     krb5_data response_data;
     krb5_context context;
@@ -230,6 +231,7 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
     krb5_data_free(&response_data);
 
     if (sret != sizeof(uuid)) {
+	major = GSS_S_FAILURE;
 	ret = KRB5_CC_IO;
 	goto out;
     }

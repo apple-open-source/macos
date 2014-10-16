@@ -29,9 +29,13 @@
 #include "Arguments.h"
 #include "WebCoreArgumentCoders.h"
 
+#if PLATFORM(IOS)
+#include <WebCore/SelectionRect.h>
+#endif
+
 namespace WebKit {
 
-void EditorState::encode(CoreIPC::ArgumentEncoder& encoder) const
+void EditorState::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << shouldIgnoreCompositionSelectionChange;
     encoder << selectionIsNone;
@@ -42,22 +46,29 @@ void EditorState::encode(CoreIPC::ArgumentEncoder& encoder) const
     encoder << isInPlugin;
     encoder << hasComposition;
 
-#if PLATFORM(QT)
-    encoder << cursorPosition;
-    encoder << anchorPosition;
-    encoder << editorRect;
-    encoder << compositionRect;
-    encoder << inputMethodHints;
-    encoder << selectedText;
-    encoder << surroundingText;
+#if PLATFORM(IOS)
+    encoder << isReplaceAllowed;
+    encoder << hasContent;
+    encoder << characterAfterSelection;
+    encoder << characterBeforeSelection;
+    encoder << twoCharacterBeforeSelection;
+    encoder << caretRectAtStart;
+    encoder << caretRectAtEnd;
+    encoder << selectionRects;
+    encoder << selectedTextLength;
+    encoder << wordAtSelection;
+    encoder << firstMarkedRect;
+    encoder << lastMarkedRect;
+    encoder << markedText;
+    encoder << typingAttributes;
 #endif
 
-#if PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(GTK)
     encoder << cursorRect;
 #endif
 }
 
-bool EditorState::decode(CoreIPC::ArgumentDecoder& decoder, EditorState& result)
+bool EditorState::decode(IPC::ArgumentDecoder& decoder, EditorState& result)
 {
     if (!decoder.decode(result.shouldIgnoreCompositionSelectionChange))
         return false;
@@ -83,30 +94,38 @@ bool EditorState::decode(CoreIPC::ArgumentDecoder& decoder, EditorState& result)
     if (!decoder.decode(result.hasComposition))
         return false;
 
-#if PLATFORM(QT)
-    if (!decoder.decode(result.cursorPosition))
+#if PLATFORM(IOS)
+    if (!decoder.decode(result.isReplaceAllowed))
         return false;
-
-    if (!decoder.decode(result.anchorPosition))
+    if (!decoder.decode(result.hasContent))
         return false;
-
-    if (!decoder.decode(result.editorRect))
+    if (!decoder.decode(result.characterAfterSelection))
         return false;
-
-    if (!decoder.decode(result.compositionRect))
+    if (!decoder.decode(result.characterBeforeSelection))
         return false;
-
-    if (!decoder.decode(result.inputMethodHints))
+    if (!decoder.decode(result.twoCharacterBeforeSelection))
         return false;
-
-    if (!decoder.decode(result.selectedText))
+    if (!decoder.decode(result.caretRectAtStart))
         return false;
-
-    if (!decoder.decode(result.surroundingText))
+    if (!decoder.decode(result.caretRectAtEnd))
+        return false;
+    if (!decoder.decode(result.selectionRects))
+        return false;
+    if (!decoder.decode(result.selectedTextLength))
+        return false;
+    if (!decoder.decode(result.wordAtSelection))
+        return false;
+    if (!decoder.decode(result.firstMarkedRect))
+        return false;
+    if (!decoder.decode(result.lastMarkedRect))
+        return false;
+    if (!decoder.decode(result.markedText))
+        return false;
+    if (!decoder.decode(result.typingAttributes))
         return false;
 #endif
 
-#if PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(GTK)
     if (!decoder.decode(result.cursorRect))
         return false;
 #endif

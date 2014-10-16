@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -25,8 +25,6 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCNetworkReachabilityInternal.h"
-
-#ifdef	HAVE_REACHABILITY_SERVER
 
 #include <fcntl.h>
 #include <paths.h>
@@ -96,7 +94,6 @@ _server_concurrent_queue()
 	dispatch_once(&once, ^{
 		q = dispatch_queue_create(REACH_SERVICE_NAME ".concurrent",
 					  DISPATCH_QUEUE_CONCURRENT);
-		dispatch_queue_set_width(q, 32);
 	});
 
 	return q;
@@ -262,7 +259,7 @@ _target_reply_add_reachability(SCNetworkReachabilityRef target,
 	xpc_dictionary_set_bool	 (reply,
 				  REACH_STATUS_SLEEPING,
 				  targetPrivate->info.sleeping);
-	if (targetPrivate->type == reachabilityTypeName) {
+	if (isReachabilityTypeName(targetPrivate->type)) {
 		if (isA_CFArray(targetPrivate->resolvedAddresses)) {
 			xpc_object_t	addresses;
 			CFIndex		i;
@@ -272,13 +269,22 @@ _target_reply_add_reachability(SCNetworkReachabilityRef target,
 
 			n = CFArrayGetCount(targetPrivate->resolvedAddresses);
 			for (i = 0; i < n; i++) {
-				CFDataRef	address;
+				if (targetPrivate->type == reachabilityTypeName) {
+					CFDataRef	address;
 
-				address = CFArrayGetValueAtIndex(targetPrivate->resolvedAddresses, i);
-				xpc_array_set_data(addresses,
-						   XPC_ARRAY_APPEND,
-						   CFDataGetBytePtr(address),
-						   CFDataGetLength(address));
+					address = CFArrayGetValueAtIndex(targetPrivate->resolvedAddresses, i);
+					xpc_array_set_data(addresses,
+							   XPC_ARRAY_APPEND,
+							   CFDataGetBytePtr(address),
+							   CFDataGetLength(address));
+				} else if (targetPrivate->type == reachabilityTypePTR) {
+					CFStringRef	name;
+					char		str[MAXHOSTNAMELEN];
+
+					name = CFArrayGetValueAtIndex(targetPrivate->resolvedAddresses, i);
+					_SC_cfstring_to_cstring(name, str, sizeof(str), kCFStringEncodingUTF8);
+					xpc_array_set_string(addresses, XPC_ARRAY_APPEND, str);
+				}
 			}
 
 			xpc_dictionary_set_value(reply,
@@ -289,6 +295,10 @@ _target_reply_add_reachability(SCNetworkReachabilityRef target,
 		xpc_dictionary_set_int64(reply,
 					 REACH_STATUS_RESOLVED_ERROR,
 					 targetPrivate->resolvedError);
+		xpc_dictionary_set_uint64(reply,
+					  REACH_STATUS_DNS_FLAGS,
+					  targetPrivate->dnsFlags);
+
 	}
 
 	MUTEX_UNLOCK(&targetPrivate->lock);
@@ -374,7 +384,7 @@ _target_watcher_add(SCNetworkReachabilityRef	target,
 
 			if (S_debug) {
 				SCLog(TRUE, LOG_INFO,
-				      CFSTR("<%p>   target %p: watcher added, c=0x%0llx, n=%d"),
+				      CFSTR("<%p>   target %p: watcher added, c=0x%0llx, n=%ld"),
 				      connection,
 				      target,
 				      target_id,
@@ -480,7 +490,7 @@ _target_watcher_remove(SCNetworkReachabilityRef	target,
 
 		if (S_debug) {
 			SCLog(TRUE, LOG_INFO,
-			      CFSTR("<%p>   target %p: watcher removed, c=0x%0llx, n=%d"),
+			      CFSTR("<%p>   target %p: watcher removed, c=0x%0llx, n=%ld"),
 			      connection,
 			      target,		// server
 			      target_id,	// client
@@ -536,7 +546,13 @@ _rbt_compare_transaction_nodes(void *context, const void *n1, const void *n2)
 	uint64_t	a = (uintptr_t)((reach_client_t *)n1)->connection;
 	uint64_t	b = (uintptr_t)((reach_client_t *)n2)->connection;
 
-	return (a - b);
+	if (a == b) {
+		return 0;
+	} else if (a < b) {
+		return -1;
+	} else {
+		return 1;
+	}
 }
 
 
@@ -546,7 +562,13 @@ _rbt_compare_transaction_key(void *context, const void *n1, const void *key)
 	uint64_t	a = (uintptr_t)((reach_client_t *)n1)->connection;
 	uint64_t	b = *(uintptr_t *)key;
 
-	return (a - b);
+	if (a == b) {
+		return 0;
+	} else if (a < b) {
+		return -1;
+	} else {
+		return 1;
+	}
 }
 
 
@@ -810,14 +832,16 @@ _reach_changed(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags
 		return;
 	}
 
-	/*
-	 * Because we are actively watching for additional changes
-	 * we mark the flags as "valid"
-	 */
-	if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
-		if (S_debug) {
-			SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\""),
-			      targetPrivate->log_prefix);
+	if (!isReachabilityTypeName(targetPrivate->type) || !targetPrivate->dnsNoAddressesSinceLastTimeout) {
+		/*
+		 * Because we are actively watching for additional changes
+		 * we mark the flags as "valid"
+		 */
+		if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
+			if (S_debug) {
+				SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\""),
+				      targetPrivate->log_prefix);
+			}
 		}
 	}
 
@@ -933,11 +957,14 @@ target_add(reach_client_t *client, xpc_object_t request)
 	struct sockaddr_storage			localAddress0;
 	const struct sockaddr			*remoteAddress;
 	struct sockaddr_storage			remoteAddress0;
+	const struct sockaddr			*ptrAddress;
+	struct sockaddr_storage			ptrAddress0;
 	int64_t					if_index;
 	const char				*if_name	= NULL;
 	bool					onDemandBypass	= FALSE;
 	bool					resolverBypass	= FALSE;
 	uint64_t				target_id;
+	uid_t					uid		= 0;
 
 
 	unsigned char				bytes[CC_SHA1_DIGEST_LENGTH];
@@ -983,7 +1010,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 	name = xpc_dictionary_get_string(request, REACH_TARGET_NAME);
 	if (name != NULL) {
 		CC_SHA1_Update(&ctx, REACH_TARGET_NAME, sizeof(REACH_TARGET_NAME));
-		CC_SHA1_Update(&ctx, name, strlen(name));
+		CC_SHA1_Update(&ctx, name, (CC_LONG)strlen(name));
 	}
 
 	localAddress = xpc_dictionary_get_data(request, REACH_TARGET_LOCAL_ADDR, &len);
@@ -991,7 +1018,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 		if ((len == localAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
 			sanitize_address(localAddress, (struct sockaddr *)&localAddress0);
 			CC_SHA1_Update(&ctx, REACH_TARGET_LOCAL_ADDR, sizeof(REACH_TARGET_LOCAL_ADDR));
-			CC_SHA1_Update(&ctx, &localAddress0, len);
+			CC_SHA1_Update(&ctx, &localAddress0, (CC_LONG)len);
 		} else {
 			xpc_dictionary_set_string(reply,
 						  REACH_REQUEST_REPLY_DETAIL,
@@ -1005,11 +1032,25 @@ target_add(reach_client_t *client, xpc_object_t request)
 		if ((len == remoteAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
 			sanitize_address(remoteAddress, (struct sockaddr *)&remoteAddress0);
 			CC_SHA1_Update(&ctx, REACH_TARGET_REMOTE_ADDR, sizeof(REACH_TARGET_REMOTE_ADDR));
-			CC_SHA1_Update(&ctx, &remoteAddress0, len);
+			CC_SHA1_Update(&ctx, &remoteAddress0, (CC_LONG)len);
 		} else {
 			xpc_dictionary_set_string(reply,
 						  REACH_REQUEST_REPLY_DETAIL,
 						  "remote address: size error");
+			goto done;
+		}
+	}
+
+	ptrAddress = xpc_dictionary_get_data(request, REACH_TARGET_PTR_ADDR, &len);
+	if (ptrAddress != NULL) {
+		if ((len == ptrAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
+			sanitize_address(ptrAddress, (struct sockaddr *)&ptrAddress0);
+			CC_SHA1_Update(&ctx, REACH_TARGET_PTR_ADDR, sizeof(REACH_TARGET_PTR_ADDR));
+			CC_SHA1_Update(&ctx, &ptrAddress0, (CC_LONG)len);
+		} else {
+			xpc_dictionary_set_string(reply,
+						  REACH_REQUEST_REPLY_DETAIL,
+						  "ptr address: size error");
 			goto done;
 		}
 	}
@@ -1019,7 +1060,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 		if_name = xpc_dictionary_get_string(request, REACH_TARGET_IF_NAME);
 		if (if_name != NULL) {
 			CC_SHA1_Update(&ctx, REACH_TARGET_IF_NAME, sizeof(REACH_TARGET_IF_NAME));
-			CC_SHA1_Update(&ctx, if_name, strlen(if_name));
+			CC_SHA1_Update(&ctx, if_name, (CC_LONG)strlen(if_name));
 		}
 	}
 
@@ -1035,6 +1076,10 @@ target_add(reach_client_t *client, xpc_object_t request)
 		CC_SHA1_Update(&ctx, REACH_TARGET_RESOLVER_BYPASS, sizeof(REACH_TARGET_RESOLVER_BYPASS));
 		CC_SHA1_Update(&ctx, &resolverBypass, sizeof(resolverBypass));
 	}
+
+	// Grab UID from XPC connection
+	uid = xpc_connection_get_euid(remote);
+	CC_SHA1_Update(&ctx, &uid, sizeof(uid));
 
 
 	CC_SHA1_Final(bytes, &ctx);
@@ -1073,6 +1118,11 @@ target_add(reach_client_t *client, xpc_object_t request)
 				CFDictionarySetValue(options, kSCNetworkReachabilityOptionRemoteAddress, data);
 				CFRelease(data);
 			}
+			if (ptrAddress != NULL) {
+				data = CFDataCreate(NULL, (const UInt8 *)&ptrAddress0, ptrAddress0.ss_len);
+				CFDictionarySetValue(options, kSCNetworkReachabilityOptionPTRAddress, data);
+				CFRelease(data);
+			}
 			if (onDemandBypass) {
 				CFDictionarySetValue(options,
 						     kSCNetworkReachabilityOptionConnectionOnDemandBypass,
@@ -1096,13 +1146,16 @@ target_add(reach_client_t *client, xpc_object_t request)
 				return;
 			}
 
+			// Set the UID on the target
+			((SCNetworkReachabilityPrivateRef)target)->uid = uid;
+
 			// because the interface name may not (no longer) be valid we set
-			// this after we've created the SCNetworkReachabilty object
+			// this after we've created the SCNetworkReachability object
 			if ((if_index != 0) && (if_name != NULL)) {
 				SCNetworkReachabilityPrivateRef	targetPrivate;
 
 				targetPrivate = (SCNetworkReachabilityPrivateRef)target;
-				targetPrivate->if_index = if_index;
+				targetPrivate->if_index = (unsigned int)if_index;
 				strlcpy(targetPrivate->if_name, if_name, sizeof(targetPrivate->if_name));
 			}
 
@@ -1364,7 +1417,7 @@ target_status(reach_client_t *client, xpc_object_t request)
 			 * ... and if it's not a "name" query then we can mark the
 			 * flags as valid.
 			 */
-			if (targetPrivate->type != reachabilityTypeName) {
+			if (!isReachabilityTypeName(targetPrivate->type)) {
 				if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
 					if (S_debug) {
 						SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\"."),
@@ -1448,7 +1501,7 @@ target_status(reach_client_t *client, xpc_object_t request)
 						 */
 						if (ok &&
 						    targetPrivate->scheduled &&
-						    targetPrivate->type != reachabilityTypeName) {
+						    !isReachabilityTypeName(targetPrivate->type)) {
 							if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
 								if (S_debug) {
 									SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\"!"),
@@ -1651,22 +1704,22 @@ _snapshot_digest(const void *key, const void *value, void *context)
 
 		SCPrint(TRUE, f, CFSTR("\n  digest : %@\n"), digest);
 		SCPrint(TRUE, f, CFSTR("    %@\n"), target);
-		SCPrint(TRUE, f, CFSTR("    valid = %s, async watchers = %u, sync queries = %u, refs = %u\n"),
+		SCPrint(TRUE, f, CFSTR("    valid = %s, async watchers = %ld, sync queries = %u, refs = %u\n"),
 			targetPrivate->serverInfoValid ? "Y" : "N",
 			nWatchers,
 			targetPrivate->serverSyncQueryActive,
 			targetPrivate->serverReferences);
 
-		SCPrint(TRUE, f, CFSTR("    network %d.%3.3d"),
+		SCPrint(TRUE, f, CFSTR("    network %ld.%3.3d"),
 			targetPrivate->last_network.tv_sec,
 			targetPrivate->last_network.tv_usec / 1000);
 #if	!TARGET_OS_IPHONE
-		SCPrint(TRUE, f, CFSTR(", power %d.%3.3d"),
+		SCPrint(TRUE, f, CFSTR(", power %ld.%3.3d"),
 			targetPrivate->last_power.tv_sec,
 			targetPrivate->last_power.tv_usec / 1000);
 #endif	// !TARGET_OS_IPHONE
-		if (targetPrivate->type == reachabilityTypeName) {
-			SCPrint(TRUE, f, CFSTR(", DNS %d.%3.3d"),
+		if (isReachabilityTypeName(targetPrivate->type)) {
+			SCPrint(TRUE, f, CFSTR(", DNS %ld.%3.3d"),
 				targetPrivate->last_dns.tv_sec,
 				targetPrivate->last_dns.tv_usec / 1000);
 			if (timerisset(&targetPrivate->dnsQueryEnd)) {
@@ -1675,7 +1728,7 @@ _snapshot_digest(const void *key, const void *value, void *context)
 				timersub(&targetPrivate->dnsQueryEnd,
 					 &targetPrivate->dnsQueryStart,
 					 &dnsQueryElapsed);
-				SCPrint(TRUE, f, CFSTR(" (query %d.%3.3d / reply %d.%3.3d)"),
+				SCPrint(TRUE, f, CFSTR(" (query %ld.%3.3d / reply %ld.%3.3d)"),
 					targetPrivate->dnsQueryStart.tv_sec,
 					targetPrivate->dnsQueryStart.tv_usec / 1000,
 					dnsQueryElapsed.tv_sec,
@@ -1683,10 +1736,12 @@ _snapshot_digest(const void *key, const void *value, void *context)
 			}
 		}
 		if (timerisset(&targetPrivate->last_push)) {
-			SCPrint(TRUE, f, CFSTR(", last notify %d.%3.3d"),
+			SCPrint(TRUE, f, CFSTR(", last notify %ld.%3.3d"),
 				targetPrivate->last_push.tv_sec,
 				targetPrivate->last_push.tv_usec / 1000);
 		}
+		SCPrint(TRUE, f, CFSTR(", uid %d"),
+			targetPrivate->uid);
 		SCPrint(TRUE, f, CFSTR("\n"));
 
 		if (nWatchers > 0) {
@@ -1874,7 +1929,7 @@ process_request(reach_client_t *client, xpc_object_t request)
 			break;
 		default :
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("<%p> unknown request : %d"),
+			      CFSTR("<%p> unknown request : %lld"),
 			      client->connection,
 			      op);
 			break;
@@ -1964,7 +2019,7 @@ process_new_connection(xpc_connection_t connection)
 
 			} else {
 				SCLog(TRUE, LOG_ERR,
-				      CFSTR("<%p:%d> Connection error: %d : %s"),
+				      CFSTR("<%p:%d> Connection error: %p : %s"),
 				      connection,
 				      xpc_connection_get_pid(connection),
 				      xobj,
@@ -1973,7 +2028,7 @@ process_new_connection(xpc_connection_t connection)
 
 		}  else {
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("<%p:%d> unknown event type : %x"),
+			      CFSTR("<%p:%d> unknown event type : %p"),
 			      connection,
 			      xpc_connection_get_pid(connection),
 			      type);
@@ -2035,14 +2090,14 @@ load_SCNetworkReachability(CFBundleRef bundle, Boolean bundleVerbose)
 				SCLog(TRUE, LOG_ERR, CFSTR("reach server: %s"), desc);
 			} else {
 				SCLog(TRUE, LOG_ERR,
-				      CFSTR("reach server: Connection error: %d : %s"),
+				      CFSTR("reach server: Connection error: %p : %s"),
 				      event,
 				      desc);
 			}
 
 		} else {
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("reach server: unknown event type : %x"),
+			      CFSTR("reach server: unknown event type : %p"),
 			      type);
 		}
 	});
@@ -2068,5 +2123,3 @@ main(int argc, char **argv)
 }
 
 #endif  /* MAIN */
-
-#endif	// HAVE_REACHABILITY_SERVER

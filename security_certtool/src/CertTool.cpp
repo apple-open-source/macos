@@ -59,8 +59,8 @@
 #define ZDEF_KEY_ALG		CSSM_ALGID_RSA
 #define ZDEF_KEY_SIZE		512
 #define ZDEF_KEY_USAGE		(kKeyUseSigning | kKeyUseEncrypting)
-#define ZDEF_SIG_ALG		CSSM_ALGID_SHA1WithRSA
-#define ZDEF_SIG_OID		CSSMOID_SHA1WithRSA
+#define ZDEF_SIG_ALG		CSSM_ALGID_SHA256WithRSA
+#define ZDEF_SIG_OID		CSSMOID_SHA256WithRSA
 #define ZDEF_COMMON_NAME	"localhost"
 #define ZDEF_ORG_NAME		"Apple Computer - DEBUG ONLY"
 #define ZDEF_COUNTRY		"US"
@@ -72,14 +72,25 @@
  */
 #define SI_DEF_KEY_LABEL	"System Identity"
 #define SI_DEF_KEY_ALG		CSSM_ALGID_RSA
-#define SI_DEF_KEY_SIZE		1024
+#define SI_DEF_KEY_SIZE		(1024 * 2)
 #define SI_DEF_KEY_USAGE	(kKeyUseSigning | kKeyUseEncrypting)
-#define SI_DEF_SIG_ALG		CSSM_ALGID_SHA1WithRSA
-#define SI_DEF_SIG_OID		CSSMOID_SHA1WithRSA
+#define SI_DEF_SIG_ALG		CSSM_ALGID_SHA256WithRSA
+#define SI_DEF_SIG_OID		CSSMOID_SHA256WithRSA
 /* common name = domain */
 #define SI_DEF_ORG_NAME		"System Identity"
 /* org unit = hostname */
 #define SI_DEF_VALIDITY		(60 * 60 * 24 * 365 * 20)	/* 20 years */
+
+/*
+ * Default validity
+ */
+#define DEFAULT_CERT_VALIDITY	(60 * 60 * 24 * 30)		/* 30 days */
+
+/*
+ * Validity period environment variable
+ * <rdar://problem/16760570> Update certtool to support validate period via an environment variable
+ */
+#define VALIDITY_DAYS_ENVIRONMENT_VARIABLE	"CERTTOOL_EXPIRATION_DAYS"
 
 	CSSM_BOOL			verbose = CSSM_FALSE;
 
@@ -993,6 +1004,37 @@ static OSStatus importCRL(
 	return noErr;
 }
 
+/* Get validity period */
+uint32 notValidAfter(int isSystemDomain)
+{
+  char *validityEnv = NULL;
+  uint32 validAfter = 0;
+  int result = 0;
+  
+  if (isSystemDomain) return SI_DEF_VALIDITY;
+
+  validityEnv = getenv(VALIDITY_DAYS_ENVIRONMENT_VARIABLE);
+
+  if (validityEnv != NULL) {
+    result = sscanf(validityEnv, "%u", &validAfter);
+
+    /* could we actually parse it? */
+    if (result == 1) {
+      /* check that it is between 30 days and 20 years */
+      if (validAfter < 30) validAfter = 30;
+      if (validAfter > (365 * 20)) validAfter = (365 * 20);
+      
+      /* convert to seconds, which is what we need to use */
+      validAfter *= (60 * 60 * 24);
+
+      return validAfter;
+    }
+  }
+  
+  return DEFAULT_CERT_VALIDITY;
+}
+
+
 /* serial number is generated randomly */
 #define SERIAL_NUM_LENGTH	4
 
@@ -1187,12 +1229,8 @@ static OSStatus createCertCsr(
 	certReq.signatureAlg = sigAlg;
 	certReq.signatureOid = *sigOid;
 	certReq.notBefore = 0;					// TBD - from user
-	if(systemDomain) {
-		certReq.notAfter = SI_DEF_VALIDITY;
-	}
-	else {
-		certReq.notAfter = 60 * 60 * 24 * 30;	// seconds from now
-	}
+	certReq.notAfter = notValidAfter((systemDomain == NULL) ? 0 : 1);
+
 	certReq.numExtensions = numExts;
 	certReq.extensions = exts;
 	

@@ -49,7 +49,8 @@ __private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort);
 // PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
 __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
 
-__private_extern__ bool _can_back_out_of_idle(void);
+__private_extern__ bool _can_revert_sleep(void);
+__private_extern__ void _set_sleep_revert(bool state);
 
 __private_extern__ io_connect_t getRootDomainConnect();
 __private_extern__ bool isA_BTMtnceWake();

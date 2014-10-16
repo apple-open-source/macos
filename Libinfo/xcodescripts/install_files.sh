@@ -1,19 +1,8 @@
 # exit immediately on failure
 set -e -x
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	if [ -d ${DSTROOT}${SDKROOT}/usr/lib/system ] ; then
-		for lib in ${DSTROOT}${SDKROOT}/usr/lib/system/*.dylib ; do
-			install_name_tool -id "${lib#${DSTROOT}${SDKROOT}}" "${lib}"
-		done
-	fi
-
-	DSTROOT="${DSTROOT}${SDKROOT}"
-fi
-
 function InstallHeaders() {
-	DESTDIR="$DSTROOT/$1"
+	DESTDIR="$DSTROOT/$INSTALL_PATH_PREFIX/$1"
 	shift
 	install -d -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0755 "$DESTDIR"
 	install -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0444 "$@" "$DESTDIR"

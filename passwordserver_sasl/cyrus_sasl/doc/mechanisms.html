@@ -1,4 +1,4 @@
-<!-- $Id: mechanisms.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
+<!-- $Id: mechanisms.html,v 1.8 2008/10/31 15:18:46 murch Exp $ -->
 <HTML>
 <HEAD>
 <TITLE>SASL Mechanism Properties/Features</TITLE>
@@ -136,7 +136,7 @@ of the mechanisms provided by the Cyrus SASL Library.<p>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER>X</CENTER></TD>
-<TD><CENTER><br></CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER>X</CENTER></TD>
@@ -177,6 +177,22 @@ of the mechanisms provided by the Cyrus SASL Library.<p>
 </TR>
 
 <TR>
+<TH>PASSDSS-3DES-1</TH>
+<TD><CENTER>112</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+<TD><CENTER><br></CENTER></TD>
+<TD><CENTER><br></CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
+</TR>
+
+<TR>
 <TH>PLAIN</TH>
 <TD><CENTER>0</CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
@@ -184,7 +200,7 @@ of the mechanisms provided by the Cyrus SASL Library.<p>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER>X</CENTER></TD>
-<TD><CENTER><br></CENTER></TD>
+<TD><CENTER>X</CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
 <TD><CENTER>X</CENTER></TD>
 <TD><CENTER><br></CENTER></TD>
@@ -253,7 +269,7 @@ only, no encryption).</li>
 <li><b>NOACTIVE</b> - Protection from active (non-dictionary) attacks
 during authentication exchange.  (Implies <b>MUTUAL</b>).</li>
 <li><b>NODICT</b> - Not susceptable to passive dictionary attack.</li>
-<li><b>NOFORWARD</b> - Breaking one session won't help break the next.</li>
+<li><b>FORWARD</b> - Breaking one session won't help break the next.</li>
 <li><b>NOANON</b> - Don't permit anonymous logins.</li>
 <li><b>CRED</b> - Mechanism can pass client credentials.</li>
 <li><b>MUTUAL</b> - Supports mutual authentication (authenticates the server

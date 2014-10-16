@@ -1,0 +1,35 @@
+#
+# Test CSSM_TP_ACTION_IMPLICIT_ANCHORS, Radar 4569416
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Standard verification with root in anchors"
+cert = leaf.cer
+cert = CA.cer
+# IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+root = root.cer
+end
+
+test = "Standard verification with root in input, expect fail"
+cert = leaf.cer
+cert = CA.cer
+cert = root.cer
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+# IS_IN_INPUT_CERTS | IS_ROOT
+certstatus = 2:0x14
+end
+
+test = "IMPLICIT_ANCHORS test"
+cert = leaf.cer
+cert = CA.cer
+cert = root.cer
+implicitAnchors = true
+# IS_IN_INPUT_CERTS | IS_ROOT
+certstatus = 2:0x14
+end

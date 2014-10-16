@@ -81,7 +81,6 @@
 
 #include "power_mgmt.h"
 
-
 extern LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree;
 static LIST_HEAD(_ctdtree_, contacted) ctdtree;
 static LIST_HEAD(_rcptree_, recvdpkt) rcptree;
@@ -382,8 +381,6 @@ ike_session_delph1(phase1_handle_t *iph1)
 	VPTRINIT(iph1->skeyid_a_p);
 	VPTRINIT(iph1->skeyid_e);
     VPTRINIT(iph1->skeyid_e_p);
-    VPTRINIT(iph1->skeyid_p);
-    VPTRINIT(iph1->skeyid_p_p);
 	VPTRINIT(iph1->key);
     VPTRINIT(iph1->key_p);
 	VPTRINIT(iph1->hash);
@@ -526,7 +523,7 @@ ike_session_getph2bymsgid(phase1_handle_t *iph1, u_int32_t msgid)
 	phase2_handle_t *p;
     
 	LIST_FOREACH(p, &iph1->parent_session->ph2tree, ph2ofsession_chain) {
-		if (p->msgid == msgid)
+		if (p->msgid == msgid && !p->is_defunct)
 			return p;
 	}
     
@@ -799,7 +796,6 @@ ike_session_delph2(phase2_handle_t *iph2)
         SCHED_KILL(iph2->sce);
     if (iph2->scr)
         SCHED_KILL(iph2->scr);
-    
     
 	racoon_free(iph2);
 }
@@ -1322,8 +1318,7 @@ ike_session_expire_session(ike_session_t *session)
             continue;
         }
 
-        if (FSM_STATE_IS_ESTABLISHED(p2->status))
-            isakmp_info_send_d2(p2);
+        // Don't send a delete, since the ph1 implies the removal of ph2s
         isakmp_ph2expire(p2);
         found++;
     }

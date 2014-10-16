@@ -2,7 +2,7 @@
 #define __ASL_CORE_H__
 
 /*
- * Copyright (c) 2007-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2012 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,16 +26,11 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
+#include <mach/mach.h>
 #include <Availability.h>
 
-typedef struct
-{
-	uint32_t encoding;
-	size_t delta;
-	size_t bufsize;
-	size_t cursor;
-	char *buf;
-} asl_string_t;
+typedef uint32_t ASL_STATUS;
 
 #define ASL_STATUS_OK               0
 #define ASL_STATUS_INVALID_ARG      1
@@ -52,6 +47,7 @@ typedef struct
 #define ASL_STATUS_WRITE_ONLY      12
 #define ASL_STATUS_MATCH_FAILED    13
 #define ASL_STATUS_NO_RECORDS      14
+#define ASL_STATUS_INVALID_TYPE    15
 #define ASL_STATUS_FAILED        9999
 
 #define ASL_REF_NULL 0xffffffffffffffffLL
@@ -83,14 +79,19 @@ typedef struct
 #define ASL_QUERY_MATCH_FALSE    0x40000000
 #define ASL_QUERY_MATCH_ERROR    0x20000000
 
-#define ASL_ENCODE_MASK		0x0000000f
-#define ASL_STRING_VM		0x80000000
-#define ASL_STRING_LEN		0x40000000
+#define ASL_SERVICE_NAME "com.apple.system.logger"
 
-#define ASL_STRING_MIG		0xc0000002
+#define ASL_PLACE_DATABASE 0
+#define ASL_PLACE_ARCHIVE 1
+
+#define ASL_PLACE_DATABASE_DEFAULT "/var/log/asl"
+#define ASL_PLACE_ARCHIVE_DEFAULT "/var/log/asl.archive"
+
+mach_port_t asl_core_get_service_port(int reset) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 uint32_t asl_core_string_hash(const char *str, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 const char *asl_core_error(uint32_t code) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+const char *asl_core_level_to_string(uint32_t level) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 uint32_t asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 uint64_t asl_core_htonq(uint64_t n) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 uint64_t asl_core_ntohq(uint64_t n)__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
@@ -98,17 +99,8 @@ uint64_t asl_core_new_msg_id(uint64_t start) __OSX_AVAILABLE_STARTING(__MAC_10_5
 char *asl_core_encode_buffer(const char *in, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 int32_t asl_core_decode_buffer(const char *in, char **buf, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
-asl_string_t *asl_string_new(uint32_t encoding) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-char *asl_string_free_return_bytes(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-void asl_string_free(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-char *asl_string_bytes(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-size_t asl_string_length(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-size_t asl_string_allocated_size(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_asl_key(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_op(asl_string_t *str, uint32_t op) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_no_encoding(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_char_no_encoding(asl_string_t *str, const char c) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_xml_tag(asl_string_t *str, const char *tag, const char *s) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
+time_t asl_core_parse_time(const char *in, uint32_t *tlen) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+
+const char *asl_filesystem_path(uint32_t place) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 #endif /* __ASL_CORE_H__ */

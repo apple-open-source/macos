@@ -27,7 +27,7 @@
 #define WebFrameProxy_h
 
 #include "APIObject.h"
-#include "ImmutableArray.h"
+#include "FrameLoadState.h"
 #include "GenericCallback.h"
 #include "WebFrameListenerProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
@@ -35,23 +35,28 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
+#if USE(CONTENT_FILTERING)
+#include <WebCore/ContentFilter.h>
+#endif
+
+namespace IPC {
     class ArgumentDecoder;
     class Connection;
 }
 
-namespace WebKit {
+namespace WebCore {
+class CertificateInfo;
+}
 
-class ImmutableArray;
-class PlatformCertificateInfo;
+namespace WebKit {
 class WebCertificateInfo;
 class WebFormSubmissionListenerProxy;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
 
-typedef GenericCallback<WKDataRef> DataCallback;
+typedef GenericCallback<API::Data*> DataCallback;
 
-class WebFrameProxy : public TypedAPIObject<APIObject::TypeFrame> {
+class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame> {
 public:
     static PassRefPtr<WebFrameProxy> create(WebPageProxy* page, uint64_t frameID)
     {
@@ -59,12 +64,6 @@ public:
     }
 
     virtual ~WebFrameProxy();
-
-    enum LoadState {
-        LoadStateProvisional,
-        LoadStateCommitted,
-        LoadStateFinished
-    };
 
     uint64_t frameID() const { return m_frameID; }
     WebPageProxy* page() const { return m_page; }
@@ -76,15 +75,16 @@ public:
     void setIsFrameSet(bool value) { m_isFrameSet = value; }
     bool isFrameSet() const { return m_isFrameSet; }
 
-    LoadState loadState() const { return m_loadState; }
-    
+    FrameLoadState& frameLoadState() { return m_frameLoadState; }
+
+    void loadURL(const String&);
     void stopLoading() const;
 
-    const String& url() const { return m_url; }
-    const String& provisionalURL() const { return m_provisionalURL; }
+    const String& url() const { return m_frameLoadState.m_url; }
+    const String& provisionalURL() const { return m_frameLoadState.m_provisionalURL; }
 
     void setUnreachableURL(const String&);
-    const String& unreachableURL() const { return m_unreachableURL; }
+    const String& unreachableURL() const { return m_frameLoadState.m_unreachableURL; }
 
     const String& mimeType() const { return m_MIMEType; }
 
@@ -99,39 +99,46 @@ public:
     bool isDisplayingMarkupDocument() const;
     bool isDisplayingPDFDocument() const;
 
-    void getWebArchive(PassRefPtr<DataCallback>);
-    void getMainResourceData(PassRefPtr<DataCallback>);
-    void getResourceData(WebURL*, PassRefPtr<DataCallback>);
+    void getWebArchive(std::function<void (API::Data*, CallbackBase::Error)>);
+    void getMainResourceData(std::function<void (API::Data*, CallbackBase::Error)>);
+    void getResourceData(API::URL*, std::function<void (API::Data*, CallbackBase::Error)>);
 
     void didStartProvisionalLoad(const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const String& url);
     void didFailProvisionalLoad();
-    void didCommitLoad(const String& contentType, const PlatformCertificateInfo&);
+    void didCommitLoad(const String& contentType, const WebCore::CertificateInfo&);
     void didFinishLoad();
     void didFailLoad();
     void didSameDocumentNavigation(const String&); // eg. anchor navigation, session state change.
     void didChangeTitle(const String&);
 
     // Policy operations.
-    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID);
+    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, uint64_t navigationID = 0);
     WebFramePolicyListenerProxy* setUpPolicyListenerProxy(uint64_t listenerID);
     WebFormSubmissionListenerProxy* setUpFormSubmissionListenerProxy(uint64_t listenerID);
+
+#if USE(CONTENT_FILTERING)
+    void setContentFilterForBlockedLoad(std::unique_ptr<WebCore::ContentFilter> contentFilter) { m_contentFilterForBlockedLoad = WTF::move(contentFilter); }
+    bool contentFilterDidHandleNavigationAction(const WebCore::ResourceRequest&);
+#endif
 
 private:
     WebFrameProxy(WebPageProxy* page, uint64_t frameID);
 
     WebPageProxy* m_page;
-    LoadState m_loadState;
-    String m_url;
-    String m_provisionalURL;
-    String m_unreachableURL;
-    String m_lastUnreachableURL;
+
+    FrameLoadState m_frameLoadState;
+
     String m_MIMEType;
     String m_title;
     bool m_isFrameSet;
     RefPtr<WebCertificateInfo> m_certificateInfo;
     RefPtr<WebFrameListenerProxy> m_activeListener;
     uint64_t m_frameID;
+
+#if USE(CONTENT_FILTERING)
+    std::unique_ptr<WebCore::ContentFilter> m_contentFilterForBlockedLoad;
+#endif
 };
 
 } // namespace WebKit

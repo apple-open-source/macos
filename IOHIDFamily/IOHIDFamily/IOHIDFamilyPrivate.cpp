@@ -28,16 +28,16 @@
 #endif
 #include "OSStackRetain.h"
 
-#define kHIDTransport1ScoreIncrement    1000
-#define kHIDTransport2ScoreIncrement    2000
-#define kHIDDeviceUsageScoreBase        1100
-#define kHIDDeviceUsageScoreIncrement   100
-#define kHIDVendor1ScoreIncrement       5000
-#define kHIDVendor2ScoreIncrement       1000
-#define kHIDVendor2ArrayScoreIncrement		975
-#define kHIDVendor2MaskScoreIncrement		950
-#define kHIDVendor2ArrayMaskScoreIncrement	925
-#define kHIDVendor3ScoreIncrement       100
+#define kHIDTransport1ScoreIncrement        1000
+#define kHIDTransport2ScoreIncrement        2000
+#define kHIDDeviceUsageScoreBase            1100
+#define kHIDDeviceUsageScoreIncrement       100
+#define kHIDVendor1ScoreIncrement           5000
+#define kHIDVendor2ScoreIncrement           1000
+#define kHIDVendor2ArrayScoreIncrement      975
+#define kHIDVendor2MaskScoreIncrement       950
+#define kHIDVendor2ArrayMaskScoreIncrement  925
+#define kHIDVendor3ScoreIncrement           100
 
 //---------------------------------------------------------------------------
 // Compare the properties in the supplied table to this object's properties.
@@ -46,8 +46,8 @@ bool CompareProperty( IOService * owner, OSDictionary * matching, const char * k
     // We return success if we match the key in the dictionary with the key in
     // the property table, or if the prop isn't present
     //
-    OSObject 	* value;
-    OSObject    * property;
+    OSObject *  value;
+    OSObject *  property;
     bool        matches = true;
     
     value = matching->getObject( key );
@@ -77,12 +77,12 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
     // We return success if we match the key in the dictionary with the key in
     // the property table, or if the prop isn't present
     //
-    OSObject * 		usage;
-    OSObject *		usagePage;
-    OSArray *		functions;
-    OSDictionary * 	pair;
-    bool		matches = true;
-    int			count;
+    OSObject *      usage;
+    OSObject *      usagePage;
+    OSArray *       functions;
+    OSDictionary *  pair;
+    bool            matches = true;
+    int             count;
     
     usage = matching->getObject( kIOHIDDeviceUsageKey );
     usagePage = matching->getObject( kIOHIDDeviceUsagePageKey );
@@ -122,8 +122,8 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
         
         functions->release();
     } else {
-		matches = false;
-	}
+        matches = false;
+    }
     
     return matches;
 }
@@ -133,10 +133,10 @@ bool CompareDeviceUsagePairs( IOService * owner, OSDictionary * matching, SInt32
     // We return success if we match the key in the dictionary with the key in
     // the property table, or if the prop isn't present
     //
-    OSArray *		pairArray;
-    OSDictionary * 	pair;
-    bool		matches = true;
-    int			count;
+    OSArray *       pairArray;
+    OSDictionary *  pair;
+    bool            matches = true;
+    int             count;
     
     pairArray = OSDynamicCast(OSArray, matching->getObject( kIOHIDDeviceUsagePairsKey ));
     
@@ -212,9 +212,9 @@ bool CompareProductID( IOService * owner, OSDictionary * matching, SInt32 * scor
 
 bool CompareNumberPropertyMask( IOService *owner, OSDictionary *matching, const char *key, const char *maskKey, SInt32 *score, SInt32 increment)
 {
-	OSNumber *	registryProperty;
-    OSNumber *	dictionaryProperty;
-    OSNumber *	valueMask;
+    OSNumber *    registryProperty;
+    OSNumber *    dictionaryProperty;
+    OSNumber *    valueMask;
     
     registryProperty = OSDynamicCast(OSNumber,  owner->getProperty(key));
     dictionaryProperty = OSDynamicCast(OSNumber, matching->getObject(key));
@@ -223,7 +223,7 @@ bool CompareNumberPropertyMask( IOService *owner, OSDictionary *matching, const 
     // If the dicitonary or value mask doesn't exist then return true
     if ( dictionaryProperty && valueMask )
     {
-    	if ( registryProperty )
+        if ( registryProperty )
         {
             // If all our values are OSNumbers, then get their actual value and do the masking
             // to see if they are equal
@@ -248,12 +248,12 @@ bool CompareNumberPropertyMask( IOService *owner, OSDictionary *matching, const 
 
 bool CompareNumberPropertyArray( IOService * owner, OSDictionary * matching, const char * arrayName, const char * key, SInt32 * score, SInt32 increment)
 {
-	OSNumber    *registryProperty = (OSNumber *)owner->copyProperty(key);
+    OSNumber    *registryProperty = (OSNumber *)owner->copyProperty(key);
     OSArray     *propertyArray = (OSArray *)matching->getObject(arrayName);
     CONVERT_TO_STACK_RETAIN(registryProperty);
-	
+    
     // If the property in the matching doesn't exist return true
-	if ( OSDynamicCast(OSArray, propertyArray) )
+    if ( OSDynamicCast(OSArray, propertyArray) )
     {
         if ( OSDynamicCast(OSNumber, registryProperty ) )
         {
@@ -275,14 +275,14 @@ bool CompareNumberPropertyArray( IOService * owner, OSDictionary * matching, con
     else
         return true;
     
-	return false;
+    return false;
 }
 
 bool CompareNumberPropertyArrayWithMask( IOService * owner, OSDictionary * matching, const char * arrayName, const char * key, const char * maskKey, SInt32 * score, SInt32 increment)
 {
-	OSNumber    *registryProperty = (OSNumber *)owner->copyProperty(key);
+    OSNumber    *registryProperty = (OSNumber *)owner->copyProperty(key);
     OSArray     *propertyArray = (OSArray *)matching->getObject(arrayName);
-	OSNumber    *valueMask = (OSNumber *)matching->getObject(maskKey);
+    OSNumber    *valueMask = (OSNumber *)matching->getObject(maskKey);
     CONVERT_TO_STACK_RETAIN(registryProperty);
 
     // If the property array or the value mask doesn't exist then return true
@@ -312,37 +312,37 @@ bool CompareNumberPropertyArrayWithMask( IOService * owner, OSDictionary * match
                 }
             }
         }
-	}
+    }
     else
         return true;
     
-	return false;
+    return false;
 }
 
 bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 {
-    bool    match       = true;
-    SInt32  pUScore     = 0;
-    SInt32  pUPScore    = 0;
-    SInt32  useScore    = 0;
-    SInt32  trans1Score = 0;
-    SInt32  trans2Score = 0;
-    SInt32  ven1Score   = 0;
-    SInt32  ven2Score   = 0;
-    SInt32  ven3Score   = 0;
- 	bool pUPMatch		= CompareProperty(owner, table, kIOHIDPrimaryUsagePageKey, &pUPScore, kHIDDeviceUsageScoreBase);
- 	bool pUMatch		= CompareProperty(owner, table, kIOHIDPrimaryUsageKey, &pUScore, kHIDDeviceUsageScoreIncrement);
- 	bool useMatch		= CompareDeviceUsagePairs(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
- 	bool use2Match		= CompareDeviceUsage(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
- 	bool trans1Match	= CompareProperty(owner, table, kIOHIDTransportKey, &trans1Score, kHIDTransport1ScoreIncrement);
- 	bool trans2Match	= CompareProperty(owner, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement);
- 	bool venIDMatch		= CompareProperty(owner, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement);
- 	bool prodIDMatch	= CompareProductID(owner, table, &ven2Score);
- 	bool versNumMatch	= CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
- 	bool manMatch		= CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
- 	bool serialMatch	= CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
- 	bool bootPMatch		= CompareProperty(owner, table, "BootProtocol", score);
- 	
+    bool    match           = true;
+    SInt32  pUScore         = 0;
+    SInt32  pUPScore        = 0;
+    SInt32  useScore        = 0;
+    SInt32  trans1Score     = 0;
+    SInt32  trans2Score     = 0;
+    SInt32  ven1Score       = 0;
+    SInt32  ven2Score       = 0;
+    SInt32  ven3Score       = 0;
+    bool    pUPMatch        = CompareProperty(owner, table, kIOHIDPrimaryUsagePageKey, &pUPScore, kHIDDeviceUsageScoreBase);
+    bool    pUMatch         = CompareProperty(owner, table, kIOHIDPrimaryUsageKey, &pUScore, kHIDDeviceUsageScoreIncrement);
+    bool    useMatch        = CompareDeviceUsagePairs(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
+    bool    use2Match       = CompareDeviceUsage(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
+    bool    trans1Match     = CompareProperty(owner, table, kIOHIDTransportKey, &trans1Score, kHIDTransport1ScoreIncrement);
+    bool    trans2Match     = CompareProperty(owner, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement);
+    bool    venIDMatch      = CompareProperty(owner, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement);
+    bool    prodIDMatch     = CompareProductID(owner, table, &ven2Score);
+    bool    versNumMatch    = CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool    manMatch        = CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool    serialMatch     = CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool    bootPMatch      = CompareProperty(owner, table, "BootProtocol", score);
+    
     // Compare properties.
     if (!pUPMatch ||
         !pUMatch ||
@@ -356,7 +356,7 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
         !manMatch ||
         !serialMatch ||
         !bootPMatch ||
-		(table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")))
+        (table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")))
     {
         if (score) 
             *score = 0;

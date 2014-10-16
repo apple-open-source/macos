@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,7 +28,7 @@
 #define PluginStream_h
 
 #include "FileSystem.h"
-#include "KURL.h"
+#include "URL.h"
 #include "NetscapePlugInStreamLoader.h"
 #include "PluginQuirkSet.h"
 #include "ResourceRequest.h"
@@ -70,7 +70,7 @@ namespace WebCore {
 
         void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
 
-        void sendJavaScriptStream(const KURL& requestURL, const WTF::CString& resultString);
+        void sendJavaScriptStream(const URL& requestURL, const WTF::CString& resultString);
         void cancelAndDestroyStream(NPReason);
 
         static NPP ownerForStream(NPStream*);

@@ -271,7 +271,7 @@ kadm5_s_get_principal(void *server_handle,
 		goto out;
 	}
 	krb5_free_salt(context->context, salt);
-	assert( out->n_key_data == n_keys );
+	assert( (size_t)out->n_key_data == n_keys );
     }
     if(ret){
 	kadm5_free_principal_ent(context, out);
@@ -315,7 +315,7 @@ kadm5_s_get_principal(void *server_handle,
 	ret = hdb_entry_get_pkinit_acl(&ent.entry, &acl);
 	if (ret == 0 && acl) {
 	    krb5_data buf;
-	    size_t len;
+	    size_t len = 0;
 
 	    ASN1_MALLOC_ENCODE(HDB_Ext_PKINIT_acl, buf.data, buf.length,
 				acl, &len, ret);
@@ -341,7 +341,7 @@ kadm5_s_get_principal(void *server_handle,
 	ret = hdb_entry_get_aliases(&ent.entry, &aliases);
 	if (ret == 0 && aliases) {
 	    krb5_data buf;
-	    size_t len;
+	    size_t len = 0;
 
 	    ASN1_MALLOC_ENCODE(HDB_Ext_Aliases, buf.data, buf.length,
 			       aliases, &len, ret);

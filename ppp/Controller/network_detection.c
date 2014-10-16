@@ -18,13 +18,14 @@
 #include "scnc_utils.h"
 #include "network_detection.h"
 #include "sbslauncher.h"
+#include "app_layer.h"
 
 static boolean_t match_pattern(CFStringRef matchstr, CFStringRef matchpattern);
 static boolean_t match_dns(CFArrayRef cur_dns_array, CFStringRef match_dns_name);
 static boolean_t check_ssid(CFStringRef interface_name, CFArrayRef chk_ssid_array);
 static boolean_t check_dns(CFArrayRef cur_dns_array, CFArrayRef chk_dns_array, int checkall);
 static boolean_t check_domain(CFStringRef cur_domain, CFArrayRef chk_domain_array);
-static void ondemand_add_action(struct service *serv, CFStringRef action, CFPropertyListRef actionParameters);
+static boolean_t ondemand_add_action(struct service *serv, CFStringRef action, CFPropertyListRef actionParameters);
 static void ondemand_clear_action(struct service *serv);
 static void dodisconnect(struct service *serv);
 static int start_https_probe(struct service *serv, CFStringRef https_probe_server, CFArrayRef matcharray, CFIndex matcharray_index,
@@ -102,7 +103,7 @@ dns_redirect_detection_callback(pid_t pid, int status, struct rusage *rusage, vo
 	uint8_t buf[(sizeof(struct sockaddr_storage) * MAX_SAVED_REDIRECTED_ADDRS)];
 
 	if (serv == NULL || !service_is_valid(serv)) {
-		return;
+		goto done;
 	}
 
 	exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
@@ -174,6 +175,7 @@ dns_redirect_detection_callback(pid_t pid, int status, struct rusage *rusage, vo
 		ondemand_add_service(serv, FALSE);
 	}
 
+done:
 	my_close(context->sbslauncher_sockets[READ]);
 	my_close(context->sbslauncher_sockets[WRITE]);
 	free(context);
@@ -187,11 +189,11 @@ dns_redirect_detection_start(struct service *serv)
 	
 	context = malloc(sizeof(struct dns_redirect_context));
 	if (context == NULL)
-		return FALSE;
+		goto fail;
 	
 	if ((socketpair(AF_LOCAL, SOCK_STREAM, 0, context->sbslauncher_sockets) == -1)){
 		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: socketpair fails, errno = %s"), strerror(errno));
-		return FALSE;
+		goto fail;
 	}
 	snprintf(socketstr, sizeof(socketstr), "%d", context->sbslauncher_sockets[WRITE]);
 	
@@ -201,6 +203,12 @@ dns_redirect_detection_start(struct service *serv)
 		return TRUE;
 	}
 	
+fail:
+	if (context != NULL) {
+		my_close(context->sbslauncher_sockets[READ]);
+		my_close(context->sbslauncher_sockets[WRITE]);
+		free(context);
+	}
 	return FALSE;
 }
 
@@ -429,15 +437,17 @@ done:
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static 
-void ondemand_add_action(struct service *serv, CFStringRef action, CFPropertyListRef actionParameters)
+static boolean_t
+ondemand_add_action(struct service *serv, CFStringRef action, CFPropertyListRef actionParameters)
 {
+	boolean_t changed = !my_CFEqual(serv->ondemandAction, action);
 	my_CFRelease(&serv->ondemandAction);
 	my_CFRelease(&serv->ondemandActionParameters);
 	serv->ondemandAction = my_CFRetain(action);
 	if (isA_CFPropertyList(actionParameters)) {
 		serv->ondemandActionParameters = my_CFRetain(actionParameters);
 	}
+	return changed;
 }
 
 /* -----------------------------------------------------------------------------
@@ -489,6 +499,7 @@ void ondemand_clear_probe_results(struct service *serv)
 static
 Boolean doEvaluateConnection(struct service *serv, CFArrayRef domainRules)
 {
+	Boolean needServerExceptionDNSConfig = FALSE;
 	CFMutableDictionaryRef DNSTriggeringDicts = NULL;
 	CFIndex domainRulesCount = 0;
 	CFIndex i;
@@ -555,6 +566,7 @@ Boolean doEvaluateConnection(struct service *serv, CFArrayRef domainRules)
 					if (serviceExt) {
 						dnsDictionary = create_dns(gDynamicStore, serv->serviceID, dnsServers, NULL, mutableDomains, TRUE);
 						key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, serviceExt, kSCEntNetDNS);
+						needServerExceptionDNSConfig = TRUE;
 					}
 				}
 				if (isDictionary(dnsDictionary) && isString(key)) {
@@ -566,7 +578,6 @@ Boolean doEvaluateConnection(struct service *serv, CFArrayRef domainRules)
 				my_CFRelease(&dnsDictionary);
 			}
 			
-			
 			CFStringRef probeURL = CFDictionaryGetValue(domainRule, kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe);
 			if (isString(probeURL) && !ondemand_probe_already_sent(serv, probeURL)) {
 				CFStringRef primaryInterface = copy_primary_interface_name(serv->serviceID);
@@ -574,6 +585,36 @@ Boolean doEvaluateConnection(struct service *serv, CFArrayRef domainRules)
 				my_CFRelease(&primaryInterface);
 			}
 		}
+	}
+	
+	if (needServerExceptionDNSConfig)
+	{
+		Boolean isHostname = FALSE;
+		CFStringRef remoteAddress = scnc_copy_remote_server(serv, &isHostname);
+		if (isHostname && isA_CFString(remoteAddress) && CFStringGetLength(remoteAddress) > 0) {
+			CFStringRef serviceExt = NULL;
+			CFArrayRef domains = CFArrayCreate(kCFAllocatorDefault, (const void **)&remoteAddress, 1, &kCFTypeArrayCallBacks);
+			CFStringRef dnsstatekey = CREATEGLOBALSTATE(kSCEntNetDNS);
+			CFDictionaryRef globalDNS = dnsstatekey ? SCDynamicStoreCopyValue(gDynamicStore, dnsstatekey) : NULL;
+			CFArrayRef dnsServers = globalDNS ? CFDictionaryGetValue(globalDNS, kSCPropNetDNSServerAddresses) : NULL;
+
+			serviceExt = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("%@-TMP-SERVER"), serv->serviceID);
+			if (serviceExt) {
+				CFDictionaryRef dnsDictionary = create_dns(gDynamicStore, serv->serviceID, dnsServers, NULL, domains, TRUE);
+				CFStringRef key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault, kSCDynamicStoreDomainState, serviceExt, kSCEntNetDNS);
+				if (isDictionary(dnsDictionary) && isString(key)) {
+					CFDictionaryAddValue(DNSTriggeringDicts, key, dnsDictionary);
+				}
+				my_CFRelease(&dnsDictionary);
+				my_CFRelease(&key);
+			}
+			
+			my_CFRelease(&domains);
+			my_CFRelease(&globalDNS);
+			my_CFRelease(&dnsstatekey);
+			my_CFRelease(&serviceExt);
+		}
+		my_CFRelease(&remoteAddress);
 	}
 	
 	if (CFDictionaryGetCount(DNSTriggeringDicts) == 0) {
@@ -603,8 +644,9 @@ void vpn_action(struct service *serv, CFStringRef match_action, CFPropertyListRe
 {
 	Boolean checked_dns_redirect = FALSE;
 	Boolean set_dns_triggering_dicts = FALSE;
+	boolean_t changed;
 	
-	ondemand_add_action(serv, match_action, actionParameters);
+	changed = ondemand_add_action(serv, match_action, actionParameters);
     
 	/* what VPN action should take place */
 	if (isString(match_action)){
@@ -639,6 +681,10 @@ void vpn_action(struct service *serv, CFStringRef match_action, CFPropertyListRe
 
 	if (serv->flags & FLAG_SETUP_ONDEMAND) {
 		ondemand_add_service(serv, FALSE);
+	}
+
+	if (changed) {
+		app_layer_handle_network_detection_change(serv->serviceID);
 	}
 }
 
@@ -761,6 +807,7 @@ int start_https_probe(struct service *serv, CFStringRef https_probe_server, CFAr
 	SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: launching sbslauncher for %s (via %s)"), https_probe_server_str, interface_str);
 
 	if (SCNCExecSBSLauncherCommandWithArguments(SBSLAUNCHER_TYPE_PROBE_SERVER, NULL, https_probe_callback, (void*)probeptr, https_probe_server_str, interface_str, NULL) == 0) {
+		cancel_https_probe(probeptr);
 		goto done;
 	}
 
@@ -841,8 +888,10 @@ resume_check_network(struct service *serv, CFArrayRef match_array, CFIndex match
         match_domain_array = CFDictionaryGetValue(match_dict, kSCPropNetVPNOnDemandRuleDNSDomainMatch);
         if (isArray(match_domain_array) && isString(cur_domain)){
             domain_matched = check_domain(cur_domain, match_domain_array);
-        }else if (match_domain_array == NULL || cur_domain == NULL){
+        } else if (match_domain_array == NULL) {
             domain_matched = true;
+        } else {
+            domain_matched = false;
         }
         
         if ( !domain_matched )          /* domain name does not match, continue to next */

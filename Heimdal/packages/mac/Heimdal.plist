@@ -7,7 +7,7 @@
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
-	<string>kerberos.html</string>
+	<string>Heimdal.txt</string>
 	<key>OpenSourceProject</key>
 	<string>Heimdal</string>
 	<key>OpenSourceURL</key>

@@ -50,6 +50,11 @@ int smb2io_get_dfs_referral(struct smb_ctx *smbctx, CFStringRef dfs_referral_str
 int smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
                      struct open_inparms *inparms, 
                      struct open_outparm_ex *outparms, SMBFID *fid);
+int smb2io_query_dir(void *smbctx, uint8_t file_info_class, uint8_t flags,
+                     uint32_t file_index, SMBFID fid,
+                     const char *name, uint32_t name_len,
+                     char *rcv_output_buffer, uint32_t rcv_max_output_len,
+                     uint32_t *rcv_output_len, uint32_t *query_dir_reply_len);
 int smb2io_read(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count,
                 char *dst, uint32_t *bytes_read);
 int smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt, 

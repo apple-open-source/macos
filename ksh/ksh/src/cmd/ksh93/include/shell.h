@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,6 +27,8 @@
  *
  */
 
+#define SH_VERSION	20071012
+
 #include	<ast.h>
 #include	<cdt.h>
 #ifdef _SH_PRIVATE
@@ -34,8 +36,6 @@
 #else
 #   include	<nval.h>
 #endif /* _SH_PRIVATE */
-
-#define SH_VERSION	20071012
 
 #undef NOT_USED
 #define NOT_USED(x)	(&x,1)
@@ -48,6 +48,8 @@ typedef struct
 Shopt_t;
 
 typedef struct Shell_s Shell_t;
+
+#include	<shcmd.h>
 
 typedef void	(*Shinit_f)(Shell_t*, int);
 #ifndef SH_wait_f_defined
@@ -93,6 +95,7 @@ typedef union Shnode_u Shnode_t;
 #define SH_XARGS	34
 #define SH_RC		35
 #define SH_SHOWME	36
+#define SH_LETOCTAL	37
 
 /*
  * passed as flags to builtins in Nambltin_t struct when BLT_OPTIM is on
@@ -182,14 +185,16 @@ extern Sfio_t		*sh_iogetiop(int,int);
 extern int		sh_main(int, char*[], Shinit_f);
 extern int		sh_run(int, char*[]);
 extern void		sh_menu(Sfio_t*, int, char*[]);
-extern Namval_t		*sh_addbuiltin(const char*, int(*)(int, char*[],void*), void*);
+extern Namval_t		*sh_addbuiltin(const char*, int(*)(int, char*[],Shbltin_t*), void*);
 extern char		*sh_fmtq(const char*);
 extern char		*sh_fmtqf(const char*, int, int);
 extern Sfdouble_t	sh_strnum(const char*, char**, int);
 extern int		sh_access(const char*,int);
 extern int 		sh_close(int);
+extern int		sh_chdir(const char*);
 extern int 		sh_dup(int);
 extern void 		sh_exit(int);
+extern int		sh_fchdir(int);
 extern int		sh_fcntl(int, int, ...);
 extern Sfio_t		*sh_fd2sfio(int);
 extern int		(*sh_fdnotify(int(*)(int,int)))(int,int);
@@ -205,16 +210,12 @@ extern mode_t 		sh_umask(mode_t);
 extern void		*sh_waitnotify(Shwait_f);
 extern Shscope_t	*sh_getscope(int,int);
 extern Shscope_t	*sh_setscope(Shscope_t*);
-extern void		sh_sigcheck(void);
+extern void		sh_sigcheck(Shell_t*);
 extern unsigned long	sh_isoption(int);
 extern unsigned long	sh_onoption(int);
 extern unsigned long	sh_offoption(int);
 extern int 		sh_waitsafe(void);
 extern int		sh_exec(const Shnode_t*,int);
-
-#if SHOPT_DYNAMIC
-    extern void		**sh_getliblist(void);
-#endif /* SHOPT_DYNAMIC */
 
 /*
  * direct access to sh is obsolete, use sh_getinterp() instead
@@ -229,6 +230,8 @@ extern int		sh_exec(const Shnode_t*,int);
 #   undef extern
 #endif /* _DLL */
 
+#define chdir(a)	sh_chdir(a)
+#define fchdir(a)	sh_fchdir(a)
 #ifndef _SH_PRIVATE
 #   define access(a,b)	sh_access(a,b)
 #   define close(a)	sh_close(a)

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,8 +31,8 @@
 #import "WebBaseNetscapePluginView.h"
 
 #import "WebNetscapeContainerCheckPrivate.h"
-#import <WebKit/npfunctions.h>
-#import <WebKit/npapi.h>
+#import <WebKitLegacy/npfunctions.h>
+#import <WebKitLegacy/npapi.h>
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
 #import <wtf/OwnPtr.h>
@@ -88,14 +88,14 @@ typedef union PluginPort {
     BOOL shouldStopSoon;
 
     uint32_t currentTimerID;
-    HashMap<uint32_t, PluginTimer*>* timers;
+    std::unique_ptr<HashMap<uint32_t, std::unique_ptr<PluginTimer>>> timers;
 
     unsigned pluginFunctionCallDepth;
     
     int32_t specifiedHeight;
     int32_t specifiedWidth;
             
-    HashSet<RefPtr<WebNetscapePluginStream> > streams;
+    HashSet<RefPtr<WebNetscapePluginStream>> streams;
     RetainPtr<NSMapTable> _pendingFrameLoads;
     
     BOOL _isFlash;

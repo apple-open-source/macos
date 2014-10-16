@@ -1,7 +1,7 @@
 /* SRP SASL plugin
  * Ken Murchison
  * Tim Martin  3/17/00
- * $Id: srp.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $
+ * $Id: srp.c,v 1.59 2010/11/30 11:41:47 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -87,6 +87,7 @@ typedef unsigned short uint32;
 /* for digest and cipher support */
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/md5.h>
 
 #include <sasl.h>
 #define MD5_H  /* suppress internal MD5 */
@@ -100,7 +101,7 @@ typedef unsigned short uint32;
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: srp.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $";
+static const char plugin_id[] = "$Id: srp.c,v 1.59 2010/11/30 11:41:47 mel Exp $";
 
 /* Size limit of cipher block size */
 #define SRP_MAXBLOCKSIZE 16
@@ -1520,7 +1521,8 @@ static void
 srp_common_mech_free(void *global_context __attribute__((unused)),
 		     const sasl_utils_t *utils __attribute__((unused)))
 {
-    EVP_cleanup();
+    /* Don't call EVP_cleanup(); here, as this might confuse the calling
+       application if it also uses OpenSSL */
 }
 
 
@@ -2160,12 +2162,16 @@ static int srp_server_mech_step(void *conn_context,
 	|| !oparams)
 	return SASL_BADPARAM;
     
-    sparams->utils->log(NULL, SASL_LOG_DEBUG,
-			"SRP server step %d\n", text->state);
-    
     *serverout = NULL;
     *serveroutlen = 0;
-	
+
+    if (text == NULL) {
+	return SASL_BADPROT;
+    }
+
+    sparams->utils->log(NULL, SASL_LOG_DEBUG,
+			"SRP server step %d\n", text->state);
+
     switch (text->state) {
 
     case 1:

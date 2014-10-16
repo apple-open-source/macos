@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,9 @@
 
 #include <Availability.h>
 #include <sys/cdefs.h>
+#if !TARGET_IPHONE_SIMULATOR
+#include <ne_session.h>
+#endif
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
@@ -484,6 +487,10 @@ __SCNetworkConnectionCopyOnDemandInfoWithName	(SCDynamicStoreRef		*storeP,
 						 SCNetworkConnectionStatus	*connectionStatus,
 						 CFStringRef			*vpnRemoteAddress)	__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0);
 
+#if !TARGET_IPHONE_SIMULATOR
+SCNetworkConnectionStatus
+SCNetworkConnectionGetStatusFromNEStatus	(ne_session_status_t status)				__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+#endif /* !TARGET_IPHONE_SIMULATOR */
 
 #pragma mark -
 #pragma mark SCUserPreferences SPIs

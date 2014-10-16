@@ -4,7 +4,11 @@
 <dict>
 	<key>com.apple.private.hid.client.admin</key>
 	<true/>
+	<key>com.apple.private.hid.client.event-monitor</key>
+	<true/>
 	<key>com.apple.private.hid.client.event-dispatch</key>
+	<true/>
+	<key>com.apple.private.hid.client.event-filter</key>
 	<true/>
 </dict>
 </plist>

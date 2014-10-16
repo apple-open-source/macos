@@ -34,15 +34,6 @@ BEGIN
 	this->a = 9;
 	this->b = -2;
 
-#if !defined(__APPLE__)
-	system("echo %s %d %d", "foo", this->a, this->b);
-	system("ping localhost");
-	system("echo %d", ++this->a);
-	system("ping localhost");
-	system("echo %d", ++this->a);
-	system("ping localhost");
-	system("echo %d", ++this->a);
-#else
 	system("echo %s %d %d", "foo", this->a, this->b);
 	system("ping -o localhost > /dev/null && echo localhost is alive");
 	system("echo %d", ++this->a);
@@ -50,6 +41,5 @@ BEGIN
 	system("echo %d", ++this->a);
 	system("ping -o localhost > /dev/null && echo localhost is alive");
 	system("echo %d", ++this->a);
-#endif /* __APPLE__ */
 	exit(0);
 }

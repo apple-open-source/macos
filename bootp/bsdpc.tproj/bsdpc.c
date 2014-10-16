@@ -369,7 +369,6 @@ list_callback(BSDPClientRef client, BSDPClientStatus status,
     case kBSDPClientStatusOperationTimedOut:
 	fprintf(stderr, "No netboot servers found, exiting\n");
 	exit(1);
-	break;
     default:
 	fprintf(stderr, "List failed, %s\n", BSDPClientStatusString(status));
 	break;
@@ -384,11 +383,9 @@ select_callback(BSDPClientRef client, BSDPClientStatus status, void * info)
     case kBSDPClientStatusOK:
 	printf("Server confirmed selection\n");
 	exit(0);
-	break;
     case kBSDPClientStatusServerSentFailure:
 	printf("Server sent failure, selection not confirmed!\n");
 	exit(1);
-	break;
     default:
 	fprintf(stderr, "Select failed, %s\n", BSDPClientStatusString(status));
 	break;
@@ -472,7 +469,6 @@ user_input(CFSocketRef s, CFSocketCallBackType type,
 	switch (first_char) {
 	case 'q':
 	    exit(0);
-	    break;
 	default:
 	    printf("Invalid entry\n");
 	    redisplay(bsdpc);

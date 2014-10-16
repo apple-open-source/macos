@@ -32,11 +32,7 @@
 
 struct bar {
 	int pid;
-#if !defined(__APPLE__)
-	kthread_t *curthread;
-#else
 	thread_t curthread;
-#endif /* __APPLE__ */
 };
 
 self struct bar foo[int];

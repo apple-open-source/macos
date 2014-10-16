@@ -7,9 +7,10 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ * ICU <specials> source: <path>/common/main/ms_Arab.xml
  */
 ms_Arab{
+    %%Parent{"root"}
     Countries{
         001{"دنيا"}
         030{"اسيا تيمور"}
@@ -36,5 +37,5 @@ ms_Arab{
         US{"اميريک شريکت"}
         ZZ{"ولايه تيدق دکتاهوءي"}
     }
-    Version{"2.0.82.68"}
+    Version{"2.0.92.90"}
 }

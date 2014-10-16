@@ -35,30 +35,13 @@
 #define __SSL_UTIL_SSL_H__
 
 /**
- * Determine SSL library version number
+ * SSL library version number
  */
-#define SSL_NIBBLE(x,n) ((x >> (n * 4)) & 0xF)
 
-#ifdef OPENSSL_VERSION_NUMBER
 #define SSL_LIBRARY_VERSION OPENSSL_VERSION_NUMBER
 #define SSL_LIBRARY_NAME    "OpenSSL"
 #define SSL_LIBRARY_TEXT    OPENSSL_VERSION_TEXT
 #define SSL_LIBRARY_DYNTEXT SSLeay_version(SSLEAY_VERSION)
-#elif defined(SSLC_VERSION_NUMBER)
-#define SSL_LIBRARY_VERSION SSLC_VERSION_NUMBER
-#define SSL_LIBRARY_NAME    "SSL-C"
-#define SSL_LIBRARY_TEXT    { 'S', 'S', 'L', '-', 'C', ' ', \
-                              '0' + SSL_NIBBLE(SSLC_VERSION_NUMBER,3), '.', \
-                              '0' + SSL_NIBBLE(SSLC_VERSION_NUMBER,2), '.', \
-                              '0' + SSL_NIBBLE(SSLC_VERSION_NUMBER,1), '.', \
-                              '0' + SSL_NIBBLE(SSLC_VERSION_NUMBER,0), 0 }
-#define SSL_LIBRARY_DYNTEXT SSLC_library_info(SSLC_INFO_VERSION)
-#elif !defined(SSL_LIBRARY_VERSION)
-#define SSL_LIBRARY_VERSION 0x0000
-#define SSL_LIBRARY_NAME    "OtherSSL"
-#define SSL_LIBRARY_TEXT    "OtherSSL 0.0.0 00 XXX 0000"
-#define SSL_LIBRARY_DYNTEXT "OtherSSL 0.0.0 00 XXX 0000"
-#endif
 
 /**
  *  Maximum length of a DER encoded session.
@@ -71,32 +54,23 @@
 #define SSL_SESSION_ID_STRING_LEN \
     ((SSL_MAX_SSL_SESSION_ID_LENGTH + 1) * 2)
 
-/**  
+/**
  *  Additional Functions
  */
 void        SSL_init_app_data2_idx(void);
 void       *SSL_get_app_data2(SSL *);
 void        SSL_set_app_data2(SSL *, void *);
-X509       *SSL_read_X509(char *, X509 **, modssl_read_bio_cb_fn *);
-EVP_PKEY   *SSL_read_PrivateKey(char *, EVP_PKEY **, modssl_read_bio_cb_fn *, void *);
+EVP_PKEY   *SSL_read_PrivateKey(const char *, EVP_PKEY **, pem_password_cb *, void *);
 int         SSL_smart_shutdown(SSL *ssl);
-X509_STORE *SSL_X509_STORE_create(char *, char *);
-int         SSL_X509_STORE_lookup(X509_STORE *, int, X509_NAME *, X509_OBJECT *);
-char       *SSL_make_ciphersuite(apr_pool_t *, SSL *);
-BOOL        SSL_X509_isSGC(X509 *);
 BOOL        SSL_X509_getBC(X509 *, int *, int *);
-char       *SSL_X509_NAME_to_string(apr_pool_t *, X509_NAME *, unsigned int);
-BOOL        SSL_X509_getCN(apr_pool_t *, X509 *, char **);
+char       *SSL_X509_NAME_ENTRY_to_string(apr_pool_t *p, X509_NAME_ENTRY *xsne);
+char       *SSL_X509_NAME_to_string(apr_pool_t *, X509_NAME *, int);
+BOOL        SSL_X509_getIDs(apr_pool_t *, X509 *, apr_array_header_t **);
+BOOL        SSL_X509_match_name(apr_pool_t *, X509 *, const char *, BOOL, server_rec *);
 BOOL        SSL_X509_INFO_load_file(apr_pool_t *, STACK_OF(X509_INFO) *, const char *);
 BOOL        SSL_X509_INFO_load_path(apr_pool_t *, STACK_OF(X509_INFO) *, const char *);
-int         SSL_CTX_use_certificate_chain(SSL_CTX *, char *, int, modssl_read_bio_cb_fn *);
+int         SSL_CTX_use_certificate_chain(SSL_CTX *, char *, int, pem_password_cb *);
 char       *SSL_SESSION_id2sz(unsigned char *, int, char *, int);
-
-/** util functions for OpenSSL+sslc compat */
-int modssl_session_get_time(SSL_SESSION *session);
-
-DH *modssl_dh_configure(unsigned char *p, int plen,
-                        unsigned char *g, int glen);
 
 #endif /* __SSL_UTIL_SSL_H__ */
 /** @} */

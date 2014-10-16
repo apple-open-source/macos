@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,9 +86,9 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	/* send the keys and patterns, fetch the associated result from the server */
 	status = notifyset(storePrivate->server,
 			   myKeysRef,
-			   myKeysLen,
+			   (mach_msg_type_number_t)myKeysLen,
 			   myPatternsRef,
-			   myPatternsLen,
+			   (mach_msg_type_number_t)myPatternsLen,
 			   (int *)&sc_status);
 
 	if (__SCDynamicStoreCheckRetryAndHandleError(store,

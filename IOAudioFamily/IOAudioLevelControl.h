@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,8 @@
 
 #ifndef _IOKIT_IOAUDIOLEVELCONTROL_H
 #define _IOKIT_IOAUDIOLEVELCONTROL_H
+
+#include <AvailabilityMacros.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioControl.h>
@@ -62,7 +64,7 @@ public:
                                                                 IOFixed maxDB,
                                                                 UInt32 channelID,
                                                                 const char *channelName,
-                                                                UInt32 cntrlID);
+                                                                UInt32 cntrlID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDefineReservedUnused(IOAudioLevelControl, 0);
     /*!
@@ -71,7 +73,7 @@ public:
 	 * @param useLinearScale TRUE instructs CoreAudio to not apply a curve to the scaler representation of the volume,
 	 * FALSE instructs CoreAudio to apply a curve, which is CoreAudio's default behavior.
      */
-	virtual void setLinearScale(bool useLinearScale);
+	virtual void setLinearScale(bool useLinearScale) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioLevelControl, 0);
@@ -115,7 +117,7 @@ public:
                                        const char *channelName = 0,
                                        UInt32 cntrlID = 0,
                                        UInt32 subType = 0,
-                                       UInt32 usage = 0);
+                                       UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                                        
     static IOAudioLevelControl *createVolumeControl(SInt32 initialValue,
                                                     SInt32 minValue,
@@ -125,7 +127,7 @@ public:
                                                     UInt32 channelID,
                                                     const char *channelName = 0,
                                                     UInt32 cntrlID = 0,
-                                                    UInt32 usage = 0);
+                                                    UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function init
@@ -152,27 +154,27 @@ public:
                       UInt32 cntrlID = 0,
                       UInt32 subType = 0,
                       UInt32 usage = 0,
-                      OSDictionary *properties = 0);
+                      OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                       
-    virtual void free();
+    virtual void free() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setMinValue
      * @abstract Sets the minimum value the control may have
      * @param minValue The minimum value for the control
      */
-    virtual void setMinValue(SInt32 minValue);
+    virtual void setMinValue(SInt32 minValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual SInt32 getMinValue();
+    virtual SInt32 getMinValue() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
      
     /*!
      * @function setMaxValue
      * @abstract Sets the maximum value the control may have
      * @param maxValue The maximum value for the control
      */ 
-    virtual void setMaxValue(SInt32 maxValue);
+    virtual void setMaxValue(SInt32 maxValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual SInt32 getMaxValue();
+    virtual SInt32 getMaxValue() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
      
      /*!
      * @function setMinDB
@@ -181,9 +183,9 @@ public:
      *  type is a 16.16 fixed point value.
      * @param minDB The minimum value in db for the control
      */
-    virtual void setMinDB(IOFixed minDB);
+    virtual void setMinDB(IOFixed minDB) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOFixed getMinDB();
+    virtual IOFixed getMinDB() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setMaxDB
@@ -192,14 +194,14 @@ public:
      *  type is a 16.16 fixed point value.
      * @param maxDB The maximum value in db for the control
      */
-    virtual void setMaxDB(IOFixed maxDB);
+    virtual void setMaxDB(IOFixed maxDB) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOFixed getMaxDB();
+    virtual IOFixed getMaxDB() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn addRange(SInt32 minValue, SInt32 maxValue, IOFixed minDB, IOFixed maxDB);
-    virtual IOReturn addNegativeInfinity(SInt32 negativeInfinityValue);
+    virtual IOReturn addRange(SInt32 minValue, SInt32 maxValue, IOFixed minDB, IOFixed maxDB) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn addNegativeInfinity(SInt32 negativeInfinityValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn validateValue(OSObject *newValue);
+    virtual IOReturn validateValue(OSObject *newValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 };
 
 #endif /* _IOKIT_IOAUDIOLEVELCONTROL_H */

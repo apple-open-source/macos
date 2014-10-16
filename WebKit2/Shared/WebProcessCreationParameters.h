@@ -29,20 +29,26 @@
 #include "CacheModel.h"
 #include "SandboxExtension.h"
 #include "TextCheckerState.h"
+#include <WebCore/SessionIDHash.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "MachPort.h"
+
 #endif
 
 #if USE(SOUP)
 #include "HTTPCookieAcceptPolicy.h"
 #endif
 
-namespace CoreIPC {
+namespace API {
+class Data;
+}
+
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
@@ -52,22 +58,28 @@ namespace WebKit {
 struct WebProcessCreationParameters {
     WebProcessCreationParameters();
 
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, WebProcessCreationParameters&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, WebProcessCreationParameters&);
 
     String injectedBundlePath;
     SandboxExtension::Handle injectedBundlePathExtensionHandle;
 
     String applicationCacheDirectory;    
     SandboxExtension::Handle applicationCacheDirectoryExtensionHandle;
-    String databaseDirectory;
-    SandboxExtension::Handle databaseDirectoryExtensionHandle;
-    String localStorageDirectory;
-    SandboxExtension::Handle localStorageDirectoryExtensionHandle;
+    String webSQLDatabaseDirectory;
+    SandboxExtension::Handle webSQLDatabaseDirectoryExtensionHandle;
     String diskCacheDirectory;
     SandboxExtension::Handle diskCacheDirectoryExtensionHandle;
     String cookieStorageDirectory;
+#if PLATFORM(IOS)
     SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
+    SandboxExtension::Handle openGLCacheDirectoryExtensionHandle;
+    SandboxExtension::Handle containerTemporaryDirectoryExtensionHandle;
+    // FIXME: Remove this once <rdar://problem/17726660> is fixed.
+    SandboxExtension::Handle hstsDatabasePathExtensionHandle;
+#endif
+
+    bool shouldUseTestingNetworkSession;
 
     Vector<String> urlSchemesRegistererdAsEmptyDocument;
     Vector<String> urlSchemesRegisteredAsSecure;
@@ -76,11 +88,16 @@ struct WebProcessCreationParameters {
     Vector<String> urlSchemesRegisteredAsNoAccess;
     Vector<String> urlSchemesRegisteredAsDisplayIsolated;
     Vector<String> urlSchemesRegisteredAsCORSEnabled;
+#if ENABLE(CACHE_PARTITIONING)
+    Vector<String> urlSchemesRegisteredAsCachePartitioned;
+#endif
 #if ENABLE(CUSTOM_PROTOCOLS)
     Vector<String> urlSchemesRegisteredForCustomProtocols;
 #endif
 #if USE(SOUP)
+#if !ENABLE(CUSTOM_PROTOCOLS)
     Vector<String> urlSchemesRegistered;
+#endif
     String cookiePersistentStoragePath;
     uint32_t cookiePersistentStorageType;
     HTTPCookieAcceptPolicy cookieAcceptPolicy;
@@ -88,7 +105,6 @@ struct WebProcessCreationParameters {
 #endif
 
     CacheModel cacheModel;
-    bool shouldTrackVisitedLinks;
 
     bool shouldAlwaysUseComplexTextCodePath;
     bool shouldUseFontSmoothing;
@@ -105,11 +121,11 @@ struct WebProcessCreationParameters {
 
     double defaultRequestTimeoutInterval;
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
     String uiProcessBundleIdentifier;
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     pid_t presenterApplicationPid;
 
     bool accessibilityEnhancedUserInterfaceEnabled;
@@ -117,14 +133,20 @@ struct WebProcessCreationParameters {
     uint64_t nsURLCacheMemoryCapacity;
     uint64_t nsURLCacheDiskCapacity;
 
-    CoreIPC::MachPort acceleratedCompositingPort;
+    IPC::MachPort acceleratedCompositingPort;
 
     String uiProcessBundleResourcePath;
     SandboxExtension::Handle uiProcessBundleResourcePathExtensionHandle;
 
     bool shouldForceScreenFontSubstitution;
     bool shouldEnableKerningAndLigaturesByDefault;
-#endif // PLATFORM(MAC)
+    bool shouldEnableJIT;
+    bool shouldEnableFTLJIT;
+    bool shouldEnableMemoryPressureReliefLogging;
+    
+    RefPtr<API::Data> bundleParameterData;
+
+#endif // PLATFORM(COCOA)
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     HashMap<String, bool> notificationPermissions;
@@ -134,10 +156,16 @@ struct WebProcessCreationParameters {
     bool usesNetworkProcess;
 #endif
 
-    HashMap<unsigned, double> plugInAutoStartOriginHashes;
+    HashMap<WebCore::SessionID, HashMap<unsigned, double>> plugInAutoStartOriginHashes;
     Vector<String> plugInAutoStartOrigins;
 
     bool memoryCacheDisabled;
+
+#if ENABLE(SERVICE_CONTROLS)
+    bool hasImageServices;
+    bool hasSelectionServices;
+    bool hasRichContentServices;
+#endif
 };
 
 } // namespace WebKit

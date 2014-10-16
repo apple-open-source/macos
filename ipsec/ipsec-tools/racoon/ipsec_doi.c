@@ -86,7 +86,6 @@
 #ifdef ENABLE_NATT
 #include "nattraversal.h"
 #endif
-#include "ikev2_rfc.h"
 
 #ifdef ENABLE_HYBRID
 static int switch_authmethod(int);
@@ -372,7 +371,6 @@ get_ph1approvalx(p, proposal, sap, check_level)
 		    tsap->encklen == s->encklen &&
 			tsap->version == s->version) {
 			switch(check_level) {
-			case PROP_CHECK_IKEV2:
 			case PROP_CHECK_OBEY:
 				goto found;
 				break;
@@ -1074,11 +1072,17 @@ get_ph2approvalx(iph2, pp)
 	}
 	/* no proposal matching */
 err:
-	flushsaprop(pr0);
+	if (pr0 != NULL) {
+		flushsaprop(pr0);
+		pr0 = NULL;
+	}
 	return NULL;
 
 found:
-	flushsaprop(pr0);
+	if (pr0 != NULL) {
+		flushsaprop(pr0);
+		pr0 = NULL;
+	}
 	plog(ASL_LEVEL_DEBUG, "matched\n");
 	iph2->approval = pr;
 
@@ -2567,8 +2571,6 @@ ipsecdoi_setph1proposal (phase1_handle_t *iph1)
 		(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->sit = htonl(props->rmconf->sittype);
         
 		(void)setph1prop(iph1, mysa->v + sizeof(struct ipsecdoi_sa_b));
-	} else {
-		(void)setph1prop(iph1, mysa->v);
 	}
     
 	return mysa;
@@ -2579,7 +2581,6 @@ setph1prop (phase1_handle_t *iph1,
 			caddr_t buf)
 {
     struct isakmpsa *props = iph1->rmconf->proposal;
-    unsigned int version = iph1->version;
     
 	struct isakmp_pl_p *prop = NULL;
 	struct isakmpsa *s = NULL;
@@ -2587,10 +2588,7 @@ setph1prop (phase1_handle_t *iph1,
 	u_int8_t *np_t; /* pointer next trns type in previous header */
 	int trns_num;
 	caddr_t p = buf;
-	u_int16_t tmplen;
     int spi_size = 0;
-    cookie_t *my_cookie = (iph1->side == INITIATOR) ? &iph1->index.i_ck : &iph1->index.r_ck;
-    
 
 	proplen = sizeof(*prop) + spi_size;
 	if (buf) {
@@ -2965,7 +2963,6 @@ setph2proposal0(iph2, pp, pr)
 	return p;
 }
 
-
 /*
  * create phase2 proposal from policy configuration.
  * NOT INCLUDING isakmp general header of SA payload.
@@ -3007,13 +3004,11 @@ ipsecdoi_setph2proposal(phase2_handle_t *iph2, int return_sa)
 	for (a = proposal; a; a = a->next) {
 		for (b = a->head; b; b = b->next) {
             if (b->proto_id == IPSECDOI_PROTO_IPCOMP) {
-                // %%%%% todo - IKEv2 uses ipcomp notification
                 // skip this - not specified in the SA
                 // Need to set this in iph2 ???
                 continue;
             }
             // IKEv1 sends encode mode in SA - uses diferent codes when NATT being used
-            // IKEv2 does not send encode mode in SA
 #ifdef ENABLE_NATT
             if (iph2->ph1->natt_flags & NAT_DETECTED) {
                 plog (ASL_LEVEL_INFO, "NAT detected -> UDP encapsulation\n");

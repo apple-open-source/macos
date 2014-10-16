@@ -28,7 +28,11 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <asl.h>
+#include <asl_msg.h>
+#include <asl_msg_list.h>
 #include <Availability.h>
+#include <os/object.h>
+#include <os/object_private.h>
 
 #define DB_HEADER_LEN 80
 #define DB_HEADER_COOKIE_OFFSET 0
@@ -36,7 +40,8 @@
 #define DB_HEADER_FIRST_OFFSET 16
 #define DB_HEADER_TIME_OFFSET 24
 #define DB_HEADER_CSIZE_OFFSET 32
-#define DB_HEADER_LAST_OFFSET 36
+#define DB_HEADER_FILTER_MASK_OFFSET 36
+#define DB_HEADER_LAST_OFFSET 37
 
 /*
  * Magic Cookie for database files.
@@ -47,10 +52,11 @@
 #define DB_VERSION 2
 #define DB_VERSION_LEGACY_1 1
 
-#define ASL_FILE_FLAG_READ_ONLY			0x00000001
-#define ASL_FILE_FLAG_UNLIMITED_CACHE	0x00000002
-#define ASL_FILE_FLAG_PRESERVE_MSG_ID	0x00000004
-#define ASL_FILE_FLAG_LEGACY_STORE		0x00000008
+#define ASL_FILE_FLAG_READ            0x00000001
+#define ASL_FILE_FLAG_WRITE           0x00000002
+#define ASL_FILE_FLAG_UNLIMITED_CACHE 0x00000004
+#define ASL_FILE_FLAG_PRESERVE_MSG_ID 0x00000008
+#define ASL_FILE_FLAG_LEGACY_STORE    0x00000010
 
 #define ASL_FILE_TYPE_MSG 0
 #define ASL_FILE_TYPE_STR 1
@@ -59,6 +65,9 @@
 #define ASL_FILE_POSITION_PREVIOUS 1
 #define ASL_FILE_POSITION_NEXT 2
 #define ASL_FILE_POSITION_LAST 3
+
+/* flags for asl_file_filter */
+#define ASL_FILE_FILTER_FLAG_KEEP_MATCHES 0x00000001
 
 /* NB CACHE_SIZE must be > 1 */
 #define CACHE_SIZE 256
@@ -69,8 +78,8 @@
 /*
  * The first record (header) in the database has the format:
  *
- * | 12     | 4    | 8      | 8    | 4                 | 8    | 36   | (80 bytes)
- * | Cookie | Vers | First  | Time | String cache size | Last | Zero |
+ * | 12     | 4    | 8      | 8    | 4                 | 8    | 1    | 35   | (80 bytes)
+ * | Cookie | Vers | First  | Time | String cache size | Last | Mask | Zero |
  * 
  * MSG records have the format:
  *
@@ -95,11 +104,14 @@ typedef struct file_string_s
 	char str[];
 } file_string_t;
 
-typedef struct
+typedef struct asl_file_s
 {
+	uint32_t asl_type;	//ASL OBJECT HEADER
+	int32_t refcount;	//ASL OBJECT HEADER
 	uint32_t flags;
 	uint32_t version;
-	uint32_t string_count;
+	uint32_t string_cache_count;
+	uint32_t msg_count;
 	file_string_t *string_list;
 	uint64_t first;
 	uint64_t last;
@@ -119,32 +131,42 @@ typedef struct asl_file_list_s
 	struct asl_file_list_s *next;
 } asl_file_list_t;
 
+__BEGIN_DECLS
+
+const asl_jump_table_t *asl_file_jump_table(void);
+
 asl_file_list_t *asl_file_list_add(asl_file_list_t *list, asl_file_t *f) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 void asl_file_list_close(asl_file_list_t *list) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+
+asl_file_t *asl_file_retain(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_file_release(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 uint32_t asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_file_t **s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 uint32_t asl_file_close(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_save(asl_file_t *s, aslmsg msg, uint64_t *mid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_save(asl_file_t *s, asl_msg_t *msg, uint64_t *mid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 uint32_t asl_file_open_read(const char *path, asl_file_t **s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_file_fetch(asl_file_t *s, uint64_t mid, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch(asl_file_t *s, uint64_t mid, asl_msg_t **msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 uint32_t asl_file_read_set_position(asl_file_t *s, uint32_t pos) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_file_fetch_next(asl_file_t *s, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_file_fetch_previous(asl_file_t *s, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch_next(asl_file_t *s, asl_msg_t **msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch_previous(asl_file_t *s, asl_msg_t **msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, uint32_t usec) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_3_2);
-uint32_t asl_file_list_match(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+asl_msg_list_t *asl_file_match(asl_file_t *s, asl_msg_list_t *query, uint64_t *last, uint64_t start, uint32_t count, uint32_t duration, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+asl_msg_list_t *asl_file_list_match(asl_file_list_t *list, asl_msg_list_t *query, uint64_t *last, uint64_t start, uint32_t count, uint32_t duration, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 void *asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint32_t count) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_list_match_next(void *token, asl_msg_list_t *query, asl_msg_list_t **res, uint32_t count) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 void asl_file_list_match_end(void *token) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 size_t asl_file_size(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 uint64_t asl_file_ctime(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 uint32_t asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t gid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_filter(asl_file_t *s, const char *path, asl_msg_list_t *filter, uint32_t flags, mode_t mode, uid_t uid, gid_t gid, uint32_t *dstcount, void (*aux_callback)(const char *auxfile)) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+uint32_t asl_file_filter_level(asl_file_t *s, const char *path, uint32_t keep_mask, mode_t mode, uid_t uid, gid_t gid, uint32_t *dstcount, void (*aux_callback)(const char *auxfile)) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+
+__END_DECLS
 
 #endif /* __ASL_FILE_H__ */

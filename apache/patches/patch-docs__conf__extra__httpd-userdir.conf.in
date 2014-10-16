@@ -1,6 +1,6 @@
---- docs/conf/extra/httpd-userdir.conf.in.orig	2007-09-13 14:43:37.000000000 -0700
-+++ docs/conf/extra/httpd-userdir.conf.in	2007-09-13 14:44:24.000000000 -0700
-@@ -7,22 +7,13 @@
+--- docs/conf/extra/httpd-userdir.conf.in.orig	2013-11-14 13:02:48.000000000 -0800
++++ docs/conf/extra/httpd-userdir.conf.in	2013-11-14 13:04:03.000000000 -0800
+@@ -7,15 +7,13 @@
  # directory if a ~user request is received.  Note that you must also set
  # the default access control for these directories, as in the example below.
  #
@@ -8,23 +8,16 @@
 +UserDir Sites
  
  #
--# Control access to UserDir directories.  The following is an example
--# for a site where these directories are restricted to read-only.
-+# Users might not be in /Users/*/Sites, so use user-specific config files.
+ # Control access to UserDir directories.  The following is an example
+ # for a site where these directories are restricted to read-only.
  #
 -<Directory "/home/*/public_html">
 -    AllowOverride FileInfo AuthConfig Limit Indexes
 -    Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec
--    <Limit GET POST OPTIONS>
--        Order allow,deny
--        Allow from all
--    </Limit>
--    <LimitExcept GET POST OPTIONS>
--        Order deny,allow
--        Deny from all
--    </LimitExcept>
+-    Require method GET POST OPTIONS
 -</Directory>
-+Include @rel_sysconfdir@/users/*.conf
+-
++#Include @rel_sysconfdir@/users/*.conf
 +<IfModule bonjour_module>
 +       RegisterUserSite customized-users
 +</IfModule>

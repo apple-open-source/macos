@@ -45,10 +45,7 @@ static WebCore::Frame* getFrameFromHandle(void* objectHandle)
     WebCore::Node* node = static_cast<WebCore::Node*>(objectHandle);
     if (!node->inDocument())
         return 0;
-    WebCore::Document* document = node->document();
-    if (!document)
-        return 0;
-    return document->frame();
+    return node->document().frame();
 }
 
 void DOMObjectCache::forget(void* objectHandle)
@@ -59,7 +56,7 @@ void DOMObjectCache::forget(void* objectHandle)
     domObjects().take(objectHandle);
 }
 
-static void weakRefNotify(gpointer data, GObject* zombie)
+static void weakRefNotify(gpointer data, GObject*)
 {
     gboolean* objectDead = static_cast<gboolean*>(data);
     *objectDead = TRUE;

@@ -114,6 +114,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4A9A863B187DBF9E00C5C41F /* libstdcxx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libstdcxx.xcconfig; sourceTree = "<group>"; };
 		D2AAC0630554660B00DB518D /* libstdc++.6.0.9.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libstdc++.6.0.9.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F91B4156114713280052EBA1 /* libstdcxx-i386.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = "libstdcxx-i386.exp"; sourceTree = "<group>"; };
 		F91B4157114713280052EBA1 /* libstdcxx-ppc.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = "libstdcxx-ppc.exp"; sourceTree = "<group>"; };
@@ -760,6 +761,7 @@
 				F91B415E114713440052EBA1 /* include */,
 				F998CE06114047FB00B6DD5F /* src */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				4A9A863A187DBF9E00C5C41F /* xcconfigs */,
 			);
 			name = Untitled;
 			sourceTree = "<group>";
@@ -771,6 +773,14 @@
 				D2AAC0630554660B00DB518D /* libstdc++.6.0.9.dylib */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4A9A863A187DBF9E00C5C41F /* xcconfigs */ = {
+			isa = PBXGroup;
+			children = (
+				4A9A863B187DBF9E00C5C41F /* libstdcxx.xcconfig */,
+			);
+			path = xcconfigs;
 			sourceTree = "<group>";
 		};
 		F91B4155114713280052EBA1 /* exports */ = {
@@ -1757,7 +1767,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncp -r ${SRCROOT}/include/c++/4.2.1/* ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\n";
+			shellScript = "mkdir -p ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncp -r ${SRCROOT}/include/c++/4.2.1/* ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\nfind . -print0 | xargs -0 chmod a+r\nfind . -type d -print0 | xargs -0 chmod a+x\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1866,9 +1876,7 @@
 					"$(SRCROOT)/include/c++/4.2.1/backward",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib";
-				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
-				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				INSTALL_PATH_ACTUAL = /usr/lib;
 				LD_DYLIB_INSTALL_NAME = "/usr/lib/libstdc++.6.dylib";
 				LIB_iphoneos = "";
 				LIB_iphonesimulator = "-Wl,-reexport-lc++abi";
@@ -1916,9 +1924,7 @@
 					"$(SRCROOT)/include/c++/4.2.1/backward",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib";
-				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
-				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				INSTALL_PATH_ACTUAL = /usr/lib;
 				LD_DYLIB_INSTALL_NAME = "/usr/lib/libstdc++.6.dylib";
 				LD_GENERATE_MAP_FILE = NO;
 				LIB_iphoneos = "";
@@ -1944,6 +1950,7 @@
 		};
 		1DEB914F08733D8E0010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4A9A863B187DBF9E00C5C41F /* libstdcxx.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -1957,6 +1964,7 @@
 		};
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4A9A863B187DBF9E00C5C41F /* libstdcxx.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;

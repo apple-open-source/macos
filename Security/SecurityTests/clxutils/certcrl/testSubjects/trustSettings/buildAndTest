@@ -1,0 +1,39 @@
+#! /bin/csh -f
+#
+# Build trust settings needed for test script trustSettings.scr;
+# import those trust settings into current user domain;
+# run trustSettings.scr;
+# import empty trust settings back into user domain;
+
+# This requires user interaction to authenticate the trust settings import. 
+#
+if ( $#argv != 0 ) then
+	echo "Usage: buildAndTest"
+	exit(1)
+endif
+
+set RESTORE_SETTINGS=YES
+set SAVED_SETTINGS=/tmp/savedSettings.plist
+
+echo "Saving existing Trust Settings, if any."
+security trust-settings-export $SAVED_SETTINGS
+if($status != 0) then
+	set RESTORE_SETTINGS=NO
+endif
+
+./makeTrustSettings || exit(1)
+echo Importing Trust Settings. This requires user authentication.
+security trust-settings-import $LOCAL_BUILD_DIR/userTrustSettings.plist || exit(1)
+
+certcrl -S trustSettings.scr || exit(1)
+
+if($RESTORE_SETTINGS == YES) then
+	echo Restoring original Trust Settings. This requires user authentication.
+	security trust-settings-import $SAVED_SETTINGS || exit(1)
+	rm $SAVED_SETTINGS
+else 
+	echo Importing Empty Trust Settings. This requires user authentication.
+	security trust-settings-import emptyTrustSettings.plist || exit(1)
+endif
+echo == Fine ==
+

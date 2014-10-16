@@ -184,7 +184,6 @@
 #define IKEV1_STATE_QUICK_R_COMMIT      (IKEV1_STATE_RESPONDER_QUICK | 4)
 #define IKEV1_STATE_QUICK_R_ADDSA       (IKEV1_STATE_RESPONDER_QUICK | IKEV1_STATE_FLAG_VALUE_ADDSA)
 
-
 extern void fsm_set_state(int *var, int state);
 //================================
 // Version Agnostic Events

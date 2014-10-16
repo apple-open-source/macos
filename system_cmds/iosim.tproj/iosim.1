@@ -1,0 +1,100 @@
+.\" Copyright (c) 2013, Apple Inc.  All rights reserved.
+.\"
+.Dd Oct 9, 2013
+.Dt IOSIM 1
+.Sh NAME
+.Nm iosim
+.Nd A performance tool to simulate I/O workloads.
+.Sh SYNOPSIS
+.Pp
+.Nm iosim
+.Ar -c <number>
+Burst Count. No. of I/Os performed in an I/O burst.
+Default Value: 10
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -i <msecs>
+Inter Burst Duration. Amount of time each thread sleeps between bursts (-1 indicates random durations between 0-100 msecs)
+Default Value: 0
+Valid Range: [-1, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -d <msecs>
+Inter I/O delay. Amount of time thread sleeps between issuing I/Os
+Default Value: 0
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -t <number>
+Thread count
+Default Value: 1
+Valid Range: [0, 1000]
+.Pp
+.Nm iosim
+.Ar -f <number>
+Workload Type (0/1/2 : Read-Only/Write-Only/Mixed RW)
+Default Value: 0
+Valid Range: [0, 2]
+.Pp
+.Nm iosim
+.Ar -m <number>
+I/O Pattern (0/1 : Sequential/Random)
+Default Value: 0
+Valid Range: [0, 1]
+.Pp
+.Nm iosim
+.Ar -j <bytes>
+Size of I/O in bytes
+Default Value: 4096
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -s <msecs>
+Frequency of sync() calls
+Default Value: 5000
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -l <number>
+I/O Tier (0/1/2/3)
+Default Value: 0
+Valid Range: [0, 3]
+.Pp
+.Nm iosim
+.Ar -z <number>
+Size of the file created specified in pages (Only used when the file is being created by the tool)
+Default Value: 1 GB
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -x <secs>
+Test duration (0 indicates that the tool would wait for a Ctrl-C)
+Default Value: 0
+Valid Range: [0, INT_MAX]
+.Pp
+.Nm iosim
+.Ar -a number
+I/O Caching behavior (0/1 : Non-cached/Cached)
+Default Value: 0
+Valid Range: [0, 1]
+.Pp
+.Nm iosim
+.Ar -n <filename>
+Filename for I/Os (If this option is not specified, the tool would create files on its own)
+Valid Range: Valid filename
+.Sh DESCRIPTION
+The
+.Nm iosim
+tool allows simulating workloads for I/O performance evaluation. The tool spawns 'n' threads which issue non-cached I/Os. If specified, it also creates a sync thread which issues system wide sync() calls to flush data and metadata to disk (emulates launchd behavior). The I/Os are issued at the specified I/O tier and the tool reports latency and throughput numbers.
+.P
+.nf
+Following is an explanation of the results:
+Avg. Latency : Avg. latency experienced by the I/Os.
+Low Latency Histogram: Frequency distribution of I/O latency for low latency I/Os.
+Latency Histogram: Frequency distribution of I/O latency.
+Burst Avg. Latency Histogram: Frequency distribution of burst avg. latency.
+Throughput timeline: Time windowed throughput distrbution.  
+.fi
+.Sh SEE ALSO
+.Xr fs_usage 1

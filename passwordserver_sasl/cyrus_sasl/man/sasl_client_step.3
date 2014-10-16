@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_client_step "10 July 2001" SASL "SASL man pages"
+.TH sasl_client_step 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_client_step \- Perform a step in the authentication negotiation
 
@@ -59,9 +59,9 @@ sasl_client_step \- Perform a step in the authentication negotiation
 
 .B sasl_client_step()
 performs a step in the authentication negotiation. It returns SASL_OK
-if the whole negotiation is sucessful and SASL_CONTINUE if this step
+if the whole negotiation is successful and SASL_CONTINUE if this step
 is ok but at least one more step is needed. A client should not assume
-an authentication negotiation is sucessful just because the server
+an authentication negotiation is successful just because the server
 signaled success via protocol (i.e. if the server said ". OK
 Authentication succeeded" in IMAP sasl_client_step should still be
 called one more time with a serverinlen of zero.
@@ -88,18 +88,18 @@ and
 is created. It is the initial client response to send to the
 server. It is the job of the
 client to send it over the network to the server.
-Any protocal specific encoding (such as base64
+Any protocol specific encoding (such as base64
 encoding) necessary needs to be done by the client.
 
 .SH "RETURN VALUE"
 
 sasl_client_step returns an integer which corresponds to one of the
-following codes. SASL_CONTINUE indicates sucess and that there are
+following codes. SASL_CONTINUE indicates success and that there are
 more steps needed in the authentication. SASL_OK indicates that the
 authentication is complete. All other return codes indicate errors and
 should either be handled or the authentication session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_callbacks(3), sasl_errors(3), sasl_client_init(3), sasl_client_new(3), sasl_client_start(3)

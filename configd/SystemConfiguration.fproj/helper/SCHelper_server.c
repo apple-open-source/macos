@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,11 +23,11 @@
 
 #include <getopt.h>
 #include <grp.h>
-#include <launch.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <bsm/libbsm.h>
+#include <servers/bootstrap.h>
 #include <sys/types.h>
 #include <sysexits.h>
 
@@ -44,9 +44,6 @@
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 #include "helper_types.h"
-
-#include <libproc_internal.h>
-
 
 #pragma mark -
 #pragma mark SCHelper session managment
@@ -163,8 +160,15 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 	if (sessionPrivate->authorization != NULL) {
 #if	!TARGET_OS_IPHONE
 		if (!__SCHelperSessionUseEntitlement(session)) {
-			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
-//			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
+			OSStatus	status;
+
+			status = AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
+//			status = AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
+			if (status != errAuthorizationSuccess) {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("AuthorizationFree() failed: status = %d"),
+				      (int)status);
+			}
 		} else {
 			CFRelease(sessionPrivate->authorization);
 		}
@@ -180,15 +184,15 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 		AuthorizationExternalForm	extForm;
 
 		if (CFDataGetLength(authorizationData) == sizeof(extForm.bytes)) {
-			OSStatus	err;
+			OSStatus	status;
 
 			bcopy(CFDataGetBytePtr(authorizationData), extForm.bytes, sizeof(extForm.bytes));
-			err = AuthorizationCreateFromExternalForm(&extForm,
-								  &sessionPrivate->authorization);
-			if (err != errAuthorizationSuccess) {
+			status = AuthorizationCreateFromExternalForm(&extForm,
+								     &sessionPrivate->authorization);
+			if (status != errAuthorizationSuccess) {
 				SCLog(TRUE, LOG_ERR,
 				      CFSTR("AuthorizationCreateFromExternalForm() failed: status = %d"),
-				      (int)err);
+				      (int)status);
 				sessionPrivate->authorization = NULL;
 				ok = FALSE;
 			}
@@ -374,7 +378,7 @@ __SCHelperSessionLog(const void *value, void *context)
 		SCLog(TRUE, LOG_NOTICE,
 		      CFSTR("  %p {port = %p, caller = %@, path = %s%s}"),
 		      session,
-		      CFMachPortGetPort(sessionPrivate->mp),
+		      (void *)(uintptr_t)CFMachPortGetPort(sessionPrivate->mp),
 		      prefsPrivate->name,
 		      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
 		      prefsPrivate->locked ? ", locked" : "");
@@ -1589,9 +1593,9 @@ checkEntitlement(SCHelperSessionRef session, CFStringRef prefsID, CFStringRef en
 			}
 		} else {
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("hasAuthorization() entitlement=%@: not valid"),
-			      entitlement_name,
-			      sessionName(session));
+			      CFSTR("hasAuthorization() session=%@: entitlement=%@: not valid"),
+			      sessionName(session),
+			      entitlement_name);
 		}
 
 		CFRelease(entitlement);
@@ -1661,6 +1665,9 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 						 flags,
 						 NULL);
 		if (status != errAuthorizationSuccess) {
+			SCLog(TRUE, LOG_DEBUG,
+			      CFSTR("AuthorizationCopyRights() failed: status = %d"),
+			      (int)status);
 			return FALSE;
 		}
 
@@ -1916,10 +1923,6 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	static CFIndex		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
-	int			ret		= 0;
-	uint64_t		token;
-
-	ret = proc_importance_assertion_begin_with_msg(&bufRequest->Head, NULL, &token);
 
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
@@ -1995,10 +1998,6 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	}
 
     done :
-
-	if (ret == 0) {
-		proc_importance_assertion_complete(token);
-	}
 
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
@@ -2219,7 +2218,7 @@ _helperexec(mach_port_t			server,
 			CFIndex		len;
 
 			ok = _SCSerializeData(reply, (void **)replyRef, &len);
-			*replyLen = len;
+			*replyLen = (mach_msg_type_number_t)len;
 			CFRelease(reply);
 			reply = NULL;
 			if (!ok) {
@@ -2245,32 +2244,27 @@ helperMPCopyDescription(const void *info)
 }
 
 
-static void
-init_MiG_1(const launch_data_t l_obj, const char *name, void *info)
+static int
+init_MiG(const char *service_name, int *n_listeners)
 {
-	CFMachPortContext	context		= { 0
-						  , (void *)1
-						  , NULL
-						  , NULL
-						  , helperMPCopyDescription
-						  };
-	launch_data_type_t	l_type;
+	CFMachPortContext	context	= { 0
+					  , (void *)1
+					  , NULL
+					  , NULL
+					  , helperMPCopyDescription
+					  };
+	kern_return_t		kr;
 	CFMachPortRef		mp;
-	int			*n_listeners	= (int *)info;
 	CFRunLoopSourceRef	rls;
-	mach_port_t		service_port;
+	mach_port_t		service_port	= MACH_PORT_NULL;
 
-	// get the mach port
-	l_type = (l_obj != NULL) ? launch_data_get_type(l_obj) : 0;
-	if (l_type != LAUNCH_DATA_MACHPORT) {
+	kr = bootstrap_check_in(bootstrap_port, service_name, &service_port);
+	if (kr != BOOTSTRAP_SUCCESS) {
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCHelper: error w/MachServices \"%s\" port (%p, %d)"),
-		      (name != NULL) ? name : "?",
-		      l_obj,
-		      l_type);
-		return;
+		      CFSTR("SCHelper: bootstrap_check_in() failed: %s"),
+		      bootstrap_strerror(kr));
+		return 1;
 	}
-	service_port = launch_data_get_machport(l_obj);
 
 	// add a run loop source to listen for new requests
 	mp = _SC_CFMachPortCreateWithPort("SCHelper/server",
@@ -2284,27 +2278,6 @@ init_MiG_1(const launch_data_t l_obj, const char *name, void *info)
 
 	*n_listeners = *n_listeners + 1;
 
-	return;
-}
-
-
-static int
-init_MiG(launch_data_t l_reply, int *n_listeners)
-{
-	launch_data_t		l_machservices;
-	launch_data_type_t	l_type;
-
-	l_machservices = launch_data_dict_lookup(l_reply, LAUNCH_JOBKEY_MACHSERVICES);
-	l_type = (l_machservices != NULL) ? launch_data_get_type(l_machservices) : 0;
-	if (l_type != LAUNCH_DATA_DICTIONARY) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCHelper: error w/" LAUNCH_JOBKEY_MACHSERVICES " (%p, %d)"),
-		      l_machservices,
-		      l_type);
-		return 1;
-	}
-
-	launch_data_dict_iterate(l_machservices, init_MiG_1, (void *)n_listeners);
 	return 0;
 }
 
@@ -2326,9 +2299,6 @@ main(int argc, char **argv)
 	int			err		= 0;
 	int			gen_reported	= 0;
 	int			idle		= 0;
-	launch_data_t		l_msg;
-	launch_data_t		l_reply;
-	launch_data_type_t	l_type;
 	int			n_listeners	= 0;
 //	extern int		optind;
 	int			opt;
@@ -2363,28 +2333,7 @@ main(int argc, char **argv)
 
 	main_runLoop = CFRunLoopGetCurrent();
 
-	l_msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-	l_reply = launch_msg(l_msg);
-	launch_data_free(l_msg);
-	l_type = (l_reply != NULL) ? launch_data_get_type(l_reply) : 0;
-	if (l_type != LAUNCH_DATA_DICTIONARY) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCHelper: error w/launchd " LAUNCH_KEY_CHECKIN " dictionary (%p, %d)"),
-		      l_reply,
-		      l_type);
-		err = 1;
-		goto done;
-	}
-
-	err = init_MiG(l_reply, &n_listeners);
-	if (err != 0) {
-		goto done;
-	}
-
-    done :
-
-	if (l_reply != NULL) launch_data_free(l_reply);
-
+	err = init_MiG("com.apple.SystemConfiguration.helper", &n_listeners);
 	if ((err != 0) || (n_listeners == 0)) {
 		exit(err);
 	}

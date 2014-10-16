@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CFNumber.h>
@@ -62,18 +63,22 @@ static CFStringRef        kLocalizationBundlePath = CFSTR("/System/Library/CoreS
 #define kAssertionNameString    "caffeinate command-line tool"
 
 int createAssertions(const char *progname, AssertionFlag flags, long timeout);
-void forkChild(char *argv[], AssertionFlag flag);
+void forkChild(char *argv[]);
 void usage(void);
+
+pid_t   waitforpid;
+
 
 int
 main(int argc, char *argv[])
 {
     AssertionFlag flags = kDefaultAssertionFlag;
     char ch;
-    long timeout = 0;
+    unsigned long timeout = 0;
+    dispatch_source_t   disp_src;
 
     errno = 0;
-    while ((ch = getopt(argc, argv, "mdhisut:")) != -1) {
+    while ((ch = getopt(argc, argv, "mdhisut:w:")) != -1) {
         switch((char)ch) {
             case 'm':
                 flags |= kDiskAssertionFlag;
@@ -83,7 +88,7 @@ main(int argc, char *argv[])
                 break;
             case 'h':
                 usage();
-                exit(0);
+                exit(EXIT_SUCCESS);
             case 'i':
                 flags |= kIdleAssertionFlag;
                 break;
@@ -93,18 +98,26 @@ main(int argc, char *argv[])
             case 'u':
                 flags |= kUserActiveAssertionFlag;
                 break;
+            case 'w':
+                waitforpid = strtol(optarg, NULL, 0);
+                if (waitforpid == 0 && errno != 0) {
+                    usage();
+                    exit(EXIT_FAILURE);
+                }
+                break;
+
             case 't':
                 timeout = strtol(optarg, NULL,  0);
-                if (errno != 0) {
+                if (timeout == 0 && errno != 0) {
                     usage();
-                    exit(1);
+                    exit(EXIT_FAILURE);
                 }
                 break;
 
             case '?':
             default:
                 usage();
-                exit(1);
+                exit(EXIT_FAILURE);
         }
     }
 
@@ -112,16 +125,37 @@ main(int argc, char *argv[])
         flags = kIdleAssertionFlag;
     }
 
+    /* Spwan early, otherwise libraries might open resources that don't survive fork or exec */
     if (argc - optind) {
         argv += optind;
-        (void) forkChild(argv, flags);
-    } else {
-        if (createAssertions(NULL, flags, timeout)) {
-            exit(1);
+        forkChild(argv);
+        if (createAssertions(*argv, flags, timeout)) {
+            exit(EXIT_FAILURE);
         }
+    } else {
         if (timeout) {
-            sleep(timeout+5);
-            exit(0);
+            dispatch_time_t d_timeout = dispatch_time(DISPATCH_TIME_NOW, timeout * NSEC_PER_SEC);
+            dispatch_after(d_timeout, dispatch_get_main_queue(), ^{
+                           exit(EXIT_SUCCESS);
+                           });
+        }
+        if (waitforpid) {
+            disp_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, waitforpid, 
+                                              DISPATCH_PROC_EXIT, dispatch_get_main_queue());
+
+            dispatch_source_set_event_handler(disp_src, ^{
+                                              exit(EXIT_SUCCESS);
+                                              });
+
+            dispatch_source_set_cancel_handler(disp_src, ^{
+                                               dispatch_release(disp_src);
+                                               });
+
+            dispatch_resume(disp_src);
+
+        }
+        if (createAssertions(NULL, flags, timeout)) {
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -137,9 +171,20 @@ createAssertions(const char *progname, AssertionFlag flags, long timeout)
     IOPMAssertionID assertionID = 0;
     u_int i = 0;
 
+    assertionDetails[0] = 0;
     if (progname) {
         (void)snprintf(assertionDetails, sizeof(assertionDetails),
-            "caffeinate asserting on behalf of %s", progname);
+            "caffeinate asserting on behalf of \'%s\' (pid %d)", progname, getppid());
+    } else if (waitforpid) {
+        if (timeout) {
+            snprintf(assertionDetails, sizeof(assertionDetails), 
+                     "caffeinate asserting on behalf of Process ID %d for %ld secs", 
+                     waitforpid, timeout); 
+        }
+        else {
+            snprintf(assertionDetails, sizeof(assertionDetails), 
+                     "caffeinate asserting on behalf of Process ID %d", waitforpid); 
+        }
     } else if (timeout) {
         (void)snprintf(assertionDetails, sizeof(assertionDetails),
             "caffeinate asserting for %ld secs", timeout);
@@ -175,6 +220,13 @@ createAssertions(const char *progname, AssertionFlag flags, long timeout)
                 CFStringGetCStringPtr(entry->assertionType, kCFStringEncodingMacRoman));
             goto finish;
         }
+        if (!progname && waitforpid) {
+            CFNumberRef waitforpidRef = CFNumberCreate(0, kCFNumberIntType, &waitforpid);
+            if (waitforpidRef) {
+                IOPMAssertionSetProperty(assertionID, kIOPMAssertionOnBehalfOfPID, waitforpidRef);
+                CFRelease(waitforpidRef);
+            }
+        }
     }
 
     result = kIOReturnSuccess;
@@ -185,27 +237,43 @@ finish:
 }
 
 void
-forkChild(char *argv[], AssertionFlag flags)
+forkChild(char *argv[])
 {
     pid_t pid;
     dispatch_source_t source;
+    int fd, max_fd;
 
-    switch(pid = fork()) {
+    /* Our parent might care about the total life cycle of this process,
+    * therefore rather than propagate exit status, Unix signals, Mach
+    * exceptions, etc, we just flip the normal parent/child relationship and
+    * have the parent exec() and the child monitor the parent for death rather
+    * than the other way around.
+    */
+    switch(fork()) {
+        case 0:     /* child */
+            break;
         case -1:    /* error */
             perror("");
-            exit(1);
+            exit(EXIT_SUCCESS);
             /* NOTREACHED */
-        case 0:     /* child */
-            if (createAssertions(*argv, flags, 0)) {
-                _exit(1);
-            }
+        default:    /* parent */
             execvp(*argv, argv);
+            int saved_errno = errno;
             perror(*argv);
-            _exit((errno == ENOENT) ? 127 : 126);
+            _exit((saved_errno == ENOENT) ? 127 : 126);
             /* NOTREACHED */
     }
 
-    /* parent */
+    pid = getppid();
+    if (pid == 1) {
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Don't leak inherited FDs from our grandparent. */
+    max_fd = getdtablesize();
+    for (fd = STDERR_FILENO + 1; fd < max_fd; fd++) {
+        close(fd);
+    }
 
     (void)signal(SIGINT, SIG_IGN);
     (void)signal(SIGQUIT, SIG_IGN);
@@ -213,14 +281,8 @@ forkChild(char *argv[], AssertionFlag flags)
     source = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
         DISPATCH_PROC_EXIT, dispatch_get_main_queue());
     dispatch_source_set_event_handler(source, ^{
-        int status;
-
-        if (waitpid(pid, &status, 0) < 0) {
-            perror("");
-            exit(1);
-        }
-
-        exit(WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
+        /* we do not need to waitpid() because we are actually the child */
+        exit(EXIT_SUCCESS);
     });
     dispatch_resume(source);
 
@@ -230,6 +292,6 @@ forkChild(char *argv[], AssertionFlag flags)
 void
 usage(void)
 {
-    fprintf(stderr, "usage: caffeinate [-disu] [-t timeout] [command] [arguments]\n");
+    fprintf(stderr, "usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]\n");
     return;
 }

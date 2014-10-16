@@ -1,0 +1,335 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>shift_jisx0213.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">shift_jisx0213.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2002 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * SHIFT_JISX0213
+ */</span>
+
+<span class="enscript-comment">/* The structure of Shift_JISX0213 is as follows:
+
+   0x00..0x7F: ISO646-JP, an ASCII variant
+
+   0x{A1..DF}: JISX0201 Katakana.
+
+   0x{81..9F,E0..EF}{40..7E,80..FC}: JISX0213 plane 1.
+
+   0x{F0..FC}{40..7E,80..FC}: JISX0213 plane 2, with irregular row mapping.
+
+   Note that some JISX0213 characters are not contained in Unicode 3.2
+   and are therefore best represented as sequences of Unicode characters.
+*/</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;jisx0213.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;flushwc.h&quot;</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">shift_jisx0213_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  ucs4_t last_wc = conv-&gt;istate;
+  <span class="enscript-keyword">if</span> (last_wc) {
+    <span class="enscript-comment">/* Output the buffered character. */</span>
+    conv-&gt;istate = 0;
+    *pwc = last_wc;
+    <span class="enscript-keyword">return</span> 0; <span class="enscript-comment">/* Don't advance the input pointer. */</span>
+  } <span class="enscript-keyword">else</span> {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = *s;
+    <span class="enscript-keyword">if</span> (c &lt; 0x80) {
+      <span class="enscript-comment">/* Plain ISO646-JP character. */</span>
+      <span class="enscript-keyword">if</span> (c == 0x5c)
+        *pwc = (ucs4_t) 0x00a5;
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c == 0x7e)
+        *pwc = (ucs4_t) 0x203e;
+      <span class="enscript-keyword">else</span>
+        *pwc = (ucs4_t) c;
+      <span class="enscript-keyword">return</span> 1;
+    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c &gt;= 0xa1 &amp;&amp; c &lt;= 0xdf) {
+      *pwc = c + 0xfec0;
+      <span class="enscript-keyword">return</span> 1;
+    } <span class="enscript-keyword">else</span> {
+      <span class="enscript-keyword">if</span> ((c &gt;= 0x81 &amp;&amp; c &lt;= 0x9f) || (c &gt;= 0xe0 &amp;&amp; c &lt;= 0xfc)) {
+        <span class="enscript-comment">/* Two byte character. */</span>
+        <span class="enscript-keyword">if</span> (n &gt;= 2) {
+          <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c2 = s[1];
+          <span class="enscript-keyword">if</span> ((c2 &gt;= 0x40 &amp;&amp; c2 &lt;= 0x7e) || (c2 &gt;= 0x80 &amp;&amp; c2 &lt;= 0xfc)) {
+            <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> c1;
+            ucs4_t wc;
+            <span class="enscript-comment">/* Convert to row and column. */</span>
+            <span class="enscript-keyword">if</span> (c &lt; 0xe0)
+              c -= 0x81;
+            <span class="enscript-keyword">else</span>
+              c -= 0xc1;
+            <span class="enscript-keyword">if</span> (c2 &lt; 0x80)
+              c2 -= 0x40;
+            <span class="enscript-keyword">else</span>
+              c2 -= 0x41;
+            <span class="enscript-comment">/* Now 0 &lt;= c &lt;= 0x3b, 0 &lt;= c2 &lt;= 0xbb. */</span>
+            c1 = 2 * c;
+            <span class="enscript-keyword">if</span> (c2 &gt;= 0x5e)
+              c2 -= 0x5e, c1++;
+            c2 += 0x21;
+            <span class="enscript-keyword">if</span> (c1 &gt;= 0x5e) {
+              <span class="enscript-comment">/* Handling of JISX 0213 plane 2 rows. */</span>
+              <span class="enscript-keyword">if</span> (c1 &gt;= 0x67)
+                c1 += 230;
+              <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c1 &gt;= 0x63 || c1 == 0x5f)
+                c1 += 168;
+              <span class="enscript-keyword">else</span>
+                c1 += 162;
+            }
+            wc = jisx0213_to_ucs4(0x121+c1,c2);
+            <span class="enscript-keyword">if</span> (wc) {
+              <span class="enscript-keyword">if</span> (wc &lt; 0x80) {
+                <span class="enscript-comment">/* It's a combining character. */</span>
+                ucs4_t wc1 = jisx0213_to_ucs_combining[wc - 1][0];
+                ucs4_t wc2 = jisx0213_to_ucs_combining[wc - 1][1];
+                <span class="enscript-comment">/* We cannot output two Unicode characters at once. So,
+                   output the first character and buffer the second one. */</span>
+                *pwc = wc1;
+                conv-&gt;istate = wc2;
+              } <span class="enscript-keyword">else</span>
+                *pwc = wc;
+              <span class="enscript-keyword">return</span> 2;
+            }
+          }
+        } <span class="enscript-keyword">else</span>
+          <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+  }
+}
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_flushwc</span> normal_flushwc
+
+<span class="enscript-comment">/* Composition tables for each of the relevant combining characters.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">struct</span> { <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> base; <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> composed; } shift_jisx0213_comp_table_data[] = {
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table02e5_idx</span> 0
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table02e5_len</span> 1
+  { 0x8684, 0x8685 }, <span class="enscript-comment">/* 0x12B65 = 0x12B64 U+02E5 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table02e9_idx</span> (shift_jisx0213_comp_table02e5_idx+shift_jisx0213_comp_table02e5_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table02e9_len</span> 1
+  { 0x8680, 0x8686 }, <span class="enscript-comment">/* 0x12B66 = 0x12B60 U+02E9 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table0300_idx</span> (shift_jisx0213_comp_table02e9_idx+shift_jisx0213_comp_table02e9_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table0300_len</span> 5
+  { 0x857b, 0x8663 }, <span class="enscript-comment">/* 0x12B44 = 0x1295C U+0300 */</span>
+  { 0x8657, 0x8667 }, <span class="enscript-comment">/* 0x12B48 = 0x12B38 U+0300 */</span>
+  { 0x8656, 0x8669 }, <span class="enscript-comment">/* 0x12B4A = 0x12B37 U+0300 */</span>
+  { 0x864f, 0x866b }, <span class="enscript-comment">/* 0x12B4C = 0x12B30 U+0300 */</span>
+  { 0x8662, 0x866d }, <span class="enscript-comment">/* 0x12B4E = 0x12B43 U+0300 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table0301_idx</span> (shift_jisx0213_comp_table0300_idx+shift_jisx0213_comp_table0300_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table0301_len</span> 4
+  { 0x8657, 0x8668 }, <span class="enscript-comment">/* 0x12B49 = 0x12B38 U+0301 */</span>
+  { 0x8656, 0x866a }, <span class="enscript-comment">/* 0x12B4B = 0x12B37 U+0301 */</span>
+  { 0x864f, 0x866c }, <span class="enscript-comment">/* 0x12B4D = 0x12B30 U+0301 */</span>
+  { 0x8662, 0x866e }, <span class="enscript-comment">/* 0x12B4F = 0x12B43 U+0301 */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table309a_idx</span> (shift_jisx0213_comp_table0301_idx+shift_jisx0213_comp_table0301_len)
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">shift_jisx0213_comp_table309a_len</span> 14
+  { 0x82a9, 0x82f5 }, <span class="enscript-comment">/* 0x12477 = 0x1242B U+309A */</span>
+  { 0x82ab, 0x82f6 }, <span class="enscript-comment">/* 0x12478 = 0x1242D U+309A */</span>
+  { 0x82ad, 0x82f7 }, <span class="enscript-comment">/* 0x12479 = 0x1242F U+309A */</span>
+  { 0x82af, 0x82f8 }, <span class="enscript-comment">/* 0x1247A = 0x12431 U+309A */</span>
+  { 0x82b1, 0x82f9 }, <span class="enscript-comment">/* 0x1247B = 0x12433 U+309A */</span>
+  { 0x834a, 0x8397 }, <span class="enscript-comment">/* 0x12577 = 0x1252B U+309A */</span>
+  { 0x834c, 0x8398 }, <span class="enscript-comment">/* 0x12578 = 0x1252D U+309A */</span>
+  { 0x834e, 0x8399 }, <span class="enscript-comment">/* 0x12579 = 0x1252F U+309A */</span>
+  { 0x8350, 0x839a }, <span class="enscript-comment">/* 0x1257A = 0x12531 U+309A */</span>
+  { 0x8352, 0x839b }, <span class="enscript-comment">/* 0x1257B = 0x12533 U+309A */</span>
+  { 0x835a, 0x839c }, <span class="enscript-comment">/* 0x1257C = 0x1253B U+309A */</span>
+  { 0x8363, 0x839d }, <span class="enscript-comment">/* 0x1257D = 0x12544 U+309A */</span>
+  { 0x8367, 0x839e }, <span class="enscript-comment">/* 0x1257E = 0x12548 U+309A */</span>
+  { 0x83f3, 0x83f6 }, <span class="enscript-comment">/* 0x12678 = 0x12675 U+309A */</span>
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">shift_jisx0213_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-type">int</span> count = 0;
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> lasttwo = conv-&gt;ostate;
+
+  <span class="enscript-keyword">if</span> (lasttwo) {
+    <span class="enscript-comment">/* Attempt to combine the last character with this one. */</span>
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> idx;
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> len;
+
+    <span class="enscript-keyword">if</span> (wc == 0x02e5)
+      idx = shift_jisx0213_comp_table02e5_idx,
+      len = shift_jisx0213_comp_table02e5_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x02e9)
+      idx = shift_jisx0213_comp_table02e9_idx,
+      len = shift_jisx0213_comp_table02e9_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x0300)
+      idx = shift_jisx0213_comp_table0300_idx,
+      len = shift_jisx0213_comp_table0300_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x0301)
+      idx = shift_jisx0213_comp_table0301_idx,
+      len = shift_jisx0213_comp_table0301_len;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x309a)
+      idx = shift_jisx0213_comp_table309a_idx,
+      len = shift_jisx0213_comp_table309a_len;
+    <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">goto</span> <span class="enscript-reference">not_combining</span>;
+
+    <span class="enscript-keyword">do</span>
+      <span class="enscript-keyword">if</span> (shift_jisx0213_comp_table_data[idx].base == lasttwo)
+        <span class="enscript-keyword">break</span>;
+    <span class="enscript-keyword">while</span> (++idx, --len &gt; 0);
+
+    <span class="enscript-keyword">if</span> (len &gt; 0) {
+      <span class="enscript-comment">/* Output the combined character. */</span>
+      <span class="enscript-keyword">if</span> (n &gt;= 2) {
+        lasttwo = shift_jisx0213_comp_table_data[idx].composed;
+        r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+        r[1] = lasttwo &amp; 0xff;
+        conv-&gt;ostate = 0;
+        <span class="enscript-keyword">return</span> 2;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    }
+
+  <span class="enscript-reference">not_combining</span>:
+    <span class="enscript-comment">/* Output the buffered character. */</span>
+    <span class="enscript-keyword">if</span> (n &lt; 2)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+    r[1] = lasttwo &amp; 0xff;
+    r += 2;
+    count = 2;
+  }
+
+  <span class="enscript-keyword">if</span> (wc &lt; 0x80 &amp;&amp; wc != 0x5c &amp;&amp; wc != 0x7e) {
+    <span class="enscript-comment">/* Plain ISO646-JP character. */</span>
+    <span class="enscript-keyword">if</span> (n &gt; count) {
+      r[0] = (<span class="enscript-type">unsigned</span> <span class="enscript-type">char</span>) wc;
+      conv-&gt;ostate = 0;
+      <span class="enscript-keyword">return</span> count+1;
+    } <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+  } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x00a5) {
+    <span class="enscript-keyword">if</span> (n &gt; count) {
+      r[0] = 0x5c;
+      conv-&gt;ostate = 0;
+      <span class="enscript-keyword">return</span> count+1;
+    } <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+  } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x203e) {
+    <span class="enscript-keyword">if</span> (n &gt; count) {
+      r[0] = 0x7e;
+      conv-&gt;ostate = 0;
+      <span class="enscript-keyword">return</span> count+1;
+    } <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+  } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0xff61 &amp;&amp; wc &lt;= 0xff9f) {
+    <span class="enscript-comment">/* Half-width katakana. */</span>
+    <span class="enscript-keyword">if</span> (n &gt; count) {
+      r[0] = wc - 0xfec0;
+      conv-&gt;ostate = 0;
+      <span class="enscript-keyword">return</span> count+1;
+    } <span class="enscript-keyword">else</span>
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+  } <span class="enscript-keyword">else</span> {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> s1, s2;
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> jch = ucs4_to_jisx0213(wc);
+    <span class="enscript-keyword">if</span> (jch != 0) {
+      <span class="enscript-comment">/* Convert it to shifted representation. */</span>
+      s1 = jch &gt;&gt; 8;
+      s2 = jch &amp; 0x7f;
+      s1 -= 0x21;
+      s2 -= 0x21;
+      <span class="enscript-keyword">if</span> (s1 &gt;= 0x5e) {
+        <span class="enscript-comment">/* Handling of JISX 0213 plane 2 rows. */</span>
+        <span class="enscript-keyword">if</span> (s1 &gt;= 0xcd) <span class="enscript-comment">/* rows 0x26E..0x27E */</span>
+          s1 -= 102;
+        <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (s1 &gt;= 0x8b || s1 == 0x87) <span class="enscript-comment">/* rows 0x228, 0x22C..0x22F */</span>
+          s1 -= 40;
+        <span class="enscript-keyword">else</span> <span class="enscript-comment">/* rows 0x221, 0x223..0x225 */</span>
+          s1 -= 34;
+        <span class="enscript-comment">/* Now 0x5e &lt;= s1 &lt;= 0x77. */</span>
+      }
+      <span class="enscript-keyword">if</span> (s1 &amp; 1)
+        s2 += 0x5e;
+      s1 = s1 &gt;&gt; 1;
+      <span class="enscript-keyword">if</span> (s1 &lt; 0x1f)
+        s1 += 0x81;
+      <span class="enscript-keyword">else</span>
+        s1 += 0xc1;
+      <span class="enscript-keyword">if</span> (s2 &lt; 0x3f)
+        s2 += 0x40;
+      <span class="enscript-keyword">else</span>
+        s2 += 0x41;
+      <span class="enscript-keyword">if</span> (jch &amp; 0x0080) {
+        <span class="enscript-comment">/* A possible match in comp_table_data. We have to buffer it. */</span>
+        <span class="enscript-comment">/* We know it's a JISX 0213 plane 1 character. */</span>
+        <span class="enscript-keyword">if</span> (jch &amp; 0x8000) abort();
+        conv-&gt;ostate = (s1 &lt;&lt; 8) | s2;
+        <span class="enscript-keyword">return</span> count+0;
+      }
+      <span class="enscript-comment">/* Output the shifted representation. */</span>
+      <span class="enscript-keyword">if</span> (n &gt;= count+2) {
+        r[0] = s1;
+        r[1] = s2;
+        conv-&gt;ostate = 0;
+        <span class="enscript-keyword">return</span> count+2;
+      } <span class="enscript-keyword">else</span>
+        <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    }
+    <span class="enscript-keyword">return</span> RET_ILUNI;
+  }
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">shift_jisx0213_reset</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, size_t n)
+{
+  state_t lasttwo = conv-&gt;ostate;
+
+  <span class="enscript-keyword">if</span> (lasttwo) {
+    <span class="enscript-keyword">if</span> (n &lt; 2)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    r[0] = (lasttwo &gt;&gt; 8) &amp; 0xff;
+    r[1] = lasttwo &amp; 0xff;
+    <span class="enscript-comment">/* conv-&gt;ostate = 0; will be done by the caller */</span>
+    <span class="enscript-keyword">return</span> 2;
+  } <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> 0;
+}
+</pre>
+<hr />
+</body></html>

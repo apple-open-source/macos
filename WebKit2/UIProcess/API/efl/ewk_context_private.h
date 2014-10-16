@@ -22,14 +22,15 @@
 
 #include "ewk_context.h"
 #include "ewk_object_private.h"
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKRetainPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <JavaScriptCore/JSContextRef.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKRetainPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebKit;
 
+class EwkApplicationCacheManager;
 class EwkCookieManager;
 class EwkFaviconDatabase;
 
@@ -39,9 +40,6 @@ class DownloadManagerEfl;
 class RequestManagerClientEfl;
 #if ENABLE(BATTERY_STATUS)
 class BatteryProvider;
-#endif
-#if ENABLE(NETWORK_INFO)
-class NetworkInfoProvider;
 #endif
 }
 
@@ -57,8 +55,8 @@ public:
 
     ~EwkContext();
 
+    EwkApplicationCacheManager* applicationCacheManager();
     EwkCookieManager* cookieManager();
-
     EwkDatabaseManager* databaseManager();
 
     bool setFaviconDatabaseDirectoryPath(const String& databaseDirectory);
@@ -74,17 +72,32 @@ public:
 
     Ewk_Cache_Model cacheModel() const;
 
+    void setProcessModel(Ewk_Process_Model);
+
+    Ewk_Process_Model processModel() const;
+
     WKContextRef wkContext() const { return m_context.get(); }
 
     WebKit::DownloadManagerEfl* downloadManager() const;
 
     WebKit::ContextHistoryClientEfl* historyClient();
 
+    Ewk_TLS_Error_Policy ignoreTLSErrors() const;
+
+    void setIgnoreTLSErrors(Ewk_TLS_Error_Policy TLSErrorPolicy) const;
+
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void setAdditionalPluginPath(const String&);
 #endif
 
     void clearResourceCache();
+
+    JSGlobalContextRef jsGlobalContext();
+
+    static void didReceiveMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo);
+    static void didReceiveSynchronousMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData, const void* clientInfo);
+    void setMessageFromInjectedBundleCallback(Ewk_Context_Message_From_Injected_Bundle_Cb, void*);
+    void processReceivedMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData);
 
 private:
     explicit EwkContext(WKContextRef);
@@ -93,20 +106,25 @@ private:
 
     WKRetainPtr<WKContextRef> m_context;
 
-    OwnPtr<EwkCookieManager> m_cookieManager;
-    OwnPtr<EwkDatabaseManager> m_databaseManager;
-    OwnPtr<EwkFaviconDatabase> m_faviconDatabase;
-    OwnPtr<EwkStorageManager> m_storageManager;
+    std::unique_ptr<EwkApplicationCacheManager> m_applicationCacheManager;
+    std::unique_ptr<EwkCookieManager> m_cookieManager;
+    std::unique_ptr<EwkDatabaseManager> m_databaseManager;
+    std::unique_ptr<EwkFaviconDatabase> m_faviconDatabase;
+    std::unique_ptr<EwkStorageManager> m_storageManager;
 #if ENABLE(BATTERY_STATUS)
     RefPtr<WebKit::BatteryProvider> m_batteryProvider;
 #endif
-#if ENABLE(NETWORK_INFO)
-    RefPtr<WebKit::NetworkInfoProvider> m_networkInfoProvider;
-#endif
-    OwnPtr<WebKit::DownloadManagerEfl> m_downloadManager;
-    OwnPtr<WebKit::RequestManagerClientEfl> m_requestManagerClient;
+    std::unique_ptr<WebKit::DownloadManagerEfl> m_downloadManager;
+    std::unique_ptr<WebKit::RequestManagerClientEfl> m_requestManagerClient;
 
-    OwnPtr<WebKit::ContextHistoryClientEfl> m_historyClient;
+    std::unique_ptr<WebKit::ContextHistoryClientEfl> m_historyClient;
+
+    JSGlobalContextRef m_jsGlobalContext;
+
+    struct {
+        Ewk_Context_Message_From_Injected_Bundle_Cb callback;
+        void* userData;
+    } m_callbackForMessageFromInjectedBundle;
 };
 
 #endif // ewk_context_private_h

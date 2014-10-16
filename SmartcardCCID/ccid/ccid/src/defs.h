@@ -1,6 +1,6 @@
 /*
     defs.h:
-    Copyright (C) 2003   Ludovic Rousseau
+    Copyright (C) 2003-2010   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: defs.h 4292 2009-07-01 12:28:01Z rousseau $
+ * $Id: defs.h 6305 2012-05-19 08:10:08Z rousseau $
  */
 
 #include <pcsclite.h>
@@ -66,34 +66,27 @@ typedef enum {
 /* Flag set when a power down is requested */
 #define MASK_POWERFLAGS_PDWN 0x02
 
-/* Kobil readers does not support APDU chaining for T=1 so you can't send an
- * extended APDU. The readers supports a command of up to 512 or 420 bytes.
- * For a Kobil KAAN Base/advanced reader you should use
- *  #define CMD_BUF_SIZE 420
- * For the other models you should use
- *  #define CMD_BUF_SIZE 512
- * Kobil is aware of the problem and do not plan to solve it.
- */
-/* Communication buffer size (max=adpu+Lc+data+Le) */
-#define CMD_BUF_SIZE (4+1+256+1)
-/* Larger communication buffer size (max=reader status+data+sw) */
-#define RESP_BUF_SIZE (1+256+2)
+/* Communication buffer size (max=adpu+Lc+data+Le)
+ * we use a 64kB for extended APDU on APDU mode readers */
+#define CMD_BUF_SIZE (4 +3 +64*1024 +3)
 
 /* Protocols */
 #define T_0 0
 #define T_1 1
 
-/* Size of an ISO command (CLA+INS+P1+P2) */
-#define ISO_CMD_SIZE 4
-/* Offset of the length byte in an TPDU */
-#define ISO_OFFSET_LENGTH 4
-/* Offset of the data in a TPDU */
-#define ISO_OFFSET_TPDU_DATA 5
-/* ISO length size (1 in general) */
-#define ISO_LENGTH_SIZE 1
+/* Default communication read timeout in milliseconds */
+#define DEFAULT_COM_READ_TIMEOUT (3*1000)
 
-/* Default communication read timeout in seconds */
-#define DEFAULT_COM_READ_TIMEOUT 2
+/* DWORD type formating */
+#ifdef __APPLE__
+/* Apple defines DWORD as uint32_t */
+#define DWORD_X "%X"
+#define DWORD_D "%d"
+#else
+/* pcsc-lite defines DWORD as unsigned long */
+#define DWORD_X "%lX"
+#define DWORD_D "%ld"
+#endif
 
 /*
  * communication ports abstraction

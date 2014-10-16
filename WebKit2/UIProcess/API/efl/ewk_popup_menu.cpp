@@ -43,7 +43,7 @@ EwkPopupMenu::EwkPopupMenu(EwkView* view, WKPopupMenuListenerRef popupMenuListen
     size_t size = WKArrayGetSize(items);
     for (size_t i = 0; i < size; ++i) {
         WKPopupItemRef wkItem = static_cast<WKPopupItemRef>(WKArrayGetItemAtIndex(items, i));
-        m_popupMenuItems = eina_list_append(m_popupMenuItems, EwkPopupMenuItem::create(wkItem).leakPtr());
+        m_popupMenuItems = eina_list_append(m_popupMenuItems, std::make_unique<EwkPopupMenuItem>(wkItem).release());
     }
 }
 
@@ -112,7 +112,7 @@ unsigned ewk_popup_menu_selected_index_get(const Ewk_Popup_Menu* popupMenu)
 
 const Eina_List* ewk_popup_menu_items_get(const Ewk_Popup_Menu* popupMenu)
 {
-    EINA_SAFETY_ON_NULL_RETURN_VAL(popupMenu, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(popupMenu, nullptr);
 
     return popupMenu->items();
 }

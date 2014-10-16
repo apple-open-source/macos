@@ -59,20 +59,17 @@ IOHIDEventQueue * IOHIDEventQueue::withCapacity( UInt32 size )
 IOHIDEventQueue * IOHIDEventQueue::withEntries( UInt32 numEntries,
                                                 UInt32 entrySize )
 {
-    IOHIDEventQueue * queue = new IOHIDEventQueue;
-
-    if ( queue && !queue->initWithEntries(numEntries, entrySize) )
-    {
-        queue->release();
-        queue = 0;
-    }
-
-    queue->_state               = 0;
-    queue->_lock                = IOLockAlloc();
-    queue->_numEntries          = numEntries;
-    queue->_currentEntrySize    = DEFAULT_HID_ENTRY_SIZE;
-    queue->_maxEntrySize        = DEFAULT_HID_ENTRY_SIZE;
-
+    IOHIDEventQueue * queue = NULL;
+    UInt32 size = numEntries*entrySize;
+    
+    if ( size < MIN_HID_QUEUE_CAPACITY )
+        size = MIN_HID_QUEUE_CAPACITY;
+    
+    
+    queue = IOHIDEventQueue::withCapacity(size);
+    if (queue )
+        queue->_numEntries = numEntries;
+    
     return queue;
 }
 
@@ -96,6 +93,15 @@ void IOHIDEventQueue::free()
     super::free();
 }
 
+Boolean IOHIDEventQueue::initWithEntries(UInt32 numEntries, UInt32 entrySize)
+{
+    UInt32 size = numEntries*entrySize;
+    
+    if ( size < MIN_HID_QUEUE_CAPACITY )
+        size = MIN_HID_QUEUE_CAPACITY;
+        
+    return super::initWithCapacity(size);
+}
 
 //---------------------------------------------------------------------------
 // Add data to the queue.

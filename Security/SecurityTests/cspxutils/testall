@@ -1,0 +1,67 @@
+#! /bin/csh -f
+#
+# Run all normal configurations of cspdvt and cltpdvt. 
+#
+# safely look for this required env var
+#
+setenv | grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+        echo Please set env var LOCAL_BUILD_DIR.
+        exit(1)
+endif
+
+# Setup HOME environment with an unlocked login.keychain
+setenv HOME "${LOCAL_BUILD_DIR}/home"
+# Cleanup after a possible previous test run
+rm -rf "${LOCAL_BUILD_DIR}/home"
+echo Creating virtual home directory in "$HOME"...
+mkdir -p "${HOME}/Library/Preferences" || exit(1)
+setenv PATH "${LOCAL_BUILD_DIR}:${PATH}"
+#
+# Avoid Sec layer overriding what we're trying to do here....
+#
+set USERNAME=`whoami`
+if($USERNAME == root) then
+	set LOGIN_KEYCHAIN="${LOCAL_BUILD_DIR}/home/Library/Keychains/login.keychain"
+else
+	set LOGIN_KEYCHAIN=login.keychain
+endif
+echo Creating virtual login keychain in "$LOGIN_KEYCHAIN"...
+security create -p test "$LOGIN_KEYCHAIN"
+security set-keychain-settings "$LOGIN_KEYCHAIN" || exit(1)
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+set FULL_SSL=
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+		case f:
+            set FULL_SSL=f
+            shift
+            breaksw
+        default:
+            echo Usage: testall \[f\(ull SSL tests\)\]
+            exit(1)
+    endsw
+end
+
+#
+# Verify existence of a few random executables before we start.
+#
+if( ( ! -e $BUILD_DIR/wrapTest ) || \
+    ( ! -e $BUILD_DIR/hashTest ) || \
+    ( ! -e $BUILD_DIR/sslViewer ) || \
+    ( ! -e $BUILD_DIR/threadTest) ) then
+        echo === You do not seem to have all of the required executables.
+        echo === Please run \"make all\". 
+        exit(1)
+endif
+
+
+echo ===== Running raw CSP regression test =====
+./cspdvt q || exit(1)
+echo ===== Running CSPDL regression test =====
+./cspdvt q D || exit(1)
+echo ===== Running CL/TP regression test =====
+cd ../clxutils; ./cltpdvt q $FULL_SSL || exit(1)
+echo ===== Full CSP/CL/TP regression test SUCCEEDED =====

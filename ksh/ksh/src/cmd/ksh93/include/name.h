@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -30,7 +30,8 @@
 
 #include	<ast.h>
 #include	<cdt.h>
-#include	"shtable.h"
+
+typedef int (*Nambfp_f)(int, char**, void*);
 
 /* Nodes can have all kinds of values */
 union Value
@@ -52,7 +53,7 @@ union Value
 	struct Ufunction 	*rp;	/* shell user defined functions */
 	struct Namfun		*funp;	/* discipline pointer */
 	struct Namref		*nrp;	/* name reference */
-	int			(*bfp)(int,char*[],void*);/* builtin entry point function pointer */
+	Nambfp_f		bfp;	/* builtin entry point function pointer */
 };
 
 #include	"nval.h"
@@ -100,6 +101,7 @@ struct Ufunction
 	int		*ptree;		/* address of parse tree */
 	int		lineno;		/* line number of function start */
 	short		argc;		/* number of references */
+	short		running;	/* function is running */
 	char		**argv;		/* reference argument list */
 	off_t		hoffset;	/* offset into source or history file */
 	Namval_t	*nspace;	/* pointer to name space */
@@ -125,7 +127,7 @@ struct Ufunction
 #define NV_TYPE		0x1000000
 #define NV_STATIC	0x2000000
 #define NV_COMVAR	0x4000000
-#define NV_UNJUST	0x8000000		/* clear justify attributes */
+#define NV_UNJUST	0x800000		/* clear justify attributes */
 #define NV_FUNCTION	(NV_RJUST|NV_FUNCT)	/* value is shell function */
 #define NV_FPOSIX	NV_LJUST		/* posix function semantics */
 #define NV_FTMP		NV_ZFILL		/* function source in tmpfile */
@@ -260,6 +262,7 @@ extern const char	e_unknownmap[];
 extern const char	e_mapchararg[];
 extern const char	e_subcomvar[];
 extern const char	e_badtypedef[];
+extern const char	e_typecompat[];
 extern const char	e_globalref[];
 extern const char	e_tolower[];
 extern const char	e_toupper[];

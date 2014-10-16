@@ -24,7 +24,7 @@
 #ifndef _IOKIT_IOPCIDEVICE_H
 #define _IOKIT_IOPCIDEVICE_H
 
-#include <IOKit/IOService.h>
+#include <IOKit/IOTypes.h>
 
 /* Definitions of PCI Config Registers */
 enum {
@@ -126,6 +126,20 @@ enum {
     kIOPCIStatusParityErrActive         = 0x8000
 };
 
+enum {
+    kPCI2PCIPrimaryBus          = 0x18,
+    kPCI2PCISecondaryBus        = 0x19,
+    kPCI2PCISubordinateBus      = 0x1a,
+    kPCI2PCISecondaryLT         = 0x1b,
+    kPCI2PCIIORange             = 0x1c,
+    kPCI2PCIMemoryRange         = 0x20,
+    kPCI2PCIPrefetchMemoryRange = 0x24,
+    kPCI2PCIPrefetchUpperBase   = 0x28,
+    kPCI2PCIPrefetchUpperLimit  = 0x2c,
+    kPCI2PCIUpperIORange        = 0x30,
+    kPCI2PCIBridgeControl       = 0x3e
+};
+
 // constants which are part of the PCI Bus Power Management Spec.
 enum
 {
@@ -198,6 +212,7 @@ union IOPCIAddressSpace {
 #endif
     } es;
 };
+typedef union IOPCIAddressSpace IOPCIAddressSpace;
 
 struct IOPCIPhysicalAddress {
     IOPCIAddressSpace   physHi;
@@ -221,6 +236,7 @@ struct IOPCIPhysicalAddress {
 #define kIOPCIClassMatchKey             "IOPCIClassMatch"
 #define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
 #define kIOPCITunnelledKey 		  		"IOPCITunnelled"
+#define kIOPCITunnelL1EnableKey	  		"IOPCITunnelL1Enable"
 
 #define kIOPCIPauseCompatibleKey        "IOPCIPauseCompatible"
 
@@ -255,6 +271,8 @@ struct IOPCIPhysicalAddress {
 #define kIOPCITunnelIDKey               "IOPCITunnelID"
 #define kIOPCITunnelControllerIDKey     "IOPCITunnelControllerID"
 
+#define kIOPCIBridgeInterruptESKey      "IOPCIBridgeInterruptES"
+
 enum {
     kIOPCIDevicePowerStateCount = 4,
     kIOPCIDeviceOffState        = 0,
@@ -269,12 +287,78 @@ enum
     kIOInterruptTypePCIMessaged = 0x00010000
 };
 
+// setLatencyTolerance options
+enum
+{
+    kIOPCILatencySnooped   = 0x00000001,
+    kIOPCILatencyUnsnooped = 0x00000002,
+};
+
+enum
+{
+    kIOPCIProbeOptionDone      = 0x80000000,
+
+    kIOPCIProbeOptionEject     = 0x00100000,
+    kIOPCIProbeOptionNeedsScan = 0x00200000,
+};
+
+#if defined(KERNEL)
+
+#include <IOKit/IOService.h>
+#include <IOKit/IOEventSource.h>
 
 class IOPCIDevice;
 class IOPCIBridge;
 class IOPCI2PCIBridge;
 class IOPCIMessagedInterruptController;
 class IOPCIConfigurator;
+class IOPCIEventSource;
+
+
+// IOPCIEvent.event
+enum 
+{
+    kIOPCIEventCorrectableError = 1,
+    kIOPCIEventNonFatalError    = 2,
+    kIOPCIEventFatalError       = 3,
+    kIOPCIEventLinkEnableChange = 4,
+};
+
+struct IOPCIEvent
+{
+    IOPCIDevice * reporter;
+    uint32_t      event;
+    uint32_t      data[5];
+};
+
+class IOPCIEventSource : public IOEventSource
+{
+    friend class IOPCIBridge;
+    friend class IOPCI2PCIBridge;
+
+    OSDeclareDefaultStructors(IOPCIEventSource);
+public:
+    typedef void (*Action)(OSObject * owner, IOPCIEventSource * es,
+                           const IOPCIEvent * event );
+#define IOPCIEventAction IOPCIEventSource::Action
+ 
+private:
+    queue_chain_t     fQ;
+    IOPCI2PCIBridge * fRoot;
+    IOPCIDevice *     fDevice;
+    uint8_t           fReadIndex;
+    uint8_t           fWriteIndex;
+    IOPCIEvent *      fEvents;
+
+public: 
+    virtual void enable();
+    virtual void disable();
+
+protected:
+    virtual void free(void);
+    virtual bool checkForWork(void);
+};
+
 
 typedef IOReturn (*IOPCIDeviceConfigHandler)(void * ref,
                                                 IOMessage message, IOPCIDevice * device, uint32_t state);
@@ -403,6 +487,7 @@ public:
                                           bool waitForFunction,
                                           void * p1, void * p2,
                                           void * p3, void * p4);
+    virtual IODeviceMemory * getDeviceMemoryWithIndex(unsigned int index);
 
 private:
 	bool configAccess(bool write);
@@ -760,22 +845,17 @@ public:
 	IOReturn relocate(uint32_t options = 0);
 
 	IOReturn setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds);
+
+    IOPCIEventSource * createEventSource(OSObject * owner, IOPCIEventSource::Action action, uint32_t options);
+
+    // allow tunnel controller to enter L1, client should be an attached driver calling
+    // this method in its IOPCIDevice provider.
+	IOReturn setTunnelL1Enable(IOService * client, bool l1Enable);
+
+	IOReturn setASPMState(IOService * client, IOOptionBits state);
 };
 
-// setLatencyTolerance options
-enum
-{
-    kIOPCILatencySnooped   = 0x00000001,
-    kIOPCILatencyUnsnooped = 0x00000002,
-};
-
-enum
-{
-    kIOPCIProbeOptionDone      = 0x80000000,
-
-    kIOPCIProbeOptionEject     = 0x00100000,
-    kIOPCIProbeOptionNeedsScan = 0x00200000,
-};
+#endif /* defined(KERNEL) */
 
 #endif /* ! _IOKIT_IOPCIDEVICE_H */
 

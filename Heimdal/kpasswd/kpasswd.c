@@ -32,7 +32,9 @@
  */
 
 #include "kpasswd_locl.h"
-RCSID("$Id$");
+
+static void usage (int ret, struct getargs *a, int num_args) __attribute__((noreturn));
+
 
 static int version_flag;
 static int help_flag;
@@ -199,7 +201,6 @@ main (int argc, char **argv)
 	case KRB5KRB_AP_ERR_BAD_INTEGRITY :
 	case KRB5KRB_AP_ERR_MODIFIED :
 	    krb5_errx(context, 1, "Password incorrect");
-	    break;
 	default:
 	    krb5_err(context, 1, ret, "krb5_get_init_creds");
 	}

@@ -216,7 +216,7 @@ option_t pptp_options[] = {
     { "pptp-tcp-keepalive", o_int, &tcp_keepalive,
       "TCP keepalive interval" },
     { "pptpwaitiftimeout", o_int, &wait_if_timeout,
-      "How long do we wait for our transport interface to come back after interface events" },    
+      "How long do we wait for our transport interface to come back after interface events" },
     { NULL }
 };
 
@@ -622,14 +622,151 @@ int pptp_pre_start_link_check()
     return -1;
 }
 
-/* ----------------------------------------------------------------------------- 
+static CFStringRef pptp_copy_str_at_index(CFStringRef key, int index)
+{
+    CFArrayRef	components;
+    CFStringRef foundstr = NULL;
+
+    components = CFStringCreateArrayBySeparatingStrings(NULL, key, CFSTR("/"));
+    if (index < CFArrayGetCount(components)) {
+        if ((foundstr = CFArrayGetValueAtIndex(components, index))){
+            CFRetain(foundstr);
+        }
+    }
+    CFRelease(components);
+    return foundstr;
+}
+
+static void pptp_get_router_address(CFStringRef serviceID)
+{
+    CFStringRef		routerAddress = NULL;
+    CFStringRef     ipv4Key = NULL;
+    CFDictionaryRef ipv4Dict = NULL;
+
+    if (serviceID == NULL) {
+        goto done;
+    }
+    warning("pptp_get_router_address\n");
+    ipv4Key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainState,
+                                                          serviceID,
+                                                          kSCEntNetIPv4);
+    if (ipv4Key == NULL) {
+        goto done;
+    }
+
+    ipv4Dict = SCDynamicStoreCopyValue(NULL, ipv4Key);
+    if (ipv4Dict == NULL) {
+        goto done;
+    }
+
+    routerAddress = CFDictionaryGetValue(ipv4Dict, kSCPropNetIPv4Router);
+    if (routerAddress) {
+        CFStringGetCString(routerAddress, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+        warning("pptp_get_router_address %s\n", routeraddress);
+    }
+
+done:
+    if (ipv4Key) {
+        CFRelease(ipv4Key);
+    }
+    if (ipv4Dict) {
+        CFRelease(ipv4Dict);
+    }
+}
+
+static void pptp_get_router_address_for_interface(void)
+{
+    CFDictionaryRef     dict = NULL;
+    CFStringRef         pattern = NULL;
+    CFMutableArrayRef   patterns = NULL;
+    CFStringRef         *keys = NULL;
+    CFDictionaryRef     *values = NULL;
+    CFIndex             count = 0;
+    CFIndex             i = 0;
+    CFStringRef         serviceID = NULL;
+
+    if (interface == NULL || interface[0] == 0) {
+        goto done;
+    }
+
+    patterns = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainState,
+                                                          kSCCompAnyRegex,
+                                                          kSCEntNetIPv4);
+
+    if (patterns == NULL || pattern == NULL)
+        goto done;
+    CFArrayAppendValue(patterns, pattern);
+
+    dict = SCDynamicStoreCopyMultiple(NULL, NULL, patterns);
+    if (dict == NULL)
+        goto done;
+	
+    count = CFDictionaryGetCount(dict);
+
+    keys = calloc(count, sizeof(CFStringRef));
+    values = calloc(count, sizeof(CFDictionaryRef));
+    if (keys == NULL || values == NULL)
+        goto done;
+    CFDictionaryGetKeysAndValues(dict, (const void**)keys, (const void**)values);
+    for (i=0; i < count; i++) {
+        CFDictionaryRef ipv4Dict = NULL;
+        CFStringRef     ipv4Key = NULL;
+        
+        ipv4Key  = keys[i];
+        ipv4Dict = values[i];
+        
+        if (ipv4Key == NULL || ipv4Dict == NULL) {
+            continue;
+        }
+        
+        /* Match interface name here */
+        CFStringRef ifnameRef = CFDictionaryGetValue(ipv4Dict, kSCPropInterfaceName);
+        if (ifnameRef) {
+            char ifname[IFNAMSIZ] = { 0 };
+            CFStringGetCString(ifnameRef, ifname, sizeof(ifname), kCFStringEncodingASCII);
+            if (!strcmp(ifname, interface)) {
+                if ((CFStringHasPrefix(ipv4Key, kSCDynamicStoreDomainState)) && (CFStringHasSuffix(ipv4Key, kSCEntNetIPv4))) {
+                    // Fetch the serviceID, then the router address
+                    serviceID = pptp_copy_str_at_index(ipv4Key, 3);
+                    pptp_get_router_address(serviceID);
+                    break;
+                }
+            }
+        }
+    }
+
+done:
+    if (serviceID) {
+        CFRelease(serviceID);
+    }
+    if (pattern) {
+        CFRelease(pattern);
+    }
+    if (patterns) {
+        CFRelease(patterns);
+    }
+    if (dict) {
+        CFRelease(dict);
+    }
+    if (keys) {
+        free(keys);
+    }
+    if (values) {
+        free(values);
+    }
+}
+
+/* -----------------------------------------------------------------------------
 get the socket ready to start doing PPP.
 That is, open the socket and start the PPTP dialog
 ----------------------------------------------------------------------------- */
 int pptp_connect(int *errorcode)
 {
-    char 		dev[32], name[MAXPATHLEN], c; 
-    int 		err = 0, fd, val;  
+    char 		dev[32], name[MAXPATHLEN], c;
+    int 		err = 0, fd, val;
 	uint32_t    len;
     CFURLRef		url;
     CFDictionaryRef	dict;
@@ -656,16 +793,21 @@ int pptp_connect(int *errorcode)
     routeraddress[0] = 0;
     interface[0] = 0;
     
-    key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-    if (key) {
-        dict = SCDynamicStoreCopyValue(cfgCache, key);
-	CFRelease(key);
-        if (dict) {
-            if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
-                CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-            if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
-                CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
-            CFRelease(dict);
+    if (ifscope && ifscope[0]) {
+        strcpy(interface, ifscope);
+        pptp_get_router_address_for_interface();
+    } else {
+        key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+        if (key) {
+            dict = SCDynamicStoreCopyValue(cfgCache, key);
+            CFRelease(key);
+            if (dict) {
+                if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
+                    CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+                if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
+                    CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
+                CFRelease(dict);
+            }
         }
     }
 
@@ -688,12 +830,6 @@ int pptp_connect(int *errorcode)
     interface_media = pptp_get_if_media((char*)interface);
 #endif /* !iPhone */
 
-	// check to see if interface is captive: if so, bail if the interface is not ready.
-	if (check_vpn_interface_captive_and_not_ready(cfgCache, (char *)interface)) {
-		// TODO: perhaps we should wait for a few seconds?
-		goto fail;
-	}
-	
 	/* let's say our underlying transport is up */
 	transport_up = 1;
 	wait_interface_timer_running = 0;
@@ -837,7 +973,11 @@ int pptp_connect(int *errorcode)
         addr.sin_port = htons(PPTP_TCP_PORT);
         addr.sin_addr = peeraddress; 
 
-        while (connect(ctrlsockfd, (struct sockaddr *)&addr, sizeof(addr))) {
+        uint32_t ifindex = 0;
+        if (ifscope && ifscope[0]) {
+            ifindex = if_nametoindex(ifscope);
+        }
+        while (connectx(ctrlsockfd, NULL, 0, (struct sockaddr *)&addr, sizeof(addr), ifindex, ASSOCID_ANY, CONNID_ANY)) {
             if (errno != EINTR) {
                 error("PPTP connect errno = %d %m\n", errno);
                 if ((errno == ETIMEDOUT || errno == ECONNREFUSED) &&

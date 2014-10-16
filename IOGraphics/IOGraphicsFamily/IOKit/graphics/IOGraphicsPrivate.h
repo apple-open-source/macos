@@ -147,8 +147,10 @@ extern bool                   gIOFBSystemPower;
 extern IOOptionBits           gIOFBCurrentClamshellState;
 extern const class OSSymbol * gIOFramebufferKey;
 extern class OSData *         gIOFBZero32Data;
+extern class OSData *         gIOFBOne32Data;
 extern int32_t                gIOFBHaveBacklight;
 extern const OSSymbol *       gIOFBPMSettingDisplaySleepUsesDimKey;
+extern bool                   gIOGFades;
 
 #if __ppc__
 extern "C" void bcopy_nc( void * from, void * to, UInt32 l );
@@ -173,6 +175,7 @@ enum
 	kIOGDbgDumbPanic       = 0x00000008,
 	kIOGDbgVBLDrift        = 0x00000010,
 	kIOGDbgForceBrightness = 0x00000020,
+	kIOGDbgFades           = 0x00000040,
 };
 
 #ifndef kIOScreenLockStateKey

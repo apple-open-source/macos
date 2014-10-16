@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>unlocked-io.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">unlocked-io.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># unlocked-io.m4 serial 10
+</span>
+<span class="enscript-comment">dnl Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software
+</span><span class="enscript-comment">dnl Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Jim Meyering.
+</span><span class="enscript-comment">dnl
+</span><span class="enscript-comment">dnl See if the glibc *_unlocked I/O macros or functions are available.
+</span><span class="enscript-comment">dnl Use only those *_unlocked macros or functions that are declared
+</span><span class="enscript-comment">dnl (because some of them were declared in Solaris 2.5.1 but were removed
+</span><span class="enscript-comment">dnl in Solaris 2.6, whereas we want binaries built on Solaris 2.5.1 to run
+</span><span class="enscript-comment">dnl on Solaris 2.6).
+</span>
+AC_DEFUN([gl_FUNC_GLIBC_UNLOCKED_IO],
+[
+  AC_DEFINE([USE_UNLOCKED_IO], 1,
+    [Define to 1 if you want getc etc. to use unlocked I/O if available.
+     Unlocked I/O can improve performance in unithreaded apps,
+     but it is not safe for multithreaded apps.])
+
+  <span class="enscript-comment">dnl Persuade glibc and Solaris &lt;stdio.h&gt; to declare
+</span>  <span class="enscript-comment">dnl fgets_unlocked(), fputs_unlocked() etc.
+</span>  AC_REQUIRE([gl_USE_SYSTEM_EXTENSIONS])
+
+  AC_CHECK_DECLS_ONCE(
+     [clearerr_unlocked feof_unlocked ferror_unlocked
+      fflush_unlocked fgets_unlocked fputc_unlocked fputs_unlocked
+      fread_unlocked fwrite_unlocked getc_unlocked
+      getchar_unlocked putc_unlocked putchar_unlocked])
+])
+</pre>
+<hr />
+</body></html>

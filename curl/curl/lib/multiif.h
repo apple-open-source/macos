@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -29,6 +29,10 @@ void Curl_expire(struct SessionHandle *data, long milli);
 
 bool Curl_multi_pipeline_enabled(const struct Curl_multi* multi);
 void Curl_multi_handlePipeBreak(struct SessionHandle *data);
+
+/* Internal version of curl_multi_init() accepts size parameters for the
+   socket and connection hashes */
+struct Curl_multi *Curl_multi_handle(int hashsize, int chashsize);
 
 /* the write bits start at bit 16 for the *getsock() bitmap */
 #define GETSOCK_WRITEBITSTART 16
@@ -76,5 +80,17 @@ struct curl_llist *Curl_multi_pipelining_server_bl(struct Curl_multi *multi);
 
 /* Return the value of the CURLMOPT_MAX_TOTAL_CONNECTIONS option */
 size_t Curl_multi_max_total_connections(struct Curl_multi *multi);
+
+/*
+ * Curl_multi_closed()
+ *
+ * Used by the connect code to tell the multi_socket code that one of the
+ * sockets we were using have just been closed.  This function will then
+ * remove it from the sockethash for this handle to make the multi_socket API
+ * behave properly, especially for the case when libcurl will create another
+ * socket again and it gets the same file descriptor number.
+ */
+
+void Curl_multi_closed(struct connectdata *conn, curl_socket_t s);
 
 #endif /* HEADER_CURL_MULTIIF_H */

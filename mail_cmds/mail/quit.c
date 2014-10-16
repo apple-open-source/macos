@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)quit.c	8.2 (Berkeley) 4/28/95";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.bin/mail/quit.c,v 1.7 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */

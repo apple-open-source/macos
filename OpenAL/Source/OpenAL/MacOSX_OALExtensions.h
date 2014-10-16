@@ -1,7 +1,7 @@
 /**********************************************************************************************************************************
 *
 *   OpenAL cross platform audio library
-*   Copyright (c) 2006, Apple Computer, Inc., Copyright (c) 2012, Apple Inc. All rights reserved.
+*   Copyright (c) 2006, Apple Computer, Inc., Copyright (c) 2014, Apple Inc. All rights reserved.
 *
 *   Redistribution and use in source and binary forms, with or without modification, are permitted provided 
 *   that the following conditions are met:
@@ -61,6 +61,28 @@ typedef ALdouble (*alcMacOSXGetMixerOutputRateProcPtr) ();
 */
 	#define ALC_MAC_OSX_RENDER_CHANNEL_COUNT_STEREO         'rcst'
 	#define ALC_MAC_OSX_RENDER_CHANNEL_COUNT_MULTICHANNEL   'rcmc'
+
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ AL_EXT_SOURCE_SPATIALIZATION
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/*
+ Allows the rendering quality to be explicitly set on a source object, overriding the default
+ render quality set via alcMacOSXRenderingQuality(). A subsequent call to alcMacOSXRenderingQuality()
+ resets the render quality of all source objects.
+ 
+ Uses the same render settings (defined above) as alcMacOSXRenderingQuality():
+ 
+ ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_HIGH
+ ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_LOW
+ ALC_IPHONE_SPATIAL_RENDERING_QUALITY_HEADPHONES
+ 
+ Retrieve functions via alcGetProcAddress() by passing in strings: alSourceRenderingQuality or alSourceGetRenderingQuality
+ */
+
+typedef ALvoid (*alSourceRenderingQualityProcPtr) (ALuint sid, ALint value);
+typedef ALint (*alSourceGetRenderingQualityProcPtr) (ALuint sid);
+
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	AL_EXT_STATIC_BUFFER
@@ -244,5 +266,70 @@ typedef ALenum  (*alcASASetListenerProcPtr) (ALuint property, ALvoid *data, ALui
 	#define ALC_ASA_DISTORTION_TYPE_Waves				21
 
 	
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ ALC_EXT_OUTPUT_CAPTURER
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/*
+ Allows an application to capture the rendered output of the current context.
+ The application prepares OpenAL for capturing the context output by specifying the data format
+ of the captured audio output data. Once capture has been started, the application then queries OpenAL
+ for the available number of captured samples, and requests the samples by providing a buffer to fill.
+ 
+ Retrieve functions via alcGetProcAddress() by passing in strings: alcOutputCapturerPrepare, alcOutputCapturerStart,
+ alcOutputCapturerStop, alcOutputCapturerAvailableSamples and alcOutputCapturerSamples
+ */
+
+/*
+ API: alcOutputCapturerPrepare
+ 
+ Prepare output capturing of the current context by specifying the data format desired from OpenAL.
+ 
+ frequency		- Sampling rate of the captured output.
+ 
+ format         - Data format of the captured data. Specified as one of the native OpenAL data format types:
+ AL_FORMAT_MONO8
+ AL_FORMAT_MONO16
+ AL_FORMAT_STEREO8
+ AL_FORMAT_STEREO16
+ 
+ maxsamplecount     - The maximum number of samples that will be requested by the application.
+ */
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerPrepareProcPtr)   (ALCuint frequency, ALCenum format, ALCsizei maxsamplecount);
+
+/*
+ API: alcOutputCapturerStart
+ 
+ Start capturing samples rendered by the current context to a maximum of the sample count specified when calling alcOutputCapturerPrepare.
+ */
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerStartProcPtr) ();
+
+/*
+ API: alcOutputCapturerStop
+ 
+ Stop capturing samples rendered by the context. This function resets the captured audio samples to 0.
+ */
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerStopProcPtr) ();
+
+/*
+ API: alcOutputCapturerAvailableSamples
+ 
+ Get the number of captured samples currently available.
+ */
+typedef ALint  AL_APIENTRY (*alcOutputCapturerAvailableSamplesProcPtr) ();
+
+/*
+ API: alcOutputCapturerSamples
+ 
+ Write captured samples to an application provided buffer.
+ 
+ buffer         -   Application provided buffer to be filled with the requested amount of samples and must be of size
+ samplecount * size of sample. i.e. 100 samples of AL_FORMAT_STEREO16 data -> 100 * 4 = 400 bytes
+ The buffer must NOT be deallocated before the call to alcOutputCapturerSamples returns.
+ 
+ samplecount    -   Number of samples to be copied to the provided buffer.
+ Requesting more samples than currently available is an error.
+ */
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerSamplesProcPtr)   (ALCvoid *buffer, ALCsizei samplecount);
+
 
 #endif // __MAC_OSX_OAL_EXTENSIONS_H__

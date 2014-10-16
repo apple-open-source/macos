@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 ##!/usr/bin/ksh
 #
 # diskhits - disk access by file offset.
@@ -63,7 +63,7 @@ if [[ $1 == "-h" ]]; then
 fi
 pathname=$1
 if [[ ! -e $pathname ]]; then
-	print "ERROR2: file $pathname not found" >&2
+	echo "ERROR2: file $pathname not found" >&2
 	exit 2
 fi
 

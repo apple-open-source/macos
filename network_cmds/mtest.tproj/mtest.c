@@ -347,19 +347,6 @@ af2sock(const int af, int s, int s6)
 	return (-1);
 }
 
-static __inline int
-af2socklen(const int af)
-{
-	
-	if (af == AF_INET)
-		return (sizeof(struct sockaddr_in));
-#ifdef INET6
-	if (af == AF_INET6)
-		return (sizeof(struct sockaddr_in6));
-#endif
-	return (-1);
-}
-
 static void
 process_cmd(char *cmd, int s, int s6 __unused, FILE *fp __unused)
 {

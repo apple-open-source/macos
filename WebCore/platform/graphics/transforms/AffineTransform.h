@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
  *               2010 Dirk Schulze <krit@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,15 +27,13 @@
 #ifndef AffineTransform_h
 #define AffineTransform_h
 
-#include <string.h> // for memcpy
-#include <wtf/FastAllocBase.h>
+#include <array>
+#include <wtf/FastMalloc.h>
 
 #if USE(CG)
 typedef struct CGAffineTransform CGAffineTransform;
 #elif USE(CAIRO)
 #include <cairo.h>
-#elif PLATFORM(QT)
-#include <QTransform>
 #endif
 
 namespace WebCore {
@@ -52,8 +50,6 @@ class TransformationMatrix;
 class AffineTransform {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    typedef double Transform[6];
-
     AffineTransform();
     AffineTransform(double a, double b, double c, double d, double e, double f);
 
@@ -112,6 +108,8 @@ public:
     AffineTransform& skewX(double angle);
     AffineTransform& skewY(double angle);
 
+    // These functions get the length of an axis-aligned unit vector
+    // once it has been mapped through the transform
     double xScale() const;
     double yScale() const;
 
@@ -168,8 +166,6 @@ public:
     operator CGAffineTransform() const;
 #elif USE(CAIRO)
     operator cairo_matrix_t() const;
-#elif PLATFORM(QT)
-    operator QTransform() const;
 #endif
 
     static AffineTransform translation(double x, double y)
@@ -189,13 +185,7 @@ public:
     void recompose(const DecomposedType&);
 
 private:
-    void setMatrix(const Transform m)
-    {
-        if (m && m != m_transform)
-            memcpy(m_transform, m, sizeof(Transform));
-    }
-
-    Transform m_transform;
+    std::array<double, 6> m_transform;
 };
 
 AffineTransform makeMapBetweenRects(const FloatRect& source, const FloatRect& dest);

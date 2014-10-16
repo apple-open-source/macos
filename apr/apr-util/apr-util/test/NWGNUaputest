@@ -173,28 +173,29 @@ TARGET_lib = \
 FILES_nlm_objs = \
 	$(OBJDIR)/abts.o \
 	$(OBJDIR)/testbuckets.o \
+	$(OBJDIR)/testcrypto.o \
 	$(OBJDIR)/testdate.o \
 	$(OBJDIR)/testdbd.o \
 	$(OBJDIR)/testdbm.o \
-	$(OBJDIR)/testldap.o \
 	$(OBJDIR)/testmemcache.o \
 	$(OBJDIR)/testmd4.o \
 	$(OBJDIR)/testmd5.o \
+	$(OBJDIR)/testldap.o \
 	$(OBJDIR)/testpass.o \
 	$(OBJDIR)/testqueue.o \
 	$(OBJDIR)/testreslist.o \
 	$(OBJDIR)/testrmm.o \
 	$(OBJDIR)/teststrmatch.o \
 	$(OBJDIR)/testuri.o \
-	$(OBJDIR)/testuuid.o \
 	$(OBJDIR)/testutil.o \
-	$(OBJDIR)/testxlate.o \
+	$(OBJDIR)/testuuid.o \
 	$(OBJDIR)/testxml.o \
+	$(OBJDIR)/testxlate.o \
 	$(OBJDIR)/nw_misc.o \
 	$(EOLIST) 
 
 # Pending tests
-	
+
 #
 # These are the LIB files needed to create the NLM target above.
 # These will be added as a library command in the link.opt file.
@@ -234,7 +235,6 @@ FILE_nlm_copyright =
 #
 FILES_nlm_Ximports = \
 	@libc.imp \
-	@netware.imp \
 	@aprlib.imp \
 	@lldapsdk.imp \
 	@lldapssl.imp \

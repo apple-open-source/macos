@@ -82,6 +82,7 @@
  * traversals.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -105,6 +106,8 @@
 
 /* The version of DWARF which we support. */
 #define	DWARF_VERSION	2
+#define	DWARF_VERSION3	3
+#define	DWARF_VERSION4	4
 
 /*
  * We need to define a couple of our own intrinsics, to smooth out some of the
@@ -1032,8 +1035,28 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 #ifdef	_BIG_ENDIAN
 			ml->ml_offset += bitoff;
 #else
-			ml->ml_offset += tdesc_bitsize(ml->ml_type) - bitoff -
-			    ml->ml_size;
+			/*
+			 * A DW_AT_byte_size attribute whose value (see Section 2.19) is the
+			 * number of bytes that contain an instance of the bit field and any
+			 * padding bits.
+			 *
+			 * The byte size attribute may be omitted if the size of the object
+			 * containing the bit field can be inferred from the type attribute of
+			 * the data member containing the bit field.
+			 *
+			 * There is some cases where we don't know, yet, the
+			 * size of some intrinsic types.  We must be sure that
+			 * in this case we have a AT_byte_size attribute.
+			 */
+			Dwarf_Unsigned bytesz = 0;
+			if (die_unsigned(dw, mem, DW_AT_byte_size, &bytesz, 0)) {
+				ml->ml_offset += (bytesz * 8) - bitoff - ml->ml_size;
+			} else {
+				size_t bitsz = tdesc_bitsize(ml->ml_type);
+				assert((bitsz != 0) && "AT_byte_size missing and cannot figure the bitfield size");
+
+				ml->ml_offset += bitsz - bitoff - ml->ml_size;
+			}
 #endif
 		}
 
@@ -1952,7 +1975,7 @@ dw_read(tdata_t *td, Elf *elf, const char *filename)
 		terminate("file contains too many types\n");
 
 	debug(1, "DWARF version: %d\n", vers);
-	if (vers != DWARF_VERSION) {
+	if (vers != DWARF_VERSION && vers != DWARF_VERSION3 && vers != DWARF_VERSION4) {
 		terminate("file contains incompatible version %d DWARF code "
 		    "(version 2 required)\n", vers);
 	}

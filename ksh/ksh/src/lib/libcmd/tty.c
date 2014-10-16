@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -54,10 +54,14 @@ USAGE_LICENSE
 #endif
 
 int
-b_tty(int argc, char *argv[], void* context)
+b_tty(int argc, char** argv, Shbltin_t* context)
 {
-	register int n,sflag=0,lflag=0;
-	register char *tty;
+	register int	sflag = 0;
+	register int	lflag = 0;
+	register char*	tty;
+#if _mac_STWLINE
+	int		n;
+#endif
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	for (;;)
@@ -91,7 +95,7 @@ b_tty(int argc, char *argv[], void* context)
 	if(lflag)
 	{
 #if _mac_STWLINE
-		if (n = ioctl(0, STWLINE, 0)) >= 0)
+		if ((n = ioctl(0, STWLINE, 0)) >= 0)
 			error(ERROR_OUTPUT, 1, "synchronous line %d", n);
 		else
 #endif

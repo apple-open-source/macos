@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005, 2007, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,7 +129,7 @@ updateStore(const void *key, const void *value, void *context)
 
 __private_extern__
 void
-interface_update_ipv4(struct ifaddrs *ifap, const char *if_name)
+ipv4_interface_update(struct ifaddrs *ifap, const char *if_name)
 {
 	struct ifaddrs		*ifa;
 	struct ifaddrs		*ifap_temp	= NULL;
@@ -239,7 +239,7 @@ interface_update_ipv4(struct ifaddrs *ifap, const char *if_name)
 
 __private_extern__
 void
-interface_collision_ipv4(const char *if_name, struct in_addr ip_addr, int hw_len, const void * hw_addr)
+ipv4_arp_collision(const char *if_name, struct in_addr ip_addr, int hw_len, const void * hw_addr)
 {
 	uint8_t	*		hw_addr_bytes = (uint8_t *)hw_addr;
 	int			i;
@@ -270,7 +270,7 @@ interface_collision_ipv4(const char *if_name, struct in_addr ip_addr, int hw_len
 #if	!TARGET_OS_IPHONE
 __private_extern__
 void
-port_in_use_ipv4(uint16_t port, pid_t req_pid)
+ipv4_port_in_use(uint16_t port, pid_t req_pid)
 {
 	CFStringRef		key;
 
@@ -286,3 +286,35 @@ port_in_use_ipv4(uint16_t port, pid_t req_pid)
 	return;
 }
 #endif	/* !TARGET_OS_IPHONE */
+
+static void
+interface_notify_entity(const char * if_name, CFStringRef entity)
+{
+	CFStringRef		if_name_cf;
+	CFStringRef		key;
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name,
+					       kCFStringEncodingASCII);
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    entity);
+	CFRelease(if_name_cf);
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
+	return;
+}
+
+__private_extern__ void
+ipv4_router_arp_failure(const char * if_name)
+{
+	interface_notify_entity(if_name, kSCEntNetIPv4RouterARPFailure);
+	return;
+}
+
+__private_extern__ void
+ipv4_router_arp_alive(const char * if_name)
+{
+	interface_notify_entity(if_name, kSCEntNetIPv4RouterARPAlive);
+	return;
+}

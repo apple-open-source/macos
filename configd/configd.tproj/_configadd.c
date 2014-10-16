@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011, 2012, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -194,6 +194,11 @@ _configadd_s(mach_port_t 		server,
 	if (mySession == NULL) {
 		/* you must have an open session to play */
 		*sc_status = kSCStatusNoStoreSession;
+		goto done;
+	}
+
+	if (!hasWriteAccess(mySession, key)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 

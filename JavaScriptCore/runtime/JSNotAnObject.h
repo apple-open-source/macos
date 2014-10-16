@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -38,27 +38,27 @@ namespace JSC {
     // any operations performed on the result of a failed toObject call.
     class JSNotAnObject : public JSNonFinalObject {
     private:
-        JSNotAnObject(ExecState* exec)
-            : JSNonFinalObject(exec->vm(), exec->vm().notAnObjectStructure.get())
+        explicit JSNotAnObject(VM& vm)
+            : JSNonFinalObject(vm, vm.notAnObjectStructure.get())
         {
         }
         
     public:
         typedef JSNonFinalObject Base;
 
-        static JSNotAnObject* create(ExecState* exec)
+        static JSNotAnObject* create(VM& vm)
         {
-            JSNotAnObject* object = new (NotNull, allocateCell<JSNotAnObject>(*exec->heap())) JSNotAnObject(exec);
-            object->finishCreation(exec->vm());
+            JSNotAnObject* object = new (NotNull, allocateCell<JSNotAnObject>(vm.heap)) JSNotAnObject(vm);
+            object->finishCreation(vm);
             return object;
         }
 
         static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
         {
-            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+            return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
         }
 
-        static const ClassInfo s_info;
+        DECLARE_INFO;
 
      private:
         
@@ -68,9 +68,8 @@ namespace JSC {
         static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
 
         // JSObject methods
-        static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
-        static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
-        static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+        static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+        static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
 
         static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
         static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);

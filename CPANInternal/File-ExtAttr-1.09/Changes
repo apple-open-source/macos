@@ -1,0 +1,163 @@
+Revision history for Perl extension File::ExtAttr.
+
+1.09 2009-03-07
+
+    - (richdawe) Add note to README about needing to install
+                 package that provides the headers <attr/attributes.h>
+                 and <attr/xattr.h>.
+
+    - (richdawe) Fix RT #31970: "OS X: setfattr fails to set empty value".
+                 According to the CPAN Testers results, this works
+                 on Mac OS X 10.5.
+
+                 Skip the "empty" tests on Mac OS X 10.4 and earlier.
+                 Document issue.
+
+    - (richdawe) Fix #34394: "Test suite should skip on filesystems
+                 with no xattr support when run non-interactively"
+                 on Linux.
+
+                 When run interactively, it will suggest what you need
+                 to do, to get the test suite to pass.
+
+    - (richdawe) Fix RT #37889: "Crash when operating on a closed file handle
+                 on Solaris". This was due to using an uninitialised
+                 directory handle.
+
+1.08 2008-08-19
+
+    - (richdawe) Add a typemap for usage of "const char *" in the XS.
+                 This may help fix the build with Perl 5.6.x or earlier.
+
+    - (richdawe) Remove NetBSD 3.x from list of supported OSes,
+                 since File::ExtAttr's test suite will never pass on it.
+
+    - (richdawe) Update Makefile.PL to fail more gracefully when the build
+                 pre-requisites are not present. On Linux use
+                 Devel::CheckLib to check for libattr. Also exit
+                 more gracefully if libattr's headers are not present.
+
+    - (richdawe) OpenBSD isn't supported, so bail gracefully
+                 in Makefile.PL on that platform.
+
+    - (richdawe) Make sure that the errno value from any failed
+                 system calls is propagated into $! (#32679, #32680).
+
+    - (richdawe) File::ExtAttr no longer generate noisy warnings
+                 when an xattr system call fails. All error reporting
+                 is now via the function return values and $!.
+
+    - (richdawe) Operations with non-default or non-"user" namespaces
+                 will now fail with EOPNOTSUPP instead of ENOATTR
+                 on Mac OS X, *BSD and Solaris. This behaviour
+                 matches the behaviour on Linux.          
+
+    - (richdawe) Added a note to the documentation about Solaris
+                 extensible system attributes, which are different
+                 to extended file attributes.
+
+1.07 2007-12-15
+
+    - (richdawe) Bugfix: When the attribute value was empty, getfattr()
+                 returned garbage. Fixed. (Reported by Joe Stewart --
+                 thanks!)
+
+    - (richdawe) Change my contact details.
+
+1.06 2007-11-04
+
+    - (richdawe) Bugfix: Builds and works again on Mac OS X 10.4 (Tiger).
+
+    - (richdawe) Fix typo in t/33nslong.t, which caused it to fail
+                 on Mac OS X.
+
+1.05 2007-08-13
+
+    - (richdawe) Fix META.yml so that it's valid. Add a test using
+      		 Test::YAML::Meta to the test suite, to validate META.yml.
+
+    - (richdawe) Fix RT #27864: "Tests fail with nl_NL locale set".
+
+    - (richdawe) Add test cases for setting attributes on directories,
+                 by filename.
+
+    - (richdawe) Bugfix: Fix a memory leak in getfattr(). The memory was
+                 leaked when the function failed, e.g.: if it was called
+                 with the name of a non-existent attribute.
+
+1.04 2007-05-06
+
+    - (richdawe) OpenBSD does not support extended attributes --
+                 fail the build on OpenBSD; documentation updates.
+
+    - (richdawe) Really fix build for NetBSD 3.x. Update the test suite
+                 to skip tests on NetBSD 3.1 or earlier,
+                 since NetBSD 4.0 is the first version to actually have
+                 filesystem support for extended attributes.
+
+1.03 2007-04-27
+
+    - (richdawe) Fix RT #26542: "Tests fail with taint-mode
+                 and ATTR_TEST_DIR set"; also document ATTR_TEST_DIR.
+
+    - (richdawe) Build fix for NetBSD, OpenBSD: Use strerror()
+                 if strerror_r() is not available.
+
+1.02 2007-04-06
+
+    - (richdawe) Fix listfattr() so it works on Linux. Thanks to rafl
+                 and Jonathan Rockway for the patch!
+    - (richdawe) Add test cases for listfattr().
+    - (richdawe) Fix warning in listfattr(), listfattrns()
+                 when operating on a file handle.
+
+1.01 2006-10-02
+
+    - (richdawe) Fix brown paper bag bugs in MANIFEST that broke the build.
+
+1.00 2006-10-02
+
+    - (richdawe) Add support for Solaris 10.
+
+    - (richdawe) Add support for File::ExtAttr::Tie on *BSD.
+
+    - (richdawe) API change: Namespace and the create/replace flag
+                 are now passed via a hash. This breaks API compatibility
+                 for both File::ExtAttr and File::ExtAttr::Tie.
+
+                 One API change remains: using exceptions rather
+                 than warnings to report errors.
+
+    - (richdawe) Fix RT #21214: "ISO C90 forbids mixed declarations
+                 and code"
+
+    NOTE: This relase has not been built or tested on Mac OS X.
+
+0.05 2006-05-27
+    - (richdawe) Add support for FreeBSD 6.0. This may also work
+                 with NetBSD >= 4.0 and OpenBSD > 3.8.
+    - (richdawe) All *fattr functions now take some optional flags.
+    - (richdawe) Add File::ExtAttr::Tie for tied access to extattrs;
+                 thanks to David Leadbeater!
+
+0.04 2006-01-20
+    - (richdawe) Add Mac OS X support; thanks to Jonathan Rockway!
+    - (richdawe) Add a check to Makefile.PL for libattr's headers on Linux.
+    - (richdawe) Requirement on Perl 5.8.5 is spurious; remove it.
+
+0.03 2006-01-01
+    - (richdawe) Rename to File::ExtAttr from Linux::xattr
+    - (richdawe) Bugfix: XATTR_* were not found correctly in XS.
+    - (richdawe) Bugfix: Off-by-one buffer overflow in XS for getfattr().
+    - (richdawe) Split the tests up, to make them more granular.
+    - (richdawe) Final parameter of setfattr() is now optional.
+    - (richdawe) Support specifying file using an IO::Handle.
+
+0.02 2005-11-15
+    - (kg) changing to use system functions instead of compatability functions
+    - (kg) fixing strlen stuff in get and set
+    - (kg) exporting constants
+
+0.01  Wed Nov  9 08:57:42 2005
+	- original version; created by h2xs 1.23 with options
+		-O -n Linux::xattr Linux-xattr/mylib/xattrlib.h

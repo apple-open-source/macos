@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -53,60 +53,60 @@
 #	define extern	__EXPORT__
 #endif
 
-extern int b_alias(int, char*[],void*);
-extern int b_break(int, char*[],void*);
-extern int b_dot_cmd(int, char*[],void*);
-extern int b_enum(int, char*[],void*);
-extern int b_exec(int, char*[],void*);
-extern int b_eval(int, char*[],void*);
-extern int b_return(int, char*[],void*);
-extern int B_login(int, char*[],void*);
-extern int b_true(int, char*[],void*);
-extern int b_false(int, char*[],void*);
-extern int b_readonly(int, char*[],void*);
-extern int b_set(int, char*[],void*);
-extern int b_shift(int, char*[],void*);
-extern int b_trap(int, char*[],void*);
-extern int b_typeset(int, char*[],void*);
-extern int b_unset(int, char*[],void*);
-extern int b_unalias(int, char*[],void*);
+extern int b_alias(int, char*[],Shbltin_t*);
+extern int b_break(int, char*[],Shbltin_t*);
+extern int b_dot_cmd(int, char*[],Shbltin_t*);
+extern int b_enum(int, char*[],Shbltin_t*);
+extern int b_exec(int, char*[],Shbltin_t*);
+extern int b_eval(int, char*[],Shbltin_t*);
+extern int b_return(int, char*[],Shbltin_t*);
+extern int B_login(int, char*[],Shbltin_t*);
+extern int b_true(int, char*[],Shbltin_t*);
+extern int b_false(int, char*[],Shbltin_t*);
+extern int b_readonly(int, char*[],Shbltin_t*);
+extern int b_set(int, char*[],Shbltin_t*);
+extern int b_shift(int, char*[],Shbltin_t*);
+extern int b_trap(int, char*[],Shbltin_t*);
+extern int b_typeset(int, char*[],Shbltin_t*);
+extern int b_unset(int, char*[],Shbltin_t*);
+extern int b_unalias(int, char*[],Shbltin_t*);
 
 /* The following are for job control */
 #if defined(SIGCLD) || defined(SIGCHLD)
-    extern int b_jobs(int, char*[],void*);
-    extern int b_kill(int, char*[],void*);
+    extern int b_jobs(int, char*[],Shbltin_t*);
+    extern int b_kill(int, char*[],Shbltin_t*);
 #   ifdef SIGTSTP
-	extern int b_bg(int, char*[],void*);
+	extern int b_bg(int, char*[],Shbltin_t*);
 #   endif	/* SIGTSTP */
 #endif
 
 /* The following utilities are built-in because of side-effects */
-extern int b_builtin(int, char*[],void*);
-extern int b_cd(int, char*[],void*);
-extern int b_command(int, char*[],void*);
-extern int b_getopts(int, char*[],void*);
-extern int b_hist(int, char*[],void*);
-extern int b_let(int, char*[],void*);
-extern int b_read(int, char*[],void*);
-extern int b_ulimit(int, char*[],void*);
-extern int b_umask(int, char*[],void*);
+extern int b_builtin(int, char*[],Shbltin_t*);
+extern int b_cd(int, char*[],Shbltin_t*);
+extern int b_command(int, char*[],Shbltin_t*);
+extern int b_getopts(int, char*[],Shbltin_t*);
+extern int b_hist(int, char*[],Shbltin_t*);
+extern int b_let(int, char*[],Shbltin_t*);
+extern int b_read(int, char*[],Shbltin_t*);
+extern int b_ulimit(int, char*[],Shbltin_t*);
+extern int b_umask(int, char*[],Shbltin_t*);
 #ifdef _cmd_universe
-    extern int b_universe(int, char*[],void*);
+    extern int b_universe(int, char*[],Shbltin_t*);
 #endif /* _cmd_universe */
 #if SHOPT_FS_3D
-    extern int b_vpath(int, char*[],void*);
+    extern int b_vpath(int, char*[],Shbltin_t*);
 #endif /* SHOPT_FS_3D */
-extern int b_wait(int, char*[],void*);
-extern int b_whence(int, char*[],void*);
+extern int b_wait(int, char*[],Shbltin_t*);
+extern int b_whence(int, char*[],Shbltin_t*);
 
-extern int b_alarm(int, char*[],void*);
-extern int b_print(int, char*[],void*);
-extern int b_printf(int, char*[],void*);
-extern int b_pwd(int, char*[],void*);
-extern int b_sleep(int, char*[],void*);
-extern int b_test(int, char*[],void*);
+extern int b_alarm(int, char*[],Shbltin_t*);
+extern int b_print(int, char*[],Shbltin_t*);
+extern int b_printf(int, char*[],Shbltin_t*);
+extern int b_pwd(int, char*[],Shbltin_t*);
+extern int b_sleep(int, char*[],Shbltin_t*);
+extern int b_test(int, char*[],Shbltin_t*);
 #if !SHOPT_ECHOPRINT
-    extern int B_echo(int, char*[],void*);
+    extern int B_echo(int, char*[],Shbltin_t*);
 #endif /* SHOPT_ECHOPRINT */
 
 #undef	extern

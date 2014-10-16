@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WKDictionary.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "ImmutableDictionary.h"
 #include "WKAPICast.h"
 
@@ -35,6 +35,15 @@ using namespace WebKit;
 WKTypeID WKDictionaryGetTypeID()
 {
     return toAPI(ImmutableDictionary::APIType);
+}
+
+WK_EXPORT WKDictionaryRef WKDictionaryCreate(const WKStringRef* keys, const WKTypeRef* values, size_t numberOfValues)
+{
+    ImmutableDictionary::MapType map;
+    for (size_t i = 0; i < numberOfValues; ++i)
+        map.add(toImpl(keys[i])->string(), toImpl(values[i]));
+
+    return toAPI(ImmutableDictionary::create(WTF::move(map)).release().leakRef());
 }
 
 WKTypeRef WKDictionaryGetItemForKey(WKDictionaryRef dictionaryRef, WKStringRef key)
@@ -49,6 +58,6 @@ size_t WKDictionaryGetSize(WKDictionaryRef dictionaryRef)
 
 WKArrayRef WKDictionaryCopyKeys(WKDictionaryRef dictionaryRef)
 {
-    RefPtr<ImmutableArray> keys = toImpl(dictionaryRef)->keys();
+    RefPtr<API::Array> keys = toImpl(dictionaryRef)->keys();
     return toAPI(keys.release().leakRef());
 }

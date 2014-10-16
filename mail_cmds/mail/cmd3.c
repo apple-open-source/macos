@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)cmd3.c	8.2 (Berkeley) 4/20/95";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.bin/mail/cmd3.c,v 1.10 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */

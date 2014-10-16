@@ -47,10 +47,16 @@ struct _krb5_key_type;
 struct _krb5_checksum_type;
 struct _krb5_encryption_type;
 struct _krb5_srv_query_ctx;
+struct krb5_fast_state;
+struct _krb5_srp_group;
+struct _krb5_srp;
 
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>
+
+static void usage (int ret) __attribute__((noreturn));
+
 
 int forwardable_flag	= -1;
 int proxiable_flag	= -1;
@@ -92,6 +98,7 @@ static int windows_flag = 0;
 #ifdef __APPLE__
 static int keychain_flag = 0;
 static SecKeychainItemRef passwordItem = NULL;
+struct getarg_strings bundle_acl_strings;
 #endif
 
 
@@ -220,6 +227,9 @@ static struct getargs args[] = {
 #ifdef __APPLE__
     { "keychain",	0,  arg_flag, &keychain_flag,
       NP_("save password in keychain if successful", ""), NULL },
+
+    { "bundle-acl",	0,  arg_strings, &bundle_acl_strings,
+      NP_("signing id allowed to use this credential", ""), NULL },
 #endif
     { "windows",	0,  arg_flag, &windows_flag,
       NP_("get windows behavior", ""), NULL },
@@ -368,8 +378,9 @@ get_new_tickets(krb5_context context,
     krb5_ccache tempccache;
     krb5_init_creds_context icc;
     krb5_keytab kt = NULL;
-    int need_prompt;
     int will_use_keytab =  (use_keytab || keytab_str);
+    krb5_prompter_fct prompter = NULL;
+    int need_prompt;
 
     passwd[0] = '\0';
 
@@ -425,6 +436,12 @@ get_new_tickets(krb5_context context,
     }
 #endif
 
+    need_prompt = !(pk_user_id || ent_user_id || anonymous_flag || will_use_keytab || passwd[0] != '\0') && interactive;
+    if (need_prompt)
+	prompter = krb5_prompter_posix;
+    else
+	prompter = krb5_prompter_print_only;
+
     memset(&cred, 0, sizeof(cred));
 
     ret = krb5_get_init_creds_opt_alloc (context, &opt);
@@ -457,7 +474,7 @@ get_new_tickets(krb5_context context,
 						 NULL,
 						 pk_use_enckey ? 2 : 0 |
 						 anonymous_flag ? 4 : 0,
-						 krb5_prompter_posix,
+						 interactive ? krb5_prompter_posix : krb5_prompter_print_only,
 						 NULL,
 						 passwd);
 	if (ret)
@@ -512,7 +529,7 @@ get_new_tickets(krb5_context context,
     }
 
     ret = krb5_init_creds_init(context, principal,
-			       krb5_prompter_posix, NULL,
+			       prompter, NULL,
 			       start_time, opt, &icc);
     if (ret)
 	krb5_err (context, 1, ret, "krb5_init_creds_init");
@@ -551,9 +568,7 @@ get_new_tickets(krb5_context context,
 	    krb5_err (context, 1, ret, "krb5_init_creds_set_keytab");
     }
 
-    need_prompt = !(pk_user_id || ent_user_id || anonymous_flag || use_keytab || keytab_str);
-
-    if (interactive && passwd[0] == '\0' && need_prompt) {
+    if (passwd[0] == '\0' && need_prompt) {
 	char *p, *prompt;
 
 	krb5_unparse_name(context, principal, &p);
@@ -613,13 +628,10 @@ get_new_tickets(krb5_context context,
 	    SecKeychainItemDelete(passwordItem);
 #endif
 	krb5_errx(context, 1, N_("Password incorrect", ""));
-	break;
     case KRB5KRB_AP_ERR_V4_REPLY:
 	krb5_errx(context, 1, N_("Looks like a Kerberos 4 reply", ""));
-	break;
     case KRB5KDC_ERR_KEY_EXPIRED:
 	krb5_errx(context, 1, N_("Password expired", ""));
-	break;
     default:
 	krb5_err(context, 1, ret, "krb5_get_init_creds");
     }
@@ -646,6 +658,32 @@ get_new_tickets(krb5_context context,
     ret = krb5_init_creds_warn_user(context, icc);
     if (ret)
 	krb5_warn(context, ret, "krb5_init_creds_warn_user");
+
+#ifdef __APPLE__
+    /*
+     * Set for this case, default to * so that all processes can use
+     * this cache.
+     */
+    {
+	heim_array_t bundleacl = heim_array_create();
+	heim_string_t ace;
+
+	if (bundle_acl_strings.num_strings > 0) {
+	    int i;
+	    for (i = 0; i < bundle_acl_strings.num_strings; i++) {
+		ace = heim_string_create(bundle_acl_strings.strings[i]);
+		heim_array_append_value(bundleacl, ace);
+		heim_release(ace);
+	    }
+	} else {
+	    ace = heim_string_create("*");
+	    heim_array_append_value(bundleacl, ace);
+	    heim_release(ace);
+	}
+	krb5_cc_set_acl(context, tempccache, "kHEIMAttrBundleIdentifierACL", bundleacl);
+	heim_release(bundleacl);
+    }
+#endif
 
     ret = krb5_cc_move(context, tempccache, ccache);
     if (ret) {

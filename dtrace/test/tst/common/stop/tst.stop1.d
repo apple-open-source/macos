@@ -44,22 +44,14 @@ BEGIN
 	stopped = 0;
 }
 
-#if !defined(__APPLE__)
-syscall::getpid:entry
-#else
 syscall::geteuid:entry
-#endif
 /pid == $1 && stopped == 1/
 {
 	trace("looks like it's still going");
 	exit(1);
 }
 
-#if !defined(__APPLE__)
-syscall::getpid:entry
-#else
 syscall::geteuid:entry
-#endif
 /pid == $1 && stopped == 0/
 {
 	stop();

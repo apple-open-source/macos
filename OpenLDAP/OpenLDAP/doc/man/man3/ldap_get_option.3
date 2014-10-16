@@ -583,6 +583,10 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR LDAP_OPT_X_TLS_TRUSTED_CERTS
+option.
 .TP
 .B LDAP_OPT_X_TLS_CACERTFILE
 Sets/gets the full-path of the CA certificate file.
@@ -594,6 +598,10 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR LDAP_OPT_X_TLS_TRUSTED_CERTS
+option.
 .TP
 .B LDAP_OPT_X_TLS_CERTFILE
 Sets/gets the full-path of the certificate file.
@@ -605,6 +613,10 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR LDAP_OPT_X_TLS_IDENTITY
+option.
 .TP
 .B LDAP_OPT_X_TLS_CIPHER_SUITE
 Sets/gets the allowed cipher suite.
@@ -647,7 +659,7 @@ must be
 .BR outvalue
 must be
 .BR "int *" .
-Requires OpenSSL.
+Requires SecureTransport or OpenSSL.
 .TP
 .B LDAP_OPT_X_TLS_CRLFILE
 Sets/gets the full-path of the CRL file.
@@ -688,6 +700,18 @@ and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
 Ignored by GnuTLS and Mozilla NSS.
 .TP
+.B LDAP_OPT_X_TLS_IDENTITY
+Gets/sets the name of the identity in the system keychain.  An identity is a certificate paired with a private key.
+.BR invalue
+must be
+.BR "const char *" ;
+.BR outvalue
+must be
+.BR "char **" ,
+and its contents need to be freed by the caller using
+.BR ldap_memfree (3).
+Used by SecureTransport.  Ignored by OpenSSL, GnuTLS and Mozilla NSS.
+.TP
 .B LDAP_OPT_X_TLS_KEYFILE
 Sets/gets the full-path of the certificate key file.
 .BR invalue
@@ -698,6 +722,10 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR LDAP_OPT_X_TLS_IDENTITY
+option.
 .TP
 .B LDAP_OPT_X_TLS_NEWCTX
 Instructs the library to create a new TLS library context.
@@ -731,7 +759,7 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
-Ignored by GnuTLS older than version 2.2.  Ignored by Mozilla NSS.
+Ignored by GnuTLS older than version 2.2.  Ignored by SecureTransport and Mozilla NSS.
 .TP
 .B LDAP_OPT_X_TLS_REQUIRE_CERT
 Sets/gets the peer certificate checking strategy,
@@ -750,6 +778,18 @@ must be
 When using the OpenSSL library this is an SSL*. When using other
 crypto libraries this is a pointer to an OpenLDAP private structure.
 Applications generally should not use this option.
+.TP
+.B LDAP_OPT_X_TLS_TRUSTED_CERTS
+Gets/sets the list of the trusted certificates in the system keychain.
+.BR invalue
+must be
+.BR "const char *" ;
+.BR outvalue
+must be
+.BR "char **" ,
+and its contents need to be freed by the caller using
+.BR ldap_memfree (3).
+Used by SecureTransport.  Ignored by OpenSSL, GnuTLS and Mozilla NSS.
 .SH ERRORS
 On success, the functions return
 .BR LDAP_OPT_SUCCESS ,

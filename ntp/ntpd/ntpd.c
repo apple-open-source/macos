@@ -115,7 +115,10 @@
 #endif
 
 #include <sandbox.h>
-
+#include <os/trace.h>
+#include <spawn.h>
+#define PACEMAKER_FILE "/var/db/.ntpd+pacemaker"
+extern int use_pacemaker;
 /*
  * Signals we catch for debugging.	If not debugging we ignore them.
  */
@@ -489,6 +492,7 @@ ntpdmain(
 {
 	l_fp now;
 	struct recvbuf *rbuf;
+	struct stat statbuf;
 #ifdef _AIX			/* HMS: ifdef SIGDANGER? */
 	struct sigaction sa;
 #endif
@@ -497,7 +501,58 @@ ntpdmain(
 	initializing = 1;		/* mark that we are initializing */
 	process_commandline_opts(&argc, &argv);
 	init_logging(progname, 1);	/* Open the log file */
-
+	
+	if (lstat(PACEMAKER_FILE, &statbuf) == 0) {
+		const char *path = "/bin/launchctl";
+		const char *args_list[] = {
+			"launchctl", "list", "com.apple.pacemaker", NULL
+		};
+		const char *args_load[] = {
+			"launchctl", "load", "-w",
+			"/System/Library/LaunchDaemons/com.apple.pacemaker.plist", NULL
+		};
+		int pid, status;
+		
+		use_pacemaker = 1;
+        os_trace("Using pacemaker");
+		msyslog(LOG_NOTICE, "Using pacemaker");
+		
+		// Disable stdin/out/err?
+		int rc = posix_spawn(&pid, path, NULL, NULL, (char **)args_list, NULL);
+		if (rc == 0) {
+			if (waitpid(pid, &status, 0) != 0) {
+				msyslog(LOG_ERR, "waitpid failed errno:%d", errno);
+				exit(1);
+			}
+			if (WEXITSTATUS(status)) { // Probably not loaded
+				rc = posix_spawn(&pid, path, NULL, NULL, (char **)args_load, NULL);
+				if (rc != 0) {
+					msyslog(LOG_ERR, "launchctl load failed errno:%d", errno);
+				}
+				if (waitpid(pid, &status, 0) != 0) {
+					msyslog(LOG_ERR, "waitpid failed errno:%d", errno);
+					exit(1);
+				}
+				rc = posix_spawn(&pid, path, NULL, NULL, (char **)args_list, NULL);
+				if (rc == 0) {
+					if (waitpid(pid, &status, 0) != 0) {
+						msyslog(LOG_ERR, "waitpid failed errno:%d", errno);
+						exit(1);
+					} else if (WEXITSTATUS(status)) {
+						msyslog(LOG_ERR, "launchctl load failed");
+						exit(1);
+					}
+				} else {
+					msyslog(LOG_ERR, "launchctl list com.apple.pacemaker.plist failed errno:%d", errno);
+					exit(1);
+				}
+			} // else pacemaker is loaded
+		} else {
+			msyslog(LOG_ERR, "launchctl list com.apple.pacemaker.plist failed errno:%d", errno);
+			exit(1);
+		}
+	}
+	
 	char *error = NULL;
 	if (sandbox_init("ntpd", SANDBOX_NAMED, &error) == -1) {
 		msyslog(LOG_ERR, "sandbox_init(ntpd, SANDBOX_NAMED) failed: %s", error);

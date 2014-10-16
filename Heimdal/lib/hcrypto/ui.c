@@ -120,7 +120,7 @@ read_string(const char *preprompt, const char *prompt,
     FILE *tty;
     int ret = 0;
     int of = 0;
-    int i;
+    size_t i;
     int c;
     char *p;
 

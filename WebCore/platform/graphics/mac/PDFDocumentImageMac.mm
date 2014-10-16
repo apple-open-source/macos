@@ -53,16 +53,14 @@ namespace WebCore {
 
 void PDFDocumentImage::createPDFDocument()
 {
-    m_document = adoptNS([[getPDFDocumentClass() alloc] initWithData:data()->createNSData()]);
+    m_document = adoptNS([[getPDFDocumentClass() alloc] initWithData:data()->createNSData().get()]);
 }
 
 void PDFDocumentImage::computeBoundsForCurrentPage()
 {
     PDFPage *pdfPage = [m_document pageAtIndex:0];
 
-    m_mediaBox = [pdfPage boundsForBox:kPDFDisplayBoxMediaBox];
     m_cropBox = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-
     m_rotationDegrees = [pdfPage rotation];
 }
 
@@ -73,8 +71,6 @@ unsigned PDFDocumentImage::pageCount() const
 
 void PDFDocumentImage::drawPDFPage(GraphicsContext* context)
 {
-    CGContextTranslateCTM(context->platformContext(), -m_cropBox.x(), -m_cropBox.y());
-
     LocalCurrentGraphicsContext localCurrentContext(context);
 
     // These states can be mutated by PDFKit but are not saved

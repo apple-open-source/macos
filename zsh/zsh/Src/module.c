@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1996-1997 Zoltán Hidvégi
+ * Copyright (c) 1996-1997 ZoltÃ¡n HidvÃ©gi
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -12,16 +12,16 @@
  * purpose, provided that the above copyright notice and the following
  * two paragraphs appear in all copies of this software.
  *
- * In no event shall Zoltán Hidvégi or the Zsh Development Group be liable
+ * In no event shall ZoltÃ¡n HidvÃ©gi or the Zsh Development Group be liable
  * to any party for direct, indirect, special, incidental, or consequential
  * damages arising out of the use of this software and its documentation,
- * even if Zoltán Hidvégi and the Zsh Development Group have been advised of
+ * even if ZoltÃ¡n HidvÃ©gi and the Zsh Development Group have been advised of
  * the possibility of such damage.
  *
- * Zoltán Hidvégi and the Zsh Development Group specifically disclaim any
+ * ZoltÃ¡n HidvÃ©gi and the Zsh Development Group specifically disclaim any
  * warranties, including, but not limited to, the implied warranties of
  * merchantability and fitness for a particular purpose.  The software
- * provided hereunder is on an "as is" basis, and Zoltán Hidvégi and the
+ * provided hereunder is on an "as is" basis, and ZoltÃ¡n HidvÃ©gi and the
  * Zsh Development Group have no obligation to provide maintenance,
  * support, updates, enhancements, or modifications.
  */
@@ -3419,12 +3419,15 @@ autofeatures(const char *cmdnam, const char *module, char **features,
     int ret = 0, subret;
     Module defm, m;
     char **modfeatures = NULL;
+    int *modenables = NULL;
     if (module) {
 	defm = (Module)find_module(module,
 				   FINDMOD_ALIASP|FINDMOD_CREATE, NULL);
 	if ((defm->node.flags & MOD_LINKED) ? defm->u.linked :
-	    defm->u.handle)
+	    defm->u.handle) {
 	    (void)features_module(defm, &modfeatures);
+	    (void)enables_module(defm, &modenables);
+	}
     } else
 	defm = NULL;
 
@@ -3544,6 +3547,16 @@ autofeatures(const char *cmdnam, const char *module, char **features,
 		    ret = 1;
 		    continue;
 		}
+		/*
+		 * If the feature is already provided by the module, there's
+		 * nothing more to do.
+		 */
+		if (modenables[ptr-modfeatures])
+		    continue;
+		/*
+		 * Otherwise, marking it for autoload will do the
+		 * right thing when the feature is eventually used.
+		 */
 	    }
 	    if (!m->autoloads) {
 		m->autoloads = znewlinklist();

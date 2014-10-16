@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -295,7 +295,7 @@ $SHELL -c 'exec 3>; /dev/null'  2> /dev/null && err_exit '>; with exec should be
 $SHELL -c ': 3>; /dev/null'  2> /dev/null || err_exit '>; not working with at all'
 print hello > $tmp/1
 if	! $SHELL -c "false >; $tmp/1"  2> /dev/null
-then	[[ $(<$tmp/1) == hello ]] || err_exit '>; not preserving file on failure'
+then	let 1;[[ $(<$tmp/1) == hello ]] || err_exit '>; not preserving file on failure'
 fi
 if	! $SHELL -c "sed -e 's/hello/hello world/' $tmp/1" >; $tmp/1  2> /dev/null
 then	[[ $(<$tmp/1) == 'hello world' ]] || err_exit '>; not updating file on success'
@@ -459,7 +459,41 @@ exp=$':2:printf :1:A:\n:2::\n:2:print\n:2:print :1:Z:'
 got=$(<$tmp/22.out)
 [[ $exp == "$got" ]] || err_exit "standard error garbled -- expected $(printf %q "$exp"), got $(printf %q "$got")"
 
-$SHELL 2> /dev/null -c 'exec 3<&1 ; exec 1<&- ; exec > outfile;print foobar' || error_exit 'exec 1<&- causes failure'
-[[ $(<outfile) == foobar ]] || err_exit 'outfile does not contain foobar'
+tmp=$tmp $SHELL 2> /dev/null -c 'exec 3<&1 ; exec 1<&- ; exec > $tmp/outfile;print foobar' || err_exit 'exec 1<&- causes failure'
+[[ $(<$tmp/outfile) == foobar ]] || err_exit 'outfile does not contain foobar'
+
+print hello there world > $tmp/foobar
+sed  -e 's/there //' $tmp/foobar  >; $tmp/foobar
+[[ $(<$tmp/foobar) == 'hello world' ]] || err_exit '>; redirection not working on simple command'
+print hello there world > $tmp/foobar
+{ sed  -e 's/there //' $tmp/foobar;print done;} >; $tmp/foobar 
+[[ $(<$tmp/foobar) == $'hello world\ndone' ]] || err_exit '>; redirection not working for compound command'
+print hello there world > $tmp/foobar
+$SHELL -c "sed  -e 's/there //' $tmp/foobar  >; $tmp/foobar"
+[[ $(<$tmp/foobar) == 'hello world' ]] || err_exit '>; redirection not working with -c on a simple command'
+
+rm -f "$tmp/junk"
+for	(( i=1; i < 50; i++ ))
+do      out=$(/bin/ls "$tmp/junk" 2>/dev/null)
+	if	(( $? == 0 ))
+	then    err_exit 'wrong error code with redirection'
+		break
+	fi
+done
+
+rm -f $tmp/file1 $tmp/file2
+print foo > $tmp/file3
+ln -s $tmp/file3 $tmp/file2
+ln -s $tmp/file2 $tmp/file1
+print bar >; $tmp/file1
+[[ $(<$tmp/file3) == bar ]] || err_exit '>; not following symlinks'
+
+for i in 1
+do	:
+done	{n}< /dev/null
+[[ -r /dev/fd/$n ]] &&  err_exit "file descriptor n=$n left open after {n}<"
+
+n=$( exec {n}< /dev/null; print -r -- $n)
+[[ -r /dev/fd/$n ]] && err_exit "file descriptor n=$n left open after subshell"
 
 exit $((Errors<125?Errors:125))

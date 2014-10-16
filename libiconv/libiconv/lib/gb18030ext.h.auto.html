@@ -1,0 +1,325 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>gb18030ext.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">gb18030ext.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * GB18030 two-byte extension
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_2uni_pagea9[13] = {
+  <span class="enscript-comment">/* 0xa9 */</span>
+  0x303e, 0x2ff0, 0x2ff1, 0x2ff2, 0x2ff3, 0x2ff4, 0x2ff5, 0x2ff6,
+  0x2ff7, 0x2ff8, 0x2ff9, 0x2ffa, 0x2ffb,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_2uni_pagefe[96] = {
+  <span class="enscript-comment">/* 0xfe */</span>
+  0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd,
+  0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd, 0xfffd,
+  0x2e81, 0xe816, 0xe817, 0xe818, 0x2e84, 0x3473, 0x3447, 0x2e88,
+  0x2e8b, 0xe81e, 0x359e, 0x361a, 0x360e, 0x2e8c, 0x2e97, 0x396e,
+  0x3918, 0xe826, 0x39cf, 0x39df, 0x3a73, 0x39d0, 0xe82b, 0xe82c,
+  0x3b4e, 0x3c6e, 0x3ce0, 0x2ea7, 0xe831, 0xe832, 0x2eaa, 0x4056,
+  0x415f, 0x2eae, 0x4337, 0x2eb3, 0x2eb6, 0x2eb7, 0xe83b, 0x43b1,
+  0x43ac, 0x2ebb, 0x43dd, 0x44d6, 0x4661, 0x464c, 0xe843, 0x4723,
+  0x4729, 0x477c, 0x478d, 0x2eca, 0x4947, 0x497a, 0x497d, 0x4982,
+  0x4983, 0x4985, 0x4986, 0x499f, 0x499b, 0x49b7, 0x49b6, 0xe854,
+  0xe855, 0x4ca3, 0x4c9f, 0x4ca0, 0x4ca1, 0x4c77, 0x4ca2, 0x4d13,
+  0x4d14, 0x4d15, 0x4d16, 0x4d17, 0x4d18, 0x4d19, 0x4dae, 0xe864,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">gb18030ext_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1 = s[0];
+  <span class="enscript-keyword">if</span> ((c1 == 0xa2) || (c1 &gt;= 0xa4 &amp;&amp; c1 &lt;= 0xa9) || (c1 == 0xd7) || (c1 == 0xfe)) {
+    <span class="enscript-keyword">if</span> (n &gt;= 2) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c2 = s[1];
+      <span class="enscript-keyword">if</span> ((c2 &gt;= 0x40 &amp;&amp; c2 &lt; 0x7f) || (c2 &gt;= 0x80 &amp;&amp; c2 &lt; 0xff)) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i = 190 * (c1 - 0x81) + (c2 - (c2 &gt;= 0x80 ? 0x41 : 0x40));
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> wc = 0xfffd;
+        <span class="enscript-keyword">switch</span> (c1) {
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa2</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 6376 &amp;&amp; i &lt;= 6381) <span class="enscript-comment">/* 0xA2AB..0xA2B0 */</span>
+              wc = 0xe766 + (i - 6376);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 6432) <span class="enscript-comment">/* 0xA2E3 */</span>
+              wc = 0x20ac;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 6433) <span class="enscript-comment">/* 0xA2E4 */</span>
+              wc = 0xe76d;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 6444 &amp;&amp; i &lt;= 6445) <span class="enscript-comment">/* 0xA2EF..0xA2F0 */</span>
+              wc = 0xe76e + (i - 6444);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 6458 &amp;&amp; i &lt;= 6459) <span class="enscript-comment">/* 0xA2FD..0xA2FE */</span>
+              wc = 0xe770 + (i - 6458);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa4</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 6829 &amp;&amp; i &lt;= 6839) <span class="enscript-comment">/* 0xA4F4..0xA4FE */</span>
+              wc = 0xe772 + (i - 6829);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa5</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 7022 &amp;&amp; i &lt;= 7029) <span class="enscript-comment">/* 0xA5F7..0xA5FE */</span>
+              wc = 0xe77d + (i - 7022);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa6</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 7150 &amp;&amp; i &lt;= 7157) <span class="enscript-comment">/* 0xA6B9..0xA6C0 */</span>
+              wc = 0xe785 + (i - 7150);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7182 &amp;&amp; i &lt;= 7190) <span class="enscript-comment">/* 0xA6D9..0xA6DF */</span>
+              wc = 0xe78d + (i - 7182);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7201 &amp;&amp; i &lt;= 7202) <span class="enscript-comment">/* 0xA6EC..0xA6ED */</span>
+              wc = 0xe794 + (i - 7201);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 7208) <span class="enscript-comment">/* 0xA6F3 */</span>
+              wc = 0xe796;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7211 &amp;&amp; i &lt;= 7219) <span class="enscript-comment">/* 0xA6F6..0xA6FE */</span>
+              wc = 0xe797 + (i - 7211);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa7</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 7349 &amp;&amp; i &lt;= 7363) <span class="enscript-comment">/* 0xA7C2..0xA7D0 */</span>
+              wc = 0xe7a0 + (i - 7349);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7397 &amp;&amp; i &lt;= 7409) <span class="enscript-comment">/* 0xA7F2..0xA7FE */</span>
+              wc = 0xe7af + (i - 7397);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa8</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 7495 &amp;&amp; i &lt;= 7505) <span class="enscript-comment">/* 0xA896..0xA8A0 */</span>
+              wc = 0xe7bc + (i - 7495);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 7533) <span class="enscript-comment">/* 0xA8BC */</span>
+              wc = 0xe7c7;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 7536) <span class="enscript-comment">/* 0xA8BF */</span>
+              wc = 0x01f9;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7538 &amp;&amp; i &lt;= 7541) <span class="enscript-comment">/* 0xA8C1..0xA8C4 */</span>
+              wc = 0xe7c9 + (i - 7538);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7579 &amp;&amp; i &lt;= 7599) <span class="enscript-comment">/* 0xA8EA..0xA8FE */</span>
+              wc = 0xe7cd + (i - 7579);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xa9</span>:
+            <span class="enscript-keyword">if</span> (i == 7624) <span class="enscript-comment">/* 0xA958 */</span>
+              wc = 0xe7e2;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i == 7627) <span class="enscript-comment">/* 0xA95B */</span>
+              wc = 0xe7e3;
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7629 &amp;&amp; i &lt;= 7631) <span class="enscript-comment">/* 0xA95D..0xA95F */</span>
+              wc = 0xe7e4 + (i - 7629);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7672 &amp;&amp; i &lt; 7685) <span class="enscript-comment">/* 0xA989..0xA995 */</span>
+              wc = gb18030ext_2uni_pagea9[i-7672];
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7686 &amp;&amp; i &lt;= 7698) <span class="enscript-comment">/* 0xA997..0xA9A3 */</span>
+              wc = 0xe7f4 + (i - 7686);
+            <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &gt;= 7775 &amp;&amp; i &lt;= 7789) <span class="enscript-comment">/* 0xA9F0..0xA9FE */</span>
+              wc = 0xe801 + (i - 7775);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xd7</span>:
+            <span class="enscript-keyword">if</span> (i &gt;= 16525 &amp;&amp; i &lt;= 16529) <span class="enscript-comment">/* 0xD7FA..0xD7FE */</span>
+              wc = 0xe810 + (i - 16525);
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-keyword">case</span> <span class="enscript-reference">0xfe</span>:
+            <span class="enscript-keyword">if</span> (i &lt; 23846)
+              wc = gb18030ext_2uni_pagefe[i-23750];
+            <span class="enscript-keyword">break</span>;
+          <span class="enscript-reference">default</span>:
+            <span class="enscript-keyword">break</span>;
+        }
+        <span class="enscript-keyword">if</span> (wc != 0xfffd) {
+          *pwc = (ucs4_t) wc;
+          <span class="enscript-keyword">return</span> 2;
+        }
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+  }
+  <span class="enscript-keyword">return</span> RET_ILSEQ;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page2e[80] = {
+  0x0000, 0xfe50, 0x0000, 0x0000, 0xfe54, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x80-0x87*/</span>
+  0xfe57, 0x0000, 0x0000, 0xfe58, 0xfe5d, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x88-0x8f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe5e, <span class="enscript-comment">/*0x90-0x97*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x98-0x9f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe6b, <span class="enscript-comment">/*0xa0-0xa7*/</span>
+  0x0000, 0x0000, 0xfe6e, 0x0000, 0x0000, 0x0000, 0xfe71, 0x0000, <span class="enscript-comment">/*0xa8-0xaf*/</span>
+  0x0000, 0x0000, 0x0000, 0xfe73, 0x0000, 0x0000, 0xfe74, 0xfe75, <span class="enscript-comment">/*0xb0-0xb7*/</span>
+  0x0000, 0x0000, 0x0000, 0xfe79, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xb8-0xbf*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xc0-0xc7*/</span>
+  0x0000, 0x0000, 0xfe84, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xc8-0xcf*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page2f[16] = {
+  0xa98a, 0xa98b, 0xa98c, 0xa98d, 0xa98e, 0xa98f, 0xa990, 0xa991, <span class="enscript-comment">/*0xf0-0xf7*/</span>
+  0xa992, 0xa993, 0xa994, 0xa995, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xf8-0xff*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page34[56] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe56, <span class="enscript-comment">/*0x40-0x47*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x48-0x4f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x50-0x57*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x58-0x5f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x60-0x67*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x68-0x6f*/</span>
+  0x0000, 0x0000, 0x0000, 0xfe55, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x70-0x77*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page36[24] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe5c, 0x0000, <span class="enscript-comment">/*0x08-0x0f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x10-0x17*/</span>
+  0x0000, 0x0000, 0xfe5b, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x18-0x1f*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page39[24] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe62, <span class="enscript-comment">/*0xc8-0xcf*/</span>
+  0xfe65, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xd0-0xd7*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe63, <span class="enscript-comment">/*0xd8-0xdf*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page43[56] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0xfe78, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xa8-0xaf*/</span>
+  0x0000, 0xfe77, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xb0-0xb7*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xb8-0xbf*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xc0-0xc7*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xc8-0xcf*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xd0-0xd7*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe7a, 0x0000, 0x0000, <span class="enscript-comment">/*0xd8-0xdf*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page46[32] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0xfe7d, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x48-0x4f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x50-0x57*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x58-0x5f*/</span>
+  0x0000, 0xfe7c, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x60-0x67*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page47_1[16] = {
+  0x0000, 0x0000, 0x0000, 0xfe80, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x20-0x27*/</span>
+  0x0000, 0xfe81, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x28-0x2f*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page47_2[24] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0xfe82, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x78-0x7f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x80-0x87*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe83, 0x0000, 0x0000, <span class="enscript-comment">/*0x88-0x8f*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page49[120] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe85, <span class="enscript-comment">/*0x40-0x47*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x48-0x4f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x50-0x57*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x58-0x5f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x60-0x67*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x68-0x6f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x70-0x77*/</span>
+  0x0000, 0x0000, 0xfe86, 0x0000, 0x0000, 0xfe87, 0x0000, 0x0000, <span class="enscript-comment">/*0x78-0x7f*/</span>
+  0x0000, 0x0000, 0xfe88, 0xfe89, 0x0000, 0xfe8a, 0xfe8b, 0x0000, <span class="enscript-comment">/*0x80-0x87*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x88-0x8f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x90-0x97*/</span>
+  0x0000, 0x0000, 0x0000, 0xfe8d, 0x0000, 0x0000, 0x0000, 0xfe8c, <span class="enscript-comment">/*0x98-0x9f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xa0-0xa7*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xa8-0xaf*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe8f, 0xfe8e, <span class="enscript-comment">/*0xb0-0xb7*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page4c[56] = {
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe96, <span class="enscript-comment">/*0x70-0x77*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x78-0x7f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x80-0x87*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x88-0x8f*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x90-0x97*/</span>
+  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0xfe93, <span class="enscript-comment">/*0x98-0x9f*/</span>
+  0xfe94, 0xfe95, 0xfe97, 0xfe92, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0xa0-0xa7*/</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> gb18030ext_page4d[16] = {
+  0x0000, 0x0000, 0x0000, 0xfe98, 0xfe99, 0xfe9a, 0xfe9b, 0xfe9c, <span class="enscript-comment">/*0x10-0x17*/</span>
+  0xfe9d, 0xfe9e, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, <span class="enscript-comment">/*0x18-0x1f*/</span>
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">gb18030ext_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-keyword">if</span> (n &gt;= 2) {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> c = 0;
+    <span class="enscript-keyword">if</span> (wc == 0x01f9)
+      c = 0xa8bf;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x20ac)
+      c = 0xa2e3;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x2e80 &amp;&amp; wc &lt; 0x2ed0)
+      c = gb18030ext_page2e[wc-0x2e80];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x2ff0 &amp;&amp; wc &lt; 0x3000)
+      c = gb18030ext_page2f[wc-0x2ff0];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x303e)
+      c = 0xa989;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x3440 &amp;&amp; wc &lt; 0x3478)
+      c = gb18030ext_page34[wc-0x3440];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x359e)
+      c = 0xfe5a;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x3608 &amp;&amp; wc &lt; 0x3620)
+      c = gb18030ext_page36[wc-0x3608];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x3918)
+      c = 0xfe60;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x396e)
+      c = 0xfe5f;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x39c8 &amp;&amp; wc &lt; 0x39e0)
+      c = gb18030ext_page39[wc-0x39c8];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x3a73)
+      c = 0xfe64;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x3b4e)
+      c = 0xfe68;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x3c6e)
+      c = 0xfe69;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x3ce0)
+      c = 0xfe6a;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x4056)
+      c = 0xfe6f;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x415f)
+      c = 0xfe70;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x4337)
+      c = 0xfe72;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x43a8 &amp;&amp; wc &lt; 0x43e0)
+      c = gb18030ext_page43[wc-0x43a8];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x44d6)
+      c = 0xfe7b;
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4648 &amp;&amp; wc &lt; 0x4668)
+      c = gb18030ext_page46[wc-0x4648];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4720 &amp;&amp; wc &lt; 0x4730)
+      c = gb18030ext_page47_1[wc-0x4720];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4778 &amp;&amp; wc &lt; 0x4790)
+      c = gb18030ext_page47_2[wc-0x4778];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4940 &amp;&amp; wc &lt; 0x49b8)
+      c = gb18030ext_page49[wc-0x4940];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4c70 &amp;&amp; wc &lt; 0x4ca8)
+      c = gb18030ext_page4c[wc-0x4c70];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x4d10 &amp;&amp; wc &lt; 0x4d20)
+      c = gb18030ext_page4d[wc-0x4d10];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x4dae)
+      c = 0xfe9f;
+    <span class="enscript-keyword">if</span> (c != 0) {
+      r[0] = (c &gt;&gt; 8); r[1] = (c &amp; 0xff);
+      <span class="enscript-keyword">return</span> 2;
+    }
+    <span class="enscript-keyword">return</span> RET_ILUNI;
+  }
+  <span class="enscript-keyword">return</span> RET_TOOSMALL;
+}
+</pre>
+<hr />
+</body></html>

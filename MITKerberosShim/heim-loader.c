@@ -188,6 +188,8 @@ fun_krb5_make_principal = dlsym(hf, "krb5_make_principal");
 if (!fun_krb5_make_principal) { syslog(LOG_ERR, "krb5_make_principal failed loading"); }
 fun_krb5_parse_name = dlsym(hf, "krb5_parse_name");
 if (!fun_krb5_parse_name) { syslog(LOG_ERR, "krb5_parse_name failed loading"); }
+fun_krb5_parse_name_flags = dlsym(hf, "krb5_parse_name_flags");
+if (!fun_krb5_parse_name_flags) { syslog(LOG_ERR, "krb5_parse_name_flags failed loading"); }
 fun_krb5_principal_compare = dlsym(hf, "krb5_principal_compare");
 if (!fun_krb5_principal_compare) { syslog(LOG_ERR, "krb5_principal_compare failed loading"); }
 fun_krb5_principal_get_realm = dlsym(hf, "krb5_principal_get_realm");

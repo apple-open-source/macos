@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,6 +28,7 @@
 
 #include "ExceptionCodePlaceholder.h"
 #include "Node.h"
+#include "RenderElement.h"
 #include <wtf/Assertions.h>
 
 namespace WebCore {
@@ -45,9 +46,9 @@ void RemoveNodeCommand::doApply()
 {
     ContainerNode* parent = m_node->parentNode();
     if (!parent || (m_shouldAssumeContentIsAlwaysEditable == DoNotAssumeContentIsAlwaysEditable
-        && !parent->isContentEditable(Node::UserSelectAllIsAlwaysNonEditable) && parent->attached()))
+        && !parent->isContentEditable(Node::UserSelectAllIsAlwaysNonEditable) && parent->renderer()))
         return;
-    ASSERT(parent->isContentEditable(Node::UserSelectAllIsAlwaysNonEditable) || !parent->attached());
+    ASSERT(parent->isContentEditable(Node::UserSelectAllIsAlwaysNonEditable) || !parent->renderer());
 
     m_parent = parent;
     m_refChild = m_node->nextSibling();
@@ -59,7 +60,7 @@ void RemoveNodeCommand::doUnapply()
 {
     RefPtr<ContainerNode> parent = m_parent.release();
     RefPtr<Node> refChild = m_refChild.release();
-    if (!parent || !parent->rendererIsEditable())
+    if (!parent || !parent->hasEditableStyle())
         return;
 
     parent->insertBefore(m_node.get(), refChild.get(), IGNORE_EXCEPTION);

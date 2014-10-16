@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,10 +26,11 @@
 #include "config.h"
 #include "HTMLInterchange.h"
 
-#include "RenderObject.h"
+#include "RenderElement.h"
+#include "RenderText.h"
 #include "Text.h"
 #include "TextIterator.h"
-#include <wtf/StdLibExtras.h>
+#include "htmlediting.h"
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -38,7 +39,7 @@ namespace WebCore {
 String convertHTMLTextToInterchangeFormat(const String& in, const Text* node)
 {
     // Assume all the text comes from node.
-    if (node->renderer() && node->renderer()->style()->preserveNewline())
+    if (node->renderer() && node->renderer()->style().preserveNewline())
         return in;
 
     const char convertedSpaceString[] = "<span class=\"" AppleConvertedSpace "\">\xA0</span>";
@@ -50,10 +51,10 @@ String convertHTMLTextToInterchangeFormat(const String& in, const Text* node)
     unsigned consumed = 0;
     while (i < in.length()) {
         consumed = 1;
-        if (isCollapsibleWhitespace(in[i])) {
+        if (deprecatedIsCollapsibleWhitespace(in[i])) {
             // count number of adjoining spaces
             unsigned j = i + 1;
-            while (j < in.length() && isCollapsibleWhitespace(in[j]))
+            while (j < in.length() && deprecatedIsCollapsibleWhitespace(in[j]))
                 j++;
             unsigned count = j - i;
             consumed = count;

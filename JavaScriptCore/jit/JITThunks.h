@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,6 @@
 #ifndef JITThunks_h
 #define JITThunks_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(JIT)
 
 #include "CallData.h"
@@ -40,6 +38,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/ThreadingPrimitives.h>
 
 namespace JSC {
 
@@ -53,6 +52,7 @@ public:
 
     MacroAssemblerCodePtr ctiNativeCall(VM*);
     MacroAssemblerCodePtr ctiNativeConstruct(VM*);
+    MacroAssemblerCodePtr ctiNativeTailCall(VM*);    
 
     MacroAssemblerCodeRef ctiStub(VM*, ThunkGenerator);
 
@@ -62,10 +62,15 @@ public:
     void clearHostFunctionStubs();
 
 private:
+    // Main thread can hold this lock for a while, so use an adaptive mutex.
+    typedef Mutex Lock;
+    typedef MutexLocker Locker;
+    
     typedef HashMap<ThunkGenerator, MacroAssemblerCodeRef> CTIStubMap;
     CTIStubMap m_ctiStubMap;
-    typedef HashMap<std::pair<NativeFunction, NativeFunction>, Weak<NativeExecutable> > HostFunctionStubMap;
+    typedef HashMap<std::pair<NativeFunction, NativeFunction>, Weak<NativeExecutable>> HostFunctionStubMap;
     OwnPtr<HostFunctionStubMap> m_hostFunctionStubMap;
+    Lock m_lock;
 };
 
 } // namespace JSC

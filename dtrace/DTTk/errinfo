@@ -69,9 +69,15 @@ $FILTER = "&& (execname == strstr(execname,\"$opt_n\")) || (\"$opt_n\" == strstr
 $FILTER = "&& pid == $opt_p" if defined $opt_p;
 
 #
+# Find the MacOSX SDK path
+#
+$sdk_path = `xcrun --sdk macosx --show-sdk-path` or die "ERROR: trying to find the MacOSX SDK path: $?\n";
+chomp($sdk_path);
+
+#
 #  Load errno descriptions
 #
-open(ERRNO,"/usr/include/sys/errno.h") || die "ERROR1: reading errno.h: $!\n";
+open(ERRNO, "$sdk_path/usr/include/sys/errno.h") || die "ERROR1: reading errno.h: $!\n";
 while (chomp($line = <ERRNO>)) {
 	next unless $line =~ /^#define/;
 	($errno,$desc) = $line =~ /^#define\s+\S+\s+(\d+)\s+\/\*(.*)\*\//;

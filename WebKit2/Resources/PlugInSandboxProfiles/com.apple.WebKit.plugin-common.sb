@@ -251,6 +251,9 @@
 (allow file* (subpath (param "DARWIN_USER_CACHE_DIR")))
 (allow file* (subpath (param "NSURL_CACHE_DIR")))
 
+;; Allow the OpenGL Profiler to attach.
+(if (defined? 'mach-register)
+    (allow mach-register (global-name-regex #"^_oglprof_attach_<[0-9]+>$")))
 
 ;; Networking
 (if (defined? 'system-network)
@@ -279,6 +282,7 @@
 
 ;; Open and Save panels
 (define (webkit-powerbox)
+    (allow file-read* (literal "/Library/Preferences/com.apple.ViewBridge.plist"))
     (allow file-read* file-write* (extension "com.apple.app-sandbox.read-write"))
     (allow file-issue-extension
         (require-all
@@ -311,7 +315,7 @@
         (literal "/private/etc/cups/client.conf")
         (literal "/private/etc/cups/lpoptions")
         (subpath "/private/etc/cups/ppd")
-        (subpath "/private/var/run/cupsd"))
+        (literal "/private/var/run/cupsd"))
     (shared-preferences-read "org.cups.PrintingPrefs"))
 
 ;; Text Services Manager
@@ -397,6 +401,8 @@
             ;; Reserve a namespace for additional protected extended attributes.
             (deny file-read-xattr file-write-xattr (xattr #"^com\.apple\.security\.private\."))
             ;; FIXME: Should be removed once <rdar://problem/16329087> is fixed.
-            (deny file-write-xattr (xattr "com.apple.quarantine") (with no-log))
+            (if (defined? 'xattr-regex)
+                (deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
+                (deny file-read-xattr file-write-xattr (xattr #"^com\.apple\.security\.private\.")))
             (original-%finalize))))
    (set! %finalize webkit-%finalize))

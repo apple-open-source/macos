@@ -1,0 +1,109 @@
+#! /bin/csh -f
+#
+# run SSL tests.
+# For now the sslSession run using the imported p12 identity is disabled by default
+# since there is apparently no way to avoid the UI resulting from attempting
+# to use a private key imported via p12 (even to modify the ACL by the same program
+# that imported it!). 
+#
+#
+set QUIET= 
+set QUIET_=
+set VERB= 
+set PINGSSL_QUIET=
+set NON_BLOCK=
+set LARGE_DH=
+set P12_SESSION=NO
+set DO_PING=YES
+set RING_BUFS=
+
+source sslKcSetup
+
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case v:
+            set VERB = v
+            shift
+            breaksw
+        case q:
+            set QUIET = q
+			set QUIET_ = -q
+			set PINGSSL_QUIET = s
+            shift
+            breaksw
+        case p:
+			set P12_SESSION = YES
+			shift
+			breaksw
+		case b:
+			set NON_BLOCK=b
+            shift
+            breaksw
+		case l:
+			set LARGE_DH=l
+			shift
+			breaksw
+		case n:
+			set DO_PING=NO
+			shift
+			breaksw
+		case R:
+			set RING_BUFS=R
+			shift
+			breaksw
+        default:
+            cat ssldvtUsage
+            exit(1)
+    endsw
+end
+#
+# Verify presence and validity of required certs
+#
+if((! -e $LOCAL_CERT) || (! -e $CLIENT_CERT) || \
+   (! -e $LOCAL_KC_PATH) || (! -e $CLIENT_KC_PATH) || \
+   (! -e $P12_KC_PATH) || (! -e $P12_ROOT_CERT)) then
+   cat ssldvtCertErr
+   exit(1)
+endif
+$BUILD_DIR/certcrl -c $LOCAL_CERT -a -e=CSSMERR_TP_INVALID_ANCHOR_CERT >> /dev/null
+if($status) then
+   echo === initial run of certcrl yielded unexpected results ===
+   cat ssldvtCertErr
+   exit(1)
+endif
+
+# P12-based, RSA
+if($P12_SESSION == YES) then
+    $BUILD_DIR/sslSession $P12_KC z=$P12_KC_PWD a $P12_ROOT_CERT k $QUIET $VERB $NON_BLOCK $RING_BUFS || exit(1)
+endif
+$BUILD_DIR/sslAlert $QUIET $VERB s=$LOCAL_CERT c=$CLIENT_CERT $NON_BLOCK $RING_BUFS || exit(1)
+$BUILD_DIR/sslProt $QUIET $VERB s=$LOCAL_CERT $NON_BLOCK $RING_BUFS || exit(1)
+$BUILD_DIR/sslAuth $QUIET $VERB  s=$LOCAL_CERT c=$CLIENT_CERT $NON_BLOCK $RING_BUFS || exit(1)
+$BUILD_DIR/sslCipher $QUIET $VERB $NON_BLOCK s=$LOCAL_CERT d=$DSA_CERT $LARGE_DH $RING_BUFS || exit(1)
+# 
+# Use cert configured for client use on server side, verify policy fail 
+#
+$BUILD_DIR/sslSession $CLIENT_KC a $CLIENT_CERT x $QUIET $RING_BUFS || exit(1)
+# 
+# Use cert configured for server use on client side, verify policy fail 
+#
+$BUILD_DIR/sslSession $LOCAL_KC a $LOCAL_CERT c=$LOCAL_KC X u $RING_BUFS $QUIET || exit(1)
+#
+# check for cert-specific errors
+#
+set SSL_SCRIPT_DIR=`pwd`
+# 
+# This one needs certs in current directory; copy the script 
+# to build dir and run there; return to cwd afterwards
+#
+cp sslExtendUse.scr $BUILD_DIR
+cd $BUILD_DIR
+./certcrl -S sslExtendUse.scr $QUIET_ || exit(1)
+cd $SSL_SCRIPT_DIR
+#
+if($DO_PING == YES) then
+	../sslViewer/verifyPing $PINGSSL_QUIET $VERB $NON_BLOCK || exit(1)
+endif
+
+echo "### ssldvt completed successfully. ###"

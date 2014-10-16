@@ -1,6 +1,5 @@
 namespace="SVG"
 namespaceURI="http://www.w3.org/2000/svg"
-guardFactoryWith="ENABLE(SVG)"
 attrsNullNamespace
 
 accent-height
@@ -145,6 +144,7 @@ origin
 overflow
 overline-position
 overline-thickness
+paint-order
 panose-1
 path
 pathLength

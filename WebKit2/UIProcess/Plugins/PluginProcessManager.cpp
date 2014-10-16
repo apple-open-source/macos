@@ -26,7 +26,7 @@
 #include "config.h"
 #include "PluginProcessManager.h"
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "PluginProcessProxy.h"
 #include "WebContext.h"
@@ -38,7 +38,7 @@ namespace WebKit {
 
 PluginProcessManager& PluginProcessManager::shared()
 {
-    DEFINE_STATIC_LOCAL(PluginProcessManager, pluginProcessManager, ());
+    static NeverDestroyed<PluginProcessManager> pluginProcessManager;
     return pluginProcessManager;
 }
 
@@ -71,7 +71,7 @@ uint64_t PluginProcessManager::pluginProcessToken(const PluginModuleInfo& plugin
     attributes.processType = pluginProcessType;
     attributes.sandboxPolicy = pluginProcessSandboxPolicy;
 
-    m_pluginProcessTokens.append(std::make_pair(std::move(attributes), token));
+    m_pluginProcessTokens.append(std::make_pair(WTF::move(attributes), token));
     m_knownTokens.add(token);
 
     return token;
@@ -128,4 +128,4 @@ PluginProcessProxy* PluginProcessManager::getOrCreatePluginProcess(uint64_t plug
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

@@ -1,0 +1,10 @@
+/^class BackendTkAgg(/a
+.
+/framework_dirs = \[/i
+            sdkroot = os.environ.get('SDKROOT')
+            if sdkroot is None:
+                sdkroot = '/'
+.
+/'\/System\/Library\/Frameworks\/'/s||join(sdkroot, 'System/Library/Frameworks')|
+/ext\.extra_compile_args\.extend(frameworks)/s/^/#/
+w

@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Module</a> | <a href="./mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossar</a> | <a href="./sitemap.html">Seitenindex</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP-Server</a> &gt; <a href="http://httpd.apache.org/docs/">Dokumentation</a> &gt; <a href="./">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Beenden und Neustarten</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP-Server</a> &gt; <a href="http://httpd.apache.org/docs/">Dokumentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Beenden und Neustarten</h1>
 <div class="toplang">
 <p><span>Verfügbare Sprachen: </span><a href="./de/stopping.html" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/stopping.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -45,8 +45,7 @@
 <li><img alt="" src="./images/down.gif" /> <a href="#term">Beenden</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#graceful">Unterbrechungsfreier Neustart</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#hup">Neustarten</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#gracefulstop">Rücksichtsvolles Beenden</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#race">Anhang: Signale und Wettlaufsituationen</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#race">Anhang: Signale und Wettkampfsituationen</a></li>
 </ul><h3>Siehe auch</h3><ul class="seealso"><li><code class="program"><a href="./programs/httpd.html">httpd</a></code></li><li><code class="program"><a href="./programs/apachectl.html">apachectl</a></code></li></ul><ul class="seealso"><li><a href="#comments_section">Kommentare</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -74,11 +73,10 @@
 
     <p>Die zweite Methode, dem <code class="program"><a href="./programs/httpd.html">httpd</a></code>-Prozess zu
     signalisieren, ist die Verwendung der <code>-k</code>-Befehlszeilenoptionen
-    <code>stop</code>, <code>restart</code>, <code>graceful</code> und
-    <code>graceful-stop</code>, wie unten beschrieben. Dies sind Argumente des
-    <code class="program"><a href="./programs/httpd.html">httpd</a></code>-Programms, es wird jedoch empfohlen, sie unter
-    Verwendung des Steuerskripts <code class="program"><a href="./programs/apachectl.html">apachectl</a></code> zu senden,
-    welches diese an <code class="program"><a href="./programs/httpd.html">httpd</a></code> durchreicht.</p>
+    <code>stop</code>, <code>restart</code> und <code>graceful</code>, wie
+    unten beschrieben. Dies sind Argumente des <code class="program"><a href="./programs/httpd.html">httpd</a></code>-Programms, es wird jedoch
+    empfohlen, sie unter Verwendung des Steuerskripts <code class="program"><a href="./programs/apachectl.html">apachectl</a></code> zu senden, welches diese
+    an <code class="program"><a href="./programs/httpd.html">httpd</a></code> durchreicht.</p>
 
     <p>Nachdem Sie <code class="program"><a href="./programs/httpd.html">httpd</a></code> signalisiert haben, können Sie
     dessen Fortschritt beobachten, indem Sie eingeben:</p>
@@ -117,6 +115,12 @@
     ersetzt der Elternprozess ihn durch ein Kind der neuen
     Konfigurations-<em>Generation</em>. Dieses beginnt sofort damit,
     neue Anfragen zu bedienen.</p>
+
+    <div class="note">Auf bestimmten Plattformen, welche kein <code>USR1</code>
+    für einen unterbrechungsfreien Neustart erlauben, kann ein
+    alternatives Signal verwendet werden (wie z.B.
+    <code>WINCH</code>). Der Befehl <code>apachectl graceful</code>
+    sendet das jeweils richtige Signal für Ihre Platform.</div>
 
     <p>Der Code ist dafür ausgelegt, stets die MPM-Direktiven
     zur Prozesssteuerung zu beachten, so dass die Anzahl der Prozesse
@@ -206,74 +210,22 @@
     wie Sie das vermeiden können.</div>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="gracefulstop" id="gracefulstop">Rücksichtsvolles Beenden</a></h2>
-
-    <dl>
-        <dt>Signal: WINCH</dt>
-        <dd><code>apachectl -k gracefull stop</code></dd>
-    </dl>
-
-    <p>Das <code>WINCH</code>- oder <code>graceful-stop</code>-Signal
-    veranlasst den Elternprozess, die Kinder <em>anzuweisen</em>, sich nach
-    Abschluß ihrer momentan bearbeiteten Anfrage zu beenden (oder sich
-    sofort zu beenden, wenn sie gerade nichts bedienen). Der Elternprozess
-    entfernt dann sein <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code> und
-    stellt das Lauschen auf allen Ports ein. Er läuft weiter und
-    beobachtet alle Kindprozesse, die noch Anfragen bearbeiten. Sobald alle
-    Kindprozesse fertig sind und beendet haben oder die mit <code class="directive"><a href="./mod/mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></code> definierte
-    Zeitüberschreitung erreicht wurde, beendet sich der Elternprozess
-    ebenfalls. Jedem verbliebenen Kindprozess wird beim Erreichen der
-    Zeitüberschreitung das <code>TERM</code>-Signal gesendet, um diesen
-    zum Beenden zu zwingen.</p>
-    
-    <p>Ein <code>TERM</code>-Signal beendet den Elternprozess und alle
-    Kindprozesse unverzüglich, wenn sie sich im "graceful"-Status
-    <span class="transnote">(<em>Anm.d.Ü.:</em> wörtl. "gnädiger" Status)</span> befinden. Da jedoch das
-    <code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code>dann schon gelöscht
-    ist, werden Sie dieses Signal nicht mehr mit <code>apachectl</code> oder
-    <code>httpd</code> senden können.</p>
-
-    <div class="note"><p>Das Signal <code>graceful-stop</code> ermöglicht Ihnen den
-    Betrieb mehrerer identisch konfigurierter Instanzen von <code>httpd</code>
-    zur gleichen Zeit. Dies ist eine mächtige Funktionalität bei der
-    Aufrüstung des Apache. Sie kann jedoch bei einigen Konfigurationen
-    auch zur gegenseitigen Blockierung und zu Wettlaufsituationen
-    führen.</p>
-
-    <p>Es ist besonders darauf zu achten, dass auf Festplatte gespeicherte
-    Dateien wie <code class="directive"><a href="./mod/mpm_common.html#lockfile">Lockfile</a></code> und <code class="directive"><a href="./mod/mod_cgid.html#scriptsock">ScriptSock</a></code> die Server-PID enthalten und ohne
-    Probleme nebeneinander existieren müssen. Wann auch immer eine
-    Konfigurationsanweisung, ein Drittanbieter-Modul oder ein persistentes
-    CGI-Skript irgend eine Sperre oder eine Statusdatei auf Festplatte
-    speichert, muss besonders darauf geachtet werden, dass mehrere
-    gleichzeitig laufende Instanzen von <code>httpd</code> sich nicht
-    gegenseitig die Dateien zerstören.</p>
-
-    <p>Sie sollten ebenfalls vorsichtig mit möglichen Wettlaufsituationen
-    sein, wie beispielsweise der Verwendung von weitergeleiteter
-    Protokollierung nach der Art von <code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code>. Mehrere
-    gleichzeitig laufende Instanzen von <code class="program"><a href="./programs/rotatelogs.html">rotatelogs</a></code>, die
-    versuchen, die gleichen Protokolldateien zu rotieren, können sich
-    gegenseitig die Protokolldateien zerstören.</p></div>
-
-</div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
-<div class="section">
-<h2><a name="race" id="race">Anhang: Signale und Wettlaufsituationen</a></h2>
+<h2><a name="race" id="race">Anhang: Signale und Wettkampfsituationen</a></h2>
 
     <p>Vor der Version 1.2b9 des Apache existierten verschiedene
-    <em>Wettlaufsituationen</em> <span class="transnote">(<em>Anm.d.Ü.:</em> engl.: race
-    conditions)</span>, die den Neustart und die Signale beeinflußt
-    haben (einfach gesagt, eine Wettlaufstituation ist ein zeitabhängiges
-    Problem - wenn etwas zum falschen Zeitpunkt oder in der falschen
-    Reihenfolge geschieht, kommt es zu nicht erwünschten Ergebnissen.
-    Geschehen die gleichen Dinge zur rechten Zeit, ist alles in Ordnung).  Bei
-    Architekturen mit dem "richtigen" <span class="transnote">(<em>Anm.d.Ü.:</em> im Sinne von
-    "geeignet")</span> Funktionsumfang haben wir so viele eliminiert wie
-    wir nur konnten. Dennoch sollte beachtet werden, dass noch immer
-    Wettlaufsituationen auf bestimmten Architekturen existieren.</p>
+    <em>Wettkampfsituationen</em> (race conditions), die den Neustart und
+    die Signale beeinflußt haben. (Einfach erklärt ist eine
+    Wettkampfsituation ein zeitabhängiges Problem - wenn
+    etwas zum falschen Zeitpunkt erfolgt oder Dinge in der falschen
+    Reihenfolge passieren, ist unerwartetes Verhalten die Folge. Wenn die
+    gleichen Dinge zur richtigen Zeit geschehen, funktioniert alles korrekt.)
+    Bei Architekturen mit dem "richtigen" Funktionsumfang
+    haben wir so viele eliminiert wie wir nur konnten. Dennoch
+    sollte beachtet werden, dass noch immer Wettkampfsituationen auf
+    bestimmten Architekturen existieren.</p>
 
     <p>Bei Architekturen, die ein <code class="directive"><a href="./mod/mpm_common.html#scoreboardfile">ScoreBoardFile</a></code> auf Platte verwenden,
-    kann die Statustabelle beschädigt werden.
+    besteht die Gefahr, dass die Statustabelle beschädigt wird.
     Das kann zu "bind: Address already in use" ("bind: Adresse wird
     bereits verwendet", nach einem <code>HUP</code>) oder "long lost
     child came home!" ("Der verlorene Sohn ist heimgekehrt", nach einem
@@ -287,7 +239,7 @@
     die sie benötigen, die Dokumentation zu <code class="directive"><a href="./mod/mpm_common.html#scoreboardfile">ScoreBoardFile</a></code>.</p>
 
     <p>Alle Architekturen haben in jedem Kindprozess eine kleine
-    Wettlaufsituation, welche die zweite und nachfolgende Anfragen
+    Wettkampfsituation, welche die zweite und nachfolgende Anfragen
     einer persistenten HTTP-Verbindung (KeepAlive) umfaßt. Der Prozess
     kann nach dem Lesen der Anfragezeile aber vor dem Lesen der Anfrage-Header
     enden. Es existiert eine Korrektur, die für 1.2 zu spät kam.
@@ -310,7 +262,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Kommentare</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/stopping.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/stopping.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -325,7 +277,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/stopping.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Module</a> | <a href="./mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossar</a> | <a href="./sitemap.html">Seitenindex</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

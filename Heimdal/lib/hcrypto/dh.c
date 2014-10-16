@@ -524,7 +524,7 @@ int
 i2d_DHparams(DH *dh, unsigned char **pp)
 {
     DHParameter data;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     memset(&data, 0, sizeof(data));
@@ -549,7 +549,6 @@ i2d_DHparams(DH *dh, unsigned char **pp)
 	    return -1;
 	if (len != size) {
 	    abort();
-            return -1;
         }
 
 	memcpy((char *)*pp, p, size);

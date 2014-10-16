@@ -35,11 +35,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)args.c	8.3 (Berkeley) 4/2/94";
 #endif
-static const char rcsid[] =
+__used static const char rcsid[] =
   "$FreeBSD: src/bin/dd/args.c,v 1.31 2002/02/22 20:51:00 markm Exp $";
 #endif /* not lint */
 

@@ -28,7 +28,8 @@
 
 #include "WKAPICast.h"
 #include "WKArray.h"
-#include "ewk_error_private.h"
+#include "WKSecurityOrigin.h"
+#include "WKString.h"
 #include "ewk_security_origin_private.h"
 #include "ewk_storage_manager_private.h"
 
@@ -63,36 +64,54 @@ Eina_List* EwkStorageManager::createOriginList(WKArrayRef origins) const
     return originList;
 }
 
-struct Ewk_Storage_Origins_Async_Get_Context {
+struct EwkStorageOriginsAsyncData {
     const Ewk_Storage_Manager* manager;
-    Ewk_Storage_Origins_Get_Cb callback;
+    Ewk_Storage_Origins_Async_Get_Cb callback;
     void* userData;
 
-    Ewk_Storage_Origins_Async_Get_Context(const Ewk_Storage_Manager* manager, Ewk_Storage_Origins_Get_Cb callback, void* userData)
+    EwkStorageOriginsAsyncData(const Ewk_Storage_Manager* manager, Ewk_Storage_Origins_Async_Get_Cb callback, void* userData)
         : manager(manager)
         , callback(callback)
         , userData(userData)
     { }
 };
 
-static void getStorageOriginsCallback(WKArrayRef origins, WKErrorRef wkError, void* context)
+static void getStorageOriginsCallback(WKArrayRef origins, WKErrorRef, void* context)
 {
     Eina_List* originList = 0;
-    OwnPtr<Ewk_Storage_Origins_Async_Get_Context*> webStorageContext = adoptPtr(static_cast<Ewk_Storage_Origins_Async_Get_Context*>(context));
+    auto webStorageContext = std::unique_ptr<EwkStorageOriginsAsyncData>(static_cast<EwkStorageOriginsAsyncData*>(context));
 
     originList = webStorageContext->manager->createOriginList(origins);
 
-    OwnPtr<EwkError> ewkError = EwkError::create(wkError);
-    webStorageContext->callback(originList, ewkError.get(), webStorageContext->userData);
+    webStorageContext->callback(originList, webStorageContext->userData);
 }
 
-Eina_Bool ewk_storage_manager_origins_get(const Ewk_Storage_Manager* ewkStorageManager, Ewk_Storage_Origins_Get_Cb callback, void* userData)
+Eina_Bool ewk_storage_manager_origins_async_get(const Ewk_Storage_Manager* ewkStorageManager, Ewk_Storage_Origins_Async_Get_Cb callback, void* userData)
 {
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkStorageManager, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(callback, false);
 
-    Ewk_Storage_Origins_Async_Get_Context* context = new Ewk_Storage_Origins_Async_Get_Context(ewkStorageManager, callback, userData);
+    EwkStorageOriginsAsyncData* context = new EwkStorageOriginsAsyncData(ewkStorageManager, callback, userData);
     ewkStorageManager->getStorageOrigins(context, getStorageOriginsCallback);
+
+    return true;
+}
+
+Eina_Bool ewk_storage_manager_entries_clear(Ewk_Storage_Manager* ewkStorageManager)
+{
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkStorageManager, false);
+
+    WKKeyValueStorageManagerDeleteAllEntries(ewkStorageManager->wkStorageManager().get());
+
+    return true;
+}
+
+Eina_Bool ewk_storage_manager_entries_for_origin_del(Ewk_Storage_Manager* ewkStorageManager, Ewk_Security_Origin* origin)
+{
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkStorageManager, false);
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkSecurityOrigin, origin, impl, false);
+
+    WKKeyValueStorageManagerDeleteEntriesForOrigin(ewkStorageManager->wkStorageManager().get(), impl->wkSecurityOrigin());
 
     return true;
 }

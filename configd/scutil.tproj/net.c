@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2007, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2011, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -753,6 +753,124 @@ do_net_enable(int argc, char **argv)
 
 	(*net_keys[i].enable)(argc, argv);
 	return;
+}
+
+
+static void
+do_net_migrate_perform(int argc, char **argv)
+{
+	char * sourceConfiguration = NULL;
+	char * targetConfiguration = NULL;
+	char * currentConfiguration = NULL;
+	CFStringRef str = NULL;
+	CFURLRef sourceConfigurationURL = NULL;
+	CFURLRef targetConfigurationURL = NULL;
+	CFURLRef currentConfigurationURL = NULL;
+	CFArrayRef migrationFiles = NULL;
+
+	sourceConfiguration = argv[0];
+	targetConfiguration = argv[1];
+
+	if (argc == 3) {
+		currentConfiguration = argv[2];
+	}
+
+	SCPrint(_sc_debug, stdout, CFSTR("sourceConfiguration: %s\ntargetConfiguration: %s\ncurrentConfiguration: %s\n"),
+		sourceConfiguration, targetConfiguration, (currentConfiguration != NULL) ? currentConfiguration : "<current system>" );
+
+	str = CFStringCreateWithCString(NULL, sourceConfiguration, kCFStringEncodingUTF8);
+	sourceConfigurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
+	CFRelease(str);
+
+	str = CFStringCreateWithCString(NULL, targetConfiguration, kCFStringEncodingUTF8);
+	targetConfigurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
+	CFRelease(str);
+
+	if (currentConfiguration != NULL) {
+		str = CFStringCreateWithCString(NULL, currentConfiguration, kCFStringEncodingUTF8);
+		currentConfigurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
+		CFRelease(str);
+	}
+
+	migrationFiles = _SCNetworkConfigurationPerformMigration(sourceConfigurationURL, currentConfigurationURL, targetConfigurationURL, NULL);
+
+	if (migrationFiles != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("Migration Successful: %@ \n"), migrationFiles);
+	}
+	else {
+		SCPrint(TRUE, stdout, CFSTR("Migration Unsuccessful \n"));
+	}
+
+	if (sourceConfigurationURL != NULL) {
+		CFRelease(sourceConfigurationURL);
+	}
+	if (targetConfigurationURL != NULL) {
+		CFRelease(targetConfigurationURL);
+	}
+	if (currentConfigurationURL != NULL) {
+		CFRelease(currentConfigurationURL);
+	}
+	if (migrationFiles != NULL) {
+		CFRelease(migrationFiles);
+	}
+}
+
+
+static void
+do_net_migrate_validate(int argc, char **argv)
+{
+	char *configuration = NULL;
+	CFURLRef configurationURL = NULL;
+	char *expectedConfiguration = NULL;
+	CFURLRef expectedConfigurationURL = NULL;
+	Boolean isValid = FALSE;
+	CFStringRef str = NULL;
+	
+	configuration = argv[0];
+	str = CFStringCreateWithCString(NULL, configuration, kCFStringEncodingUTF8);
+	configurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
+	CFRelease(str);
+	
+	expectedConfiguration = argv[1];
+	str = CFStringCreateWithCString(NULL, expectedConfiguration, kCFStringEncodingUTF8);
+	expectedConfigurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
+	CFRelease(str);
+	
+	isValid = _SCNetworkMigrationAreConfigurationsIdentical(configurationURL, expectedConfigurationURL);
+
+	SCPrint(TRUE, stdout, CFSTR("Configuration at location %s %s\n"), configuration, isValid ? "is valid" : "is NOT valid");
+
+	if (configurationURL != NULL) {
+		CFRelease(configurationURL);
+	}
+	if (expectedConfigurationURL != NULL) {
+		CFRelease(expectedConfigurationURL);
+	}
+}
+
+
+__private_extern__
+void
+do_net_migrate(int argc, char **argv)
+{
+	char *key;
+	SCPrint(TRUE, stdout, CFSTR("do_net_migrate called, %d\n"), argc);
+
+	key = argv[0];
+	argv++;
+	argc--;
+
+	if (strncmp(key, "perform", strlen(key)) == 0) {
+		do_net_migrate_perform(argc, argv);
+	}
+	else if (strncmp(key, "validate", strlen(key)) == 0) {
+		do_net_migrate_validate(argc, argv);
+	}
+	else {
+		SCPrint(TRUE, stderr, CFSTR("migrate what?\n"));
+		return;
+	}
+
 }
 
 

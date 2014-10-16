@@ -30,11 +30,15 @@
 #import "WebPluginPackage.h"
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/Color.h>
+#import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageGroup.h>
 #import <WebCore/PlatformCookieJar.h>
 #import <WebCore/PlatformPasteboard.h>
+#import <WebCore/SharedBuffer.h>
+#import <WebCore/SubframeLoader.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -86,37 +90,32 @@ StorageStrategy* WebPlatformStrategies::createStorageStrategy()
     return this;
 }
 
-VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
-{
-    return this;
-}
-
-String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
     return WebCore::cookiesForDOM(session, firstParty, url);
 }
 
-void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, const String& cookieString)
+void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, const String& cookieString)
 {
     WebCore::setCookiesFromDOM(session, firstParty, url, cookieString);
 }
 
-bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
     return WebCore::cookiesEnabled(session, firstParty, url);
 }
 
-String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
     return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
 }
 
-bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, Vector<Cookie>& rawCookies)
+bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, Vector<Cookie>& rawCookies)
 {
     return WebCore::getRawCookies(session, firstParty, url, rawCookies);
 }
 
-void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const KURL& url, const String& cookieName)
+void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
 {
     WebCore::deleteCookie(session, url, cookieName);
 }
@@ -131,7 +130,7 @@ void WebPlatformStrategies::getPluginInfo(const Page* page, Vector<PluginInfo>& 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     // WebKit1 has no application plug-ins, so we don't need to add them here.
-    if (!page->mainFrame()->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
+    if (!page->mainFrame().loader().subframeLoader().allowPlugins(NotAboutToInstantiatePlugin))
         return;
 
     NSArray* pluginsArray = [[WebPluginDatabase sharedDatabase] plugins];
@@ -142,16 +141,6 @@ void WebPlatformStrategies::getPluginInfo(const Page* page, Vector<PluginInfo>& 
     }
     
     END_BLOCK_OBJC_EXCEPTIONS;
-}
-
-bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash, const KURL&, const AtomicString&)
-{
-    return page->group().isLinkVisited(hash);
-}
-
-void WebPlatformStrategies::addVisitedLink(Page* page, LinkHash hash)
-{
-    return page->group().addVisitedLinkHash(hash);
 }
 
 void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteboardName)
@@ -174,12 +163,12 @@ String WebPlatformStrategies::stringForType(const String& pasteboardType, const 
     return PlatformPasteboard(pasteboardName).stringForType(pasteboardType);
 }
 
-void WebPlatformStrategies::copy(const String& fromPasteboard, const String& toPasteboard)
+long WebPlatformStrategies::copy(const String& fromPasteboard, const String& toPasteboard)
 {
-    PlatformPasteboard(toPasteboard).copy(fromPasteboard);
+    return PlatformPasteboard(toPasteboard).copy(fromPasteboard);
 }
 
-int WebPlatformStrategies::changeCount(const String &pasteboardName)
+long WebPlatformStrategies::changeCount(const String &pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).changeCount();
 }
@@ -194,32 +183,74 @@ Color WebPlatformStrategies::color(const String& pasteboardName)
     return PlatformPasteboard(pasteboardName).color();    
 }
 
-KURL WebPlatformStrategies::url(const String& pasteboardName)
+URL WebPlatformStrategies::url(const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).url();
 }
 
-void WebPlatformStrategies::addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+long WebPlatformStrategies::addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
 {
-    PlatformPasteboard(pasteboardName).addTypes(pasteboardTypes);
+    return PlatformPasteboard(pasteboardName).addTypes(pasteboardTypes);
 }
 
-void WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+long WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
 {
-    PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes);
+    return PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes);
 }
 
-void WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
 {
-    PlatformPasteboard(pasteboardName).setBufferForType(buffer, pasteboardType);
+    return PlatformPasteboard(pasteboardName).setBufferForType(buffer, pasteboardType);
 }
 
-void WebPlatformStrategies::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
 {
-    PlatformPasteboard(pasteboardName).setPathnamesForType(pathnames, pasteboardType);
+    return PlatformPasteboard(pasteboardName).setPathnamesForType(pathnames, pasteboardType);
 }
 
-void WebPlatformStrategies::setStringForType(const String& string, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setStringForType(const String& string, const String& pasteboardType, const String& pasteboardName)
 {
-    PlatformPasteboard(pasteboardName).setStringForType(string, pasteboardType);    
+    return PlatformPasteboard(pasteboardName).setStringForType(string, pasteboardType);
 }
+
+#if PLATFORM(IOS)
+void WebPlatformStrategies::writeToPasteboard(const WebCore::PasteboardWebContent& content)
+{
+    PlatformPasteboard().write(content);
+}
+
+void WebPlatformStrategies::writeToPasteboard(const WebCore::PasteboardImage& image)
+{
+    PlatformPasteboard().write(image);
+}
+
+void WebPlatformStrategies::writeToPasteboard(const String& pasteboardType, const String& text)
+{
+    PlatformPasteboard().write(pasteboardType, text);
+}
+
+int WebPlatformStrategies::getPasteboardItemsCount()
+{
+    return PlatformPasteboard().count();
+}
+
+PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::readBufferFromPasteboard(int index, const String& type)
+{
+    return PlatformPasteboard().readBuffer(index, type);
+}
+
+WebCore::URL WebPlatformStrategies::readURLFromPasteboard(int index, const String& type)
+{
+    return PlatformPasteboard().readURL(index, type);
+}
+
+String WebPlatformStrategies::readStringFromPasteboard(int index, const String& type)
+{
+    return PlatformPasteboard().readString(index, type);
+}
+
+long WebPlatformStrategies::changeCount()
+{
+    return PlatformPasteboard().changeCount();
+}
+#endif // PLATFORM(IOS)

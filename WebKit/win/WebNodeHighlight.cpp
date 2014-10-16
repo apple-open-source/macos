@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2013 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -39,6 +39,7 @@
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/win/GDIObject.h>
 
 using namespace WebCore;
 
@@ -56,7 +57,7 @@ WebNodeHighlight::WebNodeHighlight(WebView* webView)
     , m_showsWhileWebViewIsVisible(false)
 {
 #if ENABLE(INSPECTOR)
-    m_inspectedWebView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&m_inspectedWebViewWindow));
+    m_inspectedWebView->viewWindow(&m_inspectedWebViewWindow);
 #endif // ENABLE(INSPECTOR)
 }
 
@@ -140,7 +141,7 @@ void WebNodeHighlight::update()
 {
     ASSERT(m_overlay);
 
-    HDC hdc = ::CreateCompatibleDC(HWndDC(m_overlay));
+    auto hdc = adoptGDIObject(::CreateCompatibleDC(HWndDC(m_overlay)));
     if (!hdc)
         return;
 
@@ -157,15 +158,15 @@ void WebNodeHighlight::update()
     BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(IntSize(size));
 
     void* pixels = 0;
-    OwnPtr<HBITMAP> hbmp = adoptPtr(::CreateDIBSection(hdc, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
+    auto hbmp = adoptGDIObject(::CreateDIBSection(hdc.get(), &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
     ASSERT_WITH_MESSAGE(hbmp, "::CreateDIBSection failed with error %lu", ::GetLastError());
 
-    ::SelectObject(hdc, hbmp.get());
+    ::SelectObject(hdc.get(), hbmp.get());
 
-    GraphicsContext context(hdc);
+    GraphicsContext context(hdc.get());
 #if ENABLE(INSPECTOR)
-    m_inspectedWebView->page()->inspectorController()->drawHighlight(context);
-#endif // ENABLE(INSPECTOR)
+    m_inspectedWebView->page()->inspectorController().drawHighlight(context);
+#endif
 
     BLENDFUNCTION bf;
     bf.BlendOp = AC_SRC_OVER;
@@ -181,8 +182,7 @@ void WebNodeHighlight::update()
     dstPoint.x = webViewRect.left;
     dstPoint.y = webViewRect.top;
 
-    ::UpdateLayeredWindow(m_overlay, HWndDC(0), &dstPoint, &size, hdc, &srcPoint, 0, &bf, ULW_ALPHA);
-    ::DeleteDC(hdc);
+    ::UpdateLayeredWindow(m_overlay, HWndDC(0), &dstPoint, &size, hdc.get(), &srcPoint, 0, &bf, ULW_ALPHA);
 }
 
 void WebNodeHighlight::placeBehindWindow(HWND window)

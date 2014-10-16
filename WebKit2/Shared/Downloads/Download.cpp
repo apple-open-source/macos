@@ -39,20 +39,12 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassOwnPtr<Download> Download::create(DownloadManager& downloadManager, uint64_t downloadID, const ResourceRequest& request)
-{
-    return adoptPtr(new Download(downloadManager, downloadID, request));
-}
-
 Download::Download(DownloadManager& downloadManager, uint64_t downloadID, const ResourceRequest& request)
     : m_downloadManager(downloadManager)
     , m_downloadID(downloadID)
     , m_request(request)
 #if USE(CFNETWORK)
     , m_allowOverwrite(false)
-#endif
-#if PLATFORM(QT)
-    , m_qtDownloader(0)
 #endif
 {
     ASSERT(m_downloadID);
@@ -138,7 +130,7 @@ void Download::didFinish()
     m_downloadManager.downloadFinished(this);
 }
 
-void Download::didFail(const ResourceError& error, const CoreIPC::DataReference& resumeData)
+void Download::didFail(const ResourceError& error, const IPC::DataReference& resumeData)
 {
     send(Messages::DownloadProxy::DidFail(error, resumeData));
 
@@ -149,7 +141,7 @@ void Download::didFail(const ResourceError& error, const CoreIPC::DataReference&
     m_downloadManager.downloadFinished(this);
 }
 
-void Download::didCancel(const CoreIPC::DataReference& resumeData)
+void Download::didCancel(const IPC::DataReference& resumeData)
 {
     send(Messages::DownloadProxy::DidCancel(resumeData));
 
@@ -160,7 +152,7 @@ void Download::didCancel(const CoreIPC::DataReference& resumeData)
     m_downloadManager.downloadFinished(this);
 }
 
-CoreIPC::Connection* Download::messageSenderConnection()
+IPC::Connection* Download::messageSenderConnection()
 {
     return m_downloadManager.downloadProxyConnection();
 }

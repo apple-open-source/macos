@@ -1,0 +1,95 @@
+#! /bin/csh -f
+#
+# Run one iteration of ECDSA/PKC12 portion of import/export tests.
+# Only used as a subroutine call from importExportECDSA_P12.
+#
+# Usage
+#   importExportECDSA_P12_Tool pfxFile clean(YES|NO) quiet(YES|NO) 
+#
+if ( $#argv != 3 ) then
+	exit(1)
+endif
+set PFX=$argv[1]
+set CLEAN=$argv[2]
+set QUIET=$argv[3]
+set QUIET_ARG=
+set QUIET_FLAG=
+if ($QUIET == YES) then
+	set QUIET_ARG=-q
+	set QUIET_FLAG=q
+endif
+
+source setupCommon
+
+set PFX_PASSWORD=password
+set KEYBASE=${BUILD_DIR}/ecdsaP12
+set PRIV_KEY=${KEYBASE}_priv.der
+set PUB_KEY=${KEYBASE}_pub.der
+set CERT_PEM=${BUILD_DIR}/ecdsa_certs.pem
+set CERT_DER=${BUILD_DIR}/ecdsa_certs.der
+set PLAINTEXT=somePlainText
+set SIGFILE=${BUILD_DIR}/ecdsasig
+
+# empty the keychain 
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+
+# import the p12 - No ACL, extractable in the clear
+set cmd="$KCIMPORT $PFX -k $KEYCHAIN -z $PFX_PASSWORD -t agg -f pkcs12 -n -e $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# export key to clear OpenSSL form
+set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f openssl -o $PRIV_KEY $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# export cert
+set cmd="$KCEXPORT $KEYCHAIN -t certs -o $CERT_PEM -f pemseq $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# convert cert to DER
+set cmd="$PEMTOOL d $CERT_PEM $CERT_DER $QUIET_FLAG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# extract pub key from cert
+set cmd="$KEY_FROM_CERT $QUIET_ARG $CERT_DER $PUB_KEY"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# sign
+set cmd="$RSATOOL s a=e v=o k=$KEYBASE p=$PLAINTEXT s=$SIGFILE $QUIET_FLAG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# verify
+set cmd="$RSATOOL v a=e k=$KEYBASE p=$PLAINTEXT s=$SIGFILE $QUIET_FLAG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if($CLEAN == YES) then
+	set cmd="rm -f $PRIV_KEY $PUB_KEY $CERT_PEM $CERT_DER $SIGFILE"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif
+

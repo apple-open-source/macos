@@ -12,6 +12,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-extern void PrintHIDReport(uint8_t *reportDesc, uint32_t length);
+extern void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length);
 
 #endif /* IOHIDFamily_IOHIDReportParser_h */

@@ -62,19 +62,11 @@ BEGIN
 tick-10msec
 /cpuid == -1/
 {
-#if !defined(__APPLE__)
-	cpuid = curthread->t_cpu->cpu_id;
-#else
 	cpuid = (uint32_t)curthread->last_processor;
-#endif /* __APPLE__ */
 }
 
 tick-10msec
-#if !defined(__APPLE__)
-/curthread->t_cpu->cpu_id == cpuid && n < 100/
-#else
 /(uint32_t)curthread->last_processor == cpuid && n < 100/
-#endif /* __APPLE__ */
 {
 	printf("%d\n", n++);
 }

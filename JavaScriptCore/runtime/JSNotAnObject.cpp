@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,11 +30,11 @@
 #include "config.h"
 #include "JSNotAnObject.h"
 
-#include "Operations.h"
+#include "JSCInlines.h"
 
 namespace JSC {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSNotAnObject);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSNotAnObject);
 
 const ClassInfo JSNotAnObject::s_info = { "Object", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSNotAnObject) };
 
@@ -46,19 +46,13 @@ JSValue JSNotAnObject::defaultValue(const JSObject*, ExecState* exec, PreferredP
 }
 
 // JSObject methods
-bool JSNotAnObject::getOwnPropertySlot(JSCell*, ExecState* exec, PropertyName, PropertySlot&)
+bool JSNotAnObject::getOwnPropertySlot(JSObject*, ExecState* exec, PropertyName, PropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException());
     return false;
 }
 
-bool JSNotAnObject::getOwnPropertySlotByIndex(JSCell*, ExecState* exec, unsigned, PropertySlot&)
-{
-    ASSERT_UNUSED(exec, exec->hadException());
-    return false;
-}
-
-bool JSNotAnObject::getOwnPropertyDescriptor(JSObject*, ExecState* exec, PropertyName, PropertyDescriptor&)
+bool JSNotAnObject::getOwnPropertySlotByIndex(JSObject*, ExecState* exec, unsigned, PropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException());
     return false;

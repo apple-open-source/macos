@@ -1,8 +1,40 @@
 set	prototyped
 set	nooptimize
-set	stdio FEATURE/isoc99
+set	stdio FEATURE/standards
 hdr	float,limits,math,values
-lib	fpclassify,frexp,frexpl,ldexp,ldexpl,finite,finitel,isinf,isinfl,isnan,isnanl,signbit,copysign,copysignl FEATURE/isoc99 math.h -lm
+lib,npt	frexp,frexpl,ldexp,ldexpl,finite,finitel,isinfl,isnanl,copysign,copysignl FEATURE/standards math.h -lm
+lib	fpclassify -lm note{ fpclassify present and works }end link{
+		#include <sys/types.h>
+		#include <sys/stat.h>
+		#include <stdlib.h>
+		#include <unistd.h>
+		#include <math.h>
+		int main() { return fpclassify(-0.0); }
+	}end
+lib	isinf -lm note{ isinf present and works }end link{
+		#include <sys/types.h>
+		#include <sys/stat.h>
+		#include <stdlib.h>
+		#include <unistd.h>
+		#include <math.h>
+		int main() { return isinf(-0.0); }
+	}end
+lib	isnan -lm note{ isnan present and works }end link{
+		#include <sys/types.h>
+		#include <sys/stat.h>
+		#include <stdlib.h>
+		#include <unistd.h>
+		#include <math.h>
+		int main() { return isnan(-0.0); }
+	}end
+lib	signbit -lm note{ signbit present and works }end link{
+		#include <sys/types.h>
+		#include <sys/stat.h>
+		#include <stdlib.h>
+		#include <unistd.h>
+		#include <math.h>
+		int main() { return signbit(-0.0); }
+	}end
 
 tst	ast_no_um2fm note{ no unsigned intmax => floatmax cast }end nolink{
 	#include "FEATURE/common"
@@ -847,16 +879,16 @@ tst	- note{ missing floating point limits }end output{
 	#endif
 
 		printf("\n");
-	#if !_lib_frexp
+	#if !_lib_frexp || _npt_frexp
 		printf("extern double		frexp(double, int*);\n");
 	#endif
-	#if !_lib_frexpl
+	#if !_lib_frexpl || _npt_frexpl
 		printf("extern _ast_fltmax_t	frexpl(_ast_fltmax_t, int*);\n");
 	#endif
-	#if !_lib_ldexp
+	#if !_lib_ldexp || _npt_ldexp
 		printf("extern double		ldexp(double, int);\n");
 	#endif
-	#if !_lib_ldexpl
+	#if !_lib_ldexpl || _npt_ldexpl
 		printf("extern _ast_fltmax_t	ldexpl(_ast_fltmax_t, int);\n");
 	#endif
 

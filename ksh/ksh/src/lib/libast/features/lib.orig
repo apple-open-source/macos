@@ -3,7 +3,7 @@ ref	-D_def_map_ast=1
 cmd	universe
 
 hdr	dirent,direntry,filio,fmtmsg,fnmatch,jioctl,libgen,limits
-hdr	locale,ndir,nl_types,process,spawn,syslog,utime,vfork,wctype
+hdr	locale,ndir,nl_types,process,spawn,syslog,utime,vfork
 hdr	wchar note{ <wchar.h> and isw*() really work }end execute{
 	#include <wchar.h>
 	int
@@ -13,6 +13,7 @@ hdr	wchar note{ <wchar.h> and isw*() really work }end execute{
 		return iswalnum(w) == 0;
 	}
 }end
+hdr	wctype wchar.h
 
 dat	_tzname,tzname
 
@@ -52,7 +53,7 @@ mem	inheritance.pgroup spawn.h
 sys	dir,filio,jioctl,localedef,ptem,resource
 sys	socket,stream,systeminfo,universe,vfork
 
-typ	off64_t -D_LARGEFILE64_SOURCE
+typ	ino64_t,off64_t -D_LARGEFILE64_SOURCE
 typ	struct.dirent64 -D_LARGEFILE64_SOURCE dirent.h
 
 tst	tst_errno note{ errno can be assigned }end link{
@@ -135,10 +136,25 @@ tst	lib_poll_notimer note{ poll with no fds ignores timeout }end execute{
 	}
 }end
 
-tst	lib_select note{ select() has standard 5 arg interface }end link{
+tst	lib_select sys/select.h note{ select() has standard 5 arg interface }end link{
 	#include <sys/types.h>
 	#include <sys/time.h>
 	#include <sys/socket.h>
+	int
+	main()
+	{	struct timeval	tmb;
+		fd_set		rd;
+		FD_ZERO(&rd);
+		FD_SET(0,&rd);
+		tmb.tv_sec = 0;
+		tmb.tv_usec = 0;
+		select(1,&rd,(fd_set*)0,(fd_set*)0,&tmb);
+		return 0;
+	}
+}end
+
+tst	sys_select note{ select() requires <sys/select.h> }end link{
+	#include <sys/select.h>
 	int
 	main()
 	{	struct timeval	tmb;
@@ -233,11 +249,11 @@ tst	lib_posix_spawn unistd.h stdlib.h spawn.h -Dfork=______fork note{ posix_spaw
 	#include <signal.h>
 	#include <fcntl.h>
 	#include <string.h>
-	#undef fork
 	/* if it uses fork() why bother? */
-	pid_t fork _ARG_((void)) { return -1; }
-	pid_t _fork _ARG_((void)) { return -1; }
-	pid_t __fork _ARG_((void)) { return -1; }
+	#undef fork
+	pid_t fork _ARG_((void)) { NOTE("uses fork()"); return -1; }
+	pid_t _fork _ARG_((void)) { NOTE("uses _fork()"); return -1; }
+	pid_t __fork _ARG_((void)) { NOTE("uses __fork()"); return -1; }
 	int
 	main(argc, argv)
 	int	argc;
@@ -254,40 +270,86 @@ tst	lib_posix_spawn unistd.h stdlib.h spawn.h -Dfork=______fork note{ posix_spaw
 			_exit(signal(SIGHUP, SIG_DFL) != SIG_IGN);
 		signal(SIGHUP, SIG_IGN);
 		if (posix_spawnattr_init(&attr))
+		{
+			NOTE("posix_spawnattr_init() FAILED");
 			_exit(0);
+		}
 		if (posix_spawnattr_setpgroup(&attr, 0))
+		{
+			NOTE("posix_spawnattr_setpgroup() FAILED");
 			_exit(0);
+		}
 		if (posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP))
+		{
+			NOTE("posix_spawnattr_setflags() FAILED");
 			_exit(0);
+		}
 		/* first try an a.out and verify that SIGHUP is ignored */
 		cmd[0] = argv[0];
 		cmd[1] = "test";
 		cmd[2] = 0;
 		if (posix_spawn(&pid, cmd[0], 0, &attr, cmd, 0))
+		{
+			NOTE("posix_spawn() FAILED");
 			_exit(0);
+		}
 		status = 1;
-		if (wait(&status) < 0 || status != 0)
+		if (wait(&status) < 0)
+		{
+			NOTE("wait() FAILED");
 			_exit(0);
-		/* passing ENOEXEC to the shell is bogus */
+		}
+		if (status != 0)
+		{
+			NOTE("SIGHUP ignored in parent not ignored in child");
+			_exit(0);
+		}
+		/* must return exec-type errors or its useless to us *unless* there is no [v]fork() */
 		n = strlen(cmd[0]);
 		if (n >= (sizeof(tmp) - 3))
+		{
+			NOTE("test executable path too long");
 			_exit(0);
+		}
 		strcpy(tmp, cmd[0]);
 		tmp[n] = '.';
 		tmp[n+1] = 's';
 		tmp[n+2] = 'h';
 		tmp[n+3] = 0;
-		if (close(open(tmp, O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO)) < 0 || chmod(tmp, S_IRWXU|S_IRWXG|S_IRWXO) < 0)
+		if ((n = open(tmp, O_CREAT|O_WRONLY, S_IRWXU|S_IRWXG|S_IRWXO)) < 0 ||
+		    chmod(tmp, S_IRWXU|S_IRWXG|S_IRWXO) < 0 ||
+		    write(n, "exit 99\n", 8) != 8 ||
+		    close(n) < 0)
+		{
+			NOTE("test script create FAILED");
 			_exit(0);
+		}
 		cmd[0] = tmp;
-		n = 0;
+		n = 0; /* 0 means reject */
 		pid = -1;
 		if (posix_spawn(&pid, cmd[0], 0, &attr, cmd, 0))
+		{
 			n = 2;
+			NOTE("ENOEXEC produces posix_spawn() error (BEST)");
+		}
+		else if (pid == -1)
+			NOTE("ENOEXEC returns pid == -1");
+		else if (wait(&status) != pid)
+			NOTE("ENOEXEC produces no child process");
+		else if (!WIFEXITED(status))
+			NOTE("ENOEXEC produces signal exit");
 		else
 		{
-			n = pid != -1 && waitpid(pid, &status, WNOHANG|WNOWAIT) == pid && ((status>>8)&0x7f) == 127;
-			wait(&status);
+			status = WEXITSTATUS(status);
+			if (status == 127)
+			{
+				n = 1;
+				NOTE("ENOEXEC produces exit status 127 (GOOD)");
+			}
+			else if (status == 99)
+				NOTE("ENOEXEC invokes sh");
+			else if (status == 0)
+				NOTE("ENOEXEC reports no error");
 		}
 		_exit(n);
  	}

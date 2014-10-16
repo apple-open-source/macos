@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/br.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/br.xml
+ * ICU <specials> source: <path>/common/main/br.xml
  */
 br{
     Countries{
@@ -72,7 +72,7 @@ br{
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
-        BQ{"Antilhez nederlandat"}
+        BQ{"Nederlandat Karib"}
         BR{"Brazil"}
         BS{"Bahamas"}
         BT{"Bhoutan"}
@@ -193,7 +193,7 @@ br{
         MH{"Inizi Marshall"}
         MK{"Makedonia"}
         ML{"Mali"}
-        MM{"Myanmar [Birmania]"}
+        MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
         MO{"Macau RMD Sina"}
         MP{"Inizi Mariana an Norzh"}
@@ -301,5 +301,9 @@ br{
         ZW{"Zimbabwe"}
         ZZ{"Rannved dianav"}
     }
-    Version{"2.0.82.57"}
+    CountriesShort{
+        HK{"Hong Kong"}
+        MO{"Macau"}
+    }
+    Version{"2.0.98.52"}
 }

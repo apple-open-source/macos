@@ -118,11 +118,20 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
     print_if_attr(stdout, sattrs->vc_misc_flags,
                   SMBV_NEG_SMB2_ONLY, "SMB_NEGOTIATE",
                   "SMBV_NEG_SMB2_ONLY", &ret);
+    print_if_attr(stdout, sattrs->vc_misc_flags,
+                  SMBV_NEG_SMB3_ONLY, "SMB_NEGOTIATE",
+                  "SMBV_NEG_SMB3_ONLY", &ret);
     print_if_attr_chk_ret(stdout, 0,
                   0, "SMB_NEGOTIATE",
                   "AUTO_NEGOTIATE", &ret);
     
     /* smb version */
+    print_if_attr(stdout, sattrs->vc_flags,
+                  SMBV_SMB302, "SMB_VERSION",
+                  "SMB_3.02", &ret);
+    print_if_attr(stdout, sattrs->vc_flags,
+                  SMBV_SMB30, "SMB_VERSION",
+                  "SMB_3.0", &ret);
     print_if_attr(stdout, sattrs->vc_flags,
                   SMBV_SMB2002, "SMB_VERSION",
                   "SMB_2.002", &ret);
@@ -177,7 +186,7 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
                   SMB_CAP_LARGE_FILES, "LARGE_FILE_SUPPORTED",
                   "TRUE", &ret);
     
-    /* SMB 2.x capabilities */
+    /* SMB 2/3 capabilities */
     print_if_attr(stdout, sattrs->vc_misc_flags,
                   SMBV_OSX_SERVER, "OS_X_SERVER",
                   "TRUE", &ret);
@@ -223,6 +232,15 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
                   "TRUE", &ret);
     print_if_attr(stdout, sattrs->ss_caps,
                   SMB2_SHARE_CAP_DFS, "DFS_SHARE",
+                  "TRUE", &ret);
+    /* Sealing current status */
+    print_if_attr(stdout, sattrs->ss_flags,
+                  SMB2_SHAREFLAG_ENCRYPT_DATA, "ENCRYPTION_REQUIRED",
+                  "TRUE", &ret);
+
+    /* Signing current status */
+    print_if_attr(stdout, sattrs->vc_hflags2,
+                  SMB_FLAGS2_SECURITY_SIGNATURE, "SIGNING_ON",
                   "TRUE", &ret);
 
 	if (verbose) {
@@ -380,7 +398,7 @@ cmd_statshares(int argc, char *argv[])
 void
 statshares_usage(void)
 {
-	fprintf(stderr, "usage : smbutil statshare [-m <mount_path>] | [-a]\n");
+	fprintf(stderr, "usage : smbutil statshares [-m <mount_path>] | [-a]\n");
     fprintf(stderr, "\
             [\n \
             description :\n \

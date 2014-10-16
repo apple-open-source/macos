@@ -273,7 +273,7 @@ wrap_des
   krb5_generate_random_block(p, 8);
   memcpy (p + 8, input_message_buffer->value,
 	  input_message_buffer->length);
-  memset (p + 8 + input_message_buffer->length, padlength, padlength);
+  memset (p + 8 + input_message_buffer->length, (int)padlength, padlength);
 
   /* checksum */
   md5 = CCDigestCreate(kCCDigestMD5);
@@ -413,7 +413,7 @@ wrap_des3
   krb5_generate_random_block(p + 28, 8);
   memcpy (p + 28 + 8, input_message_buffer->value,
 	  input_message_buffer->length);
-  memset (p + 28 + 8 + input_message_buffer->length, padlength, padlength);
+  memset (p + 28 + 8 + input_message_buffer->length, (int)padlength, padlength);
 
   ret = krb5_crypto_init(context, key, 0, &crypto);
   if (ret) {

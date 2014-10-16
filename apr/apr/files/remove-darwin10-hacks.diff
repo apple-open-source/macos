@@ -89,7 +89,7 @@
  
 --- include/arch/unix/apr_private.h.in.orig	2011-09-13 17:22:49.000000000 -0700
 +++ include/arch/unix/apr_private.h.in	2011-09-13 17:23:11.000000000 -0700
-@@ -932,60 +932,6 @@
+@@ -936,60 +936,6 @@
  #endif
  
  /*

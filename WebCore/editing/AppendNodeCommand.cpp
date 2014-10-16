@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,6 +29,7 @@
 #include "AXObjectCache.h"
 #include "Document.h"
 #include "ExceptionCodePlaceholder.h"
+#include "RenderElement.h"
 #include "htmlediting.h"
 
 namespace WebCore {
@@ -42,7 +43,7 @@ AppendNodeCommand::AppendNodeCommand(PassRefPtr<ContainerNode> parent, PassRefPt
     ASSERT(m_node);
     ASSERT(!m_node->parentNode());
 
-    ASSERT(m_parent->rendererIsEditable() || !m_parent->attached());
+    ASSERT(m_parent->hasEditableStyle() || !m_parent->renderer());
 }
 
 static void sendAXTextChangedIgnoringLineBreaks(Node* node, AXObjectCache::AXTextChange textChange)
@@ -52,16 +53,16 @@ static void sendAXTextChangedIgnoringLineBreaks(Node* node, AXObjectCache::AXTex
     if (nodeValue == "\n")
       return;
 
-    if (AXObjectCache* cache = node->document()->existingAXObjectCache())
+    if (AXObjectCache* cache = node->document().existingAXObjectCache())
         cache->nodeTextChangeNotification(node, textChange, 0, nodeValue);
 }
 
 void AppendNodeCommand::doApply()
 {
-    if (!m_parent->rendererIsEditable() && m_parent->attached())
+    if (!m_parent->hasEditableStyle() && m_parent->renderer())
         return;
 
-    m_parent->appendChild(m_node.get(), IGNORE_EXCEPTION, AttachLazily);
+    m_parent->appendChild(m_node.get(), IGNORE_EXCEPTION);
 
     if (AXObjectCache::accessibilityEnabled())
         sendAXTextChangedIgnoringLineBreaks(m_node.get(), AXObjectCache::AXTextInserted);
@@ -69,7 +70,7 @@ void AppendNodeCommand::doApply()
 
 void AppendNodeCommand::doUnapply()
 {
-    if (!m_parent->rendererIsEditable())
+    if (!m_parent->hasEditableStyle())
         return;
         
     // Need to notify this before actually deleting the text

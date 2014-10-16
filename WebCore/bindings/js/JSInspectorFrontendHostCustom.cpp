@@ -39,6 +39,7 @@
 #include "ContextMenuItem.h"
 #include "InspectorController.h"
 #include "InspectorFrontendHost.h"
+#include "JSDOMBinding.h"
 #include "JSEvent.h"
 #include "MouseEvent.h"
 #include <runtime/JSArray.h>
@@ -53,34 +54,32 @@ namespace WebCore {
 
 JSValue JSInspectorFrontendHost::platform(ExecState* execState)
 {
-#if PLATFORM(MAC)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("mac")));
+#if PLATFORM(MAC) || PLATFORM(IOS)
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("mac")));
 #elif OS(WINDOWS)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("windows")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("windows")));
 #elif OS(LINUX)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("linux")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("linux")));
 #elif OS(FREEBSD)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("freebsd")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("freebsd")));
 #elif OS(OPENBSD)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("openbsd")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("openbsd")));
 #elif OS(SOLARIS)
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("solaris")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("solaris")));
 #else
-    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("unknown")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("unknown")));
 #endif
     return jsStringWithCache(execState, platform);
 }
 
 JSValue JSInspectorFrontendHost::port(ExecState* execState)
 {
-#if PLATFORM(QT)
-    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("qt")));
-#elif PLATFORM(GTK)
-    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("gtk")));
+#if PLATFORM(GTK)
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("gtk")));
 #elif PLATFORM(EFL)
-    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("efl")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("efl")));
 #else
-    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("unknown")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("unknown")));
 #endif
     return jsStringWithCache(execState, port);
 }
@@ -105,7 +104,7 @@ static void populateContextMenuItems(ExecState* exec, JSArray* array, ContextMen
                                  ContextMenuItemCustomTagNoAction,
                                  String());
             menu.appendItem(item);
-        } else if (typeString == "subMenu" && subItems.inherits(&JSArray::s_info)) {
+        } else if (typeString == "subMenu" && subItems.inherits(JSArray::info())) {
             ContextMenu subMenu;
             JSArray* subItemsArray = asArray(subItems);
             populateContextMenuItems(exec, subItemsArray, subMenu);
@@ -143,7 +142,7 @@ JSValue JSInspectorFrontendHost::showContextMenu(ExecState* exec)
 #else
     Vector<ContextMenuItem> items = menu.items();
 #endif
-    impl()->showContextMenu(event, items);
+    impl().showContextMenu(event, items);
 #else
     UNUSED_PARAM(exec);
 #endif

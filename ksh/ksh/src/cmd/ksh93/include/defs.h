@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -39,9 +39,6 @@
 #include	"argnod.h"
 #include	"name.h"
 #include	<ctype.h>
-#define _SH_PRIVATE
-#include	<shcmd.h>
-#undef _SH_PRIVATE
 
 #ifndef pointerof
 #define pointerof(x)		((void*)((char*)0+(x)))
@@ -93,6 +90,7 @@ struct sh_scoped
 	int		ioset;
 	unsigned short	trapmax;
 	char		*trap[SH_DEBUGTRAP+1];
+	char		**otrap;
 	char		**trapcom;
 	char		**otrapcom;
 	void		*timetrap;
@@ -113,7 +111,7 @@ struct limits
 
 #ifndef SH_wait_f_defined
     typedef int (*Shwait_f)(int, long, int);
-    #define     SH_wait_f_defined
+#   define     SH_wait_f_defined
 #endif
 
 
@@ -158,6 +156,7 @@ struct shared
 	int		path_err;	/* last error on path search */ \
 	Dt_t		*track_tree;	/* for tracked aliases*/ \
 	Dt_t		*var_base;	/* global level variables */ \
+	Dt_t		*openmatch; \
 	Namval_t	*namespace;	/* current active namespace*/ \
 	Namval_t	*last_table;	/* last table used in last nv_open  */ \
 	Namval_t	*prev_table;	/* previous table used in nv_open  */ \
@@ -176,6 +175,7 @@ struct shared
 	char		*comdiv;	/* points to sh -c argument */ \
 	char		*prefix;	/* prefix for compound assignment */ \
 	sigjmp_buf	*jmplist;	/* longjmp return stack */ \
+	char		*fifo;		/* fifo name for process sub */ \
 	int		oldexit; \
 	pid_t		bckpid;		/* background process id */ \
 	pid_t		cpid; \
@@ -195,14 +195,17 @@ struct shared
 	char		used_pos;	/* used postional parameter */\
 	char		universe; \
 	char		winch; \
+	char		inarith; 	/* set when in ((...)) */ \
 	char		indebug; 	/* set when in debug trap */ \
 	unsigned char	ignsig;		/* ignored signal in subshell */ \
 	unsigned char	lastsig;	/* last signal received */ \
+	char		pathinit;	/* pathinit called from subshell */ \
 	char		comsub;		/* set when in $() comsub */ \
 	char		subshare;	/* set when in ${..} comsub */ \
 	char		toomany;	/* set when out of fd's */ \
 	char		instance;	/* in set_instance */ \
 	char		decomma;	/* decimal_point=',' */ \
+	char		redir0;		/* redirect of 0 */ \
 	char		*readscript;	/* set before reading a script */ \
 	int		subdup;		/* bitmask for dups of 1 */ \
 	int		*inpipe;	/* input pipe pointer */ \
@@ -246,6 +249,8 @@ struct shared
 	void		*mktype; \
 	Sfio_t		*strbuf; \
 	Sfio_t		*strbuf2; \
+	Dt_t		*first_root; \
+	Dt_t		*prefix_root; \
 	Dt_t		*last_root; \
 	Dt_t		*prev_root; \
 	Dt_t		*fpathdict; \
@@ -260,10 +265,12 @@ struct shared
 	Namfun_t	nvfun; \
 	char		*mathnodes; \
 	void		*coshell; \
+	char		*bltin_dir; \
 	struct Regress_s*regress;
 
 #include	<shell.h>
 
+#include	"shtable.h"
 #include	"regress.h"
 
 /* error exits from various parts of shell */
@@ -378,7 +385,6 @@ struct shared
 
 extern struct shared	*shgd;
 extern Shell_t		*nv_shell(Namval_t*);
-extern int		sh_addlib(Shell_t*,void*);
 extern void		sh_applyopts(Shell_t*,Shopt_t);
 extern char 		**sh_argbuild(Shell_t*,int*,const struct comnod*,int);
 extern struct dolnod	*sh_argfree(Shell_t *, struct dolnod*,int);
@@ -412,10 +418,11 @@ extern char 		*sh_macpat(Shell_t*,struct argnod*,int);
 extern Sfdouble_t	sh_mathfun(Shell_t*, void*, int, Sfdouble_t*);
 extern int		sh_outtype(Shell_t*, Sfio_t*);
 extern char 		*sh_mactry(Shell_t*,char*);
+extern int		sh_mathstd(const char*);
 extern void		sh_printopts(Shopt_t,int,Shopt_t*);
-extern int 		sh_readline(Shell_t*,char**,int,int,long);
+extern int 		sh_readline(Shell_t*,char**,volatile int,int,ssize_t,long);
 extern Sfio_t		*sh_sfeval(char*[]);
-extern void		sh_setmatch(const char*,int,int,int[]);
+extern void		sh_setmatch(Shell_t*,const char*,int,int,int[],int);
 extern Dt_t		*sh_subaliastree(int);
 extern void             sh_scope(Shell_t*, struct argnod*, int);
 extern Namval_t		*sh_scoped(Shell_t*, Namval_t*);

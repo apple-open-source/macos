@@ -4,7 +4,7 @@
  * $Id: config.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
  */
 /* 
- * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2009 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,32 +43,20 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/*
- * Current Valid keys:
- *
- * canon_user_plugin: <string>
- * pwcheck_method: <string>
- * auto_transition: <boolean>
- * plugin_list: <string>
- *
- * srvtab: <string>
- */
-
-
-#include "sasl.h"
-#include "saslint.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+#include "sasl.h"
+#include "saslint.h"
 
 struct configlist {
     char *key;
     char *value;
 };
 
-static struct configlist *configlist;
-static int nconfiglist;
+static struct configlist *configlist = NULL;
+static int nconfiglist = 0;
 
 #define CONFIGLISTGROWSIZE 100
 
@@ -79,13 +67,14 @@ int sasl_config_init(const char *filename)
     int alloced = 0;
     char buf[4096];
     char *p, *key;
+    char *tail;
     int result;
 
     nconfiglist=0;
 
     infile = fopen(filename, "r");
     if (!infile) {
-      return SASL_CONTINUE;
+        return SASL_CONTINUE;
     }
     
     while (fgets(buf, sizeof(buf), infile)) {
@@ -97,37 +86,53 @@ int sasl_config_init(const char *filename)
 
 	key = p;
 	while (*p && (isalnum((int) *p) || *p == '-' || *p == '_')) {
-	    if (isupper((int) *p)) *p = tolower(*p);
+	    if (isupper((int) *p)) *p = (char) tolower(*p);
 	    p++;
 	}
 	if (*p != ':') {
-	  return SASL_FAIL;
+	    fclose(infile);
+	    return SASL_FAIL;
 	}
 	*p++ = '\0';
 
 	while (*p && isspace((int) *p)) p++;
 	
 	if (!*p) {
-	  return SASL_FAIL;
+	    fclose(infile);
+	    return SASL_FAIL;
+	}
+
+	/* Now strip trailing spaces, if any */
+	tail = p + strlen(p) - 1;
+	while (tail > p && isspace((int) *tail)) {
+	    *tail = '\0';
+	    tail--;
 	}
 
 	if (nconfiglist == alloced) {
 	    alloced += CONFIGLISTGROWSIZE;
 	    configlist=sasl_REALLOC((char *)configlist, 
 				    alloced * sizeof(struct configlist));
-	    if (configlist==NULL) return SASL_NOMEM;
+	    if (configlist == NULL) {
+		fclose(infile);
+		return SASL_NOMEM;
+	    }
 	}
-
-
 
 	result = _sasl_strdup(key,
 			      &(configlist[nconfiglist].key),
 			      NULL);
-	if (result!=SASL_OK) return result;
+	if (result != SASL_OK) {
+	    fclose(infile);
+	    return result;
+	}
 	result = _sasl_strdup(p,
 			      &(configlist[nconfiglist].value),
 			      NULL);
-	if (result!=SASL_OK) return result;
+	if (result != SASL_OK) {
+	    fclose(infile);
+	    return result;
+	}
 
 	nconfiglist++;
     }
@@ -146,4 +151,18 @@ const char *sasl_config_getstring(const char *key,const char *def)
 	  return configlist[opt].value;
     }
     return def;
+}
+
+void sasl_config_done(void)
+{
+    int opt;
+
+    for (opt = 0; opt < nconfiglist; opt++) {
+	if (configlist[opt].key) sasl_FREE(configlist[opt].key);
+	if (configlist[opt].value) sasl_FREE(configlist[opt].value);
+    }
+
+    sasl_FREE(configlist);
+    configlist = NULL;
+    nconfiglist = 0;
 }

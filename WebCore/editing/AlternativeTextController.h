@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -93,7 +93,7 @@ class AlternativeTextController {
     WTF_MAKE_NONCOPYABLE(AlternativeTextController);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit AlternativeTextController(Frame*) UNLESS_ENABLED({ })
+    explicit AlternativeTextController(Frame& frame) UNLESS_ENABLED( : m_frame(frame) { })
     ~AlternativeTextController() UNLESS_ENABLED({ })
 
     void startAlternativeTextUITimer(AlternativeTextType) UNLESS_ENABLED({ })
@@ -108,7 +108,7 @@ public:
     void respondToUnappliedSpellCorrection(const VisibleSelection&, const String& corrected, const String& correction) UNLESS_ENABLED({ UNUSED_PARAM(corrected); UNUSED_PARAM(correction); })
     void respondToAppliedEditing(CompositeEditCommand*) UNLESS_ENABLED({ })
     void respondToUnappliedEditing(EditCommandComposition*) UNLESS_ENABLED({ })
-    void respondToChangedSelection(const VisibleSelection& oldSelection, FrameSelection::SetSelectionOptions) UNLESS_ENABLED({ UNUSED_PARAM(oldSelection); })
+    void respondToChangedSelection(const VisibleSelection& oldSelection) UNLESS_ENABLED({ UNUSED_PARAM(oldSelection); })
 
     void stopPendingCorrection(const VisibleSelection& oldSelection) UNLESS_ENABLED({ UNUSED_PARAM(oldSelection); })
     void applyPendingCorrection(const VisibleSelection& selectionAfterTyping) UNLESS_ENABLED({ UNUSED_PARAM(selectionAfterTyping); })
@@ -138,13 +138,13 @@ private:
 #if USE(AUTOCORRECTION_PANEL)
     String dismissSoon(ReasonForDismissingAlternativeText);
     void applyAlternativeTextToRange(const Range*, const String& alternative, AlternativeTextType, const Vector<DocumentMarker::MarkerType>&);
-    void timerFired(Timer<AlternativeTextController>*);
+    void timerFired(Timer<AlternativeTextController>&);
     void recordAutocorrectionResponseReversed(const String& replacedString, const String& replacementString);
     void recordSpellcheckerResponseForModifiedCorrection(Range* rangeOfCorrection, const String& corrected, const String& correction);
     String markerDescriptionForAppliedAlternativeText(AlternativeTextType, DocumentMarker::MarkerType);
 
     bool shouldStartTimerFor(const DocumentMarker&, int endOffset) const;
-    bool respondToMarkerAtEndOfWord(const DocumentMarker&, const Position& endOfWordPosition, FrameSelection::SetSelectionOptions);
+    bool respondToMarkerAtEndOfWord(const DocumentMarker&, const Position& endOfWordPosition);
 
     AlternativeTextClient* alternativeTextClient();
     EditorClient* editorClient();
@@ -161,7 +161,7 @@ private:
     Position m_positionForLastDeletedAutocorrection;
 #endif
 
-    Frame* m_frame;
+    Frame& m_frame;
 };
 
 #undef UNLESS_ENABLED

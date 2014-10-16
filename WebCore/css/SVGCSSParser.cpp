@@ -2,7 +2,7 @@
     Copyright (C) 2008 Eric Seidel <eric@webkit.org>
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007, 2010 Rob Buis <buis@kde.org>
-    Copyright (C) 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2005, 2006 Apple Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,7 +22,6 @@
 
 #include "config.h"
 
-#if ENABLE(SVG)
 #include "CSSInheritedValue.h"
 #include "CSSInitialValue.h"
 #include "CSSParser.h"
@@ -32,8 +31,6 @@
 #include "RenderTheme.h"
 #include "SVGPaint.h"
 
-using namespace std;
-
 namespace WebCore {
 
 bool CSSParser::parseSVGValue(CSSPropertyID propId, bool important)
@@ -42,7 +39,7 @@ bool CSSParser::parseSVGValue(CSSPropertyID propId, bool important)
     if (!value)
         return false;
 
-    int id = value->id;
+    CSSValueID id = value->id;
 
     bool valid_primitive = false;
     RefPtr<CSSValue> parsedValue;
@@ -167,7 +164,8 @@ bool CSSParser::parseSVGValue(CSSPropertyID propId, bool important)
             valid_primitive = true;
             break;
         }
-    /* fallthrough intentional */
+        FALLTHROUGH;
+
     case CSSPropertyGlyphOrientationHorizontal: // <angle> (restricted to _deg_ per SVG 1.1 spec) | inherit
         if (value->unit == CSSPrimitiveValue::CSS_DEG || value->unit == CSSPrimitiveValue::CSS_NUMBER) {
             parsedValue = CSSPrimitiveValue::create(value->fValue, CSSPrimitiveValue::CSS_DEG);
@@ -176,7 +174,12 @@ bool CSSParser::parseSVGValue(CSSPropertyID propId, bool important)
                 m_valueList->next();
         }
         break;
-
+    case CSSPropertyPaintOrder:
+        if (id == CSSValueNormal)
+            valid_primitive = true;
+        else
+            parsedValue = parsePaintOrder();
+        break;
     case CSSPropertyFill:                 // <paint> | inherit
     case CSSPropertyStroke:               // <paint> | inherit
         {
@@ -272,6 +275,7 @@ bool CSSParser::parseSVGValue(CSSPropertyID propId, bool important)
             }
             return false;
         }
+        break;
 
     case CSSPropertyMaskType: // luminance | alpha | inherit
         if (id == CSSValueLuminance || id == CSSValueAlpha)
@@ -364,6 +368,53 @@ PassRefPtr<CSSValue> CSSParser::parseSVGColor()
     return SVGColor::createFromColor(Color(c));
 }
 
+PassRefPtr<CSSValue> CSSParser::parsePaintOrder()
+{
+    CSSParserValue* value = m_valueList->current();
+
+    Vector<CSSValueID> paintTypeList;
+    RefPtr<CSSPrimitiveValue> fill;
+    RefPtr<CSSPrimitiveValue> stroke;
+    RefPtr<CSSPrimitiveValue> markers;
+    while (value) {
+        if (value->id == CSSValueFill && !fill)
+            fill = CSSPrimitiveValue::createIdentifier(value->id);
+        else if (value->id == CSSValueStroke && !stroke)
+            stroke = CSSPrimitiveValue::createIdentifier(value->id);
+        else if (value->id == CSSValueMarkers && !markers)
+            markers = CSSPrimitiveValue::createIdentifier(value->id);
+        else
+            return nullptr;
+        paintTypeList.append(value->id);
+        value = m_valueList->next();
+    }
+
+    // After parsing we serialize the paint-order list. Since it is not possible to
+    // pop a last list items from CSSValueList without bigger cost, we create the
+    // list after parsing. 
+    CSSValueID firstPaintOrderType = paintTypeList.at(0);
+    RefPtr<CSSValueList> paintOrderList = CSSValueList::createSpaceSeparated();
+    switch (firstPaintOrderType) {
+    case CSSValueFill:
+        FALLTHROUGH;
+    case CSSValueStroke:
+        paintOrderList->append(firstPaintOrderType == CSSValueFill ? fill.release() : stroke.release());
+        if (paintTypeList.size() > 1) {
+            if (paintTypeList.at(1) == CSSValueMarkers)
+                paintOrderList->append(markers.release());
+        }
+        break;
+    case CSSValueMarkers:
+        paintOrderList->append(markers.release());
+        if (paintTypeList.size() > 1) {
+            if (paintTypeList.at(1) == CSSValueStroke)
+                paintOrderList->append(stroke.release());
+        }
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+    return paintOrderList.release();
 }
 
-#endif // ENABLE(SVG)
+}

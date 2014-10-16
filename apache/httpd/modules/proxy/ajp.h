@@ -18,8 +18,8 @@
  * @file ajp.h
  * @brief Apache Jserv Protocol
  *
- * @defgroup AJP_defines AJP definitions
- * @ingroup  MOD_PROXY
+ * @defgroup AJP_defines mod_proxy AJP definitions
+ * @ingroup  APACHE_INTERNAL
  * @{
  */
 
@@ -65,19 +65,6 @@
 #define AJP13_SSL_SESSION_INDICATOR     "SSL_SESSION_ID"
 #define AJP13_SSL_KEY_SIZE_INDICATOR    "SSL_CIPHER_USEKEYSIZE"
 
-#if APR_CHARSET_EBCDIC
-
-#define USE_CHARSET_EBCDIC
-#define ajp_xlate_to_ascii(b, l) ap_xlate_proto_to_ascii(b, l)
-#define ajp_xlate_from_ascii(b, l) ap_xlate_proto_from_ascii(b, l)
-
-#else                           /* APR_CHARSET_EBCDIC */
-
-#define ajp_xlate_to_ascii(b, l) 
-#define ajp_xlate_from_ascii(b, l) 
-
-#endif
-
 #ifdef AJP_USE_HTTPD_WRAP
 #include "httpd_wrap.h"
 #else
@@ -91,50 +78,50 @@
 #endif
 
 #include "mod_proxy.h"
-
+#include "util_ebcdic.h"
 
 /** AJP Specific error codes
  */
 /** Buffer overflow exception */
-#define AJP_EOVERFLOW           (APR_OS_START_USERERR + 1) 
+#define AJP_EOVERFLOW           (APR_OS_START_USERERR + 1)
 /** Destination Buffer is to small */
-#define AJP_ETOSMALL            (APR_OS_START_USERERR + 2) 
+#define AJP_ETOSMALL            (APR_OS_START_USERERR + 2)
 /** Invalid input parameters */
-#define AJP_EINVAL              (APR_OS_START_USERERR + 3) 
+#define AJP_EINVAL              (APR_OS_START_USERERR + 3)
 /** Bad message signature */
-#define AJP_EBAD_SIGNATURE      (APR_OS_START_USERERR + 4) 
+#define AJP_EBAD_SIGNATURE      (APR_OS_START_USERERR + 4)
 /** Incoming message too bg */
-#define AJP_ETOBIG              (APR_OS_START_USERERR + 5) 
+#define AJP_ETOBIG              (APR_OS_START_USERERR + 5)
 /** Missing message header */
-#define AJP_ENO_HEADER          (APR_OS_START_USERERR + 6) 
+#define AJP_ENO_HEADER          (APR_OS_START_USERERR + 6)
 /** Bad message header */
-#define AJP_EBAD_HEADER         (APR_OS_START_USERERR + 7) 
+#define AJP_EBAD_HEADER         (APR_OS_START_USERERR + 7)
 /** Bad message */
-#define AJP_EBAD_MESSAGE        (APR_OS_START_USERERR + 8) 
+#define AJP_EBAD_MESSAGE        (APR_OS_START_USERERR + 8)
 /** Cant log via AJP14 */
-#define AJP_ELOGFAIL            (APR_OS_START_USERERR + 9) 
+#define AJP_ELOGFAIL            (APR_OS_START_USERERR + 9)
 /** Bad request method */
-#define AJP_EBAD_METHOD         (APR_OS_START_USERERR + 10) 
+#define AJP_EBAD_METHOD         (APR_OS_START_USERERR + 10)
 
 
-/** A structure that represents ajp message */ 
+/** A structure that represents ajp message */
 typedef struct ajp_msg ajp_msg_t;
 
-/** A structure that represents ajp message */ 
+/** A structure that represents ajp message */
 struct ajp_msg
 {
-    /** The buffer holding a AJP message */ 
+    /** The buffer holding a AJP message */
     apr_byte_t  *buf;
-    /** The length of AJP message header (defaults to AJP_HEADER_LEN) */ 
+    /** The length of AJP message header (defaults to AJP_HEADER_LEN) */
     apr_size_t  header_len;
-    /** The length of AJP message */ 
+    /** The length of AJP message */
     apr_size_t  len;
-    /** The current read position */ 
+    /** The current read position */
     apr_size_t  pos;
+    /** Flag indicating the origing of the message */
+    int         server_side;
     /** The size of the buffer */
     apr_size_t max_size;
-    /** Flag indicating the origing of the message */ 
-    int         server_side;
 };
 
 /**
@@ -236,8 +223,8 @@ apr_status_t ajp_msg_append_uint16(ajp_msg_t *msg, apr_uint16_t value);
 apr_status_t ajp_msg_append_uint8(ajp_msg_t *msg, apr_byte_t value);
 
 /**
- *  Add a String in AJP message, and transform the String in ASCII 
- *  if convert is set and we're on an EBCDIC machine    
+ *  Add a String in AJP message, and transform the String in ASCII
+ *  if convert is set and we're on an EBCDIC machine
  *
  * @param msg       AJP Message to get value from
  * @param value     Pointer to String
@@ -247,13 +234,13 @@ apr_status_t ajp_msg_append_uint8(ajp_msg_t *msg, apr_byte_t value);
 apr_status_t ajp_msg_append_string_ex(ajp_msg_t *msg, const char *value,
                                       int convert);
 /**
- *  Add a String in AJP message, and transform 
- *  the String in ASCII if we're on an EBCDIC machine    
+ *  Add a String in AJP message, and transform
+ *  the String in ASCII if we're on an EBCDIC machine
  */
 #define ajp_msg_append_string(m, v) ajp_msg_append_string_ex(m, v, 1)
 
 /**
- *  Add a String in AJP message. 
+ *  Add a String in AJP message.
  */
 #define ajp_msg_append_string_ascii(m, v) ajp_msg_append_string_ex(m, v, 0)
 
@@ -328,10 +315,10 @@ apr_status_t ajp_msg_get_string(ajp_msg_t *msg, const char **rvalue);
 /**
  * Get a Byte array from AJP Message
  *
- * @param msg       AJP Message to get value from
- * @param rvalue    Pointer where value will be returned
- * @param rvalueLen Pointer where Byte array len will be returned
- * @return          APR_SUCCESS or error
+ * @param msg        AJP Message to get value from
+ * @param rvalue     Pointer where value will be returned
+ * @param rvalue_len Pointer where Byte array len will be returned
+ * @return           APR_SUCCESS or error
  */
 apr_status_t ajp_msg_get_bytes(ajp_msg_t *msg, apr_byte_t **rvalue,
                                apr_size_t *rvalue_len);
@@ -362,19 +349,19 @@ apr_status_t ajp_msg_copy(ajp_msg_t *smsg, ajp_msg_t *dmsg);
  * | PING CMD (1 byte)     |
  * +-----------------------+
  *
- * @param smsg      AJP message to put serialized message
+ * @param msg       AJP message to put serialized message
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_msg_serialize_ping(ajp_msg_t *msg);
 
-/** 
+/**
  * Serialize in an AJP Message a CPING command
  *
  * +-----------------------+
  * | CPING CMD (1 byte)    |
  * +-----------------------+
  *
- * @param smsg      AJP message to put serialized message
+ * @param msg      AJP message to put serialized message
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_msg_serialize_cping(ajp_msg_t *msg);
@@ -385,24 +372,37 @@ apr_status_t ajp_msg_serialize_cping(ajp_msg_t *msg);
  * @param pool      pool to allocate from
  * @param msg       AJP Message to dump
  * @param err       error string to display
- * @return          dump message
+ * @param count     the number of bytes to dump
+ * @param buf       buffer pointer for dump message
+ * @return          APR_SUCCESS or error
  */
-char * ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err);
+apr_status_t ajp_msg_dump(apr_pool_t *pool, ajp_msg_t *msg, char *err,
+                          apr_size_t count, char **buf);
 
-/** 
+/**
+ * Log an AJP message
+ *
+ * @param r         The current request
+ * @param msg       AJP Message to dump
+ * @param err       error string to display
+ * @return          APR_SUCCESS or error
+ */
+apr_status_t ajp_msg_log(request_rec *r, ajp_msg_t *msg, char *err);
+
+/**
  * Send an AJP message to backend
  *
- * @param soct      backend socket
- * @param smsg      AJP message to put serialized message
+ * @param sock      backend socket
+ * @param msg       AJP message to put serialized message
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_ilink_send(apr_socket_t *sock, ajp_msg_t *msg);
 
-/** 
+/**
  * Receive an AJP message from backend
  *
  * @param sock      backend socket
- * @param smsg      AJP message to put serialized message
+ * @param msg       AJP message to put serialized message
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_ilink_receive(apr_socket_t *sock, ajp_msg_t *msg);
@@ -412,7 +412,7 @@ apr_status_t ajp_ilink_receive(apr_socket_t *sock, ajp_msg_t *msg);
  * @param sock      backend socket
  * @param r         current request
  * @param buffsize  max size of the AJP packet.
- * @uri uri         requested uri
+ * @param uri       requested uri
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_send_header(apr_socket_t *sock, request_rec *r,
@@ -447,14 +447,14 @@ apr_status_t  ajp_alloc_data_msg(apr_pool_t *pool, char **ptr,
  * Send the data message
  * @param sock      backend socket
  * @param msg       AJP message to send
- * @param len       AJP message length      
+ * @param len       AJP message length
  * @return          APR_SUCCESS or error
  */
 apr_status_t  ajp_send_data_msg(apr_socket_t *sock,
                                 ajp_msg_t *msg, apr_size_t len);
 
 /**
- * Parse the message type 
+ * Parse the message type
  * @param r         current request
  * @param msg       AJP message
  * @return          AJP message type.
@@ -462,19 +462,20 @@ apr_status_t  ajp_send_data_msg(apr_socket_t *sock,
 int ajp_parse_type(request_rec  *r, ajp_msg_t *msg);
 
 /**
- * Parse the header message from container 
+ * Parse the header message from container
  * @param r         current request
+ * @param conf      proxy config
  * @param msg       AJP message
  * @return          APR_SUCCESS or error
  */
 apr_status_t ajp_parse_header(request_rec *r, proxy_dir_conf *conf,
                               ajp_msg_t *msg);
 
-/** 
- * Parse the message body and return data address and length 
+/**
+ * Parse the message body and return data address and length
  * @param r         current request
  * @param msg       AJP message
- * @param len       returned AJP message length 
+ * @param len       returned AJP message length
  * @param ptr       returned data
  * @return          APR_SUCCESS or error
  */
@@ -493,7 +494,7 @@ apr_status_t ajp_parse_reuse(request_rec *r, ajp_msg_t *msg,
                              apr_byte_t *reuse);
 
 
-/** 
+/**
  * Handle the CPING/CPONG messages
  * @param sock      backend socket
  * @param r         current request
@@ -503,6 +504,15 @@ apr_status_t ajp_parse_reuse(request_rec *r, ajp_msg_t *msg,
 apr_status_t ajp_handle_cping_cpong(apr_socket_t *sock,
                                     request_rec *r,
                                     apr_interval_time_t timeout);
+
+
+/**
+ * Convert numeric message type into string
+ * @param type      AJP message type
+ * @return          AJP message type as a string
+ */
+const char *ajp_type_str(int type);
+
 /** @} */
 
 #endif /* AJP_H */

@@ -31,6 +31,7 @@
 #include "eventmon.h"
 #include "cache.h"
 #include "ev_dlil.h"
+#include "ev_extra.h"
 
 #ifndef kSCEntNetIdleRoute
 #define kSCEntNetIdleRoute       CFSTR("IdleRoute")
@@ -76,8 +77,9 @@ copy_entity(CFStringRef key)
 
 
 static void
-interface_update_status(const char *if_name, CFBooleanRef active,
-			boolean_t attach)
+interface_update_status(const char *if_name,
+			CFBooleanRef active, boolean_t attach,
+			CFBooleanRef expensive)
 {
 	CFStringRef		key		= NULL;
 	CFMutableDictionaryRef	newDict		= NULL;
@@ -85,14 +87,21 @@ interface_update_status(const char *if_name, CFBooleanRef active,
 	key = create_interface_key(if_name);
 	newDict = copy_entity(key);
 	/* if new status available, update cache */
-	if (active == NULL) {
-	    CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);
+	if (active != NULL) {
+		CFDictionarySetValue(newDict, kSCPropNetLinkActive, active);
 	} else {
-	    CFDictionarySetValue(newDict, kSCPropNetLinkActive, active);
+		CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);
 	}
+
 	if (attach == TRUE) {
 		/* the interface was attached, remove stale state */
 		CFDictionaryRemoveValue(newDict, kSCPropNetLinkDetaching);
+	}
+
+	if ((expensive != NULL) && CFBooleanGetValue(expensive)) {
+		CFDictionarySetValue(newDict, kSCPropNetLinkExpensive, expensive);
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropNetLinkExpensive);
 	}
 
 	/* update status */
@@ -296,31 +305,34 @@ __private_extern__
 void
 link_update_status(const char *if_name, boolean_t attach)
 {
-	CFBooleanRef		active	= NULL;
+	CFBooleanRef		active		= NULL;
+	CFBooleanRef		expensive;
 	struct ifmediareq	ifm;
 	int			sock;
 
 	sock = dgram_socket(AF_INET);
 	if (sock == -1) {
 		SCLog(TRUE, LOG_NOTICE, CFSTR("link_update_status: socket open failed,  %s"), strerror(errno));
-		goto done;
+		return;
 	}
+
+	/* get "Link" */
 	bzero((char *)&ifm, sizeof(ifm));
 	(void) strncpy(ifm.ifm_name, if_name, sizeof(ifm.ifm_name));
 
 	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
 		/* if media status not available for this interface */
-		goto done;
+		goto update;
 	}
 
 	if (ifm.ifm_count == 0) {
 		/* no media types */
-		goto done;
+		goto update;
 	}
 
 	if (!(ifm.ifm_status & IFM_AVALID)) {
 		/* if active bit not valid */
-		goto done;
+		goto update;
 	}
 
 	if (ifm.ifm_status & IFM_ACTIVE) {
@@ -329,10 +341,14 @@ link_update_status(const char *if_name, boolean_t attach)
 		active = kCFBooleanFalse;
 	}
 
- done:
-	interface_update_status(if_name, active, attach);
-	if (sock != -1)
-		close(sock);
+ update:
+
+	/* get "Expensive" */
+	expensive = interface_update_expensive(if_name);
+
+	/* update status */
+	interface_update_status(if_name, active, attach, expensive);
+	close(sock);
 	return;
 }
 
@@ -389,7 +405,6 @@ link_add(const char *if_name)
 	CFRelease(interface);
 	if (newDict)	CFRelease(newDict);
 	if (newIFList)	CFRelease(newIFList);
-
 	return;
 }
 
@@ -443,7 +458,6 @@ link_remove(const char *if_name)
 	CFRelease(interface);
 	if (newDict)	CFRelease(newDict);
 	if (newIFList)	CFRelease(newIFList);
-
 	return;
 }
 

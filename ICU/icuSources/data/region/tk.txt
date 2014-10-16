@@ -7,7 +7,7 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/tk.xml
+ * ICU <specials> source: <path>/common/main/tk.xml
  */
 tk{
     Countries{
@@ -30,5 +30,5 @@ tk{
         US{"A.B.Ş."}
         UZ{"Özbegistan"}
     }
-    Version{"2.0.82.15"}
+    Version{"2.0.92.90"}
 }

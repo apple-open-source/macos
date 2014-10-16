@@ -23,9 +23,11 @@
  * no encryption.
  */
 
-#define MIN(a, b) \
+#ifndef MIN
+# define MIN(a, b) \
 	({ __typeof(a) __a = (a); __typeof(b) __b = (b); \
 		__a < __b ? __a : __b; })
+#endif
 
 /*
  * Context for the sparse bundle routines.  The path name,
@@ -61,45 +63,6 @@ static const char *bundlePrototype =
 "</dict>\n"
 	"</plist>\n";
 
-/*
- * Perform a (potentially) unaligned read from a given input device.
- */
-static ssize_t
-UnalignedRead(DeviceInfo_t *devp, void *buffer, size_t size, off_t offset)
-{
-	ssize_t nread = -1;
-	size_t readSize = ((size + devp->blockSize - 1) / devp->blockSize) * devp->blockSize;
-	off_t baseOffset = (offset / devp->blockSize) * devp->blockSize;
-	size_t off = offset - baseOffset;
-	char *tmpbuf = NULL;
-	
-	if ((baseOffset == offset) && (readSize == size)) {
-		/*
-		 * The read is already properly aligned, so call pread.
-		 */
-		return pread(devp->fd, buffer, size, offset);
-	}
-	
-	tmpbuf = malloc(readSize);
-	if (!tmpbuf) {
-		goto done;
-	}
-	
-	nread = pread(devp->fd, tmpbuf, readSize, baseOffset);
-	if (nread == -1) {
-		goto done;
-	}
-	
-	nread -= off;
-	if (nread > (ssize_t)size) {
-		nread = size;
-	}
-	memcpy(buffer, tmpbuf + off, nread);
-	
-done:
-	free(tmpbuf);
-	return nread;
-}
 
 /*
  * Read from a sparse bundle.  If the band file doesn't exist, or is shorter than

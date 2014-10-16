@@ -29,36 +29,47 @@
 #include "CachedImage.h"
 #include "EventNames.h"
 #include "FrameView.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
-#include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "HTMLSrcsetParser.h"
+#include "Page.h"
 #include "RenderImage.h"
-#include "ScriptEventListener.h"
+#include "Settings.h"
+#include "ShadowRoot.h"
+#include "SourceSizeList.h"
 
-using namespace std;
+#if ENABLE(SERVICE_CONTROLS)
+#include "ImageControlsRootElement.h"
+#endif
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLElement(tagName, document)
-    , m_imageLoader(this)
+    , m_imageLoader(*this)
     , m_form(form)
     , m_compositeOperator(CompositeSourceOver)
+    , m_imageDevicePixelRatio(1.0f)
+#if ENABLE(SERVICE_CONTROLS)
+    , m_experimentalImageMenuEnabled(false)
+#endif
 {
     ASSERT(hasTagName(imgTag));
+    setHasCustomStyleResolveCallbacks();
     if (form)
         form->registerImgElement(this);
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::create(Document* document)
+PassRefPtr<HTMLImageElement> HTMLImageElement::create(Document& document)
 {
     return adoptRef(new HTMLImageElement(imgTag, document));
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+PassRefPtr<HTMLImageElement> HTMLImageElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
 {
     return adoptRef(new HTMLImageElement(tagName, document, form));
 }
@@ -69,7 +80,7 @@ HTMLImageElement::~HTMLImageElement()
         m_form->removeImgElement(this);
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document* document, const int* optionalWidth, const int* optionalHeight)
+PassRefPtr<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document& document, const int* optionalWidth, const int* optionalHeight)
 {
     RefPtr<HTMLImageElement> image = adoptRef(new HTMLImageElement(imgTag, document));
     if (optionalWidth)
@@ -86,7 +97,7 @@ bool HTMLImageElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
+void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStyleProperties& style)
 {
     if (name == widthAttr)
         addHTMLLengthToStyle(style, CSSPropertyWidth, value);
@@ -108,33 +119,76 @@ void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName&
         HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
+const AtomicString& HTMLImageElement::imageSourceURL() const
+{
+    return m_bestFitImageURL.isEmpty() ? fastGetAttribute(srcAttr) : m_bestFitImageURL;
+}
+
+void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidate& candidate)
+{
+    m_bestFitImageURL = candidate.string.toString();
+#if ENABLE(PICTURE_SIZES)
+    m_currentSrc = AtomicString(document().completeURL(imageSourceURL()).string());
+#endif
+    if (candidate.density >= 0)
+        m_imageDevicePixelRatio = 1 / candidate.density;
+    if (renderer() && renderer()->isImage())
+        toRenderImage(renderer())->setImageDevicePixelRatio(m_imageDevicePixelRatio);
+}
+
 void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == altAttr) {
         if (renderer() && renderer()->isRenderImage())
             toRenderImage(renderer())->updateAltText();
-    } else if (name == srcAttr)
+    } else if (name == srcAttr || name == srcsetAttr) {
+        ImageCandidate candidate = bestFitSourceForImageAttributes(document().deviceScaleFactor(), fastGetAttribute(srcAttr), fastGetAttribute(srcsetAttr)
+#if ENABLE(PICTURE_SIZES)
+            , SourceSizeList::parseSizesAttribute(fastGetAttribute(sizesAttr), document().renderView(), document().frame())
+#endif
+        );
+        setBestFitURLAndDPRFromImageCandidate(candidate);
         m_imageLoader.updateFromElementIgnoringPreviousError();
-    else if (name == usemapAttr)
-        setIsLink(!value.isNull());
-    else if (name == onbeforeloadAttr)
-        setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, name, value));
+    } else if (name == usemapAttr) {
+        setIsLink(!value.isNull() && !shouldProhibitLinks(this));
+
+        if (inDocument() && !m_lowercasedUsemap.isNull())
+            document().removeImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
+
+        // The HTMLImageElement's useMap() value includes the '#' symbol at the beginning, which has to be stripped off.
+        // FIXME: We should check that the first character is '#'.
+        // FIXME: HTML5 specification says we should strip any leading string before '#'.
+        // FIXME: HTML5 specification says we should ignore usemap attributes without #.
+        if (value.length() > 1)
+            m_lowercasedUsemap = value.string().substring(1).lower();
+        else
+            m_lowercasedUsemap = nullAtom;
+
+        if (inDocument() && !m_lowercasedUsemap.isNull())
+            document().addImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
+    } else if (name == onbeforeloadAttr)
+        setAttributeEventListener(eventNames().beforeloadEvent, name, value);
     else if (name == compositeAttr) {
         // FIXME: images don't support blend modes in their compositing attribute.
         BlendMode blendOp = BlendModeNormal;
         if (!parseCompositeAndBlendOperator(value, m_compositeOperator, blendOp))
             m_compositeOperator = CompositeSourceOver;
+#if ENABLE(SERVICE_CONTROLS)
+    } else if (name == webkitimagemenuAttr) {
+        m_experimentalImageMenuEnabled = !value.isNull();
+        updateImageControls();
+#endif
     } else {
         if (name == nameAttr) {
             bool willHaveName = !value.isNull();
-            if (hasName() != willHaveName && inDocument() && document()->isHTMLDocument()) {
-                HTMLDocument* document = toHTMLDocument(this->document());
+            if (hasName() != willHaveName && inDocument() && document().isHTMLDocument()) {
+                HTMLDocument* document = toHTMLDocument(&this->document());
                 const AtomicString& id = getIdAttribute();
                 if (!id.isEmpty() && id != getNameAttribute()) {
                     if (willHaveName)
-                        document->documentNamedItemMap().add(id.impl(), this, treeScope());
+                        document->addDocumentNamedItem(*id.impl(), *this);
                     else
-                        document->documentNamedItemMap().remove(id.impl(), this);
+                        document->removeDocumentNamedItem(*id.impl(), *this);
                 }
             }
         }
@@ -154,71 +208,76 @@ String HTMLImageElement::altText() const
     return alt;
 }
 
-RenderObject* HTMLImageElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(PassRef<RenderStyle> style)
 {
-    if (style->hasContent())
-        return RenderObject::createObject(this, style);
+    if (style.get().hasContent())
+        return RenderElement::createFor(*this, WTF::move(style));
 
-    RenderImage* image = new (arena) RenderImage(this);
-    image->setImageResource(RenderImageResource::create());
-    return image;
+    return createRenderer<RenderImage>(*this, WTF::move(style), nullptr, m_imageDevicePixelRatio);
 }
 
 bool HTMLImageElement::canStartSelection() const
 {
-    if (shadow())
+    if (shadowRoot())
         return HTMLElement::canStartSelection();
 
     return false;
 }
 
-void HTMLImageElement::attach(const AttachContext& context)
+void HTMLImageElement::didAttachRenderers()
 {
-    HTMLElement::attach(context);
+    if (!renderer() || !renderer()->isRenderImage())
+        return;
+    if (m_imageLoader.hasPendingBeforeLoadEvent())
+        return;
 
-    if (renderer() && renderer()->isRenderImage() && !m_imageLoader.hasPendingBeforeLoadEvent()) {
-        RenderImage* renderImage = toRenderImage(renderer());
-        RenderImageResource* renderImageResource = renderImage->imageResource();
-        if (renderImageResource->hasImage())
-            return;
-        renderImageResource->setCachedImage(m_imageLoader.image());
+#if ENABLE(SERVICE_CONTROLS)
+    updateImageControls();
+#endif
 
-        // If we have no image at all because we have no src attribute, set
-        // image height and width for the alt text instead.
-        if (!m_imageLoader.image() && !renderImageResource->cachedImage())
-            renderImage->setImageSizeForAltText();
-    }
+    RenderImage* renderImage = toRenderImage(renderer());
+    RenderImageResource& renderImageResource = renderImage->imageResource();
+    if (renderImageResource.hasImage())
+        return;
+    renderImageResource.setCachedImage(m_imageLoader.image());
+
+    // If we have no image at all because we have no src attribute, set
+    // image height and width for the alt text instead.
+    if (!m_imageLoader.image() && !renderImageResource.cachedImage())
+        renderImage->setImageSizeForAltText();
 }
 
-Node::InsertionNotificationRequest HTMLImageElement::insertedInto(ContainerNode* insertionPoint)
+Node::InsertionNotificationRequest HTMLImageElement::insertedInto(ContainerNode& insertionPoint)
 {
-    if (!m_form) {
-        // m_form can be non-null if it was set in constructor.
-        for (ContainerNode* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
-            if (ancestor->hasTagName(formTag)) {
-                m_form = static_cast<HTMLFormElement*>(ancestor);
-                m_form->registerImgElement(this);
-                break;
-            }
-        }
+    if (!m_form) { // m_form can be non-null if it was set in constructor.
+        m_form = HTMLFormElement::findClosestFormAncestor(*this);
+        if (m_form)
+            m_form->registerImgElement(this);
     }
 
     // Insert needs to complete first, before we start updating the loader. Loader dispatches events which could result
     // in callbacks back to this node.
     Node::InsertionNotificationRequest insertNotificationRequest = HTMLElement::insertedInto(insertionPoint);
 
+    if (insertionPoint.inDocument() && !m_lowercasedUsemap.isNull())
+        document().addImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
+
     // If we have been inserted from a renderer-less document,
     // our loader may have not fetched the image, so do it now.
-    if (insertionPoint->inDocument() && !m_imageLoader.image())
+    if (insertionPoint.inDocument() && !m_imageLoader.image())
         m_imageLoader.updateFromElement();
 
     return insertNotificationRequest;
 }
 
-void HTMLImageElement::removedFrom(ContainerNode* insertionPoint)
+void HTMLImageElement::removedFrom(ContainerNode& insertionPoint)
 {
     if (m_form)
         m_form->removeImgElement(this);
+
+    if (insertionPoint.inDocument() && !m_lowercasedUsemap.isNull())
+        document().removeImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
+
     m_form = 0;
     HTMLElement::removedFrom(insertionPoint);
 }
@@ -238,12 +297,12 @@ int HTMLImageElement::width(bool ignorePendingStylesheets)
     }
 
     if (ignorePendingStylesheets)
-        document()->updateLayoutIgnorePendingStylesheets();
+        document().updateLayoutIgnorePendingStylesheets();
     else
-        document()->updateLayout();
+        document().updateLayout();
 
     RenderBox* box = renderBox();
-    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedWidth(), box) : 0;
+    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedWidth(), *box) : 0;
 }
 
 int HTMLImageElement::height(bool ignorePendingStylesheets)
@@ -261,12 +320,12 @@ int HTMLImageElement::height(bool ignorePendingStylesheets)
     }
 
     if (ignorePendingStylesheets)
-        document()->updateLayoutIgnorePendingStylesheets();
+        document().updateLayoutIgnorePendingStylesheets();
     else
-        document()->updateLayout();
+        document().updateLayout();
 
     RenderBox* box = renderBox();
-    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedHeight(), box) : 0;
+    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedHeight(), *box) : 0;
 }
 
 int HTMLImageElement::naturalWidth() const
@@ -294,6 +353,12 @@ bool HTMLImageElement::isURLAttribute(const Attribute& attribute) const
         || HTMLElement::isURLAttribute(attribute);
 }
 
+bool HTMLImageElement::matchesLowercasedUsemap(const AtomicStringImpl& name) const
+{
+    ASSERT(String(&const_cast<AtomicStringImpl&>(name)).lower().impl() == &name);
+    return m_lowercasedUsemap.impl() == &name;
+}
+
 const AtomicString& HTMLImageElement::alt() const
 {
     return getAttribute(altAttr);
@@ -307,12 +372,12 @@ bool HTMLImageElement::draggable() const
 
 void HTMLImageElement::setHeight(int value)
 {
-    setAttribute(heightAttr, String::number(value));
+    setIntegralAttribute(heightAttr, value);
 }
 
-KURL HTMLImageElement::src() const
+URL HTMLImageElement::src() const
 {
-    return document()->completeURL(getAttribute(srcAttr));
+    return document().completeURL(getAttribute(srcAttr));
 }
 
 void HTMLImageElement::setSrc(const String& value)
@@ -322,29 +387,29 @@ void HTMLImageElement::setSrc(const String& value)
 
 void HTMLImageElement::setWidth(int value)
 {
-    setAttribute(widthAttr, String::number(value));
+    setIntegralAttribute(widthAttr, value);
 }
 
 int HTMLImageElement::x() const
 {
-    RenderObject* r = renderer();
-    if (!r)
+    document().updateLayoutIgnorePendingStylesheets();
+    auto renderer = this->renderer();
+    if (!renderer)
         return 0;
 
     // FIXME: This doesn't work correctly with transforms.
-    FloatPoint absPos = r->localToAbsolute();
-    return absPos.x();
+    return renderer->localToAbsolute().x();
 }
 
 int HTMLImageElement::y() const
 {
-    RenderObject* r = renderer();
-    if (!r)
+    document().updateLayoutIgnorePendingStylesheets();
+    auto renderer = this->renderer();
+    if (!renderer)
         return 0;
 
     // FIXME: This doesn't work correctly with transforms.
-    FloatPoint absPos = r->localToAbsolute();
-    return absPos.y();
+    return renderer->localToAbsolute().y();
 }
 
 bool HTMLImageElement::complete() const
@@ -352,13 +417,13 @@ bool HTMLImageElement::complete() const
     return m_imageLoader.imageComplete();
 }
 
-void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     addSubresourceURL(urls, src());
     // FIXME: What about when the usemap attribute begins with "#"?
-    addSubresourceURL(urls, document()->completeURL(getAttribute(usemapAttr)));
+    addSubresourceURL(urls, document().completeURL(getAttribute(usemapAttr)));
 }
 
 void HTMLImageElement::didMoveToNewDocument(Document* oldDocument)
@@ -378,18 +443,88 @@ bool HTMLImageElement::isServerMap() const
     if (usemap.string()[0] == '#')
         return false;
 
-    return document()->completeURL(stripLeadingAndTrailingHTMLSpaces(usemap)).isEmpty();
+    return document().completeURL(stripLeadingAndTrailingHTMLSpaces(usemap)).isEmpty();
 }
 
-#if ENABLE(MICRODATA)
-String HTMLImageElement::itemValueText() const
+#if ENABLE(SERVICE_CONTROLS)
+void HTMLImageElement::updateImageControls()
 {
-    return getURLAttribute(srcAttr);
+    // If this image element is inside a shadow tree then it is part of an image control.
+    if (isInShadowTree())
+        return;
+
+    Settings* settings = document().settings();
+    if (!settings || !settings->imageControlsEnabled())
+        return;
+
+    bool hasControls = hasImageControls();
+    if (!m_experimentalImageMenuEnabled && hasControls)
+        destroyImageControls();
+    else if (m_experimentalImageMenuEnabled && !hasControls)
+        createImageControls();
 }
 
-void HTMLImageElement::setItemValueText(const String& value, ExceptionCode&)
+void HTMLImageElement::createImageControls()
 {
-    setAttribute(srcAttr, value);
+    ASSERT(m_experimentalImageMenuEnabled);
+    ASSERT(!hasImageControls());
+
+    RefPtr<ImageControlsRootElement> imageControls = ImageControlsRootElement::maybeCreate(document());
+    if (!imageControls)
+        return;
+
+    ensureUserAgentShadowRoot().appendChild(imageControls);
+
+    RenderObject* renderObject = renderer();
+    if (!renderObject)
+        return;
+
+    toRenderImage(renderObject)->setHasShadowControls(true);
+}
+
+void HTMLImageElement::destroyImageControls()
+{
+    ShadowRoot* shadowRoot = userAgentShadowRoot();
+    if (!shadowRoot)
+        return;
+
+    if (Node* node = shadowRoot->firstChild()) {
+        ASSERT_WITH_SECURITY_IMPLICATION(node->isImageControlsRootElement());
+        shadowRoot->removeChild(node);
+    }
+
+    RenderObject* renderObject = renderer();
+    if (!renderObject)
+        return;
+
+    toRenderImage(renderObject)->setHasShadowControls(false);
+}
+
+bool HTMLImageElement::hasImageControls() const
+{
+    if (ShadowRoot* shadowRoot = userAgentShadowRoot()) {
+        Node* node = shadowRoot->firstChild();
+        ASSERT_WITH_SECURITY_IMPLICATION(!node || node->isImageControlsRootElement());
+        return node;
+    }
+
+    return false;
+}
+
+bool HTMLImageElement::childShouldCreateRenderer(const Node& child) const
+{
+    return hasShadowRootParent(child) && HTMLElement::childShouldCreateRenderer(child);
+}
+#endif // ENABLE(SERVICE_CONTROLS)
+
+#if PLATFORM(IOS)
+// FIXME: This is a workaround for <rdar://problem/7725158>. We should find a better place for the touchCalloutEnabled() logic.
+bool HTMLImageElement::willRespondToMouseClickEvents()
+{
+    auto renderer = this->renderer();
+    if (!renderer || renderer->style().touchCalloutEnabled())
+        return true;
+    return HTMLElement::willRespondToMouseClickEvents();
 }
 #endif
 

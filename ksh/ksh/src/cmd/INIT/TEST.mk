@@ -1,7 +1,7 @@
 /*
  * regression test support
  *
- * @(#)TEST.mk (AT&T Labs Research) 2009-03-19
+ * @(#)TEST.mk (AT&T Research) 2010-05-19
  *
  * test management is still in the design phase
  */
@@ -52,7 +52,7 @@
 			T := $(B)
 		end
 		:INSTALLDIR: $(B)
-		$(B) :: $(P)
+		$(B) :: $(P) $(*:-l*|*$(CC.SUFFIX.ARCHIVE))
 		if "$(P:N=*.sh)"
 			TESTCC == $(CC)
 			$(B) : (TESTCC)
@@ -75,11 +75,13 @@
 					V =
 					X := $(X:V)$(S)$$(*) $$(test.$(T).$(I):T=*)
 					S = $("\n")
-				elif R
-					test.$(A) : .VIRTUAL .FORCE
-					test.$(T) : test.$(A)
-				else
-					V += $(A:V)
+				elif A != "-l*|*$(CC.SUFFIX.ARCHIVE)"
+					if R
+						test.$(A) : .VIRTUAL .FORCE
+						test.$(T) : test.$(A)
+					else
+						V += $(A:V)
+					end
 				end
 			end
 			if V

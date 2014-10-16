@@ -26,10 +26,6 @@
 
 #pragma ident	"@(#)tst.subr.d	1.1	06/08/28 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/dtrace.h>
-#endif /* __APPLE__ */
-
 #define INTFUNC(x)			\
 	BEGIN				\
 	/*DSTYLED*/			\
@@ -57,15 +53,6 @@
 	}
 
 INTFUNC(rand())
-#if !defined(__APPLE__)
-INTFUNC(mutex_owned(&`cpu_lock))
-INTFUNC(mutex_owner(&`cpu_lock))
-INTFUNC(mutex_type_adaptive(&`cpu_lock))
-INTFUNC(mutex_type_spin(&`cpu_lock))
-INTFUNC(rw_read_held(&`vfssw_lock))
-INTFUNC(rw_write_held(&`vfssw_lock))
-INTFUNC(rw_iswriter(&`vfssw_lock))
-#endif /* __APPLE__ */
 INTFUNC(copyin(NULL, 1))
 STRFUNC(copyinstr(NULL, 1))
 INTFUNC(speculation())
@@ -76,15 +63,8 @@ VOIDFUNC(copyoutstr)
 INTFUNC(alloca(10))
 VOIDFUNC(bcopy)
 VOIDFUNC(copyinto)
-#if !defined(__APPLE__)
-INTFUNC(msgdsize(NULL))
-INTFUNC(msgsize(NULL))
-#endif /* __APPLE__ */
 INTFUNC(getmajor(0))
 INTFUNC(getminor(0))
-#if !defined(__APPLE__)
-STRFUNC(ddi_pathname(NULL, 0))
-#endif /* __APPLE__ */
 STRFUNC(strjoin("foo", "bar"))
 STRFUNC(lltostr(12373))
 STRFUNC(basename("/var/crash/systemtap"))
@@ -98,9 +78,7 @@ STRFUNC(substr("The SystemTap, The.", 0))
 INTFUNC(index("The SystemTap, The.", "The"))
 INTFUNC(rindex("The SystemTap, The.", "The"))
 
-#if defined(__APPLE__)
 #define DIF_SUBR_MAX                    24      /* max subroutine value minus 10 Darwin omissions*/
-#endif /* __APPLE__ */
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1/

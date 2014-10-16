@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc.
+ * Copyright (C) 2008, 2013 Apple Inc.
  * Copyright (C) 2009, 2010 University of Szeged
  * All rights reserved.
  *
@@ -81,6 +81,7 @@ public:
     };
 
     static const RegisterID stackPointerRegister = ARMRegisters::sp;
+    static const RegisterID framePointerRegister = ARMRegisters::fp;
     static const RegisterID linkRegister = ARMRegisters::lr;
 
     static const Scale ScalePtr = TimesFour;
@@ -363,6 +364,12 @@ public:
         m_assembler.baseIndexTransfer32(ARMAssembler::LoadUint8, dest, address.base, address.index, static_cast<int>(address.scale), address.offset);
     }
 
+    void load8(const void* address, RegisterID dest)
+    {
+        move(TrustedImmPtr(address), ARMRegisters::S0);
+        m_assembler.dataTransfer32(ARMAssembler::LoadUint8, dest, ARMRegisters::S0, 0);
+    }
+
     void load8Signed(BaseIndex address, RegisterID dest)
     {
         m_assembler.baseIndexTransfer16(ARMAssembler::LoadInt8, dest, address.base, address.index, static_cast<int>(address.scale), address.offset);
@@ -405,6 +412,18 @@ public:
     void load16Unaligned(BaseIndex address, RegisterID dest)
     {
         load16(address, dest);
+    }
+
+    void abortWithReason(AbortReason reason)
+    {
+        move(TrustedImm32(reason), ARMRegisters::S0);
+        breakpoint();
+    }
+
+    void abortWithReason(AbortReason reason, intptr_t misc)
+    {
+        move(TrustedImm32(misc), ARMRegisters::S1);
+        abortWithReason(reason);
     }
 
     ConvertibleLoadLabel convertibleLoadPtr(Address address, RegisterID dest)
@@ -450,6 +469,23 @@ public:
     void store8(RegisterID src, BaseIndex address)
     {
         m_assembler.baseIndexTransfer32(ARMAssembler::StoreUint8, src, address.base, address.index, static_cast<int>(address.scale), address.offset);
+    }
+
+    void store8(RegisterID src, ImplicitAddress address)
+    {
+        m_assembler.dtrUp(ARMAssembler::StoreUint8, src, address.base, address.offset);
+    }
+
+    void store8(RegisterID src, const void* address)
+    {
+        move(TrustedImmPtr(address), ARMRegisters::S0);
+        m_assembler.dtrUp(ARMAssembler::StoreUint8, src, ARMRegisters::S0, 0);
+    }
+
+    void store8(TrustedImm32 imm, ImplicitAddress address)
+    {
+        move(imm, ARMRegisters::S1);
+        store8(ARMRegisters::S1, address);
     }
 
     void store8(TrustedImm32 imm, const void* address)
@@ -504,6 +540,12 @@ public:
         m_assembler.pop(dest);
     }
 
+    void popPair(RegisterID dest1, RegisterID dest2)
+    {
+        m_assembler.pop(dest1);
+        m_assembler.pop(dest2);
+    }
+
     void push(RegisterID src)
     {
         m_assembler.push(src);
@@ -519,6 +561,12 @@ public:
     {
         move(imm, ARMRegisters::S0);
         push(ARMRegisters::S0);
+    }
+
+    void pushPair(RegisterID src1, RegisterID src2)
+    {
+        m_assembler.push(src2);
+        m_assembler.push(src1);
     }
 
     void move(TrustedImm32 imm, RegisterID dest)
@@ -569,6 +617,13 @@ public:
         return branch32(cond, ARMRegisters::S1, right);
     }
 
+    Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        move(TrustedImmPtr(left.m_ptr), ARMRegisters::S1);
+        load8(Address(ARMRegisters::S1), ARMRegisters::S1);
+        return branch32(cond, ARMRegisters::S1, right);
+    }
+
     Jump branch32(RelationalCondition cond, RegisterID left, RegisterID right, int useConstantPool = 0)
     {
         m_assembler.cmp(left, right);
@@ -612,6 +667,12 @@ public:
     }
 
     Jump branchTest8(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        load8(address, ARMRegisters::S1);
+        return branchTest32(cond, ARMRegisters::S1, mask);
+    }
+
+    Jump branchTest8(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
     {
         load8(address, ARMRegisters::S1);
         return branchTest32(cond, ARMRegisters::S1, mask);
@@ -725,6 +786,11 @@ public:
         return Jump(m_assembler.jmp(ARMCondition(cond)));
     }
 
+    Jump branchAdd32(ResultCondition cond, Address src, RegisterID dest)
+    {
+        load32(src, ARMRegisters::S0);
+        return branchAdd32(cond, dest, ARMRegisters::S0, dest);
+    }
     void mull32(RegisterID op1, RegisterID op2, RegisterID dest)
     {
         if (op2 == dest) {
@@ -812,6 +878,11 @@ public:
         ASSERT((cond == Signed) || (cond == Zero) || (cond == NonZero));
         or32(src, dest);
         return Jump(m_assembler.jmp(ARMCondition(cond)));
+    }
+
+    PatchableJump patchableJump()
+    {
+        return PatchableJump(m_assembler.jmp(ARMAssembler::AL, 1));
     }
 
     PatchableJump patchableBranch32(RelationalCondition cond, RegisterID reg, TrustedImm32 imm)
@@ -985,6 +1056,13 @@ public:
         return dataLabel;
     }
 
+    DataLabel32 moveWithPatch(TrustedImm32 initialValue, RegisterID dest)
+    {
+        DataLabel32 dataLabel(this);
+        m_assembler.ldrUniqueImmediate(dest, static_cast<ARMWord>(initialValue.m_value));
+        return dataLabel;
+    }
+
     Jump branchPtrWithPatch(RelationalCondition cond, RegisterID left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
     {
         ensureSpace(3 * sizeof(ARMWord), 2 * sizeof(ARMWord));
@@ -994,6 +1072,15 @@ public:
     }
 
     Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    {
+        load32(left, ARMRegisters::S1);
+        ensureSpace(3 * sizeof(ARMWord), 2 * sizeof(ARMWord));
+        dataLabel = moveWithPatch(initialRightValue, ARMRegisters::S0);
+        Jump jump = branch32(cond, ARMRegisters::S0, ARMRegisters::S1, true);
+        return jump;
+    }
+
+    Jump branch32WithPatch(RelationalCondition cond, Address left, DataLabel32& dataLabel, TrustedImm32 initialRightValue = TrustedImm32(0))
     {
         load32(left, ARMRegisters::S1);
         ensureSpace(3 * sizeof(ARMWord), 2 * sizeof(ARMWord));
@@ -1046,9 +1133,9 @@ public:
         m_assembler.baseIndexTransferFloat(ARMAssembler::LoadDouble, dest, address.base, address.index, static_cast<int>(address.scale), address.offset);
     }
 
-    void loadDouble(const void* address, FPRegisterID dest)
+    void loadDouble(TrustedImmPtr address, FPRegisterID dest)
     {
-        move(TrustedImm32(reinterpret_cast<ARMWord>(address)), ARMRegisters::S0);
+        move(TrustedImm32(reinterpret_cast<ARMWord>(address.m_value)), ARMRegisters::S0);
         m_assembler.doubleDtrUp(ARMAssembler::LoadDouble, dest, ARMRegisters::S0, 0);
     }
 
@@ -1067,9 +1154,9 @@ public:
         m_assembler.baseIndexTransferFloat(ARMAssembler::StoreDouble, src, address.base, address.index, static_cast<int>(address.scale), address.offset);
     }
 
-    void storeDouble(FPRegisterID src, const void* address)
+    void storeDouble(FPRegisterID src, TrustedImmPtr address)
     {
-        move(TrustedImm32(reinterpret_cast<ARMWord>(address)), ARMRegisters::S0);
+        move(TrustedImm32(reinterpret_cast<ARMWord>(address.m_value)), ARMRegisters::S0);
         m_assembler.dataTransferFloat(ARMAssembler::StoreDouble, src, ARMRegisters::S0, 0);
     }
 
@@ -1097,7 +1184,7 @@ public:
 
     void addDouble(AbsoluteAddress address, FPRegisterID dest)
     {
-        loadDouble(address.m_ptr, ARMRegisters::SD0);
+        loadDouble(TrustedImmPtr(address.m_ptr), ARMRegisters::SD0);
         addDouble(ARMRegisters::SD0, dest);
     }
 
@@ -1289,6 +1376,11 @@ public:
         m_assembler.nop();
     }
 
+    void memoryFence()
+    {
+        m_assembler.dmbSY();
+    }
+
     static FunctionPtr readCallTarget(CodeLocationCall call)
     {
         return FunctionPtr(reinterpret_cast<void(*)()>(ARMAssembler::readCallTarget(call.dataLocation())));
@@ -1306,6 +1398,13 @@ public:
     }
 
     static bool canJumpReplacePatchableBranchPtrWithPatch() { return false; }
+    static bool canJumpReplacePatchableBranch32WithPatch() { return false; }
+
+    static CodeLocationLabel startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32)
+    {
+        UNREACHABLE_FOR_PLATFORM();
+        return CodeLocationLabel();
+    }
 
     static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr)
     {
@@ -1323,10 +1422,41 @@ public:
         ARMAssembler::revertBranchPtrWithPatch(instructionStart.dataLocation(), reg, reinterpret_cast<uintptr_t>(initialValue) & 0xffff);
     }
 
+    static void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel, Address, int32_t)
+    {
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
     static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel, Address, void*)
     {
         UNREACHABLE_FOR_PLATFORM();
     }
+
+#if USE(MASM_PROBE)
+    struct CPUState {
+        #define DECLARE_REGISTER(_type, _regName) \
+            _type _regName;
+        FOR_EACH_CPU_REGISTER(DECLARE_REGISTER)
+        #undef DECLARE_REGISTER
+    };
+
+    struct ProbeContext;
+    typedef void (*ProbeFunction)(struct ProbeContext*);
+
+    struct ProbeContext {
+        ProbeFunction probeFunction;
+        void* arg1;
+        void* arg2;
+        CPUState cpu;
+
+        void dump(const char* indentation = 0);
+    private:
+        void dumpCPURegisters(const char* indentation);
+    };
+
+    // For details about probe(), see comment in MacroAssemblerX86_64.h.
+    void probe(ProbeFunction, void* arg1 = 0, void* arg2 = 0);
+#endif // USE(MASM_PROBE)
 
 protected:
     ARMAssembler::Condition ARMCondition(RelationalCondition cond)
@@ -1382,6 +1512,23 @@ private:
     {
         ARMAssembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
+
+#if USE(MASM_PROBE)
+    inline TrustedImm32 trustedImm32FromPtr(void* ptr)
+    {
+        return TrustedImm32(TrustedImmPtr(ptr));
+    }
+
+    inline TrustedImm32 trustedImm32FromPtr(ProbeFunction function)
+    {
+        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
+    }
+
+    inline TrustedImm32 trustedImm32FromPtr(void (*function)())
+    {
+        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
+    }
+#endif
 
     static const bool s_isVFPPresent;
 };

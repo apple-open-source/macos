@@ -47,16 +47,12 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
     "@(#) Copyright (c) 1988, 1989, 1991, 1994, 1995, 1996, 1997, 1998, 1999, 2000\n\
 The Regents of the University of California.  All rights reserved.\n";
-#if 0
-static const char rcsid[] =
-    "@(#)$Id: traceroute.c,v 1.4 2006/02/07 06:22:57 lindak Exp $ (LBL)";
-#endif
-static const char rcsid[] =
-    "$FreeBSD: src/contrib/traceroute/traceroute.c,v 1.35 2008/02/20 23:29:52 rpaulo Exp $";
 #endif
 
 /*

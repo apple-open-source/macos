@@ -41,7 +41,7 @@ struct SecCmsRecipientStr {
     enum {RLIssuerSN=0, RLSubjKeyID=1} kind;	/* for conversion recipientinfos -> recipientlist */
     union {
 	SecCmsIssuerAndSN *	issuerAndSN;
-	CSSM_DATA_PTR 		subjectKeyID;
+	SecAsn1Item * 		subjectKeyID;
     } id;
 
     /* result data (filled out for each recipient that's us) */

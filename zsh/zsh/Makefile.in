@@ -63,8 +63,8 @@ install-strip:
 	$(MAKE) install STRIPFLAGS=""
 
 # install/uninstall most things
-install: install.bin install.modules install.fns install.man
-uninstall: uninstall.bin uninstall.modules uninstall.fns uninstall.man
+install: install.bin install.modules install.fns install.man install.runhelp
+uninstall: uninstall.bin uninstall.modules uninstall.fns uninstall.man uninstall.runhelp
 
 # install/uninstall just the binary
 install.bin uninstall.bin:
@@ -78,13 +78,17 @@ install.modules uninstall.modules:
 install.man uninstall.man:
 	@cd Doc && $(MAKE) $(MAKEDEFS) $@
 
+# install/uninstall just the runhelp files
+install.runhelp uninstall.runhelp:
+	@cd Doc && $(MAKE) $(MAKEDEFS) $@
+
 # install/uninstall just the shell functions
 install.fns:
 	if test x$(fndir) != x && test x$(fndir) != xno; then \
 	  test x$(sitefndir) != xno && \
 	    $(SHELL) $(sdir_top)/mkinstalldirs $(DESTDIR)$(sitefndir); \
 	  sdir_top="$(sdir_top)" fndir="$(fndir)" dir_top="$(dir_top)" \
-	  scriptdir="$(scriptdir)" \
+	  scriptdir="$(scriptdir)" runhelpdir="$(runhelpdir)" \
 	  FUNCTIONS_SUBDIRS="$(FUNCTIONS_SUBDIRS)" \
 	  INSTALL_DATA="$(INSTALL_DATA)" \
 	  INSTALL_PROGRAM="$(INSTALL_PROGRAM)" \
@@ -158,6 +162,7 @@ targz-src: $(DISTNAME).tar.gz
 $(DISTNAME).tar.gz: FORCE
 	@$(sdir_top)/Util/mkdisttree.sh $(DISTNAME) $(sdir_top) $(dir_top) SRC \
 	    $(MAKE) $(MAKEDEFS)
+	echo '#define ZSH_PATCHLEVEL "'`cd $(sdir_top) && git describe --tags --long`'"' >$(DISTNAME)/Src/patchlevel.h.release
 	tar cf - $(DISTNAME) | gzip -9 > $@
 	rm -rf $(DISTNAME)
 

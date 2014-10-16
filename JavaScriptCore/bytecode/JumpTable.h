@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -70,6 +70,11 @@ namespace JSC {
             return loc->value.ctiOffset;
         }
 #endif
+        
+        void clear()
+        {
+            offsetTable.clear();
+        }
     };
 
     struct SimpleJumpTable {
@@ -89,6 +94,12 @@ namespace JSC {
         }
 
 #if ENABLE(JIT)
+        void ensureCTITable()
+        {
+            ASSERT(ctiOffsets.isEmpty() || ctiOffsets.size() == branchOffsets.size());
+            ctiOffsets.grow(branchOffsets.size());
+        }
+        
         inline CodeLocationLabel ctiForValue(int32_t value)
         {
             if (value >= min && static_cast<uint32_t>(value - min) < ctiOffsets.size())
@@ -96,6 +107,14 @@ namespace JSC {
             return ctiDefault;
         }
 #endif
+        
+        void clear()
+        {
+            branchOffsets.clear();
+#if ENABLE(JIT)
+            ctiOffsets.clear();
+#endif
+        }
     };
 
 } // namespace JSC

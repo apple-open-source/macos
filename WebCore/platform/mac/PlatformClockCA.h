@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,21 +34,21 @@ typedef struct OpaqueCAClock *CAClockRef;
 
 namespace WebCore {
 
-class PlatformClockCA : public Clock {
+class PlatformClockCA final : public Clock {
 public:
     PlatformClockCA();
     virtual ~PlatformClockCA();
 
 private:
-    virtual void setCurrentTime(double);
-    virtual double currentTime() const;
+    virtual void setCurrentTime(double) override;
+    virtual double currentTime() const override;
 
-    virtual void setPlayRate(double);
-    virtual double playRate() const;
+    virtual void setPlayRate(double) override;
+    virtual double playRate() const override;
 
-    virtual void start();
-    virtual void stop();
-    virtual bool isRunning() const { return m_running; }
+    virtual void start() override;
+    virtual void stop() override;
+    virtual bool isRunning() const override { return m_running; }
 
     CAClockRef m_clock;
     bool m_running;

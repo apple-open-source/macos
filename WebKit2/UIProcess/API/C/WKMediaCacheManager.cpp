@@ -38,7 +38,7 @@ WKTypeID WKMediaCacheManagerGetTypeID()
 
 void WKMediaCacheManagerGetHostnamesWithMediaCache(WKMediaCacheManagerRef mediaCacheManagerRef, void* context, WKMediaCacheManagerGetHostnamesWithMediaCacheFunction callback)
 {
-    toImpl(mediaCacheManagerRef)->getHostnamesWithMediaCache(ArrayCallback::create(context, callback));
+    toImpl(mediaCacheManagerRef)->getHostnamesWithMediaCache(toGenericCallbackFunction(context, callback));
 }
 
 void WKMediaCacheManagerClearCacheForHostname(WKMediaCacheManagerRef mediaCacheManagerRef, WKStringRef hostname)

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsEnvelopedData.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -63,15 +63,6 @@ SecCmsEnvelopedDataDestroy(SecCmsEnvelopedDataRef edp);
  */
 extern SecCmsContentInfoRef
 SecCmsEnvelopedDataGetContentInfo(SecCmsEnvelopedDataRef envd);
-
-/*!
-    @function
-    @abstract Add a recipientinfo to the enveloped data msg.
-    @discussion Rip must be created on the same pool as edp - this is not enforced, though.
- */
-extern OSStatus
-SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoRef rip);
-
 
 #if defined(__cplusplus)
 }

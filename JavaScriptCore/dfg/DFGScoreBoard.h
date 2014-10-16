@@ -43,18 +43,11 @@ namespace JSC { namespace DFG {
 // another node.
 class ScoreBoard {
 public:
-    ScoreBoard(const BitVector& usedVars)
-        : m_highWatermark(0)
+    ScoreBoard(unsigned nextMachineLocal)
+        : m_highWatermark(nextMachineLocal + 1)
     {
-        m_used.fill(0, usedVars.size());
-        m_free.reserveCapacity(usedVars.size());
-        for (size_t i = usedVars.size(); i-- > 0;) {
-            if (usedVars.get(i)) {
-                m_used[i] = max(); // This is mostly for debugging and sanity.
-                m_highWatermark = std::max(m_highWatermark, static_cast<unsigned>(i) + 1);
-            } else
-                m_free.append(i);
-        }
+        m_used.fill(max(), nextMachineLocal);
+        m_free.reserveCapacity(nextMachineLocal);
     }
 
     ~ScoreBoard()
@@ -89,39 +82,32 @@ public:
             // Use count must have hit zero for it to have been added to the free list!
             ASSERT(!m_used[index]);
             m_highWatermark = std::max(m_highWatermark, static_cast<unsigned>(index) + 1);
-            return (VirtualRegister)index;
+            return virtualRegisterForLocal(index);
         }
 
         // Allocate a new VirtualRegister, and add a corresponding entry to m_used.
         size_t next = m_used.size();
         m_used.append(0);
         m_highWatermark = std::max(m_highWatermark, static_cast<unsigned>(next) + 1);
-        return (VirtualRegister)next;
+        return virtualRegisterForLocal(next);
     }
 
-    // Increment the usecount for the VirtualRegsiter associated with 'child',
-    // if it reaches the node's refcount, free the VirtualRegsiter.
+    // Increment the usecount for the VirtualRegister associated with 'child',
+    // if it reaches the node's refcount, free the VirtualRegister.
     void use(Node* child)
     {
         if (!child)
             return;
 
         // Find the virtual register number for this child, increment its use count.
-        uint32_t index = child->virtualRegister();
+        uint32_t index = child->virtualRegister().toLocal();
         ASSERT(m_used[index] != max());
         if (child->refCount() == ++m_used[index]) {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-            dataLogF(" Freeing virtual register %u.", index);
-#endif
             // If the use count in the scoreboard reaches the use count for the node,
             // then this was its last use; the virtual register is now free.
             // Clear the use count & add to the free list.
             m_used[index] = 0;
             m_free.append(index);
-        } else {
-#if DFG_ENABLE(DEBUG_PROPAGATION_VERBOSE)
-            dataLogF(" Virtual register %u is at %u/%u uses.", index, m_used[index], child->refCount());
-#endif
         }
     }
     void use(Edge child)

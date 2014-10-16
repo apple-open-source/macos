@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,7 +33,7 @@
 #include "GraphicsContextPlatformPrivateCG.h"
 #include "ImageBuffer.h"
 #include "ImageOrientation.h"
-#include "KURL.h"
+#include "URL.h"
 #include "Path.h"
 #include "Pattern.h"
 #include "ShadowBlur.h"
@@ -41,24 +41,27 @@
 #include "Timer.h"
 #include <CoreGraphics/CoreGraphics.h>
 #include <wtf/MathExtras.h>
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/RetainPtr.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "WebCoreSystemInterface.h"
 #endif
 
 #if PLATFORM(WIN)
-#include <CoreGraphics/CGContextPrivate.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
+#if PLATFORM(IOS)
+#include <CoreGraphics/CGContextGState.h>
+#include <wtf/HashMap.h>
+#endif
+
+#if !PLATFORM(IOS)
 extern "C" {
     CG_EXTERN void CGContextSetCTM(CGContextRef, CGAffineTransform);
     CG_EXTERN CGAffineTransform CGContextGetBaseCTM(CGContextRef);
 };
-
-using namespace std;
+#endif // !PLATFORM(IOS)
 
 // FIXME: The following using declaration should be in <wtf/HashFunctions.h>.
 using WTF::pairIntHash;
@@ -86,16 +89,30 @@ CGColorSpaceRef deviceRGBColorSpaceRef()
 
 CGColorSpaceRef sRGBColorSpaceRef()
 {
-    // FIXME: Windows should be able to use kCGColorSpaceSRGB, this is tracked by http://webkit.org/b/31363.
-#if PLATFORM(WIN)
+#if PLATFORM(IOS)
     return deviceRGBColorSpaceRef();
 #else
     static CGColorSpaceRef sRGBSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+#if PLATFORM(WIN)
+    // Out-of-date CG installations will not honor kCGColorSpaceSRGB. This logic avoids
+    // causing a crash under those conditions. Since the default color space in Windows
+    // is sRGB, this all works out nicely.
+    if (!sRGBSpace)
+        sRGBSpace = deviceRGBColorSpaceRef();
+#endif // PLATFORM(WIN)
     return sRGBSpace;
-#endif
+#endif // PLATFORM(IOS)
 }
 
-#if PLATFORM(WIN)
+#if PLATFORM(IOS)
+void setStrokeAndFillColor(CGContextRef context, CGColorRef color)
+{
+    CGContextSetStrokeColorWithColor(context, color);
+    CGContextSetFillColorWithColor(context, color);
+}
+#endif // PLATFORM(IOS)
+
+#if PLATFORM(WIN) || PLATFORM(IOS)
 CGColorSpaceRef linearRGBColorSpaceRef()
 {
     // FIXME: Windows should be able to use linear sRGB, this is tracked by http://webkit.org/b/80000.
@@ -103,14 +120,23 @@ CGColorSpaceRef linearRGBColorSpaceRef()
 }
 #endif
 
-void GraphicsContext::platformInit(CGContextRef cgContext)
+void GraphicsContext::platformInit(CGContextRef cgContext, bool shouldUseContextColors)
 {
     m_data = new GraphicsContextPlatformPrivate(cgContext);
     setPaintingDisabled(!cgContext);
     if (cgContext) {
+#if PLATFORM(IOS)
+        m_state.shouldUseContextColors = shouldUseContextColors;
+        if (shouldUseContextColors) {
+#else
+        UNUSED_PARAM(shouldUseContextColors);
+#endif
         // Make sure the context starts in sync with our state.
         setPlatformFillColor(fillColor(), fillColorSpace());
         setPlatformStrokeColor(strokeColor(), strokeColorSpace());
+#if PLATFORM(IOS)
+        }
+#endif
     }
 }
 
@@ -143,17 +169,28 @@ void GraphicsContext::restorePlatformState()
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSize& imageSize, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
+void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSize& imageSize, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect, float scale, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
 {
     RetainPtr<CGImageRef> image(imagePtr);
 
     float currHeight = orientation.usesWidthAsHeight() ? CGImageGetWidth(image.get()) : CGImageGetHeight(image.get());
+#if PLATFORM(IOS)
+    // Unapply the scaling since we are getting this from a scaled bitmap.
+    currHeight /= scale;
+#else
+    UNUSED_PARAM(scale);
+#endif
 
     if (currHeight <= srcRect.y())
         return;
 
     CGContextRef context = platformContext();
     CGContextSaveGState(context);
+
+#if PLATFORM(IOS)
+    // Anti-aliasing is on by default on the iPhone. Need to turn it off when drawing images.
+    CGContextSetShouldAntialias(context, false);
+#endif
 
     bool shouldUseSubimage = false;
 
@@ -184,10 +221,13 @@ void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSi
             subimageRect.setHeight(ceilf(subimageRect.height() + topPadding));
             adjustedDestRect.setHeight(subimageRect.height() / yScale);
 
+#if PLATFORM(IOS)
+            subimageRect.scale(scale, scale);
+#endif
 #if CACHE_SUBIMAGES
             image = subimageCache().getSubimage(image.get(), subimageRect);
 #else
-            image = adoptCF(CGImageCreateWithImageInRect(image, subimageRect));
+            image = adoptCF(CGImageCreateWithImageInRect(image.get(), subimageRect));
 #endif
             if (currHeight < srcRect.maxY()) {
                 ASSERT(CGImageGetHeight(image.get()) == currHeight - CGRectIntegral(srcRect).origin.y);
@@ -205,6 +245,11 @@ void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSi
     // If the image is only partially loaded, then shrink the destination rect that we're drawing into accordingly.
     if (!shouldUseSubimage && currHeight < imageSize.height())
         adjustedDestRect.setHeight(adjustedDestRect.height() * currHeight / imageSize.height());
+
+#if PLATFORM(IOS)
+    // Align to pixel boundaries
+    adjustedDestRect = roundToDevicePixels(adjustedDestRect);
+#endif
 
     setPlatformCompositeOperation(op, blendMode);
 
@@ -235,7 +280,7 @@ void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSi
 }
 
 // Draws a filled rectangle with a stroked border.
-void GraphicsContext::drawRect(const IntRect& rect)
+void GraphicsContext::drawRect(const FloatRect& rect, float borderThickness)
 {
     // FIXME: this function does not handle patterns and gradients
     // like drawPath does, it probably should.
@@ -254,10 +299,10 @@ void GraphicsContext::drawRect(const IntRect& rect)
         if (oldFillColor != strokeColor())
             setCGFillColor(context, strokeColor(), strokeColorSpace());
         CGRect rects[4] = {
-            FloatRect(rect.x(), rect.y(), rect.width(), 1),
-            FloatRect(rect.x(), rect.maxY() - 1, rect.width(), 1),
-            FloatRect(rect.x(), rect.y() + 1, 1, rect.height() - 2),
-            FloatRect(rect.maxX() - 1, rect.y() + 1, 1, rect.height() - 2)
+            FloatRect(rect.x(), rect.y(), rect.width(), borderThickness),
+            FloatRect(rect.x(), rect.maxY() - borderThickness, rect.width(), borderThickness),
+            FloatRect(rect.x(), rect.y() + borderThickness, borderThickness, rect.height() - 2 * borderThickness),
+            FloatRect(rect.maxX() - borderThickness, rect.y() + borderThickness, borderThickness, rect.height() - 2 * borderThickness)
         };
         CGContextFillRects(context, rects, 4);
         if (oldFillColor != strokeColor())
@@ -266,7 +311,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
 }
 
 // This is only used to draw borders.
-void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
+void GraphicsContext::drawLine(const FloatPoint& point1, const FloatPoint& point2)
 {
     if (paintingDisabled())
         return;
@@ -282,7 +327,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     
     // For odd widths, we add in 0.5 to the appropriate x/y so that the float arithmetic
     // works out.  For example, with a border width of 3, KHTML will pass us (y1+y2)/2, e.g.,
-    // (50+53)/2 = 103/2 = 51 when we want 51.5.  It is always true that an even width gave
+    // (50+53)/2 = 103/2 = 51 when we want 51.5. It is always true that an even width gave
     // us a perfect position, but an odd width gave us a position that is off by exactly 0.5.
     if (strokeStyle() == DottedStroke || strokeStyle() == DashedStroke) {
         if (isVerticalLine) {
@@ -310,10 +355,8 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     switch (strokeStyle()) {
     case NoStroke:
     case SolidStroke:
-#if ENABLE(CSS3_TEXT)
     case DoubleStroke:
     case WavyStroke: // FIXME: https://bugs.webkit.org/show_bug.cgi?id=94112 - Needs platform support.
-#endif // CSS3_TEXT
         break;
     case DottedStroke:
         patWidth = (int)width;
@@ -325,8 +368,14 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 
     CGContextRef context = platformContext();
 
-    if (shouldAntialias())
-        CGContextSetShouldAntialias(context, false);
+    if (shouldAntialias()) {
+        bool willAntialias = false;
+#if PLATFORM(IOS)
+        // Force antialiasing on for line patterns as they don't look good with it turned off (<rdar://problem/5459772>).
+        willAntialias = patWidth;
+#endif
+        CGContextSetShouldAntialias(context, willAntialias);
+    }
 
     if (patWidth) {
         CGContextSaveGState(context);
@@ -345,7 +394,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         // Example: 80 pixels with a width of 30 pixels.
         // Remainder is 20.  The maximum pixels of line we could paint
         // will be 50 pixels.
-        int distance = (isVerticalLine ? (point2.y() - point1.y()) : (point2.x() - point1.x())) - 2*(int)width;
+        int distance = (isVerticalLine ? (int)(point2.y() - point1.y()) : (point2.x() - point1.x())) - 2*(int)width;
         int remainder = distance % patWidth;
         int coverage = distance - remainder;
         int numSegments = coverage / patWidth;
@@ -387,6 +436,36 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         CGContextSetShouldAntialias(context, true);
 }
 
+#if PLATFORM(IOS)
+void GraphicsContext::drawJoinedLines(CGPoint points[], unsigned count, bool antialias, CGLineCap lineCap)
+{
+    if (paintingDisabled() || !count)
+        return;
+
+    CGContextRef context = platformContext();
+    float width = CGContextGetLineWidth(context);
+
+    CGContextSaveGState(context);
+    
+    CGContextSetShouldAntialias(context, antialias);
+
+    CGContextSetLineWidth(context, width < 1 ? 1 : width);
+
+    CGContextBeginPath(context);
+    
+    CGContextSetLineCap(context, lineCap);
+    
+    CGContextMoveToPoint(context, points[0].x, points[0].y);
+    
+    for (unsigned i = 1; i < count; ++i)
+        CGContextAddLineToPoint(context, points[i].x, points[i].y);
+
+    CGContextStrokePath(context);
+
+    CGContextRestoreGState(context);
+}
+#endif
+
 // This method is only used to draw the little circles used in lists.
 void GraphicsContext::drawEllipse(const IntRect& rect)
 {
@@ -397,6 +476,31 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
     path.addEllipse(rect);
     drawPath(path);
 }
+
+#if PLATFORM(IOS)
+void GraphicsContext::drawEllipse(const FloatRect& rect)
+{
+    if (paintingDisabled())
+        return;
+
+    CGContextRef context(platformContext());
+
+    CGContextSaveGState(context);
+
+    setCGFillColor(context, fillColor(), fillColorSpace());
+    setCGStrokeColor(context, strokeColor(), strokeColorSpace());
+
+    CGContextSetLineWidth(context, strokeThickness());
+    
+    CGContextBeginPath(context);
+    CGContextAddEllipseInRect(context, rect);
+
+    CGContextFillPath(context);
+    CGContextStrokePath(context);
+    
+    CGContextRestoreGState(context);
+}
+#endif
 
 static void addConvexPolygonToPath(Path& path, size_t numberOfPoints, const FloatPoint* points)
 {
@@ -702,7 +806,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
 
         ShadowBlur contextShadow(m_state);
-        contextShadow.drawRectShadow(this, rect, RoundedRect::Radii());
+        contextShadow.drawRectShadow(this, FloatRoundedRect(rect));
     }
 
     CGContextFillRect(context, rect);
@@ -730,7 +834,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
 
         ShadowBlur contextShadow(m_state);
-        contextShadow.drawRectShadow(this, rect, RoundedRect::Radii());
+        contextShadow.drawRectShadow(this, FloatRoundedRect(rect));
     }
 
     CGContextFillRect(context, rect);
@@ -742,7 +846,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         setCGFillColor(context, oldFillColor, oldColorSpace);
 }
 
-void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
+void GraphicsContext::platformFillRoundedRect(const FloatRoundedRect& rect, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -761,17 +865,19 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
         CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
 
         ShadowBlur contextShadow(m_state);
-        contextShadow.drawRectShadow(this, rect, RoundedRect::Radii(topLeft, topRight, bottomLeft, bottomRight));
+        contextShadow.drawRectShadow(this, rect);
     }
 
-    bool equalWidths = (topLeft.width() == topRight.width() && topRight.width() == bottomLeft.width() && bottomLeft.width() == bottomRight.width());
-    bool equalHeights = (topLeft.height() == bottomLeft.height() && bottomLeft.height() == topRight.height() && topRight.height() == bottomRight.height());
+    const FloatRect& r = rect.rect();
+    const FloatRoundedRect::Radii& radii = rect.radii();
+    bool equalWidths = (radii.topLeft().width() == radii.topRight().width() && radii.topRight().width() == radii.bottomLeft().width() && radii.bottomLeft().width() == radii.bottomRight().width());
+    bool equalHeights = (radii.topLeft().height() == radii.bottomLeft().height() && radii.bottomLeft().height() == radii.topRight().height() && radii.topRight().height() == radii.bottomRight().height());
     bool hasCustomFill = m_state.fillGradient || m_state.fillPattern;
-    if (!hasCustomFill && equalWidths && equalHeights && topLeft.width() * 2 == rect.width() && topLeft.height() * 2 == rect.height())
-        CGContextFillEllipseInRect(context, rect);
+    if (!hasCustomFill && equalWidths && equalHeights && radii.topLeft().width() * 2 == r.width() && radii.topLeft().height() * 2 == r.height())
+        CGContextFillEllipseInRect(context, r);
     else {
         Path path;
-        path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+        path.addRoundedRect(rect);
         fillPath(path);
     }
 
@@ -782,7 +888,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
         setCGFillColor(context, oldFillColor, oldColorSpace);
 }
 
-void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const RoundedRect& roundedHoleRect, const Color& color, ColorSpace colorSpace)
+void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& roundedHoleRect, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -812,7 +918,7 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const Rounded
         CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
 
         ShadowBlur contextShadow(m_state);
-        contextShadow.drawInsetShadow(this, rect, roundedHoleRect.rect(), roundedHoleRect.radii());
+        contextShadow.drawInsetShadow(this, rect, roundedHoleRect);
     }
 
     fillPath(path);
@@ -832,7 +938,7 @@ void GraphicsContext::clip(const FloatRect& rect)
     m_data->clip(rect);
 }
 
-void GraphicsContext::clipOut(const IntRect& rect)
+void GraphicsContext::clipOut(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
@@ -905,14 +1011,16 @@ bool GraphicsContext::supportsTransparencyLayers()
 
 static void applyShadowOffsetWorkaroundIfNeeded(const GraphicsContext& context, CGFloat& xOffset, CGFloat& yOffset)
 {
-#if !PLATFORM(IOS)
+#if PLATFORM(IOS)
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(xOffset);
+    UNUSED_PARAM(yOffset);
+#else
     if (context.isAcceleratedContext())
         return;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     if (wkCGContextDrawsWithCorrectShadowOffsets(context.platformContext()))
         return;
-#endif
 
     // Work around <rdar://problem/5539388> by ensuring that the offsets will get truncated
     // to the desired integer. Also see: <rdar://problem/10056277>
@@ -960,7 +1068,7 @@ void GraphicsContext::setPlatformShadow(const FloatSize& offset, float blur, con
     }
 
     // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
-    blurRadius = min(blurRadius, narrowPrecisionToCGFloat(1000.0));
+    blurRadius = std::min(blurRadius, narrowPrecisionToCGFloat(1000.0));
 
     applyShadowOffsetWorkaroundIfNeeded(*this, xOffset, yOffset);
 
@@ -1075,6 +1183,13 @@ void GraphicsContext::setLineCap(LineCap cap)
 
 void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
 {
+    if (dashOffset < 0) {
+        float length = 0;
+        for (size_t i = 0; i < dashes.size(); ++i)
+            length += static_cast<float>(dashes[i]);
+        if (length)
+            dashOffset = fmod(dashOffset, length) + length;
+    }
     CGContextSetLineDash(platformContext(), dashOffset, dashes.data(), dashes.size());
 }
 
@@ -1237,57 +1352,65 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect, RoundingMo
     return FloatRect(roundedOrigin, roundedLowerRight - roundedOrigin);
 }
 
-void GraphicsContext::drawLineForText(const FloatPoint& point, float width, bool printing)
+FloatRect GraphicsContext::computeLineBoundsForText(const FloatPoint& point, float width, bool printing)
+{
+    bool dummyBool;
+    Color dummyColor;
+    return computeLineBoundsAndAntialiasingModeForText(point, width, printing, dummyBool, dummyColor);
+}
+
+void GraphicsContext::drawLineForText(const FloatPoint& point, float width, bool printing, bool doubleLines)
+{
+    DashArray widths;
+    widths.append(width);
+    widths.append(0);
+    drawLinesForText(point, widths, printing, doubleLines);
+}
+
+void GraphicsContext::drawLinesForText(const FloatPoint& point, const DashArray& widths, bool printing, bool doubleLines)
 {
     if (paintingDisabled())
         return;
 
-    if (width <= 0)
+    if (widths.size() <= 0)
         return;
 
-    float x = point.x();
-    float y = point.y();
-    float lineLength = width;
+    Color localStrokeColor(strokeColor());
 
-    // Use a minimum thickness of 0.5 in user space.
-    // See http://bugs.webkit.org/show_bug.cgi?id=4255 for details of why 0.5 is the right minimum thickness to use.
-    float thickness = max(strokeThickness(), 0.5f);
+    bool shouldAntialiasLine;
+    FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(point, widths.last(), printing, shouldAntialiasLine, localStrokeColor);
+    bool fillColorIsNotEqualToStrokeColor = fillColor() != localStrokeColor;
+    
+    Vector<CGRect, 4> dashBounds;
+    ASSERT(!(widths.size() % 2));
+    dashBounds.reserveInitialCapacity(dashBounds.size() / 2);
+    for (size_t i = 0; i < widths.size(); i += 2)
+        dashBounds.append(CGRectMake(bounds.x() + widths[i], bounds.y(), widths[i+1] - widths[i], bounds.height()));
 
-    bool restoreAntialiasMode = false;
-
-    if (!printing) {
-        // On screen, use a minimum thickness of 1.0 in user space (later rounded to an integral number in device space).
-        float adjustedThickness = max(thickness, 1.0f);
-
-        // FIXME: This should be done a better way.
-        // We try to round all parameters to integer boundaries in device space. If rounding pixels in device space
-        // makes our thickness more than double, then there must be a shrinking-scale factor and rounding to pixels
-        // in device space will make the underlines too thick.
-        CGRect lineRect = roundToDevicePixels(FloatRect(x, y, lineLength, adjustedThickness), RoundOriginAndDimensions);
-        if (lineRect.size.height < thickness * 2.0) {
-            x = lineRect.origin.x;
-            y = lineRect.origin.y;
-            lineLength = lineRect.size.width;
-            thickness = lineRect.size.height;
-            if (shouldAntialias()) {
-                CGContextSetShouldAntialias(platformContext(), false);
-                restoreAntialiasMode = true;
-            }
-        }
+    if (doubleLines) {
+        // The space between double underlines is equal to the height of the underline
+        for (size_t i = 0; i < widths.size(); i += 2)
+            dashBounds.append(CGRectMake(bounds.x() + widths[i], bounds.y() + 2 * bounds.height(), widths[i+1] - widths[i], bounds.height()));
     }
 
-    if (fillColor() != strokeColor())
-        setCGFillColor(platformContext(), strokeColor(), strokeColorSpace());
-    CGContextFillRect(platformContext(), CGRectMake(x, y, lineLength, thickness));
-    if (fillColor() != strokeColor())
-        setCGFillColor(platformContext(), fillColor(), fillColorSpace());
+#if PLATFORM(IOS)
+    if (m_state.shouldUseContextColors)
+#endif
+        if (fillColorIsNotEqualToStrokeColor)
+            setCGFillColor(platformContext(), localStrokeColor, strokeColorSpace());
 
-    if (restoreAntialiasMode)
-        CGContextSetShouldAntialias(platformContext(), true);
+    CGContextFillRects(platformContext(), dashBounds.data(), dashBounds.size());
+
+#if PLATFORM(IOS)
+    if (m_state.shouldUseContextColors)
+#endif
+        if (fillColorIsNotEqualToStrokeColor)
+            setCGFillColor(platformContext(), fillColor(), fillColorSpace());
 }
 
-void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
+void GraphicsContext::setURLForRect(const URL& link, const IntRect& destRect)
 {
+#if !PLATFORM(IOS)
     if (paintingDisabled())
         return;
 
@@ -1306,6 +1429,10 @@ void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
 
     CGPDFContextSetURLForRect(context, urlRef.get(),
         CGRectApplyAffineTransform(rect, CGContextGetCTM(context)));
+#else
+    UNUSED_PARAM(link);
+    UNUSED_PARAM(destRect);
+#endif
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
@@ -1358,7 +1485,7 @@ InterpolationQuality GraphicsContext::imageInterpolationQuality() const
 void GraphicsContext::setAllowsFontSmoothing(bool allowsFontSmoothing)
 {
     UNUSED_PARAM(allowsFontSmoothing);
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     CGContextRef context = platformContext();
     CGContextSetAllowsFontSmoothing(context, allowsFontSmoothing);
 #endif
@@ -1498,6 +1625,7 @@ void GraphicsContext::setPlatformCompositeOperation(CompositeOperator mode, Blen
             break;
         case BlendModeLuminosity:
             target = kCGBlendModeLuminosity;
+            break;
         default:
             break;
         }

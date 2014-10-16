@@ -33,7 +33,7 @@
 
 #if ENABLE(NETWORK_PROCESS)
 
-namespace CoreIPC {
+namespace IPC {
 class DataReference;
 }
 
@@ -41,38 +41,41 @@ namespace WebCore {
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
+class SessionID;
 }
 
 namespace WebKit {
 
 typedef uint64_t ResourceLoadIdentifier;
 
-class NetworkProcessConnection : public RefCounted<NetworkProcessConnection>, CoreIPC::Connection::Client {
+class NetworkProcessConnection : public RefCounted<NetworkProcessConnection>, IPC::Connection::Client {
 public:
-    static PassRefPtr<NetworkProcessConnection> create(CoreIPC::Connection::Identifier connectionIdentifier)
+    static PassRefPtr<NetworkProcessConnection> create(IPC::Connection::Identifier connectionIdentifier)
     {
         return adoptRef(new NetworkProcessConnection(connectionIdentifier));
     }
     ~NetworkProcessConnection();
     
-    CoreIPC::Connection* connection() const { return m_connection.get(); }
+    IPC::Connection* connection() const { return m_connection.get(); }
 
-    void didReceiveNetworkProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveNetworkProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&);
 
 private:
-    NetworkProcessConnection(CoreIPC::Connection::Identifier);
+    NetworkProcessConnection(IPC::Connection::Identifier);
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
-    virtual void didClose(CoreIPC::Connection*) OVERRIDE;
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName) OVERRIDE;
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection*) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
 
+#if ENABLE(SHAREABLE_RESOURCE)
     // Message handlers.
-    void didCacheResource(const WebCore::ResourceRequest&, const ShareableResource::Handle&);
+    void didCacheResource(const WebCore::ResourceRequest&, const ShareableResource::Handle&, WebCore::SessionID);
+#endif
 
     // The connection from the web process to the network process.
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
 };
 
 } // namespace WebKit

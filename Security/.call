@@ -1,0 +1,40 @@
+#
+# call configuration file
+#
+
+# =============================================================================
+# Some Xcode defaults
+#
+
+configuration = Debug-Emulator
+DSTROOT = /tmp/Security.dst
+
+# =============================================================================
+# Commands
+#
+
+build
+    xcodebuild -configuration Debug-Emulator -target Security
+
+build_deployment
+    xcodebuild -configuration Release-Emulator -target Security 
+
+clean
+    xcodebuild clean -configuration Debug-Emulator -target Security
+
+install
+    rm -rf /tmp/Security.sym
+    export RC_JASPER=YES && xcodebuild install -configuration Debug-Emulator -target Security DSTROOT=$DSTROOT
+    
+install_deployment
+    rm -rf /tmp/Security.sym
+    export RC_JASPER=YES && xcodebuild install -configuration Release-Emulator -target Security DSTROOT=$DSTROOT SYMROOT=/tmp/Security.sym 
+
+update up
+    svn $<
+
+commit com ci
+    svn $<
+
+# =============================================================================
+# end

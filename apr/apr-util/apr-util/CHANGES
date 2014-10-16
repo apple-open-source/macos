@@ -1,334 +1,104 @@
                                                      -*- coding: utf-8 -*-
-Changes with APR-util 1.3.12
+Changes with APR-util 1.5.2
 
-  *) apr_ldap: Fix crash because of NULL cleanup registered by
-     apr_ldap_rebind_init().  [Rainer Jung]
+  *) Windows: Add command line makefiles. [Gregg Smith]
 
-Changes with APR-util 1.3.11
+  *) apr_uri_parse(): Do not accept invalid characters in the scheme.
+     Per RFC 3986 3.3, enforce that the first segment of a relative path does
+     not contain a colon. PR 52479. [Stefan Fritsch]
 
-  *) apr_dbd_oracle: fix endianness issue in prepared statements.
-     PR 50690.  [Stefan Ruppert <sr myarm.com>]
+  *) Fix memory leak in hook sorting function. PR 51256.
+     [<horowity checkpoint com>]
 
-  *) apr_ldap: resolve possible hangs or crashes when the pool passed
-     to apr_ldap_rebind_init() is cleaned up and apr_ldap_rebind
-     is re-initted and re-used. PR50918. [Eric Covener]
+  *) Speedup md5 calculation by avoiding some copying on little endian
+     architectures. PR 49011. [Stefan Fritsch, Stefan Fuhrmann
+     <stefanfuhrmann alice-dsl de>]
 
-  *) DBD ODBC support: Fix stack buffer overwrite when an unexpected
-     number of parameters is passed to open.  Fix range checking of the
-     APR DBD type enum passed to some of the APIs.  [Jeff Trawick]
+  *) Use heap memory for crypt in apr_password_validate(), to reduce stack
+     usage. PR 54572. [Stefan Fritsch]
 
-  *) Add support for Berkeley DB 5.1.
-     [Rainer Jung]
+  *) Fix password validation failure for all crypt and crypt_r based
+     algorithms. PR 54603.  [Harvey Eneman <harvey.eneman oracle.com>]
 
-Changes with APR-util 1.3.10
-
-  *) SECURITY: CVE-2010-1623 (cve.mitre.org)
-     Fix a denial of service attack against apr_brigade_split_line().
+  *) Fix syntax error in crypto/apr_passwd.c on non-glibc systems. PR 54275.
      [Stefan Fritsch]
 
-  *) SECURITY: CVE-2009-3560, CVE-2009-3720 (cve.mitre.org)
-     Fix two buffer over-read flaws in the bundled copy of expat which
-     could cause applications to crash while parsing specially-crafted
-     XML documents.  [Joe Orton]
+  *) Fix potential data corruption in apr_brigade_write() and friends if
+     the last bucket of the brigade is a heap bucket that has been split,
+     and there are still references to the next part of the original bucket
+     in use. [Stefan Fritsch]
 
-  *) Upgrade bundled copy of expat library to 1.95.7.  [Joe Orton]
+  *) Remove duplicated logic in apr_brigade_puts(). PR 53740. [Christophe
+     Jaillet <christophe jaillet wanadoo fr>]
 
-  *) apr_thread_pool: Fix some potential deadlock situations.  PR 49709.
-     [Joe Mudd <Joe.Mudd sas.com>]
+  *) apr_crypto: If --with-crypto is passed to configure but no crypto
+     libraries are enabled, autodetect available libraries.  [Jeff Trawick]
 
-  *) apr_thread_pool_create: Fix pool corruption caused by multithreaded
-     use of the pool when multiple initial threads are created.  PR 47843.
-     [Alex Korobka <akorobka fxcm.com>]
+  *) memcache: Fix dead server retry logic.  [Gavin Shelley <columbusmonkey me.com>]
 
-  *) apr_thread_pool_create(): Only set the output thread pool handle on
-     success.  [Paul Querna]
+Changes with APR-util 1.5.1
 
-  *) DBD ODBC support: Fix memory corruption using apr_dbd_datum_get() with
-     several different data types, including APR_DBD_TYPE_TIME.  PR 49645.
-     [<kappa psilambda.com>]
+  *) testmemcache: Fix crash. PR 52705. [Peter Poeml <peter poeml de>]
 
-  *) Add support for Berkeley DB 4.8 and 5.0.  PR 49866, PR 49179.
-     [Bernhard Rosenkraenzer <br blankpage.ch>, 
-      Arfrever Frehtes Taifersar Arahesis <arfrever.fta gmail.com>]
+  *) MinGW: Support shared builds of apr-util when apr is shared.
+     PR 46175.  [Carlo Bramini <carlo.bramix libero.it>, Jeff Trawick]
 
-  *) Make bundled expat compatible with libtool 2.x.  PR 49053. 
-     [Rainer Jung]
+  *) Add support for Berkeley DB 5.2 and 5.3. Simplify detection script.
+     PR 53684.  [Rainer Jung]
 
-  *) Prefer libtool 1.x when searching for libtool in
-     bundled expat release process. [Rainer Jung, Jim Jagielski]
+  *) configure: Allow to specify library specific custom linker flags
+     via the LDADD_XXX variables. [Rainer Jung]
+
+  *) apr_password_validate(): Fix intermittent errors on systems
+     such as FreeBSD where the crypt() function is used.
+     (Broken only in 1.5.0)  [Jeff Trawick]
 
   *) Improve platform detection for bundled expat by updating
      config.guess and config.sub. [Rainer Jung]
 
-Changes with APR-util 1.3.9
+Changes with APR-util 1.5.0
 
-  *) SECURITY: CVE-2009-2412 (cve.mitre.org)
-     Fix overflow in rmm, where size alignment was taking place.
-     [Matt Lewis <mattlewis@google.com>, Sander Striker]
+  *) dbd_pgsql_escape: Use PQescapeStringConn. [Nick Kew]
 
-  *) Make sure that "make check" is used in the RPM spec file, so that
-     the crypto, dbd and dbm tests pass. [Graham Leggett]
+  *) apr_password_validate, apr_bcrypt_encode: Add support for bcrypt encoded
+     passwords. The bcrypt implementation uses code from crypt_blowfish
+     written by Solar Designer <solar openwall com>. apr_bcrypt_encode creates
+     hashes with "$2y$" prefix, but apr_password_validate also accepts the old
+     prefix "$2a$". PR 49288. [Stefan Fritsch]
 
-  *) Make sure the mysql version of dbd_mysql_get_entry() respects the
-     rule that if the column number exceeds the number of columns, we
-     return NULL. [Graham Leggett]
+  *) APR dbd: Allow to use apr_dbd_get_row() with a different pool than
+     apr_dbd_select(). PR 53533. [<arthur echo gmail com>]
 
-  *) Ensure the dbm module is packaged up correctly in the RPM.
-     [Graham Leggett]
+  *) APR dbd FreeTDS support: Fix spurious API errors caused by uninitialized
+     fields.  [TROY.LIU 劉春偉 <TROY.LIU deltaww.com.cn>]
 
-  *) Clarify the error messages within the dbd tests. [Graham Leggett]
+  *) apr_password_validate: Increase maximum hash string length to allow
+     more than 9999 rounds with sha512-crypt. PR 53410. [Stefan Fritsch]
 
-Changes with APR-util 1.3.8
+  *) Fix segfaults in crypt() and crypt_r() failure modes.
+     PR 47272.  [Arkadiusz Miskiewicz <arekm pld-linux.org>]
 
-  *) Use locally scoped variables in PostgreSQL driver to avoid stomping
-     on return codes. PR 47431
-     [Wayne Jensen <wayne_jensen trendmicro.com>]
+  *) apr_crypto: Ensure that the if/else that governs the static
+     initialisation of each crypto driver works when the first driver
+     isn't in use. [Graham Leggett]
 
-  *) Fix race conditions in initialisation of DBD, DBM and DSO.
-     [Bojan Smojver]
+  *) apr_crypto: Ensure the *driver variable is initialised when a statically
+     compiled library is initialised for the first time. [Graham Leggett]
 
-  *) Expose DBM libs in apu-1-config by default. To avoid that, use
-     apu-1-config --avoid-dbm --libs. To get just DBM libs, use
-     apu-1-config --dbm-libs.
-     [Bojan Smojver]
+  *) apr_crypto: Ensure the *driver variable is initialised when the library
+     has already been loaded. Fix ported from apr_dbd. [Graham Leggett]
 
-  *) Make sure --without-ldap works.
-     [Arfrever Frehtes Taifersar Arahesis <arfrever.fta gmail.com>]
+  *) apr_crypto: Move the static initialisation of DRIVER_LOAD from
+     apr_crypto_init() to apr_crypto_get_driver(), so that we don't lose
+     the parameters. [Graham Leggett]
 
-Changes with APR-util 1.3.7
+Changes with APR-util 1.4.x and later:
 
-  *) SECURITY: CVE-2009-1955 (cve.mitre.org)
-     Fix a denial of service attack against the apr_xml_* interface
-     using the "billion laughs" entity expansion technique.
-     [Joe Orton]
+  *) http://svn.apache.org/viewvc/apr/apr-util/branches/1.4.x/CHANGES?view=markup
 
-Changes with APR-util 1.3.6
+Changes for APR-util 1.3.x and later:
 
-  *) Minor build and bug fixes.
-
-Changes with APR-util 1.3.5
-
-  *) SECURITY: CVE-2009-0023 (cve.mitre.org)
-     Fix underflow in apr_strmatch_precompile.
-     [Matthew Palmer <mpalmer debian.org>]
-
-  *) SECURITY: CVE-2009-1956 (cve.mitre.org)
-     Fix off by one overflow in apr_brigade_vprintf.
-     [C. Michael Pilato <cmpilato collab.net>]
-
-  *) APR_LDAP_SIZELIMIT should prefer LDAP_DEFAULT_LIMIT/-1 when the
-     SDK supports it, but in the absence of LDAP_DEFAULT_LIMIT (and
-     LDAP_NO_LIMIT/0) it is not safe to use a literal -1.
-     PR23356 [Eric Covener]
-
-  *) Clean up ODBC types. Warnings seen when compiling packages for
-     Fedora 11. [Bojan Smojver]
-
-  *) Use of my_init() requires my_global.h and my_sys.h. 
-     [Bojan Smojver]
-
-  *) Fix apr_memcache_multgetp memory corruption and incorrect error
-     handling. PR 46588 [Sami Tolvanen <sami.tolvanen mywot.com>]
-
-  *) Fix memcache memory leak with persistent connections.
-     PR 46482 [Sami Tolvanen <sami.tolvanen mywot.com>]
-
-  *) Add Oracle 11 support. [Bojan Smojver]
-
-  *) apr_dbd_freetds: Avoid segfault when process is NULL.
-     Do no print diagnostics to stderr. Never allow driver to exit
-     process. [Bojan Smojver]
-
-  *) apr_dbd_freetds: The sybdb.h header file might be freetds/sybdb.h
-     or sybdb.h. [Graham Leggett]
-
-  *) LDAP detection improvements: --with-ldap now supports library names
-     containing non-alphanumeric characters, such as libldap-2.4.so.  New
-     option --with-lber can be used to override the default liblber name.
-     Fix a problem reporting the lber library from apu-N-config.
-     [Jeff Trawick]
-
-  *) Suppress pgsql column-out-of-range warning.
-     PR 46012 [Michiel van Loon <michiel van-loon.xs4all.nl>]
-
-  *) Fix a buffer overrun and password matching for SHA passwords.
-     PR 45679 [Ben Noordhuis <bnoordhuis gmail.com>]
-
-  *) Introduce DSO handling of the db, gdbm and ndbm drivers, so these are
-     loaded as .so's on first demand, unless --disable-util-dso is configured.
-     [William Rowe]
-
-  *) Fix a segfault in the DBD testcase when the DBD modules were not present.
-     [Graham Leggett]
-
-Changes with APR-util 1.3.4
-
-  *) Fix a memory leak introduced in r683756 and a free call to a non malloced
-     pointer in the case that the platform has no threads.
-     [Jeff Trawick, Ruediger Pluem]
-
-Changes with APR-util 1.3.3
-
-  *) Add Berkeley DB 4.7 support.
-     [Arfrever Frehtes Taifersar Arahesis <arfrever.fta gmail.com>]
-
-  *) PostgreSQL rows (internally) start from zero, not one. Account for it in
-     row fetching function. [Bojan Smojver]
-
-  *) Detection of PostgreSQL may fail if LIBS contains all libs returned by
-     pg_config. Use it only as the last resort. [Bojan Smojver]
-
-  *) When searching for DSOs, look in apr-util-APU_MAJOR_VERSION subdirectory
-     of each component of APR_DSOPATH. PR 45327
-     [Joe Orton, William Rowe, Bojan Smojver]
-
-  *) Give MySQL DBD driver reconnect option. PR 45407
-     [Bojan Smojver]
-
-Changes with APR-util 1.3.2
-
-  *) Fix parameter parsing error in ODBC DBD driver.  [Tom Donovan]
-
-  *) Older OpenLDAP implementations may have ldap_set_rebind_proc() with two
-     args. Provide detection code and alternative implementation.
-     [Ruediger Pluem]
-
-  *) Use pool memory when setting DBD driver name into the hash.
-     [Bojan Smojver]
-
-Changes with APR-util 1.3.1
-
-  *) Add ODBC DBD Driver.  [Tom Donovan]
-
-  *) Fix build of the FreeTDS and MySQL drivers.  [Bojan Smojver]
-
-  *) Fix build failure for no modules (--disable-dso).  [Jean-Frederic Clere]
-
-  *) Fix win32 build failure for no modules (empty DBD_LIST).  [William Rowe]
-
-Changes with APR-util 1.3.0
-
-  *) apr_reslist: destroy all resources in apr_cleanup (don't give up on error).
-     PR 45086 [Nick Kew]
-
-  *) Add apr_brigade_split_ex for reusing existing brigades in situation where
-     brigades need to be split often during the lifetime of a pool.
-     [Ruediger Pluem]
-
-  *) Amend apr_reslist to expire resources whose idle time exceeds ttl.
-     PR 42841 [Tom Donovan, Nick Kew, Ruediger Pluem]
-
-  *) Modularize ldap's stub with the dbd dso modular structure, and teach
-     the apu dso's to respect the system specific shared lib path var.
-     To link to an application without ldap libs, query 
-     `apu-1-config --avoid-ldap --libs` (in addition to the usual linker
-     queries for compiling and linking).  [William Rowe]
-
-  *) Support building DBD drivers as DSOs by default; use --disable-util-dso
-     flag to configure to use static link.  [Joe Orton, Bojan Smojver]
-
-  *) All DBD drivers now count rows from 1, which affects PostgreSQL and MySQL
-     drivers in particular. Using row number zero is an error.
-     [Bojan Smojver]
-
-  *) Add support for OpenLDAP's ability to support a directory of
-     certificate authorities. [Eric Covener]
-
-  *) Better error detection for bucket allocation failures.
-     [Jim Jagielski]
-
-  *) Ensure that the LDAP code can compile cleanly on platforms that do
-     not define the LDAP_OPT_REFHOPLIMIT symbol, most specifically Windows.
-     [Victor <victorjss@gmail.com>, Graham Leggett]
-
-  *) Fix the setting of LDAP_OPT_SSL on Win2k, which expects a pointer to
-     the value LDAP_OPT_ON, and not the value itself. XP works with both.
-     [Victor <victorjss@gmail.com>]
-
-  *) Fix a regression in apr_brigade_partition that causes integer overflows
-     on systems where apr_off_t > apr_size_t.  [Ruediger Pluem]
-
-  *) Ensure that apr_uri_unparse does not add scheme to URI if
-     APR_URI_UNP_OMITSITEPART flag is set. PR 44044
-     [Michael Clark <michael metaparadigm.com>]
-
-  *) Add an LDAP rebind implementation so that authentication can be
-     carried through referrals. [Paul J. Reder]
-
-  *) Fix the make test target in the spec file. [Graham Leggett]
-
-  *) Introduce apr_dbd_open_ex() [Bojan Smojver]
-
-  *) Make md5 hash files portable between EBCDIC and ASCII platforms  
-     [David Jones]
-
-  *) Add limited apr_dbd_freetds driver (MSSQL and Sybase) [Nick Kew]
-
-  *) Commit relicensed apr_dbd_mysql driver to /trunk/  [Nick Kew]
-
-  *) Support BerkeleyDB 4.6.  [Arfrever Frehtes Taifersar Arahesis]
-
-  *) Support Tivoli ITDS LDAP client library.  [Paul Reder]
-
-  *) Portably implement testdate's long-time constants to solve
-     compilation faults where #LL isn't valid.  [Curt Arnold]
-
-  *) Use buffered I/O with SDBM.  [Joe Schaefer]
-
-  *) Unify parsing of prepared statements and add binary argument functions
-     to DBD [Bojan Smojver with help from many on the APR list]
-
-  *) Rewrite detection of expat in configure to fix build on e.g. biarch
-     Linux platforms.  PR 28205.  [Joe Orton]
-
-  *) Add apr_thread_pool implementation.  [Henry Jen <henryjen ztune.net>]
-
-  *) Add support for Berkeley DB 4.5 to the configure scripts.
-     [Garrett Rooney]
-
-  *) Allow apr_queue.h to be included before other APR headers.
-     PR 40891 [Henry Jen <henryjen ztune.net>]
-
-  *) Fix precedence problem in error checking for sdbm dbm back end.
-     PR 40659 [Larry Cipriani <lvc lucent.com>]
-
-  *) Add an apr_reslist_acquired_count, for determining how many outstanding
-     resources there are in a reslist.  [Ryan Phillips <ryan trolocsis.com>]
-
-  *) Provide folding in autogenerated .manifest files for Win32 builders
-     using VisualStudio 2005  [William Rowe]
-
-  *) Implement DBD transaction modes
-     [Bojan Smojver with help from many on the APR list]
-
-  *) Implement prepared statement support in SQLite3 DBD driver
-     [Bojan Smojver]
-
-  *) Add get (column) name to apr_dbd API
-     [Bojan Smojver <bojan rexursive.com>] and
-     [Chris Darroch <chrisd pearsoncmg com>]
-
-  *) Make the DBD autoconf-glue use LDFLAGS instead of LIBS in several
-     places, fixing some configure issues on Solaris.
-     [Henry Jen <henryjen ztune.net>]
-
-  *) Make apr_dbd.h work as a stand alone header, without needing other
-     files to be included before it. [Henry Jen <henryjen ztune.net>]
-
-  *) On platforms that use autoconf stop automatically linking against
-     apr-iconv when an apr-iconv source dir is found in ../apr-iconv.
-     Instead, add a --with-apr-iconv option to configure that lets you
-     specify the relative path to your apr-iconv source directory.
-     [Garrett Rooney]
-
-  *) APR_FIND_APU macro now supports customisable detailed checks on
-     each installed apr-util. [Justin Erenkrantz, Colm MacCárthaigh]
-
-  *) APR_FIND_APU macro no longer checks /usr/local/apache2/
-     [Colm MacCárthaigh]
-
-  *) Add apr_dbd_oracle driver [Nick Kew and Chris Darroch]
-
+  *) http://svn.apache.org/viewvc/apr/apr-util/branches/1.3.x/CHANGES?view=markup
 
 Changes for APR-util 1.2.x and later:
 

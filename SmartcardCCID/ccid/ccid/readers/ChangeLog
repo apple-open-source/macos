@@ -1,0 +1,1814 @@
+2011-01-29 14:31  rousseau
+
+	* [r5570] supported_readers.txt: Add Xiring Leo v2
+
+2011-01-29 12:44  rousseau
+
+	* [r5565] Xiring_Leov2.txt: New firmware release
+
+2011-01-19 09:15  rousseau
+
+	* [r5527] iDream.txt: update
+
+2011-01-05 16:31  rousseau
+
+	* [r5488] Vasco_DP200.txt, Vasco_DP860.txt, supported_readers.txt:
+	  Add Vasco DIGIPASS KEY 860 and Vasco DIGIPASS KEY 200
+
+2011-01-04 10:04  rousseau
+
+	* [r5477] supported_readers.txt: Sort devices by Product ID
+
+2011-01-04 10:01  rousseau
+
+	* [r5476] supported_readers.txt: Reenable O2 Micro and Blutronics
+	  "bogus" readers
+
+2011-01-03 14:53  rousseau
+
+	* [r5463] Neowave_Weneo3.txt, supported_readers.txt: Add a new
+	  Neowave Weneo token
+	  
+	  Closes Debian bug #570167
+	  "libccid: New Neowave Weneo card version with new productId"
+
+2010-12-21 09:47  rousseau
+
+	* [r5461] Oberthur-ID-ONE_token_slim_v2.txt, supported_readers.txt:
+	  Add Oberthur ID-ONE TOKEN SLIM v2
+
+2010-12-16 08:59  rousseau
+
+	* [r5457] GemPCPinpadv2.txt: new firmware
+
+2010-12-16 08:48  rousseau
+
+	* [r5455] ACS_APG8201.txt, supported_readers.txt: Add ACS APG8201
+	  PINhandy 1
+
+2010-12-15 13:29  rousseau
+
+	* [r5451] Eutron_SIM_Pocket_Combo_(Card_Reader).txt,
+	  Eutron_SIM_Pocket_Combo_(SIM_Reader).txt: regenerate
+
+2010-12-15 13:27  rousseau
+
+	* [r5450] Eutron_SIM_Pocket_Combo_(Card_Reader).txt,
+	  Eutron_SIM_Pocket_Combo_(SIM_Reader).txt, SIM_Pocket_Combo.txt:
+	  Rename and split SIM_Pocket_Combo.txt in
+	  Eutron_SIM_Pocket_Combo_(Card_Reader).txt and
+	  Eutron_SIM_Pocket_Combo_(SIM_Reader).txt
+	  
+	  The device contains a hub with 3 devices: 2 CCID card readers and
+	  a USB
+	  Mass storage
+
+2010-12-12 15:28  rousseau
+
+	* [r5445] supported_readers.txt: Add Feitian SCR310
+
+2010-12-12 15:26  rousseau
+
+	* [r5444] Feitian_SCR310.txt: Feitian SCR310 reader (also labeled
+	  Rokey 301)
+
+2010-12-10 09:14  rousseau
+
+	* [r5436] Todos_Connectable.txt: Todos Connectable reader
+
+2010-12-01 17:06  rousseau
+
+	* [r5425] Fsij_gnuk.txt, supported_readers.txt: Add Free Software
+	  Initiative of Japan Gnuk token
+
+2010-11-20 09:15  rousseau
+
+	* [r5409] SpringCard_CSB6_Ultimate.txt: new firmware
+
+2010-11-17 13:06  rousseau
+
+	* [r5404] Xiring_Leov2.txt: Add Xiring Leo v2
+
+2010-11-12 14:23  rousseau
+
+	* [r5397] Athena_IDProtect_Key.txt, supported_readers.txt: Athena
+	  IDProtect Key v1 was bogus. The v2 should work.
+
+2010-11-12 09:57  rousseau
+
+	* [r5396] CardMan6121.txt: Regenerate
+
+2010-10-27 07:13  rousseau
+
+	* [r5365] BZH_uKeyCI800-K1.txt, supported_readers.txt: Add BZH
+	  uKeyCI800-K18
+
+2010-10-26 16:39  rousseau
+
+	* [r5363] supported_readers.txt: Normalize the Vid and Pid hex
+	  values
+
+2010-10-26 16:21  rousseau
+
+	* [r5361] SCR3310_2.txt, supported_readers.txt: Add a new model of
+	  SCM SCR 3310
+
+2010-10-26 16:17  rousseau
+
+	* [r5360] Akasa_AK-CR-03.txt: Add Akasa AK-CR-03 reader
+
+2010-09-03 14:00  rousseau
+
+	* [r5237] HP_kus-0133.txt, supported_readers.txt: HP kus-0133 is
+	  not supported
+
+2010-09-03 13:57  rousseau
+
+	* [r5236] supported_readers.txt: update URL to use ccid/
+
+2010-09-03 09:01  rousseau
+
+	* [r5229] Precise_200_MC.txt: new firmware
+
+2010-08-31 18:51  rousseau
+
+	* [r5207] ReinerSCT_cyberJack_RFID_basis.txt,
+	  supported_readers.txt: Add ReinerSCT cyberJack RFID basis
+
+2010-08-26 12:05  rousseau
+
+	* [r5189] supported_readers.txt: Remove O2 Micro Oz776 and
+	  Blutronics Bludrive II CCID since they are no
+	  more supported since version 1.4.0
+	  
+	  The USB descriptor is bogus and the patch in
+	  get_ccid_usb_interface()
+	  does not work with libusb-1.0
+
+2010-08-24 09:45  rousseau
+
+	* [r5181] supported_readers.txt: add Gemalto SG CCID
+
+2010-08-23 08:24  rousseau
+
+	* [r5173] Gemalto_SG.txt, supported_readers.txt: Add Gemalto Smart
+	  Guardian (SG CCID)
+
+2010-08-23 08:23  rousseau
+
+	* [r5172] supported_readers.txt: Rename Gemalto Smart Enterprise
+	  Guardian
+
+2010-08-02 12:01  rousseau
+
+	* [r5094] supported_readers.txt: Add support of the SCM SDI 010
+	  again. At least the contact interface can
+	  be used.
+	  
+	  This should not conflict with the SCM proprietary driver since
+	  the CCID
+	  driver will only work with pcsc-lite > 1.6.2 and recent pcsc-lite
+	  (>= 1.5.4) will load any specific driver before my "Class" CCID
+	  driver.
+
+2010-08-01 17:01  rousseau
+
+	* [r5087] supported_readers.txt: Add SCM SCL01x Contactless Reader
+	  (disabled since unsupported)
+
+2010-08-01 16:58  rousseau
+
+	* [r5086] supported_readers.txt: Add Gemalto Hybrid Smartcard
+	  Reader
+
+2010-08-01 16:49  rousseau
+
+	* [r5084] Tianyu_Smart_Card_Reader.txt, supported_readers.txt: Add
+	  Tianyu Smart Card Reader
+
+2010-06-30 09:00  rousseau
+
+	* [r5050] Broadcom_5880v3.txt, supported_readers.txt: Add a new
+	  Broadcom 5880 reader (idProduct: 0x5802)
+
+2010-06-21 08:40  rousseau
+
+	* [r5019] ACS_AET65.txt: add ACS AET65 (same idProduct as many
+	  other ACS devices)
+
+2010-06-19 20:36  rousseau
+
+	* [r5017] LTC36.txt, supported_readers.txt: add C3PO LTC36
+
+2010-06-16 20:26  rousseau
+
+	* [r5007] Todos_Cx00.txt, supported_readers.txt: add Todos CX00
+
+2010-06-16 18:20  rousseau
+
+	* [r5002] Dectel_CI692.txt, supported_readers.txt: add Dectel CI692
+
+2010-06-16 18:18  rousseau
+
+	* [r5001] Kingtrust_Multi-Reader.txt, supported_readers.txt: add
+	  Kingtrust Multi-Reader
+
+2010-06-01 14:24  rousseau
+
+	* [r4975] GemPCTwin.txt: update
+
+2010-05-27 10:18  rousseau
+
+	* [r4965] Lenovo.txt: update
+
+2010-05-15 14:44  rousseau
+
+	* [r4943] GemPCPinpadv2.txt: Gemalto PC pinpad v1+
+
+2010-05-03 13:38  rousseau
+
+	* [r4914] SCR3500.txt: add SCM SCR3500 (same idProduct as SCR355
+	  but different firmware)
+
+2010-05-02 10:18  rousseau
+
+	* [r4908] Athena_IDProtect_Key.txt, supported_readers.txt: add
+	  Athena IDProtect Key (unsupported see
+	  http://www.opensc-project.org/pipermail/opensc-user/2010-May/004023.html)
+
+2010-04-24 13:56  rousseau
+
+	* [r4893] Kobil_Smart_Token.txt, Kobil_mIDentity_4smart.txt,
+	  Kobil_mIDentity_4smart_AES.txt, Kobil_mIDentity_fullsize.txt,
+	  Kobil_mIDentity_fullsize_AES.txt, Kobil_mIDentity_visual.txt,
+	  supported_readers.txt: add KOBIL Smart Token, KOBIL mIDentity
+	  4smart,
+	  KOBIL mIDentity 4smart AES, KOBIL mIDentity visual,
+	  KOBIL mIDentity fullsize, KOBIL mIDentity 4smart fullsize AES
+
+2010-04-16 15:37  rousseau
+
+	* [r4876] SCL01x.txt: SCM SCL01x Contactless Reader
+
+2010-04-09 17:38  rousseau
+
+	* [r4869] ATMEL_AT90SCR050.txt, ATMEL_AT90SCR100.txt,
+	  ATMEL_VaultIC420.txt, ATMEL_VaultIC440.txt, ATMEL_VaultIC460.txt,
+	  supported_readers.txt: Add Atmel AT90SCR100, Atmel AT90SCR050,
+	  Atmel VaultIC420, Atmel
+	  VaultIC440, Atmel VaultIC460
+
+2010-04-06 17:22  rousseau
+
+	* [r4856] supported_readers.txt: Remove duplicate Vid/Pid entry for
+	  Alcor Micro SCR001 and Micro AU9520
+
+2010-04-06 15:49  rousseau
+
+	* [r4854] Vasco_DP855.txt, Vasco_DP865.txt, Vasco_DPKey200.txt,
+	  Vasco_DPKey860.txt, supported_readers.txt: Add Vasco DIGIPASS KEY
+	  860, Vasco DIGIPASS KEY 200, Vasco DP855, Vasco
+	  DP865
+
+2010-03-31 12:33  rousseau
+
+	* [r4849] GoldKey_PIV_Token.txt, supported_readers.txt: add GoldKey
+	  PIV Token
+
+2010-03-14 16:55  rousseau
+
+	* [r4815] supported_readers.txt: Enable the Broadcom 5880 reader.
+	  It should work after a firmware
+	  upgrade.
+
+2010-03-12 15:42  rousseau
+
+	* [r4814] supported_readers.txt: Rename Gemplus in Gemalto
+
+2010-02-26 17:35  rousseau
+
+	* [r4780] supported_readers.txt: SCM SDI 010 removed on
+	  manufacturer request since not supported by my driver
+
+2010-02-24 14:36  rousseau
+
+	* [r4776] supported_readers.txt: Removed Smart SBV280 on
+	  manufacturer request. They use libusb directly.
+
+2010-02-24 13:26  rousseau
+
+	* [r4775] Broadcom_5880.txt: regenerate
+
+2010-02-23 21:25  rousseau
+
+	* [r4771] Covadis_Auriga.txt, supported_readers.txt: add Covadis
+	  Auriga
+
+2010-02-12 20:02  rousseau
+
+	* [r4761] id3_CL1356D.txt, supported_readers.txt: id3_CL1356D.txt
+	  is a duplicate of id3_CL1356T5.txt
+
+2010-02-12 19:44  rousseau
+
+	* [r4759] id3_CL1356T5.txt, supported_readers.txt: add id3 CL1356T5
+
+2010-02-12 15:36  rousseau
+
+	* [r4757] Gemalto_PDT.txt, supported_readers.txt: update Gemalto
+	  PDT
+
+2010-02-09 21:23  rousseau
+
+	* [r4747] Makefile.am: Do not include the reader descriptions in
+	  the archive, only the
+	  supported_readers.txt file
+
+2010-02-05 13:33  rousseau
+
+	* [r4712] CL1356T.txt, id3_CL1356T.txt: rename CL1356T.txt in
+	  id3_CL1356T.txt like the other id3_* readers
+
+2010-01-29 19:51  rousseau
+
+	* [r4694] GPFCryptoStick.txt, supported_readers.txt: add German
+	  Privacy Foundation Crypto Stick v1.2
+
+2010-01-19 15:43  rousseau
+
+	* [r4676] GemPC_Express.txt: update
+
+2010-01-13 15:52  rousseau
+
+	* [r4665] Ask_CPL108.txt, supported_readers.txt: ass Ask CPL108
+
+2010-01-11 10:24  rousseau
+
+	* [r4655] supported_readers.txt: update Gemalto Prox-DU and Prox-SU
+	  names
+
+2010-01-11 10:23  rousseau
+
+	* [r4654] supported_readers.txt: update "Gemalto Prox DU" name
+
+2010-01-02 14:11  rousseau
+
+	* [r4631] Broadcom_5880v2.txt, supported_readers.txt: another
+	  Broadcom 5880 reader (iProduct: 5880) which looks like to work
+	  correctly
+
+2009-12-16 11:38  rousseau
+
+	* [r4617] Todos_AGM2_CCID.txt: firmware 1.01
+
+2009-12-09 17:22  rousseau
+
+	* [r4597] Precise_250_MC.txt: firmware update
+
+2009-12-05 13:41  rousseau
+
+	* [r4590] supported_readers.txt: improve docmentation of bogus
+	  readers
+
+2009-12-05 13:38  rousseau
+
+	* [r4589] supported_readers.txt: add OCS ID-One Cosmo Card (with
+	  ProductID 0x6356) in a commented line
+	  (unsupported)
+
+2009-12-05 13:32  rousseau
+
+	* [r4588] Gemalto_HybridSmartcardReader.txt: Gemalto Hybrid
+	  Smartcard Reader
+
+2009-12-02 16:18  rousseau
+
+	* [r4584] Precise_200_MC.txt: new firmware
+
+2009-11-18 08:05  rousseau
+
+	* [r4556] Oberthur-CosmoCard1.txt: other version of the OCS ID-One
+	  Cosmo Card
+
+2009-10-21 14:42  rousseau
+
+	* [r4502] Precise_250_MC.txt: new firmware
+
+2009-10-21 13:48  rousseau
+
+	* [r4501] Precise_200_MC.txt: new firmware
+
+2009-10-14 16:15  rousseau
+
+	* [r4493] Smart_SBV280.txt, supported_readers.txt: add Smart SBV280
+
+2009-10-02 08:51  rousseau
+
+	* [r4413] Todos_AGM2_CCID.txt: update
+
+2009-09-22 08:16  rousseau
+
+	* [r4392] CherrySmartTerminalXX7X.txt, supported_readers.txt: add
+	  Cherry SmartTerminal XX7X
+
+2009-09-10 14:22  rousseau
+
+	* [r4382] DellSK-3106.txt: regenerate
+
+2009-08-30 13:41  rousseau
+
+	* [r4372] Todos_AGM2_CCID.txt, supported_readers.txt: add Todos
+	  AGM2 CCID
+
+2009-07-17 13:43  rousseau
+
+	* [r4318] Panasonic_USB_Smart_Card_Reader_7A-Smart.txt,
+	  supported_readers.txt: add Panasonic USB Smart Card Reader
+	  7A-Smart
+
+2009-07-07 06:24  rousseau
+
+	* [r4311] ATMEL_AT91SC192192CT-USB.txt, supported_readers.txt: add
+	  ATMEL_AT91SC192192CT-USB.txt
+
+2009-07-06 13:44  rousseau
+
+	* [r4304] Alcor_SCR001.txt, supported_readers.txt: add Alcor Micro
+	  SCR001
+
+2009-06-25 15:56  rousseau
+
+	* [r4276] Aktiv_Rutoken_ECP.txt, supported_readers.txt: add Aktiv
+	  Rutoken ECP
+
+2009-06-20 16:25  rousseau
+
+	* [r4267] supported_readers.txt: add missing ':' separator
+
+2009-06-19 19:09  rousseau
+
+	* [r4263] Synnix_STD200.txt, supported_readers.txt: add Synnix
+	  STD200
+
+2009-06-16 09:26  rousseau
+
+	* [r4260] supported_readers.txt: add 2 Neowave Weneo tokens
+
+2009-06-16 09:22  rousseau
+
+	* [r4257] Neowave_Weneo2.txt: another Neowave token
+	  - 512MB flash storage
+	  - OS is "IBM JCOP41 Standard"
+	  - 32k internal memory
+
+2009-06-13 16:23  rousseau
+
+	* [r4254] Kobil_EMV_CAP.txt: new firmware
+
+2009-05-27 08:58  rousseau
+
+	* [r4226] ACR122U_PICC.txt: new firmware
+
+2009-05-13 12:08  rousseau
+
+	* [r4204] Softforum_XecureHSM.txt, Softforum__XecureHSM.txt: remove
+	  a _ in the filename
+
+2009-05-13 12:07  rousseau
+
+	* [r4203] Samsung_XecureHSM.txt, Softforum__XecureHSM.txt,
+	  supported_readers.txt: rename Samsung XecureHSM in Softforum
+	  XecureHSM
+
+2009-05-12 12:06  rousseau
+
+	* [r4197] Samsung_XecureHSM.txt, supported_readers.txt: add Samsung
+	  XecureHSM
+
+2009-05-08 06:30  rousseau
+
+	* [r3494] C3PO_LTC32_USBv2_old.txt, Makefile.am:
+	  C3PO_LTC32_USBv2_old.txt is a duplicate of C3PO_TLTC2USB.txt
+
+2009-05-07 13:21  rousseau
+
+	* [r3490] LTC32.txt: duplicate of C3PO_LTC32_USBv2.txt
+
+2009-05-02 11:33  rousseau
+
+	* [r3485] SCR331-DI-NTTCom.txt: the CCID descriptor was duplicated
+
+2009-04-21 08:55  rousseau
+
+	* [r3462] Feitian_SCR301.txt, supported_readers.txt: add Feitian
+	  SCR301
+
+2009-04-16 20:17  rousseau
+
+	* [r3455] supported_readers.txt: add iDream Vid/Pid but commented
+	  as the reader is bogus
+
+2009-04-16 11:28  rousseau
+
+	* [r3454] supported_readers.txt: add Raritan D2CIM-DVUSB VM/CCID in
+	  the should work list
+
+2009-04-09 18:45  rousseau
+
+	* [r3423] Raritan_D2CIM-DVUSB.txt: add Raritan D2CIM-DVUSB VM/CCID
+	  virtual reader
+
+2009-04-08 19:49  rousseau
+
+	* [r3413] SCL010.txt, supported_readers.txt: The SCM SCL010
+	  Contactless Reader is not supported
+
+2009-04-02 07:30  rousseau
+
+	* [r3409] GemProxDU_contact.txt, GemProxDU_contactless.txt,
+	  GemProxSU_contact.txt, GemProxSU_contactless.txt: regenerate
+
+2009-03-29 11:48  rousseau
+
+	* [r3401] supported_readers.txt: remove support of Reiner-SCT
+	  cyberJack pinpad(a) on request of
+	  Reiner-SCT
+	  
+	  You should user the Reiner-SCT driver instead
+
+2009-03-26 14:36  rousseau
+
+	* [r3380] GemProxDU_contact.txt, GemProxDU_contactless.txt,
+	  GemProxSU_contact.txt, GemProxSU_contactless.txt,
+	  supported_readers.txt: add Gemalto GemProx DU and SU readers
+
+2009-03-24 14:28  rousseau
+
+	* [r3374] DellSCRK.txt: update
+
+2009-03-24 13:09  rousseau
+
+	* [r3373] GemPCTwin_serial.txt: add a (faked) USB descriptor for
+	  the GemPC Twin using serial
+	  communication
+
+2009-03-13 15:52  rousseau
+
+	* [r3344] Alya.txt: remove fingerprint part
+
+2009-02-25 13:01  rousseau
+
+	* [r3325] ACS_ACR100.txt, ACS_ACR38_plugin.txt: add ACS ACR100 and
+	  ACS ACR38 plugin
+
+2009-02-25 12:48  rousseau
+
+	* [r3324] ACR122U_PICC.txt: update firmware
+
+2009-02-18 13:31  rousseau
+
+	* [r3320] Precise_200_MC.txt, supported_readers.txt: add Precise
+	  Biometrics 200 MC and 250 MC in the "should work" list
+
+2009-02-14 08:56  rousseau
+
+	* [r3316] Makefile.am, Philips_SmartMX.txt, SafeNet_IKey4000.txt,
+	  supported_readers.txt: use product name Philips SmartMX instead
+	  of commercial name
+	  SafeNet IKey4000.
+	  
+	  SafeNet IKey4000 is also used with different device like:
+	  idVendor: 0x04B9 iManufacturer: SafeNet, Inc.
+	  idProduct: 0x1206 iProduct: iKey 4000
+	  Found a CCID/ICCD device
+	  idVendor: 0x04B9
+	  iManufacturer: SafeNet, Inc.
+	  idProduct: 0x1206
+	  iProduct: iKey 4000
+	  bcdDevice: 1.10 (firmware release?)
+	  bLength: 9
+	  bDescriptorType: 4
+	  bInterfaceNumber: 0
+	  bAlternateSetting: 0
+	  bNumEndpoints: 0
+	  Control only
+	  bInterfaceClass: 0xFF
+	  NOT A CCID DEVICE
+	  Class is 0xFF (proprietary)
+	  bInterfaceSubClass: 0
+	  bInterfaceProtocol: 0
+	  bulk transfer, optional interrupt-IN (CCID)
+	  iInterface: 0
+	  USB extra length is too short: 2
+	  
+	  NOT A CCID DEVICE
+
+2009-02-11 12:50  rousseau
+
+	* [r3315] TianYu_CCID_SmartKey.txt, supported_readers.txt: add
+	  TianYu CCID SmartKey in the should work list
+
+2009-01-29 20:19  rousseau
+
+	* [r3296] supported_readers.txt: use generic "Realtek" instead of
+	  one particular brand "iMONO"
+
+2009-01-19 14:19  rousseau
+
+	* [r3283] GemPCKey.txt: regenerate
+
+2009-01-19 08:15  rousseau
+
+	* [r3282] Aktiv_Rutoken_Magistra.txt, supported_readers.txt: add
+	  Aktiv Rutoken Magistra in the "Should work but untested by me"
+	  list
+
+2008-12-17 09:58  rousseau
+
+	* [r3237] supported_readers.txt: add Atmel AT98SC032CT in the
+	  should work list
+
+2008-12-16 17:06  rousseau
+
+	* [r3236] ATMEL_AT98SC032CT.txt: add ATMEL AT98SC032CT
+
+2008-12-12 22:07  rousseau
+
+	* [r3232] supported_readers.txt: add iMONO 43 in 1 + Sim + Smart
+	  Card Reader in the "should work" list
+
+2008-12-12 21:39  rousseau
+
+	* [r3231] iMONO.txt: add iMONO USB2.0-CRW reader
+
+2008-12-09 21:43  rousseau
+
+	* [r3228] supported_readers.txt: add Xiring Xi Sign PKI in the
+	  supported list
+
+2008-11-27 19:15  rousseau
+
+	* [r3227] Neowave_Weneo.txt: add Neowave Weneo device
+
+2008-11-22 13:09  rousseau
+
+	* [r3222] Omnikey_noname1.txt, supported_readers.txt: add a Noname
+	  reader (from Omnikey)
+
+2008-11-20 09:05  rousseau
+
+	* [r3220] supported_readers.txt: add MSI StarReader SMART in the
+	  should work but untested list
+
+2008-11-19 21:10  rousseau
+
+	* [r3219] MSI_StarReader_SMART.txt: add MSI StarReader SMART
+
+2008-11-19 17:23  rousseau
+
+	* [r3218] ACR122U_PICC.txt: new firmware
+
+2008-11-18 14:37  rousseau
+
+	* [r3206] supported_readers.txt: add VMware Virtual USB CCID in
+	  should work but untested list
+
+2008-11-14 08:54  rousseau
+
+	* [r3203] supported_readers.txt: move Broadcom 5880 in the
+	  Unsupported list and comment the entry in
+	  readers/supported_readers.txt
+	  
+	  No communication to the device ("Resource temporarily
+	  unavailable" error)
+
+2008-11-11 08:46  rousseau
+
+	* [r3201] SDI010.txt: new firmware
+
+2008-11-10 08:49  rousseau
+
+	* [r3196] SCR331-DI.txt: regenerate
+
+2008-11-08 16:28  rousseau
+
+	* [r3195] Xiring_XI-SIGN.txt, Xiring_XI-SIGN_6000.txt: add Xiring
+	  Xi Sign PKI et Xiring Xi Sign 6000
+
+2008-11-08 10:43  rousseau
+
+	* [r3192] supported_readers.txt: move the "jNet Technology jToken
+	  s1" in the Unsupported list and remove
+	  it (commented entry) from the supported_readers.txt
+
+2008-11-07 13:39  rousseau
+
+	* [r3191] VMware_Virtual_USB_CCID.txt: add VMware Virtual USB CCID
+	  reader (available since VMWare 6.5)
+
+2008-10-31 12:41  rousseau
+
+	* [r3189] supported_readers.txt: add jNet Technology jToken s1 in
+	  should work but untested list
+
+2008-10-31 12:35  rousseau
+
+	* [r3187] jNet_jToken_s1.txt: add jNet_jToken_s1.txt
+
+2008-10-27 15:57  rousseau
+
+	* [r3182] supported_readers.txt: add Gemalto PDT in should work
+	  list
+
+2008-10-27 15:56  rousseau
+
+	* [r3181] Gemalto_PDT.txt, Makefile.am: add Gemalto PDT
+
+2008-10-16 19:22  rousseau
+
+	* [r3176] supported_readers.txt: add ACS ACR122U PICC Interface in
+	  the Should work but untested by me
+	  list
+
+2008-10-16 19:18  rousseau
+
+	* [r3175] ACR122U_PICC.txt, Makefile.am: add ACR122U_PICC.txt
+
+2008-10-11 09:05  rousseau
+
+	* [r3163] supported_readers.txt: add HP MFP Smart Card Reader in
+	  the "Should work but untested by me" list
+
+2008-10-11 09:00  rousseau
+
+	* [r3162] HP_MFP_SmartCardReader.txt, Makefile.am: add
+	  HP_MFP_SmartCardReader.txt
+
+2008-10-11 09:00  rousseau
+
+	* [r3161] HPUSBSmartCardReader.txt: reindent
+
+2008-10-07 09:18  rousseau
+
+	* [r3151] supported_readers.txt: add "KONA USB SmartCard" to the
+	  should work list
+
+2008-09-27 15:41  rousseau
+
+	* [r3148] supported_readers.txt: add Broadcom Corp 5880 (found in
+	  Dell E6500 laptop) in the "Should work
+	  but untested by me" list
+
+2008-09-27 15:40  rousseau
+
+	* [r3147] Broadcom_5880.txt, Makefile.am: add Broadcom_5880.txt
+
+2008-09-13 18:58  rousseau
+
+	* [r3129] Makefile.am, Pro-Active_CSB6_Ultimate.txt: Pro-Active
+	  CSB6 Ultimate is renamed SpringCard CSB6 Ultimate
+
+2008-09-13 18:56  rousseau
+
+	* [r3128] supported_readers.txt: add SpringCard CrazyWriter, CSB6
+	  Basic, CSB6 Secure, CSB6 Ultimate,
+	  EasyFinger Standard, EasyFinger Ultimate and Prox'N'Roll in the
+	  "Should
+	  work but untested by me" list
+
+2008-09-13 14:21  rousseau
+
+	* [r3127] supported_readers.txt: rename Pro-Active in Springcard
+
+2008-09-10 11:59  rousseau
+
+	* [r3122] Makefile.am, SpringCard_CSB6_Basic.txt,
+	  SpringCard_CSB6_Secure.txt, SpringCard_CSB6_Ultimate.txt,
+	  SpringCard_CrazyWriter.txt, SpringCard_EasyFinger_Standard.txt,
+	  SpringCard_EasyFinger_Ultimate.txt, SpringCard_Prox_N_Roll.txt:
+	  add SpringCard readers Prox'N'Roll, CSB6 Basic, EasyFinger
+	  Ultimate,
+	  CSB6 Ultimate, EasyFinger Standard, CrazyWriter, CSB6 Secure
+
+2008-09-09 08:51  rousseau
+
+	* [r3115] Makefile.am, mIDentityXL.txt: add mIDentityXL.txt
+
+2008-09-09 08:49  rousseau
+
+	* [r3114] supported_readers.txt: differentiate between KOBIL
+	  mIDentity M (pid 0x4000) and XL (pid 0x4001)
+
+2008-08-14 08:44  rousseau
+
+	* [r3090] supported_readers.txt: add Atmel AT91SO in the "Should
+	  work but untested by me" list
+
+2008-08-14 08:40  rousseau
+
+	* [r3089] ATMEL_AT91SO.txt, Makefile.am: add ATMEL_AT91SO.txt
+
+2008-08-07 08:18  rousseau
+
+	* [r3084] CherrySmartTerminalXX1X.txt, supported_readers.txt: add
+	  Cherry SmartTerminal XX1X
+
+2008-07-29 07:27  rousseau
+
+	* [r3060] supported_readers.txt: add the Aladdin eToken PRO USB 72K
+	  Java in the "Should work but untested
+	  by me" list
+
+2008-07-29 07:22  rousseau
+
+	* [r3059] Aladdin_eToken_PRO_USB_72K_Java.txt, Makefile.am: add
+	  Aladdin_eToken_PRO_USB_72K_Java.txt
+
+2008-06-25 08:58  rousseau
+
+	* [r3023] supported_readers.txt: add "Oberthur ID-One Cosmo Card"
+	  in the "Should work but untested by me"
+	  list
+
+2008-06-25 08:48  rousseau
+
+	* [r3022] Makefile.am, Oberthur-CosmoCard.txt: add
+	  Oberthur-CosmoCard.txt
+
+2008-06-18 15:51  rousseau
+
+	* [r3010] KAAN_Advanced.txt: firmware 1.19
+
+2008-06-18 15:47  rousseau
+
+	* [r3009] KAAN_Base.txt: firmware 1.19
+
+2008-06-17 13:47  rousseau
+
+	* [r3008] Kobil_EMV_CAP.txt: firmware 0.30
+
+2008-06-17 12:51  rousseau
+
+	* [r3007] KAAN_Advanced.txt: regenerate
+
+2008-06-08 08:43  rousseau
+
+	* [r2984] supported_readers.txt: add Pro-Active CSB6 Ultimate in
+	  "should work" list
+
+2008-05-28 13:02  rousseau
+
+	* [r2972] supported_readers.txt: add id3 Semiconductors CL1356A HID
+	  in the should work list
+
+2008-05-28 13:00  rousseau
+
+	* [r2971] Makefile.am: add id3_CL1356D.txt
+
+2008-05-28 12:58  rousseau
+
+	* [r2970] Makefile.am, id3_CL1356A_HID.txt: add id3_CL1356A_HID.txt
+
+2008-05-27 09:02  rousseau
+
+	* [r2969] CardMan5321.txt: regenerate
+
+2008-05-22 09:12  rousseau
+
+	* [r2964] GemCoreSIMPro.txt: update
+
+2008-05-09 14:34  rousseau
+
+	* [r2937] Makefile.am, Pro-Active_CSB6_Ultimate.txt: add
+	  Pro-Active_CSB6_Ultimate.txt
+
+2008-04-30 12:09  rousseau
+
+	* [r2921] supported_readers.txt: add Covadis Véga in "Should work
+	  but untested by me" list
+
+2008-04-30 12:05  rousseau
+
+	* [r2920] Vega-Alpha.txt: regenerate
+
+2008-04-09 13:56  rousseau
+
+	* [r2876] KEBTechnology_KONA_USB_SmartCard.txt, Makefile.am: add
+	  KEBTechnology_KONA_USB_SmartCard.txt
+
+2008-04-09 13:06  rousseau
+
+	* [r2875] supported_readers.txt: add the Validy TokenA sl vt in the
+	  should work list
+
+2008-04-09 13:04  rousseau
+
+	* [r2874] Makefile.am, Validy_TokenA.txt: add Validy_TokenA.txt
+
+2008-04-09 12:58  rousseau
+
+	* [r2873] supported_readers.txt: Add Vasco DP905 in the should work
+	  list
+
+2008-03-29 17:33  rousseau
+
+	* [r2863] Makefile.am, Vasco_DP905.txt: add Vasci DP905
+
+2008-03-29 14:59  rousseau
+
+	* [r2856] supported_readers.txt: move the Blutronics and Covadis
+	  reader before the Bogus readers
+
+2008-03-25 14:20  rousseau
+
+	* [r2855] Makefile.am, Precise_250_MC.txt: add Precise Biometrics
+	  250 MC
+
+2008-03-07 08:46  rousseau
+
+	* [r2847] supported_readers.txt: add Covadis Alya
+
+2008-03-07 08:14  rousseau
+
+	* [r2846] Alya.txt: update
+
+2008-02-27 12:02  rousseau
+
+	* [r2844] Alya.txt, Makefile.am, Vega-Alpha.txt: add Covadis.ch
+	  Alya and Vega-Alpha readers
+
+2008-02-21 12:17  rousseau
+
+	* [r2837] ACR122U.txt, Makefile.am: add ACR122U.txt
+
+2008-02-14 19:34  rousseau
+
+	* [r2821] supported_readers.txt: add Cherry SmartBoard XX1X
+
+2008-02-14 19:30  rousseau
+
+	* [r2820] CherrySmartBoardXX1X.txt, Makefile.am: add
+	  CherrySmartBoardXX1X.txt
+
+2008-02-14 11:01  rousseau
+
+	* [r2818] supported_readers.txt: add Gemplus Gem e-Seal Pro
+
+2008-02-14 10:00  rousseau
+
+	* [r2813] Gem_e-SealPro.txt, Makefile.am: add Gem_e-SealPro.txt
+
+2008-02-06 09:14  rousseau
+
+	* [r2794] supported_readers.txt: add Blutronics Bludrive II CCID in
+	  supported list
+
+2008-02-06 08:55  rousseau
+
+	* [r2792] BludriveII.txt, Makefile.am: add Bludrive II CCID
+
+2008-02-01 10:10  rousseau
+
+	* [r2782] supported_readers.txt: add support of Smart Enterprise
+	  Guardian
+
+2008-01-22 09:51  rousseau
+
+	* [r2751] GemCoreSIMPro.txt: do not duplicate the description for
+	  each slot
+
+2008-01-14 15:36  rousseau
+
+	* [r2734] supported_readers.txt: do not use a & (as in "G&D") since
+	  Leopard cannot parse it as valid XML
+
+2007-11-23 14:23  rousseau
+
+	* [r2711] GemaltoSmartEnterpriseGuardian.txt, Makefile.am: add
+	  Gemalto Smart Enterprise Guardian Secure USB Device
+
+2007-11-16 09:27  rousseau
+
+	* [r2688] supported_readers.txt: add Reiner-SCT cyberJack pinpad(a)
+	  in the bogus section
+
+2007-11-16 09:26  rousseau
+
+	* [r2687] supported_readers.txt: create a section "Bogus readers
+	  but partly supported" and move the C3PO
+	  LTC31 (old model) and ActivCard USB Reader 2.0 in this section
+
+2007-11-15 23:02  rousseau
+
+	* [r2684] Makefile.am, ReinerSCT.txt: add ReinerSCT.txt
+
+2007-11-15 22:03  rousseau
+
+	* [r2683] supported_readers.txt: add Charismathics token in the
+	  "Should work but untested by me" list
+
+2007-11-15 21:59  rousseau
+
+	* [r2682] Charismathics.txt, Makefile.am: add Charismathics.txt
+
+2007-11-01 14:37  rousseau
+
+	* [r2676] Kobil_EMV_CAP.txt: new firmware
+
+2007-10-24 16:01  rousseau
+
+	* [r2674] supported_readers.txt: add Eutron Digipass 860 in the
+	  supported list
+
+2007-10-24 15:58  rousseau
+
+	* [r2673] Eutron_Digipass_860.txt, Makefile.am: add Eutron Digipass
+	  860
+
+2007-10-24 15:50  rousseau
+
+	* [r2672] Eutron_CryptoIdentity.txt: new firmware
+
+2007-10-24 15:49  rousseau
+
+	* [r2671] supported_readers.txt: add "Eutron Smart Pocket" in the
+	  supported list
+
+2007-10-24 15:48  rousseau
+
+	* [r2670] Eutron_Smart_Pocket.txt, Makefile.am: add
+	  Eutron_Smart_Pocket.txt
+
+2007-10-24 15:27  rousseau
+
+	* [r2669] supported_readers.txt: add "Kobil EMV CAP - SecOVID
+	  Reader III" in the "should work" list
+
+2007-10-24 15:25  rousseau
+
+	* [r2668] Kobil_EMV_CAP.txt, Makefile.am: add Kobil_EMV_CAP.txt
+
+2007-10-23 09:33  rousseau
+
+	* [r2667] SCR3320.txt, SCR333.txt, SCR3340.txt: firmware update
+
+2007-10-21 16:37  rousseau
+
+	* [r2666] SCR331.txt: regenerated on linux
+
+2007-10-21 14:55  rousseau
+
+	* [r2665] SCR331.txt: update firmware
+
+2007-10-16 19:51  rousseau
+
+	* [r2656] supported_readers.txt: add "Lenovo Integrated Smart Card
+	  Reader" in "Should work but untested
+	  by me" list
+
+2007-10-16 19:45  rousseau
+
+	* [r2655] Lenovo.txt, Makefile.am: add Lenovo Integrated Smart Card
+	  Reader
+
+2007-10-14 14:15  rousseau
+
+	* [r2652] SCR3310.txt, SCR3311.txt, SCR335.txt: new firmware
+	  version
+
+2007-10-11 14:45  rousseau
+
+	* [r2649] GemPCPinpad.txt, GemPCTwin.txt: update
+
+2007-09-28 09:55  rousseau
+
+	* [r2628] supported_readers.txt: add Eutron CryptoIdentity
+
+2007-09-28 09:54  rousseau
+
+	* [r2627] Eutron_CryptoIdentity.txt, Makefile.am: add Eutron
+	  CryptoIdentity (generated under FreeBSD 6.2-STABLE)
+
+2007-09-21 20:49  rousseau
+
+	* [r2626] supported_readers.txt: add Giesecke & Devrient CardToken
+	  350 and 550.
+	  They were listed in the README, the web site but not in this
+	  list.
+
+2007-08-21 21:14  rousseau
+
+	* [r2617] supported_readers.txt: add SafeNet IKey4000 in the
+	  "Should work but untested by me" list
+
+2007-08-21 21:12  rousseau
+
+	* [r2616] Makefile.am, SafeNet_IKey4000.txt: add SafeNet IKey4000
+
+2007-08-03 20:07  rousseau
+
+	* [r2608] GnD_StarSignCardToken350.txt,
+	  GnD_StarSignCardToken550.txt, Makefile.am: add Giesecke &
+	  Devrient StarSign Card Token 350 and 550
+
+2007-08-03 14:31  rousseau
+
+	* [r2606] CardMan5321.txt, Makefile.am, supported_readers.txt: add
+	  CardMan5321
+
+2007-08-02 20:13  rousseau
+
+	* [r2604] supported_readers.txt: add O2 Micro Oz776 (ProductID
+	  0x7772) to the "Should work but untested
+	  by me" list
+
+2007-08-02 20:07  rousseau
+
+	* [r2603] Makefile.am, Oz776_7772.txt: add new O2Micro Oz776
+
+2007-06-30 16:07  rousseau
+
+	* [r2582] ActivkeySim.txt: update
+
+2007-06-25 12:23  rousseau
+
+	* [r2579] JCOP41V221.txt, supported_readers.txt: add "Philips
+	  Semiconductors JCOP41V221" ICCD card in "Should work but
+	  untested by me" list
+
+2007-06-18 08:27  rousseau
+
+	* [r2566] Sitecom_MD-010.txt: remove trash at end of file
+
+2007-05-10 09:10  rousseau
+
+	* [r2521] Makefile.am, e-gate.txt, supported_readers.txt: add
+	  SchlumbergerSema Cyberflex Access e-gate in the should work list
+
+2007-05-10 08:03  rousseau
+
+	* [r2516] Makefile.am, Sitecom_MD-010.txt, supported_readers.txt:
+	  add Sitecom USB simcard reader MD-010 in the "Should work but
+	  untested
+	  by me" list
+
+2007-05-10 07:57  rousseau
+
+	* [r2515] supported_readers.txt: correct KOBIL mIDentity names
+
+2007-05-03 15:21  rousseau
+
+	* [r2509] supported_readers.txt: add OmniKey CardMan 4321 in
+	  "Should work but untested by me" list
+
+2007-05-03 15:19  rousseau
+
+	* [r2508] CardMan4321.txt, Makefile.am: add CardMan4321.txt
+
+2007-03-20 21:23  rousseau
+
+	* [r2488] SCR331-DI.txt, SCR331.txt, SCR3310.txt, SCR3311.txt:
+	  firmware updates
+
+2007-03-15 20:50  rousseau
+
+	* [r2483] FujitsuSiemens_SmartCard_Keyboard_USB_2A.txt,
+	  FujitsuSiemens_SmartCard_USB_2A.txt, Makefile.am,
+	  supported_readers.txt: add Fujitsu Siemens Computers SmartCard
+	  USB 2A and SmartCard Keyboard
+	  USB 2A readers
+
+2007-02-28 21:12  rousseau
+
+	* [r2454] supported_readers.txt: differentiate the two KOBIL
+	  mIDentity devices (Basic and Classic)
+
+2007-02-25 13:22  rousseau
+
+	* [r2440] supported_readers.txt: add (new) KOBIL mIDentity
+
+2007-01-27 15:42  rousseau
+
+	* [r2360] Makefile.am, SK-3106.txt: SK-3106.txt is a duplicate of
+	  DellSK-3106.txt
+
+2007-01-04 20:26  rousseau
+
+	* [r2297] HPUSBSmartCardReader.txt, supported_readers.txt: add HP
+	  USB Smartcard Reader
+
+2006-12-20 20:41  rousseau
+
+	* [r2277] CardMan1021.txt, Makefile.am, supported_readers.txt: add
+	  OmniKey CardMan 1021
+
+2006-12-20 20:40  rousseau
+
+	* [r2276] CardMan3021.txt: a line was wrapped
+
+2006-12-05 21:12  rousseau
+
+	* [r2269] KAAN_Advanced.txt: upgrade firmware to 1.02
+
+2006-12-05 21:04  rousseau
+
+	* [r2268] KAAN_Base.txt: upgrade firmware to 1.02
+
+2006-11-30 22:35  rousseau
+
+	* [r2251] Makefile.am: change C3PO_LTC32_USBv_old.txt in
+	  C3PO_LTC32_USBv2_old.txt
+
+2006-11-23 19:58  rousseau
+
+	* [r2237] C3PO_KBR36.txt, C3PO_LTC32_USBv2.txt,
+	  C3PO_LTC32_USBv2_old.txt, C3PO_TLTC2USB.txt, Makefile.am: add
+	  C3PO_* files
+
+2006-11-18 20:56  rousseau
+
+	* [r2224] supported_readers.txt: add C3PO TLTC2USB, LTC32 USBv2
+	  with keyboard support and KBR36 in the
+	  "Should work but untested by me" list
+
+2006-11-17 16:39  rousseau
+
+	* [r2222] Teo.txt, supported_readers.txt: add Teo by Xiring in the
+	  supported list
+
+2006-11-17 16:36  rousseau
+
+	* [r2221] LTC32.txt, supported_readers.txt: add C3PO LTC32
+
+2006-09-22 14:51  rousseau
+
+	* [r2174] CardMan5125.txt, supported_readers.txt: add OmniKey
+	  CardMan 5125 in the should work but unsupported list
+
+2006-09-22 14:04  rousseau
+
+	* [r2172] supported_readers.txt: move the RSA SID800 in the
+	  supported list now that I have a working
+	  model
+
+2006-09-22 14:04  rousseau
+
+	* [r2171] sid800.txt: update using a new SID800 model.
+	  Unfortunately the firmware version has
+	  not changed so it is not possible to detect a non working model
+
+2006-09-14 19:55  rousseau
+
+	* [r2161] CardMan5121.txt, CardMan5125.txt, supported_readers.txt:
+	  The reader was a 5121 in fact
+
+2006-09-10 19:56  rousseau
+
+	* [r2153] AU9520.txt: new firmware (1.02)
+
+2006-08-11 16:10  rousseau
+
+	* [r2133] CL1356T.txt, Makefile.am: add id3 Semiconductors CL1356T
+	  in the "should work but unsuported" list
+
+2006-08-10 22:31  rousseau
+
+	* [r2131] Makefile.am, iDream.txt: Add iDream (or THRC2002-2) to
+	  the "Unsupported or partly supported CCID
+	  readers" list.
+	  
+	  Thanks to Dr Jean-Pierre Szikora for the report
+
+2006-07-09 15:03  rousseau
+
+	* [r2101] AU9520.txt, supported_readers.txt: add Alcor Micro AU9520
+
+2006-07-09 14:50  rousseau
+
+	* [r2100] id3_CL1356D.txt, supported_readers.txt: add id3
+	  Semiconductors CL1356D
+
+2006-05-19 11:58  rousseau
+
+	* [r2047] SPR532.txt: update with firmware 5.10
+
+2006-05-16 22:00  rousseau
+
+	* [r2044] ActivkeySim.txt, supported_readers.txt: add Actividentity
+	  (ActiveCard) Activkey Sim
+
+2006-05-04 12:13  rousseau
+
+	* [r2038] supported_readers.txt: add C3PO LTC31 (new model, USB
+	  product id 0x0006) in the supported list
+
+2006-05-04 11:33  rousseau
+
+	* [r2037] supported_readers.txt: add "HP USB Smart Card Keyboard"
+	  in the "Should work but untested by
+	  me:" list
+
+2006-05-04 11:31  rousseau
+
+	* [r2036] HPUSBSmartCardKeyboard.txt, Makefile.am: add
+	  HPUSBSmartCardKeyboard.txt
+
+2006-05-03 20:18  rousseau
+
+	* [r2034] CardMan3021.txt, Makefile.am: add OmniKey CardMan 3021 in
+	  the "Should work but untested by me" list
+
+2006-05-03 17:46  rousseau
+
+	* [r2033] LTC31v2.txt, Makefile.am: add LTC31 (new version)
+
+2006-04-20 14:39  rousseau
+
+	* [r2017] ACR38U-CCID.txt, CardMan3121.txt, CryptoIdentity.txt,
+	  GemPCKey.txt, GemPCTwin.txt, KAAN_Advanced.txt, KAAN_Base.txt,
+	  KAAN_SIM_III.txt, LTC31.txt, MySmartPad.txt, Oz776S.txt,
+	  SCR331-DI.txt, SCR331.txt, SCR3310.txt, SCR335.txt, SCR355.txt,
+	  SIM_Pocket_Combo.txt, SPR532.txt,
+	  Verisign_secure_storage_token.txt, mIDentity.txt, sid800.txt:
+	  regenerate using the latest version of parse
+
+2006-04-20 13:34  rousseau
+
+	* [r2016] CardMan3621.txt, Makefile.am, supported_readers.txt: add
+	  OmniKey CardMan 3621 in the "Should work but untested by me" list
+	  Thanks to Bruce Stephens.
+
+2006-04-14 18:46  rousseau
+
+	* [r2004] Makefile.am: add SCR3311.txt, SCR355.txt and SDI010.txt
+
+2006-04-14 18:45  rousseau
+
+	* [r2003] SDI010.txt, SSI010.txt: rename SSI010.txt in SDI010.txt
+
+2006-04-14 18:41  rousseau
+
+	* [r2001] Makefile.am: add ASE_IIIe.txt and ASEDrive_IIIe_KB.txt
+
+2006-04-14 18:41  rousseau
+
+	* [r2000] ASEDrive_IIIe_KB.txt, supported_readers.txt: add Athena
+	  ASE IIIe KB USB
+
+2006-04-14 18:38  rousseau
+
+	* [r1999] ASE_IIIe.txt: update firmware version
+
+2006-03-21 19:25  rousseau
+
+	* [r1968] Makefile.am, Winbond.txt, supported_readers.txt: add
+	  Winbond Electronics W81E381 chipset
+
+2006-03-21 08:48  rousseau
+
+	* [r1950] SSI010.txt, supported_readers.txt: add support for SCM
+	  SDI 010 contactless reader
+	  
+	  thanks to Oleg Makarenko for the patch
+
+2006-03-21 08:30  rousseau
+
+	* [r1949] AxaltoV3.txt, Makefile.am: add Axalto Reflex USB V3
+
+2006-03-20 08:45  rousseau
+
+	* [r1945] supported_readers.txt: add Axalto Reflex USB v3 in the
+	  "should work" list
+
+2006-03-03 17:10  rousseau
+
+	* [r1908] CardMan3821.txt, CardMan6121.txt, Makefile.am,
+	  supported_readers.txt: add OmniKey CardMan 3821 and CardMan 6121
+
+2006-03-03 09:01  rousseau
+
+	* [r1904] CherrySmartTerminalST2XXX.txt: new firmware (5.08)
+
+2006-02-28 22:59  rousseau
+
+	* [r1903] Makefile.am, SCR333.txt: add SCR333.txt
+
+2006-02-21 23:02  rousseau
+
+	* [r1874] Makefile.am: distribute ActivCardV2.txt and
+	  ActivCardV3.txt
+
+2006-02-21 23:02  rousseau
+
+	* [r1873] supported_readers.txt: add ActivCard USB Reader 3.0
+
+2006-02-21 23:01  rousseau
+
+	* [r1872] ActivCardV2.txt, ActivCardV3.txt: add ActivCard v2 and v3
+	  descriptions
+
+2006-02-20 19:17  rousseau
+
+	* [r1867] Makefile.am: add SCM SCR3320.txt and SCR3340.txt
+
+2006-02-20 19:17  rousseau
+
+	* [r1866] SCR3320.txt: add SCM SCR3320 - Smart Card Reader
+
+2006-02-20 19:16  rousseau
+
+	* [r1865] SCR3340.txt: add SCR3340 - ExpressCard54 Smart Card
+	  Reader
+
+2006-02-07 19:21  rousseau
+
+	* [r1864] supported_readers.txt: add "SCM SCR 3340 ExpressCard54"
+	  in the "Should work but untested by me"
+	  list
+
+2006-02-07 09:47  rousseau
+
+	* [r1862] GemPC_Express.txt, Makefile.am, supported_readers.txt:
+	  add Gemplus GemPC Express
+
+2006-02-06 15:45  rousseau
+
+	* [r1861] supported_readers.txt: rename POS Pro & SIM Pro to a more
+	  real name "Gemplus GemCore xxx"
+
+2006-01-25 19:18  rousseau
+
+	* [r1841] Makefile.am: add CardMan5125.txt
+
+2006-01-25 19:16  rousseau
+
+	* [r1839] CardMan5125.txt, supported_readers.txt: add OmniKey
+	  CardMan 5125
+
+2006-01-24 22:10  rousseau
+
+	* [r1834] supported_readers.txt: add SmartEpad
+
+2006-01-24 16:17  rousseau
+
+	* [r1831] Makefile.am: add MySmartPad.txt
+
+2006-01-20 13:44  rousseau
+
+	* [r1820] SCR3311.txt: move the SCM Micro SCR 3311 from the "should
+	  work" list to the
+	  "supported" list
+
+2006-01-18 11:01  rousseau
+
+	* [r1810] GemCoreSIMPro.txt, Makefile.am: add GemCore SIM Pro
+
+2006-01-18 10:55  rousseau
+
+	* [r1809] supported_readers.txt: add GemCore POS Pro & Gemplus SIM
+	  Pro
+	  --Cette ligne, et les suivantes ci-dessous, seront ignorées--
+	  
+	  M readers/supported_readers.txt
+
+2006-01-11 16:03  rousseau
+
+	* [r1798] GemPCPinpad.txt, supported_readers.txt: add Gemplus GemPC
+	  Pinpad
+
+2006-01-03 20:03  rousseau
+
+	* [r1789] supported_readers.txt: add SCM Micro SCR 3311 and 3320 in
+	  the "Should work but untested by me"
+	  list
+
+2006-01-03 18:45  rousseau
+
+	* [r1787] SCR355.txt, supported_readers.txt: add support for SCM
+	  Micro SCR 355
+
+2006-01-02 09:19  rousseau
+
+	* [r1785] Makefile.am: use ACR38U-CCID.txt instead of ACR38.txt
+
+2005-12-14 13:28  rousseau
+
+	* [r1782] Verisign_secure_storage_token.txt: update with new
+	  ./parse version
+
+2005-12-07 20:27  rousseau
+
+	* [r1778] ACR38.txt, ACR38U-CCID.txt, supported_readers.txt:
+	  replace ACR 38 by ACR 38U-CCID since they are two different
+	  readers
+
+2005-12-01 15:41  rousseau
+
+	* [r1776] ASE_IIIe.txt, supported_readers.txt: add Athena ASE IIIe
+	  USB V2 in "Supported CCID readers" list
+
+2005-11-27 19:43  rousseau
+
+	* [r1760] MySmartPad.txt: new file for MySMART PAD V2.0
+
+2005-11-27 17:22  rousseau
+
+	* [r1758] Makefile.am: add 3 missing reader descriptions
+
+2005-11-22 07:21  rousseau
+
+	* [r1729] supported_readers.txt: add SCM SCR 3310 NTTCom.
+	  See
+	  http://archives.neohapsis.com/archives/dev/muscle/2005-q4/0217.html
+
+2005-10-19 08:11  rousseau
+
+	* [r1692] SPR532.txt: firmware 5.07
+
+2005-09-01 12:32  rousseau
+
+	* [r1633] supported_readers.txt: add Cherry ST1044U
+
+2005-09-01 12:29  rousseau
+
+	* [r1632] CherrySmartTerminalST2XXX.txt, supported_readers.txt: add
+	  Cherry SmartTerminal ST-2XXX
+
+2005-08-25 20:06  rousseau
+
+	* [r1625] CherryST1044U.txt: new file
+
+2005-08-16 06:50  rousseau
+
+	* [r1619] .cvsignore: removed since we use SVN and not CVS anymore
+	  
+	  Thanks to Martin Paljak for the idea
+
+2005-08-11 13:51  rousseau
+
+	* [r1610] CherryXX44.txt: update adding clock frequencies and data
+	  rates
+
+2005-05-27 07:04  rousseau
+
+	* [r1545] CryptoIdentity.txt, supported_readers.txt: add Eutron
+	  CryptoIdentity
+
+2005-05-20 08:54  rousseau
+
+	* [r1520] sid800.txt: regenerate using new ./parse
+
+2005-05-05 10:31  rousseau
+
+	* [r1514] Makefile.am, SCR331-DI-NTTCom.txt: add
+	  SCR331-DI-NTTCom.txt
+
+2005-05-05 10:27  rousseau
+
+	* [r1513] Makefile.am: rename KAAN_mIDentity.txt in mIDentity.txt
+
+2005-05-05 10:25  rousseau
+
+	* [r1512] ACR38.txt, CardMan3121.txt, GemPCKey.txt,
+	  KAAN_Advanced.txt, KAAN_Base.txt, LTC31.txt, Oz776S.txt,
+	  SCR331-DI.txt, SCR331.txt, SCR3310.txt, SCR335.txt,
+	  SIM_Pocket_Combo.txt, SPR532.txt, mIDentity.txt: regenerate using
+	  the latest src/parse program
+
+2005-05-04 15:58  rousseau
+
+	* [r1508] supported_readers.txt: add SCM Micro SCR 331-DI NTTCom in
+	  the "Should work but untested by me"
+	  list
+
+2005-05-04 09:30  rousseau
+
+	* [r1506] supported_readers.txt: rename "Kobil KAAN mIDentity" in
+	  "Kobil mIDentity"
+
+2005-05-04 06:04  rousseau
+
+	* [r1503] supported_readers.txt: add the manufacturer name in the
+	  reader name
+
+2005-05-02 11:47  rousseau
+
+	* [r1493] CherryXX33.txt, DellSCRK.txt, GemPC433_SL.txt,
+	  GemPCTwin.txt, KAAN_SIM_III.txt: regenerate using the new parse
+	  command
+
+2005-04-27 13:40  rousseau
+
+	* [r1474] Makefile.am: add the new or missing readers
+
+2005-04-27 13:23  rousseau
+
+	* [r1471] Verisign_secure_storage_token.txt: Verisign Secure
+	  Storage Token
+
+2005-04-27 13:22  rousseau
+
+	* [r1470] Verisign_secure_token.txt: Verisign Secure Token (without
+	  mass memory)
+
+2005-04-27 13:22  rousseau
+
+	* [r1469] supported_readers.txt: add Verisign Secure Token and
+	  VeriSign Secure Storage Token
+
+2005-04-22 09:04  rousseau
+
+	* [r1436] supported_readers.txt: add Eutron SIM Pocket Combo
+
+2005-04-13 21:39  rousseau
+
+	* [r1426] SIM_Pocket_Combo.txt: Eutron SIM Pocket Combo
+	  (the reader is dual slot and is seen as two readers)
+
+2005-04-13 19:33  rousseau
+
+	* [r1425] sid800.txt: RSA SecurID SID800 Hardware Authenticator
+
+2005-03-04 21:30  rousseau
+
+	* [r1397] KAAN_SIM_III.txt, mIDentity.txt: Add KAAN SIM III and
+	  KAAN mIDentity
+
+2005-03-04 21:07  rousseau
+
+	* [r1394] supported_readers.txt: add Kobil KAAN mIDentity in
+	  supported reader list
+
+2005-03-04 11:14  rousseau
+
+	* [r1393] supported_readers.txt: add Kobil KAAN SIM III in
+	  supported readers list
+
+2005-03-04 10:44  rousseau
+
+	* [r1392] supported_readers.txt: add SCR 3310
+
+2005-03-04 10:31  rousseau
+
+	* [r1391] SCR3310.txt: SCR3310
+
+2005-02-25 17:29  rousseau
+
+	* [r1356] CardMan3121.txt, CherryXX33.txt, CherryXX44.txt,
+	  GemPC433_SL.txt, KAAN_Advanced.txt, KAAN_Base.txt, SCR331-DI.txt,
+	  SCR331.txt, SCR335.txt, SPR532.txt: typo: correct ICC by CCID
+	  where needed
+
+2005-02-20 14:01  rousseau
+
+	* [r1324] supported_readers.txt: add Kobil KAAN Base & KAAN
+	  Advanced readers
+
+2005-02-20 14:00  rousseau
+
+	* [r1323] KAAN_Advanced.txt, KAAN_Base.txt: firmware 0.37
+
+2005-02-04 08:12  rousseau
+
+	* [r1322] ACR38.txt: new firmware (but still with version 1.0) with
+	  the wMaxPacketSize bug removed
+
+2005-01-26 18:24  rousseau
+
+	* [r1319] Makefile.am: add the new or missing readers
+
+2005-01-26 18:24  rousseau
+
+	* [r1318] CherryXX44.txt, KAAN_Advanced.txt, KAAN_Base.txt: new
+	  readers descriptions
+
+2005-01-20 19:51  rousseau
+
+	* [r1316] supported_readers.txt: add Cherry XX44 (SmartBoard
+	  G83-6744)
+
+2005-01-13 10:43  rousseau
+
+	* [r1313] SCR335.txt: New model with firmware 5.14 (instead of
+	  4.16)
+
+2004-12-19 17:09  rousseau
+
+	* [r1297] SPR532.txt: update with firmware 5.04
+
+2004-10-19 08:41  rousseau
+
+	* [r1288] supported_readers.txt: add Oz776
+
+2004-10-14 14:33  rousseau
+
+	* [r1285] DellSCRK.txt: add idVendor & idProduct using the new
+	  parse command
+
+2004-10-07 20:58  rousseau
+
+	* [r1284] Makefile.am: reorganize the list and add Oz776S.txt
+
+2004-10-07 20:40  rousseau
+
+	* [r1283] Oz776S.txt: O2Micro Oz776S USB Hub smartcard reader
+
+2004-10-07 20:34  rousseau
+
+	* [r1282] SCR331-DI.txt, SCR335.txt, SPR532.txt: add idVendor &
+	  idProduct using the new parse command
+
+2004-10-07 19:59  rousseau
+
+	* [r1279] SCR331.txt: add idVendor & idProduct using the new parse
+	  command
+
+2004-10-06 12:13  rousseau
+
+	* [r1278] ACR38.txt, CardMan3121.txt, CherryXX33.txt,
+	  DellSK-3106.txt, GemPC433_SL.txt, GemPCKey.txt, GemPCTwin.txt,
+	  LTC31.txt: add idVendor & idProduct using the new parse command
+
+2004-05-26 14:02  rousseau
+
+	* [r906] DellSK-3106.txt: Dell keyboard SK-3106
+
+2004-05-24 07:27  rousseau
+
+	* [r886] ACR38.txt, supported_readers.txt: add Advanced Card
+	  Systems ACR 38
+
+2004-05-24 06:39  rousseau
+
+	* [r885] CherryXX33.txt, supported_readers.txt: add Cherry XX33
+
+2004-05-04 12:45  rousseau
+
+	* [r825] Makefile.am: add DellSCRK.txt
+
+2004-05-04 12:44  rousseau
+
+	* [r824] DellSCRK.txt, supported_readers.txt: add Dell smart card
+	  reader keyboard
+
+2004-04-08 12:43  rousseau
+
+	* [r780] SK-3106.txt, SPR532.txt: parse bPINSupport field
+
+2004-04-07 20:10  rousseau
+
+	* [r778] Makefile.am: also distribute SK-3106.txt
+
+2004-04-05 09:53  rousseau
+
+	* [r763] SK-3106.txt, supported_readers.txt: add support for the
+	  Dell keyboard SK-3106
+
+2004-02-27 17:37  rousseau
+
+	* [r707] supported_readers.txt: add SCR 333
+
+2004-02-14 12:26  rousseau
+
+	* [r701] Makefile.am: distribute SCR331-DI.txt and
+	  supported_readers.txt
+
+2004-02-03 14:59  rousseau
+
+	* [r669] SCR331-DI.txt: new file
+
+2004-02-02 10:05  rousseau
+
+	* [r665] supported_readers.txt: use create_Info_plist.pl to
+	  generate the installed Info.plist from an
+	  Info.plist template and a list of supported readers.
+
+2004-01-27 13:51  rousseau
+
+	* [r653] ., .cvsignore: ignore some build files
+
+2003-11-03 16:08  rousseau
+
+	* [r547] Makefile.am: also distribute SPR532.txt
+
+2003-10-29 18:02  rousseau
+
+	* [r530] SPR532.txt: add SPR 532 description even if it is not a
+	  "real" CCID reader.
+
+2003-09-10 09:45  rousseau
+
+	* [r418] Makefile.am: add readers/ in generated .tar.gz archive
+
+2003-09-10 09:29  rousseau
+
+	* [r417] CardMan3121.txt, GemPC433_SL.txt, GemPCKey.txt,
+	  GemPCTwin.txt, LTC31.txt, SCR331.txt, SCR335.txt: use new parse
+	  indentation for more readability of supported features
+
+2003-08-12 12:40  rousseau
+
+	* [r269] ., CardMan3121.txt, GemPC433_SL.txt, GemPCKey.txt,
+	  GemPCTwin.txt, LTC31.txt, SCR331.txt, SCR335.txt: Initial
+	  revision
+

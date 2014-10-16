@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2012, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -44,14 +44,17 @@ public:
     // as the Attribute stays in place. For example, calling a function that mutates
     // an Element's internal attribute storage may invalidate them.
     const AtomicString& value() const { return m_value; }
+    static ptrdiff_t valueMemoryOffset() { return OBJECT_OFFSETOF(Attribute, m_value); }
     const AtomicString& prefix() const { return m_name.prefix(); }
     const AtomicString& localName() const { return m_name.localName(); }
     const AtomicString& namespaceURI() const { return m_name.namespaceURI(); }
 
     const QualifiedName& name() const { return m_name; }
+    static ptrdiff_t nameMemoryOffset() { return OBJECT_OFFSETOF(Attribute, m_name); }
 
     bool isEmpty() const { return m_value.isEmpty(); }
-    bool matches(const QualifiedName&) const;
+    static bool nameMatchesFilter(const QualifiedName&, const AtomicString& filterPrefix, const AtomicString& filterLocalName, const AtomicString& filterNamespaceURI);
+    bool matches(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI) const;
 
     void setValue(const AtomicString& value) { m_value = value; }
     void setPrefix(const AtomicString& prefix) { m_name.setPrefix(prefix); }
@@ -72,11 +75,16 @@ private:
     AtomicString m_value;
 };
 
-inline bool Attribute::matches(const QualifiedName& qualifiedName) const
+inline bool Attribute::nameMatchesFilter(const QualifiedName& name, const AtomicString& filterPrefix, const AtomicString& filterLocalName, const AtomicString& filterNamespaceURI)
 {
-    if (qualifiedName.localName() != localName())
+    if (filterLocalName != name.localName())
         return false;
-    return qualifiedName.prefix() == starAtom || qualifiedName.namespaceURI() == namespaceURI();
+    return filterPrefix == starAtom || filterNamespaceURI == name.namespaceURI();
+}
+
+inline bool Attribute::matches(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI) const
+{
+    return nameMatchesFilter(m_name, prefix, localName, namespaceURI);
 }
 
 } // namespace WebCore

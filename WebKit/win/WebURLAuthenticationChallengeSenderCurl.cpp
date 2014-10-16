@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,7 +28,6 @@
 #include <initguid.h>
 #include "WebURLAuthenticationChallengeSender.h"
 
-#include "NotImplemented.h"
 #include "WebKit.h"
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLCredential.h"
@@ -42,21 +41,37 @@ using namespace WebCore;
 HRESULT STDMETHODCALLTYPE WebURLAuthenticationChallengeSender::cancelAuthenticationChallenge(
         /* [in] */ IWebURLAuthenticationChallenge* challenge)
 {
-    notImplemented();
-    return E_FAIL;
+    COMPtr<WebURLAuthenticationChallenge> webChallenge(Query, challenge);
+    if (!webChallenge)
+        return E_FAIL;
+
+    m_client->receivedCancellation(webChallenge->authenticationChallenge());
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebURLAuthenticationChallengeSender::continueWithoutCredentialForAuthenticationChallenge(
         /* [in] */ IWebURLAuthenticationChallenge* challenge)
 {
-    notImplemented();
-    return E_FAIL;
+    COMPtr<WebURLAuthenticationChallenge> webChallenge(Query, challenge);
+    if (!webChallenge)
+        return E_FAIL;
+
+    m_client->receivedRequestToContinueWithoutCredential(webChallenge->authenticationChallenge());
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebURLAuthenticationChallengeSender::useCredential(
         /* [in] */ IWebURLCredential* credential, 
         /* [in] */ IWebURLAuthenticationChallenge* challenge)
 {
-    notImplemented();
-    return E_FAIL;
+    COMPtr<WebURLAuthenticationChallenge> webChallenge(Query, challenge);
+    if (!webChallenge)
+        return E_FAIL;
+    
+    COMPtr<WebURLCredential> webCredential;
+    if (!credential || FAILED(credential->QueryInterface(__uuidof(WebURLCredential), (void**)&webCredential)))
+        return E_FAIL;
+
+    m_client->receivedCredential(webChallenge->authenticationChallenge(), webCredential->credential());
+    return S_OK;
 }

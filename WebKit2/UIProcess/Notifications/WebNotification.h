@@ -32,16 +32,16 @@
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
+namespace IPC {
 
 class ArgumentDecoder;
 class ArgumentEncoder;
 
-} // namespace CoreIPC
+} // namespace IPC
 
 namespace WebKit {
 
-class WebNotification : public TypedAPIObject<APIObject::TypeNotification> {
+class WebNotification : public API::ObjectImpl<API::Object::Type::Notification> {
 public:
     static PassRefPtr<WebNotification> create(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, const String& dir, const String& originString, uint64_t notificationID)
     {

@@ -79,28 +79,6 @@ kc_rsa_public_decrypt(int flen,
 
 #if defined(HAVE_CDSA)
 
-static int
-getAttribute(SecKeychainItemRef itemRef, SecItemAttr item,
-	     SecKeychainAttributeList **attrs)
-{
-    SecKeychainAttributeInfo attrInfo;
-    UInt32 attrFormat = 0;
-    OSStatus ret;
-
-    *attrs = NULL;
-
-    attrInfo.count = 1;
-    attrInfo.tag = &item;
-    attrInfo.format = &attrFormat;
-
-    ret = SecKeychainItemCopyAttributesAndData(itemRef, &attrInfo, NULL,
-					       attrs, NULL, NULL);
-    if (ret)
-	return EINVAL;
-    return 0;
-}
-
-
 /*
  *
  */
@@ -920,6 +898,7 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
 {
     CFTypeID typeid = CFGetTypeID(identity);
     SecCertificateRef seccert;
+    CFTypeRef secdata = NULL;
     SecKeyRef pkey = NULL;
     CFDataRef data;
     OSStatus osret;
@@ -928,19 +907,64 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
 
     *cert = NULL;
 
+    if (CFDataGetTypeID() == typeid) {
+	void const * keys[4] =  {
+	    kSecClass,
+	    kSecReturnRef,
+	    kSecMatchLimit,
+	    kSecValuePersistentRef
+	};
+	void const * values[4] = {
+	    kSecClassIdentity,
+	    kCFBooleanTrue,
+	    kSecMatchLimitOne,
+	    identity
+	};
+	CFDictionaryRef query;
+
+	assert(sizeof(keys) == sizeof(values));
+
+	query = CFDictionaryCreate(NULL, keys, values,
+				   sizeof(keys) / sizeof(*keys),
+				   &kCFTypeDictionaryKeyCallBacks,
+				   &kCFTypeDictionaryValueCallBacks);
+
+	osret = SecItemCopyMatching(query, &secdata);
+	CFRelease(query);
+	if (osret || secdata == NULL) {
+	    hx509_set_error_string(context, 0, HX509_CERTIFICATE_UNKNOWN_TYPE,
+				   "Failed to turn persistent reference into a certifiate: %d", (int)osret);
+	    return HX509_CERTIFICATE_UNKNOWN_TYPE;
+	}
+
+	typeid = CFGetTypeID(secdata);
+	identity = (void *)secdata;
+    }
+
     if (SecIdentityGetTypeID() == typeid) {
 	osret = SecIdentityCopyCertificate(identity, &seccert);
-	if (osret)
-	    return ENOMEM;
+	if (osret) {
+	    if (secdata)
+		CFRelease(secdata);
+	    hx509_set_error_string(context, 0, HX509_CERTIFICATE_UNKNOWN_TYPE,
+				   "Failed to convert the identity to a certificate: %d", (int)osret);
+	    return HX509_CERTIFICATE_UNKNOWN_TYPE;
+	}
     } else if (SecCertificateGetTypeID() == typeid) {
 	seccert = (SecCertificateRef)identity;
 	CFRetain(seccert);
     } else {
-	return EINVAL;
+	if (secdata)
+	    CFRelease(secdata);
+	hx509_set_error_string(context, 0, HX509_CERTIFICATE_UNKNOWN_TYPE,
+			       "Data from persistent ref not a identity or certificate");
+	return HX509_CERTIFICATE_UNKNOWN_TYPE;
     }
 
     data = SecCertificateCopyData(seccert);
     if (data == NULL) {
+	if (secdata)
+	    CFRelease(secdata);
 	CFRelease(seccert);
 	return ENOMEM;
     }
@@ -949,6 +973,8 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
 			       CFDataGetLength(data), &c);
     CFRelease(data);
     if (ret) {
+	if (secdata)
+	    CFRelease(secdata);
 	CFRelease(seccert);
 	return ret;
     }
@@ -970,6 +996,9 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
     }
 
     _hx509_cert_set_release(c, kc_cert_release, seccert);
+
+    if (secdata)
+	CFRelease(secdata);
 
     *cert = c;
 

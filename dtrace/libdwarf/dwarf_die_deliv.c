@@ -200,7 +200,8 @@ _dwarf_make_CU_Context(Dwarf_Debug dbg,
     }
 
     if (cu_context->cc_version_stamp != CURRENT_VERSION_STAMP
-	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP3) {
+	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP3
+	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP4) {
 	dwarf_dealloc(dbg, cu_context, DW_DLA_CU_CONTEXT);
 	_dwarf_error(dbg, error, DW_DLE_VERSION_STAMP_ERROR);
 	return (NULL);

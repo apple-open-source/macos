@@ -1,0 +1,144 @@
+# 
+# OCSP verfication of certs obtained from SSL sites
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = true
+# alternate these two on successful runs, flip either one for failure
+allowUnverified = true
+requireOcspIfPresent = false
+cacheDisable = false
+end
+###
+### all these (until further notice) do OCSP via ocsp.verisign.com
+###
+echo "================================="
+test = "www.amazon.com"
+revokePolicy = ocsp
+cert = amazon_v3.100.cer
+sslHost = www.amazon.com
+requireOcspIfPresent = true
+end
+echo "================================="
+test = "www.cduniverse.com"
+revokePolicy = ocsp
+cert = cduniverse_v3.000.cer
+sslHost = www.cduniverse.com
+allowUnverified = false
+end
+echo "================================="
+test = "store.apple.com, allowing unverified"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = true
+cert = apple_v3.000.cer
+cert = apple_v3.001.cer
+sslHost = store.apple.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "store.apple.com, require OCSP if present"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+requireOcspIfPresent = true
+cert = apple_v3.000.cer
+cert = apple_v3.001.cer
+sslHost = store.apple.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "store.apple.com, require OCSP for all, fail"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = false
+cert = apple_v3.000.cer
+cert = apple_v3.001.cer
+sslHost = store.apple.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+error = APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "store.apple.com, require OCSP if present, disable net, fail"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+requireOcspIfPresent = true
+ocspNetFetchDisable = true
+cacheDisable = true
+cert = apple_v3.000.cer
+cert = apple_v3.001.cer
+sslHost = store.apple.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+error = APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "www.verisign.com"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = true
+cert = verisign_v3.100.cer
+cert = verisign_v3.101.cer
+#
+# This one is the root, which SSL server sent us. 
+# Leave it in for variety.
+#
+cert = verisign_v3.102.cer
+sslHost = www.verisign.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "accounts2.keybank.com"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = true
+cert = keybank_v3.100.cer
+cert = keybank_v3.101.cer
+#
+# This one is the root, which SSL server sent us. 
+# Leave it in for variety.
+#
+cert = keybank_v3.102.cer
+sslHost = accounts2.keybank.com
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end
+echo "================================="
+test = "secure.authorize.net"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = true
+cert = secauth_v3.100.cer
+cert = secauth_v3.101.cer
+sslHost = secure.authorize.net
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end
+###
+### OCSP via ocsp.thawte.com
+###
+echo "================================="
+test = "www.proteron.com"
+revokePolicy = ocsp
+requireOcspIfPresent = true
+cert = proteron_v3.100.cer
+sslHost = www.proteron.com
+end
+#
+# misc. others
+#
+echo "================================="
+test = "www.wellsfargo.com"
+revokePolicy = ocsp
+requireOcspIfPresent = true
+cert = wellsfargo_v3.100.cer
+cert = wellsfargo_v3.101.cer
+sslHost = www.wellsfargo.com
+end
+echo "================================="
+test = "www.certum.pl"
+revokePolicy = ocsp
+requireOcspIfPresent = true
+cert = certum_v3.100.cer
+cert = certum_v3.101.cer
+sslHost = www.certum.pl
+# this, because we don't have the root, instead of APPLETP_OCSP_BAD_RESPONSE
+# which Radar 4158052 causes
+error = TP_NOT_TRUSTED
+end

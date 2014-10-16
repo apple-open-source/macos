@@ -7,7 +7,7 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/tg.xml
+ * ICU <specials> source: <path>/common/main/tg.xml
  */
 tg{
     AuxExemplarCharacters{"[ц щ ы ь]"}
@@ -16,7 +16,7 @@ tg{
     LocaleScript{
         "Cyrl",
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.90.61"}
     calendar{
         generic{
             DateTimePatterns{

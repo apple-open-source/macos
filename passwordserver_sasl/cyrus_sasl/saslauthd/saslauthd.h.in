@@ -10,6 +10,12 @@
 /* Include SASLdb Support */
 #undef AUTH_SASLDB
 
+/* Define if your getpwnam_r()/getspnam_r() functions take 5 arguments */
+#undef GETXXNAM_R_5ARG
+
+/* Define to 1 if you have the `asprintf' function. */
+#undef HAVE_ASPRINTF
+
 /* Define to 1 if you have the <crypt.h> header file. */
 #undef HAVE_CRYPT_H
 
@@ -46,6 +52,9 @@
 /* Include GSSAPI/Kerberos 5 Support */
 #undef HAVE_GSSAPI
 
+/* Define to 1 if you have the <gssapi/gssapi_ext.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_EXT_H
+
 /* Define if you have the gssapi.h header file */
 #undef HAVE_GSSAPI_H
 
@@ -53,11 +62,29 @@
    */
 #undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE */
+/* Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE */
 #undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME */
+/* Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME */
 #undef HAVE_GSS_C_NT_USER_NAME
+
+/* Define to 1 if you have the `gss_decapsulate_token' function. */
+#undef HAVE_GSS_DECAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_encapsulate_token' function. */
+#undef HAVE_GSS_ENCAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_get_name_attribute' function. */
+#undef HAVE_GSS_GET_NAME_ATTRIBUTE
+
+/* Define to 1 if you have the `gss_oid_equal' function. */
+#undef HAVE_GSS_OID_EQUAL
+
+/* Define if your GSSAPI implementation supports SPNEGO */
+#undef HAVE_GSS_SPNEGO
+
+/* Include HTTP form Support */
+#undef HAVE_HTTPFORM
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -200,7 +227,7 @@
 /* Use NDBM for SASLdb */
 #undef SASL_NDBM
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
 /* User KERBEROS_V4 Staticly */
@@ -307,6 +334,9 @@ extern size_t saslauthd_strlcpy(char *dst, const char *src, size_t len);
 #ifndef HAVE_STRLCAT
 extern size_t saslauthd_strlcat(char *dst, const char *src, size_t len);
 #define strlcat(x,y,z) saslauthd_strlcat((x),(y),(z))
+#endif
+#ifndef HAVE_ASPRINTF
+extern int asprintf(char **str, const char *fmt, ...);
 #endif
 
 #endif

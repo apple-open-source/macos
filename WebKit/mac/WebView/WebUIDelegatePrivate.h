@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,14 +26,23 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebUIDelegate.h>
+#import <WebKitLegacy/WebAllowDenyPolicyListener.h>
+#import <WebKitLegacy/WebUIDelegate.h>
 
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
+#if !TARGET_OS_IPHONE
 #define ENABLE_DASHBOARD_SUPPORT 1
+#else
+#define ENABLE_DASHBOARD_SUPPORT 0
+#endif
 #endif
 
 #if !defined(ENABLE_FULLSCREEN_API)
+#if !TARGET_OS_IPHONE
 #define ENABLE_FULLSCREEN_API 1
+#else
+#define ENABLE_FULLSCREEN_API 0
+#endif
 #endif
 
 // Mail on Tiger expects the old value for WebMenuItemTagSearchInGoogle
@@ -125,11 +134,6 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
 @class DOMNode;
 @class WebSecurityOrigin;
 
-@protocol WebAllowDenyPolicyListener <NSObject>
-- (void)allow;
-- (void)deny;
-@end
-
 #if ENABLE_FULLSCREEN_API
 @protocol WebKitFullScreenListener<NSObject>
 - (void)webkitWillEnterFullScreen;
@@ -178,14 +182,18 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
 - (void)webView:(WebView *)webView dashboardRegionsChanged:(NSDictionary *)regions;
 #endif
 
+#if !TARGET_OS_IPHONE
 - (void)webView:(WebView *)sender dragImage:(NSImage *)anImage at:(NSPoint)viewLocation offset:(NSSize)initialOffset event:(NSEvent *)event pasteboard:(NSPasteboard *)pboard source:(id)sourceObj slideBack:(BOOL)slideFlag forView:(NSView *)view;
+#endif
 - (void)webView:(WebView *)sender didDrawRect:(NSRect)rect;
 - (void)webView:(WebView *)sender didScrollDocumentInFrameView:(WebFrameView *)frameView;
 // FIXME: If we ever make this method public, it should include a WebFrame parameter.
 - (BOOL)webViewShouldInterruptJavaScript:(WebView *)sender;
+#if !TARGET_OS_IPHONE
 - (void)webView:(WebView *)sender willPopupMenu:(NSMenu *)menu;
 - (void)webView:(WebView *)sender contextMenuItemSelected:(NSMenuItem *)item forElement:(NSDictionary *)element;
 - (void)webView:(WebView *)sender saveFrameView:(WebFrameView *)frameView showingPanel:(BOOL)showingPanel;
+#endif
 - (BOOL)webView:(WebView *)sender didPressMissingPluginButton:(DOMElement *)element;
 /*!
     @method webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:
@@ -226,6 +234,8 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
                                                                       listener:(id<WebAllowDenyPolicyListener>)listener;
 - (void)webView:(WebView *)webView decidePolicyForNotificationRequestFromOrigin:(WebSecurityOrigin *)origin listener:(id<WebAllowDenyPolicyListener>)listener;
 
+- (void)webView:(WebView *)webView decidePolicyForUserMediaRequestFromOrigin:(WebSecurityOrigin *)origin listener:(id<WebAllowDenyPolicyListener>)listener;
+
 - (void)webView:(WebView *)sender elementDidFocusNode:(DOMNode *)node;
 - (void)webView:(WebView *)sender elementDidBlurNode:(DOMNode *)node;
 
@@ -245,5 +255,18 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
 #endif
 
 - (void)webView:(WebView *)sender didDrawFrame:(WebFrame *)frame;
+
+#if TARGET_OS_IPHONE
+/*!
+ @method webViewSupportedOrientationsUpdated:
+ @param sender The WebView sending the delegate method
+ @abstract Notify the client that the content has updated the orientations it claims to support.
+ */
+- (void)webViewSupportedOrientationsUpdated:(WebView *)sender;
+
+- (BOOL)webViewCanCheckGeolocationAuthorizationStatus:(WebView *)sender;
+#endif
+
+- (NSData *)webCryptoMasterKeyForWebView:(WebView *)sender;
 
 @end

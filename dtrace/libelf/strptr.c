@@ -44,12 +44,10 @@ elf_strptr(Elf * elf, size_t ndx, size_t off)
 	if (elf == 0)
 		return (0);
 		
-#if defined(__APPLE__)
 	extern const char *elf_macho_str_off(size_t off);
 	
 	if (elf->ed_kind == ELF_K_MACHO && (ndx == SHN_MACHO || ndx == SHN_MACHO_64))
 		return (char *)elf_macho_str_off(off);
-#endif /* __APPLE__ */
 
 	if ((s = elf_getscn(elf, ndx)) == 0) {
 		_elf_seterr(EREQ_STRSCN, 0);

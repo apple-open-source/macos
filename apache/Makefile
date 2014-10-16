@@ -2,31 +2,31 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.26
+Version    = 2.4.9
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
-             patch-docs__conf__httpd.conf.in \
-             patch-docs__conf__extra__httpd-mpm.conf.in \
-             patch-docs__conf__extra__httpd-userdir.conf.in \
              patch-configure \
              PR-3921505.diff \
-             patch-docs__conf__mime.types \
-             patch-srclib__pcre__Makefile.in \
-             PR-3853520.diff \
+             PR-5432464.diff_httpd.conf \
+             PR-16019492.diff \
+             PR-5957348.diff \
+             patch-docs__conf__httpd.conf.in \
+             PR-10154185.diff \
              apachectl.diff \
-             PR-5432464.diff \
-             PR-4764662.diff \
-             PR-7484748-EALREADY.diff \
-             PR-7652362-ulimit.diff \
-             PR-6223104.diff \
-             PR-10154185.diff
+             patch-docs__conf__extra__httpd-mpm.conf.in \
+             patch-docs__conf__mime.types \
+             patch-docs__conf__extra__httpd-userdir.conf.in \
+             PR-15976165-ulimit.diff \
+             PR-17754441-sbin.diff \
+             PR-16019357-apxs.diff \
+             mod_proxy_balancer-partialfix.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
                   --with-apr=/usr \
                   --with-apr-util=/usr \
-                  --with-pcre=/usr/local/bin/pcre-config \
+                  --with-pcre=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \
                   --enable-cache \
@@ -34,9 +34,13 @@ Configure_Flags = --prefix=/usr \
                   --enable-proxy-balancer \
                   --enable-proxy \
                   --enable-proxy-http \
-                  --enable-disk-cache
+                  --enable-disk-cache \
+                  --with-mpm=prefork \
+                  --enable-imagemap \
+                  --enable-negotiation \
+                  --enable-slotmem-shm
 
-Post_Install_Targets = module-setup module-disable recopy-httpd-conf \
+Post_Install_Targets = module-setup module-disable module-enable recopy-httpd-conf \
                        post-install strip-modules
 
 # Extract the source.
@@ -56,7 +60,6 @@ build::
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
 	$(_v) $(MAKE) $(Post_Install_Targets)
-	$(_v) $(MAKE) compress_man_pages
 
 APXS = perl $(OBJROOT)/support/apxs
 SYSCONFDIR = /private/etc/apache2
@@ -71,6 +74,11 @@ module-setup:
 # 4831254
 module-disable:
 	sed -i '' -e '/unique_id_module/s/^/#/' $(DSTROOT)$(SYSCONFDIR)/httpd.conf
+	sed -i '' -e '/lbmethod_heartbeat_module/s/^/#/' $(DSTROOT)$(SYSCONFDIR)/httpd.conf
+
+# enable negotiation_module for Multiviews on files: .en, .de, .fr, etc
+module-enable:
+	sed -i '' -e '/negotiation_module/s/^#//' $(DSTROOT)$(SYSCONFDIR)/httpd.conf
 
 # 6927748: This needs to run after we're done processing httpd.conf (and anything in extra)
 recopy-httpd-conf:

@@ -1,0 +1,653 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5D3D603416826C99007B4B06 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D3D603316826C99007B4B06 /* Foundation.framework */; };
+		5D3D603716826C99007B4B06 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D603616826C99007B4B06 /* main.m */; };
+		5D3D604416826D90007B4B06 /* CertificateToolApp.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D604316826D90007B4B06 /* CertificateToolApp.m */; };
+		5D3D604716827A86007B4B06 /* PSUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D604616827A86007B4B06 /* PSUtilities.m */; };
+		5D3D604A16827B1A007B4B06 /* PSCert.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D604916827B1A007B4B06 /* PSCert.m */; };
+		5D3D604D16827B8B007B4B06 /* PSCertKey.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D604C16827B8B007B4B06 /* PSCertKey.m */; };
+		5D3D605016827BF7007B4B06 /* PSCerts.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D604F16827BF7007B4B06 /* PSCerts.m */; };
+		5D3D605616827E04007B4B06 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D3D605516827E04007B4B06 /* Security.framework */; };
+		5D5ECF03169F554500DA8F21 /* PSAssetConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D5ECF02169F554400DA8F21 /* PSAssetConstants.c */; };
+		727A591317345ADF00C8C901 /* DataConversion.m in Sources */ = {isa = PBXBuildFile; fileRef = 727A591217345ADF00C8C901 /* DataConversion.m */; };
+		72C8759E16B1E4D2003ECF12 /* PSCertData.m in Sources */ = {isa = PBXBuildFile; fileRef = 72C8759D16B1E4D2003ECF12 /* PSCertData.m */; };
+		72C94EC6178C6C1400F7E87D /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC5178C6B8100F7E87D /* Info.plist */; };
+		72C94EC8178C6C3A00F7E87D /* AppleESCertificates.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EBD178C6B8100F7E87D /* AppleESCertificates.plist */; };
+		72C94EC9178C6C3A00F7E87D /* AssetVersion.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EBE178C6B8100F7E87D /* AssetVersion.plist */; };
+		72C94ECA178C6C3A00F7E87D /* Blocked.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EBF178C6B8100F7E87D /* Blocked.plist */; };
+		72C94ECB178C6C3A00F7E87D /* certsIndex.data in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC0178C6B8100F7E87D /* certsIndex.data */; };
+		72C94ECC178C6C3A00F7E87D /* certsTable.data in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC1178C6B8100F7E87D /* certsTable.data */; };
+		72C94ECD178C6C3A00F7E87D /* EVRoots.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC2178C6B8100F7E87D /* EVRoots.plist */; };
+		72C94ECE178C6C3A00F7E87D /* GrayListedKeys.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC3178C6B8100F7E87D /* GrayListedKeys.plist */; };
+		72C94ECF178C6C3A00F7E87D /* manifest.data in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72C94EC4178C6B8100F7E87D /* manifest.data */; };
+		72E91D8C16C5A7DA0033D920 /* ValidateAsset.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D605316827D17007B4B06 /* ValidateAsset.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7280A8CC16D2AC69000DD5AC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D3D602816826C99007B4B06 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D3D602F16826C99007B4B06;
+			remoteInfo = CertificateTool;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72C94EC7178C6C1F00F7E87D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SecurityCertificatesAssets/AssetData;
+			dstSubfolderSpec = 16;
+			files = (
+				72C94EC8178C6C3A00F7E87D /* AppleESCertificates.plist in CopyFiles */,
+				72C94EC9178C6C3A00F7E87D /* AssetVersion.plist in CopyFiles */,
+				72C94ECA178C6C3A00F7E87D /* Blocked.plist in CopyFiles */,
+				72C94ECB178C6C3A00F7E87D /* certsIndex.data in CopyFiles */,
+				72C94ECC178C6C3A00F7E87D /* certsTable.data in CopyFiles */,
+				72C94ECD178C6C3A00F7E87D /* EVRoots.plist in CopyFiles */,
+				72C94ECE178C6C3A00F7E87D /* GrayListedKeys.plist in CopyFiles */,
+				72C94ECF178C6C3A00F7E87D /* manifest.data in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72CF429816E66DD70039F148 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = SecurityCertificatesAssets;
+			dstSubfolderSpec = 16;
+			files = (
+				72C94EC6178C6C1400F7E87D /* Info.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		5D0A2B8C1694AA7000024C1B /* BuildAsset.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = BuildAsset.rb; path = BuildiOSAsset/BuildAsset.rb; sourceTree = SOURCE_ROOT; };
+		5D0A2B8D1694AA7000024C1B /* BuildPListFiles.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = BuildPListFiles.rb; path = BuildiOSAsset/BuildPListFiles.rb; sourceTree = SOURCE_ROOT; };
+		5D3D603016826C99007B4B06 /* CertificateTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CertificateTool; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D3D603316826C99007B4B06 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		5D3D603616826C99007B4B06 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		5D3D603916826C99007B4B06 /* CertificateTool-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CertificateTool-Prefix.pch"; sourceTree = "<group>"; };
+		5D3D604216826D90007B4B06 /* CertificateToolApp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CertificateToolApp.h; sourceTree = "<group>"; };
+		5D3D604316826D90007B4B06 /* CertificateToolApp.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CertificateToolApp.m; sourceTree = "<group>"; };
+		5D3D604516827A86007B4B06 /* PSUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSUtilities.h; sourceTree = "<group>"; };
+		5D3D604616827A86007B4B06 /* PSUtilities.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSUtilities.m; sourceTree = "<group>"; };
+		5D3D604816827B1A007B4B06 /* PSCert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSCert.h; sourceTree = "<group>"; };
+		5D3D604916827B1A007B4B06 /* PSCert.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSCert.m; sourceTree = "<group>"; };
+		5D3D604B16827B8B007B4B06 /* PSCertKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSCertKey.h; sourceTree = "<group>"; };
+		5D3D604C16827B8B007B4B06 /* PSCertKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSCertKey.m; sourceTree = "<group>"; };
+		5D3D604E16827BF6007B4B06 /* PSCerts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSCerts.h; sourceTree = "<group>"; };
+		5D3D604F16827BF7007B4B06 /* PSCerts.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSCerts.m; sourceTree = "<group>"; };
+		5D3D605216827CDB007B4B06 /* ValidateAsset.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ValidateAsset.h; sourceTree = "<group>"; };
+		5D3D605316827D17007B4B06 /* ValidateAsset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ValidateAsset.c; sourceTree = "<group>"; };
+		5D3D605516827E04007B4B06 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		5D5ECF01169F490200DA8F21 /* PSAssetConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSAssetConstants.h; sourceTree = "<group>"; };
+		5D5ECF02169F554400DA8F21 /* PSAssetConstants.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PSAssetConstants.c; sourceTree = "<group>"; };
+		5DFB2FED169741DA00B3EEEA /* buildRootKeychain.rb */ = {isa = PBXFileReference; lastKnownFileType = text.script.ruby; name = buildRootKeychain.rb; path = BuildOSXRootKeychain/buildRootKeychain.rb; sourceTree = "<group>"; };
+		5DFB2FF21697420300B3EEEA /* BuildOSXAsset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BuildOSXAsset; sourceTree = BUILT_PRODUCTS_DIR; };
+		7278ECD916D28ADC0026AB4F /* AssetVersion.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = AssetVersion.plist; sourceTree = "<group>"; };
+		727A591117345AC100C8C901 /* DataConversion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataConversion.h; sourceTree = "<group>"; };
+		727A591217345ADF00C8C901 /* DataConversion.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataConversion.m; sourceTree = "<group>"; };
+		7280A8CB16D2AC45000DD5AC /* BuildOSXAsset copy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BuildOSXAsset copy"; sourceTree = BUILT_PRODUCTS_DIR; };
+		72C8759C16B1E4D2003ECF12 /* PSCertData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSCertData.h; sourceTree = "<group>"; };
+		72C8759D16B1E4D2003ECF12 /* PSCertData.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSCertData.m; sourceTree = "<group>"; };
+		72C8BAB916C58FEE00A65BAD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		72C94EBD178C6B8100F7E87D /* AppleESCertificates.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = AppleESCertificates.plist; sourceTree = "<group>"; };
+		72C94EBE178C6B8100F7E87D /* AssetVersion.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = AssetVersion.plist; sourceTree = "<group>"; };
+		72C94EBF178C6B8100F7E87D /* Blocked.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = Blocked.plist; sourceTree = "<group>"; };
+		72C94EC0178C6B8100F7E87D /* certsIndex.data */ = {isa = PBXFileReference; lastKnownFileType = file; path = certsIndex.data; sourceTree = "<group>"; };
+		72C94EC1178C6B8100F7E87D /* certsTable.data */ = {isa = PBXFileReference; lastKnownFileType = file; path = certsTable.data; sourceTree = "<group>"; };
+		72C94EC2178C6B8100F7E87D /* EVRoots.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = EVRoots.plist; sourceTree = "<group>"; };
+		72C94EC3178C6B8100F7E87D /* GrayListedKeys.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = GrayListedKeys.plist; sourceTree = "<group>"; };
+		72C94EC4178C6B8100F7E87D /* manifest.data */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = manifest.data; sourceTree = "<group>"; };
+		72C94EC5178C6B8100F7E87D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		72CF429A16E66DD70039F148 /* Release */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Release; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleBaselineEscrowCertificates.h; path = ../../../Security/sec/Security/AppleBaselineEscrowCertificates.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5D3D602D16826C99007B4B06 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D3D605616827E04007B4B06 /* Security.framework in Frameworks */,
+				5D3D603416826C99007B4B06 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5D0A2B8A1694A96500024C1B /* BuildOSXAsset */ = {
+			isa = PBXGroup;
+			children = (
+				5DFB2FED169741DA00B3EEEA /* buildRootKeychain.rb */,
+			);
+			name = BuildOSXAsset;
+			sourceTree = "<group>";
+		};
+		5D3D602716826C99007B4B06 = {
+			isa = PBXGroup;
+			children = (
+				72C94EB9178C6B8100F7E87D /* Asset */,
+				5D0A2B8A1694A96500024C1B /* BuildOSXAsset */,
+				5D3D603516826C99007B4B06 /* CertificateTool */,
+				5D3D607016827F5F007B4B06 /* BuildiOSAsset */,
+				72CF429B16E66DD70039F148 /* Release */,
+				5D3D603216826C99007B4B06 /* Frameworks */,
+				5D3D603116826C99007B4B06 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5D3D603116826C99007B4B06 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5D3D603016826C99007B4B06 /* CertificateTool */,
+				5DFB2FF21697420300B3EEEA /* BuildOSXAsset */,
+				7280A8CB16D2AC45000DD5AC /* BuildOSXAsset copy */,
+				72CF429A16E66DD70039F148 /* Release */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5D3D603216826C99007B4B06 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5D3D605516827E04007B4B06 /* Security.framework */,
+				5D3D603316826C99007B4B06 /* Foundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5D3D603516826C99007B4B06 /* CertificateTool */ = {
+			isa = PBXGroup;
+			children = (
+				5D3D605116827CAA007B4B06 /* Asset Validation Source */,
+				5D3D604116826D09007B4B06 /* Source */,
+				5D3D603816826C99007B4B06 /* Supporting Files */,
+			);
+			path = CertificateTool;
+			sourceTree = "<group>";
+		};
+		5D3D603816826C99007B4B06 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				7278ECD916D28ADC0026AB4F /* AssetVersion.plist */,
+				5D3D603916826C99007B4B06 /* CertificateTool-Prefix.pch */,
+				72C8BAB916C58FEE00A65BAD /* Info.plist */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		5D3D604116826D09007B4B06 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				5D5ECEE2169F24E100DA8F21 /* Utilities */,
+				5D3D603616826C99007B4B06 /* main.m */,
+				5D3D604216826D90007B4B06 /* CertificateToolApp.h */,
+				5D3D604316826D90007B4B06 /* CertificateToolApp.m */,
+				5D3D604516827A86007B4B06 /* PSUtilities.h */,
+				5D3D604616827A86007B4B06 /* PSUtilities.m */,
+				5D3D604816827B1A007B4B06 /* PSCert.h */,
+				5D3D604916827B1A007B4B06 /* PSCert.m */,
+				5D3D604B16827B8B007B4B06 /* PSCertKey.h */,
+				5D3D604C16827B8B007B4B06 /* PSCertKey.m */,
+				5D3D604E16827BF6007B4B06 /* PSCerts.h */,
+				5D3D604F16827BF7007B4B06 /* PSCerts.m */,
+				5D5ECF01169F490200DA8F21 /* PSAssetConstants.h */,
+				5D5ECF02169F554400DA8F21 /* PSAssetConstants.c */,
+				72C8759C16B1E4D2003ECF12 /* PSCertData.h */,
+				72C8759D16B1E4D2003ECF12 /* PSCertData.m */,
+				727A591117345AC100C8C901 /* DataConversion.h */,
+				727A591217345ADF00C8C901 /* DataConversion.m */,
+				BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		5D3D605116827CAA007B4B06 /* Asset Validation Source */ = {
+			isa = PBXGroup;
+			children = (
+				5D3D605216827CDB007B4B06 /* ValidateAsset.h */,
+				5D3D605316827D17007B4B06 /* ValidateAsset.c */,
+			);
+			name = "Asset Validation Source";
+			sourceTree = "<group>";
+		};
+		5D3D607016827F5F007B4B06 /* BuildiOSAsset */ = {
+			isa = PBXGroup;
+			children = (
+				5D0A2B8C1694AA7000024C1B /* BuildAsset.rb */,
+				5D0A2B8D1694AA7000024C1B /* BuildPListFiles.rb */,
+			);
+			name = BuildiOSAsset;
+			path = BuildAsset;
+			sourceTree = "<group>";
+		};
+		5D5ECEE2169F24E100DA8F21 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Utilities;
+			sourceTree = "<group>";
+		};
+		72C94EB9178C6B8100F7E87D /* Asset */ = {
+			isa = PBXGroup;
+			children = (
+				72C94EBA178C6B8100F7E87D /* SecurityCertificatesAssets */,
+			);
+			path = Asset;
+			sourceTree = "<group>";
+		};
+		72C94EBA178C6B8100F7E87D /* SecurityCertificatesAssets */ = {
+			isa = PBXGroup;
+			children = (
+				72C94EBB178C6B8100F7E87D /* AssetData */,
+				72C94EC5178C6B8100F7E87D /* Info.plist */,
+			);
+			path = SecurityCertificatesAssets;
+			sourceTree = "<group>";
+		};
+		72C94EBB178C6B8100F7E87D /* AssetData */ = {
+			isa = PBXGroup;
+			children = (
+				72C94EBC178C6B8100F7E87D /* PKITrustData */,
+			);
+			path = AssetData;
+			sourceTree = "<group>";
+		};
+		72C94EBC178C6B8100F7E87D /* PKITrustData */ = {
+			isa = PBXGroup;
+			children = (
+				72C94EBD178C6B8100F7E87D /* AppleESCertificates.plist */,
+				72C94EBE178C6B8100F7E87D /* AssetVersion.plist */,
+				72C94EBF178C6B8100F7E87D /* Blocked.plist */,
+				72C94EC0178C6B8100F7E87D /* certsIndex.data */,
+				72C94EC1178C6B8100F7E87D /* certsTable.data */,
+				72C94EC2178C6B8100F7E87D /* EVRoots.plist */,
+				72C94EC3178C6B8100F7E87D /* GrayListedKeys.plist */,
+				72C94EC4178C6B8100F7E87D /* manifest.data */,
+			);
+			path = PKITrustData;
+			sourceTree = "<group>";
+		};
+		72CF429B16E66DD70039F148 /* Release */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Release;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5D3D602F16826C99007B4B06 /* CertificateTool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5D3D603E16826C99007B4B06 /* Build configuration list for PBXNativeTarget "CertificateTool" */;
+			buildPhases = (
+				5D3D602C16826C99007B4B06 /* Sources */,
+				5D3D602D16826C99007B4B06 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CertificateTool;
+			productName = CertificateTool;
+			productReference = 5D3D603016826C99007B4B06 /* CertificateTool */;
+			productType = "com.apple.product-type.tool";
+		};
+		5DFB2FF11697420300B3EEEA /* BuildOSXAsset */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DFB2FFB1697420300B3EEEA /* Build configuration list for PBXNativeTarget "BuildOSXAsset" */;
+			buildPhases = (
+				5DFB2FFE1697422700B3EEEA /* Run Script */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BuildOSXAsset;
+			productName = BuildOSXAsset;
+			productReference = 5DFB2FF21697420300B3EEEA /* BuildOSXAsset */;
+			productType = "com.apple.product-type.tool";
+		};
+		7280A8C616D2AC45000DD5AC /* BuildiOSAsset */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7280A8C816D2AC45000DD5AC /* Build configuration list for PBXNativeTarget "BuildiOSAsset" */;
+			buildPhases = (
+				7280A8C716D2AC45000DD5AC /* Run Script */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7280A8CD16D2AC69000DD5AC /* PBXTargetDependency */,
+			);
+			name = BuildiOSAsset;
+			productName = BuildOSXAsset;
+			productReference = 7280A8CB16D2AC45000DD5AC /* BuildOSXAsset copy */;
+			productType = "com.apple.product-type.tool";
+		};
+		72CF429916E66DD70039F148 /* Release */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72CF42A216E66DD70039F148 /* Build configuration list for PBXNativeTarget "Release" */;
+			buildPhases = (
+				72CF429816E66DD70039F148 /* CopyFiles */,
+				72C94EC7178C6C1F00F7E87D /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Release;
+			productName = Release;
+			productReference = 72CF429A16E66DD70039F148 /* Release */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5D3D602816826C99007B4B06 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+				ORGANIZATIONNAME = "";
+			};
+			buildConfigurationList = 5D3D602B16826C99007B4B06 /* Build configuration list for PBXProject "CertificateTool" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 5D3D602716826C99007B4B06;
+			productRefGroup = 5D3D603116826C99007B4B06 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5D3D602F16826C99007B4B06 /* CertificateTool */,
+				5DFB2FF11697420300B3EEEA /* BuildOSXAsset */,
+				7280A8C616D2AC45000DD5AC /* BuildiOSAsset */,
+				72CF429916E66DD70039F148 /* Release */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5DFB2FFE1697422700B3EEEA /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ruby ./BuildOSXRootKeychain/buildRootKeychain.rb";
+			showEnvVarsInLog = 0;
+		};
+		7280A8C716D2AC45000DD5AC /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "echo \"About to call BuildPListFiles.rb\"\nruby $PROJECT_DIR/BuildiOSAsset/BuildPListFiles.rb\n\necho \"Done with BuildPListFiles.rb\"\n\n\necho \"About to call BuildAsset.rb\"\nruby $PROJECT_DIR/BuildiOSAsset/BuildAsset.rb\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5D3D602C16826C99007B4B06 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72E91D8C16C5A7DA0033D920 /* ValidateAsset.c in Sources */,
+				727A591317345ADF00C8C901 /* DataConversion.m in Sources */,
+				72C8759E16B1E4D2003ECF12 /* PSCertData.m in Sources */,
+				5D3D603716826C99007B4B06 /* main.m in Sources */,
+				5D3D604416826D90007B4B06 /* CertificateToolApp.m in Sources */,
+				5D3D604716827A86007B4B06 /* PSUtilities.m in Sources */,
+				5D3D604A16827B1A007B4B06 /* PSCert.m in Sources */,
+				5D3D604D16827B8B007B4B06 /* PSCertKey.m in Sources */,
+				5D3D605016827BF7007B4B06 /* PSCerts.m in Sources */,
+				5D5ECF03169F554500DA8F21 /* PSAssetConstants.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7280A8CD16D2AC69000DD5AC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D3D602F16826C99007B4B06 /* CertificateTool */;
+			targetProxy = 7280A8CC16D2AC69000DD5AC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5D3D603C16826C99007B4B06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = "";
+				SUPPORTED_PLATFORMS = macosx;
+				VALID_ARCHS = x86_64;
+			};
+			name = Debug;
+		};
+		5D3D603D16826C99007B4B06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				SDKROOT = "";
+				SUPPORTED_PLATFORMS = macosx;
+				VALID_ARCHS = x86_64;
+			};
+			name = Release;
+		};
+		5D3D603F16826C99007B4B06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "CertificateTool/CertificateTool-Prefix.pch";
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = ../../../sec/Security;
+			};
+			name = Debug;
+		};
+		5D3D604016826C99007B4B06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "CertificateTool/CertificateTool-Prefix.pch";
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib/system,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = ../../../sec/Security;
+			};
+			name = Release;
+		};
+		5DFB2FFC1697420300B3EEEA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "BuildOSXAsset/BuildOSXAsset-Prefix.pch";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		5DFB2FFD1697420300B3EEEA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "BuildOSXAsset/BuildOSXAsset-Prefix.pch";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7280A8C916D2AC45000DD5AC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "BuildOSXAsset/BuildOSXAsset-Prefix.pch";
+				PRODUCT_NAME = "BuildOSXAsset copy";
+			};
+			name = Debug;
+		};
+		7280A8CA16D2AC45000DD5AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "BuildOSXAsset/BuildOSXAsset-Prefix.pch";
+				PRODUCT_NAME = "BuildOSXAsset copy";
+			};
+			name = Release;
+		};
+		72CF42A016E66DD70039F148 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		72CF42A116E66DD70039F148 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5D3D602B16826C99007B4B06 /* Build configuration list for PBXProject "CertificateTool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D3D603C16826C99007B4B06 /* Debug */,
+				5D3D603D16826C99007B4B06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5D3D603E16826C99007B4B06 /* Build configuration list for PBXNativeTarget "CertificateTool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D3D603F16826C99007B4B06 /* Debug */,
+				5D3D604016826C99007B4B06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5DFB2FFB1697420300B3EEEA /* Build configuration list for PBXNativeTarget "BuildOSXAsset" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DFB2FFC1697420300B3EEEA /* Debug */,
+				5DFB2FFD1697420300B3EEEA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7280A8C816D2AC45000DD5AC /* Build configuration list for PBXNativeTarget "BuildiOSAsset" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7280A8C916D2AC45000DD5AC /* Debug */,
+				7280A8CA16D2AC45000DD5AC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72CF42A216E66DD70039F148 /* Build configuration list for PBXNativeTarget "Release" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72CF42A016E66DD70039F148 /* Debug */,
+				72CF42A116E66DD70039F148 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5D3D602816826C99007B4B06 /* Project object */;
+}

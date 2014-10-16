@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,19 +24,18 @@
  */
 
 #import "config.h"
-
-#if defined(__LP64__) && defined(__clang__)
-
 #import "WKDOMTextIterator.h"
+
+#if WK_API_ENABLED
 
 #import "WKDOMInternals.h"
 #import "WKDOMRange.h"
 #import <WebCore/TextIterator.h>
-#import <wtf/OwnPtr.h>
 
 @interface WKDOMTextIterator () {
 @public
-    OwnPtr<WebCore::TextIterator> _textIterator;
+    std::unique_ptr<WebCore::TextIterator> _textIterator;
+    Vector<unichar> _upconvertedText;
 }
 @end
 
@@ -48,14 +47,14 @@
     if (!self)
         return nil;
 
-    _textIterator = adoptPtr(new WebCore::TextIterator(WebKit::toWebCoreRange(range)));
-
+    _textIterator = std::make_unique<WebCore::TextIterator>(WebKit::toWebCoreRange(range));
     return self;
 }
 
 - (void)advance
 {
     _textIterator->advance();
+    _upconvertedText.shrink(0);
 }
 
 - (BOOL)atEnd
@@ -68,16 +67,26 @@
     return WebKit::toWKDOMRange(_textIterator->range().get());
 }
 
-- (const unichar *)currentTextPointer
+// FIXME: Consider deprecating this method and creating one that does not require copying 8-bit characters.
+- (const unichar*)currentTextPointer
 {
-    return _textIterator->characters();
+    StringView text = _textIterator->text();
+    unsigned length = text.length();
+    if (!length)
+        return nullptr;
+    if (!text.is8Bit())
+        return text.characters16();
+    if (_upconvertedText.isEmpty())
+        _upconvertedText.appendRange(text.characters8(), text.characters8() + length);
+    ASSERT(_upconvertedText.size() == text.length());
+    return _upconvertedText.data();
 }
 
 - (NSUInteger)currentTextLength
 {
-    return _textIterator->length();
+    return _textIterator->text().length();
 }
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

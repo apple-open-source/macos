@@ -1,0 +1,431 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>ChangeLog</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">ChangeLog&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-string">2006-07-14  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">clean</span>): Remove also *.stackdump.
+
+<span class="enscript-string">2006-06-17  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Update for NetBSD 3.0.
+
+<span class="enscript-string">2006-05-17  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Cygwin portability.
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">WIN32_NATIVE</span>): Renamed from WIN32.
+
+<span class="enscript-string">2006-05-16  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c [CYGWIN]</span>: Include &lt;windows.h&gt;.
+	(<span class="enscript-keyword">get_charset_aliases</span>): For Cygwin, return the same CPxxx aliases list
+	as under WIN32.
+	(locale_charset) [CYGWIN]: Try to retrieve the encoding from the
+	environment variables. Fall back to GetACP().
+
+<span class="enscript-string">2006-04-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Update Juan Manuel Guerrero's address.
+
+<span class="enscript-string">2006-01-10  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c</span>: Assume ANSI C. Fixes a gcc warning.
+	Reported by Werner Lemberg &lt;<a href="mailto:wl@gnu.org">wl@gnu.org</a>&gt;.
+
+<span class="enscript-string">2005-12-04  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Cygwin portability.
+	* <span class="enscript-function-name">relocatable.c</span>: Include &lt;windows.h&gt; also on Cygwin.
+	(<span class="enscript-keyword">DllMain</span>): Add support for Cygwin.
+	(<span class="enscript-keyword">get_shared_library_fullname</span>): Update.
+
+<span class="enscript-string">2005-07-24  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Tidy up exported symbols.
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">CFLAGS</span>): Add @CFLAG_VISIBILITY@.
+	(<span class="enscript-keyword">DEFS</span>): Also define BUILDING_LIBCHARSET and BUILDING_DLL.
+	* <span class="enscript-function-name">relocatable.h (RELOCATABLE_DLL_EXPORTED) [HAVE_VISIBILITY]</span>:
+	Define to the gcc visibility attribute.
+
+<span class="enscript-string">2005-07-02  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c (get_charset_aliases) [WIN32]</span>: Add CP65001 and others.
+	Reported by &lt;<a href="mailto:mus1876@gmx.info">mus1876@gmx.info</a>&gt; via Alain Bench &lt;<a href="mailto:messtic@oreka.com">messtic@oreka.com</a>&gt;.
+
+<span class="enscript-string">2005-03-22  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">mkinstalldirs</span>): Update.
+
+<span class="enscript-string">2005-01-06  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">CFLAGS</span>): Define also INSTALLPREFIX.
+	* <span class="enscript-function-name">Makefile.vms </span>(<span class="enscript-keyword">DEFS</span>): Likewise.
+	Reported by Troels Walsted Hansen &lt;<a href="mailto:Troels.W.Hansen@fast.no">Troels.W.Hansen@fast.no</a>&gt;.
+
+<span class="enscript-string">2004-09-01  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add support for Darwin 7.
+
+<span class="enscript-string">2004-04-28  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">ISSLASH</span>): Treat Cygwin like Windows, since it now
+	accepts Windows pathnames.
+
+<span class="enscript-string">2004-04-23  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">get_charset_aliases</span>): Allow the CHARSETALIASDIR
+	environment variable to override LIBDIR.
+	Suggested by Matthias Clasen &lt;<a href="mailto:mclasen@redhat.com">mclasen@redhat.com</a>&gt;.
+
+<span class="enscript-string">2004-04-20  </span><span class="enscript-reference">Jim Meyering  </span>&lt;<span class="enscript-variable-name"><a href="mailto:jim@meyering.net">jim@meyering.net</a></span>&gt;
+            Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+
+	* <span class="enscript-function-name">localcharset.c (get_charset_aliases) [!VMS &amp;&amp; !WIN32]</span>: Don't leak
+	memory when realloc fails.
+
+<span class="enscript-string">2004-01-20  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Upgrade from gettext-0.14.
+
+	2003-10-09  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">relocatable.c</span>: Include xalloc.h instead of xmalloc.h.
+
+	2003-08-24  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">relocatable.h</span>: Make this file includable in C++ mode: add extern &quot;C&quot;.
+
+	2003-08-01  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">relocatable.c </span>(<span class="enscript-keyword">find_shared_library_fullname</span>): Disable the code on
+	Linux/libc5. Reported by Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+	2003-06-27  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	Avoid use of *_unlocked functions on Solaris 2.5.1.
+	* <span class="enscript-function-name">localcharset.c</span>: Test HAVE_DECL_GETC_UNLOCKED, not HAVE_GETC_UNLOCKED.
+	Reported by Eric Botcazou &lt;<a href="mailto:ebotcazou@libertysurf.fr">ebotcazou@libertysurf.fr</a>&gt;.
+
+	2003-06-22  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">relocatable.c </span>(<span class="enscript-keyword">compute_curr_prefix</span>): Comment out this function in
+	the case when it is not used.
+	Reported by Pavel Roskin &lt;<a href="mailto:proski@gnu.org">proski@gnu.org</a>&gt;.
+
+<span class="enscript-string">2004-01-21  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Upgrade from gettext-0.14.
+
+	2004-01-21  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">config.charset</span>: Add support for MacOS X (Darwin).
+
+	2003-12-02  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">config.charset</span>: Treat the new country name CS like the old country
+	name YU.
+
+	2003-08-20  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">config.charset </span>(<span class="enscript-keyword">linux-gnulibc1*</span>): Change hr_HR, ro_RO to ISO-8859-2.
+	Reported by Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+	2003-08-14  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+	* <span class="enscript-function-name">config.charset</span>: Add support for Linux libc5. Based on data from
+	Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+<span class="enscript-string">2003-06-27  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Avoid use of *_unlocked functions on Solaris 2.5.1.
+	* <span class="enscript-function-name">localcharset.c</span>: Test HAVE_DECL_GETC_UNLOCKED, not HAVE_GETC_UNLOCKED.
+	Reported by Eric Botcazou &lt;<a href="mailto:ebotcazou@libertysurf.fr">ebotcazou@libertysurf.fr</a>&gt;.
+
+<span class="enscript-string">2003-08-20  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset </span>(<span class="enscript-keyword">linux-gnulibc1*</span>): Change hr_HR, ro_RO to ISO-8859-2.
+	Reported by Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+<span class="enscript-string">2003-08-14  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add support for Linux libc5. Based on data from
+	Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+<span class="enscript-string">2003-08-01  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">relocatable.c </span>(<span class="enscript-keyword">find_shared_library_fullname</span>): Disable the code on
+	Linux/libc5. Reported by Alain Guibert &lt;<a href="mailto:derogaton+bgli@oreka.com">derogaton+bgli@oreka.com</a>&gt;.
+
+<span class="enscript-string">2003-06-22  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Portability to mingw32.
+	* <span class="enscript-function-name">relocatable.c [WIN32]</span>: Include &lt;windows.h&gt;.
+	Reported by Jeff Bonggren &lt;<a href="mailto:jbon@cfl.rr.com">jbon@cfl.rr.com</a>&gt;.
+
+<span class="enscript-string">2003-06-22  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">relocatable.c </span>(<span class="enscript-keyword">compute_curr_prefix</span>): Comment out this function in
+	the case when it is not used.
+	Reported by Pavel Roskin &lt;<a href="mailto:proski@gnu.org">proski@gnu.org</a>&gt;.
+
+<span class="enscript-string">2003-06-07  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Support for relocatable data files even on VMS.
+	* <span class="enscript-function-name">Makefile.vms </span>(<span class="enscript-keyword">bindir</span>): New variable.
+	(<span class="enscript-keyword">DEFS</span>): Add flags for relocatability.
+	Reported by Jouk Jansen &lt;<a href="mailto:joukj@hrem.stm.tudelft.nl">joukj@hrem.stm.tudelft.nl</a>&gt;.
+
+<span class="enscript-string">2003-06-07  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Support for relocatable data files even on Woe32.
+	* Makefile.msvc (IIPREFIX, IIprefix, IIexec_prefix, IIbindir,
+	IIlibdir): New variables.
+	(<span class="enscript-keyword">PICFLAGS</span>): Also define PIC. Define BUILDING_* flags here.
+	(<span class="enscript-keyword">CFLAGS</span>): ... not here. Add flags for relocatability.
+
+<span class="enscript-string">2003-05-18  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">DEBUGFLAGS</span>): New variable.
+	(<span class="enscript-keyword">charset.lib</span>): Use it.
+
+<span class="enscript-string">2003-05-07  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.vms</span>: New file.
+
+<span class="enscript-string">2003-04-12  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">lib/localcharset.c </span>(<span class="enscript-keyword">get_charset_aliases</span>): Add special case for VMS.
+
+<span class="enscript-string">2003-04-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Support for relocatable installation.
+	* <span class="enscript-function-name">relocatable.h</span>: New file, from GNU gettext.
+	* <span class="enscript-function-name">relocatable.c</span>: New file, from GNU gettext.
+	* <span class="enscript-function-name">localcharset.c</span>: Update from GNU gettext.
+	2003-02-28  Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+		* localcharset.c: Include relocatable.h.
+		(get_charset_aliases): Relocate LIBDIR value.
+		* localcharset.c: Drop C linkage declaration.
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">DEFS</span>): New variable.
+	(<span class="enscript-keyword">SOURCES</span>): Add relocatable.c.
+	(<span class="enscript-keyword">OBJECTS</span>): Add relocatable.lo.
+	(<span class="enscript-keyword">localcharset.lo</span>): Use $(DEFS).
+	(<span class="enscript-keyword">relocatable.lo</span>): New rule.
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">CFLAGS</span>): Remove $(PICFLAGS).
+	(<span class="enscript-keyword">INCLUDES</span>): Simplify.
+	(<span class="enscript-keyword">SOURCES</span>): Remove variable.
+	(<span class="enscript-keyword">OBJECTS</span>): Add relocatable.obj.
+	(<span class="enscript-keyword">localcharset.obj</span>): Add $(PICFLAGS).
+	(<span class="enscript-keyword">relocatable.obj</span>): New rule.
+
+<span class="enscript-string">2003-04-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">PREFIX</span>): New variable.
+	(<span class="enscript-keyword">prefix</span>): Use it.
+	(<span class="enscript-keyword">clean</span>): Drop Unix specific removal.
+
+<span class="enscript-string">2003-03-17  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	Improved MSVC support.
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">prefix</span>): Use less Unixy value.
+	(<span class="enscript-keyword">local_prefix</span>): Remove variable.
+	(<span class="enscript-keyword">libdir</span>): Use backslashes.
+	(<span class="enscript-keyword">bindir</span>): New variable.
+	(<span class="enscript-keyword">INSTALL, INSTALL_PROGRAM, INSTALL_DATA</span>): Set to real values.
+	(<span class="enscript-keyword">RESOURCES</span>): Enable charset.res.
+	(<span class="enscript-keyword">charset.lib</span>): Set the target library name explicitly.
+	(<span class="enscript-keyword">charset.res</span>): New rule.
+	(<span class="enscript-keyword">install, installdirs, uninstall</span>): New rules.
+
+	Rename libcharset.h to localcharset.h.
+	* <span class="enscript-function-name">localcharset.c</span>: Include localcharset.h.
+	* <span class="enscript-function-name">localcharset.h</span>: Remove file.
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">INCLUDES</span>): Add -I../include.
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">INCLUDES</span>): Add -I../include.
+
+<span class="enscript-string">2003-01-29  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add an alias for CP1251 on Solaris.
+	Reported by Hidetoshi Tajima &lt;<a href="mailto:hidetoshi.tajima@sun.com">hidetoshi.tajima@sun.com</a>&gt;.
+
+<span class="enscript-string">2003-01-12  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.h</span>: New file.
+	* <span class="enscript-function-name">localcharset.c</span>: Include it.
+
+<span class="enscript-string">2003-01-01  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">mkinstalldirs</span>): Renamed from MKINSTALLDIRS.
+	(<span class="enscript-keyword">install-lib, install, installdirs</span>): Use it.
+
+<span class="enscript-string">2002-05-09  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Update for newest glibc. Add canonical names
+	ISO-8859-14, KOI8-T, TCVN5712-1, GEORGIAN-PS.
+
+<span class="enscript-string">2002-05-09  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">get_charset_aliases</span>): Add more Windows specific
+	aliases.
+
+<span class="enscript-string">2002-05-08  </span><span class="enscript-reference">Owen Taylor  </span>&lt;<span class="enscript-variable-name"><a href="mailto:otaylor@redhat.com">otaylor@redhat.com</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: A few additions for Solaris.
+
+<span class="enscript-string">2002-02-15  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset [msdosdjgpp]</span>: For Russian, use CP866.
+
+<span class="enscript-string">2002-02-11  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add support for NetBSD.
+
+<span class="enscript-string">2002-01-10  </span><span class="enscript-reference">Andrew Zabolotny  </span>&lt;<span class="enscript-variable-name"><a href="mailto:zap@cobra.ru">zap@cobra.ru</a></span>&gt;
+	    Bruno Haible  &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;
+
+	* <span class="enscript-function-name">localcharset.c</span>: Rework OS/2 support.
+	* <span class="enscript-function-name">config.charset</span>: Add OS/2 support.
+
+<span class="enscript-string">2001-12-21  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">ISSLASH</span>): Provide definition for DOS-like systems.
+
+<span class="enscript-string">2001-12-15  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c</span>: Add OS/2 support.
+
+<span class="enscript-string">2001-12-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:bruno@clisp.org">bruno@clisp.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Don't return an empty string.
+
+<span class="enscript-string">2001-10-23  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: msdos in uk_UA uses CP1125.
+
+<span class="enscript-string">2001-08-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	Make it possible to build libcharset with CC=gcc CFLAGS=&quot;-x c++&quot;.
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Declare as extern &quot;C&quot;.
+	(<span class="enscript-keyword">get_charset_aliases</span>): Cast malloc and realloc results to 'char *'.
+
+<span class="enscript-string">2001-06-27  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">clean</span>): Remove also *.o.lock, left there by libtool
+	on IRIX.
+
+<span class="enscript-string">2001-06-25  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">localcharset.lo</span>): Mention $(INCLUDES) before $(CFLAGS)
+	and $(CPPFLAGS).
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">localcharset.obj</span>): Likewise.
+
+<span class="enscript-string">2001-06-24  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Change canonical name of BIG5HKSCS to BIG5-HKSCS.
+	Change canonical name of SJIS to SHIFT_JIS.
+
+<span class="enscript-string">2001-05-06  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">charset.lib</span>): Allow the 'del' command to fail.
+
+<span class="enscript-string">2001-05-06  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">CPPFLAGS, LDFLAGS</span>): New variables.
+	(<span class="enscript-keyword">libcharset.la</span>): Use LDFLAGS.
+	(<span class="enscript-keyword">localcharset.lo</span>): Use CPPFLAGS.
+
+<span class="enscript-string">2001-04-30  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	Silence &quot;gcc -Wall -Wwrite-strings&quot; warnings.
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">charset_aliases</span>): Change type to 'const char *'.
+	(<span class="enscript-keyword">get_charset_aliases</span>): Change type of 'cp' to 'const char *'.
+
+<span class="enscript-string">2001-03-10  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Allow wildcard syntax. Also resolve
+	alias if codeset is empty.
+	* <span class="enscript-function-name">config.charset </span>(<span class="enscript-keyword">BeOS</span>): Use wildcard syntax.
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">libcharset.la</span>): Pass flag -no-undefined. Needed on
+	platforms like BeOS.
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">RM</span>): New variable.
+
+<span class="enscript-string">2001-01-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">volatile</span>): Define to empty if not using ANSI C.
+
+<span class="enscript-string">2001-03-05  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Update for OSF/1 5.1.
+
+<span class="enscript-string">2001-03-01  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: For DOS/DJGPP, add CP775.
+
+<span class="enscript-string">2001-02-24  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add support for DOS/DJGPP.
+
+<span class="enscript-string">2001-02-25  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Don't return NULL.
+
+<span class="enscript-string">2001-02-24  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Don't use setlocale(LC_CTYPE,NULL).
+
+<span class="enscript-string">2001-01-30  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Update for FreeBSD 4.2.
+
+<span class="enscript-string">2000-12-19  </span><span class="enscript-reference">Jim Meyering  </span>&lt;<span class="enscript-variable-name"><a href="mailto:jim@meyering.net">jim@meyering.net</a></span>&gt;
+
+	* <span class="enscript-function-name">localcharset.c</span>: Improve WIN32 macrology.
+	(<span class="enscript-keyword">locale_charset</span>): Increase size of buffer.
+
+<span class="enscript-string">2000-12-18  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add support for BeOS.
+
+<span class="enscript-string">2000-12-12  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">ref-add.sed, ref-del.sed</span>): Don't use $&lt;, not understood
+	by Solaris &quot;make&quot;. Reported by Toshimitsu Fujiwara.
+
+<span class="enscript-string">2000-12-08  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.in </span>(<span class="enscript-keyword">exec_prefix</span>): Use configure's --exec-prefix argument.
+
+<span class="enscript-string">2000-12-02  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc</span>: Replace STATIC with its opposite flag, DLL.
+
+<span class="enscript-string">2000-11-21  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc </span>(<span class="enscript-keyword">MFLAGS</span>): New variable.
+	(<span class="enscript-keyword">CFLAGS, charset.lib</span>): Use it.
+	(<span class="enscript-keyword">INCLUDES</span>): Use &quot;..&quot;, not &quot;..\include&quot;.
+
+<span class="enscript-string">2000-10-31  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">Makefile.msvc</span>: New file.
+
+<span class="enscript-string">2000-10-31  </span><span class="enscript-reference">Bruno Haible  </span>&lt;<span class="enscript-variable-name"><a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a></span>&gt;
+
+	* <span class="enscript-function-name">config.charset</span>: Add ISO-8859-3, BIG5HKSCS, GB18030, JOHAB, VISCII,
+	CP874, CP949, CP950, CP1250, CP1253, CP1254, CP1255, CP1256, CP1257
+	to the list of canonical encodings. Rename EUC-CN to GB2312.
+	* <span class="enscript-function-name">localcharset.c </span>(<span class="enscript-keyword">locale_charset</span>): Add support for Win32.
+</pre>
+<hr />
+</body></html>

@@ -200,8 +200,9 @@ string_to_key_test(krb5_context context)
     krb5_data password, opaque;
     krb5_error_code ret;
     krb5_salt salt;
-    int i, val = 0;
+    int val = 0;
     char iter[4];
+    size_t i;
 
     for (i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
 
@@ -231,7 +232,7 @@ string_to_key_test(krb5_context context)
 				   keys[i].keylen, keyout);
 
 	    if (memcmp(keyout, keys[i].pbkdf2, keys[i].keylen) != 0) {
-		krb5_warnx(context, "%d: pbkdf2", i);
+		krb5_warnx(context, "%d: pbkdf2", (int)i);
 		val = 1;
 		continue;
 	    }
@@ -253,21 +254,21 @@ string_to_key_test(krb5_context context)
 						       &key);
 	    if (ret) {
 		krb5_warn(context, ret, "%d: string_to_key_data_salt_opaque",
-			  i);
+			  (int)i);
 		val = 1;
 		continue;
 	    }
 
 	    if (key.keyvalue.length != keys[i].keylen) {
 		krb5_warnx(context, "%d: key wrong length (%lu/%lu)",
-			   i, (unsigned long)key.keyvalue.length,
+			   (int)i, (unsigned long)key.keyvalue.length,
 			   (unsigned long)keys[i].keylen);
 		val = 1;
 		continue;
 	    }
 
 	    if (memcmp(key.keyvalue.data, keys[i].key, keys[i].keylen) != 0) {
-		krb5_warnx(context, "%d: key wrong", i);
+		krb5_warnx(context, "%d: key wrong", (int)i);
 		val = 1;
 		continue;
 	    }
@@ -593,7 +594,7 @@ krb_enc_test(krb5_context context)
     krb5_crypto crypto;
     krb5_keyblock kb;
     krb5_data cipher, plain;
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(krbencs)/sizeof(krbencs[0]); i++) {
 
@@ -603,7 +604,7 @@ krb_enc_test(krb5_context context)
 
 	ret = krb5_crypto_init(context, &kb, krbencs[i].enctype, &crypto);
 	if (ret)
-	    errx(1, "krb5_crypto_init failed with %d for test %d", ret, i);
+	    errx(1, "krb5_crypto_init failed with %d for test %d", ret, (int)i);
 
 	cipher.length = krbencs[i].elen;
 	cipher.data = krbencs[i].edata;
@@ -613,27 +614,27 @@ krb_enc_test(krb5_context context)
 	ret = krb_enc(context, crypto, krbencs[i].usage, &cipher, &plain);
 
 	if (ret)
-	    errx(1, "krb_enc failed with %d for test %d", ret, i);
+	    errx(1, "krb_enc failed with %d for test %d", ret, (int)i);
 
 	ret = krb_enc_iov(context, crypto, krbencs[i].usage, &cipher, &plain);
 	if (ret)
-	    errx(1, "krb_enc_iov failed with %d for test %d", ret, i);
+	    errx(1, "krb_enc_iov failed with %d for test %d", ret, (int)i);
 
 	ret = krb_enc_iov2(context, crypto, krbencs[i].usage,
 			   cipher.length, &plain);
 	if (ret)
-	    errx(1, "krb_enc_iov2 failed with %d for test %d", ret, i);
+	    errx(1, "krb_enc_iov2 failed with %d for test %d", ret, (int)i);
 
 	ret = krb_checksum_iov(context, crypto, krbencs[i].usage, &plain);
 	if (ret)
-	    errx(1, "krb_checksum_iov failed with %d for test %d", ret, i);
+	    errx(1, "krb_checksum_iov failed with %d for test %d", ret, (int)i);
 
 	krb5_crypto_destroy(context, crypto);
 
 	ret = krb_enc_mit(context, krbencs[i].enctype, &kb,
 			  krbencs[i].usage, &cipher, &plain);
 	if (ret)
-	    errx(1, "krb_enc_mit failed with %d for test %d", ret, i);
+	    errx(1, "krb_enc_mit failed with %d for test %d", ret, (int)i);
     }
 
     return 0;

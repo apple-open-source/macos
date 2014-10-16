@@ -39,7 +39,7 @@
 #include <dlfcn.h>
 #endif
 
-#ifndef KCM_IS_API_CACHE
+#ifdef HAVE_ACC
 
 static HEIMDAL_MUTEX acc_mutex = HEIMDAL_MUTEX_INITIALIZER;
 static cc_initialize_func init_func;

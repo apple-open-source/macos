@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2011, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,27 +27,21 @@
 #ifndef HistoryItem_h
 #define HistoryItem_h
 
+#include "FloatRect.h"
 #include "IntPoint.h"
+#include "IntRect.h"
 #include "SerializedScriptValue.h"
-#include <wtf/HashMap.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <memory>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(IOS)
+#include "ViewportArguments.h"
+#endif
+
+#if PLATFORM(COCOA)
 #import <wtf/RetainPtr.h>
 typedef struct objc_object* id;
-#endif
-
-#if PLATFORM(QT)
-#include <QVariant>
-#include <QByteArray>
-#include <QDataStream>
-#endif
-
-#if PLATFORM(BLACKBERRY)
-#include "HistoryItemViewState.h"
 #endif
 
 namespace WebCore {
@@ -57,32 +51,27 @@ class Document;
 class FormData;
 class HistoryItem;
 class Image;
-class KURL;
 class ResourceRequest;
+class URL;
 
-typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
+typedef Vector<RefPtr<HistoryItem>> HistoryItemVector;
 
 extern void (*notifyHistoryItemChanged)(HistoryItem*);
-
-enum VisitCountBehavior {
-    IncreaseVisitCount,
-    DoNotIncreaseVisitCount
-};
 
 class HistoryItem : public RefCounted<HistoryItem> {
     friend class PageCache;
 
 public: 
     static PassRefPtr<HistoryItem> create() { return adoptRef(new HistoryItem); }
-    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title, double lastVisited)
+    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title)
     {
-        return adoptRef(new HistoryItem(urlString, title, lastVisited));
+        return adoptRef(new HistoryItem(urlString, title));
     }
-    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title, const String& alternateTitle, double lastVisited)
+    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title, const String& alternateTitle)
     {
-        return adoptRef(new HistoryItem(urlString, title, alternateTitle, lastVisited));
+        return adoptRef(new HistoryItem(urlString, title, alternateTitle));
     }
-    static PassRefPtr<HistoryItem> create(const KURL& url, const String& target, const String& parent, const String& title)
+    static PassRefPtr<HistoryItem> create(const URL& url, const String& target, const String& parent, const String& title)
     {
         return adoptRef(new HistoryItem(url, target, parent, title));
     }
@@ -94,24 +83,19 @@ public:
     // Resets the HistoryItem to its initial state, as returned by create().
     void reset();
     
-    void encodeBackForwardTree(Encoder&) const;
-    static PassRefPtr<HistoryItem> decodeBackForwardTree(const String& urlString, const String& title, const String& originalURLString, Decoder&);
-
     const String& originalURLString() const;
     const String& urlString() const;
     const String& title() const;
     
-    bool isInPageCache() const { return m_cachedPage; }
+    bool isInPageCache() const { return m_cachedPage.get(); }
     bool hasCachedPageExpired() const;
-    
-    double lastVisitedTime() const;
-    
+
     void setAlternateTitle(const String& alternateTitle);
     const String& alternateTitle() const;
     
     const String& parent() const;
-    KURL url() const;
-    KURL originalURL() const;
+    URL url() const;
+    URL originalURL() const;
     const String& referrer() const;
     const String& target() const;
     bool isTargetItem() const;
@@ -119,12 +103,8 @@ public:
     FormData* formData();
     String formContentType() const;
     
-    int visitCount() const;
     bool lastVisitWasFailure() const { return m_lastVisitWasFailure; }
-    bool lastVisitWasHTTPNonGet() const { return m_lastVisitWasHTTPNonGet; }
 
-    void mergeAutoCompleteHints(HistoryItem* otherItem);
-    
     const IntPoint& scrollPoint() const;
     void setScrollPoint(const IntPoint&);
     void clearScrollPoint();
@@ -136,7 +116,7 @@ public:
     void setDocumentState(const Vector<String>&);
     void clearDocumentState();
 
-    void setURL(const KURL&);
+    void setURL(const URL&);
     void setURLString(const String&);
     void setOriginalURLString(const String&);
     void setReferrer(const String&);
@@ -158,11 +138,7 @@ public:
     void setFormData(PassRefPtr<FormData>);
     void setFormContentType(const String&);
 
-    void recordInitialVisit();
-
-    void setVisitCount(int);
     void setLastVisitWasFailure(bool wasFailure) { m_lastVisitWasFailure = wasFailure; }
-    void setLastVisitWasHTTPNonGet(bool wasNotGet) { m_lastVisitWasHTTPNonGet = wasNotGet; }
 
     void addChildItem(PassRefPtr<HistoryItem>);
     void setChildItem(PassRefPtr<HistoryItem>);
@@ -177,18 +153,13 @@ public:
     bool shouldDoSameDocumentNavigationTo(HistoryItem* otherItem) const;
     bool hasSameFrames(HistoryItem* otherItem) const;
 
-    // This should not be called directly for HistoryItems that are already included
-    // in GlobalHistory. The WebKit api for this is to use -[WebHistory setLastVisitedTimeInterval:forItem:] instead.
-    void setLastVisitedTime(double);
-    void visited(const String& title, double time, VisitCountBehavior);
-
     void addRedirectURL(const String&);
     Vector<String>* redirectURLs() const;
-    void setRedirectURLs(PassOwnPtr<Vector<String> >);
+    void setRedirectURLs(std::unique_ptr<Vector<String>>);
 
     bool isCurrentDocument(Document*) const;
     
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     id viewState() const;
     void setViewState(id);
     
@@ -198,48 +169,53 @@ public:
     void setTransientProperty(const String&, id);
 #endif
 
-#if PLATFORM(QT)
-    QVariant userData() const { return m_userData; }
-    void setUserData(const QVariant& userData) { m_userData = userData; }
-
-    static PassRefPtr<HistoryItem> restoreState(QDataStream& buffer, int version);
-    QDataStream& saveState(QDataStream& out, int version) const;
-#endif
-
-#if PLATFORM(BLACKBERRY)
-    HistoryItemViewState& viewState() { return m_viewState; }
-#endif
-
 #ifndef NDEBUG
     int showTree() const;
     int showTreeWithIndent(unsigned indentLevel) const;
 #endif
 
-    void adoptVisitCounts(Vector<int>& dailyCounts, Vector<int>& weeklyCounts);
-    const Vector<int>& dailyVisitCounts() const { return m_dailyVisitCounts; }
-    const Vector<int>& weeklyVisitCounts() const { return m_weeklyVisitCounts; }
+#if PLATFORM(IOS)
+    FloatRect exposedContentRect() const { return m_exposedContentRect; }
+    void setExposedContentRect(FloatRect exposedContentRect) { m_exposedContentRect = exposedContentRect; }
+
+    IntRect unobscuredContentRect() const { return m_unobscuredContentRect; }
+    void setUnobscuredContentRect(IntRect unobscuredContentRect) { m_unobscuredContentRect = unobscuredContentRect; }
+
+    FloatSize minimumLayoutSizeInScrollViewCoordinates() const { return m_minimumLayoutSizeInScrollViewCoordinates; }
+    void setMinimumLayoutSizeInScrollViewCoordinates(FloatSize minimumLayoutSizeInScrollViewCoordinates) { m_minimumLayoutSizeInScrollViewCoordinates = minimumLayoutSizeInScrollViewCoordinates; }
+
+    IntSize contentSize() const { return m_contentSize; }
+    void setContentSize(IntSize contentSize) { m_contentSize = contentSize; }
+
+    float scale() const { return m_scale; }
+    bool scaleIsInitial() const { return m_scaleIsInitial; }
+    void setScaleIsInitial(bool scaleIsInitial) { m_scaleIsInitial = scaleIsInitial; }
+    void setScale(float newScale, bool isInitial)
+    {
+        m_scale = newScale;
+        m_scaleIsInitial = isInitial;
+    }
+
+    const ViewportArguments& viewportArguments() const { return m_viewportArguments; }
+    void setViewportArguments(const ViewportArguments& viewportArguments) { m_viewportArguments = viewportArguments; }
+
+    uint32_t bookmarkID() const { return m_bookmarkID; }
+    void setBookmarkID(uint32_t bookmarkID) { m_bookmarkID = bookmarkID; }
+    String sharedLinkUniqueIdentifier() const { return m_sharedLinkUniqueIdentifier; }
+    void setSharedLinkUniqueIdentifier(const String& sharedLinkUniqueidentifier) { m_sharedLinkUniqueIdentifier = sharedLinkUniqueidentifier; }
+#endif
 
 private:
     HistoryItem();
-    HistoryItem(const String& urlString, const String& title, double lastVisited);
-    HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double lastVisited);
-    HistoryItem(const KURL& url, const String& frameName, const String& parent, const String& title);
+    HistoryItem(const String& urlString, const String& title);
+    HistoryItem(const String& urlString, const String& title, const String& alternateTitle);
+    HistoryItem(const URL& url, const String& frameName, const String& parent, const String& title);
 
     explicit HistoryItem(const HistoryItem&);
 
-    void padDailyCountsForNewVisit(double time);
-    void collapseDailyVisitsToWeekly();
-    void recordVisitAtTime(double, VisitCountBehavior = IncreaseVisitCount);
-    
     bool hasSameDocumentTree(HistoryItem* otherItem) const;
 
     HistoryItem* findTargetItem();
-
-    void encodeBackForwardTreeNode(Encoder&) const;
-
-    /* When adding new member variables to this class, please notify the Qt team.
-     * qt/HistoryItemQt.cpp contains code to serialize history items.
-     */
 
     String m_urlString;
     String m_originalURLString;
@@ -249,9 +225,6 @@ private:
     String m_title;
     String m_displayTitle;
     
-    double m_lastVisitedTime;
-    bool m_lastVisitWasHTTPNonGet;
-
     IntPoint m_scrollPoint;
     float m_pageScaleFactor;
     Vector<String> m_documentState;
@@ -260,11 +233,8 @@ private:
     
     bool m_lastVisitWasFailure;
     bool m_isTargetItem;
-    int m_visitCount;
-    Vector<int> m_dailyVisitCounts;
-    Vector<int> m_weeklyVisitCounts;
 
-    OwnPtr<Vector<String> > m_redirectURLs;
+    std::unique_ptr<Vector<String>> m_redirectURLs;
 
     // If two HistoryItems have the same item sequence number, then they are
     // clones of one another.  Traversing history from one such HistoryItem to
@@ -287,19 +257,24 @@ private:
     // PageCache controls these fields.
     HistoryItem* m_next;
     HistoryItem* m_prev;
-    RefPtr<CachedPage> m_cachedPage;
-    
-#if PLATFORM(MAC)
+    std::unique_ptr<CachedPage> m_cachedPage;
+
+#if PLATFORM(IOS)
+    FloatRect m_exposedContentRect;
+    IntRect m_unobscuredContentRect;
+    FloatSize m_minimumLayoutSizeInScrollViewCoordinates;
+    IntSize m_contentSize;
+    float m_scale;
+    bool m_scaleIsInitial;
+    ViewportArguments m_viewportArguments;
+
+    uint32_t m_bookmarkID;
+    String m_sharedLinkUniqueIdentifier;
+#endif
+
+#if PLATFORM(COCOA)
     RetainPtr<id> m_viewState;
-    OwnPtr<HashMap<String, RetainPtr<id> > > m_transientProperties;
-#endif
-
-#if PLATFORM(QT)
-    QVariant m_userData;
-#endif
-
-#if PLATFORM(BLACKBERRY)
-    HistoryItemViewState m_viewState;
+    std::unique_ptr<HashMap<String, RetainPtr<id>>> m_transientProperties;
 #endif
 }; //class HistoryItem
 

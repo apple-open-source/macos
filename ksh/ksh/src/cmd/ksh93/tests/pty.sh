@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -38,17 +38,41 @@ whence -q pty || { lineno=$LINENO; err_exit "pty command not found -- tests skip
 
 bintrue=$(whence -p true)
 
+x=$( $SHELL <<- \EOF
+		trap 'exit 0' EXIT
+		bintrue=$(whence -p true)
+		set -o monitor
+		{
+			eval $'set -o vi\npty $bintrue'
+		} < /dev/null & pid=$!
+		#sleep 1
+		jobs
+		kill $$
+	EOF
+)
+[[ $x == *Stop* ]] && err_exit 'monitor mode enabled incorrectly causes job to stop'
+
+if	[[ -o xtrace ]]
+then	debug=--debug=1
+else	debug=
+fi
+
 function tst
 {
 	integer lineno=$1 offset
 	typeset text
 
-	PS1=':test-!: ' PS2='> ' PS4=': ' ENV= EXINIT= HISTFILE= TERM=dumb VISUAL=vi LC_ALL=C pty --dialogue --messages='/dev/fd/1' $SHELL |
+	pty $debug --dialogue --messages='/dev/fd/1' $SHELL |
 	while	read -r text
-	do	offset=${text/*: line +([[:digit:]]):*/\1}
-		err_exit "${text/: line $offset:/: line $(( lineno + offset)):}"
+	do	if	[[ $text == *debug* ]]
+		then	print -u2 -r -- "$text"
+		else	offset=${text/*: line +([[:digit:]]):*/\1}
+			err_exit "${text/: line $offset:/: line $(( lineno + offset)):}"
+		fi
 	done
 }
+
+export PS1=':test-!: ' PS2='> ' PS4=': ' ENV= EXINIT= HISTFILE= TERM=dumb VISUAL=vi LC_ALL=C
 
 if	! pty $bintrue < /dev/null
 then	err_exit pty command hangs on $bintrue -- tests skipped
@@ -352,7 +376,7 @@ p :test-1:
 c echo hello\E
 s 400
 c v
-u ".*"
+u /tmp/
 c A world\E
 s 400
 w :wq
@@ -400,6 +424,19 @@ c n
 r echo repeat-2
 c n
 r echo repeat-3
+!
+
+# err_exit #
+whence -q less &&
+TERM=vt100 tst $LINENO <<"!"
+L process/terminal group exercise
+
+w m=yes; while true; do echo $m-$m; done | less
+u :$|:\E|lines
+c \cZ
+r Stopped
+w fg
+u yes-yes
 !
 
 exit $((Errors<125?Errors:125))

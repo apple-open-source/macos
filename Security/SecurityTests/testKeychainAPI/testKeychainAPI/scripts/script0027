@@ -1,0 +1,68 @@
+//
+// script0027
+//
+//		KCNewItem
+//		KCAddItemNoUI
+//		KCGetDataNoUI
+//
+// Create a Generic Password item & add it to a default Keychain
+// 
+35 KCNewItem
+   Input Arguments : 4
+     Class : genp
+     Creator : meme
+     Data : /50/First Generic password:abcdefghijklmnopqrstuvwxyz#
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0027.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+15 KCCreateKeychainNoUI
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 2
+      OSStatus 0
+7 KCUnlockNoUI
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+42 KCAddItemNoUI
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /50/00000000000000000000000000000000000000000000000000
+   Results : 3
+     OSStatus 0
+     Data : /50/First Generic password:abcdefghijklmnopqrstuvwxyz#
+     ActualLength : 50
+45 KCUpdateItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

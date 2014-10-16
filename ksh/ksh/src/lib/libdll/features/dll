@@ -170,6 +170,7 @@ tst	- output{
 		printf("#define DLL_INFO_DOTVER	0x0002	/* post-suffix style version */\n");
 		printf("\n");
 		printf("typedef unsigned long (*Dll_plugin_version_f)(void);\n");
+		printf("typedef int (*Dllerror_f)(void*, void*, int, ...);\n");
 		printf("\n");
 		printf("typedef struct Dllinfo_s\n");
 		printf("{\n");
@@ -182,6 +183,17 @@ tst	- output{
 		printf("	_DLLINFO_PRIVATE_\n");
 		printf("#endif\n");
 		printf("} Dllinfo_t;\n");
+		printf("\n");
+		printf("typedef struct Dllnames_s\n");
+		printf("{\n");
+		printf("	char*		id;\n");
+		printf("	char*		name;\n");
+		printf("	char*		base;\n");
+		printf("	char*		type;\n");
+		printf("	char*		opts;\n");
+		printf("	char*		path;\n");
+		printf("	char		data[1024];\n");
+		printf("} Dllnames_t;\n");
 		printf("\n");
 		printf("typedef struct Dllent_s\n");
 		printf("{\n");
@@ -215,6 +227,9 @@ tst	- output{
 		printf("extern void*		dllplugin(const char*, const char*, const char*, unsigned long, unsigned long*, int, char*, size_t);\n");
 		printf("extern void*		dllplug(const char*, const char*, const char*, int, char*, size_t);\n");
 		printf("extern void*		dllfind(const char*, const char*, int, char*, size_t);\n");
+		printf("extern Dllnames_t*	dllnames(const char*, const char*, Dllnames_t*);\n");
+		printf("extern void*		dll_lib(Dllnames_t*, unsigned long, Dllerror_f, void*);\n");
+		printf("extern void*		dllmeth(const char*, const char*, unsigned long);\n");
 		printf("extern void*		dllopen(const char*, int);\n");
 		printf("extern void*		dllnext(int);\n");
 		printf("extern void*		dlllook(void*, const char*);\n");

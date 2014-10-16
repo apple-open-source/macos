@@ -5,8 +5,8 @@
 <!DOCTYPE ldml SYSTEM "http://www.unicode.org/repos/cldr/trunk/common/dtd/ldml.dtd">
 <ldml>
     <identity>
-        <version number="$Revision: 30101 $"/>
-        <generation date="$Date: 2011-05-11 19:11:29 -0700 (Wed, 11 May 2011) $"/>
+        <version number="$Revision: 1.1.1.1 $"/>
+        <generation date="$Date: 2011/05/27 06:50:13 $"/>
         <language type="ee"/>
     </identity>
 </ldml>

@@ -2941,6 +2941,14 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		}
 	    }
 	}
+	if (vunset) {
+	    if (unset(UNSET)) {
+		*idend = '\0';
+		zerr("%s: parameter not set", idbeg);
+		return NULL;
+	    }
+	    val = dupstring("");
+	}
     } else {			/* no ${...=...} or anything, but possible modifiers. */
 	/*
 	 * Handler ${+...}.  TODO: strange, why do we handle this only
@@ -3707,6 +3715,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 	char *y;
 
 	x = val;
+	if (!x) {
+	    /* Shouldn't have got here with a NULL string. */
+	    DPUTS(1, "value is NULL in paramsubst");
+	    return NULL;
+	}
 	if (prenum || postnum)
 	    x = dopadding(x, prenum, postnum, preone, postone,
 			  premul, postmul
@@ -4021,7 +4034,10 @@ modify(char **str, char **ptr)
 		    all = tmp;
 		    t = e;
 		}
-		*str = all;
+		if (!all)
+		    *str = dupstring("");
+		else
+		    *str = all;
 
 	    } else {
 		switch (c) {

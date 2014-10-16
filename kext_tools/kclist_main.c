@@ -19,7 +19,9 @@
 #include <errno.h>
 #include <libc.h>
 #include <mach-o/fat.h>
+#include <mach-o/loader.h>
 #include <sys/mman.h>
+#include <uuid/uuid.h>
 
 #include "kclist_main.h"
 #include "compression.h"
@@ -47,9 +49,13 @@ int main(int argc, char * const argv[])
     const UInt8        * kernelcacheStart   = NULL;
 
     void               * prelinkInfoSect = NULL;
-
     const char         * prelinkInfoBytes = NULL;
     CFPropertyListRef    prelinkInfoPlist = NULL;  // must release
+
+    void               * prelinkTextSect = NULL;
+    const char         * prelinkTextBytes = NULL;
+    uint64_t             prelinkTextSourceAddress = 0;
+    uint64_t             prelinkTextSourceSize = 0;
     
     bzero(&toolArgs, sizeof(toolArgs));
 
@@ -135,11 +141,16 @@ int main(int argc, char * const argv[])
         prelinkInfoSect = (void *)macho_get_section_by_name_64(
             (struct mach_header_64 *)kernelcacheStart,
             kPrelinkInfoSegment, kPrelinkInfoSection);
-
+        prelinkTextSect = (void *)macho_get_section_by_name_64(
+            (struct mach_header_64 *)kernelcacheStart,
+            kPrelinkTextSegment, kPrelinkTextSection);
     } else {
         prelinkInfoSect = (void *)macho_get_section_by_name(
             (struct mach_header *)kernelcacheStart,
             kPrelinkInfoSegment, kPrelinkInfoSection);
+        prelinkTextSect = (void *)macho_get_section_by_name(
+            (struct mach_header *)kernelcacheStart,
+            kPrelinkTextSegment, kPrelinkTextSection);
     }
 
     if (!prelinkInfoSect) {
@@ -149,12 +160,27 @@ int main(int argc, char * const argv[])
         goto finish;
     }
 
+    if (!prelinkTextSect) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't find prelink text section.");
+        goto finish;
+    }
+
     if (ISMACHO64(MAGIC32(kernelcacheStart))) {
         prelinkInfoBytes = ((char *)kernelcacheStart) +
             ((struct section_64 *)prelinkInfoSect)->offset;
+        prelinkTextBytes = ((char *)kernelcacheStart) +
+            ((struct section_64 *)prelinkTextSect)->offset;
+        prelinkTextSourceAddress = ((struct section_64 *)prelinkTextSect)->addr;
+        prelinkTextSourceSize = ((struct section_64 *)prelinkTextSect)->size;
     } else {
         prelinkInfoBytes = ((char *)kernelcacheStart) +
             ((struct section *)prelinkInfoSect)->offset;
+        prelinkTextBytes = ((char *)kernelcacheStart) +
+            ((struct section *)prelinkTextSect)->offset;
+        prelinkTextSourceAddress = ((struct section *)prelinkTextSect)->addr;
+        prelinkTextSourceSize = ((struct section *)prelinkTextSect)->size;
     }
 
     prelinkInfoPlist = (CFPropertyListRef)IOCFUnserialize(prelinkInfoBytes,
@@ -166,7 +192,7 @@ int main(int argc, char * const argv[])
         goto finish;
     }
 
-    listPrelinkedKexts(&toolArgs, prelinkInfoPlist);
+    listPrelinkedKexts(&toolArgs, prelinkInfoPlist, prelinkTextBytes, prelinkTextSourceAddress, prelinkTextSourceSize);
 
     result = EX_OK;
 
@@ -233,6 +259,10 @@ ExitStatus readArgs(
                 result = kKclistExitHelp;
                 goto finish;
     
+            case kOptUUID:
+                toolArgs->printUUIDs = true;
+                break;
+                
             case kOptVerbose:
                 toolArgs->verbose = true;
                 break;
@@ -310,7 +340,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist)
+void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress, uint64_t prelinkTextSourceSize)
 {
     CFIndex i, count;
     Boolean haveIDs = CFSetGetCount(toolArgs->kextIDs) > 0 ? TRUE : FALSE;
@@ -332,12 +362,28 @@ void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist)
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
         CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
+        CFNumberRef kextSourceAddress = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey));
+        CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
+        const char *kextTextBytes = NULL;
         
         if (haveIDs && !CFSetContainsValue(toolArgs->kextIDs, kextIdentifier)) {
             continue;
         }
+
+        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
+            kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
+            uint64_t sourceAddress;
+            uint64_t sourceSize;
+  
+            CFNumberGetValue(kextSourceAddress, kCFNumberSInt64Type, &sourceAddress);
+            CFNumberGetValue(kextSourceSize, kCFNumberSInt64Type, &sourceSize);
+            if ((sourceAddress >= prelinkTextSourceAddress) &&
+                ((sourceAddress+sourceSize) <= (prelinkTextSourceAddress + prelinkTextSourceSize))) {
+                kextTextBytes = prelinkTextBytes + (ptrdiff_t)(sourceAddress - prelinkTextSourceAddress);
+            }
+        }
         
-        printKextInfo(kextPlist, toolArgs->verbose);
+        printKextInfo(kextPlist, toolArgs->verbose, toolArgs->printUUIDs, kextTextBytes);
     }
 
 finish:
@@ -346,7 +392,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose)
+void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose, Boolean printUUIDs, const char *kextTextBytes)
 {
     CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
     CFStringRef kextVersion = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleVersionKey);
@@ -354,6 +400,16 @@ void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose)
     char idBuffer[KMOD_MAX_NAME];
     char versionBuffer[KMOD_MAX_NAME];
     char pathBuffer[PATH_MAX];
+
+    CFNumberRef cfNum;
+    uint64_t  kextLoadAddress = 0x0;
+    uint64_t  kextSourceAddress = 0x0;
+    uint64_t  kextExecutableSize = 0;
+    uint64_t  kextKmodInfoAddress = 0x0;
+
+    struct load_command *lcp;
+    struct uuid_command *uuid_cmd = NULL;
+    uint32_t ncmds, cmd_i;
     
     if (!kextIdentifier || !kextVersion || !kextPath) {
         OSKextLog(/* kext */ NULL,
@@ -364,24 +420,51 @@ void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose)
     CFStringGetCString(kextIdentifier, idBuffer, sizeof(idBuffer), kCFStringEncodingUTF8);
     CFStringGetCString(kextVersion, versionBuffer, sizeof(versionBuffer), kCFStringEncodingUTF8);
     CFStringGetCString(kextPath, pathBuffer, sizeof(pathBuffer), kCFStringEncodingUTF8);
+        
+    if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableLoadKey))))
+        CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextLoadAddress);
+    if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey))))
+        CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextSourceAddress);
+    if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey))))
+        CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextExecutableSize);
+    if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkKmodInfoKey))))
+        CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextKmodInfoAddress);
+
+    if (kextTextBytes) {
+        if (ISMACHO64(MAGIC32(kextTextBytes))) {
+            struct mach_header_64 *mhp64 = (struct mach_header_64 *)kextTextBytes;
+            ncmds = mhp64->ncmds;
+            lcp = (struct load_command *)(void *)(mhp64 + 1);
+        } else {
+            struct mach_header *mhp = (struct mach_header *)kextTextBytes;
+            ncmds = mhp->ncmds;
+            lcp = (struct load_command *)(void *)(mhp + 1);
+        }
+
+        for (cmd_i = 0; cmd_i < ncmds; cmd_i++) {
+            if (lcp->cmd == LC_UUID) {
+                uuid_cmd = (struct uuid_command *)lcp;
+                break;
+            }
+            lcp = (struct load_command *)((uintptr_t)lcp + lcp->cmdsize);
+        }
+    }
     
-    printf("%s\t%s\t%s\n", idBuffer, versionBuffer, pathBuffer);
+    if (printUUIDs) {
+
+        if (uuid_cmd) {
+            uuid_string_t uuid_string;
+
+            uuid_unparse(*(uuid_t *)uuid_cmd->uuid, uuid_string);
+            printf("%s\t%s\t%s\t0x%llx\t0x%llx\t%s\n", idBuffer, versionBuffer, uuid_string, kextLoadAddress, kextExecutableSize, pathBuffer);
+        } else {
+            printf("%s\t%s\t\t\t\t%s\n", idBuffer, versionBuffer, pathBuffer);
+        }
+    } else {
+        printf("%s\t%s\t%s\n", idBuffer, versionBuffer, pathBuffer);
+    }
 
     if (beVerbose) {
-        CFNumberRef cfNum;
-        u_int64_t  kextLoadAddress = 0xDEADBEEF;
-        u_int64_t  kextSourceAddress = 0xDEADBEEF;
-        u_int64_t  kextExecutableSize = 0;
-        u_int64_t  kextKmodInfoAddress = 0xDEADBEEF;
-        
-        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableLoadKey))))
-            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextLoadAddress);
-        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey))))
-            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextSourceAddress);
-        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey))))
-            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextExecutableSize);
-        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkKmodInfoKey))))
-            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextKmodInfoAddress);
         printf("\t-> load address:   0x%0.8llx, "
                "size              = 0x%0.8llx,\n"
                "\t-> source address: 0x%0.8llx, "
@@ -412,7 +495,7 @@ CFComparisonResult compareIdentifiers(const void * val1, const void * val2, void
 void usage(UsageLevel usageLevel)
 {
     fprintf(stderr,
-      "usage: %1$s [-arch archname] [-v] [--] kernelcache [bundle-id ...]\n"
+      "usage: %1$s [-arch archname] [-u] [-v] [--] kernelcache [bundle-id ...]\n"
       "usage: %1$s -help\n"
       "\n",
       progname);
@@ -429,6 +512,9 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s <archname>:\n"
         "        list info for architecture <archname>\n",
         kOptNameArch);
+    fprintf(stderr, "-%s (-%c):\n"
+        "        print kext load addresses and UUIDs\n",
+            kOptNameUUID, kOptUUID);
     fprintf(stderr, "-%s (-%c):\n"
         "        emit additional information about kext load addresses and sizes\n",
             kOptNameVerbose, kOptVerbose);

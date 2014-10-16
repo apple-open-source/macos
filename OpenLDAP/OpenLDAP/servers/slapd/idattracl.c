@@ -44,16 +44,16 @@ typedef struct idattr_ismember_t {
 } idattr_ismember_t;
 
 static ObjectClass		*idattr_posixGroup;
-static AttributeDescription	*idattr_memberUid;
+AttributeDescription	*idattr_memberUid;
 static ObjectClass		*idattr_posixAccount;
 static AttributeDescription	*idattr_uidNumber;
 
 static ObjectClass		*idattr_apple_user;
 static ObjectClass		*idattr_extensible_object;
-static AttributeDescription	*idattr_uuid;
+AttributeDescription	*idattr_uuid;
 static AttributeDescription	*idattr_owneruuid;
 static AttributeDescription	*idattr_sid;
-static AttributeDescription	*idattr_memberships;
+AttributeDescription	*idattr_memberships;
 static AttributeDescription	*idattr_expandedmemberships;
 
 static const char *group_subtree="cn=groups";
@@ -150,7 +150,7 @@ static int idattr_dynacl_parse_ops(const char	*ops, idattr_t *id)
 	option = tmp;
 	
 	if (ops) {
-		tmp = current = original = strdup(ops);
+		tmp = current = original = ch_strdup(ops);
 	}
 	
 	while (current) {
@@ -185,7 +185,7 @@ static int idattr_dynacl_parse_ops(const char	*ops, idattr_t *id)
 		}
 	}
 	if (original)
-		free(original);
+		ch_free(original);
 	
 	return 0;
 }
@@ -396,7 +396,7 @@ idattr_is_member_cb (
 }
 
 
-static int __attribute__ ((noinline))
+int __attribute__ ((noinline))
 idattr_is_member (
 	Operation	*op,
 	struct berval* groupDN,

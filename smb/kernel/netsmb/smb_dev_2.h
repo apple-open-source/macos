@@ -122,6 +122,24 @@ struct smb2ioc_ioctl {
 	uint32_t    ioc_ret_output_len;
 };
 
+/* smb2ioc_query_dir is ONLY used for test tools */
+struct smb2ioc_query_dir {
+	uint32_t	ioc_version;
+    uint8_t     ioc_file_info_class;
+	uint8_t     ioc_flags;
+    uint16_t    pad;
+	uint32_t    ioc_file_index;
+    uint32_t    ioc_rcv_output_len;
+	SMBFID      ioc_fid;
+    uint32_t    ioc_name_len;
+    uint32_t    ioc_name_flags;    /* use UTF_SFM_CONVERSIONS or not */
+	SMB_IOC_POINTER(const char *, name);
+	SMB_IOC_POINTER(void *, rcv_output);
+    /* return values */
+	uint32_t	ioc_ret_ntstatus;
+	uint32_t    ioc_ret_output_len;
+};
+
 /*
  * The SMB2IOC_READ/SMB2IOC_WRITE ioctl is a read/write ioctl. So we use 
  * smb2ioc_rw structure to pass information from the user land to the kernel 
@@ -161,6 +179,7 @@ struct smbioc_share_properties {
 #define	SMB2IOC_WRITE			_IOWR('n', 123, struct smb2ioc_rw)
 #define	SMB2IOC_GET_DFS_REFERRAL    _IOWR('n', 124, struct smb2ioc_get_dfs_referral)
 #define SMBIOC_SHARE_PROPERTIES	_IOWR('n', 125, struct smbioc_share_properties)
+#define	SMB2IOC_QUERY_DIR       _IOWR('n', 126, struct smb2ioc_query_dir)
 
 
 #ifdef _KERNEL
@@ -179,7 +198,10 @@ int smb_usr_get_dfs_referral(struct smb_share *share, struct smb_vc *vcp,
                              vfs_context_t context);
 int smb_usr_ioctl(struct smb_share *share, struct smb_vc *vcp,
                   struct smb2ioc_ioctl *ioctl_ioc, vfs_context_t context);
-int smb_usr_read_write(struct smb_share *share, 
+int smb_usr_query_dir(struct smb_share *share,
+                      struct smb2ioc_query_dir *query_dir_ioc,
+                      vfs_context_t context);
+int smb_usr_read_write(struct smb_share *share,
                        u_long cmd, 
                        struct smb2ioc_rw *rw_ioc, 
                        vfs_context_t context);

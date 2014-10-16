@@ -1,2 +1,3 @@
 --sequence=HDB-Ext-KeySet
 --sequence=Keys
+--sequence=hdb-srp-set

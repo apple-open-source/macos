@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -80,7 +80,7 @@ private:
 typedef HashMap<NPStream*, NPP> StreamMap;
 static StreamMap& streams()
 {
-    DEFINE_STATIC_LOCAL(StreamMap, staticStreams, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(StreamMap, staticStreams, ());
     return staticStreams;
 }
 
@@ -171,7 +171,7 @@ WebNetscapePluginStream::WebNetscapePluginStream(NSURLRequest *request, NPP plug
     
     streams().add(&m_stream, plugin);
     
-    String referrer = SecurityPolicy::generateReferrerHeader(core([view webFrame])->document()->referrerPolicy(), [request URL], core([view webFrame])->loader()->outgoingReferrer());
+    String referrer = SecurityPolicy::generateReferrerHeader(core([view webFrame])->document()->referrerPolicy(), [request URL], core([view webFrame])->loader().outgoingReferrer());
     if (referrer.isEmpty())
         [m_request.get() _web_setHTTPReferrer:nil];
     else
@@ -231,7 +231,7 @@ void WebNetscapePluginStream::startStream(NSURL *url, long long expectedContentL
     if (headers) {
         unsigned len = [headers length];
         m_headers = (char*) malloc(len + 1);
-        [headers getBytes:m_headers];
+        [headers getBytes:m_headers length:len];
         m_headers[len] = 0;
         m_stream.headers = m_headers;
     }
@@ -381,7 +381,7 @@ void WebNetscapePluginStream::destroyStream()
     if (m_isTerminated)
         return;
 
-    RefPtr<WebNetscapePluginStream> protect(this);
+    Ref<WebNetscapePluginStream> protect(*this);
 
     ASSERT(m_reason != WEB_REASON_NONE);
     ASSERT([m_deliveryData.get() length] == 0);
@@ -458,7 +458,7 @@ void WebNetscapePluginStream::destroyStreamWithReason(NPReason reason)
         return;
     }
 
-    RefPtr<WebNetscapePluginStream> protect(this);
+    Ref<WebNetscapePluginStream> protect(*this);
     destroyStream();
     ASSERT(!m_stream.ndata);
 }
@@ -492,7 +492,7 @@ void WebNetscapePluginStream::didFail(WebCore::NetscapePlugInStreamLoader*, cons
 
 void WebNetscapePluginStream::cancelLoadAndDestroyStreamWithError(NSError *error)
 {
-    RefPtr<WebNetscapePluginStream> protect(this);
+    Ref<WebNetscapePluginStream> protect(*this);
     cancelLoadWithError(error);
     destroyStreamWithError(error);
     setPlugin(0);
@@ -503,7 +503,7 @@ void WebNetscapePluginStream::deliverData()
     if (!m_stream.ndata || [m_deliveryData.get() length] == 0)
         return;
 
-    RefPtr<WebNetscapePluginStream> protect(this);
+    Ref<WebNetscapePluginStream> protect(*this);
 
     int32_t totalBytes = [m_deliveryData.get() length];
     int32_t totalBytesDelivered = 0;

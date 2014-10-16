@@ -24,7 +24,7 @@
 /*	VSTREAM	*vstream_printf(format, ...)
 /*	const char *format;
 /*
-/*	VSTREAM	*vstream_fprintf(stream, format, ...)
+/*	VSTREAM *vstream_fprintf(stream, format, ...)
 /*	VSTREAM	*stream;
 /*	const char *format;
 /*
@@ -40,7 +40,7 @@
 /*	int	ch;
 /*
 /*	int	vstream_ungetc(stream, ch)
-/*	VSTREAM *stream;
+/*	VSTREAM	*stream;
 /*	int	ch;
 /*
 /*	int	vstream_fputs(str, stream)
@@ -60,7 +60,7 @@
 /*
 /*	int	vstream_fpurge(stream, direction)
 /*	VSTREAM	*stream;
-/*	int     direction;
+/*	int	direction;
 /*
 /*	ssize_t	vstream_fread(stream, buf, len)
 /*	VSTREAM	*stream;
@@ -80,10 +80,10 @@
 /*	VSTREAM	*stream;
 /*
 /*	const ssize_t vstream_req_bufsize(stream)
-/*	VSTREAM *stream;
+/*	VSTREAM	*stream;
 /*
 /*	void	*vstream_context(stream)
-/*	VSTREAM *stream;
+/*	VSTREAM	*stream;
 /*
 /*	int	vstream_ferror(stream)
 /*	VSTREAM	*stream;
@@ -324,16 +324,19 @@
 /*	This involves allocation of additional memory that normally isn't
 /*	used.
 /* .IP "VSTREAM_CTL_BUFSIZE (ssize_t)"
-/*	Specify a non-default write buffer size, or zero to implement
-/*	a no-op. Requests to shrink an existing buffer size are
-/*	ignored. Requests to change a fixed-size buffer (stdin,
-/*	stdout, stderr) are not allowed.
+/*	Specify a non-default buffer size for the next read(2) or
+/*	write(2) operation, or zero to implement a no-op. Requests
+/*	to reduce the buffer size are silently ignored (i.e. any
+/*	positive value <= vstream_req_bufsize()). To get a buffer
+/*	size smaller than VSTREAM_BUFSIZE, make the VSTREAM_CTL_BUFSIZE
+/*	request before the first stream read or write operation
+/*	(i.e., vstream_req_bufsize() returns zero).  Requests to
+/*	change a fixed-size buffer (i.e., VSTREAM_ERR) are not
+/*	allowed.
 /*
-/*	NOTE: the VSTREAM_CTL_BUFSIZE request specifies intent, not
-/*	reality.  Actual buffer sizes are not updated immediately.
-/*	Instead, an existing write buffer will be resized when it
-/*	is full, and an existing read buffer will be resized when
-/*	the buffer is filled.
+/*	NOTE: the vstream_*printf() routines may silently expand a
+/*	buffer, so that the result of some %letter specifiers can
+/*	be written to contiguous memory.
 /*
 /*	NOTE: the VSTREAM_CTL_BUFSIZE argument type is ssize_t, not
 /*	int. Use an explicit cast to avoid problems on LP64
@@ -352,13 +355,10 @@
 /*	a buffered stream. With streams that have separate read/write
 /*	file descriptors, the result is the current descriptor.
 /*
-/*	vstream_req_bufsize() returns the requested buffer size for
-/*	the named stream (default: VSTREAM_BUFSIZE). The result
-/*	value reflects intent, not reality: actual buffer sizes are
-/*	not updated immediately when the requested buffer size is
-/*	specified with vstream_control().  Instead, an existing
-/*	write buffer will be resized when it is full, and an existing
-/*	read buffer will be resized when the buffer is filled.
+/*	vstream_req_bufsize() returns the buffer size that will be
+/*	used for the next read(2) or write(2) operation on the named
+/*	stream. A zero result means that the next read(2) or write(2)
+/*	operation will use the default buffer size (VSTREAM_BUFSIZE).
 /*
 /*	vstream_context() returns the application context that is passed on to
 /*	the application-specified read/write routines.
@@ -498,13 +498,13 @@ VSTREAM vstream_fstd[] = {
 	    0, 0, 0, 0,			/* buffer */
 	    vstream_buf_get_ready, vstream_buf_put_ready, vstream_buf_space,
     }, STDIN_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,
-    VSTREAM_BUFSIZE,},
+    0,},
     {{
 	    0,				/* flags */
 	    0, 0, 0, 0,			/* buffer */
 	    vstream_buf_get_ready, vstream_buf_put_ready, vstream_buf_space,
     }, STDOUT_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,
-    VSTREAM_BUFSIZE,},
+    0,},
     {{
 	    VBUF_FLAG_FIXED | VSTREAM_FLAG_WRITE,
 	    vstream_fstd_buf, VSTREAM_BUFSIZE, VSTREAM_BUFSIZE, vstream_fstd_buf,
@@ -841,7 +841,11 @@ static int vstream_buf_get_ready(VBUF *bp)
      * If this is the first GET operation, allocate a buffer. Late buffer
      * allocation gives the application a chance to override the default
      * buffering policy.
+     * 
+     * XXX Subtle code to set the preferred buffer size as late as possible.
      */
+    if (stream->req_bufsize == 0)
+	stream->req_bufsize = VSTREAM_BUFSIZE;
     if (bp->len < stream->req_bufsize)
 	vstream_buf_alloc(bp, stream->req_bufsize);
 
@@ -949,7 +953,11 @@ static int vstream_buf_put_ready(VBUF *bp)
      * stream or if the buffer is smaller than the requested size, allocate a
      * new buffer; obviously there is no data to be flushed yet. Otherwise,
      * flush the buffer.
+     * 
+     * XXX Subtle code to set the preferred buffer size as late as possible.
      */
+    if (stream->req_bufsize == 0)
+	stream->req_bufsize = VSTREAM_BUFSIZE;
     if (bp->len < stream->req_bufsize) {
 	vstream_buf_alloc(bp, stream->req_bufsize);
     } else if (bp->cnt <= 0) {
@@ -1000,10 +1008,14 @@ static int vstream_buf_space(VBUF *bp, ssize_t want)
      * VSTREAM_BUFSIZE bytes and resize the buffer to a multiple of
      * VSTREAM_BUFSIZE. We flush multiples of VSTREAM_BUFSIZE in an attempt
      * to keep file updates block-aligned for better performance.
+     * 
+     * XXX Subtle code to set the preferred buffer size as late as possible.
      */
 #define VSTREAM_TRUNCATE(count, base)	(((count) / (base)) * (base))
 #define VSTREAM_ROUNDUP(count, base)	VSTREAM_TRUNCATE(count + base - 1, base)
 
+    if (stream->req_bufsize == 0)
+	stream->req_bufsize = VSTREAM_BUFSIZE;
     if (want > bp->cnt) {
 	if ((used = bp->len - bp->cnt) > stream->req_bufsize)
 	    if (vstream_fflush_some(stream, VSTREAM_TRUNCATE(used, stream->req_bufsize)))
@@ -1217,7 +1229,7 @@ VSTREAM *vstream_fdopen(int fd, int flags)
     stream->jbuf = 0;
     stream->iotime.tv_sec = stream->iotime.tv_usec = 0;
     stream->time_limit.tv_sec = stream->time_limit.tv_usec = 0;
-    stream->req_bufsize = VSTREAM_BUFSIZE;
+    stream->req_bufsize = 0;
     return (stream);
 }
 
@@ -1376,10 +1388,6 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	case VSTREAM_CTL_CONTEXT:
 	    stream->context = va_arg(ap, char *);
 	    break;
-	/* APPLE - RFC 3030 */
-	case VSTREAM_CTL_CONTEXT_GET:
-	    *(va_arg(ap, char **)) = stream->context;
-	    break;
 	case VSTREAM_CTL_PATH:
 	    if (stream->path)
 		myfree(stream->path);
@@ -1468,12 +1476,19 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	     */
 	case VSTREAM_CTL_BUFSIZE:
 	    req_bufsize = va_arg(ap, ssize_t);
-	    if (req_bufsize < 0)
-		msg_panic("VSTREAM_CTL_BUFSIZE with negative size: %ld",
+	    /* Heuristic to detect missing (ssize_t) type cast on LP64 hosts. */
+	    if (req_bufsize < 0 || req_bufsize > INT_MAX)
+		msg_panic("unreasonable VSTREAM_CTL_BUFSIZE request: %ld",
 			  (long) req_bufsize);
-	    if (stream != VSTREAM_ERR
-		&& req_bufsize > stream->req_bufsize)
+	    if ((stream->buf.flags & VSTREAM_FLAG_FIXED) == 0
+		&& req_bufsize > stream->req_bufsize) {
+		if (msg_verbose)
+		    msg_info("fd=%d: stream buffer size old=%ld new=%ld",
+			     vstream_fileno(stream),
+			     (long) stream->req_bufsize,
+			     (long) req_bufsize);
 		stream->req_bufsize = req_bufsize;
+	    }
 	    break;
 
 	    /*
@@ -1583,104 +1598,43 @@ const char *vstream_peek_data(VSTREAM *vp)
     }
 }
 
-/* APPLE - burl and RFC 3030 - rest of file
-   vstream_limit_* don't handle read/write because there's just no need yet */
-struct vstream_limit {
-    VSTREAM_FN parent_read_fn;
-    VSTREAM_FN parent_write_fn;
-    void *parent_context;
-    off_t limit;
-    char *overread;
-    unsigned int overread_len;
-};
+#ifdef TEST
 
-static ssize_t vstream_limit_read(int fd, void *buf, size_t len,
-				  int timeout, void *context)
+static void copy_line(ssize_t bufsize)
 {
-    struct vstream_limit *lp = (struct vstream_limit *) context;
-    ssize_t r;
+    int     c;
 
-    /* read no more than the limit */
-    if (lp->limit == 0)
-	return 0;
-    else if (len > lp->limit)
-	len = lp->limit;
-    r = lp->parent_read_fn(fd, buf, len, timeout, lp->parent_context);
-    if (r > 0)
-	lp->limit -= r;
-    return r;
-}
-
-static ssize_t vstream_limit_write(int fd, void *buf, size_t len,
-				   int timeout, void *context)
-{
-    struct vstream_limit *lp = (struct vstream_limit *) context;
-
-    /* impose no limit on writing, just pass through to parent */
-    return lp->parent_write_fn(fd, buf, len, timeout, lp->parent_context);
-}
-
-void vstream_limit_init(VSTREAM *stream, off_t limit)
-{
-    VBUF *bp = &stream->buf;
-    struct vstream_limit *lp;
-
-    if (limit < 0)
-	msg_panic("vstream_limit_init: negative limit");
-
-    lp = (struct vstream_limit *) mymalloc(sizeof *lp);
-    lp->parent_read_fn = stream->read_fn;
-    stream->read_fn = vstream_limit_read;
-    lp->parent_write_fn = stream->write_fn;
-    stream->write_fn = vstream_limit_write;
-    lp->parent_context = stream->context;
-    stream->context = lp;
-
-    if (bp->cnt > 0 || (bp->flags & VSTREAM_FLAG_READ) == 0)
-	msg_panic("vstream_limit_init with write buffer");
-
-    if (-bp->cnt > limit) {
-	/* the stream already has more than the wanted data buffered.
-	   save the rest. */
-	lp->overread_len = -bp->cnt - limit;
-	lp->overread = mymalloc(lp->overread_len);
-	memcpy(lp->overread, bp->ptr + limit, lp->overread_len);
-
-	lp->limit = 0;
-	bp->cnt = -(ssize_t) limit;
-    } else {
-	/* at most limit bytes buffered.  read no more than the remainder */
-	lp->overread_len = 0;
-	lp->overread = NULL;
-
-	lp->limit = limit + bp->cnt;
+    vstream_control(VSTREAM_IN, VSTREAM_CTL_BUFSIZE, bufsize, VSTREAM_CTL_END);
+    vstream_control(VSTREAM_OUT, VSTREAM_CTL_BUFSIZE, bufsize, VSTREAM_CTL_END);
+    while ((c = VSTREAM_GETC(VSTREAM_IN)) != VSTREAM_EOF) {
+	VSTREAM_PUTC(c, VSTREAM_OUT);
+	if (c == '\n')
+	    break;
     }
+    vstream_fflush(VSTREAM_OUT);
 }
 
-int vstream_limit_reached(const VSTREAM *stream)
+static void printf_number(void)
 {
-    const VBUF *bp = &stream->buf;
-    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
-
-    return bp->cnt == 0 && lp->limit == 0;
+    vstream_printf("%d\n", __MAXINT__(int));
+    vstream_fflush(VSTREAM_OUT);
 }
 
-void vstream_limit_deinit(VSTREAM *stream)
+ /*
+  * Exercise some of the features.
+  */
+int     main(int argc, char **argv)
 {
-    VBUF *bp = &stream->buf;
-    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
 
-    if (bp->cnt > 0 || (bp->flags & VSTREAM_FLAG_READ) == 0)
-	msg_panic("vstream_limit_deinit with write buffer");
-
-    if (lp->overread != NULL) {
-	memcpy(bp->data, lp->overread, lp->overread_len);
-	bp->ptr = bp->data;
-	bp->cnt = -(ssize_t) lp->overread_len;
-	myfree(lp->overread);
-    }
-    stream->read_fn = lp->parent_read_fn;
-    stream->write_fn = lp->parent_write_fn;
-    stream->context = lp->parent_context;
-    myfree((char *) lp);
+    /*
+     * Test buffer expansion and shrinking. Formatted print may silently
+     * expand the write buffer and cause multiple bytes to be written.
+     */
+    copy_line(1);			/* one-byte read/write */
+    copy_line(2);				/* two-byte read/write */
+    copy_line(1);				/* two-byte read/write */
+    printf_number();				/* multi-byte write */
+    exit(0);
 }
+
+#endif

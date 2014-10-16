@@ -38,6 +38,7 @@
 #include "IDBFactory.h"
 #include "IDBIndex.h"
 #include "IDBObjectStore.h"
+#include "JSDOMBinding.h"
 #include "JSDOMStringList.h"
 #include "JSIDBCursor.h"
 #include "JSIDBCursorWithValue.h"
@@ -52,7 +53,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const IDBKeyPath& value)
+static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const IDBKeyPath& value)
 {
     switch (value.type()) {
     case IDBKeyPath::NullType:
@@ -85,7 +86,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, IDBAny* idbAny)
     case IDBAny::IDBCursorType:
         return toJS(exec, globalObject, idbAny->idbCursor());
     case IDBAny::IDBCursorWithValueType:
-        return wrap<JSIDBCursorWithValue>(exec, globalObject, idbAny->idbCursorWithValue().get());
+        return wrap<JSIDBCursorWithValue>(globalObject, idbAny->idbCursorWithValue().get());
     case IDBAny::IDBDatabaseType:
         return toJS(exec, globalObject, idbAny->idbDatabase());
     case IDBAny::IDBFactoryType:

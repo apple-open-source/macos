@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadIdentifier</key>
+    <string>com.apple.GSSDebugProfile</string>
+    <key>PayloadUUID</key>
+    <string>FC2D27D5-8C2F-4B7E-8CFB-CD1A7DD08D5A</string>
+
+    <key>PayloadDescription</key>
+    <string>Enable GSS Debug logging</string>
+    <key>PayloadDisplayName</key>
+    <string>GSS Debugging</string>
+    <key>PayloadOrganization</key>
+    <string>Apple, Inc</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadVersion</key>
+    <integer>2</integer>
+
+    <key>DurationUntilRemoval</key>
+    <real>604800</real> <!-- 7 days -->
+
+    <key>ConsentText</key>
+    <dict>
+      <key>en</key>
+      <string>The GSS Logging Profile generates files that allow Apple to troubleshoot issues with your device and help Apple to improve its products and services. The generated files may contain some of your personal information, including your email address as well as the server names, hostnames and IP addresses for any Kerberos-enabled websites you visit. It does not collect information from any non-Kerberos-enabled websites you visit.
+
+By enabling this diagnostic tool and sending a copy of the generated files to Apple, you are consenting to Apple’s use of the content of such files in accordance with its privacy policy (http://www.apple.com/legal/privacy).
+</string>
+      <key>default</key>
+      <string>The GSS Logging Profile generates files that allow Apple to troubleshoot issues with your device and help Apple to improve its products and services. The generated files may contain some of your personal information, including your email address as well as the server names, hostnames and IP addresses for any Kerberos-enabled websites you visit. It does not collect information from any non-Kerberos-enabled websites you visit.
+
+By enabling this diagnostic tool and sending a copy of the generated files to Apple, you are consenting to Apple’s use of the content of such files in accordance with its privacy policy (http://www.apple.com/legal/privacy).
+</string>
+    </dict>
+
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadUUID</key>
+            <string>E71AE746-5CD9-40DD-87F8-7537C2E68BA0</string>
+
+            <key>PayloadIdentifier</key>
+            <string>com.apple.defaults.1</string>
+            <key>PayloadType</key>
+            <string>com.apple.defaults.managed</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadContent</key>
+            <array>
+
+                <dict>
+                    <key>DefaultsDomainName</key>
+                    <string>.GlobalPreferences</string>
+                    <key>DefaultsData</key>
+                    <dict>
+                        <key>GSSDebugLevel</key>
+                        <integer>10</integer>
+                        <key>KerberosDebugLevel</key>
+                        <integer>10</integer>
+                    </dict>
+                </dict>
+
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

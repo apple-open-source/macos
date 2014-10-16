@@ -32,6 +32,13 @@
 #define PLATFORM "NETWARE"
 #endif
 
+/* Define command-line rewriting for this platform, handled by core.
+ * For Netware, this is currently handled inside the Netware MPM.
+ * XXX To support a choice of MPMs, extract common platform behavior
+ * into a function specified here.
+ */
+#define AP_PLATFORM_REWRITE_ARGS_HOOK NULL
+
 #include <screen.h>
 
 AP_DECLARE_DATA extern int hold_screen_on_exit; /* Indicates whether the screen should be held open on exit*/
@@ -39,12 +46,10 @@ AP_DECLARE_DATA extern int hold_screen_on_exit; /* Indicates whether the screen 
 #define CASE_BLIND_FILESYSTEM
 #define NO_WRITEV
 
-#define APACHE_MPM_DIR  "server/mpm/netware" /* generated on unix */
-
 #define getpid NXThreadGetId
 
 /* Hold the screen open if there is an exit code and the hold_screen_on_exit flag >= 0 or the
-   hold_screen_on_exit > 0.  If the hold_screen_on_exit flag is < 0 then close the screen no 
+   hold_screen_on_exit > 0.  If the hold_screen_on_exit flag is < 0 then close the screen no
    matter what the exit code is. */
 #define exit(s) {if((s||hold_screen_on_exit)&&(hold_screen_on_exit>=0)){pressanykey();}apr_terminate();exit(s);}
 

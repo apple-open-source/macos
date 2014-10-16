@@ -26,7 +26,7 @@
 
     gss_name_t gname = GSSCreateName((__bridge CFTypeRef)name, GSS_C_NT_USER_NAME, &error);
     if (gname == NULL) {
-        NSLog(@"CreateName failed with: %@", error);
+        [self STCOutput:@"CreateName failed with: %@", error];
         if (error) CFRelease(error);
         return NULL;
     }
@@ -36,7 +36,7 @@
     maj_stat = gss_aapl_initial_cred(gname, mech, (__bridge CFDictionaryRef)options, &cred, &error);
     CFRelease(gname);
     if (maj_stat) {
-        NSLog(@"gss_aapl_initial_cred failed with: %@", error);
+        [self STCOutput:@"gss_aapl_initial_cred failed with: %@", error];
         if (error) CFRelease(error);
         return NULL;
     }
@@ -64,10 +64,13 @@
                                     NULL, NULL, &buffer, NULL, NULL);
     STAssertTrue(maj_stat == GSS_S_COMPLETE, @"failed init_sec_context to %@: %d", serverName, (int)min_stat);
     if (maj_stat) {
-        NSLog(@"FAIL init_sec_context maj_stat: %d", (int)maj_stat);
+        CFErrorRef error = GSSCreateError(GSS_C_NO_OID, maj_stat, min_stat);
+        [self STCOutput:@"FAIL init_sec_context maj_stat: %@", error];
+        if (error)
+            CFRelease(error);
 		res = FALSE;
     } else {
-        NSLog(@"have a buffer of length: %d, success", (int)buffer.length);
+        [self STCOutput:@"have a buffer of length: %d, success", (int)buffer.length];
 		res = TRUE;
 	}
     
@@ -78,9 +81,13 @@
 	return res;
 }
 
-- (void)STCOutput:(NSString *)output
+- (void)STCOutput:(NSString *)format, ...
 {
-    [TestHarness TestHarnessOutput:output];
+    va_list va;
+    va_start(va, format);
+    
+    NSString *string = [[NSString alloc] initWithFormat:format arguments:va];
+    [TestHarness TestHarnessOutput:string];
 }
 
 

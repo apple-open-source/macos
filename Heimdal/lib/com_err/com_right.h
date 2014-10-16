@@ -65,6 +65,7 @@ struct error_table {
     long base;
     int n_msgs;
 };
+
 struct et_list {
     struct et_list *next;
     struct error_table *table;

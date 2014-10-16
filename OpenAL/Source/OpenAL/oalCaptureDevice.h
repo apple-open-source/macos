@@ -24,15 +24,16 @@
 #ifndef __OAL_CAPTURE_DEVICE__
 #define __OAL_CAPTURE_DEVICE__
 
-#include "oalImp.h"
-#include "CAStreamBasicDescription.h"
-#include "CABufferList.h"
-
 #include <CoreAudio/AudioHardware.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <AudioUnit/AudioUnit.h>
 #include <map>
 #include <libkern/OSAtomic.h>
+
+#include "oalImp.h"
+#include "oalRingBuffer.h"
+#include "CAStreamBasicDescription.h"
+#include "CABufferList.h"
 
 #define LOG_CAPTUREDEVICE_VERBOSE         0
 

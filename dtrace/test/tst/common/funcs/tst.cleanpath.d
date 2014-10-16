@@ -56,20 +56,6 @@ BEGIN
 	i = 0;
 }
 
-#if !defined(__APPLE__)
-tick-1ms
-/i < end/
-{
-	printf("cleanpath(\"%s\") = \"%s\"\n", path[i], cleanpath(path[i]));
-	i++;
-}
-
-tick-1ms
-/i == end/
-{
-	exit(0);
-}
-#else
 /* Avoid race to collect buffers on SMP. */
 tick-1ms
 {
@@ -117,4 +103,3 @@ tick-1ms
 	i++;
 	exit(0);
 }
-#endif /* __APPLE__ */

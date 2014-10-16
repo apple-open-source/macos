@@ -90,6 +90,7 @@ my @rewritesyms = (
     "krb5_init_context_flags",
     "krb5_make_principal",
     "krb5_parse_name",
+    "krb5_parse_name_flags",
     "krb5_principal_compare",
     "krb5_principal_get_realm",
     "krb5_timeofday",

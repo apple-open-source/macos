@@ -31,33 +31,31 @@
 namespace WebKit {
 
 PlatformPopupMenuData::PlatformPopupMenuData()
-#if PLATFORM(QT)
-    : multipleSelections(false)
-#endif
 {
 }
 
-void PlatformPopupMenuData::encode(CoreIPC::ArgumentEncoder& encoder) const
+void PlatformPopupMenuData::encode(IPC::ArgumentEncoder& encoder) const
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     encoder << fontInfo;
     encoder << shouldPopOver;
-#elif PLATFORM(QT)
-    encoder << multipleSelections;
+    encoder << hideArrows;
+    encoder.encodeEnum(menuSize);
 #else
     UNUSED_PARAM(encoder);
 #endif
 }
 
-bool PlatformPopupMenuData::decode(CoreIPC::ArgumentDecoder& decoder, PlatformPopupMenuData& data)
+bool PlatformPopupMenuData::decode(IPC::ArgumentDecoder& decoder, PlatformPopupMenuData& data)
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (!decoder.decode(data.fontInfo))
         return false;
     if (!decoder.decode(data.shouldPopOver))
         return false;
-#elif PLATFORM(QT)
-    if (!decoder.decode(data.multipleSelections))
+    if (!decoder.decode(data.hideArrows))
+        return false;
+    if (!decoder.decodeEnum(data.menuSize))
         return false;
 #else
     UNUSED_PARAM(decoder);

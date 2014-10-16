@@ -494,7 +494,7 @@ unexec_regions_merge ()
   unexec_region_info r;
   long total = 0;
   void *zeropage = calloc(1, pagesize);
-
+  long zerodBytes = 0;
   qsort (unexec_regions, num_unexec_regions, sizeof (unexec_regions[0]),
 	 &unexec_regions_sort_compare);
   n = 0;
@@ -524,16 +524,18 @@ unexec_regions_merge ()
 		    }
 	    }
 	    /* Truncate zerod pages */
+	    zerodBytes = 0;
 	    while (r.filesize > 0) {
 		    vm_address_t p = r.range.address + r.filesize - pagesize;
 		    if (memcmp(p, zeropage, pagesize) == 0) {
 			    r.filesize -= pagesize;
+			    zerodBytes += pagesize;
 		    } else {
 			    break;
 		    }
 	    }
-	    if (r.filesize != r.range.size) {
-		    printf("Removed %lx zerod bytes from filesize\n", r.range.size - r.filesize);
+	    if (zerodBytes) {
+		    printf("Removed %lx zerod bytes from filesize\n", zerodBytes);
 	    }
 	    unexec_regions[n++] = r;
 	    r = unexec_regions[i];
@@ -554,17 +556,19 @@ unexec_regions_merge ()
      r.filesize = r.range.size;
   }
   /* Truncate zerod pages */
+  zerodBytes = 0;
   while (r.filesize > 0) {
 	  vm_address_t p = r.range.address + r.filesize - pagesize;
 	  if (memcmp(p, zeropage, pagesize) == 0) {
 		  r.filesize -= pagesize;
+		  zerodBytes += pagesize;
 	  } else {
 		  break;
 	  }
   }
   free(zeropage);
-  if (r.filesize != r.range.size) {
-	  printf("Removed %lx zerod bytes from filesize\n", r.range.size - r.filesize);
+  if (zerodBytes) {
+	  printf("Removed %lx zerod bytes from filesize\n", zerodBytes);
   }
   unexec_regions[n++] = r;
   num_unexec_regions = n;

@@ -80,6 +80,13 @@ typedef enum {
 #define kIOHIDAbsoluteAxisBoundsRemovalPercentage   "AbsoluteAxisBoundsRemovalPercentage"
 
 #define kIOHIDEventServiceQueueSize         "QueueSize"
+#define kIOHIDAltSenderIdKey                "alt_sender_id"
+
+#define kIOHIDAppleVendorSupported          "AppleVendorSupported"
+
+#define kIOHIDSetButtonPropertiesKey        "SetButtonProperties"
+#define kIOHIDSetButtonPriorityKey          "SetButtonPriority"
+#define kIOHIDSetButtonDelayKey             "SetButtonDelay"
 
 __END_DECLS
 

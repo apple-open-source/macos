@@ -1,0 +1,80 @@
+# test variations of {cert,net}fetchEnable
+globals
+allowUnverified = false
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+#
+# everthing supplied locally, but the CRLs might be out of date
+# Enable net-based refresh
+#
+test = test1
+echo Everything supplied explicitly, enabling CRL refresh
+crlNetFetchEnable = true
+cert = ghoo.cer
+cert = JITC_Class3Mail_CA.crt
+root = JITC_Class3_root_CA.cer
+verifyTime = 20030601000000
+crlDb = c3MailCaCrl.db
+end
+#
+# We have local CRLs; ensure we can get everything locally
+#
+test = test2
+echo Everything supplied explicitly, disable net access
+crlNetFetchEnable = false
+cert = ghoo.cer
+cert = JITC_Class3Mail_CA.crt
+root = JITC_Class3_root_CA.cer
+crlDb = c3MailCaCrl.db
+end
+#
+# get intermediate cert from net
+#
+test = test3
+echo force intermediate cert fetch from net
+certNetFetchEnable = true
+cert = ghoo.cer
+# cert = JITC_Class3Mail_CA.crt
+root = JITC_Class3_root_CA.cer
+crlDb = c3MailCaCrl.db
+end
+#
+# get CRLs from net
+#
+test = test4
+echo force CRL fetch from net
+certNetFetchEnable = true
+crlNetFetchEnable = true
+cert = ghoo.cer
+cert = JITC_Class3Mail_CA.crt
+root = JITC_Class3_root_CA.cer
+#crlDb = c3MailCaCrl.db
+end
+#
+# get everything except anchor from net
+#
+test = test5
+echo Everything except leaf and anchor from net
+certNetFetchEnable = true
+crlNetFetchEnable = true
+cert = ghoo.cer
+#cert = JITC_Class3Mail_CA.crt
+root = JITC_Class3_root_CA.cer
+#crlDb = c3MailCaCrl.db
+end
+#
+# get everything from net
+#
+test = test6
+echo Everything from net
+certNetFetchEnable = true
+crlNetFetchEnable = true
+cert = ghoo.cer
+#cert = JITC_Class3Mail_CA.crt
+#root = JITC_Class3_root_CA.cer
+#crlDb = c3MailCaCrl.db
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+end
+

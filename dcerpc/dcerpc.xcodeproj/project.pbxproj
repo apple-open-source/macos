@@ -3756,11 +3756,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CURRENT_PROJECT_VERSION = 58;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CURRENT_PROJECT_VERSION = 61;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				ONLY_ACTIVE_ARCH = YES;
+				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = "";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -3770,9 +3770,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CURRENT_PROJECT_VERSION = 58;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CURRENT_PROJECT_VERSION = 61;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = "";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -3798,8 +3799,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD04350B10769FF80010E492 /* dcerpc_framework.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 58;
+				DYLIB_CURRENT_VERSION = 61;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
@@ -3812,8 +3814,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD04350B10769FF80010E492 /* dcerpc_framework.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 58;
+				DYLIB_CURRENT_VERSION = 61;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
@@ -3825,6 +3828,7 @@
 		DD08161D106C19590007E433 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = dce;
 				SKIP_INSTALL = YES;
 			};
@@ -3833,6 +3837,7 @@
 		DD08161E106C19590007E433 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = dce;
 				SKIP_INSTALL = YES;
 			};
@@ -3842,6 +3847,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = nck_stubs;
 				SKIP_INSTALL = YES;
 			};
@@ -3851,6 +3857,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = nck_stubs;
 				SKIP_INSTALL = YES;
 			};
@@ -3860,6 +3867,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D6A1244F11067218007B04CF /* ncklib.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = nck;
 				SKIP_INSTALL = YES;
 			};
@@ -3869,6 +3877,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D6A1244F11067218007B04CF /* ncklib.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = nck;
 				SKIP_INSTALL = YES;
 			};
@@ -3878,6 +3887,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = mgmt_stubs;
 				SKIP_INSTALL = YES;
 			};
@@ -3887,6 +3897,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = mgmt_stubs;
 				SKIP_INSTALL = YES;
 			};
@@ -3968,6 +3979,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88282810730DF600FBF62B /* dceidl.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				PRODUCT_NAME = dceidl;
 			};
 			name = Debug;
@@ -3976,6 +3988,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88282810730DF600FBF62B /* dceidl.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 			};
 			name = Release;
 		};
@@ -3983,6 +3996,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88282E10730E8F00FBF62B /* idl.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = idl;
 				SKIP_INSTALL = YES;
 			};
@@ -3992,6 +4006,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88282E10730E8F00FBF62B /* idl.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = idl;
 				SKIP_INSTALL = YES;
 			};
@@ -4001,6 +4016,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88283910730EF100FBF62B /* uuid.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = uuid;
 				SKIP_INSTALL = YES;
 			};
@@ -4010,6 +4026,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD88283910730EF100FBF62B /* uuid.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				PRODUCT_NAME = uuid;
 				SKIP_INSTALL = YES;
 			};

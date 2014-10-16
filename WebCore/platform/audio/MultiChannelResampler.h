@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,7 +30,7 @@
 #define MultiChannelResampler_h
 
 #include "SincResampler.h"
-#include <wtf/OwnPtr.h>
+#include <memory>
 
 namespace WebCore {
 
@@ -49,7 +49,7 @@ private:
     // https://bugs.webkit.org/show_bug.cgi?id=75118
     
     // Each channel will be resampled using a high-quality SincResampler.
-    Vector<OwnPtr<SincResampler> > m_kernels;
+    Vector<std::unique_ptr<SincResampler>> m_kernels;
     
     unsigned m_numberOfChannels;
 };

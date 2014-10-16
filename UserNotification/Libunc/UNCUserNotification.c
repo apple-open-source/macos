@@ -2,6 +2,8 @@
 	Copyright 2000, Apple Computer, Inc. All rights reserved.
 */
 
+#if 0
+
 #include "UNCUserNotification.h"
 #include <stdlib.h>
 #include <unistd.h>
@@ -417,3 +419,6 @@ extern int UNCDisplayAlert(double timeout, unsigned long flags, const char *icon
     }
     return retval;
 }
+
+#endif
+

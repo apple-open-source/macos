@@ -38,8 +38,4 @@
  *
  */
 
-#if !defined(__APPLE__)
-inline vfs_t *invalid = xlate<psinfo_t>(curthread->t_procp);
-#else
 inline task_t *invalid = xlate<psinfo_t>(((struct uthread *)curthread->uthread)->uu_proc);
-#endif /* __APPLE__ */

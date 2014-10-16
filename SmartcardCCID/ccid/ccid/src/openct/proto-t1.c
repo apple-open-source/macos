@@ -115,6 +115,7 @@ int t1_init(t1_state_t * t1, int lun)
  */
 void t1_release(/*@unused@*/ t1_state_t * t1)
 {
+	(void)t1;
 	/* NOP */
 }
 
@@ -157,7 +158,7 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 {
 	ct_buf_t sbuf, rbuf, tbuf;
 	unsigned char sdata[T1_BUFFER_SIZE], sblk[5];
-	unsigned int slen, retries, resyncs, sent_length = 0;
+	unsigned int slen, retries, resyncs;
 	size_t last_send = 0;
 
 	if (snd_len == 0)
@@ -290,6 +291,10 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 				DEBUG_COMM4("received: %d, expected: %d, more: %d",
 					t1_seq(pcb), t1->ns, t1->more);
 
+				/* ISO 7816-3 Rule 7.4.2 */
+				if (retries == 0)
+					goto resync;
+
 				/* ISO 7816-3 Rule 7.2 */
 				if (T1_R_BLOCK == t1_block_type(t1->previous_block[PCB]))
 				{
@@ -299,9 +304,6 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 				}
 
 				DEBUG_COMM("R-Block required");
-				/* ISO 7816-3 Rule 7.4.2 */
-				if (retries == 0)
-					goto resync;
 				slen = t1_build(t1, sdata,
 						dad, T1_R_BLOCK | T1_OTHER_ERROR,
 						NULL, NULL);
@@ -329,7 +331,6 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 			 * block successfully */
 			if (t1_seq(pcb) != t1->ns) {
 				ct_buf_get(&sbuf, NULL, last_send);
-				sent_length += last_send;
 				last_send = 0;
 				t1->ns ^= 1;
 			}
@@ -360,6 +361,11 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 			 * an R block */
 			if (t1_seq(pcb) != t1->nr) {
 				DEBUG_COMM("wrong nr");
+
+				/* ISO 7816-3 Rule 7.4.2 */
+				if (retries == 0)
+					goto resync;
+
 				slen = t1_build(t1, sdata, dad,
 						T1_R_BLOCK | T1_OTHER_ERROR,
 						NULL, NULL);
@@ -386,7 +392,6 @@ int t1_transceive(t1_state_t * t1, unsigned int dad,
 				DEBUG_COMM("S-Block answer received");
 				/* ISO 7816-3 Rule 6.3 */
 				t1->state = SENDING;
-				sent_length = 0;
 				last_send = 0;
 				resyncs = 3;
 				retries = t1->retries;
@@ -640,7 +645,7 @@ static int t1_verify_checksum(t1_state_t * t1, unsigned char *rbuf,
 static int t1_xcv(t1_state_t * t1, unsigned char *block, size_t slen,
 	size_t rmax)
 {
-	int n, m;
+	int n;
 	_ccid_descriptor *ccid_desc ;
 	int oldReadTimeout;
 	unsigned int rmax_int;
@@ -664,14 +669,13 @@ static int t1_xcv(t1_state_t * t1, unsigned char *block, size_t slen,
 
 		n = CCID_Transmit(t1 -> lun, slen, block, rmax, t1->wtx);
 		if (n != IFD_SUCCESS)
-			return n;
+			return -1;
 
 		/* the second argument of CCID_Receive() is (unsigned int *)
 		 * so we can't use &rmax since &rmax is a (size_t *) and may not
 		 * be the same on 64-bits architectures for example (iMac G5) */
 		rmax_int = rmax;
 		n = CCID_Receive(t1 -> lun, &rmax_int, block, NULL);
-		rmax = rmax_int;
 
 		if (n == IFD_PARITY_ERROR)
 			return -2;
@@ -682,7 +686,7 @@ static int t1_xcv(t1_state_t * t1, unsigned char *block, size_t slen,
 
 		n = CCID_Transmit(t1 -> lun, 0, block, rmax, t1->wtx);
 		if (n != IFD_SUCCESS)
-			return n;
+			return -1;
 
 		rmax_int = rmax;
 		n = CCID_Receive(t1 -> lun, &rmax_int, &block[3], NULL);
@@ -699,7 +703,7 @@ static int t1_xcv(t1_state_t * t1, unsigned char *block, size_t slen,
 		n = CCID_Transmit(t1 -> lun, slen, block, 0, t1->wtx);
 		t1->wtx = 0;	/* reset to default value */
 		if (n != IFD_SUCCESS)
-			return n;
+			return -1;
 
 		/* Get the response en bloc */
 		rmax_int = rmax;
@@ -715,6 +719,8 @@ static int t1_xcv(t1_state_t * t1, unsigned char *block, size_t slen,
 
 	if (n >= 0)
 	{
+		int m;
+
 		m = block[2] + 3 + t1->rc_bytes;
 		if (m < n)
 			n = m;
@@ -771,7 +777,7 @@ int t1_negotiate_ifsd(t1_state_t * t1, unsigned int dad, int ifsd)
 			|| (sdata[DATA] != ifsd)				/* Wrong ifsd received */
 			|| (sdata[NAD] != swap_nibbles(dad))	/* wrong NAD */
 			|| (!t1_verify_checksum(t1, sdata, n))	/* checksum failed */
-			|| (n != 4 + t1->rc_bytes)				/* wrong frame length */
+			|| (n != 4 + (int)t1->rc_bytes)				/* wrong frame length */
 			|| (sdata[LEN] != 1)					/* wrong data length */
 			|| (sdata[PCB] != (T1_S_BLOCK | T1_S_RESPONSE | T1_S_IFS))) /* wrong PCB */
 			continue;

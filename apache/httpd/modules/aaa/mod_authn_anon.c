@@ -179,7 +179,7 @@ static authn_status check_anonymous(request_rec *r, const char *user,
             || (ap_strchr_c(sent_pw, '@') && ap_strchr_c(sent_pw, '.'))))
     {
         if (conf->logemail && ap_is_initial_req(r)) {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, APR_SUCCESS, r,
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, APR_SUCCESS, r, APLOGNO(01672)
                           "Anonymous: Passwd <%s> Accepted",
                           sent_pw ? sent_pw : "\'none\'");
         }
@@ -198,11 +198,12 @@ static const authn_provider authn_anon_provider =
 
 static void register_hooks(apr_pool_t *p)
 {
-    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "anon", "0",
-                         &authn_anon_provider);
+    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "anon",
+                              AUTHN_PROVIDER_VERSION,
+                              &authn_anon_provider, AP_AUTH_INTERNAL_PER_CONF);
 }
 
-module AP_MODULE_DECLARE_DATA authn_anon_module =
+AP_DECLARE_MODULE(authn_anon) =
 {
     STANDARD20_MODULE_STUFF,
     create_authn_anon_dir_config, /* dir config creater */

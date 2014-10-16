@@ -41,10 +41,12 @@
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
+
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
 
 /*
  * SecCmsEncryptedDataCreate - create an empty encryptedData object.
@@ -72,16 +74,19 @@ SecCmsEncryptedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
     if (encd == NULL)
 	goto loser;
 
-    encd->cmsg = cmsg;
+    encd->contentInfo.cmsg = cmsg;
 
     /* version is set in SecCmsEncryptedDataEncodeBeforeStart() */
 
     switch (algorithm) {
     /* XXX hmmm... hardcoded algorithms? */
+    case SEC_OID_AES_128_CBC:
+    case SEC_OID_AES_192_CBC:
+    case SEC_OID_AES_256_CBC:
     case SEC_OID_RC2_CBC:
     case SEC_OID_DES_EDE3_CBC:
     case SEC_OID_DES_CBC:
-	rv = SecCmsContentInfoSetContentEncAlg((SecArenaPoolRef)poolp, &(encd->contentInfo), algorithm, NULL, keysize);
+	rv = SecCmsContentInfoSetContentEncAlg(&(encd->contentInfo), algorithm, NULL, keysize);
 	break;
     default:
 	/* Assume password-based-encryption.  At least, try that. */
@@ -95,7 +100,7 @@ SecCmsEncryptedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
 	    rv = SECFailure;
 	    break;
 	}
-	rv = SecCmsContentInfoSetContentEncAlgID((SecArenaPoolRef)poolp, &(encd->contentInfo), pbe_algid, keysize);
+	rv = SecCmsContentInfoSetContentEncAlgID(&(encd->contentInfo), pbe_algid, keysize);
 	SECOID_DestroyAlgorithmID (pbe_algid, PR_TRUE);
 	break;
     }
@@ -143,7 +148,7 @@ SecCmsEncryptedDataEncodeBeforeStart(SecCmsEncryptedDataRef encd)
 {
     int version;
     SecSymmetricKeyRef bulkkey = NULL;
-    CSSM_DATA_PTR dummy;
+    SecAsn1Item * dummy;
     SecCmsContentInfoRef cinfo = &(encd->contentInfo);
 
     if (SecCmsArrayIsEmpty((void **)encd->unprotectedAttr))
@@ -151,13 +156,13 @@ SecCmsEncryptedDataEncodeBeforeStart(SecCmsEncryptedDataRef encd)
     else
 	version = SEC_CMS_ENCRYPTED_DATA_VERSION_UPATTR;
     
-    dummy = SEC_ASN1EncodeInteger (encd->cmsg->poolp, &(encd->version), version);
+    dummy = SEC_ASN1EncodeInteger (encd->contentInfo.cmsg->poolp, &(encd->version), version);
     if (dummy == NULL)
 	return SECFailure;
 
     /* now get content encryption key (bulk key) by using our cmsg callback */
-    if (encd->cmsg->decrypt_key_cb)
-	bulkkey = (*encd->cmsg->decrypt_key_cb)(encd->cmsg->decrypt_key_cb_arg, 
+    if (encd->contentInfo.cmsg->decrypt_key_cb)
+	bulkkey = (*encd->contentInfo.cmsg->decrypt_key_cb)(encd->contentInfo.cmsg->decrypt_key_cb_arg, 
 		    SecCmsContentInfoGetContentEncAlg(cinfo));
     if (bulkkey == NULL)
 	return SECFailure;
@@ -192,7 +197,7 @@ SecCmsEncryptedDataEncodeBeforeData(SecCmsEncryptedDataRef encd)
     /* this may modify algid (with IVs generated in a token).
      * it is therefore essential that algid is a pointer to the "real" contentEncAlg,
      * not just to a copy */
-    cinfo->ciphcx = SecCmsCipherContextStartEncrypt(encd->cmsg->poolp, bulkkey, algid);
+    cinfo->ciphcx = SecCmsCipherContextStartEncrypt(encd->contentInfo.cmsg->poolp, bulkkey, algid);
     CFRelease(bulkkey);
     if (cinfo->ciphcx == NULL)
 	return SECFailure;
@@ -231,10 +236,10 @@ SecCmsEncryptedDataDecodeBeforeData(SecCmsEncryptedDataRef encd)
 
     bulkalg = SecCmsContentInfoGetContentEncAlg(cinfo);
 
-    if (encd->cmsg->decrypt_key_cb == NULL)	/* no callback? no key../ */
+    if (encd->contentInfo.cmsg->decrypt_key_cb == NULL)	/* no callback? no key../ */
 	goto loser;
 
-    bulkkey = (*encd->cmsg->decrypt_key_cb)(encd->cmsg->decrypt_key_cb_arg, bulkalg);
+    bulkkey = (*encd->contentInfo.cmsg->decrypt_key_cb)(encd->contentInfo.cmsg->decrypt_key_cb_arg, bulkalg);
     if (bulkkey == NULL)
 	/* no success finding a bulk key */
 	goto loser;

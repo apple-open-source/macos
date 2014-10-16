@@ -344,6 +344,8 @@ kern_return_t __notify_server_post_2
 	gid_t gid = (gid_t)-1;
 	name_info_t *n;
 
+	*name_id = 0;
+
 	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
@@ -414,6 +416,8 @@ kern_return_t __notify_server_post
 {
 	uint64_t ignored_name_id;
 	kern_return_t kstatus;
+
+	*status = NOTIFY_STATUS_OK;
 
 	kstatus = __notify_server_post_2(server, name, nameCnt, &ignored_name_id, status, audit);
 
@@ -489,6 +493,8 @@ kern_return_t __notify_server_register_check_2
 
 	*size = 0;
 	*slot = 0;
+	*name_id = 0;
+	*status = NOTIFY_STATUS_OK;
 
 	*status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
@@ -723,10 +729,6 @@ kern_return_t __notify_server_register_mach_port_2
 
 	c = _nc_table_find_64(global.notify_state->client_table,cid);
 
-#ifdef PORT_DEBUG
-	log_message(ASL_LEVEL_NOTICE, "register com port 0x%08x for pid %d\n", port, pid);
-#endif
-
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, uid, gid);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 
@@ -917,6 +919,8 @@ kern_return_t __notify_server_check
 {
 	pid_t pid = (gid_t)-1;
 
+	*check = 0;
+
 	call_statistics.check++;
 
 	audit_token_to_au32(audit, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
@@ -940,6 +944,8 @@ kern_return_t __notify_server_get_state
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 	client_t *c;
+
+	*state = 0;
 
 	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
@@ -974,6 +980,8 @@ kern_return_t __notify_server_get_state_2
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
 
+	*state = 0;
+
 	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
@@ -997,6 +1005,9 @@ kern_return_t __notify_server_get_state_3
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 	client_t *c;
+
+	*state = 0;
+	*name_id = 0;
 
 	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
@@ -1037,6 +1048,8 @@ kern_return_t __notify_server_set_state_3
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
+	*name_id = 0;
+
 	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
@@ -1072,6 +1085,8 @@ kern_return_t __notify_server_set_state
 {
 	uint64_t ignored;
 	kern_return_t kstatus;
+
+	*status = NOTIFY_STATUS_OK;
 
 	kstatus = __notify_server_set_state_3(server, token, state, &ignored, status, audit);
 
@@ -1150,6 +1165,9 @@ kern_return_t __notify_server_get_owner
 	audit_token_t audit
 )
 {
+	*uid = 0;
+	*gid = 0;
+
 	*status = server_preflight(name, nameCnt, audit, -1, NULL, NULL, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
@@ -1209,6 +1227,8 @@ kern_return_t __notify_server_get_access
 	audit_token_t audit
 )
 {
+	*mode = 0;
+
 	*status = server_preflight(name, nameCnt, audit, -1, NULL, NULL, NULL, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
@@ -1343,6 +1363,10 @@ kern_return_t __notify_server_register_check
 	audit_token_t audit
 )
 {
+	*size = 0;
+	*slot = 0;
+	*status = NOTIFY_STATUS_OK;
+
 	uint64_t nid;
 	int token = generate_token(audit);
 
@@ -1419,8 +1443,12 @@ kern_return_t __notify_server_register_mach_port
 	pid_t pid = (pid_t)-1;
 	int token;
 
+	*client_id = 0;
+	*status = NOTIFY_STATUS_OK;
+
 	if (port == MACH_PORT_DEAD)
 	{
+		if ((name != NULL) && (nameCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_REQUEST;
 		return KERN_SUCCESS;
 	}
@@ -1481,6 +1509,10 @@ kern_return_t __notify_server_regenerate
 	client_t *c;
 	uint64_t cid;
 
+	*new_slot = 0;
+	*new_nid = 0;
+	*status = NOTIFY_STATUS_OK;
+
 	if (name == NULL)
 	{
 		if (path != NULL) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
@@ -1515,6 +1547,8 @@ kern_return_t __notify_server_regenerate
 	if (c != NULL)
 	{
 		/* duplicate client - this should never happen */
+		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
+		if ((path != NULL) && (pathCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
@@ -1556,7 +1590,15 @@ kern_return_t __notify_server_regenerate
 			kstatus = __notify_server_register_signal_2(server, name, nameCnt, token, sig, audit);
 			break;
 		}
-		default: break;
+		case NOTIFY_TYPE_FILE: /* fall through */
+		default:
+		{
+			/* can not regenerate this type */
+			vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
+			if ((path != NULL) && (pathCnt > 0)) vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
+			*status = NOTIFY_STATUS_FAILED;
+			return KERN_SUCCESS;
+		}
 	}
 
 	if (path != NULL)

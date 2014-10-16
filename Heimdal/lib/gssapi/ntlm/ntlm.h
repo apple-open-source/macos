@@ -58,6 +58,7 @@
 #include <heim_threads.h>
 
 #include <kcm.h>
+#include <hex.h>
 
 #include <heimntlm.h>
 

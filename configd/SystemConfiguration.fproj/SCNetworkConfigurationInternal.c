@@ -630,6 +630,9 @@ __rank_to_str(SCNetworkServicePrimaryRank rank, CFStringRef *rankStr)
 		case kSCNetworkServicePrimaryRankNever :
 			*rankStr = kSCValNetServicePrimaryRankNever;
 			break;
+		case kSCNetworkServicePrimaryRankScoped :
+			*rankStr = kSCValNetServicePrimaryRankScoped;
+			break;
 		default :
 			return FALSE;
 	}
@@ -648,6 +651,8 @@ __str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
 			*rank = kSCNetworkServicePrimaryRankLast;
 		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankNever)) {
 			*rank = kSCNetworkServicePrimaryRankNever;
+		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankScoped)) {
+			*rank = kSCNetworkServicePrimaryRankScoped;
 		} else {
 			return FALSE;
 		}

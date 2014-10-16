@@ -261,7 +261,7 @@ decode_realms(krb5_context context,
     char *tmp;
     int quote = 0;
     const char *start = tr;
-    int i;
+    size_t i;
 
     for(i = 0; i < length; i++){
 	if(quote){

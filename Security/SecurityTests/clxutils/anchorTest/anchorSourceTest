@@ -1,0 +1,75 @@
+#! /bin/csh -f
+#
+# verify "root-ness" of all of the certs in specified directory.
+#
+if ( $#argv < 1 ) then
+        echo Usage: anchorSourceTest directory
+		echo A good directory would be ../../../security_certificates/roots/
+        exit(1)
+endif
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set CERTS_DIR=$argv[1]
+
+set QUIET=0
+shift
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET = 1
+            shift
+            breaksw
+        default:
+			echo Usage: anchorSourceTest directory
+            exit(1)
+    endsw
+end
+
+#
+# binaries we need
+#
+set CERTCRL=$BUILD_DIR/certcrl
+set CERTS_FROM_DB=$BUILD_DIR/certsFromDb
+foreach targ ($CERTCRL $CERTS_FROM_DB)
+	if(! -e $targ) then
+		echo === $targ is missing. Try building clxutil. 
+		exit(1)
+	endif
+end
+
+echo starting anchorSourceTest
+#
+# certcrl args:
+#
+#  -c  cert to eval
+#  -C  use this as an anchor
+#  -a  allow certs unverified by CRLs
+#  -f  leaf cert is a CA
+#  -L  silent
+#
+set TEST_FAILED=0
+
+cd $CERTS_DIR
+foreach certFile (*)
+	if ( ( -f "$certFile" ) && ( "$certFile" != X509Anchors) ) then 
+		if($QUIET == 0) then
+			echo testing $certFile....
+		endif
+#		$CERTCRL -c "$certFile" -C "$certFile" -a -f -L -T 20071217154316
+		$CERTCRL -c "$certFile" -C "$certFile" -a -f -L
+		if($status != 0) then
+		   echo "++++++++ Verification error on $certFile"
+		   $CERTCRL -c "$certFile" -C "$certFile" -a -f -v
+		   set TEST_FAILED=1
+		endif
+	endif
+end
+
+if($TEST_FAILED == 1) then
+	echo "anchorSourceTest FAILED"
+	exit(1)
+endif
+
+if($QUIET == 0) then
+	echo "...anchorSourceTest complete"
+endif

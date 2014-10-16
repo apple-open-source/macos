@@ -29,10 +29,6 @@
 #include "WebDatabaseManagerProxy.h"
 #include "WKAPICast.h"
 
-#ifdef __BLOCKS__
-#include <Block.h>
-#endif
-
 using namespace WebKit;
 
 WKTypeID WKDatabaseManagerGetTypeID()
@@ -47,7 +43,7 @@ WKTypeID WKDatabaseManagerGetTypeID()
 WKStringRef WKDatabaseManagerGetOriginKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::originKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::originKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -57,7 +53,7 @@ WKStringRef WKDatabaseManagerGetOriginKey()
 WKStringRef WKDatabaseManagerGetOriginQuotaKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::originQuotaKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::originQuotaKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -67,7 +63,7 @@ WKStringRef WKDatabaseManagerGetOriginQuotaKey()
 WKStringRef WKDatabaseManagerGetOriginUsageKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::originUsageKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::originUsageKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -77,7 +73,7 @@ WKStringRef WKDatabaseManagerGetOriginUsageKey()
 WKStringRef WKDatabaseManagerGetDatabaseDetailsKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::databaseDetailsKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -87,7 +83,7 @@ WKStringRef WKDatabaseManagerGetDatabaseDetailsKey()
 WKStringRef WKDatabaseManagerGetDatabaseDetailsNameKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::databaseDetailsNameKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsNameKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -97,7 +93,7 @@ WKStringRef WKDatabaseManagerGetDatabaseDetailsNameKey()
 WKStringRef WKDatabaseManagerGetDatabaseDetailsDisplayNameKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::databaseDetailsDisplayNameKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsDisplayNameKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -107,7 +103,7 @@ WKStringRef WKDatabaseManagerGetDatabaseDetailsDisplayNameKey()
 WKStringRef WKDatabaseManagerGetDatabaseDetailsExpectedUsageKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::databaseDetailsExpectedUsageKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsExpectedUsageKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
@@ -117,76 +113,75 @@ WKStringRef WKDatabaseManagerGetDatabaseDetailsExpectedUsageKey()
 WKStringRef WKDatabaseManagerGetDatabaseDetailsCurrentUsageKey()
 {
 #if ENABLE(SQL_DATABASE)
-    static WebString* key = WebString::create(WebDatabaseManagerProxy::databaseDetailsCurrentUsageKey()).leakRef();
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsCurrentUsageKey()).leakRef();
     return toAPI(key);
 #else
     return 0;
 #endif
 }
 
-void WKDatabaseManagerSetClient(WKDatabaseManagerRef databaseManagerRef, const WKDatabaseManagerClient* wkClient)
+WKStringRef WKDatabaseManagerGetDatabaseDetailsCreationTimeKey()
+{
+#if ENABLE(SQL_DATABASE)
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsCreationTimeKey()).leakRef();
+    return toAPI(key);
+#else
+    return 0;
+#endif
+}
+
+WKStringRef WKDatabaseManagerGetDatabaseDetailsModificationTimeKey()
+{
+#if ENABLE(SQL_DATABASE)
+    static API::String* key = API::String::create(WebDatabaseManagerProxy::databaseDetailsModificationTimeKey()).leakRef();
+    return toAPI(key);
+#else
+    return 0;
+#endif
+}
+
+void WKDatabaseManagerSetClient(WKDatabaseManagerRef databaseManagerRef, const WKDatabaseManagerClientBase* wkClient)
 {
 #if ENABLE(SQL_DATABASE)
     if (wkClient && wkClient->version)
         return;
     toImpl(databaseManagerRef)->initializeClient(wkClient);
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(wkClient);
 #endif
 }
 
 void WKDatabaseManagerGetDatabasesByOrigin(WKDatabaseManagerRef databaseManagerRef, void* context, WKDatabaseManagerGetDatabasesByOriginFunction callback)
 {
 #if ENABLE(SQL_DATABASE)
-    toImpl(databaseManagerRef)->getDatabasesByOrigin(ArrayCallback::create(context, callback));
+    toImpl(databaseManagerRef)->getDatabasesByOrigin(toGenericCallbackFunction(context, callback));
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(callback);
 #endif
 }
-
-#ifdef __BLOCKS__
-static void callGetDatabasesByOriginBlockAndDispose(WKArrayRef resultValue, WKErrorRef errorRef, void* context)
-{
-#if ENABLE(SQL_DATABASE)
-    WKDatabaseManagerGetDatabasesByOriginBlock block = (WKDatabaseManagerGetDatabasesByOriginBlock)context;
-    block(resultValue, errorRef);
-    Block_release(block);
-#endif
-}
-
-void WKDatabaseManagerGetDatabasesByOrigin_b(WKDatabaseManagerRef databaseManagerRef, WKDatabaseManagerGetDatabasesByOriginBlock block)
-{
-#if ENABLE(SQL_DATABASE)
-    WKDatabaseManagerGetDatabasesByOrigin(databaseManagerRef, Block_copy(block), callGetDatabasesByOriginBlockAndDispose);
-#endif
-}
-#endif // __BLOCKS__
 
 void WKDatabaseManagerGetDatabaseOrigins(WKDatabaseManagerRef databaseManagerRef, void* context, WKDatabaseManagerGetDatabaseOriginsFunction callback)
 {
 #if ENABLE(SQL_DATABASE)
-    toImpl(databaseManagerRef)->getDatabaseOrigins(ArrayCallback::create(context, callback));
+    toImpl(databaseManagerRef)->getDatabaseOrigins(toGenericCallbackFunction(context, callback));
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(callback);
 #endif
 }
-
-#ifdef __BLOCKS__
-static void callGetDatabaseOriginsBlockBlockAndDispose(WKArrayRef resultValue, WKErrorRef errorRef, void* context)
-{
-#if ENABLE(SQL_DATABASE)
-    WKDatabaseManagerGetDatabaseOriginsBlock block = (WKDatabaseManagerGetDatabaseOriginsBlock)context;
-    block(resultValue, errorRef);
-    Block_release(block);
-#endif
-}
-
-void WKDatabaseManagerGetDatabaseOrigins_b(WKDatabaseManagerRef databaseManagerRef, WKDatabaseManagerGetDatabaseOriginsBlock block)
-{
-#if ENABLE(SQL_DATABASE)
-    WKDatabaseManagerGetDatabaseOrigins(databaseManagerRef, Block_copy(block), callGetDatabaseOriginsBlockBlockAndDispose);
-#endif
-}
-#endif // __BLOCKS__
 
 void WKDatabaseManagerDeleteDatabasesWithNameForOrigin(WKDatabaseManagerRef databaseManagerRef, WKStringRef databaseNameRef, WKSecurityOriginRef originRef)
 {
 #if ENABLE(SQL_DATABASE)
     toImpl(databaseManagerRef)->deleteDatabaseWithNameForOrigin(toWTFString(databaseNameRef), toImpl(originRef));
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(databaseNameRef);
+    UNUSED_PARAM(originRef);
 #endif
 }
 
@@ -194,6 +189,9 @@ void WKDatabaseManagerDeleteDatabasesForOrigin(WKDatabaseManagerRef databaseMana
 {
 #if ENABLE(SQL_DATABASE)
     toImpl(databaseManagerRef)->deleteDatabasesForOrigin(toImpl(originRef));
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(originRef);
 #endif
 }
 
@@ -201,6 +199,8 @@ void WKDatabaseManagerDeleteAllDatabases(WKDatabaseManagerRef databaseManagerRef
 {
 #if ENABLE(SQL_DATABASE)
     toImpl(databaseManagerRef)->deleteAllDatabases();
+#else
+    UNUSED_PARAM(databaseManagerRef);
 #endif
 }
 
@@ -208,5 +208,9 @@ void WKDatabaseManagerSetQuotaForOrigin(WKDatabaseManagerRef databaseManagerRef,
 {
 #if ENABLE(SQL_DATABASE)
     toImpl(databaseManagerRef)->setQuotaForOrigin(toImpl(originRef), quota);
+#else
+    UNUSED_PARAM(databaseManagerRef);
+    UNUSED_PARAM(originRef);
+    UNUSED_PARAM(quota);
 #endif
 }

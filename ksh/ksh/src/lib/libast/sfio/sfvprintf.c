@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -299,7 +299,13 @@ loop_fmt :
 			}
 
 		case '-' :
-			flags = (flags & ~(SFFMT_CENTER|SFFMT_ZERO)) | SFFMT_LEFT;
+			if(dot == 1)
+			{	dot = 0;
+				precis = -1;
+				flags |= SFFMT_CHOP;
+			}
+			else
+				flags = (flags & ~(SFFMT_CENTER|SFFMT_ZERO)) | SFFMT_LEFT;
 			goto loop_flags;
 		case '0' :
 			if(!(flags&(SFFMT_LEFT|SFFMT_CENTER)) )
@@ -330,11 +336,11 @@ loop_fmt :
 			flags |= SFFMT_THOUSAND;
 			goto loop_flags;
 
-		case '.' :
+		case '.':
 			dot += 1;
 			if(dot == 1)
 			{	/* so base can be defined without setting precis */
-				if(*form != '.')
+				if(*form != '.' && !(flags & SFFMT_CHOP))
 					precis = 0;
 			}
 			else if(dot == 2)
@@ -414,13 +420,12 @@ loop_fmt :
 				base = v;
 			goto loop_flags;
 
+		/* 2012-06-27 I* will be deprecated and POSIX will probably settle on one of L* or z* */
+		case 'L' : /* long double or L* sizeof object length */
+		case 'z' : /* ssize_t or z* sizeof object length */
 		case 'I' : /* object length */
 			size = -1; flags = (flags & ~SFFMT_TYPES) | SFFMT_IFLAG;
-			if(isdigit(*form) )
-			{	for(size = 0, n = *form; isdigit(n); n = *++form)
-					size = size*10 + (n - '0');
-			}
-			else if(*form == '*')
+			if(*form == '*')
 			{	form = (*_Sffmtintf)(form+1,&n);
 				if(*form == '$')
 				{	form += 1;
@@ -444,6 +449,14 @@ loop_fmt :
 				}
 				else	size = va_arg(args,int);
 			}
+			else if (fmt == 'L')
+				flags = (flags & ~SFFMT_TYPES) | SFFMT_LDOUBLE;
+			else if (fmt == 'z')
+				flags = (flags&~SFFMT_TYPES) | SFFMT_ZFLAG;
+			else if(isdigit(*form) )
+			{	for(size = 0, n = *form; isdigit(n); n = *++form)
+					size = size*10 + (n - '0');
+			}
 			goto loop_flags;
 
 		case 'l' :
@@ -462,15 +475,8 @@ loop_fmt :
 			}
 			else	flags |= SFFMT_SHORT;
 			goto loop_flags;
-		case 'L' :
-			size = -1; flags = (flags & ~SFFMT_TYPES) | SFFMT_LDOUBLE;
-			goto loop_flags;
-
 		case 'j' :
 			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_JFLAG;
-			goto loop_flags;
-		case 'z' :
-			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_ZFLAG;
 			goto loop_flags;
 		case 't' :
 			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_TFLAG;
@@ -723,7 +729,7 @@ loop_fmt :
 						w = v;
 #endif
 				}
-#if _has_multibyte && defined(mbwidth)
+#ifdef mbwidth
 				else if (wc)
 				{	w = 0;
 					SFMBCLR(&mbs);
@@ -746,9 +752,7 @@ loop_fmt :
 				else
 #endif
 				{	if((v = size) < 0)
-						for(v = 0; sp[v]; ++v)
-							if(v == precis)
-								break;
+						for(v = 0; v != precis && sp[v]; ++v);
 					if(precis >= 0 && v > precis)
 						v = precis;
 					w = v;
@@ -760,10 +764,51 @@ loop_fmt :
 						SFnputc(f, ' ', k);
 					}
 					else
-					{
-						SFnputc(f, ' ', n);
+					{	SFnputc(f, ' ', n);
 						n = 0;
 					}
+				}
+				if(n < 0 && (flags & SFFMT_CHOP) && width > 0 && precis < 0)
+				{	
+#if _has_multibyte
+					if(flags & SFFMT_LONG)
+					{	SFMBCLR(&mbs);
+						wsp = (wchar_t*)sp;
+						while(n < 0)
+						{	
+#ifdef mbwidth
+							n += mbwidth(*wsp);
+#else
+							n++;
+#endif
+							wsp++;
+							w--;
+						}
+						sp = (char*)wsp;
+					}
+					else if (wc)
+					{	SFMBCLR(&mbs);
+						osp = sp;
+						while(n < 0)
+						{	ssp = sp;
+							if ((k = mbchar(sp)) <= 0)
+							{	sp = ssp;
+								break;
+							}
+#ifdef mbwidth
+							n += mbwidth(k);
+#else
+							n++;
+#endif
+						}
+						v -= (sp - osp);
+					}
+					else
+#endif
+					{	sp += -n;
+						v += n;
+					}
+					n = 0;
 				}
 #if _has_multibyte
 				if(flags & SFFMT_LONG)

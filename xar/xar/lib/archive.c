@@ -66,12 +66,6 @@
 #include "subdoc.h"
 #include "darwinattr.h"
 
-#ifdef __APPLE__
-#include <CommonCrypto/CommonDigest.h>
-#include <CommonCrypto/CommonDigestSPI.h>
-#include "hash.h"
-#endif
-
 #ifndef O_EXLOCK
 #define O_EXLOCK 0
 #endif
@@ -118,6 +112,10 @@ static xar_t xar_new() {
 	XAR(ret)->link_hash = xmlHashCreate(0);
 	XAR(ret)->csum_hash = xmlHashCreate(0);
 	XAR(ret)->subdocs = NULL;
+	
+	XAR(ret)->attrcopy_to_heap = xar_attrcopy_to_heap;
+	XAR(ret)->attrcopy_from_heap = xar_attrcopy_from_heap;
+	XAR(ret)->heap_to_archive = xar_heap_to_archive;
 	
 	return ret;
 }
@@ -198,10 +196,7 @@ xar_t xar_open(const char *file, int32_t flags) {
 	if( !file )
 		file = "-";
 	XAR(ret)->filename = strdup(file);
-#ifndef __APPLE__
-	OpenSSL_add_all_digests();
-#endif // __APPLE__
-	if( flags ) {
+	if( flags ) { // writing
 		char *tmp1, *tmp2, *tmp3, *tmp4;
 		tmp1 = tmp2 = strdup(file);
 		tmp3 = dirname(tmp2);
@@ -225,6 +220,7 @@ xar_t xar_open(const char *file, int32_t flags) {
 			free(XAR(ret));
 			return NULL;
 		}
+		
 		unlink(tmp4);
 		free(tmp4);
 
@@ -243,19 +239,8 @@ xar_t xar_open(const char *file, int32_t flags) {
 		
 		xar_opt_set(ret, XAR_OPT_COMPRESSION, XAR_OPT_VAL_GZIP);
 		xar_opt_set(ret, XAR_OPT_FILECKSUM, XAR_OPT_VAL_SHA1);
+		xar_opt_set(ret, XAR_OPT_TOCCKSUM, XAR_OPT_VAL_SHA1);
 	} else {
-#ifdef __APPLE__
-        unsigned char toccksum[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
-        unsigned char cval[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
-#else
-        unsigned char toccksum[EVP_MAX_MD_SIZE];
-		unsigned char cval[EVP_MAX_MD_SIZE];
-#endif
-		unsigned int tlen;
-#ifndef __APPLE__
-		const EVP_MD *md;
-#endif // !__APPLE__
-
 		if( strcmp(file, "-") == 0 )
 			XAR(ret)->fd = 0;
 		else{
@@ -282,22 +267,16 @@ xar_t xar_open(const char *file, int32_t flags) {
 		case XAR_CKSUM_NONE:
 			break;
 		case XAR_CKSUM_SHA1:
-			XAR(ret)->docksum = 1;
-#ifdef __APPLE__
-            XAR(ret)->toc_ctx = digestRef_from_name("sha1", &XAR(ret)->toc_ctx_length);
-#else
-			md = EVP_get_digestbyname("sha1");
-			EVP_DigestInit(&XAR(ret)->toc_ctx, md);
-#endif
+			XAR(ret)->toc_hash_ctx = xar_hash_new("sha1", (void *)ret);
+			break;
+		case XAR_CKSUM_SHA256:
+			XAR(ret)->toc_hash_ctx = xar_hash_new("sha256", (void *)ret);
+			break;
+		case XAR_CKSUM_SHA512:
+			XAR(ret)->toc_hash_ctx = xar_hash_new("sha512", (void *)ret);
 			break;
 		case XAR_CKSUM_MD5:
-			XAR(ret)->docksum = 1;
-#ifdef __APPLE__
-            XAR(ret)->toc_ctx = digestRef_from_name("md5", &XAR(ret)->toc_ctx_length);
-#else
-			md = EVP_get_digestbyname("md5");
-			EVP_DigestInit(&XAR(ret)->toc_ctx, md);
-#endif
+			XAR(ret)->toc_hash_ctx = xar_hash_new("md5", (void *)ret);
 			break;
 		default:
 			fprintf(stderr, "Unknown hashing algorithm, skipping\n");
@@ -325,6 +304,12 @@ xar_t xar_open(const char *file, int32_t flags) {
 			case XAR_CKSUM_SHA1:
 				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_SHA1) == 0);
 				break;
+			case XAR_CKSUM_SHA256:
+				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_SHA256) == 0);
+				break;
+			case XAR_CKSUM_SHA512:
+				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_SHA512) == 0);
+				break;
 			case XAR_CKSUM_MD5:
 				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_MD5) == 0);
 				break;
@@ -348,18 +333,10 @@ xar_t xar_open(const char *file, int32_t flags) {
 			xar_close(ret);
 			return NULL;
 		}
-			
-		if( !XAR(ret)->docksum )
+		
+		/* If we aren't checksumming the TOC, we're done */
+		if( !XAR(ret)->toc_hash_ctx )
 			return ret;
-
-#ifdef __APPLE__
-        CCDigestFinal(XAR(ret)->toc_ctx, toccksum);
-        CCDigestDestroy(XAR(ret)->toc_ctx);
-        XAR(ret)->toc_ctx = NULL;
-        tlen = XAR(ret)->toc_ctx_length;
-#else
-		EVP_DigestFinal(&XAR(ret)->toc_ctx, toccksum, &tlen);
-#endif
         
         /* if TOC specifies a location for the checksum, make sure that
          * we read the checksum from there: this is required for an archive
@@ -368,7 +345,7 @@ xar_t xar_open(const char *file, int32_t flags) {
          */
 		const char *value;
 		uint64_t offset = 0;
-		uint64_t length = tlen;
+		uint64_t length = 0;
 		if( xar_prop_get( XAR_FILE(ret) , "checksum/offset", &value) == 0 ) {
 			errno = 0;
 			offset = strtoull( value, (char **)NULL, 10);
@@ -399,18 +376,35 @@ xar_t xar_open(const char *file, int32_t flags) {
 			xar_close(ret);
 			return NULL;
 		}
+		
+		size_t tlen = 0;
+		void *toccksum = xar_hash_finish(XAR(ret)->toc_hash_ctx, &tlen);
+		
 		if( length != tlen ) {
+			free(toccksum);
 			xar_close(ret);
 			return NULL;
 		}
-        		
+		
+		void *cval = calloc(1, tlen);
+		if( ! cval ) {
+			free(toccksum);
+			xar_close(ret);
+			return NULL;
+		}
+		
 		xar_read_fd(XAR(ret)->fd, cval, tlen);
 		XAR(ret)->heap_offset += tlen;
 		if( memcmp(cval, toccksum, tlen) != 0 ) {
 			fprintf(stderr, "Checksums do not match!\n");
+			free(toccksum);
+			free(cval);
 			xar_close(ret);
 			return NULL;
 		}
+		
+		free(toccksum);
+		free(cval);
 	}
 
 	return ret;
@@ -435,11 +429,6 @@ int xar_close(xar_t x) {
 		long rsize, wsize;
 		z_stream zs;
 		uint64_t ungztoc, gztoc;
-#ifdef __APPLE__
-        unsigned char chkstr[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
-#else        
-		unsigned char chkstr[EVP_MAX_MD_SIZE];
-#endif
 		int tocfd;
 		char timestr[128];
 		struct tm tmptm;
@@ -450,37 +439,34 @@ int xar_close(xar_t x) {
 		if( !tmpser ) tmpser = XAR_OPT_VAL_SHA1;
 
 		if( (strcmp(tmpser, XAR_OPT_VAL_NONE) != 0) ) {
-#ifndef __APPLE__
-			const EVP_MD *md;
-#endif // __APPLE__
 			xar_prop_set(XAR_FILE(x), "checksum", NULL);
 			if( strcmp(tmpser, XAR_OPT_VAL_SHA1) == 0 ) {
-#ifdef __APPLE__
-                XAR(x)->toc_ctx = digestRef_from_name("sha1", &XAR(x)->toc_ctx_length);
-#else
-				md = EVP_get_digestbyname("sha1");
-				EVP_DigestInit(&XAR(x)->toc_ctx, md);
-#endif
+				XAR(x)->toc_hash_ctx = xar_hash_new("sha1", (void *)x);
 				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_SHA1);
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_SHA1);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "20");
 			}
+			if( strcmp(tmpser, XAR_OPT_VAL_SHA256) == 0 ) {
+				XAR(x)->toc_hash_ctx = xar_hash_new("sha256", (void *)x);
+				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_SHA256);
+				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_SHA256);
+				xar_prop_set(XAR_FILE(x), "checksum/size", "32");
+			}
+			if( strcmp(tmpser, XAR_OPT_VAL_SHA512) == 0 ) {
+				XAR(x)->toc_hash_ctx = xar_hash_new("sha512", (void *)x);
+				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_SHA512);
+				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_SHA512);
+				xar_prop_set(XAR_FILE(x), "checksum/size", "64");
+			}
 			if( strcmp(tmpser, XAR_OPT_VAL_MD5) == 0 ) {
-#ifdef __APPLE__
-                XAR(x)->toc_ctx = digestRef_from_name("md5", &XAR(x)->toc_ctx_length);
-#else
-				md = EVP_get_digestbyname("md5");
-				EVP_DigestInit(&XAR(x)->toc_ctx, md);
-#endif
+				XAR(x)->toc_hash_ctx = xar_hash_new("md5", (void *)x);
 				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_MD5);
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_MD5);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "16");
 			}
 
 			xar_prop_set(XAR_FILE(x), "checksum/offset", "0");
-			XAR(x)->docksum = 1;
 		} else {
-			XAR(x)->docksum = 0;
 			XAR(x)->header.cksum_alg = XAR_CKSUM_NONE;
 		}
 
@@ -489,7 +475,7 @@ int xar_close(xar_t x) {
 		memset(timestr, 0, sizeof(timestr));
 		strftime(timestr, sizeof(timestr), "%FT%T", &tmptm);
 		xar_prop_set(XAR_FILE(x), "creation-time", timestr);
-
+		
 		/* serialize the toc to a tmp file */
 		asprintf(&tmpser, "%s/xar.toc.XXXXXX", XAR(x)->dirname);
 		fd = mkstemp(tmpser);
@@ -568,12 +554,8 @@ int xar_close(xar_t x) {
 					retval = -1;
 					goto CLOSEEND;
 				}
-				if( XAR(x)->docksum )
-#ifdef __APPLE__
-                    CCDigestUpdate(XAR(x)->toc_ctx, ((char*)wbuf)+off, r);
-#else
-					EVP_DigestUpdate(&XAR(x)->toc_ctx, ((char*)wbuf)+off, r);
-#endif // __APPLE__
+				if( XAR(x)->toc_hash_ctx )
+					xar_hash_update(XAR(x)->toc_hash_ctx, ((char*)wbuf)+off, r);
 				off += r;
 				gztoc += r;
 			} while( off < wbytes );
@@ -588,12 +570,8 @@ int xar_close(xar_t x) {
 		deflate(&zs, Z_FINISH);
 		r = write(tocfd, wbuf, wsize - zs.avail_out);
 		gztoc += r;
-		if( XAR(x)->docksum )
-#ifdef __APPLE__
-            CCDigestUpdate(XAR(x)->toc_ctx, wbuf, r);
-#else
-			EVP_DigestUpdate(&XAR(x)->toc_ctx, wbuf, r);
-#endif // __APPLE__
+		if( XAR(x)->toc_hash_ctx )
+			xar_hash_update(XAR(x)->toc_hash_ctx, wbuf, r);
 		
 		deflateEnd(&zs);
 
@@ -632,95 +610,64 @@ int xar_close(xar_t x) {
 			} while( off < wbytes );
 		}
 
-		if( XAR(x)->docksum ) {
-			unsigned int l = r;
-			
-			memset(chkstr, 0, sizeof(chkstr));
-#ifdef __APPLE__
-            CCDigestFinal(XAR(x)->toc_ctx, chkstr);
-            CCDigestDestroy(XAR(x)->toc_ctx);
-            XAR(x)->toc_ctx = NULL;
-            l = XAR(x)->toc_ctx_length;
-#else
-			EVP_DigestFinal(&XAR(x)->toc_ctx, chkstr, &l);
-#endif
-			r = l;
-			write(XAR(x)->fd, chkstr, r);
-		}
+		if( XAR(x)->toc_hash_ctx ) {
+			size_t chklen = 0;
+			void *chkstr = xar_hash_finish(XAR(x)->toc_hash_ctx, &chklen);
+			write(XAR(x)->fd, chkstr, chklen);
 
-		/* If there are any signatures, get the signed data a sign it */
-		if( XAR(x)->docksum && XAR(x)->signatures ) {
-			xar_signature_t sig;
-			uint32_t data_len = r;
-			uint32_t signed_len = 0;
-			uint8_t *signed_data = NULL;
-			
-			/* Loop through the signatures */
-			for(sig = XAR(x)->signatures; sig; sig = XAR_SIGNATURE(sig)->next ){				
-				signed_len = XAR_SIGNATURE(sig)->len;
+			/* If there are any signatures, get the signed data a sign it */
+			if( XAR(x)->signatures ) {
+				xar_signature_t sig;
+				uint32_t signed_len = 0;
+				uint8_t *signed_data = NULL;
 				
-				/* If callback returns something other then 0, bail */
-				if( 0 != sig->signer_callback( sig, sig->callback_context, chkstr, data_len, &signed_data, &signed_len ) ){
-					fprintf(stderr, "Error signing data.\n");
-					retval = -1;
-					close(fd);
-					close(tocfd);
-					goto CLOSE_BAIL;					
+				/* Loop through the signatures */
+				for(sig = XAR(x)->signatures; sig; sig = XAR_SIGNATURE(sig)->next ){				
+					signed_len = XAR_SIGNATURE(sig)->len;
+					
+					/* If callback returns something other then 0, bail */
+					if( 0 != sig->signer_callback( sig, sig->callback_context, chkstr, chklen, &signed_data, &signed_len ) ){
+						fprintf(stderr, "Error signing data.\n");
+						free(chkstr);
+						retval = -1;
+						close(fd);
+						close(tocfd);
+						goto CLOSE_BAIL;					
+					}
+					
+					if( signed_len != XAR_SIGNATURE(sig)->len ){
+						fprintf(stderr, "Signed data not the proper length.  %i should be %i.\n",signed_len,XAR_SIGNATURE(sig)->len);
+						free(chkstr);
+						retval = -1;
+						close(fd);
+						close(tocfd);
+						goto CLOSE_BAIL;										
+					}
+					
+					/* Write the signed data to the heap */
+					write(XAR(x)->fd, signed_data,XAR_SIGNATURE(sig)->len);
+					
+					free(signed_data);
 				}
-				
-				if( signed_len != XAR_SIGNATURE(sig)->len ){
-					fprintf(stderr, "Signed data not the proper length.  %i should be %i.\n",signed_len,XAR_SIGNATURE(sig)->len);
-					retval = -1;
-					close(fd);
-					close(tocfd);
-					goto CLOSE_BAIL;										
-				}
-				
-				/* Write the signed data to the heap */
-				write(XAR(x)->fd, signed_data,XAR_SIGNATURE(sig)->len);
-				
-				free(signed_data);
+				free(chkstr);
 			}
 			
 			xar_signature_remove( XAR(x)->signatures );
 			XAR(x)->signatures = NULL;
 		}
-
+		
 		/* copy the heap from the temporary heap into the archive */
-		if( lseek(XAR(x)->heap_fd, (off_t)0, SEEK_SET) < 0 ) {
-			fprintf(stderr, "Error lseeking to offset 0: %s\n", strerror(errno));
-			exit(1);
+		if( 0 > XAR(x)->heap_to_archive(x) ) {
+			xar_err_new(x);
+			xar_err_set_string(x, "Error while copying heap contents into archive");
+			xar_err_set_errno(x, errno);
+			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_CREATION);
+			retval = -1;
+			close(fd);
+			close(tocfd);
+			goto CLOSEEND;
 		}
-		rbytes = 0;
-		while(1) {
-			if( (XAR(x)->heap_len - rbytes) < rsize )
-				rsize = XAR(x)->heap_len - rbytes;
-
-			r = read(XAR(x)->heap_fd, rbuf, rsize);
-			if( (r < 0 ) && (errno == EINTR) )
-				continue;
-			if( r == 0 )
-				break;
-	
-			rbytes += r;
-			wbytes = r;
-			off = 0;
-			do {
-				r = write(XAR(x)->fd, ((char *)rbuf)+off, wbytes);
-				if( (r < 0 ) && (errno == EINTR) )
-					continue;
-				if( r < 0 ) {
-					retval = -1;
-					close(fd);
-					close(tocfd);
-					goto CLOSEEND;
-				}
-				off += r;
-			} while( off < wbytes );
-
-			if( rbytes >= XAR(x)->heap_len )
-				break;
-		}
+		
 CLOSEEND:
 		close(fd);
 		close(tocfd);
@@ -802,15 +749,7 @@ int32_t xar_opt_set(xar_t x, const char *option, const char *value) {
 	xar_attr_t currentAttr, a;
 
 	if( (strcmp(option, XAR_OPT_TOCCKSUM) == 0) ) {
-		if( strcmp(value, XAR_OPT_VAL_NONE) == 0 ) {
-			XAR(x)->heap_offset = 0;
-		}
-		if( strcmp(value, XAR_OPT_VAL_SHA1) == 0 ) {
-			XAR(x)->heap_offset = 20;
-		}
-		if( strcmp(value, XAR_OPT_VAL_MD5) == 0 ) {
-			XAR(x)->heap_offset = 16;
-		}
+		XAR(x)->heap_offset = xar_io_get_toc_checksum_length_for_type(value);
 	}
 	
 	/*	This was an edit from xar-1.4
@@ -1472,13 +1411,9 @@ static int toc_read_callback(void *context, char *buffer, int len) {
 			ret = read(XAR(x)->fd, XAR(x)->readbuf, XAR(x)->readbuf_len);
 		if ( ret == -1 )
 			return ret;
-
-		if ( XAR(x)->docksum )
-#ifdef __APPLE__
-            CCDigestUpdate(XAR(x)->toc_ctx, XAR(x)->readbuf, ret);
-#else
-			EVP_DigestUpdate(&XAR(x)->toc_ctx, XAR(x)->readbuf, ret);
-#endif
+		
+		if ( XAR(x)->toc_hash_ctx )
+			xar_hash_update(XAR(x)->toc_hash_ctx, XAR(x)->readbuf, ret);
 
 		XAR(x)->toc_count += ret;
 		off += ret;

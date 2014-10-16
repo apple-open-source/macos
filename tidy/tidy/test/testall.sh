@@ -10,9 +10,9 @@
 #
 # CVS Info:
 #
-#    $Author: iccir $
-#    $Date: 2007/01/31 02:33:39 $
-#    $Revision: 1.1 $
+#    $Author$
+#    $Date$
+#    $Revision$
 #
 # set -x
 

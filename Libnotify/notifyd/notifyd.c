@@ -37,6 +37,7 @@
 #include <asl.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <CrashReporterClient.h>
 #include <TargetConditionals.h>
 #include "pathwatch.h"
 #include "notifyd.h"
@@ -53,8 +54,16 @@
 /* Compile flags */
 #define RUN_TIME_CHECKS
 
+#if TARGET_IPHONE_SIMULATOR
+static const char *_config_file_path;
+#define CONFIG_FILE_PATH _config_file_path
+
+static const char *_debug_log_path;
+#define DEBUG_LOG_PATH _debug_log_path
+#else
 #define CONFIG_FILE_PATH "/etc/notify.conf"
 #define DEBUG_LOG_PATH "/var/log/notifyd.log"
+#endif
 
 #define STATUS_REQUEST_SHORT 0
 #define STATUS_REQUEST_LONG 1
@@ -641,27 +650,26 @@ log_message(int priority, const char *str, ...)
 	time_t t;
 	char now[32];
 	va_list ap;
+	FILE *lfp;
 
 	if (priority > global.log_cutoff) return;
+	if (global.log_path == NULL) return;
+
+	lfp = fopen(global.log_path, "a");
+	if (lfp == NULL) return;
 
 	va_start(ap, str);
 
-	if (global.log_file != NULL)
-	{
-		t = time(NULL);
-		memset(now, 0, 32);
-		strftime(now, 32, "%b %e %T", localtime(&t));
+	t = time(NULL);
+	memset(now, 0, 32);
+	strftime(now, 32, "%b %e %T", localtime(&t));
 
-		fprintf(global.log_file, "%s: ", now);
-		vfprintf(global.log_file, str, ap);
-		fflush(global.log_file);
-	}
-	else
-	{
-		vfprintf(stderr, str, ap);
-	}
+	fprintf(lfp, "%s: ", now);
+	vfprintf(lfp, str, ap);
+	fflush(lfp);
 
 	va_end(ap);
+	fclose(lfp);
 }
 
 uint32_t
@@ -1026,14 +1034,16 @@ service_mach_message(bool blocking)
 		request->head.msgh_local_port = global.server_port;
 		request->head.msgh_size = global.request_size;
 
-		rbits = MACH_RCV_MSG | (blocking ? 0 : MACH_RCV_TIMEOUT) | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
+		rbits = MACH_RCV_MSG | (blocking ? 0 : MACH_RCV_TIMEOUT) | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) | MACH_RCV_VOUCHER;
 		sbits = MACH_SEND_MSG;
 
 		status = mach_msg(&(request->head), rbits, 0, global.request_size, global.server_port, 0, MACH_PORT_NULL);
 		if (status != KERN_SUCCESS) return;
 
+		voucher_mach_msg_state_t voucher = voucher_mach_msg_adopt(&(request->head));
+
 #if TARGET_OS_EMBEDDED
-		/* Synchronize with work_q since  on embedded main() calls this
+		/* Synchronize with work_q since on embedded main() calls this
 		 * from the global concurrent queue. */
 		dispatch_sync(global.work_q, ^{
 			status = notify_ipc_server(&(request->head), &(reply->head));
@@ -1041,12 +1051,14 @@ service_mach_message(bool blocking)
 #else
 		status = notify_ipc_server(&(request->head), &(reply->head));
 #endif
+
 		if (!status && (request->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
 		{
 			/* destroy the request - but not the reply port */
 			request->head.msgh_remote_port = MACH_PORT_NULL;
 			mach_msg_destroy(&(request->head));
 		}
+
 		if (reply->head.msgh_remote_port)
 		{
 			status = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL);
@@ -1056,6 +1068,8 @@ service_mach_message(bool blocking)
 				mach_msg_destroy(&(reply->head));
 			}
 		}
+
+		voucher_mach_msg_revert(voucher);
 	}
 }
 
@@ -1080,7 +1094,11 @@ open_shared_memory(const char *name)
 
 	if (shmfd == -1)
 	{
-		fprintf(stderr, "shm_open %s failed: %s\n", name, strerror(errno));
+		char error_message[1024];
+		snprintf(error_message, sizeof(error_message), "shm_open %s failed: %s\n", name, strerror(errno));
+
+		CRSetCrashLogMessage(error_message);
+		log_message(ASL_LEVEL_NOTICE, "%s", error_message);
 		return -1;
 	}
 
@@ -1117,12 +1135,13 @@ main(int argc, const char *argv[])
 	uint32_t i, status;
 	struct rlimit rlim;
 
+#if TARGET_IPHONE_SIMULATOR
+	asprintf(&_config_file_path, "%s/private/etc/notify.conf", getenv("SIMULATOR_ROOT"));
+ 	asprintf(&_debug_log_path, "%s/var/log/notifyd.log", getenv("SIMULATOR_LOG_ROOT"));
+#endif
+
 	service_name = NOTIFY_SERVICE_NAME;
 	shm_name = SHM_ID;
-
-#ifdef PORT_DEBUG
-	debug_log_file = fopen("/var/log/notifyd.log", "a");
-#endif
 
 	notify_set_options(NOTIFY_OPT_DISABLE);
 
@@ -1143,8 +1162,8 @@ main(int argc, const char *argv[])
 	global.reply_size = sizeof(notify_reply_msg) + MAX_TRAILER_SIZE;
 	global.nslots = getpagesize() / sizeof(uint32_t);
 	global.notify_state = _notify_lib_notify_state_new(NOTIFY_STATE_ENABLE_RESEND, 1024);
-	global.log_cutoff = ASL_LEVEL_NOTICE;
-	global.log_file = NULL;
+	global.log_cutoff = ASL_LEVEL_ERR;
+	global.log_path = strdup(DEBUG_LOG_PATH);
 	global.slot_id = (uint32_t)-1;
 
 	for (i = 1; i < argc; i++)
@@ -1159,8 +1178,8 @@ main(int argc, const char *argv[])
 		}
 		else if (!strcmp(argv[i], "-log_file"))
 		{
-			if (global.log_file != NULL) fclose(global.log_file);
-			global.log_file = fopen(argv[++i], "a");
+			free(global.log_path);
+			global.log_path = strdup(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-service"))
 		{
@@ -1178,13 +1197,7 @@ main(int argc, const char *argv[])
 
 	global.log_default = global.log_cutoff;
 
-	if (global.log_file == NULL)
-	{
-		global.log_file = fopen(DEBUG_LOG_PATH, "a");
-	}
-
-	log_message(ASL_LEVEL_DEBUG, "--------------------\n");
-	log_message(ASL_LEVEL_DEBUG, "notifyd start PID %u\n", getpid());
+	log_message(ASL_LEVEL_DEBUG, "--------------------\nnotifyd start PID %u\n", getpid());
 
 	init_launch_config(service_name);
 
@@ -1207,7 +1220,7 @@ main(int argc, const char *argv[])
 	/* Block a thread in mach_msg() to avoid the syscall overhead of frequent
 	 * dispatch source wakeup, and synchronize with work_q after message
 	 * reception in service_mach_message(). <rdar://problem/8785140> */
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		forever service_mach_message(true);
 	});
 #else

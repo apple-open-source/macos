@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -40,13 +40,13 @@ class SVGDocument;
 class SVGFontElement;
 struct FontCustomPlatformData;
 
-class CachedFont FINAL : public CachedResource {
+class CachedFont final : public CachedResource {
 public:
-    CachedFont(const ResourceRequest&);
+    CachedFont(const ResourceRequest&, SessionID);
     virtual ~CachedFont();
 
     void beginLoadIfNeeded(CachedResourceLoader* dl);
-    bool stillNeedsLoad() const { return !m_loadInitiated; }
+    virtual bool stillNeedsLoad() const override { return !m_loadInitiated; }
 
     bool ensureCustomFontData();
     FontPlatformData platformDataFromCustomData(float size, bool bold, bool italic, FontOrientation = Horizontal, FontWidthVariant = RegularWidth, FontRenderingMode = NormalRenderingMode);
@@ -57,19 +57,19 @@ public:
 #endif
 
 private:
-    virtual void checkNotify();
-    virtual bool mayTryReplaceEncodedData() const OVERRIDE;
+    virtual void checkNotify() override;
+    virtual bool mayTryReplaceEncodedData() const override;
 
-    virtual void load(CachedResourceLoader*, const ResourceLoaderOptions&) OVERRIDE;
+    virtual void load(CachedResourceLoader*, const ResourceLoaderOptions&) override;
 
-    virtual void didAddClient(CachedResourceClient*) OVERRIDE;
-    virtual void finishLoading(ResourceBuffer*) OVERRIDE;
+    virtual void didAddClient(CachedResourceClient*) override;
+    virtual void finishLoading(ResourceBuffer*) override;
 
-    virtual void allClientsRemoved() OVERRIDE;
+    virtual void allClientsRemoved() override;
 
-    FontCustomPlatformData* m_fontData;
+    std::unique_ptr<FontCustomPlatformData> m_fontData;
     bool m_loadInitiated;
-    bool m_hasCreatedFontData;
+    bool m_hasCreatedFontDataWrappingResource;
 
 #if ENABLE(SVG_FONTS)
     RefPtr<SVGDocument> m_externalSVGDocument;
@@ -77,6 +77,8 @@ private:
 
     friend class MemoryCache;
 };
+
+CACHED_RESOURCE_TYPE_CASTS(CachedFont, CachedResource, CachedResource::FontResource)
 
 } // namespace WebCore
 

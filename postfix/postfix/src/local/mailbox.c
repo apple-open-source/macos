@@ -344,14 +344,6 @@ int     deliver_mailbox(LOCAL_STATE state, USER_ATTR usr_attr, int *statusp)
 			      BOUNCE_ATTR(state.msg_attr));
     } else if (*var_mailbox_command) {
 	status = deliver_command(state, usr_attr, var_mailbox_command);
-#ifdef __APPLE_OS_X_SERVER__
-#if 0
-	} else if ( var_use_od_delivery_path ) {
-	path = aod_get_maildir_path( state.msg_attr.user );
-	status = deliver_maildir(state, usr_attr, path);
-	free(path);
-#endif
-#endif /* __APPLE_OS_X_SERVER__ */
     } else if (*var_home_mailbox && LAST_CHAR(var_home_mailbox) == '/') {
 	path = concatenate(usr_attr.home, "/", var_home_mailbox, (char *) 0);
 	status = deliver_maildir(state, usr_attr, path);

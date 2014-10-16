@@ -1,4 +1,0 @@
-/^#ifdef HAVE_NCURSES_H/a
-#define NCURSES_OPAQUE 0
-.
-w

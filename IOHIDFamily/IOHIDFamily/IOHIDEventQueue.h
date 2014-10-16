@@ -31,6 +31,7 @@
 #include "IOHIDElementPrivate.h"
 
 #define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue)+ sizeof(void *)
+#define MIN_HID_QUEUE_CAPACITY  16384
 
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
@@ -69,7 +70,9 @@ public:
     
     static IOHIDEventQueue * withEntries( UInt32 numEntries,
                                           UInt32 entrySize );
-                                          
+    
+    virtual Boolean initWithEntries(UInt32 numEntries, UInt32 entrySize);
+    
     virtual void free();
 
     virtual Boolean enqueue( void * data, UInt32 dataSize );

@@ -28,12 +28,14 @@
 
 #include <sys/cdefs.h>
 #include <notify.h>
+#include <mach/vm_map.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include "IOSystemConfiguration.h"
 #include "IOPSKeys.h"
 #include "IOPowerSources.h"
 #include "IOPowerSourcesPrivate.h"
+#include "powermanagement.h"
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <notify.h>
 
@@ -47,10 +49,6 @@
 
 #ifndef kIOPSDynamicStorePowerAdapterKey
 #define kIOPSDynamicStorePowerAdapterKey "/IOKit/PowerAdapter"
-#endif
-
-#if TARGET_OS_EMBEDDED
-#define kIOPSDynamicStoreFullPath "State:/IOKit/PowerSources/InternalBattery-0"
 #endif
 
 IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
@@ -91,41 +89,134 @@ SAD_EXIT:
 
 // powerd uses these same constants to define the bitfields in the
 // kIOPSTimeRemainingNotificationKey key
-#define     _kPSTimeRemainingNotifyExternalBit       (1 << 16)
-#define     _kPSTimeRemainingNotifyChargingBit       (1 << 17)
-#define     _kPSTimeRemainingNotifyUnknownBit        (1 << 18)
-#define     _kPSTimeRemainingNotifyValidBit          (1 << 19)
 #define     _kSecondsPerMinute                       ((CFTimeInterval)60.0)
 CFTimeInterval IOPSGetTimeRemainingEstimate(void)
 {
-    int                 myNotifyToken = 0;
+    int                 token = 0;
     uint64_t            packedBatteryData = 0;
-    int                 myNotifyStatus = 0;
+    int                 status = 0;
 
-    myNotifyStatus = notify_register_check(kIOPSTimeRemainingNotificationKey, &myNotifyToken);
+    status = notify_register_check(kIOPSTimeRemainingNotificationKey, &token);
 
-    if (NOTIFY_STATUS_OK != myNotifyStatus) {
+    if (NOTIFY_STATUS_OK != status) {
         // FAILURE: We return an optimistic unlimited time remaining estimate 
         // if we don't know the truth.
         return kIOPSTimeRemainingUnlimited;
     }
 
-    notify_get_state(myNotifyToken, &packedBatteryData);
+    notify_get_state(token, &packedBatteryData);
 
-    notify_cancel(myNotifyToken);
+    notify_cancel(token);
 
-    if (!(packedBatteryData & _kPSTimeRemainingNotifyValidBit)
-        || (packedBatteryData & _kPSTimeRemainingNotifyExternalBit)) {
+    if (!(packedBatteryData & kPSTimeRemainingNotifyValidBit)
+        || (packedBatteryData & kPSTimeRemainingNotifyExternalBit)) {
         return kIOPSTimeRemainingUnlimited;
     }
 
-    if (packedBatteryData & _kPSTimeRemainingNotifyUnknownBit) {
+    if (packedBatteryData & kPSTimeRemainingNotifyUnknownBit) {
         return kIOPSTimeRemainingUnknown;
     }
     
     return (_kSecondsPerMinute * (CFTimeInterval)(packedBatteryData & 0xFFFF));
 }
 
+IOReturn IOPSGetPercentRemaining(int *percent, bool *isCharging, bool *isFullyCharged)
+{
+    int                 token = 0;
+    uint64_t            packedBatteryBits = 0;
+    int                 status = 0;
+    IOReturn            error = kIOReturnSuccess;
+
+    if (!percent)
+        return kIOReturnBadArgument;
+
+    status = notify_register_check(kIOPSNotifyPercentChange, &token);
+    if (NOTIFY_STATUS_OK != status) {
+        error = kIOReturnInternalError;
+        goto exit;
+    }
+
+    notify_get_state(token, &packedBatteryBits);
+    notify_cancel(token);
+
+    if (!(packedBatteryBits & kPSTimeRemainingNotifyValidBit)) {
+        error = kIOReturnNotReady;
+        goto exit;
+    }
+
+    *percent = MIN((packedBatteryBits & 0xFF), 100);
+    if (isCharging)
+        *isCharging = ((packedBatteryBits & kPSTimeRemainingNotifyChargingBit) != 0);
+    if (isFullyCharged)
+        *isFullyCharged = ((packedBatteryBits & kPSTimeRemainingNotifyFullyChargedBit) != 0);
+
+exit:
+    if (kIOReturnSuccess != error) {
+        // Return consistent values on failure
+        *percent = 100;
+        if (isCharging)
+            *isCharging = false;
+        if (isFullyCharged)
+            *isFullyCharged = true;
+    }
+
+    return error;
+}
+
+bool IOPSDrawingUnlimitedPower(void)
+{
+    int                 token = 0;
+    uint64_t            packedBatteryBits = 0;
+    int                 status = 0;
+    bool                unlimitedPower = true;
+    const int           kUnlimitedBits = (kPSTimeRemainingNotifyValidBit |
+                                          kPSTimeRemainingNotifyExternalBit);
+
+    status = notify_register_check(kIOPSNotifyPercentChange, &token);
+    if (NOTIFY_STATUS_OK == status) {
+        notify_get_state(token, &packedBatteryBits);
+        notify_cancel(token);
+        if ((packedBatteryBits & kUnlimitedBits) == kPSTimeRemainingNotifyValidBit)
+            unlimitedPower = false;
+    }
+
+    return unlimitedPower;
+}
+
+IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
+                                      bool *batterySupport,
+                                      bool *externalBatteryAttached)
+{
+    int                 token = 0;
+    int                 status = 0;
+    uint64_t            packedBatteryBits = 0;
+
+    status = notify_register_check(kIOPSTimeRemainingNotificationKey,
+                                           &token);
+    if (NOTIFY_STATUS_OK != status) {
+        return kIOReturnError;
+    }
+
+    notify_get_state(token, &packedBatteryBits);
+    notify_cancel(token);
+
+    if (batterySupport) {
+        *batterySupport =
+            (packedBatteryBits & kPSTimeRemainingNotifyBattSupportBit) ? true:false;
+    }
+
+    if (externalBatteryAttached) {
+        *externalBatteryAttached =
+            (packedBatteryBits & kPSTimeRemainingNotifyUPSSupportBit) ? true:false;
+    }
+
+    uint8_t activeInt = 0xFF & (packedBatteryBits >> kPSTimeRemainingNotifyActivePS8BitsStarts);
+    if (active) {
+        *active = (int)activeInt;
+    }
+
+    return kIOReturnSuccess;
+}
 
 CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
 {
@@ -154,36 +245,9 @@ SAD_EXIT:
     return ret_dict;
 }
 
-static CFArrayRef CreatePSKeysArray(void)
-{
-    CFStringRef                 ps_match = NULL;
-    CFMutableArrayRef           ps_arr = NULL;
-    
-#if TARGET_OS_EMBEDDED
-    // Doing a regex match on iOS is unnecessary as there is always only 1
-    // power source, whose identity is known.
-    // Optimization for <rdar://problem/11177160>
-    ps_match = SCDynamicStoreKeyCreate(kCFAllocatorDefault,
-                                       CFSTR(kIOPSDynamicStoreFullPath));
-#else
-    // Create regular expression to match all Power Sources
-    ps_match = SCDynamicStoreKeyCreate(
-                                       kCFAllocatorDefault,
-                                       CFSTR("%@%@/%@"),
-                                       _io_kSCDynamicStoreDomainState,
-                                       CFSTR(kIOPSDynamicStorePath),
-                                       _io_kSCCompAnyRegex);
-#endif
-    
-    if(!ps_match) return NULL;
-    ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if(!ps_arr) return NULL;
-    CFArrayAppendValue(ps_arr, ps_match);
-    CFRelease(ps_match);
-    
-    return (CFArrayRef)ps_arr;
-}
 
+__private_extern__ IOReturn _pm_connect(mach_port_t *newConnection);
+__private_extern__ IOReturn _pm_disconnect(mach_port_t connection);
 
 /***
  Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
@@ -193,46 +257,42 @@ static CFArrayRef CreatePSKeysArray(void)
  Return: Caller must CFRelease() the return value when done.
 ***/
 CFTypeRef IOPSCopyPowerSourcesInfo(void) {
-    SCDynamicStoreRef   store = NULL;
     CFArrayRef          ps_arr = NULL;
-    CFDictionaryRef     power_sources = NULL;
-    
-    // Open connection to SCDynamicStore
-    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                CFSTR("IOKit Power Source Copy"), NULL, NULL);
-    if(!store) { 
-        goto exit;
-     }
 
-    ps_arr = CreatePSKeysArray();
+    mach_port_t pm_server = MACH_PORT_NULL;
 
-#if TARGET_OS_EMBEDDED
-    // No need to pattern check on embedded. There is always only one power source
-    // <rdar://problem/11177160>
-    power_sources = SCDynamicStoreCopyMultiple(store, ps_arr, NULL);
-#else
-    // Copy multiple Power Sources into dictionary
-    power_sources = SCDynamicStoreCopyMultiple(store, NULL, ps_arr);
-#endif
-    
-exit:
+    if (kIOReturnSuccess == _pm_connect(&pm_server))
+    {
+        vm_address_t            buffer = 0;
+        vm_size_t               size = 0;
+        CFDataRef               d = NULL;
+        int                     return_code;
 
-    if (ps_arr)
-        CFRelease(ps_arr);
-    if (store)
-        CFRelease(store);
+        io_ps_copy_powersources_info(pm_server,
+                                      &buffer,
+                                      (mach_msg_type_number_t *) &size,
+                                     &return_code);
 
-    if(!power_sources) {
-        // On failure, we return an empty dictionary instead of NULL
-        power_sources = CFDictionaryCreate( kCFAllocatorDefault, 
-                                  NULL, NULL, 0, 
-                                  &kCFTypeDictionaryKeyCallBacks,
-                                  &kCFTypeDictionaryValueCallBacks);
+        d = CFDataCreate(0, (const UInt8 *)buffer, size);
+        if (d) {
+            ps_arr = (CFArrayRef)CFPropertyListCreateWithData(0, d, 0, NULL, NULL);
+            CFRelease(d);
+        }
+
+        vm_deallocate(mach_task_self(), buffer, size);
+    }
+
+    if(!ps_arr) {
+        // On failure, we return an empty array instead of NULL
+        ps_arr = (CFTypeRef)CFArrayCreate(kCFAllocatorDefault,
+                                          NULL, 0,
+                                          &kCFTypeArrayCallBacks);
     }
 
     // Return CFDictionary as opaque CFTypeRef
-    return (CFTypeRef)power_sources;
+    return (CFTypeRef)ps_arr;
 }
+
 
 /***
  Arguments - Takes the CFTypeRef returned by IOPSCopyPowerSourcesInfo()
@@ -243,42 +303,11 @@ exit:
  Return: Caller must CFRelease() the returned CFArray.
 ***/
 CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob) {
-    int                 count;
-    void                **keys;
-    CFArrayRef          arr;
-    bool                failure = false;
-
-    // Check that the argument is actually a CFDictionary
-    if( !blob 
-        || (CFGetTypeID(blob) != CFDictionaryGetTypeID()) ) 
-    {
-        failure = true;
-        goto exit;
-    }
-    
-    // allocate buffers for keys and values
-    count = CFDictionaryGetCount((CFDictionaryRef)blob);    
-    keys = (void **)malloc(count * sizeof(void *));
-    if(!keys) {
-        failure = true;
-        goto exit;
+    if (isA_CFArray(blob)) {
+        return CFArrayCreateCopy(0, (CFArrayRef)blob);
     }
 
-    // Get keys and values from CFDictionary
-    CFDictionaryGetKeysAndValues((CFDictionaryRef)blob, (const void **)keys, NULL);
-    
-    // Create CFArray from keys
-    arr = CFArrayCreate(kCFAllocatorDefault, (const void **)keys, count, &kCFTypeArrayCallBacks);
-    
-    // free keys and values
-    free(keys);
-exit:
-    if(failure) {
-        // On failure, we return an empty array instead of NULL
-        arr = CFArrayCreate( 0, NULL, 0, &kCFTypeArrayCallBacks);
-    }
-    // Return CFArray
-    return arr;
+    return NULL;
 }
 
 /***
@@ -289,24 +318,13 @@ exit:
  Return: Caller should not CFRelease the returned CFArray
 ***/
 CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps) {
-    // Check that the info is a CFDictionary
-    if( !(blob && (CFGetTypeID(blob)==CFDictionaryGetTypeID())) ) 
-        return NULL;
+    if (blob) {
+        return (CFDictionaryRef)ps;
+    }
     
-    // Check that the Power Source is a CFString
-    if( !(ps && (CFGetTypeID(ps)==CFStringGetTypeID())) ) 
-        return NULL;
-    
-    // Extract the CFDictionary of Battery Info
-    // and return
-    return CFDictionaryGetValue(blob, ps);
+    return NULL;
 }
 
-static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
-{
-    CFDictionaryRef the_dict = IOPSGetPowerSourceDescription(blob, id);
-    return CFDictionaryGetValue(the_dict, CFSTR(kIOPSPowerSourceStateKey));
-}
 
 /* IOPSGetProvidingPowerSourceType
  * Argument: 
@@ -315,71 +333,34 @@ static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
  *  The current system power source.
  *  CFSTR("AC Power"), CFSTR("Battery Power"), CFSTR("UPS Power")
  */
-CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
+enum {
+    kProvidedByAC = 1,
+    kProvidedByBattery,
+    kProvidedByUPS
+};
+
+CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob __unused)
 {
-    CFTypeRef       the_ups = NULL;
-    CFTypeRef       the_batt = NULL;
-    CFStringRef     ps_state = NULL;
-    
-    
-    if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMBatteryPowerKey)))
+    IOPSPowerSourceIndex activeps;
+    IOReturn ret;
+    CFStringRef returnValue;
+
+    ret = IOPSGetSupportedPowerSources(&activeps, NULL, NULL);
+
+    if (kIOReturnSuccess != ret)
     {
-        if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey))) {
-            // no batteries, no UPS -> AC Power
-            return CFSTR(kIOPMACPowerKey);
-        } else {
-            // optimization opportunity: needless loops inside IOPSGetActiveUPS
-            the_ups = IOPSGetActiveUPS(ps_blob);
-            if(!the_ups) return CFSTR(kIOPMACPowerKey);
-            ps_state = getPowerSourceState(ps_blob, the_ups);
-            if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
-            {
-                // no batteries, yes UPS, UPS is running off of AC power -> AC Power
-                return CFSTR(kIOPMACPowerKey);
-            } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
-            {
-                // no batteries, yes UPS, UPS is running off of Battery power -> UPS Power
-                return CFSTR(kIOPMUPSPowerKey);
-            }
-            
-        }
-        // Error in the data we were passed
         return CFSTR(kIOPMACPowerKey);
-    } else {
-        // Optimization opportunity: needless loops inside IOPSGetActiveBattery
-        the_batt = IOPSGetActiveBattery(ps_blob);
-        if(!the_batt) return CFSTR(kIOPMACPowerKey);
-        ps_state = getPowerSourceState(ps_blob, the_batt);
-        if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
-        {
-            // Yes batteries, yes running on battery power -> Battery power
-            return CFSTR(kIOPMBatteryPowerKey);
-        } else {
-            // batteries are on AC power. let's check UPS.
-            // optimize.
-            if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey)))
-            {
-                // yes batteries on AC power, no UPS -> AC Power
-                return CFSTR(kIOPMACPowerKey);
-            } else {
-                the_ups = IOPSGetActiveUPS(ps_blob);
-                if(!the_ups) return CFSTR(kIOPMACPowerKey);
-                ps_state = getPowerSourceState(ps_blob, the_ups);
-                if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))                
-                {
-                    // yes batteries on AC power, UPS is on battery power -> UPS Power
-                    return CFSTR(kIOPMUPSPowerKey);
-                } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
-                {
-                    // yes batteries on AC Power, UPS is on AC Power -> AC Power
-                    return CFSTR(kIOPMACPowerKey);
-                }
-            }
-        }
     }
-    
-    // Should not reach this point. Return something safe.
-    return CFSTR(kIOPMACPowerKey);
+
+    if (kIOPSProvidedByExternalBattery == activeps) {
+        returnValue = CFSTR(kIOPMUPSPowerKey);
+    } else if (kIOPSProvidedByBattery == activeps) {
+        returnValue = CFSTR(kIOPMBatteryPowerKey);
+    } else {
+        returnValue = CFSTR(kIOPMACPowerKey);
+    }
+
+    return returnValue;
 }
 
 

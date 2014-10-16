@@ -10,11 +10,14 @@
 #include <syslog.h>
 
 #include "psauth.h"
-#include "sasl.h"
+#include <sasl.h>
 #include "saslutil.h"
 #include "saslplug.h"
 #include <lber.h>
 #include "slap.h"
+
+#undef calloc
+#undef free
 
 /* In sasl.c */
 extern int slap_sasl_log( void *context, int priority, const char *message);
@@ -259,6 +262,12 @@ int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData, Connecti
 	result = sasl_auxprop_add_plugin( "appleldap", pws_auxprop_init );
 	if( result != SASL_OK ) {
 		syslog(LOG_ERR, "sasl_auxprop_add_plugin returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_set_path(SASL_PATH_TYPE_PLUGIN, "/usr/lib/sasl2/openldap");
+	if(result != SASL_OK) {
+		syslog(LOG_ERR, "sasl_set_path returned: %d", result);
 		goto out;
 	}
 

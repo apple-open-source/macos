@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,7 @@ char const copyright[] =
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/socket.h>
+#include <sys/sys_domain.h>
 
 #include <netinet/in.h>
 #include <net/pfkeyv2.h>
@@ -121,9 +122,7 @@ struct protox {
 	{ NULL,		ipsec_stats,	NULL,	"ipsec", IPPROTO_ESP},
 #endif
 	{ NULL,		arp_stats,	NULL,	"arp",	0 },
-#if TARGET_OS_EMBEDDED
 	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
-#endif
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
@@ -136,13 +135,8 @@ struct protox ip6protox[] = {
 #ifdef IPSEC
 	{ NULL,		ipsec_stats,	NULL,	"ipsec6", IPPROTO_ESP },
 #endif
-#ifdef notyet
-	{ NULL,		pim6_stats,	NULL,	"pim6",	0 },
-#endif
 	{ NULL,		rip6_stats,	NULL,	"rip6",	IPPROTO_RAW },
-#if TARGET_OS_EMBEDDED
 	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
-#endif
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 #endif /*INET6*/
@@ -154,6 +148,14 @@ struct protox pfkeyprotox[] = {
 };
 #endif
 
+
+struct protox systmprotox[] = {
+	{ systmpr,	NULL,		NULL,	"reg", 0 },
+	{ systmpr,	kevt_stats,		NULL,	"kevt", SYSPROTO_EVENT },
+	{ systmpr,	kctl_stats,	NULL,	"kctl", SYSPROTO_CONTROL },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
+
 struct protox *protoprotox[] = {
 	protox,
 #ifdef INET6
@@ -162,6 +164,7 @@ struct protox *protoprotox[] = {
 #ifdef IPSEC
 	pfkeyprotox,
 #endif
+	systmprotox,
 	NULL
 };
 
@@ -251,8 +254,10 @@ main(argc, argv)
 			else if (strcmp(optarg, "pfkey") == 0)
 				af = PF_KEY;
 #endif /*INET6*/
-			else if (strcmp(optarg, "unix") == 0)
-				af = AF_UNIX;
+                        else if (strcmp(optarg, "unix") == 0)
+                                af = AF_UNIX;
+                        else if (strcmp(optarg, "systm") == 0)
+                                af = AF_SYSTEM;
 			else {
 				errx(1, "%s: unknown address family", optarg);
 			}
@@ -385,23 +390,6 @@ main(argc, argv)
 
 #if defined(__APPLE__)
 	if (gflag) {
-#if !TARGET_OS_EMBEDDED
-		if (sflag) {
-			if (af == AF_INET || af == AF_UNSPEC)
-				mrt_stats();
-#ifdef INET6
-			if (af == AF_INET6 || af == AF_UNSPEC)
-				mrt6_stats();
-#endif
-		} else {
-			if (af == AF_INET || af == AF_UNSPEC)
-				mroutepr();
-#ifdef INET6
-			if (af == AF_INET6 || af == AF_UNSPEC)
-				mroute6pr();
-#endif
-		}
-#endif /* !TARGET_OS_EMBEDDED */
 		ifmalist_dump();
 		exit(0);
 	}
@@ -426,6 +414,11 @@ main(argc, argv)
 #endif /*IPSEC*/
 	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag && !sflag)
 		unixpr();
+		
+	if ((af == AF_SYSTEM || af == AF_UNSPEC) && !Lflag)
+		for (tp = systmprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+			
 #ifdef SRVCACHE
 	_serv_cache_close();
 #endif

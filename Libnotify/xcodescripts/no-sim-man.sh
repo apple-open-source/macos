@@ -1,8 +1,5 @@
 #!/bin/bash -ex
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	if [ -n ${DSTROOT} -a -d ${DSTROOT}/usr ] ; then
-		rm -rf ${DSTROOT}/usr
-	fi
+if [[ "${PLATFORM_NAME}" =~ "simulator" ]]; then
+	rm -rf ${DSTROOT}${INSTALL_PATH_PREFIX}/usr/share/man
 fi

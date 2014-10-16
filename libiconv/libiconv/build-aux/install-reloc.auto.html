@@ -1,0 +1,155 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>install-reloc</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">install-reloc&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-reference">#!/bin/sh
+</span><span class="enscript-comment"># install-reloc - install a program including a relocating wrapper
+</span><span class="enscript-comment"># Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+</span><span class="enscript-comment"># Written by Bruno Haible &lt;<a href="mailto:bruno@clisp.org">bruno@clisp.org</a>&gt;, 2003.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># This program is free software; you can redistribute it and/or modify
+</span><span class="enscript-comment"># it under the terms of the GNU General Public License as published by
+</span><span class="enscript-comment"># the Free Software Foundation; either version 2, or (at your option)
+</span><span class="enscript-comment"># any later version.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># This program is distributed in the hope that it will be useful,
+</span><span class="enscript-comment"># but WITHOUT ANY WARRANTY; without even the implied warranty of
+</span><span class="enscript-comment"># MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+</span><span class="enscript-comment"># GNU General Public License for more details.
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment"># You should have received a copy of the GNU General Public License
+</span><span class="enscript-comment"># along with this program; if not, write to the Free Software Foundation,
+</span><span class="enscript-comment"># Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+</span>
+<span class="enscript-comment"># Usage:
+</span><span class="enscript-comment">#   install-reloc library_path_var library_path_value prefix compile_command srcdir config_h_dir exeext install_command... destprog
+</span><span class="enscript-comment"># where
+</span><span class="enscript-comment">#   - library_path_var is the platform dependent runtime library path variable
+</span><span class="enscript-comment">#   - library_path_value is a colon separated list of directories that contain
+</span><span class="enscript-comment">#     the libraries at installation time (use this instead of -rpath)
+</span><span class="enscript-comment">#   - prefix is the base directory at installation time
+</span><span class="enscript-comment">#   - compile_command is a C compiler compilation and linking command
+</span><span class="enscript-comment">#   - srcdir is the directory where to find relocwrapper.c and its dependencies
+</span><span class="enscript-comment">#   - builddir is the directory where to find built dependencies (namely,
+</span><span class="enscript-comment">#     alloca.h and stdbool.h)
+</span><span class="enscript-comment">#   - config_h_dir is the directory where to find config.h
+</span><span class="enscript-comment">#   - exeext is platform dependent suffix of executables
+</span><span class="enscript-comment">#   - install-command is the install command line, excluding the final destprog
+</span><span class="enscript-comment">#   - destprog is the destination program name
+</span><span class="enscript-comment"># install-reloc renames destprog to destprog.bin and installs a relocating
+</span><span class="enscript-comment"># wrapper in the place of destprog.
+</span>
+progname=$0
+
+<span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> $<span class="enscript-comment"># -eq 2; then
+</span>  <span class="enscript-comment"># Get arguments from environment variables.
+</span>  library_path_var=$RELOC_LIBRARY_PATH_VAR
+  library_path_value=$RELOC_LIBRARY_PATH_VALUE
+  prefix=$RELOC_PREFIX
+  compile_command=$RELOC_COMPILE_COMMAND
+  srcdir=$RELOC_SRCDIR
+  builddir=$RELOC_BUILDDIR
+  config_h_dir=$RELOC_CONFIG_H_DIR
+  exeext=$RELOC_EXEEXT
+  install_prog=$RELOC_INSTALL_PROG <span class="enscript-comment"># including the &quot;-c&quot; option
+</span><span class="enscript-keyword">else</span>
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> $<span class="enscript-comment"># -ge 9; then
+</span>    <span class="enscript-comment"># Get fixed position arguments.
+</span>    library_path_var=$1
+    library_path_value=$2
+    prefix=$3
+    compile_command=$4
+    srcdir=$5
+    builddir=$6
+    config_h_dir=$7
+    exeext=$8
+    install_prog=$9 <span class="enscript-comment"># maybe not including the &quot;-c&quot; option
+</span>    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+    <span class="enscript-keyword">shift</span>
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;Usage: $0 library_path_var library_path_value prefix compile_command srcdir builddir config_h_dir exeext install_command... destprog&quot;</span> 1&gt;&amp;2
+    <span class="enscript-keyword">exit</span> 1
+  <span class="enscript-keyword">fi</span>
+<span class="enscript-keyword">fi</span>
+
+<span class="enscript-comment"># Get destprog, last argument.
+</span>destprog=
+<span class="enscript-keyword">for</span> arg
+<span class="enscript-keyword">do</span>
+  destprog=$arg
+<span class="enscript-keyword">done</span>
+<span class="enscript-comment"># Remove trailing $exeext, if present.
+</span><span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$exeext&quot;</span>; <span class="enscript-keyword">then</span>
+  sedexpr='s|'`<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$exeext&quot;</span> | sed -e 's,\.,\\\.,g'`'$||'
+  destprog=`<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$destprog&quot;</span> | sed -e <span class="enscript-string">&quot;$sedexpr&quot;</span>`
+<span class="enscript-keyword">fi</span>
+
+<span class="enscript-comment"># Outputs a command and runs it.
+</span>func_verbose ()
+{
+  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$@&quot;</span>
+  <span class="enscript-string">&quot;$@&quot;</span>
+}
+
+<span class="enscript-comment"># Run install_command.
+</span>func_verbose $install_prog <span class="enscript-string">&quot;$@&quot;</span> || <span class="enscript-keyword">exit</span> $?
+
+<span class="enscript-comment"># If the platform doesn't support LD_LIBRARY_PATH or similar, we cannot build
+</span><span class="enscript-comment"># a wrapper.
+</span><span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$library_path_var&quot;</span> || <span class="enscript-keyword">exit</span> 0
+
+libdirs=
+save_IFS=<span class="enscript-string">&quot;$IFS&quot;</span>; <span class="enscript-keyword">IFS</span>=<span class="enscript-string">&quot;:&quot;</span>
+<span class="enscript-keyword">for</span> dir <span class="enscript-keyword">in</span> $library_path_value; <span class="enscript-keyword">do</span>
+  <span class="enscript-keyword">IFS</span>=<span class="enscript-string">&quot;$save_IFS&quot;</span>
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$dir&quot;</span>; <span class="enscript-keyword">then</span>
+    <span class="enscript-keyword">case</span> <span class="enscript-string">&quot;$libdirs&quot;</span> <span class="enscript-keyword">in</span>
+      *<span class="enscript-string">&quot;\&quot;$dir\&quot;&quot;</span>*) ;; <span class="enscript-comment"># remove duplicate
+</span>      *) libdirs=<span class="enscript-string">&quot;$libdirs\&quot;$dir\&quot;,&quot;</span> ;;
+    <span class="enscript-keyword">esac</span>
+  <span class="enscript-keyword">fi</span>
+<span class="enscript-keyword">done</span>
+<span class="enscript-keyword">IFS</span>=<span class="enscript-string">&quot;$save_IFS&quot;</span>
+<span class="enscript-comment"># If there are no library directories to add at runtime, we don't need a
+</span><span class="enscript-comment"># wrapper.
+</span><span class="enscript-keyword">test</span> -n <span class="enscript-string">&quot;$libdirs&quot;</span> || <span class="enscript-keyword">exit</span> 0
+
+<span class="enscript-comment"># Compile wrapper.
+</span>installdir=`<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$destprog&quot;</span> | sed -e 's,/[^/]*$,,'`
+func_verbose $compile_command -I<span class="enscript-string">&quot;$builddir&quot;</span> -I<span class="enscript-string">&quot;$srcdir&quot;</span> -I<span class="enscript-string">&quot;$config_h_dir&quot;</span> -DHAVE_CONFIG_H -DNO_XMALLOC -D<span class="enscript-string">&quot;INSTALLPREFIX=\&quot;$prefix\&quot;&quot;</span> -D<span class="enscript-string">&quot;INSTALLDIR=\&quot;$installdir\&quot;&quot;</span> -D<span class="enscript-string">&quot;LIBPATHVAR=\&quot;$library_path_var\&quot;&quot;</span> -D<span class="enscript-string">&quot;LIBDIRS=$libdirs&quot;</span> -D<span class="enscript-string">&quot;EXEEXT=\&quot;$exeext\&quot;&quot;</span> <span class="enscript-string">&quot;$srcdir&quot;</span>/relocwrapper.c <span class="enscript-string">&quot;$srcdir&quot;</span>/progname.c <span class="enscript-string">&quot;$srcdir&quot;</span>/progreloc.c <span class="enscript-string">&quot;$srcdir&quot;</span>/xreadlink.c <span class="enscript-string">&quot;$srcdir&quot;</span>/readlink.c <span class="enscript-string">&quot;$srcdir&quot;</span>/canonicalize.c <span class="enscript-string">&quot;$srcdir&quot;</span>/allocsa.c <span class="enscript-string">&quot;$srcdir&quot;</span>/relocatable.c <span class="enscript-string">&quot;$srcdir&quot;</span>/setenv.c <span class="enscript-string">&quot;$srcdir&quot;</span>/strerror.c -o <span class="enscript-string">&quot;$destprog.wrapper$exeext&quot;</span> || <span class="enscript-keyword">exit</span> $?
+
+<span class="enscript-comment"># Rename $destprog.wrapper -&gt; $destprog -&gt; $destprog.bin.
+</span>ln -f <span class="enscript-string">&quot;$destprog$exeext&quot;</span> <span class="enscript-string">&quot;$destprog.bin$exeext&quot;</span> \
+  || { rm -f <span class="enscript-string">&quot;$destprog.bin$exeext&quot;</span> &amp;&amp; cp -p <span class="enscript-string">&quot;$destprog$exeext&quot;</span> <span class="enscript-string">&quot;$destprog.bin$exeext&quot;</span>; } \
+  || <span class="enscript-keyword">exit</span> 1
+mv <span class="enscript-string">&quot;$destprog.wrapper$exeext&quot;</span> <span class="enscript-string">&quot;$destprog$exeext&quot;</span> || <span class="enscript-keyword">exit</span> 1
+
+<span class="enscript-keyword">exit</span> 0
+</pre>
+<hr />
+</body></html>

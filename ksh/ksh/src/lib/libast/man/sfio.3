@@ -146,6 +146,9 @@ SFFMT_LLONG
 SFFMT_SHORT
 SFFMT_LDOUBLE
 SFFMT_IFLAG
+SFFMT_JFLAG
+SFFMT_CENTER
+SFFMT_CHOP
 SFFMT_ALTER
 SFFMT_SKIP
 SFFMT_ARGPOS
@@ -1061,6 +1064,12 @@ The bits are:
 
 \f5SFFMT_IFLAG\fP: flag \f5I\fP in \f5sfprintf()\fP and \f5sfscanf()\fP.
 
+\f5SFFMT_JFLAG\fP: flag \f5j\fP in \f5sfprintf()\fP and \f5sfscanf()\fP.
+
+\f5SFFMT_CENTER\fP: flag \f5=\fP in \f5sfprintf()\fP and \f5sfscanf()\fP.
+
+\f5SFFMT_CHOP\fP: flag \f5-\fP in \fIprecis\fP in \f5sfprintf()\fP and \f5sfscanf()\fP.
+
 \f5SFFMT_ALTER\fP: Flag \f5#\fP in \f5sfprintf()\fP and \f5sfscanf()\fP.
 
 \f5SFFMT_SKIP\fP: Flag \f5*\fP in \f5sfscanf()\fP.
@@ -1232,7 +1241,7 @@ Doing so may cause unexpected behaviors.
 \f5flag\fP:
 The flag characters are
 \f5h\fP, \f5hh\fP, \f5l\fP, \f5ll\fP, \f5L\fP, \f5I\fP, \f5j\fP, \f5t\fP, \f5z\fP,
-\f5\-\fP, \f5+\fP, \fIspace\fP, \f50\fP, \f5'\fP and \f5#\fP.
+\f5\-\fP, \f5+\fP, \fIspace\fP, \f50\fP, \f5'\fP, \f5=\fP and \f5#\fP.
 
 Flag \f5I\fP defines the size or type of the object being formatted.
 There are two cases: (1) \f5I\fP by itself and (2) \f5I\fP
@@ -1287,9 +1296,9 @@ of data already output into a \f5short\fP integer \f5n_output\fP.
 .ft 1
 .fi
 
-Flags \f5h\fP, \f5l\fP, and \f5L\fP are the ANSI-C conventions to
+Flags \f5h\fP, \f5l\fP, \f5j\fP and \f5L\fP are the ANSI-C conventions to
 select the types of input objects.
-For example, \f5%hd\fP indicates a \f5short int\fP
+For example, \f5%hd\fP indicates a \f5short int\fP,
 while \f5%ld\fP indicates a \f5long int\fP.
 
 Flag \f5hh\fP addresses the byte value types, i.e., \f5char\fP and \f5unsigned char\fP.
@@ -1313,6 +1322,8 @@ Flag \f50\fP means padding with zeros on the left.
 
 Flag \f5'\fP outputs thousands-separator used by the current locale.
 \f5setlocale(3)\fP should have been used to set the desired locale.
+
+Flag \f5=\fP centers data within the field.
 
 Flag \f5#\fP indicates an alternative format processing.
 For \f5%o\fP, the first digit is always a zero.
@@ -1338,7 +1349,9 @@ After a first dot appears, an integral value defines a precision.
 For floating point value patterns, precision is the number of precision digits.
 For \f5%c\fP, precision defines the number of times to repeat the
 character being formatted.
-For \f5%s\fP, precision defines the maximum number of characters to output.
+For \f5%s\fP, precision defines the maximum number of characters to output;
+-\f5precis\fP also defines the maximum number of characters to output, but
+retains the rightmost \f5precis\fP characters.
 .Tp
 \f5base\fP:
 This is defined after exactly two dots have appeared.

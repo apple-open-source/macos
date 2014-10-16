@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -26,6 +26,10 @@
 **	Written by Kiem-Phong Vo (5/25/96)
 */
 
+/* these operations must be done without viewpathing */
+#define DT_NOVIEWPATH	(DT_INSERT|DT_APPEND|DT_DELETE|\
+			 DT_ATTACH|DT_DETACH|DT_RELINK|DT_CLEAR| \
+			 DT_FLATTEN|DT_EXTRACT|DT_RESTORE|DT_STAT)
 
 #if __STD_C
 static Void_t* dtvsearch(Dt_t* dt, reg Void_t* obj, reg int type)
@@ -36,17 +40,18 @@ reg Void_t*	obj;
 reg int		type;
 #endif
 {
+	int		cmp;
 	Dt_t		*d, *p;
-	Void_t		*o, *n, *ok, *nk;
-	int		cmp, lk, sz, ky;
-	Dtcompar_f	cmpf;
+	Void_t		*o, *n, *oky, *nky;
 
-	/* these operations only happen at the top level */
-	if(type&(DT_INSERT|DT_DELETE|DT_CLEAR|DT_RENEW))
+	if(type&DT_NOVIEWPATH)
 		return (*(dt->meth->searchf))(dt,obj,type);
 
-	if((type&(DT_MATCH|DT_SEARCH)) || /* order sets first/last done below */
-	   ((type&(DT_FIRST|DT_LAST)) && !(dt->meth->type&(DT_OBAG|DT_OSET)) ) )
+	o = NIL(Void_t*);
+
+	/* these ops look for the first appearance of an object of the right type */
+	if((type & (DT_MATCH|DT_SEARCH)) ||
+	   ((type & (DT_FIRST|DT_LAST|DT_ATLEAST|DT_ATMOST)) && !(dt->meth->type&DT_ORDERED) ) )
 	{	for(d = dt; d; d = d->view)
 			if((o = (*(d->meth->searchf))(d,obj,type)) )
 				break;
@@ -54,27 +59,28 @@ reg int		type;
 		return o;
 	}
 
-	if(dt->meth->type & (DT_OBAG|DT_OSET) )
-	{	if(!(type & (DT_FIRST|DT_LAST|DT_NEXT|DT_PREV)) )
+	if(dt->meth->type & DT_ORDERED) /* ordered sets/bags */
+	{	if(!(type & (DT_FIRST|DT_LAST|DT_NEXT|DT_PREV|DT_ATLEAST|DT_ATMOST)) )
 			return NIL(Void_t*);
 
-		n = nk = NIL(Void_t*); p = NIL(Dt_t*);
+		/* find the min/max element that satisfies the op requirement */
+		n = nky = NIL(Void_t*); p = NIL(Dt_t*);
 		for(d = dt; d; d = d->view)
 		{	if(!(o = (*d->meth->searchf)(d, obj, type)) )
 				continue;
-			_DTDSC(d->disc,ky,sz,lk,cmpf);
-			ok = _DTKEY(o,ky,sz);
+			oky = _DTKEY(d->disc,o);
 
 			if(n) /* get the right one among all dictionaries */
-			{	cmp = _DTCMP(d,ok,nk,d->disc,cmpf,sz);
-				if(((type & (DT_NEXT|DT_FIRST)) && cmp < 0) ||
-				   ((type & (DT_PREV|DT_LAST)) && cmp > 0) )
-					goto a_dj;
+			{	cmp = _DTCMP(d,oky,nky,d->disc);
+				if(((type & (DT_NEXT|DT_FIRST|DT_ATLEAST)) && cmp < 0) ||
+				   ((type & (DT_PREV|DT_LAST|DT_ATMOST)) && cmp > 0) )
+					goto b_est;
 			}
-			else /* looks good for now */
-			{ a_dj: p  = d;
+			else
+			{ b_est: /* current best element to fit op requirement */
+				p  = d;
 				n  = o;
-				nk = ok;
+				nky = oky;
 			}
 		}
 
@@ -82,11 +88,11 @@ reg int		type;
 		return n;
 	}
 
-	/* non-ordered methods */
-	if(!(type & (DT_NEXT|DT_PREV)) )
+	/* unordered collections */
+	if(!(type&(DT_NEXT|DT_PREV)) )
 		return NIL(Void_t*);
 
-	if(!dt->walk || obj != _DTOBJ(dt->walk->data->here, dt->walk->disc->link) )
+	if(!dt->walk )
 	{	for(d = dt; d; d = d->view)
 			if((o = (*(d->meth->searchf))(d, obj, DT_SEARCH)) )
 				break;
@@ -124,12 +130,8 @@ reg Dt_t*	view;
 {
 	reg Dt_t*	d;
 
-	UNFLATTEN(dt);
-	if(view)
-	{	UNFLATTEN(view);
-		if(view->meth != dt->meth) /* must use the same method */
-			return NIL(Dt_t*);
-	}
+	if(view && view->meth != dt->meth) /* must use the same method */
+		return NIL(Dt_t*);
 
 	/* make sure there won't be a cycle */
 	for(d = view; d; d = d->view)

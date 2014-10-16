@@ -27,6 +27,8 @@
 #include "util_ldap_cache.h"
 #include <apr_strings.h>
 
+APLOG_USE_MODULE(ldap);
+
 #if APR_HAS_LDAP
 
 /* only here until strdup is gone */
@@ -126,7 +128,8 @@ const char *util_ald_strdup(util_ald_cache_t *cache, const char *s)
         else {
             return NULL;
         }
-    } else {
+    }
+    else {
         /* Cache shm is not used */
         return strdup(s);
     }
@@ -135,6 +138,61 @@ const char *util_ald_strdup(util_ald_cache_t *cache, const char *s)
 #endif
 }
 
+/*
+ * Duplicate a subgroupList from one compare entry to another.
+ * Returns: ptr to a new copy of the subgroupList or NULL if allocation failed.
+ */
+util_compare_subgroup_t *util_ald_sgl_dup(util_ald_cache_t *cache, util_compare_subgroup_t *sgl_in)
+{
+    int i = 0;
+    util_compare_subgroup_t *sgl_out = NULL;
+
+    if (!sgl_in) {
+        return NULL;
+    }
+
+    sgl_out = (util_compare_subgroup_t *) util_ald_alloc(cache, sizeof(util_compare_subgroup_t));
+    if (sgl_out) {
+        sgl_out->subgroupDNs = util_ald_alloc(cache, sizeof(char *) * sgl_in->len);
+        if (sgl_out->subgroupDNs) {
+            for (i = 0; i < sgl_in->len; i++) {
+                sgl_out->subgroupDNs[i] = util_ald_strdup(cache, sgl_in->subgroupDNs[i]);
+                if (!sgl_out->subgroupDNs[i]) {
+                    /* We ran out of SHM, delete the strings we allocated for the SGL */
+                    for (i = (i - 1); i >= 0; i--) {
+                            util_ald_free(cache, sgl_out->subgroupDNs[i]);
+                    }
+                    util_ald_free(cache, sgl_out->subgroupDNs);
+                    util_ald_free(cache, sgl_out);
+                    sgl_out =  NULL;
+                    break;
+                }
+            }
+            /* We were able to allocate new strings for all the subgroups */
+            if (sgl_out != NULL) {
+                sgl_out->len = sgl_in->len;
+            }
+        }
+    }
+
+    return sgl_out;
+}
+
+/*
+ * Delete an entire subgroupList.
+ */
+void util_ald_sgl_free(util_ald_cache_t *cache, util_compare_subgroup_t **sgl)
+{
+    int i = 0;
+    if (sgl == NULL || *sgl == NULL) {
+        return;
+    }
+
+    for (i = 0; i < (*sgl)->len; i++) {
+        util_ald_free(cache, (*sgl)->subgroupDNs[i]);
+    }
+    util_ald_free(cache, *sgl);
+}
 
 /*
  * Computes the hash on a set of strings. The first argument is the number
@@ -273,16 +331,19 @@ util_ald_cache_t *util_ald_create_cache(util_ldap_state_t *st,
 {
     util_ald_cache_t *cache;
     unsigned long i;
+#if APR_HAS_SHARED_MEMORY
+    apr_rmm_off_t block;
+#endif
 
     if (cache_size <= 0)
         return NULL;
 
 #if APR_HAS_SHARED_MEMORY
     if (!st->cache_rmm) {
-        return NULL;
+        cache = (util_ald_cache_t *)calloc(sizeof(util_ald_cache_t), 1);
     }
     else {
-        apr_rmm_off_t block = apr_rmm_calloc(st->cache_rmm, sizeof(util_ald_cache_t));
+        block = apr_rmm_calloc(st->cache_rmm, sizeof(util_ald_cache_t));
         cache = block ? (util_ald_cache_t *)apr_rmm_addr_get(st->cache_rmm, block) : NULL;
     }
 #else
@@ -304,6 +365,7 @@ util_ald_cache_t *util_ald_create_cache(util_ldap_state_t *st,
 
     cache->nodes = (util_cache_node_t **)util_ald_alloc(cache, cache->size * sizeof(util_cache_node_t *));
     if (!cache->nodes) {
+        /* This frees cache in the right way even if !APR_HAS_SHARED_MEMORY or !st->cache_rmm */
         util_ald_free(cache, cache);
         return NULL;
     }
@@ -365,9 +427,10 @@ void *util_ald_cache_fetch(util_ald_cache_t *cache, void *payload)
     cache->fetches++;
 
     hashval = (*cache->hash)(payload) % cache->size;
+
     for (p = cache->nodes[hashval];
          p && !(*cache->compare)(p->payload, payload);
-    p = p->next) ;
+         p = p->next) ;
 
     if (p != NULL) {
         cache->hits++;
@@ -398,7 +461,7 @@ void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload)
         util_ald_cache_purge(cache);
         if (cache->numentries >= cache->maxentries) {
             /* if the purge was not effective, we leave now to avoid an overflow */
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01323)
                          "Purge of LDAP cache failed");
             return NULL;
         }
@@ -411,7 +474,7 @@ void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload)
          * XXX: The cache management should be rewritten to work
          * properly when LDAPSharedCacheSize is too small.
          */
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(01324)
                      "LDAPSharedCacheSize is too small. Increase it or "
                      "reduce LDAPCacheEntries/LDAPOpCacheEntries!");
         if (cache->numentries < cache->fullmark) {
@@ -426,7 +489,7 @@ void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload)
         node = (util_cache_node_t *)util_ald_alloc(cache,
                                                    sizeof(util_cache_node_t));
         if (node == NULL) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01325)
                          "Could not allocate memory for LDAP cache entry");
             return NULL;
         }
@@ -439,7 +502,7 @@ void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload)
          * XXX: The cache management should be rewritten to work
          * properly when LDAPSharedCacheSize is too small.
          */
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL, APLOGNO(01326)
                      "LDAPSharedCacheSize is too small. Increase it or "
                      "reduce LDAPCacheEntries/LDAPOpCacheEntries!");
         if (cache->numentries < cache->fullmark) {
@@ -453,7 +516,7 @@ void *util_ald_cache_insert(util_ald_cache_t *cache, void *payload)
         util_ald_cache_purge(cache);
         tmp_payload = (*cache->copy)(cache, payload);
         if (tmp_payload == NULL) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(01327)
                          "Could not allocate memory for LDAP cache value");
             util_ald_free(cache, node);
             return NULL;
@@ -612,7 +675,7 @@ char *util_ald_cache_display(request_rec *r, util_ldap_state_t *st)
     if (r->args && strlen(r->args)) {
         char cachetype[5], lint[2];
         unsigned int id, off;
-        char date_str[APR_CTIME_LEN+1];
+        char date_str[APR_CTIME_LEN];
 
         if ((3 == sscanf(r->args, scanfmt, cachetype, &id, &off, lint)) &&
             (id < util_ldap_cache->size)) {
@@ -725,6 +788,8 @@ char *util_ald_cache_display(request_rec *r, util_ldap_state_t *st)
                              "<td><font size='-1' face='Arial,Helvetica' color='#ffffff'><b>Value</b></font></td>"
                              "<td><font size='-1' face='Arial,Helvetica' color='#ffffff'><b>Last Compare</b></font></td>"
                              "<td><font size='-1' face='Arial,Helvetica' color='#ffffff'><b>Result</b></font></td>"
+                             "<td><font size='-1' face='Arial,Helvetica' color='#ffffff'><b>Sub-groups?</b></font></td>"
+                             "<td><font size='-1' face='Arial,Helvetica' color='#ffffff'><b>S-G Checked?</b></font></td>"
                              "</tr>\n", r
                             );
                     if (n) {

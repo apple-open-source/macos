@@ -1,0 +1,165 @@
+#
+# Common makefile fragment for dmitch's clxutils.
+# This is -included from project-specific Makefiles, assumed
+# to be one directory down from this file.
+#
+# See Makefile.template for sample project-specific Makefile.
+#
+
+# Defaults for variables provided by buildit
+# 
+# Object files written to '.' unless OBJROOT specified
+#
+OBJROOT ?= .
+SRCROOT ?= .
+#
+# Executables written to SYMROOT if specified, else to LOCAL_BUILD_DIR
+# env var if specified, else to '.'.
+#
+SYMROOT ?= $(shell echo $(LOCAL_BUILD_DIR))
+LOCAL_BUILD=$(SYMROOT)
+ifeq "" "$(LOCAL_BUILD)"
+	LOCAL_BUILD = .
+endif
+
+# independent of SYMROOT
+CLEAN_DIR=$(shell echo $(LOCAL_BUILD_DIR))
+ifeq "" "$(CLEAN_DIR)"
+	CLEAN_DIR = .
+endif
+
+#
+# DSTROOT only used for install
+$
+DSTROOT ?= ""
+
+INSTALLDIR := $(DSTROOT)/usr/local/bin
+
+UTIL_LIB_SRC= ../clAppUtils
+COMMON_LIB_SRC= ../../cspxutils
+CSPUTIL_LIB_BIN=libcsputils.a
+CLUTIL_LIB_BIN=libclutils.a
+
+# cspxutils headers and lib come from ../cspxutils, or from /usr/local if DSTROOT is specified
+ifeq ("", $(DSTROOT))
+	UTILLIB_HDRS=$(COMMON_LIB_SRC)
+	UTILLIB_PATH=$(COMMON_LIB_SRC)/utilLib
+	CSPUTIL_LIB_BIN_PATH=$(LOCAL_BUILD)/$(CSPUTIL_LIB_BIN)
+	CLUTIL_LIB_BIN_PATH=$(LOCAL_BUILD)/$(CLUTIL_LIB_BIN)
+else
+	UTILLIB_HDRS=$(DSTROOT)/usr/local/include
+	UTILLIB_PATH=$(DSTROOT)/usr/local/lib
+	CSPUTIL_LIB_BIN_PATH=/usr/local/lib/$(CSPUTIL_LIB_BIN)
+	CLUTIL_LIB_BIN_PATH=$(UTILLIB_PATH)/$(CLUTIL_LIB_BIN)
+endif
+
+OFILES= $(CSOURCE:%.c=$(OBJROOT)/%.o) $(CPSOURCE:%.cpp=$(OBJROOT)/%.o) 
+
+#
+# Assume final load with cc, not ld
+#
+STD_LIBS=-lclutils -lcsputils
+STD_LIBPATH= -L$(LOCAL_BUILD) -L$(UTILLIB_PATH) -L$(UTIL_LIB_SRC) 
+ALL_LIBS= $(STD_LIBS) $(PROJ_LIBS)
+ALL_LIBPATHS= $(STD_LIBPATH) $(PROJ_LIBPATH) 
+PRIV_FRAMEWORK_PATH= /System/Library/PrivateFrameworks
+
+#
+# Override this from the make command line to add e.g. -lMallocDebug
+#
+CMDLINE_LDFLAGS?=
+
+ALL_LDFLAGS= $(CMDLINE_LDFLAGS) -F$(LOCAL_BUILD) $(ALL_LIBS) $(ALL_LIBPATHS) \
+	$(PROJ_LDFLAGS) -F$(PRIV_FRAMEWORK_PATH) -lsecurity_cdsa_client -lsecurity_utilities -lsecurity_cdsa_utilities -lsecurity_cdsa_utils
+
+CC=c++
+
+VARIANT_SUFFIX=
+
+STD_FRAMEWORKS= -framework Security$(VARIANT_SUFFIX) -framework CoreFoundation
+
+ALL_FRAMEWORKS= $(STD_FRAMEWORKS) $(PROJ_FRAMEWORKS)
+
+#
+# to get to headers in frameworks
+#
+STD_FINCLUDES= -F$(LOCAL_BUILD) -F$(PRIV_FRAMEWORK_PATH) -F$(PRIV_FRAMEWORK_PATH)
+#
+# the common headers for csputils
+#
+STD_INCLUDES= -I.. -I$(UTILLIB_HDRS) -F$(PRIV_FRAMEWORK_PATH) 
+ALL_INCLUDES= $(STD_INCLUDES) $(PROJ_INCLUDES)
+CINCLUDES= $(STD_FINCLUDES) $(ALL_INCLUDES)
+
+###WFLAGS= -Wno-four-char-constants -Wall -Werror
+WFLAGS= -Wno-four-char-constants -Wall -Wno-deprecated-declarations
+
+STD_CFLAGS= -g  $(VERBOSE) $(SPHINX)
+DEBUG_CFLAGS?=
+
+ALL_CFLAGS= $(CINCLUDES) $(STD_CFLAGS) $(PROJ_CFLAGS) $(WFLAGS) $(DEBUG_CFLAGS)
+
+#
+# Executable in build folder
+#
+BUILT_TARGET= $(LOCAL_BUILD)/$(EXECUTABLE)
+
+first:	LIB_CLUTILS $(PROJ_DEPENDS) $(CSPUTIL_LIB_BIN_PATH) $(BUILT_TARGET)
+
+build: first
+
+debug:
+	make "VARIANT_SUFFIX=,_debug"
+
+sphinx:
+	make "SPHINX=-DSPHINX"
+
+# architecture options
+
+64bit:
+	make "DEBUG_CFLAGS=-arch x86_64" "CMDLINE_LDFLAGS=-arch x86_64" 
+	
+64bitFat:
+	make "DEBUG_CFLAGS=-arch x86_64 -arch i386" "CMDLINE_LDFLAGS=-arch x86_64 -arch i386" 
+	
+fat:
+	make "DEBUG_CFLAGS=-arch i386" "CMDLINE_LDFLAGS=-arch i386" 
+
+install: build
+	install -d -m 0755 $(INSTALLDIR)
+	install -p -m 0755 $(BUILT_TARGET) $(INSTALLDIR)
+
+installhdrs:
+
+#
+# Executable might be in . if no LOCAL_BUILD_DIR specified
+#
+clean:
+	rm -f $(BUILT_TARGET) $(EXECUTABLE)
+	cd $(SRCROOT); rm -f $(OFILES) *.o
+	cd $(LOCAL_BUILD); rm -f $(EXECUTABLE) $(OTHER_TO_CLEAN)
+	rm -f $(CLEAN_DIR)/$(EXECUTABLE)
+
+#
+# Make sure libcsputils.a has been built...
+#
+$(CSPUTIL_LIB_BIN_PATH):
+	@if ! ( [ -e $(CSPUTIL_LIB_BIN_PATH) ] );\
+	then \
+	  echo === You must build libcsputils.a before building this project.  === ;\
+	  echo === Please cd to the cspxutils/utilLib directory and type make. === ;\
+	  echo === $(CSPUTIL_LIB_BIN_PATH) not found. === ;\
+	  exit 1; \
+	fi
+
+LIB_CLUTILS:
+	(cd $(UTIL_LIB_SRC); make)
+
+$(BUILT_TARGET):	$(OFILES) $(CSPUTIL_LIB_BIN_PATH) $(CLUTIL_LIB_BIN_PATH)
+	$(CC) -o $(BUILT_TARGET) $(ALL_FRAMEWORKS) $^ $(ALL_LDFLAGS)
+
+$(OBJROOT)/%.o: %.c $(HDR_DEPENDS)
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<
+
+$(OBJROOT)/%.o: %.cpp $(HDR_DEPENDS) 
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<

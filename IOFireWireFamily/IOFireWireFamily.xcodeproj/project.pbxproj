@@ -1295,10 +1295,7 @@
 		4D39F6DC0992E12B006C2040 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1318,7 +1315,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.5.5;
+				MODULE_VERSION = 4.5.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1332,7 +1329,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1349,10 +1346,7 @@
 		4D39F6DD0992E12B006C2040 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1369,7 +1363,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.5.5;
+				MODULE_VERSION = 4.5.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=0",
 					"-DIOFIREWIREUSERCLIENTDEBUG=0",
@@ -1383,7 +1377,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1400,10 +1394,7 @@
 		4D39F6DE0992E12B006C2040 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FIRELOG = 1;
@@ -1422,7 +1413,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.5.5;
+				MODULE_VERSION = 4.5.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1436,7 +1427,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -1452,10 +1443,7 @@
 		4D39F6DF0992E12B006C2040 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1472,7 +1460,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.5.5;
+				MODULE_VERSION = 4.5.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1480,7 +1468,7 @@
 				PRODUCT_NAME = IOFireWireFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/$(KEXT_FAMILY_NAME)";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",

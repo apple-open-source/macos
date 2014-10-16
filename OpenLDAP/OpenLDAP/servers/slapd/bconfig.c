@@ -89,6 +89,8 @@ static AccessControl *defacl_parsed = NULL;
 
 static struct berval cfdir;
 
+BerVarray cf_accountpolicy_override;
+
 /* Private state */
 static AttributeDescription *cfAd_backend, *cfAd_database, *cfAd_overlay,
 	*cfAd_include, *cfAd_attr, *cfAd_oc, *cfAd_om, *cfAd_syntax;
@@ -145,6 +147,7 @@ static ConfigDriver config_tls_option;
 static ConfigDriver config_tls_config;
 #endif
 extern ConfigDriver syncrepl_config;
+static ConfigDriver config_accountpolicy;
 
 enum {
 	CFG_ACL = 1,
@@ -198,6 +201,9 @@ enum {
     CFG_TLS_CERT_PASSPHRASE,
 	CFG_PWS_REPLICA_NAME,
     CFG_TLS_IDENT_REF,
+	CFG_TLS_IDENTITY,
+	CFG_TLS_TRUSTED_CERTS,
+	CFG_ACCOUNTPOLICY_OVERRIDE,
 	
 	CFG_LAST
 };
@@ -663,7 +669,7 @@ static ConfigTable config_back_cf_table[] = {
 		&config_timelimit, "( OLcfgGlAt:67 NAME 'olcTimeLimit' "
 			"SYNTAX OMsDirectoryString )", NULL, NULL },
 	{ "TLSCACertificateFile", NULL, 2, 2, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
 		CFG_TLS_CA_FILE|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -671,7 +677,7 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:68 NAME 'olcTLSCACertificateFile' "
 			"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
 	{ "TLSCACertificatePath", NULL,	2, 2, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
 		CFG_TLS_CA_PATH|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -679,7 +685,7 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:69 NAME 'olcTLSCACertificatePath' "
 			"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
 	{ "TLSCertificateFile", NULL, 2, 2, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
 		CFG_TLS_CERT_FILE|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -687,7 +693,7 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:70 NAME 'olcTLSCertificateFile' "
 			"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
 	{ "TLSCertificateKeyFile", NULL, 2, 2, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
 		CFG_TLS_CERT_KEY|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -703,7 +709,7 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:72 NAME 'olcTLSCipherSuite' "
 			"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
 	{ "TLSCRLCheck", NULL, 2, 2, 0,
-#if defined(HAVE_TLS) && defined(HAVE_OPENSSL_CRL)
+#if defined(HAVE_TLS) && (defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT))
 		CFG_TLS_CRLCHECK|ARG_STRING|ARG_MAGIC, &config_tls_config,
 #else
 		ARG_IGNORED, NULL,
@@ -719,7 +725,7 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:82 NAME 'olcTLSCRLFile' "
 			"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
 	{ "TLSRandFile", NULL, 2, 2, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
 		CFG_TLS_RAND|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -766,7 +772,7 @@ static ConfigTable config_back_cf_table[] = {
 		&global_writetimeout, "( OLcfgGlAt:88 NAME 'olcWriteTimeout' "
 		"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
     { "olcTLSCertificatePassphrase", NULL, 0, 0, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
  	   CFG_TLS_CERT_PASSPHRASE|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
@@ -778,14 +784,36 @@ static ConfigTable config_back_cf_table[] = {
 		"( OLcfgGlAt:703 NAME 'olcPWSReplicaName' "
 		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
     { "olcTLSCertificateIdentityRef", NULL, 0, 0, 0,
-#ifdef HAVE_TLS
+#if defined(HAVE_TLS) && !defined(HAVE_SECURE_TRANSPORT)
         CFG_TLS_IDENT_REF|ARG_STRING|ARG_MAGIC, &config_tls_option,
 #else
 		ARG_IGNORED, NULL,
 #endif
 		"( OLcfgGlAt:701 NAME 'olcTLSCertificateIdentityRef' "
 		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
-    
+
+    { "olcTLSIdentity", NULL, 0, 0, 0,
+#if defined(HAVE_TLS) && defined(HAVE_SECURE_TRANSPORT)
+        CFG_TLS_IDENTITY|ARG_STRING|ARG_MAGIC, &config_tls_option,
+#else
+		ARG_IGNORED, NULL,
+#endif
+		"( OLcfgGlAt:702 NAME 'olcTLSIdentity' "
+		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
+    { "olcTLSTrustedCerts", NULL, 0, 0, 0,
+#if defined(HAVE_TLS) && defined(HAVE_SECURE_TRANSPORT)
+        CFG_TLS_TRUSTED_CERTS|ARG_STRING|ARG_MAGIC, &config_tls_option,
+#else
+		ARG_IGNORED, NULL,
+#endif
+		"( OLcfgGlAt:704 NAME 'olcTLSTrustedCerts' "
+		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
+ 
+	{ "accountpolicyoverride", NULL, 0, 0, 0,
+		CFG_ACCOUNTPOLICY_OVERRIDE|ARG_STRING|ARG_MAGIC, &config_accountpolicy,
+		"( OLcfgGlAt:710 NAME 'olcAccountPolicyOverride' "
+		"SYNTAX OMsDirectoryString)", NULL, NULL },
+
 	{ NULL,	NULL, 0, 0, 0, ARG_IGNORED,
 		NULL, NULL, NULL, NULL }
 };
@@ -844,6 +872,8 @@ static ConfigOCs cf_ocs[] = {
 		 "olcThreads $ olcTimeLimit $ olcTLSCACertificateFile $ "
 		 "olcTLSCACertificatePath $ olcTLSCertificateFile $ "
          "olcTLSCertificatePassphrase $ olcTLSCertificateIdentityRef $ "
+		 "olcTLSIdentity $ olcTLSTrustedCerts $  "
+		 "olcAccountPolicyOverride $ "
 		 "olcTLSCertificateKeyFile $ olcTLSCipherSuite $ olcTLSCRLCheck $ "
 		 "olcTLSRandFile $ olcTLSVerifyClient $ olcTLSDHParamFile $ "
 		 "olcTLSCRLFile $ olcToolThreads $ olcWriteTimeout $ "
@@ -2293,6 +2323,32 @@ config_schema_dn(ConfigArgs *c) {
 	ch_free( c->be->be_schemandn.bv_val );
 	c->be->be_schemadn = c->value_dn;
 	c->be->be_schemandn = c->value_ndn;
+	return(0);
+}
+
+static int
+config_accountpolicy(ConfigArgs *c) {
+	if ( c->op == SLAP_CONFIG_EMIT ) {
+		int rc = 1;
+
+		if ( cf_accountpolicy_override ) {
+			ber_bvarray_dup_x(&c->rvalue_vals, cf_accountpolicy_override, NULL);
+		}
+
+		return rc;
+	} else if ( c->op == LDAP_MOD_DELETE ) {
+		ber_bvarray_free( cf_accountpolicy_override );
+		cf_accountpolicy_override = NULL;
+
+		return 0;
+	}
+
+	struct berval bv;
+			
+	ber_str2bv( c->value_string, 0, 0, &bv );
+	
+	ber_bvarray_add( &cf_accountpolicy_override, &bv);
+	
 	return(0);
 }
 
@@ -3831,15 +3887,24 @@ config_tls_option(ConfigArgs *c) {
 	int flag;
 	LDAP *ld = slap_tls_ld;
 	switch(c->type) {
+#ifndef HAVE_SECURE_TRANSPORT
 	case CFG_TLS_RAND:	flag = LDAP_OPT_X_TLS_RANDOM_FILE;	ld = NULL; break;
+#endif
 	case CFG_TLS_CIPHER:	flag = LDAP_OPT_X_TLS_CIPHER_SUITE;	break;
+#ifdef HAVE_SECURE_TRANSPORT
+	case CFG_TLS_IDENTITY:	flag = LDAP_OPT_X_TLS_IDENTITY;		break;	
+	case CFG_TLS_TRUSTED_CERTS:	flag = LDAP_OPT_X_TLS_TRUSTED_CERTS;		break;	
+#else
 	case CFG_TLS_CERT_FILE:	flag = LDAP_OPT_X_TLS_CERTFILE;		break;	
 	case CFG_TLS_CERT_KEY:	flag = LDAP_OPT_X_TLS_KEYFILE;		break;
 	case CFG_TLS_CA_PATH:	flag = LDAP_OPT_X_TLS_CACERTDIR;	break;
 	case CFG_TLS_CA_FILE:	flag = LDAP_OPT_X_TLS_CACERTFILE;	break;
+#endif
 	case CFG_TLS_DH_FILE:	flag = LDAP_OPT_X_TLS_DHFILE;	break;
+#ifndef HAVE_SECURE_TRANSPORT
     case CFG_TLS_CERT_PASSPHRASE: flag = LDAP_OPT_X_TLS_PASSPHRASE; break;    /*Apple Specific code*/
     case CFG_TLS_IDENT_REF:   flag = LDAP_OPT_X_TLS_CERT_IDENTITY; break;
+#endif
 
 #ifdef HAVE_GNUTLS
 	case CFG_TLS_CRL_FILE:	flag = LDAP_OPT_X_TLS_CRLFILE;	break;
@@ -3853,14 +3918,18 @@ config_tls_option(ConfigArgs *c) {
 		return ldap_pvt_tls_get_option( ld, flag, &c->value_string );
 	} else if ( c->op == LDAP_MOD_DELETE ) {
 		c->cleanup = config_tls_cleanup;
+#ifndef HAVE_SECURE_TRANSPORT
         if (flag == LDAP_OPT_X_TLS_PASSPHRASE)                              /*Apple Specific code*/
             return ldap_pvt_tls_set_option( NULL, flag, NULL );
+#endif
 		return ldap_pvt_tls_set_option( ld, flag, NULL );
 	}
 	ch_free(c->value_string);
 	c->cleanup = config_tls_cleanup;
+#ifndef HAVE_SECURE_TRANSPORT
     if (flag == LDAP_OPT_X_TLS_PASSPHRASE)                                  /*Apple Specific code*/
         return ldap_pvt_tls_set_option( NULL, flag, c->argv[1] );
+#endif
 	return(ldap_pvt_tls_set_option(ld, flag, c->argv[1]));
 }
 

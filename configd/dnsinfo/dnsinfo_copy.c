@@ -417,7 +417,7 @@ dns_configuration_copy()
 			uint32_t                n_padding       = ntohl(config->n_padding);
 
 			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
-				uint32_t        len;
+				size_t        len;
 
 				len = dataLen + n_padding;
 				buf = malloc(len);

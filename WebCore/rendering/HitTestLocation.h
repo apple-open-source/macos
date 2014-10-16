@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -30,7 +30,6 @@
 #include "TextDirection.h"
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -41,9 +40,8 @@ class Frame;
 class HTMLMediaElement;
 #endif
 class Image;
-class KURL;
+class URL;
 class Node;
-class RenderRegion;
 class Scrollbar;
 
 class HitTestLocation {
@@ -56,15 +54,13 @@ public:
     // Pass non-zero padding values to perform a rect-based hit test.
     HitTestLocation(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
     // Make a copy the HitTestLocation in a new region by applying given offset to internal point and area.
-    HitTestLocation(const HitTestLocation&, const LayoutSize& offset, RenderRegion* = 0);
+    HitTestLocation(const HitTestLocation&, const LayoutSize& offset);
     HitTestLocation(const HitTestLocation&);
     ~HitTestLocation();
     HitTestLocation& operator=(const HitTestLocation&);
 
     const LayoutPoint& point() const { return m_point; }
     IntPoint roundedPoint() const { return roundedIntPoint(m_point); }
-
-    RenderRegion* region() const { return m_region; }
 
     // Rect-based hit test related methods.
     bool isRectBasedTest() const { return m_isRectBased; }
@@ -95,8 +91,6 @@ private:
 
     FloatPoint m_transformedPoint;
     FloatQuad m_transformedRect;
-
-    RenderRegion* m_region; // The region we're inside.
 
     bool m_isRectBased;
     bool m_isRectilinear;

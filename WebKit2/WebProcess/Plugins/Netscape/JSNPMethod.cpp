@@ -41,12 +41,12 @@ using namespace WebCore;
 
 namespace WebKit {
 
-ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSNPMethod);
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSNPMethod);
 
 const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::s_info, 0, 0, CREATE_METHOD_TABLE(JSNPMethod) };
 
 JSNPMethod::JSNPMethod(JSGlobalObject* globalObject, Structure* structure, NPIdentifier npIdentifier)
-    : InternalFunction(globalObject, structure)
+    : InternalFunction(globalObject->vm(), structure)
     , m_npIdentifier(npIdentifier)
 {
 }
@@ -54,26 +54,26 @@ JSNPMethod::JSNPMethod(JSGlobalObject* globalObject, Structure* structure, NPIde
 void JSNPMethod::finishCreation(VM& vm, const String& name)
 {
     Base::finishCreation(vm, name);
-    ASSERT(inherits(&s_info));
+    ASSERT(inherits(info()));
 }
 
 static EncodedJSValue JSC_HOST_CALL callMethod(ExecState* exec)
 {
-    JSNPMethod* jsNPMethod = static_cast<JSNPMethod*>(exec->callee());
+    JSNPMethod* jsNPMethod = jsCast<JSNPMethod*>(exec->callee());
 
-    JSValue thisValue = exec->hostThisValue();
+    JSValue thisValue = exec->thisValue();
 
     // Check if we're calling a method on the plug-in script object.
-    if (thisValue.inherits(&JSHTMLElement::s_info)) {
-        JSHTMLElement* element = static_cast<JSHTMLElement*>(asObject(thisValue));
+    if (thisValue.inherits(JSHTMLElement::info())) {
+        JSHTMLElement* element = jsCast<JSHTMLElement*>(asObject(thisValue));
 
         // Try to get the script object from the element
         if (JSObject* scriptObject = pluginScriptObject(exec, element))
             thisValue = scriptObject;
     }
 
-    if (thisValue.inherits(&JSNPObject::s_info)) {
-        JSNPObject* jsNPObject = static_cast<JSNPObject*>(asObject(thisValue));
+    if (thisValue.inherits(JSNPObject::info())) {
+        JSNPObject* jsNPObject = jsCast<JSNPObject*>(asObject(thisValue));
 
         return JSValue::encode(jsNPObject->callMethod(exec, jsNPMethod->npIdentifier()));
     }

@@ -1,5 +1,5 @@
 /*   
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *   
  * @APPLE_LICENSE_HEADER_START@
  *   
@@ -22,6 +22,8 @@
 
 #ifndef _IOKIT_IOAUDIOTOGGLECONTROL_H
 #define _IOKIT_IOAUDIOTOGGLECONTROL_H
+
+#include <AvailabilityMacros.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioControl.h>
@@ -56,7 +58,7 @@ public:
 	static IOAudioToggleControl *createPassThruMuteControl (bool initialValue,
 																UInt32 channelID,
 																const char *channelName,
-																UInt32 cntrlID);
+																UInt32 cntrlID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
     OSMetaClassDeclareReservedUnused(IOAudioToggleControl, 0);
@@ -91,13 +93,13 @@ public:
                                         const char *channelName = 0,
                                         UInt32 cntrlID = 0,
                                         UInt32 subType = 0,
-                                        UInt32 usage = 0);
+                                        UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                                       
     static IOAudioToggleControl *createMuteControl(bool initialValue,
                                                     UInt32 channelID,
                                                     const char *channelName = 0,
                                                     UInt32 cntrlID = 0,
-                                                    UInt32 usage = 0);
+                                                    UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function init
@@ -114,7 +116,7 @@ public:
                       UInt32 cntrlID = 0,
                       UInt32 subType = 0,
                       UInt32 usage = 0,
-                      OSDictionary *properties = 0);
+                      OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 };
 

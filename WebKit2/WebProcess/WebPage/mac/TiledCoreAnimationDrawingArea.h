@@ -26,22 +26,23 @@
 #ifndef TiledCoreAnimationDrawingArea_h
 #define TiledCoreAnimationDrawingArea_h
 
-#if ENABLE(THREADED_SCROLLING)
+#if !PLATFORM(IOS)
 
 #include "DrawingArea.h"
 #include "LayerTreeContext.h"
 #include <WebCore/FloatRect.h>
-#include <WebCore/GraphicsLayerClient.h>
 #include <WebCore/LayerFlushScheduler.h>
 #include <WebCore/LayerFlushSchedulerClient.h>
-#include <WebCore/Timer.h>
+#include <WebCore/TransformationMatrix.h>
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/RunLoop.h>
 
 OBJC_CLASS CALayer;
-OBJC_CLASS WKContentLayer;
 
 namespace WebCore {
+class FrameView;
+class PlatformCALayer;
 class TiledBacking;
 }
 
@@ -49,100 +50,100 @@ namespace WebKit {
 
 class LayerHostingContext;
 
-class TiledCoreAnimationDrawingArea : public DrawingArea, WebCore::GraphicsLayerClient, WebCore::LayerFlushSchedulerClient {
+class TiledCoreAnimationDrawingArea : public DrawingArea, WebCore::LayerFlushSchedulerClient {
 public:
-    static PassOwnPtr<TiledCoreAnimationDrawingArea> create(WebPage*, const WebPageCreationParameters&);
+    TiledCoreAnimationDrawingArea(WebPage&, const WebPageCreationParameters&);
     virtual ~TiledCoreAnimationDrawingArea();
 
 private:
-    TiledCoreAnimationDrawingArea(WebPage*, const WebPageCreationParameters&);
-
     // DrawingArea
-    virtual void setNeedsDisplay() OVERRIDE;
-    virtual void setNeedsDisplayInRect(const WebCore::IntRect&) OVERRIDE;
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) OVERRIDE;
+    virtual void setNeedsDisplay() override;
+    virtual void setNeedsDisplayInRect(const WebCore::IntRect&) override;
+    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
 
-    virtual void forceRepaint() OVERRIDE;
-    virtual bool forceRepaintAsync(uint64_t callbackID) OVERRIDE;
-    virtual void setLayerTreeStateIsFrozen(bool) OVERRIDE;
-    virtual bool layerTreeStateIsFrozen() const OVERRIDE;
-    virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) OVERRIDE;
-    virtual void scheduleCompositingLayerFlush() OVERRIDE;
+    virtual void forceRepaint() override;
+    virtual bool forceRepaintAsync(uint64_t callbackID) override;
+    virtual void setLayerTreeStateIsFrozen(bool) override;
+    virtual bool layerTreeStateIsFrozen() const override;
+    virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
+    virtual void scheduleCompositingLayerFlush() override;
+    virtual void scheduleCompositingLayerFlushImmediately() override;
 
-    virtual void didInstallPageOverlay(PageOverlay*) OVERRIDE;
-    virtual void didUninstallPageOverlay(PageOverlay*) OVERRIDE;
-    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) OVERRIDE;
-    virtual void updatePreferences(const WebPreferencesStore&) OVERRIDE;
-    virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) OVERRIDE;
+    virtual void updatePreferences(const WebPreferencesStore&) override;
+    virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
 
-    virtual void setExposedRect(const WebCore::FloatRect&) OVERRIDE;
-    virtual void setClipsToExposedRect(bool) OVERRIDE;
+    virtual void setExposedRect(const WebCore::FloatRect&) override;
+    virtual WebCore::FloatRect exposedRect() const override { return m_scrolledExposedRect; }
 
-    virtual void didChangeScrollOffsetForAnyFrame() OVERRIDE;
+    virtual bool supportsAsyncScrolling() override { return true; }
 
-    virtual void dispatchAfterEnsuringUpdatedScrollPosition(const Function<void ()>&) OVERRIDE;
+    virtual void dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()>) override;
 
-    // WebCore::GraphicsLayerClient
-    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time) OVERRIDE;
-    virtual void notifyFlushRequired(const WebCore::GraphicsLayer*) OVERRIDE;
-    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& clipRect) OVERRIDE;
-    virtual float deviceScaleFactor() const OVERRIDE;
-    virtual void didCommitChangesForLayer(const WebCore::GraphicsLayer*) const OVERRIDE;
+    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) override;
+
+    virtual void viewStateDidChange(WebCore::ViewState::Flags changed, bool wantsDidUpdateViewState) override;
+    void didUpdateViewStateTimerFired();
 
     // WebCore::LayerFlushSchedulerClient
-    virtual bool flushLayers() OVERRIDE;
+    virtual bool flushLayers() override;
 
     // Message handlers.
-    virtual void suspendPainting() OVERRIDE;
-    virtual void resumePainting() OVERRIDE;
-    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) OVERRIDE;
-    virtual void setDeviceScaleFactor(float) OVERRIDE;
-    virtual void setLayerHostingMode(uint32_t) OVERRIDE;
-    virtual void setColorSpace(const ColorSpaceData&) OVERRIDE;
+    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) override;
+    virtual void setDeviceScaleFactor(float) override;
+    void suspendPainting();
+    void resumePainting();
+    void setLayerHostingMode(LayerHostingMode) override;
+    virtual void setColorSpace(const ColorSpaceData&) override;
+
+    virtual void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
+    virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
+    void applyTransientZoomToPage(double scale, WebCore::FloatPoint origin);
+    WebCore::PlatformCALayer* layerForTransientZoom() const;
+    WebCore::PlatformCALayer* shadowLayerForTransientZoom() const;
+
+    void applyTransientZoomToLayers(double scale, WebCore::FloatPoint origin);
 
     void updateLayerHostingContext();
 
     void setRootCompositingLayer(CALayer *);
 
-    void createPageOverlayLayer(PageOverlay*);
-    void destroyPageOverlayLayer(PageOverlay*);
     WebCore::TiledBacking* mainFrameTiledBacking() const;
     void updateDebugInfoLayer(bool showLayer);
 
-    void updateIntrinsicContentSizeTimerFired(WebCore::Timer<TiledCoreAnimationDrawingArea>*);
-    void updateMainFrameClipsToExposedRect();
+    void updateIntrinsicContentSizeIfNeeded();
     void updateScrolledExposedRect();
-    
-    void invalidateAllPageOverlays();
 
     bool m_layerTreeStateIsFrozen;
     WebCore::LayerFlushScheduler m_layerFlushScheduler;
 
-    OwnPtr<LayerHostingContext> m_layerHostingContext;
+    std::unique_ptr<LayerHostingContext> m_layerHostingContext;
 
+    RetainPtr<CALayer> m_hostingLayer;
     RetainPtr<CALayer> m_rootLayer;
-    RetainPtr<CALayer> m_pendingRootCompositingLayer;
-
     RetainPtr<CALayer> m_debugInfoLayer;
 
-    typedef HashMap<PageOverlay*, OwnPtr<WebCore::GraphicsLayer>> PageOverlayLayerMap;
-    PageOverlayLayerMap m_pageOverlayLayers;
-    mutable HashMap<const WebCore::GraphicsLayer*, RetainPtr<CALayer>> m_pageOverlayPlatformLayers;
+    RetainPtr<CALayer> m_pendingRootLayer;
 
     bool m_isPaintingSuspended;
-    bool m_hasRootCompositingLayer;
 
     WebCore::FloatRect m_exposedRect;
     WebCore::FloatRect m_scrolledExposedRect;
-    bool m_clipsToExposedRect;
 
     WebCore::IntSize m_lastSentIntrinsicContentSize;
-    WebCore::Timer<TiledCoreAnimationDrawingArea> m_updateIntrinsicContentSizeTimer;
     bool m_inUpdateGeometry;
+
+    double m_transientZoomScale;
+    WebCore::FloatPoint m_transientZoomOrigin;
+
+    WebCore::TransformationMatrix m_transform;
+
+    RunLoop::Timer<TiledCoreAnimationDrawingArea> m_sendDidUpdateViewStateTimer;
 };
+
+DRAWING_AREA_TYPE_CASTS(TiledCoreAnimationDrawingArea, type() == DrawingAreaTypeTiledCoreAnimation);
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // !PLATFORM(IOS)
 
 #endif // TiledCoreAnimationDrawingArea_h

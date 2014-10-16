@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -33,24 +33,35 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/TextRun.h>
 #import <WebCore/WebCoreNSStringExtras.h>
-#import <WebKit/WebNSFileManagerExtras.h>
-#import <WebKit/WebNSObjectExtras.h>
+#import <WebKitLegacy/WebNSFileManagerExtras.h>
+#import <WebKitLegacy/WebNSObjectExtras.h>
 #import <unicode/uchar.h>
 #import <sys/param.h>
 
+#if PLATFORM(IOS)
+#import <WebCore/WAKViewPrivate.h>
+#import <WebKitLegacy/DOM.h>
+#import <WebKitLegacy/WebFrame.h>
+#import <WebKitLegacy/WebFrameView.h>
+#import <WebKitLegacy/WebViewPrivate.h>
+#endif
+
 NSString *WebKitLocalCacheDefaultsKey = @"WebKitLocalCache";
 
+#if !PLATFORM(IOS)
 static inline CGFloat webkit_CGCeiling(CGFloat value)
 {
     if (sizeof(value) == sizeof(float))
         return ceilf(value);
     return ceil(value);
 }
+#endif
 
 using namespace WebCore;
 
 @implementation NSString (WebKitExtras)
 
+#if !PLATFORM(IOS)
 static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 {
     unsigned i;
@@ -148,6 +159,7 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
     return [self sizeWithAttributes:[NSDictionary dictionaryWithObjectsAndKeys:font, NSFontAttributeName, nil]].width;
 }
+#endif // !PLATFORM(IOS)
 
 - (NSString *)_web_stringByAbbreviatingWithTildeInPath
 {
@@ -172,10 +184,12 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     return newString;
 }
 
+#if !PLATFORM(IOS)
 + (NSStringEncoding)_web_encodingForResource:(Handle)resource
 {
     return CFStringConvertEncodingToNSStringEncoding(stringEncodingForResource(resource));
 }
+#endif
 
 - (BOOL)_webkit_isCaseInsensitiveEqualToString:(NSString *)string
 {
@@ -285,6 +299,7 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     return [result autorelease];
 }
 
+#if !PLATFORM(IOS)
 -(NSString *)_webkit_fixedCarbonPOSIXPath
 {
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -326,6 +341,14 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
     return path;
 }
+#endif // !PLATFORM(IOS)
+
+#if PLATFORM(IOS)
++ (NSString *)_web_stringWithData:(NSData *)data textEncodingName:(NSString *)textEncodingName
+{
+    return [WebFrame stringWithData:data textEncodingName:textEncodingName];
+}
+#endif
 
 + (NSString *)_webkit_localCacheDirectoryWithBundleIdentifier:(NSString*)bundleIdentifier
 {
@@ -333,11 +356,15 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     NSString *cacheDir = [defaults objectForKey:WebKitLocalCacheDefaultsKey];
 
     if (!cacheDir || ![cacheDir isKindOfClass:[NSString class]]) {
+#if PLATFORM(IOS)
+        cacheDir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches"];
+#else
         char cacheDirectory[MAXPATHLEN];
         size_t cacheDirectoryLen = confstr(_CS_DARWIN_USER_CACHE_DIR, cacheDirectory, MAXPATHLEN);
     
         if (cacheDirectoryLen)
             cacheDir = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:cacheDirectory length:cacheDirectoryLen - 1];
+#endif
     }
 
     return [cacheDir stringByAppendingPathComponent:bundleIdentifier];

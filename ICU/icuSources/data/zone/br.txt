@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/br.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/br.xml
+ * ICU <specials> source: <path>/common/main/br.xml
  */
 br{
-    Version{"2.0.82.57"}
+    Version{"2.0.98.52"}
     zoneStrings{
         "Africa:Addis_Ababa"{
             ec{"Adis Abeba"}
@@ -71,9 +71,6 @@ br{
         }
         "America:Miquelon"{
             ec{"Mikelon"}
-        }
-        "America:Montreal"{
-            ec{"Montréal"}
         }
         "America:Panama"{
             ec{"Panamá"}

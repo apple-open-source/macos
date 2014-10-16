@@ -2,9 +2,9 @@
 #
 #  CVS Info :
 #
-#     $Author: iccir $ 
-#     $Date: 2007/01/30 23:46:50 $ 
-#     $Revision: 1.3 $ 
+#     $Author$ 
+#     $Date$ 
+#     $Revision$ 
 #
 #  Copyright (c) 1998-2003 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 

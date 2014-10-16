@@ -8,9 +8,17 @@
 
 #import "CredentialTesterView.h"
 
+#import <Foundation/Foundation.h>
+#import <Foundation/NSURLCredential_Private.h>
+#import <CoreServices/CoreServices.h>
+#import <CoreServices/CoreServicesPriv.h>
+
+
 @interface CredentialTesterView ()
 @property (assign) gss_cred_id_t credential;
-
+@property (retain) NSMutableData *content;
+@property (retain) NSOperationQueue *opQueue;
+@property (retain) NSURLResponse *response;
 
 @end
 
@@ -34,6 +42,7 @@
         OM_uint32 lifetime = GSSCredentialGetLifetime(credential);
         
         self.expire = [NSDate dateWithTimeIntervalSinceNow:lifetime];
+        self.opQueue = [[NSOperationQueue alloc] init];
     }
     
     
@@ -47,6 +56,12 @@
         [self.serverName setStringValue:@"host@WELLKNOWN:COM.APPLE.LKDC"];
     } else if ([self.name rangeOfString:@"@ADS.APPLE.COM"].location != NSNotFound) {
         [self.serverName setStringValue:@"HTTP@dc03.ads.apple.com"];
+        [self.url setStringValue:@"http://dc03.ads.apple.com/negotiate/"];
+    } else if ([self.name rangeOfString:@"@QAD.APPLE.COM"].location != NSNotFound) {
+        [self.serverName setStringValue:@"HTTP@dc01qad.qad.apple.com"];
+        [self.url setStringValue:@"http://dc01qad.qad.apple.com/negotiate/"];
+    } else if ([self.name rangeOfString:@"@APPLECONNECT.APPLE.COM"].location != NSNotFound) {
+        [self.url setStringValue:@"https://radar-webservices.apple.com/find/16000000"];
     }
 }
 
@@ -84,7 +99,6 @@
     gss_release_buffer(&min_stat, &buffer);
 }
 
-
 - (IBAction)destroyCredential:(id)sender {
     OM_uint32 min_stat;
     gss_destroy_cred(&min_stat, &_credential);
@@ -93,6 +107,111 @@
     
     [self.tabViewItem.tabView removeTabViewItem:self.tabViewItem];
 }
+
+#pragma mark HTTP test
+
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
+{
+    [self.content appendData:data];
+}
+
+- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
+{
+    NSLog(@"canAuthenticateAgainstProtectionSpace: %@", [protectionSpace authenticationMethod]);
+
+    if ([[protectionSpace authenticationMethod] isEqualToString:NSURLAuthenticationMethodNegotiate])
+        return YES;
+    
+    return NO;
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
+    NSLog(@"Connection didReceiveResponse! Response - %@", response);
+    self.response = response;
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
+    __block NSString *status;
+    NSLog(@"Finished...");
+
+    NSLog(@"data:\n\n%@\n", [[NSString alloc] initWithData:self.content encoding:NSUTF8StringEncoding]);
+    self.content = NULL;
+    if ([self.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSHTTPURLResponse *urlResponse = (NSHTTPURLResponse *)self.response;
+        if ([urlResponse statusCode] == 200) {
+            status = [NSString stringWithFormat:@"success"];
+        } else {
+            status = [NSString stringWithFormat:@"failed with status: %d", (int)[urlResponse statusCode]];
+        }
+    } else {
+        status = [NSString stringWithFormat:@"failed with unknown class returned %@", [self.response description]];
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.urlStatus setStringValue:status];
+    });
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
+{
+	NSLog(@"didFailWithError");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.urlStatus setStringValue:@"failed"];
+    });
+}
+
+- (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse
+{
+	NSLog(@"willSendRequest");
+	return request;
+}
+
+- (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
+{
+	NSLog(@"connectionShouldUseCredentialStorage");
+	return NO;
+}
+
+
+- (void)connection:(NSURLConnection*)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    NSURLProtectionSpace *protectionSpace = [challenge protectionSpace];
+	
+	NSLog(@"didReceiveAuthenticationChallenge: %@ %@", [protectionSpace authenticationMethod], [protectionSpace host]);
+    
+    NSString *serverPrincipal = [NSString stringWithFormat:@"HTTP/%@", [protectionSpace host]];
+    
+    
+	CFURLCredentialRef cfCredential = _CFURLCredentialCreateForKerberosTicket(NULL, (__bridge CFStringRef)self.name, (__bridge CFStringRef)serverPrincipal, NULL);
+    if (cfCredential == NULL) {
+        NSLog(@"failed to create credential");
+        [[challenge sender] cancelAuthenticationChallenge:challenge];
+        return;
+    }
+    
+    NSURLCredential *credential = [[NSURLCredential alloc] _initWithCFURLCredential:cfCredential];
+	
+    [[challenge sender] useCredential:credential forAuthenticationChallenge:challenge];
+    
+    NSLog(@"using name %@ for credential: %@", self.name, credential);
+    
+    CFRelease(cfCredential);
+}
+
+- (IBAction)checkURL:(id)sender {
+    NSURL *url = [NSURL URLWithString:[self.url stringValue]];
+    
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest: request delegate: self startImmediately:NO];
+    
+    self.content = [NSMutableData data];
+    [self.urlStatus setStringValue:@"performing test"];
+
+    [conn setDelegateQueue:self.opQueue];
+    [conn start];
+}
+
+
 
 
 @end

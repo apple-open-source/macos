@@ -23,8 +23,6 @@
  
 #include "dt_dof_byteswap.h"
 
-#ifdef __APPLE__
-
 #include <CoreFoundation/CFByteOrder.h>
 
 #include <dt_impl.h>
@@ -405,4 +403,3 @@ dtrace_dof_byteswap(dof_hdr_t* hdr)
 	byteswap_dof_hdr(base, hdr);
 }
 
-#endif

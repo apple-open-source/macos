@@ -61,6 +61,8 @@
 #define SEND_NOTIFICATION 0xfadefade
 
 #define QUERY_FLAG_SEARCH_REVERSE 0x00000001
+#define QUERY_DURATION_UNLIMITED 0
+
 #define SEARCH_FORWARD 1
 #define SEARCH_BACKWARD -1
 
@@ -74,10 +76,7 @@ static dispatch_queue_t asl_server_queue;
 static dispatch_queue_t watch_queue;
 static dispatch_once_t watch_init_once;
 
-extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
-extern asl_search_result_t *asl_list_from_string(const char *buf);
 extern boolean_t asl_ipc_server(mach_msg_header_t *InHeadP, mach_msg_header_t *OutHeadP);
-extern uint32_t bb_convert(const char *name);
 
 static task_name_t *client_tasks = NULL;
 static uint32_t client_tasks_count = 0;
@@ -136,16 +135,6 @@ db_asl_open(uint32_t dbtype)
 			}
 		}
 
-		/*
-		 * One-time store conversion from the old "LongTTL" style to the new "Best Before" style.
-		 * bb_convert returns quickly if the store has already been converted.
-		 */
-		status = bb_convert(PATH_ASL_STORE);
-		if (status != ASL_STATUS_OK)
-		{
-			asldebug("ASL data store conversion failed!: %s\n", asl_core_error(status));
-		}
-
 		status = asl_store_open_write(NULL, &(global.file_db));
 		if (status != ASL_STATUS_OK)
 		{
@@ -154,25 +143,16 @@ db_asl_open(uint32_t dbtype)
 		else
 		{
 			if (global.db_file_max != 0) asl_store_max_file_size(global.file_db, global.db_file_max);
-			asl_trigger_aslmanager();
+			trigger_aslmanager();
 		}
 	}
 
 	if ((dbtype & DB_TYPE_MEMORY) && (global.memory_db == NULL))
 	{
-		status = asl_memory_open(global.db_memory_max, &(global.memory_db));
+		status = asl_memory_open(global.db_memory_max, global.db_memory_str_max, &(global.memory_db));
 		if (status != ASL_STATUS_OK)
 		{
 			asldebug("asl_memory_open: %s\n", asl_core_error(status));
-		}
-	}
-
-	if ((dbtype & DB_TYPE_MINI) && (global.mini_db == NULL))
-	{
-		status = asl_mini_memory_open(global.db_mini_max, &(global.mini_db));
-		if (status != ASL_STATUS_OK)
-		{
-			asldebug("asl_mini_memory_open: %s\n", asl_core_error(status));
 		}
 	}
 }
@@ -484,7 +464,7 @@ send_to_direct_watchers(asl_msg_t *msg)
  * Called from asl_action.c to save messgaes to the ASL data store
  */
 void
-db_save_message(aslmsg msg)
+db_save_message(asl_msg_t *msg)
 {
 	uint64_t msgid;
 	uint32_t status, dbtype;
@@ -507,7 +487,6 @@ db_save_message(aslmsg msg)
 	dbtype = global.dbtype;
 
 	if (asl_check_option(msg, ASL_OPT_DB_FILE))   dbtype |= DB_TYPE_FILE;
-	if (asl_check_option(msg, ASL_OPT_DB_MINI))   dbtype |= DB_TYPE_MINI;
 	if (asl_check_option(msg, ASL_OPT_DB_MEMORY)) dbtype |= DB_TYPE_MEMORY;
 
 	db_asl_open(dbtype);
@@ -519,7 +498,7 @@ db_save_message(aslmsg msg)
 		{
 			/* write failed - reopen & retry */
 			asldebug("asl_store_save: %s\n", asl_core_error(status));
-			asl_store_close(global.file_db);
+			asl_store_release(global.file_db);
 			global.file_db = NULL;
 
 			db_asl_open(dbtype);
@@ -527,14 +506,14 @@ db_save_message(aslmsg msg)
 			if (status != ASL_STATUS_OK)
 			{
 				asldebug("(retry) asl_store_save: %s\n", asl_core_error(status));
-				asl_store_close(global.file_db);
+				asl_store_release(global.file_db);
 				global.file_db = NULL;
 
 				global.dbtype |= DB_TYPE_MEMORY;
 				dbtype |= DB_TYPE_MEMORY;
 				if (global.memory_db == NULL)
 				{
-					status = asl_memory_open(global.db_memory_max, &(global.memory_db));
+					status = asl_memory_open(global.db_memory_max, global.db_memory_str_max, &(global.memory_db));
 					if (status != ASL_STATUS_OK)
 					{
 						asldebug("asl_memory_open: %s\n", asl_core_error(status));
@@ -567,27 +546,6 @@ db_save_message(aslmsg msg)
 		}
 	}
 
-	if (dbtype & DB_TYPE_MINI)
-	{
-		status = asl_mini_memory_save(global.mini_db, msg, &msgid);
-		if (status != ASL_STATUS_OK)
-		{
-			/* save failed - reopen & retry*/
-			asldebug("asl_mini_memory_save: %s\n", asl_core_error(status));
-			asl_mini_memory_close(global.mini_db);
-			global.mini_db = NULL;
-
-			db_asl_open(dbtype);
-			status = asl_mini_memory_save(global.mini_db, msg, &msgid);
-			if (status != ASL_STATUS_OK)
-			{
-				asldebug("(retry) asl_memory_save: %s\n", asl_core_error(status));
-				asl_mini_memory_close(global.mini_db);
-				global.mini_db = NULL;
-			}
-		}
-	}
-
 	if (armed == 0)
 	{
 		armed = 1;
@@ -597,20 +555,20 @@ db_save_message(aslmsg msg)
 }
 
 void
-disaster_message(aslmsg msg)
+disaster_message(asl_msg_t *msg)
 {
 	uint64_t msgid;
 	uint32_t status;
 
 	msgid = 0;
 
-	if ((global.dbtype & DB_TYPE_MINI) == 0)
+	if ((global.dbtype & DB_TYPE_MEMORY) == 0)
 	{
-		if (global.mini_db == NULL)
+		if (global.memory_db == NULL)
 		{
-			status = asl_mini_memory_open(global.db_mini_max, &(global.mini_db));
-			if (status != ASL_STATUS_OK) asldebug("asl_mini_memory_open: %s\n", asl_core_error(status));
-			else asl_mini_memory_save(global.mini_db, msg, &msgid);
+			status = asl_memory_open(global.db_memory_max, global.db_memory_str_max, &(global.memory_db));
+			if (status != ASL_STATUS_OK) asldebug("asl_memory_open: %s\n", asl_core_error(status));
+			else asl_memory_save(global.memory_db, msg, &msgid);
 		}
 	}
 }
@@ -619,10 +577,9 @@ disaster_message(aslmsg msg)
  * Do a database search.
  */
 uint32_t
-db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess)
+db_query(asl_msg_list_t *query, asl_msg_list_t **res, uint64_t startid, int count, uint32_t duration, int direction, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess)
 {
 	uint32_t status, ucount;
-	int32_t dir;
 	uuid_string_t ustr;
 	struct proc_uniqidentifierinfo pinfo;
 	const char *str = NULL;
@@ -649,23 +606,12 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 	}
 
 	ucount = count;
-	dir = SEARCH_FORWARD;
-	if (flags & QUERY_FLAG_SEARCH_REVERSE) dir = SEARCH_BACKWARD;
 
 	status = ASL_STATUS_FAILED;
 
-	if (global.dbtype & DB_TYPE_MEMORY)
+	if ((global.dbtype & DB_TYPE_MEMORY) || (global.disaster_occurred != 0))
 	{
-		status = asl_memory_match_restricted_uuid(global.memory_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
-	}
-	else if (global.dbtype & DB_TYPE_MINI)
-	{
-		status = asl_mini_memory_match_restricted_uuid(global.mini_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
-	}
-	else if (global.disaster_occurred != 0)
-	{
-		/* KernelEventAgent calls us to get the kernel disaster messages. */
-		status = asl_mini_memory_match_restricted_uuid(global.mini_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
+		status = asl_memory_match_restricted_uuid(global.memory_db, query, res, lastid, startid, ucount, duration, direction, ruid, rgid, str);
 	}
 
 	return status;
@@ -864,12 +810,12 @@ cancel_direct_watch(uint16_t port)
 }
 
 static int
-syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
+syslogd_state_query(asl_msg_t *q, asl_msg_list_t **res, uid_t uid)
 {
-	asl_search_result_t *out;
+	asl_msg_list_t *out;
 	uint32_t i, n;
 	bool all = false;
-	aslmsg m;
+	asl_msg_t *m;
 	char val[256];
 	const char *mval;
 	asl_out_module_t *om;
@@ -877,26 +823,17 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 	if (res == NULL) return ASL_STATUS_INVALID_ARG;
 	*res = NULL;
 
-	out = (asl_search_result_t *)calloc(1, sizeof(asl_search_result_t));
+	out = asl_msg_list_new();
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
 
-	m = asl_new(ASL_TYPE_MSG);
+	m = asl_msg_new(ASL_TYPE_MSG);
 	if (m == NULL)
 	{
-		free(out);
+		asl_msg_list_release(out);
 		return ASL_STATUS_NO_MEMORY;
 	}
 
-	out->count = 1;
-	out->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
-	if (out->msg == NULL)
-	{
-		free(out);
-		asl_free(m);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	out->msg[0] = (asl_msg_t *)m;
+	asl_msg_list_append(out, m);
 
 	/* q must have [ASLOption control], so a "null" query really has count == 1 */
 	if (asl_msg_count(q) == 1) all = true;
@@ -905,7 +842,7 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 	{
 		if (global.debug == 0) snprintf(val, sizeof(val), "0");
 		else snprintf(val, sizeof(val), "1 %s", global.debug_file);
-		asl_set(m, "debug", val);
+		asl_msg_set_key_val(m, "debug", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "dbtype", NULL, NULL)))
@@ -913,11 +850,10 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 		n = 0;
 		if (global.dbtype & DB_TYPE_FILE) n++;
 		if (global.dbtype & DB_TYPE_MEMORY) n++;
-		if (global.dbtype & DB_TYPE_MINI) n++;
 
 		if (n == 0)
 		{
-			asl_set(m, "dbtype", "unknown");
+			asl_msg_set_key_val(m, "dbtype", "unknown");
 		}
 		else
 		{
@@ -938,98 +874,99 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 				if (i < n) strncat(val, " ", 1);
 			}
 
-			if (global.dbtype & DB_TYPE_MINI)
-			{
-				strncat(val, "mini-memory", 11);
-			}
-
-			asl_set(m, "dbtype", val);
+			asl_msg_set_key_val(m, "dbtype", val);
 		}
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "db_file_max", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%u", global.db_file_max);
-		asl_set(m, "db_file_max", val);
+		asl_msg_set_key_val(m, "db_file_max", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "db_memory_max", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%u", global.db_memory_max);
-		asl_set(m, "db_memory_max", val);
+		asl_msg_set_key_val(m, "db_memory_max", val);
 	}
-
-	if (all || (0 == asl_msg_lookup(q, "db_mini_max", NULL, NULL)))
+	
+	if (all || (0 == asl_msg_lookup(q, "db_memory_str_max", NULL, NULL)))
 	{
-		snprintf(val, sizeof(val), "%u", global.db_mini_max);
-		asl_set(m, "db_mini_max", val);
+		snprintf(val, sizeof(val), "%u", global.db_memory_str_max);
+		asl_msg_set_key_val(m, "db_memory_str_max", val);
 	}
-
+	
 	if (all || (0 == asl_msg_lookup(q, "mps_limit", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%u", global.mps_limit);
-		asl_set(m, "mps_limit", val);
+		asl_msg_set_key_val(m, "mps_limit", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "bsd_max_dup_time", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%llu", global.bsd_max_dup_time);
-		asl_set(m, "bsd_max_dup_time", val);
+		asl_msg_set_key_val(m, "bsd_max_dup_time", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "mark_time", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%llu", global.mark_time);
-		asl_set(m, "mark_time", val);
+		asl_msg_set_key_val(m, "mark_time", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "utmp_ttl", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%lu", global.utmp_ttl);
-		asl_set(m, "utmp_ttl", val);
+		asl_msg_set_key_val(m, "utmp_ttl", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "max_work_queue_size", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%lld", global.max_work_queue_size);
+		asl_msg_set_key_val(m, "max_work_queue_size", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "work_queue_count", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.work_queue_count);
-		asl_set(m, "work_queue_count", val);
+		asl_msg_set_key_val(m, "work_queue_count", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "asl_queue_count", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.asl_queue_count);
-		asl_set(m, "asl_queue_count", val);
+		asl_msg_set_key_val(m, "asl_queue_count", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "bsd_queue_count", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.bsd_queue_count);
-		asl_set(m, "bsd_queue_count", val);
+		asl_msg_set_key_val(m, "bsd_queue_count", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "client_count", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.client_count);
-		asl_set(m, "client_count", val);
+		asl_msg_set_key_val(m, "client_count", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "disaster_occurred", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.disaster_occurred);
-		asl_set(m, "disaster_occurred", val);
+		asl_msg_set_key_val(m, "disaster_occurred", val);
 	}
 
 #ifdef LOCKDOWN
 	if (all || (0 == asl_msg_lookup(q, "lockdown_session_count", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.lockdown_session_count);
-		asl_set(m, "lockdown_session_count", val);
+		asl_msg_set_key_val(m, "lockdown_session_count", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "remote_delay_time", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%u", global.remote_delay_time);
-		asl_set(m, "remote_delay_time", val);
+		asl_msg_set_key_val(m, "remote_delay_time", val);
 	}
 
 #endif
@@ -1037,7 +974,7 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 	if (all || (0 == asl_msg_lookup(q, "watchers_active", NULL, NULL)))
 	{
 		snprintf(val, sizeof(val), "%d", global.watchers_active);
-		asl_set(m, "watchers_active", val);
+		asl_msg_set_key_val(m, "watchers_active", val);
 	}
 
 	for (i = 0; i < global.module_count; i++)
@@ -1045,7 +982,7 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 		if (all || (0 == asl_msg_lookup(q, global.module[i]->name, NULL, NULL)))
 		{
 			snprintf(val, sizeof(val), "%s", global.module[i]->enabled ? "enabled" : "disabled");
-			asl_set(m, global.module[i]->name, val);
+			asl_msg_set_key_val(m, global.module[i]->name, val);
 		}
 	}
 
@@ -1054,8 +991,8 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 		if (all || (0 == asl_msg_lookup(q, om->name, NULL, NULL)))
 		{
 			snprintf(val, sizeof(val), "%s", om->flags & MODULE_FLAG_ENABLED ? "enabled" : "disabled");
-			if (om->name == NULL) asl_set(m, "asl.conf", val);
-			else asl_set(m, om->name, val);
+			if (om->name == NULL) asl_msg_set_key_val(m, "asl.conf", val);
+			else asl_msg_set_key_val(m, om->name, val);
 		}
 	}
 
@@ -1065,9 +1002,10 @@ syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
 		int res = -1;
 		if (uid == 0) res = asl_action_control_set_param(mval);
 		snprintf(val, sizeof(val), "%d", res);
-		asl_set(m, "action", val);
+		asl_msg_set_key_val(m, "action", val);
 	}
 
+	asl_msg_release(m);
 	*res = out;
 	return ASL_STATUS_OK;
 }
@@ -1082,23 +1020,21 @@ database_server()
 {
 	asl_request_msg *request;
 	uint32_t rqs;
-	uint32_t rbits, sbits;
-	uint32_t flags;
 	struct timeval now, send_time;
 	mach_dead_name_notification_t *deadname;
+	const uint32_t rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) | MACH_RCV_VOUCHER;
 
 	send_time.tv_sec = 0;
 	send_time.tv_usec = 0;
 
 	rqs = sizeof(asl_request_msg) + MAX_TRAILER_SIZE;
 
-	rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
-	sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
-
 	asl_server_queue = dispatch_queue_create("ASL Server Queue", NULL);
 
 	forever
 	{
+		kern_return_t ks;
+
 		now.tv_sec = 0;
 		now.tv_usec = 0;
 
@@ -1108,9 +1044,19 @@ database_server()
 		request->head.msgh_local_port = global.server_port;
 		request->head.msgh_size = rqs;
 
-		flags = rbits;
-
-		(void)mach_msg(&(request->head), flags, 0, rqs, global.listen_set, 0, MACH_PORT_NULL);
+		ks = mach_msg(&(request->head), rbits, 0, rqs, global.listen_set, 0, MACH_PORT_NULL);
+		if (ks != KERN_SUCCESS)
+		{
+			/*
+			 * This shouldn't happen, but if we get a failure the best thing to do is to crash.
+			 */
+			char str[256];
+			asldebug("FATAL ERROR: mach_msg() receive failed with status 0x%08x\n", ks);
+			snprintf(str, sizeof(str), "[Sender syslogd] [Level 1] [PID %u] [Facility syslog] [Message FATAL ERROR: mach_msg() receive failed with status 0x%08x]", global.pid, ks);
+			internal_log_message(str);
+			sleep(1);
+			abort();
+		}
 
 		if (request->head.msgh_id == MACH_NOTIFY_DEAD_NAME)
 		{
@@ -1126,19 +1072,82 @@ database_server()
 		}
 
 		dispatch_async(asl_server_queue, ^{
+			const uint32_t sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;;
 			kern_return_t ks;
 			asl_reply_msg *reply = calloc(1, sizeof(asl_reply_msg) + MAX_TRAILER_SIZE);
 
+			voucher_mach_msg_state_t voucher = voucher_mach_msg_adopt(&(request->head));
+
+			/* MIG server routine */
 			asl_ipc_server(&(request->head), &(reply->head));
-			ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
-			free(reply);
-			if ((ks == MACH_SEND_INVALID_DEST) || (ks == MACH_SEND_TIMED_OUT))
+
+			if (!(reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
 			{
-				/* clean up */
-				mach_msg_destroy(&(reply->head));
+				if (reply->reply.Reply__asl_server_message.RetCode == MIG_NO_REPLY)
+				{
+					reply->head.msgh_remote_port = MACH_PORT_NULL;
+				}
+				else if ((reply->reply.Reply__asl_server_message.RetCode != KERN_SUCCESS) && (request->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
+				{
+					/* destroy the request - but not the reply port */
+					request->head.msgh_remote_port = MACH_PORT_NULL;
+					mach_msg_destroy(&(request->head));
+				}
 			}
 
+			if (reply->head.msgh_remote_port != MACH_PORT_NULL)
+			{
+				ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
+				if ((ks == MACH_SEND_INVALID_DEST) || (ks == MACH_SEND_TIMED_OUT))
+				{
+					/* clean up */
+					mach_msg_destroy(&(reply->head));
+				}
+				else if (ks == MACH_SEND_INVALID_HEADER)
+				{
+					/*
+					 * This should never happen, but we can continue running.
+					 */
+					char str[256];
+					asldebug("ERROR: mach_msg() send failed with MACH_SEND_INVALID_HEADER 0x%08x\n", ks);
+					snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_INVALID_HEADER)]", global.pid, ks);
+					internal_log_message(str);
+					mach_msg_destroy(&(reply->head));
+				}
+				else if (ks == MACH_SEND_NO_BUFFER)
+				{
+					/*
+					 * This should never happen, but the kernel can run out of memory.
+					 * We clean up and continue running.
+					 */
+					char str[256];
+					asldebug("ERROR: mach_msg() send failed with MACH_SEND_NO_BUFFER 0x%08x\n", ks);
+					snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_NO_BUFFER)]", global.pid, ks);
+					internal_log_message(str);
+					mach_msg_destroy(&(reply->head));
+				}
+				else if (ks != KERN_SUCCESS)
+				{
+					/*
+					 * Failed to send a reply message.  This should never happen,
+					 * but the best action is to crash.
+					 */
+					char str[256];
+					asldebug("FATAL ERROR: mach_msg() send failed with status 0x%08x\n", ks);
+					snprintf(str, sizeof(str), "[Sender syslogd] [Level 1] [PID %u] [Facility syslog] [Message FATAL ERROR: mach_msg() send failed with status 0x%08x]", global.pid, ks);
+					internal_log_message(str);
+					sleep(1);
+					abort();
+				}
+			}
+			else if (reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX)
+			{
+				mach_msg_destroy(&reply->head);
+			}
+
+			voucher_mach_msg_revert(voucher);
 			free(request);
+			free(reply);
 		});
 	}
 }
@@ -1209,7 +1218,8 @@ __asl_server_query_internal
 	mach_msg_type_number_t requestCnt,
 	uint64_t startid,
 	int count,
-	int flags,
+	uint32_t duration,
+	int direction,
 	caddr_t *reply,
 	mach_msg_type_number_t *replyCnt,
 	uint64_t *lastid,
@@ -1219,8 +1229,8 @@ __asl_server_query_internal
 	pid_t pid
 )
 {
-	aslresponse query;
-	aslresponse res;
+	asl_msg_list_t *query;
+	asl_msg_list_t *res;
 	char *out, *vmbuffer;
 	uint32_t outlen;
 	kern_return_t kstatus;
@@ -1234,13 +1244,13 @@ __asl_server_query_internal
 		return KERN_SUCCESS;
 	}
 
-	query = asl_list_from_string(request);
+	query = asl_msg_list_from_string(request);
 	if (request != NULL) vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
 	res = NULL;
 
 	/* A query list containing a single query, which itself contains
 	 * [ASLOption control] is an internal state query */
-	if ((query != NULL) && (query->count == 1) && asl_check_option((aslmsg)query->msg[0], ASL_OPT_CONTROL))
+	if ((query != NULL) && (query->count == 1) && asl_check_option(query->msg[0], ASL_OPT_CONTROL))
 	{
 		*status = syslogd_state_query(query->msg[0], &res, uid);
 	}
@@ -1257,24 +1267,24 @@ __asl_server_query_internal
 			if (uid == 0) x = 0;
 		}
 
-		*status = db_query(query, &res, startid, count, flags, lastid, uid, gid, x);
+		*status = db_query(query, &res, startid, count, duration, direction, lastid, uid, gid, x);
 	}
 
-	aslresponse_free(query);
+	asl_msg_list_release(query);
 	if (*status != ASL_STATUS_INVALID_STORE)
 	{
 		/* ignore */
 	}
 	else if (*status != ASL_STATUS_OK)
 	{
-		if (res != NULL) aslresponse_free(res);
+		if (res != NULL) asl_msg_list_release(res);
 		return KERN_SUCCESS;
 	}
 
 	out = NULL;
 	outlen = 0;
-	out = asl_list_to_string((asl_search_result_t *)res, &outlen);
-	aslresponse_free(res);
+	out = asl_msg_list_to_string(res, &outlen);
+	asl_msg_list_release(res);
 
 	if ((out == NULL) || (outlen == 0)) return KERN_SUCCESS;
 
@@ -1314,10 +1324,14 @@ __asl_server_query_2
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
+	int direction = SEARCH_FORWARD;
+	if (flags & QUERY_FLAG_SEARCH_REVERSE) direction = SEARCH_BACKWARD;
+
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
-	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, uid, gid, pid);
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, QUERY_DURATION_UNLIMITED, direction, reply, replyCnt, lastid, status, uid, gid, pid);
 }
+
 kern_return_t
 __asl_server_query
 (
@@ -1334,9 +1348,11 @@ __asl_server_query
 	security_token_t *token
 )
 {
-	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, (uid_t)token->val[0], (gid_t)token->val[1], (pid_t)-1);
+	int direction = SEARCH_FORWARD;
+	if (flags & QUERY_FLAG_SEARCH_REVERSE) direction = SEARCH_BACKWARD;
+	
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, QUERY_DURATION_UNLIMITED, direction, reply, replyCnt, lastid, status, (uid_t)token->val[0], (gid_t)token->val[1], (pid_t)-1);
 }
-
 
 kern_return_t
 __asl_server_query_timeout
@@ -1351,10 +1367,44 @@ __asl_server_query_timeout
 	mach_msg_type_number_t *replyCnt,
 	uint64_t *lastid,
 	int *status,
-	security_token_t *token
+	audit_token_t token
 )
 {
-	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, (uid_t)token->val[0], (gid_t)token->val[1], (pid_t)-1);
+	uid_t uid = (uid_t)-1;
+	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
+	int direction = SEARCH_FORWARD;
+	if (flags & QUERY_FLAG_SEARCH_REVERSE) direction = SEARCH_BACKWARD;
+
+	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
+
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, QUERY_DURATION_UNLIMITED, direction, reply, replyCnt, lastid, status, uid, gid, pid);
+}
+
+kern_return_t
+__asl_server_match
+(
+	mach_port_t server,
+	caddr_t request,
+	mach_msg_type_number_t requestCnt,
+	uint64_t startid,
+	uint64_t count,
+	uint32_t duration,
+	int direction,
+	caddr_t *reply,
+	mach_msg_type_number_t *replyCnt,
+	uint64_t *lastid,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid = (uid_t)-1;
+	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
+	
+	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
+	
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, duration, direction, reply, replyCnt, lastid, status, uid, gid, pid);
 }
 
 kern_return_t
@@ -1379,7 +1429,7 @@ __asl_server_message
 	audit_token_t token
 )
 {
-	aslmsg msg;
+	asl_msg_t *msg;
 	char tmp[64];
 	uid_t uid;
 	gid_t gid;
@@ -1400,7 +1450,7 @@ __asl_server_message
 
 	asldebug("__asl_server_message: %s\n", (message == NULL) ? "NULL" : message);
 
-	msg = (aslmsg)asl_msg_from_string(message);
+	msg = asl_msg_from_string(message);
 	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
 
 	if (msg == NULL) return KERN_SUCCESS;
@@ -1415,13 +1465,13 @@ __asl_server_message
 	if (kstatus == KERN_SUCCESS) register_session(client, pid);
 
 	snprintf(tmp, sizeof(tmp), "%d", uid);
-	asl_set(msg, ASL_KEY_UID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_UID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", gid);
-	asl_set(msg, ASL_KEY_GID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_GID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", pid);
-	asl_set(msg, ASL_KEY_PID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_PID, tmp);
 
 	process_message(msg, SOURCE_ASL_MESSAGE);
 
@@ -1441,7 +1491,7 @@ __asl_server_create_aux_link
 	audit_token_t token
 )
 {
-	aslmsg msg;
+	asl_msg_t *msg;
 	char tmp[64];
 	uid_t uid;
 	gid_t gid;
@@ -1452,6 +1502,8 @@ __asl_server_create_aux_link
 	int fd;
 
 	*status = ASL_STATUS_OK;
+	*fileport = MACH_PORT_NULL;
+	*newurl = 0;
 
 	if (message == NULL)
 	{
@@ -1476,7 +1528,7 @@ __asl_server_create_aux_link
 
 	*fileport = MACH_PORT_NULL;
 
-	msg = (aslmsg)asl_msg_from_string(message);
+	msg = asl_msg_from_string(message);
 	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
 
 	if (msg == NULL) return KERN_SUCCESS;
@@ -1491,17 +1543,17 @@ __asl_server_create_aux_link
 	if (kstatus == KERN_SUCCESS) register_session(client, pid);
 
 	snprintf(tmp, sizeof(tmp), "%d", uid);
-	asl_set(msg, ASL_KEY_UID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_UID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", gid);
-	asl_set(msg, ASL_KEY_GID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_GID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", pid);
-	asl_set(msg, ASL_KEY_PID, tmp);
+	asl_msg_set_key_val(msg, ASL_KEY_PID, tmp);
 
 	/* create a file for the client */
 	*status = asl_store_open_aux(global.file_db, msg, &fd, &url);
-	asl_free(msg);
+	asl_msg_release(msg);
 	if (*status != ASL_STATUS_OK) return KERN_SUCCESS;
 	if (url == NULL)
 	{

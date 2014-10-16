@@ -1,6 +1,6 @@
 /*
  * ccid_serial.c: communicate with a GemPC Twin smart card reader
- * Copyright (C) 2001-2004 Ludovic Rousseau <ludovic.rousseau@free.fr>
+ * Copyright (C) 2001-2010 Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
  * Thanks to Niki W. Waibel <niki.waibel@gmx.net> for a prototype version
  *
@@ -20,7 +20,7 @@
  */
 
 /*
- * $Id: ccid_serial.c 3488 2009-05-07 08:04:20Z rousseau $
+ * $Id: ccid_serial.c 6783 2013-10-24 09:36:52Z rousseau $
  */
 
 #include <stdio.h>
@@ -35,14 +35,15 @@
 #include <sys/ioctl.h>
 #include <ifdhandler.h>
 
+#include "config.h"
 #include "defs.h"
 #include "ccid_ifdhandler.h"
-#include "config.h"
 #include "debug.h"
 #include "ccid.h"
 #include "utils.h"
 #include "commands.h"
 #include "parser.h"
+#include "strlcpycat.h"
 
 #define SYNC 0x03
 #define CTRL_ACK 0x06
@@ -310,6 +311,12 @@ ack:
 	/* total frame size */
 	to_read = 10+dw2i(buffer, 1);
 
+	if ((to_read < 10) || (to_read > (int)*length))
+	{
+		DEBUG_CRITICAL2("Wrong value for frame size: %d", to_read);
+		return STATUS_COMM_ERROR;
+	}
+
 	DEBUG_COMM2("frame size: %d", to_read);
 	if ((rv = get_bytes(reader_index, buffer+5, to_read-5)) != STATUS_SUCCESS)
 		return rv;
@@ -421,8 +428,8 @@ static int ReadChunk(unsigned int reader_index, unsigned char *buffer,
 		/* use select() to, eventually, timeout */
 		FD_ZERO(&fdset);
 		FD_SET(fd, &fdset);
-		t.tv_sec = serialDevice[reader_index].ccid.readTimeout;
-		t.tv_usec = 0;
+		t.tv_sec = serialDevice[reader_index].ccid.readTimeout / 1000;
+		t.tv_usec = (serialDevice[reader_index].ccid.readTimeout - t.tv_sec*1000)*1000;
 
 		i = select(fd+1, &fdset, NULL, NULL, &t);
 		if (i == -1)
@@ -433,7 +440,7 @@ static int ReadChunk(unsigned int reader_index, unsigned char *buffer,
 		else
 			if (i == 0)
 			{
-				DEBUG_COMM2("Timeout! (%d sec)", serialDevice[reader_index].ccid.readTimeout);
+				DEBUG_COMM2("Timeout! (%d ms)", serialDevice[reader_index].ccid.readTimeout);
 				return -1;
 			}
 
@@ -483,11 +490,11 @@ status_t OpenSerial(unsigned int reader_index, int channel)
 
 	if (channel < 0)
 	{
-		DEBUG_CRITICAL2("wrong port number: %d", (int) channel);
+		DEBUG_CRITICAL2("wrong port number: %d", channel);
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	(void)snprintf(dev_name, sizeof(dev_name), "/dev/pcsc/%d", (int) channel);
+	(void)snprintf(dev_name, sizeof(dev_name), "/dev/pcsc/%d", channel);
 
 	return OpenSerialByName(reader_index, dev_name);
 } /* OpenSerial */
@@ -544,6 +551,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 
 			*serialDevice[reader_index].nb_opened_slots += 1;
 			serialDevice[reader_index].ccid.bCurrentSlotIndex++;
+			serialDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
 			DEBUG_INFO2("Opening slot: %d",
 					serialDevice[reader_index].ccid.bCurrentSlotIndex);
 			switch (readerID)
@@ -592,6 +600,8 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 	serialDevice[reader_index].ccid.arrayOfSupportedDataRates = SerialTwinDataRates;
 	serialDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
 	serialDevice[reader_index].ccid.bVoltageSupport = 0x07;	/* 1.8V, 3V and 5V */
+	serialDevice[reader_index].ccid.gemalto_firmware_features = NULL;
+	serialDevice[reader_index].ccid.zlp = FALSE;
 	serialDevice[reader_index].echo = TRUE;
 
 	/* change some values depending on the reader */
@@ -640,7 +650,8 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 {
 	struct termios current_termios;
 	unsigned int reader = reader_index;
-	char reader_name[TOKEN_MAX_VALUE_SIZE] = "GemPCTwin";
+	/* 255 is MAX_DEVICENAME in pcscd.h */
+	char reader_name[255] = "GemPCTwin";
 	char *p;
 	status_t ret;
 
@@ -651,7 +662,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 	if (p)
 	{
 		/* copy the second part of the string */
-		strncpy(reader_name, p+1, sizeof(reader_name));
+		strlcpy(reader_name, p+1, sizeof(reader_name));
 
 		/* replace ':' by '\0' so that dev_name only contains the device name */
 		*p = '\0';
@@ -741,7 +752,7 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	/* perform a command to be sure a Gemplus reader is connected
+	/* perform a command to be sure a Gemalto reader is connected
 	 * get the reader firmware */
 	{
 		unsigned char tx_buffer[] = { 0x02 };
@@ -749,18 +760,13 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		unsigned int rx_length = sizeof(rx_buffer);
 
 		/* 2 seconds timeout to not wait too long if no reader is connected */
-		serialDevice[reader].ccid.readTimeout = 2;
-
 		if (IFD_SUCCESS != CmdEscape(reader_index, tx_buffer, sizeof(tx_buffer),
-			rx_buffer, &rx_length))
+			rx_buffer, &rx_length, 2*1000))
 		{
 			DEBUG_CRITICAL("Get firmware failed. Maybe the reader is not connected");
 			(void)CloseSerial(reader_index);
 			return STATUS_UNSUCCESSFUL;
 		}
-
-		/* normal timeout: 2 seconds */
-		serialDevice[reader].ccid.readTimeout = DEFAULT_COM_READ_TIMEOUT ;
 
 		rx_buffer[rx_length] = '\0';
 		DEBUG_INFO2("Firmware: %s", rx_buffer);
@@ -775,13 +781,17 @@ status_t OpenSerialByName(unsigned int reader_index, char *dev_name)
 		unsigned int rx_length = sizeof(rx_buffer);
 
 		if (IFD_SUCCESS != CmdEscape(reader_index, tx_buffer, sizeof(tx_buffer),
-			rx_buffer, &rx_length))
+			rx_buffer, &rx_length, 0))
 		{
 			DEBUG_CRITICAL("Change card movement notification failed.");
 			(void)CloseSerial(reader_index);
 			return STATUS_UNSUCCESSFUL;
 		}
 	}
+
+	serialDevice[reader_index].ccid.sIFD_serial_number = NULL;
+	serialDevice[reader_index].ccid.sIFD_iManufacturer = NULL;
+	serialDevice[reader_index].ccid.IFD_bcdDevice = 0;
 
 	return STATUS_SUCCESS;
 } /* OpenSerialByName */

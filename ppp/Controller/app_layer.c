@@ -2,9 +2,11 @@
  * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
  */
 #include <notify.h>
+#include <ne_session.h>
 
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/VPNAppLayerPrivate.h>
+#include <SystemConfiguration/SNHelperPrivate.h>
 #include <Security/Security.h>
 
 #include <netinet/flow_divert_proto.h>
@@ -355,6 +357,175 @@ app_layer_post_config_changed_notification(CFIndex rule_count)
 	}
 }
 
+#if TARGET_OS_EMBEDDED
+
+static Boolean
+app_layer_is_app_rule_split_or_inactive(CFDictionaryRef rules, CFStringRef rule_id)
+{
+	Boolean result = FALSE;
+	CFIndex idx;
+	CFDictionaryRef rule = CFDictionaryGetValue(rules, rule_id);
+	if (isDictionary(rule)) {
+		CFArrayRef match_services = CFDictionaryGetValue(rule, kVPNAppLayerRuleMatchServices);
+		if (isArray(match_services)) {
+			CFIndex match_services_count = CFArrayGetCount(match_services);
+
+			for (idx = 0; idx < match_services_count; idx++) {
+				CFDictionaryRef match_service = CFArrayGetValueAtIndex(match_services, idx);
+				if (isDictionary(match_service)) {
+					CFArrayRef match_service_domains = CFDictionaryGetValue(match_service, kVPNAppLayerRuleMatchServiceDomains);
+					if (!isArray(match_service_domains) || CFArrayGetCount(match_service_domains) == 0) {
+						CFStringRef match_service_id = CFDictionaryGetValue(match_service, kVPNAppLayerRuleMatchServiceID);
+						if (isString(match_service_id)) {
+							struct service *serv = findbyserviceID(match_service_id);
+							if (serv != NULL && serv->ondemandAction &&
+							    CFStringCompare(serv->ondemandAction, kSCValNetVPNOnDemandRuleActionDisconnect, 0) == kCFCompareEqualTo)
+							{
+								result = TRUE;
+							}
+						}
+						break;
+					}
+				}
+			}
+
+			if (idx == match_services_count) {
+				/* None of the match services had empty match domains */
+				result = TRUE;
+			}
+		}
+	}
+
+	return result;
+}
+
+static Boolean
+app_layer_app_rule_has_service(CFDictionaryRef rules, CFStringRef rule_id, CFStringRef service_id)
+{
+	CFDictionaryRef rule = CFDictionaryGetValue(rules, rule_id);
+	if (isDictionary(rule)) {
+		CFArrayRef match_services = CFDictionaryGetValue(rule, kVPNAppLayerRuleMatchServices);
+		if (isArray(match_services)) {
+			CFIndex match_services_count = CFArrayGetCount(match_services);
+			CFIndex idx;
+			for (idx = 0; idx < match_services_count; idx++) {
+				CFDictionaryRef match_service = CFArrayGetValueAtIndex(match_services, idx);
+				if (isDictionary(match_service)) {
+					CFStringRef match_service_id = CFDictionaryGetValue(match_service, kVPNAppLayerRuleMatchServiceID);
+					if (isString(match_service_id) && CFEqual(service_id, match_service_id)) {
+						return TRUE;
+					}
+				}
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+static Boolean
+cfstring2uuid(CFStringRef cf_str, uuid_t result)
+{
+	uuid_string_t uuid_string;
+
+	if (CFStringGetCString(cf_str, uuid_string, sizeof(uuid_string), kCFStringEncodingASCII)) {
+		if (uuid_parse(uuid_string, result) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static void
+app_layer_setup_executable_uuid(CFStringRef signing_identifier, CFDictionaryRef rules, CFMutableDictionaryRef executable)
+{
+	CFStringRef rule_id = CFDictionaryGetValue(executable, kSCValNetVPNAppRuleIdentifier);
+	CFStringRef existing_uuid = CFDictionaryGetValue(executable, kSCValNetVPNAppRuleExecutableUUID);
+	uuid_t existing_uuid_bytes;
+	Boolean remove_existing = TRUE;
+
+	if (!isString(existing_uuid) || !cfstring2uuid(existing_uuid, existing_uuid_bytes)) {
+		uuid_clear(existing_uuid_bytes);
+	}
+
+	if (app_layer_is_app_rule_split_or_inactive(rules, rule_id)) {
+		/*
+		 * If the associated rule is "split", i.e. there are no associated services
+		 * with a null match domain set, or if the service's current network detection
+		 * action is "disconnect" then we don't want to set this executable's
+		 * UUID in the policy table. Remove any existing UUID.
+		 */
+		CFDictionaryRemoveValue(executable, kSCValNetVPNAppRuleExecutableUUID);
+	} else {
+		CFIndex len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(signing_identifier), kCFStringEncodingUTF8) + 1;
+		char *signing_id_cstr = (char *)malloc(len);
+		uuid_t uuid_bytes;
+
+		CFStringGetCString(signing_identifier, signing_id_cstr, len, kCFStringEncodingUTF8);
+
+		if (snhelper_get_uuid_for_app(signing_id_cstr, uuid_bytes) == 0) {
+			if (uuid_is_null(existing_uuid_bytes) || uuid_compare(uuid_bytes, existing_uuid_bytes)) {
+				uuid_string_t new_uuid_str;
+				CFStringRef new_uuid;
+
+				VPNAppLayerUUIDPolicyAdd(uuid_bytes);
+
+				uuid_unparse(uuid_bytes, new_uuid_str);
+				new_uuid = CFStringCreateWithCString(kCFAllocatorDefault, new_uuid_str, kCFStringEncodingASCII);
+				CFDictionarySetValue(executable, kSCValNetVPNAppRuleExecutableUUID, new_uuid);
+				CFRelease(new_uuid);
+			} else {
+				remove_existing = FALSE;
+			}
+		} else {
+			CFDictionaryRemoveValue(executable, kSCValNetVPNAppRuleExecutableUUID);
+		}
+
+		free(signing_id_cstr);
+	}
+
+	if (remove_existing && !uuid_is_null(existing_uuid_bytes)) {
+		VPNAppLayerUUIDPolicyRemove(existing_uuid_bytes);
+	}
+}
+
+#endif /* TARGET_OS_EMBEDDED */
+
+void
+app_layer_install_app(CFStringRef signing_id)
+{
+#if TARGET_OS_EMBEDDED
+	CFDictionaryRef config = SCDynamicStoreCopyValue(gDynamicStore, g_dynamic_store_key);
+	if (isDictionary(config) && isString(signing_id)) {
+		CFDictionaryRef executables = CFDictionaryGetValue(config, kVPNAppLayerMatchExecutables);
+		if (isDictionary(executables) && CFDictionaryContainsKey(executables, signing_id)) {
+			CFMutableDictionaryRef mutable_config = (CFMutableDictionaryRef)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, config, kCFPropertyListMutableContainers);
+			CFDictionaryRef rules = CFDictionaryGetValue(mutable_config, kVPNAppLayerRules);
+			CFMutableDictionaryRef executable;
+
+			executables = CFDictionaryGetValue(mutable_config, kVPNAppLayerMatchExecutables);
+			executable = (CFMutableDictionaryRef)CFDictionaryGetValue(executables, signing_id);
+
+			if (isDictionary(rules) && isDictionary(executable)) {
+				app_layer_setup_executable_uuid(signing_id, rules, executable);
+
+				if (!CFEqual(config, mutable_config)) {
+					SCLog(TRUE, LOG_INFO, CFSTR("app_layer_install_app: posting new App VPN rules: %@"), mutable_config);
+					SCDynamicStoreSetValue(gDynamicStore, g_dynamic_store_key, mutable_config);
+				}
+			}
+
+			CFRelease(mutable_config);
+		}
+	}
+	if (config != NULL) {
+		CFRelease(config);
+	}
+#else
+#pragma unused(signing_id)
+#endif
+}
 
 void
 app_layer_remove_app(CFStringRef signing_id)
@@ -367,54 +538,56 @@ app_layer_remove_app(CFStringRef signing_id)
 			CFIndex service_idx;
 			for (service_idx = 0; service_idx < CFArrayGetCount(services); service_idx++) {
 				SCNetworkServiceRef service = CFArrayGetValueAtIndex(services, service_idx);
-				CFIndex rule_idx;
-				CFArrayRef rule_ids = VPNServiceCopyAppRuleIDs(service);
-				if (isArray(rule_ids)) {
-					for (rule_idx = 0; rule_idx < CFArrayGetCount(rule_ids); rule_idx++) {
-						CFStringRef rule_id = CFArrayGetValueAtIndex(rule_ids, rule_idx);
-						CFDictionaryRef rule_settings = VPNServiceCopyAppRule(service, rule_id);
-						if (isDictionary(rule_settings)) {
-							CFArrayRef execs = CFDictionaryGetValue(rule_settings, kSCValNetVPNAppRuleExecutableMatch);
-							if (isArray(execs)) {
-								CFMutableArrayRef new_execs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-								CFIndex exec_idx;
-								for (exec_idx = 0; exec_idx < CFArrayGetCount(execs); exec_idx++) {
-									CFDictionaryRef exec = CFArrayGetValueAtIndex(execs, exec_idx);
-									CFStringRef exec_signing_id =
-										CFDictionaryGetValue(exec, kSCValNetVPNAppRuleExecutableSigningIdentifier);
-									if (!CFEqual(exec_signing_id, signing_id)) {
-										CFArrayAppendValue(new_execs, exec);
-									}
-								}
-								if (CFArrayGetCount(execs) != CFArrayGetCount(new_execs)) {
-									if (CFArrayGetCount(new_execs) == 0) {
-										if (VPNServiceRemoveAppRule(service, rule_id)) {
-											changed = TRUE;
-										} else {
-											SCLog(TRUE, LOG_WARNING, CFSTR("app_layer_remove_app failed to remove rule %@ from service %@: %s"), rule_id, SCNetworkServiceGetServiceID(service), SCErrorString(SCError()));
+				if (VPNServiceIsManagedAppVPN(service)) {
+					CFIndex rule_idx;
+					CFArrayRef rule_ids = VPNServiceCopyAppRuleIDs(service);
+					if (isArray(rule_ids)) {
+						for (rule_idx = 0; rule_idx < CFArrayGetCount(rule_ids); rule_idx++) {
+							CFStringRef rule_id = CFArrayGetValueAtIndex(rule_ids, rule_idx);
+							CFDictionaryRef rule_settings = VPNServiceCopyAppRule(service, rule_id);
+							if (isDictionary(rule_settings)) {
+								CFArrayRef execs = CFDictionaryGetValue(rule_settings, kSCValNetVPNAppRuleExecutableMatch);
+								if (isArray(execs)) {
+									CFMutableArrayRef new_execs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+									CFIndex exec_idx;
+									for (exec_idx = 0; exec_idx < CFArrayGetCount(execs); exec_idx++) {
+										CFDictionaryRef exec = CFArrayGetValueAtIndex(execs, exec_idx);
+										CFStringRef exec_signing_id =
+											CFDictionaryGetValue(exec, kSCValNetVPNAppRuleExecutableSigningIdentifier);
+										if (!CFEqual(exec_signing_id, signing_id)) {
+											CFArrayAppendValue(new_execs, exec);
 										}
-									} else {
-										CFMutableDictionaryRef new_rule =
-											CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(rule_settings), rule_settings);
-										CFDictionarySetValue(new_rule, kSCValNetVPNAppRuleExecutableMatch, new_execs);
-										if (VPNServiceSetAppRule(service, rule_id, new_rule)) {
-											changed = TRUE;
-										} else {
-											SCLog(TRUE, LOG_WARNING, CFSTR("app_layer_remove_app failed to set rule %@ from service %@: %s"), rule_id, SCNetworkServiceGetServiceID(service), SCErrorString(SCError()));
-										}
-										CFRelease(new_rule);
 									}
+									if (CFArrayGetCount(execs) != CFArrayGetCount(new_execs)) {
+										if (CFArrayGetCount(new_execs) == 0) {
+											if (VPNServiceRemoveAppRule(service, rule_id)) {
+												changed = TRUE;
+											} else {
+												SCLog(TRUE, LOG_WARNING, CFSTR("app_layer_remove_app failed to remove rule %@ from service %@: %s"), rule_id, SCNetworkServiceGetServiceID(service), SCErrorString(SCError()));
+											}
+										} else {
+											CFMutableDictionaryRef new_rule =
+												CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(rule_settings), rule_settings);
+											CFDictionarySetValue(new_rule, kSCValNetVPNAppRuleExecutableMatch, new_execs);
+											if (VPNServiceSetAppRule(service, rule_id, new_rule)) {
+												changed = TRUE;
+											} else {
+												SCLog(TRUE, LOG_WARNING, CFSTR("app_layer_remove_app failed to set rule %@ from service %@: %s"), rule_id, SCNetworkServiceGetServiceID(service), SCErrorString(SCError()));
+											}
+											CFRelease(new_rule);
+										}
+									}
+									CFRelease(new_execs);
 								}
-								CFRelease(new_execs);
+							}
+							if (rule_settings != NULL) {
+								CFRelease(rule_settings);
 							}
 						}
-						if (rule_settings != NULL) {
-							CFRelease(rule_settings);
-						}
 					}
-				}
-				if (rule_ids != NULL) {
-					CFRelease(rule_ids);
+					if (rule_ids != NULL) {
+						CFRelease(rule_ids);
+					}
 				}
 			}
 		}
@@ -435,6 +608,90 @@ app_layer_remove_app(CFStringRef signing_id)
 	}
 }
 
+static void
+app_layer_set_kernel_rules(CFDictionaryRef rules, CFMutableDictionaryRef executables)
+{
+#if ! TARGET_OS_EMBEDDED
+#pragma unused(rules)
+#endif /* ! TARGET_OS_EMBEDDED */
+	CFIndex exec_count = (executables != NULL ? CFDictionaryGetCount(executables) : 0);
+	CFMutableArrayRef signing_ids =
+			CFArrayCreateMutable(kCFAllocatorDefault, exec_count + 1, &kCFTypeArrayCallBacks);
+
+	VPNAppLayerUUIDPolicyClear();
+
+	if (exec_count > 0) {
+		int i;
+		CFStringRef *keys = CFAllocatorAllocate(kCFAllocatorDefault, exec_count * sizeof(*keys), 0);
+
+		CFDictionaryGetKeysAndValues(executables, (const void **)keys, NULL);
+
+		for (i = 0; i < exec_count; i++) {
+#if TARGET_OS_EMBEDDED
+			CFMutableDictionaryRef executable = (CFMutableDictionaryRef)CFDictionaryGetValue(executables, keys[i]);
+			app_layer_setup_executable_uuid(keys[i], rules, executable);
+#endif /* TARGET_OS_EMBEDDED */
+			CFArrayAppendValue(signing_ids, keys[i]);
+		}
+
+		if (CFArrayGetCount(signing_ids) > 0) {
+			CFArrayAppendValue(signing_ids, CFSTR(FLOW_DIVERT_DNS_SERVICE_SIGNING_ID));
+		}
+
+		CFAllocatorDeallocate(kCFAllocatorDefault, keys);
+	}
+
+	flow_divert_set_signing_ids(signing_ids);
+	CFRelease(signing_ids);
+}
+
+void
+app_layer_handle_network_detection_change(CFStringRef service_id)
+{
+#if TARGET_OS_EMBEDDED
+	CFDictionaryRef config = SCDynamicStoreCopyValue(gDynamicStore, g_dynamic_store_key);
+	if (isDictionary(config)) {
+		CFMutableDictionaryRef mutable_config = (CFMutableDictionaryRef)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, config, kCFPropertyListMutableContainers);
+		CFDictionaryRef rules = CFDictionaryGetValue(mutable_config, kVPNAppLayerRules);
+		CFMutableDictionaryRef executables = (CFMutableDictionaryRef)CFDictionaryGetValue(mutable_config, kVPNAppLayerMatchExecutables);
+
+		if (isDictionary(rules) && isDictionary(executables)) {
+			CFStringRef *signing_ids;
+			CFMutableDictionaryRef *executables_list;
+			CFIndex exec_count = CFDictionaryGetCount(executables);
+			CFIndex idx;
+
+			signing_ids = (CFStringRef *)CFAllocatorAllocate(kCFAllocatorDefault, exec_count * sizeof(*signing_ids), 0);
+			executables_list = (CFMutableDictionaryRef *)CFAllocatorAllocate(kCFAllocatorDefault, exec_count * sizeof(*executables_list), 0);
+
+			CFDictionaryGetKeysAndValues(executables, (const void **)signing_ids, (const void **)executables_list);
+
+			for (idx = 0; idx < exec_count; idx++) {
+				CFStringRef rule_id = CFDictionaryGetValue(executables_list[idx], kSCValNetVPNAppRuleIdentifier);
+				if (isString(rule_id) && app_layer_app_rule_has_service(rules, rule_id, service_id)) {
+					app_layer_setup_executable_uuid(signing_ids[idx], rules, executables_list[idx]);
+				}
+			}
+
+			CFAllocatorDeallocate(kCFAllocatorDefault, signing_ids);
+			CFAllocatorDeallocate(kCFAllocatorDefault, executables_list);
+
+			if (!CFEqual(config, mutable_config)) {
+				SCLog(TRUE, LOG_INFO, CFSTR("app_layer_handle_network_detection_change: posting new App VPN rules: %@"), mutable_config);
+				SCDynamicStoreSetValue(gDynamicStore, g_dynamic_store_key, mutable_config);
+			}
+		}
+
+		CFRelease(mutable_config);
+	}
+
+	if (config != NULL) {
+		CFRelease(config);
+	}
+#else
+#pragma unused(service_id)
+#endif /* TARGET_OS_EMBEDDED */
+}
 
 void
 app_layer_prefs_changed(SCPreferencesRef prefs, SCPreferencesNotification notification_type, void *info)
@@ -442,14 +699,14 @@ app_layer_prefs_changed(SCPreferencesRef prefs, SCPreferencesNotification notifi
 #pragma unused(info)
 	if (notification_type & kSCPreferencesNotificationApply) {
 		SCNetworkSetRef current_set = SCNetworkSetCopyCurrent(prefs);
-		CFDictionaryRef new_config = NULL;
+		CFMutableDictionaryRef new_config = NULL;
 		CFArrayRef service_order = NULL;
 		CFArrayRef services = VPNServiceCopyAll(prefs);
 
 		if (current_set != NULL) {
 			service_order = SCNetworkSetGetServiceOrder(current_set);
 		}
-
+		
 		if (services != NULL) {
 			CFMutableDictionaryRef config = CFDictionaryCreateMutable(kCFAllocatorDefault,
 			                                                          0,
@@ -463,31 +720,21 @@ app_layer_prefs_changed(SCPreferencesRef prefs, SCPreferencesNotification notifi
 			}
 
 			if (CFDictionaryGetCount(config) > 0) {
-				new_config = CFDictionaryCreateCopy(kCFAllocatorDefault, config);
+				new_config = config;
+			} else {
+				CFRelease(config);
 			}
-			CFRelease(config);
 		}
 
 		if (new_config != NULL) {
 			CFDictionaryRef curr_config = (CFDictionaryRef)SCDynamicStoreCopyValue(gDynamicStore, g_dynamic_store_key);
 			if (!isDictionary(curr_config) || !CFEqual(new_config, curr_config)) {
-				CFArrayRef signing_ids = NULL;
-				CFDictionaryRef executables = CFDictionaryGetValue(new_config, kVPNAppLayerMatchExecutables);
-				CFIndex exec_count = (executables != NULL ? CFDictionaryGetCount(executables) : 0);
-				if (exec_count > 0) {
-					CFStringRef *keys = CFAllocatorAllocate(kCFAllocatorDefault, (exec_count + 1) * sizeof(*keys), 0);
-					CFDictionaryGetKeysAndValues(executables, (const void **)keys, NULL);
-					keys[exec_count] = CFSTR(FLOW_DIVERT_DNS_SERVICE_SIGNING_ID);
-					signing_ids = CFArrayCreate(kCFAllocatorDefault, (const void **)keys, exec_count + 1, &kCFTypeArrayCallBacks);
-					CFAllocatorDeallocate(kCFAllocatorDefault, keys);
-				}
-				flow_divert_set_signing_ids(signing_ids);
-				if (signing_ids != NULL) {
-					CFRelease(signing_ids);
-				}
-#if ! TARGET_OS_EMBEDDED && ! TARGET_IPHONE_SIMULATOR
-				VPNAppLayerUUIDPolicyClear();
-#endif
+				CFDictionaryRef rules = CFDictionaryGetValue(new_config, kVPNAppLayerRules);
+				CFMutableDictionaryRef executables = (CFMutableDictionaryRef)CFDictionaryGetValue(new_config, kVPNAppLayerMatchExecutables);
+
+				app_layer_set_kernel_rules(rules, executables);
+
+				SCLog(TRUE, LOG_INFO, CFSTR("app_layer_prefs_changed: posting new App VPN rules: %@"), new_config);
 				SCDynamicStoreSetValue(gDynamicStore, g_dynamic_store_key, new_config);
 				app_layer_post_config_changed_notification(CFDictionaryGetCount(new_config));
 			}
@@ -518,6 +765,10 @@ app_layer_init(CFRunLoopRef rl, CFStringRef rl_mode)
 	static dispatch_once_t app_layer_initialized;
 
 	dispatch_once(&app_layer_initialized, ^{
+		if (ne_session_use_as_system_vpn()) {
+			return;
+		}
+
 		SCPreferencesRef prefs = SCPreferencesCreate(kCFAllocatorDefault, CFSTR("app_layer_rules"), NULL);
 		SCPreferencesContext prefs_ctx = { 0, NULL, NULL, NULL };
 

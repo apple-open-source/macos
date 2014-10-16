@@ -1649,14 +1649,19 @@ typedef struct slap_bindconf {
 	slap_keepalive sb_keepalive;
 #ifdef HAVE_TLS
 	void *sb_tls_ctx;
+#ifdef HAVE_SECURE_TRANSPORT
+	char *sb_tls_identity;
+	char *sb_tls_trusted_certs;
+#else
 	char *sb_tls_cert;
 	char *sb_tls_key;
 	char *sb_tls_cacert;
 	char *sb_tls_cacertdir;
+#endif
 	char *sb_tls_reqcert;
 	char *sb_tls_cipher_suite;
 	char *sb_tls_protocol_min;
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 	char *sb_tls_crlcheck;
 #endif
 	int sb_tls_do_init;

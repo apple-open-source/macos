@@ -35,6 +35,7 @@ typedef struct __CCRandom {
         drbg_rng drbg;
         devrandom_rng devrandom;
     } state;
+    int status;
 } ccInternalRandom, *ccInternalRandomRef;
 
 

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -41,6 +41,7 @@
 #include "MediaControlElements.h"
 #include "RenderObject.h"
 #include "RenderSlider.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -80,23 +81,23 @@ MediaControlElementType AccessibilityMediaControl::controlType() const
     return mediaControlElementType(renderer()->node());
 }
 
-String AccessibilityMediaControl::controlTypeName() const
+const String& AccessibilityMediaControl::controlTypeName() const
 {
-    DEFINE_STATIC_LOCAL(const String, mediaEnterFullscreenButtonName, (ASCIILiteral("EnterFullscreenButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaExitFullscreenButtonName, (ASCIILiteral("ExitFullscreenButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaMuteButtonName, (ASCIILiteral("MuteButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaPlayButtonName, (ASCIILiteral("PlayButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaSeekBackButtonName, (ASCIILiteral("SeekBackButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaSeekForwardButtonName, (ASCIILiteral("SeekForwardButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaRewindButtonName, (ASCIILiteral("RewindButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaReturnToRealtimeButtonName, (ASCIILiteral("ReturnToRealtimeButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaUnMuteButtonName, (ASCIILiteral("UnMuteButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaPauseButtonName, (ASCIILiteral("PauseButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaStatusDisplayName, (ASCIILiteral("StatusDisplay")));
-    DEFINE_STATIC_LOCAL(const String, mediaCurrentTimeDisplay, (ASCIILiteral("CurrentTimeDisplay")));
-    DEFINE_STATIC_LOCAL(const String, mediaTimeRemainingDisplay, (ASCIILiteral("TimeRemainingDisplay")));
-    DEFINE_STATIC_LOCAL(const String, mediaShowClosedCaptionsButtonName, (ASCIILiteral("ShowClosedCaptionsButton")));
-    DEFINE_STATIC_LOCAL(const String, mediaHideClosedCaptionsButtonName, (ASCIILiteral("HideClosedCaptionsButton")));
+    static NeverDestroyed<const String> mediaEnterFullscreenButtonName(ASCIILiteral("EnterFullscreenButton"));
+    static NeverDestroyed<const String> mediaExitFullscreenButtonName(ASCIILiteral("ExitFullscreenButton"));
+    static NeverDestroyed<const String> mediaMuteButtonName(ASCIILiteral("MuteButton"));
+    static NeverDestroyed<const String> mediaPlayButtonName(ASCIILiteral("PlayButton"));
+    static NeverDestroyed<const String> mediaSeekBackButtonName(ASCIILiteral("SeekBackButton"));
+    static NeverDestroyed<const String> mediaSeekForwardButtonName(ASCIILiteral("SeekForwardButton"));
+    static NeverDestroyed<const String> mediaRewindButtonName(ASCIILiteral("RewindButton"));
+    static NeverDestroyed<const String> mediaReturnToRealtimeButtonName(ASCIILiteral("ReturnToRealtimeButton"));
+    static NeverDestroyed<const String> mediaUnMuteButtonName(ASCIILiteral("UnMuteButton"));
+    static NeverDestroyed<const String> mediaPauseButtonName(ASCIILiteral("PauseButton"));
+    static NeverDestroyed<const String> mediaStatusDisplayName(ASCIILiteral("StatusDisplay"));
+    static NeverDestroyed<const String> mediaCurrentTimeDisplay(ASCIILiteral("CurrentTimeDisplay"));
+    static NeverDestroyed<const String> mediaTimeRemainingDisplay(ASCIILiteral("TimeRemainingDisplay"));
+    static NeverDestroyed<const String> mediaShowClosedCaptionsButtonName(ASCIILiteral("ShowClosedCaptionsButton"));
+    static NeverDestroyed<const String> mediaHideClosedCaptionsButtonName(ASCIILiteral("HideClosedCaptionsButton"));
 
     switch (controlType()) {
     case MediaEnterFullscreenButton:
@@ -134,7 +135,7 @@ String AccessibilityMediaControl::controlTypeName() const
         break;
     }
 
-    return String();
+    return nullAtom;
 }
 
 void AccessibilityMediaControl::accessibilityText(Vector<AccessibilityText>& textOrder)
@@ -155,7 +156,7 @@ void AccessibilityMediaControl::accessibilityText(Vector<AccessibilityText>& tex
 
 String AccessibilityMediaControl::title() const
 {
-    DEFINE_STATIC_LOCAL(const String, controlsPanel, (ASCIILiteral("ControlsPanel")));
+    static NeverDestroyed<const String> controlsPanel(ASCIILiteral("ControlsPanel"));
 
     if (controlType() == MediaControlsPanel)
         return localizedMediaControlElementString(controlsPanel);
@@ -175,7 +176,7 @@ String AccessibilityMediaControl::helpText() const
 
 bool AccessibilityMediaControl::computeAccessibilityIsIgnored() const
 {
-    if (!m_renderer || !m_renderer->style() || m_renderer->style()->visibility() != VISIBLE || controlType() == MediaTimelineContainer)
+    if (!m_renderer || m_renderer->style().visibility() != VISIBLE || controlType() == MediaTimelineContainer)
         return true;
 
     return accessibilityIsIgnoredByDefault();
@@ -238,18 +239,14 @@ String AccessibilityMediaControlsContainer::helpText() const
 
 bool AccessibilityMediaControlsContainer::controllingVideoElement() const
 {
-    if (!m_renderer->node())
-        return true;
-
-    MediaControlTimeDisplayElement* element = static_cast<MediaControlTimeDisplayElement*>(m_renderer->node());
-
-    return toParentMediaElement(element)->isVideo();
+    auto element = parentMediaElement(*m_renderer);
+    return !element || element->isVideo();
 }
 
-const String AccessibilityMediaControlsContainer::elementTypeName() const
+const String& AccessibilityMediaControlsContainer::elementTypeName() const
 {
-    DEFINE_STATIC_LOCAL(const String, videoElement, (ASCIILiteral("VideoElement")));
-    DEFINE_STATIC_LOCAL(const String, audioElement, (ASCIILiteral("AudioElement")));
+    static NeverDestroyed<const String> videoElement(ASCIILiteral("VideoElement"));
+    static NeverDestroyed<const String> audioElement(ASCIILiteral("AudioElement"));
 
     if (controllingVideoElement())
         return videoElement;
@@ -277,16 +274,16 @@ PassRefPtr<AccessibilityObject> AccessibilityMediaTimeline::create(RenderObject*
 String AccessibilityMediaTimeline::valueDescription() const
 {
     Node* node = m_renderer->node();
-    if (!node->hasTagName(inputTag))
+    if (!isHTMLInputElement(node))
         return String();
 
-    float time = static_cast<HTMLInputElement*>(node)->value().toFloat();
+    float time = toHTMLInputElement(node)->value().toFloat();
     return localizedMediaTimeDescription(time);
 }
 
 String AccessibilityMediaTimeline::helpText() const
 {
-    DEFINE_STATIC_LOCAL(const String, slider, (ASCIILiteral("Slider")));
+    static NeverDestroyed<const String> slider(ASCIILiteral("Slider"));
     return localizedMediaControlElementHelpText(slider);
 }
 
@@ -306,10 +303,10 @@ PassRefPtr<AccessibilityObject> AccessibilityMediaTimeDisplay::create(RenderObje
 
 bool AccessibilityMediaTimeDisplay::computeAccessibilityIsIgnored() const
 {
-    if (!m_renderer || !m_renderer->style() || m_renderer->style()->visibility() != VISIBLE)
+    if (!m_renderer || m_renderer->style().visibility() != VISIBLE)
         return true;
 
-    if (!m_renderer->style()->width().value())
+    if (!m_renderer->style().width().value())
         return true;
     
     return accessibilityIsIgnoredByDefault();
@@ -317,8 +314,8 @@ bool AccessibilityMediaTimeDisplay::computeAccessibilityIsIgnored() const
 
 String AccessibilityMediaTimeDisplay::accessibilityDescription() const
 {
-    DEFINE_STATIC_LOCAL(const String, currentTimeDisplay, (ASCIILiteral("CurrentTimeDisplay")));
-    DEFINE_STATIC_LOCAL(const String, timeRemainingDisplay, (ASCIILiteral("TimeRemainingDisplay")));
+    static NeverDestroyed<const String> currentTimeDisplay(ASCIILiteral("CurrentTimeDisplay"));
+    static NeverDestroyed<const String> timeRemainingDisplay(ASCIILiteral("TimeRemainingDisplay"));
 
     if (controlType() == MediaCurrentTimeDisplay)
         return localizedMediaControlElementString(currentTimeDisplay);

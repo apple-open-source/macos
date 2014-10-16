@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>locale_x11encoding.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">locale_x11encoding.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Prints the locale's encoding via libX11. */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;assert.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;locale.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;X11/Xlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;X11/Xutil.h&gt;</span>
+
+<span class="enscript-type">int</span> <span class="enscript-function-name">main</span> (<span class="enscript-type">int</span> argc, <span class="enscript-type">char</span>* argv[])
+{
+  Display* display;
+  XTextProperty textprop;
+  <span class="enscript-type">char</span>* input;
+
+  <span class="enscript-keyword">if</span> (argc != 1)
+    exit(1);
+
+  setlocale(LC_CTYPE,<span class="enscript-string">&quot;&quot;</span>);
+
+  display = XOpenDisplay(NULL);
+  <span class="enscript-keyword">if</span> (display == NULL) {
+    fprintf(stderr,<span class="enscript-string">&quot;cannot open display\n&quot;</span>);
+    exit(1);
+  }
+
+  input = <span class="enscript-string">&quot;&quot;</span>;
+  <span class="enscript-keyword">if</span> (XmbTextListToTextProperty(display, &amp;input, 1, XTextStyle, &amp;textprop) != Success) {
+    fprintf(stderr,<span class="enscript-string">&quot;XmbTextListToTextProperty failed\n&quot;</span>);
+    exit(1);
+  }
+  assert(textprop.format == 8);
+  assert(textprop.nitems == 0);
+
+  printf(<span class="enscript-string">&quot;%s\n&quot;</span>, XGetAtomName(display, textprop.encoding));
+
+  XCloseDisplay(display);
+
+  exit(0);
+}
+</pre>
+<hr />
+</body></html>

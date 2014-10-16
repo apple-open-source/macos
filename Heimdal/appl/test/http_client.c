@@ -39,6 +39,10 @@
 #include "gss_common.h"
 #include <base64.h>
 
+static void
+storage_printf(krb5_storage *sp, const char *fmt, ...)
+    __attribute__((format (printf, 2, 3)));
+
 /*
  * A simplistic client implementing draft-brezak-spnego-http-04.txt
  */
@@ -97,7 +101,7 @@ storage_printf(krb5_storage *sp, const char *fmt, ...)
     len = strlen(str);
 
     ret = krb5_storage_write(sp, str, len);
-    if (ret != len)
+    if (ret < 0 || (size_t)ret != len)
 	errx(1, "failed to write to server");
 
     free(str);
@@ -108,6 +112,7 @@ static int version_flag;
 static int verbose_flag;
 static int mutual_flag = 1;
 static int delegate_flag;
+static int policy_flag;
 static char *port_str = "http";
 static char *gss_service = "HTTP";
 static char *client_str = NULL;
@@ -117,6 +122,7 @@ static struct getargs http_args[] = {
     { "verbose", 'v', arg_flag, &verbose_flag, "verbose logging", },
     { "port", 'p', arg_string, &port_str, "port to connect to", "port" },
     { "delegate", 0, arg_flag, &delegate_flag, "gssapi delegate credential" },
+    { "policy", 0, arg_flag, &policy_flag, "gssapi delegate policy credential" },
     { "gss-service", 's', arg_string, &gss_service, "gssapi service to use",
       "service" },
     { "mech", 'm', arg_string, &mech, "gssapi mech to use", "mech" },
@@ -143,7 +149,7 @@ usage(int code)
 struct http_req {
     char *response;
     char **headers;
-    int num_headers;
+    unsigned num_headers;
     void *body;
     size_t body_size;
 };
@@ -162,7 +168,7 @@ http_req_zero(struct http_req *req)
 static void
 http_req_free(struct http_req *req)
 {
-    int i;
+    unsigned i;
 
     free(req->response);
     for (i = 0; i < req->num_headers; i++)
@@ -175,7 +181,8 @@ http_req_free(struct http_req *req)
 static const char *
 http_find_header(struct http_req *req, const char *header)
 {
-    size_t i, len = strlen(header);
+    size_t len = strlen(header);
+    unsigned i;
 
     for (i = 0; i < req->num_headers; i++) {
 	if (strncasecmp(header, req->headers[i], len) == 0) {
@@ -189,13 +196,13 @@ http_find_header(struct http_req *req, const char *header)
 static int
 http_query(krb5_storage *sp,
 	   const char *host, const char *page,
-	   char **headers, int num_headers, struct http_req *req)
+	   char **headers, unsigned num_headers, struct http_req *req)
 {
     enum { RESPONSE, HEADER, BODY } state;
     ssize_t ret;
     char in_buf[1024];
     size_t in_len = 0, content_length;
-    int i;
+    unsigned i;
 
     http_req_zero(req);
     
@@ -258,7 +265,7 @@ http_query(krb5_storage *sp,
     req->body = erealloc(req->body, content_length + 1);
 
     ret = krb5_storage_read(sp, req->body, req->body_size);
-    if (ret != req->body_size)
+    if (ret < 0 || (size_t)ret != req->body_size)
 	errx(1, "failed to read body");
 
     ((char *)req->body)[req->body_size] = '\0';
@@ -325,6 +332,8 @@ main(int argc, char **argv)
     flags = 0;
     if (delegate_flag)
 	flags |= GSS_C_DELEG_FLAG;
+    if (policy_flag)
+	flags |= GSS_C_DELEG_POLICY_FLAG;
     if (mutual_flag)
 	flags |= GSS_C_MUTUAL_FLAG;
 

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -66,8 +66,8 @@ static int	print_namval(Sfio_t*, Namval_t*, int, struct tdata*);
 static void	print_attribute(Namval_t*,void*);
 static void	print_all(Sfio_t*, Dt_t*, struct tdata*);
 static void	print_scan(Sfio_t*, int, Dt_t*, int, struct tdata*);
-static int	b_unall(int, char**, Dt_t*, Shell_t*);
-static int	b_common(char**, int, Dt_t*, struct tdata*);
+static int	unall(int, char**, Dt_t*, Shell_t*);
+static int	setall(char**, int, Dt_t*, struct tdata*);
 static void	pushname(Namval_t*,void*);
 static void(*nullscan)(Namval_t*,void*);
 
@@ -82,16 +82,16 @@ static Namval_t *load_class(const char *name)
  */
 #if 0
     /* for the dictionary generator */
-    int    b_export(int argc,char *argv[],void *extra){}
+    int    b_export(int argc,char *argv[],Shbltin_t *context){}
 #endif
-int    b_readonly(int argc,char *argv[],void *extra)
+int    b_readonly(int argc,char *argv[],Shbltin_t *context)
 {
 	register int flag;
 	char *command = argv[0];
 	struct tdata tdata;
 	NOT_USED(argc);
 	memset((void*)&tdata,0,sizeof(tdata));
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	tdata.aflag = '-';
 	while((flag = optget(argv,*command=='e'?sh_optexport:sh_optreadonly))) switch(flag)
 	{
@@ -129,11 +129,11 @@ int    b_readonly(int argc,char *argv[],void *extra)
 		if(!tdata.sh->prefix)
 			tdata.sh->prefix = "";
 	}
-	return(b_common(argv,flag,tdata.sh->var_tree, &tdata));
+	return(setall(argv,flag,tdata.sh->var_tree, &tdata));
 }
 
 
-int    b_alias(int argc,register char *argv[],void *extra)
+int    b_alias(int argc,register char *argv[],Shbltin_t *context)
 {
 	register unsigned flag = NV_NOARRAY|NV_NOSCOPE|NV_ASSIGN;
 	register Dt_t *troot;
@@ -141,7 +141,7 @@ int    b_alias(int argc,register char *argv[],void *extra)
 	struct tdata tdata;
 	NOT_USED(argc);
 	memset((void*)&tdata,0,sizeof(tdata));
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	troot = tdata.sh->alias_tree;
 	if(*argv[0]=='h')
 		flag = NV_TAGGED;
@@ -197,25 +197,25 @@ int    b_alias(int argc,register char *argv[],void *extra)
 			troot = tdata.sh->track_tree;
 		}
 	}
-	return(b_common(argv,flag,troot,&tdata));
+	return(setall(argv,flag,troot,&tdata));
 }
 
 
 #if 0
     /* for the dictionary generator */
-    int    b_local(int argc,char *argv[],void *extra){}
+    int    b_local(int argc,char *argv[],Shbltin_t *context){}
 #endif
-int    b_typeset(int argc,register char *argv[],void *extra)
+int    b_typeset(int argc,register char *argv[],Shbltin_t *context)
 {
 	register int	n, flag = NV_VARNAME|NV_ASSIGN;
 	struct tdata	tdata;
 	const char	*optstring = sh_opttypeset;
-	Namdecl_t 	*ntp = (Namdecl_t*)((Shbltin_t*)extra)->ptr;
+	Namdecl_t 	*ntp = (Namdecl_t*)context->ptr;
 	Dt_t		*troot;
 	int		isfloat=0, shortint=0, sflag=0;
 	NOT_USED(argc);
 	memset((void*)&tdata,0,sizeof(tdata));
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	if(ntp)
 	{
 		tdata.tp = ntp->tp;
@@ -377,6 +377,8 @@ endargs:
 		error_info.errors++;
 	if((flag&NV_REF) && (flag&~(NV_REF|NV_IDENT|NV_ASSIGN)))
 		error_info.errors++;
+	if((flag&NV_TYPE) && (flag&~(NV_TYPE|NV_VARNAME|NV_ASSIGN)))
+		error_info.errors++;
 	if(troot==tdata.sh->fun_tree && ((isfloat || flag&~(NV_FUNCT|NV_TAGGED|NV_EXPORT|NV_LTOU))))
 		error_info.errors++;
 	if(sflag && troot==tdata.sh->fun_tree)
@@ -387,6 +389,8 @@ endargs:
 	}
 	if(error_info.errors)
 		errormsg(SH_DICT,ERROR_usage(2),"%s", optusage(NIL(char*)));
+	if(sizeof(char*)<8 && tdata.argnum > SHRT_MAX)
+		errormsg(SH_DICT,ERROR_exit(2),"option argument cannot be greater than %d",SHRT_MAX);
 	if(isfloat)
 		flag |= NV_DOUBLE;
 	if(shortint)
@@ -408,14 +412,29 @@ endargs:
 	if(flag&NV_TYPE)
 	{
 		Stk_t *stkp = tdata.sh->stk;
-		int offset = stktell(stkp);
+		int off=0,offset = stktell(stkp);
 		if(!tdata.prefix)
 			return(sh_outtype(tdata.sh,sfstdout));
 		sfputr(stkp,NV_CLASS,-1);
+#if SHOPT_NAMESPACE
+		if(tdata.sh->namespace)
+		{
+			off = stktell(stkp)+1;
+			sfputr(stkp,nv_name(tdata.sh->namespace),'.');
+		}
+		else
+#endif /* SHOPT_NAMESPACE */
 		if(NV_CLASS[sizeof(NV_CLASS)-2]!='.')
 			sfputc(stkp,'.');
 		sfputr(stkp,tdata.prefix,0);
 		tdata.tp = nv_open(stkptr(stkp,offset),tdata.sh->var_tree,NV_VARNAME|NV_NOARRAY|NV_NOASSIGN);
+#if SHOPT_NAMESPACE
+		if(!tdata.tp && off)
+		{
+			*stkptr(stkp,off)=0;
+			tdata.tp = nv_open(stkptr(stkp,offset),tdata.sh->var_tree,NV_VARNAME|NV_NOARRAY|NV_NOASSIGN);
+		}
+#endif /* SHOPT_NAMESPACE */
 		stkseek(stkp,offset);
 		if(!tdata.tp)
 			errormsg(SH_DICT,ERROR_exit(1),"%s: unknown type",tdata.prefix);
@@ -423,14 +442,19 @@ endargs:
 			nv_newtype(tdata.tp);
 		tdata.tp->nvenv = tdata.help;
 		flag &= ~NV_TYPE;
+		if(nv_isattr(tdata.tp,NV_TAGGED))
+		{
+			nv_offattr(tdata.tp,NV_TAGGED);
+			return(0);
+		}
 	}
 	else if(tdata.aflag==0 && ntp && ntp->tp)
 		tdata.aflag = '-';
 	if(!tdata.sh->mktype)
 		tdata.help = 0;
-	if(tdata.aflag=='+' && (flag&(NV_ARRAY|NV_IARRAY|NV_COMVAR)))
+	if(tdata.aflag=='+' && (flag&(NV_ARRAY|NV_IARRAY|NV_COMVAR)) && argv[1])
 		errormsg(SH_DICT,ERROR_exit(1),e_nounattr);
-	return(b_common(argv,flag,troot,&tdata));
+	return(setall(argv,flag,troot,&tdata));
 }
 
 static void print_value(Sfio_t *iop, Namval_t *np, struct tdata *tp)
@@ -445,8 +469,12 @@ static void print_value(Sfio_t *iop, Namval_t *np, struct tdata *tp)
 	}
 	else if(nv_istable(np))
 	{
-		Dt_t	*root = nv_dict(np);
-		name = nv_name(np);
+		Dt_t	*root = tp->sh->last_root;
+		Namval_t *nsp = tp->sh->namespace;
+		char *cp;
+		if(!tp->pflag)
+			return;
+		cp = name = nv_name(np);
 		if(*name=='.')
 			name++;
 		if(tp->indent)
@@ -456,9 +484,22 @@ static void print_value(Sfio_t *iop, Namval_t *np, struct tdata *tp)
 			sfnputc(iop,'\t',tp->indent);
 		sfprintf(iop,"{\n", name);
 		tp->indent++;
-		print_scan(iop,NV_NOSCOPE,root,aflag=='+',tp);
-		tp->indent--;
-		if(tp->indent)
+		/* output types from namespace */
+		tp->sh->namespace = 0;
+		tp->sh->prefix = nv_name(np)+1;
+		sh_outtype(tp->sh,iop);
+		tp->sh->prefix = 0;
+		tp->sh->namespace = np;
+		tp->sh->last_root = root;
+		/* output variables from namespace */
+		print_scan(iop,NV_NOSCOPE,nv_dict(np),aflag=='+',tp);
+		tp->wctname = cp;
+		tp->sh->namespace = 0;
+		/* output functions from namespace */
+		print_scan(iop,NV_FUNCTION|NV_NOSCOPE,tp->sh->fun_tree,aflag=='+',tp);
+		tp->wctname = 0;
+		tp->sh->namespace = nsp;
+		if(--tp->indent)
 			sfnputc(iop,'\t',tp->indent);
 		sfwrite(iop,"}\n",2);
 		return;
@@ -483,7 +524,7 @@ static void print_value(Sfio_t *iop, Namval_t *np, struct tdata *tp)
 	}
 }
 
-static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *tp)
+static int     setall(char **argv,register int flag,Dt_t *troot,struct tdata *tp)
 {
 	register char *name;
 	char *last = 0;
@@ -497,6 +538,8 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 	}
 	else if(*shp->prefix==0)
 		shp->prefix = 0;
+	if(*argv[0]=='+')
+		nvflags |= NV_NOADD;
 	flag &= ~(NV_NOARRAY|NV_NOSCOPE|NV_VARNAME|NV_IDENT|NV_STATIC|NV_COMVAR|NV_IARRAY);
 	if(argv[1])
 	{
@@ -508,11 +551,13 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 				nvflags |= NV_NOREF;
 		}
 		if(tp->pflag)
-			nvflags |= NV_NOREF;
+			nvflags |= (NV_NOREF|NV_NOADD|NV_NOFAIL);
 		while(name = *++argv)
 		{
 			register unsigned newflag;
 			register Namval_t *np;
+			Namarr_t	*ap;
+			Namval_t	*mp;
 			unsigned curflag;
 			if(troot == shp->fun_tree)
 			{
@@ -546,8 +591,13 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 						np = sh_fsearch(shp,name,HASH_NOSCOPE);
 					if(!np)
 #endif /* SHOPT_NAMESPACE */
-					if((np=nv_search(name,troot,0)) && !is_afunction(np))
-						np = 0;
+					if(np=nv_search(name,troot,0))
+					{
+						if(!is_afunction(np))
+							np = 0;
+					}
+					else if(memcmp(name,".sh.math.",9)==0 && sh_mathstd(name+9))
+						continue;
 				}
 				if(np && ((flag&NV_LTOU) || !nv_isnull(np) || nv_isattr(np,NV_LTOU)))
 				{
@@ -587,12 +637,27 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 				path_alias(np,path_absolute(shp,nv_name(np),NIL(Pathcomp_t*)));
 				continue;
 			}
-			np = nv_open(name,troot,nvflags|((nvflags&NV_ASSIGN)?0:NV_ARRAY)|NV_FARRAY);
+			np = nv_open(name,troot,nvflags|((nvflags&NV_ASSIGN)?0:NV_ARRAY)|((iarray|(nvflags&(NV_REF|NV_NOADD)==NV_REF))?NV_FARRAY:0));
+			if(!np)
+				continue;
 			if(nv_isnull(np) && !nv_isarray(np) && nv_isattr(np,NV_NOFREE))
 				nv_offattr(np,NV_NOFREE);
+			else if(tp->tp && !nv_isattr(np,NV_MINIMAL|NV_EXPORT) && (mp=(Namval_t*)np->nvenv) && (ap=nv_arrayptr(mp)) && (ap->nelem&ARRAY_TREE))
+				errormsg(SH_DICT,ERROR_exit(1),e_typecompat,nv_name(np));
+			else if((ap=nv_arrayptr(np)) && nv_aindex(np)>0 && ap->nelem==1 && nv_getval(np)==Empty)
+			{
+				ap->nelem++;
+				_nv_unset(np,0);
+				ap->nelem--;
+			}
+			else if(iarray && ap && ap->fun) 
+				errormsg(SH_DICT,ERROR_exit(1),"cannot change associative array %s to index array",nv_name(np));
+			else if( (iarray||(flag&NV_ARRAY)) && nv_isvtree(np) && !nv_type(np))
+				_nv_unset(np,NV_EXPORT);
 			if(tp->pflag)
 			{
-				nv_attribute(np,sfstdout,tp->prefix,1);
+				if(!nv_istable(np))
+					nv_attribute(np,sfstdout,tp->prefix,1);
 				print_value(sfstdout,np,tp);
 				continue;
 			}
@@ -608,7 +673,7 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 			}
 			if(!nv_isarray(np) && !strchr(name,'=') && !(shp->envlist  && nv_onlist(shp->envlist,name)))
 			{
-				if(comvar || (shp->last_root==shp->var_tree && (tp->tp || (!shp->st.real_fun && (nvflags&NV_STATIC)) || (!(flag&NV_EXPORT) && nv_isattr(np,(NV_EXPORT|NV_IMPORT))==(NV_EXPORT|NV_IMPORT)))))
+				if(comvar || (shp->last_root==shp->var_tree && (tp->tp || (!shp->st.real_fun && (nvflags&NV_STATIC)) || (!(flag&(NV_EXPORT|NV_RDONLY)) && nv_isattr(np,(NV_EXPORT|NV_IMPORT))==(NV_EXPORT|NV_IMPORT)))))
 {
 					_nv_unset(np,0);
 }
@@ -623,7 +688,6 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 						nv_onattr(np,NV_ARRAY|(comvar?NV_NOFREE:0));
 					else
 					{
-						Namarr_t *ap=nv_arrayptr(np);
 						if(ap && comvar)
 							ap->nelem |= ARRAY_TREE;
 						nv_putsub(np, (char*)0, 0);
@@ -729,12 +793,6 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 					int len=strlen(name);
 					if(tp->argnum==1 && newflag==NV_INTEGER && nv_isattr(np,NV_INTEGER))
 						tp->argnum = 10;
-					/* use reference name for export */
-					if((newflag^curflag)&NV_EXPORT)
-					{
-						oldname = np->nvname;
-						np->nvname = name;
-					}
 					if(np->nvfun && !nv_isarray(np) && name[len-1]=='.')
 						newflag |= NV_NODISC;
 					nv_newattr (np, newflag&~NV_ASSIGN,tp->argnum);
@@ -785,8 +843,10 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 			else if(troot==shp->var_tree)
 			{
 				flag |= (nvflags&NV_ARRAY);
-				if(flag&NV_IARRAY)
-					flag |= NV_ARRAY;
+				if(iarray)
+					flag |= NV_ARRAY|NV_IARRAY;
+				if(comvar)
+					flag |= NV_TABLE;
 				if(!(flag&~NV_ASSIGN))
 					tp->noref = 1;
 			}
@@ -811,22 +871,24 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 	return(r);
 }
 
-typedef void (*Iptr_t)(int,void*);
-typedef int (*Fptr_t)(int, char*[], void*);
+#if SHOPT_DYNAMIC
+
+typedef void (*Libinit_f)(int,void*);
+
+typedef struct Libcomp_s
+{
+	void*		dll;
+	char*		lib;
+	dev_t		dev;
+	ino_t		ino;
+	unsigned int	attr;
+} Libcomp_t;
 
 #define GROWLIB	4
 
-static void		**liblist;
-static unsigned short	*libattr;
+static Libcomp_t	*liblist;
 static int		nlib;
 static int		maxlib;
-
-/*
- * This allows external routines to load from the same library */
-void **sh_getliblist(void)
-{
-	return(liblist);
-}
 
 /*
  * add library to loaded list
@@ -834,67 +896,80 @@ void **sh_getliblist(void)
  * always move to head of search list
  * return: 0: already loaded 1: first load
  */
-#if SHOPT_DYNAMIC
-int sh_addlib(Shell_t *shp,void* library)
+
+int sh_addlib(Shell_t* shp, void* dll, char* name, Pathcomp_t* pp)
 {
 	register int	n;
 	register int	r;
-	Iptr_t		initfn;
+	Libinit_f	initfn;
 	Shbltin_t	*sp = &shp->bltindata;
 
 	sp->nosfio = 0;
 	for (n = r = 0; n < nlib; n++)
 	{
 		if (r)
-		{
 			liblist[n-1] = liblist[n];
-			libattr[n-1] = libattr[n];
-		}
-		else if (liblist[n] == library)
+		else if (liblist[n].dll == dll)
 			r++;
 	}
 	if (r)
 		nlib--;
-	else if ((initfn = (Iptr_t)dlllook(library, "lib_init")))
+	else if ((initfn = (Libinit_f)dlllook(dll, "lib_init")))
 		(*initfn)(0,sp);
 	if (nlib >= maxlib)
 	{
 		maxlib += GROWLIB;
-		if (liblist)
-		{
-			liblist = (void**)realloc((void*)liblist, (maxlib+1)*sizeof(void**));
-			libattr = (unsigned short*)realloc((void*)liblist, (maxlib+1)*sizeof(unsigned short*));
-		}
-		else
-		{
-			liblist = (void**)malloc((maxlib+1)*sizeof(void**));
-			libattr = (unsigned short*)malloc((maxlib+1)*sizeof(unsigned short*));
-		}
+		liblist = newof(liblist, Libcomp_t, maxlib+1, 0);
 	}
-	libattr[nlib] = (sp->nosfio?BLT_NOSFIO:0);
-	liblist[nlib++] = library;
-	liblist[nlib] = 0;
+	liblist[nlib].dll = dll;
+	liblist[nlib].attr = (sp->nosfio?BLT_NOSFIO:0);
+	if (name)
+		liblist[nlib].lib = strdup(name);
+	if (pp)
+	{
+		liblist[nlib].dev = pp->dev;
+		liblist[nlib].ino = pp->ino;
+	}
+	nlib++;
 	return !r;
 }
+
+Shbltin_f sh_getlib(Shell_t* shp, char* sym, Pathcomp_t* pp)
+{
+	register int	n;
+
+	for (n = 0; n < nlib; n++)
+		if (liblist[n].ino == pp->ino && liblist[n].dev == pp->dev)
+			return (Shbltin_f)dlllook(liblist[n].dll, sym);
+	return 0;
+}
+
 #else
-int sh_addlib(Shell_t *shp,void* library)
+
+int sh_addlib(Shell_t* shp, void* library, char* name, Pathcomp_t* pp)
 {
 	return 0;
 }
+
+Shbltin_f sh_getlib(Shell_t* shp, char* name, Pathcomp_t* pp)
+{
+	return 0;
+}
+
 #endif /* SHOPT_DYNAMIC */
 
 /*
  * add change or list built-ins
  * adding builtins requires dlopen() interface
  */
-int	b_builtin(int argc,char *argv[],void *extra)
+int	b_builtin(int argc,char *argv[],Shbltin_t *context)
 {
 	register char *arg=0, *name;
 	register int n, r=0, flag=0;
 	register Namval_t *np;
 	long dlete=0;
 	struct tdata tdata;
-	Fptr_t addr;
+	Shbltin_f addr;
 	Stk_t	*stkp;
 	void *library=0;
 	char *errmsg;
@@ -905,7 +980,7 @@ int	b_builtin(int argc,char *argv[],void *extra)
 #endif
 	NOT_USED(argc);
 	memset(&tdata,0,sizeof(tdata));
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	stkp = tdata.sh->stk;
 	if(!tdata.sh->pathlist)
 		path_absolute(tdata.sh,argv[0],NIL(Pathcomp_t*));
@@ -971,7 +1046,7 @@ int	b_builtin(int argc,char *argv[],void *extra)
 			return(1);
 		}
 #endif
-		sh_addlib(tdata.sh,library);
+		sh_addlib(tdata.sh,library,arg,NiL);
 	}
 	else
 #endif /* SHOPT_DYNAMIC */
@@ -989,33 +1064,37 @@ int	b_builtin(int argc,char *argv[],void *extra)
 		sfputr(stkp,name,0);
 		errmsg = 0;
 		addr = 0;
-		for(n=(nlib?nlib:dlete); --n>=0;)
-		{
-			/* (char*) added for some sgi-mips compilers */ 
-#if SHOPT_DYNAMIC
-			if(dlete || (addr = (Fptr_t)dlllook(liblist[n],stkptr(stkp,flag))))
-#else
-			if(dlete)
-#endif /* SHOPT_DYNAMIC */
+		if(dlete || liblist)
+			for(n=(nlib?nlib:dlete); --n>=0;)
 			{
-				if(np = sh_addbuiltin(arg, addr,pointerof(dlete)))
+#if SHOPT_DYNAMIC
+				if(!dlete && !liblist[n].dll)
+					continue;
+				if(dlete || (addr = (Shbltin_f)dlllook(liblist[n].dll,stkptr(stkp,flag))))
+#else
+				if(dlete)
+#endif /* SHOPT_DYNAMIC */
 				{
-					if(dlete || nv_isattr(np,BLT_SPC))
-						errmsg = "restricted name";
-					else
-						nv_onattr(np,libattr[n]);
+					if(np = sh_addbuiltin(arg, addr,pointerof(dlete)))
+					{
+						if(dlete || nv_isattr(np,BLT_SPC))
+							errmsg = "restricted name";
+#if SHOPT_DYNAMIC
+						else
+							nv_onattr(np,liblist[n].attr);
+#endif /* SHOPT_DYNAMIC */
+					}
+					break;
 				}
-				break;
 			}
-		}
-		if(!dlete && !addr)
+		if(!addr && (np = nv_search(arg,context->shp->bltin_tree,0)))
 		{
-			np = sh_addbuiltin(arg, 0 ,0);
-			if(np && nv_isattr(np,BLT_SPC))
+			if(nv_isattr(np,BLT_SPC))
 				errmsg = "restricted name";
-			else if(!np)
-				errmsg = "not found";
+			addr = (Shbltin_f)np->nvalue.bfp;
 		}
+		if(!dlete && !addr && !(np=sh_addbuiltin(arg,(Shbltin_f)0 ,0)))
+			errmsg = "not found";
 		if(errmsg)
 		{
 			errormsg(SH_DICT,ERROR_exit(0),"%s: %s",*argv,errmsg);
@@ -1027,11 +1106,12 @@ int	b_builtin(int argc,char *argv[],void *extra)
 	return(r);
 }
 
-int    b_set(int argc,register char *argv[],void *extra)
+int    b_set(int argc,register char *argv[],Shbltin_t *context)
 {
 	struct tdata tdata;
+	int was_monitor = sh_isoption(SH_MONITOR);
 	memset(&tdata,0,sizeof(tdata));
-	tdata.sh = ((Shbltin_t*)extra)->shp;
+	tdata.sh = context->shp;
 	tdata.prefix=0;
 	if(argv[1])
 	{
@@ -1041,9 +1121,9 @@ int    b_set(int argc,register char *argv[],void *extra)
 			sh_onstate(SH_VERBOSE);
 		else
 			sh_offstate(SH_VERBOSE);
-		if(sh_isoption(SH_MONITOR))
+		if(sh_isoption(SH_MONITOR) && !was_monitor)
 			sh_onstate(SH_MONITOR);
-		else
+		else if(!sh_isoption(SH_MONITOR)  && was_monitor)
 			sh_offstate(SH_MONITOR);
 	}
 	else
@@ -1059,23 +1139,23 @@ int    b_set(int argc,register char *argv[],void *extra)
  * Non-existent items being deleted give non-zero exit status
  */
 
-int    b_unalias(int argc,register char *argv[],void *extra)
+int    b_unalias(int argc,register char *argv[],Shbltin_t *context)
 {
-	Shell_t *shp = ((Shbltin_t*)extra)->shp;
-	return(b_unall(argc,argv,shp->alias_tree,shp));
+	Shell_t *shp = context->shp;
+	return(unall(argc,argv,shp->alias_tree,shp));
 }
 
-int    b_unset(int argc,register char *argv[],void *extra)
+int    b_unset(int argc,register char *argv[],Shbltin_t *context)
 {
-	Shell_t *shp = ((Shbltin_t*)extra)->shp;
-	return(b_unall(argc,argv,shp->var_tree,shp));
+	Shell_t *shp = context->shp;
+	return(unall(argc,argv,shp->var_tree,shp));
 }
 
-static int b_unall(int argc, char **argv, register Dt_t *troot, Shell_t* shp)
+static int unall(int argc, char **argv, register Dt_t *troot, Shell_t* shp)
 {
 	register Namval_t *np;
 	register const char *name;
-	register int r;
+	volatile int r;
 	Dt_t	*dp;
 	int nflag=0,all=0,isfun,jmpval;
 	struct checkpt buff;
@@ -1168,12 +1248,12 @@ static int b_unall(int argc, char **argv, register Dt_t *troot, Shell_t* shp)
 				if(shp->subshell)
 					np=sh_assignok(np,0);
 			}
-			if(!nv_isnull(np))
+			if(!nv_isnull(np) || nv_size(np) || nv_isattr(np,~(NV_MINIMAL|NV_NOFREE)))
 				_nv_unset(np,0);
 			if(troot==shp->var_tree && shp->st.real_fun && (dp=shp->var_tree->walk) && dp==shp->st.real_fun->sdict)
 				nv_delete(np,dp,NV_NOFREE);
-			else if(isfun)
-				nv_delete(np,troot,NV_NOFREE);
+			else if(isfun && !(np->nvalue.rp && np->nvalue.rp->running))
+				nv_delete(np,troot,0);
 #if 0
 			/* causes unsetting local variable to expose global */
 			else if(shp->var_tree==troot && shp->var_tree!=shp->var_base && nv_search((char*)np,shp->var_tree,HASH_BUCKET|HASH_NOSCOPE))
@@ -1197,37 +1277,41 @@ static int b_unall(int argc, char **argv, register Dt_t *troot, Shell_t* shp)
 static int print_namval(Sfio_t *file,register Namval_t *np,register int flag, struct tdata *tp)
 {
 	register char *cp;
-	int	indent=tp->indent, outname=0;
+	int	indent=tp->indent, outname=0, isfun;
 	sh_sigcheck(tp->sh);
 	if(flag)
 		flag = '\n';
 	if(tp->noref && nv_isref(np))
 		return(0);
+	if(nv_isattr(np,NV_NOPRINT|NV_INTEGER)==NV_NOPRINT)
+	{
+		if(is_abuiltin(np) && strcmp(np->nvname,".sh.tilde"))
+			sfputr(file,nv_name(np),'\n');
+		return(0);
+	}
 	if(nv_istable(np))
 	{
 		print_value(file,np,tp);
 		return(0);
 	}
-	if(nv_isattr(np,NV_NOPRINT|NV_INTEGER)==NV_NOPRINT)
-	{
-		if(is_abuiltin(np))
-			sfputr(file,nv_name(np),'\n');
-		return(0);
-	}
+	isfun = is_afunction(np);
 	if(tp->prefix)
 	{
 		outname = (*tp->prefix=='t' &&  (!nv_isnull(np) || nv_isattr(np,NV_FLOAT|NV_RDONLY|NV_BINARY|NV_RJUST|NV_NOPRINT)));
-		if(indent && (outname || *tp->prefix!='t'))
+		if(indent && (isfun || outname || *tp->prefix!='t'))
 		{
 			sfnputc(file,'\t',indent);
 			indent = 0;
 		}
-		if(*tp->prefix=='t')
+		if(!isfun)
+		{
+			if(*tp->prefix=='t')
 			nv_attribute(np,tp->outfile,tp->prefix,tp->aflag);
-		else
-			sfputr(file,tp->prefix,' ');
+			else
+				sfputr(file,tp->prefix,' ');
+		}
 	}
-	if(is_afunction(np))
+	if(isfun)
 	{
 		Sfio_t *iop=0;
 		char *fname=0;
@@ -1237,7 +1321,10 @@ static int print_namval(Sfio_t *file,register Namval_t *np,register int flag, st
 			sfputr(file,"typeset -fu",' ');
 		else if(!flag && !nv_isattr(np,NV_FPOSIX))
 			sfputr(file,"function",' ');
-		sfputr(file,nv_name(np),-1);
+		cp = nv_name(np);
+		if(tp->wctname)
+			cp += strlen(tp->wctname)+1;
+		sfputr(file,cp,-1);
 		if(nv_isattr(np,NV_FPOSIX))
 			sfwrite(file,"()",2);
 		if(np->nvalue.ip && np->nvalue.rp->hoffset>=0)
@@ -1338,6 +1425,8 @@ static void print_scan(Sfio_t *file, int flag, Dt_t *root, int option,struct tda
 	register Namval_t *np;
 	register int namec;
 	Namval_t *onp = 0;
+	char	*name=0;
+	int	len;
 	tp->sh->last_table=0;
 	flag &= ~NV_ASSIGN;
 	tp->scanmask = flag&~NV_NOSCOPE;
@@ -1356,11 +1445,23 @@ static void print_scan(Sfio_t *file, int flag, Dt_t *root, int option,struct tda
 	namec = nv_scan(root, pushname, (void*)tp, tp->scanmask, flag&~NV_IARRAY);
 	if(mbcoll())
 		strsort(argv,namec,strcoll);
-	while(namec--)
+	if(namec==0 && tp->sh->namespace && nv_dict(tp->sh->namespace)==root)
+	{
+		sfnputc(file,'\t',tp->indent);
+		sfwrite(file,":\n",2);
+	}
+	else while(namec--)
 	{
 		if((np=nv_search(*argv++,root,0)) && np!=onp && (!nv_isnull(np) || np->nvfun || nv_isattr(np,~NV_NOFREE)))
 		{
 			onp = np;
+			if(name)
+			{
+				char *newname = nv_name(np);
+				if(memcmp(name,newname,len)==0 && newname[len]== '.')
+					continue;
+				name = 0;
+			}
 			if(flag&NV_ARRAY)
 			{
 				if(nv_aindex(np)>=0)
@@ -1375,6 +1476,11 @@ static void print_scan(Sfio_t *file, int flag, Dt_t *root, int option,struct tda
 			tp->scanmask = flag&~NV_NOSCOPE;
 			tp->scanroot = root;
 			print_namval(file,np,option,tp);
+			if(!is_abuiltin(np) && nv_isvtree(np))
+			{
+				name = nv_name(np);
+				len = strlen(name);
+			}
 		}
 	}
 }

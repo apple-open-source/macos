@@ -26,7 +26,9 @@
 
 #include <Availability.h>
 #include <stdint.h>
-#include <CommonCrypto/CommonCryptor.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <CommonCrypto/CommonCryptoError.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +45,6 @@ extern "C" {
  * This shares the error status of CommonCryptor.h
  */
   
-typedef CCCryptorStatus CCStatus;
 typedef struct _CCBigNumRef *CCBigNumRef;
 
 /*!

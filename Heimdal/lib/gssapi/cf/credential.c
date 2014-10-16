@@ -3,7 +3,7 @@
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
- * Portions Copyright (c) 2009 - 2011 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2009 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@
  *
  * @param desired_name name to use to acquire credential. Import the name using gss_import_name(). The type of the name has to be supported by the desired_mech used.
  *
- * @param mech mechanism to use to acquire credential. GSS_C_NO_OID is not valid input and a mechanism must be selected. For example GSS_KRB5_MECHANISM, GSS_NTLM_MECHNISM or any other mechanisms supported by the implementation. See gss_indicate_mechs().
+ * @param desired_mech mechanism to use to acquire credential. GSS_C_NO_OID is not valid input and a mechanism must be selected. For example GSS_KRB5_MECHANISM, GSS_NTLM_MECHNISM or any other mechanisms supported by the implementation. See gss_indicate_mechs().
  *
  * @param attributes CFDictionary that contains how to acquire the credential, see below for examples
  *
@@ -107,11 +107,12 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
 
     *output_cred_handle = GSS_C_NO_CREDENTIAL;
 
-    /* only support password right now */
+    /* require password or certificate */
     password = CFDictionaryGetValue(attributes, kGSSICPassword);
     certificate = CFDictionaryGetValue(attributes, kGSSICCertificate);
-    if (password == NULL && certificate == NULL)
+    if (password == NULL && certificate == NULL) {
 	return GSS_S_CALL_INACCESSIBLE_READ;
+    }
 
     /* check usage */
     usage = CFDictionaryGetValue(attributes, kGSSCredentialUsage);
@@ -174,7 +175,7 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
     }
 	
     if (major_status && error) {
-	*error = _gss_mg_cferror(major_status, minor_status, desired_mech);
+	*error = _gss_mg_create_cferror(major_status, minor_status, desired_mech);
 	return major_status;
     }
     
@@ -191,13 +192,28 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
 	    gss_release_buffer_set(&minor_status, &bufferset);
 	else {
 	    if (error)
-		*error = _gss_mg_cferror(major_status, minor_status, desired_mech);
+		*error = _gss_mg_create_cferror(major_status, minor_status, desired_mech);
 	    gss_destroy_cred(&minor_status, output_cred_handle);
 	}
     }
 
     return major_status;
 }
+
+/**
+ * Change pasword for a gss name
+ *
+ * @param name name to change password for
+ * @param mech mechanism to use
+ * @param attributes old and new password (kGSSChangePasswordOldPassword and kGSSChangePasswordNewPassword) and other attributes.
+ * @param error if not NULL, error might be set case function doesn't
+ *       return GSS_S_COMPLETE, in that case is must be released with
+ *       CFRelease().
+ *
+ * @returns returns GSS_S_COMPLETE on success, error might be set if passed in.
+ *
+ * @ingroup gssapi
+ */
 
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_change_password(const gss_name_t name,
@@ -253,7 +269,7 @@ gss_aapl_change_password(const gss_name_t name,
 
  out:
     if (maj_stat && error)
-	*error = _gss_mg_cferror(maj_stat, min_stat, mech);
+	*error = _gss_mg_create_cferror(maj_stat, min_stat, mech);
 
     if (oldpw) {
 	memset(oldpw, 0, strlen(oldpw));
@@ -280,7 +296,7 @@ gss_aapl_change_password(const gss_name_t name,
  */
 
 CFUUIDRef
-GSSCredentialCopyUUID(gss_cred_id_t cred)
+GSSCredentialCopyUUID(gss_cred_id_t credential)
 {
     OM_uint32 major, minor;
     gss_buffer_set_t dataset = GSS_C_NO_BUFFER_SET;
@@ -288,7 +304,7 @@ GSSCredentialCopyUUID(gss_cred_id_t cred)
     krb5_uuid uuid;
     CFUUIDBytes cfuuid;
 
-    major = gss_inquire_cred_by_oid(&minor, cred, GSS_C_NT_UUID, &dataset);
+    major = gss_inquire_cred_by_oid(&minor, credential, GSS_C_NT_UUID, &dataset);
     if (major || dataset->count != 1) {
 	gss_release_buffer_set(&minor, &dataset);
 	return NULL;
@@ -359,44 +375,56 @@ CopyFoldString(CFStringRef host)
     return string;
 }
 
-static CFStringRef
-CopyFoldedHostName(CFStringRef stringOrURL, CFStringRef *path)
+static bool
+FoldedHostName(CFStringRef stringOrURL, CFStringRef *scheme, CFStringRef *host, CFStringRef *path)
 {
-    CFStringRef string, hn = NULL;
-    CFURLRef url;
+    CFRange range;
 
+    *scheme = NULL;
+    *host = NULL;
     *path = NULL;
 
-    /*
-     * Try paring the hostname as an URL first
-     */
+    range = CFStringFind(stringOrURL, CFSTR(":"), 0);
+    if (range.location != kCFNotFound) {
+	CFURLRef url;
 
-    url = CFURLCreateWithString(NULL, stringOrURL, NULL);
-    if (url) {
-	CFStringRef host = CFURLCopyHostName(url);
-	CFStringRef scheme = CFURLCopyScheme(url);
-	if (host == NULL)
-	    host = CFSTR("");
-	if (scheme == NULL)
-	    scheme = CFSTR("");
-	hn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-%@"), host, scheme);
-	*path = CFURLCopyPath(url);
-	if (CFStringCompare(*path, CFSTR(""), 0) == kCFCompareEqualTo) {
-	    CFRelease(*path);
-	    *path = CFSTR("/");
+	url = CFURLCreateWithString(NULL, stringOrURL, NULL);
+	if (url) {
+	    CFStringRef hn = CFURLCopyHostName(url);
+	    if (hn == NULL) {
+		*host = CFSTR("");
+	    } else {
+		*host = CopyFoldString(hn);
+		CFRelease(hn);
+		if (*host == NULL) {
+		    CFRelease(url);
+		    return false;
+		}
+	    }
+
+	    *scheme = CFURLCopyScheme(url);
+	    if (*scheme == NULL)
+		*scheme = CFSTR("");
+
+	    *path = CFURLCopyPath(url);
+	    if (*path == NULL || CFStringCompare(*path, CFSTR(""), 0) == kCFCompareEqualTo) {
+		if (*path)
+		    CFRelease(*path);
+		*path = CFSTR("/");
+	    }
+	    CFRelease(url);
 	}
-	CFRelease(url);
-	CFRelease(scheme);
-	CFRelease(host);
     }
-    if (hn == NULL) {
-	hn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-host"), stringOrURL);
+
+    if (*host == NULL) {
+	*host = CopyFoldString(stringOrURL);
+	if (*scheme)
+	    CFRelease(*scheme);
+	*scheme = CFSTR("any");
 	*path = CFSTR("/");
     }
 
-    string = CopyFoldString(hn);
-    CFRelease(hn);
-    return string;
+    return true;
 }
 
 /*
@@ -406,49 +434,58 @@ CopyFoldedHostName(CFStringRef stringOrURL, CFStringRef *path)
 void
 GSSRuleAddMatch(CFMutableDictionaryRef rules, CFStringRef host, CFStringRef value)
 {
+    CFStringRef scheme = NULL, hostname = NULL, path = NULL;
     CFMutableDictionaryRef match;
-    CFStringRef hostname, path;
 
-    hostname = CopyFoldedHostName(host, &path);
-    if (hostname) {
+    if (!FoldedHostName(host, &scheme, &hostname, &path))
+	return;
 
-	match = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (match) {
-	    CFMutableArrayRef mutable;
+    match = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (match == NULL)
+	goto out;
 
-	    CFDictionarySetValue(match, CFSTR("path"), path);
-	    CFDictionarySetValue(match, CFSTR("value"), value);
+    CFDictionarySetValue(match, CFSTR("scheme"), scheme);
+    CFDictionarySetValue(match, CFSTR("path"), path);
+    CFDictionarySetValue(match, CFSTR("value"), value);
+    
+    CFArrayRef array = CFDictionaryGetValue(rules, hostname);
+    CFMutableArrayRef mutable;
 
-	    CFArrayRef array = CFDictionaryGetValue(rules, hostname);
-	    if (array) {
-		mutable = CFArrayCreateMutableCopy(NULL, 0, array);
-	    } else {
-		mutable = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	    }
-	    if (mutable) {
-		
-		CFIndex n, count = CFArrayGetCount(mutable);
-
-		for (n = 0; n < count; n++) {
-		    CFDictionaryRef item = (CFDictionaryRef)CFArrayGetValueAtIndex(mutable, n);
-		    CFStringRef p = CFDictionaryGetValue(item, CFSTR("path"));
-
-		    if (CFStringHasPrefix(path, p)) {
-			CFArrayInsertValueAtIndex(mutable, n, match);
-			break;
-		    }
-		}
-		if (n >= count)
-		    CFArrayAppendValue(mutable, match);
-
-		CFDictionarySetValue(rules, hostname, mutable);
-		CFRelease(mutable);
-	    }
-	    CFRelease(hostname);
-	    CFRelease(path);
-	}
-	CFRelease(match);
+    if (array) {
+	mutable = CFArrayCreateMutableCopy(NULL, 0, array);
+    } else {
+	mutable = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
+    if (mutable) {
+		
+	CFIndex n, count = CFArrayGetCount(mutable);
+
+	for (n = 0; n < count; n++) {
+	    CFDictionaryRef item = (CFDictionaryRef)CFArrayGetValueAtIndex(mutable, n);
+	    CFStringRef p = CFDictionaryGetValue(item, CFSTR("path"));
+	    CFStringRef s = CFDictionaryGetValue(item, CFSTR("scheme"));
+	    
+	    if (CFStringCompare(s, scheme, kCFCompareCaseInsensitive) == kCFCompareLessThan)
+		continue;
+	    
+	    if (CFStringHasPrefix(path, p)) {
+		CFArrayInsertValueAtIndex(mutable, n, match);
+		break;
+	    }
+	}
+	if (n >= count)
+	    CFArrayAppendValue(mutable, match);
+	
+	CFDictionarySetValue(rules, hostname, mutable);
+	CFRelease(mutable);
+    }
+
+out:
+    CFRelease(scheme);
+    CFRelease(hostname);
+    CFRelease(path);
+    if (match)
+	CFRelease(match);
 }
 
 /*
@@ -456,29 +493,30 @@ GSSRuleAddMatch(CFMutableDictionaryRef rules, CFStringRef host, CFStringRef valu
  */
 
 CFStringRef
-GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef host)
+GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef hostname)
 {
+    CFStringRef scheme = NULL, hostFolded = NULL, path = NULL;
     CFTypeRef result = NULL;
-    CFStringRef hostFolded, path;
     const char *p;
 
-    hostFolded = CopyFoldedHostName(host, &path);
-    if (hostFolded == NULL)
+    if (!FoldedHostName(hostname, &scheme, &hostFolded, &path))
 	return NULL;
 
-    char *str = rk_cfstring2cstring(hostFolded);
+    char *host = rk_cfstring2cstring(hostFolded);
     CFRelease(hostFolded);
-    if (str == NULL) {
+    if (host == NULL) {
 	CFRelease(path);
 	return NULL;
     }
     
-    if (str[0] == '\0') {
-	free(str);
+    if (host[0] == '\0') {
+	CFRelease(scheme);
+	free(host);
+	CFRelease(path);
 	return NULL;
     }
     
-    for (p = str; p != NULL && result == NULL; p = strchr(p + 1, '.')) {
+    for (p = host; p != NULL && result == NULL; p = strchr(p + 1, '.')) {
 	CFStringRef partial = CFStringCreateWithCString(NULL, p, kCFStringEncodingUTF8);
 	CFArrayRef array = (CFArrayRef)CFDictionaryGetValue(rules, partial);
 
@@ -490,17 +528,21 @@ GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef host)
 	    for (n = 0; n < count && result == NULL; n++) {
 		CFDictionaryRef item = (CFDictionaryRef)CFArrayGetValueAtIndex(array, n);
 
+		CFStringRef matchScheme = CFDictionaryGetValue(item, CFSTR("scheme"));
+		if (CFStringCompare(scheme, matchScheme, kCFCompareCaseInsensitive) != kCFCompareEqualTo &&
+		    CFStringCompare(CFSTR("any"), matchScheme, kCFCompareCaseInsensitive) != kCFCompareEqualTo)
+		    continue;
+
 		CFStringRef matchPath = CFDictionaryGetValue(item, CFSTR("path"));
-		if (CFStringHasPrefix(path, matchPath)) {
+		if (CFStringHasPrefix(path, matchPath))
 		    result = CFDictionaryGetValue(item, CFSTR("value"));
-		    if (result)
-			CFRetain(result);
-		}
+
 	    }
 	}
     }
+    CFRelease(scheme);
+    free(host);
     CFRelease(path);
-    free(str);
     return result;
 }
 
@@ -535,7 +577,7 @@ GSSCreateName(CFTypeRef name, gss_const_OID name_type, CFErrorRef *error)
 	free_data = 1;
     } else if (CFGetTypeID(name) == CFDataGetTypeID()) {
 	buffer.value = (void *)CFDataGetBytePtr(name);
-	buffer.length = (void *)CFDataGetLength(name);
+	buffer.length = (OM_uint32)CFDataGetLength(name);
     } else {
 	return GSS_C_NO_NAME;
     }
@@ -625,6 +667,27 @@ GSSNameCreateDisplayString(gss_name_t name)
 
     return str;
 }
+
+/*
+ * Create a CFErrorRef from GSS-API major and minor status code.
+ *
+ * @param major_status Major status code returned by the funcation that failed
+ * @param major_status Major status code returned by the funcation that failed
+ * @param mech Mechanism passed in, if not available GSS_C_NO_OID should be used
+ *
+ * @returns a CFErrorRef in the domain org.h5l.GSS domain
+ *
+ * @ingroup gssapi
+ */
+
+CFErrorRef
+GSSCreateError(gss_const_OID mech,
+	       OM_uint32 major_status,
+	       OM_uint32 minor_status)
+{
+    return _gss_mg_create_cferror(major_status,  minor_status, mech);
+}
+
 
 /* deprecated */
 OM_uint32

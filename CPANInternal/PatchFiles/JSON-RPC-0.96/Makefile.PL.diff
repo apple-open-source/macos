@@ -1,0 +1,12 @@
+diff --git a/JSON-RPC-0.96/Makefile.PL b/JSON-RPC-0.96/Makefile.PL
+index 3e8e8b7..ab269e9 100644
+--- JSON-RPC-0.96/Makefile.PL
++++ JSON-RPC-0.96/Makefile.PL
+@@ -10,7 +10,6 @@ WriteMakefile(
+               CGI               => 2.92,
+               HTTP::Request     => 0,
+               HTTP::Response    => 0,
+-              JSON              => 2.0,
+               LWP::UserAgent    => 2.001,
+     }, # e.g., Module::Name => 1.1
+     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005

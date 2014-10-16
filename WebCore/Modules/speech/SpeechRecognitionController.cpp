@@ -45,14 +45,9 @@ SpeechRecognitionController::~SpeechRecognitionController()
     // FIXME: Call m_client->pageDestroyed(); once we have implemented a client.
 }
 
-PassOwnPtr<SpeechRecognitionController> SpeechRecognitionController::create(SpeechRecognitionClient* client)
-{
-    return adoptPtr(new SpeechRecognitionController(client));
-}
-
 void provideSpeechRecognitionTo(Page* page, SpeechRecognitionClient* client)
 {
-    SpeechRecognitionController::provideTo(page, SpeechRecognitionController::supplementName(), SpeechRecognitionController::create(client));
+    SpeechRecognitionController::provideTo(page, SpeechRecognitionController::supplementName(), std::make_unique<SpeechRecognitionController>(client));
 }
 
 } // namespace WebCore

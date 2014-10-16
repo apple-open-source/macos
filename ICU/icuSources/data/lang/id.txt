@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/id.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/id.xml
+ * ICU <specials> source: <path>/common/main/id.xml
  */
 id{
     Keys{
@@ -35,55 +35,45 @@ id{
         ach{"Acoli"}
         ada{"Adangme"}
         ady{"Adygei"}
-        ae{"Avestan"}
+        ae{"Avesta"}
         af{"Afrikaans"}
-        afa{"Rumpun Bahasa Afro-Asia"}
         afh{"Afrihili"}
         agq{"Aghem"}
         ain{"Ainu"}
         ak{"Akan"}
         akk{"Akkadia"}
         ale{"Aleut"}
-        alg{"Bahasa Algonquia"}
         alt{"Altai Selatan"}
         am{"Amharik"}
         an{"Aragon"}
         ang{"Inggris Kuno"}
         anp{"Angika"}
-        apa{"Rumpun Bahasa Apache"}
         ar{"Arab"}
+        ar_001{"Arab Standar Modern"}
         arc{"Aram"}
         arn{"Araukan"}
         arp{"Arapaho"}
-        art{"Bahasa Buatan"}
         arw{"Arawak"}
         as{"Assam"}
         asa{"Asu"}
         ast{"Astur"}
-        ath{"Rumpun Bahasa Athapaska"}
-        aus{"Rumpun Bahasa Australia"}
         av{"Avar"}
         awa{"Awadhi"}
         ay{"Aymara"}
         az{"Azerbaijan"}
         ba{"Bashkir"}
-        bad{"Banda"}
-        bai{"Rumpun Bahasa Bamileke"}
         bal{"Baluchi"}
         ban{"Bali"}
         bas{"Basa"}
-        bat{"Rumpun Bahasa Baltik"}
         bax{"Bamun"}
         bbj{"Ghomala"}
         be{"Belarusia"}
         bej{"Beja"}
         bem{"Bemba"}
-        ber{"Rumpun Bahasa Berber"}
         bez{"Bena"}
         bfd{"Bafut"}
         bg{"Bulgar"}
-        bh{"Bihari"}
-        bho{"Bhojpur"}
+        bho{"Bhojpuri"}
         bi{"Bislama"}
         bik{"Bikol"}
         bin{"Bini"}
@@ -91,14 +81,12 @@ id{
         bla{"Siksika"}
         bm{"Bambara"}
         bn{"Bengali"}
-        bnt{"Bantu"}
         bo{"Tibet"}
         br{"Breton"}
         bra{"Braj"}
         brx{"Bodo"}
         bs{"Bosnia"}
         bss{"Akoose"}
-        btk{"Batak"}
         bua{"Buriat"}
         bug{"Bugis"}
         bum{"Bulu"}
@@ -106,14 +94,11 @@ id{
         byv{"Medumba"}
         ca{"Katalan"}
         cad{"Kado"}
-        cai{"India Amerika Tengah"}
         car{"Karib"}
-        cau{"Rumpun Bahasa Kaukasia"}
         cay{"Cayuga"}
         cch{"Atsam"}
         ce{"Chechen"}
         ceb{"Sebuano"}
-        cel{"Rumpun Bahasa Keltik"}
         cgg{"Kiga"}
         ch{"Chamorro"}
         chb{"Chibcha"}
@@ -126,26 +111,19 @@ id{
         chr{"Cherokee"}
         chy{"Cheyenne"}
         ckb{"Kurdi Sorani"}
-        cmc{"Rumpun Bahasa Chamik"}
         co{"Korsika"}
         cop{"Koptik"}
-        cpe{"Kreol dan Pijin Lain berbasis Inggris"}
-        cpf{"Kreol dan Pijin Lain berbasis Prancis"}
-        cpp{"Kreol dan Pijin Lain berbasis Portugis"}
         cr{"Kree"}
         crh{"Tatar Krimea"}
-        crp{"Kreol dan Pijin Lain"}
         cs{"Cheska"}
         csb{"Kashubia"}
         cu{"Bahasa Gereja Slavonia"}
-        cus{"Rumpun Bahasa Kush"}
         cv{"Chuvash"}
         cy{"Welsh"}
         da{"Dansk"}
         dak{"Dakota"}
         dar{"Dargwa"}
         dav{"Taita"}
-        day{"Dayak"}
         de{"Jerman"}
         de_AT{"Jerman Austria"}
         de_CH{"Jerman Tinggi Swiss"}
@@ -155,7 +133,6 @@ id{
         din{"Dinka"}
         dje{"Zarma"}
         doi{"Dogri"}
-        dra{"Rumpun Bahasa Dravidia"}
         dsb{"Sorbia Rendah"}
         dua{"Duala"}
         dum{"Belanda Tengah"}
@@ -175,13 +152,14 @@ id{
         en_AU{"Inggris Australia"}
         en_CA{"Inggris Kanada"}
         en_GB{"Inggris Inggris"}
-        en_US{"Inggris A.S."}
+        en_US{"Inggris Amerika"}
         enm{"Inggris Abad Pertengahan"}
         eo{"Esperanto"}
         es{"Spanyol"}
         es_419{"Spanyol Amerika Latin"}
         es_ES{"Spanyol Eropa"}
-        et{"Estonia"}
+        es_MX{"Spanyol Meksiko"}
+        et{"Esti"}
         eu{"Bask"}
         ewo{"Ewondo"}
         fa{"Persia"}
@@ -190,7 +168,6 @@ id{
         ff{"Fula"}
         fi{"Suomi"}
         fil{"Filipino"}
-        fiu{"Rumpun Bahasa Finno-Ugrik"}
         fj{"Fiji"}
         fo{"Faro"}
         fon{"Fon"}
@@ -208,7 +185,6 @@ id{
         gay{"Gayo"}
         gba{"Gbaya"}
         gd{"Gaelik Skotlandia"}
-        gem{"Rumpun Bahasa Jermanik"}
         gez{"Geez"}
         gil{"Gilbert"}
         gl{"Galisia"}
@@ -231,7 +207,6 @@ id{
         he{"Ibrani"}
         hi{"Hindi"}
         hil{"Hiligaynon"}
-        him{"Himachali"}
         hit{"Hitit"}
         hmn{"Hmong"}
         ho{"Hiri Motu"}
@@ -249,15 +224,10 @@ id{
         ie{"Interlingue"}
         ig{"Igbo"}
         ii{"Sichuan Yi"}
-        ijo{"Ijo"}
         ik{"Inupiak"}
         ilo{"Iloko"}
-        inc{"Rumpun Bahasa Indik"}
-        ine{"Rumpun Bahasa Indo-Eropa"}
         inh{"Ingushetia"}
         io{"Ido"}
-        ira{"Rumpun Bahasa Iran"}
-        iro{"Rumpun Bahasa Iroquis"}
         is{"Islandia"}
         it{"Italia"}
         iu{"Inuktitut"}
@@ -274,7 +244,6 @@ id{
         kac{"Kachin"}
         kaj{"Jju"}
         kam{"Kamba"}
-        kar{"Karen"}
         kaw{"Kawi"}
         kbd{"Kabardi"}
         kbl{"Kanembu"}
@@ -284,7 +253,6 @@ id{
         kfo{"Koro"}
         kg{"Kongo"}
         kha{"Khasi"}
-        khi{"Rumpun Bahasa Khoisa"}
         kho{"Khotan"}
         khq{"Koyra Chiini"}
         ki{"Kikuyu"}
@@ -303,7 +271,6 @@ id{
         kr{"Kanuri"}
         krc{"Karachai Balkar"}
         krl{"Karelia"}
-        kro{"Kru"}
         kru{"Kuruk"}
         ks{"Kashmir"}
         ksb{"Shambala"}
@@ -324,6 +291,7 @@ id{
         lez{"Lezghia"}
         lg{"Ganda"}
         li{"Limburgia"}
+        lkt{"Lakota"}
         ln{"Lingala"}
         lo{"Lao"}
         lol{"Mongo"}
@@ -334,7 +302,7 @@ id{
         lui{"Luiseno"}
         lun{"Lunda"}
         luo{"Luo"}
-        lus{"Lushai"}
+        lus{"Mizo"}
         luy{"Luyia"}
         lv{"Latvi"}
         mad{"Madura"}
@@ -343,13 +311,13 @@ id{
         mai{"Maithili"}
         mak{"Makasar"}
         man{"Mandingo"}
-        map{"Austronesia"}
         mas{"Masai"}
         mde{"Maba"}
         mdf{"Moksha"}
         mdr{"Mandar"}
         men{"Mende"}
         mer{"Meru"}
+        mfe{"Morisien"}
         mg{"Malagasi"}
         mga{"Irlandia Abad Pertengahan"}
         mgh{"Makhuwa-Meetto"}
@@ -358,15 +326,11 @@ id{
         mi{"Maori"}
         mic{"Mikmak"}
         min{"Minangkabau"}
-        mis{"Bahasa Lain-lain"}
         mk{"Makedonia"}
-        mkh{"Rumpun Bahasa Mon-Khmer"}
         ml{"Malayalam"}
         mn{"Mongolia"}
         mnc{"Manchuria"}
         mni{"Manipuri"}
-        mno{"Rumpun Bahasa Manobo"}
-        mo{"Moldavia"}
         moh{"Mohawk"}
         mos{"Mossi"}
         mr{"Marathi"}
@@ -374,17 +338,13 @@ id{
         mt{"Malta"}
         mua{"Mundang"}
         mul{"Beberapa Bahasa"}
-        mun{"Rumpun Bahasa Munda"}
         mus{"Bahasa Muskogee"}
         mwl{"Miranda"}
         mwr{"Marwari"}
         my{"Burma"}
         mye{"Myene"}
-        myn{"Rumpun Bahasa Maya"}
         myv{"Eryza"}
         na{"Nauru"}
-        nah{"Nahuatl"}
-        nai{"Rumpun Bahasa Indian Amerika Utara"}
         nap{"Neapolitan"}
         naq{"Nama"}
         nb{"Bokmål Norwegia"}
@@ -394,7 +354,6 @@ id{
         new{"Newari"}
         ng{"Ndonga"}
         nia{"Nias"}
-        nic{"Rumpun Bahasa Niger-Kordofania"}
         niu{"Niuea"}
         nl{"Belanda"}
         nl_BE{"Flemish"}
@@ -407,7 +366,6 @@ id{
         nqo{"N'Ko"}
         nr{"Ndebele Selatan"}
         nso{"Sotho Utara"}
-        nub{"Rumpun Bahasa Nubia"}
         nus{"Nuer"}
         nv{"Navajo"}
         nwc{"Newari Klasik"}
@@ -423,21 +381,17 @@ id{
         os{"Ossetia"}
         osa{"Osage"}
         ota{"Turki Osmani"}
-        oto{"Rumpun Bahasa Otomia"}
         pa{"Punjabi"}
-        paa{"Rumpun Bahasa Papua"}
         pag{"Pangasina"}
         pal{"Pahlevi"}
         pam{"Pampanga"}
         pap{"Papiamento"}
         pau{"Palau"}
         peo{"Persia Kuno"}
-        phi{"Rumpun Bahasa Filipina"}
         phn{"Funisia"}
         pi{"Pali"}
         pl{"Polski"}
         pon{"Pohnpeia"}
-        pra{"Rumpun Bahasa Prakrit"}
         pro{"Provencal Lama"}
         ps{"Pashto"}
         pt{"Portugis"}
@@ -450,7 +404,7 @@ id{
         rm{"Reto-Roman"}
         rn{"Rundi"}
         ro{"Rumania"}
-        roa{"Rumpun Bahasa Roman"}
+        ro_MD{"Moldavia"}
         rof{"Rombo"}
         rom{"Romani"}
         root{"Root"}
@@ -458,11 +412,9 @@ id{
         rup{"Makedo-Rumania"}
         rw{"Kinyarwanda"}
         rwk{"Rwa"}
-        sa{"Sansekerta"}
+        sa{"Sanskerta"}
         sad{"Sandawe"}
         sah{"Sakha"}
-        sai{"Rumpun Bahasa Indian Amerika Selatan"}
-        sal{"Rumpun Bahasa Salisha"}
         sam{"Aram Samaria"}
         saq{"Samburu"}
         sas{"Sasak"}
@@ -477,25 +429,19 @@ id{
         see{"Seneca"}
         seh{"Sena"}
         sel{"Selkup"}
-        sem{"Rumpun Bahasa Semit"}
         ses{"Koyraboro Senni"}
         sg{"Sango"}
         sga{"Irlandia Kuno"}
-        sgn{"Bahasa Isyarat"}
         sh{"Serbo-Kroasia"}
         shi{"Tachelhit"}
         shn{"Shan"}
         shu{"Arab Suwa"}
         si{"Sinhala"}
         sid{"Sidamo"}
-        sio{"Rumpun Bahasa Sioux"}
-        sit{"Rumpun Bahasa Sino-Tibet"}
         sk{"Slovak"}
         sl{"Sloven"}
-        sla{"Rumpun Bahasa Slavik"}
         sm{"Samoa"}
         sma{"Sami Selatan"}
-        smi{"Rumpun Bahasa Sami"}
         smj{"Lule Sami"}
         smn{"Inari Sami"}
         sms{"Skolt Sami"}
@@ -503,13 +449,11 @@ id{
         snk{"Soninke"}
         so{"Somali"}
         sog{"Sogdien"}
-        son{"Songhai"}
         sq{"Albania"}
         sr{"Serb"}
         srn{"Sranan Tongo"}
         srr{"Serer"}
         ss{"Swati"}
-        ssa{"Rumpun Bahasa Nilo-Sahara"}
         ssy{"Saho"}
         st{"Sotho Selatan"}
         su{"Sunda"}
@@ -523,7 +467,6 @@ id{
         syc{"Suriah Klasik"}
         syr{"Suriah"}
         ta{"Tamil"}
-        tai{"Rumpun Bahasa Tai"}
         te{"Telugu"}
         tem{"Timne"}
         teo{"Teso"}
@@ -550,8 +493,6 @@ id{
         tsi{"Tsimshia"}
         tt{"Tatar"}
         tum{"Tumbuka"}
-        tup{"Rumpun Bahasa Tupi"}
-        tut{"Altai"}
         tvl{"Tuvalu"}
         tw{"Twi"}
         twq{"Tasawaq"}
@@ -559,7 +500,7 @@ id{
         tyv{"Tuvinia"}
         tzm{"Tamazight Maroko Tengah"}
         udm{"Udmurt"}
-        ug{"Uighur"}
+        ug{"Uyghur"}
         uga{"Ugarit"}
         uk{"Ukraina"}
         umb{"Umbundu"}
@@ -574,11 +515,9 @@ id{
         vun{"Vunjo"}
         wa{"Walloon"}
         wae{"Walser"}
-        wak{"Rumpun Bahasa Wakasha"}
         wal{"Walamo"}
         war{"Warai"}
         was{"Washo"}
-        wen{"Rumpun Bahasa Sorbia"}
         wo{"Wolof"}
         xal{"Kalmuk"}
         xh{"Xhosa"}
@@ -589,16 +528,15 @@ id{
         ybb{"Yemba"}
         yi{"Yiddish"}
         yo{"Yoruba"}
-        ypk{"Rumpun Bahasa Yupik"}
         yue{"Kanton"}
         za{"Zhuang"}
         zap{"Zapotek"}
         zbl{"Blissymbol"}
         zen{"Zenaga"}
+        zgh{"Tamazight Maroko Standar"}
         zh{"China"}
         zh_Hans{"China (Aksara Sederhana)"}
         zh_Hant{"China (Aksara Tradisional)"}
-        znd{"Zande"}
         zu{"Zulu"}
         zun{"Zuni"}
         zxx{"Tidak ada konten linguistik"}
@@ -606,6 +544,8 @@ id{
     }
     LanguagesShort{
         az{"Azeri"}
+        en_GB{"Inggris U.K."}
+        en_US{"Inggris A.S."}
     }
     Scripts{
         Afak{"Afaka"}
@@ -787,16 +727,55 @@ id{
             persian{"Kalender Persia"}
             roc{"Kalendar Minguo"}
         }
+        colAlternate{
+            non-ignorable{"Sortir Simbol"}
+            shifted{"Sortir Abaikan Simbol"}
+        }
+        colBackwards{
+            no{"Sortir Aksen Secara Normal"}
+            yes{"Sortir Aksen Terbalik"}
+        }
+        colCaseFirst{
+            lower{"Sortir Huruf Kecil Dahulu"}
+            no{"Sortir Urutan Ukuran Huruf Normal"}
+            upper{"Sortir Huruf Besar Dahulu"}
+        }
+        colCaseLevel{
+            no{"Sortir Tidak Peka Huruf Besar"}
+            yes{"Sortir Peka Huruf Besar"}
+        }
+        colHiraganaQuaternary{
+            no{"Sortir Kana Secara Terpisah"}
+            yes{"Sortir Kana Secara Berbeda"}
+        }
+        colNormalization{
+            no{"Sortir Tanpa Normalisasi"}
+            yes{"Sortir Unicode Dinormalisasi"}
+        }
+        colNumeric{
+            no{"Sortir Digit Satu Per Satu"}
+            yes{"Sortir Digit Secara Numerik"}
+        }
+        colStrength{
+            identical{"Sortir Semua"}
+            primary{"Sortir Huruf Dasar Saja"}
+            quaternary{"Sortir Aksen/Ukuran Huruf/Lebar/Kana"}
+            secondary{"Sortir Aksen"}
+            tertiary{"Sortir Aksen/Ukuran Huruf/Lebar"}
+        }
         collation{
             big5han{"Urutan Sortir China Tradisional - Big5"}
             dictionary{"Urutan Sortir Kamus"}
-            ducet{"Urutan Sortir Unicode Bawaan"}
+            ducet{"Urutan Sortir Unicode Default"}
+            eor{"Aturan Pengurutan Eropa"}
             gb2312han{"Urutan Sortir China Aks. Sederhana - GB2312"}
             phonebook{"Urutan Sortir Buku Telepon"}
             phonetic{"Urutan Sortir Fonetik"}
             pinyin{"Urutan Sortir Pinyin"}
             reformed{"Urutan Sortir yang Diubah Bentuknya"}
             search{"Pencarian Tujuan Umum"}
+            searchjl{"Pencarian Menurut Konsonan Awal Hangul"}
+            standard{"Urutan Sortir Standar"}
             stroke{"Urutan Sortir Guratan"}
             traditional{"Urutan Sortir Tradisional"}
             unihan{"Urutan Sortir Guratan Radikal"}
@@ -856,6 +835,7 @@ id{
             thai{"Angka Thai"}
             tibt{"Angka Tibet"}
             traditional{"Angka Tradisional"}
+            vaii{"Angka Vai"}
         }
     }
     Variants{
@@ -900,7 +880,7 @@ id{
         VALENCIA{"Valencia"}
         WADEGILE{"Wade-Giles Latin"}
     }
-    Version{"2.0.82.57"}
+    Version{"2.0.98.52"}
     codePatterns{
         language{"Bahasa: {0}"}
         script{"Skrip: {0}"}
@@ -909,6 +889,6 @@ id{
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}
-        separator{","}
+        separator{"{0}, {1}"}
     }
 }

@@ -1,31 +1,16 @@
 /*
- * "$Id: ipp-var.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: ipp-var.c 11934 2014-06-17 18:58:29Z msweet $"
  *
- *   CGI <-> IPP variable routines for CUPS.
+ * CGI <-> IPP variable routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * Contents:
- *
- *   cgiGetAttributes()    - Get the list of attributes that are needed by the
- *                           template file.
- *   cgiGetIPPObjects()    - Get the objects in an IPP response.
- *   cgiMoveJobs()         - Move one or more jobs.
- *   cgiPrintCommand()     - Print a CUPS command job.
- *   cgiPrintTestPage()    - Print a test page.
- *   cgiRewriteURL()       - Rewrite a printer URI into a web browser URL...
- *   cgiSetIPPObjectVars() - Set CGI variables from an IPP object.
- *   cgiSetIPPVars()       - Set CGI variables from an IPP response.
- *   cgiShowIPPError()     - Show the last IPP error message.
- *   cgiShowJobs()         - Show print jobs.
- *   cgiText()             - Return localized text.
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -65,7 +50,7 @@ cgiGetAttributes(ipp_t      *request,	/* I - IPP request */
   {
     for (i = 0; lang[i] && i < 15; i ++)
       if (isalnum(lang[i] & 255))
-        locale[i] = tolower(lang[i]);
+        locale[i] = (char)tolower(lang[i]);
       else
         locale[i] = '_';
 
@@ -107,7 +92,7 @@ cgiGetAttributes(ipp_t      *request,	/* I - IPP request */
   while ((ch = getc(in)) != EOF)
     if (ch == '\\')
       getc(in);
-    else if (ch == '{' && num_attrs < (sizeof(attrs) / sizeof(attrs[0])))
+    else if (ch == '{' && num_attrs < (int)(sizeof(attrs) / sizeof(attrs[0])))
     {
      /*
       * Grab the name...
@@ -123,7 +108,7 @@ cgiGetAttributes(ipp_t      *request,	/* I - IPP request */
 	  if (ch == '_')
 	    *nameptr++ = '-';
 	  else
-            *nameptr++ = ch;
+            *nameptr++ = (char)ch;
 	}
 
       *nameptr = '\0';
@@ -917,7 +902,7 @@ cgiRewriteURL(const char *uri,		/* I - Current URI */
       * Make URI relative to the current server...
       */
 
-      strlcpy(url, resource, urlsize);
+      strlcpy(url, resource, (size_t)urlsize);
     }
     else
     {
@@ -926,17 +911,13 @@ cgiRewriteURL(const char *uri,		/* I - Current URI */
       */
 
       if (userpass[0])
-	snprintf(url, urlsize, "%s://%s@%s:%d%s",
-		 ishttps ? "https" : "http",
-		 userpass, hostname, port, resource);
+	snprintf(url, (size_t)urlsize, "%s://%s@%s:%d%s", ishttps ? "https" : "http", userpass, hostname, port, resource);
       else
-	snprintf(url, urlsize, "%s://%s:%d%s",
-		 ishttps ? "https" : "http",
-		 hostname, port, resource);
+	snprintf(url, (size_t)urlsize, "%s://%s:%d%s", ishttps ? "https" : "http", hostname, port, resource);
     }
   }
   else
-    strlcpy(url, uri, urlsize);
+    strlcpy(url, uri, (size_t)urlsize);
 
   return (url);
 }
@@ -958,7 +939,6 @@ cgiSetIPPObjectVars(
 			*nameptr,	/* Pointer into name */
 			value[16384],	/* Value(s) */
 			*valptr;	/* Pointer into value */
-  struct tm		*date;		/* Date information */
 
 
   fprintf(stderr, "DEBUG2: cgiSetIPPObjectVars(obj=%p, prefix=\"%s\", "
@@ -1039,7 +1019,7 @@ cgiSetIPPObjectVars(
 	  *valptr++ = ' ';
         }
 
-        remaining = sizeof(value) - (valptr - value);
+        remaining = sizeof(value) - (size_t)(valptr - value);
 
         if (!strcmp(attr->values[i].string.text, "printer-stopped"))
 	  strlcpy(valptr, _("Printer Paused"), remaining);
@@ -1177,7 +1157,7 @@ cgiSetIPPObjectVars(
     for (i = 0; i < attr->num_values; i ++)
     {
       if (i)
-	strlcat(valptr, ", ", sizeof(value) - (valptr - value));
+	strlcat(valptr, ", ", sizeof(value) - (size_t)(valptr - value));
 
       valptr += strlen(valptr);
 
@@ -1186,36 +1166,28 @@ cgiSetIPPObjectVars(
 	case IPP_TAG_INTEGER :
 	case IPP_TAG_ENUM :
 	    if (strncmp(name, "time_at_", 8) == 0)
-	    {
-	      time_t	t;		/* Temporary time value */
-
-              t    = (time_t)attr->values[i].integer;
-	      date = localtime(&t);
-
-	      strftime(valptr, sizeof(value) - (valptr - value), "%c", date);
-	    }
+	      _cupsStrDate(valptr, sizeof(value) - (size_t)(valptr - value), (time_t)ippGetInteger(attr, i));
 	    else
-	      snprintf(valptr, sizeof(value) - (valptr - value),
-		       "%d", attr->values[i].integer);
+	      snprintf(valptr, sizeof(value) - (size_t)(valptr - value), "%d", ippGetInteger(attr, i));
 	    break;
 
 	case IPP_TAG_BOOLEAN :
-	    snprintf(valptr, sizeof(value) - (valptr - value),
+	    snprintf(valptr, sizeof(value) - (size_t)(valptr - value),
 	             "%d", attr->values[i].boolean);
 	    break;
 
 	case IPP_TAG_NOVALUE :
-	    strlcat(valptr, "novalue", sizeof(value) - (valptr - value));
+	    strlcat(valptr, "novalue", sizeof(value) - (size_t)(valptr - value));
 	    break;
 
 	case IPP_TAG_RANGE :
-	    snprintf(valptr, sizeof(value) - (valptr - value),
+	    snprintf(valptr, sizeof(value) - (size_t)(valptr - value),
 	             "%d-%d", attr->values[i].range.lower,
 		     attr->values[i].range.upper);
 	    break;
 
 	case IPP_TAG_RESOLUTION :
-	    snprintf(valptr, sizeof(value) - (valptr - value),
+	    snprintf(valptr, sizeof(value) - (size_t)(valptr - value),
 	             "%dx%d%s", attr->values[i].resolution.xres,
 		     attr->values[i].resolution.yres,
 		     attr->values[i].resolution.units == IPP_RES_PER_INCH ?
@@ -1238,13 +1210,13 @@ cgiSetIPPObjectVars(
 		cgiRewriteURL(attr->values[i].string.text, url,
 		              sizeof(url), NULL);
 
-                snprintf(valptr, sizeof(value) - (valptr - value),
+                snprintf(valptr, sizeof(value) - (size_t)(valptr - value),
 		         "<A HREF=\"%s\">%s</A>", url,
 			 strrchr(attr->values[i].string.text, '/') + 1);
 	      }
 	      else
 		cgiRewriteURL(attr->values[i].string.text, valptr,
-		              sizeof(value) - (valptr - value), NULL);
+		              (int)(sizeof(value) - (size_t)(valptr - value)), NULL);
               break;
             }
 
@@ -1256,7 +1228,7 @@ cgiSetIPPObjectVars(
 	case IPP_TAG_LANGUAGE :
 	case IPP_TAG_MIMETYPE :
 	    strlcat(valptr, attr->values[i].string.text,
-	            sizeof(value) - (valptr - value));
+	            sizeof(value) - (size_t)(valptr - value));
 	    break;
 
         case IPP_TAG_BEGIN_COLLECTION :
@@ -1589,5 +1561,5 @@ cgiText(const char *message)		/* I - Message */
 
 
 /*
- * End of "$Id: ipp-var.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: ipp-var.c 11934 2014-06-17 18:58:29Z msweet $".
  */

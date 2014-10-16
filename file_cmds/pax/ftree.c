@@ -34,11 +34,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static const char sccsid[] = "@(#)ftree.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] = "$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $";
+__used static const char rcsid[] = "$OpenBSD: ftree.c,v 1.28 2008/05/06 06:54:28 henning Exp $";
 #endif
 #endif /* not lint */
 

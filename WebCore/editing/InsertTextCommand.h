@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,25 +48,29 @@ public:
         RebalanceAllWhitespaces
     };
 
-    static PassRefPtr<InsertTextCommand> create(Document* document, const String& text, bool selectInsertedText = false,
+    static PassRefPtr<InsertTextCommand> create(Document& document, const String& text, bool selectInsertedText = false,
         RebalanceType rebalanceType = RebalanceLeadingAndTrailingWhitespaces)
     {
         return adoptRef(new InsertTextCommand(document, text, selectInsertedText, rebalanceType));
     }
 
-    static PassRefPtr<InsertTextCommand> createWithMarkerSupplier(Document* document, const String& text, PassRefPtr<TextInsertionMarkerSupplier> markerSupplier)
+    static PassRefPtr<InsertTextCommand> createWithMarkerSupplier(Document& document, const String& text, PassRefPtr<TextInsertionMarkerSupplier> markerSupplier)
     {
         return adoptRef(new InsertTextCommand(document, text, markerSupplier));
     }
 
 private:
 
-    InsertTextCommand(Document*, const String& text, bool selectInsertedText, RebalanceType);
-    InsertTextCommand(Document*, const String& text, PassRefPtr<TextInsertionMarkerSupplier>);
+    InsertTextCommand(Document&, const String& text, bool selectInsertedText, RebalanceType);
+    InsertTextCommand(Document&, const String& text, PassRefPtr<TextInsertionMarkerSupplier>);
 
     void deleteCharacter();
 
     virtual void doApply();
+
+#if PLATFORM(IOS)
+    virtual bool isInsertTextCommand() const override { return true; }
+#endif
 
     Position positionInsideTextNode(const Position&);
     Position insertTab(const Position&);

@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.in</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.in&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libiconv/man
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Directories used by &quot;make&quot;:
+</span>srcdir = @srcdir@
+
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = @prefix@
+local_prefix = /usr/local
+exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
+datadir = @datadir@
+mandir = @mandir@
+docdir = @docdir@
+htmldir = @htmldir@
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>RM = rm -f
+@SET_MAKE@
+
+<span class="enscript-comment"># Programs used by &quot;make install&quot;:
+</span>INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+mkinstalldirs = $(<span class="enscript-reference">SHELL</span>) @top_srcdir@/build-aux/mkinstalldirs
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+SHELL = /bin/sh
+
+all :
+
+install : force
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1 ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1 ; fi
+	builddir=<span class="enscript-string">&quot;`pwd`&quot;</span>; cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.1 ; do (cd <span class="enscript-string">&quot;$$builddir&quot;</span>; echo $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1/$$f ; $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1/$$f) ; done
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3 ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3 ; fi
+	builddir=<span class="enscript-string">&quot;`pwd`&quot;</span>; cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.3 ; do (cd <span class="enscript-string">&quot;$$builddir&quot;</span>; echo $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3/$$f ; $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3/$$f) ; done
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>)/doc ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>)/doc ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">docdir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">docdir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>) ; fi
+	builddir=<span class="enscript-string">&quot;`pwd`&quot;</span>; cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.html ; do (cd <span class="enscript-string">&quot;$$builddir&quot;</span>; echo $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>)/$$f ; $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">srcdir</span>)/$$f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>)/$$f) ; done
+
+installdirs : force
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1 ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1 ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3 ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3 ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>)/doc ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">datadir</span>)/doc ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">docdir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">docdir</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>) ; fi
+
+uninstall : force
+	cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.1 ; do echo $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1/$$f ; $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man1/$$f ; done
+	cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.3 ; do echo $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3/$$f ; $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">mandir</span>)/man3/$$f ; done
+	cd $(<span class="enscript-reference">srcdir</span>) &amp;&amp; for f in *.html ; do echo $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>)/$$f ; $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">htmldir</span>)/$$f ; done
+
+check :
+
+mostlyclean :
+
+clean :
+
+distclean : force
+	$(<span class="enscript-reference">RM</span>) Makefile
+
+maintainer-clean : distclean
+
+force :
+
+</pre>
+<hr />
+</body></html>

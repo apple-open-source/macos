@@ -72,6 +72,7 @@ const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation 
             globals->cipherModeTab[cipher][i].ofb = ccmodeList[cipher][i].ofb();
             globals->cipherModeTab[cipher][i].xts = ccmodeList[cipher][i].xts();
             globals->cipherModeTab[cipher][i].gcm = ccmodeList[cipher][i].gcm();
+            globals->cipherModeTab[cipher][i].ccm = ccmodeList[cipher][i].ccm();
         });
     }
 
@@ -84,6 +85,7 @@ const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation 
         case kCCModeOFB: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ofb;
         case kCCModeXTS: return (corecryptoMode) globals->cipherModeTab[cipher][direction].xts;
         case kCCModeGCM: return (corecryptoMode) globals->cipherModeTab[cipher][direction].gcm;
+        case kCCModeCCM: return (corecryptoMode) globals->cipherModeTab[cipher][direction].ccm;
     }
     return (corecryptoMode) (const struct ccmode_ecb*) NULL;
 }
@@ -106,6 +108,8 @@ static inline CCCryptorStatus setCryptorCipherMode(CCCryptor *ref, CCAlgorithm c
             ref->modeDesc = &ccxts_mode; break;
         case kCCModeGCM: if((ref->symMode[direction].gcm = getCipherMode(cipher, mode, direction).gcm) == NULL) return kCCUnimplemented;
             ref->modeDesc = &ccgcm_mode; break;
+        case kCCModeCCM: if((ref->symMode[direction].ccm = getCipherMode(cipher, mode, direction).ccm) == NULL) return kCCUnimplemented;
+            ref->modeDesc = &ccccm_mode; break;
         default: return kCCParamError;
     }
     return kCCSuccess;
@@ -171,9 +175,11 @@ static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher,
 
 #define OP4INFO(X) (((X)->op == 3) ? 0: (X)->op)
 
+#if 0
 static inline size_t ccGetBlockSize(CCCryptor *ref) {
     return ref->modeDesc->mode_get_block_size(ref->symMode[OP4INFO(ref)]);
 }
+#endif
 
 static inline bool ccIsStreaming(CCCryptor *ref) {
     return ref->modeDesc->mode_get_block_size(ref->symMode[ref->op]) == 1;
@@ -275,12 +281,12 @@ static inline void returnLengthIfPossible(size_t length, size_t *returnPtr) {
 }
 
 static inline CCCryptorStatus ccEncryptPad(CCCryptor *cryptor, void *buf, size_t *moved) {
-    if(cryptor->padptr->encrypt_pad(cryptor->ctx[cryptor->op], cryptor->modeDesc, cryptor->symMode[cryptor->op], cryptor->buffptr, cryptor->bufferPos, buf, moved)) return kCCDecodeError;
+    if(cryptor->padptr->encrypt_pad(cryptor->ctx[cryptor->op], cryptor->modeDesc, cryptor->symMode[cryptor->op], cryptor->buffptr, cryptor->bufferPos, buf, moved)) return kCCAlignmentError;
     return kCCSuccess;
 }
 
 static inline CCCryptorStatus ccDecryptPad(CCCryptor *cryptor, void *buf, size_t *moved) {
-    if(cryptor->padptr->decrypt_pad(cryptor->ctx[cryptor->op], cryptor->modeDesc, cryptor->symMode[cryptor->op], cryptor->buffptr, cryptor->bufferPos, buf, moved)) return kCCDecodeError;
+    if(cryptor->padptr->decrypt_pad(cryptor->ctx[cryptor->op], cryptor->modeDesc, cryptor->symMode[cryptor->op], cryptor->buffptr, cryptor->bufferPos, buf, moved)) return kCCAlignmentError;
     return kCCSuccess;
 }
 
@@ -706,7 +712,12 @@ CCCryptorStatus CCCryptorFinal(
 
 	if(dataOutMoved) *dataOutMoved = 0;
 
-    if(ccIsStreaming(cryptor)) return kCCSuccess;
+    if(ccIsStreaming(cryptor)) {
+        if(cryptor->modeDesc->mode_done) {
+            cryptor->modeDesc->mode_done(cryptor->symMode[cryptor->op], cryptor->ctx[cryptor->op]);
+        }
+        return kCCSuccess;
+    }
 
 	if(encrypting) {
         retval = ccEncryptPad(cryptor, tmpbuf, &moved);
@@ -720,19 +731,17 @@ CCCryptorStatus CCCryptorFinal(
         }
 		cryptor->bufferPos = 0;
 	} else {
-		if(ccGetReserve(cryptor) != 0) {
-            retval = ccDecryptPad(cryptor, tmpbuf, &moved);
-            if(retval != kCCSuccess) return retval;
-            if(dataOutAvailable < moved) {
-                return kCCBufferTooSmall;
-            }
-            if(dataOut) {
-                CC_XMEMCPY(dataOut, tmpbuf, moved);
-                if(dataOutMoved) *dataOutMoved = moved;
-            }
-			cryptor->bytesProcessed += moved;
-            cryptor->bufferPos = 0;
-		}
+        retval = ccDecryptPad(cryptor, tmpbuf, &moved);
+        if(retval != kCCSuccess) return retval;
+        if(dataOutAvailable < moved) {
+            return kCCBufferTooSmall;
+        }
+        if(dataOut) {
+            CC_XMEMCPY(dataOut, tmpbuf, moved);
+            if(dataOutMoved) *dataOutMoved = moved;
+        }
+        cryptor->bytesProcessed += moved;
+        cryptor->bufferPos = 0;
 	}
     cryptor->bufferPos = 0;
 #ifdef DEBUG
@@ -859,6 +868,97 @@ CCCryptorStatus CCCryptorDecryptDataBlock(
     return ccDoDeCryptTweaked(cryptor, dataIn, dataInLength, dataOut, iv);    
 }
 
+#include <corecrypto/ccmode_factory.h>
 
+static bool ccm_ready(modeCtx ctx) {
+// FIX THESE NOW XXX
+    if(ctx.ccm->mac_size == (size_t) 0xffffffffffffffff ||
+       ctx.ccm->nonce_size == (size_t) 0xffffffffffffffff ||
+       ctx.ccm->total_len == (size_t) 0xffffffffffffffff) return false;
+    return true;
+}
+
+CCCryptorStatus CCCryptorAddParameter(
+    CCCryptorRef cryptorRef,
+    CCParameter parameter,
+    const void *data,
+    size_t dataSize)
+{
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
+    if(!cryptor) return kCCParamError;
+
+    switch(parameter) {
+    case kCCParameterIV:
+        // GCM version
+        if(cryptor->mode == kCCModeGCM) {
+            ccmode_gcm_set_iv(cryptor->ctx[cryptor->op].gcm, dataSize, data);
+        } else if(cryptor->mode == kCCModeCCM) {
+            ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
+            ccm->nonce_size = dataSize;
+            CC_XMEMCPY(ccm->nonce_buf, data, dataSize);
+        } else return kCCUnimplemented;
+        break;
+
+    case kCCParameterAuthData:
+        // GCM version
+        if(cryptor->mode == kCCModeGCM) {
+            ccmode_gcm_gmac(cryptor->ctx[cryptor->op].gcm, dataSize, data);
+        } else if(cryptor->mode == kCCModeCCM) {
+            if(!ccm_ready(cryptor->ctx[cryptor->op])) return kCCParamError;
+            ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
+            const struct ccmode_ccm *mode = cryptor->symMode[cryptor->op].ccm;
+            ccm->ad_len = dataSize;
+            mode->set_iv(&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+                    ccm->nonce_size, ccm->nonce_buf, ccm->mac_size, ccm->ad_len, ccm->total_len);
+            mode->cbcmac(&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+                    ccm->ad_len, data);
+        } else return kCCUnimplemented;
+        break;
+        
+    case kCCMacSize:
+        if(cryptor->mode == kCCModeCCM) {
+            cryptor->ctx[cryptor->op].ccm->mac_size = dataSize;
+        } else return kCCUnimplemented;
+        break;
+        
+    case kCCDataSize:
+        if(cryptor->mode == kCCModeCCM) {
+            cryptor->ctx[cryptor->op].ccm->total_len = dataSize;
+        } else return kCCUnimplemented;
+        break;
+        
+    default:
+        return kCCParamError;
+    }
+    return kCCSuccess;
+}
+
+CCCryptorStatus CCCryptorGetParameter(    
+    CCCryptorRef cryptorRef,
+    CCParameter parameter,
+    void *data,
+    size_t *dataSize)
+{
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
+    if(!cryptor) return kCCParamError;
+
+    switch(parameter) {
+    case kCCParameterAuthTag:
+        // GCM version
+        if(cryptor->mode == kCCModeGCM) {
+            return kCCUnimplemented;
+        } else if(cryptor->mode == kCCModeCCM) {
+            ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
+            CC_XMEMCPY(data, ccm->mac, ccm->mac_size);
+            *dataSize = ccm->mac_size;
+        } else return kCCUnimplemented;
+        break;
+    default:
+        return kCCParamError;
+    }
+    return kCCSuccess;
+}
 
 

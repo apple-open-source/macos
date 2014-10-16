@@ -46,6 +46,8 @@ static struct getargs args[] = {
      NULL, NULL }
 };
 
+static void usage (int ret) HEIMDAL_NORETURN_ATTRIBUTE;
+
 static void
 usage (int ret)
 {
@@ -59,7 +61,8 @@ usage (int ret)
 int
 main(int argc, char **argv)
 {
-    int i, j;
+    int i;
+    size_t j;
     krb5_context context;
     int types[] = {KRB5_KRBHST_KDC, KRB5_KRBHST_ADMIN, KRB5_KRBHST_CHANGEPW,
 		   KRB5_KRBHST_KRB524};

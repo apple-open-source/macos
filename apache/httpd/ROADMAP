@@ -1,6 +1,6 @@
 APACHE 2.x ROADMAP
 ==================
-Last modified at [$Date: 2005-03-14 05:24:22 +0000 (Mon, 14 Mar 2005) $]
+Last modified at [$Date: 2010-10-30 17:56:13 +0000 (Sat, 30 Oct 2010) $]
 
 
 WORKS IN PROGRESS
@@ -191,7 +191,7 @@ MAKING APACHE REPOSITORY-AGNOSTIC
       than calling apr_dir_open/read/close(), a caller uses
       resource->repos->get_children() or somesuch.
 
-      Note that things like mod_dir, mod_autoindex, and mod_negotation
+      Note that things like mod_dir, mod_autoindex, and mod_negotiation
       need to be converted to use these mechanisms so that their
       functions will work on logical repositories rather than just
       filesystems.

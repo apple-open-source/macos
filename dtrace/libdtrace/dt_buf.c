@@ -39,13 +39,7 @@
  * to check for errors and then perform a single check before using the buffer.
  */
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
 #include <strings.h>
-#else /* is Apple Mac OS X */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-#include <strings.h>
-#endif /* __APPLE__ */
 
 #include <dt_impl.h>
 #include <dt_buf.h>

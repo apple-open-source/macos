@@ -1,0 +1,29 @@
+[
+    uuid(91ae6020-9e3c-11cf-8d7c-00aa00c091be),
+    pointer_default(unique)
+]
+interface ICertPassage
+{
+
+typedef struct _CERTTRANSBLOB {
+	unsigned long				cb;
+	[size_is(cb), unique] unsigned small *	pb;
+} CERTTRANSBLOB;
+
+unsigned long
+CertServerRequest(
+	[in] handle_t h,
+	[in] unsigned long dwFlags,
+	[in, string, unique] unsigned short *pwszAuthority,
+	[in, out, ref] unsigned long* pdwRequestId,
+	[out] unsigned long* pdwDisposition,
+	[in, ref] CERTTRANSBLOB* pctbAttribs,
+	[in, ref] CERTTRANSBLOB* pctbRequest,
+	[out, ref] CERTTRANSBLOB* pctbCert,
+	[out, ref] CERTTRANSBLOB* pctbEncodedCert,
+	[out, ref] CERTTRANSBLOB* pctbDispositionMessage
+);
+
+}
+
+

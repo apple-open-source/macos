@@ -1,6 +1,6 @@
-# *   Copyright (C) 1998-2013, International Business Machines
+# *   Copyright (C) 1998-2014, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
-BRK_RES_CLDR_VERSION = 23
+BRK_RES_CLDR_VERSION = 25
 # A list of txt's to build
 # Note:
 #
@@ -34,14 +34,16 @@ BRK_RES_ALIAS_SOURCE = $(BRK_RES_SYNTHETIC_ALIAS)
 
 
 # List of dictionary files (dict).
-BRK_DICT_SOURCE = cjdict.txt khmerdict.txt thaidict.txt
+BRK_DICT_SOURCE = cjdict.txt khmerdict.txt laodict.txt thaidict.txt
 
 
 # List of break iterator files (brk).
-BRK_SOURCE = char.txt line.txt line_fi.txt line_ja.txt sent.txt sent_el.txt title.txt word.txt word_POSIX.txt
+BRK_SOURCE = char.txt line.txt line_fi.txt line_ja.txt\
+ sent.txt sent_el.txt title.txt word.txt word_POSIX.txt
 
 
 # Ordinary resources
-BRK_RES_SOURCE = el.txt en.txt en_US.txt en_US_POSIX.txt\
- fi.txt ja.txt
+BRK_RES_SOURCE = de.txt el.txt en.txt en_US.txt\
+ en_US_POSIX.txt es.txt fi.txt fr.txt it.txt\
+ ja.txt pt.txt ru.txt
 

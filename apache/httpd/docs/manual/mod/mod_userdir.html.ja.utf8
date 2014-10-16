@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.2</a> &gt; <a href="./">モジュール</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">モジュール</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache モジュール mod_userdir</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_userdir.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_userdir.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_userdir.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_userdir.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_userdir.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
@@ -60,7 +61,7 @@
 <div class="directive-section"><h2><a name="UserDir" id="UserDir">UserDir</a> <a name="userdir" id="userdir">ディレクティブ</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">説明:</a></th><td>ユーザ専用ディレクトリの位置</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">構文:</a></th><td><code>UserDir <em>directory-filename</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">構文:</a></th><td><code>UserDir <em>directory-filename</em> [<em>directory-filename</em>] ...</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>mod_userdir</td></tr>
@@ -97,7 +98,7 @@
     キーワードも <code>UserDir</code> に現われていなければ、
     引数はファイル名パターンとして扱われ、
     名前からディレクトリへの変換の指定を行なう時に使われます。
-    <code>http://www.foo.com/~bob/one/two.html</code>
+    <code>http://www.example.com/~bob/one/two.html</code>
     へのリクエストは次のように変換されます:</p>
 
 <table>
@@ -114,11 +115,11 @@
 <table>
 <tr><th>UserDir ディレクティブ</th>
 <th>変換後のパス</th></tr>
-<tr><td>UserDir http://www.foo.com/users</td><td>http://www.foo.com/users/bob/one/two.html</td></tr>
+<tr><td>UserDir http://www.example.com/users</td><td>http://www.example.com/users/bob/one/two.html</td></tr>
 <tr><td>UserDir
-http://www.foo.com/*/usr</td><td>http://www.foo.com/bob/usr/one/two.html</td></tr>
+http://www.example.com/*/usr</td><td>http://www.example.com/bob/usr/one/two.html</td></tr>
 <tr><td>UserDir
-http://www.foo.com/~*/</td><td>http://www.foo.com/~bob/one/two.html</td></tr>
+http://www.example.com/~*/</td><td>http://www.example.com/~bob/one/two.html</td></tr>
 </table> 
 
 <div class="note">
@@ -157,12 +158,12 @@ UserDir disabled user4 user5 user6
 次のようなコマンドを使うと:</p>
 
 <div class="example"><p><code>
-Userdir public_html /usr/web http://www.foo.com/
+Userdir public_html /usr/web http://www.example.com/
 </code></p></div>
 
-<p>http://www.foo.com/~bob/one/two.html へのリクエストはまず
+<p>http://www.example.com/~bob/one/two.html へのリクエストはまず
 ~bob/public_html/one/two.html のページを調べ、その次に
-/usr/web/bob/one/two.html を調べ、最後に http://www.foo.com/bob/one/two.html
+/usr/web/bob/one/two.html を調べ、最後に http://www.example.com/bob/one/two.html
 へのリダイレクトを送ります。</p>
 
 <p>リダイレクトを加える場合は、リストの最後の選択肢でなければなりません。
@@ -185,13 +186,14 @@ Apache はリダイレクトが成功するかどうかを決めることはで�
 </div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_userdir.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_userdir.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_userdir.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_userdir.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_userdir.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_userdir.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_userdir.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -206,7 +208,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_userdir.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

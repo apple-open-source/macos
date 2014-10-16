@@ -1,0 +1,133 @@
+#
+# Copyright (c) 2004,2011-2012,2014 Apple Inc. All Rights Reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+#
+_SecArenaPoolCreate
+_SecArenaPoolFree
+_SecCmsContentInfoGetBulkKey
+_SecCmsContentInfoGetBulkKeySize
+_SecCmsContentInfoGetChildContentInfo
+_SecCmsContentInfoGetContent
+_SecCmsContentInfoGetContentEncAlg
+_SecCmsContentInfoGetContentEncAlgTag
+_SecCmsContentInfoGetContentTypeOID
+_SecCmsContentInfoGetContentTypeTag
+_SecCmsContentInfoGetInnerContent
+_SecCmsContentInfoSetBulkKey
+_SecCmsContentInfoSetContentData
+_SecCmsContentInfoSetContentDigestedData
+_SecCmsContentInfoSetContentEncAlg
+_SecCmsContentInfoSetContentEncAlgID
+_SecCmsContentInfoSetContentEncryptedData
+_SecCmsContentInfoSetContentEnvelopedData
+_SecCmsContentInfoSetContentSignedData
+_SecCmsContentInfoSetContentOther
+_SecCmsDecoderCreate
+_SecCmsDecoderDestroy
+_SecCmsDecoderFinish
+_SecCmsDecoderUpdate
+_SecCmsDigestContextCancel
+_SecCmsDigestContextFinishMultiple
+_SecCmsDigestContextStartMultiple
+_SecCmsDigestContextUpdate
+_SecCmsDigestedDataCreate
+_SecCmsDigestedDataDestroy
+_SecCmsDigestedDataGetContentInfo
+_SecCmsEncoderCreate
+_SecCmsEncoderDestroy
+_SecCmsEncoderFinish
+_SecCmsEncoderUpdate
+_SecCmsEncryptedDataCreate
+_SecCmsEncryptedDataDestroy
+_SecCmsEncryptedDataGetContentInfo
+_SecCmsEnvelopedDataAddRecipient
+_SecCmsEnvelopedDataCreate
+_SecCmsEnvelopedDataDestroy
+_SecCmsEnvelopedDataGetContentInfo
+_SecCmsMessageContainsCertsOrCrls
+_SecCmsMessageContentLevel
+_SecCmsMessageContentLevelCount
+_SecCmsMessageCopy
+_SecCmsMessageCreate
+_SecCmsMessageDecode
+_SecCmsMessageDestroy
+_SecCmsMessageEncode
+_SecCmsMessageGetArena
+_SecCmsMessageGetContent
+_SecCmsMessageGetContentInfo
+_SecCmsMessageIsContentEmpty
+_SecCmsMessageIsEncrypted
+_SecCmsMessageIsSigned
+_SecCmsMessageContainsTSTInfo
+_SecCmsMessageSetTSACallback
+_SecCmsMessageSetTSAContext
+_SecCmsTSAGetDefaultContext
+_SecCmsTSADefaultCallback
+_kTSAContextKeyURL
+_kTSAContextKeyNoCerts
+_kTSADebugContextKeyBadReq
+_kTSADebugContextKeyBadNonce
+_SecTSAResponseCopyDEREncoding
+_SecCmsRecipientInfoCreate
+_SecCmsRecipientInfoCreateWithSubjKeyID
+_SecCmsRecipientInfoCreateWithSubjKeyIDFromCert
+_SecCmsRecipientInfoDestroy
+_SecCmsSignedDataAddCertChain
+_SecCmsSignedDataAddCertList
+_SecCmsSignedDataAddCertificate
+_SecCmsSignedDataAddSignerInfo
+_SecCmsSignedDataContainsCertsOrCrls
+_SecCmsSignedDataCreate
+_SecCmsSignedDataCreateCertsOnly
+_SecCmsSignedDataDestroy
+_SecCmsSignedDataGetCertificateList
+_SecCmsSignedDataGetContentInfo
+_SecCmsSignedDataGetDigestAlgs
+_SecCmsSignedDataGetSignerInfo
+_SecCmsSignedDataGetSignerInfos
+_SecCmsSignedDataHasDigests
+_SecCmsSignedDataImportCerts
+_SecCmsSignedDataSetDigests
+_SecCmsSignedDataSignerInfoCount
+_SecCmsSignedDataVerifyCertsOnly
+_SecCmsSignedDataVerifySignerInfo
+_SecCmsSignerInfoAddCounterSignature
+_SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
+_SecCmsSignerInfoAddSMIMECaps
+_SecCmsSignerInfoAddSMIMEEncKeyPrefs
+_SecCmsSignerInfoAddSigningTime
+_SecCmsSignerInfoCreate
+_SecCmsSignerInfoCreateWithSubjKeyID
+_SecCmsSignerInfoDestroy
+_SecCmsSignerInfoGetCertList
+_SecCmsSignerInfoGetDigestAlg
+_SecCmsSignerInfoGetDigestAlgTag
+_SecCmsSignerInfoGetSignerCommonName
+_SecCmsSignerInfoGetSignerEmailAddress
+_SecCmsSignerInfoGetSigningCertificate
+_SecCmsSignerInfoGetSigningTime
+_SecCmsSignerInfoGetTimestampTime
+_SecCmsSignerInfoGetVerificationStatus
+_SecCmsSignerInfoGetEncDigest
+_SecCmsSignerInfoIncludeCerts
+_SecCmsSignerInfoSaveSMIMEProfile
+_SecCmsUtilVerificationStatusToString
+_SecSMIMEFindBulkAlgForRecipients

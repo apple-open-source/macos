@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHEXPN" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -50,6 +50,7 @@ The following sections explain the types of expansion in detail\&.
 History expansion allows you to use words from previous command
 lines in the command line you are typing\&.  This simplifies spelling
 corrections and the repetition of complicated commands or arguments\&.
+.PP
 Immediately before execution, each command is saved in the history list,
 the size of which is controlled by the \fBHISTSIZE\fP parameter\&.  The one
 most recent command is always retained in any case\&.  Each saved command in
@@ -794,6 +795,8 @@ If \fIspec\fP is one of the above substitutions, substitute
 the length in characters of the result instead of
 the result itself\&.  If \fIspec\fP is an array expression,
 substitute the number of elements of the result\&.
+This has the side\-effect that joining is skipped even in quoted
+forms, which may affect other sub\-expressions in \fIspec\fP\&.
 Note that `\fB^\fP\&', `\fB=\fP', and `\fB~\fP', below, must appear
 to the left of `\fB#\fP\&' when these forms are combined\&.
 .TP
@@ -912,11 +915,12 @@ or \fBz\fP flags, which still applies within each array element\&.
 Create an array parameter with `\fB${\fP\&.\&.\&.\fB=\fP\&.\&.\&.\fB}\fP\&',
 `\fB${\fP\&.\&.\&.\fB:=\fP\&.\&.\&.\fB}\fP\&' or `\fB${\fP\&.\&.\&.\fB::=\fP\&.\&.\&.\fB}\fP'\&.
 If this flag is repeated (as in `\fBAA\fP\&'), create an associative
-array parameter\&.  Assignment is made before sorting or padding\&.
-The \fIname\fP part may be a subscripted range for ordinary
-arrays; the \fIword\fP part \fImust\fP be converted to an array, for
-example by using `\fB${(AA)=\fP\fIname\fP\fB=\fP\&.\&.\&.\fB}\fP\&' to activate
-field splitting, when creating an associative array\&.
+array parameter\&.  Assignment is made before sorting or padding;
+if field splitting is active, the \fIword\fP part is split before
+assignment\&.  The \fIname\fP part may be a subscripted range for
+ordinary arrays; the \fIword\fP part \fImust\fP be converted to
+an array, for example by using `\fB${(AA)=\fP\fIname\fP\fB=\fP\&.\&.\&.\fB}\fP\&'
+to activate field splitting, when creating an associative array\&.
 .TP
 \fBa\fP
 Sort in array index order; when combined with `\fBO\fP\&' sort in reverse
@@ -926,7 +930,9 @@ order\&.
 .TP
 \fBc\fP
 With \fB${#\fP\fIname\fP\fB}\fP, count the total number of characters in an array,
-as if the elements were concatenated with spaces between them\&.
+as if the elements were concatenated with spaces between them\&.  This is not
+a true join of the array, so other expressions used with this flag may have
+an effect on the elements of the array before it is counted\&.
 .TP
 \fBC\fP
 Capitalize the resulting words\&.  `Words\&' in this case refers to sequences
@@ -1380,7 +1386,8 @@ subscripts apply to the scalar or array value yielded by the previous
 subscript\&.  Thus if \fBvar\fP is an array, \fB${var[1][2]}\fP is the second
 character of the first word, but \fB${var[2,4][2]}\fP is the entire third
 word (the second word of the range of words two through four of the
-original array)\&.  Any number of subscripts may appear\&.
+original array)\&.  Any number of subscripts may appear\&.  Flags such as
+\fB(k)\fP and \fB(v)\fP which alter the result of subscripting are applied\&.
 .TP
 \fB4\&.\fP \fIParameter name replacement\fP
 The effect of any \fB(P)\fP flag, which treats the value so far as a
@@ -1388,11 +1395,12 @@ parameter name and replaces it with the corresponding value, is applied\&.
 .TP
 \fB5\&.\fP \fIDouble\-quoted joining\fP
 If the value after this process is an array, and the substitution
-appears in double quotes, and no \fB(@)\fP flag is present at the current
-level, the words of the value are joined with the first character of the
-parameter \fB$IFS\fP, by default a space, between each word (single word
-arrays are not modified)\&.  If the \fB(j)\fP flag is present, that is used for
-joining instead of \fB$IFS\fP\&.
+appears in double quotes, and neither an \fB(@)\fP flag nor a \fB#\fP
+length operator is present at the current level, then words of the
+value are joined with the first character of the parameter \fB$IFS\fP,
+by default a space, between each word (single word arrays are not
+modified)\&.  If the \fB(j)\fP flag is present, that is used for joining
+instead of \fB$IFS\fP\&.
 .TP
 \fB6\&.\fP \fINested subscripting\fP
 Any remaining subscripts (i\&.e\&. of a nested substitution) are evaluated at
@@ -1762,14 +1770,14 @@ Note that trailing slashes will be removed from the path to the directory
 It is also possible to define directory names using the \fB\-d\fP option to the
 \fBhash\fP builtin\&.
 .PP
-In certain circumstances (in prompts, for instance), when the shell
-prints a path, the path is checked to see if it has a named
-directory as its prefix\&.  If so, then the prefix portion
-is replaced with a `\fB~\fP\&' followed by the name of the directory\&.
-The shortest way of referring to the directory is used,
-with ties broken in favour of using a named directory,
-except when the directory is \fB/\fP itself\&.  The parameters \fB$PWD\fP and
-\fB$OLDPWD\fP are never abbreviated in this fashion\&.
+When the shell prints a path (e\&.g\&. when expanding \fB%~\fP in prompts or when
+printing the directory stack), the path is checked to see if it has a named
+directory as its prefix\&.  If so, then the prefix portion is replaced with a
+`\fB~\fP\&' followed by the name of the directory\&.
+The shorter of the two ways of referring to the directory is used,
+i\&.e\&. either the directory name or the full path; the name is used
+if they are the same length\&.
+The parameters \fB$PWD\fP and \fB$OLDPWD\fP are never abbreviated in this fashion\&.
 .PP
 .SS "`=\&' expansion"
 .PP
@@ -2010,10 +2018,12 @@ but the `\fB(\fP\&' must be\&.
 Match the pattern in the parentheses\&.  (Like `\fB(\fP\&.\&.\&.\fB)\fP\&'\&.)
 .TP
 \fB*(\fP\&.\&.\&.\fB)\fP
-Match any number of occurrences\&.  (Like `\fB(\fP\&.\&.\&.\fB)#\fP\&'\&.)
+Match any number of occurrences\&.  (Like `\fB(\fP\&.\&.\&.\fB)#\fP\&',
+except that recursive directory searching is not supported\&.)
 .TP
 \fB+(\fP\&.\&.\&.\fB)\fP
-Match at least one occurrence\&.  (Like `\fB(\fP\&.\&.\&.\fB)##\fP\&'\&.)
+Match at least one occurrence\&.  (Like `\fB(\fP\&.\&.\&.\fB)##\fP\&',
+except that recursive directory searching is not supported\&.\&.)
 .TP
 \fB?(\fP\&.\&.\&.\fB)\fP
 Match zero or one occurrence\&.  (Like `\fB(|\fP\&.\&.\&.\fB)\fP\&'\&.)

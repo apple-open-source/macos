@@ -36,15 +36,7 @@
 #include <dlfcn.h>
 #include <gelf.h>
 
-#if !defined(__APPLE__)
-#ifdef _LP64
-static const char *_libctf_zlib = "/usr/lib/64/libz.so";
-#else
-static const char *_libctf_zlib = "/usr/lib/libz.so";
-#endif
-#else
 static const char *_libctf_zlib = "/usr/lib/libz.dylib";
-#endif /* __APPLE__ */
 
 static struct {
 	int (*z_uncompress)(uchar_t *, ulong_t *, const uchar_t *, ulong_t);
@@ -52,27 +44,7 @@ static struct {
 	void *z_dlp;
 } zlib;
 
-#if !defined(__APPLE__)
-static size_t _PAGESIZE;
-static size_t _PAGEMASK;
-
-#pragma init(_libctf_init)
-void
-_libctf_init(void)
-{
-	const char *p = getenv("LIBCTF_DECOMPRESSOR");
-
-	if (p != NULL)
-		_libctf_zlib = p; /* use alternate decompression library */
-
-	_libctf_debug = getenv("LIBCTF_DEBUG") != NULL;
-
-	_PAGESIZE = getpagesize();
-	_PAGEMASK = ~(_PAGESIZE - 1);
-}
-#else
 #define _PAGEMASK (~(getpagesize() - 1)) /* Infrequently used, let's burn the cost of the library call. */
-#endif /* __APPLE__ */
 
 /*
  * Attempt to dlopen the decompression library and locate the symbols of
@@ -87,9 +59,10 @@ ctf_zopen(int *errp)
 	if (zlib.z_dlp != NULL)
 		return (zlib.z_dlp); /* library is already loaded */
 
-	if (access(_libctf_zlib, R_OK) == -1)
-		return (ctf_set_open_errno(errp, ECTF_ZMISSING));
-
+	/* On Apple platforms, dlopen checks whether zlib can be accessed,
+	 * and it could be in the dyld shared cache. Thus, we can directly
+	 * call dlopen.
+	 */
 	if ((zlib.z_dlp = dlopen(_libctf_zlib, RTLD_LAZY | RTLD_LOCAL)) == NULL)
 		return (ctf_set_open_errno(errp, ECTF_ZINIT));
 

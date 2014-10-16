@@ -76,6 +76,9 @@ mod_export int excs, exlast;
  * and a temporary history entry is inserted while the user is editing.
  * If the resulting line was not added to the list, a flag is set so
  * that curhist will be decremented in hbegin().
+ *
+ * Note curhist is passed to zle on variable length argument list:
+ * type must match that retrieved in zle_main_entry.
  */
  
 /**/
@@ -518,6 +521,12 @@ histsubchar(int c)
 		}
 		c = ingetc();
 	    }
+	    if (ptr == buf &&
+		(c == '}' ||  c == ';' || c == '\'' || c == '"' || c == '`')) {
+	      /* Neither event nor word designator, no expansion */
+	      safeinungetc(c);
+	      return bangchar;
+	    }
 	    *ptr = 0;
 	    if (!*buf) {
 		if (c != '%') {
@@ -868,6 +877,8 @@ unlinkcurline(void)
 mod_export void
 hbegin(int dohist)
 {
+    char *hf;
+
     isfirstln = isfirstch = 1;
     errflag = histdone = 0;
     if (!dohist)
@@ -921,13 +932,35 @@ hbegin(int dohist)
 	defev = addhistnum(curhist, -1, HIST_FOREIGN);
     } else
 	histactive = HA_ACTIVE | HA_NOINC;
+
+    hf = getsparam("HISTFILE");
+    /*
+     * For INCAPPENDHISTORY, when interactive, save the history here
+     * as it gives a better estimate of the times of commands.
+     *
+     * If SHAREHISTORY is also set continue to do so in the
+     * standard place, because that's safer about reading and
+     * rewriting history atomically.
+     *
+     * The histsave_stack_pos test won't usually fail here.
+     * We need to test the opposite for the hend() case because we
+     * need to save in the history file we've switched to, but then
+     * we pop immediately after that so the variable becomes zero.
+     * We will already have saved the line and restored the history
+     * so that (correctly) nothing happens here.  But it shows
+     * I thought about it.
+     */
+    if (isset(INCAPPENDHISTORY) && !isset(SHAREHISTORY) &&
+	!(histactive & HA_NOINC) && !strin && histsave_stack_pos == 0)
+	savehistfile(hf, 0, HFILE_USE_OPTIONS | HFILE_FAST);
 }
 
 /**/
 void
 histreduceblanks(void)
 {
-    int i, len, pos, needblank, spacecount = 0;
+    int i, len, pos, needblank, spacecount = 0, trunc_ok;
+    char *lastptr, *ptr;
 
     if (isset(HISTIGNORESPACE))
 	while (chline[spacecount] == ' ') spacecount++;
@@ -939,17 +972,41 @@ histreduceblanks(void)
     if (chline[len] == '\0')
 	return;
 
+    /* Remember where the delimited words end */
+    if (chwordpos)
+	lastptr = chline + chwords[chwordpos-1];
+    else
+	lastptr = chline;
+
     for (i = 0, pos = spacecount; i < chwordpos; i += 2) {
 	len = chwords[i+1] - chwords[i];
 	needblank = (i < chwordpos-2 && chwords[i+2] > chwords[i+1]);
 	if (pos != chwords[i]) {
-	    memcpy(chline + pos, chline + chwords[i], len + needblank);
+	    memmove(chline + pos, chline + chwords[i], len + needblank);
 	    chwords[i] = pos;
 	    chwords[i+1] = chwords[i] + len;
 	}
 	pos += len + needblank;
     }
-    chline[pos] = '\0';
+
+    /*
+     * A terminating comment isn't recorded as a word.
+     * Only truncate the line if just whitespace remains.
+     */
+    trunc_ok = 1;
+    for (ptr = lastptr; *ptr; ptr++) {
+	if (!inblank(*ptr)) {
+	    trunc_ok = 0;
+	    break;
+	}
+    }
+    if (trunc_ok) {
+	chline[pos] = '\0';
+    } else {
+	ptr = chline + pos;
+	while ((*ptr++ = *lastptr++))
+	    ;
+    }
 }
 
 /**/
@@ -1169,7 +1226,15 @@ mod_export int
 hend(Eprog prog)
 {
     LinkList hookargs = newlinklist();
-    int flag, save = 1, hookret, stack_pos = histsave_stack_pos;
+    int flag, hookret, stack_pos = histsave_stack_pos;
+    /*
+     * save:
+     * 0: don't save
+     * 1: save normally
+     * -1: save temporarily, delete after next line
+     * -2: save internally but mark for not writing
+     */
+    int save = 1;
     char *hf;
 
     DPUTS(stophist != 2 && !(inbufflags & INP_ALIAS) && !chline,
@@ -1222,7 +1287,11 @@ hend(Eprog prog)
 	}
 	if (chwordpos <= 2)
 	    save = 0;
-	else if (hookret || should_ignore_line(prog))
+	else if (should_ignore_line(prog))
+	    save = -1;
+	else if (hookret == 2)
+	    save = -2;
+	else if (hookret)
 	    save = -1;
     }
     if (flag & (HISTFLAG_DONE | HISTFLAG_RECALL)) {
@@ -1268,7 +1337,12 @@ hend(Eprog prog)
 	    if (isset(HISTREDUCEBLANKS))
 		histreduceblanks();
 	}
-	newflags = save > 0? 0 : HIST_TMPSTORE;
+	if (save == -1)
+	    newflags = HIST_TMPSTORE;
+	else if (save == -2)
+	    newflags = HIST_NOWRITE;
+	else
+	    newflags = 0;
 	if ((isset(HISTIGNOREDUPS) || isset(HISTIGNOREALLDUPS)) && save > 0
 	 && hist_ring && histstrcmp(chline, hist_ring->node.nam) == 0) {
 	    /* This history entry compares the same as the previous.
@@ -1300,7 +1374,11 @@ hend(Eprog prog)
     chline = hptr = NULL;
     chwords = NULL;
     histactive = 0;
-    if (isset(SHAREHISTORY)? histfileIsLocked() : isset(INCAPPENDHISTORY))
+    /*
+     * For normal INCAPPENDHISTORY case and reasoning, see hbegin().
+     */
+    if (isset(SHAREHISTORY) ? histfileIsLocked() :
+	(isset(INCAPPENDHISTORY) && histsave_stack_pos != 0))
 	savehistfile(hf, 0, HFILE_USE_OPTIONS | HFILE_FAST);
     unlockhistfile(hf); /* It's OK to call this even if we aren't locked */
     /*
@@ -2389,6 +2467,9 @@ readhistfile(char *fn, int err, int readflags)
 	zerr("can't read history file %s", fn);
 
     unlockhistfile(fn);
+
+    if (zleactive)
+	zleentry(ZLE_CMD_SET_HIST_LINE, curhist);
 }
 
 #ifdef HAVE_FCNTL_H
@@ -2519,14 +2600,29 @@ savehistfile(char *fn, int err, int writeflags)
 	}
     }
     if (out) {
+	char *history_ignore;
+	Patprog histpat = NULL;
+
+	pushheap();
+
+	if ((history_ignore = getsparam("HISTORY_IGNORE")) != NULL) {
+	    tokenize(history_ignore = dupstring(history_ignore));
+	    remnulargs(history_ignore);
+	    histpat = patcompile(history_ignore, 0, NULL);
+	}
+
 	ret = 0;
 	for (; he && he->histnum <= xcurhist; he = down_histent(he)) {
 	    if ((writeflags & HFILE_SKIPDUPS && he->node.flags & HIST_DUP)
 	     || (writeflags & HFILE_SKIPFOREIGN && he->node.flags & HIST_FOREIGN)
 	     || he->node.flags & HIST_TMPSTORE)
 		continue;
+	    if (histpat &&
+		pattry(histpat, metafy(he->node.nam, -1, META_HEAPDUP))) {
+		continue;
+	    }
 	    if (writeflags & HFILE_SKIPOLD) {
-		if (he->node.flags & HIST_OLD)
+		if (he->node.flags & (HIST_OLD|HIST_NOWRITE))
 		    continue;
 		he->node.flags |= HIST_OLD;
 		if (writeflags & HFILE_USE_OPTIONS)
@@ -2604,6 +2700,8 @@ savehistfile(char *fn, int err, int writeflags)
 		histactive = remember_histactive;
 	    }
 	}
+
+	popheap();
     } else
 	ret = -1;
 
@@ -3314,6 +3412,8 @@ pushhiststack(char *hf, zlong hs, zlong shs, int level)
     }
     hist_ring = NULL;
     curhist = histlinect = 0;
+    if (zleactive)
+	zleentry(ZLE_CMD_SET_HIST_LINE, curhist);
     histsiz = hs;
     savehistsiz = shs;
     inithist(); /* sets histtab */
@@ -3353,6 +3453,8 @@ pophiststack(void)
     histtab = h->histtab;
     hist_ring = h->hist_ring;
     curhist = h->curhist;
+    if (zleactive)
+	zleentry(ZLE_CMD_SET_HIST_LINE, curhist);
     histlinect = h->histlinect;
     histsiz = h->histsiz;
     savehistsiz = h->savehistsiz;

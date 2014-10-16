@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)aux.c	8.1 (Berkeley) 6/6/93";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.bin/mail/aux.c,v 1.13 2002/08/25 13:22:47 charnier Exp $";
 #endif /* not lint */

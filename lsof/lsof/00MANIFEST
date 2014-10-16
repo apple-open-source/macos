@@ -13,6 +13,7 @@
 00TEST
 00XCONFIG
 AFSConfig*
+ChangeLog
 Configure*
 Customize*
 Inventory*
@@ -110,6 +111,7 @@ watch_a_file.perl*
 xusers.awk*
 
 ./tests:
+00README
 Add2TestDB*
 CkTestDB*
 LTbasic.c

@@ -24,9 +24,9 @@
  */
 
 #include "config.h"
-#include "GLPlatformContext.h"
 
-#if USE(ACCELERATED_COMPOSITING)
+#if USE(3D_GRAPHICS)
+#include "GLPlatformContext.h"
 
 #if USE(GLX)
 #include "GLXContext.h"
@@ -63,15 +63,15 @@ public:
     virtual ~GLCurrentContextWrapper() { }
 };
 
-static PassOwnPtr<GLPlatformContext> createOffScreenContext()
+static std::unique_ptr<GLPlatformContext> createOffScreenContext()
 {
 #if USE(GLX)
-    return adoptPtr(new GLXOffScreenContext());
+    return std::make_unique<GLXOffScreenContext>();
 #elif USE(EGL)
-    return adoptPtr(new EGLOffScreenContext());
-#endif
-
+    return std::make_unique<EGLOffScreenContext>();
+#else
     return nullptr;
+#endif
 }
 
 static HashSet<String> parseExtensions(const String& extensionsString)
@@ -102,7 +102,7 @@ static void resolveResetStatusExtension()
     }
 }
 
-PassOwnPtr<GLPlatformContext> GLPlatformContext::createContext(GraphicsContext3D::RenderStyle renderStyle)
+std::unique_ptr<GLPlatformContext> GLPlatformContext::createContext(GraphicsContext3D::RenderStyle renderStyle)
 {
 #if !USE(OPENGL_ES_2)
     if (!initializeOpenGLShims())
@@ -111,13 +111,9 @@ PassOwnPtr<GLPlatformContext> GLPlatformContext::createContext(GraphicsContext3D
 
     switch (renderStyle) {
     case GraphicsContext3D::RenderOffscreen:
-        if (OwnPtr<GLPlatformContext> context = createOffScreenContext())
-            return context.release();
-        break;
+        return createOffScreenContext();
     case GraphicsContext3D::RenderToCurrentGLContext:
-        if (OwnPtr<GLPlatformContext> context = adoptPtr(new GLCurrentContextWrapper()))
-            return context.release();
-        break;
+        return std::make_unique<GLCurrentContextWrapper>();
     case GraphicsContext3D::RenderDirectlyToHostWindow:
         ASSERT_NOT_REACHED();
         break;

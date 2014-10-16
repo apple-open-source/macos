@@ -1,0 +1,283 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>gentranslit.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">gentranslit.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 1999-2003, 2005 Free Software Foundation, Inc.
+   This file is part of the GNU LIBICONV Library.
+
+   The GNU LIBICONV Library is free software; you can redistribute it
+   and/or modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   The GNU LIBICONV Library is distributed in the hope that it will be
+   useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+<span class="enscript-comment">/*
+ * Generates a table of small strings, used for transliteration, from a table
+ * containing lines of the form
+ *   Unicode &lt;tab&gt; utf-8 replacement &lt;tab&gt; # comment
+ */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdbool.h&gt;</span>
+
+<span class="enscript-type">int</span> <span class="enscript-function-name">main</span> (<span class="enscript-type">int</span> argc, <span class="enscript-type">char</span> *argv[])
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> data[0x100000];
+  <span class="enscript-type">int</span> uni2index[0x110000];
+  <span class="enscript-type">int</span> index;
+
+  <span class="enscript-keyword">if</span> (argc != 1)
+    exit(1);
+
+  printf(<span class="enscript-string">&quot;/*\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Copyright (C) 1999-2003 Free Software Foundation, Inc.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * This file is part of the GNU LIBICONV Library.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * The GNU LIBICONV Library is free software; you can redistribute it\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * and/or modify it under the terms of the GNU Library General Public\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * License as published by the Free Software Foundation; either version 2\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * of the License, or (at your option) any later version.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * The GNU LIBICONV Library is distributed in the hope that it will be\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Library General Public License for more details.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; *\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * You should have received a copy of the GNU Library General Public\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Fifth Floor, Boston, MA 02110-1301, USA.\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; */\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;/*\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; * Transliteration table\n&quot;</span>);
+  printf(<span class="enscript-string">&quot; */\n&quot;</span>);
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  {
+    <span class="enscript-type">int</span> c;
+    <span class="enscript-type">int</span> j;
+    <span class="enscript-keyword">for</span> (j = 0; j &lt; 0x110000; j++)
+      uni2index[j] = -1;
+    index = 0;
+    <span class="enscript-keyword">for</span> (;;) {
+      c = getc(stdin);
+      <span class="enscript-keyword">if</span> (c == EOF)
+        <span class="enscript-keyword">break</span>;
+      <span class="enscript-keyword">if</span> (c == <span class="enscript-string">'#'</span>) {
+        <span class="enscript-keyword">do</span> { c = getc(stdin); } <span class="enscript-keyword">while</span> (!(c == EOF || c == <span class="enscript-string">'\n'</span>));
+        <span class="enscript-keyword">continue</span>;
+      }
+      ungetc(c,stdin);
+      <span class="enscript-keyword">if</span> (scanf(<span class="enscript-string">&quot;%x&quot;</span>,&amp;j) != 1)
+        exit(1);
+      c = getc(stdin);
+      <span class="enscript-keyword">if</span> (c != <span class="enscript-string">'\t'</span>)
+        exit(1);
+      <span class="enscript-keyword">for</span> (;;) {
+        c = getc(stdin);
+        <span class="enscript-keyword">if</span> (c == EOF || c == <span class="enscript-string">'\n'</span>)
+          exit(1);
+        <span class="enscript-keyword">if</span> (c == <span class="enscript-string">'\t'</span>)
+          <span class="enscript-keyword">break</span>;
+        <span class="enscript-keyword">if</span> (uni2index[j] &lt; 0) {
+          uni2index[j] = index;
+          data[index++] = 0;
+        }
+        <span class="enscript-keyword">if</span> (c &gt;= 0x80) {
+          <span class="enscript-comment">/* Finish reading an UTF-8 character. */</span>
+          <span class="enscript-keyword">if</span> (c &lt; 0xc0)
+            exit(1);
+          <span class="enscript-keyword">else</span> {
+            <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i = (c &lt; 0xe0 ? 2 : c &lt; 0xf0 ? 3 : c &lt; 0xf8 ? 4 : c &lt; 0xfc ? 5 : 6);
+            c &amp;= (1 &lt;&lt; (8-i)) - 1;
+            <span class="enscript-keyword">while</span> (--i &gt; 0) {
+              <span class="enscript-type">int</span> cc = getc(stdin);
+              <span class="enscript-keyword">if</span> (!(cc &gt;= 0x80 &amp;&amp; cc &lt; 0xc0))
+                exit(1);
+              c &lt;&lt;= 6; c |= (cc &amp; 0x3f);
+            }
+          }
+        }
+        data[index++] = (<span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>) c;
+      }
+      <span class="enscript-keyword">if</span> (uni2index[j] &gt;= 0)
+        data[uni2index[j]] = index - uni2index[j] - 1;
+      <span class="enscript-keyword">do</span> { c = getc(stdin); } <span class="enscript-keyword">while</span> (!(c == EOF || c == <span class="enscript-string">'\n'</span>));
+    }
+  }
+  printf(<span class="enscript-string">&quot;static const unsigned int translit_data[%d] = {&quot;</span>,index);
+  {
+    <span class="enscript-type">int</span> i;
+    <span class="enscript-keyword">for</span> (i = 0; i &lt; index; i++) {
+      <span class="enscript-keyword">if</span> (data[i] &lt; 32)
+        printf(<span class="enscript-string">&quot;\n %3d,&quot;</span>,data[i]);
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (data[i] == <span class="enscript-string">'\''</span>)
+        printf(<span class="enscript-string">&quot;'\\'',&quot;</span>);
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (data[i] == <span class="enscript-string">'\\'</span>)
+        printf(<span class="enscript-string">&quot;'\\\\',&quot;</span>);
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (data[i] &lt; 127)
+        printf(<span class="enscript-string">&quot; '%c',&quot;</span>,data[i]);
+      <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (data[i] &lt; 256)
+        printf(<span class="enscript-string">&quot;0x%02X,&quot;</span>,data[i]);
+      <span class="enscript-keyword">else</span>
+        printf(<span class="enscript-string">&quot;0x%04X,&quot;</span>,data[i]);
+    }
+    printf(<span class="enscript-string">&quot;\n};\n&quot;</span>);
+  }
+  printf(<span class="enscript-string">&quot;\n&quot;</span>);
+  {
+    bool pages[0x1100];
+    <span class="enscript-type">int</span> line[0x22000];
+    <span class="enscript-type">int</span> tableno;
+    <span class="enscript-type">struct</span> { <span class="enscript-type">int</span> minline; <span class="enscript-type">int</span> maxline; <span class="enscript-type">int</span> usecount; <span class="enscript-type">const</span> <span class="enscript-type">char</span>* suffix; } tables[0x2000];
+    <span class="enscript-type">int</span> i, j, p, j1, j2, t;
+
+    <span class="enscript-keyword">for</span> (p = 0; p &lt; 0x1100; p++)
+      pages[p] = false;
+    <span class="enscript-keyword">for</span> (j = 0; j &lt; 0x110000; j++)
+      <span class="enscript-keyword">if</span> (uni2index[j] &gt;= 0)
+        pages[j&gt;&gt;8] = true;
+    <span class="enscript-keyword">for</span> (j1 = 0; j1 &lt; 0x22000; j1++) {
+      bool all_invalid = true;
+      <span class="enscript-keyword">for</span> (j2 = 0; j2 &lt; 8; j2++) {
+        j = 8*j1+j2;
+        <span class="enscript-keyword">if</span> (uni2index[j] &gt;= 0)
+          all_invalid = false;
+      }
+      <span class="enscript-keyword">if</span> (all_invalid)
+        line[j1] = -1;
+      <span class="enscript-keyword">else</span>
+        line[j1] = 0;
+    }
+    tableno = 0;
+    <span class="enscript-keyword">for</span> (j1 = 0; j1 &lt; 0x22000; j1++) {
+      <span class="enscript-keyword">if</span> (line[j1] &gt;= 0) {
+        <span class="enscript-keyword">if</span> (tableno &gt; 0
+            &amp;&amp; ((j1 &gt; 0 &amp;&amp; line[j1-1] == tableno-1)
+                || ((tables[tableno-1].maxline &gt;&gt; 5) == (j1 &gt;&gt; 5)
+                    &amp;&amp; j1 - tables[tableno-1].maxline &lt;= 8))) {
+          line[j1] = tableno-1;
+          tables[tableno-1].maxline = j1;
+        } <span class="enscript-keyword">else</span> {
+          tableno++;
+          line[j1] = tableno-1;
+          tables[tableno-1].minline = tables[tableno-1].maxline = j1;
+        }
+      }
+    }
+    <span class="enscript-keyword">for</span> (t = 0; t &lt; tableno; t++) {
+      tables[t].usecount = 0;
+      j1 = 8*tables[t].minline;
+      j2 = 8*(tables[t].maxline+1);
+      <span class="enscript-keyword">for</span> (j = j1; j &lt; j2; j++)
+        <span class="enscript-keyword">if</span> (uni2index[j] &gt;= 0)
+          tables[t].usecount++;
+    }
+    <span class="enscript-keyword">for</span> (t = 0, p = -1, i = 0; t &lt; tableno; t++) {
+      <span class="enscript-keyword">if</span> (tables[t].usecount &gt; 1) {
+        <span class="enscript-type">char</span>* s;
+        <span class="enscript-keyword">if</span> (p == tables[t].minline &gt;&gt; 5) {
+          s = (<span class="enscript-type">char</span>*) malloc(5+1);
+          sprintf(s, <span class="enscript-string">&quot;%02x_%d&quot;</span>, p, ++i);
+        } <span class="enscript-keyword">else</span> {
+          p = tables[t].minline &gt;&gt; 5;
+          s = (<span class="enscript-type">char</span>*) malloc(2+1);
+          sprintf(s, <span class="enscript-string">&quot;%02x&quot;</span>, p);
+        }
+        tables[t].suffix = s;
+      } <span class="enscript-keyword">else</span>
+        tables[t].suffix = NULL;
+    }
+    {
+      p = -1;
+      <span class="enscript-keyword">for</span> (t = 0; t &lt; tableno; t++)
+        <span class="enscript-keyword">if</span> (tables[t].usecount &gt; 1) {
+          p = 0;
+          printf(<span class="enscript-string">&quot;static const short translit_page%s[%d] = {\n&quot;</span>, tables[t].suffix, 8*(tables[t].maxline-tables[t].minline+1));
+          <span class="enscript-keyword">for</span> (j1 = tables[t].minline; j1 &lt;= tables[t].maxline; j1++) {
+            <span class="enscript-keyword">if</span> ((j1 % 0x20) == 0 &amp;&amp; j1 &gt; tables[t].minline)
+              printf(<span class="enscript-string">&quot;  /* 0x%04x */\n&quot;</span>, 8*j1);
+            printf(<span class="enscript-string">&quot; &quot;</span>);
+            <span class="enscript-keyword">for</span> (j2 = 0; j2 &lt; 8; j2++) {
+              j = 8*j1+j2;
+              printf(<span class="enscript-string">&quot; %4d,&quot;</span>, uni2index[j]);
+            }
+            printf(<span class="enscript-string">&quot; /* 0x%02x-0x%02x */\n&quot;</span>, 8*(j1 % 0x20), 8*(j1 % 0x20)+7);
+          }
+          printf(<span class="enscript-string">&quot;};\n&quot;</span>);
+        }
+      <span class="enscript-keyword">if</span> (p &gt;= 0)
+        printf(<span class="enscript-string">&quot;\n&quot;</span>);
+    }
+    printf(<span class="enscript-string">&quot;#define translit_index(wc) \\\n  (&quot;</span>);
+    <span class="enscript-keyword">for</span> (j1 = 0; j1 &lt; 0x22000;) {
+      t = line[j1];
+      <span class="enscript-keyword">for</span> (j2 = j1; j2 &lt; 0x22000 &amp;&amp; line[j2] == t; j2++);
+      <span class="enscript-keyword">if</span> (t &gt;= 0) {
+        <span class="enscript-keyword">if</span> (j1 != tables[t].minline) abort();
+        <span class="enscript-keyword">if</span> (j2 &gt; tables[t].maxline+1) abort();
+        j2 = tables[t].maxline+1;
+      }
+      <span class="enscript-keyword">if</span> (t == -1) {
+      } <span class="enscript-keyword">else</span> {
+        <span class="enscript-keyword">if</span> (t &gt;= 0 &amp;&amp; tables[t].usecount == 0) abort();
+        <span class="enscript-keyword">if</span> (t &gt;= 0 &amp;&amp; tables[t].usecount == 1) {
+          <span class="enscript-keyword">if</span> (j2 != j1+1) abort();
+          <span class="enscript-keyword">for</span> (j = 8*j1; j &lt; 8*j2; j++)
+            <span class="enscript-keyword">if</span> (uni2index[j] &gt;= 0) {
+              printf(<span class="enscript-string">&quot;wc == 0x%04x ? %d&quot;</span>, j, uni2index[j]);
+              <span class="enscript-keyword">break</span>;
+            }
+        } <span class="enscript-keyword">else</span> {
+          <span class="enscript-keyword">if</span> (j1 == 0) {
+            printf(<span class="enscript-string">&quot;wc &lt; 0x%04x&quot;</span>, 8*j2);
+          } <span class="enscript-keyword">else</span> {
+            printf(<span class="enscript-string">&quot;wc &gt;= 0x%04x &amp;&amp; wc &lt; 0x%04x&quot;</span>, 8*j1, 8*j2);
+          }
+          printf(<span class="enscript-string">&quot; ? translit_page%s[wc&quot;</span>, tables[t].suffix);
+          <span class="enscript-keyword">if</span> (tables[t].minline &gt; 0)
+            printf(<span class="enscript-string">&quot;-0x%04x&quot;</span>, 8*j1);
+          printf(<span class="enscript-string">&quot;]&quot;</span>);
+        }
+        printf(<span class="enscript-string">&quot; : \\\n   &quot;</span>);
+      }
+      j1 = j2;
+    }
+    printf(<span class="enscript-string">&quot;-1)\n&quot;</span>);
+  }
+
+  <span class="enscript-keyword">if</span> (ferror(stdout) || fclose(stdout))
+    exit(1);
+  exit(0);
+}
+</pre>
+<hr />
+</body></html>

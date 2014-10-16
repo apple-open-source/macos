@@ -998,26 +998,6 @@ finish:
 }
 
 /*******************************************************************************
-* If safe boot, invalidate caches (up to once / kextd invocation)
-* so they will be rebuilt, either soon or shortly after next reboot.
-*******************************************************************************/
-void checkSafeBootInvalidateCachesOnce()
-{
-    static Boolean checkedSafeBoot = false;
-
-    if (checkedSafeBoot)    return;
-
-    if (sToolArgs.safeBootMode) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag | kOSKextLogLoadFlag,
-            "Safe boot mode detected; invalidating system extensions caches.");
-        utimes("/System/Library/Extensions", NULL);
-    }
-
-    checkedSafeBoot = true;
-}
-
-/*******************************************************************************
 *******************************************************************************/
 void releaseExtensions(
     CFRunLoopTimerRef   timer,
@@ -1031,11 +1011,6 @@ void releaseExtensions(
         SAFE_RELEASE_NULL(sReleaseKextsTimer);
     }
     SAFE_RELEASE_NULL(sAllKexts);
-
-    // only contemplate safe boot after a timer has expired
-    if (timer) {
-        checkSafeBootInvalidateCachesOnce();
-    }
 
     return;
 }

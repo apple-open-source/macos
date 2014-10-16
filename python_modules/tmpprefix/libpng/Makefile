@@ -5,8 +5,8 @@
 # Set RC_CFLAGS to build multiple architectures.
 
 PNGNAME = libpng
-PNGVERSORIG = 1.5.12
-PNGVERS = 1.5.12-nocontrib
+PNGVERSORIG = 1.6.2
+PNGVERS = $(PNGVERSORIG)-nocontrib
 PNGNAMEVERS = $(PNGNAME)-$(PNGVERS)
 PNGNAMEVERSORIG = $(PNGNAME)-$(PNGVERSORIG)
 

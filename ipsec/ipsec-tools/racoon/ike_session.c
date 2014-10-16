@@ -266,7 +266,7 @@ ike_session_get_session (struct sockaddr_storage *local,
 				 p->ikev1_state.active_ph1cnt, p->ikev1_state.active_ph2cnt);
 			continue;
 		}
-		
+
 		// Skip if the spi doesn't match
 		if (optionalIndex != NULL && ike_session_getph1byindex(p, optionalIndex) == NULL) {
 			continue;
@@ -359,9 +359,7 @@ ike_session_update_mode (phase2_handle_t *iph2)
 	}
     if (iph2->phase2_type != PHASE2_TYPE_SA)
         return;
-	if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV2) {
-		return; // for now
-	}
+	
 	// exit early if we already detected cisco-ipsec
 	if (iph2->parent_session->is_cisco_ipsec) {
 		return;
@@ -927,7 +925,7 @@ ike_session_replace_other_ph1 (phase1_handle_t *new_iph1,
 	/*
 	 * if we are responder, then we should wait until the server sends a delete notification.
 	 */
-	if ((new_iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 || session->is_client) &&
+	if (session->is_client &&
 		new_iph1->side == RESPONDER) {
 		return;
 	}
@@ -975,7 +973,7 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 	/*
 	 * if we are responder, then we should wait until the server sends a delete notification.
 	 */
-	if ((new_iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 || session->is_client) &&
+	if (session->is_client &&
 		new_iph1->side == RESPONDER) {
 		return;
 	}

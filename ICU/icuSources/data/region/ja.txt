@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ja.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ja.xml
+ * ICU <specials> source: <path>/common/main/ja.xml
  */
 ja{
     Countries{
@@ -81,10 +81,10 @@ ja{
         BY{"ベラルーシ"}
         BZ{"ベリーズ"}
         CA{"カナダ"}
-        CC{"ココス[キーリング]諸島"}
-        CD{"コンゴ民主共和国[キンシャサ]"}
+        CC{"ココス(キーリング)諸島"}
+        CD{"コンゴ民主共和国(キンシャサ)"}
         CF{"中央アフリカ共和国"}
-        CG{"コンゴ共和国[ブラザビル]"}
+        CG{"コンゴ共和国(ブラザビル)"}
         CH{"スイス"}
         CI{"コートジボワール"}
         CK{"クック諸島"}
@@ -294,6 +294,7 @@ ja{
         VU{"バヌアツ"}
         WF{"ウォリス・フツナ"}
         WS{"サモア"}
+        XK{"コソボ"}
         YE{"イエメン"}
         YT{"マヨット島"}
         ZA{"南アフリカ"}
@@ -301,5 +302,12 @@ ja{
         ZW{"ジンバブエ"}
         ZZ{"不明な地域"}
     }
-    Version{"2.0.82.57"}
+    CountriesShort{
+        GB{"英国"}
+        HK{"香港"}
+        MO{"マカオ"}
+        PS{"パレスチナ"}
+        US{"アメリカ"}
+    }
+    Version{"2.0.98.62"}
 }

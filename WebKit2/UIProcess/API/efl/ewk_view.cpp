@@ -23,33 +23,23 @@
 #include "ewk_view_private.h"
 
 #include "EwkView.h"
-#include "FindClientEfl.h"
-#include "FormClientEfl.h"
-#include "InputMethodContextEfl.h"
-#include "PageLoadClientEfl.h"
-#include "PagePolicyClientEfl.h"
-#include "PageUIClientEfl.h"
-#include "PageViewportController.h"
-#include "PageViewportControllerClientEfl.h"
 #include "ewk_back_forward_list_private.h"
-#include "ewk_context.h"
 #include "ewk_context_private.h"
-#include "ewk_favicon_database_private.h"
-#include "ewk_page_group.h"
 #include "ewk_page_group_private.h"
 #include "ewk_private.h"
-#include "ewk_settings_private.h"
-#include <Ecore_Evas.h>
-#include <WebKit2/WKAPICast.h>
-#include <WebKit2/WKData.h>
-#include <WebKit2/WKEinaSharedString.h>
-#include <WebKit2/WKFindOptions.h>
-#include <WebKit2/WKInspector.h>
-#include <WebKit2/WKPageGroup.h>
-#include <WebKit2/WKRetainPtr.h>
-#include <WebKit2/WKString.h>
-#include <WebKit2/WKURL.h>
-#include <WebKit2/WKView.h>
+#include <JavaScriptCore/JSRetainPtr.h>
+#include <WebKit/WKAPICast.h>
+#include <WebKit/WKData.h>
+#include <WebKit/WKEinaSharedString.h>
+#include <WebKit/WKFindOptions.h>
+#include <WebKit/WKInspector.h>
+#include <WebKit/WKPageGroup.h>
+#include <WebKit/WKRetainPtr.h>
+#include <WebKit/WKSerializedScriptValue.h>
+#include <WebKit/WKString.h>
+#include <WebKit/WKURL.h>
+#include <WebKit/WKView.h>
+#include <WebKit/WKViewEfl.h>
 #include <wtf/text/CString.h>
 
 #if ENABLE(INSPECTOR)
@@ -60,12 +50,12 @@ using namespace WebKit;
 
 static inline EwkView* toEwkViewChecked(const Evas_Object* evasObject)
 {
-    EINA_SAFETY_ON_NULL_RETURN_VAL(evasObject, 0);
-    if (!isEwkViewEvasObject(evasObject))
+    EINA_SAFETY_ON_NULL_RETURN_VAL(evasObject, nullptr);
+    if (EINA_UNLIKELY(!isEwkViewEvasObject(evasObject)))
         return 0;
 
     Ewk_View_Smart_Data* smartData = static_cast<Ewk_View_Smart_Data*>(evas_object_smart_data_get(evasObject));
-    EINA_SAFETY_ON_NULL_RETURN_VAL(smartData, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(smartData, nullptr);
 
     return smartData->priv;
 }
@@ -73,7 +63,7 @@ static inline EwkView* toEwkViewChecked(const Evas_Object* evasObject)
 #define EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, ...)                        \
     EwkView* impl = toEwkViewChecked(ewkView);                                 \
     do {                                                                       \
-        if (!impl) {                                                           \
+        if (EINA_UNLIKELY(!impl)) {                                            \
             EINA_LOG_CRIT("no private data for object %p", ewkView);           \
             return __VA_ARGS__;                                                \
         }                                                                      \
@@ -90,7 +80,6 @@ Eina_Bool ewk_view_smart_class_set(Ewk_View_Smart_Class* api)
 Evas_Object* EWKViewCreate(WKContextRef context, WKPageGroupRef pageGroup, Evas* canvas, Evas_Smart* smart)
 {
     WKRetainPtr<WKViewRef> wkView = adoptWK(WKViewCreate(context, pageGroup));
-    WKPageSetUseFixedLayout(WKViewGetPage(wkView.get()), true);
     if (EwkView* ewkView = EwkView::create(wkView.get(), canvas, smart))
         return ewkView->evasObject();
 
@@ -99,7 +88,7 @@ Evas_Object* EWKViewCreate(WKContextRef context, WKPageGroupRef pageGroup, Evas*
 
 WKViewRef EWKViewGetWKView(Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->wkView();
 }
@@ -109,38 +98,38 @@ Evas_Object* ewk_view_smart_add(Evas* canvas, Evas_Smart* smart, Ewk_Context* co
     EwkContext* ewkContext = ewk_object_cast<EwkContext*>(context);
     EwkPageGroup* ewkPageGroup = ewk_object_cast<EwkPageGroup*>(pageGroup);
 
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext, 0);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext->wkContext(), 0);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup, 0);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup->wkPageGroup(), 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext, nullptr);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext->wkContext(), nullptr);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup, nullptr);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup->wkPageGroup(), nullptr);
 
     return EWKViewCreate(ewkContext->wkContext(), ewkPageGroup->wkPageGroup(), canvas, smart);
 }
 
 Evas_Object* ewk_view_add(Evas* canvas)
 {
-    return EWKViewCreate(adoptWK(WKContextCreate()).get(), 0, canvas, 0);
+    return ewk_view_add_with_context(canvas, ewk_context_default_get());
 }
 
 Evas_Object* ewk_view_add_with_context(Evas* canvas, Ewk_Context* context)
 {
     EwkContext* ewkContext = ewk_object_cast<EwkContext*>(context);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext, 0);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext->wkContext(), 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext, nullptr);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext->wkContext(), nullptr);
 
     return EWKViewCreate(ewkContext->wkContext(), 0, canvas, 0);
 }
 
 Ewk_Context* ewk_view_context_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->ewkContext();
 }
 
 Ewk_Page_Group* ewk_view_page_group_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->ewkPageGroup();
 }
@@ -159,16 +148,9 @@ Eina_Bool ewk_view_url_set(Evas_Object* ewkView, const char* url)
 
 const char* ewk_view_url_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->url();
-}
-
-Evas_Object* ewk_view_favicon_get(const Evas_Object* ewkView)
-{
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
-
-    return impl->createFavicon();
 }
 
 Eina_Bool ewk_view_reload(Evas_Object* ewkView)
@@ -200,16 +182,9 @@ Eina_Bool ewk_view_stop(Evas_Object* ewkView)
     return true;
 }
 
-Ewk_Settings* ewk_view_settings_get(const Evas_Object* ewkView)
-{
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
-
-    return impl->settings();
-}
-
 const char* ewk_view_title_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->title();
 }
@@ -234,6 +209,22 @@ double ewk_view_scale_get(const Evas_Object* ewkView)
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, -1);
 
     return WKPageGetScaleFactor(impl->wkPage());
+}
+
+Eina_Bool ewk_view_page_zoom_set(Evas_Object* ewkView, double zoomFactor)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+
+    WKPageSetPageZoomFactor(impl->wkPage(), zoomFactor);
+
+    return true;
+}
+
+double ewk_view_page_zoom_get(const Evas_Object* ewkView)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, -1);
+
+    return WKPageGetPageZoomFactor(impl->wkPage());
 }
 
 Eina_Bool ewk_view_device_pixel_ratio_set(Evas_Object* ewkView, float ratio)
@@ -261,7 +252,7 @@ void ewk_view_theme_set(Evas_Object* ewkView, const char* path)
 
 const char* ewk_view_theme_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->themePath();
 }
@@ -306,7 +297,7 @@ Eina_Bool ewk_view_forward_possible(Evas_Object* ewkView)
 
 Ewk_Back_Forward_List* ewk_view_back_forward_list_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->backForwardList();
 }
@@ -342,7 +333,7 @@ Eina_Bool ewk_view_html_string_load(Evas_Object* ewkView, const char* html, cons
 
 const char* ewk_view_custom_encoding_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->customTextEncodingName();
 }
@@ -358,7 +349,7 @@ Eina_Bool ewk_view_custom_encoding_set(Evas_Object* ewkView, const char* encodin
 
 const char* ewk_view_user_agent_get(const Evas_Object* ewkView)
 {
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, 0);
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
     return impl->userAgent();
 }
@@ -372,15 +363,29 @@ Eina_Bool ewk_view_user_agent_set(Evas_Object* ewkView, const char* userAgent)
     return true;
 }
 
-// EwkFindOptions should be matched up orders with WkFindOptions.
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_CASE_INSENSITIVE, kWKFindOptionsCaseInsensitive);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_AT_WORD_STARTS, kWKFindOptionsAtWordStarts);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_TREAT_MEDIAL_CAPITAL_AS_WORD_START, kWKFindOptionsTreatMedialCapitalAsWordStart);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_BACKWARDS, kWKFindOptionsBackwards);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_WRAP_AROUND, kWKFindOptionsWrapAround);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_SHOW_OVERLAY, kWKFindOptionsShowOverlay);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_SHOW_FIND_INDICATOR, kWKFindOptionsShowFindIndicator);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_FIND_OPTIONS_SHOW_HIGHLIGHT, kWKFindOptionsShowHighlight);
+inline WKFindOptions toWKFindOptions(Ewk_Find_Options options)
+{
+    unsigned wkFindOptions = 0;
+
+    if (options & EWK_FIND_OPTIONS_CASE_INSENSITIVE)
+        wkFindOptions |= kWKFindOptionsCaseInsensitive;
+    if (options & EWK_FIND_OPTIONS_AT_WORD_STARTS)
+        wkFindOptions |= kWKFindOptionsAtWordStarts;
+    if (options & EWK_FIND_OPTIONS_TREAT_MEDIAL_CAPITAL_AS_WORD_START)
+        wkFindOptions |= kWKFindOptionsTreatMedialCapitalAsWordStart;
+    if (options & EWK_FIND_OPTIONS_BACKWARDS)
+        wkFindOptions |= kWKFindOptionsBackwards;
+    if (options & EWK_FIND_OPTIONS_WRAP_AROUND)
+        wkFindOptions |= kWKFindOptionsWrapAround;
+    if (options & EWK_FIND_OPTIONS_SHOW_OVERLAY)
+        wkFindOptions |= kWKFindOptionsShowOverlay;
+    if (options & EWK_FIND_OPTIONS_SHOW_FIND_INDICATOR)
+        wkFindOptions |= kWKFindOptionsShowFindIndicator;
+    if (options & EWK_FIND_OPTIONS_SHOW_HIGHLIGHT)
+        wkFindOptions |= kWKFindOptionsShowHighlight;
+
+    return static_cast<WKFindOptions>(wkFindOptions);
+}
 
 Eina_Bool ewk_view_text_find(Evas_Object* ewkView, const char* text, Ewk_Find_Options options, unsigned maxMatchCount)
 {
@@ -388,7 +393,7 @@ Eina_Bool ewk_view_text_find(Evas_Object* ewkView, const char* text, Ewk_Find_Op
     EINA_SAFETY_ON_NULL_RETURN_VAL(text, false);
 
     WKRetainPtr<WKStringRef> wkText = adoptWK(WKStringCreateWithUTF8CString(text));
-    WKPageFindString(impl->wkPage(), wkText.get(), static_cast<WebKit::FindOptions>(options), maxMatchCount);
+    WKPageFindString(impl->wkPage(), wkText.get(), toWKFindOptions(options), maxMatchCount);
 
     return true;
 }
@@ -506,18 +511,51 @@ Eina_Bool ewk_view_inspector_close(Evas_Object* ewkView)
 #endif
 }
 
-// Ewk_Pagination_Mode should be matched up orders with WKPaginationMode.
-COMPILE_ASSERT_MATCHING_ENUM(EWK_PAGINATION_MODE_UNPAGINATED, kWKPaginationModeUnpaginated);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_PAGINATION_MODE_LEFT_TO_RIGHT, kWKPaginationModeLeftToRight);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_PAGINATION_MODE_RIGHT_TO_LEFT, kWKPaginationModeRightToLeft);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_PAGINATION_MODE_TOP_TO_BOTTOM, kWKPaginationModeTopToBottom);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_PAGINATION_MODE_BOTTOM_TO_TOP, kWKPaginationModeBottomToTop);
+inline WKPaginationMode toWKPaginationMode(Ewk_Pagination_Mode mode)
+{
+    switch (mode) {
+    case EWK_PAGINATION_MODE_INVALID:
+        break;
+    case EWK_PAGINATION_MODE_UNPAGINATED:
+        return kWKPaginationModeUnpaginated;
+    case EWK_PAGINATION_MODE_LEFT_TO_RIGHT:
+        return kWKPaginationModeLeftToRight;
+    case EWK_PAGINATION_MODE_RIGHT_TO_LEFT:
+        return kWKPaginationModeRightToLeft;
+    case EWK_PAGINATION_MODE_TOP_TO_BOTTOM:
+        return kWKPaginationModeTopToBottom;
+    case EWK_PAGINATION_MODE_BOTTOM_TO_TOP:
+        return kWKPaginationModeBottomToTop;
+    }
+    ASSERT_NOT_REACHED();
+
+    return kWKPaginationModeUnpaginated;
+}
+
+inline Ewk_Pagination_Mode toEwkPaginationMode(WKPaginationMode mode)
+{
+    switch (mode) {
+    case kWKPaginationModeUnpaginated:
+        return EWK_PAGINATION_MODE_UNPAGINATED;
+    case kWKPaginationModeLeftToRight:
+        return EWK_PAGINATION_MODE_LEFT_TO_RIGHT;
+    case kWKPaginationModeRightToLeft:
+        return EWK_PAGINATION_MODE_RIGHT_TO_LEFT;
+    case kWKPaginationModeTopToBottom:
+        return EWK_PAGINATION_MODE_TOP_TO_BOTTOM;
+    case kWKPaginationModeBottomToTop:
+        return EWK_PAGINATION_MODE_BOTTOM_TO_TOP;
+    }
+    ASSERT_NOT_REACHED();
+
+    return EWK_PAGINATION_MODE_UNPAGINATED;
+}
 
 Eina_Bool ewk_view_pagination_mode_set(Evas_Object* ewkView, Ewk_Pagination_Mode mode)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    WKPageSetPaginationMode(impl->wkPage(), static_cast<WKPaginationMode>(mode));
+    WKPageSetPaginationMode(impl->wkPage(), toWKPaginationMode(mode));
 
     return true;
 }
@@ -526,7 +564,7 @@ Ewk_Pagination_Mode ewk_view_pagination_mode_get(const Evas_Object* ewkView)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, EWK_PAGINATION_MODE_INVALID);
     
-    return static_cast<Ewk_Pagination_Mode>(WKPageGetPaginationMode(impl->wkPage()));
+    return toEwkPaginationMode(WKPageGetPaginationMode(impl->wkPage()));
 }
 
 Eina_Bool ewk_view_fullscreen_exit(Evas_Object* ewkView)
@@ -539,13 +577,6 @@ Eina_Bool ewk_view_fullscreen_exit(Evas_Object* ewkView)
     UNUSED_PARAM(ewkView);
     return false;
 #endif
-}
-
-void ewk_view_draws_page_background_set(Evas_Object *ewkView, Eina_Bool enabled)
-{
-    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
-
-    WKViewSetDrawsBackground(impl->wkView(), enabled);
 }
 
 /// Creates a type name for Ewk_Page_Contents_Context.
@@ -568,10 +599,8 @@ static void ewkViewPageContentsAsMHTMLCallback(WKDataRef wkData, WKErrorRef, voi
 {
     EINA_SAFETY_ON_NULL_RETURN(context);
 
-    Ewk_Page_Contents_Context* contentsContext = static_cast<Ewk_Page_Contents_Context*>(context);
+    auto contentsContext = std::unique_ptr<Ewk_Page_Contents_Context>(static_cast<Ewk_Page_Contents_Context*>(context));
     contentsContext->callback(contentsContext->type, reinterpret_cast<const char*>(WKDataGetBytes(wkData)), contentsContext->userData);
-
-    delete contentsContext;
 }
 
 /**
@@ -582,10 +611,8 @@ static void ewkViewPageContentsAsStringCallback(WKStringRef wkString, WKErrorRef
 {
     EINA_SAFETY_ON_NULL_RETURN(context);
 
-    Ewk_Page_Contents_Context* contentsContext = static_cast<Ewk_Page_Contents_Context*>(context);
+    auto contentsContext = std::unique_ptr<Ewk_Page_Contents_Context>(static_cast<Ewk_Page_Contents_Context*>(context));
     contentsContext->callback(contentsContext->type, WKEinaSharedString(wkString), contentsContext->userData);
-
-    delete contentsContext;
 }
 
 Eina_Bool ewk_view_page_contents_get(const Evas_Object* ewkView, Ewk_Page_Contents_Type type, Ewk_Page_Contents_Cb callback, void* user_data)
@@ -614,18 +641,131 @@ Eina_Bool ewk_view_page_contents_get(const Evas_Object* ewkView, Ewk_Page_Conten
     return true;
 }
 
-Eina_Bool ewk_view_source_mode_set(Evas_Object* ewkView, Eina_Bool enabled)
+struct Ewk_View_Script_Execute_Callback_Context {
+    Ewk_View_Script_Execute_Callback_Context(Ewk_View_Script_Execute_Cb callback, Evas_Object* ewkView, void* userData)
+        : m_callback(callback)
+        , m_view(ewkView)
+        , m_userData(userData)
+    {
+    }
+
+    Ewk_View_Script_Execute_Cb m_callback;
+    Evas_Object* m_view;
+    void* m_userData;
+};
+
+static void runJavaScriptCallback(WKSerializedScriptValueRef scriptValue, WKErrorRef, void* context)
+{
+    ASSERT(context);
+
+    auto callbackContext = std::unique_ptr<Ewk_View_Script_Execute_Callback_Context>(static_cast<Ewk_View_Script_Execute_Callback_Context*>(context));
+    ASSERT(callbackContext->m_view);
+
+    if (!callbackContext->m_callback)
+        return;
+
+    if (scriptValue) {
+        EWK_VIEW_IMPL_GET_OR_RETURN(callbackContext->m_view, impl);
+        JSGlobalContextRef jsGlobalContext = impl->ewkContext()->jsGlobalContext();
+
+        JSValueRef value = WKSerializedScriptValueDeserialize(scriptValue, jsGlobalContext, 0);
+        JSRetainPtr<JSStringRef> jsStringValue(Adopt, JSValueToStringCopy(jsGlobalContext, value, 0));
+        size_t length = JSStringGetMaximumUTF8CStringSize(jsStringValue.get());
+        auto buffer = std::make_unique<char[]>(length);
+        JSStringGetUTF8CString(jsStringValue.get(), buffer.get(), length);
+        callbackContext->m_callback(callbackContext->m_view, buffer.get(), callbackContext->m_userData);
+    } else
+        callbackContext->m_callback(callbackContext->m_view, 0, callbackContext->m_userData);
+}
+
+Eina_Bool ewk_view_script_execute(Evas_Object* ewkView, const char* script, Ewk_View_Script_Execute_Cb callback, void* userData)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(script, false);
+
+    Ewk_View_Script_Execute_Callback_Context* context = new Ewk_View_Script_Execute_Callback_Context(callback, ewkView, userData);
+    WKRetainPtr<WKStringRef> scriptString(AdoptWK, WKStringCreateWithUTF8CString(script));
+    WKPageRunJavaScriptInMainFrame(impl->wkPage(), scriptString.get(), context, runJavaScriptCallback);
+    return true;
+}
+
+Eina_Bool ewk_view_layout_fixed_set(Evas_Object* ewkView, Eina_Bool enabled)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    WKViewSetShowsAsSource(impl->wkView(), enabled);
+    WKPageSetUseFixedLayout(WKViewGetPage(impl->wkView()), enabled);
 
     return true;
 }
 
-Eina_Bool ewk_view_source_mode_get(const Evas_Object* ewkView)
+Eina_Bool ewk_view_layout_fixed_get(const Evas_Object* ewkView)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    return WKViewGetShowsAsSource(impl->wkView());
+    return WKPageUseFixedLayout(WKViewGetPage(impl->wkView()));
+}
+
+void ewk_view_layout_fixed_size_set(const Evas_Object* ewkView, Evas_Coord width, Evas_Coord height)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
+
+    WKPageSetFixedLayoutSize(WKViewGetPage(impl->wkView()), WKSizeMake(width, height));
+}
+
+void ewk_view_layout_fixed_size_get(const Evas_Object* ewkView, Evas_Coord* width, Evas_Coord* height)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
+
+    WKSize size = WKPageFixedLayoutSize(WKViewGetPage(impl->wkView()));
+
+    if (width)
+        *width = size.width;
+    if (height)
+        *height = size.height;
+}
+
+void ewk_view_bg_color_set(Evas_Object* ewkView, int red, int green, int blue, int alpha)
+{
+    if (EINA_UNLIKELY(alpha < 0 || alpha > 255)) {
+        EINA_LOG_CRIT("Alpha should be between 0 and 255");
+        return;
+    }
+
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
+
+    if (red == 255 && green == 255 && blue == 255 && alpha == 255)
+        WKViewSetDrawsBackground(impl->wkView(), true);
+    else
+        WKViewSetDrawsBackground(impl->wkView(), false);
+
+    WKViewSetBackgroundColor(impl->wkView(), red, green, blue, alpha);
+}
+
+void ewk_view_bg_color_get(const Evas_Object* ewkView, int* red, int* green, int* blue, int* alpha)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
+
+    WKViewGetBackgroundColor(impl->wkView(), red, green, blue, alpha);
+}
+
+Eina_Bool ewk_view_contents_size_get(const Evas_Object* ewkView, Evas_Coord* width, Evas_Coord* height)
+{
+    EwkView* impl = toEwkViewChecked(ewkView);
+    if (EINA_UNLIKELY(!impl)) {
+        EINA_LOG_CRIT("no private data for object %p", ewkView);
+        if (width)
+            *width = 0;
+        if (height)
+            *height = 0;
+
+        return false;
+    }
+
+    WKSize contentsSize = WKViewGetContentsSize(impl->wkView());
+    if (width)
+        *width = contentsSize.width;
+    if (height)
+        *height = contentsSize.height;
+
+    return true;
 }

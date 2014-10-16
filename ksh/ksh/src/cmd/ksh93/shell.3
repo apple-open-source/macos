@@ -1,10 +1,7 @@
 .fp 5 CW
 .TH SHELL 3 "28 Feb 2003" AST
-.PP
 .SH NAME
-.PP
 \fBshell\fR \- a \f5ksh\fP library interface
-.PP
 .SH SYNOPSIS
 .ta .8i 1.6i 2.4i 3.2i 4.0i 4.8i 5.6i
 .SS "HEADERS/LIBRARIES"
@@ -56,9 +53,7 @@ Sfio_t 	*sh_iogetiop(int  \fIfd\fP, int \fImode\fP);
 int	sh_sigcheck(void);
 .ft R
 .fi
-.PP
 .SH DESCRIPTION
-.PP
 The \fIShell\fP library is a set of functions used for
 writing extensions to \f5ksh\fP or writing commands
 that embed shell command processing.
@@ -407,7 +402,6 @@ The stream corresponding to the most recent co-process.
 The stream corresponding to the history file.
 If no stream exists corresponding to \fIfd\fP or the stream
 can not be accessed in the specified mode, \f5NULL\fP is returned.
-.PP
 .SH SEE ALSO
 builtin(1)
 cdt(3)
@@ -416,6 +410,5 @@ nval(3)
 sfio(3)
 stk(3)
 tksh(1)
-.PP
 .SH AUTHOR
 David G. Korn (dgk@research.att.com).

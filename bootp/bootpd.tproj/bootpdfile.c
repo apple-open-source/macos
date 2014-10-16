@@ -159,7 +159,7 @@ bootp_readtab(const char * filename)
 	if (fgets(line, sizeof line, fp) == NULL)
 	    break;	/* done */
 
-	if ((i = strlen(line)) != 0)
+	if ((i = (int)strlen(line)) != 0)
 	    line[i-1] = 0;	/* remove trailing newline */
 
 	linep = line;
@@ -179,7 +179,7 @@ bootp_readtab(const char * filename)
 	S_getfield(&linep, linenum, temp, sizeof temp);
 	sscanf(temp, "%d", &htype);
 	S_getfield(&linep, linenum, temp, sizeof temp);
-	strcpy(tempcpy, temp);
+	strlcpy(tempcpy, temp, sizeof(tempcpy));
 	cp = tempcpy;
 	/* parse hardware address */
 	good_hwaddr = TRUE;

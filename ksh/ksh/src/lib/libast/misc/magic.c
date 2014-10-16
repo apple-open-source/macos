@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -29,7 +29,7 @@
  * the sum of the hacks {s5,v10,planix} is _____ than the parts
  */
 
-static const char id[] = "\n@(#)$Id: magic library (AT&T Research) 2011-01-28 $\0\n";
+static const char id[] = "\n@(#)$Id: magic library (AT&T Research) 2011-03-09 $\0\n";
 
 static const char lib[] = "libast:magic";
 
@@ -956,18 +956,21 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, char* end, struct sta
 							str = 1;
 							break;
 						}
+						else if (c == 'c' || c == 'd' || c == 'i' || c == 'u' || c == 'x' || c == 'X')
+							goto format;
 						t++;
 						c = *(t + 1);
 					}
 			}
+	format:
 		if (!str)
-			b += sfsprintf(b, end - b, q, num, 0, 0, 0, 0, 0, 0, 0);
+			b += sfsprintf(b, end - b, q, num, num == 1 ? "" : "s", 0, 0, 0, 0, 0, 0);
 		else if (ep->type == 'd' || ep->type == 'D')
 			b += sfsprintf(b, end - b, q, fmttime("%?%QL", (time_t)num), 0, 0, 0, 0, 0, 0, 0);
 		else if (ep->type == 'v')
 			b += sfsprintf(b, end - b, q, fmtversion(num), 0, 0, 0, 0, 0, 0, 0);
 		else
-			b += sfsprintf(b, end - b, q, fmtnum(num, 0), 0, 0, 0, 0, 0, 0, 0);
+			b += sfsprintf(b, end - b, q, fmtnum(num, 0), num == 1 ? "" : "s", 0, 0, 0, 0, 0, 0);
 		if (ep->mime && *ep->mime)
 			mp->mime = ep->mime;
 	checknest:
@@ -1182,7 +1185,7 @@ cklang(register Magic_t* mp, const char* file, char* buf, char* end, struct stat
 							}
 							if (!mp->idtab)
 							{
-								if (mp->idtab = dtnew(mp->vm, &mp->dtdisc, Dthash))
+								if (mp->idtab = dtnew(mp->vm, &mp->dtdisc, Dtset))
 									for (q = 0; q < elementsof(dict); q++)
 										dtinsert(mp->idtab, &dict[q]);
 								else if (mp->disc->errorf)
@@ -2345,7 +2348,7 @@ magicopen(Magicdisc_t* disc)
 	mp->redisc.re_resizehandle = (void*)mp->vm;
 	mp->dtdisc.key = offsetof(Info_t, name);
 	mp->dtdisc.link = offsetof(Info_t, link);
-	if (!(mp->tmp = sfstropen()) || !(mp->infotab = dtnew(mp->vm, &mp->dtdisc, Dthash)))
+	if (!(mp->tmp = sfstropen()) || !(mp->infotab = dtnew(mp->vm, &mp->dtdisc, Dtoset)))
 		goto bad;
 	for (n = 0; n < elementsof(info); n++)
 		dtinsert(mp->infotab, &info[n]);

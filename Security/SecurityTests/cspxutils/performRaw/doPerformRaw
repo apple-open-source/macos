@@ -1,0 +1,32 @@
+#! /bin/csh -f
+#
+# run symmteric performance tests on all algorithms.
+#
+if ( $#argv < 2 ) then
+        echo Usage: doPerformRaw iterations bufsize
+        exit(1)
+endif
+#
+set ITER=$argv[1]
+set BUFSIZE=$argv[2]
+#
+cd $LOCAL_BUILD_DIR
+#
+# ASC doesn't work due to different ptext/ctext size
+# RC4 skipped because it generates ctext==ptext if iterations is even
+#
+./performRaw $ITER $BUFSIZE a=d
+./performRaw $ITER $BUFSIZE a=d e
+./performRaw $ITER $BUFSIZE a=3
+./performRaw $ITER $BUFSIZE a=3 e
+./performRaw $ITER $BUFSIZE a=2
+./performRaw $ITER $BUFSIZE a=2 e
+./performRaw $ITER $BUFSIZE a=4
+./performRaw $ITER $BUFSIZE a=5
+./performRaw $ITER $BUFSIZE a=5 e
+./performRaw $ITER $BUFSIZE a=a
+./performRaw $ITER $BUFSIZE a=a e
+./performRaw $ITER $BUFSIZE a=b
+./performRaw $ITER $BUFSIZE a=b e
+./performRaw $ITER $BUFSIZE a=c
+./performRaw $ITER $BUFSIZE a=c e

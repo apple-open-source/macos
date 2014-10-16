@@ -2,7 +2,7 @@
  * The default style sheet used to render HTML.
  *
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2011, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -59,12 +59,6 @@ body {
     margin: 8px
 }
 
-#if defined(ENABLE_IFRAME_SEAMLESS) && ENABLE_IFRAME_SEAMLESS
-body:-webkit-seamless-document {
-    margin: 0px;
-}
-#endif
-
 p {
     display: block;
     -webkit-margin-before: 1__qem;
@@ -118,11 +112,11 @@ q {
     display: inline
 }
 
-q:before {
+q::before {
     content: open-quote;
 }
 
-q:after {
+q::after {
     content: close-quote;
 }
 
@@ -146,18 +140,9 @@ map {
     display: inline
 }
 
-#if defined(ENABLE_DIALOG_ELEMENT) && ENABLE_DIALOG_ELEMENT
-dialog:not([open]) { display: none; }
-dialog {
-    position: absolute;
-    left: 0; right: 0;
-    margin: auto;
-    border: solid;
-    padding: 1em;
-    background: white;
-    color: black;
+video {
+    object-fit: contain;
 }
-#endif
 
 /* heading elements */
 
@@ -408,7 +393,9 @@ input, textarea, keygen, select, button, isindex, meter, progress {
 
 input, textarea, keygen, select, button, isindex {
     margin: 0__qem;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     font: -webkit-small-control;
+#endif
     color: initial;
     letter-spacing: normal;
     word-spacing: normal;
@@ -424,11 +411,25 @@ input[type="hidden"] {
     display: none
 }
 
-input, input[type="password"], input[type="search"], isindex {
+input,
+input[type="password"],
+input[type="search"],
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+textarea,
+input[type="range"],
+#endif
+isindex {
     -webkit-appearance: textfield;
-    padding: 1px;
     background-color: white;
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+    border-radius: 5px;
+    font: 11px Helvetica, -webkit-pictograph;
+    border: 1px solid #4c4c4c;
+    padding: 0.2em 0.5em 0.3em 0.5em;
+#else
     border: 2px inset;
+    padding: 1px;
+#endif
     -webkit-rtl-ordering: logical;
     -webkit-user-select: text;
     cursor: auto;
@@ -442,7 +443,6 @@ input[type="search"] {
 input::-webkit-textfield-decoration-container {
     display: -webkit-flex;
     -webkit-align-items: center;
-    -webkit-user-modify: read-only !important;
     content: none !important;
 }
 
@@ -454,7 +454,6 @@ input::-webkit-clear-button {
     -webkit-appearance: searchfield-cancel-button;
     display: inline-block;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
     margin-left: 2px;
 }
 
@@ -462,7 +461,6 @@ input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: searchfield-cancel-button;
     display: block;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
     -webkit-align-self: flex-start;
     margin: auto 0;
 }
@@ -471,7 +469,6 @@ input[type="search"]::-webkit-search-decoration {
     -webkit-appearance: searchfield-decoration;
     display: block;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
     -webkit-align-self: flex-start;
     margin: auto 0;
 }
@@ -480,7 +477,6 @@ input[type="search"]::-webkit-search-results-decoration {
     -webkit-appearance: searchfield-results-decoration;
     display: block;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
     -webkit-align-self: flex-start;
     margin: auto 0;
 }
@@ -489,7 +485,6 @@ input[type="search"]::-webkit-search-results-button {
     -webkit-appearance: searchfield-results-button;
     display: block;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
 }
 
 #if defined(ENABLE_DATALIST_ELEMENT) && ENABLE_DATALIST_ELEMENT
@@ -504,7 +499,9 @@ input[type="date"] {
     -webkit-appearance: menulist-button;
     display: -webkit-inline-flex;
     overflow: hidden;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     width: 10em;
+#endif
 }
 #endif
 #if defined(ENABLE_INPUT_TYPE_DATETIME_INCOMPLETE) && ENABLE_INPUT_TYPE_DATETIME_INCOMPLETE
@@ -513,7 +510,9 @@ input[type="datetime"] {
     -webkit-appearance: menulist-button;
     display: -webkit-inline-flex;
     overflow: hidden;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     width: 10em;
+#endif
 }
 #endif
 #if defined(ENABLE_INPUT_TYPE_DATETIMELOCAL) && ENABLE_INPUT_TYPE_DATETIMELOCAL
@@ -522,7 +521,9 @@ input[type="datetime-local"] {
     -webkit-appearance: menulist-button;
     display: -webkit-inline-flex;
     overflow: hidden;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     width: 10em;
+#endif
 }
 #endif
 #if defined(ENABLE_INPUT_TYPE_MONTH) && ENABLE_INPUT_TYPE_MONTH
@@ -531,7 +532,9 @@ input[type="month"] {
     -webkit-appearance: menulist-button;
     display: -webkit-inline-flex;
     overflow: hidden;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     width: 10em;
+#endif
 }
 #endif
 #if defined(ENABLE_INPUT_TYPE_TIME) && ENABLE_INPUT_TYPE_TIME
@@ -540,10 +543,13 @@ input[type="time"] {
     -webkit-appearance: menulist-button;
     display: -webkit-inline-flex;
     overflow: hidden;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     width: 10em;
+#endif
 }
 #endif
 #if defined(ENABLE_INPUT_TYPE_WEEK) && ENABLE_INPUT_TYPE_WEEK
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
 input[type="week"] {
     -webkit-align-items: center;
     -webkit-appearance: menulist-button;
@@ -552,11 +558,14 @@ input[type="week"] {
     width: 10em;
 }
 #endif
+#endif
 
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
 input::-webkit-date-and-time-value {
     margin: 1px 24px 1px 4px;
     white-space: pre;
 }
+#endif
 
 input::-webkit-inner-spin-button {
     -webkit-appearance: inner-spin-button;
@@ -570,7 +579,6 @@ input::-webkit-inner-spin-button {
     vertical-align: top;
     -webkit-flex: none;
     -webkit-user-select: none;
-    -webkit-user-modify: read-only !important;
 }
 
 #if defined(ENABLE_INPUT_SPEECH) && ENABLE_INPUT_SPEECH
@@ -579,7 +587,6 @@ input::-webkit-input-speech-button {
     display: block;
     vertical-align: top;
     -webkit-flex: none;
-    -webkit-user-modify: read-only !important;
     -webkit-align-self: flex-start;
     margin: auto 0;
 }
@@ -595,10 +602,15 @@ keygen::-webkit-keygen-select {
 
 textarea {
     -webkit-appearance: textarea;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     background-color: white;
     border: 1px solid;
     -webkit-rtl-ordering: logical;
     -webkit-user-select: text;
+#else
+    -webkit-nbsp-mode: space;
+    -webkit-line-break: after-white-space;
+#endif
     -webkit-flex-direction: column;
     resize: auto;
     cursor: auto;
@@ -618,7 +630,6 @@ input::-webkit-input-placeholder, isindex::-webkit-input-placeholder {
     white-space: pre;
     word-wrap: normal;
     overflow: hidden;
-    -webkit-user-modify: read-only !important;
 }
 
 input[type="password"] {
@@ -639,16 +650,25 @@ input[type="file"] {
 }
 
 input:-webkit-autofill {
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+    background-color: #F7EC87 !important;
+#else
     background-color: #FAFFBD !important;
+#endif
     background-image:none !important;
     color: #000000 !important;
 }
 
 input[type="radio"], input[type="checkbox"] {
-    margin: 3px 0.5ex;
+    margin: 3px 2px;
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+    border: 1px solid #4c4c4c;
+    box-sizing: border-box;
+#else
     padding: initial;
     background-color: initial;
     border: initial;
+#endif
 }
 
 input[type="button"], input[type="submit"], input[type="reset"] {
@@ -658,7 +678,6 @@ input[type="button"], input[type="submit"], input[type="reset"] {
 
 input[type="file"]::-webkit-file-upload-button {
     -webkit-appearance: push-button;
-    -webkit-user-modify: read-only !important;
     white-space: nowrap;
     margin: 0;
     font-size: inherit;
@@ -669,9 +688,17 @@ input[type="button"], input[type="submit"], input[type="reset"], input[type="fil
     text-align: center;
     cursor: default;
     color: ButtonText;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     padding: 2px 6px 3px 6px;
     border: 2px outset ButtonFace;
     background-color: ButtonFace;
+#else
+    padding: 0 1.0em;
+    border: 1px solid #4c4c4c;
+    /* We want to be as close to background-color:transparent as possible without actually being transparent. */
+    background-color: rgba(255, 255, 255, 0.01);
+    font: 11px Helvetica;
+#endif
     box-sizing: border-box
 }
 
@@ -686,7 +713,6 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-container, input[type="range"]::-webkit-media-slider-container {
     -webkit-flex: 1;
     box-sizing: border-box;
-    -webkit-user-modify: read-only !important;
     display: -webkit-flex;
     -webkit-align-contents: center;
 }
@@ -696,16 +722,37 @@ input[type="range"]::-webkit-slider-runnable-track {
     -webkit-align-self: center;
 
     box-sizing: border-box;
-    -webkit-user-modify: read-only !important;
     display: block;
 }
 
 input[type="range"]::-webkit-slider-thumb, input[type="range"]::-webkit-media-slider-thumb {
     -webkit-appearance: sliderthumb-horizontal;
     box-sizing: border-box;
-    -webkit-user-modify: read-only !important;
     display: block;
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+    background-color: white;
+    border: 1px solid rgb(66, 66, 66);
+    padding: 0px;
+#endif
 }
+
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+input[type="range"]::-webkit-slider-thumb:active {
+    background-color: black;
+}
+
+input:disabled, textarea:disabled {
+    opacity: 0.4;
+}
+
+input[readonly], textarea[readonly] {
+    border-color: rgb(188, 188, 188);
+}
+
+textarea::-webkit-input-placeholder {
+    text-indent: 2px;
+}
+#endif
 
 input[type="button"]:disabled, input[type="submit"]:disabled, input[type="reset"]:disabled,
 input[type="file"]:disabled::-webkit-file-upload-button, button:disabled,
@@ -714,6 +761,7 @@ select[disabled]>option {
     color: GrayText
 }
 
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
 input[type="button"]:active, input[type="submit"]:active, input[type="reset"]:active, input[type="file"]:active::-webkit-file-upload-button, button:active {
     border-style: inset
 }
@@ -721,6 +769,7 @@ input[type="button"]:active, input[type="submit"]:active, input[type="reset"]:ac
 input[type="button"]:active:disabled, input[type="submit"]:active:disabled, input[type="reset"]:active:disabled, input[type="file"]:active:disabled::-webkit-file-upload-button, button:active:disabled {
     border-style: outset
 }
+#endif
 
 area, param {
     display: none
@@ -728,13 +777,52 @@ area, param {
 
 input[type="checkbox"] {
     -webkit-appearance: checkbox;
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
     box-sizing: border-box;
+#else
+    border-radius: 5px;
+    width: 16px;
+    height: 16px;
+    padding: 0px;
+    /* We want to be as close to background:transparent as possible without actually being transparent */
+    background-color: rgba(255, 255, 255, 0.01);
+#endif
 }
 
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+input[type="radio"] {
+    -webkit-appearance: radio;
+    border-radius: 8px;
+    width: 16px;
+    height: 16px;
+    padding: 0px;
+    /* We want to be as close to background:transparent as possible without actually being transparent */
+    background-color: rgba(255, 255, 255, 0.01);
+}
+
+input[type="checkbox"]:checked, input[type="radio"]:checked {
+    background:rgba(0, 0, 0, 0.8);
+    border-color:rgba(255, 255, 255, 0.0);
+}
+
+input[type="checkbox"]:checked:disabled, input[type="radio"]:checked:disabled {
+    opacity:0.4;
+    background:rgba(0, 0, 0, 0.8);
+}
+#endif
+
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
 input[type="radio"] {
     -webkit-appearance: radio;
     box-sizing: border-box;
 }
+#endif
+
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+select:focus {
+    border-color: rgb(17, 46, 135);
+}
+#endif
 
 #if defined(ENABLE_INPUT_TYPE_COLOR) && ENABLE_INPUT_TYPE_COLOR
 
@@ -748,7 +836,6 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     display:-webkit-flex;
     padding: 4px 2px;
     box-sizing: border-box;
-    -webkit-user-modify: read-only !important;
     width: 100%;
     height: 100%
 }
@@ -757,7 +844,6 @@ input[type="color"]::-webkit-color-swatch {
     background-color: #000000;
     border: 1px solid #777777;
     -webkit-flex: 1;
-    -webkit-user-modify: read-only !important;
 }
 
 #if defined(ENABLE_DATALIST_ELEMENT) && ENABLE_DATALIST_ELEMENT
@@ -782,17 +868,30 @@ input[type="color"][list]::-webkit-color-swatch {
 #endif // defined(ENABLE_INPUT_TYPE_COLOR) && ENABLE_INPUT_TYPE_COLOR
 
 select {
-    -webkit-appearance: menulist;
     box-sizing: border-box;
-    -webkit-align-items: center;
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+    -webkit-appearance: menulist-button;
+    letter-spacing: normal;
+    word-spacing: normal;
+    line-height: normal;
+    border: 1px solid #4c4c4c;
+    /* We want to be as close to background:transparent as possible without actually being transparent */
+    background-color: rgba(255, 255, 255, 0.01);
+    font: 11px Helvetica;
+    padding: 0 0.4em 0 0.4em;
+#else
+    -webkit-appearance: menulist;
     border: 1px solid;
-    white-space: pre;
-    -webkit-rtl-ordering: logical;
     color: black;
     background-color: white;
+#endif
+    -webkit-align-items: center;
+    white-space: pre;
+    -webkit-rtl-ordering: logical;
     cursor: default;
 }
 
+#if !(defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS)
 select[size],
 select[multiple],
 select[size][multiple] {
@@ -811,6 +910,7 @@ select[size="1"] {
     border-radius: 5px;
     white-space: pre;
 }
+#endif
 
 optgroup {
     font-weight: bolder;
@@ -835,7 +935,6 @@ output {
     margin: 0;
     -webkit-text-security: none;
     -webkit-transition: opacity 05.5s ease;
-    -webkit-user-modify: read-only !important;
 }
 
 ::-webkit-validation-bubble-message {
@@ -853,7 +952,6 @@ output {
     -webkit-box-shadow: 4px 4px 4px rgba(100,100,100,0.6),
         inset -2px -2px 1px #d0c4c4,
         inset 2px 2px 1px white;
-    -webkit-user-modify: read-only !important;
     line-height: normal;
     white-space: normal;
     z-index: 2147483644;
@@ -861,12 +959,10 @@ output {
 
 ::-webkit-validation-bubble-text-block {
     -webkit-flex: 1;
-    -webkit-user-modify: read-only !important;
 }
 
 ::-webkit-validation-bubble-heading {
     font-weight: bold;
-    -webkit-user-modify: read-only !important;
 }
 
 ::-webkit-validation-bubble-arrow {
@@ -882,7 +978,6 @@ output {
     box-shadow: inset 2px 2px 1px white;
     -webkit-transform-origin: 0 0;
     -webkit-transform: rotate(45deg);
-    -webkit-user-modify: read-only !important;
     z-index: 2147483645;
 }
 
@@ -890,7 +985,6 @@ output {
     display: block;
     overflow: hidden;
     height: 16px;
-    -webkit-user-modify: read-only !important;
 }
 
 #if defined(ENABLE_METER_ELEMENT) && ENABLE_METER_ELEMENT
@@ -908,7 +1002,6 @@ meter {
 meter::-webkit-meter-inner-element {
     -webkit-appearance: inherit;
     box-sizing: inherit;
-    -webkit-user-modify: read-only !important;
     height: 100%;
     width: 100%;
 }
@@ -917,33 +1010,28 @@ meter::-webkit-meter-bar {
     background: -webkit-gradient(linear, left top, left bottom, from(#ddd), to(#ddd), color-stop(0.20, #eee), color-stop(0.45, #ccc), color-stop(0.55, #ccc));
     height: 100%;
     width: 100%;
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
 
 meter::-webkit-meter-optimum-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#ad7), to(#ad7), color-stop(0.20, #cea), color-stop(0.45, #7a3), color-stop(0.55, #7a3));
     height: 100%;
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
 
 meter::-webkit-meter-suboptimum-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#fe7), to(#fe7), color-stop(0.20, #ffc), color-stop(0.45, #db3), color-stop(0.55, #db3));
     height: 100%;
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
 
 meter::-webkit-meter-even-less-good-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#f77), to(#f77), color-stop(0.20, #fcc), color-stop(0.45, #d44), color-stop(0.55, #d44));
     height: 100%;
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
 #endif
 
-#if defined(ENABLE_PROGRESS_ELEMENT) && ENABLE_PROGRESS_ELEMENT
 /* progress */
 
 progress {
@@ -958,7 +1046,6 @@ progress {
 progress::-webkit-progress-inner-element {
     -webkit-appearance: inherit;
     box-sizing: inherit;
-    -webkit-user-modify: read-only;
     height: 100%;
     width: 100%;
 }
@@ -967,7 +1054,6 @@ progress::-webkit-progress-bar {
     background-color: gray;
     height: 100%;
     width: 100%;
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
 
@@ -975,10 +1061,8 @@ progress::-webkit-progress-value {
     background-color: green;
     height: 100%;
     width: 50%; /* should be removed later */
-    -webkit-user-modify: read-only !important;
     box-sizing: border-box;
 }
-#endif
 
 /* inline elements */
 
@@ -1113,12 +1197,8 @@ frameset {
     border-color: inherit
 }
 
-iframe:not([seamless]) {
+iframe {
     border: 2px inset
-}
-
-iframe[seamless] {
-    display: block
 }
 
 details {
@@ -1149,6 +1229,15 @@ bdi, output {
 bdo {
     unicode-bidi: bidi-override;
 }
+
+#if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
+applet, embed, object, img {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+:-webkit-any-link img {
+    -webkit-tap-highlight-color: inherit;
+}
+#endif
 
 /* page */
 

@@ -1,8 +1,9 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
 
 // Standard settings
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/include $(SRCROOT)/gen $(SRCROOT)/locale $(SRCROOT)/locale/FreeBSD $(SRCROOT)/stdtime/FreeBSD
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator iphoneosnano iphonesimulatornano
+SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/include $(SRCROOT)/gen $(SRCROOT)/locale $(SRCROOT)/locale/FreeBSD $(SRCROOT)/stdtime/FreeBSD $(SRCROOT)/darwin
 SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 HEADER_SEARCH_PATHS = $($(TARGET_NAME)_SEARCH_PATHS) $(DERIVED_FILES_DIR)/dtrace $(SRCROOT_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/usr/local/include $(inherited)
 ALWAYS_SEARCH_USER_PATHS = YES
@@ -36,15 +37,13 @@ GCC_VERSION = com.apple.compilers.llvm.clang.1_0
 GCC_VERSION[arch=armv6] = com.apple.compilers.llvmgcc42
 
 EXECUTABLE_PREFIX = libsystem_
-INSTALL_PATH = /usr/lib/system
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include
-PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include
+INSTALL_PATH_ACTUAL = /usr/lib/system
+INSTALL_PATH[sdk=macos*]=$(INSTALL_PATH_ACTUAL)
+PUBLIC_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/include
+PRIVATE_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include
 
 // Simulator
-EXECUTABLE_PREFIX[sdk=iphonesimulator*] = libsystem_sim_
-PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/include
-PRIVATE_HEADERS_FOLDER_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/local/include
-INSTALL_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/lib/system
+EXECUTABLE_PREFIX[sdk=*simulator*] = libsystem_sim_
 
 BASE_PREPROCESSOR_MACROS = __LIBC__ __DARWIN_UNIX03=1 __DARWIN_64_BIT_INO_T=1 __DARWIN_NON_CANCELABLE=1 __DARWIN_VERS_1050=1 _FORTIFY_SOURCE=0
 OTHER_CFLAGS = -fdollars-in-identifiers -fno-common -fverbose-asm $($(TARGET_NAME)_CFLAGS) $(VARIANT_PREPROCESSOR_MACROS)
@@ -54,26 +53,23 @@ GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS)
 GCC_PREPROCESSOR_DEFINITIONS[sdk=iphone*] = $(BASE_PREPROCESSOR_MACROS) LIBC_NO_LIBCRASHREPORTERCLIENT=1
 
 // libsystem_c.dylib linking
-CR_LDFLAGS[sdk=macosx*] = -lCrashReporterClient
+CR_LDFLAGS = -lCrashReporterClient
 LIBCOMPILER_RT_LDFLAGS = -lcompiler_rt
-LIBCOMPILER_RT_LDFLAGS[sdk=iphonesimulator*] = -lcompiler_rt_sim
 LIBMALLOC_LDFLAGS = -lsystem_malloc
-LIBMALLOC_LDFLAGS[sdk=iphonesimulator*] =
 LIBPLATFORM_LDFLAGS = -lsystem_platform
-LIBPLATFORM_LDFLAGS[sdk=iphonesimulator*] =
+LIBPLATFORM_LDFLAGS[sdk=*simulator*] = -lsystem_sim_platform
 LIBPTHREAD_LDFLAGS = -lsystem_pthread
-LIBPTHREAD_LDFLAGS[sdk=iphonesimulator*] = 
+LIBPTHREAD_LDFLAGS[sdk=*simulator*] = -lsystem_sim_pthread
 LIBSYSCALL_LDFLAGS = -lsystem_kernel
-LIBSYSCALL_LDFLAGS[sdk=iphonesimulator*] =
+LIBSYSCALL_LDFLAGS[sdk=*simulator*] = -lsystem_sim_kernel
 LIBM_LDFLAGS = -lsystem_m
-LIBM_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_m
+LIBM_LDFLAGS[sdk=*simulator*] = -lsystem_sim_m
 LIBDYLD_LDFLAGS = -ldyld
-LIBDYLD_LDFLAGS[sdk=iphonesimulator*] = -ldyld_sim
-LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/string/alias.list @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
+LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/string/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order -Wl,-sectalign,__DATA,__data,1000 @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
 
 // TODO: Remove upward links - mostly <rdar://problem/13183469>, macho is for assumes.c
 UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-llaunch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc
-UPWARD_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-ldispatch -Wl,-upward-lmacho_sim -Wl,-upward-lsystem_sim_blocks -Wl,-upward-lsystem_sim_info -Wl,-upward-lnotify_sim -Wl,-upward-lxpc -Wl,-upward-lSystem
+UPWARD_LDFLAGS[sdk=*simulator*] = -Wl,-upward-ldispatch -Wl,-upward-lmacho_sim -Wl,-upward-lsystem_sim_asl -Wl,-upward-lsystem_sim_blocks -Wl,-upward-lsystem_sim_info -Wl,-upward-lnotify_sim -Wl,-upward-lxpc
 
 // libPlatform.a architectures
 ARCH_FAMILY = $(ARCH_FAMILY_$(CURRENT_ARCH))
@@ -90,6 +86,8 @@ Platform_INCLUDED_SOURCE_FILE_NAMES = $(Platform_INCLUDED_SOURCE_FILE_NAMES_$(PL
 Platform_INCLUDED_SOURCE_FILE_NAMES_macosx = $(Platform_INCLUDED_SOURCE_FILE_NAMES_gen) $(Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib) $(Platform_INCLUDED_SOURCE_FILE_NAMES_string) $(Platform_INCLUDED_SOURCE_FILE_NAMES_sys)
 Platform_INCLUDED_SOURCE_FILE_NAMES_iphoneos = $(Platform_INCLUDED_SOURCE_FILE_NAMES_gen) $(Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib) $(Platform_INCLUDED_SOURCE_FILE_NAMES_string) $(Platform_INCLUDED_SOURCE_FILE_NAMES_sys)
 Platform_INCLUDED_SOURCE_FILE_NAMES_iphonesimulator = $(Platform_INCLUDED_SOURCE_FILE_NAMES_gen) $(Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib) $(Platform_INCLUDED_SOURCE_FILE_NAMES_string)
+Platform_INCLUDED_SOURCE_FILE_NAMES_iphoneosnano = $(Platform_INCLUDED_SOURCE_FILE_NAMES_iphoneos)
+Platform_INCLUDED_SOURCE_FILE_NAMES_iphonesimulatornano = $(Platform_INCLUDED_SOURCE_FILE_NAMES_iphonesimulatornano)
 
 Platform_INCLUDED_SOURCE_FILE_NAMES_gen = $(ARCH_FAMILY)/gen/*.c $(ARCH_FAMILY)/gen/*.s $(ARCH_FAMILY)/gen/*.S
 Platform_INCLUDED_SOURCE_FILE_NAMES_stdlib = $(ARCH_FAMILY)/stdlib/*.c $(ARCH_FAMILY)/stdlib/*.s $(ARCH_FAMILY)/stdlib/*.S
@@ -127,22 +125,12 @@ BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7k = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7f = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_armv6 = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_armv7)
 
-// utmp/utmpx doesn't really fit in iOS, and this has some dependence on
-// libasl, so ignore it for now.
-BASE_EXCLUDED_SOURCE_FILE_NAMES_sim_utmpx = utmpx-darwin.c utmpx.c logwtmp.c
-
-// Others which at one point in time were tied too closely to the host.
-// It's probably a good idea to have only one set of functions accessing the
-// environment at a given time, but the rest may not need to be excluded
-// any more.  This should be investigated.
-BASE_EXCLUDED_SOURCE_FILE_NAMES_sim_misc = thread_stack_pcs.c backtrace.c getenv.c putenv.c setenv.c stack_protector.c crt_externs.c gettimeofday.c
-
-BASE_EXCLUDED_SOURCE_FILE_NAMES_sim = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_sim_utmpx) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_sim_misc)
-
 // Rune support isn't included on iOS but there's no better way to exclude their complication
-BASE_EXCLUDED_SOURCE_FILE_NAMES_macosx = OSMemoryNotification.c OSThermalNotification.c
+BASE_EXCLUDED_SOURCE_FILE_NAMES_macosx = OSMemoryNotification.c
 BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos = frune.c login.c logout.c mbrune.c runedepreciated.c setinvalidrune.c getmntinfo64.c
-BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulator = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_sim) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
+BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulator = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
+BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneosnano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
+BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulatornano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulator)
 
 // <rdar://problem/9513665> - collate.c crashes llvm-gcc on armv6 with -Os + -gdwarf-2
 COLLATE_C_CFLAGS_macosx_armv6 = -O1

@@ -1,5 +1,0 @@
-<?xml version="1.0"?>
-<?foo foo?>
-<?foo?>
-<!--bad comment--->
-<foo/>

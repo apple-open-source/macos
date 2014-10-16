@@ -10,15 +10,20 @@
 #ifndef _CERT_H_
 #define _CERT_H_ 1
 
-#include <Security/SecCmsBase.h>
+#include "SecCmsBase.h"
 #include <Security/nameTemplates.h>
 #include <Security/SecCertificate.h>
 #include <CoreFoundation/CFDate.h>
 #include <Security/SecTrust.h>
 #include "cmstpriv.h"
+#include <security_asn1/seccomon.h>
 
 /************************************************************************/
 SEC_BEGIN_PROTOS
+
+#if !USE_CDSA_CRYPTO
+bool CERT_CheckIssuerAndSerial(SecCertificateRef cert, SecAsn1Item *issuer, SecAsn1Item *serial);
+#endif
 
 typedef void CERTVerifyLog;
 
@@ -54,7 +59,7 @@ SecCertificateRef CERT_DupCertificate(SecCertificateRef cert);
 
 // Generate a certificate chain from a certificate.
 
-CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage,Boolean includeRoot);
+CF_RETURNS_RETAINED CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage,Boolean includeRoot);
 
 CFArrayRef CERT_CertListFromCert(SecCertificateRef cert);
 
@@ -71,43 +76,46 @@ SecCertificateRef CERT_FindCertByEmailAddr(SecKeychainRef keychainOrArray, char 
 
 // Find a certificate in the database by a DER encoded certificate
 // "derCert" is the DER encoded certificate
-SecCertificateRef CERT_FindCertByDERCert(SecKeychainRef keychainOrArray, const SECItem *derCert);
+SecCertificateRef CERT_FindCertByDERCert(SecKeychainRef keychainOrArray, const SecAsn1Item *derCert);
 
 // Generate a certificate key from the issuer and serialnumber, then look it up in the database.
 // Return the cert if found. "issuerAndSN" is the issuer and serial number to look for
-SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN);
+SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN);
 
-SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, const SECItem *subjKeyID);
+SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID);
 
 SecIdentityRef CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN);
+SecCertificateRef CERT_FindCertificateByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN);
 
-SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SECItem *subjKeyID);
+SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID);
 
 // find the smime symmetric capabilities profile for a given cert
-SECItem *CERT_FindSMimeProfile(SecCertificateRef cert);
+SecAsn1Item *CERT_FindSMimeProfile(SecCertificateRef cert);
 
 // Return the decoded value of the subjectKeyID extension. The caller should 
 // free up the storage allocated in retItem->data.
-SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert, SECItem *retItem);
+SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert, SecAsn1Item *retItem);
 
 // Extract the issuer and serial number from a certificate
 SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef cert);
 
 // import a collection of certs into the temporary or permanent cert database
 SECStatus CERT_ImportCerts(SecKeychainRef keychain, SECCertUsage usage,unsigned int ncerts,
-    SECItem **derCerts,SecCertificateRef **retCerts, Boolean keepCerts,Boolean caOnly, char *nickname);
+    SecAsn1Item **derCerts,SecCertificateRef **retCerts, Boolean keepCerts,Boolean caOnly, char *nickname);
 
-SECStatus CERT_SaveSMimeProfile(SecCertificateRef cert, SECItem *emailProfile,SECItem *profileTime);
+SECStatus CERT_SaveSMimeProfile(SecCertificateRef cert, SecAsn1Item *emailProfile,SecAsn1Item *profileTime);
 
 // Check the hostname to make sure that it matches the shexp that
 // is given in the common name of the certificate.
 SECStatus CERT_VerifyCertName(SecCertificateRef cert, const char *hostname);
 
+#if USE_CDSA_CRYPTO
 SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert,
-	  		  const CSSM_DATA_PTR *otherCerts,    /* intermediates */
 			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
+#else
+SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, CFArrayRef cert,
+			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
+#endif
 
 CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
 

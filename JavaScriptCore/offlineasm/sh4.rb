@@ -57,10 +57,6 @@ SH4_TMP_FPRS = [ SpecialRegister.new("dr10") ]
 class RegisterID
     def sh4Operand
         case name
-        when "a0"
-            "r4"
-        when "a1"
-            "r5"
         when "t0"
             "r0"
         when "t1"
@@ -69,8 +65,18 @@ class RegisterID
             "r2"
         when "t3"
             "r10"
-        when "t4"
+        when "t4", "a0"
+            "r4"
+        when "t5", "a1"
+            "r5"
+        when "t6", "a2"
             "r6"
+        when "t7", "a3"
+            "r7"
+        when "t8"
+            "r8"
+        when "t9"
+            "r9"
         when "cfr"
             "r14"
         when "sp"
@@ -144,6 +150,107 @@ class AbsoluteAddress
     end
 end
 
+class LabelReference
+    def sh4Operand
+        value
+    end
+end
+
+class SubImmediates < Node
+    def sh4Operand
+        "#{@left.sh4Operand} - #{@right.sh4Operand}"
+    end
+end
+
+class ConstPool < Node
+    attr_reader :size
+    attr_reader :entries
+
+    def initialize(codeOrigin, entries, size)
+        super(codeOrigin)
+        raise "Invalid size #{size} for ConstPool" unless size == 16 or size == 32
+        @size = size
+        @entries = entries
+    end
+    
+    def dump
+        "#{size}: #{entries}"
+    end
+    
+    def address?
+        false
+    end
+    
+    def label?
+        false
+    end
+    
+    def immediate?
+        false
+    end
+    
+    def register?
+        false
+    end
+
+    def lowerSH4
+        if size == 16
+            $asm.puts ".balign 2"
+        else
+            $asm.puts ".balign 4"
+        end
+        entries.map {
+            |e|
+            e.label.lower("SH4")
+            if e.size == 16
+                $asm.puts ".word #{e.value}"
+            else
+                $asm.puts ".long #{e.value}"
+            end
+        }
+    end
+end
+
+class ConstPoolEntry < Node
+    attr_reader :size
+    attr_reader :value
+    attr_reader :label
+    attr_reader :labelref
+    
+    def initialize(codeOrigin, value, size)
+        super(codeOrigin)
+        raise "Invalid size #{size} for ConstPoolEntry" unless size == 16 or size == 32
+        @size = size
+        @value = value
+        @label = LocalLabel.unique("constpool#{size}")
+        @labelref = LocalLabelReference.new(codeOrigin, label)
+    end
+    
+    def dump
+        "#{value} (#{size} @ #{label})"
+    end
+    
+    def ==(other)
+        other.is_a? ConstPoolEntry and other.value == @value
+    end
+    
+    def address?
+        false
+    end
+    
+    def label?
+        false
+    end
+    
+    def immediate?
+        false
+    end
+    
+    def register?
+        false
+    end
+end
+
 
 #
 # Lowering of shift ops for SH4. For example:
@@ -212,8 +319,8 @@ end
 #
 # will become:
 #
-# addi foo, bar, tmp
-# bs tmp, baz
+# addi foo, bar
+# bs bar, baz
 #
 
 def sh4LowerSimpleBranchOps(list)
@@ -251,6 +358,10 @@ def sh4LowerSimpleBranchOps(list)
                         newList << Instruction.new(node.codeOrigin, "storei", [tmpVal, addr])
                         newList << Instruction.new(node.codeOrigin, "bs", [tmpVal, node.operands[2]])
                     end
+                elsif bc == "nz"
+                    raise "Invalid operands number (#{node.operands.size})" unless node.operands.size == 3
+                    newList << Instruction.new(node.codeOrigin, op, node.operands[0..1])
+                    newList << Instruction.new(node.codeOrigin, "btinz", node.operands[1..2])
                 else
                     newList << node
                 end
@@ -353,21 +464,242 @@ def sh4LowerMisplacedLabels(list)
     list.each {
         | node |
         if node.is_a? Instruction
+            operands = node.operands
+            newOperands = []
+            operands.each {
+                | operand |
+                if operand.is_a? LabelReference and node.opcode != "mova"
+                    tmp = Tmp.new(operand.codeOrigin, :gpr)
+                    newList << Instruction.new(operand.codeOrigin, "move", [operand, tmp])
+                    newOperands << tmp
+                else
+                    newOperands << operand
+                end
+            }
+            newList << Instruction.new(node.codeOrigin, node.opcode, newOperands, node.annotation)
+        else
+            newList << node
+        end
+    }
+    newList
+end
+
+
+#
+# Lowering of misplaced special registers for SH4. For example:
+#
+# storep pr, foo
+#
+# becomes:
+#
+# stspr tmp
+# storep tmp, foo
+#
+
+def sh4LowerMisplacedSpecialRegisters(list)
+    newList = []
+    list.each {
+        | node |
+        if node.is_a? Instruction
             case node.opcode
-            when "jmp"
-                if node.operands[0].is_a? LabelReference
-                    tmp = Tmp.new(codeOrigin, :gpr)
-                    newList << Instruction.new(codeOrigin, "jmpf", [tmp, node.operands[0]])
+            when "move"
+                if node.operands[0].is_a? RegisterID and node.operands[0].sh4Operand == "pr"
+                    newList << Instruction.new(codeOrigin, "stspr", [node.operands[1]])
+                elsif node.operands[1].is_a? RegisterID and node.operands[1].sh4Operand == "pr"
+                    newList << Instruction.new(codeOrigin, "ldspr", [node.operands[0]])
                 else
                     newList << node
                 end
-            when "call"
-                if node.operands[0].is_a? LabelReference
-                    tmp1 = Tmp.new(codeOrigin, :gpr)
-                    tmp2 = Tmp.new(codeOrigin, :gpr)
-                    newList << Instruction.new(codeOrigin, "callf", [tmp1, tmp2, node.operands[0]])
+            when "loadi", "loadis", "loadp"
+                if node.operands[1].is_a? RegisterID and node.operands[1].sh4Operand == "pr"
+                    tmp = Tmp.new(codeOrigin, :gpr)
+                    newList << Instruction.new(codeOrigin, node.opcode, [node.operands[0], tmp])
+                    newList << Instruction.new(codeOrigin, "ldspr", [tmp])
                 else
                     newList << node
+                end
+            when "storei", "storep"
+                if node.operands[0].is_a? RegisterID and node.operands[0].sh4Operand == "pr"
+                    tmp = Tmp.new(codeOrigin, :gpr)
+                    newList << Instruction.new(codeOrigin, "stspr", [tmp])
+                    newList << Instruction.new(codeOrigin, node.opcode, [tmp, node.operands[1]])
+                else
+                    newList << node
+                end
+            else
+                newList << node
+            end
+        else
+            newList << node
+        end
+    }
+    newList
+end
+
+
+#
+# Group immediate values outside -128..127 range into constant pools for SH4.
+# These constant pools will be placed behind non-return opcodes jmp and ret, for example:
+#
+# move 1024, foo
+# ...
+# ret
+#
+# becomes:
+#
+# move [label], foo
+# ...
+# ret
+# label: 1024
+#
+
+def sh4LowerConstPool(list)
+    newList = []
+    currentPool16 = []
+    currentPool32 = []
+    list.each {
+        | node |
+        if node.is_a? Instruction
+            case node.opcode
+            when "jmp", "ret", "flushcp"
+                if node.opcode == "flushcp"
+                    outlabel = LocalLabel.unique("flushcp")
+                    newList << Instruction.new(codeOrigin, "jmp", [LocalLabelReference.new(codeOrigin, outlabel)])
+                else
+                    newList << node
+                end
+                if not currentPool16.empty?
+                    newList << ConstPool.new(codeOrigin, currentPool16, 16)
+                    currentPool16 = []
+                end
+                if not currentPool32.empty?
+                    newList << ConstPool.new(codeOrigin, currentPool32, 32)
+                    currentPool32 = []
+                end
+                if node.opcode == "flushcp"
+                    newList << outlabel
+                end
+            when "move"
+                if node.operands[0].is_a? Immediate and not (-128..127).include? node.operands[0].value
+                    poolEntry = nil
+                    if (-32768..32767).include? node.operands[0].value
+                        currentPool16.each { |e|
+                            if e.value == node.operands[0].value
+                                poolEntry = e
+                            end
+                        }
+                        if !poolEntry
+                            poolEntry = ConstPoolEntry.new(codeOrigin, node.operands[0].value, 16)
+                            currentPool16 << poolEntry
+                        end
+                    else
+                        currentPool32.each { |e|
+                            if e.value == node.operands[0].value
+                                poolEntry = e
+                            end
+                        }
+                        if !poolEntry
+                            poolEntry = ConstPoolEntry.new(codeOrigin, node.operands[0].value, 32)
+                            currentPool32 << poolEntry
+                        end
+                    end
+                    newList << Instruction.new(codeOrigin, "move", [poolEntry, node.operands[1]])
+                elsif node.operands[0].is_a? LabelReference
+                    poolEntry = nil
+                    currentPool32.each { |e|
+                        if e.value == node.operands[0].asmLabel
+                            poolEntry = e
+                        end
+                    }
+                    if !poolEntry
+                        poolEntry = ConstPoolEntry.new(codeOrigin, node.operands[0].asmLabel, 32)
+                        currentPool32 << poolEntry
+                    end
+                    newList << Instruction.new(codeOrigin, "move", [poolEntry, node.operands[1]])
+                elsif node.operands[0].is_a? SubImmediates
+                    poolEntry = ConstPoolEntry.new(codeOrigin, node.operands[0].sh4Operand, 32)
+                    currentPool32 << poolEntry
+                    newList << Instruction.new(codeOrigin, "move", [poolEntry, node.operands[1]])
+                else
+                    newList << node
+                end
+            else
+                newList << node
+            end
+        else
+            newList << node
+        end
+    }
+    if not currentPool16.empty?
+        newList << ConstPool.new(codeOrigin, currentPool16, 16)
+    end
+    if not currentPool32.empty?
+        newList << ConstPool.new(codeOrigin, currentPool32, 32)
+    end
+    newList
+end
+
+
+#
+# Lowering of argument setup for SH4.
+# This phase avoids argument register trampling. For example, if a0 == t4:
+#
+# setargs t1, t4
+#
+# becomes:
+#
+# move t4, a1
+# move t1, a0
+#
+
+def sh4LowerArgumentSetup(list)
+    a0 = RegisterID.forName(codeOrigin, "a0")
+    a1 = RegisterID.forName(codeOrigin, "a1")
+    a2 = RegisterID.forName(codeOrigin, "a2")
+    a3 = RegisterID.forName(codeOrigin, "a3")
+    newList = []
+    list.each {
+        | node |
+        if node.is_a? Instruction
+            case node.opcode
+            when "setargs"
+                if node.operands.size == 2
+                    if node.operands[1].sh4Operand != a0.sh4Operand
+                        newList << Instruction.new(codeOrigin, "move", [node.operands[0], a0])
+                        newList << Instruction.new(codeOrigin, "move", [node.operands[1], a1])
+                    elsif node.operands[0].sh4Operand != a1.sh4Operand
+                        newList << Instruction.new(codeOrigin, "move", [node.operands[1], a1])
+                        newList << Instruction.new(codeOrigin, "move", [node.operands[0], a0])
+                    else
+                        # As (operands[0] == a1) and (operands[1] == a0), we just need to swap a0 and a1.
+                        newList << Instruction.new(codeOrigin, "xori", [a0, a1])
+                        newList << Instruction.new(codeOrigin, "xori", [a1, a0])
+                        newList << Instruction.new(codeOrigin, "xori", [a0, a1])
+                    end
+                elsif node.operands.size == 4
+                    # FIXME: We just raise an error if something is likely to go wrong for now.
+                    # It would be better to implement a recovering algorithm.
+                    if (node.operands[0].sh4Operand == a1.sh4Operand) or
+                        (node.operands[0].sh4Operand == a2.sh4Operand) or
+                        (node.operands[0].sh4Operand == a3.sh4Operand) or
+                        (node.operands[1].sh4Operand == a0.sh4Operand) or
+                        (node.operands[1].sh4Operand == a2.sh4Operand) or
+                        (node.operands[1].sh4Operand == a3.sh4Operand) or
+                        (node.operands[2].sh4Operand == a0.sh4Operand) or
+                        (node.operands[2].sh4Operand == a1.sh4Operand) or
+                        (node.operands[2].sh4Operand == a3.sh4Operand) or
+                        (node.operands[3].sh4Operand == a0.sh4Operand) or
+                        (node.operands[3].sh4Operand == a1.sh4Operand) or
+                        (node.operands[3].sh4Operand == a2.sh4Operand)
+                        raise "Potential argument register trampling detected."
+                    end
+
+                    newList << Instruction.new(codeOrigin, "move", [node.operands[0], a0])
+                    newList << Instruction.new(codeOrigin, "move", [node.operands[1], a1])
+                    newList << Instruction.new(codeOrigin, "move", [node.operands[2], a2])
+                    newList << Instruction.new(codeOrigin, "move", [node.operands[3], a3])
+                else
+                    raise "Invalid operands number (#{node.operands.size}) for setargs"
                 end
             else
                 newList << node
@@ -401,7 +733,7 @@ class Sequence
             | node, address |
             if address.is_a? Address
                 case node.opcode
-                when "btbz", "btbnz", "cbeq", "bbeq", "bbneq", "bbb", "loadb"
+                when "btbz", "btbnz", "cbeq", "bbeq", "bbneq", "bbb", "loadb", "storeb"
                     (0..15).include? address.offset.value and
                         ((node.operands[0].is_a? RegisterID and node.operands[0].sh4Operand == "r0") or
                          (node.operands[1].is_a? RegisterID and node.operands[1].sh4Operand == "r0"))
@@ -423,11 +755,15 @@ class Sequence
             "bbeq", "bbneq", "bbb", "bieq", "bpeq", "bineq", "bpneq", "bia", "bpa", "biaeq", "bpaeq", "bib", "bpb",
             "bigteq", "bpgteq", "bilt", "bplt", "bigt", "bpgt", "bilteq", "bplteq", "btiz", "btpz", "btinz", "btpnz", "btbz", "btbnz"])
         result = riscLowerMalformedImmediates(result, -128..127)
-        result = sh4LowerMisplacedLabels(result)
         result = riscLowerMisplacedAddresses(result)
+        result = sh4LowerMisplacedLabels(result)
+        result = sh4LowerMisplacedSpecialRegisters(result)
 
         result = assignRegistersToTemporaries(result, :gpr, SH4_TMP_GPRS)
         result = assignRegistersToTemporaries(result, :gpr, SH4_TMP_FPRS)
+
+        result = sh4LowerConstPool(result)
+        result = sh4LowerArgumentSetup(result)
 
         return result
     end
@@ -437,50 +773,8 @@ def sh4Operands(operands)
     operands.map{|v| v.sh4Operand}.join(", ")
 end
 
-def emitSH4Load32(constant, dest)
-    outlabel = LocalLabel.unique("load32out")
-    constlabel = LocalLabel.unique("load32const")
-    $asm.puts "mov.l #{LocalLabelReference.new(codeOrigin, constlabel).asmLabel}, #{dest.sh4Operand}"
-    $asm.puts "bra #{LocalLabelReference.new(codeOrigin, outlabel).asmLabel}"
-    $asm.puts "nop"
-    $asm.puts ".balign 4"
-    constlabel.lower("SH4")
-    $asm.puts ".long #{constant}"
-    outlabel.lower("SH4")
-end
-
-def emitSH4Load32AndJump(constant, scratch)
-    constlabel = LocalLabel.unique("load32const")
-    $asm.puts "mov.l #{LocalLabelReference.new(codeOrigin, constlabel).asmLabel}, #{scratch.sh4Operand}"
-    $asm.puts "jmp @#{scratch.sh4Operand}"
-    $asm.puts "nop"
-    $asm.puts ".balign 4"
-    constlabel.lower("SH4")
-    $asm.puts ".long #{constant}"
-end
-
-def emitSH4LoadImm(operands)
-    if operands[0].value == 0x40000000
-        # FirstConstantRegisterIndex const is often used (0x40000000).
-        # It's more efficient to "build" the value with 3 opcodes without branch.
-        $asm.puts "mov #64, #{operands[1].sh4Operand}"
-        $asm.puts "shll16 #{operands[1].sh4Operand}"
-        $asm.puts "shll8 #{operands[1].sh4Operand}"
-    elsif (-128..127).include? operands[0].value
-        $asm.puts "mov #{sh4Operands(operands)}"
-    elsif (-32768..32767).include? operands[0].value
-        constlabel = LocalLabel.unique("loadconstant")
-        $asm.puts "mov.w @(6, PC), #{operands[1].sh4Operand}"
-        $asm.puts "bra #{LocalLabelReference.new(codeOrigin, constlabel).asmLabel}"
-        $asm.puts "nop"
-        $asm.puts ".word #{operands[0].value}"
-        constlabel.lower("SH4")
-    else
-        emitSH4Load32(operands[0].value, operands[1])
-    end
-end
-
 def emitSH4Branch(sh4opcode, operand)
+    raise "Invalid operand #{operand}" unless operand.is_a? RegisterID or operand.is_a? SpecialRegister
     $asm.puts "#{sh4opcode} @#{operand.sh4Operand}"
     $asm.puts "nop"
 end
@@ -504,15 +798,15 @@ def emitSH4ShiftImm(val, operand, direction)
     end
 end
 
-def emitSH4BranchIfT(label, neg)
+def emitSH4BranchIfT(dest, neg)
     outlabel = LocalLabel.unique("branchIfT")
     sh4opcode = neg ? "bt" : "bf"
     $asm.puts "#{sh4opcode} #{LocalLabelReference.new(codeOrigin, outlabel).asmLabel}"
-    if label.is_a? LocalLabelReference
-        $asm.puts "bra #{label.asmLabel}"
+    if dest.is_a? LocalLabelReference
+        $asm.puts "bra #{dest.asmLabel}"
         $asm.puts "nop"
     else
-        emitSH4Load32AndJump(label.asmLabel, SH4_TMP_GPRS[0])
+        emitSH4Branch("jmp", dest)
     end
     outlabel.lower("SH4")
 end
@@ -572,11 +866,23 @@ class Instruction
                 $asm.puts "add #{sh4Operands(operands)}"
             end
         when "subi", "subp"
-            raise "#{opcode} with #{operands.size} operands is not handled yet" unless operands.size == 2
-            if operands[0].is_a? Immediate
-                $asm.puts "add #{sh4Operands([Immediate.new(codeOrigin, -1 * operands[0].value), operands[1]])}"
+            if operands.size == 3
+                if operands[1].is_a? Immediate
+                    $asm.puts "mov #{sh4Operands([Immediate.new(codeOrigin, -1 * operands[1].value), operands[2]])}"
+                    $asm.puts "add #{sh4Operands([operands[0], operands[2]])}"
+                elsif operands[1].sh4Operand == operands[2].sh4Operand
+                    $asm.puts "neg #{sh4Operands([operands[2], operands[2]])}"
+                    $asm.puts "add #{sh4Operands([operands[0], operands[2]])}"
+                else
+                    $asm.puts "mov #{sh4Operands([operands[0], operands[2]])}"
+                    $asm.puts "sub #{sh4Operands([operands[1], operands[2]])}"
+                end
             else
-                $asm.puts "sub #{sh4Operands(operands)}"
+                if operands[0].is_a? Immediate
+                    $asm.puts "add #{sh4Operands([Immediate.new(codeOrigin, -1 * operands[0].value), operands[1]])}"
+                else
+                    $asm.puts "sub #{sh4Operands(operands)}"
+                end
             end
         when "muli", "mulp"
             $asm.puts "mul.l #{sh4Operands(operands[0..1])}"
@@ -598,6 +904,9 @@ class Instruction
             else
                 $asm.puts "shl#{opcode[3, 1]}#{operands[0].value} #{operands[1].sh4Operand}"
             end
+        when "shalx", "sharx"
+            raise "Unhandled parameters for opcode #{opcode}" unless operands[0].is_a? Immediate and operands[0].value == 1
+            $asm.puts "sha#{opcode[3, 1]} #{operands[1].sh4Operand}"
         when "shld", "shad"
             $asm.puts "#{opcode} #{sh4Operands(operands)}"
         when "loaddReversedAndIncrementAddress"
@@ -652,10 +961,10 @@ class Instruction
             raise "Invalid operands number (#{operands.size})" unless operands.size == 5
             $asm.puts "dmuls.l #{sh4Operands([operands[2], operands[3]])}"
             $asm.puts "sts macl, #{operands[3].sh4Operand}"
-            $asm.puts "sts mach, #{operands[0].sh4Operand}"
             $asm.puts "cmp/pz #{operands[3].sh4Operand}"
             $asm.puts "movt #{operands[1].sh4Operand}"
-            $asm.puts "dt #{operands[1].sh4Operand}"
+            $asm.puts "add #-1, #{operands[1].sh4Operand}"
+            $asm.puts "sts mach, #{operands[0].sh4Operand}"
             $asm.puts "cmp/eq #{sh4Operands([operands[0], operands[1]])}"
             $asm.puts "bf #{operands[4].asmLabel}"
         when "btiz", "btpz", "btbz", "btinz", "btpnz", "btbnz"
@@ -683,6 +992,8 @@ class Instruction
             emitSH4CondBranch("hs", true, operands)
         when "bia", "bpa", "bba"
             emitSH4CondBranch("hi", false, operands)
+        when "bibeq", "bpbeq"
+            emitSH4CondBranch("hi", true, operands)
         when "biaeq", "bpaeq"
             emitSH4CondBranch("hs", false, operands)
         when "bigteq", "bpgteq", "bbgteq"
@@ -705,15 +1016,6 @@ class Instruction
             else
                 raise "Unhandled parameters for opcode #{opcode} at #{codeOriginString}"
             end
-        when "callf"
-            $asm.puts ".balign 4"
-            $asm.puts "mov r0, #{operands[0].sh4Operand}"
-            $asm.puts "mova @(14, PC), r0"
-            $asm.puts "lds r0, pr"
-            $asm.puts "mov.l @(6, PC), #{operands[1].sh4Operand}"
-            $asm.puts "jmp @#{operands[1].sh4Operand}"
-            $asm.puts "mov #{operands[0].sh4Operand}, r0"
-            $asm.puts ".long #{operands[2].asmLabel}"
         when "jmp"
             if operands[0].is_a? LocalLabelReference
                 $asm.puts "bra #{operands[0].asmLabel}"
@@ -723,39 +1025,41 @@ class Instruction
             else
                 raise "Unhandled parameters for opcode #{opcode} at #{codeOriginString}"
             end
-        when "jmpf"
-            emitSH4Load32AndJump(operands[1].asmLabel, operands[0])
         when "ret"
             $asm.puts "rts"
             $asm.puts "nop"
         when "loadb"
             $asm.puts "mov.b #{sh4Operands(operands)}"
             $asm.puts "extu.b #{sh4Operands([operands[1], operands[1]])}"
+        when "storeb"
+            $asm.puts "mov.b #{sh4Operands(operands)}"
         when "loadh"
             $asm.puts "mov.w #{sh4Operands(operands)}"
             $asm.puts "extu.w #{sh4Operands([operands[1], operands[1]])}"
         when "loadi", "loadis", "loadp", "storei", "storep"
             $asm.puts "mov.l #{sh4Operands(operands)}"
+        when "alignformova"
+            $asm.puts ".balign 4" # As balign directive is in a code section, fill value is 'nop' instruction.
+        when "mova"
+            $asm.puts "mova #{sh4Operands(operands)}"
         when "move"
-            if operands[0].is_a? LabelReference
-                emitSH4Load32(operands[0].asmLabel, operands[1])
-            elsif operands[0].is_a? Immediate
-                emitSH4LoadImm(operands)
-            else
+            if operands[0].is_a? ConstPoolEntry
+                if operands[0].size == 16
+                    $asm.puts "mov.w #{operands[0].labelref.asmLabel}, #{operands[1].sh4Operand}"
+                else
+                    $asm.puts "mov.l #{operands[0].labelref.asmLabel}, #{operands[1].sh4Operand}"
+                end
+            elsif operands[0].sh4Operand != operands[1].sh4Operand
                 $asm.puts "mov #{sh4Operands(operands)}"
             end
         when "leap"
             if operands[0].is_a? BaseIndex
                 biop = operands[0]
-                if biop.scale > 0
-                    $asm.puts "mov #{sh4Operands([biop.index, operands[1]])}"
-                    if biop.scaleShift > 0
-                        emitSH4ShiftImm(biop.scaleShift, operands[1], "l")
-                    end
-                    $asm.puts "add #{sh4Operands([biop.base, operands[1]])}"
-                else
-                    $asm.puts "mov #{sh4Operands([biop.base, operands[1]])}"
+                $asm.puts "mov #{sh4Operands([biop.index, operands[1]])}"
+                if biop.scaleShift > 0
+                    emitSH4ShiftImm(biop.scaleShift, operands[1], "l")
                 end
+                $asm.puts "add #{sh4Operands([biop.base, operands[1]])}"
                 if biop.offset.value != 0
                     $asm.puts "add #{sh4Operands([biop.offset, operands[1]])}"
                 end
@@ -773,11 +1077,37 @@ class Instruction
             $asm.puts "lds #{sh4Operands(operands)}, pr"
         when "stspr"
             $asm.puts "sts pr, #{sh4Operands(operands)}"
+        when "memfence"
+            $asm.puts "synco"
+        when "pop"
+            if operands[0].sh4Operand == "pr"
+                $asm.puts "lds.l @r15+, #{sh4Operands(operands)}"
+            else
+                $asm.puts "mov.l @r15+, #{sh4Operands(operands)}"
+            end
+        when "push"
+            if operands[0].sh4Operand == "pr"
+                $asm.puts "sts.l #{sh4Operands(operands)}, @-r15"
+            else
+                $asm.puts "mov.l #{sh4Operands(operands)}, @-r15"
+            end
+        when "popCalleeSaves"
+            $asm.puts "mov.l @r15+, r8"
+            $asm.puts "mov.l @r15+, r9"
+            $asm.puts "mov.l @r15+, r10"
+            $asm.puts "mov.l @r15+, r11"
+            $asm.puts "mov.l @r15+, r13"
+        when "pushCalleeSaves"
+            $asm.puts "mov.l r13, @-r15"
+            $asm.puts "mov.l r11, @-r15"
+            $asm.puts "mov.l r10, @-r15"
+            $asm.puts "mov.l r9, @-r15"
+            $asm.puts "mov.l r8, @-r15"
         when "break"
             # This special opcode always generates an illegal instruction exception.
             $asm.puts ".word 0xfffd"
         else
-            raise "Unhandled opcode #{opcode} at #{codeOriginString}"
+            lowerDefault
         end
     end
 end

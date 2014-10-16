@@ -29,14 +29,12 @@
 
 #include "CDM.h"
 
-#include "CDMPrivate.h"
+#include "CDMPrivateMediaPlayer.h"
+#include "CDMSession.h"
 #include "MediaKeyError.h"
 #include "MediaKeys.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/WTFString.h>
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-#include "CDMPrivateAVFoundation.h"
-#endif
 
 namespace WebCore {
 
@@ -57,16 +55,13 @@ public:
 
 static Vector<CDMFactory*>& installedCDMFactories()
 {
-    DEFINE_STATIC_LOCAL(Vector<CDMFactory*>, cdms, ());
+    static NeverDestroyed<Vector<CDMFactory*>> cdms;
     static bool queriedCDMs = false;
     if (!queriedCDMs) {
         queriedCDMs = true;
 
         // FIXME: initialize specific UA CDMs. http://webkit.org/b/109318, http://webkit.org/b/109320
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-        cdms.append(new CDMFactory(CDMPrivateAVFoundation::create, CDMPrivateAVFoundation::supportsKeySystem, CDMPrivateAVFoundation::supportsKeySystemAndMimeType));
-#endif
-
+        cdms.get().append(new CDMFactory(CDMPrivateMediaPlayer::create, CDMPrivateMediaPlayer::supportsKeySystem, CDMPrivateMediaPlayer::supportsKeySystemAndMimeType));
     }
 
     return cdms;
@@ -99,12 +94,12 @@ bool CDM::keySystemSupportsMimeType(const String& keySystem, const String& mimeT
     return false;
 }
 
-PassOwnPtr<CDM> CDM::create(const String& keySystem)
+std::unique_ptr<CDM> CDM::create(const String& keySystem)
 {
     if (!supportsKeySystem(keySystem))
         return nullptr;
 
-    return adoptPtr(new CDM(keySystem));
+    return std::make_unique<CDM>(keySystem);
 }
 
 CDM::CDM(const String& keySystem)
@@ -123,7 +118,7 @@ bool CDM::supportsMIMEType(const String& mimeType) const
     return m_private->supportsMIMEType(mimeType);
 }
 
-PassOwnPtr<CDMSession> CDM::createSession()
+std::unique_ptr<CDMSession> CDM::createSession()
 {
     return m_private->createSession();
 }

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2013, International Business Machines Corporation and
+ * Copyright (c) 1997-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -55,17 +55,19 @@ UnicodeString Int64ToUnicodeString(int64_t num);
 UnicodeString operator+(const UnicodeString& left, long num);
 UnicodeString operator+(const UnicodeString& left, unsigned long num);
 UnicodeString operator+(const UnicodeString& left, double num);
-UnicodeString operator+(const UnicodeString& left, char num); 
-UnicodeString operator+(const UnicodeString& left, short num);  
-UnicodeString operator+(const UnicodeString& left, int num);      
-UnicodeString operator+(const UnicodeString& left, unsigned char num);  
-UnicodeString operator+(const UnicodeString& left, unsigned short num);  
-UnicodeString operator+(const UnicodeString& left, unsigned int num);      
+UnicodeString operator+(const UnicodeString& left, char num);
+UnicodeString operator+(const UnicodeString& left, short num);
+UnicodeString operator+(const UnicodeString& left, int num);
+UnicodeString operator+(const UnicodeString& left, unsigned char num);
+UnicodeString operator+(const UnicodeString& left, unsigned short num);
+UnicodeString operator+(const UnicodeString& left, unsigned int num);
 UnicodeString operator+(const UnicodeString& left, float num);
 #if !UCONFIG_NO_FORMATTING
 UnicodeString toString(const Formattable& f); // liu
 UnicodeString toString(int32_t n);
 #endif
+UnicodeString toString(UBool b);
+
 //-----------------------------------------------------------------------------
 
 // Use the TESTCASE macro in subclasses of IntlTest.  Define the
@@ -115,6 +117,30 @@ UnicodeString toString(int32_t n);
             break; \
         }
 
+#define TESTCASE_AUTO_CLASS(TestClass) \
+        if (index == testCaseAutoNumber++) { \
+            name = #TestClass; \
+            if (exec) { \
+                logln(#TestClass "---"); \
+                logln(); \
+                TestClass test; \
+                callTest(test, par); \
+            } \
+            break; \
+        }
+
+#define TESTCASE_AUTO_CREATE_CLASS(TestClass) \
+        if (index == testCaseAutoNumber++) { \
+            name = #TestClass; \
+            if (exec) { \
+                logln(#TestClass "---"); \
+                logln(); \
+                LocalPointer<IntlTest> test(create##TestClass()); \
+                callTest(*test, par); \
+            } \
+            break; \
+        }
+
 #define TESTCASE_AUTO_END \
         name = ""; \
         break; \
@@ -122,6 +148,9 @@ UnicodeString toString(int32_t n);
 
 #define TEST_ASSERT_TRUE(x) \
   assertTrue(#x, (x), FALSE, FALSE, __FILE__, __LINE__)
+
+#define TEST_ASSERT_STATUS(x) \
+  assertSuccess(#x, (x), FALSE, __FILE__, __LINE__)
 
 class IntlTest : public TestLog {
 public:
@@ -151,6 +180,36 @@ public:
 
     virtual void logln( void );
 
+    /**
+     * Replaces isICUVersionAtLeast and isICUVersionBefore
+     * log that an issue is known.
+     * Usually used this way:   
+     * <code>if( ... && logKnownIssue("12345", "some bug")) continue; </code>
+     * @param ticket ticket string, "12345" or "cldrbug:1234"
+     * @param message optional message string
+     * @return true if test should be skipped
+     */
+    UBool logKnownIssue( const char *ticket, const UnicodeString &message );
+    /**
+     * Replaces isICUVersionAtLeast and isICUVersionBefore
+     * log that an issue is known.
+     * Usually used this way:
+     * <code>if( ... && logKnownIssue("12345", "some bug")) continue; </code>
+     * @param ticket ticket string, "12345" or "cldrbug:1234"
+     * @return true if test should be skipped
+     */
+    UBool logKnownIssue( const char *ticket );
+    /**
+     * Replaces isICUVersionAtLeast and isICUVersionBefore
+     * log that an issue is known.
+     * Usually used this way:
+     * <code>if( ... && logKnownIssue("12345", "some bug")) continue; </code>
+     * @param ticket ticket string, "12345" or "cldrbug:1234"
+     * @param message optional message string
+     * @return true if test should be skipped
+     */
+    UBool logKnownIssue( const char *ticket, const char *fmt, ...);
+
     virtual void info( const UnicodeString &message );
 
     virtual void infoln( const UnicodeString &message );
@@ -158,7 +217,7 @@ public:
     virtual void infoln( void );
 
     virtual void err(void);
-    
+
     virtual void err( const UnicodeString &message );
 
     virtual void errln( const UnicodeString &message );
@@ -166,7 +225,7 @@ public:
     virtual void dataerr( const UnicodeString &message );
 
     virtual void dataerrln( const UnicodeString &message );
-    
+
     void errcheckln(UErrorCode status, const UnicodeString &message );
 
     // convenience functions: sprintf() + errln() etc.
@@ -178,10 +237,20 @@ public:
     void errln(const char *fmt, ...);
     void dataerr(const char *fmt, ...);
     void dataerrln(const char *fmt, ...);
+
+    /**
+     * logs an error (even if status==U_ZERO_ERROR), but
+     * calls dataerrln() or errln() depending on the type of error.
+     * Does not report the status code.
+     * @param status parameter for selecting whether errln or dataerrln is called.
+     */
     void errcheckln(UErrorCode status, const char *fmt, ...);
 
     // Print ALL named errors encountered so far
     void printErrors(); 
+
+    // print known issues. return TRUE if there were any.
+    UBool printKnownIssues();
         
     virtual void usage( void ) ;
 
@@ -201,32 +270,6 @@ public:
      */
     static float random();
 
-    /**
-     * Returns true if u_getVersion() < major.minor.
-     */
-    static UBool isICUVersionBefore(int major, int minor) {
-        return isICUVersionBefore(major, minor, 0);
-    }
-
-    /**
-     * Returns true if u_getVersion() < major.minor.milli.
-     */
-    static UBool isICUVersionBefore(int major, int minor, int milli);
-
-    /**
-     * Returns true if u_getVersion() >= major.minor.
-     */
-    static UBool isICUVersionAtLeast(int major, int minor) {
-        return isICUVersionAtLeast(major, minor, 0);
-    }
-
-    /**
-     * Returns true if u_getVersion() >= major.minor.milli.
-     */
-    static UBool isICUVersionAtLeast(int major, int minor, int milli) {
-        return !isICUVersionBefore(major, minor, milli);
-    }
-
     enum { kMaxProps = 16 };
 
     virtual void setProperty(const char* propline);
@@ -236,15 +279,22 @@ protected:
     /* JUnit-like assertions. Each returns TRUE if it succeeds. */
     UBool assertTrue(const char* message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE, const char *file=NULL, int line=0);
     UBool assertFalse(const char* message, UBool condition, UBool quiet=FALSE);
-    UBool assertSuccess(const char* message, UErrorCode ec, UBool possibleDataError=FALSE);
+    /**
+     * @param possibleDataError - if TRUE, use dataerrln instead of errcheckln on failure
+     * @return TRUE on success, FALSE on failure.
+     */
+    UBool assertSuccess(const char* message, UErrorCode ec, UBool possibleDataError=FALSE, const char *file=NULL, int line=0);
     UBool assertEquals(const char* message, const UnicodeString& expected,
                        const UnicodeString& actual, UBool possibleDataError=FALSE);
     UBool assertEquals(const char* message, const char* expected,
                        const char* actual);
+    UBool assertEquals(const char* message, UBool expected,
+                       UBool actual);
     UBool assertEquals(const char* message, int32_t expected, int32_t actual);
+    UBool assertEquals(const char* message, int64_t expected, int64_t actual);
 #if !UCONFIG_NO_FORMATTING
     UBool assertEquals(const char* message, const Formattable& expected,
-                       const Formattable& actual);
+                       const Formattable& actual, UBool possibleDataError=FALSE);
     UBool assertEquals(const UnicodeString& message, const Formattable& expected,
                        const Formattable& actual);
 #endif
@@ -252,9 +302,12 @@ protected:
     UBool assertFalse(const UnicodeString& message, UBool condition, UBool quiet=FALSE);
     UBool assertSuccess(const UnicodeString& message, UErrorCode ec);
     UBool assertEquals(const UnicodeString& message, const UnicodeString& expected,
-                       const UnicodeString& actual);
+                       const UnicodeString& actual, UBool possibleDataError=FALSE);
     UBool assertEquals(const UnicodeString& message, const char* expected,
                        const char* actual);
+    UBool assertEquals(const UnicodeString& message, UBool expected, UBool actual);
+    UBool assertEquals(const UnicodeString& message, int32_t expected, int32_t actual);
+    UBool assertEquals(const UnicodeString& message, int64_t expected, int64_t actual);
 
     virtual void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = NULL ); // overide !
 
@@ -285,6 +338,7 @@ private:
     char*       testPath;           // specifies subtests
     
     char basePath[1024];
+    char currName[1024]; // current test name
 
     //FILE *testoutfp;
     void *testoutfp;

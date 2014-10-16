@@ -1,0 +1,20 @@
+Build.PL
+Changes
+MANIFEST
+META.yml # Will be created by "make dist"
+Makefile.PL
+README
+lib/Config/Std.pm
+t/00.load.t
+t/00write.t
+t/01read.t
+t/02rewrite.t
+t/pod-coverage.t
+t/pod.t
+t/01read_renamed.t
+t/02rewrite_eq.t
+t/03autoviv.t
+t/comments.t
+t/undef.t
+LICENSE
+META.json                                Module JSON meta-data (added by MakeMaker)

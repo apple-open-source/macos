@@ -773,16 +773,16 @@ Maintenance Procedures                                    LSOF(8)
               Where the FreeBSD  version  supports  threads,  all
               threads will be listed with their IDs.
 
+              In general threads and tasks inherit the  files  of
+              the  caller, but may close some and open others, so
+              lsof always reports all the open files  of  threads
+              and tasks.
+
      -k k     specifies a kernel name list file, k, in  place  of
               /vmunix, /mach, etc.  -k is not available under AIX
               on the IBM RISC/System 6000.
 
      -l       inhibits the conversion of user ID numbers to login
-              names.  It is also useful when login name lookup is
-              working improperly or slowly.
-
-     +|-L [l] enables (`+') or disables (`-') the listing of file
-              link  counts, where they are available - e.g., they
 
 
 
@@ -797,6 +797,11 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              names.  It is also useful when login name lookup is
+              working improperly or slowly.
+
+     +|-L [l] enables (`+') or disables (`-') the listing of file
+              link  counts, where they are available - e.g., they
               aren't available for sockets,  or  most  FIFOs  and
               pipes.
 
@@ -844,11 +849,6 @@ Maintenance Procedures                                    LSOF(8)
 
               Note: the +m and +m m options are not available for
               all supported dialects.  Check the output of lsof's
-              -h or -? options to see if the +m and +m m  options
-              are available.
-
-     +|-M     Enables (+) or disables (-) the reporting of  port-
-              mapper registrations for local TCP, UDP and UDPLITE
 
 
 
@@ -863,6 +863,11 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              -h or -? options to see if the +m and +m m  options
+              are available.
+
+     +|-M     Enables (+) or disables (-) the reporting of  port-
+              mapper registrations for local TCP, UDP and UDPLITE
               ports, where port mapping is supported.   (See  the
               last  paragraph  of  this  option  description  for
               information  about  where  portmapper  registration
@@ -909,12 +914,7 @@ Maintenance Procedures                                    LSOF(8)
               face from the local one.
 
               See the lsof FAQ (The FAQ section gives  its  loca-
-              tion.)  for further discussion of portmapper regis-
-              tration reporting issues.
-
-              Portmapper registration reporting is supported only
-              on  dialects  that  have  RPC  header files.  (Some
-              Linux distributions with GlibC  2.14  do  not  have
+              tion.)    for   further  discussion  of  portmapper
 
 
 
@@ -929,6 +929,11 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              registration reporting issues.
+
+              Portmapper registration reporting is supported only
+              on  dialects  that  have  RPC  header files.  (Some
+              Linux distributions with GlibC  2.14  do  not  have
               them.)   When  portmapper registration reporting is
               supported, the -h or -? help output will  show  the
               +|-M option.
@@ -976,11 +981,6 @@ Maintenance Procedures                                    LSOF(8)
 
               The default number of digits allowed  after  ``0t''
               is  normally  8,  but  may have been changed by the
-              lsof builder.  Consult the description of the -o  o
-              option  in  the  output  of  the -h or -? option to
-              determine the default that is in effect.
-
-     -O       directs lsof to bypass  the  strategy  it  uses  to
 
 
 
@@ -995,6 +995,11 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              lsof builder.  Consult the description of the -o  o
+              option  in  the  output  of  the -h or -? option to
+              determine the default that is in effect.
+
+     -O       directs lsof to bypass  the  strategy  it  uses  to
               avoid  being  blocked  by  some kernel operations -
               i.e., doing them in forked  child  processes.   See
               the  BLOCKS AND TIMEOUTS and AVOIDING KERNEL BLOCKS
@@ -1042,11 +1047,6 @@ Maintenance Procedures                                    LSOF(8)
               first  cycle  no  open  files  are  listed - and of
               course when lsof is stopped with  an  interrupt  or
               quit  signal.   When  repeat  mode  ends because no
-              files are listed, the process  exit  code  will  be
-              zero  if  any  open files were ever listed; one, if
-              none were ever listed.
-
-              Lsof marks the  end  of  each  listing:   if  field
 
 
 
@@ -1061,10 +1061,15 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
-              output  is  in  progress  (the  -F, option has been
-              specified), the default marker  is  `m';  otherwise
-              the  default marker is ``========''.  The marker is
-              followed by a NL character.
+              files are listed, the process  exit  code  will  be
+              zero  if  any  open files were ever listed; one, if
+              none were ever listed.
+
+              Lsof marks the end of each listing:  if field  out-
+              put  is in progress (the -F, option has been speci-
+              fied), the default marker  is  `m';  otherwise  the
+              default marker is ``========''.  The marker is fol-
+              lowed by a NL character.
 
               The optional "m<fmt>" argument specifies  a  format
               for  the marker line.  The <fmt> characters follow-
@@ -1103,16 +1108,11 @@ Maintenance Procedures                                    LSOF(8)
               to be changed to SIZE.  If the file does not have a
               size, nothing is displayed.
 
-              When followed by a protocol name (p), either TCP or
-              UDP,  a  colon (`:') and a comma-separated protocol
-              state name list, the option causes open TCP and UDP
-              files  to be excluded if their state name(s) are in
-              the list (s) preceded by  a  `^';  or  included  if
-              their name(s) are not preceded by a `^'.
+              The optional -s p:s  form  is  available  only  for
+              selected  dialects, and only when the -h or -? help
+              output lists it.
 
-              When an inclusion list  is  defined,  only  network
-              files  with state names in the list will be present
-              in the lsof output.   Thus,  specifying  one  state
+              When the optional form is available, the s  may  be
 
 
 
@@ -1127,6 +1127,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              followed by a protocol name (p), either TCP or UDP,
+              a colon (`:') and a comma-separated protocol  state
+              name list, the option causes open TCP and UDP files
+              to be excluded if their state name(s)  are  in  the
+              list  (s)  preceded  by a `^'; or included if their
+              name(s) are not preceded by a `^'.
+
+              When an inclusion list  is  defined,  only  network
+              files  with state names in the list will be present
+              in the lsof output.   Thus,  specifying  one  state
               name  means  that only network files with that lone
               state name will be listed.
 
@@ -1169,16 +1179,6 @@ Maintenance Procedures                                    LSOF(8)
               and  -s  option  (without  a following protocol and
               state name list) are mutually exclusive; they can't
               both be specified.  When neither is specified, lsof
-              displays whatever value  -  size  or  offset  -  is
-              appropriate and available for the type of file.
-
-              Since some types of files don't have true  sizes  -
-              sockets,  FIFOs,  pipes,  etc.  - lsof displays for
-              their sizes the content amounts in their associated
-              kernel buffers, if possible.
-
-     -S [t]   specifies an optional time-out  seconds  value  for
-              kernel   functions  -  lstat(2),  readlink(2),  and
 
 
 
@@ -1193,6 +1193,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              displays whatever value  -  size  or  offset  -  is
+              appropriate and available for the type of file.
+
+              Since some types of files don't have true  sizes  -
+              sockets,  FIFOs,  pipes,  etc.  - lsof displays for
+              their sizes the content amounts in their associated
+              kernel buffers, if possible.
+
+     -S [t]   specifies an optional time-out  seconds  value  for
+              kernel   functions  -  lstat(2),  readlink(2),  and
               stat(2)  -  that  might  otherwise  deadlock.   The
               minimum for t is two; the default, fifteen; when no
               value is specified, the default is used.
@@ -1235,16 +1245,6 @@ Maintenance Procedures                                    LSOF(8)
                    f    selects reporting of socket options,
                         states and values, and TCP flags and
                         values.
-                   q    selects queue length reporting.
-                   s    selects connection state reporting.
-                   w    selects window size reporting.
-
-              Not  all  selections  are  enabled  for  some  UNIX
-              dialects.   State  may be selected for all dialects
-              and is reported by default.  The -h or -? help out-
-              put for the -T option will show what selections may
-              be used with the UNIX dialect.
-
 
 
 
@@ -1258,6 +1258,16 @@ SunOS 5.9          Last change: Revision-4.87                  19
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                   q    selects queue length reporting.
+                   s    selects connection state reporting.
+                   w    selects window size reporting.
+
+              Not  all  selections  are  enabled  for  some  UNIX
+              dialects.   State  may be selected for all dialects
+              and is reported by default.  The -h or -? help out-
+              put for the -T option will show what selections may
+              be used with the UNIX dialect.
 
               When -T is used to select information - i.e., it is
               followed  by one or more selection characters - the
@@ -1301,16 +1311,6 @@ Maintenance Procedures                                    LSOF(8)
 
               Details on what socket options and  values,  socket
               states,  and  TCP flags and values may be displayed
-              for particular UNIX dialects may be  found  in  the
-              answer  to  the  ``Why  doesn't  lsof report socket
-              options, socket states, and TCP  flags  and  values
-              for my dialect?'' and ``Why doesn't lsof report the
-              partial  listen  queue  connection  count  for   my
-              dialect?''  questions in the lsof FAQ (The FAQ sec-
-              tion gives its location.)
-
-     -t       specifies that lsof  should  produce  terse  output
-              with process identifiers only and no header - e.g.,
 
 
 
@@ -1325,6 +1325,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              for particular UNIX dialects may be  found  in  the
+              answer  to  the  ``Why  doesn't  lsof report socket
+              options, socket states, and TCP  flags  and  values
+              for my dialect?'' and ``Why doesn't lsof report the
+              partial  listen  queue  connection  count  for   my
+              dialect?''  questions in the lsof FAQ (The FAQ sec-
+              tion gives its location.)
+
+     -t       specifies that lsof  should  produce  terse  output
+              with process identifiers only and no header - e.g.,
               so that the output may be  piped  to  kill(1).   -t
               selects the -w option.
 
@@ -1367,16 +1377,6 @@ Maintenance Procedures                                    LSOF(8)
               NFS files, PIDs, PGIDs, and UIDs.
 
               When other options are ANDed to search options,  or
-              compile-time  options  restrict the listing of some
-              files, lsof may not report that it failed to find a
-              search  item  when  an ANDed option or compile-time
-              option prevents the listing of the open  file  con-
-              taining the located search item.
-
-              For example, ``lsof -V -iTCP@foobar -a -d 999'' may
-              not  report  a  failure  to  locate  open  files at
-              ``TCP@foobar'' and may not list any, if none have a
-              file descriptor number of 999.  A similar situation
 
 
 
@@ -1391,6 +1391,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              compile-time  options  restrict the listing of some
+              files, lsof may not report that it failed to find a
+              search  item  when  an ANDed option or compile-time
+              option prevents the listing of the open  file  con-
+              taining the located search item.
+
+              For example, ``lsof -V -iTCP@foobar -a -d 999'' may
+              not  report  a  failure  to  locate  open  files at
+              ``TCP@foobar'' and may not list any, if none have a
+              file descriptor number of 999.  A similar situation
               arises when HASSECURITY and  HASNOSOCKSECURITY  are
               defined  at compile time and they prevent the list-
               ing of open files.
@@ -1433,16 +1443,6 @@ Maintenance Procedures                                    LSOF(8)
               references.
 
               WARNING:  because  this  option  uses  the   kernel
-              readx()  function,  its  use  on  a busy AIX system
-              might cause an application process to hang so  com-
-              pletely  that it can neither be killed nor stopped.
-              I have never seen this happen or had  a  report  of
-              its happening, but I think there is a remote possi-
-              bility it could happen.
-
-              By default use of readx() is disabled.  On  AIX  5L
-              and  above  lsof may need setuid-root permission to
-              perform the actions this option requests.
 
 
 
@@ -1456,6 +1456,17 @@ SunOS 5.9          Last change: Revision-4.87                  22
 Maintenance Procedures                                    LSOF(8)
 
 
+
+              readx()  function,  its  use  on  a busy AIX system
+              might cause an application process to hang so  com-
+              pletely  that it can neither be killed nor stopped.
+              I have never seen this happen or had  a  report  of
+              its happening, but I think there is a remote possi-
+              bility it could happen.
+
+              By default use of readx() is disabled.  On  AIX  5L
+              and  above  lsof may need setuid-root permission to
+              perform the actions this option requests.
 
               The lsof builder may specify that the -X option  be
               restricted to processes whose real UID is root.  If
@@ -1498,17 +1509,6 @@ Maintenance Procedures                                    LSOF(8)
               UDPLITE files, the processing of whose  information
               in  the  /proc/net/tcp*  and  /proc/net/udp*  files
               would take lsof a long time, and whose reporting is
-              not of interest.
-
-              Use this option with care and  only  when  you  are
-              sure  that the information you want lsof to display
-              isn't associated with  open  TCP,  UDP  or  UDPLITE
-              socket files.
-
-         Solaris 10 and above:
-              This Solaris  10  and  above  option  requests  the
-              reporting  of cached paths for files that have been
-              deleted - i.e., removed with rm(1) or unlink(2).
 
 
 
@@ -1522,6 +1522,18 @@ SunOS 5.9          Last change: Revision-4.87                  23
 Maintenance Procedures                                    LSOF(8)
 
 
+
+              not of interest.
+
+              Use this option with care and  only  when  you  are
+              sure  that the information you want lsof to display
+              isn't associated with  open  TCP,  UDP  or  UDPLITE
+              socket files.
+
+         Solaris 10 and above:
+              This Solaris  10  and  above  option  requests  the
+              reporting  of cached paths for files that have been
+              deleted - i.e., removed with rm(1) or unlink(2).
 
               The  cached  path  is  followed   by   the   string
               `` (deleted)''  to  indicate that the path by which
@@ -1563,18 +1575,6 @@ Maintenance Procedures                                    LSOF(8)
               rity  context  name,  Z.   That causes lsof to list
               only open files for processes in that security con-
               text.   Multiple -Z Z option and argument pairs may
-              be specified to form a list of  security  contexts.
-              Any open file of any process in any of the security
-              contexts will be listed, subject  to  other  condi-
-              tions  specified  by  other  options and arguments.
-              Note that Z can be A:B:C or *:B:C or A:B:* or *:*:C
-              to match against the A:B:C context.
-
-     --       The double minus sign option is a marker that  sig-
-              nals the end of the keyed options.  It may be used,
-              for example, when the first file name begins with a
-              minus  sign.   It may also be used when the absence
-              of a value  for  the  last  keyed  option  must  be
 
 
 
@@ -1589,9 +1589,20 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
-              signified  by  the  presence of a minus sign in the
-              following option and before the start of  the  file
-              names.
+              be specified to form a list of  security  contexts.
+              Any open file of any process in any of the security
+              contexts will be listed, subject  to  other  condi-
+              tions  specified  by  other  options and arguments.
+              Note that Z can be A:B:C or *:B:C or A:B:* or *:*:C
+              to match against the A:B:C context.
+
+     --       The double minus sign option is a marker that  sig-
+              nals the end of the keyed options.  It may be used,
+              for example, when the first file name begins with a
+              minus  sign.   It may also be used when the absence
+              of a value for the last keyed option must be signi-
+              fied by the presence of a minus sign in the follow-
+              ing option and before the start of the file names.
 
      names    These are path names of  specific  files  to  list.
               Symbolic  links are resolved before use.  The first
@@ -1630,17 +1641,6 @@ Maintenance Procedures                                    LSOF(8)
               paragraph for an exception to that rule for Linux.)
               Specifying  a  relative  path  -  e.g., ./file - in
               place of the file's absolute path - e.g., /tmp/file
-              - won't work because lsof must match the characters
-              you specify with what it finds in the  kernel  UNIX
-              domain socket structures.
-
-              If a name is a Linux UNIX domain  socket  name,  in
-              one  case lsof is able to search for it by its dev-
-              ice and inode number, allowing name to be  a  rela-
-              tive  path.   The  case  requires that the absolute
-              path -- i.e., one beginning with a slash  ('/')  be
-              used  by  the  process that created the socket, and
-              hence be stored in the /proc/net/unix file; and  it
 
 
 
@@ -1655,6 +1655,17 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+              - won't work because lsof must match the characters
+              you specify with what it finds in the  kernel  UNIX
+              domain socket structures.
+
+              If a name is a Linux UNIX domain  socket  name,  in
+              one  case lsof is able to search for it by its dev-
+              ice and inode number, allowing name to be  a  rela-
+              tive  path.   The  case  requires that the absolute
+              path -- i.e., one beginning with a slash  ('/')  be
+              used  by  the  process that created the socket, and
+              hence be stored in the /proc/net/unix file; and  it
               requires that lsof be able to obtain the device and
               node  numbers  of  both  the   absolute   path   in
               /proc/net/unix and name via successful stat(2) sys-
@@ -1696,17 +1707,6 @@ AFS
      Lsof may have trouble identifying all aspects of  AFS  files
      in supported dialects when AFS kernel support is implemented
      via dynamic modules whose addresses do  not  appear  in  the
-     kernel's variable name list.  In that case, lsof may have to
-     guess at the identity of AFS files, and might not be able to
-     obtain volume information from the kernel that is needed for
-     calculating AFS volume node numbers.  When lsof  can't  com-
-     pute  volume  node  numbers,  it  reports  blank in the NODE
-     column.
-
-     The -A A option is available in some dialect implementations
-     of  lsof  for  specifying  the  name list file where dynamic
-     module kernel addresses may be found.  When this  option  is
-     available,  it  will  be  listed  in  the  lsof help output,
 
 
 
@@ -1721,6 +1721,17 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     kernel's variable name list.  In that case, lsof may have to
+     guess at the identity of AFS files, and might not be able to
+     obtain volume information from the kernel that is needed for
+     calculating AFS volume node numbers.  When lsof  can't  com-
+     pute  volume  node  numbers,  it  reports  blank in the NODE
+     column.
+
+     The -A A option is available in some dialect implementations
+     of  lsof  for  specifying  the  name list file where dynamic
+     module kernel addresses may be found.  When this  option  is
+     available,  it  will  be  listed  in  the  lsof help output,
      presented in response to the -h or -?
 
      See the lsof FAQ (The FAQ section gives its location.)   for
@@ -1762,17 +1773,6 @@ SECURITY
 
      See the Security section of the 00README file  of  the  lsof
      distribution  for  information  on  building  lsof  with the
-     HASSECURITY and HASNOSOCKSECURITY options enabled.
-
-     Creation and use of a user-readable and user-writable device
-     cache  file  is  controlled  by  the  compile-time HASDCACHE
-     option.  See the DEVICE CACHE FILE section and the  sections
-     that  follow  it for details on how its path is formed.  For
-     security considerations it is important to note that in  the
-     default  lsof  distribution, if the real user ID under which
-     lsof is executed is root, the  device  cache  file  will  be
-     written  in  root's home directory - e.g., / or /root.  When
-     HASDCACHE is not defined, lsof does not write or attempt  to
 
 
 
@@ -1787,6 +1787,17 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     HASSECURITY and HASNOSOCKSECURITY options enabled.
+
+     Creation and use of a user-readable and user-writable device
+     cache  file  is  controlled  by  the  compile-time HASDCACHE
+     option.  See the DEVICE CACHE FILE section and the  sections
+     that  follow  it for details on how its path is formed.  For
+     security considerations it is important to note that in  the
+     default  lsof  distribution, if the real user ID under which
+     lsof is executed is root, the  device  cache  file  will  be
+     written  in  root's home directory - e.g., / or /root.  When
+     HASDCACHE is not defined, lsof does not write or attempt  to
      read a device cache file.
 
      When HASDCACHE is defined, the lsof help  output,  presented
@@ -1828,17 +1839,6 @@ OUTPUT
      For some dialects  -  if  HASSETLOCALE  is  defined  in  the
      dialect's  machine.h  header  file  -  lsof  will  print the
      extended 8 bit characters of a language  locale.   The  lsof
-     process must be supplied a language locale environment vari-
-     able (e.g., LANG) whose value represents  a  known  language
-     locale  in  which  the  extended  characters  are considered
-     printable  by  isprint(3).   Otherwise  lsof  considers  the
-     extended  characters non-printable and prints them according
-     to its rules for  non-printable  characters,  stated  above.
-     Consult  your  dialect's setlocale(3) man page for the names
-     of other environment variables that may be used in place  of
-     LANG - e.g., LC_ALL, LC_CTYPE, etc.
-
-
 
 
 
@@ -1852,6 +1852,16 @@ SunOS 5.9          Last change: Revision-4.87                  28
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     process must be supplied a language locale environment vari-
+     able (e.g., LANG) whose value represents  a  known  language
+     locale  in  which  the  extended  characters  are considered
+     printable  by  isprint(3).   Otherwise  lsof  considers  the
+     extended  characters non-printable and prints them according
+     to its rules for  non-printable  characters,  stated  above.
+     Consult  your  dialect's setlocale(3) man page for the names
+     of other environment variables that may be used in place  of
+     LANG - e.g., LC_ALL, LC_CTYPE, etc.
 
      Lsof's language locale support for  a  dialect  also  covers
      wide  characters  -  e.g.,  UTF-8  -  when  HASSETLOCALE and
@@ -1895,16 +1905,6 @@ Maintenance Procedures                                    LSOF(8)
                 process.
 
                 All command name  characters  maintained  by  the
-                kernel  in  its structures are displayed in field
-                output when the command name descriptor (`c')  is
-                specified.   See  the  OUTPUT  FOR OTHER COMMANDS
-                section for information on selecting field output
-                and the associated command name descriptor.
-
-     PID        is the Process IDentification number of the  pro-
-                cess.
-
-     TID        is the task (thread)  IDentification  number,  if
 
 
 
@@ -1919,6 +1919,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                kernel  in  its structures are displayed in field
+                output when the command name descriptor (`c')  is
+                specified.   See  the  OUTPUT  FOR OTHER COMMANDS
+                section for information on selecting field output
+                and the associated command name descriptor.
+
+     PID        is the Process IDentification number of the  pro-
+                cess.
+
+     TID        is the task (thread)  IDentification  number,  if
                 task  (thread)  reporting  is  supported  by  the
                 dialect and a task (thread) is being listed.  (If
                 help  output  -  i.e., the output of the -h or -?
@@ -1961,16 +1971,6 @@ Maintenance Procedures                                    LSOF(8)
 
                      cwd  current working directory;
                      Lnn  library references (AIX);
-                     err  FD information error (see NAME column);
-                     jld  jail directory (FreeBSD);
-                     ltx  shared library text (code and data);
-                     Mxx  hex memory-mapped type number xx.
-                     m86  DOS Merge mapped file;
-                     mem  memory-mapped file;
-                     mmap memory-mapped device;
-                     pd   parent directory;
-                     rtd  root directory;
-                     tr   kernel trace file (OpenBSD);
 
 
 
@@ -1985,6 +1985,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                     err  FD information error (see NAME column);
+                     jld  jail directory (FreeBSD);
+                     ltx  shared library text (code and data);
+                     Mxx  hex memory-mapped type number xx.
+                     m86  DOS Merge mapped file;
+                     mem  memory-mapped file;
+                     mmap memory-mapped device;
+                     pd   parent directory;
+                     rtd  root directory;
+                     tr   kernel trace file (OpenBSD);
                      txt  program text (code and data);
                      v86  VP/ix mapped file;
 
@@ -2027,16 +2037,6 @@ Maintenance Procedures                                    LSOF(8)
 
                 or ``IPv4'' for an IPv4 socket;
 
-                or ``IPv6'' for an open IPv6 network file -  even
-                if  its  address  is  IPv4,  mapped  in  an  IPv6
-                address;
-
-                or ``ax25'' for a Linux AX.25 socket;
-
-                or ``inet'' for an Internet domain socket;
-
-                or ``lla'' for a HP-UX link level access file;
-
 
 
 
@@ -2050,6 +2050,16 @@ SunOS 5.9          Last change: Revision-4.87                  31
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or ``IPv6'' for an open IPv6 network file -  even
+                if  its  address  is  IPv4,  mapped  in  an  IPv6
+                address;
+
+                or ``ax25'' for a Linux AX.25 socket;
+
+                or ``inet'' for an Internet domain socket;
+
+                or ``lla'' for a HP-UX link level access file;
 
                 or ``rte'' for an AF_ROUTE socket;
 
@@ -2094,16 +2104,6 @@ Maintenance Procedures                                    LSOF(8)
 
                 or ``PCTL'' for a /proc control file;
 
-                or ``PCUR'' for the current /proc process;
-
-                or ``PCWD'' for a /proc  current  working  direc-
-                tory;
-
-                or ``PDIR'' for a /proc directory;
-
-                or ``PETY'' for a /proc executable type (etype);
-
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  32
@@ -2116,6 +2116,15 @@ SunOS 5.9          Last change: Revision-4.87                  32
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or ``PCUR'' for the current /proc process;
+
+                or ``PCWD'' for a /proc  current  working  direc-
+                tory;
+
+                or ``PDIR'' for a /proc directory;
+
+                or ``PETY'' for a /proc executable type (etype);
 
                 or ``PFD'' for a /proc file descriptor;
 
@@ -2160,15 +2169,6 @@ Maintenance Procedures                                    LSOF(8)
 
                 or ``PNTF'' for a /proc process notifier file;
 
-                or ``POBJ'' for a /proc/object file;
-
-                or ``PODR'' for a /proc/object directory;
-
-                or ``POLP'' for an old format /proc light  weight
-                process file;
-
-                or ``POPF'' for an old format /proc PID file;
-
 
 
 
@@ -2182,6 +2182,15 @@ SunOS 5.9          Last change: Revision-4.87                  33
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or ``POBJ'' for a /proc/object file;
+
+                or ``PODR'' for a /proc/object directory;
+
+                or ``POLP'' for an old format /proc light  weight
+                process file;
+
+                or ``POPF'' for an old format /proc PID file;
 
                 or ``POPG'' for an old  format  /proc  page  data
                 file;
@@ -2227,15 +2236,6 @@ Maintenance Procedures                                    LSOF(8)
                 or ``XSD'' for an OpenServer  Xenix  shared  data
                 file;
 
-                or the four type number octets if the correspond-
-                ing name isn't known.
-
-     FILE-ADDR  contains the kernel file structure address when f
-                has been specified to +f;
-
-     FCT        contains the file reference count from the kernel
-                file structure when c has been specified to +f;
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  34
@@ -2248,6 +2248,15 @@ SunOS 5.9          Last change: Revision-4.87                  34
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or the four type number octets if the correspond-
+                ing name isn't known.
+
+     FILE-ADDR  contains the kernel file structure address when f
+                has been specified to +f;
+
+     FCT        contains the file reference count from the kernel
+                file structure when c has been specified to +f;
 
      FILE-FLAG  when g or G has been specified to +f, this  field
                 contains  the contents of the f_flag[s] member of
@@ -2292,15 +2301,6 @@ Maintenance Procedures                                    LSOF(8)
                      KERN      kernel
                      KIOC      kernel-issued ioctl
                      LCK       has lock
-                     LG        large file
-                     MBLK      stream message block
-                     MK        mark
-                     MNT       mount
-                     MSYN      multiplex synchronization
-                     NATM      don't update atime
-                     NB        non-blocking I/O
-                     NBDR      no BDRM check
-                     NBIO      SYSV non-blocking I/O
 
 
 
@@ -2315,6 +2315,15 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                     LG        large file
+                     MBLK      stream message block
+                     MK        mark
+                     MNT       mount
+                     MSYN      multiplex synchronization
+                     NATM      don't update atime
+                     NB        non-blocking I/O
+                     NBDR      no BDRM check
+                     NBIO      SYSV non-blocking I/O
                      NBF       n-buffering in effect
                      NC        no cache
                      ND        no delay
@@ -2358,15 +2367,6 @@ Maintenance Procedures                                    LSOF(8)
                 in dialect header files <fcntl.h>, <linux</fs.h>,
                 <sys/fcntl.c>,       <sys/fcntlcom.h>,        and
                 <sys/file.h>;  see  the  lsof.h header file for a
-                list showing the correspondence between the above
-                short-hand names and the header file definitions;
-
-                the second list (after the semicolon) may contain
-                short-hand names for kernel per-process open file
-                flags from this table:
-
-
-                     ALLC      allocated
 
 
 
@@ -2381,6 +2381,15 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                list showing the correspondence between the above
+                short-hand names and the header file definitions;
+
+                the second list (after the semicolon) may contain
+                short-hand names for kernel per-process open file
+                flags from this table:
+
+
+                     ALLC      allocated
                      BR        the file has been read
                      BHUP      activity stopped by SIGHUP
                      BW        the file has been written
@@ -2424,15 +2433,6 @@ Maintenance Procedures                                    LSOF(8)
                 bytes.   A value is displayed in this column only
                 if it is available.  Lsof displays whatever value
                 - size or offset - is appropriate for the type of
-                the file and the version of lsof.
-
-                On some UNIX dialects lsof can't obtain  accurate
-                or  consistent  file  offset information from its
-                kernel data sources, sometimes just for  particu-
-                lar  kinds  of  files  (e.g.,  socket files.)  In
-                other cases, files don't have true sizes -  e.g.,
-                sockets,  FIFOs,  pipes  -  so  lsof displays for
-                their sizes the content amounts it finds in their
 
 
 
@@ -2447,6 +2447,15 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                the file and the version of lsof.
+
+                On some UNIX dialects lsof can't obtain  accurate
+                or  consistent  file  offset information from its
+                kernel data sources, sometimes just for  particu-
+                lar  kinds  of  files  (e.g.,  socket files.)  In
+                other cases, files don't have true sizes -  e.g.,
+                sockets,  FIFOs,  pipes  -  so  lsof displays for
+                their sizes the content amounts it finds in their
                 kernel  buffer  descriptors  (e.g., socket buffer
                 size counts or TCP/IP window sizes.)  Consult the
                 lsof  FAQ  (The  FAQ section gives its location.)
@@ -2491,15 +2500,6 @@ Maintenance Procedures                                    LSOF(8)
 
      NODE       is the node number of a local file;
 
-                or the inode number of an NFS file in the  server
-                host;
-
-                or the Internet protocol type - e. g, ``TCP'';
-
-                or ``STR'' for a stream;
-
-                or ``CCITT'' for an HP-UX x.25 socket;
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  38
@@ -2512,6 +2512,15 @@ SunOS 5.9          Last change: Revision-4.87                  38
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or the inode number of an NFS file in the  server
+                host;
+
+                or the Internet protocol type - e. g, ``TCP'';
+
+                or ``STR'' for a stream;
+
+                or ``CCITT'' for an HP-UX x.25 socket;
 
                 or the IRQ or  inode  number  of  a  Linux  AX.25
                 socket device.
@@ -2557,15 +2566,6 @@ Maintenance Procedures                                    LSOF(8)
                 or the local and remote mount point names  of  an
                 NFS file;
 
-                or ``STR'', followed by the stream name;
-
-                or a stream character device  name,  followed  by
-                ``->''  and  the  stream name or a list of stream
-                module names, separated by ``->'';
-
-                or ``STR:'' followed by the SCO OpenServer stream
-                device and module names, separated by ``->'';
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  39
@@ -2578,6 +2578,15 @@ SunOS 5.9          Last change: Revision-4.87                  39
 Maintenance Procedures                                    LSOF(8)
 
 
+
+                or ``STR'', followed by the stream name;
+
+                or a stream character device  name,  followed  by
+                ``->''  and  the  stream name or a list of stream
+                module names, separated by ``->'';
+
+                or ``STR:'' followed by the SCO OpenServer stream
+                device and module names, separated by ``->'';
 
                 or system directory name, `` -- '', and  as  many
                 components  of  the path name as lsof can find in
@@ -2622,15 +2631,6 @@ Maintenance Procedures                                    LSOF(8)
                 receiving on the socket has been disabled  (e.g.,
                 by the shutdown(2) function);
 
-                or the local and remote addresses of a Linux  IPX
-                socket  file  in  the form <net>:[<node>:]<port>,
-                followed  in  parentheses  by  the  transmit  and
-                receive queue sizes, and the connection state;
-
-                or ``dgram'' or ``stream'' for the type  UnixWare
-                7.1.1  and  above  in-kernel UNIX domain sockets,
-                followed by a colon (':') and the local path name
-                when available, followed by ``->'' and the remote
 
 
 
@@ -2645,12 +2645,24 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+                or the local and remote addresses of a Linux  IPX
+                socket  file  in  the form <net>:[<node>:]<port>,
+                followed  in  parentheses  by  the  transmit  and
+                receive queue sizes, and the connection state;
+
+                or ``dgram'' or ``stream'' for the type  UnixWare
+                7.1.1  and  above  in-kernel UNIX domain sockets,
+                followed by a colon (':') and the local path name
+                when available, followed by ``->'' and the remote
                 path name or kernel socket address in hexadecimal
                 when available;
 
                 or the association value, association index, end-
                 point  value,  local  address, local port, remote
-                address and remote port for Linux SCTP sockets.
+                address and remote port for Linux SCTP sockets;
+
+                or ``protocol: '' followed by the Linux  socket's
+                protocol attribute.
 
      For dialects that support a ``namefs'' file system, allowing
      one  file  to  be attached to another with fattach(3C), lsof
@@ -2684,18 +2696,6 @@ LOCKS
      `x' - rather than the upper case equivalent reported  for  a
      full file lock.
 
-     Generally lsof can  only  report  on  locks  held  by  local
-     processes  on local files.  When a local process sets a lock
-     on a remotely mounted (e.g., NFS) file,  the  remote  server
-     host  usually  records  the  lock  state.   One exception is
-     Solaris - at some patch levels of 2.3, and in  all  versions
-     above  2.4, the Solaris kernel records information on remote
-     locks in local structures.
-
-     Lsof has trouble reporting locks  for  some  UNIX  dialects.
-     Consult the BUGS section of this manual page or the lsof FAQ
-     (The FAQ section gives its location.)  for more information.
-
 
 
 
@@ -2710,6 +2710,18 @@ SunOS 5.9          Last change: Revision-4.87                  41
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     Generally lsof can  only  report  on  locks  held  by  local
+     processes  on local files.  When a local process sets a lock
+     on a remotely mounted (e.g., NFS) file,  the  remote  server
+     host  usually  records  the  lock  state.   One exception is
+     Solaris - at some patch levels of 2.3, and in  all  versions
+     above  2.4, the Solaris kernel records information on remote
+     locks in local structures.
+
+     Lsof has trouble reporting locks  for  some  UNIX  dialects.
+     Consult the BUGS section of this manual page or the lsof FAQ
+     (The FAQ section gives its location.)  for more information.
 
 OUTPUT FOR OTHER PROGRAMS
      When the -F option is specified, lsof produces  output  that
@@ -2752,18 +2764,6 @@ OUTPUT FOR OTHER PROGRAMS
      of  the  field  character - e.g., ``-FR'' - also selects the
      listing of the item.
 
-     It is entirely possible to select a set of fields that  can-
-     not  easily  be parsed - e.g., if the field descriptor field
-     is not selected, it may be difficult to identify file  sets.
-     To  help  you  avoid  this  difficulty, lsof supports the -F
-     option; it selects the output of all fields with NL termina-
-     tors  (the  -F0 option pair selects the output of all fields
-     with NUL terminators).  For compatibility reasons neither -F
-     nor -F0 select the raw device field.
-
-     These are the fields that lsof  will  produce.   The  single
-     character listed first is the field identifier.
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  42
@@ -2776,6 +2776,18 @@ SunOS 5.9          Last change: Revision-4.87                  42
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     It is entirely possible to select a set of fields that  can-
+     not  easily  be parsed - e.g., if the field descriptor field
+     is not selected, it may be difficult to identify file  sets.
+     To  help  you  avoid  this  difficulty, lsof supports the -F
+     option; it selects the output of all fields with NL termina-
+     tors  (the  -F0 option pair selects the output of all fields
+     with NUL terminators).  For compatibility reasons neither -F
+     nor -F0 select the raw device field.
+
+     These are the fields that lsof  will  produce.   The  single
+     character listed first is the field identifier.
 
           a    file access mode
           c    process command name (all characters from proc or
@@ -2817,18 +2829,6 @@ Maintenance Procedures                                    LSOF(8)
                  UNIX dialects. The -h or -? help output for the
                  -T option will show what TCP/TPI reporting can be
                  requested.)
-          u    process user ID
-          z    Solaris 10 and higher zone name
-          Z    SELinux security context (inhibited when SELinux is disabled)
-          0    use NUL field terminator character in place of NL
-          1-9  dialect-specific field identifiers (The output
-               of -F? identifies the information to be found
-               in dialect-specific fields.)
-
-     You can get on-line help information on these characters and
-     their  descriptions  by  specifying  the  -F?  option  pair.
-     (Escape the `?' character as your  shell  requires.)   Addi-
-     tional  information  on  field  content  can be found in the
 
 
 
@@ -2843,7 +2843,19 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
-     OUTPUT section.
+          u    process user ID
+          z    Solaris 10 and higher zone name
+          Z    SELinux security context (inhibited when SELinux is disabled)
+          0    use NUL field terminator character in place of NL
+          1-9  dialect-specific field identifiers (The output
+               of -F? identifies the information to be found
+               in dialect-specific fields.)
+
+     You can get on-line help information on these characters and
+     their  descriptions  by  specifying  the  -F?  option  pair.
+     (Escape the `?' character as your  shell  requires.)   Addi-
+     tional information on field content can be found in the OUT-
+     PUT section.
 
      As an example, ``-F pcfn'' will select the process ID (`p'),
      command  name  (`c'),  file  descriptor  (`f') and file name
@@ -2883,18 +2895,6 @@ Maintenance Procedures                                    LSOF(8)
      The  test  suite  is  written  in C and uses field output to
      validate the correct operation of lsof.  The library can  be
      found  in  the  tests/LTlib.c file of the lsof distribution.
-     The library uses the first  aid,  the  lsof_fields.h  header
-     file.
-
-BLOCKS AND TIMEOUTS
-     Lsof can be blocked by some kernel functions that it uses  -
-     lstat(2),  readlink(2),  and  stat(2).   These functions are
-     stalled in the kernel, for example,  when  the  hosts  where
-     mounted NFS file systems reside become inaccessible.
-
-     Lsof attempts to break these blocks with  timers  and  child
-     processes, but the techniques are not wholly reliable.  When
-     lsof does manage to break a block, it will report the  break
 
 
 
@@ -2909,6 +2909,18 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     The library uses the first  aid,  the  lsof_fields.h  header
+     file.
+
+BLOCKS AND TIMEOUTS
+     Lsof can be blocked by some kernel functions that it uses  -
+     lstat(2),  readlink(2),  and  stat(2).   These functions are
+     stalled in the kernel, for example,  when  the  hosts  where
+     mounted NFS file systems reside become inaccessible.
+
+     Lsof attempts to break these blocks with  timers  and  child
+     processes, but the techniques are not wholly reliable.  When
+     lsof does manage to break a block, it will report the  break
      with  an error message.  The messages may be suppressed with
      the -t and -w options.
 
@@ -2949,18 +2961,6 @@ AVOIDING KERNEL BLOCKS
      numbers for the file systems that have alternates, its abil-
      ity to locate files on file systems  depends  completely  on
      the  availability  and  accuracy  of  the alternates.  If no
-     alternates are available,  or  if  they're  incorrect,  lsof
-     won't be able to locate files on the named file systems.
-
-     Third, if the names of your  file  system  directories  that
-     lsof  obtains  from  your  system's mount table are symbolic
-     links, lsof won't be able to resolve  the  links.   This  is
-     because  the  -b  option  causes  lsof  to  avoid the kernel
-     readlink(2) function it uses to resolve symbolic links.
-
-     Finally, using the -b option causes lsof  to  issue  warning
-     messages  when it needs to use the kernel functions that the
-     -b option directs it  to  avoid.   You  can  suppress  these
 
 
 
@@ -2975,9 +2975,21 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
-     messages  by  specifying  the  -w option, but if you do, you
-     won't see the alternate device numbers reported in the warn-
-     ing messages.
+     alternates are available,  or  if  they're  incorrect,  lsof
+     won't be able to locate files on the named file systems.
+
+     Third, if the names of your  file  system  directories  that
+     lsof  obtains  from  your  system's mount table are symbolic
+     links, lsof won't be able to resolve  the  links.   This  is
+     because  the  -b  option  causes  lsof  to  avoid the kernel
+     readlink(2) function it uses to resolve symbolic links.
+
+     Finally, using the -b option causes lsof  to  issue  warning
+     messages  when it needs to use the kernel functions that the
+     -b option directs it to avoid.  You can suppress these  mes-
+     sages  by specifying the -w option, but if you do, you won't
+     see the alternate device numbers  reported  in  the  warning
+     messages.
 
 ALTERNATE DEVICE NUMBERS
      On some dialects, when lsof has to break a block because  it
@@ -3015,18 +3027,6 @@ ALTERNATE DEVICE NUMBERS
      mount  table  file,  especially  for  file  systems that are
      mounted from remote  NFS  servers.   When  a  remote  server
      crashes  and  you want to identify its users by running lsof
-     on one of its clients, lsof probably won't be  able  to  get
-     output  from the lstat(2) and stat(2) functions for the file
-     system.  If it can obtain the file  system's  device  number
-     from  the  mount table, it will be able to display the files
-     open on the crashed NFS server.
-
-     Some  dialects  that  do  not  use  an  ASCII  /etc/mtab  or
-     /etc/mnttab  file  for  the mount table may still provide an
-     alternative device number in their  internal  mount  tables.
-     This  includes  AIX, Apple Darwin, FreeBSD, NetBSD, OpenBSD,
-     and Tru64 UNIX.  Lsof knows how to  obtain  the  alternative
-     device  number  for  these  dialects  and  uses  it when its
 
 
 
@@ -3041,6 +3041,18 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     on one of its clients, lsof probably won't be  able  to  get
+     output  from the lstat(2) and stat(2) functions for the file
+     system.  If it can obtain the file  system's  device  number
+     from  the  mount table, it will be able to display the files
+     open on the crashed NFS server.
+
+     Some  dialects  that  do  not  use  an  ASCII  /etc/mtab  or
+     /etc/mnttab  file  for  the mount table may still provide an
+     alternative device number in their  internal  mount  tables.
+     This  includes  AIX, Apple Darwin, FreeBSD, NetBSD, OpenBSD,
+     and Tru64 UNIX.  Lsof knows how to  obtain  the  alternative
+     device  number  for  these  dialects  and  uses  it when its
      attempt to lstat(2) or stat(2) the file system is blocked.
 
      If you're not sure your dialect  supplies  alternate  device
@@ -3081,18 +3093,6 @@ KERNEL NAME CACHE
      uses  device and node number as a key (e.g., SCO OpenServer)
      and a key on a rapidly changing file system is  reused.   If
      the UNIX dialect's kernel doesn't purge the name cache entry
-     for a file when it is unlinked, lsof may find a reference to
-     the wrong entry in the cache.  The lsof FAQ (The FAQ section
-     gives its location.)  has more information  on  this  situa-
-     tion.
-
-     Lsof can report path name components for these dialects:
-
-          FreeBSD
-          HP-UX
-          Linux
-          NetBSD
-          NEXTSTEP
 
 
 
@@ -3107,6 +3107,18 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     for a file when it is unlinked, lsof may find a reference to
+     the wrong entry in the cache.  The lsof FAQ (The FAQ section
+     gives its location.)  has more information  on  this  situa-
+     tion.
+
+     Lsof can report path name components for these dialects:
+
+          FreeBSD
+          HP-UX
+          Linux
+          NetBSD
+          NEXTSTEP
           OpenBSD
           OPENSTEP
           SCO OpenServer
@@ -3146,19 +3158,7 @@ DEVICE CACHE FILE
      lists the default read-mode device cache file path  that  is
      in  effect  for  the  current  invocation  of lsof.  The -D?
      option output lists the read-only  and  write  device  cache
-     file  paths,  the  names of any applicable environment vari-
-     ables, and the personal device cache path format.
-
-     Lsof can detect that the current device cache file has  been
-     accidentally  or  maliciously  modified by integrity checks,
-     including the computation and verification of a sixteen  bit
-     Cyclic  Redundancy  Check  (CRC) sum on the file's contents.
-     When lsof senses something wrong with the file, it issues  a
-     warning  and  attempts  to remove the current cache file and
-     create a new copy, but only to a path that the  process  can
-     legitimately write.
-
-
+     file   paths,   the  names  of  any  applicable  environment
 
 
 
@@ -3172,6 +3172,17 @@ SunOS 5.9          Last change: Revision-4.87                  48
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     variables, and the personal device cache path format.
+
+     Lsof can detect that the current device cache file has  been
+     accidentally  or  maliciously  modified by integrity checks,
+     including the computation and verification of a sixteen  bit
+     Cyclic  Redundancy  Check  (CRC) sum on the file's contents.
+     When lsof senses something wrong with the file, it issues  a
+     warning  and  attempts  to remove the current cache file and
+     create a new copy, but only to a path that the  process  can
+     legitimately write.
 
      The path from which a lsof process may  attempt  to  read  a
      device  cache  file may not be the same as the path to which
@@ -3215,17 +3226,6 @@ LSOF PERMISSIONS THAT AFFECT DEVICE CACHE FILE ACCESS
      (GID) of the lsof process is set to one that can access ker-
      nel memory devices - e.g., ``kmem'', ``sys'', or ``system''.
 
-     An  lsof  process  that  has   setgid   permission   usually
-     surrenders  the  permission after it has accessed the kernel
-     memory devices.  When it does  that,  lsof  can  allow  more
-     liberal device cache path formations.  The lsof distribution
-     recommends that versions for these dialects run  setgid  and
-     be allowed to surrender setgid permission.
-
-          AIX 5.[12] and 5.3-ML1
-          Apple Darwin 7.x Power Macintosh systems
-          FreeBSD 4.x, 4.1x, 5.x and [6789].x for x86-based systems
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  49
@@ -3239,6 +3239,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     An  lsof  process  that  has   setgid   permission   usually
+     surrenders  the  permission after it has accessed the kernel
+     memory devices.  When it does  that,  lsof  can  allow  more
+     liberal device cache path formations.  The lsof distribution
+     recommends that versions for these dialects run  setgid  and
+     be allowed to surrender setgid permission.
+
+          AIX 5.[12] and 5.3-ML1
+          Apple Darwin 7.x Power Macintosh systems
+          FreeBSD 4.x, 4.1x, 5.x and [6789].x for x86-based systems
           FreeBSD 5.x and [6789].x for Alpha, AMD64 and Sparc64-based
               systems
           HP-UX 11.00
@@ -3281,16 +3291,6 @@ DEVICE CACHE FILE PATH FROM THE -D OPTION
      CACHE FILE ACCESS section for a list of implementations that
      normally don't surrender their setgid permission.)
 
-     A further -D function, i (for ignore), is always available.
-
-     When available, the b function tells  lsof  to  read  device
-     information  from  the  kernel with the stat(2) function and
-     build a device cache file at the indicated path.
-
-     When available, the r function tells lsof to read the device
-     cache  file, but not update it.  When a path argument accom-
-     panies -Dr, it names the device  cache  file  path.   The  r
-     function  is always available when it is specified without a
 
 
 
@@ -3305,6 +3305,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     A further -D function, i (for ignore), is always available.
+
+     When available, the b function tells  lsof  to  read  device
+     information  from  the  kernel with the stat(2) function and
+     build a device cache file at the indicated path.
+
+     When available, the r function tells lsof to read the device
+     cache  file, but not update it.  When a path argument accom-
+     panies -Dr, it names the device  cache  file  path.   The  r
+     function  is always available when it is specified without a
      path name argument.  If lsof is not running setuid-root  and
      surrenders  its  setgid permission, a path name argument may
      accompany the r function.
@@ -3347,16 +3357,6 @@ SYSTEM-WIDE DEVICE CACHE PATH
      You can tell that a system-wide  device  cache  file  is  in
      effect  for  your  local  installation by examining the lsof
      help option output - i.e., the output  from  the  -h  or  -?
-     option.
-
-     Lsof will never write to the system-wide device  cache  file
-     path  by  default.   It  must  be explicitly named with a -D
-     function in a root-owned procedure.  Once the file has  been
-     written,  the  procedure must change its permission modes to
-     0644   (owner-read   and   owner-write,   group-read,    and
-     other-read).
-
-
 
 
 
@@ -3370,6 +3370,15 @@ SunOS 5.9          Last change: Revision-4.87                  51
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     option.
+
+     Lsof will never write to the system-wide device  cache  file
+     path  by  default.   It  must  be explicitly named with a -D
+     function in a root-owned procedure.  Once the file has  been
+     written,  the  procedure must change its permission modes to
+     0644   (owner-read   and   owner-write,   group-read,    and
+     other-read).
 
 PERSONAL DEVICE CACHE PATH (DEFAULT)
      The default device cache file path of the lsof  distribution
@@ -3414,15 +3423,6 @@ PERSONAL DEVICE CACHE PATH (DEFAULT)
 MODIFIED PERSONAL DEVICE CACHE PATH
      If this option is defined by the local system  administrator
      when  lsof is built, the LSOFPERSDCPATH environment variable
-     contents may be used to add a component of the personal dev-
-     ice cache file path.
-
-     The LSOFPERSDCPATH variable contents  are  inserted  in  the
-     path  at  the place marked by the local system administrator
-     with the ``%p'' conversion in the HASPERSDC format  specifi-
-     cation of the dialect's machine.h header file.  (It's placed
-     right after the home directory in the default lsof distribu-
-     tion.)
 
 
 
@@ -3436,6 +3436,16 @@ SunOS 5.9          Last change: Revision-4.87                  52
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     contents may be used to add a component of the personal dev-
+     ice cache file path.
+
+     The LSOFPERSDCPATH variable contents  are  inserted  in  the
+     path  at  the place marked by the local system administrator
+     with the ``%p'' conversion in the HASPERSDC format  specifi-
+     cation of the dialect's machine.h header file.  (It's placed
+     right after the home directory in the default lsof distribu-
+     tion.)
 
      Thus, for example, if LSOFPERSDCPATH contains ``LSOF'',  the
      home   directory   is   ``/Homes/abe'',  the  host  name  is
@@ -3480,16 +3490,6 @@ DIAGNOSTICS
      UIDs  it  was asked to list.  If the -V option is specified,
      lsof will indicate the search items it failed to list.
 
-     It returns a zero (0) if no errors were detected and  if  it
-     was  able  to  list some information about all the specified
-     search arguments.
-
-     When lsof cannot open access to /dev (or /devices) or one of
-     its  subdirectories,  or  get  information on a file in them
-     with stat(2), it issues a  warning  message  and  continues.
-     That  lsof  will  issue  warning messages about inaccessible
-     files in /dev (or /devices) is indicated in its help  output
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  53
@@ -3503,6 +3503,15 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     It returns a zero (0) if no errors were detected and  if  it
+     was  able  to  list some information about all the specified
+     search arguments.
+
+     When lsof cannot open access to /dev (or /devices) or one of
+     its  subdirectories,  or  get  information on a file in them
+     with stat(2), it issues a  warning  message  and  continues.
+     That  lsof  will  issue  warning messages about inaccessible
+     files in /dev (or /devices) is indicated in its help  output
      -  requested  with the -h or >B -?  options -  with the mes-
      sage:
 
@@ -3547,15 +3556,6 @@ EXAMPLES
 
           lsof -i @wonderland.cc.purdue.edu:513-515
 
-     To list  all  files  using  any  protocol  on  any  port  of
-     mace.cc.purdue.edu  (cc.purdue.edu  is  the default domain),
-     use:
-
-          lsof -i @mace
-
-     To list all open files for login name ``abe'',  or  user  ID
-     1234, or process 456, or process 123, or process 789, use:
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  54
@@ -3568,6 +3568,15 @@ SunOS 5.9          Last change: Revision-4.87                  54
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     To list  all  files  using  any  protocol  on  any  port  of
+     mace.cc.purdue.edu  (cc.purdue.edu  is  the default domain),
+     use:
+
+          lsof -i @mace
+
+     To list all open files for login name ``abe'',  or  user  ID
+     1234, or process 456, or process 123, or process 789, use:
 
           lsof -p 456,123,789 -u 1234,abe
 
@@ -3611,16 +3620,7 @@ Maintenance Procedures                                    LSOF(8)
 
           lsof -FpcfDi
 
-     To list the files at descriptors 1 and 3  of  every  process
-     running  the  lsof  command  for  login  ID ``abe'' every 10
-     seconds, use:
 
-          lsof -c lsof -a -d 1 -d 3 -u abe -r10
-
-     To list the current working directory of processes running a
-     command  that is exactly four characters long and has an 'o'
-     or 'O' in character three, use this regular expression  form
-     of the -c c option:
 
 
 
@@ -3634,6 +3634,17 @@ SunOS 5.9          Last change: Revision-4.87                  55
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     To list the files at descriptors 1 and 3  of  every  process
+     running  the  lsof  command  for  login  ID ``abe'' every 10
+     seconds, use:
+
+          lsof -c lsof -a -d 1 -d 3 -u abe -r10
+
+     To list the current working directory of processes running a
+     command  that is exactly four characters long and has an 'o'
+     or 'O' in character three, use this regular expression  form
+     of the -c c option:
 
           lsof -c /^..o.$/i -a -d cwd
 
@@ -3675,17 +3686,6 @@ BUGS
      individual  record locks that might be described by multiple
      lock structures.
 
-     Lsof can't search for files with restrictive access  permis-
-     sions  by name unless it is installed with root set-UID per-
-     mission.  Otherwise it is limited to searching for files  to
-     which its user or its set-GID group (if any) has access per-
-     mission.
-
-     The display of the  destination  address  of  a  raw  socket
-     (e.g., for ping) depends on the UNIX operating system.  Some
-     dialects store the destination address in the  raw  socket's
-     protocol control block, some do not.
-
 
 
 
@@ -3700,6 +3700,17 @@ SunOS 5.9          Last change: Revision-4.87                  56
 Maintenance Procedures                                    LSOF(8)
 
 
+
+     Lsof can't search for files with restrictive access  permis-
+     sions  by name unless it is installed with root set-UID per-
+     mission.  Otherwise it is limited to searching for files  to
+     which its user or its set-GID group (if any) has access per-
+     mission.
+
+     The display of the  destination  address  of  a  raw  socket
+     (e.g., for ping) depends on the UNIX operating system.  Some
+     dialects store the destination address in the  raw  socket's
+     protocol control block, some do not.
 
      Lsof can't always represent Solaris device  numbers  in  the
      same  way that ls(1) does.  For example, the major and minor
@@ -3742,17 +3753,6 @@ Maintenance Procedures                                    LSOF(8)
      Linux  lsof,  because it doesn't read kernel structures from
      kernel memory.
 
-ENVIRONMENT
-     Lsof may access these environment variables.
-
-     LANG              defines a  language  locale.   See  setlo-
-                       cale(3)  for  the names of other variables
-                       that can be used in place of LANG -  e.g.,
-                       LC_ALL, LC_TYPE, etc.
-
-     LSOFDEVCACHE      defines the path to a device  cache  file.
-                       See the DEVICE CACHE PATH FROM AN ENVIRON-
-                       MENT    VARIABLE    section    for    more
 
 
 
@@ -3767,7 +3767,18 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
-                       information.
+ENVIRONMENT
+     Lsof may access these environment variables.
+
+     LANG              defines a  language  locale.   See  setlo-
+                       cale(3)  for  the names of other variables
+                       that can be used in place of LANG -  e.g.,
+                       LC_ALL, LC_TYPE, etc.
+
+     LSOFDEVCACHE      defines the path to a device  cache  file.
+                       See the DEVICE CACHE PATH FROM AN ENVIRON-
+                       MENT VARIABLE section  for  more  informa-
+                       tion.
 
      LSOFPERSDCPATH    defines the middle component of a modified
                        personal  device cache file path.  See the
@@ -3809,17 +3820,6 @@ DISTRIBUTION
 
           ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 
-     Lsof  is  also  mirrored   elsewhere.    When   you   access
-     lsof.itap.purdue.edu  and  change to its pub/tools/unix/lsof
-     directory, you'll be given a list of some mirror sites.  The
-     pub/tools/unix/lsof  directory also contains a more complete
-     list in its mirrors file.  Use mirrors with  caution  -  not
-     all mirrors always have the latest lsof revision.
-
-     Some  pre-compiled  Lsof  executables   are   available   on
-     lsof.itap.purdue.edu,  but  their  use is discouraged - it's
-     better that you build your own from  the  sources.   If  you
-
 
 
 SunOS 5.9          Last change: Revision-4.87                  58
@@ -3833,6 +3833,16 @@ Maintenance Procedures                                    LSOF(8)
 
 
 
+     Lsof  is  also  mirrored   elsewhere.    When   you   access
+     lsof.itap.purdue.edu  and  change to its pub/tools/unix/lsof
+     directory, you'll be given a list of some mirror sites.  The
+     pub/tools/unix/lsof  directory also contains a more complete
+     list in its mirrors file.  Use mirrors with  caution  -  not
+     all mirrors always have the latest lsof revision.
+
+     Some  pre-compiled  Lsof  executables   are   available   on
+     lsof.itap.purdue.edu,  but  their  use is discouraged - it's
+     better that you build your own from  the  sources.   If  you
      feel you must use a pre-compiled executable, please read the
      cautions  that  appear  in   the   README   files   of   the
      pub/tools/unix/lsof/binaries  subdirectories  and in the 00*
@@ -3853,16 +3863,6 @@ SEE ALSO
      lstat(2),  modload(8),  mount(8),  netstat(1),   ofiles(8L),
      perl(1),    ps(1),   readlink(2),   setlocale(3),   stat(2),
      strftime(3), time(2), uname(1).
-
-
-
-
-
-
-
-
-
-
 
 
 

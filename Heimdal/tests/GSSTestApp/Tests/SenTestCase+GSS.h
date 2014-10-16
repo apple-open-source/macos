@@ -14,6 +14,6 @@
 - (void)STCDestroyCredential:(gss_OID)mech;
 - (gss_cred_id_t)STCAcquireCredential:(NSString *)name withPassword:(NSString *)password mech:(gss_OID)mech;
 - (BOOL)STCAuthenticate:(gss_cred_id_t)cred nameType:(gss_OID)nameType toServer:(NSString *)serverName;
-- (void)STCOutput:(NSString *)output;
+- (void)STCOutput:(NSString *)output, ... NS_FORMAT_FUNCTION(1,2);
 
 @end

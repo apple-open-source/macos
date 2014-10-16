@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved. 
+ * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 	const char * url = NULL;
 	int version = SMBFrameworkVersion();
 
-	while ((opt = getopt(argc, argv, "Nvhd:f:o:")) != -1) {
+	while ((opt = getopt(argc, argv, "Nvhsd:f:o:")) != -1) {
 		switch (opt) {
 		    case 'd':
 				errno = 0;
@@ -145,6 +145,10 @@ int main(int argc, char *argv[])
 				freemntopts(mp);
 				break;
 			}
+			case 's':
+				options |= kSMBOptionForceNewSession;
+                mntOptions |= kSMBMntForceNewSession;
+				break;
 			case 'v':
 				errx(EX_OK, "version %d.%d.%d", 
 					version / 100000, (version % 10000) / 1000, (version % 1000) / 100);
@@ -246,7 +250,7 @@ static void
 usage(void)
 {
 	fprintf(stderr, "%s\n",
-	"usage: mount_smbfs [-Nh] [-d mode] [-f mode]\n"
+	"usage: mount_smbfs [-N] [-o options] [-d mode] [-f mode] [-h] [-s] [-v]\n"
 	"                   //"
 	"[domain;][user[:password]@]server[/share]"
 	" path");

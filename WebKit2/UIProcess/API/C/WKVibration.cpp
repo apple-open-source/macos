@@ -43,9 +43,12 @@ WKTypeID WKVibrationGetTypeID()
 #endif
 }
 
-void WKVibrationSetProvider(WKVibrationRef vibrationRef, const WKVibrationProvider* wkProvider)
+void WKVibrationSetProvider(WKVibrationRef vibrationRef, const WKVibrationProviderBase* wkProvider)
 {
 #if ENABLE(VIBRATION)
     toImpl(vibrationRef)->initializeProvider(wkProvider);
+#else
+    UNUSED_PARAM(vibrationRef);
+    UNUSED_PARAM(wkProvider);
 #endif
 }

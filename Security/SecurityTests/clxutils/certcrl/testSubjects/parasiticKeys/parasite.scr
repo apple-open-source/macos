@@ -1,0 +1,68 @@
+#
+# Test for NISCC Parasitic key bearing certs.
+# This version should only succeed if both system-wide key size prefs are
+# set to > 16K (RSAMaxKeySize, RSAMaxPublicExponent in com.apple.crypto). 
+#
+# The easy way to set these is via the cspxutils/keySizePref program; compile it and
+# run it like this as root:
+#
+#
+# keySizePref set keysize 20000
+# keySizePref set pubexpsize 20000
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "locally generated 6K keys"
+cert = ssSubjCert.der
+root = ssRootCert.der
+verifyTime = 20060726000000
+end
+
+test = "test1, uee8k"
+cert = uee8k.pem
+cert = shintca.pem
+root = shroot.pem
+verifyTime = 20060726000000
+end
+
+test = "test1, uee16k.pem"
+cert = uee16k.pem
+cert = shintca.pem
+root = shroot.pem
+verifyTime = 20060726000000
+end
+
+test = "test2a, huge pkint8k.pem CA"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = shroot.pem
+verifyTime = 20060726000000
+end
+
+test = "test2a, bad pkint8k.pem CA, wrong root"
+cert = eepkint1.pem
+cert = pkint8k.pem
+root = root.pem
+error = CSSMERR_TP_NOT_TRUSTED
+verifyTime = 20060726000000
+end
+
+test = "test2b, huge pkint16k.pem CA"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = shroot.pem
+verifyTime = 20060726000000
+end
+
+test = "test2b, bad pkint16k.pem CA, wrong root"
+cert = eepkint2.pem
+cert = pkint16k.pem
+root = root.pem
+error = CSSMERR_TP_NOT_TRUSTED
+verifyTime = 20060726000000
+end

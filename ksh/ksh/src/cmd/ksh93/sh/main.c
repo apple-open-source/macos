@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -80,23 +80,6 @@ static char	beenhere = 0;
     }
 #endif /* _lib_sigvec */
 
-#ifdef _lib_fts_notify
-#   include	<fts.h>
-    /* check for interrupts during tree walks */
-    static int fts_sigcheck(FTS* fp, FTSENT* ep, void* context)
-    {
-	Shell_t *shp = (Shell_t*)context;
-	NOT_USED(fp);
-	NOT_USED(ep);
-	if(shp->trapnote&SH_SIGSET)
-	{
-		errno = EINTR;
-		return(-1);
-	}
-	return(0);
-    }
-#endif /* _lib_fts_notify */
-
 #ifdef PATH_BFPATH
 #define PATHCOMP	NIL(Pathcomp_t*)
 #else
@@ -159,9 +142,6 @@ int sh_main(int ac, char *av[], Shinit_f userinit)
 	time(&mailtime);
 	if(rshflag=sh_isoption(SH_RESTRICTED))
 		sh_offoption(SH_RESTRICTED);
-#ifdef _lib_fts_notify
-	fts_notify(fts_sigcheck,(void*)shp);
-#endif /* _lib_fts_notify */
 	if(sigsetjmp(*((sigjmp_buf*)shp->jmpbuffer),0))
 	{
 		/* begin script execution here */
@@ -454,6 +434,7 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 			sh_offstate(SH_MONITOR);
 			goto done;
 		}
+		exitset();
 		/* skip over remaining input */
 		if(top = fcfile())
 		{
@@ -486,7 +467,6 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 		shp->nextprompt = 1;
 		sh_freeup(shp);
 		stakset(NIL(char*),0);
-		exitset();
 		sh_offstate(SH_STOPOK);
 		sh_offstate(SH_ERREXIT);
 		sh_offstate(SH_VERBOSE);
@@ -535,7 +515,6 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 #endif /* SHOPT_TIMEOUT */
 			shp->inlineno = 1;
 			error_info.line = 1;
-			shp->exitval = 0;
 			shp->trapnote = 0;
 			if(buff.mode == SH_JMPEXIT)
 			{
@@ -569,6 +548,7 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 			}
 			goto done;
 		}
+		shp->exitval = sh.savexit;
 		maxtry = IOMAXTRY;
 		if(sh_isstate(SH_INTERACTIVE) && shp->gd->hist_ptr)
 		{
@@ -581,7 +561,7 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 		job.waitall = job.curpgid = 0;
 		error_info.flags |= ERROR_INTERACTIVE;
 		t = (Shnode_t*)sh_parse(shp,iop,0);
-		if(!sh_isstate(SH_INTERACTIVE) && !sh_isstate(SH_CFLAG))
+		if(!sh_isstate(SH_INTERACTIVE) && !sh_isoption(SH_CFLAG))
 			error_info.flags &= ~ERROR_INTERACTIVE;
 		shp->readscript = 0;
 		if(sh_isstate(SH_INTERACTIVE) && shp->gd->hist_ptr)
@@ -591,7 +571,7 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 		{
 			execflags = sh_state(SH_ERREXIT)|sh_state(SH_INTERACTIVE);
 			/* The last command may not have to fork */
-			if(!sh_isstate(SH_PROFILE) && !sh_isstate(SH_INTERACTIVE) &&
+			if(!sh_isstate(SH_PROFILE) && sh_isoption(SH_CFLAG) &&
 				(fno<0 || !(shp->fdstatus[fno]&(IOTTY|IONOSEEK)))
 				&& !sfreserve(iop,0,0))
 			{

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -122,9 +122,15 @@ EAPClientModulePluginServerKey(EAPClientModuleRef module,
 			       EAPClientPluginDataRef plugin, 
 			       int * key_length);
 
+int
+EAPClientModulePluginMasterSessionKeyCopyBytes(EAPClientModuleRef module,
+					       EAPClientPluginDataRef plugin, 
+					       uint8_t * msk, int msk_size);
+
 CFArrayRef
 EAPClientModulePluginRequireProperties(EAPClientModuleRef module,
 				       EAPClientPluginDataRef plugin);
+
 CFDictionaryRef
 EAPClientModulePluginPublishProperties(EAPClientModuleRef module,
 				       EAPClientPluginDataRef plugin);
@@ -136,6 +142,7 @@ EAPClientModulePluginPacketDump(EAPClientModuleRef module,
 CFStringRef
 EAPClientModulePluginUserName(EAPClientModuleRef module,
 			      CFDictionaryRef properties);
+
 CFStringRef
 EAPClientModulePluginCopyIdentity(EAPClientModuleRef module,
 				  EAPClientPluginDataRef plugin);

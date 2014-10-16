@@ -1,5 +1,0 @@
-This is some text
-[% RAWPERL %]
-This is some illegal perl code which should cause a parse error
-[% END %]
-more stuff goes here

@@ -291,37 +291,11 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
 
  ******************************************************************************/
 
-
-static IOReturn _pm_connect(mach_port_t *newConnection)
-{
-    kern_return_t       kern_result = KERN_SUCCESS;
-    
-    if(!newConnection) {
-        return kIOReturnBadArgument;
-    }
-
-    kern_result = bootstrap_look_up2(bootstrap_port, 
-                                     kIOPMServerBootstrapName, 
-                                     newConnection, 
-                                     0, 
-                                     BOOTSTRAP_PRIVILEGED_SERVER);    
-    if(KERN_SUCCESS != kern_result) {
-        return kIOReturnError;
-    }
-    return kIOReturnSuccess;
-}
-
-static IOReturn _pm_disconnect(mach_port_t connection)
-{
-    if(!connection) {
-        return kIOReturnBadArgument;
-    }
-
-    mach_port_deallocate(mach_task_self(), connection);
-
-    return kIOReturnSuccess;
-}
-
+/* _pm_connect
+ *  implemented in IOPMLibPrivate.c
+ */
+IOReturn _pm_connect(mach_port_t *newConnection);
+IOReturn _pm_disconnect(mach_port_t connection);
 
 /* OpaqueIOPSPowerSourceID
  * As typecast in the header:
@@ -329,90 +303,62 @@ static IOReturn _pm_disconnect(mach_port_t connection)
  */
 struct OpaqueIOPSPowerSourceID {
     CFMachPortRef   configdConnection;
-    CFStringRef     scdsKey;
+    int     psid;
 };
 
 #define kMaxPSTypeLength        25
 #define kMaxSCDSKeyLength       1024
 
 IOReturn IOPSCreatePowerSource(
-    IOPSPowerSourceID *outPS,
-    CFStringRef powerSourceType)
+    IOPSPowerSourceID *outPS)
 {
     IOPSPowerSourceID           newPS = NULL;
     mach_port_t                 pm_server = MACH_PORT_NULL;
 
-    char                        psType[kMaxPSTypeLength];
-
-    char                        scdsKey[kMaxSCDSKeyLength];
-
-    mach_port_t                 local_port = MACH_PORT_NULL;
     int                         return_code = kIOReturnSuccess;
     kern_return_t               kr = KERN_SUCCESS;
-    IOReturn                    ret = kIOReturnError;
-
-    if (!powerSourceType || !outPS)
+    
+    if (!outPS) {
         return kIOReturnBadArgument;
+    }
 
     // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
-
     newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
 
-    if (!newPS)
+    if (!newPS) {
         return kIOReturnVMError;
-
-    // We allocate a port in our namespace, and pass it to configd. 
-    // If this process dies, configd will cleanup  our unattached power sources.
-
-    newPS->configdConnection = CFMachPortCreate(kCFAllocatorDefault, NULL, NULL, NULL);
-
-    if (newPS->configdConnection)
-        local_port = CFMachPortGetPort(newPS->configdConnection);
-
-    if (MACH_PORT_NULL == local_port) {
-        ret = kIOReturnInternalError;
-        goto fail;
     }
 
-    if (!CFStringGetCString(powerSourceType, psType, sizeof(psType), kCFStringEncodingMacRoman)) {
-        ret = kIOReturnBadMedia;
+    return_code = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != return_code) {
+        return_code = kIOReturnNotOpen;
         goto fail;
     }
     
-    ret = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != ret) {
-        ret = kIOReturnNotOpen;
-        goto fail;
-    }
-    
-    kr = io_pm_new_pspowersource(
+    kr = io_ps_new_pspowersource(
             pm_server, 
-            local_port,     // in: mach port
-            psType,         // in: type name
-            scdsKey,        // out: SCDS key
+            &newPS->psid,   // out: integer psid
             &return_code);  // out: Return code
 
     if(KERN_SUCCESS != kr) {
-        ret = kIOReturnNotResponding;
-        goto fail;
+        return_code = kIOReturnNotResponding;
     }
 
-    _pm_disconnect(pm_server);
-
-    newPS->scdsKey = CFStringCreateWithCString(0, scdsKey, kCFStringEncodingUTF8);
-
-// success:
-    *outPS = newPS;
-    return (IOReturn)return_code;
 
 fail:
-    if (newPS)
-        free(newPS);
-    if (IO_OBJECT_NULL != pm_server)
+    if (IO_OBJECT_NULL != pm_server) {
         _pm_disconnect(pm_server);
-    *outPS = NULL;
+    }
 
-    return ret;
+    if (kIOReturnSuccess == return_code) {
+        *outPS = newPS;
+    } else {
+        *outPS = NULL;
+        if (newPS) {
+            free(newPS);
+        }
+    }
+    return return_code;
 }
 
 IOReturn IOPSSetPowerSourceDetails(
@@ -420,18 +366,17 @@ IOReturn IOPSSetPowerSourceDetails(
     CFDictionaryRef details)
 {
     IOReturn                ret = kIOReturnSuccess;
-    char                    dskey_str[kMaxSCDSKeyLength];
     CFDataRef               flatDetails;
     mach_port_t             pm_server = MACH_PORT_NULL;
 
-    if (!whichPS || !isA_CFString(whichPS->scdsKey) || !isA_CFDictionary(details))
+    if (!whichPS || !isA_CFDictionary(details))
         return kIOReturnBadArgument;
 
-    CFStringGetCString(whichPS->scdsKey, dskey_str, sizeof(dskey_str), kCFStringEncodingUTF8);
-
-    flatDetails = IOCFSerialize(whichPS, 0);
-    if (!flatDetails)
+    flatDetails = IOCFSerialize(details, 0);
+    if (!flatDetails) {
+        ret = kIOReturnBadArgument;
         goto exit;
+    }
 
     ret = _pm_connect(&pm_server);
     if(kIOReturnSuccess != ret) {
@@ -440,8 +385,11 @@ IOReturn IOPSSetPowerSourceDetails(
     }
     
     // Pass the details off to powerd 
-    io_pm_update_pspowersource(pm_server, dskey_str, 
-                (vm_offset_t) CFDataGetBytePtr(flatDetails), CFDataGetLength(flatDetails), (int *)&ret);
+    io_ps_update_pspowersource(pm_server,
+                               whichPS->psid,
+                               (vm_offset_t) CFDataGetBytePtr(flatDetails),
+                               CFDataGetLength(flatDetails),
+                               (int *)&ret);
 
     _pm_disconnect(pm_server);
 
@@ -454,17 +402,73 @@ exit:
 IOReturn IOPSReleasePowerSource(
     IOPSPowerSourceID whichPS)
 {
+    mach_port_t             pm_server = MACH_PORT_NULL;
+
     if (!whichPS)
         return kIOReturnBadArgument;
 
-    if (whichPS->configdConnection)
-    {
-        CFRelease(whichPS->configdConnection);
+    if (kIOReturnSuccess == _pm_connect(&pm_server)) {
+        // Pass the details off to powerd
+        io_ps_release_pspowersource(pm_server,
+                                   whichPS->psid);
+
+        _pm_disconnect(pm_server);
     }
 
-    if (whichPS->scdsKey)
-        CFRelease(whichPS->scdsKey);
 
     free(whichPS);
     return kIOReturnSuccess;
+}
+
+
+IOReturn IOPSCopyChargeLog(CFAbsoluteTime sinceTime, CFDictionaryRef *chargeLog)
+{
+
+    IOReturn                rc = kIOReturnInternalError;
+    CFDataRef               unfolder = NULL;
+    vm_offset_t             logPtr = NULL;
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           kern_result;
+    mach_msg_type_number_t  logSize = 0;
+
+    *chargeLog = NULL;
+    _pm_connect(&pm_server);
+
+    if(pm_server == MACH_PORT_NULL)
+      return kIOReturnNotOpen;
+
+    kern_result = io_ps_copy_chargelog(pm_server, sinceTime,
+                                               &logPtr, &logSize, &rc);
+
+    if ((KERN_SUCCESS != kern_result) || (rc != kIOReturnSuccess)) {
+        goto exit;
+    }
+
+    if (logSize == 0) {
+        rc = kIOReturnNotFound;
+        goto exit;
+    }
+
+    unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)logPtr, (CFIndex)logSize, kCFAllocatorNull);
+    if (unfolder)
+    {
+        *chargeLog = CFPropertyListCreateWithData(0, unfolder, 
+                                                   kCFPropertyListMutableContainersAndLeaves, 
+                                                   NULL, NULL);
+        CFRelease(unfolder);
+    }
+
+
+exit:
+
+    if (logPtr && logSize)  {
+        vm_deallocate(mach_task_self(), logPtr, logSize);
+    }
+
+    if (MACH_PORT_NULL != pm_server) 
+        _pm_disconnect(pm_server);
+
+    return rc;
+
+
 }

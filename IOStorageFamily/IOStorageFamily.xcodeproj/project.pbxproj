@@ -77,6 +77,9 @@
 		45EE25250ED6421200C2BC69 /* IOFilterScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */; };
 		45EE25260ED6422900C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
 		45EE25270ED6423200C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
+		603C2B8A18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		603C2B8B18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		603C2B8C18E9D11A00FD7A03 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
 		605A7C0A0D662B9B0077529E /* IOGUIDPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */; };
 		605A7C0B0D662BBB0077529E /* IOGUIDPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */; };
 		6060066F1746B7CA00B4220D /* IOApplePartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
@@ -119,6 +122,11 @@
 		60BF9EB4122D7F34000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
 		60BF9EB5122D7F47000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
 		60BF9EB6122D7F51000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60DC1AE218E9D1B600E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		60DC1AE318E9D1BD00E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		60DC1AE418E9D1CC00E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		60DC1AE518E9D1D200E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
+		60DC1AE618E9D27100E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */; };
 		60DDA4FA07382C6A00FAB8B3 /* IOAppleLabelScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */; };
 		60DDA4FB07382C6A00FAB8B3 /* IOApplePartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
 		60DDA4FC07382C6A00FAB8B3 /* IOBlockStorageDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */; };
@@ -201,7 +209,7 @@
 		3F9C5E651644E23600FC6152 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
+			dstPath = "$(INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
 			dstSubfolderSpec = 0;
 			files = (
 				606006731746B84A00B4220D /* IOApplePartitionScheme.h in CopyFiles */,
@@ -215,6 +223,7 @@
 				3F9C5E6D1644E23600FC6152 /* IOPartitionScheme.h in CopyFiles */,
 				3F9C5E6E1644E23600FC6152 /* IOStorage.h in CopyFiles */,
 				3F9C5E6F1644E23600FC6152 /* IOStorageCardCharacteristics.h in CopyFiles */,
+				60DC1AE418E9D1CC00E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				3F9C5E701644E23600FC6152 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				3F9C5E711644E23600FC6152 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -223,7 +232,7 @@
 		3F9C5E721644E23600FC6152 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
+			dstPath = "$(INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
 			dstSubfolderSpec = 0;
 			files = (
 				606006741746B85000B4220D /* IOApplePartitionScheme.h in CopyFiles */,
@@ -237,6 +246,7 @@
 				3F9C5E7A1644E23600FC6152 /* IOPartitionScheme.h in CopyFiles */,
 				3F9C5E7B1644E23600FC6152 /* IOStorage.h in CopyFiles */,
 				3F9C5E7C1644E23600FC6152 /* IOStorageCardCharacteristics.h in CopyFiles */,
+				60DC1AE518E9D1D200E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				3F9C5E7D1644E23600FC6152 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				3F9C5E7E1644E23600FC6152 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -259,6 +269,7 @@
 				606B78BB0D4A564B00A2EB99 /* IOPartitionScheme.h in CopyFiles */,
 				606B78BC0D4A564B00A2EB99 /* IOStorage.h in CopyFiles */,
 				60BF9EB5122D7F47000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
+				60DC1AE218E9D1B600E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				60AA595D0D64D65700A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595E0D64D65700A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -281,6 +292,7 @@
 				606B78C20D4A566400A2EB99 /* IOPartitionScheme.h in CopyFiles */,
 				606B78C30D4A566400A2EB99 /* IOStorage.h in CopyFiles */,
 				60BF9EB6122D7F51000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
+				60DC1AE318E9D1BD00E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				60AA595F0D64D65C00A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA59600D64D65C00A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -304,6 +316,7 @@
 				60FD68740D402C82000D088D /* IOPartitionScheme.h in CopyFiles */,
 				60FD68750D402C82000D088D /* IOStorage.h in CopyFiles */,
 				60BF9EB3122D7F29000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
+				603C2B8C18E9D11A00FD7A03 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				60AA59590D64D5FF00A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595A0D64D5FF00A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -327,6 +340,7 @@
 				60FD687F0D402C95000D088D /* IOPartitionScheme.h in CopyFiles */,
 				60FD68800D402C95000D088D /* IOStorage.h in CopyFiles */,
 				60BF9EB4122D7F34000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
+				60DC1AE618E9D27100E92186 /* IOStorageControllerCharacteristics.h in CopyFiles */,
 				60AA595B0D64D60800A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595C0D64D60800A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -354,6 +368,7 @@
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOGUIDPartitionScheme.h; sourceTree = "<group>"; };
 		6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGUIDPartitionScheme.cpp; sourceTree = "<group>"; };
+		603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageControllerCharacteristics.h; sourceTree = "<group>"; };
 		60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageDeviceCharacteristics.h; sourceTree = "<group>"; };
 		60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageProtocolCharacteristics.h; sourceTree = "<group>"; };
 		60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageCardCharacteristics.h; sourceTree = "<group>"; };
@@ -364,6 +379,7 @@
 		60DDA51B07382C6A00FAB8B3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		60DDA54307382D0000FAB8B3 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SimulatorSupport.xcconfig; path = AppleInternal/XcodeConfig/SimulatorSupport.xcconfig; sourceTree = DEVELOPER_DIR; };
 		C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		C1E55B250D32D158002875AA /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -372,6 +388,7 @@
 		089C166AFE841209C02AAC07 /* IOStorageFamily */ = {
 			isa = PBXGroup;
 			children = (
+				81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */,
 				60DDA54607382D0300FAB8B3 /* Frameworks */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				089C167CFE841241C02AAC07 /* Resources */,
@@ -424,6 +441,7 @@
 				0560FF9E008B94F111CA2AA4 /* IOStorage.cpp */,
 				0560FFB1008B961F11CA2AA4 /* IOStorage.h */,
 				60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */,
+				603C2B8918E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h */,
 				60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */,
 				60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */,
 			);
@@ -458,6 +476,7 @@
 				60DDA50407382C6A00FAB8B3 /* IOPartitionScheme.h in Headers */,
 				60DDA50507382C6A00FAB8B3 /* IOStorage.h in Headers */,
 				60BF9EB1122D7EF1000D606C /* IOStorageCardCharacteristics.h in Headers */,
+				603C2B8A18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */,
 				60AA59550D64D57400A955B0 /* IOStorageDeviceCharacteristics.h in Headers */,
 				60AA59560D64D57400A955B0 /* IOStorageProtocolCharacteristics.h in Headers */,
 			);
@@ -478,6 +497,7 @@
 				C1E55B0E0D32D158002875AA /* IOPartitionScheme.h in Headers */,
 				C1E55B0F0D32D158002875AA /* IOStorage.h in Headers */,
 				60BF9EB2122D7F15000D606C /* IOStorageCardCharacteristics.h in Headers */,
+				603C2B8B18E9D0BF00FD7A03 /* IOStorageControllerCharacteristics.h in Headers */,
 				60AA59570D64D57400A955B0 /* IOStorageDeviceCharacteristics.h in Headers */,
 				60AA59580D64D57400A955B0 /* IOStorageProtocolCharacteristics.h in Headers */,
 			);
@@ -575,7 +595,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "headers=\"${DSTROOT}${SDKROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone";
+			shellScript = "headers=\"${DSTROOT}${INSTALL_PATH_PREFIX}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone";
 		};
 		60284E141517B57C00FDF55B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -683,6 +703,7 @@
 /* Begin XCBuildConfiguration section */
 		3F9C5E811644E23600FC6152 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
@@ -692,6 +713,7 @@
 		};
 		3F9C5E821644E23600FC6152 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;

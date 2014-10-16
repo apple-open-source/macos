@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ar_JO.xml
 // *
 // ***************************************************************************
 ar_JO{
-    Version{"2.0.82.45"}
+    Version{"2.0.92.80"}
     calendar{
         gregorian{
             monthNames{
@@ -25,6 +25,20 @@ ar_JO{
                         "تشرين الأول",
                         "تشرين الثاني",
                         "كانون الأول",
+                    }
+                    narrow{
+                        "ك",
+                        "ش",
+                        "آ",
+                        "ن",
+                        "أ",
+                        "ح",
+                        "ت",
+                        "آ",
+                        "أ",
+                        "ت",
+                        "ت",
+                        "ك",
                     }
                     wide{
                         "كانون الثاني",

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,6 +36,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/ThreadingPrimitives.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 class LocalizedString;
@@ -46,25 +47,25 @@ typedef HashMap<String, LocalizedString*> LocalizedStringMap;
 
 static Mutex& mainBundleLocStringsMutex()
 {
-    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, mutex, ());
     return mutex;
 }
 
 static LocalizedStringMap& mainBundleLocStrings()
 {
-    DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
     return map;
 }
 
 static Mutex& frameworkLocStringsMutex()
 {
-    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, mutex, ());
     return mutex;
 }
 
 static LocalizedStringMap frameworkLocStrings()
 {
-    DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
     return map;
 }
 
@@ -88,7 +89,7 @@ private:
 LocalizedString::operator LPCTSTR() const
 {
     if (!m_string.isEmpty())
-        return m_string.charactersWithNullTermination();
+        return m_string.charactersWithNullTermination().data();
 
     m_string = m_cfString;
 
@@ -96,7 +97,7 @@ LocalizedString::operator LPCTSTR() const
         if (m_string[i] == '@' && (m_string[i - 1] == '%' || (i > 2 && m_string[i - 1] == '$' && m_string[i - 2] >= '1' && m_string[i - 2] <= '9' && m_string[i - 3] == '%')))
             m_string.replace(i, 1, "s");
 
-    return m_string.charactersWithNullTermination();
+    return m_string.charactersWithNullTermination().data();
 }
 
 static CFBundleRef createWebKitBundle()

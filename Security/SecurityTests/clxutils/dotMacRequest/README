@@ -1,0 +1,23 @@
+                  dotMacRequest notes
+
+8/21/05
+
+Request with live server now working. Use a real paid account.
+
+To request a cert
+
+dotMacRequest i -u dmitch77 -k dotMacKeychain.keychain -Z <<...dot mac password here>>
+
+To revoke, go to www.mac.com, log in, click your account name in upper right, authenticate
+again, click "Secure iChat" in lower right, revoke the cert. You have to log out and log 
+back in each time you do this in order to see a newly generated cert after you revoke one. 
+
+7/25/05
+
+Request and renew work as of 7/25/05. 
+Renew requires the same key pair as the original, so:
+  -- renew only works when your current cert really is still current
+  -- run with -p (pick key pair) to select correct key pair
+  -- must delete old/current cert before running since the old 
+     and new certs have the same DB attrs. 
+	 

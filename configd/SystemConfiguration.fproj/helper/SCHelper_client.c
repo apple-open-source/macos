@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008, 2010, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -251,9 +251,9 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 	kr = helperexec(port,
 			msgID,
 			(data != NULL) ? (void *)CFDataGetBytePtr(data) : NULL,
-			(data != NULL) ? CFDataGetLength(data) : 0,
+			(data != NULL) ? (mach_msg_type_number_t)CFDataGetLength(data) : 0,
 			(traceData != NULL) ? (void *)CFDataGetBytePtr(traceData) : NULL,
-			(traceData != NULL) ? CFDataGetLength(traceData) : 0,
+			(traceData != NULL) ? (mach_msg_type_number_t)CFDataGetLength(traceData) : 0,
 			&replyStatus,
 			&replyRef,
 			&replyLen);

@@ -36,6 +36,40 @@
 #include "der_locl.h"
 #include <com_err.h>
 
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+#undef HEIMDAL_NORETURN_ATTRIBUTE
+#define HEIMDAL_NORETURN_ATTRIBUTE
+
+#ifdef __APPLE__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wlanguage-extension-token"
+
+const char *__crashreporter_info__ = NULL;
+asm(".desc ___crashreporter_info__, 0x10");
+static char crashreporter_info[100];
+
+#pragma clang diagnostic pop
+#endif
+
+
+void
+asn1_abort(const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 2))
+    HEIMDAL_NORETURN_ATTRIBUTE
+{
+#ifdef __APPLE__
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(crashreporter_info, sizeof(crashreporter_info), fmt, ap);
+    va_end(ap);
+    __crashreporter_info__ = crashreporter_info;
+#endif
+    abort();
+}
+
+
+
 struct asn1_type_func asn1_template_prim[A1T_NUM_ENTRY] = {
 #define el(name, type) {				\
 	(asn1_type_encode)der_put_##name,		\
@@ -296,8 +330,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 		type++;
 
 	    if (type >= sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
-		return ASN1_PARSE_ERROR;
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
 	    }
 
 	    ret = (asn1_template_prim[type].decode)(p, len, el, &newsize);
@@ -405,8 +438,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
-	    return ASN1_PARSE_ERROR;
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;
@@ -514,8 +546,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
-		return ASN1_PARSE_ERROR;
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
 	    }
 
 	    ret = (asn1_template_prim[type].encode)(p, len, el, &newsize);
@@ -669,8 +700,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    const void *el;
 
 	    if (*element == ASN1_CHOICE_INVALID || *element > (int)A1_HEADER_LEN(choice)) {
-		ABORT_ON_ERROR();
-		return ASN1_PARSE_ERROR;
+		ABORT_ON_ERROR("invalid choice: %d", *element);
 	    }
 
 	    if (*element == ASN1_CHOICE_ELLIPSIS) {
@@ -688,7 +718,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	t--;
 	elements--;
@@ -753,8 +783,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    const void *el = DPOC(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
-		break;
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
 	    }
 	    ret += (asn1_template_prim[type].length)(el);
 	    break;
@@ -802,8 +831,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    const int *element = DPOC(data, choice->offset);
 
 	    if (*element == ASN1_CHOICE_INVALID || *element > (int)A1_HEADER_LEN(choice)) {
-		ABORT_ON_ERROR();
-		break;
+		ABORT_ON_ERROR("invalid choice: %d", *element);
 	    }
 
 	    if (*element == ASN1_CHOICE_ELLIPSIS) {
@@ -815,8 +843,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
-	    break;
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	elements--;
 	t--;
@@ -863,8 +890,7 @@ _asn1_free(const struct asn1_template *t, void *data)
 	    void *el = DPO(data, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
-		break;
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
 	    }
 	    (asn1_template_prim[type].release)(el);
 	    break;
@@ -913,8 +939,7 @@ _asn1_free(const struct asn1_template *t, void *data)
 		break;
 
 	    if (*element > (int)A1_HEADER_LEN(choice)) {
-		ABORT_ON_ERROR();
-		break;
+		ABORT_ON_ERROR("invalid choice: %d", *element);
 	    }
 
 	    if (*element == ASN1_CHOICE_ELLIPSIS) {
@@ -926,8 +951,7 @@ _asn1_free(const struct asn1_template *t, void *data)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
-	    break;
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;
@@ -998,8 +1022,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    void *tel = DPO(to, t->offset);
 
 	    if (type > sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
-		ABORT_ON_ERROR();
-		return ASN1_PARSE_ERROR;
+		ABORT_ON_ERROR("type larger then asn1_template_prim: %d", type);
 	    }
 	    ret = (asn1_template_prim[type].copy)(fel, tel);
 	    if (ret)
@@ -1094,8 +1117,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    break;
 	}
 	default:
-	    ABORT_ON_ERROR();
-	    break;
+	    ABORT_ON_ERROR("unknown opcode: %d", (t->tt & A1_OP_MASK));
 	}
 	t++;
 	elements--;

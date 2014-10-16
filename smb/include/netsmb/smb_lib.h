@@ -117,7 +117,7 @@ struct smb_ctx {
 	int				serverIsDomainController;
 	CFDictionaryRef mechDict;
 	struct smb_prefs prefs;
-    char *          model_info;     /* SMB2 Server model string, only MAC to MAC */
+    char *          model_info;     /* SMB 2/3 Server model string, only MAC to MAC */
 };
 
 #define	SMBCF_RESOLVED			0x00000001	/* We have reolved the address and name */

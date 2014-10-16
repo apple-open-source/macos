@@ -24,7 +24,8 @@ kdc_log (
 	krb5_kdc_configuration */*config*/,
 	int /*level*/,
 	const char */*fmt*/,
-	...);
+	...)    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
+;
 
 char*
 kdc_log_msg (
@@ -32,7 +33,8 @@ kdc_log_msg (
 	krb5_kdc_configuration */*config*/,
 	int /*level*/,
 	const char */*fmt*/,
-	...);
+	...)     HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
+;
 
 char*
 kdc_log_msg_va (
@@ -40,7 +42,8 @@ kdc_log_msg_va (
 	krb5_kdc_configuration */*config*/,
 	int /*level*/,
 	const char */*fmt*/,
-	va_list /*ap*/);
+	va_list /*ap*/)     HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
+;
 
 void
 kdc_openlog (

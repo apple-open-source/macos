@@ -1,0 +1,22 @@
+#! /bin/csh -f
+#
+# run p12Reencode on a bunch of known good p12 blobs.
+#
+# Args to this script are passed to p12Reencode uninterpreted.
+set ARG_LIST =
+#
+while ( $#argv > 0 )
+	set thisArg = "$argv[1]"
+	set ARG_LIST = "$ARG_LIST $thisArg"
+	shift
+end
+echo Starting doReencode\; args: $ARG_LIST
+#
+set PASSWORD = password
+set P12_BLOBS = (test1.p12 test12.p12 test15.p12 test18.p12 \
+	test10.p12 test13.p12 test16.p12 test19.p12 test11.p12 \
+	test14.p12 test17.p12 )
+#
+foreach blob ($P12_BLOBS);
+	$LOCAL_BUILD_DIR/p12Reencode $blob $PASSWORD $ARG_LIST || exit(1)
+end

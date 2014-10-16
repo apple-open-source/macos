@@ -1,5 +1,5 @@
 /* dbconverter-2.c -- convert libsasl v1 sasldb's to SASLv2 format
- * $Id: dbconverter-2.c,v 1.4 2006/01/20 20:20:33 snsimon Exp $
+ * $Id: dbconverter-2.c,v 1.8 2003/02/13 19:56:17 rjs3 Exp $
  * Rob Siemborski
  * based on SASLv1 sasldblistusers
  */
@@ -200,6 +200,7 @@ int listusers(const char *path, listcb_t *cb)
 
 #include <db.h>
 
+#define DB_VERSION_FULL ((DB_VERSION_MAJOR << 24) | (DB_VERSION_MINOR << 16) | DB_VERSION_PATCH)
 /*
  * Open the database
  *
@@ -208,13 +209,13 @@ static int berkeleydb_open(const char *path,DB **mbdb)
 {
     int ret;
 
-#if DB_VERSION_MAJOR < 3
+#if DB_VERSION_FULL < 0x03000000
     ret = db_open(path, DB_HASH, DB_CREATE, 0664, NULL, NULL, mbdb);
-#else /* DB_VERSION_MAJOR < 3 */
+#else /* DB_VERSION_FULL < 0x03000000 */
     ret = db_create(mbdb, NULL, 0);
     if (ret == 0 && *mbdb != NULL)
     {
-#if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1
+#if DB_VERSION_FULL >= 0x04010000
 	ret = (*mbdb)->open(*mbdb, NULL, path, NULL, DB_HASH, DB_CREATE, 0664);
 #else
 	ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, DB_CREATE, 0664);
@@ -225,7 +226,7 @@ static int berkeleydb_open(const char *path,DB **mbdb)
 	    *mbdb = NULL;
 	}
     }
-#endif /* DB_VERSION_MAJOR < 3 */
+#endif /* DB_VERSION_FULL < 0x03000000 */
 
     if (ret != 0) {
 	fprintf(stderr,"Error opening password file %s\n", path);
@@ -263,15 +264,11 @@ int listusers(const char *path, listcb_t *cb)
     if (result!=SASL_OK) goto cleanup;
 
     /* make cursor */
-#if DB_VERSION_MAJOR < 3
-#if DB_VERSION_MINOR < 6
+#if DB_VERSION_FULL < 0x03060000
     result = mbdb->cursor(mbdb, NULL,&cursor); 
 #else
     result = mbdb->cursor(mbdb, NULL,&cursor, 0); 
-#endif /* DB_VERSION_MINOR < 7 */
-#else /* DB_VERSION_MAJOR < 3 */
-    result = mbdb->cursor(mbdb, NULL,&cursor, 0); 
-#endif /* DB_VERSION_MAJOR < 3 */
+#endif /* DB_VERSION_FULL < 0x03060000 */
 
     if (result!=0) {
 	fprintf(stderr,"Making cursor failure: %s\n",db_strerror(result));

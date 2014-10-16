@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,48 +26,43 @@
 #ifndef PlatformCALayerClient_h
 #define PlatformCALayerClient_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
-#include "GraphicsContext.h"
 #include "GraphicsLayer.h"
-#include "PlatformCAAnimation.h"
-#include <wtf/HashMap.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RetainPtr.h>
-#include <wtf/Vector.h>
-#include <wtf/text/StringHash.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class FloatRect;
+class GraphicsContext;
 class PlatformCALayer;
 
 class PlatformCALayerClient {
 public:
-    virtual void platformCALayerLayoutSublayersOfLayer(PlatformCALayer*) = 0;
-    virtual bool platformCALayerRespondsToLayoutChanges() const = 0;
+    virtual void platformCALayerLayoutSublayersOfLayer(PlatformCALayer*) { }
+    virtual bool platformCALayerRespondsToLayoutChanges() const { return false; }
 
-    virtual void platformCALayerAnimationStarted(CFTimeInterval beginTime) = 0;
-    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const = 0;
-    virtual void platformCALayerPaintContents(GraphicsContext&, const IntRect& inClip) = 0;
-    virtual bool platformCALayerShowDebugBorders() const = 0;
-    virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const = 0;
-    virtual int platformCALayerIncrementRepaintCount() = 0;
+    virtual void platformCALayerAnimationStarted(CFTimeInterval) { }
+    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesTopDown; }
+    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect& inClip) = 0;
+    virtual bool platformCALayerShowDebugBorders() const { return false; }
+    virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }
+    virtual int platformCALayerIncrementRepaintCount(PlatformCALayer*) { return 0; }
     
     virtual bool platformCALayerContentsOpaque() const = 0;
     virtual bool platformCALayerDrawsContent() const = 0;
-    virtual void platformCALayerLayerDidDisplay(PlatformLayer*) = 0;
+    virtual void platformCALayerLayerDidDisplay(PlatformCALayer*)  { }
 
-    virtual void platformCALayerDidCreateTiles(const Vector<FloatRect>& dirtyRects) = 0;
-    virtual float platformCALayerDeviceScaleFactor() = 0;
+    virtual void platformCALayerSetNeedsToRevalidateTiles() { }
+    virtual float platformCALayerDeviceScaleFactor() const = 0;
+    virtual float platformCALayerContentsScaleMultiplierForNewTiles(PlatformCALayer*) const { return 1; }
+
+    virtual bool platformCALayerShouldAggressivelyRetainTiles(PlatformCALayer*) const { return false; }
+    virtual bool platformCALayerShouldTemporarilyRetainTileCohorts(PlatformCALayer*) const { return true; }
+
+    virtual bool isCommittingChanges() const { return false; }
 
 protected:
     virtual ~PlatformCALayerClient() {}
 };
 
 }
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // PlatformCALayerClient_h

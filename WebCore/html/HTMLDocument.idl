@@ -20,6 +20,7 @@
 
 [
     CustomNamedGetter,
+    NewImpurePropertyFiresWatchpoints,
 ] interface HTMLDocument : Document {
     [Custom] void open();
     void close();
@@ -47,9 +48,6 @@
              [TreatNullAs=NullString] attribute DOMString dir;
              [TreatNullAs=NullString] attribute DOMString designMode;
     readonly attribute DOMString compatMode;
-
-    readonly attribute Element activeElement;
-    boolean hasFocus();
 
     // Deprecated attributes
              [TreatNullAs=NullString] attribute DOMString bgColor;

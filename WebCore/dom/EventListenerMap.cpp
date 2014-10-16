@@ -16,10 +16,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -51,7 +51,7 @@ namespace WebCore {
 #ifndef NDEBUG
 static Mutex& activeIteratorCountMutex()
 {
-    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, mutex, ());
     return mutex;
 }
 
@@ -130,7 +130,7 @@ bool EventListenerMap::add(const AtomicString& eventType, PassRefPtr<EventListen
             return addListenerToVector(m_entries[i].second.get(), listener, useCapture);
     }
 
-    m_entries.append(std::make_pair(eventType, adoptPtr(new EventListenerVector)));
+    m_entries.append(std::make_pair(eventType, std::make_unique<EventListenerVector>()));
     return addListenerToVector(m_entries.last().second.get(), listener, useCapture);
 }
 
@@ -171,8 +171,6 @@ EventListenerVector* EventListenerMap::find(const AtomicString& eventType)
 
     return 0;
 }
-
-#if ENABLE(SVG)
 
 static void removeFirstListenerCreatedFromMarkup(EventListenerVector* listenerVector)
 {
@@ -220,8 +218,6 @@ void EventListenerMap::copyEventListenersNotCreatedFromMarkupToTarget(EventTarge
     for (unsigned i = 0; i < m_entries.size(); ++i)
         copyListenersNotCreatedFromMarkupToTarget(m_entries[i].first, m_entries[i].second.get(), target);
 }
-
-#endif // ENABLE(SVG)
 
 EventListenerIterator::EventListenerIterator()
     : m_map(0)

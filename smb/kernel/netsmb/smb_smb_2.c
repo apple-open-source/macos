@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@
 #include <smbfs/smbfs_node.h>
 #include <netsmb/smb_converter.h>
 #include <smbfs/smbfs.h>
+#include <smbclient/ntstatus.h>
 
 #define kMAX_READ_BLOCKS 4      /* Must be larger than Write number of blocks */
 #define kMAX_WRITE_BLOCKS 2
@@ -53,7 +54,6 @@ static uint32_t smb_maxread = 1024 * 1024;	/* Default max read size */
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, maxwrite, CTLFLAG_RW, &smb_maxwrite, 0, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, maxread, CTLFLAG_RW, &smb_maxread, 0, "");
-
 
 /*
  * Note:  The _smb_ in the function name indicates that these functions are 
@@ -95,7 +95,7 @@ smb2_smb_read_write_fill(struct smb_share *share,
                          struct smb2_rw_rq *read_writep, struct smb_rq **rqp,
                          uint32_t do_read, vfs_context_t context);
 
-static int
+int
 smb2_smb_write_one(struct smb_share *share, struct smb2_rw_rq *args,
                    user_ssize_t *len, user_ssize_t *rresid,
                    struct smb_rq **compound_rqp, vfs_context_t context);
@@ -332,7 +332,7 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
              * Durable Handle Reconnect
              */
 
-            /* map fid to smb2 fid */
+            /* map fid to SMB 2 fid */
             error = smb_fid_get_kernel_fid(share, dur_handlep->fid, 0, &smb2_fid);
             if (error) {
                 goto bad;
@@ -400,13 +400,13 @@ smb2_smb_change_notify(struct smb_share *share, void *args_ptr,
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Change Notify Request
+     * Build the SMB 2/3 Change Notify Request
      */
     mb_put_uint16le(mbp, 32);                           /* Struct size */
     mb_put_uint16le(mbp, changep->flags);               /* Flags */
     mb_put_uint32le(mbp, changep->output_buffer_len);   /* Output buffer len */
     
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, changep->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -468,14 +468,14 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Close Request
+     * Build the SMB 2/3 Close Request
      */
     mb_put_uint16le(mbp, 24);       /* Struct size */
     flags = closep->flags;          /* only take lower 16 bits for now */
     mb_put_uint16le(mbp, flags);    /* Flags */
     mb_put_uint32le(mbp, 0);        /* Reserved */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, closep->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -590,7 +590,7 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Create Request
+     * Build the SMB 2/3 Create Request
      */
     mb_put_uint16le(mbp, 57);                       /* Struct size */
     mb_put_uint8(mbp, 0);                           /* Security flags */
@@ -626,6 +626,39 @@ resend:
      *    readdirattr. Create path to parent dnp, add child of namep, then
      *    add stream name in strm_namep on. Used for reading Finder Info stream.
      */
+
+    /* <17602533> Assume delete access so Finder can attempt rename */
+    if (createp->flags & SMB2_CREATE_GET_MAX_ACCESS) {
+        /* Assume delete access and let server control it */
+        createp->flags |= SMB2_CREATE_ASSUME_DELETE;
+        
+        if (createp->dnp != NULL) {
+            if (createp->namep == NULL) {
+                /* dnp is the item to be opened */
+                lck_rw_lock_shared(&createp->dnp->n_parent_rwlock);
+                if ((createp->dnp->n_parent) &&
+                    !(createp->dnp->n_parent->maxAccessRights & SMB2_FILE_DELETE_CHILD)) {
+                    /*
+                     * If parent DENIES delete child, then do not assume child
+                     * has delete access.
+                     */
+                    createp->flags &= ~SMB2_CREATE_ASSUME_DELETE;
+                }
+                lck_rw_unlock_shared(&createp->dnp->n_parent_rwlock);
+            }
+            else {
+                /* dnp must be the parent of item to be opened. parent + child */
+                if (!(createp->dnp->maxAccessRights & SMB2_FILE_DELETE_CHILD)) {
+                    /*
+                     * If parent DENIES delete child, then do not assume child
+                     * has delete access.
+                     */
+                    createp->flags &= ~SMB2_CREATE_ASSUME_DELETE;
+                }
+            }
+        }
+    }
+
     if ((createp->name_len > 0) || (createp->dnp != NULL)) {
         if (!(createp->flags & SMB2_CREATE_NAME_IS_PATH)) {
             /* Create the network path and insert it */
@@ -729,10 +762,10 @@ smb2_smb_dur_handle_init(struct smb_share *share, struct smbnode *np,
     }
     
     /*
-     * Only SMB 2.1 and servers that support leasing can do
+     * Only SMB 2/3 and servers that support leasing can do
      * reconnect. File IDs are also required for handling lease breaks
      */
-    if ((SSTOVC(share)->vc_flags & SMBV_SMB21) &&
+    if (SMBV_SMB21_OR_LATER(vcp) &&
         (SSTOVC(share)->vc_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
         (SSTOVC(share)->vc_misc_flags & SMBV_HAS_FILEIDS)) {
         
@@ -750,8 +783,10 @@ smb2_smb_dur_handle_init(struct smb_share *share, struct smbnode *np,
         dur_handle->lease_key_hi = dur_handle->lease_key_hi << 32;
         dur_handle->lease_key_hi |= share->ss_tree_id;
         
+        lck_rw_lock_shared(&np->n_name_rwlock);
         dur_handle->lease_key_low = smbfs_hash(share, np->n_ino,
                                                np->n_name, np->n_nmlen);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
         error = 0;
     }
     
@@ -785,7 +820,7 @@ smb2_smb_echo(struct smb_vc *vcp, int timeout, vfs_context_t context)
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Echo Request
+     * Build the SMB 2/3 Echo Request
      */
     mb_put_uint16le(mbp, 4);                    /* Struct size */
     mb_put_uint16le(mbp, 0);                    /* Reserved */
@@ -806,7 +841,7 @@ smb2_smb_echo(struct smb_vc *vcp, int timeout, vfs_context_t context)
      * NOTE: Assume we get back one credit in the Echo response
      */
 
-    /* pretend like it did not get sent to recover SMB2 credits */
+    /* pretend like it did not get sent to recover SMB 2/3 credits */
     rqp->sr_extflags &= ~SMB2_REQ_SENT;
     
 bad:    
@@ -855,13 +890,13 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Flush Request
+     * Build the SMB 2/3 Flush Request
      */
     mb_put_uint16le(mbp, 24);                   /* Struct size */
     mb_put_uint16le(mbp, 0);                    /* Reserved */
     mb_put_uint32le(mbp, 0);                    /* Reserved */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -885,7 +920,7 @@ resend:
     smb_rq_getreply(rqp, &mdp);
     
     /* 
-     * Parse SMB2 Flush Response 
+     * Parse SMB 2/3 Flush Response 
      * We are already pointing to begining of Response data
      */
     
@@ -926,6 +961,130 @@ smb2_smb_get_alloc_size(struct smbmount *smp, uint64_t logical_size)
     return(alloc_size);
 }
 
+uint32_t
+smb2_smb_get_client_capabilities(struct smb_vc *vcp)
+{
+    uint32_t capabilities = 0;
+    uint32_t do_smb3_caps = 0;
+    
+    if (vcp == NULL) {
+        SMBERROR("Null vcp \n");
+        goto out;
+    }
+    
+    if (!(vcp->vc_misc_flags & SMBV_NEG_SMB2_ONLY) &&
+        !(vcp->vc_misc_flags & SMBV_NEG_SMB1_ONLY)) {
+        /* We can report SMB 3 capabilities */
+        do_smb3_caps = 1;
+    }
+    
+    /*
+     * If its SMB 3.x, fill in the Capabilities field
+     */
+    if (do_smb3_caps) {
+        capabilities |= SMB2_GLOBAL_CAP_DFS |
+                        SMB2_GLOBAL_CAP_LEASING |
+                        SMB2_GLOBAL_CAP_LARGE_MTU |
+                        SMB2_GLOBAL_CAP_PERSISTENT_HANDLES |
+                        SMB2_GLOBAL_CAP_DIRECTORY_LEASING |
+                        SMB2_GLOBAL_CAP_ENCRYPTION;
+    }
+
+out:
+    return(capabilities);
+}
+
+uint32_t
+smb2_smb_get_client_dialects(struct smb_vc *vcp, int inReconnect,
+                             uint16_t *dialect_cnt, uint16_t dialects[],
+                             size_t max_dialects_size)
+{
+    uint32_t error = 0;
+    
+    /* We have a max of 4 dialects at this time */
+    if (max_dialects_size < (sizeof(uint16_t) * 4)) {
+        SMBERROR("Not enough space for dialects %ld \n", max_dialects_size);
+        return (ENOMEM);
+    }
+    
+    if (!inReconnect) {
+        /*
+         * Not in reconnect
+         */
+        if (vcp->vc_misc_flags & SMBV_NEG_SMB3_ONLY) {
+            /* only support two dialects of SMB 3 */
+            *dialect_cnt = 2;
+            
+            dialects[0] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
+            dialects[1] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+        }
+        else if (vcp->vc_misc_flags & SMBV_NEG_SMB2_ONLY) {
+            /* only support two dialects of SMB 2 */
+            *dialect_cnt = 2;
+            
+            dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
+            dialects[1] = SMB2_DIALECT_0210;        /* 2.1 Dialect */
+        }
+        else {
+            /* SMB 2/3 - four dialects at this time */
+            *dialect_cnt = 4;
+
+            dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
+            dialects[1] = SMB2_DIALECT_0210;        /* 2.1 Dialect */
+            dialects[2] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
+            dialects[3] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+        }
+    }
+    else {
+        /*
+         * In reconnect, stay with whatever version we had before.
+         */
+        *dialect_cnt = 1;
+
+        /*
+         * In reconnect, stay with whatever version we had before.
+         */
+        if (vcp->vc_flags & SMBV_SMB302) {
+            dialects[0] = SMB2_DIALECT_0302;        /* 3.02 Dialect */
+        }
+        else if (vcp->vc_flags & SMBV_SMB30) {
+            dialects[0] = SMB2_DIALECT_0300;        /* 3.0 Dialect */
+        }
+        else if (vcp->vc_flags & SMBV_SMB21) {
+            dialects[0] = SMB2_DIALECT_0210;        /* 2.1 Dialect */
+        }
+        else if (vcp->vc_flags & SMBV_SMB2002) {
+            dialects[0] = SMB2_DIALECT_0202;        /* 2.002 Dialect */
+        }
+        else {
+            SMBERROR("Unknown dialect for reconnect 0x%x \n", vcp->vc_flags);
+            error = EINVAL;
+        }
+    }
+    
+    return (error);
+}
+
+uint16_t
+smb2_smb_get_client_security_mode(struct smb_vc *vcp)
+{
+    uint16_t security_mode = 0;
+    
+    if (vcp == NULL) {
+        SMBERROR("Null vcp \n");
+    }
+    
+    /* [MS-SMB2] 2.2.3 Client sets either bit, but not both */
+    if ((vcp) && (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED)) {
+        security_mode |= SMB2_NEGOTIATE_SIGNING_REQUIRED;
+	}
+    else {
+        security_mode |= SMB2_NEGOTIATE_SIGNING_ENABLED;
+    }
+    
+    return (security_mode);
+}
+
 int
 smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
                            vfs_context_t context)
@@ -941,6 +1100,8 @@ smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
     uint16_t length;
 	uint16_t sec_buf_offset;
 	uint16_t sec_buf_len;
+    uint16_t security_mode = 0;
+    uint8_t security_mode_byte;
 	
 #ifdef SMB_DEBUG
 	/* For testing use a smaller max size */
@@ -974,13 +1135,11 @@ smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
         mb_put_uint16le(mbp, 25);       /* Struct size */
         mb_put_uint8(mbp, 0);           /* VcNumber */
         
-        /*Security Mode */
-		if (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) {
-			mb_put_uint8(mbp, (SMB2_NEGOTIATE_SIGNING_ENABLED | SMB2_NEGOTIATE_SIGNING_REQUIRED));
-		}
-		else {
-			mb_put_uint8(mbp, SMB2_NEGOTIATE_SIGNING_ENABLED);
-		}
+        /* Security Mode (UInt8 in SessSetup instead of UInt16 in Neg) */
+        security_mode = smb2_smb_get_client_security_mode(vcp);
+        security_mode_byte = security_mode;
+        mb_put_uint8(mbp, security_mode_byte);
+
 		mb_put_uint32le(mbp, SMB2_GLOBAL_CAP_DFS);         /* Capabilities */
         mb_put_uint32le(mbp, 0);        /* Channel - always 0 */
         mb_put_uint16le(mbp, 88);       /* Sec buffer offset */
@@ -1031,10 +1190,10 @@ smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
 	/* Get the reply  and decode the result */
 	smb_rq_getreply(rqp, &mdp);
     
-    /* Using SMB2 */
+    /* Using SMB 2/3 */
     
     /* 
-     * Parse SMB2 Session Setup Response 
+     * Parse SMB 2/3 Session Setup Response 
      * We are already pointing to begining of Response data
      * Cant cast to sturct pointer due to var len security blob
      */
@@ -1075,7 +1234,7 @@ smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
     }
     
     /* 
-     * Security buffer offset if from the beginning of SMB2 Header
+     * Security buffer offset if from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     sec_buf_offset -= SMB2_HDRLEN;
@@ -1131,7 +1290,7 @@ smb2_smb_ioctl(struct smb_share *share, void *arg_ptr,
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	int error;
+	int error, i;
     uint16_t input_buffer_offset;
     SMB2FID smb2_fid;
 	uint16_t reparse_len;
@@ -1140,6 +1299,8 @@ smb2_smb_ioctl(struct smb_share *share, void *arg_ptr,
     uint32_t input_count;
  	struct smb2_get_dfs_referral *dfs_referral;
     uint32_t input_len;
+    struct smb2_secure_neg_info *neg_req = NULL;
+    uint8_t *guidp = NULL;
 
 resend:
     /* Allocate request and header for an IOCTL */
@@ -1151,26 +1312,30 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 IOCTL Request
+     * Build the SMB 2/3 IOCTL Request
      */
     mb_put_uint16le(mbp, 57);                       /* Struct size */
     mb_put_uint16le(mbp, 0);                        /* Reserved */
     mb_put_uint32le(mbp, ioctlp->ctl_code);         /* Ctl code */
 
-    if ((ioctlp->ctl_code != FSCTL_DFS_GET_REFERRALS) && 
-        (ioctlp->ctl_code != FSCTL_PIPE_WAIT)) {
-        /* map fid to smb2 fid */
-        error = smb_fid_get_kernel_fid(share, ioctlp->fid, 0, &smb2_fid);
-        if (error) {
-            goto bad;
-        }
-        mb_put_uint64le(mbp, smb2_fid.fid_persistent); /* FID */
-        mb_put_uint64le(mbp, smb2_fid.fid_volatile);   /* FID */
-    }
-    else {
-        /* must be -1 */
-        mb_put_uint64le(mbp, -1);                   /* FID */
-        mb_put_uint64le(mbp, -1);                   /* FID */
+    switch (ioctlp->ctl_code) {
+        case FSCTL_DFS_GET_REFERRALS:
+        case FSCTL_PIPE_WAIT:
+        case FSCTL_VALIDATE_NEGOTIATE_INFO:
+            /* must be -1 */
+            mb_put_uint64le(mbp, -1);                   /* FID */
+            mb_put_uint64le(mbp, -1);                   /* FID */
+            break;
+            
+        default:
+            /* map fid to SMB 2/3 fid */
+            error = smb_fid_get_kernel_fid(share, ioctlp->fid, 0, &smb2_fid);
+            if (error) {
+                goto bad;
+            }
+            mb_put_uint64le(mbp, smb2_fid.fid_persistent); /* FID */
+            mb_put_uint64le(mbp, smb2_fid.fid_volatile);   /* FID */
+            break;
     }
 
     switch(ioctlp->ctl_code) {
@@ -1347,6 +1512,36 @@ resend:
             mb_put_uint32le(mbp, 0);
             break;
 
+        case FSCTL_VALIDATE_NEGOTIATE_INFO:
+            /* This request must be signed */
+            rqp->sr_flags |= SMBR_SIGNED;
+            
+            mb_put_uint32le(mbp, 120);                  /* Input offset */
+            mb_put_uint32le(mbp, ioctlp->snd_input_len); /* Input count */
+            mb_put_uint32le(mbp, 0);                    /* Max input resp */
+            mb_put_uint32le(mbp, 0);                    /* Output offset */
+            mb_put_uint32le(mbp, 0);                    /* Output count */
+            mb_put_uint32le(mbp, ioctlp->rcv_output_len); /* Max output resp */
+            mb_put_uint32le(mbp, SMB2_IOCTL_IS_FSCTL);  /* Flags */
+            mb_put_uint32le(mbp, 0);                    /* Reserved2 */
+            
+            /* Fill in Validate Negotiate Request */
+            neg_req = (struct smb2_secure_neg_info *) ioctlp->snd_input_buffer;
+
+            mb_put_uint32le(mbp, neg_req->capabilities);    /* Capabilities */
+
+            guidp = (uint8_t *) mb_reserve(mbp, 16);        /* Client GUID */
+            memcpy(guidp, neg_req->guid, 16);
+            
+            mb_put_uint16le(mbp, neg_req->security_mode);   /* Security Mode */
+            mb_put_uint16le(mbp, neg_req->dialect_count);   /* Dialect Count */
+            
+            for (i = 0; i < neg_req->dialect_count; i++) {
+                mb_put_uint16le(mbp, neg_req->dialects[i]);  /* Dialects */
+            }
+            
+            break;
+            
         default:
             SMBERROR("Unsupported ioctl: %d\n", ioctlp->ctl_code);
             error = EBADRPC;
@@ -1424,7 +1619,7 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Lease Break Acknowledgement
+     * Build the SMB 2/3 Lease Break Acknowledgement
      */
     mb_put_uint16le(mbp, 36);                   /* Struct size */
     mb_put_uint16le(mbp, 0);                    /* Reserved */
@@ -1450,7 +1645,7 @@ resend:
     smb_rq_getreply(rqp, &mdp);
     
     /*
-     * Parse SMB2 Lease Break Acknowledgement
+     * Parse SMB 2/3 Lease Break Acknowledgement
      * We are already pointing to begining of Response data
      */
     
@@ -1556,13 +1751,13 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Lock Request
+     * Build the SMB 2/3 Lock Request
      */
     mb_put_uint16le(mbp, 48);       /* Struct size */
     mb_put_uint16le(mbp, 1);        /* LockCount */
     mb_put_uint32le(mbp, 0);        /* LockSequence %%% Should this be something unique??? */
     
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -1591,7 +1786,7 @@ resend:
     smb_rq_getreply(rqp, &mdp);
     
     /* 
-     * Parse SMB2 Lock Response 
+     * Parse SMB 2/3 Lock Response 
      * We are already pointing to begining of Response data
      */
     
@@ -1662,7 +1857,7 @@ resend:
     smb_rq_getreply(rqp, &mdp);
     
     /* 
-     * Parse SMB2 Logoff 
+     * Parse SMB 2/3 Logoff 
      * We are already pointing to begining of Response data
      */
     
@@ -1713,6 +1908,10 @@ smb2_smb_negotiate(struct smb_vc *vcp, struct smb_rq *in_rqp, int inReconnect,
 	uint32_t original_caps;
     uint8_t *guidp;
     uint32_t capabilities = 0;
+    uint16_t security_mode = 0;
+    uint16_t dialect_cnt = 0;
+    uint16_t dialects[8] = {0};     /* Space for 8 dialects */
+    int i;
     
     /*
      * Init some vars
@@ -1725,18 +1924,19 @@ smb2_smb_negotiate(struct smb_vc *vcp, struct smb_rq *in_rqp, int inReconnect,
     
     if (in_rqp != NULL) {
         /* 
-         * Parse SMB2.x Neg Response that we got from our SMB1 Neg Request 
+         * Auto Negotiate from SMB 1
+         * Parse SMB 2/3 Neg Response that we got from our SMB 1 Neg Request
          */
         error = smb2_smb_parse_negotiate(vcp, in_rqp, 1);
         if (error) {
-            SMBERROR("smb2_smb_negotiate_parse for SMB1 failed %d\n", error);
+            SMBERROR("smb2_smb_negotiate_parse for SMB 1 failed %d\n", error);
             goto bad;
         }
         
         /* See if we got SMB 2.002 or SMB 2.1 */
         if ((sp->sv_dialect == SMB2_DIALECT_0202) ||
             (sp->sv_dialect == SMB2_DIALECT_0210)) {
-            /* 
+            /*
              * For SMB 2.002 or 2.1, we are done with the Neg and can go
              * directly to the SessionSetup phase
              */
@@ -1752,8 +1952,8 @@ smb2_smb_negotiate(struct smb_vc *vcp, struct smb_rq *in_rqp, int inReconnect,
             goto do_session_setup;
         }
         
-        /* 
-         * For SMB2.1 and later, start over with a SMB2 Negotiate request from 
+        /*
+         * For SMB2.1 and later, start over with a SMB2 Negotiate request from
          * client since the client SMB2 Negotiate will have information that
          * server will need.
          */
@@ -1769,36 +1969,29 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Negotiate Request
+     * Build the SMB 2/3 Negotiate Request
      */
 	mb_put_uint16le(mbp, 36);                               /* Struct Size */
 
-    if (in_rqp != NULL) {
-        /* only put in the SMB 2.x version the server told us it supports */
-        mb_put_uint16le(mbp, 1);                            /* Dialect Count */
+    /* Get dialect count */
+    error = smb2_smb_get_client_dialects(vcp, inReconnect, &dialect_cnt,
+                                         dialects, sizeof(dialects));
+    if (error) {
+        return error;
     }
-    else {
-        /* put in all SMB 2.x versions we support (hard coded to 2 dialects) */
-        mb_put_uint16le(mbp, 2);                            /* Dialect Count */
-    }
+
+    mb_put_uint16le(mbp, dialect_cnt);                      /* Dialect Count */
+
 	/* Security Mode */
-	if (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) {
-		mb_put_uint16le(mbp, (SMB2_NEGOTIATE_SIGNING_ENABLED | SMB2_NEGOTIATE_SIGNING_REQUIRED));
-	}
-	else {
-		mb_put_uint16le(mbp, SMB2_NEGOTIATE_SIGNING_ENABLED);
-	}
+    security_mode = smb2_smb_get_client_security_mode(vcp);
+    mb_put_uint16le(mbp, security_mode);
+    
 	mb_put_uint16le(mbp, 0);                                /*  Reserved */
     
     /* 
-     * When we support SMB 3.x, fill in the Capabilities field 
+     * If its SMB 3.x, fill in the Capabilities field 
      */
-#if 0 
-    capabilities |= (SMB2_GLOBAL_CAP_DFS |
-                     SMB2_GLOBAL_CAP_LARGE_MTU |
-                     SMB2_GLOBAL_CAP_ENCRYPTION);
-#endif
-    
+    capabilities = smb2_smb_get_client_capabilities(vcp);
 	mb_put_uint32le(mbp, capabilities);                     /* Capabilities */
     
     guidp = (uint8_t *) mb_reserve(mbp, 16);                /* Client GUID */
@@ -1806,21 +1999,11 @@ resend:
     
 	mb_put_uint64le(mbp, 0);                                /* Start Time */
 
-    if (in_rqp != NULL) {
-        /* only put in the SMB 2.x version the server told us it supports */
-        if (vcp->vc_flags & SMBV_SMB2002) {
-            mb_put_uint16le(mbp, SMB2_DIALECT_0202);        /* 2.002 Dialect */
-        }
-        else {
-            mb_put_uint16le(mbp, SMB2_DIALECT_0210);        /* 2.1 Dialect */
-        }
-    }
-    else {
-        /* only support two dialects of SMB 2.x at this time */
-        mb_put_uint16le(mbp, SMB2_DIALECT_0202);            /* 2.002 Dialect */
-        mb_put_uint16le(mbp, SMB2_DIALECT_0210);            /* 2.1 Dialect */
+    for (i = 0; i < dialect_cnt; i++) {                     /* Dialects */
+        mb_put_uint16le(mbp, dialects[i]);
     }
     
+    /* Send the Negotiate Request */
     error = smb_rq_simple(rqp);
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
@@ -1834,7 +2017,7 @@ resend:
     }
     
     /* 
-     * Parse SMB2.x Neg Response that we got from our SMB2.x Neg Request 
+     * Parse SMB 2/3 Negotiate Response
      */
     error = smb2_smb_parse_negotiate(vcp, rqp, 0);
     if (error) {
@@ -1843,6 +2026,14 @@ resend:
     }
     
 do_session_setup:
+    /* Client requires signing, make sure Server supports signing */
+    if ((vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) &&
+        !(sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_ENABLED)) {
+        SMBERROR(" SMB 2/3 Client requires Signing but server doesn't!\n");
+        error = EAUTH;
+        goto bad;
+    }
+
     /* If no token then say we have no length */
     if (vcp->negotiate_token == NULL) {
         vcp->negotiate_tokenlen = 0;
@@ -1864,7 +2055,8 @@ do_session_setup:
         original_caps &= ~SMB_CAP_UNIX;
         
 		if (original_caps != sp->sv_caps)
-			SMBWARNING("Reconnecting with different sv_caps %x != %x\n", original_caps, sp->sv_caps);
+			SMBWARNING("Reconnecting with different sv_caps %x != %x\n",
+                       original_caps, sp->sv_caps);
 	}
     
 bad:
@@ -1882,13 +2074,13 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
     
     if (inReconnect) {
         /* Doing reconnect:
-         * If using SMB2, then stay with SMB2
-         * If SMB1, then stay with SMB1
+         * If using SMB 2/3, then stay with SMB 2/3
+         * If SMB 1, then stay with SMB 1
          */
         if (vcp->vc_flags & SMBV_SMB2) {
-            SMBDEBUG("Reconnecting SMB 2.x only\n");
+            SMBDEBUG("Reconnecting SMB 2/3 only\n");
             /*
-             * For SMB2 Only Negotiate and not the Multi Protocol
+             * For SMB 2/3 Only Negotiate and not the Multi Protocol
              * Negotiate, message_id has to start with 0.
              */
             vcp->vc_message_id = 0;
@@ -1896,34 +2088,33 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
                                        user_context, context);
         }
         else {
-            SMBDEBUG("Reconnecting SMB 1.x only\n");
+            SMBDEBUG("Reconnecting SMB 1 only\n");
             error = smb1_smb_negotiate(vcp, user_context, inReconnect, 1, 
                                        context);
         }
     }
     else {
         /* Not in reconnect: */
-        if (!(vcp->vc_misc_flags & (SMBV_NEG_SMB1_ONLY)) &&
-            !(vcp->vc_misc_flags & (SMBV_NEG_SMB2_ONLY))) {
-            /* Do normal SMB 1.x negotiate and try to negotiate to SMB 2.x */
+        if (!(vcp->vc_misc_flags & (SMBV_NEG_SMB1_ONLY | SMBV_NEG_SMB2_ONLY | SMBV_NEG_SMB3_ONLY))) {
+            /* Do normal SMB 1 negotiate and try to negotiate to SMB 2/3 */
             error = smb1_smb_negotiate(vcp, user_context, inReconnect, 0, 
                                        context);
         }
         else {
             if (vcp->vc_misc_flags & SMBV_NEG_SMB1_ONLY) {
-                /* Only allow SMB 1.x */
-                SMBDEBUG("SMB 1.x only\n");
+                /* Only allow SMB 1 */
+                SMBDEBUG("SMB 1 only\n");
                 error = smb1_smb_negotiate(vcp, user_context, inReconnect, 1, 
                                            context);
             }
             else {
-                if (vcp->vc_misc_flags & SMBV_NEG_SMB2_ONLY) {
+                if (vcp->vc_misc_flags & (SMBV_NEG_SMB2_ONLY | SMBV_NEG_SMB3_ONLY)) {
                     /*
-                     * For SMB2 Only Negotiate and not the Multi Protocol
+                     * For SMB 2/3 Only Negotiate and not the Multi Protocol
                      * Negotiate, message_id has to start with 0.
                      */
                     vcp->vc_message_id = 0;
-                    SMBDEBUG("SMB 2.x only\n");
+                    SMBDEBUG("SMB 2/3 only\n");
                     error = smb2_smb_negotiate(vcp, NULL, inReconnect,
                                                user_context, context);
                 }
@@ -1959,7 +2150,7 @@ smb2_smb_parse_change_notify(struct smb_rq *rqp, uint32_t *events)
     smb_rq_getreply(rqp, &mdp);
         
     /* 
-     * Parse SMB2 Change Notify Response 
+     * Parse SMB 2/3 Change Notify Response 
      */
     
     /* Check structure size is 9 */
@@ -1986,7 +2177,7 @@ smb2_smb_parse_change_notify(struct smb_rq *rqp, uint32_t *events)
     }
     
     /* 
-     * Output buffer offset is from the beginning of SMB2 Header
+     * Output buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     output_buffer_offset -= SMB2_HDRLEN;
@@ -2082,7 +2273,7 @@ smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep)
     SMB2FID smb2_fid; 
 
     /* 
-     * Parse SMB2 Close Response 
+     * Parse SMB 2/3 Close Response 
      * We are already pointing to begining of Response data
      */
     
@@ -2108,7 +2299,7 @@ smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep)
     /* We asked for attributes, did the server give them to us? */
     if ((flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB) && 
         !(ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
-        SMBERROR("Bad SMB2 Server, did not return close attributes\n");
+        SMBERROR("Bad SMB 2/3 Server, did not return close attributes\n");
         error = EBADRPC;
         goto bad;
     }
@@ -2216,7 +2407,7 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
     struct smb_vc *vcp = SSTOVC(share);
 
     /*
-     * Parse SMB2 Create Response 
+     * Parse SMB 2/3 Create Response 
      * We are already pointing to begining of Response data
      */
     
@@ -2297,7 +2488,7 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
         goto bad;
     }
     
-    /* Get SMB2 File ID and create user fid to return */
+    /* Get SMB 2/3 File ID and create user fid to return */
     error = md_get_uint64le(mdp, &smb2_fid.fid_persistent);
     if (error) {
         goto bad;
@@ -2320,7 +2511,7 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
     }
     
     /* 
-     * Context offset is from the beginning of SMB2 Header
+     * Context offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */  
 
@@ -2384,7 +2575,7 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
     /* already parsed 88 bytes worth of this response */
     *ret_context_offset -= 88;
     
-    if (ret_context_offset > 0) {
+    if (*ret_context_offset > 0) {
         error = md_get_mem(mdp, NULL, *ret_context_offset, MB_MSYSTEM);
         if (error) {
             goto bad;
@@ -2488,6 +2679,10 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                     error = md_get_uint32le(&md_context_shadow, &max_access);
                     if (error) {
                         goto bad;
+                    }
+                    
+                    if (createp->flags & SMB2_CREATE_ASSUME_DELETE) {
+                        max_access |= SMB2_DELETE;
                     }
                     
                     createp->ret_max_access = max_access;
@@ -2663,6 +2858,10 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                         if (vcp->vc_server_caps & kAAPL_UNIX_BASED) {
                             /* Server is unix based */
                             VC_CAPS(vcp) |= SMB_CAP_UNIX;
+                        }
+                        if (vcp->vc_server_caps & kAAPL_SUPPORTS_OSX_COPYFILE) {
+                            /* Server supports COPY_CHUNK IOCTL */
+                            vcp->vc_misc_flags |= SMBV_HAS_COPYCHUNK;
                         }
                         
                         if (server_bitmap & kAAPL_VOLUME_CAPS) {
@@ -3221,6 +3420,10 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
     const char *stream_name;
     const char *fname;
 	struct smbmount *smp = stream_infop->share->ss_mount;
+    uint32_t is_data_stream = 0;
+    uint32_t found_data_stream = 0;
+    uint32_t stream_count = 0;
+    int n_name_locked = 0;
     
     translate_names = ((*stream_infop->stream_flagsp) & SMB_NO_TRANSLATE_NAMES) ? 0 : 1;
     *stream_infop->stream_flagsp = 0;
@@ -3229,6 +3432,9 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
     if (buffer_len == 0) {
         /* if no output data, then no attrs were found */
         error = ENOATTR;
+        
+        /* This item has no named streams other than data stream */
+        *stream_infop->stream_flagsp |= SMB_NO_SUBSTREAMS;
         goto done;
     }
 
@@ -3339,6 +3545,8 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
          * null added.
 		 */
         if (stream_infop->namep == NULL) {
+            lck_rw_lock_shared(&np->n_name_rwlock);
+            n_name_locked = 1;
             fname = np->n_name;
         }
         else {
@@ -3346,7 +3554,14 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
             fname = stream_infop->namep;
         }
         
-        if (smbfs_smb_undollardata(fname, full_stream_name, &full_stream_name_len)) {
+        stream_count += 1;
+        if (smbfs_smb_undollardata(fname, full_stream_name,
+                                   &full_stream_name_len, &is_data_stream)) {
+            if (n_name_locked) {
+                lck_rw_unlock_shared(&np->n_name_rwlock);
+                n_name_locked = 0;
+            }
+            
 			/* the "+ 1" skips over the leading colon */
 			stream_name = full_stream_name + 1;
 
@@ -3520,6 +3735,21 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
             }
 
 		} /* smbfs_smb_undollardata */
+        else {
+            if (n_name_locked) {
+                lck_rw_unlock_shared(&np->n_name_rwlock);
+                n_name_locked = 0;
+            }
+
+            /*
+             * smbfs_smb_undollardata() returns 0 for bad stream names,
+             * data fork, or protected xattrs
+             */
+            if (is_data_stream == 1) {
+                /* Found a data stream that we are ignoring */
+                found_data_stream = 1;
+            }
+        }
         
 skipentry:
         if (full_stream_name != NULL) {
@@ -3550,7 +3780,12 @@ out:
     }
    
 done:
-	/* 
+	if ((stream_count == 1) && (found_data_stream ==1)) {
+        /* This item has no named streams other than data stream */
+        *stream_infop->stream_flagsp |= SMB_NO_SUBSTREAMS;
+    }
+    
+    /*
      * If we searched the entire list and did not find a finder info stream, 
      * then reset the cache timer. 
      */
@@ -3562,7 +3797,7 @@ done:
             /* Negative cache the Finder Info in the vnode */
             bzero(np->finfo, sizeof(np->finfo));
             nanouptime(&ts);
-            np->finfo_cache = ts.tv_sec;
+            np->finfo_cache_timer = ts.tv_sec;
         }
     }
 
@@ -3690,7 +3925,7 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
 	size_t path_len;
     
     /*
-     * Parse SMB2 IOCTL Response for FSCTL_GET_REPARSE_POINT
+     * Parse SMB 2/3 IOCTL Response for FSCTL_GET_REPARSE_POINT
      * We are already pointing to begining of Symbolic Link Reparse Data Buffer
      */
     
@@ -3774,7 +4009,7 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
 	if ((substitute_name_len == 0) ||
         (substitute_name_len > SSTOVC(ioctlp->share)->vc_txmax)) {
 		error = ENOMEM;
-		SMBSYMDEBUG("%s SubstituteNameLength too large or zero %d \n", np->n_name, SubstituteNameLength);
+		SMBSYMDEBUG("SubstituteNameLength too large or zero %d \n", SubstituteNameLength);
 		goto bad;
 	}
 	
@@ -3877,9 +4112,10 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
     uint32_t ret_output_offset;
     uint32_t ret_flags;
     uint32_t reserved_uint32;
+    struct smb2_secure_neg_info *neg_reply = NULL;
     
     /* 
-     * Parse SMB2 IOCTL Response 
+     * Parse SMB 2/3 IOCTL Response 
      * We are already pointing to begining of Response data
      */
     
@@ -3973,7 +4209,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             }
             
             /* 
-             * Data offset is from the beginning of SMB2 Header
+             * Data offset is from the beginning of SMB 2/3 Header
              * Calculate how much further we have to go to get to it.
              */
             ret_output_offset -= SMB2_HDRLEN;
@@ -4012,7 +4248,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             }
             
             /*
-             * Data offset is from the beginning of SMB2 Header
+             * Data offset is from the beginning of SMB 2/3 Header
              * Calculate how much further we have to go to get to it.
              */
             ret_output_offset -= SMB2_HDRLEN;
@@ -4040,7 +4276,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             }
             
             if (ioctlp->ret_output_len != 0xC) {
-                /* MUST be 0x20 */
+                /* MUST be 0x0C */
                 SMBDEBUG("output_count is supposed to be 12, got: %u\n", (uint32_t) ioctlp->ret_output_len);
             }
             
@@ -4053,6 +4289,49 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             
             break;
 
+        case FSCTL_VALIDATE_NEGOTIATE_INFO:
+            neg_reply = (struct smb2_secure_neg_info *) ioctlp->rcv_output_buffer;
+
+            if (ioctlp->ret_output_len != 0x18) {
+                /* MUST be 0x18 */
+                SMBDEBUG("output_count is supposed to be 24, got: %u\n", (uint32_t) ioctlp->ret_output_len);
+            }
+            
+            if (ioctlp->rcv_output_len < 24) {
+                SMBERROR("Validate Neg output buffer too small: %d\n",
+                         ioctlp->rcv_output_len);
+                error = EBADRPC;
+                goto bad;
+            }
+            
+            
+            /* Get Capabilities */
+            error = md_get_uint32le(mdp, &neg_reply->capabilities);
+            if (error) {
+                goto bad;
+            }
+            
+            /* Get Server GUID */
+            error = md_get_mem(mdp, (caddr_t)&neg_reply->guid, 16, MB_MSYSTEM);
+            if (error) {
+                goto bad;
+            }
+            
+            /* Get Security Mode */
+            error = md_get_uint16le(mdp, &neg_reply->security_mode);
+            if (error) {
+                goto bad;
+            }
+
+            /* Get Dialect */
+            neg_reply->dialect_count = 1;
+            error = md_get_uint16le(mdp, &neg_reply->dialects[0]);
+            if (error) {
+                goto bad;
+            }
+            
+            break;
+            
         default:
             SMBERROR("Unsupported ret ioctl: %d\n", ret_ctlcode);
             error = EBADRPC;
@@ -4094,7 +4373,7 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
     }
 
     /*
-     * Parse SMB2 Lease Break Response
+     * Parse SMB 2/3 Lease Break Response
      * We are already pointing to begining of Response data
      */
     
@@ -4179,8 +4458,8 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
 		 */
 		smb_share_ref(share);
         
-		if (share->ss_flags & SMBO_GONE) {
-			/* Skip any shares that are being disconnected */
+		if ((share->ss_mount == NULL) || (share->ss_flags & SMBO_GONE)) {
+			/* Skip any shares that are being disconnected or gone already */
 			smb_share_rele(share, iod->iod_context);
 			continue;
 		}
@@ -4197,7 +4476,7 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
 	smb_vc_unlock(vcp);
 
     if (found_share == 0) {
-        SMBERROR("No matching share found for lease break \n");
+        SMBWARNING("No matching share found for lease break \n");
         error = ENOENT;
         goto bad;
     }
@@ -4205,7 +4484,8 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
 	smp = share->ss_mount;
 
     /* Try to find the vnode and upates its lease state */
-    error = smbfs_handle_lease_break(smp, lease_key_hi, lease_key_low, new_lease_state);
+    error = smbfs_handle_lease_break(smp, lease_key_hi, lease_key_low,
+                                     new_lease_state);
     if (error) {
         goto bad;
     }
@@ -4230,10 +4510,9 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
 	uint16_t length;
 	uint16_t sec_buf_offset;
 	uint16_t sec_buf_len;
-	uint8_t server_guid[16], curr_time[8], boot_time[8];
+	uint8_t curr_time[8], boot_time[8];
 	uint16_t reserved16;
 	uint32_t reserved;
-	uint16_t smb2_security_mode;
 	struct smb_sopt *sp = &vcp->vc_sopt;
 	struct mdchain *mdp;
 	int error;
@@ -4242,7 +4521,7 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
     smb_rq_getreply(rqp, &mdp);
     
     /*
-     * Parse SMB2 Negotiate Response
+     * Parse SMB 2/3 Negotiate Response
      * We are already pointing to begining of Response data
      */
     
@@ -4258,28 +4537,21 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
     }
     
     /* Get Security Mode */
-    error = md_get_uint16le(mdp, &smb2_security_mode);
+    error = md_get_uint16le(mdp, &sp->sv_security_mode);
     if (error) {
         goto bad;
     }
     
-    if (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) {
-        if (smb2_security_mode & (SMB2_NEGOTIATE_SIGNING_ENABLED | SMB2_NEGOTIATE_SIGNING_REQUIRED)) {
-            if (smb2_security_mode & (SMB2_NEGOTIATE_SIGNING_REQUIRED))
-                vcp->vc_flags |= SMBV_SIGNING_REQUIRED;
-        } else {
-            SMBERROR(" SMB2 Client requires Signing, server doesn't!\n");
-            error = EAUTH;
-            goto bad;
-        }
-    }
-    
-    if (smb2_security_mode & SMB2_NEGOTIATE_SIGNING_ENABLED)
+    /* Save some signing related flags about what the server supports */
+    if (sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_ENABLED)
         vcp->vc_flags |= SMBV_SIGNING;
     
-    if ( (smb2_security_mode & SMB2_NEGOTIATE_SIGNING_REQUIRED) ||
+    if (sp->sv_security_mode & (SMB2_NEGOTIATE_SIGNING_REQUIRED))
+        vcp->vc_flags |= SMBV_SIGNING_REQUIRED;
+    
+    /* Turn on signing if either Server or client requires it */
+    if ((sp->sv_security_mode & SMB2_NEGOTIATE_SIGNING_REQUIRED) ||
         (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED)) {
-        /* Server requires signing */
         vcp->vc_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
     }
     
@@ -4296,8 +4568,14 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
         goto bad;
     }
     
-    /* Must get either SMB 2.002 or SMB ??? (ie SMB 2.x) */
+    /* What dialect did we get? */
     switch (sp->sv_dialect) {
+        case SMB2_DIALECT_0302:
+            vcp->vc_flags |= SMBV_SMB2 | SMBV_SMB302;
+            break;
+        case SMB2_DIALECT_0300:
+            vcp->vc_flags |= SMBV_SMB2 | SMBV_SMB30;
+            break;
         case SMB2_DIALECT_0210:
             vcp->vc_flags |= SMBV_SMB2 | SMBV_SMB21;
             break;
@@ -4319,18 +4597,18 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
         (sp->sv_dialect != SMB2_DIALECT_0210) &&
         (smb1_req == 1)) {
         /*
-         * We started with SMB1 Negotiate requst and got back a SMB 2 Negotiate
-         * response and that is the response we are parsing right now.
+         * We started with SMB1 Negotiate requst and got back a SMB 2/3
+         * Negotiate response and that is the response we are parsing right now.
          *
-         * For SMB 2.002 and 2.1, we need to continue parsing the SMB 2
+         * For SMB 2.002 and 2.1, we need to continue parsing the SMB 2/3
          * Negotiate response as we are going directly to the Session Setup
          * exchange next.
          *
          * Any other dialect from the server, we will start over with a
-         * SMB 2 Negotiate request from the client. The SMB 2 Negotiate request 
-         * will have information about the client that the server will need. 
-         * In this case, we dont have to finish parsing the SMB 1 response and 
-         * can just skip out.
+         * SMB 2/3 Negotiate request from the client. The SMB 2/3 Negotiate
+         * request will have information about the client that the server will
+         * need. In this case, we dont have to finish parsing the SMB 1
+         * response and can just skip out.
          *
          * NOTE: If the server is replying with SMB 2.1 to a SMB 1 Negotiate
          * request, then this is wrong according to [MS-SMB2] sections 3.3.5.3.1
@@ -4350,9 +4628,8 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
     
     /*
      * Get Server GUID
-     * %%% To Do - Do something with Server GUID field???
      */
-    error = md_get_mem(mdp, (caddr_t)server_guid, 16, MB_MSYSTEM);
+    error = md_get_mem(mdp, (caddr_t)&sp->sv_guid, 16, MB_MSYSTEM);
     if (error) {
         goto bad;
     }
@@ -4366,7 +4643,7 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
     /*
      * %%% To Do - too many places are looking at sv_capabilities
      * so for now, prefill it in.  Later we should use the
-     * sv_capabilities for SMB2.
+     * sv_capabilities for SMB 2/3.
      */
     sp->sv_caps = (SMB_CAP_UNICODE |
                    SMB_CAP_LARGE_FILES |
@@ -4432,7 +4709,7 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
     }
     
     /*
-     * Security buffer offset is from the beginning of SMB2 Header
+     * Security buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     sec_buf_offset -= SMB2_HDRLEN;
@@ -4474,11 +4751,12 @@ smb2_smb_parse_query_dir(struct mdchain *mdp,
 	int error;
 	uint16_t length;
     uint16_t output_buf_offset;
+    uint32_t read_size = 0;
     
     /* NOTE: queryp must still have the data from building the request */
     
     /* 
-     * Parse SMB2 Query Directory 
+     * Parse SMB 2/3 Query Directory 
      * We are already pointing to begining of Response data
      */
     
@@ -4509,7 +4787,7 @@ smb2_smb_parse_query_dir(struct mdchain *mdp,
     }
     
     /* 
-     * Output buffer offset is from the beginning of SMB2 Header
+     * Output buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     output_buf_offset -= SMB2_HDRLEN;
@@ -4523,7 +4801,22 @@ smb2_smb_parse_query_dir(struct mdchain *mdp,
         }
     }
     
-bad:    
+    if ((queryp->rcv_output_uio != NULL) &&
+        (queryp->output_buffer_len > 0)) {
+        /* 
+         * If have a rcv_output_uio, then must be from user space and thus a 
+         * test tool. Just copy out the results to their buffer and let them 
+         * parse it.
+         */
+        read_size = min(queryp->output_buffer_len, queryp->ret_buffer_len);
+        error = md_get_uio(mdp, queryp->rcv_output_uio, read_size);
+        
+        if (!error) {
+            queryp->output_buffer_len = read_size;
+        }
+    }
+    
+bad:
     return error;
 }
 
@@ -4647,6 +4940,10 @@ smb2_smb_parse_query_dir_both_dir_info(struct smb_share *share, struct mdchain *
     }
     fap->fa_vtype = (fap->fa_attr & SMB_EFA_DIRECTORY) ? VDIR : VREG;
     
+    /* Set default uid/gid values */
+    fap->fa_uid = KAUTH_UID_NONE;
+    fap->fa_gid = KAUTH_GID_NONE;
+
     /* Get File Name Length */
     error = md_get_uint32le(mdp, network_name_len);
     if (error) {
@@ -4965,7 +5262,7 @@ smb2_smb_parse_query_info(struct mdchain *mdp,
     /* NOTE: queryp must still have the data from building the request */
     
     /* 
-     * Parse SMB2 Query Info Response 
+     * Parse SMB 2/3 Query Info Response 
      * We are already pointing to begining of Response data
      */
     
@@ -5000,7 +5297,7 @@ smb2_smb_parse_query_info(struct mdchain *mdp,
     }
     
     /* 
-     * Output buffer offset is from the beginning of SMB2 Header
+     * Output buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     output_buffer_offset -= SMB2_HDRLEN;
@@ -5097,7 +5394,7 @@ smb2_smb_parse_read_one(struct mdchain *mdp,
     uint32_t reserved2;
     
     /*
-     * Parse SMB2 Read Response
+     * Parse SMB 2/3 Read Response
      * We are already pointing to begining of Response data
      */
     
@@ -5143,7 +5440,7 @@ smb2_smb_parse_read_one(struct mdchain *mdp,
     }
     
     /*
-     * Data offset is from the beginning of SMB2 Header
+     * Data offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     data_offset -= SMB2_HDRLEN;
@@ -5182,7 +5479,7 @@ smb2_smb_parse_set_info(struct mdchain *mdp,
     uint16_t length;
     
     /* 
-     * Parse SMB2 Set Info Response 
+     * Parse SMB 2/3 Set Info Response 
      * We are already pointing to begining of Response data
      */
     
@@ -5209,7 +5506,7 @@ smb2_smb_parse_security(struct mdchain *mdp,
     struct ntsecdesc **resp = (struct ntsecdesc ** ) queryp->output_buffer;
     
     /* 
-     * Parse SMB2 Get Security Response
+     * Parse SMB 2/3 Get Security Response
      * We are already pointing to begining of Response data
      */
     
@@ -5274,7 +5571,7 @@ smb2_smb_parse_svrmsg_notify(struct smb_rq *rqp,
     smb_rq_getreply(rqp, &mdp);
     
     /*
-     * Parse SMB2 Change Notify Response
+     * Parse SMB 2/3 Change Notify Response
      */
     
     /* Check structure size is 9 */
@@ -5308,7 +5605,7 @@ smb2_smb_parse_svrmsg_notify(struct smb_rq *rqp,
     }
     
     /*
-     * Output buffer offset is from the beginning of SMB2 Header
+     * Output buffer offset is from the beginning of SMB 2/3 Header
      * Calculate how much further we have to go to get to it.
      */
     output_buffer_offset -= SMB2_HDRLEN;
@@ -5390,7 +5687,7 @@ done:
     return error;
 }
 
-static int
+int
 smb2_smb_parse_write_one(struct mdchain *mdp,
                          user_ssize_t *rresid,
                          struct smb2_rw_rq *writep)
@@ -5401,7 +5698,7 @@ smb2_smb_parse_write_one(struct mdchain *mdp,
     uint32_t reserved2;
     
     /*
-     * Parse SMB2 Write Response
+     * Parse SMB 2/3 Write Response
      * We are already pointing to begining of Response data
      */
     
@@ -5473,14 +5770,14 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Query_Directory Request
+     * Build the SMB 2/3 Query_Directory Request
      */
     mb_put_uint16le(mbp, 33);                           /* Struct size */
     mb_put_uint8(mbp, queryp->file_info_class);         /* FileInformationClass */
     mb_put_uint8(mbp, queryp->flags);                   /* Flags */
     mb_put_uint32le(mbp, queryp->file_index);           /* FileIndex */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, queryp->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -5498,7 +5795,7 @@ resend:
         smb2_rq_bstart(rqp, name_len);
         
         /* 
-         * SMB2 searches do not want any paths (ie no '\') in the search 
+         * SMB 2/3 searches do not want any paths (ie no '\') in the search 
          * pattern. The dir to be searched should already be open.
          * If we have a namep, then use that as the search pattern.
          * If namep is NULL, then use dnp->n_name as the search pattern.
@@ -5516,11 +5813,13 @@ resend:
                 goto bad;
             }
             
+            lck_rw_lock_shared(&queryp->dnp->n_name_rwlock);
             error = smb2fs_fullpath(mbp, NULL,
                                     queryp->dnp->n_name, queryp->dnp->n_nmlen,
                                     NULL, 0,
                                     queryp->name_flags, sep_char);
             
+            lck_rw_unlock_shared(&queryp->dnp->n_name_rwlock);
         }
         else {
             /* have a namep, thus dnp was opened so look for namep */
@@ -5656,7 +5955,7 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Query_Info Request
+     * Build the SMB 2/3 Query_Info Request
      */
     mb_put_uint16le(mbp, 41);                       /* Struct size */
     mb_put_uint8(mbp, queryp->info_type);           /* Info type */
@@ -5676,7 +5975,7 @@ resend:
     mb_put_uint32le(mbp, queryp->add_info);         /* Additional info */
     mb_put_uint32le(mbp, queryp->flags);            /* Flags */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, queryp->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -5739,6 +6038,10 @@ smb2_smb_read(struct smb_share *share, void *arg_ptr, vfs_context_t context)
 	user_ssize_t total_size, len, resid = 0;
 	int error = 0;
     
+    SMB_LOG_KTRACE(SMB_DBG_SMB_READ | DBG_FUNC_START,
+                   uio_offset(readp->auio),
+                   uio_resid(readp->auio), 0, 0, 0);
+
     /* assume we can read it all in one request */
 	total_size = uio_resid(readp->auio);
     
@@ -5771,6 +6074,7 @@ smb2_smb_read(struct smb_share *share, void *arg_ptr, vfs_context_t context)
         error = 0;
     }
     
+    SMB_LOG_KTRACE(SMB_DBG_SMB_READ | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -5818,14 +6122,14 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Read Request
+     * Build the SMB 2/3 Read Request
      */
     mb_put_uint16le(mbp, 49);                       /* Struct size */
     mb_put_uint16le(mbp, 0);                        /* Padding and Reserved */
     mb_put_uint32le(mbp, (uint32_t) *len);          /* Length of read */
 	mb_put_uint64le(mbp, uio_offset(readp->auio));   /* Offset */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, readp->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -5935,6 +6239,9 @@ smb2_smb_read_write_async(struct smb_share *share,
     user_ssize_t saved_len, saved_rresid;
     int max_pb;
         
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_START,
+                   *len, *rresid, 0, 0, 0);
+
     /*
      * This function does multiple Async Reads/Writes
      */
@@ -5949,8 +6256,9 @@ smb2_smb_read_write_async(struct smb_share *share,
         if ((*len <= SSTOVC(share)->vc_rxmax) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single read */
-            return (smb2_smb_read_one(share, in_read_writep, len, rresid, NULL,
-                                      context));
+            error = smb2_smb_read_one(share, in_read_writep, len, rresid, NULL,
+                                      context);
+            goto done;
         }
     }
     else {
@@ -5958,8 +6266,9 @@ smb2_smb_read_write_async(struct smb_share *share,
         if ((*len <= SSTOVC(share)->vc_wxmax) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single write */
-            return (smb2_smb_write_one(share, in_read_writep, len, rresid, NULL,
-                                       context));
+            error = smb2_smb_write_one(share, in_read_writep, len, rresid, NULL,
+                                       context);
+            goto done;
         }
     }
     
@@ -6026,6 +6335,8 @@ resend:
         }
     }
     
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc001, i, 0, 0, 0);
+
     /*
      * Send initial requests
      */
@@ -6046,6 +6357,10 @@ resend:
         for (j = 0; j < i; j++) {
             if (rw_pb[j].pending == 1) {
                 error = smb_rq_reply(rw_pb[j].rqp);
+                
+                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE,
+                               0xabc002, error, j, 0, 0);
+
                 rw_pb[j].pending = 0;
                 if (error) {
                     if (rw_pb[j].rqp->sr_flags & SMBR_RECONNECTED) {
@@ -6193,7 +6508,9 @@ bad:
     if (tmp_read_write.auio) {
         uio_free(tmp_read_write.auio);
     }
-    
+
+done:
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_END, error, *rresid, 0, 0, 0);
 	return error;
 }
 
@@ -6215,6 +6532,8 @@ smb2_smb_read_write_fill(struct smb_share *share,
         len = MIN(SSTOVC(share)->vc_wxmax, uio_resid(master_read_writep->auio));
     }
     
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_FILL | DBG_FUNC_START, len, 0, 0, 0, 0);
+
     saved_len = len;
     
     /*
@@ -6276,6 +6595,7 @@ smb2_smb_read_write_fill(struct smb_share *share,
     uio_update(master_read_writep->auio, len);
     
 bad:
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_FILL | DBG_FUNC_END, error, 0, 0, 0, 0);
     return (error);
 }
 
@@ -6334,7 +6654,7 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Set Info Request
+     * Build the SMB 2/3 Set Info Request
      */
     mb_put_uint16le(mbp, 33);                       /* Struct size */
     mb_put_uint8(mbp, infop->info_type);            /* Info Type */
@@ -6344,7 +6664,7 @@ resend:
     mb_put_uint16le(mbp, 0);                        /* Reserved */
     mb_put_uint32le(mbp, infop->add_info);          /* Additional Info */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, infop->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -6670,7 +6990,7 @@ resend:
 	smb_rq_getreply(rqp, &mdp);
     
     /* 
-     * Parse SMB2 Tree Connect Response 
+     * Parse SMB 2/3 Tree Connect Response 
      * We are already pointing to begining of Response data
      */
     
@@ -6709,7 +7029,7 @@ resend:
     if (error)
         goto bad;
     
-    /* Map SMB2 capabilities to SMB1 share->optionalSupport */
+    /* Map SMB 2/3 capabilities to SMB 1 share->optionalSupport */
     if (share->ss_share_caps & SMB2_SHARE_CAP_DFS) {
         share->optionalSupport |= SMB_SHARE_IS_IN_DFS;
     }
@@ -6778,7 +7098,7 @@ resend:
     smb_rq_getreply(rqp, &mdp);
     
     /* 
-     * Parse SMB2 Tree Disconnect 
+     * Parse SMB 2/3 Tree Disconnect 
      * We are already pointing to begining of Response data
      */
     
@@ -6863,7 +7183,7 @@ smb2_smb_write(struct smb_share *share, void *arg_ptr, vfs_context_t context)
  * "*len" is amount of data requested (updated with actual size attempted)
  * "*rresid" is actual amount of data written
  */
-static int 
+int
 smb2_smb_write_one(struct smb_share *share,
                    struct smb2_rw_rq *writep,
                    user_ssize_t *len,
@@ -6903,7 +7223,7 @@ resend:
     smb_rq_getrequest(rqp, &mbp);
     
     /*
-     * Build the SMB2 Write Request
+     * Build the SMB 2/3 Write Request
      */
     mb_put_uint16le(mbp, 49);                       /* Struct size */
     data_offset = SMB2_HDRLEN;
@@ -6912,7 +7232,7 @@ resend:
     mb_put_uint32le(mbp, (uint32_t) *len);          /* Length of write */
 	mb_put_uint64le(mbp, uio_offset(writep->auio)); /* Offset */
 
-    /* map fid to smb2 fid */
+    /* map fid to SMB 2/3 fid */
     error = smb_fid_get_kernel_fid(share, writep->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
@@ -6977,11 +7297,28 @@ smb2_smb_write_uio(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
                    vfs_context_t context)
 {
     int error;
-	uint32_t writeMode = (ioflag & IO_SYNC) ? SMB2_WRITEFLAG_WRITE_THROUGH : 0;
+	uint32_t write_mode = 0;
  	struct smb2_rw_rq *writep = NULL;
-        
-    SMB_MALLOC(writep, 
-               struct smb2_rw_rq *, 
+    int attempts = 0;
+    uio_t temp_uio = NULL;
+    user_size_t write_count = 0;
+    
+    temp_uio = uio_duplicate(uio);
+    if (temp_uio == NULL) {
+        SMBERROR("uio_duplicate failed\n");
+        error = ENOMEM;
+        return error;
+    }
+    
+    write_count = uio_resid(uio);
+    
+    /* Some Windows servers give error when write through is used */
+    if (!(SSTOVC(share)->vc_misc_flags & SMBV_NO_WRITE_THRU)) {
+        write_mode = (ioflag & IO_SYNC) ? SMB2_WRITEFLAG_WRITE_THROUGH : 0;
+    }
+    
+    SMB_MALLOC(writep,
+               struct smb2_rw_rq *,
                sizeof(struct smb2_rw_rq), 
                M_SMBTEMP, 
                M_WAITOK | M_ZERO);
@@ -6991,25 +7328,66 @@ smb2_smb_write_uio(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
         return error;
     }
     
+again:
     writep->flags = 0;
     writep->remaining = 0;
-    writep->write_flags = writeMode;
+    writep->write_flags = write_mode;
     writep->fid = fid;
-    writep->auio = uio;
+    writep->auio = temp_uio;
     
     error = smb2_smb_write(share, writep, context);
     
-    if (writep != NULL) {
-        SMB_FREE(writep, M_SMBTEMP);
+    /* Handle servers that dislike write through mode */
+    if ((error == EINVAL) &&
+        (writep->ret_ntstatus == STATUS_INVALID_PARAMETER) &&
+        (write_mode != 0) &&
+        !((SSTOVC(share)->vc_misc_flags) & SMBV_NO_WRITE_THRU) &&
+        (attempts == 0)) {
+        SMBWARNING("SMB 2/3 server cant handle write through. Disabling write through.\n");
+        SSTOVC(share)->vc_misc_flags |= SMBV_NO_WRITE_THRU;
+        attempts += 1;
+        
+        /* Reset the temp_uio back to original values */
+        if (temp_uio != NULL) {
+            uio_free(temp_uio);
+            temp_uio = NULL;
+        }
+        
+        temp_uio = uio_duplicate(uio);
+        if (temp_uio == NULL) {
+            SMBERROR("uio_duplicate failed\n");
+            error = ENOMEM;
+            goto done;
+        }
+        
+        write_mode = 0;
+        bzero(writep, sizeof(struct smb2_rw_rq));
+        
+        goto again;
+    }
+    else {
+        /* Update the actual uio */
+        write_count -= uio_resid(temp_uio);
+        uio_update(uio, write_count);
     }
     
-	return error;
+done:
+    if (writep != NULL) {
+        SMB_FREE(writep, M_SMBTEMP);
+        writep = NULL;
+    }
+    
+    if (temp_uio != NULL) {
+        uio_free(temp_uio);
+    }
+    
+    return error;
 }
 
 /*
  * The calling routine must hold a reference on the share
  */
-int 
+int
 smb_smb_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
               vfs_context_t context)
 {
@@ -7059,7 +7437,7 @@ smb2_vc_maxwrite(struct smb_vc *vcp)
 	uint32_t maxmsgsize = vcp->vc_sopt.sv_maxwrite;
 	uint32_t hdrsize = SMB2_HDRLEN;
 	
-	hdrsize += SMB2_WRITE_REQ_HDRLEN;    /* SMB2 Write Request Header */
+	hdrsize += SMB2_WRITE_REQ_HDRLEN;    /* SMB 2/3 Write Request Header */
 	
 	/* Make sure we never use a size bigger than the socket can support */
 	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &socksize);

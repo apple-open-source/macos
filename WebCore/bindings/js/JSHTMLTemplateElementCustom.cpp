@@ -47,14 +47,13 @@ JSValue JSHTMLTemplateElement::content(ExecState* exec) const
 {
     JSLockHolder lock(exec);
 
-    HTMLTemplateElement* imp = static_cast<HTMLTemplateElement*>(impl());
-    DocumentFragment* content = imp->content();
+    DocumentFragment* content = impl().content();
 
-    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), content);
+    JSObject* wrapper = getCachedWrapper(globalObject()->world(), content);
     if (wrapper)
         return wrapper;
 
-    wrapper = CREATE_DOM_WRAPPER(exec, globalObject(), DocumentFragment, content);
+    wrapper = CREATE_DOM_WRAPPER(globalObject(), DocumentFragment, content);
     PrivateName propertyName;
     const_cast<JSHTMLTemplateElement*>(this)->putDirect(globalObject()->vm(), propertyName, wrapper);
     return wrapper;

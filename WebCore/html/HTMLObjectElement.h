@@ -30,66 +30,53 @@ namespace WebCore {
 
 class HTMLFormElement;
 
-class HTMLObjectElement FINAL : public HTMLPlugInImageElement, public FormAssociatedElement {
+class HTMLObjectElement final : public HTMLPlugInImageElement, public FormAssociatedElement {
 public:
-    static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
+    static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
     virtual ~HTMLObjectElement();
 
     bool isDocNamedItem() const { return m_docNamedItem; }
-
-    const String& classId() const { return m_classId; }
-
     bool containsJavaApplet() const;
 
-    virtual bool useFallbackContent() const { return m_useFallbackContent; }
+    bool hasFallbackContent() const;
+    virtual bool useFallbackContent() const override { return m_useFallbackContent; }
     void renderFallbackContent();
 
-    // Implementations of FormAssociatedElement
-    HTMLFormElement* form() const { return FormAssociatedElement::form(); }
-
-    virtual bool isFormControlElement() const { return false; }
-
-    virtual bool isEnumeratable() const { return true; }
-    virtual bool appendFormData(FormDataList&, bool);
-
-    // Implementations of constraint validation API.
+    // Implementation of constraint validation API.
     // Note that the object elements are always barred from constraint validation.
-    virtual String validationMessage() const OVERRIDE { return String(); }
-    bool checkValidity() { return true; }
-    virtual void setCustomValidity(const String&) OVERRIDE { }
+    static bool checkValidity() { return true; }
+    virtual void setCustomValidity(const String&) override { }
+    virtual String validationMessage() const override { return String(); }
 
-    using Node::ref;
-    using Node::deref;
+    using HTMLPlugInImageElement::ref;
+    using HTMLPlugInImageElement::deref;
 
-    virtual bool canContainRangeEndPoint() const { return useFallbackContent(); }
+    using FormAssociatedElement::form;
 
 private:
-    HTMLObjectElement(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
+    HTMLObjectElement(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
-    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    virtual bool isPresentationAttribute(const QualifiedName&) const override;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
 
-    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
-    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    virtual void removedFrom(ContainerNode&) override;
 
-    virtual bool rendererIsNeeded(const NodeRenderingContext&);
-    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
+    virtual void didMoveToNewDocument(Document* oldDocument) override;
 
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(const ChildChange&) override;
 
-    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
-    virtual const AtomicString& imageSourceURL() const OVERRIDE;
+    virtual bool isURLAttribute(const Attribute&) const override;
+    virtual const AtomicString& imageSourceURL() const override;
 
-    virtual RenderWidget* renderWidgetForJSBindings() const;
+    virtual RenderWidget* renderWidgetForJSBindings() const override;
 
-    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
 
-    virtual void updateWidget(PluginCreationOption);
+    virtual void updateWidget(PluginCreationOption) override;
     void updateDocNamedItem();
 
-    bool hasFallbackContent() const;
-    
     // FIXME: This function should not deal with url or serviceType
     // so that we can better share code between <object> and <embed>.
     void parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues, String& url, String& serviceType);
@@ -97,25 +84,26 @@ private:
     bool shouldAllowQuickTimeClassIdQuirk();
     bool hasValidClassId();
 
-    virtual void refFormAssociatedElement() { ref(); }
-    virtual void derefFormAssociatedElement() { deref(); }
-    virtual HTMLFormElement* virtualForm() const;
+    virtual void refFormAssociatedElement() override { ref(); }
+    virtual void derefFormAssociatedElement() override { deref(); }
+    virtual HTMLFormElement* virtualForm() const override;
 
-#if ENABLE(MICRODATA)
-    virtual String itemValueText() const OVERRIDE;
-    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
-#endif
+    virtual FormNamedItem* asFormNamedItem() override final { return this; }
+    virtual HTMLObjectElement& asHTMLElement() override final { return *this; }
+    virtual const HTMLObjectElement& asHTMLElement() const override final { return *this; }
 
-    String m_classId;
+    virtual bool isFormControlElement() const override { return false; }
+
+    virtual bool isEnumeratable() const override { return true; }
+    virtual bool appendFormData(FormDataList&, bool) override;
+
+    virtual bool canContainRangeEndPoint() const override;
+
     bool m_docNamedItem : 1;
     bool m_useFallbackContent : 1;
 };
 
-inline HTMLObjectElement* toHTMLObjectElement(Node* node)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->hasTagName(HTMLNames::objectTag));
-    return static_cast<HTMLObjectElement*>(node);
-}
+NODE_TYPE_CASTS(HTMLObjectElement)
 
 }
 

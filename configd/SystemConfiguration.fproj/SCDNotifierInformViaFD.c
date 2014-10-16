@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -122,7 +122,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	status = notifyviafd(storePrivate->server,
 			     un.sun_path,
-			     strlen(un.sun_path),
+			     (mach_msg_type_number_t)strlen(un.sun_path),
 			     identifier,
 			     (int *)&sc_status);
 

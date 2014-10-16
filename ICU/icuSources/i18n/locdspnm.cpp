@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2010-2012, International Business Machines Corporation and
+* Copyright (C) 2010-2014, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 */
@@ -12,6 +12,7 @@
 #include "unicode/locdspnm.h"
 #include "unicode/msgfmt.h"
 #include "unicode/ures.h"
+#include "unicode/udisplaycontext.h" 
 #include "unicode/brkiter.h"
 
 #include "cmemory.h"
@@ -271,10 +272,16 @@ class LocaleDisplayNamesImpl : public LocaleDisplayNames {
     UDialectHandling dialectHandling;
     ICUDataTable langData;
     ICUDataTable regionData;
-    UnicodeString sep;
+    MessageFormat *separatorFormat;
     MessageFormat *format;
     MessageFormat *keyTypeFormat;
     UDisplayContext capitalizationContext;
+    BreakIterator* capitalizationBrkIter; 
+    UnicodeString formatOpenParen;
+    UnicodeString formatReplaceOpenParen;
+    UnicodeString formatCloseParen;
+    UnicodeString formatReplaceCloseParen;
+    UDisplayContext nameLength;
 
     // Constants for capitalization context usage types.
     enum CapContextUsage {
@@ -283,13 +290,12 @@ class LocaleDisplayNamesImpl : public LocaleDisplayNames {
         kCapContextUsageTerritory,
         kCapContextUsageVariant,
         kCapContextUsageKey,
-        kCapContextUsageType,
+        kCapContextUsageKeyValue,
         kCapContextUsageCount
     };
-    // Capitalization transforms. For each usage type, the first array element indicates
-    // whether to titlecase for uiListOrMenu context, the second indicates whether to
-    // titlecase for stand-alone context.
-     UBool fCapitalization[kCapContextUsageCount][2];
+    // Capitalization transforms. For each usage type, indicates whether to titlecase for
+    // the context specified in capitalizationContext (which we know at construction time)
+     UBool fCapitalization[kCapContextUsageCount];
 
 public:
     // constructor
@@ -323,6 +329,8 @@ public:
 private:
     UnicodeString& localeIdName(const char* localeId,
                                 UnicodeString& result) const;
+    UnicodeString& regionShortDisplayName(const char* region,
+                                UnicodeString& result) const;
     UnicodeString& appendWithSep(UnicodeString& buffer, const UnicodeString& src) const;
     UnicodeString& adjustForUsageAndContext(CapContextUsage usage, UnicodeString& result) const;
     void initialize(void);
@@ -333,9 +341,12 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
     : dialectHandling(dialectHandling)
     , langData(U_ICUDATA_LANG, locale)
     , regionData(U_ICUDATA_REGION, locale)
+    , separatorFormat(NULL)
     , format(NULL)
     , keyTypeFormat(NULL)
     , capitalizationContext(UDISPCTX_CAPITALIZATION_NONE)
+    , capitalizationBrkIter(NULL)
+    , nameLength(UADISPCTX_LENGTH_STANDARD)
 {
     initialize();
 }
@@ -345,9 +356,12 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
     : dialectHandling(ULDN_STANDARD_NAMES)
     , langData(U_ICUDATA_LANG, locale)
     , regionData(U_ICUDATA_REGION, locale)
+    , separatorFormat(NULL)
     , format(NULL)
     , keyTypeFormat(NULL)
     , capitalizationContext(UDISPCTX_CAPITALIZATION_NONE)
+    , capitalizationBrkIter(NULL)
+    , nameLength(UADISPCTX_LENGTH_STANDARD)
 {
     while (length-- > 0) {
         UDisplayContext value = *contexts++;
@@ -358,6 +372,9 @@ LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
                 break;
             case UDISPCTX_TYPE_CAPITALIZATION:
                 capitalizationContext = value;
+                break;
+            case UADISPCTX_TYPE_LENGTH:
+                nameLength = value;
                 break;
             default:
                 break;
@@ -373,18 +390,31 @@ LocaleDisplayNamesImpl::initialize(void) {
         ? regionData.getLocale()
         : langData.getLocale();
 
+    UnicodeString sep;
     langData.getNoFallback("localeDisplayPattern", "separator", sep);
     if (sep.isBogus()) {
-        sep = UnicodeString(", ", -1, US_INV);
+        sep = UnicodeString("{0}, {1}", -1, US_INV);
     }
+    UErrorCode status = U_ZERO_ERROR;
+    separatorFormat = new MessageFormat(sep, status);
 
     UnicodeString pattern;
     langData.getNoFallback("localeDisplayPattern", "pattern", pattern);
     if (pattern.isBogus()) {
         pattern = UnicodeString("{0} ({1})", -1, US_INV);
     }
-    UErrorCode status = U_ZERO_ERROR;
     format = new MessageFormat(pattern, status);
+    if (pattern.indexOf((UChar)0xFF08) >= 0) {
+        formatOpenParen.setTo((UChar)0xFF08);         // fullwidth (
+        formatReplaceOpenParen.setTo((UChar)0xFF3B);  // fullwidth [
+        formatCloseParen.setTo((UChar)0xFF09);        // fullwidth )
+        formatReplaceCloseParen.setTo((UChar)0xFF3D); // fullwidth ]
+    } else {
+        formatOpenParen.setTo((UChar)0x0028);         // (
+        formatReplaceOpenParen.setTo((UChar)0x005B);  // [
+        formatCloseParen.setTo((UChar)0x0029);        // )
+        formatReplaceCloseParen.setTo((UChar)0x005D); // ]
+    }
 
     UnicodeString ktPattern;
     langData.get("localeDisplayPattern", "keyTypePattern", ktPattern);
@@ -403,49 +433,68 @@ LocaleDisplayNamesImpl::initialize(void) {
     const ContextUsageNameToEnum contextUsageTypeMap[] = {
        // Entries must be sorted by usageTypeName; entry with NULL name terminates list.
         { "key",        kCapContextUsageKey },
+        { "keyValue",   kCapContextUsageKeyValue },
         { "languages",  kCapContextUsageLanguage },
         { "script",     kCapContextUsageScript },
         { "territory",  kCapContextUsageTerritory },
-        { "type",       kCapContextUsageType },
         { "variant",    kCapContextUsageVariant },
         { NULL,         (CapContextUsage)0 },
     };
-    int32_t len = 0;
-    UResourceBundle *localeBundle = ures_open(NULL, locale.getName(), &status);
-    if (U_SUCCESS(status)) {
-        UResourceBundle *contextTransforms = ures_getByKeyWithFallback(localeBundle, "contextTransforms", NULL, &status);
+    // Only get the context data if we need it! This is a const object so we know now...
+    // Also check whether we will need a break iterator (depends on the data)
+    UBool needBrkIter = FALSE;
+    if (capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU || capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_STANDALONE) {
+        int32_t len = 0;
+        UResourceBundle *localeBundle = ures_open(NULL, locale.getName(), &status);
         if (U_SUCCESS(status)) {
-            UResourceBundle *contextTransformUsage;
-            while ( (contextTransformUsage = ures_getNextResource(contextTransforms, NULL, &status)) != NULL ) {
-                const int32_t * intVector = ures_getIntVector(contextTransformUsage, &len, &status);
-                if (U_SUCCESS(status) && intVector != NULL && len >= 2) {
-                    const char* usageKey = ures_getKey(contextTransformUsage);
-                    if (usageKey != NULL) {
-                        const ContextUsageNameToEnum * typeMapPtr = contextUsageTypeMap;
-                        int32_t compResult = 0;
-                        // linear search; list is short and we cannot be sure that bsearch is available
-                        while ( typeMapPtr->usageName != NULL && (compResult = uprv_strcmp(usageKey, typeMapPtr->usageName)) > 0 ) {
-                            ++typeMapPtr;
-                        }
-                        if (typeMapPtr->usageName != NULL && compResult == 0) {
-                            fCapitalization[typeMapPtr->usageEnum][0] = intVector[0];
-                            fCapitalization[typeMapPtr->usageEnum][1] = intVector[1];
+            UResourceBundle *contextTransforms = ures_getByKeyWithFallback(localeBundle, "contextTransforms", NULL, &status);
+            if (U_SUCCESS(status)) {
+                UResourceBundle *contextTransformUsage;
+                while ( (contextTransformUsage = ures_getNextResource(contextTransforms, NULL, &status)) != NULL ) {
+                    const int32_t * intVector = ures_getIntVector(contextTransformUsage, &len, &status);
+                    if (U_SUCCESS(status) && intVector != NULL && len >= 2) {
+                        const char* usageKey = ures_getKey(contextTransformUsage);
+                        if (usageKey != NULL) {
+                            const ContextUsageNameToEnum * typeMapPtr = contextUsageTypeMap;
+                            int32_t compResult = 0;
+                            // linear search; list is short and we cannot be sure that bsearch is available
+                            while ( typeMapPtr->usageName != NULL && (compResult = uprv_strcmp(usageKey, typeMapPtr->usageName)) > 0 ) {
+                                ++typeMapPtr;
+                            }
+                            if (typeMapPtr->usageName != NULL && compResult == 0) {
+                                int32_t titlecaseInt = (capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU)? intVector[0]: intVector[1];
+                                if (titlecaseInt != 0) {
+                                    fCapitalization[typeMapPtr->usageEnum] = TRUE;;
+                                    needBrkIter = TRUE;
+                                }
+                            }
                         }
                     }
+                    status = U_ZERO_ERROR;
+                    ures_close(contextTransformUsage);
                 }
-                status = U_ZERO_ERROR;
-                ures_close(contextTransformUsage);
+                ures_close(contextTransforms);
             }
-            ures_close(contextTransforms);
+            ures_close(localeBundle);
         }
-        ures_close(localeBundle);
+    }
+    // Get a sentence break iterator if we will need it
+    if (needBrkIter || capitalizationContext == UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE) {
+        status = U_ZERO_ERROR;
+        capitalizationBrkIter = BreakIterator::createSentenceInstance(locale, status);
+        if (U_FAILURE(status)) {
+            delete capitalizationBrkIter;
+            capitalizationBrkIter = NULL;
+        }
     }
 #endif
 }
 
 LocaleDisplayNamesImpl::~LocaleDisplayNamesImpl() {
+    delete separatorFormat;
     delete format;
     delete keyTypeFormat;
+    delete capitalizationBrkIter;
  }
 
 const Locale&
@@ -465,6 +514,8 @@ LocaleDisplayNamesImpl::getContext(UDisplayContextType type) const {
             return (UDisplayContext)dialectHandling;
         case UDISPCTX_TYPE_CAPITALIZATION:
             return capitalizationContext;
+        case UADISPCTX_TYPE_LENGTH:
+            return nameLength;
         default:
             break;
     }
@@ -476,51 +527,10 @@ LocaleDisplayNamesImpl::adjustForUsageAndContext(CapContextUsage usage,
                                                 UnicodeString& result) const {
 #if !UCONFIG_NO_BREAK_ITERATION
     // check to see whether we need to titlecase result
-    UBool titlecase = FALSE;
-    switch (capitalizationContext) {
-        case UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE:
-            titlecase = TRUE;
-            break;
-        case UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU:
-            titlecase = fCapitalization[usage][0];
-            break;
-        case UDISPCTX_CAPITALIZATION_FOR_STANDALONE:
-            titlecase = fCapitalization[usage][1];
-            break;
-        default:
-            // titlecase = FALSE;
-            break;
-    }
-    if (titlecase) {
-        // TODO: Fix this titlecase hack when we figure out something better to do.
-        // We don't want to titlecase the whole text, only something like the first word,
-        // of the first segment long enough to have a complete cluster, whichever is
-        // shorter. We could have keep a word break iterator around, but I am not sure
-        // that will do the ight thing for the purposes here. For now we assume that in
-        // languages for which titlecasing makes a difference, we can stop at non-letter
-        // characters in 0x0000-0x00FF and only titlecase up to the first occurrence of
-        // any of those, or to a small number of chars, whichever comes first.
-        int32_t stopPos, stopPosLimit = 8, len = result.length();
-        if ( stopPosLimit > len ) {
-            stopPosLimit = len;
-        }
-        for ( stopPos = 0; stopPos < stopPosLimit; stopPos++ ) {
-            UChar32 ch = result.char32At(stopPos);
-            if ( (ch < 0x41) || (ch > 0x5A && ch < 0x61) || (ch > 0x7A && ch < 0xC0) ) {
-                break;
-            }
-            if (ch >= 0x10000) {
-                stopPos++;
-            }
-        }
-        if ( stopPos > 0 && stopPos < len ) {
-            UnicodeString firstWord(result, 0, stopPos);
-            firstWord.toTitle(NULL, locale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
-            result.replaceBetween(0, stopPos, firstWord);
-        } else {
-            // no stopPos, titlecase the whole text
-            result.toTitle(NULL, locale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
-        }
+    if ( result.length() > 0 && u_islower(result.char32At(0)) && capitalizationBrkIter!= NULL &&
+          ( capitalizationContext==UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE || fCapitalization[usage] ) ) {
+        // note fCapitalization[usage] won't be set unless capitalizationContext is UI_LIST_OR_MENU or STANDALONE
+        result.toTitle(capitalizationBrkIter, locale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
     }
 #endif
     return result;
@@ -586,11 +596,13 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
     resultRemainder.append(scriptDisplayName(script, temp));
   }
   if (hasCountry) {
-    appendWithSep(resultRemainder, regionDisplayName(country, temp));
+    appendWithSep(resultRemainder, regionShortDisplayName(country, temp));
   }
   if (hasVariant) {
     appendWithSep(resultRemainder, variantDisplayName(variant, temp));
   }
+  resultRemainder.findAndReplace(formatOpenParen, formatReplaceOpenParen);
+  resultRemainder.findAndReplace(formatCloseParen, formatReplaceCloseParen);
 
   e = locale.createKeywords(status);
   if (e && U_SUCCESS(status)) {
@@ -600,7 +612,11 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
     while ((key = e->next((int32_t *)0, status)) != NULL) {
       locale.getKeywordValue(key, value, ULOC_KEYWORD_AND_VALUES_CAPACITY, status);
       keyDisplayName(key, temp);
+      temp.findAndReplace(formatOpenParen, formatReplaceOpenParen);
+      temp.findAndReplace(formatCloseParen, formatReplaceCloseParen);
       keyValueDisplayName(key, value, temp2);
+      temp2.findAndReplace(formatOpenParen, formatReplaceOpenParen);
+      temp2.findAndReplace(formatCloseParen, formatReplaceCloseParen);
       if (temp2 != UnicodeString(value, -1, US_INV)) {
         appendWithSep(resultRemainder, temp2);
       } else if (temp != UnicodeString(key, -1, US_INV)) {
@@ -639,10 +655,21 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
 
 UnicodeString&
 LocaleDisplayNamesImpl::appendWithSep(UnicodeString& buffer, const UnicodeString& src) const {
-    if (!buffer.isEmpty()) {
-        buffer.append(sep);
+    if (buffer.isEmpty()) {
+        buffer.setTo(src);
+    } else {
+        UnicodeString combined;
+        Formattable data[] = {
+          buffer,
+          src
+        };
+        FieldPosition fpos;
+        UErrorCode status = U_ZERO_ERROR;
+        separatorFormat->format(data, 2, combined, fpos, status);
+        if (U_SUCCESS(status)) {
+            buffer.setTo(combined);
+        }
     }
-    buffer.append(src);
     return buffer;
 }
 
@@ -656,6 +683,12 @@ LocaleDisplayNamesImpl::localeDisplayName(const char* localeId,
 UnicodeString&
 LocaleDisplayNamesImpl::localeIdName(const char* localeId,
                                      UnicodeString& result) const {
+    if (nameLength == UADISPCTX_LENGTH_SHORT) {
+        langData.getNoFallback("LanguagesShort", localeId, result);
+        if (!result.isBogus()) {
+            return result;
+        }
+    }
     return langData.getNoFallback("Languages", localeId, result);
 }
 
@@ -664,6 +697,12 @@ LocaleDisplayNamesImpl::languageDisplayName(const char* lang,
                                             UnicodeString& result) const {
     if (uprv_strcmp("root", lang) == 0 || uprv_strchr(lang, '_') != NULL) {
         return result = UnicodeString(lang, -1, US_INV);
+    }
+    if (nameLength == UADISPCTX_LENGTH_SHORT) {
+        langData.getNoFallback("LanguagesShort", lang, result);
+        if (!result.isBogus()) {
+            return adjustForUsageAndContext(kCapContextUsageLanguage, result);
+        }
     }
     langData.get("Languages", lang, result);
     return adjustForUsageAndContext(kCapContextUsageLanguage, result);
@@ -687,6 +726,26 @@ LocaleDisplayNamesImpl::scriptDisplayName(UScriptCode scriptCode,
 UnicodeString&
 LocaleDisplayNamesImpl::regionDisplayName(const char* region,
                                           UnicodeString& result) const {
+    if (nameLength == UADISPCTX_LENGTH_SHORT) {
+        regionData.getNoFallback("CountriesShort", region, result);
+        if (!result.isBogus()) {
+            return adjustForUsageAndContext(kCapContextUsageTerritory, result);
+        }
+    }
+    regionData.get("Countries", region, result);
+    return adjustForUsageAndContext(kCapContextUsageTerritory, result);
+}
+
+// private Apple
+UnicodeString&
+LocaleDisplayNamesImpl::regionShortDisplayName(const char* region,
+                                          UnicodeString& result) const {
+    if (uprv_strcmp(region, "PS") != 0) {
+        regionData.getNoFallback("CountriesShort", region, result);
+        if (!result.isBogus()) {
+            return adjustForUsageAndContext(kCapContextUsageTerritory, result);
+        }
+    }
     regionData.get("Countries", region, result);
     return adjustForUsageAndContext(kCapContextUsageTerritory, result);
 }
@@ -710,7 +769,7 @@ LocaleDisplayNamesImpl::keyValueDisplayName(const char* key,
                                             const char* value,
                                             UnicodeString& result) const {
     langData.get("Types", key, value, result);
-    return adjustForUsageAndContext(kCapContextUsageType, result);
+    return adjustForUsageAndContext(kCapContextUsageKeyValue, result);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

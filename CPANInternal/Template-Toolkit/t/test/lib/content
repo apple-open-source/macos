@@ -1,3 +1,0 @@
-This is the main content wrapper for "[% template.title or 'untitled' %]"
-[% PROCESS $template %]
-This is the end.

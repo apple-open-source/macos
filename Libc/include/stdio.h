@@ -72,6 +72,8 @@
 #include <sys/_types/_size_t.h>
 #include <sys/_types/_null.h>
 
+#include <sys/stdio.h>
+
 typedef __darwin_off_t		fpos_t;
 
 #define	_FSTDIO			/* Define for new stdio with functions. */

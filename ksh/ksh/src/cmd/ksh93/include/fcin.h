@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -54,6 +54,8 @@ typedef struct _fcin
 #define	fcpeek(n)	((int)_Fcin.fcptr[n])
 #define	fcseek(n)	((char*)(_Fcin.fcptr+=(n)))
 #define fcfirst()	((char*)_Fcin.fcbuff)
+#define fclast()	((char*)_Fcin.fclast)
+#define fcleft()	(_Fcin.fclast-_Fcin.fcptr)
 #define fcsopen(s)	(_Fcin._fcfile=(Sfio_t*)0,_Fcin.fclen=1,_Fcin.fcbuff=_Fcin.fcptr=(unsigned char*)(s))
 #define fctell()	(_Fcin.fcoff + (_Fcin.fcptr-_Fcin.fcbuff))
 #define fcsave(x)	(*(x) = _Fcin)

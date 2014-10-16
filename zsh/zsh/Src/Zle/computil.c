@@ -465,6 +465,7 @@ cd_init(char *nam, char *hide, char *mlen, char *sep,
     cd_state.showd = disp;
     cd_state.maxg = cd_state.groups = cd_state.descs = 0;
     cd_state.maxmlen = atoi(mlen);
+    cd_state.premaxw = 0;
     itmp = zterm_columns - cd_state.swidth - 4;
     if (cd_state.maxmlen > itmp)
         cd_state.maxmlen = itmp;
@@ -643,35 +644,43 @@ cd_get(char **params)
 		    p += str->len;
                     memset(p, ' ', (l = (cd_state.premaxw - str->width + CM_SPACE)));
 		    p += l;
-		    strcpy(p, cd_state.sep);
-		    p += cd_state.slen;
 
-		    /*
-		     * copy a character at once until no more screen width
-		     * is available. Leave 1 character at the end of screen
-		     * as safety margin
-		     */
 		    remw = zterm_columns - cd_state.premaxw -
 			cd_state.swidth - 3;
-		    d = str->desc;
-		    w = MB_METASTRWIDTH(d);
-		    if (w <= remw)
-			strcpy(p, d);
-		    else {
-			pp = p;
-			while (remw > 0 && *d) {
-			    l = MB_METACHARLEN(d);
-			    memcpy(pp, d, l);
-			    pp[l] = '\0';
-			    w = MB_METASTRWIDTH(pp);
-			    if (w > remw) {
-				*pp = '\0';
-				break;
-			    }
+		    while (remw < 0 && zterm_columns) {
+			/* line wrapped, use remainder of the extra line */
+			remw += zterm_columns;
+		    }
+		    if (cd_state.slen < remw) {
+			strcpy(p, cd_state.sep);
+			p += cd_state.slen;
+			remw -= cd_state.slen;
 
-			    pp += l;
-			    d += l;
-			    remw -= w;
+			/*
+			 * copy a character at once until no more screen
+			 * width is available. Leave 1 character at the
+			 * end of screen as safety margin
+			 */
+			d = str->desc;
+			w = MB_METASTRWIDTH(d);
+			if (w <= remw)
+			    strcpy(p, d);
+			else {
+			    pp = p;
+			    while (remw > 0 && *d) {
+				l = MB_METACHARLEN(d);
+				memcpy(pp, d, l);
+				pp[l] = '\0';
+				w = MB_METASTRWIDTH(pp);
+				if (w > remw) {
+				    *pp = '\0';
+				    break;
+				}
+
+				pp += l;
+				d += l;
+				remw -= w;
+			    }
 			}
 		    }
 
@@ -1608,7 +1617,7 @@ get_cadef(char *nam, char **args)
 	    return *p;
 	} else if (!min || !*p || (*p)->lastt < (*min)->lastt)
 	    min = p;
-    if (i)
+    if (i > 0)
 	min = p;
     if ((new = parse_cadef(nam, args))) {
 	freecadef(*min);
@@ -2992,7 +3001,7 @@ get_cvdef(char *nam, char **args)
 	    return *p;
 	} else if (!min || !*p || (*p)->lastt < (*min)->lastt)
 	    min = p;
-    if (i)
+    if (i > 0)
 	min = p;
     if ((new = parse_cvdef(nam, args))) {
 	freecvdef(*min);

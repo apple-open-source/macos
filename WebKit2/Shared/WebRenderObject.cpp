@@ -26,8 +26,9 @@
 #include "config.h"
 #include "WebRenderObject.h"
 
+#include "APIArray.h"
+#include "APIString.h"
 #include "WebPage.h"
-#include "WebString.h"
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoaderClient.h>
@@ -45,7 +46,7 @@ PassRefPtr<WebRenderObject> WebRenderObject::create(WebPage* page)
     if (!mainFrame)
         return 0;
 
-    if (!mainFrame->loader()->client()->hasHTMLView())
+    if (!mainFrame->loader().client().hasHTMLView())
         return 0;
 
     RenderView* contentRenderer = mainFrame->contentRenderer();
@@ -53,6 +54,11 @@ PassRefPtr<WebRenderObject> WebRenderObject::create(WebPage* page)
         return 0;
 
     return adoptRef(new WebRenderObject(contentRenderer, true));
+}
+
+PassRefPtr<WebRenderObject> WebRenderObject::create(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<API::Array> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<API::Array> children)
+{
+    return adoptRef(new WebRenderObject(name, elementTagName, elementID, elementClassNames, absolutePosition, frameRect, children));
 }
 
 WebRenderObject::WebRenderObject(RenderObject* renderer, bool shouldIncludeDescendants)
@@ -64,12 +70,15 @@ WebRenderObject::WebRenderObject(RenderObject* renderer, bool shouldIncludeDesce
             Element* element = toElement(node);
             m_elementTagName = element->tagName();
             m_elementID = element->getIdAttribute();
+            
             if (element->isStyledElement() && element->hasClass()) {
-                if (size_t classNameCount = element->classNames().size()) {
-                    m_elementClassNames = MutableArray::create();
-                    for (size_t i = 0; i < classNameCount; ++i)
-                        m_elementClassNames->append(WebString::create(element->classNames()[i]).get());
-                }
+                Vector<RefPtr<API::Object>> classNames;
+                classNames.reserveInitialCapacity(element->classNames().size());
+
+                for (size_t i = 0, size = element->classNames().size(); i < size; ++i)
+                    classNames.append(API::String::create(element->classNames()[i]));
+
+                m_elementClassNames = API::Array::create(WTF::move(classNames));
             }
         }
     }
@@ -81,32 +90,49 @@ WebRenderObject::WebRenderObject(RenderObject* renderer, bool shouldIncludeDesce
         m_frameRect = toRenderBox(renderer)->pixelSnappedFrameRect();
     else if (renderer->isText()) {
         m_frameRect = toRenderText(renderer)->linesBoundingBox();
-        m_frameRect.setX(toRenderText(renderer)->firstRunX());
-        m_frameRect.setY(toRenderText(renderer)->firstRunY());
+        m_frameRect.setLocation(toRenderText(renderer)->firstRunLocation());
     } else if (renderer->isRenderInline())
         m_frameRect = toRenderBoxModelObject(renderer)->borderBoundingBox();
 
     if (!shouldIncludeDescendants)
         return;
 
-    m_children = MutableArray::create();
-    for (RenderObject* coreChild = renderer->firstChild(); coreChild; coreChild = coreChild->nextSibling()) {
+    Vector<RefPtr<API::Object>> children;
+
+    for (RenderObject* coreChild = renderer->firstChildSlow(); coreChild; coreChild = coreChild->nextSibling()) {
         RefPtr<WebRenderObject> child = adoptRef(new WebRenderObject(coreChild, shouldIncludeDescendants));
-        m_children->append(child.get());
+        children.append(WTF::move(child));
     }
 
-    if (!renderer->isWidget())
-        return;
+    if (renderer->isWidget()) {
+        if (Widget* widget = toRenderWidget(renderer)->widget()) {
+            if (widget->isFrameView()) {
+                FrameView* frameView = toFrameView(widget);
+                if (RenderView* coreContentRenderer = frameView->frame().contentRenderer()) {
+                    RefPtr<WebRenderObject> contentRenderer = adoptRef(new WebRenderObject(coreContentRenderer, shouldIncludeDescendants));
 
-    Widget* widget = toRenderWidget(renderer)->widget();
-    if (!widget || !widget->isFrameView())
-        return;
-
-    FrameView* frameView = toFrameView(widget);
-    if (RenderView* coreContentRenderer = frameView->frame()->contentRenderer()) {
-        RefPtr<WebRenderObject> contentRenderer = adoptRef(new WebRenderObject(coreContentRenderer, shouldIncludeDescendants));
-        m_children->append(contentRenderer.get());
+                    children.append(WTF::move(contentRenderer));
+                }
+            }
+        }
     }
+
+    m_children = API::Array::create(WTF::move(children));
+}
+
+WebRenderObject::WebRenderObject(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<API::Array> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, PassRefPtr<API::Array> children)
+    : m_children(children)
+    , m_name(name)
+    , m_elementTagName(elementTagName)
+    , m_elementID(elementID)
+    , m_elementClassNames(elementClassNames)
+    , m_absolutePosition(absolutePosition)
+    , m_frameRect(frameRect)
+{
+}
+
+WebRenderObject::~WebRenderObject()
+{
 }
 
 } // namespace WebKit

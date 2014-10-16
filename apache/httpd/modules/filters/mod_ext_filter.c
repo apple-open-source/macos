@@ -22,7 +22,7 @@
 #include "http_config.h"
 #include "http_log.h"
 #include "http_protocol.h"
-#define CORE_PRIVATE
+
 #include "http_core.h"
 #include "apr_buckets.h"
 #include "util_filter.h"
@@ -56,7 +56,6 @@ typedef struct ef_filter_t {
 } ef_filter_t;
 
 typedef struct ef_dir_t {
-    int debug;
     int log_stderr;
     int onfail;
 } ef_dir_t;
@@ -67,7 +66,7 @@ typedef struct ef_ctx_t {
     apr_procattr_t *procattr;
     ef_dir_t *dc;
     ef_filter_t *filter;
-    int noop;
+    int noop, hit_eos;
 #if APR_FILES_AS_SOCKETS
     apr_pollset_t *pollset;
 #endif
@@ -81,16 +80,12 @@ static apr_status_t ef_input_filter(ap_filter_t *, apr_bucket_brigade *,
                                     ap_input_mode_t, apr_read_type_e,
                                     apr_off_t);
 
-#define DBGLVL_SHOWOPTIONS         1
-#define DBGLVL_GORY                9
-
 #define ERRFN_USERDATA_KEY         "EXTFILTCHILDERRFN"
 
 static void *create_ef_dir_conf(apr_pool_t *p, char *dummy)
 {
     ef_dir_t *dc = (ef_dir_t *)apr_pcalloc(p, sizeof(ef_dir_t));
 
-    dc->debug = -1;
     dc->log_stderr = -1;
     dc->onfail = -1;
 
@@ -111,13 +106,6 @@ static void *merge_ef_dir_conf(apr_pool_t *p, void *basev, void *overridesv)
 {
     ef_dir_t *a = (ef_dir_t *)apr_pcalloc (p, sizeof(ef_dir_t));
     ef_dir_t *base = (ef_dir_t *)basev, *over = (ef_dir_t *)overridesv;
-
-    if (over->debug != -1) {        /* if admin coded something... */
-        a->debug = over->debug;
-    }
-    else {
-        a->debug = base->debug;
-    }
 
     if (over->log_stderr != -1) {   /* if admin coded something... */
         a->log_stderr = over->log_stderr;
@@ -141,10 +129,7 @@ static const char *add_options(cmd_parms *cmd, void *in_dc,
 {
     ef_dir_t *dc = in_dc;
 
-    if (!strncasecmp(arg, "DebugLevel=", 11)) {
-        dc->debug = atoi(arg + 11);
-    }
-    else if (!strcasecmp(arg, "LogStderr")) {
+    if (!strcasecmp(arg, "LogStderr")) {
         dc->log_stderr = 1;
     }
     else if (!strcasecmp(arg, "NoLogStderr")) {
@@ -354,7 +339,7 @@ static const command_rec cmds[] =
                     add_options,
                     NULL,
                     ACCESS_CONF, /* same as SetInputFilter/SetOutputFilter */
-                    "valid options: DebugLevel=n, LogStderr, NoLogStderr"),
+                    "valid options: LogStderr, NoLogStderr"),
     AP_INIT_RAW_ARGS("ExtFilterDefine",
                      define_filter,
                      NULL,
@@ -380,8 +365,7 @@ static apr_status_t set_resource_limits(request_rec *r,
 #if defined(RLIMIT_CPU)  || defined(RLIMIT_NPROC) || \
     defined(RLIMIT_DATA) || defined(RLIMIT_VMEM) || defined (RLIMIT_AS)
     core_dir_config *conf =
-        (core_dir_config *)ap_get_module_config(r->per_dir_config,
-                                                &core_module);
+        (core_dir_config *)ap_get_core_module_config(r->per_dir_config);
     apr_status_t rv;
 
 #ifdef RLIMIT_CPU
@@ -412,7 +396,6 @@ static void child_errfn(apr_pool_t *pool, apr_status_t err, const char *descript
     request_rec *r;
     void *vr;
     apr_file_t *stderr_log;
-    char errbuf[200];
     char time_str[APR_CTIME_LEN];
 
     apr_pool_userdata_get(&vr, ERRFN_USERDATA_KEY, pool);
@@ -420,11 +403,11 @@ static void child_errfn(apr_pool_t *pool, apr_status_t err, const char *descript
     apr_file_open_stderr(&stderr_log, pool);
     ap_recent_ctime(time_str, apr_time_now());
     apr_file_printf(stderr_log,
-                    "[%s] [client %s] mod_ext_filter (%d)%s: %s\n",
+                    "[%s] [client %s] mod_ext_filter (%d)%pm: %s\n",
                     time_str,
-                    r->connection->remote_ip,
+                    r->useragent_ip,
                     err,
-                    apr_strerror(err, errbuf, sizeof(errbuf)),
+                    &err,
                     description);
 }
 
@@ -493,7 +476,7 @@ static apr_status_t init_ext_filter_process(ap_filter_t *f)
                             ctx->procattr,
                             ctx->p);
     if (rc != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, rc, f->r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rc, f->r, APLOGNO(01458)
                       "couldn't create child process to run `%s'",
                       ctx->filter->command);
         return rc;
@@ -537,8 +520,6 @@ static apr_status_t init_ext_filter_process(ap_filter_t *f)
 
 static const char *get_cfg_string(ef_dir_t *dc, ef_filter_t *filter, apr_pool_t *p)
 {
-    const char *debug_str = dc->debug == -1 ?
-        "DebugLevel=0" : apr_psprintf(p, "DebugLevel=%d", dc->debug);
     const char *log_stderr_str = dc->log_stderr < 1 ?
         "NoLogStderr" : "LogStderr";
     const char *preserve_content_length_str = filter->preserves_content_length ?
@@ -549,9 +530,9 @@ static const char *get_cfg_string(ef_dir_t *dc, ef_filter_t *filter, apr_pool_t 
         "(unchanged)" : filter->outtype;
 
     return apr_psprintf(p,
-                        "ExtFilterOptions %s %s %s ExtFilterInType %s "
+                        "ExtFilterOptions %s %s ExtFilterInType %s "
                         "ExtFilterOuttype %s",
-                        debug_str, log_stderr_str, preserve_content_length_str,
+                        log_stderr_str, preserve_content_length_str,
                         intype_str, outtype_str);
 }
 
@@ -583,7 +564,7 @@ static apr_status_t init_filter_instance(ap_filter_t *f)
     /* look for the user-defined filter */
     ctx->filter = find_filter_def(f->r->server, f->frec->name);
     if (!ctx->filter) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, f->r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, f->r, APLOGNO(01459)
                       "couldn't find definition of filter '%s'",
                       f->frec->name);
         return APR_EINVAL;
@@ -638,8 +619,8 @@ static apr_status_t init_filter_instance(ap_filter_t *f)
         }
     }
 
-    if (dc->debug >= DBGLVL_SHOWOPTIONS) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r,
+    if (APLOGrtrace1(f->r)) {
+        ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, f->r,
                       "%sfiltering `%s' of type `%s' through `%s', cfg %s",
                       ctx->noop ? "NOT " : "",
                       f->r->uri ? f->r->uri : f->r->filename,
@@ -662,23 +643,20 @@ static apr_status_t drain_available_output(ap_filter_t *f,
     request_rec *r = f->r;
     conn_rec *c = r->connection;
     ef_ctx_t *ctx = f->ctx;
-    ef_dir_t *dc = ctx->dc;
     apr_size_t len;
     char buf[4096];
     apr_status_t rv;
     apr_bucket *b;
 
     while (1) {
+        int lvl = APLOG_TRACE5;
         len = sizeof(buf);
-        rv = apr_file_read(ctx->proc->out,
-                      buf,
-                      &len);
-        if ((rv && !APR_STATUS_IS_EAGAIN(rv)) ||
-            dc->debug >= DBGLVL_GORY) {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                          "apr_file_read(child output), len %" APR_SIZE_T_FMT,
-                          !rv ? len : -1);
-        }
+        rv = apr_file_read(ctx->proc->out, buf, &len);
+        if (rv && !APR_STATUS_IS_EAGAIN(rv))
+           lvl = APLOG_DEBUG;
+        ap_log_rerror(APLOG_MARK, lvl, rv, r, APLOGNO(01460)
+                      "apr_file_read(child output), len %" APR_SIZE_T_FMT,
+                      !rv ? len : -1);
         if (rv != APR_SUCCESS) {
             return rv;
         }
@@ -696,19 +674,18 @@ static apr_status_t pass_data_to_filter(ap_filter_t *f, const char *data,
                                         apr_size_t len, apr_bucket_brigade *bb)
 {
     ef_ctx_t *ctx = f->ctx;
-    ef_dir_t *dc = ctx->dc;
     apr_status_t rv;
     apr_size_t bytes_written = 0;
     apr_size_t tmplen;
 
     do {
         tmplen = len - bytes_written;
-        rv = apr_file_write(ctx->proc->in,
+        rv = apr_file_write_full(ctx->proc->in,
                        (const char *)data + bytes_written,
-                       &tmplen);
+                       tmplen, &tmplen);
         bytes_written += tmplen;
         if (rv != APR_SUCCESS && !APR_STATUS_IS_EAGAIN(rv)) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r, APLOGNO(01461)
                           "apr_file_write(child input), len %" APR_SIZE_T_FMT,
                           tmplen);
             return rv;
@@ -726,23 +703,20 @@ static apr_status_t pass_data_to_filter(ap_filter_t *f, const char *data,
 
                 rv = apr_pollset_poll(ctx->pollset, f->r->server->timeout,
                                       &num_events, &pdesc);
-                if (rv || dc->debug >= DBGLVL_GORY) {
-                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG,
-                                  rv, f->r, "apr_pollset_poll()");
-                }
                 if (rv != APR_SUCCESS && !APR_STATUS_IS_EINTR(rv)) {
+                    ap_log_rerror(APLOG_MARK, APLOG_WARNING, rv, f->r, APLOGNO(01462)
+                                  "apr_pollset_poll()");
                     /* some error such as APR_TIMEUP */
                     return rv;
                 }
+                ap_log_rerror(APLOG_MARK, APLOG_TRACE6, rv, f->r,
+                              "apr_pollset_poll()");
 #else /* APR_FILES_AS_SOCKETS */
                 /* Yuck... I'd really like to wait until I can read
                  * or write, but instead I have to sleep and try again
                  */
                 apr_sleep(100000); /* 100 milliseconds */
-                if (dc->debug >= DBGLVL_GORY) {
-                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG,
-                                  0, f->r, "apr_sleep()");
-                }
+                ap_log_rerror(APLOG_MARK, APLOG_TRACE6, 0, f->r, "apr_sleep()");
 #endif /* APR_FILES_AS_SOCKETS */
             }
             else if (rv != APR_SUCCESS) {
@@ -765,7 +739,6 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     conn_rec *c = r->connection;
     ef_ctx_t *ctx = f->ctx;
     apr_bucket *b;
-    ef_dir_t *dc;
     apr_size_t len;
     const char *data;
     apr_status_t rv;
@@ -773,7 +746,6 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     apr_bucket *eos = NULL;
     apr_bucket_brigade *bb_tmp;
 
-    dc = ctx->dc;
     bb_tmp = apr_brigade_create(r->pool, c->bucket_alloc);
 
     for (b = APR_BRIGADE_FIRST(bb);
@@ -787,7 +759,7 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 
         rv = apr_bucket_read(b, &data, &len, APR_BLOCK_READ);
         if (rv != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, "apr_bucket_read()");
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01463) "apr_bucket_read()");
             return rv;
         }
 
@@ -808,7 +780,7 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
          * that will cause the child to finish generating output
          */
         if ((rv = apr_file_close(ctx->proc->in)) != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01464)
                           "apr_file_close(child input)");
             return rv;
         }
@@ -818,23 +790,21 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
         rv = apr_file_pipe_timeout_set(ctx->proc->out,
                                        r->server->timeout);
         if (rv) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01465)
                           "apr_file_pipe_timeout_set(child output)");
             return rv;
         }
     }
 
     do {
+        int lvl = APLOG_TRACE6;
         len = sizeof(buf);
-        rv = apr_file_read(ctx->proc->out,
-                      buf,
-                      &len);
-        if ((rv && !APR_STATUS_IS_EOF(rv) && !APR_STATUS_IS_EAGAIN(rv)) ||
-            dc->debug >= DBGLVL_GORY) {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                          "apr_file_read(child output), len %" APR_SIZE_T_FMT,
-                          !rv ? len : -1);
-        }
+        rv = apr_file_read(ctx->proc->out, buf, &len);
+        if (rv && !APR_STATUS_IS_EOF(rv) && !APR_STATUS_IS_EAGAIN(rv))
+            lvl = APLOG_ERR;
+        ap_log_rerror(APLOG_MARK, lvl, rv, r, APLOGNO(01466)
+                      "apr_file_read(child output), len %" APR_SIZE_T_FMT,
+                      !rv ? len : -1);
         if (APR_STATUS_IS_EAGAIN(rv)) {
             if (eos) {
                 /* should not occur, because we have an APR timeout in place */
@@ -856,6 +826,7 @@ static int ef_unified_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     if (eos) {
         b = apr_bucket_eos_create(c->bucket_alloc);
         APR_BRIGADE_INSERT_TAIL(bb, b);
+        ctx->hit_eos = 1;
     }
 
     return APR_SUCCESS;
@@ -870,7 +841,7 @@ static apr_status_t ef_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     if (!ctx) {
         if ((rv = init_filter_instance(f)) != APR_SUCCESS) {
             ctx = f->ctx;
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01467)
                           "can't initialise output filter %s: %s",
                           f->frec->name,
                           (ctx->dc->onfail == 1) ? "removing" : "aborting");
@@ -902,20 +873,20 @@ static apr_status_t ef_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 
     rv = ef_unified_filter(f, bb);
     if (rv != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01468)
                       "ef_unified_filter() failed");
     }
 
     if ((rv = ap_pass_brigade(f->next, bb)) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(01469)
                       "ap_pass_brigade() failed");
     }
     return rv;
 }
 
-static int ef_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
-                           ap_input_mode_t mode, apr_read_type_e block,
-                           apr_off_t readbytes)
+static apr_status_t ef_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
+                                    ap_input_mode_t mode, apr_read_type_e block,
+                                    apr_off_t readbytes)
 {
     ef_ctx_t *ctx = f->ctx;
     apr_status_t rv;
@@ -923,7 +894,7 @@ static int ef_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
     if (!ctx) {
         if ((rv = init_filter_instance(f)) != APR_SUCCESS) {
             ctx = f->ctx;
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r, APLOGNO(01470)
                           "can't initialise input filter %s: %s",
                           f->frec->name,
                           (ctx->dc->onfail == 1) ? "removing" : "aborting");
@@ -937,6 +908,14 @@ static int ef_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
             }
         }
         ctx = f->ctx;
+    }
+
+    if (ctx->hit_eos) {
+        /* Match behaviour of HTTP_IN if filter is re-invoked after
+         * hitting EOS: give back another EOS. */
+        apr_bucket *e = apr_bucket_eos_create(f->c->bucket_alloc);
+        APR_BRIGADE_INSERT_TAIL(bb, e);
+        return APR_SUCCESS;
     }
 
     if (ctx->noop) {
@@ -953,7 +932,7 @@ static int ef_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
     return rv;
 }
 
-module AP_MODULE_DECLARE_DATA ext_filter_module =
+AP_DECLARE_MODULE(ext_filter) =
 {
     STANDARD20_MODULE_STUFF,
     create_ef_dir_conf,

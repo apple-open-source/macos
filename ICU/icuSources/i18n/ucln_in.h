@@ -1,9 +1,7 @@
 /*
 ******************************************************************************
-*                                                                            *
-* Copyright (C) 2001-2013, International Business Machines                   *
-*                Corporation and others. All Rights Reserved.                *
-*                                                                            *
+* Copyright (C) 2001-2014, International Business Machines
+*                Corporation and others. All Rights Reserved.
 ******************************************************************************
 *   file name:  ucln_cmn.h
 *   encoding:   US-ASCII
@@ -14,8 +12,8 @@
 *   created by: George Rhoten
 */
 
-#ifndef __UCLN_CMN_H__
-#define __UCLN_CMN_H__
+#ifndef __UCLN_IN_H__
+#define __UCLN_IN_H__
 
 #include "unicode/utypes.h"
 #include "ucln.h"
@@ -45,13 +43,14 @@ typedef enum ECleanupI18NType {
     UCLN_I18N_CURRENCY,
     UCLN_I18N_DECFMT,
     UCLN_I18N_NUMFMT,
+    UCLN_I18N_RELDATEFMT,
+    UCLN_I18N_MEASFMT,
     UCLN_I18N_SMPDTFMT,
     UCLN_I18N_USEARCH,
     UCLN_I18N_COLLATOR,
-    UCLN_I18N_UCOL,
     UCLN_I18N_UCOL_RES,
-    UCLN_I18N_UCOL_BLD,
     UCLN_I18N_CSDET,
+    UCLN_I18N_COLLATION_ROOT,
     UCLN_I18N_GENDERINFO,
     UCLN_I18N_CDFINFO,
     UCLN_I18N_REGION,

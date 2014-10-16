@@ -19,7 +19,7 @@
  * @brief This file in included in all Apache source code. It contains definitions
  * of facilities available on _this_ operating system (HAVE_* macros),
  * and prototypes of OS specific functions defined in os.c or os-inline.c
- * 
+ *
  * @defgroup APACHE_OS_WIN32 win32
  * @ingroup  APACHE_OS
  * @{
@@ -44,12 +44,17 @@
 #define PLATFORM "Win32"
 #endif
 
+/* Define command-line rewriting for this platform, handled by core.
+ * For Windows, this is currently handled inside the WinNT MPM.
+ * XXX To support a choice of MPMs, extract common platform behavior
+ * into a function specified here.
+ */
+#define AP_PLATFORM_REWRITE_ARGS_HOOK NULL
+
 /* going away shortly... */
 #define HAVE_DRIVE_LETTERS
 #define HAVE_UNC_PATHS
 #define CASE_BLIND_FILESYSTEM
-
-#define APACHE_MPM_DIR  "server/mpm/winnt" /* generated on unix */
 
 #include <stddef.h>
 #include <stdlib.h> /* for exit() */
@@ -80,20 +85,17 @@ AP_DECLARE_DATA extern int ap_real_exit_code;
 AP_DECLARE(apr_status_t) ap_os_proc_filepath(char **binpath, apr_pool_t *p);
 
 typedef enum {
-    AP_DLL_WINBASEAPI = 0,    // kernel32 From WinBase.h
-    AP_DLL_WINADVAPI = 1,     // advapi32 From WinBase.h
-    AP_DLL_WINSOCKAPI = 2,    // mswsock  From WinSock.h
-    AP_DLL_WINSOCK2API = 3,   // ws2_32   From WinSock2.h
-    AP_DLL_defined = 4        // must define as last idx_ + 1
+    AP_DLL_WINBASEAPI = 0,    /* kernel32 From WinBase.h      */
+    AP_DLL_WINADVAPI = 1,     /* advapi32 From WinBase.h      */
+    AP_DLL_WINSOCKAPI = 2,    /* mswsock  From WinSock.h      */
+    AP_DLL_WINSOCK2API = 3,   /* ws2_32   From WinSock2.h     */
+    AP_DLL_defined = 4        /* must define as last idx_ + 1 */
 } ap_dlltoken_e;
 
 FARPROC ap_load_dll_func(ap_dlltoken_e fnLib, char* fnName, int ordinal);
 
 PSECURITY_ATTRIBUTES GetNullACL(void);
 void CleanNullACL(void *sa);
-
-int set_listeners_noninheritable(apr_pool_t *p);
-
 
 #define AP_DECLARE_LATE_DLL_FUNC(lib, rettype, calltype, fn, ord, args, names) \
     typedef rettype (calltype *ap_winapi_fpt_##fn) args; \
@@ -105,8 +107,8 @@ int set_listeners_noninheritable(apr_pool_t *p);
 
 /* Win2K kernel only */
 AP_DECLARE_LATE_DLL_FUNC(AP_DLL_WINADVAPI, BOOL, WINAPI, ChangeServiceConfig2A, 0, (
-    SC_HANDLE hService, 
-    DWORD dwInfoLevel, 
+    SC_HANDLE hService,
+    DWORD dwInfoLevel,
     LPVOID lpInfo),
     (hService, dwInfoLevel, lpInfo));
 #undef ChangeServiceConfig2

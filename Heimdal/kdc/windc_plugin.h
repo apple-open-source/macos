@@ -50,6 +50,7 @@
  */
 
 struct hdb_entry_ex;
+struct krb5_kdc_configuration;
 
 typedef krb5_error_code
 (*krb5plugin_windc_pac_generate)(void *, krb5_context,
@@ -67,9 +68,9 @@ typedef krb5_error_code
 typedef krb5_error_code
 (*krb5plugin_windc_client_access)(
 	void *, krb5_context,
-	krb5_kdc_configuration *config,
-	hdb_entry_ex *, const char *, 
-	hdb_entry_ex *, const char *, 
+	struct krb5_kdc_configuration *config,
+	struct hdb_entry_ex *, const char *, 
+	struct hdb_entry_ex *, const char *, 
 	KDC_REQ *, METHOD_DATA *);
 
 

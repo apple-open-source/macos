@@ -1,0 +1,50 @@
+#!/bin/zsh
+
+roots="/tmp/security.roots.tgz"
+syms="/tmp/security.syms.tgz"
+srcs="/tmp/security.src.tgz"
+sshopts=(-o CheckHostIP=no -o StrictHostKeyChecking=no -o NoHostAuthenticationForLocalhost=yes -o UserKnownHostsFile=/dev/null)
+
+locations=(`mobdev list | awk '/UDID/ { gsub(/^(.*location ID = )+|(,.*)+$/, ""); print}'`)
+
+mysrcdir=`pwd`
+port_offset=20000
+
+symdir="/var/mobile/secsyms"
+
+for location in $locations
+do
+	echo 'Installing to location '"$location"
+
+	tcprelay --portoffset $port_offset --locationid $location ssh >/dev/null 2>&1 &
+
+	(( sshport = $port_offset + 22 ))
+
+	echo "Copying roots to device (via port $sshport)"
+	scp -P $sshport $sshopts $roots $syms $srcs root@localhost:/var/mobile/
+
+	echo "SSH to device and do commands"
+	ssh  $sshopts -p $sshport root@localhost << END
+/bin/hostname
+/sbin/mount -uw /
+mkdir -p /var/mobile/syms
+mkdir -p /var/mobile/srcs
+rm -rf /var/mobile/syms/*
+rm -rf /var/mobile/srcs/*
+/usr/local/bin/darwinup install "/var/mobile/`basename $roots`" | grep -v '^  /'
+/usr/local/bin/darwinup uninstall superseded > /dev/null 2>&1 || true
+touch /System/Library/Caches/com.apple.xpcd/xpcd_cache.dylib
+/usr/local/bin/mobile_install rebuild internal
+/bin/launchctl stop com.apple.securityd
+/bin/launchctl stop com.apple.security.cloudkeychainproxy3
+/bin/launchctl stop com.apple.security.CircleJoinRequest
+tar -xzvf "/var/mobile/`basename $syms`" -C /var/mobile/syms >/dev/null
+tar -xzvf "/var/mobile/`basename $srcs`" -C /var/mobile/srcs >/dev/null
+END
+
+	kill -HUP %%
+done
+
+echo "in lldb: settings set target.source-map ""$mysrcdir"" /var/mobile/srcs/"
+echo "in lldb: add-dsym /var/mobile/syms/securityd.dSYM"
+

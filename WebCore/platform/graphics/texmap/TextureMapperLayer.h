@@ -20,7 +20,7 @@
 #ifndef TextureMapperLayer_h
 #define TextureMapperLayer_h
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+#if USE(TEXTURE_MAPPER)
 
 #include "FilterOperations.h"
 #include "FloatRect.h"
@@ -86,7 +86,7 @@ public:
     void setPreserves3D(bool);
     void setTransform(const TransformationMatrix&);
     void setChildrenTransform(const TransformationMatrix&);
-    void setContentsRect(const IntRect&);
+    void setContentsRect(const FloatRect&);
     void setMasksToBounds(bool);
     void setDrawsContent(bool);
     bool drawsContent() const { return m_state.drawsContent; }
@@ -99,8 +99,8 @@ public:
     void setBackfaceVisibility(bool);
     void setOpacity(float);
     void setSolidColor(const Color&);
-    void setContentsTileSize(const IntSize&);
-    void setContentsTilePhase(const IntPoint&);
+    void setContentsTileSize(const FloatSize&);
+    void setContentsTilePhase(const FloatPoint&);
 #if ENABLE(CSS_FILTERS)
     void setFilters(const FilterOperations&);
 #endif
@@ -164,10 +164,10 @@ private:
     void computePatternTransformIfNeeded();
 
     // GraphicsLayerAnimation::Client
-    virtual void setAnimatedTransform(const TransformationMatrix&) OVERRIDE;
-    virtual void setAnimatedOpacity(float) OVERRIDE;
+    virtual void setAnimatedTransform(const TransformationMatrix&) override;
+    virtual void setAnimatedOpacity(float) override;
 #if ENABLE(CSS_FILTERS)
-    virtual void setAnimatedFilters(const FilterOperations&) OVERRIDE;
+    virtual void setAnimatedFilters(const FilterOperations&) override;
 #endif
 
     bool isVisible() const;
@@ -210,8 +210,8 @@ private:
         TransformationMatrix childrenTransform;
         float opacity;
         FloatRect contentsRect;
-        IntSize contentsTileSize;
-        IntPoint contentsTilePhase;
+        FloatSize contentsTileSize;
+        FloatPoint contentsTilePhase;
         TextureMapperLayer* maskLayer;
         TextureMapperLayer* replicaLayer;
         Color solidColor;

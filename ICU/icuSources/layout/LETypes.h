@@ -271,6 +271,47 @@ typedef struct LEPoint LEPoint;
 
 
 #ifndef U_HIDE_INTERNAL_API
+
+/**
+ * \def
+ * @internal
+ */
+#ifndef LE_ASSERT_BAD_FONT
+#define LE_ASSERT_BAD_FONT 0
+#endif
+
+/**
+ * \def LE_DEBUG_BAD_FONT
+ * @internal
+ */
+#if LE_ASSERT_BAD_FONT
+#include <stdio.h>
+#define LE_DEBUG_BAD_FONT(x) fprintf(stderr,"%s:%d: BAD FONT: %s\n", __FILE__, __LINE__, (x));
+#else
+#define LE_DEBUG_BAD_FONT(x)
+#endif
+
+/**
+ * \def LE_UINTPTR_MAX
+ * Max value representable by a uintptr
+ */
+
+#ifndef UINT32_MAX
+#define LE_UINT32_MAX 0xFFFFFFFFU
+#else
+#define LE_UINT32_MAX UINT32_MAX
+#endif
+
+#ifndef UINTPTR_MAX
+#define LE_UINTPTR_MAX LE_UINT32_MAX
+#else
+#define LE_UINTPTR_MAX UINTPTR_MAX
+#endif
+
+/**
+ * Range check for overflow
+ */
+#define LE_RANGE_CHECK(type, count, ptrfn) (( (LE_UINTPTR_MAX / sizeof(type)) < (size_t)count ) ? NULL : (ptrfn))
 /**
  * A convenience macro to get the length of an array.
  *
@@ -292,7 +333,7 @@ typedef struct LEPoint LEPoint;
  *
  * @internal
  */
-#define LE_NEW_ARRAY(type, count) (type *) uprv_malloc((count) * sizeof(type))
+#define LE_NEW_ARRAY(type, count) (type *)  LE_RANGE_CHECK(type,count,uprv_malloc((count) * sizeof(type)))
 
 /**
  * Re-allocate an array of basic types. This is used to isolate the rest of
@@ -336,7 +377,7 @@ typedef struct LEPoint LEPoint;
  *
  * @internal
  */
-#define LE_NEW_ARRAY(type, count) (type *) malloc((count) * sizeof(type))
+#define LE_NEW_ARRAY(type, count) LE_RANGE_CHECK(type,count,(type *) malloc((count) * sizeof(type)))
 
 /**
  * Re-allocate an array of basic types. This is used to isolate the rest of
@@ -636,6 +677,8 @@ enum LEFeatureENUMs {
  * @}
  */
 
+#define LE_DEFAULT_FEATURE_FLAG (LE_Kerning_FEATURE_FLAG | LE_Ligatures_FEATURE_FLAG) /**< default features */
+
 /**
  * Error codes returned by the LayoutEngine.
  *
@@ -680,5 +723,6 @@ typedef enum LEErrorCode LEErrorCode;
  * @stable ICU 2.4
  */
 #define LE_FAILURE(code) (U_FAILURE((UErrorCode)code))
+
 
 #endif

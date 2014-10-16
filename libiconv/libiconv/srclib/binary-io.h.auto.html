@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>binary-io.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">binary-io.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Binary mode I/O.
+   Copyright (C) 2001, 2003, 2005 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_BINARY_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_BINARY_H</span>
+
+<span class="enscript-comment">/* For systems that distinguish between text and binary I/O.
+   O_BINARY is usually declared in &lt;fcntl.h&gt;. */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;fcntl.h&gt;</span>
+
+<span class="enscript-comment">/* The MSVC7 &lt;stdio.h&gt; doesn't like to be included after '#define fileno ...',
+   so we include it here first.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">O_BINARY</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_O_BINARY</span>
+  <span class="enscript-comment">/* For MSC-compatible compilers.  */</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">O_BINARY</span> _O_BINARY
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">O_TEXT</span> _O_TEXT
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__BEOS__</span>
+  <span class="enscript-comment">/* BeOS 5 has O_BINARY and O_TEXT, but they have no effect.  */</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">O_BINARY</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">O_TEXT</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">O_BINARY</span>
+# <span class="enscript-reference">if</span> !(<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__EMX__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__DJGPP__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__CYGWIN__</span>)
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">setmode</span> _setmode
+#  <span class="enscript-reference">undef</span> <span class="enscript-variable-name">fileno</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">fileno</span> _fileno
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__DJGPP__</span> || <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__CYGWIN__</span>
+#  <span class="enscript-reference">include</span> <span class="enscript-string">&lt;io.h&gt;</span> <span class="enscript-comment">/* declares setmode() */</span>
+# <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__DJGPP__</span>
+#  <span class="enscript-reference">include</span> <span class="enscript-string">&lt;unistd.h&gt;</span> <span class="enscript-comment">/* declares isatty() */</span>
+#  <span class="enscript-comment">/* Avoid putting stdin/stdout in binary mode if it is connected to the
+#     console, because that would make it impossible for the user to
+#     interrupt the program through Ctrl-C or Ctrl-Break.  */</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">SET_BINARY</span>(fd) (!isatty (fd) ? (setmode (fd, O_BINARY), 0) : 0)
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">SET_BINARY</span>(fd) setmode (fd, O_BINARY)
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+  <span class="enscript-comment">/* On reasonable systems, binary I/O is the default.  */</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">O_BINARY</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">O_BINARY</span> 0
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">SET_BINARY</span>(fd) <span class="enscript-comment">/* nothing */</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _BINARY_H */</span>
+</pre>
+<hr />
+</body></html>

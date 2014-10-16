@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -291,4 +291,55 @@ LC_ALL=C
 x=$"hello"
 [[ $x == hello ]] || err_exit 'assignment of message strings not working'
 
+# tests for multibyte characteer at buffer boundary
+{
+	print 'cat << \\EOF'
+	for ((i=1; i < 164; i++))
+	do	print 123456789+123456789+123456789+123456789+123456789
+	done 
+	print $'next character is multibyte<2b|>c<3d|\>foo'
+	for ((i=1; i < 10; i++))
+	do	print 123456789+123456789+123456789+123456789+123456789
+	done
+	print EOF
+} > script$$.1
+chmod +x script$$.1
+x=$(  LC_ALL=debug $SHELL ./script$$.1)
+[[ ${#x} == 8641 ]] || err_exit 'here doc contains wrong number of chars with multibyte locale'
+[[ $x == *$'next character is multibyte<2b|>c<3d|\>foo'* ]] || err_exit "here_doc doesn't contain line with multibyte chars"
+
+
+x=$(LC_ALL=debug $SHELL -c 'x="a<2b|>c";print -r -- ${#x}')
+(( x == 3  )) || err_exit 'character length of multibyte character should be 3'
+x=$(LC_ALL=debug $SHELL -c 'typeset -R10 x="a<2b|>c";print -r -- "${x}"')
+[[ $x == '   a<2b|>c' ]] || err_exit 'typeset -R10 should begin with three spaces'
+x=$(LC_ALL=debug $SHELL -c 'typeset -L10 x="a<2b|>c";print -r -- "${x}"')
+[[ $x == 'a<2b|>c   ' ]] || err_exit 'typeset -L10 should end in three spaces'
+
+if      $SHELL -c "export LC_ALL=en_US.UTF-8; c=$'\342\202\254'; [[ \${#c} == 1 ]]" 2>/dev/null
+then	LC_ALL=en_US.UTF-8
+	unset i p1 p2 x
+	for i in 9 b c d 20 1680 2000 2001 2002 2003 2004 2005 2006 2008 2009 200a 2028 2029 3000 # 1803 2007 202f  205f
+	do	if	! eval "[[ \$'\\u[$i]' == [[:space:]] ]]"
+		then	x+=,$i
+		fi
+	done
+	if	[[ $x ]]
+	then	if	[[ $x == ,*,* ]]
+		then	p1=s p2="are not space characters"
+		else	p1=  p2="is not a space character"
+		fi
+		err_exit "unicode char$p1 ${x#?} $p2 in locale $LC_ALL"
+	fi
+	unset x
+	x=$(printf "hello\u[20ac]\xee world")
+	[[ $(print -r -- "$x") == $'hello\u[20ac]\xee world' ]] || err_exit '%q with unicode and non-unicode not working'
+	if	[[ $(whence od) ]]
+	then	got='68 65 6c 6c 6f e2 82 ac ee 20 77 6f 72 6c 64 0a'
+		[[ $(print -r -- "$x" | od -An -tx1) == "$got" ]] || err_exit "incorrect string from printf %q"
+	fi
+	
+fi
+
 exit $((Errors<125?Errors:125))
+

@@ -1,9 +1,0 @@
-~$
-\.svn
-\.DS_Store
-\.bak
-\.old
-dist
-\.tar.gz$
-blib
-Makefile$

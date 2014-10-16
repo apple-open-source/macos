@@ -606,7 +606,8 @@ protected:
 	bool						fDSLimited;
 
 	IONotifier *				fConsoleLockNotifier;
-	
+	IOFireWireLocalNode *       fLocalNode;
+    
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    

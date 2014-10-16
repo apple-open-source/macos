@@ -10,8 +10,8 @@
 >
 <ldml>
 	<identity>
-		<version number="$Revision: 27726 $"/>
-		<generation date="$Date: 2010-03-01 15:13:18 -0800 (Mon, 01 Mar 2010) $"/>
+		<version number="$Revision: 1.1.1.2 $"/>
+		<generation date="$Date: 2011/05/27 06:50:12 $"/>
 		<language type="teo"/> 
 	</identity>
 	<characters>

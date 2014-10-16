@@ -30,13 +30,12 @@
  */
 
 [
-    GlobalContext=WindowAndWorker,
-    Conditional=BLOB,
+    GlobalContext=DOMWindow&WorkerGlobalScope,
     ActiveDOMObject,
     Constructor,
     ConstructorCallWith=ScriptExecutionContext,
     EventTarget,
-    JSNoStaticTables
+    JSNoStaticTables,
 ] interface FileReader {
     // ready states
     const unsigned short EMPTY = 0;

@@ -378,7 +378,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 			if (!(nbp->nbp_flags & NBF_UPCALLED))
 				msleep(&iod->iod_flags, &nbp->nbp_lock, PWAIT, "nbssn", wait_time);
 			lck_mtx_unlock(&nbp->nbp_lock);
-			wait_time = 0;	/* We are suppose to have some data waitig by now */
+			wait_time = 0;	/* We are suppose to have some data waiting by now */
 			flags = MSG_WAITALL; /* Wait for all four bytes */
 			continue;
 		}
@@ -429,7 +429,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 	len = ntohl(len);
 	*rpcodep = (len >> 24) & 0xFF; /* For port 445 this should be zero, NB_SSN_MESSAGE */
 	if (nbp->nbp_flags & NBF_NETBIOS) {
-		/* Port 139, we can only use the frist 17 bits for the length */
+		/* Port 139, we can only use the first 17 bits for the length */
 		if ((len >> 16) & 0xFE) {
 			SMBERROR("bad nb header received 0x%x (MBZ flag set)\n", len);
 			return (EPIPE);
@@ -560,8 +560,10 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 			 */
 			if (!m) {
 				m = (mbuf_t )tm;
+                m_fixhdr(m); /* Work around <15114764> */
 			} else if (tm) {
 				mbuf_cat_internal(m, (mbuf_t )tm);
+                m_fixhdr(m); /* Work around <15114764> */
 			}
 		}
 
@@ -822,7 +824,7 @@ static int
 smb_nbst_recv(struct smb_vc *vcp, mbuf_t *mpp)
 {
 	struct nbpcb *nbp = vcp->vc_tdata;
-	uint8_t rpcode;
+	uint8_t rpcode, *hp;
 	int error, rplen;
 
 	/* Should never happen, but just in case */
@@ -840,7 +842,24 @@ smb_nbst_recv(struct smb_vc *vcp, mbuf_t *mpp)
 	lck_mtx_unlock(&nbp->nbp_lock);
 
 	error = nbssn_recv(nbp, mpp, &rplen, &rpcode, NULL);
-
+    
+    if (!error) {
+        /* Handle case when first mbuf is zero-length */
+        error = mbuf_pullup(mpp, 1);
+    }
+    
+    // Check for a transform header (encrypted msg)
+    if (!error) {
+        hp = mbuf_data(*mpp);
+        if (*hp == 0xfd) {
+            error = smb3_msg_decrypt(vcp, mpp);
+        }
+    }
+    
+    if (error) {
+        *mpp = NULL;
+    }
+    
 	lck_mtx_lock(&nbp->nbp_lock);
 	nbp->nbp_flags &= ~NBF_RECVLOCK;
 	lck_mtx_unlock(&nbp->nbp_lock);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -37,7 +37,7 @@ namespace WebCore {
     class ContextMenuItem;
     class Frame;
     class HitTestResult;
-    class KURL;
+    class URL;
 
     class ContextMenuClient {
     public:
@@ -52,14 +52,14 @@ namespace WebCore {
 
         virtual void contextMenuItemSelected(ContextMenuItem*, const ContextMenu*) = 0;
 
-        virtual void downloadURL(const KURL& url) = 0;
+        virtual void downloadURL(const URL& url) = 0;
         virtual void searchWithGoogle(const Frame*) = 0;
         virtual void lookUpInDictionary(Frame*) = 0;
         virtual bool isSpeaking() = 0;
         virtual void speak(const String&) = 0;
         virtual void stopSpeaking() = 0;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         virtual void searchWithSpotlight() = 0;
 #endif
 

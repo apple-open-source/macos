@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,11 @@
 #ifndef _SCPREFS_OBSERVER_H
 #define _SCPREFS_OBSERVER_H
 
+#include <Availability.h>
+#include <TargetConditionals.h>
+#include <sys/cdefs.h>
+#include <dispatch/dispatch.h>
+
 typedef enum {
 #if	!TARGET_OS_IPHONE
 		scprefs_observer_type_mcx	= 1,
@@ -35,14 +40,16 @@ typedef enum {
 
 typedef struct _scprefs_observer_t * scprefs_observer_t;
 
+__BEGIN_DECLS
+
 /*!
  @function prefs_observer_watch
  @discussion Sends a notification to interested configuration agents
  when a particular preference file has changed.
- @param type - the type of preference (MCX on OSX, Global/Profiles on iOS) to watch.
- @param plist - the name of the plist file to watch.
- @param queue - the queue to be called back on.
- @param block - the block to be called back on.
+ @param type the type of preference (MCX on OSX, Global/Profiles on iOS) to watch.
+ @param plist the name of the plist file to watch.
+ @param queue the queue to be called back on.
+ @param block the block to be called back on.
  @result Returns the created preferences observer
  */
 scprefs_observer_t
@@ -52,9 +59,11 @@ _scprefs_observer_watch(_scprefs_observer_type type, const char *plist_name,
 /*!
  @function prefs_observer_watch
  @discussion Cancells/deregisters the given preferences watcher.
- @param observer - the watcher to be cancelled.
+ @param observer the watcher to be cancelled.
  */
 void
 _scprefs_observer_cancel(scprefs_observer_t observer);
+
+__END_DECLS
 
 #endif /* _SCPREFS_OBSERVER_H */

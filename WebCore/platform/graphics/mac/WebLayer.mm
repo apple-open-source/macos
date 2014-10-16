@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,18 +24,18 @@
  */
 
 #include "config.h"
-
-#if USE(ACCELERATED_COMPOSITING)
-
 #import "WebLayer.h"
 
 #import "GraphicsContext.h"
 #import "GraphicsLayerCA.h"
 #import "PlatformCALayer.h"
-#import "ThemeMac.h"
-#import "WebCoreSystemInterface.h"
-#import <objc/runtime.h>
 #import <QuartzCore/QuartzCore.h>
+
+#if PLATFORM(IOS)
+#import "WKGraphics.h"
+#import "WAKWindow.h"
+#import "WebCoreThread.h"
+#endif
 
 @interface CALayer(WebCoreCALayerPrivate)
 - (void)reloadValueForKeyPath:(NSString *)keyPath;
@@ -43,139 +43,26 @@
 
 using namespace WebCore;
 
+#if PLATFORM(IOS)
+@interface WebLayer(Private)
+- (void)drawScaledContentsInContext:(CGContextRef)context;
+@end
+#endif
+
 @implementation WebLayer
 
-void drawLayerContents(CGContextRef context, CALayer *layer, WebCore::PlatformCALayer* platformLayer)
+- (void)drawInContext:(CGContextRef)context
 {
-    WebCore::PlatformCALayerClient* layerContents = platformLayer->owner();
-    if (!layerContents)
-        return;
-
-    CGContextSaveGState(context);
-
-    CGRect layerBounds = [layer bounds];
-    if (layerContents->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp) {
-        CGContextScaleCTM(context, 1, -1);
-        CGContextTranslateCTM(context, 0, -layerBounds.size.height);
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer) {
+        PlatformCALayer::RepaintRectList rectsToPaint = PlatformCALayer::collectRectsToPaint(context, layer);
+        PlatformCALayer::drawLayerContents(context, layer, rectsToPaint);
     }
-
-    [NSGraphicsContext saveGraphicsState];
-
-    // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
-    // the current NSGraphicsContext (e.g. NSCell drawing) get the right one.
-    NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:YES];
-    [NSGraphicsContext setCurrentContext:layerContext];
-
-    GraphicsContext graphicsContext(context);
-    graphicsContext.setIsCALayerContext(true);
-    graphicsContext.setIsAcceleratedContext(platformLayer->acceleratesDrawing());
-
-    if (!layerContents->platformCALayerContentsOpaque()) {
-        // Turn off font smoothing to improve the appearance of text rendered onto a transparent background.
-        graphicsContext.setShouldSmoothFonts(false);
-    }
-    
-    // It's important to get the clip from the context, because it may be significantly
-    // smaller than the layer bounds (e.g. tiled layers)
-    FloatRect clipBounds = CGContextGetClipBoundingBox(context);
-
-    FloatRect focusRingClipRect = clipBounds;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1090
-    // Set the focus ring clip rect which needs to be in base coordinates.
-    AffineTransform transform = CGContextGetCTM(context);
-    focusRingClipRect = transform.mapRect(clipBounds);
-#endif
-    ThemeMac::setFocusRingClipRect(focusRingClipRect);
-
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
-    const float wastedSpaceThreshold = 0.75f;
-    const unsigned maxRectsToPaint = 5;
-
-    double clipArea = clipBounds.width() * clipBounds.height();
-    __block double totalRectArea = 0;
-    __block unsigned rectCount = 0;
-    __block Vector<FloatRect, maxRectsToPaint> dirtyRects;
-    
-    wkCALayerEnumerateRectsBeingDrawnWithBlock(layer, context, ^(CGRect rect) {
-        if (++rectCount > maxRectsToPaint)
-            return;
-
-        totalRectArea += rect.size.width * rect.size.height;
-        dirtyRects.append(rect);
-    });
-
-    if (rectCount < maxRectsToPaint && totalRectArea < clipArea * wastedSpaceThreshold) {
-        for (unsigned i = 0; i < rectCount; ++i) {
-            const FloatRect& currentRect = dirtyRects[i];
-            
-            GraphicsContextStateSaver stateSaver(graphicsContext);
-            graphicsContext.clip(currentRect);
-            
-            layerContents->platformCALayerPaintContents(graphicsContext, enclosingIntRect(currentRect));
-        }
-    } else {
-        // CGContextGetClipBoundingBox() gives us the bounds of the dirty region, so clipBounds
-        // encompasses all the dirty rects.
-        layerContents->platformCALayerPaintContents(graphicsContext, enclosingIntRect(clipBounds));
-    }
-
-#else
-    IntRect clip(enclosingIntRect(clipBounds));
-    layerContents->platformCALayerPaintContents(graphicsContext, clip);
-#endif
-
-    ThemeMac::setFocusRingClipRect(FloatRect());
-
-    [NSGraphicsContext restoreGraphicsState];
-
-    // Re-fetch the layer owner, since <rdar://problem/9125151> indicates that it might have been destroyed during painting.
-    layerContents = platformLayer->owner();
-    ASSERT(layerContents);
-
-    // Always update the repain count so that it's accurate even if the count itself is not shown. This will be useful
-    // for the Web Inspector feeding this information through the LayerTreeAgent. 
-    int repaintCount = layerContents->platformCALayerIncrementRepaintCount();
-
-    if (!platformLayer->usesTiledBackingLayer() && layerContents && layerContents->platformCALayerShowRepaintCounter(platformLayer)) {
-        bool isTiledLayer = [layer isKindOfClass:[CATiledLayer class]];
-
-        char text[16]; // that's a lot of repaints
-        snprintf(text, sizeof(text), "%d", repaintCount);
-
-        CGRect indicatorBox = layerBounds;
-        indicatorBox.size.width = 12 + 10 * strlen(text);
-        indicatorBox.size.height = 27;
-        CGContextSaveGState(context);
-        
-        CGContextSetAlpha(context, 0.5f);
-        CGContextBeginTransparencyLayerWithRect(context, indicatorBox, 0);
-
-        if (isTiledLayer)
-            CGContextSetRGBFillColor(context, 1, 0.5f, 0, 1);
-        else
-            CGContextSetRGBFillColor(context, 0, 0.5f, 0.25f, 1);
-        
-        CGContextFillRect(context, indicatorBox);
-        
-        if (platformLayer->acceleratesDrawing())
-            CGContextSetRGBFillColor(context, 1, 0, 0, 1);
-        else
-            CGContextSetRGBFillColor(context, 1, 1, 1, 1);
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        CGContextSetTextMatrix(context, CGAffineTransformMakeScale(1, -1));
-        CGContextSelectFont(context, "Helvetica", 22, kCGEncodingMacRoman);
-        CGContextShowTextAtPoint(context, indicatorBox.origin.x + 5, indicatorBox.origin.y + 22, text, strlen(text));
-#pragma clang diagnostic pop
-
-        CGContextEndTransparencyLayer(context);
-        CGContextRestoreGState(context);
-    }
-
-    CGContextRestoreGState(context);
 }
 
+@end // implementation WebLayer
+
+@implementation WebSimpleLayer
 
 - (id<CAAction>)actionForKey:(NSString *)key
 {
@@ -203,17 +90,11 @@ void drawLayerContents(CGContextRef context, CALayer *layer, WebCore::PlatformCA
 
     if (PlatformCALayerClient* layerOwner = platformLayer->owner()) {
         if (layerOwner->platformCALayerDrawsContent()) {
-            if (layerOwner->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp)
-                dirtyRect.origin.y = [self bounds].size.height - dirtyRect.origin.y - dirtyRect.size.height;
-
             [super setNeedsDisplayInRect:dirtyRect];
 
             if (layerOwner->platformCALayerShowRepaintCounter(platformLayer)) {
                 CGRect bounds = [self bounds];
                 CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 52, 27);
-                if (layerOwner->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp)
-                    indicatorRect.origin.y = [self bounds].size.height - indicatorRect.origin.y - indicatorRect.size.height;
-
                 [super setNeedsDisplayInRect:indicatorRect];
             }
         }
@@ -222,20 +103,34 @@ void drawLayerContents(CGContextRef context, CALayer *layer, WebCore::PlatformCA
 
 - (void)display
 {
+#if PLATFORM(IOS)
+    if (pthread_main_np())
+        WebThreadLock();
+#endif
     [super display];
     PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
     if (layer && layer->owner())
-        layer->owner()->platformCALayerLayerDidDisplay(self);
+        layer->owner()->platformCALayerLayerDidDisplay(layer);
 }
 
 - (void)drawInContext:(CGContextRef)context
 {
+#if PLATFORM(IOS)
+    if (pthread_main_np())
+        WebThreadLock();
+#endif
     PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
-    if (layer)
-        drawLayerContents(context, self, layer);
+    if (layer && layer->owner()) {
+        GraphicsContext graphicsContext(context);
+        graphicsContext.setIsCALayerContext(true);
+        graphicsContext.setIsAcceleratedContext(layer->acceleratesDrawing());
+
+        FloatRect clipBounds = CGContextGetClipBoundingBox(context);
+        layer->owner()->platformCALayerPaintContents(layer, graphicsContext, clipBounds);
+    }
 }
 
-@end // implementation WebLayer
+@end // implementation WebSimpleLayer
 
 // MARK: -
 
@@ -284,5 +179,3 @@ void drawLayerContents(CGContextRef context, CALayer *layer, WebCore::PlatformCA
 @end  // implementation WebLayer(ExtendedDescription)
 
 #endif // NDEBUG
-
-#endif // USE(ACCELERATED_COMPOSITING)

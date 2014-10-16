@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,23 +26,28 @@
 #ifndef TextBoundaries_h
 #define TextBoundaries_h
 
-#include <wtf/unicode/Unicode.h>
+#include <unicode/uchar.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
-    // FIXME: this function won't be needed together with the function
-    // it calls when https://bugs.webkit.org/show_bug.cgi?id=120656
-    // will be fixed.
-    inline bool requiresContextForWordBoundary(UChar32 ch)
+    inline bool requiresContextForWordBoundary(UChar32 character)
     {
-        return WTF::Unicode::requiresComplexContextForWordBreaking(ch);
+        // FIXME: This function won't be needed when https://bugs.webkit.org/show_bug.cgi?id=120656 is fixed.
+
+        // We can get rid of this constant if we require a newer version of the ICU headers.
+        const int WK_U_LB_CONDITIONAL_JAPANESE_STARTER = 37;
+
+        int lineBreak = u_getIntPropertyValue(character, UCHAR_LINE_BREAK);
+        return lineBreak == U_LB_COMPLEX_CONTEXT || lineBreak == WK_U_LB_CONDITIONAL_JAPANESE_STARTER || lineBreak == U_LB_IDEOGRAPHIC;
     }
 
-    int endOfFirstWordBoundaryContext(const UChar* characters, int length);
-    int startOfLastWordBoundaryContext(const UChar* characters, int length);
+    unsigned endOfFirstWordBoundaryContext(StringView);
+    unsigned startOfLastWordBoundaryContext(StringView);
 
-    void findWordBoundary(const UChar*, int len, int position, int* start, int* end);
-    int findNextWordFromIndex(const UChar*, int len, int position, bool forward);
+    void findWordBoundary(StringView, int position, int* start, int* end);
+    void findEndWordBoundary(StringView, int position, int* end);
+    int findNextWordFromIndex(StringView, int position, bool forward);
 
 }
 

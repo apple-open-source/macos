@@ -79,7 +79,9 @@ typedef struct {
     char   *namaddr;			/* name[address]:port */
     char   *rfc_addr;			/* address for RFC 2821 */
     int     addr_family;		/* address family */
+    char   *dest_addr;			/* for Dovecot AUTH */
     struct sockaddr_storage sockaddr;	/* binary client endpoint */
+    SOCKADDR_SIZE sockaddr_len;		/* binary client endpoint */
     int     name_status;		/* 2=ok 4=soft 5=hard 6=forged */
     int     reverse_name_status;	/* 2=ok 4=soft 5=hard */
     int     conn_count;			/* connections from this client */
@@ -103,8 +105,6 @@ typedef struct {
     char   *protocol;			/* SMTP or ESMTP */
     char   *where;			/* protocol stage */
     int     recursion;			/* Kellerspeicherpegelanzeiger */
-    int	    chunking;			/* APPLE - RFC 3030 */
-    void   *chunking_context;		/* APPLE - RFC 3030 */
     off_t   msg_size;			/* MAIL FROM message size */
     off_t   act_size;			/* END-OF-DATA message size */
     int     junk_cmds;			/* counter */
@@ -208,13 +208,6 @@ typedef struct {
 	| SMTPD_STATE_XFORWARD_PROTO | SMTPD_STATE_XFORWARD_HELO \
 	| SMTPD_STATE_XFORWARD_PORT)
 
-/* APPLE - RFC 3030 */
-#define SMTPD_CHUNKING		    (1 << 0)	/* BURL or BDAT used */
-#define SMTPD_CHUNKING_CONT	    (1 << 1)	/* non-LAST used */
-#define SMTPD_CHUNKING_LAST	    (1 << 2)	/* LAST */
-#define SMTPD_CHUNKING_BINARYMIME   (1 << 3)	/* BODY=BINARYMIME */
-#define SMTPD_CHUNKING_NONZERO	    (1 << 4)	/* read >= 1 byte */
-
 extern void smtpd_state_init(SMTPD_STATE *, VSTREAM *, const char *);
 extern void smtpd_state_reset(SMTPD_STATE *);
 
@@ -237,8 +230,6 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 #define SMTPD_CMD_MAIL		"MAIL"
 #define SMTPD_CMD_RCPT		"RCPT"
 #define SMTPD_CMD_DATA		"DATA"
-#define SMTPD_CMD_BURL		"BURL"			/* APPLE - burl */
-#define SMTPD_CMD_BDAT		"BDAT"			/* APPLE - RFC 3030 */
 #define SMTPD_CMD_EOD		SMTPD_AFTER_DOT	/* XXX Was: END-OF-DATA */
 #define SMTPD_CMD_RSET		"RSET"
 #define SMTPD_CMD_NOOP		"NOOP"
@@ -315,10 +306,16 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 	(SMTPD_STAND_ALONE(state) == 0 && *var_smtpd_proxy_filt)
 
  /*
+  * Are we in a MAIL transaction?
+  */
+#define SMTPD_IN_MAIL_TRANSACTION(state) ((state)->sender != 0)
+
+ /*
   * SMTPD peer information lookup.
   */
 extern void smtpd_peer_init(SMTPD_STATE *state);
 extern void smtpd_peer_reset(SMTPD_STATE *state);
+extern int smtpd_peer_from_haproxy(SMTPD_STATE *state);
 
 #define	SMTPD_PEER_CODE_OK	2
 #define SMTPD_PEER_CODE_TEMP	4
@@ -387,17 +384,6 @@ extern MILTERS *smtpd_milters;
   * Message size multiplication factor for free space check.
   */
 extern double smtpd_space_multf;
-
-#ifdef __APPLE_OS_X_SERVER__
-#define PW_SERVER_NONE			0x0000
-#define PW_SERVER_LOGIN			0x0001
-#define PW_SERVER_PLAIN			0x0002
-#define PW_SERVER_CRAM_MD5		0x0004
-#define PW_SERVER_DIGEST_MD5		0x0008
-#define PW_SERVER_GSSAPI		0x0010
-
-extern int		smtpd_pw_server_sasl_opts;
-#endif /* __APPLE_OS_X_SERVER__ */
 
 /* LICENSE
 /* .ad

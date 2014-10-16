@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,48 +32,37 @@ namespace WebCore {
 
 class RenderView;
 
-class RenderIFrame : public RenderFrameBase {
+class RenderIFrame final : public RenderFrameBase {
 public:
-    explicit RenderIFrame(Element*);
+    RenderIFrame(HTMLIFrameElement&, PassRef<RenderStyle>);
+
+    HTMLIFrameElement& iframeElement() const;
 
     bool flattenFrame() const;
-    bool isSeamless() const;
 
 private:
-    virtual LayoutUnit minPreferredLogicalWidth() const OVERRIDE;
-    virtual LayoutUnit maxPreferredLogicalWidth() const OVERRIDE;
+    void frameOwnerElement() const = delete;
 
-    virtual bool shouldComputeSizeAsReplaced() const OVERRIDE;
-    virtual bool isInlineBlockOrInlineTable() const OVERRIDE;
+    virtual bool shouldComputeSizeAsReplaced() const override;
+    virtual bool isInlineBlockOrInlineTable() const override;
 
-    virtual void layout() OVERRIDE;
+    virtual void layout() override;
 
-    virtual bool isRenderIFrame() const OVERRIDE { return true; }
+    virtual bool isRenderIFrame() const override { return true; }
 
-    virtual const char* renderName() const OVERRIDE { return "RenderPartObject"; } // Lying for now to avoid breaking tests
+#if PLATFORM(IOS)
+    // FIXME: Do we still need this workaround to avoid breaking layout tests?
+    virtual const char* renderName() const override { return "RenderPartObject"; }
+#else
+    virtual const char* renderName() const override { return "RenderIFrame"; }
+#endif
 
-    virtual bool requiresLayer() const OVERRIDE;
-
-    void layoutSeamlessly();
+    virtual bool requiresLayer() const override;
 
     RenderView* contentRootRenderer() const;
 };
 
-inline RenderIFrame* toRenderIFrame(RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderIFrame());
-    return static_cast<RenderIFrame*>(object);
-}
-
-inline const RenderIFrame* toRenderIFrame(const RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderIFrame());
-    return static_cast<const RenderIFrame*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toRenderIFrame(const RenderIFrame*);
-
+RENDER_OBJECT_TYPE_CASTS(RenderIFrame, isRenderIFrame())
 
 } // namespace WebCore
 

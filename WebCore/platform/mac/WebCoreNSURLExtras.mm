@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -47,6 +47,11 @@ typedef void (* StringRangeApplierFunction)(NSString *string, NSRange range, voi
 
 static pthread_once_t IDNScriptWhiteListFileRead = PTHREAD_ONCE_INIT;
 static uint32_t IDNScriptWhiteList[(USCRIPT_CODE_LIMIT + 31) / 32];
+
+
+@interface NSURLProtocol (WKNSURLProtocolInternal)
++ (Class)_protocolClassForRequest:(NSURLRequest *)request;
+@end
 
 namespace WebCore {
 
@@ -304,7 +309,7 @@ static NSString *mapHostNameWithRange(NSString *string, NSRange range, BOOL enco
     
     if (encode && [string rangeOfString:@"%" options:NSLiteralSearch range:range].location != NSNotFound) {
         NSString *substring = [string substringWithRange:range];
-        substring = HardAutorelease(CFURLCreateStringByReplacingPercentEscapes(NULL, (CFStringRef)substring, CFSTR("")));
+        substring = CFBridgingRelease(CFURLCreateStringByReplacingPercentEscapes(NULL, (CFStringRef)substring, CFSTR("")));
         if (substring) {
             string = substring;
             range = NSMakeRange(0, [string length]);
@@ -620,9 +625,9 @@ NSURL *URLWithData(NSData *data, NSURL *baseURL)
         // (e.g calls to NSURL -path). However, this function is not tolerant of illegal UTF-8 sequences, which
         // could either be a malformed string or bytes in a different encoding, like shift-jis, so we fall back
         // onto using ISO Latin 1 in those cases.
-        result = HardAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingUTF8, (CFURLRef)baseURL, YES));
+        result = CFBridgingRelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingUTF8, (CFURLRef)baseURL, YES));
         if (!result)
-            result = HardAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingISOLatin1, (CFURLRef)baseURL, YES));
+            result = CFBridgingRelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingISOLatin1, (CFURLRef)baseURL, YES));
     } else
         result = [NSURL URLWithString:@""];
                 
@@ -768,6 +773,23 @@ NSURL *URLByRemovingUserInfo(NSURL *URL)
     return URLByRemovingComponentAndSubsequentCharacter(URL, kCFURLComponentUserInfo);
 }
 
+NSURL *URLByCanonicalizingURL(NSURL *URL)
+{
+    RetainPtr<NSURLRequest> request = adoptNS([[NSURLRequest alloc] initWithURL:URL]);
+    Class concreteClass = [NSURLProtocol _protocolClassForRequest:request.get()];
+    if (!concreteClass) {
+        return URL;
+    }
+    
+    // This applies NSURL's concept of canonicalization, but not URL's concept. It would
+    // make sense to apply both, but when we tried that it caused a performance degradation
+    // (see 5315926). It might make sense to apply only the URL concept and not the NSURL
+    // concept, but it's too risky to make that change for WebKit 3.0.
+    NSURLRequest *newRequest = [concreteClass canonicalRequestForRequest:request.get()];
+    NSURL *newURL = [newRequest URL]; 
+    return [[newURL retain] autorelease];
+}
+
 NSData *originalURLData(NSURL *URL)
 {
     UInt8 *buffer = (UInt8 *)malloc(URL_BYTES_BUFFER_LENGTH);
@@ -895,7 +917,7 @@ NSString *userVisibleString(NSURL *URL)
     if (mayNeedHostNameDecoding)
         result = mapHostNames(result, NO);
     result = [result precomposedStringWithCanonicalMapping];
-    return HardAutorelease(createStringWithEscapedUnsafeCharacters((CFStringRef)result));
+    return CFBridgingRelease(createStringWithEscapedUnsafeCharacters((CFStringRef)result));
 }
 
 BOOL isUserVisibleURL(NSString *string)
@@ -935,6 +957,34 @@ BOOL isUserVisibleURL(NSString *string)
     }
     
     return valid;
+}
+
+NSRange rangeOfURLScheme(NSString *string)
+{
+    NSRange colon = [string rangeOfString:@":"];
+    if (colon.location != NSNotFound && colon.location > 0) {
+        NSRange scheme = {0, colon.location};
+        static NSCharacterSet *InverseSchemeCharacterSet = nil;
+        if (!InverseSchemeCharacterSet) {
+            /*
+             This stuff is very expensive.  10-15 msec on a 2x1.2GHz.  If not cached it swamps
+             everything else when adding items to the autocomplete DB.  Makes me wonder if we
+             even need to enforce the character set here.
+            */
+            NSString *acceptableCharacters = @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+.-";
+            InverseSchemeCharacterSet = [[[NSCharacterSet characterSetWithCharactersInString:acceptableCharacters] invertedSet] retain];
+        }
+        NSRange illegals = [string rangeOfCharacterFromSet:InverseSchemeCharacterSet options:0 range:scheme];
+        if (illegals.location == NSNotFound)
+            return scheme;
+    }
+    return NSMakeRange(NSNotFound, 0);
+}
+
+BOOL looksLikeAbsoluteURL(NSString *string)
+{
+    // Trim whitespace because _web_URLWithString allows whitespace.
+    return rangeOfURLScheme(stringByTrimmingWhitespace(string)).location != NSNotFound;
 }
 
 } // namespace WebCore

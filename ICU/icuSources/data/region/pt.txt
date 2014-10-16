@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/pt.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/pt.xml
+ * ICU <specials> source: <path>/common/main/pt.xml
  */
 pt{
     Countries{
@@ -29,7 +29,7 @@ pt{
         034{"Ásia do Sul"}
         035{"Ásia Centro-Oriental"}
         039{"Europa do Sul"}
-        053{"Austrália e Nova Zelândia"}
+        053{"Australásia"}
         054{"Melanésia"}
         057{"Região da Micronésia"}
         061{"Polinésia"}
@@ -57,27 +57,28 @@ pt{
         AT{"Áustria"}
         AU{"Austrália"}
         AW{"Aruba"}
-        AX{"Ilhas Aland"}
+        AX{"Ilhas Åland"}
         AZ{"Azerbaijão"}
-        BA{"Bósnia-Herzegovina"}
+        BA{"Bósnia e Herzegovina"}
         BB{"Barbados"}
         BD{"Bangladesh"}
         BE{"Bélgica"}
         BF{"Burquina Faso"}
         BG{"Bulgária"}
-        BH{"Bahrain"}
+        BH{"Bahrein"}
         BI{"Burundi"}
         BJ{"Benin"}
         BL{"São Bartolomeu"}
         BM{"Bermudas"}
         BN{"Brunei"}
         BO{"Bolívia"}
+        BQ{"Países Baixos Caribenhos"}
         BR{"Brasil"}
         BS{"Bahamas"}
         BT{"Butão"}
         BV{"Ilha Bouvet"}
         BW{"Botsuana"}
-        BY{"Belarus"}
+        BY{"Bielorrússia"}
         BZ{"Belize"}
         CA{"Canadá"}
         CC{"Ilhas Coco"}
@@ -171,7 +172,7 @@ pt{
         KR{"Coreia do Sul"}
         KW{"Kuwait"}
         KY{"Ilhas Caiman"}
-        KZ{"Casaquistão"}
+        KZ{"Cazaquistão"}
         LA{"Laos"}
         LB{"Líbano"}
         LC{"Santa Lúcia"}
@@ -192,7 +193,7 @@ pt{
         MH{"Ilhas Marshall"}
         MK{"Macedônia"}
         ML{"Mali"}
-        MM{"Mianmar [Birmânia]"}
+        MM{"Mianmar (Birmânia)"}
         MN{"Mongólia"}
         MO{"Macau, RAE da China"}
         MP{"Ilhas Marianas do Norte"}
@@ -284,7 +285,7 @@ pt{
         US{"Estados Unidos"}
         UY{"Uruguai"}
         UZ{"Uzbequistão"}
-        VA{"Vaticano"}
+        VA{"Cidade do Vaticano"}
         VC{"São Vicente e Granadinas"}
         VE{"Venezuela"}
         VG{"Ilhas Virgens Britânicas"}
@@ -293,6 +294,7 @@ pt{
         VU{"Vanuatu"}
         WF{"Wallis e Futuna"}
         WS{"Samoa"}
+        XK{"Kosovo"}
         YE{"Iêmen"}
         YT{"Mayotte"}
         ZA{"África do Sul"}
@@ -300,5 +302,12 @@ pt{
         ZW{"Zimbábue"}
         ZZ{"Região desconhecida"}
     }
-    Version{"2.0.82.47"}
+    CountriesShort{
+        GB{"GB"}
+        HK{"Hong Kong"}
+        MO{"Macau"}
+        PS{"Palestina"}
+        US{"EUA"}
+    }
+    Version{"2.0.98.52"}
 }

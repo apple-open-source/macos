@@ -129,8 +129,15 @@ int BLCreateFile(BLContextPtr context, const CFDataRef data,
 	
 	if(setImmutable) {
 		contextprintf(context, kBLLogLevelVerbose, "Setting UF_IMMUTABLE on %s\n",
-					  rsrcpath);					
-		err = chflags(rsrcpath, UF_IMMUTABLE);
+					  rsrcpath);
+		err = stat(rsrcpath, &sb);
+		if(err) {
+			contextprintf(context, kBLLogLevelError, 
+						  "Can't stat %s: %s\n", rsrcpath,
+						  strerror(errno));
+			return 6;
+		}
+		err = chflags(rsrcpath, sb.st_flags | UF_IMMUTABLE);
 		if(err && errno != ENOTSUP) {
 			contextprintf(context, kBLLogLevelError, 
 						  "Can't set UF_IMMUTABLE on %s: %s\n", rsrcpath,

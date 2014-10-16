@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,7 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
+
+#if !TARGET_OS_IPHONE
+#import <AppKit/AppKit.h>
+#endif
 
 @class NSError;
 @class NSURLResponse;
@@ -46,14 +50,14 @@
     @constant WebNavigationTypeOther Navigation is taking place for some other reason.
 */
 
-typedef enum {
+typedef NS_ENUM(NSInteger, WebNavigationType) {
     WebNavigationTypeLinkClicked,
     WebNavigationTypeFormSubmitted,
     WebNavigationTypeBackForward,
     WebNavigationTypeReload,
     WebNavigationTypeFormResubmitted,
     WebNavigationTypeOther
-} WebNavigationType;
+};
 
 extern NSString *WebActionNavigationTypeKey; // NSNumber (WebNavigationType)
 extern NSString *WebActionElementKey; // NSDictionary of element info

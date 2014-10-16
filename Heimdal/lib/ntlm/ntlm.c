@@ -122,6 +122,7 @@ time_t heim_ntlm_time_skew = 300;
 	    goto out;							\
 	}								\
     } while(/*CONSTCOND*/0)
+
 #define CHECK_SIZE(f, e)						\
     do {								\
 	ssize_t sret = f;						\
@@ -130,6 +131,7 @@ time_t heim_ntlm_time_skew = 300;
 	    goto out;							\
 	}								\
     } while(/*CONSTCOND*/0)
+
 #define CHECK_OFFSET(f, e)						\
     do {								\
 	off_t sret = f;							\
@@ -259,6 +261,13 @@ ascii2ucs2le(const char *string, int up, struct ntlm_buf *buf)
 
     return 0;
 }
+
+/*
+ * Sizes in bytes
+ */
+
+#define SIZE_SEC_BUFFER		(2+2+4)
+#define SIZE_OS_VERSION		(8)
 
 /*
  *
@@ -663,6 +672,7 @@ heim_ntlm_decode_type1(const struct ntlm_buf *buf, struct ntlm_type1 *data)
     uint32_t type;
     struct sec_buffer domain, hostname;
     krb5_storage *in;
+    int ucs2;
 
     memset(data, 0, sizeof(*data));
 
@@ -678,20 +688,25 @@ heim_ntlm_decode_type1(const struct ntlm_buf *buf, struct ntlm_type1 *data)
     CHECK(krb5_ret_uint32(in, &type), 0);
     CHECK(type, 1);
     CHECK(krb5_ret_uint32(in, &data->flags), 0);
-    if (data->flags & NTLM_OEM_SUPPLIED_DOMAIN)
-	CHECK(ret_sec_buffer(in, &domain), 0);
-    if (data->flags & NTLM_OEM_SUPPLIED_WORKSTATION)
-	CHECK(ret_sec_buffer(in, &hostname), 0);
-#if 0
-    if (domain.offset > 32) {
+
+    ucs2 = !!(data->flags & NTLM_NEG_UNICODE);
+
+    /*
+     * domain and hostname are unconditionally encoded regardless of
+     * NTLMSSP_NEGOTIATE_OEM_{HOSTNAME,WORKSTATION}_SUPPLIED flag
+     */
+    CHECK(ret_sec_buffer(in, &domain), 0);
+    CHECK(ret_sec_buffer(in, &hostname), 0);
+
+    if (data->flags & NTLM_NEG_VERSION) {
 	CHECK(krb5_ret_uint32(in, &data->os[0]), 0);
 	CHECK(krb5_ret_uint32(in, &data->os[1]), 0);
     }
-#endif
+
     if (data->flags & NTLM_OEM_SUPPLIED_DOMAIN)
-	CHECK(ret_sec_string(in, 0, &domain, &data->domain), 0);
+	CHECK(ret_sec_string(in, ucs2, &domain, &data->domain), 0);
     if (data->flags & NTLM_OEM_SUPPLIED_WORKSTATION)
-	CHECK(ret_sec_string(in, 0, &hostname, &data->hostname), 0);
+	CHECK(ret_sec_string(in, ucs2, &hostname, &data->hostname), 0);
 
 out:
     if (in)
@@ -722,35 +737,41 @@ heim_ntlm_encode_type1(const struct ntlm_type1 *type1, struct ntlm_buf *data)
     struct sec_buffer domain, hostname;
     krb5_storage *out;
     uint32_t base, flags;
+    int ucs2 = 0;
 
     flags = type1->flags;
     base = 16;
 
+    if (flags & NTLM_NEG_UNICODE)
+	ucs2 = 1;
+
     if (type1->domain) {
-	base += 8;
+	base += SIZE_SEC_BUFFER;
 	flags |= NTLM_OEM_SUPPLIED_DOMAIN;
     }
     if (type1->hostname) {
-	base += 8;
+	base += SIZE_SEC_BUFFER;
 	flags |= NTLM_OEM_SUPPLIED_WORKSTATION;
     }
     if (flags & NTLM_NEG_VERSION)
-	base += 8; /* os */
+	base += SIZE_OS_VERSION; /* os */
 
-    domain.offset = base;
     if (type1->domain) {
-	domain.length = len_string(0, type1->domain);
+	domain.offset = base;
+	domain.length = len_string(ucs2, type1->domain);
 	domain.allocated = domain.length;
     } else {
+	domain.offset = 0;
 	domain.length = 0;
 	domain.allocated = 0;
     }
 
-    hostname.offset = domain.allocated + domain.offset;
     if (type1->hostname) {
-	hostname.length = len_string(0, type1->hostname);
+	hostname.offset = domain.allocated + domain.offset;
+	hostname.length = len_string(ucs2, type1->hostname);
 	hostname.allocated = hostname.length;
     } else {
+	hostname.offset = 0;
 	hostname.length = 0;
 	hostname.allocated = 0;
     }
@@ -767,13 +788,14 @@ heim_ntlm_encode_type1(const struct ntlm_type1 *type1, struct ntlm_buf *data)
 
     CHECK(store_sec_buffer(out, &domain), 0);
     CHECK(store_sec_buffer(out, &hostname), 0);
+
     if (flags & NTLM_NEG_VERSION) {
 	CHECK(encode_os_version(out), 0);
     }
     if (type1->domain)
-	CHECK(put_string(out, 0, type1->domain), 0);
+	CHECK(put_string(out, ucs2, type1->domain), 0);
     if (type1->hostname)
-	CHECK(put_string(out, 0, type1->hostname), 0);
+	CHECK(put_string(out, ucs2, type1->hostname), 0);
 
     {
 	krb5_data d;
@@ -881,7 +903,7 @@ heim_ntlm_encode_type2(const struct ntlm_type2 *type2, struct ntlm_buf *data)
     base = 48;
 
     if (type2->flags & NTLM_NEG_VERSION)
-	base += 8;
+	base += SIZE_OS_VERSION;
 
     if (type2->flags & NTLM_NEG_UNICODE)
 	ucs2 = 1;
@@ -1003,12 +1025,12 @@ heim_ntlm_decode_type3(const struct ntlm_buf *buf,
 	min_offset = MIN(min_offset, sessionkey.offset);
 	CHECK(krb5_ret_uint32(in, &type3->flags), 0);
     }
-    if (min_offset >= 52 + 8 + 4 + 8) {
+    if (min_offset >= 52 + SIZE_SEC_BUFFER + 4 + SIZE_OS_VERSION) {
 	CHECK(krb5_ret_uint32(in, &type3->os[0]), 0);
 	CHECK(krb5_ret_uint32(in, &type3->os[1]), 0);
     }
-    if (min_offset >= 52 + 8 + 4 + 8 + 16) {
-	type3->mic_offset = 52 + 8 + 4 + 8;
+    if (min_offset >= 52 + SIZE_SEC_BUFFER + 4 + SIZE_OS_VERSION + 16) {
+	type3->mic_offset = 52 + SIZE_SEC_BUFFER + 4 + SIZE_OS_VERSION;
 	CHECK_SIZE(krb5_storage_read(in, type3->mic, sizeof(type3->mic)), sizeof(type3->mic));
     } else
 	type3->mic_offset = 0;
@@ -1063,7 +1085,7 @@ heim_ntlm_encode_type3(const struct ntlm_type3 *type3, struct ntlm_buf *data, si
     base += 8; /* sessionkey sec buf */
     base += 4; /* flags */
     if (type3->flags & NTLM_NEG_VERSION)
-	base += 8; /* os flags */
+	base += SIZE_OS_VERSION; /* os flags */
 
     if (mic_offset) {
 	*mic_offset = base;
@@ -1311,6 +1333,9 @@ heim_ntlm_keyex_wrap(struct ntlm_buf *base_session,
     EVP_CIPHER_CTX c;
     int ret;
 
+    if (base_session->length != CC_MD4_DIGEST_LENGTH)
+	return HNTLM_ERR_INVALID_LENGTH;
+
     session->length = CC_MD4_DIGEST_LENGTH;
     session->data = malloc(session->length);
     if (session->data == NULL) {
@@ -1440,6 +1465,8 @@ heim_ntlm_keyex_unwrap(struct ntlm_buf *baseKey,
 
     memset(session, 0, sizeof(*session));
 
+    if (encryptedSession->length != CC_MD4_DIGEST_LENGTH)
+	return HNTLM_ERR_INVALID_LENGTH;
     if (baseKey->length != CC_MD4_DIGEST_LENGTH)
 	return HNTLM_ERR_INVALID_LENGTH;
 
@@ -1543,7 +1570,6 @@ heim_ntlm_ts2unixtime(uint64_t t)
  * @param username name of the user, as sent in the message, assumed to be in UTF8.
  * @param target the name of the target, assumed to be in UTF8.
  * @param serverchallenge challenge as sent by the server in the type2 message.
- * @param infotarget infotarget as sent by the server in the type2 message.
  * @param ntlmv2 calculated session key
  * @param answer ntlm response answer, should be freed with heim_ntlm_free_buf().
  *
@@ -1578,7 +1604,7 @@ heim_ntlm_calculate_lm2(const void *key, size_t len,
     heim_ntlm_derive_ntlm2_sess(ntlmv2, clientchallenge, 8,
 				serverchallenge, answer->data);
 
-    memcpy(answer->data + 16, clientchallenge, 8);
+    memcpy((uint8_t *)answer->data + 16, clientchallenge, 8);
 
     return 0;
 }
@@ -1972,5 +1998,128 @@ heim_ntlm_derive_ntlm2_sess(const unsigned char sessionkey[16],
     CCHmacFinal(&c, derivedkey);
     memset(&c, 0, sizeof(c));
 }
+
+/*
+ *
+ */
+
+static const uint8_t shapad1[40] =
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+static const uint8_t shapad2[40] =
+    "\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2"
+    "\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2\xf2";
+
+static const uint8_t Magic1[27] =
+   {0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74,
+    0x68, 0x65, 0x20, 0x4d, 0x50, 0x50, 0x45, 0x20, 0x4d,
+    0x61, 0x73, 0x74, 0x65, 0x72, 0x20, 0x4b, 0x65, 0x79};
+
+static const uint8_t Magic2[84] =
+    {0x4f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c, 0x69,
+     0x65, 0x6e, 0x74, 0x20, 0x73, 0x69, 0x64, 0x65, 0x2c, 0x20,
+     0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+     0x65, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x20, 0x6b, 0x65, 0x79,
+     0x3b, 0x20, 0x6f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x73,
+     0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73, 0x69, 0x64, 0x65,
+     0x2c, 0x20, 0x69, 0x74, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+     0x65, 0x20, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x20,
+     0x6b, 0x65, 0x79, 0x2e};
+
+static const uint8_t Magic3[84] = {
+    0x4f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c, 0x69,
+    0x65, 0x6e, 0x74, 0x20, 0x73, 0x69, 0x64, 0x65, 0x2c, 0x20,
+    0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+    0x65, 0x20, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x20,
+    0x6b, 0x65, 0x79, 0x3b, 0x20, 0x6f, 0x6e, 0x20, 0x74, 0x68,
+    0x65, 0x20, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73,
+    0x69, 0x64, 0x65, 0x2c, 0x20, 0x69, 0x74, 0x20, 0x69, 0x73,
+    0x20, 0x74, 0x68, 0x65, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x20,
+    0x6b, 0x65, 0x79, 0x2e
+};
+
+/**
+ *
+ * @ingroup ntlm_core
+ */
+
+int
+heim_ntlm_mppe_getmasterkey(const uint8_t ntlmHashHash[16],
+			    const uint8_t ntlmResponse[24],
+			    uint8_t masterKey[16])
+{
+    CCDigestRef m;
+
+    m = CCDigestCreate(kCCDigestSHA1);
+    if (m == NULL)
+	return ENOMEM;
+
+    CCDigestUpdate(m, ntlmHashHash, 16);
+    CCDigestUpdate(m, ntlmResponse, 24);
+    CCDigestUpdate(m, Magic1, sizeof(Magic1));
+
+    CCDigestFinal(m, masterKey);
+    CCDigestDestroy(m);
+
+    return 0;
+}
+
+/**
+ *
+ * @ingroup ntlm_core
+ */
+
+int
+heim_ntlm_mppe_getasymmetricstartkey(const uint8_t MasterKey[16], uint8_t *MasterXKey, size_t len,
+				     int isSend, int isServer)
+{
+    const uint8_t *s =  (!!isSend) ^ (!!isSend) ? Magic2 : Magic3;
+
+    unsigned char res[CC_SHA1_DIGEST_LENGTH];
+    CCDigestRef m;
+
+    if (sizeof(res) < len)
+	return EINVAL;
+
+    m = CCDigestCreate(kCCDigestSHA1);
+    if (m == NULL)
+	return ENOMEM;
+
+    CCDigestUpdate(m, MasterKey, 16);
+    CCDigestUpdate(m, shapad1, sizeof(shapad1));
+    CCDigestUpdate(m, s, 84);
+    CCDigestUpdate(m, shapad2, sizeof(shapad2));
+    CCDigestFinal(m, res);
+    CCDigestDestroy(m);
+
+    memcpy(MasterXKey, res, len);
+
+    return 0;
+}
+
+int
+heim_ntlm_mppe_getsessionkey(const uint8_t ntlmHash[16],
+			     const uint8_t ntlmResponse[24],
+			     int isServer,
+			     size_t len, uint8_t *sendKey, uint8_t *recvKey)
+{
+    uint8_t hashHash[CC_MD4_DIGEST_LENGTH];
+    uint8_t masterKey[CC_SHA1_DIGEST_LENGTH];
+    int ret;
+ 
+    CC_MD4(ntlmHash, 16, hashHash);
+    ret = heim_ntlm_mppe_getmasterkey(hashHash, ntlmResponse, masterKey);
+    memset(hashHash, 0, sizeof(hashHash));
+    if (ret)
+	return ret;
+
+    ret = heim_ntlm_mppe_getasymmetricstartkey(masterKey, sendKey, len, TRUE, isServer);
+    if (ret == 0)
+	ret = heim_ntlm_mppe_getasymmetricstartkey(masterKey, recvKey, len, FALSE, isServer);
+    memset(masterKey, 0, sizeof(masterKey));
+    
+    return ret;
+}
+
 
 #endif /* ENABLE_NTLM */

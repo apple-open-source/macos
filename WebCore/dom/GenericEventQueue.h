@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,37 +26,33 @@
 #ifndef GenericEventQueue_h
 #define GenericEventQueue_h
 
-#include "EventQueue.h"
-#include "EventTarget.h"
 #include "Timer.h"
-#include <wtf/PassOwnPtr.h>
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class GenericEventQueue : public EventQueue {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit GenericEventQueue(EventTarget*);
-    static PassOwnPtr<GenericEventQueue> create(EventTarget*);
-    virtual ~GenericEventQueue();
+class Event;
+class EventTarget;
 
-    // EventQueue
-    virtual bool enqueueEvent(PassRefPtr<Event>) OVERRIDE;
-    virtual bool cancelEvent(Event*) OVERRIDE;
-    virtual void close() OVERRIDE;
+class GenericEventQueue {
+public:
+    explicit GenericEventQueue(EventTarget&);
+    ~GenericEventQueue();
+
+    bool enqueueEvent(PassRefPtr<Event>);
+    void close();
 
     void cancelAllEvents();
     bool hasPendingEvents() const;
 
 private:
-    void timerFired(Timer<GenericEventQueue>*);
+    void timerFired(Timer<GenericEventQueue>&);
 
-    EventTarget* m_owner;
-    Vector<RefPtr<Event> > m_pendingEvents;
+    EventTarget& m_owner;
+    Vector<RefPtr<Event>> m_pendingEvents;
     Timer<GenericEventQueue> m_timer;
-
     bool m_isClosed;
 };
 

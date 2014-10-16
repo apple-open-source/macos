@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -191,5 +191,13 @@ extern int	tty_get(int,struct termios*);
 extern int	tty_raw(int,int);
 extern int	tty_check(int);
 extern int	tty_set(int, int, struct termios*);
+extern int	sh_ioctl(int,int,void*,int);
+#define ioctl(a,b,c)	sh_ioctl(a,b,c,sizeof(c))
+#ifdef _lib_tcgetattr
+    extern int	sh_tcgetattr(int,struct termios*);
+    extern int	sh_tcsetattr(int,int,struct termios*);
+#   define tcgetattr(a,b)	sh_tcgetattr(a,b)
+#   define tcsetattr(a,b,c)	sh_tcsetattr(a,b,c)
+#endif
 
 #endif /* _terminal_ */

@@ -521,9 +521,7 @@ get_entry(struct get_options *opt, int argc, char **argv)
 int
 list_princs(struct list_options *opt, int argc, char **argv)
 {
-    if(sizeof(struct get_options) != sizeof(struct list_options)) {
-	krb5_warnx(context, "programmer error: sizeof(struct get_options) != sizeof(struct list_options)");
-	return 0;
-    }
+    assert(sizeof(struct get_options) == sizeof(struct list_options));
+
     return getit((struct get_options*)opt, "list", argc, argv);
 }

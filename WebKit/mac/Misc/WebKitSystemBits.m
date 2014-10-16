@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -57,8 +57,18 @@ static void initCapabilities(void)
 
 uint64_t WebMemorySize(void)
 {
+#if PLATFORM(IOS_SIMULATOR)
+    // Pretend we have 512MB of memory to make cache sizes behave like on device
+    return 512 * 1024 * 1024;
+#endif
     pthread_once(&initControl, initCapabilities);
+#if PLATFORM(IOS)
+    // On iOS, round up the memory size to a power of 2 because max_mem may not be exactly 256MB
+    // (for example) and we have code that depends on those boundaries.
+    return powf(2.0, ceilf(log2f(gHostBasicInfo.max_mem)));
+#else
     return gHostBasicInfo.max_mem;
+#endif
 }
 
 int WebNumberOfCPUs(void)

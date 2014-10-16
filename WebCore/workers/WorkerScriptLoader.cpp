@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,19 +27,16 @@
 
 #include "config.h"
 
-#if ENABLE(WORKERS)
-
 #include "WorkerScriptLoader.h"
 
-#include "CrossThreadTask.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "TextResourceDecoder.h"
-#include "WorkerContext.h"
+#include "WorkerGlobalScope.h"
 #include "WorkerScriptLoaderClient.h"
 #include "WorkerThreadableLoader.h"
-#include <wtf/OwnPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -56,58 +53,55 @@ WorkerScriptLoader::~WorkerScriptLoader()
 {
 }
 
-void WorkerScriptLoader::loadSynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRequestPolicy crossOriginRequestPolicy)
+void WorkerScriptLoader::loadSynchronously(ScriptExecutionContext* scriptExecutionContext, const URL& url, CrossOriginRequestPolicy crossOriginRequestPolicy)
 {
     m_url = url;
 
-    OwnPtr<ResourceRequest> request(createResourceRequest());
+    std::unique_ptr<ResourceRequest> request(createResourceRequest());
     if (!request)
         return;
 
-    ASSERT_WITH_SECURITY_IMPLICATION(scriptExecutionContext->isWorkerContext());
+    ASSERT_WITH_SECURITY_IMPLICATION(scriptExecutionContext->isWorkerGlobalScope());
 
     ThreadableLoaderOptions options;
-    options.allowCredentials = AllowStoredCredentials;
+    options.setAllowCredentials(AllowStoredCredentials);
     options.crossOriginRequestPolicy = crossOriginRequestPolicy;
-    options.sendLoadCallbacks = SendCallbacks;
+    options.setSendLoadCallbacks(SendCallbacks);
 
-    WorkerThreadableLoader::loadResourceSynchronously(static_cast<WorkerContext*>(scriptExecutionContext), *request, *this, options);
+    WorkerThreadableLoader::loadResourceSynchronously(toWorkerGlobalScope(scriptExecutionContext), *request, *this, options);
 }
     
-void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRequestPolicy crossOriginRequestPolicy, WorkerScriptLoaderClient* client)
+void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecutionContext, const URL& url, CrossOriginRequestPolicy crossOriginRequestPolicy, WorkerScriptLoaderClient* client)
 {
     ASSERT(client);
     m_client = client;
     m_url = url;
 
-    OwnPtr<ResourceRequest> request(createResourceRequest());
+    std::unique_ptr<ResourceRequest> request(createResourceRequest());
     if (!request)
         return;
 
     ThreadableLoaderOptions options;
-    options.allowCredentials = AllowStoredCredentials;
+    options.setAllowCredentials(AllowStoredCredentials);
     options.crossOriginRequestPolicy = crossOriginRequestPolicy;
-    options.sendLoadCallbacks = SendCallbacks;
+    options.setSendLoadCallbacks(SendCallbacks);
 
     // During create, callbacks may happen which remove the last reference to this object.
-    RefPtr<WorkerScriptLoader> protect(this);
+    Ref<WorkerScriptLoader> protect(*this);
     m_threadableLoader = ThreadableLoader::create(scriptExecutionContext, this, *request, options);
 }
 
-const KURL& WorkerScriptLoader::responseURL() const
+const URL& WorkerScriptLoader::responseURL() const
 {
     ASSERT(!failed());
     return m_responseURL;
 }
 
-PassOwnPtr<ResourceRequest> WorkerScriptLoader::createResourceRequest()
+std::unique_ptr<ResourceRequest> WorkerScriptLoader::createResourceRequest()
 {
-    OwnPtr<ResourceRequest> request = adoptPtr(new ResourceRequest(m_url));
+    auto request = std::make_unique<ResourceRequest>(m_url);
     request->setHTTPMethod("GET");
-#if PLATFORM(BLACKBERRY)
-    request->setTargetType(m_targetType);
-#endif
-    return request.release();
+    return WTF::move(request);
 }
     
 void WorkerScriptLoader::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
@@ -188,5 +182,3 @@ void WorkerScriptLoader::notifyFinished()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(WORKERS)

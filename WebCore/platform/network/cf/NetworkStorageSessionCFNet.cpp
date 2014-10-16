@@ -27,9 +27,10 @@
 #include "NetworkStorageSession.h"
 
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/PassOwnPtr.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "WebCoreSystemInterface.h"
 #else
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
@@ -46,7 +47,7 @@ NetworkStorageSession::NetworkStorageSession(RetainPtr<CFURLStorageSessionRef> p
 static OwnPtr<NetworkStorageSession>& defaultNetworkStorageSession()
 {
     ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(OwnPtr<NetworkStorageSession>, session, ());
+    static NeverDestroyed<OwnPtr<NetworkStorageSession>> session;
     return session;
 }
 
@@ -54,7 +55,7 @@ void NetworkStorageSession::switchToNewTestingSession()
 {
     // Set a private session for testing to avoid interfering with global cookies. This should be different from private browsing session.
     // FIXME: It looks like creating a new session with the same identifier may be just creating a reference to the same storage. See <rdar://problem/11571450> and <rdar://problem/12384380>.
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     defaultNetworkStorageSession() = adoptPtr(new NetworkStorageSession(adoptCF(wkCreatePrivateStorageSession(CFSTR("Private WebKit Session")))));
 #else
     defaultNetworkStorageSession() = adoptPtr(new NetworkStorageSession(adoptCF(wkCreatePrivateStorageSession(CFSTR("Private WebKit Session"), defaultNetworkStorageSession()->platformSession()))));
@@ -64,7 +65,7 @@ void NetworkStorageSession::switchToNewTestingSession()
 #if PLATFORM(WIN)
 static RetainPtr<CFHTTPCookieStorageRef>& cookieStorageOverride()
 {
-    DEFINE_STATIC_LOCAL(RetainPtr<CFHTTPCookieStorageRef>, cookieStorage, ());
+    static NeverDestroyed<RetainPtr<CFHTTPCookieStorageRef>> cookieStorage;
     return cookieStorage;
 }
 
@@ -88,18 +89,18 @@ NetworkStorageSession& NetworkStorageSession::defaultStorageSession()
     return *defaultNetworkStorageSession();
 }
 
-PassOwnPtr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(const String& identifierBase)
+std::unique_ptr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(const String& identifierBase)
 {
     RetainPtr<CFStringRef> cfIdentifier = String(identifierBase + ".PrivateBrowsing").createCFString();
 
-#if PLATFORM(MAC)
-    OwnPtr<NetworkStorageSession> session = adoptPtr(new NetworkStorageSession(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get()))));
+#if PLATFORM(COCOA)
+    auto session = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get())));
 #else
-    OwnPtr<NetworkStorageSession> session = adoptPtr(new NetworkStorageSession(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get(), defaultNetworkStorageSession()->platformSession()))));
+    auto session = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get(), defaultNetworkStorageSession()->platformSession())));
 #endif
     session->m_isPrivate = true;
 
-    return session.release();
+    return session;
 }
 
 RetainPtr<CFHTTPCookieStorageRef> NetworkStorageSession::cookieStorage() const

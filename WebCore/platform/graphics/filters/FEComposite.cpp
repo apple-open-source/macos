@@ -29,10 +29,9 @@
 #include "FECompositeArithmeticNEON.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include "RenderTreeAsText.h"
 #include "TextStream.h"
 
-#include <wtf/Uint8ClampedArray.h>
+#include <runtime/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -182,6 +181,7 @@ static inline void computeArithmeticPixelsUnclamped(unsigned char* source, unsig
     }
 }
 
+#if !HAVE(ARM_NEON_INTRINSICS)
 static inline void arithmeticSoftware(unsigned char* source, unsigned char* destination, int pixelArrayLength, float k1, float k2, float k3, float k4)
 {
     float upperLimit = std::max(0.0f, k1) + std::max(0.0f, k2) + std::max(0.0f, k3) + k4;
@@ -213,6 +213,7 @@ static inline void arithmeticSoftware(unsigned char* source, unsigned char* dest
             computeArithmeticPixels<0, 0>(source, destination, pixelArrayLength, k1, k2, k3, k4);
     }
 }
+#endif
 
 inline void FEComposite::platformArithmeticSoftware(Uint8ClampedArray* source, Uint8ClampedArray* destination,
     float k1, float k2, float k3, float k4)
@@ -296,8 +297,8 @@ void FEComposite::platformApplySoftware()
                                     destinationRect.y() - in->absolutePaintRect().y()), destinationRect.size());
         IntRect source2Rect(IntPoint(destinationRect.x() - in2->absolutePaintRect().x(),
                                      destinationRect.y() - in2->absolutePaintRect().y()), destinationRect.size());
-        filterContext->drawImageBuffer(imageBuffer2, ColorSpaceDeviceRGB, destinationPoint, source2Rect);
-        filterContext->drawImageBuffer(imageBuffer, ColorSpaceDeviceRGB, destinationPoint, sourceRect, CompositeSourceIn);
+        filterContext->drawImageBuffer(imageBuffer2, ColorSpaceDeviceRGB, IntRect(destinationPoint, source2Rect.size()), source2Rect);
+        filterContext->drawImageBuffer(imageBuffer, ColorSpaceDeviceRGB, IntRect(destinationPoint, sourceRect.size()), sourceRect, CompositeSourceIn);
         break;
     }
     case FECOMPOSITE_OPERATOR_OUT:

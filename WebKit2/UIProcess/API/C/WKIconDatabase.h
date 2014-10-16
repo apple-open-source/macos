@@ -26,7 +26,7 @@
 #ifndef WKIconDatabase_h
 #define WKIconDatabase_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,27 +37,54 @@ typedef void (*WKIconDatabaseDidChangeIconForPageURLCallback)(WKIconDatabaseRef 
 typedef void (*WKIconDatabaseDidRemoveAllIconsCallback)(WKIconDatabaseRef iconDatabase, const void* clientInfo);
 typedef void (*WKIconDatabaseIconDataReadyForPageURLCallback)(WKIconDatabaseRef iconDatabase, WKURLRef pageURL, const void* clientInfo);
 
-struct WKIconDatabaseClient {
+typedef struct WKIconDatabaseClientBase {
     int                                                                 version;
     const void *                                                        clientInfo;
+} WKIconDatabaseClientBase;
 
-    // Version 0
+typedef struct WKIconDatabaseClientV0 {
+    WKIconDatabaseClientBase                                            base;
+
+    // Version 0.
+    WKIconDatabaseDidChangeIconForPageURLCallback                       didChangeIconForPageURL;
+    WKIconDatabaseDidRemoveAllIconsCallback                             didRemoveAllIcons;
+} WKIconDatabaseClientV0;
+
+typedef struct WKIconDatabaseClientV1 {
+    WKIconDatabaseClientBase                                            base;
+
+    // Version 0.
     WKIconDatabaseDidChangeIconForPageURLCallback                       didChangeIconForPageURL;
     WKIconDatabaseDidRemoveAllIconsCallback                             didRemoveAllIcons;
 
-    // Version 1
+    // Version 1.
     WKIconDatabaseIconDataReadyForPageURLCallback                       iconDataReadyForPageURL;
-};
-typedef struct WKIconDatabaseClient WKIconDatabaseClient;
+} WKIconDatabaseClientV1;
 
-enum { kWKIconDatabaseClientCurrentVersion = 1 };
+enum { kWKIconDatabaseClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 1 };
+typedef struct WKIconDatabaseClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
+
+    // Version 0.
+    WKIconDatabaseDidChangeIconForPageURLCallback                       didChangeIconForPageURL;
+    WKIconDatabaseDidRemoveAllIconsCallback                             didRemoveAllIcons;
+
+    // Version 1.
+    WKIconDatabaseIconDataReadyForPageURLCallback                       iconDataReadyForPageURL;
+} WKIconDatabaseClient WK_DEPRECATED("Use an explicit versioned struct instead");
 
 WK_EXPORT WKTypeID WKIconDatabaseGetTypeID();
 
-WK_EXPORT void WKIconDatabaseSetIconDatabaseClient(WKIconDatabaseRef iconDatabase, const WKIconDatabaseClient* client);
+WK_EXPORT void WKIconDatabaseSetIconDatabaseClient(WKIconDatabaseRef iconDatabase, const WKIconDatabaseClientBase* client);
 
 WK_EXPORT void WKIconDatabaseRetainIconForURL(WKIconDatabaseRef iconDatabase, WKURLRef pageURL);
 WK_EXPORT void WKIconDatabaseReleaseIconForURL(WKIconDatabaseRef iconDatabase, WKURLRef pageURL);
+WK_EXPORT void WKIconDatabaseSetIconDataForIconURL(WKIconDatabaseRef iconDatabase, WKDataRef iconData, WKURLRef iconURL);
+WK_EXPORT void WKIconDatabaseSetIconURLForPageURL(WKIconDatabaseRef iconDatabase, WKURLRef iconURL, WKURLRef pageURL);
+WK_EXPORT WKURLRef WKIconDatabaseCopyIconURLForPageURL(WKIconDatabaseRef iconDatabase, WKURLRef pageURL);
+WK_EXPORT WKDataRef WKIconDatabaseCopyIconDataForPageURL(WKIconDatabaseRef iconDatabase, WKURLRef pageURL);
+
 WK_EXPORT void WKIconDatabaseEnableDatabaseCleanup(WKIconDatabaseRef iconDatabase);
 
 WK_EXPORT void WKIconDatabaseRemoveAllIcons(WKIconDatabaseRef iconDatabase);

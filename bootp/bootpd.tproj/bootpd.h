@@ -85,4 +85,10 @@ typedef struct subnet_match_args {
 extern void
 my_log(int priority, const char *message, ...);
 
+boolean_t
+detect_other_dhcp_server(interface_t * if_p);
+
+void
+disable_dhcp_on_interface(interface_t * if_p);
+
 #endif /* _S_BOOTPD_H */

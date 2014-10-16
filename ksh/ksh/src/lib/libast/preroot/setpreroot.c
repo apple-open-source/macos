@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -42,7 +42,7 @@ setpreroot(register char** argv, const char* dir)
 	char**		av;
 	char		buf[PATH_MAX];
 
-	if ((argv || (argv = opt_info.argv)) && (dir || (dir = getenv(PR_BASE)) && *dir) && !ispreroot(dir) && (*(cmd = *argv++) == '/' || (cmd = pathpath(buf, cmd, NiL, PATH_ABSOLUTE|PATH_REGULAR|PATH_EXECUTE))))
+	if ((argv || (argv = opt_info.argv)) && (dir || (dir = getenv(PR_BASE)) && *dir) && !ispreroot(dir) && (*(cmd = *argv++) == '/' || (cmd = pathpath(cmd, NiL, PATH_ABSOLUTE|PATH_REGULAR|PATH_EXECUTE, buf, sizeof(buf)))))
 	{
 		argc = 3;
 		for (ap = argv; *ap++; argc++);
@@ -50,7 +50,7 @@ setpreroot(register char** argv, const char* dir)
 		{
 			ap = av;
 			*ap++ = PR_COMMAND;
-			*ap++ = dir;
+			*ap++ = (char*)dir;
 			*ap++ = cmd;
 			while (*ap++ = *argv++);
 			if (!(s = getenv(PR_SILENT)) || !*s)

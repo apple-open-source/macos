@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2013 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,35 +32,37 @@
 #include "Element.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "FrameSelection.h"
 #include "NodeTraversal.h"
-#include "VisiblePosition.h"
 #include "htmlediting.h"
 
 namespace WebCore {
 
-EditCommand::EditCommand(Document* document)
+EditCommand::EditCommand(Document& document)
     : m_document(document)
     , m_parent(0)
 {
-    ASSERT(m_document);
-    ASSERT(m_document->frame());
-    setStartingSelection(m_document->frame()->editor().avoidIntersectionWithDeleteButtonController(m_document->frame()->selection()->selection()));
+    ASSERT(document.frame());
+    setStartingSelection(m_document->frame()->editor().avoidIntersectionWithDeleteButtonController(m_document->frame()->selection().selection()));
     setEndingSelection(m_startingSelection);
 }
 
-EditCommand::EditCommand(Document* document, const VisibleSelection& startingSelection, const VisibleSelection& endingSelection)
+EditCommand::EditCommand(Document& document, const VisibleSelection& startingSelection, const VisibleSelection& endingSelection)
     : m_document(document)
     , m_parent(0)
 {
-    ASSERT(m_document);
-    ASSERT(m_document->frame());
+    ASSERT(document.frame());
     setStartingSelection(startingSelection);
     setEndingSelection(endingSelection);
 }
 
 EditCommand::~EditCommand()
 {
+}
+
+Frame& EditCommand::frame()
+{
+    ASSERT(document().frame());
+    return *document().frame();
 }
 
 EditAction EditCommand::editingAction() const

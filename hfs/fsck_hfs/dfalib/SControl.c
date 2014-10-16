@@ -494,7 +494,21 @@ termScav:
 	if ( fsckGetVerbosity(dataArea.context) >= kDebugLog && 
 		 (err != noErr || dataArea.RepLevel != repairLevelNoProblemsFound) )
 		PrintVolumeObject();
-	
+	if (err != 0 && embedded == 1) {
+		Buf_t *buf = NULL;
+		off_t offset = 1024;
+		uint32_t len = 512;	// the size of an HFS+ volume header
+		int rv = CacheRead(&fscache, offset, len, &buf);
+		if (rv == 0) {
+			fprintf(stderr, "Offset %llu length %u:\n", offset, len);
+			DumpData(buf->Buffer, len);
+			CacheRelease(&fscache, buf, 0);
+		} else {
+			fprintf(stderr, "%s(%d):  rv = %d\n", __FUNCTION__, __LINE__, rv);
+		}
+		fflush(stderr);
+	}
+
 	// If we have write access on volume and we are allowed to write, 
 	// mark the volume clean/dirty
 	if ((fsWriteRef != -1) && (dataArea.canWrite != 0)) {

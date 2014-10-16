@@ -42,6 +42,9 @@ enum
     kHIDPage_AppleVendorHeadset                 = 0xff07,
     kHIDPage_AppleVendorPowerSensor             = 0xff08,
     kHIDPage_AppleVendorSmartCover              = 0xff09,
+    kHIDPage_AppleVendorPlatinum                = 0xff0A,
+    kHIDPage_AppleVendorLisa                    = 0xff0B,
+    kHIDPage_AppleVendorFilteredEvent           = 0xff50,
     kHIDPage_AppleVendorDisplay                 = 0xff92,
     kHIDPage_AppleVendorTopCase                 = 0x00ff
 };
@@ -64,6 +67,7 @@ enum
     kHIDUsage_AppleVendor_Trackpad              = 0x000C, /* Application Collection */
     kHIDUsage_AppleVendor_TopCaseReserved       = 0x000D, /* Application Collection */
     kHIDUsage_AppleVendor_Motion                = 0x000E, /* Application Collection */
+    kHIDUsage_AppleVendor_KeyboardBacklight     = 0x000F, /* Application Collection */
 };
 
 

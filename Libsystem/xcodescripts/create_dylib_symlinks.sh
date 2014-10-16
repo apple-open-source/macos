@@ -1,11 +1,11 @@
-#!/bin/sh -x
+#!/bin/bash -x
 
 if [ $# -ne 3 ]; then
     echo "Usage: $0 <dstroot> <action> <variants>" 1>&2
     exit 1
 fi
 
-DSTROOT="$1"
+DSTROOT="$1${INSTALL_PATH_PREFIX}"
 ACTION="$2"
 VARIANTS="$3"
 
@@ -20,7 +20,12 @@ if [ "${ACTION}" != "installhdrs" ]; then
 	    suffix="_${variant}"
 	fi
 
-        ln -sf "libSystem.B${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem${suffix}.dylib" || exit 1
+        if [[ "${PLATFORM_NAME}" =~ simulator ]] ; then
+            ln -sf "libSystem${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem.B${suffix}.dylib" || exit 1
+        else
+            ln -sf "libSystem.B${suffix}.dylib" "${DSTROOT}/usr/lib/libSystem${suffix}.dylib" || exit 1
+        fi
+
 	for i in ${BSD_LIBS}; do
 	    ln -sf "libSystem.dylib" "${DSTROOT}/usr/lib/lib${i}.dylib" || exit 1
 	done

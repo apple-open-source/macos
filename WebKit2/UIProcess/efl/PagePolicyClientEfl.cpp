@@ -45,7 +45,7 @@ static inline PagePolicyClientEfl* toPagePolicyClientEfl(const void* clientInfo)
     return static_cast<PagePolicyClientEfl*>(const_cast<void*>(clientInfo));
 }
 
-void PagePolicyClientEfl::decidePolicyForNavigationAction(WKPageRef, WKFrameRef, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef /*userData*/, const void* clientInfo)
+void PagePolicyClientEfl::decidePolicyForNavigationAction(WKPageRef, WKFrameRef, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKFrameRef, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef /*userData*/, const void* clientInfo)
 {
     PagePolicyClientEfl* policyClient = toPagePolicyClientEfl(clientInfo);
 
@@ -61,7 +61,7 @@ void PagePolicyClientEfl::decidePolicyForNewWindowAction(WKPageRef, WKFrameRef, 
     policyClient->m_view->smartCallback<NewWindowPolicyDecision>().call(decision.get());
 }
 
-void PagePolicyClientEfl::decidePolicyForResponseCallback(WKPageRef, WKFrameRef frame, WKURLResponseRef response, WKURLRequestRef, WKFramePolicyListenerRef listener, WKTypeRef /*userData*/, const void* /*clientInfo*/)
+void PagePolicyClientEfl::decidePolicyForResponseCallback(WKPageRef, WKFrameRef frame, WKURLResponseRef response, WKURLRequestRef, bool canShowMIMEType, WKFramePolicyListenerRef listener, WKTypeRef /*userData*/, const void* /*clientInfo*/)
 {
     // Ignore responses with an HTTP status code of 204 (No Content)
     if (WKURLResponseHTTPStatusCode(response) == WebCore::HTTPNoContent) {
@@ -77,7 +77,6 @@ void PagePolicyClientEfl::decidePolicyForResponseCallback(WKPageRef, WKFrameRef 
     }
 
     WKRetainPtr<WKStringRef> mimeType = adoptWK(WKURLResponseCopyMIMEType(response));
-    bool canShowMIMEType = WKFrameCanShowMIMEType(frame, mimeType.get());
     if (WKFrameIsMainFrame(frame)) {
         if (canShowMIMEType) {
             WKFramePolicyListenerUse(listener);
@@ -106,15 +105,15 @@ PagePolicyClientEfl::PagePolicyClientEfl(EwkView* view)
     WKPageRef pageRef = m_view->wkPage();
     ASSERT(pageRef);
 
-    WKPagePolicyClient policyClient;
+    WKPagePolicyClientV1 policyClient;
     memset(&policyClient, 0, sizeof(WKPagePolicyClient));
-    policyClient.version = kWKPagePolicyClientCurrentVersion;
-    policyClient.clientInfo = this;
+    policyClient.base.version = 1;
+    policyClient.base.clientInfo = this;
     policyClient.decidePolicyForNavigationAction = decidePolicyForNavigationAction;
     policyClient.decidePolicyForNewWindowAction = decidePolicyForNewWindowAction;
     policyClient.decidePolicyForResponse = decidePolicyForResponseCallback;
 
-    WKPageSetPagePolicyClient(pageRef, &policyClient);
+    WKPageSetPagePolicyClient(pageRef, &policyClient.base);
 }
 
 } // namespace WebKit

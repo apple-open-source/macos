@@ -505,6 +505,31 @@ ${test_context} \
     --name-type=hostbased-service host@lucid.test.h5l.se || \
 	{ eval "$testfailed"; }
 
+echo "======fuzzer"
+
+if [ X"$HEIMDAL_FUZZER" != X ] ; then
+
+    for mech in krb5 spnego ; do
+    
+        echo "    $mech"
+    
+        rm -f ${testdir}/dumpdata.bin
+    
+        ${test_gss_fuzzer} \
+            --mech-type=${mech} \
+            --dump-data=${testdir}/dumpdata.bin \
+            --name-type=hostbased-service host@lucid.test.h5l.se || \
+                { \
+                  if [ -f ${testdir}/dumpdata.bin ] ; then \
+                      openssl base64 -e -in ${testdir}/dumpdata.bin; \
+                  fi ; \
+                  eval "$testfailed"; \
+                }
+    
+    done
+fi
+
+
 trap "" EXIT
 
 echo "killing kdc (${kdcpid})"

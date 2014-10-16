@@ -39,13 +39,14 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
-
 #include <stdio.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <sysexits.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <sasl.h>
+#include <sasl/sasl.h>
 
 /* send/recv library for IMAP4 style literals.
 
@@ -125,7 +126,7 @@ int recv_string(FILE *f, char *buf, int buflen)
     return len;
 }
 
-int debuglevel = 0;
+int debuglevel = 2;
 
 int dprintf(int lvl, const char *fmt, ...)
 {
@@ -143,7 +144,7 @@ int dprintf(int lvl, const char *fmt, ...)
 
 void saslerr(int why, const char *what)
 {
-  fprintf(stderr, "%s: %s", what, sasl_errstring(why, NULL, NULL));
+  fprintf(stderr, "%s: %s (%d)\n", what, sasl_errstring(why, NULL, NULL), why);
 }
 
 void saslfail(int why, const char *what)

@@ -26,8 +26,6 @@
 #ifndef DFGAllocator_h
 #define DFGAllocator_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
@@ -77,8 +75,8 @@ private:
         Region* m_next;
     };
     
-    void freeRegionsStartingAt(Allocator::Region*);
-    void startBumpingIn(Allocator::Region*);
+    void freeRegionsStartingAt(Region*);
+    void startBumpingIn(Region*);
     
     Region* m_regionHead;
     void** m_freeListHead;
@@ -155,11 +153,14 @@ void Allocator<T>::reset()
 template<typename T>
 unsigned Allocator<T>::indexOf(const T* object)
 {
-    unsigned baseIndex = 0;
+    unsigned numRegions = 0;
+    for (Region* region = m_regionHead; region; region = region->m_next)
+        numRegions++;
+    unsigned regionIndex = 0;
     for (Region* region = m_regionHead; region; region = region->m_next) {
         if (region->isInThisRegion(object))
-            return baseIndex + (object - region->data());
-        baseIndex += Region::numberOfThingsPerRegion();
+            return (numRegions - 1 - regionIndex) * Region::numberOfThingsPerRegion() + (object - region->data());
+        regionIndex++;
     }
     CRASH();
     return 0;

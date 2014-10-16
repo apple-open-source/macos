@@ -95,7 +95,11 @@ String encodeForFileName(const String& inputString)
     return result.toString();
 }
 
-#if !PLATFORM(MAC) || PLATFORM(IOS)
+#if !PLATFORM(MAC)
+
+void setMetadataURL(String&, const String&, const String&)
+{
+}
 
 bool canExcludeFromBackup()
 {

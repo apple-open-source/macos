@@ -36,7 +36,7 @@
 #include "JSNameScope.h"
 #include "LabelScope.h"
 #include "Lexer.h"
-#include "Operations.h"
+#include "JSCInlines.h"
 #include "Parser.h"
 #include "PropertyNameArray.h"
 #include "RegExpObject.h"
@@ -54,11 +54,9 @@ namespace JSC {
 
 void StatementNode::setLoc(unsigned firstLine, unsigned lastLine, int startOffset, int lineStartOffset)
 {
-    m_lineNumber = firstLine;
     m_lastLine = lastLine;
-    m_startOffset = startOffset;
-    m_lineStartOffset = lineStartOffset;
-    ASSERT(m_startOffset >= m_lineStartOffset);
+    m_position = JSTextPosition(firstLine, startOffset, lineStartOffset);
+    ASSERT(m_position.offset >= m_position.lineStartOffset);
 }
 
 // ------------------------------ SourceElements --------------------------------
@@ -116,15 +114,16 @@ StatementNode* ScopeNode::singleStatement() const
 
 // ------------------------------ ProgramNode -----------------------------
 
-inline ProgramNode::ProgramNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
+inline ProgramNode::ProgramNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
     : ScopeNode(vm, startLocation, endLocation, source, children, varStack, funcStack, capturedVariables, features, numConstants)
     , m_startColumn(startColumn)
+    , m_endColumn(endColumn)
 {
 }
 
-PassRefPtr<ProgramNode> ProgramNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
+PassRefPtr<ProgramNode> ProgramNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
 {
-    RefPtr<ProgramNode> node = new ProgramNode(vm, startLocation, endLocation, startColumn, children, varStack, funcStack,  capturedVariables, source, features, numConstants);
+    RefPtr<ProgramNode> node = new ProgramNode(vm, startLocation, endLocation, startColumn, endColumn, children, varStack, funcStack,  capturedVariables, source, features, numConstants);
 
     ASSERT(node->m_arena.last() == node);
     node->m_arena.removeLast();
@@ -133,16 +132,23 @@ PassRefPtr<ProgramNode> ProgramNode::create(VM* vm, const JSTokenLocation& start
     return node.release();
 }
 
+
+void ProgramNode::setClosedVariables(Vector<RefPtr<StringImpl>>&& closedVariables)
+{
+    m_closedVariables = WTF::move(closedVariables);
+}
+
 // ------------------------------ EvalNode -----------------------------
 
-inline EvalNode::EvalNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
+inline EvalNode::EvalNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
     : ScopeNode(vm, startLocation, endLocation, source, children, varStack, funcStack, capturedVariables, features, numConstants)
+    , m_endColumn(endColumn)
 {
 }
 
-PassRefPtr<EvalNode> EvalNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
+PassRefPtr<EvalNode> EvalNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
 {
-    RefPtr<EvalNode> node = new EvalNode(vm, startLocation, endLocation, children, varStack, funcStack, capturedVariables, source, features, numConstants);
+    RefPtr<EvalNode> node = new EvalNode(vm, startLocation, endLocation, endColumn, children, varStack, funcStack, capturedVariables, source, features, numConstants);
 
     ASSERT(node->m_arena.last() == node);
     node->m_arena.removeLast();
@@ -159,7 +165,7 @@ PassRefPtr<FunctionParameters> FunctionParameters::create(ParameterNode* firstPa
     for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
         ++parameterCount;
 
-    size_t objectSize = sizeof(FunctionParameters) - sizeof(void*) + sizeof(StringImpl*) * parameterCount;
+    size_t objectSize = sizeof(FunctionParameters) - sizeof(void*) + sizeof(DeconstructionPatternNode*) * parameterCount;
     void* slot = fastMalloc(objectSize);
     return adoptRef(new (slot) FunctionParameters(firstParameter, parameterCount));
 }
@@ -168,56 +174,67 @@ FunctionParameters::FunctionParameters(ParameterNode* firstParameter, unsigned s
     : m_size(size)
 {
     unsigned i = 0;
-    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
-        new (&identifiers()[i++]) Identifier(parameter->ident());
+    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam()) {
+        auto pattern = parameter->pattern();
+        pattern->ref();
+        patterns()[i++] = pattern;
+    }
 }
 
 FunctionParameters::~FunctionParameters()
 {
     for (unsigned i = 0; i < m_size; ++i)
-        identifiers()[i].~Identifier();
+        patterns()[i]->deref();
 }
 
-inline FunctionBodyNode::FunctionBodyNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, bool inStrictContext)
+inline FunctionBodyNode::FunctionBodyNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, bool inStrictContext)
     : ScopeNode(vm, startLocation, endLocation, inStrictContext)
     , m_startColumn(startColumn)
+    , m_endColumn(endColumn)
 {
 }
 
-inline FunctionBodyNode::FunctionBodyNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
+inline FunctionBodyNode::FunctionBodyNode(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
     : ScopeNode(vm, startLocation, endLocation, sourceCode, children, varStack, funcStack, capturedVariables, features, numConstants)
     , m_startColumn(startColumn)
+    , m_endColumn(endColumn)
 {
 }
 
-void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter, const Identifier& ident, FunctionNameIsInScopeToggle functionNameIsInScopeToggle)
+void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter, const Identifier& ident, enum FunctionMode functionMode)
 {
     setSource(source);
-    finishParsing(FunctionParameters::create(firstParameter), ident, functionNameIsInScopeToggle);
+    finishParsing(FunctionParameters::create(firstParameter), ident, functionMode);
 }
 
-void FunctionBodyNode::finishParsing(PassRefPtr<FunctionParameters> parameters, const Identifier& ident, FunctionNameIsInScopeToggle functionNameIsInScopeToggle)
+void FunctionBodyNode::finishParsing(PassRefPtr<FunctionParameters> parameters, const Identifier& ident, enum FunctionMode functionMode)
 {
     ASSERT(!source().isNull());
     m_parameters = parameters;
     m_ident = ident;
-    m_functionNameIsInScopeToggle = functionNameIsInScopeToggle;
+    m_functionMode = functionMode;
 }
 
-FunctionBodyNode* FunctionBodyNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, bool inStrictContext)
+FunctionBodyNode* FunctionBodyNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, bool inStrictContext)
 {
-    return new FunctionBodyNode(vm, startLocation, endLocation, startColumn, inStrictContext);
+    return new FunctionBodyNode(vm, startLocation, endLocation, startColumn, endColumn, inStrictContext);
 }
 
-PassRefPtr<FunctionBodyNode> FunctionBodyNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
+PassRefPtr<FunctionBodyNode> FunctionBodyNode::create(VM* vm, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, IdentifierSet& capturedVariables, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
 {
-    RefPtr<FunctionBodyNode> node = new FunctionBodyNode(vm, startLocation, endLocation, startColumn, children, varStack, funcStack, capturedVariables, sourceCode, features, numConstants);
+    RefPtr<FunctionBodyNode> node = new FunctionBodyNode(vm, startLocation, endLocation, startColumn, endColumn , children, varStack, funcStack, capturedVariables, sourceCode, features, numConstants);
 
     ASSERT(node->m_arena.last() == node);
     node->m_arena.removeLast();
     ASSERT(!node->m_arena.contains(node.get()));
 
     return node.release();
+}
+
+void FunctionBodyNode::setEndPosition(JSTextPosition position)
+{
+    m_lastLine = position.line;
+    m_endColumn = position.offset - position.lineStartOffset;
 }
 
 } // namespace JSC

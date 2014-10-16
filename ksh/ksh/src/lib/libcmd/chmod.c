@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -28,7 +28,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: chmod (AT&T Research) 2010-07-28 $\n]"
+"[-?\n@(#)$Id: chmod (AT&T Research) 2012-04-20 $\n]"
 USAGE_LICENSE
 "[+NAME?chmod - change the access permissions of files]"
 "[+DESCRIPTION?\bchmod\b changes the permission of each file "
@@ -107,8 +107,8 @@ USAGE_LICENSE
 "[R:recursive?Change the mode for files in subdirectories recursively.]"
 "[c:changes?Describe only files whose permission actually change.]"
 "[f:quiet|silent?Do not report files whose permissioins fail to change.]"
-"[h:symlink?Change the mode of the symbolic links on systems that "
-	"support this.]"
+"[h|l:symlink?Change the mode of symbolic links on systems that "
+    "support \blchmod\b(2). Implies \b--physical\b.]"
 "[i:ignore-umask?Ignore the \bumask\b(2) value in symbolic mode "
 	"expressions. This is probably how you expect \bchmod\b to work.]"
 "[n:show?Show actions but do not change any file modes.]"
@@ -122,8 +122,8 @@ USAGE_LICENSE
 	"[+0?All files changed successfully.]"
 	"[+>0?Unable to change mode of one or more files.]"
 "}"
-"[+SEE ALSO?\bchgrp\b(1), \bchown\b(1), \btw\b(1), \bgetconf\b(1), \bls\b(1), "
-	"\bumask\b(2)]"
+"[+SEE ALSO?\bchgrp\b(1), \bchown\b(1), \blchmod\b(1), \btw\b(1), \bgetconf\b(1), "
+	"\bls\b(1), \bumask\b(2)]"
 ;
 
 
@@ -137,6 +137,10 @@ __STDPP__directive pragma pp:hide lchmod
 #include <ls.h>
 #include <fts_fix.h>
 
+#ifndef ENOSYS
+#define ENOSYS	EINVAL
+#endif
+
 #include "FEATURE/symlink"
 
 #if defined(__STDPP__directive) && defined(__STDPP__hide)
@@ -147,8 +151,13 @@ __STDPP__directive pragma pp:nohide lchmod
 
 extern int	lchmod(const char*, mode_t);
 
+/*
+ * NOTE: we only use the native lchmod() on symlinks just in case
+ *	 the implementation is a feckless stub
+ */
+
 int
-b_chmod(int argc, char** argv, void* context)
+b_chmod(int argc, char** argv, Shbltin_t* context)
 {
 	register int	mode;
 	register int	force = 0;
@@ -162,13 +171,11 @@ b_chmod(int argc, char** argv, void* context)
 	int		notify = 0;
 	int		ignore = 0;
 	int		show = 0;
-#if _lib_lchmod
 	int		chlink = 0;
-#endif
 	struct stat	st;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
-	flags = fts_flags() | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
+	flags = fts_flags() | FTS_META | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
 
 	/*
 	 * NOTE: we diverge from the normal optget boilerplate
@@ -186,9 +193,7 @@ b_chmod(int argc, char** argv, void* context)
 			force = 1;
 			continue;
 		case 'h':
-#if _lib_lchmod
 			chlink = 1;
-#endif
 			continue;
 		case 'i':
 			ignore = 1;
@@ -231,6 +236,12 @@ b_chmod(int argc, char** argv, void* context)
 	argv += opt_info.index;
 	if (error_info.errors || !*argv || !amode && !*(argv + 1))
 		error(ERROR_usage(2), "%s", optusage(NiL));
+	if (chlink)
+	{
+		flags &= ~FTS_META;
+		flags |= FTS_PHYSICAL;
+		logical = 0;
+	}
 	if (logical)
 		flags &= ~(FTS_META|FTS_PHYSICAL);
 	if (ignore)
@@ -248,11 +259,6 @@ b_chmod(int argc, char** argv, void* context)
 			error(ERROR_exit(1), "%s: invalid mode", amode);
 		}
 	}
-	chmodf =
-#if _lib_lchmod
-		chlink ? lchmod :
-#endif
-		chmod;
 	if (!(fts = fts_open(argv, flags, NiL)))
 	{
 		if (ignore)
@@ -263,17 +269,28 @@ b_chmod(int argc, char** argv, void* context)
 		switch (ent->fts_info)
 		{
 		case FTS_SL:
-			if (chmodf == chmod)
+		case FTS_SLNONE:
+			if (chlink)
 			{
-				if (!(flags & FTS_PHYSICAL) || (flags & FTS_META) && ent->fts_level == 1)
-					fts_set(NiL, ent, FTS_FOLLOW);
-				break;
+#if _lib_lchmod
+				chmodf = lchmod;
+				goto commit;
+#else
+				if (!force)
+				{
+					errno = ENOSYS;
+					error(ERROR_system(0), "%s: cannot change symlink mode", ent->fts_path);
+				}
+#endif
 			}
-			/*FALLTHROUGH*/
+			break;
 		case FTS_F:
 		case FTS_D:
-		case FTS_SLNONE:
 		anyway:
+			chmodf = chmod;
+#if _lib_lchmod
+		commit:
+#endif
 			if (amode)
 				mode = strperm(amode, &last, ent->fts_statp->st_mode);
 			if (show || (*chmodf)(ent->fts_accpath, mode) >= 0)

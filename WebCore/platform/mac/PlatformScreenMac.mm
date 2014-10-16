@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,28 +27,24 @@
 #import "PlatformScreen.h"
 
 #import "FloatRect.h"
-#import "Frame.h"
-#import "Page.h"
-#import "Widget.h"
-#import "NotImplemented.h"
+#import "HostWindow.h"
+#import "ScrollView.h"
 
-@implementation NSScreen(WebCoreNSScreenUtilities)
-+ (NSScreen *)screenForDislayID:(PlatformDisplayID)displayID
+namespace WebCore {
+
+static PlatformDisplayID displayIDFromScreen(NSScreen *screen)
+{
+    return (PlatformDisplayID)[[[screen deviceDescription] objectForKey:@"NSScreenNumber"] intValue];
+}
+
+static NSScreen *screenForDisplayID(PlatformDisplayID displayID)
 {
     for (NSScreen *screen in [NSScreen screens]) {
-        if ([screen displayID] == displayID)
+        if (displayIDFromScreen(screen) == displayID)
             return screen;
     }
     return nil;
 }
-
-- (PlatformDisplayID)displayID
-{
-    return (PlatformDisplayID)[[[self deviceDescription] objectForKey:@"NSScreenNumber"] intValue];
-}
-@end
-
-namespace WebCore {
 
 int screenDepth(Widget*)
 {
@@ -68,6 +64,18 @@ bool screenIsMonochrome(Widget*)
 // These functions scale between screen and page coordinates because JavaScript/DOM operations 
 // assume that the screen and the page share the same coordinate system.
 
+static PlatformDisplayID displayFromWidget(Widget* widget)
+{
+    if (!widget)
+        return 0;
+    
+    ScrollView* view = widget->root();
+    if (!view)
+        return 0;
+
+    return view->hostWindow()->displayID();
+}
+
 static NSScreen *screenForWidget(Widget* widget, NSWindow *window)
 {
     // Widget is in an NSWindow, use its screen.
@@ -75,7 +83,7 @@ static NSScreen *screenForWidget(Widget* widget, NSWindow *window)
         return screenForWindow(window);
     
     // Didn't get an NSWindow; probably WebKit2. Try using the Widget's display ID.
-    if (NSScreen *screen = widget ? [NSScreen screenForDislayID:widget->windowDisplayID()] : nil)
+    if (NSScreen *screen = screenForDisplayID(displayFromWidget(widget)))
         return screen;
     
     // Widget's window is offscreen, or no screens. Fall back to the first screen if available.
@@ -94,11 +102,6 @@ FloatRect screenAvailableRect(Widget* widget)
     NSWindow *window = widget ? [widget->platformWidget() window] : nil;
     NSScreen *screen = screenForWidget(widget, window);
     return toUserSpace([screen visibleFrame], window);
-}
-
-void screenColorProfile(ColorProfile&)
-{
-    notImplemented();
 }
 
 NSScreen *screenForWindow(NSWindow *window)

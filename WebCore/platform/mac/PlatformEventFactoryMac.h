@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,6 @@
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
 
-#if ENABLE(GESTURE_EVENTS)
-#include "PlatformGestureEvent.h"
-#endif
-
 namespace WebCore {
 
 class PlatformEventFactory {
@@ -41,18 +37,16 @@ public:
     static PlatformMouseEvent createPlatformMouseEvent(NSEvent *, NSView *windowView);
     static PlatformWheelEvent createPlatformWheelEvent(NSEvent *, NSView *windowView);
     static PlatformKeyboardEvent createPlatformKeyboardEvent(NSEvent *);
-#if ENABLE(GESTURE_EVENTS)
-    static PlatformGestureEvent createPlatformGestureEvent(NSEvent *, NSView *windowView);
-#endif
 };
 
-#if PLATFORM(MAC) && defined(__OBJC__)
+#if PLATFORM(COCOA) && defined(__OBJC__)
 // FIXME: This doesn't really belong here.
 IntPoint globalPoint(const NSPoint& windowPoint, NSWindow *);
 
 // FIXME: WebKit2 has a lot of code copy/pasted from PlatformEventFactoryMac in WebEventFactory. It should be carefully shared with WebCore.
 int windowsKeyCodeForKeyEvent(NSEvent*);
 String keyIdentifierForKeyEvent(NSEvent*);
+double eventTimeStampSince1970(NSEvent*);
 
 #endif
 

@@ -42,6 +42,8 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+#include <os/trace.h>
+
 /*
  * Defines used by the leapseconds stuff
  */
@@ -190,11 +192,6 @@ init_util(void)
 #endif /* DEBUG */
 }
 
-/* derived from PM tool getsleep.c */
-#include <mach/mach_port.h>
-#include <mach/mach_interface.h>
-#include <mach/mach_init.h>
-
 int
 save_drift_file(
 	)
@@ -263,6 +260,7 @@ save_drift_file(
 					rc = FALSE;
 				} else {
                     off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
+					os_trace("drift: %.3f", drift_comp * 1e6);
                     if (n != stats_size) {
                         truncate(stats_drift_file, n);
                         stats_size = n;
@@ -275,6 +273,7 @@ save_drift_file(
 			}
 		} else {
 			off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
+			os_trace("drift: %.3f", drift_comp * 1e6);
 			if (n != stats_size) {
 				truncate(stats_drift_file, n);
 				stats_size = n;
@@ -516,6 +515,13 @@ stats_config(
 
 		}
 		fclose(fp);
+			
+		if (old_drift < -100.0 || old_drift > 100.0) {
+			os_trace_fault("Ignorning old drift %.3f", old_drift);
+			msyslog(LOG_ERR, "Ignoring old drift %.3f", old_drift);
+			break;
+		}
+			
 		drift_exists++;
 		old_drift /= 1e6;
 		prev_drift_comp = old_drift;

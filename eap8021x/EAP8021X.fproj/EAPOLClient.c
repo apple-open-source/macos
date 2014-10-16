@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -313,7 +313,10 @@ EAPOLClientReportStatus(EAPOLClientRef client, CFDictionaryRef status_dict)
 	result = EINVAL;
 	goto done;
     }
-    data = CFPropertyListCreateXMLData(NULL, status_dict);
+    data = CFPropertyListCreateData(NULL, status_dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0, NULL);
+
     if (data == NULL) {
 	result = ENOMEM;
 	goto done;
@@ -321,7 +324,7 @@ EAPOLClientReportStatus(EAPOLClientRef client, CFDictionaryRef status_dict)
     status = eapolcontroller_client_report_status(client->session_port,
 						  (xmlDataOut_t)
 						  CFDataGetBytePtr(data),
-						  CFDataGetLength(data),
+						  (int)CFDataGetLength(data),
 						  &result);
     if (status != KERN_SUCCESS) {
 	mach_error("eapolcontroller_client_report_status failed", status);

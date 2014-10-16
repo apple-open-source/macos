@@ -47,9 +47,16 @@ struct _krb5_key_type;
 struct _krb5_checksum_type;
 struct _krb5_encryption_type;
 struct _krb5_srv_query_ctx;
+struct krb5_fast_state;
+struct _krb5_srp_group;
+struct _krb5_srp;
+
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>
+
+static void usage (int ret) __attribute__((noreturn));
+
 
 int version_flag	= 0;
 int help_flag		= 0;

@@ -40,7 +40,9 @@
 #include "mod_dav.h"
 #include "repos.h"
 #include "http_log.h"
+#include "http_main.h"      /* for ap_server_conf */
 
+APLOG_USE_MODULE(dav_fs);
 
 struct dav_db {
     apr_pool_t *pool;
@@ -80,7 +82,6 @@ void dav_dbm_get_statefiles(apr_pool_t *p, const char *fname,
 static dav_error * dav_fs_dbm_error(dav_db *db, apr_pool_t *p,
                                     apr_status_t status)
 {
-    int save_errno = errno;
     int errcode;
     const char *errstr;
     dav_error *err;
@@ -96,16 +97,15 @@ static dav_error * dav_fs_dbm_error(dav_db *db, apr_pool_t *p,
         errcode = 1;
         errstr = "Could not open property database.";
         if (APR_STATUS_IS_EDSOOPEN(status))
-            ap_log_error(APLOG_MARK, APLOG_CRIT, status, NULL,
-                         "The DBM driver could not be loaded");
+            ap_log_error(APLOG_MARK, APLOG_CRIT, status, ap_server_conf, APLOGNO(00576)
+            "The DBM driver could not be loaded");
     }
     else {
         (void) apr_dbm_geterror(db->file, &errcode, errbuf, sizeof(errbuf));
         errstr = apr_pstrdup(p, errbuf);
     }
 
-    err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, errcode, errstr);
-    err->save_errno = save_errno;
+    err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, errcode, status, errstr);
     return err;
 }
 
@@ -325,7 +325,7 @@ static apr_datum_t dav_build_key(dav_db *db, const dav_prop_name *name)
             return key;         /* zeroed */
         }
 
-        l_ns = sprintf(nsbuf, "%ld", ns_id - 1);
+        l_ns = apr_snprintf(nsbuf, sizeof(nsbuf), "%ld", ns_id - 1);
     }
 
     /* assemble: #:name */
@@ -431,7 +431,7 @@ static dav_error * dav_propdb_open(apr_pool_t *pool,
 
             /* call it a major version error */
             return dav_new_error(pool, HTTP_INTERNAL_SERVER_ERROR,
-                                 DAV_ERR_PROP_BAD_MAJOR,
+                                 DAV_ERR_PROP_BAD_MAJOR, 0,
                                  "Prop database has the wrong major "
                                  "version number and cannot be used.");
         }
@@ -453,7 +453,7 @@ static dav_error * dav_propdb_open(apr_pool_t *pool,
             dav_dbm_close(db);
 
             return dav_new_error(pool, HTTP_INTERNAL_SERVER_ERROR,
-                                 DAV_ERR_PROP_BAD_MAJOR,
+                                 DAV_ERR_PROP_BAD_MAJOR, 0,
                                  "Prop database has the wrong major "
                                  "version number and cannot be used.");
         }
@@ -501,7 +501,9 @@ static void dav_propdb_close(dav_db *db)
         memcpy(db->ns_table.buf, &m, sizeof(m));
 
         err = dav_dbm_store(db, key, value);
-        /* ### what to do with the error? */
+        if (err != NULL)
+            ap_log_error(APLOG_MARK, APLOG_WARNING, err->aprerr, ap_server_conf,
+                         APLOGNO(00577) "Error writing propdb: %s", err->desc);
     }
 
     dav_dbm_close(db);

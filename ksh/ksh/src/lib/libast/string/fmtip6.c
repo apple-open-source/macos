@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -71,22 +71,22 @@ dec(char* s, char* p, int n)
 
 /*
  * return pointer to normalized ipv6 address addr
- * with optional prefix bits if 0 < bits <= 128
+ * with optional prefix bits if 0 <= bits <= 128
  * return value in short-term circular buffer
  */
 
 char*
-fmtip6(unsigned char* addr, int bits)
+fmtip6(const unsigned char* addr, int bits)
 {
-	register unsigned char*	a = addr;
-	register int		n = IP6ADDR;
-	register int		i;
-	register int		z;
-	register int		k;
-	register int		m;
-	unsigned char		r[IP6ADDR];
-	char*			b;
-	char*			s;
+	register const unsigned char*	a = addr;
+	register int			n = IP6ADDR;
+	register int			i;
+	register int			z;
+	register int			k;
+	register int			m;
+	unsigned char			r[IP6ADDR];
+	char*				b;
+	char*				s;
 
 	static const char	dig[] = "0123456789ABCDEF";
 
@@ -168,7 +168,7 @@ fmtip6(unsigned char* addr, int bits)
 	}
 	if (!z && *(s - 1) == ':')
 		*s++ = '0';
-	if (bits > 0 && bits <= 128)
+	if (bits >= 0 && bits <= 128)
 		s = dec(s, "/", bits);
 	*s = 0;
 	return b;

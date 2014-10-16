@@ -1,6 +1,6 @@
 # Settings for user home directories
 #
-# Required module: mod_userdir
+# Required module: mod_authz_core, mod_authz_host, mod_userdir
 
 #
 # UserDir: The name of the directory that is appended onto a user's home
@@ -10,10 +10,10 @@
 UserDir Sites
 
 #
-# Users might not be in /Users/*/Sites, so use user-specific config files.
+# Control access to UserDir directories.  The following is an example
+# for a site where these directories are restricted to read-only.
 #
-Include @rel_sysconfdir@/users/*.conf
+#Include @rel_sysconfdir@/users/*.conf
 <IfModule bonjour_module>
        RegisterUserSite customized-users
 </IfModule>
-

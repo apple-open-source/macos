@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -35,15 +35,15 @@
 */
 
 #if __STD_C
-uint dtstrhash(reg uint h, Void_t* args, reg int n)
+uint dtstrhash(uint h, Void_t* args, ssize_t n)
 #else
 uint dtstrhash(h,args,n)
 reg uint	h;
 Void_t*		args;
-reg int		n;
+ssize_t		n;
 #endif
 {
-	reg unsigned char*	s = (unsigned char*)args;
+	unsigned char	*s = (unsigned char*)args;
 
 	if(n <= 0)
 	{	for(; *s != 0; s += s[1] ? 2 : 1)
@@ -51,7 +51,7 @@ reg int		n;
 		n = s - (unsigned char*)args;
 	}
 	else
-	{	reg unsigned char*	ends;
+	{	unsigned char*	ends;
 		for(ends = s+n-1; s < ends; s += 2)
 			h = (h + (s[0]<<8) + s[1])*DT_PRIME;
 		if(s <= ends)

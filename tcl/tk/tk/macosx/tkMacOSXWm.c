@@ -6053,7 +6053,7 @@ ApplyWindowAttributeFlagChanges(
 #if MAC_OS_X_VERSION_MIN_REQUIRED < 1060
 	    if (((changedAttributes & kWindowDoesNotCycleAttribute) || initial)
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
-		    && tkMacOSXMacOSXVersion < 1060
+		    && tkMacOSXMacOSXVersion < 1006
 #endif
 	    ) {
 		[macWindow setCanCycle:

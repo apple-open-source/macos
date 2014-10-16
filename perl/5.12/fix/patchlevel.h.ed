@@ -1,6 +1,0 @@
-/^	,NULL/i
-	,"/Library/Perl/Updates/<version> comes before system perl directories"
-	,"installprivlib and installarchlib points to the Updates directory"
-	,"CVE-2013-1667 hashtable DOS fix"
-.
-w

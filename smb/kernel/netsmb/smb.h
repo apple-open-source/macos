@@ -821,7 +821,7 @@ struct ntace {
 #define SMB2_READ_CONTROL			0x00020000	/* Indicates the right to read the security descriptor for the file, directory or named pipe. */
 #define SMB2_WRITE_DAC				0x00040000	/* Indicates the right to change the discretionary access control list (DACL) in the security descriptor for the file directory or named pipe. */
 #define SMB2_WRITE_OWNER			0x00080000	/* Indicates the right to change the owner in the security descriptor for the file, directory or named pipe. */
-#define SMB2_SYNCHRONIZE			0x00100000	/* SMB2 clients set this flag to any value. SMB2 servers MUST ignore this flag. */
+#define SMB2_SYNCHRONIZE			0x00100000	/* SMB 2/3 clients set this flag to any value. SMB 2/3 servers MUST ignore this flag. */
 
 #define	SMB2_ACCESS_SYSTEM_SECURITY	0x01000000	/* Indicates the right to read or change the system access control list (SACL) in the security descriptor for the file, directory or named pipe.  */
 #define	SMB2_MAXIMAL_ACCESS			0x02000000	/* Indicates that the client is requesting an open to the file with the highest level of access the client has on this file. If no access is granted for the client on this file, the server MUST fail the open with STATUS_ACCESS_DENIED. */
@@ -1016,7 +1016,7 @@ struct ntsid {
 #define SMB_MAX_NATIVE_LANMAN_STRING	256
 
 /*
- * XP will only allow 80 characters in a share name, the SMB2
+ * XP will only allow 80 characters in a share name, the SMB 2/3
  * Spec confirms this in the tree connect section. Since UTF8 
  * can have 3 * 80(characters) bytes then lets make SMB_MAXSHARENAMELEN 
  * 240 bytes.

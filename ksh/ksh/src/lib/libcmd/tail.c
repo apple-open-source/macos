@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -28,7 +28,7 @@
  */
 
 static const char usage[] =
-"+[-?\n@(#)$Id: tail (AT&T Research) 2010-05-09 $\n]"
+"+[-?\n@(#)$Id: tail (AT&T Research) 2012-06-19 $\n]"
 USAGE_LICENSE
 "[+NAME?tail - output trailing portion of one or more files ]"
 "[+DESCRIPTION?\btail\b copies one or more input files to standard output "
@@ -102,7 +102,7 @@ USAGE_LICENSE
 #include <cmd.h>
 #include <ctype.h>
 #include <ls.h>
-#include <tm.h>
+#include <tv.h>
 #include <rev.h>
 
 #define COUNT		(1<<0)
@@ -398,7 +398,7 @@ num(register const char* s, char** e, int* f, int o)
 }
 
 int
-b_tail(int argc, char** argv, void* context)
+b_tail(int argc, char** argv, Shbltin_t* context)
 {
 	register Sfio_t*	ip;
 	register int		n;
@@ -422,6 +422,7 @@ b_tail(int argc, char** argv, void* context)
 	register Tail_t*	pp;
 	register Tail_t*	hp;
 	Tail_t*			files;
+	Tv_t			tv;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	for (;;)
@@ -632,12 +633,17 @@ b_tail(int argc, char** argv, void* context)
 		pp->next = 0;
 		hp = 0;
 		n = 1;
+		tv.tv_sec = 1;
+		tv.tv_nsec = 0;
 		while (fp = files)
 		{
 			if (n)
 				n = 0;
-			else
-				sleep(1);
+			else if (sh_checksig(context) || tvsleep(&tv, NiL))
+			{
+				error_info.errors++;
+				break;
+			}
 			pp = 0;
 			while (fp)
 			{
@@ -680,7 +686,11 @@ b_tail(int argc, char** argv, void* context)
 					{
 						i = 3;
 						while (--i && stat(fp->name, &st))
-							sleep(1);
+							if (sh_checksig(context) || tvsleep(&tv, NiL))
+							{
+								error_info.errors++;
+								goto done;
+							}
 						if (i && (fp->dev != st.st_dev || fp->ino != st.st_ino) && !init(fp, 0, 0, flags, &format))
 						{
 							if (!(flags & SILENT))
@@ -707,6 +717,10 @@ b_tail(int argc, char** argv, void* context)
 			if (sfsync(sfstdout))
 				error(ERROR_system(1), "write error");
 		}
+	done:
+		for (fp = files; fp; fp = fp->next)
+			if (fp->sp && fp->sp != sfstdin)
+				sfclose(fp->sp);
 	}
 	else
 	{
@@ -767,7 +781,7 @@ b_tail(int argc, char** argv, void* context)
 			}
 			if (ip != sfstdin)
 				sfclose(ip);
-		} while (file = *argv++);
+		} while ((file = *argv++) && !sh_checksig(context));
 	}
 	return error_info.errors != 0;
 }

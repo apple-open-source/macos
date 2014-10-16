@@ -50,9 +50,10 @@ struct UPSHIDElement {
 
 #define kIOHIDUnitVolt		0xf0d121
 #define kIOHIDUnitAmp		0x100001
+#define kIOHIDUnitAmpSec    0x101001
+#define kIOHIDUnitKelvin    0x10001
 
-#define kIOHIDUnitExponentVolt	7
-#define kIOHIDUnitExponentAmp	-2
+#define kIOHIDUnitExponentVolt  7
 
 class IOHIDUPSClass : public IOHIDIUnknown
 {
@@ -71,6 +72,7 @@ protected:
     struct InterfaceMap 		_upsDevice;
     io_service_t 			_service;
 
+    CFTypeRef                   _timerEventSource;
     CFTypeRef                   _asyncEventSource;
     
     IOHIDDeviceInterface122 **		_hidDeviceInterface;

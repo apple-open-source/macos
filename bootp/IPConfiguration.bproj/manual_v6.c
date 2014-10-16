@@ -99,13 +99,16 @@ static void
 manual_v6_set_address(ServiceRef service_p)
 {
     struct in6_addr		addr;
+    u_int32_t			flags;
+    interface_t *		if_p = service_interface(service_p);
     int				prefix_length;
 
     /* get the requested IP/prefix */
     ServiceGetRequestedIPv6Address(service_p, &addr, &prefix_length);
 
     /* set the new address */
-    ServiceSetIPv6Address(service_p, &addr, prefix_length,
+    flags = (if_ift_type(if_p) == IFT_CELLULAR) ? IN6_IFF_OPTIMISTIC : 0;
+    ServiceSetIPv6Address(service_p, &addr, prefix_length, flags,
 			  ND6_INFINITE_LIFETIME, ND6_INFINITE_LIFETIME);
     return;
 }
@@ -235,6 +238,7 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	break;
     }
+    case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
 	link_status_t	link_status;
 

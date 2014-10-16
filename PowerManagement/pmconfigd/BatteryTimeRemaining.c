@@ -23,10 +23,6 @@
 /*
  * Copyright (c) 2012 Apple Computer, Inc.  All rights reserved.
  *
- * HISTORY
- *
- * 29-Aug-02 ebold created
- *
  */
 #include <syslog.h>
 #include <unistd.h>
@@ -36,30 +32,17 @@
 #include <mach/mach_port.h>
 #include <servers/bootstrap.h>
 #include <asl.h>
+#include <bsm/libbsm.h>
+#include <sys/time.h>
 
 #include "powermanagementServer.h" // mig generated
 #include "BatteryTimeRemaining.h"
+#include "PMSettings.h"
+#include "UPSLowPower.h"
 #include "PMAssertions.h"
 #include "PrivateLib.h"
 #include "PMStore.h"
 
-#ifndef kIOPSFailureKey
-#define kIOPSFailureKey                         "Failure"
-#endif
-
-#define kBatteryPermFailureString               "Permanent Battery Failure"
-
-#ifndef kIOPMBatteryPercentageFactors
-#define kIOPMBatteryPercentageFactors           CFSTR("IOPMBatteryPercentageFactors")
-#endif
-
-#ifndef kIOPSDynamicStorePowerAdapterKey
-#define kIOPSDynamicStorePowerAdapterKey        "/IOKit/PowerAdapter"
-#endif
-
-#ifndef kIOPSDynamicStoreLowBattPathKey
-#define kIOPSDynamicStoreLowBattPathKey         "/IOKit/LowBatteryWarning"
-#endif
 
 /**** PMBattery configd plugin
   We clean up, massage, and re-package the data from the batteries and publish
@@ -79,28 +62,36 @@
     Type
 ****/
 
-extern CFMachPortRef            pmServerMachPort;
-extern CFMutableSetRef          _publishedBatteryKeysSet;
 
-// PMAssertions.c may modify gRespectRealPowerSources, to signal
-// that the ignore-real-power-sources assertion is set.
-int                             _showWhichBatteries = kBatteryShowReal;
-
-/* OpaqueIOPSPowerSourceID
- *      == PSTracker (in this file)
+/* PSStruct 
+ * Contains all the details about each power source that the system describes.
+ * This struct is the backbone of the IOPowerSources() IOKit API for
+ * power source reporting.
  */
-typedef struct  {
-    mach_port_t     connection;
-    CFStringRef     scdsKey;
-} OpaqueIOPSPowerSourceID;
+typedef struct {
+    // powerd will assign a unique psid to all sources.
+    long                psid;
 
-/* kPSMaxTrackedPowerSources
- * Allow for 1 battery, 1 UPS, 16 other
- */
-#define kPSMaxTrackedPowerSources   20
+    // Ensure that only the process that created
+    // a ps may modify it or destroy it, by recording caller's pid.
+    int                 pid;
+    dispatch_source_t   procdeathsrc;
 
-static      OpaqueIOPSPowerSourceID      gPSList[kPSMaxTrackedPowerSources];
-typedef     OpaqueIOPSPowerSourceID     *PSTracker;
+    // This is the most current recorded state of this power source.
+    CFDictionaryRef     description;
+
+    // log of previous battery updates, maintained as ring buffer
+    CFMutableArrayRef       log;         
+    CFIndex                 logIdx;         // Index for next record
+    uint64_t                logUpdate_ts;   // Timestamp of last log
+} PSStruct;
+
+#define kBattLogMaxEntries      64
+#define kBattLogUpdateFreq      (5*60)  // 5 mins
+
+#define kPSMaxCount   7
+
+static PSStruct gPSList[kPSMaxCount];
 
 // kBattNotCharging checks for (int16_t)-1 invalid current readings
 #define kBattNotCharging        0xffff
@@ -108,76 +99,84 @@ typedef     OpaqueIOPSPowerSourceID     *PSTracker;
 #define kSlewStepMin            2
 #define kSlewStepMax            10
 #define kDiscontinuitySettle    60
-static CFAbsoluteTime                  lastDiscontinuity;
 typedef struct {
     int                 showingTime;
     bool                settled;
 } SlewStruct;
 SlewStruct *slew = NULL;
 
-// Return values from calculateTRWithCurrent
-enum {
-    kNothingToSeeHere = 0,
-    kNoTimeEstimate,
-};
-
-// Arguments For startBatteryPoll()
-enum {
-    kPeriodicPoll           = 0,
-    kImmediateFullPoll      = 1
-};
 
 // Battery health calculation constants
 #define kSmartBattReserve_mAh    200.0
-
 #define kMaxBattMinutes     1200
 
 
 // static global variables for tracking battery state
 typedef struct {
+    CFAbsoluteTime   lastDiscontinuity;
     int              systemWarningLevel;
     bool             warningsShouldResetForSleep;
     bool             readACAdapterAgain;
     bool             selectionHasSwitched;
     int              psTimeRemainingNotifyToken;
+    int              psPercentChangeNotifyToken;
     bool             noPoll;
+    bool             needsNotifyAC;
+    PSStruct         *internal;
 } BatteryControl;
-
 static BatteryControl   control;
 
+
 // forward declarations
+static PSStruct         *iops_newps(int pid, int psid);
 static void             _initializeBatteryCalculations(void);
 static void             checkTimeRemainingValid(IOPMBattery **batts);
-static void             _packageBatteryInfo(CFDictionaryRef *);
+static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b);
+
 static void             _discontinuityOccurred(void);
 static IOReturn         _readAndPublishACAdapter(bool, CFDictionaryRef);
-static void             publish_IOPSBatteryGetWarningLevel(IOPMBattery *b, int combinedTime);
-static void             publish_IOPSGetTimeRemainingEstimate(int timeRemaining, bool external, bool timeRemainingUnknown,
-                                                              bool isCharging, bool noPoll);
+static void             publish_IOPSBatteryGetWarningLevel(IOPMBattery *b,
+                                                           int combinedTime);
+static bool             publish_IOPSGetTimeRemainingEstimate(int timeRemaining,
+                                                             bool external,
+                                                             bool timeRemainingUnknown,
+                                                             bool isCharging,
+                                                             bool noPoll);
+static void             publish_IOPSGetPercentRemaining(int percent,
+                                                        bool external,
+                                                        bool isCharging,
+                                                        bool fullyCharged,
+                                                        IOPMBattery *b);
+
+static void             HandlePublishAllPowerSources(void);
 
 
-static bool             startBatteryPoll();
+
+// Arguments For startBatteryPoll()
+typedef enum {
+    kPeriodicPoll           = 0,
+    kImmediateFullPoll      = 1
+} PollCommand;
+static bool             startBatteryPoll(PollCommand x);
 
 
 __private_extern__ void
 BatteryTimeRemaining_prime(void)
 {
-#if !TARGET_OS_EMBEDDED
-#endif
-
-
 
     bzero(gPSList, sizeof(gPSList));
     bzero(&control, sizeof(BatteryControl));
 
-    notify_register_check(kIOPSTimeRemainingNotificationKey, &control.psTimeRemainingNotifyToken);
+    notify_register_check(kIOPSTimeRemainingNotificationKey,
+                          &control.psTimeRemainingNotifyToken);
+    notify_register_check(kIOPSNotifyPercentChange,
+                          &control.psPercentChangeNotifyToken);
 
-
-#if !TARGET_OS_EMBEDDED
-#endif
      // Initialize tracing battery events to FDR
      recordFDREvent(kFDRInit, false, NULL);
 
+#if !TARGET_OS_EMBEDDED
+#endif
     _initializeBatteryCalculations();
 
     /*
@@ -220,7 +219,7 @@ static void _discontinuityOccurred(void)
     if (slew) {
         bzero(slew, sizeof(SlewStruct));
     }
-    lastDiscontinuity = CFAbsoluteTimeGetCurrent();
+    control.lastDiscontinuity = CFAbsoluteTimeGetCurrent();
     
     // Kick off a battery poll now,
     // and schedule the next poll in exactly 60 seconds.
@@ -229,34 +228,25 @@ static void _discontinuityOccurred(void)
 
 static void     _initializeBatteryCalculations(void)
 {
-    // Batteries detected, get their initial state
     if (_batteryCount() == 0) {
         return;
     }
 
-    lastDiscontinuity = CFAbsoluteTimeGetCurrent();
+    // Does this Mac have an internal battery
+    // reported through IOPMPowerSource?
+    // If so, we'll track it in the gPSList.
+
+    // Any other processes that publish power sources (like upsd)
+    // will get a powersource id > 5000
+    const int kSpecialInternalBatteryID = 99;
+    control.internal = iops_newps(getpid(), kSpecialInternalBatteryID);
+
+    control.lastDiscontinuity = CFAbsoluteTimeGetCurrent();
 
     // make initial call to populate array and publish state
-    BatteryTimeRemainingBatteriesHaveChanged(_batteries());
+    kernelPowerSourcesDidChange(kInternalBattery);
 
     return;
-}
-
-/* switchActiveBatterySet
- An argument of "true" indicates the system should respect fake, software controlled batteries only.
- An argument of "False" indicates the system should use only real, physical batteries.
- */
-__private_extern__ void switchActiveBatterySet(int which)
-{
-    control.selectionHasSwitched = true;
-
-    if (kBatteryShowReal == which) {
-        _showWhichBatteries = kBatteryShowReal;
-    } else if (kBatteryShowFake == which) {
-        _showWhichBatteries = kBatteryShowFake;
-    }
-
-    BatteryTimeRemainingBatteriesHaveChanged(NULL);
 }
 
 #if !TARGET_OS_EMBEDDED
@@ -297,13 +287,91 @@ static CFTimeInterval mostRecent(CFTimeInterval a, CFTimeInterval b, CFTimeInter
 static dispatch_source_t batteryPollingTimer = NULL;
 #endif
 
+static void updateLogBuffer(PSStruct *ps, bool asyncEvent)
+{
+    uint64_t        curTime = getMonotonicTime();
+    CFTypeRef       n;
+    CFDateRef       date = NULL;
+    CFTimeZoneRef   tz = NULL;
+    CFTimeInterval  diff = 0;
+    CFAbsoluteTime  absTime;
+
+    CFMutableDictionaryRef  entry = NULL;
+
+    if ((ps == NULL) || (isA_CFDictionary(ps->description) == NULL)) return;
+
+    if ((!asyncEvent) && (curTime - ps->logUpdate_ts < kBattLogUpdateFreq))
+        return;
+
+    if (ps->log == NULL) {
+        ps->log = CFArrayCreateMutable(NULL, kBattLogMaxEntries, &kCFTypeArrayCallBacks);
+
+        if (ps->log == NULL) return;
+    }
+
+    entry = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+                                      &kCFTypeDictionaryValueCallBacks);
+    if (!entry) return;
+
+    // Current time of this activity
+    tz = CFTimeZoneCopySystem();
+    if (tz == NULL) {
+        goto exit;
+    }
+    absTime = CFAbsoluteTimeGetCurrent();
+    date = CFDateCreate(0, absTime);
+    if (date == NULL) {
+        goto exit;
+    }
+    CFDictionarySetValue(entry, CFSTR(kIOPSBattLogEntryTime), date);
+
+    diff = CFTimeZoneGetSecondsFromGMT(tz, absTime);
+    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &diff);
+    if (n) {
+        CFDictionarySetValue(entry, CFSTR(kIOPSBattLogEntryTZ), n);
+        CFRelease(n);
+    }
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSCurrentCapacityKey));
+    if (n) CFDictionarySetValue(entry, CFSTR(kIOPSCurrentCapacityKey), n);
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSMaxCapacityKey));
+    if (n) CFDictionarySetValue(entry, CFSTR(kIOPSMaxCapacityKey), n);
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSPowerSourceStateKey));
+    if (n) CFDictionarySetValue(entry, CFSTR(kIOPSPowerSourceStateKey), n);
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSIsChargingKey));
+    if (n) CFDictionarySetValue(entry, CFSTR(kIOPSIsChargingKey), n);
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSCurrentKey));
+    if (n) CFDictionarySetValue(entry, CFSTR(kIOPSCurrentKey), n);
+
+    n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSIsChargedKey));
+    if (n) 
+        CFDictionarySetValue(entry, CFSTR(kIOPSIsChargedKey), n);
+    else
+        CFDictionarySetValue(entry, CFSTR(kIOPSIsChargedKey), kCFBooleanFalse);
+
+    CFArraySetValueAtIndex(ps->log, ps->logIdx , entry);
+    ps->logIdx = (++ps->logIdx) % kBattLogMaxEntries;
+
+
+    ps->logUpdate_ts = curTime;
+
+exit:
+    if (entry) CFRelease(entry);
+    if (tz) CFRelease(tz);
+    if (date) CFRelease(date);
+}
+
 #ifndef kBootPathKey
 #define kBootPathKey             "BootPathUpdated"
 #define kFullPathKey             "FullPathUpdated"
 #define kUserVisPathKey          "UserVisiblePathUpdated"
 #endif
 
-static bool startBatteryPoll(int doCommand)
+static bool startBatteryPoll(PollCommand doCommand)
 {
 #if !TARGET_OS_EMBEDDED
     const static CFTimeInterval     kUserVisibleMinFrequency = 55.0;
@@ -314,6 +382,7 @@ static bool startBatteryPoll(int doCommand)
     CFAbsoluteTime                  lastUserVisibleUpdate = 0.0;
     CFAbsoluteTime                  lastFullUpdate = 0.0;
     CFAbsoluteTime                  now = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime                  lastUpdateTime;
     CFTimeInterval                  sinceUserVisible = 0.0;
     CFTimeInterval                  sinceFull = 0.0;
     bool                            doUserVisible = false;
@@ -332,9 +401,12 @@ static bool startBatteryPoll(int doCommand)
         doFull = true;
     } else {
         
-        lastBootUpdate = getASBMPropertyCFAbsoluteTime(CFSTR(kBootPathKey));
-        lastFullUpdate = getASBMPropertyCFAbsoluteTime(CFSTR(kFullPathKey));
-        lastUserVisibleUpdate = getASBMPropertyCFAbsoluteTime(CFSTR(kUserVisPathKey));
+        lastUpdateTime = getASBMPropertyCFAbsoluteTime(CFSTR(kBootPathKey));
+        if (lastUpdateTime < now) lastBootUpdate = lastUpdateTime;
+        lastUpdateTime = getASBMPropertyCFAbsoluteTime(CFSTR(kFullPathKey));
+        if (lastUpdateTime < now) lastFullUpdate = lastUpdateTime;
+        lastUpdateTime = getASBMPropertyCFAbsoluteTime(CFSTR(kUserVisPathKey));
+        if (lastUpdateTime < now) lastUserVisibleUpdate = lastUpdateTime;
         
         sinceUserVisible = now - mostRecent(lastBootUpdate, lastFullUpdate, lastUserVisibleUpdate);
         if (sinceUserVisible > kUserVisibleMinFrequency) {
@@ -377,40 +449,13 @@ __private_extern__ void BatterySetNoPoll(bool noPoll)
         } else {
             // Announce the cessation of polling to the world
             // (by publishing 55% 5:55 to BatteryMonitor)
-            BatteryTimeRemainingBatteriesHaveChanged(NULL);
+            kernelPowerSourcesDidChange(kInternalBattery);
         }
     
         asl_log(0, 0, ASL_LEVEL_ERR, "Battery polling is now %s\n", noPoll ? "disabled." : "enabled. Initiating a battery poll.");
     }
 }
 
-static void switchBatteries(bool needsSwitched) {
-    /* When our working battery set has changed (from real to fake or vice versa)
-     * We will tear down all previously published battery state here.
-     */
-    if (!needsSwitched)
-        return;
-    
-    CFStringRef     *publishedKeys = NULL;
-    int             publishedKeysCount = 0;
-    int             i;
-    
-    if (_publishedBatteryKeysSet)
-    {
-        publishedKeysCount = CFSetGetCount(_publishedBatteryKeysSet);
-        if (0 < publishedKeysCount) {
-            publishedKeys = (CFStringRef *)calloc(publishedKeysCount, sizeof(CFStringRef));
-            CFSetGetValues(_publishedBatteryKeysSet, (const void **)publishedKeys);
-            for (i=0; i<publishedKeysCount; i++) {
-                PMStoreRemoveValue(publishedKeys[i]);
-            }
-            free(publishedKeys);
-        }
-    }
-        
-    control.selectionHasSwitched = false;
-    return;
-}
 
 #define kTimeThresholdEarly          20
 #define kTimeThresholdFinal          10
@@ -428,6 +473,7 @@ static void publish_IOPSBatteryGetWarningLevel(
      */
     
     static CFStringRef lowBatteryKey = NULL;
+    static int prevLoggedLevel = kIOPSLowBatteryWarningNone;
     int newWarningLevel = kIOPSLowBatteryWarningNone;
     
     if (control.warningsShouldResetForSleep)
@@ -487,6 +533,10 @@ static void publish_IOPSBatteryGetWarningLevel(
             CFRelease(newlevel);
             
             notify_post(kIOPSNotifyLowBattery);
+            if ((newWarningLevel != prevLoggedLevel) && (newWarningLevel != kIOPSLowBatteryWarningNone)) {
+                logASLLowBatteryWarning(newWarningLevel, combinedTime, b->currentCap);
+                prevLoggedLevel = newWarningLevel;
+            }
         }
         
         control.systemWarningLevel = newWarningLevel;
@@ -495,7 +545,7 @@ static void publish_IOPSBatteryGetWarningLevel(
     return;
 }
 
-static void publish_IOPSGetTimeRemainingEstimate(
+static bool publish_IOPSGetTimeRemainingEstimate(
     int timeRemaining,
     bool external,
     bool timeRemainingUnknown,
@@ -504,8 +554,9 @@ static void publish_IOPSGetTimeRemainingEstimate(
 {
     uint64_t            powerSourcesBitsForNotify = (uint64_t)(timeRemaining & 0xFFFF);
     static uint64_t     lastPSBitsNotify = 0;
+    bool                posted = false;
     
-    // Presence of bit _kPSTimeRemainingNotifyValidBit means IOPSGetTimeRemainingEstimate
+    // Presence of bit kPSTimeRemainingNotifyValidBit means IOPSGetTimeRemainingEstimate
     // should trust this as a valid chunk of battery data.
     powerSourcesBitsForNotify |= kPSTimeRemainingNotifyValidBit;
     
@@ -521,52 +572,120 @@ static void publish_IOPSGetTimeRemainingEstimate(
     if (control.noPoll) {
         powerSourcesBitsForNotify |= kPSTimeRemainingNotifyNoPollBit;
     }
-    
+
+    /* These bits feed the SPI IOKit:IOPSGetSupportedPowerSources()
+     *      - battery supported, UPS supported, active power sourecs
+     */
+    if (getActiveBatteryDictionary()) {
+        powerSourcesBitsForNotify |= kPSTimeRemainingNotifyBattSupportBit;
+    }
+    if (getActiveUPSDictionary()) {
+        powerSourcesBitsForNotify |= kPSTimeRemainingNotifyUPSSupportBit;
+    }
+    uint64_t activePS = getActivePSType();
+    powerSourcesBitsForNotify |=
+    (activePS & 0xFF) << kPSTimeRemainingNotifyActivePS8BitsStarts;
+
+
+
     if (lastPSBitsNotify != powerSourcesBitsForNotify)
     {
         lastPSBitsNotify = powerSourcesBitsForNotify;
         notify_set_state(control.psTimeRemainingNotifyToken, powerSourcesBitsForNotify);
         notify_post(kIOPSNotifyTimeRemaining);
+        posted = true;
+    }
+
+    return posted;
+}
+
+static void publish_IOPSGetPercentRemaining(
+    int         percentRemaining,
+    bool        isExternal,
+    bool        isCharging,
+    bool        fullyCharged,
+    IOPMBattery *b)
+{
+    uint64_t            currentStateBits, changedStateBits;
+    static uint64_t     lastStateBits = 0;
+    uint64_t            ignoreBits;
+
+    // Presence of bit kPSTimeRemainingNotifyValidBit means IOPSGetPercentRemaining
+    // should trust this as a valid chunk of battery data.
+    currentStateBits = kPSTimeRemainingNotifyValidBit;
+
+    if ((percentRemaining >= 0) && (percentRemaining <= 100))
+        currentStateBits |= percentRemaining;
+    if (isExternal)
+        currentStateBits |= kPSTimeRemainingNotifyExternalBit;
+    if (isCharging)
+        currentStateBits |= kPSTimeRemainingNotifyChargingBit;
+    if (fullyCharged)
+        currentStateBits |= kPSTimeRemainingNotifyFullyChargedBit;
+#if TARGET_OS_EMBEDDED
+    if (b && b->isCritical)
+        currentStateBits |= kPSCriticalLevelBit;
+    if (b && b->isRestricted)
+        currentStateBits |= kPSRestrictedLevelBit;
+#endif
+
+    changedStateBits = lastStateBits ^ currentStateBits;
+    if (changedStateBits)
+    {
+        lastStateBits = currentStateBits;
+        notify_set_state(control.psPercentChangeNotifyToken, currentStateBits);
+
+        // Suppress notification for charging state changes
+        ignoreBits = (kPSTimeRemainingNotifyChargingBit 
+                                 |kPSTimeRemainingNotifyFullyChargedBit
+#if TARGET_OS_EMBEDDED
+                                 |kPSCriticalLevelBit
+                                 |kPSRestrictedLevelBit
+#endif
+                                 );
+        if (changedStateBits & ~ignoreBits)
+        {
+            notify_post(kIOPSNotifyPercentChange);
+        }
+#if TARGET_OS_EMBEDDED
+        if (changedStateBits & kPSCriticalLevelBit)
+            notify_post(kIOPSNotifyCriticalLevel);
+        if (changedStateBits & kPSRestrictedLevelBit)
+            notify_post(kIOPSNotifyRestrictedMode);
+#endif
+        if ((changedStateBits & kPSTimeRemainingNotifyExternalBit) && control.internal)
+            updateLogBuffer(control.internal, true);
     }
 }
 
+
 __private_extern__ void
-BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
+kernelPowerSourcesDidChange(IOPMBattery *b)
 {
-    CFDictionaryRef             *result = NULL;
-    int                         i;
-    int                         batCount = _batteryCount();
-    IOPMBattery                 *b = NULL;
-    static int                 _lastExternalConnected = -1;
+    static int                  _lastExternalConnected = -1;
     int                         _nowExternalConnected = 0;
-    bool                        needsNotifyAC = false;
-    int                         combinedTime = 0;
-    
+    int                         percentRemaining = 0;
+    IOPMBattery               **_batts = _batteries();
+
     /*
      * Initiate the next battery poll; or start a timer to poll
      * when the 60sec user visible polling timer expres.
      */
     startBatteryPoll(kPeriodicPoll);
-    
-    switchBatteries(control.selectionHasSwitched);
 
-    if (0 == batCount) {
+    if (0 == _batteryCount()) {
         return;
     }
-    
-    if (!batteries) {
-        batteries = _batteries();
+
+    if (!b) {
+        b = _batts[0];
     }
-    b = batteries[0];
-    
+
     _nowExternalConnected = (b->externalConnected ? 1 : 0);
     if (_lastExternalConnected != _nowExternalConnected) {
         // If AC has changed, we must invalidate time remaining.
         _discontinuityOccurred();
-        needsNotifyAC = true;
-
-        // Record AC change with FDR
-        recordFDREvent(kFDRACChanged, false, batteries);
+        control.needsNotifyAC = true;
 
         _lastExternalConnected = _nowExternalConnected;
     }
@@ -575,53 +694,168 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
 
 
 
-    checkTimeRemainingValid(batteries);
+    checkTimeRemainingValid(_batts);
 
-    for(i=0; i<batCount; i++)
-    {
-        b = batteries[i];
-        if (b->isPresent) {
-            combinedTime += b->swCalculatedTR;
-        }
+    if (b->maxCap) {
+        double percent = (double)(b->currentCap * 100) / (double)b->maxCap;
+        percentRemaining = (int) lround(percent);
+        if (percentRemaining > 100)
+            percentRemaining = 100;
     }
-    
-    publish_IOPSGetTimeRemainingEstimate(combinedTime,
-                                         b->externalConnected,
-                                         b->isTimeRemainingUnknown,
-                                         b->isCharging,
-                                         control.noPoll);
-    
-    publish_IOPSBatteryGetWarningLevel(b, combinedTime);
-
-    /************************************************************************
-     *
-     * NOTIFY: Providing power source changed.
-     *          via notify(3)
-     ************************************************************************/
-    if (needsNotifyAC) {
-        notify_post(kIOPSNotifyPowerSource);
-    }
+    // b->swCalculatedPR is used by packageKernelPowerSource()
+    b->swCalculatedPR = percentRemaining;
 
     /************************************************************************
      *
      * PUBLISH: SCDynamicStoreSetValue / IOPSCopyPowerSourcesInfo()
      *
      ************************************************************************/
-    result = (CFDictionaryRef *) calloc(1, batCount * sizeof(CFDictionaryRef));
-    if (result)
-    {
-        _packageBatteryInfo(result);
-
-        for (i=0; i<batCount; i++)
-        {
-            if (result[i])
-            {
-                PMStoreSetValue(batteries[i]->dynamicStoreKey, result[i]);
-                CFRelease(result[i]);
-            }
+    if (control.internal) {
+        if (control.internal->description) {
+            CFRelease(control.internal->description);
         }
-        free(result);
+        control.internal->description = packageKernelPowerSource(b);
+        updateLogBuffer(control.internal, false);
     }
+
+    HandlePublishAllPowerSources();
+}
+
+static void HandlePublishAllPowerSources(void)
+{
+    IOPMBattery               **batteries = _batteries();
+    IOPMBattery                *b = NULL;
+    int                         combinedTime = 0;
+    int                         percentRemaining = 0;
+    static int                  prev_percentRemaining = 0;
+    bool                        tr_posted;
+    bool                        ups_externalConnected = false;
+    bool                        externalConnected, tr_unknown, is_charging, fully_charged;
+    CFDictionaryRef             ups = NULL;
+    int                         ups_tr = -1;
+
+    if ((0 == _batteryCount()) && ((ups = getActiveUPSDictionary()) == NULL) ) {
+        return;
+    }
+
+    if (_batteryCount())
+        b = batteries[0];
+
+    externalConnected = tr_unknown = is_charging = fully_charged = false;
+    for(int i=0; i<_batteryCount(); i++)
+    {
+        if (batteries[i]->isPresent) {
+            combinedTime += batteries[i]->swCalculatedTR;
+
+        }
+
+    }
+
+    if (ups) {
+        CFNumberRef num_cf = CFDictionaryGetValue(ups, CFSTR(kIOPSTimeToEmptyKey));
+        if (num_cf) {
+            CFNumberGetValue(num_cf, kCFNumberIntType, &ups_tr);
+            if (ups_tr != -1) combinedTime += ups_tr;
+        }
+
+        CFStringRef src = CFDictionaryGetValue(ups, CFSTR(kIOPSPowerSourceStateKey));
+        if (src && (CFStringCompare(src, CFSTR(kIOPSACPowerValue), kNilOptions) == kCFCompareEqualTo))
+            ups_externalConnected = true;
+    }
+    
+    if (b) {
+            tr_unknown = b->isTimeRemainingUnknown;
+            is_charging = b->isCharging;
+            percentRemaining = b->swCalculatedPR;;
+            fully_charged = isFullyCharged(b);
+
+            if (ups)
+                externalConnected = b->externalConnected && ups_externalConnected;
+            else
+                externalConnected = b->externalConnected;
+    }
+    else {
+        int mcap = 0, ccap = 0;
+        CFNumberRef mcap_cf = NULL, ccap_cf = NULL;
+
+        /* ups must be non-NULL */
+        externalConnected = ups_externalConnected;
+
+        if (!externalConnected && (ups_tr == -1)) {
+            tr_unknown = false;
+        }
+        else {
+            tr_unknown = true;
+        }
+
+        if (CFDictionaryGetValue(ups, CFSTR(kIOPSIsChargingKey)) == kCFBooleanTrue)
+            is_charging = true;
+
+        ccap_cf = CFDictionaryGetValue(ups, CFSTR(kIOPSCurrentCapacityKey));
+        if (ccap_cf)
+            CFNumberGetValue(ccap_cf, kCFNumberIntType, &ccap);
+
+        mcap_cf = CFDictionaryGetValue(ups, CFSTR(kIOPSMaxCapacityKey));
+        if (mcap_cf)
+            CFNumberGetValue(mcap_cf, kCFNumberIntType, &mcap);
+
+        if (ccap && mcap)
+            percentRemaining = (ccap*100)/mcap;
+
+        if ((percentRemaining >= 95) && externalConnected && (!is_charging))
+            fully_charged = true;
+    }
+
+    tr_posted = publish_IOPSGetTimeRemainingEstimate(combinedTime,
+                                         externalConnected,
+                                         tr_unknown,
+                                         is_charging,
+                                         control.noPoll);
+    
+    if (b) {
+        publish_IOPSBatteryGetWarningLevel(b, combinedTime);
+    }
+
+    publish_IOPSGetPercentRemaining(percentRemaining, 
+                                    externalConnected, 
+                                    is_charging,
+                                    fully_charged,
+                                    b);
+    
+    if ((percentRemaining != prev_percentRemaining) && !tr_posted) {
+        notify_post(kIOPSNotifyTimeRemaining);
+    }
+
+    prev_percentRemaining = percentRemaining;
+
+    /************************************************************************
+     *
+     * TELL: powerd-internal code that responds to power changes
+     ************************************************************************/
+
+     
+ #if !TARGET_OS_EMBEDDED
+     // Notifiy PSLowPower of power sources change
+    UPSLowPowerPSChange();
+    PMSettingsPSChange();
+ #endif
+
+
+    /************************************************************************
+     *
+     * NOTIFY: Providing power source changed.
+     *          via notify(3)
+     ************************************************************************/
+    if (control.needsNotifyAC) {
+        control.needsNotifyAC = false;
+
+        recordFDREvent(kFDRACChanged, false, batteries);
+
+        notify_post(kIOPSNotifyPowerSource);
+    }
+
+
+    notify_post(kIOPSNotifyAnyPowerSource);
 
     /************************************************************************
      *
@@ -632,6 +866,9 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
 
     return;
 }
+
+
+
 
 
 
@@ -737,7 +974,9 @@ void _setBatteryHealthConfidence(
         CFDictionarySetValue( outDict, CFSTR(kIOPSBatteryFailureModesKey), permanentFailures);
         CFRelease(permanentFailures);
     }
-
+    
+    static char* batteryHealth = "";
+    
     // Permanent failure -> Poor health
     if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey)))
     {
@@ -750,6 +989,14 @@ void _setBatteryHealthConfidence(
             // Specifically log that the battery condition is permanent failure
             CFDictionarySetValue(outDict,
                     CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
+            
+            if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
+                logASLBatteryHealthChanged(kIOPSPoorValue,
+                                           batteryHealth,
+                                           kIOPSPermanentFailureValue);
+                batteryHealth = kIOPSPoorValue;
+            }
+            
             return;
         }
     }
@@ -773,34 +1020,127 @@ void _setBatteryHealthConfidence(
         compareRatioTo = 0.80;
     }
 
+    struct timeval t;
+    time_t currentTime = 0;
+    bool canCompareTime = true;
+    
+    
+#if !TARGET_OS_EMBEDDED
+    // retrieve current time
+    if (gettimeofday(&t, NULL) == -1) {
+        canCompareTime = false; // do not use 7-day observation period.
+    }
+    else {
+        currentTime = t.tv_sec;
+    }
+#else
+        canCompareTime = false; // Don't use 7-day observation for this case
+#endif
+    
     if (capRatio > 1.2) {
         // Poor|Perm Failure = max-capacity is more than 1.2x of the design-capacity.
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
-        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey),
+                             CFSTR(kIOPSPermanentFailureValue));
+        
+        if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
+            logASLBatteryHealthChanged(kIOPSPoorValue,
+                                       batteryHealth,
+                                       kIOPSPermanentFailureValue);
+            batteryHealth = kIOPSPoorValue;
+        }
+        if (b->hasLowCapRatio == true) {
+            b->hasLowCapRatio = false;
+            _setLowCapRatioTime(b->batterySerialNumber,
+                                false,
+                                0);
+        }
     } else if (capRatio >= compareRatioTo) {
         b->markedDeclining = 0;
         // Good = CapRatio > 80% (plus or minus the 3% hysteresis mentioned above)
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
+        
+        if ((batteryHealth[0] != 0) && (strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue)))) {
+            logASLBatteryHealthChanged(kIOPSGoodValue,
+                                       batteryHealth,
+                                       "");
+        }
+        batteryHealth = kIOPSGoodValue;
+        if (b->hasLowCapRatio == true) {
+            b->hasLowCapRatio = false;
+            _setLowCapRatioTime(b->batterySerialNumber,
+                                false,
+                                0);
+        }
     } else {
+        if (b->hasLowCapRatio == false) {
+            b->hasLowCapRatio = true;
+            b->lowCapRatioSinceTime = currentTime;
+            _setLowCapRatioTime(b->batterySerialNumber,
+                                true,
+                                currentTime);
+        }
+        // mark as declining to use hysteresis.
         b->markedDeclining = 1;
-        if (cyclesExceedStandard) {
-            if (capRatio >= 0.50)
-            {
-                // Fair = ExceedingCycles && CapRatio >= 50% && CapRatio < 80%
-                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
-            } else {
-                // Poor = ExceedingCycles && CapRatio < 50%
-                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
+        
+        // battery health status must be confirmed over a 7-day observation
+        // period [7*86400]
+        if (canCompareTime && (currentTime - b->lowCapRatioSinceTime <= 604800)) {
+            // 7-day observation period is not complete, set the battery to Good
+            CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
+                                 CFSTR(kIOPSGoodValue));
+            if (strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue))) {
+                logASLBatteryHealthChanged(kIOPSGoodValue,
+                                           batteryHealth,
+                                           "");
+                batteryHealth = kIOPSGoodValue;
             }
-            // HealthCondition == CheckBattery to distinguish the Fair & Poor cases from from permanent
-            // failure (above), where HealthCondition == PermanentFailure
-            CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSCheckBatteryValue));
-        } else {
-            // Check battery = NOT ExceedingCycles && CapRatio < 80%
-            CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSCheckBatteryValue));
+        }
+        else {
+            // the 7-day observation period is complete, or the timestamps cannot
+            // be compared now; set the kIOPSBatteryHealthKey to Fair/Poor/Check
+            
+            if (cyclesExceedStandard) {
+                if (capRatio >= 0.50) {
+                    // Fair = ExceedingCycles && CapRatio >= 50% && CapRatio < 80%
+                    CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
+                                         CFSTR(kIOPSFairValue));
+                    if (strncmp(batteryHealth, kIOPSFairValue, sizeof(kIOPSFairValue))) {
+                        logASLBatteryHealthChanged(kIOPSFairValue,
+                                                   batteryHealth,
+                                                   kIOPSCheckBatteryValue);
+                        batteryHealth = kIOPSFairValue;
+                    }
+                } else {
+                    // Poor = ExceedingCycles && CapRatio < 50%
+                    CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
+                                         CFSTR(kIOPSPoorValue));
+                    if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
+                        logASLBatteryHealthChanged(kIOPSPoorValue,
+                                                   batteryHealth,
+                                                   kIOPSCheckBatteryValue);
+                        batteryHealth = kIOPSPoorValue;
+                    }
+                }
+                // HealthCondition == CheckBattery to distinguish the Fair & Poor
+                // cases from from permanent failure (above), where
+                // HealthCondition == PermanentFailure
+                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey),
+                                     CFSTR(kIOPSCheckBatteryValue));
+            } else {
+                // Check battery = NOT ExceedingCycles && CapRatio < 80%
+                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
+                                     CFSTR(kIOPSCheckBatteryValue));
+                if (strncmp(batteryHealth, kIOPSCheckBatteryValue,
+                            sizeof(kIOPSCheckBatteryValue))) {
+                    logASLBatteryHealthChanged(kIOPSCheckBatteryValue,
+                                               batteryHealth,
+                                               "");
+                    batteryHealth = kIOPSCheckBatteryValue;
+                }
+            }
         }
     }
-
     return;
 }
 
@@ -828,167 +1168,168 @@ bool isFullyCharged(IOPMBattery *b)
 /*
  * Implicit argument: All the global variables that track battery state
  */
-void _packageBatteryInfo(CFDictionaryRef *ret)
+CFDictionaryRef packageKernelPowerSource(IOPMBattery *b)
 {
     CFNumberRef     n, n0;
-    CFMutableDictionaryRef  mutDict = NULL;
-    int             i;
+    CFMutableDictionaryRef  mDict = NULL;
     int             temp;
     int             minutes;
     int             set_capacity, set_charge;
-    IOPMBattery     *b;
-    IOPMBattery     **batts = _batteries();
-    int             batCount = _batteryCount();
 
-    // Stuff battery info into CFDictionaries
-    for(i=0; i<batCount; i++)
-    {
-        b = batts[i];
-
-        // Create the battery info dictionary
-        mutDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if(!mutDict)
-            return;
-
-        // Does the battery provide its own time remaining estimate?
-        CFDictionarySetValue(mutDict, CFSTR("Battery Provides Time Remaining"), kCFBooleanTrue);
-
-        // Was there an error/failure? Set that.
-        if (b->failureDetected) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSFailureKey), b->failureDetected);
-        }
-
-        // Is there a charging problem?
-        if (b->chargeStatus) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPMPSBatteryChargeStatusKey), b->chargeStatus);
-        }
-
-        // Battery provided serial number
-        if (b->batterySerialNumber) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSHardwareSerialNumberKey), b->batterySerialNumber);
-        }
-
-        // Type = "InternalBattery", and "Transport Type" = "Internal"
-        CFDictionarySetValue(mutDict, CFSTR(kIOPSTransportTypeKey), CFSTR(kIOPSInternalType));
-        CFDictionarySetValue(mutDict, CFSTR(kIOPSTypeKey), CFSTR(kIOPSInternalBatteryType));
-
-        // Set Power Source State to AC/Battery
-        CFDictionarySetValue(mutDict, CFSTR(kIOPSPowerSourceStateKey),
-                                (b->externalConnected ? CFSTR(kIOPSACPowerValue):CFSTR(kIOPSBatteryPowerValue)));
-
-        // round charge and capacity down to a % scale
-        if(0 != b->maxCap)
-        {
-            set_capacity = 100;
-            set_charge = (int)lround((double)b->currentCap*100.0/(double)b->maxCap);
-
-            if( (100 == set_charge) && b->isCharging)
-            {
-                // We will artificially cap the percentage to 99% while charging
-                // Batteries may take 10-20 min beyond 100% of charging to
-                // relearn their absolute maximum capacity. Leave cap at 99%
-                // to indicate we're not done charging. (4482296, 3285870)
-                set_charge = 99;
-            }
-        } else {
-            // Bad battery or bad reading => 0 capacity
-            set_capacity = set_charge = 0;
-        }
-        
-        if (control.noPoll) {
-            // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
-            set_charge = 55;
-        }
-
-        // Set maximum capacity
-        n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_capacity);
-        if(n) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSMaxCapacityKey), n);
-            CFRelease(n);
-        }
-
-        // Set current charge
-        n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_charge);
-        if(n) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSCurrentCapacityKey), n);
-            CFRelease(n);
-        }
-
-        // Set isPresent flag
-        CFDictionarySetValue(mutDict, CFSTR(kIOPSIsPresentKey),
-                    b->isPresent ? kCFBooleanTrue:kCFBooleanFalse);
-
-        if (control.noPoll) {
-            // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
-            minutes = 355;
-        } else {
-            minutes = b->swCalculatedTR;
-        }
-
-        temp = 0;
-        n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &temp);
-
-        if( !b->isPresent ) {
-            // remaining time calculations only have meaning if the battery is present
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-        } else {
-            // There IS a battery installed.
-            if(b->isCharging) {
-                // Set _isCharging to True
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
-                // Set IsFinishingCharge
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSIsFinishingChargeKey),
-                        (b->maxCap && (99 <= (100*b->currentCap/b->maxCap))) ? kCFBooleanTrue:kCFBooleanFalse);
-                n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
-                if(n) {
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n);
-                    CFRelease(n);
-                }
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-            } else {
-                // Not Charging
-                // Set _isCharging to False
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-                // But are we plugged in?
-                if(b->externalConnected)
-                {
-                    // plugged in but not charging == fully charged
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargedKey),
-                        isFullyCharged(b) ? kCFBooleanTrue:kCFBooleanFalse);
-                } else {
-                    // not charging, not plugged in == d_isCharging
-                    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
-                    if(n) {
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
-                        CFRelease(n);
-                    }
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-                }
-            }
-
-        }
-        CFRelease(n0);
-
-        // Set health & confidence
-        _setBatteryHealthConfidence(mutDict, b);
-
-
-        // Set name
-        if(b->name) {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSNameKey), b->name);
-        } else {
-            CFDictionarySetValue(mutDict, CFSTR(kIOPSNameKey), CFSTR("Unnamed"));
-        }
-        ret[i] = mutDict;
+    if (!b) {
+        IOPMBattery **batts = _batteries();
+        b = batts[0];
     }
 
-    return;
+    // Create the battery info dictionary
+    mDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(!mDict)
+        return NULL;
+
+    // Does the battery provide its own time remaining estimate?
+    CFDictionarySetValue(mDict, CFSTR("Battery Provides Time Remaining"), kCFBooleanTrue);
+
+    // Was there an error/failure? Set that.
+    if (b->failureDetected) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSFailureKey), b->failureDetected);
+    }
+
+    // Is there a charging problem?
+    if (b->chargeStatus) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPMPSBatteryChargeStatusKey), b->chargeStatus);
+    }
+
+    // Battery provided serial number
+    if (b->batterySerialNumber) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSHardwareSerialNumberKey), b->batterySerialNumber);
+    }
+
+    // Type = "InternalBattery", and "Transport Type" = "Internal"
+    CFDictionarySetValue(mDict, CFSTR(kIOPSTransportTypeKey), CFSTR(kIOPSInternalType));
+    CFDictionarySetValue(mDict, CFSTR(kIOPSTypeKey), CFSTR(kIOPSInternalBatteryType));
+
+    // Set Power Source State to AC/Battery
+    CFDictionarySetValue(mDict, CFSTR(kIOPSPowerSourceStateKey),
+                            (b->externalConnected ? CFSTR(kIOPSACPowerValue):CFSTR(kIOPSBatteryPowerValue)));
+
+    // round charge and capacity down to a % scale
+    if(0 != b->maxCap)
+    {
+        set_capacity = 100;
+        set_charge = b->swCalculatedPR;
+
+        if( (100 == set_charge) && b->isCharging)
+        {
+            // We will artificially cap the percentage to 99% while charging
+            // Batteries may take 10-20 min beyond 100% of charging to
+            // relearn their absolute maximum capacity. Leave cap at 99%
+            // to indicate we're not done charging. (4482296, 3285870)
+            set_charge = 99;
+        }
+    } else {
+        // Bad battery or bad reading => 0 capacity
+        set_capacity = set_charge = 0;
+    }
+    
+    if (control.noPoll) {
+        // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
+        set_charge = 55;
+    }
+
+    // Set maximum capacity
+    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_capacity);
+    if(n) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSMaxCapacityKey), n);
+        CFRelease(n);
+    }
+
+    // Set current charge
+    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_charge);
+    if(n) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSCurrentCapacityKey), n);
+        CFRelease(n);
+    }
+
+    // Set Amperage
+    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &b->avgAmperage);
+    if(n) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSCurrentKey), n);
+        CFRelease(n);
+    }
+
+    // Set isPresent flag
+    CFDictionarySetValue(mDict, CFSTR(kIOPSIsPresentKey),
+                b->isPresent ? kCFBooleanTrue:kCFBooleanFalse);
+
+    if (control.noPoll) {
+        // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
+        minutes = 355;
+    } else {
+        minutes = b->swCalculatedTR;
+    }
+
+    temp = 0;
+    n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &temp);
+
+    if( !b->isPresent ) {
+        // remaining time calculations only have meaning if the battery is present
+        CFDictionarySetValue(mDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
+        CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+        CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+    } else {
+        // There IS a battery installed.
+        if(b->isCharging) {
+            // Set _isCharging to True
+            CFDictionarySetValue(mDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
+            // Set IsFinishingCharge
+            CFDictionarySetValue(mDict, CFSTR(kIOPSIsFinishingChargeKey),
+                    (b->maxCap && (99 <= (100*b->currentCap/b->maxCap))) ? kCFBooleanTrue:kCFBooleanFalse);
+            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+            if(n) {
+                CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToFullChargeKey), n);
+                CFRelease(n);
+            }
+            CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+        } else {
+            // Not Charging
+            // Set _isCharging to False
+            CFDictionarySetValue(mDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
+            // But are we plugged in?
+            if(b->externalConnected)
+            {
+                // plugged in but not charging == fully charged
+                CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+                CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+
+                CFDictionarySetValue(mDict, CFSTR(kIOPSIsChargedKey),
+                    isFullyCharged(b) ? kCFBooleanTrue:kCFBooleanFalse);
+            } else {
+                // not charging, not plugged in == d_isCharging
+                n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+                if(n) {
+                    CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToEmptyKey), n);
+                    CFRelease(n);
+                }
+                CFDictionarySetValue(mDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+            }
+        }
+
+    }
+    CFRelease(n0);
+
+    // Set health & confidence
+    _setBatteryHealthConfidence(mDict, b);
+
+
+    // Set name
+    if(b->name) {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSNameKey), b->name);
+    } else {
+        CFDictionarySetValue(mDict, CFSTR(kIOPSNameKey), CFSTR("Unnamed"));
+    }
+
+    return mDict;
 }
 
 // _readAndPublicACAdapter
@@ -1154,13 +1495,12 @@ static IOReturn _readAndPublishACAdapter(bool adapterExists, CFDictionaryRef bat
         CFRetain(oldACDict);
     }
 
-    if (success)
+    if (success) {
+        notify_post("com.apple.system.powermanagement.poweradapter");
         ret = kIOReturnSuccess;
-    else
+    } else {
         ret = kIOReturnLockedRead;
-
-    if (success)
-    notify_post("com.apple.system.powermanagement.poweradapter");
+    }
 
 exit:
     if (acDict)
@@ -1176,202 +1516,466 @@ exit:
 /***********************************************************************************/
 
 
-/***********************************************************************************/
-/* copyNewKeyForType
- * Assigns a unique string as the key for the power source type.
- * The name should reflect the power source's type, and should have a unique
- * integer appended to unique it within the system.
- */
-static CFStringRef _copyNewKeyForType(char *type)
-{
-    CFStringRef         scKey = NULL;
-    CFStringRef         typeString = NULL;
-    static const unsigned long long kCounterWrapAround = 100000;
-    static unsigned long long psCounter = 1000;
-
-    typeString = CFStringCreateWithCString(0, type, kCFStringEncodingMacRoman);
-    if (!typeString)
-        return NULL;
-
-    /* Note: There is a small chance of issuing a name that is already in use on the system.
-     * This is only if psCounter exceeds 100,000; which would imply that around 99,000 power sources
-     * were created and destroyed. That's unlikely.
-     */
-
-    if (psCounter > kCounterWrapAround)
-        psCounter = 1000;
-
-    scKey = SCDynamicStoreKeyCreate(
-                            kCFAllocatorDefault,
-                            CFSTR("%@%@/%@-%ld"),
-                            kSCDynamicStoreDomainState,
-                            CFSTR(kIOPSDynamicStorePath),
-                            typeString,
-                            psCounter++);
-
-    CFRelease(typeString);
-    return scKey;
-}
 
 /***********************************************************************************/
-static IOReturn _new_psTracker(PSTracker *new_ps)
+static PSStruct *iops_newps(int pid, int psid)
 {
-    int             i = 0;
-
-    *new_ps = NULL;
-
-    for (i=0; i<kPSMaxTrackedPowerSources; i++)
+    // Find the first empty slot in gPSList
+    for (int i=0; i<kPSMaxCount; i++)
     {
-        if (MACH_PORT_NULL == gPSList[i].connection)
-            break;
+        if (0 == gPSList[i].psid)
+        {
+            bzero(&gPSList[i], sizeof(PSStruct));
+            gPSList[i].pid = pid;
+            gPSList[i].psid = psid;
+            return &gPSList[i];
+        }
     }
 
-    if (i >= kPSMaxTrackedPowerSources) {
-        return kIOReturnNoMemory;
-    }
-
-    *new_ps = &gPSList[i];
-
-    return kIOReturnSuccess;
+    return NULL;
 }
 
-static PSTracker _psTrackerForPort(mach_port_t target_port)
+static PSStruct *iopsFromPSID(int _pid, int _psid)
 {
-    int i;
-
-    for (i=0; i<kPSMaxTrackedPowerSources; i++)
+    for (int i=0; i<kPSMaxCount; i++)
     {
-        if (target_port == gPSList[i].connection)
-            break;
+        if (gPSList[i].psid == _psid
+            && gPSList[i].pid == _pid)
+        {
+            return &gPSList[i];
+        }
     }
 
-    if (i >= kPSMaxTrackedPowerSources) {
-        return NULL;
-    }
-
-    return &gPSList[i];
+    return NULL;
 }
 
 
-
-/***********************************************************************************/
-/*** Destroy an existing power source ***/
-/***********************************************************************************/
-
-__private_extern__ bool BatteryHandleDeadName(mach_port_t deadName)
+__private_extern__ CFDictionaryRef getActiveBatteryDictionary(void)
 {
-    PSTracker                   reap_me = _psTrackerForPort(deadName);
-
-    if (!reap_me) {
-        // Nothing to be done. This is not a battery-tracked port.
-        // Return false to indicate we didn't handle it.
-        return false;
-    }
-
-    if (reap_me->scdsKey)
+    for (int i=0; i<kPSMaxCount; i++)
     {
-        PMStoreRemoveValue(reap_me->scdsKey);
-        CFRelease(reap_me->scdsKey);
+        if (!gPSList[i].description) {
+            continue;
+        }
+
+        CFStringRef transport_type = NULL;
+        transport_type = CFDictionaryGetValue(gPSList[i].description,
+                                              CFSTR(kIOPSTransportTypeKey));
+        if (isA_CFString(transport_type)
+            && ( CFEqual(transport_type, CFSTR(kIOPSInternalType))))
+        {
+            return gPSList[i].description;
+        }
     }
-
-    if (reap_me->connection != MACH_PORT_NULL)
-    {
-        __MACH_PORT_DEBUG(true, "_io_pm_new_pspowersource deadname", reap_me->connection);
-        mach_port_deallocate(mach_task_self(), reap_me->connection);
-    }
-
-    reap_me->scdsKey = NULL;
-    reap_me->connection = MACH_PORT_NULL;
-
-    return true;
+    return NULL;
 }
+
+__private_extern__ CFDictionaryRef getActiveUPSDictionary(void)
+{
+    for (int i=0; i<kPSMaxCount; i++)
+    {
+        if (!gPSList[i].description) {
+            continue;
+        }
+
+        CFStringRef transport_type = NULL;
+        transport_type = CFDictionaryGetValue(gPSList[i].description,
+                                              CFSTR(kIOPSTransportTypeKey));
+        if (isA_CFString(transport_type)
+           && ( CFEqual(transport_type, CFSTR(kIOPSSerialTransportType))
+               || CFEqual(transport_type, CFSTR(kIOPSUSBTransportType))
+               || CFEqual(transport_type, CFSTR(kIOPSNetworkTransportType)) ))
+        {
+            return gPSList[i].description;
+        }
+    }
+    return NULL;
+}
+
+
+
+__private_extern__ int getActivePSType(void)
+{
+    CFDictionaryRef activeBattery = getActiveBatteryDictionary();
+    CFDictionaryRef activeUPS = getActiveUPSDictionary();
+    CFStringRef     ps_state = NULL;
+
+    /* if (!activeBattery) is testing for whether batteries are supported on
+     * this system at all, e.g. mobile vs desktop. */
+    if(!activeBattery)
+    {
+        if(!activeUPS) {
+            // no batteries, no UPS -> AC Power
+            return kIOPSProvidedByAC;
+        } else {
+            ps_state = CFDictionaryGetValue(activeUPS,
+                                            CFSTR(kIOPSPowerSourceStateKey));
+            if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
+            {
+                // no batteries, yes UPS, UPS is running off of AC power -> AC Power
+                return kIOPSProvidedByAC;
+            } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
+            {
+                // no batteries, yes UPS, UPS is running drawing its Battery power -> UPS Power
+                return kIOPSProvidedByExternalBattery;
+            }
+
+        }
+        // Error in the data we were passed
+        return kIOPSProvidedByAC;
+    } else {
+
+        ps_state = CFDictionaryGetValue(activeBattery,
+                                        CFSTR(kIOPSPowerSourceStateKey));
+        if(ps_state && CFEqual(ps_state,
+                               CFSTR(kIOPSBatteryPowerValue)))
+        {
+            // Yes batteries, yes running on battery power -> Battery power
+            return kIOPSProvidedByBattery;
+        }
+        else
+        {
+            // batteries are on AC power. let's check if UPS is present.
+            if (!activeUPS)
+            {
+                // yes batteries on AC power, no UPS present -> AC Power
+                return kIOPSProvidedByAC;
+            } else {
+                ps_state = CFDictionaryGetValue(activeUPS,
+                                                CFSTR(kIOPSPowerSourceStateKey));
+                if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
+                {
+                    // yes batteries on AC power, UPS is on its battery -> UPS Power
+                    return kIOPSProvidedByExternalBattery;
+                } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
+                {
+                    // yes batteries on AC Power, UPS is drawing AC Power -> AC Power
+                    return kIOPSProvidedByAC;
+                }
+            }
+        }
+    }
+
+    // Should not reach this point. Return something safe.
+    return kIOPSProvidedByAC;
+}
+
 
 /***********************************************************************************/
 // MIG handler - back end for IOKit API IOPSCreatePowerSource
-kern_return_t _io_pm_new_pspowersource(
-    mach_port_t                 server,
-    mach_port_t                 clientport,
-    string_t                    clienttype,         // in
-    string_t                    dskey,              // out
+kern_return_t _io_ps_new_pspowersource(
+    mach_port_t                 server __unused,
+    audit_token_t               token,
+    int                         *psid,              // out
     int                         *result)
 {
-    PSTracker                   new_tracker = NULL;
-    static const int            kDSKeyMIGBufferSize = 1024;
-    mach_port_t                 oldNotify;
+    static unsigned int         gPSID = 5000;
+    int                         callerPID;
+    PSStruct                    *ps;
 
-    if (MACH_PORT_NULL == clientport
-        || NULL == clienttype
-        || NULL == result
-        || NULL == dskey)
-    {
-        if (result) *result = kIOReturnBadArgument;
-        goto exit;
-    }
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL,
+                        &callerPID, NULL, NULL);
 
-    if (kIOReturnSuccess != _new_psTracker(&new_tracker))
+    *result = kIOReturnError;
+
+    ps = iops_newps(callerPID, gPSID);
+    if (!ps)
     {
         *result = kIOReturnNoSpace;
         goto exit;
     }
 
-    __MACH_PORT_DEBUG(true, "_io_pm_new_pspowersource client", clientport);
-    new_tracker->connection = clientport;
+    ps->procdeathsrc= dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC,
+                                                callerPID,
+                                                DISPATCH_PROC_EXIT,
+                                                dispatch_get_main_queue());
 
-    mach_port_request_notification(
-                mach_task_self(),           // task
-                clientport,                 // port that will die
-                MACH_NOTIFY_DEAD_NAME,      // msgid
-                1,                          // make-send count
-                CFMachPortGetPort(pmServerMachPort),        // notify port
-                MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
-                &oldNotify);                                // previous
+    /* Setup automatic cleanup if client process dies
+     */
+    dispatch_source_set_cancel_handler(ps->procdeathsrc, ^{
+        /*
+         * When the client process dies, remove
+         * this power source and stop showing it to IOPS API clients.
+         *
+         */
 
-    new_tracker->scdsKey = _copyNewKeyForType(clienttype);
+        if (ps->procdeathsrc) {
+            dispatch_release(ps->procdeathsrc);
+        }
+        if (ps->description) {
+            CFRelease(ps->description);
+        }
+        if (ps->log) {
+            CFRelease(ps->log);
+        }
+        bzero(ps, sizeof(PSStruct));
 
-    if (new_tracker->scdsKey)
-    {
-        // We copy the string directly into the reply mach mesage at the address provided at 'dskey'
-        CFStringGetCString(new_tracker->scdsKey, (void *)dskey,
-                                kDSKeyMIGBufferSize, kCFStringEncodingUTF8);
-    }
+        dispatch_async(dispatch_get_main_queue(), ^()
+                       { HandlePublishAllPowerSources(); });
+    });
 
+    dispatch_source_set_event_handler(ps->procdeathsrc, ^{
+        dispatch_source_cancel(ps->procdeathsrc);
+    });
+
+    dispatch_resume(ps->procdeathsrc);
+
+
+    *psid = gPSID++;
     *result = kIOReturnSuccess;
 
 exit:
-    __MACH_PORT_DEBUG(true, "_io_pm_new_pspowersource client - exit", clientport);
     return KERN_SUCCESS;
 }
 
 /***********************************************************************************/
 // MIG handler - back end for IOKit API IOPSSetPowerSourceDetails
 
-kern_return_t _io_pm_update_pspowersource(
+kern_return_t _io_ps_update_pspowersource(
     mach_port_t         server __unused,
-    string_t            dskey,
+    audit_token_t       token,
+    int                 psid,
     vm_offset_t         details_ptr,
     mach_msg_type_number_t  details_len,
     int                 *return_code)
 {
-    CFStringRef         dskeyCFSTR = NULL;
     CFDictionaryRef     details = NULL;
+    int                 callerPID;
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL,
+                        &callerPID, NULL, NULL);
 
-    dskeyCFSTR = CFStringCreateWithCString(0, dskey, kCFStringEncodingUTF8);
-    if (!dskeyCFSTR)
-        goto exit;
+    syslog(0,0, ASL_LEVEL_ERR, "updating power source id = %d\n", psid);
+
+    *return_code = kIOReturnError;
 
     details = IOCFUnserialize((const char *)details_ptr, NULL, 0, NULL);
-    if (!details)
-        goto exit;
 
-    if (isA_CFDictionary(details)) {
-        PMStoreSetValue(dskeyCFSTR, details);
-        *return_code = kIOReturnSuccess;
+    if (!isA_CFDictionary(details))
+    {
+        *return_code = kIOReturnBadArgument;
+    } else {
+        PSStruct *next = iopsFromPSID(callerPID, psid);
+        if (!next) {
+            *return_code = kIOReturnNotFound;
+        } else {
+            if (next->description) {
+                CFRelease(next->description);
+            }
+            next->description = details;
+            updateLogBuffer(next, false);
+            *return_code = kIOReturnSuccess;
+            dispatch_async(dispatch_get_main_queue(), ^()
+                       { HandlePublishAllPowerSources(); });
+        }
     }
-exit:
-    if (dskeyCFSTR)
-        CFRelease(dskeyCFSTR);
-    if (details)
+
+    if (kIOReturnSuccess != *return_code) {
         CFRelease(details);
+    }
+
+    vm_deallocate(mach_task_self(), details_ptr, details_len);
     return 0;
 }
+
+kern_return_t _io_ps_release_pspowersource(
+    mach_port_t         server __unused,
+    audit_token_t       token,
+    int                 psid)
+{
+    int                         callerPID;
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL,
+                        &callerPID, NULL, NULL);
+
+    syslog(0,0, ASL_LEVEL_ERR, "releasing power source id = %d\n", psid);
+
+    PSStruct *toRelease = iopsFromPSID(callerPID, psid);
+    if (toRelease) {
+        dispatch_source_cancel(toRelease->procdeathsrc);
+    }
+
+    return 0;
+}
+
+kern_return_t _io_ps_copy_powersources_info(
+    mach_port_t            server __unused,
+    vm_offset_t             *ps_ptr,
+    mach_msg_type_number_t  *ps_len,
+    int                     *return_code)
+{
+    CFMutableArrayRef   return_value = NULL;
+
+    for (int i=0; i<kPSMaxCount; i++) {
+        if (gPSList[i].description) {
+            if (!return_value) {
+                return_value = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+            }
+            CFArrayAppendValue(return_value,
+                               (const void *)gPSList[i].description);
+        }
+    }
+
+    if (!return_value) {
+        *ps_ptr = 0;
+        *ps_len = 0;
+    } else {
+        CFDataRef   d = CFPropertyListCreateData(0, return_value,
+                                                 kCFPropertyListBinaryFormat_v1_0,
+                                                 0, NULL);
+        CFRelease(return_value);
+
+        if (d) {
+            *ps_len = CFDataGetLength(d);
+
+            vm_allocate(mach_task_self(), (vm_address_t *)ps_ptr, *ps_len, TRUE);
+
+            memcpy((void *)*ps_ptr, CFDataGetBytePtr(d), *ps_len);
+
+            CFRelease(d);
+        }
+    }
+    *return_code = kIOReturnSuccess;
+
+    return 0;
+}
+
+
+CFArrayRef copyPowerSourceLog(PSStruct *ps, CFAbsoluteTime ts)
+{
+    CFIndex         i, arrCnt;
+    CFDateRef       entry_ts = NULL;
+    CFDateRef       input_ts = NULL;
+
+    CFDictionaryRef         entry = NULL;
+    CFMutableArrayRef       updates = NULL;
+
+
+    arrCnt = CFArrayGetCount(ps->log);
+
+    if (arrCnt == 0)
+        goto exit;
+
+    updates = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (updates == NULL) {
+        goto exit;
+    }
+
+    input_ts = CFDateCreate(NULL, ts);
+    if (input_ts == NULL) {
+        goto exit;
+    }
+
+    if (arrCnt < kBattLogMaxEntries)
+        ps->logIdx = 0;
+
+    i = ps->logIdx; 
+    do { 
+        entry = NULL;
+        if (i < arrCnt)
+            entry = CFArrayGetValueAtIndex(ps->log, i);
+        if (!isA_CFDictionary(entry)) {
+            i = (i+1) % kBattLogMaxEntries;
+            if (i >= arrCnt) i = 0;
+            continue;
+        }
+
+        if (!entry_ts) {
+            entry_ts = CFDictionaryGetValue(entry, CFSTR(kIOPSBattLogEntryTime));
+
+            if ((entry_ts == NULL) || (CFDateCompare(entry_ts, input_ts, NULL) == kCFCompareLessThan)) {
+                i = (i+1) % kBattLogMaxEntries;
+                if (i >= arrCnt) i = 0;
+                entry_ts = NULL;
+                continue;
+            }
+        }
+
+        CFArrayAppendValue(updates, entry);
+        i = (i+1) % kBattLogMaxEntries;
+        if (i >= arrCnt) i = 0;
+
+    } while (i != ps->logIdx);
+
+    CFArrayRemoveAllValues(ps->log);
+    ps->logIdx = 0;
+
+exit:
+
+    if (input_ts)
+        CFRelease(input_ts);
+
+    return updates;
+}
+
+kern_return_t _io_ps_copy_chargelog(
+    mach_port_t             server __unused,
+    audit_token_t           token,
+    double                  ts,
+    vm_offset_t             *updates,
+    mach_msg_type_number_t  *updates_len,
+    int                     *rc)
+{
+    CFDataRef               serializedLog = NULL;
+    CFArrayRef              psLog = NULL;
+    CFStringRef             name = NULL;
+    CFMutableDictionaryRef  logDict = NULL;
+    CFErrorRef              err = NULL;
+
+    *updates = NULL; *updates_len = 0;
+    *rc = kIOReturnNotFound;
+
+    if (!auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging"))) 
+    {
+        *rc = kIOReturnNotPrivileged;
+        goto exit;
+    }
+
+    logDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!logDict)
+        goto exit;
+
+    for (int i=0; i<kPSMaxCount; i++)
+    {
+        if (!gPSList[i].log) {
+            continue;
+        }
+
+        name = CFDictionaryGetValue(gPSList[i].description, CFSTR(kIOPSNameKey));
+        if (!isA_CFString(name)) {
+            continue;
+        }
+
+        psLog = copyPowerSourceLog(&gPSList[i], ts);
+        if (!psLog)
+            continue;
+
+        CFDictionarySetValue(logDict, name, psLog);
+        CFRelease(psLog);
+
+    }
+
+    serializedLog = CFPropertyListCreateData(0, logDict,
+                                             kCFPropertyListBinaryFormat_v1_0, 0, &err);            
+
+    if (!serializedLog)
+        goto exit;
+
+    *updates_len = (mach_msg_type_number_t)CFDataGetLength(serializedLog);
+    vm_allocate(mach_task_self(), (vm_address_t *)updates, *updates_len, TRUE);
+    if (*updates == 0)
+        goto exit;
+
+    memcpy((void *)*updates, CFDataGetBytePtr(serializedLog), *updates_len);
+    *rc = kIOReturnSuccess;
+ 
+
+exit:
+    if (logDict) CFRelease(logDict);
+    if (serializedLog) CFRelease(serializedLog);
+
+    return KERN_SUCCESS;
+
+}
+
+
 

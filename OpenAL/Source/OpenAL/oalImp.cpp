@@ -55,7 +55,7 @@ char*		alExtensions = NULL;
 #define		alcExtensionsDistortion	" ALC_EXT_ASA_DISTORTION"
 #define		alcExtensionsRogerBeep	" ALC_EXT_ASA_ROGER_BEEP"
 
-#define		alExtensionsBase		"AL_EXT_OFFSET AL_EXT_LINEAR_DISTANCE AL_EXT_EXPONENT_DISTANCE AL_EXT_float32 AL_EXT_STATIC_BUFFER AL_EXT_SOURCE_NOTIFICATIONS"
+#define		alExtensionsBase		"AL_EXT_OFFSET AL_EXT_LINEAR_DISTANCE AL_EXT_EXPONENT_DISTANCE AL_EXT_float32 AL_EXT_STATIC_BUFFER AL_EXT_SOURCE_NOTIFICATIONS AL_EXT_SOURCE_SPATIALIZATION"
 
 // ~~~~~~~~~~~~~~~~~~~~~~
 // VERSION
@@ -252,7 +252,6 @@ ALdouble	GetMixerOutputRate()
 			}
 			else
 			{
-				returnValue	= 0.0;
 				throw (AL_INVALID_OPERATION);
 			}
 		}
@@ -1015,8 +1014,11 @@ ALC_API ALCboolean  ALC_APIENTRY alcMakeContextCurrent(ALCcontext *context)
 			// Changing Current Context to NULL
 			gCurrentDevice = 0;
 			gCurrentContext = 0;
-
-			currentContext->DisconnectMixerFromDevice();
+            
+            if (currentContext)
+            {
+                currentContext->DisconnectMixerFromDevice();
+            }
 		}
 		else
 		{
@@ -1080,7 +1082,7 @@ ALC_API ALCcontext* ALC_APIENTRY alcGetCurrentContext(void)
 // find out what device the context uses
 ALC_API ALCdevice*  ALC_APIENTRY alcGetContextsDevice(ALCcontext *context)
 {
-	UInt32	returnValue = 0;
+	uintptr_t	returnValue = 0;
 
 #if LOG_API_USAGE
 	DebugMessageN1("alcGetContextsDevice--> context = %ld", (long int) context);
@@ -4504,6 +4506,17 @@ AL_API void*	AL_APIENTRY alGetProcAddress( const ALchar* fname )
 		if (strcmp("alcASAGetListener", (const char *)fname) == 0) { return (void*) alcASAGetListener; }
 		if (strcmp("alcASASetSource", (const char *)fname) == 0) { return (void*) alcASASetSource; }
 		if (strcmp("alcASAGetSource", (const char *)fname) == 0) { return (void*) alcASAGetSource; }
+        
+        // Source Spatialization Extension
+        if (strcmp("alSourceRenderingQuality", (const char *)fname) == 0) { return (void*) alSourceRenderingQuality; }
+        if (strcmp("alSourceGetRenderingQuality", (const char *)fname) == 0) { return (void*) alSourceGetRenderingQuality; }
+        
+        // Output Capturer Extension
+        if (strcmp("alcOutputCapturerPrepare", (const char *)fname) == 0) { return (void*) alcOutputCapturerPrepare; }
+        if (strcmp("alcOutputCapturerStart", (const char *)fname) == 0) { return (void*) alcOutputCapturerStart; }
+        if (strcmp("alcOutputCapturerStop", (const char *)fname) == 0) { return (void*) alcOutputCapturerStop; }
+        if (strcmp("alcOutputCapturerAvailableSamples", (const char *)fname) == 0) { return (void*) alcOutputCapturerAvailableSamples; }
+        if (strcmp("alcOutputCapturerSamples", (const char *)fname) == 0) { return (void*) alcOutputCapturerSamples; }
 		
 	}
 
@@ -4727,6 +4740,39 @@ AL_API ALvoid	AL_APIENTRY	alBufferDataStatic (ALint bid, ALenum format, const AL
 	}
 	
 	ReleaseBufferObject(oalBuffer);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// AL_EXT_SOURCE_SPATIALIZATION
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#pragma mark ***** Source Spatialization Ext*****
+AL_API ALvoid alSourceRenderingQuality (ALuint sid, ALint value)
+{
+#if LOG_API_USAGE
+	DebugMessageN1("alSourceRenderingQuality--> value = %ld", (long int) value);
+#endif
+    
+	OALSource	*oalSource = ProtectSourceObjectInCurrentContext(sid);
+    if (oalSource)
+        oalSource->SetRenderQuality(value);
+    
+	ReleaseSourceObject(oalSource);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+AL_API ALint alSourceGetRenderingQuality (ALuint sid)
+{
+#if LOG_API_USAGE
+	DebugMessage("alSourceGetRenderingQuality-->");
+#endif
+    
+    ALint		outData = 0;
+	OALSource	*oalSource = ProtectSourceObjectInCurrentContext(sid);
+    if (oalSource)
+        outData = oalSource->GetRenderQuality();
+    
+	ReleaseSourceObject(oalSource);
+    return outData;
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5406,6 +5452,145 @@ AL_API ALvoid AL_APIENTRY alDeleteEnvironmentIASIG (ALsizei n, ALuint *environme
 	DebugMessage("***** alDeleteEnvironmentIASIG");
 #endif
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Output Capturer Extension
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALC_API ALvoid  alcOutputCapturerPrepare( ALCuint inFrequency, ALCenum inFormat, ALCsizei inBuffersize )
+{
+	if (gOALContextMap == NULL)
+		goto fail;
+	
+	{
+        OSStatus result = noErr;
+		OALContext* context = ProtectContextObject((uintptr_t) gCurrentContext);
+        if (context)
+        {
+            result = context->OutputCapturerCreate(inFrequency, inFormat, inBuffersize);
+        }
+        else
+        {
+            result = -1;  //context doesn't exist
+        }
+        ReleaseContextObject(context);
+        if (result) goto fail;
+	}
+    return;
+    
+fail:
+	SetDeviceError(gCurrentDevice, AL_INVALID_OPERATION);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALC_API ALvoid  alcOutputCapturerStart()
+{
+	if (gOALContextMap == NULL)
+		goto fail;
+	
+	{
+        OSStatus result = noErr;
+		OALContext* context = ProtectContextObject((uintptr_t) gCurrentContext);
+        if (context)
+        {
+            result = context->OutputCapturerStart();
+        }
+        else
+        {
+            result = -1;  //context doesn't exist
+        }
+        ReleaseContextObject(context);
+        if (result) goto fail;
+	}
+    return;
+    
+fail:
+	SetDeviceError(gCurrentDevice, AL_INVALID_OPERATION);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALC_API ALvoid  alcOutputCapturerStop()
+{
+	if (gOALContextMap == NULL)
+		goto fail;
+	
+	{
+        OSStatus result = noErr;
+		OALContext* context = ProtectContextObject((uintptr_t) gCurrentContext);
+        if (context)
+        {
+            result = context->OutputCapturerStop();
+        }
+        else
+        {
+            result = -1;  //context doesn't exist
+        }
+        ReleaseContextObject(context);
+        if (result) goto fail;
+	}
+    return;
+    
+fail:
+	SetDeviceError(gCurrentDevice, AL_INVALID_OPERATION);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALC_API ALint   alcOutputCapturerAvailableSamples()
+{
+    ALint numAvailableSamples = 0;
+	if (gOALContextMap == NULL)
+		goto fail;
+	
+	{
+        OSStatus result = noErr;
+		OALContext* context = ProtectContextObject((uintptr_t) gCurrentContext);
+        if (context)
+        {
+            numAvailableSamples = (ALint) context->OutputCapturerAvailableFrames();
+        }
+        else
+        {
+            result = -1;  //context doesn't exist
+        }
+        ReleaseContextObject(context);
+        if (result) goto fail;
+	}
+    
+    return numAvailableSamples;
+    
+fail:
+	SetDeviceError(gCurrentDevice, AL_INVALID_OPERATION);
+    return 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALC_API ALvoid  alcOutputCapturerSamples( ALCvoid *inBuffer, ALCsizei inSamples )
+{
+	if (gOALContextMap == NULL)
+		goto fail;
+	
+	{
+        OSStatus result = noErr;
+		OALContext* context = ProtectContextObject((uintptr_t) gCurrentContext);
+        if (context)
+        {
+            result = context->OutputCapturerGetFrames(inSamples, (UInt8*) inBuffer);
+        }
+        else
+        {
+            result = -1;  //context doesn't exist
+        }
+        ReleaseContextObject(context);
+        if (result) goto fail;
+	}
+    return;
+    
+fail:
+	SetDeviceError(gCurrentDevice, AL_INVALID_OPERATION);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

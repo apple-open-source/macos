@@ -1,5 +1,5 @@
 /*
- * "$Id: policy.c 11693 2014-03-11 01:24:45Z msweet $"
+ * "$Id: policy.c 11742 2014-03-26 21:14:15Z msweet $"
  *
  * Policy routines for the CUPS scheduler.
  *
@@ -277,7 +277,7 @@ cupsdGetPrivateAttrs(
   cupsdLogMessage(CUPSD_LOG_DEBUG2,
                   "cupsdGetPrivateAttrs(policy=%p(%s), con=%p(%d), "
 		  "printer=%p(%s), owner=\"%s\")", policy, policy->name, con,
-		  con->http.fd, printer, printer ? printer->name : "", owner);
+		  con->number, printer, printer ? printer->name : "", owner);
 #endif /* DEBUG */
 
   if (!policy)
@@ -503,5 +503,5 @@ hash_op(cupsd_location_t *op)		/* I - Operation */
 
 
 /*
- * End of "$Id: policy.c 11693 2014-03-11 01:24:45Z msweet $".
+ * End of "$Id: policy.c 11742 2014-03-26 21:14:15Z msweet $".
  */

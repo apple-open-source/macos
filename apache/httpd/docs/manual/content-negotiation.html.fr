@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p>
-<p class="apache">Serveur Apache HTTP Version 2.2</p>
+<p class="apache">Serveur Apache HTTP Version 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Négociation de contenu</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Négociation de contenu</h1>
 <div class="toplang">
 <p><span>Langues Disponibles: </span><a href="./en/content-negotiation.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/content-negotiation.html" title="Français">&nbsp;fr&nbsp;</a> |
@@ -29,7 +29,8 @@
 </div>
 
 
-    <p>Apache supporte la négociation de contenu telle qu'elle est décrite
+    <p>Apache HTTPD supporte la négociation de
+    contenu telle qu'elle est décrite
     dans la spécification HTTP/1.1. Il peut choisir la meilleure représentation
     d'une ressource en fonction des préférences du navigateur pour ce qui
     concerne le type de media, les langages, le jeu de caractères et son
@@ -42,7 +43,7 @@
     dans le serveur.</p>
 </div>
 <div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#about">À propos de la négociation de contenu</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#negotiation">La négociation avec Apache</a></li>
+<li><img alt="" src="./images/down.gif" /> <a href="#negotiation">La négociation avec httpd</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#methods">Les méthodes de négociation</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#better">Ajustement des valeurs de qualité</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#extensions">Extensions à la négociation de contenu
@@ -78,7 +79,7 @@ conventions de nommage</a></li>
     <p>À titre d'exemple d'une requête plus complexe, ce navigateur a été
     configuré pour accepter le français et l'anglais, avec une préférence pour
     le français, et accepter différents types de média, avec une préférence
-    pour HTML par rapport au texte plat (plain text) ou autres types de fichiers texte, et
+    pour HTML par rapport à au texte plat ("plain text") ou autres types de fichiers texte, et
     avec une préférence pour GIF ou JPEG par rapport à tout autre type de
     média, mais autorisant tout autre type de média en dernier ressort :</p>
 
@@ -87,19 +88,20 @@ conventions de nommage</a></li>
   Accept: text/html; q=1.0, text/*; q=0.8, image/gif; q=0.6, image/jpeg; q=0.6, image/*; q=0.5, */*; q=0.1
 </code></p></div>
 
-    <p>Apache supporte la négociation de contenu "server driven" (telle qu'elle
+    <p>httpd supporte la négociation de contenu "server driven" (telle qu'elle
     est définie dans la spécification HTTP/1.1), où c'est le serveur qui
     décide quelle est la meilleure représentation à retourner pour la ressource
     demandée. Il supporte entièrement les en-têtes de requête
     <code>Accept</code>, <code>Accept-Language</code>,
     <code>Accept-Charset</code> et <code>Accept-Encoding</code>.
-    Apache supporte aussi la négociation de contenu transparente, qui est un
+    httpd supporte aussi la négociation de contenu transparente, qui est un
     protocole de négociation expérimental défini dans les RFC 2295 et 2296.
     Il ne supporte pas la négociation de fonctionnalité (feature negotiation)
     telle qu'elle est définie dans ces RFCs.</p>
 
     <p>Une <strong>ressource</strong> est une entité conceptuelle identifiée
-    par une URI (RFC 2396). Un serveur HTTP comme Apache propose l'accès à des
+    par une URI (RFC 2396). Un serveur HTTP comme le serveur HTTP Apache
+    propose l'accès à des
     <strong>représentations</strong> de la ressource à l'intérieur de son
     espace de nommage, chaque représentation étant composée d'une séquence
     d'octets avec la définition d'un type de media, d'un jeu de caractères,
@@ -112,14 +114,14 @@ conventions de nommage</a></li>
     <strong>dimensions</strong> de la négociation.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="negotiation" id="negotiation">La négociation avec Apache</a></h2>
+<h2><a name="negotiation" id="negotiation">La négociation avec httpd</a></h2>
 
     <p>Afin de négocier une ressource, on doit fournir au serveur des
     informations à propos de chacune des variantes. Il y a deux manières
     d'accomplir ceci :</p>
 
     <ul>
-      <li>Utiliser une liste de correspondances de types ("type-map") (<em>c'est à dire</em>
+      <li>Utiliser une liste de correspondances de type ("type-map") (<em>c'est à dire</em>
       un fichier <code>*.var</code>) qui nomme explicitement les fichiers
       contenant les variantes, ou</li>
 
@@ -133,28 +135,40 @@ conventions de nommage</a></li>
 
     <p>Une liste de correspondances de types est un document associé au
     gestionnaire <code>type-map</code> (ou, dans un souci de compatibilité
-    ascendante avec des configurations d'Apache plus anciennes, le
+    ascendante avec des configurations de httpd plus anciennes, le
     <a class="glossarylink" href="./glossary.html#type mime" title="voir glossaire">type MIME</a>
     <code>application/x-type-map</code>). Notez que pour utiliser cette
     fonctionnalité, vous devez, dans le fichier de configuration, définir un
     gestionnaire qui associe un suffixe de fichier à une <code>type-map</code>;
     ce qui se fait simplement en ajoutant</p>
 
-<div class="example"><p><code>AddHandler type-map .var</code></p></div>
+<pre class="prettyprint lang-config">AddHandler type-map .var</pre>
+
 
     <p>dans le fichier de configuration du serveur.</p>
 
     <p>Les fichiers de correspondances de types doivent posséder le même nom que
-    la ressource qu'ils décrivent, et comporter une entrée pour chaque variante
+    la ressource qu'ils décrivent, avec pour extension
+    <code>.var</code>. Dans l'exemple ci-dessous, la ressource a pour
+    nom <code>foo</code>, et le fichier de correspondances se nomme donc
+    <code>foo.var</code>.</p>
+
+    <p>Ce fichier doit comporter une entrée pour chaque variante
     disponible; chaque entrée consiste en une ligne contiguë d'en-têtes au
     format HTTP. les entrées sont séparées par des lignes vides. Les lignes
     vides à l'intérieur d'une entrée sont interdites. Par convention, le
-    fichier de correspondances débute par une entrée concernant l'entité
+    fichier de correspondances de types débute par une entrée concernant l'entité
     considérée dans son ensemble (bien que ce ne soit pas obligatoire, et
-    ignoré si présent). Un exemple de fichier de correspondance est fourni
-    ci-dessous.
-    Ce fichier doit être nommé <code>foo.var</code>, car il décrit une
-    ressource nommée <code>foo</code>.</p>
+    ignoré si présent). Un exemple de fichier de
+    correspondance de types est fourni
+    ci-dessous.</p>
+
+    <p>Les URIs de ce fichier sont relatifs à la localisation du fichier
+    de correspondances de types. En général, ces fichiers se trouveront dans le
+    même répertoire que le fichier de correspondances de types, mais ce
+    n'est pas obligatoire. Vous pouvez utiliser des URIs absolus ou
+    relatifs pour tout fichier situé sur le même serveur que le fichier
+    de correspondances.</p>
 
 <div class="example"><p><code>
   URI: foo<br />
@@ -167,6 +181,7 @@ conventions de nommage</a></li>
   Content-type: text/html;charset=iso-8859-2<br />
   Content-language: fr, de<br />
 </code></p></div>
+
     <p>Notez aussi qu'un fichier de correspondances de types prend le pas sur
     les extensions de noms de fichiers, même si les Multivues sont activées.
     Si les variantes sont de qualités différentes, on doit l'indiquer
@@ -200,8 +215,8 @@ conventions de nommage</a></li>
     variante en fonction de la nature de la ressource qu'elle représente.</p>
 
     <p>La liste complète des en-têtes reconnus est disponible dans la
-    documentation de la directive <a href="mod/mod_negotiation.html#typemaps">
-    typemap</a> (module mod_negotiation).</p>
+    documentation sur les <a href="mod/mod_negotiation.html#typemaps">correspondances de types du
+    module mod_negotiation</a>.</p>
 
 
 <h3><a name="multiviews" id="multiviews">Multivues (option Multiviews)</a></h3>
@@ -221,8 +236,8 @@ conventions de nommage</a></li>
     <code>MultiViews</code> est activée pour
     <code>/tel/répertoire</code>, et si
     <code>/tel/répertoire/foo</code> n'existe <em>pas</em>, le serveur parcourt
-    le répertoire à la recherche de fichiers nommés foo.*, et génère
-    une correspondance de types (type map) qui liste tous ces
+    le répertoire à la recherche de fichiers nommés foo.*, et simule
+    littéralement une correspondance de types (type map) qui liste tous ces
     fichiers, en leur associant les mêmes types de média et encodages de
     contenu qu'ils auraient eu si le client avait demandé l'accès à l'un
     d'entre eux par son nom. Il choisit ensuite ce qui correspond le mieux
@@ -231,7 +246,8 @@ conventions de nommage</a></li>
     <p><code>MultiViews</code> peut aussi s'appliquer à la recherche du fichier
     nommé par la directive <code class="directive"><a href="./mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>, si le serveur tente d'indexer
     un répertoire. Si les fichiers de configuration spécifient</p>
-<div class="example"><p><code>DirectoryIndex index</code></p></div>
+<pre class="prettyprint lang-config">DirectoryIndex index</pre>
+
     <p>le serveur va choisir entre <code>index.html</code>
     et <code>index.html3</code> si les deux fichiers sont présents. Si aucun
     n'est présent, mais <code>index.cgi</code> existe,
@@ -250,12 +266,12 @@ conventions de nommage</a></li>
 <h2><a name="methods" id="methods">Les méthodes de négociation</a></h2>
 
     <p>Une fois obtenue la liste des variantes pour une ressource donnée,
-    Apache dispose de deux méthodes pour choisir la meilleure variante à
+    httpd dispose de deux méthodes pour choisir la meilleure variante à
     retourner, s'il y a lieu, soit à partir d'un fichier de
     correspondances de types, soit en se basant sur les noms de fichiers du
     répertoire. Il n'est pas nécessaire de connaître en détails comment la
     négociation fonctionne réellement pour pouvoir utiliser les fonctionnalités
-    de négociation de contenu d'Apache. La suite de ce document explique
+    de négociation de contenu de httpd. La suite de ce document explique
     cependant les méthodes utilisées pour ceux ou celles qui sont
     intéressés(ées). </p>
 
@@ -263,11 +279,12 @@ conventions de nommage</a></li>
 
     <ol>
       <li><strong>La négociation effectuée par le serveur selon l'algorithme
-      d'Apache</strong> est normalement utilisée. l'algorithme d'Apache est
+      de httpd</strong> est normalement utilisée. l'algorithme de
+      httpd est
       expliqué plus en détails ci-dessous. Quand cet algorithme est utilisé,
-      Apache peut parfois "bricoler" le facteur de qualité (qs) d'une dimension
+      httpd peut parfois "bricoler" le facteur de qualité (qs) d'une dimension
       particulière afin d'obtenir un meilleur résultat.
-      La manière dont Apache peut modifier les facteurs de qualité est
+      La manière dont httpd peut modifier les facteurs de qualité est
       expliquée plus en détails ci-dessous.</li>
 
       <li><strong>La négociation de contenu transparente</strong> est utilisée
@@ -276,7 +293,7 @@ conventions de nommage</a></li>
       contrôle total du choix de la meilleure variante; le résultat dépend
       cependant de la spécificité des algorithmes utilisés par le navigateur.
       Au cours du processus de négociation transparente, le navigateur peut
-      demander à Apache d'exécuter l'"algorithme de sélection de variante à
+      demander à httpd d'exécuter l'"algorithme de sélection de variante à
       distance" défini dans la RFC 2296.</li>
     </ol>
 
@@ -303,7 +320,7 @@ conventions de nommage</a></li>
         <td>Langage</td>
 
         <td>Le navigateur affiche ses préférences à l'aide du champ d'en-tête
-        <code>Accept-Language</code>. Chaque langue peut se voir associée un facteur de
+        <code>Accept-Language</code>. Chaque langue peut se voir associé un facteur de
 	qualité. Les variantes peuvent être associées avec zéro, un ou
 	plusieurs langages.</td>
       </tr>
@@ -320,16 +337,17 @@ conventions de nommage</a></li>
         <td>Charset</td>
 
         <td>Le navigateur affiche ses préférences à l'aide du champ d'en-tête
-        <code>Accept-Charset</code>. Chaque jeu de caractères peut se voir associé un facteur de
+        <code>Accept-Charset</code>. Chaque jeu de caractère peut se voir associé un facteur de
 	qualité. Les variantes peuvent préciser un jeu de caractères comme
 	paramètre du type de média.</td>
       </tr>
     </table>
 
 
-<h3><a name="algorithm" id="algorithm">L'algorithme de négociation d'Apache</a></h3>
+<h3><a name="algorithm" id="algorithm">L'algorithme de négociation de
+httpd</a></h3>
 
-    <p>Apache peut utiliser l'algorithme suivant pour choisir la "meilleure"
+    <p>httpd peut utiliser l'algorithme suivant pour choisir la "meilleure"
     variante (s'il y en a une) à retourner au navigateur. Cet algorithme n'est pas
     configurable. Il fonctionne comme suit :</p>
 
@@ -401,10 +419,10 @@ conventions de nommage</a></li>
       L'en-tête HTTP <code>Vary</code> de la réponse est renseigné de façon à
       indiquer les dimensions de la négociation (les navigateurs et les caches
       peuvent utiliser cette information lors de la mise en cache de la
-      ressource). Travail terminé.</li>
+      ressource).  Travail terminé.</li>
 
       <li>Le passage par cette étape signifie qu'aucune variante n'a été
-      sélectionnée (parce qu'aucune n'est acceptable pour le client HTTP).
+      sélectionnée (parcequ'aucune n'est acceptable pour le navigateur).
       Envoyer une réponse avec un code de statut 406 (qui signifie "Aucune
       représentation acceptable") et un corps comportant un document HTML qui
       affiche les variantes disponibles. Renseigner aussi l'en-tête HTTP
@@ -415,9 +433,9 @@ conventions de nommage</a></li>
 <div class="section">
 <h2><a name="better" id="better">Ajustement des valeurs de qualité</a></h2>
 
-    <p>Parfois Apache modifie les valeurs de qualité par rapport à celles qui
+    <p>Parfois httpd modifie les valeurs de qualité par rapport à celles qui
     découleraient d'une stricte interprétation de l'algorithme de négociation
-    d'Apache ci-dessus, ceci pour améliorer les résultats de l'algorithme pour
+    de httpd ci-dessus, ceci pour améliorer les résultats de l'algorithme pour
     les navigateurs qui envoient des informations incomplètes ou inappropriées.
     Certains des navigateurs les plus populaires envoient des informations dans
     l'en-tête <code>Accept</code> qui, sans ce traitement, provoqueraient la
@@ -459,7 +477,7 @@ conventions de nommage</a></li>
     listé.</p>
 
     <p>Si l'en-tête <code>Accept:</code> ne contient <em>pas</em> aucun
-    facteur de qualité, Apache positionne la valeur de qualité de
+    facteur de qualité, httpd positionne la valeur de qualité de
     "*/*", si present, à 0.01 pour simuler l'effet désiré. Il positionne aussi
     la valeur de qualité des types avec caractères génériques au format
     "type/*" à 0.02 (ils sont donc préférés à ceux correspondant à "*/*"). Si
@@ -472,7 +490,7 @@ conventions de nommage</a></li>
 <h3><a name="exceptions" id="exceptions">Exceptions dans la négociation du
 langage</a></h3>
 
-    <p>A partir de la version 2.0 d'Apache, certaines exceptions ont été
+    <p>A partir de la version 2.0 de httpd, certaines exceptions ont été
     ajoutées à l'algorithme de négociation afin de ménager une issue de secours
     quand la négociation ne trouve aucun langage correspondant.</p>
 
@@ -481,7 +499,7 @@ langage</a></h3>
     <code>Accept-language</code> envoyé par le navigateur, il enverra au client
     une réponse "Aucune variante acceptable" ou "Plusieurs choix possibles".
     Pour éviter ces
-    messages d'erreur, il est possible de configurer Apache de façon à ce que,
+    messages d'erreur, il est possible de configurer httpd de façon à ce que,
     dans ces cas, il ignore l'en-tête <code>Accept-language</code> et fournisse
     tout de même un document, même s'il ne correspond pas exactement à la
     demande explicite du client. La directive <code class="directive"><a href="./mod/mod_negotiation.html#forcelanguagepriority">ForceLanguagePriority</a></code>
@@ -505,7 +523,7 @@ langage</a></h3>
     acceptable" ou de choisir le langage défini par la directive <code class="directive"><a href="./mod/mod_negotiation.html#languagepriority">LanguagePriority</a></code>, le serveur ignorera
     la spécification du sous-ensemble de langage et associera la demande en
     <code>en-GB</code> à des documents en <code>en</code>.  Implicitement,
-    Apache ajoute le langage parent à la liste de langues acceptées par le
+    httpd ajoute le langage parent à la liste de langues acceptés par le
     client avec une valeur de qualité très basse. Notez cependant que si le
     client demande "en-GB; q=0.9, fr; q=0.8", et le serveur dispose de
     documents estampillés "en" et "fr", alors c'est le document "fr" qui sera
@@ -518,22 +536,21 @@ langage</a></h3>
     module <code class="module"><a href="./mod/mod_negotiation.html">mod_negotiation</a></code> reconnaît la
     <a href="env.html">variable d'environnement</a>
     <code>prefer-language</code>
-    depuis la version 2.0.47 d'Apache. Si elle est définie et contient un
+    depuis la version 2.0.47 de httpd. Si elle est définie et contient un
     symbole de langage approprié, <code class="module"><a href="./mod/mod_negotiation.html">mod_negotiation</a></code> va essayer
     de sélectionner une variante correspondante. S'il n'existe pas de telle
     variante, le processus normal de négociation sera lancé.</p>
 
-    <div class="example"><h3>Exemple</h3><p><code>
-      SetEnvIf Cookie "language=(.+)" prefer-language=$1
-      Header append Vary cookie
-    </code></p></div>
+    <div class="example"><h3>Exemple</h3><pre class="prettyprint lang-config">SetEnvIf Cookie "language=(.+)" prefer-language=$1
+Header append Vary cookie</pre>
+</div>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="extensions" id="extensions">Extensions à la négociation de contenu
 transparente</a></h2>
 
-<p>Apache étend le protocole de négociation de contenu transparente (RFC
+<p>httpd étend le protocole de négociation de contenu transparente (RFC
 2295) comme suit. Un nouvel élément <code>{encodage ..}</code> est utilisé dans
 les listes de variantes pour marquer celles qui ne sont disponibles qu'avec un
 encodage de contenu spécifique. L'implémentation de l'algorithme
@@ -665,9 +682,10 @@ conventions de nommage</a></h2>
     la représentation stockée. Cependant, si la ressource est négociable au
     niveau du serveur, il se peut que seule la première variante demandée soit
     mise en cache et de ce fait, la correspondance positive du cache peut
-    entraîner une réponse inappropriée. Pour éviter ceci, Apache marque par
+    entraîner une réponse inappropriée. Pour
+    éviter ceci, httpd marque par
     défaut toutes les réponses qui sont retournées après une négociation de
-    contenu comme "non-cachables" par les clients HTTP/1.0. Apache supporte
+    contenu comme "non-cachables" par les clients HTTP/1.0. httpd supporte
     aussi les fonctionnalités du protocole HTTP/1.1 afin de permettre la mise
     en cache des réponses négociées.</p>
 
@@ -678,7 +696,7 @@ conventions de nommage</a></h2>
     niveau du serveur ou de l'hôte virtuel, et n'accepte aucun argument. Elle
     n'a aucun effet sur les requêtes en provenance de clients HTTP/1.1.</p>
 
-    <p>Pour les clients HTTP/1.1, Apache envoie un en-tête de réponse HTTP
+    <p>Pour les clients HTTP/1.1, httpd envoie un en-tête de réponse HTTP
     <code>Vary</code> afin d'indiquer les dimensions de la négociation pour
     cette réponse. Les caches peuvent
     utiliser cette information afin de déterminer
@@ -698,7 +716,7 @@ conventions de nommage</a></h2>
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/content-negotiation.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/content-negotiation.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -713,7 +731,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/content-negotiation.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

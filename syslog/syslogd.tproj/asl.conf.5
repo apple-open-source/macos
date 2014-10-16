@@ -1,4 +1,4 @@
-.\"Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+.\"Copyright (c) 2004-2013 Apple Inc. All rights reserved.
 .\"
 .\"@APPLE_LICENSE_HEADER_START@
 .\"
@@ -49,8 +49,8 @@ Modules may be enabled or disabled independently.
 Each module may specify its own set of rules for acting on received messages.
 See the ASL MODULES section for details.
 .Pp
-The files contains four types of lines.
-Each type is identified by the first non-whitespace character.
+The files contain several types of lines, described below.
+Each type is identified by the first non-whitespace character in the line.
 .Pp
 .Bl -tag -width "=" -compact
 .It =
@@ -92,7 +92,7 @@ These lines generally have the form:
 .Pp
 See the OUTPUT CONFIGURATION SETTINGS section for details.
 .Pp
-Comments lines are ignored.
+Comment lines are ignored.
 .Ss PARAMETER SETTINGS
 The following parameter-settings are recognized by
 .Nm syslogd .
@@ -262,6 +262,12 @@ operator is useful to test for the presence of a particular key.
 Will match any message that has a
 .Dq Flavor
 key, regardless of its value.
+.Pp
+Note that space characters and closing square bracket characters (']') are specially processed.
+The first space character following the beginning of a key delimits the key.
+The first closing square bracket following the beginning of a value delimits the value.
+So '[= foo bar\ ]'
+will match messages which have a key 'foo' with the value 'bar ', including a trailing space character.
 .Pp
 As a special case, the query
 .Pp
@@ -569,7 +575,7 @@ If files are created in different timezones but saved with a non-absolute timest
 the age calculation may result in some files being considered older or newer than they are in reality.
 .Pp
 Also note that sequenced files (using the
-.Dq sec
+.Dq seq
 style) will initially be checkpointed using a file name containing a timestamp in seconds.
 .Nm aslmanager
 will re-sequence the files when it scans for checkpoint files.
@@ -727,7 +733,7 @@ library if the
 option has been given.
 If the total size of all the rotated versions of the file exceeds a value given in an 
 .Dq all_max
-option, older version of the rotated file will be deleted to keep the total below the specified limit.
+option, older versions of the rotated file will be deleted to keep the total below the specified limit.
 .Pp
 Although checkpoint and file rotation operations are normally done automatically,
 .Nm aslmanager
@@ -744,6 +750,33 @@ See the
 and
 .Xr syslog 1
 manuals for details.
+.Pp
+Programmatically, an
+.Xr asl 3
+message may be sent to syslogd to force it to checkpoint either a single file,
+or to checkpoint all files for a particular ASL module.
+To checkpoint all files:
+.Pp
+    const char *module_name;
+.Pp
+    //TODO: set module_name
+    asl_object_t ctl = asl_new(ASL_TYPE_MSG);
+    asl_set(ctl, ASL_KEY_OPTION, "control");
+    asl_log(NULL, ctl, ASL_LEVEL_NOTICE, "@ %s checkpoint", module_name);
+    asl_release(ctl);
+.Pp
+To checkpoint just one file:
+.Pp
+    const char *module_name;
+    const char *file_name;
+.Pp
+    //TODO: set module_name
+    //TODO: set file_name
+    asl_object_t ctl = asl_new(ASL_TYPE_MSG);
+    asl_set(ctl, ASL_KEY_OPTION, "control");
+    asl_log(NULL, ctl, ASL_LEVEL_NOTICE, "@ %s checkpoint %s", module_name, file_name);
+    asl_release(ctl);
+.Pp
 .Ss ASL OUTPUT MODULES
 .Pp
 An ASL output module is created by a configuration file in the directory /etc/asl.
@@ -751,7 +784,7 @@ The file name is used as the module's name.
 The format of the file is generally the same as
 .Nm asl.conf 
 with a few exceptions.
-Mdules may not have parameter setting lines for the system parameters listed in the
+Modules may not have parameter setting lines for the system parameters listed in the
 PARAMETER SETTINGS or ASLMANAGER PARAMETER SETTINGS sections,
 nor may they include
 .Dq broadcast
@@ -837,15 +870,17 @@ may enable or disable modules.
 .Pp
 A module may be enabled or disabled by sending an
 .Xr asl 3
-message as shown in this example, which enables a module named
-.Dq com.apple.example :
+message as shown in this example:
 .Pp
-    #include <asl.h>
-    aslmsg ctl = asl_new(ASL_TYPE_MSG);
+    int enable;
+    const char *module_name;
+.Pp
+    //TODO: set module_name
+    //TODO: set enable to 0 or 1
+    asl_object_t ctl = asl_new(ASL_TYPE_MSG);
     asl_set(ctl, ASL_KEY_OPTION, "control");
-    asl_set(ctl, ASL_KEY_MSG, "@ com.apple.example enable 1");
-    asl_send(NULL, ctl);
-    asl_free(ctl);
+    asl_log(NULL, ctl, ASL_LEVEL_NOTICE, "@ %s enable %d", module_name, enable);
+    asl_release(ctl);
 .Pp
 A control message may also be sent using
 .Nm syslog
@@ -883,7 +918,7 @@ The debug parameter requires a value of
 to enable debug output, or a value of 
 .Dq 0
 to disable it.
-Debug messages saved in an auxiliary file attached to an ASL log message.
+Debug messages are saved in an auxiliary file attached to an ASL log message.
 The file may be inspected by opening the file attachement from the Console utility.
 .Pp
 .It store_ttl
@@ -901,7 +936,7 @@ The archive parameter requires a value of
 to enable archiving, or a value of
 .Dq 0
 to disable it.
-An option archive directory path may follow the
+An optional archive directory path may follow the
 .Dq 0
 or
 .Dq 1 .

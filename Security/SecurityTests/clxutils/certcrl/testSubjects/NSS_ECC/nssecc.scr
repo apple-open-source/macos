@@ -1,0 +1,41 @@
+#
+# Verification of ECC certs created by NSS
+#
+globals
+allowUnverified = true
+end
+
+###
+### certs created by NSS
+### obtained from http://dev.experimentalstuff.com:8082/NSS_ECC_Certs.zip
+###
+test = "ECCCA.cer root"
+cert = ECCCA.cer
+root = ECCCA.cer
+verifyTime = 20060303001200
+end
+
+test = "ECCp192.cer"
+cert = ECCp192.cer
+root = ECCCA.cer
+verifyTime = 20060303001200
+end
+
+test = "ECCp256.cer"
+cert = ECCp256.cer
+root = ECCCA.cer
+verifyTime = 20060303001200
+end
+
+test = "ECCp384.cer"
+cert = ECCp384.cer
+root = ECCCA.cer
+verifyTime = 20060303001200
+end
+
+test = "ECCp521.cer"
+cert = ECCp521.cer
+root = ECCCA.cer
+verifyTime = 20060303001200
+end
+

@@ -179,7 +179,11 @@ struct mathfunc {
  * Take care to update the use of IMETA appropriately when adding
  * tokens here.
  */
-/* Marker used in paramsubst for rc_expand_param */
+/*
+ * Marker used in paramsubst for rc_expand_param.
+ * Also used in pattern character arrays as guaranteed not to
+ * mark a character in a string.
+ */
 #define Marker		((char) 0xa0)
 
 /* chars that need to be quoted if meant literally */
@@ -370,9 +374,8 @@ enum {
 #ifdef PATH_DEV_FD
 /*
  * Entry used by a process substition.
- * The value will be incremented on entering a function and
- * decremented on exit; we don't close entries greater than
- * FDT_PROC_SUBST except when closing everything.
+ * This marker is not tested internally as we associated the file
+ * descriptor with a job for closing.
  */
 #define FDT_PROC_SUBST		6
 #endif
@@ -418,6 +421,7 @@ typedef struct heap      *Heap;
 typedef struct heapstack *Heapstack;
 typedef struct histent   *Histent;
 typedef struct hookdef   *Hookdef;
+typedef struct jobfile   *Jobfile;
 typedef struct job       *Job;
 typedef struct linkedmod *Linkedmod;
 typedef struct linknode  *LinkNode;
@@ -874,6 +878,18 @@ struct eccstr {
 /* Definitions for job table and job control */
 /********************************************/
 
+/* Entry in filelist linked list in job table */
+
+struct jobfile {
+    /* Record to be deleted or closed */
+    union {
+	char *name; /* Name of file to delete */
+	int fd;	    /* File descriptor to close */
+    } u;
+    /* Discriminant */
+    int is_fd;
+};
+
 /* entry in the job table */
 
 struct job {
@@ -885,6 +901,7 @@ struct job {
     struct process *procs;	/* list of processes                 */
     struct process *auxprocs;	/* auxiliary processes e.g multios   */
     LinkList filelist;		/* list of files to delete when done */
+				/* elements are struct jobfile */
     int stty_in_env;		/* if STTY=... is present            */
     struct ttyinfo *ty;		/* the modes specified by STTY       */
 };
@@ -960,7 +977,6 @@ struct execstack {
     int trapisfunc;
     int traplocallevel;
     int noerrs;
-    int subsh_close;
     char *underscore;
 };
 
@@ -1374,6 +1390,59 @@ struct patprog {
 #define PAT_NOTEND	0x0400	/* End of string is not real end */
 #define PAT_HAS_EXCLUDP	0x0800	/* (internal): top-level path1~path2. */
 #define PAT_LCMATCHUC   0x1000  /* equivalent to setting (#l) */
+
+/**
+ * Indexes into the array of active pattern characters.
+ * This must match the array zpc_chars in pattern.c.
+ */
+enum zpc_chars {
+    /*
+     * These characters both terminate a pattern segment and
+     * a pure string segment.
+     */
+    ZPC_SLASH,			/* / active as file separator */
+    ZPC_NULL,			/* \0 as string terminator */
+    ZPC_BAR,			/* | for "or" */
+    ZPC_OUTPAR,			/* ) for grouping */
+    ZPC_TILDE,			/* ~ for exclusion (extended glob) */
+    ZPC_SEG_COUNT,              /* No. of the above characters */
+    /*
+     * These characters terminate a pure string segment.
+     */
+    ZPC_INPAR = ZPC_SEG_COUNT,  /* ( for grouping */
+    ZPC_QUEST,			/* ? as wildcard */
+    ZPC_STAR,			/* * as wildcard */
+    ZPC_INBRACK,		/* [ for character class */
+    ZPC_INANG,			/* < for numeric glob */
+    ZPC_HAT,			/* ^ for exclusion (extended glob) */
+    ZPC_HASH,			/* # for repetition (extended glob) */
+    ZPC_BNULLKEEP,		/* Special backslashed null not removed */
+    /*
+     * These characters are only valid before a parenthesis
+     */
+    ZPC_NO_KSH_GLOB,
+    ZPC_KSH_QUEST = ZPC_NO_KSH_GLOB, /* ? for ?(...) in KSH_GLOB */
+    ZPC_KSH_STAR,               /* * for *(...) in KSH_GLOB */
+    ZPC_KSH_PLUS,               /* + for +(...) in KSH_GLOB */
+    ZPC_KSH_BANG,               /* ! for !(...) in KSH_GLOB */
+    ZPC_KSH_AT,                 /* @ for @(...) in KSH_GLOB */
+    ZPC_COUNT			/* Number of special chararacters */
+};
+
+/*
+ * Structure to save disables special characters for function scope.
+ */
+struct zpc_disables_save {
+    struct zpc_disables_save *next;
+    /*
+     * Bit vector of ZPC_COUNT disabled characters.
+     * We'll live dangerously and assumed ZPC_COUNT is no greater
+     * than the number of bits an an unsigned int.
+     */
+    unsigned int disables;
+};
+
+typedef struct zpc_disables_save *Zpc_disables_save;
 
 /*
  * Special match types used in character classes.  These
@@ -1829,6 +1898,7 @@ struct histent {
 #define HIST_DUP	0x00000008	/* Command duplicates a later line */
 #define HIST_FOREIGN	0x00000010	/* Command came from another shell */
 #define HIST_TMPSTORE	0x00000020	/* Kill when user enters another cmd */
+#define HIST_NOWRITE	0x00000040	/* Keep internally but don't write */
 
 #define GETHIST_UPWARD  (-1)
 #define GETHIST_DOWNWARD  1
@@ -1988,6 +2058,7 @@ enum {
     EXTENDEDHISTORY,
     EVALLINENO,
     FLOWCONTROL,
+    FORCEFLOAT,
     FUNCTIONARGZERO,
     GLOBOPT,
     GLOBALEXPORT,
@@ -2035,6 +2106,7 @@ enum {
     LISTROWSFIRST,
     LISTTYPES,
     LOCALOPTIONS,
+    LOCALPATTERNS,
     LOCALTRAPS,
     LOGINSHELL,
     LONGLISTJOBS,
@@ -2054,6 +2126,7 @@ enum {
     OVERSTRIKE,
     PATHDIRS,
     PATHSCRIPT,
+    PIPEFAIL,
     POSIXALIASES,
     POSIXBUILTINS,
     POSIXCD,
@@ -2689,7 +2762,8 @@ enum {
     ZLE_CMD_RESET_PROMPT,
     ZLE_CMD_REFRESH,
     ZLE_CMD_SET_KEYMAP,
-    ZLE_CMD_GET_KEY
+    ZLE_CMD_GET_KEY,
+    ZLE_CMD_SET_HIST_LINE
 };
 
 /***************************************/

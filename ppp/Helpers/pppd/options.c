@@ -171,6 +171,7 @@ bool	hasbusystate = 1;	/* change phase to report busy state */
 int 	cancelcode = -1;	/* cancel error code for connectors */
 int 	extraconnecttime = 0;	/* allows extra connection time to the connection sequence */
 bool	holdfirst = 0;	/* apply holdoff timer when starting pppd, useful to delay dialondemand */
+char	*ifscope = NULL; /* set by ifscope option */
 #endif
 
 
@@ -267,6 +268,8 @@ option_t general_options[] = {
       "Don't check receive traffic for idle timer", OPT_PRIO | 1 },
     { "noidlesend", o_bool, &noidlesend,
       "Don't check send traffic for idle timer", OPT_PRIO | 1 },
+    { "ifscope", o_string, &ifscope,
+      "Scope connections to interface", OPT_PRIO | 1 },
 #endif
 
     { "maxconnect", o_int, &maxconnect,
@@ -1224,7 +1227,7 @@ option_error __V((char *fmt, ...))
     va_end(args);
     if (phase == PHASE_INITIALIZE)
 	fprintf(stderr, "%s: %s\n", progname, buf);
-    syslog(LOG_ERR, "%s", buf);
+    sys_log(LOG_ERR, "%s", buf);
 }
 
 #if 0
@@ -1722,7 +1725,7 @@ setlogfile(argv)
 		else {
 			if(privileged_option) {
 				char *dirPath = dirname(*argv);
-				syslog(LOG_WARNING, "Warning: Creating directory for log file = %s\n", *argv);
+				sys_log(LOG_WARNING, "Warning: Creating directory for log file = %s\n", *argv);
 				makepath(dirPath);
 				fd = open(*argv, O_WRONLY | O_APPEND | O_CREAT | O_EXCL, 0644);	
 			}

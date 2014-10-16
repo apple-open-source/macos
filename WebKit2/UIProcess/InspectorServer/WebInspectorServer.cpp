@@ -30,6 +30,7 @@
 
 #include "WebInspectorServer.h"
 
+#include "HTTPHeaderNames.h"
 #include "HTTPRequest.h"
 #include "WebInspectorProxy.h"
 #include "WebSocketServerConnection.h"
@@ -94,12 +95,10 @@ void WebInspectorServer::unregisterPage(int pageId)
         closeConnection(0, connection);
 }
 
-#if !PLATFORM(QT)
 String WebInspectorServer::inspectorUrlForPageID(int)
 {
     return String();
 }
-#endif
 
 void WebInspectorServer::sendMessageOverConnection(unsigned pageIdForConnection, const String& message)
 {
@@ -111,7 +110,7 @@ void WebInspectorServer::sendMessageOverConnection(unsigned pageIdForConnection,
 void WebInspectorServer::didReceiveUnrecognizedHTTPRequest(WebSocketServerConnection* connection, PassRefPtr<HTTPRequest> request)
 {
     // request->url() contains only the path extracted from the HTTP request line
-    // and KURL is poor at parsing incomplete URLs, so extract the interesting parts manually.
+    // and URL is poor at parsing incomplete URLs, so extract the interesting parts manually.
     String path = request->url();
     size_t pathEnd = path.find('?');
     if (pathEnd == notFound)
@@ -126,10 +125,10 @@ void WebInspectorServer::didReceiveUnrecognizedHTTPRequest(WebSocketServerConnec
     bool found = platformResourceForPath(path, body, contentType);
 
     HTTPHeaderMap headerFields;
-    headerFields.set("Connection", "close");
-    headerFields.set("Content-Length", String::number(body.size()));
+    headerFields.set(HTTPHeaderName::Connection, "close");
+    headerFields.set(HTTPHeaderName::ContentLength, String::number(body.size()));
     if (found)
-        headerFields.set("Content-Type", contentType);
+        headerFields.set(HTTPHeaderName::ContentType, contentType);
 
     // Send when ready and close immediately afterwards.
     connection->sendHTTPResponseHeader(found ? 200 : 404, found ? "OK" : "Not Found", headerFields);
@@ -142,7 +141,7 @@ bool WebInspectorServer::didReceiveWebSocketUpgradeHTTPRequest(WebSocketServerCo
     String path = request->url();
 
     // NOTE: Keep this in sync with WebCore/inspector/front-end/inspector.js.
-    DEFINE_STATIC_LOCAL(const String, inspectorWebSocketConnectionPathPrefix, (ASCIILiteral("/devtools/page/")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const String, inspectorWebSocketConnectionPathPrefix, (ASCIILiteral("/devtools/page/")));
 
     // Unknown path requested.
     if (!path.startsWith(inspectorWebSocketConnectionPathPrefix))

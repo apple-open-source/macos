@@ -1,0 +1,436 @@
+#
+# certcrl script to test certs and CRLs from S/MIME examples
+#
+# Examples obtained from 
+# http://www.ietf.org/internet-drafts/draft-ietf-smime-examples-09.txt
+#
+# This script tests every cert and CRL from the examples package, ensuring
+# both successful (normal) operation and a variety of error cases for 
+# every cert. 
+#
+
+globals
+allowUnverified = true
+requireCrlForAll = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+###################################################
+
+test = "Carl RSA root, Alice leaf"
+revokePolicy = crl
+cert = AliceRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+# note none of the RSA certs have email addresses in them
+senderEmail = "alice@somewhere.net"
+# Cert has DigitalSignature, NonRepudiation
+keyUsage = 0x8000
+end
+
+###################################################
+
+test = "Carl RSA root, Alice Leaf, bad key use"
+revokePolicy = crl
+cert = AliceRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+# this CRL revokes the root, which TP does not check
+crl = CarlRSACRLForCarl.crl
+senderEmail = "alice@somewhere.net"
+keyUsage = 0x01
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl RSA root, Alice Leaf, revoked"
+revokePolicy = crl
+cert = AliceRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = "alice@somewhere.net"
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl RSA root, Alice Leaf, no CRL"
+revokePolicy = crl
+cert = AliceRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = "alice@somewhere.net"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl RSA root, Diane leaf"
+revokePolicy = crl
+cert = DianeRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+# note none of the RSA certs have email addresses in them
+senderEmail = "diane@somewhere.net"
+# DigitalSignature NonRepudiation KeyEncipherment
+keyUsage = 0xe000
+end
+
+###################################################
+
+test = "Carl RSA root, Diane leaf, bad key use"
+revokePolicy = crl
+cert = DianeRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+senderEmail = "diane@somewhere.net"
+keyUsage = 0xf000
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl RSA root, Diane leaf, revoked"
+revokePolicy = crl
+cert = DianeRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = "diane@somewhere.net"
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl RSA root, Diane leaf, no CRL"
+revokePolicy = crl
+cert = DianeRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = "diane@somewhere.net"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Alice Leaf, full DSA params"
+revokePolicy = crl
+cert = AliceDSSSignByCarlNoInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = aliceDss@examples.com
+# Cert has DigitalSignature, NonRepudiation
+keyUsage = 0x8000
+end
+
+###################################################
+
+test = "Carl DSA root, Alice Leaf, full DSA params, revoked"
+revokePolicy = crl
+cert = AliceDSSSignByCarlNoInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = aliceDss@examples.com
+keyUsage = 0x8000
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl DSA root, Alice Leaf, bad email address"
+revokePolicy = crl
+cert = AliceDSSSignByCarlNoInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = bob@examples.com
+keyUsage = 0x8000
+error = CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Bob DH Leaf"
+revokePolicy = crl
+cert = BobDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = bobDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x900
+end
+
+###################################################
+
+test = "Carl DSA root, Bob DH Leaf, bad KeyUsage"
+revokePolicy = crl
+cert = BobDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = bobDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x4000
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl DSA root, Bob DH Leaf, no CRL"
+revokePolicy = crl
+cert = BobDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = bobDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Bob DH Leaf, Revoked"
+revokePolicy = crl
+cert = BobDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = bobDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl DSA root, Erica DH Leaf"
+revokePolicy = crl
+cert = EricaDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = ericaDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x900
+end
+
+###################################################
+
+test = "Carl DSA root, Erica DH Leaf, bad KeyUsage"
+revokePolicy = crl
+cert = EricaDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = ericaDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x4000
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl DSA root, Erica DH Leaf, no CRL"
+revokePolicy = crl
+cert = EricaDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = ericaDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Erica DH Leaf, Revoked"
+revokePolicy = crl
+cert = EricaDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = ericaDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl RSA root, Bob leaf"
+revokePolicy = crl
+cert = BobRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+# note none of the RSA certs have email addresses in them
+senderEmail = "bob@somewhere.net"
+# Cert has KeyEncipherment
+keyUsage = 0x2000
+end
+
+###################################################
+
+test = "Carl RSA root, Bob Leaf, bad key use"
+revokePolicy = crl
+cert = BobRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLEmpty.crl
+senderEmail = "bob@somewhere.net"
+keyUsage = 0x01
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl RSA root, Bob Leaf, revoked"
+revokePolicy = crl
+cert = BobRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = "bob@somewhere.net"
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl RSA root, Bob Leaf, no CRL"
+revokePolicy = crl
+cert = BobRSASignByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = "bob@somewhere.net"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Diane DH Leaf"
+revokePolicy = crl
+cert = DianeDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = dianeDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x900
+end
+
+###################################################
+
+test = "Carl DSA root, Diane DH Leaf, bad KeyUsage"
+revokePolicy = crl
+cert = DianeDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = dianeDh@examples.com
+# cert has KeyAgreement (only)
+keyUsage = 0x4000
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl DSA root, Diane DH Leaf, no CRL"
+revokePolicy = crl
+cert = DianeDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlRSACRLForAll.crl
+senderEmail = dianeDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+###################################################
+
+test = "Carl DSA root, Diane DH Leaf, Revoked"
+revokePolicy = crl
+cert = DianeDHEncryptByCarl.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = dianeDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl RSA root, Diane DH Leaf, no root"
+revokePolicy = crl
+cert = DianeDHEncryptByCarl.cer
+root = CarlRSASelf.cer
+crl = CarlDSSCRLEmpty.crl
+senderEmail = dianeDh@examples.com
+keyUsage = 0x900
+error = CSSMERR_TP_NOT_TRUSTED
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_TRUSTED
+end
+
+###################################################
+
+test = "Carl DSA root, Diane Leaf, partial DSA params"
+revokePolicy = crl
+cert = DianeDSSSignByCarlInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLEmpty.crl
+# this CRL revokes the root, which TP does not check
+crl = CarlDSSCRLForCarl.crl
+senderEmail = dianeDss@examples.com
+# Cert has DigitalSignature, NonRepudiation
+keyUsage = 0x8000
+end
+
+###################################################
+
+test = "Carl DSA root, Diane Leaf, partial DSA params, revoked"
+revokePolicy = crl
+cert = DianeDSSSignByCarlInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = dianeDss@examples.com
+# cert has DigitalSignature NonRepudiation
+keyUsage = 0x8000
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+###################################################
+
+test = "Carl DSA root, Diane Leaf, partial DSA params, bad key use"
+revokePolicy = crl
+cert = DianeDSSSignByCarlInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = dianeDss@examples.com
+# cert has DigitalSignature NonRepudiation
+keyUsage = 0x01
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SMIME_BAD_KEY_USE
+end
+
+###################################################
+
+test = "Carl DSA root, Diane Leaf, partial DSA params, bad email address"
+revokePolicy = crl
+cert = DianeDSSSignByCarlInherit.cer
+root = CarlDSSSelf.cer
+crl = CarlDSSCRLForAll.crl
+senderEmail = bobDss@examples.com
+# cert has DigitalSignature NonRepudiation
+keyUsage = 0x8000
+error = CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
+end
+
+
+

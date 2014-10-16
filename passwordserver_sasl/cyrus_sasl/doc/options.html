@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>Options for Cyrus SASL</title>
-<!-- $Id: options.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
+<!-- $Id: options.html,v 1.33 2009/01/25 13:02:29 mel Exp $ -->
 </HEAD>
 <BODY>
 <h1>Options for Cyrus SASL</h1>
@@ -83,6 +83,14 @@ When set to "demand" then any failure aborts the connection.</TD>
 <TD>none</TD>
 </TR>
 <TR>
+<TD>ldapdb_canon_attr</TD><TD>LDAPDB plugin</TD>
+<TD>Use the value of the specified attribute as the user's
+canonical name. The attribute will be looked up in the user's LDAP
+entry. This setting must be configured in order to use LDAPDB as
+a canonuser plugin.</TD>
+<TD>none</TD>
+</TR>
+<TR>
 <TD>log_level</TD><TD>SASL Library</TD>
 <TD><b>Numeric</b> Logging Level (see <TT>SASL_LOG_*</TT> in <tt>sasl.h</tt>
 for values and descriptions</TD>
@@ -96,8 +104,8 @@ plugins.</TD><TD>(use all available plugins)</TD>
 </TR>
 <TR>
 <TD>ntlm_server</TD><TD>NTLM (server)</TD>
-<TD>Name of server (WinNT, Win2K, Samba, etc) to which authentication
-will be proxied.</TD>
+<TD>Comma separated list of servernames (WinNT, Win2K, Samba, etc) to
+which authentication will be proxied.</TD>
 <TD>(null) - perform authentication internally</TD>
 </TR>
 <TR>
@@ -142,7 +150,7 @@ cached for a fast reauth.  A value of 0 will disable reauth.</TD>
 <TD>Path to sasldb file</TD><TD><tt>/etc/sasldb2</tt> (system dependant)</TD>
 <TR>
 <TD>sql_engine</TD><TD>SQL plugin</TD>
-<TD>Name of SQL engine to use (possible values: 'mysql', 'pgsql', 'sqlite').</TD>
+<TD>Name of SQL engine to use (possible values: 'mysql', 'pgsql', 'sqlite', 'sqlite3').</TD>
 <TD><tt>mysql</tt></TD>
 </TR>
 <TR>
@@ -273,7 +281,7 @@ quoted.</font>
 </pre>
 is a valid value for <tt>sql_select</tt>.
 
-<h2>Notes on LDAPDB auxprop options</h2>
+<h2>Notes on LDAPDB plugin options</h2>
 
 <p>
 </p>
@@ -286,7 +294,8 @@ LDAP-specific configuration details in one place, the slapd.conf, and
 makes the configuration of remote services much simpler.</p>
 
 <p>This plugin is not for use with slapd itself. When OpenLDAP is
-built with SASL support, slapd uses its own internal auxprop module.
+built with SASL support, slapd uses its own internal auxprop and
+canonuser module.
 By default, without configuring anything else, slapd will fail to load
 the ldapdb module when it's present. This is as it should be. If you
 don't like the "auxpropfunc: error -7" message that is sent to syslog
@@ -303,6 +312,7 @@ ldapdb_uri: ldap://ldap.example.com
 ldapdb_id: root
 ldapdb_pw: secret
 ldapdb_mech: DIGEST-MD5
+ldapdb_canon_attr: uid
 </pre>
 
 <p>The LDAP server must be configured to map the SASL authcId "root" into a DN

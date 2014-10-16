@@ -19,7 +19,7 @@ identities.  All servers are required to have valid certificates,
 whereas client certificates are optional.  Clients must have a
 valid certificate in order to authenticate via SASL EXTERNAL.
 For more information on creating and managing certificates,
-see the {{PRD:OpenSSL}}, {{PRD:GnuTLS}}, or {{PRD:MozNSS}} documentation,
+see the {{PRD:SecureTransport}}, {{PRD:OpenSSL}}, {{PRD:GnuTLS}}, or {{PRD:MozNSS}} documentation,
 depending on which TLS implementation libraries you are using.
 
 H3: Server Certificates
@@ -49,7 +49,7 @@ H2: TLS Configuration
 After obtaining the required certificates, a number of options must
 be configured on both the client and the server to enable TLS and
 make use of the certificates.  At a minimum, the clients must be
-configured with the name of the file containing all of the
+configured with the all of the
 {{TERM[expand]CA}} (CA) certificates it will trust. The server must
 be configured with the {{TERM:CA}} certificates and also its own
 server certificate and private key.
@@ -77,6 +77,8 @@ certificates for the entire sequence of CA's from the signing CA to
 the top-level CA should be present. Multiple certificates are simply
 appended to the file; the order is not significant.
 
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLSTrustedCerts}} directive.
+
 H4: TLSCACertificatePath <path>
 
 This directive specifies the path of a directory that contains
@@ -100,6 +102,8 @@ files.  The {{certutil}} command can be used to add a {{TERM:CA}} certificate:
 . file named /path/to/cacertfile.pem.  {{EX:-t CT,,}} means that the certificate is
 . trusted to be a CA issuing certs for use in TLS clients and servers.
 
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLSTrustedCerts}} directive.
+
 H4: TLSCertificateFile <filename>
 
 This directive specifies the file that contains the slapd server
@@ -121,6 +125,8 @@ the name of the certificate to use:
 
 >       certutil -d /path/to/certdbdir -L
 
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLSIdentity}} directive.
+
 H4: TLSCertificateKeyFile <filename>
 
 This directive specifies the file that contains the private key
@@ -141,6 +147,8 @@ modutil to change the password to the empty string:
 
 . You must have the old password, if any.  Ignore the WARNING about the running
 . browser.  Press 'Enter' for the new password.
+
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLSIdentity}} directive.
 
 H4: TLSCipherSuite <cipher-suite-spec>
 
@@ -168,6 +176,8 @@ is in the source code for Mozilla NSS in the file sslinfo.c in the structure
 
 >       static const SSLCipherSuiteInfo suiteInfo[]
 
+When using SecureTransport this directive uses cipher names known to the Security framework unless you prefix the value with {{EX:OpenSSL:}} in which case it uses cipher names known to OpenSSL.
+
 H4: TLSRandFile <filename>
 
 This directive specifies the file to obtain random bits from when
@@ -186,7 +196,7 @@ copy a few hundred bytes of arbitrary data into the file. The file
 is only used to provide a seed for the pseudo-random number generator,
 and it doesn't need very much data to work.
 
-This directive is ignored with GnuTLS and Mozilla NSS.
+This directive is ignored with SecureTransport, GnuTLS and Mozilla NSS.
 
 H4: TLSEphemeralDHParamFile <filename>
 
@@ -225,6 +235,21 @@ before SASL EXTERNAL authentication may be attempted, and the
 SASL EXTERNAL mechanism will only be offered to the client if a valid
 client certificate was received.
 
+H4: TLSIdentity <name>
+
+When using SecureTransport this directive replaces the {{EX:TLSCertificateFile}} and {{EX:TLSCertificateKeyFile}} directives.  It names an identity in
+the system keychain.  An identity is a certificate paired with a private key.  Beware application-restricted private keys; make sure the one you use
+is available to all applications.
+
+This directive is ignored with OpenSSL, GnuTLS and Mozilla NSS.
+
+H4: TLSTrustedCerts <list>
+
+When using SecureTransport this directive replaces the {{EX:TLSCACertificateFile}} and {{EX:TLSCACertificatePath}} directives.  It lists names of
+certificates in the system keychain, separated by '|' characters.  For example:  {{EX:TLSTrustedCerts Frobozz, Inc.|Widgets R Us|www.example.com}}
+
+This directive is ignored with OpenSSL, GnuTLS and Mozilla NSS.
+
 H3: Client Configuration
 
 Most of the client configuration directives parallel the server
@@ -255,11 +280,15 @@ noted in the {{SECT:TLS Configuration}} section, a client typically
 may need to know about more CAs than a server, but otherwise the
 same considerations apply.
 
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLS_TRUSTED_CERTS}} directive.
+
 H4: TLS_CACERTDIR <path>
 
 This is equivalent to the server's {{EX:TLSCACertificatePath}} option. The
 specified directory must be managed with the OpenSSL {{c_rehash}}
 utility as well.  If using Mozilla NSS, <path> may contain a cert/key database.
+
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLS_TRUSTED_CERTS}} directive.
 
 H4: TLS_CERT <filename>
 
@@ -282,6 +311,7 @@ the name of the certificate to use:
 
 >       certutil -d /path/to/certdbdir -L
 
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLS_IDENTITY}} directive.
 
 H4: TLS_KEY <filename>
 
@@ -289,6 +319,8 @@ This directive specifies the file that contains the private key
 that matches the certificate stored in the {{EX:TLS_CERT}}
 file. The same constraints mentioned for {{EX:TLSCertificateKeyFile}}
 apply here. This is also a user-only directive.
+
+When using SecureTransport this directive is not used.  Instead use the {{EX:TLS_IDENTITY}} directive.
 
 H4: TLS_RANDFILE <filename>
 
@@ -300,4 +332,12 @@ H4: TLS_REQCERT { never | allow | try | demand }
 This directive is equivalent to the server's {{EX:TLSVerifyClient}}
 option. However, for clients the default value is {{EX:demand}}
 and there generally is no good reason to change this setting.
+
+H4: TLS_IDENTITY <name>
+
+This directive is equivalent to the server's {{EX:TLSIdentity}} option.  When using SecureTransport it replaces the {{EX:TLS_CERT}} and {{EX:TLS_KEY}} directives.
+
+H4: TLS_TRUSTED_CERTS <list>
+
+This directive is equivalent to the server's {{EX:TLS_TRUSTED_CERTS}} option.  When using SecureTransport it replaces the {{EX:TLS_CACERT}} and {{EX:TLS_CACERTDIR}} directives.
 

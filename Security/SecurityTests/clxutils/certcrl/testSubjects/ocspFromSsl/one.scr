@@ -1,0 +1,19 @@
+# one OCSP transaction test using amazon's verisign cert
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = true
+# alternate these two on successful runs, flip either one for failure
+allowUnverified = true
+requireOcspIfPresent = false
+cacheDisable = false
+end
+test = "secure.authorize.net"
+revokePolicy = ocsp
+# leaf has ocsp accessMethod in AIA, intermediate doesn't
+allowUnverified = true
+cert = secauth_v3.100.cer
+cert = secauth_v3.101.cer
+sslHost = secure.authorize.net
+certerror = 1:APPLETP_OCSP_UNAVAILABLE
+end

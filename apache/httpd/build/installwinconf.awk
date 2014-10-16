@@ -1,5 +1,5 @@
 #
-# InstallConf.awk Apache HTTP 2.2 script to rewrite the @@ServerRoot@@
+# InstallConf.awk Apache HTTP 2.x script to rewrite the @@ServerRoot@@
 # tags in httpd.conf.in to original\httpd.conf - then duplicate the
 # conf files to the 'live' configuration if they don't already exist.
 #
@@ -47,12 +47,12 @@ BEGIN {
     }
 
     print "Installing Apache HTTP Server 2.x with" >tstfl;
-    print " DomainName =    " domainname >tstfl;
-    print " ServerName =    " servername >tstfl;
-    print " ServerAdmin =   " serveradmin >tstfl;
-    print " ServerPort =    " serverport >tstfl;
+    print " DomainName    = " domainname >tstfl;
+    print " ServerName    = " servername >tstfl;
+    print " ServerAdmin   = " serveradmin >tstfl;
+    print " ServerPort    = " serverport >tstfl;
     print " ServerSslPort = " serversslport >tstfl;
-    print " ServerRoot =    " serverroot >tstfl;
+    print " ServerRoot    = " serverroot >tstfl;
 
     filelist["httpd.conf"] = "httpd.conf.in";
     filelist["httpd-autoindex.conf"] = "httpd-autoindex.conf.in";
@@ -66,6 +66,7 @@ BEGIN {
     filelist["httpd-ssl.conf"] = "httpd-ssl.conf.in";
     filelist["httpd-userdir.conf"] = "httpd-userdir.conf.in";
     filelist["httpd-vhosts.conf"] = "httpd-vhosts.conf.in";
+    filelist["proxy-html.conf"] = "proxy-html.conf.in";
 
     for ( conffile in filelist ) {
 
@@ -91,36 +92,43 @@ BEGIN {
           bswarning = 0;
         }
         if ( /@@LoadModule@@/ ) {
+          print "LoadModule access_compat_module modules/mod_access_compat.so" > dstfl;
           print "LoadModule actions_module modules/mod_actions.so" > dstfl;
           print "LoadModule alias_module modules/mod_alias.so" > dstfl;
+          print "LoadModule allowmethods_module modules/mod_allowmethods.so" > dstfl;
           print "LoadModule asis_module modules/mod_asis.so" > dstfl;
           print "LoadModule auth_basic_module modules/mod_auth_basic.so" > dstfl;
           print "#LoadModule auth_digest_module modules/mod_auth_digest.so" > dstfl;
-          print "#LoadModule authn_alias_module modules/mod_authn_alias.so" > dstfl;
+          print "#LoadModule auth_form_module modules/mod_auth_form.so" > dstfl;
           print "#LoadModule authn_anon_module modules/mod_authn_anon.so" > dstfl;
+          print "LoadModule authn_core_module modules/mod_authn_core.so" > dstfl;
           print "#LoadModule authn_dbd_module modules/mod_authn_dbd.so" > dstfl;
           print "#LoadModule authn_dbm_module modules/mod_authn_dbm.so" > dstfl;
-          print "LoadModule authn_default_module modules/mod_authn_default.so" > dstfl;
           print "LoadModule authn_file_module modules/mod_authn_file.so" > dstfl;
+          print "#LoadModule authn_socache_module modules/mod_authn_socache.so" > dstfl;
           print "#LoadModule authnz_ldap_module modules/mod_authnz_ldap.so" > dstfl;
+          print "LoadModule authz_core_module modules/mod_authz_core.so" > dstfl;
+          print "#LoadModule authz_dbd_module modules/mod_authz_dbd.so" > dstfl;
           print "#LoadModule authz_dbm_module modules/mod_authz_dbm.so" > dstfl;
-          print "LoadModule authz_default_module modules/mod_authz_default.so" > dstfl;
           print "LoadModule authz_groupfile_module modules/mod_authz_groupfile.so" > dstfl;
           print "LoadModule authz_host_module modules/mod_authz_host.so" > dstfl;
           print "#LoadModule authz_owner_module modules/mod_authz_owner.so" > dstfl;
           print "LoadModule authz_user_module modules/mod_authz_user.so" > dstfl;
           print "LoadModule autoindex_module modules/mod_autoindex.so" > dstfl;
+          print "#LoadModule buffer_module modules/mod_buffer.so" > dstfl;
           print "#LoadModule cache_module modules/mod_cache.so" > dstfl;
+          print "#LoadModule cache_disk_module modules/mod_cache_disk.so" > dstfl;
+          print "#LoadModule cache_socache_module modules/mod_cache_socache.so" > dstfl;
           print "#LoadModule cern_meta_module modules/mod_cern_meta.so" > dstfl;
           print "LoadModule cgi_module modules/mod_cgi.so" > dstfl;
           print "#LoadModule charset_lite_module modules/mod_charset_lite.so" > dstfl;
+          print "#LoadModule data_module modules/mod_data.so" > dstfl;
           print "#LoadModule dav_module modules/mod_dav.so" > dstfl;
           print "#LoadModule dav_fs_module modules/mod_dav_fs.so" > dstfl;
           print "#LoadModule dav_lock_module modules/mod_dav_lock.so" > dstfl;
           print "#LoadModule dbd_module modules/mod_dbd.so" > dstfl;
           print "#LoadModule deflate_module modules/mod_deflate.so" > dstfl;
           print "LoadModule dir_module modules/mod_dir.so" > dstfl;
-          print "#LoadModule disk_cache_module modules/mod_disk_cache.so" > dstfl;
           print "#LoadModule dumpio_module modules/mod_dumpio.so" > dstfl;
           print "LoadModule env_module modules/mod_env.so" > dstfl;
           print "#LoadModule expires_module modules/mod_expires.so" > dstfl;
@@ -128,16 +136,24 @@ BEGIN {
           print "#LoadModule file_cache_module modules/mod_file_cache.so" > dstfl;
           print "#LoadModule filter_module modules/mod_filter.so" > dstfl;
           print "#LoadModule headers_module modules/mod_headers.so" > dstfl;
+          print "#LoadModule heartbeat_module modules/mod_heartbeat.so" > dstfl;
+          print "#LoadModule heartmonitor_module modules/mod_heartmonitor.so" > dstfl;
           print "#LoadModule ident_module modules/mod_ident.so" > dstfl;
           print "#LoadModule imagemap_module modules/mod_imagemap.so" > dstfl;
           print "LoadModule include_module modules/mod_include.so" > dstfl;
           print "#LoadModule info_module modules/mod_info.so" > dstfl;
           print "LoadModule isapi_module modules/mod_isapi.so" > dstfl;
+          print "#LoadModule lbmethod_bybusyness_module modules/mod_lbmethod_bybusyness.so" > dstfl;
+          print "#LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so" > dstfl;
+          print "#LoadModule lbmethod_bytraffic_module modules/mod_lbmethod_bytraffic.so" > dstfl;
+          print "#LoadModule lbmethod_heartbeat_module modules/mod_lbmethod_heartbeat.so" > dstfl;
           print "#LoadModule ldap_module modules/mod_ldap.so" > dstfl;
           print "#LoadModule logio_module modules/mod_logio.so" > dstfl;
           print "LoadModule log_config_module modules/mod_log_config.so" > dstfl;
+          print "#LoadModule log_debug_module modules/mod_log_debug.so" > dstfl;
           print "#LoadModule log_forensic_module modules/mod_log_forensic.so" > dstfl;
-          print "#LoadModule mem_cache_module modules/mod_mem_cache.so" > dstfl;
+          print "#LoadModule lua_module modules/mod_lua.so" > dstfl;
+          print "#LoadModule macro_module modules/mod_macro.so" > dstfl;
           print "LoadModule mime_module modules/mod_mime.so" > dstfl;
           print "#LoadModule mime_magic_module modules/mod_mime_magic.so" > dstfl;
           print "LoadModule negotiation_module modules/mod_negotiation.so" > dstfl;
@@ -145,12 +161,30 @@ BEGIN {
           print "#LoadModule proxy_ajp_module modules/mod_proxy_ajp.so" > dstfl;
           print "#LoadModule proxy_balancer_module modules/mod_proxy_balancer.so" > dstfl;
           print "#LoadModule proxy_connect_module modules/mod_proxy_connect.so" > dstfl;
+          print "#LoadModule proxy_express_module modules/mod_proxy_express.so" > dstfl;
+          print "#LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so" > dstfl;
           print "#LoadModule proxy_ftp_module modules/mod_proxy_ftp.so" > dstfl;
+          print "#LoadModule proxy_html_module modules/mod_proxy_html.so" > dstfl;
           print "#LoadModule proxy_http_module modules/mod_proxy_http.so" > dstfl;
           print "#LoadModule proxy_scgi_module modules/mod_proxy_scgi.so" > dstfl;
+          print "#LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so" > dstfl;
+          print "#LoadModule ratelimit_module modules/mod_ratelimit.so" > dstfl;
+          print "#LoadModule reflector_module modules/mod_reflector.so" > dstfl;
+          print "#LoadModule remoteip_module modules/mod_remoteip.so" > dstfl;
+          print "#LoadModule request_module modules/mod_request.so" > dstfl;
           print "#LoadModule reqtimeout_module modules/mod_reqtimeout.so" > dstfl;
           print "#LoadModule rewrite_module modules/mod_rewrite.so" > dstfl;
+          print "#LoadModule sed_module modules/mod_sed.so" > dstfl;
+          print "#LoadModule session_module modules/mod_session.so" > dstfl;
+          print "#LoadModule session_cookie_module modules/mod_session_cookie.so" > dstfl;
+          print "#LoadModule session_crypto_module modules/mod_session_crypto.so" > dstfl;
+          print "#LoadModule session_dbd_module modules/mod_session_dbd.so" > dstfl;
           print "LoadModule setenvif_module modules/mod_setenvif.so" > dstfl;
+          print "#LoadModule slotmem_plain_module modules/mod_slotmem_plain.so" > dstfl;
+          print "#LoadModule slotmem_shm_module modules/mod_slotmem_shm.so" > dstfl;
+          print "#LoadModule socache_dbm_module modules/mod_socache_dbm.so" > dstfl;
+          print "#LoadModule socache_memcache_module modules/mod_socache_memcache.so" > dstfl;
+          print "#LoadModule socache_shmcb_module modules/mod_socache_shmcb.so" > dstfl;
           print "#LoadModule speling_module modules/mod_speling.so" > dstfl;
           print "#LoadModule ssl_module modules/mod_ssl.so" > dstfl;
           print "#LoadModule status_module modules/mod_status.so" > dstfl;
@@ -160,9 +194,10 @@ BEGIN {
           print "#LoadModule usertrack_module modules/mod_usertrack.so" > dstfl;
           print "#LoadModule version_module modules/mod_version.so" > dstfl;
           print "#LoadModule vhost_alias_module modules/mod_vhost_alias.so" > dstfl;
+          print "#LoadModule watchdog_module modules/mod_watchdog.so" > dstfl;
+          print "#LoadModule xml2enc_module modules/mod_xml2enc.so" > dstfl;
           continue;
         }
-        gsub( /^SSLMutex.*/, "SSLMutex default" );
         gsub( /@@ServerRoot@@/,   serverroot );
         gsub( /@exp_cgidir@/,     serverroot "/cgi-bin" );
         gsub( /@exp_sysconfdir@/, serverroot "/conf" );
@@ -236,3 +271,4 @@ BEGIN {
     }
     close(tstfl);
 }
+

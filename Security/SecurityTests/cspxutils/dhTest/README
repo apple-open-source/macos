@@ -1,0 +1,63 @@
+					  Diffie-Hellman Sample Code Info
+					     last update 4/24/02 dmitch
+						  
+Introduction
+------------
+This directory contains a program which demonstrates how to 
+write code performing Diffie-HEllman key generation and key exchange
+using the CDSA API. One command-line executable program, called dhTest, 
+currently resides here.
+
+Building
+--------
+
+See the README in the parent directory (CDSA_Examples) for 
+information on building this program.
+
+Running rsatool
+---------------
+
+DhTest is a UNIX command-line program which performs a the following 
+sequence a specified number of times:
+
+   1. generate a D-H key pair, optionally using D-H parameters
+	  stored in a file. Call this key pair "myPublic" and 
+	  "myPrivate". 
+   2. Optionally store the D-H parameters generated in step 1
+	  in a file.  
+   3. Generate another D-H key pair using the same D-H parameters
+      as used (or generated) in step 1. Call this key pair 
+	  "theirPublic" and "theirPrivate".
+   4. Perform a D-H key exchange operations using myPrivate and 
+      theirPublic, resulting in symmetric key myDerive.
+   5. Perform a D-H key exchange operations using myPublic and 
+      theirPrivate, resulting in symmetric key theirDerive.
+   6. Ensure that the key bits in myDerive and theirDerive
+      are identical. 
+	  
+Run the program with the single 'h' command line argument for
+usage information. 
+
+Two functions are of particular interest for the purposes of 
+illustrating Diffie-Hellman operation. One, dhKeyGen(), performs
+D-H key pair generation, using optional existing D-H parameters
+and optionally returning D-H parameters if they were generated
+by this function (i.e., if they were not supplied to the function
+as input). D-H parameters are expressed at the CDSA API as an 
+opaque blob in the form of a CSSM_DATA. The generation of D-H 
+parameters is very time consuming - it takes about 90 seconds 
+to calculate the parameters for 1024 bit D-H keys on an 800 MHz G4.
+Therefore any application which will be performing a number of key
+pair generations should establish a common set of D-H parameters
+to be shared between the two parties. Public disclosure of the
+D-H parameters does not compromise the security of D-H key exchange
+at all. 
+
+The second function of interest is dhKeyExchange(), which takes as
+its input one private key (e.g., "myPrivate") and one public key
+blob in the form of a CSSM_DATA. That public key blob is obtained
+from the peer when performing D-H key exchange. The result of 
+this function is a CSSM_KEY, derivedKey. This derived key is 
+typically used to perform symmetric encryption. See the cryptTool 
+example in this same package for illustration of symmetric
+encryption. 

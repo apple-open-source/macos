@@ -63,10 +63,21 @@ const char *xar_err_get_string(xar_errctx_t ctx) {
 	return ECTX(ctx)->str;
 }
 
-void  xar_err_set_string(xar_t x, const char *str) {
-	XAR(x)->errctx.str = str;
+void xar_err_set_string(xar_t x, const char *str) {
+	XAR(x)->errctx.str = strdup(str); // this leaks right now, but it's safer than the alternative
 	return;
 }
+
+void xar_err_set_formatted_string(xar_t x, const char *format, ...) {
+	va_list arg;
+	char *msg;
+	va_start(arg, format);
+	vasprintf(&msg, format, arg);
+	va_end(arg);
+	xar_err_set_string(x, msg);
+	free(msg);
+}
+
 
 int xar_err_get_errno(xar_errctx_t ctx) {
 	return ECTX(ctx)->saved_errno;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -27,29 +27,50 @@
  */
 
 #import <WebCore/ContextMenuClient.h>
+#import <WebCore/IntRect.h>
 
+@class WebSharingServicePickerController;
 @class WebView;
+
+namespace WebCore {
+class Node;
+}
 
 class WebContextMenuClient : public WebCore::ContextMenuClient {
 public:
     WebContextMenuClient(WebView *webView);
+    ~WebContextMenuClient();
+
+    virtual void contextMenuDestroyed() override;
     
-    virtual void contextMenuDestroyed() OVERRIDE;
+    virtual NSMutableArray* getCustomMenuFromDefaultItems(WebCore::ContextMenu*) override;
+    virtual void contextMenuItemSelected(WebCore::ContextMenuItem*, const WebCore::ContextMenu*) override;
     
-    virtual NSMutableArray* getCustomMenuFromDefaultItems(WebCore::ContextMenu*) OVERRIDE;
-    virtual void contextMenuItemSelected(WebCore::ContextMenuItem*, const WebCore::ContextMenu*) OVERRIDE;
-    
-    virtual void downloadURL(const WebCore::KURL&) OVERRIDE;
-    virtual void searchWithGoogle(const WebCore::Frame*) OVERRIDE;
-    virtual void lookUpInDictionary(WebCore::Frame*) OVERRIDE;
-    virtual bool isSpeaking() OVERRIDE;
-    virtual void speak(const WTF::String&) OVERRIDE;
-    virtual void stopSpeaking() OVERRIDE;
-    virtual void searchWithSpotlight() OVERRIDE;
-    virtual void showContextMenu() OVERRIDE;
+    virtual void downloadURL(const WebCore::URL&) override;
+    virtual void searchWithGoogle(const WebCore::Frame*) override;
+    virtual void lookUpInDictionary(WebCore::Frame*) override;
+    virtual bool isSpeaking() override;
+    virtual void speak(const WTF::String&) override;
+    virtual void stopSpeaking() override;
+    virtual void searchWithSpotlight() override;
+    virtual void showContextMenu() override;
+
+    NSRect screenRectForHitTestNode() const;
+
+#if ENABLE(SERVICE_CONTROLS)
+    void clearSharingServicePickerController();
+    NSImage *renderedImageForControlledImage() const;
+#endif
 
     WebView *webView() { return m_webView; }
         
 private:
+    NSMenu *contextMenuForEvent(NSEvent *, NSView *, bool& isServicesMenu);
+
+    bool clientFloatRectForNode(WebCore::Node&, WebCore::FloatRect&) const;
+
     WebView *m_webView;
+#if ENABLE(SERVICE_CONTROLS)
+    RetainPtr<WebSharingServicePickerController> m_sharingServicePickerController;
+#endif
 };

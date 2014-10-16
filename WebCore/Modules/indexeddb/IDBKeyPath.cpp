@@ -28,9 +28,9 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
+#include "KeyedCoding.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/dtoa.h>
-#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
@@ -45,8 +45,7 @@ public:
 
     explicit IDBKeyPathLexer(const String& s)
         : m_string(s)
-        , m_ptr(s.characters())
-        , m_end(s.characters() + s.length())
+        , m_remainingText(s)
         , m_currentTokenType(TokenError)
     {
     }
@@ -64,66 +63,64 @@ public:
 private:
     TokenType lex(String&);
     TokenType lexIdentifier(String&);
+
     String m_currentElement;
-    String m_string;
-    const UChar* m_ptr;
-    const UChar* m_end;
+    const String m_string;
+    StringView m_remainingText;
     TokenType m_currentTokenType;
 };
 
 IDBKeyPathLexer::TokenType IDBKeyPathLexer::lex(String& element)
 {
-    if (m_ptr >= m_end)
+    if (m_remainingText.isEmpty())
         return TokenEnd;
-    ASSERT(m_ptr < m_end);
 
-    if (*m_ptr == '.') {
-        ++m_ptr;
+    if (m_remainingText[0] == '.') {
+        m_remainingText = m_remainingText.substring(1);
         return TokenDot;
     }
+
     return lexIdentifier(element);
 }
 
 namespace {
 
-using namespace WTF::Unicode;
-
 // The following correspond to grammar in ECMA-262.
-const uint32_t unicodeLetter = Letter_Uppercase | Letter_Lowercase | Letter_Titlecase | Letter_Modifier | Letter_Other | Number_Letter;
-const uint32_t unicodeCombiningMark = Mark_NonSpacing | Mark_SpacingCombining;
-const uint32_t unicodeDigit = Number_DecimalDigit;
-const uint32_t unicodeConnectorPunctuation = Punctuation_Connector;
+const uint32_t unicodeLetter = U_GC_L_MASK | U_GC_NL_MASK;
+const uint32_t unicodeCombiningMark = U_GC_MN_MASK | U_GC_MC_MASK;
+const uint32_t unicodeDigit = U_GC_ND_MASK;
+const uint32_t unicodeConnectorPunctuation = U_GC_PC_MASK;
 const UChar ZWNJ = 0x200C;
 const UChar ZWJ = 0x200D;
 
 static inline bool isIdentifierStartCharacter(UChar c)
 {
-    return (category(c) & unicodeLetter) || (c == '$') || (c == '_');
+    return (U_GET_GC_MASK(c) & unicodeLetter) || (c == '$') || (c == '_');
 }
 
 static inline bool isIdentifierCharacter(UChar c)
 {
-    return (category(c) & (unicodeLetter | unicodeCombiningMark | unicodeDigit | unicodeConnectorPunctuation)) || (c == '$') || (c == '_') || (c == ZWNJ) || (c == ZWJ);
+    return (U_GET_GC_MASK(c) & (unicodeLetter | unicodeCombiningMark | unicodeDigit | unicodeConnectorPunctuation)) || (c == '$') || (c == '_') || (c == ZWNJ) || (c == ZWJ);
 }
 
 } // namespace
 
 IDBKeyPathLexer::TokenType IDBKeyPathLexer::lexIdentifier(String& element)
 {
-    const UChar* start = m_ptr;
-    if (m_ptr < m_end && isIdentifierStartCharacter(*m_ptr))
-        ++m_ptr;
+    StringView start = m_remainingText;
+    if (!m_remainingText.isEmpty() && isIdentifierStartCharacter(m_remainingText[0]))
+        m_remainingText = m_remainingText.substring(1);
     else
         return TokenError;
 
-    while (m_ptr < m_end && isIdentifierCharacter(*m_ptr))
-        ++m_ptr;
+    while (!m_remainingText.isEmpty() && isIdentifierCharacter(m_remainingText[0]))
+        m_remainingText = m_remainingText.substring(1);
 
-    element = String(start, m_ptr - start);
+    element = start.substring(0, start.length() - m_remainingText.length()).toString();
     return TokenIdentifier;
 }
 
-bool IDBIsValidKeyPath(const String& keyPath)
+static bool IDBIsValidKeyPath(const String& keyPath)
 {
     IDBKeyPathParseError error;
     Vector<String> keyPathElements;
@@ -250,6 +247,61 @@ bool IDBKeyPath::operator==(const IDBKeyPath& other) const
     return false;
 }
 
+IDBKeyPath IDBKeyPath::isolatedCopy() const
+{
+    IDBKeyPath result;
+    result.m_type = m_type;
+    result.m_string = m_string.isolatedCopy();
+
+    result.m_array.reserveInitialCapacity(m_array.size());
+    for (size_t i = 0; i < m_array.size(); ++i)
+        result.m_array.uncheckedAppend(m_array[i].isolatedCopy());
+
+    return result;
+}
+
+void IDBKeyPath::encode(KeyedEncoder& encoder) const
+{
+    encoder.encodeEnum("type", m_type);
+    switch (m_type) {
+    case IDBKeyPath::NullType:
+        break;
+    case IDBKeyPath::StringType:
+        encoder.encodeString("string", m_string);
+        break;
+    case IDBKeyPath::ArrayType:
+        encoder.encodeObjects("array", m_array.begin(), m_array.end(), [](WebCore::KeyedEncoder& encoder, const String& string) {
+            encoder.encodeString("string", string);
+        });
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    };
+}
+
+bool IDBKeyPath::decode(KeyedDecoder& decoder, IDBKeyPath& result)
+{
+    auto enumFunction = [](int64_t value) {
+        return value == NullType || value == StringType || value == ArrayType;
+    };
+
+    if (!decoder.decodeEnum("type", result.m_type, enumFunction))
+        return false;
+
+    if (result.m_type == NullType)
+        return true;
+
+    if (result.m_type == StringType)
+        return decoder.decodeString("string", result.m_string);
+
+    ASSERT(result.m_type == ArrayType);
+
+    auto arrayFunction = [](KeyedDecoder& decoder, String& result) {
+        return decoder.decodeString("string", result);
+    };
+
+    return decoder.decodeObjects("array", result.m_array, arrayFunction);
+}
 
 } // namespace WebCore
 

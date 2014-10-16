@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,7 +35,7 @@ namespace WebCore {
 // It is not used on its own.
 class ModifySelectionListLevelCommand : public CompositeEditCommand {
 protected:
-    explicit ModifySelectionListLevelCommand(Document*);
+    explicit ModifySelectionListLevelCommand(Document&);
     
     void appendSiblingNodeRange(Node* startNode, Node* endNode, Element* newParent);
     void insertSiblingNodeRangeBefore(Node* startNode, Node* endNode, Node* refNode);
@@ -57,12 +57,12 @@ private:
     enum Type { InheritedListType, OrderedList, UnorderedList };
     static PassRefPtr<Node> increaseSelectionListLevel(Document*, Type);
 
-    static PassRefPtr<IncreaseSelectionListLevelCommand> create(Document* document, Type type)
+    static PassRefPtr<IncreaseSelectionListLevelCommand> create(Document& document, Type type)
     {
         return adoptRef(new IncreaseSelectionListLevelCommand(document, type));
     }
     
-    IncreaseSelectionListLevelCommand(Document*, Type);
+    IncreaseSelectionListLevelCommand(Document&, Type);
 
     virtual void doApply();
 
@@ -77,12 +77,12 @@ public:
     static void decreaseSelectionListLevel(Document*);
 
 private:
-    static PassRefPtr<DecreaseSelectionListLevelCommand> create(Document* document)
+    static PassRefPtr<DecreaseSelectionListLevelCommand> create(Document& document)
     {
         return adoptRef(new DecreaseSelectionListLevelCommand(document));
     }
 
-    explicit DecreaseSelectionListLevelCommand(Document*);
+    explicit DecreaseSelectionListLevelCommand(Document&);
 
     virtual void doApply();
 };

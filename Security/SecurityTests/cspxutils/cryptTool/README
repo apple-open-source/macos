@@ -1,0 +1,55 @@
+                         cryptTool Info
+                     last update 4/24/2001
+				 
+This directory contains a program, cryptTool, intended to illustrate 
+the use of the CDSA API to perform simple symmetric encryption 
+and decryption. The program consists of one source file, cryptTool.c.
+
+See the README in the parent directory (CDSA_Examples) for information
+on building this program.
+
+The cryptTool program is a command-line utility which does the 
+following:
+
+   create a symmetric key derived from a user-specified password;
+   read a user-specified input file;
+   either encrypt or decrypt that file using a the key generated
+       above and a user-specified encryption algorithm;
+   write the result out to a user-specified output file;
+   
+Several different symmetric encryption algorithms are supported,
+illustrating the use of both stream and block ciphers. 
+
+Running cryptTool with no command-line arguments gives usage 
+instructions, like so:
+
+	localhost> ./cryptTool 
+	usage:
+	./cryptTool op password keySize inFile outFile [a=algorithm]
+	op:
+		e  encrypt
+		d  decrypt
+	algorithm:
+		4  RC4 (default if no algorithm specified)
+		c  ASC/ComCryption
+		d  DES
+		a  AES
+
+All arguments except for the last one are required. A description of the 
+arguments follows.
+
+   op          Indicates whether to encrypt (e) or decrypt (d)
+   password    A user-specified ASCII string which is used to derive a
+                  symmetric key.
+   keySize     The key size in bytes. This is variable for stream ciphers
+                  and fixed for block ciphers. 
+   inFile      The name of the file to encrypt or decrypt.
+   outFile     The name of the file to which the result of the encrypt or
+                  decrypt is written. 
+   algorithm   An optional algorithm. 
+   
+A shell script, runCrypt, is also provided which illustrates the actual 
+usage of cryptTool to encrypt a file and decrypt the result. Run this
+script with no arguments to show a typical sequence of operations. The
+runCrypt script and the cryptTool executable must be in the same 
+directory. 

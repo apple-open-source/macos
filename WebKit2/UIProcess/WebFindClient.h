@@ -30,22 +30,33 @@
 #include "WKPage.h"
 #include <wtf/Forward.h>
 
+namespace API {
+class Array;
+
+template<> struct ClientTraits<WKPageFindClientBase> {
+    typedef std::tuple<WKPageFindClientV0> Versions;
+};
+
+template<> struct ClientTraits<WKPageFindMatchesClientBase> {
+    typedef std::tuple<WKPageFindMatchesClientV0> Versions;
+};
+}
+
 namespace WebKit {
 
-class ImmutableArray;
 class WebPageProxy;
 class WebImage;
 
-class WebFindClient : public APIClient<WKPageFindClient, kWKPageFindClientCurrentVersion> {
+class WebFindClient : public API::Client<WKPageFindClientBase> {
 public:
-    void didFindString(WebPageProxy*, const String&, uint32_t matchCount);
+    void didFindString(WebPageProxy*, const String&, uint32_t matchCount, int32_t matchIndex);
     void didFailToFindString(WebPageProxy*, const String&);
     void didCountStringMatches(WebPageProxy*, const String&, uint32_t matchCount);
 };
 
-class WebFindMatchesClient : public APIClient<WKPageFindMatchesClient, kWKPageFindMatchesClientCurrentVersion> {
+class WebFindMatchesClient : public API::Client<WKPageFindMatchesClientBase> {
 public:
-    void didFindStringMatches(WebPageProxy*, const String&, ImmutableArray*, int);
+    void didFindStringMatches(WebPageProxy*, const String&, API::Array*, int);
     void didGetImageForMatchResult(WebPageProxy*, WebImage*, uint32_t);
 };
 

@@ -152,6 +152,10 @@ struct symbol {
     enum { SUndefined, SValue, Stype } stype;
     struct value *value;
     Type *type;
+    struct {
+	unsigned used;
+	unsigned external;
+    } flags;
 };
 
 typedef struct symbol Symbol;
@@ -159,5 +163,5 @@ typedef struct symbol Symbol;
 void initsym (void);
 Symbol *addsym (char *);
 void output_name (char *);
-int checkundefined(void);
+int checksymbols(void);
 #endif

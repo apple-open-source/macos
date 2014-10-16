@@ -1,0 +1,1048 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>stdint_.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">stdint_.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 2001-2002, 2004-2006 Free Software Foundation, Inc.
+   Written by Bruno Haible, Sam Steingold, Peter Burwood.
+   This file is part of gnulib.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_STDINT_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H</span>
+
+<span class="enscript-comment">/*
+ * ISO C 99 &lt;stdint.h&gt; for platforms that lack it.
+ * &lt;<a href="http://www.opengroup.org/susv3xbd/stdint.h.html">http://www.opengroup.org/susv3xbd/stdint.h.html</a>&gt;
+ */</span>
+
+<span class="enscript-comment">/* Get wchar_t, WCHAR_MIN, WCHAR_MAX.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+<span class="enscript-comment">/* BSD/OS 4.2 defines WCHAR_MIN, WCHAR_MAX in &lt;wchar.h&gt;, not &lt;stddef.h&gt;.  */</span>
+#<span class="enscript-reference">if</span> !(<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WCHAR_MIN</span>) &amp;&amp; <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">WCHAR_MAX</span>)) &amp;&amp; @<span class="enscript-variable-name">HAVE_WCHAR_H</span>@
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;wchar.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Get LONG_MIN, LONG_MAX, ULONG_MAX.  */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;limits.h&gt;</span>
+
+<span class="enscript-comment">/* Get those types that are already defined in other system include files.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__FreeBSD__</span>) &amp;&amp; (<span class="enscript-variable-name">__FreeBSD__</span> &gt;= 3) &amp;&amp; (<span class="enscript-variable-name">__FreeBSD__</span> &lt;= 4)
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/inttypes.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__OpenBSD__</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__bsdi__</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__sgi</span>)
+  <span class="enscript-comment">/* In OpenBSD 3.8, &lt;sys/types.h&gt; includes &lt;machine/types.h&gt;, which defines
+     int{8,16,32,64}_t, uint{8,16,32,64}_t and __BIT_TYPES_DEFINED__.
+     &lt;inttypes.h&gt; includes &lt;machine/types.h&gt; and also defines intptr_t and
+     uintptr_t.  */</span>
+  <span class="enscript-comment">/* BSD/OS 4.2 is similar, but doesn't have &lt;inttypes.h&gt; */</span>
+  <span class="enscript-comment">/* IRIX 6.5 has &lt;inttypes.h&gt;, and &lt;sys/types.h&gt; defines some of these
+     types as well.  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/types.h&gt;</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INTTYPES_H</span>@
+#  <span class="enscript-reference">include</span> @<span class="enscript-variable-name">FULL_PATH_INTTYPES_H</span>@
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__linux__</span>) &amp;&amp; @<span class="enscript-variable-name">HAVE_SYS_BITYPES_H</span>@
+  <span class="enscript-comment">/* Linux libc4 &gt;= 4.6.7 and libc5 have a &lt;sys/bitypes.h&gt; that defines
+     int{8,16,32,64}_t and __BIT_TYPES_DEFINED__.  In libc5 &gt;= 5.2.2 it is
+     included by &lt;sys/types.h&gt;.  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/bitypes.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__sun</span>) &amp;&amp; @<span class="enscript-variable-name">HAVE_SYS_INTTYPES_H</span>@
+  <span class="enscript-comment">/* Solaris 7 &lt;sys/inttypes.h&gt; has the types except the *_fast*_t types, and
+     the macros except for *_FAST*_*, INTPTR_MIN, PTRDIFF_MIN, PTRDIFF_MAX.
+     But note that &lt;sys/int_types.h&gt; contains only the type definitions!  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/inttypes.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> (<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__hpux</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_AIX</span>)) &amp;&amp; @<span class="enscript-variable-name">HAVE_INTTYPES_H</span>@
+  <span class="enscript-comment">/* HP-UX 10 &lt;inttypes.h&gt; has nearly everything, except UINT_LEAST8_MAX,
+     UINT_FAST8_MAX, PTRDIFF_MIN, PTRDIFF_MAX.  */</span>
+  <span class="enscript-comment">/* AIX 4 &lt;inttypes.h&gt; has nearly everything, except INTPTR_MIN, INTPTR_MAX,
+     UINTPTR_MAX, PTRDIFF_MIN, PTRDIFF_MAX.  */</span>
+# <span class="enscript-reference">include</span> @<span class="enscript-variable-name">FULL_PATH_INTTYPES_H</span>@
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_STDINT_H</span>@
+  <span class="enscript-comment">/* Other systems may have an incomplete &lt;stdint.h&gt;.  */</span>
+  <span class="enscript-comment">/* On some versions of IRIX, the SGI C compiler comes with an &lt;stdint.h&gt;,
+     but
+       - in c99 mode, &lt;inttypes.h&gt; includes &lt;stdint.h&gt;,
+       - in c89 mode, &lt;stdint.h&gt; spews warnings and defines nothing.
+         &lt;inttypes.h&gt; defines only a subset of the types and macros that
+         &lt;stdint.h&gt; would define in c99 mode.
+     So we rely only on &lt;inttypes.h&gt; (included above).  It means that in
+     c89 mode, we shadow the contents of warning-spewing &lt;stdint.h&gt;.  */</span>
+# <span class="enscript-reference">if</span> !(<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__sgi</span>) &amp;&amp; @<span class="enscript-variable-name">HAVE_INTTYPES_H</span>@ &amp;&amp; !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__c99</span>))
+#  <span class="enscript-reference">include</span> @<span class="enscript-variable-name">FULL_PATH_STDINT_H</span>@
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.1.1. Exact-width integer types */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits.  */</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT8_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">signed</span> <span class="enscript-type">char</span>    int8_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT8_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span>  uint8_t;
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_UINT8_T</span> <span class="enscript-comment">/* avoid collision with Solaris 2.5.1 &lt;pthread.h&gt; */</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT16_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">short</span>          int16_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT16_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> uint16_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT32_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">int</span>            int32_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT32_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>   uint32_t;
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_UINT32_T</span> <span class="enscript-comment">/* avoid collision with Solaris 2.5.1 &lt;pthread.h&gt; */</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT64_T</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span> 1
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">long</span>           int64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span> 1
+# <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">long</span> <span class="enscript-type">long</span>      int64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span> 1
+# <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+<span class="enscript-type">typedef</span> __int64        int64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span> 1
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT64_T</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span> 1
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span>      uint64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span> 1
+# <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> <span class="enscript-type">long</span> uint64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_UINT64_T</span> <span class="enscript-comment">/* avoid collision with Solaris 2.5.1 &lt;pthread.h&gt; */</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span> 1
+# <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> __int64   uint64_t;
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span> 1
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.1.2. Minimum-width integer types */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits. Therefore the leastN_t types
+   are the same as the corresponding N_t types.  */</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_LEAST8_T</span>@
+<span class="enscript-type">typedef</span> int8_t   int_least8_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_LEAST8_T</span>@
+<span class="enscript-type">typedef</span> uint8_t  uint_least8_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_LEAST16_T</span>@
+<span class="enscript-type">typedef</span> int16_t  int_least16_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_LEAST16_T</span>@
+<span class="enscript-type">typedef</span> uint16_t uint_least16_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_LEAST32_T</span>@
+<span class="enscript-type">typedef</span> int32_t  int_least32_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_LEAST32_T</span>@
+<span class="enscript-type">typedef</span> uint32_t uint_least32_t;
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_LEAST64_T</span>@ &amp;&amp; <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+<span class="enscript-type">typedef</span> int64_t  int_least64_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_LEAST64_T</span>@ &amp;&amp; <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+<span class="enscript-type">typedef</span> uint64_t uint_least64_t;
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.1.3. Fastest minimum-width integer types */</span>
+
+<span class="enscript-comment">/* Note: Other &lt;stdint.h&gt; substitutes may define these types differently.
+   It is not recommended to use these types in public header files. */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits. Therefore the fastN_t types
+   are taken from the same list of types.  */</span>
+
+<span class="enscript-comment">/* On alpha processors, int32_t variables are slower than int64_t variables,
+   due to the necessary zap instructions.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__alpha</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span> 1
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_FAST8_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> int64_t  int_fast8_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> int32_t  int_fast8_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_FAST8_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> uint64_t uint_fast8_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> uint32_t uint_fast8_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_FAST16_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> int64_t  int_fast16_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> int32_t  int_fast16_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_FAST16_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> uint64_t uint_fast16_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> uint32_t uint_fast16_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_FAST32_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> int64_t  int_fast32_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> int32_t  int_fast32_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_FAST32_T</span>@
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+<span class="enscript-type">typedef</span> uint64_t uint_fast32_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> uint32_t uint_fast32_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INT_FAST64_T</span>@ &amp;&amp; <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+<span class="enscript-type">typedef</span> int64_t  int_fast64_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINT_FAST64_T</span>@ &amp;&amp; <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+<span class="enscript-type">typedef</span> uint64_t uint_fast64_t;
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.1.4. Integer types capable of holding object pointers */</span>
+
+<span class="enscript-comment">/* On some platforms (like IRIX6 MIPS with -n32) sizeof(void*) &lt; sizeof(long),
+   but this doesn't matter here.  */</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INTPTR_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">long</span>          intptr_t;
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINTPTR_T</span>@
+<span class="enscript-type">typedef</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> uintptr_t;
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.1.5. Greatest-width integer types */</span>
+
+<span class="enscript-comment">/* Note: These types are compiler dependent. It may be unwise to use them in
+   public header files. */</span>
+
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_INTMAX_T</span>@
+<span class="enscript-comment">/* Remove possible redundant definition from gnulib's config.h first.  */</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">intmax_t</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+<span class="enscript-type">typedef</span> int64_t  intmax_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> int32_t  intmax_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> !@<span class="enscript-variable-name">HAVE_UINTMAX_T</span>@
+<span class="enscript-comment">/* Remove possible redundant definition from gnulib's config.h first.  */</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">uintmax_t</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+<span class="enscript-type">typedef</span> uint64_t uintmax_t;
+# <span class="enscript-reference">else</span>
+<span class="enscript-type">typedef</span> uint32_t uintmax_t;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.2. Limits of specified-width integer types */</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__cplusplus</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__STDC_LIMIT_MACROS</span>)
+
+<span class="enscript-comment">/* 7.18.2.1. Limits of exact-width integer types */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits.  */</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT8_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT8_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MIN</span>  -128
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT8_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT8_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT8_MAX</span>  127
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT8_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT8_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT8_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT8_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT8_MAX</span>  255
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT16_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT16_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MIN</span>  -32768
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT16_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT16_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT16_MAX</span>  32767
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT16_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT16_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT16_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT16_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT16_MAX</span>  65535
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT32_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT32_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MIN</span>  (~INT32_MAX)
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT32_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT32_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT32_MAX</span>  2147483647
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT32_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT32_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT32_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT32_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT32_MAX</span>  4294967295U
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT64_MIN</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT64_T@ - 1))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MIN</span>  (-1LL &lt;&lt; (@BITSIZEOF_INT64_T@ - 1))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MIN</span>  (-1i64 &lt;&lt; (@BITSIZEOF_INT64_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MIN</span>  (~INT64_MAX)
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  (~ (-1LL &lt;&lt; (@BITSIZEOF_INT64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  (~ (-1i64 &lt;&lt; (@BITSIZEOF_INT64_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  9223372036854775807L
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  9223372036854775807LL
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT64_MAX</span>  9223372036854775807i64
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span>  (((1ULL &lt;&lt; (@BITSIZEOF_UINT64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span>  (((1ui64 &lt;&lt; (@BITSIZEOF_UINT64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span> 18446744073709551615UL
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span> 18446744073709551615ULL
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT64_MAX</span> 18446744073709551615ui64
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.2.2. Limits of minimum-width integer types */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits. Therefore the leastN_t types
+   are the same as the corresponding N_t types.  */</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST8_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST8_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST8_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST8_MIN</span>  INT8_MIN
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST8_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST8_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST8_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST8_MAX</span>  INT8_MAX
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_LEAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_LEAST8_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_LEAST8_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST8_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_LEAST8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST8_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT_LEAST8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST8_MAX</span>  UINT8_MAX
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST16_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST16_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST16_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST16_MIN</span>  INT16_MIN
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST16_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST16_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST16_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST16_MAX</span>  INT16_MAX
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_LEAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_LEAST16_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_LEAST16_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST16_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_LEAST16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST16_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT_LEAST16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST16_MAX</span>  UINT16_MAX
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST32_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST32_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST32_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST32_MIN</span>  INT32_MIN
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST32_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST32_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_INT_LEAST32_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST32_MAX</span>  INT32_MAX
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_LEAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_LEAST32_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_LEAST32_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST32_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_LEAST32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST32_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_UINT_LEAST32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST32_MAX</span>  UINT32_MAX
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST64_MIN</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MIN</span>  (-1LL &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MIN</span>  (-1i64 &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MIN</span>  INT64_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_LEAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_LEAST64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MAX</span>  (~ (-1LL &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MAX</span>  (~ (-1i64 &lt;&lt; (@BITSIZEOF_INT_LEAST64_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_LEAST64_MAX</span>  INT64_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_LEAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_LEAST64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST64_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT_LEAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST64_MAX</span>  (((1ULL &lt;&lt; (@BITSIZEOF_UINT_LEAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST64_MAX</span>  (((1ui64 &lt;&lt; (@BITSIZEOF_UINT_LEAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_LEAST64_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.2.3. Limits of fastest minimum-width integer types */</span>
+
+<span class="enscript-comment">/* Here we assume a standard architecture where the hardware integer
+   types have 8, 16, 32, optionally 64 bits. Therefore the fastN_t types
+   are taken from the same list of types.  */</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST8_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT_FAST8_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MIN</span>  INT64_MIN
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MIN</span>  INT32_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST8_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT_FAST8_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MAX</span>  INT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST8_MAX</span>  INT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_FAST8_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_FAST8_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_FAST8_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST8_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_FAST8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST8_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT_FAST8_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST8_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST8_MAX</span>  UINT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST16_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT_FAST16_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MIN</span>  INT64_MIN
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MIN</span>  INT32_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST16_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT_FAST16_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MAX</span>  INT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST16_MAX</span>  INT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_FAST16_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_FAST16_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_FAST16_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST16_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_FAST16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST16_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT_FAST16_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST16_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST16_MAX</span>  UINT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST32_MIN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT_FAST32_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MIN</span>  INT64_MIN
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MIN</span>  INT32_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST32_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT_FAST32_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MAX</span>  INT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST32_MAX</span>  INT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_FAST32_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_FAST32_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT_FAST32_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST32_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_UINT_FAST32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST32_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT_FAST32_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">_STDINT_H_INT64_FASTER_THAN_INT32</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST32_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST32_MAX</span>  UINT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST64_MIN</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MIN</span>  (-1LL &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MIN</span>  (-1i64 &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MIN</span>  INT64_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INT_FAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INT_FAST64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MAX</span>  (~ (-1LL &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1)))
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MAX</span>  (~ (-1i64 &lt;&lt; (@BITSIZEOF_INT_FAST64_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INT_FAST64_MAX</span>  INT64_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT_FAST64_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINT_FAST64_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST64_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINT_FAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST64_MAX</span>  (((1ULL &lt;&lt; (@BITSIZEOF_UINT_FAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_MSC_VER</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST64_MAX</span>  (((1ui64 &lt;&lt; (@BITSIZEOF_UINT_FAST64_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_UINT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINT_FAST64_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.2.4. Limits of integer types capable of holding object pointers */</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INTPTR_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INTPTR_MIN</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_INTPTR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MIN</span>  (-1LL &lt;&lt; (@BITSIZEOF_INTPTR_T@ - 1))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INTPTR_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MIN</span>  LONG_MIN
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INTPTR_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INTPTR_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_INTPTR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MAX</span>  (~ (-1LL &lt;&lt; (@BITSIZEOF_INTPTR_T@ - 1)))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INTPTR_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTPTR_MAX</span>  LONG_MAX
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINTPTR_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINTPTR_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINTPTR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTPTR_MAX</span>  (((1ULL &lt;&lt; (@BITSIZEOF_UINTPTR_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTPTR_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINTPTR_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTPTR_MAX</span>  ULONG_MAX
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.2.5. Limits of greatest-width integer types */</span>
+
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INTMAX_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INTMAX_MIN</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_INTMAX_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MIN</span>  (-1LL &lt;&lt; (@BITSIZEOF_INTMAX_T@ - 1))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_INTMAX_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MIN</span>  INT64_MIN
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MIN</span>  INT32_MIN
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_INTMAX_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">INTMAX_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_INTMAX_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MAX</span>  (~ (-1LL &lt;&lt; (@BITSIZEOF_INTMAX_T@ - 1)))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_INTMAX_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MAX</span>  INT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">INTMAX_MAX</span>  INT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINTMAX_T</span>@
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">UINTMAX_MAX</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINTMAX_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTMAX_MAX</span>  (((1ULL &lt;&lt; (@BITSIZEOF_UINTMAX_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTMAX_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_UINTMAX_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_STDINT_H_HAVE_INT64</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTMAX_MAX</span>  UINT64_MAX
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">UINTMAX_MAX</span>  UINT32_MAX
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.3. Limits of other integer types */</span>
+
+<span class="enscript-comment">/* ptrdiff_t limits */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">PTRDIFF_MIN</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_PTRDIFF_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_PTRDIFF_T_LONG</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PTRDIFF_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_PTRDIFF_T@ - 1))
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PTRDIFF_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_PTRDIFF_T@ - 1))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">PTRDIFF_MAX</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_PTRDIFF_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_PTRDIFF_T_LONG</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PTRDIFF_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_PTRDIFF_T@ - 1)))
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PTRDIFF_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_PTRDIFF_T@ - 1)))
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* sig_atomic_t limits */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_SIG_ATOMIC_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_SIG_ATOMIC_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_SIG_ATOMIC_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>  0UL
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>  0U
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MIN</span>  0
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_SIG_ATOMIC_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_SIG_ATOMIC_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1)))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_SIG_ATOMIC_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_SIG_ATOMIC_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIG_ATOMIC_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_SIG_ATOMIC_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* size_t limit */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">SIZE_MAX</span> <span class="enscript-comment">/* SIZE_MAX may also be defined in config.h. */</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_SIZE_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_SIZE_T_UNSIGNED_LONG</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIZE_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_SIZE_T@ - 1)) - 1) * 2 + 1)
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">SIZE_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_SIZE_T@ - 1)) - 1) * 2 + 1)
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* wchar_t limits may already be defined in &lt;stddef.h&gt;.  */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">WCHAR_MIN</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_WCHAR_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WCHAR_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WCHAR_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MIN</span>  0UL
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MIN</span>  0U
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MIN</span>  0
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">WCHAR_MAX</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_WCHAR_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WCHAR_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1)))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WCHAR_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_WCHAR_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WCHAR_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_WCHAR_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* wint_t limits */</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">WINT_MIN</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_WINT_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WINT_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MIN</span>  (-1L &lt;&lt; (@BITSIZEOF_WINT_T@ - 1))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MIN</span>  (-1 &lt;&lt; (@BITSIZEOF_WINT_T@ - 1))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WINT_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MIN</span>  0UL
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MIN</span>  0U
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MIN</span>  0
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">WINT_MAX</span>
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_SIGNED_WINT_T</span>@
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WINT_T_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MAX</span>  (~ (-1L &lt;&lt; (@BITSIZEOF_WINT_T@ - 1)))
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MAX</span>  (~ (-1 &lt;&lt; (@BITSIZEOF_WINT_T@ - 1)))
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_LONG</span>@ || @<span class="enscript-variable-name">SAME_TYPE_WINT_T_UNSIGNED_LONG</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MAX</span>  (((1UL &lt;&lt; (@BITSIZEOF_WINT_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">elif</span> @<span class="enscript-variable-name">BITSIZEOF_WINT_T</span>@ &gt;= @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MAX</span>  (((1U &lt;&lt; (@BITSIZEOF_WINT_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">else</span>
+#   <span class="enscript-reference">define</span> <span class="enscript-variable-name">WINT_MAX</span>  (((1 &lt;&lt; (@BITSIZEOF_WINT_T@ - 1)) - 1) * 2 + 1)
+#  <span class="enscript-reference">endif</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.4. Macros for integer constants */</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__cplusplus</span>) || <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__STDC_CONSTANT_MACROS</span>)
+
+<span class="enscript-comment">/* 7.18.4.1. Macros for minimum-width integer constants */</span>
+<span class="enscript-comment">/* According to ISO C 99 Technical Corrigendum 1 */</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">INT8_C</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">UINT8_C</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">INT8_C</span>(x) x
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT8_T</span>@
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT8_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT8_C</span>(x) x
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT8_C</span>(x) x##U
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT8_C</span>(x) x
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">INT16_C</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">UINT16_C</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">INT16_C</span>(x) x
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT16_T</span>@
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT16_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT16_C</span>(x) x
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT16_C</span>(x) x##U
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT16_C</span>(x) x
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">INT32_C</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">UINT32_C</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">INT32_C</span>(x) x
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_UINT32_T</span>@
+# <span class="enscript-reference">if</span> @<span class="enscript-variable-name">BITSIZEOF_UINT32_T</span>@ &lt; @<span class="enscript-variable-name">BITSIZEOF_UNSIGNED_INT</span>@
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT32_C</span>(x) x
+# <span class="enscript-reference">else</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT32_C</span>(x) x##U
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT32_C</span>(x) x
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">INT64_C</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">UINT64_C</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INT64_C</span>(x) x##L
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT64_C</span>(x) x##UL
+#<span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INT64_C</span>(x) x##LL
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT64_C</span>(x) x##ULL
+#<span class="enscript-reference">elif</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_MSC_VER</span>)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INT64_C</span>(x) x##i64
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINT64_C</span>(x) x##ui64
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* 7.18.4.2. Macros for greatest-width integer constants */</span>
+
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">INTMAX_C</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">UINTMAX_C</span>
+#<span class="enscript-reference">if</span> @<span class="enscript-variable-name">HAVE_LONG_64BIT</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INTMAX_C</span>(x) x##L
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINTMAX_C</span>(x) x##UL
+#<span class="enscript-reference">elif</span> @<span class="enscript-variable-name">HAVE_LONG_LONG_64BIT</span>@
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INTMAX_C</span>(x) x##LL
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINTMAX_C</span>(x) x##ULL
+#<span class="enscript-reference">elif</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">_MSC_VER</span>)
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INTMAX_C</span>(x) x##i64
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINTMAX_C</span>(x) x##ui64
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">INTMAX_C</span>(x) x
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">UINTMAX_C</span>(x) x##U
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _STDINT_H */</span>
+</pre>
+<hr />
+</body></html>

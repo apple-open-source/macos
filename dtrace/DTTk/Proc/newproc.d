@@ -25,16 +25,16 @@ proc:::exec-success
 }
 
 /*
- * The "this" variables are local to (all) of the following syscall::mmap:return probes,
+ * The "this" variables are local to (all) of the following syscall::bsdthread_register:return probes,
  * and only those probes. They must be initialized before use in each new firing.
  */
-syscall::mmap:return
+syscall::bsdthread_register:return
 {
 	this->argc = 0; /* Disable argument collection until we notice an exec-success */
 	this->need_newline = 0;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / print_pid[pid] /
 {
 	print_pid[pid] = 0;
@@ -50,7 +50,7 @@ syscall::mmap:return
 	this->need_newline = 1;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -62,7 +62,7 @@ syscall::mmap:return
 	this->argc--;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -74,7 +74,7 @@ syscall::mmap:return
 	this->argc--;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -86,7 +86,7 @@ syscall::mmap:return
 	this->argc--;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -98,7 +98,7 @@ syscall::mmap:return
 	this->argc--;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -110,7 +110,7 @@ syscall::mmap:return
 	this->argc--;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
@@ -123,14 +123,14 @@ syscall::mmap:return
 }
 
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->argc /
 {
 	printf(" <...>");
 	this->argc = 0;
 }
 
-syscall::mmap:return
+syscall::bsdthread_register:return
 / this->need_newline /
 {
 	printf("\n");

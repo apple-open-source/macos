@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,9 +28,16 @@
 
 #include <wtf/Forward.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
+
+class IntPoint;
+class IntRect;
+class FloatPoint;
+class FloatSize;
+class LayoutPoint;
+class LayoutRect;
+class LayoutUnit;
 
 class TextStream {
 public:
@@ -53,11 +60,36 @@ public:
     TextStream& operator<<(const String&);
     TextStream& operator<<(const FormatNumberRespectingIntegers&);
 
+    TextStream& operator<<(const IntPoint&);
+    TextStream& operator<<(const IntRect&);
+    TextStream& operator<<(const FloatPoint&);
+    TextStream& operator<<(const FloatSize&);
+    TextStream& operator<<(const LayoutUnit&);
+    TextStream& operator<<(const LayoutPoint&);
+    TextStream& operator<<(const LayoutRect&);
+
+    template<typename Item>
+    TextStream& operator<<(const Vector<Item>& vector)
+    {
+        *this << "[";
+
+        unsigned size = vector.size();
+        for (unsigned i = 0; i < size; ++i) {
+            *this << vector[i];
+            if (i < size - 1)
+                *this << ", ";
+        }
+
+        return *this << "]";
+    }
+
     String release();
 
 private:
     StringBuilder m_text;
 };
+
+void writeIndent(TextStream&, int indent);
 
 }
 

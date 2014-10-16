@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>POSIXSpawnType</key>
+	<string>Adaptive</string>
+	<key>Label</key>
+	<string>com.apple.OTAPKIAssetTool</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/OTAPKIAssetTool</string>
+	</array>
+	<key>Umask</key>
+	<integer>18</integer>
+	<key>UserName</key>
+	<string>_securityd</string>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.xpc.activity</key>
+		<dict>
+			<key>com.apple.OTAPKIAssetTool.asset-check</key>
+			<dict>
+				<key>Priority</key>
+				<string>Utility</string>
+				<key>Interval</key>
+				<integer>259200</integer>
+				<key>GracePeriod</key>
+				<integer>3600</integer>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

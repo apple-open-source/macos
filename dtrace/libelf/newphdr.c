@@ -34,9 +34,7 @@
 #include <errno.h>
 #include "decl.h"
 #include "msg.h"
-#if defined(__APPLE__)
 #include <string.h>
-#endif /* __APPLE__ */
 
 /*
  * This module is compiled twice, the second time having

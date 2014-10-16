@@ -29,10 +29,6 @@
 
 #pragma ident	"@(#)lwp.h	1.36	08/05/31 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/synch.h>
-#include <sys/ucontext.h>
-#else /* is Apple Mac OS X */
 
 #ifdef KERNEL
 #ifndef _KERNEL
@@ -41,7 +37,6 @@
 #endif
 
 #include "darwin_shim.h" /* In lieu of Solaris <sys/synch.h> and <sys/ucontext.h> */
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {

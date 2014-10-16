@@ -26,7 +26,7 @@
 #ifndef ScrollingTreeScrollingNode_h
 #define ScrollingTreeScrollingNode_h
 
-#if ENABLE(THREADED_SCROLLING)
+#if ENABLE(ASYNC_SCROLLING)
 
 #include "IntRect.h"
 #include "ScrollTypes.h"
@@ -36,70 +36,70 @@
 
 namespace WebCore {
 
-class PlatformWheelEvent;
 class ScrollingTree;
 class ScrollingStateScrollingNode;
 
 class ScrollingTreeScrollingNode : public ScrollingTreeNode {
 public:
-    static PassOwnPtr<ScrollingTreeScrollingNode> create(ScrollingTree*, ScrollingNodeID);
     virtual ~ScrollingTreeScrollingNode();
 
-    virtual void updateBeforeChildren(ScrollingStateNode*) OVERRIDE;
+    virtual void updateBeforeChildren(const ScrollingStateNode&) override;
+    virtual void updateAfterChildren(const ScrollingStateNode&) override;
 
-    // FIXME: We should implement this when we support ScrollingTreeScrollingNodes as children.
-    virtual void parentScrollPositionDidChange(const IntRect& /*viewportRect*/, const FloatSize& /*cumulativeDelta*/) OVERRIDE { }
+    virtual void updateLayersAfterAncestorChange(const ScrollingTreeNode& changedNode, const FloatRect& fixedPositionRect, const FloatSize& cumulativeDelta) override;
 
     virtual void handleWheelEvent(const PlatformWheelEvent&) = 0;
-    virtual void setScrollPosition(const IntPoint&) = 0;
+    virtual void setScrollPosition(const FloatPoint&);
+    virtual void setScrollPositionWithoutContentEdgeConstraints(const FloatPoint&);
 
-    MainThreadScrollingReasons shouldUpdateScrollLayerPositionOnMainThread() const { return m_shouldUpdateScrollLayerPositionOnMainThread; }
+    virtual void updateLayersAfterViewportChange(const FloatRect& fixedPositionRect, double scale) = 0;
+    virtual void updateLayersAfterDelegatedScroll(const FloatPoint&) { }
+
+    virtual FloatPoint scrollPosition() const = 0;
 
 protected:
-    explicit ScrollingTreeScrollingNode(ScrollingTree*, ScrollingNodeID);
+    ScrollingTreeScrollingNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
 
-    const IntRect& viewportRect() const { return m_viewportRect; }
-    const IntSize& totalContentsSize() const { return m_totalContentsSize; }
+    virtual FloatPoint minimumScrollPosition() const;
+    virtual FloatPoint maximumScrollPosition() const;
 
-    float frameScaleFactor() const { return m_frameScaleFactor; }
+    virtual void setScrollLayerPosition(const FloatPoint&) = 0;
 
-    ScrollElasticity horizontalScrollElasticity() const { return m_horizontalScrollElasticity; }
-    ScrollElasticity verticalScrollElasticity() const { return m_verticalScrollElasticity; }
-
-    bool hasEnabledHorizontalScrollbar() const { return m_hasEnabledHorizontalScrollbar; }
-    bool hasEnabledVerticalScrollbar() const { return m_hasEnabledVerticalScrollbar; }
-
-    bool canHaveScrollbars() const { return m_horizontalScrollbarMode != ScrollbarAlwaysOff || m_verticalScrollbarMode != ScrollbarAlwaysOff; }
-
+    FloatPoint lastCommittedScrollPosition() const { return m_lastCommittedScrollPosition; }
+    const FloatSize& scrollableAreaSize() const { return m_scrollableAreaSize; }
+    const FloatSize& totalContentsSize() const { return m_totalContentsSize; }
+    const FloatSize& reachableContentsSize() const { return m_reachableContentsSize; }
     const IntPoint& scrollOrigin() const { return m_scrollOrigin; }
 
-    int headerHeight() const { return m_headerHeight; }
-    int footerHeight() const { return m_footerHeight; }
+    // If the totalContentsSize changes in the middle of a rubber-band, we still want to use the old totalContentsSize for the sake of
+    // computing the stretchAmount(). Using the old value will keep the animation smooth. When there is no rubber-band in progress at
+    // all, m_totalContentsSizeForRubberBand should be equivalent to m_totalContentsSize.
+    const FloatSize& totalContentsSizeForRubberBand() const { return m_totalContentsSizeForRubberBand; }
+    void setTotalContentsSizeForRubberBand(const FloatSize& totalContentsSizeForRubberBand) { m_totalContentsSizeForRubberBand = totalContentsSizeForRubberBand; }
+
+    ScrollElasticity horizontalScrollElasticity() const { return m_scrollableAreaParameters.horizontalScrollElasticity; }
+    ScrollElasticity verticalScrollElasticity() const { return m_scrollableAreaParameters.verticalScrollElasticity; }
+
+    bool hasEnabledHorizontalScrollbar() const { return m_scrollableAreaParameters.hasEnabledHorizontalScrollbar; }
+    bool hasEnabledVerticalScrollbar() const { return m_scrollableAreaParameters.hasEnabledVerticalScrollbar; }
+
+    bool canHaveScrollbars() const { return m_scrollableAreaParameters.horizontalScrollbarMode != ScrollbarAlwaysOff || m_scrollableAreaParameters.verticalScrollbarMode != ScrollbarAlwaysOff; }
 
 private:
-    IntRect m_viewportRect;
-    IntSize m_totalContentsSize;
+    FloatSize m_scrollableAreaSize;
+    FloatSize m_totalContentsSize;
+    FloatSize m_totalContentsSizeForRubberBand;
+    FloatSize m_reachableContentsSize;
+    FloatPoint m_lastCommittedScrollPosition;
     IntPoint m_scrollOrigin;
     
-    float m_frameScaleFactor;
-
-    MainThreadScrollingReasons m_shouldUpdateScrollLayerPositionOnMainThread;
-
-    ScrollElasticity m_horizontalScrollElasticity;
-    ScrollElasticity m_verticalScrollElasticity;
-    
-    bool m_hasEnabledHorizontalScrollbar;
-    bool m_hasEnabledVerticalScrollbar;
-
-    ScrollbarMode m_horizontalScrollbarMode;
-    ScrollbarMode m_verticalScrollbarMode;
-
-    int m_headerHeight;
-    int m_footerHeight;
+    ScrollableAreaParameters m_scrollableAreaParameters;
 };
+
+SCROLLING_NODE_TYPE_CASTS(ScrollingTreeScrollingNode, isScrollingNode());
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // ENABLE(ASYNC_SCROLLING)
 
 #endif // ScrollingTreeScrollingNode_h

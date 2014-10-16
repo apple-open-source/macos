@@ -77,7 +77,7 @@ krb5_sendauth(krb5_context context,
 {
     krb5_error_code ret;
     uint32_t net_len;
-    size_t len;
+    ssize_t len;
     const char *version = KRB5_SENDAUTH_VERSION;
     u_char repl;
     krb5_data ap_req, error_data;

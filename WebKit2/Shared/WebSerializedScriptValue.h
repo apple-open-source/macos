@@ -34,7 +34,7 @@
 
 namespace WebKit {
 
-class WebSerializedScriptValue : public TypedAPIObject<APIObject::TypeSerializedScriptValue> {
+class WebSerializedScriptValue : public API::ObjectImpl<API::Object::Type::SerializedScriptValue> {
 public:
     static PassRefPtr<WebSerializedScriptValue> create(PassRefPtr<WebCore::SerializedScriptValue> serializedValue)
     {
@@ -59,7 +59,7 @@ public:
         return m_serializedScriptValue->deserialize(context, exception);
     }
 
-    CoreIPC::DataReference dataReference() const { return m_serializedScriptValue->data(); }
+    IPC::DataReference dataReference() const { return m_serializedScriptValue->data(); }
 
     void* internalRepresentation() { return m_serializedScriptValue.get(); }
 

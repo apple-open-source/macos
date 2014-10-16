@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -459,9 +459,7 @@ nwi_state_get_first_ifstate(nwi_state_t state, int af)
 		return NULL;
 	}
 
-	ifstate =
-		nwi_state_get_ifstate_with_index(state, af, 0);
-
+	ifstate = nwi_state_get_ifstate_with_index(state, af, 0);
 	if ((ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST)
 	    != 0) {
 		ifstate =  NULL;

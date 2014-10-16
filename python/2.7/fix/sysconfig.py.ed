@@ -1,7 +1,31 @@
+/^def get_python_inc(/a
+.
+/return os\.path\.join(prefix, "include", "python" + get_python_version())/i
+        sdkroot = os.environ.get('SDKROOT')
+        if sdkroot is not None and ((prefix.startswith('/usr/') and not prefix.startswith('/usr/local')) or prefix.startswith('/System/')):
+            inc = os.path.join(sdkroot, prefix[1:], "include", "python" + get_python_version())
+            if os.path.exists(inc):
+                return inc
+.
 /return os\.path\.join(libpython, "site-packages")/c
             if sys.platform == "darwin" and prefix.startswith('/System/Library/Frameworks/'):
                 return os.path.join("/Library/Python", get_python_version(), "site-packages")
             else:
                 return os.path.join(libpython, "site-packages")
+.
+/def _init_posix():/a
+.
+/^$/i
+    if sys.platform == 'darwin':
+        sdkroot = os.environ.get('SDKROOT')
+        if sdkroot is not None:
+            if _config_vars['LIBRARY'].endswith('.a'):
+                _config_vars['LIBRARY'] = _config_vars['LIBRARY'][:-2] + '.dylib'
+            for p in ('INCLUDEPY', 'LIBPL'):
+                q = _config_vars[p]
+                if (q.startswith('/usr/') and not q.startswith('/usr/local')) or q.startswith('/System/'):
+                    q = os.path.join(sdkroot, q[1:])
+                    if os.path.exists(q):
+                        _config_vars[p] = q
 .
 w

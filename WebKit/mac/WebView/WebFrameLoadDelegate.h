@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,9 +26,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
 #import <JavaScriptCore/JSBase.h>
-#import <JavaScriptCore/WebKitAvailability.h>
+#import <WebKitLegacy/WebKitAvailability.h>
+
+#if !TARGET_OS_IPHONE
+#import <AppKit/AppKit.h>
+#endif
 
 @class NSError;
 @class WebFrame;
@@ -109,7 +113,9 @@
     @param image The icon image. Also known as a "favicon".
     @param frame The frame for which a page icon has been received
 */
+#if !TARGET_OS_IPHONE
 - (void)webView:(WebView *)sender didReceiveIcon:(NSImage *)image forFrame:(WebFrame *)frame;
+#endif
 
 /*!
     @method webView:didFinishLoadForFrame:
@@ -197,7 +203,7 @@
     @discussion This method is deprecated. Consider using webView:didClearWindowObject:forFrame:
     instead.
 */
-- (void)webView:(WebView *)webView windowScriptObjectAvailable:(WebScriptObject *)windowScriptObject WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_3_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
+- (void)webView:(WebView *)webView windowScriptObjectAvailable:(WebScriptObject *)windowScriptObject WEBKIT_DEPRECATED_MAC(10_4, 10_5);
 
 #if JSC_OBJC_API_ENABLED
 /*!

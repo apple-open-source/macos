@@ -33,25 +33,15 @@
 #include <WebCore/FileSystem.h>
 #include <WebCore/NetworkingContext.h>
 #include <WebCore/ResourceHandle.h>
-#include <WebCore/RunLoop.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <glib.h>
 #include <locale.h>
+#include <wtf/RunLoop.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/gobject/GlibUtilities.h>
-
-#if OS(LINUX)
-#include <sys/prctl.h>
-#include <sys/socket.h>
-#endif
-
-#ifdef SOCK_SEQPACKET
-#define SOCKET_TYPE SOCK_SEQPACKET
-#else
-#define SOCKET_TYPE SOCK_STREAM
-#endif
 
 using namespace WebCore;
 
@@ -67,42 +57,74 @@ void ProcessLauncher::launchProcess()
 {
     GPid pid = 0;
 
-    int sockets[2];
-    if (socketpair(AF_UNIX, SOCKET_TYPE, 0, sockets) < 0) {
-        g_printerr("Creation of socket failed: %s.\n", g_strerror(errno));
+    IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection(IPC::Connection::ConnectionOptions::SetCloexecOnServer);
+
+    String executablePath, pluginPath;
+    CString realExecutablePath, realPluginPath;
+    switch (m_launchOptions.processType) {
+    case WebProcess:
+        executablePath = executablePathOfWebProcess();
+        break;
+    case PluginProcess:
+        executablePath = executablePathOfPluginProcess();
+        if (m_launchOptions.extraInitializationData.contains("requires-gtk2"))
+            executablePath.append('2');
+        pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
+        realPluginPath = fileSystemRepresentation(pluginPath);
+        break;
+#if ENABLE(NETWORK_PROCESS)
+    case NetworkProcess:
+        executablePath = executablePathOfNetworkProcess();
+        break;
+#endif
+    default:
         ASSERT_NOT_REACHED();
         return;
     }
 
-    String executablePath, pluginPath;
-    CString realExecutablePath, realPluginPath;
-    if (m_launchOptions.processType == WebProcess)
-        executablePath = executablePathOfWebProcess();
-    else {
-        executablePath = executablePathOfPluginProcess();
-        pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
-        realPluginPath = fileSystemRepresentation(pluginPath);
-    }
-
     realExecutablePath = fileSystemRepresentation(executablePath);
-    GOwnPtr<gchar> socket(g_strdup_printf("%d", sockets[0]));
-    char* argv[4];
-    argv[0] = const_cast<char*>(realExecutablePath.data());
-    argv[1] = socket.get();
-    argv[2] = const_cast<char*>(realPluginPath.data());
-    argv[3] = 0;
+    GUniquePtr<gchar> socket(g_strdup_printf("%d", socketPair.client));
 
-    GOwnPtr<GError> error;
-    if (!g_spawn_async(0, argv, 0, G_SPAWN_LEAVE_DESCRIPTORS_OPEN, childSetupFunction, GINT_TO_POINTER(sockets[1]), &pid, &error.outPtr())) {
+    unsigned nargs = 4; // size of the argv array for g_spawn_async()
+
+#ifndef NDEBUG
+    Vector<CString> prefixArgs;
+    if (!m_launchOptions.processCmdPrefix.isNull()) {
+        Vector<String> splitArgs;
+        m_launchOptions.processCmdPrefix.split(' ', splitArgs);
+        for (auto it = splitArgs.begin(); it != splitArgs.end(); it++)
+            prefixArgs.append(it->utf8());
+        nargs += prefixArgs.size();
+    }
+#endif
+
+    char** argv = g_newa(char*, nargs);
+    unsigned i = 0;
+#ifndef NDEBUG
+    // If there's a prefix command, put it before the rest of the args.
+    for (auto it = prefixArgs.begin(); it != prefixArgs.end(); it++)
+        argv[i++] = const_cast<char*>(it->data());
+#endif
+    argv[i++] = const_cast<char*>(realExecutablePath.data());
+    argv[i++] = socket.get();
+    argv[i++] = const_cast<char*>(realPluginPath.data());
+    argv[i++] = 0;
+
+    GUniqueOutPtr<GError> error;
+    if (!g_spawn_async(0, argv, 0, G_SPAWN_LEAVE_DESCRIPTORS_OPEN, childSetupFunction, GINT_TO_POINTER(socketPair.server), &pid, &error.outPtr())) {
         g_printerr("Unable to fork a new WebProcess: %s.\n", error->message);
         ASSERT_NOT_REACHED();
     }
 
-    close(sockets[0]);
+    // Don't expose the parent socket to potential future children.
+    while (fcntl(socketPair.client, F_SETFD, FD_CLOEXEC) == -1)
+        RELEASE_ASSERT(errno != EINTR);
+
+    close(socketPair.client);
     m_processIdentifier = pid;
 
     // We've finished launching the process, message back to the main run loop.
-    RunLoop::main()->dispatch(bind(&ProcessLauncher::didFinishLaunchingProcess, this, m_processIdentifier, sockets[1]));
+    RunLoop::main().dispatch(bind(&ProcessLauncher::didFinishLaunchingProcess, this, m_processIdentifier, socketPair.server));
 }
 
 void ProcessLauncher::terminateProcess()

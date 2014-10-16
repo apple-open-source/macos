@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -33,6 +33,8 @@
 
 namespace WebCore {
     
+class AccessibilityTable;
+
 class AccessibilityTableRow : public AccessibilityRenderObject {
     
 protected:
@@ -41,11 +43,11 @@ public:
     static PassRefPtr<AccessibilityTableRow> create(RenderObject*);
     virtual ~AccessibilityTableRow();
     
-    virtual bool isTableRow() const;
+    virtual bool isTableRow() const override;
 
     // retrieves the "row" header (a th tag in the rightmost column)
     virtual AccessibilityObject* headerObject();
-    virtual AccessibilityObject* parentTable() const;
+    virtual AccessibilityTable* parentTable() const;
     
     void setRowIndex(int rowIndex) { m_rowIndex = rowIndex; }
     int rowIndex() const { return m_rowIndex; }
@@ -55,15 +57,17 @@ public:
     void appendChild(AccessibilityObject*);
     
 protected:
-    virtual AccessibilityRole determineAccessibilityRole();
+    virtual AccessibilityRole determineAccessibilityRole() override;
 
 private:
     int m_rowIndex;
     
-    virtual AccessibilityObject* observableObject() const;
-    virtual bool computeAccessibilityIsIgnored() const;
+    virtual AccessibilityObject* observableObject() const override;
+    virtual bool computeAccessibilityIsIgnored() const override;
 }; 
-   
+
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityTableRow, isTableRow())
+
 } // namespace WebCore 
 
 #endif // AccessibilityTableRow_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #include "IOAudioControlUserClient.h"
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
+#include "AudioTracepoints.h"
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
@@ -70,12 +71,12 @@ OSMetaClassDefineReservedUnused(IOAudioControl, 23);
 // New code
 
 // OSMetaClassDefineReservedUsed(IOAudioControl, 3);
-IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient, OSDictionary *properties)
+IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 taskType, IOAudioControlUserClient **newUserClient, OSDictionary *properties)
 {
     IOReturn result = kIOReturnSuccess;
     IOAudioControlUserClient *userClient;
     
-    userClient = IOAudioControlUserClient::withAudioControl(this, task, securityID, type, properties);
+    userClient = IOAudioControlUserClient::withAudioControl(this, task, securityID, taskType, properties);
     
     if (userClient) {
         *newUserClient = userClient;
@@ -177,13 +178,13 @@ IOAudioControl *IOAudioControl::withAttributes(UInt32 type,
     return control;
 }
 
-bool IOAudioControl::init(UInt32 type,
+bool IOAudioControl::init(UInt32 _type,
                           OSObject *initialValue,
                           UInt32 newChannelID,
                           const char *channelName,
                           UInt32 cntrlID,
-                          UInt32 subType,
-                          UInt32 usage,
+                          UInt32 _subType,
+                          UInt32 _usage,
                           OSDictionary *properties)
 {
     if (!super::init(properties)) {
@@ -194,23 +195,23 @@ bool IOAudioControl::init(UInt32 type,
         return false;
     }
 
-    if (type == 0) {
+    if (_type == 0) {
         return false;
     }
     
-    setType(type);
+    setType(_type);
 
     setChannelID(newChannelID);
     setControlID(cntrlID);
 
-	setSubType(subType);
+	setSubType(_subType);
     
     if (channelName) {
         setChannelName(channelName);
     }
     
-    if (usage != 0) {
-        setUsage(usage);
+    if (_usage != 0) {
+        setUsage(_usage);
     }
     
     _setValue(initialValue);
@@ -234,15 +235,15 @@ bool IOAudioControl::init(UInt32 type,
     return true;
 }
 
-void IOAudioControl::setType(UInt32 type)
+void IOAudioControl::setType(UInt32 _type)
 {
-    this->type = type;
+    this->type = _type;
     setProperty(kIOAudioControlTypeKey, type, sizeof(UInt32)*8);
 }
 
-void IOAudioControl::setSubType(UInt32 subType)
+void IOAudioControl::setSubType(UInt32 _subType)
 {
-    this->subType = subType;
+    this->subType = _subType;
     setProperty(kIOAudioControlSubTypeKey, subType, sizeof(UInt32)*8);
 }
 
@@ -251,9 +252,9 @@ void IOAudioControl::setChannelName(const char *channelName)
     setProperty(kIOAudioControlChannelNameKey, channelName);
 }
 
-void IOAudioControl::setUsage(UInt32 usage)
+void IOAudioControl::setUsage(UInt32 _usage)
 {
-    this->usage = usage;
+    this->usage = _usage;
     setProperty(kIOAudioControlUsageKey, usage, sizeof(UInt32)*8);
 }
 
@@ -328,6 +329,7 @@ void IOAudioControl::free()
 
 bool IOAudioControl::start(IOService *provider)
 {
+	AudioTrace_Start(kAudioTIOAudioControl, kTPIOAudioControlStart, (uintptr_t)this, (uintptr_t)provider, 0, 0);
     if (!super::start(provider)) {
         return false;
     }
@@ -335,6 +337,7 @@ bool IOAudioControl::start(IOService *provider)
     isStarted = true;
 	reserved->providerEngine = OSDynamicCast (IOAudioEngine, provider);
 
+	AudioTrace_End(kAudioTIOAudioControl, kTPIOAudioControlStart, (uintptr_t)this, (uintptr_t)provider, true, 0);
     return true;
 }
 
@@ -524,7 +527,7 @@ IOReturn IOAudioControl::setValue(SInt32 intValue)
     return result;
 }
 
-IOReturn IOAudioControl::validateValue(OSObject *value)
+IOReturn IOAudioControl::validateValue(OSObject *_value)
 {
     return kIOReturnSuccess;
 }
@@ -776,12 +779,12 @@ void IOAudioControl::setChannelNumber(SInt32 channelNumber)
     setProperty(kIOAudioControlChannelNumberKey, channelNumber, sizeof(SInt32)*8);
 }
 
-IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient)
+IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 taskType, IOAudioControlUserClient **newUserClient)
 {
     IOReturn result = kIOReturnSuccess;
     IOAudioControlUserClient *userClient;
     
-    userClient = IOAudioControlUserClient::withAudioControl(this, task, securityID, type);
+    userClient = IOAudioControlUserClient::withAudioControl(this, task, securityID, taskType);
     
     if (userClient) {
         *newUserClient = userClient;
@@ -792,7 +795,7 @@ IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 
     return result;
 }
 
-IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler)
+IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 taskType, IOUserClient **handler)
 {
 #if __i386__ || __x86_64__
 	return kIOReturnUnsupported;
@@ -805,7 +808,7 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
 	*handler = NULL;		// <rdar://8370885>
 
     if (!isInactive()) {	// <rdar://7324947>
-		result = createUserClient(task, securityID, type, &client);
+		result = createUserClient(task, securityID, taskType, &client);
 		
 		if ((result == kIOReturnSuccess) && (client != NULL)) {
 			if (workLoop) {		// <rdar://7324947>
@@ -835,7 +838,7 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
 //	the indentifier post processing tool can properly insert scope when post processing a log file
 //	obtained via fwkpfv.
 
-IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler)
+IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 taskType, OSDictionary *properties, IOUserClient **handler)
 {
     IOReturn					result = kIOReturnSuccess;
     IOAudioControlUserClient *	client = NULL;
@@ -846,9 +849,9 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
 
     if ( !isInactive () )	// <rdar://7324947>
 	{
-		if ( kIOReturnSuccess != newUserClient ( task, securityID, type, handler ) )
+		if ( kIOReturnSuccess != newUserClient ( task, securityID, taskType, handler ) )
 		{
-			result = createUserClient ( task, securityID, type, &client, properties );
+			result = createUserClient ( task, securityID, taskType, &client, properties );
 			
 			if ( ( kIOReturnSuccess == result ) && ( NULL != client ) )
 			{

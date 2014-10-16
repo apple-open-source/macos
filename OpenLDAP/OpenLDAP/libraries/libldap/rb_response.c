@@ -113,7 +113,7 @@ void ldap_resp_rbt_free( LDAP *ld )
     }
 
     /* Now that the tree is empty, free the tree itself. */
-    free( ld->ld_rbt_responses );
+    LDAP_FREE( ld->ld_rbt_responses );
     ld->ld_rbt_responses = NULL;
 }
 

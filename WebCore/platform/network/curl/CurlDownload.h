@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,8 +26,10 @@
 #ifndef CurlDownload_h
 #define CurlDownload_h
 
-#include <WebCore/FileSystem.h>
-#include <WebCore/ResourceResponse.h>
+#include "FileSystem.h"
+#include "ResourceHandle.h"
+#include "ResourceResponse.h"
+#include <wtf/Threading.h>
 
 #if PLATFORM(WIN)
 #include <windows.h>
@@ -35,6 +37,8 @@
 #endif
 
 #include <curl/curl.h>
+
+namespace WebCore {
 
 class CurlDownloadManager {
 public:
@@ -59,12 +63,15 @@ private:
     bool runThread() const { return m_runThread; }
     void setRunThread(bool runThread) { m_runThread = runThread; }
 
+    bool addToCurl(CURL* curlHandle);
+    bool removeFromCurl(CURL* curlHandle);
+
     static void downloadThread(void* data);
 
     ThreadIdentifier m_threadId;
     CURLM* m_curlMultiHandle;
-    int m_activeDownloadCount;
     Vector<CURL*> m_pendingHandleList;
+    Vector<CURL*> m_activeHandleList;
     Vector<CURL*> m_removedHandleList;
     mutable Mutex m_mutex;
     bool m_runThread;
@@ -83,7 +90,9 @@ public:
     CurlDownload();
     ~CurlDownload();
 
-    void init(CurlDownloadListener*, const WebCore::KURL&);
+    void init(CurlDownloadListener*, const WebCore::URL&);
+    void init(CurlDownloadListener*, ResourceHandle*, const ResourceRequest&, const ResourceResponse&);
+
     bool start();
     bool cancel();
 
@@ -99,6 +108,9 @@ public:
 private:
     void closeFile();
     void moveFileToDestination();
+    void writeDataToFile(const char* data, int size);
+
+    void addHeaders(const ResourceRequest&);
 
     // Called on download thread.
     void didReceiveHeader(const String& header);
@@ -119,6 +131,7 @@ private:
     static void receivedResponseCallback(CurlDownload*);
 
     CURL* m_curlHandle;
+    struct curl_slist* m_customHeaders;
     char* m_url;
     String m_tempPath;
     String m_destination;
@@ -132,5 +145,7 @@ private:
 
     friend class CurlDownloadManager;
 };
+
+}
 
 #endif

@@ -36,9 +36,11 @@
 #include "sl_locl.h"
 #include <setjmp.h>
 
+static void sl_sigint(int sig) __attribute__((__noreturn__));
+
+
 static void
-mandoc_template(SL_cmd *cmds,
-		const char *extra_string)
+mandoc_template(SL_cmd *cmds, const char *extra_string)
 {
     SL_cmd *c, *prev;
     char timestr[64], cmd[64];

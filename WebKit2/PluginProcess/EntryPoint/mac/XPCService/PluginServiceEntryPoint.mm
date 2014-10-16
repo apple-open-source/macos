@@ -25,20 +25,20 @@
 
 #import "config.h"
 
-#if HAVE(XPC)
-
 #import "EnvironmentUtilities.h"
 #import "PluginProcess.h"
 #import "WKBase.h"
 #import "XPCServiceEntryPoint.h"
-#import <WebCore/RunLoop.h>
+#import <wtf/RunLoop.h>
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 namespace WebKit {
 
 class PluginServiceInitializerDelegate : public XPCServiceInitializerDelegate {
 public:
-    PluginServiceInitializerDelegate(xpc_connection_t connection, xpc_object_t initializerMessage)
-        : XPCServiceInitializerDelegate(connection, initializerMessage)
+    PluginServiceInitializerDelegate(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+        : XPCServiceInitializerDelegate(WTF::move(connection), initializerMessage)
     {
     }
 
@@ -61,20 +61,21 @@ public:
 
 } // namespace WebKit
 
-using namespace WebCore;
 using namespace WebKit;
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 extern "C" WK_EXPORT void PluginServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage);
 
 void PluginServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage)
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     // FIXME: Add support for teardown from PluginProcessMain.mm
 
     // Remove the PluginProcess shim from the DYLD_INSERT_LIBRARIES environment variable so any processes
     // spawned by the PluginProcess don't try to insert the shim and crash.
     EnvironmentUtilities::stripValuesEndingWithString("DYLD_INSERT_LIBRARIES", "/PluginProcessShim.dylib");
 
-    XPCServiceInitializer<PluginProcess, PluginServiceInitializerDelegate>(connection, initializerMessage);
+    XPCServiceInitializer<PluginProcess, PluginServiceInitializerDelegate>(IPC::adoptXPC(connection), initializerMessage);
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 }
-
-#endif // HAVE(XPC)

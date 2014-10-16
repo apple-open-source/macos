@@ -69,6 +69,7 @@ enum {
  */
 enum {
 	kCCModeGCM		= 11,
+	kCCModeCCM		= 12,
 };
 
 /*
@@ -306,6 +307,87 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata,
                 unsigned char *outdata)
 __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
+
+/*
+GCM interface can then be easily bolt on the rest of standard CCCryptor interface; typically following sequence can be used:
+
+CCCryptorCreateWithMode(mode = kCCModeGCM)
+0..Nx: CCCryptorAddParameter(kCCParameterIV, iv)
+0..Nx: CCCryptorAddParameter(kCCParameterAuthData, data)
+0..Nx: CCCryptorUpdate(inData, outData)
+0..1: CCCryptorFinal(outData)
+0..1: CCCryptorGetParameter(kCCParameterAuthTag, tag)
+CCCryptorRelease()
+
+*/
+
+enum {
+    /*
+        Initialization vector - cryptor input parameter, typically
+        needs to have the same length as block size, but in some cases
+        (GCM) it can be arbitrarily long and even might be called
+        multiple times.
+    */
+    kCCParameterIV,
+
+    /*
+        Authentication data - cryptor input parameter, input for
+        authenticating encryption modes like GCM.  If supported, can
+        be called multiple times before encryption starts.
+    */
+    kCCParameterAuthData,
+
+    /*
+        Mac Size - cryptor input parameter, input for
+        authenticating encryption modes like CCM. Specifies the size of
+        the AuthTag the algorithm is expected to produce.
+    */
+    kCCMacSize,
+
+    /*
+        Data Size - cryptor input parameter, input for
+        authenticating encryption modes like CCM. Specifies the amount of
+        data the algorithm is expected to process.
+    */
+    kCCDataSize,
+
+    /*
+        Authentication tag - cryptor output parameter, output from
+        authenticating encryption modes like GCM.  If supported,
+        should be retrieved after the encryption finishes.
+    */
+    kCCParameterAuthTag,
+};
+typedef uint32_t CCParameter;
+
+/*
+    Sets or adds some other cryptor input parameter.  According to the
+    cryptor type and state, parameter can be either accepted or
+    refused with kCCUnimplemented (when given parameter is not
+    supported for this type of cryptor at all) or kCCParamError (bad
+    data length or format).
+*/
+
+CCCryptorStatus CCCryptorAddParameter(
+    CCCryptorRef cryptorRef,
+    CCParameter parameter,
+    const void *data,
+    size_t dataSize);
+
+
+/*
+    Gets value of output cryptor parameter.  According to the cryptor
+    type state, the request can be either accepted or refused with
+    kCCUnimplemented (when given parameteris not supported for this
+    type of cryptor) or kCCBufferTooSmall (in this case, *dataSize
+    argument is set to the requested size of data).
+*/
+
+CCCryptorStatus CCCryptorGetParameter(
+    CCCryptorRef cryptorRef,
+    CCParameter parameter,
+    void *data,
+    size_t *dataSize);
 
 
 #ifdef __cplusplus

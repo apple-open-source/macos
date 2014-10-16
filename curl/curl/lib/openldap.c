@@ -5,8 +5,8 @@
  *                | (__| |_| |  _ <| |___
  *                 \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2010, Howard Chu, <hyc@openldap.org>
- * Copyright (C) 2011 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2010, 2013, Howard Chu, <hyc@openldap.org>
+ * Copyright (C) 2011 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -41,11 +41,12 @@
 #include "urldata.h"
 #include <curl/curl.h>
 #include "sendf.h"
-#include "sslgen.h"
+#include "vtls/vtls.h"
 #include "transfer.h"
 #include "curl_ldap.h"
 #include "curl_memory.h"
 #include "curl_base64.h"
+#include "connect.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -175,7 +176,7 @@ static CURLcode ldap_setup(struct connectdata *conn)
     return CURLE_OUT_OF_MEMORY;
   li->proto = proto;
   conn->proto.generic = li;
-  conn->bits.close = FALSE;
+  connkeep(conn, "OpenLDAP default");
   /* TODO:
    * - provide option to choose SASL Binds instead of Simple
    */
@@ -349,7 +350,7 @@ static CURLcode ldap_do(struct connectdata *conn, bool *done)
   int msgid;
   struct SessionHandle *data=conn->data;
 
-  conn->bits.close = FALSE;
+  connkeep(conn, "OpenLDAP do");
 
   infof(data, "LDAP local: %s\n", data->change.url);
 
@@ -378,7 +379,7 @@ static CURLcode ldap_do(struct connectdata *conn, bool *done)
   if(!lr)
     return CURLE_OUT_OF_MEMORY;
   lr->msgid = msgid;
-  data->state.proto.generic = lr;
+  data->req.protop = lr;
   Curl_setup_transfer(conn, FIRSTSOCKET, -1, FALSE, NULL, -1, NULL);
   *done = TRUE;
   return CURLE_OK;
@@ -387,7 +388,7 @@ static CURLcode ldap_do(struct connectdata *conn, bool *done)
 static CURLcode ldap_done(struct connectdata *conn, CURLcode res,
                           bool premature)
 {
-  ldapreqinfo *lr = conn->data->state.proto.generic;
+  ldapreqinfo *lr = conn->data->req.protop;
   (void)res;
   (void)premature;
 
@@ -398,7 +399,7 @@ static CURLcode ldap_done(struct connectdata *conn, CURLcode res,
       ldap_abandon_ext(li->ld, lr->msgid, NULL, NULL);
       lr->msgid = 0;
     }
-    conn->data->state.proto.generic = NULL;
+    conn->data->req.protop = NULL;
     free(lr);
   }
   return CURLE_OK;
@@ -409,7 +410,7 @@ static ssize_t ldap_recv(struct connectdata *conn, int sockindex, char *buf,
 {
   ldapconninfo *li = conn->proto.generic;
   struct SessionHandle *data=conn->data;
-  ldapreqinfo *lr = data->state.proto.generic;
+  ldapreqinfo *lr = data->req.protop;
   int rc, ret;
   LDAPMessage *result = NULL;
   LDAPMessage *ent;

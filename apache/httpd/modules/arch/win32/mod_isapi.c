@@ -136,27 +136,27 @@ static const char *isapi_cmd_cachefile(cmd_parms *cmd, void *dummy,
      */
     fspec = ap_server_root_relative(cmd->pool, filename);
     if (!fspec) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, APR_EBADPATH, cmd->server,
-                     "ISAPI: invalid module path, skipping %s", filename);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, APR_EBADPATH, cmd->server, APLOGNO(02103)
+                     "invalid module path, skipping %s", filename);
         return NULL;
     }
     if ((rv = apr_stat(&tmp, fspec, APR_FINFO_TYPE,
                       cmd->temp_pool)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, cmd->server,
-            "ISAPI: unable to stat, skipping %s", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, cmd->server, APLOGNO(02104)
+                     "unable to stat, skipping %s", fspec);
         return NULL;
     }
     if (tmp.filetype != APR_REG) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-            "ISAPI: not a regular file, skipping %s", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server, APLOGNO(02105)
+                     "not a regular file, skipping %s", fspec);
         return NULL;
     }
 
     /* Load the extention as cached (with null request_rec) */
     rv = isapi_lookup(cmd->pool, cmd->server, NULL, fspec, &isa);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, cmd->server,
-                     "ISAPI: unable to cache, skipping %s", fspec);
+        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, cmd->server, APLOGNO(02106)
+                     "unable to cache, skipping %s", fspec);
         return NULL;
     }
 
@@ -271,8 +271,8 @@ static apr_status_t isapi_load(apr_pool_t *p, server_rec *s, isapi_loaded *isa)
     rv = apr_dso_load(&isa->handle, isa->filename, p);
     if (rv)
     {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
-                     "ISAPI: failed to load %s", isa->filename);
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(02107)
+                     "failed to load %s", isa->filename);
         isa->handle = NULL;
         return rv;
     }
@@ -281,8 +281,8 @@ static apr_status_t isapi_load(apr_pool_t *p, server_rec *s, isapi_loaded *isa)
                      "GetExtensionVersion");
     if (rv)
     {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
-                     "ISAPI: missing GetExtensionVersion() in %s",
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(02108)
+                     "missing GetExtensionVersion() in %s",
                      isa->filename);
         apr_dso_unload(isa->handle);
         isa->handle = NULL;
@@ -293,8 +293,8 @@ static apr_status_t isapi_load(apr_pool_t *p, server_rec *s, isapi_loaded *isa)
                      "HttpExtensionProc");
     if (rv)
     {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
-                     "ISAPI: missing HttpExtensionProc() in %s",
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(02109)
+                     "missing HttpExtensionProc() in %s",
                      isa->filename);
         apr_dso_unload(isa->handle);
         isa->handle = NULL;
@@ -309,8 +309,8 @@ static apr_status_t isapi_load(apr_pool_t *p, server_rec *s, isapi_loaded *isa)
     /* Run GetExtensionVersion() */
     if (!(isa->GetExtensionVersion)(isa->isapi_version)) {
         apr_status_t rv = apr_get_os_error();
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s,
-                     "ISAPI: failed call to GetExtensionVersion() in %s",
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, s, APLOGNO(02110)
+                     "failed call to GetExtensionVersion() in %s",
                      isa->filename);
         apr_dso_unload(isa->handle);
         isa->handle = NULL;
@@ -485,10 +485,10 @@ struct isapi_cid {
     apr_thread_mutex_t      *completed;
 };
 
-int APR_THREAD_FUNC GetServerVariable (isapi_cid    *cid,
-                                       char         *variable_name,
-                                       void         *buf_ptr,
-                                       apr_uint32_t *buf_size)
+static int APR_THREAD_FUNC regfnGetServerVariable(isapi_cid    *cid,
+                                                  char         *variable_name,
+                                                  void         *buf_ptr,
+                                                  apr_uint32_t *buf_size)
 {
     request_rec *r = cid->r;
     const char *result;
@@ -587,13 +587,13 @@ int APR_THREAD_FUNC GetServerVariable (isapi_cid    *cid,
     return 0;
 }
 
-int APR_THREAD_FUNC ReadClient(isapi_cid    *cid,
-                               void         *buf_data,
-                               apr_uint32_t *buf_size)
+static int APR_THREAD_FUNC regfnReadClient(isapi_cid    *cid,
+                                           void         *buf_data,
+                                           apr_uint32_t *buf_size)
 {
     request_rec *r = cid->r;
     apr_uint32_t read = 0;
-    int res;
+    int res = 0;
 
     if (r->remaining < *buf_size) {
         *buf_size = (apr_size_t)r->remaining;
@@ -714,12 +714,12 @@ static apr_ssize_t send_response_header(isapi_cid *cid,
     old_status = cid->r->status;
 
     if (stat) {
-        res = ap_scan_script_header_err_strs(cid->r, NULL, &termch, &termarg,
-                stat, head, NULL);
+        res = ap_scan_script_header_err_strs_ex(cid->r, NULL,
+                APLOG_MODULE_INDEX, &termch, &termarg, stat, head, NULL);
     }
     else {
-        res = ap_scan_script_header_err_strs(cid->r, NULL, &termch, &termarg,
-                head, NULL);
+        res = ap_scan_script_header_err_strs_ex(cid->r, NULL,
+                APLOG_MODULE_INDEX, &termch, &termarg, head, NULL);
     }
 
     /* Set our status. */
@@ -763,16 +763,16 @@ static apr_ssize_t send_response_header(isapi_cid *cid,
         cid->ecb->dwHttpStatusCode = cid->r->status;
     }
     else {
-        /* None of dwHttpStatusCode, the parser's r->status nor the 
+        /* None of dwHttpStatusCode, the parser's r->status nor the
          * old value of r->status were helpful, and nothing was decoded
-         * from Status: string passed to us.  Let's just say HTTP_OK 
+         * from Status: string passed to us.  Let's just say HTTP_OK
          * and get the data out, this was the isapi dev's oversight.
          */
         cid->r->status = HTTP_OK;
         cid->r->status_line = ap_get_status_line(cid->r->status);
         cid->ecb->dwHttpStatusCode = cid->r->status;
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, cid->r,
-                "ISAPI: Could not determine HTTP response code; using %d",
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, cid->r, APLOGNO(02111)
+                "Could not determine HTTP response code; using %d",
                 cid->r->status);
     }
 
@@ -804,10 +804,10 @@ static apr_ssize_t send_response_header(isapi_cid *cid,
     return ate;
 }
 
-int APR_THREAD_FUNC WriteClient(isapi_cid    *cid,
-                                void         *buf_ptr,
-                                apr_uint32_t *size_arg,
-                                apr_uint32_t  flags)
+static int APR_THREAD_FUNC regfnWriteClient(isapi_cid    *cid,
+                                            void         *buf_ptr,
+                                            apr_uint32_t *size_arg,
+                                            apr_uint32_t  flags)
 {
     request_rec *r = cid->r;
     conn_rec *c = r->connection;
@@ -843,8 +843,8 @@ int APR_THREAD_FUNC WriteClient(isapi_cid    *cid,
         cid->response_sent = 1;
         if (rv != APR_SUCCESS)
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                          "ISAPI: WriteClient ap_pass_brigade "
-                          "failed: %s", r->filename);
+                          "WriteClient ap_pass_brigade failed: %s",
+                          r->filename);
     }
 
     if ((flags & HSE_IO_ASYNC) && cid->completion) {
@@ -860,11 +860,11 @@ int APR_THREAD_FUNC WriteClient(isapi_cid    *cid,
     return (rv == APR_SUCCESS);
 }
 
-int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
-                                          apr_uint32_t  HSE_code,
-                                          void         *buf_ptr,
-                                          apr_uint32_t *buf_size,
-                                          apr_uint32_t *data_type)
+static int APR_THREAD_FUNC regfnServerSupportFunction(isapi_cid    *cid,
+                                                      apr_uint32_t  HSE_code,
+                                                      void         *buf_ptr,
+                                                      apr_uint32_t *buf_size,
+                                                      apr_uint32_t *data_type)
 {
     request_rec *r = cid->r;
     conn_rec *c = r->connection;
@@ -877,8 +877,8 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         /* Set the status to be returned when the HttpExtensionProc()
          * is done.
          * WARNING: Microsoft now advertises HSE_REQ_SEND_URL_REDIRECT_RESP
-         *          and HSE_REQ_SEND_URL as equivalant per the Jan 2000 SDK.
-         *          They most definately are not, even in their own samples.
+         *          and HSE_REQ_SEND_URL as equivalent per the Jan 2000 SDK.
+         *          They most definitely are not, even in their own samples.
          */
         apr_table_set (r->headers_out, "Location", buf_data);
         cid->r->status = cid->ecb->dwHttpStatusCode = HTTP_MOVED_TEMPORARILY;
@@ -894,7 +894,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         }
 
         /* Reset the method to GET */
-        r->method = apr_pstrdup(r->pool, "GET");
+        r->method = "GET";
         r->method_number = M_GET;
 
         /* Don't let anyone think there's still data */
@@ -934,7 +934,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
             cid->response_sent = 1;
             if (rv != APR_SUCCESS)
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                              "ISAPI: ServerSupport function "
+                              "ServerSupport function "
                               "HSE_REQ_SEND_RESPONSE_HEADER "
                               "ap_pass_brigade failed: %s", r->filename);
             return (rv == APR_SUCCESS);
@@ -956,7 +956,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         }
         else if (cid->dconf.log_unsupported) {
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_DONE_WITH_SESSION is not supported: %s",
                           r->filename);
         }
@@ -983,7 +983,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
               && (file[len - 1] != '/'))
             file = apr_pstrcat(cid->r->pool, subreq->filename, "/", NULL);
         else
-            file = apr_pstrcat(cid->r->pool, subreq->filename, 
+            file = apr_pstrcat(cid->r->pool, subreq->filename,
                                               subreq->path_info, NULL);
 
         ap_destroy_sub_req(subreq);
@@ -1001,7 +1001,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_GET_SSPI_INFO:
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                           "ISAPI: ServerSupportFunction HSE_REQ_GET_SSPI_INFO "
+                           "ServerSupportFunction HSE_REQ_GET_SSPI_INFO "
                            "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
         return 0;
@@ -1018,7 +1018,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         }
         if (cid->dconf.log_to_errlog)
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
-                          "ISAPI: %s: %s", cid->r->filename,
+                          "%s: %s", cid->r->filename,
                           (char*) buf_data);
         return 1;
 
@@ -1036,7 +1036,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         }
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                      "ISAPI: ServerSupportFunction HSE_REQ_IO_COMPLETION "
+                      "ServerSupportFunction HSE_REQ_IO_COMPLETION "
                       "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
         return 0;
@@ -1056,7 +1056,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         if (!cid->dconf.fake_async && (tf->dwFlags & HSE_IO_ASYNC)) {
             if (cid->dconf.log_unsupported)
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                         "ISAPI: ServerSupportFunction HSE_REQ_TRANSMIT_FILE "
+                         "ServerSupportFunction HSE_REQ_TRANSMIT_FILE "
                          "as HSE_IO_ASYNC is not supported: %s", r->filename);
             apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
             return 0;
@@ -1136,7 +1136,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
         cid->response_sent = 1;
         if (rv != APR_SUCCESS)
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                          "ISAPI: ServerSupport function "
+                          "ServerSupport function "
                           "HSE_REQ_TRANSMIT_FILE "
                           "ap_pass_brigade failed: %s", r->filename);
 
@@ -1171,7 +1171,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_REFRESH_ISAPI_ACL:
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_REFRESH_ISAPI_ACL "
                           "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
@@ -1184,11 +1184,11 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_ASYNC_READ_CLIENT:
     {
         apr_uint32_t read = 0;
-        int res;
+        int res = 0;
         if (!cid->dconf.fake_async) {
             if (cid->dconf.log_unsupported)
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                            "ISAPI: asynchronous I/O not supported: %s",
+                            "asynchronous I/O not supported: %s",
                             r->filename);
             apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
             return 0;
@@ -1208,9 +1208,9 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
             /* XXX: Many authors issue their next HSE_REQ_ASYNC_READ_CLIENT
              * within the completion logic.  An example is MS's own PSDK
              * sample web/iis/extensions/io/ASyncRead.  This potentially
-             * leads to stack exhaustion.  To refactor, the notification 
+             * leads to stack exhaustion.  To refactor, the notification
              * logic needs to move to isapi_handler() - differentiating
-             * the cid->completed event with a new flag to indicate 
+             * the cid->completed event with a new flag to indicate
              * an async-notice versus the async request completed.
              */
             if (res >= 0) {
@@ -1228,7 +1228,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_GET_IMPERSONATION_TOKEN:  /* Added in ISAPI 4.0 */
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_GET_IMPERSONATION_TOKEN "
                           "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
@@ -1307,7 +1307,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_ABORTIVE_CLOSE:
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction HSE_REQ_ABORTIVE_CLOSE"
+                          "ServerSupportFunction HSE_REQ_ABORTIVE_CLOSE"
                           " is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
         return 0;
@@ -1315,7 +1315,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_GET_CERT_INFO_EX:  /* Added in ISAPI 4.0 */
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_GET_CERT_INFO_EX "
                           "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
@@ -1349,7 +1349,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
             cid->response_sent = 1;
             if (rv != APR_SUCCESS)
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                              "ISAPI: ServerSupport function "
+                              "ServerSupport function "
                               "HSE_REQ_SEND_RESPONSE_HEADER_EX "
                               "ap_pass_brigade failed: %s", r->filename);
             return (rv == APR_SUCCESS);
@@ -1364,7 +1364,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     case HSE_REQ_CLOSE_CONNECTION:  /* Added after ISAPI 4.0 */
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_CLOSE_CONNECTION "
                           "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
@@ -1382,7 +1382,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
          */
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction "
+                          "ServerSupportFunction "
                           "HSE_REQ_EXTENSION_TRIGGER "
                           "is not supported: %s", r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
@@ -1391,7 +1391,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
     default:
         if (cid->dconf.log_unsupported)
             ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: ServerSupportFunction (%d) not supported: "
+                          "ServerSupportFunction (%d) not supported: "
                           "%s", HSE_code, r->filename);
         apr_set_os_error(APR_FROM_OS_ERROR(ERROR_INVALID_PARAMETER));
         return 0;
@@ -1404,7 +1404,7 @@ int APR_THREAD_FUNC ServerSupportFunction(isapi_cid    *cid,
  *
  **********************************************************/
 
-apr_status_t isapi_handler (request_rec *r)
+static apr_status_t isapi_handler (request_rec *r)
 {
     isapi_dir_conf *dconf;
     apr_table_t *e;
@@ -1495,10 +1495,10 @@ apr_status_t isapi_handler (request_rec *r)
     cid->ecb->lpszContentType = (char*) apr_table_get(e, "CONTENT_TYPE");
 
     /* Set up the callbacks */
-    cid->ecb->GetServerVariable = GetServerVariable;
-    cid->ecb->WriteClient = WriteClient;
-    cid->ecb->ReadClient = ReadClient;
-    cid->ecb->ServerSupportFunction = ServerSupportFunction;
+    cid->ecb->GetServerVariable = regfnGetServerVariable;
+    cid->ecb->WriteClient = regfnWriteClient;
+    cid->ecb->ReadClient = regfnReadClient;
+    cid->ecb->ServerSupportFunction = regfnServerSupportFunction;
 
     /* Set up client input */
     res = ap_setup_client_block(r, REQUEST_CHUNKED_ERROR);
@@ -1572,8 +1572,8 @@ apr_status_t isapi_handler (request_rec *r)
         }
 
         if (!cid->completed || (rv != APR_SUCCESS)) {
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                          "ISAPI: Failed to create completion mutex");
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(02112)
+                          "Failed to create completion mutex");
             return HTTP_INTERNAL_SERVER_ERROR;
         }
     }
@@ -1583,8 +1583,8 @@ apr_status_t isapi_handler (request_rec *r)
 
     /* Check for a log message - and log it */
     if (cid->ecb->lpszLogData && *cid->ecb->lpszLogData)
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
-                      "ISAPI: %s: %s", r->filename, cid->ecb->lpszLogData);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(02113)
+                      "%s: %s", r->filename, cid->ecb->lpszLogData);
 
     switch(rv) {
         case 0:  /* Strange, but MS isapi accepts this as success */
@@ -1614,8 +1614,8 @@ apr_status_t isapi_handler (request_rec *r)
                 break;
             }
             else if (cid->dconf.log_unsupported) {
-                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
-                               "ISAPI: asynch I/O result HSE_STATUS_PENDING "
+                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(02114)
+                               "asynch I/O result HSE_STATUS_PENDING "
                                "from HttpExtensionProc() is not supported: %s",
                                r->filename);
                  r->status = HTTP_INTERNAL_SERVER_ERROR;
@@ -1625,16 +1625,16 @@ apr_status_t isapi_handler (request_rec *r)
         case HSE_STATUS_ERROR:
             /* end response if we have yet to do so.
              */
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, apr_get_os_error(), r,
-                          "ISAPI: HSE_STATUS_ERROR result from "
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, apr_get_os_error(), r, APLOGNO(02115)
+                          "HSE_STATUS_ERROR result from "
                           "HttpExtensionProc(): %s", r->filename);
             r->status = HTTP_INTERNAL_SERVER_ERROR;
             break;
 
         default:
-            ap_log_rerror(APLOG_MARK, APLOG_WARNING, apr_get_os_error(), r,
-                          "ISAPI: unrecognized result code %d "
-                          "from HttpExtensionProc(): %s ", 
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, apr_get_os_error(), r, APLOGNO(02116)
+                          "unrecognized result code %d "
+                          "from HttpExtensionProc(): %s ",
                           rv, r->filename);
             r->status = HTTP_INTERNAL_SERVER_ERROR;
             break;
@@ -1654,8 +1654,8 @@ apr_status_t isapi_handler (request_rec *r)
         cid->response_sent = 1;
 
         if (rv != APR_SUCCESS) {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r,
-                          "ISAPI: ap_pass_brigade failed to "
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(02117)
+                          "ap_pass_brigade failed to "
                           "complete the response: %s ", r->filename);
         }
 
@@ -1687,23 +1687,23 @@ static int isapi_pre_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *pte
 
     apr_pool_create_ex(&loaded.pool, pconf, NULL, NULL);
     if (!loaded.pool) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_EGENERAL, NULL,
-                     "ISAPI: could not create the isapi cache pool");
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_EGENERAL, NULL, APLOGNO(02118)
+                     "could not create the isapi cache pool");
         return APR_EGENERAL;
     }
 
     loaded.hash = apr_hash_make(loaded.pool);
     if (!loaded.hash) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                     "ISAPI: Failed to create module cache");
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL, APLOGNO(02119)
+                     "Failed to create module cache");
         return APR_EGENERAL;
     }
 
     rv = apr_thread_mutex_create(&loaded.lock, APR_THREAD_MUTEX_DEFAULT,
                                  loaded.pool);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, rv, 0, NULL,
-                     "ISAPI: Failed to create module cache lock");
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+                     "Failed to create module cache lock");
         return rv;
     }
     return OK;
@@ -1715,7 +1715,7 @@ static void isapi_hooks(apr_pool_t *cont)
     ap_hook_handler(isapi_handler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA isapi_module = {
+AP_DECLARE_MODULE(isapi) = {
    STANDARD20_MODULE_STUFF,
    create_isapi_dir_config,     /* create per-dir config */
    merge_isapi_dir_configs,     /* merge per-dir config */

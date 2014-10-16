@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -40,6 +40,14 @@
 #import "Event.h"
 #import "EventNames.h"
 
+#if ENABLE(TOUCH_EVENTS)
+#import "DOMTouchEvent.h"
+#endif
+
+#if ENABLE(IOS_GESTURE_EVENTS)
+#import "DOMGestureEvent.h"
+#endif
+
 using WebCore::eventNames;
 
 Class kitClass(WebCore::Event* impl)
@@ -49,21 +57,33 @@ Class kitClass(WebCore::Event* impl)
             return [DOMKeyboardEvent class];
         if (impl->isMouseEvent())
             return [DOMMouseEvent class];
-        if (impl->hasInterface(eventNames().interfaceForTextEvent))
+
+        WebCore::EventInterface desiredInterface = impl->eventInterface();
+        if (desiredInterface == WebCore::TextEventInterfaceType)
             return [DOMTextEvent class];
-        if (impl->hasInterface(eventNames().interfaceForWheelEvent))
+        if (desiredInterface == WebCore::WheelEventInterfaceType)
             return [DOMWheelEvent class];        
+#if PLATFORM(IOS) && ENABLE(TOUCH_EVENTS)
+        if (desiredInterface == WebCore::TouchEventInterfaceType) 
+            return [DOMTouchEvent class];
+#endif
+#if ENABLE(IOS_GESTURE_EVENTS)
+        if (desiredInterface == WebCore::GestureEventInterfaceType)
+            return [DOMGestureEvent class];
+#endif
         return [DOMUIEvent class];
     }
-    if (impl->hasInterface(eventNames().interfaceForMutationEvent))
+
+    WebCore::EventInterface desiredInterface = impl->eventInterface();
+    if (desiredInterface == WebCore::MutationEventInterfaceType)
         return [DOMMutationEvent class];
-    if (impl->hasInterface(eventNames().interfaceForOverflowEvent))
+    if (desiredInterface == WebCore::OverflowEventInterfaceType)
         return [DOMOverflowEvent class];
-    if (impl->hasInterface(eventNames().interfaceForMessageEvent))
+    if (desiredInterface == WebCore::MessageEventInterfaceType)
         return [DOMMessageEvent class];
-    if (impl->hasInterface(eventNames().interfaceForProgressEvent) || impl->hasInterface(eventNames().interfaceForXMLHttpRequestProgressEvent))
+    if (desiredInterface == WebCore::ProgressEventInterfaceType || desiredInterface == WebCore::XMLHttpRequestProgressEventInterfaceType)
         return [DOMProgressEvent class];
-    if (impl->hasInterface(eventNames().interfaceForBeforeLoadEvent))
+    if (desiredInterface == WebCore::BeforeLoadEventInterfaceType)
         return [DOMBeforeLoadEvent class];
     return [DOMEvent class];
 }

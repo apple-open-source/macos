@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -464,7 +464,7 @@
 		59C496DF0FE189F800B4278B /* bashbug */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/bin;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/bin";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496E00FE189FF00B4278B /* bashbug in bashbug */,
@@ -475,7 +475,7 @@
 		59C496F20FE18B0100B4278B /* RC files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /private/etc;
+			dstPath = "$(INSTALL_PATH_PREFIX)/private/etc";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496F50FE18B2300B4278B /* bashrc in RC files */,
@@ -487,7 +487,7 @@
 		59C496FD0FE18D1B00B4278B /* Info file */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/info;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/info";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496FF0FE18D7300B4278B /* bash.info in Info file */,
@@ -498,7 +498,7 @@
 		723F1FC20FE16C4E00CA2753 /* HTML & PDFs */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/doc/bash;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/doc/bash";
 			dstSubfolderSpec = 0;
 			files = (
 				723F1FD80FE16D3F00CA2753 /* bash.html in HTML & PDFs */,
@@ -517,7 +517,7 @@
 		728BBCA70FE0CECE00EC5E03 /* OS plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceVersions/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				728BBCAB0FE0CF8800EC5E03 /* bash.plist in OS plist */,
@@ -528,7 +528,7 @@
 		728BBCA90FE0CF0F00EC5E03 /* OS License */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceLicenses/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				728BBCBE0FE0D0DC00EC5E03 /* bash.txt in OS License */,
@@ -539,7 +539,7 @@
 		8DD76FAF0486AB0100D96B5E /* man page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man1/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				723F1FBA0FE16B3500CA2753 /* bashbug.1 in man page */,
@@ -551,6 +551,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3F0C454E189AED7000B957A9 /* bash.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = bash.xcconfig; sourceTree = "<group>"; };
 		591539140FE05880007671F4 /* syntax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = syntax.c; sourceTree = "<group>"; };
 		591608300FE076F200762101 /* libsh.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsh.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		591608880FE0777A00762101 /* libglob.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libglob.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -718,7 +719,6 @@
 		59C496F10FE18B0000B4278B /* profile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = profile; sourceTree = "<group>"; };
 		59C496F40FE18B1900B4278B /* bashrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bashrc; sourceTree = "<group>"; };
 		59C496FC0FE18D1B00B4278B /* bash.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bash.info; sourceTree = "<group>"; };
-		59DC3C1D1120BE9300B033EC /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
 		59EAF53C162CEA5200753814 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = ../../config.h; sourceTree = "<group>"; };
 		723F1FB90FE16B2E00CA2753 /* bashbug.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = bashbug.1; sourceTree = "<group>"; };
 		723F1FC30FE16C8900CA2753 /* article.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = article.pdf; path = doc/article.pdf; sourceTree = "<group>"; };
@@ -841,7 +841,7 @@
 		08FB7794FE84155DC02AAC07 /* bash */ = {
 			isa = PBXGroup;
 			children = (
-				59DC3C1D1120BE9300B033EC /* BSD.xcconfig */,
+				3F0C454E189AED7000B957A9 /* bash.xcconfig */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
@@ -1400,9 +1400,10 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "bash" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -1440,8 +1441,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "set -ev\nchmod a+x ${DSTROOT}/usr/bin/bashbug\ngzip -f ${DSTROOT}/usr/share/man/man1/*.1\nln -fs bash.1.gz ${DSTROOT}/usr/share/man/man1/sh.1.gz\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
+			shellPath = /bin/bash;
+			shellScript = "set -ev\n\nDSTROOT=${DSTROOT}${INSTALL_PATH_PREFIX}\n\nln -fs bash.1 ${DSTROOT}/usr/share/man/man1/sh.1\n\nif [[ ${PLATFORM_NAME} =~ \"simulator\" ]] ; then\n    # Don't need bashbug nor docs\n\trm -rf ${DSTROOT}/usr\n\n    # Use host bashrc\n    rm -rf ${DSTROOT}/private\n\texit 0\nfi\n\nchmod a+x ${DSTROOT}/usr/bin/bashbug\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		59DC3C521120DC9C00B033EC /* ostype.h */ = {
@@ -1898,7 +1899,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				INSTALL_PATH = /bin;
+				INSTALL_PATH_ACTUAL = /bin;
 				OTHER_LDFLAGS = "-Wl,-search_paths_first";
 				PRODUCT_NAME = bash;
 			};
@@ -1906,7 +1907,7 @@
 		};
 		1DEB928B08733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 59DC3C1D1120BE9300B033EC /* BSD.xcconfig */;
+			baseConfigurationReference = 3F0C454E189AED7000B957A9 /* bash.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -1929,7 +1930,6 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";
-				PREBINDING = NO;
 				USER_HEADER_SEARCH_PATHS = "$(SYMROOT) $(SRCROOT)/**";
 				ZERO_LINK = NO;
 			};
@@ -1939,8 +1939,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/lib;
+				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				PRODUCT_NAME = sh;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1951,8 +1952,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/lib;
+				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				PRODUCT_NAME = glob;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1963,8 +1965,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/lib;
+				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				PRODUCT_NAME = intl;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1975,8 +1978,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/lib;
+				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				PRODUCT_NAME = readline;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1986,9 +1990,9 @@
 		59DC3C541120DC9D00B033EC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = ostype.h;
 				ZERO_LINK = NO;
 			};
@@ -1997,6 +2001,7 @@
 		724AC2A10FE8A2FD00061EAD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = testbots;
 			};
@@ -2007,7 +2012,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH_ACTUAL = /usr/local/bin;
 				PRODUCT_NAME = recho;
 				SKIP_INSTALL = YES;
 			};
@@ -2018,7 +2023,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH_ACTUAL = /usr/local/bin;
 				PRODUCT_NAME = zecho;
 				SKIP_INSTALL = YES;
 			};
@@ -2028,7 +2033,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH_ACTUAL = /usr/local/bin;
 				PRODUCT_NAME = printenv;
 				SKIP_INSTALL = YES;
 			};
@@ -2053,7 +2058,7 @@
 					SHELL,
 					HAVE_CONFIG_H,
 				);
-				INSTALL_PATH = /bin;
+				INSTALL_PATH_ACTUAL = /bin;
 				OTHER_LDFLAGS = "-Wl,-search_paths_first";
 				PRODUCT_NAME = sh;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -2063,6 +2068,7 @@
 		728BBD9C0FE0D6E900EC5E03 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = all;
 			};
 			name = Release;

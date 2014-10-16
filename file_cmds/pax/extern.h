@@ -192,7 +192,7 @@ int getoldopt(int, char **, const char *);
 /*
  * options.c
  */
-extern FSUB fsub[];
+extern const FSUB fsub[];
 extern int ford[];
 void options(int, char **);
 OPLIST * opt_next(void);
@@ -217,7 +217,7 @@ int set_dest(ARCHD *, char *, int);
  * pax.c
  */
 extern int act;
-extern FSUB *frmt;
+extern const FSUB *frmt;
 extern int cflag;
 extern int cwdfd;
 extern int dflag;

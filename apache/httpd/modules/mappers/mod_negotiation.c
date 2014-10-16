@@ -366,7 +366,7 @@ static float atoq(const char *string)
         return  1.0f;
     }
 
-    while (*string && apr_isspace(*string)) {
+    while (apr_isspace(*string)) {
         ++string;
     }
 
@@ -464,7 +464,7 @@ static const char *get_entry(apr_pool_t *p, accept_rec *result,
         }
 
         *cp++ = '\0';           /* Delimit var */
-        while (*cp && (apr_isspace(*cp) || *cp == '=')) {
+        while (apr_isspace(*cp) || *cp == '=') {
             ++cp;
         }
 
@@ -685,7 +685,7 @@ static void parse_negotiate_header(request_rec *r, negotiation_state *neg)
     }
 
 #ifdef NEG_DEBUG
-    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, APLOGNO(00680)
             "dont_fiddle_headers=%d use_rvsa=%d ua_supports_trans=%d "
             "send_alternates=%d, may_choose=%d",
             neg->dont_fiddle_headers, neg->use_rvsa,
@@ -757,7 +757,7 @@ static enum header_state get_header_line(char *buffer, int len, apr_file_t *map)
 
     /* If blank, just return it --- this ends information on this variant */
 
-    for (cp = buffer; (*cp && apr_isspace(*cp)); ++cp) {
+    for (cp = buffer; apr_isspace(*cp); ++cp) {
         continue;
     }
 
@@ -916,7 +916,7 @@ static char *lcase_header_name_return_body(char *header, request_rec *r)
     }
 
     if (!*cp) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00681)
                       "Syntax error in type map, no ':' in %s for header %s",
                       r->filename, header);
         return NULL;
@@ -924,10 +924,10 @@ static char *lcase_header_name_return_body(char *header, request_rec *r)
 
     do {
         ++cp;
-    } while (*cp && apr_isspace(*cp));
+    } while (apr_isspace(*cp));
 
     if (!*cp) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00682)
                       "Syntax error in type map --- no header body: %s for %s",
                       r->filename, header);
         return NULL;
@@ -955,7 +955,7 @@ static int read_type_map(apr_file_t **map, negotiation_state *neg,
 
     if ((status = apr_file_open(map, rr->filename, APR_READ | APR_BUFFERED,
                 APR_OS_DEFAULT, neg->pool)) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(00683)
                       "cannot access type map file: %s", rr->filename);
         if (APR_STATUS_IS_ENOTDIR(status) || APR_STATUS_IS_ENOENT(status)) {
             return HTTP_NOT_FOUND;
@@ -996,12 +996,13 @@ static int read_type_map(apr_file_t **map, negotiation_state *neg,
                 char *errp;
                 apr_off_t number;
 
-                if (apr_strtoff(&number, body, &errp, 10)
+                body1 = ap_get_token(neg->pool, &body, 0);
+                if (apr_strtoff(&number, body1, &errp, 10) != APR_SUCCESS
                     || *errp || number < 0) {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00684)
                                   "Parse error in type map, Content-Length: "
                                   "'%s' in %s is invalid.",
-                                  body, r->filename);
+                                  body1, r->filename);
                     break;
                 }
                 mime_info.bytes = number;
@@ -1033,7 +1034,7 @@ static int read_type_map(apr_file_t **map, negotiation_state *neg,
                 while (--eol >= tag && apr_isspace(*eol))
                     *eol = '\0';
                 if ((mime_info.body = get_body(buffer, &len, tag, *map)) < 0) {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00685)
                                   "Syntax error in type map, no end tag '%s'"
                                   "found in %s for Body: content.",
                                   tag, r->filename);
@@ -1118,7 +1119,7 @@ static int read_types_multi(negotiation_state *neg)
 
     if ((status = apr_dir_open(&dirp, neg->dir_name,
                                neg->pool)) != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(00686)
                     "cannot read directory for multi: %s", neg->dir_name);
         return HTTP_FORBIDDEN;
     }
@@ -1157,8 +1158,7 @@ static int read_types_multi(negotiation_state *neg)
         anymatch = 1;
 
         /* See if it's something which we have access to, and which
-         * has a known type and encoding (as opposed to something
-         * which we'll be slapping default_type on later).
+         * has a known type and encoding.
          */
         sub_req = ap_sub_req_lookup_dirent(&dirent, r, AP_SUBREQ_MERGE_ARGS,
                                            NULL);
@@ -1238,8 +1238,7 @@ static int read_types_multi(negotiation_state *neg)
         }
 
         /*
-         * ###: be warned, the _default_ content type is already
-         * picked up here!  If we failed the subrequest, or don't
+         * If we failed the subrequest, or don't
          * know what we are serving, then continue.
          */
         if (sub_req->status != HTTP_OK || (!sub_req->content_type)) {
@@ -1292,7 +1291,7 @@ static int read_types_multi(negotiation_state *neg)
      * request must die.
      */
     if (anymatch && !neg->avail_vars->nelts) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00687)
                       "Negotiation: discovered file(s) matching request: %s"
                       " (None could be negotiated).",
                       r->filename);
@@ -1585,7 +1584,6 @@ static void set_language_quality(negotiation_state *neg, var_rec *variant)
                 p = NULL;
                 bestthistag = NULL;
                 longest_lang_range_len = 0;
-                alen = 0;
 
                 /* lang is the variant's language-tag, which is the one
                  * we are allowed to use the prefix of in HTTP/1.1
@@ -2065,7 +2063,7 @@ static int is_variant_better_rvsa(negotiation_state *neg, var_rec *variant,
     */
 
 #ifdef NEG_DEBUG
-    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, APLOGNO(00688)
            "Variant: file=%s type=%s lang=%s sourceq=%1.3f "
            "mimeq=%1.3f langq=%1.3f charq=%1.3f encq=%1.3f "
            "q=%1.5f definite=%d",
@@ -2136,7 +2134,7 @@ static int is_variant_better(negotiation_state *neg, var_rec *variant,
      */
 
 #ifdef NEG_DEBUG
-    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, APLOGNO(00689)
            "Variant: file=%s type=%s lang=%s sourceq=%1.3f "
            "mimeq=%1.3f langq=%1.3f langidx=%d charq=%1.3f encq=%1.3f ",
             (variant->file_name ? variant->file_name : ""),
@@ -2608,7 +2606,7 @@ static void set_neg_headers(request_rec *r, negotiation_state *neg,
     }
 
     if (neg->is_transparent || vary_by_type || vary_by_language ||
-        vary_by_language || vary_by_charset || vary_by_encoding) {
+        vary_by_charset || vary_by_encoding) {
 
         apr_table_mergen(hdrs, "Vary", 2 + apr_pstrcat(r->pool,
             neg->is_transparent ? ", negotiate"       : "",
@@ -2905,7 +2903,7 @@ static int do_negotiation(request_rec *r, negotiation_state *neg,
         }
 
         if (!*bestp) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00690)
                           "no acceptable variant: %s", r->filename);
             return HTTP_NOT_ACCEPTABLE;
         }
@@ -3046,14 +3044,13 @@ static int handle_map_file(request_rec *r)
             return res;
         }
         bb = apr_brigade_create(r->pool, c->bucket_alloc);
-        e = apr_bucket_file_create(map, best->body,
-                                   (apr_size_t)best->bytes, r->pool,
-                                   c->bucket_alloc);
-        APR_BRIGADE_INSERT_TAIL(bb, e);
+
+        apr_brigade_insert_file(bb, map, best->body, best->bytes, r->pool);
+
         e = apr_bucket_eos_create(c->bucket_alloc);
         APR_BRIGADE_INSERT_TAIL(bb, e);
 
-        return ap_pass_brigade(r->output_filters, bb);
+        return ap_pass_brigade_fchk(r, bb, NULL);
     }
 
     if (r->path_info && *r->path_info) {
@@ -3224,7 +3221,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_handler(handle_map_file,NULL,NULL,APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA negotiation_module =
+AP_DECLARE_MODULE(negotiation) =
 {
     STANDARD20_MODULE_STUFF,
     create_neg_dir_config,      /* dir config creator */

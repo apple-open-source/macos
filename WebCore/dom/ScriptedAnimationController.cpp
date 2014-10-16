@@ -28,18 +28,19 @@
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
 
+#include "DisplayRefreshMonitor.h"
+#include "DisplayRefreshMonitorManager.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "FrameView.h"
 #include "InspectorInstrumentation.h"
 #include "RequestAnimationFrameCallback.h"
 #include "Settings.h"
+#include <wtf/Ref.h>
 
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
 #include <algorithm>
 #include <wtf/CurrentTime.h>
-
-using namespace std;
 
 // Allow a little more than 60fps to make sure we can at least hit that frame rate.
 #define MinimumAnimationInterval 0.015
@@ -95,6 +96,8 @@ void ScriptedAnimationController::setThrottled(bool isThrottled)
         m_animationTimer.stop();
         scheduleAnimation();
     }
+#else
+    UNUSED_PARAM(isThrottled);
 #endif
 }
 
@@ -138,7 +141,7 @@ void ScriptedAnimationController::serviceScriptedAnimations(double monotonicTime
 
     // Invoking callbacks may detach elements from our document, which clears the document's
     // reference to us, so take a defensive reference.
-    RefPtr<ScriptedAnimationController> protector(this);
+    Ref<ScriptedAnimationController> protect(*this);
 
     for (size_t i = 0; i < callbacks.size(); ++i) {
         RequestAnimationFrameCallback* callback = callbacks[i].get();
@@ -170,7 +173,7 @@ void ScriptedAnimationController::windowScreenDidChange(PlatformDisplayID displa
     if (m_document->settings() && !m_document->settings()->requestAnimationFrameEnabled())
         return;
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    DisplayRefreshMonitorManager::sharedManager()->windowScreenDidChange(displayID, this);
+    DisplayRefreshMonitorManager::sharedManager().windowScreenDidChange(displayID, this);
 #else
     UNUSED_PARAM(displayID);
 #endif
@@ -184,7 +187,7 @@ void ScriptedAnimationController::scheduleAnimation()
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     if (!m_isUsingTimer && !m_isThrottled) {
-        if (DisplayRefreshMonitorManager::sharedManager()->scheduleAnimation(this))
+        if (DisplayRefreshMonitorManager::sharedManager().scheduleAnimation(this))
             return;
 
         m_isUsingTimer = true;
@@ -199,7 +202,7 @@ void ScriptedAnimationController::scheduleAnimation()
         animationInterval = MinimumThrottledAnimationInterval;
 #endif
 
-    double scheduleDelay = max<double>(animationInterval - (monotonicallyIncreasingTime() - m_lastAnimationFrameTimeMonotonic), 0);
+    double scheduleDelay = std::max<double>(animationInterval - (monotonicallyIncreasingTime() - m_lastAnimationFrameTimeMonotonic), 0);
     m_animationTimer.startOneShot(scheduleDelay);
 #else
     if (FrameView* frameView = m_document->view())
@@ -208,7 +211,7 @@ void ScriptedAnimationController::scheduleAnimation()
 }
 
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
-void ScriptedAnimationController::animationTimerFired(Timer<ScriptedAnimationController>*)
+void ScriptedAnimationController::animationTimerFired(Timer<ScriptedAnimationController>&)
 {
     m_lastAnimationFrameTimeMonotonic = monotonicallyIncreasingTime();
     serviceScriptedAnimations(m_lastAnimationFrameTimeMonotonic);
@@ -221,6 +224,13 @@ void ScriptedAnimationController::displayRefreshFired(double monotonicTimeNow)
 #endif
 #endif
 
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+PassRefPtr<DisplayRefreshMonitor> ScriptedAnimationController::createDisplayRefreshMonitor(PlatformDisplayID displayID) const
+{
+    return m_document->page()->chrome().client().createDisplayRefreshMonitor(displayID);
+}
+#endif
 
 
 }

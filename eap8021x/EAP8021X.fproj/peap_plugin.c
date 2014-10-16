@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,12 +134,6 @@ EAPExtensionsPacketSetAVPLength(EAPExtensionsPacketRef pkt, uint16_t length)
     return;
 }
 
-static __inline__ uint16_t
-EAPExtensionsPacketGetAVPLength(const EAPExtensionsPacketRef pkt)
-{
-    return (net_uint16_get(pkt->avp_length));
-}
-
 static __inline__ void
 EAPExtensionsPacketSetAVPType(EAPExtensionsPacketRef pkt, uint16_t type)
 {
@@ -167,12 +161,6 @@ EAPExtensionsResultPacketGetStatus(const EAPExtensionsResultPacketRef pkt)
     return (net_uint16_get(pkt->status));
 }
 
-static __inline__ bool
-EAPExtensionsAVPTypeIsMandatory(uint16_t avp_type)
-{
-    return ((avp_type & kEAPExtensionsAVPTypeMandatory) != 0);
-}
-
 static __inline__ uint16_t
 EAPExtensionsAVPTypeType(uint16_t avp_type)
 {
@@ -193,6 +181,7 @@ static EAPClientPluginFuncProcess peap_process;
 static EAPClientPluginFuncFreePacket peap_free_packet;
 static EAPClientPluginFuncSessionKey peap_session_key;
 static EAPClientPluginFuncServerKey peap_server_key;
+static EAPClientPluginFuncMasterSessionKeyCopyBytes peap_msk_copy_bytes;
 static EAPClientPluginFuncRequireProperties peap_require_props;
 static EAPClientPluginFuncPublishProperties peap_publish_props_copy;
 static EAPClientPluginFuncCopyPacketDescription peap_copy_packet_description;
@@ -649,8 +638,9 @@ peap_process_extensions(PEAPPluginDataRef context,
 			NULL,
 			sizeof(*out_pkt_p) - sizeof(EAPRequestPacket),
 			out_buf_size);
-    EAPExtensionsPacketSetAVPType((EAPExtensionsPacketRef)out_pkt_p, 
-				  kEAPExtensionsAVPTypeResult);
+    EAPExtensionsPacketSetAVPType((EAPExtensionsPacketRef)out_pkt_p,
+				  kEAPExtensionsAVPTypeMandatory
+				  | kEAPExtensionsAVPTypeResult);
     EAPExtensionsPacketSetAVPLength((EAPExtensionsPacketRef)out_pkt_p, 
 				    sizeof(out_pkt_p->status));
     EAPExtensionsResultPacketSetStatus(out_pkt_p, avp_result_status);
@@ -1470,6 +1460,24 @@ peap_server_key(EAPClientPluginDataRef plugin, int * key_length)
     return (context->key_data + 32);
 }
 
+static int
+peap_msk_copy_bytes(EAPClientPluginDataRef plugin, 
+		      void * msk, int msk_size)
+{
+    PEAPPluginDataRef	context = (PEAPPluginDataRef)plugin->private;
+    int			ret_msk_size;
+
+    if (msk_size < kEAPMasterSessionKeyMinimumSize
+	|| context->key_data_valid == FALSE) {
+	ret_msk_size = 0;
+    }
+    else {
+	ret_msk_size = kEAPMasterSessionKeyMinimumSize;
+	bcopy(context->key_data, msk, ret_msk_size);
+    }
+    return (ret_msk_size);
+}
+
 static void
 dictInsertEAPTypeInfo(CFMutableDictionaryRef dict, EAPType type,
 		      const char * type_name)
@@ -1685,6 +1693,7 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameFailureString, peap_failure_string },
     { kEAPClientPluginFuncNameSessionKey, peap_session_key },
     { kEAPClientPluginFuncNameServerKey, peap_server_key },
+    { kEAPClientPluginFuncNameMasterSessionKeyCopyBytes, peap_msk_copy_bytes },
     { kEAPClientPluginFuncNameRequireProperties, peap_require_props },
     { kEAPClientPluginFuncNamePublishProperties, peap_publish_props_copy },
     { kEAPClientPluginFuncNameCopyPacketDescription, 

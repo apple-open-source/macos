@@ -26,6 +26,9 @@
 #include "config.h"
 #include "WKBundlePageBannerMac.h"
 
+#if !PLATFORM(IOS)
+
+#include "APIClient.h"
 #include "PageBanner.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
@@ -34,75 +37,78 @@
 using namespace WebCore;
 using namespace WebKit;
 
-class PageBannerClientImpl : public PageBanner::Client {
+namespace API {
+template<> struct ClientTraits<WKBundlePageBannerClientBase> {
+    typedef std::tuple<WKBundlePageBannerClientV0> Versions;
+};
+}
+
+class PageBannerClientImpl : API::Client<WKBundlePageBannerClientBase>, public PageBanner::Client {
 public:
-    static PassOwnPtr<PageBannerClientImpl> create(WKBundlePageBannerClient* client)
+    explicit PageBannerClientImpl(WKBundlePageBannerClientBase* client)
     {
-        return adoptPtr(new PageBannerClientImpl(client));
+        initialize(client);
+    }
+
+    virtual ~PageBannerClientImpl()
+    {
     }
 
 private:
-    explicit PageBannerClientImpl(WKBundlePageBannerClient* client)
-        : m_client()
-    {
-        if (client)
-            m_client = *client;
-    }
-
     // PageBanner::Client.
-    virtual void pageBannerDestroyed(PageBanner*)
+    virtual void pageBannerDestroyed(PageBanner*) override
     {
         delete this;
     }
     
-    virtual bool mouseEvent(PageBanner* pageBanner, WebEvent::Type type, WebMouseEvent::Button button, const WebCore::IntPoint& position)
+    virtual bool mouseEvent(PageBanner* pageBanner, WebEvent::Type type, WebMouseEvent::Button button, const IntPoint& position) override
     {
         switch (type) {
         case WebEvent::MouseDown: {
             if (!m_client.mouseDown)
                 return false;
 
-            return m_client.mouseDown(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.clientInfo);
+            return m_client.mouseDown(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.base.clientInfo);
         }
         case WebEvent::MouseUp: {
             if (!m_client.mouseUp)
                 return false;
 
-            return m_client.mouseUp(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.clientInfo);
+            return m_client.mouseUp(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.base.clientInfo);
         }
         case WebEvent::MouseMove: {
             if (button == WebMouseEvent::NoButton) {
                 if (!m_client.mouseMoved)
                     return false;
 
-                return m_client.mouseMoved(toAPI(pageBanner), toAPI(position), m_client.clientInfo);
+                return m_client.mouseMoved(toAPI(pageBanner), toAPI(position), m_client.base.clientInfo);
             }
 
             // This is a MouseMove event with a mouse button pressed. Call mouseDragged.
             if (!m_client.mouseDragged)
                 return false;
 
-            return m_client.mouseDragged(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.clientInfo);
+            return m_client.mouseDragged(toAPI(pageBanner), toAPI(position), toAPI(button), m_client.base.clientInfo);
         }
 
         default:
             return false;
         }
     }
-    
-    WKBundlePageBannerClient m_client;
 };
 
-WKBundlePageBannerRef WKBundlePageBannerCreateBannerWithCALayer(CALayer *layer, int height, WKBundlePageBannerClient * wkClient)
+WKBundlePageBannerRef WKBundlePageBannerCreateBannerWithCALayer(CALayer *layer, int height, WKBundlePageBannerClientBase* wkClient)
 {
     if (wkClient && wkClient->version)
         return 0;
 
-    OwnPtr<PageBannerClientImpl> clientImpl = PageBannerClientImpl::create(wkClient);
-    return toAPI(PageBanner::create(layer, height, clientImpl.leakPtr()).leakRef());
+    auto clientImpl = std::make_unique<PageBannerClientImpl>(wkClient);
+    return toAPI(PageBanner::create(layer, height, clientImpl.release()).leakRef());
 }
 
 CALayer * WKBundlePageBannerGetLayer(WKBundlePageBannerRef pageBanner)
 {
     return toImpl(pageBanner)->layer();
 }
+
+#endif // !PLATFORM(IOS)

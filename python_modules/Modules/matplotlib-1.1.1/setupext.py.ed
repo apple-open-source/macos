@@ -1,0 +1,17 @@
+/def add_ft2font_flags/a
+.
+/else:/i
+        module.extra_link_args.extend(['-framework', 'CoreServices',
+                                       '-framework', 'ApplicationServices',
+                                       '-framework', 'CoreFoundation'])
+.
+/def add_tk_flags(/a
+.
+/framework_dirs = \[/i
+        sdkroot = os.environ.get('SDKROOT')
+        if sdkroot is None:
+            sdkroot = '/'
+.
+/'\/System\/Library\/Frameworks\/'/s||join(sdkroot, 'System/Library/Frameworks')|
+/module\.extra_compile_args\.extend(frameworks)/s/^/#/
+w

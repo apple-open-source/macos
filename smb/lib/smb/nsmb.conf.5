@@ -3,7 +3,7 @@
 .\" Originally written by Sergey A. Osokin
 .\" Rewritten by Tom Rhodes
 .\"
-.\" Portions Copyright (C) 2005 - 2012 Apple Inc. All rights reserved.
+.\" Portions Copyright (C) 2005 - 2013 Apple Inc. All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -85,14 +85,16 @@ Possible keywords may include:
 .It Sy "	A B C      Values"
 .It Va addr               Ta "- + -"  Ta ""       Ta "DNS name or IP address of server"
 .It Va nbtimeout          Ta "+ + -"  Ta "1s"     Ta "Timeout for resolving a NetBIOS name"
-.It Va minauth            Ta "+ + -"  Ta "NTLM"   Ta "Minimum authentication level allowed"
+.It Va minauth            Ta "+ + -"  Ta "NTLMv2" Ta "Minimum authentication level allowed"
 .It Va port445            Ta "+ + -"  Ta "normal" Ta "How to use SMB TCP/UDP ports"
 .It Va streams            Ta "+ + +"  Ta "yes"    Ta "Use NTFS Streams if server supported"
 .It Va soft               Ta "+ + +"  Ta ""       Ta "Make the mount soft"
 .It Va notify_off         Ta "+ + +"  Ta "no"     Ta "Turn off using notifications"
 .It Va kloglevel          Ta "+ - -"  Ta "0"      Ta "Turn on smb kernel logging"
-.It Va smb_neg            Ta "+ - -"  Ta "normal" Ta "How to negotiate SMB 2.x"
+.It Va smb_neg            Ta "+ - -"  Ta "normal" Ta "How to negotiate SMB 1/2/3"
 .It Va signing_required   Ta  "+ - -" Ta "false"  Ta "Turn off smb client signing"
+.It Va validate_neg_off   Ta "+ - -"  Ta "no"     Ta "Turn off using validate negotiate"
+.It Va max_resp_timeout   Ta "+ + -"  Ta "30s"    Ta "Max time to wait for any response from server"
 .El
 .Pp
 The minimum authentication level can be one of:
@@ -136,14 +138,16 @@ Attempt to connect via port 445. If that is
 unsuccessful, do not try to connect via NetBIOS.
 .El
 .Pp
-"How to negotiate SMB 2.x" can be one of:
+"How to negotiate SMB 1/2/3" can be one of:
 .Bl -tag -width ".Li smb2_only"
 .It Li normal
-Negotiate with SMB 1.x and attempt to negotiate to SMB 2.x.
+Negotiate with SMB 1 and attempt to negotiate to SMB 2/3.
 .It Li smb1_only
-Negotiate with only SMB 1.x.
+Negotiate with only SMB 1.
 .It Li smb2_only
-Negotiate with only SMB 2.x. This also will set no_netbios.
+Negotiate with only SMB 2. This also will set no_netbios.
+.It Li smb3_only
+Negotiate with only SMB 3. This also will set no_netbios.
 .El
 .Sh FILES
 .Bl -tag -width ".Pa /etc/nsmb.conf"

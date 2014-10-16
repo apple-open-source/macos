@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2013 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -97,7 +97,7 @@
     // Find if we should use a specific voice based on the voiceURI in utterance.
     // Otherwise, find the voice that matches the language. The Mac doesn't have a default voice per language, so the first
     // one will have to do.
-    Vector<RefPtr<WebCore::PlatformSpeechSynthesisVoice> > voiceList = m_synthesizerObject->voiceList();
+    Vector<RefPtr<WebCore::PlatformSpeechSynthesisVoice>> voiceList = m_synthesizerObject->voiceList();
     size_t voiceListSize = voiceList.size();
     
     WebCore::PlatformSpeechSynthesisVoice* utteranceVoice = utterance->voice();
@@ -167,6 +167,13 @@
     m_utterance = 0;
 }
 
+- (void)invalidate
+{
+    m_utterance = 0;
+    [m_synthesizer setDelegate:nil];
+    [m_synthesizer stopSpeakingAtBoundary:NSSpeechImmediateBoundary];
+}
+
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didFinishSpeaking:(BOOL)finishedSpeaking
 {
     if (!m_utterance)
@@ -208,6 +215,7 @@ PlatformSpeechSynthesizer::PlatformSpeechSynthesizer(PlatformSpeechSynthesizerCl
 
 PlatformSpeechSynthesizer::~PlatformSpeechSynthesizer()
 {
+    [m_platformSpeechWrapper.get() invalidate];
 }
 
 void PlatformSpeechSynthesizer::initializeVoiceList()

@@ -37,6 +37,8 @@
 
 #include "headers.h"
 
+static void usage(int ret) __attribute__((noreturn));
+
 typedef struct pk_client_params pk_client_params;
 struct DigestREQ;
 struct Kx509Request;
@@ -53,6 +55,7 @@ typedef struct kdc_request_desc *kdc_request_t;
 #include <gssapi_spi.h>
 #include <gssapi_ntlm.h>
 
+#include "hex.h"
 #include "heimbase.h"
 
 #ifdef HAVE_OPENDIRECTORY
@@ -89,6 +92,28 @@ static krb5_kdc_configuration *config = NULL;
 
 static void
 fillin_hostinfo(struct ntlm_targetinfo *ti);
+
+static void
+digest_debug_key(krb5_context context, int level,
+		 const char *name, const void *data, size_t size)
+{
+    char *hex;
+
+    /**
+     * Only print the first 2 bytes though since we really don't want
+     * the full key sprinkled though logs.
+     */
+    size = min(size, 2);
+
+    if (hex_encode(data, size, &hex) < 0)
+	return;
+
+    kdc_log(context, config, level, "%s: %s", name, hex);
+    memset(hex, 0, strlen(hex));
+    free(hex);
+}
+
+
 
 static const char *
 derive_version_ntq(const NTLMRequest2 *ntq)
@@ -207,7 +232,7 @@ validate_targetinfo(krb5_context context,
 	const char *p = strchr(ti.targetname, '/');
 	size_t len = strlen(acceptorUser);
 
-	if (p && len != (p - ti.targetname) &&
+	if (p && len != (size_t)(p - ti.targetname) &&
 	    strncasecmp(ti.targetname, acceptorUser, len) != 0)
 	{
 	    ret = EAUTH;
@@ -261,6 +286,7 @@ kdc_authenticate(void *ctx,
     krb5_principal client = NULL;
     unsigned char sessionkey[16];
     krb5_data sessionkeydata;
+    char *user_name = NULL;
     hdb_entry_ex *user = NULL;
     HDB *clientdb = NULL;
     Key *key = NULL;
@@ -275,12 +301,12 @@ kdc_authenticate(void *ctx,
 	    ntq->loginDomainName, ntq->loginUserName);
     
     if (ntq->lmchallenge.length != 8){
-	ret = EINVAL;
+	ret = HNTLM_ERR_INVALID_CHALLANGE;
 	goto failed;
     }
     
     if (ntq->ntChallengeResponse.length == 0) {
-	ret = EINVAL;
+	ret = HNTLM_ERR_INVALID_NT_RESPONSE;
 	goto failed;
     }
     
@@ -291,12 +317,25 @@ kdc_authenticate(void *ctx,
     
     krb5_principal_set_type(context, client, KRB5_NT_NTLM);
     
+    ret = krb5_unparse_name(context, client, &user_name);
+    if (ret)
+	goto failed;
+
     ret = _kdc_db_fetch(context, config, client,
 			HDB_F_GET_CLIENT, NULL, &clientdb, &user);
     if (ret)
 	goto failed;
     
+    ret = kdc_check_flags(context, config, user, user_name, NULL, NULL, 1);
+    if (ret) {
+	kdc_log(context, config, 2,
+		"digest-request: user %s\\%s, invalid",
+		ntq->loginDomainName, ntq->loginUserName);
+	goto failed;
+    }
+
     if (user->entry.principal->name.name_string.len < 1) {
+	ret = HNTLM_ERR_NOT_CONFIGURED;
 	kdc_log(context, config, 2,
 		"digest-request: user %s\\%s, have weired name",
 		ntq->loginDomainName, ntq->loginUserName);
@@ -316,7 +355,7 @@ kdc_authenticate(void *ctx,
     }
     
     kdc_log(context, config, 2,
-	    "digest-request: found user, processing ntlm request", ret);
+	    "digest-request: found user, processing ntlm request");
     
     if (ntq->ntChallengeResponse.length != 24) {
 	struct ntlm_buf targetinfo, answer;
@@ -326,17 +365,9 @@ kdc_authenticate(void *ctx,
 	
 	if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL)) {
 	    kdc_log(context, config, 2, "NTLMv2 disabled");
+	    ret = HNTLM_ERR_NOT_CONFIGURED;
 	    goto failed;
 	}
-	
-#if 0 /* if there is an LM2 challange we should check it */
-	if (ntq->lmChallengeResponse.length < 8) {
-	    kdc_log(context, config, 2,
-		    "lmChallengeResponse field is < 8 (%d)",
-		    (int)ntq->lmChallengeResponse.length);
-	    goto failed;
-	}
-#endif
 	
 	answer.length = ntq->ntChallengeResponse.length;
 	answer.data = ntq->ntChallengeResponse.data;
@@ -356,7 +387,8 @@ kdc_authenticate(void *ctx,
 					  HDB_AUTH_WRONG_PASSWORD);
 
 	    kdc_log(context, config, 2,
-		    "digest-request: verify ntlm2 hash failed", ret);
+		    "digest-request: verify ntlm2 hash failed: %d", ret);
+	    ret = HNTLM_ERR_INVALID_NTv2_ANSWER;
 	    goto failed;
 	}
 	
@@ -364,6 +396,9 @@ kdc_authenticate(void *ctx,
 	    clientdb->hdb_auth_status(context, clientdb, user,
 				      HDB_AUTH_SUCCESS);
 	
+	/*
+	 * Build session key
+	 */
 	{
 	    size_t len = MIN(ntq->ntChallengeResponse.length, 16);
 	    CCHmacContext c;
@@ -399,11 +434,12 @@ kdc_authenticate(void *ctx,
 	
 	if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V1, NULL)) {
 	    kdc_log(context, config, 2, "NTLMv1 disabled");
+	    ret = HNTLM_ERR_NOT_CONFIGURED;
 	    goto failed;
 	}
 	
 	if (ntq->lmchallenge.length != 8) {
-	    ret = EINVAL;
+	    ret = HNTLM_ERR_INVALID_CHALLANGE;
 	    goto failed;
 	}
 	
@@ -412,7 +448,7 @@ kdc_authenticate(void *ctx,
 	    
 	    /* the first first 8 bytes is the challenge, what is the other 16 bytes ? */
 	    if (ntq->lmChallengeResponse.length != 24) {
-		ret = EINVAL;
+		ret = HNTLM_ERR_INVALID_LMv2_RESPONSE;
 		goto failed;
 	    }
 	    
@@ -436,8 +472,8 @@ kdc_authenticate(void *ctx,
 	    memcmp(ntq->ntChallengeResponse.data, answer.data, answer.length) != 0) {
 	    free(answer.data);
 	    kdc_log(context, config, 2,
-		    "digest-request: verify ntlm1 hash failed", ret);
-	    ret = EINVAL;
+		    "digest-request: verify ntlm1 hash failed");
+	    ret = HNTLM_ERR_INVALID_NTv1_ANSWER;
 	    goto failed;
 	}
 	free(answer.data);
@@ -476,7 +512,7 @@ kdc_authenticate(void *ctx,
 	    goto failed;
 	if (sess.length != sizeof(sessionkey)) {
 	    heim_ntlm_free_buf(&sess);
-	    ret = EINVAL;
+	    ret = HNTLM_ERR_INVALID_SESSIONKEY;
 	    goto failed;
 	}
 	memcpy(sessionkey, sess.data, sizeof(sessionkey));
@@ -493,6 +529,8 @@ kdc_authenticate(void *ctx,
     (*response)(response_ctx, &ntp);
 
 failed:
+    if (user_name)
+	free(user_name);
     log_complete(context, "kdc", &ntp, ret, ntlm_version);
 
     if (ntp.targetinfo.data)
@@ -644,7 +682,7 @@ od_flags(krb5_context context, void *ctx)
 	    node = (ODNodeRef)CFArrayGetValueAtIndex(subnodes, n);
 
 	    name = ODNodeGetName(node);
-	    if (name && CFStringHasPrefix(name, CFSTR("/LDAPv3/"))) {
+	    if (name && !CFStringHasPrefix(name, CFSTR("/LDAPv3/"))) {
 		kdc_log(context, config, 2, "digest-request: have /LDAPv3/ nodes with signing");
 		haveLDAPSessionKeySupport = 1;
 		break;
@@ -703,11 +741,11 @@ od_authenticate(void *ctx,
     CFMutableDataRef challenge = NULL, resp = NULL;
     CFArrayRef values = NULL;
     NTLMReply ntp;
-    int ret = EINVAL;
+    int ret = HNTLM_ERR_NOT_CONFIGURED;
 
     if (ntlmDomain == NULL || ctx == NULL) {
 	kdc_log(context, config, 2, "digest-request: no ntlmDomain");
-	return EINVAL;
+	return HNTLM_ERR_NOT_CONFIGURED;
     }
 
     memset(&ntp, 0, sizeof(ntp));
@@ -763,7 +801,7 @@ od_authenticate(void *ctx,
     if (values && CFArrayGetCount(values) > 0) {
 	CFStringRef str = (CFStringRef)CFArrayGetValueAtIndex(values, 0);
 	if (CFStringGetTypeID() != CFGetTypeID(str)) {
-	    ret = EINVAL;
+	    ret = HNTLM_ERR_NOT_CONFIGURED;
 	    goto out;
 	}
 	if (!CFStringHasPrefix(str, CFSTR("/LDAPv3/"))) {
@@ -784,12 +822,17 @@ od_authenticate(void *ctx,
 	goto out;
     }
     
+    /*
+     * No ntlmv2 session key or keyex for OD.
+     */
     ntp.ntlmFlags = ntq->ntlmFlags;
-
+    ntp.ntlmFlags &= ~(NTLM_NEG_KEYEX|NTLM_NEG_NTLM2_SESSION);
+    
     /*
      * If the NTLMv2 session key is supported, it is returned in the
      * output buffer
      */
+    
 
     if (outAuthItems && CFArrayGetCount(outAuthItems) > 0) {
 	CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(outAuthItems, 0);
@@ -800,35 +843,9 @@ od_authenticate(void *ctx,
 		goto out;
 	    }
 	    krb5_data_copy(ntp.sessionkey, CFDataGetBytePtr(data), 16);
-
-	    if (ntp.ntlmFlags & NTLM_NEG_KEYEX) {
-		struct ntlm_buf base, enc, sess;
-		
-		base.data = ntp.sessionkey->data;
-		base.length = ntp.sessionkey->length;
-		enc.data = ntq->encryptedSessionKey.data;
-		enc.length = ntq->encryptedSessionKey.length;
-	
-		ret = heim_ntlm_keyex_unwrap(&base, &enc, &sess);
-		if (ret != 0)
-		    goto out;
-		if (sess.length != ntp.sessionkey->length) {
-		    heim_ntlm_free_buf(&sess);
-		    ret = EINVAL;
-		    goto out;
-		}
-		memcpy(ntp.sessionkey->data, sess.data, ntp.sessionkey->length);
-		heim_ntlm_free_buf(&sess);
-	    }
+	    kdc_log(context, config, 10, "OD auth with session key");
 	}
-
-    } else {
-	/*
-	 * No ntlmv2 session key or keyex for OD (this it too late to strip of these flags)
-	 */
-	ntp.ntlmFlags &= ~(NTLM_NEG_KEYEX|NTLM_NEG_NTLM2_SESSION);
     }
-
     
     /*
      * If no session key was passed back, strip of SIGN/SEAL
@@ -893,7 +910,7 @@ guest_authenticate(void *ctx,
     krb5_data sessionkeydata;
     NTLMReply ntp;
     int is_guest = (strcasecmp("GUEST", ntq->loginUserName) == 0);
-    int ret = EINVAL;
+    int ret = HNTLM_ERR_INVALID_NO_GUEST;
     
     memset(&ntp, 0, sizeof(ntp));
 
@@ -917,7 +934,7 @@ guest_authenticate(void *ctx,
 	    CCDigest(kCCDigestMD4, (void *)"", 0, sessionkey);
 	}
     } else {
-	ret = EINVAL;
+	ret = HNTLM_ERR_INVALID_NO_GUEST;
 	goto out;
     }
     
@@ -992,7 +1009,7 @@ guest_authenticate(void *ctx,
 	    goto out;
 	if (sess.length != sizeof(sessionkey)) {
 	    heim_ntlm_free_buf(&sess);
-	    ret = EINVAL;
+	    ret = HNTLM_ERR_INVALID_SESSIONKEY;
 	    goto out;
 	}
 	memcpy(sessionkey, sess.data, sizeof(sessionkey));
@@ -1222,7 +1239,7 @@ static int
 netr_ti(void *ctx, struct ntlm_targetinfo *ti)
 {
     if (netlogonServer == NULL || netlogonDomain == NULL)
-	return EINVAL;
+	return HNTLM_ERR_NO_NETR_CONFIGURED;
 
     if ((ti->servername = strdup(netlogonServer)) == NULL)
 	return ENOMEM;
@@ -1257,7 +1274,7 @@ netr_authenticate(void *ctx,
     krb5_data pac;
 
     if (netlogonDomain == NULL || netlogonServer == NULL || ctx == NULL)
-	return EINVAL;
+	return HNTLM_ERR_NO_NETR_CONFIGURED;
 
     memset(&ntp, 0, sizeof(ntp));
 
@@ -1317,6 +1334,9 @@ netr_authenticate(void *ctx,
 	goto out;
     }
 
+    digest_debug_key(context, 10, "ntlm base session key",
+		     sessionkey, sizeof(sessionkey));
+
     /* XXX copy into ntp */
     free(pac.data);
 
@@ -1326,6 +1346,9 @@ netr_authenticate(void *ctx,
                                     ntq->lmChallengeResponse.data, 8,
                                     ntq->lmchallenge.data,
                                     sessionkey);
+
+	digest_debug_key(context, 10, "ntlmv2 session' key",
+			 sessionkey, sizeof(sessionkey));
     }
 
     ntp.ntlmFlags = ntq->ntlmFlags;
@@ -1351,11 +1374,14 @@ netr_authenticate(void *ctx,
 	    goto out;
 	if (sess.length != sizeof(sessionkey)) {
 	    heim_ntlm_free_buf(&sess);
-	    ret = EINVAL;
+	    ret = HNTLM_ERR_INVALID_SESSION_KEY;
 	    goto out;
 	}
 	memcpy(sessionkey, sess.data, sizeof(sessionkey));
 	heim_ntlm_free_buf(&sess);
+
+	digest_debug_key(context, 10, "kexex key",
+			 sessionkey, sizeof(sessionkey));
     }
 
     sessionkeydata.data = sessionkey;
@@ -1432,7 +1458,7 @@ complete_callback(void *ctx, const NTLMReply *ntp)
 {
     struct callback *c = ctx;
     heim_idata rep;
-    size_t size;
+    size_t size = 0;
     int ret;
     
     ASN1_MALLOC_ENCODE(NTLMReply, rep.data, rep.length, ntp, &size, ret);
@@ -1553,7 +1579,7 @@ process_NTLMInit(krb5_context context,
     struct ntlm_targetinfo ti;
     NTLMInitReply ir;
     char *indomain = NULL;
-    size_t size, n;
+    size_t size = 0, n;
     int ret = 0;
     
     memset(&ir, 0, sizeof(ir));
@@ -1745,5 +1771,4 @@ main(int argc, char **argv)
     heim_sipc_timeout(60);
 
     heim_ipc_main();
-    return 0;
 }

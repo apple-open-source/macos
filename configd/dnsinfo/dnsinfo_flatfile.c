@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -465,7 +465,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 				number = strtol(word, NULL, 0);
 				if (number < 0 || number > UINT32_MAX) break;
-				_dns_resolver_set_order(&res, number);
+				_dns_resolver_set_order(&res, (uint32_t)number);
 				break;
 			}
 
@@ -489,7 +489,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 				number = strtol(word, NULL, 0);
 				if (number < 0 || number > UINT32_MAX) break;
-				_dns_resolver_set_timeout(&res, number);
+				_dns_resolver_set_timeout(&res, (uint32_t)number);
 				break;
 			}
 		}

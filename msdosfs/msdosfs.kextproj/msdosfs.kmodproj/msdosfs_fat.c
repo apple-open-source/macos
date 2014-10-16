@@ -1661,8 +1661,6 @@ int msdosfs_find_next_free(struct msdosfsmount *pmp, uint32_t start, uint32_t en
 			   uint32_t *foundStart, uint32_t *foundCount);
 void msdosfs_insert_free_extent(struct msdosfsmount *pmp, uint32_t start, uint32_t count);
 
-enum { MAX_FREE_EXTENTS = PAGE_SIZE / sizeof(struct extent) };
-
 /*
  * msdosfs_find_next_free - Search through the FAT looking for a single contiguous
  * extent of free clusters.

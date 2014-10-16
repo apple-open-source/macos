@@ -7,17 +7,24 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ * ICU <specials> source: <path>/common/main/ms_Arab.xml
  */
 ms_Arab{
-    AuxExemplarCharacters{"[ ڬ ۑ ]"}
+    %%Parent{"root"}
+    AuxExemplarCharacters{"[ڬ ۑ]"}
+    Ellipsis{
+        final{"{0}…"}
+        initial{"…{0}"}
+        medial{"{0}…{1}"}
+    }
     ExemplarCharacters{
-        "[ ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ݢ ل م ن ڽ "
-        "ه و ۏ ى ي ]"
+        "[ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ݢ ل م ن ڽ ه"
+        " و ۏ ى ي]"
     }
     LocaleScript{
         "Arab",
     }
+    MoreInformation{"؟"}
     NumberElements{
         latn{
             patterns{
@@ -80,7 +87,7 @@ ms_Arab{
             }
         }
     }
-    Version{"2.0.82.68"}
+    Version{"2.0.92.90"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -250,13 +257,13 @@ ms_Arab{
                     y{"y–y"}
                 }
                 yM{
-                    M{"M/yy – M/yy"}
-                    y{"M/yy – M/yy"}
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
                 }
                 yMEd{
-                    M{"E، d/M/yy – E، d/M/yy"}
-                    d{"E، d/M/yy – E، d/M/yy"}
-                    y{"E، d/M/yy – E، d/M/yy"}
+                    M{"E، d/M/y – E، d/M/y"}
+                    d{"E، d/M/y – E، d/M/y"}
+                    y{"E، d/M/y – E، d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMM y"}
@@ -277,9 +284,9 @@ ms_Arab{
                     y{"d MMM y – d MMM y"}
                 }
                 yMd{
-                    M{"d/M/yy – d/M/yy"}
-                    d{"d/M/yy – d/M/yy"}
-                    y{"d/M/yy – d/M/yy"}
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
             quarters{
@@ -321,7 +328,7 @@ ms_Arab{
                 "h:mm a",
                 "EEEE، d MMMM y",
                 "d MMMM y",
-                "dd/MM/yyyy",
+                "dd/MM/y",
                 "d/MM/yy",
                 "{1} {0}",
                 "{1} {0}",
@@ -434,13 +441,13 @@ ms_Arab{
                     y{"y–y"}
                 }
                 yM{
-                    M{"M/yy – M/yy"}
-                    y{"M/yy – M/yy"}
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
                 }
                 yMEd{
-                    M{"E، d/M/yy – E، d/M/yy"}
-                    d{"E، d/M/yy – E، d/M/yy"}
-                    y{"E، d/M/yy – E، d/M/yy"}
+                    M{"E، d/M/y – E، d/M/y"}
+                    d{"E، d/M/y – E، d/M/y"}
+                    y{"E، d/M/y – E، d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMM y"}
@@ -461,9 +468,9 @@ ms_Arab{
                     y{"d MMM y – d MMM y"}
                 }
                 yMd{
-                    M{"d/M/yy – d/M/yy"}
-                    d{"d/M/yy – d/M/yy"}
-                    y{"d/M/yy – d/M/yy"}
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
             monthNames{
@@ -643,91 +650,95 @@ ms_Arab{
         metric{"ميتريک"}
     }
     units{
-        day{
-            other{"{0} هاري"}
-        }
-        day-future{
-            other{"دالم {0} هاري"}
-        }
-        day-past{
-            other{"{0} هاري لالو"}
-        }
-        hour{
-            other{"{0} جم"}
-        }
-        hour-future{
-            other{"دالم {0} جم"}
-        }
-        hour-past{
-            other{"{0} جم لالو"}
-        }
-        minute{
-            other{"{0} مينيت"}
-        }
-        minute-future{
-            other{"دالم {0} مينيت"}
-        }
-        minute-past{
-            other{"{0} مينيت لالو"}
-        }
-        month{
-            other{"{0} بولن"}
-        }
-        month-future{
-            other{"دالم {0} بولن"}
-        }
-        month-past{
-            other{"{0} بولن لالو"}
-        }
-        second{
-            other{"{0} ساعت"}
-        }
-        second-future{
-            other{"دالم {0} ساعت"}
-        }
-        second-past{
-            other{"{0} ساعت لالو"}
-        }
-        week{
-            other{"{0} ميڠݢو"}
-        }
-        week-future{
-            other{"دالم {0} ميڠݢو"}
-        }
-        week-past{
-            other{"{0} ميڠݢو لالو"}
-        }
-        year{
-            other{"{0} تاهون"}
-        }
-        year-future{
-            other{"دالم {0} تاهون"}
-        }
-        year-past{
-            other{"{0} تاهون لالو"}
+        duration{
+            day{
+                other{"{0} هاري"}
+            }
+            day-future{
+                other{"دالم {0} هاري"}
+            }
+            day-past{
+                other{"{0} هاري لالو"}
+            }
+            hour{
+                other{"{0} جم"}
+            }
+            hour-future{
+                other{"دالم {0} جم"}
+            }
+            hour-past{
+                other{"{0} جم لالو"}
+            }
+            minute{
+                other{"{0} مينيت"}
+            }
+            minute-future{
+                other{"دالم {0} مينيت"}
+            }
+            minute-past{
+                other{"{0} مينيت لالو"}
+            }
+            month{
+                other{"{0} بولن"}
+            }
+            month-future{
+                other{"دالم {0} بولن"}
+            }
+            month-past{
+                other{"{0} بولن لالو"}
+            }
+            second{
+                other{"{0} ساعت"}
+            }
+            second-future{
+                other{"دالم {0} ساعت"}
+            }
+            second-past{
+                other{"{0} ساعت لالو"}
+            }
+            week{
+                other{"{0} ميڠݢو"}
+            }
+            week-future{
+                other{"دالم {0} ميڠݢو"}
+            }
+            week-past{
+                other{"{0} ميڠݢو لالو"}
+            }
+            year{
+                other{"{0} تاهون"}
+            }
+            year-future{
+                other{"دالم {0} تاهون"}
+            }
+            year-past{
+                other{"{0} تاهون لالو"}
+            }
         }
     }
     unitsShort{
-        day{
-            other{"{0} هاري"}
-        }
-        hour{
-            other{"{0} جم"}
-        }
-        minute{
-            other{"{0} min"}
-        }
-        month{
-            other{"{0} بولن"}
-        }
-        second{
-            other{"{0} ساعت"}
-        }
-        week{
-            other{"{0} ميڠݢو"}
-        }
-        year{
-            other{"{0} thn"}
+        duration{
+            day{
+                other{"{0} هاري"}
+            }
+            hour{
+                other{"{0} جم"}
+            }
+            minute{
+                other{"{0} min"}
+            }
+            month{
+                other{"{0} بولن"}
+            }
+            second{
+                other{"{0} ساعت"}
+            }
+            week{
+                other{"{0} ميڠݢو"}
+            }
+            year{
+                other{"{0} thn"}
+            }
         }
     }
 }

@@ -37,22 +37,24 @@ OSDefineMetaClassAndStructors( IOHIDEventOverrideDriver, IOHIDEventDriver )
 //====================================================================================================
 bool IOHIDEventOverrideDriver::handleStart( IOService * provider )
 {
-    OSArray * maps = NULL;
+    OSArray *   maps = NULL;
+    int         index;
     
     if ( !super::handleStart(provider) )
         return false;
     
+    for ( index=0; index<32; index++ ) {
+        _buttonMap[index].eventType         = kIOHIDEventTypePointer;
+        _buttonMap[index].u.pointer.mask    = (1<<index);
+    }
+    
     maps = OSDynamicCast(OSArray, getProperty("ButtonMaps"));
     if ( maps ) {
-        int index;
         
         for ( index=0; index<maps->getCount(); index++ ) {
             OSDictionary *  map;
             OSNumber *      number;
             uint32_t        button;
-            uint32_t        usagePage;
-            uint32_t        usage;
-            uint32_t        eventType;
             
             map = OSDynamicCast(OSDictionary, maps->getObject(index));
             if ( !map )
@@ -70,23 +72,48 @@ bool IOHIDEventOverrideDriver::handleStart( IOService * provider )
             if ( !number )
                 continue;
             
-            eventType = number->unsigned32BitValue();
+            _buttonMap[button-1].eventType = number->unsigned32BitValue();
             
-            number = OSDynamicCast(OSNumber, map->getObject("UsagePage"));
-            if ( !number )
-                continue;
-            
-            usagePage = number->unsigned32BitValue();
+            switch ( _buttonMap[button-1].eventType ) {
+                case kIOHIDEventTypeKeyboard:
+                    {
+                        uint32_t usagePage, usage;
+                        
+                        number = OSDynamicCast(OSNumber, map->getObject("UsagePage"));
+                        if ( !number )
+                            break;
+                        
+                        usagePage = number->unsigned32BitValue();
+                        
+                        number = OSDynamicCast(OSNumber, map->getObject("Usage"));
+                        if ( !number )
+                            break;
+                        
+                        usage = number->unsigned32BitValue();
+                        
+                        _buttonMap[button-1].u.keyboard.usagePage  = usagePage;
+                        _buttonMap[button-1].u.keyboard.usage      = usage;
+                        
+                    }
+                    break;
+                case kIOHIDEventTypePointer:
+                    {
+                        uint32_t mask;
+                        
+                        number = OSDynamicCast(OSNumber, map->getObject("Mask"));
+                        if ( !number )
+                            break;
+                        
+                        mask = number->unsigned32BitValue();
 
-            number = OSDynamicCast(OSNumber, map->getObject("Usage"));
-            if ( !number )
-                continue;
-            
-            usage = number->unsigned32BitValue();
-            
-            _buttonMap[button-1].eventType  = eventType;
-            _buttonMap[button-1].usagePage  = usagePage;
-            _buttonMap[button-1].usage      = usage;
+                        
+                        _buttonMap[button-1].u.pointer.mask = mask;
+                    }
+                    break;
+                default:
+                    break;
+            }
+             
         }
     }
     
@@ -94,33 +121,53 @@ bool IOHIDEventOverrideDriver::handleStart( IOService * provider )
 }
 
 //====================================================================================================
-// IOHIDEventOverrideDriver::dispatchKeyboardEvent
+// IOHIDEventOverrideDriver::dispatchEvent
 //====================================================================================================
 void IOHIDEventOverrideDriver::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 {
     IOHIDEvent * targetEvent = NULL;
+    
     if ( (targetEvent = event->getEvent(kIOHIDEventTypePointer)) ) {
-        AbsoluteTime    timestamp               = targetEvent->getTimeStamp();
-        uint32_t        pointerButtonMaskNew    = targetEvent->getIntegerValue(kIOHIDEventFieldPointerButtonMask);
-        uint32_t        pointerButtonMaskDelta  = _pointerButtonMask ^ pointerButtonMaskNew;
+        
+        IOHIDEvent *    newEvent                        = NULL;
+        AbsoluteTime    timestamp                       = targetEvent->getTimeStamp();
+        uint32_t        rawPointerButtonMask            = targetEvent->getIntegerValue(kIOHIDEventFieldPointerButtonMask);
+        uint32_t        rawPointerButtonMaskDelta       = _rawPointerButtonMask ^ rawPointerButtonMask;
+        uint32_t        resultantPointerButtonMask      = _resultantPointerButtonMask;
         int             index;
         
         for ( index=0; index<32; index++ ) {
-            bool value;
-            if ( (pointerButtonMaskDelta & (1<<index)) == 0 )
+            
+            bool value = rawPointerButtonMask & (1<<index);
+            
+            if ( (rawPointerButtonMaskDelta & (1<<index)) == 0 )
                 continue;
             
             switch (_buttonMap[index].eventType ) {
                 case kIOHIDEventTypeKeyboard:
-                    value = pointerButtonMaskNew & (1<<index);
-                    dispatchKeyboardEvent(timestamp, _buttonMap[index].usagePage, _buttonMap[index].usage, value);
+                    dispatchKeyboardEvent(timestamp, _buttonMap[index].u.keyboard.usagePage, _buttonMap[index].u.keyboard.usage, value);
+                    break;
+                case kIOHIDEventTypePointer:
+                    if ( value ) 
+                        resultantPointerButtonMask |= _buttonMap[index].u.pointer.mask;
+                    else
+                        resultantPointerButtonMask &= ~_buttonMap[index].u.pointer.mask;
                     break;
                 default:
                     break;
             }
         }
         
-        _pointerButtonMask = pointerButtonMaskNew;
+        _rawPointerButtonMask = rawPointerButtonMask;
+        
+        newEvent = IOHIDEvent::relativePointerEvent(timestamp, event->getIntegerValue(kIOHIDEventFieldPointerX), event->getIntegerValue(kIOHIDEventFieldPointerY), event->getIntegerValue(kIOHIDEventFieldPointerZ), resultantPointerButtonMask, _resultantPointerButtonMask);
+        if ( newEvent ) {
+            super::dispatchEvent(newEvent);
+            newEvent->release();
+        }
+
+        _resultantPointerButtonMask = resultantPointerButtonMask;
+
     } else {
         super::dispatchEvent(event, options);
     }

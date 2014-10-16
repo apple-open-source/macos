@@ -38,25 +38,29 @@ DownloadAuthenticationClient::DownloadAuthenticationClient(Download* download)
     ASSERT_ARG(download, download);
 }
 
-void DownloadAuthenticationClient::receivedCredential(const AuthenticationChallenge& challenge, const Credential& credential)
+void DownloadAuthenticationClient::receivedCredential(const AuthenticationChallenge&, const Credential&)
 {
-    if (!m_download)
-        return;
-    m_download->useCredential(challenge, credential);
+    // FIXME (119667): This can probably be just removed.
 }
 
-void DownloadAuthenticationClient::receivedRequestToContinueWithoutCredential(const AuthenticationChallenge& challenge)
+void DownloadAuthenticationClient::receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&)
 {
-    if (!m_download)
-        return;
-    m_download->continueWithoutCredential(challenge);
+    // FIXME (119667): This can probably be just removed.
 }
 
-void DownloadAuthenticationClient::receivedCancellation(const AuthenticationChallenge& challenge)
+void DownloadAuthenticationClient::receivedCancellation(const AuthenticationChallenge&)
 {
-    if (!m_download)
-        return;
-    m_download->cancelAuthenticationChallenge(challenge);
+    // FIXME (119667): This can probably be just removed.
+}
+
+void DownloadAuthenticationClient::receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&)
+{
+    // FIXME (119667): This can probably be just removed.
+}
+
+void DownloadAuthenticationClient::receivedChallengeRejection(const AuthenticationChallenge&)
+{
+    // FIXME (119667): This can probably be just removed.
 }
 
 } // namespace WebKit

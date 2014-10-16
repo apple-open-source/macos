@@ -1,8 +1,9 @@
 :
+### this script contains archaic constructs that work with all sh variants ###
 # Glenn Fowler
 # AT&T Research
 #
-# @(#)make.probe (AT&T Research) 2011-02-02
+# @(#)make.probe (AT&T Research) 2011-06-01
 #
 # C probe for make
 #
@@ -17,6 +18,8 @@ probe_ccs="strip size nm ld ar" # longest to shortest
 probe_debug="-g"
 probe_dll="'-G 0' -Wc,dll,exportall,longname,rent -Wc,exportall -dynamic $cc_dll_def"
 probe_export_dynamic="-rdynamic -export-dynamic -Wl,-export-dynamic -Wl,-E -bexpall -force_flat_namespace"
+probe_gcc_optimize="-O2"
+probe_gcc_version="*[Gg][Cc][Cc]*"
 probe_include_local="'-ignore-source-dir -iquote' -iquote -I-"
 probe_ldlazy='-zlazyload -znolazyload -Wl,-zlazyload -Wl,-znolazyload'
 probe_ldlib="LD_LIBRARY_PATH LIBPATH LPATH"
@@ -1176,6 +1179,14 @@ case $stdlib in
 			fi
 		done`
 	;;
+*)	eval set x $probe_verbose
+	shift
+	for o in "$@"
+	do	stdlib="$stdlib "`$cc $o doti.$src 2>&1 |
+		sed 's/  */\n/g' |
+		sed -e '/^-L/!d' -e '/\/lib64$/!d' -e 's/^-L//'`
+	done
+	;;
 esac
 case $stdlib in
 ?*)	keepstdlib=1
@@ -1535,6 +1546,9 @@ then	e=`wc -c < e`
 		esac
 	done
 
+	case $version_string in
+	$probe_gcc_version)	probe_optimize="$probe_gcc_optimize $probe_optimize" ;;
+	esac
 	eval set x $probe_optimize
 	while	:
 	do	shift
@@ -1982,7 +1996,8 @@ case $keepstdlib in
 	# favor lib64 over lib
 	#
 	case $hosttype in
-	*64)	o=$stdlib
+	*64|*[!0-9]64[!a-zA-Z0-9]*)
+		o=$stdlib
 		stdlib=
 		for i in $o
 		do	case " $stdlib " in

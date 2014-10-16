@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2013 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,38 +28,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
+enum EndOfStreamError {
+    "network",
+    "decode"
+};
+
 [
     Conditional=MEDIA_SOURCE,
     ActiveDOMObject,
     EventTarget,
+    EnabledBySetting=MediaSource,
+    JSGenerateToJSObject,
+    JSGenerateToNativeObject,
     Constructor,
     ConstructorCallWith=ScriptExecutionContext,
-    InterfaceName=WebKitMediaSource
-] interface MediaSource {
+] interface MediaSource : EventTarget {
     // All the source buffers created by this object.
     readonly attribute SourceBufferList sourceBuffers;
 
     // Subset of sourceBuffers that provide data for the selected/enabled tracks.
     readonly attribute SourceBufferList activeSourceBuffers;
 
-    [SetterRaisesException] attribute double duration;
+    [SetterRaisesException] attribute unrestricted double duration;
 
     [RaisesException] SourceBuffer addSourceBuffer(DOMString type);
     [RaisesException] void removeSourceBuffer(SourceBuffer buffer);
 
     readonly attribute DOMString readyState;
     
-    [RaisesException] void endOfStream([Default=NullString] optional DOMString error);
+    [RaisesException] void endOfStream(optional EndOfStreamError error);
 
     static boolean isTypeSupported (DOMString type);
-
-    // EventTarget interface
-    void addEventListener(DOMString type,
-                          EventListener listener,
-                          optional boolean useCapture);
-    void removeEventListener(DOMString type,
-                             EventListener listener,
-                             optional boolean useCapture);
-    [RaisesException] boolean dispatchEvent(Event event);
 };
-

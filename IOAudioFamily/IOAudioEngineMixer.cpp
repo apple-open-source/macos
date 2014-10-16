@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,9 +25,7 @@
 #include "IOAudioStream.h"
 #include "IOAudioTypes.h"
 
-//#include <AppleDSP/OSvKernDSPLib.h>
-
-extern "C" void vDSP_vadd( const float input1[], __darwin_ptrdiff_t stride1, const float input2[], __darwin_ptrdiff_t stride2, float res[], __darwin_ptrdiff_t strideres, __darwin_size_t size);
+#include <vecLib/vecLib.h>																							// <rdar://14058728>
 
 IOReturn IOAudioEngine::mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {

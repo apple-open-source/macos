@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
+#include "SCPreferencesInternal.h"
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -138,23 +139,27 @@ if_bond_status_req_copy(int s, const char * ifname)
 
 
 static void
-add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name)
+add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name, SCPreferencesRef ni_prefs)
 {
-	SCNetworkInterfaceRef	interface;
+	SCNetworkInterfaceRef	interface = NULL;
 
 	if (*interfaces == NULL) {
 		*interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
-
-	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
-							 kIncludeNoVirtualInterfaces);
-	CFArrayAppendValue(*interfaces, interface);
-	CFRelease(interface);
+	if (ni_prefs != NULL) {
+		interface = __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(NULL, ni_prefs, if_name);
+	}
+	if (interface == NULL) {
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
+								 kIncludeNoVirtualInterfaces);
+	}
+	
+	if (interface != NULL) {
+		CFArrayAppendValue(*interfaces, interface);
+		CFRelease(interface);
+	}
 }
 
-
-static Boolean
-_SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members);
 
 static Boolean
 _SCBondInterfaceSetMode(SCBondInterfaceRef bond, CFNumberRef mode);
@@ -162,6 +167,7 @@ _SCBondInterfaceSetMode(SCBondInterfaceRef bond, CFNumberRef mode);
 
 typedef struct {
 	CFMutableArrayRef	bonds;
+	SCPreferencesRef	ni_prefs;
 	SCPreferencesRef	prefs;
 } addContext, *addContextRef;
 
@@ -193,11 +199,11 @@ add_configured_interface(const void *key, const void *value, void *context)
 
 		member = CFArrayGetValueAtIndex(interfaces, i);
 		if (isA_CFString(member)) {
-			add_interface(&members, member);
+			add_interface(&members, member, myContext->ni_prefs);
 		}
 	}
 	if (members != NULL) {
-		_SCBondInterfaceSetMemberInterfaces(bond, members);
+		__SCBondInterfaceSetMemberInterfaces(bond, members);
 		CFRelease(members);
 	}
 
@@ -254,11 +260,21 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 {
 	addContext		context;
 	CFDictionaryRef		dict;
+	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
-
+	
+	if ((prefs == NULL) ||
+	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+		ni_prefs = NULL;
+	}
+	else {
+		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+	}
+	
 	context.bonds = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.prefs = prefs;
-
+	context.ni_prefs = ni_prefs;
+	
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
 					CFSTR("/%@/%@"),
@@ -270,6 +286,9 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
 
+	if (ni_prefs != NULL) {
+		CFRelease(ni_prefs);
+	}
 	return context.bonds;
 }
 
@@ -460,14 +479,14 @@ _SCBondInterfaceCopyActive(void)
 				CFStringRef	member;
 
 				member = CFStringCreateWithCString(NULL, ibs_p[i].ibs_if_name, kCFStringEncodingASCII);
-				add_interface(&members, member);
+				add_interface(&members, member, NULL);
 				CFRelease(member);
 			}
 		}
 		free(ibsr_p);
 
 		if (members != NULL) {
-			_SCBondInterfaceSetMemberInterfaces(bond, members);
+			__SCBondInterfaceSetMemberInterfaces(bond, members);
 			CFRelease(members);
 		}
 
@@ -615,8 +634,9 @@ SCBondInterfaceGetOptions(SCBondInterfaceRef bond)
 }
 
 
-static Boolean
-_SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
+__private_extern__
+Boolean
+__SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 {
 	CFIndex				i;
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bond;
@@ -764,7 +784,7 @@ SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 		return FALSE;
 	}
 
-	ok = _SCBondInterfaceSetMemberInterfaces(bond, members);
+	ok = __SCBondInterfaceSetMemberInterfaces(bond, members);
 	return ok;
 }
 
@@ -1407,7 +1427,7 @@ __bond_set_mode(int s, CFStringRef bond_if, CFNumberRef mode)
 	if (ioctl(s, SIOCSIFBOND, (caddr_t)&ifr) == -1) {
 		_SCErrorSet(errno);
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not set mode to %d on bond \"%@\": %s"),
+		      CFSTR("could not set mode to %@ on bond \"%@\": %s"),
 		      mode,
 		      bond_if,
 		      strerror(errno));

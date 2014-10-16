@@ -1,0 +1,4 @@
+/def test__supports_universal_builds(/a
+.
+/platform\.mac_ver()\[0]\.split('\.') >= \['10', '4'],/s//map(int, platform.mac_ver()[0].split('.')) >= [10, 4],/
+w

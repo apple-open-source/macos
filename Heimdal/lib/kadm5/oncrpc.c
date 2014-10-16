@@ -63,7 +63,7 @@ _kadm5_xdr_store_data_xdr(krb5_storage *sp, krb5_data data)
 	static const char zero[4] = { 0, 0, 0, 0 };
 
 	sret = krb5_storage_write(sp, zero, res);
-	if(sret != res)
+	if(sret < 0 || (size_t)sret != res)
 	    return (sret < 0)? errno : krb5_storage_get_eof_code(sp);
     }
     return 0;
@@ -86,7 +86,7 @@ _kadm5_xdr_ret_data_xdr(krb5_storage *sp, krb5_data *data)
 	res = 4 - (data->length % 4);
 	if (res != 4) {
 	    sret = krb5_storage_read(sp, buf, res);
-	    if(sret != res)
+	    if(sret < 0 || (size_t)sret != res)
 		return (sret < 0)? errno : krb5_storage_get_eof_code(sp);
 	}
     }
@@ -328,7 +328,7 @@ _kadm5_xdr_store_principal_ent(krb5_context context,
     }
 
     CHECK(krb5_store_int32(sp, ent->n_key_data));
-    for (i = 0; i < ent->n_key_data; i++) {
+    for (i = 0; i < (size_t)ent->n_key_data; i++) {
 	CHECK(krb5_store_uint32(sp, 2));
 	CHECK(krb5_store_uint32(sp, ent->kvno));
 	CHECK(krb5_store_uint32(sp, ent->key_data[i].key_data_type[0]));
@@ -408,14 +408,16 @@ _kadm5_xdr_ret_principal_ent(krb5_context context,
 	    tp = &(*tp)->tl_data_next;
 
 	    count++;
+
+	    INSIST(count < 2000);
 	}
-	INSIST(ent->n_tl_data == count);
+	INSIST((size_t)ent->n_tl_data == count);
     } else {
 	INSIST(ent->n_tl_data == 0);
     }
 	  
     CHECK(krb5_ret_uint32(sp, &num));
-    INSIST(num == ent->n_key_data);
+    INSIST(num == (uint32_t)ent->n_key_data);
 
     ent->key_data = calloc(num, sizeof(ent->key_data[0]));
     INSIST(ent->key_data != NULL);

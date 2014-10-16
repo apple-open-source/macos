@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -695,7 +695,9 @@ typedef struct
     user32_addr_t extents;
     uint32_t      extentsCount;
 
-    uint8_t       reserved0064[8];
+    uint32_t      options;
+
+    uint8_t       reserved0096[4];
 } dk_unmap_32_t;
 
 typedef struct
@@ -703,8 +705,28 @@ typedef struct
     user64_addr_t extents;
     uint32_t      extentsCount;
 
-    uint8_t       reserved0096[4];
+    uint32_t      options;
 } dk_unmap_64_t;
+
+typedef struct
+{
+    user32_addr_t extents;
+    uint32_t      extentsCount;
+
+    uint8_t       tier;
+
+    uint8_t       reserved0072[7];
+} dk_set_tier_32_t;
+
+typedef struct
+{
+    user64_addr_t extents;
+    uint32_t      extentsCount;
+
+    uint8_t       tier;
+
+    uint8_t       reserved0104[3];
+} dk_set_tier_64_t;
 
 static IOStorageAccess DK_ADD_ACCESS(IOStorageAccess a1, IOStorageAccess a2)
 {
@@ -1788,17 +1810,17 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             if ( proc_is64bit(proc) )
             {
-                if ( DKIOC_IS_RESERVED(data, 0xF000) )  { error = EINVAL;  break; }
-
                 request.extents      = request64->extents;
                 request.extentsCount = request64->extentsCount;
+                request.options      = request64->options;
             }
             else
             {
-                if ( DKIOC_IS_RESERVED(data, 0xFF00) )  { error = EINVAL;  break; }
+                if ( DKIOC_IS_RESERVED(data, 0xF000) )  { error = EINVAL;  break; }
 
                 request.extents      = request32->extents;
                 request.extentsCount = request32->extentsCount;
+                request.options      = request32->options;
             }
 
             // Delete unused data from the media.
@@ -1826,7 +1848,8 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             {
                 status = minor->media->unmap( /* client       */ minor->client,
                                               /* extents      */ extents,
-                                              /* extentsCount */ request.extentsCount );
+                                              /* extentsCount */ request.extentsCount,
+                                              /* options      */ request.options );
 
                 error = minor->media->errnoFromReturn(status);
             }
@@ -1976,18 +1999,26 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 boolean = OSDynamicCast(
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
-                                 /* key   */ kIOStorageFeatureUnmap ) );
-
-                if ( boolean == kOSBooleanTrue )
-                    *(uint32_t *)data |= DK_FEATURE_UNMAP;
-
-                boolean = OSDynamicCast(
-                         /* class  */ OSBoolean,
-                         /* object */ dictionary->getObject(
                                  /* key   */ kIOStorageFeatureForceUnitAccess ) );
 
                 if ( boolean == kOSBooleanTrue )
                     *(uint32_t *)data |= DK_FEATURE_FORCE_UNIT_ACCESS;
+
+                boolean = OSDynamicCast(
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOStorageFeaturePriority ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data |= DK_FEATURE_PRIORITY;
+
+                boolean = OSDynamicCast(
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOStorageFeatureUnmap ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data |= DK_FEATURE_UNMAP;
             }
 
         } break;
@@ -1999,6 +2030,67 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
 
             *( ( uint64_t * ) data ) = _IOMediaBSDClientGetThrottleMask( minor->media );
+
+        } break;
+
+        case DKIOCGETENCRYPTIONTYPE:                             // (uint32_t *)
+        {
+            //
+            // This ioctl returns the encryption type of the device.
+            //
+
+            OSDictionary * dictionary = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyControllerCharacteristicsKey,
+                                 /* plane */ gIOServicePlane ) );
+
+            *(uint32_t *)data = 0;
+
+            if ( dictionary )
+            {
+                OSString * string = OSDynamicCast(
+                         /* class  */ OSString,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOPropertyEncryptionTypeKey ) );
+
+                if ( string )
+                {
+                    if ( string->isEqualTo(kIOPropertyAESCBCKey) )
+                        *(uint32_t *)data = DK_ENCRYPTION_TYPE_AES_CBC;
+                    else if ( string->isEqualTo(kIOPropertyAESXEXKey) )
+                        *(uint32_t *)data = DK_ENCRYPTION_TYPE_AES_XEX;
+                    else if ( string->isEqualTo(kIOPropertyAESXTSKey) )
+                        *(uint32_t *)data = DK_ENCRYPTION_TYPE_AES_XTS;
+                }
+            }
+
+        } break;
+
+        case DKIOCISLOWPOWERMODE:                                // (uint32_t *)
+        {
+            //
+            // This ioctl returns truth if the device is low power.
+            //
+
+            OSDictionary * dictionary = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyControllerCharacteristicsKey,
+                                 /* plane */ gIOServicePlane ) );
+
+            *(uint32_t *)data = false;
+
+            if ( dictionary )
+            {
+                OSBoolean * boolean = OSDynamicCast(
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOPropertyLowPowerModeKey ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data = true;
+            }
 
         } break;
 
@@ -2162,21 +2254,73 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
-        case DKIOCGETMAXPRIORITYCOUNT:                           // (uint32_t *)
+        case DKIOCSETTIER:                                    // (dk_set_tier_t)
         {
             //
-            // This ioctl returns the maximum priority depth of the device.
+            // This ioctl asks that the media object reprioritize a read or
+            // write request.
             //
 
-            OSNumber * number = OSDynamicCast(
-                         /* class  */ OSNumber,
-                         /* object */ minor->media->getProperty(
-                                 /* key   */ kIOMaximumPriorityCountKey,
-                                 /* plane */ gIOServicePlane ) );
-            if ( number )
-                *(uint32_t *)data = number->unsigned32BitValue();
+            IOStorageExtent *  extents;
+            dk_set_tier_64_t   request;
+            dk_set_tier_32_t * request32;
+            dk_set_tier_64_t * request64;
+            IOReturn           status;
+
+            assert(sizeof(dk_extent_t) == sizeof(IOStorageExtent));
+
+            request32 = (dk_set_tier_32_t *) data;
+            request64 = (dk_set_tier_64_t *) data;
+
+            if ( proc_is64bit(proc) )
+            {
+                if ( DKIOC_IS_RESERVED(data, 0xE000) )  { error = EINVAL;  break; }
+
+                request.extents      = request64->extents;
+                request.extentsCount = request64->extentsCount;
+                request.tier         = request64->tier;
+            }
             else
-                *(uint32_t *)data = 0;
+            {
+                if ( DKIOC_IS_RESERVED(data, 0xFE00) )  { error = EINVAL;  break; }
+
+                request.extents      = request32->extents;
+                request.extentsCount = request32->extentsCount;
+                request.tier         = request32->tier;
+            }
+
+            // Reprioritize a read or write request.
+
+            if ( request.extents == 0 )  { error = EINVAL;  break; }
+
+            extents = IONew(IOStorageExtent, request.extentsCount);
+
+            if ( extents == 0 )  { error = ENOMEM;  break; }
+
+            if ( proc == kernproc )
+            {
+                bcopy( /* src */ (void *) request.extents,
+                       /* dst */ extents,
+                       /* n   */ request.extentsCount * sizeof(IOStorageExtent) );
+            }
+            else
+            {
+                error = copyin( /* uaddr */ request.extents,
+                                /* kaddr */ extents,
+                                /* len   */ request.extentsCount * sizeof(IOStorageExtent) );
+            }
+
+            if ( error == 0 )
+            {
+                status = minor->media->setPriority( /* client       */ minor->client,
+                                                    /* extents      */ extents,
+                                                    /* extentsCount */ request.extentsCount,
+                                                    /* priority     */ DK_TIER_TO_PRIORITY(request.tier) );
+
+                error = minor->media->errnoFromReturn(status);
+            }
+
+            IODelete(extents, IOStorageExtent, request.extentsCount);
 
         } break;
 
@@ -2422,6 +2566,8 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
         attributes.options |= (flags & B_FUA          ) ? kIOStorageOptionForceUnitAccess : 0;
         attributes.options |= (flags & B_ENCRYPTED_IO ) ? kIOStorageOptionIsEncrypted     : 0;
         attributes.options |= (flags & B_STATICCONTENT) ? kIOStorageOptionIsStatic        : 0;
+
+        attributes.priority = DK_TIER_TO_PRIORITY(bufattr_throttled(attributes.bufattr));
     }
 #if TARGET_OS_EMBEDDED
     else
@@ -2643,9 +2789,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
                                  /* client          */ minor->client,
                                  /* byteStart       */ byteStart,
                                  /* buffer          */ buffer,
-#ifdef __LP64__
                                  /* attributes      */ &attributes,
-#endif /* __LP64__ */
                                  /* actualByteCount */ &byteCount );     // (go)
         }
         else                                                       // (a write?)
@@ -2654,9 +2798,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
                                  /* client          */ minor->client,
                                  /* byteStart       */ byteStart,
                                  /* buffer          */ buffer,
-#ifdef __LP64__
                                  /* attributes      */ &attributes,
-#endif /* __LP64__ */
                                  /* actualByteCount */ &byteCount );     // (go)
         }
 

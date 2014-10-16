@@ -281,6 +281,7 @@ auto_setattr(ap)
 	return (0);
 }
 
+#include <sys/syslog.h>
 static int
 auto_lookup(ap)
 	struct vnop_lookup_args /* {
@@ -310,6 +311,8 @@ auto_lookup(ap)
 	int do_notify = 0;
 	struct vnode_attr vattr;
 	int node_type;
+        boolean_t have_lock = 0;
+	int retry_count = 0;
 
 	dfnip = vfstofni(vnode_mount(dvp));
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p (%s) name=%.*s\n",
@@ -395,7 +398,7 @@ auto_lookup(ap)
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p dfnp=%p\n", (void *)dvp,
 	    (void *)dfnp));
 
-	auto_fninfo_lock_shared(dfnip, pid);
+	have_lock = auto_fninfo_lock_shared(dfnip, pid);
 
 top:
 	/*
@@ -403,13 +406,19 @@ top:
 	 * be mounted atop it, and there should be nothing
 	 * in this file system below it.  (We shouldn't
 	 * normally get here, as we should have resolved
-	 * the trigger, but some special processes don't
-	 * trigger mounts.)
+	 * the trigger. It's possible we've hit a retrigger
+	 * window.  Send the system call back to restart.
 	 */
 	if (dfnp->fn_trigger_info != NULL) {
-		error = ENOENT;
-		goto fail;
+		auto_fninfo_unlock_shared(dfnip, have_lock);
+		if (dfnp->fn_restart_cnt++ > 3) {
+			dfnp->fn_restart_cnt = 0;
+                        return ENOENT;
+                }
+                log(LOG_ALERT, "auto_lookup called with trigger dir\n");
+		return ERESTART;
 	}
+	dfnp->fn_restart_cnt = 0;
 
 	/*
 	 * See if we have done something with this name already, so we
@@ -489,15 +498,45 @@ top:
 				 * the auto_search() above succeeded.
 				 */
 				error = 0;
+			} else if (error == EJUSTRETURN) {
+				/*
+				 * We could not acquire either
+				 * a) an iocount on the existing vnode and the
+				 * autofs mount point is getting unmounted.
+				 * or
+				 * b) a reference on the parent directory.
+				 *
+				 * In either case we no longer have an iocount
+				 * on the vnode we created. EJUSTRETURN is used
+				 * as a subsitute for ENOMORERETRIES.
+				 *
+				 * This should ideally redrive the lookup
+				 * instead i.e we should be able to return
+				 * ERECYCLE and have namei do a limited number
+				 * retries but ERECYCLE is not exported and
+				 * namei does not impose a limit on the number
+				 * of retries it will do.
+				 *
+				 * We'll just return ENOENT which may have the
+				 * unfortunate side effect of getting transient
+				 * ENOENT's in a unmount->retrigger window.
+				 */
+				error = ENOENT;
+				goto fail;
 			} else {
 				/*
 				 * We found the name, but couldn't
 				 * get an iocount on the vnode for
 				 * its fnnode.  That's probably
 				 * because it was in the process
-				 * of being recycled.  Redo the search,
-				 * as the directory might have changed.
+				 * of being recycled.  if we havn't already done
+				 * it 3 times, Redo the search, as the
+				 * directory might have changed.
 				 */
+				if (++retry_count >= 3) {
+					error = ENOENT;
+					goto fail;
+				}
 				error = 0;
 				goto top;
 			}
@@ -558,7 +597,7 @@ top:
 	}
 
 fail:
-	auto_fninfo_unlock_shared(dfnip, pid);
+	auto_fninfo_unlock_shared(dfnip, have_lock);
 
 	if (error) {
 		/*
@@ -661,6 +700,7 @@ auto_readdir(ap)
 	int reached_max = 0;
 	int myeof = 0;
 	u_int this_reclen;
+        boolean_t have_lock = 0;
 
         AUTOFS_DPRINT((4, "auto_readdir vp=%p offset=%lld\n",
             (void *)vp, uio_offset(uiop)));
@@ -690,7 +730,7 @@ auto_readdir(ap)
 	/*
 	 * Make sure the mounted map won't change out from under us.
 	 */
-	auto_fninfo_lock_shared(fnip, pid);
+	have_lock = auto_fninfo_lock_shared(fnip, pid);
 
 	/*
 	 * Make sure the directory we're reading won't change out from
@@ -962,7 +1002,7 @@ again:
 
 done:
 	lck_rw_unlock_shared(fnp->fn_rwlock);
-	auto_fninfo_unlock_shared(fnip, pid);
+	auto_fninfo_unlock_shared(fnip, have_lock);
 	AUTOFS_DPRINT((5, "auto_readdir vp=%p offset=%lld eof=%d\n",
 	    (void *)vp, uio_offset(uiop), myeof));	
 	return (error);
@@ -1144,7 +1184,8 @@ auto_reclaim(ap)
 {
 	vnode_t vp = ap->a_vp;
 	fnnode_t *fnp = vntofn(vp);
-	fnnode_t *dfnp = fnp->fn_parent;
+	vnode_t pvp = fnp->fn_parentvp;
+	int is_symlink = (vnode_vtype(vp) == VLNK) ? 1 : 0;
 
 	AUTOFS_DPRINT((4, "auto_reclaim: vp=%p fn_link=%d\n",
 	    (void *)vp, fnp->fn_linkcnt));
@@ -1156,17 +1197,42 @@ auto_reclaim(ap)
 	 * Thus, it's safe to disconnect this from its parent directory,
 	 * if it has one.
 	 */
+	fnnode_t *dfnp = fnp->fn_parent;
 	if (dfnp != NULL) {
+		int	needs_put = 0;
+
+		if (pvp && pvp != vp) {
+			if (vnode_getwithvid(pvp, fnp->fn_parentvid)) {
+				/*
+				 * parent has been reclaimed, just release the
+				 * reference acquired in auto_lookup.
+				 */
+				fnp->fn_parent = NULL;
+				fnp->fn_parentvp = NULL;
+				vnode_rele(pvp);
+				goto free_node;
+			}
+			needs_put = 1;
+		}
+
 		lck_rw_lock_exclusive(dfnp->fn_rwlock);
 		/*
-		 * There are no active references to this.
 		 * If there's only one link to this, namely the link to it
 		 * from its parent, get rid of it by removing it from
 		 * its parent's list of child fnnodes and recycle it;
 		 * a subsequent reference to it will recreate it if
 		 * the name is still there in the map.
+		 *
+		 * However, even if there is more than 1 link and we are in
+		 * reclaim it just means that the parent is getting reclaimed
+		 * before the child. This can happen and autofs can't prevent
+		 * it because vflush with FORCECLOSE has already happened
+		 * by the time autofs gets to say that it doesn't support
+		 * forced unmounts in auto_unmount. The > 1 case is that case
+		 * and we have to disconnect ourselves from the parent in that
+		 * case as well.
 		 */
-		if (fnp->fn_linkcnt == 1) {
+		if (fnp->fn_linkcnt >= 1) {
 			/*
 			 * This will drop the write lock on dfnp.
 			 */
@@ -1180,17 +1246,16 @@ auto_reclaim(ap)
 			 * in auto_freefnnode().
 			 */
 			fnp->fn_parent = NULL;
-			lck_rw_unlock_exclusive(dfnp->fn_rwlock);
-		} else {
-			/*
-			 * This should not happen.
-			 */
-			IOLog("auto_reclaim: reclaiming fnnode with linkcnt %u > 1\n",
-			    fnp->fn_linkcnt);
+			fnp->fn_parentvp = NULL;
 			lck_rw_unlock_exclusive(dfnp->fn_rwlock);
 		}
+
+		if (needs_put) {
+			vnode_put(pvp);
+		}
 	}
-	auto_freefnnode(fnp);
+free_node:
+	auto_freefnnode(fnp, is_symlink);
 	vnode_clearfsnode(vp);
 	AUTOFS_DPRINT((5, "auto_reclaim: (exit) vp=%p freed\n",
 	    (void *)vp));

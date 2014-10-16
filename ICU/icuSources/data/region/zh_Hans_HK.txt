@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hans_HK.xml
@@ -8,10 +8,9 @@
 // ***************************************************************************
 zh_Hans_HK{
     Countries{
-        CC{"科科斯（基林）群岛"}
-        FM{"密克罗尼西亚"}
+        GP{"瓜德罗普岛"}
         ME{"黑山"}
         PM{"圣皮埃尔和密克隆"}
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.96.25"}
 }

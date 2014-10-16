@@ -1,0 +1,84 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>strerror.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">strerror.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* strerror.c --- ANSI C compatible system error routine
+
+   Copyright (C) 1986, 1988-1989, 1991, 2002-2003, 2005 Free Software
+   Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;config.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">HAVE_STRERROR</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;limits.h&gt;</span>
+
+<span class="enscript-comment">/* Don't include &lt;stdio.h&gt;, since it may or may not declare
+   sys_errlist and its declarations may collide with ours.  Just
+   declare the stuff that we need directly.  Standard hosted C89
+   implementations define strerror and they don't need this strerror
+   function, so take some liberties with the standard to cater to
+   ancient or limited freestanding implementations.  */</span>
+<span class="enscript-type">int</span> <span class="enscript-function-name">sprintf</span> (<span class="enscript-type">char</span> *, <span class="enscript-type">char</span> <span class="enscript-type">const</span> *, ...);
+<span class="enscript-type">extern</span> <span class="enscript-type">int</span> sys_nerr;
+<span class="enscript-type">extern</span> <span class="enscript-type">char</span> *sys_errlist[];
+
+<span class="enscript-type">char</span> *
+<span class="enscript-function-name">strerror</span> (<span class="enscript-type">int</span> n)
+{
+  <span class="enscript-type">static</span> <span class="enscript-type">char</span> <span class="enscript-type">const</span> fmt[] = <span class="enscript-string">&quot;Unknown error (%d)&quot;</span>;
+  <span class="enscript-type">static</span> <span class="enscript-type">char</span> mesg[<span class="enscript-keyword">sizeof</span> fmt + <span class="enscript-keyword">sizeof</span> n * CHAR_BIT / 3];
+
+  <span class="enscript-keyword">if</span> (n &lt; 0 || n &gt;= sys_nerr)
+    {
+      sprintf (mesg, fmt, n);
+      <span class="enscript-keyword">return</span> mesg;
+    }
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> sys_errlist[n];
+}
+
+#<span class="enscript-reference">else</span>
+
+<span class="enscript-comment">/* This declaration is solely to ensure that after preprocessing
+   this file is never empty.  */</span>
+<span class="enscript-type">typedef</span> <span class="enscript-type">int</span> dummy;
+
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

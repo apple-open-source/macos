@@ -36,6 +36,7 @@
 #include <WebCore/GraphicsLayerClient.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/gobject/GMainLoopSource.h>
 
 namespace WebKit {
 
@@ -59,27 +60,27 @@ protected:
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
     virtual void scheduleLayerFlush();
     virtual void setLayerFlushSchedulingEnabled(bool layerFlushingEnabled);
-    virtual void pageBackgroundTransparencyChanged() OVERRIDE;
+    virtual void pageBackgroundTransparencyChanged() override;
 
 private:
     // LayerTreeHost.
     virtual const LayerTreeContext& layerTreeContext();
     virtual void setShouldNotifyAfterNextScheduledLayerFlush(bool);
 
-    virtual void setNonCompositedContentsNeedDisplay() OVERRIDE;
-    virtual void setNonCompositedContentsNeedDisplayInRect(const WebCore::IntRect&) OVERRIDE;
+    virtual void setNonCompositedContentsNeedDisplay() override;
+    virtual void setNonCompositedContentsNeedDisplayInRect(const WebCore::IntRect&) override;
     virtual void scrollNonCompositedContents(const WebCore::IntRect& scrollRect);
 
-    virtual void didInstallPageOverlay(PageOverlay*) OVERRIDE;
-    virtual void didUninstallPageOverlay(PageOverlay*) OVERRIDE;
-    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) OVERRIDE;
+    virtual void didInstallPageOverlay(PageOverlay*) override;
+    virtual void didUninstallPageOverlay(PageOverlay*) override;
+    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) override;
 
     virtual bool flushPendingLayerChanges();
 
     // GraphicsLayerClient
     virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time);
     virtual void notifyFlushRequired(const WebCore::GraphicsLayer*);
-    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& clipRect);
+    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::FloatRect& clipRect);
     virtual void didCommitChangesForLayer(const WebCore::GraphicsLayer*) const { }
 
     void createPageOverlayLayer(PageOverlay*);
@@ -92,22 +93,21 @@ private:
     void cancelPendingLayerFlush();
 
     void layerFlushTimerFired();
-    static gboolean layerFlushTimerFiredCallback(LayerTreeHostGtk*);
 
     WebCore::GLContext* glContext();
 
     LayerTreeContext m_layerTreeContext;
     bool m_isValid;
     bool m_notifyAfterScheduledLayerFlush;
-    OwnPtr<WebCore::GraphicsLayer> m_rootLayer;
-    OwnPtr<WebCore::GraphicsLayer> m_nonCompositedContentLayer;
-    typedef HashMap<PageOverlay*, OwnPtr<WebCore::GraphicsLayer> > PageOverlayLayerMap;
+    std::unique_ptr<WebCore::GraphicsLayer> m_rootLayer;
+    std::unique_ptr<WebCore::GraphicsLayer> m_nonCompositedContentLayer;
+    typedef HashMap<PageOverlay*, std::unique_ptr<WebCore::GraphicsLayer>> PageOverlayLayerMap;
     PageOverlayLayerMap m_pageOverlayLayers;
-    OwnPtr<WebCore::TextureMapper> m_textureMapper;
+    std::unique_ptr<WebCore::TextureMapper> m_textureMapper;
     OwnPtr<WebCore::GLContext> m_context;
     double m_lastFlushTime;
     bool m_layerFlushSchedulingEnabled;
-    unsigned m_layerFlushTimerCallbackId;
+    GMainLoopSource m_layerFlushTimerCallback;
 };
 
 } // namespace WebKit

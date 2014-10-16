@@ -1,0 +1,306 @@
+www.cduniverse.com 		
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+							SSL_RSA_WITH_DES_CBC_MD5
+		root:				RSA Secure Server CA
+        resumable session via sslViewer?  yes
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+							SSL_RSA_WITH_RC4_128_SHA
+							SSL_RSA_WITH_DES_CBC_SHA
+		root: 				RSA Secure Server CA
+		pass root cert?  	NO
+		send close alert?	NO
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  sometimes
+		
+	TLSv1?	yes
+	
+www.amazon.com				208.216.182.15
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+							SSL_RSA_WITH_DES_CBC_MD5
+		root:				RSA Secure Server CA
+        resumable session via sslViewer?  yes
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+							SSL_RSA_EXPORT_WITH_DES40_CBC_SHA
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+							SSL_RSA_WITH_RC4_128_SHA
+							SSL_RSA_WITH_DES_CBC_SHA
+		root: 				RSA Secure Server CA
+		pass root cert?  	NO
+		send close alert?	YES
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  unknown
+
+	TLSv1?	yes
+
+store.apple.com				17.254.3.41
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  unknown
+
+	v3:						none - only does V2
+		export: 			n/a
+		domestic:			n/a
+		root: 				n/a
+		pass root cert?  	n/a
+		send close alert?	n/a
+		
+	TLSv1?	no
+
+www.dvdexpress.com			208.228.126.81
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root: 				RSA Secure Server CA
+		pass root cert?  	NO
+		send close alert?	NO
+		
+www.xdss.com				204.33.235.33
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5 	
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root: 				old RSA Secure Server CA, expires 12/99
+		pass root cert?  	YES
+		send close alert?	YES
+        resumable session via sslViewer?  NO - MAC errors (Triple DES OK)
+
+	TLSv1?	no
+	
+accounts2.keybank.com		156.77.100.194
+	v2 : 
+		export: 			?
+		domestic:			?
+		root:				VeriSign International Server CA - Class 3
+								(note this isn't a known root!)
+							Note this server can't be verified in SSL2 mode
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root: 				Verisign Class 3 Public Primary CA
+		pass root cert?  	NO
+		send close alert?	NO
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  no, not attempted
+	
+	TLSv1?	yes
+
+cdnow.com					209.83.166.2
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+							Note: no server key exchange message!
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root:				RSA Secure Server CA
+		pass root cert?  	NO
+		send close alert?	
+        resumable session via URLAccess? TBD
+
+	TLSv1?	yes as of 5/1/02
+	
+www.proteron.com			206.132.170.39
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				Thawte Server CA
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root: 				Thawte Server CA
+		pass root cert?  	NO	
+		send close alert?	YES
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  no, not attempted
+		
+	TLSv1?	yes
+
+www.starnine.com
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				Equifax Secure E-Business CA-2, UNKNOWN
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root: 				Thawte Server CA (verifier Equifax Secure E-Business CA-2)
+							-- end-of-chain expired Jul 10, 2001
+		pass root cert?  	NO	
+		send close alert?	NO
+		
+config.puretec.de
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				Thawte Server CA
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root: 				Thawte Server CA
+		pass root cert?  	NO	
+		send close alert?	NO
+        resumable session via sslViewer?  no
+
+	TLSv1?	yes
+
+comhome.comdirect.de   /de/comhome/login/index_login.html
+	v2 : 
+		export: 			?
+		domestic:			?
+		root:				VeriSign International Server CA - Class 3 - UNKNOWN
+
+	v3:
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root: 				Verisign Class 3 Public Primary Certification Authority
+		pass root cert?  	NO	
+		send close alert?	NO
+        resumable session via sslViewer?  no
+
+www.yellownet.ch
+	v2 : 
+		export: 			?
+		domestic:			?
+		root:				VeriSign International Server CA - Class 3
+								(note this isn't a known root!)
+							Note this server can't be verified in SSL2 mode
+	v3:
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root: 				Verisign Class 3 Public Primary CA
+		pass root cert?  	NO
+		send close alert?	YES
+		resumable session?  NO
+		
+www.thawte.com	
+	v2 : 
+		export: 			SSL_RSA_EXPORT_WITH_RC4_40_MD5
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				Thawte Server CA
+	v3:
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root: 				Thawte Server CA
+		pass root cert?  	NO	
+		send close alert?	YES
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  no, not attempted
+
+	TLSv1?	yes
+
+banking.wellsfargo.com
+	v2 : 
+		export: 			?
+		domestic:			?
+		root:				VeriSign International Server CA - Class 3
+								(note this isn't a known root!)
+							Note this server can't be verified in SSL2 mode
+	v3:
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root: 				Verisign Class 3 Public Primary CA
+		pass root cert?  	YES
+		send close alert?	YES
+        resumable session via sslViewer?  yes, but >4 loops required
+        resumable session via URLAccess?  YES
+
+gen2.aeacu.com
+	v2 : 
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+		
+	v3:
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA (expires 10/11/01)
+		pass root cert?  	YES
+		send close alert?	NO
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  not attempted
+
+	TLSv1?	yes
+
+secure.authorize.net
+	v2 : 
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA
+		
+	v3:
+		domestic:			SSL_RSA_WITH_RC4_128_MD5
+		root:				RSA Secure Server CA 
+		pass root cert?  	NO
+		send close alert?	NO
+        resumable session via sslViewer?  sometimes - server rejects some attempts
+        resumable session via URLAccess?  unknown
+
+	TLSv1?	yes
+
+mail.wwc.com
+	v2 : 
+		domestic:			SSL_NULL_WITH_NULL_NULL!
+		root:				None! errSSLClosedGraceful!
+		
+	v3:
+		domestic:			SSL_RSA_WITH_RC4_128_SHA
+		root:				Stalker Software, Inc. (Unknown) 
+		pass root cert?  	NO
+		send close alert?	YES
+		
+www.cynic.org
+	v2 : 
+		domestic:			SSL_RSA_WITH_RC4_128_MD5!
+		root:				Cynics At Large Certificate Authority(Unknown) 
+		
+	v3:
+		domestic:			SSL_RSA_WITH_3DES_EDE_CBC_SHA
+		root:				Cynics At Large Certificate Authority(Unknown AND expired) 
+		pass root cert?  	YES
+		send close alert?	NO
+        resumable session via sslViewer?  yes
+        resumable session via URLAccess?  unknown - illegal root cert
+....................................................
+
+Supported CipherSuites
+
+SSL_RSA_WITH_3DES_EDE_CBC_SHA
+	www.amazon.com v3
+	www.proteron.com v3
+	www.starnine.com v3
+	
+SSL_RSA_WITH_3DES_EDE_CBC_MD5 (v2 only)
+	www.proteron.com
+
+SSL_RSA_WITH_RC4_128_SHA
+	www.amazon.com v3
+	cdu1.cduniverse.com v3
+	
+SSL_RSA_WITH_RC4_128_MD5
+	just about everyone, both v2 and v3
+	
+SSL_RSA_WITH_DES_CBC_SHA
+	www.amazon.com v3
+	cdu1.cduniverse.com v3
+	
+SSL_RSA_WITH_DES_CBC_MD5
+	www.amazon.com v2
+	cdu1.cduniverse.com v2
+	
+SSL_RSA_EXPORT_WITH_RC4_40_MD5
+	just about everyone, both v2 and v3
+
+SSL_RSA_EXPORT_WITH_DES40_CBC_SHA
+	www.amazon.com v3

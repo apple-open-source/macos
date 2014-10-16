@@ -138,6 +138,10 @@ TkpInit(
 	const char *encodingStr = NULL;
 	int  i;
 	struct utsname name;
+	/*
+	 * osVersion now only contains the major version
+	 *     = 1000 + major_vers
+	 */
 	long osVersion = 0;
 
 	initialized = 1;
@@ -147,11 +151,16 @@ TkpInit(
 	 */
 	
 	if (!uname(&name)) {
-	    osVersion = strtol(name.release, NULL, 10) - 4;
+	    osVersion = strtol(name.release, NULL, 10) + 996;
 	}
-	if (osVersion && osVersion < (MAC_OS_X_VERSION_MIN_REQUIRED-1000)/10) {
+/*
+ * the TkMacOSXMajorVersion() macro is used to convert MAC_OS_X_VERSION_MIN_REQUIRED
+ * and the like from 4 or 6 digit form, to 4 digit with major version only
+ */
+#define TkMacOSXMajorVersion(x) ((x) > 100000 ? ((x) / 100) : (1000 + (((x) / 10) - 100)))
+	if (osVersion && osVersion < TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)) {
 	    Tcl_Panic("Mac OS X 10.%d or later required !",
-		(MAC_OS_X_VERSION_MIN_REQUIRED-1000)/10);
+		TkMacOSXMajorVersion(MAC_OS_X_VERSION_MIN_REQUIRED)-1000);
 	}
 	TK_IF_MAC_OS_X_API (3, &kHIToolboxVersionNumber,
 	    tkMacOSXToolboxVersionNumber = kHIToolboxVersionNumber;

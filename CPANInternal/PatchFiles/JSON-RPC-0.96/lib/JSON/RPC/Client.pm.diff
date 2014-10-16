@@ -1,0 +1,40 @@
+diff --git a/JSON-RPC-0.96/lib/JSON/RPC/Client.pm b/JSON-RPC-0.96/lib/JSON/RPC/Client.pm
+index 4bd36eb..30166ca 100644
+--- JSON-RPC-0.96/lib/JSON/RPC/Client.pm
++++ JSON-RPC-0.96/lib/JSON/RPC/Client.pm
+@@ -4,7 +4,7 @@
+ ##############################################################################
+ 
+ use strict;
+-use JSON ();
++use JSON::PP;
+ use Carp ();
+ 
+ ##############################################################################
+@@ -62,7 +62,7 @@ sub AUTOLOAD {
+ 
+ 
+ sub create_json_coder {
+-    JSON->new->allow_nonref->utf8;
++    JSON::PP->new->allow_nonref->utf8;
+ }
+ 
+ 
+@@ -183,7 +183,7 @@ BEGIN {
+ 
+ sub new {
+     my ($class, $obj, $json) = @_;
+-    my $content = ( $json || JSON->new->utf8 )->decode( $obj->content );
++    my $content = ( $json || JSON::PP->new->utf8 )->decode( $obj->content );
+ 
+     my $self = bless {
+         jsontext  => $obj->content,
+@@ -357,7 +357,7 @@ Setter/getter to L<LWP::UserAgent> object.
+ Setter/getter to the JSON coder object.
+ Default is L<JSON>, likes this:
+ 
+-   $self->json( JSON->new->allow_nonref->utf8 );
++   $self->json( JSON::PP->new->allow_nonref->utf8 );
+    
+    $json = $self->json;
+ 

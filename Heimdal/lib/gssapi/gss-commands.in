@@ -61,6 +61,11 @@ command = {
 		argument = "hostname"
 	}
 	option = {
+		long = "certificate-persistant"
+		type = "string"
+		argument = "persistent reference"
+	}
+	option = {
 		long = "mech"
 		type = "string"
 		argument = "gssapi mechanism"
@@ -191,6 +196,30 @@ command = {
 		type = "string"
 		argument = "mechanism"
 	}
+}
+command = {
+	option = {
+		long = "mech"
+		type = "string"
+		argument = "mechanism"
+	}
+	option = {
+		long = "minor-status"
+		type = "flag"
+	}
+	name = "display-status"
+	argument = "status-code"
+	help = "unparse major and minor status codes"
+	min_args = "1"
+}
+command = {
+	option = {
+		long = "mech"
+		type = "string"
+		argument = "mechanism"
+	}
+	name = "credentials-status"
+	help = "dump status of credentials available in caches"
 }
 command = {
 	name = "help"

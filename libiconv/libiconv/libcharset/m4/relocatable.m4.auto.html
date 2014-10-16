@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>relocatable.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">relocatable.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># relocatable.m4 serial 5 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 2003, 2005-2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Bruno Haible.
+</span>
+<span class="enscript-comment">dnl Support for relocateble programs.
+</span>AC_DEFUN([AC_RELOCATABLE],
+[
+  AC_REQUIRE([AC_PROG_INSTALL])
+  AC_BEFORE([AC_PROG_INSTALL],[AC_RELOCATABLE])
+  AC_REQUIRE([AC_LIB_LIBPATH])
+  AC_REQUIRE([AC_RELOCATABLE_LIBRARY])
+  AC_REQUIRE([AC_EXEEXT])
+  is_noop=no
+  use_elf_origin_trick=no
+  if test $RELOCATABLE = yes; then
+    <span class="enscript-comment"># --enable-relocatable implies --disable-rpath
+</span>    enable_rpath=no
+    AC_LIBOBJ([relocatable])
+    AC_DEFINE([ENABLE_RELOCATABLE], 1,
+      [Define to 1 if the package shall run at any location in the filesystem.])
+    AC_CHECK_HEADERS([unistd.h mach-o/dyld.h])
+    AC_CHECK_FUNCS([_NSGetExecutablePath])
+    case &quot;$host_os&quot; in
+      mingw*) is_noop=yes ;;
+      linux*) use_elf_origin_trick=yes ;;
+    esac
+    if test $is_noop = yes; then
+      SET_RELOCATABLE=&quot;RELOCATABLE_LDFLAGS = :&quot;
+    else
+      if test $use_elf_origin_trick = yes; then
+        <span class="enscript-comment">dnl Use the dynamic linker's support for relocatable programs.
+</span>        case &quot;$ac_aux_dir&quot; in
+          /*) reloc_ldflags=&quot;$ac_aux_dir/reloc-ldflags&quot; ;;
+          *) reloc_ldflags=&quot;\$(top_builddir)/$ac_aux_dir/reloc-ldflags&quot; ;;
+        esac
+        SET_RELOCATABLE=&quot;RELOCATABLE_LDFLAGS = \&quot;$reloc_ldflags\&quot; \&quot;\$(host)\&quot; \&quot;\$(RELOCATABLE_LIBRARY_PATH)\&quot;&quot;
+      else
+        <span class="enscript-comment">dnl Unfortunately we cannot define INSTALL_PROGRAM to a command
+</span>        <span class="enscript-comment">dnl consisting of more than one word - libtool doesn't support this.
+</span>        <span class="enscript-comment">dnl So we abuse the INSTALL_PROGRAM_ENV hook, originally meant for the
+</span>        <span class="enscript-comment">dnl 'install-strip' target.
+</span>        SET_RELOCATABLE=&quot;INSTALL_PROGRAM_ENV = RELOC_LIBRARY_PATH_VAR=\&quot;$shlibpath_var\&quot; RELOC_LIBRARY_PATH_VALUE=\&quot;\$(RELOCATABLE_LIBRARY_PATH)\&quot; RELOC_PREFIX=\&quot;\$(prefix)\&quot; RELOC_COMPILE_COMMAND=\&quot;\$(CC) \$(CPPFLAGS) \$(CFLAGS) \$(LDFLAGS)\&quot; RELOC_SRCDIR=\&quot;\$(RELOCATABLE_SRC_DIR)\&quot; RELOC_BUILDDIR=\&quot;\$(RELOCATABLE_BUILD_DIR)\&quot; RELOC_CONFIG_H_DIR=\&quot;\$(RELOCATABLE_CONFIG_H_DIR)\&quot; RELOC_EXEEXT=\&quot;\$(EXEEXT)\&quot; RELOC_INSTALL_PROG=\&quot;$INSTALL_PROGRAM\&quot;&quot;
+        case &quot;$ac_aux_dir&quot; in
+          /*) INSTALL_PROGRAM=&quot;$ac_aux_dir/install-reloc&quot; ;;
+          *) INSTALL_PROGRAM=&quot;\$(top_builddir)/$ac_aux_dir/install-reloc&quot; ;;
+        esac
+      fi
+    fi
+  else
+    SET_RELOCATABLE=
+  fi
+  AC_SUBST([SET_RELOCATABLE])
+  AM_CONDITIONAL([RELOCATABLE_VIA_LD],
+    [test $is_noop = yes || test $use_elf_origin_trick = yes])
+])
+
+<span class="enscript-comment">dnl Support for relocatable libraries.
+</span>AC_DEFUN([AC_RELOCATABLE_LIBRARY],
+[
+  AC_REQUIRE([AC_RELOCATABLE_NOP])
+  <span class="enscript-comment">dnl Easier to put this here once, instead of into the DEFS of each Makefile.
+</span>  if test &quot;X$prefix&quot; = &quot;XNONE&quot;; then
+    reloc_final_prefix=&quot;$ac_default_prefix&quot;
+  else
+    reloc_final_prefix=&quot;$prefix&quot;
+  fi
+  AC_DEFINE_UNQUOTED([INSTALLPREFIX], [&quot;${reloc_final_prefix}&quot;],
+    [Define to the value of ${prefix}, as a string.])
+])
+
+<span class="enscript-comment">dnl Support for relocatable packages for which it is a nop.
+</span>AC_DEFUN([AC_RELOCATABLE_NOP],
+[
+  AC_MSG_CHECKING([whether to activate relocatable installation])
+  AC_ARG_ENABLE(relocatable,
+    [  --enable-relocatable    install a package that can be moved in the filesystem],
+    [if test &quot;$enableval&quot; != no; then
+       RELOCATABLE=yes
+     else
+       RELOCATABLE=no
+     fi
+    ], RELOCATABLE=no)
+  AC_SUBST(RELOCATABLE)
+  AC_MSG_RESULT([$RELOCATABLE])
+])
+
+<span class="enscript-comment">dnl Determine the platform dependent parameters needed to use relocatability:
+</span><span class="enscript-comment">dnl shlibpath_var.
+</span>AC_DEFUN([AC_LIB_LIBPATH],
+[
+  AC_REQUIRE([AC_LIB_PROG_LD])            <span class="enscript-comment">dnl we use $LD
+</span>  AC_REQUIRE([AC_CANONICAL_HOST])         <span class="enscript-comment">dnl we use $host
+</span>  AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT]) <span class="enscript-comment">dnl we use $ac_aux_dir
+</span>  AC_CACHE_CHECK([for shared library path variable], acl_cv_libpath, [
+    LD=&quot;$LD&quot; \
+    ${CONFIG_SHELL-/bin/sh} &quot;$ac_aux_dir/config.libpath&quot; &quot;$host&quot; &gt; conftest.sh
+    . ./conftest.sh
+    rm -f ./conftest.sh
+    acl_cv_libpath=${acl_cv_shlibpath_var:-none}
+  ])
+  shlibpath_var=&quot;$acl_cv_shlibpath_var&quot;
+])
+</pre>
+<hr />
+</body></html>

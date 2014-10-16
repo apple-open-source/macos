@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD: src/bin/ln/ln.c,v 1.34 2006/02/14 11:08:05 glebius Exp $");
 
 #include <err.h>
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -169,6 +170,7 @@ linkit(const char *target, const char *source, int isdir)
 	const char *p;
 	int ch, exists, first;
 	char path[PATH_MAX];
+	char bbuf[PATH_MAX];
 
 	if (!sflag) {
 		/* If target doesn't exist, quit now. */
@@ -191,11 +193,9 @@ linkit(const char *target, const char *source, int isdir)
 	if (isdir ||
 	    (lstat(source, &sb) == 0 && S_ISDIR(sb.st_mode)) ||
 	    (!hflag && stat(source, &sb) == 0 && S_ISDIR(sb.st_mode))) {
-		if ((p = strrchr(target, '/')) == NULL)
-			p = target;
-		else
-			++p;
-		if (snprintf(path, sizeof(path), "%s/%s", source, p) >=
+		if (strlcpy(bbuf, target, sizeof(bbuf)) >= sizeof(bbuf) ||
+		    (p = basename(bbuf)) == NULL ||
+		    snprintf(path, sizeof(path), "%s/%s", source, p) >=
 		    (ssize_t)sizeof(path)) {
 			errno = ENAMETOOLONG;
 			warn("%s", target);

@@ -29,11 +29,11 @@
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKCookieManagerSoup.h"
+#include "WKEinaSharedString.h"
 #include "WKString.h"
 #include "ewk_cookie_manager_private.h"
-#include "ewk_error_private.h"
 #include "ewk_private.h"
-#include <wtf/OwnPtr.h>
+#include <wtf/Assertions.h>
 
 using namespace WebKit;
 
@@ -42,12 +42,12 @@ EwkCookieManager::EwkCookieManager(WKCookieManagerRef cookieManager)
 {
     ASSERT(m_cookieManager);
 
-    WKCookieManagerClient wkCookieManagerClient = {
-        kWKCookieManagerClientCurrentVersion,
-        this, // clientInfo
-        cookiesDidChange
-    };
-    WKCookieManagerSetClient(m_cookieManager.get(), &wkCookieManagerClient);
+    WKCookieManagerClientV0 wkCookieManagerClient;
+    memset(&wkCookieManagerClient, 0, sizeof(wkCookieManagerClient));
+    wkCookieManagerClient.base.version = 0;
+    wkCookieManagerClient.base.clientInfo = this;
+    wkCookieManagerClient.cookiesDidChange = cookiesDidChange;
+    WKCookieManagerSetClient(m_cookieManager.get(), &wkCookieManagerClient.base);
 }
 
 EwkCookieManager::~EwkCookieManager()
@@ -120,74 +120,90 @@ void EwkCookieManager::cookiesDidChange(WKCookieManagerRef, const void* clientIn
     manager->m_changeHandler.callback(manager->m_changeHandler.userData);
 }
 
-// Ewk_Cookie_Persistent_Storage enum validation.
-COMPILE_ASSERT_MATCHING_ENUM(EWK_COOKIE_PERSISTENT_STORAGE_TEXT, kWKCookieStorageTypeText);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_COOKIE_PERSISTENT_STORAGE_SQLITE, kWKCookieStorageTypeSQLite);
-
 void ewk_cookie_manager_persistent_storage_set(Ewk_Cookie_Manager* manager, const char* filename, Ewk_Cookie_Persistent_Storage storage)
 {
     EINA_SAFETY_ON_NULL_RETURN(manager);
     EINA_SAFETY_ON_NULL_RETURN(filename);
 
-    manager->setPersistentStorage(filename, static_cast<WKCookieStorageType>(storage));
-}
+    WKCookieStorageType wkCookieStorageType = kWKCookieStorageTypeText;
 
-// Ewk_Cookie_Accept_Policy enum validation.
-COMPILE_ASSERT_MATCHING_ENUM(EWK_COOKIE_ACCEPT_POLICY_ALWAYS, kWKHTTPCookieAcceptPolicyAlways);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_COOKIE_ACCEPT_POLICY_NEVER, kWKHTTPCookieAcceptPolicyNever);
-COMPILE_ASSERT_MATCHING_ENUM(EWK_COOKIE_ACCEPT_POLICY_NO_THIRD_PARTY, kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain);
+    switch (storage) {
+    case EWK_COOKIE_PERSISTENT_STORAGE_TEXT:
+        wkCookieStorageType = kWKCookieStorageTypeText;
+        break;
+    case EWK_COOKIE_PERSISTENT_STORAGE_SQLITE:
+        wkCookieStorageType = kWKCookieStorageTypeSQLite;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
+    manager->setPersistentStorage(filename, wkCookieStorageType);
+}
 
 void ewk_cookie_manager_accept_policy_set(Ewk_Cookie_Manager* manager, Ewk_Cookie_Accept_Policy policy)
 {
     EINA_SAFETY_ON_NULL_RETURN(manager);
 
-    manager->setHTTPAcceptPolicy(static_cast<WKHTTPCookieAcceptPolicy>(policy));
+    WKHTTPCookieAcceptPolicy wkPolicy = kWKHTTPCookieAcceptPolicyAlways;
+
+    switch (policy) {
+    case EWK_COOKIE_ACCEPT_POLICY_ALWAYS:
+        wkPolicy = kWKHTTPCookieAcceptPolicyAlways;
+        break;
+    case EWK_COOKIE_ACCEPT_POLICY_NEVER:
+        wkPolicy = kWKHTTPCookieAcceptPolicyNever;
+        break;
+    case EWK_COOKIE_ACCEPT_POLICY_NO_THIRD_PARTY:
+        wkPolicy = kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
+    manager->setHTTPAcceptPolicy(wkPolicy);
 }
 
-struct Get_Policy_Async_Data {
-    Ewk_Cookie_Manager_Async_Policy_Get_Cb callback;
+struct EwkCookiePolicyAsyncData {
+    Ewk_Cookie_Manager_Policy_Async_Get_Cb callback;
     void* userData;
 
-    Get_Policy_Async_Data(Ewk_Cookie_Manager_Async_Policy_Get_Cb callback, void* userData)
+    EwkCookiePolicyAsyncData(Ewk_Cookie_Manager_Policy_Async_Get_Cb callback, void* userData)
         : callback(callback)
         , userData(userData)
     { }
 };
 
-static void getAcceptPolicyCallback(WKHTTPCookieAcceptPolicy policy, WKErrorRef wkError, void* data)
+static void getAcceptPolicyCallback(WKHTTPCookieAcceptPolicy policy, WKErrorRef, void* data)
 {
-    Get_Policy_Async_Data* callbackData = static_cast<Get_Policy_Async_Data*>(data);
-    OwnPtr<EwkError> ewkError = EwkError::create(wkError);
+    auto callbackData = std::unique_ptr<EwkCookiePolicyAsyncData>(static_cast<EwkCookiePolicyAsyncData*>(data));
 
-    callbackData->callback(static_cast<Ewk_Cookie_Accept_Policy>(policy), ewkError.get(), callbackData->userData);
-
-    delete callbackData;
+    callbackData->callback(static_cast<Ewk_Cookie_Accept_Policy>(policy), callbackData->userData);
 }
 
-void ewk_cookie_manager_async_accept_policy_get(const Ewk_Cookie_Manager* manager, Ewk_Cookie_Manager_Async_Policy_Get_Cb callback, void* data)
+void ewk_cookie_manager_accept_policy_async_get(const Ewk_Cookie_Manager* manager, Ewk_Cookie_Manager_Policy_Async_Get_Cb callback, void* data)
 {
     EINA_SAFETY_ON_NULL_RETURN(manager);
     EINA_SAFETY_ON_NULL_RETURN(callback);
 
-    Get_Policy_Async_Data* callbackData = new Get_Policy_Async_Data(callback, data);
+    EwkCookiePolicyAsyncData* callbackData = new EwkCookiePolicyAsyncData(callback, data);
     manager->getHTTPAcceptPolicy(getAcceptPolicyCallback, callbackData);
 }
 
-struct Get_Hostnames_Async_Data {
-    Ewk_Cookie_Manager_Async_Hostnames_Get_Cb callback;
+struct EwkCookieHostnamesAsyncData {
+    Ewk_Cookie_Manager_Hostnames_Async_Get_Cb callback;
     void* userData;
 
-    Get_Hostnames_Async_Data(Ewk_Cookie_Manager_Async_Hostnames_Get_Cb callback, void* userData)
+    EwkCookieHostnamesAsyncData(Ewk_Cookie_Manager_Hostnames_Async_Get_Cb callback, void* userData)
         : callback(callback)
         , userData(userData)
     { }
 };
 
-static void getHostnamesWithCookiesCallback(WKArrayRef wkHostnames, WKErrorRef wkError, void* context)
+static void getHostnamesWithCookiesCallback(WKArrayRef wkHostnames, WKErrorRef, void* context)
 {
     Eina_List* hostnames = 0;
-    Get_Hostnames_Async_Data* callbackData = static_cast<Get_Hostnames_Async_Data*>(context);
-    OwnPtr<EwkError> ewkError = EwkError::create(wkError);
+    auto callbackData = std::unique_ptr<EwkCookieHostnamesAsyncData>(static_cast<EwkCookieHostnamesAsyncData*>(context));
 
     const size_t hostnameCount = WKArrayGetSize(wkHostnames);
     for (size_t i = 0; i < hostnameCount; ++i) {
@@ -197,21 +213,19 @@ static void getHostnamesWithCookiesCallback(WKArrayRef wkHostnames, WKErrorRef w
         hostnames = eina_list_append(hostnames, WKEinaSharedString(wkHostname).leakString());
     }
 
-    callbackData->callback(hostnames, ewkError.get(), callbackData->userData);
+    callbackData->callback(hostnames, callbackData->userData);
 
     void* item;
     EINA_LIST_FREE(hostnames, item)
       eina_stringshare_del(static_cast<Eina_Stringshare*>(item));
-
-    delete callbackData;
 }
 
-void ewk_cookie_manager_async_hostnames_with_cookies_get(const Ewk_Cookie_Manager* manager, Ewk_Cookie_Manager_Async_Hostnames_Get_Cb callback, void* data)
+void ewk_cookie_manager_hostnames_with_cookies_async_get(const Ewk_Cookie_Manager* manager, Ewk_Cookie_Manager_Hostnames_Async_Get_Cb callback, void* data)
 {
     EINA_SAFETY_ON_NULL_RETURN(manager);
     EINA_SAFETY_ON_NULL_RETURN(callback);
 
-    Get_Hostnames_Async_Data* callbackData = new Get_Hostnames_Async_Data(callback, data);
+    EwkCookieHostnamesAsyncData* callbackData = new EwkCookieHostnamesAsyncData(callback, data);
     manager->getHostNamesWithCookies(getHostnamesWithCookiesCallback, callbackData);
 }
 

@@ -54,21 +54,6 @@
 #include <WebCore/FilterOperations.h>
 #endif
 
-#if ENABLE(CSS_SHADERS)
-#include "WebCustomFilterProgramProxy.h"
-#include <WebCore/CoordinatedCustomFilterOperation.h>
-#include <WebCore/CoordinatedCustomFilterProgram.h>
-#include <WebCore/CustomFilterArrayParameter.h>
-#include <WebCore/CustomFilterConstants.h>
-#include <WebCore/CustomFilterNumberParameter.h>
-#include <WebCore/CustomFilterOperation.h>
-#include <WebCore/CustomFilterProgram.h>
-#include <WebCore/CustomFilterProgramInfo.h>
-#include <WebCore/CustomFilterTransformParameter.h>
-#include <WebCore/CustomFilterValidatedProgram.h>
-#include <WebCore/ValidatedCustomFilterOperation.h>
-#endif
-
 #if USE(GRAPHICS_SURFACE)
 #include <WebCore/GraphicsSurface.h>
 #endif
@@ -76,37 +61,7 @@
 using namespace WebCore;
 using namespace WebKit;
 
-namespace CoreIPC {
-
-void ArgumentCoder<FloatPoint3D>::encode(ArgumentEncoder& encoder, const FloatPoint3D& floatPoint3D)
-{
-    SimpleArgumentCoder<FloatPoint3D>::encode(encoder, floatPoint3D);
-}
-
-bool ArgumentCoder<FloatPoint3D>::decode(ArgumentDecoder& decoder, FloatPoint3D& floatPoint3D)
-{
-    return SimpleArgumentCoder<FloatPoint3D>::decode(decoder, floatPoint3D);
-}
-
-void ArgumentCoder<Length>::encode(ArgumentEncoder& encoder, const Length& length)
-{
-    SimpleArgumentCoder<Length>::encode(encoder, length);
-}
-
-bool ArgumentCoder<Length>::decode(ArgumentDecoder& decoder, Length& length)
-{
-    return SimpleArgumentCoder<Length>::decode(decoder, length);
-}
-
-void ArgumentCoder<TransformationMatrix>::encode(ArgumentEncoder& encoder, const TransformationMatrix& transformationMatrix)
-{
-    SimpleArgumentCoder<TransformationMatrix>::encode(encoder, transformationMatrix);
-}
-
-bool ArgumentCoder<TransformationMatrix>::decode(ArgumentDecoder& decoder, TransformationMatrix& transformationMatrix)
-{
-    return SimpleArgumentCoder<TransformationMatrix>::decode(decoder, transformationMatrix);
-}
+namespace IPC {
 
 #if ENABLE(CSS_FILTERS)
 void ArgumentCoder<WebCore::FilterOperations>::encode(ArgumentEncoder& encoder, const WebCore::FilterOperations& filters)
@@ -114,89 +69,35 @@ void ArgumentCoder<WebCore::FilterOperations>::encode(ArgumentEncoder& encoder, 
     encoder << static_cast<uint32_t>(filters.size());
     for (size_t i = 0; i < filters.size(); ++i) {
         const FilterOperation* filter = filters.at(i);
-        FilterOperation::OperationType type = filter->getOperationType();
+        FilterOperation::OperationType type = filter->type();
         encoder.encodeEnum(type);
         switch (type) {
         case FilterOperation::GRAYSCALE:
         case FilterOperation::SEPIA:
         case FilterOperation::SATURATE:
         case FilterOperation::HUE_ROTATE:
-            encoder << static_cast<double>(static_cast<const BasicColorMatrixFilterOperation*>(filter)->amount());
+            encoder << static_cast<double>(toBasicColorMatrixFilterOperation(filter)->amount());
             break;
         case FilterOperation::INVERT:
         case FilterOperation::BRIGHTNESS:
         case FilterOperation::CONTRAST:
         case FilterOperation::OPACITY:
-            encoder << static_cast<double>(static_cast<const BasicComponentTransferFilterOperation*>(filter)->amount());
+            encoder << static_cast<double>(toBasicComponentTransferFilterOperation(filter)->amount());
             break;
         case FilterOperation::BLUR:
-            ArgumentCoder<Length>::encode(encoder, static_cast<const BlurFilterOperation*>(filter)->stdDeviation());
+            ArgumentCoder<Length>::encode(encoder, toBlurFilterOperation(filter)->stdDeviation());
             break;
         case FilterOperation::DROP_SHADOW: {
-            const DropShadowFilterOperation* shadow = static_cast<const DropShadowFilterOperation*>(filter);
+            const DropShadowFilterOperation* shadow = toDropShadowFilterOperation(filter);
             ArgumentCoder<IntPoint>::encode(encoder, shadow->location());
             encoder << static_cast<int32_t>(shadow->stdDeviation());
             ArgumentCoder<Color>::encode(encoder, shadow->color());
             break;
         }
-#if ENABLE(CSS_SHADERS)
-        case FilterOperation::CUSTOM:
-            // Custom Filters are converted to VALIDATED_CUSTOM before reaching this point.
-            ASSERT_NOT_REACHED();
-            break;
-        case FilterOperation::VALIDATED_CUSTOM: {
-            const ValidatedCustomFilterOperation* customOperation = static_cast<const ValidatedCustomFilterOperation*>(filter);
-            ASSERT(customOperation->validatedProgram());
-            RefPtr<CustomFilterValidatedProgram> program = customOperation->validatedProgram();
-            ASSERT(program->isInitialized());
-            ASSERT(program->platformCompiledProgram());
-            ASSERT(program->platformCompiledProgram()->client());
-            WebCustomFilterProgramProxy* customFilterProgramProxy = static_cast<WebCustomFilterProgramProxy*>(program->platformCompiledProgram()->client());
-            const CustomFilterProgramInfo& programInfo = program->programInfo();
-            // FIXME: CustomFilterOperation should not need the meshType, it should just be encoded in the program itself.
-            // https://bugs.webkit.org/show_bug.cgi?id=102529
-            encoder.encodeEnum(programInfo.meshType());
-            encoder << customFilterProgramProxy->id();
-            CustomFilterParameterList parameters = customOperation->parameters();
-            encoder << static_cast<uint32_t>(parameters.size());
-            for (size_t i = 0; i < parameters.size(); ++i) {
-                RefPtr<CustomFilterParameter> parameter = parameters[i];
-                encoder << parameter->name();
-                encoder.encodeEnum(parameter->parameterType());
-
-                switch (parameter->parameterType()) {
-                case CustomFilterParameter::ARRAY: {
-                    CustomFilterArrayParameter* arrayParameter = static_cast<CustomFilterArrayParameter*>(parameter.get());
-                    encoder << static_cast<uint32_t>(arrayParameter->size());
-                    for (size_t j = 0; j < arrayParameter->size(); ++j)
-                        encoder << arrayParameter->valueAt(j);
-                    break;
-                }
-                case CustomFilterParameter::NUMBER: {
-                    CustomFilterNumberParameter* nubmerParameter = static_cast<CustomFilterNumberParameter*>(parameter.get());
-                    encoder << static_cast<uint32_t>(nubmerParameter->size());
-                    for (size_t j = 0; j < nubmerParameter->size(); ++j)
-                        encoder << nubmerParameter->valueAt(j);
-                    break;
-                }
-                case CustomFilterParameter::TRANSFORM: {
-                    CustomFilterTransformParameter* transformParameter = static_cast<CustomFilterTransformParameter*>(parameter.get());
-                    ArgumentCoder<TransformOperations>::encode(encoder, transformParameter->operations());
-                    break;
-                }
-                default: {
-                    ASSERT_NOT_REACHED();
-                    break;
-                }
-                }
-            }
-
-            encoder << customOperation->meshRows();
-            encoder << customOperation->meshColumns();
-            break;
-        }
-#endif
-        default:
+        case FilterOperation::REFERENCE:
+        case FilterOperation::PASSTHROUGH:
+        case FilterOperation::DEFAULT:
+        case FilterOperation::NONE:
             break;
         }
     }
@@ -257,92 +158,10 @@ bool ArgumentCoder<WebCore::FilterOperations>::decode(ArgumentDecoder& decoder, 
             filter = DropShadowFilterOperation::create(location, stdDeviation, color);
             break;
         }
-#if ENABLE(CSS_SHADERS)
-        case FilterOperation::CUSTOM:
-            // Custom Filters are converted to VALIDATED_CUSTOM before reaching this point.
-            ASSERT_NOT_REACHED();
-            break;
-        case FilterOperation::VALIDATED_CUSTOM: {
-            // FIXME: CustomFilterOperation should not need the meshType.
-            // https://bugs.webkit.org/show_bug.cgi?id=102529
-            CustomFilterMeshType meshType;
-            if (!decoder.decodeEnum(meshType))
-                return false;
-            int programID = 0;
-            if (!decoder.decode(programID))
-                return false;
-
-            uint32_t parametersSize;
-            if (!decoder.decode(parametersSize))
-                return false;
-
-            CustomFilterParameterList parameters(parametersSize);
-            for (size_t i = 0; i < parametersSize; ++i) {
-                String name;
-                CustomFilterParameter::ParameterType parameterType;
-                if (!decoder.decode(name))
-                    return false;
-                if (!decoder.decodeEnum(parameterType))
-                    return false;
-
-                switch (parameterType) {
-                case CustomFilterParameter::ARRAY: {
-                    RefPtr<CustomFilterArrayParameter> arrayParameter = CustomFilterArrayParameter::create(name);
-                    uint32_t arrayParameterSize;
-                    if (!decoder.decode(arrayParameterSize))
-                        return false;
-                    double arrayParameterValue;
-                    for (size_t j = 0; j < arrayParameterSize; ++j) {
-                        if (!decoder.decode(arrayParameterValue))
-                            return false;
-                        arrayParameter->addValue(arrayParameterValue);
-                    }
-                    parameters[i] = arrayParameter.release();
-                    break;
-                }
-                case CustomFilterParameter::NUMBER: {
-                    RefPtr<CustomFilterNumberParameter> numberParameter = CustomFilterNumberParameter::create(name);
-                    uint32_t numberParameterSize;
-                    if (!decoder.decode(numberParameterSize))
-                        return false;
-                    double numberParameterValue;
-                    for (size_t j = 0; j < numberParameterSize; ++j) {
-                        if (!decoder.decode(numberParameterValue))
-                            return false;
-                        numberParameter->addValue(numberParameterValue);
-                    }
-                    parameters[i] = numberParameter.release();
-                    break;
-                }
-                case CustomFilterParameter::TRANSFORM: {
-                    RefPtr<CustomFilterTransformParameter> transformParameter = CustomFilterTransformParameter::create(name);
-                    TransformOperations operations;
-                    if (!ArgumentCoder<TransformOperations>::decode(decoder, operations))
-                        return false;
-                    transformParameter->setOperations(operations);
-                    parameters[i] = transformParameter.release();
-                    break;
-                }
-                default: {
-                    ASSERT_NOT_REACHED();
-                    return false;
-                }
-                }
-            }
-
-            unsigned meshRows;
-            unsigned meshColumns;
-            if (!decoder.decode(meshRows))
-                return false;
-            if (!decoder.decode(meshColumns))
-                return false;
-
-            // At this point the Shaders are already validated, so we just use WebCustomFilterOperation for transportation.
-            filter = CoordinatedCustomFilterOperation::create(0, programID, parameters, meshRows, meshColumns, meshType);
-            break;
-        }
-#endif
-        default:
+        case FilterOperation::REFERENCE:
+        case FilterOperation::PASSTHROUGH:
+        case FilterOperation::DEFAULT:
+        case FilterOperation::NONE:
             break;
         }
 
@@ -354,91 +173,55 @@ bool ArgumentCoder<WebCore::FilterOperations>::decode(ArgumentDecoder& decoder, 
 }
 #endif
 
-#if ENABLE(CSS_SHADERS)
-void ArgumentCoder<WebCore::CustomFilterProgramInfo>::encode(ArgumentEncoder& encoder, const CustomFilterProgramInfo& programInfo)
-{
-    encoder << programInfo.vertexShaderString();
-    encoder << programInfo.fragmentShaderString();
-    encoder.encodeEnum(programInfo.programType());
-    encoder.encodeEnum(programInfo.meshType());
-    const CustomFilterProgramMixSettings& mixSettings = programInfo.mixSettings();
-    encoder.encodeEnum(mixSettings.blendMode);
-    encoder.encodeEnum(mixSettings.compositeOperator);
-}
-
-bool ArgumentCoder<WebCore::CustomFilterProgramInfo>::decode(ArgumentDecoder& decoder, CustomFilterProgramInfo& programInfo)
-{
-    String vertexShaderString;
-    String fragmentShaderString;
-    CustomFilterProgramType programType;
-    CustomFilterMeshType meshType;
-    CustomFilterProgramMixSettings mixSettings;
-    if (!decoder.decode(vertexShaderString))
-        return false;
-    if (!decoder.decode(fragmentShaderString))
-        return false;
-    if (!decoder.decodeEnum(programType))
-        return false;
-    if (!decoder.decodeEnum(meshType))
-        return false;
-    if (!decoder.decodeEnum(mixSettings.blendMode))
-        return false;
-    if (!decoder.decodeEnum(mixSettings.compositeOperator))
-        return false;
-    programInfo = CustomFilterProgramInfo(vertexShaderString, fragmentShaderString, programType, mixSettings, meshType);
-    return true;
-}
-#endif // ENABLE(CSS_SHADERS)
-
 void ArgumentCoder<TransformOperations>::encode(ArgumentEncoder& encoder, const TransformOperations& transformOperations)
 {
     encoder << static_cast<uint32_t>(transformOperations.size());
     for (size_t i = 0; i < transformOperations.size(); ++i) {
         const TransformOperation* operation = transformOperations.at(i);
-        encoder.encodeEnum(operation->getOperationType());
+        encoder.encodeEnum(operation->type());
 
-        switch (operation->getOperationType()) {
+        switch (operation->type()) {
         case TransformOperation::SCALE_X:
         case TransformOperation::SCALE_Y:
         case TransformOperation::SCALE:
         case TransformOperation::SCALE_Z:
         case TransformOperation::SCALE_3D:
-            encoder << static_cast<const ScaleTransformOperation*>(operation)->x();
-            encoder << static_cast<const ScaleTransformOperation*>(operation)->y();
-            encoder << static_cast<const ScaleTransformOperation*>(operation)->z();
+            encoder << toScaleTransformOperation(operation)->x();
+            encoder << toScaleTransformOperation(operation)->y();
+            encoder << toScaleTransformOperation(operation)->z();
             break;
         case TransformOperation::TRANSLATE_X:
         case TransformOperation::TRANSLATE_Y:
         case TransformOperation::TRANSLATE:
         case TransformOperation::TRANSLATE_Z:
         case TransformOperation::TRANSLATE_3D:
-            ArgumentCoder<Length>::encode(encoder, static_cast<const TranslateTransformOperation*>(operation)->x());
-            ArgumentCoder<Length>::encode(encoder, static_cast<const TranslateTransformOperation*>(operation)->y());
-            ArgumentCoder<Length>::encode(encoder, static_cast<const TranslateTransformOperation*>(operation)->z());
+            ArgumentCoder<Length>::encode(encoder, toTranslateTransformOperation(operation)->x());
+            ArgumentCoder<Length>::encode(encoder, toTranslateTransformOperation(operation)->y());
+            ArgumentCoder<Length>::encode(encoder, toTranslateTransformOperation(operation)->z());
             break;
         case TransformOperation::ROTATE:
         case TransformOperation::ROTATE_X:
         case TransformOperation::ROTATE_Y:
         case TransformOperation::ROTATE_3D:
-            encoder << static_cast<const RotateTransformOperation*>(operation)->x();
-            encoder << static_cast<const RotateTransformOperation*>(operation)->y();
-            encoder << static_cast<const RotateTransformOperation*>(operation)->z();
-            encoder << static_cast<const RotateTransformOperation*>(operation)->angle();
+            encoder << toRotateTransformOperation(operation)->x();
+            encoder << toRotateTransformOperation(operation)->y();
+            encoder << toRotateTransformOperation(operation)->z();
+            encoder << toRotateTransformOperation(operation)->angle();
             break;
         case TransformOperation::SKEW_X:
         case TransformOperation::SKEW_Y:
         case TransformOperation::SKEW:
-            encoder << static_cast<const SkewTransformOperation*>(operation)->angleX();
-            encoder << static_cast<const SkewTransformOperation*>(operation)->angleY();
+            encoder << toSkewTransformOperation(operation)->angleX();
+            encoder << toSkewTransformOperation(operation)->angleY();
             break;
         case TransformOperation::MATRIX:
-            ArgumentCoder<TransformationMatrix>::encode(encoder, static_cast<const MatrixTransformOperation*>(operation)->matrix());
+            ArgumentCoder<TransformationMatrix>::encode(encoder, toMatrixTransformOperation(operation)->matrix());
             break;
         case TransformOperation::MATRIX_3D:
-            ArgumentCoder<TransformationMatrix>::encode(encoder, static_cast<const Matrix3DTransformOperation*>(operation)->matrix());
+            ArgumentCoder<TransformationMatrix>::encode(encoder, toMatrix3DTransformOperation(operation)->matrix());
             break;
         case TransformOperation::PERSPECTIVE:
-            ArgumentCoder<Length>::encode(encoder, static_cast<const PerspectiveTransformOperation*>(operation)->perspective());
+            ArgumentCoder<Length>::encode(encoder, toPerspectiveTransformOperation(operation)->perspective());
             break;
         case TransformOperation::IDENTITY:
             break;
@@ -729,7 +512,7 @@ bool ArgumentCoder<GraphicsLayerAnimation>::decode(ArgumentDecoder& decoder, Gra
     if (!decoder.decode(keyframesSize))
         return false;
     for (unsigned i = 0; i < keyframesSize; ++i) {
-        float keyTime;
+        double keyTime;
         RefPtr<TimingFunction> timingFunction;
         if (!decoder.decode(keyTime))
             return false;
@@ -741,14 +524,14 @@ bool ArgumentCoder<GraphicsLayerAnimation>::decode(ArgumentDecoder& decoder, Gra
             float value;
             if (!decoder.decode(value))
                 return false;
-            keyframes.insert(FloatAnimationValue::create(keyTime, value, timingFunction));
+            keyframes.insert(FloatAnimationValue::create(keyTime, value, timingFunction.get()));
             break;
         }
         case AnimatedPropertyWebkitTransform: {
             TransformOperations transform;
             if (!decoder.decode(transform))
                 return false;
-            keyframes.insert(TransformAnimationValue::create(keyTime, transform, timingFunction));
+            keyframes.insert(TransformAnimationValue::create(keyTime, transform, timingFunction.get()));
             break;
         }
 #if ENABLE(CSS_FILTERS)
@@ -756,7 +539,7 @@ bool ArgumentCoder<GraphicsLayerAnimation>::decode(ArgumentDecoder& decoder, Gra
             FilterOperations filter;
             if (!decoder.decode(filter))
                 return false;
-            keyframes.insert(FilterAnimationValue::create(keyTime, filter, timingFunction));
+            keyframes.insert(FilterAnimationValue::create(keyTime, filter, timingFunction.get()));
             break;
         }
 #endif
@@ -1099,15 +882,6 @@ void ArgumentCoder<CoordinatedGraphicsState>::encode(ArgumentEncoder& encoder, c
         encodeCoordinatedSurface(encoder, state.updateAtlasesToCreate[i].second);
     }
     encoder << state.updateAtlasesToRemove;
-
-#if ENABLE(CSS_SHADERS)
-    encoder << static_cast<uint64_t>(state.customFiltersToCreate.size());
-    for (size_t i = 0; i < state.customFiltersToCreate.size(); ++i) {
-        encoder << state.customFiltersToCreate[i].first;
-        encoder << state.customFiltersToCreate[i].second;
-    }
-    encoder << state.customFiltersToRemove;
-#endif
 }
 
 bool ArgumentCoder<CoordinatedGraphicsState>::decode(ArgumentDecoder& decoder, CoordinatedGraphicsState& state)
@@ -1177,28 +951,9 @@ bool ArgumentCoder<CoordinatedGraphicsState>::decode(ArgumentDecoder& decoder, C
     if (!decoder.decode(state.updateAtlasesToRemove))
         return false;
 
-#if ENABLE(CSS_SHADERS)
-    uint64_t sizeOfCustomFiltersToCreate;
-    if (!decoder.decode(sizeOfCustomFiltersToCreate))
-        return false;
-
-    for (uint64_t i = 0; i < sizeOfCustomFiltersToCreate; ++i) {
-        uint32_t filterID;
-        if (!decoder.decode(filterID))
-            return false;
-        CustomFilterProgramInfo filterInfo;
-        if (!decoder.decode(filterInfo))
-            return false;
-        state.customFiltersToCreate.append(std::make_pair(filterID, filterInfo));
-    }
-
-    if (!decoder.decode(state.customFiltersToRemove))
-        return false;
-#endif
-
     return true;
 }
 
-} // namespace CoreIPC
+} // namespace IPC
 
 #endif // USE(COORDINATED_GRAPHICS)

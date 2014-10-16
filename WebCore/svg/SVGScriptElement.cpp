@@ -19,8 +19,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGScriptElement.h"
 
 #include "Attribute.h"
@@ -30,8 +28,8 @@
 #include "HTMLNames.h"
 #include "SVGAnimatedStaticPropertyTearOff.h"
 #include "SVGElementInstance.h"
-#include "SVGNames.h"
-#include "ScriptEventListener.h"
+#include "XLinkNames.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -44,30 +42,30 @@ BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGScriptElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
 END_REGISTER_ANIMATED_PROPERTIES
 
-inline SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document* document, bool wasInsertedByParser, bool alreadyStarted)
+inline SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document& document, bool wasInsertedByParser, bool alreadyStarted)
     : SVGElement(tagName, document)
-    , ScriptElement(this, wasInsertedByParser, alreadyStarted)
+    , ScriptElement(*this, wasInsertedByParser, alreadyStarted)
     , m_svgLoadEventTimer(this, &SVGElement::svgLoadEventTimerFired)
 {
     ASSERT(hasTagName(SVGNames::scriptTag));
     registerAnimatedPropertiesForSVGScriptElement();
 }
 
-PassRefPtr<SVGScriptElement> SVGScriptElement::create(const QualifiedName& tagName, Document* document, bool insertedByParser)
+PassRefPtr<SVGScriptElement> SVGScriptElement::create(const QualifiedName& tagName, Document& document, bool insertedByParser)
 {
     return adoptRef(new SVGScriptElement(tagName, document, insertedByParser, false));
 }
 
 bool SVGScriptElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
-    if (supportedAttributes.isEmpty()) {
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
         SVGURIReference::addSupportedAttributes(supportedAttributes);
         SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.add(SVGNames::typeAttr);
-        supportedAttributes.add(HTMLNames::onerrorAttr);
+        supportedAttributes.get().add(SVGNames::typeAttr);
+        supportedAttributes.get().add(HTMLNames::onerrorAttr);
     }
-    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGScriptElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -77,13 +75,11 @@ void SVGScriptElement::parseAttribute(const QualifiedName& name, const AtomicStr
         return;
     }
 
-    if (name == SVGNames::typeAttr) {
-        setType(value);
+    if (name == SVGNames::typeAttr)
         return;
-    }
 
     if (name == HTMLNames::onerrorAttr) {
-        setAttributeEventListener(eventNames().errorEvent, createAttributeEventListener(this, name, value));
+        setAttributeEventListener(eventNames().errorEvent, name, value);
         return;
     }
 
@@ -118,18 +114,18 @@ void SVGScriptElement::svgAttributeChanged(const QualifiedName& attrName)
     ASSERT_NOT_REACHED();
 }
 
-Node::InsertionNotificationRequest SVGScriptElement::insertedInto(ContainerNode* rootParent)
+Node::InsertionNotificationRequest SVGScriptElement::insertedInto(ContainerNode& rootParent)
 {
     SVGElement::insertedInto(rootParent);
     ScriptElement::insertedInto(rootParent);
-    if (rootParent->inDocument())
+    if (rootParent.inDocument())
         SVGExternalResourcesRequired::insertedIntoDocument(this);
     return InsertionDone;
 }
 
-void SVGScriptElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGScriptElement::childrenChanged(const ChildChange& change)
 {
-    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGElement::childrenChanged(change);
     ScriptElement::childrenChanged();
 }
 
@@ -144,21 +140,11 @@ void SVGScriptElement::finishParsingChildren()
     SVGExternalResourcesRequired::finishParsingChildren();
 }
 
-String SVGScriptElement::type() const
-{
-    return m_type;
-}
-
-void SVGScriptElement::setType(const String& type)
-{
-    m_type = type;
-}
-
-void SVGScriptElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+void SVGScriptElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {
     SVGElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, document()->completeURL(href()));
+    addSubresourceURL(urls, document().completeURL(href()));
 }
 
 String SVGScriptElement::sourceAttributeValue() const
@@ -173,7 +159,7 @@ String SVGScriptElement::charsetAttributeValue() const
 
 String SVGScriptElement::typeAttributeValue() const
 {
-    return type();
+    return getAttribute(SVGNames::typeAttr).string();
 }
 
 String SVGScriptElement::languageAttributeValue() const
@@ -211,6 +197,11 @@ PassRefPtr<Element> SVGScriptElement::cloneElementWithoutAttributesAndChildren()
     return adoptRef(new SVGScriptElement(tagQName(), document(), false, alreadyStarted()));
 }
 
+#ifndef NDEBUG
+bool SVGScriptElement::filterOutAnimatableAttribute(const QualifiedName& name) const
+{
+    return name == SVGNames::typeAttr;
 }
+#endif
 
-#endif // ENABLE(SVG)
+}

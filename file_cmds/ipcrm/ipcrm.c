@@ -29,8 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char rcsid[] =
+__used static const char rcsid[] =
 	"$Id: ipcrm.c,v 1.3 2005/02/03 07:31:33 josborne Exp $";
 #endif /* not lint */
 

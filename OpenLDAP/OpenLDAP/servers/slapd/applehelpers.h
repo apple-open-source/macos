@@ -3,6 +3,7 @@
 
 #define __COREFOUNDATION_CFFILESECURITY__
 #include <CoreFoundation/CoreFoundation.h>
+#include <AccountPolicy/AccountPolicy.h>
 
 #define kDisabledByAdmin               1
 #define kDisabledExpired               2
@@ -10,6 +11,7 @@
 #define kDisabledTooManyFailedLogins   4
 #define kDisabledNewPasswordRequired   5
 
+Attribute  *odusers_copy_attr(char *dn, char*attribute);
 Entry *odusers_copy_entry(Operation *op);
 int odusers_remove_authdata(char *slotid);
 int odusers_get_authguid(Entry *e, char *guidstr);
@@ -34,8 +36,22 @@ int odusers_verify_passwordquality(const char *password, const char *username, C
 CFArrayRef odusers_copy_enabledmechs(const char *suffix);
 int odusers_krb_auth(Operation *op, char *password);
 char *odusers_copy_owner(struct berval *dn);
-int odusers_store_history(struct berval *dn, const char *password, CFDictionaryRef policy);
-int odusers_check_history(struct berval *dn, const char *password, CFDictionaryRef policy);
+int odusers_store_history(struct berval *dn, const char *password);
 char *CopyPrimaryIPv4Address(void);
+bool odusers_ismember(struct berval *userdn, struct berval *groupdn);
+int odusers_joingroup(const char *group, struct berval *dn, bool remove);
+
+CFDictionaryRef odusers_copy_accountpolicy_fromentry(Entry *authe);
+CFDictionaryRef  odusers_copy_globalaccountpolicy();
+CFStringRef  odusers_copy_globalaccountpolicyGUID();
+int odusers_accountpolicy_set(struct berval *dn, Entry *authe, CFDictionaryRef accountpolicydict);
+CFDictionaryRef odusers_copy_accountpolicy(struct berval *dn);
+CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn);
+void odusers_accountpolicy_set_passwordinfo(CFMutableDictionaryRef accountpolicyinfo, const char *password);
+CFDictionaryRef odusers_accountpolicy_retrievedata( CFDictionaryRef *policyData, CFArrayRef keys, struct berval *dn );
+void odusers_accountpolicy_updatedata( CFDictionaryRef keys, struct berval *dn );
+int odusers_accountpolicy_successful_auth(struct berval *dn, CFDictionaryRef policy);
+int odusers_accountpolicy_failed_auth(struct berval *dn, CFDictionaryRef policy);
+int odusers_accountpolicy_override(struct berval *account_dn);
 
 #endif /* __APPLEHELPERS_H__ */

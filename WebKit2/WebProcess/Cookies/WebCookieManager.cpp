@@ -51,7 +51,7 @@ const char* WebCookieManager::supplementName()
 WebCookieManager::WebCookieManager(ChildProcess* process)
     : m_process(process)
 {
-    m_process->addMessageReceiver(Messages::WebCookieManager::messageReceiverName(), this);
+    m_process->addMessageReceiver(Messages::WebCookieManager::messageReceiverName(), *this);
 
     ASSERT(!sharedCookieManager);
     sharedCookieManager = this;
@@ -78,6 +78,11 @@ void WebCookieManager::deleteAllCookies()
     WebCore::deleteAllCookies(NetworkStorageSession::defaultStorageSession());
 }
 
+void WebCookieManager::deleteAllCookiesModifiedAfterDate(double date)
+{
+    WebCore::deleteAllCookiesModifiedAfterDate(NetworkStorageSession::defaultStorageSession(), date);
+}
+
 void WebCookieManager::startObservingCookieChanges()
 {
     WebCore::startObservingCookieChanges(cookiesDidChange);
@@ -95,7 +100,7 @@ void WebCookieManager::cookiesDidChange()
 
 void WebCookieManager::dispatchCookiesDidChange()
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
     m_process->send(Messages::WebCookieManagerProxy::CookiesDidChange(), 0);
 }
 

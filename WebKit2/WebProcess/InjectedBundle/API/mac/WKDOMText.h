@@ -23,15 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import <WebKit/WKFoundation.h>
 
-#import <WebKit2/WKDOMNode.h>
+#if WK_API_ENABLED
 
-WK_EXPORT
+#import <WebKit/WKDOMNode.h>
+
+WK_CLASS_AVAILABLE(10_10, 8_0)
 @interface WKDOMText : WKDOMNode
 
 @property(nonatomic, copy) NSString *data;
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

@@ -39,8 +39,8 @@
 #include "WKCookieManager.h"
 #include "WKCredentialTypes.h"
 #include "WKPage.h"
-#include "WKPreferences.h"
-#include "WKPreferencesPrivate.h"
+#include "WKPreferencesRef.h"
+#include "WKPreferencesRefPrivate.h"
 #include "WKProtectionSpaceTypes.h"
 #include "WKResourceCacheManager.h"
 #include "WKSharedAPICast.h"
@@ -49,6 +49,12 @@
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/Settings.h>
+
+namespace API {
+class ContextConfiguration;
+class NavigationData;
+class SessionState;
+}
 
 namespace WebKit {
 
@@ -79,14 +85,12 @@ class WebIconDatabase;
 class WebInspectorProxy;
 class WebKeyValueStorageManager;
 class WebMediaCacheManagerProxy;
-class WebNavigationData;
-class WebNetworkInfoManagerProxy;
-class WebNetworkInfo;
 class WebNotification;
 class WebNotificationProvider;
 class WebNotificationManagerProxy;
 class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
+class WebOriginDataManagerProxy;
 class WebPageGroup;
 class WebPageProxy;
 class WebPluginSiteDataManager;
@@ -109,6 +113,7 @@ WK_ADD_API_MAPPING(WKBundleHitTestResultMediaType, BundleHitTestResultMediaType)
 WK_ADD_API_MAPPING(WKResourceCacheManagerRef, WebResourceCacheManagerProxy)
 WK_ADD_API_MAPPING(WKColorPickerResultListenerRef, WebColorPickerResultListenerProxy)
 WK_ADD_API_MAPPING(WKContextRef, WebContext)
+WK_ADD_API_MAPPING(WKContextConfigurationRef, API::ContextConfiguration)
 WK_ADD_API_MAPPING(WKCookieManagerRef, WebCookieManagerProxy)
 WK_ADD_API_MAPPING(WKCredentialRef, WebCredential)
 WK_ADD_API_MAPPING(WKDatabaseManagerRef, WebDatabaseManagerProxy)
@@ -124,15 +129,14 @@ WK_ADD_API_MAPPING(WKHitTestResultRef, WebHitTestResult)
 WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKKeyValueStorageManagerRef, WebKeyValueStorageManager)
 WK_ADD_API_MAPPING(WKMediaCacheManagerRef, WebMediaCacheManagerProxy)
-WK_ADD_API_MAPPING(WKNavigationDataRef, WebNavigationData)
-WK_ADD_API_MAPPING(WKNetworkInfoManagerRef, WebNetworkInfoManagerProxy)
-WK_ADD_API_MAPPING(WKNetworkInfoRef, WebNetworkInfo)
+WK_ADD_API_MAPPING(WKNavigationDataRef, API::NavigationData)
 WK_ADD_API_MAPPING(WKNotificationManagerRef, WebNotificationManagerProxy)
 WK_ADD_API_MAPPING(WKNotificationPermissionRequestRef, NotificationPermissionRequest)
 WK_ADD_API_MAPPING(WKNotificationProviderRef, WebNotificationProvider)
 WK_ADD_API_MAPPING(WKNotificationRef, WebNotification)
 WK_ADD_API_MAPPING(WKOpenPanelParametersRef, WebOpenPanelParameters)
 WK_ADD_API_MAPPING(WKOpenPanelResultListenerRef, WebOpenPanelResultListenerProxy)
+WK_ADD_API_MAPPING(WKOriginDataManagerRef, WebOriginDataManagerProxy)
 WK_ADD_API_MAPPING(WKPageGroupRef, WebPageGroup)
 WK_ADD_API_MAPPING(WKPageRef, WebPageProxy)
 WK_ADD_API_MAPPING(WKPluginSiteDataManagerRef, WebPluginSiteDataManager)
@@ -140,6 +144,7 @@ WK_ADD_API_MAPPING(WKPreferencesRef, WebPreferences)
 WK_ADD_API_MAPPING(WKProtectionSpaceRef, WebProtectionSpace)
 WK_ADD_API_MAPPING(WKRenderLayerRef, WebRenderLayer)
 WK_ADD_API_MAPPING(WKRenderObjectRef, WebRenderObject)
+WK_ADD_API_MAPPING(WKSessionStateRef, API::SessionState)
 WK_ADD_API_MAPPING(WKTextCheckerRef, WebTextChecker)
 WK_ADD_API_MAPPING(WKVibrationRef, WebVibrationProxy)
 WK_ADD_API_MAPPING(WKViewportAttributesRef, WebViewportAttributes)
@@ -387,6 +392,8 @@ inline HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(WKHTTPCookieAcceptPolicy 
         return HTTPCookieAcceptPolicyNever;
     case kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
         return HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    case kWKHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain:
+        return HTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain;
     }
 
     ASSERT_NOT_REACHED();
@@ -402,6 +409,8 @@ inline WKHTTPCookieAcceptPolicy toAPI(HTTPCookieAcceptPolicy policy)
         return kWKHTTPCookieAcceptPolicyNever;
     case HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
         return kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    case HTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain:
+        return kWKHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain;
     }
 
     ASSERT_NOT_REACHED();
@@ -466,6 +475,36 @@ inline PluginModuleLoadPolicy toPluginModuleLoadPolicy(WKPluginLoadPolicy plugin
     
     ASSERT_NOT_REACHED();
     return PluginModuleBlocked;
+}
+
+inline WebCore::WebGLLoadPolicy toWebGLLoadPolicy(WKWebGLLoadPolicy webGLLoadPolicy)
+{
+    switch (webGLLoadPolicy) {
+    case kWKWebGLLoadPolicyLoadNormally:
+        return WebCore::WebGLAllowCreation;
+    case kWKWebGLLoadPolicyBlocked:
+        return WebCore::WebGLBlockCreation;
+    case kWKWebGLLoadPolicyPending:
+        return WebCore::WebGLPendingCreation;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return WebCore::WebGLAllowCreation;
+}
+
+inline WKWebGLLoadPolicy toAPI(WebCore::WebGLLoadPolicy webGLLoadPolicy)
+{
+    switch (webGLLoadPolicy) {
+    case WebCore::WebGLAllowCreation:
+        return kWKWebGLLoadPolicyLoadNormally;
+    case WebCore::WebGLBlockCreation:
+        return kWKWebGLLoadPolicyBlocked;
+    case WebCore::WebGLPendingCreation:
+        return kWKWebGLLoadPolicyPending;
+    }
+
+    ASSERT_NOT_REACHED();
+    return kWKWebGLLoadPolicyLoadNormally;
 }
 
 inline ProxyingRefPtr<WebGrammarDetail> toAPI(const WebCore::GrammarDetail& grammarDetail)

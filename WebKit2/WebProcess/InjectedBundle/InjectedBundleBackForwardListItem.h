@@ -29,12 +29,15 @@
 #include "APIObject.h"
 #include <WebCore/HistoryItem.h>
 
+namespace API {
+class Array;
+}
+
 namespace WebKit {
 
-class ImmutableArray;
 class WebPageProxy;
 
-class InjectedBundleBackForwardListItem : public TypedAPIObject<APIObject::TypeBundleBackForwardListItem> {
+class InjectedBundleBackForwardListItem : public API::ObjectImpl<API::Object::Type::BundleBackForwardListItem> {
 public:
     static PassRefPtr<InjectedBundleBackForwardListItem> create(PassRefPtr<WebCore::HistoryItem> item)
     {
@@ -54,7 +57,7 @@ public:
     bool isInPageCache() const { return m_item->isInPageCache(); }
     bool hasCachedPageExpired() const { return m_item->hasCachedPageExpired(); }
 
-    PassRefPtr<ImmutableArray> children() const;
+    PassRefPtr<API::Array> children() const;
 
 private:
     InjectedBundleBackForwardListItem(PassRefPtr<WebCore::HistoryItem> item) : m_item(item) { }

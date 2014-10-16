@@ -1,6 +1,0 @@
-<!DOCTYPE doc [
-<!ENTITY % e SYSTEM "complex.dtd">
-%e;
-]>
-<doc></doc>
-

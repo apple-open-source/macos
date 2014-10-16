@@ -1,0 +1,44 @@
+#
+# Test for cross-signed cert detect, Radar 4566041
+# WARNING this results in a hang when running with a Security.framework in which 
+# 4566041 is not fixed. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Plain in-memory cross signed detect"
+cert = SOA1-SOA2.pem
+cert = SOA2-SOA1.pem
+# specify verify time so this test will always be valid
+verifyTime = 20060601000000
+leafCertIsCA = true
+error = CSSMERR_TP_NOT_TRUSTED
+# verify we got both certs - IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+end
+
+test = "verify with DB containing one cert"
+cert = SOA2-SOA1.pem
+certDb = crossSigned1.db
+# specify verify time so this test will always be valid
+verifyTime = 20060601000000
+leafCertIsCA = true
+error = CSSMERR_TP_NOT_TRUSTED
+# verify we got both certs
+certstatus = 1:0
+end
+
+test = "verify with DB containing both certs"
+cert = SOA2-SOA1.pem
+certDb = crossSignedBoth.db
+# specify verify time so this test will always be valid
+verifyTime = 20060601000000
+leafCertIsCA = true
+error = CSSMERR_TP_NOT_TRUSTED
+# verify we got both certs
+certstatus = 1:0
+end

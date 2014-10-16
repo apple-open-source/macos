@@ -47,6 +47,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <OpenDirectory/OpenDirectory.h>
+#include <opendirectory/odconstants.h>
 #ifdef __APPLE_PRIVATE__
 #include <OpenDirectory/OpenDirectoryPriv.h>
 #include <DirectoryServer/DirectoryServer.h>
@@ -579,8 +580,8 @@ od2hdb_keys(krb5_context context, hdb_od d,
     CFIndex i, count = CFArrayGetCount(akeys);
     krb5_error_code ret;
     hdb_keyset_aapl *keys;
-    int32_t specific_match = -1, general_match = -1;
-    uint32_t specific_kvno = 0, general_kvno = 0;
+    krb5_kvno specific_match = -1, general_match = -1;
+    krb5_kvno specific_kvno = 0, general_kvno = 0;
     CFIndex len;
 
     if (count == 0)
@@ -652,7 +653,7 @@ od2hdb_keys(krb5_context context, hdb_od d,
 		    }
 		    ctx->principal = entry->entry.principal;
 
-		    specific_match = (int32_t)i;
+		    specific_match = (krb5_kvno)i;
 		    specific_kvno = keys[i].kvno;
 		}
 	    }		
@@ -699,7 +700,7 @@ hdb2od_keys(krb5_context context, hdb_od d, ODAttributeType type,
     krb5_error_code ret;
     CFDataRef element;
     hdb_keyset_aapl key;
-    size_t size;
+    size_t size = 0;
     
     /* if this is a change password operation, the keys have already been updated with ->hdb_password */
     if (flags & HDB_F_CHANGE_PASSWORD)
@@ -720,6 +721,149 @@ hdb2od_keys(krb5_context context, hdb_od d, ODAttributeType type,
     }
 
     ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data.data, data.length, &key, &size, ret);
+    if (ret)
+	goto out;
+    if (data.length != size)
+	krb5_abortx(context, "internal asn.1 encoder error");
+
+    element = CFDataCreate(kCFAllocatorDefault, data.data, data.length);
+    if (element == NULL) {
+	ret = ENOMEM;
+	goto out;
+    }
+
+    CFArrayAppendValue(array, element);
+    CFRelease(element);
+
+    bool r = ODRecordSetValue(record, type, array, NULL);
+    if (!r)
+	ret = HDB_ERR_UK_SERROR;
+
+ out:
+    if (array)
+	CFRelease(array);
+
+    return ret;
+}
+
+/*
+ *
+ */
+
+static krb5_error_code
+od2hdb_srp(krb5_context context, hdb_od d,
+	   CFArrayRef akeys, unsigned flags, hdb_entry_ex *entry)
+{
+    CFIndex i, count = CFArrayGetCount(akeys);
+    krb5_error_code ret;
+    HDB_extension ext;
+    hdb_srp srp;
+    CFIndex len;
+
+    if (count == 0)
+	return ENOMEM;
+
+    memset(&ext, 0, sizeof(ext));
+    ext.mandatory = FALSE;
+    ext.data.element = choice_HDB_extension_data_srp;
+
+    ext.data.u.srp.len = 0;
+    ext.data.u.srp.val = NULL;
+
+    ret = 0;
+    for (i = 0; i < count; i++) {
+	CFTypeRef type = CFArrayGetValueAtIndex(akeys, i);
+	void *ptr;
+
+	if (CFGetTypeID(type) == CFDataGetTypeID()) {
+	    CFDataRef data = (CFDataRef) type;
+
+	    len = CFDataGetLength(data);
+	    ptr = malloc(len);
+	    if (ptr == NULL) {
+		ret = ENOMEM;
+		goto out;
+	    }
+	    memcpy(ptr, CFDataGetBytePtr(data), len);
+	} else if (CFGetTypeID(type) == CFStringGetTypeID()) {
+	    CFStringRef cfstr = (CFStringRef)type;
+	    char *str;
+
+	    str = rk_cfstring2cstring(cfstr);
+	    if (str == NULL) {
+		ret = ENOMEM;
+		goto out;
+	    }
+	    ptr = malloc(strlen(str));
+	    if (ptr == NULL) {
+		free(str);
+		ret = ENOMEM;
+		goto out;
+	    }
+
+	    ret = base64_decode(str, ptr);
+	    free(str);
+	    if (ret < 0) {
+		free(ptr);
+		ret = EINVAL;
+		goto out;
+	    }
+
+	    len = ret;
+
+	} else {
+	    ret = EINVAL; /* XXX */
+	    goto out;
+	}
+
+	ret = decode_hdb_srp(ptr, len, &srp, NULL);
+	free(ptr);
+	if (ret)
+	    goto out;
+
+	ret = add_hdb_srp_set(&ext.data.u.srp, &srp);
+	free_hdb_srp(&srp);
+	if (ret) {
+	    goto out;
+	}
+    }
+
+    ret = hdb_replace_extension(context, &entry->entry, &ext);
+
+ out:
+    free_HDB_extension(&ext);
+
+    return ret;
+}
+
+static krb5_error_code
+hdb2od_srp(krb5_context context, hdb_od d, ODAttributeType type,
+	    unsigned flags, hdb_entry_ex *entry, ODRecordRef record)
+{
+    CFMutableArrayRef array;
+    heim_octet_string data;
+    krb5_error_code ret;
+    CFDataRef element;
+    hdb_srp_set key;
+    size_t size = 0;
+    
+    /* XXX find key */
+    memset(&key, 0, sizeof(key));
+
+    /* if this is a change password operation, the keys have already been updated with ->hdb_password */
+    if (flags & HDB_F_CHANGE_PASSWORD)
+	return 0;
+ 
+    /* this overwrites other keys that are stored in the special "alias" keyset for server */
+    
+    array = CFArrayCreateMutable(kCFAllocatorDefault, 1,
+				 &kCFTypeArrayCallBacks);
+    if (array == NULL) {
+	ret = ENOMEM;
+	goto out;
+    }
+
+    ASN1_MALLOC_ENCODE(hdb_srp_set, data.data, data.length, &key, &size, ret);
     if (ret)
 	goto out;
     if (data.length != size)
@@ -908,6 +1052,13 @@ static const struct key {
 	hdb2od_keys
     },
     {
+	"srp-keyset",
+	CFSTR("dsAttrTypeNative:HeimdalSRPKey"), OPTIONAL_VALUE | MULTI_VALUE | DELETE_KEY,
+	od2hdb_srp,
+	NULL,
+	hdb2od_srp
+    },
+    {
 	"KerberosKeys",
 	CFSTR("dsAttrTypeNative:KerberosKeys"), OPTIONAL_VALUE | MULTI_VALUE | DELETE_KEY,
 	od2hdb_keys,
@@ -992,82 +1143,42 @@ static const int num_keys = sizeof(keys)/sizeof(keys[0]);
  * Policy mappings
  */
 
-static int
-booleanPolicy(CFDictionaryRef policy, CFStringRef key)
-{
-    CFTypeRef val = CFDictionaryGetValue(policy, key);
-    
-    if (val == NULL)
-	return 0;
-    
-    if (CFGetTypeID(val) == CFStringGetTypeID()) {
-	if (CFStringCompare(val, CFSTR("0"), kCFCompareNumerically) != kCFCompareEqualTo)
-	    return 1;
-    } else if (CFGetTypeID(val) == CFNumberGetTypeID()) {
-	int num;
-	if (CFNumberGetValue(val, kCFNumberIntType, &num))
-	    return num;
-    }
-    return 0;
-}
-
-static time_t
-timePolicy(CFDictionaryRef policy, CFStringRef key)
-{
-    CFTypeRef val = CFDictionaryGetValue(policy, key);
-    
-    if (val == NULL)
-	return 0;
-    
-    if (CFGetTypeID(val) == CFStringGetTypeID()) {
-	return (time_t)CFStringGetIntValue(val);
-    } else if (CFGetTypeID(val) == CFNumberGetTypeID()) {
-	long num;
-	if (CFNumberGetValue(val, kCFNumberLongType, &num))
-	    return num;
-    }
-    return 0;
-}
-
 static krb5_error_code
-apply_policy(hdb_entry *entry, CFDictionaryRef policy)
+updateTimePolicy(int64_t reltime, time_t **t)
 {
-    /*
-     * Historically, we have not applied any policies to admin users.
-     */
-    if (booleanPolicy(policy, CFSTR("isAdminUser")))
-	return 0;
-
-    entry->flags.invalid = booleanPolicy(policy, CFSTR("isDisabled"));
-    
-    if (booleanPolicy(policy, CFSTR("newPasswordRequired"))) {
-	if (entry->pw_end == NULL) {
-	    entry->pw_end = malloc(sizeof(*entry->pw_end));
-	    if (entry->pw_end == NULL)
+    if (reltime == kODExpirationTimeNeverExpires) {
+	if (*t) {
+	    free(*t);
+	    *t = NULL;
+	}
+    } else if (reltime == kODExpirationTimeExpired || reltime < 0) {
+	if (*t == NULL) {
+	    *t = malloc(sizeof(**t));
+	    if (*t == NULL)
 		return ENOMEM;
 	}
-	*entry->pw_end = time(NULL) - 60; /* expired on 60s ago */
-    } else if (booleanPolicy(policy, CFSTR("usingExpirationDate"))) {
-	time_t t = timePolicy(policy, CFSTR("expirationDateGMT"));
-	if (t > 0) {
-	    if (entry->pw_end == NULL) {
-		entry->pw_end = malloc(sizeof(*entry->pw_end));
-		if (entry->pw_end == NULL)
-		    return ENOMEM;
-	    }
-	    *entry->pw_end = t;
+	**t = time(NULL) - 60; /* expired on 60s ago */
+    } else {
+	if (*t == NULL) {
+	    *t = malloc(sizeof(**t));
+	    if (*t == NULL)
+		return ENOMEM;
 	}
-    }
-    if (booleanPolicy(policy, CFSTR("usingHardExpirationDate"))) {
-	time_t t = timePolicy(policy, CFSTR("hardExpireDateGMT"));
-	if (t > 0) {
-	    if (entry->valid_end == NULL) {
-		entry->valid_end = malloc(sizeof(*entry->valid_end));
-		if (entry->valid_end == NULL)
-		    return ENOMEM;
-	    }
-	    *entry->valid_end = t;
+	time_t truncated = (time_t)reltime;
+	if ((int64_t)truncated < reltime) {
+	    /* We can't really express this expiration time.  so just
+	     * move it 2 years into the future, hopefully we wont get
+	     * tickets that live that long.
+	     */
+	    truncated = 3600 * 24 * 365 * 2;
 	}
+	time_t now = time(NULL);
+	time_t expire = now + truncated;
+	if (expire < now) {
+	    /* same goes for time overrun */
+	    expire = now + (3600 * 24 * 365 * 2);
+	}
+	**t = expire;
     }
     return 0;
 }
@@ -1185,17 +1296,40 @@ od_record2entry(krb5_context context, HDB * db, ODRecordRef cfRecord,
 	
 	userrecord = HODODNodeCopyLinkageRecordFromAuthenticationData(context, d->rootNode, cfRecord);
 	if (userrecord) {
-	    CFDictionaryRef policy;
-	    
-	    policy = ODRecordCopyEffectivePolicies(userrecord, NULL);
-	    CFRelease(userrecord);
-	    
-	    if (policy) {
-		ret = apply_policy(&entry->entry, policy);
-		CFRelease(policy);
-		if (ret)
-		    goto out;
+	    int64_t reltime;
+	    CFIndex errorcode = 0;
+	    CFErrorRef error = NULL;
+
+	    if (!ODRecordAuthenticationAllowed(userrecord, &error)) {
+		if (error) {
+		    errorcode = CFErrorGetCode(error);
+		    CFRelease(error);
+		}
 	    }
+
+	    if (errorcode == kODErrorCredentialsPasswordChangeRequired || errorcode == kODErrorCredentialsPasswordExpired) {
+		reltime = kODExpirationTimeExpired;
+	    } else {
+		reltime = ODRecordSecondsUntilPasswordExpires(userrecord);
+	    }
+	    ret = updateTimePolicy(reltime, &entry->entry.pw_end);
+	    if (ret) {
+		CFRelease(userrecord);
+		goto out;
+	    }
+
+	    if (errorcode == kODErrorCredentialsAccountDisabled) {
+		reltime = kODExpirationTimeExpired;
+		entry->entry.flags.invalid = 1;
+	    } else if (errorcode == kODErrorCredentialsAccountExpired) {
+		reltime = kODExpirationTimeExpired;
+	    } else {
+		reltime = ODRecordSecondsUntilAuthenticationsExpire(userrecord);
+	    }
+	    ret = updateTimePolicy(reltime, &entry->entry.valid_end);
+	    CFRelease(userrecord);
+	    if (ret)
+		goto out;
 	}
     }
 
@@ -1436,7 +1570,6 @@ lkdc_locate_record(krb5_context context, hdb_od d, krb5_principal principal,
     } else if (principal->name.name_type == KRB5_NT_NTLM) {
 	attr = kODAttributeTypeRecordName;
 	rtype = kODRecordTypeUsers;
-	matchtype = kODMatchInsensitiveEqualTo;
 
 	if (krb5_principal_get_num_comp(context, principal) != 1) {
 	    krb5_warnx(context, "wrong length of ntlm name");
@@ -1505,6 +1638,9 @@ lkdc_locate_record(krb5_context context, hdb_od d, krb5_principal principal,
 
 	    if (strcasecmp(KRB5_TGS_NAME, comp0) == 0) {
 		node = "_krbtgt";
+		rtype = kODRecordTypeUsers;
+	    } else if (num == 2 && strcmp(KRB5_WELLKNOWN_NAME, comp0) == 0 && strcmp(KRB5_FAST_COOKIE, host) == 0) {
+		node = "_krbfast";
 		rtype = kODRecordTypeUsers;
 	    } else if (num == 2 && is_lkdc(d, host)) {
 		node = "localhost";

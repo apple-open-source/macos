@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.2</a> &gt; <a href="./">モジュール</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">モジュール</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache モジュール mod_headers</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_headers.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_headers.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_headers.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_headers.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div>
@@ -35,7 +36,9 @@
 <table class="module"><tr><th><a href="module-dict.html#Description">説明:</a></th><td>HTTP リクエストのヘッダと応答のヘッダのカスタマイズ</td></tr>
 <tr><th><a href="module-dict.html#Status">ステータス:</a></th><td>Extension</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">モジュール識別子:</a></th><td>headers_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">ソースファイル:</a></th><td>mod_headers.c</td></tr></table>
+<tr><th><a href="module-dict.html#SourceFile">ソースファイル:</a></th><td>mod_headers.c</td></tr>
+<tr><th><a href="module-dict.html#Compatibility">互換性:</a></th><td><code class="directive"><a href="#requestheader">RequestHeader</a></code> 
+は Apache 2.0 以降のみで使用可能</td></tr></table>
 <h3>概要</h3>
 
     <p>このモジュールは HTTP のリクエストヘッダと応答ヘッダを制御し、
@@ -57,7 +60,7 @@
 <div class="section">
 <h2><a name="order" id="order">処理の順番</a></h2>
 
-    <p><code class="module"><a href="../mod/mod_header.html">mod_header</a></code> のディレクティブはサーバ設定のほぼどこにでも
+    <p><code class="module"><a href="../mod/mod_headers.html">mod_headers</a></code> のディレクティブはサーバ設定のほぼどこにでも
     書くことができ、影響する範囲を<a href="../sections.html">設定用セクション</a>で囲むことで限定する
     ことができます。</p>
 
@@ -208,7 +211,7 @@
 
     <dt><code>echo</code></dt>
     <dd>指定されたものと同じ名前のリクエストヘッダを応答ヘッダで
-    そのまま返します。<var>header</var> には<a class="glossarylink" href="../glossary.html#regex" title="用語集を参照">正規表現</a>も指定できます。
+    そのまま返します。<var>header</var> には正規表現も指定できます。
     <var>value</var> をつけてはいけません。</dd>
     </dl>
 
@@ -217,7 +220,7 @@
     <code>set</code>, <code>append</code>, <code>add</code>,
     <code>unset</code> では大文字小文字は
     区別されません。echo の <em>header</em> 名は大文字小文字を区別し、
-    <a class="glossarylink" href="../glossary.html#regex" title="用語集を参照">正規表現</a>を指定することもできます。</p>
+    正規表現を指定することもできます。</p>
 
     <p><code>add</code>, <code>append</code>,
     <code>set</code> では <var>value</var> を三つ目の
@@ -232,11 +235,11 @@
 <tr class="odd"><td><code>%t</code></td>
         <td>リクエストを受け取った時刻を、
         Universal Coordinated Time での始まりの時刻 (Jan. 1, 1970) から経過した
-        時間をマイクロ秒として表したもの。値の最初には 
+        時間をマイクロ秒として現したもの。値の最初には 
         <code>t=</code> が付加されます。</td></tr>
 <tr><td><code>%D</code></td>
         <td>リクエストを受け取った時刻と、ヘッダを送り出した
-        時間との差。これは、リクエストが存在していた期間を表します。
+        時間との差。これは、リクエストが存在していた期間を現します。
         値の最初には <code>D=</code> が付加されます。</td></tr>
 <tr class="odd"><td><code>%{FOOBAR}e</code></td>
         <td><a href="../env.html">環境変数</a>
@@ -344,12 +347,13 @@
 </div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_headers.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_headers.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_headers.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_headers.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_headers.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_headers.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -364,7 +368,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_headers.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

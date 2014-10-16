@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd March 13, 2014 
 .Os Darwin
 .Dt KEXTSTAT 8
 .Sh NAME
@@ -6,6 +6,7 @@
 .Nd display status of loaded kernel extensions (kexts)
 .Sh SYNOPSIS
 .Nm kextstat
+.Op Fl a
 .Op Fl h
 .Op Fl k
 .Op Fl l
@@ -32,6 +33,8 @@ If this is zero, the kext is a built-in part of the kernel
 that has a record as a kext for resolving dependencies among kexts.
 .It Wired
 The number of wired bytes of kernel memory that the kext occupies.
+.It Architecture (if the -a option is used)
+The architecture of the kext.
 .It Name
 The CFBundleIdentifier of the kext.
 .It (Version)
@@ -43,6 +46,8 @@ has a reference to.
 .Sh OPTIONS
 These options are available:
 .Bl -tag -width indentXX
+.It Fl a , Fl arch
+Print the architecture of the kext.
 .It Fl b Ar identifier , Fl bundle-id Ar identifier
 Display the status of only the kext with
 the given bundle identifier.

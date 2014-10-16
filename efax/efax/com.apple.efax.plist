@@ -13,7 +13,5 @@
 		<string>/usr/bin/fax</string>
 		<string>answer</string>
 	</array>
-	<key>SHAuthorizationRight</key>
-	<string>system.preferences</string>
 </dict>
 </plist>

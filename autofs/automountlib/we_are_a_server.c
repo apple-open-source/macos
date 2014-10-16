@@ -25,6 +25,10 @@
 #include <sys/stat.h>
 #include <stdio.h>
 
+#pragma clang diagnostic ignored "-Wignored-qualifiers"
+#include <ServerInformation/ServerInformation.h>
+#pragma clang diagnostic pop
+
 #include "autofs.h"
 #include "automount.h"
 
@@ -33,18 +37,12 @@ we_are_a_server(void)
 {
 	static int got_answer = 0;
 	static int answer;
-	struct stat statb;
 
 	if (!got_answer) {
 		/*
-		 * We don't yet know whether we're a server; see if
-		 * the server version dictionary file exists.
+		 * See if we're an active server
 		 */
-		if (stat("/System/Library/CoreServices/ServerVersion.plist",
-		    &statb) == 0)
-			answer = 1;
-		else
-			answer = 0;
+		answer = SIIsOSXServerVolumeConfigured(NULL);
 		got_answer = 1;
 	}
 	return (answer);

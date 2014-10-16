@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,6 +70,8 @@ static int 	S_log_level;
 /* default lease values */
 #define DEFAULT_LEASE_MIN	((dhcp_lease_time_t)60 * 60)	/* one hour */
 #define DEFAULT_LEASE_MAX	((dhcp_lease_time_t)60 * 60 * 24) /* one day */
+
+#define MAX_ERR_LEN 		256
 
 struct _SubnetList {
     dynarray_t		list;
@@ -199,12 +201,6 @@ SubnetPrint(SubnetRef subnet)
     return;
 }
 
-static __inline__ const char *
-SubnetGetSupernet(SubnetRef subnet)
-{
-    return (subnet->supernet);
-}
-
 static bool
 SubnetIsAddressOnSubnet(SubnetRef subnet, struct in_addr addr)
 {
@@ -225,12 +221,6 @@ SubnetIsAddressWithinRange(SubnetRef subnet, struct in_addr ipaddr)
 	return (FALSE);
     }
     return (TRUE);
-}
-
-static __inline__ ip_range_t
-SubnetGetRange(SubnetRef subnet)
-{
-    return (subnet->net_range);
 }
 
 static int
@@ -362,7 +352,7 @@ myCFDataCreateNumericType(dhcptype_t type, uint32_t l)
 
 static CFDataRef
 myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
-			       char * err)
+			       char * err, int err_len)
 {
     CFDataRef			data = NULL;
     dhcptype_t			type;
@@ -378,14 +368,14 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
     tag_info = dhcptag_info(tag);
     if (tag_info == NULL) {
 	if (err != NULL) {
-	    strcpy(err, "Unknown tag");
+	    strlcpy(err, "Unknown tag", err_len);
 	}
 	goto done;
     }
     type_info = dhcptype_info(tag_info->type);
     if (type_info == NULL) {
 	if (err != NULL) {
-	    sprintf(err, "Unknown type %d", tag_info->type);
+	    snprintf(err, err_len, "Unknown type %d", tag_info->type);
 	}
 	goto done;
     }
@@ -394,7 +384,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	if (CFArrayGetCount(value) == 0) {
 	    /* zero length array */
 	    if (err != NULL) {
-		strcpy(err, "Empty array");
+		strlcpy(err, "Empty array", err_len);
 	    }
 	    goto done;
 	}
@@ -410,7 +400,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	if (type_info->multiple_of != dhcptype_none_e) {
 	    if (type == dhcptype_ip_pairs_e) {
 		if (err != NULL) {
-		    strcpy(err, "Type requires IP address pairs");
+		    strlcpy(err, "Type requires IP address pairs", err_len);
 		}
 		/* need 2 or more values */
 		goto done;
@@ -428,7 +418,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	case dhcptype_ip_e:
 	    if (my_CFStringToIPAddress(value, &ip) == FALSE) {
 		if (err != NULL) {
-		    strcpy(err, "Invalid IP address");
+		    strlcpy(err, "Invalid IP address", err_len);
 		}
 		goto done;
 	    }
@@ -441,14 +431,14 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	case dhcptype_uint32_e:
 	    if (my_CFStringToNumber(value, &l) == FALSE) {
 		if (err != NULL) {
-		    strcpy(err, "Invalid IP number");
+		    strlcpy(err, "Invalid IP number", err_len);
 		}
 		goto done;
 	    }
 	    data = myCFDataCreateNumericType(type, l);
 	    if (data == NULL) {
 		if (err != NULL) {
-		    strcpy(err, "Failed to convert to numeric");
+		    strlcpy(err, "Failed to convert to numeric", err_len);
 		}
 	    }
 	    break;
@@ -460,7 +450,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    str = myCFStringCreateCString(value, kCFStringEncodingUTF8);
 	    if (str == NULL) {
 		if (err != NULL) {
-		    strcpy(err, "Failed to convert to string");
+		    strlcpy(err, "Failed to convert to string", err_len);
 		}
 		goto done;
 	    }
@@ -469,7 +459,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    free(str);
 	    if (encoded == NULL) {
 		if (err != NULL) {
-		    strcpy(err, "Failed to encode DNS search");
+		    strlcpy(err, "Failed to encode DNS search", err_len);
 		}
 		goto done;
 	    }
@@ -479,7 +469,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	}
 	default:
 	    if (err != NULL) {
-		sprintf(err, "Failed to convert from string to %s",
+		snprintf(err, err_len, "Failed to convert from string to %s",
 			type_info->name);
 	    }
 	    /* can't convert from string */
@@ -492,7 +482,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	if (type_info->multiple_of != dhcptype_none_e) {
 	    if (type == dhcptype_ip_pairs_e) {
 		if (err != NULL) {
-		    strcpy(err, "Type requires pairs of IP address values");
+		    strlcpy(err, "Type requires pairs of IP address values", 
+			    err_len);
 		}
 		/* need 2 or more values */
 		goto done;
@@ -506,7 +497,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	else if (CFNumberGetValue(value, kCFNumberSInt32Type, &l) 
 		 == FALSE) {
 	    if (err != NULL) {
-		strcpy(err, "Failed to convert to numeric");
+		strlcpy(err, "Failed to convert to numeric", err_len);
 	    }
 	    goto done;
 	}
@@ -517,14 +508,15 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
     }
     else if (isA_CFArray(value) != NULL) {
 	int			i;
-	int			count = CFArrayGetCount(value);
+	CFIndex			count = CFArrayGetCount(value);
 
 	switch (type) {
 	case dhcptype_ip_pairs_e:
 	    if (count & 1) {
 		/* must appear in pairs */
 		if (err != NULL) {
-		    strcpy(err, "Type requires pairs of IP address values");
+		    strlcpy(err, "Type requires pairs of IP address values", 
+			    err_len);
 		}
 		goto done;
 	    }
@@ -539,7 +531,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 
 		if (isA_CFString(element) == NULL) {
 		    if (err != NULL) {
-			strcpy(err, "Can't convert non-string to IP address");
+			strlcpy(err, "Can't convert non-string to IP address", 
+				err_len);
 		    }
 		    /* each element needs to be a string */
 		    CFRelease(d);
@@ -547,7 +540,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 		}
 		if (my_CFStringToIPAddress(element, &ip) == FALSE) {
 		    if (err != NULL) {
-			strcpy(err, "Invalid IP address");
+			strlcpy(err, "Invalid IP address", err_len);
 		    }
 		    CFRelease(d);
 		    goto done;
@@ -569,7 +562,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 
 		if (my_CFTypeToNumber(element, &l) == FALSE) {
 		    if (err != NULL) {
-			strcpy(err, "Invalid number");
+			strlcpy(err, "Invalid number", err_len);
 		    }
 		    CFRelease(d);
 		    goto done;
@@ -598,7 +591,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    if (my_CFStringArrayToCStringArray(value, NULL, &strlist_size,
 					       &strlist_count) == FALSE) {
 		if (err != NULL) {
-		    strcpy(err, "Could not convert DNS search to string list");
+		    strlcpy(err, "Could not convert DNS search to string list",
+			    err_len);
 		}
 		goto done;
 	    }
@@ -616,7 +610,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    free(strlist);
 	    if (encoded == NULL) {
 		if (err != NULL) {
-		    strcpy(err, "Failed to encode DNS search");
+		    strlcpy(err, "Failed to encode DNS search", 
+			    err_len);
 		}
 		goto done;
 	    }
@@ -627,7 +622,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	default:
 	    /* conversion is not possible */
 	    if (err != NULL) {
-		sprintf(err, "Can't convert array to %s", type_info->name);
+		snprintf(err, err_len, 
+			 "Can't convert array to %s", type_info->name);
 	    }
 	    goto done;
 	}
@@ -643,7 +639,7 @@ static CFArrayRef
 createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 {
     CFMutableArrayRef	array;
-    int			count;
+    CFIndex		count;
     int			i;
     const void * * 	keys;
     int			space;
@@ -661,7 +657,7 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
     space = 0;
     for (i = 0; i < count; i++) {
-	char			err[256];
+	char			err[MAX_ERR_LEN];
 	char *			option_name;
 	CFRange			range;
 	dhcptag_t		tag;
@@ -696,7 +692,7 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	    goto loop_done;
 	}
 	this_data = myCFDataCreateWithTagAndCFType(tag, (CFTypeRef)this_value,
-						   err);
+						   err, sizeof(err));
 	if (this_data != NULL) {
 	    CFMutableDictionaryRef	dict;
 	    CFNumberRef			num;
@@ -744,7 +740,7 @@ static OptionTLVRef
 copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list, 
 				    OptionTLVRef list, int buf_space)
 {
-    int			count;
+    CFIndex		count;
     int			i;
     char *		start_options;
 
@@ -754,11 +750,11 @@ copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list,
 	if (S_use_syslog) {
 	    syslog(S_log_level,
 		   "copyOptionsDataArrayToOptionTLVList %d < %d",
-		   buf_space, (int)sizeof(OptionTLV) * count);
+		   buf_space, (int)(sizeof(OptionTLV) * count));
 	}
 	else {
 	    fprintf(stderr, "copyOptionsDataArrayToOptionTLVList %d < %d\n",
-		    buf_space, (int)sizeof(OptionTLV) * count);
+		    buf_space, (int)(sizeof(OptionTLV) * count));
 	}
 	return (NULL);
     }
@@ -773,7 +769,7 @@ copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list,
 	data = CFDictionaryGetValue(dict, kOptionData);
 	(void)CFNumberGetValue(CFDictionaryGetValue(dict, kOptionTag),
 			       kCFNumberIntType, &tag);
-	this_length = CFDataGetLength(data);
+	this_length = (int)CFDataGetLength(data);
 	list[i].tag = tag;
 	list[i].length = this_length;
 	list[i].value = start_options;
@@ -867,7 +863,7 @@ SubnetGetMask(SubnetRef subnet)
 }
 
 static SubnetRef
-SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
+SubnetCreateWithDictionary(CFDictionaryRef plist, char * err, int err_len)
 {
     struct in_addr	net_address;
     struct in_addr	net_mask;
@@ -886,7 +882,7 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
 
     if (isA_CFDictionary(plist) == NULL) {
 	if (err != NULL) {
-	    strcpy(err, "subnet element is not a dictionary");
+	    strlcpy(err, "subnet element is not a dictionary", err_len);
 	    return (NULL);
 	}
     }
@@ -899,7 +895,8 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (name_prop != NULL) {
 	if (isA_CFString(name_prop) == NULL) {
 	    if (err != NULL) {
-		strcpy(err, "Invalid '" SUBNET_PROP_NAME "' property");
+		strlcpy(err, "Invalid '" SUBNET_PROP_NAME "' property", 
+			err_len);
 	    }
 	    goto failed;
 	}
@@ -918,7 +915,8 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (supernet_prop != NULL) {
 	if (isA_CFString(supernet_prop) == NULL) {
 	    if (err != NULL) {
-		strcpy(err, "Invalid '" SUBNET_PROP_SUPERNET "' property");
+		strlcpy(err, "Invalid '" SUBNET_PROP_SUPERNET "' property", 
+			err_len);
 	    }
 	    goto failed;
 	}
@@ -937,8 +935,9 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (isA_CFString(prop_val) == NULL
 	|| my_CFStringToIPAddress(prop_val, &net_address) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err,
-		   "Invalid/missing '" SUBNET_PROP_NET_ADDRESS "' property");
+	    strlcpy(err,
+		   "Invalid/missing '" SUBNET_PROP_NET_ADDRESS "' property", 
+		   err_len);
 	}
 	goto failed;
     }
@@ -948,8 +947,9 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (isA_CFString(prop_val) == NULL
 	|| my_CFStringToIPAddress(prop_val, &net_mask) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err,
-		   "Invalid/missing '" SUBNET_PROP_NET_MASK "' property");
+	    strlcpy(err,
+		   "Invalid/missing '" SUBNET_PROP_NET_MASK "' property", 
+		   err_len);
 	}
 	goto failed;
     }
@@ -958,15 +958,18 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     net_range_prop = CFDictionaryGetValue(plist, CFSTR(SUBNET_PROP_NET_RANGE));
     if (isA_CFArray(net_range_prop) == NULL) {
 	if (err != NULL) {
-	    strcpy(err,
-		   "Invalid/missing '" SUBNET_PROP_NET_RANGE "' property");
+	    strlcpy(err,
+		    "Invalid/missing '" SUBNET_PROP_NET_RANGE "' property", 
+		    err_len);
 	}
 	goto failed;
     }
     if (CFArrayGetCount(net_range_prop) != 2) {
 	if (err != NULL) {
-	    strcpy(err,
-		   "'" SUBNET_PROP_NET_RANGE "' property must specify 2 values");
+	    strlcpy(err,
+		    "'" 
+		    SUBNET_PROP_NET_RANGE "' property must specify 2 values",
+		    err_len);
 	}
 	goto failed;
     }
@@ -974,7 +977,8 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (isA_CFString(prop_val) == NULL
 	|| my_CFStringToIPAddress(prop_val, &net_range.start) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err, "Invalid '" SUBNET_PROP_NET_RANGE "' range start");
+	    strlcpy(err, "Invalid '" SUBNET_PROP_NET_RANGE "' range start", 
+		    err_len);
 	}
 	goto failed;
     }
@@ -982,32 +986,35 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (isA_CFString(prop_val) == NULL
 	|| my_CFStringToIPAddress(prop_val, &net_range.end) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err, "Invalid '" SUBNET_PROP_NET_RANGE "' range end");
+	    strlcpy(err, "Invalid '" SUBNET_PROP_NET_RANGE "' range end", 
+		    err_len);
 	}
 	goto failed;
     }
     if (in_subnet(net_address, net_mask, net_range.start) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err, "'" SUBNET_PROP_NET_RANGE "' start not within subnet");
+	    strlcpy(err, "'" SUBNET_PROP_NET_RANGE "' start not within subnet", 
+		    err_len);
 	}
 	goto failed;
     }
     if (in_subnet(net_address, net_mask, net_range.end) == FALSE) {
 	if (err != NULL) {
-	    strcpy(err, "'" SUBNET_PROP_NET_RANGE "' end not within subnet");
+	    strlcpy(err, "'" SUBNET_PROP_NET_RANGE "' end not within subnet", 
+		    err_len);
 	}
 	goto failed;
     }
     if (name_space == 0) {
 	name_prop = NULL;
-	name_space = strlen(inet_nettoa(net_address, net_mask)) + 1;
+	name_space = (int)strlen(inet_nettoa(net_address, net_mask)) + 1;
 	tail_space += name_space;
     }
 
     option_list = createOptionsDataArrayFromDictionary(plist, &option_space);
     if (option_list != NULL) {
 	option_space = roundup(option_space, sizeof(char *))
-	    + CFArrayGetCount(option_list) * sizeof(OptionTLV);
+	    + (int)CFArrayGetCount(option_list) * sizeof(OptionTLV);
 	tail_space += option_space;
     }
     subnet = malloc(sizeof(*subnet) + tail_space);
@@ -1022,7 +1029,7 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
 
     /* copy the options */
     if (option_list != NULL) {
-	subnet->options_count = CFArrayGetCount(option_list);
+	subnet->options_count = (int)CFArrayGetCount(option_list);
 	/* ALIGN: offset aligned (from malloc), cast safe. */
 	subnet->options = 
 	    copyOptionsDataArrayToOptionTLVList(option_list, (void *)offset,
@@ -1127,8 +1134,8 @@ SubnetFree(SubnetRef subnet)
 SubnetListRef
 SubnetListCreateWithArray(CFArrayRef list)
 {
-    char			err[256];
-    int				count;
+    char			err[MAX_ERR_LEN];
+    CFIndex			count;
     int				i;
     SubnetListRef		subnets = NULL;
 
@@ -1153,7 +1160,7 @@ SubnetListCreateWithArray(CFArrayRef list)
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
 	SubnetRef	entry;
 
-	entry = SubnetCreateWithDictionary(dict, err);
+	entry = SubnetCreateWithDictionary(dict, err, sizeof(err));
 	if (entry == NULL) {
 	    if (S_use_syslog) {
 		syslog(S_log_level,

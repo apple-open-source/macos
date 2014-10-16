@@ -26,7 +26,7 @@
 #ifndef WKCookieManager_h
 #define WKCookieManager_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,31 +35,45 @@ extern "C" {
 enum {
     kWKHTTPCookieAcceptPolicyAlways = 0,
     kWKHTTPCookieAcceptPolicyNever = 1,
-    kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain = 2
+    kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain = 2,
+    kWKHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain = 3
 };
 typedef uint32_t WKHTTPCookieAcceptPolicy;
 
 // Cookie Manager Client
 typedef void (*WKCookieManagerCookiesDidChangeCallback)(WKCookieManagerRef cookieManager, const void *clientInfo);
 
-struct WKCookieManagerClient {
+typedef struct WKCookieManagerClientBase {
     int                                                                 version;
     const void *                                                        clientInfo;
-    WKCookieManagerCookiesDidChangeCallback                             cookiesDidChange;
-};
-typedef struct WKCookieManagerClient WKCookieManagerClient;
+} WKCookieManagerClientBase;
 
-enum { kWKCookieManagerClientCurrentVersion = 0 };
+typedef struct WKCookieManagerClientV0 {
+    WKCookieManagerClientBase                                           base;
+
+    // Version 0.
+    WKCookieManagerCookiesDidChangeCallback                             cookiesDidChange;
+} WKCookieManagerClientV0;
+
+enum { kWKCookieManagerClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 0 };
+typedef struct WKCookieManagerClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
+
+    // Version 0.
+    WKCookieManagerCookiesDidChangeCallback                             cookiesDidChange;
+} WKCookieManagerClient WK_DEPRECATED("Use an explicit versioned struct instead");
 
 WK_EXPORT WKTypeID WKCookieManagerGetTypeID();
 
-WK_EXPORT void WKCookieManagerSetClient(WKCookieManagerRef cookieManager, const WKCookieManagerClient* client);
+WK_EXPORT void WKCookieManagerSetClient(WKCookieManagerRef cookieManager, const WKCookieManagerClientBase* client);
 
 typedef void (*WKCookieManagerGetCookieHostnamesFunction)(WKArrayRef, WKErrorRef, void*);
 WK_EXPORT void WKCookieManagerGetHostnamesWithCookies(WKCookieManagerRef cookieManager, void* context, WKCookieManagerGetCookieHostnamesFunction function);
 
 WK_EXPORT void WKCookieManagerDeleteCookiesForHostname(WKCookieManagerRef cookieManager, WKStringRef hostname);
 WK_EXPORT void WKCookieManagerDeleteAllCookies(WKCookieManagerRef cookieManager);
+WK_EXPORT void WKCookieManagerDeleteAllCookiesModifiedAfterDate(WKCookieManagerRef cookieManager, double);
 
 WK_EXPORT void WKCookieManagerSetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, WKHTTPCookieAcceptPolicy policy);
 typedef void (*WKCookieManagerGetHTTPCookieAcceptPolicyFunction)(WKHTTPCookieAcceptPolicy, WKErrorRef, void*);

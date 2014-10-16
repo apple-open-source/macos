@@ -55,11 +55,11 @@ static struct builtin builtins[] =
     BUILTIN("continue", BINF_PSPECIAL, bin_break, 0, 1, BIN_CONTINUE, NULL, NULL),
     BUILTIN("declare", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "AE:%F:%HL:%R:%TUZ:%afghi:%klmprtuxz", NULL),
     BUILTIN("dirs", 0, bin_dirs, 0, -1, 0, "clpv", NULL),
-    BUILTIN("disable", 0, bin_enable, 0, -1, BIN_DISABLE, "afmrs", NULL),
+    BUILTIN("disable", 0, bin_enable, 0, -1, BIN_DISABLE, "afmprs", NULL),
     BUILTIN("disown", 0, bin_fg, 0, -1, BIN_DISOWN, NULL, NULL),
     BUILTIN("echo", BINF_SKIPINVALID, bin_print, 0, -1, BIN_ECHO, "neE", "-"),
     BUILTIN("emulate", 0, bin_emulate, 0, -1, 0, "LR", NULL),
-    BUILTIN("enable", 0, bin_enable, 0, -1, BIN_ENABLE, "afmrs", NULL),
+    BUILTIN("enable", 0, bin_enable, 0, -1, BIN_ENABLE, "afmprs", NULL),
     BUILTIN("eval", BINF_PSPECIAL, bin_eval, 0, -1, BIN_EVAL, NULL, NULL),
     BUILTIN("exit", BINF_PSPECIAL, bin_break, 0, 1, BIN_EXIT, NULL, NULL),
     BUILTIN("export", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, BIN_EXPORT, "E:%F:%HL:%R:%TUZ:%afhi:%lprtu", "xg"),
@@ -467,7 +467,9 @@ bin_enable(char *name, char **argv, Options ops, int func)
     int match = 0, returnval = 0;
 
     /* Find out which hash table we are working with. */
-    if (OPT_ISSET(ops,'f'))
+    if (OPT_ISSET(ops,'p')) {
+	return pat_enables(name, argv, func == BIN_ENABLE);
+    } else if (OPT_ISSET(ops,'f'))
 	ht = shfunctab;
     else if (OPT_ISSET(ops,'r'))
 	ht = reswdtab;
@@ -937,11 +939,16 @@ cd_do_chdir(char *cnam, char *dest, int hard)
      * DOS style names with drives in them
      */
     static char buf[PATH_MAX];
+#ifdef HAVE_CYGWIN_CONV_PATH
+    cygwin_conv_path(CCP_WIN_A_TO_POSIX | CCP_RELATIVE, dest, buf,
+		     PATH_MAX);
+#else
 #ifndef _SYS_CYGWIN_H
     void cygwin_conv_to_posix_path(const char *, char *);
 #endif
 
     cygwin_conv_to_posix_path(dest, buf);
+#endif
     dest = buf;
 #endif
     nocdpath = dest[0] == '.' &&
@@ -1118,7 +1125,8 @@ cd_try_chdir(char *pfix, char *dest, int hard)
      * argument to cd relatively.  This is useful if the cwd
      * or a parent directory is renamed in the interim.
      */
-    if (lchdir(buf, NULL, hard) && lchdir(dest, NULL, hard)) {
+    if (lchdir(buf, NULL, hard) &&
+	(pfix || *dest == '/' || lchdir(dest, NULL, hard))) {
 	free(buf);
 	return NULL;
     }
@@ -2470,7 +2478,7 @@ bin_typeset(char *name, char **argv, Options ops, int func)
 			setsparam(asg0.name, ztrdup(asg0.value));
 		    return 0;
 		} else {
-		    zerrnam(name, "can't tie already tied scalar: %s",
+		    zwarnnam(name, "can't tie already tied scalar: %s",
 			    asg0.name);
 		}
 		return 1;
@@ -2680,7 +2688,7 @@ bin_functions(char *name, char **argv, Options ops, int func)
     Patprog pprog;
     Shfunc shf;
     int i, returnval = 0;
-    int on = 0, off = 0, pflags = 0;
+    int on = 0, off = 0, pflags = 0, roff;
 
     /* Do we have any flags defined? */
     if (OPT_PLUS(ops,'u'))
@@ -2699,16 +2707,21 @@ bin_functions(char *name, char **argv, Options ops, int func)
 	on |= PM_TAGGED_LOCAL;
     else if (OPT_PLUS(ops,'T'))
 	off |= PM_TAGGED_LOCAL;
+    roff = off;
     if (OPT_MINUS(ops,'z')) {
 	on |= PM_ZSHSTORED;
 	off |= PM_KSHSTORED;
-    } else if (OPT_PLUS(ops,'z'))
+    } else if (OPT_PLUS(ops,'z')) {
 	off |= PM_ZSHSTORED;
+	roff |= PM_ZSHSTORED;
+    }
     if (OPT_MINUS(ops,'k')) {
 	on |= PM_KSHSTORED;
 	off |= PM_ZSHSTORED;
-    } else if (OPT_PLUS(ops,'k'))
+    } else if (OPT_PLUS(ops,'k')) {
 	off |= PM_KSHSTORED;
+	roff |= PM_KSHSTORED;
+    }
 
     if ((off & PM_UNDEFINED) || (OPT_ISSET(ops,'k') && OPT_ISSET(ops,'z')) ||
 	(OPT_MINUS(ops,'X') && (OPT_ISSET(ops,'m') || *argv || !scriptname))) {
@@ -2716,7 +2729,7 @@ bin_functions(char *name, char **argv, Options ops, int func)
 	return 1;
     }
 
-    if (OPT_PLUS(ops,'f') || OPT_ISSET(ops,'+'))
+    if (OPT_PLUS(ops,'f') || roff || OPT_ISSET(ops,'+'))
 	pflags |= PRINT_NAMEONLY;
 
     if (OPT_MINUS(ops,'M') || OPT_PLUS(ops,'M')) {
@@ -3785,11 +3798,11 @@ bin_print(char *name, char **args, Options ops, int func)
 
     /* -u and -p -- output to other than standard output */
     if (OPT_HASARG(ops,'u') || OPT_ISSET(ops,'p')) {
-	int fd;
+	int fdarg, fd;
 
 	if (OPT_ISSET(ops, 'p')) {
-	    fd = coprocout;
-	    if (fd < 0) {
+	    fdarg = coprocout;
+	    if (fdarg < 0) {
 		zwarnnam(name, "-p: no coprocess");
 		return 1;
 	    }
@@ -3797,13 +3810,13 @@ bin_print(char *name, char **args, Options ops, int func)
 	    char *argptr = OPT_ARG(ops,'u'), *eptr;
 	    /* Handle undocumented feature that -up worked */
 	    if (!strcmp(argptr, "p")) {
-		fd = coprocout;
-		if (fd < 0) {
+		fdarg= coprocout;
+		if (fdarg < 0) {
 		    zwarnnam(name, "-p: no coprocess");
 		    return 1;
 		}
 	    } else {
-		fd = (int)zstrtol(argptr, &eptr, 10);
+		fdarg = (int)zstrtol(argptr, &eptr, 10);
 		if (*eptr) {
 		    zwarnnam(name, "number expected after -%c: %s", 'u',
 			     argptr);
@@ -3812,8 +3825,8 @@ bin_print(char *name, char **args, Options ops, int func)
 	    }
 	}
 
-	if ((fd = dup(fd)) < 0) {
-	    zwarnnam(name, "bad file number: %d", fd);
+	if ((fd = dup(fdarg)) < 0) {
+	    zwarnnam(name, "bad file number: %d", fdarg);
 	    return 1;
 	}
 	if ((fout = fdopen(fd, "w")) == 0) {
@@ -5015,6 +5028,7 @@ bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
     int opt_R = OPT_ISSET(ops, 'R');
     int saveemulation, savehackchar;
     int ret = 1, new_emulation;
+    unsigned int savepatterns;
     char saveopts[OPT_SIZE], new_opts[OPT_SIZE];
     char *cmd = 0;
     const char *shname = *argv;
@@ -5056,7 +5070,8 @@ bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
     if (!argv[1]) {
 	emulate(shname, OPT_ISSET(ops,'R'), &emulation, opts);
 	if (OPT_ISSET(ops,'L'))
-	    opts[LOCALOPTIONS] = opts[LOCALTRAPS] = 1;
+	    opts[LOCALOPTIONS] = opts[LOCALTRAPS] = opts[LOCALPATTERNS] = 1;
+	clearpatterndisables();
 	return 0;
     }
 
@@ -5076,6 +5091,13 @@ bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
 	zwarnnam("emulate", "unknown argument %s", *argv);
 	goto restore;
     }
+
+    savepatterns = savepatterndisables();
+    /*
+     * All emulations start with an empty set of pattern disables,
+     * hence no special "sticky" behaviour is required.
+     */
+    clearpatterndisables();
 
     saveemulation = emulation;
     emulation = new_emulation;
@@ -5126,6 +5148,7 @@ bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
     sticky = save_sticky;
     emulation = saveemulation;
     memcpy(opts, saveopts, sizeof(opts));
+    restorepatterndisables(savepatterns);
 restore:
     keyboardhackchar = savehackchar;
     inittyptab();	/* restore banghist */
@@ -5490,6 +5513,8 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 		eof = 2;
 	    else
 		eof = (bptr - buf != 1 || (buf[0] != 'y' && buf[0] != 'Y'));
+	    buf[0] = eof ? 'n' : 'y';
+	    bptr = buf + 1;
 	}
 	if (OPT_ISSET(ops,'e') || OPT_ISSET(ops,'E'))
 	    fwrite(buf, bptr - buf, 1, stdout);
@@ -5667,7 +5692,7 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	    zputs(buf, stdout);
 	    putchar('\n');
 	}
-	if (!OPT_ISSET(ops,'e') && (*buf || first)) {
+	if (!OPT_ISSET(ops,'e') && (*buf || first || gotnl)) {
 	    if (OPT_ISSET(ops,'A')) {
 		addlinknode(readll, buf);
 		al++;
@@ -5970,7 +5995,7 @@ bin_test(char *name, char **argv, UNUSED(Options ops), int func)
     char **s;
     Eprog prog;
     struct estate state;
-    int nargs;
+    int nargs, sense = 0, ret;
 
     /* if "test" was invoked as "[", it needs a matching "]" *
      * which is subsequently ignored                         */
@@ -5989,13 +6014,17 @@ bin_test(char *name, char **argv, UNUSED(Options ops), int func)
     /*
      * Implement some XSI extensions to POSIX here.
      * See
-     * http://www.opengroup.org/onlinepubs/009695399/utilities/test.html.
+     * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
      */
     nargs = arrlen(argv);
     if (nargs == 3 || nargs == 4)
     {
 	if (*argv[0] == '(' && *argv[nargs-1] == ')') {
 	    argv[nargs-1] = NULL;
+	    argv++;
+	}
+	if (nargs == 4 && !strcmp("!", argv[0])) {
+	    sense = 1;
 	    argv++;
 	}
     }
@@ -6032,8 +6061,11 @@ bin_test(char *name, char **argv, UNUSED(Options ops), int func)
     state.pc = prog->prog;
     state.strs = prog->strs;
 
+    ret = evalcond(&state, name);
+    if (ret < 2 && sense)
+	ret = ! ret;
 
-    return evalcond(&state, name);
+    return ret;
 }
 
 /* display a time, provided in units of 1/60s, as minutes and seconds */

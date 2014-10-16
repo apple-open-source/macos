@@ -5,14 +5,20 @@ export SHELL := /bin/sh
 ##############################################################################
 
 export OS_VERSION              := $(shell /usr/bin/sw_vers -buildVersion | sed -E 's/[A-Z][0-9]+[A-Za-z]*$$//g')
-export OS_VERSIONS_SUPPORTED   := 11 12 13
 export PERL_VERSIONS_FILE_PATH := /usr/local/versioner/perl/versions
+PERL_VERSIONS_FILE_PATH := $(or $(join $(SDKROOT),$(PERL_VERSIONS_FILE_PATH)),$(PERL_VERSIONS_FILE_PATH))
+
 export PERL_VERSIONS_AVAILABLE := $(sort $(shell grep -v '^DEFAULT = ' $(PERL_VERSIONS_FILE_PATH)))
 
-ifeq ($(OS_VERSION), 13)
-    # 5.16 is manually added to ensure it is included in the list of supported
+# Allow CPANInternal to build on Mac OS X versions greater than 13.
+#ifeq ($(shell /bin/test $(OS_VERSION) -gt 13; echo $$?), 0)
+#    OS_VERSION := 13
+#endif
+
+ifeq ($(OS_VERSION), 14)
+    # 5.18 is manually added to ensure it is included in the list of supported
     # Perl versions
-    PERL_VERSIONS_AVAILABLE := $(sort 5.16 $(PERL_VERSIONS_AVAILABLE))
+    PERL_VERSIONS_AVAILABLE := $(sort 5.18 $(PERL_VERSIONS_AVAILABLE))
 endif
 
 ##############################################################################

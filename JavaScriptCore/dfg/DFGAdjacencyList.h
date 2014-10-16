@@ -26,8 +26,6 @@
 #ifndef DFGAdjacencyList_h
 #define DFGAdjacencyList_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
@@ -98,6 +96,15 @@ public:
     void setChild3(Edge nodeUse) { setChild(2, nodeUse); }
     
     Edge child1Unchecked() const { return m_words[0]; }
+    
+    Edge justOneChild() const
+    {
+        if (!!child1() && !child2()) {
+            ASSERT(!child3());
+            return child1();
+        }
+        return Edge();
+    }
     
     void initialize(Edge child1, Edge child2, Edge child3)
     {

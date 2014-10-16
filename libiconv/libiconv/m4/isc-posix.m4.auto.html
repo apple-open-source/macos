@@ -1,0 +1,49 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>isc-posix.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">isc-posix.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># isc-posix.m4 serial 2 (gettext-0.11.2)
+</span><span class="enscript-comment">dnl Copyright (C) 1995-2002 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment"># This file is not needed with autoconf-2.53 and newer.  Remove it in 2005.
+</span>
+<span class="enscript-comment"># This test replaces the one in autoconf.
+</span><span class="enscript-comment"># Currently this macro should have the same name as the autoconf macro
+</span><span class="enscript-comment"># because gettext's gettext.m4 (distributed in the automake package)
+</span><span class="enscript-comment"># still uses it.  Otherwise, the use in gettext.m4 makes autoheader
+</span><span class="enscript-comment"># give these diagnostics:
+</span><span class="enscript-comment">#   configure.in:556: AC_TRY_COMPILE was called before AC_ISC_POSIX
+</span><span class="enscript-comment">#   configure.in:556: AC_TRY_RUN was called before AC_ISC_POSIX
+</span>
+<span class="enscript-keyword">undefine</span>([AC_ISC_POSIX])
+
+AC_DEFUN([AC_ISC_POSIX],
+  [
+    <span class="enscript-comment">dnl This test replaces the obsolescent AC_ISC_POSIX kludge.
+</span>    AC_CHECK_LIB(cposix, strerror, [LIBS=&quot;$LIBS -lcposix&quot;])
+  ]
+)
+</pre>
+<hr />
+</body></html>

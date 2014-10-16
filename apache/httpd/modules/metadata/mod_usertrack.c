@@ -62,6 +62,7 @@
 #include "http_config.h"
 #include "http_core.h"
 #include "http_request.h"
+#include "http_log.h"
 
 
 module AP_MODULE_DECLARE_DATA usertrack_module;
@@ -81,8 +82,8 @@ typedef enum {
 typedef struct {
     int enabled;
     cookie_type_e style;
-    char *cookie_name;
-    char *cookie_domain;
+    const char *cookie_name;
+    const char *cookie_domain;
     char *regexp_string;  /* used to compile regexp; save for debugging */
     ap_regex_t *regexp;  /* used to find usertrack cookie in cookie header */
 } cookie_dir_rec;
@@ -96,19 +97,16 @@ static void make_cookie(request_rec *r)
 {
     cookie_log_state *cls = ap_get_module_config(r->server->module_config,
                                                  &usertrack_module);
-    /* 1024 == hardcoded constant */
-    char cookiebuf[1024];
+    char cookiebuf[2 * (sizeof(apr_uint64_t) + sizeof(int)) + 2];
+    unsigned int random;
+    apr_time_t now = r->request_time ? r->request_time : apr_time_now();
     char *new_cookie;
-    const char *rname = ap_get_remote_host(r->connection, r->per_dir_config,
-                                           REMOTE_NAME, NULL);
     cookie_dir_rec *dcfg;
 
+    ap_random_insecure_bytes(&random, sizeof(random));
+    apr_snprintf(cookiebuf, sizeof(cookiebuf), "%x.%" APR_UINT64_T_HEX_FMT,
+                 random, (apr_uint64_t)now);
     dcfg = ap_get_module_config(r->per_dir_config, &usertrack_module);
-
-    /* XXX: hmm, this should really tie in with mod_unique_id */
-    apr_snprintf(cookiebuf, sizeof(cookiebuf), "%s.%" APR_TIME_T_FMT, rname,
-                 apr_time_now());
-
     if (cls->expires) {
 
         /* Cookie with date; as strftime '%a, %d-%h-%y %H:%M:%S GMT' */
@@ -146,7 +144,7 @@ static void make_cookie(request_rec *r)
                                  NULL);
     }
 
-    apr_table_addn(r->headers_out,
+    apr_table_addn(r->err_headers_out,
                    (dcfg->style == CT_COOKIE2 ? "Set-Cookie2" : "Set-Cookie"),
                    new_cookie);
     apr_table_setn(r->notes, "cookie", apr_pstrdup(r->pool, cookiebuf));   /* log first time */
@@ -219,6 +217,7 @@ static int spot_cookie(request_rec *r)
     if ((cookie_header = apr_table_get(r->headers_in, "Cookie"))) {
         if (!ap_regexec(dcfg->regexp, cookie_header, NUM_SUBS, regm, 0)) {
             char *cookieval = NULL;
+            int err = 0;
             /* Our regexp,
              * ^cookie_name=([^;]+)|;[ \t]+cookie_name=([^;]+)
              * only allows for $1 or $2 to be available. ($0 is always
@@ -228,10 +227,19 @@ static int spot_cookie(request_rec *r)
             if (regm[1].rm_so != -1) {
                 cookieval = ap_pregsub(r->pool, "$1", cookie_header,
                                        NUM_SUBS, regm);
+                if (cookieval == NULL)
+                    err = 1;
             }
             if (regm[2].rm_so != -1) {
                 cookieval = ap_pregsub(r->pool, "$2", cookie_header,
                                        NUM_SUBS, regm);
+                if (cookieval == NULL)
+                    err = 1;
+            }
+            if (err) {
+                ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, APLOGNO(01499)
+                              "Failed to extract cookie value (out of mem?)");
+                return HTTP_INTERNAL_SERVER_ERROR;
             }
             /* Set the cookie in a note, for logging */
             apr_table_setn(r->notes, "cookie", cookieval);
@@ -318,7 +326,6 @@ static const char *set_cookie_exp(cmd_parms *parms, void *dummy,
         if (!word[0])
             return "bad expires code, missing <type>";
 
-        factor = 0;
         if (!strncasecmp(word, "years", 1))
             factor = 60 * 60 * 24 * 365;
         else if (!strncasecmp(word, "months", 2))
@@ -352,7 +359,7 @@ static const char *set_cookie_name(cmd_parms *cmd, void *mconfig,
 {
     cookie_dir_rec *dcfg = (cookie_dir_rec *) mconfig;
 
-    dcfg->cookie_name = apr_pstrdup(cmd->pool, name);
+    dcfg->cookie_name = name;
 
     set_and_comp_regexp(dcfg, cmd->pool, name);
 
@@ -380,7 +387,7 @@ static const char *set_cookie_domain(cmd_parms *cmd, void *mconfig,
     /*
      * Apply the restrictions on cookie domain attributes.
      */
-    if (strlen(name) == 0) {
+    if (!name[0]) {
         return "CookieDomain values may not be null";
     }
     if (name[0] != '.') {
@@ -390,7 +397,7 @@ static const char *set_cookie_domain(cmd_parms *cmd, void *mconfig,
         return "CookieDomain values must contain at least one embedded dot";
     }
 
-    dcfg->cookie_domain = apr_pstrdup(cmd->pool, name);
+    dcfg->cookie_domain = name;
     return NULL;
 }
 
@@ -439,10 +446,10 @@ static const command_rec cookie_log_cmds[] = {
 
 static void register_hooks(apr_pool_t *p)
 {
-    ap_hook_fixups(spot_cookie,NULL,NULL,APR_HOOK_FIRST);
+    ap_hook_fixups(spot_cookie,NULL,NULL,APR_HOOK_REALLY_FIRST);
 }
 
-module AP_MODULE_DECLARE_DATA usertrack_module = {
+AP_DECLARE_MODULE(usertrack) = {
     STANDARD20_MODULE_STUFF,
     make_cookie_dir,            /* dir config creater */
     NULL,                       /* dir merger --- default is to override */

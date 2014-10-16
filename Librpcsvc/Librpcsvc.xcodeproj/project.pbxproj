@@ -20,10 +20,17 @@
 		};
 /* End PBXAggregateTarget section */
 
+/* Begin PBXFileReference section */
+		3F213E9D186CFB3400F06648 /* Librpcsvc.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Librpcsvc.xcconfig; path = xcodescripts/Librpcsvc.xcconfig; sourceTree = "<group>"; };
+		3F213E9E186CFB4D00F06648 /* install_rpcsvc.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = install_rpcsvc.sh; path = xcodescripts/install_rpcsvc.sh; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
 /* Begin PBXGroup section */
 		FD55DA7314CE048B00F84D24 = {
 			isa = PBXGroup;
 			children = (
+				3F213E9D186CFB3400F06648 /* Librpcsvc.xcconfig */,
+				3F213E9E186CFB4D00F06648 /* install_rpcsvc.sh */,
 			);
 			sourceTree = "<group>";
 		};
@@ -55,7 +62,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		FD55DADC14CE0B0700F84D24 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
@@ -63,16 +70,16 @@
 			name = "Run Script";
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = ". \"$SRCROOT\"/xcodescripts/install_rpcsvc.sh";
-			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		FD55DA7B14CE048B00F84D24 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F213E9D186CFB3400F06648 /* Librpcsvc.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;

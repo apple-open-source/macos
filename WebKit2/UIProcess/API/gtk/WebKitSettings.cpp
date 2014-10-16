@@ -31,6 +31,7 @@
 #include "config.h"
 #include "WebKitSettings.h"
 
+#include "ExperimentalFeatures.h"
 #include "WebKitPrivate.h"
 #include "WebKitSettingsPrivate.h"
 #include <WebCore/UserAgentGtk.h>
@@ -41,7 +42,7 @@ using namespace WebKit;
 
 struct _WebKitSettingsPrivate {
     _WebKitSettingsPrivate()
-        : preferences(WebPreferences::create())
+        : preferences(WebPreferences::create(String(), "WebKit2.", "WebKit2."))
     {
         defaultFontFamily = preferences->standardFontFamily().utf8();
         monospaceFontFamily = preferences->fixedFontFamily().utf8();
@@ -134,8 +135,19 @@ enum {
     PROP_USER_AGENT,
     PROP_ENABLE_SMOOTH_SCROLLING,
     PROP_ENABLE_ACCELERATED_2D_CANVAS,
-    PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT
+    PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT,
+    PROP_ENABLE_MEDIA_STREAM,
+    PROP_ENABLE_SPATIAL_NAVIGATION,
+    PROP_ENABLE_MEDIASOURCE
 };
+
+static void webKitSettingsConstructed(GObject* object)
+{
+    G_OBJECT_CLASS(webkit_settings_parent_class)->constructed(object);
+
+    WebPreferences* prefs = WEBKIT_SETTINGS(object)->priv->preferences.get();
+    prefs->setShouldRespectImageOrientation(true);
+}
 
 static void webKitSettingsSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
 {
@@ -283,6 +295,15 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         webkit_settings_set_enable_write_console_messages_to_stdout(settings, g_value_get_boolean(value));
         break;
+    case PROP_ENABLE_MEDIA_STREAM:
+        webkit_settings_set_enable_media_stream(settings, g_value_get_boolean(value));
+        break;
+    case PROP_ENABLE_SPATIAL_NAVIGATION:
+        webkit_settings_set_enable_spatial_navigation(settings, g_value_get_boolean(value));
+        break;
+    case PROP_ENABLE_MEDIASOURCE:
+        webkit_settings_set_enable_mediasource(settings, g_value_get_boolean(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
         break;
@@ -429,6 +450,16 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         g_value_set_boolean(value, webkit_settings_get_enable_write_console_messages_to_stdout(settings));
         break;
+    case PROP_ENABLE_MEDIA_STREAM:
+        g_value_set_boolean(value, webkit_settings_get_enable_media_stream(settings));
+        break;
+    case PROP_ENABLE_SPATIAL_NAVIGATION:
+        g_value_set_boolean(value, webkit_settings_get_enable_spatial_navigation(settings));
+        break;
+    case PROP_ENABLE_MEDIASOURCE:
+        g_value_set_boolean(value, webkit_settings_get_enable_mediasource(settings));
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
         break;
@@ -438,6 +469,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
 static void webkit_settings_class_init(WebKitSettingsClass* klass)
 {
     GObjectClass* gObjectClass = G_OBJECT_CLASS(klass);
+    gObjectClass->constructed = webKitSettingsConstructed;
     gObjectClass->set_property = webKitSettingsSetProperty;
     gObjectClass->get_property = webKitSettingsGetProperty;
 
@@ -861,15 +893,15 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      * Whether to enable the Javascript Fullscreen API. The API
      * allows any HTML element to request fullscreen display. See also
      * the current draft of the spec:
-     * http://dvcs.w3.org/hg/fullscreen/raw-file/tip/Overview.html
+     * http://www.w3.org/TR/fullscreen/
      */
     g_object_class_install_property(gObjectClass,
-                                    PROP_ENABLE_FULLSCREEN,
-                                    g_param_spec_boolean("enable-fullscreen",
-                                                         _("Enable Fullscreen"),
-                                                         _("Whether to enable the Javascriipt Fullscreen API"),
-                                                         FALSE,
-                                                         readWriteConstructParamFlags));
+        PROP_ENABLE_FULLSCREEN,
+        g_param_spec_boolean("enable-fullscreen",
+            _("Enable Fullscreen"),
+            _("Whether to enable the Javascript Fullscreen API"),
+            TRUE,
+            readWriteConstructParamFlags));
 
     /**
      * WebKitSettings:print-backgrounds:
@@ -1024,13 +1056,15 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      * workarounds. By turning on site-specific quirks, WebKit will
      * special-case this and other cases to make some specific sites work.
      */
-    g_object_class_install_property(gObjectClass,
-                                    PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
-                                    g_param_spec_boolean("enable-site-specific-quirks",
-                                                         _("Enable Site Specific Quirks"),
-                                                         _("Enables the site-specific compatibility workarounds"),
-                                                         FALSE,
-                                                         readWriteConstructParamFlags));
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
+        g_param_spec_boolean(
+            "enable-site-specific-quirks",
+            _("Enable Site Specific Quirks"),
+            _("Enables the site-specific compatibility workarounds"),
+            TRUE,
+            readWriteConstructParamFlags));
 
     /**
      * WebKitSettings:enable-page-cache:
@@ -1120,6 +1154,64 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             FALSE,
             readWriteConstructParamFlags));
 
+    /**
+     * WebKitSettings:enable-media-stream:
+     *
+     * Enable or disable support for MediaStream on pages. MediaStream
+     * is an experimental proposal for allowing web pages to access
+     * audio and video devices for capture.
+     *
+     * See also http://dev.w3.org/2011/webrtc/editor/getusermedia.html
+     *
+     * Since: 2.4
+     */
+    g_object_class_install_property(gObjectClass,
+        PROP_ENABLE_MEDIA_STREAM,
+        g_param_spec_boolean("enable-media-stream",
+            _("Enable MediaStream"),
+            _("Whether MediaStream content should be handled"),
+            FALSE,
+            readWriteConstructParamFlags));
+
+   /**
+     * WebKitSettings:enable-spatial-navigation:
+     *
+     * Whether to enable Spatial Navigation. This feature consists in the ability
+     * to navigate between focusable elements in a Web page, such as hyperlinks
+     * and form controls, by using Left, Right, Up and Down arrow keys.
+     * For example, if an user presses the Right key, heuristics determine whether
+     * there is an element they might be trying to reach towards the right, and if
+     * there are multiple elements, which element they probably wants.
+     *
+     * Since: 2.3
+     */
+    g_object_class_install_property(gObjectClass,
+        PROP_ENABLE_SPATIAL_NAVIGATION,
+        g_param_spec_boolean("enable-spatial-navigation",
+            _("Enable Spatial Navigation"),
+            _("Whether to enable Spatial Navigation support."),
+            FALSE,
+            readWriteConstructParamFlags));
+
+    /**
+     * WebKitSettings:enable-mediasource:
+     *
+     * Enable or disable support for MediaSource on pages. MediaSource is an
+     * experimental proposal which extends HTMLMediaElement to allow
+     * JavaScript to generate media streams for playback.  The standard is
+     * currently a work-in-progress by the W3C HTML Media Task Force.
+     *
+     * See also http://www.w3.org/TR/media-source/
+     *
+     * Since: 2.4
+     */
+    g_object_class_install_property(gObjectClass,
+        PROP_ENABLE_MEDIASOURCE,
+        g_param_spec_boolean("enable-mediasource",
+            _("Enable MediaSource"),
+            _("Whether MediaSource should be enabled."),
+            FALSE,
+            readWriteConstructParamFlags));
 }
 
 WebPreferences* webkitSettingsGetPreferences(WebKitSettings* settings)
@@ -2782,4 +2874,123 @@ void webkit_settings_set_enable_write_console_messages_to_stdout(WebKitSettings*
 
     priv->preferences->setLogsPageMessagesToSystemConsoleEnabled(enabled);
     g_object_notify(G_OBJECT(settings), "enable-write-console-messages-to-stdout");
+}
+
+/**
+ * webkit_settings_get_enable_media_stream:
+ * @settings: a #WebKitSettings
+ *
+ * Get the #WebKitSettings:enable-media-stream property.
+ *
+ * Returns: %TRUE If mediastream support is enabled or %FALSE otherwise.
+ *
+ * Since: 2.4
+ */
+gboolean webkit_settings_get_enable_media_stream(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return settings->priv->preferences->mediaStreamEnabled();
+}
+
+/**
+ * webkit_settings_set_enable_media_stream:
+ * @settings: a #WebKitSettings
+ * @enabled: Value to be set
+ *
+ * Set the #WebKitSettings:enable-media-stream property.
+ *
+ * Since: 2.4
+ */
+void webkit_settings_set_enable_media_stream(WebKitSettings* settings, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    bool currentValue = priv->preferences->mediaStreamEnabled();
+    if (currentValue == enabled)
+        return;
+
+    priv->preferences->setMediaStreamEnabled(enabled);
+    g_object_notify(G_OBJECT(settings), "enable-media-stream");
+}
+
+/**
+ * webkit_settings_set_enable_spatial_navigation:
+ * @settings: a #WebKitSettings
+ * @enabled: Value to be set
+ *
+ * Set the #WebKitSettings:enable-spatial-navigation property.
+ *
+ * Since: 2.2
+ */
+void webkit_settings_set_enable_spatial_navigation(WebKitSettings* settings, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    bool currentValue = priv->preferences->spatialNavigationEnabled();
+
+    if (currentValue == enabled)
+        return;
+
+    priv->preferences->setSpatialNavigationEnabled(enabled);
+    g_object_notify(G_OBJECT(settings), "enable-spatial-navigation");
+}
+
+
+/**
+ * webkit_settings_get_enable_spatial_navigation:
+ * @settings: a #WebKitSettings
+ *
+ * Get the #WebKitSettings:enable-spatial-navigation property.
+ *
+ * Returns: %TRUE If HTML5 spatial navigation support is enabled or %FALSE otherwise.
+ *
+ * Since: 2.2
+ */
+gboolean webkit_settings_get_enable_spatial_navigation(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return settings->priv->preferences->spatialNavigationEnabled();
+}
+
+/**
+ * webkit_settings_get_enable_mediasource:
+ * @settings: a #WebKitSettings
+ *
+ * Get the #WebKitSettings:enable-mediasource property.
+ *
+ * Returns: %TRUE If MediaSource support is enabled or %FALSE otherwise.
+ *
+ * Since: 2.4
+ */
+gboolean webkit_settings_get_enable_mediasource(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return settings->priv->preferences->mediaSourceEnabled();
+}
+
+/**
+ * webkit_settings_set_enable_mediasource:
+ * @settings: a #WebKitSettings
+ * @enabled: Value to be set
+ *
+ * Set the #WebKitSettings:enable-mediasource property.
+ *
+ * Since: 2.4
+ */
+void webkit_settings_set_enable_mediasource(WebKitSettings* settings, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    bool currentValue = priv->preferences->mediaSourceEnabled();
+    if (currentValue == enabled)
+        return;
+
+    priv->preferences->setMediaSourceEnabled(enabled);
+    g_object_notify(G_OBJECT(settings), "enable-mediasource");
 }

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -20,7 +20,7 @@
 *                                                                      *
 ***********************************************************************/
 #if __STDC__
-#include	"FEATURE/isoc99"
+#include	"FEATURE/standards"
 #endif
 #include	"sfhdr.h"
 
@@ -37,7 +37,9 @@ static char		*Zero = "0";
 #define SF_ZERO		((_Sfi = 1), strlcpy(buf, Zero, size), buf)
 #define SF_INTPART	(SF_IDIGITS/2)
 
-#if ! _lib_isnan
+#if !_lib_isnan
+#undef	isnan
+#undef	isnanl
 #if _lib_fpclassify
 #define isnan(n)	(fpclassify(n)==FP_NAN)
 #define isnanl(n)	(fpclassify(n)==FP_NAN)
@@ -46,27 +48,25 @@ static char		*Zero = "0";
 #define isnanl(n)	(memcmp((void*)&n,(void*)&_Sflnan,sizeof(n))==0)
 #endif
 #else
-#if ! _lib_isnanl
+#if !_lib_isnanl
+#undef	isnanl
 #define isnanl(n)	isnan(n)
 #endif
 #endif
 
-#if ! _lib_signbit && defined(signbit)
-#undef	_lib_signbit
-#define _lib_signbit	1
-#endif
-
-#if ! _lib_signbit
-#if ! _ast_fltmax_double
+#if !_lib_signbit
+#if !_ast_fltmax_double
 static int neg0ld(Sfdouble_t f)
 {
-	Sfdouble_t	z = -0.0;
+	Sfdouble_t	z = 0;
+	z = -z;
 	return !memcmp(&f, &z, sizeof(f));
 }
 #endif
 static int neg0d(double f)
 {
-	double		z = -0.0;
+	double		z = 0;
+	z = -z;
 	return !memcmp(&f, &z, sizeof(f));
 }
 #endif

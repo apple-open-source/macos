@@ -90,4 +90,9 @@
 
 #include <netdb.h>
 
+__BEGIN_DECLS
+extern int bindresvport(int, struct sockaddr_in *);
+extern int bindresvport_sa(int, struct sockaddr *);
+__END_DECLS
+
 #endif /* !_RPC_RPC_H */

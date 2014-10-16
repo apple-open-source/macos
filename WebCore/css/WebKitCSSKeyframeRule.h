@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,41 +27,39 @@
 #define WebKitCSSKeyframeRule_h
 
 #include "CSSRule.h"
+#include "StyleProperties.h"
 
 namespace WebCore {
 
 class CSSStyleDeclaration;
-class MutableStylePropertySet;
-class StylePropertySet;
 class StyleRuleCSSStyleDeclaration;
 class WebKitCSSKeyframesRule;
 
 class StyleKeyframe : public RefCounted<StyleKeyframe> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<StyleKeyframe> create()
+    static PassRefPtr<StyleKeyframe> create(PassRef<StyleProperties> properties)
     {
-        return adoptRef(new StyleKeyframe());
+        return adoptRef(new StyleKeyframe(WTF::move(properties)));
     }
     ~StyleKeyframe();
 
     String keyText() const { return m_key; }
     void setKeyText(const String& s) { m_key = s; }
 
-    void getKeys(Vector<float>& keys) const   { parseKeyString(m_key, keys); }
+    void getKeys(Vector<double>& keys) const   { parseKeyString(m_key, keys); }
     
-    const StylePropertySet* properties() const { return m_properties.get(); }
-    MutableStylePropertySet* mutableProperties();
-    void setProperties(PassRefPtr<StylePropertySet>);
+    const StyleProperties& properties() const { return m_properties.get(); }
+    MutableStyleProperties& mutableProperties();
     
     String cssText() const;
 
 private:
-    StyleKeyframe();
+    explicit StyleKeyframe(PassRef<StyleProperties>);
     
-    static void parseKeyString(const String&, Vector<float>& keys);
+    static void parseKeyString(const String&, Vector<double>& keys);
     
-    RefPtr<StylePropertySet> m_properties;
+    Ref<StyleProperties> m_properties;
     // FIXME: This should be a parsed vector of floats.
     // comma separated list of keys
     String m_key;
@@ -71,9 +69,9 @@ class WebKitCSSKeyframeRule : public CSSRule {
 public:
     virtual ~WebKitCSSKeyframeRule();
 
-    virtual CSSRule::Type type() const OVERRIDE { return WEBKIT_KEYFRAME_RULE; }
-    virtual String cssText() const OVERRIDE { return m_keyframe->cssText(); }
-    virtual void reattach(StyleRuleBase*) OVERRIDE;
+    virtual CSSRule::Type type() const override { return WEBKIT_KEYFRAME_RULE; }
+    virtual String cssText() const override { return m_keyframe->cssText(); }
+    virtual void reattach(StyleRuleBase*) override;
 
     String keyText() const { return m_keyframe->keyText(); }
     void setKeyText(const String& s) { m_keyframe->setKeyText(s); }

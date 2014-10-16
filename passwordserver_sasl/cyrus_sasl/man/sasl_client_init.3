@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_client_init "21 June 2001" SASL "SASL man pages"
+.TH sasl_client_init 3 "21 June 2001" SASL "SASL man pages"
 .SH NAME
 sasl_client_init \- SASL client authentication initialization
 
@@ -56,8 +56,8 @@ sasl_client_init \- SASL client authentication initialization
 initializes SASL. It must be called before any calls to
 sasl_client_start. This call initializes all SASL client drivers
 (e.g. authentication mechanisms). These are usually found in the
-/usr/lib/sasl directory but the directory may be overriden with the
-SASL_PATH enviornment variable.
+/usr/lib/sasl2 directory but the directory may be overridden with the
+SASL_PATH environment variable.
 .PP
 .I callbacks
 specifies the base callbacks for all client connections. See the sasl_callbacks man page for more information
@@ -83,6 +83,6 @@ Error in config file
 Not enough memory to complete operation
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_callbacks(3), sasl_client_new(3), sasl_client_start(3), sasl_client_step(3)

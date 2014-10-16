@@ -4,12 +4,13 @@
 <dict>
 	<key>EnableTransactions</key>
 	<true/>
-	<key>HopefullyExitsLast</key>
-	<true/>
 	<key>Label</key>
 	<string>com.apple.dynamic_pager</string>
-	<key>OnDemand</key>
-	<false/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
 	<key>ProgramArguments</key>

@@ -36,10 +36,9 @@ class IOHIDElement: public OSCollection
 {
     OSDeclareAbstractStructors( IOHIDElement )
     
+    /* Internal use only  */
     struct ExpansionData { 
     };
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
     ExpansionData *             _reserved;
 
 

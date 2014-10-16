@@ -1,0 +1,135 @@
+"system.preferences.accounts" = "Unlock";
+
+"com.apple.SoftwareUpdate.scan" = "Check";
+
+"system.preferences.datetime" = "Unlock";
+
+"system.identity.write.credential" = "Update Credentials";
+
+"com.apple.appserver.privilege.admin" = "Modify Settings";
+
+"system.privilege.taskport.safe" = "Take Control";
+
+"com.apple.DiskManagement.internal." = "Modify Disk";
+
+"system.print.operator" = "Allow Printing";
+
+"com.apple.AOSNotification.FindMyMac.modify" = "Allow";
+
+"system.printingmanager" = "Print";
+
+"com.apple.DiskManagement.reserveKEK" = "Modify Disk";
+
+"system.services.systemconfiguration.network" = "Modify Configuration";
+
+"sys.openfile." = "Open";
+
+"com.apple.OpenScripting.additions.send" = "Send Commands";
+
+"com.apple.library-repair" = "Repair";
+
+"com.apple.XType.fontmover.restore" = "Restore";
+
+"system.csfde.requestpassword" = "Unlock";
+
+"system.sharepoints." = "Modify Preferences";
+
+"system.preferences.energysaver" = "Unlock";
+
+"system.install.apple-software" = "Install Software";
+
+"com.apple.security.assessment.update" = "Modify Settings";
+
+"com.apple.docset.install" = "Update Documentation";
+
+"com.apple.Safari.parental-controls" = "Modify Settings";
+
+"com.apple.ServiceManagement.blesshelper" = "Install Helper";
+
+"system.device.dvd.setregion.initial" = "Set";
+
+"system.preferences.network" = "Unlock";
+
+"system.identity.write." = "Update Users";
+
+"com.apple.trust-settings.user" = "Update Settings";
+
+"system.preferences.printing" = "Unlock";
+
+"system.hdd.smart" = "Modify Settings";
+
+"system.print.admin" = "Modify Settings";
+
+"system.preferences.accessibility" = "Unlock";
+
+"com.apple.activitymonitor.kill" = "Quit Process";
+
+"system.burn" = "Burn";
+
+"system.preferences.sharing" = "Unlock";
+
+"system.preferences.parental-controls" = "Unlock";
+
+"system.preferences.security" = "Unlock";
+
+"system.preferences.startupdisk" = "Unlock";
+
+"com.apple.ServiceManagement.daemons.modify" = "Add Helper";
+
+"com.apple.DiskManagement." = "Modify Disk";
+
+"com.apple.trust-settings.admin" = "Update Settings";
+
+"system.identity.write.self" = "Update Credentials";
+
+"system.install.app-store-software" = "Install Software";
+
+"system.install.app-store-software.standard-user" = "Install Software";
+
+"system.install.apple-software.standard-user" = "Install Software";
+
+"system.preferences.version-cue" = "Modify Preferences";
+
+"system.preferences" = "Modify Settings";
+
+"com.apple.SoftwareUpdate.modify-settings" = "Unlock";
+
+"com.apple.uninstalld.uninstall" = "Delete";
+
+"system.privilege.taskport" = "Take Control";
+
+"system.install.software" = "Install Software";
+
+"system.preferences.security.remotepair" = "Pair";
+
+"com.apple.XType.fontmover.remove" = "Remove";
+
+"system.global-login-items." = "Add";
+
+"com.apple.server.admin.streaming" = "Modify Settings";
+
+"system.preferences.softwareupdate" = "Unlock";
+
+"system.keychain.modify" = "Modify Keychain";
+
+"com.apple.XType.fontmover.install" = "Install";
+
+"system.services.directory.configure" = "Modify Configuration";
+
+"system.preferences.timemachine" = "Unlock";
+
+"com.apple.appserver.privilege.user" = "Modify Settings";
+
+"system.privilege.taskport.debug" = "Continue";
+
+"com.apple.container-repair" = "Repair";
+
+"com.apple.AOSNotification.FindMyMac.remove" = "Turn Off";
+
+"com.apple.ReportPanic.fixRight" = "Move to Trash";
+
+"com.apple.iBooksX.ParentalControl" = "Unlock";
+
+"system.services.networkextension.vpn" = "Modify Configuration";
+
+"system.services.networkextension.filtering" = "Modify Configuration";

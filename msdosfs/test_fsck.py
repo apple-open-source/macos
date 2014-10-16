@@ -107,11 +107,13 @@ def test_fat32(dir, fsck, newfs):
 	dir_size_dots(rdisk, fsck, newfs, newfs_opts)
 	long_name(rdisk, fsck, newfs, newfs_opts)
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
+	past_end_of_dir(rdisk, fsck, newfs, newfs_opts, True)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
 	fat_mark_clean_corrupt(rdisk, fsck, newfs, newfs_opts)
 	fat_mark_clean_ok(rdisk, fsck, newfs, newfs_opts)
 	file_4GB(rdisk, fsck, newfs, newfs_opts)
 	file_4GB_excess_clusters(rdisk, fsck, newfs, newfs_opts)
+	directory_garbage(rdisk, fsck, newfs, newfs_opts)
 	
 	#
 	# Detach the image
@@ -165,9 +167,11 @@ def test_fat16(dir, fsck, newfs):
 	dir_size_dots(rdisk, fsck, newfs, newfs_opts)
 	long_name(rdisk, fsck, newfs, newfs_opts)
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
+	past_end_of_dir(rdisk, fsck, newfs, newfs_opts, True)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
 	fat_mark_clean_corrupt(rdisk, fsck, newfs, newfs_opts)
 	fat_mark_clean_ok(rdisk, fsck, newfs, newfs_opts)
+	directory_garbage(rdisk, fsck, newfs, newfs_opts)
 	
 	#
 	# Detach the image
@@ -221,7 +225,9 @@ def test_fat12(dir, fsck, newfs):
 	dir_size_dots(rdisk, fsck, newfs, newfs_opts)
 	long_name(rdisk, fsck, newfs, newfs_opts)
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
+	past_end_of_dir(rdisk, fsck, newfs, newfs_opts, True)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
+	directory_garbage(rdisk, fsck, newfs, newfs_opts)
 	
 	#
 	# Detach the image
@@ -659,14 +665,18 @@ def long_name(disk, fsck, newfs, newfs_opts):
 	launch([fsck, '-y', disk])
 	launch(['/sbin/fsck_msdos', '-n', disk])
 
-def past_end_of_dir(disk, fsck, newfs, newfs_opts):
+def past_end_of_dir(disk, fsck, newfs, newfs_opts, multiple_clusters=False):
 	launch([newfs]+newfs_opts+[disk])
 
 	f = file(disk, "r+")
 	v = msdosfs(f)
 	root = v.root()
 	
-	subdir = root.mkdir('SubDir')
+	if multiple_clusters:
+		subdir_clusters = v.fat.find(10)
+	else:
+		subdir_clusters = None
+	subdir = root.mkdir('SubDir', subdir_clusters)
 	subdir.mkfile('Good Sub File')
 	root.mkfile('Good Root File')
 	
@@ -690,6 +700,16 @@ def past_end_of_dir(disk, fsck, newfs, newfs_opts):
 	subdir.mkfile('BADFILE')
 	subdir.mkdir('Bad Dir')
 	subdir.mkfile('Bad File 2')
+	
+	# If desired, make a whole bunch more entries that will cause
+	# the directory to grow into at least one more cluster.
+	# See Radar #xxxx.
+	if multiple_clusters:
+		base_name = "This file name is long so that it can take up plenty of room in the directory "
+		entry_length = len(make_long_dirent(base_name, 0))
+		num_entries = 4 * (v.bytesPerCluster // entry_length)
+		for i in xrange(num_entries):
+			subdir.mkfile(base_name+str(i))
 	
 	# Overwrite 'EOF' entry with end-of-directory marker
 	subdir.write_slots(slotEOF, '\x00' * 32)
@@ -1005,8 +1025,8 @@ def test_boot_sector(disk, fsck, newfs, newfs_opts):
 		return bytes[0:13] + '\x07' + bytes[14:]
 	
 	for func, reason in [(bad_jump,"Bad boot jump"),
-	                     (bad_sector_size, "Bad sector size"),
-	                     (bad_sec_per_clust, "Bad sectors per cluster")]:
+			     (bad_sector_size, "Bad sector size"),
+			     (bad_sec_per_clust, "Bad sectors per cluster")]:
 		launch([newfs]+newfs_opts+[disk])
 		with open(disk, "r+") as f:
 			bytes = f.read(512)
@@ -1034,7 +1054,7 @@ def test_boot_fat32(disk, fsck, newfs, newfs_opts):
 		return bytes[0:42] + '\x00\x01' + bytes[44:]
 	
 	for func, reason in [(bad_root_count,"Bad root entry count"),
-	                     (bad_version, "Bad filesystem version")]:
+			     (bad_version, "Bad filesystem version")]:
 		launch([newfs]+newfs_opts+[disk])
 		with open(disk, "r+") as f:
 			bytes = f.read(512)
@@ -1072,9 +1092,9 @@ def test_fsinfo(disk, fsck, newfs, newfs_opts):
 	
 	# Test each of the FSInfo corruptions
 	for func, reason in [(bad_leading_sig, "Bad leading signature"),
-	                     (bad_sig2, "Bad structure signature"),
-	                     (bad_trailing_sig, "Bad trailing signature"),
-	                     (bad_free_count, "Bad free cluster count")]:
+			     (bad_sig2, "Bad structure signature"),
+			     (bad_trailing_sig, "Bad trailing signature"),
+			     (bad_free_count, "Bad free cluster count")]:
 		launch([newfs]+newfs_opts+[disk])
 		with open(disk, "r+") as f:
 			f.seek(fsinfo * 512)
@@ -1082,6 +1102,13 @@ def test_fsinfo(disk, fsck, newfs, newfs_opts):
 			f.seek(fsinfo * 512)
 			bytes = func(bytes)
 			f.write(bytes)
+		try:
+			launch([fsck, '-n', disk])
+		except LaunchError:
+			pass
+		else:
+			raise FailureExpected(reason)
+
 		launch([fsck, '-y', disk])
 		launch([fsck, '-n', disk])
 
@@ -1119,6 +1146,66 @@ def fat_too_small(disk, fsck, newfs, newfs_opts):
 	launch([fsck, '-y', disk])	# Need a way to test for expected output
 	launch([fsck, '-n', disk])
 
+#
+# Test trying to repair a disk where a directory has been overwritten by
+# garbage (and therefore shouldn't be parsed as a directory).  See
+# <rdar://problem/15384158> Better repairs for directories containing garbage
+#
+def directory_garbage(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	root = v.root()
+
+	# Create a subdirectory with some children
+	subdir = root.mkdir('EFI', v.fat.find(2))
+	for i in range(10):
+		subdir.mkfile("Child {}".format(i), content="This is child number {}".format(i))
+
+	#
+	# Now clobber the contents of the subdirectory by overwriting it with text.
+	#
+	# Note: the length of this text is 887 bytes, which could be larger than a
+	# cluster (minimum cluster size is 512).  Be sure the directory is large enough!
+	#
+	subdir.pwrite(0, """Here's to the crazy ones. The misfits. The rebels. The troublemakers. The round pegs in the square holes.
+
+The ones who see things differently. They're not fond of rules. And they have no respect for the status quo. You can quote them, disagree with them, glorify or vilify them.
+
+About the only thing you can't do is ignore them. Because they change things. They invent. They imagine. They heal. They explore. They create. They inspire. They push the human race forward.
+
+Maybe they have to be crazy.
+
+How else can you stare at an empty canvas and see a work of art? Or sit in silence and hear a song that's never been written? Or gaze at a red planet and see a laboratory on wheels?
+
+We make tools for these kinds of people.
+
+While some see them as the crazy ones, we see genius. Because the people who are crazy enough to think they can change the world, are the ones who do.
+""")
+	
+	v.flush()
+	f.close()
+
+	try:
+		launch([fsck, '-n', disk])
+	except LaunchError:
+		pass
+	else:
+		raise FailureExpected("Subdirectory /EFI should be corrupt")
+
+	launch([fsck, '-y', disk])
+	launch([fsck, '-n', disk])
+	
+	# Make sure /EFI has been changed to a file
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	root = v.root()
+	efi = root.pread(32, 32)		# The directory entry for /EFI
+	assert(efi[0:11] == "EFI        ")
+	assert(efi[11] == "\x00")			# No longer has ATTR_DIRECTORY set
+	f.close()
+    
 #
 # When run as a script, run the test suite.
 #

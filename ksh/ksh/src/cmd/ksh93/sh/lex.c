@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -79,6 +79,7 @@ struct lexstate
 	char		reservok;	/* >0 for reserved word legal */
 	char		skipword;	/* next word can't be reserved */
 	char		last_quote;	/* last multi-line quote character */
+	char		nestedbrace;	/* ${var op {...}} */
 };
 
 struct lexdata
@@ -324,6 +325,7 @@ int sh_lex(Lex_t* lp)
 	register int		n, c, mode=ST_BEGIN, wordflags=0;
 	Stk_t			*stkp = shp->stk;
 	int		inlevel=lp->lexd.level, assignment=0, ingrave=0;
+	int		epatchar=0;
 	Sfio_t *sp;
 #if SHOPT_MULTIBYTE
 	LEN=1;
@@ -332,6 +334,14 @@ int sh_lex(Lex_t* lp)
 	{
 		lp->lexd.paren = 0;
 		return(lp->token=LPAREN);
+	}
+	if(lp->noreserv)
+	{
+		lp->lex.reservok = 0;
+		while((fcgetc(c)) && c==' ' || c== '\t' || c=='\n');
+		fcseek(-LEN);
+		if(c=='[')
+			lp->assignok = SH_ASSIGN;
 	}
 	if(lp->lex.incase)
 		lp->assignok = 0;
@@ -370,8 +380,6 @@ int sh_lex(Lex_t* lp)
 			lp->lexd.first = 0;
 	}
 	lp->lastline = lp->sh->inlineno;
-	if(lp->noreserv)
-		lp->lex.reservok = 0;
 	while(1)
 	{
 		/* skip over characters in the current state */
@@ -523,7 +531,8 @@ int sh_lex(Lex_t* lp)
 						lp->digits = (c=='>');
 						lp->lex.skipword = 1;
 						lp->aliasok = lp->lex.reservok;
-						lp->lex.reservok = 0;
+						if(lp->lex.incase<2)
+							lp->lex.reservok = 0;
 					}
 				}
 				else
@@ -779,7 +788,7 @@ int sh_lex(Lex_t* lp)
 				}
 				if(mode!=ST_LIT)
 				{
-					if(lp->lexd.warn && lp->lex.last_quote && shp->inlineno > lp->lastline)
+					if(lp->lexd.warn && lp->lex.last_quote && shp->inlineno > lp->lastline && fcpeek(-2)!='$')
 						errormsg(SH_DICT,ERROR_warn(0),e_lexlongquote,lp->lastline,lp->lex.last_quote);
 					lp->lex.last_quote = 0;
 					lp->lastline = shp->inlineno;
@@ -861,7 +870,9 @@ int sh_lex(Lex_t* lp)
 				mode = oldmode(lp);
 				poplevel(lp);
 				fcseek(-LEN);
+				n = lp->digits;
 				wordflags |= comsub(lp,c);
+				lp->digits = n;
 				continue;
 			case S_RBRA:
 				if((n=endchar(lp)) == '$')
@@ -938,6 +949,8 @@ int sh_lex(Lex_t* lp)
 						if(n!=S_ALP)
 							goto dolerr;
 					case '#':
+						if(c=='#')
+							n = S_ALP;
 					case RBRACE:
 						if(n==S_ALP)
 						{
@@ -1022,6 +1035,7 @@ int sh_lex(Lex_t* lp)
 						}
 					}
 				}
+				lp->lex.nestedbrace = 0;
 				mode = ST_NESTED;
 				continue;
 			case S_LBRA:
@@ -1063,11 +1077,21 @@ int sh_lex(Lex_t* lp)
 					errormsg(SH_DICT,ERROR_warn(0),e_lexusequote,shp->inlineno,c);
 				continue;
 			case S_PUSH:
+				fcgetc(n);
+				if(n==RPAREN)
+					continue;
+				else
+					fcseek(-LEN);
 				pushlevel(lp,RPAREN,mode);
 				mode = ST_NESTED;
 				continue;
 			case S_POP:
 			do_pop:
+				if(c==RBRACE && mode==ST_NESTED && lp->lex.nestedbrace)
+				{
+					lp->lex.nestedbrace--;
+					continue;
+				}
 				if(lp->lexd.level <= inlevel)
 					break;
 				if(lp->lexd.level==inlevel+1 && lp->lex.incase>=TEST_RE && !lp->lex.intest)
@@ -1106,6 +1130,8 @@ int sh_lex(Lex_t* lp)
 				}
 				mode = oldmode(lp);
 				poplevel(lp);
+				if(epatchar!='~')
+					epatchar = '@';
 				/* quotes in subscript need expansion */
 				if(mode==ST_NAME && (wordflags&ARG_QUOTED))
 					wordflags |= ARG_MAC;
@@ -1127,7 +1153,10 @@ int sh_lex(Lex_t* lp)
 						if(!(state=lp->lexd.first))
 							state = fcfirst();
 						else
-							fcseek(state-fcseek(0));
+						{
+							n = state-fcseek(0);
+							fcseek(n);
+						}
 						lp->lexd.paren = 1;
 					}
 					return(lp->token=LPAREN);
@@ -1175,16 +1204,16 @@ int sh_lex(Lex_t* lp)
 					(oldmode(lp)==ST_NONE) ||
 					(mode==ST_NAME && (lp->assignok||lp->lexd.level)))
 				{
-					if(mode==ST_NAME)
+					fcgetc(n);
+					if(n>0 && n==']')
 					{
-						fcgetc(n);
-						if(n>0)
-						{
-							if(n==']')
-								errormsg(SH_DICT,ERROR_exit(SYNBAD),e_lexsyntax1, shp->inlineno, "[]", "empty subscript");
-							fcseek(-LEN);
-						}
+						if(mode==ST_NAME)
+							errormsg(SH_DICT,ERROR_exit(SYNBAD),e_lexsyntax1, shp->inlineno, "[]", "empty subscript");
+						if(!epatchar || epatchar=='%')
+							continue;
 					}
+					else
+						fcseek(-LEN);
 					pushlevel(lp,RBRACT,mode);
 					wordflags |= ARG_QUOTED;
 					mode = ST_NESTED;
@@ -1210,6 +1239,11 @@ int sh_lex(Lex_t* lp)
 							return(lp->token=c);
 					}
 					break;
+				}
+				else if(mode==ST_NESTED && endchar(lp)==RBRACE)
+				{
+					lp->lex.nestedbrace++;
+					continue;
 				}
 				else if(mode==ST_BEGIN)
 				{
@@ -1244,8 +1278,9 @@ int sh_lex(Lex_t* lp)
 				/* FALL THRU */
 			case S_EPAT:
 			epat:
-				if(fcgetc(n)==LPAREN)
+				if(fcgetc(n)==LPAREN && c!='[')
 				{
+					epatchar = c;
 					if(lp->lex.incase==TEST_RE)
 					{
 						lp->lex.incase++;
@@ -1497,6 +1532,7 @@ breakloop:
 				(np=nv_search(state,shp->alias_tree,HASH_SCOPE))
 				&& !nv_isattr(np,NV_NOEXPAND)
 #if KSHELL
+				&& (lp->aliasok!=2 || nv_isattr(np,BLT_DCL))
 				&& (!sh_isstate(SH_NOALIAS) || nv_isattr(np,NV_NOFREE))
 #endif /* KSHELL */
 				&& (state=nv_getval(np)))
@@ -1546,7 +1582,10 @@ static int comsub(register Lex_t *lp, int endtok)
 		{
 
 			if(first==lp->lexd.first)
-				fcseek(cp+1-fcseek(0));
+			{
+				n = cp+1-(char*)fcseek(0);
+				fcseek(n);
+			}
 			count++;
 			lp->lexd.paren = 0;
 			fcgetc(c);
@@ -1644,6 +1683,8 @@ done:
 	lp->lexd.dolparen--;
 	lp->lex = save;
 	lp->assignok = (endchar(lp)==RBRACT?assignok:0);
+	if(lp->heredoc)
+		errormsg(SH_DICT,ERROR_exit(SYNBAD),e_lexsyntax5,lp->sh->inlineno,lp->heredoc->ioname);
 	return(messages);
 }
 
@@ -1797,18 +1838,46 @@ static int here_copy(Lex_t *lp,register struct ionod *iop)
 		if(n!=S_NL)
 		{
 			/* skip over regular characters */
+#if SHOPT_MULTIBYTE
+			do
+			{
+				if(fcleft()< MB_LEN_MAX && mbsize(fcseek(0))<0)
+				{
+					n = S_EOF;
+					LEN = -fcleft();
+					break;
+				}
+			}
+#endif /* SHOPT_MULTIBYTE */
+
 			while((n=STATE(state,c))==0);
 		}
 		if(n==S_EOF || !(c=fcget()))
 		{
-			if(!lp->lexd.dolparen && (c=(fcseek(0)-1)-bufp))
+			if(LEN < 0)
+				c = fclast()-bufp;
+			else
+				c= (fcseek(0)-1)-bufp;
+			if(!lp->lexd.dolparen && c)
 			{
 				if(n==S_ESC)
 					c--;
 				if(!lp->lexd.dolparen && (c=sfwrite(sp,bufp,c))>0)
 					iop->iosize += c;
 			}
-			if((c=lexfill(lp))<=0)
+#if SHOPT_MULTIBYTE
+			if(LEN==0)
+				LEN=1;
+			if(LEN < 0)
+			{
+				n = LEN;
+				c = fcmbget(&LEN);
+				LEN += n;
+			}
+			else
+#endif /* SHOPT_MULTIBYTE */
+				c = lexfill(lp);
+			if(c<0)
 				break;
 			if(n==S_ESC)
 			{
@@ -1824,7 +1893,7 @@ static int here_copy(Lex_t *lp,register struct ionod *iop)
 					sfputc(sp,'\\');
 				}
 			}
-			bufp = fcseek(-1);
+			bufp = fcseek(-LEN);
 		}
 		else
 			fcseek(-LEN);

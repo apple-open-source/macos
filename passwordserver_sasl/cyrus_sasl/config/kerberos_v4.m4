@@ -140,7 +140,7 @@ AC_DEFUN([SASL_KERBEROS_V4_CHK], [
   if test "$krb4" != no; then
     AC_MSG_RESULT(enabled)
     SASL_MECHS="$SASL_MECHS libkerberos4.la"
-    SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/kerberos4.c"
+    SASL_STATIC_SRCS="$SASL_STATIC_SRCS \$(top_srcdir)/plugins/kerberos4.c"
     SASL_STATIC_OBJS="$SASL_STATIC_OBJS kerberos4.o"
     AC_DEFINE(STATIC_KERBEROS4,[],[User KERBEROS_V4 Staticly])
     AC_DEFINE(HAVE_KRB,[],[Do we have Kerberos 4 Support?])

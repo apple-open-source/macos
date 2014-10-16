@@ -9,17 +9,17 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
-<p class="apache">Serveur Apache HTTP Version 2.2</p>
+<p class="apache">Serveur Apache HTTP Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Rewrite</a></div><div id="page-content"><div id="preamble"><h1>Introduction au module Apache mod_rewrite</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Rewrite</a></div><div id="page-content"><div id="preamble"><h1>Introduction au module Apache mod_rewrite</h1>
 <div class="toplang">
 <p><span>Langues Disponibles: </span><a href="../en/rewrite/intro.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/rewrite/intro.html" title="Français">&nbsp;fr&nbsp;</a></p>
@@ -158,21 +158,21 @@ arrières dans les expressions rationnelles</a></h3>
       sont créées en interne et peuvent être rappelées via les chaînes
       <code>$N</code> et <code>%N</code> (voir ci-dessous). Ces
       références sont disponibles lors de la création des chaînes de
-      <em>Substitution</em> et des <em>Chaînes de test</em> comme indiqué dans les chapitres suivants. 
-      La figure 1
+      <em>Substitution</em> et des <em>Chaînes de test</em> comme
+      précisé dans les chapitres suivants. La figure 1
       montre à quels endroits les références arrières sont suceptibles
       d'être développées, et illustre le flux des comparaisons
       effectuées par les règles RewriteRule et
-      RewriteCond. Nous verrons comment utiliser ces références arrières
-      dans les chapitres suivant, donc ne vous effrayez pas si cela vous
-      paraît un peu compliqué au premier abord.</p>
+      RewriteCond. Dans les chapitres suivants, nous examinerons comment
+      utiliser ces références arrières, donc ne vous affolez pas si
+      elles vous paraissent un peu exotiques au premier abord.</p>
 
 <p class="figure">
-       <img src="../images/rewrite_backreferences.png" alt="Flux des comparaisons effectuées par les règles RewriteRule       et RewriteCond" /><br />
+      <img src="../images/rewrite_backreferences.png" alt="Flux des comparaisons effectuées par les règles RewriteRule       et RewriteCond" /><br />
       <dfn>Figure 1 :</dfn> Le cheminement d'une référence arrière à
       travers une règle.<br />
-      Dans cet exemple, une requête pour <code>/test/1234</code> sera
-      traduite en
+      Dans cet exemple, une requête pour <code>/test/1234</code> serait
+      transformée en
       <code>/admin.foo?page=test&amp;id=1234&amp;host=admin.example.com</code>.
 </p>
 
@@ -191,15 +191,16 @@ transformée;</li>
 </ol>
 
 <p>Le <var>Modèle</var> est une <a href="#regex">expression
-rationnelle</a>. Pour la première règle de réécriture ou jusqu'à ce
-qu'une substitution intervienne, elle est tout d'abord comparée
-au chemin de l'URL de la requête entrante (la
+rationnelle</a>. Au sein de la première règle de réécriture, ou jusqu'à
+ce qu'une substitution survienne, elle est comparée au chemin de
+l'URL de la requête entrante (la
 partie située après le nom d'hôte mais avant tout point d'interrogation
-qui indique le début d'une chaîne de requête), ou
-dans un contexte de répertoire, au chemin de la requête relatif au
-répertoire pour lequel la règle a été définie. Lorsqu'une substitution a
-été effectuée, les règles suivantes s'appliquent à la valeur de
-substitution.</p>
+qui indique le début d'une chaîne de paramètres de
+requête) ou, dans un contexte de répertoire, au chemin de la
+requête relativement au répertoire pour lequel la
+règle est définie. Lorsqu'une substitution a eu lieu, les
+règles suivantes effectuent leurs comparaisons par rapport à la valeur
+substituée.</p>
 
 <p class="figure">
       <img src="../images/syntax_rewriterule.png" alt="Syntaxe de la directive RewriteRule" /><br />
@@ -212,18 +213,16 @@ trois types :</p>
 <dl>
 <dt>Un chemin complet du système de fichiers vers une ressource</dt>
 <dd>
-<div class="example"><p><code>
-RewriteRule ^/jeux.* /usr/local/jeux/web
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^/jeux /usr/local/jeux/web</pre>
+
 <p>Ceci peut faire correspondre une requête à toute localisation voulue de
 votre système de fichiers, un peu comme la directive <code class="directive"><a href="../mod/mod_alias.html#alias">Alias</a></code>.</p>
 </dd>
 
 <dt>Un chemin web vers une ressource</dt>
 <dd>
-<div class="example"><p><code>
-RewriteRule ^/foo$ /bar
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^/foo$ /bar</pre>
+
 <p>Si la directive <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> a
 pour valeur <code>/usr/local/apache2/htdocs</code>, cette règle va faire
 correspondre les requêtes pour <code>http://example.com/foo</code> au
@@ -232,9 +231,8 @@ chemin <code>/usr/local/apache2/htdocs/bar</code>.</p>
 
 <dt>Une URL absolue</dt>
 <dd>
-<div class="example"><p><code>
-RewriteRule ^/produits/vues$ http://site2.example.com/voirproduits.html [R]
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^/produits/vues$ http://site2.example.com/voirproduits.html [R]</pre>
+
 <p>Ceci informe le client qu'il doit effectuer une nouvelle requête vers
 l'URL spécifiée.</p>
 </dd>
@@ -243,9 +241,8 @@ l'URL spécifiée.</p>
 <p>La chaîne de <var>Substitution</var> peut aussi contenir des
 <em>références arrières</em> vers des parties du chemin d'URL entrant
 correspondant au <var>Modèle</var>. Considérons ce qui suit :</p>
-<div class="example"><p><code>
-RewriteRule ^/produits/(.*)/view$ /var/web/produitsdb/$1
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^/produits/(.*)/view$ /var/web/produitsdb/$1</pre>
+
 <p>La variable <code>$1</code> sera remplacée par tout texte
 correspondant à l'expression située entre les parenthèses dans le
 <var>Modèle</var>. Par exemple, une requête pour
@@ -265,9 +262,8 @@ présence d'un ou plusieurs drapeaux en fin de règle. Par exemple, les
 conditions de correspondance d'une règle peuvent être rendues
 insensibles à la casse par la présence du drapeau <code>[NC]</code> :
 </p>
-<div class="example"><p><code>
-RewriteRule ^puppy.html petitchien.html [NC]
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteRule ^puppy.html petitchien.html [NC]</pre>
+
 
 <p>Pour une liste des drapeaux disponibles, leurs significations, et des
 exemples, voir le document <a href="flags.html">Drapeaux de
@@ -293,21 +289,19 @@ correspondance est évaluée.</p>
 <p>Par exemple, pour renvoyer toutes les requêtes en provenance d'une
 certaine tranche d'adresses IP vers un autre serveur, vous pouvez
 utiliser :</p>
-<div class="example"><p><code>
-RewriteCond %{REMOTE_ADDR} ^10\.2\.<br />
-RewriteRule (.*) http://intranet.example.com$1
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteCond %{REMOTE_ADDR} ^10\.2\.
+RewriteRule (.*) http://intranet.example.com$1</pre>
+
 
 <p>Si vous spécifiez plus d'une directive <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>, ces directives
 doivent toutes être satisfaites pour que la règle <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> suivante s'applique. Par exemple,
 pour interdire les requêtes qui contiennent le mot "hack" dans la chaîne
 de requête, sauf si elles contiennent aussi un cookie contenant le mot
 "go", vous pouvez utiliser :</p>
-<div class="example"><p><code>
-RewriteCond %{QUERY_STRING} hack<br />
-RewriteCond %{HTTP_COOKIE} !go<br />
-RewriteRule .* - [F]
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteCond %{QUERY_STRING} hack
+RewriteCond %{HTTP_COOKIE} !go
+RewriteRule . - [F]</pre>
+
 <p>Notez que le point d'exclamation indique une correspondance négative
 ; ainsi, la règle n'est appliquée que si le cookie ne contient pas "go"</p>
 
@@ -318,10 +312,9 @@ de la règle <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule
 les variables <code>%1</code>, <code>%2</code>, etc... Par
 exemple, ce qui suit va diriger la requête vers un répertoire différent
 en fonction du nom d'hôte utilisé pour accéder au site :</p>
-<div class="example"><p><code>
-RewriteCond %{HTTP_HOST} (.*)<br />
-RewriteRule ^/(.*) /sites/%1/$1
-</code></p></div>
+<pre class="prettyprint lang-config">RewriteCond %{HTTP_HOST} (.*)
+RewriteRule ^/(.*) /sites/%1/$1</pre>
+
 <p>Si la requête concernait <code>http://example.com/foo/bar</code>,
 alors <code>%1</code> contiendrait <code>example.com</code> et
 <code>$1</code> contiendrait <code>foo/bar</code>.</p>
@@ -363,7 +356,7 @@ requête est correctement mise en correspondance.</p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/rewrite/intro.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/intro.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -378,7 +371,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/rewrite/intro.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

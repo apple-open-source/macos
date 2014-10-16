@@ -10,6 +10,4 @@
 
 #define SBSLAUNCHER_TYPE_DETECT_DNS_REDIRECT "sbslauncher_type_detect_dns_redirect"
 
-#define SBSLAUNCHER_TYPE_BEHAVIOR_ASSET_CHECK "sbslauncher_type_behavior_asset_check"
-
 #define SBSLAUNCHER_TYPE_SETUP_ENV "sbslauncher_type_setup_env"

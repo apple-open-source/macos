@@ -21,12 +21,14 @@ typedef struct ARGV {
 } ARGV;
 
 extern ARGV *argv_alloc(ssize_t);
+extern ARGV *argv_sort(ARGV *);
 extern void argv_add(ARGV *,...);
 extern void argv_addn(ARGV *,...);
 extern void argv_terminate(ARGV *);
 extern void argv_truncate(ARGV *, ssize_t);
 extern void argv_insert_one(ARGV *, ssize_t, const char *);
 extern void argv_replace_one(ARGV *, ssize_t, const char *);
+extern void argv_delete(ARGV *, ssize_t, ssize_t);
 extern ARGV *argv_free(ARGV *);
 
 extern ARGV *argv_split(const char *, const char *);

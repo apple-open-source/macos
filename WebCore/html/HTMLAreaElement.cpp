@@ -27,19 +27,16 @@
 #include "Frame.h"
 #include "HTMLImageElement.h"
 #include "HTMLMapElement.h"
-#include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "Path.h"
 #include "RenderImage.h"
 #include "RenderView.h"
 
-using namespace std;
-
 namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* document)
+inline HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document& document)
     : HTMLAnchorElement(tagName, document)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
@@ -48,7 +45,7 @@ inline HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* 
     ASSERT(hasTagName(areaTag));
 }
 
-PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(new HTMLAreaElement(tagName, document));
 }
@@ -82,7 +79,7 @@ void HTMLAreaElement::invalidateCachedRegion()
 bool HTMLAreaElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size, HitTestResult& result)
 {
     if (m_lastSize != size) {
-        m_region = adoptPtr(new Path(getRegion(size)));
+        m_region = std::make_unique<Path>(getRegion(size));
         m_lastSize = size;
     }
 
@@ -94,6 +91,7 @@ bool HTMLAreaElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size
     return true;
 }
 
+// FIXME: We should use RenderElement* instead of RenderObject* once we upstream iOS's DOMUIKitExtensions.{h, mm}.
 Path HTMLAreaElement::computePath(RenderObject* obj) const
 {
     if (!obj)
@@ -108,7 +106,7 @@ Path HTMLAreaElement::computePath(RenderObject* obj) const
         size = obj->absoluteOutlineBounds().size();
     
     Path p = getRegion(size);
-    float zoomFactor = obj->style()->effectiveZoom();
+    float zoomFactor = obj->style().effectiveZoom();
     if (zoomFactor != 1.0f) {
         AffineTransform zoomTransform;
         zoomTransform.scale(zoomFactor);
@@ -118,7 +116,8 @@ Path HTMLAreaElement::computePath(RenderObject* obj) const
     p.translate(toFloatSize(absPos));
     return p;
 }
-    
+
+// FIXME: Use RenderElement* instead of RenderObject* once we upstream iOS's DOMUIKitExtensions.{h, mm}.
 LayoutRect HTMLAreaElement::computeRect(RenderObject* obj) const
 {
     return enclosingLayoutRect(computePath(obj).fastBoundingRect());
@@ -144,30 +143,29 @@ Path HTMLAreaElement::getRegion(const LayoutSize& size) const
     }
 
     Path path;
-    RenderView* renderView = document()->renderView();
     switch (shape) {
         case Poly:
             if (m_coordsLen >= 6) {
                 int numPoints = m_coordsLen / 2;
-                path.moveTo(FloatPoint(minimumValueForLength(m_coords[0], width, renderView), minimumValueForLength(m_coords[1], height, renderView)));
+                path.moveTo(FloatPoint(minimumValueForLength(m_coords[0], width), minimumValueForLength(m_coords[1], height)));
                 for (int i = 1; i < numPoints; ++i)
-                    path.addLineTo(FloatPoint(minimumValueForLength(m_coords[i * 2], width, renderView), minimumValueForLength(m_coords[i * 2 + 1], height, renderView)));
+                    path.addLineTo(FloatPoint(minimumValueForLength(m_coords[i * 2], width), minimumValueForLength(m_coords[i * 2 + 1], height)));
                 path.closeSubpath();
             }
             break;
         case Circle:
             if (m_coordsLen >= 3) {
                 Length radius = m_coords[2];
-                int r = min(minimumValueForLength(radius, width, renderView), minimumValueForLength(radius, height, renderView));
-                path.addEllipse(FloatRect(minimumValueForLength(m_coords[0], width, renderView) - r, minimumValueForLength(m_coords[1], height, renderView) - r, 2 * r, 2 * r));
+                int r = std::min(minimumValueForLength(radius, width), minimumValueForLength(radius, height));
+                path.addEllipse(FloatRect(minimumValueForLength(m_coords[0], width) - r, minimumValueForLength(m_coords[1], height) - r, 2 * r, 2 * r));
             }
             break;
         case Rect:
             if (m_coordsLen >= 4) {
-                int x0 = minimumValueForLength(m_coords[0], width, renderView);
-                int y0 = minimumValueForLength(m_coords[1], height, renderView);
-                int x1 = minimumValueForLength(m_coords[2], width, renderView);
-                int y1 = minimumValueForLength(m_coords[3], height, renderView);
+                int x0 = minimumValueForLength(m_coords[0], width);
+                int y0 = minimumValueForLength(m_coords[1], height);
+                int x1 = minimumValueForLength(m_coords[2], width);
+                int y1 = minimumValueForLength(m_coords[3], height);
                 path.addRect(FloatRect(x0, y0, x1 - x0, y1 - y0));
             }
             break;
@@ -184,10 +182,10 @@ Path HTMLAreaElement::getRegion(const LayoutSize& size) const
 HTMLImageElement* HTMLAreaElement::imageElement() const
 {
     Node* mapElement = parentNode();
-    if (!mapElement || !mapElement->hasTagName(mapTag))
+    if (!mapElement || !isHTMLMapElement(mapElement))
         return 0;
     
-    return static_cast<HTMLMapElement*>(mapElement)->imageElement();
+    return toHTMLMapElement(mapElement)->imageElement();
 }
 
 bool HTMLAreaElement::isKeyboardFocusable(KeyboardEvent*) const
@@ -203,7 +201,7 @@ bool HTMLAreaElement::isMouseFocusable() const
 bool HTMLAreaElement::isFocusable() const
 {
     HTMLImageElement* image = imageElement();
-    if (!image || !image->renderer() || image->renderer()->style()->visibility() != VISIBLE)
+    if (!image || !image->renderer() || image->renderer()->style().visibility() != VISIBLE)
         return false;
 
     return supportsFocus() && Element::tabIndex() >= 0;
@@ -220,7 +218,7 @@ void HTMLAreaElement::setFocus(bool shouldBeFocused)
     if (!imageElement)
         return;
 
-    RenderObject* renderer = imageElement->renderer();
+    auto renderer = imageElement->renderer();
     if (!renderer || !renderer->isRenderImage())
         return;
 
@@ -251,17 +249,5 @@ String HTMLAreaElement::target() const
 {
     return getAttribute(targetAttr);
 }
-
-#if ENABLE(MICRODATA)
-String HTMLAreaElement::itemValueText() const
-{
-    return getURLAttribute(hrefAttr);
-}
-
-void HTMLAreaElement::setItemValueText(const String& value, ExceptionCode&)
-{
-    setAttribute(hrefAttr, value);
-}
-#endif
 
 }

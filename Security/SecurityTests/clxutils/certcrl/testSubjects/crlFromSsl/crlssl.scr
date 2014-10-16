@@ -1,0 +1,130 @@
+# 
+# CRL verfication of certs obtained from SSL sites
+#
+globals
+certNetFetchEnable = false
+crlNetFetchEnable = true
+useSystemAnchors = true
+# alternate these two on successful runs, flip either one for failure
+allowUnverified = true
+requireCrlIfPresent = false
+end
+###
+### all these (until further notice) get CRLs from crl.verisign.com
+###
+echo "================================="
+test = "www.amazon.com"
+revokePolicy = crl
+cert = amazon_v3.100.cer
+cert = amazon_v3.101.cer
+sslHost = www.amazon.com
+requireCrlIfPresent = true
+end
+echo "================================="
+test = "www.cduniverse.com"
+revokePolicy = crl
+cert = cduniverse_v3.100.cer
+cert = cduniverse_v3.101.cer
+sslHost = www.cduniverse.com
+allowUnverified = false
+end
+echo "================================="
+test = "store.apple.com"
+revokePolicy = crl
+allowUnverified = false
+cert = apple_v3.100.cer
+cert = apple_v3.101.cer
+sslHost = store.apple.com
+end
+echo "================================="
+test = "www.wellsfargo.com"
+revokePolicy = crl
+allowUnverified = false
+cert = wellsfargo_v3.100.cer
+cert = wellsfargo_v3.101.cer
+sslHost = www.wellsfargo.com
+end
+
+#echo "================================="
+#
+# this server's cert has expired and they don't have a new one yet 
+#
+#test = "www.xdss.com"
+#revokePolicy = crl
+#requireOcspIfPresent = true
+#cert = xdss_v3.100.cer
+#cert = xdss_v3.101.cer
+#sslHost = www.xdss.com
+#end
+echo "================================="
+test = "www.verisign.com"
+revokePolicy = crl
+allowUnverified = false
+cert = verisign_v3.100.cer
+cert = verisign_v3.101.cer
+#
+# This one is the root, which SSL server sent us. 
+# Leave it in for variety.
+#
+cert = verisign_v3.102.cer
+sslHost = www.verisign.com
+end
+echo "================================="
+test = "accounts.key.com"
+revokePolicy = crl
+allowUnverified = false
+cert = keybank_v3.100.cer
+cert = keybank_v3.101.cer
+#
+# This one is the root, which SSL server sent us. 
+# Leave it in for variety.
+#
+cert = keybank_v3.102.cer
+sslHost = accounts.key.com
+end
+echo "================================="
+test = "secure.authorize.net"
+revokePolicy = crl
+allowUnverified = false
+cert = secauth_v3.100.cer
+cert = secauth_v3.101.cer
+sslHost = secure.authorize.net
+end
+###
+### CRLs from crl.thawte.com
+###
+###
+### CRL from http://crl.geotrust.com, issued by Equifax
+###
+echo "================================="
+test = "www.firstamlink.com"
+revokePolicy = crl
+cert = firstamlink_v3.100.cer
+sslHost = www.firstamlink.com
+requireCrlIfPresent = true
+end
+
+#
+# cert and CRL from entrust
+# temp disabled...
+#
+#echo "================================="
+#test = "accesd.desjardins.com"
+#revokePolicy = crl
+#cert = entrust_v3.100.cer
+#cert = entrust_v3.101.cer
+#sslHost = accesd.desjardins.com
+#requireCrlIfPresent = true
+#end
+#
+# Secure Server Certification Authority
+# CRL http://SVRSecure-crl.verisign.com/SVRSecure.crl
+#
+echo "================================="
+test = "www.netfile.state.co.us"
+revokePolicy = crl
+requireCrlIfPresent = true
+cert = netfile.state.co_v3.100.cer
+cert = netfile.state.co_v3.101.cer
+sslHost = www.netfile.state.co.us
+end

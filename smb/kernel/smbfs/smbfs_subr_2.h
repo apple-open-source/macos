@@ -36,6 +36,9 @@ void smb2fs_smb_file_id_check(struct smb_share *share, uint64_t ino,
 uint64_t smb2fs_smb_file_id_get(struct smbmount *smp, uint64_t ino, char *name);
 
 
+int smb2fs_smb_cmpd_check_copyfile(struct smb_share *share,
+                                   struct smbnode *create_np,
+                                   vfs_context_t context);
 int smb2fs_smb_cmpd_create(struct smb_share *share, struct smbnode *np,
                            const char *namep, size_t name_len,
                            const char *strm_namep, size_t strm_name_len,
@@ -50,6 +53,13 @@ int smbfs_smb_cmpd_create_read_close(struct smb_share *share, struct smbnode *dn
                                    uio_t uio, size_t *sizep,
                                    uint32_t *max_access,
                                    vfs_context_t context);
+int smb2fs_smb_cmpd_create_write(struct smb_share *share, struct smbnode *dnp,
+                                 const char *namep, size_t name_len,
+                                 const char *snamep, size_t sname_len,
+                                 uint32_t desired_access, struct smbfattr *fap,
+                                 uint64_t create_flags, uio_t uio,
+                                 SMBFID *fidp, int ioflag,
+                                 vfs_context_t context);
 int smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
                                   const char *query_namep, size_t query_name_len,
                                   struct smbfattr *fap, char **namep, size_t *name_lenp,
@@ -71,9 +81,9 @@ int smbfs_smb_create_reparse_symlink(struct smb_share *share, struct smbnode *dn
                                      struct smbfattr *fap, vfs_context_t context);
 int smbfs_smb_close(struct smb_share *share, SMBFID fid,
                     vfs_context_t context);
-int smbfs_smb_delete(struct smb_share *share, struct smbnode *np,
-                     const char *name, size_t nmlen, int xattr, 
-                     vfs_context_t context);
+int smbfs_smb_delete(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                     const char *name, size_t nmlen,
+                     int xattr, vfs_context_t context);
 int smbfs_smb_flush(struct smb_share *share, SMBFID fid, 
                     vfs_context_t context);
 int smb1fs_smb_findclose(struct smbfs_fctx *ctx, vfs_context_t context);
@@ -91,10 +101,34 @@ int smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
                         uint32_t disp, int xattr, struct smbfattr *fap,
                         int do_create, struct smb2_durable_handle *dur_handlep,
                         vfs_context_t context);
-int smbfs_smb_openread(struct smb_share *share, struct smbnode *np, 
-                       SMBFID *fidp, uint32_t desired_access, uio_t uio, size_t *sizep,
-                       const char *stream_namep, struct timespec *mtimep,
-                       vfs_context_t context);
+int smbfs_smb_openread(struct smb_share *share, struct smbnode *np,
+                       SMBFID *fidp, uint32_t desired_access,
+                       uio_t uio, size_t *sizep, const char *stream_namep,
+                       struct timespec *mtimep, vfs_context_t context);
+void smbfs_smb_qfsattr(struct smbmount *smp, vfs_context_t context);
+int smb1fs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
+                         struct smbfattr *fap, short infolevel,
+                         const char **namep, size_t *nmlenp, 
+                         vfs_context_t context);
+int smbfs_smb_qpathinfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                        struct smbfattr *fap, short infolevel, 
+                        const char **namep, size_t *nmlenp, 
+                        vfs_context_t context);
+int smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                          const char *namep, size_t name_len,
+                          const char *stream_namep,
+                          uio_t uio, size_t *sizep,
+                          uint64_t *strmsize, uint64_t *strm_alloc_size,
+                          uint32_t *stream_flagsp, uint32_t *max_accessp,
+                          vfs_context_t context);
+int smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp, enum vtype vnode_type,
+                         const char *in_name, size_t len, uint32_t *attr, 
+                         vfs_context_t context);
+int smbfs_smb_rename(struct smb_share *share, struct smbnode *src, 
+                     struct smbnode *tdnp, const char *tname, size_t tnmlen, 
+                     vfs_context_t context);
+int smbfs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np,
+                                   struct uio *uiop, vfs_context_t context);
 int smbfs_smb_rmdir(struct smb_share *share, struct smbnode *np,
                     vfs_context_t context);
 int smb2fs_smb_security_get(struct smb_share *share, struct smbnode *np,
@@ -107,36 +141,6 @@ int smb2fs_smb_security_set(struct smb_share *share, struct smbnode *np,
                             struct ntsid *owner, struct ntsid *group,
                             struct ntacl *sacl, struct ntacl *dacl,
                             vfs_context_t context);
-int smbfs_smb_setsec(struct smb_share *share, struct smbnode *np,
-                     uint32_t desired_access, SMBFID fid,
-                     uint32_t selector, uint16_t control_flags,
-                     struct ntsid *owner, struct ntsid *group,
-                     struct ntacl *sacl, struct ntacl *dacl,
-                     vfs_context_t context);
-void smbfs_smb_qfsattr(struct smbmount *smp, vfs_context_t context);
-int smb1fs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
-                         struct smbfattr *fap, short infolevel,
-                         const char **namep, size_t *nmlenp, 
-                         vfs_context_t context);
-int smbfs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
-                        struct smbfattr *fap, short infolevel, 
-                        const char **namep, size_t *nmlenp, 
-                        vfs_context_t context);
-int smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
-                          const char *namep, size_t name_len,
-                          const char *stream_namep,
-                          uio_t uio, size_t *sizep,
-                          uint64_t *strmsize, uint64_t *strm_alloc_size,
-                          uint32_t *stream_flagsp, uint32_t *max_accessp,
-                          vfs_context_t context);
-int smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp,
-                         const char *in_name, size_t len, uint32_t *attr, 
-                         vfs_context_t context);
-int smbfs_smb_rename(struct smb_share *share, struct smbnode *src, 
-                     struct smbnode *tdnp, const char *tname, size_t tnmlen, 
-                     vfs_context_t context);
-int smbfs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np,
-                                   struct uio *uiop, vfs_context_t context);
 int smbfs_smb_set_allocation(struct smb_share *share, SMBFID fid,
                              uint64_t new_size, vfs_context_t context);
 int smbfs_smb_seteof(struct smb_share *share, SMBFID fid, uint64_t newsize, 
@@ -144,22 +148,30 @@ int smbfs_smb_seteof(struct smb_share *share, SMBFID fid, uint64_t newsize,
 int smbfs_smb_setfattrNT(struct smb_share *share, uint32_t attr, SMBFID fid, 
                          struct timespec *crtime, struct timespec *mtime, 
                          struct timespec *atime, vfs_context_t context);
-int smbfs_smb_setpattr(struct smb_share *share, struct smbnode *np,
+int smbfs_smb_setpattr(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                        const char *namep, size_t name_len,
                        uint16_t attr, vfs_context_t context);
-int smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
+int smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                          const char *namep, size_t name_len,
                          uint32_t attr, struct timespec *crtime, 
                          struct timespec *mtime, struct timespec *atime, 
                          vfs_context_t context);
-int smb2fs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
+int smb2fs_smb_setpattrNT(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                           const char *namep, size_t name_len,
                           uint32_t attr, struct timespec *crtime,
                           struct timespec *mtime, struct timespec *atime,
                           vfs_context_t context);
-int smbfs_smb_statfs(struct smbmount *smp, struct vfsstatfs *sbp, 
+int smbfs_smb_setsec(struct smb_share *share, struct smbnode *np,
+                     uint32_t desired_access, SMBFID fid,
+                     uint32_t selector, uint16_t control_flags,
+                     struct ntsid *owner, struct ntsid *group,
+                     struct ntacl *sacl, struct ntacl *dacl,
                      vfs_context_t context);
-int smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen);
+int smbfs_smb_statfs(struct smbmount *smp, struct vfsstatfs *sbp,
+                     vfs_context_t context);
+int smb2fs_smb_validate_neg_info(struct smb_share *share, vfs_context_t context);
+int smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen,
+                           uint32_t *is_data);
 
 
 #endif

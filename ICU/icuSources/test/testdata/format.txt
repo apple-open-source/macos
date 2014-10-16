@@ -70,21 +70,21 @@ format:table(nofallback) {
                     "",
                     "DATE=RELATIVE_SHORT",
                     "RELATIVE_ADD:DATE=1", // one day from now
-                    "Tomorrow"
+                    "tomorrow"
                },
                {
                     "en_US@calendar=gregorian",         
                     "",
                     "DATE=RELATIVE_SHORT",
                     "RELATIVE_MILLIS=0", // today
-                    "Today"
+                    "today"
                },
                {
                     "en_US@calendar=gregorian",         
                     "",
                     "DATE=RELATIVE_SHORT",
                     "RELATIVE_ADD:DATE=-1", // one day before now
-                    "Yesterday"
+                    "yesterday"
                },
                // date only, out of relative range
                {
@@ -131,7 +131,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_FULL,TIME=LONG",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "Yesterday at 5:00:00 PM GMT"
+                    "yesterday at 5:00:00 PM GMT"
                },
                // formats with relative day, combined using ", "
                {
@@ -139,7 +139,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_MEDIUM,TIME=SHORT",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "Yesterday, 5:00 PM"
+                    "yesterday, 5:00 PM"
                },
                // normal formats that have quoted literals, combined
                {
@@ -147,7 +147,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_FULL,TIME=LONG",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "segunda-feira, 8 de outubro de 2012 23:59:00 Horário de Greenwich"
+                    "segunda-feira, 8 de outubro de 2012 23:59:00 GMT"
                },
                // vi combined formats have time first
                {
@@ -162,7 +162,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "17:00:00 Ngày hôm qua"
+                    "17:00:00 Hôm qua"
                },
                // el combines formats using hyphen
                {
@@ -177,7 +177,7 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "Χτες - 5:00:00 μ.μ."
+                    "χθες - 5:00:00 μ.μ."
                },
               // other tests
                {
@@ -199,14 +199,14 @@ format:table(nofallback) {
                     "",
                     "DATE=RELATIVE_SHORT",
                     "RELATIVE_ADD:DATE=-1", // one day before now
-                    "Lbieraħ"
+                    "Ilbieraħ"
                },
                {
                     "ru",
                     "",
                     "DATE=RELATIVE_SHORT",
                     "RELATIVE_ADD:DATE=-2", // 2 days ago
-                    "Позавчера"
+                    "позавчера"
                },
             }
         }
@@ -552,7 +552,7 @@ format:table(nofallback) {
                     "",
                     "DATE=FULL,TIME=FULL",
                     "MILLIS=3076424179200000",
-                    "Friday, Heshvan 3, 103217 AM at 12:00:00 AM GMT-08:00"
+                    "Friday, 3 Heshvan 103217 at 12:00:00 AM GMT-08:00"
                },
             }    
         }

@@ -157,11 +157,6 @@ static void own_inet_addr_init(INET_ADDR_LIST *addr_list,
 	 */
 	inet_addr_list_uniq(addr_list);
 
-#ifdef __APPLE_OS_X_SERVER__
-	/* remove IPv6 scoped addresses */
-	inet_addr_list_clean(addr_list);
-#endif
-
 	/*
 	 * Find out the netmask for each virtual interface, by looking it up
 	 * among all the local interfaces.

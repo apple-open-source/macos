@@ -110,7 +110,7 @@ struct option sOptInfo[] = {
     { kOptNameHelp,                     no_argument,        NULL,     kOptHelp },
     { kOptNameQuiet,                    no_argument,        NULL,     kOptQuiet },
     { kOptNameVerbose,                  optional_argument,  NULL,     kOptVerbose },
-    { kOptNameCompressed,               no_argument,        &longopt, kLongOptCompressed },
+    { kOptNameCompressed,               optional_argument,  &longopt, kLongOptCompressed },
     { kOptNameUncompressed,             no_argument,        &longopt, kLongOptUncompressed },
 
     { kOptNameArch,                     required_argument,  NULL,     kOptArch },
@@ -163,6 +163,7 @@ typedef struct {
     CFArrayRef         namedKexts;
     
     Boolean     compress;
+    uint32_t    compressionType;
     Boolean     uncompress;
 } KcgenArgs;
 
@@ -222,7 +223,8 @@ ExitStatus createPrelinkedKernelForArch(
     const NXArchInfo    * archInfo);
 ExitStatus compressPrelinkedKernel(
     const char        * prelinkedKernelPath,
-    Boolean             compress);
+    Boolean             compress,
+    uint32_t            compressionType);
 void logUsedKexts(
     KcgenArgs       * toolArgs,
     CFArrayRef        prelinkKexts);

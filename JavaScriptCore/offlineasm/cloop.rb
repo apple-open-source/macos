@@ -1,4 +1,4 @@
-# Copyright (C) 2012 Apple Inc. All rights reserved.
+# Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -68,18 +68,24 @@ C_LOOP_SCRATCH_FPR = SpecialRegister.new("d6")
 class RegisterID
     def clDump
         case name
-        when "t0"
+        # The cloop is modelled on the ARM implementation. Hence, the a0-a3
+        # registers are aliases for r0-r3 i.e. t0-t3 in our case.
+        when "t0", "a0"
             "t0"
-        when "t1"
+        when "t1", "a1"
             "t1"
-        when "t2"
+        when "t2", "a2"
             "t2"
-        when "t3"
+        when "t3", "a3"
             "t3"
         when "t4"
-            "rPC"
+            "pc"
+        when "t5"
+            "t5"
         when "t6"
-            "rBasePC"
+            "pcBase"
+        when "t7"
+            "t7"
         when "csr1"
             "tagTypeNumber"
         when "csr2"
@@ -87,7 +93,7 @@ class RegisterID
         when "cfr"
             "cfr"
         when "lr"
-            "rRetVPC"
+            "lr"
         when "sp"
             "sp"
         else
@@ -176,10 +182,7 @@ class Address
         end
     end
     def pointerExpr
-        if base.is_a? RegisterID and base.name == "sp" 
-            offsetValue = "#{offset.value}"
-            "(ASSERT(#{offsetValue} == offsetof(JITStackFrame, vm)), &sp->vm)"
-        elsif offset.value == 0
+        if  offset.value == 0
             "#{base.clValue(:int8Ptr)}"
         elsif offset.value > 0
             "#{base.clValue(:int8Ptr)} + #{offset.value}"
@@ -248,9 +251,8 @@ class BaseIndex
         end
     end
     def pointerExpr
-        if base.is_a? RegisterID and base.name == "sp"
-            offsetValue = "(#{index.clValue} << #{scaleShift}) + #{offset.clValue})"
-            "(ASSERT(#{offsetValue} == offsetof(JITStackFrame, vm)), &sp->vm)"
+        if offset.value == 0
+            "#{base.clValue(:int8Ptr)} + (#{index.clValue} << #{scaleShift})"
         else
             "#{base.clValue(:int8Ptr)} + (#{index.clValue} << #{scaleShift}) + #{offset.clValue}"
         end
@@ -356,7 +358,7 @@ def cloopEmitOperation(operands, type, operator)
     raise unless type == :int || type == :uint || type == :int32 || type == :uint32 || \
         type == :int64 || type == :uint64 || type == :double
     if operands.size == 3
-        $asm.putc "#{operands[2].clValue(type)} = #{operands[1].clValue(type)} #{operator} #{operands[0].clValue(type)};"
+        $asm.putc "#{operands[2].clValue(type)} = #{operands[0].clValue(type)} #{operator} #{operands[1].clValue(type)};"
         if operands[2].is_a? RegisterID and (type == :int32 or type == :uint32)
             $asm.putc "#{operands[2].clDump}.clearHighWord();" # Just clear it. It does nothing on the 32-bit port.
         end
@@ -398,7 +400,7 @@ def cloopEmitUnaryOperation(operands, type, operator)
 end
 
 def cloopEmitCompareDoubleWithNaNCheckAndBranch(operands, condition)
-    $asm.putc "if (std::isnan(#{operands[0].clValue(:double)}) || isnan(#{operands[1].clValue(:double)})"
+    $asm.putc "if (std::isnan(#{operands[0].clValue(:double)}) || std::isnan(#{operands[1].clValue(:double)})"
     $asm.putc "    || (#{operands[0].clValue(:double)} #{condition} #{operands[1].clValue(:double)}))"
     $asm.putc "    goto #{operands[2].cLabel};"
 end
@@ -543,14 +545,18 @@ end
 # operands: callTarget, currentFrame, currentPC
 def cloopEmitCallSlowPath(operands)
     $asm.putc "{"
-    $asm.putc "    ExecState* exec = CAST<ExecState*>(#{operands[1].clValue(:voidPtr)});"
-    $asm.putc "    Instruction* pc = CAST<Instruction*>(#{operands[2].clValue(:voidPtr)});"
-    $asm.putc "    SlowPathReturnType result = #{operands[0].cLabel}(exec, pc);"
-    $asm.putc "    LLInt::decodeResult(result, t0.instruction, t1.execState);"
+    $asm.putc "    SlowPathReturnType result = #{operands[0].cLabel}(#{operands[1].clDump}, #{operands[2].clDump});"
+    $asm.putc "    decodeResult(result, t0.vp, t1.vp);"
     $asm.putc "}"
 end
 
+def cloopEmitCallSlowPathVoid(operands)
+    $asm.putc "#{operands[0].cLabel}(#{operands[1].clDump}, #{operands[2].clDump});"
+end
+
 class Instruction
+    @@didReturnFromJSLabelCounter = 0
+
     def lowerC_LOOP
         $asm.codeOrigin codeOriginString if $enableCodeOriginComments
         $asm.annotation annotation if $enableInstrAnnotations && (opcode != "cloopDo")
@@ -864,7 +870,8 @@ class Instruction
         when "break"
             $asm.putc "CRASH(); // break instruction not implemented."
         when "ret"
-            $asm.putc "goto doReturnHelper;"
+            $asm.putc "opcode = lr.opcode;"
+            $asm.putc "DISPATCH_OPCODE();"
 
         when "cbeq"
             cloopEmitCompareAndSet(operands, :uint8, "==")
@@ -1083,6 +1090,23 @@ class Instruction
             cloopEmitOpAndBranch(operands, "|", :int32, "== 0")
         when "borrinz"
             cloopEmitOpAndBranch(operands, "|", :int32, "!= 0")
+            
+        when "memfence"
+
+        when "push"
+            operands.each {
+                | op |
+                $asm.putc "PUSH(#{op.clDump});"
+            }
+        when "pop"
+            operands.each {
+                | op |
+                $asm.putc "POP(#{op.clDump});"
+            }
+
+        when "pushCalleeSaves"
+        when "popCalleeSaves"
+
 
         # A convenience and compact call to crash because we don't want to use
         # the generic llint crash mechanism which relies on the availability
@@ -1096,8 +1120,11 @@ class Instruction
         # use of the call instruction. Instead, we just implement JS calls
         # as an opcode dispatch.
         when "cloopCallJSFunction"
+            @@didReturnFromJSLabelCounter += 1
+            $asm.putc "lr.opcode = getOpcode(llint_cloop_did_return_from_js_#{@@didReturnFromJSLabelCounter});"
             $asm.putc "opcode = #{operands[0].clValue(:opcode)};"
             $asm.putc "DISPATCH_OPCODE();"
+            $asm.putsLabel("llint_cloop_did_return_from_js_#{@@didReturnFromJSLabelCounter}", false)
 
         # We can't do generic function calls with an arbitrary set of args, but
         # fortunately we don't have to here. All native function calls always
@@ -1117,6 +1144,9 @@ class Instruction
         # have a fixed prototype too. See cloopEmitCallSlowPath() for details.
         when "cloopCallSlowPath"
             cloopEmitCallSlowPath(operands)
+
+        when "cloopCallSlowPathVoid"
+            cloopEmitCallSlowPathVoid(operands)
 
         # For debugging only. This is used to insert instrumentation into the
         # generated LLIntAssembly.h during llint development only. Do not use

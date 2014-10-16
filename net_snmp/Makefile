@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 140.1
+Submission	= 143
 
 
 #
@@ -67,6 +67,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--disable-static \
 			--enable-ipv6 \
 			--with-perl-modules \
+			--disable-perl-cc-checks \
 			--disable-embedded-perl  \
 			--without-kmem-usage
 
@@ -99,7 +100,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 # wacky "INC=" is to used but not defined by the Makefile, so it's
 # used here to point to the project's headers instead of those already
 # installed on the system (which are out of date).
-Extra_Environment	= AR="$(SRCROOT)/ar.sh" INC="-I../../include"
+Extra_Environment	= AR="$(SRCROOT)/ar.sh" INC="-I../../include -I../../../include"
 GnuAfterInstall		= install-macosx install-mibs install-compat 
 #GnuAfterInstall         = install-macosx install-mibs	# do not include the compatibility libs
 

@@ -27,13 +27,22 @@
  * SUCH DAMAGE.
  */
 
-HEIMCRED_CONST(CFTypeRef, kHEIMAttrType); /* CFArray of kHEIMAttrType */
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrType); /* kHEIMAttrType */
 
 HEIMCRED_CONST(CFStringRef, kHEIMTypeGeneric);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeKerberos);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeIAKerb);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeNTLM);
 HEIMCRED_CONST(CFStringRef, kHEIMTypeConfiguration);
+HEIMCRED_CONST(CFStringRef, kHEIMTypeSchema);
+
+/* schema types */
+HEIMCRED_CONST(CFStringRef, kHEIMObjectType);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectKerberos);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectNTLM);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectGeneric);
+HEIMCRED_CONST(CFStringRef, kHEIMObjectConfiguration);
+
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrClientName);
 HEIMCRED_CONST(CFStringRef, kHEIMNameUserName);
@@ -51,8 +60,7 @@ HEIMCRED_CONST(CFTypeRef, kHEIMAttrCredential);	/* CFBooleanRef */
 HEIMCRED_CONST(CFStringRef, kHEIMCredentialPassword);
 HEIMCRED_CONST(CFStringRef, kHEIMCredentialCertificate);
 
-HEIMCRED_CONST(CFTypeRef, kHEIMAttrCredentialGroupLead); /* CFBooleanRef */
-HEIMCRED_CONST(CFTypeRef, kHEIMAttrCredentialGroup); /* CFUUIDRef */
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrLeadCredential); /* CFBooleanRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrParentCredential); /* CFUUIDRef */
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrData); /* CFDataRef */
@@ -66,6 +74,7 @@ HEIMCRED_CONST(CFStringRef, kHEIMStatusInvalid);
 HEIMCRED_CONST(CFStringRef, kHEIMStatusCanRefresh);
 HEIMCRED_CONST(CFStringRef, kHEIMStatusValid);
 
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrStoreTime); /* CFDateRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrAuthTime); /* CFDateRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrExpire); /* CFDateRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrRenewTill); /* CFDateRef */
@@ -73,3 +82,11 @@ HEIMCRED_CONST(CFTypeRef, kHEIMAttrRenewTill); /* CFDateRef */
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrRetainStatus); /* CFNumberRef */
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrBundleIdentifierACL); /* CFArray[bundle-id] */
+
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrDefaultCredential); /* BooleanRef */
+
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrKerberosTicketGrantingTicket); /* BooleanRef */
+
+/* NTLM */
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMUsername);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMDomain);

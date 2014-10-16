@@ -32,9 +32,10 @@
  */
 
 #include "secoid.h"
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
 
 const SecAsn1Template SECOID_AlgorithmIDTemplate[] = {
     { SEC_ASN1_SEQUENCE,
@@ -57,7 +58,7 @@ SECOID_GetAlgorithmTag(const SECAlgorithmID *id)
 
 SECStatus
 SECOID_SetAlgorithmID(PRArenaPool *arena, SECAlgorithmID *id, SECOidTag which,
-		      SECItem *params)
+		      const SecAsn1Item *params)
 {
     SECOidData *oiddata;
     Boolean add_null_param;
@@ -104,13 +105,10 @@ SECOID_SetAlgorithmID(PRArenaPool *arena, SECAlgorithmID *id, SECOidTag which,
 		* behavior.  But I do want for us to notice if the following is
 		* ever true, because I do not think it should be so and probably
 		* signifies an error/bug somewhere.
-		* This assertion removed Sep 9 2008 by dmitch, we really do need
-		* to be able to do this for an odd SEC_OID_EC_PUBLIC_KEY case.
-		*
+		*/
 		PORT_Assert(!add_null_param || (params->Length == 2
 					&& params->Data[0] == SEC_ASN1_NULL
 					&& params->Data[1] == 0));
-		*/
 		if (SECITEM_CopyItem(arena, &id->parameters, params)) {
 			return SECFailure;
 		}

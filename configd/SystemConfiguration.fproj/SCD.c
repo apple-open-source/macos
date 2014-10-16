@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,8 +34,7 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
-#include <asl_msg.h>
-#include <asl_core.h>
+#include <asl.h>
 #include <pthread.h>
 #include <sys/time.h>
 
@@ -44,6 +43,9 @@
 #include "SCD.h"
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
+
+// LIBASL SPI
+extern asl_object_t	_asl_server_control_query(void);
 
 
 /* framework variables */
@@ -68,7 +70,7 @@ __SCThreadSpecificDataFinalize(void *arg)
 	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
 
 	if (tsd != NULL) {
-		if (tsd->_asl != NULL) asl_close(tsd->_asl);
+		if (tsd->_asl != NULL) asl_release(tsd->_asl);
 		if (tsd->_sc_store != NULL) CFRelease(tsd->_sc_store);
 		CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
 	}
@@ -176,24 +178,26 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 	}
 
 	if (type == CFDateGetTypeID()) {
-		CFGregorianDate	gDate;
+		CFCalendarRef	calendar;
 		CFStringRef	str;
-		CFTimeZoneRef	tZone;
+		CFTimeZoneRef	tz;
+		int		MM, DD, YYYY, hh, mm, ss;
 
-		tZone = CFTimeZoneCopySystem();
-		gDate = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(cf), tZone);
-		str   = CFStringCreateWithFormat(NULL,
-						 formatOptions,
-						 CFSTR("%@%02d/%02d/%04d %02d:%02d:%02.0f %@"),
-						 prefix1,
-						 gDate.month,
-						 gDate.day,
-						 (int)gDate.year,
-						 gDate.hour,
-						 gDate.minute,
-						 gDate.second,
-						 CFTimeZoneGetName(tZone));
-		CFRelease(tZone);
+		calendar = CFCalendarCreateWithIdentifier(NULL, kCFGregorianCalendar);
+		tz = CFTimeZoneCopySystem();
+		CFCalendarSetTimeZone(calendar, tz);
+		CFRelease(tz);
+		CFCalendarDecomposeAbsoluteTime(calendar,
+						CFDateGetAbsoluteTime(cf),
+						"MdyHms",
+						&MM, &DD, &YYYY, &hh, &mm, &ss);
+		CFRelease(calendar);
+
+		str = CFStringCreateWithFormat(NULL,
+					       formatOptions,
+					       CFSTR("%@%02d/%02d/%04d %02d:%02d:%02d"),
+					       prefix1,
+					       MM, DD, YYYY, hh, mm, ss);
 		return str;
 	}
 
@@ -284,6 +288,7 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 
 		nElements = CFDictionaryGetCount(cf);
 		if (nElements > 0) {
+			CFComparatorFunction	compFunc	= NULL;
 			CFMutableArrayRef	sortedKeys;
 
 			if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
@@ -295,10 +300,23 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 			for (i = 0; i < nElements; i++) {
 				CFArrayAppendValue(sortedKeys, (CFStringRef)keys[i]);
 			}
-			CFArraySortValues(sortedKeys,
-					  CFRangeMake(0, nElements),
-					  (CFComparatorFunction)CFStringCompare,
-					  NULL);
+
+			if (isA_CFString(keys[0])) {
+				compFunc = (CFComparatorFunction)CFStringCompare;
+			}
+			else if (isA_CFNumber(keys[0])) {
+				compFunc = (CFComparatorFunction)CFNumberCompare;
+			}
+			else if (isA_CFDate(keys[0])) {
+				compFunc = (CFComparatorFunction)CFDateCompare;
+			}
+
+			if (compFunc != NULL) {
+				CFArraySortValues(sortedKeys,
+						  CFRangeMake(0, nElements),
+						  compFunc,
+						  NULL);
+			}
 
 			for (i = 0; i < nElements; i++) {
 				CFStringRef		key;
@@ -361,8 +379,20 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
+__private_extern__ Boolean
+is_install_environment() {
+	static dispatch_once_t	once;
+	static Boolean		is_install;
+	
+	dispatch_once(&once, ^{
+		is_install = (getenv(INSTALL_ENVIRONMENT) != NULL);
+	});
+	
+	return is_install;
+}
+
 static void
-__SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list formatArguments)
+__SCLog(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString, va_list formatArguments)
 {
 	CFDataRef	line;
 	CFArrayRef	lines;
@@ -373,12 +403,12 @@ __SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list 
 
 		tsd = __SCGetThreadSpecificData();
 		if (tsd->_asl == NULL) {
-			tsd->_asl = asl_open(NULL, NULL, 0);
+			tsd->_asl = asl_open(NULL, (is_install_environment() ? INSTALL_FACILITY : NULL), 0);
 			asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
 		}
 		asl = tsd->_asl;
 	}
-
+	
 #ifdef	ENABLE_SC_FORMATTING
 	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
 						       _SCCopyDescription,
@@ -395,8 +425,8 @@ __SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list 
 	if (level >= 0) {
 		lines = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR("\n"));
 		if (lines != NULL) {
-			int	i;
-			int	n	= CFArrayGetCount(lines);
+			CFIndex	i;
+			CFIndex	n	= CFArrayGetCount(lines);
 
 			for (i = 0; i < n; i++) {
 				line = CFStringCreateExternalRepresentation(NULL,
@@ -421,7 +451,6 @@ __SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list 
 		}
 	}
 	CFRelease(str);
-
 	return;
 }
 
@@ -528,7 +557,7 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 
 
 void
-SCLOG(aslclient asl, aslmsg msg, int level, CFStringRef formatString, ...)
+SCLOG(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString, ...)
 {
 	va_list		formatArguments;
 	va_list		formatArguments_print;
@@ -615,86 +644,6 @@ SCTrace(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 #pragma mark ASL Functions
 
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
-
-
-extern kern_return_t _asl_server_query(mach_port_t server,
-				       caddr_t request,
-				       mach_msg_type_number_t requestCnt,
-				       uint64_t startid,
-				       int count,
-				       int flags,
-				       caddr_t *reply,
-				       mach_msg_type_number_t *replyCnt,
-				       uint64_t *lastid,
-				       int *status,
-				       security_token_t *token);
-
-#define ASL_SERVICE_NAME "com.apple.system.logger"
-
-
-static aslresponse
-_asl_control_query(aslmsg a)
-{
-	asl_search_result_t *out;
-	char *qstr, *str, *res;
-	uint32_t len, reslen, status;
-	uint64_t cmax, qmin;
-	kern_return_t kstatus;
-	caddr_t vmstr;
-	mach_port_t server_port;
-	security_token_t sec;
-
-	bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &server_port);
-	if (server_port == MACH_PORT_NULL) return NULL;
-
-	len = 0;
-	qstr = asl_msg_to_string((asl_msg_t *)a, &len);
-
-	str = NULL;
-	if (qstr == NULL)
-	{
-		asprintf(&str, "1\nQ [= ASLOption control]\n");
-		len = 27;
-	}
-	else
-	{
-		asprintf(&str, "1\n%s [= ASLOption control]\n", qstr);
-		len += 26;
-		free(qstr);
-	}
-
-	if (str == NULL) return NULL;
-
-	out = NULL;
-	qmin = 0;
-	cmax = 0;
-	sec.val[0] = -1;
-	sec.val[1] = -1;
-
-	res = NULL;
-	reslen = 0;
-	status = ASL_STATUS_OK;
-
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE);
-	if (kstatus != KERN_SUCCESS) return NULL;
-
-	memmove(vmstr, str, len);
-	free(str);
-
-	status = 0;
-	kstatus = _asl_server_query(server_port, vmstr, len, qmin, 1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status, &sec);
-	if (kstatus != KERN_SUCCESS) return NULL;
-
-	if (res == NULL) return NULL;
-
-	out = asl_list_from_string(res);
-	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
-
-	return out;
-}
-
-
 static CFTypeID __kSCLoggerTypeID = _kCFRuntimeNotATypeID;
 
 typedef  enum {
@@ -709,8 +658,8 @@ struct SCLogger
 
 	char *			loggerID;	// LoggerID
 	SCLoggerFlags		flags;
-	aslclient		aslc;
-	aslmsg			aslm;
+	asl_object_t		aslc;
+	asl_object_t		aslm;
 	ModuleStatus		module_status;
 	pthread_mutex_t		lock;
 };
@@ -793,11 +742,11 @@ __SCLoggerDeallocate(CFTypeRef cf)
 			logger->loggerID = NULL;
 		}
 		if (logger->aslm != NULL) {
-			asl_free(logger->aslm);
+			asl_release(logger->aslm);
 			logger->aslm = NULL;
 		}
 		if (logger->aslc != NULL) {
-			asl_close(logger->aslc);
+			asl_release(logger->aslc);
 			logger->aslc = NULL;
 		}
 	}
@@ -811,7 +760,7 @@ __SCLoggerCreate(void)
 	tempLogger = __SCLoggerAllocate(kCFAllocatorDefault);
 	tempLogger->loggerID = NULL;
 	tempLogger->flags = kSCLoggerFlagsDefault;
-	tempLogger->aslc = asl_open(NULL, NULL, ASL_OPT_NO_DELAY);
+	tempLogger->aslc = asl_open(NULL, (is_install_environment() ? INSTALL_FACILITY : NULL), ASL_OPT_NO_DELAY);
 	tempLogger->aslm = asl_new(ASL_TYPE_MSG);
 	pthread_mutex_init(&(tempLogger->lock), NULL);
 	tempLogger->module_status = kModuleStatusDoesNotExist;
@@ -887,21 +836,16 @@ SCLoggerSetLoggerID(SCLoggerRef logger, CFStringRef loggerID)
 static ModuleStatus
 GetModuleStatus(const char * loggerID)
 {
-	aslresponse response = NULL;
-	aslmsg responseMessage = NULL;
-	ModuleStatus moduleStatus = kModuleStatusDoesNotExist;
-	const char* value = NULL;
+	ModuleStatus	moduleStatus	= kModuleStatusDoesNotExist;
+	asl_object_t	response	= NULL;
+	const char*	value		= NULL;
 
 	if (loggerID != NULL) {
-		response = _asl_control_query(NULL);
+		response = _asl_server_control_query();
 		if (response == NULL) {
 			goto done;
 		}
-		responseMessage = aslresponse_next(response);
-		if (responseMessage == NULL) {
-			goto done;
-		}
-		value = asl_get(responseMessage, loggerID);
+		value = asl_get(response, loggerID);
 		if (value == NULL) {
 			moduleStatus = kModuleStatusDoesNotExist;
 			goto done;
@@ -915,9 +859,7 @@ GetModuleStatus(const char * loggerID)
 		}
 	}
 done:
-	if (response != NULL) {
-		aslresponse_free(response);
-	}
+	asl_release(response);
 
 	return moduleStatus;
 }
@@ -1003,8 +945,8 @@ void
 SCLoggerVLog(SCLoggerRef logger, int loglevel, CFStringRef formatString,
 	     va_list args)
 {
-	aslclient	aslc;
-	aslmsg		aslm;
+	asl_object_t	aslc;
+	asl_object_t	aslm;
 
 	if (logger == NULL
 	    || logger->module_status == kModuleStatusDoesNotExist) {
@@ -1033,8 +975,6 @@ SCLoggerLog(SCLoggerRef logger, int loglevel, CFStringRef formatString, ...)
 
 	return;
 }
-
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 
 
 #pragma mark -

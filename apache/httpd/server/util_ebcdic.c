@@ -24,42 +24,45 @@
 #include "http_core.h"
 #include "util_ebcdic.h"
 
+/* we know core's module_index is 0 */
+#undef APLOG_MODULE_INDEX
+#define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
+
 apr_status_t ap_init_ebcdic(apr_pool_t *pool)
 {
     apr_status_t rv;
-    char buf[80];
 
     rv = apr_xlate_open(&ap_hdrs_to_ascii, "ISO-8859-1", APR_DEFAULT_CHARSET, pool);
     if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL, APLOGNO(00040)
                      "apr_xlate_open() failed");
         return rv;
     }
 
     rv = apr_xlate_open(&ap_hdrs_from_ascii, APR_DEFAULT_CHARSET, "ISO-8859-1", pool);
     if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL, APLOGNO(00041)
                      "apr_xlate_open() failed");
         return rv;
     }
 
     rv = apr_MD5InitEBCDIC(ap_hdrs_to_ascii);
     if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL, APLOGNO(00042)
                      "apr_MD5InitEBCDIC() failed");
         return rv;
     }
 
     rv = apr_base64init_ebcdic(ap_hdrs_to_ascii, ap_hdrs_from_ascii);
     if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL, APLOGNO(00043)
                      "apr_base64init_ebcdic() failed");
         return rv;
     }
 
     rv = apr_SHA1InitEBCDIC(ap_hdrs_to_ascii);
     if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL,
+        ap_log_error(APLOG_MARK, APLOG_ERR, rv, NULL, APLOGNO(00044)
                      "apr_SHA1InitEBCDIC() failed");
         return rv;
     }
@@ -99,7 +102,7 @@ int ap_rvputs_proto_in_ascii(request_rec *r, ...)
         if (s == NULL)
             break;
         len = strlen(s);
-        ascii_s = apr_pstrndup(r->pool, s, len);
+        ascii_s = apr_pstrmemdup(r->pool, s, len);
         ap_xlate_proto_to_ascii(ascii_s, len);
         if (ap_rputs(ascii_s, r) < 0)
             return -1;

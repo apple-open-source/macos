@@ -87,7 +87,7 @@ struct sockaddr_dl *
 LinkAddresses_lookup(LinkAddressesRef list, char * ifname)
 {
     int i;
-    int len = strlen(ifname);
+    int len = (int)strlen(ifname);
 
     for (i = 0; i < list->count; i++) {
 	struct sockaddr_dl * sdl = list->list[i];

@@ -1,4 +1,10 @@
 keymgr
 quarantine
+system_coreservices system_sim_coreservices
+system_coretls
+system_network
+system_secinit
 system_stats
+system_trace system_sim_trace
+system_networkextension
 unc

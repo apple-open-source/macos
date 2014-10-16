@@ -243,7 +243,10 @@ BN_is_bit_set(const BIGNUM *bn, int bit)
     heim_integer *hi = (heim_integer *)bn;
     unsigned char *p = hi->data;
 
-    if ((bit / 8) > hi->length || hi->length == 0)
+    if (bit < 0)
+	return 0;
+
+    if (((size_t)bit / 8) > hi->length || hi->length == 0)
 	return 0;
 
     return p[hi->length - 1 - (bit / 8)] & is_set[bit % 8];
@@ -255,7 +258,10 @@ BN_set_bit(BIGNUM *bn, int bit)
     heim_integer *hi = (heim_integer *)bn;
     unsigned char *p;
 
-    if ((bit / 8) > hi->length || hi->length == 0) {
+    if (bit < 0)
+	return 0;
+
+    if (((size_t)bit / 8) > hi->length || hi->length == 0) {
 	size_t len = (bit + 7) / 8;
 	void *d = realloc(hi->data, len);
 	if (d == NULL)
@@ -277,7 +283,10 @@ BN_clear_bit(BIGNUM *bn, int bit)
     heim_integer *hi = (heim_integer *)bn;
     unsigned char *p = hi->data;
 
-    if ((bit / 8) > hi->length || hi->length == 0)
+    if (bit < 0)
+	return 0;
+
+    if (((size_t)bit / 8) > hi->length || hi->length == 0)
 	return 0;
 
     p[hi->length - 1 - (bit / 8)] &= (unsigned char)(~(is_set[bit % 8]));
@@ -301,8 +310,9 @@ BN_set_word(BIGNUM *bn, unsigned long num)
 	num = num >> 8;
     }
 
-    bn = BN_bin2bn(p, len, bn);
-    return bn != NULL;
+    if (BN_bin2bn(p, len, bn) == NULL)
+	return 0;
+    return 1;
 }
 
 unsigned long
@@ -310,7 +320,7 @@ BN_get_word(const BIGNUM *bn)
 {
     heim_integer *hi = (heim_integer *)bn;
     unsigned long num = 0;
-    int i;
+    size_t i;
 
     if (hi->negative || hi->length > sizeof(num))
 	return ULONG_MAX;
@@ -341,7 +351,7 @@ BN_rand(BIGNUM *bn, int bits, int top, int bottom)
     }
 
     {
-	size_t j = len * 8;
+	int j = len * 8;
 	while(j > bits) {
 	    BN_clear_bit(bn, j - 1);
 	    j--;

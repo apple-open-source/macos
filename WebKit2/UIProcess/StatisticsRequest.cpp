@@ -26,9 +26,8 @@
 #include "config.h"
 #include "StatisticsRequest.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "MutableDictionary.h"
-#include <wtf/Atomics.h>
 
 namespace WebKit {
 
@@ -45,9 +44,9 @@ StatisticsRequest::~StatisticsRequest()
 
 uint64_t StatisticsRequest::addOutstandingRequest()
 {
-    static int64_t uniqueRequestID;
+    static std::atomic<int64_t> uniqueRequestID;
 
-    uint64_t requestID = atomicIncrement(&uniqueRequestID);
+    uint64_t requestID = ++uniqueRequestID;
     m_outstandingRequests.add(requestID);
     return requestID;
 }
@@ -56,7 +55,7 @@ static void addToDictionaryFromHashMap(MutableDictionary* dictionary, const Hash
 {
     HashMap<String, uint64_t>::const_iterator end = map.end();
     for (HashMap<String, uint64_t>::const_iterator it = map.begin(); it != end; ++it)
-        dictionary->set(it->key, RefPtr<WebUInt64>(WebUInt64::create(it->value)).get());
+        dictionary->set(it->key, RefPtr<API::UInt64>(API::UInt64::create(it->value)).get());
 }
 
 static PassRefPtr<MutableDictionary> createDictionaryFromHashMap(const HashMap<String, uint64_t>& map)
@@ -83,13 +82,15 @@ void StatisticsRequest::completedRequest(uint64_t requestID, const StatisticsDat
         m_responseDictionary->set("JavaScriptProtectedObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptProtectedObjectTypeCounts).get());
     if (!data.javaScriptObjectTypeCounts.isEmpty())
         m_responseDictionary->set("JavaScriptObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptObjectTypeCounts).get());
-    
-    size_t cacheStatisticsCount = data.webCoreCacheStatistics.size();
-    if (cacheStatisticsCount) {
-        Vector<RefPtr<APIObject>> cacheStatisticsVector(cacheStatisticsCount);
-        for (size_t i = 0; i < cacheStatisticsCount; ++i)
-            cacheStatisticsVector[i] = createDictionaryFromHashMap(data.webCoreCacheStatistics[i]);
-        m_responseDictionary->set("WebCoreCacheStatistics", ImmutableArray::adopt(cacheStatisticsVector).get());
+
+    if (!data.webCoreCacheStatistics.isEmpty()) {
+        Vector<RefPtr<API::Object>> cacheStatistics;
+        cacheStatistics.reserveInitialCapacity(data.webCoreCacheStatistics.size());
+
+        for (const auto& statistic : data.webCoreCacheStatistics)
+            cacheStatistics.uncheckedAppend(createDictionaryFromHashMap(statistic));
+
+        m_responseDictionary->set("WebCoreCacheStatistics", API::Array::create(WTF::move(cacheStatistics)).get());
     }
 
     if (m_outstandingRequests.isEmpty()) {

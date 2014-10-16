@@ -1,0 +1,66 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>full-header-path.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">full-header-path.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># full-header-path.m4 serial 2
+</span><span class="enscript-comment">dnl Copyright (C) 2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Derek Price.
+</span>
+<span class="enscript-comment"># gl_FULL_HEADER_PATH(HEADER1 HEADER2 ...)
+</span><span class="enscript-comment"># ----------------------------------------
+</span><span class="enscript-comment"># Find the full path to a header file, assuming the header exists.
+</span><span class="enscript-comment"># If the header were sys/inttypes.h, this macro would define
+</span><span class="enscript-comment"># FULL_PATH_SYS_INTTYPES_H to the `&lt;&gt;' quoted full path to sys/inttypes.h
+</span><span class="enscript-comment"># in config.h
+</span><span class="enscript-comment"># (e.g. `#define FULL_PATH_SYS_INTTYPES_H &lt;/usr/include/sys/inttypes.h&gt;').
+</span>AC_DEFUN([gl_FULL_HEADER_PATH],
+[AC_LANG_PREPROC_REQUIRE()<span class="enscript-comment">dnl
+</span>AC_FOREACH([gl_HEADER_NAME], [$1],
+  [AS_VAR_PUSHDEF([gl_full_header_path],
+                  [gl_cv_full_path_]m4_quote(m4_defn([gl_HEADER_NAME])))<span class="enscript-comment">dnl
+</span>  AC_CACHE_CHECK([full path to &lt;]m4_quote(m4_defn([gl_HEADER_NAME]))[&gt;],
+    m4_quote(m4_defn([gl_full_header_path])),
+    [AS_VAR_PUSHDEF([ac_header_exists],
+                    [ac_cv_header_]m4_quote(m4_defn([gl_HEADER_NAME])))<span class="enscript-comment">dnl
+</span>    AC_CHECK_HEADERS_ONCE(m4_quote(m4_defn([gl_HEADER_NAME])))<span class="enscript-comment">dnl
+</span>    if test AS_VAR_GET(ac_header_exists) = yes; then
+      AC_LANG_CONFTEST([AC_LANG_SOURCE([[<span class="enscript-comment">#include &lt;]]m4_dquote(m4_defn([gl_HEADER_NAME]))[[&gt;]])])
+</span><span class="enscript-comment">dnl eval is necessary to expand ac_cpp.
+</span><span class="enscript-comment">dnl Ultrix and Pyramid sh refuse to redirect output of eval, so use subshell.
+</span>      AS_VAR_SET(gl_full_header_path,
+[`(<span class="enscript-keyword">eval</span> &quot;$ac_cpp conftest.$ac_ext&quot;) 2&gt;&amp;AS_MESSAGE_LOG_FD |
+sed -n '\<span class="enscript-comment">#/]m4_quote(m4_defn([gl_HEADER_NAME]))[#{s#.*&quot;\(.*/]m4_quote(m4_defn([gl_HEADER_NAME]))[\)&quot;.*#\1#;p;q;}'`])
+</span>    fi
+    AS_VAR_POPDEF([ac_header_exists])<span class="enscript-comment">dnl
+</span>    ])<span class="enscript-comment">dnl
+</span>  AC_DEFINE_UNQUOTED(AS_TR_CPP([FULL_PATH_]m4_quote(m4_defn([gl_HEADER_NAME]))),
+                     [&lt;AS_VAR_GET(gl_full_header_path)&gt;],
+                     [Define this to the full path to &lt;]m4_quote(m4_defn([gl_HEADER_NAME]))[&gt;.])
+  AS_VAR_POPDEF([gl_full_header_path])<span class="enscript-comment">dnl
+</span>])<span class="enscript-comment">dnl
+</span>])<span class="enscript-comment"># gl_FULL_HEADER_PATH
+</span></pre>
+<hr />
+</body></html>

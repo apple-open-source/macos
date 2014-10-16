@@ -2177,6 +2177,31 @@ _heim_krb5_parse_name:
 	movq    (%r11), %r11
 	jmp	*%r11
 
+	.globl _heim_krb5_parse_name_flags
+_heim_krb5_parse_name_flags:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_parse_name_flags@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
 	.globl _heim_krb5_principal_compare
 _heim_krb5_principal_compare:
 	pushq	%rbp
@@ -3014,6 +3039,7 @@ _heim_krb5_appdefault_string:
 .comm _fun_krb5_init_context_flags,8,3
 .comm _fun_krb5_make_principal,8,3
 .comm _fun_krb5_parse_name,8,3
+.comm _fun_krb5_parse_name_flags,8,3
 .comm _fun_krb5_principal_compare,8,3
 .comm _fun_krb5_principal_get_realm,8,3
 .comm _fun_krb5_timeofday,8,3

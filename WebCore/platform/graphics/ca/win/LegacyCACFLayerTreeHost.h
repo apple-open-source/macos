@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -25,8 +25,6 @@
 
 #ifndef LegacyCACFLayerTreeHost_h
 #define LegacyCACFLayerTreeHost_h
-
-#if USE(ACCELERATED_COMPOSITING)
 
 #include "CACFLayerTreeHost.h"
 
@@ -65,7 +63,7 @@ private:
     virtual void render(const Vector<CGRect>& dirtyRects = Vector<CGRect>());
 
 #if USE(AVFOUNDATION)
-    virtual GraphicsDeviceAdapter* graphicsDeviceAdapter() const OVERRIDE { return 0; }
+    virtual GraphicsDeviceAdapter* graphicsDeviceAdapter() const override { return 0; }
 #endif
 
     Timer<LegacyCACFLayerTreeHost> m_renderTimer;
@@ -80,7 +78,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // LegacyCACFLayerTreeHost_h

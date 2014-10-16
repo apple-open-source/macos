@@ -54,6 +54,7 @@
 
 
 #include <sys/cdefs.h>
+#include <sys/stat.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -65,24 +66,79 @@
 #include "ext.h"
 #include "fsutil.h"
 
-int
-checkfilesys(fname)
-	const char *fname;
+int checkfilesys(const char *fname)
 {
-	int dosfs;
+	int dosfs = -1;
 	struct bootblock boot;
 	int finish_dosdirsection=0;
 	int mod = 0;
-	int ret = 8;
+	int ret = FSERROR;
 	int tryFatalAgain = 1;
 	int tryErrorAgain = 3;
 	int tryOthersAgain = 3;
+    char raw_path[64];
+    
+    /*
+     * We accept device paths of the form "/dev/disk6s1" or "disk6s1"
+     * and convert them to the raw path "/dev/rdisk6s1".
+     *
+     * On iOS, we want to be able to run fsck_msdos as user "mobile"
+     * so that it can be spawned from userfsd, which also runs as "mobile".
+     * But since /dev/disk entries are owned by root, we can't open them
+     * directly.  userfsd has already used an SPI to open the disk device,
+     * so it will spawn fsck_msdos with that open file descriptor, and use
+     * a path of the form "/dev/fd/NUMBER".
+     *
+     * Unfortunately, iOS doesn't support /dev/fd/ (and if it did, sandboxing
+     * might not allow us to access it).  If we can search in /dev/fd, then
+     * we'll just try to open the path as-is.  Otherwise, we'll parse the file
+     * descriptor number from the path and use that descriptor directly
+     * (without going through open).
+     */
+	if (!strncmp(fname, "/dev/disk", 9))
+	{
+	    if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", &fname[5]) < sizeof(raw_path))
+            fname = raw_path;
+	    /* Else we just use the non-raw disk */
+	}
+	else if (!strncmp(fname, "disk", 4))
+	{
+	    if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", fname) < sizeof(raw_path))
+            fname = raw_path;
+	    /* Else the open below is likely to fail */
+	}
+	else if (!strncmp(fname, "/dev/fd/", 8))
+    {
+        /*
+         * If /dev/fd/ doesn't exist, or we can't access it,
+         * then parse the file descriptor ourselves.
+         */
+        if (access("/dev/fd", X_OK))
+        {
+            char *end_ptr;
+            dosfs = (int)strtol(&fname[8], &end_ptr, 10);
+            if (*end_ptr)
+            {
+                // TODO: is errx or err the right way to report the errors here?
+                pfatal("Invalid file descriptor path: %s", fname);
+                return 8;
+            }
+            
+            struct stat info;
+            if (fstat(dosfs, &info))
+            {
+                perr("Cannot stat");
+                return 8;
+            }
+        }
+    }
 
 	rdonly = alwaysno || quick;
 	if (!preen)
 		printf("** %s", fname);
 
-	dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
+    if (dosfs < 0)
+        dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
 	if (dosfs < 0 && !rdonly) {
 		dosfs = open(fname, O_RDONLY, 0);
 		if (dosfs >= 0)
@@ -133,7 +189,6 @@ checkfilesys(fname)
 	}
 
 Again:
-	mod = 0;		/* make sure its reset */
 	boot.NumFiles = 0;	/* Reset file count in case we loop back here */
 	boot.NumBad = 0;
 	
@@ -155,7 +210,7 @@ Again:
 	
 	if (mod & FSFATAL) {
 		close(dosfs);
-		return 8;
+		return FSERROR;
 	}
 
 	if (!preen && !quiet)
@@ -230,17 +285,14 @@ Again:
 	if (mod && rdonly)
 		goto out;
 
-	if ((mod & FSFATAL) && (--tryFatalAgain > 0))
+	if (((mod & FSFATAL) && (--tryFatalAgain > 0)) ||
+	    ((mod & FSERROR) && (--tryErrorAgain > 0)) ||
+	    ((mod & FSFIXFAT) && (--tryOthersAgain > 0))) {
+		mod = 0;
 		goto Again;
-	if ((mod & FSERROR) && (--tryErrorAgain > 0))
-		goto Again;
-	if ((mod & FSFIXFAT) && (--tryOthersAgain > 0))
-		goto Again;
-		
-	if (mod & (FSFATAL | FSERROR))
-		goto out;
-
-	ret = 0;
+	}
+	if ((mod & (FSFATAL | FSERROR)) == 0)
+		ret = 0;
 
     out:
 	if (finish_dosdirsection)

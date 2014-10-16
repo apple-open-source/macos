@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebContextClient.h"
 
+#include "APIArray.h"
 #include "WebContext.h"
 
 namespace WebKit {
@@ -35,7 +36,7 @@ void WebContextClient::plugInAutoStartOriginHashesChanged(WebContext* context)
     if (!m_client.plugInAutoStartOriginHashesChanged)
         return;
 
-    m_client.plugInAutoStartOriginHashesChanged(toAPI(context), m_client.clientInfo);
+    m_client.plugInAutoStartOriginHashesChanged(toAPI(context), m_client.base.clientInfo);
 }
 
 void WebContextClient::networkProcessDidCrash(WebContext* context)
@@ -43,15 +44,26 @@ void WebContextClient::networkProcessDidCrash(WebContext* context)
     if (!m_client.networkProcessDidCrash)
         return;
 
-    m_client.networkProcessDidCrash(toAPI(context), m_client.clientInfo);
+    m_client.networkProcessDidCrash(toAPI(context), m_client.base.clientInfo);
 }
 
-void WebContextClient::plugInInformationBecameAvailable(WebContext* context, ImmutableArray* plugInInfo)
+void WebContextClient::plugInInformationBecameAvailable(WebContext* context, API::Array* plugInInfo)
 {
     if (!m_client.plugInInformationBecameAvailable)
         return;
 
-    m_client.plugInInformationBecameAvailable(toAPI(context), toAPI(plugInInfo), m_client.clientInfo);
+    // FIXME: The API contract expects us to hand a reference to the array here. This is wrong.
+    plugInInfo->ref();
+
+    m_client.plugInInformationBecameAvailable(toAPI(context), toAPI(plugInInfo), m_client.base.clientInfo);
+}
+
+PassRefPtr<API::Data> WebContextClient::copyWebCryptoMasterKey(WebContext* context)
+{
+    if (!m_client.copyWebCryptoMasterKey)
+        return nullptr;
+
+    return adoptRef(toImpl(m_client.copyWebCryptoMasterKey(toAPI(context), m_client.base.clientInfo)));
 }
 
 } // namespace WebKit

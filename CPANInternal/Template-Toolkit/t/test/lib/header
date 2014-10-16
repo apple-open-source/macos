@@ -1,3 +1,0 @@
-header:
-  title: [% title %]
-  menu: [% INCLUDE menu %]

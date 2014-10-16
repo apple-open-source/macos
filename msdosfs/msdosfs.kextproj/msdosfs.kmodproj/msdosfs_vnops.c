@@ -656,7 +656,7 @@ int msdosfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		}
 		else
 		{
-			return uiomove(pmp->pm_volume_serial_num, sizeof(pmp->pm_volume_serial_num), ap->a_uio);
+			return uiomove((char *)pmp->pm_volume_serial_num, sizeof(pmp->pm_volume_serial_num), ap->a_uio);
 		}
 	}
 
@@ -1131,6 +1131,10 @@ int msdosfs_vnop_fsync(struct vnop_fsync_args *ap)
 	if (dep == NULL)
 		return 0;
 
+	if (dep->de_pmp->pm_flags & MSDOSFSMNT_RONLY) {
+		/* For read-only mounts, there's nothing to do */
+		return 0;
+	}
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_FSYNC|DBG_FUNC_START, dep, 0, 0, 0, 0);
 
 	lck_mtx_lock(dep->de_lock);

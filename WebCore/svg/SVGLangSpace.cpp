@@ -19,8 +19,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGLangSpace.h"
 
 #include "Attribute.h"
@@ -38,7 +36,7 @@ void SVGLangSpace::setXmllang(const AtomicString& xmlLang)
 const AtomicString& SVGLangSpace::xmlspace() const
 {
     if (!m_space) {
-        DEFINE_STATIC_LOCAL(const AtomicString, defaultString, ("default", AtomicString::ConstructFromLiteral));
+        DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, defaultString, ("default", AtomicString::ConstructFromLiteral));
         return defaultString;
     }
 
@@ -71,7 +69,7 @@ bool SVGLangSpace::isKnownAttribute(const QualifiedName& attrName)
     
 void SVGLangSpace::addSupportedAttributes(HashSet<QualifiedName>& supportedAttributes)
 {
-    DEFINE_STATIC_LOCAL(AtomicString, xmlPrefix, ("xml", AtomicString::ConstructFromLiteral));
+    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, xmlPrefix, ("xml", AtomicString::ConstructFromLiteral));
 
     QualifiedName langWithPrefix = XMLNames::langAttr;
     langWithPrefix.setPrefix(xmlPrefix);
@@ -85,5 +83,3 @@ void SVGLangSpace::addSupportedAttributes(HashSet<QualifiedName>& supportedAttri
 }
 
 }
-
-#endif // ENABLE(SVG)

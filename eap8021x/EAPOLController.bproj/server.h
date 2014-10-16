@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,6 @@
 
 #include <mach/boolean.h>
 #include <CoreFoundation/CFMachPort.h>
-
-boolean_t
-server_active(void);
 
 void
 server_register(void);

@@ -30,16 +30,16 @@ namespace WebCore {
 
 class NamedNodeMap;
 
-class DocumentType FINAL : public Node {
+class DocumentType final : public Node {
 public:
-    static PassRefPtr<DocumentType> create(Document* document, const String& name, const String& publicId, const String& systemId)
+    static PassRefPtr<DocumentType> create(Document& document, const String& name, const String& publicId, const String& systemId)
     {
         return adoptRef(new DocumentType(document, name, publicId, systemId));
     }
 
-    // FIXME: We never fill m_entities and m_notations. Current implementation of NamedNodeMap doesn't work without an associated Element yet.
-    NamedNodeMap* entities() const { return m_entities.get(); }
-    NamedNodeMap* notations() const { return m_notations.get(); }
+    // FIXME: We return null entities and notations. Current implementation of NamedNodeMap doesn't work without an associated Element yet.
+    NamedNodeMap* entities() const { return nullptr; }
+    NamedNodeMap* notations() const { return nullptr; }
 
     const String& name() const { return m_name; }
     const String& publicId() const { return m_publicId; }
@@ -47,24 +47,25 @@ public:
     const String& internalSubset() const { return m_subset; }
 
 private:
-    DocumentType(Document*, const String& name, const String& publicId, const String& systemId);
+    DocumentType(Document&, const String& name, const String& publicId, const String& systemId);
 
-    virtual KURL baseURI() const;
-    virtual String nodeName() const;
-    virtual NodeType nodeType() const;
-    virtual PassRefPtr<Node> cloneNode(bool deep);
-
-    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
-    virtual void removedFrom(ContainerNode*) OVERRIDE;
-
-    OwnPtr<NamedNodeMap> m_entities;
-    OwnPtr<NamedNodeMap> m_notations;
+    virtual URL baseURI() const override;
+    virtual String nodeName() const override;
+    virtual NodeType nodeType() const override;
+    virtual PassRefPtr<Node> cloneNode(bool deep) override;
 
     String m_name;
     String m_publicId;
     String m_systemId;
     String m_subset;
 };
+
+inline bool isDocumentType(const Node& node)
+{
+    return node.nodeType() == Node::DOCUMENT_TYPE_NODE;
+}
+
+NODE_TYPE_CASTS(DocumentType)
 
 } // namespace WebCore
 

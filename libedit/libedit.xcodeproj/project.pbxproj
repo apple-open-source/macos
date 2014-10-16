@@ -209,6 +209,7 @@
 		4C6159B7104F20F500BF0A10 /* fcns.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fcns.h; path = local/fcns.h; sourceTree = "<group>"; };
 		4C6159BC104F212400BF0A10 /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
 		4C6159CF1050614000BF0A10 /* libedit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libedit.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		8128AE7C185DABB600F61B90 /* libedit.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libedit.xcconfig; path = xcodescripts/libedit.xcconfig; sourceTree = "<group>"; };
 		B1140F291188EEBE00188080 /* historyn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = historyn.c; path = local/historyn.c; sourceTree = "<group>"; };
 		B1140F2A1188EEBE00188080 /* tokenizern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tokenizern.c; path = local/tokenizern.c; sourceTree = "<group>"; };
 		B18111941188D65A00EC8250 /* chartype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chartype.c; path = src/chartype.c; sourceTree = "<group>"; };
@@ -242,6 +243,7 @@
 		08FB7794FE84155DC02AAC07 /* libedit */ = {
 			isa = PBXGroup;
 			children = (
+				8128AE7C185DABB600F61B90 /* libedit.xcconfig */,
 				4C6159BC104F212400BF0A10 /* libncurses.dylib */,
 				4C61597F104F15A900BF0A10 /* local */,
 				08FB7795FE84155DC02AAC07 /* Source */,
@@ -459,6 +461,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libedit" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -597,46 +601,20 @@
 /* Begin XCBuildConfiguration section */
 		1DEB914C08733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8128AE7C185DABB600F61B90 /* libedit.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 3.0;
-				EXECUTABLE_PREFIX = lib;
-				GCC_ENABLE_BUILTIN_FUNCTIONS = YES;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
-				PRODUCT_NAME = edit.3;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_STYLE = "non-global";
-				USER_HEADER_SEARCH_PATHS = src;
 			};
 			name = Release;
 		};
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				ONLY_ACTIVE_ARCH = NO;
-				PREBINDING = NO;
-				SDKROOT = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = __;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		4C615988104F1E8800BF0A10 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8128AE7C185DABB600F61B90 /* libedit.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = all;
 			};

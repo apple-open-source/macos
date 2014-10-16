@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,6 +85,7 @@ typedef struct {
     DHCPv6ClientRef		dhcp_client;
     struct in6_addr *		dns_servers;
     int				dns_servers_count;
+    boolean_t			renew;
 } Service_rtadv_t;
 
 
@@ -205,7 +206,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	
 	/* set timer values and wait for responses */
 	tv.tv_sec = RTR_SOLICITATION_INTERVAL;
-	tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	timer_set_relative(rtadv->timer, tv,
 			   (timer_func_t *)rtadv_start,
 			   service_p, (void *)IFEventID_timeout_e, NULL);
@@ -309,6 +310,51 @@ rtadv_create_signature(ServiceRef service_p,
     return (sig_str);
 }
 
+#ifndef IN6_IFF_SWIFTDAD
+#define IN6_IFF_SWIFTDAD	0x0800  /* DAD with no delay */
+#endif /* IN6_IFF_SWIFTDAD */
+
+STATIC void
+rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
+{
+    int			i;
+    interface_t *	if_p = service_interface(service_p);
+    inet6_addrinfo_t *	scan;
+    int			sockfd;
+
+    sockfd = inet6_dgram_socket();
+    if (sockfd < 0) {
+	my_log(LOG_ERR,
+	       "RTADV %s: failed to open socket, %s",
+	       if_name(if_p), strerror(errno));
+	return;
+    }
+    for (i = 0, scan = list; i < count; scan++, i++) {
+	char 	ntopbuf[INET6_ADDRSTRLEN];
+
+	if (inet6_aifaddr(sockfd, if_name(if_p),
+			  &scan->addr, NULL, scan->prefix_length,
+			  scan->addr_flags | IN6_IFF_SWIFTDAD,
+			  scan->valid_lifetime,
+			  scan->preferred_lifetime) < 0) {
+	    my_log(LOG_ERR,
+		   "RTADV %s: inet6_aifaddr(%s/%d) failed, %s",
+		   if_name(if_p),
+		   inet_ntop(AF_INET6, &scan->addr, ntopbuf, sizeof(ntopbuf)),
+		   scan->prefix_length, strerror(errno));
+	}
+	else if (G_IPConfiguration_verbose) {
+	    my_log(LOG_DEBUG,
+		   "RTADV %s: Re-assigned %s/%d",
+		   if_name(if_p),
+		   inet_ntop(AF_INET6, &scan->addr, ntopbuf, sizeof(ntopbuf)),
+		   scan->prefix_length);
+	}
+    }
+    close(sockfd);
+    return;
+}
+
 STATIC void
 rtadv_address_changed(ServiceRef service_p,
 		      inet6_addrlist_t * addr_list_p)
@@ -316,6 +362,7 @@ rtadv_address_changed(ServiceRef service_p,
     interface_t *	if_p = service_interface(service_p);
     inet6_addrinfo_t *	linklocal;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    boolean_t		try_was_zero = FALSE;
 
     linklocal = inet6_addrlist_get_linklocal(addr_list_p);
     if (linklocal == NULL) {
@@ -326,34 +373,34 @@ rtadv_address_changed(ServiceRef service_p,
 	return;
     }
     if ((linklocal->addr_flags & IN6_IFF_NOTREADY) != 0) {
+	if ((linklocal->addr_flags & IN6_IFF_DUPLICATED) != 0) {
+	    /* address conflict occurred */
+	    rtadv_failed(service_p, ipconfig_status_address_in_use_e);
+	    return;
+	}
 	/* linklocal address isn't ready */
 	my_log(LOG_DEBUG,
 	       "RTADV %s: link-local address is not ready",
 	       if_name(if_p));
 	return;
     }
-#ifdef IN6_IFF_DADPROGRESS
     rtadv->lladdr_ok = (linklocal->addr_flags & IN6_IFF_DADPROGRESS) == 0;
     my_log(LOG_DEBUG,
 	   "RTADV %s: link-layer option in Router Solicitation is %sOK",
 	   if_name(if_p), rtadv->lladdr_ok ? "" : "not ");
-#else /* IN6_IFF_DADPROGRESS */
-    rtadv->lladdr_ok = TRUE;
-#endif /* IN6_IFF_DADPROGRESS */
-
     if (rtadv->try == 0) {
 	link_status_t	link_status = service_link_status(service_p);
-	
+
+	try_was_zero = TRUE;
 	if (link_status.valid == FALSE
 	    || link_status.active == TRUE) {
 	    my_log(LOG_DEBUG,
 		   "RTADV %s: link-local address is ready, starting",
 		   if_name(if_p));
 	    rtadv_start(service_p, IFEventID_start_e, NULL);
-	    return;
 	}
     }
-    else {
+    if (rtadv->renew || !try_was_zero) {
 	int			count;
 	inet6_addrlist_t	dhcp_addr_list;
 	int			i;
@@ -401,6 +448,11 @@ rtadv_address_changed(ServiceRef service_p,
 	signature = rtadv_create_signature(service_p, list, count);
 	ServicePublishSuccessIPv6(service_p, list, count, router, router_count,
 				  info_p, signature);
+	if (rtadv->renew) {
+	    /* re-assign address to trigger DAD */
+	    rtadv_trigger_dad(service_p, list, count);
+	    rtadv->renew = FALSE;
+	}
 	my_CFRelease(&signature);
     }
     return;
@@ -556,6 +608,10 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		     && rtadv->data_received == FALSE) {
 		/* we're already on it */
 		break;
+	    }
+	    if (evid == IFEventID_renew_e 
+		&& if_ift_type(if_p) == IFT_CELLULAR) {
+		rtadv->renew = TRUE;
 	    }
 	    rtadv_init(service_p);
 	}

@@ -36,7 +36,7 @@
 #define kBaseVectorNumberKey          "Base Vector Number"
 #endif
 
-#ifndef kInterruptControllerNameKey
+#ifndef kVectorCountKey
 #define kVectorCountKey               "Vector Count"
 #endif
 
@@ -49,10 +49,179 @@ extern uint32_t gIOPCIFlags;
 #undef  super
 #define super IOInterruptController
 
-OSDefineMetaClassAndStructors( IOPCIMessagedInterruptController, 
-                               IOInterruptController )
+OSDefineMetaClassAndStructors(IOPCIMessagedInterruptController, IOInterruptController)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#define API_ENTRY()																	\
+	IOInterruptSource     * interruptSources;										\
+	IOInterruptVector     * vector;													\
+	IOInterruptVector     * subVectors;												\
+	OSData                * vectorData;												\
+	IOInterruptVectorNumber vectorNumber;											\
+																					\
+	interruptSources = nub->_interruptSources;										\
+	vectorData = interruptSources[source].vectorData;								\
+	vectorNumber = *(IOInterruptVectorNumber *)vectorData->getBytesNoCopy();		\
+	vector = &vectors[vectorNumber];												\
+	if ((subVectors = (typeof(subVectors)) vector->sharedController)) 				\
+	{																				\
+		vectorNumber = source - vector->source;				/* now msi index */	    \
+		vector       = subVectors + vectorNumber;									\
+	}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn IOPCIMessagedInterruptController::registerInterrupt(IOService *nub, int source,
+						  void *target,
+						  IOInterruptHandler handler,
+						  void *refCon)
+{
+	API_ENTRY();
+
+	// Get the lock for this vector.
+	IOLockLock(vector->interruptLock);
+
+	if (vector->interruptRegistered)
+	{
+		IOLockUnlock(vector->interruptLock);
+		return (kIOReturnNoResources);
+	}
+
+	// Fill in vector with the client's info.
+	vector->handler = handler;
+	vector->nub     = nub;
+	vector->source  = source;
+	vector->target  = target;
+	vector->refCon  = refCon;
+
+	// Do any specific initalization for this vector.
+	initVector(vectorNumber, vector);
+
+	// Get the vector ready.  It starts hard disabled.
+	vector->interruptDisabledHard = 1;
+	vector->interruptDisabledSoft = 1;
+	vector->interruptRegistered   = 1;
+
+	IOLockUnlock(vector->interruptLock);
+
+    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
+	enableDeviceMSI(device);
+
+	return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIMessagedInterruptController::unregisterInterrupt(IOService *nub, int source)
+{
+	API_ENTRY();
+
+	// Get the lock for this vector.
+	IOLockLock(vector->interruptLock);
+
+	// Return success if it is not already registered
+	if (!vector->interruptRegistered) 
+	{
+		IOLockUnlock(vector->interruptLock);
+		return (kIOReturnSuccess);
+	}
+
+	// Soft disable the source.
+	disableInterrupt(nub, source);
+
+	// Turn the source off at hardware. 
+	disableVectorHard(vectorNumber, vector);
+
+	// Clear all the storage for the vector except for interruptLock.
+	vector->interruptActive = 0;
+	vector->interruptDisabledSoft = 0;
+	vector->interruptDisabledHard = 0;
+	vector->interruptRegistered = 0;
+	vector->nub = 0;
+	vector->source = 0;
+	vector->handler = 0;
+	vector->target = 0;
+	vector->refCon = 0;
+
+	IOLockUnlock(vector->interruptLock);
+
+	IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
+	disableDeviceMSI(device);
+
+	return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIMessagedInterruptController::getInterruptType(IOService *nub, int source,
+						 int *interruptType)
+{
+	if (interruptType == 0) return (kIOReturnBadArgument);
+
+	API_ENTRY();
+
+	*interruptType = getVectorType(vectorNumber, vector);
+
+	return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIMessagedInterruptController::enableInterrupt(IOService *nub, int source)
+{
+	API_ENTRY();
+
+	if (vector->interruptDisabledSoft) 
+	{
+		vector->interruptDisabledSoft = 0;
+#if !defined(__i386__) && !defined(__x86_64__)
+		OSMemoryBarrier();
+#endif
+		if (!getPlatform()->atInterruptLevel())
+		{
+			while (vector->interruptActive) {}
+		}
+		if (vector->interruptDisabledHard) 
+		{
+			vector->interruptDisabledHard = 0;
+			enableVector(vectorNumber, vector);
+		}
+	}
+
+	return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIMessagedInterruptController::disableInterrupt(IOService *nub, int source)
+{
+	API_ENTRY();
+
+	vector->interruptDisabledSoft = 1;
+#if !defined(__i386__) && !defined(__x86_64__)
+	OSMemoryBarrier();
+#endif
+
+	if (!getPlatform()->atInterruptLevel())
+	{
+		while (vector->interruptActive)	{}
+	}
+
+	return (kIOReturnSuccess);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOInterruptVector * IOPCIMessagedInterruptController::allocVectors(uint32_t count)
+{
+    IOInterruptVector * vectors;
+
+    vectors = IONew(IOInterruptVector, count);
+    if (!vectors) return (0);
+    bzero(vectors, sizeof(IOInterruptVector) * count);
+
+    // Allocate locks for the vectors.
+    for (uint32_t i = 0; i < count; i++)
+    {
+        vectors[i].interruptLock = IOLockAlloc();
+        if (!vectors[i].interruptLock) return (0);
+    }
+
+    return (vectors);
+}
 
 bool IOPCIMessagedInterruptController::init(UInt32 numVectors, UInt32 baseVector)
 {
@@ -67,21 +236,8 @@ bool IOPCIMessagedInterruptController::init(UInt32 numVectors, UInt32 baseVector
 	if (-1 != baseVector) setProperty(kBaseVectorNumberKey, baseVector, 32);
 
     // Allocate the memory for the vectors shared with the superclass.
-
-    vectors = IONew( IOInterruptVector, _vectorCount );
+	vectors = allocVectors(_vectorCount);
     if (!vectors) return (false);
-    bzero( vectors, sizeof(IOInterruptVector) * _vectorCount );
-    _flags = IONew(uint8_t, _vectorCount);
-    if (!_flags) return (false);
-    bzero(_flags, sizeof(uint8_t) * _vectorCount);
-
-    // Allocate locks for the vectors.
-
-    for (uint32_t i = 0; i < _vectorCount; i++)
-    {
-        vectors[i].interruptLock = IOLockAlloc();
-        if (!vectors[i].interruptLock) return (false);
-    }
 
     attach(getPlatform());
     sym = copyName();
@@ -120,8 +276,7 @@ bool IOPCIMessagedInterruptController::addDeviceInterruptProperties(
     OSData *         specData;
     bool             success = false;
 
-    if (!device)
-        return false;
+    if (!device) return false;
     
     liveCtrls = OSDynamicCast(OSArray,
         device->getProperty(gIOInterruptControllersKey));
@@ -144,8 +299,7 @@ bool IOPCIMessagedInterruptController::addDeviceInterruptProperties(
     specData = OSData::withCapacity(2 * sizeof(UInt32));
     symName = copyName();
 
-    if (!controllers || !specifiers || !specData || !symName)
-        return (false);
+    if (!controllers || !specifiers || !specData || !symName) 			return (false);
 
     // Specifier data will be 64-bits long, containing:
     //    data[0] = interrupt number
@@ -176,7 +330,7 @@ bool IOPCIMessagedInterruptController::addDeviceInterruptProperties(
     symName->release();
     specData->release();
 
-    return success;
+    return (success);
 }
 
 IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
@@ -188,11 +342,14 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     uint32_t      vector, firstVector = _vectorBase;
     IORangeScalar rangeStart;
     uint32_t      message[3];
+    uint32_t      msiPhysVectors;
     uint16_t      control = 0;
     bool          allocated;
 
     device = OSDynamicCast(IOPCIDevice, entry);
     if (!device) msiCapability = 0;
+    msiPhysVectors = 0;
+
     if (msiCapability)
     {
         uint32_t    vendorProd;
@@ -201,10 +358,11 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
         msiCapability  = device->reserved->msiCapability;
         control    = device->configRead16(msiCapability + 2);
         if (kMSIX & device->reserved->msiMode)
-            numVectors = 1 + (0x7ff & control);
+            msiPhysVectors = 1 + (0x7ff & control);
         else
-            numVectors = 1 << (0x7 & (control >> 1));
+            msiPhysVectors = 1 << (0x7 & (control >> 1));
 
+	    numVectors = msiPhysVectors;
         vendorProd = device->savedConfig[kIOPCIConfigVendorID >> 2];
         revIDClass = device->savedConfig[kIOPCIConfigRevisionID >> 2];
 
@@ -231,8 +389,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
                     // no legacy ints, need one MSI
                     numVectors = 1;
                 }
-                else
-                    numVectors = 0;
+                else numVectors = 0;
             }
             else
             {
@@ -254,14 +411,11 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     while (!allocated && numVectors > 0)
     {
         allocated = allocateInterruptVectors(entry, numVectors, &rangeStart);
-        if (!allocated)
-            numVectors >>= 1;
+        if (!allocated) numVectors >>= 1;
     }
-    if (!allocated)
-        return (kIOReturnNoSpace);
-    else
-        firstVector = rangeStart;
+    if (!allocated) return (kIOReturnNoSpace);
 
+    firstVector = rangeStart;
     ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
             /* waitForFunction */ false,
             /* nub             */ entry, 
@@ -271,181 +425,133 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 
     if (kIOReturnSuccess == ret)
     {
-        for (vector = firstVector; vector < (firstVector + numVectors); vector++)
-        {
-            addDeviceInterruptProperties(entry, 
-                    vector,
-                    kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, NULL);
-        }
         if (msiAddress) *msiAddress = message[0] | (((uint64_t)message[1]) << 32);
         if (msiData)    *msiData    = message[2];
+
         if (msiCapability)
         {
-            IOByteCount msiBlockSize;
+			IOPCIConfigShadow * shadow;
+
+			shadow = configShadow(device);
+			if ((kMSIX & device->reserved->msiMode)
+			  && (numVectors < msiPhysVectors))
+			{
+				device->reserved->msiVectors = allocVectors(msiPhysVectors);
+				IOInterruptVector * ivector = &vectors[firstVector];
+				// Fill in vector with the IOPCIMessagedInterruptController info
+				ivector->handler = OSMemberFunctionCast(IOInterruptHandler,
+						this, &IOPCIMessagedInterruptController::handleInterrupt);
+				ivector->nub     = device;
+				ivector->target  = this;
+				ivector->refCon  = 0;
+				initVector(firstVector, ivector);
+				ivector->interruptDisabledSoft = 0;
+				ivector->interruptDisabledHard = 0;
+				ivector->interruptRegistered   = msiPhysVectors;
+				ivector->sharedController = (IOSharedInterruptController *) device->reserved->msiVectors;
+
+				for (vector = 0; vector < msiPhysVectors; vector++)
+				{
+					SInt32 deviceIndex;
+					addDeviceInterruptProperties(entry, firstVector,
+							kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, &deviceIndex);
+					if (!vector) ivector->source = deviceIndex;
+				}
+			}
+			else
+			{
+				device->reserved->msiVectors = &vectors[firstVector];
+				for (vector = firstVector; vector < (firstVector + numVectors); vector++)
+				{
+					addDeviceInterruptProperties(entry, vector,
+							kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, NULL);
+				}
+			}
+
+			shadow->savedMSIAddress0 = message[0];
+			shadow->savedMSIAddress1 = message[1];
+			shadow->savedMSIData     = message[2];
+			device->reserved->msiPhysVectorCount = msiPhysVectors;
+			device->reserved->msiVectorCount     = numVectors;
+
             if (kMSIX & device->reserved->msiMode)
             {
-                IOByteCount msiTable;
-                UInt8 bar;
-                IOMemoryDescriptor * memory;
-                uint64_t phys;
+                IOMemoryMap * map;
+                uint32_t      table;
+                uint8_t       bar;
 
-                control &= ~(1 << 15);          // disabled
+                table = device->configRead32(msiCapability + 8);
+                bar = kIOPCIConfigBaseAddress0 + ((table & 7) << 2);
+                table &= ~7;
+                map = device->mapDeviceMemoryWithRegister(bar);
+                if (map) device->reserved->msiPBA = map->getAddress() + table;
 
-                msiBlockSize = 1;   // words
-
-                msiTable = device->configRead32(msiCapability + 4);
-                bar = kIOPCIConfigBaseAddress0 + ((msiTable & 7) << 2);
-                msiTable &= ~7;
-
-                memory = device->getDeviceMemoryWithRegister(bar);
-                if (memory && (phys = memory->getPhysicalSegment(0, 0, kIOMemoryMapperNone)))
-                {
-                    control = device->configRead16(kIOPCIConfigCommand);
-                    device->configWrite16(kIOPCIConfigCommand, control | 4);
-
-                    for (vector = 0; vector < numVectors; vector++)
-                    {
-                        IOMappedWrite32(phys + msiTable + vector * 16 + 0, message[0]);
-                        IOMappedWrite32(phys + msiTable + vector * 16 + 4, message[1]);
-                        IOMappedWrite32(phys + msiTable + vector * 16 + 8, message[2]);
-                        IOMappedWrite32(phys + msiTable + vector * 16 + 0, 0);
-                    }
-                    device->configWrite16(kIOPCIConfigCommand, control);
-                }
+                table  = device->configRead32(msiCapability + 4);
+                bar    = (kIOPCIConfigBaseAddress0 + ((table & 7) << 2));
+                table &= ~7;
+                map = device->mapDeviceMemoryWithRegister(bar);
+                if (map) device->reserved->msiTable = map->getAddress() + table;
             }
             else
             {
-                control &= ~1;                                      // disabled
-                if (numVectors) 
-                    numVectors = (31 - __builtin_clz(numVectors));  // log2
-                control |= (numVectors << 4);
-
-                msiBlockSize = 3;   // words
-                if (0x0080 & control)
-                {
-                    // 64b
-                    device->configWrite32(msiCapability + 4,  message[0]);
-                    device->configWrite32(msiCapability + 8,  message[1]);
-                    device->configWrite16(msiCapability + 12, message[2]);
-                    device->configWrite16(msiCapability + 2,  control);
-                    msiBlockSize += 1;
-                }
-                else
-                {
-                    device->configWrite32(msiCapability + 4,  message[0]);
-                    device->configWrite16(msiCapability + 8,  message[2]);
-                    device->configWrite16(msiCapability + 2,  control);
-                }
-                if (0x0100 & control)
-                    msiBlockSize += 2;
-            }
-            device->reserved->msiBlockSize = msiBlockSize;
+				if (numVectors) numVectors = (31 - __builtin_clz(numVectors)); // log2
+				control |= (numVectors << 4);
+			}
+			control &= ~((1 << 15) | 1); 			// disabled
+			device->reserved->msiControl = control;
+			initDevice(device, shadow);
         }
     }
 
     return (ret);
 }
 
-bool IOPCIMessagedInterruptController::reserveVectors(UInt32 vector, UInt32 count)
+void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCIConfigShadow * shadow)
 {
-    bool result;
-   
-    result = _messagedInterruptsAllocator->allocateRange(vector, count);
-    if (result)
-	    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
+    IOInterruptVector * vectors;
+	uint32_t            numVectors, msiPhysVectors, vector, data; 
+	uint16_t            control, msiCapability, cmd;
 
-    return result;
-}
+	msiCapability  = device->reserved->msiCapability;
+	control        = device->reserved->msiControl;
+	numVectors     = device->reserved->msiVectorCount;
+	msiPhysVectors = device->reserved->msiPhysVectorCount;
 
-bool IOPCIMessagedInterruptController::allocateInterruptVectors( IOService *device,
-                                                                 uint32_t numVectors,
-                                                                 IORangeScalar *rangeStartOut)
-{
-    bool result;
-   
-    result = _messagedInterruptsAllocator->allocate(numVectors, rangeStartOut, numVectors);
-    if (result)
-	    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
-
-    return result;
-}
-
-IOReturn IOPCIMessagedInterruptController::deallocateDeviceInterrupts(IOService * device)
-{
-    const OSSymbol * myName;
-    OSArray *        controllers;
-    OSObject *       controller;
-    OSArray *        specs;
-    OSData *         spec;
-    uint32_t         index = 0;
-
-    myName = copyName();
-
-    controllers = OSDynamicCast(OSArray,
-        device->getProperty(gIOInterruptControllersKey));
-
-    specs = OSDynamicCast(OSArray,
-        device->getProperty(gIOInterruptSpecifiersKey));
-
-    if (!myName || !controllers || !specs)
-        return (kIOReturnBadArgument);
-
-    while( (spec = OSDynamicCast(OSData, specs->getObject(index)))
-        && (controller = controllers->getObject(index)))
-    {
-        if (controller->isEqualTo(myName))
-        {
-            UInt32 vector = *((uint32_t *) spec->getBytesNoCopy());
-            deallocateInterrupt(vector);
-        }
-        index++;
-    }
-    myName->release();
-
-    return (kIOReturnSuccess);
-}
-
-void IOPCIMessagedInterruptController::deallocateInterrupt(UInt32 vector)
-{
-    IORangeScalar rangeStart = vector;
-    _messagedInterruptsAllocator->deallocate(rangeStart, 1);
-    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
-}
-
-IOReturn IOPCIMessagedInterruptController::registerInterrupt( 
-                                        IOService *        nub,
-                                        int                source,
-                                        void *             target,
-                                        IOInterruptHandler handler,
-                                        void *             refCon )
-{
-    IOReturn      ret;
-    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
-
-    ret = super::registerInterrupt(nub, source, target, handler, refCon);
-
-#if INT_TEST
-    if ((0x000 & gIOPCIFlags) && !_parentInterruptController)
-    {
-        IOInterruptSource *interruptSources;
-        IOInterruptVectorNumber vectorNumber;
-        IOInterruptVector *vector;
-        OSData            *vectorData;
-      
-        interruptSources = nub->_interruptSources;
-        vectorData = interruptSources[source].vectorData;
-        vectorNumber = *(IOInterruptVectorNumber *)vectorData->getBytesNoCopy();
-        vector = &vectors[vectorNumber];
-    
-        kprintf("ping %d %p\n", vector->interruptRegistered, vector->handler);
-        handleInterrupt(NULL, nub, vectorNumber + _vectorBase);
-    }
-#endif
-
-    if (kIOReturnSuccess == ret)
-        enableDeviceMSI(device);
-
-    return (ret);
+	if (kMSIX & device->reserved->msiMode)
+	{
+		if (device->reserved->msiTable)
+		{
+			vectors = device->reserved->msiVectors;
+			cmd = device->configRead16(kIOPCIConfigCommand);
+			device->configWrite16(kIOPCIConfigCommand, cmd | kIOPCICommandMemorySpace);
+			for (vector = 0; vector < msiPhysVectors; vector++)
+			{
+				data = shadow->savedMSIData;
+				if (vector < numVectors) data += vector;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 0] = shadow->savedMSIAddress0;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 1] = shadow->savedMSIAddress1;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 2] = data;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 3] = vectors[vector].interruptDisabledHard;
+			}
+			device->configWrite16(kIOPCIConfigCommand, cmd);
+		}
+	}
+	else
+	{
+		device->configWrite32(msiCapability + 4, shadow->savedMSIAddress0);
+		if (0x0080 & control)
+		{
+			// 64b
+			device->configWrite32(msiCapability + 8,  shadow->savedMSIAddress1);
+			device->configWrite16(msiCapability + 12, shadow->savedMSIData);
+		}
+		else
+		{
+			device->configWrite16(msiCapability + 8,  shadow->savedMSIData);
+		}
+//		if (0x0100 & control) msiBlockSize += 2;
+	}
+	device->configWrite16(msiCapability + 2, control);
 }
 
 void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
@@ -457,7 +563,7 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
             IOByteCount msi = device->reserved->msiCapability;
             uint16_t control;
 
-            control = device->configRead16(msi + 2);
+            control = device->reserved->msiControl;
             if (kMSIX & device->reserved->msiMode)
             {
                 control |= (1 << 15);
@@ -466,8 +572,9 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
             {
                 control |= 1;
             }
-
+			device->reserved->msiControl = control;
             device->configWrite16(msi + 2, control);
+
             control = device->configRead16(kIOPCIConfigCommand);
             control |= kIOPCICommandInterruptDisable | kIOPCICommandBusMaster;
             device->configWrite16(kIOPCIConfigCommand, control);
@@ -475,38 +582,6 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
         }
         device->reserved->msiEnable++;
     }
-}
-
-IOReturn IOPCIMessagedInterruptController::unregisterInterrupt( 
-                                        IOService *        nub,
-                                        int                source)
-{
-    IOReturn      ret;
-    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
-
-#if INT_TEST
-    if (0x000 & gIOPCIFlags)
-    {
-        IOInterruptSource *interruptSources;
-        IOInterruptVectorNumber vectorNumber;
-        IOInterruptVector *vector;
-        OSData            *vectorData;
-
-        interruptSources = nub->_interruptSources;
-        vectorData = interruptSources[source].vectorData;
-        vectorNumber = *(IOInterruptVectorNumber *)vectorData->getBytesNoCopy();
-        vector = &vectors[vectorNumber];
-    
-        kprintf("uping %d %p\n", vector->interruptRegistered, vector->handler);
-        handleInterrupt(NULL, nub, vectorNumber + _vectorBase);
-    }
-#endif
-
-    ret = super::unregisterInterrupt(nub, source);
-
-    disableDeviceMSI(device);
-
-    return (ret);
 }
 
 void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
@@ -519,8 +594,9 @@ void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
         IOByteCount msi = device->reserved->msiCapability;
         uint16_t control;
 
-        control = device->configRead16(msi + 2);
+        control = device->reserved->msiControl;
         control &= ~((1 << 15) | 1);
+		device->reserved->msiControl = control;
         device->configWrite16(msi + 2, control);
 
 		control = device->configRead16(kIOPCIConfigCommand);
@@ -531,60 +607,195 @@ void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
     }
 }
 
+void IOPCIMessagedInterruptController::saveDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow)
+{
+    if (!device->reserved->msiCapability) return;
+}
+
+void IOPCIMessagedInterruptController::restoreDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow)
+{
+    if (!device->reserved->msiCapability) return;
+    initDevice(device, shadow);
+}
+
+bool IOPCIMessagedInterruptController::reserveVectors(UInt32 vector, UInt32 count)
+{
+    bool result;
+   
+    result = _messagedInterruptsAllocator->allocateRange(vector, count);
+    if (result) setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
+
+    return (result);
+}
+
+bool IOPCIMessagedInterruptController::allocateInterruptVectors( IOService *device,
+                                                                 uint32_t numVectors,
+                                                                 IORangeScalar *rangeStartOut)
+{
+    bool result;
+   
+    result = _messagedInterruptsAllocator->allocate(numVectors, rangeStartOut, numVectors);
+    if (result) setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
+
+    return (result);
+}
+
+IOReturn IOPCIMessagedInterruptController::deallocateDeviceInterrupts(IOService * device)
+{
+    const OSSymbol * myName;
+    OSArray *        controllers;
+    OSObject *       controller;
+    OSArray *        specs;
+    OSData *         spec;
+    uint32_t         index = 0;
+    uint32_t         firstVector;
+
+    myName = copyName();
+
+    controllers = OSDynamicCast(OSArray, device->getProperty(gIOInterruptControllersKey));
+    specs = OSDynamicCast(OSArray, device->getProperty(gIOInterruptSpecifiersKey));
+
+    if (!myName || !controllers || !specs) return (kIOReturnBadArgument);
+
+	for (firstVector = -1U;
+        (spec = OSDynamicCast(OSData, specs->getObject(index)))
+		  && (controller = controllers->getObject(index));
+		index++)
+    {
+        if (!controller->isEqualTo(myName)) continue;
+
+		uint32_t vector = *((uint32_t *) spec->getBytesNoCopy());
+		if (vector == firstVector) continue;
+		if (-1U == firstVector)    firstVector = vector;
+		deallocateInterrupt(vector);
+    }
+    myName->release();
+
+    return (kIOReturnSuccess);
+}
+
+void IOPCIMessagedInterruptController::deallocateInterrupt(UInt32 vector)
+{
+    IOInterruptVector * subVectors;
+    IORangeScalar       rangeStart;
+    uint32_t            count;
+
+	if ((subVectors = (IOInterruptVector *) vectors[vector].sharedController))
+	{
+		count = vectors[vector].interruptRegistered;
+		vectors[vector].sharedController = 0;
+	    IODelete(subVectors, IOInterruptVector, count);
+	}
+
+	rangeStart = vector;
+    _messagedInterruptsAllocator->deallocate(rangeStart, 1);
+    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
+}
+
 IOReturn
 IOPCIMessagedInterruptController::handleInterrupt( void *      state,
                                                    IOService * nub,
                                                    int         source)
 {
     IOInterruptVector * vector;
+	IOInterruptVector * subVectors;
+	IOPCIDevice       * device;
+	uint64_t            bits;
+	uint32_t            count, bit;
 
     source -= _vectorBase;
-    if ((source < 0) || (source > (int) _vectorCount))
-        return kIOReturnSuccess;
+    if ((source < 0) || (source > (int) _vectorCount)) return (kIOReturnSuccess);
 
     vector = &vectors[source];
+	if ((subVectors = (IOInterruptVector *) vector->sharedController))
+	{
+		device = (IOPCIDevice *) vector->nub;
+//      if (!(kIOPCICommandMemorySpace & device->configRead16(kIOPCIConfigCommand))) return (kIOReturnSuccess);
 
-    if (vector->interruptRegistered)
+		count = vector->interruptRegistered;
+		bits = 0;
+		for (source = 0; source < count; source++)
+		{
+			bit = (source & 63);
+			if (!bit) bits = ((uint64_t *) device->reserved->msiPBA)[source >> 6];
+			if (!(bits & (1ULL << bit))) continue;
+
+			vector = &subVectors[source];
+//		    if (!vector->interruptRegistered && source) vector = &vectors[0];
+			vector->interruptActive = 1;
+			if (vector->interruptRegistered)
+			{
+				if (vector->interruptDisabledHard) vector->interruptRegistered = 3;
+				else
+				{
+					vector->handler(vector->target, vector->refCon, vector->nub, vector->source);
+				}
+			}
+			vector->interruptActive = 0;
+		}
+	}
+	else
     {
-        if (vector->interruptDisabledHard) _flags[source] = true;
-        else
-        {
-            vector->handler(vector->target, vector->refCon, vector->nub, vector->source);
-        }
+		vector->interruptActive = 1;
+		if (vector->interruptRegistered)
+		{
+			if (vector->interruptDisabledHard) vector->interruptRegistered = 3;
+			else
+			{
+				vector->handler(vector->target, vector->refCon, vector->nub, vector->source);
+			}
+		}
+		vector->interruptActive = 0;
     }
 
-    return kIOReturnSuccess;
+    return (kIOReturnSuccess);
 }
 
 bool IOPCIMessagedInterruptController::vectorCanBeShared(IOInterruptVectorNumber vectorNumber,
-                                       IOInterruptVector * vector)
+                                       					 IOInterruptVector * vector)
 {
     return (false);
 }
 
 void IOPCIMessagedInterruptController::initVector(IOInterruptVectorNumber vectorNumber,
-                                       IOInterruptVector * vector)
+                                       			  IOInterruptVector * vector)
 {
 }
 
 int IOPCIMessagedInterruptController::getVectorType(IOInterruptVectorNumber vectorNumber,
-                                       IOInterruptVector * vector)
+                                       				IOInterruptVector * vector)
 {
     return (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
 }
 
 void IOPCIMessagedInterruptController::disableVectorHard(IOInterruptVectorNumber vectorNumber,
-                                       IOInterruptVector * vector)
+                                       					 IOInterruptVector * vector)
 {
+	IOPCIDevice * device;
+	device = (IOPCIDevice *) vector->nub;
+
+	if (device->reserved->msiTable)
+	{
+		// masked
+		((uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 1;
+	}
 }
 
 void IOPCIMessagedInterruptController::enableVector(IOInterruptVectorNumber vectorNumber,
-                                       IOInterruptVector * vector)
+                                       				IOInterruptVector * vector)
 {
-    if (_flags[vectorNumber])
+	IOPCIDevice * device;
+	device = (IOPCIDevice *) vector->nub;
+
+    if (3 == vector->interruptRegistered)
     {
-        _flags[vectorNumber] = 0;
+        vector->interruptRegistered = 1;
         vector->handler(vector->target, vector->refCon,
                         vector->nub, vector->source);
     }
+	if (device->reserved->msiTable)
+	{
+		// enabled
+		((uint32_t *) device->reserved->msiTable)[vectorNumber * 4 + 3] = 0;
+	}
 }

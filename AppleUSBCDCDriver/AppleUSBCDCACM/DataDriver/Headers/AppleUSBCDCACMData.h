@@ -44,15 +44,15 @@
 #define kMaxBaudRate		6000000
 //#define kMaxBaudRate		230400
 //#define kMaxCirBufferSize	4096
-#define kMaxCirBufferSize	PAGE_SIZE*3
+#define kMaxCirBufferSize	PAGE_SIZE*125       //rcs Bump every thing by *3*2x
 
     // Default and Maximum buffer pool values
 
-#define kInBufPool		4
-#define kOutBufPool		2
+#define kInBufPool		4*2
+#define kOutBufPool		2*2
 
-#define kMaxInBufPool		kInBufPool*16
-#define kMaxOutBufPool		kOutBufPool*8
+#define kMaxInBufPool		kInBufPool*16*2
+#define kMaxOutBufPool		kOutBufPool*8*2
 
 #define	inputTag		"InputBuffers"
 #define	outputTag		"OutputBuffers"
@@ -206,6 +206,7 @@ typedef struct
     UInt32		LastStopBits;
     UInt32		LastTX_Parity;
     UInt32		LastBaudRate;
+    bool        ringsAllocated;
 
 } PortInfo_t;
 
@@ -332,6 +333,7 @@ public:
     bool 			allocateResources(void);
     void			releaseResources(void);
     void 			freeRingBuffer(CirQueue *Queue);
+    bool            createSerialRingBuffers();
     bool 			allocateRingBuffer(CirQueue *Queue, size_t BufferSize);
 	bool			setupWakeOnRingPMCallback(void);
     bool			WakeonRing(void);

@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>modulegraph</string>
+        <key>OpenSourceVersion</key>
+        <string>0.10.4</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/modulegraph/</string>
+        <key>OpenSourceURL</key>
+        <string>http://pypi.python.org/packages/source/m/modulegraph/modulegraph-0.10.4.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-06-14</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>b072312fd299d408e32c90583859da2f</string>
+</dict>

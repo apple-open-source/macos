@@ -1,0 +1,13 @@
+--- support/ab.c.orig	2010-01-14 19:24:25.000000000 +0000
++++ support/ab.c	2010-01-14 19:27:02.000000000 +0000
+@@ -1752,6 +1752,10 @@
+                 if (c->state == STATE_CONNECTING) {
+                     apr_pollfd_t remove_pollfd;
+                     rv = apr_socket_connect(c->aprsock, destsa);
++                    if (rv == EALREADY) {
++                        // 7484748
++                        continue;
++                    }
+                     remove_pollfd.desc_type = APR_POLL_SOCKET;
+                     remove_pollfd.desc.s = c->aprsock;
+                     apr_pollset_remove(readbits, &remove_pollfd);

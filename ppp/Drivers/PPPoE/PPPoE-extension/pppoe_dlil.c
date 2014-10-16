@@ -128,6 +128,7 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
 	
     if (ifnet_find_by_name(ifname, &ifp)) {
         IOLog("pppoe_dlil_attach : Can't find interface unit %d\n", unit);
+        FREE(pppoeif, M_TEMP);
         return 1;
     }
 

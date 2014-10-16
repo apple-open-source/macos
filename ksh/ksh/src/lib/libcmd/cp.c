@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage_head[] =
-"[-?@(#)$Id: cp (AT&T Research) 2010-10-20 $\n]"
+"[-?@(#)$Id: cp (AT&T Research) 2012-04-20 $\n]"
 USAGE_LICENSE
 ;
 
@@ -118,7 +118,7 @@ static const char usage_tail[] =
     "variable, or the default value \b~\b.]:[suffix]"
 "[b?\b--backup\b using the type in the \bVERSION_CONTROL\b environment "
     "variable.]"
-"[x|X|l:xdev|local|mount|one-file-system?Do not descend into directories "
+"[x|X:xdev|local|mount|one-file-system?Do not descend into directories "
     "in different filesystems than their parents.]"
 
 "\n"
@@ -156,7 +156,7 @@ static const char usage_tail[] =
 
 typedef struct State_s			/* program state		*/
 {
-	void*		context;	/* builtin context		*/
+	Shbltin_t*	context;	/* builtin context		*/
 	int		backup;		/* BAK_* type			*/
 	int		directory;	/* destination is directory	*/
 	int		flags;		/* FTS_* flags			*/
@@ -450,7 +450,7 @@ visit(State_t* state, register FTSENT* ent)
 		rm = state->remove || ent->fts_info == FTS_SL;
 		if (!rm || !state->force)
 		{
-			if (S_ISLNK(st.st_mode) && (n = -1) || (n = open(state->path, O_RDWR|O_BINARY)) >= 0)
+			if (S_ISLNK(st.st_mode) && (n = -1) || (n = open(state->path, O_RDWR|O_BINARY|O_cloexec)) >= 0)
 			{
 				if (n >= 0)
 					close(n);
@@ -458,7 +458,9 @@ visit(State_t* state, register FTSENT* ent)
 					/* ok */;
 				else if (state->interactive)
 				{
-					if (astquery(-1, "%s %s? ", state->opname, state->path) < 0 || sh_checksig(state->context))
+					if ((n = astquery(-1, "%s %s? ", state->opname, state->path)) < 0 || sh_checksig(state->context))
+						return -1;
+					if (n)
 						return 0;
 				}
 				else if (state->op == LN)
@@ -479,7 +481,9 @@ visit(State_t* state, register FTSENT* ent)
 				    fmtmode(st.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO), 0) + 1;
 				if (state->interactive)
 				{
-					if (astquery(-1, "override protection %s for %s? ", protection, state->path) < 0 || sh_checksig(state->context))
+					if ((n = astquery(-1, "override protection %s for %s? ", protection, state->path)) < 0 || sh_checksig(state->context))
+						return -1;
+					if (n)
 						return 0;
 					rm = 1;
 				}
@@ -586,12 +590,12 @@ visit(State_t* state, register FTSENT* ent)
 		}
 		else if (state->op == CP || S_ISREG(ent->fts_statp->st_mode) || S_ISDIR(ent->fts_statp->st_mode))
 		{
-			if (ent->fts_statp->st_size > 0 && (rfd = open(ent->fts_path, O_RDONLY|O_BINARY)) < 0)
+			if (ent->fts_statp->st_size > 0 && (rfd = open(ent->fts_path, O_RDONLY|O_BINARY|O_cloexec)) < 0)
 			{
 				error(ERROR_SYSTEM|2, "%s: cannot read", ent->fts_path);
 				return 0;
 			}
-			else if ((wfd = open(state->path, st.st_mode ? (state->wflags & ~O_EXCL) : state->wflags, ent->fts_statp->st_mode & state->perm)) < 0)
+			else if ((wfd = open(state->path, (st.st_mode ? (state->wflags & ~O_EXCL) : state->wflags)|O_cloexec, ent->fts_statp->st_mode & state->perm)) < 0)
 			{
 				error(ERROR_SYSTEM|2, "%s: cannot write", state->path);
 				if (ent->fts_statp->st_size > 0)
@@ -605,29 +609,28 @@ visit(State_t* state, register FTSENT* ent)
 					error(ERROR_SYSTEM|2, "%s: %s read stream error", ent->fts_path, state->path);
 					close(rfd);
 					close(wfd);
+					return 0;
 				}
-				else
+				if (!(op = sfnew(NiL, NiL, SF_UNBOUND, wfd, SF_WRITE)))
 				{
-					n = 0;
-					if (!(op = sfnew(NiL, NiL, SF_UNBOUND, wfd, SF_WRITE)))
-					{
-						error(ERROR_SYSTEM|2, "%s: %s write stream error", ent->fts_path, state->path);
-						close(wfd);
-						sfclose(ip);
-					}
-					else
-					{
-						if (sfmove(ip, op, (Sfoff_t)SF_UNBOUND, -1) < 0)
-							n |= 3;
-						if (!sfeof(ip))
-							n |= 1;
-						if (sfsync(op) || state->sync && fsync(wfd) || sfclose(op))
-							n |= 2;
-						if (sfclose(ip))
-							n |= 1;
-						if (n)
-							error(ERROR_SYSTEM|2, "%s: %s %s error", ent->fts_path, state->path, n == 1 ? ERROR_translate(0, 0, 0, "read") : n == 2 ? ERROR_translate(0, 0, 0, "write") : ERROR_translate(0, 0, 0, "io"));
-					}
+					error(ERROR_SYSTEM|2, "%s: %s write stream error", ent->fts_path, state->path);
+					close(wfd);
+					sfclose(ip);
+					return 0;
+				}
+				n = 0;
+				if (sfmove(ip, op, (Sfoff_t)SF_UNBOUND, -1) < 0)
+					n |= 3;
+				if (!sfeof(ip))
+					n |= 1;
+				if (sfsync(op) || state->sync && fsync(wfd) || sfclose(op))
+					n |= 2;
+				if (sfclose(ip))
+					n |= 1;
+				if (n)
+				{
+					error(ERROR_SYSTEM|2, "%s: %s %s error", ent->fts_path, state->path, n == 1 ? ERROR_translate(0, 0, 0, "read") : n == 2 ? ERROR_translate(0, 0, 0, "write") : ERROR_translate(0, 0, 0, "io"));
+					return 0;
 				}
 			}
 			else
@@ -673,7 +676,7 @@ visit(State_t* state, register FTSENT* ent)
 }
 
 int
-b_cp(int argc, register char** argv, void* context)
+b_cp(int argc, register char** argv, Shbltin_t* context)
 {
 	register char*	file;
 	register char*	s;
@@ -687,7 +690,7 @@ b_cp(int argc, register char** argv, void* context)
 	struct stat	st;
 	State_t*	state;
 	Shbltin_t*	sh;
-	void*		cleanup = context;
+	Shbltin_t*	cleanup = context;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	if (!(sh = CMD_CONTEXT(context)) || !(state = (State_t*)sh->ptr))
@@ -947,7 +950,7 @@ b_cp(int argc, register char** argv, void* context)
 	if (argc <= 0 || error_info.errors)
 		error(ERROR_USAGE|4, "%s", optusage(NiL));
 	if (!path_resolve)
-		state->flags |= fts_flags();
+		state->flags |= fts_flags() | FTS_META;
 	file = argv[argc];
 	argv[argc] = 0;
 	if (s = strrchr(file, '/'))

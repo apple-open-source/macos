@@ -1344,12 +1344,7 @@ INTERNAL void rpc__gssauth_cn_free_prot_info
 				       GSS_C_NO_BUFFER);
 		gssauth_cn_info->gss_ctx = GSS_C_NO_CONTEXT;
 	}
-#if 0
-	if (gssauth_cn_info->gss_mech != GSS_C_NO_OID) {
-		gss_release_oid(&min_stat, &gssauth_cn_info->gss_mech);
-		gssauth_cn_info->gss_mech = GSS_C_NO_OID;
-	}
-#endif
+
 #ifdef DEBUG
 	memset (gssauth_cn_info, 0, sizeof (rpc_gssauth_cn_info_p_t));
 #endif

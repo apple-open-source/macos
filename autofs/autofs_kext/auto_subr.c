@@ -121,11 +121,14 @@ static int auto_mount_request(struct autofs_callargs *, char *, char *,
  * to be asked to mount the file system from releasing the reader lock,
  * so everybody's deadlocked), get a reader lock on the fninfo_t.
  */
-void
+boolean_t
 auto_fninfo_lock_shared(fninfo_t *fnip, int pid)
 {
-	if (!auto_is_automounter(pid))
+	if (!auto_is_automounter(pid)) {
 		lck_rw_lock_shared(fnip->fi_rwlock);
+                return 1;
+        }
+        return 0;
 }
 
 /*
@@ -133,9 +136,9 @@ auto_fninfo_lock_shared(fninfo_t *fnip, int pid)
  * we don't have one.
  */
 void
-auto_fninfo_unlock_shared(fninfo_t *fnip, int pid)
+auto_fninfo_unlock_shared(fninfo_t *fnip, boolean_t have_lock)
 {
-	if (!auto_is_automounter(pid))
+	if (have_lock)
 		lck_rw_unlock_shared(fnip->fi_rwlock);
 }
 
@@ -529,6 +532,7 @@ auto_do_mount(void *arg)
 	char pathbuf[MAXPATHLEN];
 	char *subdir;
 	struct autofs_globals *fngp;
+        boolean_t have_lock = 0;
 
 	vp = argsp->fnc_vp;
 	fnp = vntofn(vp);
@@ -537,7 +541,7 @@ auto_do_mount(void *arg)
 	/*
 	 * This is in a kernel thread, so the PID is 0.
 	 */
-	auto_fninfo_lock_shared(fnip, 0);
+	have_lock = auto_fninfo_lock_shared(fnip, 0);
 
 	/*
 	 * Is this in the process of being unmounted?  If so, give
@@ -545,7 +549,7 @@ auto_do_mount(void *arg)
 	 * the vnode, and the unmount can finish.
 	 */
 	if (fnip->fi_flags & MF_UNMOUNTING) {
-		auto_fninfo_unlock_shared(fnip, 0);
+		auto_fninfo_unlock_shared(fnip, have_lock);
 		return (ENOENT);
 	}
 
@@ -557,7 +561,7 @@ auto_do_mount(void *arg)
 	    fnp->fn_namelen, fnp->fn_parent, &key, &keylen,
 	    &subdir, pathbuf, sizeof(pathbuf));
 	if (error != 0) {
-		auto_fninfo_unlock_shared(fnip, 0);
+		auto_fninfo_unlock_shared(fnip, have_lock);
 		return (error);
 	}
 
@@ -602,7 +606,7 @@ auto_do_mount(void *arg)
         /* <13595777> Keep from racing with homedirmounter */
 	lck_mtx_unlock(fnp->fn_mnt_lock);
         
-	auto_fninfo_unlock_shared(fnip, 0);
+	auto_fninfo_unlock_shared(fnip, have_lock);
 
 	return (error);
 }
@@ -1502,7 +1506,7 @@ auto_makefnnode(
 
 
 void
-auto_freefnnode(fnnode_t *fnp)
+auto_freefnnode(fnnode_t *fnp, int is_symlink)
 {
 	AUTOFS_DPRINT((4, "auto_freefnnode: fnp=%p\n", (void *)fnp));
 
@@ -1512,7 +1516,13 @@ auto_freefnnode(fnnode_t *fnp)
 	assert(fnp->fn_parent == NULL);
 
 	FREE(fnp->fn_name, M_AUTOFS);
-	if (fnp->fn_symlink != NULL)
+	/*
+	 * fn_symlink is a union with dirents. If a parent gets reclaimed
+	 * before the child, dirents might not be NULL i.e. this could
+	 * be trying to free memory it hasn't allocated. So only attempt
+	 * to free this if we actaully are a symlink ...
+	 */
+	if (is_symlink && fnp->fn_symlink != NULL)
 		FREE(fnp->fn_symlink, M_AUTOFS);
 	lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
 	lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
@@ -1555,6 +1565,7 @@ auto_disconnect(
 	 * only changed while holding parent's (dfnp) rw_lock
 	 */
 	fnp->fn_parent = NULL;
+	fnp->fn_parentvp = NULL;
 
 	/*
 	 * Remove the entry for this vnode from its parent directory.
@@ -1569,7 +1580,6 @@ auto_disconnect(
 		}
 		if (tmp == fnp) {
 			*fnpp = tmp->fn_next;	/* remove it from the list */
-			assert(!vnode_isinuse(vp, 1));
 			if (isdir) {
 				/*
 				 * Vnode being disconnected was a directory,
@@ -1619,12 +1629,23 @@ auto_disconnect(
 
 /*
  * Add an entry to a directory.
+ *
+ * "Special" error codes
+ *
+ * EEXIST : An existing fnnode was returned and the one passed in was disposed
+ *          of.
+ *
+ * EJUSTRETURN : Things are getting recycled, we sneaked in just before an
+ *               unmount started and we need to return (and preferably redrive
+ *               the lookup). "Just return" without doing any more retries
+ *               in autofs.
+ *               All iocounts have been released.
  */
 int
 auto_enter(fnnode_t *dfnp, struct componentname *cnp, fnnode_t **fnpp)
 {
 	struct fnnode *cfnp, **spp = NULL;
-	vnode_t vp, cvp;
+	vnode_t vp, cvp, pvp;
 	uint32_t cvid;
 	off_t offset = 0;
 	off_t diff;
@@ -1678,8 +1699,8 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, fnnode_t **fnpp)
 			 * reclaimed, freeing the fnnode.
 			 */
 			vp = fntovn(*fnpp);
-			vnode_put(vp);
 			vnode_recycle(vp);
+			vnode_put(vp);
 			cvp = fntovn(cfnp);
 			cvid = cfnp->fn_vid;
 			lck_rw_done(dfnp->fn_rwlock);
@@ -1687,6 +1708,15 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, fnnode_t **fnpp)
 			if (error == 0) {
 				*fnpp = cfnp;
 				error = EEXIST;
+			} else if (vfs_isunmount(vnode_mount(fntovn(dfnp)))) {
+				/*
+				 * If we couldn't get the iocount because
+				 * the autofs mountpoint is getting unmounted
+				 * advise auto_lookup that it should "just
+				 * return" and not retry anything inside of
+				 * auto_lookup.
+				 */
+				error = EJUSTRETURN;
 			}
 			return (error);
 		}
@@ -1709,9 +1739,15 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, fnnode_t **fnpp)
 	 * This fnnode will be pointing to its parent; grab a usecount
 	 * on the parent.
 	 */
-	error = vnode_ref(fntovn(dfnp));
+	pvp = fntovn(dfnp);
+	error = vnode_ref(pvp);
 	if (error != 0) {
+		/*
+		 * If this fails, we need to return from auto_lookup.
+		 */
 		lck_rw_done(dfnp->fn_rwlock);
+		vnode_put(fntovn(*fnpp));
+		error = EJUSTRETURN;
 		return (error);
 	}
 
@@ -1725,6 +1761,8 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, fnnode_t **fnpp)
 	(*fnpp)->fn_next = *spp;
 	*spp = *fnpp;
 	(*fnpp)->fn_parent = dfnp;
+	(*fnpp)->fn_parentvp = pvp;
+	(*fnpp)->fn_parentvid = vnode_vid(pvp);
 	(*fnpp)->fn_linkcnt++;	/* parent now holds reference to entry */
 
 	/*

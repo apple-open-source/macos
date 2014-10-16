@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Oliver Hunt <ojh16@student.canterbury.ac.nz>
- * Copyright (C) 2006 Apple Computer Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
@@ -23,49 +23,42 @@
 #ifndef SVGRootInlineBox_h
 #define SVGRootInlineBox_h
 
-#if ENABLE(SVG)
 #include "RootInlineBox.h"
 #include "SVGRenderSupport.h"
 #include "SVGTextLayoutEngine.h"
 
 namespace WebCore {
 
+class RenderSVGText;
 class SVGInlineTextBox;
 
-class SVGRootInlineBox FINAL : public RootInlineBox {
+class SVGRootInlineBox final : public RootInlineBox {
 public:
-    SVGRootInlineBox(RenderBlock* block)
-        : RootInlineBox(block)
-        , m_logicalHeight(0)
-    {
-    }
+    explicit SVGRootInlineBox(RenderSVGText&);
 
-    virtual bool isSVGRootInlineBox() const { return true; }
+    RenderSVGText& renderSVGText();
 
-    virtual float virtualLogicalHeight() const final { return m_logicalHeight; }
+    virtual float virtualLogicalHeight() const override final { return m_logicalHeight; }
     void setLogicalHeight(float height) { m_logicalHeight = height; }
 
-    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) final;
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) override final;
 
     void computePerCharacterLayoutInformation();
-
-    virtual FloatRect objectBoundingBox() const { return FloatRect(); }
-    virtual FloatRect repaintRectInLocalCoordinates() const { return FloatRect(); }
 
     InlineBox* closestLeafChildForPosition(const LayoutPoint&);
 
 private:
+    virtual bool isSVGRootInlineBox() const override final { return true; }
     void reorderValueLists(Vector<SVGTextLayoutAttributes*>&);
     void layoutCharactersInTextBoxes(InlineFlowBox*, SVGTextLayoutEngine&);
     void layoutChildBoxes(InlineFlowBox*, FloatRect* = 0);
     void layoutRootBox(const FloatRect&);
 
-private:
     float m_logicalHeight;
 };
 
-} // namespace WebCore
+INLINE_BOX_OBJECT_TYPE_CASTS(SVGRootInlineBox, isSVGRootInlineBox())
 
-#endif // ENABLE(SVG)
+} // namespace WebCore
 
 #endif // SVGRootInlineBox_h

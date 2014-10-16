@@ -67,7 +67,7 @@ dh_generate_key(DH *dh)
     CSSM_CC_HANDLE handle;
     CSSM_DATA param;
     CSSM_RETURN ret;
-    size_t size;
+    size_t size = 0;
 
     if (dh->p == NULL || dh->g == NULL)
 	return 0;

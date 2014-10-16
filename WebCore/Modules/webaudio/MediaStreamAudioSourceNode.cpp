@@ -35,19 +35,20 @@
 
 namespace WebCore {
 
-PassRefPtr<MediaStreamAudioSourceNode> MediaStreamAudioSourceNode::create(AudioContext* context, MediaStream* mediaStream, AudioSourceProvider* audioSourceProvider)
+PassRefPtr<MediaStreamAudioSourceNode> MediaStreamAudioSourceNode::create(AudioContext* context, MediaStream* mediaStream, MediaStreamTrack* audioTrack, AudioSourceProvider* audioSourceProvider)
 {
-    return adoptRef(new MediaStreamAudioSourceNode(context, mediaStream, audioSourceProvider));
+    return adoptRef(new MediaStreamAudioSourceNode(context, mediaStream, audioTrack, audioSourceProvider));
 }
 
-MediaStreamAudioSourceNode::MediaStreamAudioSourceNode(AudioContext* context, MediaStream* mediaStream, AudioSourceProvider* audioSourceProvider)
+MediaStreamAudioSourceNode::MediaStreamAudioSourceNode(AudioContext* context, MediaStream* mediaStream, MediaStreamTrack* audioTrack, AudioSourceProvider* audioSourceProvider)
     : AudioNode(context, context->sampleRate())
     , m_mediaStream(mediaStream)
+    , m_audioTrack(audioTrack)
     , m_audioSourceProvider(audioSourceProvider)
     , m_sourceNumberOfChannels(0)
 {
     // Default to stereo. This could change depending on the format of the MediaStream's audio track.
-    addOutput(adoptPtr(new AudioNodeOutput(this, 2)));
+    addOutput(std::make_unique<AudioNodeOutput>(this, 2));
 
     setNodeType(NodeTypeMediaStreamAudioSource);
 
@@ -71,13 +72,13 @@ void MediaStreamAudioSourceNode::setFormat(size_t numberOfChannels, float source
         }
 
         // Synchronize with process().
-        MutexLocker locker(m_processLock);
+        std::lock_guard<std::mutex> lock(m_processMutex);
 
         m_sourceNumberOfChannels = numberOfChannels;
 
         {
             // The context must be locked when changing the number of output channels.
-            AudioContext::AutoLocker contextLocker(context());
+            AudioContext::AutoLocker contextLocker(*context());
 
             // Do any necesssary re-configuration to the output's number of channels.
             output(0)->setNumberOfChannels(numberOfChannels);
@@ -99,16 +100,17 @@ void MediaStreamAudioSourceNode::process(size_t numberOfFrames)
         return;
     }
 
-    // Use a tryLock() to avoid contention in the real-time audio thread.
+    // Use std::try_to_lock to avoid contention in the real-time audio thread.
     // If we fail to acquire the lock then the MediaStream must be in the middle of
     // a format change, so we output silence in this case.
-    MutexTryLocker tryLocker(m_processLock);
-    if (tryLocker.locked())
-        audioSourceProvider()->provideInput(outputBus, numberOfFrames);
-    else {
+    std::unique_lock<std::mutex> lock(m_processMutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
         // We failed to acquire the lock.
         outputBus->zero();
+        return;
     }
+
+    audioSourceProvider()->provideInput(outputBus, numberOfFrames);
 }
 
 void MediaStreamAudioSourceNode::reset()

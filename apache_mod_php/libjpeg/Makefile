@@ -25,7 +25,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP		= YES
-AEP_Version	= 8d
+AEP_Version	= 9
 AEP_Filename	= jpegsrc.v$(AEP_Version).tar.gz
 AEP_ExtractDir	= jpeg-$(AEP_Version)
 AEP_Patches	=

@@ -1,0 +1,15 @@
+/klass = LC_REGISTRY\.get(cmd_load.cmd, None)/a
+.
+.,/raise ValueError("Unknown load command:/c
+            # Unknown load commands are just treated as raw data, using
+            # unknown_command class
+            klass = LC_REGISTRY.get(cmd_load.cmd, unknown_command)
+.
+/lc, cmd, old_data = self\.commands\[idx]/a
+        old_len = len(old_data)
+.
+/data = data + (b'/a
+        if old_len > len(data):
+            data = data + (b'\x00' * (old_len - len(data)))
+.
+w

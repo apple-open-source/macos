@@ -89,8 +89,8 @@ PMSystemEventsRootDomainInterest(void)
     CFStringRef             *keys = NULL;
     CFNumberRef             *vals = NULL;
     SCDynamicStoreRef       store = NULL;
-    int                     count = 0;
-    int                     i;
+    CFIndex                 count = 0;
+    CFIndex                 i;
 
     // Read dictionary from IORegistry
     thermalStatus = IORegistryEntryCreateCFProperty(

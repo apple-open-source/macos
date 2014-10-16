@@ -69,12 +69,12 @@ bool IOHIDUserClient::start( IOService * _owner )
 
 IOReturn IOHIDUserClient::clientClose( void )
 {
+    if (owner) {
     owner->evClose();
-#ifdef DEBUG
-    kprintf("%s: client token invalidated\n", getName());
-#endif
     owner->serverConnect = 0;
-    detach( owner);
+        detach(owner);
+        owner = NULL;
+    }
 
     return( kIOReturnSuccess);
 }
@@ -90,10 +90,12 @@ IOReturn IOHIDUserClient::registerNotificationPort(
 		UInt32		refCon __unused )
 {
     if( type != kIOHIDEventNotification)
-	return( kIOReturnUnsupported);
+        return kIOReturnUnsupported;
+    if (!owner)
+        return kIOReturnOffline;
 
     owner->setEventPort(port);
-    return( kIOReturnSuccess);
+    return kIOReturnSuccess;
 }
 
 IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
@@ -111,6 +113,7 @@ IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
     graphicsDevice = (IOGraphicsDevice *) provider;
     graphicsDevice->getBoundingRect(&bounds);
 
+    if (owner)
     owner->registerScreen(graphicsDevice, bounds, bounds+1);
 
     return( kIOReturnSuccess);
@@ -122,9 +125,13 @@ IOReturn IOHIDUserClient::clientMemoryForType( UInt32 type,
     if( type == kIOHIDGlobalMemory) {
         *flags = 0;
 
-        if (owner->globalMemory)
+        if (owner && owner->globalMemory) {
             owner->globalMemory->retain();
         *memory = owner->globalMemory;
+        }
+        else {
+            *memory = NULL;
+        }
     } else {
         return kIOReturnBadArgument;
     }
@@ -158,6 +165,8 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
             kIOUCScalarIScalarO, 5, 0 },
 /* 10 */ { NULL, (IOMethod) &IOHIDSystem::extGetUserHidActivityState,
             kIOUCScalarIScalarO, 0, 1 },
+/* 11 */ { NULL, (IOMethod) &IOHIDSystem::setContinuousCursorEnable,
+            kIOUCScalarIScalarO, 1, 0 },
 };
 
     if( index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -177,12 +186,12 @@ IOReturn IOHIDUserClient::setProperties( OSObject * properties )
         dict->removeObject(kIOHIDUseKeyswitchKey);
     }
 
-    return( owner->setProperties( properties ) );
+    return( owner ? owner->setProperties( properties ) : kIOReturnOffline );
 }
 
 IOReturn IOHIDUserClient::extGetUserHidActivityState(void* value,void*,void*,void*,void*,void*)
 {
-    IOReturn result = owner->extSetVirtualDisplayBounds(value, 0,0,0,0,0);
+    IOReturn result = owner ? owner->extSetVirtualDisplayBounds(value, 0,0,0,0,0) : kIOReturnOffline;
 
     return result;
 }
@@ -219,6 +228,7 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
         /* 8 */  { NULL, (IOMethod) &IOHIDSystem::extUnregisterVirtualDisplay, kIOUCScalarIScalarO, 1, 0 },
         /* 9 */  { NULL, (IOMethod) &IOHIDSystem::extSetVirtualDisplayBounds, kIOUCScalarIScalarO, 5, 0 },
         /* 10 */ { NULL, (IOMethod) &IOHIDParamUserClient::extGetUserHidActivityState, kIOUCScalarIScalarO, 0, 1 },
+        /* 11 */ { NULL, (IOMethod) &IOHIDSystem::setContinuousCursorEnable, kIOUCScalarIScalarO, 1, 0 },
     };
     IOExternalMethod *result = NULL;
 
@@ -243,7 +253,7 @@ IOReturn IOHIDParamUserClient::extPostEvent(void*p1,void*p2,void*,void*,void*,vo
 {
     IOReturn result = clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser);
     if ( result == kIOReturnSuccess ) {
-        result = owner->extPostEvent(p1, p2, NULL, NULL, NULL, NULL);
+        result = owner ? owner->extPostEvent(p1, p2, NULL, NULL, NULL, NULL) : kIOReturnOffline;
     }
     return result;
 }
@@ -257,12 +267,12 @@ IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
         dict->removeObject(kIOHIDUseKeyswitchKey);
     }
 
-    return( owner->setProperties( properties ) );
+    return( owner ? owner->setProperties( properties ) : kIOReturnOffline );
 }
 
 IOReturn IOHIDParamUserClient::extGetUserHidActivityState(void* value,void*,void*,void*,void*,void*)
 {
-    IOReturn result = owner->extGetUserHidActivityState(value, 0,0,0,0,0);
+    IOReturn result = owner ? owner->extGetUserHidActivityState(value, 0,0,0,0,0) : kIOReturnOffline;
 
     return result;
 }
@@ -302,14 +312,16 @@ IOReturn IOHIDStackShotUserClient::clientClose( void )
         client = 0;
     }
 
-    detach( owner);
+    if (owner)
+        detach(owner);
+    owner = NULL;
 
     return( kIOReturnSuccess);
 }
 
 IOService * IOHIDStackShotUserClient::getService( void )
 {
-    return( owner );
+    return(owner);
 }
 
 
@@ -320,7 +332,8 @@ IOReturn IOHIDStackShotUserClient::registerNotificationPort(
 {
     if( type != kIOHIDStackShotNotification)
 	return( kIOReturnUnsupported);
-
+    if (!owner)
+        return kIOReturnOffline;
     owner->setStackShotPort(port);
     return( kIOReturnSuccess);
 }
@@ -427,7 +440,9 @@ IOReturn IOHIDEventSystemUserClient::clientClose( void )
         client = 0;
     }
 
-    detach( owner);
+    if (owner)
+        detach(owner);
+    owner = NULL;
 
     return( kIOReturnSuccess);
 }
@@ -502,6 +517,8 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
 
     switch ( type ) {
         case kIOHIDEventQueueTypeKernel:
+            if (!owner)
+                return kIOReturnOffline;
             if ( !kernelQueue ) {
                 kernelQueue = IOHIDEventServiceQueue::withCapacity(size);
                 if ( kernelQueue ) {
@@ -558,7 +575,7 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,voi
     switch ( type ) {
         case kIOHIDEventQueueTypeKernel:
 			kernelQueue->setState(false);
-			owner->unregisterEventQueue(kernelQueue);
+			if (owner) owner->unregisterEventQueue(kernelQueue);
 			kernelQueue->release();
 			kernelQueue = NULL;
 			break;

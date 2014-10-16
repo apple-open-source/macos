@@ -1,13 +1,20 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
+
+// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
+INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
+
 BUILD_VARIANTS = normal debug
-INSTALL_PATH = /usr/lib
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator iphoneosnano iphonesimulatornano
+INSTALL_PATH_ACTUAL = /usr/lib
 DYLIB_CURRENT_VERSION = $(CURRENT_VERSION_STRING_$(RC_XBS))
 ORDER_FILE = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libSystem.order
 ORDER_FILE[sdk=iphonesimulator*] =
+OTHER_CFLAGS = -include $(BUILT_PRODUCTS_DIR)/config.$(CURRENT_ARCH).$(CURRENT_VARIANT).h
 OTHER_LDFLAGS = -Wl,-search_paths_first -nodefaultlibs @$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt
 LD_GENERATE_MAP_FILE = YES
 EXECUTABLE_PREFIX = lib
-PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/os
+PRIVATE_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include/os
 LIBRARY_SEARCH_PATHS = $(SDKROOT)/usr/lib/system $(SDKROOT)/usr/local/lib/system
 GCC_NO_COMMON_BLOCKS = YES
 GCC_WARN_64_TO_32_BIT_CONVERSION = YES

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -208,7 +208,7 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::initWithURL(
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::mainDocumentURL( 
     /* [retval][out] */ BSTR* result)
 {
-    *result = MarshallingHelpers::KURLToBSTR(m_request.firstPartyForCookies());
+    *result = MarshallingHelpers::URLToBSTR(m_request.firstPartyForCookies());
     return S_OK;
 }
 
@@ -222,7 +222,7 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::timeoutInterval(
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::URL( 
     /* [retval][out] */ BSTR* result)
 {
-    *result = MarshallingHelpers::KURLToBSTR(m_request.url());
+    *result = MarshallingHelpers::URLToBSTR(m_request.url());
     return S_OK;
 }
 
@@ -286,18 +286,32 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setCachePolicy(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setHTTPBody( 
-    /* [in] */ IStream* /*data*/)
+HRESULT WebMutableURLRequest::setHTTPBody(IStream* data)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    if (!data)
+        return E_POINTER;
+
+    STATSTG stat;
+    if (FAILED(data->Stat(&stat, STATFLAG_NONAME)))
+        return E_FAIL;
+
+    if (stat.cbSize.HighPart || !stat.cbSize.LowPart)
+        return E_FAIL;
+
+    RefPtr<FormData> httpBody = FormData::create();
+    char* formData = httpBody->expandDataStore(stat.cbSize.LowPart);
+
+    ULONG bytesRead = 0;
+    if (FAILED(data->Read(formData, stat.cbSize.LowPart, &bytesRead)))
+        return E_FAIL;
+
+    m_request.setHTTPBody(httpBody);
+    return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setHTTPBodyStream( 
-    /* [in] */ IStream* /*data*/)
+HRESULT WebMutableURLRequest::setHTTPBodyStream(IStream* data)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    return setHTTPBody(data);
 }
 
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setHTTPMethod( 
@@ -352,13 +366,12 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setAllowsAnyHTTPSCertificate(voi
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setClientCertificate(
-    /* [in] */ OLE_HANDLE cert)
+HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setClientCertificate(/* [in] */ ULONG_PTR cert)
 {
     if (!cert)
         return E_POINTER;
 
-    PCCERT_CONTEXT certContext = reinterpret_cast<PCCERT_CONTEXT>((ULONG64)cert);
+    PCCERT_CONTEXT certContext = reinterpret_cast<PCCERT_CONTEXT>(cert);
     RetainPtr<CFDataRef> certData = WebCore::copyCertificateToData(certContext);
     ResourceHandle::setClientCertificate(m_request.url().host(), certData.get());
     return S_OK;
@@ -395,11 +408,6 @@ void WebMutableURLRequest::setFormData(const PassRefPtr<FormData> data)
 const PassRefPtr<FormData> WebMutableURLRequest::formData() const
 {
     return m_request.httpBody();
-}
-
-void WebMutableURLRequest::addHTTPHeaderFields(const HTTPHeaderMap& headerFields)
-{
-    m_request.addHTTPHeaderFields(headerFields);
 }
 
 const HTTPHeaderMap& WebMutableURLRequest::httpHeaderFields() const

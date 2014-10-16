@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,7 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if TARGET_OS_IPHONE
+#import <Foundation/Foundation.h>
+#else
 #import <Cocoa/Cocoa.h>
+#endif
 
 // Sent whenever a site icon has changed. The object of the notification is the icon database.
 // The userInfo contains the site URL whose icon has changed.
@@ -75,6 +79,7 @@ extern NSSize WebIconLargeSize;  // 128 x 128
 */
 + (WebIconDatabase *)sharedIconDatabase;
 
+#if !TARGET_OS_IPHONE
 /*!
     @method iconForURL:withSize:
     @discussion Calls iconForURL:withSize:cache: with YES for cache.
@@ -93,6 +98,7 @@ extern NSSize WebIconLargeSize;  // 128 x 128
     @param cache If yes, caches the returned image in memory if not already cached
 */
 - (NSImage *)iconForURL:(NSString *)URL withSize:(NSSize)size cache:(BOOL)cache;
+#endif
 
 /*!
     @method iconURLForURL:withSize:cache:
@@ -101,12 +107,14 @@ extern NSSize WebIconLargeSize;  // 128 x 128
 */
 - (NSString *)iconURLForURL:(NSString *)URL;
 
+#if !TARGET_OS_IPHONE
 /*!
     @method defaultIconWithSize:
     @param size
 */
 - (NSImage *)defaultIconWithSize:(NSSize)size;
 - (NSImage *)defaultIconForURL:(NSString *)URL withSize:(NSSize)size;
+#endif
 
 /*!
     @method retainIconForURL:
@@ -142,5 +150,3 @@ extern NSSize WebIconLargeSize;  // 128 x 128
 - (id)delegate;
 
 @end
-
-

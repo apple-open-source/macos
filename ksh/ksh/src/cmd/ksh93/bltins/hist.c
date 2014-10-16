@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -37,14 +37,14 @@ static void hist_subst(const char*, int fd, char*);
 
 #if 0
     /* for the benefit of the dictionary generator */
-    int	b_fc(int argc,char *argv[], void *extra){}
+    int	b_fc(int argc,char *argv[], Shbltin_t *context){}
 #endif
-int	b_hist(int argc,char *argv[], void *extra)
+int	b_hist(int argc,char *argv[], Shbltin_t *context)
 {
 	register History_t *hp;
 	register char *arg;
 	register int flag,fdo;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	Sfio_t *outfile;
 	char *fname;
 	int range[2], incr, index2, indx= -1;
@@ -215,7 +215,11 @@ int	b_hist(int argc,char *argv[], void *extra)
 	hist_eof(hp);
 	arg = edit;
 	if(!arg && !(arg=nv_getval(sh_scoped(shp,HISTEDIT))) && !(arg=nv_getval(sh_scoped(shp,FCEDNOD))))
+	{
 		arg = (char*)e_defedit;
+		if(*arg!='/')
+			errormsg(SH_DICT,ERROR_exit(1),"ed not found set FCEDIT");
+	}
 #ifdef apollo
 	/*
 	 * Code to support the FC using the pad editor.

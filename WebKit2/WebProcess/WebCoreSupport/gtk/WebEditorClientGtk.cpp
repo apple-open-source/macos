@@ -27,6 +27,7 @@
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/DataObjectGtk.h>
+#include <WebCore/Document.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/PasteboardHelper.h>
 #include <WebCore/WindowsKeyboardCodes.h>
@@ -43,22 +44,22 @@ void WebEditorClient::getEditorCommandsForKeyEvent(const KeyboardEvent* event, V
        UI needs to receive event type because only knows current NativeWebKeyboardEvent.*/
     WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(event->type()),
                                                 Messages::WebPageProxy::GetEditorCommandsForKeyEvent::Reply(pendingEditorCommands),
-                                                m_page->pageID(), CoreIPC::Connection::NoTimeout);
+                                                m_page->pageID(), std::chrono::milliseconds::max());
 }
 
-bool WebEditorClient::executePendingEditorCommands(Frame* frame, Vector<WTF::String> pendingEditorCommands, bool allowTextInsertion)
+bool WebEditorClient::executePendingEditorCommands(Frame* frame, const Vector<WTF::String>& pendingEditorCommands, bool allowTextInsertion)
 {
     Vector<Editor::Command> commands;
-    for (size_t i = 0; i < pendingEditorCommands.size(); i++) {
-        Editor::Command command = frame->editor().command(pendingEditorCommands.at(i).utf8().data());
+    for (auto& commandString : pendingEditorCommands) {
+        Editor::Command command = frame->editor().command(commandString.utf8().data());
         if (command.isTextInsertion() && !allowTextInsertion)
             return false;
 
-        commands.append(command);
+        commands.append(WTF::move(command));
     }
 
-    for (size_t i = 0; i < commands.size(); i++) {
-        if (!commands.at(i).execute())
+    for (auto& command : commands) {
+        if (!command.execute())
             return false;
     }
 
@@ -69,7 +70,7 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
     Node* node = event->target()->toNode();
     ASSERT(node);
-    Frame* frame = node->document()->frame();
+    Frame* frame = node->document().frame();
     ASSERT(frame);
 
     const PlatformKeyboardEvent* platformEvent = event->keyEvent();
@@ -148,7 +149,7 @@ public:
 private:
     GClosure* m_closure;
 
-    static void destroyOnClosureFinalization(gpointer data, GClosure* closure)
+    static void destroyOnClosureFinalization(gpointer data, GClosure*)
     {
         // Calling delete void* will free the memory but won't invoke
         // the destructor, something that is a must for us.
@@ -159,14 +160,15 @@ private:
 
 static Frame* frameSettingClipboard;
 
-static void collapseSelection(GtkClipboard* clipboard, Frame* frame)
+static void collapseSelection(GtkClipboard*, Frame* frame)
 {
     if (frameSettingClipboard && frameSettingClipboard == frame)
         return;
 
     // Collapse the selection without clearing it.
     ASSERT(frame);
-    frame->selection()->setBase(frame->selection()->extent(), frame->selection()->affinity());
+    const VisibleSelection& selection = frame->selection().selection();
+    frame->selection().setBase(selection.extent(), selection.affinity());
 }
 #endif
 
@@ -176,11 +178,11 @@ void WebEditorClient::updateGlobalSelection(Frame* frame)
     GtkClipboard* clipboard = PasteboardHelper::defaultPasteboardHelper()->getPrimarySelectionClipboard(frame);
     DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
 
-    if (!frame->selection()->isRange())
+    if (!frame->selection().isRange())
         return;
 
     dataObject->clearAll();
-    dataObject->setRange(frame->selection()->toNormalizedRange());
+    dataObject->setRange(frame->selection().toNormalizedRange());
 
     frameSettingClipboard = frame;
     GClosure* callback = g_cclosure_new(G_CALLBACK(collapseSelection), frame, 0);

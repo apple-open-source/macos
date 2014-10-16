@@ -1,0 +1,91 @@
+#! /bin/csh -f
+#
+#  urlPageGrab on a set of Safari plt-style sites. The HTML source for these sites 
+#    can be obtained from speedo_html.tar in this directory. You typically place
+#    the untarred version of that in a user's ~/Sites directory; they'll appear in
+#    ~/Sites/base. If you do this on host foo.local, in ~someUser/Sites, then you'd
+#    typically run this script like this (the time prefix results in your shell 
+#    telling you how much time elapsed to execute the whole script):
+#
+#    % time pltGrab foo.local "/~someUser/base" s q
+#
+#  This assumes of course that you have an https-capable web server running on
+#  host foo.local. See SecurityTech/apacheConfig/ for a script and instructions 
+#  that make that pretty easy. 
+#
+####################################################################################
+#
+if ( $#argv < 2 ) then
+        echo Usage: pltGrab pltHostName pltBasePath \[s \(ssl\)\] \[q \(quiet\)\]
+        exit(1)
+endif
+
+set PLT_SITES = ( bugzilla.mozilla.org \
+	espn.go.com \
+	home.netscape.com \
+	hotwired.lycos.com \
+	lxr.mozilla.org \
+	my.netscape.com \
+	news.cnet.com \
+	slashdot.org \
+	web.icq.com \
+	www.altavista.com \
+	www.amazon.com \
+	www.aol.com \
+	www.apple.com \
+	www.cnn.com \
+	www.compuserve.com \
+	www.digitalcity.com \
+	www.ebay.com \
+	www.excite.com \
+	www.expedia.com \
+	www.google.com \
+	www.iplanet.com \
+	www.mapquest.com \
+	www.microsoft.com \
+	www.moviefone.com \
+	www.msn.com \
+	www.msnbc.com \
+	www.nytimes.com \
+	www.nytimes.com_Table \
+	www.quicken.com \
+	www.spinner.com \
+	www.sun.com \
+	www.time.com \
+	www.tomshardware.com \
+	www.travelocity.com \
+	www.voodooextreme.com \
+	www.w3.org_DOML2Core \
+	www.wired.com \
+	www.yahoo.com \
+	www.zdnet.com \
+	www.zdnet.com_Gamespot.com )
+
+set PLT_HOST=$argv[1]
+set BASE_PATH=$argv[2]
+shift
+shift
+set QUIET=
+set DO_SSL=
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case s:
+            set DO_SSL = s
+            shift
+            breaksw
+		case q:
+			set QUIET = q
+			shift
+			breaksw
+        default:
+			echo Usage: pltGrab pltHostName pltBasePath \[s \(ssl\)\] \[q \(quiet\)\]
+            exit(1)
+    endsw
+end
+
+foreach site ($PLT_SITES) 
+	set HTTP_PATH="$BASE_PATH/$site/"
+	urlPageGrab $PLT_HOST "$HTTP_PATH" $DO_SSL $QUIET || exit(1)
+end
+

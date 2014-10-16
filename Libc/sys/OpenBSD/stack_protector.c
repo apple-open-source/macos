@@ -35,7 +35,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include "CrashReporterClient.h"
+#include <CrashReporterClient.h>
 #include "libproc.h"
 #include "_simple.h"
 

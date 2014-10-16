@@ -182,10 +182,10 @@ static void remove_items(apr_pool_t *p, apr_array_header_t *remove,
                                               APR_HASH_KEY_STRING);
         if (exinfo && *(const char**)((char *)exinfo + suffix[i].offset)) {
             extension_info *copyinfo = exinfo;
-            exinfo = (extension_info*)apr_palloc(p, sizeof(*exinfo));
+            exinfo = apr_pmemdup(p, copyinfo, sizeof(*exinfo));
             apr_hash_set(mappings, suffix[i].name,
                          APR_HASH_KEY_STRING, exinfo);
-            memcpy(exinfo, copyinfo, sizeof(*exinfo));
+
             *(const char**)((char *)exinfo + suffix[i].offset) = NULL;
         }
     }
@@ -440,7 +440,7 @@ static int mime_post_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, 
 
     types_confname = ap_server_root_relative(p, types_confname);
     if (!types_confname) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_EBADPATH, s,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_EBADPATH, s, APLOGNO(01596)
                      "Invalid mime types config path %s",
                      (const char *)ap_get_module_config(s->module_config,
                                                         &mime_module));
@@ -448,7 +448,7 @@ static int mime_post_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, 
     }
     if ((status = ap_pcfg_openfile(&f, ptemp, types_confname))
                 != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, status, s,
+        ap_log_error(APLOG_MARK, APLOG_ERR, status, s, APLOGNO(01597)
                      "could not open mime types config file %s.",
                      types_confname);
         return HTTP_INTERNAL_SERVER_ERROR;
@@ -562,7 +562,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
         cp++;
     }
     if (!*cp) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01598)
                      "mod_mime: analyze_ct: cannot get media type from '%s'",
                      (const char *) mp);
         return (NULL);
@@ -572,7 +572,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
         cp++;
     } while (*cp && (*cp != '/') && !apr_isspace(*cp) && (*cp != ';'));
     if (!*cp || (*cp == ';')) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01599)
                      "Cannot get media type from '%s'",
                      (const char *) mp);
         return (NULL);
@@ -581,7 +581,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
         cp++;
     }
     if (*cp != '/') {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01600)
                      "mod_mime: analyze_ct: cannot get media type from '%s'",
                      (const char *) mp);
         return (NULL);
@@ -595,7 +595,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
         cp++;
     }
     if (!*cp) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01601)
                      "Cannot get media subtype.");
         return (NULL);
     }
@@ -616,7 +616,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
     cp++; /* skip the ';' */
     cp = zap_sp(cp);
     if (cp == NULL || *cp == '\0') {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01602)
                      "Cannot get media parameter.");
         return (NULL);
     }
@@ -637,14 +637,14 @@ static content_type *analyze_ct(request_rec *r, const char *s)
             else if (*cp == '=') {
                 attribute = zap_sp_and_dup(p, mp, cp, NULL);
                 if (attribute == NULL || *attribute == '\0') {
-                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01603)
                                  "Cannot get media parameter.");
                     return (NULL);
                 }
                 cp++;
                 cp = zap_sp(cp);
                 if (cp == NULL || *cp == '\0') {
-                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01604)
                                  "Cannot get media parameter.");
                     return (NULL);
                 }
@@ -652,7 +652,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
                 continue;
             }
             else {
-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01605)
                              "Cannot get media parameter.");
                 return (NULL);
             }
@@ -681,14 +681,14 @@ static content_type *analyze_ct(request_rec *r, const char *s)
                             cp++;
                         }
                         if (*cp != ';' && *cp != '\0') {
-                            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01606)
                                          "Cannot get media parameter.");
                             return(NULL);
                         }
                         quoted = 0;
                     }
                     else {
-                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01607)
                                      "Cannot get media parameter.");
                         return (NULL);
                     }
@@ -703,7 +703,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
                         break;
                     }
                     else {
-                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01608)
                                      "Cannot get media parameter.");
                         return (NULL);
                     }
@@ -711,7 +711,7 @@ static content_type *analyze_ct(request_rec *r, const char *s)
             }
             value = zap_sp_and_dup(p, mp, cp, NULL);
             if (value == NULL || *value == '\0') {
-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss,
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ss, APLOGNO(01609)
                              "Cannot get media parameter.");
                 return (NULL);
             }
@@ -755,7 +755,7 @@ static int find_ct(request_rec *r)
     mime_dir_config *conf;
     apr_array_header_t *exception_list;
     char *ext;
-    const char *fn, *type, *charset = NULL, *resource_name;
+    const char *fn, *fntmp, *type, *charset = NULL, *resource_name;
     int found_metadata = 0;
 
     if (r->finfo.filetype == APR_DIR) {
@@ -788,12 +788,27 @@ static int find_ct(request_rec *r)
         ++fn;
     }
 
+
     /* The exception list keeps track of those filename components that
      * are not associated with extensions indicating metadata.
      * The base name is always the first exception (i.e., "txt.html" has
      * a basename of "txt" even though it might look like an extension).
+     * Leading dots are considered to be part of the base name (a file named
+     * ".png" is likely not a png file but just a hidden file called png).
      */
-    ext = ap_getword(r->pool, &fn, '.');
+    fntmp = fn;
+    while (*fntmp == '.')
+        fntmp++;
+    fntmp = ap_strchr_c(fntmp, '.');
+    if (fntmp) {
+        ext = apr_pstrmemdup(r->pool, fn, fntmp - fn);
+        fn = fntmp + 1;
+    }
+    else {
+        ext = apr_pstrdup(r->pool, fn);
+        fn += strlen(fn);
+    }
+
     *((const char **)apr_array_push(exception_list)) = ext;
 
     /* Parse filename extensions which can be in any order
@@ -801,6 +816,7 @@ static int find_ct(request_rec *r)
     while (*fn && (ext = ap_getword(r->pool, &fn, '.'))) {
         const extension_info *exinfo = NULL;
         int found;
+        char *extcase;
 
         if (*ext == '\0') {  /* ignore empty extensions "bad..html" */
             continue;
@@ -808,6 +824,9 @@ static int find_ct(request_rec *r)
 
         found = 0;
 
+        /* Save the ext in extcase before converting it to lower case.
+         */
+        extcase = apr_pstrdup(r->pool, ext);
         ap_str_tolower(ext);
 
         if (conf->extension_mappings != NULL) {
@@ -863,7 +882,7 @@ static int find_ct(request_rec *r)
                 found = 1;
             }
             /* The following extensions are not 'Found'.  That is, they don't
-             * make any contribution to metadata negotation, so they must have
+             * make any contribution to metadata negotiation, so they must have
              * been explicitly requested by name.
              */
             if (exinfo->handler && r->proxyreq == PROXYREQ_NONE) {
@@ -873,10 +892,10 @@ static int find_ct(request_rec *r)
                 }
             }
             /* XXX Two significant problems; 1, we don't check to see if we are
-             * setting redundant filters.    2, we insert these in the types config
-             * hook, which may be too early (dunno.)
+             * setting redundant filters.    2, we insert these in the types
+             * config hook, which may be too early (dunno.)
              */
-            if (exinfo->input_filters && r->proxyreq == PROXYREQ_NONE) {
+            if (exinfo->input_filters) {
                 const char *filter, *filters = exinfo->input_filters;
                 while (*filters
                     && (filter = ap_getword(r->pool, &filters, ';'))) {
@@ -886,7 +905,7 @@ static int find_ct(request_rec *r)
                     found = 1;
                 }
             }
-            if (exinfo->output_filters && r->proxyreq == PROXYREQ_NONE) {
+            if (exinfo->output_filters) {
                 const char *filter, *filters = exinfo->output_filters;
                 while (*filters
                     && (filter = ap_getword(r->pool, &filters, ';'))) {
@@ -902,7 +921,7 @@ static int find_ct(request_rec *r)
             found_metadata = 1;
         }
         else {
-            *((const char **) apr_array_push(exception_list)) = ext;
+            *((const char **) apr_array_push(exception_list)) = extcase;
         }
     }
 
@@ -996,7 +1015,7 @@ static void register_hooks(apr_pool_t *p)
      */
 }
 
-module AP_MODULE_DECLARE_DATA mime_module = {
+AP_DECLARE_MODULE(mime) = {
     STANDARD20_MODULE_STUFF,
     create_mime_dir_config,     /* create per-directory config structure */
     merge_mime_dir_configs,     /* merge per-directory config structures */

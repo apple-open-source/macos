@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 3FA21AC8148AA93000099D2F /* Build configuration list for PBXAggregateTarget "cli_apps" */;
 			buildPhases = (
+				3F947784191C32DC00A93E8E /* No Simulator Man Pages */,
 			);
 			dependencies = (
 				3FA21ACB148AA94A00099D2F /* PBXTargetDependency */,
@@ -34,13 +35,14 @@
 		2D38AA0B102CD89B00D3D622 /* notify_cancel.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B88102CA38F00F90022 /* notify_cancel.3 */; };
 		2D38AA0C102CD89B00D3D622 /* notify_check.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B89102CA38F00F90022 /* notify_check.3 */; };
 		2D38AA0D102CD8B800D3D622 /* notify_get_state.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8A102CA38F00F90022 /* notify_get_state.3 */; };
-		2D38AA0E102CD8B800D3D622 /* notify_post.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8B102CA38F00F90022 /* notify_post.3 */; };
-		2D38AA0F102CD8B800D3D622 /* notify_register_check.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8C102CA38F00F90022 /* notify_register_check.3 */; };
-		2D38AA10102CD8B800D3D622 /* notify_register_dispatch.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8D102CA38F00F90022 /* notify_register_dispatch.3 */; };
-		2D38AA11102CD8B800D3D622 /* notify_register_file_descriptor.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8E102CA38F00F90022 /* notify_register_file_descriptor.3 */; };
-		2D38AA12102CD8B800D3D622 /* notify_register_mach_port.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8F102CA38F00F90022 /* notify_register_mach_port.3 */; };
-		2D38AA13102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B90102CA38F00F90022 /* notify_register_signal.3 */; };
-		2D38AA14102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B91102CA38F00F90022 /* notify_set_state.3 */; };
+		2D38AA0E102CD8B800D3D622 /* notify_is_valid_token.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D6D820D18DA602A0034E7B4 /* notify_is_valid_token.3 */; };
+		2D38AA0F102CD8B800D3D622 /* notify_post.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8B102CA38F00F90022 /* notify_post.3 */; };
+		2D38AA10102CD8B800D3D622 /* notify_register_check.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8C102CA38F00F90022 /* notify_register_check.3 */; };
+		2D38AA11102CD8B800D3D622 /* notify_register_dispatch.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8D102CA38F00F90022 /* notify_register_dispatch.3 */; };
+		2D38AA12102CD8B800D3D622 /* notify_register_file_descriptor.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8E102CA38F00F90022 /* notify_register_file_descriptor.3 */; };
+		2D38AA13102CD8B800D3D622 /* notify_register_mach_port.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B8F102CA38F00F90022 /* notify_register_mach_port.3 */; };
+		2D38AA14102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B90102CA38F00F90022 /* notify_register_signal.3 */; };
+		2D38AA15102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B91102CA38F00F90022 /* notify_set_state.3 */; };
 		2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 2DCB287110D99ADA00DF3A8D /* notify_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		3FA21ACF148AAA5000099D2F /* notify_proc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21A9C148AA7FA00099D2F /* notify_proc.c */; };
 		3FA21AD0148AAA5000099D2F /* notifyd.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21A9E148AA7FA00099D2F /* notifyd.c */; };
@@ -51,7 +53,7 @@
 		3FA21AD5148AAA6E00099D2F /* notifyutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA9148AA82700099D2F /* notifyutil.c */; };
 		3FA21AD6148AAA7500099D2F /* notifyutil.1 in Install man page */ = {isa = PBXBuildFile; fileRef = 3FA21AA8148AA82700099D2F /* notifyutil.1 */; };
 		3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */ = {isa = PBXBuildFile; fileRef = 3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */; };
-		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
+		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		3FD0DBAD148AB12000C50811 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FD0DBAC148AB12000C50811 /* libbsm.dylib */; };
 		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
@@ -77,20 +79,21 @@
 		2D38AA09102CD87C00D3D622 /* Copy man3 Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man3;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
 				2D38AA0A102CD88300D3D622 /* notify.3 in Copy man3 Files */,
 				2D38AA0B102CD89B00D3D622 /* notify_cancel.3 in Copy man3 Files */,
 				2D38AA0C102CD89B00D3D622 /* notify_check.3 in Copy man3 Files */,
 				2D38AA0D102CD8B800D3D622 /* notify_get_state.3 in Copy man3 Files */,
-				2D38AA0E102CD8B800D3D622 /* notify_post.3 in Copy man3 Files */,
-				2D38AA0F102CD8B800D3D622 /* notify_register_check.3 in Copy man3 Files */,
-				2D38AA10102CD8B800D3D622 /* notify_register_dispatch.3 in Copy man3 Files */,
-				2D38AA11102CD8B800D3D622 /* notify_register_file_descriptor.3 in Copy man3 Files */,
-				2D38AA12102CD8B800D3D622 /* notify_register_mach_port.3 in Copy man3 Files */,
-				2D38AA13102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */,
-				2D38AA14102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */,
+				2D38AA0E102CD8B800D3D622 /* notify_is_valid_token.3 in Copy man3 Files */,
+				2D38AA0F102CD8B800D3D622 /* notify_post.3 in Copy man3 Files */,
+				2D38AA10102CD8B800D3D622 /* notify_register_check.3 in Copy man3 Files */,
+				2D38AA11102CD8B800D3D622 /* notify_register_dispatch.3 in Copy man3 Files */,
+				2D38AA12102CD8B800D3D622 /* notify_register_file_descriptor.3 in Copy man3 Files */,
+				2D38AA13102CD8B800D3D622 /* notify_register_mach_port.3 in Copy man3 Files */,
+				2D38AA14102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */,
+				2D38AA15102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */,
 			);
 			name = "Copy man3 Files";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -98,7 +101,7 @@
 		3FA21AAE148AA8E300099D2F /* Install man page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man8/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man8";
 			dstSubfolderSpec = 0;
 			files = (
 				3FA21AD4148AAA5D00099D2F /* notifyd.8 in Install man page */,
@@ -109,7 +112,7 @@
 		3FA21ABC148AA8F000099D2F /* Install man page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				3FA21AD6148AAA7500099D2F /* notifyutil.1 in Install man page */,
@@ -120,7 +123,7 @@
 		3FA21AD7148AAAA600099D2F /* Install launchd.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons/;
+			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/LaunchDaemons";
 			dstSubfolderSpec = 0;
 			files = (
 				3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */,
@@ -151,12 +154,16 @@
 		2D312B90102CA38F00F90022 /* notify_register_signal.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_register_signal.3; sourceTree = "<group>"; };
 		2D312B91102CA38F00F90022 /* notify_set_state.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_set_state.3; sourceTree = "<group>"; };
 		2D312B92102CA38F00F90022 /* notify.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify.3; sourceTree = "<group>"; };
+		2D6D820D18DA602A0034E7B4 /* notify_is_valid_token.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_is_valid_token.3; sourceTree = "<group>"; };
 		2DCB287110D99ADA00DF3A8D /* notify_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_private.h; sourceTree = "<group>"; };
 		2DF9EA0B102CF33400DE9E8D /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
-		3F82235D12B18551005DD509 /* libnotify.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = libnotify.xcconfig; path = xcodeconfig/libnotify.xcconfig; sourceTree = "<group>"; };
+		3F82235D12B18551005DD509 /* libnotify.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libnotify.xcconfig; sourceTree = "<group>"; };
 		3F8223B412B18877005DD509 /* libsystem_notify.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_notify.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		3F8223B612B18936005DD509 /* fix-dylib-id.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "fix-dylib-id.sh"; path = "xcodescripts/fix-dylib-id.sh"; sourceTree = "<group>"; };
-		3F8223BD12B18AE9005DD509 /* no-sim-man.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "no-sim-man.sh"; path = "xcodescripts/no-sim-man.sh"; sourceTree = "<group>"; };
+		3F947780191C322100A93E8E /* no-sim-man.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "no-sim-man.sh"; sourceTree = "<group>"; };
+		3F947781191C322100A93E8E /* sim-compat-symlink.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "sim-compat-symlink.sh"; sourceTree = "<group>"; };
+		3F999961185C474E00EAD3A0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		3F999963185C474E00EAD3A0 /* notifyd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyd.xcconfig; sourceTree = "<group>"; };
+		3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyutil.xcconfig; sourceTree = "<group>"; };
 		3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.notifyd.plist; sourceTree = "<group>"; };
 		3FA21A9A148AA7FA00099D2F /* notify.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = notify.conf; sourceTree = "<group>"; };
 		3FA21A9B148AA7FA00099D2F /* notify.conf.iPhone */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.iPhone; path = ../notify.conf.iPhone; sourceTree = "<group>"; };
@@ -178,7 +185,6 @@
 		3FA21ADD148AABA900099D2F /* mk_notify_conf.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = mk_notify_conf.sh; sourceTree = "<group>"; };
 		3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.MacOSX; path = notifyd/notify.conf.MacOSX; sourceTree = SOURCE_ROOT; };
 		3FD0DBAC148AB12000C50811 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
-		3FD0DBC6148AC16B00C50811 /* notify.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = notify.xcconfig; path = xcodeconfig/notify.xcconfig; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -211,7 +217,8 @@
 		08FB7794FE84155DC02AAC07 /* Libnotify */ = {
 			isa = PBXGroup;
 			children = (
-				3FD0DBC6148AC16B00C50811 /* notify.xcconfig */,
+				3F94777F191C322100A93E8E /* xcodescripts */,
+				3F999960185C474E00EAD3A0 /* xcodeconfig */,
 				2D312B79102CA30200F90022 /* notify_ipc.defs */,
 				3FA21A97148AA7CD00099D2F /* libsystem_notify */,
 				3FA21AA7148AA82700099D2F /* notifyutil */,
@@ -268,20 +275,29 @@
 			name = "Additional Files";
 			sourceTree = "<group>";
 		};
-		3F82235912B18515005DD509 /* Build Support */ = {
+		3F94777F191C322100A93E8E /* xcodescripts */ = {
 			isa = PBXGroup;
 			children = (
-				3F8223BD12B18AE9005DD509 /* no-sim-man.sh */,
-				3F8223B612B18936005DD509 /* fix-dylib-id.sh */,
-				3F82235D12B18551005DD509 /* libnotify.xcconfig */,
+				3F947780191C322100A93E8E /* no-sim-man.sh */,
+				3F947781191C322100A93E8E /* sim-compat-symlink.sh */,
 			);
-			name = "Build Support";
+			path = xcodescripts;
+			sourceTree = "<group>";
+		};
+		3F999960185C474E00EAD3A0 /* xcodeconfig */ = {
+			isa = PBXGroup;
+			children = (
+				3F999961185C474E00EAD3A0 /* base.xcconfig */,
+				3F82235D12B18551005DD509 /* libnotify.xcconfig */,
+				3F999963185C474E00EAD3A0 /* notifyd.xcconfig */,
+				3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */,
+			);
+			path = xcodeconfig;
 			sourceTree = "<group>";
 		};
 		3FA21A97148AA7CD00099D2F /* libsystem_notify */ = {
 			isa = PBXGroup;
 			children = (
-				3F82235912B18515005DD509 /* Build Support */,
 				2D312B83102CA35300F90022 /* Project Headers */,
 				2D312B80102CA33600F90022 /* Private Headers */,
 				2D312B7B102CA30600F90022 /* Public Headers */,
@@ -365,6 +381,7 @@
 				2D312B88102CA38F00F90022 /* notify_cancel.3 */,
 				2D312B89102CA38F00F90022 /* notify_check.3 */,
 				2D312B8A102CA38F00F90022 /* notify_get_state.3 */,
+				2D6D820D18DA602A0034E7B4 /* notify_is_valid_token.3 */,
 				2D312B8B102CA38F00F90022 /* notify_post.3 */,
 				2D312B8C102CA38F00F90022 /* notify_register_check.3 */,
 				2D312B8D102CA38F00F90022 /* notify_register_dispatch.3 */,
@@ -440,8 +457,8 @@
 				D2AAC044055464E500DB518D /* Sources */,
 				D289987405E68DCB004EDB86 /* Frameworks */,
 				2D38AA09102CD87C00D3D622 /* Copy man3 Files */,
-				3F82236F12B186C1005DD509 /* SIM: Fix Dylib ID */,
-				3F8223BF12B18AF6005DD509 /* SIM: Remove Man Pages */,
+				3F947782191C324900A93E8E /* No Simulator Man Pages */,
+				3F947783191C327700A93E8E /* Sim compat symlink */,
 			);
 			buildRules = (
 			);
@@ -457,6 +474,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "Libnotify" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -481,37 +500,50 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3F82236F12B186C1005DD509 /* SIM: Fix Dylib ID */ = {
+		3F947782191C324900A93E8E /* No Simulator Man Pages */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/xcodescripts/fix-dylib-id.sh",
-			);
-			name = "SIM: Fix Dylib ID";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
-			showEnvVarsInLog = 0;
-		};
-		3F8223BF12B18AF6005DD509 /* SIM: Remove Man Pages */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 				"$(SRCROOT)/xcodescripts/no-sim-man.sh",
 			);
-			name = "SIM: Remove Man Pages";
+			name = "No Simulator Man Pages";
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/bash -e -x";
 			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
-			showEnvVarsInLog = 0;
+		};
+		3F947783191C327700A93E8E /* Sim compat symlink */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/xcodescripts/sim-compat-symlink.sh",
+			);
+			name = "Sim compat symlink";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/bash -e -x";
+			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
+		};
+		3F947784191C32DC00A93E8E /* No Simulator Man Pages */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/xcodescripts/no-sim-man.sh",
+			);
+			name = "No Simulator Man Pages";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/bash -e -x";
+			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
 		};
 		3FA21ADB148AAB1C00099D2F /* Install notify.conf */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -525,9 +557,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
+			shellPath = "/bin/bash -e -x";
 			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
-			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -589,7 +620,6 @@
 		};
 		1DEB91F108733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3FD0DBC6148AC16B00C50811 /* notify.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 			};
@@ -597,22 +627,23 @@
 		};
 		3FA21AB9148AA8E300099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
 		3FA21AC6148AA8F000099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
-				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
 		3FA21AC9148AA93000099D2F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

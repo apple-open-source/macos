@@ -30,7 +30,7 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(MAC)
+#if USE(CF) && !PLATFORM(WIN)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -39,7 +39,7 @@ namespace WebCore {
 typedef HashMap<void*, LanguageChangeObserverFunction> ObserverMap;
 static ObserverMap& observerMap()
 {
-    DEFINE_STATIC_LOCAL(ObserverMap, map, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(ObserverMap, map, ());
     return map;
 }
 
@@ -72,7 +72,7 @@ String defaultLanguage()
 
 static Vector<String>& preferredLanguagesOverride()
 {
-    DEFINE_STATIC_LOCAL(Vector<String>, override, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<String>, override, ());
     return override;
 }
 
@@ -147,11 +147,9 @@ size_t indexOfBestMatchingLanguageInList(const String& language, const Vector<St
 
 String displayNameForLanguageLocale(const String& localeName)
 {
-#if PLATFORM(MAC)
-    if (!localeName.isNull() && !localeName.isEmpty()) {
-        RetainPtr<CFLocaleRef> currentLocale = adoptCF(CFLocaleCopyCurrent());
-        return CFLocaleCopyDisplayNameForPropertyValue(currentLocale.get(), kCFLocaleIdentifier, localeName.createCFString().get());
-    }
+#if USE(CF) && !PLATFORM(WIN)
+    if (!localeName.isEmpty())
+        return adoptCF(CFLocaleCopyDisplayNameForPropertyValue(adoptCF(CFLocaleCopyCurrent()).get(), kCFLocaleIdentifier, localeName.createCFString().get())).get();
 #endif
     return localeName;
 }

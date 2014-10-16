@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,9 @@
 #include <hfs/hfs_mount.h>    /* for hfs sysctl values */
 
 #include <System/hfs/hfs_fsctl.h>
+
+#include <System/sys/content_protection.h>
+#include <TargetConditionals.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -411,7 +414,15 @@ DoMakeJournaled(char *volname, int jsize) {
 	}
 	// printf("Embedded offset == 0x%llx\n", embedded_offset);
 
-	fd = open(journal_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
+#if TARGET_OS_EMBEDDED
+	/* 
+	 * Must use open_dprotected_np to create a class D file.  This will
+	 * be the same as standard open(2) on systems that do not support content protection
+	 */
+	fd = open_dprotected_np (journal_fname, O_CREAT|O_TRUNC|O_RDWR, PROTECTION_CLASS_D, 0, 000);
+#else
+	fd = open (journal_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
+#endif
 	if (fd < 0) {
 		fprintf(stderr, "Can't create journal file on volume %s (%s)\n",
 				volname, strerror(errno));
@@ -500,7 +511,16 @@ retry:
 	jib.offset = (off_t)((unsigned int)jstart_block) * (off_t)((unsigned int)block_size);
 	jib.size   = (off_t)((unsigned int)journal_size);
 
+#if TARGET_OS_EMBEDDED
+	/* 
+	 * Use open_dprotected_np to create JIB as a class D file.  This will
+	 * behave the same as a standard open(2) on systems that do not support content protection
+	 */
+	fd = open_dprotected_np(jib_fname, O_CREAT|O_TRUNC|O_RDWR, PROTECTION_CLASS_D, 0, 000);
+#else
 	fd = open(jib_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
+#endif
+
 	if (fd < 0) {
 		fprintf(stderr, "Could not create journal info block file on volume %s (%s)\n",
 				volname, strerror(errno));

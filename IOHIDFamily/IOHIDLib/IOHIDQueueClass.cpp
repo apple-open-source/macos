@@ -82,8 +82,8 @@ __END_DECLS
 
 IOHIDQueueClass::IOHIDQueueClass() : IOHIDIUnknown(NULL)
 {
-    fHIDQueue.pseudoVTable = (IUnknownVTbl *)  &sHIDQueueInterfaceV2;
-    fHIDQueue.obj = this;
+    fHIDQueue.pseudoVTable  = (IUnknownVTbl *)  &sHIDQueueInterfaceV2;
+    fHIDQueue.obj           = this;
     
     fAsyncPort              = MACH_PORT_NULL;
     fCFMachPort             = NULL;
@@ -118,7 +118,7 @@ IOHIDQueueClass::~IOHIDQueueClass()
         CFRelease(fCFMachPort);
     }
 		
-	if (fAsyncPort) {
+    if (fAsyncPort) {
         mach_port_mod_refs(mach_task_self(), fAsyncPort, MACH_PORT_RIGHT_RECEIVE, -1);
     }
         

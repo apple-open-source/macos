@@ -27,6 +27,7 @@
 #include "oalDevice.h"
 #include "alc.h"
 #include "MacOSX_OALExtensions.h"
+#include "oalCaptureMixer.h"
 #include "CAGuard.h"
 
 #include <Carbon/Carbon.h>
@@ -144,6 +145,8 @@ class OALContext
 	void			SetBusAsAvailable (UInt32 inBusIndex);
 	void			SetDistanceAttenuation(UInt32    inBusIndex, Float64 inRefDist, Float64 inMaxDist, Float64 inRolloff);
 	void			SetRenderQuality (UInt32 inRenderQuality);
+    void            SetSourceDesiredRenderQualityOnBus (UInt32 inRenderQuality, int inBus);
+    UInt32          GetRenderQualityForBus (int inBus);
 	void			SetDistanceModel(UInt32	inDistanceModel);
 	void			SetDopplerFactor(Float32	inDopplerFactor);
 	void			SetDopplerVelocity(Float32	inDopplerVelocity);
@@ -162,6 +165,13 @@ class OALContext
 	void			SetReverbLevel(Float32 inReverbLevel);
 	UInt32			GetReverbRoomType() {return mASAReverbRoomType;}
 	Float32			GetReverbLevel() {return mASAReverbGlobalLevel;}
+    
+    // Context Output Capturer Methods
+    OSStatus        OutputCapturerCreate(Float64 inSampleRate, UInt32 inOALFormat, UInt32 inBufferSize);
+    OSStatus		OutputCapturerStart();
+	OSStatus		OutputCapturerStop();
+    OSStatus		OutputCapturerGetFrames(UInt32 inFrameCount, UInt8*	inBuffer);
+	UInt32			OutputCapturerAvailableFrames();
 
 	// notification proc methods
 	OSStatus			DoPostRender ();
@@ -199,6 +209,7 @@ class OALContext
 	void			ConnectMixerToDevice();
 	void			DisconnectMixerFromDevice();
 	void			InitRenderQualityOnBusses();
+    void            InitRenderQualityOnSources();
 	void			ConfigureMixerFormat();
 		
 	private:
@@ -244,6 +255,7 @@ class OALContext
 		Float32				mASAReverbEQGain;
 		Float32				mASAReverbEQBandwidth;
 		Float32				mASAReverbEQFrequency;
+        OALCaptureMixer*    mOutputCapturer;
 
 #if LOG_BUS_CONNECTIONS
         UInt32		mMonoSourcesConnected;

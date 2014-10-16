@@ -28,6 +28,27 @@
 .\"     @(#)getfsent.3	8.1 (Berkeley) 6/4/93
 .\" $FreeBSD: src/lib/libc/gen/getfsent.3,v 1.17 2007/01/09 00:27:53 imp Exp $
 .\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\"
+.\" Portions Copyright (c) 2003-2013 Apple Inc.  All Rights Reserved.
+.\"
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this
+.\" file.
+.\"
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\"
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
 .Dd April 7, 2003
 .Dt GETFSENT 3
 .Os
@@ -39,7 +60,7 @@
 .Nm endfsent
 .Nd get file system descriptor file entry
 .Sh LIBRARY
-.Lb libc
+Standard system libraries.
 .Sh SYNOPSIS
 .In fstab.h
 .Ft "struct fstab *"
@@ -64,9 +85,11 @@ and
 .Fn getfsfile
 functions
 each return a pointer to an object with the following structure
-containing the broken-out fields of a line in the file system
-description file,
-.In fstab.h .
+containing file system descriptions from the directory systems
+consulted by the
+.Nm opendirectoryd
+daemon.
+This will include records from the local /etc/fstab file.
 .Bd -literal -offset indent
 struct fstab {
 	char	*fs_spec;	/* block special device name */
@@ -83,41 +106,28 @@ The fields have meanings described in
 .Xr fstab 5 .
 .Pp
 The
-.Fn setfsent
-function
-opens the file (closing any previously opened file) or rewinds it
-if it is already open.
-.Pp
-The
-.Fn endfsent
-function
-closes the file.
-.\".Pp
-.\"The
-.\".Fn setfstab
-.\"function sets the file to be used by subsequent operations.
-.\"The value set by
-.\".Fn setfstab
-.\"does not persist across calls to
-.\".Fn endfsent .
-.\".Pp
-.\"The
-.\".Fn getfstab
-.\"function returns the name of the file that will be used.
-.Pp
-The
 .Fn getfsspec
 and
 .Fn getfsfile
 functions
-search the entire file (opening it if necessary) for a matching special
+search in available directory services for a matching special
 file name or file system file name.
 .Pp
 For programs wishing to read the entire database,
 .Fn getfsent
-reads the next entry (opening the file if necessary).
+searches all available directory services on it's first invocation.
+It caches the returned entries in a list
+and returns fstab entries one at a time.
 .Pp
-All entries in the file with a type field equivalent to
+The
+.Fn setfsent
+and
+.Fn endfsent
+functions clear the cached results from a previous
+.Fn getfsent 
+call.
+.Pp
+Entries in the /etc/fstab file with a type field equivalent to
 .Dv FSTAB_XX
 are ignored.
 .Sh RETURN VALUES
@@ -140,26 +150,13 @@ The
 .Fn endfsent
 function
 returns nothing.
-.\".Sh ENVIRONMENT
-.\".Bl -tag -width ".Ev PATH_FSTAB"
-.\".It Ev PATH_FSTAB
-.\"If the environment variable
-.\".Ev PATH_FSTAB
-.\"is set, all operations are performed against the specified file.
-.\".Ev PATH_FSTAB
-.\"will not be honored if the process environment or memory address space is
-.\"considered
-.\".Dq tainted .
-.\"(See
-.\".Xr issetugid 2
-.\"for more information.)
-.\".El
 .Sh FILES
 .Bl -tag -width /etc/fstab -compact
 .It Pa /etc/fstab
 .El
 .Sh SEE ALSO
-.Xr fstab 5
+.Xr opendirectoryd 8 ,
+.Xr fstab 5 .
 .Sh HISTORY
 The
 .Fn getfsent
@@ -173,17 +170,7 @@ and
 .Fn setfsent
 functions appeared in
 .Bx 4.3 .
-.\".Bx 4.3 ;
-.\"the
-.\".Fn setfstab
-.\"and
-.\".Fn getfstab
-.\"functions appeared in
-.\".Fx 5.1 .
 .Sh BUGS
 The data space used by
 these functions is thread-specific; if future use requires the data, it should be
 copied before any subsequent calls to these functions overwrite it.
-.\"These functions use static data storage;
-.\"if the data is needed for future use, it should be
-.\"copied before any subsequent calls overwrite it.

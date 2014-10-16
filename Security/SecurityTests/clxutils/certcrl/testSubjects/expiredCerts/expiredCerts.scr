@@ -1,0 +1,147 @@
+#
+# test handling of expired certs, Radar 3622125.
+#
+
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Basic sanity check"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+root = ecGoodRoot.cer
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+#
+# verify that each of the three expired certs really is expired
+#
+test = "Verify expired leaf"
+cert = ecExpiredLeaf.cer
+cert = ecGoodCA.cer
+root = ecGoodRoot.cer
+error = CSSMERR_TP_CERT_EXPIRED
+# EXPIRED  IS_IN_INPUT_CERTS
+certstatus = 0:0x5
+end
+
+test = "Verify expired CA"
+cert = ecGoodLeaf.cer
+cert = ecExpiredCA.cer
+root = ecGoodRoot.cer
+error = CSSMERR_TP_CERT_EXPIRED
+# EXPIRED  IS_IN_INPUT_CERTS
+certstatus = 1:0x5
+end
+
+test = "Verify expired Root"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+root = ecExpiredRoot.cer
+error = CSSMERR_TP_CERT_EXPIRED
+# EXPIRED  CSSM_CERT_STATUS_IS_ROOT CSSM_CERT_STATUS_IS_IN_ANCHORS
+certstatus = 2:0x19
+end
+
+#
+# Verify expired cert recovery for each cert (not leaf though)
+#
+test = "Verify recovery from expired CA"
+cert = ecGoodLeaf.cer
+cert = ecExpiredCA.cer
+cert = ecGoodCA.cer
+root = ecGoodRoot.cer
+# IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "Verify recovery from expired Root in input certs"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+cert = ecExpiredRoot.cer
+root = ecGoodRoot.cer
+# IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "Verify recovery from expired Root in anchors"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+root = ecExpiredRoot.cer
+root = ecGoodRoot.cer
+# IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+# 
+# Verify recovery from expired cert in input with good one in DLDB
+#
+test = "Expired CA in input certs, good one in DLDB"
+cert = ecGoodLeaf.cer
+cert = ecExpiredCA.cer
+root = ecGoodRoot.cer
+# Verify !IS_IN_INPUT_CERTS
+certstatus = 1:0x0
+certDb = goodCA.keychain
+end
+
+test = "Expired root in input certs, good one in DLDB"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+cert = ecExpiredRoot.cer
+root = ecGoodRoot.cer
+certDb = goodRoot.keychain
+# IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+#
+# Verify recovery from expired cert in DLDB with good one in DLDB
+#
+test = "Expired CA in DLDB, good one in DLDB"
+cert = ecGoodLeaf.cer
+root = ecGoodRoot.cer
+certDb = expiredCA.keychain
+# Verify !IS_IN_INPUT_CERTS
+certstatus = 1:0x0
+certDb = goodCA.keychain
+end
+
+test = "Expired root in DLDB, good one in DLDB"
+cert = ecGoodLeaf.cer
+cert = ecGoodCA.cer
+root = ecGoodRoot.cer
+certDb = expiredRoot.keychain
+certDb = goodRoot.keychain
+# IS_IN_INPUT_CERTS
+certstatus = 1:0x4
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end
+
+#
+# Verify recovery with both good and expired CA in inputs AND DLDB
+#
+test = "Expired and good CA and root in both inputs and DLDBs"
+cert = ecGoodLeaf.cer
+cert = ecExpiredCA.cer
+cert = ecExpiredRoot.cer
+# throw this in too!
+root = ecExpiredRoot.cer
+root = ecGoodRoot.cer
+certDb = expiredCA.keychain
+certDb = expiredRoot.keychain
+certDb = goodCA.keychain
+end

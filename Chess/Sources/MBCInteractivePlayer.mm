@@ -1,7 +1,7 @@
 /*
 	File:		MBCInteractivePlayer.mm
 	Contains:	An agent representing a local human player
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2002-2014 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -172,11 +172,24 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 		SRSetProperty(fRecognizer, kSRCommandsDisplayCFPropListRef,
 					  [fSpeechHelp bytes], [fSpeechHelp length]);
 	fStartingSR = false;
-	[self performSelectorOnMainThread:@selector(updateNeedMouse:)
-                           withObject:self waitUntilDone:NO];
+	[self updateNeedMouse:self];
 }
 
 - (void) updateNeedMouse:(id)arg
+{
+    //
+    // Avoid multiple updates for same board position
+    //
+    fPendingMouseUpdate = YES;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (fPendingMouseUpdate) {
+            fPendingMouseUpdate = NO;
+            [self doUpdateNeedMouse];
+        }
+    });
+}
+
+- (void) doUpdateNeedMouse
 {
 	BOOL	wantMouse;
 
@@ -369,9 +382,7 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 
 - (void) takeback:(NSNotification *)n
 {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self updateNeedMouse:self];
-    });
+    [self updateNeedMouse:self];
 }
 
 - (void) switchSides:(NSNotification *)n

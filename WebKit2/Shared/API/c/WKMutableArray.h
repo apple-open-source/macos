@@ -26,7 +26,8 @@
 #ifndef WKMutableArray_h
 #define WKMutableArray_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
+#include <stddef.h>
 
 #ifndef __cplusplus
 #include <stdbool.h>
@@ -37,8 +38,6 @@ extern "C" {
 #endif
 
 WK_EXPORT WKMutableArrayRef WKMutableArrayCreate();
-
-WK_EXPORT bool WKArrayIsMutable(WKArrayRef array);
 
 WK_EXPORT void WKArrayAppendItem(WKMutableArrayRef array, WKTypeRef item);
 

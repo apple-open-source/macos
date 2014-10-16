@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Motorola Mobility, Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,18 +29,15 @@
 
 #include "LiveNodeList.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/RefPtr.h>
-#include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-class RadioNodeList : public LiveNodeList {
+class RadioNodeList final : public CachedLiveNodeList<RadioNodeList> {
 public:
-    static PassRefPtr<RadioNodeList> create(Node* rootNode, CollectionType type, const AtomicString& name)
+    static PassRef<RadioNodeList> create(ContainerNode& rootNode, const AtomicString& name)
     {
-        ASSERT_UNUSED(type, type == RadioNodeListType);
-        return adoptRef(new RadioNodeList(rootNode, name));
+        return adoptRef(*new RadioNodeList(rootNode, name));
     }
 
     ~RadioNodeList();
@@ -47,14 +45,15 @@ public:
     String value() const;
     void setValue(const String&);
 
-protected:
-    virtual bool nodeMatches(Element*) const;
+    virtual bool nodeMatches(Element*) const override;
+    virtual bool isRootedAtDocument() const override { return m_isRootedAtDocument; }
 
 private:
-    RadioNodeList(Node*, const AtomicString& name);
+    RadioNodeList(ContainerNode&, const AtomicString& name);
     bool checkElementMatchesRadioNodeListFilter(Element*) const;
 
     AtomicString m_name;
+    bool m_isRootedAtDocument;
 };
 
 } // namepsace

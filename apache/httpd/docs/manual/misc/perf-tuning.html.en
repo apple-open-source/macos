@@ -9,19 +9,20 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Miscellaneous Documentation</a></div><div id="page-content"><div id="preamble"><h1>Apache Performance Tuning</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Miscellaneous Documentation</a></div><div id="page-content"><div id="preamble"><h1>Apache Performance Tuning</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/misc/perf-tuning.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/misc/perf-tuning.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/misc/perf-tuning.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/misc/perf-tuning.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
@@ -61,7 +62,7 @@
     as swapping increases the latency of each request beyond a point
     that users consider "fast enough". This causes users to hit
     stop and reload, further increasing the load. You can, and
-    should, control the <code class="directive"><a href="../mod/mpm_common.html#maxclients">MaxClients</a></code> setting so that your server
+    should, control the <code class="directive"><a href="../mod/mpm_common.html#maxrequestworkers">MaxRequestWorkers</a></code> setting so that your server
     does not spawn so many children it starts swapping. This procedure
     for doing this is simple: determine the size of your average Apache
     process, by looking at your process list via a tool such as
@@ -122,7 +123,7 @@
       server machine, in order that this activity not adversely affect
       server performance.</p>
 
-      <p>If you use any <code><code class="directive"><a href="../mod/mod_authz_host.html#allow">Allow</a></code> from domain</code> or <code><code class="directive"><a href="../mod/mod_authz_host.html#deny">Deny</a></code> from domain</code>
+      <p>If you use any <code><code class="directive"><a href="../mod/mod_access_compat.html#allow">Allow</a></code> from domain</code> or <code><code class="directive"><a href="../mod/mod_access_compat.html#deny">Deny</a></code> from domain</code>
       directives (i.e., using a hostname, or a domain name, rather than
       an IP address) then you will pay for
       two DNS lookups (a reverse, followed by a forward lookup
@@ -136,14 +137,11 @@
       matching the criteria. Here's an example which disables lookups
       except for <code>.html</code> and <code>.cgi</code> files:</p>
 
-      <div class="example"><p><code>
-        HostnameLookups off<br />
-        &lt;Files ~ "\.(html|cgi)$"&gt;<br />
-        <span class="indent">
-          HostnameLookups on<br />
-        </span>
-        &lt;/Files&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">HostnameLookups off
+&lt;Files ~ "\.(html|cgi)$"&gt;
+  HostnameLookups on
+&lt;/Files&gt;</pre>
+
 
       <p>But even still, if you just need DNS names in some CGIs you
       could consider doing the <code>gethostbyname</code> call in the
@@ -161,14 +159,11 @@
       system calls to check up on symlinks. One extra call per
       filename component. For example, if you had:</p>
 
-      <div class="example"><p><code>
-        DocumentRoot /www/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          Options SymLinksIfOwnerMatch<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /www/htdocs
+&lt;Directory /&gt;
+  Options SymLinksIfOwnerMatch
+&lt;/Directory&gt;</pre>
+
 
       <p>and a request is made for the URI <code>/index.html</code>.
       Then Apache will perform <code>lstat(2)</code> on
@@ -178,20 +173,15 @@
       every single request. If you really desire the symlinks
       security checking you can do something like this:</p>
 
-      <div class="example"><p><code>
-        DocumentRoot /www/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          Options FollowSymLinks<br />
-        </span>
-        &lt;/Directory&gt;<br />
-        <br />
-        &lt;Directory /www/htdocs&gt;<br />
-        <span class="indent">
-          Options -FollowSymLinks +SymLinksIfOwnerMatch<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /www/htdocs
+&lt;Directory /&gt;
+  Options FollowSymLinks
+&lt;/Directory&gt;
+
+&lt;Directory /www/htdocs&gt;
+  Options -FollowSymLinks +SymLinksIfOwnerMatch
+&lt;/Directory&gt;</pre>
+
 
       <p>This at least avoids the extra checks for the
       <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> path.
@@ -213,14 +203,11 @@
       <code>.htaccess</code> for each filename component. For
       example,</p>
 
-      <div class="example"><p><code>
-        DocumentRoot /www/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          AllowOverride all<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /www/htdocs
+&lt;Directory /&gt;
+  AllowOverride all
+&lt;/Directory&gt;</pre>
+
 
       <p>and a request is made for the URI <code>/index.html</code>.
       Then Apache will attempt to open <code>/.htaccess</code>,
@@ -242,15 +229,13 @@
       penalties. There's one case where you can speed up the server.
       Instead of using a wildcard such as:</p>
 
-      <div class="example"><p><code>
-        DirectoryIndex index
-      </code></p></div>
+      <pre class="prettyprint lang-config">DirectoryIndex index</pre>
+
 
       <p>Use a complete list of options:</p>
 
-      <div class="example"><p><code>
-        DirectoryIndex index.cgi index.pl index.shtml index.html
-      </code></p></div>
+      <pre class="prettyprint lang-config">DirectoryIndex index.cgi index.pl index.shtml index.html</pre>
+
 
       <p>where you list the most common choice first.</p>
 
@@ -325,8 +310,8 @@
           another box and moved to such a machine with broken sendfile support.</p>
         </li>
         <li>
-          <p>With an NFS-mounted files, the kernel may be unable
-          to reliably serve the network file through it's own cache.</p>
+          <p>With an NFS-mounted filesystem, the kernel may be unable
+          to reliably serve the network file through its own cache.</p>
         </li>
       </ul>
 
@@ -375,9 +360,9 @@
       Use the <code class="module"><a href="../mod/mod_status.html">mod_status</a></code> output as a guide.</p>
 
     <p>Related to process creation is process death induced by the
-    <code class="directive"><a href="../mod/mpm_common.html#maxrequestsperchild">MaxRequestsPerChild</a></code>
+    <code class="directive"><a href="../mod/mpm_common.html#maxconnectionsperchild">MaxConnectionsPerChild</a></code>
     setting. By default this is <code>0</code>,
-    which means that there is no limit to the number of requests
+    which means that there is no limit to the number of connections
     handled per child. If your configuration currently has this set
     to some very low number, such as <code>30</code>, you may want to bump this
     up significantly. If you are running SunOS or an old version of
@@ -407,7 +392,7 @@
       <a href="../mpm.html">Multi-Processing Modules</a> (MPMs).
       When building Apache, you must choose an MPM to use.  There
       are platform-specific MPMs for some platforms:
-      <code class="module"><a href="../mod/beos.html">beos</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>,
+      <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>,
       <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, and <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>.  For
       general Unix-type systems, there are several MPMs from which
       to choose.  The choice of MPM can affect the speed and scalability
@@ -420,6 +405,12 @@
         one connection at a time.  Worker generally is a good
         choice for high-traffic servers because it has a smaller
         memory footprint than the prefork MPM.</li>
+        
+        <li>The <code class="module"><a href="../mod/event.html">event</a></code> MPM is threaded like the 
+        Worker MPM, but is designed to allow more requests to be 
+        served simultaneously by passing off some processing work 
+        to supporting threads, freeing up the main threads to work
+        on new requests.</li>
 
         <li>The <code class="module"><a href="../mod/prefork.html">prefork</a></code> MPM uses multiple child
         processes with one thread each.  Each process handles
@@ -446,7 +437,7 @@
         not actually using. If you have built the modules as <a href="../dso.html">DSOs</a>, eliminating modules is a simple
         matter of commenting out the associated <code class="directive"><a href="../mod/mod_so.html#loadmodule">LoadModule</a></code> directive for that module.
         This allows you to experiment with removing modules, and seeing
-        if your site still functions in their absense.</p>
+        if your site still functions in their absence.</p>
 
         <p>If, on the other hand, you have modules statically linked
         into your Apache binary, you will need to recompile Apache in
@@ -558,39 +549,28 @@
       do not match the code, they're contrived for pedagogical
       purposes):</p>
 
-      <div class="example"><p><code>
-        for (;;) {<br />
-        <span class="indent">
-          for (;;) {<br />
-          <span class="indent">
-            fd_set accept_fds;<br />
-            <br />
-            FD_ZERO (&amp;accept_fds);<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              FD_SET (i, &amp;accept_fds);<br />
-            </span>
-            }<br />
-            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);<br />
-            if (rc &lt; 1) continue;<br />
-            new_connection = -1;<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              if (FD_ISSET (i, &amp;accept_fds)) {<br />
-              <span class="indent">
-                new_connection = accept (i, NULL, NULL);<br />
-                if (new_connection != -1) break;<br />
-              </span>
-              }<br />
-            </span>
-            }<br />
-            if (new_connection != -1) break;<br />
-          </span>
-          }<br />
-          process the new_connection;<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        for (;;) {
+          for (;;) {
+            fd_set accept_fds;
+
+            FD_ZERO (&amp;accept_fds);
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              FD_SET (i, &amp;accept_fds);
+            }
+            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);
+            if (rc &lt; 1) continue;
+            new_connection = -1;
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              if (FD_ISSET (i, &amp;accept_fds)) {
+                new_connection = accept (i, NULL, NULL);
+                if (new_connection != -1) break;
+              }
+            }
+            if (new_connection != -1) break;
+          }
+          process_the(new_connection);
+        }</pre>
+
 
       <p>But this naive implementation has a serious starvation problem.
       Recall that multiple children execute this loop at the same
@@ -628,41 +608,30 @@
       entry into the inner loop. The loop looks like this
       (differences highlighted):</p>
 
-      <div class="example"><p><code>
-        for (;;) {<br />
-        <span class="indent">
-          <strong>accept_mutex_on ();</strong><br />
-          for (;;) {<br />
-          <span class="indent">
-            fd_set accept_fds;<br />
-            <br />
-            FD_ZERO (&amp;accept_fds);<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              FD_SET (i, &amp;accept_fds);<br />
-            </span>
-            }<br />
-            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);<br />
-            if (rc &lt; 1) continue;<br />
-            new_connection = -1;<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              if (FD_ISSET (i, &amp;accept_fds)) {<br />
-              <span class="indent">
-                new_connection = accept (i, NULL, NULL);<br />
-                if (new_connection != -1) break;<br />
-              </span>
-              }<br />
-            </span>
-            }<br />
-            if (new_connection != -1) break;<br />
-          </span>
-          }<br />
-          <strong>accept_mutex_off ();</strong><br />
-          process the new_connection;<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        for (;;) {
+          <strong>accept_mutex_on ();</strong>
+          for (;;) {
+            fd_set accept_fds;
+            
+            FD_ZERO (&amp;accept_fds);
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              FD_SET (i, &amp;accept_fds);
+            }
+            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);
+            if (rc &lt; 1) continue;
+            new_connection = -1;
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              if (FD_ISSET (i, &amp;accept_fds)) {
+                new_connection = accept (i, NULL, NULL);
+                if (new_connection != -1) break;
+              }
+            }
+            if (new_connection != -1) break;
+          }
+          <strong>accept_mutex_off ();</strong>
+          process the new_connection;
+        }</pre>
+
 
       <p><a id="serialize" name="serialize">The functions</a>
       <code>accept_mutex_on</code> and <code>accept_mutex_off</code>
@@ -676,67 +645,11 @@
       <code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code>
       directives.</p>
 
-      <p>The directive <code class="directive"><a href="../mod/mpm_common.html#acceptmutex">AcceptMutex</a></code> can be used to
-      change the selected mutex implementation at run-time.</p>
-
-      <dl>
-        <dt><code>AcceptMutex flock</code></dt>
-
-        <dd>
-          <p>This method uses the <code>flock(2)</code> system call to
-          lock a lock file (located by the <code class="directive"><a href="../mod/mpm_common.html#lockfile">LockFile</a></code> directive).</p>
-        </dd>
-
-        <dt><code>AcceptMutex fcntl</code></dt>
-
-        <dd>
-          <p>This method uses the <code>fcntl(2)</code> system call to
-          lock a lock file (located by the <code class="directive"><a href="../mod/mpm_common.html#lockfile">LockFile</a></code> directive).</p>
-        </dd>
-
-        <dt><code>AcceptMutex sysvsem</code></dt>
-
-        <dd>
-          <p>(1.3 or later) This method uses SysV-style semaphores to
-          implement the mutex. Unfortunately SysV-style semaphores have
-          some bad side-effects. One is that it's possible Apache will
-          die without cleaning up the semaphore (see the
-          <code>ipcs(8)</code> man page). The other is that the
-          semaphore API allows for a denial of service attack by any
-          CGIs running under the same uid as the webserver
-          (<em>i.e.</em>, all CGIs, unless you use something like
-          <code class="program"><a href="../programs/suexec.html">suexec</a></code> or <code>cgiwrapper</code>). For these
-          reasons this method is not used on any architecture except
-          IRIX (where the previous two are prohibitively expensive
-          on most IRIX boxes).</p>
-        </dd>
-
-        <dt><code>AcceptMutex pthread</code></dt>
-
-        <dd>
-          <p>(1.3 or later) This method uses POSIX mutexes and should
-          work on any architecture implementing the full POSIX threads
-          specification, however appears to only work on Solaris (2.5
-          or later), and even then only in certain configurations. If
-          you experiment with this you should watch out for your server
-          hanging and not responding. Static content only servers may
-          work just fine.</p>
-        </dd>
-
-        <dt><code>AcceptMutex posixsem</code></dt>
-
-        <dd>
-          <p>(2.0 or later)  This method uses POSIX semaphores.  The
-          semaphore ownership is not recovered if a thread in the process
-          holding the mutex segfaults, resulting in a hang of the web
-          server.</p>
-        </dd>
-
-      </dl>
-
-      <p>If your system has another method of serialization which
-      isn't in the above list then it may be worthwhile adding code
-      for it to APR.</p>
+      <p>The <code class="directive"><a href="../mod/core.html#mutex">Mutex</a></code> directive can
+      be used to change the mutex implementation of the
+      <code>mpm-accept</code> mutex at run-time.  Special considerations
+      for different mutex implementations are documented with that
+      directive.</p>
 
       <p>Another solution that has been considered but never
       implemented is to partially serialize the loop -- that is, let
@@ -800,9 +713,7 @@
       an HTTP server to <strong>reliably</strong> implement the
       protocol it needs to shutdown each direction of the
       communication independently (recall that a TCP connection is
-      bi-directional, each half is independent of the other). This
-      fact is often overlooked by other servers, but is correctly
-      implemented in Apache as of 1.2.</p>
+      bi-directional, each half is independent of the other).</p>
 
       <p>When this feature was added to Apache it caused a flurry of
       problems on various versions of Unix because of a
@@ -828,39 +739,30 @@
       <code>http_main.c</code>). The function looks roughly like
       this:</p>
 
-      <div class="example"><p><code>
-        void lingering_close (int s)<br />
-        {<br />
-        <span class="indent">
-          char junk_buffer[2048];<br />
-          <br />
-          /* shutdown the sending side */<br />
-          shutdown (s, 1);<br />
-          <br />
-          signal (SIGALRM, lingering_death);<br />
-          alarm (30);<br />
-          <br />
-          for (;;) {<br />
-          <span class="indent">
-            select (s for reading, 2 second timeout);<br />
-            if (error) break;<br />
-            if (s is ready for reading) {<br />
-            <span class="indent">
-              if (read (s, junk_buffer, sizeof (junk_buffer)) &lt;= 0) {<br />
-              <span class="indent">
-                break;<br />
-              </span>
-              }<br />
-              /* just toss away whatever is here */<br />
-            </span>
-            }<br />
-          </span>
-          }<br />
-          <br />
-          close (s);<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        void lingering_close (int s)
+        {
+          char junk_buffer[2048];
+          
+          /* shutdown the sending side */
+          shutdown (s, 1);
+
+          signal (SIGALRM, lingering_death);
+          alarm (30);
+
+          for (;;) {
+            select (s for reading, 2 second timeout);
+            if (error) break;
+            if (s is ready for reading) {
+              if (read (s, junk_buffer, sizeof (junk_buffer)) &lt;= 0) {
+                break;
+              }
+              /* just toss away whatever is here */
+            }
+          }
+          
+          close (s);
+        }</pre>
+
 
       <p>This naturally adds some expense at the end of a connection,
       but it is required for a reliable implementation. As HTTP/1.1
@@ -931,7 +833,7 @@
     </code></p></div>
 
     <p>The <code>-l</code> option tells truss to log the ID of the
-    LWP (lightweight process--Solaris's form of kernel-level thread)
+    LWP (lightweight process--Solaris' form of kernel-level thread)
     that invokes each system call.</p>
 
     <p>Other systems may have different system call tracing utilities
@@ -991,7 +893,7 @@
     <p>Next, the worker thread puts the connection to the client (file
     descriptor 9) in non-blocking mode. The <code>setsockopt(2)</code>
     and <code>getsockopt(2)</code> calls are a side-effect of how
-    Solaris's libc handles <code>fcntl(2)</code> on sockets.</p>
+    Solaris' libc handles <code>fcntl(2)</code> on sockets.</p>
 
     <div class="example"><pre>/65:    read(9, " G E T   / 1 0 k . h t m".., 8000)     = 97</pre></div>
 
@@ -1052,12 +954,13 @@
   </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/misc/perf-tuning.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/misc/perf-tuning.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/misc/perf-tuning.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/misc/perf-tuning.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/misc/perf-tuning.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/perf-tuning.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -1072,7 +975,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/misc/perf-tuning.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

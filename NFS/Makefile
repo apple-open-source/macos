@@ -5,7 +5,7 @@
 SUBPROJECTS = mount_nfs nfs_fs nfsiod nfsstat showmount files
 
 ifneq "$(RC_TARGET_CONFIG)" "iPhone"
-SUBPROJECTS += nfsd rpc.lockd rpc.statd rpc.rquotad ncdestroy
+SUBPROJECTS += nfsd rpc.lockd rpc.statd rpc.rquotad ncdestroy nfs4mapid
 endif
 
 .PHONY: installsrc clean installhdrs install inplace

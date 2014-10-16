@@ -5,9 +5,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/02/03 02:31:30 $ 
-    $Revision: 1.6 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
   Wrapper around Tidy input source and output sink
   that calls appropriate interfaces, and applies

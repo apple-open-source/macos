@@ -134,11 +134,11 @@
 
   print $(( a = ))
 1:empty assignment
-?(eval):1: bad math expression: operand expected at `'
+?(eval):1: bad math expression: operand expected at end of string
 
   print $(( 3, ))
 1:empty right hand of comma
-?(eval):1: bad math expression: operand expected at `'
+?(eval):1: bad math expression: operand expected at end of string
 
   print $(( 3,,4 ))
 1:empty middle of comma
@@ -243,3 +243,26 @@
 >6000000
 >5000
 >255
+
+  # Force floating point.
+  for expr in "3/4" "0x100/0x200" "0x30/0x10"; do
+    print $(( $expr ))
+    setopt force_float
+    print $(( $expr ))
+    unsetopt force_float
+  done
+0:Forcing floating point constant evaluation, or not.
+>0
+>0.75
+>0
+>0.5
+>3
+>3.
+
+  print $(( 0x30 + 0.5 ))
+  print $(( 077 + 0.5 ))
+  (setopt octalzeroes; print $(( 077 + 0.5 )) )
+0:Mixed float and non-decimal integer constants
+>48.5
+>77.5
+>63.5

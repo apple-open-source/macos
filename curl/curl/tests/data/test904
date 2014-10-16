@@ -2,7 +2,8 @@
 <info>
 <keywords>
 SMTP
-SMTP AUTH LOGIN
+SASL
+SASL AUTH LOGIN
 RFC4954
 </keywords>
 </info>
@@ -11,9 +12,10 @@ RFC4954
 # Server-side
 <reply>
 <servercmd>
-REPLY EHLO 250 AUTH LOGIN
-REPLY AUTH 334 UGFzc3dvcmQ6
-REPLY MTIzNA== 235 Authenticated
+AUTH LOGIN
+REPLY AUTH 334 VXNlcm5hbWU6
+REPLY dXNlcg== 334 UGFzc3dvcmQ6
+REPLY c2VjcmV0 235 Authenticated
 </servercmd>
 </reply>
 
@@ -30,7 +32,7 @@ SMTP login authentication
 mail body
 </stdin>
  <command>
-smtp://%HOSTIP:%SMTPPORT/user --mail-rcpt 904@foo --mail-from 904@from -u test:1234 -T -
+smtp://%HOSTIP:%SMTPPORT/904 --mail-rcpt recipient@example.com --mail-from sender@example.com -u user:secret -T -
 </command>
 </client>
 
@@ -38,17 +40,17 @@ smtp://%HOSTIP:%SMTPPORT/user --mail-rcpt 904@foo --mail-from 904@from -u test:1
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
-EHLO user
-AUTH LOGIN dGVzdA==
-MTIzNA==
-MAIL FROM:<904@from>
-RCPT TO:<904@foo>
+EHLO 904
+AUTH LOGIN
+dXNlcg==
+c2VjcmV0
+MAIL FROM:<sender@example.com>
+RCPT TO:<recipient@example.com>
 DATA
 QUIT
 </protocol>
 <upload>
 mail body
-
 .
 </upload>
 </verify>

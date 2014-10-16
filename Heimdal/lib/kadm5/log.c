@@ -475,7 +475,7 @@ kadm5_log_replay_rename (kadm5_server_context *context,
 			       "principal in log, version: %ld", (long)ver);
 	return ret;
     }
-    princ_len = krb5_storage_seek(sp, 0, SEEK_CUR) - off;
+    princ_len = (size_t)(krb5_storage_seek(sp, 0, SEEK_CUR) - off);
     data_len = len - princ_len;
     ret = krb5_data_alloc (&value, data_len);
     if (ret) {

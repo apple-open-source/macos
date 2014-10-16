@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -135,12 +135,26 @@ S_open_bootp_socket(uint16_t client_port)
 	       strerror(errno));
 	goto failed;
     }
-#ifdef SO_TC_CTL
+#if defined(SO_RECV_ANYIF)
+    status = setsockopt(sockfd, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
+			sizeof(opt));
+    if (status < 0) {
+	my_log(LOG_INFO, "setsockopt(SO_RECV_ANYIF) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_RECV_ANYIF */
+
+#if defined(SO_TRAFFIC_CLASS)
     opt = SO_TC_CTL;
-    /* set traffic class, we don't care if it failed. */
-    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
-		     sizeof(opt));
-#endif /* SO_TC_CTL */
+    /* set traffic class */
+    status = setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+			sizeof(opt));
+    if (status < 0) {
+	my_log(LOG_INFO, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
+	       strerror(errno));
+    }
+#endif /* SO_TRAFFIC_CLASS */
+
     return sockfd;
 
  failed:
@@ -389,7 +403,7 @@ bootp_client_transmit(bootp_client_t * client,
 	str = CFStringCreateMutable(NULL, 0);
 	dhcp_packet_print_cfstr(str, (struct dhcp *)data, len);
 	if (if_index != 0) {
-	    my_log(-LOG_DEBUG, 
+	    my_log(~LOG_DEBUG, 
 		   "[%s] Transmit %d byte packet dest "
 		   IP_FORMAT
 		   " scope %d\n%@",
@@ -397,7 +411,7 @@ bootp_client_transmit(bootp_client_t * client,
 		   IP_LIST(&dest_ip), if_index, str);
 	}
 	else {
-	    my_log(-LOG_DEBUG, 
+	    my_log(~LOG_DEBUG, 
 		   "[%s] Transmit %d byte packet\n%@",
 		   if_name(client->if_p), len, str);
 	}
@@ -465,7 +479,7 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
 
 	str = CFStringCreateMutable(NULL, 0);
 	dhcp_packet_print_cfstr(str, (struct dhcp *)data, size);
-	my_log(-LOG_DEBUG,
+	my_log(~LOG_DEBUG,
 	       "[%s] Receive %d byte packet\n%@", 
 	       ifname, size, str);
 	CFRelease(str);
@@ -534,7 +548,7 @@ bootp_session_read(void * arg1, void * arg2)
     char			ifname[IFNAMSIZ + 1];
     struct iovec 	 	iov;
     struct msghdr 		msg;
-    int 			n;
+    ssize_t 			n;
     uint32_t 			receive_buf[2048/(sizeof(uint32_t))];
     bootp_session_t * 		session = (bootp_session_t *)arg1;
 
@@ -552,7 +566,7 @@ bootp_session_read(void * arg1, void * arg2)
 	if (msghdr_copy_ifname(&msg, ifname, sizeof(ifname))) {
 	    /* ALIGN: receive_buf aligned to uint64_t bytes */
 	    bootp_session_deliver(session, ifname, 
-				  (void *)receive_buf, n);
+				  (void *)receive_buf, (int)n);
 	}
     }
     else if (n < 0) {

@@ -24,6 +24,7 @@ ATTR_LONG_NAME_MASK = ATTR_LONG_NAME | ATTR_DIRECTORY | ATTR_ARCHIVE
 LAST_LONG_ENTRY	= 0x40
 
 import struct
+import math
 
 def make_dirent(name, attr, head=0, length=0, ntres=0,
 			create_time_tenth=0, create_time=0, create_date=0,
@@ -204,6 +205,65 @@ def make_long_dirent(name, attr, head=0, length=0,
 	
 	return "".join(entries)
 
+class Timestamp(object):
+    def __init__(self, month=1, day=1, year=2000, hour=0, minute=0, second=0.0):
+        """Timestamp(month, day, year, hour, minute, second) -> timestamp
+        
+        The default timestamp is 00:00:00 January 1, 2000.
+        """
+        self.month = month
+        self.day = day
+        self.year = year
+        self.hour = hour
+        self.minute = minute
+        frac, whole = math.modf(second)
+        self.second = int(whole)
+        self.ms = int(1000 * frac)
+    
+    @classmethod
+    def from_raw(klass, _date, _time, _ms):
+        # Unpack the bit fields
+        year = 1980 + ((_date >> 9) & 127)
+        month = (_date >> 5) & 15
+        day = _date & 31
+        hour = (_time >> 11) & 31
+        minute = (_time >> 5) & 63
+        seconds = (_time & 31) * 2 + (_ms // 100)
+        ms = 10 * (_ms % 100)
+        
+        assert(0 <= month < 16)
+        assert(0 <= day < 32)
+        assert(1980 <= year < 2108)
+        assert(0 <= hour < 32)
+        assert(0 <= minute < 64)
+        assert(0 <= seconds < 64)
+        assert(0 <= ms < 1000)
+        
+        return klass(month, day, year, hour, minute, seconds+ms/1000.0)
+        
+    @property
+    def raw(self):
+        "A tuple containing the raw 16-bit datestamp, 16-bit timestamp, and 8-bit milliseconds"
+        assert(0 <= self.month < 16)
+        assert(0 <= self.day < 32)
+        assert(1980 <= self.year < 2108)
+        assert(0 <= self.hour < 32)
+        assert(0 <= self.minute < 64)
+        assert(0 <= self.second < 64)
+        assert(0 <= self.ms < 1000)
+        datestamp = (self.year - 1980) << 9
+        datestamp += self.month << 5
+        datestamp += self.day
+        timestamp  = self.hour << 11
+        timestamp += self.minute << 5
+        timestamp += self.second // 2
+        ms = (self.second % 2) * 100 + self.ms // 10
+        return (datestamp, timestamp, ms)
+    
+    def __repr__(self):
+        fmt = '{0}({1:04d}-{2:02d}-{3:02d} {4:02d}:{5:02d}:{6:02d}.{7:02d})'
+        return fmt.format(self.__class__.__name__, self.year, self.month, self.day, self.hour, self.minute, self.second, self.ms//10)
+
 class msdosfs(object):
 	def __init__(self, dev):
 		self.dev = dev
@@ -347,7 +407,7 @@ class msdosfs(object):
 				prev = cluster
 			self[prev] = last
 			return head
-			
+		
 		def allocate(self, count, start=CLUST_FIRST, last=CLUST_EOF):
 			return self.chain(self.find(count, start), last)
 		
@@ -628,10 +688,11 @@ class msdosfs(object):
 			
 	class Chain(object):
 		"""A chain of clusters (i.e. a file or directory)"""
-		def __init__(self, volume, head):
+		def __init__(self, volume, head, length=0):
 			self.volume = volume
 			self.head = head
-
+			self.length = length
+			
 		def cmap(self, offset):
 			"""Return the cluster containing the chain's given byte <offset>.
 			Returns <None> if the given offset is not part of the cluster
@@ -738,6 +799,47 @@ class msdosfs(object):
 				buf = bytes[ofs:ofs+count] + buf[count:]
 				assert len(buf) == bytesPerCluster
 				self.volume.WriteCluster(cluster, buf)
+		
+		def _truncateGrow(self, oldClusters, newClusters):
+			addClusters = newClusters - oldClusters
+			
+			# Find and allocate some free space
+			# TODO: Try to keep the file contiguous?
+			head = self.volume.allocate(addClusters)
+			
+			# Point file's current last cluster at the first new cluster
+			if self.head == 0:
+				self.head = head
+			else:
+				prev = None
+				cluster = self.head
+				while cluster >= CLUST_FIRST and cluster <= CLUST_RSRVD:
+					prev = cluster
+					cluster = self.volume.fat[cluster]
+				self.volume.fat[prev] = head
+			
+		def truncate(self, length):
+			bytesPerCluster = self.volume.bytesPerCluster
+			oldClusters = (self.length + bytesPerCluster - 1) // bytesPerCluster
+			newClusters = (length + bytesPerCluster - 1) // bytesPerCluster
+			
+			if newClusters < oldClusters:
+				raise NotImplementedError("shrinking chains is not implemented yet")
+			elif newClusters > oldClusters:
+				self._truncateGrow(oldClusters, newClusters)
+			else:
+				return
+			
+			self.length = length
+			
+			# If the chain has an associate directory entry, then update its
+			# head and length, and write it back to disk
+			if hasattr(self, 'parent'):
+				raw = self.parent.read_slots(self.slot)
+				# Update head in raw[26:28] (low) and raw[20:22] (high)
+				# Update length in raw[28:32]
+				raw = raw[0:20] + struct.pack("<H", self.head>>16) + raw[22:26] + struct.pack("<HI", self.head&0xFFFF, self.length)
+				self.parent.write_slots(self.slot, raw)
 			
 	class Directory(Chain):
 		def __init__(self, volume, head):
@@ -777,6 +879,35 @@ class msdosfs(object):
 		
 			raise RuntimeError("Insufficient space in directory")
 		
+		def fill_slots(self, slot, grow=True):
+			"""Mark all never-used directory entries at index less than "slot"
+			as deleted.	 This is useful if you then want to create an entry
+			starting at a specific slot, and guarantee that the directory
+			doesn't "end" before that point."""
+			bytesPerCluster = self.volume.bytesPerCluster
+			cluster = self.head
+			i = 0
+			while cluster >= CLUST_FIRST and cluster < CLUST_RSRVD and i < slot:
+				buf = bytearray(self.volume.ReadCluster(cluster))
+				dirty = False
+				offset = 0
+				while offset < bytesPerCluster and i < slot:
+					if buf[offset] == 0:
+						buf[offset] = 0xE5
+						dirty = True
+					offset += 32
+					i += 1
+				if dirty:
+					self.volume.WriteCluster(cluster, buf)
+				cluster = self.volume.fat[cluster]
+
+			if i >= slot:
+				return
+			
+			if grow:
+				raise NotImplementedError("Growing directories not implemented")
+			raise RuntimeError("Directory too short")
+			
 		def read_slots(self, slot, count=1):
 			"""Read and return <count> consecutive directory slots, starting
 			at slot number <slot>."""
@@ -788,23 +919,83 @@ class msdosfs(object):
 			assert len(bytes) > 0 and (len(bytes) % 32) == 0
 			self.pwrite(slot*32, bytes)
 		
-		def mkfile(self, name, head=0, length=0):
+		def mkfile(self, name, head=None, length=None, attributes=ATTR_ARCHIVE, deleted=False,
+				   createDate=None, accessDate=None, modDate=None,
+				   content=None, clusters=None):
 			"Create a file entry in the directory."
+			
+			# Default length to size of content, or zero
+			if length is None:
+				if content is None:
+					length = 0
+				else:
+					length = len(content)
+			
+			# If the file is supposed to be non-empty, and they didn't explicitly
+			# specify the clusters, then allocate enough to hold the given length
+			if length > 0 and clusters is None and head is None:
+				bytesPerCluster = self.volume.bytesPerCluster
+				numClusters = (length + bytesPerCluster + 1) // bytesPerCluster
+				clusters = self.volume.fat.find(numClusters)
+				head = self.volume.fat.chain(clusters)
+				if head and self.volume.fsinfo:
+					self.volume.fsinfo.allocate(numClusters)
+
+			# Default the head to the first cluster in the chain
+			if head is None:
+				if clusters is None:
+					head = 0
+				else:
+					head = clusters[0]
+			
 			#
 			# Construct the raw directory entry (entries if long name)
 			#
-			bytes = make_long_dirent(name, ATTR_ARCHIVE, head=head, length=length)
-			
+			dates = {}
+			if createDate is not None:
+				_date, _time, _ms = createDate.raw
+				dates["create_time_tenth"] = _ms
+				dates["create_time"] = _time
+				dates["create_date"] = _date
+			if accessDate is not None:
+				_date, _time, _ms = accessDate.raw
+				dates["access_date"] = _date
+			if modDate is not None:
+				_date, _time, _ms = modDate.raw
+				dates["mod_time"] = _time
+				dates["mod_date"] = _date
+			raw = make_long_dirent(name, attributes, head=head, length=length, **dates)
+
 			#
 			# Find enough free slots, growing the directory if needed
 			#
-			slots = len(bytes)/32
+			slots = len(raw)/32
 			slot = self.find_slots(slots)
 			
+			# If the file is to be marked deleted, then set the first byte of
+			# each slot to 0xE5.
+			if deleted:
+				raw = bytearray(raw)
+				# Set the first byte of every slot to 0xE5
+				for i in range(slots):
+					raw[i * 32] = 0xE5
+				raw = bytes(raw)
+
 			#
 			# Write the raw entry/entries to the free slots
 			#
-			self.write_slots(slot, bytes)
+			self.write_slots(slot, raw)
+						
+			# Create a stream (chain) for the file.  Write the initial content
+			stream = msdosfs.Chain(self.volume, head, length)
+			if content is not None:
+				stream.pwrite(0, content)
+			
+			# Remember where the short name entry exists, so it can be updated
+			stream.parent = self
+			stream.slot = slot + slots - 1		# Slot index of last (short name) entry
+			
+			return stream
 		
 		def mkdir(self, name, clusters=None, length=0, makeDot=True, makeDotDot=True, zeroFill=True):
 			"""
@@ -861,6 +1052,8 @@ class msdosfs(object):
 				
 				# Allocate the cluster(s)
 				self.volume.fat.chain(clusters)
+				if self.volume.fsinfo:
+					self.volume.fsinfo.allocate(len(clusters))
 				
 				# Create a Directory object for the new subdirectory
 				# so that we can write to it conveniently

@@ -1,0 +1,37 @@
+--- modules/proxy/mod_proxy_balancer.c.orig	2014-02-02 16:57:06.000000000 -0800
++++ modules/proxy/mod_proxy_balancer.c	2014-02-02 18:46:32.000000000 -0800
+@@ -771,8 +771,8 @@
+                           (s->defn_name ? s->defn_name : "?"),
+                           s->defn_line_number,
+                           (s->error_fname ? s->error_fname : DEFAULT_ERRORLOG));
+-        conf->id = apr_psprintf(pconf, "p%x",
+-                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT));
++        conf->id = apr_psprintf(pconf, "p%x-%d",
++                                ap_proxy_hashfunc(id, PROXY_HASHFUNC_DEFAULT),(int) tstamp);
+         if (conf->bslot) {
+             /* Shared memory already created for this proxy_server_conf.
+              */
+@@ -781,8 +781,10 @@
+         }
+         if (conf->bal_persist) {
+             type = AP_SLOTMEM_TYPE_PERSIST;
++            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is , AP_SLOTMEM_TYPE_CLEARINUSE");
+         } else {
+-            type = 0;
++            type = AP_SLOTMEM_TYPE_CLEARINUSE;
++            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01178) "Doing balancers create: bal_persist is FALSE, AP_SLOTMEM_TYPE_CLEARINUSE");
+         }
+         if (conf->balancers->nelts) {
+             conf->max_balancers = conf->balancers->nelts + conf->bgrowth;
+@@ -794,9 +796,10 @@
+                                  ALIGNED_PROXY_BALANCER_SHARED_SIZE,
+                                  conf->max_balancers, type, pconf);
+             if (rv != APR_SUCCESS) {
+-                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01179) "balancer slotmem_create failed");
++                ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s, APLOGNO(01179) "balancer slotmem_create failed for %s", conf->id);
+                 return !OK;
+             }
++            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(01179) "balancer slotmem_create SUCCESS for %s", conf->id);
+             conf->bslot = new;
+         }
+         conf->storage = storage;

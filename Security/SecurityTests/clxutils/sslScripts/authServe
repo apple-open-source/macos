@@ -1,0 +1,62 @@
+#! /bin/csh -f
+#
+# run server side of SSL client certificate state test.
+#
+set SSL_KEYCHAIN=localcert
+#
+# use this to explicitly open the keychain
+#
+set KEYCHAIN_PWD="z=localcert"
+#
+echo =====
+echo ===== Run authClient script after server starts up
+echo ===== Server tries authentication, client refuses
+echo =====
+set cmd="sslServer P=1200 k=$SSL_KEYCHAIN $KEYCHAIN_PWD u=t T=r"
+echo $cmd
+$cmd || exit(1)
+
+echo =====
+echo ===== prompt the authClient Script
+echo ===== Server tries authentication, client sends cert
+echo =====
+set cmd="sslServer P=1201 k=$SSL_KEYCHAIN $KEYCHAIN_PWD u=t T=s"
+echo $cmd
+$cmd || exit(1)
+
+echo =====
+echo ===== prompt the authClient Script
+echo ===== Server requires authentication, client refuses, expect error
+echo =====
+set cmd="sslServer P=1202 k=$SSL_KEYCHAIN $KEYCHAIN_PWD u=a T=r"
+echo $cmd
+$cmd 
+if($status != 1) then
+	echo @@@@@@ expected one error from sslServer; got $status; aborting.
+	exit(1)
+endif
+
+echo =====
+echo ===== prompt the authClient Script
+echo ===== Server requires authentication, client refuses, SSL3, expect error
+echo =====
+set cmd="sslServer P=1203 k=$SSL_KEYCHAIN $KEYCHAIN_PWD u=a T=r"
+echo $cmd
+$cmd 
+if($status != 1) then
+	echo @@@@@@ expected one error from sslServer; got $status; aborting.
+	exit(1)
+endif
+
+echo =====
+echo ===== prompt the authClient Script
+echo ===== Server requires authentication, client sends cert
+echo =====
+set cmd="sslServer P=1204 k=$SSL_KEYCHAIN $KEYCHAIN_PWD u=a T=s"
+echo $cmd
+$cmd || exit(1)
+
+echo =====
+echo ===== authServe success
+echo =====
+

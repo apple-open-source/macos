@@ -1,0 +1,23 @@
+# one OCSP transaction test using http://ocsp.openvalidation.org
+#
+globals
+certNetFetchEnable = false
+useSystemAnchors = false
+cacheDisable = false
+allowUnverified = false
+end
+echo "================================="
+test = "OCSP, good status, user cert, cache disable, net disable, fail"
+revokePolicy = ocsp
+cert = User_CA1.crt
+root = Root_CA1.crt
+root = Root_CA2.crt
+# responderURI = http://ocsp.openvalidation.org:80
+reqOcspIfPresent = true
+cacheDisable = true
+ocspNetFetchDisable = true
+# is this is
+#allowUnverified = false
+error = APPLETP_OCSP_UNAVAILABLE
+certerror = 0:APPLETP_OCSP_UNAVAILABLE
+end

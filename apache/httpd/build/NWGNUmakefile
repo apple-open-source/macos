@@ -17,16 +17,21 @@ include $(AP_WORK)/build/NWGNUhead.inc
 # build this level's files
 
 FILES_prebuild_headers = \
+	$(SRC)/include/ap_config_layout.h \
 	$(NWOS)/test_char.h \
 	$(PCRE)/config.h \
 	$(PCRE)/pcre.h \
 	$(EOLIST) 
     
-nlms :: libs $(NWOS)/httpd.imp $(DAV)/main/dav.imp
+nlms :: libs $(NWOS)/httpd.imp $(DAV)/main/dav.imp $(STDMOD)/cache/mod_cache.imp
 
 libs :: chkapr $(NWOS)/chartables.c
 
 $(DAV)/main/dav.imp : make_nw_export.awk $(DAV)/main/mod_dav.h
+	@echo $(DL)GEN  $@$(DL)
+	$(AWK) -v EXPPREFIX=AP$(VERSION_MAJMIN) -f $^ >$@
+
+$(STDMOD)/cache/mod_cache.imp: make_nw_export.awk $(STDMOD)/cache/mod_cache.h $(STDMOD)/cache/cache_util.h
 	@echo $(DL)GEN  $@$(DL)
 	$(AWK) -v EXPPREFIX=AP$(VERSION_MAJMIN) -f $^ >$@
 
@@ -44,15 +49,19 @@ cc.opt : NWGNUmakefile $(APBUILD)/NWGNUenvironment.inc $(APBUILD)/NWGNUtail.inc 
 	@echo $(DL)-nosyspath$(DL)>> $@
 	@echo $(DL)-w nocmdline$(DL)>> $@
 	@echo $(DL)$(DEFINES)$(DL)>> $@
-	@echo $(DL)-DCORE_PRIVATE$(DL) >> $@
 	@echo $(DL)-I$(SRC)/include$(DL)>> $@
 	@echo $(DL)-I$(HTTPD)$(DL)>> $@
 	@echo $(DL)-I$(STDMOD)/aaa$(DL)>> $@
+	@echo $(DL)-I$(STDMOD)/core$(DL)>> $@
 	@echo $(DL)-I$(NWOS)$(DL)>> $@
 	@echo $(DL)-I$(SERVER)/mpm/netware$(DL)>> $@
 	@echo $(DL)-I$(APR)/include$(DL)>> $@
 	@echo $(DL)-I$(APRUTIL)/include$(DL)>> $@
 	@echo $(DL)-ir $(NOVELLLIBC)$(DL)>> $@
+
+$(SRC)/include/ap_config_layout.h: $(NWOS)/netware_config_layout.h
+	@echo Creating $@
+	$(call COPY,$<,$@)
 
 $(PCRE)/%.h: $(PCRE)/%.h.generic
 	@echo Creating $@
@@ -109,6 +118,7 @@ clean ::
 	$(call DEL,$(SRC)/include/ap_config_layout.h)
 	$(call DEL,$(PCRE)/config.h)
 	$(call DEL,$(PCRE)/pcre.h)
+	$(call DEL,$(STDMOD)/cache/mod_cache.imp)
 	$(call DEL,$(DAV)/main/dav.imp)
 	$(call DEL,$(NWOS)/httpd.imp)
 	$(call DEL,nw_export.i)

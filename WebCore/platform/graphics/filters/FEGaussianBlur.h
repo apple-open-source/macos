@@ -23,14 +23,15 @@
 #define FEGaussianBlur_h
 
 #if ENABLE(FILTERS)
-#include "FilterEffect.h"
+#include "FEConvolveMatrix.h"
 #include "Filter.h"
+#include "FilterEffect.h"
 
 namespace WebCore {
 
 class FEGaussianBlur : public FilterEffect {
 public:
-    static PassRefPtr<FEGaussianBlur> create(Filter*, float, float);
+    static PassRefPtr<FEGaussianBlur> create(Filter*, float, float, EdgeModeType);
 
     float stdDeviationX() const;
     void setStdDeviationX(float);
@@ -38,14 +39,15 @@ public:
     float stdDeviationY() const;
     void setStdDeviationY(float);
 
-    static float calculateStdDeviation(float);
+    EdgeModeType edgeMode() const;
+    void setEdgeMode(EdgeModeType);
 
     virtual void platformApplySoftware();
     virtual void dump();
-    
+
     virtual void determineAbsolutePaintRect();
-    static void calculateKernelSize(Filter*, unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY);
-    static void calculateUnscaledKernelSize(unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY);
+    static IntSize calculateKernelSize(const Filter&, const FloatPoint& stdDeviation);
+    static IntSize calculateUnscaledKernelSize(const FloatPoint& stdDeviation);
 
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
@@ -67,7 +69,7 @@ private:
 
     static void platformApplyWorker(PlatformApplyParameters*);
 
-    FEGaussianBlur(Filter*, float, float);
+    FEGaussianBlur(Filter*, float, float, EdgeModeType);
 
     static inline void kernelPosition(int boxBlur, unsigned& std, int& dLeft, int& dRight);
     inline void platformApply(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
@@ -76,6 +78,7 @@ private:
 
     float m_stdX;
     float m_stdY;
+    EdgeModeType m_edgeMode;
 };
 
 inline void FEGaussianBlur::kernelPosition(int boxBlur, unsigned& std, int& dLeft, int& dRight)

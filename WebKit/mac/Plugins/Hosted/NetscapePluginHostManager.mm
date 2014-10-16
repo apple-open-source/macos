@@ -50,7 +50,7 @@ namespace WebKit {
 
 NetscapePluginHostManager& NetscapePluginHostManager::shared()
 {
-    DEFINE_STATIC_LOCAL(NetscapePluginHostManager, pluginHostManager, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(NetscapePluginHostManager, pluginHostManager, ());
     
     return pluginHostManager;
 }
@@ -68,7 +68,7 @@ NetscapePluginHostManager::~NetscapePluginHostManager()
 
 NetscapePluginHostProxy* NetscapePluginHostManager::hostForPlugin(const WTF::String& pluginPath, cpu_type_t pluginArchitecture, const String& bundleIdentifier)
 {
-    PluginHostMap::AddResult result = m_pluginHosts.add(pluginPath, 0);
+    PluginHostMap::AddResult result = m_pluginHosts.add(pluginPath, nullptr);
     
     // The package was already in the map, just return it.
     if (!result.isNewEntry)
@@ -110,7 +110,7 @@ bool NetscapePluginHostManager::spawnPluginHost(const String& pluginPath, cpu_ty
     if (renderServerPort == MACH_PORT_NULL)
         return false;
 
-    NSString *pluginHostAppPath = [[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] pathForAuxiliaryExecutable:pluginHostAppName];
+    NSString *pluginHostAppPath = [[NSBundle bundleForClass:[WebNetscapePluginPackage class]] pathForAuxiliaryExecutable:pluginHostAppName];
     NSString *pluginHostAppExecutablePath = [[NSBundle bundleWithPath:pluginHostAppPath] executablePath];
 
     RetainPtr<CFStringRef> localization = adoptCF(WKCopyCFLocalizationPreferredName(NULL));
@@ -118,10 +118,10 @@ bool NetscapePluginHostManager::spawnPluginHost(const String& pluginPath, cpu_ty
     NSDictionary *launchProperties = [[NSDictionary alloc] initWithObjectsAndKeys:
                                       pluginHostAppExecutablePath, @"pluginHostPath",
                                       [NSNumber numberWithInt:pluginArchitecture], @"cpuType",
-                                      localization.get(), @"localization",
+                                      (NSString *)localization.get(), @"localization",
                                       nil];
 
-    NSData *data = [NSPropertyListSerialization dataFromPropertyList:launchProperties format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:launchProperties format:NSPropertyListBinaryFormat_v1_0 options:0 error:nullptr];
     ASSERT(data);
 
     [launchProperties release];
@@ -154,21 +154,17 @@ bool NetscapePluginHostManager::spawnPluginHost(const String& pluginPath, cpu_ty
                                     (NSString *)pluginPath, @"bundlePath",
                                     nil];
     
-    data = [NSPropertyListSerialization dataFromPropertyList:hostProperties format:NSPropertyListBinaryFormat_v1_0 errorDescription:nil];
+    data = [NSPropertyListSerialization dataWithPropertyList:hostProperties format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL];
     ASSERT(data);
 
     [hostProperties release];
 
     ProcessSerialNumber psn;
 
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
     GetCurrentProcess(&psn);
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 
     kr = _WKPHCheckInWithPluginHost(pluginHostPort, (uint8_t*)[data bytes], [data length], clientPort, psn.highLongOfPSN, psn.lowLongOfPSN, renderServerPort,
                                     &pluginHostPSN.highLongOfPSN, &pluginHostPSN.lowLongOfPSN);
@@ -246,7 +242,7 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
     [properties.get() setObject:[NSNumber numberWithBool:isAcceleratedCompositingEnabled] forKey:@"acceleratedCompositingEnabled"];
     [properties.get() setObject:[NSNumber numberWithBool:hostLayersInWindowServer] forKey:@"hostLayersInWindowServer"];
 
-    NSData *data = [NSPropertyListSerialization dataFromPropertyList:properties.get() format:NSPropertyListBinaryFormat_v1_0 errorDescription:nil];
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:properties.get() format:NSPropertyListBinaryFormat_v1_0 options:0 error:nullptr];
     ASSERT(data);
     
     RefPtr<NetscapePluginInstanceProxy> instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
@@ -265,13 +261,13 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
         // Create a new instance.
         instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
         requestID = instance->nextRequestID();
-        kr = _WKPHInstantiatePlugin(hostProxy->port(), requestID, (uint8_t*)[data bytes], [data length], instance->pluginID());
+        _WKPHInstantiatePlugin(hostProxy->port(), requestID, (uint8_t*)[data bytes], [data length], instance->pluginID());
     }
 
-    std::auto_ptr<NetscapePluginInstanceProxy::InstantiatePluginReply> reply = instance->waitForReply<NetscapePluginInstanceProxy::InstantiatePluginReply>(requestID);
-    if (!reply.get() || reply->m_resultCode != KERN_SUCCESS) {
+    auto reply = instance->waitForReply<NetscapePluginInstanceProxy::InstantiatePluginReply>(requestID);
+    if (!reply || reply->m_resultCode != KERN_SUCCESS) {
         instance->cleanup();
-        return 0;
+        return nullptr;
     }
     
     instance->setRenderContextID(reply->m_renderContextID);
@@ -299,15 +295,11 @@ void NetscapePluginHostManager::didCreateWindow()
         if (!hostProxy->isMenuBarVisible()) {
             // Make ourselves the front process.
             ProcessSerialNumber psn;
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
             GetCurrentProcess(&psn);
             SetFrontProcess(&psn);
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
             return;
         }
     }

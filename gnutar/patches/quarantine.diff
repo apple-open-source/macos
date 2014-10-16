@@ -59,14 +59,18 @@
  }
  
  /* Called to initialize the global volume number.  */
---- src/common.h.orig	2004-12-21 06:31:58.000000000 -0800
-+++ src/common.h	2008-03-03 18:42:03.000000000 -0800
-@@ -20,6 +20,13 @@
+--- src/common.h.orig	2007-06-08 01:14:42.000000000 -0700
++++ src/common.h	2014-02-04 16:28:35.000000000 -0800
+@@ -20,6 +20,17 @@
  /* Declare the GNU tar archive format.  */
  #include "tar.h"
  
 +#include <TargetConditionals.h>
-+#define HAVE_QUARANTINE (!TARGET_OS_EMBEDDED)
++#if defined(__has_include) && __has_include(<quarantine.h>)
++#define HAVE_QUARANTINE 1
++#else
++#define HAVE_QUARANTINE 0
++#endif
 +
 +#if HAVE_QUARANTINE
 +#include <quarantine.h>
@@ -75,7 +79,7 @@
  /* The checksum field is filled with this while the checksum is computed.  */
  #define CHKBLANKS	"        "	/* 8 blanks, no null */
  
-@@ -302,6 +309,9 @@
+@@ -302,6 +313,9 @@
  
  /* File descriptor for archive file.  */
  GLOBAL int archive;

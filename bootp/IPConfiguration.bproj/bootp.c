@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,6 @@
 #include "util.h"
 #include "host_identifier.h"
 #include "dhcplib.h"
-#include "dprintf.h"
 #include "ipconfigd_threads.h"
 
 typedef struct {
@@ -302,7 +301,6 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
 			   reply->bp_yiaddr);
 	  return;
-	  break;
       }
       case IFEventID_arp_e: {
 	  arp_result_t *	result = (arp_result_t *)event_data;
@@ -409,7 +407,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = bootp->wait_secs;
-	  tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	  my_log(LOG_DEBUG, "BOOTP %s: waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 timer_current_secs() - bootp->start_secs,
@@ -418,7 +416,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 			     (timer_func_t *)bootp_request,
 			     service_p, (void *)IFEventID_timeout_e, NULL);
 	  /* next time wait twice as long */
-	  bootp->wait_secs = tv.tv_sec * 2;
+	  bootp->wait_secs = (int)tv.tv_sec * 2;
 	  if (bootp->wait_secs > G_max_wait_secs)
 	      bootp->wait_secs = G_max_wait_secs;
 	  break;
@@ -585,6 +583,12 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      || bootp->enable_arp_collision_detection == FALSE) {
 	      break;
 	  }
+
+	  /* defend our address, don't just give it up */
+	  if (ServiceDefendIPv4Address(service_p, arpc)) {
+	      break;
+	  }
+
 	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 	  reply = (struct bootp *)(void *)bootp->saved.pkt;
 	  snprintf(msg, sizeof(msg),
@@ -603,6 +607,7 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		       msg);
 	  break;
       }
+      case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
 	  link_status_t	link_status;
 	  void *	network_changed = event_data;

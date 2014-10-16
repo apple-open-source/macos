@@ -1,4 +1,5 @@
-for mech in anonymous crammd5 digestmd5 gssapiv2 kerberos4 login ntlm otp passdss plain srp; do
+# mechanism plugins
+for mech in anonymous crammd5 digestmd5 scram gssapiv2 kerberos4 login ntlm otp passdss plain srp gs2; do
 
 echo "
 #include <config.h>
@@ -45,7 +46,8 @@ SASL_SERVER_PLUG_INIT( $mech )
 " > ${mech}_init.c
 done
 
-for mech in sasldb sql ldapdb; do
+# auxprop plugins
+for auxprop in sasldb sql ldapdb; do
 
 echo "
 #include <config.h>
@@ -83,7 +85,9 @@ BOOL APIENTRY DllMain( HANDLE hModule,
 }
 #endif
 
-SASL_AUXPROP_PLUG_INIT( $mech )
-" > ${mech}_init.c
+SASL_AUXPROP_PLUG_INIT( $auxprop )
+" > ${auxprop}_init.c
 done
 
+# ldapdb is also a canon_user plugin
+echo "SASL_CANONUSER_PLUG_INIT( ldapdb )" >> ldapdb_init.c

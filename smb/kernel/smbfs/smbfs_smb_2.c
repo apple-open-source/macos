@@ -46,9 +46,9 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
                         struct smbnode *tdnp, const char *tnamep, size_t tname_len,
                         vfs_context_t context);
 static int
-smb2fs_smb_delete(struct smb_share *share, struct smbnode *np, 
-                  const char *namep, size_t name_len, int xattr, 
-                  vfs_context_t context);
+smb2fs_smb_delete(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                  const char *namep, size_t name_len,
+                  int xattr, vfs_context_t context);
 
 static uint32_t
 smb2fs_smb_fillchunk_arr(struct smb2_copychunk_chunk *chunk_arr,
@@ -56,6 +56,11 @@ smb2fs_smb_fillchunk_arr(struct smb2_copychunk_chunk *chunk_arr,
                          uint64_t total_len, uint32_t max_chunk_len,
                          uint64_t src_offset, uint64_t trg_offset,
                          uint32_t *chunk_count_out, uint64_t *total_len_out);
+
+static uint32_t
+smb2fs_smb_get_create_options(struct smb_share *share, struct smbnode *np,
+                              const char *namep, const char *strm_namep,
+                              enum vtype vnode_type, uint32_t check_reparse);
 
 static int
 smb2fs_smb_listxattrs(struct smb_share *share, struct smbnode *np, char **xattrlist,
@@ -66,7 +71,7 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
                      const char *strm_namep, size_t in_strm_nmlen,
                      uint32_t desired_access, enum vtype vnode_type,
                      uint32_t share_access, uint32_t disposition,
-                     uint64_t create_flags,
+                     uint64_t create_flags, uint32_t create_options,
                      SMBFID *fidp, struct smbfattr *fap,
                      struct smb_rq **compound_rqp, struct smb2_create_rq **in_createp,
                      void *create_contextp, vfs_context_t context);
@@ -76,7 +81,7 @@ smb2fs_smb_parse_ntcreatex(struct smb_share *share, struct smbnode *np,
                            SMBFID *fidp, struct smbfattr *fap,
                            vfs_context_t context);
 static int
-smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
+smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                        const char *namep, size_t name_len,
                        const char *stream_namep,
                        uio_t uio, size_t *sizep,
@@ -91,17 +96,18 @@ static int
 smb2fs_smb_set_eof(struct smb_share *share, SMBFID fid, uint64_t newsize,
                    vfs_context_t context);
 
+
 /*
  * Note:  The _smbfs_smb_ in the function name indicates that these functions 
  * are called from the smbfs kext and set up the structs necessary to call the
  * _smb_ functions.  Then copy the results back out to smbfs.
  *
  *
- * SMB1 implementation remains in original files
+ * SMB 1 implementation remains in original files
  *
  * Implementations listed in alphabetical order
- * 1) SMB2 implementation listed first,
- * 2) SMB1/SMB2 generic implementation next
+ * 1) SMB 2/3 implementation listed first,
+ * 2) SMB 1, SMB 2/3 generic implementation next
  *
  */
 
@@ -117,6 +123,302 @@ smb2fs_smb_set_eof(struct smb_share *share, SMBFID fid, uint64_t newsize,
  * 4) If the first response got an error, only print that error message and
  * skip printing any more errors for the rest of the responses in the chain.
  */
+
+int
+smb2fs_smb_cmpd_check_copyfile(struct smb_share *share,
+                               struct smbnode *create_np,
+                               vfs_context_t context)
+{
+	int error, tmp_error;
+    SMBFID fid = 0;
+    struct smb2_create_rq *createp = NULL;
+    struct smb2_ioctl_rq *ioctlp = NULL;
+    struct smb2_close_rq *closep = NULL;
+	struct smb_rq *create_rqp = NULL;
+	struct smb_rq *ioctl_rqp = NULL;
+	struct smb_rq *close_rqp = NULL;
+	struct mdchain *mdp;
+    size_t next_cmd_offset = 0;
+    uint32_t need_delete_fid = 0;
+    uint32_t create_desired_access = SMB2_FILE_READ_DATA |
+                                     SMB2_FILE_READ_ATTRIBUTES |
+                                     SMB2_FILE_READ_EA;
+    enum vtype vnode_type = VREG;
+    uint32_t share_access = NTCREATEX_SHARE_ACCESS_READ;
+    uint64_t create_flags = 0;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+    
+    /*
+     * For this function, vnode_type is the item's type. The item will be
+     * Opened and the Ioctl done on the item.
+     */
+
+    SMB_MALLOC(ioctlp,
+               struct smb2_ioctl_rq *,
+               sizeof(struct smb2_ioctl_rq),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (ioctlp == NULL) {
+		SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto bad;
+    }
+    
+    if (create_np) {
+        vnode_type = vnode_isdir(create_np->n_vnode) ? VDIR : VREG;
+    }
+
+resend:
+    /*
+     * Build the Create call
+     */
+    create_options = smb2fs_smb_get_create_options(share, create_np,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
+    error = smb2fs_smb_ntcreatex(share, create_np,
+                                 NULL, 0,
+                                 NULL, 0,
+                                 create_desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
+                                 &fid, NULL,
+                                 &create_rqp, &createp,
+                                 NULL, context);
+    
+    if (error) {
+        SMBDEBUG("smb2fs_smb_ntcreatex failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Update Create hdr */
+    error = smb2_rq_update_cmpd_hdr(create_rqp, SMB2_CMPD_FIRST);
+    if (error) {
+        SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+        goto bad;
+    }
+    
+    /*
+     * Build the IOCTL request
+     */
+    ioctlp->share = share;
+    ioctlp->ctl_code = FSCTL_SRV_REQUEST_RESUME_KEY;
+    fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
+    ioctlp->fid = fid;
+    
+	ioctlp->snd_input_len = 0;
+	ioctlp->snd_output_len = 0;
+	ioctlp->rcv_input_len = 0;
+	ioctlp->rcv_output_len = 0x20;
+    
+    error = smb2_smb_ioctl(share, ioctlp, &ioctl_rqp, context);
+    if (error) {
+        SMBERROR("smb2_smb_ioctl failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Update IOCTL hdr */
+    error = smb2_rq_update_cmpd_hdr(ioctl_rqp, SMB2_CMPD_MIDDLE);
+    if (error) {
+        SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Chain IOCTL to the Create */
+    create_rqp->sr_next_rqp = ioctl_rqp;
+
+    /*
+     * Build the Close request
+     */
+    error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+    if (error) {
+        SMBERROR("smb2_smb_close_fid failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Update Close hdr */
+    error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
+    if (error) {
+        SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Chain Close to the IOCTL */
+    ioctl_rqp->sr_next_rqp = close_rqp;
+    
+    /*
+     * Send the compound request of Create/IOCTL/Close
+     */
+    error = smb_rq_simple(create_rqp);
+    
+    if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        /* Rebuild and try sending again */
+        smb_rq_done(create_rqp);
+        create_rqp = NULL;
+        
+        smb_rq_done(ioctl_rqp);
+        ioctl_rqp = NULL;
+        
+        smb_rq_done(close_rqp);
+        close_rqp = NULL;
+        
+        SMB_FREE(createp, M_SMBTEMP);
+        createp = NULL;
+        
+        SMB_FREE(closep, M_SMBTEMP);
+        closep = NULL;
+        
+        goto resend;
+    }
+    
+    createp->ret_ntstatus = create_rqp->sr_ntstatus;
+    
+    /* Get pointer to response data */
+    smb_rq_getreply(create_rqp, &mdp);
+    
+    if (error) {
+        /* Create failed, try parsing the IOCTL */
+        SMBDEBUG("smb_rq_simple failed %d id %lld\n",
+                 error, create_rqp->sr_messageid);
+        goto parse_ioctl;
+    }
+    
+    /*
+     * Parse the Create response.
+     */
+    error = smb2_smb_parse_create(share, mdp, createp);
+    if (error) {
+        /* Create parsing failed, try parsing the IOCTL */
+        SMBERROR("smb2_smb_parse_create failed %d id %lld\n",
+                 error, create_rqp->sr_messageid);
+        goto parse_ioctl;
+    }
+    
+    /* At this point, fid has been entered into fid table */
+    need_delete_fid = 1;
+    
+    /*
+     * No need to call smb2fs_smb_parse_ntcreatex since just need a FID.
+     */
+
+parse_ioctl:
+    /* Consume any pad bytes */
+    tmp_error = smb2_rq_next_command(create_rqp, &next_cmd_offset, mdp);
+    if (tmp_error) {
+        /* Failed to find next command, so can't parse rest of the responses */
+        SMBERROR("create smb2_rq_next_command failed %d id %lld\n",
+                 tmp_error, create_rqp->sr_messageid);
+        goto bad;
+    }
+    
+    /*
+     * Parse IOCTL SMB 2/3 header
+     */
+    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
+    ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
+    if (tmp_error) {
+        /* IOCTL got an error, try parsing the Close */
+        if (!error) {
+            SMBDEBUG("ioctl smb2_rq_parse_header failed %d, id %lld\n",
+                     tmp_error, ioctl_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto parse_close;
+    }
+    
+    /* Parse the IOCTL response */
+    tmp_error = smb2_smb_parse_ioctl(mdp, ioctlp);
+    if (tmp_error) {
+        /* IOCTL parsing got an error, try parsing the Close */
+        if (!error) {
+            SMBERROR("smb2_smb_parse_ioctl failed %d id %lld\n",
+                     tmp_error, ioctl_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto parse_close;
+    }
+    
+    /*
+     * At this point, we know the IOCTL worked. Thats all we need to 
+     * know is whether this compound request worked or not.
+     */
+    
+parse_close:
+    /* Update closep fid so it gets freed from FID table */
+    closep->fid = createp->ret_fid;
+    
+    /* Consume any pad bytes */
+    tmp_error = smb2_rq_next_command(ioctl_rqp, &next_cmd_offset, mdp);
+    if (tmp_error) {
+        /* Failed to find next command, so can't parse rest of the responses */
+        SMBERROR("ioctl smb2_rq_next_command failed %d\n", tmp_error);
+        error = error ? error : tmp_error;
+        goto bad;
+    }
+    
+    /*
+     * Parse Close SMB 2/3 header
+     */
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    closep->ret_ntstatus = close_rqp->sr_ntstatus;
+    if (tmp_error) {
+        if (!error) {
+            SMBDEBUG("close smb2_rq_parse_header failed %d id %lld\n",
+                     tmp_error, close_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto bad;
+    }
+    
+    /* Parse the Close response */
+    tmp_error = smb2_smb_parse_close(mdp, closep);
+    if (tmp_error) {
+        if (!error) {
+            SMBERROR("smb2_smb_parse_close failed %d id %lld\n",
+                     tmp_error, close_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto bad;
+    }
+    
+    /* At this point, fid has been removed from fid table */
+    need_delete_fid = 0;
+    
+bad:
+    if (need_delete_fid == 1) {
+        /*
+         * Close failed but the Create worked and was successfully parsed.
+         * Try issuing the Close request again.
+         */
+        tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
+                                       NULL, NULL, context);
+        if (tmp_error) {
+            SMBERROR("Second close failed %d\n", tmp_error);
+        }
+    }
+
+    if (create_rqp != NULL) {
+        smb_rq_done(create_rqp);
+    }
+    if (ioctl_rqp != NULL) {
+        smb_rq_done(ioctl_rqp);
+    }
+    if (close_rqp != NULL) {
+        smb_rq_done(close_rqp);
+    }
+    
+    if (createp != NULL) {
+        SMB_FREE(createp, M_SMBTEMP);
+    }
+    if (ioctlp != NULL) {
+        SMB_FREE(ioctlp, M_SMBTEMP);
+    }
+    if (closep != NULL) {
+        SMB_FREE(closep, M_SMBTEMP);
+    }
+
+    return (error);
+}
 
 int
 smb2fs_smb_cmpd_create(struct smb_share *share, struct smbnode *np,
@@ -143,8 +445,14 @@ smb2fs_smb_cmpd_create(struct smb_share *share, struct smbnode *np,
     int add_close = 0;
     uint64_t inode_number = 0;
     uint32_t inode_number_len;
+    uint32_t create_options = 0;
     
-    /* 
+    /*
+     * For this function, vnode_type is the item's type. The item will be
+     * Opened and the Query Info will be done on the item.
+     */
+
+    /*
      * This function can do Create/Close, Create/Query, or Create/Query/Close
      * If SMB2_CREATE_DO_CREATE is set in create_flags, then the Query is
      * added to get the file ID. If fidp is NULL, then the Close is added.
@@ -166,12 +474,15 @@ smb2fs_smb_cmpd_create(struct smb_share *share, struct smbnode *np,
 
     if ((add_query == 0) && (add_close == 0)) {
         /* Just doing a simple create */
+        create_options = smb2fs_smb_get_create_options(share, np,
+                                                       namep, strm_namep,
+                                                       vnode_type, 1);
         error = smb2fs_smb_ntcreatex(share, np,
                                      namep, name_len,
                                      strm_namep, strm_name_len,
                                      desired_access, vnode_type,
                                      share_access, disposition,
-                                     create_flags,
+                                     create_flags, create_options,
                                      fidp, fap,
                                      NULL, NULL,
                                      create_contextp, context);
@@ -195,12 +506,15 @@ resend:
     /*
      * Build the Create call 
      */
+    create_options = smb2fs_smb_get_create_options(share, np,
+                                                   namep, strm_namep,
+                                                   vnode_type, 1);
     error = smb2fs_smb_ntcreatex(share, np,
                                  namep, name_len,
                                  strm_namep, strm_name_len,
                                  desired_access, vnode_type,
                                  share_access, disposition,
-                                 create_flags,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp, 
                                  create_contextp, context);
@@ -371,7 +685,7 @@ parse_query:
         }
         
         /*
-         * Parse Query Info SMB2 header
+         * Parse Query Info SMB 2/3 header
          */
         tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
         queryp->ret_ntstatus = query_rqp->sr_ntstatus;
@@ -424,7 +738,7 @@ parse_close:
         }
         
         /*
-         * Parse Close SMB2 header
+         * Parse Close SMB 2/3 header
          */
         tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -524,6 +838,13 @@ smb2fs_smb_cmpd_create_read(struct smb_share *share, struct smbnode *dnp,
     uint64_t create_flags = SMB2_CREATE_GET_MAX_ACCESS;
     uint32_t need_delete_fid = 0;
     int add_close = 0;
+    uint32_t create_options = 0;
+    enum vtype vnode_type = VREG;
+
+    /*
+     * We can only read files, so vnode_type is always VREG
+     * Named streams are always files.
+     */
     
     /*
      * This function can do Create/Read or Create/Read/Close
@@ -568,10 +889,19 @@ smb2fs_smb_cmpd_create_read(struct smb_share *share, struct smbnode *dnp,
     }
     
     /*
+     * Be careful here. The vnode_type is for the actual item that the
+     * Read is being done on. The path to the item is built from
+     * create_np and namep, but only the calling function knows what the
+     * item type is.
+     */
+
+    /*
      * Set up for the Create call
      */
     if (snamep) {
         create_flags |= SMB2_CREATE_IS_NAMED_STREAM;
+        /* Named streams are always files */
+        vnode_type = VREG;
     }
     
     if (desired_access & SMB2_FILE_WRITE_DATA) {
@@ -587,12 +917,15 @@ resend:
     /*
      * Build the Create call
      */
+    create_options = smb2fs_smb_get_create_options(share, dnp,
+                                                   namep, snamep,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(share, dnp,
                                  namep, name_len,
                                  snamep, sname_len,
-                                 desired_access, VREG,
+                                 desired_access, vnode_type,
                                  share_access, disposition,
-                                 create_flags,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp, 
                                  NULL, context);
@@ -761,7 +1094,7 @@ parse_read:
     }
     
     /* 
-     * Parse Read SMB2 header 
+     * Parse Read SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(read_rqp, &mdp);
     readp->ret_ntstatus = read_rqp->sr_ntstatus;
@@ -820,7 +1153,7 @@ parse_close:
         }
         
         /* 
-         * Parse Close SMB2 header
+         * Parse Close SMB 2/3 header
          */
         tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -931,8 +1264,494 @@ int smbfs_smb_cmpd_create_read_close(struct smb_share *share, struct smbnode *dn
     return error;
 }
 
+int
+smb2fs_smb_cmpd_create_write(struct smb_share *share, struct smbnode *dnp,
+                             const char *namep, size_t name_len,
+                             const char *snamep, size_t sname_len,
+                             uint32_t desired_access, struct smbfattr *fap,
+                             uint64_t create_flags, uio_t uio,
+                             SMBFID *fidp, int ioflag,
+                             vfs_context_t context)
+{
+#pragma unused(ioflag)
+    int error, tmp_error;
+    uint32_t disposition;
+    uint32_t share_access;
+    SMBFID fid = 0;
+    struct smb2_create_rq *createp = NULL;
+    struct smb2_query_info_rq *queryp = NULL;
+    struct smb2_rw_rq *writep = NULL;
+    struct smb2_close_rq *closep = NULL;
+    struct smb_rq *create_rqp = NULL;
+    struct smb_rq *query_rqp = NULL;
+    struct smb_rq *write_rqp = NULL;
+    struct smb_rq *close_rqp = NULL;
+    struct mdchain *mdp;
+    size_t next_cmd_offset = 0;
+    user_ssize_t len, resid = 0;
+    user_ssize_t rresid = 0;
+    uint32_t need_delete_fid = 0;
+    int add_query = 0;
+    int add_close = 0;
+    uint32_t create_options = 0;
+    uint32_t write_mode = 0;    /* Never supports write through */
+    uint64_t inode_number = 0;
+    uint32_t inode_number_len;
+    
+    /*
+     * This function can do Create/Write, Create/Query/Write, 
+     * Create/Write/Close or Create/Query/Write/Close.
+     *
+     * If SMB2_CREATE_DO_CREATE is set in create_flags, then the Query is
+     * added to get the file ID
+     *
+     * If fidp is NULL, then the Close is added.
+     */
+    
+    if ((create_flags & SMB2_CREATE_DO_CREATE) &&
+        (SSTOVC(share)->vc_misc_flags & SMBV_HAS_FILEIDS)) {
+        /* Need the file id, so add a query into the compound request */
+        add_query = 1;
+    }
+
+    if (fidp == NULL) {
+        /* If fidp is null, add the close into the compound request */
+        add_close = 1;
+    }
+    else {
+        *fidp = 0;  /* indicates create failed */
+    }
+    
+    if (add_query) {
+        SMB_MALLOC(queryp,
+                   struct smb2_query_info_rq *,
+                   sizeof(struct smb2_query_info_rq),
+                   M_SMBTEMP,
+                   M_WAITOK | M_ZERO);
+        if (queryp == NULL) {
+            SMBERROR("SMB_MALLOC failed\n");
+            error = ENOMEM;
+            goto bad;
+        }
+    }
+
+    SMB_MALLOC(writep,
+               struct smb2_rw_rq *,
+               sizeof(struct smb2_rw_rq),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (writep == NULL) {
+        SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto bad;
+    }
+    
+    /*
+     * Set up for the Create call
+     */
+    if (snamep) {
+        create_flags |= SMB2_CREATE_IS_NAMED_STREAM;
+    }
+    
+    if (desired_access & SMB2_FILE_WRITE_DATA) {
+        share_access = NTCREATEX_SHARE_ACCESS_READ | NTCREATEX_SHARE_ACCESS_DELETE;
+        disposition = FILE_OPEN_IF;
+    }
+    else {
+        share_access = NTCREATEX_SHARE_ACCESS_ALL;
+        disposition = FILE_OPEN;
+    }
+    
+resend:
+    /*
+     * Build the Create call
+     */
+    
+    create_options = smb2fs_smb_get_create_options(share, dnp,
+                                                   namep, snamep,
+                                                   VREG, 0);
+    error = smb2fs_smb_ntcreatex(share, dnp,
+                                 namep, name_len,
+                                 snamep, sname_len,
+                                 desired_access, VREG,
+                                 share_access, disposition,
+                                 create_flags, create_options,
+                                 &fid, fap,
+                                 &create_rqp, &createp,
+                                 NULL, context);
+    if (error) {
+        SMBERROR("smb2fs_smb_ntcreatex failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Update Create hdr */
+    error = smb2_rq_update_cmpd_hdr(create_rqp, SMB2_CMPD_FIRST);
+    if (error) {
+        SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+        goto bad;
+    }
+    
+    fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */
+
+    if (add_query) {
+        /*
+         * Build the Query Info request (to get File ID)
+         */
+        inode_number_len = (uint32_t) sizeof(inode_number);
+        
+        queryp->info_type = SMB2_0_INFO_FILE;
+        queryp->file_info_class = FileInternalInformation;
+        queryp->add_info = 0;
+        queryp->flags = 0;
+        queryp->output_buffer_len = inode_number_len;
+        queryp->output_buffer = (uint8_t *) &inode_number;
+        queryp->input_buffer_len = 0;
+        queryp->input_buffer = NULL;
+        queryp->ret_buffer_len = 0;
+        queryp->fid = fid;
+        
+        error = smb2_smb_query_info(share, queryp, &query_rqp, context);
+        if (error) {
+            SMBERROR("smb2_smb_query_info failed %d\n", error);
+            goto bad;
+        }
+        
+        /* Update Query hdr */
+        error = smb2_rq_update_cmpd_hdr(query_rqp, SMB2_CMPD_MIDDLE);
+        if (error) {
+            SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+            goto bad;
+        }
+        
+        /* Chain Query Info to the Create */
+        create_rqp->sr_next_rqp = query_rqp;
+    }
+
+    /*
+     * Build the Write request
+     */
+    writep->flags = 0;
+    writep->remaining = 0;
+    writep->write_flags = write_mode;
+    writep->fid = fid;
+    writep->auio = uio;
+    
+    /* assume we can write it all in one request */
+    len = uio_resid(writep->auio);
+    
+    error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp, context);
+    if (error) {
+        SMBERROR("smb2_smb_write_one failed %d\n", error);
+        goto bad;
+    }
+    
+    /* Manually compound align the write here */
+    smb2_rq_align8(write_rqp);
+    
+    /* Update Write hdr */
+    if (add_close) {
+        error = smb2_rq_update_cmpd_hdr(write_rqp, SMB2_CMPD_MIDDLE);
+    }
+    else {
+        error = smb2_rq_update_cmpd_hdr(write_rqp, SMB2_CMPD_LAST);
+    }
+    if (error) {
+        SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+        goto bad;
+    }
+    
+    if (add_query) {
+        /* Chain Write to the Query */
+        query_rqp->sr_next_rqp = write_rqp;
+    }
+    else {
+        /* Chain Write to the Create */
+        create_rqp->sr_next_rqp = write_rqp;
+    }
+    
+    if (add_close) {
+        /*
+         * Build the Close request
+         */
+        error = smb2_smb_close_fid(share, fid, &close_rqp, &closep, context);
+        if (error) {
+            SMBERROR("smb2_smb_close_fid failed %d\n", error);
+            goto bad;
+        }
+        
+        /* Update Close hdr */
+        error = smb2_rq_update_cmpd_hdr(close_rqp, SMB2_CMPD_LAST);
+        if (error) {
+            SMBERROR("smb2_rq_update_cmpd_hdr failed %d\n", error);
+            goto bad;
+        }
+        
+        /* Chain Close to the Write */
+        write_rqp->sr_next_rqp = close_rqp;
+    }
+    
+    /*
+     * Send the compound request of Create/Query/Write/Close
+     */
+    error = smb_rq_simple(create_rqp);
+    
+    if ((error) && (create_rqp->sr_flags & SMBR_RECONNECTED)) {
+        /* Rebuild and try sending again */
+        smb_rq_done(create_rqp);
+        create_rqp = NULL;
+        
+        if (query_rqp != NULL) {
+            smb_rq_done(query_rqp);
+            query_rqp = NULL;
+        }
+
+        smb_rq_done(write_rqp);
+        write_rqp = NULL;
+        
+        if (close_rqp != NULL) {
+            smb_rq_done(close_rqp);
+            close_rqp = NULL;
+        }
+        
+        SMB_FREE(createp, M_SMBTEMP);
+        createp = NULL;
+        
+        if (closep != NULL) {
+            SMB_FREE(closep, M_SMBTEMP);
+            closep = NULL;
+        }
+        
+        goto resend;
+    }
+    
+    createp->ret_ntstatus = create_rqp->sr_ntstatus;
+    
+    /* Get pointer to response data */
+    smb_rq_getreply(create_rqp, &mdp);
+    
+    if (error) {
+        /* Create failed, try parsing the Query */
+        if (error != ENOENT) {
+            SMBDEBUG("smb_rq_simple failed %d id %lld\n",
+                     error, create_rqp->sr_messageid);
+        }
+        
+        if (fidp) {
+            *fidp = 0;  /* indicate Create failed */
+        }
+        goto parse_query;
+    }
+    
+    /*
+     * Parse the Create response.
+     */
+    error = smb2_smb_parse_create(share, mdp, createp);
+    if (error) {
+        /* Create parsing failed, try parsing the Query */
+        SMBERROR("smb2_smb_parse_create failed %d id %lld\n",
+                 error, create_rqp->sr_messageid);
+        
+        if (fidp) {
+            *fidp = 0;  /* indicate Create failed */
+        }
+        goto parse_query;
+    }
+    
+    /* At this point, fid has been entered into fid table */
+    need_delete_fid = 1;
+    
+    /*
+     * Fill in fap and possibly update vnode's meta data caches
+     */
+    error = smb2fs_smb_parse_ntcreatex(share, dnp, createp,
+                                       fidp, fap, context);
+    if (error) {
+        /* Updating meta data cache failed, try parsing the Query */
+        SMBERROR("smb2fs_smb_parse_ntcreatex failed %d id %lld\n",
+                 error, create_rqp->sr_messageid);
+    }
+    
+parse_query:
+    if (query_rqp != NULL) {
+        /* Consume any pad bytes */
+        tmp_error = smb2_rq_next_command(create_rqp, &next_cmd_offset, mdp);
+        if (tmp_error) {
+            /* Failed to find next command, so can't parse rest of the responses */
+            SMBERROR("create smb2_rq_next_command failed %d id %lld\n",
+                     tmp_error, create_rqp->sr_messageid);
+            error = error ? error : tmp_error;
+            goto bad;
+        }
+        
+        /*
+         * Parse Query Info SMB 2/3 header
+         */
+        tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+        queryp->ret_ntstatus = query_rqp->sr_ntstatus;
+        if (tmp_error) {
+            /* Query Info got an error, try parsing the Close */
+            if (!error) {
+                SMBDEBUG("query smb2_rq_parse_header failed %d, id %lld\n",
+                         tmp_error, query_rqp->sr_messageid);
+                error = tmp_error;
+            }
+            goto parse_write;
+        }
+        
+        /* Parse the Query Info response */
+        tmp_error = smb2_smb_parse_query_info(mdp, queryp);
+        if (tmp_error) {
+            /* Query Info parsing got an error, try parsing the Close */
+            if (!error) {
+                if (tmp_error != ENOATTR) {
+                    SMBERROR("smb2_smb_parse_query_info failed %d id %lld\n",
+                             tmp_error, query_rqp->sr_messageid);
+                }
+                error = tmp_error;
+            }
+            goto parse_write;
+        }
+        else {
+            /* Query worked, so get the inode number */
+            if (fap) {
+                fap->fa_ino = inode_number;
+                smb2fs_smb_file_id_check(share, fap->fa_ino, NULL, 0);
+            }
+        }
+    }
+
+parse_write:
+    /* Consume any pad bytes */
+    tmp_error = smb2_rq_next_command(query_rqp != NULL ? query_rqp : create_rqp,
+                                     &next_cmd_offset, mdp);
+    if (tmp_error) {
+        /* Failed to find next command, so can't parse rest of the responses */
+        SMBERROR("create smb2_rq_next_command failed %d id %lld\n",
+                 tmp_error, create_rqp->sr_messageid);
+        error = error ? error : tmp_error;
+        goto bad;
+    }
+    
+    /*
+     * Parse Write SMB 2/3 header
+     */
+    tmp_error = smb2_rq_parse_header(write_rqp, &mdp);
+    writep->ret_ntstatus = write_rqp->sr_ntstatus;
+    
+    if (tmp_error) {
+        /* Write got an error, try parsing the Close */
+        if (!error) {
+            SMBDEBUG("write smb2_rq_parse_header failed %d, id %lld\n",
+                     tmp_error, write_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto parse_close;
+    }
+    
+    /* Parse the Write response */
+    tmp_error = smb2_smb_parse_write_one(mdp, &rresid, writep);
+    if (tmp_error) {
+        /* Write parsing got an error, try parsing the Close */
+        if (!error) {
+            SMBERROR("smb2_smb_parse_write_one failed %d id %lld\n",
+                     tmp_error, write_rqp->sr_messageid);
+            error = tmp_error;
+        }
+        goto parse_close;
+    }
+    
+parse_close:
+    if (close_rqp != NULL) {
+        /* Update closep fid so it gets freed from FID table */
+        closep->fid = createp->ret_fid;
+        
+        /* Consume any pad bytes */
+        tmp_error = smb2_rq_next_command(write_rqp, &next_cmd_offset, mdp);
+        if (tmp_error) {
+            /* Failed to find next command, so can't parse rest of the responses */
+            SMBERROR("write smb2_rq_next_command failed %d id %lld\n",
+                     tmp_error, write_rqp->sr_messageid);
+            error = error ? error : tmp_error;
+            goto bad;
+        }
+        
+        /*
+         * Parse Close SMB 2/3 header
+         */
+        tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+        closep->ret_ntstatus = close_rqp->sr_ntstatus;
+        if (tmp_error) {
+            if (!error) {
+                SMBDEBUG("close smb2_rq_parse_header failed %d id %lld\n",
+                         tmp_error, close_rqp->sr_messageid);
+                error = tmp_error;
+            }
+            goto bad;
+        }
+        
+        /* Parse the Close response */
+        tmp_error = smb2_smb_parse_close(mdp, closep);
+        if (tmp_error) {
+            if (!error) {
+                SMBERROR("smb2_smb_parse_close failed %d id %lld\n",
+                         tmp_error, close_rqp->sr_messageid);
+                error = tmp_error;
+            }
+            goto bad;
+        }
+        
+        /* At this point, fid has been removed from fid table */
+        need_delete_fid = 0;
+    }
+    else {
+        /* Not doing a close, so leave it open */
+        need_delete_fid = 0;
+    }
+    
+bad:
+    if (need_delete_fid == 1) {
+        /*
+         * Close failed but the Create worked and was successfully parsed.
+         * Try issuing the Close request again.
+         */
+        tmp_error = smb2_smb_close_fid(share, createp->ret_fid,
+                                       NULL, NULL, context);
+        if (tmp_error) {
+            SMBERROR("Second close failed %d\n", tmp_error);
+        }
+    }
+    
+    if (create_rqp != NULL) {
+        smb_rq_done(create_rqp);
+    }
+    if (query_rqp != NULL) {
+        smb_rq_done(query_rqp);
+    }
+    if (write_rqp != NULL) {
+        smb_rq_done(write_rqp);
+    }
+    if (close_rqp != NULL) {
+        smb_rq_done(close_rqp);
+    }
+    
+    if (createp != NULL) {
+        SMB_FREE(createp, M_SMBTEMP);
+    }
+    if (queryp != NULL) {
+        SMB_FREE(queryp, M_SMBTEMP);
+    }
+    if (writep != NULL) {
+        SMB_FREE(writep, M_SMBTEMP);
+    }
+    if (closep != NULL) {
+        SMB_FREE(closep, M_SMBTEMP);
+    }
+    
+    return error;
+}
+
 static int
-smb2fs_smb_cmpd_query(struct smb_share *share, struct smbnode *create_np,
+smb2fs_smb_cmpd_query(struct smb_share *share, struct smbnode *create_np, enum vtype vnode_type,
                       const char *create_namep, size_t create_name_len,
                       uint32_t create_xattr, uint32_t create_desired_access,
                       uint8_t query_info_type, uint8_t query_file_info_class,
@@ -957,6 +1776,13 @@ smb2fs_smb_cmpd_query(struct smb_share *share, struct smbnode *create_np,
     char *file_namep = NULL, *stream_namep = NULL;
     size_t file_name_len = 0, stream_name_len = 0;
     int add_submount_path = 0;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+
+    /*
+     * For this function, vnode_type is the item's type. The item will be
+     * Opened and the Query Info will be done on the item.
+     */
 
     /*
      * Note: Be careful as 
@@ -1028,12 +1854,21 @@ resend:
         stream_name_len = create_name_len;
     }
 
+    /*
+     * Be careful here. The vnode_type is for the actual item that the
+     * Query Info is being done on. The path to the item is built from
+     * create_np and file_namep, but only the calling function knows what the
+     * item type is.
+     */
+    create_options = smb2fs_smb_get_create_options(share, create_np,
+                                                   file_namep, stream_namep,
+                                                   vnode_type, 1);
     error = smb2fs_smb_ntcreatex(share, create_np,
                                  file_namep, file_name_len,
                                  stream_namep, stream_name_len,
-                                 create_desired_access, VREG,
-                                 share_access, FILE_OPEN,
-                                 create_flags,
+                                 create_desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp, 
                                  NULL, context);
@@ -1198,7 +2033,7 @@ parse_query:
     }
     
     /* 
-     * Parse Query Info SMB2 header 
+     * Parse Query Info SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
@@ -1243,7 +2078,7 @@ parse_close:
     }
     
     /* 
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -1327,10 +2162,18 @@ smb2fs_smb_cmpd_query_dir(struct smbfs_fctx *ctx,
     uint32_t desired_access = SMB2_FILE_READ_ATTRIBUTES | SMB2_FILE_LIST_DIRECTORY | SMB2_SYNCHRONIZE;
     uint32_t share_access = NTCREATEX_SHARE_ACCESS_ALL;
     uint64_t create_flags = 0;
-    uint32_t n_name_locked = 0;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+    enum vtype vnode_type = VDIR;
+    int n_parent_locked = 0;
     
     /*
-     * SMB2 searches do not want any paths (ie no '\') in the search
+     * For this function, vnode_type is VDIR as the Open will be done on the
+     * parent dir and then the Query Dir will be done on that directory.
+     */
+
+    /*
+     * SMB 2/3 searches do not want any paths (ie no '\') in the search
      * pattern so we have to open the actual dir that we are going to
      * search.
      *
@@ -1341,14 +2184,9 @@ smb2fs_smb_cmpd_query_dir(struct smbfs_fctx *ctx,
          * No name, open the parent of dnp, search pattern will
          * be dnp->n_name
          */
+        lck_rw_lock_shared(&ctx->f_dnp->n_parent_rwlock);
+        n_parent_locked = 1;
         
-        /*
-         * We hold f_dnp->n_name_rwlock while we are referencing the parent
-         * to prevent a race with smbfs_ClearChildren(), which could happen in
-         * a forced unmount scenario. See <rdar://problem/11824956>.
-         */
-        lck_rw_lock_shared(&ctx->f_dnp->n_name_rwlock);
-        n_name_locked = 1;
         if (ctx->f_dnp->n_parent == NULL) {
             SMBERROR("Looking for dnp->n_name, but f_dnp->n_parent is NULL\n");
             error = ENOENT;
@@ -1372,12 +2210,15 @@ resend:
     /* fid is -1 for compound requests */
     ctx->f_create_fid = 0xffffffffffffffff;
     
+    create_options = smb2fs_smb_get_create_options(ctx->f_share, create_np,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(ctx->f_share, create_np,
                                  NULL, 0,
                                  NULL, 0,
-                                 desired_access, VDIR,
-                                 share_access, FILE_OPEN,
-                                 create_flags,
+                                 desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &ctx->f_create_fid, NULL,
                                  &create_rqp, &createp,
                                  NULL, context);
@@ -1475,7 +2316,7 @@ parse_query:
     }
     
     /* 
-     * Parse Query Dir SMB2 header 
+     * Parse Query Dir SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
@@ -1507,12 +2348,12 @@ bad:
     ctx->f_create_rqp = create_rqp;   /* save rqp so it can be freed later */
     ctx->f_query_rqp = query_rqp;     /* save rqp so it can be freed later */
     
-    if (createp != NULL) {
-        SMB_FREE(createp, M_SMBTEMP);
+    if (n_parent_locked) {
+        lck_rw_unlock_shared(&ctx->f_dnp->n_parent_rwlock);
     }
     
-    if (n_name_locked) {
-        lck_rw_unlock_shared(&ctx->f_dnp->n_name_rwlock);
+    if (createp != NULL) {
+        SMB_FREE(createp, M_SMBTEMP);
     }
     
     return error;
@@ -1545,9 +2386,18 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
     char *local_name = NULL;
     size_t local_name_len = 0;
     size_t max_network_name_buffer_size = 0;
-	struct smbmount *smp;
-    uint32_t n_name_locked = 0;
+    struct smbmount *smp;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+    enum vtype vnode_type = VDIR;
+    char *tmp_namep = NULL;
+    int n_parent_locked = 0;
     
+    /*
+     * For this function, vnode_type is VDIR as the Open will be done on the
+     * parent dir and then the Query Dir will be done on that directory.
+     */
+
     smp = np->n_mount;
 	if ((np->n_ino == smp->sm_root_ino) && (query_namep == NULL)) {
         /* 
@@ -1571,6 +2421,7 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
         if (!error) {
             fap->fa_attr = SMB_EFA_DIRECTORY;
             fap->fa_vtype = VDIR;
+            fap->fa_valid_mask |= FA_VTYPE_VALID;
         }
         
         return (error);
@@ -1612,12 +2463,12 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
     
     switch (info_level) {
         case SMB_FIND_FULL_DIRECTORY_INFO:
-            /* For SMB2.x, get the file/dir IDs too but no short names */
+            /* For SMB 2/3, get the file/dir IDs too but no short names */
             info_class = FileIdFullDirectoryInformation;
             break;
             
         case SMB_FIND_BOTH_DIRECTORY_INFO:
-            /* For SMB2.x, get the file/dir IDs too */
+            /* For SMB 2/3, get the file/dir IDs too */
             info_class = FileIdBothDirectoryInformation;
             break;
             
@@ -1645,16 +2496,13 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
         queryp->name_len = (uint32_t) query_name_len;
     }
     else {
-        /* We are looking for np, so use np->n_parent and np->n_name */
-        
-        /*
-         * We hold np->n_name_rwlock while we are referencing the parent
-         * to prevent a race with smbfs_ClearChildren(), which could happen in
-         * a forced unmount scenario. See <rdar://problem/11824956>.
+        /* 
+         * We are looking for np, so use np->n_parent and np->n_name
          */
-        lck_rw_lock_shared(&np->n_name_rwlock);
+        lck_rw_lock_shared(&np->n_parent_rwlock);
+        n_parent_locked = 1;
+        
         queryp->dnp = np->n_parent;
-        n_name_locked = 1;
         
         if (queryp->dnp == NULL) {
             /* This could happen during a forced unmount */
@@ -1664,7 +2512,11 @@ smb2fs_smb_cmpd_query_dir_one(struct smb_share *share, struct smbnode *np,
             
         }
         
-        queryp->namep = (char*) np->n_name;
+        lck_rw_lock_shared(&np->n_name_rwlock);
+        tmp_namep = smb_strndup(np->n_name, np->n_nmlen);
+        queryp->namep = tmp_namep;
+        lck_rw_unlock_shared(&np->n_name_rwlock);
+
         queryp->name_len = (uint32_t) np->n_nmlen;
     }
 
@@ -1673,12 +2525,16 @@ resend:
      * Build the Create call
      */
     DBG_ASSERT (vnode_vtype(queryp->dnp->n_vnode) == VDIR);
+
+    create_options = smb2fs_smb_get_create_options(share, queryp->dnp,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(share, queryp->dnp,
                                  NULL, 0,
                                  NULL, 0,
-                                 desired_access, VDIR,
-                                 share_access, FILE_OPEN,
-                                 create_flags,
+                                 desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &fid, NULL,
                                  &create_rqp, &createp,
                                  NULL, context);
@@ -1802,7 +2658,7 @@ parse_query:
     }
     
     /*
-     * Parse Query Dir SMB2 header
+     * Parse Query Dir SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
@@ -1899,7 +2755,7 @@ parse_close:
     }
     
     /*
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -1941,8 +2797,12 @@ bad:
         }
     }
     
-    if (n_name_locked) {
-        lck_rw_unlock_shared(&np->n_name_rwlock);
+    if (tmp_namep) {
+        SMB_FREE(tmp_namep, M_SMBSTR);
+    }
+    
+    if (n_parent_locked) {
+        lck_rw_unlock_shared(&np->n_parent_rwlock);
     }
     
     if (create_rqp != NULL) {
@@ -1997,8 +2857,16 @@ smb2fs_smb_cmpd_reparse_point_get(struct smb_share *share,
                                      SMB2_FILE_READ_ATTRIBUTES;
     uint32_t share_access = NTCREATEX_SHARE_ACCESS_ALL;
     uint64_t create_flags = SMB2_CREATE_GET_MAX_ACCESS;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+    enum vtype vnode_type = VREG;
     
-    SMB_MALLOC(fap, 
+    /*
+     * For this function, vnode_type is VREG as the Open will be done on the
+     * reparse point and then the Ioctl will be done on the reparse point.
+     */
+
+    SMB_MALLOC(fap,
                struct smbfattr *, 
                sizeof(struct smbfattr), 
                M_SMBTEMP, 
@@ -2024,12 +2892,15 @@ resend:
     /*
      * Build the Create call 
      */
-    error = smb2fs_smb_ntcreatex(share, create_np, 
+    create_options = smb2fs_smb_get_create_options(share, create_np,
+                                                   NULL, NULL,
+                                                   vnode_type, 1);
+    error = smb2fs_smb_ntcreatex(share, create_np,
                                  NULL, 0,
                                  NULL, 0,
-                                 create_desired_access, VREG,
-                                 share_access, FILE_OPEN,
-                                 create_flags,
+                                 create_desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &fid, NULL,
                                  &create_rqp, &createp, 
                                  NULL, context);
@@ -2167,7 +3038,7 @@ parse_ioctl:
     }
     
     /* 
-     * Parse IOCTL SMB2 header 
+     * Parse IOCTL SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
     ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
@@ -2228,7 +3099,7 @@ parse_close:
     }
     
     /* 
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -2326,7 +3197,15 @@ smb2fs_smb_cmpd_reparse_point_set(struct smb_share *share, struct smbnode *creat
     int add_query = 0;
     uint64_t inode_number = 0;
     uint32_t inode_number_len;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_CREATE;
+    enum vtype vnode_type = VREG;
     
+    /*
+     * For this function, vnode_type is VREG as the Open will be done on the
+     * reparse point and then the Ioctl will be done on the reparse point.
+     */
+
     if (fap == NULL) {
         /* This should never happen */
         SMBERROR("fap is NULL \n");
@@ -2387,12 +3266,15 @@ resend:
     /*
      * Build the Create call 
      */
-    error = smb2fs_smb_ntcreatex(share, create_np, 
+    create_options = smb2fs_smb_get_create_options(share, create_np,
+                                                   namep, NULL,
+                                                   vnode_type, 1);
+    error = smb2fs_smb_ntcreatex(share, create_np,
                                  namep, name_len,
                                  NULL, 0,
-                                 create_desired_access, VLNK,
-                                 share_access, FILE_CREATE,
-                                 create_flags,
+                                 create_desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp, 
                                  NULL, context);
@@ -2580,7 +3462,7 @@ parse_query:
         }
         
         /*
-         * Parse Query Info SMB2 header
+         * Parse Query Info SMB 2/3 header
          */
         tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
         queryp->ret_ntstatus = query_rqp->sr_ntstatus;
@@ -2628,7 +3510,7 @@ parse_ioctl:
     }
     
     /* 
-     * Parse IOCTL SMB2 header 
+     * Parse IOCTL SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
     ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
@@ -2669,7 +3551,7 @@ parse_close:
     }
     
     /* 
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -2716,7 +3598,9 @@ bad:
                      ioctl_error, ioctlp->ret_ntstatus);
             
             /* Failed to create the symlink, remove the file */
-            (void) smb2fs_smb_delete(share, create_np, namep, name_len, 0, context);
+            (void) smb2fs_smb_delete(share, create_np, VREG,
+                                     namep, name_len,
+                                     0, context);
         }
         else {
             /* IOCTL worked, reset any other fap information */
@@ -2808,7 +3692,16 @@ smb2fs_smb_cmpd_resolve_id(struct smb_share *share, struct smbnode *np,
     uint32_t need_delete_fid = 0;
     SMBFID fid = 0;
     struct smb2_create_ctx_resolve_id resolve_id;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+    enum vtype vnode_type = VDIR;
     
+    /*
+     * For this function, vnode_type is VDIR we always do the Resolve ID on the
+     * root node.  The item will be Opened and the Resolve ID will be done on
+     * it.
+     */
+
     SMB_MALLOC(fap,
                struct smbfattr *,
                sizeof(struct smbfattr),
@@ -2819,7 +3712,7 @@ smb2fs_smb_cmpd_resolve_id(struct smb_share *share, struct smbnode *np,
         error = ENOMEM;
         goto bad;
     }
-
+    
     /* Fill in Resolve ID context */
     resolve_id.file_id = ino;
     resolve_id.ret_errorp = resolve_errorp;
@@ -2829,12 +3722,15 @@ resend:
     /*
      * Build the Create call
      */
+    create_options = smb2fs_smb_get_create_options(share, np,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(share, np,
                                  NULL, 0,
                                  NULL, 0,
-                                 SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE, VDIR,
-                                 NTCREATEX_SHARE_ACCESS_ALL, FILE_OPEN,
-                                 SMB2_CREATE_AAPL_RESOLVE_ID,
+                                 SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE, vnode_type,
+                                 NTCREATEX_SHARE_ACCESS_ALL, disposition,
+                                 SMB2_CREATE_AAPL_RESOLVE_ID, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp,
                                  &resolve_id, context);
@@ -2936,7 +3832,7 @@ parse_close:
     }
     
     /*
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -2998,7 +3894,7 @@ bad:
 }
 
 static int
-smb2fs_smb_cmpd_set_info(struct smb_share *share, struct smbnode *create_np,
+smb2fs_smb_cmpd_set_info(struct smb_share *share, struct smbnode *create_np, enum vtype vnode_type,
                          const char *create_namep, size_t create_name_len,
                          uint32_t create_xattr, uint32_t create_desired_access,
                          uint8_t setinfo_info_type, uint8_t setinfo_file_info_class,
@@ -3024,6 +3920,13 @@ smb2fs_smb_cmpd_set_info(struct smb_share *share, struct smbnode *create_np,
     uint64_t create_flags = create_xattr ? SMB2_CREATE_IS_NAMED_STREAM : 0;
     char *file_namep = NULL, *stream_namep = NULL;
     size_t file_name_len = 0, stream_name_len = 0;
+    uint32_t create_options = 0;
+    uint32_t disposition = FILE_OPEN;
+
+    /*
+     * For this function, vnode_type is the item's type. The item will be
+     * Opened and the Set Info will be done on the item.
+     */
 
     if ((setinfo_info_type == SMB2_0_INFO_FILE) &&
         (setinfo_file_info_class == FileDispositionInformation)) {
@@ -3075,12 +3978,15 @@ resend:
         stream_name_len = create_name_len;
     }
 
+    create_options = smb2fs_smb_get_create_options(share, create_np,
+                                                   file_namep, stream_namep,
+                                                   vnode_type, 1);
     error = smb2fs_smb_ntcreatex(share, create_np,
                                  file_namep, file_name_len,
                                  stream_namep, stream_name_len,
-                                 create_desired_access, VREG,
-                                 share_access, FILE_OPEN,
-                                 create_flags,
+                                 create_desired_access, vnode_type,
+                                 share_access, disposition,
+                                 create_flags, create_options,
                                  &fid, fap,
                                  &create_rqp, &createp, 
                                  NULL, context);
@@ -3217,7 +4123,7 @@ parse_setinfo:
     }
     
     /* 
-     * Parse Set Info SMB2 header 
+     * Parse Set Info SMB 2/3 header 
      */
     tmp_error = smb2_rq_parse_header(setinfo_rqp, &mdp);
     infop->ret_ntstatus = setinfo_rqp->sr_ntstatus;
@@ -3262,7 +4168,7 @@ parse_close:
     }
     
     /* 
-     * Parse Close SMB2 header
+     * Parse Close SMB 2/3 header
      */
     tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
@@ -3655,6 +4561,9 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
     struct timespec mtime;
     int             error = 0;
     uint32_t        ntstatus = 0;
+    uint32_t        target_created = 0;
+    uint32_t create_options = 0;
+    enum vtype vnode_type = VREG;
     
     if ((SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER) &&
         (SSTOVC(share)->vc_server_caps & kAAPL_SUPPORTS_OSX_COPYFILE)) {
@@ -3707,12 +4616,15 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
     disp = FILE_OPEN;
     create_flags = 0;
     
+    create_options = smb2fs_smb_get_create_options(share, src_np,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(share, src_np,
                                  NULL, 0,
                                  NULL, 0,
-                                 desired_access, VREG,
+                                 desired_access, vnode_type,
                                  share_access, disp,
-                                 create_flags,
+                                 create_flags, create_options,
                                  &src_fid, sfap,
                                  NULL, NULL,
                                  NULL, context);
@@ -3750,6 +4662,7 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
     }
     
     targ_is_open = TRUE;
+    target_created = 1;
     
     /*************************************/
     /* Now initiate the server-side copy */
@@ -3811,12 +4724,15 @@ smb2fs_smb_copyfile(struct smb_share *share, struct smbnode *src_np,
         disp = FILE_OPEN;
         create_flags = SMB2_CREATE_IS_NAMED_STREAM;
         
+        create_options = smb2fs_smb_get_create_options(share, src_np,
+                                                       NULL, xattrp,
+                                                       vnode_type, 0);
         error = smb2fs_smb_ntcreatex(share, src_np,
                                      NULL, 0,
                                      xattrp, this_len,
-                                     desired_access, VREG,
+                                     desired_access, vnode_type,
                                      share_access, disp,
-                                     create_flags,
+                                     create_flags, create_options,
                                      &src_xattr_fid, sfap,
                                      NULL, NULL,
                                      NULL, context);
@@ -3934,6 +4850,13 @@ out:
         SMB_FREE(tfap, M_SMBTEMP);
     }
     
+    if ((error) && (target_created == 1)) {
+        /* Try to delete the target file we created */
+        smbfs_smb_delete(share, tdnp, VREG,
+                         tnamep, tname_len,
+                         0, context);
+    }
+    
     return error;
 }
 
@@ -3949,6 +4872,9 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
     uint64_t        create_flags;
     int             error = 0;
     uint32_t        ntstatus = 0;
+    uint32_t        target_created = 0;
+    uint32_t create_options = 0;
+    enum vtype vnode_type = VREG;
     
     /* We'll need a couple of fattrs */
     SMB_MALLOC(sfap,
@@ -3981,12 +4907,15 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
     disp = FILE_OPEN;
     create_flags = 0;
     
+    create_options = smb2fs_smb_get_create_options(share, src_np,
+                                                   NULL, NULL,
+                                                   vnode_type, 0);
     error = smb2fs_smb_ntcreatex(share, src_np,
                                  NULL, 0,
                                  NULL, 0,
-                                 desired_access, VREG,
+                                 desired_access, vnode_type,
                                  share_access, disp,
-                                 create_flags,
+                                 create_flags, create_options,
                                  &src_fid, sfap,
                                  NULL, NULL,
                                  NULL, context);
@@ -4023,6 +4952,7 @@ smb2fs_smb_copyfile_mac(struct smb_share *share, struct smbnode *src_np,
     }
     
     targ_is_open = TRUE;
+    target_created = 1;
     
     /*************************************/
     /* Now initiate the server-side copy */
@@ -4062,6 +4992,13 @@ out:
         SMB_FREE(tfap, M_SMBTEMP);
     }
     
+    if ((error) && (target_created == 1)) {
+        /* Try to delete the target file we created */
+        smbfs_smb_delete(share, tdnp, VREG,
+                         tnamep, tname_len,
+                         0, context);
+    }
+
     return error;
 }
 
@@ -4091,16 +5028,16 @@ smbfs_smb_create_reparse_symlink(struct smb_share *share, struct smbnode *dnp,
 }
 
 static int
-smb2fs_smb_delete(struct smb_share *share, struct smbnode *np, 
-                  const char *namep, size_t name_len, int xattr, 
-                  vfs_context_t context)
+smb2fs_smb_delete(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                  const char *namep, size_t name_len,
+                  int xattr, vfs_context_t context)
 {
     int error;
     uint32_t setinfo_ntstatus;
     uint8_t delete_byte = 1;
 
     /*
-     * Looking at Win <-> Win with SMB2, delete is handled by opening the file
+     * Looking at Win <-> Win with SMB 2/3, delete is handled by opening the file
      * with Delete and "Read Attributes", then a Set Info is done to set
      * "Delete on close", then a Close is sent.
      */
@@ -4108,7 +5045,7 @@ smb2fs_smb_delete(struct smb_share *share, struct smbnode *np,
     /*
      * Do the Compound Create/SetInfo/Close call
      */
-    error = smb2fs_smb_cmpd_set_info(share, np,
+    error = smb2fs_smb_cmpd_set_info(share, np, vnode_type,
                                      namep, name_len,
                                      xattr, SMB2_FILE_READ_ATTRIBUTES | SMB2_STD_ACCESS_DELETE | SMB2_SYNCHRONIZE, 
                                      SMB2_0_INFO_FILE, FileDispositionInformation,
@@ -4118,7 +5055,7 @@ smb2fs_smb_delete(struct smb_share *share, struct smbnode *np,
                                      context);
     if (error) {
         if (error != ENOTEMPTY) {
-            SMBDEBUG("smb2fs_smb_cmpd_set_info failed %d\n", error);
+            SMBDEBUG_LOCK(np, "smb2fs_smb_cmpd_set_info failed %d %s:%s\n", error, np->n_name, namep);
         }
         goto bad;
     }
@@ -4131,14 +5068,16 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int 
-smbfs_smb_delete(struct smb_share *share, struct smbnode *np, 
-				 const char *name, size_t nmlen, int xattr,
-                 vfs_context_t context)
+smbfs_smb_delete(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+				 const char *name, size_t nmlen,
+                 int xattr, vfs_context_t context)
 {
     int error;
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_delete (share, np, name, nmlen, xattr, context);
+        error = smb2fs_smb_delete (share, np, vnode_type,
+                                   name, nmlen,
+                                   xattr, context);
     }
     else {
         error = smb1fs_smb_delete (share, np, name, nmlen, xattr, context);
@@ -4310,24 +5249,23 @@ smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
             flags |= SMB2_RETURN_SINGLE_ENTRY;
         }
         
+        /* Resuming a search happens by default, no need to use File Index */
+        file_index = 0;
+
         if (ctx->f_flags & SMBFS_RDD_FINDFIRST) {
             /* Because this is first search, set some flags */
             flags |= SMB2_RESTART_SCANS;    /* start search from beginning */
             file_index = 0;                 /* no FileIndex from prev search */
         } 
-        else {
-            flags |= SMB2_INDEX_SPECIFIED;  /* search begining at FileIndex */
-            file_index = ctx->f_resume_file_index;
-        }
-        
+
         switch (ctx->f_infolevel) {
             case SMB_FIND_FULL_DIRECTORY_INFO:
-                /* For SMB2.x, get the file/dir IDs too but no short names */
+                /* For SMB 2/3, get the file/dir IDs too but no short names */
                 info_class = FileIdFullDirectoryInformation;
                 break;
 
             case SMB_FIND_BOTH_DIRECTORY_INFO:
-                /* For SMB2.x, get the file/dir IDs too */
+                /* For SMB 2/3, get the file/dir IDs too */
                 info_class = FileIdBothDirectoryInformation;
                 break;
                 
@@ -4348,7 +5286,8 @@ again:
             queryp->output_buffer_len = kSMB_64K;
         }
         else {
-            queryp->output_buffer_len = SSTOVC(ctx->f_share)->vc_txmax;
+            queryp->output_buffer_len = MIN(SSTOVC(ctx->f_share)->vc_txmax,
+                                            kSMB_MAX_TX);
         }
 
         /* 
@@ -4383,7 +5322,7 @@ again:
                 (queryp->ret_ntstatus == STATUS_INVALID_PARAMETER) &&
                 !((SSTOVC(ctx->f_share)->vc_misc_flags) & SMBV_64K_QUERY_DIR) &&
                 (attempts == 0)) {
-                SMBWARNING("SMB 2.x server cant handle large OutputBufferLength in Query_Dir. Reducing to 64Kb.\n");
+                SMBWARNING("SMB 2/3 server cant handle large OutputBufferLength in Query_Dir. Reducing to 64Kb.\n");
                 SSTOVC(ctx->f_share)->vc_misc_flags |= SMBV_64K_QUERY_DIR;
                 attempts += 1;
                 
@@ -4505,6 +5444,73 @@ smbfs_smb_flush(struct smb_share *share, SMBFID fid, vfs_context_t context)
     return error;
 }
 
+uint32_t
+smb2fs_smb_get_create_options(struct smb_share *share, struct smbnode *np,
+                              const char *namep, const char *strm_namep,
+                              enum vtype vnode_type, uint32_t check_reparse)
+{
+    uint32_t create_options = 0;
+    
+    /*
+     * smb2fs_smb_get_create_options() has various ways it can be called
+     * 1) np - open item (np)
+     * 2) np, namep - open the child (namep) in parent dir (np)
+     * 3) np, strm_namep - open named stream (strm_namep) of item (np)
+     * 4) np, namep, strm_namep - open named stream of (strm_namep) of
+     * child (namep) in parent dir (np)
+     */
+    
+    /* If its a dir, then set the dir option */
+    if (vnode_type == VDIR) {
+        create_options |= NTCREATEX_OPTIONS_DIRECTORY;
+    }
+    
+    /*
+     * If it a reparse point, then we have to be careful on whether to set
+     * NTCREATEX_OPTIONS_OPEN_REPARSE_POINT or not.
+     *
+     * Most of the time we do not to set the reparse bit. This allows the
+     * reparse point to go ahead and trigger a mount if needed.  For example,
+     * if the reparse point is a folder that is really an NTFS mount.
+     *
+     * If we are doing Create/QueryInfo or Create/SetInfo on the reparse point,
+     * then set the reparse bit so we change the reparse point itself and not
+     * its target.
+     */
+    if (check_reparse == 0) {
+        /* Go ahead and trigger the reparse point */
+        goto done;
+    }
+    
+    if ((share) && !(share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS)) {
+        /* No reparse points, so no need to set reparse point bit */
+        goto done;
+    }
+        
+    /* Case (1) */
+    if ((np) &&
+        (namep == NULL) &&
+        (strm_namep == NULL)) {
+        /*
+         * If its some type of reparse point and it has not been moved to
+         * offline storage, open the reparse point itself.
+         */
+        if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) &&
+            !(np->n_dosattr & SMB_EFA_OFFLINE)){
+            create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
+        }
+    }
+
+    /* 
+     * For cases (2) - (4), the Create will be on a parent dir or opening a 
+     * named stream. In either case we should not need to set the
+     * NTCREATEX_OPTIONS_OPEN_REPARSE_POINT bit.
+     */
+    
+done:
+    return(create_options);
+}
+
 static int
 smb2fs_smb_listxattrs(struct smb_share *share, struct smbnode *np, char **xattrlist,
                       size_t *xattrlist_len, vfs_context_t context)
@@ -4514,9 +5520,21 @@ smb2fs_smb_listxattrs(struct smb_share *share, struct smbnode *np, char **xattrl
     char    *xattrb = NULL;
     uint32_t flags = 0, max_access = 0;
     int     error = 0;
+    enum vtype vnode_type = VREG;
+
+    if (np == NULL) {
+        SMBERROR("Missing vnode\n");
+        error = EINVAL;
+        goto out;
+    }
+
+    if ((np) && (np->n_vnode)) {
+        /* Use vnode to determine type */
+        vnode_type = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+    }
 
     /* Only pass stream_buf_sizep, so we can determine the size of the list */
-    error = smb2fs_smb_qstreaminfo(share, np,
+    error = smb2fs_smb_qstreaminfo(share, np, vnode_type,
                                    NULL, 0,
                                    NULL,
                                    NULL, &xattr_len,
@@ -4566,7 +5584,7 @@ smb2fs_smb_listxattrs(struct smb_share *share, struct smbnode *np, char **xattrl
     
     /* Only pass a uio and stream_buf_sizep, to get the entire list of xattrs */
     flags = SMB_NO_TRANSLATE_NAMES;  /* Do not translate AFP_Resource & AFP_AfpInfo */
-    error = smb2fs_smb_qstreaminfo(share, np,
+    error = smb2fs_smb_qstreaminfo(share, np, vnode_type,
                                    NULL, 0,
                                    NULL,
                                    xuio, &xattr_len,
@@ -4691,12 +5709,12 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
                      const char *strm_namep, size_t in_strm_nmlen,
                      uint32_t desired_access, enum vtype vnode_type,
                      uint32_t share_access, uint32_t disposition,
-                     uint64_t create_flags,
+                     uint64_t create_flags, uint32_t create_options,
                      SMBFID *fidp, struct smbfattr *fap,
                      struct smb_rq **compound_rqp, struct smb2_create_rq **in_createp,
                      void *create_contextp, vfs_context_t context)
 {
-	uint32_t create_options, file_attributes;
+	uint32_t file_attributes;
 	int error;
 	size_t name_len = in_nmlen;	
 	size_t strm_name_len = in_strm_nmlen;
@@ -4704,6 +5722,7 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
     struct smb2_create_rq *createp = NULL;
     uint32_t impersonation_level = SMB2_IMPERSONATION_IMPERSONATION;
     uint8_t oplock_level = SMB2_OPLOCK_LEVEL_NONE;
+    char *snamep = NULL;
     
     /*
      * smb2fs_smb_ntcreatex() has various ways it can be called
@@ -4747,32 +5766,6 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
         }
 	}
     
-    /* determine create options */
-	create_options = 0;
-	if (disposition != FILE_OPEN) {
-		if (vnode_type == VDIR) {
-			create_options |= NTCREATEX_OPTIONS_DIRECTORY;
-            /* (other create options currently not useful) */
-        }
-	}
-	/*
-	 * The server supports reparse points and its a symlink so open the item 
-     * with a reparse point bit set and bypass normal reparse point processing 
-     * for the file.
-	 */
-	if ((share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) &&
-        (np && (np->n_vnode) && vnode_islnk(np->n_vnode))) {
-		create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
-
-		if (np && (np->n_dosattr & SMB_EFA_OFFLINE)) {
-            /*
-             * File has been moved to offline storage, do not open with a
-             * reparse point in this case.  See <rdar://problem/10836961>.
-             */
-            create_options &= ~NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
-		}
-	}
-    
     /* start wth the passed in flag settings */
     createp->flags |= create_flags;
 
@@ -4780,7 +5773,11 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
     if ((np) && (np->n_vnode) && 
         (vnode_isnamedstream(np->n_vnode)) && 
         (!strm_namep) && (!(create_flags & SMB2_CREATE_IS_NAMED_STREAM))) {
-        strm_namep = (const char *) np->n_sname;
+        lck_rw_lock_shared(&np->n_name_rwlock);
+        snamep = smb_strndup(np->n_sname, np->n_snmlen);
+        strm_namep = snamep;
+        lck_rw_unlock_shared(&np->n_name_rwlock);
+
         strm_name_len = np->n_snmlen;
         createp->flags |= SMB2_CREATE_IS_NAMED_STREAM;
     }
@@ -4855,6 +5852,10 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
 bad:
     if (createp != NULL) {
         SMB_FREE(createp, M_SMBTEMP);
+    }
+
+    if (snamep) {
+        SMB_FREE(snamep, M_SMBSTR);
     }
     
 	return error;
@@ -4946,8 +5947,9 @@ smbfs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
  *
  */
 int 
-smbfs_smb_openread(struct smb_share *share, struct smbnode *np, SMBFID *fidp, 
-				   uint32_t desired_access, uio_t uio, size_t *sizep, const char *stream_namep,
+smbfs_smb_openread(struct smb_share *share, struct smbnode *np,
+                   SMBFID *fidp, uint32_t desired_access,
+                   uio_t uio, size_t *sizep, const char *stream_namep,
 				   struct timespec *mtimep, vfs_context_t context)
 {
     int error;
@@ -4958,7 +5960,10 @@ smbfs_smb_openread(struct smb_share *share, struct smbnode *np, SMBFID *fidp,
     /* This is only used when dealing with xattr calls */
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        /* Do a Create/Read and skip the close */
+        /* 
+         * Do a Create/Read or Create/Read/Close. The Close is added if 
+         * fidp is NULL
+         */
         error = smb2fs_smb_cmpd_create_read(share, np,
                                             NULL, 0, 
                                             stream_namep, stream_name_len,
@@ -5140,8 +6145,10 @@ smb2fs_smb_qfsattr(struct smbmount *smp,
      *
      * Have to pass in submount path if it exists because we have no root vnode,
      * and smbmount and smb_share may not be fully set up yet.
+     * 
+     * This is always done on the root of the share
      */
-    error = smb2fs_smb_cmpd_query(share, NULL,
+    error = smb2fs_smb_cmpd_query(share, NULL, VDIR,
                                   (smp->sm_args.path_len == 0 ? NULL : smp->sm_args.path),
                                   smp->sm_args.path_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
@@ -5184,9 +6191,9 @@ smbfs_smb_qfsattr(struct smbmount *smp, vfs_context_t context)
     }
     else {
         /* 
-         * Goal is to leave the SMB1 code unchanged as much as possible
+         * Goal is to leave the SMB 1 code unchanged as much as possible
          * to minimize the risk.  That is why there is duplicate code here
-         * for the SMB2 path and also in SMB1 code path.
+         * for the SMB 2/3 path and also in SMB 1 code path.
          */
         smb1fs_qfsattr(share, context);
         return;
@@ -5273,7 +6280,7 @@ smbfs_smb_qfsattr(struct smbmount *smp, vfs_context_t context)
         }
         
         /*
-         * Note: If this is an OS X SMB2 server, smbfs_mount() will
+         * Note: If this is an OS X SMB 2/3 server, smbfs_mount() will
          * set share->ss_fstype() to SMB_FS_MAC_OS_X.  We cannot do
          * that here because at this point we haven't yet queried the
          * server for AAPL create context support.
@@ -5290,7 +6297,7 @@ done:
 }
 
 static int
-smb2fs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
+smb2fs_smb_qpathinfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                      struct smbfattr *fap, short infolevel, 
                      const char **namep, size_t *name_lenp, 
                      vfs_context_t context)
@@ -5336,7 +6343,7 @@ smb2fs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
      * Do the Compound Create/SetInfo/Close call
      * Query results are passed back in *fap
      */
-    error = smb2fs_smb_cmpd_query(share, np, 
+    error = smb2fs_smb_cmpd_query(share, np, vnode_type,
                                   name, name_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
                                   SMB2_0_INFO_FILE, FileAllInformation,
@@ -5356,20 +6363,18 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int
-smbfs_smb_qpathinfo(struct smb_share *share, struct smbnode *np, 
-                    struct smbfattr *fap, short infolevel, const char **namep, 
-                    size_t *nmlenp, vfs_context_t context)
+smbfs_smb_qpathinfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
+                    struct smbfattr *fap, short infolevel,
+                    const char **namep, size_t *nmlenp,
+                    vfs_context_t context)
 {
    	struct smb_vc *vcp = SSTOVC(share);
 	int error;
     
     if (vcp->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_qpathinfo(share,
-                                     np,
-                                     fap,
-                                     infolevel,
-                                     namep,
-                                     nmlenp,
+        error = smb2fs_smb_qpathinfo(share, np, vnode_type,
+                                     fap, infolevel,
+                                     namep, nmlenp,
                                      context);
     }
     else {
@@ -5393,7 +6398,7 @@ smbfs_smb_qpathinfo(struct smb_share *share, struct smbnode *np,
  *
  */
 static int
-smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
+smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                        const char *namep, size_t name_len,
                        const char *stream_namep,
                        uio_t uio, size_t *sizep,
@@ -5401,6 +6406,11 @@ smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
                        uint32_t *stream_flagsp, uint32_t *max_accessp,
                        vfs_context_t context)
 {
+    /* 
+     * For this function, vnode_type is the item's type. The item will be 
+     * opened and checked for named streams.
+     */
+
     /* 
      * Two usage cases:
      * 1) Given np and namep == NULL. Query the path of np
@@ -5412,7 +6422,6 @@ smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
      */
     struct FILE_STREAM_INFORMATION *stream_infop = NULL;
 	int error;
-    int attempts = 0;
     uint32_t output_buffer_len;
     
     if (namep == NULL) {
@@ -5439,7 +6448,6 @@ smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
         goto bad;
     }
     
-again:
     /* 
      * Set up for the Query Info call
      *
@@ -5466,19 +6474,19 @@ again:
     stream_infop->stream_alloc_sizep = stream_alloc_sizep;
     stream_infop->stream_flagsp = stream_flagsp;
 
-    /* handle servers that dislike large output buffer lens */
-    if (SSTOVC(share)->vc_misc_flags & SMBV_64K_QUERY_INFO) {
-        output_buffer_len = kSMB_64K;
-    }
-    else {
-        output_buffer_len = SSTOVC(share)->vc_txmax;
-    }
-
+    /*
+     * Some servers do not grant us that many credits, so limit credit
+     * usage to just 1. That should be plenty for getting
+     * FileStreamInformation which is just a list of very short names like
+     * ::$DATA
+     */
+    output_buffer_len = 64 * 1024;
+    
     /*
      * Do the Compound Create/QueryInfo/Close call
      * Query results are passed back in uio
      */
-    error = smb2fs_smb_cmpd_query(share, np, 
+    error = smb2fs_smb_cmpd_query(share, np, vnode_type,
                                   namep, name_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
                                   SMB2_0_INFO_FILE, FileStreamInformation,
@@ -5491,18 +6499,18 @@ again:
             (error != EACCES) && (error != ENOENT)) {
             SMBDEBUG("smb2fs_smb_cmpd_query failed %d\n", error);
         }
-        
-        /* handle servers that dislike large output buffer lens */
-        if ((error == EINVAL) && (attempts == 0)) {
-            SMBWARNING("SMB 2.x server cant handle large OutputBufferLength in Query_Info. Reducing to 64Kb.\n");
-            SSTOVC(share)->vc_misc_flags |= SMBV_64K_QUERY_INFO;
-            attempts += 1;
-            goto again;
-        }
         goto bad;
     }
 
-bad:    
+    /* Is there only the data stream and no other named streams? */
+    if ((namep == NULL) && (stream_flagsp != NULL)) {
+        /* Not readdirattr case */
+        if (*stream_flagsp & SMB_NO_SUBSTREAMS) {
+            np->n_fstatus |= kNO_SUBSTREAMS;
+        }
+    }
+
+bad:
     if (stream_infop != NULL) {
         SMB_FREE(stream_infop, M_SMBTEMP);
     }
@@ -5518,7 +6526,7 @@ bad:
  *
  */
 int 
-smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
+smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                       const char *namep, size_t name_len,
                       const char *stream_namep,
                       uio_t uio, size_t *sizep,
@@ -5530,7 +6538,7 @@ smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
 	int error;
     
     if (vcp->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_qstreaminfo(share, np,
+        error = smb2fs_smb_qstreaminfo(share, np, vnode_type,
                                        namep, name_len,
                                        stream_namep,
                                        uio, sizep,
@@ -5561,7 +6569,7 @@ smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
  *
  */
 int 
-smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp,
+smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp, enum vtype vnode_type,
                      const char *in_name, size_t len, uint32_t *attr, 
                      vfs_context_t context)
 {
@@ -5591,12 +6599,10 @@ smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp,
                                                   context);
         }
         else {
-            error = smb2fs_smb_qpathinfo(share,
-                                         dnp,
-                                         fap,
-                                         SMB_QFILEINFO_ALL_INFO,
-                                         &name,
-                                         &name_len,
+            /* This is always a parent dir dnp and a name in that dir */
+            error = smb2fs_smb_qpathinfo(share, dnp, vnode_type,
+                                         fap, SMB_QFILEINFO_ALL_INFO,
+                                         &name, &name_len,
                                          context);
         }
         
@@ -5639,9 +6645,10 @@ smb2fs_smb_rename(struct smb_share *share, struct smbnode *src,
     int error;
     uint32_t setinfo_ntstatus;
     struct smb2_set_info_file_rename_info *renamep = NULL;
+    enum vtype vnode_type = VREG;
 
     /*
-     * Looking at Win <-> Win with SMB2, rename/move is handled by opening the 
+     * Looking at Win <-> Win with SMB 2/3, rename/move is handled by opening the 
      * file with Delete and "Read Attributes", then a Set Info is done to move
      * or rename the file.  Finally a Close is sent.
      */
@@ -5665,11 +6672,16 @@ smb2fs_smb_rename(struct smb_share *share, struct smbnode *src,
     renamep->tdnp = tdnp;
     renamep->tnamep = (char*) tnamep;
     
+    if ((src) && (src->n_vnode)) {
+        /* Use vnode to determine type */
+        vnode_type = vnode_isdir(src->n_vnode) ? VDIR : VREG;
+    }
+
     /*
      * Do the Compound Create/SetInfo/Close call
      * Delete access will allow us to rename an open file
      */
-    error = smb2fs_smb_cmpd_set_info(share, src,
+    error = smb2fs_smb_cmpd_set_info(share, src, vnode_type,
                                      NULL, 0,
                                      0, SMB2_FILE_READ_ATTRIBUTES | SMB2_STD_ACCESS_DELETE | SMB2_SYNCHRONIZE,
                                      SMB2_0_INFO_FILE, FileRenameInformation,
@@ -5784,7 +6796,9 @@ smbfs_smb_rmdir(struct smb_share *share, struct smbnode *np,
     int error;
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_delete (share, np, NULL, 0, 0, context);
+        error = smb2fs_smb_delete (share, np, VDIR,
+                                   NULL, 0,
+                                   0, context);
     }
     else {
         error = smb1fs_smb_rmdir (share, np, context);
@@ -5800,11 +6814,19 @@ smb2fs_smb_security_get(struct smb_share *share, struct smbnode *np,
                         vfs_context_t context)
 {
 	int error;
+    enum vtype vnode_type = VREG;
     
+    /* Try to determine the vnode type for the Create Request */
+
+    if ((np) && (np->n_vnode)) {
+        /* Use vnode to determine type */
+        vnode_type = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+    }
+
     /*
      * Do the Compound Create/QueryInfo/Close call
      */
-    error = smb2fs_smb_cmpd_query(share, np,
+    error = smb2fs_smb_cmpd_query(share, np, vnode_type,
                                   NULL, 0,
                                   0, desired_access,
                                   SMB2_0_INFO_SECURITY, 0,
@@ -5829,6 +6851,7 @@ smb2fs_smb_security_set(struct smb_share *share, struct smbnode *np,
 	int error;
     uint32_t setinfo_ntstatus;
     struct smb2_set_info_security sec_info;
+    enum vtype vnode_type = VREG;
 
     /*
      * Set up for the Set Info call
@@ -5840,10 +6863,15 @@ smb2fs_smb_security_set(struct smb_share *share, struct smbnode *np,
     sec_info.sacl = sacl;
     sec_info.dacl = dacl;
     
+    if ((np) && (np->n_vnode)) {
+        /* Use vnode to determine type */
+        vnode_type = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+    }
+
     /*
      * Do the Compound Create/SetInfo/Close call
      */
-    error = smb2fs_smb_cmpd_set_info(share, np,
+    error = smb2fs_smb_cmpd_set_info(share, np, vnode_type,
                                      NULL, 0,
                                      0, desired_access,
                                      SMB2_0_INFO_SECURITY, 0,
@@ -5957,7 +6985,8 @@ smbfs_smb_set_allocation(struct smb_share *share, SMBFID fid, uint64_t new_size,
     return error;
 }
 
-static int 
+
+static int
 smb2fs_smb_set_eof(struct smb_share *share, SMBFID fid, uint64_t newsize,
                   vfs_context_t context)
 {
@@ -6165,14 +7194,14 @@ smbfs_smb_setfattrNT(struct smb_share *share, uint32_t attr, SMBFID fid,
  *
  */
 int 
-smbfs_smb_setpattr(struct smb_share *share, struct smbnode *np,
+smbfs_smb_setpattr(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                    const char *namep, size_t name_len,
                    uint16_t attr, vfs_context_t context)
 {
     int error;
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_setpattrNT(share, np,
+        error = smb2fs_smb_setpattrNT(share, np, vnode_type,
                                       namep, name_len,
                                       attr, NULL,
                                       NULL, NULL,
@@ -6187,7 +7216,7 @@ smbfs_smb_setpattr(struct smb_share *share, struct smbnode *np,
 }
 
 int
-smb2fs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
+smb2fs_smb_setpattrNT(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                       const char *namep, size_t name_len,
                       uint32_t attr, struct timespec *crtime, 
                       struct timespec *mtime, struct timespec *atime, 
@@ -6208,7 +7237,7 @@ smb2fs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
     /*
      * Do the Compound Create/SetInfo/Close call
      */
-    error = smb2fs_smb_cmpd_set_info(share, np,
+    error = smb2fs_smb_cmpd_set_info(share, np, vnode_type,
                                      namep, name_len,
                                      0, SMB2_FILE_WRITE_ATTRIBUTES | SMB2_SYNCHRONIZE,
                                      SMB2_0_INFO_FILE, FileBasicInformation,
@@ -6238,7 +7267,7 @@ bad:
  *
  */
 int
-smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
+smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np, enum vtype vnode_type,
                      const char *namep, size_t name_len,
                      uint32_t attr, struct timespec *crtime,
                      struct timespec *mtime, struct timespec *atime,
@@ -6247,7 +7276,7 @@ smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
     int error;
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_setpattrNT(share, np,
+        error = smb2fs_smb_setpattrNT(share, np, vnode_type,
                                       namep, name_len,
                                       attr, crtime,
                                       mtime, atime,
@@ -6277,8 +7306,10 @@ smb2fs_smb_statfs(struct smbmount *smp,
      *
      * Have to pass in submount path if it exists because we have no root vnode,
      * and smbmount and smb_share may not be fully set up yet.
+     *
+     * This is always done on the root of the share.
      */
-    error = smb2fs_smb_cmpd_query(share, NULL, 
+    error = smb2fs_smb_cmpd_query(share, NULL, VDIR,
                                   (smp->sm_args.path_len == 0 ? NULL : smp->sm_args.path),
                                   smp->sm_args.path_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
@@ -6311,9 +7342,9 @@ smbfs_smb_statfs(struct smbmount *smp, struct vfsstatfs *sbp,
     }
     else {
         /* 
-         * Goal is to leave the SMB1 code unchanged as much as possible
+         * Goal is to leave the SMB 1 code unchanged as much as possible
          * to minimize the risk.  That is why there is duplicate code here
-         * for the SMB2 path and also in SMB1 code path.
+         * for the SMB 2/3 path and also in SMB 1 code path.
          */
         error = smb1fs_statfs(share, sbp, context);
         return (error);
@@ -6389,5 +7420,170 @@ smbfs_smb_statfs(struct smbmount *smp, struct vfsstatfs *sbp,
         sbp->f_iosize = xmax;
     
     return error;
+}
+
+int
+smb2fs_smb_validate_neg_info(struct smb_share *share, vfs_context_t context)
+{
+    struct smb_vc *vcp = SSTOVC(share);
+	int error = 0;
+    struct smb2_ioctl_rq *ioctlp = NULL;
+    struct smb2_secure_neg_info req;
+    struct smb2_secure_neg_info reply;
+	struct smb_sopt *sp = NULL;
+    
+    if (vcp == NULL) {
+        SMBERROR("vcp is null \n");
+        return EINVAL;
+    }
+    
+    /*
+     * Only SMB 3.x and non Anonymous/Guest supports validate negotiate
+     */
+    if (!(vcp->vc_flags & SMBV_SMB2) ||
+        (vcp->vc_flags & (SMBV_SMB2002 | SMBV_SMB21)) ||
+        (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS) ||
+        (vcp->vc_flags & SMBV_GUEST_ACCESS)) {
+        return 0;
+    }
+    
+    sp = &vcp->vc_sopt;
+    if (sp == NULL) {
+        SMBERROR("sp is null \n");
+        return EINVAL;
+    }
+    
+    bzero(&req, sizeof(req));
+    bzero(&reply, sizeof(reply));
+    
+    SMB_MALLOC(ioctlp,
+               struct smb2_ioctl_rq *,
+               sizeof(struct smb2_ioctl_rq),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (ioctlp == NULL) {
+		SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto bad;
+    }
+    
+    /*
+     * Fill in the Secure Negotiate Request Info
+     */
+    req.capabilities = smb2_smb_get_client_capabilities(vcp);
+    memcpy(&req.guid, vcp->vc_client_guid, 16);
+    req.security_mode = smb2_smb_get_client_security_mode(vcp);
+    
+    error = smb2_smb_get_client_dialects(vcp, 0, &req.dialect_count,
+                                         req.dialects, sizeof(req.dialects));
+    if (error) {
+        return error;
+    }
+    
+    /*
+     * Build and send the IOCTL request
+     */
+    ioctlp->share = share;
+    ioctlp->ctl_code = FSCTL_VALIDATE_NEGOTIATE_INFO;
+    ioctlp->fid = 0;
+    
+	ioctlp->snd_output_len = 0;
+	ioctlp->rcv_input_len = 0;
+    
+    /*
+     * Calculate len of Validate Negotiate Request
+     * 24 = Capabilities (4) + GUID (16) + SecurityMode (2) + DialectCount (2)
+     * +2 bytes per Dialect added
+     */
+    ioctlp->snd_input_len = 24;
+    ioctlp->snd_input_len += 2 * req.dialect_count;
+	ioctlp->snd_input_buffer = (uint8_t *) &req;
+    
+    ioctlp->rcv_output_len = sizeof(reply);
+    ioctlp->rcv_output_buffer = (uint8_t *) &reply;
+    
+    error = smb2_smb_ioctl(share, ioctlp, NULL, context);
+    if (error) {
+        if ((error == EINVAL) || (error == ENOTSUP)) {
+            /* 
+             * A signed reply with STATUS_NOT_SUPPORTED is acceptable, but 
+             * we can not validate the server capabilites. Just leave with
+             * no error and without checking capabilities.
+             *
+             * NetApp is returning STATUS_INVALID_DEVICE_REQUEST instead which
+             * is not correct.
+             */
+            SMBWARNING("Server does not fully support Validate Negotiate %d\n", error);
+            error = 0;
+        }
+        else {
+            SMBERROR("smb2_smb_ioctl failed %d\n", error);
+        }
+        
+        goto bad;
+    }
+    
+    /* Verify that the server info matches our current session */
+    
+	/* Check Capabilities */
+	if (reply.capabilities != sp->sv_capabilities) {
+		SMBERROR("Server capabilities do not match \n");
+		error = EAUTH;
+        goto bad;
+	}
+    
+	/* Check GUID */
+	if (memcmp(&reply.guid, &sp->sv_guid, sizeof(reply.guid)) != 0) {
+		SMBERROR("Server GUID does not match \n");
+		error = EAUTH;
+        goto bad;
+	}
+    
+ 	/* Check Security Mode */
+	if (reply.security_mode != sp->sv_security_mode) {
+		SMBERROR("Server security mode does not match \n");
+		error = EAUTH;
+        goto bad;
+	}
+    
+ 	/* Check Dialect */
+    switch (reply.dialects[0]) {
+        case SMB2_DIALECT_0302:
+            if (!(vcp->vc_flags & (SMBV_SMB2 | SMBV_SMB302))) {
+                SMBERROR("Server dialect does not match \n");
+                error = EAUTH;
+            }
+            break;
+        case SMB2_DIALECT_0300:
+            if (!(vcp->vc_flags & (SMBV_SMB2 | SMBV_SMB30))) {
+                SMBERROR("Server dialect does not match \n");
+                error = EAUTH;
+            }
+            break;
+        case SMB2_DIALECT_0210:
+            if (!(vcp->vc_flags & (SMBV_SMB2 | SMBV_SMB21))) {
+                SMBERROR("Server dialect does not match \n");
+                error = EAUTH;
+            }
+            break;
+        case SMB2_DIALECT_0202:
+            if (!(vcp->vc_flags & (SMBV_SMB2 | SMBV_SMB2002))) {
+                SMBERROR("Server dialect does not match \n");
+                error = EAUTH;
+            }
+            break;
+            
+        default:
+            SMBERROR("Unknown server dialect does not match \n");
+            error = EAUTH;
+            break;
+    }
+    
+bad:
+    if (ioctlp != NULL) {
+        SMB_FREE(ioctlp, M_SMBTEMP);
+    }
+    
+	return error;
 }
 

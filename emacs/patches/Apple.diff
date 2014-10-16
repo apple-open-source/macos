@@ -118,7 +118,8 @@ diff -u -b -r1.12.2.2 emacs.py
 -    # We cannot use real execfile since it has a bug where the file stays
 -    # locked forever (under w32) if SyntaxError occurs.
 -    # --- code based on code.py and PyShell.py.
--    try:
++    (oursleves) excluded."""
+     try:
 -        try:
 -            source = open (file, "r").read()
 -            code = compile (source, file, "exec")
@@ -129,8 +130,7 @@ diff -u -b -r1.12.2.2 emacs.py
 -            # SyntaxError ????
 -            format_exception (file, False)
 -            return
-+    (oursleves) excluded."""
-         try:
+-        try:
 -            exec code in __main__.__dict__
 +	try: execfile (file, globals (), globals ())
          except:
@@ -254,15 +254,17 @@ diff -u -b -r1.12.2.2 emacs.py
 -	    except: names = all_names (dict)
 -    except: return []
 -    l = len(name)
-+            matches = c.global_matches (text)
-     print '_emacs_out (',
+-    print '_emacs_out (',
 -    for n in names:
 -	if name == n[:l]:
 -	    if base: print '"%s.%s"' % (base, n),
 -	    else: print '"%s"' % n,
+-    print ')'
++            matches = c.global_matches (text)
++        print '_emacs_out (',
 +        for elt in matches:
 +            print '"%s"' % elt,
-     print ')'
++        print ')'
 +    except:
 +        print '_emacs_out ()'
  
@@ -299,7 +301,7 @@ diff -u -b -r1.12.2.2 emacs.py
  	except:
  	    (type, value, tb) = sys.exc_info ()
  	    print "Traceback (most recent call last):"
-@@ -216,17 +107,6 @@
+@@ -216,17 +107,6 @@ def eimport (mod, dir):
      finally:
  	sys.path[0] = path0
  

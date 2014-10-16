@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -43,7 +43,7 @@ char*		to;
 const char*	from;
 int		endc;
 #endif
-{	reg size_t	n;
+{	reg int	n;
 
 	n = strlen(from);
 	memcpy(to,from,n);
@@ -112,7 +112,7 @@ size_t		align;		/* alignment			*/
 	Vmdata_t*	vd = vm->data;
 	const char*	file = 0;
 	int		line = 0;
-	const Void_t*	func = 0;
+	const char*	func = 0;
 	int		comma;
 	int		n;
 	int		m;
@@ -161,8 +161,8 @@ size_t		align;		/* alignment			*/
 		}
 
 		bufp = trstrcpy(bufp, "file", '=');
-		n = (int)(endbuf - bufp) - SLOP - 3;
-		m = (int)strlen(file);
+		n = endbuf - bufp - SLOP - 3;
+		m = strlen(file);
 		if(m > n)
 		{	file += (m - n);
 			bufp = trstrcpy(bufp, "..", '.');
@@ -176,7 +176,7 @@ size_t		align;		/* alignment			*/
 	{	if(comma)
 			*bufp++ = ',';
 		bufp = trstrcpy(bufp, "func", '=');
-#if _PACKAGE_ast
+#if 1
 		bufp = trstrcpy(bufp, (const char*)func, 0);
 #else
 		bufp = trstrcpy(bufp, tritoa((Vmulong_t)func,0), 0);
@@ -192,7 +192,6 @@ size_t		align;		/* alignment			*/
 	write(Trfile,buf,(bufp-buf));
 }
 
-#if DEBUG
 #if __STD_C
 void _vmmessage(const char* s1, long n1, const char* s2, long n2)
 #else
@@ -203,7 +202,7 @@ const char*	s2;
 long		n2;
 #endif
 {
-	char	buf[1024], *bufp;
+	char		buf[1024], *bufp;
 
 	bufp = buf;
 	bufp = trstrcpy(bufp, "vmalloc", ':');
@@ -219,11 +218,12 @@ long		n2;
 		if (n2)
 			bufp = trstrcpy(bufp, tritoa(n2, 0), ':');
 	}
+
 	bufp = trstrcpy(bufp, tritoa((long)getpid(), 1), ':');
+
 	*bufp++ = '\n';
 	write(2,buf,(bufp-buf));
 }
-#endif
 
 #if __STD_C
 int vmtrace(int file)

@@ -2,7 +2,7 @@
  * Dave Eckhardt
  * Rob Siemborski
  * Tim Martin (originally in Cyrus distribution)
- * $Id: cfile.c,v 1.4 2006/01/24 00:16:03 snsimon Exp $
+ * $Id: cfile.c,v 1.1 2005/01/19 00:11:41 shadow Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -100,7 +100,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
       return 0;
     }
     
-    while (fgets(buf, (int)sizeof(buf), infile)) {
+    while (fgets(buf, sizeof(buf), infile)) {
 	lineno++;
 
 	if (buf[strlen(buf)-1] == '\n') buf[strlen(buf)-1] = '\0';
@@ -116,6 +116,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
 	  if (complaint)
 	    snprintf(complaint, complaint_len, "%s: line %d: no colon separator", filename, lineno);
 	  cfile_free(cf);
+	  fclose(infile);
 	  return 0;
 	}
 	*p++ = '\0';
@@ -126,6 +127,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
 	  if (complaint)
 	    snprintf(complaint, complaint_len, "%s: line %d: keyword %s: no value", filename, lineno, key);
 	  cfile_free(cf);
+	  fclose(infile);
 	  return 0;
 	}
 
@@ -137,6 +139,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
 	      if (complaint)
 	        snprintf(complaint, complaint_len, "cfile_read: no memory");
 	      cfile_free(cf);
+	      fclose(infile);
 	      return 0;
 	    }
 	}
@@ -147,6 +150,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
 	        snprintf(complaint, complaint_len, "cfile_read: no memory");
 	      cf->n_kv++; /* maybe one strdup() worked */
 	      cfile_free(cf);
+	      fclose(infile);
 	      return 0;
 	}
 

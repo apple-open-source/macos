@@ -19,8 +19,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "CSSComputedStyleDeclaration.h"
 
 #include "CSSPrimitiveValueMappings.h"
@@ -30,6 +28,41 @@
 #include "SVGPaint.h"
 
 namespace WebCore {
+
+static PassRefPtr<CSSValue> paintOrder(PaintOrder paintOrder)
+{
+    RefPtr<CSSValueList> paintOrderList = CSSValueList::createSpaceSeparated();
+    RefPtr<CSSValue> fill = CSSPrimitiveValue::createIdentifier(CSSValueFill);
+    RefPtr<CSSValue> stroke = CSSPrimitiveValue::createIdentifier(CSSValueStroke);
+    RefPtr<CSSValue> markers = CSSPrimitiveValue::createIdentifier(CSSValueMarkers);
+
+    switch (paintOrder) {
+    case PaintOrderNormal:
+        return CSSPrimitiveValue::createIdentifier(CSSValueNormal);
+    case PaintOrderFill:
+        paintOrderList->append(fill.release());
+        break;
+    case PaintOrderFillMarkers:
+        paintOrderList->append(fill.release());
+        paintOrderList->append(markers.release());
+        break;
+    case PaintOrderStroke:
+        paintOrderList->append(stroke.release());
+        break;
+    case PaintOrderStrokeMarkers:
+        paintOrderList->append(stroke.release());
+        paintOrderList->append(markers.release());
+        break;
+    case PaintOrderMarkers:
+        paintOrderList->append(markers.release());
+        break;
+    case PaintOrderMarkersStroke:
+        paintOrderList->append(markers.release());
+        paintOrderList->append(stroke.release());
+        break;
+    }
+    return paintOrderList.release();
+}
 
 static PassRefPtr<CSSPrimitiveValue> glyphOrientationToCSSPrimitiveValue(EGlyphOrientation orientation)
 {
@@ -76,95 +109,93 @@ PassRefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID prop
 
     // Make sure our layout is up to date before we allow a query on these attributes.
     if (updateLayout)
-        node->document()->updateLayout();
+        node->document().updateLayout();
 
     RenderStyle* style = node->computedStyle();
     if (!style)
         return 0;
 
-    const SVGRenderStyle* svgStyle = style->svgStyle();
-    if (!svgStyle)
-        return 0;
+    const SVGRenderStyle& svgStyle = style->svgStyle();
 
     switch (propertyID) {
         case CSSPropertyClipRule:
-            return CSSPrimitiveValue::create(svgStyle->clipRule());
+            return CSSPrimitiveValue::create(svgStyle.clipRule());
         case CSSPropertyFloodOpacity:
-            return CSSPrimitiveValue::create(svgStyle->floodOpacity(), CSSPrimitiveValue::CSS_NUMBER);
+            return CSSPrimitiveValue::create(svgStyle.floodOpacity(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyStopOpacity:
-            return CSSPrimitiveValue::create(svgStyle->stopOpacity(), CSSPrimitiveValue::CSS_NUMBER);
+            return CSSPrimitiveValue::create(svgStyle.stopOpacity(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyColorInterpolation:
-            return CSSPrimitiveValue::create(svgStyle->colorInterpolation());
+            return CSSPrimitiveValue::create(svgStyle.colorInterpolation());
         case CSSPropertyColorInterpolationFilters:
-            return CSSPrimitiveValue::create(svgStyle->colorInterpolationFilters());
+            return CSSPrimitiveValue::create(svgStyle.colorInterpolationFilters());
         case CSSPropertyFillOpacity:
-            return CSSPrimitiveValue::create(svgStyle->fillOpacity(), CSSPrimitiveValue::CSS_NUMBER);
+            return CSSPrimitiveValue::create(svgStyle.fillOpacity(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyFillRule:
-            return CSSPrimitiveValue::create(svgStyle->fillRule());
+            return CSSPrimitiveValue::create(svgStyle.fillRule());
         case CSSPropertyColorRendering:
-            return CSSPrimitiveValue::create(svgStyle->colorRendering());
+            return CSSPrimitiveValue::create(svgStyle.colorRendering());
         case CSSPropertyShapeRendering:
-            return CSSPrimitiveValue::create(svgStyle->shapeRendering());
+            return CSSPrimitiveValue::create(svgStyle.shapeRendering());
         case CSSPropertyStrokeLinecap:
-            return CSSPrimitiveValue::create(svgStyle->capStyle());
+            return CSSPrimitiveValue::create(svgStyle.capStyle());
         case CSSPropertyStrokeLinejoin:
-            return CSSPrimitiveValue::create(svgStyle->joinStyle());
+            return CSSPrimitiveValue::create(svgStyle.joinStyle());
         case CSSPropertyStrokeMiterlimit:
-            return CSSPrimitiveValue::create(svgStyle->strokeMiterLimit(), CSSPrimitiveValue::CSS_NUMBER);
+            return CSSPrimitiveValue::create(svgStyle.strokeMiterLimit(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyStrokeOpacity:
-            return CSSPrimitiveValue::create(svgStyle->strokeOpacity(), CSSPrimitiveValue::CSS_NUMBER);
+            return CSSPrimitiveValue::create(svgStyle.strokeOpacity(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyAlignmentBaseline:
-            return CSSPrimitiveValue::create(svgStyle->alignmentBaseline());
+            return CSSPrimitiveValue::create(svgStyle.alignmentBaseline());
         case CSSPropertyDominantBaseline:
-            return CSSPrimitiveValue::create(svgStyle->dominantBaseline());
+            return CSSPrimitiveValue::create(svgStyle.dominantBaseline());
         case CSSPropertyTextAnchor:
-            return CSSPrimitiveValue::create(svgStyle->textAnchor());
+            return CSSPrimitiveValue::create(svgStyle.textAnchor());
         case CSSPropertyWritingMode:
-            return CSSPrimitiveValue::create(svgStyle->writingMode());
+            return CSSPrimitiveValue::create(svgStyle.writingMode());
         case CSSPropertyClipPath:
-            if (!svgStyle->clipperResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->clipperResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.clipperResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.clipperResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyMask:
-            if (!svgStyle->maskerResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->maskerResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.maskerResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.maskerResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyFilter:
-            if (!svgStyle->filterResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->filterResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.filterResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.filterResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyFloodColor:
-            return currentColorOrValidColor(style, svgStyle->floodColor());
+            return currentColorOrValidColor(style, svgStyle.floodColor());
         case CSSPropertyLightingColor:
-            return currentColorOrValidColor(style, svgStyle->lightingColor());
+            return currentColorOrValidColor(style, svgStyle.lightingColor());
         case CSSPropertyStopColor:
-            return currentColorOrValidColor(style, svgStyle->stopColor());
+            return currentColorOrValidColor(style, svgStyle.stopColor());
         case CSSPropertyFill:
-            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle->fillPaintType(), svgStyle->fillPaintUri(), svgStyle->fillPaintColor()), style);
+            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle.fillPaintType(), svgStyle.fillPaintUri(), svgStyle.fillPaintColor()), style);
         case CSSPropertyKerning:
-            return SVGLength::toCSSPrimitiveValue(svgStyle->kerning());
+            return SVGLength::toCSSPrimitiveValue(svgStyle.kerning());
         case CSSPropertyMarkerEnd:
-            if (!svgStyle->markerEndResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->markerEndResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.markerEndResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.markerEndResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyMarkerMid:
-            if (!svgStyle->markerMidResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->markerMidResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.markerMidResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.markerMidResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyMarkerStart:
-            if (!svgStyle->markerStartResource().isEmpty())
-                return CSSPrimitiveValue::create(svgStyle->markerStartResource(), CSSPrimitiveValue::CSS_URI);
+            if (!svgStyle.markerStartResource().isEmpty())
+                return CSSPrimitiveValue::create(svgStyle.markerStartResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyStroke:
-            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle->strokePaintType(), svgStyle->strokePaintUri(), svgStyle->strokePaintColor()), style);
+            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle.strokePaintType(), svgStyle.strokePaintUri(), svgStyle.strokePaintColor()), style);
         case CSSPropertyStrokeDasharray:
-            return strokeDashArrayToCSSValueList(svgStyle->strokeDashArray());
+            return strokeDashArrayToCSSValueList(svgStyle.strokeDashArray());
         case CSSPropertyStrokeDashoffset:
-            return SVGLength::toCSSPrimitiveValue(svgStyle->strokeDashOffset());
+            return SVGLength::toCSSPrimitiveValue(svgStyle.strokeDashOffset());
         case CSSPropertyStrokeWidth:
-            return SVGLength::toCSSPrimitiveValue(svgStyle->strokeWidth());
+            return SVGLength::toCSSPrimitiveValue(svgStyle.strokeWidth());
         case CSSPropertyBaselineShift: {
-            switch (svgStyle->baselineShift()) {
+            switch (svgStyle.baselineShift()) {
                 case BS_BASELINE:
                     return CSSPrimitiveValue::createIdentifier(CSSValueBaseline);
                 case BS_SUPER:
@@ -172,30 +203,32 @@ PassRefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID prop
                 case BS_SUB:
                     return CSSPrimitiveValue::createIdentifier(CSSValueSub);
                 case BS_LENGTH:
-                    return SVGLength::toCSSPrimitiveValue(svgStyle->baselineShiftValue());
+                    return SVGLength::toCSSPrimitiveValue(svgStyle.baselineShiftValue());
             }
             ASSERT_NOT_REACHED();
             return 0;
         }
         case CSSPropertyBufferedRendering:
-            return CSSPrimitiveValue::create(svgStyle->bufferedRendering());
+            return CSSPrimitiveValue::create(svgStyle.bufferedRendering());
         case CSSPropertyGlyphOrientationHorizontal:
-            return glyphOrientationToCSSPrimitiveValue(svgStyle->glyphOrientationHorizontal());
+            return glyphOrientationToCSSPrimitiveValue(svgStyle.glyphOrientationHorizontal());
         case CSSPropertyGlyphOrientationVertical: {
-            if (RefPtr<CSSPrimitiveValue> value = glyphOrientationToCSSPrimitiveValue(svgStyle->glyphOrientationVertical()))
+            if (RefPtr<CSSPrimitiveValue> value = glyphOrientationToCSSPrimitiveValue(svgStyle.glyphOrientationVertical()))
                 return value.release();
 
-            if (svgStyle->glyphOrientationVertical() == GO_AUTO)
+            if (svgStyle.glyphOrientationVertical() == GO_AUTO)
                 return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
 
             return 0;
         }
         case CSSPropertyWebkitSvgShadow:
-            return valueForShadow(svgStyle->shadow(), propertyID, style);
+            return valueForShadow(svgStyle.shadow(), propertyID, style);
         case CSSPropertyVectorEffect:
-            return CSSPrimitiveValue::create(svgStyle->vectorEffect());
+            return CSSPrimitiveValue::create(svgStyle.vectorEffect());
         case CSSPropertyMaskType:
-            return CSSPrimitiveValue::create(svgStyle->maskType());
+            return CSSPrimitiveValue::create(svgStyle.maskType());
+        case CSSPropertyPaintOrder:
+            return paintOrder(svgStyle.paintOrder());
         case CSSPropertyMarker:
         case CSSPropertyEnableBackground:
         case CSSPropertyColorProfile:
@@ -211,7 +244,3 @@ PassRefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID prop
 }
 
 }
-
-#endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,7 +34,7 @@
 
 namespace WebCore {
 
-MediaControls::MediaControls(Document* document)
+MediaControls::MediaControls(Document& document)
     : HTMLDivElement(HTMLNames::divTag, document)
     , m_mediaController(0)
     , m_panel(0)
@@ -84,7 +84,7 @@ void MediaControls::setMediaController(MediaControllerInterface* controller)
 
 void MediaControls::reset()
 {
-    Page* page = document()->page();
+    Page* page = document().page();
     if (!page)
         return;
 
@@ -93,12 +93,12 @@ void MediaControls::reset()
     updateCurrentTimeDisplay();
 
     double duration = m_mediaController->duration();
-    if (std::isfinite(duration) || page->theme()->hasOwnDisabledStateHandlingFor(MediaSliderPart)) {
+    if (std::isfinite(duration) || page->theme().hasOwnDisabledStateHandlingFor(MediaSliderPart)) {
         m_timeline->setDuration(duration);
         m_timeline->setPosition(m_mediaController->currentTime());
     }
 
-    if (m_mediaController->hasAudio() || page->theme()->hasOwnDisabledStateHandlingFor(MediaMuteButtonPart))
+    if (m_mediaController->hasAudio() || page->theme().hasOwnDisabledStateHandlingFor(MediaMuteButtonPart))
         m_panelMuteButton->show();
     else
         m_panelMuteButton->hide();
@@ -108,7 +108,7 @@ void MediaControls::reset()
             m_volumeSlider->hide();
         else {
             m_volumeSlider->show();
-            m_volumeSlider->setVolume(m_mediaController->volume());
+            setSliderVolume();
         }
     }
 
@@ -126,19 +126,19 @@ void MediaControls::reset()
 
 void MediaControls::reportedError()
 {
-    Page* page = document()->page();
+    Page* page = document().page();
     if (!page)
         return;
 
-    if (!page->theme()->hasOwnDisabledStateHandlingFor(MediaMuteButtonPart)) {
+    if (!page->theme().hasOwnDisabledStateHandlingFor(MediaMuteButtonPart)) {
         m_panelMuteButton->hide();
         m_volumeSlider->hide();
     }
 
-    if (m_toggleClosedCaptionsButton && !page->theme()->hasOwnDisabledStateHandlingFor(MediaToggleClosedCaptionsButtonPart))
+    if (m_toggleClosedCaptionsButton && !page->theme().hasOwnDisabledStateHandlingFor(MediaToggleClosedCaptionsButtonPart))
         m_toggleClosedCaptionsButton->hide();
 
-    if (m_fullScreenButton && !page->theme()->hasOwnDisabledStateHandlingFor(MediaEnterFullscreenButtonPart))
+    if (m_fullScreenButton && !page->theme().hasOwnDisabledStateHandlingFor(MediaEnterFullscreenButtonPart))
         m_fullScreenButton->hide();
 }
 
@@ -216,11 +216,11 @@ void MediaControls::updateCurrentTimeDisplay()
 {
     double now = m_mediaController->currentTime();
 
-    Page* page = document()->page();
+    Page* page = document().page();
     if (!page)
         return;
 
-    m_currentTimeDisplay->setInnerText(page->theme()->formatMediaControlsTime(now), IGNORE_EXCEPTION);
+    m_currentTimeDisplay->setInnerText(page->theme().formatMediaControlsTime(now), IGNORE_EXCEPTION);
     m_currentTimeDisplay->setCurrentValue(now);
 }
 
@@ -240,7 +240,7 @@ void MediaControls::changedMute()
 void MediaControls::changedVolume()
 {
     if (m_volumeSlider)
-        m_volumeSlider->setVolume(m_mediaController->volume());
+        setSliderVolume();
     if (m_panelMuteButton && m_panelMuteButton->renderer())
         m_panelMuteButton->renderer()->repaint();
 }
@@ -272,10 +272,14 @@ void MediaControls::enteredFullscreen()
     m_isFullscreen = true;
     m_fullScreenButton->setIsFullscreen(true);
 
-    if (Page* page = document()->page())
+    if (Page* page = document().page())
         page->chrome().setCursorHiddenUntilMouseMoves(true);
 
     startHideFullscreenControlsTimer();
+#if ENABLE(VIDEO_TRACK)
+    if (m_textDisplayContainer)
+        m_textDisplayContainer->enteredFullscreen();
+#endif
 }
 
 void MediaControls::exitedFullscreen()
@@ -283,6 +287,10 @@ void MediaControls::exitedFullscreen()
     m_isFullscreen = false;
     m_fullScreenButton->setIsFullscreen(false);
     stopHideFullscreenControlsTimer();
+#if ENABLE(VIDEO_TRACK)
+    if (m_textDisplayContainer)
+        m_textDisplayContainer->exitedFullscreen();
+#endif
 }
 
 void MediaControls::defaultEventHandler(Event* event)
@@ -321,7 +329,7 @@ void MediaControls::defaultEventHandler(Event* event)
     }
 }
 
-void MediaControls::hideFullscreenControlsTimerFired(Timer<MediaControls>*)
+void MediaControls::hideFullscreenControlsTimerFired(Timer<MediaControls>&)
 {
     if (m_mediaController->paused())
         return;
@@ -332,7 +340,7 @@ void MediaControls::hideFullscreenControlsTimerFired(Timer<MediaControls>*)
     if (!shouldHideControls())
         return;
 
-    if (Page* page = document()->page())
+    if (Page* page = document().page())
         page->chrome().setCursorHiddenUntilMouseMoves(true);
 
     makeTransparent();
@@ -343,11 +351,11 @@ void MediaControls::startHideFullscreenControlsTimer()
     if (!m_isFullscreen)
         return;
 
-    Page* page = document()->page();
+    Page* page = document().page();
     if (!page)
         return;
 
-    m_hideFullscreenControlsTimer.startOneShot(page->settings()->timeWithoutMouseMovementBeforeHidingControls());
+    m_hideFullscreenControlsTimer.startOneShot(page->settings().timeWithoutMouseMovementBeforeHidingControls());
 }
 
 void MediaControls::stopHideFullscreenControlsTimer()
@@ -357,7 +365,7 @@ void MediaControls::stopHideFullscreenControlsTimer()
 
 const AtomicString& MediaControls::shadowPseudoId() const
 {
-    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls"));
+    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls"));
     return id;
 }
 
@@ -365,7 +373,7 @@ bool MediaControls::containsRelatedTarget(Event* event)
 {
     if (!event->isMouseEvent())
         return false;
-    EventTarget* relatedTarget = static_cast<MouseEvent*>(event)->relatedTarget();
+    EventTarget* relatedTarget = toMouseEvent(event)->relatedTarget();
     if (!relatedTarget)
         return false;
     return contains(relatedTarget->toNode());
@@ -384,7 +392,7 @@ void MediaControls::createTextTrackDisplay()
         m_textDisplayContainer->setMediaController(m_mediaController);
 
     // Insert it before the first controller element so it always displays behind the controls.
-    insertBefore(textDisplayContainer.release(), m_panel, IGNORE_EXCEPTION, AttachLazily);
+    insertBefore(textDisplayContainer.release(), m_panel, IGNORE_EXCEPTION);
 }
 
 void MediaControls::showTextTrackDisplay()
@@ -416,6 +424,11 @@ void MediaControls::textTrackPreferencesChanged()
         m_textDisplayContainer->updateSizes(true);
 }
 #endif
+
+void MediaControls::setSliderVolume()
+{
+    m_volumeSlider->setVolume(m_mediaController->muted() ? 0.0 : m_mediaController->volume());
+}
 
 }
 

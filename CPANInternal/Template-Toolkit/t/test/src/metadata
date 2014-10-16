@@ -1,6 +1,0 @@
-[% META 
-   title = 'The cat sat on the mat'
-   author = 'Andy Wardley'
--%]
-TITLE: [% template.title %]
-[% template.name %] last modified [% template.modtime %]

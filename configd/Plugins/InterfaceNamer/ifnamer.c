@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -266,14 +266,14 @@ if_unit_compare(const void *val1, const void *val2, void *context)
 static void
 reportIssue(const char *signature, CFStringRef issue)
 {
-    aslmsg  m;
+    asl_object_t  m;
 
     m = asl_new(ASL_TYPE_MSG);
     asl_set(m, "com.apple.message.domain", "com.apple.SystemConfiguration." MY_PLUGIN_NAME);
     asl_set(m, "com.apple.message.signature", signature);
     asl_set(m, "com.apple.message.result", "failure");
     SCLOG(NULL, m, ~ASL_LEVEL_ERR, CFSTR("%s\n%@"), signature, issue);
-    asl_free(m);
+    asl_release(m);
 
     return;
 }
@@ -304,7 +304,7 @@ writeInterfaceList(CFArrayRef if_list)
     }
 
     old_model = SCPreferencesGetValue(prefs, MODEL);
-    new_model = _SC_hw_model();
+    new_model = _SC_hw_model(FALSE);
     if ((new_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
 	// if new hardware
 	if ((old_model != NULL) && (cur_list != NULL)) {
@@ -385,7 +385,7 @@ readInterfaceList()
     if (old_model != NULL) {
 	CFStringRef new_model;
 
-	new_model = _SC_hw_model();
+	new_model = _SC_hw_model(FALSE);
 	if (!_SC_CFEqual(old_model, new_model)) {
 	    // if interface list was created on other hardware
 	    if_list = NULL;
@@ -589,14 +589,17 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 
 #if	!TARGET_OS_EMBEDDED
 
-#define	BT_PAN_NAME "Bluetooth PAN"
+#define	BT_PAN_NAME	"Bluetooth PAN"
+#define	BT_PAN_MAC	BT_PAN_NAME " (MAC)"
 
 static void
 updateBTPANInformation(const void *value, void *context)
-{   CFDictionaryRef dict    = (CFDictionaryRef)value;
-    CFStringRef	    if_name;
-    CFDictionaryRef info;
-    CFStringRef	    name;
+{
+    CFDataRef		addr;
+    CFDictionaryRef	dict    = (CFDictionaryRef)value;
+    CFStringRef		if_name;
+    CFDictionaryRef	info;
+    CFStringRef		name;
 
     if_name = CFDictionaryGetValue(dict, CFSTR(kIOBSDNameKey));
     if (!isA_CFString(if_name)) {
@@ -617,6 +620,12 @@ updateBTPANInformation(const void *value, void *context)
     }
 
     CFDictionaryAddValue(S_state, CFSTR("_" BT_PAN_NAME "_"), if_name);
+
+    addr = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
+    if (isA_CFData(addr)) {
+	CFDictionaryAddValue(S_state, CFSTR("_" BT_PAN_MAC "_"), addr);
+    }
+
     return;
 }
 #endif	// !TARGET_OS_EMBEDDED
@@ -1750,7 +1759,7 @@ updateNetworkConfiguration(CFArrayRef if_list)
     SCPreferencesRef	prefs		= NULL;
     SCNetworkSetRef	set		= NULL;
 
-    prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
+    prefs = SCPreferencesCreate(NULL, CFSTR("InterfaceNamer:updateNetworkConfiguration"), NULL);
 
     set = SCNetworkSetCopyCurrent(prefs);
     if (set == NULL) {
@@ -1765,7 +1774,7 @@ updateNetworkConfiguration(CFArrayRef if_list)
 	interface = CFArrayGetValueAtIndex(if_list, i);
 	if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
 	    SCLog(TRUE, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": adding default configuration for %s"),
+		  CFSTR(MY_PLUGIN_NAME ": adding default configuration for %@"),
 		  SCNetworkInterfaceGetBSDName(interface));
 	    do_commit = TRUE;
 	}

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: getconf (AT&T Research) 2008-04-24 $\n]"
+"[-?\n@(#)$Id: getconf (AT&T Research) 2012-06-25 $\n]"
 USAGE_LICENSE
 "[+NAME?getconf - get configuration values]"
 "[+DESCRIPTION?\bgetconf\b displays the system configuration value for"
@@ -104,15 +104,18 @@ USAGE_LICENSE
 "\n[ name [ path [ value ] ] ... ]\n"
 "\n"
 
-"[+ENVIRONMENT]{"
-"	[+_AST_FEATURES?Process local writable values that are different from"
-"		the default are stored in the \b_AST_FEATURES\b environment"
-"		variable. The \b_AST_FEATURES\b value is a space-separated"
-"		list of \aname\a \apath\a \avalue\a 3-tuples, where"
-"		\aname\a is the system configuration name, \apath\a is the"
-"		corresponding path, \b-\b if no path is applicable, and"
-"		\avalue\a is the system configuration value.]"
-"}"
+"[+ENVIRONMENT]"
+    "{"
+        "[+_AST_FEATURES?Process local writable values that are "
+            "different from the default are stored in the \b_AST_FEATURES\b "
+            "environment variable. The \b_AST_FEATURES\b value is a "
+            "space-separated list of \aname\a \apath\a \avalue\a 3-tuples, "
+            "where \aname\a is the system configuration name, \apath\a is "
+            "the corresponding path, \b-\b if no path is applicable, and "
+            "\avalue\a is the system configuration value. \b_AST_FEATURES\b "
+            "is an implementation detail of process inheritance; it may "
+            "change or vanish in the future; don't rely on it.]"
+    "}"
 "[+SEE ALSO?\bpathchk\b(1), \bconfstr\b(2), \bpathconf\b(2),"
 "	\bsysconf\b(2), \bastgetconf\b(3)]"
 ;
@@ -128,7 +131,7 @@ typedef struct Path_s
 } Path_t;
 
 int
-b_getconf(int argc, char** argv, void* context)
+b_getconf(int argc, char** argv, Shbltin_t* context)
 {
 	register char*		name;
 	register char*		path;
@@ -239,7 +242,8 @@ b_getconf(int argc, char** argv, void* context)
 		astconflist(sfstdout, path, flags, pattern);
 	else
 	{
-		flags = native ? (ASTCONF_system|ASTCONF_error) : 0;
+		if (native)
+			flags |= (ASTCONF_system|ASTCONF_error);
 		do
 		{
 			if (!(path = *++argv))
@@ -261,7 +265,12 @@ b_getconf(int argc, char** argv, void* context)
 			if (error_info.errors)
 				break;
 			if (!s)
-				goto defer;
+			{
+				if (native)
+					goto defer;
+				error(2, "%s: unknown name", name);
+				break;
+			}
 			if (!value)
 			{
 				if (flags & ASTCONF_write)

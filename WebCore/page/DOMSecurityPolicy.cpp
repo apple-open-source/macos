@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY GOOGLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,7 +30,6 @@
 #include "ContextDestructionObserver.h"
 #include "DOMStringList.h"
 #include "Frame.h"
-#include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
 #include <wtf/text/TextPosition.h>
 #include <wtf/text/WTFString.h>
@@ -48,22 +47,22 @@ bool isPolicyActiveInContext(ScriptExecutionContext* context)
     return context->contentSecurityPolicy()->isActive();
 }
 
-template<bool (ContentSecurityPolicy::*allowWithType)(const String&, const String&, const KURL&, ContentSecurityPolicy::ReportingStatus) const>
+template<bool (ContentSecurityPolicy::*allowWithType)(const String&, const String&, const URL&, ContentSecurityPolicy::ReportingStatus) const>
 bool isAllowedWithType(ScriptExecutionContext* context, const String& type)
 {
     if (!isPolicyActiveInContext(context))
         return true;
 
-    return (context->contentSecurityPolicy()->*allowWithType)(type, type, KURL(), ContentSecurityPolicy::SuppressReport);
+    return (context->contentSecurityPolicy()->*allowWithType)(type, type, URL(), ContentSecurityPolicy::SuppressReport);
 }
 
-template<bool (ContentSecurityPolicy::*allowWithURL)(const KURL&, ContentSecurityPolicy::ReportingStatus) const>
+template<bool (ContentSecurityPolicy::*allowWithURL)(const URL&, ContentSecurityPolicy::ReportingStatus) const>
 bool isAllowedWithURL(ScriptExecutionContext* context, const String& url)
 {
     if (!isPolicyActiveInContext(context))
         return true;
 
-    KURL parsedURL = context->completeURL(url);
+    URL parsedURL = context->completeURL(url);
     if (!parsedURL.isValid())
         return false; // FIXME: Figure out how to throw a JavaScript error.
 

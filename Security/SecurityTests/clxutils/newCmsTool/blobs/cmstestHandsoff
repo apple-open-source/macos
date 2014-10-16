@@ -1,0 +1,77 @@
+#! /bin/csh -f
+#
+# Run cmstest, handsoff, any user, any environment. 
+# This uses a keychain we have right here for this purpose. It's insecure - we 
+# know its passphrase and use it here in the clear to unlock - and its private
+# keys have wide-open ACLs to avoid UI. We use the root used to generate the 
+# certs in that keychain in the -A option to newCmsTool. 
+#
+# We copy the test's keychain to ${BUILD_DIR}/cmsKeychain just to keep the UI spew to 
+# a minimum. 
+#
+
+#
+# safely look for this required env var
+#
+setenv | /usr/bin/grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+        echo Please set env var LOCAL_BUILD_DIR.
+        exit(1)
+endif
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+set TESTDIR=`pwd`
+set CMS_KEYCHAIN_SRC=cmsKeychain
+set CMS_KEYCHAIN_DST=${BUILD_DIR}/cmsKeychain
+set CMS_KEYCHAIN_PASSWORD=cmsKeychain
+set CMS_KEYCHAIN_ROOT=cmsRoot.cer
+set USER1=user1@debug.apple.com
+set USER2=user2@debug.apple.com
+set QUIET=
+set OUR_QUIET=NO
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case -q:
+            set QUIET="-q"
+			set OUR_QUIET=YES
+            shift
+            breaksw
+        default:
+            echo "Usage: cmstestHandsoff [-q(uiet)]"
+            exit(1)
+    endsw
+end
+
+echo Starting cmstestHandsoff
+
+set cmd="cp $CMS_KEYCHAIN_SRC $CMS_KEYCHAIN_DST"
+if($OUR_QUIET == NO) then
+	echo $cmd
+endif
+# ignore errors here...we'll soon fail if this does
+$cmd
+
+set cmd="/usr/bin/security unlock -p $CMS_KEYCHAIN_PASSWORD $CMS_KEYCHAIN_DST"
+if($OUR_QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="./cmstest -s $USER1 -S $USER2 -k $CMS_KEYCHAIN_DST -a $CMS_KEYCHAIN_ROOT $QUIET"
+if($OUR_QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# and try to be nice
+set cmd="rm $CMS_KEYCHAIN_DST"
+if($OUR_QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if($OUR_QUIET == NO) then
+	echo === cmstestHandsoff Succeeded ===
+endif
+

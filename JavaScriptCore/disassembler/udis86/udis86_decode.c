@@ -459,6 +459,8 @@ decode_modrm_rm(struct ud         *u,
   rm  = (REX_B(u->pfx_rex) << 3) | MODRM_RM(modrm(u));
   reg = (REX_R(u->pfx_rex) << 3) | MODRM_REG(modrm(u));
 
+  UNUSED_PARAM(reg);
+  
   op->size = resolve_operand_size(u, size);
 
   /* 
@@ -649,7 +651,6 @@ decode_operand(struct ud           *u,
       /* intended fall through */
     case OP_E:
       decode_modrm_rm(u, operand, T_GPR, size);
-      break;
       break;
     case OP_G:
       decode_modrm_reg(u, operand, T_GPR, size);

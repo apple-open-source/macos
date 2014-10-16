@@ -30,8 +30,9 @@
 #include <glib.h>
 
 #include <wtf/Forward.h>
+#include <wtf/gobject/GMainLoopSource.h>
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
+#if USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
 #include "TextureMapperPlatformLayer.h"
 #endif
 
@@ -43,20 +44,18 @@ typedef struct _WebKitVideoSink WebKitVideoSink;
 
 namespace WebCore {
 
-class FullscreenVideoControllerGStreamer;
 class GraphicsContext;
 class IntSize;
 class IntRect;
-class GStreamerGWorld;
 
 class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
+#if USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
     , public TextureMapperPlatformLayer
 #endif
 {
 
 public:
-    ~MediaPlayerPrivateGStreamerBase();
+    virtual ~MediaPlayerPrivateGStreamerBase();
 
     IntSize naturalSize() const;
 
@@ -84,12 +83,6 @@ public:
     virtual bool hasSingleSecurityOrigin() const { return true; }
     virtual float maxTimeLoaded() const { return 0.0; }
 
-#if USE(NATIVE_FULLSCREEN_VIDEO)
-    void enterFullscreen();
-    void exitFullscreen();
-    bool canEnterFullscreen() const { return true; }
-#endif
-
     bool supportsFullscreen() const;
     PlatformMedia platformMedia() const;
 
@@ -103,7 +96,7 @@ public:
     unsigned audioDecodedByteCount() const;
     unsigned videoDecodedByteCount() const;
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
+#if USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
     virtual PlatformLayer* platformLayer() const { return const_cast<MediaPlayerPrivateGStreamerBase*>(this); }
     virtual bool supportsAcceleratedRendering() const { return true; }
     virtual void paintToTextureMapper(TextureMapper*, const FloatRect&, const TransformationMatrix&, float);
@@ -111,34 +104,30 @@ public:
 
 protected:
     MediaPlayerPrivateGStreamerBase(MediaPlayer*);
-    GstElement* createVideoSink(GstElement* pipeline);
+    virtual GstElement* createVideoSink();
+    GRefPtr<GstCaps> currentVideoSinkCaps() const;
+
     void setStreamVolumeElement(GstStreamVolume*);
+    virtual GstElement* createAudioSink() { return 0; }
     virtual GstElement* audioSink() const { return 0; }
 
     MediaPlayer* m_player;
     GRefPtr<GstStreamVolume> m_volumeElement;
     GRefPtr<GstElement> m_webkitVideoSink;
-    GRefPtr<GstElement> m_videoSinkBin;
-    GstElement* m_fpsSink;
+    GRefPtr<GstElement> m_fpsSink;
     MediaPlayer::ReadyState m_readyState;
     MediaPlayer::NetworkState m_networkState;
     IntSize m_size;
     GMutex* m_bufferMutex;
     GstBuffer* m_buffer;
-#if USE(NATIVE_FULLSCREEN_VIDEO)
-    RefPtr<GStreamerGWorld> m_gstGWorld;
-    OwnPtr<FullscreenVideoControllerGStreamer> m_fullscreenVideoController;
-#endif
-    unsigned long m_volumeTimerHandler;
-    unsigned long m_muteTimerHandler;
+    GMainLoopSource m_volumeTimerHandler;
+    GMainLoopSource m_muteTimerHandler;
     unsigned long m_repaintHandler;
     unsigned long m_volumeSignalHandler;
     unsigned long m_muteSignalHandler;
-    GRefPtr<GstPad> m_videoSinkPad;
     mutable IntSize m_videoSize;
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
-    void updateTexture(GstBuffer*);
-    RefPtr<BitmapTexture> m_texture;
+#if USE(TEXTURE_MAPPER_GL) && !USE(COORDINATED_GRAPHICS)
+    PassRefPtr<BitmapTexture> updateTexture(TextureMapper*);
 #endif
 };
 }

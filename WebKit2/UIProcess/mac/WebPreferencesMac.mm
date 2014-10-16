@@ -27,29 +27,102 @@
 #import "WebPreferences.h"
 
 #import "StringUtilities.h"
+#import "WebPreferencesKeys.h"
 #import <wtf/text/StringConcatenate.h>
 
 namespace WebKit {
 
-static inline NSString* makeKey(const String& identifier, const String& baseKey)
+static inline NSString* makeKey(NSString *identifier, NSString *keyPrefix, NSString *key)
 {
-    return nsStringFromWebCoreString(makeString(identifier, ".WebKit2", baseKey));
+    ASSERT(identifier.length);
+    ASSERT(keyPrefix);
+    ASSERT(key);
+
+    return [NSString stringWithFormat:@"%@%@%@", identifier, keyPrefix, key];
 }
 
-static void setStringValueIfInUserDefaults(const String& identifier, const String& key, WebPreferencesStore& store)
+bool WebPreferences::platformGetStringUserValueForKey(const String& key, String& userValue)
 {
-    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(identifier, key)];
+    if (!m_identifier)
+        return false;
+
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(m_identifier, m_keyPrefix, key)];
     if (!object)
-        return;
+        return false;
     if (![object isKindOfClass:[NSString class]])
-        return;
+        return false;
 
-    store.setStringValueForKey(key, (NSString *)object);
+    userValue = (NSString *)object;
+    return true;
 }
 
-static void setBoolValueIfInUserDefaults(const String& identifier, const String& key, WebPreferencesStore& store)
+bool WebPreferences::platformGetBoolUserValueForKey(const String& key, bool& userValue)
 {
-    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(identifier, key)];
+    if (!m_identifier)
+        return false;
+
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(m_identifier, m_keyPrefix, key)];
+    if (!object)
+        return false;
+    if (![object respondsToSelector:@selector(boolValue)])
+        return false;
+
+    userValue = [object boolValue];
+    return true;
+}
+
+bool WebPreferences::platformGetUInt32UserValueForKey(const String& key, uint32_t& userValue)
+{
+    if (!m_identifier)
+        return false;
+
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(m_identifier, m_keyPrefix, key)];
+    if (!object)
+        return false;
+    if (![object respondsToSelector:@selector(intValue)])
+        return false;
+
+    userValue = [object intValue];
+    return true;
+}
+
+bool WebPreferences::platformGetDoubleUserValueForKey(const String& key, double& userValue)
+{
+    if (!m_identifier)
+        return false;
+
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(m_identifier, m_keyPrefix, key)];
+    if (!object)
+        return false;
+    if (![object respondsToSelector:@selector(doubleValue)])
+        return false;
+
+    userValue = [object doubleValue];
+    return true;
+}
+
+static id debugUserDefaultsValue(NSString *identifier, NSString *keyPrefix, NSString *globalDebugKeyPrefix, NSString *key)
+{
+    ASSERT(keyPrefix);
+    ASSERT(key);
+
+    NSUserDefaults *standardUserDefaults = [NSUserDefaults standardUserDefaults];
+    id object = nil;
+
+    if (identifier.length)
+        object = [standardUserDefaults objectForKey:[NSString stringWithFormat:@"%@%@%@", identifier, keyPrefix, key]];
+
+    if (!object) {
+        // Allow debug preferences to be set globally, using the debug key prefix.
+        object = [standardUserDefaults objectForKey:[globalDebugKeyPrefix stringByAppendingString:key]];
+    }
+
+    return object;
+}
+
+static void setDebugBoolValueIfInUserDefaults(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix, const String& key, WebPreferencesStore& store)
+{
+    id object = debugUserDefaultsValue(identifier, keyPrefix, globalDebugKeyPrefix, key);
     if (!object)
         return;
     if (![object respondsToSelector:@selector(boolValue)])
@@ -58,35 +131,22 @@ static void setBoolValueIfInUserDefaults(const String& identifier, const String&
     store.setBoolValueForKey(key, [object boolValue]);
 }
 
-static void setUInt32ValueIfInUserDefaults(const String& identifier, const String& key, WebPreferencesStore& store)
-{
-    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(identifier, key)];
-    if (!object)
-        return;
-    if (![object respondsToSelector:@selector(intValue)])
-        return;
-
-    store.setUInt32ValueForKey(key, [object intValue]);
-}
-
-static void setDoubleValueIfInUserDefaults(const String& identifier, const String& key, WebPreferencesStore& store)
-{
-    id object = [[NSUserDefaults standardUserDefaults] objectForKey:makeKey(identifier, key)];
-    if (!object)
-        return;
-    if (![object respondsToSelector:@selector(doubleValue)])
-        return;
-
-    store.setDoubleValueForKey(key, [object doubleValue]);
-}
-
 void WebPreferences::platformInitializeStore()
 {
+#define INITIALIZE_DEBUG_PREFERENCE_FROM_NSUSERDEFAULTS(KeyUpper, KeyLower, TypeName, Type, DefaultValue) \
+    setDebug##TypeName##ValueIfInUserDefaults(m_identifier, m_keyPrefix, m_globalDebugKeyPrefix, WebPreferencesKey::KeyLower##Key(), m_store);
+
+    FOR_EACH_WEBKIT_DEBUG_PREFERENCE(INITIALIZE_DEBUG_PREFERENCE_FROM_NSUSERDEFAULTS)
+
+#undef INITIALIZE_DEBUG_PREFERENCE_FROM_NSUSERDEFAULTS
+
     if (!m_identifier)
         return;
 
 #define INITIALIZE_PREFERENCE_FROM_NSUSERDEFAULTS(KeyUpper, KeyLower, TypeName, Type, DefaultValue) \
-    set##TypeName##ValueIfInUserDefaults(m_identifier, WebPreferencesKey::KeyLower##Key(), m_store);
+    Type user##KeyUpper##Value; \
+    if (platformGet##TypeName##UserValueForKey(WebPreferencesKey::KeyLower##Key(), user##KeyUpper##Value)) \
+        m_store.set##TypeName##ValueForKey(WebPreferencesKey::KeyLower##Key(), user##KeyUpper##Value);
 
     FOR_EACH_WEBKIT_PREFERENCE(INITIALIZE_PREFERENCE_FROM_NSUSERDEFAULTS)
 
@@ -98,7 +158,7 @@ void WebPreferences::platformUpdateStringValueForKey(const String& key, const St
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setObject:nsStringFromWebCoreString(value) forKey:makeKey(m_identifier, key)];
+    [[NSUserDefaults standardUserDefaults] setObject:nsStringFromWebCoreString(value) forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 void WebPreferences::platformUpdateBoolValueForKey(const String& key, bool value)
@@ -106,7 +166,7 @@ void WebPreferences::platformUpdateBoolValueForKey(const String& key, bool value
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setBool:value forKey:makeKey(m_identifier, key)];
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 void WebPreferences::platformUpdateUInt32ValueForKey(const String& key, uint32_t value)
@@ -114,7 +174,7 @@ void WebPreferences::platformUpdateUInt32ValueForKey(const String& key, uint32_t
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setInteger:value forKey:makeKey(m_identifier, key)];
+    [[NSUserDefaults standardUserDefaults] setInteger:value forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 void WebPreferences::platformUpdateDoubleValueForKey(const String& key, double value)
@@ -122,7 +182,7 @@ void WebPreferences::platformUpdateDoubleValueForKey(const String& key, double v
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setDouble:value forKey:makeKey(m_identifier, key)];
+    [[NSUserDefaults standardUserDefaults] setDouble:value forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 void WebPreferences::platformUpdateFloatValueForKey(const String& key, float value)
@@ -130,7 +190,7 @@ void WebPreferences::platformUpdateFloatValueForKey(const String& key, float val
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setFloat:value forKey:makeKey(m_identifier, key)];
+    [[NSUserDefaults standardUserDefaults] setFloat:value forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 } // namespace WebKit

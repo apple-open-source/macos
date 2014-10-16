@@ -1,7 +1,7 @@
 /* db_berkeley.c--SASL berkeley db interface
  * Rob Siemborski
  * Tim Martin
- * $Id: db_berkeley.c,v 1.5 2005/01/10 19:01:34 snsimon Exp $
+ * $Id: db_berkeley.c,v 1.11 2011/09/12 08:50:47 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -50,9 +50,15 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <errno.h>
 #include "sasldb.h"
 
+#define DB_VERSION_FULL ((DB_VERSION_MAJOR << 24) | (DB_VERSION_MINOR << 16) | DB_VERSION_PATCH)
+
 static int db_ok = 0;
+#if defined(KEEP_DB_OPEN)
+static DB * g_db = NULL;
+#endif
 
 /*
  * Open the database
@@ -67,8 +73,15 @@ static int berkeleydb_open(const sasl_utils_t *utils,
     void *cntxt;
     sasl_getopt_t *getopt;
 
+#if defined(KEEP_DB_OPEN)
+    if (g_db) {
+	*mbdb = g_db;
+	return SASL_OK;
+    }
+#endif
+
     if (utils->getcallback(conn, SASL_CB_GETOPT,
-			  &getopt, &cntxt) == SASL_OK) {
+			   (sasl_callback_ft *)&getopt, &cntxt) == SASL_OK) {
 	const char *p;
 	if (getopt(cntxt, NULL, "sasldb_path", &p, NULL) == SASL_OK 
 	    && p != NULL && *p != 0) {
@@ -78,14 +91,19 @@ static int berkeleydb_open(const sasl_utils_t *utils,
 
     if (rdwr) flags = DB_CREATE;
     else flags = DB_RDONLY;
+#if defined(KEEP_DB_OPEN)
+#if defined(DB_THREAD)
+    flags |= DB_THREAD;
+#endif
+#endif
 
-#if DB_VERSION_MAJOR < 3
+#if DB_VERSION_FULL < 0x03000000
     ret = db_open(path, DB_HASH, flags, 0660, NULL, NULL, mbdb);
-#else /* DB_VERSION_MAJOR < 3 */
+#else /* DB_VERSION_FULL < 0x03000000 */
     ret = db_create(mbdb, NULL, 0);
     if (ret == 0 && *mbdb != NULL)
     {
-#if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1
+#if DB_VERSION_FULL >= 0x04010000 
 	ret = (*mbdb)->open(*mbdb, NULL, path, NULL, DB_HASH, flags, 0660);
 #else
 	ret = (*mbdb)->open(*mbdb, path, NULL, DB_HASH, flags, 0660);
@@ -96,9 +114,14 @@ static int berkeleydb_open(const sasl_utils_t *utils,
 	    *mbdb = NULL;
 	}
     }
-#endif /* DB_VERSION_MAJOR < 3 */
+#endif /* DB_VERSION_FULL < 0x03000000 */
 
     if (ret != 0) {
+	if (rdwr == 0 && ret == ENOENT) {
+	    /* File not found and we are only reading the data.
+	       Treat as SASL_NOUSER. */
+	    return SASL_NOUSER;
+	}
 	utils->log(conn, SASL_LOG_ERR,
 		   "unable to open Berkeley db %s: %s",
 		   path, db_strerror(ret));
@@ -106,6 +129,10 @@ static int berkeleydb_open(const sasl_utils_t *utils,
 	return SASL_FAIL;
     }
 
+#if defined(KEEP_DB_OPEN)
+    /* Save the DB handle for later use */
+    g_db = *mbdb;
+#endif
     return SASL_OK;
 }
 
@@ -115,7 +142,13 @@ static int berkeleydb_open(const sasl_utils_t *utils,
 static void berkeleydb_close(const sasl_utils_t *utils, DB *mbdb)
 {
     int ret;
-    
+
+#if defined(KEEP_DB_OPEN)
+    /* Prevent other threads from reusing the same handle */
+    /* msdb == g_db */    
+    g_db = NULL;
+#endif
+
     ret = mbdb->close(mbdb, 0);
     if (ret!=0) {
 	/* error closing! */
@@ -129,7 +162,8 @@ static void berkeleydb_close(const sasl_utils_t *utils, DB *mbdb)
 /*
  * Retrieve the secret from the database. 
  * 
- * Return SASL_NOUSER if entry doesn't exist
+ * Return SASL_NOUSER if the entry doesn't exist,
+ * SASL_OK on success.
  *
  */
 int _sasldb_getdata(const sasl_utils_t *utils,
@@ -169,15 +203,19 @@ int _sasldb_getdata(const sasl_utils_t *utils,
       return result;
   }
 
+  /* zero out */
+  memset(&dbkey, 0, sizeof(dbkey));
+  memset(&data, 0, sizeof(data));
+
   /* open the db */
   result = berkeleydb_open(utils, context, 0, &mbdb);
   if (result != SASL_OK) goto cleanup;
 
-  /* zero out and create the key to search for */
-  memset(&dbkey, 0, sizeof(dbkey));
-  memset(&data, 0, sizeof(data));
+  /* create the key to search for */
   dbkey.data = key;
-  dbkey.size = key_len;
+  dbkey.size = (u_int32_t) key_len;
+  dbkey.flags = DB_DBT_USERMEM;
+  data.flags = DB_DBT_MALLOC;
 
   /* ask berkeley db for the entry */
   result = mbdb->get(mbdb, NULL, &dbkey, &data, 0);
@@ -212,8 +250,12 @@ int _sasldb_getdata(const sasl_utils_t *utils,
   
  cleanup:
 
+#if !defined(KEEP_DB_OPEN)
   if (mbdb != NULL) berkeleydb_close(utils, mbdb);
+#endif
+
   utils->free(key);
+  utils->free(data.data);
 
   return result;
 }
@@ -266,7 +308,7 @@ int _sasldb_putdata(const sasl_utils_t *utils,
   /* create the db key */
   memset(&dbkey, 0, sizeof(dbkey));
   dbkey.data = key;
-  dbkey.size = key_len;
+  dbkey.size = (u_int32_t) key_len;
 
   if (data_in) {   /* putting secret */
     DBT data;
@@ -275,7 +317,7 @@ int _sasldb_putdata(const sasl_utils_t *utils,
 
     data.data = (char *)data_in;
     if(!data_len) data_len = strlen(data_in);
-    data.size = data_len;
+    data.size = (u_int32_t) data_len;
 
     result = mbdb->put(mbdb, NULL, &dbkey, &data, 0);
 
@@ -307,7 +349,9 @@ int _sasldb_putdata(const sasl_utils_t *utils,
 
  cleanup:
 
+#if !defined(KEEP_DB_OPEN)
   if (mbdb != NULL) berkeleydb_close(utils, mbdb);
+#endif
 
   utils->free(key);
 
@@ -323,10 +367,10 @@ int _sasl_check_db(const sasl_utils_t *utils,
     sasl_getopt_t *getopt;
     sasl_verifyfile_t *vf;
 
-    if(!utils) return SASL_BADPARAM;
+    if (!utils) return SASL_BADPARAM;
 
     if (utils->getcallback(conn, SASL_CB_GETOPT,
-			  &getopt, &cntxt) == SASL_OK) {
+			   (sasl_callback_ft *)&getopt, &cntxt) == SASL_OK) {
 	const char *p;
 	if (getopt(cntxt, NULL, "sasldb_path", &p, NULL) == SASL_OK 
 	    && p != NULL && *p != 0) {
@@ -335,8 +379,8 @@ int _sasl_check_db(const sasl_utils_t *utils,
     }
 
     ret = utils->getcallback(conn, SASL_CB_VERIFYFILE,
-			     &vf, &cntxt);
-    if(ret != SASL_OK) {
+			     (sasl_callback_ft *)&vf, &cntxt);
+    if (ret != SASL_OK) {
 	utils->seterror(conn, 0, "verifyfile failed");
 	return ret;
     }
@@ -348,11 +392,19 @@ int _sasl_check_db(const sasl_utils_t *utils,
     }
 
     if (ret == SASL_OK || ret == SASL_CONTINUE) {
-	return SASL_OK;
+        return SASL_OK;
     } else {
 	return ret;
     }
 }
+
+#if defined(KEEP_DB_OPEN)
+void sasldb_auxprop_free (void *glob_context,
+                          const sasl_utils_t *utils)
+{
+    if (g_db != NULL) berkeleydb_close(utils, g_db);
+}
+#endif
 
 typedef struct berkeleydb_handle 
 {
@@ -382,7 +434,9 @@ sasldb_handle _sasldb_getkeyhandle(const sasl_utils_t *utils,
 
     handle = utils->malloc(sizeof(berkleyhandle_t));
     if(!handle) {
+#if !defined(KEEP_DB_OPEN)
 	(void)mbdb->close(mbdb, 0);
+#endif
 	utils->seterror(conn, 0, "Memory error in _sasldb_gethandle");
 	return NULL;
     }
@@ -412,15 +466,11 @@ int _sasldb_getnextkey(const sasl_utils_t *utils __attribute__((unused)),
 
     if(!dbh->cursor) {
         /* make cursor */
-#if DB_VERSION_MAJOR < 3
-#if DB_VERSION_MINOR < 6
+#if DB_VERSION_FULL < 0x03060000
 	result = mbdb->cursor(mbdb, NULL,&dbh->cursor); 
 #else
 	result = mbdb->cursor(mbdb, NULL,&dbh->cursor, 0); 
-#endif /* DB_VERSION_MINOR < 7 */
-#else /* DB_VERSION_MAJOR < 3 */
-	result = mbdb->cursor(mbdb, NULL,&dbh->cursor, 0); 
-#endif /* DB_VERSION_MAJOR < 3 */
+#endif /* DB_VERSION_FULL < 0x03000000 */
 
 	if (result!=0) {
 	    return SASL_FAIL;
@@ -434,19 +484,22 @@ int _sasldb_getnextkey(const sasl_utils_t *utils __attribute__((unused)),
 				    DB_NEXT);
     }
 
-    if(result == DB_NOTFOUND) return SASL_OK;
+    if (result == DB_NOTFOUND) return SASL_OK;
 
-    if(result != 0)
+    if (result != 0) {
 	return SASL_FAIL;
+    }
     
-    if(key.size > max_out)
+    if (key.size > max_out) {
 	return SASL_BUFOVER;
+    }
     
     memcpy(out, key.data, key.size);
-    if(out_len) *out_len = key.size;
-    
+    if (out_len) *out_len = key.size;
+
     return SASL_CONTINUE;
 }
+
 
 int _sasldb_releasekeyhandle(const sasl_utils_t *utils,
 			     sasldb_handle handle) 
@@ -454,18 +507,26 @@ int _sasldb_releasekeyhandle(const sasl_utils_t *utils,
     berkleyhandle_t *dbh = (berkleyhandle_t *)handle;
     int ret = 0;
     
-    if(!utils || !dbh) return SASL_BADPARAM;
+    if (!utils || !dbh) return SASL_BADPARAM;
 
-    if(dbh->cursor)
+    if (dbh->cursor) {
 	dbh->cursor->c_close(dbh->cursor);
+    }
 
-    if(dbh->mbdb)
-	ret = dbh->mbdb->close(dbh->mbdb, 0);
+#if !defined(KEEP_DB_OPEN)
+    /* This is almost the same berkeleydb_close(), except that
+       berkeleydb_close logs a message on error and does not return
+       any error */
+    if (dbh->mbdb) {
+	  ret = dbh->mbdb->close(dbh->mbdb, 0);
+    }
+#endif
     
     utils->free(dbh);
     
-    if(ret)
+    if (ret) {
 	return SASL_FAIL;
-    else
+    } else {
 	return SASL_OK;
+    }
 }

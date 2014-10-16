@@ -28,10 +28,9 @@
 
 #include "Attribute.h"
 #include "HTMLToken.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -114,7 +113,7 @@ public:
         m_type = EndOfFile;
     }
 
-    /* Range and offset methods exposed for HTMLSourceTracker and HTMLViewSourceParser */
+    /* Range and offset methods exposed for HTMLSourceTracker */
     int startIndex() const { return m_range.start; }
     int endIndex() const { return m_range.end; }
 
@@ -171,7 +170,7 @@ public:
     {
         ASSERT(m_type == Uninitialized);
         m_type = DOCTYPE;
-        m_doctypeData = adoptPtr(new DoctypeData);
+        m_doctypeData = std::make_unique<DoctypeData>();
     }
 
     void beginDOCTYPE(UChar character)
@@ -226,9 +225,9 @@ public:
         m_doctypeData->m_systemIdentifier.append(character);
     }
 
-    PassOwnPtr<DoctypeData> releaseDoctypeData()
+    std::unique_ptr<DoctypeData> releaseDoctypeData()
     {
-        return m_doctypeData.release();
+        return WTF::move(m_doctypeData);
     }
 
     /* Start/End Tag Tokens */
@@ -337,7 +336,7 @@ public:
         m_currentAttribute->value.append(character);
     }
 
-    void appendToAttributeValue(size_t i, const String& value)
+    void appendToAttributeValue(size_t i, StringView value)
     {
         ASSERT(!value.isEmpty());
         ASSERT(m_type == StartTag || m_type == EndTag);
@@ -445,7 +444,7 @@ private:
     Attribute* m_currentAttribute;
 
     // For DOCTYPE
-    OwnPtr<DoctypeData> m_doctypeData;
+    std::unique_ptr<DoctypeData> m_doctypeData;
 };
 
 }

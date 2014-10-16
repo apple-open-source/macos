@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -93,7 +93,7 @@ static int bad_disk_size (u_int64_t numsectors, u_int64_t sectorsize);
 
 
 char	*progname;
-char	gVolumeName[kHFSPlusMaxFileNameChars + 1] = {kDefaultVolumeNameStr};
+char	*gVolumeName = kDefaultVolumeNameStr;
 char	rawdevice[MAXPATHLEN];
 char	blkdevice[MAXPATHLEN];
 uint32_t gBlockSize = 0;
@@ -316,13 +316,9 @@ main(argc, argv)
 			break;
 
 		case 'v':
-			n = strlen(optarg);
-			if ((size_t)n > (sizeof(gVolumeName) - 1))
-				fatal("\"%s\" is too long (%d byte maximum)",
-				      optarg, sizeof(gVolumeName) - 1);
-			if (n == 0)
-				fatal("name required with -v option");
-			strlcpy(gVolumeName, optarg, sizeof(gVolumeName));
+			if ((gVolumeName = strdup(optarg)) == NULL) {
+				fatal("Could not copy volume name %s", optarg);
+			}
 			break;
 
 		case '?':
@@ -1086,8 +1082,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		}
 	}
 	
-	strncpy((char *)defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
-	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
+	defaults->volumeName = (unsigned char*)gVolumeName;
 
 	if (rsrclumpblks == 0) {
 		if (gBlockSize > DFL_BLKSIZE)

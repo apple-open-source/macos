@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2012-2014 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,24 +29,33 @@
 #ifndef	_IP_PLUGIN_H
 #define	_IP_PLUGIN_H
 
+#include <netinet/in.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <net/if.h>
+
+#ifdef TEST_IPV4_ROUTELIST
+#define TEST_ROUTELIST
+#endif
+
+#ifdef TEST_IPV6_ROUTELIST
+#define TEST_ROUTELIST
+#endif
+
+#ifndef countof
+#define countof(array)	(sizeof(array) / sizeof((array)[0]))
+#endif
 
 #define kIsNULL				CFSTR("IsNULL")	/* CFBoolean */
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
+#ifdef TEST_ROUTELIST
+#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+
+#else /* TEST_ROUTELIST */
 
 #define my_log(__level, fmt, ...)	SCLoggerLog(my_log_get_logger(), __level, CFSTR(fmt), ## __VA_ARGS__)
 SCLoggerRef my_log_get_logger();
 
-/*
- * IPv4 Service Dict keys: IPv4DictRoutes, IPv4DictService
- *
- * The IPv4 service dictionary contains two sub-dictionaries:
- *   	Routes		IPv4RouteList
- *      Service		dictionary containing kSCEntNetIPv4 keys
- */
-#define kIPv4DictRoutes 		CFSTR("Routes")
-#define	kIPv4DictService		CFSTR("Service")
+#endif /* TEST_ROUTELIST */
 
 boolean_t
 cfstring_to_ip(CFStringRef str, struct in_addr * ip_p);
@@ -54,10 +63,19 @@ cfstring_to_ip(CFStringRef str, struct in_addr * ip_p);
 boolean_t
 cfstring_to_ip6(CFStringRef str, struct in6_addr * ip6_p);
 
-#else	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
+unsigned int
+my_if_nametoindex(const char * ifname);
 
-#define my_log(__level, fmt, ...)	SCLog(TRUE, __level, CFSTR(fmt), ## __VA_ARGS__)
+const char *
+my_if_indextoname(unsigned int idx, char if_name[IFNAMSIZ]);
 
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
+boolean_t
+service_contains_protocol(CFDictionaryRef service, int af);
+
+CFDictionaryRef
+ipv4_dict_create(CFDictionaryRef state_dict);
+
+CFDictionaryRef
+ipv6_dict_create(CFDictionaryRef state_dict);
 
 #endif	// _IP_PLUGIN_H

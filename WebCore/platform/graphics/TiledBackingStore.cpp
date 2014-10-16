@@ -35,9 +35,9 @@ static IntPoint innerBottomRight(const IntRect& rect)
     return IntPoint(rect.maxX() - 1, rect.maxY() - 1);
 }
 
-TiledBackingStore::TiledBackingStore(TiledBackingStoreClient* client, PassOwnPtr<TiledBackingStoreBackend> backend)
+TiledBackingStore::TiledBackingStore(TiledBackingStoreClient* client, std::unique_ptr<TiledBackingStoreBackend> backend)
     : m_client(client)
-    , m_backend(backend)
+    , m_backend(WTF::move(backend))
     , m_tileBufferUpdateTimer(this, &TiledBackingStore::tileBufferUpdateTimerFired)
     , m_backingStoreUpdateTimer(this, &TiledBackingStore::backingStoreUpdateTimerFired)
     , m_tileSize(defaultTileDimension, defaultTileDimension)
@@ -112,11 +112,10 @@ void TiledBackingStore::updateTileBuffers()
 
     Vector<IntRect> paintedArea;
     Vector<RefPtr<Tile> > dirtyTiles;
-    TileMap::iterator end = m_tiles.end();
-    for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-        if (!it->value->isDirty())
+    for (auto& tile : m_tiles.values()) {
+        if (!tile->isDirty())
             continue;
-        dirtyTiles.append(it->value);
+        dirtyTiles.append(tile);
     }
 
     if (dirtyTiles.isEmpty()) {
@@ -441,15 +440,14 @@ bool TiledBackingStore::resizeEdgeTiles()
 {
     bool wasResized = false;
     Vector<Tile::Coordinate> tilesToRemove;
-    TileMap::iterator end = m_tiles.end();
-    for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-        Tile::Coordinate tileCoordinate = it->value->coordinate();
-        IntRect tileRect = it->value->rect();
+    for (auto& tile : m_tiles.values()) {
+        Tile::Coordinate tileCoordinate = tile->coordinate();
+        IntRect tileRect = tile->rect();
         IntRect expectedTileRect = tileRectForCoordinate(tileCoordinate);
         if (expectedTileRect.isEmpty())
             tilesToRemove.append(tileCoordinate);
         else if (expectedTileRect != tileRect) {
-            it->value->resize(expectedTileRect.size());
+            tile->resize(expectedTileRect.size());
             wasResized = true;
         }
     }
@@ -466,10 +464,9 @@ void TiledBackingStore::setKeepRect(const IntRect& keepRect)
     FloatRect keepRectF = keepRect;
 
     Vector<Tile::Coordinate> toRemove;
-    TileMap::iterator end = m_tiles.end();
-    for (TileMap::iterator it = m_tiles.begin(); it != end; ++it) {
-        Tile::Coordinate coordinate = it->value->coordinate();
-        FloatRect tileRect = it->value->rect();
+    for (auto& tile : m_tiles.values()) {
+        Tile::Coordinate coordinate = tile->coordinate();
+        FloatRect tileRect = tile->rect();
         if (!tileRect.intersects(keepRectF))
             toRemove.append(coordinate);
     }

@@ -32,6 +32,7 @@
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/Geolocation.h>
@@ -54,16 +55,20 @@ GeolocationPermissionRequestManager::GeolocationPermissionRequestManager(WebPage
 
 void GeolocationPermissionRequestManager::startRequestForGeolocation(Geolocation* geolocation)
 {
+    Frame* frame = geolocation->frame();
+
+    ASSERT_WITH_MESSAGE(frame, "It is not well understood in which cases the Geolocation is alive after its frame goes away. If you hit this assertion, please add a test covering this case.");
+    if (!frame) {
+        geolocation->setIsAllowed(false);
+        return;
+    }
+
     uint64_t geolocationID = generateGeolocationID();
 
     m_geolocationToIDMap.set(geolocation, geolocationID);
     m_idToGeolocationMap.set(geolocationID, geolocation);
 
-
-    Frame* frame = geolocation->frame();
-
-    WebFrameLoaderClient* webFrameLoaderClient = toWebFrameLoaderClient(frame->loader()->client());
-    WebFrame* webFrame = webFrameLoaderClient ? webFrameLoaderClient->webFrame() : 0;
+    WebFrame* webFrame = WebFrame::fromCoreFrame(*frame);
     ASSERT(webFrame);
 
     SecurityOrigin* origin = frame->document()->securityOrigin();
@@ -73,26 +78,20 @@ void GeolocationPermissionRequestManager::startRequestForGeolocation(Geolocation
 
 void GeolocationPermissionRequestManager::cancelRequestForGeolocation(Geolocation* geolocation)
 {
-    GeolocationToIDMap::iterator it = m_geolocationToIDMap.find(geolocation);
-    if (it == m_geolocationToIDMap.end())
+    uint64_t geolocationID = m_geolocationToIDMap.take(geolocation);
+    if (!geolocationID)
         return;
-
-    uint64_t geolocationID = it->value;
-    m_geolocationToIDMap.remove(it);
     m_idToGeolocationMap.remove(geolocationID);
 }
 
 void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed)
 {
-    IDToGeolocationMap::iterator it = m_idToGeolocationMap.find(geolocationID);
-    if (it == m_idToGeolocationMap.end())
+    Geolocation* geolocation = m_idToGeolocationMap.take(geolocationID);
+    if (!geolocation)
         return;
-
-    Geolocation* geolocation = it->value;
-    geolocation->setIsAllowed(allowed);
-
-    m_idToGeolocationMap.remove(it);
     m_geolocationToIDMap.remove(geolocation);
+
+    geolocation->setIsAllowed(allowed);
 }
 
 } // namespace WebKit

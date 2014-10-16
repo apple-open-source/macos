@@ -5,9 +5,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/01/30 23:46:52 $ 
-    $Revision: 1.3 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
   The HTML tags are stored as 8 bit ASCII strings.
 

@@ -38,6 +38,14 @@
 #ifndef __TEMPLATE_H__
 #define __TEMPLATE_H__
 
+#ifndef HEIMDAL_PRINTF_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_PRINTF_ATTRIBUTE(x) __attribute__((format x))
+#else
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+#endif
+#endif
+
 /* tag:
  *  0..20 tag
  * 21     type
@@ -139,7 +147,7 @@ enum template_types {
 
 extern struct asn1_type_func asn1_template_prim[A1T_NUM_ENTRY];
 
-#define ABORT_ON_ERROR() abort()
+#define ABORT_ON_ERROR(...) asn1_abort(__VA_ARGS__)
 
 #define DPOC(data,offset) ((const void *)(((const unsigned char *)data)  + offset))
 #define DPO(data,offset) ((void *)(((unsigned char *)data)  + offset))

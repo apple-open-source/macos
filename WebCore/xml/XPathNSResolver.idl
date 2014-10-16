@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,7 +21,7 @@
 [
     NoInterfaceObject,
     ObjCProtocol,
-    SkipVTableValidation
+    SkipVTableValidation,
 ] interface XPathNSResolver {
     [TreatReturnedNullStringAs=Null] DOMString lookupNamespaceURI([Default=Undefined] optional DOMString prefix);
 };

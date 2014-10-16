@@ -760,7 +760,7 @@ build_logon_name(krb5_context context,
 
     sret = krb5_storage_write(sp, s2, len * 2);
     free(s2);
-    if (sret != (len * 2)) {
+    if (sret < 0 || (size_t)sret != (len * 2)) {
 	ret = krb5_enomem(context);
 	goto out;
     }
@@ -1050,7 +1050,7 @@ _krb5_pac_sign(krb5_context context,
 	    ptr = (char *)p->data.data + p->pac->buffers[i].offset_lo;
 
 	    sret = krb5_storage_write(spdata, ptr, len);
-	    if (sret != len) {
+	    if (sret < 0 || (size_t)sret != len) {
 		ret = krb5_enomem(context);
 		goto out;
 	    }

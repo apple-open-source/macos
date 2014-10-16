@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,7 +180,7 @@ S_bsdp_get_packet(mach_port_t server, int argc, char * argv[])
     }
     /* ALIGN: CFDataGetBytePtr is aligned to at least sizeof(uint64) */
     dhcp = (struct dhcp *)(void *)CFDataGetBytePtr(response);
-    length = CFDataGetLength(response);
+    length = (int)CFDataGetLength(response);
     bsdp_print_packet(dhcp, length, 0);
     ret = 0;
  done:
@@ -223,7 +223,7 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
 
     /* ALIGN: CFDataGetBytePtr is aligned to at least sizeof(uint64) */
     dhcp = (struct dhcp *)(void *)CFDataGetBytePtr(response);
-    length = CFDataGetLength(response);
+    length = (int)CFDataGetLength(response);
     if (dhcpol_parse_packet(&options, dhcp, length, NULL) == FALSE) {
 	goto done;
     }
@@ -709,14 +709,18 @@ S_set(mach_port_t server, int argc, char * argv[])
 	}
     }
     if (dict != NULL) {
-	data = CFPropertyListCreateXMLData(NULL, dict);
+	data = CFPropertyListCreateData(NULL,
+					dict,
+					kCFPropertyListBinaryFormat_v1_0,
+					0,
+					NULL);
 	if (data == NULL) {
 	    CFRelease(dict);
 	    fprintf(stderr, "failed to allocate memory\n");
 	    return (1);
 	}
 	xml_data_ptr = (void *)CFDataGetBytePtr(data);
-	xml_data_len = CFDataGetLength(data);
+	xml_data_len = (int)CFDataGetLength(data);
     }
     kret = ipconfig_set(server, if_name, xml_data_ptr, xml_data_len, &status);
     my_CFRelease(&dict);
@@ -738,7 +742,7 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
 {
     int			verbose;
 
-    verbose = strtol(argv[0], NULL, 0);
+    verbose = (int)strtol(argv[0], NULL, 0);
     errno = 0;
     if (verbose == 0 && errno != 0) {
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
@@ -802,14 +806,18 @@ S_add_or_set_service(mach_port_t server, int argc, char * argv[], bool add)
     if (dict == NULL) {
 	return (1);
     }
-    data = CFPropertyListCreateXMLData(NULL, dict);
+    data = CFPropertyListCreateData(NULL,
+				    dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0,
+				    NULL);
     if (data == NULL) {
 	CFRelease(dict);
 	fprintf(stderr, "failed to allocate memory\n");
 	return (1);
     }
     xml_data_ptr = (void *)CFDataGetBytePtr(data);
-    xml_data_len = CFDataGetLength(data);
+    xml_data_len = (int)CFDataGetLength(data);
     if (add) {
 	kret = ipconfig_add_service(server, if_name, xml_data_ptr, xml_data_len,
 				    service_id, &service_id_len, &status);
@@ -851,24 +859,33 @@ S_set_service(mach_port_t server, int argc, char * argv[])
 static int
 S_remove_service_with_id(mach_port_t server, int argc, char * argv[])
 {
+    if_name_t			if_name;
     kern_return_t		kret;
     inline_data_t 		service_id;
     unsigned int 		service_id_len;
     ipconfig_status_t		status = ipconfig_status_success_e;
 
-    service_id_len = strlen(argv[0]);
+    service_id_len = (int)strlen(argv[0]);
     if (service_id_len > sizeof(service_id)) {
 	service_id_len = sizeof(service_id); 
     }
     memcpy(service_id, argv[0], service_id_len);
-    kret = ipconfig_remove_service_with_id(server, service_id, service_id_len,
-					   &status);
+    if (argc > 1) {
+	strlcpy(if_name, argv[1], sizeof(if_name));
+    }
+    else {
+	bzero(if_name, sizeof(if_name));
+    }
+    kret = ipconfig_remove_service_on_interface(server,
+						if_name,
+						service_id, service_id_len,
+						&status);
     if (kret != KERN_SUCCESS) {
-	mach_error("ipconfig_remove_service_with_id failed", kret);
+	mach_error("ipconfig_remove_service_on_interface failed", kret);
 	return (1);
     }
     if (status != ipconfig_status_success_e) {
-	fprintf(stderr, "ipconfig_remove_service_with_id %s failed: %s\n",
+	fprintf(stderr, "ipconfig_remove_service_on_interface %s failed: %s\n",
 		argv[0], ipconfig_status_string(status));
 	return (1);
     }
@@ -906,14 +923,18 @@ S_find_service(mach_port_t server, int argc, char * argv[])
     if (dict == NULL) {
 	return (1);
     }
-    data = CFPropertyListCreateXMLData(NULL, dict);
+    data = CFPropertyListCreateData(NULL,
+				    dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0,
+				    NULL);
     if (data == NULL) {
 	CFRelease(dict);
 	fprintf(stderr, "failed to allocate memory\n");
 	return (1);
     }
     xml_data_ptr = (void *)CFDataGetBytePtr(data);
-    xml_data_len = CFDataGetLength(data);
+    xml_data_len = (int)CFDataGetLength(data);
     kret = ipconfig_find_service(server, if_name, exact,
 				 xml_data_ptr, xml_data_len,
 				 service_id, &service_id_len, &status);
@@ -954,14 +975,18 @@ S_remove_service(mach_port_t server, int argc, char * argv[])
     if (dict == NULL) {
 	return (1);
     }
-    data = CFPropertyListCreateXMLData(NULL, dict);
+    data = CFPropertyListCreateData(NULL,
+				    dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0,
+				    NULL);
     if (data == NULL) {
 	CFRelease(dict);
 	fprintf(stderr, "failed to allocate memory\n");
 	return (1);
     }
     xml_data_ptr = (void *)CFDataGetBytePtr(data);
-    xml_data_len = CFDataGetLength(data);
+    xml_data_len = (int)CFDataGetLength(data);
     kret = ipconfig_remove_service(server, if_name, xml_data_ptr, xml_data_len,
 				   &status);
     my_CFRelease(&dict);
@@ -977,6 +1002,38 @@ S_remove_service(mach_port_t server, int argc, char * argv[])
     }
     return (0);
 }
+
+static int
+S_refresh_service(mach_port_t server, int argc, char * argv[])
+{
+    if_name_t			if_name;
+    kern_return_t		kret;
+    inline_data_t 		service_id;
+    unsigned int 		service_id_len;
+    ipconfig_status_t		status = ipconfig_status_success_e;
+
+    service_id_len = (int)strlen(argv[0]);
+    if (service_id_len > sizeof(service_id)) {
+	service_id_len = sizeof(service_id); 
+    }
+    memcpy(service_id, argv[0], service_id_len);
+    strlcpy(if_name, argv[1], sizeof(if_name));
+    kret = ipconfig_refresh_service(server,
+				    if_name,
+				    service_id, service_id_len,
+				    &status);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_refresh_service", kret);
+	return (1);
+    }
+    if (status != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_refresh_service(%s, %s) failed: %s\n",
+		argv[0], argv[1], ipconfig_status_string(status));
+	return (1);
+    }
+    return (0);
+}
+
 
 static const struct command_info {
     const char *command;
@@ -1021,11 +1078,13 @@ static const struct command_info {
       "<method> is one of " METHOD_LIST,
       0, 0 },
     { "removeServiceWithId", S_remove_service_with_id, 1, 
-      "<service ID>", 0, 0 },
+      "<service ID> [ <interface name> ]", 0, 0 },
     { "removeService", S_remove_service, 2, 
       "<interface name> <method> <method args>\n" 
       "<method> is one of " METHOD_LIST,
       0, 0 },
+    { "refreshService", S_refresh_service, 2, 
+      "<service ID> <interface name>", 0, 0 },
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 

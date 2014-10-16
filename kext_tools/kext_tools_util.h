@@ -43,6 +43,10 @@ typedef struct {
 #define _kKextPropertyValuesCacheBasename  "KextPropertyValues_"
 #define __kOSKextApplePrefix        CFSTR("com.apple.")
 
+#define kAppleInternalPath      "/AppleInternal"
+#define kDefaultKernelDevPath   "/System/Library/Kernels/kernel.development"
+#define kDefaultKernelSuffix    ".development"
+
 #pragma mark Macros
 /*********************************************************************
 * Macros
@@ -177,12 +181,25 @@ ExitStatus writeToFile(
 
 ExitStatus statURL(CFURLRef anURL, struct stat * statBuffer);
 ExitStatus statPath(const char *path, struct stat *statBuffer);
+ExitStatus statParentPath(const char *thePath, struct stat *statBuffer);
 ExitStatus getLatestTimesFromCFURLArray(
                                         CFArrayRef          fileURLArray,
                                         struct timeval      fileTimes[2]);
+ExitStatus getLatestTimesFromDirURL(
+                                    CFURLRef       dirURL,
+                                    struct timeval dirTimeVals[2]);
+
+ExitStatus getLatestTimesFromDirPath(
+                                     const char *   dirPath,
+                                     struct timeval dirTimeVals[2]);
+
 ExitStatus getFilePathTimes(
                             const char        * filePath,
                             struct timeval      cacheFileTimes[2]);
+
+ExitStatus getParentPathTimes(
+                              const char        * thePath,
+                              struct timeval      cacheFileTimes[2] );
 
 void postNoteAboutKexts(
                         CFStringRef theNotificationCenterName,
@@ -195,6 +212,19 @@ void postNoteAboutKextLoadsMT(
 void addKextToAlertDict(
                         CFMutableDictionaryRef *theDictPtr,
                         OSKextRef theKext );
+
+char * getPathExtension(const char * pathPtr);
+
+// bootcaches.plist helpers
+CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL);
+Boolean getKernelPathForURL(
+                            CFURLRef theVolRootURL,
+                            char * theBuffer,
+                            int theBufferSize );
+
+// Development kernel support
+Boolean useDevelopmentKernel(const char * theKernelPath);
+Boolean isDebugSetInBootargs(void);
 
 
 /*********************************************************************

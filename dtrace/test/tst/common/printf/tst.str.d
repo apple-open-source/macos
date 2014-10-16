@@ -38,10 +38,6 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	printf("rootfs = %s", `rootfs.bo_fstype);
-#else
 	printf("p_comm = %s", curproc->p_comm);
-#endif /* __APPLE__ */
 	exit(0);
 }

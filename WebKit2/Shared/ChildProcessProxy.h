@@ -34,7 +34,7 @@
 
 namespace WebKit {
 
-class ChildProcessProxy : ProcessLauncher::Client, public CoreIPC::Connection::Client, public ThreadSafeRefCounted<ChildProcessProxy> {
+class ChildProcessProxy : ProcessLauncher::Client, public IPC::Connection::Client, public ThreadSafeRefCounted<ChildProcessProxy> {
     WTF_MAKE_NONCOPYABLE(ChildProcessProxy);
 
 public:
@@ -42,73 +42,77 @@ public:
     virtual ~ChildProcessProxy();
 
     // FIXME: This function does an unchecked upcast, and it is only used in a deprecated code path. Would like to get rid of it.
-    static ChildProcessProxy* fromConnection(CoreIPC::Connection*);
+    static ChildProcessProxy* fromConnection(IPC::Connection*);
 
     void connect();
     void terminate();
 
-    template<typename T> bool send(const T& message, uint64_t destinationID, unsigned messageSendFlags = 0);
-    template<typename U> bool sendSync(const U& message, const typename U::Reply&, uint64_t destinationID, double timeout = 1);
+    template<typename T> bool send(T&& message, uint64_t destinationID, unsigned messageSendFlags = 0);
+    template<typename T> bool sendSync(T&& message, typename T::Reply&&, uint64_t destinationID, std::chrono::milliseconds timeout = std::chrono::seconds(1));
     
-    CoreIPC::Connection* connection() const
+    IPC::Connection* connection() const
     {
         ASSERT(m_connection);
         return m_connection.get();
     }
 
-    void addMessageReceiver(CoreIPC::StringReference messageReceiverName, CoreIPC::MessageReceiver*);
-    void addMessageReceiver(CoreIPC::StringReference messageReceiverName, uint64_t destinationID, CoreIPC::MessageReceiver*);
-    void removeMessageReceiver(CoreIPC::StringReference messageReceiverName, uint64_t destinationID);
+    void addMessageReceiver(IPC::StringReference messageReceiverName, IPC::MessageReceiver&);
+    void addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
+    void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
 
-    bool isValid() const { return m_connection; }
-    bool isLaunching() const;
-    bool canSendMessage() const { return isValid() || isLaunching(); }
+    enum class State {
+        Launching,
+        Running,
+        Terminated,
+    };
+    State state() const;
 
     PlatformProcessIdentifier processIdentifier() const { return m_processLauncher->processIdentifier(); }
+
+    bool canSendMessage() const { return state() != State::Terminated;}
+    bool sendMessage(std::unique_ptr<IPC::MessageEncoder>, unsigned messageSendFlags);
 
 protected:
     void clearConnection();
     void abortProcessLaunchIfNeeded();
 
     // ProcessLauncher::Client
-    virtual void didFinishLaunching(ProcessLauncher*, CoreIPC::Connection::Identifier) OVERRIDE;
+    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
-    bool dispatchMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
-    bool dispatchSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
-
+    bool dispatchMessage(IPC::Connection*, IPC::MessageDecoder&);
+    bool dispatchSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    
 private:
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) = 0;
-    virtual void connectionWillOpen(CoreIPC::Connection*);
-    virtual void connectionWillClose(CoreIPC::Connection*);
+    virtual void connectionWillOpen(IPC::Connection*);
+    virtual void connectionWillClose(IPC::Connection*);
 
-    bool sendMessage(PassOwnPtr<CoreIPC::MessageEncoder>, unsigned messageSendFlags);
-
-    Vector<std::pair<OwnPtr<CoreIPC::MessageEncoder>, unsigned>> m_pendingMessages;
+    Vector<std::pair<std::unique_ptr<IPC::MessageEncoder>, unsigned>> m_pendingMessages;
     RefPtr<ProcessLauncher> m_processLauncher;
-    RefPtr<CoreIPC::Connection> m_connection;
-    CoreIPC::MessageReceiverMap m_messageReceiverMap;
+    RefPtr<IPC::Connection> m_connection;
+    IPC::MessageReceiverMap m_messageReceiverMap;
 };
 
 template<typename T>
-bool ChildProcessProxy::send(const T& message, uint64_t destinationID, unsigned messageSendFlags)
+bool ChildProcessProxy::send(T&& message, uint64_t destinationID, unsigned messageSendFlags)
 {
     COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
 
-    OwnPtr<CoreIPC::MessageEncoder> encoder = CoreIPC::MessageEncoder::create(T::receiverName(), T::name(), destinationID);
-    encoder->encode(message);
+    auto encoder = std::make_unique<IPC::MessageEncoder>(T::receiverName(), T::name(), destinationID);
+    encoder->encode(message.arguments());
 
-    return sendMessage(encoder.release(), messageSendFlags);
+    return sendMessage(WTF::move(encoder), messageSendFlags);
 }
 
 template<typename U> 
-bool ChildProcessProxy::sendSync(const U& message, const typename U::Reply& reply, uint64_t destinationID, double timeout)
+bool ChildProcessProxy::sendSync(U&& message, typename U::Reply&& reply, uint64_t destinationID, std::chrono::milliseconds timeout)
 {
     COMPILE_ASSERT(U::isSync, SyncMessageExpected);
 
     if (!m_connection)
         return false;
 
-    return connection()->sendSync(message, reply, destinationID, timeout);
+    return connection()->sendSync(std::forward<U>(message), WTF::move(reply), destinationID, timeout);
 }
 
 } // namespace WebKit

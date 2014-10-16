@@ -43,7 +43,8 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
     krb5_error_code ret;
     krb5_storage *sp;
     krb5_data data, mech;
-    char *str;
+
+    krb5_data_zero(&data);
 
     GSSAPI_KRB5_INIT (&context);
 
@@ -67,8 +68,12 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
      * We should encrypt credentials in KCM though using the kcm
      * session key.
      */
-    if (1 /*strcmp(type, "MEMORY") == 0 */) {
+    {
 	krb5_creds *creds;
+
+	if (handle->ccache == NULL)
+	    goto out;
+
 	ret = krb5_store_uint32(sp, 0);
 	if (ret) {
 	    krb5_storage_free(sp);
@@ -93,28 +98,6 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
 	    return GSS_S_FAILURE;
 	}
 
-    } else {
-	ret = krb5_store_uint32(sp, 1);
-	if (ret) {
-	    krb5_storage_free(sp);
-	    *minor_status = ret;
-	    return GSS_S_FAILURE;
-	}
-
-	ret = krb5_cc_get_full_name(context, handle->ccache, &str);
-	if (ret) {
-	    krb5_storage_free(sp);
-	    *minor_status = ret;
-	    return GSS_S_FAILURE;
-	}
-
-	ret = krb5_store_string(sp, str);
-	free(str);
-	if (ret) {
-	    krb5_storage_free(sp);
-	    *minor_status = ret;
-	    return GSS_S_FAILURE;
-	}
     }
     ret = krb5_storage_to_data(sp, &data);
     krb5_storage_free(sp);
@@ -155,6 +138,7 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
 	return GSS_S_FAILURE;
     }
 
+ out:
     cred_token->value = data.data;
     cred_token->length = data.length;
 

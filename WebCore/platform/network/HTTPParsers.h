@@ -12,7 +12,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -37,15 +37,12 @@
 
 namespace WebCore {
 
-class HTTPHeaderMap;
-class ResourceResponseBase;
-
-typedef enum {
+enum ContentDispositionType {
     ContentDispositionNone,
     ContentDispositionInline,
     ContentDispositionAttachment,
     ContentDispositionOther
-} ContentDispositionType;
+};
 
 #if ENABLE(NOSNIFF)
 enum ContentTypeOptionsDisposition {
@@ -86,7 +83,7 @@ ContentTypeOptionsDisposition parseContentTypeOptionsHeader(const String& header
 // Parsing Complete HTTP Messages.
 enum HTTPVersion { Unknown, HTTP_1_0, HTTP_1_1 };
 size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReason, String& method, String& url, HTTPVersion&);
-size_t parseHTTPHeader(const char* data, size_t length, String& failureReason, AtomicString& nameStr, String& valueStr);
+size_t parseHTTPHeader(const char* data, size_t length, String& failureReason, String& nameStr, String& valueStr, bool strict = true);
 size_t parseHTTPRequestBody(const char* data, size_t length, Vector<unsigned char>& body);
 
 }

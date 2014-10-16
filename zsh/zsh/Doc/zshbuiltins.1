@@ -1,8 +1,42 @@
-.TH "ZSHBUILTINS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHBUILTINS" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
 .SH "SHELL BUILTIN COMMANDS"
+
+Some shell builtin commands take options as described in individual
+entries; these are often referred to in the list below as `\fBflags\fP\&' to
+avoid confusion with shell options, which may also have an effect on the
+behaviour of builtin commands\&.  In this introductory section,
+`\fBoption\fP\&' always has the meaning of an option to a command that should
+be familiar to most command line users\&.
+.PP
+Typically, options are single letters preceded by a hyphen (\fB\-\fP)\&.
+Options that take an argument accept it either immediately following the
+option letter or after white space, for example `\fBprint \-C3 *\fP\&' or
+`\fBprint \-C 3 *\fP\&' are equivalent\&.  Arguments to options are not the
+same as arguments to the command; the documentation indicates which is
+which\&.  Options that do not take an argument may be combined in a single
+word, for example `\fBprint \-ca *\fP\&' and `\fBprint \-c \-a *\fP' are
+equivalent\&.
+.PP
+Some shell builtin commands also take options that begin with `\fB+\fP\&'
+instead of `\fB\-\fP\&'\&.  The list below makes clear which commands these
+are\&.
+.PP
+Options (together with their individual arguments, if any) must appear
+in a group before any non\-option arguments; once the first non\-option
+argument has been found, option processing is terminated\&.
+.PP
+All builtin commands other than precommand modifiers, even those that
+have no options, can be given the argument `\fB\-\-\fP\&' to terminate option
+processing\&.  This indicates that the following words are non\-option
+arguments, but is otherwise ignored\&.  This is useful in cases where
+arguments to the command may begin with `\fB\-\fP\&'\&.  For historical
+reasons, most builtin commands also recognize a single `\fB\-\fP\&' in a
+separate word for this purpose; note that this is less standard and
+use of `\fB\-\-\fP is recommended\&.
+.PP
 .PD 0
 .TP
 .PD
@@ -42,7 +76,7 @@ define a global alias; global aliases are expanded even if they do not
 occur in command position\&.
 .RS
 .PP
-If the \fB\-s\fP flags is present, define a suffix alias: if the command
+If the \fB\-s\fP flag is present, define a suffix alias: if the command
 word on a command line is in the form `\fItext\fP\fB\&.\fP\fIname\fP\&', where
 \fItext\fP is any non\-empty string, it is replaced by the text
 `\fIvalue\fP \fItext\fP\fB\&.\fP\fIname\fP\&'\&.  Note that \fIname\fP is treated as
@@ -294,7 +328,7 @@ onto the stack\&.
 clear the directory stack\&.
 .TP
 \fB\-l\fP
-print directory names in full instead of using of using \fB~\fP expressions\&.
+print directory names in full instead of using of using \fB~\fP expressions (see \fIDynamic\fP and \fIStatic named directories\fP in \fIzshexpn\fP(1))\&.
 .TP
 \fB\-p\fP
 print directory entries one per line\&.
@@ -304,8 +338,8 @@ number the directories in the stack when printing\&.
 .PP
 .RE
 .TP
-\fBdisable\fP [ \fB\-afmrs\fP ] \fIname\fP \&.\&.\&.
-Temporarily disable the \fIname\fPd hash table elements\&.  The default
+\fBdisable\fP [ \fB\-afmprs\fP ] \fIname\fP \&.\&.\&.
+Temporarily disable the \fIname\fPd hash table elements or patterns\&.  The default
 is to disable builtin commands\&.  This allows you to use an external
 command with the same name as a builtin command\&.  The \fB\-a\fP option
 causes \fBdisable\fP to act on regular or global aliases\&.  The \fB\-s\fP
@@ -318,6 +352,82 @@ quoted to prevent them from undergoing filename expansion), and all hash
 table elements from the corresponding hash table matching these patterns
 are disabled\&.  Disabled objects can be enabled with the \fBenable\fP
 command\&.
+.RS
+.PP
+With the option \fB\-p\fP, \fIname\fP \&.\&.\&. refer to elements of the
+shell\&'s pattern syntax as described in the section `Filename Generation'\&.
+Certain elements can be disabled separately, as given below\&.
+.PP
+Note that patterns
+not allowed by the current settings for the options \fBEXTENDED_GLOB\fP,
+\fBKSH_GLOB\fP and \fBSH_GLOB\fP are never enabled, regardless of the
+setting here\&.  For example, if \fBEXTENDED_GLOB\fP is not active,
+the pattern \fB^\fP is ineffective even if `\fBdisable \-p "^"\fP\&' has
+not been issued\&.  The list below indicates any option settings
+that restrict the use of the pattern\&.  It should be noted that
+setting \fBSH_GLOB\fP has a wider effect then merely disabling patterns
+as certain expressions, in particular those involving parentheses,
+are parsed differently\&.
+.PP
+The following patterns may be disabled; all
+the strings need quoting on the command line to prevent them from
+being interpreted immediately as patterns and the patterns are
+shown below in single quotes as a reminder\&.
+.PD 0
+.TP
+.PD
+\fB\&'?'\fP
+The pattern character \fB?\fP wherever it occurs, including when preceding
+a parenthesis with \fBKSH_GLOB\fP\&.
+.TP
+\fB\&'*'\fP
+The pattern character \fB*\fP wherever it occurs, including recursive
+globbing and when preceding a parenthesis with \fBKSH_GLOB\fP\&.
+.TP
+\&'['
+Character classes\&.
+.TP
+\fB\&'<'\fP (\fBNO_SH_GLOB\fP)
+Numeric ranges\&.
+.TP
+\fB\&'|'\fP (\fBNO_SH_GLOB\fP)
+Alternation in grouped patterns, case statements, or KSH_GLOB
+parenthesised expressions\&.
+.TP
+\fB\&'('\fP (\fBNO_SH_GLOB\fP)
+Grouping using single parentheses\&.  Disabling this does not disable the
+use of parentheses for \fBKSH_GLOB\fP where they are introduced by a
+special character, nor for glob qualifiers (use `\fBsetopt
+NO_BARE_GLOB_QUAL\fP\&' to disable glob qualifiers that use parentheses
+only)\&.
+.TP
+\fB\&'~'\fP (\fBEXTENDED_GLOB\fP)
+Exclusion in the form \fIA\fP\fB~\fP\fIB\fP\&.
+.TP
+\fB\&'^'\fP (\fBEXTENDED_GLOB\fP)
+Exclusion in the form \fIA\fP\fB^\fP\fIB\fP\&.
+.TP
+\fB\&'#'\fP (\fBEXTENDED_GLOB\fP)
+The pattern character \fB#\fP wherever it occurs, both for
+repetition of a previous pattern and for indicating globbing flags\&.
+.TP
+\fB\&'?('\fP (\fBKSH_GLOB\fP)
+The grouping form \fB?(\fP\fI\&.\&.\&.\fP\fB)\fP\&.  Note this is also
+disabled if \fB\&'?'\fP is disabled\&.
+.TP
+\fB\&'*('\fP (\fBKSH_GLOB\fP)
+The grouping form \fB*(\fP\fI\&.\&.\&.\fP\fB)\fP\&.  Note this is also
+disabled if \fB\&'*'\fP is disabled\&.
+.TP
+\fB\&'+('\fP (\fBKSH_GLOB\fP)
+The grouping form \fB+(\fP\fI\&.\&.\&.\fP\fB)\fP\&.
+.TP
+\fB\&'!('\fP (\fBKSH_GLOB\fP)
+The grouping form \fB!(\fP\fI\&.\&.\&.\fP\fB)\fP\&.
+.TP
+\fB\&'@('\fP (\fBKSH_GLOB\fP)
+The grouping form \fB@(\fP\fI\&.\&.\&.\fP\fB)\fP\&.
+.RE
 .TP
 .PD 0
 \fBdisown\fP [ \fIjob\fP \&.\&.\&. ]
@@ -415,7 +525,9 @@ will be used as a default; more precisely, the tests performed on the
 argument are the same as those used to determine the emulation at startup
 based on the shell name, see
 the section COMPATIBILITY in \fIzsh\fP(1)
-\&.
+\&.  In addition to setting shell options, the command also restores
+the pristine state of pattern enables, as if all patterns had been
+enabled using \fBenable \-p\fP\&.
 .PP
 If the \fBemulate\fP command occurs inside a function that has been
 marked for execution tracing with \fBfunctions \-t\fP then the \fBxtrace\fP
@@ -429,9 +541,11 @@ are reset to their default value corresponding to the specified emulation
 mode, except for certain options describing the interactive
 environment; otherwise, only those options likely to cause portability
 problems in scripts and functions are altered\&.  If the \fB\-L\fP switch is given,
-the options \fBLOCAL_OPTIONS\fP and \fBLOCAL_TRAPS\fP will be set as
-well, causing the effects of the \fBemulate\fP command and any \fBsetopt\fP and
-\fBtrap\fP commands to be local to the immediately surrounding shell
+the options \fBLOCAL_OPTIONS\fP, \fBLOCAL_PATTERNS\fP and \fBLOCAL_TRAPS\fP
+will be set as
+well, causing the effects of the \fBemulate\fP command and any \fBsetopt\fP,
+\fBdisable \-p\fP or \fBenable \-p\fP, and \fBtrap\fP commands to be local to
+the immediately surrounding shell
 function, if any; normally these options are turned off in all emulation
 modes except \fBksh\fP\&. The \fB\-L\fP switch is mutually exclusive with the
 use of \fB\-c\fP in \fIflags\fP\&.
@@ -452,7 +566,8 @@ Use of \fB\-c\fP enables `sticky\&' emulation mode for functions defined
 within the evaluated expression:  the emulation mode is associated
 thereafter with the function so that whenever the function is executed
 the emulation (respecting the \fB\-R\fP switch, if present) and all
-options are set before entry to the function, and restored after exit\&.
+options are set (and pattern disables cleared)
+before entry to the function, and the state is restored after exit\&.
 If the function is called when the sticky emulation is already in
 effect, either within an `\fBemulate\fP \fIshell\fP \fB\-c\fP\&' expression or
 within another function with the same sticky emulation, entry and exit
@@ -521,7 +636,7 @@ treated as distinct sticky emulations\&.
 .PD
 .RE
 .TP
-\fBenable\fP [ \fB\-afmrs\fP ] \fIname\fP \&.\&.\&.
+\fBenable\fP [ \fB\-afmprs\fP ] \fIname\fP \&.\&.\&.
 Enable the \fIname\fPd hash table elements, presumably disabled
 earlier with \fBdisable\fP\&.  The default is to enable builtin commands\&.
 The \fB\-a\fP option causes \fBenable\fP to act on regular or global aliases\&.
@@ -533,6 +648,15 @@ printed\&.  With the \fB\-m\fP flag the arguments are taken as patterns
 (should be quoted) and all hash table elements from the corresponding
 hash table matching these patterns are enabled\&.  Enabled objects can be
 disabled with the \fBdisable\fP builtin command\&.
+.RS
+.PP
+\fBenable \-p\fP reenables patterns disabled with \fBdisable \-p\fP\&.  Note
+that it does not override globbing options; for example, `\fBenable \-p
+"~"\fP\&' does not cause the pattern character \fB~\fP to be active unless
+the \fBEXTENDED_GLOB\fP option is also set\&.  To enable all possible
+patterns (so that they may be invidually disabled with \fBdisable \-p\fP),
+use `\fBsetopt EXTENDED_GLOB KSH_GLOB NO_SH_GLOB\fP\&'\&.
+.RE
 .TP
 \fBeval\fP [ \fIarg\fP \&.\&.\&. ]
 Read the arguments as input to the shell and execute the resulting
@@ -553,6 +677,12 @@ Exit the shell with the exit status specified by \fIn\fP; if none
 is specified, use the exit status from the last command executed\&.
 An EOF condition will also cause the shell to exit, unless
 the \fBIGNORE_EOF\fP option is set\&.
+.RS
+.PP
+See notes at the end of
+the section JOBS in in \fIzshmisc\fP(1) for some possibly unexpected interactions
+of the \fBexit\fP command with jobs\&.
+.RE
 .TP
 \fBexport\fP [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 The specified \fIname\fPs are marked for automatic export
@@ -962,6 +1092,9 @@ Maximum value for a file descriptor\&.
 \fBfilesize\fP
 Largest single file allowed\&.
 .TP
+\fBkqueues\fP
+Maximum number of kqueues allocated\&.
+.TP
 \fBmaxproc\fP
 Maximum number of processes\&.
 .TP
@@ -977,6 +1110,12 @@ Maximum resident set size\&.
 \fBmsgqueue\fP
 Maximum number of bytes in POSIX message queues\&.
 .TP
+\fBposixlocks\fP
+Maximum number of POSIX locks per user\&.
+.TP
+\fBpseudoterminals\fP
+Maximum number of pseudo\-terminals\&.
+.TP
 \fBresident\fP
 Maximum resident set size\&.
 .TP
@@ -988,6 +1127,9 @@ Maximum size of all socket buffers\&.
 .TP
 \fBstacksize\fP
 Maximum stack size for each process\&.
+.TP
+\fBswapsize\fP
+Maximum amount of swap used\&.
 .TP
 \fBvmemorysize\fP
 Maximum amount of virtual memory\&.
@@ -1094,8 +1236,8 @@ Print the arguments in \fIcols\fP columns\&.  Unless \fB\-a\fP is also given,
 arguments are printed with the row incrementing first\&.
 .TP
 \fB\-D\fP
-Treat the arguments as directory names, replacing prefixes with \fB~\fP
-expressions, as appropriate\&.
+Treat the arguments as paths, replacing directory prefixes with \fB~\fP
+expressions corresponding to directory names, as appropriate\&.
 .TP
 \fB\-i\fP
 If given together with \fB\-o\fP or \fB\-O\fP, sorting is performed
@@ -1874,7 +2016,7 @@ the parameter is not made local to the enclosing function\&.  This is for
 compatibility with previous versions of zsh\&.
 .RE
 .TP
-\fBulimit\fP [ [ \fB\-SHacdfilmnpqrstvx\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
+\fBulimit\fP [ [ \fB\-SHacdfiklmnpqsTtvwx\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
 Set or display resource limits of the shell and the processes started by
 the shell\&.  The value of \fIlimit\fP can be a number in the unit specified
 below or one of the values `\fBunlimited\fP\&', which removes the limit on the
@@ -1919,6 +2061,9 @@ Kilobytes on the size of the data segment\&.
 \fB\-i\fP
 The number of pending signals\&.
 .TP
+\fB\-k\fP
+The number of kqueues allocated\&.
+.TP
 \fB\-l\fP
 Kilobytes on the size of locked\-in memory\&.
 .TP
@@ -1928,17 +2073,20 @@ Kilobytes on the size of physical memory\&.
 \fB\-n\fP
 open file descriptors\&.
 .TP
+\fB\-p\fP
+The number of pseudo\-terminals\&.
+.TP
 \fB\-q\fP
 Bytes in POSIX message queues\&.
 .TP
 \fB\-s\fP
 Kilobytes on the size of the stack\&.
 .TP
+\fB\-T\fP
+The number of simultaneous threads available to the user\&.
+.TP
 \fB\-t\fP
 CPU seconds to be used\&.
-.TP
-\fB\-r\fP
-The number of simultaneous threads available to the user\&.
 .TP
 \fB\-u\fP
 The number of processes available to the user\&.
@@ -1946,6 +2094,9 @@ The number of processes available to the user\&.
 \fB\-v\fP
 Kilobytes on the size of virtual memory\&.  On some systems this
 refers to the limit called `address space\&'\&.
+.TP
+\fB\-w\fP
+Kilobytes on the size of swapped out memory\&.
 .TP
 \fB\-x\fP
 The number of locks on files\&.

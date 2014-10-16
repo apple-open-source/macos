@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,18 +71,6 @@
 #define kIOStorageFeaturesKey "IOStorageFeatures"
 
 /*!
- * @defined kIOStorageFeatureUnmap
- * @abstract
- * Describes the presence of the Unmap feature.
- * @discussion
- * This property describes the ability of the storage stack to delete unused
- * data from the media.  It is one of the feature entries listed under the top-
- * level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
- */
-
-#define kIOStorageFeatureUnmap "Unmap"
-
-/*!
  * @defined kIOStorageFeatureForceUnitAccess
  * @abstract
  * Describes the presence of the Force Unit Access feature.
@@ -93,6 +81,30 @@
  */
 
 #define kIOStorageFeatureForceUnitAccess "Force Unit Access"
+
+/*!
+ * @defined kIOStorageFeaturePriority
+ * @abstract
+ * Describes the presence of the Priority feature.
+ * @discussion
+ * This property describes the ability of the storage stack to enforce the
+ * priority of a request.  It is one of the feature entries listed under the
+ * top-level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
+ */
+
+#define kIOStorageFeaturePriority "Priority"
+
+/*!
+ * @defined kIOStorageFeatureUnmap
+ * @abstract
+ * Describes the presence of the Unmap feature.
+ * @discussion
+ * This property describes the ability of the storage stack to delete unused
+ * data from the media.  It is one of the feature entries listed under the top-
+ * level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
+ */
+
+#define kIOStorageFeatureUnmap "Unmap"
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -147,14 +159,42 @@ typedef UInt32 IOStorageAccess;
 
 enum
 {
-    kIOStorageOptionNone            = 0x00000000,
-    kIOStorageOptionForceUnitAccess = 0x00000001,
-    kIOStorageOptionIsEncrypted     = 0x00000010,
-    kIOStorageOptionIsStatic        = 0x00000020,
-    kIOStorageOptionReserved        = 0xFFFFFFCE
+    kIOStorageOptionNone            = 0x0000,
+    kIOStorageOptionForceUnitAccess = 0x0001,
+    kIOStorageOptionIsEncrypted     = 0x0010,
+    kIOStorageOptionIsStatic        = 0x0020,
+    kIOStorageOptionReserved        = 0xFFCE
 };
 
-typedef UInt32 IOStorageOptions;
+typedef UInt16 IOStorageOptions;
+
+/*!
+ * @enum IOStoragePriority
+ * @discussion
+ * Priority of read and write storage requests.  The lower the value, the
+ * higher the priority.
+ * @constant kIOStoragePriorityHigh
+ * This priority should only be used for I/O that is critical to system
+ * responsiveness.
+ * @constant kIOStoragePriorityDefault
+ * This priority is for work requested by the user, but that is not the user's
+ * current focus.
+ * @constant kIOStoragePriorityLow
+ * This priority is for short-running background work.
+ * @constant kIOStoragePriorityBackground
+ * This priority is for long-running, I/O intensive background work, such as
+ * backups, search indexing, or file synchronization.
+ */
+
+enum
+{
+    kIOStoragePriorityHigh       =  63,                         /*   0 to  63 */
+    kIOStoragePriorityDefault    = 127,                         /*  64 to 127 */
+    kIOStoragePriorityLow        = 191,                         /* 128 to 191 */
+    kIOStoragePriorityBackground = 255                          /* 192 to 255 */
+};
+
+typedef UInt8 IOStoragePriority;
 
 /*!
  * @struct IOStorageAttributes
@@ -162,27 +202,31 @@ typedef UInt32 IOStorageOptions;
  * Attributes of read and write storage requests.
  * @field options
  * Options for the request.  See IOStorageOptions.
+ * @field priority
+ * Priority of the request.  See IOStoragePriority.
  * @field bufattr
  * Reserved for future use.  Set to zero.
  */
 
 struct IOStorageAttributes
 {
-    IOStorageOptions options;
+    IOStorageOptions  options;
+    IOStoragePriority priority;
+    UInt8             reserved0024;
 #ifdef __LP64__
-    UInt32           reserved0032;
-    UInt64           reserved0064;
-    UInt64           reserved0128;
-    bufattr_t        bufattr;
+    UInt32            reserved0032;
+    UInt64            reserved0064;
+    UInt64            reserved0128;
+    bufattr_t         bufattr;
 #if TARGET_OS_EMBEDDED
-    UInt64           adjustedOffset;
+    UInt64            adjustedOffset;
 #endif /* TARGET_OS_EMBEDDED */
 #else /* !__LP64__ */
-    bufattr_t        bufattr;
+    bufattr_t         bufattr;
 #if TARGET_OS_EMBEDDED
-    UInt64           adjustedOffset;
+    UInt64            adjustedOffset;
 #else /* !TARGET_OS_EMBEDDED */
-    UInt64           reserved0064;
+    UInt64            reserved0064;
 #endif /* !TARGET_OS_EMBEDDED */
 #endif /* !__LP64__ */
 };
@@ -410,18 +454,11 @@ public:
      * Returns the status of the data transfer.
      */
 
-#ifdef __LP64__
     virtual IOReturn read(IOService *           client,
                           UInt64                byteStart,
                           IOMemoryDescriptor *  buffer,
                           IOStorageAttributes * attributes      = 0,
                           UInt64 *              actualByteCount = 0);
-#else /* !__LP64__ */
-    virtual IOReturn read(IOService *           client,
-                          UInt64                byteStart,
-                          IOMemoryDescriptor *  buffer,
-                          UInt64 *              actualByteCount = 0);
-#endif /* !__LP64__ */
 
     /*!
      * @function write
@@ -444,18 +481,11 @@ public:
      * Returns the status of the data transfer.
      */
 
-#ifdef __LP64__
     virtual IOReturn write(IOService *           client,
                            UInt64                byteStart,
                            IOMemoryDescriptor *  buffer,
                            IOStorageAttributes * attributes      = 0,
                            UInt64 *              actualByteCount = 0);
-#else /* !__LP64__ */
-    virtual IOReturn write(IOService *           client,
-                           UInt64                byteStart,
-                           IOMemoryDescriptor *  buffer,
-                           UInt64 *              actualByteCount = 0);
-#endif /* !__LP64__ */
 
     /*!
      * @function synchronizeCache
@@ -619,20 +649,42 @@ public:
 
     virtual void unlockPhysicalExtents(IOService * client); /* 10.7.0 */
 
+    /*!
+     * @function setPriority
+     * @discussion
+     * Reprioritize read or write requests at the specified byte offsets.
+     * @param client
+     * Client requesting the operation.
+     * @param extents
+     * List of extents.  See IOStorageExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
+     * @param priority
+     * New priority.  See IOStoragePriority.
+     * @result
+     * Returns the status of the operation.
+     */
+
+    virtual IOReturn setPriority(IOService *       client,
+                                 IOStorageExtent * extents,
+                                 UInt32            extentsCount,
+                                 IOStoragePriority priority); /* 10.10.0 */
+
     OSMetaClassDeclareReservedUsed(IOStorage,  0);
     OSMetaClassDeclareReservedUsed(IOStorage,  1);
     OSMetaClassDeclareReservedUsed(IOStorage,  2);
     OSMetaClassDeclareReservedUsed(IOStorage,  3);
+    OSMetaClassDeclareReservedUsed(IOStorage,  4);
 #ifdef __LP64__
-    OSMetaClassDeclareReservedUnused(IOStorage,  4);
     OSMetaClassDeclareReservedUnused(IOStorage,  5);
     OSMetaClassDeclareReservedUnused(IOStorage,  6);
+    OSMetaClassDeclareReservedUnused(IOStorage,  7);
 #else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOStorage,  4);
     OSMetaClassDeclareReservedUsed(IOStorage,  5);
     OSMetaClassDeclareReservedUsed(IOStorage,  6);
+    OSMetaClassDeclareReservedUsed(IOStorage,  7);
 #endif /* !__LP64__ */
-    OSMetaClassDeclareReservedUnused(IOStorage,  7);
     OSMetaClassDeclareReservedUnused(IOStorage,  8);
     OSMetaClassDeclareReservedUnused(IOStorage,  9);
     OSMetaClassDeclareReservedUnused(IOStorage, 10);

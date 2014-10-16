@@ -41,7 +41,6 @@ static void extractCertificates(const char *prefix, CFArrayRef certChain);
 static void listNestedCode(const void *key, const void *value, void *context);
 static string flagForm(uint32_t flags);
 
-
 //
 // Dump a signed object's signing data.
 // The more verbosity, the more data.
@@ -93,6 +92,7 @@ void dump(const char *target)
 		int(dir->version), dir->length(), flagForm(dir->flags).c_str(),
 		int(dir->nCodeSlots), int(dir->nSpecialSlots),
 		api.string(kSecCodeInfoSource).c_str());
+    
 	if (verbose > 2) {
 		uint32_t hashType = api.number(kSecCodeInfoDigestAlgorithm);
 		if (const HashType *type = findHashType(hashType))
@@ -167,6 +167,11 @@ void dump(const char *target)
 			if (CFAbsoluteTimeGetCurrent() < CFDateGetAbsoluteTime(softTime) - timestampSlop)
 				note(0, "%s: postdated signing date or bad system clock", target);
 		}
+        
+        /** Dump the code directory to disk as a binary. Do this last so that if there 
+         is a problem writing/creating the file, the rest of it is still printed */
+		if (dumpBinary)
+			AutoFileDesc(dumpBinary, O_WRONLY|O_CREAT|O_TRUNC, 0666).writeAll(dir, dir->length());
 	} else {
 		fprintf(stderr, "%s: no signature\n", target);
 		// but continue dumping
@@ -210,7 +215,7 @@ void dump(const char *target)
 				perror(resourceRules);
 				exit(exitFailure);
 			}
-			CFRef<CFDictionaryRef> data = resources;
+			CFCopyRef<CFDictionaryRef> data = resources;
 			if (verbose <= 4) {
 				if (version > 1)
 					data = cfmake<CFDictionaryRef>("{rules=%O,rules2=%O}", rules, rules2);

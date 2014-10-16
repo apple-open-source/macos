@@ -96,7 +96,7 @@ void in6_addr2net(struct in6_addr *addr, int prefix, struct in6_addr *net);
 int clear_ifaddr6 (char *ifname, struct in6_addr *addr);
 CFDictionaryRef create_ipv6_dummy_primary(char *if_name);
 CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o,
-					  u_int32_t h, u_int32_t m, int isprimary);
+					  u_int32_t h, u_int32_t m, int isprimary, CFArrayRef includedRoutes, CFArrayRef excludedRoutes);
 CFDictionaryRef create_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal,
 					CFStringRef exceptionlist, CFArrayRef supp_domains);
 boolean_t set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char *ifname, int isnet);
@@ -111,6 +111,11 @@ CFStringRef copy_interface_type(CFStringRef service_id);
 CFDictionaryRef copy_dns_dict(CFStringRef service_id);
 CFStringRef copy_interface_name(CFStringRef serviceID);
 CFBundleRef copy_app_bundle_from_persistentregistration(CFStringRef bundleID);
+
+Boolean primary_interface_is_cellular(Boolean *hasPrimaryInterface);
+Boolean interface_is_cellular(const char *interface_name);
+
+CFStringRef scnc_copy_remote_server (struct service *serv, Boolean *isHostname);
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip)	((u_char *)(ip))
@@ -154,7 +159,9 @@ CFDictionaryRef
 collectEnvironmentVariables (SCDynamicStoreRef storeRef, CFStringRef serviceID);
 
 void
-applyEnvironmentVariables (CFDictionaryRef envVarDict);
+applyEnvironmentVariables (struct service *serv);
+void
+extractEnvironmentVariables (CFDictionaryRef envVarDict, struct service *serv);
 
 /* Wcast-align fix - cast away alignment warning when buffer is aligned */
 #define ALIGNED_CAST(type)	(type)(void *) 
@@ -191,5 +198,7 @@ cleanup_dynamicstore(void *serv);
 
 CFArrayRef
 copy_service_order(void);
+
+void scnc_log(int level, CFStringRef format, ...) CF_FORMAT_FUNCTION(2, 3);
 
 #endif

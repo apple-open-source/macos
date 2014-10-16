@@ -26,14 +26,15 @@
 #include "config.h"
 #include "ScrollingTreeNode.h"
 
-#if ENABLE(THREADED_SCROLLING)
+#if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateTree.h"
 
 namespace WebCore {
 
-ScrollingTreeNode::ScrollingTreeNode(ScrollingTree* scrollingTree, ScrollingNodeID nodeID)
+ScrollingTreeNode::ScrollingTreeNode(ScrollingTree& scrollingTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
     : m_scrollingTree(scrollingTree)
+    , m_nodeType(nodeType)
     , m_nodeID(nodeID)
     , m_parent(0)
 {
@@ -43,12 +44,12 @@ ScrollingTreeNode::~ScrollingTreeNode()
 {
 }
 
-void ScrollingTreeNode::appendChild(PassOwnPtr<ScrollingTreeNode> childNode)
+void ScrollingTreeNode::appendChild(PassRefPtr<ScrollingTreeNode> childNode)
 {
     childNode->setParent(this);
 
     if (!m_children)
-        m_children = adoptPtr(new Vector<OwnPtr<ScrollingTreeNode> >);
+        m_children = adoptPtr(new ScrollingTreeChildrenVector);
 
     m_children->append(childNode);
 }
@@ -67,11 +68,10 @@ void ScrollingTreeNode::removeChild(ScrollingTreeNode* node)
         return;
     }
 
-    size_t size = m_children->size();
-    for (size_t i = 0; i < size; ++i)
-        m_children->at(i)->removeChild(node);
+    for (auto& child : *m_children)
+        child->removeChild(node);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // ENABLE(ASYNC_SCROLLING)

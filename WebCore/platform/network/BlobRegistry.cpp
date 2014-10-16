@@ -26,12 +26,14 @@
 #include "config.h"
 #include "BlobRegistry.h"
 
-#if ENABLE(BLOB)
-
 #include "BlobRegistryImpl.h"
 #include "LoaderStrategy.h"
 #include "PlatformStrategies.h"
 #include <wtf/MainThread.h>
+
+#if PLATFORM(IOS)
+#include "WebCoreThread.h"
+#endif
 
 namespace WebCore {
 
@@ -48,5 +50,3 @@ BlobRegistry::~BlobRegistry()
 }
 
 }
-
-#endif

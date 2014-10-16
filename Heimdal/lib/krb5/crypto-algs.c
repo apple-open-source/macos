@@ -91,3 +91,22 @@ struct _krb5_encryption_type *_krb5_etypes[] = {
 };
 
 int _krb5_num_etypes = sizeof(_krb5_etypes) / sizeof(_krb5_etypes[0]);
+
+struct _krb5_etypes_deprected _krb5_deprecated_etypes[] = {
+#ifndef HEIM_KRB5_DES
+    {
+	ETYPE_DES_CBC_MD5,
+	"des-cbc-md5-deprecated",
+    },
+    {
+	ETYPE_DES_CBC_MD4,
+	"des-cbc-md4-deprecated",
+    },
+    {
+	ETYPE_DES_CBC_CRC,
+	"des-cbc-crc-deprecated",
+    }
+#endif
+};
+
+int _krb5_num_deprecated_etypes = sizeof(_krb5_deprecated_etypes) / sizeof(_krb5_deprecated_etypes[0]);

@@ -25,12 +25,16 @@
 
 #import "config.h"
 
-#if HAVE(XPC)
-
+#import "ArgumentCodersCF.h"
 #import "SandboxUtilities.h"
 #import "XPCServiceEntryPoint.h"
 
+#if __has_include(<xpc/private.h>)
+#import <xpc/private.h>
+#else
+extern "C" xpc_object_t xpc_connection_copy_entitlement_value(xpc_connection_t connection, const char *entitlement);
 extern "C" mach_port_t xpc_dictionary_copy_mach_send(xpc_object_t, const char*);
+#endif
 
 namespace WebKit {
 
@@ -38,9 +42,37 @@ XPCServiceInitializerDelegate::~XPCServiceInitializerDelegate()
 {
 }
 
-bool XPCServiceInitializerDelegate::getConnectionIdentifier(CoreIPC::Connection::Identifier& identifier)
+bool XPCServiceInitializerDelegate::checkEntitlements()
 {
-    identifier = CoreIPC::Connection::Identifier(xpc_dictionary_copy_mach_send(m_initializerMessage, "server-port"), m_connection);
+#if PLATFORM(MAC)
+    if (!isClientSandboxed())
+        return true;
+
+    // FIXME: Once we're 100% sure that a process can't access the network we can get rid of this requirement for all processes.
+    if (!hasEntitlement("com.apple.security.network.client")) {
+        NSLog(@"Application does not have the 'com.apple.security.network.client' entitlement.");
+        return false;
+    }
+#endif
+#if PLATFORM(IOS)
+    auto value = IPC::adoptXPC(xpc_connection_copy_entitlement_value(m_connection.get(), "keychain-access-groups"));
+    if (value && xpc_get_type(value.get()) == XPC_TYPE_ARRAY) {
+        xpc_array_apply(value.get(), ^bool(size_t index, xpc_object_t object) {
+            if (xpc_get_type(object) == XPC_TYPE_STRING && !strcmp(xpc_string_get_string_ptr(object), "com.apple.identities")) {
+                IPC::setAllowsDecodingSecKeyRef(true);
+                return false;
+            }
+            return true;
+        });
+    }
+#endif
+
+    return true;
+}
+
+bool XPCServiceInitializerDelegate::getConnectionIdentifier(IPC::Connection::Identifier& identifier)
+{
+    identifier = IPC::Connection::Identifier(xpc_dictionary_copy_mach_send(m_initializerMessage, "server-port"), m_connection);
     return true;
 }
 
@@ -65,11 +97,18 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
     return true;
 }
 
+bool XPCServiceInitializerDelegate::hasEntitlement(const char* entitlement)
+{
+    auto value = IPC::adoptXPC(xpc_connection_copy_entitlement_value(m_connection.get(), entitlement));
+    if (!value)
+        return false;
+
+    return xpc_get_type(value.get()) == XPC_TYPE_BOOL && xpc_bool_get_value(value.get());
+}
+
 bool XPCServiceInitializerDelegate::isClientSandboxed()
 {
-    return processIsSandboxed(xpc_connection_get_pid(m_connection));
+    return processIsSandboxed(xpc_connection_get_pid(m_connection.get()));
 }
 
 } // namespace WebKit
-
-#endif // HAVE(XPC)

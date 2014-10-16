@@ -801,7 +801,7 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 
 	newargv[0] = path;
 
-	switch ((child_pid = fork1())) {
+	switch ((child_pid = fork())) {
 	case -1:
 		/*
 		 * Fork failure. Log an error, and quit.
@@ -869,7 +869,12 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		 *
 		 * Now wait for the child to finish.
 		 */
-		(void) waitpid(child_pid, &stat_loc, WUNTRACED);
+		while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
+			if ((res = errno) == EINTR)
+				continue;
+			syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
+			goto done;
+		}
 
 		if (WIFEXITED(stat_loc)) {
 			if (trace > 1) {
@@ -1048,13 +1053,14 @@ static int
 inherit_options(const char *opts, char **mapentopts)
 {
 	u_int i;
-	char *new;
+	char *new = NULL;
 	mntoptparse_t mtmap;
 	int mtmapflags, mtmapaltflags;
 	mntoptparse_t mtopt;
 	int mtoptflags, mtoptaltflags;
 	bool_t addopt;
 	size_t len;
+        int error = 0;
 
 	len = strlen(*mapentopts);
 
@@ -1083,7 +1089,9 @@ inherit_options(const char *opts, char **mapentopts)
 	if (new == 0)
 		return (-1);
 
-	CHECK_STRCPY(new, *mapentopts, len);
+	if ((error = CHECK_STRCPY(new, *mapentopts, len))) {
+                goto DONE;
+        }
 
 	mtmapflags = mtmapaltflags = 0;
 	getmnt_silent = 1;
@@ -1114,16 +1122,30 @@ inherit_options(const char *opts, char **mapentopts)
 				 !(mtmapflags & mopts_restrict[i].m_flag));
 		}
 		if (addopt) {
-			if (*new != '\0')
-				CHECK_STRCAT(new, ",", len);
-			if (mopts_restrict[i].m_inverse)
-				CHECK_STRCAT(new, "no", len);
-			CHECK_STRCAT(new, mopts_restrict[i].m_option, len);
+			if (*new != '\0') {
+				if ((error = CHECK_STRCAT(new, ",", len))) {
+                                        goto DONE;
+                                }
+                        }
+			if (mopts_restrict[i].m_inverse) {
+				if ((error = CHECK_STRCAT(new, "no", len))) {
+                                        goto DONE;
+                                }
+                        }
+			error = CHECK_STRCAT(new, mopts_restrict[i].m_option, len);
 		}
 	}
-	free(*mapentopts);
-	*mapentopts = new;
-	return (0);
+DONE:
+        free(*mapentopts);
+        if (error) {
+        	if (new) {
+                	free(new);
+                }
+                new = NULL;
+        }
+        *mapentopts = new;
+        
+	return error;
 }
 
 bool_t

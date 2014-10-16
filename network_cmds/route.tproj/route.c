@@ -59,18 +59,11 @@
  */
 
 #include <sys/cdefs.h>
+
 #ifndef lint
 __unused static const char copyright[] =
 "@(#) Copyright (c) 1983, 1989, 1991, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)route.c	8.3 (Berkeley) 3/19/94";
-#endif
-__unused static const char rcsid[] =
-	"$Id: route.c,v 1.4 2006/02/07 06:22:29 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>

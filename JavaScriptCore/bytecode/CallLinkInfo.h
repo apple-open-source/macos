@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #include "JSFunction.h"
 #include "Opcode.h"
 #include "WriteBarrier.h"
-#include <wtf/Platform.h>
 #include <wtf/SentinelLinkedList.h>
 
 namespace JSC {
@@ -43,22 +42,25 @@ namespace JSC {
 class RepatchBuffer;
 
 struct CallLinkInfo : public BasicRawSentinelNode<CallLinkInfo> {
-    enum CallType { None, Call, CallVarargs, Construct };
+    enum CallType { None, Call, CallVarargs, Construct, ConstructVarargs };
     static CallType callTypeFor(OpcodeID opcodeID)
     {
         if (opcodeID == op_call || opcodeID == op_call_eval)
             return Call;
         if (opcodeID == op_construct)
             return Construct;
+        if (opcodeID == op_construct_varargs)
+            return ConstructVarargs;
         ASSERT(opcodeID == op_call_varargs);
         return CallVarargs;
     }
         
     CallLinkInfo()
-        : hasSeenShouldRepatch(false)
-        , isDFG(false)
+        : isFTL(false)
+        , hasSeenShouldRepatch(false)
         , hasSeenClosure(false)
         , callType(None)
+        , slowPathCount(0)
     {
     }
         
@@ -70,7 +72,7 @@ struct CallLinkInfo : public BasicRawSentinelNode<CallLinkInfo> {
     
     CodeSpecializationKind specializationKind() const
     {
-        return specializationFromIsConstruct(callType == Construct);
+        return specializationFromIsConstruct(callType == Construct || callType == ConstructVarargs);
     }
 
     CodeLocationNearCall callReturnLocation;
@@ -79,15 +81,16 @@ struct CallLinkInfo : public BasicRawSentinelNode<CallLinkInfo> {
     JITWriteBarrier<JSFunction> callee;
     WriteBarrier<JSFunction> lastSeenCallee;
     RefPtr<ClosureCallStubRoutine> stub;
+    bool isFTL : 1;
     bool hasSeenShouldRepatch : 1;
-    bool isDFG : 1;
     bool hasSeenClosure : 1;
-    CallType callType : 5;
+    unsigned callType : 5; // CallType
     unsigned calleeGPR : 8;
+    unsigned slowPathCount;
     CodeOrigin codeOrigin;
 
     bool isLinked() { return stub || callee; }
-    void unlink(VM&, RepatchBuffer&);
+    void unlink(RepatchBuffer&);
 
     bool seenOnce()
     {
@@ -98,17 +101,23 @@ struct CallLinkInfo : public BasicRawSentinelNode<CallLinkInfo> {
     {
         hasSeenShouldRepatch = true;
     }
+    
+    void visitWeak(RepatchBuffer&);
+    
+    static CallLinkInfo& dummy();
 };
 
-inline void* getCallLinkInfoReturnLocation(CallLinkInfo* callLinkInfo)
+inline CodeOrigin getCallLinkInfoCodeOrigin(CallLinkInfo& callLinkInfo)
 {
-    return callLinkInfo->callReturnLocation.executableAddress();
+    return callLinkInfo.codeOrigin;
 }
 
-inline unsigned getCallLinkInfoBytecodeIndex(CallLinkInfo* callLinkInfo)
-{
-    return callLinkInfo->codeOrigin.bytecodeIndex;
-}
+typedef HashMap<CodeOrigin, CallLinkInfo*, CodeOriginApproximateHash> CallLinkInfoMap;
+
+#else // ENABLE(JIT)
+
+typedef HashMap<int, void*> CallLinkInfoMap;
+
 #endif // ENABLE(JIT)
 
 } // namespace JSC

@@ -48,9 +48,8 @@
 **
 ** KEY
 **
-** The database is keyed by a key_type unsigned char (DAV_TYPE_INODE or
-** DAV_TYPE_FNAME) followed by inode and device number if possible,
-** otherwise full path (in the case of Win32 or lock-null resources).
+** The database is keyed by a key_type unsigned char (DAV_TYPE_FNAME)
+** followed by the full path. The key_type DAV_TYPE_INODE is not used anymore.
 **
 ** VALUE
 **
@@ -82,7 +81,10 @@
 #define DAV_LOCK_DIRECT         1
 #define DAV_LOCK_INDIRECT       2
 
-#define DAV_TYPE_INODE          10
+/*
+ * not used anymore
+ * #define DAV_TYPE_INODE          10
+ */
 #define DAV_TYPE_FNAME          11
 
 
@@ -246,7 +248,7 @@ static dav_error * dav_fs_parse_locktoken(
 
     if (ap_strstr_c(char_token, "opaquelocktoken:") != char_token) {
         return dav_new_error(p,
-                             HTTP_BAD_REQUEST, DAV_ERR_LOCK_UNK_STATE_TOKEN,
+                             HTTP_BAD_REQUEST, DAV_ERR_LOCK_UNK_STATE_TOKEN, 0,
                              "The lock token uses an unknown State-token "
                              "format and could not be parsed.");
     }
@@ -254,7 +256,7 @@ static dav_error * dav_fs_parse_locktoken(
 
     locktoken = apr_pcalloc(p, sizeof(*locktoken));
     if (apr_uuid_parse(&locktoken->uuid, char_token)) {
-        return dav_new_error(p, HTTP_BAD_REQUEST, DAV_ERR_LOCK_PARSE_TOKEN,
+        return dav_new_error(p, HTTP_BAD_REQUEST, DAV_ERR_LOCK_PARSE_TOKEN, 0,
                              "The opaquelocktoken has an incorrect format "
                              "and could not be parsed.");
     }
@@ -343,7 +345,7 @@ static dav_error * dav_fs_open_lockdb(request_rec *r, int ro, int force,
     comb->priv.lockdb_path = dav_get_lockdb_path(r);
     if (comb->priv.lockdb_path == NULL) {
         return dav_new_error(r->pool, HTTP_INTERNAL_SERVER_ERROR,
-                             DAV_ERR_LOCK_NO_DB,
+                             DAV_ERR_LOCK_NO_DB, 0,
                              "A lock database was not specified with the "
                              "DAVLockDB directive. One must be specified "
                              "to use the locking functionality.");
@@ -372,12 +374,13 @@ static void dav_fs_close_lockdb(dav_lockdb *lockdb)
 }
 
 /*
-** dav_fs_build_fname_key
-**
-** Given a pathname, build a DAV_TYPE_FNAME lock database key.
+** dav_fs_build_key:  Given a resource, return a apr_datum_t key
+**    to look up lock information for this file.
 */
-static apr_datum_t dav_fs_build_fname_key(apr_pool_t *p, const char *pathname)
+static apr_datum_t dav_fs_build_key(apr_pool_t *p,
+                                    const dav_resource *resource)
 {
+    const char *pathname = dav_fs_pathname(resource);
     apr_datum_t key;
 
     /* ### does this allocation have a proper lifetime? need to check */
@@ -391,46 +394,6 @@ static apr_datum_t dav_fs_build_fname_key(apr_pool_t *p, const char *pathname)
     if (key.dptr[key.dsize - 2] == '/')
         key.dptr[--key.dsize - 1] = '\0';
     return key;
-}
-
-/*
-** dav_fs_build_key:  Given a resource, return a apr_datum_t key
-**    to look up lock information for this file.
-**
-**    (inode/dev not supported or file is lock-null):
-**       apr_datum_t->dvalue = full path
-**
-**    (inode/dev supported and file exists ):
-**       apr_datum_t->dvalue = inode, dev
-*/
-static apr_datum_t dav_fs_build_key(apr_pool_t *p,
-                                    const dav_resource *resource)
-{
-    const char *file = dav_fs_pathname(resource);
-    apr_datum_t key;
-    apr_finfo_t finfo;
-    apr_status_t rv;
-
-    /* ### use lstat() ?? */
-    /*
-     * XXX: What for platforms with no IDENT (dev/inode)?
-     */
-    rv = apr_stat(&finfo, file, APR_FINFO_IDENT, p);
-    if ((rv == APR_SUCCESS || rv == APR_INCOMPLETE)
-        && ((finfo.valid & APR_FINFO_IDENT) == APR_FINFO_IDENT))
-    {
-        /* ### can we use a buffer for this? */
-        key.dsize = 1 + sizeof(finfo.inode) + sizeof(finfo.device);
-        key.dptr = apr_palloc(p, key.dsize);
-        *key.dptr = DAV_TYPE_INODE;
-        memcpy(key.dptr + 1, &finfo.inode, sizeof(finfo.inode));
-        memcpy(key.dptr + 1 + sizeof(finfo.inode), &finfo.device,
-               sizeof(finfo.device));
-
-        return key;
-    }
-
-    return dav_fs_build_fname_key(p, file);
 }
 
 /*
@@ -461,7 +424,7 @@ static dav_error * dav_fs_save_lock_record(dav_lockdb *lockdb, apr_datum_t key,
 #if DAV_DEBUG
     if (lockdb->ro) {
         return dav_new_error(lockdb->info->pool,
-                             HTTP_INTERNAL_SERVER_ERROR, 0,
+                             HTTP_INTERNAL_SERVER_ERROR, 0, 0,
                              "INTERNAL DESIGN ERROR: the lockdb was opened "
                              "readonly, but an attempt to save locks was "
                              "performed.");
@@ -674,7 +637,7 @@ static dav_error * dav_fs_load_lock_record(dav_lockdb *lockdb, apr_datum_t key,
             --offset;
             return dav_new_error(p,
                                  HTTP_INTERNAL_SERVER_ERROR,
-                                 DAV_ERR_LOCK_CORRUPT_DB,
+                                 DAV_ERR_LOCK_CORRUPT_DB, 0,
                                  apr_psprintf(p,
                                              "The lock database was found to "
                                              "be corrupt. offset %"
@@ -731,7 +694,7 @@ static dav_error * dav_fs_resolve(dav_lockdb *lockdb,
     /* ### use a different description and/or error ID? */
     return dav_new_error(lockdb->info->pool,
                          HTTP_INTERNAL_SERVER_ERROR,
-                         DAV_ERR_LOCK_CORRUPT_DB,
+                         DAV_ERR_LOCK_CORRUPT_DB, 0,
                          "The lock database was found to be corrupt. "
                          "An indirect lock's direct lock could not "
                          "be found.");
@@ -805,7 +768,7 @@ static dav_error * dav_fs_load_locknull_list(apr_pool_t *p, const char *dirpath,
 
     rv = apr_file_info_get(&finfo, APR_FINFO_SIZE, file);
     if (rv != APR_SUCCESS) {
-        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, rv,
                             apr_psprintf(p,
                                         "Opened but could not stat file %s",
                                         pbuf->buf));
@@ -813,7 +776,7 @@ static dav_error * dav_fs_load_locknull_list(apr_pool_t *p, const char *dirpath,
     }
 
     if (finfo.size != (apr_size_t)finfo.size) {
-        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
                             apr_psprintf(p,
                                         "Opened but rejected huge file %s",
                                         pbuf->buf));
@@ -822,9 +785,9 @@ static dav_error * dav_fs_load_locknull_list(apr_pool_t *p, const char *dirpath,
 
     amt = (apr_size_t)finfo.size;
     dav_set_bufsize(p, pbuf, amt);
-    if (apr_file_read(file, pbuf->buf, &amt) != APR_SUCCESS
+    if ((rv = apr_file_read(file, pbuf->buf, &amt)) != APR_SUCCESS
         || amt != finfo.size) {
-        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, rv,
                             apr_psprintf(p,
                                         "Failure reading locknull file "
                                         "for %s", dirpath));
@@ -850,6 +813,7 @@ static dav_error * dav_fs_save_locknull_list(apr_pool_t *p, const char *dirpath,
     apr_file_t *file = NULL;
     dav_error *err = NULL;
     apr_size_t amt;
+    apr_status_t rv;
 
     if (pbuf->buf == NULL)
         return NULL;
@@ -863,27 +827,27 @@ static dav_error * dav_fs_save_locknull_list(apr_pool_t *p, const char *dirpath,
 
     if (pbuf->cur_len == 0) {
         /* delete the file if cur_len == 0 */
-        if (apr_file_remove(pathname, p) != 0) {
-            return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+        if ((rv = apr_file_remove(pathname, p)) != APR_SUCCESS) {
+            return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, rv,
                                  apr_psprintf(p,
                                              "Error removing %s", pathname));
         }
         return NULL;
     }
 
-    if (apr_file_open(&file, pathname,
-                APR_WRITE | APR_CREATE | APR_TRUNCATE | APR_BINARY,
-                APR_OS_DEFAULT, p) != APR_SUCCESS) {
-        return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+    if ((rv = apr_file_open(&file, pathname,
+                            APR_WRITE | APR_CREATE | APR_TRUNCATE | APR_BINARY,
+                            APR_OS_DEFAULT, p)) != APR_SUCCESS) {
+        return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, rv,
                              apr_psprintf(p,
                                          "Error opening %s for writing",
                                          pathname));
     }
 
     amt = pbuf->cur_len;
-    if (apr_file_write(file, pbuf->buf, &amt) != APR_SUCCESS
+    if ((rv = apr_file_write_full(file, pbuf->buf, amt, &amt)) != APR_SUCCESS
         || amt != pbuf->cur_len) {
-        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
+        err = dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0, rv,
                             apr_psprintf(p,
                                         "Error writing %" APR_SIZE_T_FMT
                                         " bytes to %s",
@@ -989,13 +953,8 @@ static dav_error * dav_fs_add_locknull_state(
 
 /*
 ** dav_fs_remove_locknull_state:  Given a request, check to see if r->filename
-**    is/was a lock-null resource.  If so, return it to an existant state.
-**
-**    ### this function is broken... it doesn't check!
-**
-**    In this implementation, this involves two things:
-**    (a) remove it from the list in the appropriate .DAV/locknull file
-**    (b) on *nix, convert the key from a filename to an inode.
+**    is/was a lock-null resource.  If so, return it to an existant state, i.e.
+**    remove it from the list in the appropriate .DAV/locknull file.
 */
 static dav_error * dav_fs_remove_locknull_state(
     dav_lockdb *lockdb,
@@ -1009,35 +968,6 @@ static dav_error * dav_fs_remove_locknull_state(
     if ((err = dav_fs_remove_locknull_member(p, pathname, &buf)) != NULL) {
         /* ### add a higher-level description? */
         return err;
-    }
-
-    {
-        dav_lock_discovery *ld;
-        dav_lock_indirect  *id;
-        apr_datum_t key;
-
-        /*
-        ** Fetch the lock(s) that made the resource lock-null. Remove
-        ** them under the filename key. Obtain the new inode key, and
-        ** save the same lock information under it.
-        */
-        key = dav_fs_build_fname_key(p, pathname);
-        if ((err = dav_fs_load_lock_record(lockdb, key, DAV_CREATE_LIST,
-                                           &ld, &id)) != NULL) {
-            /* ### insert a higher-level error description */
-            return err;
-        }
-
-        if ((err = dav_fs_save_lock_record(lockdb, key, NULL, NULL)) != NULL) {
-            /* ### insert a higher-level error description */
-            return err;
-        }
-
-        key = dav_fs_build_key(p, resource);
-        if ((err = dav_fs_save_lock_record(lockdb, key, ld, id)) != NULL) {
-            /* ### insert a higher-level error description */
-            return err;
-        }
     }
 
     return NULL;
@@ -1076,7 +1006,7 @@ static dav_error * dav_fs_get_locks(dav_lockdb *lockdb,
 #if DAV_DEBUG
     if (calltype == DAV_GETLOCKS_COMPLETE) {
         return dav_new_error(lockdb->info->pool,
-                             HTTP_INTERNAL_SERVER_ERROR, 0,
+                             HTTP_INTERNAL_SERVER_ERROR, 0, 0,
                              "INTERNAL DESIGN ERROR: DAV_GETLOCKS_COMPLETE "
                              "is not yet supported");
     }
@@ -1397,6 +1327,7 @@ static int dav_fs_do_refresh(dav_lock_discovery *dp,
         {
             dp->f.timeout = new_time;
             dirty = 1;
+            break;
         }
     }
 

@@ -27,21 +27,16 @@
 #define WebGLCompressedTexturePVRTC_h
 
 #include "WebGLExtension.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 class WebGLCompressedTexturePVRTC : public WebGLExtension {
 public:
-    static PassOwnPtr<WebGLCompressedTexturePVRTC> create(WebGLRenderingContext*);
+    explicit WebGLCompressedTexturePVRTC(WebGLRenderingContext*);
+    virtual ~WebGLCompressedTexturePVRTC();
 
     static bool supported(WebGLRenderingContext*);
-
-    virtual ~WebGLCompressedTexturePVRTC();
-    virtual ExtensionName getName() const;
-
-private:
-    WebGLCompressedTexturePVRTC(WebGLRenderingContext*);
+    virtual ExtensionName getName() const override;
 };
 
 } // namespace WebCore

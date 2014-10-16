@@ -38,27 +38,11 @@
 extern "C" {
 #endif
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/procfs_isa.h>
-#include <sys/lwp.h>
-#include <sys/auxv.h>
-#include <elf.h>
-#else /* is Apple Mac OS X */
-
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/procfs_isa.h> */
 #include "lwp.h" /* In lieu of Solaris <sys/lwp.h> */
 typedef int auxv_t; /* In lieu of Solaris <sys/auxv.h> */
 #include <elf.h>
-#endif /* __APPLE__ */
 
-#if !defined(__APPLE__)
-#if defined(__i386) || defined(__amd64)	/* for struct ssd */
-#include <sys/segments.h>
-#include <sys/sysi86.h>
-#endif
-#else /* is Apple Mac OS X */
 struct ssd {			/* In lieu of Solaris <sys/segments.h> */
         unsigned int    sel;   /* descriptor selector */
         unsigned int    bo;    /* segment base or gate offset */
@@ -69,7 +53,6 @@ struct ssd {			/* In lieu of Solaris <sys/segments.h> */
 
 typedef int prgregset_t; /* In lieu of Solaris <sys/sysi86.h> */
 typedef int prfpregset_t; /* In lieu of Solaris <sys/sysi86.h> */
-#endif /* __APPLE__ */
 
 typedef unsigned long	psaddr_t;
 

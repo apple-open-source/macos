@@ -33,6 +33,9 @@
 
 #include "gsskrb5_locl.h"
 
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+
 static const char *
 calling_error(OM_uint32 v)
 {
@@ -121,6 +124,7 @@ _gsskrb5_clear_status (void)
 
 void
 _gsskrb5_set_status (int ret, const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
 {
     krb5_context context;
     va_list args;

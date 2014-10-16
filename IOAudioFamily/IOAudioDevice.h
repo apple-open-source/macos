@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
 #define _IOKIT_IOAUDIODEVICE_H
 
 #include <IOKit/IOService.h>
+#include <AvailabilityMacros.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioTypes.h>
@@ -126,6 +127,12 @@ typedef enum _IOAudioDevicePowerState {
  *  portable running on battery power).
  */
 
+#ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+	#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+		#warning IOAudioDevice is deprecated use <CoreAudio/AudioServerPlugIn.h> instead.
+	#endif
+#endif
+
 class IOAudioDevice : public IOService
 {
     friend class IOAudioEngine;
@@ -189,11 +196,11 @@ protected:
     ExpansionData *reserved;
     
 public:
-	static void idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSource *sender);
-	virtual IOReturn setAggressiveness(unsigned long type, unsigned long newLevel);
+	static void idleAudioSleepHandlerTimer(OSObject *owner, IOTimerEventSource *sender ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn setAggressiveness(unsigned long type, unsigned long newLevel ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
-	virtual void setDeviceTransportType(const UInt32 transportType);
+	virtual void setDeviceTransportType(const UInt32 transportType ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 1);
     /*!
@@ -208,10 +215,10 @@ public:
 	 * driver about going idle.
      * @param sleepDelay The amount of time, in nanoseconds, before the hardware should be told to go idle.
      */
-	virtual void setIdleAudioSleepTime(unsigned long long sleepDelay);
+	virtual void setIdleAudioSleepTime(unsigned long long sleepDelay ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 2);
-	virtual void scheduleIdleAudioSleep(void);
+	virtual void scheduleIdleAudioSleep(void ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 3);
     /*!
@@ -222,7 +229,7 @@ public:
 	 * panel.  The bundle ID is a more flexible way of specifying where the application is than a hard coded path.
      * @param bundleID The bundle ID of the application to be launched by the HAL for configuration of the device and its engine(s).
      */
-	virtual void setConfigurationApplicationBundle(const char *bundleID);
+	virtual void setConfigurationApplicationBundle(const char *bundleID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 4);
     /*!
@@ -235,10 +242,10 @@ public:
 	 * (kIOAudioDeviceCanBeDefaultInput | kIOAudioDeviceCanBeDefaultOutput | kIOAudioDeviceCanBeSystemOutput).
      * @param defaultsFlags The flags to instruct CoreAudio to allow this device to be only the indicated default devices.
      */
-	virtual void setDeviceCanBeDefault(UInt32 defaultsFlags);
+	virtual void setDeviceCanBeDefault(UInt32 defaultsFlags ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioDevice, 5);
-	virtual void setDeviceModelName(const char * modelName);
+	virtual void setDeviceModelName(const char * modelName ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioDevice, 0);
@@ -290,7 +297,7 @@ public:
      *  in the IORegistry.
      * @result true if initialization was successful
      */
-    virtual bool init(OSDictionary *properties);
+    virtual bool init(OSDictionary *properties ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function free
@@ -304,7 +311,7 @@ public:
      *  refcount goes to 0.  To decrement the refcount, call release() on the object.
      */
      
-    virtual void free();
+    virtual void free( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function start
@@ -319,7 +326,7 @@ public:
      *  This is the service provider nub that provides access to the hardware resources.
      * @result Returns true on success
      */
-    virtual bool start(IOService *provider);
+    virtual bool start(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function stop
@@ -334,8 +341,8 @@ public:
      * @param provider
      *  The service provider nub for the device.
      */
-    virtual void stop(IOService *provider);
-    virtual bool willTerminate(IOService *provider, IOOptionBits options);
+    virtual void stop(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual bool willTerminate(IOService *provider, IOOptionBits options ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function initHardware
@@ -350,7 +357,7 @@ public:
      *  The service provider nub for the device.
      * @result This function should return true on a successful initialization.
      */
-    virtual bool initHardware(IOService *provider);
+    virtual bool initHardware(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setDeviceName
@@ -360,7 +367,7 @@ public:
      *  CoreAudio.framework to identify the particular piece of hardware.  This string should
      *  should be localized by the driver.
      */
-    virtual void setDeviceName(const char *deviceName);
+    virtual void setDeviceName(const char *deviceName ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setDeviceShortName
@@ -369,7 +376,7 @@ public:
      *  by applications when the device name is too long.  It should be set by the time initHardware()
      *  completes.  The string should be localized by the driver.
      */
-    virtual void setDeviceShortName(const char *shortName);
+    virtual void setDeviceShortName(const char *shortName ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setManufacturerName
@@ -377,7 +384,7 @@ public:
      * @discussion This method should be called during initialization or startup.  This should be 
      *  called by the time initHardware() completes.  The string should be localized by the driver.
      */
-    virtual void setManufacturerName(const char *manufacturerName);
+    virtual void setManufacturerName(const char *manufacturerName ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     
     // IOWorkLoop, IOCommandGate management
@@ -388,7 +395,7 @@ public:
      * @discussion The IOWorkLoop is used to synchronized all critical aspects of the driver.  This
      *  includes all entry points to the driver as well as power management.
      */
-    virtual IOWorkLoop *getWorkLoop() const;
+    virtual IOWorkLoop *getWorkLoop() const AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function getCommandGate
@@ -396,7 +403,7 @@ public:
      * @discussion This IOCommandGate allows calls into this IOAudioDevice to be synchronized on 
      *  the IOWorkLoop.
      */
-    virtual IOCommandGate *getCommandGate() const;
+    virtual IOCommandGate *getCommandGate() const AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     
     // IOAudioEngine management
@@ -410,7 +417,7 @@ public:
      *  allocated instance.
      * @result Returns true if the audio engine was successfully activated.
      */
-    virtual IOReturn activateAudioEngine(IOAudioEngine *audioEngine);
+    virtual IOReturn activateAudioEngine(IOAudioEngine *audioEngine ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function activateAudioEngine
@@ -436,7 +443,7 @@ public:
      *  IOAudioEngine and will skip that step.
      * @result Returns true if the audio engine was successfully activated.
      */
-    virtual IOReturn activateAudioEngine(IOAudioEngine *audioEngine, bool shouldStartAudioEngine);
+    virtual IOReturn activateAudioEngine(IOAudioEngine *audioEngine, bool shouldStartAudioEngine ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function deactivateAllAudioEngines
@@ -444,7 +451,7 @@ public:
      * @discussion This is called by the stop() and free() methods in IOAudioDevice to completely
      *  shut down all audio engines as the driver is being shut down.
      */
-    virtual void deactivateAllAudioEngines();
+    virtual void deactivateAllAudioEngines( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     
     // Power management
@@ -461,7 +468,7 @@ public:
      *  the power management system is initialized if the family is to manage power.
      * @param manage Set to false if it is not desired that the family does the power management
      */
-    virtual void setFamilyManagePower(bool manage);
+    virtual void setFamilyManagePower(bool manage ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setPowerState
@@ -477,7 +484,7 @@ public:
      * @result Returns kIOPMAckImplied (0) when the power state change is complete.  Otherwise the an
      *  upper bound on the number of microseconds until the state change is complete is returned.
      */
-    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *device);
+    virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setPowerStateAction
@@ -488,9 +495,9 @@ public:
      * @param arg2 The device to be passed to protectedSetPowerState()
      * @result Returns the result of protectedSetPowerState()
      */
-    static IOReturn setPowerStateAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn setPowerStateAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-	static IOReturn _setPowerStateAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://8508064>
+	static IOReturn _setPowerStateAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://8508064>
 
     /*!
      * @function protectedSetPowerState
@@ -510,7 +517,7 @@ public:
      * @result Returns 0 if the power state change is complete - the number of microseconds until 
      *  complete if its asynchronous.
      */
-    virtual IOReturn protectedSetPowerState(unsigned long powerStateOrdinal, IOService *device);
+    virtual IOReturn protectedSetPowerState(unsigned long powerStateOrdinal, IOService *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function performPowerStateChange
@@ -543,7 +550,7 @@ public:
      */
     virtual IOReturn performPowerStateChange(IOAudioDevicePowerState oldPowerState,
                                                 IOAudioDevicePowerState newPowerState,
-                                                UInt32 *microsecondsUntilComplete);
+                                                UInt32 *microsecondsUntilComplete ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                                                     
     /*!
      * @function completePowerStateChange
@@ -555,7 +562,7 @@ public:
      *  to call protectedCompletePowerStateChange() directly.
      * @result Returns kIOReturnSuccess on a successful completion
      */
-    virtual IOReturn completePowerStateChange();
+    virtual IOReturn completePowerStateChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function completePowerStateChangeAction
@@ -565,7 +572,7 @@ public:
      * @param owner The owner of the IOCommandGate (the IOAudioDevice in this case)
      * @result Returns the result of protectedCompletePowerStateChange()
      */
-    static IOReturn completePowerStateChangeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn completePowerStateChangeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function protectedCompletePowerStateChange
@@ -579,14 +586,14 @@ public:
      *  on the IOWorkLoop (e.g. holding the IOCommandGate), call completePowerStateChange() instead.
      * @result Returns kIOReturnSuccess on success
      */
-    virtual IOReturn protectedCompletePowerStateChange();
+    virtual IOReturn protectedCompletePowerStateChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getPowerState
      * @abstract Returns the current power state (the old power state if a change is in progress).
      * @result The current power state
      */
-    virtual IOAudioDevicePowerState getPowerState();
+    virtual IOAudioDevicePowerState getPowerState( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function getPendingPowerState
@@ -594,7 +601,7 @@ public:
      *  returns the current power state change.
      * @result The pending power state
      */
-    virtual IOAudioDevicePowerState getPendingPowerState();
+    virtual IOAudioDevicePowerState getPendingPowerState( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function waitForPendingPowerStateChange
@@ -605,7 +612,7 @@ public:
      *  power state change is in progress this function will block until the state change
      *  if complete.  Once complete, it will return while still holding the IOCommandGate.
      */
-    virtual void waitForPendingPowerStateChange();
+    virtual void waitForPendingPowerStateChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function initiatePowerStateChange
@@ -620,7 +627,7 @@ public:
      *  by performPowerStateChange if an asynchronous power state change was started.
      * @result Returns kIOReturnSuccess on success
      */
-    virtual IOReturn initiatePowerStateChange(UInt32 *microsecondsUntilComplete = NULL);
+    virtual IOReturn initiatePowerStateChange(UInt32 *microsecondsUntilComplete = NULL ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
 
     // IOAudioControl management
@@ -632,7 +639,7 @@ public:
      * @discussion This can be used to force the hardware to get updated with the current value 
      *  of each control.  It may be useful during wake for example.
      */
-    virtual void flushAudioControls();
+    virtual void flushAudioControls( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 
     // Timer services
@@ -645,7 +652,7 @@ public:
      * @param target The target of the timer event - passed in when the timer event was registered
      * @param audioDevice The IOAudioDevice sending the event
      */
-    typedef void (*TimerEvent)(OSObject *target, IOAudioDevice *audioDevice);
+    typedef void (*TimerEvent)(OSObject *target, IOAudioDevice *audioDevice ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addTimerEvent
@@ -661,7 +668,7 @@ public:
      * @param interval The callback will be called at least this often.
      * @result Returns kIOReturnSuccess if the timer event was successfully added.
      */
-    virtual IOReturn addTimerEvent(OSObject *target, TimerEvent event, AbsoluteTime interval);
+    virtual IOReturn addTimerEvent(OSObject *target, TimerEvent event, AbsoluteTime interval ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function removeTimerEvent
@@ -671,14 +678,14 @@ public:
      *  time is readjusted based on the new interval compared to the last fire time.
      * @param target The target whose timer event will be removed.
      */
-    virtual void removeTimerEvent(OSObject *target);
+    virtual void removeTimerEvent(OSObject *target ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function removeAllTimerEvents
      * @abstract Removes all timer events and stops the timer
      * @discussion Called during teardown of the driver
      */    
-    virtual void removeAllTimerEvents();
+    virtual void removeAllTimerEvents( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     
     // IOAudioPort management
@@ -701,7 +708,7 @@ public:
      * @param child A child IOAudioPort or IOAudioEngine of the given port.
      * @result Returns true when the port has been successfully added and attached.
      */
-    virtual IOReturn attachAudioPort(IOAudioPort *port, IORegistryEntry *parent, IORegistryEntry *child);
+    virtual IOReturn attachAudioPort(IOAudioPort *port, IORegistryEntry *parent, IORegistryEntry *child ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function detachAllAudioPorts
@@ -709,7 +716,7 @@ public:
      * @discussion This is called by the stop() and free() methods in IOAudioDevice to completely
      *  shut down all ports as the driver is being shut down.
      */
-    virtual void detachAllAudioPorts();
+    virtual void detachAllAudioPorts( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
     /*!
@@ -719,7 +726,7 @@ protected:
      * @param target The IOAudioDevice instance that initiated the timer callback.
      * @param sender The IOTimerEventSources calling this callback
      */
-    static void timerFired(OSObject *target, IOTimerEventSource *sender);
+    static void timerFired(OSObject *target, IOTimerEventSource *sender ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function dispatchTimerEvents
@@ -733,7 +740,7 @@ protected:
      *  A bool param to allow the timer events to be dispatched even if the 
      *  device is in the kIOAudioDeviceSleep power state.
      */
-    virtual void dispatchTimerEvents(bool force);
+    virtual void dispatchTimerEvents(bool force ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function audioEngineStarting
@@ -746,7 +753,7 @@ protected:
      *  system doesn't start playing audio until the IOAudioDevice has completed its transition
      *  to kIOAudioDeviceActive.
      */
-    virtual void audioEngineStarting();
+    virtual void audioEngineStarting( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function audioEngineStopped
@@ -757,7 +764,7 @@ protected:
      *  to kIOAudioDeviceIdle when the last audio engine stops.  If the state change is done 
      *  asynchronously, it waits for the state change to complete.
      */
-    virtual void audioEngineStopped();
+    virtual void audioEngineStopped( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
 };
 

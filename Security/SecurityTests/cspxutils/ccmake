@@ -1,0 +1,46 @@
+#! /bin/csh -f
+#
+# make all CommonCrypto tests (from scratch).
+#
+set DO_CLEAN=NO
+set LOCAL_CC=
+
+set TARGETS= (ccSymCompat \
+	ccSymTest \
+	ccHmacCompat \
+	ccHmacClone \
+	ccOneShot \
+	ccCtxSize \
+	ccPerform \
+	ccOpensslCompat )
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case clean:
+            set DO_CLEAN=YES
+            shift
+            breaksw
+		case local:
+			set LOCAL_CC="-lcommonCrypto  -L$LOCAL_BUILD_DIR"
+            shift
+            breaksw
+        default:
+            echo "Usage: ccmake [clean] [local]"
+            exit(1)
+    endsw
+end
+
+set CSPXUTILS=`pwd`
+
+foreach targ ($TARGETS)
+	if($DO_CLEAN == YES) then
+		echo ====== Cleaning $targ ======
+		cd $CSPXUTILS/$targ 
+		make clean || exit(1)
+	else
+		echo ====== Building $targ ======
+		cd $CSPXUTILS/$targ
+		make PROJ_LDFLAGS="$LOCAL_CC" || exit(1)
+	endif
+end
+

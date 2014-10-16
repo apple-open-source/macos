@@ -1,0 +1,25 @@
+/^class lapack_opt_info(/a
+.
+/if sys\.platform == 'darwin' and not atlas_info:/a
+            sdkroot = os.environ.get('SDKROOT')
+            if sdkroot is None:
+                sdkroot = '/'
+.
+/'\/\(System\/Library\/Frameworks\)'/s//os.path.join(sdkroot, '\1'/
+.+1s,/'),')),
+/'\/\(System\/Library\/Frameworks\)'/s//os.path.join(sdkroot, '\1'/
+.+1s,/'),')),
+/^class blas_opt_info(/a
+.
+/if sys\.platform == 'darwin'and not atlas_info:/a
+            sdkroot = os.environ.get('SDKROOT')
+            if sdkroot is None:
+                sdkroot = '/'
+.
+/'\/\(System\/Library\/Frameworks\)'/s//os.path.join(sdkroot, '\1'/
+.+1s,/'),')),
+/'-I\/\(System\/Library\/Frameworks\/vecLib\.framework\/Headers\)'/s//'-I' + os.path.join(sdkroot, '\1')/
+/'\/\(System\/Library\/Frameworks\)'/s//os.path.join(sdkroot, '\1'/
+.+1s,/'),')),
+/'-I\/\(System\/Library\/Frameworks\/vecLib\.framework\/Headers\)'/s//'-I' + os.path.join(sdkroot, '\1')/
+w

@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -68,7 +68,7 @@ namespace WebCore {
         MediaPlayer::NetworkState networkState() const { return m_networkState; }
         MediaPlayer::ReadyState readyState() const { return m_readyState; }
 
-        PassRefPtr<TimeRanges> buffered() const;
+        std::unique_ptr<PlatformTimeRanges> buffered() const;
         float maxTimeSeekable() const;
         // FIXME: bytesLoaded() should be replaced with didLoadingProgress() (by somebody who can find the implementation of this class).
         unsigned bytesLoaded() const;
@@ -91,16 +91,11 @@ namespace WebCore {
         void seekTimerFired(Timer<MediaPlayerPrivate>*);
         float maxTimeLoaded() const;
         void sawUnsupportedTracks();
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-        void setMediaPlayerProxy(WebMediaPlayerProxy*);
-        void setPoster(const String& url);
-        void deliverNotification(MediaPlayerProxyNotificationType);
-#endif
 
         // engine support
         static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
         static void getSupportedTypes(HashSet<String>& types);
-        static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs, const KURL&);
+        static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
         static bool isAvailable();
 
         virtual String engineDescription() const { return "WinCE"; }
@@ -116,9 +111,6 @@ namespace WebCore {
         bool m_hasUnsupportedTracks;
         bool m_startedPlaying;
         bool m_isStreaming;
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-        WebMediaPlayerProxy* m_proxy;
-#endif
     };
 
 }

@@ -10,7 +10,10 @@ daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
 _ftp:*:98:-2::0:0:FTP Daemon:/var/empty:/usr/bin/false
 _networkd:*:24:24::0:0:Network Services:/var/networkd:/usr/bin/false
 _wireless:*:25:25::0:0:Wireless Services:/var/wireless:/usr/bin/false
+_neagent:*:34:34::0:0:NEAgent:/var/empty:/usr/bin/false
 _securityd:*:64:64::0:0:securityd:/var/empty:/usr/bin/false
 _mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false
 _sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/usr/bin/false
 _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
+_distnote:*:241:241::0:0:Distributed Notifications:/var/empty:/usr/bin/false
+_astris:*:245:245::0:0:Astris Services:/var/db/astris:/usr/bin/false

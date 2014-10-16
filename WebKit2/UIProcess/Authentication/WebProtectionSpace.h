@@ -32,7 +32,7 @@
 
 namespace WebKit {
 
-class WebProtectionSpace : public TypedAPIObject<APIObject::TypeProtectionSpace> {
+class WebProtectionSpace : public API::ObjectImpl<API::Object::Type::ProtectionSpace> {
 public:
     static PassRefPtr<WebProtectionSpace> create(const WebCore::ProtectionSpace& protectionSpace)
     {
@@ -47,6 +47,8 @@ public:
     WebCore::ProtectionSpaceServerType serverType() const;
     bool receivesCredentialSecurely() const;
     WebCore::ProtectionSpaceAuthenticationScheme authenticationScheme() const;
+
+    const WebCore::ProtectionSpace& protectionSpace() const { return m_coreProtectionSpace; }
 
 private:
     explicit WebProtectionSpace(const WebCore::ProtectionSpace&);

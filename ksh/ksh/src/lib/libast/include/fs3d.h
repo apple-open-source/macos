@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -40,6 +40,10 @@
 #define iview(p)	((p)->st_spare4[0])
 #define IVIEW(p,v)	((p)->st_spare4[0]=(v))
 #else
+#if _ary_st_extra
+#define iview(p)	((p)->st_extra[0])
+#define IVIEW(p,v)	((p)->st_extra[0]=(v))
+#else
 #if _ary_st_pad4
 #define iview(p)	((p)->st_pad4[0])
 #define IVIEW(p,v)	((p)->st_pad4[0]=(v))
@@ -50,6 +54,7 @@
 #else
 #define iview(p)	0
 #define IVIEW(p,v)
+#endif
 #endif
 #endif
 #endif

@@ -1,0 +1,185 @@
+#! /bin/csh -f
+#
+# run CSP/X regression tests.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+set QUICK_TEST = 1
+set QUIET= 
+set VERB= 
+# 
+# CSPDL null for bare CSP, 'D' for CSPDL combo
+#
+set CSPDL=
+set RAWCSP=YES
+#
+# note the 's' option is here for backwards compatibility; the short
+# option is now the default.
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case s:
+            set QUICK_TEST = 1
+            shift
+            breaksw
+        case l:
+            set QUICK_TEST = 0
+            shift
+            breaksw
+        case v:
+            set VERB = v
+            shift
+            breaksw
+        case q:
+            set QUIET = q
+            shift
+            breaksw
+        case D:
+            set CSPDL = D
+			set RAWCSP = NO
+            shift
+            breaksw
+        default:
+            cat cspdvt_usage
+            exit(1)
+    endsw
+end
+#
+# Select 'quick' or 'normal' test params
+#
+if($QUICK_TEST == 1) then
+    set SIGTEST_ARGS=
+    set BADSIG_ARGS="l=4 i=10"
+	set MACTEST_ARGS=
+	set BADMAC_ARGS=
+	set DSAPARTIAL_ARGS=
+	set HASHTEST_ARGS="l=100"
+	set HASHCLONE_ARGS=
+	set SYMTEST_ARGS=
+	set ASYMTEST_ARGS="u"
+	set MINIWRAP_ARGS="l=4"
+	set WRAPTEST_ARGS="l=2 k"
+	set PBETEST_ARGS="l=4"
+	set KEYHASH_ARGS=
+	set KEYHASH_ASYM_ARGS=
+	set KEYSTORE_ARGS=
+	set SYMDELTA_ARGS=
+	set SYMCOMPAT_ARGS=
+	set HASHCOMPAT_ARGS=
+	set ASYMCOMPAT_ARGS="l=2 k=512"
+	set MACCOMPAT_ARGS=
+	set BADATTR_ARGS=
+	set RAWSIG_ARGS="l=2 i=2 s"
+	set DHTEST_ARGS="i=dhParams_512.der"
+	set ECDHTEST_ARGS=
+else
+    set SIGTEST_ARGS=
+    set BADSIG_ARGS="l=20 k=r"
+	set DSAPARTIAL_ARGS="l=100"
+	set MACTEST_ARGS=
+	set BADMAC_ARGS="l=100"
+	set HASHTEST_ARGS="l=1000"
+	set HASHCLONE_ARGS="l=200"
+	set SYMTEST_ARGS="l=500"
+	set ASYMTEST_ARGS=
+	set MINIWRAP_ARGS=
+	set WRAPTEST_ARGS=
+	set PBETEST_ARGS=
+	set KEYHASH_ARGS=
+	set KEYHASH_ASYM_ARGS=
+	set KEYSTORE_ARGS=
+	set SYMDELTA_ARGS="l=50"
+	set SYMCOMPAT_ARGS=
+	set HASHCOMPAT_ARGS="l=1000"
+	set ASYMCOMPAT_ARGS="l=10"
+	set MACCOMPAT_ARGS="l=1000"
+	set BADATTR_ARGS=
+	set RAWSIG_ARGS=
+	set DHTEST_ARGS="k=1024"
+	set ECDHTEST_ARGS="l=100"
+endif
+#
+# First, test the basic Digest, MAC, and symmetrict algorithms in libSystem. 
+#
+set CSPXUTILS=`pwd`
+if($RAWCSP == YES) then
+	./ccdvt $QUIET || exit(1)
+endif
+#
+# Basic digest and MAC tests
+#
+$BUILD_DIR/hashTest $HASHTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+if($RAWCSP == YES) then
+	$BUILD_DIR/hashClone $HASHCLONE_ARGS $QUIET $VERB $CSPDL || exit(1)
+endif
+#TODO $BUILD_DIR/hashCompat $HASHCOMPAT_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/sha2VectorsCdsa $QUIET $CSPDL || exit(1)
+#TODO $BUILD_DIR/macCompat $MACCOMPAT_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/macTest $MACTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/badmac $BADMAC_ARGS $QUIET $VERB $CSPDL || exit(1)
+#
+# Basic symmetric encryption tests
+#
+# symTest - once with padding, once without
+$BUILD_DIR/symTest $SYMTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/symTest $SYMTEST_ARGS $QUIET $VERB $CSPDL o || exit(1)
+#
+# symCompat - once with the full set of algorithms
+#
+#TODO $BUILD_DIR/symCompat $SYMCOMPAT_ARGS $QUIET $VERB $CSPDL || exit(1)
+# 
+# And one specifically to test AES padding mode (which uses ssleay instead of 
+# the NIST reference implementation)
+#
+$BUILD_DIR/symCompat $SYMCOMPAT_ARGS a=a y $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/contextReuse $QUIET $VERB $CSPDL || exit(1)
+#
+# Signature tests
+#
+# One for RSA
+$BUILD_DIR/sigtest $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+# Several for for ECDSA, with some keys in blob form for raw CSP only
+$BUILD_DIR/sigtest a=E $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+if($RAWCSP == YES) then
+	$BUILD_DIR/sigtest a=7 b r $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+	$BUILD_DIR/sigtest a=8 k=256 b $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+	$BUILD_DIR/sigtest a=9 k=521 b r $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+else
+	$BUILD_DIR/sigtest a=7 $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+	$BUILD_DIR/sigtest a=8 k=256 $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+	$BUILD_DIR/sigtest a=9 k=521 $SIGTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+endif
+# this one tests all algorithms with random key sizes
+$BUILD_DIR/badsig $BADSIG_ARGS $QUIET $VERB $CSPDL || exit(1)
+#
+# Misc. CSP tests
+#
+$BUILD_DIR/keyDate $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/keyHash $KEYHASH_ARGS $QUIET $VERB $CSPDL || exit(1)
+cd $CSPXUTILS/keyHashAsym
+$BUILD_DIR/keyHashAsym $KEYHASH_ASYM_ARGS $QUIET $VERB $CSPDL || exit(1)
+if($RAWCSP == NO) then
+	$BUILD_DIR/keyStore $KEYSTORE_ARGS $QUIET $VERB || exit(1)
+endif
+if($RAWCSP == YES) then
+	$BUILD_DIR/dhTest $DHTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+endif
+#
+# One run for ECDH, one for ECDH_X963_KDF
+#
+$BUILD_DIR/ecdhTest $ECDHTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/ecdhTest X $ECDHTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+# this requires param files in cwd
+cd $CSPXUTILS/dsaPartial
+$BUILD_DIR/dsaPartial $DSAPARTIAL_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/symDelta $SYMDELTA_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/asymTest $ASYMTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/miniWrap $MINIWRAP_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/wrapTest $WRAPTEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/pbeTest $PBETEST_ARGS $QUIET $VERB $CSPDL || exit(1)
+#TODO $BUILD_DIR/asymCompat $ASYMCOMPAT_ARGS $QUIET $VERB $CSPDL || exit(1)
+#TODO $BUILD_DIR/badattr $BADATTR_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/rawSig $RAWSIG_ARGS $QUIET $VERB $CSPDL || exit(1)
+$BUILD_DIR/ssl2Padding $QUIET $VERB $CSPDL || exit(1)
+
+echo ===== cspdvt success =====

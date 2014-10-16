@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>mbstate_t.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">mbstate_t.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># mbstate_t.m4 serial 9
+</span><span class="enscript-comment">dnl Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment"># From Paul Eggert.
+</span>
+<span class="enscript-comment"># BeOS 5 has &lt;wchar.h&gt; but does not define mbstate_t,
+</span><span class="enscript-comment"># so you can't declare an object of that type.
+</span><span class="enscript-comment"># Check for this incompatibility with Standard C.
+</span>
+<span class="enscript-comment"># AC_TYPE_MBSTATE_T
+</span><span class="enscript-comment"># -----------------
+</span>AC_DEFUN([AC_TYPE_MBSTATE_T],
+  [AC_CACHE_CHECK([for mbstate_t], ac_cv_type_mbstate_t,
+     [AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM(
+	   [AC_INCLUDES_DEFAULT
+<span class="enscript-comment">#	    include &lt;wchar.h&gt;],
+</span>	   [mbstate_t x; return sizeof x;])],
+	[ac_cv_type_mbstate_t=yes],
+	[ac_cv_type_mbstate_t=no])])
+   if test $ac_cv_type_mbstate_t = yes; then
+     AC_DEFINE([HAVE_MBSTATE_T], 1,
+	       [Define to 1 if &lt;wchar.h&gt; declares mbstate_t.])
+   else
+     AC_DEFINE([mbstate_t], int,
+	       [Define to a type if &lt;wchar.h&gt; does not <span class="enscript-keyword">define</span>.])
+   fi])
+</pre>
+<hr />
+</body></html>

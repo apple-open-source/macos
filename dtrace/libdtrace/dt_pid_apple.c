@@ -21,18 +21,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(__APPLE__)
-
 // This must be done *after* any references to Foundation.h!
 #define uint_t  __Solaris_uint_t
 
-#import <pthread.h>
+#include <pthread.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <errno.h>
+#include <stdlib.h>
 
-#import <sys/dtrace.h>
-#import <dtrace.h>
+#include <sys/dtrace.h>
+#include <dtrace.h>
 
-#import <dt_proc.h>
-#import <dt_pid.h>
+#include <dt_proc.h>
+#include <dt_pid.h>
 
 /*
  * FIX ME. This is a direct cut & paste from
@@ -56,6 +58,12 @@ typedef struct dt_pid_probe {
 	GElf_Sym dpp_last;
 	uint_t dpp_last_taken;
 } dt_pid_probe_t;
+
+int strisglob(const char *s);
+void dt_proc_bpdisable(dt_proc_t *dpr);
+void dt_proc_bpenable(dt_proc_t *dpr);
+int dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func);
+int dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr, fasttrap_probe_spec_t *ftp, dt_errtag_t tag, const char *fmt, ...);
 
 /*
  * OBJC provider methods
@@ -97,20 +105,12 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
-#if defined(__APPLE__)
 	prmap_t thread_local_map;
 	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
 		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
 				     "process %s has no dyld, and cannot be instrumented",
 				     &pdp->dtpd_provider[3]));
 	}
-#else
-	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-				     "process %s is not a dynamically-linked executable",
-				     &pdp->dtpd_provider[3]));
-	}
-#endif
 	        
 	pp.dpp_provider_type = DTFTP_PROVIDER_OBJC;
 	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
@@ -139,4 +139,56 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
 	return (ret);
 }
 
-#endif /* __APPLE__ */
+// Because of the statically cached array, this function is not thread safe.
+int pidFromProcessName(char* name)
+{
+	// Most of this code is from [VMUProcInfo getProcessIds]
+	// The reason we don't call this code directly is because we only get the pids,
+	// and then we have to turn around and construct a VMUProcInfo for each pid to
+	// populate our proc table.
+
+	static struct kinfo_proc *procBuf = NULL;
+	static int numberOfProcs;
+
+	if (procBuf == NULL) {
+		size_t bufSize;
+		int mib[3] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+		int err;
+
+		// Try to find out how many processes are around so we can
+		// size the buffer appropriately.  sysctl's man page specifically suggests
+		// this approach, and says it returns a bit larger size than needed to handle
+		// any new processes created between then and now.
+    
+		err = sysctl(mib, 4, NULL, &bufSize, NULL, 0);
+    
+		if((err < 0) && (err != ENOMEM)) {
+			// enomem says we didn't have enough room for the entire buffer.
+			// We don't care about that, we're trying to get the size of a buffer
+			// suitable for getting all the data.
+			perror("Failure calling sysctl to get process list buffer size");
+			return -1;
+		}
+    
+		// Now for the real access.  Create the buffer, and grab the
+		// data.
+		procBuf = (struct kinfo_proc *)calloc(1, bufSize);
+    
+		if(sysctl(mib, 4, procBuf, &bufSize, NULL, 0) < 0) {
+			//perror("Failure calling sysctl to get proc buf");
+			free(procBuf);
+			return -1;
+		}
+    
+		numberOfProcs = (int)(bufSize / (sizeof(struct kinfo_proc)));
+	}
+
+	int i;
+	for (i=0; i<numberOfProcs; i++) {
+		if (strncmp(name, procBuf[i].kp_proc.p_comm, MAXCOMLEN) == 0)
+			return procBuf[i].kp_proc.p_pid;
+	}
+
+	return -1;
+}
+

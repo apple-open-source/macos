@@ -69,6 +69,10 @@ static char * handle_string(void);
 
 void
 error_message (const char *format, ...)
+  __attribute__((__format__(printf, 1, 2)));
+
+void
+error_message (const char *format, ...)
 {
      va_list args;
 

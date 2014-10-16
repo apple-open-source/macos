@@ -57,6 +57,10 @@ namespace __cxxabiv1
   #endif
 #endif
 
+#if defined(__APPLE__) && defined(__LP64__) && !defined(__x86_64__)
+#define __GXX_NONUNIQUE_RTTI_BIT (1ULL << 63)
+#endif
+
 namespace std 
 {
   /**
@@ -77,7 +81,11 @@ namespace std
     /** Returns an @e implementation-defined byte string; this is not
      *  portable between compilers!  */
     const char* name() const
+#ifndef __GXX_NONUNIQUE_RTTI_BIT
     { return __name; }
+#else
+    { return reinterpret_cast<const char*>(__name & ~__GXX_NONUNIQUE_RTTI_BIT); }
+#endif
 
 #if !__GXX_MERGED_TYPEINFO_NAMES
     bool before(const type_info& __arg) const;
@@ -92,10 +100,23 @@ namespace std
     // In new abi we can rely on type_info's NTBS being unique,
     // and therefore address comparisons are sufficient.
     bool before(const type_info& __arg) const
+#ifndef __GXX_NONUNIQUE_RTTI_BIT
     { return __name < __arg.__name; }
+#else
+    { if (!((__name & __arg.__name) & __GXX_NONUNIQUE_RTTI_BIT))
+        return __name < __arg.__name;
+      return __compare_nonunique_names(__arg) < 0; }
+#endif
 
     bool operator==(const type_info& __arg) const
+#ifndef __GXX_NONUNIQUE_RTTI_BIT
     { return __name == __arg.__name; }
+#else
+    { if (__name == __arg.__name) return true;
+      if (!((__name & __arg.__name) & __GXX_NONUNIQUE_RTTI_BIT))
+        return false;
+      return __compare_nonunique_names(__arg) == 0; }
+#endif
 #endif
     bool operator!=(const type_info& __arg) const
     { return !operator==(__arg); }
@@ -125,11 +146,33 @@ namespace std
    // APPLE LOCAL end
 #endif
   protected:
+#ifndef __GXX_NONUNIQUE_RTTI_BIT
     const char *__name;
+#else
+    unsigned long __name;
+#endif
     
-    explicit type_info(const char *__n): __name(__n) { }
+    explicit type_info(const char *__n): 
+#ifndef __GXX_NONUNIQUE_RTTI_BIT
+    __name(__n) { }
+#else
+    __name(reinterpret_cast<unsigned long>(__n)) { }
+#endif
     
   private:
+#ifdef __GXX_NONUNIQUE_RTTI_BIT
+  private:
+    int __compare_nonunique_names(const type_info &__arg) const
+    { return __builtin_strcmp(__name_for_load(), __arg.__name_for_load()); }
+
+    const char *__name_for_load() const
+    { unsigned long __data = __name;
+#if 1 // <rdar://problem/13226050>
+      __data &= ~__GXX_NONUNIQUE_RTTI_BIT;
+#endif
+      return reinterpret_cast<const char*>(__data); }
+#endif
+
     /// Assigning type_info is not supported.
     type_info& operator=(const type_info&);
     type_info(const type_info&);

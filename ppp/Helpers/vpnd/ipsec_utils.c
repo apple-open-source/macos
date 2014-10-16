@@ -300,11 +300,7 @@ racoon_restart()
 	int pid = racoon_pid();
 
 	if (pid) {
-#if TARGET_OS_EMBEDDED
-		kill(pid, SIGHUP);
-#else
 		kill(pid, SIGUSR1);
-#endif
 		//sleep(1); // no need to wait
 	}
     
@@ -798,6 +794,17 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		}
 	}
 	
+	/* Set forced local address */
+	{
+		if (CFDictionaryContainsKey(ipsec_dict, kRASPropIPSecForceLocalAddress) &&
+			CFDictionaryGetValue(ipsec_dict, kRASPropIPSecForceLocalAddress) == kCFBooleanTrue) {
+			char src_address[32];
+			GetStrAddrFromDict(ipsec_dict, kRASPropIPSecLocalAddress, src_address, sizeof(src_address));
+			snprintf(text, sizeof(text), "local_address %s;\n", src_address);
+			WRITE(text);
+		}
+	}
+	
     /* 
 		Nonce size key is OPTIONAL 
 	*/
@@ -860,7 +867,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 	{
 		int	disconnect_on_idle, disconnect_on_idle_timer;
 		
-		if (GetIntFromDict(ipsec_dict, kRASPropIPSecDisconnectOnIdle, (u_int32_t *)&disconnect_on_idle, 0)) {
+		if (GetIntFromDict(ipsec_dict, kRASPropIPSecDisconnectOnIdle, (u_int32_t *)&disconnect_on_idle, 0) && disconnect_on_idle != 0) {
 			// 2 minutes default
 			GetIntFromDict(ipsec_dict, kRASPropIPSecDisconnectOnIdleTimer, (u_int32_t *)&disconnect_on_idle_timer, 120);
 			// only count outgoing traffic -- direction outbound
@@ -2393,13 +2400,13 @@ Return code:
 0 if successful, -1 otherwise.
 ----------------------------------------------------------------------------- */
 int
-get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
+get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope, char *if_name)
 {
     union {                         // Wcast-align fix - force alignment
         struct rt_msghdr 	rtm;
         char				buf[BUFLEN];
     } aligned_buf;
-    
+    u_int		ifscope_index;
     pid_t		pid = getpid();
     int			rsock = -1, seq = 0, n;
     struct sockaddr	*rti_info[RTAX_MAX] __attribute__ ((aligned (4)));      // Wcast-align fix - force alignment
@@ -2419,6 +2426,12 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     aligned_buf.rtm.rtm_addrs   = RTA_DST|RTA_IFP; /* Both destination and device */
     aligned_buf.rtm.rtm_pid     = pid;
     aligned_buf.rtm.rtm_seq     = ++seq;
+	
+    if (ifscope != NULL) {
+        ifscope_index = if_nametoindex(ifscope);
+        aligned_buf.rtm.rtm_flags |= RTF_IFSCOPE;
+        aligned_buf.rtm.rtm_index = ifscope_index;
+    }
 
     sa = (struct sockaddr *) (aligned_buf.buf + sizeof(struct rt_msghdr));
     bcopy(dst, sa, dst->sa_len);

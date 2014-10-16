@@ -47,6 +47,7 @@ mkdir -p $testdir 2> /dev/null
 hodadmin="/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/hod-admin"
 
 u=heimdaltestuser
+v=heimdaltestusersrp
 uid=82367346
 o=heimdalother
 u2=heimdaltestuser2
@@ -54,7 +55,6 @@ s=heimdaltestservice
 mme="heimdaltestuser@me.com"
 mmeq="heimdaltestuser\\@me.com"
 r=WELLKNOWN:COM.APPLE.LKDC
-r2=HEIM-TEST-DOMAIN.APPLE.COM
 pw=foo
 
 . ${env_setup}
@@ -155,13 +155,52 @@ dscl . -append /Users/$u NFSHomeDirectory "${testdir}/smb"
 echo "    Password"
 dscl . -passwd /Users/$u $pw
 echo "    Check keys"
-(dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
+
+echo "Creating srp lkdc user"
+
+echo "    delete"
+dscl . -delete /Users/$v 2>/dev/null >/dev/null
+echo "    create"
+dscl . -create /Users/$v
+echo "    RealName"
+dscl . -append /Users/$v RealName "Heimdal testuser srp"
+dscl . -append /Users/$v RecordName "srp${mme}"
+dscl . -delete /Users/$v AuthenticationAuthority
+dscl . -append /Users/$v AuthenticationAuthority ';ShadowHash;HASHLIST:<SALTED-SHA1,SMB-NT>'
+dscl . -append /Users/$v UniqueID $(expr $uid + 1)
+dscl . -append /Users/$v PrimaryGroupID 20
+dscl . -append /Users/$v NFSHomeDirectory "${testdir}/smb"
+echo "    SRP verififer (no pw)"
+dscl . -passwd /Users/$u $pw
+$hodadmin . srp-verifier $v srp$pw
+
+
+# XXX opendirectory/plist backend should do this
+$hodadmin . password \
+    --encryption-types=aes256-cts-hmac-sha1-96 \
+    --encryption-types=aes128-cts-hmac-sha1-96 \
+    --encryption-types=des3-cbc-sha1 \
+    --encryption-types=arcfour-hmac-md5 \
+    /Users/$u $pw
+
+{ dscl . -read /Users/$u KerberosKeys 2>&1 | grep KerberosKeys: > /dev/null ; } || \
     { echo "KerberosKeys missing" ; exit 1; }
-(dscl . -read /Users/$u dsAttrTypeStandard:AltSecurityIdentities | grep pkinit > /dev/null) || { echo "asi missing" ; exit 1; }
+{ dscl . -read /Users/$u HeimdalSRPKey 2>&1 | grep HeimdalSRPKey: > /dev/null ; } || \
+     { echo "SRP verififer missing" ; exit 1; }
+
+{ dscl . -read /Users/$u dsAttrTypeStandard:AltSecurityIdentities | grep pkinit > /dev/null; } || \
+    { echo "asi missing" ; exit 1; }
+
+#{ dscl . -read /Users/$v KerberosKeys 2>&1 | grep KerberosKeys: > /dev/null ; } && \
+#    { echo "KerberosKey there when they should not be" ; exit 1; }
+{ dscl . -read /Users/$v HeimdalSRPKey 2>&1 | grep HeimdalSRPKey: > /dev/null ; } || \
+    { echo "SRP verifier missing" ; exit 1; }
+
 
 chown -R $u "${testdir}/smb"
 
 echo $pw > ${testdir}/foopassword
+echo srp$pw > ${testdir}/srpfoopassword
 
 echo "Server domain"
 
@@ -169,16 +208,14 @@ echo "    delete"
 dscl . -delete /Users/$o 2>/dev/null >/dev/null
 echo "    create"
 dscl . -create /Users/$o
-dscl . -append /Users/$o UniqueID $(expr $uid + 1)
+dscl . -append /Users/$o UniqueID $(expr $uid + 2)
 dscl . -append /Users/$o PrimaryGroupID 20
-dscl . -append /Users/$o dsAttrTypeNative:KerberosUserName krbtgt/$r2@$r2
 
 echo "    setflags"
 $hodadmin . principal-setflags $o Server Forwardable
 
 echo "    password"
 $hodadmin . password  $o domain || exit 1
-$hodadmin . alias-add $o krbtgt/$r2@$r2  || exit 1
 
 echo "Creating server user"
 
@@ -186,42 +223,19 @@ echo "    delete"
 dscl . -delete /Users/$u2 2>/dev/null >/dev/null
 echo "    create"
 dscl . -create /Users/$u2
-dscl . -append /Users/$u2 UniqueID $(expr $uid + 2)
+dscl . -append /Users/$u2 UniqueID $(expr $uid + 3)
 dscl . -append /Users/$u2 PrimaryGroupID 20
 echo "    password"
 dscl . -passwd /Users/$u2 $pw
 echo "    checking user"
 (dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
     { echo "KerberosKeys missing" ; exit 1; }
-dscl . -append /Users/$u2 dsAttrTypeNative:KerberosUserName $u2@$r2
-
-echo "Creating server service user"
-
-echo "    delete"
-dscl . -delete /Computers/$s 2>/dev/null >/dev/null
-echo "    create"
-dscl . -create /Computers/$s
-echo "    password"
-dscl . -passwd /Computers/$s $pw
-echo "    realname"
-dscl . -append /Computers/$s RealName "Heimdal test service"
-echo "    servername"
-dscl . -append /Computers/$s dsAttrTypeNative:KerberosServerName $s@$r2
 
 echo "    setflags"
 $hodadmin . principal-setflags /Computers/$s Server
 
 echo "    password"
 $hodadmin . password          /Computers/$s user-password
-#$hodadmin . password --append /Computers/$s host-pw host/$s.$r2@$r2
-#$hodadmin . password --append /Computers/$s cifs-pw cifs/$s.$r2@$r2
-#$hodadmin . password --append /Computers/$s http-pw HTTP/$s.$r2@$r2
-#$hodadmin . password --append /Computers/$s imap-pw imap/$s.$r2@$r2
-
-echo "    aliases"
-for a in host cifs HTTP imap ; do
-    $hodadmin . alias-add /Computers/$s $a/$s.$r2@$r2
-done
 
 foundlines=$(${kadmin} -l dump | wc -l)
 if [ "X${foundlines}" = "X" -o "X${foundlines}" = X0 ] ; then
@@ -258,18 +272,19 @@ echo "Getting client initial tickets";> ${logfile}
 ${kkdestroy} -A
 ${kkinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
 	{ ec=1 ; eval "${testfailed}"; }
-${kkinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u2}@${r2} || \
+${kkinit} --kdc-hostname=localhost --canon --password-file=${testdir}/srpfoopassword ${v}@${r} || \
 	{ ec=1 ; eval "${testfailed}"; }
+
 
 echo "Checking that credentials are stored"
 (${kklist} -l | grep ${u}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
-(${kklist} -l | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+(${kklist} -l | grep ${v}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
 
 echo "checking that u2 is first" > ${logfile}
-(${kklist} | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+(${kklist} | grep ${v}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
 echo "checking that u2 still is first (sleep 20)" > ${logfile}
 sleep 20
-(${kklist} | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+(${kklist} | grep ${v}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
 
 ${kkdestroy} -A
 
@@ -281,15 +296,6 @@ echo "Getting tickets"; > ${logfile}
 ${kgetcred} host/${r}@${r} || { ec=1 ; eval "${testfailed}"; }
 echo "Listing tickets"; > ${logfile}
 ${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
-
-${kinit} --password-file=${testdir}/foopassword ${u2}@${r2} || \
-	{ ec=1 ; eval "${testfailed}"; }
-
-echo "Checking alias principal";
-for a in host cifs HTTP imap ; do 
-    echo "   alias $a"; > ${logfile}
-   ${kgetcred} ${a}/${s}.${r2}@${r2} || { ec=1 ; eval "${testfailed}"; }
-done
 
 ${kdestroy}
 
@@ -504,6 +510,7 @@ toggle_launchd malloc-unset
 rm -rf "${testdir}/smb"
 dscl . -delete /Users/$u
 dscl . -delete /Users/$u2
+dscl . -delete /Users/$v
 dscl . -delete /Users/$s
 dscl . -delete /Users/$o
 

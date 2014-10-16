@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -49,12 +49,12 @@ static void rehash(register Namval_t *np,void *data)
 		_nv_unset(np,0);
 }
 
-int	b_cd(int argc, char *argv[],void *extra)
+int	b_cd(int argc, char *argv[],Shbltin_t *context)
 {
 	register char *dir;
 	Pathcomp_t *cdpath = 0;
 	register const char *dp;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	int saverrno=0;
 	int rval,flag=0;
 	char *oldpwd;
@@ -112,10 +112,32 @@ int	b_cd(int argc, char *argv[],void *extra)
 	if(*dir=='.')
 	{
 		/* test for pathname . ./ .. or ../ */
-		if(*(dp=dir+1) == '.')
-			dp++;
-		if(*dp==0 || *dp=='/')
+		int	n=0;
+		char	*sp;
+		for(dp=dir; *dp=='.'; dp++)
+		{
+			if(*++dp=='.' && (*++dp=='/' || *dp==0))
+				n++;
+			else if(*dp && *dp!='/')
+				break;
+			if(*dp==0)
+				break;
+		}
+		if(n)	
+		{
 			cdpath = 0;
+			sp = oldpwd + strlen(oldpwd);
+			while(n--)
+			{
+				while(--sp > oldpwd && *sp!='/');
+				if(sp==oldpwd)
+					break;
+				
+			}
+			sfwrite(shp->strbuf,oldpwd,sp+1-oldpwd);
+			sfputr(shp->strbuf,dp,0);
+			dir = sfstruse(shp->strbuf);
+		}
 	}
 	rval = -1;
 	do
@@ -191,8 +213,6 @@ success:
 	if(*dir != '/')
 		return(0);
 	nv_putval(opwdnod,oldpwd,NV_RDONLY);
-	if(oldpwd)
-		free(oldpwd);
 	flag = strlen(dir);
 	/* delete trailing '/' */
 	while(--flag>0 && dir[flag]=='/')
@@ -203,18 +223,16 @@ success:
 	nv_scan(shp->track_tree,rehash,(void*)0,NV_TAGGED,NV_TAGGED);
 	path_newdir(shp,shp->pathlist);
 	path_newdir(shp,shp->cdpathlist);
+	if(oldpwd)
+		free(oldpwd);
 	return(0);
 }
 
-int	b_pwd(int argc, char *argv[],void *extra)
+int	b_pwd(int argc, char *argv[],Shbltin_t *context)
 {
 	register int n, flag = 0;
 	register char *cp;
-#if SHOPT_FS_3D
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
-#else
-	NOT_USED(extra);
-#endif
+	register Shell_t *shp = context->shp;
 	NOT_USED(argc);
 	while((n = optget(argv,sh_optpwd))) switch(n)
 	{

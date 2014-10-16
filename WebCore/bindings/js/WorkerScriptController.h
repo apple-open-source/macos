@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,39 +28,41 @@
 #ifndef WorkerScriptController_h
 #define WorkerScriptController_h
 
-#if ENABLE(WORKERS)
 #include <debugger/Debugger.h>
 #include <heap/Strong.h>
 #include <wtf/Forward.h>
 #include <wtf/Threading.h>
 
+namespace Deprecated {
+class ScriptValue;
+}
+
 namespace JSC {
-    class VM;
+class VM;
 }
 
 namespace WebCore {
 
-    class JSWorkerContext;
+    class JSWorkerGlobalScope;
     class ScriptSourceCode;
-    class ScriptValue;
-    class WorkerContext;
+    class WorkerGlobalScope;
 
     class WorkerScriptController {
         WTF_MAKE_NONCOPYABLE(WorkerScriptController); WTF_MAKE_FAST_ALLOCATED;
     public:
-        WorkerScriptController(WorkerContext*);
+        WorkerScriptController(WorkerGlobalScope*);
         ~WorkerScriptController();
 
-        JSWorkerContext* workerContextWrapper()
+        JSWorkerGlobalScope* workerGlobalScopeWrapper()
         {
             initScriptIfNeeded();
-            return m_workerContextWrapper.get();
+            return m_workerGlobalScopeWrapper.get();
         }
 
         void evaluate(const ScriptSourceCode&);
-        void evaluate(const ScriptSourceCode&, ScriptValue* exception);
+        void evaluate(const ScriptSourceCode&, Deprecated::ScriptValue* exception);
 
-        void setException(const ScriptValue&);
+        void setException(const Deprecated::ScriptValue&);
 
         // Async request to terminate a JS run execution. Eventually causes termination
         // exception raised during JS execution, if the worker thread happens to run JS.
@@ -77,7 +79,7 @@ namespace WebCore {
 
         void disableEval(const String& errorMessage);
 
-        JSC::VM* vm() { return m_vm.get(); }
+        JSC::VM& vm() { return *m_vm; }
 
         void attachDebugger(JSC::Debugger*);
         void detachDebugger(JSC::Debugger*);
@@ -85,20 +87,18 @@ namespace WebCore {
     private:
         void initScriptIfNeeded()
         {
-            if (!m_workerContextWrapper)
+            if (!m_workerGlobalScopeWrapper)
                 initScript();
         }
         void initScript();
 
         RefPtr<JSC::VM> m_vm;
-        WorkerContext* m_workerContext;
-        JSC::Strong<JSWorkerContext> m_workerContextWrapper;
+        WorkerGlobalScope* m_workerGlobalScope;
+        JSC::Strong<JSWorkerGlobalScope> m_workerGlobalScopeWrapper;
         bool m_executionForbidden;
         mutable Mutex m_scheduledTerminationMutex;
     };
 
 } // namespace WebCore
-
-#endif // ENABLE(WORKERS)
 
 #endif // WorkerScriptController_h

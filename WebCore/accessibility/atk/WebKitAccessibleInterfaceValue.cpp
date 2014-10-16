@@ -24,7 +24,9 @@
 
 #include "AccessibilityObject.h"
 #include "HTMLNames.h"
+#include "WebKitAccessibleUtil.h"
 #include "WebKitAccessibleWrapperAtk.h"
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
@@ -36,8 +38,88 @@ static AccessibilityObject* core(AtkValue* value)
     return webkitAccessibleGetAccessibilityObject(WEBKIT_ACCESSIBLE(value));
 }
 
+static bool webkitAccessibleSetNewValue(AtkValue* coreValue, const gdouble newValue)
+{
+    AccessibilityObject* coreObject = core(coreValue);
+    if (!coreObject->canSetValueAttribute())
+        return FALSE;
+
+    // Check value against range limits
+    double value;
+    value = std::max(static_cast<double>(coreObject->minValueForRange()), newValue);
+    value = std::min(static_cast<double>(coreObject->maxValueForRange()), newValue);
+
+    coreObject->setValue(String::number(value));
+    return TRUE;
+}
+
+static float webkitAccessibleGetIncrementValue(AccessibilityObject* coreObject)
+{
+    if (!coreObject->getAttribute(HTMLNames::stepAttr).isEmpty())
+        return coreObject->stepValueForRange();
+
+    // If 'step' attribute is not defined, WebCore assumes a 5% of the
+    // range between minimum and maximum values. Implicit value of step should be one or larger.
+    float step = (coreObject->maxValueForRange() - coreObject->minValueForRange()) * 0.05;
+    return step < 1 ? 1 : step;
+}
+
+#if ATK_CHECK_VERSION(2,11,92)
+static void webkitAccessibleGetValueAndText(AtkValue* value, gdouble* currentValue, gchar** alternativeText)
+{
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
+    AccessibilityObject* coreObject = core(value);
+    if (!coreObject)
+        return;
+
+    if (currentValue)
+        *currentValue = coreObject->valueForRange();
+    if (alternativeText)
+        *alternativeText = g_strdup_printf("%s", coreObject->valueDescription().utf8().data());
+}
+
+static double webkitAccessibleGetIncrement(AtkValue* value)
+{
+    g_return_val_if_fail(ATK_VALUE(value), 0);
+    returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value), 0);
+
+    AccessibilityObject* coreObject = core(value);
+    if (!coreObject)
+        return 0;
+
+    return webkitAccessibleGetIncrementValue(coreObject);
+}
+
+static void webkitAccessibleSetValue(AtkValue* value, const gdouble newValue)
+{
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
+    webkitAccessibleSetNewValue(value, newValue);
+}
+
+static AtkRange* webkitAccessibleGetRange(AtkValue* value)
+{
+    g_return_val_if_fail(ATK_VALUE(value), nullptr);
+    returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value), nullptr);
+
+    AccessibilityObject* coreObject = core(value);
+    if (!coreObject)
+        return nullptr;
+
+    gdouble minValue = coreObject->minValueForRange();
+    gdouble maxValue = coreObject->maxValueForRange();
+    gchar* valueDescription = g_strdup_printf("%s", coreObject->valueDescription().utf8().data());
+    return atk_range_new(minValue, maxValue, valueDescription);
+}
+#else
 static void webkitAccessibleValueGetCurrentValue(AtkValue* value, GValue* gValue)
 {
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
     memset(gValue,  0, sizeof(GValue));
     g_value_init(gValue, G_TYPE_FLOAT);
     g_value_set_float(gValue, core(value)->valueForRange());
@@ -45,6 +127,9 @@ static void webkitAccessibleValueGetCurrentValue(AtkValue* value, GValue* gValue
 
 static void webkitAccessibleValueGetMaximumValue(AtkValue* value, GValue* gValue)
 {
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
     memset(gValue,  0, sizeof(GValue));
     g_value_init(gValue, G_TYPE_FLOAT);
     g_value_set_float(gValue, core(value)->maxValueForRange());
@@ -52,6 +137,9 @@ static void webkitAccessibleValueGetMaximumValue(AtkValue* value, GValue* gValue
 
 static void webkitAccessibleValueGetMinimumValue(AtkValue* value, GValue* gValue)
 {
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
     memset(gValue,  0, sizeof(GValue));
     g_value_init(gValue, G_TYPE_FLOAT);
     g_value_set_float(gValue, core(value)->minValueForRange());
@@ -59,6 +147,9 @@ static void webkitAccessibleValueGetMinimumValue(AtkValue* value, GValue* gValue
 
 static gboolean webkitAccessibleValueSetCurrentValue(AtkValue* value, const GValue* gValue)
 {
+    g_return_val_if_fail(ATK_VALUE(value), FALSE);
+    returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value), FALSE);
+
     double newValue;
     if (G_VALUE_HOLDS_DOUBLE(gValue))
         newValue = g_value_get_double(gValue);
@@ -77,44 +168,38 @@ static gboolean webkitAccessibleValueSetCurrentValue(AtkValue* value, const GVal
     else if (G_VALUE_HOLDS_UINT(gValue))
         newValue = g_value_get_uint(gValue);
     else
-        return false;
-
-    AccessibilityObject* coreObject = core(value);
-    if (!coreObject->canSetValueAttribute())
         return FALSE;
 
-    // Check value against range limits
-    newValue = std::max(static_cast<double>(coreObject->minValueForRange()), newValue);
-    newValue = std::min(static_cast<double>(coreObject->maxValueForRange()), newValue);
-
-    coreObject->setValue(String::number(newValue));
-    return TRUE;
+    return webkitAccessibleSetNewValue(value, newValue);
 }
 
 static void webkitAccessibleValueGetMinimumIncrement(AtkValue* value, GValue* gValue)
 {
+    g_return_if_fail(ATK_VALUE(value));
+    returnIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(value));
+
     memset(gValue,  0, sizeof(GValue));
     g_value_init(gValue, G_TYPE_FLOAT);
 
     AccessibilityObject* coreObject = core(value);
-    if (!coreObject->getAttribute(HTMLNames::stepAttr).isEmpty()) {
-        g_value_set_float(gValue, coreObject->stepValueForRange());
-        return;
-    }
-
-    // If 'step' attribute is not defined, WebCore assumes a 5% of the
-    // range between minimum and maximum values, so return that.
-    float range = coreObject->maxValueForRange() - coreObject->minValueForRange();
-    g_value_set_float(gValue, range * 0.05);
+    g_value_set_float(gValue, webkitAccessibleGetIncrementValue(coreObject));
 }
+#endif
 
 void webkitAccessibleValueInterfaceInit(AtkValueIface* iface)
 {
+#if ATK_CHECK_VERSION(2,11,92)
+    iface->get_value_and_text = webkitAccessibleGetValueAndText;
+    iface->get_increment = webkitAccessibleGetIncrement;
+    iface->set_value = webkitAccessibleSetValue;
+    iface->get_range = webkitAccessibleGetRange;
+#else
     iface->get_current_value = webkitAccessibleValueGetCurrentValue;
     iface->get_maximum_value = webkitAccessibleValueGetMaximumValue;
     iface->get_minimum_value = webkitAccessibleValueGetMinimumValue;
     iface->set_current_value = webkitAccessibleValueSetCurrentValue;
     iface->get_minimum_increment = webkitAccessibleValueGetMinimumIncrement;
+#endif
 }
 
 #endif

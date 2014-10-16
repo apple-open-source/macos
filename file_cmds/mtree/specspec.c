@@ -122,17 +122,17 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 	if (n2 != NULL && n2->type == F_LINK)
 		n2->flags &= ~F_MODE;
 	differs = 0;
-	if (n1 == NULL && n2 != NULL) {
+	if ((n1 == NULL) && (n2 == NULL)) {
+		return 0;
+	} else if (n1 == NULL) {
 		differs = n2->flags;
 		mismatch(n1, n2, differs, path);
 		return (1);
-	}
-	if (n1 != NULL && n2 == NULL) {
+	} else if (n2 == NULL) {
 		differs = n1->flags;
 		mismatch(n1, n2, differs, path);
 		return (1);
-	}
-	if (n1->type != n2->type) {
+	} else if (n1->type != n2->type) {
 		differs = 0;
 		mismatch(n1, n2, differs, path);
 		return (1);

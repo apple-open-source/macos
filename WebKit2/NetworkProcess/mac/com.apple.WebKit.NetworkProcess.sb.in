@@ -9,7 +9,7 @@
 ;    notice, this list of conditions and the following disclaimer in the
 ;    documentation and/or other materials provided with the distribution.
 ;
-; THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS "AS IS"
+; THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
 ; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
 ; THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
 ; PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
@@ -36,24 +36,6 @@
 
 (define (home-literal home-relative-literal)
     (literal (string-append (param "HOME_DIR") home-relative-literal)))
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1070
-;; Low level networking. Defined in system.sb on newer OS versions.
-(define (system-network)
-  (allow file-read*
-         (literal "/Library/Preferences/com.apple.networkd.plist"))
-  (allow mach-lookup
-         (global-name "com.apple.SystemConfiguration.PPPController")
-         (global-name "com.apple.SystemConfiguration.SCNetworkReachability")
-         (global-name "com.apple.networkd"))
-  (allow network-outbound
-         (control-name "com.apple.netsrc")
-         (control-name "com.apple.network.statistics"))
-  (allow system-socket
-         (require-all (socket-domain AF_SYSTEM)
-                      (socket-protocol 2)) ; SYSPROTO_CONTROL
-         (socket-domain AF_ROUTE)))
-#endif
 
 ;; Read-only preferences and data
 (allow file-read*
@@ -110,6 +92,7 @@
 
 ;; Various services required by CFNetwork and other frameworks
 (allow mach-lookup
+    (global-name "com.apple.FileCoordination")
     (global-name "com.apple.PowerManagement.control")
     (global-name "com.apple.SystemConfiguration.configd")
     (global-name "com.apple.cookied")
@@ -144,6 +127,7 @@
 ;; FIXME should be removed when <rdar://problem/9347205> + related radar in Safari is fixed
 (allow mach-lookup
     (global-name "org.h5l.kcm")
+    (global-name "com.apple.GSSCred")
     (global-name "com.apple.system.logger")
     (global-name "com.apple.system.notification_center"))
 (allow network-outbound
@@ -166,7 +150,11 @@
 (deny file-write-xattr (xattr "com.apple.quarantine") (with no-log))
 
 ;; Reserve a namespace for additional protected extended attributes.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED > 1090
+(deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
+#else
 (deny file-read-xattr file-write-xattr (xattr #"^com\.apple\.security\.private\."))
+#endif
 
 (deny file-read* file-write* (with no-log)
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1080

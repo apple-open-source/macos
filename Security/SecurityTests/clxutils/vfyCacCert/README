@@ -1,0 +1,37 @@
+                               vfyCacCert README
+							  last update 12/4/02
+
+This directory contains a fully working example of how a CAC certificate must be verified. The input to the program, via argv[1], is a raw certificate (which is in the same format as a cert obtained from a CAC). The ultimate verification is performed by the CSSM_TP_CertGroupVerify() call. Most of this program demostrates what you have to do between the time you have a CAC cert in hand and the time you call CSSM_TP_CertGroupVerify(). The main "wrapper" for the rather ugly CSSM_TP_CertGroupVerify() is vfyCert() in vfyCacCert.cpp. 
+
+The program attempts to open two different system-wide keychains, handles to which are passed into vfyCert(). Any system code which uses CSSM_TP_CertGroupVerify() to verify a CAC cert is expected to open these same two keychains. These keychains are:
+
+System/Library/Keychains/X509Certificates
+  
+  This contains intermediate certs which are required for CAC verification. 
+  Attempting to verify a CAC cert without this keychain present in your
+  system will certainly result in failure (though for illustrative
+  purposes, vfyCacCert will go ahead and ask CSSM_TP_CertGroupVerify() to
+  do its thing without this keychain).
+  
+/private/var/db/crls/crlcache.db
+
+  This is a cache of CRLs which have been recently fetched from the net.
+  VfyCacCert() will work without this keychain but verification is usually
+  MUCH faster if the keychain is there. 
+    
+  The purpose of the CRL cache is to avoid doing an LDAP fetch every time you
+  try to verify a CAC. Entries in the cache go stale in a couple of days; the 
+  TP detects this and fetches new CRLs as needed, stuffing newly fetched CRLs
+  back into the cache. 
+
+  The TP, in conjuntion with the crlrefresh tool, will create this 
+  keychain if it does not exist. Your system must, however, contain
+  the directory /var/db/crls/, owned by root, with permissions 0777.
+  Note: Secrutiy-Sphinx2 creates this directory properly; the current 
+  Panther tree as of 12/4/02 creates the directory but fails to give
+  it the proper 0777 permission. TO use this on Panther, you have
+  to su to root and make that change yourself. 
+  
+  Eventually the crlrefresh tool, which performs automatic pruning and 
+  refreshing of the CRL cache, will be run as a crontab job.
+  

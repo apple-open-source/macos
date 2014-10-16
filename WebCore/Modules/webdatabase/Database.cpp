@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,7 +32,6 @@
 #if ENABLE(SQL_DATABASE)
 
 #include "ChangeVersionData.h"
-#include "CrossThreadTask.h"
 #include "DatabaseBackendContext.h"
 #include "DatabaseCallback.h"
 #include "DatabaseContext.h"
@@ -43,7 +42,6 @@
 #include "Document.h"
 #include "JSDOMWindow.h"
 #include "Logging.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "SQLError.h"
 #include "SQLTransaction.h"
@@ -53,12 +51,14 @@
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "VoidCallback.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
+
+#if PLATFORM(IOS)
+#include "SQLiteDatabaseTracker.h"
+#endif
 
 namespace WebCore {
 
@@ -84,39 +84,17 @@ Database::Database(PassRefPtr<DatabaseBackendContext> databaseContext,
     ASSERT(m_databaseContext->databaseThread());
 }
 
-class DerefContextTask : public ScriptExecutionContext::Task {
-public:
-    static PassOwnPtr<DerefContextTask> create(PassRefPtr<ScriptExecutionContext> context)
-    {
-        return adoptPtr(new DerefContextTask(context));
-    }
-
-    virtual void performTask(ScriptExecutionContext* context)
-    {
-        ASSERT_UNUSED(context, context == m_context);
-        m_context.clear();
-    }
-
-    virtual bool isCleanupTask() const { return true; }
-
-private:
-    DerefContextTask(PassRefPtr<ScriptExecutionContext> context)
-        : m_context(context)
-    {
-    }
-    
-    RefPtr<ScriptExecutionContext> m_context;
-};
-
 Database::~Database()
 {
     // The reference to the ScriptExecutionContext needs to be cleared on the JavaScript thread.  If we're on that thread already, we can just let the RefPtr's destruction do the dereffing.
     if (!m_scriptExecutionContext->isContextThread()) {
         // Grab a pointer to the script execution here because we're releasing it when we pass it to
         // DerefContextTask::create.
-        ScriptExecutionContext* scriptExecutionContext = m_scriptExecutionContext.get();
-        
-        scriptExecutionContext->postTask(DerefContextTask::create(m_scriptExecutionContext.release()));
+        PassRefPtr<ScriptExecutionContext> passedContext = m_scriptExecutionContext.release();
+        passedContext->postTask({ScriptExecutionContext::Task::CleanupTask, [=] (ScriptExecutionContext& context) {
+            ASSERT_UNUSED(context, &context == passedContext);
+            RefPtr<ScriptExecutionContext> scriptExecutionContext(passedContext);
+        }});
     }
 }
 
@@ -151,8 +129,8 @@ void Database::markAsDeletedAndClose()
         return;
     }
 
-    OwnPtr<DatabaseCloseTask> task = DatabaseCloseTask::create(this, &synchronizer);
-    databaseContext()->databaseThread()->scheduleImmediateTask(task.release());
+    auto task = DatabaseCloseTask::create(this, &synchronizer);
+    databaseContext()->databaseThread()->scheduleImmediateTask(WTF::move(task));
     synchronizer.waitForTaskCompletion();
 }
 
@@ -184,49 +162,25 @@ void Database::readTransaction(PassRefPtr<SQLTransactionCallback> callback, Pass
     runTransaction(callback, errorCallback, successCallback, true);
 }
 
-static void callTransactionErrorCallback(ScriptExecutionContext*, PassRefPtr<SQLTransactionErrorCallback> callback, PassRefPtr<SQLError> error)
-{
-    callback->handleEvent(error.get());
-}
-
 void Database::runTransaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback,
     PassRefPtr<VoidCallback> successCallback, bool readOnly, const ChangeVersionData* changeVersionData)
 {
-    RefPtr<SQLTransactionErrorCallback> anotherRefToErrorCallback = errorCallback;
-    RefPtr<SQLTransaction> transaction = SQLTransaction::create(this, callback, successCallback, anotherRefToErrorCallback, readOnly);
+    RefPtr<SQLTransactionErrorCallback> errorCallbackProtector(errorCallback);
+    RefPtr<SQLTransaction> transaction = SQLTransaction::create(this, callback, successCallback, errorCallbackProtector, readOnly);
 
-    RefPtr<SQLTransactionBackend> transactionBackend;
-    transactionBackend = backend()->runTransaction(transaction.release(), readOnly, changeVersionData);
-    if (!transactionBackend && anotherRefToErrorCallback) {
-        RefPtr<SQLError> error = SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed");
-        scriptExecutionContext()->postTask(createCallbackTask(&callTransactionErrorCallback, anotherRefToErrorCallback, error.release()));
-    }
+    RefPtr<SQLTransactionBackend> transactionBackend(backend()->runTransaction(transaction.release(), readOnly, changeVersionData));
+    if (!transactionBackend && errorCallbackProtector)
+        scriptExecutionContext()->postTask([=] (ScriptExecutionContext&) {
+            errorCallbackProtector->handleEvent(SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed").get());
+        });
 }
-
-class DeliverPendingCallbackTask : public ScriptExecutionContext::Task {
-public:
-    static PassOwnPtr<DeliverPendingCallbackTask> create(PassRefPtr<SQLTransaction> transaction)
-    {
-        return adoptPtr(new DeliverPendingCallbackTask(transaction));
-    }
-
-    virtual void performTask(ScriptExecutionContext*)
-    {
-        m_transaction->performPendingCallback();
-    }
-
-private:
-    DeliverPendingCallbackTask(PassRefPtr<SQLTransaction> transaction)
-        : m_transaction(transaction)
-    {
-    }
-
-    RefPtr<SQLTransaction> m_transaction;
-};
 
 void Database::scheduleTransactionCallback(SQLTransaction* transaction)
 {
-    m_scriptExecutionContext->postTask(DeliverPendingCallbackTask::create(transaction));
+    RefPtr<SQLTransaction> transactionProtector(transaction);
+    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
+        transactionProtector->performPendingCallback();
+    });
 }
 
 Vector<String> Database::performGetTableNames()
@@ -267,8 +221,8 @@ Vector<String> Database::tableNames()
     if (!databaseContext()->databaseThread() || databaseContext()->databaseThread()->terminationRequested(&synchronizer))
         return result;
 
-    OwnPtr<DatabaseTableNamesTask> task = DatabaseTableNamesTask::create(this, &synchronizer, result);
-    databaseContext()->databaseThread()->scheduleImmediateTask(task.release());
+    auto task = DatabaseTableNamesTask::create(this, &synchronizer, result);
+    databaseContext()->databaseThread()->scheduleImmediateTask(WTF::move(task));
     synchronizer.waitForTaskCompletion();
 
     return result;

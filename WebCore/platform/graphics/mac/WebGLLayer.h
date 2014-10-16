@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,8 +26,6 @@
 #ifndef WebGLLayer_h
 #define WebGLLayer_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
 #import <QuartzCore/QuartzCore.h>
 
 namespace WebCore {
@@ -35,18 +33,21 @@ namespace WebCore {
     class GraphicsContext3D;
 }
 
-@interface WebGLLayer : CAOpenGLLayer 
+#if PLATFORM(IOS)
+@interface WebGLLayer : CAEAGLLayer
+#else
+@interface WebGLLayer : CAOpenGLLayer
+#endif
 {
-    WebCore::GraphicsLayer* m_layerOwner;
-    WebCore::GraphicsContext3D* m_context;
+    WebCore::GraphicsContext3D* _context;
 }
+
+@property (nonatomic) WebCore::GraphicsContext3D* context;
 
 - (id)initWithGraphicsContext3D:(WebCore::GraphicsContext3D*)context;
 
 - (CGImageRef)copyImageSnapshotWithColorSpace:(CGColorSpaceRef)colorSpace;
 
 @end
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // WebGLLayer_h

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -94,6 +94,7 @@ typedef struct edit
 	int	e_plen;		/* length of prompt string */
 	char	e_crlf;		/* zero if cannot return to beginning of line */
 	char	e_nocrnl;	/* don't put a new-line with ^L */
+	char	e_keytrap;	/* set when in keytrap */
 	int	e_llimit;	/* line length limit */
 	int	e_hline;	/* current history line number */
 	int	e_hloff;	/* line number offset for command */
@@ -172,7 +173,7 @@ typedef struct edit
 	unsigned short	nhlist;
 	unsigned short	hoff;
 	unsigned short	hmax;
-	char		*hpat;
+	char		hpat[40];
 	char		*hstak;
 #endif /* SHOPT_EDPREDICT */
 } Edit_t;

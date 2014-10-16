@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 1997 - 2011 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
@@ -431,10 +430,10 @@ krb5_error_code
 ks_tuple2str(krb5_context context, int n_ks_tuple,
 	     krb5_key_salt_tuple *ks_tuple, char ***ks_tuple_strs)
 {
-	size_t i;
-	char **ksnames;
-	char *ename, *sname;
 	krb5_error_code rc = KRB5_PROG_ETYPE_NOSUPP;
+	char *ename, *sname;
+	char **ksnames;
+	int i;
 
 	*ks_tuple_strs = NULL;
 	if (n_ks_tuple < 1)
@@ -636,5 +635,93 @@ hdb_generate_key_set_password(krb5_context context,
 	hdb_free_keys (context, *num_keys, *keys);
 	return ret;
     }
+    return ret;
+}
+
+#include <corecrypto/ccsrp.h>
+
+krb5_error_code
+hdb_set_srp_verifier(krb5_context context,
+		     KRB5_SRP_GROUP group,
+		     krb5_const_principal principal,
+		     const char *password,
+		     uint32_t iterations,
+		     hdb_srp *srp)
+{
+    krb5_error_code ret;
+    const struct _krb5_srp_group *grp;
+
+    grp = _krb5_srp_validate_group(group);
+    if (grp == NULL)
+	return ENOENT;
+
+    /*
+     * Set up param
+     */
+
+    srp->param.group = group;
+    ret = krb5_data_alloc(&srp->param.salt, 16);
+    if (ret) {
+	return ret;
+    }
+
+    krb5_generate_random_block(srp->param.salt.data, srp->param.salt.length);
+
+    if (iterations == 0)
+	iterations = 4000;
+    srp->param.iterations = iterations;
+
+    /*
+     * Now build verifier
+     */
+
+    ret = _krb5_srp_create_pa(context, 
+			      grp,
+			      principal,
+			      password,
+			      &srp->param,
+			      &srp->verifier);
+    if (ret) {
+	free_hdb_srp(srp);
+	return ret;
+    }
+
+    return 0;
+}
+
+krb5_error_code
+hdb_entry_set_srp_verifiers(krb5_context context,
+			    hdb_entry *entry,
+			    const char *password,
+			    uint32_t iterations)
+{
+    HDB_extension ext;
+    int ret;
+
+    memset(&ext, 0, sizeof(ext));
+
+    ext.mandatory = FALSE;
+    ext.data.element = choice_HDB_extension_data_srp;
+
+    ext.data.u.srp.len = 1;
+    ext.data.u.srp.val = calloc(1, sizeof(ext.data.u.srp.val[0]));
+    if (ext.data.u.srp.val == NULL)
+	return ENOMEM;
+
+    ret = hdb_set_srp_verifier(context,
+			       KRB5_SRP_GROUP_RFC5054_4096_PBKDF2_SHA512,
+			       entry->principal,
+			       password,
+			       0,
+			       &ext.data.u.srp.val[0]);
+    if (ret) {
+	free_HDB_extension(&ext);
+	return ret;
+    }
+
+    ret = hdb_replace_extension(context, entry, &ext);
+
+    free_HDB_extension(&ext);
+
     return ret;
 }

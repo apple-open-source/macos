@@ -65,9 +65,11 @@ _gss_spnego_alloc_sec_context (OM_uint32 * minor_status,
 
     ctx->NegTokenInit_mech_types.value = NULL;
     ctx->NegTokenInit_mech_types.length = 0;
+
     ctx->preferred_mech_type = GSS_C_NO_OID;
     ctx->selected_mech_type = GSS_C_NO_OID;
     ctx->negotiated_mech_type = GSS_C_NO_OID;
+
     ctx->negotiated_ctx_id = GSS_C_NO_CONTEXT;
 
     ctx->mech_src_name = GSS_C_NO_NAME;
@@ -119,10 +121,7 @@ OM_uint32 GSSAPI_CALLCONV _gss_spnego_internal_delete_sec_context
     if (ctx->NegTokenInit_mech_types.value)
 	free(ctx->NegTokenInit_mech_types.value);
 
-    gss_release_oid(&minor, &ctx->preferred_mech_type);
     ctx->negotiated_mech_type = GSS_C_NO_OID;
-
-    gss_release_oid(&minor, &ctx->selected_mech_type);
     ctx->selected_mech_type = GSS_C_NO_OID;
 
     gss_release_name(&minor, &ctx->target_name);
@@ -244,14 +243,14 @@ add_mech_type(gss_OID mech_type,
 
 
 OM_uint32 GSSAPI_CALLCONV
-_gss_spnego_indicate_mechtypelist (OM_uint32 *minor_status,
-				   gss_name_t target_name,
-				   OM_uint32 (*func)(void *, gss_name_t, const gss_cred_id_t, gss_OID),
-				   void *userctx,
-				   int includeMSCompatOID,
-				   const gss_cred_id_t cred_handle,
-				   MechTypeList *mechtypelist,
-				   gss_OID *preferred_mech)
+_gss_spnego_indicate_mechtypelist(OM_uint32 *minor_status,
+				  gss_name_t target_name,
+				  OM_uint32 (*func)(void *, gss_name_t, const gss_cred_id_t, gss_OID),
+				  void *userctx,
+				  int includeMSCompatOID,
+				  const gss_cred_id_t cred_handle,
+				  MechTypeList *mechtypelist,
+				  gss_OID *preferred_mech)
 {
     gss_OID_set supported_mechs = GSS_C_NO_OID_SET;
     gss_OID first_mech = GSS_C_NO_OID;
@@ -343,9 +342,7 @@ _gss_spnego_indicate_mechtypelist (OM_uint32 *minor_status,
     }
 
     if (preferred_mech != NULL) {
-	ret = gss_duplicate_oid(minor_status, first_mech, preferred_mech);
-	if (ret != GSS_S_COMPLETE)
-	    free_MechTypeList(mechtypelist);
+	*preferred_mech = _gss_mg_support_mechanism(first_mech);
     }
     gss_release_oid_set(minor_status, &supported_mechs);
 

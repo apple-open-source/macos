@@ -1,14 +1,5 @@
 --- src/cmd/ksh93/sh.1+orig	2007-01-01 18:31:39.000000000 -0800
 +++ src/cmd/ksh93/sh.1	2007-03-19 20:16:15.000000000 -0700
-@@ -13,7 +13,7 @@
- .TH SH 1
- .\}
- .if \nZ=1 \{\
--.TH KSH 1 "User Environment Utilities" "RDS Standard"
-+.TH KSH 1
- .\}
- .if \nZ=2 \{\
- .TH KSH93 1
 @@ -28,6 +28,12 @@ ksh, rksh, pfksh \- KornShell, a standar
  .if \nZ=2 \{\
  ksh93, rksh93, pfksh93 \- KornShell, a standard/restricted command and programming language

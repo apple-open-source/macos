@@ -413,7 +413,7 @@ CCRSACryptorCrypt(CCRSACryptorRef rsaKey, const void *in, size_t inLen, void *ou
 }
 
 
-
+#if 0
 static inline int cczp_read_uint(cczp_t r, size_t data_size, const uint8_t *data)
 {
     if(ccn_read_uint(ccn_nof_size(data_size), CCZP_PRIME(r), data_size, data) != 0) return -1;
@@ -421,6 +421,7 @@ static inline int cczp_read_uint(cczp_t r, size_t data_size, const uint8_t *data
     cczp_init(r);
     return 0;
 }
+#endif
 
 static inline
 CCCryptorStatus ccn_write_arg(size_t n, const cc_unit *source, uint8_t *dest, size_t *destLen)

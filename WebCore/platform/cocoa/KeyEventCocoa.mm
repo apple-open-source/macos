@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -531,9 +531,8 @@ int windowsKeyCodeForCharCode(unichar charCode)
         case NSPrintFunctionKey: return VK_PRINT;
         case NSExecuteFunctionKey: return VK_EXECUTE;
         case NSPrintScreenFunctionKey: return VK_SNAPSHOT;
-        case NSInsertFunctionKey: return VK_INSERT;
 #if PLATFORM(IOS)
-        case NSHelpFunctionKey: return VK_INSERT;
+        case NSInsertFunctionKey: case NSHelpFunctionKey: return VK_INSERT;
 
         case NSF1FunctionKey: return VK_F1;
         case NSF2FunctionKey: return VK_F2;
@@ -555,6 +554,8 @@ int windowsKeyCodeForCharCode(unichar charCode)
         case NSF18FunctionKey: return VK_F18;
         case NSF19FunctionKey: return VK_F19;
         case NSF20FunctionKey: return VK_F20;
+#else
+        case NSInsertFunctionKey: return VK_INSERT;
 #endif
         case NSF21FunctionKey: return VK_F21;
         case NSF22FunctionKey: return VK_F22;

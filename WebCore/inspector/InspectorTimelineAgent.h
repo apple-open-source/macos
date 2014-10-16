@@ -1,5 +1,6 @@
 /*
 * Copyright (C) 2012 Google Inc. All rights reserved.
+* Copyright (C) 2014 University of Washington.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -33,40 +34,83 @@
 
 #if ENABLE(INSPECTOR)
 
-#include "InspectorBaseAgent.h"
-#include "InspectorFrontend.h"
-#include "InspectorValues.h"
+#include "InspectorWebAgentBase.h"
+#include "InspectorWebBackendDispatchers.h"
+#include "InspectorWebFrontendDispatchers.h"
 #include "LayoutRect.h"
-#include "PlatformInstrumentation.h"
-#include "ScriptGCEvent.h"
-#include "ScriptGCEventListener.h"
-#include <wtf/PassOwnPtr.h>
+#include <inspector/InspectorValues.h>
+#include <inspector/ScriptDebugListener.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
+namespace JSC {
+class Profile;
+}
+
 namespace WebCore {
+
 class Event;
 class FloatQuad;
 class Frame;
 class InspectorClient;
-class InspectorFrontend;
-class InspectorMemoryAgent;
 class InspectorPageAgent;
-class InspectorState;
 class InstrumentingAgents;
 class IntRect;
-class KURL;
+class URL;
 class Page;
+class PageScriptDebugServer;
 class RenderObject;
 class ResourceRequest;
 class ResourceResponse;
-class TimelineTraceEventProcessor;
 
 typedef String ErrorString;
 
-namespace TimelineRecordType {
-extern const char DecodeImage[];
-extern const char Rasterize[];
+enum class TimelineRecordType {
+    EventDispatch,
+    ScheduleStyleRecalculation,
+    RecalculateStyles,
+    InvalidateLayout,
+    Layout,
+    Paint,
+    ScrollLayer,
+    ResizeImage,
+
+    ParseHTML,
+
+    TimerInstall,
+    TimerRemove,
+    TimerFire,
+
+    EvaluateScript,
+
+    MarkLoad,
+    MarkDOMContent,
+
+    TimeStamp,
+    Time,
+    TimeEnd,
+
+    ScheduleResourceRequest,
+    ResourceSendRequest,
+    ResourceReceiveResponse,
+    ResourceReceivedData,
+    ResourceFinish,
+
+    XHRReadyStateChange,
+    XHRLoad,
+
+    FunctionCall,
+    ProbeSample,
+    ConsoleProfile,
+
+    RequestAnimationFrame,
+    CancelAnimationFrame,
+    FireAnimationFrame,
+
+    WebSocketCreate,
+    WebSocketSendHandshakeRequest,
+    WebSocketReceiveHandshakeResponse,
+    WebSocketDestroy
 };
 
 class TimelineTimeConverter {
@@ -83,43 +127,38 @@ private:
 };
 
 class InspectorTimelineAgent
-    : public InspectorBaseAgent<InspectorTimelineAgent>,
-      public ScriptGCEventListener,
-      public InspectorBackendDispatcher::TimelineCommandHandler,
-      public PlatformInstrumentationClient {
+    : public InspectorAgentBase
+    , public Inspector::InspectorTimelineBackendDispatcherHandler
+    , public Inspector::ScriptDebugListener {
     WTF_MAKE_NONCOPYABLE(InspectorTimelineAgent);
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum InspectorType { PageInspector, WorkerInspector };
 
-    static PassOwnPtr<InspectorTimelineAgent> create(InstrumentingAgents* instrumentingAgents, InspectorPageAgent* pageAgent, InspectorMemoryAgent* memoryAgent, InspectorCompositeState* state, InspectorType type, InspectorClient* client)
-    {
-        return adoptPtr(new InspectorTimelineAgent(instrumentingAgents, pageAgent, memoryAgent, state, type, client));
-    }
-
+    InspectorTimelineAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorType, InspectorClient*);
     ~InspectorTimelineAgent();
 
-    virtual void setFrontend(InspectorFrontend*);
-    virtual void clearFrontend();
-    virtual void restore();
+    virtual void didCreateFrontendAndBackend(Inspector::InspectorFrontendChannel*, Inspector::InspectorBackendDispatcher*) override;
+    virtual void willDestroyFrontendAndBackend(Inspector::InspectorDisconnectReason) override;
 
-    virtual void start(ErrorString*, const int* maxCallStackDepth, const bool* includeDomCounters, const bool* includeNativeMemoryStatistics);
-    virtual void stop(ErrorString*);
-    virtual void canMonitorMainThread(ErrorString*, bool*);
-    virtual void supportsFrameInstrumentation(ErrorString*, bool*);
+    virtual void start(ErrorString* = nullptr, const int* maxCallStackDepth = nullptr) override;
+    virtual void stop(ErrorString* = nullptr) override;
 
     int id() const { return m_id; }
+
+    void setPageScriptDebugServer(PageScriptDebugServer*);
 
     void didCommitLoad();
 
     // Methods called from WebCore.
+    void startFromConsole(JSC::ExecState*, const String &title);
+    PassRefPtr<JSC::Profile> stopFromConsole(JSC::ExecState*, const String& title);
+
     void willCallFunction(const String& scriptName, int scriptLine, Frame*);
-    void didCallFunction();
+    void didCallFunction(Frame*);
 
     void willDispatchEvent(const Event&, Frame*);
     void didDispatchEvent();
-
-    void didBeginFrame();
-    void didCancelFrame();
 
     void didInvalidateLayout(Frame*);
     void willLayout(Frame*);
@@ -135,9 +174,6 @@ public:
     void willScroll(Frame*);
     void didScroll();
 
-    void willComposite();
-    void didComposite();
-
     void willWriteHTML(unsigned startLine, Frame*);
     void didWriteHTML(unsigned endLine);
 
@@ -152,7 +188,7 @@ public:
     void didDispatchXHRLoadEvent();
 
     void willEvaluateScript(const String&, int, Frame*);
-    void didEvaluateScript();
+    void didEvaluateScript(Frame*);
 
     void didTimeStamp(Frame*, const String&);
     void didMarkDOMContentEvent(Frame*);
@@ -174,94 +210,84 @@ public:
     void willFireAnimationFrame(int callbackId, Frame*);
     void didFireAnimationFrame();
 
-    void willProcessTask();
-    void didProcessTask();
-
 #if ENABLE(WEB_SOCKETS)
-    void didCreateWebSocket(unsigned long identifier, const KURL&, const String& protocol, Frame*);
+    void didCreateWebSocket(unsigned long identifier, const URL&, const String& protocol, Frame*);
     void willSendWebSocketHandshakeRequest(unsigned long identifier, Frame*);
     void didReceiveWebSocketHandshakeResponse(unsigned long identifier, Frame*);
     void didDestroyWebSocket(unsigned long identifier, Frame*);
 #endif
 
-    // ScriptGCEventListener methods.
-    virtual void didGC(double, double, size_t);
+protected:
+    // ScriptDebugListener. This is only used to create records for probe samples.
+    virtual void didParseSource(JSC::SourceID, const Script&) override { }
+    virtual void failedToParseSource(const String&, const String&, int, int, const String&) override { }
+    virtual void didPause(JSC::ExecState*, const Deprecated::ScriptValue&, const Deprecated::ScriptValue&) override { }
+    virtual void didContinue() override { }
 
-    // PlatformInstrumentationClient methods.
-    virtual void willDecodeImage(const String& imageType) OVERRIDE;
-    virtual void didDecodeImage() OVERRIDE;
-    virtual void willResizeImage(bool shouldCache) OVERRIDE;
-    virtual void didResizeImage() OVERRIDE;
+    virtual void breakpointActionLog(JSC::ExecState*, const String&) override { }
+    virtual void breakpointActionSound(int) override { }
+    virtual void breakpointActionProbe(JSC::ExecState*, const Inspector::ScriptBreakpointAction&, int hitCount, const Deprecated::ScriptValue& result) override;
 
 private:
     friend class TimelineRecordStack;
-    friend class TimelineTraceEventProcessor;
 
     struct TimelineRecordEntry {
-        TimelineRecordEntry(PassRefPtr<InspectorObject> record, PassRefPtr<InspectorObject> data, PassRefPtr<InspectorArray> children, const String& type, size_t usedHeapSizeAtStart)
-            : record(record), data(data), children(children), type(type), usedHeapSizeAtStart(usedHeapSizeAtStart)
+        TimelineRecordEntry()
+            : type(TimelineRecordType::EventDispatch) { }
+        TimelineRecordEntry(PassRefPtr<Inspector::InspectorObject> record, PassRefPtr<Inspector::InspectorObject> data, PassRefPtr<Inspector::InspectorArray> children, TimelineRecordType type)
+            : record(record), data(data), children(children), type(type)
         {
         }
-        RefPtr<InspectorObject> record;
-        RefPtr<InspectorObject> data;
-        RefPtr<InspectorArray> children;
-        String type;
-        size_t usedHeapSizeAtStart;
+
+        RefPtr<Inspector::InspectorObject> record;
+        RefPtr<Inspector::InspectorObject> data;
+        RefPtr<Inspector::InspectorArray> children;
+        TimelineRecordType type;
     };
-        
-    InspectorTimelineAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorMemoryAgent*, InspectorCompositeState*, InspectorType, InspectorClient*);
 
-    void sendEvent(PassRefPtr<InspectorObject>);
-    void appendRecord(PassRefPtr<InspectorObject> data, const String& type, bool captureCallStack, Frame*);
-    void pushCurrentRecord(PassRefPtr<InspectorObject>, const String& type, bool captureCallStack, Frame*, bool hasLowLevelDetails = false);
+    void internalStart(const int* maxCallStackDepth = nullptr);
+    void internalStop();
 
-    void setDOMCounters(TypeBuilder::Timeline::TimelineEvent* record);
-    void setNativeHeapStatistics(TypeBuilder::Timeline::TimelineEvent* record);
-    void setFrameIdentifier(InspectorObject* record, Frame*);
-    void pushGCEventRecords();
+    void sendEvent(PassRefPtr<Inspector::InspectorObject>);
+    void appendRecord(PassRefPtr<Inspector::InspectorObject> data, TimelineRecordType, bool captureCallStack, Frame*);
+    void pushCurrentRecord(PassRefPtr<Inspector::InspectorObject>, TimelineRecordType, bool captureCallStack, Frame*);
+    void pushCurrentRecord(const TimelineRecordEntry& record) { m_recordStack.append(record); }
 
-    void didCompleteCurrentRecord(const String& type);
+    TimelineRecordEntry createRecordEntry(PassRefPtr<Inspector::InspectorObject> data, TimelineRecordType, bool captureCallStack, Frame*);
 
-    void setHeapSizeStatistics(InspectorObject* record);
-    void commitFrameRecord();
+    void setFrameIdentifier(Inspector::InspectorObject* record, Frame*);
 
-    void addRecordToTimeline(PassRefPtr<InspectorObject>, const String& type);
-    void innerAddRecordToTimeline(PassRefPtr<InspectorObject>, const String& type);
+    void didCompleteRecordEntry(const TimelineRecordEntry&);
+    void didCompleteCurrentRecord(TimelineRecordType);
+
+    void addRecordToTimeline(PassRefPtr<Inspector::InspectorObject>, TimelineRecordType);
     void clearRecordStack();
 
-    void localToPageQuad(const RenderObject& renderer, const LayoutRect&, FloatQuad*);
+    void localToPageQuad(const RenderObject&, const LayoutRect&, FloatQuad*);
     const TimelineTimeConverter& timeConverter() const { return m_timeConverter; }
     double timestamp();
     Page* page();
 
     InspectorPageAgent* m_pageAgent;
-    InspectorMemoryAgent* m_memoryAgent;
+    PageScriptDebugServer* m_scriptDebugServer;
     TimelineTimeConverter m_timeConverter;
 
-    InspectorFrontend::Timeline* m_frontend;
+    std::unique_ptr<Inspector::InspectorTimelineFrontendDispatcher> m_frontendDispatcher;
+    RefPtr<Inspector::InspectorTimelineBackendDispatcher> m_backendDispatcher;
     double m_timestampOffset;
 
     Vector<TimelineRecordEntry> m_recordStack;
 
     int m_id;
-    struct GCEvent {
-        GCEvent(double startTime, double endTime, size_t collectedBytes)
-            : startTime(startTime), endTime(endTime), collectedBytes(collectedBytes)
-        {
-        }
-        double startTime;
-        double endTime;
-        size_t collectedBytes;
-    };
-    typedef Vector<GCEvent> GCEvents;
-    GCEvents m_gcEvents;
     int m_maxCallStackDepth;
-    unsigned m_platformInstrumentationClientInstalledAtStackDepth;
-    RefPtr<InspectorObject> m_pendingFrameRecord;
     InspectorType m_inspectorType;
     InspectorClient* m_client;
-    WeakPtrFactory<InspectorTimelineAgent> m_weakFactory;
-    RefPtr<TimelineTraceEventProcessor> m_traceEventProcessor;
+
+    Vector<TimelineRecordEntry> m_pendingConsoleProfileRecords;
+
+    int m_recordingProfileDepth;
+    bool m_enabled;
+    bool m_enabledFromFrontend;
 };
 
 } // namespace WebCore

@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2013-07-30</string>
+		<string>2014-06-03</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceLicenseFile</key>
@@ -14,11 +14,11 @@
 		<key>OpenSourceProject</key>
 		<string>CFPropertyList</string>
 		<key>OpenSourceSHA1</key>
-		<string>b473922c7917b4776cfd4e0e5d74c009b97ee1aa</string>
+		<string>9389d1686695a098eeb034561eaee3975864deb4</string>
 		<key>OpenSourceURL</key>
 		<string>https://codeload.github.com/ckruse/CFPropertyList/zip/master</string>
 		<key>OpenSourceVersion</key>
-		<string>2.2.0</string>
+		<string>2.2.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://github.com/ckruse/CFPropertyList</string>
 	</dict>

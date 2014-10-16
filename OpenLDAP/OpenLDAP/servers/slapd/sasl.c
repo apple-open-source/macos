@@ -86,6 +86,8 @@ static struct berval gssapi_bv = BER_BVC( "GSSAPI" );
 
 char *slap_sasl_auxprops;
 
+#undef free
+
 #ifdef HAVE_CYRUS_SASL
 
 /* Just use our internal auxprop by default */
@@ -696,7 +698,7 @@ sasl_pws_lookup( Operation *op, SlapReply *rs )
 	return LDAP_SUCCESS;
 }
 
-static void
+static int
 pws_authdata_lookup(lookup_info *sl )
 {
 	Operation *op = NULL;
@@ -705,12 +707,16 @@ pws_authdata_lookup(lookup_info *sl )
 	SlapReply rs = {REP_RESULT};
 	struct berval authdn = {0};
 	slap_callback authdata_lookup_cb = { NULL, sasl_authdata_lookup, NULL, NULL };
+	int rc = LDAP_SUCCESS;
+	struct berval *suffixdn = NULL;
+	struct berval *configdn = NULL;
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
 	op = &opbuf.ob_op;
 
 	if(!sl) {
 		Debug(LDAP_DEBUG_TRACE, "%s: no lookup_info provided\n", __PRETTY_FUNCTION__, 0, 0);
+		rc = LDAP_PROTOCOL_ERROR;
 		goto out;
 	}
 
@@ -725,6 +731,7 @@ pws_authdata_lookup(lookup_info *sl )
 	op->o_bd = select_backend(&op->o_req_ndn, 1);
 	if(!op->o_bd) {
 		Debug(LDAP_DEBUG_TRACE, "%s: could not find backend for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+		rc = LDAP_OPERATIONS_ERROR;
 		goto out;
 	}
 
@@ -744,12 +751,19 @@ pws_authdata_lookup(lookup_info *sl )
 	op->o_bd->be_search(op, &rs);
 	if(rs.sr_err != LDAP_SUCCESS) {
 		Debug(LDAP_DEBUG_TRACE, "%s: Unable to locate %s (%d)\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, rs.sr_err);
+		rc = LDAP_OPERATIONS_ERROR;
 	}
 out:
 	free(authdn.bv_val);
+
+	return rc;
 }
 
+#if SASL_VERSION_FULL >= 0x020118
+static int
+#else
 static void
+#endif
 pws_auxprop_lookup(
 	void *glob_context __attribute__((unused)),
 	sasl_server_params_t *sparams,
@@ -761,6 +775,7 @@ pws_auxprop_lookup(
 	Connection *conn = NULL;
 	lookup_info sl = {0};
 	int i;
+	int rc = LDAP_SUCCESS;
 
 	Debug( LDAP_DEBUG_TRACE, "%s: entered", __PRETTY_FUNCTION__, 0, 0 );
 
@@ -833,7 +848,11 @@ pws_auxprop_lookup(
 		}
 	}
 	
-	pws_authdata_lookup(&sl);
+	rc = pws_authdata_lookup(&sl);
+
+#if SASL_VERSION_FULL >= 0x020118
+	return rc != LDAP_SUCCESS ? SASL_FAIL : SASL_OK;
+#endif
 }
 
 static sasl_auxprop_plug_t pws_auxprop_plugin = {
@@ -1457,11 +1476,14 @@ int slap_sasl_init( void )
 	}
 #endif
 
+#ifndef __APPLE__
+	/* The SASL library post-Mavericks uses pthread mutexes by default. */
 	sasl_set_mutex(
 		ldap_pvt_sasl_mutex_new,
 		ldap_pvt_sasl_mutex_lock,
 		ldap_pvt_sasl_mutex_unlock,
 		ldap_pvt_sasl_mutex_dispose );
+#endif /* __APPLE__ */
 
 	generic_filter.f_desc = slap_schema.si_ad_objectClass;
 
@@ -1480,7 +1502,7 @@ int slap_sasl_init( void )
 		return -1;
 	}
 
-    setenv( "SASL_PATH", "/usr/lib/sasl2/openldap/", 0 );
+	sasl_set_path( SASL_PATH_TYPE_PLUGIN, "/usr/lib/sasl2/openldap/" );
 #endif
 	/* should provide callbacks for logging */
 	/* server name should be configurable */
@@ -1522,7 +1544,7 @@ int slap_sasl_destroy( void )
 #ifdef HAVE_CYRUS_SASL
 	sasl_done();
 #endif
-	free( sasl_host );
+	ch_free( sasl_host );
 	sasl_host = NULL;
 
 	return 0;
@@ -1772,7 +1794,7 @@ int slap_sasl_close( Connection *conn )
 	conn->c_sasl_sockctx = NULL;
 	conn->c_sasl_done = 0;
 
-	free( conn->c_sasl_extra );
+	ch_free( conn->c_sasl_extra );
 	conn->c_sasl_extra = NULL;
 
 #elif defined(SLAP_BUILTIN_SASL)
@@ -1792,6 +1814,11 @@ int slap_sasl_close( Connection *conn )
 
 int slap_sasl_bind( Operation *op, SlapReply *rs )
 {
+	CFDictionaryRef userpolicyinfodict = NULL;
+	CFErrorRef cferr = NULL;
+	bool	authPolicyAllowed = true;
+	__block CFDictionaryRef policyData = NULL;
+	
 #ifdef HAVE_CYRUS_SASL
 	sasl_conn_t *ctx = op->o_conn->c_sasl_authctx;
 	struct berval response;
@@ -1850,40 +1877,29 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 
 	response.bv_len = reslen;
 
+	
+
 	if ( sc == SASL_OK ) {
 		sasl_ssf_t *ssf = NULL;
-		CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_conn->c_sasl_dn);
-		if(!poldict) {
-			Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
-			BER_BVZERO( &op->o_conn->c_sasl_dn );
-			rs->sr_text = "Could not verify policy";
-			rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-			send_ldap_result( op, rs );
-			goto out;
+		userpolicyinfodict = odusers_copy_accountpolicyinfo(&op->o_conn->c_sasl_dn);
+		if (userpolicyinfodict && !odusers_accountpolicy_override(&op->o_conn->c_sasl_dn)) {
+			authPolicyAllowed = APAuthenticationAllowed(userpolicyinfodict, true, &cferr,	^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &op->o_conn->c_sasl_dn); },
+																							^(CFDictionaryRef updates){  odusers_accountpolicy_updatedata( updates, &op->o_conn->c_sasl_dn ); });
 		}
 
-		int disableReason = odusers_isdisabled(poldict);
-		if(disableReason) {
-			Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
-			CFRelease(poldict);
+		if (!authPolicyAllowed) {
+			Debug(LDAP_DEBUG_ANY, "%s: Account Policy Violation for: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
+			CFIndex errcode = cferr ? CFErrorGetCode(cferr) : 0;
+			switch (errcode) {
+				case kAPResultFailedAuthenticationPolicy: rs->sr_text = "2 Account expired"; break;
+				case kAPResultFailedPasswordChangePolicy: rs->sr_text = "5 New password required"; break;
+				default: rs->sr_text = "99 Account Policy Violation"; break;
+			}
 			BER_BVZERO( &op->o_conn->c_sasl_dn );
-			switch(disableReason) {
-			case kDisabledByAdmin: rs->sr_text = "1 Disabled by admin"; break;
-			case kDisabledExpired: rs->sr_text = "2 Account expired"; break;
-			case kDisabledInactive: rs->sr_text = "3 Account inactive"; break;
-			case kDisabledTooManyFailedLogins: rs->sr_text = "4 Too many failed logins"; break;
-			case kDisabledNewPasswordRequired: rs->sr_text = "5 New password required"; break;
-			default: rs->sr_text = "99 Policy violation"; break;
-			};
 			rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
 			send_ldap_result( op, rs );
-			goto out;
+			goto out;			
 		}
-
-		if ( !bvmatch( &gssapi_bv, &op->o_conn->c_sasl_bind_mech )) {  /* kdc update loginFailedAttempts for gss/krb5 */
-			odusers_successful_auth(&op->o_conn->c_sasl_dn, poldict);
-		}
-		CFRelease(poldict);
 
 		ber_dupbv_x( &op->orb_edn, &op->o_conn->c_sasl_dn, op->o_tmpmemctx );
 		BER_BVZERO( &op->o_conn->c_sasl_dn );
@@ -1960,11 +1976,12 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 		// The dn won't exist if the user is authenticating
 		// over GSSAPI with a principal that doesn't exist.
 		if(!BER_BVISEMPTY(&dn)) {
-			if ( !bvmatch( &gssapi_bv, &op->o_conn->c_sasl_bind_mech )) { /* kdc update loginFailedAttempts for gss/krb5 */
-				if(odusers_increment_failedlogin(&dn) != 0) { 
-					Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, dn.bv_val, 0);
-				}
+			userpolicyinfodict = odusers_copy_accountpolicyinfo(&dn);
+			if (userpolicyinfodict && !odusers_accountpolicy_override(&dn)) {
+				authPolicyAllowed = APAuthenticationAllowed(userpolicyinfodict, false, &cferr,	^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); },
+																								^(CFDictionaryRef updates){  odusers_accountpolicy_updatedata( updates, &dn ); });
 			}
+
 		}
 
 		BER_BVZERO( &op->o_conn->c_sasl_dn );
@@ -2009,6 +2026,9 @@ out:
 		"SASL not supported" );
 #endif
 
+	if (userpolicyinfodict) CFRelease(userpolicyinfodict);
+	if (policyData) CFRelease(policyData);
+	if (cferr) CFRelease(cferr);
 	return rs->sr_err;
 }
 

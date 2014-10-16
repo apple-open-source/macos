@@ -123,6 +123,18 @@ typedef struct dt_proc_control_data {
 	dt_proc_t *dpcd_proc;			/* proccess to control */
 } dt_proc_control_data_t;
 
+/*
+ * Main loop for all victim process control threads.  We initialize all the
+ * appropriate /proc control mechanisms, and then enter a loop waiting for
+ * the process to stop on an event or die.  We process any events by calling
+ * appropriate subroutines, and exit when the victim dies or we lose control.
+ *
+ * The control thread synchronizes the use of dpr_proc with other libdtrace
+ * threads using dpr_lock.  We hold the lock for all of our operations except
+ * waiting while the process is running: this is accomplished by writing a
+ * PCWSTOP directive directly to the underlying /proc/<pid>/ctl file.  If the
+ * libdtrace client wishes to exit or abort our wait, SIGCANCEL can be used.
+ */
 void *
 dt_proc_control(void *arg)
 {

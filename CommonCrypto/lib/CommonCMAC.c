@@ -27,7 +27,9 @@
 #include "CommonCryptorPriv.h"
 #include <corecrypto/ccaes.h>
 #include "ccdebug.h"
+#include "ccMemory.h"
 
+#if 0
 
 /* Internal functions to support one-shot */
 
@@ -150,3 +152,78 @@ void CCAESCmac(const void *key,
     
     memcpy(macOut, X, 16);
 }
+
+#else
+#include <corecrypto/cccmac.h>
+#include <corecrypto/ccaes.h>
+
+void CCAESCmac(const void *key,
+               const uint8_t *data,
+               size_t dataLength,			/* length of data in bytes */
+               void *macOut)				/* MAC written here */
+{
+    cccmac(ccaes_cbc_encrypt_mode(), key, dataLength, data, macOut);
+}
+
+struct CCCmacContext {
+    const struct ccmode_cbc *cbc;
+    cccmac_ctx_t ctxptr;
+    size_t pos;
+    uint8_t buf[16];
+};
+
+CCCmacContextPtr
+CCAESCmacCreate(const void *key, size_t keyLength)
+{
+    CCCmacContextPtr retval = (CCCmacContextPtr) CC_XMALLOC(sizeof(struct CCCmacContext));
+    if(!retval) return NULL;
+    retval->cbc = ccaes_cbc_encrypt_mode();
+    retval->ctxptr.b = CC_XMALLOC(cccmac_ctx_size(retval->cbc));
+    retval->pos = 0;
+    if(!retval->ctxptr.b) {
+        CC_XFREE(retval, cccmac_ctx_size(retval->cbc));
+        return NULL;
+    }
+    cccmac_init(retval->cbc, retval->ctxptr, key);
+    
+    return retval;
+}
+
+void CCAESCmacUpdate(CCCmacContextPtr ctx, const void *data, size_t dataLength) {
+    size_t blocksize = ctx->cbc->block_size;
+    // Need to have some data for final - so don't process all available data - even if it's even blocks
+    while(dataLength) {
+        if(ctx->pos == blocksize) { // flush what we have - there's more
+            cccmac_block_update(ctx->cbc, ctx->ctxptr, 1, ctx->buf);
+            ctx->pos = 0;
+        } else if (ctx->pos == 0 && dataLength > blocksize) {
+            size_t fullblocks = ((dataLength + blocksize - 1) / blocksize) - 1;
+            cccmac_block_update(ctx->cbc, ctx->ctxptr, fullblocks, data);
+            size_t nbytes = fullblocks * blocksize;
+            dataLength -= nbytes; data += nbytes;
+        } else {
+            size_t n = CC_XMIN(dataLength, (blocksize - ctx->pos));
+            CC_XMEMCPY(&ctx->buf[ctx->pos], data, n);
+            ctx->pos += n; dataLength -= n; data += n;
+        }
+    }
+}
+
+void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut) {
+    cccmac_final(ctx->cbc, ctx->ctxptr, ctx->pos, ctx->buf, macOut);
+}
+
+void CCAESCmacDestroy(CCCmacContextPtr ctx) {
+    if(ctx) {
+        CC_BZERO(ctx->buf, 16);
+        if(!ctx->ctxptr.b) CC_XFREE(ctx->ctxptr.b, cccmac_ctx_size(retval->cbc));
+        CC_XFREE(ctx, sizeof(struct CCCmacContext));
+    }
+}
+
+size_t
+CCAESCmacOutputSizeFromContext(CCCmacContextPtr ctx) {
+    return ctx->cbc->block_size;
+}
+
+#endif

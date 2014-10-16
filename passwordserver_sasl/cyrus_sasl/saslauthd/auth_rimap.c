@@ -1,3 +1,4 @@
+
 /* MODULE: auth_rimap */
 
 /* COPYRIGHT
@@ -53,7 +54,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: auth_rimap.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
+#ident "$Id: auth_rimap.c,v 1.14 2011/09/22 14:39:03 mel Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -162,6 +163,7 @@ qstring (
     num_quotes = 0;
     p1 = s;
     while ((p1 = strchr(p1, '"')) != NULL) {
+	p1++;
 	num_quotes++;
     }
     
@@ -198,7 +200,7 @@ qstring (
 	}
 	*p2++ = *p1++;
     }
-    strcat(p2, "\"");
+    strcpy(p2, "\"");
     return c;
 }
 
@@ -334,8 +336,8 @@ auth_rimap (
 	if (r->ai_family == AF_INET6)
 	    niflags |= NI_WITHSCOPEID;
 #endif
-	if (getnameinfo(r->ai_addr, r->ai_addrlen, hbuf, (socklen_t)sizeof(hbuf),
-			pbuf, (socklen_t)sizeof(pbuf), niflags) != 0) {
+	if (getnameinfo(r->ai_addr, r->ai_addrlen, hbuf, sizeof(hbuf),
+			pbuf, sizeof(pbuf), niflags) != 0) {
 	    strlcpy(hbuf, "unknown", sizeof(hbuf));
 	    strlcpy(pbuf, "unknown", sizeof(pbuf));
 	}
@@ -345,7 +347,7 @@ auth_rimap (
     }
     if (s < 0) {
 	if (getnameinfo(ai->ai_addr, ai->ai_addrlen, NULL, 0,
-			pbuf, (socklen_t)sizeof(pbuf), NI_NUMERICSERV) != 0)
+			pbuf, sizeof(pbuf), NI_NUMERICSERV) != 0)
 	    strlcpy(pbuf, "unknown", sizeof(pbuf));
 	syslog(LOG_WARNING, "auth_rimap: couldn't connect to %s/%s",
 	       ai->ai_canonname ? ai->ai_canonname : r_host, pbuf);
@@ -366,6 +368,30 @@ auth_rimap (
     alarm(NETWORK_IO_TIMEOUT);
     rc = (int)read(s, rbuf, sizeof(rbuf));
     alarm(0);
+    if ( rc>0 ) {
+        /* check if there is more to read */
+        fd_set         perm;
+        int            fds, ret;
+        struct timeval timeout;
+
+        FD_ZERO(&perm);
+        FD_SET(s, &perm);
+        fds = s +1;
+
+        timeout.tv_sec  = 1;
+        timeout.tv_usec = 0;
+        while( select (fds, &perm, NULL, NULL, &timeout ) >0 ) {
+           if ( FD_ISSET(s, &perm) ) {
+              ret = (int)read(s, rbuf+rc, sizeof(rbuf)-rc);
+              if ( ret<0 ) {
+                 rc = ret;
+                 break;
+              } else {
+                 rc += ret;
+              }
+           }
+        }
+    }
     if (rc == -1) {
 	syslog(LOG_WARNING, "auth_rimap: read (banner): %m");
 	(void) close(s);
@@ -438,7 +464,7 @@ auth_rimap (
 	syslog(LOG_WARNING, "auth_rimap: writev: %m");
 	memset(qlogin, 0, strlen(qlogin));
 	free(qlogin);
-	memset(qpass, 0, strlen(qlogin));
+	memset(qpass, 0, strlen(qpass));
 	free(qpass);
 	(void)close(s);
 	return strdup(RESP_IERROR);
@@ -447,7 +473,7 @@ auth_rimap (
     /* don't need these any longer */
     memset(qlogin, 0, strlen(qlogin));
     free(qlogin);
-    memset(qpass, 0, strlen(qlogin));
+    memset(qpass, 0, strlen(qpass));
     free(qpass);
 
     /* read and parse the LOGIN response */
@@ -455,6 +481,30 @@ auth_rimap (
     alarm(NETWORK_IO_TIMEOUT);
     rc = (int)read(s, rbuf, sizeof(rbuf));
     alarm(0);
+    if ( rc>0 ) {
+        /* check if there is more to read */
+        fd_set         perm;
+        int            fds, ret;
+        struct timeval timeout;
+
+        FD_ZERO(&perm);
+        FD_SET(s, &perm);
+        fds = s +1;
+
+        timeout.tv_sec  = 1;
+        timeout.tv_usec = 0;
+        while( select (fds, &perm, NULL, NULL, &timeout ) >0 ) {
+           if ( FD_ISSET(s, &perm) ) {
+              ret = (int)read(s, rbuf+rc, sizeof(rbuf)-rc);
+              if ( ret<0 ) {
+                 rc = ret;
+                 break;
+              } else {
+                 rc += ret;
+              }
+           }
+        }
+    }
     (void) close(s);			/* we're done with the remote */
     if (rc == -1) {
 	syslog(LOG_WARNING, "auth_rimap: read (response): %m");
@@ -481,7 +531,7 @@ auth_rimap (
     }
     syslog(LOG_WARNING, "auth_rimap: unexpected response to auth request: %s",
 	   rbuf);
-    return RESP_UNEXPECTED;
+    return strdup(RESP_UNEXPECTED);
     
 }
 

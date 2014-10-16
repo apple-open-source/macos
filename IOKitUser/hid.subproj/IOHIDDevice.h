@@ -67,7 +67,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @discussion The io_service_t passed in this method must reference an object 
                 in the kernel of type IOHIDDevice.
     @param      allocator Allocator to be used during creation.
-    @param      io_service_t Reference to service object in the kernel.
+    @param      service Reference to service object in the kernel.
     @result     Returns a new IOHIDDeviceRef.
 */
 CF_EXPORT
@@ -292,6 +292,28 @@ void IOHIDDeviceRegisterInputReportCallback(
                                 void *                          context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
+/*! @function   IOHIDDeviceRegisterInputReportWithTimeStampCallback
+    @abstract   Registers a timestamped callback to be used when an input report is issued 
+                by the device.
+    @discussion An input report is an interrupt driver report issued by the 
+                device.
+    @param      device Reference to an IOHIDDevice.
+    @param      report Pointer to preallocated buffer in which to copy inbound
+                report data.
+    @param      reportLength Length of preallocated buffer.
+    @param      callback Pointer to a callback method of type 
+                IOHIDReportWithTimeStampCallback.
+    @param      context Pointer to data to be passed to the callback.
+*/
+CF_EXPORT
+void IOHIDDeviceRegisterInputReportWithTimeStampCallback(
+                                IOHIDDeviceRef                      device, 
+                                uint8_t *                           report, 
+                                CFIndex                             reportLength,
+                                IOHIDReportWithTimeStampCallback    callback, 
+                                void *                              context)
+AVAILABLE_MAC_OS_X_VERSION_10_10_AND_LATER;
+
 /*! @function   IOHIDDeviceSetInputValueMatching
     @abstract   Sets matching criteria for input values received via 
                 IOHIDDeviceRegisterInputValueCallback.
@@ -302,7 +324,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 restart the matching process using the revised criteria.  If 
                 interested in multiple, specific device elements, please defer to
                 using IOHIDDeviceSetInputValueMatchingMultiple.
-    @param      manager Reference to an IOHIDDevice.
+    @param      device Reference to an IOHIDDevice.
     @param      matching CFDictionaryRef containg device matching criteria.
 */
 CF_EXPORT
@@ -317,7 +339,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @discussion Matching keys are prefixed by kIOHIDElement and declared in 
                 <IOKit/hid/IOHIDKeys.h>.  This method is useful if interested 
                 in multiple, specific elements .
-    @param      manager Reference to an IOHIDDevice.
+    @param      device Reference to an IOHIDDevice.
     @param      multiple CFArrayRef containing multiple CFDictionaryRef objects
                 containg input element matching criteria.
 */
@@ -352,7 +374,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 report has been issued to the device.  It is only relevent for 
                 either output or feature type elements.
     @param      device Reference to an IOHIDDevice.
-    @param      muliple CFDictionaryRef where key is IOHIDElementRef and
+    @param      multiple CFDictionaryRef where key is IOHIDElementRef and
                 value is IOHIDValueRef.
     @result     Returns kIOReturnSuccess if successful.
 */
@@ -397,7 +419,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 once the report has been issued to the device.  It is only 
                 relevent for either output or feature type elements.  
     @param      device Reference to an IOHIDDevice.
-    @param      muliple CFDictionaryRef where key is IOHIDElementRef and
+    @param      multiple CFDictionaryRef where key is IOHIDElementRef and
                 value is IOHIDValueRef.
     @param      timeout CFTimeInterval containing the timeout.
     @param      callback Pointer to a callback method of type 

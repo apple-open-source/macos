@@ -29,16 +29,17 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include <WebCore/FileSystem.h>
-#include <WebCore/RunLoop.h>
 #include <WebCore/npruntime_internal.h>
+#include <memory>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RunLoop.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
-class KURL;
+class URL;
 }
 
 namespace WebKit {
@@ -56,7 +57,7 @@ public:
     uint64_t streamID() const { return m_streamID; }
     const NPStream* npStream() const { return &m_npStream; }
 
-    void didReceiveResponse(const WebCore::KURL& responseURL, uint32_t streamLength,
+    void didReceiveResponse(const WebCore::URL& responseURL, uint32_t streamLength,
                             uint32_t lastModifiedTime, const String& mimeType, const String& headers);
     void didReceiveData(const char* bytes, int length);
     void didFinishLoading();
@@ -105,8 +106,8 @@ private:
     CString m_mimeType;
     CString m_headers;
 
-    WebCore::RunLoop::Timer<NetscapePluginStream> m_deliveryDataTimer;
-    OwnPtr< Vector<uint8_t>> m_deliveryData;
+    RunLoop::Timer<NetscapePluginStream> m_deliveryDataTimer;
+    std::unique_ptr<Vector<uint8_t>> m_deliveryData;
     bool m_stopStreamWhenDoneDelivering;
 };
 

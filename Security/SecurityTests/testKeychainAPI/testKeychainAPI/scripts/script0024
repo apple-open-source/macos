@@ -1,0 +1,33 @@
+//
+// script0024
+//
+//		KCCreateKeychain
+//		KCSetInteractionAllowed
+//		KCGetInteractionAllowed
+//
+// Create a new keychain w/ and w/o interaction allowed enabled
+// 
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 0
+   Results : 1
+     OSStatus 0
+26 KCIsInteractionAllowed
+   Input Arguments : 0
+   Results : 2
+     OSStatus 0
+     AllowInteraction : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : -1
+      Password : Apple
+   Results : 2
+     OSStatus -25308
+     KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : -1
+      Password : Apple
+   Results : 2
+     OSStatus -25308
+     KeychainIndex : 0

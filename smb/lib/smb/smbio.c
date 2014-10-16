@@ -212,7 +212,7 @@ int smbio_transact(void *smbctx, uint16_t *setup, int setupCnt, const char *name
 
 	/*
 	 * SMB trans uses 16 bit field, never let the calling process send more than 
-	 * will fit in this field. SMB2 will allow us to expand this size.
+	 * will fit in this field. SMB 2/3 will allow us to expand this size.
 	 */
 	if ((sndPDataLen > SMB1_TRANS2_MAXSIZE) || (sndDataLen > SMB1_TRANS2_MAXSIZE)) {
 		return -EINVAL;	/* Can't send this much data with SMB */
@@ -220,7 +220,7 @@ int smbio_transact(void *smbctx, uint16_t *setup, int setupCnt, const char *name
 	
 	/*
 	 * SMB trans2 uses 16 bit field, never let the calling process request more 
-	 * than will fit in this field. SMB2 will allow us to expand this size.
+	 * than will fit in this field. SMB 2/3 will allow us to expand this size.
 	 */
 	if (rcvPDataLen) {
 		if (*rcvPDataLen > SMB1_TRANS2_MAXSIZE) {
@@ -231,7 +231,7 @@ int smbio_transact(void *smbctx, uint16_t *setup, int setupCnt, const char *name
 	}
 	/*
 	 * SMB trans2 uses 16 bit field, never let the calling process request more 
-	 * than will fit in this field. SMB2 will allow us to expand this size.
+	 * than will fit in this field. SMB 2/3 will allow us to expand this size.
 	 */	
 	if (rcvDataLen) {
 		if (*rcvDataLen > SMB1_TRANS2_MAXSIZE) {
@@ -300,7 +300,7 @@ int smbio_open_pipe(void *smbctx, const char *pipe_path, int *fid)
 		smb_log_info("%s, syserr = %s", ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
     }
     else {
-        *fid = (int) smb2_fid;  /* cast to smb1 fid */
+        *fid = (int) smb2_fid;  /* cast to SMB 1 fid */
     }
 
 	return -error;

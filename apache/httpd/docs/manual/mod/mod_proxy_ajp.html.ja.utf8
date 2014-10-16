@@ -9,22 +9,23 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p>
-<p class="apache">Apache HTTP サーバ バージョン 2.2</p>
+<p class="apache">Apache HTTP サーバ バージョン 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.2</a> &gt; <a href="./">モジュール</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">モジュール</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache モジュール mod_proxy_ajp</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_proxy_ajp.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_proxy_ajp.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy_ajp.html" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div>
 <div class="outofdate">この日本語訳はすでに古くなっている
@@ -284,8 +285,7 @@
 <h2><a name="rpacetstruct" id="rpacetstruct">リクエストパケット構造</a></h2>
     <p>サーバからコンテナへ送られるメッセージが
     <em>Forward Request</em> 型の場合 :</p>
-    <div class="example"><pre>
-AJP13_FORWARD_REQUEST :=
+    <div class="example"><pre>AJP13_FORWARD_REQUEST :=
     prefix_code      (byte) 0x02 = JK_AJP13_FORWARD_REQUEST
     method           (byte)
     protocol         (string)
@@ -298,24 +298,18 @@ AJP13_FORWARD_REQUEST :=
     num_headers      (integer)
     request_headers *(req_header_name req_header_value)
     attributes      *(attribut_name attribute_value)
-    request_terminator (byte) OxFF
-    </pre></div>
+    request_terminator (byte) OxFF</pre></div>
     <p><code>request_headers</code> は次のような構造になっています :
-    </p><div class="example"><pre>
-req_header_name := 
+    </p><div class="example"><pre>req_header_name := 
     sc_req_header_name | (string)  [see below for how this is parsed]
 
 sc_req_header_name := 0xA0xx (integer)
 
-req_header_value := (string)
-</pre></div>
+req_header_value := (string)</pre></div>
     <p><code>属性</code> はオプションで、次のような構造をしています :</p>
-    <div class="example"><pre>
-attribute_name := sc_a_name | (sc_a_req_attribute string)
+    <div class="example"><pre>attribute_name := sc_a_name | (sc_a_req_attribute string)
 
-attribute_value := (string)
-
-    </pre></div>
+attribute_value := (string)</pre></div>
     <p>もっとも重要なヘッダは <code>content-length</code> だということに
     注意してください。コンテナは次のパケットを探すかどうかを、
     それを見て決めるからです。</p>
@@ -413,28 +407,28 @@ attribute_value := (string)
   <h3>属性</h3>
     <p><code>?</code> プレフィックスで始まる属性 (例 <code>?context</code>)
     は。省略可能です。それぞれ属性の型を示す 1 バイトのコードと、
-    値の文字列が続きます。
+    値(文字列か整数)が続きます。
     これらは順不同で送ることができます (C のコードは常に下の一覧順に
     送るようですが) 。
     オプションの属性のリストの最後には、特別な終了コードが送られます。
     コードの一覧は : </p>
     <table>
-      <tr><td>Information</td><td>Code Value</td><td>Note</td></tr>
-      <tr><td>?context</td><td>0x01</td><td>未実装
+      <tr><td>Information</td><td>Code Value</td><td>Type Of Value</td><td>Note</td></tr>
+      <tr><td>?context</td><td>0x01</td><td>-</td><td>未実装
       </td></tr>
-      <tr><td>?servlet_path</td><td>0x02</td><td>未実装
+      <tr><td>?servlet_path</td><td>0x02</td><td>-</td><td>未実装
       </td></tr>
-      <tr><td>?remote_user</td><td>0x03</td><td /></tr>
-      <tr><td>?auth_type</td><td>0x04</td><td /></tr>
-      <tr><td>?query_string</td><td>0x05</td><td /></tr>
-      <tr><td>?jvm_route</td><td>0x06</td><td /></tr>
-      <tr><td>?ssl_cert</td><td>0x07</td><td /></tr>
-      <tr><td>?ssl_cipher</td><td>0x08</td><td /></tr>
-      <tr><td>?ssl_session</td><td>0x09</td><td /></tr>
-      <tr><td>?req_attribute</td><td>0x0A</td><td>Name (the name of the
+      <tr><td>?remote_user</td><td>0x03</td><td>String</td><td /></tr>
+      <tr><td>?auth_type</td><td>0x04</td><td>String</td><td /></tr>
+      <tr><td>?query_string</td><td>0x05</td><td>String</td><td /></tr>
+      <tr><td>?jvm_route</td><td>0x06</td><td>String</td><td /></tr>
+      <tr><td>?ssl_cert</td><td>0x07</td><td>String</td><td /></tr>
+      <tr><td>?ssl_cipher</td><td>0x08</td><td>String</td><td /></tr>
+      <tr><td>?ssl_session</td><td>0x09</td><td>String</td><td /></tr>
+      <tr><td>?req_attribute</td><td>0x0A</td><td>String</td><td>Name (the name of the
       attribute follows)</td></tr>
-      <tr><td>?ssl_key_size</td><td>0x0B</td><td /></tr>
-      <tr><td>are_done</td><td>0xFF</td><td>request_terminator</td></tr>
+      <tr><td>?ssl_key_size</td><td>0x0B</td><td>Integer</td><td /></tr>
+      <tr><td>are_done</td><td>0xFF</td><td>-</td><td>request_terminator</td></tr>
     </table>
     <p><code>context</code> と <code>servlet_path</code> は現在の C の
     コードではセットされていません。また、ほとんどの Java のコードでも、
@@ -463,12 +457,11 @@ attribute_value := (string)
 <div class="section">
 <h2><a name="resppacketstruct" id="resppacketstruct">レスポンスパケット構造</a></h2>
     <p>コンテナがサーバに送り返すことのできるメッセージ:</p>
-    <div class="example"><pre>
-AJP13_SEND_BODY_CHUNK :=
+    <div class="example"><pre>AJP13_SEND_BODY_CHUNK :=
   prefix_code   3
   chunk_length  (integer)
   chunk        *(byte)
-
+  chunk_terminator (byte) Ox00
 
 AJP13_SEND_HEADERS :=
   prefix_code       4
@@ -491,8 +484,7 @@ AJP13_END_RESPONSE :=
 
 AJP13_GET_BODY_CHUNK :=
   prefix_code       6
-  requested_length  (integer)
-    </pre></div>
+  requested_length  (integer)</pre></div>
   <h3>詳細 :</h3>
   <h3>Send Body Chunk</h3>
     <p>チャンクは基本的にはバイナリデータで、ブラウザに直接送られます。</p>
@@ -542,11 +534,12 @@ AJP13_GET_BODY_CHUNK :=
 </div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/mod/mod_proxy_ajp.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_proxy_ajp.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy_ajp.html" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_proxy_ajp.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy_ajp.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -561,7 +554,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_proxy_ajp.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

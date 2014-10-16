@@ -230,12 +230,12 @@ returns a value of 0, and is called with the following arguments:
 .Pp
 .Bd -literal -offset indent
 int foreach (
-	int instatus,
+	unsigned long instatus,
 	char *inkey,
 	int inkeylen,
 	char *inval,
 	int invallen,
-	char *indata
+	void *indata
 );
 .Ed
 .Pp

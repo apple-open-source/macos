@@ -35,6 +35,9 @@
 #include "kadmin-commands.h"
 #include <sl.h>
 
+static void usage(int ret) __attribute__((__noreturn__));
+
+
 static char *config_file;
 static char *keyfile;
 int local_flag;
@@ -171,7 +174,7 @@ main(int argc, char **argv)
 	usage(1);
 
     if (help_flag)
-	usage (0);
+	usage(0);
 
     if (version_flag) {
 	print_version(NULL);

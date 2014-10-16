@@ -26,7 +26,7 @@
 #ifndef PluginProcessConnection_h
 #define PluginProcessConnection_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "Connection.h"
 #include "Plugin.h"
@@ -34,17 +34,15 @@
 #include "PluginProcessAttributes.h"
 #include <wtf/RefCounted.h>
 
-// A CoreIPC connection to a plug-in process.
-
 namespace WebKit {
 
 class NPRemoteObjectMap;
 class PluginProcessConnectionManager;
 class PluginProxy;
     
-class PluginProcessConnection : public RefCounted<PluginProcessConnection>, CoreIPC::Connection::Client {
+class PluginProcessConnection : public RefCounted<PluginProcessConnection>, IPC::Connection::Client {
 public:
-    static PassRefPtr<PluginProcessConnection> create(PluginProcessConnectionManager* pluginProcessConnectionManager, uint64_t pluginProcessToken, CoreIPC::Connection::Identifier connectionIdentifier, bool supportsAsynchronousPluginInitialization)
+    static PassRefPtr<PluginProcessConnection> create(PluginProcessConnectionManager* pluginProcessConnectionManager, uint64_t pluginProcessToken, IPC::Connection::Identifier connectionIdentifier, bool supportsAsynchronousPluginInitialization)
     {
         return adoptRef(new PluginProcessConnection(pluginProcessConnectionManager, pluginProcessToken, connectionIdentifier, supportsAsynchronousPluginInitialization));
     }
@@ -52,7 +50,7 @@ public:
 
     uint64_t pluginProcessToken() const { return m_pluginProcessToken; }
 
-    CoreIPC::Connection* connection() const { return m_connection.get(); }
+    IPC::Connection* connection() const { return m_connection.get(); }
 
     void addPluginProxy(PluginProxy*);
     void removePluginProxy(PluginProxy*);
@@ -60,25 +58,29 @@ public:
     NPRemoteObjectMap* npRemoteObjectMap() const { return m_npRemoteObjectMap.get(); }
 
     bool supportsAsynchronousPluginInitialization() const { return m_supportsAsynchronousPluginInitialization; }
-
+    WebCore::AudioHardwareActivityType audioHardwareActivity() const { return m_audioHardwareActivity; }
+    
 private:
-    PluginProcessConnection(PluginProcessConnectionManager*, uint64_t pluginProcessToken, CoreIPC::Connection::Identifier connectionIdentifier, bool supportsAsynchronousInitialization);
+    PluginProcessConnection(PluginProcessConnectionManager*, uint64_t pluginProcessToken, IPC::Connection::Identifier connectionIdentifier, bool supportsAsynchronousInitialization);
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
-    virtual void didClose(CoreIPC::Connection*);
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName) OVERRIDE;
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection*);
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
 
     // Message handlers.
-    void didReceiveSyncPluginProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
+    void didReceivePluginProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveSyncPluginProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     void setException(const String&);
+    void audioHardwareDidBecomeActive();
+    void audioHardwareDidBecomeInactive();
 
     PluginProcessConnectionManager* m_pluginProcessConnectionManager;
     uint64_t m_pluginProcessToken;
 
     // The connection from the web process to the plug-in process.
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
 
     // The plug-ins. We use a weak reference to the plug-in proxies because the plug-in view holds the strong reference.
     HashMap<uint64_t, PluginProxy*> m_plugins;
@@ -86,10 +88,11 @@ private:
     RefPtr<NPRemoteObjectMap> m_npRemoteObjectMap;
     
     bool m_supportsAsynchronousPluginInitialization;
+    WebCore::AudioHardwareActivityType m_audioHardwareActivity;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // PluginProcessConnection_h

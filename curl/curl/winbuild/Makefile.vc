@@ -15,7 +15,7 @@ CFGSET=true
 
 !MESSAGE Usage: nmake /f Makefile.vc mode=<static or dll> <options>
 !MESSAGE where <options> is one or many of:
-!MESSAGE   VC=<6,7,8,9,10>              - VC versions
+!MESSAGE   VC=<6,7,8,9,10,11,12>        - VC versions
 !MESSAGE   WITH_DEVEL=<path>            - Paths for the development files (SSL, zlib, etc.)
 !MESSAGE                                  Defaults to sibbling directory deps: ../deps
 !MESSAGE                                  Libraries can be fetched at http://pecl2.php.net/downloads/php-windows-builds/
@@ -95,7 +95,11 @@ USE_SPNEGO = false
 !ENDIF
 
 !IFNDEF ENABLE_WINSSL
+!IFDEF WITH_SSL
+USE_WINSSL = false
+!ELSE
 USE_WINSSL = $(USE_SSPI)
+!ENDIF
 !ELSEIF "$(ENABLE_WINSSL)"=="yes"
 USE_WINSSL = true
 !ELSEIF "$(ENABLE_WINSSL)"=="no"
@@ -199,4 +203,4 @@ $(MODE):
 
 copy_from_lib:
 	echo copying .c...
-	FOR %%i IN ($(CURLX_ONES:/=\)) DO copy %%i ..\src\
+	FOR %%i IN ($(CURLX_CFILES:/=\)) DO copy %%i ..\src\

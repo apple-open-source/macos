@@ -77,6 +77,11 @@ _gss_ntlm_allocate_ctx(OM_uint32 *minor_status, const char *domain, ntlm_ctx *ct
     }
 
     c->num_backends = sizeof(_ntlm_interfaces)/sizeof(_ntlm_interfaces[0]);
+    if (c->num_backends == 0) {
+	free(c);
+	*minor_status = EINVAL;
+	return GSS_S_FAILURE;
+    }
 
     c->backends = calloc(c->num_backends, sizeof(c->backends[0]));
     if (c->backends == NULL) {
@@ -362,7 +367,7 @@ _gss_ntlm_accept_sec_context
     } else {
 	ntlm_cred acceptor_cred = (ntlm_name)acceptor_cred_handle;
 	struct ntlm_buf session, uuid, pac;
-	uint32_t ntlmflags, avflags;
+	uint32_t ntlmflags = 0, avflags = 0;
 	struct ntlm_type3 type3;
 	ntlm_name name = NULL;
 	OM_uint32 maj_stat;
@@ -427,6 +432,8 @@ _gss_ntlm_accept_sec_context
 	    return GSS_S_FAILURE;
 	}
 
+	_gss_ntlm_debug_key(10, "session key", session.data, session.length);
+
 	if (session.length && type3.mic_offset) {
 	    uint8_t *p = (uint8_t *)ctx->type3.data + type3.mic_offset;
 	    CCHmacContext c;
@@ -439,7 +446,8 @@ _gss_ntlm_accept_sec_context
 	    CCHmacFinal(&c, p);
 
 	    if (memcmp(p, type3.mic, sizeof(type3.mic)) != 0) {
-		_gss_mg_log(1, "ntlm-asc-type3 mic invalid");
+		_gss_ntlm_debug_hex(10, "mic", type3.mic, sizeof(type3.mic));
+		_gss_ntlm_debug_hex(10, "ntlm-asc-type3 mic invalid", p, sizeof(type3.mic));
 		free(session.data);
 		*minor_status = HNTLM_ERR_INVALID_MIC;
 		return GSS_S_FAILURE;

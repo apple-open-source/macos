@@ -377,7 +377,6 @@ send_error_token(OM_uint32 *minor_status,
 		 gss_buffer_t output_token)
 {
     krb5_principal ap_req_server = NULL;
-    krb5_error_code ret;
     OM_uint32 maj_stat;
     /* this e_data value encodes KERB_AP_ERR_TYPE_SKEW_RECOVERY which
        tells windows to try again with the corrected timestamp. See
@@ -386,6 +385,7 @@ send_error_token(OM_uint32 *minor_status,
 
     /* build server from request if the acceptor had not selected one */
     if (server == NULL && indata) {
+	krb5_error_code ret;
 	AP_REQ ap_req;
 
 	ret = krb5_decode_ap_req(context, indata, &ap_req);
@@ -409,10 +409,8 @@ send_error_token(OM_uint32 *minor_status,
 				    &e_data, server,  output_token);
     if (ap_req_server)
 	krb5_free_principal(context, ap_req_server);
-    if (maj_stat) {
-	*minor_status = ret;
+    if (maj_stat)
 	return GSS_S_FAILURE;
-    }
 
     *minor_status = 0;
     return GSS_S_CONTINUE_NEEDED;
@@ -646,6 +644,20 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 			       server,
 			       in, &out);
 	krb5_rd_req_in_ctx_free(context, in);
+	if (ret && _gss_mg_log_level(5)) {
+	    const char *e = krb5_get_error_message(context, ret);
+	    char *s = NULL;
+	    if (server)
+		(void)krb5_unparse_name(context, server, &s);
+	    _gss_mg_log(5, "gss-asc: rd_req (server: %s) failed with: %d: %s",
+			s ? s : "<not specified>",
+			ret, e);
+	    krb5_free_error_message(context, e);
+	    if (s)
+		krb5_xfree(s);
+	}
+
+
 	switch (kret) {
 	case 0:
 	    break;

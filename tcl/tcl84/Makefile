@@ -66,7 +66,7 @@ extra-int-headers:
 	$(_v) $(LN) -fsh "Headers/tcl-private" "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 
 fix-tclConfig:
-	$(_v) $(SED) -e "s#$(CFLAGS)##g" -e "s#$(LDFLAGS)##g" "$(DSTROOT)$(FmwkDir)/tclConfig.sh" > "$(SYMROOT)/tclConfig.sh"
+	$(_v) $(SED) -e "s#$(CFLAGS)##g" -e "s#$(LDFLAGS)##g" -e "/^TCL_CC=/s#'.*/usr/bin#'/usr/bin#" "$(DSTROOT)$(FmwkDir)/tclConfig.sh" > "$(SYMROOT)/tclConfig.sh"
 	$(_v) $(INSTALL_FILE) "$(SYMROOT)/tclConfig.sh" "$(DSTROOT)$(FmwkDir)"
 
 lipo_archs := $(filter ppc ppc64 x86_64,$(RC_ARCHS))

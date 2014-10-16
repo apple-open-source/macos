@@ -148,7 +148,6 @@ extern void vstream_control(VSTREAM *, int,...);
 #define VSTREAM_CTL_SWAP_FD	13
 #define VSTREAM_CTL_START_DEADLINE	14
 #define VSTREAM_CTL_STOP_DEADLINE	15
-#define VSTREAM_CTL_CONTEXT_GET	41			/* APPLE - RFC 3030 */
 
 extern VSTREAM *PRINTFLIKE(1, 2) vstream_printf(const char *,...);
 extern VSTREAM *PRINTFLIKE(2, 3) vstream_fprintf(VSTREAM *, const char *,...);
@@ -208,11 +207,7 @@ extern const char *vstream_peek_data(VSTREAM *);
 extern int vstream_tweak_sock(VSTREAM *);
 extern int vstream_tweak_tcp(VSTREAM *);
 
-/* APPLE - burl and RFC 3030 */
-/* Limit an existing stream to reading no more than a given number of bytes. */
-void vstream_limit_init(VSTREAM *stream, off_t limit);
-int vstream_limit_reached(const VSTREAM *stream);
-void vstream_limit_deinit(VSTREAM *stream);
+#define vstream_flags(stream) ((const int) (stream)->buf.flags)
 
 /* LICENSE
 /* .ad

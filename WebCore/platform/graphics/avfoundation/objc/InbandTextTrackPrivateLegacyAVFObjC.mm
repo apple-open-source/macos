@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -53,13 +53,10 @@ SOFT_LINK_POINTER(AVFoundation, AVMetadataKeySpaceCommon, NSString *)
 #define AVMetadataCommonKeyTitle getAVMetadataCommonKeyTitle()
 #define AVMetadataKeySpaceCommon getAVMetadataKeySpaceCommon()
 
-using namespace WebCore;
-using namespace std;
-
 namespace WebCore {
 
 InbandTextTrackPrivateLegacyAVFObjC::InbandTextTrackPrivateLegacyAVFObjC(MediaPlayerPrivateAVFoundationObjC* player, AVPlayerItemTrack* track)
-    : InbandTextTrackPrivateAVF(player)
+    : InbandTextTrackPrivateAVF(player, InbandTextTrackPrivate::Generic)
     , m_playerItemTrack(track)
 {
 }
@@ -107,12 +104,8 @@ AtomicString InbandTextTrackPrivateLegacyAVFObjC::label() const
 
     NSArray *titles = [AVMetadataItem metadataItemsFromArray:[[m_playerItemTrack assetTrack] commonMetadata] withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
     if ([titles count]) {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
         // If possible, return a title in one of the user's preferred languages.
         NSArray *titlesForPreferredLanguages = [AVMetadataItem metadataItemsFromArray:titles filteredAndSortedAccordingToPreferredLanguages:[NSLocale preferredLanguages]];
-#else
-         NSArray *titlesForPreferredLanguages = [AVMetadataItem metadataItemsFromArray:titles withLocale:[NSLocale currentLocale]];
-#endif
         if ([titlesForPreferredLanguages count])
             title = [[titlesForPreferredLanguages objectAtIndex:0] stringValue];
 

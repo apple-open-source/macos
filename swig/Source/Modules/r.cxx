@@ -14,7 +14,7 @@ char cvsroot_r_cxx[] = "$Id: r.cxx 11454 2009-07-26 21:21:26Z wsfulton $";
 #define UNUSED(a)  (void)a
 
 static const double DEFAULT_NUMBER = .0000123456712312312323;
-static const int MAX_OVERLOAD_ARGS = 5;
+//static const int MAX_OVERLOAD_ARGS = 5;
 
 static String* replaceInitialDash(const String *name)
 {

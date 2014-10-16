@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,10 @@
 
 #ifndef _IOAUDIODEBUG_H
 #define _IOAUDIODEBUG_H
+
+#include <IOKit/IOTypes.h>
+#include <sys/kdebug.h>
+
 
 #ifdef DEBUG
 	#define DEBUG_LEVEL 3						//<rdar://problem/9725460>
@@ -64,5 +68,6 @@
 #else
 	#define audioDebugIOLog( level, message... ) ;
 #endif
+
 
 #endif /* _IOAUDIODEBUG_H */

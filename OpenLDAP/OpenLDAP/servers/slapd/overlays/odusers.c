@@ -18,6 +18,13 @@
 extern AttributeDescription *policyAD;
 extern AttributeDescription *passwordRequiredDateAD;
 
+static AttributeDescription *uidAD = NULL;
+static AttributeDescription *krbAD = NULL;
+static AttributeDescription *draftkrbAD = NULL;
+static AttributeDescription *draftkrbAliasesAD = NULL;
+static AttributeDescription *aaAD = NULL;
+static AttributeDescription *altsecAD = NULL;
+
 static slap_overinst odusers;
 static ConfigDriver odusers_cf;
 static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid);
@@ -50,9 +57,23 @@ static ConfigOCs odocs[] = {
 	{ NULL, 0, NULL }
 };
 
+#undef calloc
+#undef malloc
+#undef free
+
+
 static int odusers_cf(ConfigArgs *c) {
 	slap_overinst *on = (slap_overinst *)c->bi;
 	return 1;
+}
+
+static bool odusers_isaccount(Operation *op) {
+	bool ret = false;
+
+	if(strnstr(op->o_req_ndn.bv_val, "cn=users", op->o_req_ndn.bv_len) != NULL) ret = 1;
+	if(strnstr(op->o_req_ndn.bv_val, "cn=computers", op->o_req_ndn.bv_len) != NULL) ret = 1;
+	
+	return ret;
 }
 
 static int odusers_delete(Operation *op, SlapReply *rs) {
@@ -179,6 +200,250 @@ out:
 	return SLAP_CB_CONTINUE;
 }
 
+static int odusers_search_accountpolicy_proxy(Operation *op, SlapReply *rs, char *attr_str) {
+	Entry *retentry = NULL;
+	Attribute *attr = NULL;
+	Filter *filter = NULL;
+	AttributeAssertion *ava = NULL;
+	char *tmpstr = NULL;
+	struct berval dn;
+
+	CFDictionaryRef userpolicyinfodict = NULL;
+	__block CFDictionaryRef policyData = NULL;
+	CFStringRef globalaccountpolicyGUID = NULL;
+	CFErrorRef cferr = NULL;
+	int64_t	policyresult = 0;	
+	int64_t willExpireIn = 0;
+	bool override = false;
+
+	bool isaccount = odusers_isaccount(op);
+	
+	dn = op->o_req_ndn;
+
+	if(!BER_BVISEMPTY(&dn)) {
+		if (op->ors_filter) {
+			ava = op->ors_filter->f_ava;
+			filter = op->ors_filter;							
+		}
+		
+		if (isaccount) {
+			userpolicyinfodict = odusers_copy_accountpolicyinfo(&dn);
+			override = odusers_accountpolicy_override(&dn);
+		} else if (strncmp(op->o_req_ndn.bv_val, kDirservConfigName, strlen(kDirservConfigName)) == 0) {
+			userpolicyinfodict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			/* kAPAttributeGlobalPoliciesGUID */
+			globalaccountpolicyGUID = odusers_copy_globalaccountpolicyGUID();
+			if (globalaccountpolicyGUID) {
+				CFDictionarySetValue(userpolicyinfodict, kAPAttributeGlobalPoliciesGUID, globalaccountpolicyGUID);
+			}
+		}
+		
+		if (userpolicyinfodict) {
+			if (override) { /* bypass AccountPolicy evaluation and return 'pass by default' */
+				if ( strcmp(attr_str, "apple-authenticationAllowed") == 0 || strcmp(attr_str, "apple-passwordChangeAllowed") == 0 ) {
+					policyresult = 1;
+				} else if (	strcmp(attr_str, "apple-willPasswordExpire") == 0 || strcmp(attr_str, "apple-willAuthenticationsExpire") == 0 ) {
+					policyresult = 0;
+				} else if (strcmp(attr_str, "apple-secondsUntilPasswordExpires") == 0 || strcmp(attr_str, "apple-secondsUntilAuthenticationsExpire") == 0) {
+					policyresult = -1;
+				}			
+			} else if (strcmp(attr_str, "apple-authenticationAllowed") == 0) {
+				policyresult = APAuthenticationAllowed(userpolicyinfodict, true, &cferr,        ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); }, NULL) ? (int64_t) 1 : (int64_t) CFErrorGetCode(cferr);
+			} else if (strcmp(attr_str, "apple-passwordChangeAllowed") == 0) {
+					Filter *flist = NULL;
+					if (filter ) {
+						if ( filter->f_choice == LDAP_FILTER_AND ) { /* "(&(uid=user1)(userPassword=abcd))" */
+							flist = filter->f_and;
+						} else if ( filter->f_choice == LDAP_FILTER_EQUALITY ) {  /* "(userPassword=abcd)" */
+							flist = filter;
+						}
+						if (flist && flist->f_choice == LDAP_FILTER_EQUALITY)  { /* (attr=value) */
+							CFStringRef passcfstr = NULL;
+							CFStringRef uidcfstr = NULL;
+							for ( ; flist ; flist = flist->f_next) {
+								if (flist->f_av_desc == slap_schema.si_ad_userPassword && flist->f_av_value.bv_val) {
+									passcfstr =  CFStringCreateWithBytes(kCFAllocatorDefault, flist->f_av_value.bv_val, flist->f_av_value.bv_len, kCFStringEncodingUTF8, false);
+									CFDictionarySetValue(userpolicyinfodict, kAPAttributePassword, passcfstr);
+								} else if (flist->f_av_desc == slap_schema.si_ad_uid  && flist->f_av_value.bv_val) {
+									uidcfstr =  CFStringCreateWithBytes(kCFAllocatorDefault, flist->f_av_value.bv_val, flist->f_av_value.bv_len, kCFStringEncodingUTF8, false);
+									CFDictionarySetValue(userpolicyinfodict, kAPAttributeRecordName, uidcfstr);
+								}
+							}
+							if (passcfstr) {
+								policyresult = (int64_t) APPasswordChangeAllowed(userpolicyinfodict, &cferr,	^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); }, NULL);
+							} else {
+								Debug(LDAP_DEBUG_ANY, "%s: APPasswordChangeAllowed - parameter error\n", __func__, 0, 0);							
+							}
+							if (passcfstr) CFRelease(passcfstr);
+							if (uidcfstr) CFRelease(uidcfstr);
+						}
+					}		
+			} else if (strcmp(attr_str, "apple-willPasswordExpire") == 0) {
+					if (ava && ava->aa_value.bv_val) {
+						willExpireIn = strtoll(ava->aa_value.bv_val, NULL, 10);
+						policyresult = (int64_t) APWillPasswordExpire(willExpireIn, userpolicyinfodict, ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); });
+						Debug(LDAP_DEBUG_ANY, "%s: APWillPasswordExpire %lld \n", __func__, willExpireIn, 0);
+					}
+			} else if (strcmp(attr_str, "apple-willAuthenticationsExpire") == 0) {
+					if (ava && ava->aa_value.bv_val) {
+						willExpireIn = strtoll(ava->aa_value.bv_val, NULL, 10);
+						policyresult = (int64_t) APWillAuthenticationsExpire(willExpireIn, userpolicyinfodict, ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); });
+						Debug(LDAP_DEBUG_ANY, "%s: APWillAuthenticationsExpire %lld \n", __func__, willExpireIn, 0);
+					}
+			} else if (strcmp(attr_str, "apple-secondsUntilPasswordExpires") == 0) {
+					policyresult = APSecondsUntilPasswordExpiration(userpolicyinfodict, ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); });
+			} else if (strcmp(attr_str, "apple-secondsUntilAuthenticationsExpire") == 0) {
+					policyresult = APSecondsUntilAuthenticationExpiration(userpolicyinfodict, ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &dn); });
+			}
+
+			AttributeDescription *attrDesc = NULL;
+			const char *text = NULL;
+			if(slap_str2ad(attr_str, &attrDesc, &text) != 0) {
+				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for %s", __PRETTY_FUNCTION__, attr_str, 0);
+				goto out;
+			}
+			
+			asprintf(&tmpstr, "%lld", policyresult);			
+			attr = attr_alloc(attrDesc);
+			attr->a_flags |= SLAP_ATTR_DONT_FREE_DATA;
+			attr->a_vals = ch_malloc(2 * sizeof(struct berval));
+			attr->a_vals[0].bv_val = tmpstr;
+			attr->a_vals[0].bv_len = strlen(tmpstr);
+			attr->a_vals[1].bv_len = 0;
+			attr->a_vals[1].bv_val = NULL;
+			attr->a_nvals = attr->a_vals;			
+			
+		} else {
+			goto out;
+		}
+	} else {
+		goto out;
+	}
+
+	retentry = entry_alloc();
+	if(!retentry) goto out;
+
+	retentry->e_id = NOID;
+	ber_dupbv(&retentry->e_name, &op->o_req_dn);
+	ber_dupbv(&retentry->e_nname, &op->o_req_ndn);
+
+	if (attr) {
+		retentry->e_attrs = attr;
+	} else {
+		retentry->e_attrs = NULL;
+	}
+	
+	op->ors_slimit = -1;
+	rs->sr_entry = retentry;
+	rs->sr_nentries = 0;
+	rs->sr_flags = 0;
+	rs->sr_ctrls = NULL;
+	rs->sr_operational_attrs = NULL;
+	rs->sr_attrs = op->ors_attrs;
+	rs->sr_err = LDAP_SUCCESS;
+	rs->sr_err = send_search_entry(op, rs);
+	if(rs->sr_err == LDAP_SIZELIMIT_EXCEEDED) {
+		Debug(LDAP_DEBUG_ANY, "%s: size limit exceeded on entry: %s", __func__, retentry->e_name.bv_val, 0);
+	}
+	rs->sr_entry = NULL;
+	send_ldap_result(op, rs);
+	if(retentry) entry_free(retentry);
+	if (userpolicyinfodict) CFRelease(userpolicyinfodict);
+	if (policyData) CFRelease(policyData);
+	if (globalaccountpolicyGUID) CFRelease(globalaccountpolicyGUID);
+	if (cferr) CFRelease(cferr);
+	free(tmpstr);
+	return rs->sr_err;
+	
+	
+out:
+	if(retentry) entry_free(retentry);
+	if (userpolicyinfodict) CFRelease(userpolicyinfodict);
+	if (policyData) CFRelease(policyData);
+	if (globalaccountpolicyGUID) CFRelease(globalaccountpolicyGUID);
+	if (cferr) CFRelease(cferr);
+	return SLAP_CB_CONTINUE;
+}
+
+static int odusers_search_bridge_accountpolicy(Operation *op, SlapReply *rs) {
+	OperationBuffer opbuf;
+	Operation *fakeop;
+	Connection conn = {0};
+	Entry *e = NULL;
+	Attribute *a = NULL;
+	Entry *retentry = NULL;
+	char guidstr[37];
+	Attribute *pwsPolicyAttr = NULL;
+	
+	dnNormalize( 0, NULL, NULL, &op->o_req_dn, &op->o_req_ndn, NULL );
+	e = odusers_copy_authdata(&op->o_req_ndn);
+	if(!e) {
+		Debug(LDAP_DEBUG_ANY, "%s: No entry associated with %s\n", __func__, op->o_req_ndn.bv_val, 0);
+		goto out;
+	}
+
+	/* translate  PasswordServer 'apple-user-passwordpolicy' queries from new 'apple-accountpolicy' format */
+	CFDictionaryRef accountpolicy = odusers_copy_accountpolicy_fromentry(e);
+	if (accountpolicy) {
+		CFDictionaryRef pwsPolicy = APLegacyPoliciesWithPolicySet(accountpolicy);
+		if (pwsPolicy) {
+			AttributeDescription *pwsPolicydesc = NULL;
+			const char *text = NULL;
+			if(slap_str2ad("apple-user-passwordpolicy", &pwsPolicydesc, &text) != 0) {
+				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for global policy", __PRETTY_FUNCTION__, 0, 0);
+				goto out;
+			}
+
+			struct berval *bv = odusers_copy_dict2bv(pwsPolicy);
+			CFRelease(pwsPolicy);
+
+			pwsPolicyAttr = attr_alloc(pwsPolicydesc);
+			pwsPolicyAttr->a_vals = ch_malloc(2 * sizeof(struct berval));
+			pwsPolicyAttr->a_vals[0] = *bv;
+			pwsPolicyAttr->a_vals[1].bv_len = 0;
+			pwsPolicyAttr->a_vals[1].bv_val = NULL;
+			pwsPolicyAttr->a_nvals = pwsPolicyAttr->a_vals;			
+		}
+		CFRelease(accountpolicy);
+	}
+
+	retentry = entry_alloc();
+	if(!retentry) goto out;
+
+	retentry->e_id = NOID;
+	retentry->e_name = op->o_req_dn;
+	retentry->e_nname = op->o_req_ndn;
+
+	if (pwsPolicyAttr) {
+		retentry->e_attrs = pwsPolicyAttr;
+	} else {
+		retentry->e_attrs = NULL;
+	}
+	
+	op->ors_slimit = -1;
+	rs->sr_entry = retentry;
+	rs->sr_nentries = 0;
+	rs->sr_flags = 0;
+	rs->sr_ctrls = NULL;
+	rs->sr_operational_attrs = NULL;
+	rs->sr_attrs = op->ors_attrs;
+	rs->sr_err = LDAP_SUCCESS;
+	rs->sr_err = send_search_entry(op, rs);
+	if(rs->sr_err == LDAP_SIZELIMIT_EXCEEDED) {
+		Debug(LDAP_DEBUG_ANY, "%s: size limit exceeded on entry: %s", __func__, retentry->e_name.bv_val, 0);
+	}
+	rs->sr_entry = NULL;
+	send_ldap_result(op, rs);
+	if(e) entry_free(e);
+	return rs->sr_err;
+	
+	
+out:
+	if(e) entry_free(e);
+	return SLAP_CB_CONTINUE;
+
+}
+
 static int odusers_search_effective_userpolicy(Operation *op, SlapReply *rs) {
 	Attribute *effective = NULL;
 	const char *text = NULL;
@@ -211,7 +476,7 @@ static int odusers_search_effective_userpolicy(Operation *op, SlapReply *rs) {
 	effective = attr_alloc(effectivedesc);
 	effective->a_vals = ch_malloc(2 * sizeof(struct berval));
 	effective->a_vals[0] = *bv;
-	free(bv);
+	ch_free(bv);
 	effective->a_vals[1].bv_len = 0;
 	effective->a_vals[1].bv_val = NULL;
 	effective->a_nvals = effective->a_vals;
@@ -236,6 +501,37 @@ static int odusers_search_effective_userpolicy(Operation *op, SlapReply *rs) {
 
 out:
 //	if (retentry) entry_free(retentry);
+	return SLAP_CB_CONTINUE;
+}
+static int odusers_search_global_accountpolicy(Operation *op, SlapReply *rs) {
+	Attribute *attr = odusers_copy_attr("cn=access,cn=authdata", "apple-accountpolicy");
+
+	Entry *retentry = entry_alloc();
+	if(!retentry) goto out;
+
+	retentry->e_id = NOID;
+	retentry->e_name = op->o_req_dn;
+	retentry->e_nname = op->o_req_ndn;
+	retentry->e_attrs = attr;
+
+	op->ors_slimit = -1;
+	rs->sr_entry = retentry;
+	rs->sr_nentries = 0;
+	rs->sr_flags = 0;
+	rs->sr_ctrls = NULL;
+	rs->sr_operational_attrs = NULL;
+	rs->sr_attrs = op->ors_attrs;
+	rs->sr_err = LDAP_SUCCESS;
+	rs->sr_err = send_search_entry(op, rs);
+	if(rs->sr_err == LDAP_SIZELIMIT_EXCEEDED) {
+		Debug(LDAP_DEBUG_ANY, "%s: size limit exceeded on entry: %s", __PRETTY_FUNCTION__, retentry->e_name.bv_val, 0);
+	}
+	rs->sr_entry = NULL;
+	send_ldap_result(op, rs);
+	return rs->sr_err;
+
+out:
+	if(attr) attr_free(attr);
 	return SLAP_CB_CONTINUE;
 }
 
@@ -356,7 +652,7 @@ static int odusers_search_pwsprefs(Operation *op, SlapReply *rs) {
 	CFStringRef cfsaslrealm = CFStringCreateWithCString(kCFAllocatorDefault, saslrealm, kCFStringEncodingUTF8);
 	CFDictionaryAddValue(prefs, CFSTR("SASLRealm"), cfsaslrealm);
 	CFRelease(cfsaslrealm);
-	free(saslrealm);
+	ch_free(saslrealm);
 
 	e = entry_alloc();
 	e->e_id = NOID;
@@ -380,7 +676,7 @@ static int odusers_search_pwsprefs(Operation *op, SlapReply *rs) {
 	e->e_attrs->a_vals[1].bv_val = 0;
 	e->e_attrs->a_nvals = e->e_attrs->a_vals;
 	e->e_attrs->a_numvals = 1;
-	free(bv);
+	ch_free(bv);
 	
 	op->ors_slimit = -1;
 	rs->sr_entry = e;
@@ -400,15 +696,6 @@ out:
 	return 0;
 }
 
-static bool odusers_isaccount(Operation *op) {
-	bool ret = false;
-
-	if(strnstr(op->o_req_ndn.bv_val, "cn=users", op->o_req_ndn.bv_len) != NULL) ret = 1;
-	if(strnstr(op->o_req_ndn.bv_val, "cn=computers", op->o_req_ndn.bv_len) != NULL) ret = 1;
-	
-	return ret;
-}
-
 static int odusers_search(Operation *op, SlapReply *rs) {
 	bool isaccount;
 
@@ -419,11 +706,22 @@ static int odusers_search(Operation *op, SlapReply *rs) {
 	isaccount = odusers_isaccount(op);
 	
 	if(isaccount && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-user-passwordpolicy", op->ors_attrs[0].an_name.bv_len) == 0) {
-		return odusers_search_bridge_authdata(op, rs, "apple-user-passwordpolicy");
+		return odusers_search_bridge_accountpolicy(op, rs);
+	} else if(strncmp(op->ors_attrs[0].an_name.bv_val, "apple-authenticationAllowed", op->ors_attrs[0].an_name.bv_len) == 0 ||
+			   strncmp(op->ors_attrs[0].an_name.bv_val, "apple-passwordChangeAllowed", op->ors_attrs[0].an_name.bv_len) == 0 ||
+			   strncmp(op->ors_attrs[0].an_name.bv_val, "apple-willPasswordExpire", op->ors_attrs[0].an_name.bv_len) == 0 ||
+			   strncmp(op->ors_attrs[0].an_name.bv_val, "apple-willAuthenticationsExpire", op->ors_attrs[0].an_name.bv_len) == 0 ||
+			   strncmp(op->ors_attrs[0].an_name.bv_val, "apple-secondsUntilPasswordExpires", op->ors_attrs[0].an_name.bv_len) == 0 ||
+			   strncmp(op->ors_attrs[0].an_name.bv_val, "apple-secondsUntilAuthenticationsExpire", op->ors_attrs[0].an_name.bv_len) == 0 ) {
+		return odusers_search_accountpolicy_proxy(op, rs, op->ors_attrs[0].an_name.bv_val);
 	} else if(isaccount && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-user-passwordpolicy-effective", op->ors_attrs[0].an_name.bv_len) == 0) {
 		return odusers_search_effective_userpolicy(op, rs);
 	} else if(isaccount && strncmp(op->ors_attrs[0].an_name.bv_val, "draft-krbPrincipalAliases", op->ors_attrs[0].an_name.bv_len) == 0) {
 		return odusers_search_bridge_authdata(op, rs, "draft-krbPrincipalAliases");
+	} else if(isaccount && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-accountpolicy", op->ors_attrs[0].an_name.bv_len) == 0) {
+		return odusers_search_bridge_authdata(op, rs, "apple-accountpolicy");	
+	} else if(!isaccount && (strncmp(op->o_req_ndn.bv_val, kDirservConfigName, strlen(kDirservConfigName)) == 0) && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-accountpolicy", op->ors_attrs[0].an_name.bv_len) == 0) {
+		odusers_search_global_accountpolicy(op, rs);
 	} else if(!isaccount && (strncmp(op->o_req_ndn.bv_val, kDirservConfigName, strlen(kDirservConfigName)) == 0) && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-user-passwordpolicy", op->ors_attrs[0].an_name.bv_len) == 0) {
 		return odusers_search_globalpolicy(op, rs);
 	} else if(!isaccount && (strncmp(op->o_req_ndn.bv_val, "cn=passwordserver,cn=config", strlen(kDirservConfigName)) == 0) && strncmp(op->ors_attrs[0].an_name.bv_val, "apple-xmlplist", op->ors_attrs[0].an_name.bv_len) == 0) {
@@ -633,6 +931,99 @@ out:
 	return SLAP_CB_CONTINUE;
 }
 
+static int odusers_modify_userpolicy(Operation *op, SlapReply *rs) {
+	OperationBuffer opbuf = {0};
+	Operation *fakeop;
+	Connection conn = {0};
+	Entry *e;
+	Modifications *m = op->orm_modlist;
+	CFDictionaryRef userdict = NULL;
+	CFDictionaryRef accountPolicyDict = NULL;
+	
+	e = odusers_copy_authdata(&op->o_req_ndn);
+	if(!e) {
+		Debug(LDAP_DEBUG_ANY, "%s: No entry associated with %s\n", __func__, op->o_req_ndn.bv_val, 0);
+		goto out;
+	}
+	
+	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
+	fakeop = &opbuf.ob_op;
+	fakeop->o_dn = op->o_dn;
+	fakeop->o_ndn = op->o_ndn;
+	fakeop->o_req_dn = e->e_name;
+	fakeop->o_req_ndn = e->e_nname;
+	fakeop->o_tag = op->o_tag;
+	fakeop->orm_modlist = op->orm_modlist;
+	fakeop->o_conn->c_listener->sl_url.bv_val = "ldapi://%2Fvar%2Frun%2Fldapi";
+	fakeop->o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
+
+	if(m && m->sml_numvals) {
+		userdict = CopyPolicyToDict(m->sml_values[0].bv_val, m->sml_values[0].bv_len);
+		if(!userdict) {
+			Debug(LDAP_DEBUG_ANY, "%s: Could not convert user policy to dict", __func__, 0, 0);
+		} else {
+			CFNumberRef isAdminUser = CFDictionaryGetValue(userdict, CFSTR("isAdminUser"));
+			unsigned int tmpint = 0;
+			if(isAdminUser) {
+				CFNumberGetValue(isAdminUser, kCFNumberIntType, &tmpint);
+				if(tmpint) {
+					odusers_joingroup("admin", &op->o_req_dn, 0);
+				} else {
+					odusers_joingroup("admin", &op->o_req_dn, 1);
+				}
+			}
+
+			CFNumberRef isSessionKeyAgent = CFDictionaryGetValue(userdict, CFSTR("isSessionKeyAgent"));
+			tmpint = 0;
+			if(isSessionKeyAgent) {
+				CFNumberGetValue(isSessionKeyAgent, kCFNumberIntType, &tmpint);
+				if(tmpint) {
+					odusers_joingroup("com.apple.access_sessionkey", &op->o_req_dn, 0);
+				} else {
+					odusers_joingroup("com.apple.access_sessionkey", &op->o_req_dn, 1);
+				}
+			}
+
+			CFNumberRef isDisabled = CFDictionaryGetValue(userdict, CFSTR("isDisabled"));
+			tmpint = 0;
+			if(isDisabled) {
+				CFNumberGetValue(isDisabled, kCFNumberIntType, &tmpint);
+				if(tmpint) {
+					odusers_joingroup("com.apple.access_disabled", &op->o_req_dn, 0);
+				} else {
+					odusers_joingroup("com.apple.access_disabled", &op->o_req_dn, 1);
+				}
+			}
+			
+			accountPolicyDict = APPolicySetWithLegacyPolicies(userdict);
+			if (accountPolicyDict) {
+				Debug(LDAP_DEBUG_ANY, "%s: APPolicySetWithLegacyPolicies", __func__, 0, 0);	
+				odusers_accountpolicy_set(&op->o_req_ndn, e, accountPolicyDict);	
+				CFRelease(accountPolicyDict);
+			}			
+			CFRelease(userdict);
+		}
+	}
+
+	// Use the frontend DB for the modification so we go through the syncrepl	
+	// overlay and our change gets replicated.
+	fakeop->o_bd = frontendDB;
+
+	slap_op_time(&op->o_time, &op->o_tincr);
+
+	fakeop->o_bd->be_modify(fakeop, rs);
+	if(rs->sr_err != LDAP_SUCCESS) {
+		Debug(LDAP_DEBUG_ANY, "%s: Unable to modify authdata attribute: %s (%d)\n", __PRETTY_FUNCTION__, fakeop->o_req_ndn.bv_val, rs->sr_err);
+		goto out;
+	}
+
+	send_ldap_result(op, rs);
+	return rs->sr_err;
+
+out:
+	return SLAP_CB_CONTINUE;
+}
+
 static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 	OperationBuffer opbuf = {0};
 	Operation *fakeop;
@@ -658,6 +1049,43 @@ static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 		if(!globaldict) {
 			Debug(LDAP_DEBUG_ANY, "%s: Could not convert global policy to dict", __func__, 0, 0);
 		} else {
+			/* translate apple-user-passwordpolicy to apple-accountpolicy */
+			if (strncmp(m->sml_desc->ad_cname.bv_val, "apple-user-passwordpolicy", m->sml_desc->ad_cname.bv_len) == 0) {
+				CFDictionaryRef accountPolicyDict = NULL;
+				accountPolicyDict = APPolicySetWithLegacyPolicies(globaldict);
+				if (accountPolicyDict) {
+					Debug(LDAP_DEBUG_ANY, "%s: APPolicySetWithLegacyPolicies - global", __func__, 0, 0);	
+					AttributeDescription *appleAccountPolicyAD = NULL;
+					const char *text = NULL;
+					struct berval *policy_bv = NULL;
+					
+					if(slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
+						Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-accountpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
+						goto out;
+					}
+
+					m = (Modifications *) ch_malloc(sizeof(Modifications));	
+	
+					policy_bv = odusers_copy_dict2bv(accountPolicyDict);
+	
+					m->sml_op = LDAP_MOD_REPLACE;
+					m->sml_flags = 0;
+					m->sml_type = appleAccountPolicyAD->ad_cname;
+					m->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
+					m->sml_values[0].bv_val = policy_bv->bv_val;
+					m->sml_values[0].bv_len = policy_bv->bv_len;
+					m->sml_values[1].bv_val = NULL;
+					m->sml_values[1].bv_len = 0;
+					m->sml_nvalues = NULL;
+					m->sml_numvals = 1;
+					m->sml_desc = appleAccountPolicyAD;
+					m->sml_next = fakeop->orm_modlist;
+					fakeop->orm_modlist = m;
+					
+					CFRelease(accountPolicyDict);
+				}							
+			}
+			
 			CFNumberRef newPasswordRequired = CFDictionaryGetValue(globaldict, CFSTR("newPasswordRequired"));
 			if(newPasswordRequired) {
 				const char *text = NULL;
@@ -670,12 +1098,12 @@ static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 					Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of uid attribute", __PRETTY_FUNCTION__, 0, 0);
 					goto out;
 				}
-				m = ch_calloc(sizeof(Modifications), 1);
+				m = ch_calloc(1, sizeof(Modifications));
 				m->sml_op = LDAP_MOD_REPLACE;
 				m->sml_flags = 0;
 				m->sml_type = passwordRequiredDateAD->ad_cname;
 				m->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-				m->sml_values[0].bv_val = ch_calloc(256,1);
+				m->sml_values[0].bv_val = ch_calloc(1, 256);
 				m->sml_values[0].bv_len = strftime(m->sml_values[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmptm);
 				m->sml_values[1].bv_val = NULL;
 				m->sml_values[1].bv_len = 0;
@@ -700,13 +1128,9 @@ static int odusers_modify_globalpolicy(Operation *op, SlapReply *rs) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to modify user policy: %s (%d)\n", __PRETTY_FUNCTION__, fakeop->o_req_ndn.bv_val, rs->sr_err);
 		goto out;
 	}
-
-	if(m) {
-		ch_free(m->sml_values[0].bv_val);
-		ch_free(m->sml_values);
-		ch_free(m);
-	}
-
+	
+	APInvalidateCacheForPolicySet(NULL);
+	
 	send_ldap_result(op, rs);
 	return rs->sr_err;
 
@@ -759,13 +1183,11 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 	Operation *fakeop = NULL;
 	Connection conn = {0};
 	Entry *e = NULL;
-	AttributeDescription *uidAD = NULL;
-	AttributeDescription *krbAD = NULL;
-	AttributeDescription *draftkrbAD = NULL;
 	const char *text = NULL;
 	SlapReply rs2 = {REP_RESULT};
 	Modifications *m = NULL;
 	char *newname = NULL;
+	char *newnameminusdollar = NULL;
 	char *oldname = NULL;
 	char *princname = NULL;
 	char *oldprincname = NULL;
@@ -777,10 +1199,9 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 	Entry *usere = NULL;
 	SlapReply userrs = {REP_RESULT};
 	Modifications *userm = NULL;
-	AttributeDescription *aaAD = NULL;
-	AttributeDescription *altsecAD = NULL;
 	Attribute *aas = NULL;
 	Attribute *altsec = NULL;
+	Attribute *aliases = NULL;
 	int i;
 	Entry *authe = NULL;
 	AccessControlState acl_state = ACL_STATE_INIT;
@@ -813,23 +1234,27 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 	asprintf(&princname, "%s@%s", newname, realmname);
 	asprintf(&oldprincname, "%s@%s", oldname, realmname);
 
-	if(slap_str2ad("uid", &uidAD, &text) != 0) {
+	if(!uidAD && slap_str2ad("uid", &uidAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of uid attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(slap_str2ad("KerberosPrincName", &krbAD, &text) != 0) {
+	if(!krbAD && slap_str2ad("KerberosPrincName", &krbAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of KerberosPrincName attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(slap_str2ad("draft-krbPrincipalName", &draftkrbAD, &text) != 0) {
+	if(!draftkrbAD && slap_str2ad("draft-krbPrincipalName", &draftkrbAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of draft-PrincipalName attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(slap_str2ad("authAuthority", &aaAD, &text) != 0) {
+	if(!draftkrbAliasesAD && slap_str2ad("draft-krbPrincipalAliases", &draftkrbAliasesAD, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of draft-krbPrincipalAliases attribute", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
+	}
+	if(!aaAD && slap_str2ad("authAuthority", &aaAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of authAuthority attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(slap_str2ad("altSecurityIdentities", &altsecAD, &text) != 0) {
+	if(!altsecAD && slap_str2ad("altSecurityIdentities", &altsecAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of altSecurityIdentities attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -957,6 +1382,53 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 		userm->sml_next = NULL;
 	}
 
+	aliases = attrs_find(e->e_attrs, draftkrbAliasesAD);
+	if(aliases) {
+		m->sml_next = (Modifications *) ch_malloc(sizeof(Modifications));
+		m = m->sml_next;
+		m->sml_op = LDAP_MOD_DELETE;
+		m->sml_flags = 0;
+		m->sml_type = draftkrbAliasesAD->ad_cname;
+		m->sml_values = (struct berval*) ch_malloc((aliases->a_numvals+1) * sizeof(struct berval));
+		for(i = 0; i < aliases->a_numvals; i++) {
+			ber_dupbv(&m->sml_values[i], &aliases->a_vals[i]);
+		}
+		m->sml_values[i].bv_val = NULL;
+		m->sml_values[i].bv_len = 0;
+		m->sml_numvals = i;
+		m->sml_nvalues = NULL;
+		m->sml_desc = draftkrbAliasesAD;
+		m->sml_next = NULL;
+
+		newnameminusdollar = ch_strdup(newname);
+		newnameminusdollar[strlen(newnameminusdollar)-1] = '\0';
+
+		m->sml_next = (Modifications *) ch_malloc(sizeof(Modifications));
+		m = m->sml_next;
+		m->sml_op = LDAP_MOD_ADD;
+		m->sml_flags = 0;
+		m->sml_type = draftkrbAliasesAD->ad_cname;
+		m->sml_values = (struct berval*) ch_malloc((aliases->a_numvals+1) * sizeof(struct berval));
+		for(i = 0; i < aliases->a_numvals; i++) {
+			if(strnstr(aliases->a_vals[i].bv_val, "/", aliases->a_vals[i].bv_len) != NULL) {
+				char *tmpstr = ch_calloc(1, aliases->a_vals[i].bv_len+1);
+				memcpy(tmpstr, aliases->a_vals[i].bv_val, aliases->a_vals[i].bv_len);
+				char *freeme = strsep(&tmpstr, "/");
+				m->sml_values[i].bv_len = asprintf(&m->sml_values[i].bv_val, "%s/%s@%s", freeme, newnameminusdollar, realmname);
+				ch_free(freeme);
+			} else {
+				ber_dupbv(&m->sml_values[i], &aliases->a_vals[i]);
+			}
+		}
+		ch_free(newnameminusdollar);
+		m->sml_values[i].bv_val = NULL;
+		m->sml_values[i].bv_len = 0;
+		m->sml_numvals = i;
+		m->sml_nvalues = NULL;
+		m->sml_desc = draftkrbAliasesAD;
+		m->sml_next = NULL;
+	}
+
 	bool isldapi = false;
 	if((op->o_conn->c_listener->sl_url.bv_len == strlen("ldapi://%2Fvar%2Frun%2Fldapi")) && (strncmp(op->o_conn->c_listener->sl_url.bv_val, "ldapi://%2Fvar%2Frun%2Fldapi", op->o_conn->c_listener->sl_url.bv_len) == 0)) {
 		isldapi = true;
@@ -997,10 +1469,10 @@ out:
 //	if(authe) entry_free(authe);
 	if(m) slap_mods_free(fakeop->orm_modlist, 1);
 	if(userm) slap_mods_free(userfakeop->orm_modlist, 1);
-	if(realmname) free(realmname);
-	if(princname) free(princname);
-	if(oldprincname) free(oldprincname);
-	if(oldname) free(oldname);
+	ch_free(realmname);
+	free(princname);
+	free(oldprincname);
+	ch_free(oldname);
 
 	return SLAP_CB_CONTINUE;
 }
@@ -1029,8 +1501,9 @@ static int odusers_modify(Operation *op, SlapReply *rs) {
 			return rs->sr_err;
 		}
 
-		return odusers_modify_bridge_authdata(op, rs);
-	} else if(isaccount && strncmp(m->sml_desc->ad_cname.bv_val, "draft-krbPrincipalAliases", m->sml_desc->ad_cname.bv_len) == 0) {
+		return odusers_modify_userpolicy(op, rs);
+	} else if(isaccount && (strncmp(m->sml_desc->ad_cname.bv_val, "draft-krbPrincipalAliases", m->sml_desc->ad_cname.bv_len) == 0 ||
+							strncmp(m->sml_desc->ad_cname.bv_val, "apple-accountpolicy", m->sml_desc->ad_cname.bv_len) == 0)) {
 		if((odusers_enforce_admin(op) != 0) && (ber_bvcmp(&op->o_ndn, &op->o_req_ndn) != 0)) {
 			send_ldap_error(op, rs, LDAP_INSUFFICIENT_ACCESS, "No access");
 			rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
@@ -1038,7 +1511,9 @@ static int odusers_modify(Operation *op, SlapReply *rs) {
 		}
 
 		return odusers_modify_bridge_authdata(op, rs);
-	} else if(!isaccount && (strncmp(op->o_req_ndn.bv_val, kDirservConfigName, strlen(kDirservConfigName)) == 0) && strncmp(m->sml_desc->ad_cname.bv_val, "apple-user-passwordpolicy", m->sml_desc->ad_cname.bv_len) == 0) {
+	} else if(!isaccount && (strncmp(op->o_req_ndn.bv_val, kDirservConfigName, strlen(kDirservConfigName)) == 0) 
+						 && (strncmp(m->sml_desc->ad_cname.bv_val, "apple-user-passwordpolicy", m->sml_desc->ad_cname.bv_len) == 0 ||
+						 	 strncmp(m->sml_desc->ad_cname.bv_val, "apple-accountpolicy", m->sml_desc->ad_cname.bv_len) == 0)) {
 		if(odusers_enforce_admin(op) != 0) {
 			Debug(LDAP_DEBUG_ANY, "%s: no admin privs while attempting global policy modification\n", __func__, 0, 0);
 			send_ldap_error(op, rs, LDAP_INSUFFICIENT_ACCESS, "global policy modification not permitted");
@@ -1066,7 +1541,7 @@ static char *odusers_copy_pwspubkey(Operation *op) {
 	char *ret = NULL;
 	
 	if(savedkey) {
-		return strdup(savedkey);
+		return ch_strdup(savedkey);
 	}
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
@@ -1096,10 +1571,10 @@ static char *odusers_copy_pwspubkey(Operation *op) {
 		goto out;
 	}
 
-	ret = calloc(1, a->a_vals[0].bv_len + 1);
+	ret = ch_calloc(1, a->a_vals[0].bv_len + 1);
 	if(!ret) goto out;
 	memcpy(ret, a->a_vals[0].bv_val, a->a_vals[0].bv_len);
-	savedkey = strdup(ret);
+	savedkey = ch_strdup(ret);
 
 out:
 	if(e) entry_free(e);
@@ -1183,29 +1658,23 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 
 	a = attr_alloc(authGUIDAD);
 	if(!a) goto out;
-	a->a_vals = ch_malloc(2 * sizeof(struct berval));
+	a->a_vals = ch_calloc(2, sizeof(struct berval));
 	if(!a->a_vals) goto out;
 	a->a_vals[0].bv_len = strlen(uuidstr);
-	a->a_vals[0].bv_val = calloc(1, a->a_vals[0].bv_len+1);
+	a->a_vals[0].bv_val = ch_calloc(1, a->a_vals[0].bv_len+1);
 	strncpy(a->a_vals[0].bv_val, uuidstr, a->a_vals[0].bv_len);
-	a->a_vals[1].bv_len = 0;
-	a->a_vals[1].bv_val = NULL;
 	a->a_nvals = a->a_vals;
 	a->a_numvals = 1;
-	a->a_flags = 0;
 
 	a->a_next = attr_alloc(objectClassAD);
 	if(!a->a_next) goto out;
 	attriter = a->a_next;
-	attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
+	attriter->a_vals = ch_calloc(2, sizeof(struct berval));
 	if(!attriter->a_vals) goto out;
 	attriter->a_vals[0].bv_len = strlen("pwsAuthdata");
 	attriter->a_vals[0].bv_val = ch_strdup("pwsAuthdata");
-	attriter->a_vals[1].bv_len = 0;
-	attriter->a_vals[1].bv_val = NULL;
 	attriter->a_nvals = attriter->a_vals;
 	attriter->a_numvals = 1;
-	attriter->a_flags = 0;
 
 	if(recname) {
 		AttributeDescription *uidAD = NULL;
@@ -1216,15 +1685,12 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 		attriter->a_next = attr_alloc(uidAD);
 		if(!attriter->a_next) goto out;
 		attriter = attriter->a_next;
-		attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
+		attriter->a_vals = ch_calloc(2, sizeof(struct berval));
 		if(!attriter->a_vals) goto out;
 		attriter->a_vals[0].bv_len = strlen(recname);
 		attriter->a_vals[0].bv_val = ch_strdup(recname);
-		attriter->a_vals[1].bv_len = 0;
-		attriter->a_vals[1].bv_val = NULL;
 		attriter->a_nvals = attriter->a_vals;
 		attriter->a_numvals = 1;
-		attriter->a_flags = 0;
 
 		AttributeDescription *princnameAD = NULL;
 		if(slap_str2ad("KerberosPrincName", &princnameAD, &text) != 0) {
@@ -1259,7 +1725,7 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 	attriter = attriter->a_next;
 	attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
 	if(!attriter->a_vals) goto out;
-	attriter->a_vals[0].bv_val = calloc(1, 256);
+	attriter->a_vals[0].bv_val = ch_calloc(1, 256);
 	attriter->a_vals[0].bv_len = strftime(attriter->a_vals[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmtime);
 	attriter->a_vals[1].bv_len = 0;
 	attriter->a_vals[1].bv_val = NULL;
@@ -1358,7 +1824,10 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 		attriter = attriter->a_next;
 		attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
 		if(!attriter->a_vals) goto out;
-		attriter->a_vals[0].bv_len = asprintf(&attriter->a_vals[0].bv_val, "%s@%s", recname, realm);
+		char *principalName = NULL;
+		asprintf(&principalName, "%s@%s", recname, realm);
+		ber_str2bv(principalName, strlen(principalName), 1, &attriter->a_vals[0]);
+		free(principalName);
 		attriter->a_vals[1].bv_len = 0;
 		attriter->a_vals[1].bv_val = NULL;
 		attriter->a_nvals = attriter->a_vals;
@@ -1388,101 +1857,6 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 		attriter->a_numvals = 1;
 		attriter->a_flags = 0;
 	}
-	if(iscomputer) {
-		if(!policyAD && slap_str2ad("apple-user-passwordpolicy", &policyAD, &text) != 0) {
-			Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-user-passwordpolicy", __func__, 0, 0);
-			goto out;
-		}
-		CFMutableDictionaryRef policydict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		unsigned int trueBoolVal = 1;
-		CFNumberRef cfone = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &trueBoolVal);
-		CFDictionaryAddValue(policydict, CFSTR("isComputerAccount"), cfone);
-		
-		if(odusers_enforce_admin(op) == 0) { 
-			CFDictionaryAddValue(policydict, CFSTR("isSessionKeyAgent"), cfone);
-		}
-
-		CFRelease(cfone);
-		
-		CFDataRef xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault, (CFPropertyListRef)policydict);
-		CFRelease(policydict);
-		if(!xmlData) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to serialize policy plist", __func__, 0, 0);
-			goto out;
-		}
-		attriter->a_next = attr_alloc(policyAD);
-		if(!attriter->a_next) {
-			CFRelease(xmlData);
-			goto out;
-		}
-		attriter = attriter->a_next;
-		attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
-		if(!attriter->a_vals) {
-			CFRelease(xmlData);
-			goto out;
-		}
-		attriter->a_vals[0].bv_len = CFDataGetLength(xmlData);
-		attriter->a_vals[0].bv_val = calloc(1, CFDataGetLength(xmlData) + 1);
-		CFDataGetBytes(xmlData, CFRangeMake(0,CFDataGetLength(xmlData)), (UInt8*)attriter->a_vals[0].bv_val);
-		CFRelease(xmlData);
-		attriter->a_vals[1].bv_len = 0;
-		attriter->a_vals[1].bv_val = NULL;
-		attriter->a_nvals = attriter->a_vals;
-		attriter->a_numvals = 1;
-		attriter->a_flags = 0;
-	} else {
-		Attribute *global_attr = odusers_copy_globalpolicy();
-		short tmpshort = 0;
-
-		if(global_attr) {
-			CFDictionaryRef globaldict = CopyPolicyToDict(global_attr->a_vals[0].bv_val, global_attr->a_vals[0].bv_len);
-			if(globaldict) {
-				CFNumberRef newPasswordRequired = CFDictionaryGetValue(globaldict, CFSTR("newPasswordRequired"));
-				if(newPasswordRequired) CFNumberGetValue(newPasswordRequired, kCFNumberShortType, &tmpshort);
-				CFRelease(globaldict);
-			}
-			attr_free(global_attr);
-		}
-
-		if(tmpshort) {
-			if(!policyAD && slap_str2ad("apple-user-passwordpolicy", &policyAD, &text) != 0) {
-				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-user-passwordpolicy", __func__, 0, 0);
-				goto out;
-			}
-			CFMutableDictionaryRef policydict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-			CFNumberRef cfone = CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &tmpshort);
-			CFDictionarySetValue(policydict, CFSTR("newPasswordRequired"), cfone);
-			CFRelease(cfone);
-		
-			CFDataRef xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault, (CFPropertyListRef)policydict);
-			CFRelease(policydict);
-			if(!xmlData) {
-				Debug(LDAP_DEBUG_ANY, "%s: Unable to serialize policy plist", __func__, 0, 0);
-				goto out;
-			}
-			attriter->a_next = attr_alloc(policyAD);
-			if(!attriter->a_next) {
-				CFRelease(xmlData);
-				goto out;
-			}
-			attriter = attriter->a_next;
-			attriter->a_vals = ch_malloc(2 * sizeof(struct berval));
-			if(!attriter->a_vals) {
-				CFRelease(xmlData);
-				goto out;
-			}
-			attriter->a_vals[0].bv_len = CFDataGetLength(xmlData);
-			attriter->a_vals[0].bv_val = calloc(1, CFDataGetLength(xmlData) + 1);
-			CFDataGetBytes(xmlData, CFRangeMake(0,CFDataGetLength(xmlData)), (UInt8*)attriter->a_vals[0].bv_val);
-			CFRelease(xmlData);
-			attriter->a_vals[1].bv_len = 0;
-			attriter->a_vals[1].bv_val = NULL;
-			attriter->a_nvals = attriter->a_vals;
-			attriter->a_numvals = 1;
-			attriter->a_flags = 0;
-		}
-	}
-
 	attriter->a_next = NULL;
 
 	e = entry_alloc();
@@ -1503,8 +1877,8 @@ static int odusers_add_authdata(Operation *op, SlapReply *rs, uuid_t newuuid) {
 out:
 //	if (e) entry_free(e);
 	if(fakeop && fakeop->o_req_dn.bv_val) free(fakeop->o_req_dn.bv_val);
-	if(realm) free(realm);
-	if(recname) free(recname);
+	ch_free(realm);
+	ch_free(recname);
 
 	return 0;
 }
@@ -1548,7 +1922,7 @@ static int odusers_add_aa(Operation *op, SlapReply *rs, uuid_t newuuid) {
 		primary_master_ip = CopyPrimaryIPv4Address();
 		if (!primary_master_ip) {
 			Debug(LDAP_DEBUG_ANY, "%s: could not locate IP address in System Configuration; using 127.0.0.1 in the auth authority", __func__, 0, 0);
-			primary_master_ip = strdup("127.0.0.1");
+			primary_master_ip = ch_strdup("127.0.0.1");
 		}
 	}
 
@@ -1563,8 +1937,15 @@ static int odusers_add_aa(Operation *op, SlapReply *rs, uuid_t newuuid) {
 	if(pubkey[strlen(pubkey)-1] == '\n') {
 		pubkey[strlen(pubkey)-1] = '\0'; // strip of trailing newline
 	}
-	attriter->a_vals[0].bv_len = asprintf(&attriter->a_vals[0].bv_val, ";ApplePasswordServer;%s,%s:%s", slotid, pubkey, primary_master_ip);
-	attriter->a_vals[1].bv_len = asprintf(&attriter->a_vals[1].bv_val, ";Kerberosv5;;%s@%s;%s;", recname, realm, realm);
+	char *pws_authAuthority = NULL;
+	char *krb5_authAuthority = NULL;
+	asprintf(&pws_authAuthority, ";ApplePasswordServer;%s,%s:%s", slotid, pubkey, primary_master_ip);
+	ber_str2bv(pws_authAuthority, strlen(pws_authAuthority), 1, &attriter->a_vals[0]);
+	free(pws_authAuthority);
+	asprintf(&krb5_authAuthority, ";Kerberosv5;;%s@%s;%s;", recname, realm, realm);
+	ber_str2bv(krb5_authAuthority, strlen(krb5_authAuthority), 1, &attriter->a_vals[1]);
+	free(krb5_authAuthority);
+	
 	attriter->a_vals[2].bv_len = 0;
 	attriter->a_vals[2].bv_val = NULL;
 	attriter->a_nvals = attriter->a_vals;
@@ -1582,7 +1963,10 @@ static int odusers_add_aa(Operation *op, SlapReply *rs, uuid_t newuuid) {
 		if(!attriter) goto out;
 		attriter->a_vals = ch_malloc(2 *sizeof(struct berval));
 		if(!attriter->a_vals) goto out;
-		attriter->a_vals[0].bv_len = asprintf(&attriter->a_vals[0].bv_val, "Kerberos:%s@%s", recname, realm);
+		char * altSecurityIdentities = NULL;
+		asprintf(&altSecurityIdentities, "Kerberos:%s@%s", recname, realm);
+		ber_str2bv(altSecurityIdentities, strlen(altSecurityIdentities), 1, &attriter->a_vals[0]);
+		free(altSecurityIdentities);
 		attriter->a_vals[1].bv_len = 0;
 		attriter->a_vals[1].bv_val = NULL;
 		attriter->a_nvals = attriter->a_vals;
@@ -1595,10 +1979,10 @@ static int odusers_add_aa(Operation *op, SlapReply *rs, uuid_t newuuid) {
 	attriter->a_next = newAA;
 
 out:
-	if(realm) free(realm);
-	if(recname) free(recname);
-	if(pubkey) free(pubkey);
-	if(primary_master_ip) free(primary_master_ip);
+	ch_free(realm);
+	ch_free(recname);
+	ch_free(pubkey);
+	ch_free(primary_master_ip);
 
 	return 0;
 }

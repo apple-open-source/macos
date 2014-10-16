@@ -1,0 +1,35 @@
+//
+// script0036 - designed to run after the default keychain DELETED from disk
+//
+//		KCNewItem
+//		KCAddItem
+//		KCGetData
+//
+// Attempt to add an AppleShare password to the default keychain
+// - If there aren't any keychains available, a panel will ask you to create one.
+// - If default is deleted, a panel appears asking to select a different
+// 	 keychain or create a new one for the item (here you can change the default too).
+//
+35 KCNewItem
+   Input Arguments : 4
+     Class : ashp
+     Creator : cind
+     Data : /8/CindyLou
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+//
+## Chose a keychain or create one, then hit 'Select'  ##
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /8/00000000
+   Results : 3
+     OSStatus 0
+     Data : /8/CindyLou
+     ActualLength : 5

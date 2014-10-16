@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -30,6 +30,7 @@
 
 #import "WebFramePrivate.h"
 #import "WebPreferencesPrivate.h"
+#import <WebCore/ContentFilter.h>
 #import <WebCore/EditAction.h>
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/FrameSelection.h>
@@ -72,18 +73,26 @@ WebView *kit(WebCore::Page*);
 WebCore::EditableLinkBehavior core(WebKitEditableLinkBehavior);
 WebCore::TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior);
 
+#if defined(__cplusplus) && PLATFORM(IOS)
+PassOwnPtr<Vector<Vector<String>>> vectorForDictationPhrasesArray(NSArray *);
+#endif
+
 WebView *getWebView(WebFrame *webFrame);
 
 @interface WebFramePrivate : NSObject {
 @public
     WebCore::Frame* coreFrame;
     WebFrameView *webFrameView;
-    WebScriptDebugger* scriptDebugger;
+    std::unique_ptr<WebScriptDebugger> scriptDebugger;
     id internalLoadDelegate;
     BOOL shouldCreateRenderers;
     BOOL includedInWebKitStatistics;
     RetainPtr<NSString> url;
     RetainPtr<NSString> provisionalURL;
+#if PLATFORM(IOS)
+    BOOL isCommitting;
+#endif
+    std::unique_ptr<WebCore::ContentFilter> contentFilterForBlockedLoad;
 }
 @end
 
@@ -121,6 +130,13 @@ WebView *getWebView(WebFrame *webFrame);
 // should be used instead.
 - (WebDataSource *)_dataSource;
 
+#if PLATFORM(IOS)
++ (void)_createMainFrameWithSimpleHTMLDocumentWithPage:(WebCore::Page*)page frameView:(WebFrameView *)frameView style:(NSString *)style;
+
+- (BOOL)_isCommitting;
+- (void)_setIsCommitting:(BOOL)value;
+#endif
+
 - (BOOL)_needsLayout;
 - (void)_drawRect:(NSRect)rect contentsOnly:(BOOL)contentsOnly;
 - (BOOL)_getVisibleRect:(NSRect*)rect;
@@ -134,13 +150,16 @@ WebView *getWebView(WebFrame *webFrame);
 - (DOMRange *)_convertNSRangeToDOMRange:(NSRange)range;
 - (NSRange)_convertDOMRangeToNSRange:(DOMRange *)range;
 
-- (NSString *)_markupStringFromRange:(DOMRange *)range nodes:(NSArray **)nodes;
-
 - (NSRect)_caretRectAtPosition:(const WebCore::Position&)pos affinity:(NSSelectionAffinity)affinity;
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range;
 - (void)_scrollDOMRangeToVisible:(DOMRange *)range;
+#if PLATFORM(IOS)
+- (void)_scrollDOMRangeToVisible:(DOMRange *)range withInset:(CGFloat)inset;
+#endif
 
+#if !PLATFORM(IOS)
 - (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::FrameSelection::EAlteration)alteration direction:(WebCore::SelectionDirection)direction granularity:(WebCore::TextGranularity)granularity;
+#endif
 - (NSRange)_convertToNSRange:(WebCore::Range*)range;
 - (PassRefPtr<WebCore::Range>)_convertToDOMRange:(NSRange)nsrange;
 
@@ -164,6 +183,8 @@ WebView *getWebView(WebFrame *webFrame);
 - (BOOL)_canSaveAsWebArchive;
 
 - (void)_commitData:(NSData *)data;
+
+- (BOOL)_contentFilterDidHandleNavigationAction:(const WebCore::ResourceRequest&)request;
 
 @end
 

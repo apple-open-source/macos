@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>lib-prefix.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">lib-prefix.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># lib-prefix.m4 serial 5 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 2001-2005 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Bruno Haible.
+</span>
+<span class="enscript-comment">dnl AC_LIB_ARG_WITH is synonymous to AC_ARG_WITH in autoconf-2.13, and
+</span><span class="enscript-comment">dnl similar to AC_ARG_WITH in autoconf 2.52...2.57 except that is doesn't
+</span><span class="enscript-comment">dnl require excessive bracketing.
+</span><span class="enscript-keyword">ifdef</span>([AC_HELP_STRING],
+[AC_DEFUN([AC_LIB_ARG_WITH], [AC_ARG_WITH([$1],[[$2]],[$3],[$4])])],
+[AC_DEFUN([AC_][LIB_ARG_WITH], [AC_ARG_WITH([$1],[$2],[$3],[$4])])])
+
+<span class="enscript-comment">dnl AC_LIB_PREFIX adds to the CPPFLAGS and LDFLAGS the flags that are needed
+</span><span class="enscript-comment">dnl to access previously installed libraries. The basic assumption is that
+</span><span class="enscript-comment">dnl a user will want packages to use other packages he previously installed
+</span><span class="enscript-comment">dnl with the same --prefix option.
+</span><span class="enscript-comment">dnl This macro is not needed if only AC_LIB_LINKFLAGS is used to locate
+</span><span class="enscript-comment">dnl libraries, but is otherwise very convenient.
+</span>AC_DEFUN([AC_LIB_PREFIX],
+[
+  AC_BEFORE([$0], [AC_LIB_LINKFLAGS])
+  AC_REQUIRE([AC_PROG_CC])
+  AC_REQUIRE([AC_CANONICAL_HOST])
+  AC_REQUIRE([AC_LIB_PREPARE_MULTILIB])
+  AC_REQUIRE([AC_LIB_PREPARE_PREFIX])
+  <span class="enscript-comment">dnl By default, look in $includedir and $libdir.
+</span>  use_additional=yes
+  AC_LIB_WITH_FINAL_PREFIX([
+    <span class="enscript-keyword">eval</span> additional_includedir=\&quot;$includedir\&quot;
+    <span class="enscript-keyword">eval</span> additional_libdir=\&quot;$libdir\&quot;
+  ])
+  AC_LIB_ARG_WITH([lib-prefix],
+[  --with-lib-prefix[=DIR] search for libraries in DIR/<span class="enscript-keyword">include</span> and DIR/lib
+  --without-lib-prefix    don't search for libraries in includedir and libdir],
+[
+    if test &quot;X$withval&quot; = &quot;Xno&quot;; then
+      use_additional=no
+    else
+      if test &quot;X$withval&quot; = &quot;X&quot;; then
+        AC_LIB_WITH_FINAL_PREFIX([
+          <span class="enscript-keyword">eval</span> additional_includedir=\&quot;$includedir\&quot;
+          <span class="enscript-keyword">eval</span> additional_libdir=\&quot;$libdir\&quot;
+        ])
+      else
+        additional_includedir=&quot;$withval/<span class="enscript-keyword">include</span>&quot;
+        additional_libdir=&quot;$withval/$acl_libdirstem&quot;
+      fi
+    fi
+])
+  if test $use_additional = yes; then
+    <span class="enscript-comment">dnl Potentially add $additional_includedir to $CPPFLAGS.
+</span>    <span class="enscript-comment">dnl But don't add it
+</span>    <span class="enscript-comment">dnl   1. if it's the standard /usr/include,
+</span>    <span class="enscript-comment">dnl   2. if it's already present in $CPPFLAGS,
+</span>    <span class="enscript-comment">dnl   3. if it's /usr/local/include and we are using GCC on Linux,
+</span>    <span class="enscript-comment">dnl   4. if it doesn't exist as a directory.
+</span>    if test &quot;X$additional_includedir&quot; != &quot;X/usr/<span class="enscript-keyword">include</span>&quot;; then
+      haveit=
+      for x in $CPPFLAGS; do
+        AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+        if test &quot;X$x&quot; = &quot;X-I$additional_includedir&quot;; then
+          haveit=yes
+          break
+        fi
+      done
+      if test -z &quot;$haveit&quot;; then
+        if test &quot;X$additional_includedir&quot; = &quot;X/usr/local/<span class="enscript-keyword">include</span>&quot;; then
+          if test -n &quot;$GCC&quot;; then
+            case $host_os in
+              linux* | gnu* | k*bsd*-gnu) haveit=yes;;
+            esac
+          fi
+        fi
+        if test -z &quot;$haveit&quot;; then
+          if test -d &quot;$additional_includedir&quot;; then
+            <span class="enscript-comment">dnl Really add $additional_includedir to $CPPFLAGS.
+</span>            CPPFLAGS=&quot;${CPPFLAGS}${CPPFLAGS:+ }-I$additional_includedir&quot;
+          fi
+        fi
+      fi
+    fi
+    <span class="enscript-comment">dnl Potentially add $additional_libdir to $LDFLAGS.
+</span>    <span class="enscript-comment">dnl But don't add it
+</span>    <span class="enscript-comment">dnl   1. if it's the standard /usr/lib,
+</span>    <span class="enscript-comment">dnl   2. if it's already present in $LDFLAGS,
+</span>    <span class="enscript-comment">dnl   3. if it's /usr/local/lib and we are using GCC on Linux,
+</span>    <span class="enscript-comment">dnl   4. if it doesn't exist as a directory.
+</span>    if test &quot;X$additional_libdir&quot; != &quot;X/usr/$acl_libdirstem&quot;; then
+      haveit=
+      for x in $LDFLAGS; do
+        AC_LIB_WITH_FINAL_PREFIX([<span class="enscript-keyword">eval</span> x=\&quot;$x\&quot;])
+        if test &quot;X$x&quot; = &quot;X-L$additional_libdir&quot;; then
+          haveit=yes
+          break
+        fi
+      done
+      if test -z &quot;$haveit&quot;; then
+        if test &quot;X$additional_libdir&quot; = &quot;X/usr/local/$acl_libdirstem&quot;; then
+          if test -n &quot;$GCC&quot;; then
+            case $host_os in
+              linux*) haveit=yes;;
+            esac
+          fi
+        fi
+        if test -z &quot;$haveit&quot;; then
+          if test -d &quot;$additional_libdir&quot;; then
+            <span class="enscript-comment">dnl Really add $additional_libdir to $LDFLAGS.
+</span>            LDFLAGS=&quot;${LDFLAGS}${LDFLAGS:+ }-L$additional_libdir&quot;
+          fi
+        fi
+      fi
+    fi
+  fi
+])
+
+<span class="enscript-comment">dnl AC_LIB_PREPARE_PREFIX creates variables acl_final_prefix,
+</span><span class="enscript-comment">dnl acl_final_exec_prefix, containing the values to which $prefix and
+</span><span class="enscript-comment">dnl $exec_prefix will expand at the end of the configure script.
+</span>AC_DEFUN([AC_LIB_PREPARE_PREFIX],
+[
+  <span class="enscript-comment">dnl Unfortunately, prefix and exec_prefix get only finally determined
+</span>  <span class="enscript-comment">dnl at the end of configure.
+</span>  if test &quot;X$prefix&quot; = &quot;XNONE&quot;; then
+    acl_final_prefix=&quot;$ac_default_prefix&quot;
+  else
+    acl_final_prefix=&quot;$prefix&quot;
+  fi
+  if test &quot;X$exec_prefix&quot; = &quot;XNONE&quot;; then
+    acl_final_exec_prefix='${prefix}'
+  else
+    acl_final_exec_prefix=&quot;$exec_prefix&quot;
+  fi
+  acl_save_prefix=&quot;$prefix&quot;
+  prefix=&quot;$acl_final_prefix&quot;
+  <span class="enscript-keyword">eval</span> acl_final_exec_prefix=\&quot;$acl_final_exec_prefix\&quot;
+  prefix=&quot;$acl_save_prefix&quot;
+])
+
+<span class="enscript-comment">dnl AC_LIB_WITH_FINAL_PREFIX([statement]) evaluates statement, with the
+</span><span class="enscript-comment">dnl variables prefix and exec_prefix bound to the values they will have
+</span><span class="enscript-comment">dnl at the end of the configure script.
+</span>AC_DEFUN([AC_LIB_WITH_FINAL_PREFIX],
+[
+  acl_save_prefix=&quot;$prefix&quot;
+  prefix=&quot;$acl_final_prefix&quot;
+  acl_save_exec_prefix=&quot;$exec_prefix&quot;
+  exec_prefix=&quot;$acl_final_exec_prefix&quot;
+  $1
+  exec_prefix=&quot;$acl_save_exec_prefix&quot;
+  prefix=&quot;$acl_save_prefix&quot;
+])
+
+<span class="enscript-comment">dnl AC_LIB_PREPARE_MULTILIB creates a variable acl_libdirstem, containing
+</span><span class="enscript-comment">dnl the basename of the libdir, either &quot;lib&quot; or &quot;lib64&quot;.
+</span>AC_DEFUN([AC_LIB_PREPARE_MULTILIB],
+[
+  <span class="enscript-comment">dnl There is no formal standard regarding lib and lib64. The current
+</span>  <span class="enscript-comment">dnl practice is that on a system supporting 32-bit and 64-bit instruction
+</span>  <span class="enscript-comment">dnl sets or ABIs, 64-bit libraries go under $prefix/lib64 and 32-bit
+</span>  <span class="enscript-comment">dnl libraries go under $prefix/lib. We determine the compiler's default
+</span>  <span class="enscript-comment">dnl mode by looking at the compiler's library search path. If at least
+</span>  <span class="enscript-comment">dnl of its elements ends in /lib64 or points to a directory whose absolute
+</span>  <span class="enscript-comment">dnl pathname ends in /lib64, we assume a 64-bit ABI. Otherwise we use the
+</span>  <span class="enscript-comment">dnl default, namely &quot;lib&quot;.
+</span>  acl_libdirstem=lib
+  searchpath=`(LC_ALL=C $CC -print-search-dirs) 2&gt;/dev/null | sed -n -e 's,^libraries: ,,p' | sed -e 's,^=,,'`
+  if test -n &quot;$searchpath&quot;; then
+    acl_save_IFS=&quot;${IFS= 	}&quot;; IFS=&quot;:&quot;
+    for searchdir in $searchpath; do
+      if test -d &quot;$searchdir&quot;; then
+        case &quot;$searchdir&quot; in
+          */lib64/ | */lib64 ) acl_libdirstem=lib64 ;;
+          *) searchdir=`cd &quot;$searchdir&quot; &amp;&amp; pwd`
+             case &quot;$searchdir&quot; in
+               */lib64 ) acl_libdirstem=lib64 ;;
+             esac ;;
+        esac
+      fi
+    done
+    IFS=&quot;$acl_save_IFS&quot;
+  fi
+])
+</pre>
+<hr />
+</body></html>

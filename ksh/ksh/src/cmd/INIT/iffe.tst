@@ -1872,12 +1872,13 @@ api bar 20050505 joe_d
 
 #define FOO_VERSION	20100606
 #define BAR_VERSION	19840919
+#define FOOAPI(rel)	( _BLD_foo || !_API_foo || _API_foo >= rel )
 
 #if !defined(_API_foo) && defined(_API_DEFAULT)
 #define _API_foo	_API_DEFAULT
 #endif
 
-#if ( _BLD_foo || !_API_foo || _API_foo >= 20100601 )
+#if FOOAPI(20100601)
 #undef	dat
 #define dat	dat_20100601
 #elif _API_foo >= 19991231
@@ -1885,7 +1886,7 @@ api bar 20050505 joe_d
 #define dat	dat_19991231
 #endif
 
-#if ( _BLD_foo || !_API_foo || _API_foo >= 20100606 )
+#if FOOAPI(20100606)
 #undef	dis
 #define dis	dis_20100606
 #elif _API_foo >= 19991231
@@ -1893,43 +1894,44 @@ api bar 20050505 joe_d
 #define dis	dis_19991231
 #endif
 
-#if ( _BLD_foo || !_API_foo || _API_foo >= 19991231 )
+#if FOOAPI(19991231)
 #undef	tother
 #define tother	tother_19991231
 #endif
 
 #define _API_foo_MAP	"dat_20100601 dat_19991231 dis_20100606 dis_19991231 tother_19991231"
+#define BARAPI(rel)	( _BLD_bar || !_API_bar || _API_bar >= rel )
 
 #if !defined(_API_bar) && defined(_API_DEFAULT)
 #define _API_bar	_API_DEFAULT
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 20020202 )
+#if BARAPI(20020202)
 #undef	curly
 #define curly	curly_20020202
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 20040404 )
+#if BARAPI(20040404)
 #undef	joe_b
 #define joe_b	joe_b_20040404
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 20050505 )
+#if BARAPI(20050505)
 #undef	joe_d
 #define joe_d	joe_d_20050505
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 19991231 )
+#if BARAPI(19991231)
 #undef	larry
 #define larry	larry_19991231
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 19991231 )
+#if BARAPI(19991231)
 #undef	moe
 #define moe	moe_19991231
 #endif
 
-#if ( _BLD_bar || !_API_bar || _API_bar >= 20030303 )
+#if BARAPI(20030303)
 #undef	shemp
 #define shemp	shemp_20030303
 #elif _API_bar >= 19991231

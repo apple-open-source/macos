@@ -12,7 +12,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,8 +35,10 @@
 #include "InspectorDatabaseResource.h"
 
 #include "Database.h"
-#include "InspectorFrontend.h"
-#include "InspectorValues.h"
+#include "InspectorWebFrontendDispatchers.h"
+#include <inspector/InspectorValues.h>
+
+using namespace Inspector;
 
 namespace WebCore {
 
@@ -56,14 +58,14 @@ InspectorDatabaseResource::InspectorDatabaseResource(PassRefPtr<Database> databa
 {
 }
 
-void InspectorDatabaseResource::bind(InspectorFrontend::Database* frontend)
+void InspectorDatabaseResource::bind(InspectorDatabaseFrontendDispatcher* databaseFrontendDispatcher)
 {
-    RefPtr<TypeBuilder::Database::Database> jsonObject = TypeBuilder::Database::Database::create()
+    RefPtr<Inspector::TypeBuilder::Database::Database> jsonObject = Inspector::TypeBuilder::Database::Database::create()
         .setId(m_id)
         .setDomain(m_domain)
         .setName(m_name)
         .setVersion(m_version);
-    frontend->addDatabase(jsonObject);
+    databaseFrontendDispatcher->addDatabase(jsonObject);
 }
 
 } // namespace WebCore

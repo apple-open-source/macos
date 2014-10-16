@@ -12,7 +12,8 @@ char adr_buf[INET6_ADDRSTRLEN];
 int 
 resolve_hosts (
 		char **hosts, 
-		int hostc, 
+		int hostc,
+		const char *servname,
 		struct addrinfo ***res,
 		int pref_family
 		) 
@@ -45,7 +46,7 @@ resolve_hosts (
 		
 		hints.ai_socktype = SOCK_DGRAM;
 
-		error = getaddrinfo(hosts[a], "123", &hints, &tres[resc]);
+		error = getaddrinfo(hosts[a], servname, &hints, &tres[resc]);
 
 		if (error) {
 			size_t msg_length = strlen(hosts[a]) + 21;
@@ -60,6 +61,7 @@ resolve_hosts (
 			free(logmsg);
 		} else {
 #ifdef DEBUG
+			struct addrinfo *dres = NULL;
 			for (dres = tres[resc]; dres; dres = dres->ai_next) {
 				getnameinfo(dres->ai_addr, dres->ai_addrlen, adr_buf, sizeof(adr_buf), NULL, 0, NI_NUMERICHOST);
 				STDLINE
@@ -133,12 +135,12 @@ sendpkt (
 int
 recvdata (
 		SOCKET rsock,
+		struct timeval timeout_tv,
 		sockaddr_u *sender,
 		char *rdata,
 		int rdata_length
 	 )
 {
-	struct timeval timeout_tv = { 0 };
 	fd_set recv_fd;
 	GETSOCKNAME_SOCKLEN_TYPE slen;
 	int recvc;
@@ -150,11 +152,6 @@ recvdata (
 	FD_ZERO(&recv_fd);
 	FD_SET(rsock, &recv_fd);
 	
-	if(ENABLED_OPT(TIMEOUT)) {
-		timeout_tv.tv_sec = (int) OPT_ARG(TIMEOUT);
-	} else {
-		timeout_tv.tv_sec = 15; 
-	}
 	switch(select(rsock + 1, &recv_fd, 0, 0, &timeout_tv)) {
 		case 0:
 			if(ENABLED_OPT(NORMALVERBOSE))
@@ -175,7 +172,7 @@ recvdata (
 
 				pkt_output((struct pkt *) rdata, recvc, stdout);
 			} else {
-				saved_errno = errno;
+				int saved_errno = errno;
 				printf("recvfrom error %d (%s)\n", errno, strerror(errno));
 				errno = saved_errno;
 			}
@@ -523,6 +520,7 @@ recv_bcst_pkt (
 int 
 recvpkt (
 		SOCKET rsock,
+		struct timeval timeout,
 		struct pkt *rpkt,
 		struct pkt *spkt
 	)
@@ -537,7 +535,7 @@ recvpkt (
 	/* Much space, just to be sure */
 	rdata = emalloc(sizeof(char) * 256);
 
-	pkt_len = recvdata(rsock, &sender, rdata, 256);
+	pkt_len = recvdata(rsock, timeout, &sender, rdata, 256);
 
 #if 0	/* done uninitialized */
 	if (!done) {

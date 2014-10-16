@@ -1,6 +1,6 @@
 .\"
 .\"
-.\" Copyright (c) 1999, 2005-2007, 2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 1999-2014 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -21,7 +21,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd February 8, 2007
+.Dd April 8, 2014
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -92,7 +92,7 @@ changes to the server's configured IP addresses cause it to
 re-initialize.
 .It Fl i Ar "interface"
 Enable service on the specified interface.  This flag may appear
-multiple times to enable multiple interfaces.   For example, 
+multiple times to enable multiple interfaces. For example, 
 .nf
     bootpd -i en0 -i en1
 .fi
@@ -146,14 +146,24 @@ The MAC address filter properties are:
 .Pp
 When a packet arrives,
 .Nm
-checks whether the client's MAC address is in the deny list.  If it is,
-the packet is dropped.  Otherwise, if the client's MAC address is in the allow 
+checks whether the client's MAC address is in the \fBdeny\fR list.  If it is,
+the packet is dropped.  Otherwise, if the client's MAC address is in the
+\fBallow\fR
 list, the packet continues to be processed, otherwise it is dropped.  If
-neither the allow nor the deny property is specified, the packet continues 
-to be processed.
+neither the \fBallow\fR nor the \fBdeny\fR property is specified, the packet
+continues to be processed.
+.Pp
+Allow/deny filtering can be disabled using the \fBignore_allow_deny\fR
+property:
 .Bl -tag -width old_netboot_enabled
+.It Sy ignore_allow_deny
+(Array of String) Disable allow/deny processing on the specified list of
+interfaces. When a packet arrives on an interface in this list, processing
+continues without consulting the allow/deny filters.
+.El
 .Pp
 The service-control properties are:
+.Bl -tag -width old_netboot_enabled
 .It Sy bootp_enabled
 Enables BOOTP on the specified list of interfaces.
 .It Sy dhcp_enabled
@@ -182,8 +192,9 @@ For example, to enable DHCP on interfaces en0 and en1, disable BOOTP on all
 interfaces, enable NetBoot on en1, and enable relay agent on interface en1,
 \fI/etc/bootpd.plist\fR could contain:
 .nf
+
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
         <key>bootp_enabled</key>
@@ -210,10 +221,12 @@ Some additional properties are:
 (see \fBrelay_enabled\fR above), this
 property contains the list of IP addresses to relay the packet to.
 .It Sy detect_other_dhcp_server
-(Boolean) If this property is set to true,
+(Boolean, Array of String) Enables detecting another DHCP server
+either globally (Boolean), or only on the specified list
+of interfaces (Array of String). When another DHCP server is detected
+on an interface, DHCP service is disabled on that interface until the next time
 .Nm
-calls exit() if it detects that another DHCP server is present on one of the
-interfaces that DHCP is enabled on.  The default value is false.
+receives a SIGHUP, or exits.
 .It Sy reply_threshold_seconds
 (Integer)
 .Nm

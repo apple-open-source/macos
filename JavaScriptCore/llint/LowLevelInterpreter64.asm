@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+# Copyright (C) 2011, 2012, 2013, 2014 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -21,16 +21,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-
-# Some value representation constants.
-const TagBitTypeOther = 0x2
-const TagBitBool      = 0x4
-const TagBitUndefined = 0x8
-const ValueEmpty      = 0x0
-const ValueFalse      = TagBitTypeOther | TagBitBool
-const ValueTrue       = TagBitTypeOther | TagBitBool | 1
-const ValueUndefined  = TagBitTypeOther | TagBitUndefined
-const ValueNull       = TagBitTypeOther
 
 # Utilities.
 macro jumpToInstruction()
@@ -55,13 +45,39 @@ macro dispatchAfterCall()
     loadi ArgumentCount + TagOffset[cfr], PC
     loadp CodeBlock[cfr], PB
     loadp CodeBlock::m_instructions[PB], PB
-    jumpToInstruction()
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
+    valueProfile(t0, (CallOpCodeSize - 1), t2)
+    dispatch(CallOpCodeSize)
 end
 
 macro cCall2(function, arg1, arg2)
+    checkStackPointerAlignment(t4, 0xbad0c002)
     if X86_64
-        move arg1, t5
-        move arg2, t4
+        move arg1, t4
+        move arg2, t5
+        call function
+    elsif X86_64_WIN
+        # Note: this implementation is only correct if the return type size is > 8 bytes.
+        # See macro cCall2Void for an implementation when the return type <= 8 bytes.
+        # On Win64, when the return type is larger than 8 bytes, we need to allocate space on the stack for the return value.
+        # On entry rcx (t2), should contain a pointer to this stack space. The other parameters are shifted to the right,
+        # rdx (t1) should contain the first argument, and r8 (t6) should contain the second argument.
+        # On return, rax contains a pointer to this stack value, and we then need to copy the 16 byte return value into rax (t0) and rdx (t1)
+        # since the return value is expected to be split between the two.
+        # See http://msdn.microsoft.com/en-us/library/7572ztz4.aspx
+        move arg1, t1
+        move arg2, t6
+        subp 48, sp
+        move sp, t2
+        addp 32, t2
+        call function
+        addp 48, sp
+        move 8[t0], t1
+        move [t0], t0
+    elsif ARM64
+        move arg1, t0
+        move arg2, t1
         call function
     elsif C_LOOP
         cloopCallSlowPath function, arg1, arg2
@@ -70,13 +86,50 @@ macro cCall2(function, arg1, arg2)
     end
 end
 
+macro cCall2Void(function, arg1, arg2)
+    if C_LOOP
+        cloopCallSlowPathVoid function, arg1, arg2
+    elsif X86_64_WIN
+        # Note: we cannot use the cCall2 macro for Win64 in this case,
+        # as the Win64 cCall2 implemenation is only correct when the return type size is > 8 bytes.
+        # On Win64, rcx and rdx are used for passing the first two parameters.
+        # We also need to make room on the stack for all four parameter registers.
+        # See http://msdn.microsoft.com/en-us/library/ms235286.aspx
+        move arg2, t1
+        move arg1, t2
+        subp 32, sp 
+        call function
+        addp 32, sp 
+    else
+        cCall2(function, arg1, arg2)
+    end
+end
+
 # This barely works. arg3 and arg4 should probably be immediates.
 macro cCall4(function, arg1, arg2, arg3, arg4)
+    checkStackPointerAlignment(t4, 0xbad0c004)
     if X86_64
-        move arg1, t5
-        move arg2, t4
+        move arg1, t4
+        move arg2, t5
         move arg3, t1
         move arg4, t2
+        call function
+    elsif X86_64_WIN
+        # On Win64, rcx, rdx, r8, and r9 are used for passing the first four parameters.
+        # We also need to make room on the stack for all four parameter registers.
+        # See http://msdn.microsoft.com/en-us/library/ms235286.aspx
+        move arg1, t2
+        move arg2, t1
+        move arg3, t6
+        move arg4, t7
+        subp 32, sp 
+        call function
+        addp 32, sp 
+    elsif ARM64
+        move arg1, t0
+        move arg2, t1
+        move arg3, t2
+        move arg4, t3
         call function
     elsif C_LOOP
         error
@@ -85,17 +138,237 @@ macro cCall4(function, arg1, arg2, arg3, arg4)
     end
 end
 
+macro doCallToJavaScript(makeCall)
+    if X86_64
+        const entry = t4
+        const vm = t5
+        const protoCallFrame = t1
+
+        const previousCFR = t0
+        const previousPC = t6
+        const temp1 = t0
+        const temp2 = t3
+        const temp3 = t6
+    elsif X86_64_WIN
+        const entry = t2
+        const vm = t1
+        const protoCallFrame = t6
+
+        const previousCFR = t0
+        const previousPC = t4
+        const temp1 = t0
+        const temp2 = t3
+        const temp3 = t7
+    elsif ARM64 or C_LOOP
+        const entry = a0
+        const vm = a1
+        const protoCallFrame = a2
+
+        const previousCFR = t5
+        const previousPC = lr
+        const temp1 = t3
+        const temp2 = t4
+        const temp3 = t6
+    end
+
+    callToJavaScriptPrologue()
+
+    if X86_64
+        loadp 7*8[sp], previousPC
+        move 6*8[sp], previousCFR
+    elsif X86_64_WIN
+        # Win64 pushes two more registers
+        loadp 9*8[sp], previousPC
+        move 8*8[sp], previousCFR
+    elsif ARM64
+        move cfr, previousCFR
+    end
+
+    checkStackPointerAlignment(temp2, 0xbad0dc01)
+
+    # The stack reserved zone ensures that we have adequate space for the
+    # VMEntrySentinelFrame. Proceed with allocating and initializing the
+    # sentinel frame.
+    move sp, cfr
+    subp CallFrameHeaderSlots * 8, cfr
+    storep 0, ArgumentCount[cfr]
+    storep vm, Callee[cfr]
+    loadp VM::topCallFrame[vm], temp2
+    storep temp2, ScopeChain[cfr]
+    storep 1, CodeBlock[cfr]
+
+    storep previousPC, ReturnPC[cfr]
+    storep previousCFR, CallerFrame[cfr]
+
+    loadi ProtoCallFrame::paddedArgCount[protoCallFrame], temp2
+    addp CallFrameHeaderSlots, temp2, temp2
+    lshiftp 3, temp2
+    subp cfr, temp2, temp1
+
+    # Ensure that we have enough additional stack capacity for the incoming args,
+    # and the frame for the JS code we're executing. We need to do this check
+    # before we start copying the args from the protoCallFrame below.
+    bpaeq temp1, VM::m_jsStackLimit[vm], .stackHeightOK
+
+    move cfr, sp
+
+    if C_LOOP
+        move entry, temp2
+        move vm, temp3
+        cloopCallSlowPath _llint_stack_check_at_vm_entry, vm, temp1
+        bpeq t0, 0, .stackCheckFailed
+        move temp2, entry
+        move temp3, vm
+        jmp .stackHeightOK
+
+.stackCheckFailed:
+        move temp2, entry
+        move temp3, vm
+    end
+
+    cCall2(_llint_throw_stack_overflow_error, vm, protoCallFrame)
+    callToJavaScriptEpilogue()
+    ret
+
+.stackHeightOK:
+    move temp1, sp
+    move 5, temp1
+
+.copyHeaderLoop:
+    subi 1, temp1
+    loadq [protoCallFrame, temp1, 8], temp3
+    storeq temp3, CodeBlock[sp, temp1, 8]
+    btinz temp1, .copyHeaderLoop
+
+    loadi PayloadOffset + ProtoCallFrame::argCountAndCodeOriginValue[protoCallFrame], temp2
+    subi 1, temp2
+    loadi ProtoCallFrame::paddedArgCount[protoCallFrame], temp3
+    subi 1, temp3
+
+    bieq temp2, temp3, .copyArgs
+    move ValueUndefined, temp1
+.fillExtraArgsLoop:
+    subi 1, temp3
+    storeq temp1, ThisArgumentOffset + 8[sp, temp3, 8]
+    bineq temp2, temp3, .fillExtraArgsLoop
+
+.copyArgs:
+    loadp ProtoCallFrame::args[protoCallFrame], temp1
+
+.copyArgsLoop:
+    btiz temp2, .copyArgsDone
+    subi 1, temp2
+    loadq [temp1, temp2, 8], temp3
+    storeq temp3, ThisArgumentOffset + 8[sp, temp2, 8]
+    jmp .copyArgsLoop
+
+.copyArgsDone:
+    if ARM64
+        move sp, temp2
+        storep temp2, VM::topCallFrame[vm]
+    else
+        storep sp, VM::topCallFrame[vm]
+    end
+
+    move 0xffff000000000000, csr1
+    addp 2, csr1, csr2
+
+    checkStackPointerAlignment(temp3, 0xbad0dc02)
+
+    makeCall(entry, temp1)
+
+    checkStackPointerAlignment(temp3, 0xbad0dc03)
+
+    bpeq CodeBlock[cfr], 1, .calleeFramePopped
+    loadp CallerFrame[cfr], cfr
+
+.calleeFramePopped:
+    loadp Callee[cfr], temp2 # VM
+    loadp ScopeChain[cfr], temp3 # previous topCallFrame
+    storep temp3, VM::topCallFrame[temp2]
+
+    checkStackPointerAlignment(temp3, 0xbad0dc04)
+
+    if X86_64 or X86_64_WIN
+        pop t5
+    end
+    callToJavaScriptEpilogue()
+
+    ret
+end
+
+
+macro makeJavaScriptCall(entry, temp)
+    addp 16, sp
+    if C_LOOP
+        cloopCallJSFunction entry
+    else
+        call entry
+    end
+    subp 16, sp
+end
+
+
+macro makeHostFunctionCall(entry, temp)
+    move entry, temp
+    if X86_64
+        move sp, t4
+    elsif X86_64_WIN
+        move sp, t2
+    elsif ARM64 or C_LOOP
+        move sp, a0
+    end
+    if C_LOOP
+        storep cfr, [sp]
+        storep lr, 8[sp]
+        cloopCallNative temp
+    elsif X86_64_WIN
+        # For a host function call, JIT relies on that the CallerFrame (frame pointer) is put on the stack,
+        # On Win64 we need to manually copy the frame pointer to the stack, since MSVC may not maintain a frame pointer on 64-bit.
+        # See http://msdn.microsoft.com/en-us/library/9z1stfyw.aspx where it's stated that rbp MAY be used as a frame pointer.
+        storep cfr, [sp]
+
+        # We need to allocate 32 bytes on the stack for the shadow space.
+        subp 32, sp
+        call temp
+        addp 32, sp
+    else
+        addp 16, sp
+        call temp
+        subp 16, sp
+    end
+end
+
+
+_handleUncaughtException:
+    loadp ScopeChain[cfr], t3
+    andp MarkedBlockMask, t3
+    loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
+    loadp VM::callFrameForThrow[t3], cfr
+
+    # So far, we've unwound the stack to the frame just below the sentinel frame, except
+    # in the case of stack overflow in the first function called from callToJavaScript.
+    # Check if we need to pop to the sentinel frame and do the necessary clean up for
+    # returning to the caller C frame.
+    bpeq CodeBlock[cfr], 1, .handleUncaughtExceptionAlreadyIsSentinel
+    loadp CallerFrame[cfr], cfr
+.handleUncaughtExceptionAlreadyIsSentinel:
+
+    loadp Callee[cfr], t3 # VM
+    loadp ScopeChain[cfr], t5 # previous topCallFrame
+    storep t5, VM::topCallFrame[t3]
+
+    callToJavaScriptEpilogue()
+    ret
+
+
 macro prepareStateForCCall()
     leap [PB, PC, 8], PC
     move PB, t3
-    if X86_64
-        resetX87Stack
-    end
 end
 
 macro restoreStateAfterCCall()
     move t0, PC
-    move t1, cfr
     move t3, PB
     subp PB, PC
     rshiftp 3, PC
@@ -120,12 +393,10 @@ macro traceValue(fromWhere, operand)
 end
 
 # Call a slow path for call call opcodes.
-macro callCallSlowPath(advance, slowPath, action)
-    addi advance, PC, t0
-    storei t0, ArgumentCount + TagOffset[cfr]
+macro callCallSlowPath(slowPath, action)
+    storei PC, ArgumentCount + TagOffset[cfr]
     prepareStateForCCall()
     cCall2(slowPath, cfr, PC)
-    move t1, cfr
     action(t0)
 end
 
@@ -133,7 +404,6 @@ macro callWatchdogTimerHandler(throwHandler)
     storei PC, ArgumentCount + TagOffset[cfr]
     prepareStateForCCall()
     cCall2(_llint_slow_path_handle_watchdog_timer, cfr, PC)
-    move t1, cfr
     btpnz t0, throwHandler
     move t3, PB
     loadi ArgumentCount + TagOffset[cfr], PC
@@ -146,13 +416,18 @@ macro checkSwitchToJITForLoop()
             storei PC, ArgumentCount + TagOffset[cfr]
             prepareStateForCCall()
             cCall2(_llint_loop_osr, cfr, PC)
-            move t1, cfr
             btpz t0, .recover
+            move t1, sp
             jmp t0
         .recover:
             move t3, PB
             loadi ArgumentCount + TagOffset[cfr], PC
         end)
+end
+
+macro loadVariable(operand, value)
+    loadisFromInstruction(operand, value)
+    loadq [cfr, value, 8], value
 end
 
 # Index and value must be different registers. Index may be clobbered.
@@ -178,30 +453,136 @@ macro loadConstantOrVariableCell(index, value, slow)
     btqnz value, tagMask, slow
 end
 
-macro writeBarrier(value)
-    # Nothing to do, since we don't have a generational or incremental collector.
-end
-
-macro valueProfile(value, profile)
-    if VALUE_PROFILER
-        storeq value, ValueProfile::m_buckets[profile]
+macro writeBarrierOnOperand(cellOperand)
+    if GGC
+        loadisFromInstruction(cellOperand, t1)
+        loadConstantOrVariableCell(t1, t2, .writeBarrierDone)
+        checkMarkByte(t2, t1, t3, 
+            macro(gcData)
+                btbnz gcData, .writeBarrierDone
+                push PB, PC
+                cCall2Void(_llint_write_barrier_slow, cfr, t2)
+                pop PC, PB
+            end
+        )
+    .writeBarrierDone:
     end
 end
 
+macro writeBarrierOnOperands(cellOperand, valueOperand)
+    if GGC
+        loadisFromInstruction(valueOperand, t1)
+        loadConstantOrVariableCell(t1, t0, .writeBarrierDone)
+        btpz t0, .writeBarrierDone
+    
+        writeBarrierOnOperand(cellOperand)
+    .writeBarrierDone:
+    end
+end
+
+macro writeBarrierOnGlobalObject(valueOperand)
+    if GGC
+        loadisFromInstruction(valueOperand, t1)
+        loadConstantOrVariableCell(t1, t0, .writeBarrierDone)
+        btpz t0, .writeBarrierDone
+    
+        loadp CodeBlock[cfr], t3
+        loadp CodeBlock::m_globalObject[t3], t3
+        checkMarkByte(t3, t1, t2,
+            macro(gcData)
+                btbnz gcData, .writeBarrierDone
+                push PB, PC
+                cCall2Void(_llint_write_barrier_slow, cfr, t3)
+                pop PC, PB
+            end
+        )
+    .writeBarrierDone:
+    end
+end
+
+macro valueProfile(value, operand, scratch)
+    loadpFromInstruction(operand, scratch)
+    storeq value, ValueProfile::m_buckets[scratch]
+end
+
+macro loadStructure(cell, structure)
+end
+
+macro loadStructureWithScratch(cell, structure, scratch)
+    loadp CodeBlock[cfr], scratch
+    loadp CodeBlock::m_vm[scratch], scratch
+    loadp VM::heap + Heap::m_structureIDTable + StructureIDTable::m_table[scratch], scratch
+    loadi JSCell::m_structureID[cell], structure
+    loadp [scratch, structure, 8], structure
+end
+
+macro loadStructureAndClobberFirstArg(cell, structure)
+    loadi JSCell::m_structureID[cell], structure
+    loadp CodeBlock[cfr], cell
+    loadp CodeBlock::m_vm[cell], cell
+    loadp VM::heap + Heap::m_structureIDTable + StructureIDTable::m_table[cell], cell
+    loadp [cell, structure, 8], structure
+end
+
+macro storeStructureWithTypeInfo(cell, structure, scratch)
+    loadq Structure::m_blob + StructureIDBlob::u.doubleWord[structure], scratch
+    storeq scratch, JSCell::m_structureID[cell]
+end
 
 # Entrypoints into the interpreter.
 
 # Expects that CodeBlock is in t1, which is what prologue() leaves behind.
-macro functionArityCheck(doneLabel, slow_path)
+macro functionArityCheck(doneLabel, slowPath)
     loadi PayloadOffset + ArgumentCount[cfr], t0
     biaeq t0, CodeBlock::m_numParameters[t1], doneLabel
     prepareStateForCCall()
-    cCall2(slow_path, cfr, PC)   # This slow_path has a simple protocol: t0 = 0 => no error, t0 != 0 => error
-    move t1, cfr
-    btiz t0, .continue
-    loadp JITStackFrame::vm[sp], t1
-    loadp VM::callFrameForThrow[t1], t0
-    jmp VM::targetMachinePCForThrow[t1]
+    cCall2(slowPath, cfr, PC)   # This slowPath has the protocol: t0 = 0 => no error, t0 != 0 => error
+    btiz t0, .noError
+    move t1, cfr   # t1 contains caller frame
+    jmp _llint_throw_from_slow_path_trampoline
+
+.noError:
+    # t1 points to ArityCheckData.
+    loadp CommonSlowPaths::ArityCheckData::thunkToCall[t1], t2
+    btpz t2, .proceedInline
+    
+    loadp CommonSlowPaths::ArityCheckData::returnPC[t1], t7
+    loadp CommonSlowPaths::ArityCheckData::paddedStackSpace[t1], t0
+    call t2
+    if ASSERT_ENABLED
+        loadp ReturnPC[cfr], t0
+        loadp [t0], t0
+    end
+    jmp .continue
+
+.proceedInline:
+    loadi CommonSlowPaths::ArityCheckData::paddedStackSpace[t1], t1
+    btiz t1, .continue
+
+    // Move frame up "t1 * 2" slots
+    lshiftp 1, t1
+    negq t1
+    move cfr, t3
+    loadi PayloadOffset + ArgumentCount[cfr], t2
+    addi CallFrameHeaderSlots, t2
+.copyLoop:
+    loadq [t3], t0
+    storeq t0, [t3, t1, 8]
+    addp 8, t3
+    bsubinz 1, t2, .copyLoop
+
+    // Fill new slots with JSUndefined
+    move t1, t2
+    move ValueUndefined, t0
+.fillLoop:
+    storeq t0, [t3, t1, 8]
+    addp 8, t3
+    baddinz 1, t2, .fillLoop
+
+    lshiftp 3, t1
+    addp t1, cfr
+    addp t1, sp
+
 .continue:
     # Reload CodeBlock and reset PC, since the slow_path clobbered them.
     loadp CodeBlock[cfr], t1
@@ -210,20 +591,33 @@ macro functionArityCheck(doneLabel, slow_path)
     jmp doneLabel
 end
 
+macro branchIfException(label)
+    loadp ScopeChain[cfr], t3
+    andp MarkedBlockMask, t3
+    loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
+    btqz VM::m_exception[t3], .noException
+    jmp label
+.noException:
+end
+
 
 # Instruction implementations
 
 _llint_op_enter:
     traceExecution()
+    checkStackPointerAlignment(t2, 0xdead00e1)
     loadp CodeBlock[cfr], t2                // t2<CodeBlock> = cfr.CodeBlock
     loadi CodeBlock::m_numVars[t2], t2      // t2<size_t> = t2<CodeBlock>.m_numVars
     btiz t2, .opEnterDone
     move ValueUndefined, t0
+    negi t2
+    sxi2q t2, t2
 .opEnterLoop:
-    subi 1, t2
     storeq t0, [cfr, t2, 8]
-    btinz t2, .opEnterLoop
+    addq 1, t2
+    btqnz t2, .opEnterLoop
 .opEnterDone:
+    callSlowPath(_slow_path_enter)
     dispatch(1)
 
 
@@ -247,7 +641,7 @@ _llint_op_create_arguments:
     traceExecution()
     loadisFromInstruction(1, t0)
     bqneq [cfr, t0, 8], ValueEmpty, .opCreateArgumentsDone
-    callSlowPath(_llint_slow_path_create_arguments)
+    callSlowPath(_slow_path_create_arguments)
 .opCreateArgumentsDone:
     dispatch(2)
 
@@ -265,33 +659,36 @@ _llint_op_create_this:
     dispatch(4)
 
 .opCreateThisSlow:
-    callSlowPath(_llint_slow_path_create_this)
+    callSlowPath(_slow_path_create_this)
     dispatch(4)
 
 
 _llint_op_get_callee:
     traceExecution()
     loadisFromInstruction(1, t0)
-    loadpFromInstruction(2, t2)
     loadp Callee[cfr], t1
-    valueProfile(t1, t2)
+    loadpFromInstruction(2, t2)
+    bpneq t1, t2, .opGetCalleeSlow
     storep t1, [cfr, t0, 8]
     dispatch(3)
 
+.opGetCalleeSlow:
+    callSlowPath(_slow_path_get_callee)
+    dispatch(3)
 
-_llint_op_convert_this:
+_llint_op_to_this:
     traceExecution()
     loadisFromInstruction(1, t0)
     loadq [cfr, t0, 8], t0
-    btqnz t0, tagMask, .opConvertThisSlow
-    loadp JSCell::m_structure[t0], t0
-    bbb Structure::m_typeInfo + TypeInfo::m_type[t0], ObjectType, .opConvertThisSlow
-    loadpFromInstruction(2, t1)
-    valueProfile(t0, t1)
+    btqnz t0, tagMask, .opToThisSlow
+    bbneq JSCell::m_type[t0], FinalObjectType, .opToThisSlow
+    loadStructureWithScratch(t0, t1, t2)
+    loadpFromInstruction(2, t2)
+    bpneq t1, t2, .opToThisSlow
     dispatch(3)
 
-.opConvertThisSlow:
-    callSlowPath(_llint_slow_path_convert_this)
+.opToThisSlow:
+    callSlowPath(_slow_path_to_this)
     dispatch(3)
 
 
@@ -319,6 +716,30 @@ _llint_op_mov:
     dispatch(3)
 
 
+macro notifyWrite(set, value, scratch, slow)
+    loadb VariableWatchpointSet::m_state[set], scratch
+    bieq scratch, IsInvalidated, .done
+    bqneq value, VariableWatchpointSet::m_inferredValue[set], slow
+.done:
+end
+
+_llint_op_captured_mov:
+    traceExecution()
+    loadisFromInstruction(2, t1)
+    loadConstantOrVariable(t1, t2)
+    loadpFromInstruction(3, t0)
+    btpz t0, .opCapturedMovReady
+    notifyWrite(t0, t2, t1, .opCapturedMovSlow)
+.opCapturedMovReady:
+    loadisFromInstruction(1, t0)
+    storeq t2, [cfr, t0, 8]
+    dispatch(4)
+
+.opCapturedMovSlow:
+    callSlowPath(_slow_path_captured_mov)
+    dispatch(4)
+
+
 _llint_op_not:
     traceExecution()
     loadisFromInstruction(2, t0)
@@ -331,7 +752,7 @@ _llint_op_not:
     dispatch(3)
 
 .opNotSlow:
-    callSlowPath(_llint_slow_path_not)
+    callSlowPath(_slow_path_not)
     dispatch(3)
 
 
@@ -355,24 +776,24 @@ end
 _llint_op_eq:
     equalityComparison(
         macro (left, right, result) cieq left, right, result end,
-        _llint_slow_path_eq)
+        _slow_path_eq)
 
 
 _llint_op_neq:
     equalityComparison(
         macro (left, right, result) cineq left, right, result end,
-        _llint_slow_path_neq)
+        _slow_path_neq)
 
 
 macro equalNullComparison()
     loadisFromInstruction(2, t0)
     loadq [cfr, t0, 8], t0
     btqnz t0, tagMask, .immediate
-    loadp JSCell::m_structure[t0], t2
-    btbnz Structure::m_typeInfo + TypeInfo::m_flags[t2], MasqueradesAsUndefined, .masqueradesAsUndefined
+    btbnz JSCell::m_flags[t0], MasqueradesAsUndefined, .masqueradesAsUndefined
     move 0, t0
     jmp .done
 .masqueradesAsUndefined:
+    loadStructureWithScratch(t0, t2, t1)
     loadp CodeBlock[cfr], t0
     loadp CodeBlock::m_globalObject[t0], t0
     cpeq Structure::m_globalObject[t2], t0, t0
@@ -430,13 +851,13 @@ end
 _llint_op_stricteq:
     strictEq(
         macro (left, right, result) cqeq left, right, result end,
-        _llint_slow_path_stricteq)
+        _slow_path_stricteq)
 
 
 _llint_op_nstricteq:
     strictEq(
         macro (left, right, result) cqneq left, right, result end,
-        _llint_slow_path_nstricteq)
+        _slow_path_nstricteq)
 
 
 macro preOp(arithmeticOperation, slowPath)
@@ -457,13 +878,13 @@ end
 _llint_op_inc:
     preOp(
         macro (value, slow) baddio 1, value, slow end,
-        _llint_slow_path_pre_inc)
+        _slow_path_inc)
 
 
 _llint_op_dec:
     preOp(
         macro (value, slow) bsubio 1, value, slow end,
-        _llint_slow_path_pre_dec)
+        _slow_path_dec)
 
 
 _llint_op_to_number:
@@ -478,7 +899,7 @@ _llint_op_to_number:
     dispatch(3)
 
 .opToNumberSlow:
-    callSlowPath(_llint_slow_path_to_number)
+    callSlowPath(_slow_path_to_number)
     dispatch(3)
 
 
@@ -500,7 +921,7 @@ _llint_op_negate:
     dispatch(3)
 
 .opNegateSlow:
-    callSlowPath(_llint_slow_path_negate)
+    callSlowPath(_slow_path_negate)
     dispatch(3)
 
 
@@ -568,7 +989,7 @@ _llint_op_add:
     binaryOp(
         macro (left, right, slow) baddio left, right, slow end,
         macro (left, right) addd left, right end,
-        _llint_slow_path_add)
+        _slow_path_add)
 
 
 _llint_op_mul:
@@ -586,7 +1007,7 @@ _llint_op_mul:
             storeq t3, [cfr, index, 8]
         end,
         macro (left, right) muld left, right end,
-        _llint_slow_path_mul)
+        _slow_path_mul)
 
 
 _llint_op_sub:
@@ -594,31 +1015,36 @@ _llint_op_sub:
     binaryOp(
         macro (left, right, slow) bsubio left, right, slow end,
         macro (left, right) subd left, right end,
-        _llint_slow_path_sub)
+        _slow_path_sub)
 
 
 _llint_op_div:
     traceExecution()
-    binaryOpCustomStore(
-        macro (left, right, slow, index)
-            # Assume t3 is scratchable.
-            btiz left, slow
-            bineq left, -1, .notNeg2TwoThe31DivByNeg1
-            bieq right, -2147483648, .slow
-        .notNeg2TwoThe31DivByNeg1:
-            btinz right, .intOK
-            bilt left, 0, slow
-        .intOK:
-            move left, t3
-            move right, t0
-            cdqi
-            idivi t3
-            btinz t1, slow
-            orq tagTypeNumber, t0
-            storeq t0, [cfr, index, 8]
-        end,
-        macro (left, right) divd left, right end,
-        _llint_slow_path_div)
+    if X86_64 or X86_64_WIN
+        binaryOpCustomStore(
+            macro (left, right, slow, index)
+                # Assume t3 is scratchable.
+                btiz left, slow
+                bineq left, -1, .notNeg2TwoThe31DivByNeg1
+                bieq right, -2147483648, .slow
+            .notNeg2TwoThe31DivByNeg1:
+                btinz right, .intOK
+                bilt left, 0, slow
+            .intOK:
+                move left, t3
+                move right, t0
+                cdqi
+                idivi t3
+                btinz t1, slow
+                orq tagTypeNumber, t0
+                storeq t0, [cfr, index, 8]
+            end,
+            macro (left, right) divd left, right end,
+            _slow_path_div)
+    else
+        callSlowPath(_slow_path_div)
+        dispatch(5)
+    end
 
 
 macro bitOp(operation, slowPath, advance)
@@ -629,7 +1055,7 @@ macro bitOp(operation, slowPath, advance)
     loadConstantOrVariable(t2, t0)
     bqb t0, tagTypeNumber, .slow
     bqb t1, tagTypeNumber, .slow
-    operation(t1, t0, .slow)
+    operation(t1, t0)
     orq tagTypeNumber, t0
     storeq t0, [cfr, t3, 8]
     dispatch(advance)
@@ -642,51 +1068,61 @@ end
 _llint_op_lshift:
     traceExecution()
     bitOp(
-        macro (left, right, slow) lshifti left, right end,
-        _llint_slow_path_lshift,
+        macro (left, right) lshifti left, right end,
+        _slow_path_lshift,
         4)
 
 
 _llint_op_rshift:
     traceExecution()
     bitOp(
-        macro (left, right, slow) rshifti left, right end,
-        _llint_slow_path_rshift,
+        macro (left, right) rshifti left, right end,
+        _slow_path_rshift,
         4)
 
 
 _llint_op_urshift:
     traceExecution()
     bitOp(
-        macro (left, right, slow)
-            urshifti left, right
-            bilt right, 0, slow
-        end,
-        _llint_slow_path_urshift,
+        macro (left, right) urshifti left, right end,
+        _slow_path_urshift,
         4)
+
+
+_llint_op_unsigned:
+    traceExecution()
+    loadisFromInstruction(1, t0)
+    loadisFromInstruction(2, t1)
+    loadConstantOrVariable(t1, t2)
+    bilt t2, 0, .opUnsignedSlow
+    storeq t2, [cfr, t0, 8]
+    dispatch(3)
+.opUnsignedSlow:
+    callSlowPath(_slow_path_unsigned)
+    dispatch(3)
 
 
 _llint_op_bitand:
     traceExecution()
     bitOp(
-        macro (left, right, slow) andi left, right end,
-        _llint_slow_path_bitand,
+        macro (left, right) andi left, right end,
+        _slow_path_bitand,
         5)
 
 
 _llint_op_bitxor:
     traceExecution()
     bitOp(
-        macro (left, right, slow) xori left, right end,
-        _llint_slow_path_bitxor,
+        macro (left, right) xori left, right end,
+        _slow_path_bitxor,
         5)
 
 
 _llint_op_bitor:
     traceExecution()
     bitOp(
-        macro (left, right, slow) ori left, right end,
-        _llint_slow_path_bitor,
+        macro (left, right) ori left, right end,
+        _slow_path_bitor,
         5)
 
 
@@ -694,8 +1130,7 @@ _llint_op_check_has_instance:
     traceExecution()
     loadisFromInstruction(3, t1)
     loadConstantOrVariableCell(t1, t0, .opCheckHasInstanceSlow)
-    loadp JSCell::m_structure[t0], t0
-    btbz Structure::m_typeInfo + TypeInfo::m_flags[t0], ImplementsDefaultHasInstance, .opCheckHasInstanceSlow
+    btbz JSCell::m_flags[t0], ImplementsDefaultHasInstance, .opCheckHasInstanceSlow
     dispatch(5)
 
 .opCheckHasInstanceSlow:
@@ -707,24 +1142,23 @@ _llint_op_instanceof:
     traceExecution()
     # Actually do the work.
     loadisFromInstruction(3, t0)
-    loadisFromInstruction(1, t3)
     loadConstantOrVariableCell(t0, t1, .opInstanceofSlow)
-    loadp JSCell::m_structure[t1], t2
-    bbb Structure::m_typeInfo + TypeInfo::m_type[t2], ObjectType, .opInstanceofSlow
+    bbb JSCell::m_type[t1], ObjectType, .opInstanceofSlow
     loadisFromInstruction(2, t0)
     loadConstantOrVariableCell(t0, t2, .opInstanceofSlow)
     
     # Register state: t1 = prototype, t2 = value
     move 1, t0
 .opInstanceofLoop:
-    loadp JSCell::m_structure[t2], t2
-    loadq Structure::m_prototype[t2], t2
+    loadStructureAndClobberFirstArg(t2, t3)
+    loadq Structure::m_prototype[t3], t2
     bqeq t2, t1, .opInstanceofDone
     btqz t2, tagMask, .opInstanceofLoop
 
     move 0, t0
 .opInstanceofDone:
     orq ValueFalse, t0
+    loadisFromInstruction(1, t3)
     storeq t0, [cfr, t3, 8]
     dispatch(4)
 
@@ -744,17 +1178,17 @@ _llint_op_is_undefined:
     storeq t3, [cfr, t2, 8]
     dispatch(3)
 .opIsUndefinedCell:
-    loadp JSCell::m_structure[t0], t0
-    btbnz Structure::m_typeInfo + TypeInfo::m_flags[t0], MasqueradesAsUndefined, .masqueradesAsUndefined
+    btbnz JSCell::m_flags[t0], MasqueradesAsUndefined, .masqueradesAsUndefined
     move ValueFalse, t1
     storeq t1, [cfr, t2, 8]
     dispatch(3)
 .masqueradesAsUndefined:
+    loadStructureWithScratch(t0, t3, t1)
     loadp CodeBlock[cfr], t1
     loadp CodeBlock::m_globalObject[t1], t1
-    cpeq Structure::m_globalObject[t0], t1, t3
-    orq ValueFalse, t3
-    storeq t3, [cfr, t2, 8]
+    cpeq Structure::m_globalObject[t3], t1, t0
+    orq ValueFalse, t0
+    storeq t0, [cfr, t2, 8]
     dispatch(3)
 
 
@@ -787,8 +1221,7 @@ _llint_op_is_string:
     loadisFromInstruction(1, t2)
     loadConstantOrVariable(t1, t0)
     btqnz t0, tagMask, .opIsStringNotCell
-    loadp JSCell::m_structure[t0], t0
-    cbeq Structure::m_typeInfo + TypeInfo::m_type[t0], StringType, t1
+    cbeq JSCell::m_type[t0], StringType, t1
     orq ValueFalse, t1
     storeq t1, [cfr, t2, 8]
     dispatch(3)
@@ -796,13 +1229,6 @@ _llint_op_is_string:
     storeq ValueFalse, [cfr, t2, 8]
     dispatch(3)
 
-
-macro loadPropertyAtVariableOffsetKnownNotInline(propertyOffsetAsPointer, objectAndStorage, value)
-    assert(macro (ok) bigteq propertyOffsetAsPointer, firstOutOfLineOffset, ok end)
-    negp propertyOffsetAsPointer
-    loadp JSObject::m_butterfly[objectAndStorage], objectAndStorage
-    loadq (firstOutOfLineOffset - 2) * 8[objectAndStorage, propertyOffsetAsPointer, 8], value
-end
 
 macro loadPropertyAtVariableOffset(propertyOffsetAsInt, objectAndStorage, value)
     bilt propertyOffsetAsInt, firstOutOfLineOffset, .isInline
@@ -816,29 +1242,28 @@ macro loadPropertyAtVariableOffset(propertyOffsetAsInt, objectAndStorage, value)
     loadq (firstOutOfLineOffset - 2) * 8[objectAndStorage, propertyOffsetAsInt, 8], value
 end
 
+
+macro storePropertyAtVariableOffset(propertyOffsetAsInt, objectAndStorage, value)
+    bilt propertyOffsetAsInt, firstOutOfLineOffset, .isInline
+    loadp JSObject::m_butterfly[objectAndStorage], objectAndStorage
+    negi propertyOffsetAsInt
+    sxi2q propertyOffsetAsInt, propertyOffsetAsInt
+    jmp .ready
+.isInline:
+    addp sizeof JSObject - (firstOutOfLineOffset - 2) * 8, objectAndStorage
+.ready:
+    storeq value, (firstOutOfLineOffset - 2) * 8[objectAndStorage, propertyOffsetAsInt, 8]
+end
+
 _llint_op_init_global_const:
     traceExecution()
+    writeBarrierOnGlobalObject(2)
     loadisFromInstruction(2, t1)
     loadpFromInstruction(1, t0)
     loadConstantOrVariable(t1, t2)
-    writeBarrier(t2)
     storeq t2, [t0]
     dispatch(5)
 
-
-_llint_op_init_global_const_check:
-    traceExecution()
-    loadpFromInstruction(3, t2)
-    loadisFromInstruction(2, t1)
-    loadpFromInstruction(1, t0)
-    btbnz [t2], .opInitGlobalConstCheckSlow
-    loadConstantOrVariable(t1, t2)
-    writeBarrier(t2)
-    storeq t2, [t0]
-    dispatch(5)
-.opInitGlobalConstCheckSlow:
-    callSlowPath(_llint_slow_path_init_global_const_check)
-    dispatch(5)
 
 macro getById(getPropertyStorage)
     traceExecution()
@@ -848,19 +1273,19 @@ macro getById(getPropertyStorage)
     # to take fast path on the new cache. At worst we take slow path, which is what
     # we would have been doing anyway.
     loadisFromInstruction(2, t0)
-    loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t0, t3, .opGetByIdSlow)
-    loadisFromInstruction(5, t2)
+    loadStructureWithScratch(t3, t2, t1)
+    loadpFromInstruction(4, t1)
+    bpneq t2, t1, .opGetByIdSlow
     getPropertyStorage(
         t3,
         t0,
         macro (propertyStorage, scratch)
-            bpneq JSCell::m_structure[t3], t1, .opGetByIdSlow
+            loadisFromInstruction(5, t2)
             loadisFromInstruction(1, t1)
             loadq [propertyStorage, t2], scratch
             storeq scratch, [cfr, t1, 8]
-            loadpFromInstruction(8, t1)
-            valueProfile(scratch, t1)
+            valueProfile(scratch, 8, t1)
             dispatch(9)
         end)
             
@@ -882,17 +1307,16 @@ _llint_op_get_array_length:
     loadisFromInstruction(2, t0)
     loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t0, t3, .opGetArrayLengthSlow)
-    loadp JSCell::m_structure[t3], t2
+    move t3, t2
     arrayProfile(t2, t1, t0)
     btiz t2, IsArray, .opGetArrayLengthSlow
     btiz t2, IndexingShapeMask, .opGetArrayLengthSlow
     loadisFromInstruction(1, t1)
-    loadpFromInstruction(8, t2)
     loadp JSObject::m_butterfly[t3], t0
-    loadi -sizeof IndexingHeader + IndexingHeader::m_publicLength[t0], t0
+    loadi -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0], t0
     bilt t0, 0, .opGetArrayLengthSlow
     orq tagTypeNumber, t0
-    valueProfile(t0, t2)
+    valueProfile(t0, 8, t2)
     storeq t0, [cfr, t1, 8]
     dispatch(9)
 
@@ -919,18 +1343,19 @@ _llint_op_get_arguments_length:
 
 macro putById(getPropertyStorage)
     traceExecution()
+    writeBarrierOnOperands(1, 3)
     loadisFromInstruction(1, t3)
-    loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t3, t0, .opPutByIdSlow)
-    loadisFromInstruction(3, t2)
+    loadStructureWithScratch(t0, t2, t1)
+    loadpFromInstruction(4, t1)
+    bpneq t2, t1, .opPutByIdSlow
     getPropertyStorage(
         t0,
         t3,
         macro (propertyStorage, scratch)
-            bpneq JSCell::m_structure[t0], t1, .opPutByIdSlow
             loadisFromInstruction(5, t1)
+            loadisFromInstruction(3, t2)
             loadConstantOrVariable(t2, scratch)
-            writeBarrier(t0)
             storeq scratch, [propertyStorage, t1]
             dispatch(9)
         end)
@@ -950,12 +1375,14 @@ _llint_op_put_by_id_out_of_line:
 
 macro putByIdTransition(additionalChecks, getPropertyStorage)
     traceExecution()
+    writeBarrierOnOperand(1)
     loadisFromInstruction(1, t3)
     loadpFromInstruction(4, t1)
     loadConstantOrVariableCell(t3, t0, .opPutByIdSlow)
+    loadStructureWithScratch(t0, t2, t3)
+    bpneq t2, t1, .opPutByIdSlow
+    additionalChecks(t1, t3, t2)
     loadisFromInstruction(3, t2)
-    bpneq JSCell::m_structure[t0], t1, .opPutByIdSlow
-    additionalChecks(t1, t3)
     loadisFromInstruction(5, t1)
     getPropertyStorage(
         t0,
@@ -963,18 +1390,18 @@ macro putByIdTransition(additionalChecks, getPropertyStorage)
         macro (propertyStorage, scratch)
             addp t1, propertyStorage, t3
             loadConstantOrVariable(t2, t1)
-            writeBarrier(t1)
             storeq t1, [t3]
             loadpFromInstruction(6, t1)
-            storep t1, JSCell::m_structure[t0]
+            loadi Structure::m_blob + StructureIDBlob::u.words.word1[t1], t1
+            storei t1, JSCell::m_structureID[t0]
             dispatch(9)
         end)
 end
 
-macro noAdditionalChecks(oldStructure, scratch)
+macro noAdditionalChecks(oldStructure, scratch, scratch2)
 end
 
-macro structureChainChecks(oldStructure, scratch)
+macro structureChainChecks(oldStructure, scratch, scratch2)
     const protoCell = oldStructure    # Reusing the oldStructure register for the proto
     loadpFromInstruction(7, scratch)
     assert(macro (ok) btpnz scratch, ok end)
@@ -983,7 +1410,8 @@ macro structureChainChecks(oldStructure, scratch)
     bqeq Structure::m_prototype[oldStructure], ValueNull, .done
 .loop:
     loadq Structure::m_prototype[oldStructure], protoCell
-    loadp JSCell::m_structure[protoCell], oldStructure
+    loadStructureAndClobberFirstArg(protoCell, scratch2)
+    move scratch2, oldStructure
     bpneq oldStructure, [scratch], .opPutByIdSlow
     addp 8, scratch
     bqneq Structure::m_prototype[oldStructure], ValueNull, .loop
@@ -1010,8 +1438,8 @@ _llint_op_get_by_val:
     traceExecution()
     loadisFromInstruction(2, t2)
     loadConstantOrVariableCell(t2, t0, .opGetByValSlow)
-    loadp JSCell::m_structure[t0], t2
     loadpFromInstruction(4, t3)
+    move t0, t2
     arrayProfile(t2, t3, t1)
     loadisFromInstruction(3, t3)
     loadConstantOrVariableInt32(t3, t1, .opGetByValSlow)
@@ -1022,7 +1450,7 @@ _llint_op_get_by_val:
     bineq t2, ContiguousShape, .opGetByValNotContiguous
 .opGetByValIsContiguous:
 
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
     loadisFromInstruction(1, t0)
     loadq [t3, t1, 8], t2
     btqz t2, .opGetByValOutOfBounds
@@ -1030,7 +1458,7 @@ _llint_op_get_by_val:
 
 .opGetByValNotContiguous:
     bineq t2, DoubleShape, .opGetByValNotDouble
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
     loadis 8[PB, PC, 8], t0
     loadd [t3, t1, 8], ft0
     bdnequn ft0, ft0, .opGetByValOutOfBounds
@@ -1041,22 +1469,19 @@ _llint_op_get_by_val:
 .opGetByValNotDouble:
     subi ArrayStorageShape, t2
     bia t2, SlowPutArrayStorageShape - ArrayStorageShape, .opGetByValSlow
-    biaeq t1, -sizeof IndexingHeader + IndexingHeader::m_vectorLength[t3], .opGetByValOutOfBounds
+    biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t3], .opGetByValOutOfBounds
     loadisFromInstruction(1, t0)
     loadq ArrayStorage::m_vector[t3, t1, 8], t2
     btqz t2, .opGetByValOutOfBounds
 
 .opGetByValDone:
     storeq t2, [cfr, t0, 8]
-    loadpFromInstruction(5, t0)
-    valueProfile(t2, t0)
+    valueProfile(t2, 5, t0)
     dispatch(6)
 
 .opGetByValOutOfBounds:
-    if VALUE_PROFILER
-        loadpFromInstruction(4, t0)
-        storeb 1, ArrayProfile::m_outOfBounds[t0]
-    end
+    loadpFromInstruction(4, t0)
+    storeb 1, ArrayProfile::m_outOfBounds[t0]
 .opGetByValSlow:
     callSlowPath(_llint_slow_path_get_by_val)
     dispatch(6)
@@ -1073,13 +1498,11 @@ _llint_op_get_argument_by_val:
     addi 1, t2
     loadi ArgumentCount + PayloadOffset[cfr], t1
     biaeq t2, t1, .opGetArgumentByValSlow
-    negi t2
-    sxi2q t2, t2
     loadisFromInstruction(1, t3)
     loadpFromInstruction(5, t1)
     loadq ThisArgumentOffset[cfr, t2, 8], t0
     storeq t0, [cfr, t3, 8]
-    valueProfile(t0, t1)
+    valueProfile(t0, 5, t1)
     dispatch(6)
 
 .opGetArgumentByValSlow:
@@ -1099,7 +1522,7 @@ _llint_op_get_by_pname:
     loadConstantOrVariableCell(t2, t0, .opGetByPnameSlow)
     assertNotConstant(t3)
     loadq [cfr, t3, 8], t1
-    loadp JSCell::m_structure[t0], t2
+    loadStructureWithScratch(t0, t2, t3)
     bpneq t2, JSPropertyNameIterator::m_cachedStructure[t1], .opGetByPnameSlow
     loadisFromInstruction(6, t3)
     loadi PayloadOffset[cfr, t3, 8], t3
@@ -1120,29 +1543,28 @@ _llint_op_get_by_pname:
 
 
 macro contiguousPutByVal(storeCallback)
-    biaeq t3, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t0], .outOfBounds
+    biaeq t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0], .outOfBounds
 .storeResult:
     loadisFromInstruction(3, t2)
     storeCallback(t2, t1, [t0, t3, 8])
     dispatch(5)
 
 .outOfBounds:
-    biaeq t3, -sizeof IndexingHeader + IndexingHeader::m_vectorLength[t0], .opPutByValOutOfBounds
-    if VALUE_PROFILER
-        loadp 32[PB, PC, 8], t2
-        storeb 1, ArrayProfile::m_mayStoreToHole[t2]
-    end
+    biaeq t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t0], .opPutByValOutOfBounds
+    loadp 32[PB, PC, 8], t2
+    storeb 1, ArrayProfile::m_mayStoreToHole[t2]
     addi 1, t3, t2
-    storei t2, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t0]
+    storei t2, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0]
     jmp .storeResult
 end
 
-_llint_op_put_by_val:
+macro putByVal(slowPath)
     traceExecution()
+    writeBarrierOnOperands(1, 3)
     loadisFromInstruction(1, t0)
     loadConstantOrVariableCell(t0, t1, .opPutByValSlow)
-    loadp JSCell::m_structure[t1], t2
     loadpFromInstruction(4, t3)
+    move t1, t2
     arrayProfile(t2, t3, t0)
     loadisFromInstruction(2, t0)
     loadConstantOrVariableInt32(t0, t3, .opPutByValSlow)
@@ -1178,40 +1600,41 @@ _llint_op_put_by_val:
     contiguousPutByVal(
         macro (operand, scratch, address)
             loadConstantOrVariable(operand, scratch)
-            writeBarrier(scratch)
             storep scratch, address
         end)
 
 .opPutByValNotContiguous:
     bineq t2, ArrayStorageShape, .opPutByValSlow
-    biaeq t3, -sizeof IndexingHeader + IndexingHeader::m_vectorLength[t0], .opPutByValOutOfBounds
+    biaeq t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t0], .opPutByValOutOfBounds
     btqz ArrayStorage::m_vector[t0, t3, 8], .opPutByValArrayStorageEmpty
 .opPutByValArrayStorageStoreResult:
     loadisFromInstruction(3, t2)
     loadConstantOrVariable(t2, t1)
-    writeBarrier(t1)
     storeq t1, ArrayStorage::m_vector[t0, t3, 8]
     dispatch(5)
 
 .opPutByValArrayStorageEmpty:
-    if VALUE_PROFILER
-        loadpFromInstruction(4, t1)
-        storeb 1, ArrayProfile::m_mayStoreToHole[t1]
-    end
+    loadpFromInstruction(4, t1)
+    storeb 1, ArrayProfile::m_mayStoreToHole[t1]
     addi 1, ArrayStorage::m_numValuesInVector[t0]
-    bib t3, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t0], .opPutByValArrayStorageStoreResult
+    bib t3, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0], .opPutByValArrayStorageStoreResult
     addi 1, t3, t1
-    storei t1, -sizeof IndexingHeader + IndexingHeader::m_publicLength[t0]
+    storei t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t0]
     jmp .opPutByValArrayStorageStoreResult
 
 .opPutByValOutOfBounds:
-    if VALUE_PROFILER
-        loadpFromInstruction(4, t0)
-        storeb 1, ArrayProfile::m_outOfBounds[t0]
-    end
+    loadpFromInstruction(4, t0)
+    storeb 1, ArrayProfile::m_outOfBounds[t0]
 .opPutByValSlow:
-    callSlowPath(_llint_slow_path_put_by_val)
+    callSlowPath(slowPath)
     dispatch(5)
+end
+
+_llint_op_put_by_val:
+    putByVal(_llint_slow_path_put_by_val)
+
+_llint_op_put_by_val_direct:
+    putByVal(_llint_slow_path_put_by_val_direct)
 
 
 _llint_op_jmp:
@@ -1241,8 +1664,8 @@ macro equalNull(cellHandler, immediateHandler)
     assertNotConstant(t0)
     loadq [cfr, t0, 8], t0
     btqnz t0, tagMask, .immediate
-    loadp JSCell::m_structure[t0], t2
-    cellHandler(t2, Structure::m_typeInfo + TypeInfo::m_flags[t2], .target)
+    loadStructureWithScratch(t0, t2, t1)
+    cellHandler(t2, JSCell::m_flags[t0], .target)
     dispatch(3)
 
 .target:
@@ -1343,7 +1766,7 @@ _llint_op_switch_imm:
     loadp CodeBlock[cfr], t2
     loadp CodeBlock::m_rareData[t2], t2
     muli sizeof SimpleJumpTable, t3    # FIXME: would be nice to peephole this!
-    loadp CodeBlock::RareData::m_immediateSwitchJumpTables + VectorBufferOffset[t2], t2
+    loadp CodeBlock::RareData::m_switchJumpTables + VectorBufferOffset[t2], t2
     addp t3, t2
     bqb t1, tagTypeNumber, .opSwitchImmNotInt
     subi SimpleJumpTable::min[t2], t1
@@ -1371,11 +1794,10 @@ _llint_op_switch_char:
     loadp CodeBlock[cfr], t2
     loadp CodeBlock::m_rareData[t2], t2
     muli sizeof SimpleJumpTable, t3
-    loadp CodeBlock::RareData::m_characterSwitchJumpTables + VectorBufferOffset[t2], t2
+    loadp CodeBlock::RareData::m_switchJumpTables + VectorBufferOffset[t2], t2
     addp t3, t2
     btqnz t1, tagMask, .opSwitchCharFallThrough
-    loadp JSCell::m_structure[t1], t0
-    bbneq Structure::m_typeInfo + TypeInfo::m_type[t0], StringType, .opSwitchCharFallThrough
+    bbneq JSCell::m_type[t1], StringType, .opSwitchCharFallThrough
     bineq JSString::m_length[t1], 1, .opSwitchCharFallThrough
     loadp JSString::m_value[t1], t0
     btpz  t0, .opSwitchOnRope
@@ -1413,40 +1835,44 @@ _llint_op_new_func:
     dispatch(4)
 
 
+_llint_op_new_captured_func:
+    traceExecution()
+    callSlowPath(_slow_path_new_captured_func)
+    dispatch(4)
+
+
 macro arrayProfileForCall()
-    if VALUE_PROFILER
-        loadisFromInstruction(3, t3)
-        loadq ThisArgumentOffset[cfr, t3, 8], t0
-        btqnz t0, tagMask, .done
-        loadp JSCell::m_structure[t0], t0
-        loadpFromInstruction(5, t1)
-        storep t0, ArrayProfile::m_lastSeenStructure[t1]
-    .done:
-    end
+    loadisFromInstruction(4, t3)
+    negp t3
+    loadq ThisArgumentOffset[cfr, t3, 8], t0
+    btqnz t0, tagMask, .done
+    loadpFromInstruction((CallOpCodeSize - 2), t1)
+    loadi JSCell::m_structureID[t0], t3
+    storei t3, ArrayProfile::m_lastSeenStructureID[t1]
+.done:
 end
 
 macro doCall(slowPath)
-    loadisFromInstruction(1, t0)
-    loadpFromInstruction(4, t1)
+    loadisFromInstruction(2, t0)
+    loadpFromInstruction(5, t1)
     loadp LLIntCallLinkInfo::callee[t1], t2
     loadConstantOrVariable(t0, t3)
     bqneq t3, t2, .opCallSlow
-    loadisFromInstruction(3, t3)
-    addi 6, PC
+    loadisFromInstruction(4, t3)
     lshifti 3, t3
+    negp t3
     addp cfr, t3
     loadp JSFunction::m_scope[t2], t0
     storeq t2, Callee[t3]
     storeq t0, ScopeChain[t3]
-    loadisFromInstruction(-4, t2)
+    loadisFromInstruction(3, t2)
     storei PC, ArgumentCount + TagOffset[cfr]
-    storeq cfr, CallerFrame[t3]
     storei t2, ArgumentCount + PayloadOffset[t3]
-    move t3, cfr
-    callTargetFunction(t1)
+    addp CallerFrameAndPCSize, t3
+    callTargetFunction(t1, t3)
 
 .opCallSlow:
-    slowPathForCall(6, slowPath)
+    slowPathForCall(slowPath)
 end
 
 
@@ -1462,7 +1888,7 @@ _llint_op_tear_off_activation:
 _llint_op_tear_off_arguments:
     traceExecution()
     loadisFromInstruction(1, t0)
-    subi 1, t0   # Get the unmodifiedArgumentsRegister
+    addq 1, t0   # Get the unmodifiedArgumentsRegister
     btqz [cfr, t0, 8], .opTearOffArgumentsNotCreated
     callSlowPath(_llint_slow_path_tear_off_arguments)
 .opTearOffArgumentsNotCreated:
@@ -1477,23 +1903,13 @@ _llint_op_ret:
     doReturn()
 
 
-_llint_op_call_put_result:
-    loadisFromInstruction(1, t2)
-    loadpFromInstruction(2, t3)
-    storeq t0, [cfr, t2, 8]
-    valueProfile(t0, t3)
-    traceExecution()
-    dispatch(3)
-
-
 _llint_op_ret_object_or_this:
     traceExecution()
     checkSwitchToJITForEpilogue()
     loadisFromInstruction(1, t2)
     loadConstantOrVariable(t2, t0)
     btqnz t0, tagMask, .opRetObjectOrThisNotObject
-    loadp JSCell::m_structure[t0], t2
-    bbb Structure::m_typeInfo + TypeInfo::m_type[t2], ObjectType, .opRetObjectOrThisNotObject
+    bbb JSCell::m_type[t0], ObjectType, .opRetObjectOrThisNotObject
     doReturn()
 
 .opRetObjectOrThisNotObject:
@@ -1508,14 +1924,13 @@ _llint_op_to_primitive:
     loadisFromInstruction(1, t3)
     loadConstantOrVariable(t2, t0)
     btqnz t0, tagMask, .opToPrimitiveIsImm
-    loadp JSCell::m_structure[t0], t2
-    bbneq Structure::m_typeInfo + TypeInfo::m_type[t2], StringType, .opToPrimitiveSlowCase
+    bbneq JSCell::m_type[t0], StringType, .opToPrimitiveSlowCase
 .opToPrimitiveIsImm:
     storeq t0, [cfr, t3, 8]
     dispatch(3)
 
 .opToPrimitiveSlowCase:
-    callSlowPath(_llint_slow_path_to_primitive)
+    callSlowPath(_slow_path_to_primitive)
     dispatch(3)
 
 
@@ -1539,7 +1954,7 @@ _llint_op_next_pname:
     loadisFromInstruction(2, t3)
     assertNotConstant(t3)
     loadq [cfr, t3, 8], t3
-    loadp JSCell::m_structure[t3], t1
+    loadStructureWithScratch(t3, t1, t0)
     bpneq t1, JSPropertyNameIterator::m_cachedStructure[t2], .opNextPnameSlow
     loadp JSPropertyNameIterator::m_cachedPrototypeChain[t2], t0
     loadp StructureChain::m_vector[t0], t0
@@ -1547,7 +1962,7 @@ _llint_op_next_pname:
 .opNextPnameCheckPrototypeLoop:
     bqeq Structure::m_prototype[t1], ValueNull, .opNextPnameSlow
     loadq Structure::m_prototype[t1], t2
-    loadp JSCell::m_structure[t2], t1
+    loadStructureWithScratch(t2, t1, t3)
     bpneq t1, [t0], .opNextPnameSlow
     addp 8, t0
     btpnz [t0], .opNextPnameCheckPrototypeLoop
@@ -1566,18 +1981,21 @@ _llint_op_catch:
     # This is where we end up from the JIT's throw trampoline (because the
     # machine code return address will be set to _llint_op_catch), and from
     # the interpreter's throw trampoline (see _llint_throw_trampoline).
-    # The JIT throwing protocol calls for the cfr to be in t0. The throwing
-    # code must have known that we were throwing to the interpreter, and have
-    # set VM::targetInterpreterPCForThrow.
-    move t0, cfr
+    # The throwing code must have known that we were throwing to the interpreter,
+    # and have set VM::targetInterpreterPCForThrow.
+    loadp ScopeChain[cfr], t3
+    andp MarkedBlockMask, t3
+    loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
+    loadp VM::callFrameForThrow[t3], cfr
+    restoreStackPointerAfterCall()
+
     loadp CodeBlock[cfr], PB
     loadp CodeBlock::m_instructions[PB], PB
-    loadp JITStackFrame::vm[sp], t3
     loadp VM::targetInterpreterPCForThrow[t3], PC
     subp PB, PC
     rshiftp 3, PC
-    loadq VM::exception[t3], t0
-    storeq 0, VM::exception[t3]
+    loadq VM::m_exception[t3], t0
+    storeq 0, VM::m_exception[t3]
     loadisFromInstruction(1, t2)
     storeq t0, [cfr, t2, 8]
     traceExecution()
@@ -1594,134 +2012,326 @@ _llint_op_end:
 
 
 _llint_throw_from_slow_path_trampoline:
+    callSlowPath(_llint_slow_path_handle_exception)
+
     # When throwing from the interpreter (i.e. throwing from LLIntSlowPaths), so
     # the throw target is not necessarily interpreted code, we come to here.
     # This essentially emulates the JIT's throwing protocol.
-    loadp JITStackFrame::vm[sp], t1
-    loadp VM::callFrameForThrow[t1], t0
+    loadp CodeBlock[cfr], t1
+    loadp CodeBlock::m_vm[t1], t1
     jmp VM::targetMachinePCForThrow[t1]
 
 
 _llint_throw_during_call_trampoline:
     preserveReturnAddressAfterCall(t2)
-    loadp JITStackFrame::vm[sp], t1
-    loadp VM::callFrameForThrow[t1], t0
-    jmp VM::targetMachinePCForThrow[t1]
+    jmp _llint_throw_from_slow_path_trampoline
 
-# Gives you the scope in t0, while allowing you to optionally perform additional checks on the
-# scopes as they are traversed. scopeCheck() is called with two arguments: the register
-# holding the scope, and a register that can be used for scratch. Note that this does not
-# use t3, so you can hold stuff in t3 if need be.
-macro getDeBruijnScope(deBruijinIndexOperand, scopeCheck)
-    loadp ScopeChain[cfr], t0
-    loadis deBruijinIndexOperand, t2
-
-    btiz t2, .done
-
-    loadp CodeBlock[cfr], t1
-    bineq CodeBlock::m_codeType[t1], FunctionCode, .loop
-    btbz CodeBlock::m_needsActivation[t1], .loop
-
-    loadis CodeBlock::m_activationRegister[t1], t1
-
-    # Need to conditionally skip over one scope.
-    btpz [cfr, t1, 8], .noActivation
-    scopeCheck(t0, t1)
-    loadp JSScope::m_next[t0], t0
-.noActivation:
-    subi 1, t2
-
-    btiz t2, .done
-.loop:
-    scopeCheck(t0, t1)
-    loadp JSScope::m_next[t0], t0
-    subi 1, t2
-    btinz t2, .loop
-
-.done:
-end
-
-_llint_op_get_scoped_var:
-    traceExecution()
-    # Operands are as follows:
-    # pc[1]: Destination for the load
-    # pc[2]: Index of register in the scope
-    # 24[PB, PC, 8]  De Bruijin index.
-    getDeBruijnScope(24[PB, PC, 8], macro (scope, scratch) end)
-    loadisFromInstruction(1, t1)
-    loadisFromInstruction(2, t2)
-
-    loadp JSVariableObject::m_registers[t0], t0
-    loadp [t0, t2, 8], t3
-    storep t3, [cfr, t1, 8]
-    loadp 32[PB, PC, 8], t1
-    valueProfile(t3, t1)
-    dispatch(5)
-
-
-_llint_op_put_scoped_var:
-    traceExecution()
-    getDeBruijnScope(16[PB, PC, 8], macro (scope, scratch) end)
-    loadis 24[PB, PC, 8], t1
-    loadConstantOrVariable(t1, t3)
-    loadis 8[PB, PC, 8], t1
-    writeBarrier(t3)
-    loadp JSVariableObject::m_registers[t0], t0
-    storep t3, [t0, t1, 8]
-    dispatch(4)
 
 macro nativeCallTrampoline(executableOffsetToFunction)
+
+    functionPrologue()
     storep 0, CodeBlock[cfr]
-    if X86_64
-        loadp JITStackFrame::vm + 8[sp], t0
+    if X86_64 or X86_64_WIN
+        if X86_64
+            const arg1 = t4  # t4 = rdi
+            const arg2 = t5  # t5 = rsi
+            const temp = t1
+        elsif X86_64_WIN
+            const arg1 = t2  # t2 = rcx
+            const arg2 = t1  # t1 = rdx
+            const temp = t0
+        end
+        loadp ScopeChain[cfr], t0
+        andp MarkedBlockMask, t0
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t0], t0
         storep cfr, VM::topCallFrame[t0]
         loadp CallerFrame[cfr], t0
         loadq ScopeChain[t0], t1
         storeq t1, ScopeChain[cfr]
-        peek 0, t1
-        storep t1, ReturnPC[cfr]
-        move cfr, t5  # t5 = rdi
-        subp 16 - 8, sp
-        loadp Callee[cfr], t4 # t4 = rsi
-        loadp JSFunction::m_executable[t4], t1
-        move t0, cfr # Restore cfr to avoid loading from stack
-        call executableOffsetToFunction[t1]
-        addp 16 - 8, sp
-        loadp JITStackFrame::vm + 8[sp], t3
-
-    elsif C_LOOP
-        loadp CallerFrame[cfr], t0
-        loadp ScopeChain[t0], t1
+        move cfr, arg1
+        loadp Callee[cfr], arg2
+        loadp JSFunction::m_executable[arg2], temp
+        checkStackPointerAlignment(t3, 0xdead0001)
+        if X86_64_WIN
+            subp 32, sp
+        end
+        call executableOffsetToFunction[temp]
+        if X86_64_WIN
+            addp 32, sp
+        end
+        loadp ScopeChain[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
+    elsif ARM64 or C_LOOP
+        loadp ScopeChain[cfr], t0
+        andp MarkedBlockMask, t0
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t0], t0
+        storep cfr, VM::topCallFrame[t0]
+        loadp CallerFrame[cfr], t2
+        loadp ScopeChain[t2], t1
         storep t1, ScopeChain[cfr]
-
-        loadp JITStackFrame::vm[sp], t3
-        storep cfr, VM::topCallFrame[t3]
-
-        move t0, t2
         preserveReturnAddressAfterCall(t3)
         storep t3, ReturnPC[cfr]
         move cfr, t0
         loadp Callee[cfr], t1
         loadp JSFunction::m_executable[t1], t1
-        move t2, cfr
-        cloopCallNative executableOffsetToFunction[t1]
-
+        move t2, cfr # Restore cfr to avoid loading from stack
+        if C_LOOP
+            cloopCallNative executableOffsetToFunction[t1]
+        else
+            call executableOffsetToFunction[t1]
+        end
         restoreReturnAddressBeforeReturn(t3)
-        loadp JITStackFrame::vm[sp], t3
+        loadp ScopeChain[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     else
         error
     end
 
-    btqnz VM::exception[t3], .exception
+    functionEpilogue()
+
+    btqnz VM::m_exception[t3], .handleException
     ret
-.exception:
-    preserveReturnAddressAfterCall(t1)
-    loadi ArgumentCount + TagOffset[cfr], PC
-    loadp CodeBlock[cfr], PB
-    loadp CodeBlock::m_instructions[PB], PB
-    loadp JITStackFrame::vm[sp], t0
-    storep cfr, VM::topCallFrame[t0]
-    callSlowPath(_llint_throw_from_native_call)
+
+.handleException:
+    storep cfr, VM::topCallFrame[t3]
+    restoreStackPointerAfterCall()
     jmp _llint_throw_from_slow_path_trampoline
 end
 
+
+macro getGlobalObject(dst)
+    loadp CodeBlock[cfr], t0
+    loadp CodeBlock::m_globalObject[t0], t0
+    loadisFromInstruction(dst, t1)
+    storeq t0, [cfr, t1, 8]
+end
+
+macro varInjectionCheck(slowPath)
+    loadp CodeBlock[cfr], t0
+    loadp CodeBlock::m_globalObject[t0], t0
+    loadp JSGlobalObject::m_varInjectionWatchpoint[t0], t0
+    bbeq WatchpointSet::m_state[t0], IsInvalidated, slowPath
+end
+
+macro resolveScope()
+    loadp CodeBlock[cfr], t0
+    loadisFromInstruction(4, t2)
+    btbz CodeBlock::m_needsActivation[t0], .resolveScopeAfterActivationCheck
+    loadis CodeBlock::m_activationRegister[t0], t1
+    btpz [cfr, t1, 8], .resolveScopeAfterActivationCheck
+    addi 1, t2
+
+.resolveScopeAfterActivationCheck:
+    loadp ScopeChain[cfr], t0
+    btiz t2, .resolveScopeLoopEnd
+
+.resolveScopeLoop:
+    loadp JSScope::m_next[t0], t0
+    subi 1, t2
+    btinz t2, .resolveScopeLoop
+
+.resolveScopeLoopEnd:
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
+end
+
+
+_llint_op_resolve_scope:
+    traceExecution()
+    loadisFromInstruction(3, t0)
+
+#rGlobalProperty:
+    bineq t0, GlobalProperty, .rGlobalVar
+    getGlobalObject(1)
+    dispatch(6)
+
+.rGlobalVar:
+    bineq t0, GlobalVar, .rClosureVar
+    getGlobalObject(1)
+    dispatch(6)
+
+.rClosureVar:
+    bineq t0, ClosureVar, .rGlobalPropertyWithVarInjectionChecks
+    resolveScope()
+    dispatch(6)
+
+.rGlobalPropertyWithVarInjectionChecks:
+    bineq t0, GlobalPropertyWithVarInjectionChecks, .rGlobalVarWithVarInjectionChecks
+    varInjectionCheck(.rDynamic)
+    getGlobalObject(1)
+    dispatch(6)
+
+.rGlobalVarWithVarInjectionChecks:
+    bineq t0, GlobalVarWithVarInjectionChecks, .rClosureVarWithVarInjectionChecks
+    varInjectionCheck(.rDynamic)
+    getGlobalObject(1)
+    dispatch(6)
+
+.rClosureVarWithVarInjectionChecks:
+    bineq t0, ClosureVarWithVarInjectionChecks, .rDynamic
+    varInjectionCheck(.rDynamic)
+    resolveScope()
+    dispatch(6)
+
+.rDynamic:
+    callSlowPath(_llint_slow_path_resolve_scope)
+    dispatch(6)
+
+
+macro loadWithStructureCheck(operand, slowPath)
+    loadisFromInstruction(operand, t0)
+    loadq [cfr, t0, 8], t0
+    loadStructureWithScratch(t0, t2, t1)
+    loadpFromInstruction(5, t1)
+    bpneq t2, t1, slowPath
+end
+
+macro getProperty()
+    loadisFromInstruction(6, t1)
+    loadPropertyAtVariableOffset(t1, t0, t2)
+    valueProfile(t2, 7, t0)
+    loadisFromInstruction(1, t0)
+    storeq t2, [cfr, t0, 8]
+end
+
+macro getGlobalVar()
+    loadpFromInstruction(6, t0)
+    loadq [t0], t0
+    valueProfile(t0, 7, t1)
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
+end
+
+macro getClosureVar()
+    loadp JSVariableObject::m_registers[t0], t0
+    loadisFromInstruction(6, t1)
+    loadq [t0, t1, 8], t0
+    valueProfile(t0, 7, t1)
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
+end
+
+_llint_op_get_from_scope:
+    traceExecution()
+    loadisFromInstruction(4, t0)
+    andi ResolveModeMask, t0
+
+#gGlobalProperty:
+    bineq t0, GlobalProperty, .gGlobalVar
+    loadWithStructureCheck(2, .gDynamic)
+    getProperty()
+    dispatch(8)
+
+.gGlobalVar:
+    bineq t0, GlobalVar, .gClosureVar
+    getGlobalVar()
+    dispatch(8)
+
+.gClosureVar:
+    bineq t0, ClosureVar, .gGlobalPropertyWithVarInjectionChecks
+    loadVariable(2, t0)
+    getClosureVar()
+    dispatch(8)
+
+.gGlobalPropertyWithVarInjectionChecks:
+    bineq t0, GlobalPropertyWithVarInjectionChecks, .gGlobalVarWithVarInjectionChecks
+    loadWithStructureCheck(2, .gDynamic)
+    getProperty()
+    dispatch(8)
+
+.gGlobalVarWithVarInjectionChecks:
+    bineq t0, GlobalVarWithVarInjectionChecks, .gClosureVarWithVarInjectionChecks
+    varInjectionCheck(.gDynamic)
+    loadVariable(2, t0)
+    getGlobalVar()
+    dispatch(8)
+
+.gClosureVarWithVarInjectionChecks:
+    bineq t0, ClosureVarWithVarInjectionChecks, .gDynamic
+    varInjectionCheck(.gDynamic)
+    loadVariable(2, t0)
+    getClosureVar()
+    dispatch(8)
+
+.gDynamic:
+    callSlowPath(_llint_slow_path_get_from_scope)
+    dispatch(8)
+
+
+macro putProperty()
+    loadisFromInstruction(3, t1)
+    loadConstantOrVariable(t1, t2)
+    loadisFromInstruction(6, t1)
+    storePropertyAtVariableOffset(t1, t0, t2)
+end
+
+macro putGlobalVar()
+    loadisFromInstruction(3, t0)
+    loadConstantOrVariable(t0, t1)
+    loadpFromInstruction(5, t2)
+    notifyWrite(t2, t1, t0, .pDynamic)
+    loadpFromInstruction(6, t0)
+    storeq t1, [t0]
+end
+
+macro putClosureVar()
+    loadisFromInstruction(3, t1)
+    loadConstantOrVariable(t1, t2)
+    loadp JSVariableObject::m_registers[t0], t0
+    loadisFromInstruction(6, t1)
+    storeq t2, [t0, t1, 8]
+end
+
+
+_llint_op_put_to_scope:
+    traceExecution()
+    loadisFromInstruction(4, t0)
+    andi ResolveModeMask, t0
+
+#pGlobalProperty:
+    bineq t0, GlobalProperty, .pGlobalVar
+    writeBarrierOnOperands(1, 3)
+    loadWithStructureCheck(1, .pDynamic)
+    putProperty()
+    dispatch(7)
+
+.pGlobalVar:
+    bineq t0, GlobalVar, .pClosureVar
+    writeBarrierOnGlobalObject(3)
+    putGlobalVar()
+    dispatch(7)
+
+.pClosureVar:
+    bineq t0, ClosureVar, .pGlobalPropertyWithVarInjectionChecks
+    writeBarrierOnOperands(1, 3)
+    loadVariable(1, t0)
+    putClosureVar()
+    dispatch(7)
+
+.pGlobalPropertyWithVarInjectionChecks:
+    bineq t0, GlobalPropertyWithVarInjectionChecks, .pGlobalVarWithVarInjectionChecks
+    writeBarrierOnOperands(1, 3)
+    loadWithStructureCheck(1, .pDynamic)
+    putProperty()
+    dispatch(7)
+
+.pGlobalVarWithVarInjectionChecks:
+    bineq t0, GlobalVarWithVarInjectionChecks, .pClosureVarWithVarInjectionChecks
+    writeBarrierOnGlobalObject(3)
+    varInjectionCheck(.pDynamic)
+    putGlobalVar()
+    dispatch(7)
+
+.pClosureVarWithVarInjectionChecks:
+    bineq t0, ClosureVarWithVarInjectionChecks, .pDynamic
+    writeBarrierOnOperands(1, 3)
+    varInjectionCheck(.pDynamic)
+    loadVariable(1, t0)
+    putClosureVar()
+    dispatch(7)
+
+.pDynamic:
+    callSlowPath(_llint_slow_path_put_to_scope)
+    dispatch(7)

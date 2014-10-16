@@ -41,6 +41,7 @@
 #include <wtf/Assertions.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/RandomNumber.h>
+#include <wtf/UniStdExtras.h>
 #include <wtf/text/CString.h>
 
 namespace WebKit {
@@ -53,8 +54,13 @@ SharedMemory::Handle::Handle()
 
 SharedMemory::Handle::~Handle()
 {
+    clear();
+}
+
+void SharedMemory::Handle::clear()
+{
     if (!isNull())
-        while (close(m_fileDescriptor) == -1 && errno == EINTR) { }
+        closeWithRetry(m_fileDescriptor);
 }
 
 bool SharedMemory::Handle::isNull() const
@@ -62,17 +68,17 @@ bool SharedMemory::Handle::isNull() const
     return m_fileDescriptor == -1;
 }
 
-void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SharedMemory::Handle::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << releaseToAttachment();
 }
 
-bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
+bool SharedMemory::Handle::decode(IPC::ArgumentDecoder& decoder, Handle& handle)
 {
     ASSERT_ARG(handle, !handle.m_size);
     ASSERT_ARG(handle, handle.isNull());
 
-    CoreIPC::Attachment attachment;
+    IPC::Attachment attachment;
     if (!decoder.decode(attachment))
         return false;
 
@@ -80,11 +86,11 @@ bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& han
     return true;
 }
 
-CoreIPC::Attachment SharedMemory::Handle::releaseToAttachment() const
+IPC::Attachment SharedMemory::Handle::releaseToAttachment() const
 {
     int temp = m_fileDescriptor;
     m_fileDescriptor = -1;
-    return CoreIPC::Attachment(temp, m_size);
+    return IPC::Attachment(temp, m_size);
 }
 
 void SharedMemory::Handle::adoptFromAttachment(int fileDescriptor, size_t size)
@@ -106,17 +112,17 @@ PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
         tempName = name.utf8();
 
         do {
-            fileDescriptor = shm_open(tempName.data(), O_CREAT | O_CLOEXEC | O_RDWR, S_IRUSR | S_IWUSR);
+            fileDescriptor = shm_open(tempName.data(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
         } while (fileDescriptor == -1 && errno == EINTR);
     }
     if (fileDescriptor == -1) {
-        WTFLogAlways("Failed to create shared memory file %s", tempName.data());
+        WTFLogAlways("Failed to create shared memory file %s: %s", tempName.data(), strerror(errno));
         return 0;
     }
 
     while (ftruncate(fileDescriptor, size) == -1) {
         if (errno != EINTR) {
-            while (close(fileDescriptor) == -1 && errno == EINTR) { }
+            closeWithRetry(fileDescriptor);
             shm_unlink(tempName.data());
             return 0;
         }
@@ -124,7 +130,7 @@ PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
 
     void* data = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0);
     if (data == MAP_FAILED) {
-        while (close(fileDescriptor) == -1 && errno == EINTR) { }
+        closeWithRetry(fileDescriptor);
         shm_unlink(tempName.data());
         return 0;
     }
@@ -170,26 +176,16 @@ PassRefPtr<SharedMemory> SharedMemory::create(const Handle& handle, Protection p
 SharedMemory::~SharedMemory()
 {
     munmap(m_data, m_size);
-    while (close(m_fileDescriptor) == -1 && errno == EINTR) { }
+    closeWithRetry(m_fileDescriptor);
 }
 
-static inline int accessModeFile(SharedMemory::Protection protection)
-{
-    switch (protection) {
-    case SharedMemory::ReadOnly:
-        return O_RDONLY;
-    case SharedMemory::ReadWrite:
-        return O_RDWR;
-    }
-
-    ASSERT_NOT_REACHED();
-    return O_RDWR;
-}
-
-bool SharedMemory::createHandle(Handle& handle, Protection protection)
+bool SharedMemory::createHandle(Handle& handle, Protection)
 {
     ASSERT_ARG(handle, !handle.m_size);
     ASSERT_ARG(handle, handle.isNull());
+
+    // FIXME: Handle the case where the passed Protection is ReadOnly.
+    // See https://bugs.webkit.org/show_bug.cgi?id=131542.
 
     int duplicatedHandle;
     while ((duplicatedHandle = dup(m_fileDescriptor)) == -1) {
@@ -199,10 +195,10 @@ bool SharedMemory::createHandle(Handle& handle, Protection protection)
         }
     }
 
-    while ((fcntl(duplicatedHandle, F_SETFD, FD_CLOEXEC | accessModeFile(protection)) == -1)) {
+    while (fcntl(duplicatedHandle, F_SETFD, FD_CLOEXEC) == -1) {
         if (errno != EINTR) {
             ASSERT_NOT_REACHED();
-            while (close(duplicatedHandle) == -1 && errno == EINTR) { }
+            closeWithRetry(duplicatedHandle);
             return false;
         }
     }

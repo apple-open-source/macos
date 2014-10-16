@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,6 +35,7 @@
 namespace WebCore {
 
 class AccessibilityTableCell;
+class HTMLTableElement;
 class RenderTableSection;
     
 class AccessibilityTable : public AccessibilityRenderObject {
@@ -45,23 +46,23 @@ public:
     static PassRefPtr<AccessibilityTable> create(RenderObject*);
     virtual ~AccessibilityTable();
 
-    virtual void init();
+    virtual void init() override;
 
-    virtual AccessibilityRole roleValue() const;
+    virtual AccessibilityRole roleValue() const override;
     virtual bool isAriaTable() const { return false; }
     
-    virtual void addChildren();
-    virtual void clearChildren();
+    virtual void addChildren() override;
+    virtual void clearChildren() override;
     
-    AccessibilityChildrenVector& columns();
-    AccessibilityChildrenVector& rows();
+    const AccessibilityChildrenVector& columns();
+    const AccessibilityChildrenVector& rows();
     
     virtual bool supportsSelectedRows() { return false; }
     unsigned columnCount();
     unsigned rowCount();
-    virtual int tableLevel() const;
+    virtual int tableLevel() const override;
     
-    virtual String title() const;
+    virtual String title() const override;
     
     // all the cells in the table
     void cells(AccessibilityChildrenVector&);
@@ -69,7 +70,8 @@ public:
     
     void columnHeaders(AccessibilityChildrenVector&);
     void rowHeaders(AccessibilityChildrenVector&);
-
+    void visibleRows(AccessibilityChildrenVector&);
+    
     // an object that contains, as children, all the objects that act as headers
     AccessibilityObject* headerContainer();
 
@@ -83,23 +85,24 @@ protected:
     bool hasARIARole() const;
 
     // isTable is whether it's an AccessibilityTable object.
-    virtual bool isTable() const OVERRIDE { return true; }
+    virtual bool isTable() const override { return true; }
     // isAccessibilityTable is whether it is exposed as an AccessibilityTable to the platform.
-    virtual bool isAccessibilityTable() const OVERRIDE;
+    virtual bool isAccessibilityTable() const override;
     // isDataTable is whether it is exposed as an AccessibilityTable because the heuristic
     // think this "looks" like a data-based table (instead of a table used for layout).
-    virtual bool isDataTable() const OVERRIDE;
+    virtual bool isDataTable() const override;
 
     virtual bool isTableExposableThroughAccessibility() const;
-    virtual bool computeAccessibilityIsIgnored() const OVERRIDE;
+    virtual bool computeAccessibilityIsIgnored() const override;
+
+private:
+    virtual void titleElementText(Vector<AccessibilityText>&) const override;
+    HTMLTableElement* tableElement() const;
+    void addChildrenFromSection(RenderTableSection*, unsigned& maxColumnCount);
 };
-    
-inline AccessibilityTable* toAccessibilityTable(AccessibilityObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isTable());
-    return static_cast<AccessibilityTable*>(object);
-}
-    
+
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityTable, isTable())
+
 } // namespace WebCore 
 
 #endif // AccessibilityTable_h

@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,8 +26,6 @@
 #ifndef PlatformCALayerWinInternal_h
 #define PlatformCALayerWinInternal_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
 #include <CoreGraphics/CGGeometry.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
@@ -39,6 +37,8 @@ namespace WebCore {
 
 class FloatRect;
 class PlatformCALayer;
+class TileController;
+class TiledBacking;
 
 typedef Vector<RefPtr<PlatformCALayer> > PlatformCALayerList;
 
@@ -61,6 +61,9 @@ public:
     void setBounds(const FloatRect&);
     void setFrame(const FloatRect&);
 
+    TileController* createTileController(PlatformCALayer* rootLayer);
+    TiledBacking* tiledBacking();
+
 private:
     void internalSetNeedsDisplay(const FloatRect*);
     PlatformCALayer* sublayerAtIndex(int) const;
@@ -80,10 +83,9 @@ private:
     CGSize m_tileSize;
     CGSize m_constrainedSize;
     RetainPtr<CACFLayerRef> m_tileParent;
+    OwnPtr<TileController> m_tileController;
 };
 
 }
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // PlatformCALayerWinInternal_h

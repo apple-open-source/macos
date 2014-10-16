@@ -43,7 +43,7 @@
 #include <sys/param.h>
 
 # if	DARWINV>=800
-#include "/usr/include/string.h"
+#include <string.h>
 # endif	/* DARWINV>=800 */
 
 

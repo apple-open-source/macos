@@ -33,8 +33,6 @@
  * SUCH DAMAGE.
  */
 
-#define HEIMDAL_PRINTF_ATTRIBUTE(x)
-
 #include "mech_locl.h"
 #include "heim_threads.h"
 #include "heimbase.h"
@@ -42,6 +40,10 @@
 #include <asl.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <krb5.h>
+#include <notify.h>
+
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
 
 struct mg_thread_ctx {
     gss_OID mech;
@@ -137,7 +139,7 @@ _gss_mg_get_error(const gss_OID mech, OM_uint32 value, gss_buffer_t string)
 }
 
 void
-_gss_mg_error(gssapi_mech_interface m, OM_uint32 min)
+_gss_mg_error(struct gssapi_mech_interface_desc *m, OM_uint32 min)
 {
     OM_uint32 major_status, minor_status;
     OM_uint32 message_content = 0;
@@ -223,9 +225,9 @@ gss_mg_set_error_string(gss_OID mech,
 #include <CoreFoundation/CoreFoundation.h>
 
 CFErrorRef
-_gss_mg_cferror(OM_uint32 major_status,
-		OM_uint32 minor_status,
-		gss_const_OID mech)
+_gss_mg_create_cferror(OM_uint32 major_status,
+		       OM_uint32 minor_status,
+		       gss_const_OID mech)
 {
     struct mg_thread_ctx *mg;
     CFErrorRef e;
@@ -281,23 +283,16 @@ _gss_mg_cferror(OM_uint32 major_status,
 }
 
 
-
 static CFTypeRef
-CopyKeyFromFile(CFStringRef domain, CFStringRef key)
+CopyKeyFromFile(CFStringRef file, CFStringRef key)
 {
     CFReadStreamRef s;
     CFDictionaryRef d;
-    CFStringRef file;
     CFErrorRef e;
     CFURLRef url;
     CFTypeRef val;
     
-    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%@.plist"), domain);
-    if (file == NULL)
-	return NULL;
-    
     url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, file, kCFURLPOSIXPathStyle, false);
-    CFRelease(file);
     if (url == NULL)
 	return NULL;
     
@@ -329,6 +324,33 @@ CopyKeyFromFile(CFStringRef domain, CFStringRef key)
 }
 
 
+static CFTypeRef
+CopyKeyFromDomain(CFStringRef domain, CFStringRef key)
+{
+    CFStringRef file;
+    CFTypeRef val = NULL;
+    
+    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%@.plist"), domain);
+    if (file) {
+	val = CopyKeyFromFile(file, key);
+	CFRelease(file);
+    }
+
+    return val;
+}
+
+static CFTypeRef
+CopyMangedPreference(CFStringRef key)
+{
+#if __APPLE_TARGET_EMBEDDED__
+#define GLOBAL_PREFERENCE_FILE CFSTR("/Library/Managed Preferences/mobile/.GlobalPreferences.plist")
+#else
+#define GLOBAL_PREFERENCE_FILE CFSTR("/Library/Managed Preferences/.GlobalPreferences.plist")
+#endif
+
+    return CopyKeyFromFile(GLOBAL_PREFERENCE_FILE, key);
+}
+
 CFTypeRef
 _gss_mg_copy_key(CFStringRef domain, CFStringRef key)
 {
@@ -339,7 +361,7 @@ _gss_mg_copy_key(CFStringRef domain, CFStringRef key)
      * touch user home directory.
      */
 
-    val = CopyKeyFromFile(domain, key);
+    val = CopyKeyFromDomain(domain, key);
 
     if (val == NULL && krb5_homedir_access(NULL)) {
 	val = CFPreferencesCopyAppValue(key, domain);
@@ -351,18 +373,46 @@ _gss_mg_copy_key(CFStringRef domain, CFStringRef key)
 
 #endif
 
-static int log_level = 1;
-static int asl_level = ASL_LEVEL_DEBUG;
+static int log_level = 0;
+static int asl_level = ASL_LEVEL_ERR;
+static void *log_ctx = NULL;
+static HEIMDAL_MUTEX log_mutex = HEIMDAL_MUTEX_INITIALIZER;
+static int config_token = -1;
+static void (*log_func)(void *ctx, int level, const char *fmt, va_list) = NULL;
+
+void
+gss_set_log_function(void *ctx, void (*func)(void *ctx, int level, const char *fmt, va_list))
+{
+    if (log_func == NULL) {
+	log_func = func;
+	log_ctx = ctx;
+    }
+}
 
 static void
-init_log(void *ptr)
+init_log(void)
 {
     CFTypeRef val;
     
     val = _gss_mg_copy_key(CFSTR("com.apple.GSS"), CFSTR("DebugLevel"));
+    if (val == NULL) {
+	/*
+	 * Pick up global preferences that can be configured via a
+	 * profile.
+	 */
+	if (geteuid() == 0 || !krb5_homedir_access(NULL)) {
+	    val = CopyMangedPreference(CFSTR("GSSDebugLevel"));
+	} else {
+	    val = CFPreferencesCopyAppValue(CFSTR("GSSDebugLevel"),
+					    CFSTR(".GlobalPreferences"));
+	}
+    }
+
     if (val == NULL)
 	return;
-    
+
+    HEIMDAL_MUTEX_lock(&log_mutex);
+
     if (CFGetTypeID(val) == CFBooleanGetTypeID())
 	log_level = CFBooleanGetValue(val) ? 1 : 0;
     else if (CFGetTypeID(val) == CFNumberGetTypeID())
@@ -373,7 +423,16 @@ init_log(void *ptr)
     CFRelease(val);
 
     if (log_level > 0)
-	asl_level = ASL_LEVEL_NOTICE;
+	asl_level = ASL_LEVEL_ERR;
+ 
+    HEIMDAL_MUTEX_unlock(&log_mutex);
+}
+ 
+static void
+setup_logging(void *ptr)
+{
+     init_log();
+     notify_register_check("com.apple.ManagedConfiguration.profileListChanged", &config_token);
 }
 
 int
@@ -381,7 +440,14 @@ _gss_mg_log_level(int level)
 {
     static heim_base_once_t once = HEIM_BASE_ONCE_INIT;
 
-    heim_base_once_f(&once, NULL, init_log);
+    heim_base_once_f(&once, NULL, setup_logging);
+
+    if (config_token != -1) {
+	int ret, check = 0;
+	ret = notify_check(config_token, &check);
+	if (ret == NOTIFY_STATUS_OK && check)
+	    init_log();
+    }
 
     return (level > log_level) ? 0 : 1;
 }
@@ -403,6 +469,12 @@ _gss_mg_log(int level, const char *fmt, ...)
     va_start(ap, fmt);
     asl_vlog(mg->asl, mg->msg, asl_level, fmt, ap);
     va_end(ap);
+
+    if (log_func) {
+	va_start(ap, fmt);
+	log_func(log_ctx, level, fmt, ap);
+	va_end(ap);
+    }
 }
 
 void
@@ -475,9 +547,16 @@ _gss_mg_log_cred(int level, struct _gss_cred *cred, const char *fmt, ...)
     free(str);
 }
 
+#if TARGET_IPHONE_SIMULATOR
+#define PLUGIN_PREFIX "%{IPHONE_SIMULATOR_ROOT}"
+#else
+#define PLUGIN_PREFIX ""
+#endif
+
+
 static const char *paths[] = {
-    "/Library/KerberosPlugins/GSSAPI",
-    "/System/Library/KerberosPlugins/GSSAPI",
+    PLUGIN_PREFIX "/Library/KerberosPlugins/GSSAPI",
+    PLUGIN_PREFIX "/System/Library/KerberosPlugins/GSSAPI",
     NULL
 };
 

@@ -7,7 +7,7 @@
     Copyright (C) 1999 Antti Koivisto (koivisto@kde.org)
     Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
     Copyright (C) 2002-2003 Dirk Mueller (mueller@kde.org)
-    Copyright (C) 2002 Apple Computer, Inc.
+    Copyright (C) 2002 Apple Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,64 +26,72 @@
 */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGRenderStyle.h"
 
 #include "CSSPrimitiveValue.h"
 #include "CSSValueList.h"
 #include "IntRect.h"
 #include "NodeRenderStyle.h"
-#include "SVGStyledElement.h"
-
-using namespace std;
+#include "SVGElement.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-SVGRenderStyle::SVGRenderStyle()
+static const SVGRenderStyle& defaultSVGStyle()
 {
-    static SVGRenderStyle* defaultStyle = new SVGRenderStyle(CreateDefault);
+    static NeverDestroyed<DataRef<SVGRenderStyle>> style(SVGRenderStyle::createDefaultStyle());
+    return *style.get().get();
+}
 
-    fill = defaultStyle->fill;
-    stroke = defaultStyle->stroke;
-    text = defaultStyle->text;
-    stops = defaultStyle->stops;
-    misc = defaultStyle->misc;
-    shadowSVG = defaultStyle->shadowSVG;
-    inheritedResources = defaultStyle->inheritedResources;
-    resources = defaultStyle->resources;
+PassRef<SVGRenderStyle> SVGRenderStyle::createDefaultStyle()
+{
+    return adoptRef(*new SVGRenderStyle(CreateDefault));
+}
 
+SVGRenderStyle::SVGRenderStyle()
+    : fill(defaultSVGStyle().fill)
+    , stroke(defaultSVGStyle().stroke)
+    , text(defaultSVGStyle().text)
+    , inheritedResources(defaultSVGStyle().inheritedResources)
+    , stops(defaultSVGStyle().stops)
+    , misc(defaultSVGStyle().misc)
+    , shadowSVG(defaultSVGStyle().shadowSVG)
+    , resources(defaultSVGStyle().resources)
+{
     setBitDefaults();
 }
 
 SVGRenderStyle::SVGRenderStyle(CreateDefaultType)
+    : fill(StyleFillData::create())
+    , stroke(StyleStrokeData::create())
+    , text(StyleTextData::create())
+    , inheritedResources(StyleInheritedResourceData::create())
+    , stops(StyleStopData::create())
+    , misc(StyleMiscData::create())
+    , shadowSVG(StyleShadowSVGData::create())
+    , resources(StyleResourceData::create())
 {
     setBitDefaults();
-
-    fill.init();
-    stroke.init();
-    text.init();
-    stops.init();
-    misc.init();
-    shadowSVG.init();
-    inheritedResources.init();
-    resources.init();
 }
 
-SVGRenderStyle::SVGRenderStyle(const SVGRenderStyle& other)
+inline SVGRenderStyle::SVGRenderStyle(const SVGRenderStyle& other)
     : RefCounted<SVGRenderStyle>()
+    , svg_inherited_flags(other.svg_inherited_flags)
+    , svg_noninherited_flags(other.svg_noninherited_flags)
+    , fill(other.fill)
+    , stroke(other.stroke)
+    , text(other.text)
+    , inheritedResources(other.inheritedResources)
+    , stops(other.stops)
+    , misc(other.misc)
+    , shadowSVG(other.shadowSVG)
+    , resources(other.resources)
 {
-    fill = other.fill;
-    stroke = other.stroke;
-    text = other.text;
-    stops = other.stops;
-    misc = other.misc;
-    shadowSVG = other.shadowSVG;
-    inheritedResources = other.inheritedResources;
-    resources = other.resources;
+}
 
-    svg_inherited_flags = other.svg_inherited_flags;
-    svg_noninherited_flags = other.svg_noninherited_flags;
+PassRef<SVGRenderStyle> SVGRenderStyle::copy() const
+{
+    return adoptRef(*new SVGRenderStyle(*this));
 }
 
 SVGRenderStyle::~SVGRenderStyle()
@@ -135,6 +143,46 @@ void SVGRenderStyle::copyNonInheritedFrom(const SVGRenderStyle* other)
     resources = other->resources;
 }
 
+Vector<PaintType> SVGRenderStyle::paintTypesForPaintOrder() const
+{
+    Vector<PaintType, 3> paintOrder;
+    switch (this->paintOrder()) {
+    case PaintOrderNormal:
+        FALLTHROUGH;
+    case PaintOrderFill:
+        paintOrder.append(PaintTypeFill);
+        paintOrder.append(PaintTypeStroke);
+        paintOrder.append(PaintTypeMarkers);
+        break;
+    case PaintOrderFillMarkers:
+        paintOrder.append(PaintTypeFill);
+        paintOrder.append(PaintTypeMarkers);
+        paintOrder.append(PaintTypeStroke);
+        break;
+    case PaintOrderStroke:
+        paintOrder.append(PaintTypeStroke);
+        paintOrder.append(PaintTypeFill);
+        paintOrder.append(PaintTypeMarkers);
+        break;
+    case PaintOrderStrokeMarkers:
+        paintOrder.append(PaintTypeStroke);
+        paintOrder.append(PaintTypeMarkers);
+        paintOrder.append(PaintTypeFill);
+        break;
+    case PaintOrderMarkers:
+        paintOrder.append(PaintTypeMarkers);
+        paintOrder.append(PaintTypeFill);
+        paintOrder.append(PaintTypeStroke);
+        break;
+    case PaintOrderMarkersStroke:
+        paintOrder.append(PaintTypeMarkers);
+        paintOrder.append(PaintTypeStroke);
+        paintOrder.append(PaintTypeFill);
+        break;
+    };
+    return paintOrder;
+}
+
 StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
 {
     // NOTE: All comparisions that may return StyleDifferenceLayout have to go before those who return StyleDifferenceRepaint
@@ -183,13 +231,20 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
             || stroke->paintUri != other->stroke->paintUri
             || stroke->miterLimit != other->stroke->miterLimit
             || stroke->dashArray != other->stroke->dashArray
-            || stroke->dashOffset != other->stroke->dashOffset)
+            || stroke->dashOffset != other->stroke->dashOffset
+            || stroke->visitedLinkPaintColor != other->stroke->visitedLinkPaintColor
+            || stroke->visitedLinkPaintUri != other->stroke->visitedLinkPaintUri
+            || stroke->visitedLinkPaintType != other->stroke->visitedLinkPaintType)
             return StyleDifferenceLayout;
 
         // Only the stroke-opacity case remains, where we only need a repaint.
         ASSERT(stroke->opacity != other->stroke->opacity);
         return StyleDifferenceRepaint;
     }
+
+    // vector-effect changes require a re-layout.
+    if (svg_noninherited_flags.f._vectorEffect != other->svg_noninherited_flags.f._vectorEffect)
+        return StyleDifferenceLayout;
 
     // NOTE: All comparisions below may only return StyleDifferenceRepaint
 
@@ -219,10 +274,6 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
         || svg_inherited_flags._colorInterpolationFilters != other->svg_inherited_flags._colorInterpolationFilters)
         return StyleDifferenceRepaint;
 
-    // FIXME: vector-effect is not taken into account in the layout-phase. Once this is fixed, we should relayout here.
-    if (svg_noninherited_flags.f._vectorEffect != other->svg_noninherited_flags.f._vectorEffect)
-        return StyleDifferenceRepaint;
-
     if (svg_noninherited_flags.f.bufferedRendering != other->svg_noninherited_flags.f.bufferedRendering)
         return StyleDifferenceRepaint;
 
@@ -233,5 +284,3 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
 }
 
 }
-
-#endif // ENABLE(SVG)

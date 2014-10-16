@@ -89,7 +89,7 @@ apr_status_t apu_dso_init(apr_pool_t *pool)
 
     /* Top level pool scope, need process-scope lifetime */
     for (parent = global = pool; parent; parent = apr_pool_parent_get(global))
-         global = parent;
+        global = parent;
 
     dsos = apr_hash_make(global);
 
@@ -106,7 +106,8 @@ apr_status_t apu_dso_init(apr_pool_t *pool)
     return ret;
 }
 
-apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr,
+apr_status_t apu_dso_load(apr_dso_handle_t **dlhandleptr,
+                          apr_dso_handle_sym_t *dsoptr,
                           const char *module,
                           const char *modsym,
                           apr_pool_t *pool)
@@ -161,6 +162,9 @@ apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr,
         apr_cpystrn(eos, module, sizeof(path) - (eos - path));
 
         rv = apr_dso_load(&dlhandle, path, global);
+        if (dlhandleptr) {
+            *dlhandleptr = dlhandle;
+        }
         if (rv == APR_SUCCESS) { /* APR_EDSOOPEN */
             break;
         }
@@ -177,6 +181,9 @@ apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr,
             apr_cpystrn(eos, module, sizeof(path) - (eos - path));
 
             rv = apr_dso_load(&dlhandle, path, global);
+            if (dlhandleptr) {
+                *dlhandleptr = dlhandle;
+            }
             if (rv == APR_SUCCESS) { /* APR_EDSOOPEN */
                 break;
             }

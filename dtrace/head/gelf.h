@@ -29,12 +29,6 @@
 
 #pragma ident	"@(#)gelf.h	1.14	05/06/08 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/feature_tests.h>
-#include <libelf.h>
-#include <sys/link.h>
-#else /* is Apple Mac OS X */
-
 #ifndef _DARWIN_SHIM_H
 #include <stdint.h>
 typedef uint8_t		uchar_t;
@@ -56,8 +50,6 @@ typedef int64_t		off64_t;
 #define _INT64_TYPE /* Solaris vs. Darwin */
 #endif
 #endif
-
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {

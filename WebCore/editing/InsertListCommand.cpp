@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,14 +24,15 @@
  */
 
 #include "config.h"
-#include "Element.h"
 #include "InsertListCommand.h"
-#include "DocumentFragment.h"
+
+#include "Element.h"
+#include "ElementTraversal.h"
 #include "ExceptionCodePlaceholder.h"
 #include "htmlediting.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
-#include "TextIterator.h"
+#include "Range.h"
 #include "VisibleUnits.h"
 
 namespace WebCore {
@@ -46,7 +47,7 @@ static Node* enclosingListChild(Node* node, Node* listNode)
     return listChild;
 }
 
-PassRefPtr<HTMLElement> InsertListCommand::insertList(Document* document, Type type)
+PassRefPtr<HTMLElement> InsertListCommand::insertList(Document& document, Type type)
 {
     RefPtr<InsertListCommand> insertCommand = create(document, type);
     insertCommand->apply();
@@ -70,10 +71,13 @@ PassRefPtr<HTMLElement> InsertListCommand::mergeWithNeighboringLists(PassRefPtr<
     if (canMergeLists(previousList, list.get()))
         mergeIdenticalElements(previousList, list);
 
-    if (!list || !list->nextElementSibling() || !list->nextElementSibling()->isHTMLElement())
+    if (!list)
+        return 0;
+    Element* sibling = ElementTraversal::nextSibling(list.get());
+    if (!sibling || !sibling->isHTMLElement())
         return list.release();
 
-    RefPtr<HTMLElement> nextList = toHTMLElement(list->nextElementSibling());
+    RefPtr<HTMLElement> nextList = toHTMLElement(sibling);
     if (canMergeLists(list.get(), nextList.get())) {
         mergeIdenticalElements(list, nextList);
         return nextList.release();
@@ -99,8 +103,9 @@ bool InsertListCommand::selectionHasListOfType(const VisibleSelection& selection
     return true;
 }
 
-InsertListCommand::InsertListCommand(Document* document, Type type) 
-    : CompositeEditCommand(document), m_type(type)
+InsertListCommand::InsertListCommand(Document& document, Type type)
+    : CompositeEditCommand(document)
+    , m_type(type)
 {
 }
 
@@ -125,7 +130,7 @@ void InsertListCommand::doApply()
     if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd, CanSkipOverEditingBoundary))
         setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().isDirectional()));
 
-    const QualifiedName& listTag = (m_type == OrderedList) ? olTag : ulTag;
+    auto& listTag = (m_type == OrderedList) ? olTag : ulTag;
     if (endingSelection().isRange()) {
         VisibleSelection selection = selectionForParagraphIteration(endingSelection());
         ASSERT(selection.isRange());
@@ -187,7 +192,7 @@ void InsertListCommand::doApply()
     doApplyForSingleParagraph(false, listTag, endingSelection().firstRange().get());
 }
 
-void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const QualifiedName& listTag, Range* currentSelection)
+void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const HTMLQualifiedName& listTag, Range* currentSelection)
 {
     // FIXME: This will produce unexpected results for a selection that starts just before a
     // table and ends inside the first cell, selectionForParagraphIteration should probably
@@ -202,9 +207,10 @@ void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const Qu
             listNode = fixOrphanedListChild(listChildNode);
             listNode = mergeWithNeighboringLists(listNode);
         }
-        if (!listNode->hasTagName(listTag))
+        if (!listNode->hasTagName(listTag)) {
             // listChildNode will be removed from the list and a list of type m_type will be created.
             switchListType = true;
+        }
 
         // If the list is of the desired type, and we are not removing the list, then exit early.
         if (!switchListType && forceCreateList)
@@ -378,7 +384,7 @@ PassRefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePositio
         // Layout is necessary since start's node's inline renderers may have been destroyed by the insertion
         // The end of the content may have changed after the insertion and layout so update it as well.
         if (insertionPos == start.deepEquivalent()) {
-            listElement->document()->updateLayoutIgnorePendingStylesheets();
+            listElement->document().updateLayoutIgnorePendingStylesheets();
             start = startOfParagraph(originalStart, CanSkipOverEditingBoundary);
             end = endOfParagraph(start, CanSkipOverEditingBoundary);
         }

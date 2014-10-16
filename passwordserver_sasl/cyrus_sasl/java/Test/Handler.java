@@ -103,4 +103,9 @@ class Handler implements javax.security.auth.callback.CallbackHandler{
 	}
     }
 
+    public void handle(Callback[] callbacks) 
+	throws java.io.IOException, UnsupportedCallbackException 
+    {
+	invokeCallback(callbacks);
+    }
 }

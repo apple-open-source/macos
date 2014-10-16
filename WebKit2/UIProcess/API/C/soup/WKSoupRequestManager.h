@@ -26,7 +26,7 @@
 #ifndef WKSoupRequestManager_h
 #define WKSoupRequestManager_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,19 +35,21 @@ extern "C" {
 typedef void (*WKSoupRequestManagerDidReceiveURIRequestCallback)(WKSoupRequestManagerRef soupRequestManagerRef, WKURLRef urlRef, WKPageRef pageRef, uint64_t requestID, const void* clientInfo);
 typedef void (*WKSoupRequestManagerDidFailToLoadURIRequestCallback)(WKSoupRequestManagerRef soupRequestManagerRef, uint64_t requestID, const void* clientInfo);
 
-struct WKSoupRequestManagerClient {
+typedef struct WKSoupRequestManagerClientBase {
     int                                                 version;
     const void*                                         clientInfo;
+} WKSoupRequestManagerClientBase;
+
+typedef struct WKSoupRequestManagerClientV0 {
+    WKSoupRequestManagerClientBase                      base;
+
     WKSoupRequestManagerDidReceiveURIRequestCallback    didReceiveURIRequest;
     WKSoupRequestManagerDidFailToLoadURIRequestCallback didFailToLoadURIRequest;
-};
-typedef struct WKSoupRequestManagerClient WKSoupRequestManagerClient;
-
-enum { kWKSoupRequestManagerClientCurrentVersion = 0 };
+} WKSoupRequestManagerClientV0;
 
 WK_EXPORT WKTypeID WKSoupRequestManagerGetTypeID();
 
-WK_EXPORT void WKSoupRequestManagerSetClient(WKSoupRequestManagerRef, const WKSoupRequestManagerClient* client);
+WK_EXPORT void WKSoupRequestManagerSetClient(WKSoupRequestManagerRef, const WKSoupRequestManagerClientBase* client);
 WK_EXPORT void WKSoupRequestManagerRegisterURIScheme(WKSoupRequestManagerRef, WKStringRef schemeRef);
 WK_EXPORT void WKSoupRequestManagerDidHandleURIRequest(WKSoupRequestManagerRef, WKDataRef, uint64_t contentLength, WKStringRef mimeTypeRef, uint64_t requestID);
 WK_EXPORT void WKSoupRequestManagerDidReceiveURIRequestData(WKSoupRequestManagerRef, WKDataRef, uint64_t requestID);

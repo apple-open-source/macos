@@ -26,8 +26,6 @@
 #ifndef DFGCallArrayAllocatorSlowPathGenerator_h
 #define DFGCallArrayAllocatorSlowPathGenerator_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
@@ -40,7 +38,7 @@ namespace JSC { namespace DFG {
 class CallArrayAllocatorSlowPathGenerator : public JumpingSlowPathGenerator<MacroAssembler::JumpList> {
 public:
     CallArrayAllocatorSlowPathGenerator(
-        MacroAssembler::JumpList from, SpeculativeJIT* jit, P_DFGOperation_EStZ function,
+        MacroAssembler::JumpList from, SpeculativeJIT* jit, P_JITOperation_EStZ function,
         GPRReg resultGPR, GPRReg storageGPR, Structure* structure, size_t size)
         : JumpingSlowPathGenerator<MacroAssembler::JumpList>(from, jit)
         , m_function(function)
@@ -54,7 +52,7 @@ public:
     }
 
 protected:
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         linkFrom(jit);
         for (unsigned i = 0; i < m_plans.size(); ++i)
@@ -68,7 +66,7 @@ protected:
     }
     
 private:
-    P_DFGOperation_EStZ m_function;
+    P_JITOperation_EStZ m_function;
     GPRReg m_resultGPR;
     GPRReg m_storageGPR;
     Structure* m_structure;
@@ -79,7 +77,7 @@ private:
 class CallArrayAllocatorWithVariableSizeSlowPathGenerator : public JumpingSlowPathGenerator<MacroAssembler::JumpList> {
 public:
     CallArrayAllocatorWithVariableSizeSlowPathGenerator(
-        MacroAssembler::JumpList from, SpeculativeJIT* jit, P_DFGOperation_EStZ function,
+        MacroAssembler::JumpList from, SpeculativeJIT* jit, P_JITOperation_EStZ function,
         GPRReg resultGPR, Structure* contiguousStructure, Structure* arrayStorageStructure, GPRReg sizeGPR)
         : JumpingSlowPathGenerator<MacroAssembler::JumpList>(from, jit)
         , m_function(function)
@@ -92,7 +90,7 @@ public:
     }
 
 protected:
-    void generateInternal(SpeculativeJIT* jit)
+    virtual void generateInternal(SpeculativeJIT* jit) override
     {
         linkFrom(jit);
         for (unsigned i = 0; i < m_plans.size(); ++i)
@@ -112,7 +110,7 @@ protected:
     }
     
 private:
-    P_DFGOperation_EStZ m_function;
+    P_JITOperation_EStZ m_function;
     GPRReg m_resultGPR;
     Structure* m_contiguousStructure;
     Structure* m_arrayStorageStructure;

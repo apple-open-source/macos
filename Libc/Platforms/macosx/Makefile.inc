@@ -14,8 +14,8 @@ FEATURE_LEGACY_RUNE_APIS = 1
 # Legacy utmp APIs
 FEATURE_LEGACY_UTMP_APIS = 1
 
-# New OSMemoryNotification and OSThermalNotification APIs
-#FEATURE_MEM_THERM_NOTIFICATION_APIS = 1
+# OSThermalNotification APIs
+FEATURE_THERM_NOTIFICATION_APIS = 1
 
 # Move localtime to /var/db/timezone
 #FEATURE_MOVE_LOCALTIME = 1

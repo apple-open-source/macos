@@ -1,0 +1,726 @@
+As of 0.95 Graph is unsupported, sorry about that.  See README.
+
+2013-05-24  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Mop-up release for 0.95.  Still is and will be unsupported.
+
+	* Release as 0.96.
+
+2013-05-23  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #85449:
+	  "Graph-0.94 tests fail under perl 5.18.0"
+
+	* Address rt.cpan.org #82324:
+	  "Test failures due to hash randomisation in perl 5.17.6"
+
+	The two above fixes were the same: the biconnectedness
+	code was rewritten from scratch.  The new code behaves
+	differently (but I believe more correctly) on certain
+	edge cases, in general it will generate more biconnected
+	components and bridges, for example for "a=b=c" it will
+	now return the same two biconnected components and bridges
+	(cut edges), namely "a=b" and "b=c", the "b" of course being
+	the articulation point (cut vertex).
+
+	* Address rt.cpan.org #67213:
+	  "[PATCH] pod fixes"
+
+	* Remove the t/u_bo.t and t/u_bo1.t since they die in 5.18 due
+	  to some strange failure, looks unrelated to Graph as such,
+	  probably some fix/change made by newer Perls. 
+
+	* Release as 0.95.
+
+2010-03-13  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #43580:
+	  "Reversed logic on overload::StrVal() in AdjacencyMap::Vertex::__set_path"
+	  Had to add a new option, refvertexed_stringified.
+
+	* Address rt.cpan.org #50210:
+	  "Graph-0.91: bug in unionfind parameter"
+
+	  One cannot delete from a unionfind graph: now enforcing that.
+
+	* Address rt.cpan.org #48090:
+	  "all_reachable on directed $g->add_edges(['a','b'],['b','a'])"
+
+	  Now if there are loops, all_reachable() will include
+	  the initial vertices themselves.  Also all_neighbors()
+	  had some problems in certain cases, fixed those too.
+
+	* Address rt.cpan.org #50210:
+	  "Graph-0.91: bug in unionfind parameter"
+	  
+	  One cannot delete edges or vertices from a unionfind
+	  graph: now enforce that in code.
+
+	* Address rt.pcan.org #42549: "stron"
+
+	  Document that strongly connected components will include
+	  isolated and sink and source vertices.
+
+	* Release as 0.94.
+
+2010-03-07  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Revert the SPTHeapElem.pm change made in Graph 0.92,
+	  installing Heap 0.80 broke Graph.  Better be conservative.
+
+	* Release as 0.93.
+
+2010-03-03  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #55912 "Broken links in the documentation"
+
+	* Address rt.cpan.org #55196 "Heap 0.80 compatibility fix"
+
+	* Add copyright and clearer license statement.
+
+	* Release as 0.92.
+	
+2009-01-16  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Minor documentation cleanups.
+
+	* Add 'use strict;' to lib/Graph/TransitiveClosure.pm.
+
+	* Modernize the META.yml.
+
+	* Release as 0.91.
+
+2008-12-29  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Storable deparse of coderefs for deep_copy() does not
+	  work at all with 5.6.2: if modern enough Storable
+	  and B::Deparse are not available, fall back to
+	  the previous version which used Data::Dumper.
+
+	* Release as 0.90.
+
+2008-12-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Some PAUSE upload problem with 0.88, retrying.
+
+	* Release as 0.89.
+
+2008-12-26  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The 0.87 forgot to specify the Storable (and Safe,
+	  used in the deserialization step of deep_copy)
+	  prerequirement(s) in Makefile.PL.
+
+	* Release as 0.88.
+
+2008-12-26  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Addressed a performance problem in successors()
+	  and predecessors(), reported by Jonathan Moore.
+
+	* Reimplement deep_copy() by using Storable
+	  freeze() and thaw() instead of Data::Dumper,
+	  inspired by Jonathan Moore.  Probably now safer
+	  and faster, but Storable is now a prerequirement.
+
+	* Release as 0.87.
+
+2008-11-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Addressed a performance problem in connected_components()
+	  for 1000+ vertex graphs, reported by David Grobe.
+	  Should in general speed up graph traversal.
+
+	* Release as 0.86.
+
+2008-11-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #31608 "Graph::Undirected, unionfind and
+	  connected_component"
+
+	* Address rt.cpan.org #34377 "recursive successors and predecessors"
+	  (added all_successors/all_predecessors/all_neighbours/all_reachable)
+
+	* Address rt.cpan.org #39444 "inconsistent return value"
+	  (make add_edges and add_vertices to always return the graph)
+
+	* Address rt.cpan.org #39614 "copy should retain more attributes"
+	  (now copies also refvertexed/hypervertexed/countvertexed/
+	   multivertexed/hyperedged/countedged/multiedged/omniedged)
+
+	* Address rt.cpan.org #39805 "UnionFind: Repeated adds clobbers
+	  graph component information"
+
+	* Address rt.cpan.org #41190 "add_edge_by_id on multigraph
+	  malfunctioning"
+
+	* Added betweenness(), clustering_coefficient(), and
+	  subgraph_by_radius(), contributed by Matt Spear.
+
+	* Release as 0.85.
+
+2007-08-13  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Tels found one more attributed edge problem.
+
+	* Release as 0.84.
+
+2007-08-12  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* One test in 73_diameter.t had too many possible answers,
+	  dependent on the hash ordering, removed the test.
+
+	* Release as 0.83.
+
+2007-08-11  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Since Heap 0.80 broke Graph, as a stop-gap measure
+	  I will include the Heap::Elem and Heap::Fibonacci
+	  of Heap 0.71, renamed as 'Heap071', addresses rt.cpan.org
+	  #26943: "Heap 0.80 breaks Graph", and numerous bug reports
+	  by email
+
+	* Address rt.cpan.org #27840: "add-edge_attributes() on
+	  undirected graph wrongly depends on node order", from Tels
+
+	* Address rt.cpan.org #27959: "radius method incorrect",
+	  code and test case from ROSULEK.
+
+	* Release as 0.82.
+
+2007-01-21  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #24417: "next_successor unavailable in
+	  Traversal (PATCH)", from Ted Carnahan.
+
+	* Small pod tweaks.
+
+	* Minor internal cleanup for the caching code.
+
+	* Release as 0.81.
+
+2006-09-10  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* SP_Bellman_Ford() used actually SPT_Dijkstra(), not
+	  SPT_Bellman_Ford(), noticed by "aramos".  This changed
+	  some regression test results a bit.
+
+	* The NAME line of Graph::Undirected said "directed graphs",
+	  noticed by "Ruslan", the first one to notice this in two
+	  years, including the author yours truly...
+
+	* Add Scalar::Util to the prereqs listed in Makefile.PL since
+	  one of the tests uses refaddr, shouldn't be a problem because
+	  List::Util already is a prereq.
+
+	* Fix few broken intra-pod links.
+
+	* Release as 0.80.
+
+2006-08-06  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The u_bo_ap1.t wasn't really testing the same for 20 times,
+	  which meant that one bug was waiting for Koen van der Drift.
+	  (If one start vertex of biconnectivity search was a self-loop,
+	  an empty list of articulation points was returned.)
+
+	* Add a new API family: $g->..._clear_cache(), which allows
+	  one to forget a cached value such as biconnectivity().
+	  Without clearing the cache once the result has been computed
+	  it stays the same (until the graph is modified, of course).
+	  If the cache is cleared, (pseudo)randomness is applied again,
+	  and the algorithm results may become different.
+
+	* Release as 0.79.
+
+2006-07-16  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #20476: "SPT_Bellman_Ford does not respect
+	  refvertexed" - now fixed, and SPT_Dijkstra() had the same problem.
+
+	* Release as 0.78.
+
+2006-07-08  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Address rt.cpan.org #20185: "problem with SPT_Bellman_Ford",
+	  SPT_Bellman_Ford() was broken for undirected graphs
+	  (they were handled as directed ones, therefore missing vertices).
+
+	* weakly_connected_component_by_vertex() usage example
+	  was wrong, was using weakly_connected_component(),
+	  noted by 'yanick' in annocpan.org.
+
+	* Implement and document the saving of the SPT_Dijkstra()
+	  and SPT_Bellman_Ford() start vertices.
+
+	* Document add_edges() alternative API.
+
+	* Aerate the Changes by adding empty lines between the * items.
+
+	* Release as 0.77.
+
+2006-06-28  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Problem found by Xiaoli Zheng in diameter(): adding vertices
+	  did not change diameter, this was due to a deeper bug where
+	  the transitive closure matrix was being cached wrong:
+	  sometimes saved too long, sometimes recomputed too often.
+	  Enhanced 73_diameter.t to detect this.
+
+	* Problem found by Andree Toonk and Ronald van der Pol:
+	  SP_Dijkstra() tried too hard to find a path between
+	  vertices even if there was none - and returned rubbish.
+	  Added t/u_at3.t to detect this.
+
+	* Address rt.cpan.org #20021: "bridges() sometimes returns
+	  empty list when isolated vertices present".  biconnectivity()
+	  did not work right if isolated vertices were picked as roots,
+	  it either hung or returned empty.  Added t/u_bill.t to detect this.
+
+	* Document that add_vertex() is often unnecessary.
+
+	* Directed.pm and Undirected.pm were missing "use strict".
+
+	* Release as 0.76.
+
+2006-06-09  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Had accidentally removed Digest::MD5 from the Makefile.PL
+	  prereq list, found by Anton Berezin (using Perl 5.6.2, which
+	  doesn't include that), solved by removing the dependency
+	  to Digest::MD5.
+
+	* Speeded up repeated longest/shortest paths computations
+	  by using a cached (Floyd-Warshall) transitive closure.
+
+	* Implemented:
+	  - graph radius
+	  - graph center (vertices)
+	  - vertex eccentricity
+
+	* Release as 0.75.
+
+2006-05-31  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Bug in SP_Dijkstra() found by Andree Toonk and Ronald van der Pol.
+	  The edge weights of the Dijkstra shortest paths graph were
+	  not cumulative (if the whole graph is a-b = 1 and b-c = 2,
+	  a-c should be 3), which caused the SP_Dijsktra() results
+	  sometimes to be nonsense.  Two test cases, one of them rather
+	  large (about 5000 edges).
+
+	* Bugs when using references as vertices in bridges()
+	  and (Traversal) seen() found by Brian Osborne.
+
+	* Added another articulation_points() test by Brian Obsorne.
+
+	* Explicitly disallow adding undef as a vertex.
+
+	* Release as 0.74.
+
+2006-05-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Still one bug hiding in articulation points: if the
+	  (randomly chosen) first vertex was a self-loop, an
+	  empty list was returned for articulation points.
+	  t/u_bo_ap.t now tests the test case from Brian
+	  Osborne 20 times to stress test more cases,
+	  and extra five tests testing self-loops and
+	  articulation points.
+
+	* Release as 0.73.
+
+2006-05-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Brian Osborne found a graph where articulation_points()
+	  ended up in an infinite loop.	 Resolved and the graph
+	  test case added as t/u_bo_ap.t.
+
+	* Release as 0.72.
+
+2006-05-22  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Tweak the pod-coverage.t so that it looks more like
+	  Test::Pod::Coverage documentation suggests in this case.
+
+	* Fix the u_bo.t not to have a test class with a broken
+	  stringification method to avoid spurious warnings and
+	  failure (also do away with the use of Math::Complex to
+	  avoid problems because of different Math::Complex releases),
+	  and more even importantly fix the "next_root" logic in
+	  connected components not to advance to the next component
+	  if there is nothing to advance to.  This seems to be prone
+	  to failure in 5.6.2, for some reason 5.8.8 works fine.
+
+	* Test under Perl 5.6.2.
+
+	* Force has_cycle() to return true/false, not the list of edges,
+	  reported by Casey Bergman.
+
+	* Release as 0.71.
+
+2006-05-21  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* delete_vertex() from a refvertexed graph left an unnecessary
+	  reference to the referenced vertex hanging around in the graph,
+	  reported by Christoph Lamprecht.
+
+	* Implement new 'super_component' option for connected_graph(),
+	  biconnected_graph(), and strongly_connected_graph(), to allow
+	  more complex ways of forming 'supercomponents' (and more
+	  customized ways of naming them).
+
+	* Address rt.cpan.org #17159: "Nodes appear to unblessed after
+	  using articulation_points() - 2" (elaboration of rt.cpan.org
+	  #17108: "Nodes appear to unblessed after using
+	  articulation_points())"
+
+	* Address rt.cpan.org #17160: "Nodes appear to unblessed after
+	  using connected_components()"
+
+	* Address rt.cpan.org #17161: "Nodes appear to unblessed after
+	  using bridges()"
+
+	* Address rt.cpan.org #17162: "Nodes appear to unblessed after
+	  using connected_graph()"
+
+	* Address rt.cpan.org #17163, "SP_Dijkstra() is complaining"
+
+	* Address rt.cpan.org #17164, "SP_Bellman_Ford() is complaining"
+
+	* Address rt.cpan.org #17165, documentation error in
+	  SP_Bellman_Ford().	
+
+	* Address rt.cpan.org #17405: "has_cycle with empty args
+	  should return FALSE"
+
+	* Address rt.cpan.org: #17592: "articulation_points doesn't
+	  find all vertices" (didn't find all the vertices of non-connected
+	  graphs, only the vertices of the first (randomly chosen) connected
+	  subgraph)
+
+	The rt.cpan.org cases 17159-17592 reported by Brian Obsorne.
+
+	* Add Test::Pod and Test::Pod::Coverage tests.
+
+	* Release as 0.70.
+
+2005-12-06  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Add SP_Dijkstra() and SP_Bellman_Ford() to find the shortest
+	  path between any two vertices, the result is returned as
+	  the list of the vertices in the path.
+
+	* In addition to the SPT per vertex result weight, also add
+	  a predecessor ('p') vertex attribute (the SP_Dijkstra() and
+	  SP_Bellman_Ford() unsurprisingly use this.)
+
+	* Cache the SPT results for better speed.
+
+	* Document that the SPT also allow a single argument
+	  as the starting (root) vertex.
+
+	* Fix a bug in SPT_Dijkstra() which would ignore an "untrue" vertex
+	  (such as '0') if it was any other vertex than the root vertex
+	  (boolean context is dangerous, when you really mean "exists").
+
+	* For "components" (strongly, biconnected, and connected) graphs
+	  store the list of the original vertices as a vertex attribute
+	  'subvertices' (so there is no need to do split(/\+/, ...) tricks),
+	  the list is stored as a array reference.
+
+	* Release as 0.69.
+
+2005-11-23  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* SPT_Dijkstra() wasn't setting the vertex attributes of
+	  the result graph, noticed by Susan Tang, only the edge
+	  attributes were being set.  SPT_Bellman_Ford() was doing neither!
+
+	* There was an actual typo in the SPT test case from Sedgewick,
+	  a weight of 0.32 was mistyped as 0.22, this luckily didn't
+	  affect the result graph but it of course affected the
+	  resulting vertex 'weight' attributes.
+
+	* Add tests to t/70_spt.t for the vertex and egde attributes
+	  of the SPT_Dijkstra() and SPT_Bellman_Ford() results.
+
+	* Minor documentation tweaks, most importantly clarify the
+	  return value of the SPT_Dijkstra() and SPT_Bellman_Ford().
+
+	* Document that Perl 5.6.0 is the minimum (because of weak references)
+	  and also make Graph.pm require that (Makefile.PL was already doing
+	  the probing using Scalar::Util qw(weaken)).
+
+	* Add an early test (02_trap.t) for catching the development-time-only
+	  setting of __DIE__ and __WARN__ handlers (as a result of this almost
+	  all the numbered tests were renumbered, so the diff is falsely
+	  gigantic).  (If the handlers were mistakenly left turned on,
+	  a lot of later tests that checked the $@ got confusing failures.)
+
+	* Release as 0.68.
+
+2005-08-03  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The 0.66 add_edge_get_id() fix was not yet quite right, Tels
+	  found another problem with it.  Now with another fix, and
+	  another test case (t/u_te_ae.t)
+
+	* Documentation fixes from John P. Linderman.
+
+	* Release as 0.67.
+
+2005-07-20  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Fix [rt.cpan.org #13193] "Documentation error in set_edge_attributes"
+	  and [rt.cpan.org #13194] "Documentation error in set_edge_attributes"
+	  (duplicate report)
+
+	* Fixes for problems listed in [rt.cpan.org #13195]
+	  "add_vertex_get_id/add_edge_get_id() return wrong result on first call"
+	  - add_edge_get_id() was returning an array reference instead
+	    of the id with the first call (the array reference was the
+	    ids of the vertices of the edge)
+	  - add_vertex_get_id() was even more broken (a multivertexed
+	    graph was using Graph::AdjacencyMap::Vertex for the vertex
+	    map, not Graph::AdjacencyMap::Heavy)
+	  - Added test t/u_te_me.t for the two above issues.
+	  - document in which order multiedge ids are returned (random)
+	  - require Data::Dumper only for deep_copy() and _dump()
+	  (not changes for two listed items, "check directly multiedged
+	   via a flag" and "remove returns for speed" because I have
+	   issues with speed hacks without actual measurements, and even
+	   if so would fear reduced maintainability)
+
+	* Fix [rt.cpan.org #13352] "Dijkstra heap logic"
+	  Dijkstra was fine, the SPTHealElem cmp() routine was wrong
+	  in having no tie breakers in case the weights compared equal.
+	  Added test t/u_re_sd.t.
+
+	* Release as 0.66.
+
+2005-05-15  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Tests added to 64_ref.t to verify that using different kinds
+	  of blessed references as vertices works okay.	 Few bugs found
+	  by these tests squashed.
+
+	* Release as 0.65.
+
+2005-05-14  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Fix for [rt.cpan.org #12509] "Errors using objects as nodes",
+	  patch from the reporter of the bug, add t/u/bb_rv.t.
+
+	* Fix for refvertexed isolated vertices not having overloaded cmp
+	  and graph string presentation failing because of that.
+
+	* The <NOTE>s needed to be B<NOTE>s.
+
+	* Release as 0.64.
+
+2005-04-16  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* After setting a vertex attribute one could not delete
+	  non-attributed vertices, reported by Joseph Hamilton.
+
+	* Inlining to speed up path_vertices() slightly.
+
+	* Release as 0.63.
+
+2005-04-10  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The documentation of add_weighted_vertices was wrong:
+	  the arguments are (v1, w1, v2, w2, ...) instead of (v1, v2, ..., w).
+
+	* Made calling interfaces with an "options hash" like new()
+	  and random_graph() more robust, now bails out earlier instead
+	  of dieing mysteriously later with an "odd number of arguments"
+
+	* Allow running under -d:DProf even when using random shuffling:
+	  workaround for List::Util::shuffle and -d:DProf not working
+	  together ([perl #32383]) by falling back to Fisher-Yates shuffle
+	  if (any use of) the -d: is detected.
+
+	* Allow calling random_graph() also as a class method:
+	  Graph::random_graph(...) (the resulting graph will be a 'Graph').
+
+	* in_degree() and out_degree() (and therefore vertex_degree())
+	  were one too low for self-loop vertices in undirected graphs
+	  (the self-loop edge was not counted).
+
+	* Release as 0.62.
+
+2005-03-27  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* [rt.cpan.org #12023] from Macha Nikolski:
+	  deleting an attributed vertex left the graph in a state
+	  where has_vertex() returned correctly false but vertices()
+	  still wrongly returned the freshly deleted vertex.
+
+	* A few missing "See":s added to the pod.
+
+	* Release as 0.61.
+
+2005-03-25  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Bug reported by Richard Ball: connected_component_by_index()
+	  and connected_component_by_vertex() were starting their indexing
+	  from one, not zero.
+
+	* t/27_hyperedged.t was really testing for turning on
+	  hypervertexedness (the actual functionality was being
+	  tested correctly in t/32_hyperedge.t).
+
+	* Release as 0.60.
+
+2005-03-03  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* deep_copy_graph() could not handle code references since
+	  Data::Dumper by default doesn't handle those.	 Now uses
+	  the Deparse option for 5.8.x and later.
+
+	* The removed interfaces add_graph() and delete_graph() still
+	  had their documentation hanging around.
+
+	* Release as 0.59.
+
+2005-02-19  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Document that using attributes does have a slowing down
+	  effect on other graph operations
+	  [rt.cpan.org #11498]
+	  "Performance problem: edge attributes slow source_vertices"
+	  This is unlikely to get fixed any time soon, I am afraid,
+	  this is one of those working-as-designed-and-correctly-but-
+	  unfortunately-slow things.
+
+	* Document that Graph 0.2xxx edges($v) is now edges_at($v)
+	  [rt.cpan.org #11494]
+
+	* [rt.cpan.org #11543]: self-edges reported twice by edges_at().
+
+	* Declare/document that any attributes beginning with an underscore
+	  are reserved for the internal use of Graph.
+
+	* Various inlining optimizations: should run 5-10% faster
+	  than the 0.57.
+
+	* Release as 0.58.
+
+2005-02-12  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Further 10% speedup on 'make test' on top of 0.56 by inlining
+	  various code paths related to finding edges, now 'make test'
+	  is cumulatively about 15% faster than the 0.55 release.
+	  The test case of [rt.cpan.org #11465] is about 10 times faster.
+
+	* Release as 0.57.
+
+2005-02-12  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Rewrite edges finding code (like edges_at()) to avoid a
+	  quadratic algorithm.	Shame on me.  Luckily this extremely
+	  slow path was not touched that often, but [rt.cpan.org #11465]
+	  shows one known bad case, source_vertices() for compat02
+	  graphs.  The removal of the slow path sped up 'make test'
+	  by about 5-10%.
+
+	* Remove a voodoo keys() from vertices_at().
+
+	* Document stubs for Graph::Directed and Graph::Undirected.
+	
+	* Tiny documentation tweaks.
+
+	* Release as 0.56.
+
+2005-01-22  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Add unset_row(), get_row(), set_row(), and unset_row(), methods
+	  to Graph::BitMatrix and make it public (remove the "internal use
+	  only" warning from it).  Add t/82_bitmatrix.t.
+
+	* Add vertex_degree() as an alias for degree().
+
+	* One more alternative solution for spt.t from Koen.
+
+	* I seem to have this drive to misspell people's names.
+	  Sorry, Koen.
+
+	* Release as 0.55.
+
+2005-01-16  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* More bugs found in set_vertex_attribute(), fixed and tests
+	  added.  (Basically the same failure pattern as with the
+	  [rt.cpan.org #9461]: after setting vertex attributes many of
+	  the 'structural' methods such as predecessors() often returned
+	  wrong results.)
+
+	* More alternative solutions to spt.t, diameter.t, and dump.t,
+	  found by the PRNG of Koen van der Drift in Mac OS X 10.3.7,
+	  Perl 5.8.1.
+
+	* Release as 0.54.
+
+2005-01-14  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The #9461 was still there.
+	  But now we have a simple test case from Sebastian Nagel.
+	  The real culprit seemed to be a misapplied optimisation.
+
+	* Release as 0.53.
+
+2005-01-12  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Fix set_graph_attribute() documentation not to talk about $u, $v
+	  (noticed by Kurt Jaeger).
+
+	* A mysterious failure fixed by a mysterious fix: under some
+	  circumstances it seems that an each() doesn't walk through
+	  all the key-value pairs, the workaround is to reset the
+	  each() iterator by a keys() call.  Not simple test code,
+	  sadly, since the existing test code (see the case) is 13 kB
+	  and non-trivial.
+	  [rt.cpan.org #9461]
+
+	* Add a safety guard against a missing Scalar::Util::weaken
+	  [rt.cpan.org #9481]
+
+	* Release as 0.52.
+
+2005-01-09  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Allow calling Makefile.PL with arguments other than --renum
+	  (which is for internal use only, and therefore undocumented).
+	  [rt.cpan.org #9481]
+
+	* Remove the add_graph() and delete_graph() interfaces, sorry
+	  if you were already using them, but the current interface was
+	  very poor and the concept ill-planned.  If you want to merge or
+	  remove edges and vertices between your graph, you can probably
+	  yourself implement the exactly right things to do.
+	  [rt.cpan.org #9493]
+
+	* Document that one cannot assume Graphs are blessed hash references
+	  (and the likely error message one will get if one so assumes).
+	  [rt.cpan.org #9505]
+
+	* Fix Andras' last name (sorry).
+
+	* Merge duplicate documentation of find_a_cycle(). 
+
+	* Graph::AdjacencyMap::Base does not exist, fix Graph/AdjacencyMap.pm
+	  pod to comply.
+
+	* Release as 0.51.
+
+2005-01-01  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* The 0.50.
+
+2004-10-30  Jarkko Hietaniemi  <jhi@iki.fi>
+
+	* Start wrapping up for the 0.50 release.
+
+	* Start bothering beta testers.

@@ -1,5 +1,3 @@
-#define PWBUFSZ 256 /***SWB***/
-
 /* MODULE: auth_shadow */
 
 /* COPYRIGHT
@@ -30,7 +28,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_shadow.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
+#ident "$Id: auth_shadow.c,v 1.12 2009/08/14 14:58:38 mel Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -38,13 +36,21 @@
 
 #ifdef AUTH_SHADOW
 
+#define PWBUFSZ 256 /***SWB***/
+
 # include <unistd.h>
 # include <stdlib.h>
 # include <string.h>
 # include <sys/types.h>
 # include <time.h>
 # include <pwd.h>
+# include <errno.h>
 # include <syslog.h>
+
+#ifdef HAVE_CRYPT_H
+#include <crypt.h>
+#endif
+
 # ifndef HAVE_GETSPNAM
 
 # ifdef WITH_DES
@@ -55,7 +61,8 @@
 #  endif /* WITH_SSL_DES */
 # endif /* WITH_DES */
 
-#endif /* ! HAVE_GETSPNAM */
+# endif /* ! HAVE_GETSPNAM */
+
 # ifdef HAVE_GETUSERPW
 #  include <userpw.h>
 #  include <usersec.h>
@@ -104,6 +111,7 @@ auth_shadow (
     char *cpw;				/* pointer to crypt() result */
     struct passwd	*pw;		/* return from getpwnam_r() */
     struct spwd   	*sp;		/* return from getspnam_r() */
+    int errnum;
 #  ifdef _REENTRANT
     struct passwd pwbuf;
     char pwdata[PWBUFSZ];		/* pwbuf indirect data goes in here */
@@ -116,11 +124,10 @@ auth_shadow (
 #  define RETURN(x) return strdup(x)
 
     /*
-     * "Magic" password field entries for SunOS.
+     * "Magic" password field entries for SunOS/SysV
      *
-     * *LK* is hinted at in the shadow(4) man page, but the
-     * only definition for it (that I could find) is in the passmgmt(1M)
-     * man page.
+     * "*LK*" is defined at in the shadow(4) man page, but of course any string
+     * inserted in front of the password will prevent the strings from matching
      *
      * *NP* is documented in getspnam(3) and indicates the caller had
      * insufficient permission to read the shadow password database
@@ -131,32 +138,69 @@ auth_shadow (
 #  define SHADOW_PW_EPERM  "*NP*"	/* insufficient database perms */
 
 #  ifdef _REENTRANT
+#    ifdef GETXXNAM_R_5ARG
+	(void) getpwnam_r(login, &pwbuf, pwdata, sizeof(pwdata), &pw);
+#    else
     pw = getpwnam_r(login, &pwbuf, pwdata, sizeof(pwdata));
+#    endif /* GETXXNAM_R_5ARG */
 #  else
     pw = getpwnam(login);
 #  endif /* _REENTRANT */
+    errnum = errno;
     endpwent();
+
     if (pw == NULL) {
-	if (flags & VERBOSE) {
-	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: getpwnam(%s) returned NULL", login);
+	if (errnum != 0) {
+	    char *errstr;
+
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_shadow: getpwnam(%s) failure: %m", login);
+	    }
+	    if (asprintf(&errstr, "NO Username lookup failure: %s", strerror(errno)) == -1) {
+		/* XXX the hidden strdup() will likely fail and return NULL here.... */
+		RETURN("NO Username lookup failure: unknown error (ENOMEM formatting strerror())");
+	    }
+	    return errstr;
+	} else {
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_shadow: getpwnam(%s): invalid username", login);
+	    }
+	    RETURN("NO Invalid username");
 	}
-	RETURN("NO");
     }
 
     today = (long)time(NULL)/(24L*60*60);
 
 #  ifdef _REENTRANT
+#    ifdef GETXXNAM_R_5ARG
+	(void) getspnam_r(login, &spbuf, spdata, sizeof(spdata), &sp);
+#    else
     sp = getspnam_r(login, &spbuf, spdata, sizeof(spdata));
+#    endif /* GETXXNAM_R_5ARG */
 #  else
     sp = getspnam(login);
 #  endif /* _REENTRANT */
+    errnum = errno;
     endspent();
 
     if (sp == NULL) {
-	if (flags & VERBOSE) {
-	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: getspnam(%s) returned NULL", login);
+	if (errnum != 0) {
+	    char *errstr;
+
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_shadow: getspnam(%s) failure: %m", login);
+	    }
+	    if (asprintf(&errstr, "NO Username shadow lookup failure: %s", strerror(errno)) == -1) {
+		/* XXX the hidden strdup() will likely fail and return NULL here.... */
+		RETURN("NO Username shadow lookup failure: unknown error (ENOMEM formatting strerror())");
+	    }
+	    return errstr;
+	} else {
+	    if (flags & VERBOSE) {
+		syslog(LOG_DEBUG, "DEBUG: auth_shadow: getspnam(%s): invalid shadow username", login);
+	    }
+	    RETURN("NO Invalid shadow username");
 	}
-	RETURN("NO");
     }
 
     if (!strcmp(sp->sp_pwdp, SHADOW_PW_EPERM)) {
@@ -166,20 +210,19 @@ auth_shadow (
 	RETURN("NO Insufficient permission to access NIS authentication database (saslauthd)");
     }
 
-    /*
-     * Note: no check for SHADOW_PW_LOCKED. Returning a "locked" notification
-     * would allow login-id namespace probes, and violates our policy of
-     * not returning any information about a login until we have validated
-     * the password.
-     */
     cpw = strdup((const char *)crypt(password, sp->sp_pwdp));
     if (strcmp(sp->sp_pwdp, cpw)) {
 	if (flags & VERBOSE) {
+	    /*
+	     * This _should_ reveal the SHADOW_PW_LOCKED prefix to an
+	     * administrator trying to debug the situation, though maybe we
+	     * should do the check here and be less obtuse about it....
+	     */
 	    syslog(LOG_DEBUG, "DEBUG: auth_shadow: pw mismatch: '%s' != '%s'",
 		   sp->sp_pwdp, cpw);
 	}
 	free(cpw);
-	RETURN("NO");
+	RETURN("NO Incorrect password");
     }
     free(cpw);
 
@@ -237,10 +280,10 @@ auth_shadow (
   
     if (upw == 0) {
 	if (flags & VERBOSE) {
-	    syslog(LOG_DEBUG, "auth_shadow: getuserpw(%s) == 0",
+	    syslog(LOG_DEBUG, "auth_shadow: getuserpw(%s) failed: %m",
 		   login);
 	}
-	RETURN("NO");
+	RETURN("NO Invalid username");
     }
   
     if (strcmp(upw->upw_passwd, crypt(password, upw->upw_passwd)) != 0) {
@@ -248,7 +291,7 @@ auth_shadow (
 	    syslog(LOG_DEBUG, "auth_shadow: pw mismatch: %s != %s",
 		   password, upw->upw_passwd);
 	}
-	RETURN("NO");
+	RETURN("NO Incorrect password");
     }
 
     RETURN("OK");

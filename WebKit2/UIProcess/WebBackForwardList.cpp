@@ -26,19 +26,33 @@
 #include "config.h"
 #include "WebBackForwardList.h"
 
+#include "APIArray.h"
+#include "SessionState.h"
 #include "WebPageProxy.h"
 
 namespace WebKit {
 
+// FIXME: Make this static once WebBackForwardListCF.cpp is no longer using it.
+uint64_t generateWebBackForwardItemID();
+
+uint64_t generateWebBackForwardItemID()
+{
+    // These IDs exist in the UIProcess for items created by the UIProcess.
+    // The IDs generated here need to never collide with the IDs created in WebBackForwardListProxy in the WebProcess.
+    // We accomplish this by starting from 2, and only ever using even ids.
+    static uint64_t uniqueHistoryItemID = 0;
+    uniqueHistoryItemID += 2;
+    return uniqueHistoryItemID;
+}
+
 static const unsigned DefaultCapacity = 100;
 
-WebBackForwardList::WebBackForwardList(WebPageProxy* page)
-    : m_page(page)
+WebBackForwardList::WebBackForwardList(WebPageProxy& page)
+    : m_page(&page)
     , m_hasCurrentIndex(false)
     , m_currentIndex(0)
     , m_capacity(DefaultCapacity)
 {
-    ASSERT(m_page);
 }
 
 WebBackForwardList::~WebBackForwardList()
@@ -74,7 +88,7 @@ void WebBackForwardList::addItem(WebBackForwardListItem* newItem)
     if (!m_capacity || !newItem || !m_page)
         return;
 
-    Vector<RefPtr<APIObject>> removedItems;
+    Vector<RefPtr<WebBackForwardListItem>> removedItems;
     
     if (m_hasCurrentIndex) {
         // Toss everything in the forward list.
@@ -113,21 +127,36 @@ void WebBackForwardList::addItem(WebBackForwardListItem* newItem)
         }
         m_entries.clear();
     }
-    
+
+    bool shouldKeepCurrentItem = true;
+
     if (!m_hasCurrentIndex) {
         ASSERT(m_entries.isEmpty());
         m_currentIndex = 0;
         m_hasCurrentIndex = true;
-    } else
-        m_currentIndex++;
+    } else {
+        shouldKeepCurrentItem = m_page->shouldKeepCurrentBackForwardListItemInList(m_entries[m_currentIndex].get());
+        if (shouldKeepCurrentItem)
+            m_currentIndex++;
+    }
 
-    // m_current never be pointing more than 1 past the end of the entries Vector.
-    // If it is, something has gone wrong and we should not try to insert the new item.
-    ASSERT(m_currentIndex <= m_entries.size());
-    if (m_currentIndex <= m_entries.size())
-        m_entries.insert(m_currentIndex, newItem);
+    if (!shouldKeepCurrentItem) {
+        // m_current should never be pointing past the end of the entries Vector.
+        // If it is, something has gone wrong and we should not try to swap in the new item.
+        ASSERT(m_currentIndex < m_entries.size());
 
-    m_page->didChangeBackForwardList(newItem, &removedItems);
+        removedItems.append(m_entries[m_currentIndex]);
+        m_entries[m_currentIndex] = newItem;
+    } else {
+        // m_current should never be pointing more than 1 past the end of the entries Vector.
+        // If it is, something has gone wrong and we should not try to insert the new item.
+        ASSERT(m_currentIndex <= m_entries.size());
+
+        if (m_currentIndex <= m_entries.size())
+            m_entries.insert(m_currentIndex, newItem);
+    }
+
+    m_page->didChangeBackForwardList(newItem, WTF::move(removedItems));
 }
 
 void WebBackForwardList::goToItem(WebBackForwardListItem* item)
@@ -136,52 +165,68 @@ void WebBackForwardList::goToItem(WebBackForwardListItem* item)
 
     if (!m_entries.size() || !item || !m_page || !m_hasCurrentIndex)
         return;
-        
-    unsigned index = 0;
-    for (; index < m_entries.size(); ++index) {
-        if (m_entries[index] == item)
-            break;
+
+    size_t targetIndex = m_entries.find(item);
+
+    // If the target item wasn't even in the list, there's nothing else to do.
+    if (targetIndex == notFound)
+        return;
+
+    // If we're going to an item different from the current item, ask the client if the current
+    // item should remain in the list.
+    WebBackForwardListItem* currentItem = m_entries[m_currentIndex].get();
+    bool shouldKeepCurrentItem = true;
+    if (currentItem != item)
+        shouldKeepCurrentItem = m_page->shouldKeepCurrentBackForwardListItemInList(m_entries[m_currentIndex].get());
+
+    // If the client said to remove the current item, remove it and then update the target index.
+    Vector<RefPtr<WebBackForwardListItem>> removedItems;
+    if (!shouldKeepCurrentItem) {
+        removedItems.append(currentItem);
+        m_entries.remove(m_currentIndex);
+        targetIndex = m_entries.find(item);
+
+        ASSERT(targetIndex != notFound);
     }
-    if (index < m_entries.size()) {
-        m_currentIndex = index;
-        m_page->didChangeBackForwardList(0, 0);
-    }
+
+    m_currentIndex = targetIndex;
+    m_page->didChangeBackForwardList(nullptr, removedItems);
 }
 
-WebBackForwardListItem* WebBackForwardList::currentItem()
+WebBackForwardListItem* WebBackForwardList::currentItem() const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
-    return m_page && m_hasCurrentIndex ? m_entries[m_currentIndex].get() : 0;
+    return m_page && m_hasCurrentIndex ? m_entries[m_currentIndex].get() : nullptr;
 }
 
-WebBackForwardListItem* WebBackForwardList::backItem()
+WebBackForwardListItem* WebBackForwardList::backItem() const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
-    return m_page && m_hasCurrentIndex && m_currentIndex ? m_entries[m_currentIndex - 1].get() : 0;
+    return m_page && m_hasCurrentIndex && m_currentIndex ? m_entries[m_currentIndex - 1].get() : nullptr;
 }
 
-WebBackForwardListItem* WebBackForwardList::forwardItem()
+WebBackForwardListItem* WebBackForwardList::forwardItem() const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
-    return m_page && m_hasCurrentIndex && m_entries.size() && m_currentIndex < m_entries.size() - 1 ? m_entries[m_currentIndex + 1].get() : 0;
+    return m_page && m_hasCurrentIndex && m_entries.size() && m_currentIndex < m_entries.size() - 1 ? m_entries[m_currentIndex + 1].get() : nullptr;
 }
 
-WebBackForwardListItem* WebBackForwardList::itemAtIndex(int index)
+WebBackForwardListItem* WebBackForwardList::itemAtIndex(int index) const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
     if (!m_hasCurrentIndex || !m_page)
-        return 0;
+        return nullptr;
     
     // Do range checks without doing math on index to avoid overflow.
     if (index < -backListCount())
-        return 0;
+        return nullptr;
     
     if (index > forwardListCount())
-        return 0;
+        return nullptr;
         
     return m_entries[index + m_currentIndex].get();
 }
@@ -200,19 +245,29 @@ int WebBackForwardList::forwardListCount() const
     return m_page && m_hasCurrentIndex ? m_entries.size() - (m_currentIndex + 1) : 0;
 }
 
-PassRefPtr<ImmutableArray> WebBackForwardList::backListAsImmutableArrayWithLimit(unsigned limit) const
+PassRefPtr<API::Array> WebBackForwardList::backList() const
+{
+    return backListAsAPIArrayWithLimit(backListCount());
+}
+
+PassRefPtr<API::Array> WebBackForwardList::forwardList() const
+{
+    return forwardListAsAPIArrayWithLimit(forwardListCount());
+}
+
+PassRefPtr<API::Array> WebBackForwardList::backListAsAPIArrayWithLimit(unsigned limit) const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
     if (!m_page || !m_hasCurrentIndex)
-        return ImmutableArray::create();
+        return API::Array::create();
 
     unsigned backListSize = static_cast<unsigned>(backListCount());
     unsigned size = std::min(backListSize, limit);
     if (!size)
-        return ImmutableArray::create();
+        return API::Array::create();
 
-    Vector<RefPtr<APIObject>> vector;
+    Vector<RefPtr<API::Object>> vector;
     vector.reserveInitialCapacity(size);
 
     ASSERT(backListSize >= size);
@@ -221,21 +276,21 @@ PassRefPtr<ImmutableArray> WebBackForwardList::backListAsImmutableArrayWithLimit
         vector.uncheckedAppend(m_entries[i].get());
     }
 
-    return ImmutableArray::adopt(vector);
+    return API::Array::create(WTF::move(vector));
 }
 
-PassRefPtr<ImmutableArray> WebBackForwardList::forwardListAsImmutableArrayWithLimit(unsigned limit) const
+PassRefPtr<API::Array> WebBackForwardList::forwardListAsAPIArrayWithLimit(unsigned limit) const
 {
     ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
 
     if (!m_page || !m_hasCurrentIndex)
-        return ImmutableArray::create();
+        return API::Array::create();
 
     unsigned size = std::min(static_cast<unsigned>(forwardListCount()), limit);
     if (!size)
-        return ImmutableArray::create();
+        return API::Array::create();
 
-    Vector<RefPtr<APIObject>> vector;
+    Vector<RefPtr<API::Object>> vector;
     vector.reserveInitialCapacity(size);
 
     unsigned last = m_currentIndex + size;
@@ -245,7 +300,27 @@ PassRefPtr<ImmutableArray> WebBackForwardList::forwardListAsImmutableArrayWithLi
         vector.uncheckedAppend(m_entries[i].get());
     }
 
-    return ImmutableArray::adopt(vector);
+    return API::Array::create(WTF::move(vector));
+}
+
+void WebBackForwardList::removeAllItems()
+{
+    ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
+
+    Vector<RefPtr<WebBackForwardListItem>> removedItems;
+
+    for (auto& entry : m_entries) {
+        ASSERT(entry);
+        if (!entry)
+            continue;
+
+        m_page->backForwardRemovedItem(entry->itemID());
+        removedItems.append(WTF::move(entry));
+    }
+
+    m_entries.clear();
+    m_hasCurrentIndex = false;
+    m_page->didChangeBackForwardList(nullptr, WTF::move(removedItems));
 }
 
 void WebBackForwardList::clear()
@@ -257,7 +332,7 @@ void WebBackForwardList::clear()
         return;
 
     RefPtr<WebBackForwardListItem> currentItem = this->currentItem();
-    Vector<RefPtr<APIObject>> removedItems;
+    Vector<RefPtr<WebBackForwardListItem>> removedItems;
 
     if (!currentItem) {
         // We should only ever have no current item if we also have no current item index.
@@ -275,7 +350,7 @@ void WebBackForwardList::clear()
 
         m_entries.clear();
         m_hasCurrentIndex = false;
-        m_page->didChangeBackForwardList(0, &removedItems);
+        m_page->didChangeBackForwardList(nullptr, WTF::move(removedItems));
 
         return;
     }
@@ -302,7 +377,56 @@ void WebBackForwardList::clear()
         m_hasCurrentIndex = false;
     }
 
-    m_page->didChangeBackForwardList(0, &removedItems);
+    m_page->didChangeBackForwardList(nullptr, WTF::move(removedItems));
+}
+
+BackForwardListState WebBackForwardList::backForwardListState(const std::function<bool (WebBackForwardListItem&)>& filter) const
+{
+    ASSERT(!m_hasCurrentIndex || m_currentIndex < m_entries.size());
+
+    BackForwardListState backForwardListState;
+    if (m_hasCurrentIndex)
+        backForwardListState.currentIndex = m_currentIndex;
+
+    for (size_t i = 0; i < m_entries.size(); ++i) {
+        auto& entry = *m_entries[i];
+
+        if (filter && !filter(entry)) {
+            if (backForwardListState.currentIndex && i <= backForwardListState.currentIndex.value())
+                --backForwardListState.currentIndex.value();
+
+            continue;
+        }
+
+        backForwardListState.items.append(entry.itemState());
+    }
+
+    return backForwardListState;
+}
+
+void WebBackForwardList::restoreFromState(BackForwardListState backForwardListState)
+{
+    Vector<RefPtr<WebBackForwardListItem>> items;
+    items.reserveInitialCapacity(backForwardListState.items.size());
+
+    for (auto& backForwardListItemState : backForwardListState.items) {
+        backForwardListItemState.identifier = generateWebBackForwardItemID();
+        items.uncheckedAppend(WebBackForwardListItem::create(WTF::move(backForwardListItemState), m_page->pageID()));
+    }
+    m_hasCurrentIndex = !!backForwardListState.currentIndex;
+    m_currentIndex = backForwardListState.currentIndex.valueOr(0);
+    m_entries = WTF::move(items);
+}
+
+Vector<BackForwardListItemState> WebBackForwardList::itemStates() const
+{
+    Vector<BackForwardListItemState> itemStates;
+    itemStates.reserveInitialCapacity(m_entries.size());
+
+    for (const auto& entry : m_entries)
+        itemStates.uncheckedAppend(entry->itemState());
+
+    return itemStates;
 }
 
 } // namespace WebKit

@@ -24,9 +24,6 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include <wtf/MathExtras.h>
-#include <wtf/text/WTFString.h>
-
-using namespace std;
 
 namespace WebCore {
 
@@ -68,13 +65,13 @@ StepRange::StepRange(const Decimal& stepBase, const Decimal& minimum, const Deci
 Decimal StepRange::acceptableError() const
 {
     // FIXME: We should use DBL_MANT_DIG instead of FLT_MANT_DIG regarding to HTML5 specification.
-    DEFINE_STATIC_LOCAL(const Decimal, twoPowerOfFloatMantissaBits, (Decimal::Positive, 0, UINT64_C(1) << FLT_MANT_DIG));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const Decimal, twoPowerOfFloatMantissaBits, (Decimal::Positive, 0, UINT64_C(1) << FLT_MANT_DIG));
     return m_stepDescription.stepValueShouldBe == StepValueShouldBeReal ? m_step / twoPowerOfFloatMantissaBits : Decimal(0);
 }
 
 Decimal StepRange::alignValueForStep(const Decimal& currentValue, const Decimal& newValue) const
 {
-    DEFINE_STATIC_LOCAL(const Decimal, tenPowerOf21, (Decimal::Positive, 21, 1));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const Decimal, tenPowerOf21, (Decimal::Positive, 21, 1));
     if (newValue >= tenPowerOf21)
         return newValue;
 
@@ -83,7 +80,7 @@ Decimal StepRange::alignValueForStep(const Decimal& currentValue, const Decimal&
 
 Decimal StepRange::clampValue(const Decimal& value) const
 {
-    const Decimal inRangeValue = max(m_minimum, min(value, m_maximum));
+    const Decimal inRangeValue = std::max(m_minimum, std::min(value, m_maximum));
     if (!m_hasStep)
         return inRangeValue;
     // Rounds inRangeValue to minimum + N * step.
@@ -120,13 +117,13 @@ Decimal StepRange::parseStep(AnyStepHandling anyStepHandling, const StepDescript
         break;
     case ParsedStepValueShouldBeInteger:
         // For date, month, and week, the parsed value should be an integer for some types.
-        step = max(step.round(), Decimal(1));
+        step = std::max(step.round(), Decimal(1));
         step *= stepDescription.stepScaleFactor;
         break;
     case ScaledStepValueShouldBeInteger:
         // For datetime, datetime-local, time, the result should be an integer.
         step *= stepDescription.stepScaleFactor;
-        step = max(step.round(), Decimal(1));
+        step = std::max(step.round(), Decimal(1));
         break;
     default:
         ASSERT_NOT_REACHED();
@@ -153,7 +150,7 @@ bool StepRange::stepMismatch(const Decimal& valueForCheck) const
     // Decimal's fractional part size is DBL_MAN_DIG-bit. If the current value
     // is greater than step*2^DBL_MANT_DIG, the following computation for
     // remainder makes no sense.
-    DEFINE_STATIC_LOCAL(const Decimal, twoPowerOfDoubleMantissaBits, (Decimal::Positive, 0, UINT64_C(1) << DBL_MANT_DIG));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const Decimal, twoPowerOfDoubleMantissaBits, (Decimal::Positive, 0, UINT64_C(1) << DBL_MANT_DIG));
     if (value / twoPowerOfDoubleMantissaBits > m_step)
         return false;
     // The computation follows HTML5 4.10.7.2.10 `The step attribute' :

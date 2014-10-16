@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)cmdtab.c	8.1 (Berkeley) 6/6/93";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.bin/mail/cmdtab.c,v 1.6 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */

@@ -83,10 +83,7 @@
 #define MSG_OFF_KEY_MSG 69
 #define MSG_OFF_KEY_FLAGS 77
 
-extern time_t asl_parse_time(const char *str);
-extern int asl_msg_cmp(aslmsg a, aslmsg b);
-
-#define asl_msg_list_t asl_search_result_t
+extern int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 
 #define Q_NULL 100001
 #define Q_FAST 100002
@@ -231,12 +228,12 @@ slotlist_find(asl_legacy1_t *s, uint64_t xid, int32_t direction)
 	if (xid == s->slotlist[top].xid) return top;
 	if (xid == s->slotlist[bot].xid) return bot;
 
-	if (direction == 0) return ASL_INDEX_NULL;
+	if (direction >= 0) return ASL_INDEX_NULL;
 	if (direction < 0) return bot;
 	return top;
 }
 
-static uint32_t
+static ASL_STATUS
 slotlist_init(asl_legacy1_t *s, uint32_t count)
 {
 	uint32_t i, si, status, hash, addslot;
@@ -299,7 +296,7 @@ slotlist_init(asl_legacy1_t *s, uint32_t count)
 	return ASL_STATUS_OK;
 }
 
-uint32_t
+ASL_STATUS
 asl_legacy1_open(const char *path, asl_legacy1_t **out)
 {
 	asl_legacy1_t *s;
@@ -351,7 +348,7 @@ asl_legacy1_open(const char *path, asl_legacy1_t **out)
 	return ASL_STATUS_OK;
 }
 
-uint32_t
+ASL_STATUS
 asl_legacy1_close(asl_legacy1_t *s)
 {
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
@@ -363,7 +360,7 @@ asl_legacy1_close(asl_legacy1_t *s)
 	return ASL_STATUS_OK;
 }
 
-static uint32_t
+static ASL_STATUS
 string_fetch_slot(asl_legacy1_t *s, uint32_t slot, char **out)
 {
 	off_t offset;
@@ -444,7 +441,7 @@ string_fetch_slot(asl_legacy1_t *s, uint32_t slot, char **out)
 	return ASL_STATUS_OK;
 }
 
-static uint32_t
+static ASL_STATUS
 string_fetch_sid(asl_legacy1_t *s, uint64_t sid, char **out)
 {
 	uint32_t i, len, ref;
@@ -483,7 +480,7 @@ string_fetch_sid(asl_legacy1_t *s, uint64_t sid, char **out)
 }
 
 static uint32_t
-asl_legacy1_fetch_helper_32(asl_legacy1_t *s, char **p, aslmsg m, const char *key, int ignore, uint32_t ignoreval)
+asl_legacy1_fetch_helper_32(asl_legacy1_t *s, char **p, asl_msg_t *m, const char *key, int ignore, uint32_t ignoreval)
 {
 	uint32_t out, doit;
 	char str[256];
@@ -498,14 +495,14 @@ asl_legacy1_fetch_helper_32(asl_legacy1_t *s, char **p, aslmsg m, const char *ke
 	if (doit != 0)
 	{
 		snprintf(str, sizeof(str), "%u", out);
-		asl_set(m, key, str);
+		asl_msg_set_key_val(m, key, str);
 	}
 
 	return out;
 }
 
 static uint64_t
-asl_legacy1_fetch_helper_64(asl_legacy1_t *s, char **p, aslmsg m, const char *key)
+asl_legacy1_fetch_helper_64(asl_legacy1_t *s, char **p, asl_msg_t *m, const char *key)
 {
 	uint64_t out;
 	char str[256];
@@ -516,13 +513,13 @@ asl_legacy1_fetch_helper_64(asl_legacy1_t *s, char **p, aslmsg m, const char *ke
 	if ((m == NULL) || (key == NULL)) return out;
 
 	snprintf(str, sizeof(str), "%llu", out);
-	asl_set(m, key, str);
+	asl_msg_set_key_val(m, key, str);
 
 	return out;
 }
 
 static uint64_t
-asl_legacy1_fetch_helper_str(asl_legacy1_t *s, char **p, aslmsg m, const char *key, uint32_t *err)
+asl_legacy1_fetch_helper_str(asl_legacy1_t *s, char **p, asl_msg_t *m, const char *key, uint32_t *err)
 {
 	uint64_t out;
 	char *val;
@@ -538,22 +535,22 @@ asl_legacy1_fetch_helper_str(asl_legacy1_t *s, char **p, aslmsg m, const char *k
 	if (err != NULL) *err = status;
 	if ((status == ASL_STATUS_OK) && (val != NULL))
 	{
-		asl_set(m, key, val);
+		asl_msg_set_key_val(m, key, val);
 		free(val);
 	}
 
 	return out;
 }
 
-static uint32_t
-msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
+static ASL_STATUS
+msg_fetch(asl_legacy1_t *s, uint32_t slot, asl_msg_t **out)
 {
 	off_t offset;
 	uint32_t status, i, n, kvcount, next;
 	uint16_t flags;
 	uint64_t sid;
 	size_t rcount;
-	aslmsg msg;
+	asl_msg_t *msg;
 	int fstatus;
 	char *p, tmp[DB_RECORD_LEN], *key, *val;
 
@@ -572,7 +569,7 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 
 	flags = _asl_get_16(tmp + MSG_OFF_KEY_FLAGS);
 
-	msg = asl_new(ASL_TYPE_MSG);
+	msg = asl_msg_new(ASL_TYPE_MSG);
 	if (msg == NULL) return ASL_STATUS_NO_MEMORY;
 
 	p = tmp + 5;
@@ -601,14 +598,14 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 		fstatus = fseek(s->db, offset, SEEK_SET);
 		if (fstatus < 0)
 		{
-			free(out);
+			asl_msg_release(msg);
 			return ASL_STATUS_READ_FAILED;
 		}
 
 		rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
 		if (rcount != 1)
 		{
-			free(out);
+			asl_msg_release(msg);
 			return ASL_STATUS_READ_FAILED;
 		}
 
@@ -628,7 +625,7 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 			p += 8;
 			if (status == ASL_STATUS_OK) status = string_fetch_sid(s, sid, &val);
 
-			if ((status == ASL_STATUS_OK) && (key != NULL)) asl_set(msg, key, val);
+			if ((status == ASL_STATUS_OK) && (key != NULL)) asl_msg_set_key_val(msg, key, val);
 			if (key != NULL) free(key);
 			if (val != NULL) free(val);
 
@@ -643,7 +640,7 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 }
 
 uint32_t
-asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, aslmsg *out)
+asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, asl_msg_t **out)
 {
 	uint32_t i, status;
 
@@ -690,18 +687,6 @@ next_search_slot(asl_legacy1_t *s, uint32_t last_si, int32_t direction)
 	return ASL_INDEX_NULL;
 }
 
-static void
-match_worker_cleanup(asl_msg_list_t **res)
-{
-	uint32_t i;
-
-	if (res != NULL)
-	{
-		for (i = 0; i < (*res)->count; i++) asl_free((aslmsg)(*res)->msg[i]);
-		free(*res);
-	}
-}
-
 /*
  * Input to asl_legacy1_match is a list of queries.
  * A record in the store matches if it matches any query (i.e. query list is "OR"ed)
@@ -725,12 +710,12 @@ match_worker_cleanup(asl_msg_list_t **res)
  *
  * return results.
  */
-static uint32_t
+static ASL_STATUS
 match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t **idlist, uint32_t *idcount, uint64_t start_id, int32_t count, int32_t direction)
 {
 	uint32_t mx, si, slot, i, qcount, match, didmatch, status;
 	uint64_t xid;
-	aslmsg msg;
+	asl_msg_t *msg;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if ((res == NULL) && (idlist == NULL)) return ASL_STATUS_INVALID_ARG;
@@ -767,7 +752,7 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 	 */
 	if (res != NULL)
 	{
-		*res = (asl_msg_list_t *)calloc(1, sizeof(asl_msg_list_t));
+		*res = asl_msg_list_new();
 		if (*res == NULL) return ASL_STATUS_NO_MEMORY;
 	}
 
@@ -798,27 +783,13 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 		{
 			for (i = 0; i < qcount; i++)
 			{
-				didmatch = asl_msg_cmp((aslmsg)(query->msg[i]), msg);
+				didmatch = asl_msg_cmp(query->msg[i], msg);
 				if (didmatch == 1) break;
 			}
 		}
 
-		if (didmatch == 1)
-		{
-			if ((*res)->count == 0) (*res)->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
-			else (*res)->msg = (asl_msg_t **)reallocf((*res)->msg, (1 + (*res)->count) * sizeof(asl_msg_t *));
-			if ((*res)->msg == NULL)
-			{
-				match_worker_cleanup(res);
-				return ASL_STATUS_NO_MEMORY;
-			}
-
-			(*res)->msg[(*res)->count++] = (asl_msg_t *)msg;
-		}
-		else
-		{
-			asl_free(msg);
-		}
+		if (didmatch == 1) asl_msg_list_append(*res, msg);
+		asl_msg_release(msg);
 
 		si = next_search_slot(s, si, direction);
 	}
@@ -826,7 +797,7 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 	return status;
 }
 
-uint32_t
+ASL_STATUS
 asl_legacy1_match(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction)
 {
 	uint32_t idcount;

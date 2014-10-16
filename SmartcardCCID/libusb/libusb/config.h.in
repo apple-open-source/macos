@@ -1,42 +1,28 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
-#undef LINUX_API
-#undef BSD_API
-#undef DARWIN_API
+/* Default visibility */
+#undef DEFAULT_VISIBILITY
 
-#undef HAVE_OLD_DEV_USB_USB_H
+/* Debug message logging */
+#undef ENABLE_DEBUG_LOGGING
 
-#undef HAVE_LIMITS_H
-#undef HAVE_UNISTD_H
-#undef HAVE_VALUES_H
-
-#undef LIBUSB_MAJOR_VERSION
-#undef LIBUSB_MINOR_VERSION
-#undef LIBUSB_MICRO_VERSION
-#undef LIBUSB_INTERFACE_AGE
-#undef LIBUSB_BINARY_AGE
-
-
-/* Define if building universal (internal helper macro) */
-#undef AC_APPLE_UNIVERSAL_BUILD
+/* Message logging */
+#undef ENABLE_LOGGING
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
-/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
-#undef HAVE_DOPRNT
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the <limits.h> header file. */
-#undef HAVE_LIMITS_H
-
-/* Define to 1 if you have the `memmove' function. */
-#undef HAVE_MEMMOVE
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <poll.h> header file. */
+#undef HAVE_POLL_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -50,8 +36,14 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
+/* Define to 1 if the system has the type `struct timespec'. */
+#undef HAVE_STRUCT_TIMESPEC
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
@@ -59,18 +51,24 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define to 1 if you have the <values.h> header file. */
-#undef HAVE_VALUES_H
-
-/* Define to 1 if you have the `vprintf' function. */
-#undef HAVE_VPRINTF
-
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
 
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 #undef NO_MINUS_C_MINUS_O
+
+/* Darwin backend */
+#undef OS_DARWIN
+
+/* Linux backend */
+#undef OS_LINUX
+
+/* OpenBSD backend */
+#undef OS_OPENBSD
+
+/* Windows backend */
+#undef OS_WINDOWS
 
 /* Name of package */
 #undef PACKAGE
@@ -93,23 +91,26 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* type of second poll() argument */
+#undef POLL_NFDS_TYPE
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Use POSIX Threads */
+#undef THREADS_POSIX
+
+/* timerfd headers available */
+#undef USBI_TIMERFD_AVAILABLE
 
 /* Version number of package */
 #undef VERSION
 
-/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
-   significant byte first (like Motorola and SPARC, unlike Intel). */
-#if defined AC_APPLE_UNIVERSAL_BUILD
-# if defined __BIG_ENDIAN__
-#  define WORDS_BIGENDIAN 1
-# endif
-#else
-# ifndef WORDS_BIGENDIAN
-#  undef WORDS_BIGENDIAN
-# endif
-#endif
+/* Use GNU extensions */
+#undef _GNU_SOURCE
 
-/* Define to empty if `const' does not conform to ANSI C. */
-#undef const
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif

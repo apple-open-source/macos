@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -55,32 +55,46 @@ public:
     void pause();
     void resume();
     
-    const Vector<RefPtr<SpeechSynthesisVoice> >& getVoices();
+    const Vector<RefPtr<SpeechSynthesisVoice>>& getVoices();
     
     // Used in testing to use a mock platform synthesizer
-    void setPlatformSynthesizer(PassOwnPtr<PlatformSpeechSynthesizer>);
+    void setPlatformSynthesizer(std::unique_ptr<PlatformSpeechSynthesizer>);
     
 private:
     SpeechSynthesis();
     
     // PlatformSpeechSynthesizerClient override methods.
-    virtual void voicesDidChange() OVERRIDE;
-    virtual void didStartSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) OVERRIDE;
-    virtual void didPauseSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) OVERRIDE;
-    virtual void didResumeSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) OVERRIDE;
-    virtual void didFinishSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) OVERRIDE;
-    virtual void speakingErrorOccurred(PassRefPtr<PlatformSpeechSynthesisUtterance>) OVERRIDE;
-    virtual void boundaryEventOccurred(PassRefPtr<PlatformSpeechSynthesisUtterance>, SpeechBoundary, unsigned charIndex) OVERRIDE;
+    virtual void voicesDidChange() override;
+    virtual void didStartSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) override;
+    virtual void didPauseSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) override;
+    virtual void didResumeSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) override;
+    virtual void didFinishSpeaking(PassRefPtr<PlatformSpeechSynthesisUtterance>) override;
+    virtual void speakingErrorOccurred(PassRefPtr<PlatformSpeechSynthesisUtterance>) override;
+    virtual void boundaryEventOccurred(PassRefPtr<PlatformSpeechSynthesisUtterance>, SpeechBoundary, unsigned charIndex) override;
 
     void startSpeakingImmediately(SpeechSynthesisUtterance*);
     void handleSpeakingCompleted(SpeechSynthesisUtterance*, bool errorOccurred);
     void fireEvent(const AtomicString& type, SpeechSynthesisUtterance*, unsigned long charIndex, const String& name);
     
-    OwnPtr<PlatformSpeechSynthesizer> m_platformSpeechSynthesizer;
-    Vector<RefPtr<SpeechSynthesisVoice> > m_voiceList;
+#if PLATFORM(IOS)
+    // Restrictions to change default behaviors.
+    enum BehaviorRestrictionFlags {
+        NoRestrictions = 0,
+        RequireUserGestureForSpeechStartRestriction = 1 << 0,
+    };
+    typedef unsigned BehaviorRestrictions;
+    
+    bool userGestureRequiredForSpeechStart() const { return m_restrictions & RequireUserGestureForSpeechStartRestriction; }
+    void removeBehaviorRestriction(BehaviorRestrictions restriction) { m_restrictions &= ~restriction; }
+#endif
+    std::unique_ptr<PlatformSpeechSynthesizer> m_platformSpeechSynthesizer;
+    Vector<RefPtr<SpeechSynthesisVoice>> m_voiceList;
     SpeechSynthesisUtterance* m_currentSpeechUtterance;
-    Deque<RefPtr<SpeechSynthesisUtterance> > m_utteranceQueue;
+    Deque<RefPtr<SpeechSynthesisUtterance>> m_utteranceQueue;
     bool m_isPaused;
+#if PLATFORM(IOS)
+    BehaviorRestrictions m_restrictions;
+#endif
 };
     
 } // namespace WebCore

@@ -102,10 +102,13 @@ smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
 	struct smbnode  **npp = &npstack[0]; 
 	int i, error = 0;
     int add_slash = 1;
-        
-	if (smp->sm_args.path) {
+    int lock_count = 0;
+	struct smbnode  *lock_stack[SMBFS_MAXPATHCOMP + 1]; /* stream file adds one */
+	struct smbnode  **locked_npp = &lock_stack[0];
+
+    if (smp->sm_args.path) {
         if (!SSTOVC(smp->sm_share)->vc_flags & SMBV_SMB2) {
-            /* Only SMB1 wants the beginning '\' */
+            /* Only SMB 1 wants the beginning '\' */
             if (usingUnicode)
                 error = mb_put_uint16le(mbp, '\\');
             else
@@ -120,29 +123,48 @@ smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
 		if (!error && lenp)
 			*lenp += smp->sm_args.path_len;
 	} else if (SSTOVC(smp->sm_share)->vc_flags & SMBV_SMB2) {
-        /* No starting path. SMB2 does not want the beginning '\' */
+        /* No starting path. SMB 2/3 does not want the beginning '\' */
         add_slash = 0;
     }
     
     /*
-     * We hold sm_reclaim_renamelock to protect np->n_parent fields from a
-     * race with smbfs_vnop_reclaim() and smbfs_ClearChildren().
-     * See <rdar://problem/11824956>.
+     * We hold sm_reclaim_lock to protect np->n_parent fields from a
+     * race with smbfs_vnop_reclaim()/smbfs_ClearChildren() since we are
+     * walking all the parents up to the root vnode. Always lock
+     * sm_reclaim_lock first and then individual n_parent_rwlock next.
+     * See <rdar://problem/15707521>.
      */
-	lck_mtx_lock(&smp->sm_reclaim_renamelock);
+	lck_mtx_lock(&smp->sm_reclaim_lock);
     
-	/* This is a stream file, skip it. We always use the stream parent for the lookup */	
-	if (np->n_flag & N_ISSTREAM)
+    lck_rw_lock_shared(&np->n_parent_rwlock);
+    *locked_npp++ = np;     /* Save node to be unlocked later */
+    lock_count += 1;
+
+	/* 
+     * This is a stream file, skip it. We always use the stream parent for 
+     * the lookup 
+     */
+	if (np->n_flag & N_ISSTREAM) {
 		np = np->n_parent;
+        
+        lck_rw_lock_shared(&np->n_parent_rwlock);
+        *locked_npp++ = np;     /* Save node to be unlocked later */
+        lock_count += 1;
+    }
 
 	i = 0;
 	while (np->n_parent) {
 		if (i++ == SMBFS_MAXPATHCOMP) {
-            lck_mtx_unlock(&smp->sm_reclaim_renamelock);
-			return ENAMETOOLONG;
+            error = ENAMETOOLONG;
+            goto done;
         }
-		*npp++ = np;
+		*npp++ = np;            /* Save node to build a path later */
+        
 		np = np->n_parent;
+        
+        lck_rw_lock_shared(&np->n_parent_rwlock);
+        *locked_npp++ = np;     /* Save node to be unlocked later */
+        lock_count += 1;
 	}
 
 	while (i--) {
@@ -152,6 +174,7 @@ smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
                 error = mb_put_uint16le(mbp, '\\');
             else
                 error = mb_put_uint8(mbp, '\\');
+            
             if (!error && lenp)
                 *lenp += (usingUnicode) ? 2 : 1;
         }
@@ -159,17 +182,26 @@ smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
             /* add slashes from now on */
             add_slash = 1;
         }
+        
 		if (error)
 			break;
-		lck_rw_lock_shared(&np->n_name_rwlock);
-		error = smb_put_dmem(mbp, (char *)(np->n_name), np->n_nmlen, 
+        
+        lck_rw_lock_shared(&np->n_name_rwlock);
+		error = smb_put_dmem(mbp, (char *)(np->n_name), np->n_nmlen,
 							 UTF_SFM_CONVERSIONS, usingUnicode, lenp);
-		lck_rw_unlock_shared(&np->n_name_rwlock);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
+        
 		if (error)
 			break;
 	}
+
+done:
+    /* Unlock all the nodes */
+    for (i = 0; i < lock_count; i++) {
+        lck_rw_unlock_shared(&lock_stack[i]->n_parent_rwlock);
+    }
     
-    lck_mtx_unlock(&smp->sm_reclaim_renamelock);
+    lck_mtx_unlock(&smp->sm_reclaim_lock);
 	return error;
 }
 

@@ -1,0 +1,70 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.os2</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.os2&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libiconv/man, OS2/EMX specific
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#	requires EMX/GCC development environment and
+</span><span class="enscript-comment">#	GNU futils installed
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#	define EMXPATH=&lt;your EMX path&gt; on install/uninstall
+</span><span class="enscript-comment">#
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = @prefix@
+exec_prefix = $(<span class="enscript-reference">prefix</span>)
+datadir = $(<span class="enscript-reference">prefix</span>)/share
+mandir = $(<span class="enscript-reference">datadir</span>)/man
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+MAN1 = iconv.1
+MAN3 = iconv.3 iconv_close.3 iconv_open.3
+
+all :
+
+install : force
+	@for %i in ($(<span class="enscript-reference">MAN1</span>)) do cp -i %i $(<span class="enscript-reference">mandir</span>)/man1/%i
+	@for %i in ($(<span class="enscript-reference">MAN3</span>)) do cp -i %i $(<span class="enscript-reference">mandir</span>)/man3/%i
+
+installdirs :
+
+uninstall : force
+	@for %i in ($(<span class="enscript-reference">MAN1</span>)) do rm -i $(<span class="enscript-reference">mandir</span>)/man1/%i
+	@for %i in ($(<span class="enscript-reference">MAN3</span>)) do rm -i $(<span class="enscript-reference">mandir</span>)/man3/%i
+
+check :
+
+mostlyclean :
+
+clean :
+
+distclean : force
+	rm -f Makefile
+
+maintainer-clean : distclean
+
+force :
+</pre>
+<hr />
+</body></html>

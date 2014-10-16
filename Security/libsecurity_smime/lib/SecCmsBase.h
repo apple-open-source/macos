@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsBase.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -35,9 +35,12 @@
 #ifndef _SECURITY_SECCMSBASE_H_
 #define _SECURITY_SECCMSBASE_H_  1
 
-#include <sys/types.h>			/* size_t */
 #include <Security/SecKey.h>
-#include <Security/x509defs.h>
+#include <Security/SecAsn1Types.h>
+
+#if !USE_CDSA_CRYPTO
+typedef CFTypeRef SecKeychainRef;
+#endif
 
 #if defined(__cplusplus)
 extern "C" {
@@ -53,13 +56,13 @@ typedef struct SECOidDataStr SECOidData;
     @typedef
     @discussion XXX We might want to get rid of this alltogether.
  */
-typedef CSSM_X509_ALGORITHM_IDENTIFIER SECAlgorithmID;
+typedef SecAsn1AlgId SECAlgorithmID;
 
 /*!
     @typedef
     @discussion XXX This should probably move to SecKey.h
  */
-typedef SecKeyRef SecSymmetricKeyRef;
+typedef void * SecSymmetricKeyRef;
 
 /*!
     @typedef
@@ -77,11 +80,6 @@ typedef SecKeyRef SecPrivateKeyRef;
     @typedef
  */
 typedef void(*PK11PasswordFunc)(void);
-
-/*!
-    @typedef
- */
-typedef struct SecArenaPoolStr *SecArenaPoolRef;
 
 /*!
     @typedef
@@ -170,10 +168,7 @@ typedef enum {
     SecCmsVSSignatureAlgorithmUnknown = 6,
     SecCmsVSSignatureAlgorithmUnsupported = 7,
     SecCmsVSMalformedSignature = 8,
-    SecCmsVSProcessingError = 9,
-    SecCmsVSTimestampMissing = 10,                      /* A timestamp was expected but was not found. */
-    SecCmsVSTimestampInvalid = 11,                      /* The timestamp was not valid. */
-    SecCmsVSTimestampNotTrusted = 12,                   /* The timestamp signing chain was not trusted. */
+    SecCmsVSProcessingError = 9
 } SecCmsVerificationStatus;
 
 /*!
@@ -461,47 +456,10 @@ typedef enum {
     SEC_OID_AES_192_KEY_WRAP	= 198,
     SEC_OID_AES_256_KEY_WRAP	= 199,
 
-    /* eContentType set by client and not understood by this library; treated 
-     * like SEC_OID_PKCS7_DATA, except the caller's OID is encoded. */
-    SEC_OID_OTHER		= 200,
-    
-	/* ECDSA */
-	SEC_OID_EC_PUBLIC_KEY  = 201,
-	SEC_OID_ECDSA_WithSHA1 = 202,
-	SEC_OID_DH_SINGLE_STD_SHA1KDF = 203,
-	SEC_OID_SECP_256_R1 = 204,
-	SEC_OID_SECP_384_R1 = 205,
-	SEC_OID_SECP_521_R1 = 206,
-	
-    /* RFC 3161 Timestamping OIDs */
-    SEC_OID_PKCS9_ID_CT_TSTInfo = 207,
-    SEC_OID_PKCS9_TIMESTAMP_TOKEN = 208,
-    SEC_OID_PKCS9_SIGNING_CERTIFICATE = 209,
+    SEC_OID_SHA224              = 200,
 
     SEC_OID_TOTAL
 } SECOidTag;
-
-/*!
-    @function
-    @abstract Create a new SecArenaPool object.
-    @param chunksize Size of the chunks the pool will use to allocate its underlying storage.
-    @param outArena pointer to a SecArenaPoolRef to be created.
-    @result On success return 0 and outArena will contain a newly created SecArenaPoolRef.
-    @availability 10.4 and later
-    @updated 2004-04-23
- */
-OSStatus SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef *outArena);
-
-/*!
-    @function
-    @abstract Free a SecArenaPool object and everything in it.
-    @param arena The SecArenaPool object to free.
-    @param zero If this is true the arena's memory will be zero filled before it is freed.
-    @result arena will no longer be valid and the memory used by it is returned to the malloc heap.
-    @availability 10.4 and later
-    @updated 2004-04-23
- */
-void SecArenaPoolFree(SecArenaPoolRef arena, Boolean zero);
 
 
 #if defined(__cplusplus)

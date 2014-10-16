@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,9 +70,10 @@
 /* Negotiate Ioctl extra flags */
 #define SMB_SHARING_VC          0x01	/* We are sharing this Virtual Circuit */
 #define SMB_FORCE_NEW_SESSION   0x02	/* Use a new Virtual Circuit */
-#define SMB_SMB1_ONLY           0x04	/* Only allow SMB 1.x */
-#define SMB_SMB2_ONLY           0x08	/* Only allow SMB 2.x */
+#define SMB_SMB1_ONLY           0x04	/* Only allow SMB 1 */
+#define SMB_SMB2_ONLY           0x08	/* Only allow SMB 2 */
 #define SMB_SIGNING_REQUIRED	0x10
+#define SMB_SMB3_ONLY           0x20	/* Only allow SMB 3 */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -114,7 +115,7 @@ struct smbioc_negotiate {
 	int32_t		ioc_laddr_len;
 	uint32_t	ioc_ntstatus;
 	uint32_t	ioc_errno;
-    uuid_t      ioc_client_guid;    /* SMB 2.x */
+    uuid_t      ioc_client_guid;    /* SMB 2/3 */
 	SMB_IOC_POINTER(struct sockaddr *, saddr);
 	SMB_IOC_POINTER(struct sockaddr *, laddr);
 	uint32_t	ioc_userflags;		/* Authentication request flags */
@@ -124,6 +125,7 @@ struct smbioc_negotiate {
 	char ioc_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
 	uint32_t	ioc_negotiate_token_len __attribute((aligned(8)));   /* Server provided init token length */
 	user_addr_t	ioc_negotiate_token __attribute((aligned(8))); /* Server provided init token */
+	int32_t     ioc_max_resp_timeout;
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
 };
 

@@ -1,0 +1,80 @@
+//
+// script0014
+//
+//		KCAddInternetPassword
+//		KCFindInternetPassword
+//
+// Add an Internet password and retrieve it
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0014.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+29 KCAddInternetPassword
+   Input Arguments : 7
+     ServerName : This is my Server name
+     SecurityDomain : This is my Security Domain
+     AccountName : This is my Accout name
+     Port : 18
+     Protocol : http
+     AuthType : httd
+     Password : /5/Apple
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+29 KCAddInternetPassword
+   Input Arguments : 7
+     ServerName : This is my Server name
+     SecurityDomain : This is my Security Domain
+     AccountName : This is my Accout name
+     Port : 18
+     Protocol : http
+     AuthType : httd
+     Password : /5/Apple
+   Results : 2
+     OSStatus -25299
+     ItemIndex : 1
+31 KCFindInternetPassword
+   Input Arguments : 7
+     ServerName : This is my Server name
+     SecurityDomain : This is my Security Domain
+     AccountName : This is my Accout name
+     Port : 18
+     Protocol : http
+     AuthType : httd
+     Password : /10/0000000000
+   Results : 4
+     OSStatus 0
+     Password : /10/Apple00000
+     ActualLength : 5
+     ItemIndex : 0
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

@@ -293,8 +293,8 @@ static int
 newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 {
     Ptycmd p;
-    int master, slave, pid, oineval = ineval;
-    char *oscriptname = scriptname;
+    int master, slave, pid, oineval = ineval, ret;
+    char *oscriptname = scriptname, syncch;
     Eprog prog;
 
     /* code borrowed from bin_eval() */
@@ -344,6 +344,8 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 
 	if (get_pty(0, &slave))
 	    exit(1);
+	SHTTY = slave;
+	attachtty(mypid);
 #ifdef TIOCGWINSZ
 	/* Set the window size before associating with the terminal *
 	 * so that we don't get hit with a SIGWINCH.  I'm paranoid. */
@@ -396,8 +398,23 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 	setsparam("TTY", ztrdup(ttystrname));
 
 	opts[INTERACTIVE] = 0;
+
+	syncch = 0;
+	do {
+	    ret = write(1, &syncch, 1);
+	} while (ret != 1 && (
+#ifdef EWOULDBLOCK
+	    errno == EWOULDBLOCK ||
+#else
+#ifdef EAGAIN
+	    errno == EAGAIN ||
+#endif
+#endif
+	    errno == EINTR));
+
 	execode(prog, 1, 0, "zpty");
 	stopmsg = 2;
+	mypid = 0; /* trick to ensure we _exit() */
 	zexit(lastval, 0);
     }
     master = movefd(master);
@@ -429,6 +446,18 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 
     scriptname = oscriptname;
     ineval = oineval;
+
+    do {
+	ret = read(master, &syncch, 1);
+    } while (ret != 1 && (
+#ifdef EWOULDBLOCK
+	    errno == EWOULDBLOCK ||
+#else
+#ifdef EAGAIN
+	    errno == EAGAIN ||
+#endif
+#endif
+	    errno == EINTR));
 
     return 0;
 }
@@ -481,14 +510,14 @@ checkptycmd(Ptycmd cmd)
 
     if (cmd->read != -1 || cmd->fin)
 	return;
-    if ((r = read(cmd->fd, &c, 1)) < 0) {
+    if ((r = read(cmd->fd, &c, 1)) <= 0) {
 	if (kill(cmd->pid, 0) < 0) {
 	    cmd->fin = 1;
 	    zclose(cmd->fd);
 	}
 	return;
     }
-    if (r) cmd->read = (int) c;
+    cmd->read = (int) c;
 }
 
 static int

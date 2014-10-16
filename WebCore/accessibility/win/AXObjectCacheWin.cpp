@@ -42,7 +42,7 @@ using namespace std;
 
 namespace WebCore {
 
-void AXObjectCache::detachWrapper(AccessibilityObject* obj)
+void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachmentType)
 {
     // On Windows, AccessibilityObjects are created when get_accChildCount is
     // called, but they are not wrapped until get_accChild is called, so this
@@ -142,9 +142,9 @@ void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* o
         return;
 
     if (notification == AXLoadingStarted)
-        page->chrome().client()->AXStartFrameLoad();
+        page->chrome().client().AXStartFrameLoad();
     else if (notification == AXLoadingFinished)
-        page->chrome().client()->AXFinishFrameLoad();
+        page->chrome().client().AXFinishFrameLoad();
 }
 
 AXID AXObjectCache::platformGenerateAXID() const
@@ -166,12 +166,12 @@ AXID AXObjectCache::platformGenerateAXID() const
     return objID;
 }
 
-void AXObjectCache::handleFocusedUIElementChanged(Node*, Node* newFocusedNode)
+void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node* newFocusedNode)
 {
     if (!newFocusedNode)
         return;
 
-    Page* page = newFocusedNode->document()->page();
+    Page* page = newFocusedNode->document().page();
     if (!page || !page->chrome().platformPageClient())
         return;
 

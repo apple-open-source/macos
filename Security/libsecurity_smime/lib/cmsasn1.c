@@ -42,7 +42,7 @@
 #include "secoid.h"
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
-
+#include <security_asn1/secport.h>
 
 extern const SecAsn1Template nss_cms_set_of_attribute_template[];
 
@@ -253,10 +253,9 @@ static const SecAsn1Template SecCmsRecipientIdentifierTemplate[] = {
     { SEC_ASN1_CHOICE,
 	  offsetof(SecCmsRecipientIdentifier,identifierType), NULL,
 	  sizeof(SecCmsRecipientIdentifier) },
-    { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC |
-      SEC_ASN1_XTRN | 0,
+    { SEC_ASN1_POINTER | SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_XTRN | 0,
 	  offsetof(SecCmsRecipientIdentifier,id.subjectKeyID),
-	  SEC_ASN1_SUB(kSecAsn1PointerToOctetStringTemplate) ,
+	  SEC_ASN1_SUB(kSecAsn1OctetStringTemplate) ,
 	  SecCmsRecipientIDSubjectKeyID },
     { SEC_ASN1_POINTER | SEC_ASN1_XTRN,
 	  offsetof(SecCmsRecipientIdentifier,id.issuerAndSN),
@@ -308,12 +307,11 @@ static const SecAsn1Template SecCmsOriginatorIdentifierOrKeyTemplate[] = {
 	  SEC_ASN1_SUB(SecCmsIssuerAndSNTemplate),
 	  SecCmsOriginatorIDOrKeyIssuerSN },
     { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC |
-      /* this was tag 1 here, 2 for the next; RFC 3852 says they are 0 and 1 */
-      SEC_ASN1_XTRN | 0,
+      SEC_ASN1_XTRN | 1,
 	  offsetof(SecCmsOriginatorIdentifierOrKey,id.subjectKeyID),
-	  kSecAsn1OctetStringTemplate,
+	  SEC_ASN1_SUB(kSecAsn1PointerToOctetStringTemplate) ,
 	  SecCmsOriginatorIDOrKeySubjectKeyID },
-    { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 1,
+    { SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 2,
 	  offsetof(SecCmsOriginatorIdentifierOrKey,id.originatorPublicKey),
 	  SecCmsOriginatorPublicKeyTemplate,
 	  SecCmsOriginatorIDOrKeyOriginatorPublicKey },
@@ -356,7 +354,7 @@ static const SecAsn1Template SecCmsRecipientEncryptedKeyTemplate[] = {
 	  SecCmsKeyAgreeRecipientIdentifierTemplate },
     { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
 	  offsetof(SecCmsRecipientEncryptedKey,encKey),
-	  SEC_ASN1_SUB(kSecAsn1OctetStringTemplate) },
+	  SEC_ASN1_SUB(kSecAsn1BitStringTemplate) },
     { 0 }
 };
 
@@ -536,9 +534,6 @@ const SecAsn1Template NSS_SMIMEKEAParamTemplateAllParams[] = {
 	{ 0 }
 };
 
-/*TODO: this should be in some header */
-const SecAsn1Template *
-nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate);
 const SecAsn1Template *
 nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate)
 {
@@ -579,7 +574,6 @@ nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char 
 	theTemplate = SEC_ASN1_GET(kSecAsn1PointerToAnyTemplate);
 	break;
     case SEC_OID_PKCS7_DATA:
-    case SEC_OID_OTHER:
 	theTemplate = SEC_ASN1_GET(kSecAsn1PointerToOctetStringTemplate);
 	break;
     case SEC_OID_PKCS7_SIGNED_DATA:

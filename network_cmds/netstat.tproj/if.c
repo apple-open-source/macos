@@ -58,14 +58,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-/*
-static char sccsid[] = "@(#)if.c	8.3 (Berkeley) 4/28/95";
-*/
-static const char rcsid[] =
-	"$Id: if.c,v 1.7 2006/01/16 04:53:59 lindak Exp $";
-#endif /* not lint */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
@@ -1710,6 +1702,10 @@ print_sfbstats(struct sfb_stats *sfb)
 	int i, j, cur = sfb->current;
 
 	printf("\n");
+	printf("     [target delay: %14s   ",
+	    nsec_to_str(sfb->target_qdelay));
+	printf("update interval: %14s]\n",
+	    nsec_to_str(sfb->update_interval));
 	printf("     [ early drop: %12llu  rlimit drop: %11llu  "
 	    "marked: %11llu ]\n",
 	    sp->drop_early, sp->drop_pbox, sp->marked_packets);
@@ -1723,6 +1719,10 @@ print_sfbstats(struct sfb_stats *sfb)
 	    sfb->allocation, sfb->dropthresh);
 	printf("     [ flow controlled: %7llu  adv feedback: %10llu ]\n",
 	    sp->flow_controlled, sp->flow_feedback);
+	printf("     [ min queue delay: %10s   delay_fcthreshold: %12llu]\n "
+	    "     [stalls: %12lu]\n",
+	    nsec_to_str(sfb->min_estdelay), sfb->delay_fcthreshold,
+	    sp->dequeue_stall);
 
 	printf("\n\t\t\t\tCurrent bins (set %d)", cur);
 	for (i = 0; i < SFB_LEVELS; ++i) {

@@ -15,6 +15,7 @@ extern int ledger(int cmd, caddr_t arg1, caddr_t arg2, caddr_t arg3);
 int pid = -1;
 char *group_print = NULL;
 char *resource_print = NULL;
+int diff_mode = 0;
 
 struct proc_list {
 	int pid;
@@ -299,6 +300,10 @@ print_num(int64_t num, int64_t delta)
 	char suf = ' ';
 	char posneg = ' ';
 
+	if (diff_mode) {
+		num = delta;
+	}
+
 	if (num == LEDGER_LIMIT_INFINITY) {
 		printf("%10s ", "-  ");
 		return;
@@ -424,10 +429,12 @@ cleanup()
 	template = NULL;
 }
 
+const char *pname;
+
 static void
 usage()
 {
-	printf("lprint [-hL] [-g group] [-p pid] [-r resource] [interval]\n");
+	printf("%s [-hdL] [-g group] [-p pid] [-r resource] [interval]\n", pname);
 }
 
 int
@@ -436,10 +443,16 @@ main(int argc, char **argv)
 	int c;
 	int interval = 0;
     
-	while ((c = getopt(argc, argv, "g:hLp:r:")) != -1) {
+	pname = argv[0];
+
+	while ((c = getopt(argc, argv, "g:hdLp:r:")) != -1) {
 		switch (c) {
 		case 'g':
 			group_print = optarg;
+			break;
+
+		case 'd':
+			diff_mode = 1;
 			break;
 
 		case 'h':

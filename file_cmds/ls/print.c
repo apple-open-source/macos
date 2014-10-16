@@ -130,7 +130,8 @@ printscol(DISPLAY *dp)
 {
 	FTSENT *p;
 
-	if (COMPAT_MODE("bin/ls", "Unix2003")) {
+	assert(dp);
+	if (COMPAT_MODE("bin/ls", "Unix2003") && (dp->list != NULL)) {
 		if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
 			(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
 	}
@@ -249,25 +250,16 @@ uuid_to_name(uuid_t *uu)
 }
 
 static void
-printxattr(DISPLAY *dp, char *filename, ssize_t xattr)
+printxattr(DISPLAY *dp, int count, char *buf, int sizes[])
 {
-	int flags = XATTR_NOFOLLOW;
-	char *buf = malloc(xattr);
-
-	if (NULL == buf)
-		err(1, "malloc");
-	if (listxattr(filename, buf, xattr, flags) > 0) {
-		char *name;
-		for (name = buf; name < buf+xattr; name += strlen(name) + 1) {
-			ssize_t size = getxattr(filename, name, 0, 0, 0, flags);
-			putchar('\t');
-			printname(name);
-			putchar('\t');
-			printsize(dp->s_size, size);
-			putchar('\n');
-		}
+	for (int i = 0; i < count; i++) {
+		putchar('\t');
+		printname(buf);
+		putchar('\t');
+		printsize(dp->s_size, sizes[i]);
+		putchar('\n');
+		buf += strlen(buf) + 1;
 	}
-	free(buf);
 }
 
 static void
@@ -344,14 +336,6 @@ printlong(DISPLAY *dp)
 	FTSENT *p;
 	NAMES *np;
 	char buf[20];
-#ifdef __APPLE__
-	acl_t acl = NULL;
-	acl_entry_t dummy;
-	char full_path[MAXPATHLEN];
-	char *filename;
-	ssize_t xattr = 0;
-	char str[2];
-#endif
 #ifdef COLORLS
 	int color_printed = 0;
 #endif
@@ -376,29 +360,7 @@ printlong(DISPLAY *dp)
 		np = p->fts_pointer;
 #ifdef __APPLE__
 		buf[10] = '\0';	/* make +/@ abut the mode */
-		filename = p->fts_name;
-		if (p->fts_level != FTS_ROOTLEVEL)
-		{
-		    snprintf(full_path, sizeof full_path, "%s/%s",
-			    p->fts_parent->fts_accpath, p->fts_name);
-		    filename = full_path;
-		}
-		/* symlinks can not have ACLs */
-		acl = acl_get_link_np(filename, ACL_TYPE_EXTENDED);
-		if (acl && acl_get_entry(acl, ACL_FIRST_ENTRY, &dummy) == -1) {
-			acl_free(acl);
-			acl = NULL;
-		}
-		xattr = listxattr(filename, NULL, 0, XATTR_NOFOLLOW);
-		if (xattr < 0)
-			xattr = 0;
-		str[1] = '\0';
-		if (xattr > 0)
-			str[0] = '@';
-		else if (acl != NULL)
-			str[0] = '+';
-		else
-			str[0] = ' ';
+		char str[2] = { np->mode_suffix, '\0' };
 #endif /* __APPLE__ */
 		if (f_group && f_owner) {	/* means print neither */
 #ifdef __APPLE__
@@ -476,14 +438,11 @@ printlong(DISPLAY *dp)
 			printlink(p);
 		(void)putchar('\n');
 #ifdef __APPLE__
-		if (f_xattr && xattr) {
-			printxattr(dp, filename, xattr);
+		if (np->xattr_count && f_xattr) {
+			printxattr(dp, np->xattr_count, np->xattr_names, np->xattr_sizes);
 		}
-		if (acl != NULL) {
-			if (f_acl)
-				printacl(acl, S_ISDIR(sp->st_mode));
-			acl_free(acl);
-			acl = NULL;
+                if (np->acl != NULL && f_acl) {
+			printacl(np->acl, S_ISDIR(sp->st_mode));
 		}
 #endif /* __APPLE__ */
 	}
@@ -544,12 +503,13 @@ printcol(DISPLAY *dp)
 	 */
 	if ((lastentries == -1) || (dp->entries > lastentries)) {
 		lastentries = dp->entries;
-		if ((array =
-		    realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
+		if ((array = realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
 			warn(NULL);
 			printscol(dp);
+			return;
 		}
 	}
+	memset(array, 0, dp->entries * sizeof(FTSENT *));
 	for (p = dp->list, num = 0; p; p = p->fts_link)
 		if (p->fts_number != NO_PRINT)
 			array[num++] = p;
@@ -582,8 +542,8 @@ printcol(DISPLAY *dp)
 		if (!f_sortacross)
 			base = row;
 		for (col = 0, chcnt = 0; col < numcols; ++col) {
-			chcnt += printaname(array[base], dp->s_inode,
-			    dp->s_block);
+			assert(base < dp->entries);
+			chcnt += printaname(array[base], dp->s_inode, dp->s_block);
 			if (f_sortacross)
 				base++;
 			else

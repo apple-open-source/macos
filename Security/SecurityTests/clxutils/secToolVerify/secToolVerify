@@ -1,0 +1,154 @@
+#! /bin/csh -f
+#
+# Test SecurityTool's cert-verify comand. 
+#
+set QUIET=NO
+set QUIET_ARG=
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case -q:
+			set QUIET=YES
+            set QUIET_ARG=-q
+            shift
+            breaksw
+        default:
+            Echo "Usage: secToolVerify [-q]"
+            exit(1)
+    endsw
+end
+
+set VFY_CMD="security verify-cert $QUIET_ARG"
+# can't specify quiet when expecting & verifying an error
+set VFY_CMD_NQ="security verify-cert"
+
+set ERRFILE=/tmp/secToolVerifyError
+
+#
+# When this cert expires, replace it like so:
+# sslViewer - f amazon
+#
+set cmd = "$VFY_CMD -c amazon_v3.100.cer -p ssl -s www.amazon.com"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# no policy spec --> default --> basic
+set cmd = "$VFY_CMD -c amazon_v3.100.cer"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# and the explicit basic policy 
+set cmd = "$VFY_CMD -c amazon_v3.100.cer -p basic"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# smime - replace this with a good Thawte cert when it expires
+# This gets an intermediate from a keychain
+set cmd = "$VFY_CMD -c dmitchThawte2007.cer -p smime -e dmitch@apple.com"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# SW Update policy, multiple certs
+set cmd = "$VFY_CMD -c AppleQuickTime.pem -c AppleSWUPDATE.pem -p swUpdate"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# IPSec policy, explicit root
+set cmd = "$VFY_CMD -c vpn-gateway.vpntrial.com.cer -r VPNTrialCA.cer -p IPSec"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# just a root
+set cmd = "$VFY_CMD -r serverbasic.crt"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd = "$VFY_CMD -c applestore_v3.100.cer -c applestore_v3.101.cer -p ssl -s store.apple.com"
+if($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# expired root
+set cmd = "$VFY_CMD_NQ -r iproj_v3.102.cer"
+if($QUIET == NO) then
+	echo $cmd
+endif
+rm -f $ERRFILE
+$cmd >& $ERRFILE
+if($status == 0) then
+	echo "Expected error when evaluating expired iproj_v3.102.cer"
+	exit(1)
+endif
+grep CSSMERR_TP_CERT_EXPIRED $ERRFILE > /dev/null
+if($status != 0) then
+	echo Expected CSSMERR_TP_CERT_EXPIRED, got `cat $ERRFILE`
+	exit(1)
+endif
+
+# expired email leaf
+# This gets an intermediate from a keychain
+set cmd = "$VFY_CMD_NQ -c dmitchThawte2005.cer -p smime -e dmitch@apple.com"
+if($QUIET == NO) then
+	echo $cmd
+endif
+rm -f $ERRFILE
+$cmd >& $ERRFILE
+if($status == 0) then
+	echo "Expected error when evaluating expired dmitchThawte2005.cer"
+	exit(1)
+endif
+grep CSSMERR_TP_CERT_EXPIRED $ERRFILE > /dev/null
+if($status != 0) then
+	echo Expected CSSMERR_TP_CERT_EXPIRED, got `cat $ERRFILE`
+	exit(1)
+endif
+
+# Test "no keychains" option
+set cmd = "$VFY_CMD_NQ -c dmitchThawte2007.cer -p smime -e dmitch@apple.com -n"
+if($QUIET == NO) then
+	echo $cmd
+endif
+rm -f $ERRFILE
+$cmd >& $ERRFILE
+if($status == 0) then
+	echo "Expected error when evaluating expired dmitchThawte2007.cer"
+	exit(1)
+endif
+grep CSSMERR_TP_NOT_TRUSTED $ERRFILE > /dev/null
+if($status != 0) then
+	echo Expected CSSMERR_TP_NOT_TRUSTED, got `cat $ERRFILE`
+	exit(1)
+endif
+
+# Test -k option, giving a bogus keychain, to ensure that no real keychains are searched
+set cmd = "$VFY_CMD_NQ -c dmitchThawte2007.cer -p smime -e dmitch@apple.com -k confabulate"
+if($QUIET == NO) then
+	echo $cmd
+endif
+rm -f $ERRFILE
+$cmd >& $ERRFILE
+if($status == 0) then
+	echo "Expected error when evaluating expired dmitchThawte2007.cer"
+	exit(1)
+endif
+grep CSSMERR_TP_NOT_TRUSTED $ERRFILE > /dev/null
+if($status != 0) then
+	echo Expected CSSMERR_TP_NOT_TRUSTED, got `cat $ERRFILE`
+	exit(1)
+endif
+
+echo ...secToolVerify succeeded.

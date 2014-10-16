@@ -1,4 +1,4 @@
-: mvs.390 cc wrapper for unix message and exit code semantics : 2009-01-30 :
+: mvs.390 cc wrapper for unix message and exit code semantics : 2012-01-20 :
 
 HOSTTYPE=mvs.390
 
@@ -138,7 +138,7 @@ do	case $# in
 	shift
 done
 
-tmp=/tmp/cc$$.err
+tmp=/tmp/cc.${USER:-$LOGNAME}.$$.err
 tmpfiles="$tmp $tmpfiles"
 
 # if any dll .o's are in .a then a .x gets generated

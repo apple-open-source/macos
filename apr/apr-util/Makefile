@@ -17,11 +17,11 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = apr-util
-AEP_Version    = 1.3.12
+AEP_Version    = 1.5.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = 
+AEP_Patches    = LT_VERSION.diff
 
 # Extract the source.
 install_source::

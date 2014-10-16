@@ -3,12 +3,12 @@
 #               This software is part of the ast package               #
 #          Copyright (c) 1985-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -21,7 +21,7 @@
 ########################################################################
 : generate getconf and limits info
 #
-# @(#)conf.sh (AT&T Research) 2010-09-14
+# @(#)conf.sh (AT&T Research) 2011-08-26
 #
 # this script generates these files from the table file in the first arg
 # the remaining args are the C compiler name and flags
@@ -155,6 +155,22 @@ then	if	./$tmp.exe
 	else	LL_suffix='L'
 	fi
 else	LL_suffix=''
+fi
+
+cat > $tmp.c <<!
+${head}
+int
+main()
+{
+	unsigned int	u = 1U;
+	unsigned int	ul = 1UL;
+
+	return 0;
+}
+!
+if	$cc -o $tmp.exe $tmp.c >/dev/null 2>&1
+then	U_suffix='U'
+else	U_suffix=''
 fi
 
 # set up the names and keys
@@ -1359,7 +1375,7 @@ ${script}
 			conf_limit=${conf_limit}${LL_suffix}
 			;;
 		*[0123456789])
-			conf_limit=${conf_limit}U${LL_suffix}
+			conf_limit=${conf_limit}${U_suffix}${LL_suffix}
 			;;
 		esac
 		case $conf_minmax in
@@ -1394,7 +1410,7 @@ ${script}
 			conf_minmax=${conf_minmax}${LL_suffix}
 			;;
 		*[0123456789])
-			conf_minmax=${conf_minmax}U${LL_suffix}
+			conf_minmax=${conf_minmax}${U_suffix}${LL_suffix}
 			;;
 		esac
 		conf_limit="{ $conf_limit, 0 }" conf_minmax="{ $conf_minmax, 0 }"

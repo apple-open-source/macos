@@ -1,0 +1,17 @@
+/^PyObjC_LoadConstant(/a
+.
+/int *magic;/a
+#if PY_MAJOR_VERSION >= 3
+	PyObject *a0, *a1, *a2;
+#endif
+.
+/if (!PyArg_ParseTupleAndKeywords(args, kwds, "ssi",/i
+#if PY_MAJOR_VERSION >= 3
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOO", keywords, &a0, &a1, &a2)) return NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, PyBytes_Check(a1) ? "syi" : "ssi",
+#else
+.
+.+1a
+#endif
+.
+w

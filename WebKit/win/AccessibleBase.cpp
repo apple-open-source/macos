@@ -619,7 +619,7 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::accSelect(long selectionFlags, VARIANT
         if (parentObject->isListBox()) {
             Vector<RefPtr<AccessibilityObject> > selectedChildren(1);
             selectedChildren[0] = childObject;
-            static_cast<AccessibilityListBox*>(parentObject)->setSelectedChildren(selectedChildren);
+            toAccessibilityListBox(parentObject)->setSelectedChildren(selectedChildren);
         } else { // any element may be selectable by virtue of it having the aria-selected property
             ASSERT(!parentObject->isMultiSelectable());
             childObject->setSelected(true);
@@ -904,8 +904,6 @@ static long MSAARole(AccessibilityRole role)
             return ROLE_SYSTEM_ALERT;
         case WebCore::DisclosureTriangleRole:
             return ROLE_SYSTEM_BUTTONDROPDOWN;
-        case WebCore::SeamlessWebAreaRole:
-            return ROLE_SYSTEM_GROUPING;
         case WebCore::IncrementorRole:
         case WebCore::SpinButtonRole:
             return ROLE_SYSTEM_SPINBUTTON;

@@ -7,7 +7,7 @@
 ** Simon Loader -- original mysql plugin
 ** Patrick Welche -- original pgsql plugin
 **
-** $Id: sql.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $
+** $Id: sql.c,v 1.38 2009/04/11 10:48:07 mel Exp $
 **
 */
 
@@ -62,7 +62,7 @@ static const char * SQL_NULL_VALUE = "NULL";
 
 
 #ifdef HAVE_MYSQL
-#include <mysql/mysql.h>
+#include <mysql.h>
 
 static void *_mysql_open(char *host, char *port, int usessl,
 			 const char *user, const char *password,
@@ -97,9 +97,18 @@ static int _mysql_exec(void *conn, const char *cmd, char *value, size_t size,
     /* mysql_real_query() doesn't want a terminating ';' */
     if (cmd[len-1] == ';') len--;
 
-    /* run the query */
-    if ((mysql_real_query(conn, cmd, len) < 0)) {
-	utils->log(NULL, SASL_LOG_ERR, "sql query failed: %s",
+    /* 
+     *  Run the query. It is important to note that mysql_real_query
+     *  will return success even if the sql statement 
+     *  had an error in it. However, mysql_errno() will alsways
+     *  tell us if there was an error. Therefore we can ignore
+     *  the result from mysql_real_query and simply check mysql_errno()
+     *  to decide if there was really an error.
+     */
+    (void)mysql_real_query(conn, cmd, len);
+
+    if(mysql_errno(conn)) {
+        utils->log(NULL, SASL_LOG_ERR, "sql query failed: %s",
 		   mysql_error(conn));
 	return -1;
     }
@@ -459,6 +468,146 @@ static void _sqlite_close(void *db)
 }
 #endif /* HAVE_SQLITE */
 
+#ifdef HAVE_SQLITE3
+#include <sqlite3.h>
+
+static void *_sqlite3_open(char *host __attribute__((unused)),
+			  char *port __attribute__((unused)),
+			  int usessl __attribute__((unused)),
+			  const char *user __attribute__((unused)),
+			  const char *password __attribute__((unused)),
+			  const char *database, const sasl_utils_t *utils)
+{
+    int rc;
+    sqlite3 *db;
+    char *zErrMsg = NULL;
+
+    rc = sqlite3_open(database, &db);
+    if (SQLITE_OK != rc) {
+    	if (db)
+		utils->log(NULL, SASL_LOG_ERR, "sql plugin: %s", sqlite3_errmsg(db));
+	else
+		utils->log(NULL, SASL_LOG_ERR, "sql plugin: %d", rc);
+	sqlite3_close(db);
+	return NULL;
+    }
+
+    rc = sqlite3_exec(db, "PRAGMA empty_result_callbacks = ON", NULL, NULL, &zErrMsg);
+    if (rc != SQLITE_OK) {
+    	if (zErrMsg) {
+		utils->log(NULL, SASL_LOG_ERR, "sql plugin: %s", zErrMsg);
+		sqlite3_free(zErrMsg);
+	} else
+		utils->log(NULL, SASL_LOG_DEBUG, "sql plugin: %d", rc);
+	sqlite3_close(db);
+	return NULL;
+    }
+
+    return (void*)db;
+}
+
+static int _sqlite3_escape_str(char *to, const char *from)
+{
+    char s;
+
+    while ( (s = *from++) != '\0' ) {
+	if (s == '\'' || s == '\\') {
+	    *to++ = '\\';
+	}
+	*to++ = s;
+    }
+    *to = '\0';
+
+    return 0;
+}
+
+static int sqlite3_my_callback(void *pArg, int argc __attribute__((unused)),
+			      char **argv,
+			      char **columnNames __attribute__((unused)))
+{
+    char **result = (char**)pArg;
+
+    if (argv == NULL) {
+	*result = NULL;				/* no record */
+    } else if (argv[0] == NULL) {
+	*result = strdup(SQL_NULL_VALUE);	/* NULL IS SQL_NULL_VALUE */
+    } else {
+	*result = strdup(argv[0]);
+    }
+
+    return 0;
+}
+
+static int _sqlite3_exec(void *db,
+			 const char *cmd,
+			 char *value,
+			 size_t size,
+			 size_t *value_len,
+			 const sasl_utils_t *utils)
+{
+    int rc;
+    char *result = NULL;
+    char *zErrMsg = NULL;
+
+    rc = sqlite3_exec((sqlite3*)db, cmd, sqlite3_my_callback, (void*)&result, &zErrMsg);
+    if (rc != SQLITE_OK) {
+    	if (zErrMsg) {
+	    utils->log(NULL, SASL_LOG_DEBUG, "sql plugin: %s", zErrMsg);
+	    sqlite3_free(zErrMsg);
+	} else {
+	    utils->log(NULL, SASL_LOG_DEBUG, "sql plugin: %d", rc);
+	}
+	return -1;
+    }
+
+    if (value == NULL && rc == SQLITE_OK) {
+	/* no results (BEGIN, COMMIT, DELETE, INSERT, UPDATE) */
+	return 0;
+    }
+
+    if (result == NULL) {
+	/* umm nothing found */
+	utils->log(NULL, SASL_LOG_NOTE, "sql plugin: no result found");
+	return -1;
+    }
+
+    /* XXX: Duplication cannot be found by this method. */
+
+    /* now get the result set value and value_len */
+    /* we only fetch one because we don't care about the rest */
+    if (value) {
+	strncpy(value, result, size - 2);
+	value[size - 1] = '\0';
+	if (value_len) {
+	    *value_len = strlen(value);
+	}
+    }
+
+    free(result);
+    return 0;
+}
+
+static int _sqlite3_begin_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, 0, NULL, utils);
+}
+
+static int _sqlite3_commit_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite3_exec(db, "COMMIT TRANSACTION;", NULL, 0, NULL, utils);
+}
+
+static int _sqlite3_rollback_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite3_exec(db, "ROLLBACK TRANSACTION;", NULL, 0, NULL, utils);
+}
+
+static void _sqlite3_close(void *db)
+{
+    sqlite3_close((sqlite3*)db);
+}
+#endif /* HAVE_SQLITE3 */
+
 static const sql_engine_t sql_engines[] = {
 #ifdef HAVE_MYSQL
     { "mysql", &_mysql_open, &_mysql_escape_str,
@@ -475,6 +624,11 @@ static const sql_engine_t sql_engines[] = {
       &_sqlite_begin_txn, &_sqlite_commit_txn, &_sqlite_rollback_txn,
       &_sqlite_exec, &_sqlite_close },
 #endif
+#ifdef HAVE_SQLITE3
+    { "sqlite3", &_sqlite3_open, &_sqlite3_escape_str,
+      &_sqlite3_begin_txn, &_sqlite3_commit_txn, &_sqlite3_rollback_txn,
+      &_sqlite3_exec, &_sqlite3_close },
+#endif
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -488,7 +642,7 @@ static const sql_engine_t sql_engines[] = {
 **   %p = prop
 **   %r = realm
 **   %v = value of prop
-**  e.g select %p from auth where user = %p and domain = %r;
+**  e.g select %p from auth where user = %u and domain = %r;
 **  Note: calling function must free memory.
 **
 */
@@ -507,10 +661,10 @@ static char *sql_create_statement(const char *statement, const char *prop,
     size_t i;
     
     /* calculate memory needed for creating the complete query string. */
-    ulen = strlen(user);
-    rlen = strlen(realm);
-    plen = strlen(prop);
-    vlen = sql_len(value);
+    ulen = (int)strlen(user);
+    rlen = (int)strlen(realm);
+    plen = (int)strlen(prop);
+    vlen = (int)sql_len(value);
     
     /* what if we have multiple %foo occurrences in the input query? */
     for (i = 0; i < strlen(statement); i++) {
@@ -523,7 +677,7 @@ static char *sql_create_statement(const char *statement, const char *prop,
     biggest = sql_max(sql_max(ulen, rlen), sql_max(plen, vlen));
     
     /* plus one for the semicolon...and don't forget the trailing 0x0 */
-    filtersize = strlen(statement) + 1 + (numpercents*biggest)+1;
+    filtersize = (int)strlen(statement) + 1 + (numpercents*biggest)+1;
     
     /* ok, now try to allocate a chunk of that size */
     buf = (char *) utils->malloc(filtersize);
@@ -734,7 +888,7 @@ static void *sql_connect(sql_settings_t *settings, const sasl_utils_t *utils)
     return conn;
 }
 
-static void sql_auxprop_lookup(void *glob_context,
+static int sql_auxprop_lookup(void *glob_context,
 			       sasl_server_params_t *sparams,
 			       unsigned flags,
 			       const char *user,
@@ -747,16 +901,18 @@ static void sql_auxprop_lookup(void *glob_context,
     const struct propval *to_fetch, *cur;
     char value[8192];
     size_t value_len;
-    
     char *user_buf;
     char *query = NULL;
     char *escap_userid = NULL;
     char *escap_realm = NULL;
     sql_settings_t *settings;
+    int verify_against_hashed_password;
+    int saw_user_password = 0;
     void *conn = NULL;
     int do_txn = 0;
+    int ret;
     
-    if (!glob_context || !sparams || !user) return;
+    if (!glob_context || !sparams || !user) return SASL_BADPARAM;
     
     /* setup the settings */
     settings = (sql_settings_t *) glob_context;
@@ -765,7 +921,10 @@ static void sql_auxprop_lookup(void *glob_context,
 			"sql plugin Parse the username %s\n", user);
     
     user_buf = sparams->utils->malloc(ulen + 1);
-    if (!user_buf) goto done;
+    if (!user_buf) {
+	ret = SASL_NOMEM;
+	goto done;
+    }
     
     memcpy(user_buf, user, ulen);
     user_buf[ulen] = '\0';
@@ -776,9 +935,14 @@ static void sql_auxprop_lookup(void *glob_context,
 	user_realm = sparams->serverFQDN;
     }
     
-    if (_plug_parseuser(sparams->utils, &userid, &realm, user_realm,
-			sparams->serverFQDN, user_buf) != SASL_OK )
+    if ((ret = _plug_parseuser(sparams->utils,
+			       &userid,
+			       &realm,
+			       user_realm,
+			       sparams->serverFQDN,
+			       user_buf)) != SASL_OK ) {
 	goto done;
+    }
     
     /* just need to escape userid and realm now */
     /* allocate some memory */
@@ -786,7 +950,7 @@ static void sql_auxprop_lookup(void *glob_context,
     escap_realm = (char *)sparams->utils->malloc(strlen(realm)*2+1);
     
     if (!escap_userid || !escap_realm) {
-	MEMERROR(sparams->utils);
+	ret = SASL_NOMEM;
 	goto done;
     }
     
@@ -795,20 +959,29 @@ static void sql_auxprop_lookup(void *glob_context,
     /* find out what we need to get */
     /* this corrupts const char *user */
     to_fetch = sparams->utils->prop_get(sparams->propctx);
-    if (!to_fetch) goto done;
+    if (!to_fetch) {
+	ret = SASL_NOMEM;
+	goto done;
+    }
 
     conn = sql_connect(settings, sparams->utils);
     if (!conn) {
 	sparams->utils->log(NULL, SASL_LOG_ERR,
 			    "sql plugin couldn't connect to any host\n");
-	
+	/* TODO: in the future we might want to extend the internal
+	   SQL driver API to return a more detailed error */
+	ret = SASL_FAIL;
 	goto done;
     }
     
     /* escape out */
     settings->sql_engine->sql_escape_str(escap_userid, userid);
     settings->sql_engine->sql_escape_str(escap_realm, realm);
-    
+
+    verify_against_hashed_password = flags & SASL_AUXPROP_VERIFY_AGAINST_HASH;
+
+    /* Assume that nothing is found */
+    ret = SASL_NOUSER;
     for (cur = to_fetch; cur->name; cur++) {
 	char *realname = (char *) cur->name;
 
@@ -824,11 +997,20 @@ static void sql_auxprop_lookup(void *glob_context,
 	}
 	
 	/* If it's there already, we want to see if it needs to be
-	 * overridden */
-	if (cur->values && !(flags & SASL_AUXPROP_OVERRIDE))
+	 * overridden. userPassword is a special case, because it's value
+	   is always present if SASL_AUXPROP_VERIFY_AGAINST_HASH is specified.
+	   When SASL_AUXPROP_VERIFY_AGAINST_HASH is set, we just clear userPassword. */
+	if (cur->values && !(flags & SASL_AUXPROP_OVERRIDE) &&
+	    (verify_against_hashed_password == 0 ||
+	     strcasecmp(realname, SASL_AUX_PASSWORD_PROP) != 0)) {
 	    continue;
-	else if (cur->values)
+	} else if (cur->values) {
 	    sparams->utils->prop_erase(sparams->propctx, cur->name);
+	}
+
+	if (strcasecmp(realname, SASL_AUX_PASSWORD_PROP) == 0) {
+	    saw_user_password = 1;
+	}
 
 	if (!do_txn) {
 	    do_txn = 1;
@@ -848,25 +1030,91 @@ static void sql_auxprop_lookup(void *glob_context,
 				     realname,escap_userid,
 				     escap_realm, NULL,
 				     sparams->utils);
+	if (query == NULL) {
+	    ret = SASL_NOMEM;
+	    break;
+	}
 	
 	sparams->utils->log(NULL, SASL_LOG_DEBUG,
 			    "sql plugin doing query %s\n", query);
 	
+	value[0] = '\0';
+	value_len = 0;
 	/* run the query */
 	if (!settings->sql_engine->sql_exec(conn, query, value, sizeof(value),
 					    &value_len, sparams->utils)) {
-	    sparams->utils->prop_set(sparams->propctx, cur->name,
-				     value, value_len);
+	    sparams->utils->prop_set(sparams->propctx,
+				     cur->name,
+				     value,
+				     (int)value_len);
+	    ret = SASL_OK;
 	}
 	
 	sparams->utils->free(query);
     }
+
+    if (flags & SASL_AUXPROP_AUTHZID) {
+	/* This is a lie, but the caller can't handle
+	   when we return SASL_NOUSER for authorization identity lookup. */
+	if (ret == SASL_NOUSER) {
+	    ret = SASL_OK;
+	}
+    } else {
+	if (ret == SASL_NOUSER && saw_user_password == 0) {
+	    /* Verify user existence by checking presence of
+	       the userPassword attribute */
+	    if (!do_txn) {
+		do_txn = 1;
+		sparams->utils->log(NULL, SASL_LOG_DEBUG, "begin transaction");
+		if (settings->sql_engine->sql_begin_txn(conn, sparams->utils)) {
+		    sparams->utils->log(NULL, SASL_LOG_ERR, 
+					"Unable to begin transaction\n");
+		}
+	    }
+
+	    sparams->utils->log(NULL, SASL_LOG_DEBUG,
+				"sql plugin create statement from %s %s %s\n",
+				SASL_AUX_PASSWORD_PROP,
+				escap_userid,
+				escap_realm);
+    	
+	    /* create a statement that we will use */
+	    query = sql_create_statement(settings->sql_select,
+					 SASL_AUX_PASSWORD_PROP,
+					 escap_userid,
+					 escap_realm,
+					 NULL,
+					 sparams->utils);
+	    if (query == NULL) {
+		ret = SASL_NOMEM;
+	    } else {
+		sparams->utils->log(NULL, SASL_LOG_DEBUG,
+				    "sql plugin doing query %s\n", query);
+        	
+		value[0] = '\0';
+		value_len = 0;
+		/* run the query */
+		if (!settings->sql_engine->sql_exec(conn,
+						    query,
+						    value,
+						    sizeof(value),
+						    &value_len,
+						    sparams->utils)) {
+		    ret = SASL_OK;
+		}
+        	
+		sparams->utils->free(query);
+	    }
+	}
+    }
+
 
     if (do_txn) {
 	sparams->utils->log(NULL, SASL_LOG_DEBUG, "commit transaction");
 	if (settings->sql_engine->sql_commit_txn(conn, sparams->utils)) {
 	    sparams->utils->log(NULL, SASL_LOG_ERR, 
 				"Unable to commit transaction\n");
+	    /* Failure of the commit is non fatal when reading values */
 	}
     }
     
@@ -877,6 +1125,8 @@ static void sql_auxprop_lookup(void *glob_context,
     if (userid) sparams->utils->free(userid);
     if (realm) sparams->utils->free(realm);
     if (user_buf) sparams->utils->free(user_buf);
+
+    return (ret);
 }
 
 static int sql_auxprop_store(void *glob_context,
@@ -966,6 +1216,11 @@ static int sql_auxprop_store(void *glob_context,
 			    "Unable to begin transaction\n");
     }
     for (cur = to_store; ret == SASL_OK && cur->name; cur++) {
+
+	if (cur->name[0] == '*') {
+	    continue;
+	}
+
 	/* determine which command we need */
 	/* see if we already have a row for this user */
 	statement = sql_create_statement(settings->sql_select,

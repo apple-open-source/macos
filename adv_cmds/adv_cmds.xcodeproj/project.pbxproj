@@ -1585,6 +1585,7 @@
 		FDF2765F0FC60EF700D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = ps/entitlements.plist;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_MODE_FLAG = "u+sw,go-w,a+rX";
 				INSTALL_PATH = /bin;

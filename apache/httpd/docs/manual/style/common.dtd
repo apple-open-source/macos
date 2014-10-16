@@ -74,12 +74,15 @@ highlight | blockquote">
 <!ELEMENT directivelist (directive)+>
 
 <!ELEMENT module (#PCDATA)>
-<!ATTLIST module status CDATA  #IMPLIED>
+<!ATTLIST module status   CDATA  #IMPLIED
+                 outdated (true) #IMPLIED>
 
 <!ELEMENT directive (#PCDATA)>
+<!-- name attribute is preferred over contents when generating links -->
 <!ATTLIST directive  module CDATA  #IMPLIED
                      type   CDATA  #IMPLIED
-                     status CDATA  #IMPLIED >
+                     status CDATA  #IMPLIED
+                     name   CDATA  #IMPLIED >
 
 <!ELEMENT program (#PCDATA)>
 
@@ -164,7 +167,6 @@ highlight | blockquote">
 <!ELEMENT dd %BlockOrInline;>
 
 <!ELEMENT pre %Inline;>
-<!ATTLIST pre class CDATA #IMPLIED>
 
 <!ELEMENT highlight %Inline;>
 <!ATTLIST highlight language CDATA #IMPLIED>

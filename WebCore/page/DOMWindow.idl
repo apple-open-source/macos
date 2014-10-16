@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,15 +30,15 @@
     CustomDeleteProperty,
     CustomGetOwnPropertySlot,
     CustomEnumerateProperty,
+    CustomProxyToJSObject,
     JSCustomMarkFunction,
     JSCustomToNativeObject,
     CustomPutFunction,
     EventTarget,
-    ExtendsDOMGlobalObject,
     JSGenerateToNativeObject,
     ReplaceableConstructor,
     JSLegacyParent=JSDOMWindowBase,
-    InterfaceName=Window
+    InterfaceName=Window,
 ] interface DOMWindow {
     // DOM Level 0
     [Replaceable] readonly attribute Screen screen;
@@ -52,18 +52,16 @@
     [Replaceable] readonly attribute Navigator navigator;
     [Replaceable] readonly attribute Navigator clientInformation;
     readonly attribute Crypto crypto;
-#if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
     [DoNotCheckSecurity, CustomSetter] attribute Location location;
-#endif
     [Replaceable, CustomGetter] readonly attribute Event event;
 
     DOMSelection getSelection();
 
     [CheckSecurityForNode] readonly attribute Element frameElement;
 
-    [DoNotCheckSecurity, CallWith=ScriptExecutionContext] void focus();
-    [DoNotCheckSecurity] void blur();
-    [DoNotCheckSecurity, CallWith=ScriptExecutionContext] void close();
+    [DoNotCheckSecurity, CallWith=ScriptExecutionContext, ForwardDeclareInHeader] void focus();
+    [DoNotCheckSecurity, ForwardDeclareInHeader] void blur();
+    [DoNotCheckSecurity, CallWith=ScriptExecutionContext, ForwardDeclareInHeader] void close();
 
     void print();
     void stop();
@@ -107,12 +105,12 @@
     void scrollBy([Default=Undefined] optional long x, [Default=Undefined] optional long y);
     void scrollTo([Default=Undefined] optional long x, [Default=Undefined] optional long y);
     void scroll([Default=Undefined] optional long x, [Default=Undefined] optional long y);
-    void moveBy([Default=Undefined] optional float x, [Default=Undefined] optional float y); // FIXME: this should take longs not floats.
-    void moveTo([Default=Undefined] optional float x, [Default=Undefined] optional float y); // FIXME: this should take longs not floats.
-    void resizeBy([Default=Undefined] optional float x, [Default=Undefined] optional float y); // FIXME: this should take longs not floats.
-    void resizeTo([Default=Undefined] optional float width, [Default=Undefined] optional float height); // FIXME: this should take longs not floats.
+    void moveBy([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
+    void moveTo([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
+    void resizeBy([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
+    void resizeTo([Default=Undefined] optional unrestricted float width, [Default=Undefined] optional unrestricted float height); // FIXME: this should take longs not floats.
 
-    [DoNotCheckSecurity] readonly attribute boolean closed;
+    [DoNotCheckSecurity, ForwardDeclareInHeader] readonly attribute boolean closed;
 
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute unsigned long length;
 
@@ -122,7 +120,7 @@
     attribute DOMString defaultStatus;
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
     // This attribute is an alias of defaultStatus and is necessary for legacy uses.
-    attribute DOMString defaultstatus;
+    [ImplementedAs=defaultStatus] attribute DOMString defaultstatus;
 #endif
 
     // Self referential attributes
@@ -153,7 +151,7 @@
                                    [TreatNullAs=NullString, TreatUndefinedAs=NullString,Default=Undefined] optional DOMString pseudoElement);
 #endif
 
-    [Replaceable] readonly attribute double devicePixelRatio;
+    [Replaceable] readonly attribute unrestricted double devicePixelRatio;
     
     WebKitPoint webkitConvertPointFromPageToNode([Default=Undefined] optional Node node, 
                                                  [Default=Undefined] optional WebKitPoint p);
@@ -172,25 +170,17 @@
     readonly attribute long orientation;
 #endif
 
-    [Replaceable] readonly attribute Console console;
-
     // cross-document messaging
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-    [DoNotCheckSecurity, Custom, RaisesException] void postMessage(SerializedScriptValue message, DOMString targetOrigin, optional Array messagePorts);
+    [DoNotCheckSecurity, Custom, RaisesException, ForwardDeclareInHeader] void postMessage(SerializedScriptValue message, DOMString targetOrigin, optional Array messagePorts);
 #else
     // There's no good way to expose an array via the ObjC bindings, so for now just allow passing in a single port.
-    [DoNotCheckSecurity, Custom, RaisesException] void postMessage(SerializedScriptValue message, optional MessagePort messagePort, DOMString targetOrigin);
+    [DoNotCheckSecurity, Custom, RaisesException, ForwardDeclareInHeader] void postMessage(SerializedScriptValue message, optional MessagePort messagePort, DOMString targetOrigin);
 #endif
 
 #if defined(ENABLE_WEB_TIMING) && ENABLE_WEB_TIMING
     [Replaceable] readonly attribute Performance performance;
 #endif
-
-    // Timers
-    [Custom] long setTimeout(any handler, [Default=Undefined] optional long timeout);
-    void clearTimeout([Default=Undefined] optional long handle);
-    [Custom] long setInterval(any handler, [Default=Undefined] optional long timeout);
-    void clearInterval([Default=Undefined] optional long handle);
 
 #if defined(ENABLE_REQUEST_ANIMATION_FRAME) && ENABLE_REQUEST_ANIMATION_FRAME
     long requestAnimationFrame(RequestAnimationFrameCallback callback);
@@ -199,10 +189,6 @@
     [ImplementedAs=cancelAnimationFrame] void webkitCancelAnimationFrame(long id);
     [ImplementedAs=cancelAnimationFrame] void webkitCancelRequestAnimationFrame(long id); // This is a deprecated alias for webkitCancelAnimationFrame(). Remove this when removing vendor prefix.
 #endif
-
-    // Base64
-    [RaisesException] DOMString atob([TreatNullAs=NullString,Default=Undefined] optional DOMString string);
-    [RaisesException] DOMString btoa([TreatNullAs=NullString,Default=Undefined] optional DOMString string);
 
     [Replaceable,Conditional=CSS3_CONDITIONAL_RULES] readonly attribute DOMWindowCSS CSS;
 
@@ -270,6 +256,7 @@
     attribute EventListener onunload;
     attribute EventListener onvolumechange;
     attribute EventListener onwaiting;
+    attribute EventListener onwheel;
 
     // Not implemented yet.
     // attribute EventListener onafterprint;
@@ -295,10 +282,19 @@
     [Conditional=TOUCH_EVENTS] attribute EventListener ontouchend;
     [Conditional=TOUCH_EVENTS] attribute EventListener ontouchcancel;
 
+    [Conditional=IOS_GESTURE_EVENTS] attribute EventListener ongesturestart;
+    [Conditional=IOS_GESTURE_EVENTS] attribute EventListener ongesturechange;
+    [Conditional=IOS_GESTURE_EVENTS] attribute EventListener ongestureend;
+
     [Conditional=DEVICE_ORIENTATION] attribute EventListener ondevicemotion;
     [Conditional=DEVICE_ORIENTATION] attribute EventListener ondeviceorientation;
 
     [Conditional=PROXIMITY_EVENTS] attribute EventListener onwebkitdeviceproximity;
+
+    [Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealbottom;
+    [Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealleft;
+    [Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealright;
+    [Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventListener onwebkitwillrevealtop;
 
     // EventTarget interface
     [Custom] void addEventListener(DOMString type,
@@ -318,7 +314,11 @@
     // Mozilla has a separate XMLDocument object for XML documents.
     // We just use Document for this.
     attribute DocumentConstructor XMLDocument;
-    [Conditional=BLOB] attribute DOMURLConstructor webkitURL; // FIXME: deprecate this.
+
+    [Conditional=IOS_TOUCH_EVENTS, CustomGetter] attribute TouchConstructor Touch; // Usable with the new operator
+    [Conditional=IOS_TOUCH_EVENTS, CustomGetter] attribute TouchListConstructor TouchList; // Usable with the new operator
+
+    attribute DOMURLConstructor webkitURL; // FIXME: deprecate this.
     attribute MutationObserverConstructor WebKitMutationObserver; // FIXME: Add metrics to determine when we can remove this.
     [Conditional=INDEXED_DATABASE] attribute IDBCursorConstructor webkitIDBCursor;
     [Conditional=INDEXED_DATABASE] attribute IDBDatabaseConstructor webkitIDBDatabase;
@@ -330,3 +330,6 @@
     [Conditional=INDEXED_DATABASE] attribute IDBTransactionConstructor webkitIDBTransaction;
 #endif // defined(LANGUAGE_JAVASCRIPT)
 };
+
+DOMWindow implements WindowTimers;
+DOMWindow implements WindowBase64;

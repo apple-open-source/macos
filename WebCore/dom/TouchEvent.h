@@ -14,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,9 +27,10 @@
 #ifndef TouchEvent_h
 #define TouchEvent_h
 
-#if ENABLE(TOUCH_EVENTS)
+#if PLATFORM(IOS)
+#include <WebKitAdditions/TouchEventIOS.h>
+#elif ENABLE(TOUCH_EVENTS)
 
-#include "EventDispatchMediator.h"
 #include "MouseRelatedEvent.h"
 #include "TouchList.h"
 
@@ -68,15 +69,9 @@ public:
     void setTargetTouches(PassRefPtr<TouchList> targetTouches) { m_targetTouches = targetTouches; }
     void setChangedTouches(PassRefPtr<TouchList> changedTouches) { m_changedTouches = changedTouches; }
 
-#if PLATFORM(BLACKBERRY)
-    void setDoubleTap(bool doubleTap) { m_doubleTap = doubleTap; }
-    bool isDoubleTap() const { return m_doubleTap; }
-    void setTouchHold(bool touchHold) { m_touchHold = touchHold; }
-    bool isTouchHold() const { return m_touchHold; }
-#endif
-    virtual bool isTouchEvent() const OVERRIDE;
+    virtual bool isTouchEvent() const override;
 
-    virtual const AtomicString& interfaceName() const;
+    virtual EventInterface eventInterface() const;
 
 private:
     TouchEvent();
@@ -89,27 +84,9 @@ private:
     RefPtr<TouchList> m_touches;
     RefPtr<TouchList> m_targetTouches;
     RefPtr<TouchList> m_changedTouches;
-#if PLATFORM(BLACKBERRY)
-    bool m_touchHold;
-    bool m_doubleTap;
-#endif
 };
 
-class TouchEventDispatchMediator : public EventDispatchMediator {
-public:
-    static PassRefPtr<TouchEventDispatchMediator> create(PassRefPtr<TouchEvent>);
-
-private:
-    explicit TouchEventDispatchMediator(PassRefPtr<TouchEvent>);
-    TouchEvent* event() const;
-    virtual bool dispatchEvent(EventDispatcher*) const OVERRIDE;
-};
-
-inline TouchEvent* toTouchEvent(Event* event)
-{
-    ASSERT(event && event->isTouchEvent());
-    return static_cast<TouchEvent*>(event);
-}
+EVENT_TYPE_CASTS(TouchEvent)
 
 } // namespace WebCore
 

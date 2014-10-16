@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -116,6 +116,117 @@ OSMetaClassDefineReservedUnused(IOAudioStream, 47);
 // So through imperical testing it looks like the source buffer size is 4 times the IOBufferSize. We set it to 3 times to be safe. 
 
 #define kMixBufferMaxSize ( 2043 ) //  Limit to 2 pages but there is 16 bytes taken out of the sample buffer for VBR stuff
+
+// <rdar://problem/10305944> function to log streaming errors safely. On production builds it will increment error counters. For Debug builds it will still log via kprintf
+void IOAudioStream::safeLogError(int error , long unsigned int arg1 , long unsigned int arg2 , long unsigned int arg3 , long unsigned int arg4 , void * arg5, void *arg6)
+{
+	if (reserved)
+	{
+		switch (error) 
+		{
+			case kErrorLogClipMoreThanOneBufferAhead:
+				//arg1 = clippedPosition.fLoopCount,
+				//arg2 = clippedPosition.fSampleFrame, 
+				//arg3 = clientBufferListStart->mixedPosition.fLoopCount,
+				//arg4 = clientBufferListStart->mixedPosition.fSampleFrame
+				
+				reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead]++;
+				reserved->mStreamErrorCountsUpdated = true;
+				audioDebugIOLog(1,"+-IOAudioStream[%p]:: clipIfNecessary() - Error: attempting to clip to a position more than one buffer ahead of last clip position (%lx,%lx)->(%lx,%lx).\n", this, arg1, arg2, arg3, arg4);
+				break;
+			case kErrorLogClipMoreThanOneBufferAheadPart2:
+				//arg1 = clippedPosition.fLoopCount,
+				//arg2 = clippedPosition.fSampleFrame, 			
+				reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAheadPart2]++;
+				reserved->mStreamErrorCountsUpdated = true;
+
+				audioDebugIOLog(1,"+-IOAudioStream[%p]::safeLogError clipIfNecessary() - adjusting clipped position to (%lx,%lx)\n", this, arg1 , arg2);				
+				break;
+			case kErrorLogClipPositionIsOff:
+				//arg1 = clientBufferListStart->numSampleFrames
+				//arg2 = audioEngine->getNumSampleFramesPerBuffer()
+				//arg3 = clippedPosition.fSampleFrame
+				reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff]++;
+				reserved->mStreamErrorCountsUpdated = true;
+			
+				audioDebugIOLog (1,"+-IOAudioStream[%p]:: clipIfNecessary() - clip position is off %ld < %ld - %ld \n",this, arg1 , arg2, arg3);
+				break;
+			case kErrorLogAlreadyClipped:
+				//arg1 = clippedPosition.fLoopCount
+				//arg2 = clippedPosition.fSampleFrame
+				//arg3 = clientBufferListStart->mixedPosition.fLoopCount
+				//arg4 = clientBufferListStart->mixedPosition.fSampleFrame
+				
+				reserved->mStreamErrorCounts[kErrorLogAlreadyClipped]++;
+				reserved->mStreamErrorCountsUpdated = true;
+				audioDebugIOLog(1,"+-IOAudioStream[%p]::safeLogError clipIfNecessary() - Error: already clipped to a position (0x%lx,0x%lx) past data to be clipped (0x%lx, 0x%lx) - data ignored.\n", this, arg1 , arg2 ,arg3 ,arg4);
+				break;
+			case kErrorLogClipBuffersAreNULL:
+				//arg1 = firstSampleFrame
+				//arg2 = numSampleFrames
+				//arg3 = 0
+				//arg4 = 0
+				//arg5 = mixBuffer
+				//arg6 = sampleBuffer
+				
+				reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL]++;
+				reserved->mStreamErrorCountsUpdated = true;
+				audioDebugIOLog(1,"+-IOAudioStream[%p]::safeLogError clipOutputSamples(0x%lx, 0x%lx) - Internal Error: mixBuffer = %p - sampleBuffer = %p\n", this ,arg1, arg2, arg5 , arg6);
+				break;
+			case kErrorLogClipReturnsAnError:
+				//arg1 = firstSampleFrame
+				//arg2 = numSampleFrames
+				//arg3 = result
+				
+				reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError]++;
+				reserved->mStreamErrorCountsUpdated = true;
+				audioDebugIOLog(1,"+-IOAudioStream[%p]::safeLogError clipOutputSamples(0x%lx, 0x%lx) - clipping function returned error: 0x%lx\n", this, arg1 , arg2 , arg3);
+				break;
+			case kErrorLogDumpCounters:
+				audioDebugIOLog(1,"+-IOAudioStream[%p]::safeLogError kErrorLogDumpCounters mStreamErrorCountsUpdated=%d\n", this,reserved->mStreamErrorCountsUpdated);
+
+				if ( reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] )
+				{
+					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip more than one buffer ahead errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] );
+					reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] = 0;
+				}
+				
+				//if ( reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAheadPart2] )
+				// Do not need to log this error as it is redundant with the first part
+				
+				if ( reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] )
+				{					
+					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip position is off errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] );
+					reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] = 0;
+				}
+				
+				if ( reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] )
+				{
+					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u already clipped errors.\n", this, reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] );
+					reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] = 0;
+				}
+				
+				if ( reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] )
+				{	
+					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip buffers are NULL errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] );
+					reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] = 0;
+				}
+				
+				if ( reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] )
+				{
+					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip returns an error conditions.\n", this, reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] );
+					reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] = 0;
+				}
+				
+				break;
+			default:
+				
+				break;
+		}
+	}
+	
+	return;
+}
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate)
 {
@@ -749,7 +860,10 @@ bool IOAudioStream::initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDire
 	if (!reserved) {
 		return false;
 	}
-
+	
+	// <rdar://problem/10305944> make sure error counters are zero
+	bzero( reserved , sizeof(struct ExpansionData));
+	
     workLoop = audioEngine->getWorkLoop();
     if (!workLoop) {
         return false;
@@ -1330,6 +1444,9 @@ void IOAudioStream::removeClient(IOAudioClientBuffer *clientBuffer)
 		clientBuffer->nextClip = NULL;
 		clientBuffer->nextClient = NULL;
 		unlockStreamForIO();
+		
+		//<rdar://problem/10305944>  dump any streaming errors
+	    safeLogError(kErrorLogDumpCounters,0,0,0,0,0,0); // dump the counters 
     }
 	
     audioDebugIOLog(3, "- IOAudioStream[%p]::removeClient(%p)\n", this, clientBuffer);
@@ -1802,20 +1919,20 @@ void IOAudioStream::clipIfNecessary()
             if (((clientBufferListStart->mixedPosition.fLoopCount == (clippedPosition.fLoopCount + 1)) &&
                  (clientBufferListStart->mixedPosition.fSampleFrame >= clippedPosition.fSampleFrame)) ||
                 (clientBufferListStart->mixedPosition.fLoopCount > (clippedPosition.fLoopCount + 1))) {
-                IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: attempting to clip to a position more than one buffer ahead of last clip position (%lx,%lx)->(%lx,%lx).\n", this, (long unsigned int)clippedPosition.fLoopCount, (long unsigned int)clippedPosition.fSampleFrame, (long unsigned int) clientBufferListStart->mixedPosition.fLoopCount,(long unsigned int) clientBufferListStart->mixedPosition.fSampleFrame);
+                safeLogError(kErrorLogClipMoreThanOneBufferAhead,clippedPosition.fLoopCount,(long unsigned int)clippedPosition.fSampleFrame,(long unsigned int) clientBufferListStart->mixedPosition.fLoopCount,(long unsigned int) clientBufferListStart->mixedPosition.fSampleFrame,0,0); //<rdar://problem/10305944> 
                 if (clientBufferListStart->mixedPosition.fSampleFrame >= clippedPosition.fSampleFrame) {
                     clippedPosition.fLoopCount = clientBufferListStart->mixedPosition.fLoopCount;
                 } else {
                     clippedPosition.fLoopCount = clientBufferListStart->mixedPosition.fLoopCount - 1;
                 }
-                IOLog("IOAudioStream[%p]::clipIfNecessary() - adjusting clipped position to (%lx,%lx)\n", this, (long unsigned int) clippedPosition.fLoopCount,(long unsigned int) clippedPosition.fSampleFrame);
+				safeLogError(kErrorLogClipMoreThanOneBufferAheadPart2,clippedPosition.fLoopCount,(long unsigned int)clippedPosition.fSampleFrame,0,0,0,0); //<rdar://problem/10305944> 
             }
             
 			// Add a test to see if we'd be clipping more samples than delivered because the HAL might skip some samples around a loop increment
 			// If the HAL skipped samples around a loop increment, then just start from where it wants to
 			if (clientBufferListStart->mixedPosition.fLoopCount + 1 == clippedPosition.fLoopCount && (clientBufferListStart->numSampleFrames < audioEngine->getNumSampleFramesPerBuffer() - clippedPosition.fSampleFrame)) {
 				clientBufferListStart->mixedPosition.fLoopCount = clippedPosition.fLoopCount;
-				IOLog ("clip position is off %ld < %ld - %ld \n",(long int) clientBufferListStart->numSampleFrames,(long int) audioEngine->getNumSampleFramesPerBuffer(),(long int) clippedPosition.fSampleFrame);
+				safeLogError(kErrorLogClipPositionIsOff,clientBufferListStart->numSampleFrames,(long int) audioEngine->getNumSampleFramesPerBuffer(),(long int) clippedPosition.fSampleFrame,0,0,0);
 			}
 /*
 	static UInt32 lastSampleFrame;
@@ -1846,8 +1963,7 @@ void IOAudioStream::clipIfNecessary()
 					}
                     clippedPosition.fSampleFrame = clientBufferListStart->mixedPosition.fSampleFrame;
                 } else if (clientBufferListStart->mixedPosition.fSampleFrame < clippedPosition.fSampleFrame) {
-                    IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: already clipped to a position (0x%lx,0x%lx) past data to be clipped (0x%lx, 0x%lx) - data ignored.\n", this,(long unsigned int) clippedPosition.fLoopCount,(long unsigned int) clippedPosition.fSampleFrame,(long unsigned int) clientBufferListStart->mixedPosition.fLoopCount,(long unsigned int) clientBufferListStart->mixedPosition.fSampleFrame);
-                    //clippedPosition.fSampleFrame = clientBufferListStart->mixedPosition.fSampleFrame;
+					safeLogError(kErrorLogAlreadyClipped,(long unsigned int) clippedPosition.fLoopCount,(long unsigned int) clippedPosition.fSampleFrame,(long unsigned int) clientBufferListStart->mixedPosition.fLoopCount,(long unsigned int) clientBufferListStart->mixedPosition.fSampleFrame,0,0); //<rdar://problem/10305944> 
                 }
             } else {	// Clip wraps around
                 UInt32 numSampleFramesPerBuffer;
@@ -1914,7 +2030,7 @@ void IOAudioStream::clipOutputSamples(UInt32 firstSampleFrame, UInt32 numSampleF
     assert(reserved);
     
     if (!mixBuffer || !sampleBuffer) {
-        IOLog("IOAudioStream[%p]::clipOutputSamples(0x%lx, 0x%lx) - Internal Error: mixBuffer = %p - sampleBuffer = %p\n", this ,(long unsigned int) firstSampleFrame,(long unsigned int) numSampleFrames, mixBuffer, sampleBuffer);
+		safeLogError(kErrorLogClipBuffersAreNULL,(long unsigned int) firstSampleFrame,(long unsigned int) numSampleFrames,0,0,mixBuffer,sampleBuffer); //<rdar://problem/10305944> 
         return;
     }
     
@@ -1952,7 +2068,7 @@ void IOAudioStream::clipOutputSamples(UInt32 firstSampleFrame, UInt32 numSampleF
     }
     
     if (result != kIOReturnSuccess) {
-        IOLog("IOAudioStream[%p]::clipOutputSamples(0x%lx, 0x%lx) - clipping function returned error: 0x%x\n", this,(long unsigned int) firstSampleFrame,(long unsigned int) numSampleFrames, result);
+		safeLogError(kErrorLogClipReturnsAnError,(long unsigned int) firstSampleFrame,(long unsigned int) numSampleFrames,result,0,0,0); //<rdar://problem/10305944> 
     }
 	reserved->mClipOutputStatus = result;
 }
@@ -2042,10 +2158,10 @@ void IOAudioStream::removeDefaultAudioControls()
                 IOAudioControl *control;
                 
                 while ( (control = (IOAudioControl *)controlIterator->getNextObject()) ) {
+					control->detach(this);					//	<rdar://14773236>
+
                     if (control->getProvider() == this) {
                         control->terminate();
-                    } else {
-                        control->detach(this);
                     }
                 }
                 

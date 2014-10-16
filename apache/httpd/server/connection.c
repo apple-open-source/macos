@@ -17,14 +17,12 @@
 #include "apr.h"
 #include "apr_strings.h"
 
-#define CORE_PRIVATE
 #include "ap_config.h"
 #include "httpd.h"
 #include "http_connection.h"
 #include "http_request.h"
 #include "http_protocol.h"
 #include "ap_mpm.h"
-#include "mpm_default.h"
 #include "http_config.h"
 #include "http_core.h"
 #include "http_vhost.h"
@@ -95,23 +93,23 @@ AP_CORE_DECLARE(void) ap_flush_conn(conn_rec *c)
  * all the response data has been sent to the client.
  */
 #define SECONDS_TO_LINGER  2
-AP_DECLARE(void) ap_lingering_close(conn_rec *c)
+
+AP_DECLARE(int) ap_start_lingering_close(conn_rec *c)
 {
-    char dummybuf[512];
-    apr_size_t nbytes;
-    apr_time_t timeup = 0;
-    apr_socket_t *csd = ap_get_module_config(c->conn_config, &core_module);
+    apr_socket_t *csd = ap_get_conn_socket(c);
 
     if (!csd) {
-        return;
+        return 1;
     }
 
-    ap_update_child_status(c->sbh, SERVER_CLOSING, NULL);
+    if (c->sbh) {
+        ap_update_child_status(c->sbh, SERVER_CLOSING, NULL);
+    }
 
 #ifdef NO_LINGCLOSE
     ap_flush_conn(c); /* just close it */
     apr_socket_close(csd);
-    return;
+    return 1;
 #endif
 
     /* Close the connection, being careful to send out whatever is still
@@ -124,7 +122,7 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c)
 
     if (c->aborted) {
         apr_socket_close(csd);
-        return;
+        return 1;
     }
 
     /* Shut down the socket for write, which will send a FIN
@@ -133,6 +131,20 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c)
     if (apr_socket_shutdown(csd, APR_SHUTDOWN_WRITE) != APR_SUCCESS
         || c->aborted) {
         apr_socket_close(csd);
+        return 1;
+    }
+
+    return 0;
+}
+
+AP_DECLARE(void) ap_lingering_close(conn_rec *c)
+{
+    char dummybuf[512];
+    apr_size_t nbytes;
+    apr_time_t timeup = 0;
+    apr_socket_t *csd = ap_get_conn_socket(c);
+
+    if (ap_start_lingering_close(c)) {
         return;
     }
 
@@ -158,9 +170,9 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c)
              * First time through;
              * calculate now + 30 seconds (MAX_SECS_TO_LINGER).
              *
-             * If some module requested a shortened waiting period, only wait
-             * for 2s (SECONDS_TO_LINGER). This is useful for mitigating
-             * certain DoS attacks.
+             * If some module requested a shortened waiting period, only wait for
+             * 2s (SECONDS_TO_LINGER). This is useful for mitigating certain
+             * DoS attacks.
              */
             if (apr_table_get(c->notes, "short-lingering-close")) {
                 timeup = apr_time_now() + apr_time_from_sec(SECONDS_TO_LINGER);

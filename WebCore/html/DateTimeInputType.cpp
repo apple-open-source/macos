@@ -32,12 +32,10 @@
 #if ENABLE(INPUT_TYPE_DATETIME_INCOMPLETE)
 #include "DateTimeInputType.h"
 
-#include "DateComponents.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "InputTypeNames.h"
 #include <wtf/CurrentTime.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -46,16 +44,6 @@ using namespace HTMLNames;
 static const int dateTimeDefaultStep = 60;
 static const int dateTimeDefaultStepBase = 0;
 static const int dateTimeStepScaleFactor = 1000;
-
-PassOwnPtr<InputType> DateTimeInputType::create(HTMLInputElement* element)
-{
-    return adoptPtr(new DateTimeInputType(element));
-}
-
-void DateTimeInputType::attach()
-{
-    observeFeatureIfVisible(FeatureObserver::InputTypeDateTime);
-}
 
 const AtomicString& DateTimeInputType::formControlType() const
 {
@@ -74,12 +62,12 @@ Decimal DateTimeInputType::defaultValueForStepUp() const
 
 StepRange DateTimeInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
-    DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (dateTimeDefaultStep, dateTimeDefaultStepBase, dateTimeStepScaleFactor, StepRange::ScaledStepValueShouldBeInteger));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (dateTimeDefaultStep, dateTimeDefaultStepBase, dateTimeStepScaleFactor, StepRange::ScaledStepValueShouldBeInteger));
 
-    const Decimal stepBase = parseToNumber(element()->fastGetAttribute(minAttr), 0);
-    const Decimal minimum = parseToNumber(element()->fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumDateTime()));
-    const Decimal maximum = parseToNumber(element()->fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumDateTime()));
-    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element()->fastGetAttribute(stepAttr));
+    const Decimal stepBase = parseToNumber(element().fastGetAttribute(minAttr), 0);
+    const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumDateTime()));
+    const Decimal maximum = parseToNumber(element().fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumDateTime()));
+    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
     return StepRange(stepBase, minimum, maximum, step, stepDescription);
 }
 

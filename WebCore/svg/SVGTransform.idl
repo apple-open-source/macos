@@ -19,9 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-[
-    Conditional=SVG
-] interface SVGTransform { 
+interface SVGTransform { 
     // Transform Types
     const unsigned short SVG_TRANSFORM_UNKNOWN = 0;
     const unsigned short SVG_TRANSFORM_MATRIX = 1;
@@ -32,14 +30,14 @@
     const unsigned short SVG_TRANSFORM_SKEWY = 6;
 
     readonly attribute unsigned short type;
-    readonly attribute SVGMatrix matrix;
-    readonly attribute float angle;
+    [ImplementedAs=svgMatrix] readonly attribute SVGMatrix matrix;
+    readonly attribute unrestricted float angle;
 
     [StrictTypeChecking] void setMatrix(SVGMatrix matrix);
-    [StrictTypeChecking] void setTranslate(float tx, float ty);
-    [StrictTypeChecking] void setScale(float sx, float sy);
-    [StrictTypeChecking] void setRotate(float angle, float cx, float cy);
-    [StrictTypeChecking] void setSkewX(float angle);
-    [StrictTypeChecking] void setSkewY(float angle);
+    [StrictTypeChecking] void setTranslate(unrestricted float tx, unrestricted float ty);
+    [StrictTypeChecking] void setScale(unrestricted float sx, unrestricted float sy);
+    [StrictTypeChecking] void setRotate(unrestricted float angle, unrestricted float cx, unrestricted float cy);
+    [StrictTypeChecking] void setSkewX(unrestricted float angle);
+    [StrictTypeChecking] void setSkewY(unrestricted float angle);
 };
 

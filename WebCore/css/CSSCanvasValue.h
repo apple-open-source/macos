@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,14 +35,14 @@ class Document;
 
 class CSSCanvasValue : public CSSImageGeneratorValue {
 public:
-    static PassRefPtr<CSSCanvasValue> create(const String& name) { return adoptRef(new CSSCanvasValue(name)); }
+    static PassRef<CSSCanvasValue> create(const String& name) { return adoptRef(*new CSSCanvasValue(name)); }
     ~CSSCanvasValue();
 
-    String customCssText() const;
+    String customCSSText() const;
 
-    PassRefPtr<Image> image(RenderObject*, const IntSize&);
+    PassRefPtr<Image> image(RenderElement*, const FloatSize&);
     bool isFixedSize() const { return true; }
-    IntSize fixedSize(const RenderObject*);
+    FloatSize fixedSize(const RenderElement*);
 
     bool isPending() const { return false; }
     void loadSubimages(CachedResourceLoader*) { }
@@ -50,9 +50,9 @@ public:
     bool equals(const CSSCanvasValue&) const;
 
 private:
-    CSSCanvasValue(const String& name)
+    explicit CSSCanvasValue(const String& name)
         : CSSImageGeneratorValue(CanvasClass)
-        , m_canvasObserver(this)
+        , m_canvasObserver(*this)
         , m_name(name)
         , m_element(0)
     {
@@ -60,31 +60,39 @@ private:
 
     // NOTE: We put the CanvasObserver in a member instead of inheriting from it
     // to avoid adding a vptr to CSSCanvasValue.
-    class CanvasObserverProxy : public CanvasObserver {
+    class CanvasObserverProxy final : public CanvasObserver {
     public:
-        CanvasObserverProxy(CSSCanvasValue* ownerValue) : m_ownerValue(ownerValue) { }
-        virtual ~CanvasObserverProxy() { }
-        virtual void canvasChanged(HTMLCanvasElement* canvas, const FloatRect& changedRect)
+        explicit CanvasObserverProxy(CSSCanvasValue& ownerValue)
+            : m_ownerValue(ownerValue)
         {
-            m_ownerValue->canvasChanged(canvas, changedRect);
         }
-        virtual void canvasResized(HTMLCanvasElement* canvas)
+
+        virtual ~CanvasObserverProxy()
         {
-            m_ownerValue->canvasResized(canvas);
         }
-        virtual void canvasDestroyed(HTMLCanvasElement* canvas)
-        {
-            m_ownerValue->canvasDestroyed(canvas);
-        }
+
     private:
-        CSSCanvasValue* m_ownerValue;
+        virtual void canvasChanged(HTMLCanvasElement& canvas, const FloatRect& changedRect) override
+        {
+            m_ownerValue.canvasChanged(canvas, changedRect);
+        }
+        virtual void canvasResized(HTMLCanvasElement& canvas) override
+        {
+            m_ownerValue.canvasResized(canvas);
+        }
+        virtual void canvasDestroyed(HTMLCanvasElement& canvas) override
+        {
+            m_ownerValue.canvasDestroyed(canvas);
+        }
+
+        CSSCanvasValue& m_ownerValue;
     };
 
-    void canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect);
-    void canvasResized(HTMLCanvasElement*);
-    void canvasDestroyed(HTMLCanvasElement*);
+    void canvasChanged(HTMLCanvasElement&, const FloatRect& changedRect);
+    void canvasResized(HTMLCanvasElement&);
+    void canvasDestroyed(HTMLCanvasElement&);
 
-    HTMLCanvasElement* element(Document*);
+    HTMLCanvasElement* element(Document&);
 
     CanvasObserverProxy m_canvasObserver;
 
@@ -93,6 +101,8 @@ private:
     // The document supplies the element and owns it.
     HTMLCanvasElement* m_element;
 };
+
+CSS_VALUE_TYPE_CASTS(CSSCanvasValue, isCanvasValue())
 
 } // namespace WebCore
 

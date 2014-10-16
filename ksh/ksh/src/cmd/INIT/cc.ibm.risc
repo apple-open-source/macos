@@ -1,4 +1,4 @@
-: cc wrapper for aix risc xlc : 2009-09-28 :
+: cc wrapper for aix risc xlc : 2012-04-17 :
 
 hosttype=ibm.risc
 

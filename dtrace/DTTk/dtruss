@@ -678,11 +678,11 @@ dtrace='
 #fi
 
 ### Run DTrace (Mac OS X)
-# Redirect the output to /dev/stderr so that it doesn't mingle with
+# Redirect the output to stderr so that it doesn't mingle with
 # data going to the target's stdout
 if [ $opt_command -eq 1 ]; then
 	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=exec -n "$dtrace" \
-	    -c "$command" -o /dev/stderr
+	    -c "$command" >&2
 else
-	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" -o /dev/stderr
+	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2
 fi

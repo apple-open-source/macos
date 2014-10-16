@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,7 +71,6 @@
 #include <syslog.h>
 #include "bpflib.h"
 #include "util.h"
-#include "dprintf.h"
 #include "dynarray.h"
 #include "timer.h"
 #include "FDSet.h"
@@ -79,6 +78,7 @@
 #include "arp_session.h"
 #include "ioregpath.h"
 #include "ipconfigd_threads.h"
+#include "symbol_scope.h"
 
 struct firewire_arp {
     struct arphdr 	fw_hdr;	/* fixed-size header */
@@ -356,7 +356,7 @@ arp_client_close_fd(arp_client_t * client)
  * Purpose:
  *   Returns whether the arp_client is active.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 arp_client_is_active(arp_client_t * client)
 {
     return (client->func != NULL);
@@ -525,7 +525,7 @@ arp_if_session_read(void * arg1, void * arg2)
     int			link_header_size;
     int			link_arp_size;
     int			link_length;
-    int			n;
+    ssize_t		n;
     char *		offset;
     arp_session_t *	session;
 
@@ -584,8 +584,6 @@ arp_if_session_read(void * arg1, void * arg2)
 	struct in_addr *	target_ip_p;
 	int			skip;
 	
-	dprintf(("bpf remaining %d header %d captured %d\n", n, 
-		 bpf->bh_hdrlen, bpf->bh_caplen));
 	/* ALIGN: offset is aligned to sizeof(int) bytes */
 	pkt_start = offset + bpf->bh_hdrlen;
 	arp_p = (struct arphdr *)(void *)(pkt_start + link_header_size);
@@ -1218,7 +1216,7 @@ arp_session_find_client_with_index(arp_session_t * session, int index)
 
 #endif /* TEST_ARP_SESSION */
 
-void
+PRIVATE_EXTERN void
 arp_client_set_probe_info(arp_client_t * client, 
 			  const struct timeval * retry_interval,
 			  const int * probe_count, 
@@ -1238,14 +1236,14 @@ arp_client_set_probe_info(arp_client_t * client,
     return;
 }
 
-void 
+PRIVATE_EXTERN void 
 arp_client_restore_default_probe_info(arp_client_t * client)
 {
     client->probe_info = client->if_session->session->default_probe_info;
     return;
 }
 
-arp_client_t *
+PRIVATE_EXTERN arp_client_t *
 arp_client_init(arp_session_t * session, interface_t * if_p)
 {
     return (arp_session_new_client(session, if_p));
@@ -1262,7 +1260,7 @@ arp_client_free_element(void * arg)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_free(arp_client_t * * client_p)
 {
     arp_client_t * 		client = NULL;
@@ -1298,7 +1296,7 @@ arp_client_free(arp_client_t * * client_p)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_set_probes_are_collisions(arp_client_t * client, 
 				     boolean_t probes_are_collisions)
 {
@@ -1330,7 +1328,7 @@ arp_client_setup_context(arp_client_t * client,
     client->probe_info.skip_first = skip;
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_announce(arp_client_t * client,
                     arp_result_func_t * func, void * arg1, void * arg2,
                     struct in_addr sender_ip, struct in_addr target_ip, 
@@ -1353,7 +1351,7 @@ arp_client_announce(arp_client_t * client,
     arp_client_probe_retransmit(client, NULL, NULL);
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_probe(arp_client_t * client,
 		 arp_result_func_t * func, void * arg1, void * arg2,
 		 struct in_addr sender_ip, struct in_addr target_ip)
@@ -1373,7 +1371,7 @@ arp_client_probe(arp_client_t * client,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_resolve(arp_client_t * client,
 		   arp_result_func_t * func, void * arg1, void * arg2,
 		   struct in_addr sender_ip, struct in_addr target_ip,
@@ -1407,7 +1405,7 @@ arp_client_resolve(arp_client_t * client,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_detect(arp_client_t * client,
 		  arp_result_func_t * func, void * arg1, void * arg2,
 		  const arp_address_info_t * list, int list_count,
@@ -1441,13 +1439,13 @@ arp_client_detect(arp_client_t * client,
     return;
 }
 
-const char *
+PRIVATE_EXTERN const char *
 arp_client_errmsg(arp_client_t * client)
 {
     return ((const char *)client->errmsg);
 }
 
-void
+PRIVATE_EXTERN void
 arp_client_cancel(arp_client_t * client)
 {
     client->errmsg[0] = '\0';
@@ -1463,9 +1461,10 @@ arp_client_cancel(arp_client_t * client)
     return;
 }
 
-void
+PRIVATE_EXTERN boolean_t
 arp_client_defend(arp_client_t * client, struct in_addr our_ip)
 {
+    boolean_t		defended = FALSE;
     arp_if_session_t * 	if_session = client->if_session;
 
     arp_client_cancel(client);
@@ -1481,12 +1480,15 @@ arp_client_defend(arp_client_t * client, struct in_addr our_ip)
 	    my_log(LOG_ERR, "arp_client_defend(%s): transmit failed",
 		   if_name(if_session->if_p));
 	}
+	else {
+	    defended = TRUE;
+	}
 	arp_client_close_fd(client);
     }
-    return;
+    return (defended);
 }
 
-arp_session_t *
+PRIVATE_EXTERN arp_session_t *
 arp_session_init(arp_our_address_func_t * func,
 		 arp_session_values_t * values)
 {
@@ -1566,7 +1568,7 @@ arp_session_init(arp_our_address_func_t * func,
     return (session);
 }
 
-void
+PRIVATE_EXTERN void
 arp_session_free(arp_session_t * * session_p)
 {
     arp_session_t * session = *session_p;
@@ -1680,7 +1682,7 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
     return (if_session);
 }
 
-void
+PRIVATE_EXTERN void
 arp_session_set_debug(arp_session_t * session, int debug)
 {
     session->debug = debug;

@@ -27,6 +27,7 @@
 0700	root	wheel	private/var/audit
 0700	root	wheel	private/var/backups
 0755	root	wheel	private/var/db
+0755	245	245	private/var/db/astris
 0755	root	sys	private/var/empty
 0755	root	wheel	private/var/folders
 0755	root	wheel	private/var/log

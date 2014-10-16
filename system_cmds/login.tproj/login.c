@@ -944,7 +944,7 @@ main(int argc, char *argv[])
 		flavor = PPC_THREAD_STATE64;
 #elif defined(__i386__) || defined(__x86_64__)
 		flavor = x86_THREAD_STATE;
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 		flavor = ARM_THREAD_STATE;
 #else
 #error unsupported architecture

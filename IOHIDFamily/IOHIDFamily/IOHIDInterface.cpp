@@ -79,6 +79,9 @@ bool IOHIDInterface::init( OSDictionary * dictionary )
     return true;
 }
 
+//---------------------------------------------------------------------------
+// IOHIDInterface::withElements
+
 IOHIDInterface * IOHIDInterface::withElements( OSArray * elements )
 {
     IOHIDInterface * nub = new IOHIDInterface;
@@ -91,8 +94,32 @@ IOHIDInterface * IOHIDInterface::withElements( OSArray * elements )
     
     nub->_elementArray  = elements;
     nub->_elementArray->retain();
-	
+    
     return nub;
+}
+
+//---------------------------------------------------------------------------
+// IOHIDInterface::message
+
+IOReturn IOHIDInterface::message(UInt32 type,
+                                 IOService * provider,
+                                 void * argument)
+{
+    IOReturn result = kIOReturnSuccess;
+    if (kIOMessageServiceIsRequestingClose == type) {
+        result = messageClients(type, argument);
+        if (result != kIOReturnSuccess) {
+            IOLog("IOHIDInterface unsuccessfully requested close of clients: 0x%08x\n", result);
+        }
+        else {
+            provider->close(this);
+        }
+    }
+    else {
+        result = super::message(type, provider, argument);
+    }
+    
+    return result;
 }
 
 
@@ -175,6 +202,7 @@ bool IOHIDInterface::start( IOService * provider )
 //====================================================================================================
 void IOHIDInterface::stop( IOService * provider )
 {
+    _owner = NULL;
     super::stop(provider);
 }
     
@@ -214,7 +242,7 @@ bool IOHIDInterface::open (
     if ( !super::open(client, options) )
         return false;
         
-    if ( !_owner->IOService::open(client, options) )
+    if ( !_owner || !_owner->IOService::open(client, options) )
     {
         super::close(client, options);
         return false;
@@ -232,6 +260,7 @@ void IOHIDInterface::close(
 								IOService *					client,
 								IOOptionBits				options)
 {
+    if (_owner)
     _owner->close(client, options);
     
     super::close(client, options);
@@ -349,7 +378,7 @@ IOReturn IOHIDInterface::setReport (
                                 UInt32                      reportID,
                                 IOOptionBits                options)
 {
-    return _owner->setReport(report, reportType, (reportID | (options << 8)));
+    return _owner ? _owner->setReport(report, reportType, (reportID | (options << 8))) : kIOReturnOffline;
 }
 
 IOReturn IOHIDInterface::getReport ( 
@@ -358,7 +387,7 @@ IOReturn IOHIDInterface::getReport (
                                 UInt32                      reportID,
                                 IOOptionBits                options)
 {
-    return _owner->getReport(report, reportType, (reportID | (options << 8)));
+    return _owner ? _owner->getReport(report, reportType, (reportID | (options << 8))) : kIOReturnOffline;
 }
 
 

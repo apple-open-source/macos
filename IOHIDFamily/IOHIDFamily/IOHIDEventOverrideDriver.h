@@ -38,12 +38,20 @@ class IOHIDEventOverrideDriver: public IOHIDEventDriver
     OSDeclareDefaultStructors( IOHIDEventOverrideDriver )
     
 private:
-    uint32_t    _pointerButtonMask;
+    uint32_t    _rawPointerButtonMask;
+    uint32_t    _resultantPointerButtonMask;
 
     struct {
         IOHIDEventType  eventType;
-        uint32_t        usagePage;
-        uint32_t        usage;
+        union {
+            struct {
+                uint32_t        usagePage;
+                uint32_t        usage;
+            } keyboard;
+            struct {
+                uint32_t        mask;
+            } pointer;
+        } u;
     } _buttonMap[32];
     
 protected:

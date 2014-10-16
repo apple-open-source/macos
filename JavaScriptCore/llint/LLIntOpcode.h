@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,56 +26,26 @@
 #ifndef LLIntOpcode_h
 #define LLIntOpcode_h
 
-#include <wtf/Platform.h>
-
-#if ENABLE(LLINT)
-
-#if ENABLE(LLINT_C_LOOP)
+#if !ENABLE(JIT)
 
 #define FOR_EACH_LLINT_NOJIT_NATIVE_HELPER(macro) \
-    macro(getHostCallReturnValue, 1) \
-    macro(ctiOpThrowNotCaught, 1)
+    FOR_EACH_CLOOP_BYTECODE_HELPER_ID(macro)
 
-#else // !ENABLE(LLINT_C_LOOP)
+#else // ENABLE(JIT)
 
 #define FOR_EACH_LLINT_NOJIT_NATIVE_HELPER(macro) \
     // Nothing to do here. Use the JIT impl instead.
 
-#endif // !ENABLE(LLINT_C_LOOP)
+#endif // !ENABLE(JIT)
 
 
 #define FOR_EACH_LLINT_NATIVE_HELPER(macro) \
     FOR_EACH_LLINT_NOJIT_NATIVE_HELPER(macro) \
     \
-    macro(llint_begin, 1) \
-    \
-    macro(llint_program_prologue, 1) \
-    macro(llint_eval_prologue, 1) \
-    macro(llint_function_for_call_prologue, 1) \
-    macro(llint_function_for_construct_prologue, 1) \
-    macro(llint_function_for_call_arity_check, 1) \
-    macro(llint_function_for_construct_arity_check, 1) \
-    macro(llint_generic_return_point, 1) \
-    macro(llint_throw_from_slow_path_trampoline, 1) \
-    macro(llint_throw_during_call_trampoline, 1) \
-    \
-    /* Native call trampolines */ \
-    macro(llint_native_call_trampoline, 1) \
-    macro(llint_native_construct_trampoline, 1) \
-    \
-    macro(llint_end, 1)
+    FOR_EACH_BYTECODE_HELPER_ID(macro)
 
 
-#if ENABLE(LLINT_C_LOOP)
+
 #define FOR_EACH_LLINT_OPCODE_EXTENSION(macro) FOR_EACH_LLINT_NATIVE_HELPER(macro)
-#else
-#define FOR_EACH_LLINT_OPCODE_EXTENSION(macro) // Nothing to add.
-#endif
-
-#else // !ENABLE(LLINT)
-
-#define FOR_EACH_LLINT_OPCODE_EXTENSION(macro) // Nothing to add.
-
-#endif // !ENABLE(LLINT)
 
 #endif // LLIntOpcode_h

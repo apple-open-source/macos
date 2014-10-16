@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,6 +30,7 @@
 #define HRTFDatabaseLoader_h
 
 #include "HRTFDatabase.h"
+#include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -72,14 +73,7 @@ private:
     // This must be called from the main thread.
     void loadAsynchronously();
 
-    // Map from sample-rate to loader.
-    typedef HashMap<double, HRTFDatabaseLoader*> LoaderMap;
-
-    // Keeps track of loaders on a per-sample-rate basis.
-    static LoaderMap* s_loaderMap; // singleton
-    static HRTFDatabaseLoader::LoaderMap* loaderMap() { return s_loaderMap; }
-
-    OwnPtr<HRTFDatabase> m_hrtfDatabase;
+    std::unique_ptr<HRTFDatabase> m_hrtfDatabase;
 
     // Holding a m_threadLock is required when accessing m_databaseLoaderThread.
     Mutex m_threadLock;

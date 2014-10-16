@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -34,21 +34,20 @@
 
 #include "EqualPowerPanner.h"
 #include "HRTFPanner.h"
-#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-PassOwnPtr<Panner> Panner::create(PanningModel model, float sampleRate, HRTFDatabaseLoader* databaseLoader)
+std::unique_ptr<Panner> Panner::create(PanningModel model, float sampleRate, HRTFDatabaseLoader* databaseLoader)
 {
-    OwnPtr<Panner> panner;
+    std::unique_ptr<Panner> panner;
 
     switch (model) {
     case PanningModelEqualPower:
-        panner = adoptPtr(new EqualPowerPanner(sampleRate));
+        panner = std::make_unique<EqualPowerPanner>(sampleRate);
         break;
 
     case PanningModelHRTF:
-        panner = adoptPtr(new HRTFPanner(sampleRate, databaseLoader));
+        panner = std::make_unique<HRTFPanner>(sampleRate, databaseLoader);
         break;
 
     // FIXME: sound field panning is not yet implemented...
@@ -58,7 +57,7 @@ PassOwnPtr<Panner> Panner::create(PanningModel model, float sampleRate, HRTFData
         return nullptr;
     }
 
-    return panner.release();
+    return panner;
 }
 
 } // namespace WebCore

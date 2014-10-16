@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,34 +57,6 @@ static uid_t S_uid = -1;
 static gid_t S_gid = -1;
 
 static CFMachPortRef		server_cfport;
-
-static vm_address_t
-my_CFPropertyListCreateVMData(CFPropertyListRef plist,
-			      mach_msg_type_number_t * 	ret_data_len)
-{
-    vm_address_t	data;
-    int			data_len;
-    kern_return_t	status;
-    CFDataRef		xml_data;
-
-    data = 0;
-    *ret_data_len = 0;
-    xml_data = CFPropertyListCreateXMLData(NULL, plist);
-    if (xml_data == NULL) {
-	goto done;
-    }
-    data_len = CFDataGetLength(xml_data);
-    status = vm_allocate(mach_task_self(), &data, data_len, TRUE);
-    if (status != KERN_SUCCESS) {
-	goto done;
-    }
-    bcopy((char *)CFDataGetBytePtr(xml_data), (char *)data, data_len);
-    *ret_data_len = data_len;
-
- done:
-    my_CFRelease(&xml_data);
-    return (data);
-}
 
 static __inline__ void
 read_trailer(mach_msg_header_t * request)
@@ -441,19 +413,6 @@ eapolcontroller_client_force_renew(mach_port_t server,
     *result = ControllerClientForceRenew(server);
     return (KERN_SUCCESS);
 };
-
-boolean_t
-server_active(void)
-{
-    mach_port_t		server;
-    kern_return_t	result;
-
-    result = eapolcontroller_server_port(&server);
-    if (result == BOOTSTRAP_SUCCESS) {
-	return (TRUE);
-    }
-    return (FALSE);
-}
 
 static boolean_t
 process_notification(mach_msg_header_t * request)

@@ -160,6 +160,7 @@ TSystemUtils::ReadDataFromURL ( CFURLRef url )
     
     result = CFURLCopyResourcePropertyForKey ( url, kCFURLFileSizeKey, &fileSizeNumber, NULL );
     require ( result, ErrorExit );
+    require ( fileSizeNumber != NULL, ErrorExit );
     
     result = CFNumberGetValue ( fileSizeNumber, kCFNumberCFIndexType, &fileSize );
     require ( result, ReleaseNumber );

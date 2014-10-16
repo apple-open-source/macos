@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -21,7 +21,7 @@
 ***********************************************************************/
 #pragma prototyped
 
-#if !_IP6_H
+#ifndef _IP6_H
 #define _IP6_H		1
 
 #define IP6ADDR		16
@@ -32,7 +32,7 @@
 #define extern		__EXPORT__
 #endif
 
-extern char*	fmtip6(unsigned char*, int);
+extern char*	fmtip6(const unsigned char*, int);
 extern int	strtoip6(const char*, char**, unsigned char*, unsigned char*);
 
 #undef		extern

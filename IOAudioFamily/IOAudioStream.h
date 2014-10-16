@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,8 @@
 #define _IOKIT_IOAUDIOSTREAM_H
 
 #include <IOKit/IOService.h>
+#include <AvailabilityMacros.h>
+
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
@@ -69,7 +71,7 @@ class IOAudioStream : public IOService
 
 public:
 
-    typedef IOReturn (*AudioIOFunction)(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+    typedef IOReturn (*AudioIOFunction)(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     static const OSSymbol	*gDirectionKey;
     static const OSSymbol	*gNumChannelsKey;
@@ -84,10 +86,10 @@ public:
     static const OSSymbol	*gMinimumSampleRateKey;
     static const OSSymbol	*gMaximumSampleRateKey;
 
-    static void initKeys();
+    static void initKeys() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    static OSDictionary *createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict = 0);
-    static IOAudioStreamFormat *createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0, IOAudioStreamFormatExtension *formatExtension = 0);
+    static OSDictionary *createDictionaryFromFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    static IOAudioStreamFormat *createFormatFromDictionary(const OSDictionary *formatDict, IOAudioStreamFormat *streamFormat = 0, IOAudioStreamFormatExtension *formatExtension = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     IOAudioEngine 				*audioEngine;
     IOWorkLoop					*workLoop;
@@ -130,10 +132,23 @@ public:
 	
 protected:
 
+	enum {
+		kErrorLogClipMoreThanOneBufferAhead = 0,
+		kErrorLogClipMoreThanOneBufferAheadPart2,
+		kErrorLogClipPositionIsOff,
+		kErrorLogAlreadyClipped,
+		kErrorLogClipBuffersAreNULL,
+		kErrorLogClipReturnsAnError,
+		kErrorLogNumberOfCounters,			// needs to be after the last counter
+		kErrorLogDumpCounters = 0xFFFF
+	};
+
     struct ExpansionData {
 		IOAudioStreamFormatExtension	streamFormatExtension;
 		UInt32							mSampleFramesReadByEngine;
 		IOReturn						mClipOutputStatus;
+		unsigned int					mStreamErrorCounts[kErrorLogNumberOfCounters];
+		bool							mStreamErrorCountsUpdated;						 
 	};
     
     ExpansionData *reserved;
@@ -141,29 +156,29 @@ protected:
 public:
 // New code added here:
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 0);
-    virtual const IOAudioStreamFormatExtension *getFormatExtension();
+    virtual const IOAudioStreamFormatExtension *getFormatExtension() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 1);
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, bool callDriver = true);
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, bool callDriver = true) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 2);
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict, bool callDriver = true);
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, OSDictionary *formatDict, bool callDriver = true) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 3);
-    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 4);
-    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction);
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 5);
-    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc);
+    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 6);
-	virtual void setTerminalType(const UInt32 terminalType);
+	virtual void setTerminalType(const UInt32 terminalType) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 7);
-	virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+	virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 8);
-	virtual void setSampleLatency(UInt32 numSamples);
+	virtual void setSampleLatency(UInt32 numSamples) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 9);
-	virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate);
+	virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 10);
-	virtual UInt32 getNumSampleFramesRead();
+	virtual UInt32 getNumSampleFramesRead() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioStream, 11);
-	virtual void setDefaultNumSampleFramesRead(UInt32);
+	virtual void setDefaultNumSampleFramesRead(UInt32) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioStream, 0);
@@ -217,73 +232,75 @@ private:
     OSMetaClassDeclareReservedUnused(IOAudioStream, 47);
 
 public:
-    virtual bool initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDirection dir, UInt32 startChannelID, const char *streamDescription = NULL, OSDictionary *properties = 0);
-    virtual void free();
+    virtual bool initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDirection dir, UInt32 startChannelID, const char *streamDescription = NULL, OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void free() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void stop(IOService *provider);
+    virtual void stop(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     virtual IOWorkLoop *getWorkLoop() const;
 
-    virtual IOReturn setProperties(OSObject *properties);
+    virtual IOReturn setProperties(OSObject *properties) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOAudioStreamDirection getDirection();
+    virtual IOAudioStreamDirection getDirection() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void setSampleBuffer(void *buffer, UInt32 size);
-    virtual void *getSampleBuffer();
-    virtual UInt32 getSampleBufferSize();
+    virtual void setSampleBuffer(void *buffer, UInt32 size) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void *getSampleBuffer() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getSampleBufferSize() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setMixBuffer(void *buffer, UInt32 size);
-    virtual void *getMixBuffer();
-    virtual UInt32 getMixBufferSize();
+    virtual void setMixBuffer(void *buffer, UInt32 size) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void *getMixBuffer() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getMixBufferSize() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void numSampleFramesPerBufferChanged();
+    virtual void numSampleFramesPerBufferChanged() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void clearSampleBuffer();
+    virtual void clearSampleBuffer() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setIOFunction(AudioIOFunction ioFunction);
-    virtual void setIOFunctionList(const AudioIOFunction *ioFunctionList, UInt32 numFunctions);
+    virtual void setIOFunction(AudioIOFunction ioFunction) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setIOFunctionList(const AudioIOFunction *ioFunctionList, UInt32 numFunctions) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual const IOAudioStreamFormat *getFormat();
-    static IOReturn setFormatAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	static IOReturn _setFormatAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://8568040,8691669>
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, bool callDriver = true);
-    virtual IOReturn setFormat(OSDictionary *formatDict);
-    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict, bool callDriver = true);
-    virtual IOReturn hardwareFormatChanged(const IOAudioStreamFormat *streamFormat);
-    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0);
-    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction);
-    virtual void clearAvailableFormats();
-    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc);
+    virtual const IOAudioStreamFormat *getFormat() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    static IOReturn setFormatAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static IOReturn _setFormatAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://8568040,8691669>
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, bool callDriver = true) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn setFormat(OSDictionary *formatDict) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn setFormat(const IOAudioStreamFormat *streamFormat, OSDictionary *formatDict, bool callDriver = true) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn hardwareFormatChanged(const IOAudioStreamFormat *streamFormat) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, const AudioIOFunction *ioFunctionList = NULL, UInt32 numFunctions = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void addAvailableFormat(const IOAudioStreamFormat *streamFormat, const IOAudioSampleRate *minRate, const IOAudioSampleRate *maxRate, AudioIOFunction ioFunction) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void clearAvailableFormats() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual bool validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual UInt32 getStartingChannelID();
-    virtual UInt32 getMaxNumChannels();
+    virtual UInt32 getStartingChannelID() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getMaxNumChannels() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setStreamAvailable(bool available);
-    virtual bool getStreamAvailable();
+    virtual void setStreamAvailable(bool available) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual bool getStreamAvailable() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn addDefaultAudioControl(IOAudioControl *defaultAudioControl);
-    virtual void removeDefaultAudioControls();
+    virtual IOReturn addDefaultAudioControl(IOAudioControl *defaultAudioControl) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void removeDefaultAudioControls() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
-    virtual void lockStreamForIO();
-    virtual void unlockStreamForIO();
+    virtual void lockStreamForIO() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void unlockStreamForIO() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void updateNumClients();
-    virtual IOReturn addClient(IOAudioClientBuffer *clientBuffer);
-    virtual void removeClient(IOAudioClientBuffer *clientBuffer);
-    virtual UInt32 getNumClients();
+    virtual void updateNumClients() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn addClient(IOAudioClientBuffer *clientBuffer) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void removeClient(IOAudioClientBuffer *clientBuffer) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getNumClients() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn processOutputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame, UInt32 loopCount, bool samplesAvailable);
-    virtual IOReturn readInputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame);
+    virtual IOReturn processOutputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame, UInt32 loopCount, bool samplesAvailable) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn readInputSamples(IOAudioClientBuffer *clientBuffer, UInt32 firstSampleFrame) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void resetClipInfo();
-    virtual void clipIfNecessary();
-    virtual void clipOutputSamples(UInt32 startingSampleFrame, UInt32 numSampleFrames);
+    virtual void resetClipInfo() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void clipIfNecessary() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void clipOutputSamples(UInt32 startingSampleFrame, UInt32 numSampleFrames) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setStartingChannelNumber(UInt32 channelNumber);
+    virtual void setStartingChannelNumber(UInt32 channelNumber) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
-    virtual void setDirection(IOAudioStreamDirection dir);
+    virtual void setDirection(IOAudioStreamDirection dir) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	
+	void safeLogError(int error , long unsigned int arg1 , long unsigned int arg2 , long unsigned int arg3 , long unsigned int arg4 , void* arg5, void* arg6) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 };
 

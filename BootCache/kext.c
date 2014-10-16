@@ -1783,6 +1783,12 @@ BC_strategy(struct buf *bp)
 		}
 	}
 	
+	if (bufflags & B_ENCRYPTED_IO) {
+		UNLOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
+		dont_cache = 1;
+		goto bypass;
+	}
+	
 	if (BC_cache->c_mounts[cm_idx].cm_state != CM_READY) {
 		/* the mount has been aborted, treat it like a missing mount */
 		UNLOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);

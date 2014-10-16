@@ -26,27 +26,12 @@
 
 #pragma ident	"@(#)xlate64.m4	1.20	08/05/31 SMI"
 
-#if !defined(__APPLE__)
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
-#include <sys/elf_SPARC.h>
-#include <sys/elf_amd64.h>
 #include <decl.h>
 #include <msg.h>
-#include <sgs.h>
-#else /* is Apple Mac OS X */
-#include <memory.h>
-#include <libelf.h>
-#include <link.h>
-/* NOTHING */ /* In lieu of Solaris <sys/elf_SPARC.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/elf_amd64.h> */
-#include <decl.h>
-#include <msg.h>
-/* NOTHING */ /* In lieu of Solaris <sys/sgs.h> */
 #include <string.h>
-#endif /* __APPLE__ */
-
 
 /*
  * fmsize:  Array used to determine what size the the structures

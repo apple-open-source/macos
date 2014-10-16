@@ -114,7 +114,7 @@ gss_iter_creds_f(OM_uint32 *min_stat,
     struct _gss_iter *ctx;
     gss_OID_set mechs;
     gssapi_mech_interface m;
-    int i;
+    size_t i;
 
     if (useriter == NULL)
 	return GSS_S_CALL_INACCESSIBLE_READ;

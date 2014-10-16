@@ -26,13 +26,13 @@
 [
     Conditional=INDEXED_DATABASE,
     JSNoStaticTables,
-    ImplementationLacksVTable
+    ImplementationLacksVTable,
 ] interface IDBIndex {
     readonly attribute DOMString name;
     readonly attribute IDBObjectStore objectStore;
     [ImplementedAs=keyPathAny] readonly attribute IDBAny keyPath;
-    readonly attribute boolean unique;
     readonly attribute boolean multiEntry;
+    readonly attribute boolean unique;
 
     [CallWith=ScriptExecutionContext, RaisesException] IDBRequest openCursor(optional IDBKeyRange? range, optional DOMString direction);
     [CallWith=ScriptExecutionContext, RaisesException] IDBRequest openCursor(any key, optional DOMString direction);

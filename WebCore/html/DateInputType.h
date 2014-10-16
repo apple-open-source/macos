@@ -33,23 +33,20 @@
 
 #if ENABLE(INPUT_TYPE_DATE)
 #include "BaseChooserOnlyDateAndTimeInputType.h"
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
 class DateInputType : public BaseChooserOnlyDateAndTimeInputType {
 public:
-    static PassOwnPtr<InputType> create(HTMLInputElement*);
+    explicit DateInputType(HTMLInputElement&);
 
 private:
-    DateInputType(HTMLInputElement*);
-    virtual void attach() OVERRIDE;
-    virtual const AtomicString& formControlType() const OVERRIDE;
-    virtual DateComponents::Type dateType() const OVERRIDE;
-    virtual StepRange createStepRange(AnyStepHandling) const OVERRIDE;
-    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const OVERRIDE;
-    virtual bool setMillisecondToDateComponents(double, DateComponents*) const OVERRIDE;
-    virtual bool isDateField() const OVERRIDE;
+    virtual const AtomicString& formControlType() const override;
+    virtual DateComponents::Type dateType() const override;
+    virtual StepRange createStepRange(AnyStepHandling) const override;
+    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const override;
+    virtual bool setMillisecondToDateComponents(double, DateComponents*) const override;
+    virtual bool isDateField() const override;
 };
 
 } // namespace WebCore

@@ -329,11 +329,11 @@ krb5_kt_default(krb5_context context, krb5_keytab *id)
  * keytab in `keyprocarg' (the default if == NULL) into `*key'.
  *
  * @param context a Keberos context.
- * @param keyprocarg
- * @param principal
- * @param vno
- * @param enctype
- * @param key
+ * @param keyprocarg key proc argument
+ * @param principal principal to find
+ * @param vno its kvno to search for
+ * @param enctype the encrypt to search for
+ * @param key return key, free with krb5_free_keyblock()
  *
  * @return Return an error code or 0, see krb5_get_error_message().
  *
@@ -658,9 +658,10 @@ krb5_kt_get_entry(krb5_context context,
 	krb5_kt_free_entry(context, &tmp);
     }
     krb5_kt_end_seq_get (context, id, &cursor);
-    if (entry->vno == 0)
+    if (entry->vno == 0) {
 	return _krb5_kt_principal_not_found(context, KRB5_KT_NOTFOUND,
 					    id, principal, enctype, kvno);
+    }
     return 0;
 }
 
@@ -769,6 +770,7 @@ krb5_kt_next_entry(krb5_context context,
 		   krb5_keytab_entry *entry,
 		   krb5_kt_cursor *cursor)
 {
+    memset(entry, 0, sizeof(*entry));
     if(id->next_entry == NULL) {
 	krb5_set_error_message(context, HEIM_ERR_OPNOTSUPP,
 			       N_("next_entry is not supported in the %s "

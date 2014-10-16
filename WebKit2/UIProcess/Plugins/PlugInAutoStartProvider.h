@@ -26,6 +26,8 @@
 #ifndef PlugInAutoStartProvider_h
 #define PlugInAutoStartProvider_h
 
+#include <WebCore/SessionIDHash.h>
+#include <functional>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -33,13 +35,17 @@
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
+namespace API {
+class Array;
+}
+
 namespace WebKit {
 
-class ImmutableArray;
 class ImmutableDictionary;
 class WebContext;
 
-typedef HashMap<unsigned, double> PlugInAutoStartOriginHash;
+typedef HashMap<unsigned, double> PlugInAutoStartOriginMap;
+typedef HashMap<WebCore::SessionID, PlugInAutoStartOriginMap> SessionPlugInAutoStartOriginMap;
 typedef Vector<String> PlugInAutoStartOrigins;
 
 class PlugInAutoStartProvider {
@@ -47,23 +53,27 @@ class PlugInAutoStartProvider {
 public:
     explicit PlugInAutoStartProvider(WebContext*);
 
-    void addAutoStartOriginHash(const String& pageOrigin, unsigned plugInOriginHash);
-    void didReceiveUserInteraction(unsigned plugInOriginHash);
+    void addAutoStartOriginHash(const String& pageOrigin, unsigned plugInOriginHash, WebCore::SessionID);
+    void didReceiveUserInteraction(unsigned plugInOriginHash, WebCore::SessionID);
 
     PassRefPtr<ImmutableDictionary> autoStartOriginsTableCopy() const;
     void setAutoStartOriginsTable(ImmutableDictionary&);
-    void setAutoStartOriginsArray(ImmutableArray&);
+    void setAutoStartOriginsFilteringOutEntriesAddedAfterTime(ImmutableDictionary&, double time);
+    void setAutoStartOriginsArray(API::Array&);
 
-    PlugInAutoStartOriginHash autoStartOriginHashesCopy() const;
+    SessionPlugInAutoStartOriginMap autoStartOriginHashesCopy() const;
     const PlugInAutoStartOrigins& autoStartOrigins() const { return m_autoStartOrigins; }
 
 private:
     WebContext* m_context;
 
-    typedef HashMap<String, PlugInAutoStartOriginHash, CaseFoldingHash> AutoStartTable;
-    AutoStartTable m_autoStartTable;
+    void setAutoStartOriginsTableWithItemsPassingTest(ImmutableDictionary&, std::function<bool(double expirationTimestamp)>);
 
-    HashMap<unsigned, String> m_hashToOriginMap;
+    typedef HashMap<String, PlugInAutoStartOriginMap, CaseFoldingHash> AutoStartTable;
+    typedef HashMap<WebCore::SessionID, AutoStartTable> SessionAutoStartTable;
+    SessionAutoStartTable m_autoStartTable;
+
+    HashMap<WebCore::SessionID, HashMap<unsigned, String>> m_hashToOriginMap;
 
     PlugInAutoStartOrigins m_autoStartOrigins;
 };

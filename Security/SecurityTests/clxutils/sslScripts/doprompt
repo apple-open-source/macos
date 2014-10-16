@@ -1,0 +1,25 @@
+#! /bin/sh 
+SSL_WAIT=1
+
+usage ()
+{
+    echo "Usage: doPrompt sslAuto [q(uiet)]";
+	exit 1;
+}
+
+QUIET=0
+if [ $# = 0 ]; then 
+	usage 
+fi
+SSL_AUTO=$1
+if [ $# == 2 ]; then 
+	QUIET=$2
+fi
+if [ "$SSL_AUTO" = '1' ]; then
+	if [ "$QUIET" = "0" ]; then
+		echo "Pause..."
+	fi
+	sleep $SSL_WAIT;
+	exit;
+fi
+read -p "Hit CR to continue: " foo

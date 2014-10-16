@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -84,7 +84,10 @@ using namespace WebCore;
 {
     NSRect scrollFrame = NSMakeRect(0, 0, 100, 100);
     NSRect tableFrame = NSZeroRect;    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     tableFrame.size = [NSScrollView contentSizeForFrameSize:scrollFrame.size hasHorizontalScroller:NO hasVerticalScroller:YES borderType:NSNoBorder];
+#pragma clang diagnostic pop
     NSTableColumn *column = [[NSTableColumn alloc] init];
     [column setWidth:tableFrame.size.width];
     [column setEditable:NO];
@@ -128,7 +131,10 @@ using namespace WebCore;
 
     NSRect windowFrame;
     NSPoint wordStart = topLeft;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     windowFrame.origin = [[_view window] convertBaseToScreen:[_htmlView convertPoint:wordStart toView:nil]];
+#pragma clang diagnostic pop
     windowFrame.size.height = numberToShow * [_tableView rowHeight] + (numberToShow + 1) * [_tableView intercellSpacing].height;
     windowFrame.origin.y -= windowFrame.size.height;
     NSDictionary *attributes = [NSDictionary dictionaryWithObjectsAndKeys:[NSFont systemFontOfSize:12.0f], NSFontAttributeName, nil];
@@ -144,11 +150,13 @@ using namespace WebCore;
     }
     windowFrame.size.width = 100;
     if (maxIndex >= 0) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         maxWidth = ceilf([NSScrollView frameSizeForContentSize:NSMakeSize(maxWidth, 100.0f) hasHorizontalScroller:NO hasVerticalScroller:YES borderType:NSNoBorder].width);
+#pragma clang diagnostic pop
         maxWidth = ceilf([NSWindow frameRectForContentRect:NSMakeRect(0.0f, 0.0f, maxWidth, 100.0f) styleMask:NSBorderlessWindowMask].size.width);
         maxWidth += 5.0f;
         windowFrame.size.width = std::max(maxWidth, windowFrame.size.width);
-        maxWidth = std::min<CGFloat>(400, windowFrame.size.width);
     }
     [_popupWindow setFrame:windowFrame display:NO];
     
@@ -172,7 +180,7 @@ using namespace WebCore;
 
         // Get preceeding word stem
         WebFrame *frame = [_htmlView _frame];
-        DOMRange *selection = kit(core(frame)->selection()->toNormalizedRange().get());
+        DOMRange *selection = kit(core(frame)->selection().toNormalizedRange().get());
         DOMRange *wholeWord = [frame _rangeByAlteringCurrentSelection:FrameSelection::AlterationExtend
             direction:DirectionBackward granularity:WordGranularity];
         DOMRange *prefix = [wholeWord cloneRange];

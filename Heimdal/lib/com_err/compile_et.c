@@ -68,7 +68,7 @@ struct error_code *codes = NULL;
 static int
 generate_c(void)
 {
-    int n;
+    unsigned int n;
     struct error_code *ec;
 
     FILE *c_file = fopen(cfn, "w");

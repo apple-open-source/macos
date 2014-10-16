@@ -627,10 +627,6 @@ int     main(int argc, char **argv)
 	msg_warn("improper use of 8-bit data in message body");
     if (err & MIME_ERR_ENCODING_DOMAIN)
 	msg_warn("improper message/* or multipart/* encoding domain");
-#ifdef __APPLE_OS_X_SERVER__
-    if (err & MIME_ERR_BODY_TOO_LARGE)
-	msg_warn("MIME body part too large");
-#endif
 
     /*
      * Cleanup.

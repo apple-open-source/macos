@@ -2088,9 +2088,17 @@ par_cond_2(void)
 	}
     }
     if (tok == BANG) {
-	condlex();
-	ecadd(WCB_COND(COND_NOT, 0));
-	return par_cond_2();
+	/*
+	 * In "test" compatibility mode, "! -a ..." and "! -o ..."
+	 * are treated as "[string] [and] ..." and "[string] [or] ...".
+	 */
+	if (!(condlex == testlex && *testargs && 
+	      (!strcmp(*testargs, "-a") || !strcmp(*testargs, "-o"))))
+	{
+	    condlex();
+	    ecadd(WCB_COND(COND_NOT, 0));
+	    return par_cond_2();
+	}
     }
     if (tok == INPAR) {
 	int r;
@@ -3171,6 +3179,9 @@ load_dump_file(char *dump, struct stat *sbuf, int other, int len)
     d->dev = sbuf->st_dev;
     d->ino = sbuf->st_ino;
     d->fd = fd;
+#ifdef FD_CLOEXEC
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif
     d->map = addr + (other ? (len - off) / sizeof(wordcode) : 0);
     d->addr = addr;
     d->len = len;
@@ -3415,6 +3426,16 @@ incrdumpcount(FuncDump f)
     f->count++;
 }
 
+/**/
+static void
+freedump(FuncDump f)
+{
+    munmap((void *) f->addr, f->len);
+    zclose(f->fd);
+    zsfree(f->filename);
+    zfree(f, sizeof(*f));
+}
+
 /* Decrement the reference counter for a dump file. If zero, unmap the file. */
 
 /**/
@@ -3431,23 +3452,23 @@ decrdumpcount(FuncDump f)
 		q->next = p->next;
 	    else
 		dumps = p->next;
-	    munmap((void *) f->addr, f->len);
-	    zclose(f->fd);
-	    zsfree(f->filename);
-	    zfree(f, sizeof(*f));
+	    freedump(f);
 	}
     }
 }
 
+#ifndef FD_CLOEXEC
 /**/
 mod_export void
 closedumps(void)
 {
-    FuncDump p;
-
-    for (p = dumps; p; p = p->next)
-	zclose(p->fd);
+    while (dumps) {
+	FuncDump p = dumps->next;
+	freedump(dumps);
+	dumps = p;
+    }
 }
+#endif
 
 #else
 
@@ -3461,11 +3482,13 @@ decrdumpcount(FuncDump f)
 {
 }
 
+#ifndef FD_CLOEXEC
 /**/
 mod_export void
 closedumps(void)
 {
 }
+#endif
 
 #endif
 

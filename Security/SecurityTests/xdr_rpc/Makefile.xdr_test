@@ -1,0 +1,36 @@
+# Makefile for XDR RPC test program
+
+xdr_test: xdr_test.cpp securityd_data_saver.h
+### XXX  ld64 is broken in Leopard, ca. 9A110 - ?
+#	g++ -F/usr/local/SecurityPieces/Frameworks \
+		-g -Wall -arch ppc -arch i386 -arch ppc64 \
+		-o $@ $< \
+		-framework securityd_client \
+		-framework security_cdsa_utilities \
+		-framework security_utilities
+
+	g++ -F/usr/local/SecurityPieces/Frameworks \
+		-g -Wall -arch ppc -arch i386 \
+		-o $@ $< \
+		-framework securityd_client \
+		-framework security_cdsa_utilities \
+		-framework security_utilities
+
+# only needed when building a "save data" version of securityd
+securityd_data_saver.o: securityd_data_saver.cpp securityd_data_saver.h
+	g++ -F/usr/local/SecurityPieces/Frameworks \
+		-g -Wall -arch ppc -arch i386 -c $<
+
+# run all tests with minimally verbose output
+.PHONY: test
+test: xdr_test
+	@for F in TestData/* ; do ./xdr_test -v $${F} ; done
+
+# run all tests silently (except for errors)
+.PHONY: qtest
+qtest: xdr_test
+	@for F in TestData/* ; do ./xdr_test $${F} ; done
+
+.PHONY: clean
+clean:
+	/bin/rm -f xdr_test *.o

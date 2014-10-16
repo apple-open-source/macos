@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -558,6 +558,10 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
             char location[12];
             snprintf(location, sizeof(location), "%d", (int) partitionID);
             newMedia->setLocation(location);
+
+            // Set the "Base" key for this partition.
+
+            newMedia->setProperty(kIOMediaBaseKey, partitionBase, 64);
 
             // Set the "Partition ID" key for this partition.
 

@@ -71,7 +71,7 @@
 #define CC_DEBUG_BUG			ASL_LEVEL_ERR
 #define CC_DEBUG			ASL_LEVEL_ERR
 
-void ccdebug_imp(int level, char *funcname, const char *format, ...);
+void ccdebug_imp(int level, const char *funcname, const char *format, ...);
 
 #ifdef DIAGNOSTIC
 

@@ -445,7 +445,8 @@ shutdown_logging(void)
     /* Log fsck_hfs check completion time */
     t = time(NULL);
     if (in_mem_log) {
-	print_to_mem(DO_STR, IN_MEM_LOG, "fsck_hfs completed at %s\n", ctime(&t), NULL);
+	va_list empty_list = {0};
+	print_to_mem(DO_STR, IN_MEM_LOG, "fsck_hfs completed at %s\n", ctime(&t), empty_list);
     } else {
 	fprintf(log_file, "%s: fsck_hfs completed at %s\n", cdevname ? cdevname : "UNKNOWN-DEV", ctime(&t));
     }
@@ -630,7 +631,8 @@ setup_logging(void)
 		cur_in_mem_out = in_mem_out;
 
 		t = time(NULL);
-		print_to_mem(DO_STR, IN_MEM_LOG, "\nfsck_hfs started at %s", ctime(&t), NULL);
+		va_list empty_list = {0};
+		print_to_mem(DO_STR, IN_MEM_LOG, "\nfsck_hfs started at %s", ctime(&t), empty_list);
 
 		if (live_fsck && log_file) {
 		    pthread_cond_init(&mem_buf_cond, NULL);
@@ -794,7 +796,8 @@ static int need_prefix=1;
 	LOG_PREFIX;				\
 	fprintf(log_file, fmt, str);		\
     } else { \
-	print_to_mem(DO_STR, IN_MEM_LOG, fmt, str, NULL);	\
+	va_list empty_list = {0}; \
+	print_to_mem(DO_STR, IN_MEM_LOG, fmt, str, empty_list);	\
     }
 
 

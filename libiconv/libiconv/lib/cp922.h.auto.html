@@ -1,0 +1,124 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>cp922.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">cp922.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * CP922
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> cp922_2uni_1[16] = {
+  <span class="enscript-comment">/* 0xa0 */</span>
+  0x00a0, 0x00a1, 0x00a2, 0x00a3, 0x00a4, 0x00a5, 0x00a6, 0x00a7,
+  0x00a8, 0x00a9, 0x00aa, 0x00ab, 0x00ac, 0x00ad, 0x00ae, 0x203e,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> cp922_2uni_2[16] = {
+  <span class="enscript-comment">/* 0xd0 */</span>
+  0x0160, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x00d7,
+  0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x017d, 0x00df,
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> cp922_2uni_3[16] = {
+  <span class="enscript-comment">/* 0xf0 */</span>
+  0x0161, 0x00f1, 0x00f2, 0x00f3, 0x00f4, 0x00f5, 0x00f6, 0x00f7,
+  0x00f8, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x00fd, 0x017e, 0x00ff,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">cp922_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = *s;
+  <span class="enscript-keyword">if</span> (c &lt; 0xa0)
+    *pwc = (ucs4_t) c;
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c &lt; 0xb0)
+    *pwc = (ucs4_t) cp922_2uni_1[c-0xa0];
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c &lt; 0xd0)
+    *pwc = (ucs4_t) c;
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c &lt; 0xe0)
+    *pwc = (ucs4_t) cp922_2uni_2[c-0xd0];
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (c &lt; 0xf0)
+    *pwc = (ucs4_t) c;
+  <span class="enscript-keyword">else</span>
+    *pwc = (ucs4_t) cp922_2uni_3[c-0xf0];
+  <span class="enscript-keyword">return</span> 1;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> cp922_page00[88] = {
+  0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0x00, <span class="enscript-comment">/* 0xa8-0xaf */</span>
+  0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, <span class="enscript-comment">/* 0xb0-0xb7 */</span>
+  0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf, <span class="enscript-comment">/* 0xb8-0xbf */</span>
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, <span class="enscript-comment">/* 0xc0-0xc7 */</span>
+  0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, <span class="enscript-comment">/* 0xc8-0xcf */</span>
+  0x00, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, <span class="enscript-comment">/* 0xd0-0xd7 */</span>
+  0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0x00, 0xdf, <span class="enscript-comment">/* 0xd8-0xdf */</span>
+  0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, <span class="enscript-comment">/* 0xe0-0xe7 */</span>
+  0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef, <span class="enscript-comment">/* 0xe8-0xef */</span>
+  0x00, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, <span class="enscript-comment">/* 0xf0-0xf7 */</span>
+  0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0x00, 0xff, <span class="enscript-comment">/* 0xf8-0xff */</span>
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> cp922_page01[32] = {
+  0xd0, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, <span class="enscript-comment">/* 0x60-0x67 */</span>
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, <span class="enscript-comment">/* 0x68-0x6f */</span>
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, <span class="enscript-comment">/* 0x70-0x77 */</span>
+  0x00, 0x00, 0x00, 0x00, 0x00, 0xde, 0xfe, 0x00, <span class="enscript-comment">/* 0x78-0x7f */</span>
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">cp922_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = 0;
+  <span class="enscript-keyword">if</span> (wc &lt; 0x00a8) {
+    *r = wc;
+    <span class="enscript-keyword">return</span> 1;
+  }
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x00a8 &amp;&amp; wc &lt; 0x0100)
+    c = cp922_page00[wc-0x00a8];
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x0160 &amp;&amp; wc &lt; 0x0180)
+    c = cp922_page01[wc-0x0160];
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc == 0x203e)
+    c = 0xaf;
+  <span class="enscript-keyword">if</span> (c != 0) {
+    *r = c;
+    <span class="enscript-keyword">return</span> 1;
+  }
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+</pre>
+<hr />
+</body></html>

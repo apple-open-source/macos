@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -34,11 +34,16 @@
 
 #include "HRTFDatabase.h"
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-// Singleton
-HRTFDatabaseLoader::LoaderMap* HRTFDatabaseLoader::s_loaderMap = 0;
+// Keeps track of loaders on a per-sample-rate basis.
+static HashMap<double, HRTFDatabaseLoader*>& loaderMap()
+{
+    static NeverDestroyed<HashMap<double, HRTFDatabaseLoader*>> loaderMap;
+    return loaderMap;
+}
 
 PassRefPtr<HRTFDatabaseLoader> HRTFDatabaseLoader::createAndLoadAsynchronouslyIfNecessary(float sampleRate)
 {
@@ -46,17 +51,14 @@ PassRefPtr<HRTFDatabaseLoader> HRTFDatabaseLoader::createAndLoadAsynchronouslyIf
 
     RefPtr<HRTFDatabaseLoader> loader;
     
-    if (!s_loaderMap)
-        s_loaderMap = adoptPtr(new LoaderMap()).leakPtr();
-
-    loader = s_loaderMap->get(sampleRate);
+    loader = loaderMap().get(sampleRate);
     if (loader) {
         ASSERT(sampleRate == loader->databaseSampleRate());
         return loader;
     }
 
     loader = adoptRef(new HRTFDatabaseLoader(sampleRate));
-    s_loaderMap->add(sampleRate, loader.get());
+    loaderMap().add(sampleRate, loader.get());
 
     loader->loadAsynchronously();
 
@@ -75,11 +77,10 @@ HRTFDatabaseLoader::~HRTFDatabaseLoader()
     ASSERT(isMainThread());
 
     waitForLoaderThreadCompletion();
-    m_hrtfDatabase.clear();
+    m_hrtfDatabase = nullptr;
 
     // Remove ourself from the map.
-    if (s_loaderMap)
-        s_loaderMap->remove(m_databaseSampleRate);
+    loaderMap().remove(m_databaseSampleRate);
 }
 
 // Asynchronously load the database in this thread.
@@ -95,7 +96,7 @@ void HRTFDatabaseLoader::load()
     ASSERT(!isMainThread());
     if (!m_hrtfDatabase.get()) {
         // Load the default HRTF database.
-        m_hrtfDatabase = HRTFDatabase::create(m_databaseSampleRate);
+        m_hrtfDatabase = std::make_unique<HRTFDatabase>(m_databaseSampleRate);
     }
 }
 

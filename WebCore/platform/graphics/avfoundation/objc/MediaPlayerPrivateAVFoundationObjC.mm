@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,47 +26,111 @@
 #import "config.h"
 
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
-
 #import "MediaPlayerPrivateAVFoundationObjC.h"
 
+#import "AVTrackPrivateAVFObjCImpl.h"
+#import "AudioTrackPrivateAVFObjC.h"
+#import "AuthenticationChallenge.h"
 #import "BlockExceptions.h"
-#import "DataView.h"
+#import "CDMSessionAVFoundationObjC.h"
+#import "Cookie.h"
 #import "ExceptionCodePlaceholder.h"
 #import "FloatConversion.h"
 #import "FloatConversion.h"
 #import "FrameView.h"
 #import "GraphicsContext.h"
+#import "GraphicsContextCG.h"
+#import "InbandMetadataTextTrackPrivateAVF.h"
 #import "InbandTextTrackPrivateAVFObjC.h"
 #import "InbandTextTrackPrivateLegacyAVFObjC.h"
-#import "KURL.h"
+#import "OutOfBandTextTrackPrivateAVF.h"
+#import "URL.h"
 #import "Logging.h"
+#import "MediaTimeMac.h"
+#import "PlatformTimeRanges.h"
 #import "SecurityOrigin.h"
+#import "SerializedPlatformRepresentationMac.h"
 #import "SoftLinking.h"
-#import "TimeRanges.h"
+#import "TextTrackRepresentation.h"
 #import "UUID.h"
+#import "VideoTrackPrivateAVFObjC.h"
 #import "WebCoreAVFResourceLoader.h"
+#import "WebCoreCALayerExtras.h"
 #import "WebCoreSystemInterface.h"
 #import <objc/runtime.h>
+#import <runtime/DataView.h>
+#import <runtime/JSCInlines.h>
+#import <runtime/TypedArrayInlines.h>
+#import <runtime/Uint16Array.h>
+#import <runtime/Uint32Array.h>
+#import <runtime/Uint8Array.h>
 #import <wtf/CurrentTime.h>
-#import <wtf/Uint16Array.h>
-#import <wtf/Uint32Array.h>
-#import <wtf/Uint8Array.h>
+#import <wtf/Functional.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/StringBuilder.h>
 
+#if ENABLE(AVF_CAPTIONS)
+#include "TextTrack.h"
+#endif
+
+#import <Foundation/NSGeometry.h>
 #import <AVFoundation/AVFoundation.h>
+#if PLATFORM(IOS)
+#import <CoreImage/CoreImage.h>
+#else
+#import <QuartzCore/CoreImage.h>
+#endif
 #import <CoreMedia/CoreMedia.h>
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if USE(VIDEOTOOLBOX)
 #import <CoreVideo/CoreVideo.h>
 #import <VideoToolbox/VideoToolbox.h>
 #endif
 
+@interface WebVideoContainerLayer : CALayer
+@end
+
+@implementation WebVideoContainerLayer
+
+- (void)setBounds:(CGRect)bounds
+{
+    [super setBounds:bounds];
+    for (CALayer* layer in self.sublayers)
+        layer.frame = bounds;
+}
+@end
+
+#if ENABLE(AVF_CAPTIONS)
+// Note: This must be defined before our SOFT_LINK macros:
+@class AVMediaSelectionOption;
+@interface AVMediaSelectionOption (OutOfBandExtensions)
+@property (nonatomic, readonly) NSString* outOfBandSource;
+@property (nonatomic, readonly) NSString* outOfBandIdentifier;
+@end
+#endif
+
+#if PLATFORM(IOS)
+@class AVPlayerItem;
+@interface AVPlayerItem (WebKitExtensions)
+@property (nonatomic, copy) NSString* dataYouTubeID;
+@end
+#endif
+
+@interface AVURLAsset (WebKitExtensions)
+@property (nonatomic, readonly) NSURL *resolvedURL;
+@end
+
+typedef AVPlayer AVPlayerType;
+typedef AVPlayerItem AVPlayerItemType;
+typedef AVMetadataItem AVMetadataItemType;
+
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
 SOFT_LINK_FRAMEWORK_OPTIONAL(CoreMedia)
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+SOFT_LINK_FRAMEWORK_OPTIONAL(CoreImage)
 SOFT_LINK_FRAMEWORK_OPTIONAL(CoreVideo)
+
+#if USE(VIDEOTOOLBOX)
 SOFT_LINK_FRAMEWORK_OPTIONAL(VideoToolbox)
 #endif
 
@@ -75,9 +139,16 @@ SOFT_LINK(CoreMedia, CMTimeMakeWithSeconds, CMTime, (Float64 seconds, int32_t pr
 SOFT_LINK(CoreMedia, CMTimeGetSeconds, Float64, (CMTime time), (time))
 SOFT_LINK(CoreMedia, CMTimeRangeGetEnd, CMTime, (CMTimeRange range), (range))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 SOFT_LINK(CoreVideo, CVPixelBufferGetWidth, size_t, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
 SOFT_LINK(CoreVideo, CVPixelBufferGetHeight, size_t, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
+SOFT_LINK(CoreVideo, CVPixelBufferGetBaseAddress, void*, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
+SOFT_LINK(CoreVideo, CVPixelBufferGetBytesPerRow, size_t, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
+SOFT_LINK(CoreVideo, CVPixelBufferGetDataSize, size_t, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
+SOFT_LINK(CoreVideo, CVPixelBufferGetPixelFormatType, OSType, (CVPixelBufferRef pixelBuffer), (pixelBuffer))
+SOFT_LINK(CoreVideo, CVPixelBufferLockBaseAddress, CVReturn, (CVPixelBufferRef pixelBuffer, CVOptionFlags lockFlags), (pixelBuffer, lockFlags))
+SOFT_LINK(CoreVideo, CVPixelBufferUnlockBaseAddress, CVReturn, (CVPixelBufferRef pixelBuffer, CVOptionFlags lockFlags), (pixelBuffer, lockFlags))
+
+#if USE(VIDEOTOOLBOX)
 SOFT_LINK(VideoToolbox, VTPixelTransferSessionCreate, OSStatus, (CFAllocatorRef allocator, VTPixelTransferSessionRef *pixelTransferSessionOut), (allocator, pixelTransferSessionOut))
 SOFT_LINK(VideoToolbox, VTPixelTransferSessionTransferImage, OSStatus, (VTPixelTransferSessionRef session, CVPixelBufferRef sourceBuffer, CVPixelBufferRef destinationBuffer), (session, sourceBuffer, destinationBuffer))
 #endif
@@ -88,35 +159,52 @@ SOFT_LINK_CLASS(AVFoundation, AVPlayerItemVideoOutput)
 SOFT_LINK_CLASS(AVFoundation, AVPlayerLayer)
 SOFT_LINK_CLASS(AVFoundation, AVURLAsset)
 SOFT_LINK_CLASS(AVFoundation, AVAssetImageGenerator)
+SOFT_LINK_CLASS(AVFoundation, AVMetadataItem)
+
+SOFT_LINK_CLASS(CoreImage, CIContext)
+SOFT_LINK_CLASS(CoreImage, CIImage)
 
 SOFT_LINK_POINTER(AVFoundation, AVMediaCharacteristicVisual, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaCharacteristicAudible, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeClosedCaption, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeVideo, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeAudio, NSString *)
+SOFT_LINK_POINTER(AVFoundation, AVMediaTypeMetadata, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVPlayerItemDidPlayToEndTimeNotification, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVURLAssetInheritURIQueryComponentFromReferencingURIKey, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVAssetImageGeneratorApertureModeCleanAperture, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVURLAssetReferenceRestrictionsKey, NSString *)
+SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResizeAspect, NSString *)
+SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResizeAspectFill, NSString *)
+SOFT_LINK_POINTER(AVFoundation, AVLayerVideoGravityResize, NSString *)
+SOFT_LINK_POINTER(CoreVideo, kCVPixelBufferPixelFormatTypeKey, NSString *)
+
+SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVURLAssetClientBundleIdentifierKey, NSString *)
 
 SOFT_LINK_CONSTANT(CoreMedia, kCMTimeZero, CMTime)
 
 #define AVPlayer getAVPlayerClass()
 #define AVPlayerItem getAVPlayerItemClass()
-#define AVPlayerItemVideoOutput getAVPlayerItemVideoOutputClass()
 #define AVPlayerLayer getAVPlayerLayerClass()
 #define AVURLAsset getAVURLAssetClass()
 #define AVAssetImageGenerator getAVAssetImageGeneratorClass()
+#define AVMetadataItem getAVMetadataItemClass()
 
 #define AVMediaCharacteristicVisual getAVMediaCharacteristicVisual()
 #define AVMediaCharacteristicAudible getAVMediaCharacteristicAudible()
 #define AVMediaTypeClosedCaption getAVMediaTypeClosedCaption()
 #define AVMediaTypeVideo getAVMediaTypeVideo()
 #define AVMediaTypeAudio getAVMediaTypeAudio()
+#define AVMediaTypeMetadata getAVMediaTypeMetadata()
 #define AVPlayerItemDidPlayToEndTimeNotification getAVPlayerItemDidPlayToEndTimeNotification()
 #define AVURLAssetInheritURIQueryComponentFromReferencingURIKey getAVURLAssetInheritURIQueryComponentFromReferencingURIKey()
+#define AVURLAssetClientBundleIdentifierKey getAVURLAssetClientBundleIdentifierKey()
 #define AVAssetImageGeneratorApertureModeCleanAperture getAVAssetImageGeneratorApertureModeCleanAperture()
 #define AVURLAssetReferenceRestrictionsKey getAVURLAssetReferenceRestrictionsKey()
+#define AVLayerVideoGravityResizeAspect getAVLayerVideoGravityResizeAspect()
+#define AVLayerVideoGravityResizeAspectFill getAVLayerVideoGravityResizeAspectFill()
+#define AVLayerVideoGravityResize getAVLayerVideoGravityResize()
+#define kCVPixelBufferPixelFormatTypeKey getkCVPixelBufferPixelFormatTypeKey()
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
 typedef AVMediaSelectionGroup AVMediaSelectionGroupType;
@@ -140,14 +228,59 @@ SOFT_LINK_POINTER(AVFoundation, AVPlayerItemLegibleOutputTextStylingResolutionSo
 #define AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly getAVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly()
 #endif
 
+#if ENABLE(AVF_CAPTIONS)
+SOFT_LINK_POINTER(AVFoundation, AVURLAssetHTTPCookiesKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVURLAssetOutOfBandAlternateTracksKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackDisplayNameKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackExtendedLanguageTagKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackIsDefaultKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackMediaCharactersticsKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackIdentifierKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVOutOfBandAlternateTrackSourceKey, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVMediaCharacteristicDescribesMusicAndSoundForAccessibility, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVMediaCharacteristicTranscribesSpokenDialogForAccessibility, NSString*)
+
+#define AVURLAssetHTTPCookiesKey getAVURLAssetHTTPCookiesKey()
+#define AVURLAssetOutOfBandAlternateTracksKey getAVURLAssetOutOfBandAlternateTracksKey()
+#define AVOutOfBandAlternateTrackDisplayNameKey getAVOutOfBandAlternateTrackDisplayNameKey()
+#define AVOutOfBandAlternateTrackExtendedLanguageTagKey getAVOutOfBandAlternateTrackExtendedLanguageTagKey()
+#define AVOutOfBandAlternateTrackIsDefaultKey getAVOutOfBandAlternateTrackIsDefaultKey()
+#define AVOutOfBandAlternateTrackMediaCharactersticsKey getAVOutOfBandAlternateTrackMediaCharactersticsKey()
+#define AVOutOfBandAlternateTrackIdentifierKey getAVOutOfBandAlternateTrackIdentifierKey()
+#define AVOutOfBandAlternateTrackSourceKey getAVOutOfBandAlternateTrackSourceKey()
+#define AVMediaCharacteristicDescribesMusicAndSoundForAccessibility getAVMediaCharacteristicDescribesMusicAndSoundForAccessibility()
+#define AVMediaCharacteristicTranscribesSpokenDialogForAccessibility getAVMediaCharacteristicTranscribesSpokenDialogForAccessibility()
+#endif
+
+#if ENABLE(DATACUE_VALUE)
+SOFT_LINK_POINTER(AVFoundation, AVMetadataKeySpaceQuickTimeUserData, NSString*)
+SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVMetadataKeySpaceISOUserData, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVMetadataKeySpaceQuickTimeMetadata, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVMetadataKeySpaceiTunes, NSString*)
+SOFT_LINK_POINTER(AVFoundation, AVMetadataKeySpaceID3, NSString*)
+
+#define AVMetadataKeySpaceQuickTimeUserData getAVMetadataKeySpaceQuickTimeUserData()
+#define AVMetadataKeySpaceISOUserData getAVMetadataKeySpaceISOUserData()
+#define AVMetadataKeySpaceQuickTimeMetadata getAVMetadataKeySpaceQuickTimeMetadata()
+#define AVMetadataKeySpaceiTunes getAVMetadataKeySpaceiTunes()
+#define AVMetadataKeySpaceID3 getAVMetadataKeySpaceID3()
+#endif
+
+#if PLATFORM(IOS)
+SOFT_LINK_POINTER(AVFoundation, AVURLAssetBoundNetworkInterfaceName, NSString *)
+
+#define AVURLAssetBoundNetworkInterfaceName getAVURLAssetBoundNetworkInterfaceName()
+#endif
+
 #define kCMTimeZero getkCMTimeZero()
 
 using namespace WebCore;
-using namespace std;
 
 enum MediaPlayerAVFoundationObservationContext {
     MediaPlayerAVFoundationObservationContextPlayerItem,
-    MediaPlayerAVFoundationObservationContextPlayer
+    MediaPlayerAVFoundationObservationContextPlayerItemTrack,
+    MediaPlayerAVFoundationObservationContextPlayer,
+    MediaPlayerAVFoundationObservationContextAVPlayerLayer,
 };
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
@@ -162,7 +295,6 @@ enum MediaPlayerAVFoundationObservationContext {
 -(id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC*)callback;
 -(void)disconnect;
 -(void)metadataLoaded;
--(void)seekCompleted:(BOOL)finished;
 -(void)didEnd:(NSNotification *)notification;
 -(void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary *)change context:(MediaPlayerAVFoundationObservationContext)context;
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
@@ -171,7 +303,7 @@ enum MediaPlayerAVFoundationObservationContext {
 #endif
 @end
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
 @interface WebCoreAVFLoaderDelegate : NSObject<AVAssetResourceLoaderDelegate> {
     MediaPlayerPrivateAVFoundationObjC* m_callback;
 }
@@ -181,10 +313,23 @@ enum MediaPlayerAVFoundationObservationContext {
 @end
 #endif
 
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+@interface WebCoreAVFPullDelegate : NSObject<AVPlayerItemOutputPullDelegate> {
+    MediaPlayerPrivateAVFoundationObjC *m_callback;
+    dispatch_semaphore_t m_semaphore;
+}
+- (id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC *)callback;
+- (void)setCallback:(MediaPlayerPrivateAVFoundationObjC*)callback;
+- (void)outputMediaDataWillChange:(AVPlayerItemOutput *)sender;
+- (void)outputSequenceWasFlushed:(AVPlayerItemOutput *)output;
+@end
+#endif
+
 namespace WebCore {
 
 static NSArray *assetMetadataKeyNames();
 static NSArray *itemKVOProperties();
+static NSArray* assetTrackMetadataKeyNames();
 
 #if !LOG_DISABLED
 static const char *boolString(bool val)
@@ -197,18 +342,30 @@ static const char *boolString(bool val)
 typedef HashMap<MediaPlayer*, MediaPlayerPrivateAVFoundationObjC*> PlayerToPrivateMapType;
 static PlayerToPrivateMapType& playerToPrivateMap()
 {
-    DEFINE_STATIC_LOCAL(PlayerToPrivateMapType, map, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(PlayerToPrivateMapType, map, ());
     return map;
 };
 #endif
 
-#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
 static dispatch_queue_t globalLoaderDelegateQueue()
 {
     static dispatch_queue_t globalQueue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         globalQueue = dispatch_queue_create("WebCoreAVFLoaderDelegate queue", DISPATCH_QUEUE_SERIAL);
+    });
+    return globalQueue;
+}
+#endif
+
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+static dispatch_queue_t globalPullDelegateQueue()
+{
+    static dispatch_queue_t globalQueue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        globalQueue = dispatch_queue_create("WebCoreAVFPullDelegate queue", DISPATCH_QUEUE_SERIAL);
     });
     return globalQueue;
 }
@@ -222,23 +379,41 @@ PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivateAVFoundationObjC::crea
 void MediaPlayerPrivateAVFoundationObjC::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
-#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
-        registrar(create, getSupportedTypes, extendedSupportsType, 0, 0, 0);
-#else
-        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
-#endif
+        registrar(create, getSupportedTypes, supportsType, 0, 0, 0, supportsKeySystem);
 }
 
 MediaPlayerPrivateAVFoundationObjC::MediaPlayerPrivateAVFoundationObjC(MediaPlayer* player)
     : MediaPlayerPrivateAVFoundation(player)
     , m_weakPtrFactory(this)
+#if PLATFORM(IOS)
+    , m_videoFullscreenGravity(MediaPlayer::VideoGravityResizeAspect)
+#endif
     , m_objcObserver(adoptNS([[WebCoreAVFMovieObserver alloc] initWithCallback:this]))
     , m_videoFrameHasDrawn(false)
     , m_haveCheckedPlayability(false)
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+    , m_videoOutputDelegate(adoptNS([[WebCoreAVFPullDelegate alloc] initWithCallback:this]))
+    , m_videoOutputSemaphore(nullptr)
+#endif
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     , m_loaderDelegate(adoptNS([[WebCoreAVFLoaderDelegate alloc] initWithCallback:this]))
 #endif
-    , m_currentTrack(0)
+    , m_currentTextTrack(0)
+    , m_cachedDuration(MediaPlayer::invalidTime())
+    , m_cachedRate(0)
+    , m_cachedTotalBytes(0)
+    , m_pendingStatusChanges(0)
+    , m_cachedItemStatus(MediaPlayerAVPlayerItemStatusDoesNotExist)
+    , m_cachedLikelyToKeepUp(false)
+    , m_cachedBufferEmpty(false)
+    , m_cachedBufferFull(false)
+    , m_cachedHasEnabledAudio(false)
+    , m_shouldBufferData(true)
+    , m_cachedIsReadyForDisplay(false)
+    , m_haveBeenAskedToCreateLayer(false)
+#if ENABLE(IOS_AIRPLAY)
+    , m_allowsWirelessVideoPlayback(true)
+#endif
 {
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     playerToPrivateMap().set(player, this);
@@ -250,13 +425,23 @@ MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC()
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     playerToPrivateMap().remove(player());
 #endif
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     [m_loaderDelegate.get() setCallback:0];
     [[m_avAsset.get() resourceLoader] setDelegate:nil queue:0];
 
     for (auto& pair : m_resourceLoaderMap)
         pair.value->invalidate();
 #endif
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+    [m_videoOutputDelegate setCallback:0];
+    [m_videoOutput setDelegate:nil queue:0];
+    if (m_videoOutputSemaphore)
+        dispatch_release(m_videoOutputSemaphore);
+#endif
+
+    if (m_videoLayer)
+        destroyVideoLayer();
+
     cancelLoad();
 }
 
@@ -296,35 +481,51 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
             [m_avPlayer.get() removeTimeObserver:m_timeObserver.get()];
         m_timeObserver = nil;
         [m_avPlayer.get() removeObserver:m_objcObserver.get() forKeyPath:@"rate"];
+#if ENABLE(IOS_AIRPLAY)
+        [m_avPlayer.get() removeObserver:m_objcObserver.get() forKeyPath:@"externalPlaybackActive"];
+#endif
         m_avPlayer = nil;
     }
+
+    // Reset cached properties
+    m_pendingStatusChanges = 0;
+    m_cachedItemStatus = MediaPlayerAVPlayerItemStatusDoesNotExist;
+    m_cachedSeekableRanges = nullptr;
+    m_cachedLoadedRanges = nullptr;
+    m_cachedHasEnabledAudio = false;
+    m_cachedPresentationSize = FloatSize();
+    m_cachedDuration = 0;
+
+    for (AVPlayerItemTrack *track in m_cachedTracks.get())
+        [track removeObserver:m_objcObserver.get() forKeyPath:@"enabled"];
+    m_cachedTracks = nullptr;
+
     setIgnoreLoadStateChanges(false);
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::hasLayerRenderer() const
 {
-    return m_videoLayer;
+    return m_haveBeenAskedToCreateLayer;
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::hasContextRenderer() const
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
-    return m_videoOutput;
-#else
-    return m_imageGenerator;
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+    if (m_videoOutput)
+        return true;
 #endif
+    return m_imageGenerator;
 }
 
 void MediaPlayerPrivateAVFoundationObjC::createContextVideoRenderer()
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
     createVideoOutput();
 #else
     createImageGenerator();
 #endif
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 void MediaPlayerPrivateAVFoundationObjC::createImageGenerator()
 {
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createImageGenerator(%p)", this);
@@ -341,18 +542,15 @@ void MediaPlayerPrivateAVFoundationObjC::createImageGenerator()
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createImageGenerator(%p) - returning %p", this, m_imageGenerator.get());
 }
-#endif
 
 void MediaPlayerPrivateAVFoundationObjC::destroyContextVideoRenderer()
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
     destroyVideoOutput();
-#else
-    destroyImageGenerator();
 #endif
+    destroyImageGenerator();
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 void MediaPlayerPrivateAVFoundationObjC::destroyImageGenerator()
 {
     if (!m_imageGenerator)
@@ -362,22 +560,58 @@ void MediaPlayerPrivateAVFoundationObjC::destroyImageGenerator()
 
     m_imageGenerator = 0;
 }
-#endif
 
 void MediaPlayerPrivateAVFoundationObjC::createVideoLayer()
+{
+    if (!m_avPlayer || m_haveBeenAskedToCreateLayer)
+        return;
+
+    auto weakThis = createWeakPtr();
+    callOnMainThread([this, weakThis] {
+        if (!weakThis)
+            return;
+
+        if (!m_avPlayer || m_haveBeenAskedToCreateLayer)
+            return;
+        m_haveBeenAskedToCreateLayer = true;
+
+        if (!m_videoLayer)
+            createAVPlayerLayer();
+
+        player()->mediaPlayerClient()->mediaPlayerRenderingModeChanged(player());
+    });
+}
+
+void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
 {
     if (!m_avPlayer)
         return;
 
-    if (!m_videoLayer) {
-        m_videoLayer = adoptNS([[AVPlayerLayer alloc] init]);
-        [m_videoLayer.get() setPlayer:m_avPlayer.get()];
-        [m_videoLayer.get() setBackgroundColor:CGColorGetConstantColor(kCGColorBlack)];
+    m_videoLayer = adoptNS([[AVPlayerLayer alloc] init]);
+    [m_videoLayer setPlayer:m_avPlayer.get()];
+    [m_videoLayer setBackgroundColor:cachedCGColor(Color::black, ColorSpaceDeviceRGB)];
 #ifndef NDEBUG
-        [m_videoLayer.get() setName:@"Video layer"];
+    [m_videoLayer setName:@"MediaPlayerPrivate AVPlayerLayer"];
 #endif
-        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoLayer(%p) - returning %p", this, m_videoLayer.get());
+    [m_videoLayer addObserver:m_objcObserver.get() forKeyPath:@"readyForDisplay" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextAVPlayerLayer];
+    updateVideoLayerGravity();
+    IntSize defaultSize = player()->mediaPlayerClient() ? player()->mediaPlayerClient()->mediaPlayerContentBoxRect().pixelSnappedSize() : IntSize();
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoLayer(%p) - returning %p", this, m_videoLayer.get());
+
+#if PLATFORM(IOS)
+    [m_videoLayer web_disableAllActions];
+    m_videoInlineLayer = adoptNS([[WebVideoContainerLayer alloc] init]);
+    [m_videoInlineLayer setFrame:CGRectMake(0, 0, defaultSize.width(), defaultSize.height())];
+    if (m_videoFullscreenLayer) {
+        [m_videoLayer setFrame:[m_videoFullscreenLayer bounds]];
+        [m_videoFullscreenLayer insertSublayer:m_videoLayer.get() atIndex:0];
+    } else {
+        [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
+        [m_videoLayer setFrame:m_videoInlineLayer.get().bounds];
     }
+#else
+    [m_videoLayer setFrame:CGRectMake(0, 0, defaultSize.width(), defaultSize.height())];
+#endif
 }
 
 void MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer()
@@ -385,24 +619,128 @@ void MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer()
     if (!m_videoLayer)
         return;
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer(%p) - destroying", this, m_videoLayer.get());
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::destroyVideoLayer(%p) - destroying %p", this, m_videoLayer.get());
 
+    [m_videoLayer.get() removeObserver:m_objcObserver.get() forKeyPath:@"readyForDisplay"];
     [m_videoLayer.get() setPlayer:nil];
 
-    m_videoLayer = 0;
+#if PLATFORM(IOS)
+    if (m_videoFullscreenLayer)
+        [m_videoLayer removeFromSuperlayer];
+    m_videoInlineLayer = nil;
+#endif
+
+    m_videoLayer = nil;
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::hasAvailableVideoFrame() const
 {
-    return (m_videoFrameHasDrawn || (m_videoLayer && [m_videoLayer.get() isReadyForDisplay]));
+    if (currentRenderingMode() == MediaRenderingToLayer)
+        return m_cachedIsReadyForDisplay;
+
+    return m_videoFrameHasDrawn;
 }
+
+#if ENABLE(AVF_CAPTIONS)
+static const NSArray* mediaDescriptionForKind(PlatformTextTrack::TrackKind kind)
+{
+    // FIXME: Match these to correct types:
+    if (kind == PlatformTextTrack::Caption)
+        return [NSArray arrayWithObjects: AVMediaCharacteristicTranscribesSpokenDialogForAccessibility, nil];
+
+    if (kind == PlatformTextTrack::Subtitle)
+        return [NSArray arrayWithObjects: AVMediaCharacteristicTranscribesSpokenDialogForAccessibility, nil];
+
+    if (kind == PlatformTextTrack::Description)
+        return [NSArray arrayWithObjects: AVMediaCharacteristicTranscribesSpokenDialogForAccessibility, AVMediaCharacteristicDescribesMusicAndSoundForAccessibility, nil];
+
+    if (kind == PlatformTextTrack::Forced)
+        return [NSArray arrayWithObjects: AVMediaCharacteristicContainsOnlyForcedSubtitles, nil];
+
+    return [NSArray arrayWithObjects: AVMediaCharacteristicTranscribesSpokenDialogForAccessibility, nil];
+}
+    
+void MediaPlayerPrivateAVFoundationObjC::notifyTrackModeChanged()
+{
+    trackModeChanged();
+}
+    
+void MediaPlayerPrivateAVFoundationObjC::synchronizeTextTrackState()
+{
+    const Vector<RefPtr<PlatformTextTrack>>& outOfBandTrackSources = player()->outOfBandTrackSources();
+    
+    for (auto& textTrack : m_textTracks) {
+        if (textTrack->textTrackCategory() != InbandTextTrackPrivateAVF::OutOfBand)
+            continue;
+        
+        RefPtr<OutOfBandTextTrackPrivateAVF> trackPrivate = static_cast<OutOfBandTextTrackPrivateAVF*>(textTrack.get());
+        RetainPtr<AVMediaSelectionOptionType> currentOption = trackPrivate->mediaSelectionOption();
+        
+        for (auto& track : outOfBandTrackSources) {
+            RetainPtr<CFStringRef> uniqueID = String::number(track->uniqueId()).createCFString();
+            
+            if (![[currentOption.get() outOfBandIdentifier] isEqual: reinterpret_cast<const NSString*>(uniqueID.get())])
+                continue;
+            
+            InbandTextTrackPrivate::Mode mode = InbandTextTrackPrivate::Hidden;
+            if (track->mode() == PlatformTextTrack::Hidden)
+                mode = InbandTextTrackPrivate::Hidden;
+            else if (track->mode() == PlatformTextTrack::Disabled)
+                mode = InbandTextTrackPrivate::Disabled;
+            else if (track->mode() == PlatformTextTrack::Showing)
+                mode = InbandTextTrackPrivate::Showing;
+            
+            textTrack->setMode(mode);
+            break;
+        }
+    }
+}
+#endif
+
+
+static NSURL *canonicalURL(const String& url)
+{
+    NSURL *cocoaURL = URL(ParsedURLString, url);
+    if (url.isEmpty())
+        return cocoaURL;
+
+    RetainPtr<NSURLRequest> request = adoptNS([[NSURLRequest alloc] initWithURL:cocoaURL]);
+    if (!request)
+        return cocoaURL;
+
+    NSURLRequest *canonicalRequest = [NSURLProtocol canonicalRequestForRequest:request.get()];
+    if (!canonicalRequest)
+        return cocoaURL;
+
+    return [canonicalRequest URL];
+}
+
+#if PLATFORM(IOS)
+static NSHTTPCookie* toNSHTTPCookie(const Cookie& cookie)
+{
+    RetainPtr<NSMutableDictionary> properties = adoptNS([[NSMutableDictionary alloc] init]);
+    [properties setDictionary:@{
+        NSHTTPCookieName: cookie.name,
+        NSHTTPCookieValue: cookie.value,
+        NSHTTPCookieDomain: cookie.domain,
+        NSHTTPCookiePath: cookie.path,
+        NSHTTPCookieExpires: [NSDate dateWithTimeIntervalSince1970:(cookie.expires / 1000)],
+    }];
+    if (cookie.secure)
+        [properties setObject:@YES forKey:NSHTTPCookieSecure];
+    if (cookie.session)
+        [properties setObject:@YES forKey:NSHTTPCookieDiscard];
+
+    return [NSHTTPCookie cookieWithProperties:properties.get()];
+}
+#endif
 
 void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const String& url)
 {
     if (m_avAsset)
         return;
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(%p)", this);
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(%p) - url = %s", this, url.utf8().data());
 
     setDelayCallbacks(true);
 
@@ -410,7 +748,6 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const String& url)
 
     [options.get() setObject:[NSNumber numberWithInt:AVAssetReferenceRestrictionForbidRemoteReferenceToLocal | AVAssetReferenceRestrictionForbidLocalReferenceToRemote] forKey:AVURLAssetReferenceRestrictionsKey];
 
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     RetainPtr<NSMutableDictionary> headerFields = adoptNS([[NSMutableDictionary alloc] init]);
 
     String referrer = player()->referrer();
@@ -427,18 +764,77 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const String& url)
     if (player()->doesHaveAttribute("x-itunes-inherit-uri-query-component"))
         [options.get() setObject: [NSNumber numberWithBool: TRUE] forKey: AVURLAssetInheritURIQueryComponentFromReferencingURIKey];
 
+    String identifier = player()->sourceApplicationIdentifier();
+    if (!identifier.isEmpty() && AVURLAssetClientBundleIdentifierKey)
+        [options setObject:identifier forKey:AVURLAssetClientBundleIdentifierKey];
+
+#if ENABLE(AVF_CAPTIONS)
+    const Vector<RefPtr<PlatformTextTrack>>& outOfBandTrackSources = player()->outOfBandTrackSources();
+    if (!outOfBandTrackSources.isEmpty()) {
+        RetainPtr<NSMutableArray> outOfBandTracks = adoptNS([[NSMutableArray alloc] init]);
+        for (auto& trackSource : outOfBandTrackSources) {
+            RetainPtr<CFStringRef> label = trackSource->label().createCFString();
+            RetainPtr<CFStringRef> language = trackSource->language().createCFString();
+            RetainPtr<CFStringRef> uniqueID = String::number(trackSource->uniqueId()).createCFString();
+            RetainPtr<CFStringRef> url = trackSource->url().createCFString();
+            [outOfBandTracks.get() addObject:@{
+                AVOutOfBandAlternateTrackDisplayNameKey: reinterpret_cast<const NSString*>(label.get()),
+                AVOutOfBandAlternateTrackExtendedLanguageTagKey: reinterpret_cast<const NSString*>(language.get()),
+                AVOutOfBandAlternateTrackIsDefaultKey: trackSource->isDefault() ? @YES : @NO,
+                AVOutOfBandAlternateTrackIdentifierKey: reinterpret_cast<const NSString*>(uniqueID.get()),
+                AVOutOfBandAlternateTrackSourceKey: reinterpret_cast<const NSString*>(url.get()),
+                AVOutOfBandAlternateTrackMediaCharactersticsKey: mediaDescriptionForKind(trackSource->kind()),
+            }];
+        }
+
+        [options.get() setObject:outOfBandTracks.get() forKey:AVURLAssetOutOfBandAlternateTracksKey];
+    }
 #endif
 
-    NSURL *cocoaURL = KURL(ParsedURLString, url);
+#if PLATFORM(IOS)
+    String networkInterfaceName = player()->mediaPlayerNetworkInterfaceName();
+    if (!networkInterfaceName.isEmpty())
+        [options setObject:networkInterfaceName forKey:AVURLAssetBoundNetworkInterfaceName];
+#endif
+
+#if PLATFORM(IOS)
+    Vector<Cookie> cookies;
+    if (player()->getRawCookies(URL(ParsedURLString, url), cookies)) {
+        RetainPtr<NSMutableArray> nsCookies = adoptNS([[NSMutableArray alloc] initWithCapacity:cookies.size()]);
+        for (auto& cookie : cookies)
+            [nsCookies addObject:toNSHTTPCookie(cookie)];
+
+        [options setObject:nsCookies.get() forKey:AVURLAssetHTTPCookiesKey];
+    }
+#endif
+
+    NSURL *cocoaURL = canonicalURL(url);
     m_avAsset = adoptNS([[AVURLAsset alloc] initWithURL:cocoaURL options:options.get()]);
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     [[m_avAsset.get() resourceLoader] setDelegate:m_loaderDelegate.get() queue:globalLoaderDelegateQueue()];
 #endif
 
     m_haveCheckedPlayability = false;
 
     setDelayCallbacks(false);
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setAVPlayerItem(AVPlayerItemType *item)
+{
+    if (!m_avPlayer)
+        return;
+
+    if (pthread_main_np()) {
+        [m_avPlayer replaceCurrentItemWithPlayerItem:item];
+        return;
+    }
+
+    RetainPtr<AVPlayerType> strongPlayer = m_avPlayer.get();
+    RetainPtr<AVPlayerItemType> strongItem = item;
+    dispatch_async(dispatch_get_main_queue(), [strongPlayer, strongItem] {
+        [strongPlayer replaceCurrentItemWithPlayerItem:strongItem.get()];
+    });
 }
 
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
@@ -451,14 +847,25 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     setDelayCallbacks(true);
 
     m_avPlayer = adoptNS([[AVPlayer alloc] init]);
-    [m_avPlayer.get() addObserver:m_objcObserver.get() forKeyPath:@"rate" options:nil context:(void *)MediaPlayerAVFoundationObservationContextPlayer];
+    [m_avPlayer.get() addObserver:m_objcObserver.get() forKeyPath:@"rate" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextPlayer];
+#if ENABLE(IOS_AIRPLAY)
+    [m_avPlayer.get() addObserver:m_objcObserver.get() forKeyPath:@"externalPlaybackActive" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextPlayer];
+    updateDisableExternalPlayback();
+#endif
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
     [m_avPlayer.get() setAppliesMediaSelectionCriteriaAutomatically:YES];
 #endif
 
+#if ENABLE(IOS_AIRPLAY)
+    [m_avPlayer.get() setAllowsExternalPlayback:m_allowsWirelessVideoPlayback];
+#endif
+
+    if (player()->mediaPlayerClient() && player()->mediaPlayerClient()->mediaPlayerIsVideo())
+        createAVPlayerLayer();
+
     if (m_avPlayerItem)
-        [m_avPlayer.get() replaceCurrentItemWithPlayerItem:m_avPlayerItem.get()];
+        setAVPlayerItem(m_avPlayerItem.get());
 
     setDelayCallbacks(false);
 }
@@ -477,16 +884,24 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(didEnd:) name:AVPlayerItemDidPlayToEndTimeNotification object:m_avPlayerItem.get()];
 
+    NSKeyValueObservingOptions options = NSKeyValueObservingOptionNew | NSKeyValueObservingOptionPrior;
     for (NSString *keyName in itemKVOProperties())
-        [m_avPlayerItem.get() addObserver:m_objcObserver.get() forKeyPath:keyName options:nil context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
+        [m_avPlayerItem.get() addObserver:m_objcObserver.get() forKeyPath:keyName options:options context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
 
     if (m_avPlayer)
-        [m_avPlayer.get() replaceCurrentItemWithPlayerItem:m_avPlayerItem.get()];
+        setAVPlayerItem(m_avPlayerItem.get());
+
+#if PLATFORM(IOS)
+    AtomicString value;
+    if (player()->doesHaveAttribute("data-youtube-id", &value))
+        [m_avPlayerItem.get() setDataYouTubeID: value];
+ #endif
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP) && HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
     const NSTimeInterval legibleOutputAdvanceInterval = 2;
 
-    m_legibleOutput = adoptNS([[AVPlayerItemLegibleOutput alloc] initWithMediaSubtypesForNativeRepresentation:[NSArray array]]);
+    RetainPtr<NSArray> subtypes = adoptNS([[NSArray alloc] initWithObjects:[NSNumber numberWithUnsignedInt:kCMSubtitleFormatType_WebVTT], nil]);
+    m_legibleOutput = adoptNS([[AVPlayerItemLegibleOutput alloc] initWithMediaSubtypesForNativeRepresentation:subtypes.get()]);
     [m_legibleOutput.get() setSuppressesPlayerRendering:YES];
 
     [m_legibleOutput.get() setDelegate:m_objcObserver.get() queue:dispatch_get_main_queue()];
@@ -508,8 +923,8 @@ void MediaPlayerPrivateAVFoundationObjC::checkPlayability()
     auto weakThis = createWeakPtr();
 
     [m_avAsset.get() loadValuesAsynchronouslyForKeys:[NSArray arrayWithObject:@"playable"] completionHandler:^{
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (weakThis.get())
+        callOnMainThread([weakThis] {
+            if (weakThis)
                 weakThis->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetPlayabilityKnown);
         });
     }];
@@ -518,9 +933,33 @@ void MediaPlayerPrivateAVFoundationObjC::checkPlayability()
 void MediaPlayerPrivateAVFoundationObjC::beginLoadingMetadata()
 {
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::beginLoadingMetadata(%p) - requesting metadata loading", this);
-    [m_avAsset.get() loadValuesAsynchronouslyForKeys:[assetMetadataKeyNames() retain] completionHandler:^{
-        [m_objcObserver.get() metadataLoaded];
+
+    dispatch_group_t metadataLoadingGroup = dispatch_group_create();
+    dispatch_group_enter(metadataLoadingGroup);
+    auto weakThis = createWeakPtr();
+    [m_avAsset.get() loadValuesAsynchronouslyForKeys:assetMetadataKeyNames() completionHandler:^{
+
+        callOnMainThread([weakThis, metadataLoadingGroup] {
+            if (weakThis && [weakThis->m_avAsset.get() statusOfValueForKey:@"tracks" error:nil] == AVKeyValueStatusLoaded) {
+                for (AVAssetTrack *track in [weakThis->m_avAsset.get() tracks]) {
+                    dispatch_group_enter(metadataLoadingGroup);
+                    [track loadValuesAsynchronouslyForKeys:assetTrackMetadataKeyNames() completionHandler:^{
+                        dispatch_group_leave(metadataLoadingGroup);
+                    }];
+                }
+            }
+            dispatch_group_leave(metadataLoadingGroup);
+        });
     }];
+
+    dispatch_group_notify(metadataLoadingGroup, dispatch_get_main_queue(), ^{
+        callOnMainThread([weakThis] {
+            if (weakThis)
+                [weakThis->m_objcObserver.get() metadataLoaded];
+        });
+
+        dispatch_release(metadataLoadingGroup);
+    });
 }
 
 MediaPlayerPrivateAVFoundation::ItemStatus MediaPlayerPrivateAVFoundationObjC::playerItemStatus() const
@@ -528,16 +967,15 @@ MediaPlayerPrivateAVFoundation::ItemStatus MediaPlayerPrivateAVFoundationObjC::p
     if (!m_avPlayerItem)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusDoesNotExist;
 
-    AVPlayerItemStatus status = [m_avPlayerItem.get() status];
-    if (status == AVPlayerItemStatusUnknown)
+    if (m_cachedItemStatus == AVPlayerItemStatusUnknown)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusUnknown;
-    if (status == AVPlayerItemStatusFailed)
+    if (m_cachedItemStatus == AVPlayerItemStatusFailed)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusFailed;
-    if ([m_avPlayerItem.get() isPlaybackLikelyToKeepUp])
+    if (m_cachedLikelyToKeepUp)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackLikelyToKeepUp;
-    if ([m_avPlayerItem.get() isPlaybackBufferFull])
+    if (m_cachedBufferFull)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferFull;
-    if ([m_avPlayerItem.get() isPlaybackBufferEmpty])
+    if (m_cachedBufferEmpty)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferEmpty;
 
     return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusReadyToPlay;
@@ -554,8 +992,110 @@ PlatformMedia MediaPlayerPrivateAVFoundationObjC::platformMedia() const
 
 PlatformLayer* MediaPlayerPrivateAVFoundationObjC::platformLayer() const
 {
-    return m_videoLayer.get();
+#if PLATFORM(IOS)
+    return m_haveBeenAskedToCreateLayer ? m_videoInlineLayer.get() : nullptr;
+#else
+    return m_haveBeenAskedToCreateLayer ? m_videoLayer.get() : nullptr;
+#endif
 }
+
+#if PLATFORM(IOS)
+void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenLayer(PlatformLayer* videoFullscreenLayer)
+{
+    if (m_videoFullscreenLayer == videoFullscreenLayer)
+        return;
+
+    m_videoFullscreenLayer = videoFullscreenLayer;
+
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+
+    if (m_videoFullscreenLayer && m_videoLayer) {
+        [m_videoLayer setFrame:[m_videoFullscreenLayer bounds]];
+        [m_videoLayer removeFromSuperlayer];
+        [m_videoFullscreenLayer insertSublayer:m_videoLayer.get() atIndex:0];
+    } else if (m_videoInlineLayer && m_videoLayer) {
+        [m_videoLayer setFrame:[m_videoInlineLayer bounds]];
+        [m_videoLayer removeFromSuperlayer];
+        [m_videoInlineLayer insertSublayer:m_videoLayer.get() atIndex:0];
+    } else if (m_videoLayer)
+        [m_videoLayer removeFromSuperlayer];
+
+    [CATransaction commit];
+
+    if (m_videoFullscreenLayer && m_textTrackRepresentationLayer) {
+        syncTextTrackBounds();
+        [m_videoFullscreenLayer addSublayer:m_textTrackRepresentationLayer.get()];
+    }
+#if ENABLE(IOS_AIRPLAY)
+    updateDisableExternalPlayback();
+#endif
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenFrame(FloatRect frame)
+{
+    m_videoFullscreenFrame = frame;
+    if (!m_videoFullscreenLayer)
+        return;
+
+    if (m_videoLayer) {
+        [m_videoLayer setStyle:nil]; // This enables actions, i.e. implicit animations.
+        [CATransaction begin];
+        [m_videoLayer setFrame:CGRectMake(0, 0, frame.width(), frame.height())];
+        [CATransaction commit];
+        [m_videoLayer web_disableAllActions];
+    }
+    syncTextTrackBounds();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setVideoFullscreenGravity(MediaPlayer::VideoGravity gravity)
+{
+    m_videoFullscreenGravity = gravity;
+    if (!m_videoLayer)
+        return;
+
+    NSString *videoGravity = AVLayerVideoGravityResizeAspect;
+    if (gravity == MediaPlayer::VideoGravityResize)
+        videoGravity = AVLayerVideoGravityResize;
+    else if (gravity == MediaPlayer::VideoGravityResizeAspect)
+        videoGravity = AVLayerVideoGravityResizeAspect;
+    else if (gravity == MediaPlayer::VideoGravityResizeAspectFill)
+        videoGravity = AVLayerVideoGravityResizeAspectFill;
+    else
+        ASSERT_NOT_REACHED();
+
+    [m_videoLayer setVideoGravity:videoGravity];
+}
+
+NSArray *MediaPlayerPrivateAVFoundationObjC::timedMetadata() const
+{
+    if (m_currentMetaData)
+        return m_currentMetaData.get();
+    return nil;
+}
+
+String MediaPlayerPrivateAVFoundationObjC::accessLog() const
+{
+    if (!m_avPlayerItem)
+        return emptyString();
+    
+    AVPlayerItemAccessLog *log = [m_avPlayerItem.get() accessLog];
+    RetainPtr<NSString> logString = adoptNS([[NSString alloc] initWithData:[log extendedLogData] encoding:[log extendedLogDataStringEncoding]]);
+
+    return logString.get();
+}
+
+String MediaPlayerPrivateAVFoundationObjC::errorLog() const
+{
+    if (!m_avPlayerItem)
+        return emptyString();
+
+    AVPlayerItemErrorLog *log = [m_avPlayerItem.get() errorLog];
+    RetainPtr<NSString> logString = adoptNS([[NSString alloc] initWithData:[log extendedLogData] encoding:[log extendedLogDataStringEncoding]]);
+
+    return logString.get();
+}
+#endif
 
 void MediaPlayerPrivateAVFoundationObjC::platformSetVisible(bool isVisible)
 {
@@ -573,6 +1113,7 @@ void MediaPlayerPrivateAVFoundationObjC::platformPlay()
         return;
 
     setDelayCallbacks(true);
+    m_cachedRate = requestedRate();
     [m_avPlayer.get() setRate:requestedRate()];
     setDelayCallbacks(false);
 }
@@ -584,16 +1125,17 @@ void MediaPlayerPrivateAVFoundationObjC::platformPause()
         return;
 
     setDelayCallbacks(true);
-    [m_avPlayer.get() setRate:nil];
+    m_cachedRate = 0;
+    [m_avPlayer.get() setRate:0];
     setDelayCallbacks(false);
 }
 
-float MediaPlayerPrivateAVFoundationObjC::platformDuration() const
+double MediaPlayerPrivateAVFoundationObjC::platformDuration() const
 {
     // Do not ask the asset for duration before it has been loaded or it will fetch the
     // answer synchronously.
     if (!m_avAsset || assetStatus() < MediaPlayerAVAssetStatusLoaded)
-         return MediaPlayer::invalidTime();
+        return MediaPlayer::invalidTime();
     
     CMTime cmDuration;
     
@@ -604,37 +1146,50 @@ float MediaPlayerPrivateAVFoundationObjC::platformDuration() const
         cmDuration= [m_avAsset.get() duration];
 
     if (CMTIME_IS_NUMERIC(cmDuration))
-        return narrowPrecisionToFloat(CMTimeGetSeconds(cmDuration));
+        return CMTimeGetSeconds(cmDuration);
 
     if (CMTIME_IS_INDEFINITE(cmDuration)) {
-        return numeric_limits<float>::infinity();
+        return std::numeric_limits<double>::infinity();
     }
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::platformDuration(%p) - invalid duration, returning %.0f", this, MediaPlayer::invalidTime());
     return MediaPlayer::invalidTime();
 }
 
-float MediaPlayerPrivateAVFoundationObjC::currentTime() const
+double MediaPlayerPrivateAVFoundationObjC::currentTimeDouble() const
 {
     if (!metaDataAvailable() || !m_avPlayerItem)
         return 0;
 
     CMTime itemTime = [m_avPlayerItem.get() currentTime];
-    if (CMTIME_IS_NUMERIC(itemTime)) {
-        return max(narrowPrecisionToFloat(CMTimeGetSeconds(itemTime)), 0.0f);
-    }
+    if (CMTIME_IS_NUMERIC(itemTime))
+        return std::max(CMTimeGetSeconds(itemTime), 0.0);
 
     return 0;
 }
 
-void MediaPlayerPrivateAVFoundationObjC::seekToTime(double time)
+void MediaPlayerPrivateAVFoundationObjC::seekToTime(double time, double negativeTolerance, double positiveTolerance)
 {
     // setCurrentTime generates several event callbacks, update afterwards.
     setDelayCallbacks(true);
 
-    WebCoreAVFMovieObserver *observer = m_objcObserver.get();
-    [m_avPlayerItem.get() seekToTime:CMTimeMakeWithSeconds(time, 600) toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero completionHandler:^(BOOL finished) {
-        [observer seekCompleted:finished];
+    if (m_metadataTrack)
+        m_metadataTrack->flushPartialCues();
+
+    CMTime cmTime = CMTimeMakeWithSeconds(time, 600);
+    CMTime cmBefore = CMTimeMakeWithSeconds(negativeTolerance, 600);
+    CMTime cmAfter = CMTimeMakeWithSeconds(positiveTolerance, 600);
+
+    auto weakThis = createWeakPtr();
+
+    [m_avPlayerItem.get() seekToTime:cmTime toleranceBefore:cmBefore toleranceAfter:cmAfter completionHandler:^(BOOL finished) {
+        callOnMainThread([weakThis, finished] {
+            auto _this = weakThis.get();
+            if (!_this)
+                return;
+
+            _this->seekCompleted(finished);
+        });
     }];
 
     setDelayCallbacks(false);
@@ -642,10 +1197,15 @@ void MediaPlayerPrivateAVFoundationObjC::seekToTime(double time)
 
 void MediaPlayerPrivateAVFoundationObjC::setVolume(float volume)
 {
+#if PLATFORM(IOS)
+    UNUSED_PARAM(volume);
+    return;
+#else
     if (!metaDataAvailable())
         return;
 
     [m_avPlayer.get() setVolume:volume];
+#endif
 }
 
 void MediaPlayerPrivateAVFoundationObjC::setClosedCaptionsVisible(bool closedCaptionsVisible)
@@ -661,6 +1221,7 @@ void MediaPlayerPrivateAVFoundationObjC::setClosedCaptionsVisible(bool closedCap
 void MediaPlayerPrivateAVFoundationObjC::updateRate()
 {
     setDelayCallbacks(true);
+    m_cachedRate = requestedRate();
     [m_avPlayer.get() setRate:requestedRate()];
     setDelayCallbacks(false);
 }
@@ -670,37 +1231,32 @@ float MediaPlayerPrivateAVFoundationObjC::rate() const
     if (!metaDataAvailable())
         return 0;
 
-    return [m_avPlayer.get() rate];
+    return m_cachedRate;
 }
 
-PassRefPtr<TimeRanges> MediaPlayerPrivateAVFoundationObjC::platformBufferedTimeRanges() const
+std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateAVFoundationObjC::platformBufferedTimeRanges() const
 {
-    RefPtr<TimeRanges> timeRanges = TimeRanges::create();
+    auto timeRanges = PlatformTimeRanges::create();
 
     if (!m_avPlayerItem)
-        return timeRanges.release();
+        return timeRanges;
 
-    NSArray *loadedRanges = [m_avPlayerItem.get() loadedTimeRanges];
-    for (NSValue *thisRangeValue in loadedRanges) {
+    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
         CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
-        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange)) {
-            float rangeStart = narrowPrecisionToFloat(CMTimeGetSeconds(timeRange.start));
-            float rangeEnd = narrowPrecisionToFloat(CMTimeGetSeconds(CMTimeRangeGetEnd(timeRange)));
-            timeRanges->add(rangeStart, rangeEnd);
-        }
+        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange))
+            timeRanges->add(toMediaTime(timeRange.start), toMediaTime(CMTimeRangeGetEnd(timeRange)));
     }
-    return timeRanges.release();
+    return timeRanges;
 }
 
 double MediaPlayerPrivateAVFoundationObjC::platformMinTimeSeekable() const
 {
-    NSArray *seekableRanges = [m_avPlayerItem.get() seekableTimeRanges];
-    if (!seekableRanges || ![seekableRanges count])
+    if (!m_cachedSeekableRanges || ![m_cachedSeekableRanges count])
         return 0;
 
     double minTimeSeekable = std::numeric_limits<double>::infinity();
     bool hasValidRange = false;
-    for (NSValue *thisRangeValue in seekableRanges) {
+    for (NSValue *thisRangeValue in m_cachedSeekableRanges.get()) {
         CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
         if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
             continue;
@@ -715,12 +1271,11 @@ double MediaPlayerPrivateAVFoundationObjC::platformMinTimeSeekable() const
 
 double MediaPlayerPrivateAVFoundationObjC::platformMaxTimeSeekable() const
 {
-    NSArray *seekableRanges = [m_avPlayerItem.get() seekableTimeRanges];
-    if (!seekableRanges)
-        return 0;
+    if (!m_cachedSeekableRanges)
+        m_cachedSeekableRanges = [m_avPlayerItem seekableTimeRanges];
 
     double maxTimeSeekable = 0;
-    for (NSValue *thisRangeValue in seekableRanges) {
+    for (NSValue *thisRangeValue in m_cachedSeekableRanges.get()) {
         CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
         if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
             continue;
@@ -734,12 +1289,19 @@ double MediaPlayerPrivateAVFoundationObjC::platformMaxTimeSeekable() const
 
 float MediaPlayerPrivateAVFoundationObjC::platformMaxTimeLoaded() const
 {
-    NSArray *loadedRanges = [m_avPlayerItem.get() loadedTimeRanges];
-    if (!loadedRanges)
+#if !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 1080
+    // AVFoundation on Mountain Lion will occasionally not send a KVO notification
+    // when loadedTimeRanges changes when there is no video output. In that case
+    // update the cached value explicitly.
+    if (!hasLayerRenderer() && !hasContextRenderer())
+        m_cachedLoadedRanges = [m_avPlayerItem loadedTimeRanges];
+#endif
+
+    if (!m_cachedLoadedRanges)
         return 0;
 
     float maxTimeLoaded = 0;
-    for (NSValue *thisRangeValue in loadedRanges) {
+    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
         CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
         if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
             continue;
@@ -752,17 +1314,18 @@ float MediaPlayerPrivateAVFoundationObjC::platformMaxTimeLoaded() const
     return maxTimeLoaded;   
 }
 
-unsigned MediaPlayerPrivateAVFoundationObjC::totalBytes() const
+unsigned long long MediaPlayerPrivateAVFoundationObjC::totalBytes() const
 {
     if (!metaDataAvailable())
         return 0;
 
-    long long totalMediaSize = 0;
-    NSArray *tracks = [m_avAsset.get() tracks];
-    for (AVAssetTrack *thisTrack in tracks)
-        totalMediaSize += [thisTrack totalSampleDataLength];
+    if (m_cachedTotalBytes)
+        return m_cachedTotalBytes;
 
-    return static_cast<unsigned>(totalMediaSize);
+    for (AVPlayerItemTrack *thisTrack in m_cachedTracks.get())
+        m_cachedTotalBytes += [[thisTrack assetTrack] totalSampleDataLength];
+
+    return m_cachedTotalBytes;
 }
 
 void MediaPlayerPrivateAVFoundationObjC::setAsset(id asset)
@@ -776,7 +1339,12 @@ MediaPlayerPrivateAVFoundation::AssetStatus MediaPlayerPrivateAVFoundationObjC::
         return MediaPlayerAVAssetStatusDoesNotExist;
 
     for (NSString *keyName in assetMetadataKeyNames()) {
-        AVKeyValueStatus keyStatus = [m_avAsset.get() statusOfValueForKey:keyName error:nil];
+        NSError *error = nil;
+        AVKeyValueStatus keyStatus = [m_avAsset.get() statusOfValueForKey:keyName error:&error];
+#if !LOG_DISABLED
+        if (error)
+            LOG(Media, "MediaPlayerPrivateAVFoundation::assetStatus - statusOfValueForKey failed for %s, error = %s", [keyName UTF8String], [[error localizedDescription] UTF8String]);
+#endif
 
         if (keyStatus < AVKeyValueStatusLoaded)
             return MediaPlayerAVAssetStatusLoading;// At least one key is not loaded yet.
@@ -799,22 +1367,15 @@ void MediaPlayerPrivateAVFoundationObjC::paintCurrentFrameInContext(GraphicsCont
     if (!metaDataAvailable() || context->paintingDisabled())
         return;
 
-    paint(context, rect);
-}
-
-void MediaPlayerPrivateAVFoundationObjC::paint(GraphicsContext* context, const IntRect& rect)
-{
-    if (!metaDataAvailable() || context->paintingDisabled())
-        return;
-
     setDelayCallbacks(true);
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
-    paintWithVideoOutput(context, rect);
-#else
-    paintWithImageGenerator(context, rect);
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+    if (videoOutputHasAvailableFrame())
+        paintWithVideoOutput(context, rect);
+    else
 #endif
+        paintWithImageGenerator(context, rect);
 
     END_BLOCK_OBJC_EXCEPTIONS;
     setDelayCallbacks(false);
@@ -822,9 +1383,26 @@ void MediaPlayerPrivateAVFoundationObjC::paint(GraphicsContext* context, const I
     m_videoFrameHasDrawn = true;
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
+void MediaPlayerPrivateAVFoundationObjC::paint(GraphicsContext* context, const IntRect& rect)
+{
+    if (!metaDataAvailable() || context->paintingDisabled())
+        return;
+
+    // We can ignore the request if we are already rendering to a layer.
+    if (currentRenderingMode() == MediaRenderingToLayer)
+        return;
+
+    // paint() is best effort, so only paint if we already have an image generator or video output available.
+    if (!hasContextRenderer())
+        return;
+
+    paintCurrentFrameInContext(context, rect);
+}
+
 void MediaPlayerPrivateAVFoundationObjC::paintWithImageGenerator(GraphicsContext* context, const IntRect& rect)
 {
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::paintWithImageGenerator(%p)", this);
+
     RetainPtr<CGImageRef> image = createImageForTimeInRect(currentTime(), rect);
     if (image) {
         GraphicsContextStateSaver stateSaver(*context);
@@ -836,11 +1414,10 @@ void MediaPlayerPrivateAVFoundationObjC::paintWithImageGenerator(GraphicsContext
         image = 0;
     }
 }
-#endif
 
 static HashSet<String> mimeTypeCache()
 {
-    DEFINE_STATIC_LOCAL(HashSet<String>, cache, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(HashSet<String>, cache, ());
     static bool typeListInitialized = false;
 
     if (typeListInitialized)
@@ -854,7 +1431,6 @@ static HashSet<String> mimeTypeCache()
     return cache;
 } 
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 RetainPtr<CGImageRef> MediaPlayerPrivateAVFoundationObjC::createImageForTimeInRect(float time, const IntRect& rect)
 {
     if (!m_imageGenerator)
@@ -862,70 +1438,92 @@ RetainPtr<CGImageRef> MediaPlayerPrivateAVFoundationObjC::createImageForTimeInRe
     ASSERT(m_imageGenerator);
 
 #if !LOG_DISABLED
-    double start = WTF::currentTime();
+    double start = monotonicallyIncreasingTime();
 #endif
 
     [m_imageGenerator.get() setMaximumSize:CGSize(rect.size())];
-    RetainPtr<CGImageRef> image = adoptCF([m_imageGenerator.get() copyCGImageAtTime:CMTimeMakeWithSeconds(time, 600) actualTime:nil error:nil]);
+    RetainPtr<CGImageRef> rawImage = adoptCF([m_imageGenerator.get() copyCGImageAtTime:CMTimeMakeWithSeconds(time, 600) actualTime:nil error:nil]);
+    RetainPtr<CGImageRef> image = adoptCF(CGImageCreateCopyWithColorSpace(rawImage.get(), deviceRGBColorSpaceRef()));
 
 #if !LOG_DISABLED
-    double duration = WTF::currentTime() - start;
+    double duration = monotonicallyIncreasingTime() - start;
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createImageForTimeInRect(%p) - creating image took %.4f", this, narrowPrecisionToFloat(duration));
 #endif
 
     return image;
 }
-#endif
 
 void MediaPlayerPrivateAVFoundationObjC::getSupportedTypes(HashSet<String>& supportedTypes)
 {
     supportedTypes = mimeTypeCache();
 } 
 
-MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationObjC::supportsType(const String& type, const String& codecs, const KURL&)
-{
-    if (!mimeTypeCache().contains(type))
-        return MediaPlayer::IsNotSupported;
-
-    // The spec says:
-    // "Implementors are encouraged to return "maybe" unless the type can be confidently established as being supported or not."
-    if (codecs.isEmpty())
-        return MediaPlayer::MayBeSupported;
-
-    NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)type, (NSString *)codecs];
-    return [AVURLAsset isPlayableExtendedMIMEType:typeString] ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;;
-}
-
 #if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
 static bool keySystemIsSupported(const String& keySystem)
 {
-    if (equalIgnoringCase(keySystem, "com.apple.lskd") || equalIgnoringCase(keySystem, "com.apple.lskd.1_0"))
+    if (equalIgnoringCase(keySystem, "com.apple.fps") || equalIgnoringCase(keySystem, "com.apple.fps.1_0"))
         return true;
-
     return false;
 }
+#endif
 
-MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationObjC::extendedSupportsType(const String& type, const String& codecs, const String& keySystem, const KURL& url)
+MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationObjC::supportsType(const MediaEngineSupportParameters& parameters)
 {
+#if ENABLE(ENCRYPTED_MEDIA)
     // From: <http://dvcs.w3.org/hg/html-media/raw-file/eme-v0.1b/encrypted-media/encrypted-media.html#dom-canplaytype>
     // In addition to the steps in the current specification, this method must run the following steps:
 
     // 1. Check whether the Key System is supported with the specified container and codec type(s) by following the steps for the first matching condition from the following list:
     //    If keySystem is null, continue to the next step.
-    if (keySystem.isNull() || keySystem.isEmpty())
-        return supportsType(type, codecs, url);
+    if (!parameters.keySystem.isNull() && !parameters.keySystem.isEmpty()) {
+        // If keySystem contains an unrecognized or unsupported Key System, return the empty string
+        if (!keySystemIsSupported(parameters.keySystem))
+            return MediaPlayer::IsNotSupported;
 
-    // If keySystem contains an unrecognized or unsupported Key System, return the empty string
-    if (!keySystemIsSupported(keySystem))
-        return MediaPlayer::IsNotSupported;
-
-    // If the Key System specified by keySystem does not support decrypting the container and/or codec specified in the rest of the type string.
-    // (AVFoundation does not provide an API which would allow us to determine this, so this is a no-op)
+        // If the Key System specified by keySystem does not support decrypting the container and/or codec specified in the rest of the type string.
+        // (AVFoundation does not provide an API which would allow us to determine this, so this is a no-op)
+    }
 
     // 2. Return "maybe" or "probably" as appropriate per the existing specification of canPlayType().
-    return supportsType(type, codecs, url);
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+    if (parameters.isMediaSource)
+        return MediaPlayer::IsNotSupported;
+#endif
+
+    if (!mimeTypeCache().contains(parameters.type))
+        return MediaPlayer::IsNotSupported;
+
+    // The spec says:
+    // "Implementors are encouraged to return "maybe" unless the type can be confidently established as being supported or not."
+    if (parameters.codecs.isEmpty())
+        return MediaPlayer::MayBeSupported;
+
+    NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)parameters.type, (NSString *)parameters.codecs];
+    return [AVURLAsset isPlayableExtendedMIMEType:typeString] ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;;
 }
 
+bool MediaPlayerPrivateAVFoundationObjC::supportsKeySystem(const String& keySystem, const String& mimeType)
+{
+#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
+    if (!keySystem.isEmpty()) {
+        if (!keySystemIsSupported(keySystem))
+            return false;
+
+        if (!mimeType.isEmpty() && !mimeTypeCache().contains(mimeType))
+            return false;
+
+        return true;
+    }
+#else
+    UNUSED_PARAM(keySystem);
+    UNUSED_PARAM(mimeType);
+#endif
+    return false;
+}
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
 bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetResourceLoadingRequest* avRequest)
 {
     String scheme = [[[avRequest request] URL] scheme];
@@ -937,11 +1535,11 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         // [4 bytes: keyURI size], [keyURI size bytes: keyURI]
         unsigned keyURISize = keyURI.length() * sizeof(UChar);
         RefPtr<ArrayBuffer> initDataBuffer = ArrayBuffer::create(4 + keyURISize, 1);
-        RefPtr<DataView> initDataView = DataView::create(initDataBuffer, 0, initDataBuffer->byteLength());
-        initDataView->setUint32(0, keyURISize, true, IGNORE_EXCEPTION);
+        RefPtr<JSC::DataView> initDataView = JSC::DataView::create(initDataBuffer, 0, initDataBuffer->byteLength());
+        initDataView->set<uint32_t>(0, keyURISize, true);
 
         RefPtr<Uint16Array> keyURIArray = Uint16Array::create(initDataBuffer, 4, keyURI.length());
-        keyURIArray->setRange(keyURI.characters(), keyURI.length() / sizeof(unsigned char), 0);
+        keyURIArray->setRange(StringView(keyURI).upconvertedCharacters(), keyURI.length() / sizeof(unsigned char), 0);
 
 #if ENABLE(ENCRYPTED_MEDIA)
         if (!player()->keyNeeded("com.apple.lskd", emptyString(), static_cast<const unsigned char*>(initDataBuffer->data()), initDataBuffer->byteLength()))
@@ -960,6 +1558,19 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
     m_resourceLoaderMap.add(avRequest, resourceLoader);
     resourceLoader->startLoading();
     return true;
+}
+
+bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForResponseToAuthenticationChallenge(NSURLAuthenticationChallenge* nsChallenge)
+{
+#if USE(CFNETWORK)
+    UNUSED_PARAM(nsChallenge);
+    // FIXME: <rdar://problem/15799844>
+    return false;
+#else
+    AuthenticationChallenge challenge(nsChallenge);
+
+    return player()->shouldWaitForResponseToAuthenticationChallenge(challenge);
+#endif
 }
 
 void MediaPlayerPrivateAVFoundationObjC::didCancelLoadingRequest(AVAssetResourceLoadingRequest* avRequest)
@@ -992,6 +1603,35 @@ float MediaPlayerPrivateAVFoundationObjC::mediaTimeForTimeValue(float timeValue)
     return timeValue;
 }
 
+void MediaPlayerPrivateAVFoundationObjC::updateVideoLayerGravity()
+{
+    if (!m_videoLayer)
+        return;
+
+#if PLATFORM(IOS)
+    // Do not attempt to change the video gravity while in full screen mode.
+    // See setVideoFullscreenGravity().
+    if (m_videoFullscreenLayer)
+        return;
+#endif
+
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];    
+    NSString* gravity = shouldMaintainAspectRatio() ? AVLayerVideoGravityResizeAspect : AVLayerVideoGravityResize;
+    [m_videoLayer.get() setVideoGravity:gravity];
+    [CATransaction commit];
+}
+
+static AVAssetTrack* firstEnabledTrack(NSArray* tracks)
+{
+    NSUInteger index = [tracks indexOfObjectPassingTest:^(id obj, NSUInteger, BOOL *) {
+        return [static_cast<AVAssetTrack*>(obj) isEnabled];
+    }];
+    if (index == NSNotFound)
+        return nil;
+    return [tracks objectAtIndex:index];
+}
+
 void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
 {
     String primaryAudioTrackLanguage = m_languageOfPrimaryAudioTrack;
@@ -1010,36 +1650,57 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
     if (!m_avPlayerItem) {
         // We don't have a player item yet, so check with the asset because some assets support inspection
         // prior to becoming ready to play.
-        setHasVideo([[m_avAsset.get() tracksWithMediaCharacteristic:AVMediaCharacteristicVisual] count]);
-        setHasAudio([[m_avAsset.get() tracksWithMediaCharacteristic:AVMediaCharacteristicAudible] count]);
+        AVAssetTrack* firstEnabledVideoTrack = firstEnabledTrack([m_avAsset.get() tracksWithMediaCharacteristic:AVMediaCharacteristicVisual]);
+        setHasVideo(firstEnabledVideoTrack);
+        setHasAudio(firstEnabledTrack([m_avAsset.get() tracksWithMediaCharacteristic:AVMediaCharacteristicAudible]));
 #if !HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
         hasCaptions = [[m_avAsset.get() tracksWithMediaType:AVMediaTypeClosedCaption] count];
 #endif
+
+        presentationSizeDidChange(firstEnabledVideoTrack ? IntSize(CGSizeApplyAffineTransform([firstEnabledVideoTrack naturalSize], [firstEnabledVideoTrack preferredTransform])) : IntSize());
     } else {
         bool hasVideo = false;
         bool hasAudio = false;
-        NSArray *tracks = [m_avPlayerItem.get() tracks];
-        for (AVPlayerItemTrack *track in tracks) {
+        bool hasMetaData = false;
+        for (AVPlayerItemTrack *track in m_cachedTracks.get()) {
             if ([track isEnabled]) {
                 AVAssetTrack *assetTrack = [track assetTrack];
-                if ([[assetTrack mediaType] isEqualToString:AVMediaTypeVideo])
+                NSString *mediaType = [assetTrack mediaType];
+                if ([mediaType isEqualToString:AVMediaTypeVideo])
                     hasVideo = true;
-                else if ([[assetTrack mediaType] isEqualToString:AVMediaTypeAudio])
+                else if ([mediaType isEqualToString:AVMediaTypeAudio])
                     hasAudio = true;
-                else if ([[assetTrack mediaType] isEqualToString:AVMediaTypeClosedCaption]) {
+                else if ([mediaType isEqualToString:AVMediaTypeClosedCaption]) {
 #if !HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
                     hasCaptions = true;
 #endif
                     haveCCTrack = true;
+                } else if ([mediaType isEqualToString:AVMediaTypeMetadata]) {
+                    hasMetaData = true;
                 }
             }
         }
-        setHasVideo(hasVideo);
+
+        // Always says we have video if the AVPlayerLayer is ready for diaplay to work around
+        // an AVFoundation bug which causes it to sometimes claim a track is disabled even
+        // when it is not.
+        setHasVideo(hasVideo || m_cachedIsReadyForDisplay);
+
         setHasAudio(hasAudio);
+#if ENABLE(DATACUE_VALUE)
+        if (hasMetaData)
+            processMetadataTrack();
+#endif
+
+#if ENABLE(VIDEO_TRACK)
+        updateAudioTracks();
+        updateVideoTracks();
+#endif
     }
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
-    if (AVMediaSelectionGroupType *legibleGroup = safeMediaSelectionGroupForLegibleMedia()) {
+    AVMediaSelectionGroupType *legibleGroup = safeMediaSelectionGroupForLegibleMedia();
+    if (legibleGroup && m_cachedTracks) {
         hasCaptions = [[AVMediaSelectionGroup playableMediaSelectionOptionsFromArray:[legibleGroup options]] count];
         if (hasCaptions)
             processMediaSelectionOptions();
@@ -1056,7 +1717,7 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
 
     setHasClosedCaptions(hasCaptions);
 
-    LOG(Media, "WebCoreAVFMovieObserver:tracksChanged(%p) - hasVideo = %s, hasAudio = %s, hasCaptions = %s",
+    LOG(Media, "MediaPlayerPrivateAVFoundation:tracksChanged(%p) - hasVideo = %s, hasAudio = %s, hasCaptions = %s",
         this, boolString(hasVideo()), boolString(hasAudio()), boolString(hasClosedCaptions()));
 
     sizeChanged();
@@ -1067,50 +1728,138 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
     setDelayCharacteristicsChangedNotification(false);
 }
 
+#if ENABLE(VIDEO_TRACK)
+template <typename RefT, typename PassRefT>
+void determineChangedTracksFromNewTracksAndOldItems(NSArray* tracks, NSString* trackType, Vector<RefT>& oldItems, RefT (*itemFactory)(AVPlayerItemTrack*), MediaPlayer* player, void (MediaPlayer::*removedFunction)(PassRefT), void (MediaPlayer::*addedFunction)(PassRefT))
+{
+    RetainPtr<NSSet> newTracks = adoptNS([[NSSet alloc] initWithArray:[tracks objectsAtIndexes:[tracks indexesOfObjectsPassingTest:^(id track, NSUInteger, BOOL*){
+        return [[[track assetTrack] mediaType] isEqualToString:trackType];
+    }]]]);
+    RetainPtr<NSMutableSet> oldTracks = adoptNS([[NSMutableSet alloc] initWithCapacity:oldItems.size()]);
+
+    typedef Vector<RefT> ItemVector;
+    for (auto i = oldItems.begin(); i != oldItems.end(); ++i)
+        [oldTracks addObject:(*i)->playerItemTrack()];
+
+    RetainPtr<NSMutableSet> removedTracks = adoptNS([oldTracks mutableCopy]);
+    [removedTracks minusSet:newTracks.get()];
+
+    RetainPtr<NSMutableSet> addedTracks = adoptNS([newTracks mutableCopy]);
+    [addedTracks minusSet:oldTracks.get()];
+
+    ItemVector replacementItems;
+    ItemVector addedItems;
+    ItemVector removedItems;
+    for (auto i = oldItems.begin(); i != oldItems.end(); ++i) {
+        if ([removedTracks containsObject:(*i)->playerItemTrack()])
+            removedItems.append(*i);
+        else
+            replacementItems.append(*i);
+    }
+
+    for (AVPlayerItemTrack* track in addedTracks.get())
+        addedItems.append(itemFactory(track));
+
+    replacementItems.appendVector(addedItems);
+    oldItems.swap(replacementItems);
+
+    for (auto i = removedItems.begin(); i != removedItems.end(); ++i)
+        (player->*removedFunction)(*i);
+
+    for (auto i = addedItems.begin(); i != addedItems.end(); ++i)
+        (player->*addedFunction)(*i);
+}
+
+void MediaPlayerPrivateAVFoundationObjC::updateAudioTracks()
+{
+#if !LOG_DISABLED
+    size_t count = m_audioTracks.size();
+#endif
+
+    determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeAudio, m_audioTracks, &AudioTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeAudioTrack, &MediaPlayer::addAudioTrack);
+
+#if !LOG_DISABLED
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::updateAudioTracks(%p) - audio track count was %lu, is %lu", this, count, m_audioTracks.size());
+#endif
+}
+
+void MediaPlayerPrivateAVFoundationObjC::updateVideoTracks()
+{
+#if !LOG_DISABLED
+    size_t count = m_videoTracks.size();
+#endif
+
+    determineChangedTracksFromNewTracksAndOldItems(m_cachedTracks.get(), AVMediaTypeVideo, m_videoTracks, &VideoTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
+
+#if !LOG_DISABLED
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::updateVideoTracks(%p) - video track count was %lu, is %lu", this, count, m_videoTracks.size());
+#endif
+}
+
+bool MediaPlayerPrivateAVFoundationObjC::requiresTextTrackRepresentation() const
+{
+#if PLATFORM(IOS)
+    if (m_videoFullscreenLayer)
+        return true;
+#endif
+    return false;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::syncTextTrackBounds()
+{
+#if PLATFORM(IOS)
+    if (!m_videoFullscreenLayer || !m_textTrackRepresentationLayer)
+        return;
+    
+    CGRect textFrame = m_videoLayer ? [m_videoLayer videoRect] : CGRectMake(0, 0, m_videoFullscreenFrame.width(), m_videoFullscreenFrame.height());
+    [m_textTrackRepresentationLayer setFrame:textFrame];
+#endif
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setTextTrackRepresentation(TextTrackRepresentation* representation)
+{
+#if PLATFORM(IOS)
+    PlatformLayer* representationLayer = representation ? representation->platformLayer() : nil;
+    if (representationLayer == m_textTrackRepresentationLayer) {
+        syncTextTrackBounds();
+        return;
+    }
+
+    if (m_textTrackRepresentationLayer)
+        [m_textTrackRepresentationLayer removeFromSuperlayer];
+
+    m_textTrackRepresentationLayer = representationLayer;
+
+    if (m_videoFullscreenLayer && m_textTrackRepresentationLayer) {
+        syncTextTrackBounds();
+        [m_videoFullscreenLayer addSublayer:m_textTrackRepresentationLayer.get()];
+    }
+
+#else
+    UNUSED_PARAM(representation);
+#endif
+}
+#endif // ENABLE(VIDEO_TRACK)
+
 void MediaPlayerPrivateAVFoundationObjC::sizeChanged()
 {
     if (!m_avAsset)
         return;
 
-    NSArray *tracks = [m_avAsset.get() tracks];
-
-    // Some assets don't report track properties until they are completely ready to play, but we
-    // want to report a size as early as possible so use presentationSize when an asset has no tracks.
-    if (m_avPlayerItem && ![tracks count]) {
-        setNaturalSize(IntSize([m_avPlayerItem.get() presentationSize]));
-        return;
-    }
-
-    // AVAsset's 'naturalSize' property only considers the movie's first video track, so we need to compute
-    // the union of all visual track rects.
-    CGRect trackUnionRect = CGRectZero;
-    for (AVAssetTrack *track in tracks) {
-        CGSize trackSize = [track naturalSize];
-        CGRect trackRect = CGRectMake(0, 0, trackSize.width, trackSize.height);
-        trackUnionRect = CGRectUnion(trackUnionRect, CGRectApplyAffineTransform(trackRect, [track preferredTransform]));
-    }
-
-    // The movie is always displayed at 0,0 so move the track rect to the origin before using width and height.
-    trackUnionRect = CGRectOffset(trackUnionRect, trackUnionRect.origin.x, trackUnionRect.origin.y);
-    
-    // Also look at the asset's preferred transform so we account for a movie matrix.
-    CGSize naturalSize = CGSizeApplyAffineTransform(trackUnionRect.size, [m_avAsset.get() preferredTransform]);
-
-    // Cache the natural size (setNaturalSize will notify the player if it has changed).
-    setNaturalSize(IntSize(naturalSize));
+    setNaturalSize(roundedIntSize(m_cachedPresentationSize));
 }
-
+    
 bool MediaPlayerPrivateAVFoundationObjC::hasSingleSecurityOrigin() const 
 {
     if (!m_avAsset)
         return false;
     
-    RefPtr<SecurityOrigin> resolvedOrigin = SecurityOrigin::create(KURL(wkAVAssetResolvedURL(m_avAsset.get())));
+    RefPtr<SecurityOrigin> resolvedOrigin = SecurityOrigin::create(URL([m_avAsset resolvedURL]));
     RefPtr<SecurityOrigin> requestedOrigin = SecurityOrigin::createFromString(assetURL());
     return resolvedOrigin->isSameSchemeHostPort(requestedOrigin.get());
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
 void MediaPlayerPrivateAVFoundationObjC::createVideoOutput()
 {
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoOutput(%p)", this);
@@ -1118,16 +1867,20 @@ void MediaPlayerPrivateAVFoundationObjC::createVideoOutput()
     if (!m_avPlayerItem || m_videoOutput)
         return;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if USE(VIDEOTOOLBOX)
     NSDictionary* attributes = @{ (NSString*)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_422YpCbCr8) };
 #else
-    NSDictionary* attributes = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithUnsignedInt:k32BGRAPixelFormat], kCVPixelBufferPixelFormatTypeKey,
+    NSDictionary* attributes = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithUnsignedInt:kCVPixelFormatType_32BGRA], kCVPixelBufferPixelFormatTypeKey,
                                 nil];
 #endif
-    m_videoOutput = adoptNS([[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:attributes]);
+    m_videoOutput = adoptNS([[getAVPlayerItemVideoOutputClass() alloc] initWithPixelBufferAttributes:attributes]);
     ASSERT(m_videoOutput);
 
+    [m_videoOutput setDelegate:m_videoOutputDelegate.get() queue:globalPullDelegateQueue()];
+
     [m_avPlayerItem.get() addOutput:m_videoOutput.get()];
+
+    waitForVideoOutputMediaDataWillChange();
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoOutput(%p) - returning %p", this, m_videoOutput.get());
 }
@@ -1151,7 +1904,7 @@ RetainPtr<CVPixelBufferRef> MediaPlayerPrivateAVFoundationObjC::createPixelBuffe
     ASSERT(m_videoOutput);
 
 #if !LOG_DISABLED
-    double start = WTF::currentTime();
+    double start = monotonicallyIncreasingTime();
 #endif
 
     CMTime currentTime = [m_avPlayerItem.get() currentTime];
@@ -1163,7 +1916,7 @@ RetainPtr<CVPixelBufferRef> MediaPlayerPrivateAVFoundationObjC::createPixelBuffe
     if (!buffer)
         return 0;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if USE(VIDEOTOOLBOX)
     // Create a VTPixelTransferSession, if necessary, as we cannot guarantee timely delivery of ARGB pixels.
     if (!m_pixelTransferSession) {
         VTPixelTransferSessionRef session = 0;
@@ -1172,20 +1925,71 @@ RetainPtr<CVPixelBufferRef> MediaPlayerPrivateAVFoundationObjC::createPixelBuffe
     }
 
     CVPixelBufferRef outputBuffer;
-    CVPixelBufferCreate(kCFAllocatorDefault, CVPixelBufferGetWidth(buffer.get()), CVPixelBufferGetHeight(buffer.get()), k32BGRAPixelFormat, 0, &outputBuffer);
+    CVPixelBufferCreate(kCFAllocatorDefault, CVPixelBufferGetWidth(buffer.get()), CVPixelBufferGetHeight(buffer.get()), kCVPixelFormatType_32BGRA, 0, &outputBuffer);
     VTPixelTransferSessionTransferImage(m_pixelTransferSession.get(), buffer.get(), outputBuffer);
     buffer = adoptCF(outputBuffer);
 #endif
 
 #if !LOG_DISABLED
-    double duration = WTF::currentTime() - start;
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createPixelBuffer() - creating buffer took %.4f", this, narrowPrecisionToFloat(duration));
+    double duration = monotonicallyIncreasingTime() - start;
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createPixelBuffer(%p) - creating buffer took %.4f", this, narrowPrecisionToFloat(duration));
 #endif
 
     return buffer;
 }
 
-void MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(GraphicsContext* context, const IntRect& rect)
+bool MediaPlayerPrivateAVFoundationObjC::videoOutputHasAvailableFrame()
+{
+    if (!m_avPlayerItem)
+        return false;
+
+    if (m_lastImage)
+        return true;
+
+    if (!m_videoOutput)
+        createVideoOutput();
+
+    return [m_videoOutput hasNewPixelBufferForItemTime:[m_avPlayerItem currentTime]];
+}
+
+static const void* CVPixelBufferGetBytePointerCallback(void* info)
+{
+    CVPixelBufferRef pixelBuffer = static_cast<CVPixelBufferRef>(info);
+    CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+    return CVPixelBufferGetBaseAddress(pixelBuffer);
+}
+
+static void CVPixelBufferReleaseBytePointerCallback(void* info, const void*)
+{
+    CVPixelBufferRef pixelBuffer = static_cast<CVPixelBufferRef>(info);
+    CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+}
+
+static void CVPixelBufferReleaseInfoCallback(void* info)
+{
+    CVPixelBufferRef pixelBuffer = static_cast<CVPixelBufferRef>(info);
+    CFRelease(pixelBuffer);
+}
+
+static RetainPtr<CGImageRef> createImageFromPixelBuffer(CVPixelBufferRef pixelBuffer)
+{
+    // pixelBuffer will be of type kCVPixelFormatType_32BGRA.
+    ASSERT(CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_32BGRA);
+
+    size_t width = CVPixelBufferGetWidth(pixelBuffer);
+    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
+    size_t byteLength = CVPixelBufferGetDataSize(pixelBuffer);
+    CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Little | kCGImageAlphaFirst;
+
+    CFRetain(pixelBuffer); // Balanced by CVPixelBufferReleaseInfoCallback in providerCallbacks.
+    CGDataProviderDirectCallbacks providerCallbacks = { 0, CVPixelBufferGetBytePointerCallback, CVPixelBufferReleaseBytePointerCallback, 0, CVPixelBufferReleaseInfoCallback };
+    RetainPtr<CGDataProviderRef> provider = adoptCF(CGDataProviderCreateDirect(pixelBuffer, byteLength, &providerCallbacks));
+
+    return adoptCF(CGImageCreate(width, height, 8, 32, bytesPerRow, deviceRGBColorSpaceRef(), bitmapInfo, provider.get(), NULL, false, kCGRenderingIntentDefault));
+}
+
+void MediaPlayerPrivateAVFoundationObjC::updateLastImage()
 {
     RetainPtr<CVPixelBufferRef> pixelBuffer = createPixelBuffer();
 
@@ -1193,73 +1997,60 @@ void MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(GraphicsContext* c
     // for the requested time has already been retrieved. In this case, the last valid image (if any)
     // should be displayed.
     if (pixelBuffer)
-        m_lastImage = pixelBuffer;
-
-    if (m_lastImage) {
-        GraphicsContextStateSaver stateSaver(*context);
-        context->translate(rect.x(), rect.y() + rect.height());
-        context->scale(FloatSize(1.0f, -1.0f));
-        RetainPtr<CIImage> image = adoptNS([[CIImage alloc] initWithCVImageBuffer:m_lastImage.get()]);
-
-        // ciContext does not use a RetainPtr for results of contextWithCGContext:, as the returned value
-        // is autoreleased, and there is no non-autoreleased version of that function.
-        CIContext* ciContext = [CIContext contextWithCGContext:context->platformContext() options:nil];
-        CGRect outputRect = { CGPointZero, rect.size() };
-        CGRect imageRect = CGRectMake(0, 0, CVPixelBufferGetWidth(m_lastImage.get()), CVPixelBufferGetHeight(m_lastImage.get()));
-        [ciContext drawImage:image.get() inRect:outputRect fromRect:imageRect];
-    }
+        m_lastImage = createImageFromPixelBuffer(pixelBuffer.get());
 }
-#endif
 
-#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
-bool MediaPlayerPrivateAVFoundationObjC::extractKeyURIKeyIDAndCertificateFromInitData(Uint8Array* initData, String& keyURI, String& keyID, RefPtr<Uint8Array>& certificate)
+void MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(GraphicsContext* context, const IntRect& outputRect)
 {
-    // initData should have the following layout:
-    // [4 bytes: keyURI length][N bytes: keyURI][4 bytes: contentID length], [N bytes: contentID], [4 bytes: certificate length][N bytes: certificate]
-    if (initData->byteLength() < 4)
-        return false;
+    updateLastImage();
 
-    RefPtr<ArrayBuffer> initDataBuffer = initData->buffer();
+    if (!m_lastImage)
+        return;
 
-    // Use a DataView to read uint32 values from the buffer, as Uint32Array requires the reads be aligned on 4-byte boundaries. 
-    RefPtr<DataView> initDataView = DataView::create(initDataBuffer, 0, initDataBuffer->byteLength());
-    uint32_t offset = 0;
-    ExceptionCode ec = 0;
+    AVAssetTrack* firstEnabledVideoTrack = firstEnabledTrack([m_avAsset.get() tracksWithMediaCharacteristic:AVMediaCharacteristicVisual]);
+    if (!firstEnabledVideoTrack)
+        return;
 
-    uint32_t keyURILength = initDataView->getUint32(offset, true, ec);
-    offset += 4;
-    if (ec || offset + keyURILength > initData->length())
-        return false;
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(%p)", this);
 
-    RefPtr<Uint16Array> keyURIArray = Uint16Array::create(initDataBuffer, offset, keyURILength);
-    if (!keyURIArray)
-        return false;
+    GraphicsContextStateSaver stateSaver(*context);
+    FloatRect imageRect(0, 0, CGImageGetWidth(m_lastImage.get()), CGImageGetHeight(m_lastImage.get()));
+    AffineTransform videoTransform = [firstEnabledVideoTrack preferredTransform];
+    FloatRect transformedOutputRect = videoTransform.inverse().mapRect(outputRect);
 
-    keyURI = String(keyURIArray->data(), keyURILength / sizeof(unsigned short));
-    offset += keyURILength;
+    context->concatCTM(videoTransform);
+    context->drawNativeImage(m_lastImage.get(), imageRect.size(), ColorSpaceDeviceRGB, transformedOutputRect, imageRect);
 
-    uint32_t keyIDLength = initDataView->getUint32(offset, true, ec);
-    offset += 4;
-    if (ec || offset + keyIDLength > initData->length())
-        return false;
+    // If we have created an AVAssetImageGenerator in the past due to m_videoOutput not having an available
+    // video frame, destroy it now that it is no longer needed.
+    if (m_imageGenerator)
+        destroyImageGenerator();
 
-    RefPtr<Uint16Array> keyIDArray = Uint16Array::create(initDataBuffer, offset, keyIDLength);
-    if (!keyIDArray)
-        return false;
+}
 
-    keyID = String(keyIDArray->data(), keyIDLength / sizeof(unsigned short));
-    offset += keyIDLength;
+PassNativeImagePtr MediaPlayerPrivateAVFoundationObjC::nativeImageForCurrentTime()
+{
+    updateLastImage();
+    return m_lastImage.get();
+}
 
-    uint32_t certificateLength = initDataView->getUint32(offset, true, ec);
-    offset += 4;
-    if (ec || offset + certificateLength > initData->length())
-        return false;
+void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
+{
+    if (!m_videoOutputSemaphore)
+        m_videoOutputSemaphore = dispatch_semaphore_create(0);
 
-    certificate = Uint8Array::create(initDataBuffer, offset, certificateLength);
-    if (!certificate)
-        return false;
+    [m_videoOutput requestNotificationOfMediaDataChangeWithAdvanceInterval:0];
 
-    return true;
+    // Wait for 1 second.
+    long result = dispatch_semaphore_wait(m_videoOutputSemaphore, dispatch_time(0, 1 * NSEC_PER_SEC));
+
+    if (result)
+        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange(%p) timed out", this);
+}
+
+void MediaPlayerPrivateAVFoundationObjC::outputMediaDataWillChange(AVPlayerItemVideoOutput*)
+{
+    dispatch_semaphore_signal(m_videoOutputSemaphore);
 }
 #endif
 
@@ -1297,7 +2088,7 @@ MediaPlayer::MediaKeyException MediaPlayerPrivateAVFoundationObjC::generateKeyRe
 
     RefPtr<ArrayBuffer> keyRequestBuffer = ArrayBuffer::create([keyRequest.get() bytes], [keyRequest.get() length]);
     RefPtr<Uint8Array> keyRequestArray = Uint8Array::create(keyRequestBuffer, 0, keyRequestBuffer->byteLength());
-    player()->keyMessage(keySystem, sessionID, keyRequestArray->data(), keyRequestArray->byteLength(), KURL());
+    player()->keyMessage(keySystem, sessionID, keyRequestArray->data(), keyRequestArray->byteLength(), URL());
 
     // Move ownership of the AVAssetResourceLoadingRequestfrom the keyIDToRequestMap to the sessionIDToRequestMap:
     m_sessionIDToRequestMap.set(sessionID, avRequest);
@@ -1341,14 +2132,17 @@ MediaPlayer::MediaKeyException MediaPlayerPrivateAVFoundationObjC::cancelKeyRequ
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
-RetainPtr<AVAssetResourceLoadingRequest> MediaPlayerPrivateAVFoundationObjC::takeRequestForPlayerAndKeyURI(MediaPlayer* player, const String& keyURI)
+RetainPtr<AVAssetResourceLoadingRequest> MediaPlayerPrivateAVFoundationObjC::takeRequestForKeyURI(const String& keyURI)
 {
-    MediaPlayerPrivateAVFoundationObjC* _this = playerToPrivateMap().get(player);
-    if (!_this)
+    return m_keyURIToRequestMap.take(keyURI);
+}
+
+std::unique_ptr<CDMSession> MediaPlayerPrivateAVFoundationObjC::createSession(const String& keySystem)
+{
+    if (!keySystemIsSupported(keySystem))
         return nullptr;
 
-    return _this->m_keyURIToRequestMap.take(keyURI);
-
+    return std::make_unique<CDMSessionAVFoundationObjC>(this);
 }
 #endif
 
@@ -1359,9 +2153,8 @@ void MediaPlayerPrivateAVFoundationObjC::processLegacyClosedCaptionsTracks()
     [m_avPlayerItem.get() selectMediaOption:nil inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
 #endif
 
-    Vector<RefPtr<InbandTextTrackPrivateAVF> > removedTextTracks = m_textTracks;
-    NSArray *tracks = [m_avPlayerItem.get() tracks];
-    for (AVPlayerItemTrack *playerItemTrack in tracks) {
+    Vector<RefPtr<InbandTextTrackPrivateAVF>> removedTextTracks = m_textTracks;
+    for (AVPlayerItemTrack *playerItemTrack in m_cachedTracks.get()) {
 
         AVAssetTrack *assetTrack = [playerItemTrack assetTrack];
         if (![[assetTrack mediaType] isEqualToString:AVMediaTypeClosedCaption])
@@ -1369,7 +2162,7 @@ void MediaPlayerPrivateAVFoundationObjC::processLegacyClosedCaptionsTracks()
 
         bool newCCTrack = true;
         for (unsigned i = removedTextTracks.size(); i > 0; --i) {
-            if (!removedTextTracks[i - 1]->isLegacyClosedCaptionsTrack())
+            if (removedTextTracks[i - 1]->textTrackCategory() != InbandTextTrackPrivateAVF::LegacyClosedCaption)
                 continue;
 
             RefPtr<InbandTextTrackPrivateLegacyAVFObjC> track = static_cast<InbandTextTrackPrivateLegacyAVFObjC*>(m_textTracks[i - 1].get());
@@ -1415,16 +2208,27 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
     if (!m_textTracks.size())
         [m_avPlayerItem.get() selectMediaOption:nil inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
 
-    Vector<RefPtr<InbandTextTrackPrivateAVF> > removedTextTracks = m_textTracks;
+    Vector<RefPtr<InbandTextTrackPrivateAVF>> removedTextTracks = m_textTracks;
     NSArray *legibleOptions = [AVMediaSelectionGroup playableMediaSelectionOptionsFromArray:[legibleGroup options]];
     for (AVMediaSelectionOptionType *option in legibleOptions) {
         bool newTrack = true;
         for (unsigned i = removedTextTracks.size(); i > 0; --i) {
-             if (removedTextTracks[i - 1]->isLegacyClosedCaptionsTrack())
-                 continue;
-
-            RefPtr<InbandTextTrackPrivateAVFObjC> track = static_cast<InbandTextTrackPrivateAVFObjC*>(removedTextTracks[i - 1].get());
-            if ([track->mediaSelectionOption() isEqual:option]) {
+            if (removedTextTracks[i - 1]->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
+                continue;
+            
+            RetainPtr<AVMediaSelectionOptionType> currentOption;
+#if ENABLE(AVF_CAPTIONS)
+            if (removedTextTracks[i - 1]->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand) {
+                RefPtr<OutOfBandTextTrackPrivateAVF> track = static_cast<OutOfBandTextTrackPrivateAVF*>(removedTextTracks[i - 1].get());
+                currentOption = track->mediaSelectionOption();
+            } else
+#endif
+            {
+                RefPtr<InbandTextTrackPrivateAVFObjC> track = static_cast<InbandTextTrackPrivateAVFObjC*>(removedTextTracks[i - 1].get());
+                currentOption = track->mediaSelectionOption();
+            }
+            
+            if ([currentOption.get() isEqual:option]) {
                 removedTextTracks.remove(i - 1);
                 newTrack = false;
                 break;
@@ -1433,44 +2237,66 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
         if (!newTrack)
             continue;
 
-        m_textTracks.append(InbandTextTrackPrivateAVFObjC::create(this, option));
+#if ENABLE(AVF_CAPTIONS)
+        if ([option outOfBandSource]) {
+            m_textTracks.append(OutOfBandTextTrackPrivateAVF::create(this, option));
+            m_textTracks.last()->setHasBeenReported(true); // Ignore out-of-band tracks that we passed to AVFoundation so we do not double-count them
+            continue;
+        }
+#endif
+
+        m_textTracks.append(InbandTextTrackPrivateAVFObjC::create(this, option, InbandTextTrackPrivate::Generic));
     }
 
     processNewAndRemovedTextTracks(removedTextTracks);
 }
 
-void MediaPlayerPrivateAVFoundationObjC::processCue(NSArray *attributedStrings, double time)
+void MediaPlayerPrivateAVFoundationObjC::processMetadataTrack()
 {
-    if (!m_currentTrack)
+    if (m_metadataTrack)
         return;
 
-    m_currentTrack->processCue(reinterpret_cast<CFArrayRef>(attributedStrings), time);
+    m_metadataTrack = InbandMetadataTextTrackPrivateAVF::create(InbandTextTrackPrivate::Metadata, InbandTextTrackPrivate::Data);
+    m_metadataTrack->setInBandMetadataTrackDispatchType("com.apple.streaming");
+    player()->addTextTrack(m_metadataTrack);
+}
+
+void MediaPlayerPrivateAVFoundationObjC::processCue(NSArray *attributedStrings, NSArray *nativeSamples, double time)
+{
+    if (!m_currentTextTrack)
+        return;
+
+    m_currentTextTrack->processCue(reinterpret_cast<CFArrayRef>(attributedStrings), reinterpret_cast<CFArrayRef>(nativeSamples), time);
 }
 
 void MediaPlayerPrivateAVFoundationObjC::flushCues()
 {
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::flushCues(%p)", this);
 
-    if (!m_currentTrack)
+    if (!m_currentTextTrack)
         return;
     
-    m_currentTrack->resetCueValues();
+    m_currentTextTrack->resetCueValues();
 }
 #endif // HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
 
-void MediaPlayerPrivateAVFoundationObjC::setCurrentTrack(InbandTextTrackPrivateAVF *track)
+void MediaPlayerPrivateAVFoundationObjC::setCurrentTextTrack(InbandTextTrackPrivateAVF *track)
 {
-    if (m_currentTrack == track)
+    if (m_currentTextTrack == track)
         return;
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::setCurrentTrack(%p) - selecting track %p, language = %s", this, track, track ? track->language().string().utf8().data() : "");
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::setCurrentTextTrack(%p) - selecting track %p, language = %s", this, track, track ? track->language().string().utf8().data() : "");
         
-    m_currentTrack = track;
+    m_currentTextTrack = track;
 
     if (track) {
-        if (track->isLegacyClosedCaptionsTrack())
+        if (track->textTrackCategory() == InbandTextTrackPrivateAVF::LegacyClosedCaption)
             [m_avPlayer.get() setClosedCaptionDisplayEnabled:YES];
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
+#if ENABLE(AVF_CAPTIONS)
+        else if (track->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand)
+            [m_avPlayerItem.get() selectMediaOption:static_cast<OutOfBandTextTrackPrivateAVF*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+#endif
         else
             [m_avPlayerItem.get() selectMediaOption:static_cast<InbandTextTrackPrivateAVFObjC*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
 #endif
@@ -1508,29 +2334,313 @@ String MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack() const
     NSArray *tracks = [m_avAsset.get() tracksWithMediaType:AVMediaTypeAudio];
     if (!tracks || [tracks count] != 1) {
         m_languageOfPrimaryAudioTrack = emptyString();
-        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack(%p) - %i audio tracks, returning emptyString()", this, (tracks ? [tracks count] : 0));
+        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack(%p) - %lu audio tracks, returning emptyString()", this, static_cast<unsigned long>(tracks ? [tracks count] : 0));
         return m_languageOfPrimaryAudioTrack;
     }
 
     AVAssetTrack *track = [tracks objectAtIndex:0];
-    NSString *language = [track extendedLanguageTag];
+    m_languageOfPrimaryAudioTrack = AVTrackPrivateAVFObjCImpl::languageForAVAssetTrack(track);
 
-    // If the language code is stored as a QuickTime 5-bit packed code there aren't enough bits for a full
-    // RFC 4646 language tag so extendedLanguageTag returns NULL. In this case languageCode will return the
-    // ISO 639-2/T language code so check it.
-    if (!language)
-        language = [track languageCode];
-
-    // Some legacy tracks have "und" as a language, treat that the same as no language at all.
-    if (language && ![language isEqualToString:@"und"]) {
-        m_languageOfPrimaryAudioTrack = language;
+#if !LOG_DISABLED
+    if (m_languageOfPrimaryAudioTrack == emptyString())
+        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack(%p) - single audio track has no language, returning emptyString()", this);
+    else
         LOG(Media, "MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack(%p) - returning language of single audio track: %s", this, m_languageOfPrimaryAudioTrack.utf8().data());
-        return m_languageOfPrimaryAudioTrack;
+#endif
+
+    return m_languageOfPrimaryAudioTrack;
+}
+
+#if ENABLE(IOS_AIRPLAY)
+bool MediaPlayerPrivateAVFoundationObjC::isCurrentPlaybackTargetWireless() const
+{
+    if (!m_avPlayer)
+        return false;
+
+    bool wirelessTarget = [m_avPlayer.get() isExternalPlaybackActive];
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::isCurrentPlaybackTargetWireless(%p) - returning %s", this, boolString(wirelessTarget));
+    return wirelessTarget;
+}
+
+MediaPlayer::WirelessPlaybackTargetType MediaPlayerPrivateAVFoundationObjC::wirelessPlaybackTargetType() const
+{
+    if (!m_avPlayer)
+        return MediaPlayer::TargetTypeNone;
+
+    switch (wkExernalDeviceTypeForPlayer(m_avPlayer.get())) {
+    case wkExternalPlaybackTypeNone:
+        return MediaPlayer::TargetTypeNone;
+    case wkExternalPlaybackTypeAirPlay:
+        return MediaPlayer::TargetTypeAirPlay;
+    case wkExternalPlaybackTypeTVOut:
+        return MediaPlayer::TargetTypeTVOut;
     }
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack(%p) - single audio track has no language, returning emptyString()", this);
-    m_languageOfPrimaryAudioTrack = emptyString();
-    return m_languageOfPrimaryAudioTrack;
+    ASSERT_NOT_REACHED();
+    return MediaPlayer::TargetTypeNone;
+}
+
+String MediaPlayerPrivateAVFoundationObjC::wirelessPlaybackTargetName() const
+{
+    if (!m_avPlayer)
+        return emptyString();
+    
+    String wirelessTargetName = wkExernalDeviceDisplayNameForPlayer(m_avPlayer.get());
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::wirelessPlaybackTargetName(%p) - returning %s", this, wirelessTargetName.utf8().data());
+
+    return wirelessTargetName;
+}
+
+bool MediaPlayerPrivateAVFoundationObjC::wirelessVideoPlaybackDisabled() const
+{
+    if (!m_avPlayer)
+        return !m_allowsWirelessVideoPlayback;
+    
+    m_allowsWirelessVideoPlayback = [m_avPlayer.get() allowsExternalPlayback];
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::wirelessVideoPlaybackDisabled(%p) - returning %s", this, boolString(!m_allowsWirelessVideoPlayback));
+
+    return !m_allowsWirelessVideoPlayback;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setWirelessVideoPlaybackDisabled(bool disabled)
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::setWirelessVideoPlaybackDisabled(%p) - %s", this, boolString(disabled));
+    m_allowsWirelessVideoPlayback = !disabled;
+    if (!m_avPlayer)
+        return;
+    
+    [m_avPlayer.get() setAllowsExternalPlayback:!disabled];
+}
+
+void MediaPlayerPrivateAVFoundationObjC::updateDisableExternalPlayback()
+{
+    if (!m_avPlayer)
+        return;
+
+    [m_avPlayer setUsesExternalPlaybackWhileExternalScreenIsActive:m_videoFullscreenLayer != nil];
+}
+#endif
+
+void MediaPlayerPrivateAVFoundationObjC::playerItemStatusDidChange(int status)
+{
+    m_cachedItemStatus = status;
+
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackLikelyToKeepUpWillChange()
+{
+    m_pendingStatusChanges++;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackLikelyToKeepUpDidChange(bool likelyToKeepUp)
+{
+    m_cachedLikelyToKeepUp = likelyToKeepUp;
+
+    ASSERT(m_pendingStatusChanges);
+    if (!--m_pendingStatusChanges)
+        updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackBufferEmptyWillChange()
+{
+    m_pendingStatusChanges++;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackBufferEmptyDidChange(bool bufferEmpty)
+{
+    m_cachedBufferEmpty = bufferEmpty;
+
+    ASSERT(m_pendingStatusChanges);
+    if (!--m_pendingStatusChanges)
+        updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackBufferFullWillChange()
+{
+    m_pendingStatusChanges++;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::playbackBufferFullDidChange(bool bufferFull)
+{
+    m_cachedBufferFull = bufferFull;
+
+    ASSERT(m_pendingStatusChanges);
+    if (!--m_pendingStatusChanges)
+        updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange(RetainPtr<NSArray> seekableRanges)
+{
+    m_cachedSeekableRanges = seekableRanges;
+
+    seekableTimeRangesChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::loadedTimeRangesDidChange(RetainPtr<NSArray> loadedRanges)
+{
+    m_cachedLoadedRanges = loadedRanges;
+
+    loadedTimeRangesChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::firstFrameAvailableDidChange(bool isReady)
+{
+    m_cachedIsReadyForDisplay = isReady;
+    if (!hasVideo() && isReady)
+        tracksChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::trackEnabledDidChange(bool)
+{
+    tracksChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::setShouldBufferData(bool shouldBuffer)
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::shouldBufferData(%p) - %s", this, boolString(shouldBuffer));
+    if (m_shouldBufferData == shouldBuffer)
+        return;
+
+    m_shouldBufferData = shouldBuffer;
+    
+    if (!m_avPlayer)
+        return;
+
+    setAVPlayerItem(shouldBuffer ? m_avPlayerItem.get() : nil);
+}
+
+#if ENABLE(DATACUE_VALUE)
+static const AtomicString& metadataType(NSString *avMetadataKeySpace)
+{
+    static NeverDestroyed<const AtomicString> quickTimeUserData("com.apple.quicktime.udta", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> isoUserData("org.mp4ra", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> quickTimeMetadata("com.apple.quicktime.mdta", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> iTunesMetadata("com.apple.itunes", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> id3Metadata("org.id3", AtomicString::ConstructFromLiteral);
+
+    if ([avMetadataKeySpace isEqualToString:AVMetadataKeySpaceQuickTimeUserData])
+        return quickTimeUserData;
+    if (AVMetadataKeySpaceISOUserData && [avMetadataKeySpace isEqualToString:AVMetadataKeySpaceISOUserData])
+        return isoUserData;
+    if ([avMetadataKeySpace isEqualToString:AVMetadataKeySpaceQuickTimeMetadata])
+        return quickTimeMetadata;
+    if ([avMetadataKeySpace isEqualToString:AVMetadataKeySpaceiTunes])
+        return iTunesMetadata;
+    if ([avMetadataKeySpace isEqualToString:AVMetadataKeySpaceID3])
+        return id3Metadata;
+
+    return emptyAtom;
+}
+#endif
+
+void MediaPlayerPrivateAVFoundationObjC::metadataDidArrive(RetainPtr<NSArray> metadata, double mediaTime)
+{
+    m_currentMetaData = metadata && ![metadata isKindOfClass:[NSNull class]] ? metadata : nil;
+
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::metadataDidArrive(%p) - adding %i cues at time %.2f", this, m_currentMetaData ? static_cast<int>([m_currentMetaData.get() count]) : 0, mediaTime);
+
+#if ENABLE(DATACUE_VALUE)
+    if (seeking())
+        return;
+
+    if (!metadata || [metadata isKindOfClass:[NSNull class]]) {
+        m_metadataTrack->updatePendingCueEndTimes(mediaTime);
+        return;
+    }
+
+    if (!m_metadataTrack)
+        processMetadataTrack();
+
+    // Set the duration of all incomplete cues before adding new ones.
+    double earliesStartTime = std::numeric_limits<double>::infinity();
+    for (AVMetadataItemType *item in m_currentMetaData.get()) {
+        double start = CMTimeGetSeconds(item.time);
+        if (start < earliesStartTime)
+            earliesStartTime = start;
+    }
+    m_metadataTrack->updatePendingCueEndTimes(earliesStartTime);
+
+    for (AVMetadataItemType *item in m_currentMetaData.get()) {
+        double start = CMTimeGetSeconds(item.time);
+        double end = std::numeric_limits<double>::infinity();
+        if (CMTIME_IS_VALID(item.duration))
+            end = start + CMTimeGetSeconds(item.duration);
+
+        AtomicString type = nullAtom;
+        if (item.keySpace)
+            type = metadataType(item.keySpace);
+
+        m_metadataTrack->addDataCue(start, end, SerializedPlatformRepresentationMac::create(item), type);
+    }
+#endif
+}
+
+void MediaPlayerPrivateAVFoundationObjC::tracksDidChange(RetainPtr<NSArray> tracks)
+{
+    for (AVPlayerItemTrack *track in m_cachedTracks.get())
+        [track removeObserver:m_objcObserver.get() forKeyPath:@"enabled"];
+
+    m_cachedTracks = tracks;
+    for (AVPlayerItemTrack *track in m_cachedTracks.get())
+        [track addObserver:m_objcObserver.get() forKeyPath:@"enabled" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextPlayerItemTrack];
+
+    m_cachedTotalBytes = 0;
+
+    tracksChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::hasEnabledAudioDidChange(bool hasEnabledAudio)
+{
+    m_cachedHasEnabledAudio = hasEnabledAudio;
+
+    tracksChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::presentationSizeDidChange(FloatSize size)
+{
+    m_cachedPresentationSize = size;
+
+    sizeChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::durationDidChange(double duration)
+{
+    m_cachedDuration = duration;
+
+    invalidateCachedDuration();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::rateDidChange(double rate)
+{
+    m_cachedRate = rate;
+
+    updateStates();
+    rateChanged();
+}
+    
+#if ENABLE(IOS_AIRPLAY)
+void MediaPlayerPrivateAVFoundationObjC::playbackTargetIsWirelessDidChange()
+{
+    playbackTargetIsWirelessChanged();
+}
+#endif
+
+void MediaPlayerPrivateAVFoundationObjC::canPlayFastForwardDidChange(bool newValue)
+{
+    m_cachedCanPlayFastForward = newValue;
+}
+
+void MediaPlayerPrivateAVFoundationObjC::canPlayFastReverseDidChange(bool newValue)
+{
+    m_cachedCanPlayFastReverse = newValue;
 }
 
 NSArray* assetMetadataKeyNames()
@@ -1565,8 +2675,17 @@ NSArray* itemKVOProperties()
                 @"playbackBufferEmpty",
                 @"duration",
                 @"hasEnabledAudio",
+                @"timedMetadata",
+                @"canPlayFastForward",
+                @"canPlayFastReverse",
                 nil];
     }
+    return keys;
+}
+
+NSArray* assetTrackMetadataKeyNames()
+{
+    static NSArray* keys = [[NSArray alloc] initWithObjects:@"totalSampleDataLength", @"mediaType", @"enabled", @"preferredTransform", @"naturalSize", nil];
     return keys;
 }
 
@@ -1597,14 +2716,6 @@ NSArray* itemKVOProperties()
     m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetMetadataLoaded);
 }
 
-- (void)seekCompleted:(BOOL)finished
-{
-    if (!m_callback)
-        return;
-    
-    m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::SeekCompleted, static_cast<bool>(finished));
-}
-
 - (void)didEnd:(NSNotification *)unusedNotification
 {
     UNUSED_PARAM(unusedNotification);
@@ -1615,46 +2726,94 @@ NSArray* itemKVOProperties()
 
 - (void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary *)change context:(MediaPlayerAVFoundationObservationContext)context
 {
-    UNUSED_PARAM(change);
+    UNUSED_PARAM(object);
+    id newValue = [change valueForKey:NSKeyValueChangeNewKey];
 
-    LOG(Media, "WebCoreAVFMovieObserver:observeValueForKeyPath(%p) - keyPath = %s", self, [keyPath UTF8String]);
+    LOG(Media, "WebCoreAVFMovieObserver::observeValueForKeyPath(%p) - keyPath = %s", self, [keyPath UTF8String]);
 
     if (!m_callback)
         return;
 
-    if (context == MediaPlayerAVFoundationObservationContextPlayerItem) {
+    bool willChange = [[change valueForKey:NSKeyValueChangeNotificationIsPriorKey] boolValue];
+
+    WTF::Function<void ()> function;
+
+    if (context == MediaPlayerAVFoundationObservationContextAVPlayerLayer) {
+        if ([keyPath isEqualToString:@"readyForDisplay"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::firstFrameAvailableDidChange, m_callback, [newValue boolValue]);
+    }
+
+    if (context == MediaPlayerAVFoundationObservationContextPlayerItemTrack) {
+        if ([keyPath isEqualToString:@"enabled"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::trackEnabledDidChange, m_callback, [newValue boolValue]);
+    }
+
+    if (context == MediaPlayerAVFoundationObservationContextPlayerItem && willChange) {
+        if ([keyPath isEqualToString:@"playbackLikelyToKeepUp"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackLikelyToKeepUpWillChange, m_callback);
+        else if ([keyPath isEqualToString:@"playbackBufferEmpty"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackBufferEmptyWillChange, m_callback);
+        else if ([keyPath isEqualToString:@"playbackBufferFull"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackBufferFullWillChange, m_callback);
+    }
+
+    if (context == MediaPlayerAVFoundationObservationContextPlayerItem && !willChange) {
         // A value changed for an AVPlayerItem
         if ([keyPath isEqualToString:@"status"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemStatusChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playerItemStatusDidChange, m_callback, [newValue intValue]);
         else if ([keyPath isEqualToString:@"playbackLikelyToKeepUp"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemIsPlaybackLikelyToKeepUpChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackLikelyToKeepUpDidChange, m_callback, [newValue boolValue]);
         else if ([keyPath isEqualToString:@"playbackBufferEmpty"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemIsPlaybackBufferEmptyChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackBufferEmptyDidChange, m_callback, [newValue boolValue]);
         else if ([keyPath isEqualToString:@"playbackBufferFull"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemIsPlaybackBufferFullChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackBufferFullDidChange, m_callback, [newValue boolValue]);
         else if ([keyPath isEqualToString:@"asset"])
-            m_callback->setAsset([object asset]);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::setAsset, m_callback, RetainPtr<NSArray>(newValue));
         else if ([keyPath isEqualToString:@"loadedTimeRanges"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemLoadedTimeRangesChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::loadedTimeRangesDidChange, m_callback, RetainPtr<NSArray>(newValue));
         else if ([keyPath isEqualToString:@"seekableTimeRanges"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemSeekableTimeRangesChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange, m_callback, RetainPtr<NSArray>(newValue));
         else if ([keyPath isEqualToString:@"tracks"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemTracksChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::tracksDidChange, m_callback, RetainPtr<NSArray>(newValue));
         else if ([keyPath isEqualToString:@"hasEnabledAudio"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemTracksChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::hasEnabledAudioDidChange, m_callback, [newValue boolValue]);
         else if ([keyPath isEqualToString:@"presentationSize"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::ItemPresentationSizeChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::presentationSizeDidChange, m_callback, FloatSize([newValue sizeValue]));
         else if ([keyPath isEqualToString:@"duration"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::DurationChanged);
-
-        return;
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::durationDidChange, m_callback, CMTimeGetSeconds([newValue CMTimeValue]));
+        else if ([keyPath isEqualToString:@"timedMetadata"] && newValue) {
+            double now = 0;
+            CMTime itemTime = [(AVPlayerItemType *)object currentTime];
+            if (CMTIME_IS_NUMERIC(itemTime))
+                now = std::max(narrowPrecisionToFloat(CMTimeGetSeconds(itemTime)), 0.0f);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::metadataDidArrive, m_callback, RetainPtr<NSArray>(newValue), now);
+        } else if ([keyPath isEqualToString:@"canPlayFastReverse"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::canPlayFastReverseDidChange, m_callback, [newValue boolValue]);
+        else if ([keyPath isEqualToString:@"canPlayFastForward"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::canPlayFastForwardDidChange, m_callback, [newValue boolValue]);
     }
 
-    if (context == MediaPlayerAVFoundationObservationContextPlayer) {
+    if (context == MediaPlayerAVFoundationObservationContextPlayer && !willChange) {
         // A value changed for an AVPlayer.
         if ([keyPath isEqualToString:@"rate"])
-            m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::PlayerRateChanged);
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::rateDidChange, m_callback, [newValue doubleValue]);
+#if ENABLE(IOS_AIRPLAY)
+        else if ([keyPath isEqualToString:@"externalPlaybackActive"])
+            function = WTF::bind(&MediaPlayerPrivateAVFoundationObjC::playbackTargetIsWirelessDidChange, m_callback);
+#endif
     }
+    
+    if (function.isNull())
+        return;
+
+    auto weakThis = m_callback->createWeakPtr();
+    m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification([weakThis, function]{
+        // weakThis and function both refer to the same MediaPlayerPrivateAVFoundationObjC instance. If the WeakPtr has
+        // been cleared, the underlying object has been destroyed, and it is unsafe to call function().
+        if (!weakThis)
+            return;
+        function();
+    }));
 }
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
@@ -1666,10 +2825,14 @@ NSArray* itemKVOProperties()
     if (!m_callback)
         return;
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (!m_callback)
+    RetainPtr<WebCoreAVFMovieObserver> strongSelf = self;
+    RetainPtr<NSArray> strongStrings = strings;
+    RetainPtr<NSArray> strongSamples = nativeSamples;
+    callOnMainThread([strongSelf, strongStrings, strongSamples, itemTime] {
+        MediaPlayerPrivateAVFoundationObjC* callback = strongSelf->m_callback;
+        if (!callback)
             return;
-        m_callback->processCue(strings, CMTimeGetSeconds(itemTime));
+        callback->processCue(strongStrings.get(), strongSamples.get(), CMTimeGetSeconds(itemTime));
     });
 }
 
@@ -1680,17 +2843,17 @@ NSArray* itemKVOProperties()
     if (!m_callback)
         return;
     
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (!m_callback)
-            return;
-        m_callback->flushCues();
+    RetainPtr<WebCoreAVFMovieObserver> strongSelf = self;
+    callOnMainThread([strongSelf] {
+        if (MediaPlayerPrivateAVFoundationObjC* callback = strongSelf->m_callback)
+            callback->flushCues();
     });
 }
 #endif
 
 @end
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
 @implementation WebCoreAVFLoaderDelegate
 
 - (id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC*)callback
@@ -1708,14 +2871,42 @@ NSArray* itemKVOProperties()
     if (!m_callback)
         return NO;
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (!m_callback) {
-            [loadingRequest finishLoadingWithError:nil];
+    RetainPtr<WebCoreAVFLoaderDelegate> strongSelf = self;
+    RetainPtr<AVAssetResourceLoadingRequest> strongRequest = loadingRequest;
+    callOnMainThread([strongSelf, strongRequest] {
+        MediaPlayerPrivateAVFoundationObjC* callback = strongSelf->m_callback;
+        if (!callback) {
+            [strongRequest finishLoadingWithError:nil];
             return;
         }
 
-        if (!m_callback->shouldWaitForLoadingOfResource(loadingRequest))
-            [loadingRequest finishLoadingWithError:nil];
+        if (!callback->shouldWaitForLoadingOfResource(strongRequest.get()))
+            [strongRequest finishLoadingWithError:nil];
+    });
+
+    return YES;
+}
+
+- (BOOL)resourceLoader:(AVAssetResourceLoader *)resourceLoader shouldWaitForResponseToAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    UNUSED_PARAM(resourceLoader);
+    if (!m_callback)
+        return NO;
+
+    if ([[[challenge protectionSpace] authenticationMethod] isEqualToString:NSURLAuthenticationMethodServerTrust])
+        return NO;
+
+    RetainPtr<WebCoreAVFLoaderDelegate> strongSelf = self;
+    RetainPtr<NSURLAuthenticationChallenge> strongChallenge = challenge;
+    callOnMainThread([strongSelf, strongChallenge] {
+        MediaPlayerPrivateAVFoundationObjC* callback = strongSelf->m_callback;
+        if (!callback) {
+            [[strongChallenge sender] cancelAuthenticationChallenge:strongChallenge.get()];
+            return;
+        }
+
+        if (!callback->shouldWaitForResponseToAuthenticationChallenge(strongChallenge.get()))
+            [[strongChallenge sender] cancelAuthenticationChallenge:strongChallenge.get()];
     });
 
     return YES;
@@ -1727,15 +2918,47 @@ NSArray* itemKVOProperties()
     if (!m_callback)
         return;
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (m_callback)
-            m_callback->didCancelLoadingRequest(loadingRequest);
+    RetainPtr<WebCoreAVFLoaderDelegate> strongSelf = self;
+    RetainPtr<AVAssetResourceLoadingRequest> strongRequest = loadingRequest;
+    callOnMainThread([strongSelf, strongRequest] {
+        MediaPlayerPrivateAVFoundationObjC* callback = strongSelf->m_callback;
+        if (callback)
+            callback->didCancelLoadingRequest(strongRequest.get());
     });
 }
 
 - (void)setCallback:(MediaPlayerPrivateAVFoundationObjC*)callback
 {
     m_callback = callback;
+}
+@end
+#endif
+
+#if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+@implementation WebCoreAVFPullDelegate
+- (id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC *)callback
+{
+    self = [super init];
+    if (self)
+        m_callback = callback;
+    return self;
+}
+
+- (void)setCallback:(MediaPlayerPrivateAVFoundationObjC *)callback
+{
+    m_callback = callback;
+}
+
+- (void)outputMediaDataWillChange:(AVPlayerItemVideoOutput *)output
+{
+    if (m_callback)
+        m_callback->outputMediaDataWillChange(output);
+}
+
+- (void)outputSequenceWasFlushed:(AVPlayerItemVideoOutput *)output
+{
+    UNUSED_PARAM(output);
+    // No-op.
 }
 @end
 #endif

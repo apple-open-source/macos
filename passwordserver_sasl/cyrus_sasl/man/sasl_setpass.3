@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_setpass "10 July 2001" SASL "SASL man pages"
+.TH sasl_setpass 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_setpass \- Check a plaintext password
 .SH SYNOPSIS
@@ -72,7 +72,7 @@ are the old password & its length (and are optional)
 
 .I flags
 Are flags including SASL_SET_CREATE and SASL_SET_DISABLE (to cause the
-creating of nonexistant accounts and the disableing of an account,
+creating of nonexistent accounts and the disabling of an account,
 respectively)
 
 .SH NOTES
@@ -86,6 +86,6 @@ any mechanisms that may require them.
 Returns SASL_OK on success. SASL error code on failure.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_checkpass(3)

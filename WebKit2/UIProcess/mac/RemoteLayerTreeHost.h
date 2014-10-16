@@ -26,38 +26,57 @@
 #ifndef RemoteLayerTreeHost_h
 #define RemoteLayerTreeHost_h
 
-#include "MessageReceiver.h"
-#include <WebCore/GraphicsLayerClient.h>
+#include "LayerRepresentation.h"
+#include "RemoteLayerTreeTransaction.h"
+#include <WebCore/PlatformCALayer.h>
 #include <wtf/HashMap.h>
+#include <wtf/RetainPtr.h>
+
+OBJC_CLASS CAAnimation;
+OBJC_CLASS WKAnimationDelegate;
 
 namespace WebKit {
 
-class RemoteLayerTreeTransaction;
+class RemoteLayerTreeDrawingAreaProxy;
 class WebPageProxy;
 
-class RemoteLayerTreeHost : private CoreIPC::MessageReceiver, WebCore::GraphicsLayerClient {
+class RemoteLayerTreeHost {
 public:
-    explicit RemoteLayerTreeHost(WebPageProxy*);
-    ~RemoteLayerTreeHost();
+    explicit RemoteLayerTreeHost(RemoteLayerTreeDrawingAreaProxy&);
+    virtual ~RemoteLayerTreeHost();
+
+    LayerOrView *getLayer(WebCore::GraphicsLayer::PlatformLayerID) const;
+    LayerOrView *rootLayer() const { return m_rootLayer; }
+
+    static WebCore::GraphicsLayer::PlatformLayerID layerID(CALayer*);
+
+    // Returns true if the root layer changed.
+    bool updateLayerTree(const RemoteLayerTreeTransaction&, float indicatorScaleFactor  = 1);
+
+    void setIsDebugLayerTreeHost(bool flag) { m_isDebugLayerTreeHost = flag; }
+    bool isDebugLayerTreeHost() const { return m_isDebugLayerTreeHost; }
+
+    typedef HashMap<WebCore::GraphicsLayer::PlatformLayerID, RetainPtr<WKAnimationDelegate>> LayerAnimationDelegateMap;
+    LayerAnimationDelegateMap& animationDelegates() { return m_animationDelegates; }
+
+    void animationDidStart(WebCore::GraphicsLayer::PlatformLayerID, CAAnimation *, double startTime);
+
+    void clearLayers();
+
+    // Detach the root layer; it will be reattached upon the next incoming commit.
+    void detachRootLayer();
 
 private:
-    // CoreIPC::MessageReceiver.
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    LayerOrView *createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties&, const RemoteLayerTreeTransaction::LayerProperties*);
+    static void setLayerID(CALayer *, WebCore::GraphicsLayer::PlatformLayerID);
 
-    // WebCore::GraphicsLayerClient.
-    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time) OVERRIDE;
-    virtual void notifyFlushRequired(const WebCore::GraphicsLayer*) OVERRIDE;
-    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& clipRect) OVERRIDE;
+    void layerWillBeRemoved(WebCore::GraphicsLayer::PlatformLayerID);
 
-    // Message handlers.
-    void commit(const RemoteLayerTreeTransaction&);
-
-    WebCore::GraphicsLayer* getOrCreateLayer(uint64_t layerID);
-
-    WebPageProxy* m_webPageProxy;
-
-    WebCore::GraphicsLayer* m_rootLayer;
-    HashMap<uint64_t, OwnPtr<WebCore::GraphicsLayer>> m_layers;
+    RemoteLayerTreeDrawingAreaProxy& m_drawingArea;
+    LayerOrView *m_rootLayer;
+    HashMap<WebCore::GraphicsLayer::PlatformLayerID, RetainPtr<LayerOrView>> m_layers;
+    HashMap<WebCore::GraphicsLayer::PlatformLayerID, RetainPtr<WKAnimationDelegate>> m_animationDelegates;
+    bool m_isDebugLayerTreeHost;
 };
 
 } // namespace WebKit

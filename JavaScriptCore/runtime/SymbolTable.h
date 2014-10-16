@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2012-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,17 +29,17 @@
 #ifndef SymbolTable_h
 #define SymbolTable_h
 
+#include "ConcurrentJITLock.h"
 #include "JSObject.h"
-#include "Watchpoint.h"
+#include "VariableWatchpointSet.h"
+#include <memory>
 #include <wtf/HashTraits.h>
 #include <wtf/text/StringImpl.h>
 
 namespace JSC {
 
-class Watchpoint;
-class WatchpointSet;
-
 struct SlowArgument {
+public:
     enum Status {
         Normal = 0,
         Captured = 1,
@@ -77,11 +77,11 @@ static ALWAYS_INLINE int missingSymbolMarker() { return std::numeric_limits<int>
 // counted pointer to a shared WatchpointSet. Thus, in-place edits of the
 // WatchpointSet will manifest in all copies. Here's a picture:
 //
-// SymbolTableEntry --> FatEntry --> WatchpointSet
+// SymbolTableEntry --> FatEntry --> VariableWatchpointSet
 //
 // If you make a copy of a SymbolTableEntry, you will have:
 //
-// original: SymbolTableEntry --> FatEntry --> WatchpointSet
+// original: SymbolTableEntry --> FatEntry --> VariableWatchpointSet
 // copy:     SymbolTableEntry --> FatEntry -----^
 
 struct SymbolTableEntry {
@@ -216,32 +216,24 @@ struct SymbolTableEntry {
         return bits() & ReadOnlyFlag;
     }
     
-    bool couldBeWatched();
+    JSValue inferredValue();
     
-    // Notify an opportunity to create a watchpoint for a variable. This is
-    // idempotent and fail-silent. It is idempotent in the sense that if
-    // a watchpoint set had already been created, then another one will not
-    // be created. Hence two calls to this method have the same effect as
-    // one call. It is also fail-silent, in the sense that if a watchpoint
-    // set had been created and had already been invalidated, then this will
-    // just return. This means that couldBeWatched() may return false even
-    // immediately after a call to attemptToWatch().
-    void attemptToWatch();
-    
-    bool* addressOfIsWatched();
+    void prepareToWatch(SymbolTable*);
     
     void addWatchpoint(Watchpoint*);
     
-    WatchpointSet* watchpointSet()
+    VariableWatchpointSet* watchpointSet()
     {
+        if (!isFat())
+            return 0;
         return fatEntry()->m_watchpoints.get();
     }
     
-    ALWAYS_INLINE void notifyWrite()
+    ALWAYS_INLINE void notifyWrite(VM& vm, JSValue value)
     {
         if (LIKELY(!isFat()))
             return;
-        notifyWriteSlow();
+        notifyWriteSlow(vm, value);
     }
     
 private:
@@ -261,11 +253,11 @@ private:
         
         intptr_t m_bits; // always has FatFlag set and exactly matches what the bits would have been if this wasn't fat.
         
-        RefPtr<WatchpointSet> m_watchpoints;
+        RefPtr<VariableWatchpointSet> m_watchpoints;
     };
     
     SymbolTableEntry& copySlow(const SymbolTableEntry&);
-    JS_EXPORT_PRIVATE void notifyWriteSlow();
+    JS_EXPORT_PRIVATE void notifyWriteSlow(VM&, JSValue);
     
     bool isFat() const
     {
@@ -339,17 +331,17 @@ struct SymbolTableIndexHashTraits : HashTraits<SymbolTableEntry> {
     static const bool needsDestruction = true;
 };
 
-typedef HashMap<RefPtr<StringImpl>, SymbolTableEntry, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, SymbolTableIndexHashTraits> SymbolTable;
-
-class SharedSymbolTable : public JSCell, public SymbolTable {
+class SymbolTable : public JSCell {
 public:
     typedef JSCell Base;
 
-    static SharedSymbolTable* create(VM& vm)
+    typedef HashMap<RefPtr<StringImpl>, SymbolTableEntry, IdentifierRepHash, HashTraits<RefPtr<StringImpl>>, SymbolTableIndexHashTraits> Map;
+
+    static SymbolTable* create(VM& vm)
     {
-        SharedSymbolTable* sharedSymbolTable = new (NotNull, allocateCell<SharedSymbolTable>(vm.heap)) SharedSymbolTable(vm);
-        sharedSymbolTable->finishCreation(vm);
-        return sharedSymbolTable;
+        SymbolTable* symbolTable = new (NotNull, allocateCell<SymbolTable>(vm.heap)) SymbolTable(vm);
+        symbolTable->finishCreation(vm);
+        return symbolTable;
     }
     static const bool needsDestruction = true;
     static const bool hasImmortalStructure = true;
@@ -357,19 +349,116 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(LeafType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(LeafType, StructureFlags), info());
     }
 
+    // You must hold the lock until after you're done with the iterator.
+    Map::iterator find(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.find(key);
+    }
+    
+    Map::iterator find(const GCSafeConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.find(key);
+    }
+    
+    SymbolTableEntry get(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.get(key);
+    }
+    
+    SymbolTableEntry get(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return get(locker, key);
+    }
+    
+    SymbolTableEntry inlineGet(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.inlineGet(key);
+    }
+    
+    SymbolTableEntry inlineGet(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return inlineGet(locker, key);
+    }
+    
+    Map::iterator begin(const ConcurrentJITLocker&)
+    {
+        return m_map.begin();
+    }
+    
+    Map::iterator end(const ConcurrentJITLocker&)
+    {
+        return m_map.end();
+    }
+    
+    Map::iterator end(const GCSafeConcurrentJITLocker&)
+    {
+        return m_map.end();
+    }
+    
+    size_t size(const ConcurrentJITLocker&) const
+    {
+        return m_map.size();
+    }
+    
+    size_t size() const
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return size(locker);
+    }
+    
+    Map::AddResult add(const ConcurrentJITLocker&, StringImpl* key, const SymbolTableEntry& entry)
+    {
+        return m_map.add(key, entry);
+    }
+    
+    void add(StringImpl* key, const SymbolTableEntry& entry)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        add(locker, key, entry);
+    }
+    
+    Map::AddResult set(const ConcurrentJITLocker&, StringImpl* key, const SymbolTableEntry& entry)
+    {
+        return m_map.set(key, entry);
+    }
+    
+    void set(StringImpl* key, const SymbolTableEntry& entry)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        set(locker, key, entry);
+    }
+    
+    bool contains(const ConcurrentJITLocker&, StringImpl* key)
+    {
+        return m_map.contains(key);
+    }
+    
+    bool contains(StringImpl* key)
+    {
+        ConcurrentJITLocker locker(m_lock);
+        return contains(locker, key);
+    }
+    
     bool usesNonStrictEval() { return m_usesNonStrictEval; }
     void setUsesNonStrictEval(bool usesNonStrictEval) { m_usesNonStrictEval = usesNonStrictEval; }
 
-    int captureStart() { return m_captureStart; }
+    int captureStart() const { return m_captureStart; }
     void setCaptureStart(int captureStart) { m_captureStart = captureStart; }
 
-    int captureEnd() { return m_captureEnd; }
+    int captureEnd() const { return m_captureEnd; }
     void setCaptureEnd(int captureEnd) { m_captureEnd = captureEnd; }
 
-    int captureCount() { return m_captureEnd - m_captureStart; }
+    int captureCount() const { return -(m_captureEnd - m_captureStart); }
+    
+    bool isCaptured(int operand)
+    {
+        return operand <= captureStart() && operand > captureEnd();
+    }
 
     int parameterCount() { return m_parameterCountIncludingThis - 1; }
     int parameterCountIncludingThis() { return m_parameterCountIncludingThis; }
@@ -377,27 +466,49 @@ public:
 
     // 0 if we don't capture any arguments; parameterCount() in length if we do.
     const SlowArgument* slowArguments() { return m_slowArguments.get(); }
-    void setSlowArguments(PassOwnArrayPtr<SlowArgument> slowArguments) { m_slowArguments = slowArguments; }
+    void setSlowArguments(std::unique_ptr<SlowArgument[]> slowArguments) { m_slowArguments = WTF::move(slowArguments); }
+    
+    SymbolTable* cloneCapturedNames(VM&);
 
-    static JS_EXPORTDATA const ClassInfo s_info;
+    static void visitChildren(JSCell*, SlotVisitor&);
+
+    DECLARE_EXPORT_INFO;
+
+protected:
+    static const unsigned StructureFlags = StructureIsImmortal | Base::StructureFlags;
 
 private:
-    SharedSymbolTable(VM& vm)
-        : JSCell(vm, vm.sharedSymbolTableStructure.get())
-        , m_parameterCountIncludingThis(0)
-        , m_usesNonStrictEval(false)
-        , m_captureStart(0)
-        , m_captureEnd(0)
-    {
-    }
+    class WatchpointCleanup : public UnconditionalFinalizer {
+    public:
+        WatchpointCleanup(SymbolTable*);
+        virtual ~WatchpointCleanup();
+        
+    protected:
+        virtual void finalizeUnconditionally() override;
 
+    private:
+        SymbolTable* m_symbolTable;
+    };
+    
+    JS_EXPORT_PRIVATE SymbolTable(VM&);
+    ~SymbolTable();
+
+    Map m_map;
+    
     int m_parameterCountIncludingThis;
     bool m_usesNonStrictEval;
 
     int m_captureStart;
     int m_captureEnd;
 
-    OwnArrayPtr<SlowArgument> m_slowArguments;
+    std::unique_ptr<SlowArgument[]> m_slowArguments;
+    
+    std::unique_ptr<WatchpointCleanup> m_watchpointCleanup;
+
+public:
+    InlineWatchpointSet m_functionEnteredOnce;
+    
+    mutable ConcurrentJITLock m_lock;
 };
 
 } // namespace JSC

@@ -348,6 +348,20 @@ _expand_resources(krb5_context context, PTYPE param, const char *postfix, char *
     return 0;
 }
 
+static int
+_expand_env(krb5_context context, PTYPE param, const char *postfix, char **str)
+{
+    const char *env = getenv(postfix);
+    if (env)
+	*str = strdup(env);
+    else
+	*str = strdup("");
+    if (*str == NULL)
+	return ENOMEM;
+    return 0;
+}
+
+
 #endif
 
 /**
@@ -386,6 +400,7 @@ static const struct token {
 } tokens[] = {
 #ifdef __APPLE__
     {"ApplicationResources", SPECIAL(_expand_resources) },
+    {"IPHONE_SIMULATOR_ROOT", SPECIALP(_expand_env, "IPHONE_SIMULATOR_ROOT") },
 #endif
 #ifdef _WIN32
 #define CSIDLP(C,P) FTYPE_CSIDL, C, P, _expand_csidl

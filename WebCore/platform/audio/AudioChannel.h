@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,7 +30,7 @@
 #define AudioChannel_h
 
 #include "AudioArray.h"
-#include <wtf/PassOwnPtr.h>
+#include <memory>
 
 namespace WebCore {
 
@@ -42,7 +42,7 @@ public:
     // Memory can be externally referenced, or can be internally allocated with an AudioFloatArray.
 
     // Reference an external buffer.
-    AudioChannel(float* storage, size_t length)
+    explicit AudioChannel(float* storage, size_t length)
         : m_length(length)
         , m_rawPointer(storage)
         , m_silent(false)
@@ -55,7 +55,7 @@ public:
         , m_rawPointer(0)
         , m_silent(true)
     {
-        m_memBuffer = adoptPtr(new AudioFloatArray(length));
+        m_memBuffer = std::make_unique<AudioFloatArray>(length);
     }
 
     // A "blank" audio channel -- must call set() before it's useful...
@@ -70,7 +70,7 @@ public:
     // storage represents external memory not managed by this object.
     void set(float* storage, size_t length)
     {
-        m_memBuffer.clear(); // cleanup managed storage
+        m_memBuffer = nullptr; // cleanup managed storage
         m_rawPointer = storage;
         m_length = length;
         m_silent = false;
@@ -130,7 +130,7 @@ private:
     size_t m_length;
 
     float* m_rawPointer;
-    OwnPtr<AudioFloatArray> m_memBuffer;
+    std::unique_ptr<AudioFloatArray> m_memBuffer;
     bool m_silent;
 };
 

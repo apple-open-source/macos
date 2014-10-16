@@ -1,5 +1,36 @@
 #!/usr/bin/perl
 
+# genNewOSS.pl
+#
+# genNewOSS.pl, given a list of modules + metadata and corresponding tarballs
+# (downloaded via getCPAN.pl), creates a Modules subdirectory containing
+# subdirectories with the tarball, Makefile, LICENSE and oss.partial (querying
+# the CPAN servers for OSS information), suitable to be used in the CPAN
+# project's Modules directory.
+#
+# By default, genNewOSS.pl prints out what it would do; use the -w option to
+# actually create the subdirectories and write the files.  The tarballs are
+# expected to be in the current directory, or else the path of the directory
+# containing the tarballs can be passed on the command line.
+#
+# The -o options prints out all the opensource licensing info, useful for
+# including in an opensource approval request.
+#
+# The %modules hash should be modified to specify metadata for the modules.
+# The versioned module name is the hash key, and the value is a hash reference
+# containing three key/value pair.  The "copyright" key points to a string
+# containing copyright information about the module, while the "license"
+# key points to a string giving the license name.
+#
+# The third key/value pair can be any one of the following:
+#
+# licensestr => string specifying the license terms
+# licensefile => string containing path to a file containing license terms
+# licensefilelist => list reference containing multiple path string to files
+#                    containing license terms
+#
+# (licensing term can be a URL where the terms are stated)
+
 use strict;
 use CPAN;
 use File::Basename ();
@@ -15,152 +46,70 @@ http://perldoc.perl.org/perlartistic.html
 http://perldoc.perl.org/perlgpl.html
 EOF
 my $ArtisticLicense = <<EOF;
-http://opensource.org/licenses/artistic-license-2.0.php
+http://opensource.org/licenses/Artistic-2.0
+EOF
+my $Apache20License = <<EOF;
+http://www.apache.org/licenses/LICENSE-2.0
 EOF
 
 my %modules = (
-    'CPAN-Meta-2.120921' => {
-	copyright => 'This software is copyright (c) 2010 by David Golden and Ricardo Signes.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
+    'Capture-Tiny-0.23' => {
+	copyright => 'This software is Copyright (c) 2009 by David Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
     },
-    'CPAN-Meta-Check-0.004' => {
-	copyright => 'This software is copyright (c) 2012 by Leon Timmermans.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
+    'Class-Tiny-0.014' => {
+	copyright => 'This software is Copyright (c) 2013 by David Golden.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
     },
-    'CPAN-Meta-Requirements-2.122' => {
-	copyright => 'This software is copyright (c) 2010 by David Golden and Ricardo Signes.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'CPAN-Meta-YAML-0.008' => {
-	copyright => 'This software is copyright (c) 2010 by Adam Kennedy.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'Class-Load-XS-0.06' => {
-	copyright => 'This software is Copyright (c) 2012 by Dave Rolsky.',
-	license => 'Artistic 2.0',
+    'Devel-StackTrace-1.31' => {
+	copyright => 'This software is Copyright (c) 2014 by Dave Rolsky.',
+	license => 'ArtisticLicense',
 	licensestr => $ArtisticLicense,
     },
-    'Class-Method-Modifiers-1.10' => {
-	copyright => 'Copyright 2007-2009 Shawn M Moore.',
+    'ExtUtils-Config-0.007' => {
+	copyright => 'This software is copyright (c) 2006 by Ken Williams, Leon Timmermans.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'File-Which-1.09' => {
-	copyright => 'Copyright 2002 Per Einar Ellefsen.  Some parts copyright 2009 Adam Kennedy.',
+    'ExtUtils-Helpers-0.021' => {
+	copyright => 'This software is copyright (c) 2004 by Ken Williams, Leon Timmermans.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'IO-HTML-0.04' => {
-	copyright => 'This software is copyright (c) 2012 by Christopher J. Madsen.',
+    'ExtUtils-InstallPaths-0.010' => {
+	copyright => 'This software is copyright (c) 2011 by Ken Williams, Leon Timmermans.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'IPC-Run3-0.045' => {
-	copyright => 'Copyright 2003, R. Barrie Slaymaker, Jr., All Rights Reserved',
-	license => 'BSD',
-	licensestr => <<EOF,
-You may use this module under the terms of the BSD, Artistic, or GPL licenses,
-any version.
-
-See more information at:
-
-  BSD: http://www.opensource.org/licenses/bsd-license.php
-  GPL: http://www.opensource.org/licenses/gpl-license.php
-  Artistic: http://opensource.org/licenses/artistic-license.php
-EOF
-    },
-    'Module-Implementation-0.06' => {
-	copyright => 'This software is Copyright (c) 2012 by Dave Rolsky.',
-	license => 'Artistic 2.0',
-	licensestr => $ArtisticLicense,
-    },
-    'Module-Metadata-1.000011' => {
-	copyright => <<EOF,
-Original code Copyright (c) 2001-2011 Ken Williams.
-Additional code Copyright (c) 2010-2011 Matt Trout and David Golden.
-All rights reserved.
-EOF
+    'Import-Into-1.002000' => {
+	copyright => 'Copyright (c) 2012 mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>, haarg - Graham Knop (cpan:HAARG) <haarg@haarg.org>',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'Moo-1.000005' => {
-	copyright => 'Copyright (c) 2010-2011 the Moo "AUTHOR" and "CONTRIBUTORS" as listed above.',
+    'Lexical-SealRequireHints-0.007' => {
+	copyright => 'Copyright (C) 2009, 2010, 2011, 2012 Andrew Main (Zefram) <zefram@fysh.org>',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'Probe-Perl-0.01' => {
-	copyright => 'Copyright (C) 2005 Randy W. Sims',
+    'Module-Build-Tiny-0.034' => {
+	copyright => 'This software is copyright (c) 2011 by Leon Timmermans, David Golden.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'Role-Tiny-1.002001' => {
-	copyright => <<'EOC',
-Copyright (c) 2010-2012 the Role::Tiny
-mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>
-dg - David Leadbeater (cpan:DGL) <dgl@dgl.cx>
-frew - Arthur Axel "fREW" Schmidt (cpan:FREW) <frioux@gmail.com>
-hobbs - Andrew Rodland (cpan:ARODLAND) <arodland@cpan.org>
-jnap - John Napiorkowski (cpan:JJNAPIORK) <jjn1056@yahoo.com>
-ribasushi - Peter Rabbitson (cpan:RIBASUSHI) <ribasushi@cpan.org>
-chip - Chip Salzenberg (cpan:CHIPS) <chip@pobox.com>
-ajgb - Alex J. G. Burzyński (cpan:AJGB) <ajgb@cpan.org>
-doy - Jesse Luehrs (cpan:DOY) <doy at tozt dot net>
-perigrin - Chris Prather (cpan:PERIGRIN) <chris@prather.org>
-Mithaldu - Christian Walde (cpan:MITHALDU)
-<walde.christian@googlemail.com>
-ilmari - Dagfinn Ilmari Mannsåker (cpan:ILMARI) <ilmari@ilmari.org>
-tobyink - Toby Inkster (cpan:TOBYINK) <tobyink@cpan.org>
-EOC
+    'bareword-filehandles-0.003' => {
+	copyright => 'This software is copyright (c) 2011 by Dagfinn Ilmari Mannsåker.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'Sub-Exporter-Progressive-0.001006' => {
-	copyright => <<'EOC',
-Copyright (c) 2012 the Sub::Exporter::Progressive
-frew - Arthur Axel Schmidt (cpan:FREW) <frioux+cpan@gmail.com>
-ilmari - Dagfinn Ilmari Mannsåker (cpan:ILMARI) <ilmari@ilmari.org>
-mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>
-leont - Leon Timmermans (cpan:LEONT) <leont@cpan.org>
-EOC
+    'indirect-0.31' => {
+	copyright => 'Copyright 2008,2009,2010,2011,2012,2013 Vincent Pit, all rights reserved.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'Syntax-Keyword-Junction-0.003001' => {
-	copyright => 'This software is copyright (c) 2012 by Arthur Axel "fREW" Schmidt.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'Test-CheckDeps-0.002' => {
-	copyright => 'This software is copyright (c) 2011 by Leon Timmermans',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'Test-Script-1.07' => {
-	copyright => 'Copyright 2006 - 2009 Adam Kennedy.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'Test-Trap-v0.2.2' => {
-	copyright => 'Copyright (C) 2006-2012 Eirik Berg Hanssen',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'XML-SAX-Expat-0.40' => {
-	copyright => 'Copyright (c) 2001-2008 Robin Berjon. All rights reserved.',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'strictures-1.004002' => {
-	copyright => 'Copyright (c) 2010 mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>',
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
-    'syntax-0.004' => {
-	copyright => "This software is copyright (c) 2012 by Robert 'phaylon' Sedlacek.",
+    'multidimensional-0.011' => {
+	copyright => 'This software is copyright (c) 2010 by Dagfinn Ilmari Mannsåker.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -247,6 +196,7 @@ for my $m (sort(keys(%modules))) {
 	next unless defined($dist);
 	($name, $vers) = nameVers($dist->base_id);
 	next unless $name eq $mname;
+	next unless $vers eq $v;
 	print "    Found $name-$vers\n";
 	$found = $dist;
 	last;
@@ -255,6 +205,7 @@ for my $m (sort(keys(%modules))) {
 	for my $dist (CPAN::Shell->expand("Distribution", "/\/$n-/")) {
 	    ($name, $vers) = nameVers($dist->base_id);
 	    next unless $name eq $n;
+	    next unless $vers eq $v;
 	    print "    Found $name-$vers\n";
 	    $found = $dist;
 	    last
@@ -270,12 +221,18 @@ for my $m (sort(keys(%modules))) {
     my $a = substr($url, 0, 1);
     my $a2 = substr($url, 0, 2);
     $url = join('/', $URLprefix, $a, $a2, $url);
-    my $t = File::Spec->join($tardir, "$m.tar.gz");
+    my $t = File::Spec->join($tardir, "$m.*");
+    my @t = glob($t);
+    die "\"$t\" produces no matches\n" if scalar(@t) == 0;
+    die "\"$t\" produces multiple matches\n" if scalar(@t) > 1;
+    $t = $t[0];
+    my($tail, $dir, $suf) = File::Basename::fileparse($t, qr/\.(tar\.gz|tgz)/);
+    die "$t has unknown suffix\n" if $suf eq '';
     if($write) {
 	if(!-d "$Modules/$m") {
 	    mkdir "$Modules/$m" or die "Can't mkdir $Modules/$m\n";
 	}
-	File::Copy::syscopy($t, "$Modules/$m/$m.tar.gz") or die "Can't copy $t: $!\n";
+	File::Copy::syscopy($t, "$Modules/$m/$tail$suf") or die "Can't copy $t: $!\n";
 	$OUT = IO::File->new("$Modules/$m/Makefile", 'w');
 	if(!defined($OUT)) {
 	    warn "***Can't create $Modules/$m/Makefile\n";
@@ -296,6 +253,12 @@ VERSION = $vers
 
 include ../Makefile.inc
 EOF
+    if($suf ne '.tar.gz') {
+	print $OUT <<EOF;
+
+TARBALL := \$(NAMEVERSION)$suf
+EOF
+    }
     if($write) {
 	undef($OUT);
 	$OUT = IO::File->new("$Modules/$m/oss.partial", 'w');

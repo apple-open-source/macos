@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <TargetConditionals.h>
 
 #include <IOKit/IOLib.h>    // IOMalloc/IOFree
@@ -39,6 +40,7 @@
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDLibUserClient.h"
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDEventSource.h"
 #include "OSStackRetain.h"
 
 #include <sys/queue.h>
@@ -225,6 +227,11 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _rollOverElement            _reserved->rollOverElement
 #define _hierarchElements           _reserved->hierarchElements
 #define _asyncReportQueue           _reserved->asyncReportQueue
+#define _workLoop                   _reserved->workLoop
+#define _eventSource                _reserved->eventSource
+
+#define WORKLOOP_LOCK   ((IOHIDEventSource *)_eventSource)->lock()
+#define WORKLOOP_UNLOCK ((IOHIDEventSource *)_eventSource)->unlock()
 
 #define kIOHIDEventThreshold	10
 
@@ -238,12 +245,6 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 
 #define GetElement(index)  \
     (IOHIDElementPrivate *) _elementArray->getObject((UInt32)index)
-
-// Serialize access to the elements for report handling,
-// event queueing, and report creation.
-//
-#define ELEMENT_LOCK                IORecursiveLockLock( _elementLock )
-#define ELEMENT_UNLOCK              IORecursiveLockUnlock( _elementLock )
 
 // Describes the handler(s) at each report dispatch table slot.
 //
@@ -273,7 +274,8 @@ struct IOHIDReportHandler
 static SInt32 g3DGameControllerCount = 0;
 // *** END GAME DEVICE HACK ***
 
-static IONotifier   *gDeviceMatchedNotifier = 0;
+static IONotifier   *gDeviceMatchedNotifier             = 0;
+static uint8_t      gDeviceMatchedNotifierInitialized   = 0;
 
 //---------------------------------------------------------------------------
 // Initialize an IOHIDDevice object.
@@ -329,12 +331,6 @@ void IOHIDDevice::free()
         _elementValuesDescriptor = 0;
     }
 
-    if ( _elementLock )
-    {
-        IORecursiveLockFree( _elementLock );
-        _elementLock = 0;
-    }
-
     if ( _clientSet )
     {
         // Should not have any clients.
@@ -347,6 +343,18 @@ void IOHIDDevice::free()
     {
         _inputInterruptElementArray->release();
         _inputInterruptElementArray = 0;
+    }
+    
+    if (_eventSource)
+    {
+        _eventSource->release();
+        _eventSource = NULL;
+    }
+    
+    if (_workLoop)
+    {
+        _workLoop->release();
+        _workLoop = NULL;
     }
 
     if ( _reserved )
@@ -405,64 +413,55 @@ static inline OSArray * CreateHierarchicalElementList(IOHIDElement * root)
 
 bool IOHIDDevice::start( IOService * provider )
 {
-    IOMemoryDescriptor * reportDescriptor;
-    IOReturn             ret;
+    IOMemoryDescriptor *    reportDescriptor        = NULL;
+    IOMemoryMap *           reportDescriptorMap     = NULL;
+    OSData *                reportDescriptorData    = NULL;
+    OSNumber *              primaryUsagePage        = NULL;
+    OSNumber *              primaryUsage            = NULL;
+    IOReturn                ret;
+    bool                    result;
 
-    if ( super::start(provider) != true )
-        return false;
-
-    // Allocate a mutex lock to serialize report handling.
-
-    _elementLock = IORecursiveLockAlloc();
-    if ( _elementLock == 0 )
-        return false;
+    require_action(super::start(provider), error, result=false);
+    
+    _workLoop = getWorkLoop();
+    require_action(_workLoop, error, IOLog("IOHIDDevice failed to get a work loop\n"); result=false);
+    
+    _workLoop->retain();
+    
+    _eventSource = IOHIDEventSource::HIDEventSource(this, NULL);
+    require_action(_eventSource, error, result=false);
+    require_noerr_action(_workLoop->addEventSource(_eventSource), error, result=false);
 
     // Allocate memory for report handler dispatch table.
 
-    _reportHandlers = (IOHIDReportHandler *)
-                      IOMalloc( sizeof(IOHIDReportHandler) *
-                                kReportHandlerSlots );
-    if ( _reportHandlers == 0 )
-        return false;
+    _reportHandlers = (IOHIDReportHandler *)IOMalloc(sizeof(IOHIDReportHandler)*kReportHandlerSlots);
+    require_action(_reportHandlers, error, result=false);
 
     bzero( _reportHandlers, sizeof(IOHIDReportHandler) * kReportHandlerSlots );
 
     // Call handleStart() before fetching the report descriptor.
-
-    if ( handleStart(provider) != true )
-        return false;
+    require_action(handleStart(provider), error, result=false);
 
     // Fetch report descriptor for the device, and parse it.
+    require_noerr_action(newReportDescriptor(&reportDescriptor), error, result=false);
+    require_action(reportDescriptor, error, result=false);
+    
+    reportDescriptorMap = reportDescriptor->map();
+    require_action(reportDescriptorMap, error, result=false);
+    
+    reportDescriptorData = OSData::withBytes((void*)reportDescriptorMap->getVirtualAddress(), (unsigned int)reportDescriptorMap->getSize());
+    require_action(reportDescriptorData, error, result=false);
 
-    if ( ( newReportDescriptor(&reportDescriptor) != kIOReturnSuccess ) ||
-         ( reportDescriptor == 0 ) )
-        return false;
-
-    IOMemoryMap *tempMap = reportDescriptor->map();
-    if (tempMap) {
-        OSData *descriptor = OSData::withBytes((void*)tempMap->getVirtualAddress(), tempMap->getSize());
-        if (descriptor) {
-            setProperty(kIOHIDReportDescriptorKey, descriptor);
-            descriptor->release();
-        }
-        tempMap->release();
-    }
+    setProperty(kIOHIDReportDescriptorKey, reportDescriptorData);
 
     ret = parseReportDescriptor( reportDescriptor );
-    reportDescriptor->release();
-
-    if ( ret != kIOReturnSuccess )
-        return false;
+    require_noerr_action(ret, error, result=false);
 
     _hierarchElements = CreateHierarchicalElementList((IOHIDElement *)_elementArray->getObject( 0 ));
+    require_action(_hierarchElements, error, result=false);
 
-    if ( _hierarchElements == NULL )
-        return false;
-
-	_interfaceNub = IOHIDInterface::withElements( _hierarchElements );
-
-	if ( _interfaceNub == NULL )
-		return false;
+    _interfaceNub = IOHIDInterface::withElements( _hierarchElements );
+    require_action(_interfaceNub, error, result=false);
 
     // Once the report descriptors have been parsed, we are ready
     // to handle reports from the device.
@@ -471,23 +470,22 @@ bool IOHIDDevice::start( IOService * provider )
 
     // Publish properties to the registry before any clients are
     // attached.
-
-    if ( publishProperties(provider) != true )
-        return false;
-
-    OSNumber *primaryUsagePage = (OSNumber*)copyProperty(kIOHIDPrimaryUsagePageKey);
-    OSNumber *primaryUsage = (OSNumber*)copyProperty(kIOHIDPrimaryUsageKey);
+    require_action(publishProperties(provider), error, result=false);
 
     // *** GAME DEVICE HACK ***
+    primaryUsagePage    = (OSNumber*)copyProperty(kIOHIDPrimaryUsagePageKey);
+    primaryUsage        = (OSNumber*)copyProperty(kIOHIDPrimaryUsageKey);
+
     if ((OSDynamicCast(OSNumber, primaryUsagePage) && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
         (OSDynamicCast(OSNumber, primaryUsage) && (primaryUsage->unsigned32BitValue() == 0x01))) {
         OSIncrementAtomic(&g3DGameControllerCount);
     }
     // *** END GAME DEVICE HACK ***
-    OSSafeReleaseNULL(primaryUsagePage);
-    OSSafeReleaseNULL(primaryUsage);
 
-    if (!gDeviceMatchedNotifier) {
+    if ( ! OSTestAndSet(0, &gDeviceMatchedNotifierInitialized) ) {
+        if (gDeviceMatchedNotifier)
+            panic("gDeviceMatchedNotifier already initialized\n");
+        
         OSDictionary *      propertyMatch = serviceMatching("IOHIDDevice");
 
         gDeviceMatchedNotifier = addMatchingNotification(gIOFirstMatchNotification,
@@ -496,9 +494,27 @@ bool IOHIDDevice::start( IOService * provider )
                                                          NULL);
         propertyMatch->release();
     }
+    
     registerService();
 
-    return true;
+    result = true;
+    
+error:
+    if ( !result )
+        stop(provider);
+    
+    if ( reportDescriptor )
+        reportDescriptor->release();
+    if ( primaryUsage )
+        primaryUsage->release();
+    if ( primaryUsagePage )
+        primaryUsagePage->release();
+    if ( reportDescriptorData )
+        reportDescriptorData->release();
+    if ( reportDescriptorMap )
+        reportDescriptorMap->release();
+
+    return result;
 }
 
 //---------------------------------------------------------------------------
@@ -507,7 +523,7 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
                                                     void * refCon __unused,
                                                     IOService * newService,
                                                     IONotifier * notifier __unused)
-    {
+{
     IOHIDDevice *self = OSDynamicCast(IOHIDDevice, newService);
     if (self) {
         if ( self->_interfaceNub->attach(self) )
@@ -519,8 +535,8 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
                 self->_interfaceNub = 0;
             }
         }
-    else
-    {
+        else
+        {
             self->_interfaceNub->release();
             self->_interfaceNub = 0;
         }
@@ -546,13 +562,16 @@ void IOHIDDevice::stop(IOService * provider)
     // *** END GAME DEVICE HACK ***
 
     handleStop(provider);
-
-    if ( _elementLock )
+    
+    if (_workLoop)
     {
-        ELEMENT_LOCK;
-        _readyForInputReports = false;
-        ELEMENT_UNLOCK;
+        if (_eventSource)
+        {
+            _workLoop->removeEventSource(_eventSource);
+        }
     }
+
+    _readyForInputReports = false;
 
     if (_interfaceNub)
     {
@@ -994,10 +1013,18 @@ IOReturn IOHIDDevice::handleReport( IOMemoryDescriptor * report,
                                     IOOptionBits         options )
 {
     AbsoluteTime   currentTime;
+    IOReturn       status;
 
     clock_get_uptime( &currentTime );
+    
+    WORKLOOP_LOCK;
 
-	return handleReportWithTime( currentTime, report, reportType, options );
+	status = handleReportWithTime( currentTime, report, reportType, options );
+    
+    WORKLOOP_UNLOCK;
+    
+    return status;
+    
 }
 
 //---------------------------------------------------------------------------
@@ -1754,7 +1781,7 @@ IOReturn IOHIDDevice::startEventDelivery( IOHIDEventQueue *  queue,
     if ( ( queue == 0 ) || ( elementIndex < _dataElementIndex ) )
         return kIOReturnBadArgument;
 
-    ELEMENT_LOCK;
+    WORKLOOP_LOCK;
 
 	do {
         if (( element = GetElement(elementIndex) ) == 0)
@@ -1765,7 +1792,7 @@ IOReturn IOHIDDevice::startEventDelivery( IOHIDEventQueue *  queue,
     }
     while ( false );
 
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
     return ret;
 }
@@ -1789,7 +1816,7 @@ IOReturn IOHIDDevice::stopEventDelivery( IOHIDEventQueue *  queue,
 	else if ( (queue == 0 ) || ( elementIndex < _dataElementIndex ) )
         return kIOReturnBadArgument;
 
-    ELEMENT_LOCK;
+    WORKLOOP_LOCK;
 
 	do {
         if (( element = GetElement(elementIndex++) ) == 0)
@@ -1799,7 +1826,7 @@ IOReturn IOHIDDevice::stopEventDelivery( IOHIDEventQueue *  queue,
     }
     while ( cookie == 0 );
 
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
     return removed ? kIOReturnSuccess : kIOReturnNotFound;
 }
@@ -1817,11 +1844,11 @@ IOReturn IOHIDDevice::checkEventDelivery( IOHIDEventQueue *  queue,
     if ( !queue || !element || !started )
         return kIOReturnBadArgument;
 
-    ELEMENT_LOCK;
+    WORKLOOP_LOCK;
 
     *started = element->hasEventQueue( queue );
 
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
     return kIOReturnSuccess;
 }
@@ -1858,7 +1885,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     if (report == NULL)
         return kIOReturnNoMemory;
 
-    ELEMENT_LOCK;
+    WORKLOOP_LOCK;
 
     SetCookiesTransactionState(element, cookies,
             cookieCount, kIOHIDTransactionStatePending, index, 0);
@@ -1881,12 +1908,12 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
         reportID = element->getReportID();
 
         // calling down into our subclass, so lets unlock
-        ELEMENT_UNLOCK;
+        WORKLOOP_UNLOCK;
         
         report->prepare();
         ret = getReport(report, reportType, reportID);
 
-        ELEMENT_LOCK;
+        WORKLOOP_LOCK;
 
         if (ret == kIOReturnSuccess) {
             // If we have a valid report, go ahead and process it.
@@ -1906,7 +1933,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     // remaining elements to idle.
     SetCookiesTransactionState(element, cookies,
             cookieCount, kIOHIDTransactionStateIdle, index, 0);
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
     return ret;
 }
@@ -1942,7 +1969,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     if ( report == NULL )
         return kIOReturnNoMemory;
 
-    ELEMENT_LOCK;
+    WORKLOOP_LOCK;
 
     // Set the transaction state on the specified cookies
     SetCookiesTransactionState(cookieElement, cookies,
@@ -1992,13 +2019,13 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
         if ( _reportCount > 1 )
             reportData[0] = reportID;
 
-        ELEMENT_UNLOCK;
+        WORKLOOP_UNLOCK;
         
         report->prepare();
         ret = setReport( report, reportType, reportID);
         report->complete();
         
-        ELEMENT_LOCK;
+        WORKLOOP_LOCK;
 
         if ( ret != kIOReturnSuccess )
             break;
@@ -2009,7 +2036,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     SetCookiesTransactionState(cookieElement, cookies,
             cookieCount, kIOHIDTransactionStateIdle, index, 0);
 
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
     if ( report )
         report->release();
@@ -2094,12 +2121,13 @@ IOReturn IOHIDDevice::handleReportWithTime(
     IOHIDReportType      reportType,
     IOOptionBits         options)
 {
-    void *         reportData;
-    IOByteCount    reportLength;
-    IOReturn       ret = kIOReturnNotReady;
-    bool           changed = false;
-    bool           shouldTickle = false;
-    UInt8          reportID = 0;
+    IOBufferMemoryDescriptor *  bufferDescriptor    = NULL;
+    void *                      reportData          = NULL;
+    IOByteCount                 reportLength        = 0;
+    IOReturn                    ret                 = kIOReturnNotReady;
+    bool                        changed             = false;
+    bool                        shouldTickle        = false;
+    UInt8                       reportID            = 0;
 
     IOHID_DEBUG(kIOHIDDebugCode_HandleReport, reportType, options, __OSAbsoluteTime(timeStamp), getRegistryEntryID());
 
@@ -2110,19 +2138,26 @@ IOReturn IOHIDDevice::handleReportWithTime(
     if ( !report )
         return kIOReturnBadArgument;
 
-    reportLength = report->getLength();
+    if ( reportType >= kIOHIDReportTypeCount )
+        return kIOReturnBadArgument;
 
+    reportLength = report->getLength();
     if ( !reportLength )
         return kIOReturnBadArgument;
 
-    reportData = IOMalloc(reportLength);
-
-    if ( !reportData )
-        return kIOReturnNoMemory;
-
-    report->readBytes( 0, reportData, reportLength );
-
-    ELEMENT_LOCK;
+    if ( (bufferDescriptor = OSDynamicCast(IOBufferMemoryDescriptor, report)) ) {
+        reportData = bufferDescriptor->getBytesNoCopy();
+        if ( !reportData )
+            return kIOReturnNoMemory;
+    } else {
+        reportData = IOMalloc(reportLength);
+        if ( !reportData )
+            return kIOReturnNoMemory;
+        
+        report->readBytes( 0, reportData, reportLength );
+    }
+    
+    WORKLOOP_LOCK;
 
     if ( _readyForInputReports ) {
         IOHIDElementPrivate * element;
@@ -2155,10 +2190,12 @@ IOReturn IOHIDDevice::handleReportWithTime(
         _interfaceNub->handleReport(timeStamp, report, reportType, reportID, options);
     }
 
-    ELEMENT_UNLOCK;
+    WORKLOOP_UNLOCK;
 
-    // Release the buffer
-    IOFree(reportData, reportLength);
+    if ( !bufferDescriptor && reportData ) {
+        // Release the buffer
+        IOFree(reportData, reportLength);
+    }
 
     // RY: If this is a non-system HID device, post a null hid
     // event to prevent the system from sleeping.
@@ -2207,6 +2244,8 @@ IOReturn IOHIDDevice::handleReportWithTimeAsync(
                                       IOHIDCompletion *    completion)
 {
     IOReturn result = kIOReturnError;
+    
+    WORKLOOP_LOCK;
 
     if (!_asyncReportQueue) {
         _asyncReportQueue = IOHIDAsyncReportQueue::withOwner(this);
@@ -2219,6 +2258,8 @@ IOReturn IOHIDDevice::handleReportWithTimeAsync(
     if (_asyncReportQueue) {
         result = _asyncReportQueue->postReport(timeStamp, report, reportType, options, completionTimeout, completion);
     }
+
+    WORKLOOP_UNLOCK;
 
     return result;
 }

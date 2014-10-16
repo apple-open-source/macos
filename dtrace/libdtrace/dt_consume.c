@@ -20,7 +20,7 @@
  */
 
 /*
- * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ * Portions copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
 
 /*
@@ -42,6 +42,8 @@
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
+int dtrace_aggregate_hash(dtrace_hdl_t *dtp, dtrace_bufdesc_t **agg_bufs);
+
 /*
  * We declare this here because (1) we need it and (2) we want to avoid a
  * dependency on libm in libdtrace.
@@ -54,6 +56,26 @@ dt_fabsl(long double x)
 
 	return (x);
 }
+
+static int
+dt_ndigits(long long val)
+{
+	int rval = 1;
+	long long cmp = 10;
+
+	if (val < 0) {
+		val = val == INT64_MIN ? INT64_MAX : -val;
+		rval++;
+	}
+
+	while (val > cmp && cmp > 0) {
+		rval++;
+		cmp *= 10;
+	}
+
+	return (rval < 4 ? 4 : rval);
+}
+
 
 /*
  * 128-bit arithmetic functions needed to support the stddev() aggregating
@@ -492,6 +514,125 @@ dt_nullrec()
 	return (DTRACE_CONSUME_NEXT);
 }
 
+static void
+dt_quantize_total(dtrace_hdl_t *dtp, int64_t datum, long double *total)
+{
+	long double val = dt_fabsl((long double)datum);
+
+	if (dtp->dt_options[DTRACEOPT_AGGZOOM] == DTRACEOPT_UNSET) {
+		*total += val;
+		return;
+	}
+
+	/*
+	 * If we're zooming in on an aggregation, we want the height of the
+	 * highest value to be approximately 95% of total bar height -- so we
+	 * adjust up by the reciprocal of DTRACE_AGGZOOM_MAX when comparing to
+	 * our highest value.
+	 */
+	val *= 1 / DTRACE_AGGZOOM_MAX;
+
+	if (*total < val)
+		*total = val;
+}
+
+
+static int
+dt_print_quanthdr(dtrace_hdl_t *dtp, FILE *fp, int width)
+{
+	return (dt_printf(dtp, fp, "\n%*s %41s %-9s\n",
+	                  width ? width : 16, width ? "key" : "value",
+	                  "------------- Distribution -------------", "count"));
+}
+
+static int
+dt_print_quanthdr_packed(dtrace_hdl_t *dtp, FILE *fp, int width,
+    const dtrace_aggdata_t *aggdata, dtrace_actkind_t action)
+{
+	int min = aggdata->dtada_minbin, max = aggdata->dtada_maxbin;
+	int minwidth, maxwidth, i;
+
+	assert(action == DTRACEAGG_QUANTIZE || action == DTRACEAGG_LQUANTIZE);
+
+	if (action == DTRACEAGG_QUANTIZE) {
+		if (min != 0 && min != DTRACE_QUANTIZE_ZEROBUCKET)
+			min--;
+
+		if (max < DTRACE_QUANTIZE_NBUCKETS - 1)
+			max++;
+
+		minwidth = dt_ndigits(DTRACE_QUANTIZE_BUCKETVAL(min));
+		maxwidth = dt_ndigits(DTRACE_QUANTIZE_BUCKETVAL(max));
+	} else {
+		maxwidth = 8;
+		minwidth = maxwidth - 1;
+		max++;
+	}
+
+	if (dt_printf(dtp, fp, "\n%*s %*s .",
+	              width, width > 0 ? "key" : "", minwidth, "min") < 0)
+		return (-1);
+
+	for (i = min; i <= max; i++) {
+		if (dt_printf(dtp, fp, "-") < 0)
+			return (-1);
+	}
+
+	return (dt_printf(dtp, fp, ". %*s | count\n", -maxwidth, "max"));
+}
+
+/*
+ * We use a subset of the Unicode Block Elements (U+2588 through U+258F,
+ * inclusive) to represent aggregations via UTF-8 -- which are expressed via
+ * 3-byte UTF-8 sequences.
+ */
+#define  DTRACE_AGGUTF8_FULL  0x2588
+#define  DTRACE_AGGUTF8_BASE  0x258f
+#define  DTRACE_AGGUTF8_LEVELS  8
+
+#define  DTRACE_AGGUTF8_BYTE0(val)  (0xe0 | ((val) >> 12))
+#define  DTRACE_AGGUTF8_BYTE1(val)  (0x80 | (((val) >> 6) & 0x3f))
+#define  DTRACE_AGGUTF8_BYTE2(val)  (0x80 | ((val) & 0x3f))
+
+static int
+dt_print_quantline_utf8(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
+    uint64_t normal, long double total)
+{
+	uint_t len = 40, i, whole, partial;
+	long double f = (dt_fabsl((long double)val) * len) / total;
+	const char *spaces = "                                        ";
+
+	whole = (uint_t)f;
+	partial = (uint_t)((f - (long double)(uint_t)f) *
+			(long double)DTRACE_AGGUTF8_LEVELS);
+
+	if (dt_printf(dtp, fp, "|") < 0)
+		return (-1);
+
+	for (i = 0; i < whole; i++) {
+		if (dt_printf(dtp, fp, "%c%c%c",
+		              DTRACE_AGGUTF8_BYTE0(DTRACE_AGGUTF8_FULL),
+		              DTRACE_AGGUTF8_BYTE1(DTRACE_AGGUTF8_FULL),
+		              DTRACE_AGGUTF8_BYTE2(DTRACE_AGGUTF8_FULL)) < 0)
+			return (-1);
+	}
+
+	if (partial != 0) {
+		partial = DTRACE_AGGUTF8_BASE - (partial - 1);
+
+		if (dt_printf(dtp, fp, "%c%c%c",
+		              DTRACE_AGGUTF8_BYTE0(partial),
+		              DTRACE_AGGUTF8_BYTE1(partial),
+		              DTRACE_AGGUTF8_BYTE2(partial)) < 0)
+			return (-1);
+
+		i++;
+	}
+
+	return (dt_printf(dtp, fp, "%s %-9lld\n", spaces + i,
+	                  (long long)val / normal));
+}
+
 int
 dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
     uint64_t normal, long double total, char positives, char negatives)
@@ -510,6 +651,11 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 
 	if (!negatives) {
 		if (positives) {
+			if (dtp->dt_encoding == DT_ENCODING_UTF8) {
+				return (dt_print_quantline_utf8(dtp, fp, val,
+				                                normal, total));
+			}
+
 			f = (dt_fabsl((long double)val) * len) / total;
 			depth = (uint_t)(f + 0.5);
 		} else {
@@ -552,6 +698,78 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 	}
 }
 
+
+/*
+ * As with UTF-8 printing of aggregations, we use a subset of the Unicode
+ * Block Elements (U+2581 through U+2588, inclusive) to represent our packed
+ * aggregation.
+ */
+#define	DTRACE_AGGPACK_BASE	0x2581
+#define	DTRACE_AGGPACK_LEVELS	8
+
+static int
+dt_print_packed(dtrace_hdl_t *dtp, FILE *fp,
+    long double datum, long double total)
+{
+	static boolean_t utf8_checked = 0;
+	static boolean_t utf8;
+	char *ascii = "__xxxxXX";
+	char *neg = "vvvvVV";
+	unsigned int len;
+	long double val;
+
+	while (!utf8_checked) {
+		char *term;
+
+		/*
+		 * We want to determine if we can reasonably emit UTF-8 for our
+		 * packed aggregation.  To do this, we will check for terminals
+		 * that are known to be primitive to emit UTF-8 on these.
+		 */
+		utf8_checked = B_TRUE;
+
+		if (dtp->dt_encoding == DT_ENCODING_ASCII)
+			break;
+
+		if (dtp->dt_encoding == DT_ENCODING_UTF8) {
+			utf8 = B_TRUE;
+			break;
+		}
+
+		if ((term = getenv("TERM")) != NULL &&
+		    (strcmp(term, "sun") == 0 ||
+		    strcmp(term, "sun-color") == 0) ||
+		    strcmp(term, "dumb") == 0) {
+			break;
+		}
+
+		utf8 = B_TRUE;
+	}
+
+	if (datum == 0)
+		return (dt_printf(dtp, fp, " "));
+
+	if (datum < 0) {
+		len = strlen(neg);
+		val = dt_fabsl(datum * (len - 1)) / total;
+		return (dt_printf(dtp, fp, "%c", neg[(uint_t)(val + 0.5)]));
+	}
+
+	if (utf8) {
+		int block = DTRACE_AGGPACK_BASE + (unsigned int)(((datum *
+		            (DTRACE_AGGPACK_LEVELS - 1)) / total) + 0.5);
+
+		return (dt_printf(dtp, fp, "%c%c%c",
+		                  DTRACE_AGGUTF8_BYTE0(block),
+		                  DTRACE_AGGUTF8_BYTE1(block),
+		                  DTRACE_AGGUTF8_BYTE2(block)));
+	}
+
+	len = strlen(ascii);
+	val = (datum * (len - 1)) / total;
+	return (dt_printf(dtp, fp, "%c", ascii[(uint_t)(val + 0.5)]));
+}
+
 int
 dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
     size_t size, uint64_t normal)
@@ -569,9 +787,9 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 
 	if (first_bin == DTRACE_QUANTIZE_NBUCKETS - 1) {
 		/*
-		 * There isn't any data.  This is possible if (and only if)
-		 * negative increment values have been used.  In this case,
-		 * we'll print the buckets around 0.
+		 * There isn't any data.  This is possible if the aggregation
+		 * has been clear()'d or if negative increment values have been
+		 * used.  Regardless, we'll print the buckets around 0.
 		 */
 		first_bin = DTRACE_QUANTIZE_ZEROBUCKET - 1;
 		last_bin = DTRACE_QUANTIZE_ZEROBUCKET + 1;
@@ -589,11 +807,10 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	for (i = first_bin; i <= last_bin; i++) {
 		positives |= (data[i] > 0);
 		negatives |= (data[i] < 0);
-		total += dt_fabsl((long double)data[i]);
+		dt_quantize_total(dtp, data[i], &total);
 	}
 
-	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
-	    "------------- Distribution -------------", "count") < 0)
+	if (dt_print_quanthdr(dtp, fp, 0) < 0)
 		return (-1);
 
 	for (i = first_bin; i <= last_bin; i++) {
@@ -604,6 +821,51 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 		if (dt_print_quantline(dtp, fp, data[i], normal, total,
 		    positives, negatives) < 0)
 			return (-1);
+	}
+
+	return (0);
+}
+
+int
+dt_print_quantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
+    size_t size, const dtrace_aggdata_t *aggdata)
+{
+	const int64_t *data = addr;
+	long double total = 0, count = 0;
+	int min = aggdata->dtada_minbin, max = aggdata->dtada_maxbin, i;
+	int64_t minval, maxval;
+
+	if (size != DTRACE_QUANTIZE_NBUCKETS * sizeof (uint64_t))
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	if (min != 0 && min != DTRACE_QUANTIZE_ZEROBUCKET)
+		min--;
+
+	if (max < DTRACE_QUANTIZE_NBUCKETS - 1)
+		max++;
+
+	minval = DTRACE_QUANTIZE_BUCKETVAL(min);
+	maxval = DTRACE_QUANTIZE_BUCKETVAL(max);
+
+	if (dt_printf(dtp, fp, " %*lld :", dt_ndigits(minval),
+	             (long long)minval) < 0)
+		return (-1);
+
+	for (i = min; i <= max; i++) {
+		dt_quantize_total(dtp, data[i], &total);
+		count += data[i];
+	}
+
+	for (i = min; i <= max; i++) {
+		if (dt_print_packed(dtp, fp, data[i], total) < 0)
+			return (-1);
+	}
+
+	if (dt_printf(dtp, fp, ": %*lld | %lld\n",
+	              -dt_ndigits(maxval), (long long)maxval,
+	              (long long)count) < 0)
+	{
+		return (-1);
 	}
 
 	return (0);
@@ -656,7 +918,7 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	for (i = first_bin; i <= last_bin; i++) {
 		positives |= (data[i] > 0);
 		negatives |= (data[i] < 0);
-		total += dt_fabsl((long double)data[i]);
+		dt_quantize_total(dtp, data[i], &total);
 	}
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
@@ -668,8 +930,7 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 		int err;
 
 		if (i == 0) {
-			(void) snprintf(c, sizeof (c), "< %d",
-			    base / (uint32_t)normal);
+			(void) snprintf(c, sizeof (c), "< %d", base);
 			err = dt_printf(dtp, fp, "%16s ", c);
 		} else if (i == levels + 1) {
 			(void) snprintf(c, sizeof (c), ">= %d",
@@ -686,6 +947,59 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	}
 
 	return (0);
+}
+
+/*ARGSUSED*/
+int
+dt_print_lquantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
+    size_t size, const dtrace_aggdata_t *aggdata)
+{
+	const int64_t *data = addr;
+	long double total = 0, count = 0;
+	int min, max, base, err;
+	uint64_t arg;
+	uint16_t step, levels;
+	char c[32];
+	unsigned int i;
+
+	if (size < sizeof (uint64_t))
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	arg = *data++;
+	size -= sizeof (uint64_t);
+
+	base = DTRACE_LQUANTIZE_BASE(arg);
+	step = DTRACE_LQUANTIZE_STEP(arg);
+	levels = DTRACE_LQUANTIZE_LEVELS(arg);
+
+	if (size != sizeof (uint64_t) * (levels + 2))
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	min = 0;
+	max = levels + 1;
+
+	if (min == 0) {
+		(void) snprintf(c, sizeof (c), "< %d", base);
+		err = dt_printf(dtp, fp, "%8s :", c);
+	} else {
+		err = dt_printf(dtp, fp, "%8d :", base + (min - 1) * step);
+	}
+
+	if (err < 0)
+		return (-1);
+
+	for (i = min; i <= max; i++) {
+		dt_quantize_total(dtp, data[i], &total);
+		count += data[i];
+	}
+
+	for (i = min; i <= max; i++) {
+		if (dt_print_packed(dtp, fp, data[i], total) < 0)
+			return (-1);
+	}
+
+	(void) snprintf(c, sizeof (c), ">= %d", base + (levels * step));
+	return (dt_printf(dtp, fp, ": %-8s | %lld\n", c, (long long)count));
 }
 
 int
@@ -745,7 +1059,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	for (i = first_bin; i <= last_bin; i++) {
 		positives |= (data[i] > 0);
 		negatives |= (data[i] < 0);
-		total += dt_fabsl((long double)data[i]);
+		dt_quantize_total(dtp, data[i], &total);
 	}
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
@@ -828,9 +1142,9 @@ dt_print_stddev(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 }
 
 /*ARGSUSED*/
-int
+static int
 dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
-    size_t nbytes, int width, int quiet)
+    size_t nbytes, int width, int quiet, int forceraw)
 {
 	/*
 	 * If the byte stream is a series of printable characters, followed by
@@ -843,7 +1157,7 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	if (nbytes == 0)
 		return (0);
 
-	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
+	if (forceraw || (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET))
 		goto raw;
 
 	for (i = 0; i < nbytes; i++) {
@@ -878,10 +1192,12 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 			if (j != nbytes)
 				break;
 
-			if (quiet)
+			if (quiet) {
 				return (dt_printf(dtp, fp, "%s", c));
-			else
-				return (dt_printf(dtp, fp, "  %-*s", width, c));
+			} else {
+				return (dt_printf(dtp, fp, " %s%*s",
+				                  width < 0 ? " " : "", width, c));
+			}
 		}
 
 		break;
@@ -987,11 +1303,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		if (dt_printf(dtp, fp, "%*s", indent, "") < 0)
 			return (-1);
 
-#if defined(__APPLE__)
 		if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, aux_symbol_name, sizeof(aux_symbol_name), &sym, &dts) == 0) 
-#else
-		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) 
-#endif
 		{
 			if (pc > sym.st_value) {
 				(void) snprintf(c, sizeof (c), "%s`%s+0x%llx",
@@ -1007,11 +1319,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 * a NULL GElf_Sym -- indicating that we're only
 			 * interested in the containing module.
 			 */
-#if defined(__APPLE__)
 			if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, NULL, 0, NULL, &dts) == 0) 
-#else
-			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) 
-#endif
 			{
 				(void) snprintf(c, sizeof (c), "%s`0x%llx",
 				    dts.dts_object, pc);
@@ -1069,11 +1377,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	 * determining <symbol, offset> from <pid, address>.  For now, if
 	 * this is a vector open, we just print the raw address or string.
 	 */
-#if defined(__APPLE__)
 	if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtp->dt_vector == NULL)
-#else
-	if (dtp->dt_vector == NULL)
-#endif
 		P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE, 0);
 	else
 		P = NULL;
@@ -1082,9 +1386,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		dt_proc_lock(dtp, P); /* lock handle while we perform lookups */
 
 	for (i = 0; i < depth && pc[i] != NULL; i++) {
-#if defined(__APPLE__)
 		prmap_t thread_local_map;
-#endif
 		const prmap_t *map;
 
 		if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
@@ -1103,11 +1405,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 				    "%s`%s", dt_basename(objname), name);
 			}
 		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
-#if defined(__APPLE__)
 			   (P != NULL && ((map = Paddr_to_map(P, pc[i], &thread_local_map)) == NULL ||
-#else
-			   (P != NULL && ((map = Paddr_to_map(P, pc[i])) == NULL ||
-#endif
 					  (map->pr_mflags & MA_WRITE)))) {
 			/*
 			 * If the current string pointer in the string table
@@ -1510,10 +1808,84 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 static int
 dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
-    caddr_t addr, size_t size, uint64_t normal)
+	caddr_t addr, size_t size, const dtrace_aggdata_t *aggdata,
+	uint64_t normal, dt_print_aggdata_t *pd)
 {
-	int err;
+	int err, width;
 	dtrace_actkind_t act = rec->dtrd_action;
+	boolean_t packed = pd->dtpa_agghist || pd->dtpa_aggpack;
+	dtrace_aggdesc_t *agg = aggdata->dtada_desc;
+
+	static struct {
+		size_t size;
+		int width;
+		int packedwidth;
+	} *fmt, fmttab[] = {
+		{ sizeof (uint8_t),  3,  3 },
+		{ sizeof (uint16_t),  5,  5 },
+		{ sizeof (uint32_t),  8,  8 },
+		{ sizeof (uint64_t),  16,  16 },
+		{ 0,      -50,  32 }
+	};
+
+	if (packed && pd->dtpa_agghisthdr != agg->dtagd_varid) {
+		dtrace_recdesc_t *r;
+
+		width = 0;
+
+		/*
+		 * To print our quantization header for either an agghist or
+		 * aggpack aggregation, we need to iterate through all of our
+		 * of our records to determine their width.
+		 */
+		for (r = rec; !DTRACEACT_ISAGG(r->dtrd_action); r++) {
+			for (fmt = fmttab; fmt->size &&
+			     fmt->size != r->dtrd_size; fmt++)
+				continue;
+
+			width += fmt->packedwidth + 1;
+		}
+
+		if (pd->dtpa_agghist) {
+			if (dt_print_quanthdr(dtp, fp, width) < 0)
+				return (-1);
+		} else {
+			if (dt_print_quanthdr_packed(dtp, fp, width, aggdata,
+                                                     r->dtrd_action) < 0)
+				return (-1);
+		}
+
+		pd->dtpa_agghisthdr = agg->dtagd_varid;
+	}
+
+	if (pd->dtpa_agghist && DTRACEACT_ISAGG(act)) {
+		char positives = aggdata->dtada_flags & DTRACE_A_HASPOSITIVES;
+		char negatives = aggdata->dtada_flags & DTRACE_A_HASNEGATIVES;
+		int64_t val;
+
+		assert(act == DTRACEAGG_SUM || act == DTRACEAGG_COUNT);
+		val = (long long)*((uint64_t *)addr);
+
+		if (dt_printf(dtp, fp, " ") < 0)
+			return (-1);
+
+		return (dt_print_quantline(dtp, fp, val, normal, aggdata->dtada_total,
+                                           positives, negatives));
+	}
+
+	if (pd->dtpa_aggpack && DTRACEACT_ISAGG(act)) {
+		switch (act) {
+		case DTRACEAGG_QUANTIZE:
+			return (dt_print_quantize_packed(dtp, fp, addr,
+			                                 size, aggdata));
+		case DTRACEAGG_LQUANTIZE:
+			return (dt_print_lquantize_packed(dtp, fp, addr,
+							  size, aggdata));
+		default:
+			break;
+		}
+	}
+
 
 	switch (act) {
 	case DTRACEACT_STACK:
@@ -1556,28 +1928,33 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 		break;
 	}
 
+	for (fmt = fmttab; fmt->size && fmt->size != size; fmt++)
+		continue;
+
+	width = packed ? fmt->packedwidth : fmt->width;
+
 	switch (size) {
 	case sizeof (uint64_t):
-		err = dt_printf(dtp, fp, " %16lld",
+		err = dt_printf(dtp, fp, " %*lld", width,
 		    /* LINTED - alignment */
 		    (long long)*((uint64_t *)addr) / normal);
 		break;
 	case sizeof (uint32_t):
 		/* LINTED - alignment */
-		err = dt_printf(dtp, fp, " %8d", *((uint32_t *)addr) /
+		 err = dt_printf(dtp, fp, " %*d", width, *((uint32_t *)addr) /
 		    (uint32_t)normal);
 		break;
 	case sizeof (uint16_t):
 		/* LINTED - alignment */
-		err = dt_printf(dtp, fp, " %5d", *((uint16_t *)addr) /
+		err = dt_printf(dtp, fp, " %*d", width, *((uint16_t *)addr) /
 		    (uint32_t)normal);
 		break;
 	case sizeof (uint8_t):
-		err = dt_printf(dtp, fp, " %3d", *((uint8_t *)addr) /
+		err = dt_printf(dtp, fp, " %*d", width, *((uint8_t *)addr) /
 		    (uint32_t)normal);
 		break;
 	default:
-		err = dt_print_bytes(dtp, fp, addr, size, 50, 0);
+		err = dt_print_bytes(dtp, fp, addr, size, width, 0, 0);
 		break;
 	}
 
@@ -1598,6 +1975,9 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 	caddr_t addr;
 	size_t size;
 
+	pd->dtpa_agghist = (aggdata->dtada_flags & DTRACE_A_TOTAL);
+	pd->dtpa_aggpack = (aggdata->dtada_flags & DTRACE_A_MINMAXBIN);
+
 	/*
 	 * Iterate over each record description in the key, printing the traced
 	 * data, skipping the first datum (the tuple member created by the
@@ -1614,7 +1994,8 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 			break;
 		}
 
-		if (dt_print_datum(dtp, fp, rec, addr, size, 1) < 0)
+		if (dt_print_datum(dtp, fp, rec, addr,
+		                   size, aggdata, 1, pd) < 0)
 			return (-1);
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
@@ -1637,7 +2018,8 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		assert(DTRACEACT_ISAGG(act));
 		normal = aggdata->dtada_normal;
 
-		if (dt_print_datum(dtp, fp, rec, addr, size, normal) < 0)
+		if (dt_print_datum(dtp, fp, rec, addr,
+		                   size, aggdata, normal, pd) < 0)
 			return (-1);
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
@@ -1648,8 +2030,10 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 			agg->dtagd_flags |= DTRACE_AGD_PRINTED;
 	}
 
-	if (dt_printf(dtp, fp, "\n") < 0)
-		return (-1);
+	if (!pd->dtpa_agghist && !pd->dtpa_aggpack) {
+		if (dt_printf(dtp, fp, "\n") < 0)
+			return (-1);
+	}
 
 	if (dt_buffered_flush(dtp, NULL, NULL, aggdata,
 	    DTRACE_BUFDATA_AGGFORMAT | DTRACE_BUFDATA_AGGLAST) < 0)
@@ -1732,6 +2116,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
 	int quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
 	int rval, i, n;
 	dtrace_epid_t last = DTRACE_EPIDNONE;
+	uint64_t tracememsize = 0;
 	dtrace_probedata_t data;
 	uint64_t drops;
 	caddr_t addr;
@@ -1741,15 +2126,13 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
 	data.dtpda_cpu = cpu;
 
 again:
-#if defined(__APPLE__)
 	//XXX please don't nuke any of these dt_dprintf's... I need them to track the correctness
-	//XXX of the function calls while I'm breaking the consume routines into collect/analyze 
+	//XXX of the function calls while I'm breaking the consume routines into collect/analyze
 	//XXX modules that can be called separately -- epmiller 05/04/07
 	//XXX I'll pull them out once everything is 100%, it's about 95% now
-	
+
 	// EPM DEBUG PRINT
 	// dt_dprintf("---0-------> dt_consume_cpu - %d start: %d end: %d\n",cpu, start, end);
-#endif
 	for (offs = start; offs < end; ) {
 		dtrace_eprobedesc_t *epd;
 
@@ -1757,10 +2140,8 @@ again:
 		 * We're guaranteed to have an ID.
 		 */
 		id = *(uint32_t *)((uintptr_t)buf->dtbd_data + offs);
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("---1-------> dt_consume_cpu - %d ID: %d\n",cpu, id);
-#endif
 		if (id == DTRACE_EPIDNONE) {
 			/*
 			 * This is filler to assure proper alignment of the
@@ -1773,10 +2154,8 @@ again:
 		if ((rval = dt_epid_lookup(dtp, id, &data.dtpda_edesc,
 		    &data.dtpda_pdesc)) != 0)
 			return (rval);
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("-----> dt_epid_lookup - %d ID: %d\n",cpu, id);
-#endif
 		epd = data.dtpda_edesc;
 		data.dtpda_data = buf->dtbd_data + offs;
 
@@ -1812,10 +2191,8 @@ again:
 		for (i = 0; i < epd->dtepd_nrecs; i++) {
 			dtrace_recdesc_t *rec = &epd->dtepd_rec[i];
 			dtrace_actkind_t act = rec->dtrd_action;
-#if defined(__APPLE__)
 			// EPM DEBUG PRINT
 			// dt_dprintf("----------> dt_consume_cpu - %d ACT: %d\n",cpu, act);
-#endif
 			data.dtpda_data = buf->dtbd_data + offs +
 			    rec->dtrd_offset;
 			addr = data.dtpda_data;
@@ -1918,9 +2295,15 @@ again:
 				}
 			}
 
+			if (act == DTRACEACT_TRACEMEM_DYNSIZE &&
+			    rec->dtrd_size == sizeof (uint64_t))
+			{
+				tracememsize = *((unsigned long long *)addr);
+				continue;
+			}
+
 			rval = (*rfunc)(&data, rec, arg);
 
-#if defined(__APPLE__)
             if (act == DTRACEACT_APPLEBINARY) {
                 /* 
                  * Let's skip the records following a compound
@@ -1935,7 +2318,6 @@ again:
                 i += following_recs;
                 goto nextrec;
             }
-#endif
 			if (rval == DTRACE_CONSUME_NEXT)
 				continue;
 
@@ -2093,6 +2475,23 @@ nofmt:
 				goto nextrec;
 			}
 
+			if (act == DTRACEACT_TRACEMEM) {
+				if (tracememsize == 0 ||
+				    tracememsize > rec->dtrd_size) {
+					tracememsize = rec->dtrd_size;
+				}
+
+				n = dt_print_bytes(dtp, fp, addr,
+				    tracememsize, -33, quiet, 1);
+
+				tracememsize = 0;
+
+				if (n < 0)
+					return (-1);
+
+				goto nextrec;
+			}
+
 			switch (rec->dtrd_size) {
 			case sizeof (uint64_t):
 				n = dt_printf(dtp, fp,
@@ -2116,7 +2515,7 @@ nofmt:
 				break;
 			default:
 				n = dt_print_bytes(dtp, fp, addr,
-				    rec->dtrd_size, 33, quiet);
+				    rec->dtrd_size, -33, quiet, 0);
 				break;
 			}
 
@@ -2136,19 +2535,15 @@ nextrec:
 nextepid:
 		offs += epd->dtepd_size;
 		last = id;
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("---E-------> dt_consume_cpu - %d ID: %d\n",cpu, id);
-#endif
 	}
 
 	if (buf->dtbd_oldest != 0 && start == buf->dtbd_oldest) {
 		end = buf->dtbd_oldest;
 		start = 0;
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("---2-------> dt_consume_cpu - %d AGAIN!!\n");
-#endif
 		goto again;
 	}
 
@@ -2160,10 +2555,8 @@ nextepid:
 	 */
 	buf->dtbd_drops = 0;
         
-#if defined(__APPLE__)
 	// EPM DEBUG PRINT
 	// dt_dprintf("-XXXXX----> dt_consume_cpu - %d DROPS!!\n",cpu);
-#endif
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
 
@@ -2271,18 +2664,14 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 		 */
 		if (errno == ENOENT)
 			return (0);
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("1) dt consume begin: buf snap failed... returning\n");
-#endif
 		return (dt_set_errno(dtp, errno));
 	}
 
 	if (!dtp->dt_stopped || buf->dtbd_cpu != dtp->dt_endedon) {
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] dt_consume_cpu on: %d, simple case\n",cpu);
-#endif
 		/*
 		 * This is the simple case.  We're either not stopped, or if
 		 * we are, we actually processed any END probes on another
@@ -2304,10 +2693,8 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	begin.dtbgn_errarg = dtp->dt_errarg;
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
-#if defined(__APPLE__)
 	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] dt_consume_cpu: (begin) : %d\n", cpu);
-#endif
 	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
 	    dt_consume_begin_record, &begin);
 
@@ -2343,19 +2730,15 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 			 */
 			if (errno == ENOENT)
 				continue;
-#if defined(__APPLE__)
 			// EPM DEBUG PRINT
 			// dt_dprintf("2) dt consume begin: buf snap failed... returning\n");
-#endif
 			free(nbuf.dtbd_data);
 
 			return (dt_set_errno(dtp, errno));
 		}
 
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] dt_consume_cpu: (every other) : %d\n", i);
-#endif
 		if ((rval = dt_consume_cpu(dtp, fp,
 		    i, &nbuf, pf, rf, arg)) != 0) {
 			free(nbuf.dtbd_data);
@@ -2379,10 +2762,8 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 
-#if defined(__APPLE__)
 	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] dt_consume_cpu: (reconsume first) : %d\n", cpu);
-#endif
 	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
 	    dt_consume_begin_record, &begin);
 
@@ -2405,10 +2786,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 	if (dtp->dt_lastswitch != 0) {
 		if (now - dtp->dt_lastswitch < interval) {
-#if defined(__APPLE__)
 			// EPM DEBUG PRINT
 			// dt_dprintf("rrrrr consume: It's not time to consume yet...%lld < %lld returning\n",now - dtp->dt_lastswitch,interval);
-#endif
 			return (0);
 		}
 		dtp->dt_lastswitch += interval;
@@ -2417,10 +2796,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	}
 
 	if (!dtp->dt_active) {
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("act act act dtrace no longer active... returning\n");
-#endif
 		return (dt_set_errno(dtp, EINVAL));
 	}
 	if (max_ncpus == 0)
@@ -2439,10 +2816,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 		buf->dtbd_size = size;
 	}
-#if defined(__APPLE__)
 	// EPM DEBUG PRINT
 	// dt_dprintf("Time: CONSUME: timing...E %lld : I %lld\n",now - dtp->dt_lastswitch, interval);
-#endif
 	/*
 	 * If we have just begun, we want to first process the CPU that
 	 * executed the BEGIN probe (if any).
@@ -2472,17 +2847,13 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 			 */
 			if (errno == ENOENT)
 				continue;
-#if defined(__APPLE__)
 			// EPM DEBUG PRINT
 			// dt_dprintf("1) consume: buf snap failed... returning\n");
-#endif
 			return (dt_set_errno(dtp, errno));
 		}
 
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] calling dt_consume_cpu on %d, in everything else loop\n",i);
-#endif
 		if ((rval = dt_consume_cpu(dtp, fp, i, buf, pf, rf, arg)) != 0)
 			return (rval);
 	}
@@ -2504,318 +2875,13 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		 */
 		if (errno == ENOENT)
 			return (0);
-#if defined(__APPLE__)
 		// EPM DEBUG PRINT
 		// dt_dprintf("2) consume: buf snap failed... returning\n");
-#endif
 		return (dt_set_errno(dtp, errno));
 	}
 
-#if defined(__APPLE__)
 	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] calling dt_consume_cpu on %d...ended-on\n",dtp->dt_endedon);
-#endif
 	return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
 }
-
-#if defined(__APPLE__)
-#pragma mark vvv modified functions. separate collect/analyze phases vvv
-// These functions are not used by dtrace per se. 
-// They are to be used by other tools like Shark and XRay -- epmiller 05/04/07
-// --> dtp->dt_buf is the BEGIN probe data buf
-// cpu_bufs lists the rest of the cpu buffers other than the one BEGIN happened on
-int
-dtrace_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***cpu_bufs)
-{
-	dtrace_bufdesc_t *buf;
-	dtrace_optval_t size;
-	static int max_ncpus = 0;
-	int i, cpuct=0;
-	dtrace_optval_t interval = dtp->dt_options[DTRACEOPT_SWITCHRATE];
-	hrtime_t now;
-	hrtime_t elapsed = 0ULL;
-
-get_time:
-	now = gethrtime();
-
-	if (dtp->dt_lastswitch != 0) {
-		elapsed = now - dtp->dt_lastswitch;
-		i=0;
-		
-#if should_force_interval_compliance
-		while (elapsed < interval) {
-		//interval and elapsed are in nanoseconds, usleep measures in microseconds hence the /1000
-			usleep((interval-elapsed)/1000); //artificial delay to slow things down to the original speed
-			now = gethrtime();
-			elapsed = now - dtp->dt_lastswitch;
-			i++;
-		}
-#endif //should_force_interval_compliance
-
-		if (elapsed < interval) {
-			#if defined(__APPLE__)
-			dt_dprintf("RRRRR collect: It's not time to collect yet...%lld < %lld returning\n",elapsed, interval);
-			#endif
-			return (0);
-		}
-		dtp->dt_lastswitch += interval;
-	} else {
-		dtp->dt_lastswitch = now;
-	}
-
-	if (!dtp->dt_active) {
-		#if defined(__APPLE__)
-		dt_dprintf("NANA collect: It's not active anymore... returning\n");
-		#endif
-		return (dt_set_errno(dtp, EINVAL));
-	}
-	
-	if (max_ncpus == 0)
-		max_ncpus = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
-
-	#if defined(__APPLE__)
-	dt_dprintf("Time: collect: timing (%d)...E %lld : I %lld\n",i,now - dtp->dt_lastswitch, interval);
-	#endif
-	//need the buffer size
-	(void) dtrace_getopt(dtp, "bufsize", &size); 
-
-	//allocate max_ncpus cpu-buffers POINTERS... plus 1 more for the "beginning buffer"
-	if(*cpu_bufs == NULL) {
-		*cpu_bufs = calloc(max_ncpus+1,sizeof(dtrace_bufdesc_t *));
-		for (i = 0; i < max_ncpus+1; i++) {
-			//allocate a buffer for each cpu...
-			if((*cpu_bufs)[i] == NULL) {
-				(*cpu_bufs)[i] = calloc(1, sizeof(dtrace_bufdesc_t));
-				if((*cpu_bufs)[i]==NULL)
-					return (dt_set_errno(dtp, EDT_NOMEM));
-				//not allocating a actual buffer for the 0th cpu buffer
-				//that entry will be used to store the buffer containing begin-enablement
-				//allocated when we collect a "begin buffer", and copied into
-				if(i>0) { 
-					(*cpu_bufs)[i]->dtbd_data = malloc(size);
-					if((*cpu_bufs)[i]->dtbd_data==NULL)
-						return (dt_set_errno(dtp, EDT_NOMEM));
-				} else {
-					(*cpu_bufs)[i]->dtbd_data = NULL; //i==0
-				}
-			}
-		}
-	}
-
-	for (i = 1; i < max_ncpus+1; i++) {
-		//get a new buffer full...
-		buf = (*cpu_bufs)[i];
-		buf->dtbd_size = size; //max size of the buffer
-		buf->dtbd_cpu = i-1;   //cpu we're interested in this time (still zero-based in the kernel)
-				
-		if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, buf) == -1) {
-			/*
-			 * If we failed with ENOENT, it may be because the
-			 * CPU was unconfigured -- this is okay.  Any other
-			 * error, however, is unexpected.
-			 */
-			if (errno == ENOENT)
-				continue;
-			#if defined(__APPLE__)
-			dt_dprintf("IOIOIO collect: buf snap failed... returning\n",i-1,buf->dtbd_size);
-			#endif
-			return (dt_set_errno(dtp, errno));
-		}
-		cpuct++;
-		#if defined(__APPLE__)
-		dt_dprintf("**** collect: cpu:%d, sz: %d\n",i-1,buf->dtbd_size);
-		#endif
-		//if we find the beginning buffer, we need to dupe it
-		//and store it in the 0th slot
-		if(dtp->dt_beganon > -1 && (*cpu_bufs)[0]->dtbd_data==NULL && buf->dtbd_size > 0) {
-			#if defined(__APPLE__)
-			dt_dprintf("**B** collect: begincpu:%d, sz: %d\n",dtp->dt_beganon,buf->dtbd_size);
-			#endif
-			(*cpu_bufs)[0]->dtbd_data = malloc(size);
-			if((*cpu_bufs)[0]->dtbd_data==NULL)
-				return (dt_set_errno(dtp, EDT_NOMEM));
-			(*cpu_bufs)[0]->dtbd_cpu = dtp->dt_beganon;
-			(*cpu_bufs)[0]->dtbd_size = buf->dtbd_size;
-			bcopy(buf->dtbd_data,(*cpu_bufs)[0]->dtbd_data,buf->dtbd_size);
-		}
-	}
-	
-	return (cpuct);
-}
-
-static int
-dt_analyze_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *beginbuf, dtrace_bufdesc_t **otherbufs,
-    dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
-{
-	dt_begin_t begin;
-	processorid_t cpu = dtp->dt_beganon;
-	int rval;
-
-	begin.dtbgn_probefunc = pf;
-	begin.dtbgn_recfunc = rf;
-	begin.dtbgn_arg = arg;
-	begin.dtbgn_beginonly = 1;
-
-	/*
-	 * We need to interpose on the ERROR handler to be sure that we
-	 * only process ERRORs induced by BEGIN.
-	 */
-	begin.dtbgn_errhdlr = dtp->dt_errhdlr;
-	begin.dtbgn_errarg = dtp->dt_errarg;
-	dtp->dt_errhdlr = dt_consume_begin_error;
-	dtp->dt_errarg = &begin;
-
-	#if defined(__APPLE__)
-	dt_dprintf(">>>>>>> in analyze_begin: calling dt_consume_cpu = %d (begin bits)\n",cpu);
-	#endif
-	rval = dt_consume_cpu(dtp, fp, cpu, beginbuf, dt_consume_begin_probe,
-	    dt_consume_begin_record, &begin);
-
-	dtp->dt_beganon = -1;
-	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
-	dtp->dt_errarg = begin.dtbgn_errarg;
-
-	return (rval);
-}
-
-int
-dtrace_analyze(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t **cpu_bufs,
-    dtrace_bufdesc_t **agg_bufs, dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
-{
-	static int max_ncpus=0;
-	int i, rval;
-	static int begincpu=-1;
-	dtrace_bufdesc_t *buf = NULL;
-	dt_begin_t begin;
-
-	if (max_ncpus == 0)
-		max_ncpus = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
-
-	if (pf == NULL)
-		pf = (dtrace_consume_probe_f *)dt_nullprobe;
-
-	if (rf == NULL)
-		rf = (dtrace_consume_rec_f *)dt_nullrec;
-
-
-	if(agg_bufs)
-		if (dtrace_aggregate_hash(dtp, agg_bufs) == -1)
-			return (DTRACE_WORKSTATUS_ERROR);
-
-	/*
-	 * If we have just begun, we want to first process the CPU that
-	 * executed the BEGIN probe (if any).
-	 * XXX dt_consume_begin trys and gets buffers back from the kernel.
-	 * XXX need to write a 'dt_analyze_begin' that processes 
-	 * XXX the same way, but from a passed-in buffer
-	 * XXX dt_consume_cpu does not try to retrieve data  
-	 */
-	if(cpu_bufs) {
-		for (i = 1; i < max_ncpus+1; i++) {
-			#if defined(__APPLE__)
-			dt_dprintf("XX cpu:%d, stopped:%d, end:%d\n",i-1,dtp->dt_stopped,dtp->dt_endedon);
-			dt_dprintf("XXX cpu:%d sz:%d\n",i-1,(cpu_bufs[i])->dtbd_size);
-			#endif
-			if (dtp->dt_stopped) {
-				if (dtp->dt_beganon > -1) begincpu = dtp->dt_beganon;
-				#if defined(__APPLE__)
-				dt_dprintf("XXXX cpu:%d, bgn: %d(%d) sz: %d\n",
-					i-1,begincpu,dtp->dt_beganon,(cpu_bufs[begincpu+1])->dtbd_size);
-				dt_dprintf("---- end:%d sz: %d\n",dtp->dt_endedon,(cpu_bufs[dtp->dt_endedon+1])->dtbd_size);
-				#endif
-				if (i == dtp->dt_beganon+1) {
-					if((cpu_bufs[begincpu+1])->dtbd_size == 0) { //false positive
-						#if defined(__APPLE__)
-						dt_dprintf(">>false positive begin: %d\n",begincpu);
-						#endif
-						dtp->dt_beganon = -1;
-						begincpu = -1;
-						continue;
-					}
-					buf = cpu_bufs[0];//[dtp->dt_beganon+1];//was copied in collect phase
-					//buf->dtbd_cpu = begincpu;
-					if(buf->dtbd_size > 0)
-						if ((rval = dt_analyze_begin(dtp, fp, buf, cpu_bufs, pf, rf, arg)) != 0)
-							return (rval);
-					if(i != dtp->dt_endedon+1)
-						continue;
-				}
-
-				//only run over all the cpus 1 time...
-				if(i == dtp->dt_endedon+1) {
-					if(i != max_ncpus) 
-						continue;
-					else
-						break;
-				}
-			}
-							
-			//a cpu that is neither a began-on or ended-on cpu
-				buf = cpu_bufs[i];
-				//buf->dtbd_cpu = i-1;
-			if(!dtp->dt_stopped && buf->dtbd_size > 0) {
-				#if defined(__APPLE__)
-				dt_dprintf(">>>>> calling dt_consume_cpu = %d (loop)\n",i-1);
-				#endif
-				if ((rval = dt_consume_cpu(dtp, fp, i-1, buf, pf, rf, arg)) != 0) {
-					return (rval);
-				}
-				if(dtp->dt_beganon == i-1) {//we just processed the begin buffer
-					dtp->dt_beganon = -1;
-					begincpu = -1;
-					#if defined(__APPLE__)
-					dt_dprintf(">>>>> consumed the begin buffer:%d (loop)\n",i-1);
-					#endif
-				}
-			}
-		}
-		
-		if(dtp->dt_stopped && dtp->dt_beganon == -1 && begincpu > -1) {
-			//analyze the remainder of the buffer collected from the cpu we began on
-			buf = cpu_bufs[0];//[begincpu];			
-			///buf->dtbd_cpu = begincpu;
-
-			begin.dtbgn_probefunc = pf;
-			begin.dtbgn_recfunc = rf;
-			begin.dtbgn_beginonly = 0;
-			begin.dtbgn_arg = arg;
-
-			begin.dtbgn_errhdlr = dtp->dt_errhdlr;
-			begin.dtbgn_errarg = dtp->dt_errarg;
-			dtp->dt_errhdlr = dt_consume_begin_error;
-			dtp->dt_errarg = &begin;
-		
-			#if defined(__APPLE__)
-			dt_dprintf(">>>>>>> analyze: calling dt_consume_cpu - remainder of: %d\n",begincpu);
-			#endif
-			rval = dt_consume_cpu(dtp, fp, begincpu, buf, dt_consume_begin_probe,
-				dt_consume_begin_record, &begin);
-			if (rval != 0) {
-				return (rval);
-			}
-			
-			dtp->dt_errhdlr = begin.dtbgn_errhdlr;
-			dtp->dt_errarg = begin.dtbgn_errarg;
-			
-			if(dtp->dt_endedon == begincpu) { //we just handled the end...
-				dtp->dt_endedon = -1;
-				#if defined(__APPLE__)
-				dt_dprintf(">>>>>>> analyze: just handled the end condition on cpu: %d (same as begin cpu)\n",begincpu);
-				#endif
-			}
-			begincpu = -1; //finally finished with the begin buffer
-		}
-
-		if(dtp->dt_stopped && dtp->dt_endedon > -1 && dtp->dt_endedon != begincpu) {
-			buf = cpu_bufs[dtp->dt_endedon+1];
-			#if defined(__APPLE__)
-			dt_dprintf(">>>>>>> calling dt_consume_cpu = %d (ended on)\n",dtp->dt_endedon);
-			#endif
-			return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
-		}
-	}
-	return (0);
-}
-#pragma mark ^^^ modified functions. test separate collect/analyze phases ^^^
-#endif /* __APPLE__ */
 

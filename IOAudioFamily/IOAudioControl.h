@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #define _IOKIT_IOAUDIOCONTROL_H
 
 #include <IOKit/IOService.h>
+#include <AvailabilityMacros.h>
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
 #else
@@ -96,9 +97,9 @@ public:
      * @param newValue The new value the control is being changed to.
 	 * @result Must return kIOReturnSuccess when the hardware is successfully updated.
      */
-    typedef IOReturn (*IntValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, SInt32 oldValue, SInt32 newValue);
-    typedef IOReturn (*DataValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, const void *oldData, UInt32 oldDataSize, const void *newData, UInt32 newDataSize);
-    typedef IOReturn (*ObjectValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, OSObject *oldValue, OSObject *newValue);
+    typedef IOReturn (*IntValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, SInt32 oldValue, SInt32 newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    typedef IOReturn (*DataValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, const void *oldData, UInt32 oldDataSize, const void *newData, UInt32 newDataSize ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    typedef IOReturn (*ObjectValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, OSObject *oldValue, OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
 protected:
     /*! @var workLoop 
@@ -163,7 +164,7 @@ protected:
     
 public:
 	// OSMetaClassDeclareReservedUsed(IOAudioControl, 0);
-	virtual void sendChangeNotification(UInt32 notificationType);
+	virtual void sendChangeNotification(UInt32 notificationType ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioControl, 1);
     /*!
@@ -172,10 +173,10 @@ public:
 	 * This call cannot be undone, so if a control is only temporarily unsetable,
 	 * do not use this call but instead return an error from the control handler.
      */
-	virtual void setReadOnlyFlag();
+	virtual void setReadOnlyFlag( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioControl, 2);
-	virtual void sendQueuedNotifications(void);
+	virtual void sendQueuedNotifications(void ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioControl, 3);
     /*!
@@ -195,7 +196,7 @@ public:
      * @param properties A dictionary of additional properties for the connection.
      * @result Returns kIOReturnSuccess on success.
      */
-    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient, OSDictionary *properties);
+    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 taskType, IOAudioControlUserClient **newUserClient, OSDictionary *properties) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioControl, 0);
@@ -247,7 +248,7 @@ public:
                                           const char *channelName = 0,
                                           UInt32 cntrlID = 0,
                                           UInt32 subType = 0,
-                                          UInt32 usage = 0);
+                                          UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10 ;
 
     /*!
      * @function init
@@ -273,7 +274,7 @@ public:
                       UInt32 cntrlID = 0,
                       UInt32 subType = 0,
                       UInt32 usage = 0,
-                      OSDictionary *properties = 0);
+                      OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10 ;
                       
     /*!
      * @function free
@@ -281,7 +282,7 @@ public:
      * @discussion Do not call this directly.  This is called automatically by the system when the instance's
      *  refcount goes to 0.  To decrement the refcount, call release() on the object.
      */
-    virtual void free();
+    virtual void free( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function start
@@ -292,35 +293,35 @@ public:
      * @param provider The IOAudioPort or IOAudioEngine that owns this control.
      * @result Returns true on success.
      */
-    virtual bool start(IOService *provider);
+    virtual bool start(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-	virtual bool attachAndStart(IOService *provider);
+	virtual bool attachAndStart(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getIsStarted
      * @abstract Returns true after start() has been called.
      * @discussion Used by IOAudioPort and IOAudioEngine to decide if the control needs to be started.
      */
-    virtual bool getIsStarted();
+    virtual bool getIsStarted() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function stop
      * @abstract Stops the control when the provider is going away.
      * @param provider The IOAudioPort or IOAudioEngine that owns this control.
      */
-    virtual void stop(IOService *provider);
+    virtual void stop(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function getWorkLoop
      * @abstract Returns the IOWorkLoop for the whole audio driver.
      */
-    virtual IOWorkLoop *getWorkLoop();
+    virtual IOWorkLoop *getWorkLoop() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getCommandGate
      * @abstract Returns the IOCommandGate for this IOAudioControl.
      */
-    virtual IOCommandGate *getCommandGate();
+    virtual IOCommandGate *getCommandGate() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10 ;
 
     /*!
      * @function newUserClient
@@ -339,8 +340,8 @@ public:
      * @param properties A dictionary of additional properties for the connection.
      * @result Returns kIOReturnSuccess on success.  May also result kIOReturnError or kIOReturnNoMemory.
      */
-    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler);
-    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler);
+    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function createUserClient
@@ -358,7 +359,7 @@ public:
      *  completion.
      * @result Returns kIOReturnSuccess on success.
      */
-    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient);
+    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10 ;
     
     /*!
      * @function clientClosed
@@ -366,7 +367,7 @@ public:
      *  connection to the control.
      * @param client The user client object that has disconnected.
      */
-    virtual void clientClosed(IOAudioControlUserClient *client);
+    virtual void clientClosed(IOAudioControlUserClient *client) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setProperties
@@ -378,13 +379,13 @@ public:
      * @param properties An OSDictionary containing the properties to change.
      * @result Returns kIOReturnSuccess on success.
      */
-    virtual IOReturn setProperties(OSObject *properties);
+    virtual IOReturn setProperties(OSObject *properties) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setValueChangeHandler(IntValueChangeHandler intValueChangeHandler, OSObject *target);
-    virtual void setValueChangeHandler(DataValueChangeHandler dataValueChangeHandler, OSObject *target);
-    virtual void setValueChangeHandler(ObjectValueChangeHandler objectValueChangeHandler, OSObject *target);
+    virtual void setValueChangeHandler(IntValueChangeHandler intValueChangeHandler, OSObject *target) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setValueChangeHandler(DataValueChangeHandler dataValueChangeHandler, OSObject *target) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setValueChangeHandler(ObjectValueChangeHandler objectValueChangeHandler, OSObject *target) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void setValueChangeTarget(OSObject *target);
+    virtual void setValueChangeTarget(OSObject *target) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function flushValue
@@ -392,7 +393,7 @@ public:
      * @discussion This function calls performValueChange() directly with the current value of the IOAudioControl.
      * @result Returns the result of performValueChange() - kIOReturnSuccess on success.
      */
-    virtual IOReturn flushValue();
+    virtual IOReturn flushValue() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setValueAction
@@ -402,9 +403,9 @@ public:
      * @param arg1 The new value for the IOAudioControl.
      * @result Returns the result of setValue() - kIOReturnSuccess on success.
      */
-    static IOReturn setValueAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn setValueAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	static IOReturn _setValueAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+	static IOReturn _setValueAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
 	
     /*!
      * @function setValue
@@ -415,9 +416,9 @@ public:
      * @param newValue The new value for this control.
      * @result Returns kIOReturnSuccess if the value is successfully set.
      */
-    virtual IOReturn setValue(OSObject *newValue);
+    virtual IOReturn setValue(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn setValue(SInt32 intValue);
+    virtual IOReturn setValue(SInt32 intValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function hardwareValueChanged
@@ -430,36 +431,36 @@ public:
      * @param newValue The new value for this control.
      * @result Returns kIOReturnSuccess if the value is successfully updated.
      */
-    virtual IOReturn hardwareValueChanged(OSObject *newValue);
+    virtual IOReturn hardwareValueChanged(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getValue 
      * @abstract Returns the current value of the control.
      */
-    virtual OSObject *getValue();
-    virtual SInt32 getIntValue();
-    virtual const void *getDataBytes();
-    virtual UInt32 getDataLength();
+    virtual OSObject *getValue( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual SInt32 getIntValue( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual const void *getDataBytes( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getDataLength( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getControlID 
      * @abstract Returns the control ID for the control.
      */
-    virtual UInt32 getControlID();
+    virtual UInt32 getControlID( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getChannelID 
      * @abstract Returns the channel ID for the control.
      */
-    virtual UInt32 getChannelID();
+    virtual UInt32 getChannelID( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual UInt32 getType();
-    virtual UInt32 getSubType();
-    virtual UInt32 getUsage();
+    virtual UInt32 getType( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getSubType( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getUsage( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void setCoreAudioPropertyID(UInt32 propertyID);
+    virtual void setCoreAudioPropertyID(UInt32 propertyID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	void setWorkLoop(IOWorkLoop *wl);
+	void setWorkLoop(IOWorkLoop *wl ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
     /*!
@@ -467,38 +468,38 @@ protected:
      * @abstract Called when the value has changed for the control.
      * @discussion This function sends out the value change notification to the user clients.
      */
-    virtual void sendValueChangeNotification();
+    virtual void sendValueChangeNotification( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function setChannelName 
      * @abstract Called at init time to set the channel name for this IOAudioControl.
      */
-    virtual void setChannelName(const char *channelName);
+    virtual void setChannelName(const char *channelName ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setChannelID 
      * @abstract Called at init time to set the channel ID for this IOAudioControl.
      */
-    virtual void setChannelID(UInt32 newChannelID);
-    virtual void setChannelNumber(SInt32 channelNumber);
+    virtual void setChannelID(UInt32 newChannelID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setChannelNumber(SInt32 channelNumber ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setSubType 
      * @abstract Called at init time to set the control subType.
      */
-    virtual void setType(UInt32 type);
+    virtual void setType(UInt32 type ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setType 
      * @abstract Called at init time to set the control type.
      */
-    virtual void setSubType(UInt32 subType);
+    virtual void setSubType(UInt32 subType ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setUsage 
      * @abstract Called at init time to set the control usage.
      */
-    virtual void setUsage(UInt32 usage);
+    virtual void setUsage(UInt32 usage ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setControlID
@@ -509,7 +510,7 @@ protected:
      *  Typically the control ID is set when the object is created and doesn't need to be called again.
      * @param cntrlID The control ID for the control.
      */
-    virtual void setControlID(UInt32 cntrlID);
+    virtual void setControlID(UInt32 cntrlID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function validateValue
@@ -517,7 +518,7 @@ protected:
      * @param newValue The new value to be verified.
      * @result Returns kIOReturnSuccess if the value is valid.
      */
-    virtual IOReturn validateValue(OSObject *newValue);
+    virtual IOReturn validateValue(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function updateValue
@@ -527,9 +528,9 @@ protected:
      * @param newValue The new value to b updated.
      * @result Returns kIOReturnSuccess if the value is successfully updated.
      */
-    virtual IOReturn updateValue(OSObject *newValue);
+    virtual IOReturn updateValue(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn _setValue(OSObject *newValue);
+    virtual IOReturn _setValue(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function performValueChange
@@ -537,7 +538,7 @@ protected:
      *  to update the hardware.
      * @result Returns the result of the handler call (or kIOReturnError on an error).
      */
-    virtual IOReturn performValueChange(OSObject *newValue);
+    virtual IOReturn performValueChange(OSObject *newValue ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addUserClientAction
@@ -547,9 +548,9 @@ protected:
      * @param arg1 The IOAudioControlUserClient to be added.
      * @result Returns the result of addUserClient() - kIOReturnSuccess on success.
      */
-    static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
 
     /*!
      * @function removeUserClientAction
@@ -559,14 +560,14 @@ protected:
      * @param arg1 The IOAudioControlUserClient to be removed.
      * @result Returns the result of removeUserClient() - kIOReturnSuccess on success.
      */
-    static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+    static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
 
     /*!
      * @function detachUserClientsAction
      */
-     static IOReturn detachUserClientsAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+     static IOReturn detachUserClientsAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addUserClient
@@ -576,7 +577,7 @@ protected:
      * @param newUserClient The IOAudioControlUserClientto be added.
      * @result Returns kIOReturnSuccess on success.
      */
-    virtual IOReturn addUserClient(IOAudioControlUserClient *newUserClient);
+    virtual IOReturn addUserClient(IOAudioControlUserClient *newUserClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function removeUserClient
@@ -587,11 +588,11 @@ protected:
      * @param userClient The IOAudioControlUserClient to be removed.
      * @result Returns kIOReturnSuccess on success.
      */
-    virtual IOReturn removeUserClient(IOAudioControlUserClient *userClient);
+    virtual IOReturn removeUserClient(IOAudioControlUserClient *userClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn detachUserClients();
+    virtual IOReturn detachUserClients( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	static void setCommandGateUsage(IOAudioControl *control, bool increment);		// <rdar://8518215>
+	static void setCommandGateUsage(IOAudioControl *control, bool increment ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://8518215>
 
 };
 

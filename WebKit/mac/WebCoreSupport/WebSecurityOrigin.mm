@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,22 +31,32 @@
 #import "WebApplicationCacheQuotaManager.h"
 #import "WebDatabaseQuotaManager.h"
 #import "WebQuotaManager.h"
-#import <WebCore/KURL.h>
+#import <WebCore/URL.h>
 #import <WebCore/DatabaseManager.h>
 #import <WebCore/SecurityOrigin.h>
 
 using namespace WebCore;
 
 @implementation WebSecurityOrigin
+
++ (id)webSecurityOriginFromDatabaseIdentifier:(NSString *)databaseIdentifier
+{
+    RefPtr<SecurityOrigin> origin = SecurityOrigin::maybeCreateFromDatabaseIdentifier(databaseIdentifier);
+    if (!origin)
+        return nil;
+
+    return [[[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:origin.get()] autorelease];
+}
+
 - (id)initWithURL:(NSURL *)url
 {
     self = [super init];
     if (!self)
         return nil;
 
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(KURL([url absoluteURL]));
-    origin->ref();
-    _private = reinterpret_cast<WebSecurityOriginPrivate *>(origin.get());
+    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(URL([url absoluteURL]));
+    SecurityOrigin* rawOrigin = origin.release().leakRef();
+    _private = reinterpret_cast<WebSecurityOriginPrivate *>(rawOrigin);
 
     return self;
 }
@@ -66,15 +76,16 @@ using namespace WebCore;
     return reinterpret_cast<SecurityOrigin*>(_private)->databaseIdentifier();
 }
 
-- (NSString *)stringValue
+#if PLATFORM(IOS)
+- (NSString *)toString
 {
     return reinterpret_cast<SecurityOrigin*>(_private)->toString();
 }
+#endif
 
-// Deprecated. Use host instead. This needs to stay here until we ship a new Safari.
-- (NSString *)domain
+- (NSString *)stringValue
 {
-    return [self host];
+    return reinterpret_cast<SecurityOrigin*>(_private)->toString();
 }
 
 - (unsigned short)port
@@ -82,11 +93,12 @@ using namespace WebCore;
     return reinterpret_cast<SecurityOrigin*>(_private)->port();
 }
 
+// FIXME: Overriding isEqual: without overriding hash will cause trouble if this ever goes into an NSSet or is the key in an NSDictionary,
+// since two equal objects could have different hashes.
 - (BOOL)isEqual:(id)anObject
 {
-    if (![anObject isMemberOfClass:[WebSecurityOrigin class]]) {
+    if (![anObject isMemberOfClass:[WebSecurityOrigin class]])
         return NO;
-    }
     
     return [self _core]->equal([anObject _core]);
 }

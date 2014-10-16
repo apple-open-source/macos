@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-n?\n@(#)$Id: head (AT&T Research) 2006-09-27 $\n]"
+"[-n?\n@(#)$Id: head (AT&T Research) 2012-05-31 $\n]"
 USAGE_LICENSE
 "[+NAME?head - output beginning portion of one or more files ]"
 "[+DESCRIPTION?\bhead\b copies one or more input files to standard "
@@ -68,7 +68,7 @@ USAGE_LICENSE
 #include <cmd.h>
 
 int
-b_head(int argc, register char** argv, void* context)
+b_head(int argc, register char** argv, Shbltin_t* context)
 {
 	static const char	header_fmt[] = "\n==> %s <==\n";
 
@@ -139,7 +139,7 @@ b_head(int argc, register char** argv, void* context)
 		format = (char*)header_fmt;
 		if (skip > 0)
 			sfmove(fp, NiL, skip, delim);
-		if (sfmove(fp, sfstdout, keep, delim) < 0 && errno != EPIPE)
+		if (sfmove(fp, sfstdout, keep, delim) < 0 && !ERROR_PIPE(errno) && errno != EINTR)
 			error(ERROR_system(0), "%s: read error", cp);
 		if (fp != sfstdin)
 			sfclose(fp);

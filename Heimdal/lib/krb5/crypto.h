@@ -191,3 +191,11 @@ struct _krb5_evp_schedule {
     EVP_CIPHER_CTX ectx;
     EVP_CIPHER_CTX dctx;
 };
+
+struct _krb5_etypes_deprected {
+    krb5_enctype type;
+    const char *name;
+};
+
+extern struct _krb5_etypes_deprected _krb5_deprecated_etypes[];
+extern int _krb5_num_deprecated_etypes;

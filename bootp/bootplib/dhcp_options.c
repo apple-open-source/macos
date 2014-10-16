@@ -167,14 +167,14 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 	  break;
       }
       case dhcptype_int32_e: {
-	  long l = strtol(str, 0, 0);
+	  int32_t l = (int32_t)strtol(str, 0, 0);
 	  net_uint32_set(buf, l);
 	  *len_p = type_info->size;
 	  break;
       }
       case dhcptype_uint32_e: {
-	  unsigned long ul = strtoul(str, 0, 0);
-	  net_uint32_set(buf, ul);
+	  uint32_t l = (uint32_t)strtoul(str, 0, 0);
+	  net_uint32_set(buf, l);
 	  *len_p = type_info->size;
 	  break;
       }
@@ -193,7 +193,7 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 	  break;
       }
       case dhcptype_string_e: {
-	  int len = strlen(str);
+	  int len = (int)strlen(str);
 	  if (*len_p < len) {
 	      if (err) {
 		  snprintf(err->str, sizeof(err->str), "string too long");
@@ -219,7 +219,6 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 		       type_info->name);
 	  }
 	  return (FALSE);
-	  break;
     }
     return (TRUE);
 }
@@ -305,7 +304,6 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
 	    snprintf(err->str, sizeof(err->str),
 		     "type %d: not supported", type);
 	    return (FALSE);
-	    break;
 	}
     }
     return (TRUE);
@@ -545,10 +543,10 @@ dhcptag_with_name(const char * name)
 	}
     }
     if (strncmp(name, "option_", 7) == 0) {
-	v = strtoul(name + 7, NULL, 10);
+	v = (unsigned int)strtoul(name + 7, NULL, 10);
     }
     else {
-	v = strtoul(name, NULL, 10);
+	v = (unsigned int)strtoul(name, NULL, 10);
     }
     if (v <= MAX_TAG) {
 	return (v);
@@ -863,11 +861,11 @@ dhcpol_option_copy(dhcpol_t * list, int tag, int * len_p)
 	if (option[TAG_OFFSET] == tag) {
 	    int len = option[LEN_OFFSET];
 
-	    if (data_len == 0) {
+	    if (data == NULL) {
 		data = malloc(len);
 	    }
 	    else {
-		data = realloc(data, data_len + len);
+		data = reallocf(data, data_len + len);
 	    }
 	    bcopy(option + OPTION_OFFSET, data + data_len, len);
 	    data_len += len;

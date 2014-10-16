@@ -71,7 +71,7 @@ rk_undumpdata(const char *filename, void **buf, size_t *size)
 	ret = errno;
 	goto out;
     }
-    if (sb.st_size > SIZE_T_MAX) {
+    if (sb.st_size > (off_t)(SIZE_T_MAX >> 1)) {
 	ret = ERANGE;
 	goto out;
     }

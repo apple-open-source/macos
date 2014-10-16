@@ -30,4 +30,9 @@
  */
 # define COPYFILE_STATE_INTENT	256
 
+/*
+ * File flags that are not preserved when copying stat information.
+ */
+#define COPYFILE_OMIT_FLAGS 	(UF_TRACKED | SF_RESTRICTED)
+
 #endif /* _COPYFILE_PRIVATE_H */

@@ -1,4 +1,4 @@
-.\" Copyright (c) 2003-2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 2003-2014 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\"
@@ -37,7 +37,8 @@
 .Nm notify_set_state ,
 .Nm notify_suspend ,
 .Nm notify_resume ,
-.Nm notify_cancel
+.Nm notify_cancel ,
+.Nm notify_is_valid_token
 .Nd event distribution functions
 .Sh SYNOPSIS
 .Fd #include <notify.h>
@@ -65,6 +66,8 @@
 .Fn notify_resume "int token"
 .Ft uint32_t
 .Fn notify_cancel "int token"
+.Ft bool
+.Fn notify_is_valid_token "int val"
 .Sh DESCRIPTION
 These routines allow processes to exchange stateless notification events.
 Processes post notifications to a single system-wide notification server,
@@ -84,6 +87,7 @@ register with the system, providing a name and other information
 required for the desired notification delivery method.
 Clients are
 given an integer token representing the registration.
+Token values are zero or positive integers.
 .Pp
 The kernel provides limited queues for mach message and file descriptor messages.
 It is important to make sure that clients read mach ports and file descriptors frequently
@@ -107,7 +111,7 @@ This behavior may vary in future releases.
 .Ss notify_post
 This routine causes the system to send a notification for the given 
 name to all clients that have registered for notifications of this name.
-This is the only API required for an appication that only produces
+This is the only API required for an application that only produces
 notifications. 
 .Ss notify_register_check
 Registers for passive notification for the given name.
@@ -245,6 +249,11 @@ token.
 Mach ports and file descriptor associated with a token are released
 (deallocated or closed) when all registration tokens associated with 
 the port or file descriptor have been cancelled.
+.Pp
+.Ss notify_is_valid_token
+Determines if an integer value is valid for a current registration.
+Negative integers are never valid.
+A positive or zero value is valid if the current process has a registration associated with the given value.
 .Sh NAMESPACE CONVENTIONS
 Names in the namespace must be NULL-terminated.
 Names should be encoded as UTF-8 strings.
@@ -255,7 +264,7 @@ name convention used for Java package names and for System Preferences
 on Mac OS X.
 For example, "com.mydomain.example.event".
 .Pp
-Apple Computer reserves the portion
+Apple reserves the portion
 of the namespace prefixed by "com.apple.".
 This policy is not 
 enforced in the current implementation, but may be in the future.
@@ -271,7 +280,7 @@ In the latter case, the name must have a dot character following the UID.
 Third party developers are encouraged to choose a prefix for names
 that will avoid conflicts in the shared namespace.
 .Pp
-The portion of the namespece prefixed by the string "self." is set aside
+The portion of the namespace prefixed by the string "self." is set aside
 for private use by applications.
 That is, each client may use that part
 of the namespace for intra-process notifications.
@@ -295,7 +304,8 @@ A client using notify_check() to determine when to invalidate a cache.
     int
     main(int argc, char *argv[])
     {
-        int status, token, check;
+        uint32_t status;
+        int token, check;
 .Pp
         status = notify_register_check("com.eg.update", &token);
         if (status != NOTIFY_STATUS_OK)
@@ -331,7 +341,8 @@ A client using file descriptor notifications.
     int
     main(int argc, char *argv[])
     {
-        int nf, status, rtoken, qtoken, t;
+        uint32_t status;
+        int nf, rtoken, qtoken, t, ret;
         fd_set readfds;
 .Pp
         status = notify_register_file_descriptor("com.eg.random.event",
@@ -355,8 +366,8 @@ A client using file descriptor notifications.
 .Pp
         for (;;)
         {
-           status = select(nf+1, &readfds, NULL, NULL, NULL);
-           if (status <= 0) continue;
+           ret = select(nf+1, &readfds, NULL, NULL, NULL);
+           if (ret <= 0) continue;
            if (!FD_ISSET(nf, &readfds)) continue;
 .Pp
            status = read(nf, &t, sizeof(int));
@@ -388,7 +399,8 @@ A client using dispatch notifications.
     int
     main(void)
     {
-        int token, status;
+        uint32_t status;
+        int token;
 .Pp
         status = notify_register_dispatch("com.eg.random.event", &token,
             dispatch_get_main_queue(), ^(int t) { 

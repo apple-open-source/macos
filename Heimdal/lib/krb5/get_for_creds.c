@@ -210,6 +210,12 @@ krb5_get_forwarded_creds (krb5_context	    context,
     addrs.len = 0;
     addrs.val = NULL;
 
+    if (auth_context->keyblock == NULL) {
+	krb5_set_error_message(context, KRB5KDC_ERR_NULL_KEY, N_("auth context is missing session key", ""));
+	return KRB5KDC_ERR_NULL_KEY;
+    }
+
+
     ret = krb5_get_credentials(context, 0, ccache, in_creds, &ticket);
     if(ret == 0) {
 	if (ticket->addresses.len)
@@ -398,46 +404,31 @@ krb5_get_forwarded_creds (krb5_context	    context,
     if(buf_size != len)
 	krb5_abortx(context, "internal error in ASN.1 encoder");
 
-    /**
-     * Some older of the MIT gssapi library used clear-text tickets
-     * (warped inside AP-REQ encryption), use the krb5_auth_context
-     * flag KRB5_AUTH_CONTEXT_CLEAR_FORWARDED_CRED to support those
-     * tickets. The session key is used otherwise to encrypt the
-     * forwarded ticket.
+    /*
+     * Here older versions then 0.7.2 of Heimdal used the local or
+     * remote subkey. That is wrong, the session key should be
+     * used. Heimdal 0.7.2 and newer have code to try both in the
+     * receiving end.
      */
 
-    if (auth_context->flags & KRB5_AUTH_CONTEXT_CLEAR_FORWARDED_CRED) {
-	cred.enc_part.etype = KRB5_ENCTYPE_NULL;
-	cred.enc_part.kvno = NULL;
-	cred.enc_part.cipher.data = buf;
-	cred.enc_part.cipher.length = buf_size;
-    } else {
-	/*
-	 * Here older versions then 0.7.2 of Heimdal used the local or
-	 * remote subkey. That is wrong, the session key should be
-	 * used. Heimdal 0.7.2 and newer have code to try both in the
-	 * receiving end.
-	 */
-
-	ret = krb5_crypto_init(context, auth_context->keyblock, 0, &crypto);
-	if (ret) {
-	    free(buf);
-	    free_KRB_CRED(&cred);
-	    return ret;
-	}
-	ret = krb5_encrypt_EncryptedData (context,
-					  crypto,
-					  KRB5_KU_KRB_CRED,
-					  buf,
-					  len,
-					  0,
-					  &cred.enc_part);
+    ret = krb5_crypto_init(context, auth_context->keyblock, 0, &crypto);
+    if (ret) {
 	free(buf);
-	krb5_crypto_destroy(context, crypto);
-	if (ret) {
-	    free_KRB_CRED(&cred);
-	    return ret;
-	}
+	free_KRB_CRED(&cred);
+	return ret;
+    }
+    ret = krb5_encrypt_EncryptedData (context,
+				      crypto,
+				      KRB5_KU_KRB_CRED,
+				      buf,
+				      len,
+				      0,
+				      &cred.enc_part);
+    free(buf);
+    krb5_crypto_destroy(context, crypto);
+    if (ret) {
+	free_KRB_CRED(&cred);
+	return ret;
     }
 
     ASN1_MALLOC_ENCODE(KRB_CRED, buf, buf_size, &cred, &len, ret);

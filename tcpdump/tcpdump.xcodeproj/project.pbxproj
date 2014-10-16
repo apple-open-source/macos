@@ -163,6 +163,14 @@
 		7244CC801624FF2100141ECF /* print-tipc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72272A3815D58874006E4EBD /* print-tipc.c */; };
 		7244CC811624FF2100141ECF /* print-ppi.c in Sources */ = {isa = PBXBuildFile; fileRef = 72272A4015D58894006E4EBD /* print-ppi.c */; };
 		7244CC821624FF2100141ECF /* print_pktap.c in Sources */ = {isa = PBXBuildFile; fileRef = 72299C101610D5EE00833F01 /* print_pktap.c */; };
+		724976E917BC490E0041BF58 /* print-msnlb.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E517BC46EF0041BF58 /* print-msnlb.c */; };
+		724976EA17BC490E0041BF58 /* print-msnlb.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E517BC46EF0041BF58 /* print-msnlb.c */; };
+		724976EB17BC49110041BF58 /* print-otv.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E617BC46EF0041BF58 /* print-otv.c */; };
+		724976EC17BC49110041BF58 /* print-otv.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E617BC46EF0041BF58 /* print-otv.c */; };
+		724976ED17BC49130041BF58 /* print-vxlan.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E717BC46EF0041BF58 /* print-vxlan.c */; };
+		724976EE17BC49140041BF58 /* print-vxlan.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E717BC46EF0041BF58 /* print-vxlan.c */; };
+		724976EF17BC49720041BF58 /* print-zeromq.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E817BC46EF0041BF58 /* print-zeromq.c */; };
+		724976F017BC49720041BF58 /* print-zeromq.c in Sources */ = {isa = PBXBuildFile; fileRef = 724976E817BC46EF0041BF58 /* print-zeromq.c */; };
 		72575F7F166D607900EFB348 /* pktmetadatafilter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72575F7E166D607900EFB348 /* pktmetadatafilter.c */; };
 		72575F80166D60B200EFB348 /* pktmetadatafilter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72575F7E166D607900EFB348 /* pktmetadatafilter.c */; };
 		727B12DB162745A90039A877 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 727B12DA162745A90039A877 /* libpcap_static.a */; };
@@ -317,6 +325,10 @@
 		72272A4015D58894006E4EBD /* print-ppi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ppi.c"; path = "tcpdump/print-ppi.c"; sourceTree = "<group>"; };
 		72299C101610D5EE00833F01 /* print_pktap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print_pktap.c; path = tcpdump/print_pktap.c; sourceTree = "<group>"; };
 		7244CC891624FF2100141ECF /* tcpdumpstatic */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tcpdumpstatic; sourceTree = BUILT_PRODUCTS_DIR; };
+		724976E517BC46EF0041BF58 /* print-msnlb.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "print-msnlb.c"; path = "tcpdump/print-msnlb.c"; sourceTree = "<group>"; };
+		724976E617BC46EF0041BF58 /* print-otv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "print-otv.c"; path = "tcpdump/print-otv.c"; sourceTree = "<group>"; };
+		724976E717BC46EF0041BF58 /* print-vxlan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "print-vxlan.c"; path = "tcpdump/print-vxlan.c"; sourceTree = "<group>"; };
+		724976E817BC46EF0041BF58 /* print-zeromq.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "print-zeromq.c"; path = "tcpdump/print-zeromq.c"; sourceTree = "<group>"; };
 		72575F7E166D607900EFB348 /* pktmetadatafilter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pktmetadatafilter.c; path = tcpdump/pktmetadatafilter.c; sourceTree = "<group>"; };
 		72575F81166D60C400EFB348 /* pktmetadatafilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pktmetadatafilter.h; path = tcpdump/pktmetadatafilter.h; sourceTree = "<group>"; };
 		725CC4BA15D5B0B000D88ACA /* acconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = acconfig.h; path = tcpdump/acconfig.h; sourceTree = "<group>"; };
@@ -652,6 +664,7 @@
 				FC791586103A295700CBA90E /* print-mpcp.c */,
 				FC791587103A295700CBA90E /* print-mpls.c */,
 				FC791588103A295700CBA90E /* print-msdp.c */,
+				724976E517BC46EF0041BF58 /* print-msnlb.c */,
 				720DEC8C1231682D008A604E /* print-netbios.c */,
 				FC791589103A295700CBA90E /* print-nfs.c */,
 				FC79158A103A295700CBA90E /* print-ntp.c */,
@@ -659,6 +672,7 @@
 				FC79158C103A295700CBA90E /* print-olsr.c */,
 				FC79158D103A295700CBA90E /* print-ospf.c */,
 				FC79158E103A295700CBA90E /* print-ospf6.c */,
+				724976E617BC46EF0041BF58 /* print-otv.c */,
 				727B13011628F11D0039A877 /* print-pcapng.c */,
 				E07AD53010AA1D0300E8B167 /* print-pflog.c */,
 				FC79158F103A295700CBA90E /* print-pgm.c */,
@@ -703,8 +717,10 @@
 				FC7915B1103A295700CBA90E /* print-vqp.c */,
 				FC7915B2103A295700CBA90E /* print-vrrp.c */,
 				FC7915B3103A295700CBA90E /* print-vtp.c */,
+				724976E717BC46EF0041BF58 /* print-vxlan.c */,
 				FC7915B4103A295700CBA90E /* print-wb.c */,
 				FC7915B5103A295700CBA90E /* print-zephyr.c */,
+				724976E817BC46EF0041BF58 /* print-zeromq.c */,
 				FC7915B6103A295700CBA90E /* setsignal.c */,
 				720E46311231647B0056BE01 /* signature.c */,
 				FC7915B7103A295700CBA90E /* smbutil.c */,
@@ -944,6 +960,7 @@
 				7244CC141624FF2100141ECF /* print-dccp.c in Sources */,
 				7244CC151624FF2100141ECF /* print-decnet.c in Sources */,
 				7244CC161624FF2100141ECF /* print-dhcp6.c in Sources */,
+				724976EF17BC49720041BF58 /* print-zeromq.c in Sources */,
 				7244CC171624FF2100141ECF /* print-domain.c in Sources */,
 				7244CC181624FF2100141ECF /* print-dtp.c in Sources */,
 				7244CC191624FF2100141ECF /* print-dvmrp.c in Sources */,
@@ -978,6 +995,7 @@
 				7244CC361624FF2100141ECF /* print-llc.c in Sources */,
 				7244CC371624FF2100141ECF /* print-lldp.c in Sources */,
 				7244CC381624FF2100141ECF /* print-lmp.c in Sources */,
+				724976EE17BC49140041BF58 /* print-vxlan.c in Sources */,
 				7244CC391624FF2100141ECF /* print-lspping.c in Sources */,
 				7244CC3A1624FF2100141ECF /* print-lwapp.c in Sources */,
 				7244CC3B1624FF2100141ECF /* print-lwres.c in Sources */,
@@ -996,6 +1014,7 @@
 				7244CC481624FF2100141ECF /* print-pim.c in Sources */,
 				7244CC491624FF2100141ECF /* print-ppp.c in Sources */,
 				7244CC4A1624FF2100141ECF /* print-pppoe.c in Sources */,
+				724976EC17BC49110041BF58 /* print-otv.c in Sources */,
 				7244CC4B1624FF2100141ECF /* print-pptp.c in Sources */,
 				7244CC4C1624FF2100141ECF /* print-radius.c in Sources */,
 				7244CC4D1624FF2100141ECF /* print-raw.c in Sources */,
@@ -1010,6 +1029,7 @@
 				7244CC561624FF2100141ECF /* print-sip.c in Sources */,
 				7244CC571624FF2100141ECF /* print-sl.c in Sources */,
 				7244CC581624FF2100141ECF /* print-sll.c in Sources */,
+				724976EA17BC490E0041BF58 /* print-msnlb.c in Sources */,
 				7244CC591624FF2100141ECF /* print-slow.c in Sources */,
 				7244CC5A1624FF2100141ECF /* print-smb.c in Sources */,
 				7244CC5B1624FF2100141ECF /* print-snmp.c in Sources */,
@@ -1082,6 +1102,7 @@
 				FC791694103A35FE00CBA90E /* print-atalk.c in Sources */,
 				FC791695103A35FE00CBA90E /* print-atm.c in Sources */,
 				FC791696103A35FE00CBA90E /* print-beep.c in Sources */,
+				724976F017BC49720041BF58 /* print-zeromq.c in Sources */,
 				FC791697103A35FE00CBA90E /* print-bfd.c in Sources */,
 				FC791698103A35FE00CBA90E /* print-bgp.c in Sources */,
 				FC791699103A35FE00CBA90E /* print-bootp.c in Sources */,
@@ -1122,6 +1143,7 @@
 				FC7916BC103A35FE00CBA90E /* print-isoclns.c in Sources */,
 				FC7916BD103A35FE00CBA90E /* print-juniper.c in Sources */,
 				FC7916BE103A35FE00CBA90E /* print-krb.c in Sources */,
+				724976E917BC490E0041BF58 /* print-msnlb.c in Sources */,
 				FC7916BF103A35FE00CBA90E /* print-l2tp.c in Sources */,
 				FC7916C0103A35FE00CBA90E /* print-lane.c in Sources */,
 				FC7916C1103A35FE00CBA90E /* print-ldp.c in Sources */,
@@ -1171,6 +1193,7 @@
 				FC7916ED103A35FE00CBA90E /* print-tcp.c in Sources */,
 				FC7916EE103A35FE00CBA90E /* print-telnet.c in Sources */,
 				FC7916EF103A35FE00CBA90E /* print-tftp.c in Sources */,
+				724976EB17BC49110041BF58 /* print-otv.c in Sources */,
 				FC7916F0103A35FE00CBA90E /* print-timed.c in Sources */,
 				FC7916F1103A35FE00CBA90E /* print-token.c in Sources */,
 				FC7916F2103A35FE00CBA90E /* print-udld.c in Sources */,
@@ -1195,6 +1218,7 @@
 				720DEC89123167BE008A604E /* pcap_dump_ftell.c in Sources */,
 				720DEC8D1231682D008A604E /* print-netbios.c in Sources */,
 				72272A3915D58874006E4EBD /* in_cksum.c in Sources */,
+				724976ED17BC49130041BF58 /* print-vxlan.c in Sources */,
 				72272A3A15D58874006E4EBD /* print-802_15_4.c in Sources */,
 				72272A3B15D58874006E4EBD /* print-babel.c in Sources */,
 				72272A3C15D58874006E4EBD /* print-carp.c in Sources */,
@@ -1229,11 +1253,11 @@
 					/usr/include,
 					"$(PROJECT_DIR)/tcpdump/missing",
 				);
-				"OTHER_CFLAGS[arch=*][sdk=macosx*]" = (
+				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
+				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
 				);
-				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
 				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
@@ -1294,11 +1318,11 @@
 					/usr/include,
 					"$(PROJECT_DIR)/tcpdump/missing",
 				);
-				"OTHER_CFLAGS[arch=*][sdk=macosx*]" = (
+				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
+				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
 				);
-				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
 				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;

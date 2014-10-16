@@ -49,6 +49,8 @@ extern "C" {
         public review document and other comments apply
         where extension entries appear.
 
+        Extensions part of DWARF4 are marked DWARF4.
+
         A few extension names have omitted the 'vendor id'
         (See chapter 7, "Vendor Extensibility"). Please
         always use a 'vendor id' string in extension names.
@@ -126,6 +128,8 @@ extern "C" {
 #define DW_TAG_mutable_type 0x3e /* Withdrawn from DWARF3 by DWARF3f. */
 #define DW_TAG_condition                0x3f  /* DWARF3f */
 #define DW_TAG_shared_type              0x40  /* DWARF3f */
+#define DW_TAG_type_unit                0x41  /* DWARF4 */
+#define DW_TAG_rvalue_reference_type    0x42  /* DWARF4 */
 #define DW_TAG_lo_user                  0x4080
 
 #define DW_TAG_MIPS_loop                0x4081
@@ -187,6 +191,11 @@ extern "C" {
 #define DW_FORM_ref8                    0x14
 #define DW_FORM_ref_udata               0x15
 #define DW_FORM_indirect                0x16
+#define DW_FORM_sec_offset              0x17 /* DWARF4 */
+#define DW_FORM_exprloc                 0x18 /* DWARF4 */
+#define DW_FORM_flag_present            0x19 /* DWARF4 */
+  /* 0x1a thru 0x1f were left unused accidentally. Reserved for future use. */
+#define DW_FORM_ref_sig8                0x20 /* DWARF4 */
 
 #define DW_AT_sibling                           0x01
 #define DW_AT_location                          0x02
@@ -279,7 +288,12 @@ extern "C" {
 #define DW_AT_elemental                         0x66 /* DWARF3f */
 #define DW_AT_pure                              0x67 /* DWARF3f */
 #define DW_AT_recursive                         0x68 /* DWARF3f */
-
+#define DW_AT_signature                         0x69 /* DWARF4 */
+#define DW_AT_main_subprogram                   0x6a /* DWARF4 */
+#define DW_AT_data_bit_offset                   0x6b /* DWARF4 */
+#define DW_AT_const_expr                        0x6c /* DWARF4 */
+#define DW_AT_enum_class                        0x6d /* DWARF4 */
+#define DW_AT_linkage_name                      0x6e /* DWARF4 */
 
 /* HP extensions. */
 #define DW_AT_HP_block_index                    0x2000  /* HP */
@@ -500,7 +514,8 @@ extern "C" {
 #define DW_OP_form_tls_address          0x9b /* DWARF3f */
 #define DW_OP_call_frame_cfa            0x9c /* DWARF3f */
 #define DW_OP_bit_piece                 0x9d /* DWARF3f */
-
+#define DW_OP_implicit_value            0x9e /* DWARF4 */
+#define DW_OP_stack_value               0x9f /* DWARF4 */
 
     /* GNU extensions. */
 #define DW_OP_GNU_push_tls_address      0xe0 /* GNU */
@@ -610,6 +625,7 @@ extern "C" {
 #define DW_LANG_ObjC_plus_plus          0x0011 /* DWARF3f */
 #define DW_LANG_UPC                     0x0012 /* DWARF3f */
 #define DW_LANG_D                       0x0013 /* DWARF3f */
+#define DW_LANG_Python                  0x0014 /* DWARF4 */
 #define DW_LANG_lo_user                 0x8000
 #define DW_LANG_Mips_Assembler          0x8001 /* MIPS   */
 #define DW_LANG_Upc                     0x8765 /* UPC, use
@@ -679,6 +695,7 @@ extern "C" {
 #define DW_LNE_end_sequence             0x01
 #define DW_LNE_set_address              0x02
 #define DW_LNE_define_file              0x03
+#define DW_LNE_set_discriminator        0x04  /* DWARF4 */
 
 /* HP extensions. */
 #define DW_LNE_HP_negate_is_UV_update       0x11 /* 17 HP */

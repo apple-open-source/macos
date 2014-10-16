@@ -193,7 +193,7 @@ mandoc_template(struct getargs *args,
 static int
 check_column(FILE *f, int col, size_t len, int columns)
 {
-    if(col + len > columns) {
+    if(col + len > (size_t)columns) {
 	fprintf(f, "\n");
 	col = fprintf(f, "  ");
     }
@@ -462,10 +462,6 @@ arg_match_long(struct getargs *args, size_t num_args,
 	int o = (int)(argv - rargv[*goptind]);
 	return (*c->func)(FALSE, argc, rargv, goptind, &o, c->data);
     }
-
-    default:
-	abort ();
-	UNREACHABLE(return 0);
     }
 }
 

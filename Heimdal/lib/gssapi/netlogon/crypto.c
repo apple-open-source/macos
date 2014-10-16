@@ -165,7 +165,6 @@ _netlogon_decode_NL_AUTH_SIGNATURE(const uint8_t *ptr,
         break;
     default:
         return EINVAL;
-        break;
     }
 
     if (sig->SealAlgorithm == NL_SEAL_ALG_NONE)
@@ -212,7 +211,7 @@ _netlogon_derive_rc4_seal_key(gssnetlogon_ctx ctx,
                               int enc)
 {
     uint8_t xorKey[16];
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(xorKey); i++) {
         xorKey[i] = ctx->SessionKey[i] ^ 0xF0;
@@ -242,7 +241,7 @@ _netlogon_derive_aes_seal_key(gssnetlogon_ctx ctx,
 {
     uint8_t encryptionKey[16];
     uint8_t ivec[16];
-    int i;
+    size_t i;
 
     for (i = 0; i < sizeof(encryptionKey); i++) {
         encryptionKey[i] = ctx->SessionKey[i] ^ 0xF0;

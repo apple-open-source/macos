@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,6 @@
 #ifndef JITStubRoutine_h
 #define JITStubRoutine_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(JIT)
 
 #include "ExecutableAllocator.h"
@@ -38,6 +36,7 @@
 namespace JSC {
 
 class JITStubRoutineSet;
+class RepatchBuffer;
 
 // This is a base-class for JIT stub routines, and also the class you want
 // to instantiate directly if you have a routine that does not need any
@@ -141,6 +140,8 @@ public:
         
         return true;
     }
+    
+    virtual bool visitWeak(RepatchBuffer&);
 
 protected:
     virtual void observeZeroRefCount();
@@ -150,11 +151,8 @@ protected:
 };
 
 // Helper for the creation of simple stub routines that need no help from the GC.
-#define FINALIZE_CODE_FOR_STUB(patchBuffer, dataLogFArguments) \
-    (adoptRef(new JITStubRoutine(FINALIZE_CODE((patchBuffer), dataLogFArguments))))
-
-#define FINALIZE_CODE_FOR_DFG_STUB(patchBuffer, dataLogFArguments) \
-    (adoptRef(new JITStubRoutine(FINALIZE_DFG_CODE((patchBuffer), dataLogFArguments))))
+#define FINALIZE_CODE_FOR_STUB(codeBlock, patchBuffer, dataLogFArguments) \
+    (adoptRef(new JITStubRoutine(FINALIZE_CODE_FOR((codeBlock), (patchBuffer), dataLogFArguments))))
 
 } // namespace JSC
 

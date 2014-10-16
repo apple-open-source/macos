@@ -41,18 +41,6 @@ BEGIN
 	self->traceme = 1;
 }
 
-#if !defined(__APPLE__)
-fbt::ioctl:entry
-{
-	printf("Entering the function\n");
-}
-
-fbt::ioctl:return
-{
-	printf("The offset = %u\n", arg0);
-	exit(0);
-}
-#else
 fbt::sigprocmask:entry
 {
 	printf("Entering the function\n");
@@ -63,4 +51,3 @@ fbt::sigprocmask:return
 	printf("The offset = %u\n", arg0);
 	exit(0);
 }
-#endif /* __APPLE__ */

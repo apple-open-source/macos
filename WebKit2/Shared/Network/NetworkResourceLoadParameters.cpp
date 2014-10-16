@@ -28,8 +28,6 @@
 
 #include "ArgumentCoders.h"
 #include "DataReference.h"
-#include "DecoderAdapter.h"
-#include "EncoderAdapter.h"
 #include "WebCoreArgumentCoders.h"
 
 #if ENABLE(NETWORK_PROCESS)
@@ -37,37 +35,39 @@
 using namespace WebCore;
 
 namespace WebKit {
+
 NetworkResourceLoadParameters::NetworkResourceLoadParameters()
     : identifier(0)
     , webPageID(0)
     , webFrameID(0)
+    , sessionID(SessionID::emptySessionID())
     , priority(ResourceLoadPriorityVeryLow)
     , contentSniffingPolicy(SniffContent)
     , allowStoredCredentials(DoNotAllowStoredCredentials)
     , clientCredentialPolicy(DoNotAskClientForAnyCredentials)
-    , inPrivateBrowsingMode(false)
     , shouldClearReferrerOnHTTPSToHTTPRedirect(true)
     , isMainResource(false)
+    , defersLoading(false)
+    , shouldBufferResource(false)
 {
 }
 
-void NetworkResourceLoadParameters::encode(CoreIPC::ArgumentEncoder& encoder) const
+void NetworkResourceLoadParameters::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << identifier;
     encoder << webPageID;
     encoder << webFrameID;
+    encoder << sessionID;
     encoder << request;
 
     encoder << static_cast<bool>(request.httpBody());
     if (request.httpBody()) {
-        EncoderAdapter httpBodyEncoderAdapter;
-        request.httpBody()->encode(httpBodyEncoderAdapter);
-        encoder << httpBodyEncoderAdapter.dataReference();
+        request.httpBody()->encode(encoder);
 
         const Vector<FormDataElement>& elements = request.httpBody()->elements();
         size_t fileCount = 0;
         for (size_t i = 0, count = elements.size(); i < count; ++i) {
-            if (elements[i].m_type == FormDataElement::encodedFile)
+            if (elements[i].m_type == FormDataElement::Type::EncodedFile)
                 ++fileCount;
         }
 
@@ -76,7 +76,7 @@ void NetworkResourceLoadParameters::encode(CoreIPC::ArgumentEncoder& encoder) co
         size_t extensionIndex = 0;
         for (size_t i = 0, count = elements.size(); i < count; ++i) {
             const FormDataElement& element = elements[i];
-            if (element.m_type == FormDataElement::encodedFile) {
+            if (element.m_type == FormDataElement::Type::EncodedFile) {
                 const String& path = element.m_shouldGenerateFile ? element.m_generatedFilename : element.m_filename;
                 SandboxExtension::createHandle(path, SandboxExtension::ReadOnly, requestBodySandboxExtensions[extensionIndex++]);
             }
@@ -94,12 +94,13 @@ void NetworkResourceLoadParameters::encode(CoreIPC::ArgumentEncoder& encoder) co
     encoder.encodeEnum(contentSniffingPolicy);
     encoder.encodeEnum(allowStoredCredentials);
     encoder.encodeEnum(clientCredentialPolicy);
-    encoder << inPrivateBrowsingMode;
     encoder << shouldClearReferrerOnHTTPSToHTTPRedirect;
     encoder << isMainResource;
+    encoder << defersLoading;
+    encoder << shouldBufferResource;
 }
 
-bool NetworkResourceLoadParameters::decode(CoreIPC::ArgumentDecoder& decoder, NetworkResourceLoadParameters& result)
+bool NetworkResourceLoadParameters::decode(IPC::ArgumentDecoder& decoder, NetworkResourceLoadParameters& result)
 {
     if (!decoder.decode(result.identifier))
         return false;
@@ -110,6 +111,9 @@ bool NetworkResourceLoadParameters::decode(CoreIPC::ArgumentDecoder& decoder, Ne
     if (!decoder.decode(result.webFrameID))
         return false;
 
+    if (!decoder.decode(result.sessionID))
+        return false;
+
     if (!decoder.decode(result.request))
         return false;
 
@@ -118,11 +122,10 @@ bool NetworkResourceLoadParameters::decode(CoreIPC::ArgumentDecoder& decoder, Ne
         return false;
 
     if (hasHTTPBody) {
-        CoreIPC::DataReference formData;
-        if (!decoder.decode(formData))
+        RefPtr<FormData> formData = FormData::decode(decoder);
+        if (!formData)
             return false;
-        DecoderAdapter httpBodyDecoderAdapter(formData.data(), formData.size());
-        result.request.setHTTPBody(FormData::decode(httpBodyDecoderAdapter));
+        result.request.setHTTPBody(formData.release());
 
         if (!decoder.decode(result.requestBodySandboxExtensions))
             return false;
@@ -141,11 +144,13 @@ bool NetworkResourceLoadParameters::decode(CoreIPC::ArgumentDecoder& decoder, Ne
         return false;
     if (!decoder.decodeEnum(result.clientCredentialPolicy))
         return false;
-    if (!decoder.decode(result.inPrivateBrowsingMode))
-        return false;
     if (!decoder.decode(result.shouldClearReferrerOnHTTPSToHTTPRedirect))
         return false;
     if (!decoder.decode(result.isMainResource))
+        return false;
+    if (!decoder.decode(result.defersLoading))
+        return false;
+    if (!decoder.decode(result.shouldBufferResource))
         return false;
 
     return true;

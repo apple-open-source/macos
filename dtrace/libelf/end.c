@@ -98,11 +98,9 @@ elf_end(Elf * elf)
 				free(l);
 			}
 		}
-#if defined(__APPLE__)
 		if (elf->ed_kind == ELF_K_MACHO) {
 			free(elf->ed_ident);
 		}
-#endif /* __APPLE__ */
 		if (elf->ed_myflags & EDF_EHALLOC)
 			free(elf->ed_ehdr);
 		if (elf->ed_myflags & EDF_PHALLOC)

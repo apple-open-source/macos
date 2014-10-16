@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -38,6 +38,7 @@
 #include "NotImplemented.h"
 #include "Path.h"
 #include <wtf/MathExtras.h>
+#include <wtf/win/GDIObject.h>
 
 using namespace std;
 
@@ -112,22 +113,22 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
         if (!bitmap)
             return 0;
 
-        HDC bitmapDC = ::CreateCompatibleDC(m_data->m_hdc);
-        ::SelectObject(bitmapDC, bitmap);
+        auto bitmapDC = adoptGDIObject(::CreateCompatibleDC(m_data->m_hdc));
+        ::SelectObject(bitmapDC.get(), bitmap);
 
         // Fill our buffer with clear if we're going to alpha blend.
         if (supportAlphaBlend)
            fillWithClearColor(bitmap);
 
         // Make sure we can do world transforms.
-        SetGraphicsMode(bitmapDC, GM_ADVANCED);
+        ::SetGraphicsMode(bitmapDC.get(), GM_ADVANCED);
 
         // Apply a translation to our context so that the drawing done will be at (0,0) of the bitmap.
         XFORM xform = TransformationMatrix().translate(-dstRect.x(), -dstRect.y());
 
-        ::SetWorldTransform(bitmapDC, &xform);
+        ::SetWorldTransform(bitmapDC.get(), &xform);
 
-        return bitmapDC;
+        return bitmapDC.leak();
     }
 
     m_data->flush();

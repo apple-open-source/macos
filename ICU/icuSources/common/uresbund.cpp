@@ -34,6 +34,7 @@
 #include "ulocimp.h"
 #include "umutex.h"
 #include "putilimp.h"
+#include "uassert.h"
 
 
 /*
@@ -42,6 +43,7 @@ TODO: This cache should probably be removed when the deprecated code is
       completely removed.
 */
 static UHashtable *cache = NULL;
+static icu::UInitOnce gCacheInitOnce;
 
 static UMutex resbMutex = U_MUTEX_INITIALIZER;
 
@@ -256,34 +258,22 @@ static UBool U_CALLCONV ures_cleanup(void)
 {
     if (cache != NULL) {
         ures_flushCache();
-        if (cache != NULL && uhash_count(cache) == 0) {
-            uhash_close(cache);
-            cache = NULL;
-        }
+        uhash_close(cache);
+        cache = NULL;
     }
-    return (cache == NULL);
+    gCacheInitOnce.reset();
+    return TRUE;
 }
 
 /** INTERNAL: Initializes the cache for resources */
+static void createCache(UErrorCode &status) {
+    U_ASSERT(cache == NULL);
+    cache = uhash_open(hashEntry, compareEntries, NULL, &status);
+    ucln_common_registerCleanup(UCLN_COMMON_URES, ures_cleanup);
+}
+     
 static void initCache(UErrorCode *status) {
-    UBool makeCache = FALSE;
-    UMTX_CHECK(&resbMutex, (cache ==  NULL), makeCache);
-    if(makeCache) {
-        UHashtable *newCache = uhash_open(hashEntry, compareEntries, NULL, status);
-        if (U_FAILURE(*status)) {
-            return;
-        }
-        umtx_lock(&resbMutex);
-        if(cache == NULL) {
-            cache = newCache;
-            newCache = NULL;
-            ucln_common_registerCleanup(UCLN_COMMON_URES, ures_cleanup);
-        }
-        umtx_unlock(&resbMutex);
-        if(newCache != NULL) {
-            uhash_close(newCache);
-        }
-    }
+    umtx_initOnce(gCacheInitOnce, &createCache, *status);
 }
 
 /** INTERNAL: sets the name (locale) of the resource bundle to given name */
@@ -1671,12 +1661,19 @@ ures_getStringByKeyWithFallback(const UResourceBundle *resB,
     const UChar* retVal = NULL;
     ures_initStackObject(&stack);
     ures_getByKeyWithFallback(resB, inKey, &stack, status);
-    retVal = ures_getString(&stack, len, status);
+    int32_t length;
+    retVal = ures_getString(&stack, &length, status);
     ures_close(&stack);
-    if ( retVal != NULL && u_strlen(retVal) == 3 && retVal[0] == EMPTY_SET && retVal[1] == EMPTY_SET && retVal[2] == EMPTY_SET ) {
+    if (U_FAILURE(*status)) {
+        return NULL;
+    }
+    if (length == 3 && retVal[0] == EMPTY_SET && retVal[1] == EMPTY_SET && retVal[2] == EMPTY_SET ) {
         retVal = NULL;
-        *len = 0;
+        length = 0;
         *status = U_MISSING_RESOURCE_ERROR;
+    }
+    if (len != NULL) {
+        *len = length;
     }
     return retVal;
 }

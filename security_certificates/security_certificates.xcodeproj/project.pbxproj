@@ -72,6 +72,7 @@
 		05C909350A2787FF00DC9A30 /* SystemRootCertificates.keychain */ = {isa = PBXFileReference; lastKnownFileType = file; path = SystemRootCertificates.keychain; sourceTree = "<group>"; };
 		05C909360A2787FF00DC9A30 /* SystemTrustSettings.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = SystemTrustSettings.plist; sourceTree = "<group>"; };
 		523A83080C3440BE00537400 /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = file; path = X509Anchors; sourceTree = "<group>"; };
+		7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = security_certificates.xcconfig; path = config/security_certificates.xcconfig; sourceTree = "<group>"; };
 		BE9915280E787C2300D0EF7C /* EVRoots.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = EVRoots.plist; sourceTree = "<group>"; };
 		C2F9CFA607BB0495000111FE /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = file; path = X509Anchors; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -92,6 +93,7 @@
 		4CA1FEC1052A432800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */,
 				C2F9CF9E07BB041E000111FE /* internals */,
 				05C909330A2787BA00DC9A30 /* BuiltKeychains */,
 			);
@@ -127,9 +129,15 @@
 /* Begin PBXProject section */
 		4CA1FEC5052A432800F22E42 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C27AD44B0987FCE9001272E0 /* Build configuration list for PBXProject "security_certificates" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 4CA1FEC1052A432800F22E42;
 			projectDirPath = "";
 			projectRoot = "";
@@ -153,7 +161,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -166,7 +174,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_NAME = security_certificates;
 				ZERO_LINK = NO;
 			};
@@ -175,7 +183,7 @@
 		C27AD4460987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_NAME = security_certificates;
 			};
 			name = Default;
@@ -184,7 +192,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -197,7 +205,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_NAME = "copy certs";
 				ZERO_LINK = NO;
 			};
@@ -206,7 +214,7 @@
 		C27AD44A0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55036.1.3;
+				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				PRODUCT_NAME = "copy certs";
 			};
 			name = Default;
@@ -229,6 +237,7 @@
 		};
 		C27AD44E0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */;
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";

@@ -59,7 +59,7 @@ static SecKeyRef
 CreateKeyFromRSA(RSA *rsa, int use_public)
 {
     SecKeyRef (*CreateMethod)(CFAllocatorRef, const uint8_t *, CFIndex, SecKeyEncoding) = NULL;
-    size_t size, keylength;
+    size_t size = 0, keylength;
     void *keydata;
     int ret;
 	
@@ -148,7 +148,7 @@ sf_rsa_public_encrypt(int flen, const unsigned char* from,
     CFRelease(key);
     if (status)
 	return -1;
-    if (tlen > RSA_size(rsa))
+    if (tlen > (size_t)RSA_size(rsa))
 	abort();
     return tlen;
 }
@@ -172,7 +172,7 @@ sf_rsa_public_decrypt(int flen, const unsigned char* from,
     CFRelease(key);
     if (status)
 	return -1;
-    if (tlen > RSA_size(rsa))
+    if (tlen > (size_t)RSA_size(rsa))
 	abort();
 
     unsigned char *p = to;
@@ -212,7 +212,7 @@ sf_rsa_private_encrypt(int flen, const unsigned char* from,
     CFRelease(key);
     if (status)
 	return -1;
-    if (tlen > RSA_size(rsa))
+    if (tlen > (size_t)RSA_size(rsa))
 	abort();
     return tlen;
 }
@@ -237,7 +237,7 @@ sf_rsa_private_decrypt(int flen, const unsigned char* from,
     CFRelease(key);
     if (status)
 	return -1;
-    if (tlen > RSA_size(rsa))
+    if (tlen > (size_t)RSA_size(rsa))
 	abort();
 
     unsigned char *p = to;

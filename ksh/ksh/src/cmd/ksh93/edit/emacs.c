@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -188,6 +188,7 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	genchar *kptr;
 	char prompt[PRSIZE];
 	genchar Screen[MAXLINE];
+	memset(Screen,0,sizeof(Screen));
 	if(!ep)
 	{
 		ep = ed->e_emacs = newof(0,Emacs_t,1,0);
@@ -316,6 +317,8 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 			count = 1;
 		adjust = -1;
 		i = cur;
+		if(c!='\t' && c!=ESC && !isdigit(c))
+			ep->ed->e_tabcount = 0;
 		switch(c)
 		{
 		case LNEXTCHAR:
@@ -727,7 +730,7 @@ process:
 #if SHOPT_MULTIBYTE
 	ed_external(out,buff);
 #endif /* SHOPT_MULTIBYTE */
-	i = strlen(buff);
+	i = (int)strlen(buff);
 	if (i)
 		return(i);
 	return(-1);
@@ -1001,7 +1004,7 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 				}
 				beep();
 			}
-			else if(i=='=')
+			else if(i=='=' || (i=='\\' && out[cur-1]=='/'))
 			{
 				draw(ep,REFRESH);
 				if(count>0)
@@ -1073,9 +1076,9 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 					if(ep->lastdraw==APPEND && ep->prevdirection != -2)
 					{
 						out[cur] = 0;
-						gencpy(&((genchar*)lstring)[1],out);
+						gencpy((genchar*)lstring+1,out);
 #if SHOPT_MULTIBYTE
-						ed_external(&((genchar*)lstring)[1],lstring+1);
+						ed_external((genchar*)lstring+1,lstring+1);
 #endif /* SHOPT_MULTIBYTE */
 						*lstring = '^';
 						ep->prevdirection = -2;
@@ -1295,6 +1298,7 @@ static void search(Emacs_t* ep,genchar *out,int direction)
 		ed_external(string,(char*)string);
 #endif /* SHOPT_MULTIBYTE */
 		strncpy(lstring,((char*)string)+2,SEARCHSIZE);
+		lstring[SEARCHSIZE-1] = 0;
 		ep->prevdirection = direction;
 	}
 	else
@@ -1401,7 +1405,7 @@ static void draw(register Emacs_t *ep,Draw_t option)
 		if(ep->ed->hlist)
 			ed_histlist(ep->ed,0);
 	}
-	else if(option!=REFRESH && drawbuff[0]=='#' && cur>1 && drawbuff[cur-1]!='*')
+	else if((option==UPDATE||option==APPEND) && drawbuff[0]=='#' && cur>1 && cur==eol && drawbuff[cur-1]!='*')
 	{
 		int		n;
 		drawbuff[cur+1]=0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -64,7 +64,9 @@ using namespace WebCore;
     self = [super initWithFrame:frame];
     if (!self)
         return nil;
-    
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // In WebHTMLView, we set a clip. This is not typical to do in an
     // NSView, and while correct for any one invocation of drawRect:,
     // it causes some bad problems if that clip is cached between calls.
@@ -75,11 +77,11 @@ using namespace WebCore;
     // See these bugs for more information:
     // <rdar://problem/3409315>: REGRESSSION (7B58-7B60)?: Safari draws blank frames on macosx.apple.com perf page
     [self releaseGState];
-    
+#pragma clang diagnostic pop
+
     return self;
 }
 
-#if USE(ACCELERATED_COMPOSITING)
 - (NSRect)visibleRect
 {
     if (!_isScrolling)
@@ -111,7 +113,6 @@ using namespace WebCore;
 
     _isScrolling = NO;
 }
-#endif
 
 - (void)resetAdditionalClip
 {

@@ -42,6 +42,7 @@ static const char sccsid[] = "@(#)talk.c	8.1 (Berkeley) 6/6/93";
 #endif /* __APPLE__ */
 
 #ifndef lint
+__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";

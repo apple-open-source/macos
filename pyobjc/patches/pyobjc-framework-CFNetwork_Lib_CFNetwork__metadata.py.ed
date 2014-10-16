@@ -1,0 +1,3 @@
+/'CFSocketStreamPairSetSecurityProtocol': ([^ ]* /s///
+/'CFHTTPReadStreamSetProxy': ([^)]*),), /s///
+w

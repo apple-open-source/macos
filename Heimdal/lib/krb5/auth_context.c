@@ -60,6 +60,7 @@ krb5_auth_con_init(krb5_context context,
     p->remote_port    = 0;
     p->keytype        = KRB5_ENCTYPE_NULL;
     p->cksumtype      = CKSUMTYPE_NONE;
+    p->auth_data      = NULL;
     *auth_context     = p;
     return 0;
 }
@@ -81,6 +82,10 @@ krb5_auth_con_free(krb5_context context,
 	krb5_free_keyblock(context, auth_context->keyblock);
 	krb5_free_keyblock(context, auth_context->remote_subkey);
 	krb5_free_keyblock(context, auth_context->local_subkey);
+	if (auth_context->auth_data) {
+	    free_AuthorizationData(auth_context->auth_data);
+	    free(auth_context->auth_data);
+	}
 	free (auth_context);
     }
     return 0;
@@ -465,8 +470,8 @@ krb5_auth_con_setremoteseqnumber (krb5_context context,
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_con_getauthenticator(krb5_context context,
-			   krb5_auth_context auth_context,
-			   krb5_authenticator *authenticator)
+			       krb5_auth_context auth_context,
+			       krb5_authenticator *authenticator)
 {
     *authenticator = malloc(sizeof(**authenticator));
     if (*authenticator == NULL) {
@@ -474,9 +479,8 @@ krb5_auth_con_getauthenticator(krb5_context context,
 	return ENOMEM;
     }
 
-    copy_Authenticator(auth_context->authenticator,
-		       *authenticator);
-    return 0;
+    return copy_Authenticator(auth_context->authenticator,
+			      *authenticator);
 }
 
 
@@ -484,9 +488,12 @@ KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_authenticator(krb5_context context,
 			krb5_authenticator *authenticator)
 {
-    free_Authenticator (*authenticator);
-    free (*authenticator);
-    *authenticator = NULL;
+    if (authenticator) {
+	free_Authenticator (*authenticator);
+	memset(*authenticator, 0, sizeof(**authenticator));
+	free (*authenticator);
+	*authenticator = NULL;
+    }
 }
 
 
@@ -517,6 +524,27 @@ krb5_auth_con_setrcache(krb5_context context,
     auth_context->rcache = rcache;
     return 0;
 }
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_add_AuthorizationData(krb5_context context,
+				    krb5_auth_context auth_context,
+				    int type,
+				    krb5_data *data)
+{
+    AuthorizationDataElement el;
+
+    if (auth_context->auth_data == NULL) {
+	auth_context->auth_data = calloc(1, sizeof(*auth_context->auth_data));
+	if (auth_context->auth_data == NULL)
+	    return krb5_enomem(context);
+    }
+    el.ad_type = type;
+    el.ad_data.data = data->data;
+    el.ad_data.length = data->length;
+
+    return add_AuthorizationData(auth_context->auth_data, &el);
+}
+
 
 #if 0 /* not implemented */
 

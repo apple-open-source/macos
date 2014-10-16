@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,17 +26,32 @@
 #include "config.h"
 #include "OpaqueJSString.h"
 
-#include <interpreter/CallFrame.h>
-#include <runtime/JSGlobalObject.h>
-#include <runtime/Identifier.h>
+#include "CallFrame.h"
+#include "Identifier.h"
+#include "JSGlobalObject.h"
+#include <wtf/text/StringView.h>
 
 using namespace JSC;
 
 PassRefPtr<OpaqueJSString> OpaqueJSString::create(const String& string)
 {
-    if (!string.isNull())
-        return adoptRef(new OpaqueJSString(string));
-    return 0;
+    if (string.isNull())
+        return nullptr;
+
+    return adoptRef(new OpaqueJSString(string));
+}
+
+OpaqueJSString::~OpaqueJSString()
+{
+    // m_characters is put in a local here to avoid an extra atomic load.
+    UChar* characters = m_characters;
+    if (!characters)
+        return;
+
+    if (!m_string.is8Bit() && m_string.characters16() == characters)
+        return;
+
+    fastFree(characters);
 }
 
 String OpaqueJSString::string() const
@@ -60,4 +75,40 @@ Identifier OpaqueJSString::identifier(VM* vm) const
         return Identifier(vm, m_string.characters8(), m_string.length());
 
     return Identifier(vm, m_string.characters16(), m_string.length());
+}
+
+const UChar* OpaqueJSString::characters()
+{
+    if (!this)
+        return nullptr;
+
+    // m_characters is put in a local here to avoid an extra atomic load.
+    UChar* characters = m_characters;
+    if (characters)
+        return characters;
+
+    if (m_string.isNull())
+        return nullptr;
+
+    unsigned length = m_string.length();
+    UChar* newCharacters = static_cast<UChar*>(fastMalloc(length * sizeof(UChar)));
+    StringView(m_string).getCharactersWithUpconvert(newCharacters);
+
+    if (!m_characters.compare_exchange_strong(characters, newCharacters)) {
+        fastFree(newCharacters);
+        return characters;
+    }
+
+    return newCharacters;
+}
+
+bool OpaqueJSString::equal(const OpaqueJSString* a, const OpaqueJSString* b)
+{
+    if (a == b)
+        return true;
+
+    if (!a || !b)
+        return false;
+
+    return a->m_string == b->m_string;
 }

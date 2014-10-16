@@ -89,15 +89,34 @@ __BEGIN_DECLS
 #define kIOHIDMaxFeatureReportSizeKey       "MaxFeatureReportSize"
 #define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDSampleIntervalKey             "SampleInterval"
+#define kIOHIDRequestTimeoutKey             "RequestTimeout"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
 #define kIOHIDKeyboardLanguageKey           "KeyboardLanguage"
 #define kIOHIDAltHandlerIdKey               "alt_handler_id"
 #define kIOHIDBuiltInKey                    "Built-In"
 #define kIOHIDDisplayIntegratedKey          "DisplayIntegrated"
-#define kIOHIDProductIDMaskKey				"ProductIDMask"
-#define kIOHIDProductIDArrayKey				"ProductIDArray"
+#define kIOHIDProductIDMaskKey              "ProductIDMask"
+#define kIOHIDProductIDArrayKey             "ProductIDArray"
 #define kIOHIDPowerOnDelayNSKey             "HIDPowerOnDelayNS"
+#define kIOHIDCategoryKey                   "Category"
+#define kIOHIDMaxResponseLatencyKey         "MaxResponseLatency"
+
+
+#define kIOHIDTransportUSBValue                 "USB"
+#define kIOHIDTransportBluetoothValue           "Bluetooth"
+#define kIOHIDTransportBluetoothLowEnergyValue  "BluetoothLowEnergy"
+#define kIOHIDTransportAIDBValue                "AIDB"
+#define kIOHIDTransportI2CValue                 "I2C"
+#define kIOHIDTransportSPIValue                 "SPI"
+#define kIOHIDTransportSerialValue              "Serial"
+#define kIOHIDTransportIAPValue                 "IAP"
+#define kIOHIDTransportAirPlayValue             "AirPlay"
+#define kIOHIDTransportSPUValue                 "SPU"
+
+
+
+#define kIOHIDCategoryAutomotiveValue       "Automotive"
 
 /*!
     @define kIOHIDElementKey
@@ -237,13 +256,13 @@ __BEGIN_DECLS
     Element used to identify a relationship between two or more elements.
 */
 enum IOHIDElementType {
-	kIOHIDElementTypeInput_Misc        = 1,
-	kIOHIDElementTypeInput_Button      = 2,
-	kIOHIDElementTypeInput_Axis        = 3,
-	kIOHIDElementTypeInput_ScanCodes   = 4,
-	kIOHIDElementTypeOutput            = 129,
-	kIOHIDElementTypeFeature           = 257,
-	kIOHIDElementTypeCollection        = 513
+    kIOHIDElementTypeInput_Misc        = 1,
+    kIOHIDElementTypeInput_Button      = 2,
+    kIOHIDElementTypeInput_Axis        = 3,
+    kIOHIDElementTypeInput_ScanCodes   = 4,
+    kIOHIDElementTypeOutput            = 129,
+    kIOHIDElementTypeFeature           = 257,
+    kIOHIDElementTypeCollection        = 513
 };
 typedef enum IOHIDElementType IOHIDElementType;
 
@@ -269,8 +288,8 @@ typedef enum IOHIDElementType IOHIDElementType;
     Modifies the meaning of the usage attached to the encompassing collection.
 */
 enum IOHIDElementCollectionType{
-	kIOHIDElementCollectionTypePhysical	= 0x00,
-	kIOHIDElementCollectionTypeApplication,
+    kIOHIDElementCollectionTypePhysical    = 0x00,
+    kIOHIDElementCollectionTypeApplication,
     kIOHIDElementCollectionTypeLogical,
     kIOHIDElementCollectionTypeReport,
     kIOHIDElementCollectionTypeNamedArray,
@@ -306,7 +325,7 @@ typedef enum IOHIDReportType IOHIDReportType;
     and other clients from receiving events from the device.
 */
 enum {
-    kIOHIDOptionsTypeNone	 = 0x00,
+    kIOHIDOptionsTypeNone     = 0x00,
     kIOHIDOptionsTypeSeizeDevice = 0x01
 };
 typedef uint32_t IOHIDOptionsType;
@@ -320,7 +339,7 @@ typedef uint32_t IOHIDOptionsType;
     to enqueue all events, relative or absolute, regardless of change.
 */
 enum {
-    kIOHIDQueueOptionsTypeNone	 = 0x00,
+    kIOHIDQueueOptionsTypeNone     = 0x00,
     kIOHIDQueueOptionsTypeEnqueueAll = 0x01
 };
 typedef uint32_t IOHIDQueueOptionsType;
@@ -368,12 +387,15 @@ typedef uint32_t IOHIDValueScaleType;
 /*!
  @typedef IOHIDValueOptions
  @abstract Describes options for gathering element values.
- @constant kIOHIDValueOptionsFlagSimpleRelative Compares against previous value
+ @constant kIOHIDValueOptionsFlagRelativeSimple Compares against previous value
  */
 enum {
-    kIOHIDValueOptionsFlagRelativeSimple = (1<<0)
+    kIOHIDValueOptionsFlagRelativeSimple    = (1<<0),
+    kIOHIDValueOptionsFlagPrevious          = (1<<1)
 };
 typedef uint32_t IOHIDValueOptions;
+
+#define kIOHIDDigitizerGestureCharacterStateKey "DigitizerCharacterGestureState"
 
 
 

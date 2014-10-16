@@ -1,3 +1,4 @@
+ref	-lsocket -lnsl
 hdr,sys	poll,socket,netinet/in
 lib	select,poll,socket
 lib	htons,htonl sys/types.h sys/socket.h netinet/in.h

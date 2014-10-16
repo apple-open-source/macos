@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,21 +43,18 @@ namespace WebCore {
     String fileButtonNoFilesSelectedLabel();
     String defaultDetailsSummaryText();
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     String copyImageUnknownFileLabel();
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
     String contextMenuItemTagOpenLinkInNewWindow();
-#if PLATFORM(QT)
-    String contextMenuItemTagOpenLinkInThisWindow();
-#endif
     String contextMenuItemTagDownloadLinkToDisk();
     String contextMenuItemTagCopyLinkToClipboard();
     String contextMenuItemTagOpenImageInNewWindow();
     String contextMenuItemTagDownloadImageToDisk();
     String contextMenuItemTagCopyImageToClipboard();
-#if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK) || PLATFORM(EFL)
     String contextMenuItemTagCopyImageUrlToClipboard();
 #endif
     String contextMenuItemTagOpenFrameInNewWindow();
@@ -83,7 +80,7 @@ namespace WebCore {
     String contextMenuItemTagUnicodeInsertZWJMark();
     String contextMenuItemTagUnicodeInsertZWNJMark();
 #endif
-#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
+#if PLATFORM(GTK) || PLATFORM(EFL)
     String contextMenuItemTagSelectAll();
 #endif
     String contextMenuItemTagNoGuessesFound();
@@ -108,7 +105,7 @@ namespace WebCore {
     String contextMenuItemTagDefaultDirection();
     String contextMenuItemTagLeftToRight();
     String contextMenuItemTagRightToLeft();
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     String contextMenuItemTagSearchInSpotlight();
     String contextMenuItemTagShowFonts();
     String contextMenuItemTagStyles();
@@ -148,6 +145,7 @@ namespace WebCore {
     String contextMenuItemTagInspectElement();
 #endif // ENABLE(CONTEXT_MENUS)
 
+#if !PLATFORM(IOS)
     String searchMenuNoRecentSearchesText();
     String searchMenuRecentSearchesText();
     String searchMenuClearRecentSearchesText();
@@ -163,6 +161,7 @@ namespace WebCore {
     String AXDescriptionListDetailText();
     String AXFooterRoleDescriptionText();
     String AXFileUploadButtonText();
+    String AXSearchFieldCancelButtonText();
     
     String AXButtonActionVerb();
     String AXRadioButtonActionVerb();
@@ -173,14 +172,16 @@ namespace WebCore {
     String AXMenuListPopupActionVerb();
     String AXLinkActionVerb();
     String AXListItemActionVerb();
+#endif
 
 #if ENABLE(INPUT_TYPE_WEEK)
     // weekFormatInLDML() returns week and year format in LDML, Unicode
     // technical standard 35, Locale Data Markup Language, e.g. "'Week' ww, yyyy"
     String weekFormatInLDML();
 #endif
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(COCOA)
     String AXARIAContentGroupText(const String& ariaType);
+    String AXHorizontalRuleDescriptionText();
 #endif
 
     String missingPluginText();
@@ -196,7 +197,7 @@ namespace WebCore {
     String allFilesText();
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     String builtInPDFPluginName();
     String pdfDocumentTypeDescription();
     String postScriptDocumentTypeDescription();
@@ -208,6 +209,10 @@ namespace WebCore {
 
 #if PLATFORM(IOS)
     String htmlSelectMultipleItems(size_t num);
+    String fileButtonChooseMediaFileLabel();
+    String fileButtonChooseMultipleMediaFilesLabel();
+    String fileButtonNoMediaFileSelectedLabel();
+    String fileButtonNoMediaFilesSelectedLabel();
 #endif
 
     String imageTitle(const String& filename, const IntSize& size);
@@ -245,7 +250,7 @@ namespace WebCore {
     String textTrackOffMenuItemText();
     String textTrackAutomaticMenuItemText();
     String textTrackNoLabelText();
-#if PLATFORM(MAC) || PLATFORM(WIN)
+#if PLATFORM(COCOA) || PLATFORM(WIN)
     String textTrackCountryAndLanguageMenuItemText(const String& title, const String& country, const String& language);
     String textTrackLanguageMenuItemText(const String& title, const String& language);
     String closedCaptionTrackMenuItemText(const String&);
@@ -256,6 +261,13 @@ namespace WebCore {
 
     String snapshottedPlugInLabelTitle();
     String snapshottedPlugInLabelSubtitle();
+
+    String useBlockedPlugInContextMenuTitle();
+
+#if ENABLE(SUBTLE_CRYPTO)
+    String webCryptoMasterKeyKeychainLabel(const String& localizedApplicationName);
+    String webCryptoMasterKeyKeychainComment();
+#endif
 
 #define WEB_UI_STRING(string, description) WebCore::localizedString(string)
 #define WEB_UI_STRING_KEY(string, key, description) WebCore::localizedString(key)

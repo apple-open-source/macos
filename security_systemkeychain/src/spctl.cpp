@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -416,6 +416,21 @@ void assess(const char *target)
 
 	CFDictionary result(outcome.get(), 0);
 	bool success = result.get<CFBooleanRef>(kSecAssessmentAssessmentVerdict) == kCFBooleanTrue;
+	CFDictionary authority(result.get<CFDictionaryRef>(kSecAssessmentAssessmentAuthority), 0);
+	CFStringRef source = NULL;
+	if (authority)
+		source = authority.get<CFStringRef>(kSecAssessmentAssessmentSource);
+	
+	// if the result is a whitelisted weak signature, bend the polite (but not raw) output to our will
+	if (!rawOutput && authority) {
+		if (CFBooleanRef weak = authority.get<CFBooleanRef>(kSecAssessmentAssessmentWeakSignature))
+			if (CFEqual(weak, kCFBooleanTrue)) {
+					// succeeded only because of weak-signature whitelist. Report it as failed
+					success = false;
+					if (source && CFEqual(source, CFSTR("allowed cdhash")))
+						source = CFSTR("matched cdhash");
+				}
+	}
 	
 	if (success) {
 		note(1, "%s: accepted", target);
@@ -429,9 +444,8 @@ void assess(const char *target)
 		if (CFRef<CFDataRef> xml = makeCFData(outcome.get()))
 			fwrite(CFDataGetBytePtr(xml), CFDataGetLength(xml), 1, stdout);
 	} else if (verbose) {
-		CFDictionary authority(result.get<CFDictionaryRef>(kSecAssessmentAssessmentAuthority), 0);
 		if (authority) {
-			if (CFStringRef source = authority.get<CFStringRef>(kSecAssessmentAssessmentSource))
+			if (source)
 				note(1, "source=%s", cfString(source).c_str());
 			if (CFBooleanRef cached = authority.get<CFBooleanRef>(kSecAssessmentAssessmentFromCache)) {
 				if (cached == kCFBooleanFalse)

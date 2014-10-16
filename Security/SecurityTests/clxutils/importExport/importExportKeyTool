@@ -1,0 +1,112 @@
+#! /bin/csh -f
+#
+# Run one iteration of keypair portion of import/export tests.
+# Only used as a subroutine call from importExport.
+#
+# Usage
+#   importExportKeyTool pubKey privKey keychain format quiet(YES|NO) noACL(YES|NO) noClean(YES|NO)
+#
+if ( $#argv != 7 ) then
+	exit(1)
+endif
+set PUBKEY=$argv[1]
+set PRIVKEY=$argv[2]
+set KEYCHAIN=$argv[3]
+set FORMAT=$argv[4]
+set QUIET=$argv[5]
+set NOACL_ARG=
+if ($argv[6] == YES) then
+	set NOACL_ARG=-n
+endif
+set NOCLEAN=$argv[7]
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+set TMP_PUB_KEY=${BUILD_DIR}/tmpPubKey.der
+set TMP_PRIV_KEY=${BUILD_DIR}/tmpPrivKey.der
+
+source setupCommon
+
+#
+# import both keys into empty keychain, typed and untyped
+#
+if ($QUIET == NO) then
+	echo Importing both keys into empty keychain, explicit type/format...
+endif
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PUBKEY -k $KEYCHAIN -t pub -f $FORMAT -K 1 -F $FORMAT -T pub -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCIMPORT $PRIVKEY -k $KEYCHAIN -e -t priv -f $FORMAT -F $FORMAT -T priv -q $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Importing both keys into empty keychain, unspecified type/format...
+endif
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PUBKEY -k $KEYCHAIN -K 1 -F $FORMAT -T pub -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCIMPORT $PRIVKEY -k $KEYCHAIN -e -F $FORMAT -T priv -q $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# export both keys into tmp files, compare to original
+#
+if ($QUIET == NO) then
+	echo Exporting and verifying both keys in $FORMAT format...
+endif
+set cmd="$KCEXPORT $KEYCHAIN -t pubKeys -f $FORMAT -o $TMP_PUB_KEY -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f $FORMAT -o $TMP_PRIV_KEY -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+# compare
+set cmd="$CMP $PUBKEY $TMP_PUB_KEY"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd
+if ($status != 0) then
+	echo Raw $FORMAT public key differs after import/export
+	exit(1)
+endif
+set cmd="$CMP $PRIVKEY $TMP_PRIV_KEY"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd
+if ($status != 0) then
+	echo Raw $FORMAT private key differs after import/export
+	exit(1)
+endif
+
+# clean up
+if($NOCLEAN == NO) then 
+	set cmd="rm -f $TMP_PUB_KEY $TMP_PRIV_KEY"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif

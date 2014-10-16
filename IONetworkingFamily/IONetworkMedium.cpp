@@ -228,8 +228,8 @@ bool IONetworkMedium::isEqualTo(const OSMetaClassBase * obj) const
 
 static bool addNumberToDict(OSDictionary * dict,
                             const char *   key,
-                            UInt32         val,
-                            UInt32         bits = 32)
+                            uint64_t       val,
+                            unsigned int   bits)
 {
     OSNumber * num = OSNumber::withNumber(val, bits);
     bool       ret;
@@ -248,10 +248,10 @@ bool IONetworkMedium::serialize(OSSerialize * s) const
     dict = OSDictionary::withCapacity(4);
     if ( dict == 0 ) return false;
 
-    addNumberToDict(dict, kIOMediumType,  getType());
+    addNumberToDict(dict, kIOMediumType,  getType(),  32);
     addNumberToDict(dict, kIOMediumSpeed, getSpeed(), 64);
-    addNumberToDict(dict, kIOMediumIndex, getIndex());
-    addNumberToDict(dict, kIOMediumFlags, getFlags());
+    addNumberToDict(dict, kIOMediumIndex, getIndex(), 32);
+    addNumberToDict(dict, kIOMediumFlags, getFlags(), 32);
 
     ret = dict->serialize(s);
     dict->release();

@@ -1,0 +1,58 @@
+#
+# certcrl script to test detection of CSSMERR_APPLETP_SSL_BAD_EXT_KEY_USE error
+# Run from sslScripts dirtectory after running makeLocalCert.
+#
+
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+###################################################
+
+test = "Server cert, evaluate as server, expect success"
+cert = localcert.cer
+root = localcert.cer
+leafCertIsCA = true
+sslClient = false
+end
+
+###################################################
+
+test = "Server cert, evaluate as client, expect failure"
+cert = localcert.cer
+root = localcert.cer
+leafCertIsCA = true
+sslClient = true
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SSL_BAD_EXT_KEY_USE
+end
+
+###################################################
+
+test = "Client cert, evaluate as client, expect success"
+cert = clientcert.cer
+root = clientcert.cer
+leafCertIsCA = true
+sslClient = true
+end
+
+###################################################
+
+test = "Client cert, evaluate as server, expect failure"
+cert = clientcert.cer
+root = clientcert.cer
+leafCertIsCA = true
+sslClient = false
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_SSL_BAD_EXT_KEY_USE
+end
+
+###################################################
+
+
+
+
+

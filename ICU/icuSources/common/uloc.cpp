@@ -93,7 +93,7 @@ locale_getKeywords(const char *localeID,
  * The range qaa-qtz is reserved for local use
  */
 /* Generated using org.unicode.cldr.icu.GenerateISO639LanguageTables */
-/* ISO639 table version is 20130123 */
+/* ISO639 table version is 20130531 */
 static const char * const LANGUAGES[] = {
     "aa",  "ab",  "ace", "ach", "ada", "ady", "ae",  "af",  
     "afa", "afh", "agq", "ain", "ak",  "akk", "ale", "alg", 
@@ -173,8 +173,8 @@ static const char * const LANGUAGES[] = {
     "wa",  "wae", "wak", "wal", "war", "was", "wen", "wo",  
     "xal", "xh",  "xog", 
     "yao", "yap", "yav", "ybb", "yi",  "yo",  "ypk", "yue", 
-    "za",  "zap", "zbl", "zen", "zh",  "znd", "zu",  "zun", 
-    "zxx", "zza", 
+    "za",  "zap", "zbl", "zen", "zgh", "zh",  "znd", "zu",  
+    "zun", "zxx", "zza", 
 NULL,
     "in",  "iw",  "ji",  "jw",  "sh",    /* obsolete language codes */
 NULL
@@ -204,7 +204,7 @@ static const char* const REPLACEMENT_LANGUAGES[]={
  * the two lists in LANGUAGES.
  */
 /* Generated using org.unicode.cldr.icu.GenerateISO639LanguageTables */
-/* ISO639 table version is 20130123 */
+/* ISO639 table version is 20130531 */
 static const char * const LANGUAGES_3[] = {
     "aar", "abk", "ace", "ach", "ada", "ady", "ave", "afr", 
     "afa", "afh", "agq", "ain", "aka", "akk", "ale", "alg", 
@@ -284,8 +284,8 @@ static const char * const LANGUAGES_3[] = {
     "wln", "wae", "wak", "wal", "war", "was", "wen", "wol", 
     "xal", "xho", "xog", 
     "yao", "yap", "yav", "ybb", "yid", "yor", "ypk", "yue", 
-    "zha", "zap", "zbl", "zen", "zho", "znd", "zul", "zun", 
-    "zxx", "zza", 
+    "zha", "zap", "zbl", "zen", "zgh", "zho", "znd", "zul", 
+    "zun", "zxx", "zza", 
 NULL,
 /*  "in",  "iw",  "ji",  "jw",  "sh",                          */
     "ind", "heb", "yid", "jaw", "srp",
@@ -678,6 +678,13 @@ _getKeywords(const char *localeID,
                     keywordList[numKeywords].keyword[n++] = uprv_tolower(pos[i]);
                 }
             }
+
+            /* zero-length keyword is an error. */
+            if (n == 0) {
+                *status = U_INVALID_FORMAT_ERROR;
+                return 0;
+            }
+
             keywordList[numKeywords].keyword[n] = 0;
             keywordList[numKeywords].keywordLen = n;
             /* now grab the value part. First we skip the '=' */
@@ -686,8 +693,15 @@ _getKeywords(const char *localeID,
             while(*equalSign == ' ') {
                 equalSign++;
             }
+
+            /* Premature end or zero-length value */
+            if (!equalSign || equalSign == semicolon) {
+                *status = U_INVALID_FORMAT_ERROR;
+                return 0;
+            }
+
             keywordList[numKeywords].valueStart = equalSign;
-            
+
             pos = semicolon;
             i = 0;
             if(pos) {
@@ -2095,6 +2109,39 @@ uloc_getLCID(const char* localeID)
         return 0;
     }
 
+    if (uprv_strchr(localeID, '@')) {
+        // uprv_convertToLCID does not support keywords other than collation.
+        // Remove all keywords except collation.
+        int32_t len;
+        char collVal[ULOC_KEYWORDS_CAPACITY];
+        char tmpLocaleID[ULOC_FULLNAME_CAPACITY];
+
+        len = uloc_getKeywordValue(localeID, "collation", collVal,
+            sizeof(collVal)/sizeof(collVal[0]) - 1, &status);
+
+        if (U_SUCCESS(status) && len > 0) {
+            collVal[len] = 0;
+
+            len = uloc_getBaseName(localeID, tmpLocaleID,
+                sizeof(tmpLocaleID)/sizeof(tmpLocaleID[0]) - 1, &status);
+
+            if (U_SUCCESS(status)) {
+                tmpLocaleID[len] = 0;
+
+                len = uloc_setKeywordValue("collation", collVal, tmpLocaleID,
+                    sizeof(tmpLocaleID)/sizeof(tmpLocaleID[0]) - len - 1, &status);
+
+                if (U_SUCCESS(status)) {
+                    tmpLocaleID[len] = 0;
+                    return uprv_convertToLCID(langID, tmpLocaleID, &status);
+                }
+            }
+        }
+
+        // fall through - all keywords are simply ignored
+        status = U_ZERO_ERROR;
+    }
+
     return uprv_convertToLCID(langID, localeID, &status);
 }
 
@@ -2102,19 +2149,7 @@ U_CAPI int32_t U_EXPORT2
 uloc_getLocaleForLCID(uint32_t hostid, char *locale, int32_t localeCapacity,
                 UErrorCode *status)
 {
-    int32_t length;
-    const char *posix = uprv_convertToPosix(hostid, status);
-    if (U_FAILURE(*status) || posix == NULL) {
-        return 0;
-    }
-    length = (int32_t)uprv_strlen(posix);
-    if (length+1 > localeCapacity) {
-        *status = U_BUFFER_OVERFLOW_ERROR;
-    }
-    else {
-        uprv_strcpy(locale, posix);
-    }
-    return length;
+    return uprv_convertToPosix(hostid, locale, localeCapacity, status);
 }
 
 /* ### Default locale **************************************************/

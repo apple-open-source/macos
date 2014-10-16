@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2014 Apple Inc.  All rights reserved.
  * Copyright (C) 2009, 2010, 2011 Appcelerator, Inc. All rights reserved.
  * Copyright (C) 2011 Brent Fulgham. All rights reserved.
  *
@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCfLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABIuLITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -31,27 +31,24 @@
 #include "WebKit.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
+#include <WebCore/CACFLayerTreeHostClient.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/DragActions.h>
+#include <WebCore/GraphicsLayer.h>
+#include <WebCore/GraphicsLayerClient.h>
 #include <WebCore/IntRect.h>
-#include <WebCore/RefCountedGDIHandle.h>
+#include <WebCore/SharedGDIObject.h>
 #include <WebCore/SuspendableTimer.h>
 #include <WebCore/WindowMessageListener.h>
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
-
-#if USE(ACCELERATED_COMPOSITING)
-#include <WebCore/CACFLayerTreeHostClient.h>
-#include <WebCore/GraphicsLayerClient.h>
-#endif
 
 #if ENABLE(FULLSCREEN_API)
 #include <WebCore/FullScreenControllerClient.h>
 #endif
 
 namespace WebCore {
-#if USE(ACCELERATED_COMPOSITING)
+#if USE(CA)
     class CACFLayerTreeHost;
 #endif
     class FullScreenController;
@@ -70,9 +67,6 @@ class WebFrame;
 class WebInspector;
 class WebInspectorClient;
 
-typedef WebCore::RefCountedGDIHandle<HBITMAP> RefCountedHBITMAP;
-typedef WebCore::RefCountedGDIHandle<HRGN> RefCountedHRGN;
-
 WebView* kit(WebCore::Page*);
 WebCore::Page* core(IWebView*);
 
@@ -89,10 +83,8 @@ class WebView
     , public IWebNotificationObserver
     , public IDropTarget
     , WebCore::WindowMessageListener
-#if USE(ACCELERATED_COMPOSITING)
     , WebCore::GraphicsLayerClient
     , WebCore::CACFLayerTreeHostClient
-#endif
 #if ENABLE(FULLSCREEN_API)
     , WebCore::FullScreenControllerClient
 #endif
@@ -253,11 +245,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE preferencesIdentifier( 
         /* [retval][out] */ BSTR *anIdentifier);
     
-    virtual HRESULT STDMETHODCALLTYPE setHostWindow( 
-        /* [in] */ OLE_HANDLE window);
+    virtual HRESULT STDMETHODCALLTYPE setHostWindow(HWND);
     
-    virtual HRESULT STDMETHODCALLTYPE hostWindow( 
-        /* [retval][out] */ OLE_HANDLE *window);
+    virtual HRESULT STDMETHODCALLTYPE hostWindow(HWND*);
     
     virtual HRESULT STDMETHODCALLTYPE searchFor( 
         /* [in] */ BSTR str,
@@ -334,8 +324,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE mainFrameTitle( 
         /* [retval][out] */ BSTR *title);
     
-    virtual HRESULT STDMETHODCALLTYPE mainFrameIcon( 
-        /* [retval][out] */ OLE_HANDLE *hBitmap);
+    virtual HRESULT STDMETHODCALLTYPE mainFrameIcon(/* [retval][out] */ HBITMAP* hBitmap);
 
     virtual HRESULT STDMETHODCALLTYPE registerURLSchemeAsLocal( 
         /* [in] */ BSTR scheme);
@@ -631,8 +620,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE inViewSourceMode( 
         /* [retval][out] */ BOOL* flag);
 
-    virtual HRESULT STDMETHODCALLTYPE viewWindow( 
-        /* [retval][out] */ OLE_HANDLE *window);
+    virtual HRESULT STDMETHODCALLTYPE viewWindow(/* [retval][out] */ HWND* window);
 
     virtual HRESULT STDMETHODCALLTYPE setFormDelegate( 
         /* [in] */ IWebFormDelegate *formDelegate);
@@ -669,8 +657,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE rectsForTextMatches(
         IEnumTextMatches** pmatches);
 
-    virtual HRESULT STDMETHODCALLTYPE generateSelectionImage(
-        BOOL forceWhiteText, OLE_HANDLE* hBitmap);
+    virtual HRESULT STDMETHODCALLTYPE generateSelectionImage(BOOL forceWhiteText, HBITMAP* hBitmap);
 
     virtual HRESULT STDMETHODCALLTYPE selectionRect(
         RECT* rc);
@@ -726,14 +713,9 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE windowAncestryDidChange();
 
-    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(
-        /* [in] */ RECT rect,
-        /* [in] */ OLE_HANDLE dc);
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(RECT, HDC);
 
-    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(
-        /* [in] */ RECT rect,
-        /* [in] */ POINT pt,
-        /* [in] */ OLE_HANDLE dc);
+    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(RECT, POINT, HDC);
 
     virtual HRESULT STDMETHODCALLTYPE reportException(
         /* [in] */ JSContextRef context,
@@ -750,8 +732,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerChunkSize(
         /* [in] */ int chunkSize);
 
-    virtual HRESULT STDMETHODCALLTYPE backingStore(
-        /* [out, retval] */ OLE_HANDLE* hBitmap);
+    virtual HRESULT STDMETHODCALLTYPE backingStore(/* [out, retval] */ HBITMAP* hBitmap);
 
     virtual HRESULT STDMETHODCALLTYPE setTransparent(
         /* [in] */ BOOL transparent);
@@ -880,7 +861,7 @@ public:
     void paintIntoWindow(HDC bitmapDC, HDC windowDC, const WebCore::IntRect& dirtyRect);
     bool ensureBackingStore();
     void addToDirtyRegion(const WebCore::IntRect&);
-    void addToDirtyRegion(HRGN);
+    void addToDirtyRegion(GDIObject<HRGN>);
     void scrollBackingStore(WebCore::FrameView*, int dx, int dy, const WebCore::IntRect& scrollViewRect, const WebCore::IntRect& clipRect);
     void deleteBackingStore();
     void repaint(const WebCore::IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
@@ -892,6 +873,7 @@ public:
 
     bool transparent() const { return m_transparent; }
     bool usesLayeredWindow() const { return m_usesLayeredWindow; }
+    bool needsDisplay() const { return m_needsDisplay; }
 
     bool onIMEStartComposition();
     bool onIMEComposition(LPARAM);
@@ -910,7 +892,7 @@ public:
 
     // Convenient to be able to violate the rules of COM here for easy movement to the frame.
     WebFrame* topLevelFrame() const { return m_mainFrame; }
-    const WTF::String& userAgentForKURL(const WebCore::KURL& url);
+    const WTF::String& userAgentForKURL(const WebCore::URL& url);
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
 
@@ -949,12 +931,10 @@ public:
     bool onGetObject(WPARAM, LPARAM, LRESULT&) const;
     static STDMETHODIMP AccessibleObjectFromWindow(HWND, DWORD objectID, REFIID, void** ppObject);
 
-    void downloadURL(const WebCore::KURL&);
+    void downloadURL(const WebCore::URL&);
 
-#if USE(ACCELERATED_COMPOSITING)
     void flushPendingGraphicsLayerChangesSoon();
     void setRootChildLayer(WebCore::GraphicsLayer*);
-#endif
 
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
     WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const;
@@ -1024,15 +1004,13 @@ private:
     // (see https://bugs.webkit.org/show_bug.cgi?id=29264)
     DWORD m_lastDropEffect;
 
-#if USE(ACCELERATED_COMPOSITING)
     // GraphicsLayerClient
     virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time);
     virtual void notifyFlushRequired(const WebCore::GraphicsLayer*);
-    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& inClip);
+    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::FloatRect& inClip);
 
     // CACFLayerTreeHostClient
     virtual void flushPendingGraphicsLayerChanges();
-#endif
 
     bool m_shouldInvertColors;
     void setShouldInvertColors(bool);
@@ -1086,9 +1064,9 @@ protected:
     WebInspectorClient* m_inspectorClient;
 #endif // ENABLE(INSPECTOR)
     
-    RefPtr<RefCountedHBITMAP> m_backingStoreBitmap;
+    RefPtr<WebCore::SharedGDIObject<HBITMAP>> m_backingStoreBitmap;
     SIZE m_backingStoreSize;
-    RefPtr<RefCountedHRGN> m_backingStoreDirtyRegion;
+    RefPtr<WebCore::SharedGDIObject<HRGN>> m_backingStoreDirtyRegion;
 
     COMPtr<IAccessibilityDelegate> m_accessibilityDelegate;
     COMPtr<IWebEditingDelegate> m_editingDelegate;
@@ -1136,11 +1114,11 @@ protected:
     static bool s_allowSiteSpecificHacks;
 
     WebCore::SuspendableTimer* m_closeWindowTimer;
-    OwnPtr<TRACKMOUSEEVENT> m_mouseOutTracker;
+    std::unique_ptr<TRACKMOUSEEVENT> m_mouseOutTracker;
 
     HWND m_topLevelParent;
 
-    OwnPtr<HashSet<WTF::String> > m_embeddedViewMIMETypes;
+    std::unique_ptr<HashSet<WTF::String>> m_embeddedViewMIMETypes;
 
     //Variables needed to store gesture information
     RefPtr<WebCore::Node> m_gestureTargetNode;
@@ -1150,20 +1128,20 @@ protected:
     long m_yOverpan;
 
 #if ENABLE(VIDEO)
-    OwnPtr<FullscreenVideoController> m_fullScreenVideoController;
+    std::unique_ptr<FullscreenVideoController> m_fullScreenVideoController;
 #endif
 
-#if USE(ACCELERATED_COMPOSITING)
     bool isAcceleratedCompositing() const { return m_isAcceleratedCompositing; }
     void setAcceleratedCompositing(bool);
-
+#if USE(CA)
     RefPtr<WebCore::CACFLayerTreeHost> m_layerTreeHost;
-    OwnPtr<WebCore::GraphicsLayer> m_backingLayer;
-    bool m_isAcceleratedCompositing;
 #endif
+    std::unique_ptr<WebCore::GraphicsLayer> m_backingLayer;
+    bool m_isAcceleratedCompositing;
 
     bool m_nextDisplayIsSynchronous;
     bool m_usesLayeredWindow;
+    bool m_needsDisplay;
 
     HCURSOR m_lastSetCursor;
 
@@ -1171,7 +1149,7 @@ protected:
 
 #if ENABLE(FULLSCREEN_API)
     RefPtr<WebCore::Element> m_fullScreenElement;
-    OwnPtr<WebCore::FullScreenController> m_fullscreenController;
+    std::unique_ptr<WebCore::FullScreenController> m_fullscreenController;
     WebCore::IntPoint m_scrollPosition;
 #endif
 };

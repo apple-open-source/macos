@@ -31,7 +31,7 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-namespace CoreIPC {
+namespace IPC {
 class Connection;
 class MessageDecoder;
 }
@@ -56,8 +56,6 @@ public:
     static PassRefPtr<LayerTreeHost> create(WebPage*);
     virtual ~LayerTreeHost();
 
-    static bool supportsAcceleratedCompositing();
-
     virtual const LayerTreeContext& layerTreeContext() = 0;
     virtual void scheduleLayerFlush() = 0;
     virtual void setLayerFlushSchedulingEnabled(bool) = 0;
@@ -74,11 +72,10 @@ public:
     virtual void deviceOrPageScaleFactorChanged() = 0;
     virtual void pageBackgroundTransparencyChanged() = 0;
 
-    virtual void didInstallPageOverlay(PageOverlay*) = 0;
-    virtual void didUninstallPageOverlay(PageOverlay*) = 0;
-    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) = 0;
+    virtual void didInstallPageOverlay(PageOverlay*) { }
+    virtual void didUninstallPageOverlay(PageOverlay*) { }
+    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) { }
     virtual void setPageOverlayOpacity(PageOverlay*, float) { }
-    virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
 
     virtual void pauseRendering() { }
     virtual void resumeRendering() { }
@@ -87,14 +84,7 @@ public:
     virtual void setBackgroundColor(const WebCore::Color&) { }
 
 #if USE(COORDINATED_GRAPHICS)
-    virtual void setVisibleContentsRect(const WebCore::FloatRect&, float /* scale */, const WebCore::FloatPoint&) { }
-    virtual void renderNextFrame() { }
-    virtual void purgeBackingStores() { }
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) = 0;
-#endif
-
-#if PLATFORM(MAC)
-    virtual void setLayerHostingMode(LayerHostingMode) { }
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection*, IPC::MessageDecoder&) = 0;
 #endif
 
 #if USE(COORDINATED_GRAPHICS) && ENABLE(REQUEST_ANIMATION_FRAME)
@@ -105,18 +95,7 @@ protected:
     explicit LayerTreeHost(WebPage*);
 
     WebPage* m_webPage;
-
-#if USE(COORDINATED_GRAPHICS)
-    bool m_waitingForUIProcess;
-#endif
 };
-
-#if !USE(COORDINATED_GRAPHICS)
-inline bool LayerTreeHost::supportsAcceleratedCompositing()
-{
-    return true;
-}
-#endif
 
 } // namespace WebKit
 

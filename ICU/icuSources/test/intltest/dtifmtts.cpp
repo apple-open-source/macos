@@ -47,7 +47,8 @@ void DateIntervalFormatTest::runIndexedTest( int32_t index, UBool exec, const ch
         TESTCASE(1, testFormat);
         TESTCASE(2, testFormatUserDII);
         TESTCASE(3, testSetIntervalPatternNoSideEffect);
-        TESTCASE(4, testStress);
+        TESTCASE(4, testYearFormats);
+        TESTCASE(5, testStress);
         default: name = ""; break;
     }
 }
@@ -820,7 +821,7 @@ void DateIntervalFormatTest::testFormat() {
         "zh", "2007 10 10 10:10:10", "2007 11 10 10:10:10", "MMMMy", "2007\\u5e7410\\u6708\\u81f311\\u6708", 
         
         
-        "zh", "2007 10 10 10:10:10", "2007 11 10 10:10:10", "hmv", "2007/10/10 \\u4E0A\\u534810:10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4 \\u2013 2007/11/10 \\u4E0A\\u534810:10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4", 
+        "zh", "2007 10 10 10:10:10", "2007 11 10 10:10:10", "hmv", "2007/10/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10 \\u2013 2007/11/10 \\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:10", 
         
         "zh", "2007 11 10 10:10:10", "2007 11 20 10:10:10", "EEEEdMMMMy", "2007\\u5e7411\\u670810\\u65e5\\u661f\\u671f\\u516d\\u81f320\\u65e5\\u661f\\u671f\\u4e8c", 
         
@@ -849,11 +850,11 @@ void DateIntervalFormatTest::testFormat() {
         "zh", "2007 11 10 10:10:10", "2007 11 20 10:10:10", "MMM", "11\\u6708", // (fixed expected result per ticket:6626: and others)
         
         
-        "zh", "2007 11 10 10:10:10", "2007 11 20 10:10:10", "hmz", "2007/11/10 \\u4e0a\\u534810:10 GMT-8 \\u2013 2007/11/20 \\u4e0a\\u534810:10 GMT-8", 
+        "zh", "2007 11 10 10:10:10", "2007 11 20 10:10:10", "hmz", "2007/11/10 GMT-8\\u4e0a\\u534810:10 \\u2013 2007/11/20 GMT-8\\u4e0a\\u534810:10", 
         
         "zh", "2007 11 10 10:10:10", "2007 11 20 10:10:10", "h", "2007/11/10 \\u4e0a\\u534810\\u65f6 \\u2013 2007/11/20 \\u4e0a\\u534810\\u65f6", 
         
-        "zh", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "EEEEdMMMMy", "2007\\u5e741\\u670810\\u65e5 \\u661f\\u671f\\u4e09",
+        "zh", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "EEEEdMMMMy", "2007\\u5e741\\u670810\\u65e5 \\u661f\\u671f\\u4e09", // (fixed expected result per ticket:6626:)
         
         "zh", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "hm", "\\u4e0a\\u534810:00\\u81f3\\u4e0b\\u53482:10", 
         
@@ -868,7 +869,7 @@ void DateIntervalFormatTest::testFormat() {
         
         "zh", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hmv", "\\u6D1B\\u6749\\u77F6\\u65F6\\u95F4\\u4E0A\\u534810:00\\u81F310:20",
         
-        "zh", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hz", "\\u4e0a\\u534810\\u65f6 GMT-8", 
+        "zh", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hz", "GMT-8\\u4e0a\\u534810\\u65f6", 
         
         "zh", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "hm", "\\u4e0a\\u534810:10", 
         
@@ -1020,7 +1021,7 @@ void DateIntervalFormatTest::testFormat() {
         
         "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "MMMy", "\\u0E15.\\u0E04.-\\u0E1E.\\u0E22. 2550", 
         
-       "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "dM", "10/10 - 10/11", 
+        "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "dM", "10/10 - 10/11", 
         
         "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "My", "10/2550 - 11/2550", 
         
@@ -1187,6 +1188,75 @@ void DateIntervalFormatTest::testSetIntervalPatternNoSideEffect() {
     }
 }
 
+void DateIntervalFormatTest::testYearFormats() {
+    const Locale &enLocale = Locale::getEnglish();
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Calendar> fromTime(Calendar::createInstance(enLocale, status));
+    LocalPointer<Calendar> toTime(Calendar::createInstance(enLocale, status));
+    if (U_FAILURE(status)) {
+        errln("Failure encountered: %s", u_errorName(status));
+        return;
+    }
+    // April 26, 113. Three digit year so that we can test 2 digit years;
+    // 4 digit years with padded 0's and full years.
+    fromTime->set(113, 3, 26);
+    // April 28, 113.
+    toTime->set(113, 3, 28);
+    {
+        LocalPointer<DateIntervalFormat> dif(DateIntervalFormat::createInstance("yyyyMd", enLocale, status));
+        if (U_FAILURE(status)) {
+            dataerrln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        UnicodeString actual;
+        UnicodeString expected(ctou("4/26/0113 - 4/28/0113"));
+        FieldPosition pos = 0;
+        dif->format(*fromTime, *toTime, actual, pos, status);
+        if (U_FAILURE(status)) {
+            errln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        if (actual != expected) {
+            errln("Expected " + expected + ", got: " + actual);
+        }
+    }
+    {
+        LocalPointer<DateIntervalFormat> dif(DateIntervalFormat::createInstance("yyMd", enLocale, status));
+        if (U_FAILURE(status)) {
+            errln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        UnicodeString actual;
+        UnicodeString expected(ctou("4/26/13 - 4/28/13"));
+        FieldPosition pos = 0;
+        dif->format(*fromTime, *toTime, actual, pos, status);
+        if (U_FAILURE(status)) {
+            errln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        if (actual != expected) {
+            errln("Expected " + expected + ", got: " + actual);
+        }
+    }
+    {
+        LocalPointer<DateIntervalFormat> dif(DateIntervalFormat::createInstance("yMd", enLocale, status));
+        if (U_FAILURE(status)) {
+            errln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        UnicodeString actual;
+        UnicodeString expected(ctou("4/26/113 - 4/28/113"));
+        FieldPosition pos = 0;
+        dif->format(*fromTime, *toTime, actual, pos, status);
+        if (U_FAILURE(status)) {
+            errln("Failure encountered: %s", u_errorName(status));
+            return;
+        }
+        if (actual != expected) {
+            errln("Expected " + expected + ", got: " + actual);
+        }
+    }
+}
 
 void DateIntervalFormatTest::expectUserDII(const char** data, 
                                            int32_t data_length) {

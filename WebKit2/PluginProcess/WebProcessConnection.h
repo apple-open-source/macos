@@ -26,7 +26,7 @@
 #ifndef WebProcessConnection_h
 #define WebProcessConnection_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "Connection.h"
 #include "Plugin.h"
@@ -42,50 +42,57 @@ struct PluginCreationParameters;
     
 // A connection from a plug-in process to a web process.
 
-class WebProcessConnection : public RefCounted<WebProcessConnection>, CoreIPC::Connection::Client {
+class WebProcessConnection : public RefCounted<WebProcessConnection>, IPC::Connection::Client {
 public:
-    static PassRefPtr<WebProcessConnection> create(CoreIPC::Connection::Identifier);
+    static PassRefPtr<WebProcessConnection> create(IPC::Connection::Identifier);
     virtual ~WebProcessConnection();
 
-    CoreIPC::Connection* connection() const { return m_connection.get(); }
+    IPC::Connection* connection() const { return m_connection.get(); }
     NPRemoteObjectMap* npRemoteObjectMap() const { return m_npRemoteObjectMap.get(); }
 
     void removePluginControllerProxy(PluginControllerProxy*, Plugin*);
 
     static void setGlobalException(const String&);
+    
+    void pluginDidBecomeVisible(unsigned pluginInstanceID);
+    void pluginDidBecomeHidden(unsigned pluginInstanceID);
+
+    void audioHardwareDidBecomeActive();
+    void audioHardwareDidBecomeInactive();
 
 private:
-    WebProcessConnection(CoreIPC::Connection::Identifier);
+    WebProcessConnection(IPC::Connection::Identifier);
 
-    void addPluginControllerProxy(PassOwnPtr<PluginControllerProxy>);
+    void addPluginControllerProxy(std::unique_ptr<PluginControllerProxy>);
 
     void destroyPluginControllerProxy(PluginControllerProxy*);
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
-    virtual void didClose(CoreIPC::Connection*);
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName);
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection*);
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName);
 
     // Message handlers.
-    void didReceiveWebProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
-    void didReceiveSyncWebProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
+    void didReceiveWebProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveSyncWebProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     void createPlugin(const PluginCreationParameters&, PassRefPtr<Messages::WebProcessConnection::CreatePlugin::DelayedReply>);
     void createPluginAsynchronously(const PluginCreationParameters&);
-    void destroyPlugin(uint64_t pluginInstanceID, bool asynchronousCreationIncomplete);
+    void destroyPlugin(uint64_t pluginInstanceID, bool asynchronousCreationIncomplete, PassRefPtr<Messages::WebProcessConnection::DestroyPlugin::DelayedReply>);
     
     void createPluginInternal(const PluginCreationParameters&, bool& result, bool& wantsWheelEvents, uint32_t& remoteLayerClientID);
 
-    RefPtr<CoreIPC::Connection> m_connection;
+    RefPtr<IPC::Connection> m_connection;
 
-    HashMap<uint64_t, OwnPtr<PluginControllerProxy>> m_pluginControllers;
+    HashMap<uint64_t, std::unique_ptr<PluginControllerProxy>> m_pluginControllers;
     RefPtr<NPRemoteObjectMap> m_npRemoteObjectMap;
     HashSet<uint64_t> m_asynchronousInstanceIDsToIgnore;
+    HashSet<uint64_t> m_visiblePluginInstanceIDs;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 
 #endif // WebProcessConnection_h

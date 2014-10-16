@@ -1,0 +1,53 @@
+//
+// script0016.000
+//
+//		KCAddGenericPassword
+//		KCFindGenericPassword
+//
+// Find the Internet password added in script0016
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0016.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+34 KCFindGenericPassword
+   Input Arguments : 3
+     ServiceName : This is my Service Name
+     AccountName : This is my Account Name
+     Password : /10/0000000000
+   Results : 4
+     OSStatus 0
+     Password : /10/Apple00000
+     ActualLength : 5
+     ItemIndex : 0
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0
+
+
+
+
+
+
+
+

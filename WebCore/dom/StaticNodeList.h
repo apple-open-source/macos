@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,6 +29,7 @@
 #ifndef StaticNodeList_h
 #define StaticNodeList_h
 
+#include "Element.h"
 #include "NodeList.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -36,31 +37,55 @@
 
 namespace WebCore {
 
-    class Node;
+class StaticNodeList final : public NodeList {
+public:
+    static PassRefPtr<StaticNodeList> adopt(Vector<Ref<Node>>& nodes)
+    {
+        RefPtr<StaticNodeList> nodeList = adoptRef(new StaticNodeList);
+        nodeList->m_nodes.swap(nodes);
+        return nodeList.release();
+    }
 
-    class StaticNodeList : public NodeList {
-    public:
-        static PassRefPtr<StaticNodeList> adopt(Vector<RefPtr<Node> >& nodes)
-        {
-            RefPtr<StaticNodeList> nodeList = adoptRef(new StaticNodeList);
-            nodeList->m_nodes.swap(nodes);
-            return nodeList.release();
-        }
+    static PassRefPtr<StaticNodeList> createEmpty()
+    {
+        return adoptRef(new StaticNodeList);
+    }
 
-        static PassRefPtr<StaticNodeList> createEmpty()
-        {
-            return adoptRef(new StaticNodeList);
-        }
+    virtual unsigned length() const override;
+    virtual Node* item(unsigned index) const override;
+    virtual Node* namedItem(const AtomicString&) const override;
 
-        virtual unsigned length() const OVERRIDE;
-        virtual Node* item(unsigned index) const OVERRIDE;
-        virtual Node* namedItem(const AtomicString&) const OVERRIDE;
+private:
+    StaticNodeList() { }
 
-    private:
-        StaticNodeList() { }
+    Vector<Ref<Node>> m_nodes;
+};
 
-        Vector<RefPtr<Node> > m_nodes;
-    };
+class StaticElementList final : public NodeList {
+public:
+    static PassRefPtr<StaticElementList> adopt(Vector<Ref<Element>>& elements)
+    {
+        RefPtr<StaticElementList> nodeList = adoptRef(new StaticElementList);
+        nodeList->m_elements.swap(elements);
+        return nodeList.release();
+    }
+
+    static PassRefPtr<StaticElementList> createEmpty()
+    {
+        return adoptRef(new StaticElementList);
+    }
+
+    virtual unsigned length() const override;
+    virtual Node* item(unsigned index) const override;
+    virtual Node* namedItem(const AtomicString&) const override;
+
+private:
+    StaticElementList()
+    {
+    }
+
+    Vector<Ref<Element>> m_elements;
+};
 
 } // namespace WebCore
 

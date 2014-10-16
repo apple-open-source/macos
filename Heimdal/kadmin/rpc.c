@@ -203,10 +203,10 @@ read_data(krb5_storage *sp, krb5_storage *msg, size_t len)
 	    tlen = sizeof(buf);
 	
 	slen = krb5_storage_read(sp, buf, tlen);
-	INSIST(slen == tlen);
+	INSIST((size_t)slen == tlen);
 	
 	slen = krb5_storage_write(msg, buf, tlen);
-	INSIST(slen == tlen);
+	INSIST((size_t)slen == tlen);
 	
 	len -= tlen;
     }
@@ -460,8 +460,8 @@ proc_chrand_principal_v2(kadm5_server_context *lcontext,
     krb5_error_code ret;
     krb5_principal principal;
     uint32_t version;
-    krb5_keyblock *new_keys;
-    int n_keys;
+    krb5_keyblock *new_keys = NULL;
+    int n_keys = 0;
     char *princ = NULL;
 
     CHECK(krb5_ret_uint32(in, &version));
@@ -486,7 +486,7 @@ proc_chrand_principal_v2(kadm5_server_context *lcontext,
 	size_t i;
 	CHECK(krb5_store_int32(out, n_keys));
 
-	for(i = 0; i < n_keys; i++){
+	for(i = 0; i < (size_t)n_keys; i++){
 	    CHECK(krb5_store_uint32(out, new_keys[i].keytype));
 	    CHECK(_kadm5_xdr_store_data_xdr(out, new_keys[i].keyvalue));
 	    krb5_free_keyblock_contents(lcontext->context, &new_keys[i]);
@@ -506,10 +506,10 @@ proc_chrand_principal_v3(kadm5_server_context *lcontext,
     krb5_error_code ret;
     krb5_principal principal;
     uint32_t version, keepold, n_ks_tuple;
-    krb5_keyblock *new_keys;
-    krb5_key_salt_tuple *ks_tuple;
+    krb5_keyblock *new_keys = NULL;
+    krb5_key_salt_tuple *ks_tuple = NULL;
     char *princ = NULL;
-    int n_keys;
+    int n_keys = 0;
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
@@ -532,7 +532,7 @@ proc_chrand_principal_v3(kadm5_server_context *lcontext,
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret));
     if (ret == 0) {
-	size_t i;
+	int i;
 	CHECK(krb5_store_int32(out, n_keys));
 
 	for(i = 0; i < n_keys; i++){
@@ -607,7 +607,7 @@ copyheader(krb5_storage *sp, krb5_data *data)
     off = krb5_storage_seek(sp, 0, SEEK_CUR);
 
     CHECK(krb5_data_alloc(data, off));
-    INSIST(off == data->length);
+    INSIST(off >= 0 && (size_t)off == data->length);
     krb5_storage_seek(sp, 0, SEEK_SET);
     sret = krb5_storage_read(sp, data->data, data->length);
     INSIST(sret == off);
@@ -860,7 +860,7 @@ rpcgss_reply(struct gctx *gctx, krb5_storage *dreply, krb5_storage *reply)
 	ssize_t sret;
 	gctx->inprogress = 0;
 	sret = krb5_storage_write(reply, data.data, data.length);
-	INSIST(sret == data.length);
+	INSIST(sret >= 0 && (size_t)sret == data.length);
 	krb5_data_free(&data);
     } else {
 	int conf_state;
@@ -1122,7 +1122,7 @@ rpcgssapi_reply(struct gctx *gctx, krb5_storage *dreply, krb5_storage *reply)
 	ssize_t sret;
 	gctx->inprogress = 0;
 	sret = krb5_storage_write(reply, data.data, data.length);
-	INSIST(sret == data.length);
+	INSIST(sret >= 0 && (size_t)sret == data.length);
 	krb5_data_free(&data);
     } else {
 	int conf_state;
@@ -1197,7 +1197,7 @@ process_stream(krb5_context lcontext,
 	    if (ilen < 4) {
 		memcpy(tmp, buf, ilen);
 		slen = krb5_storage_read(sp, tmp + ilen, sizeof(tmp) - ilen);
-		INSIST(slen == sizeof(tmp) - ilen);
+		INSIST(slen >= 0 && (size_t)slen == sizeof(tmp) - ilen);
 
 		ilen = sizeof(tmp);
 		buf = tmp;
@@ -1214,12 +1214,12 @@ process_stream(krb5_context lcontext,
 	    if (ilen) {
 		if (len < ilen) {
 		    slen = krb5_storage_write(msg, buf, len);
-		    INSIST(slen == len);
+		    INSIST(slen >= 0 && (size_t)slen == len);
 		    ilen -= len;
 		    len = 0;
 		} else {
 		    slen = krb5_storage_write(msg, buf, ilen);
-		    INSIST(slen == ilen);
+		    INSIST(slen >= 0 && (size_t)slen == ilen);
 		    len -= ilen;
 		}
 	    }
@@ -1291,6 +1291,7 @@ process_stream(krb5_context lcontext,
 
 	if (!gctx.done) {
 	    krb5_data data;
+	    ssize_t sret;
 
 	    CHECK(krb5_store_uint32(reply, 0)); /* flavor_none */
 	    CHECK(krb5_store_uint32(reply, 0)); /* length */
@@ -1298,7 +1299,8 @@ process_stream(krb5_context lcontext,
 	    CHECK(krb5_store_uint32(reply, 0)); /* SUCCESS */
 
 	    CHECK(krb5_storage_to_data(dreply, &data));
-	    INSIST(krb5_storage_write(reply, data.data, data.length) == data.length);
+	    sret = krb5_storage_write(reply, data.data, data.length);
+	    INSIST(sret >= 0 && (size_t)sret == data.length);
 	    krb5_data_free(&data);
 	} else {
 	    INSIST(gctx.reply != NULL);
@@ -1312,7 +1314,7 @@ process_stream(krb5_context lcontext,
 	    CHECK(krb5_storage_to_data(reply, &data));
 	    CHECK(krb5_store_uint32(sp, ((uint32_t)data.length) | LAST_FRAGMENT));
 	    sret = krb5_storage_write(sp, data.data, data.length);
-	    INSIST(sret == data.length);
+	    INSIST(sret >= 0 && (size_t)sret == data.length);
 	    krb5_data_free(&data);
 	}
 

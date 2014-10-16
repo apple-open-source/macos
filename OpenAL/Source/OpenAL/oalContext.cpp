@@ -68,7 +68,8 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 		mASAReverbQuality(ALC_ASA_REVERB_QUALITY_Low),
 		mASAReverbEQGain(0.0),
 		mASAReverbEQBandwidth(3.0),
-		mASAReverbEQFrequency(800.0)
+		mASAReverbEQFrequency(800.0),
+        mOutputCapturer(nullptr)
 #if LOG_BUS_CONNECTIONS
 		, mMonoSourcesConnected(0),
 		mStereoSourcesConnected(0)
@@ -79,8 +80,8 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 #endif
 		mBusInfo = (BusInfo *) calloc (1, sizeof(BusInfo) * mBusCount);
 
-		UInt32		monoSources = 0,
-					stereoSources = 1; // default
+//		UInt32		monoSources = 0;
+        UInt32      stereoSources = 1; // default
 
 		UInt32		inAttributeListSize = 0;
 		Boolean		userSetMixerOutputRate = false;
@@ -103,7 +104,7 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 						break;
 					case ALC_MONO_SOURCES:
 						mUserSpecifiedBusCounts = true;
-						monoSources = currentAttribute[1];
+//						monoSources = currentAttribute[1];
 						break;
 					case ALC_STEREO_SOURCES:
 						mUserSpecifiedBusCounts = true;
@@ -196,6 +197,12 @@ OALContext::~OALContext()
 		CleanUpDeadSourceList();
 		delete mDeadSourceMap;
 	}
+    
+    if(mOutputCapturer)
+    {
+        delete mOutputCapturer;
+        mOutputCapturer = NULL;
+    }
 	
 	if (mAttributeList)
 		free(mAttributeList);
@@ -305,7 +312,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 		// Set the Output Format of the Mixer AU
 		CAStreamBasicDescription	format;
 		UInt32                      propSize = sizeof(format);
-		result = AudioUnitGetProperty(mOwningDevice->GetOutputAU(), kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, &propSize);
+		/*result =*/ AudioUnitGetProperty(mOwningDevice->GetOutputAU(), kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, &propSize);
 
 		format.SetCanonical (mOwningDevice->GetDesiredRenderChannelCount(), false);	// determine how many channels to render to
 		format.mSampleRate = GetMixerRate();										// Sample Rate (either the default out rate of the Output AU or a User Specified rate)
@@ -316,7 +323,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 		// Frames Per Slice - moved from ConnectContext call in device class
 		UInt32		mixerFPS = 0;
 		UInt32		dataSize = sizeof(mixerFPS);
-		result = AudioUnitGetProperty(mMixerUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &mixerFPS, &dataSize);
+		/*result =*/ AudioUnitGetProperty(mMixerUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &mixerFPS, &dataSize);
 		if (mixerFPS < mOwningDevice->GetFramesPerSlice())
 		{
 			mixerFPS = mOwningDevice->GetFramesPerSlice();
@@ -325,7 +332,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 		}
 
 		// REVERB off by default
-		result = AudioUnitSetProperty(mMixerUnit, kAudioUnitProperty_UsesInternalReverb, kAudioUnitScope_Global, 0, &mASAReverbState, sizeof(mASAReverbState));
+		/*result =*/ AudioUnitSetProperty(mMixerUnit, kAudioUnitProperty_UsesInternalReverb, kAudioUnitScope_Global, 0, &mASAReverbState, sizeof(mASAReverbState));
 		// ignore result
 
 		// MIXER BUS COUNT
@@ -387,7 +394,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 					render_flags_3d += k3DMixerRenderingFlags_InterAuralDelay; // off by default, on if the user sets High Quality rendering
 
 				// Render Flags
-				result = AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input, i, &render_flags_3d, sizeof(render_flags_3d));
+				/*result =*/ AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input, i, &render_flags_3d, sizeof(render_flags_3d));
 			}
 		}
 
@@ -412,12 +419,12 @@ void	OALContext::ConfigureMixerFormat()
 	// Set the Output Format of the Mixer AU
 	CAStreamBasicDescription	format;
 	UInt32                      propSize = sizeof(format);
-	OSStatus	result = AudioUnitGetProperty(mMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, &propSize);
+    AudioUnitGetProperty(mMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, &propSize);
 
 	format.SetCanonical (mOwningDevice->GetDesiredRenderChannelCount(), false);	// determine how many channels to render to
 	format.mSampleRate = GetMixerRate();										// Sample Rate (either the default out rate of the Output AU or a User Specified rate)
 
-	result = AudioUnitSetProperty (mMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, sizeof(format));
+	OSStatus result = AudioUnitSetProperty (mMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &format, sizeof(format));
 		THROW_RESULT
 
 	// Initialize Busses - render channel attributes attributes may affect this operation
@@ -645,7 +652,7 @@ void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 #if LOG_CONTEXT_VERBOSE || LOG_GRAPH_AND_MIXER_CHANGES
 	DebugMessageN2("OALContext::SetDistanceModel() - OALContext:inDistanceModel = %ld:%d", (long int) mSelfToken, inDistanceModel);
 #endif
-	OSStatus	result = noErr;
+//	OSStatus	result = noErr;
 	UInt32		curve;
 	
 	if (mDistanceModel != inDistanceModel)
@@ -661,7 +668,7 @@ void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 					curve =2 /* k3DMixerAttenuationCurve_Inverse*/;
 					for (UInt32	i = 0; i < mBusCount; i++)
 					{
-						result = AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
+						/*result =*/ AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
 					}
 				}
 				else
@@ -692,7 +699,7 @@ void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 					curve = 3 /*k3DMixerAttenuationCurve_Linear*/;
 					for (UInt32	i = 0; i < mBusCount; i++)
 					{
-						result = AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
+						/*result =*/ AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
 					}
 				}
 				else
@@ -712,7 +719,7 @@ void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 					curve = 1 /*k3DMixerAttenuationCurve_Exponential*/;
 					for (UInt32	i = 0; i < mBusCount; i++)
 					{
-						result = AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
+						/*result =*/ AudioUnitSetProperty(	mMixerUnit, 3013 /*kAudioUnitProperty_3DMixerAttenuationCurve*/, kAudioUnitScope_Input, i, &curve, sizeof(curve));
 					}
 				}
 				else
@@ -1000,12 +1007,34 @@ void OALContext::InitRenderQualityOnBusses()
         if ((result == noErr) && (format.NumberChannels() == 1)) 
 		{
 			// Spatialization
-			result = AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input, 
+			/*result =*/ AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input,
 											i, &mSpatialSetting, sizeof(mSpatialSetting));
 
 			// Render Flags                
-            result = AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input, 
+            /*result =*/ AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input,
 											i, &render_flags_3d, sizeof(render_flags_3d));						
+		}
+	}
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void OALContext::InitRenderQualityOnSources()
+{
+#if LOG_CONTEXT_VERBOSE
+	DebugMessageN1("OALContext::InitRenderQualityOnSources() - OALContext = %ld", (long int) mSelfToken);
+#endif
+    
+    if (mSourceMap)
+	{
+		for (UInt32  i = 0; i < mSourceMap->Size(); i++)
+		{
+			OALSource	*oalSource = mSourceMap->GetSourceByIndex(0);
+			if (oalSource)
+			{
+                ProtectSource(oalSource->GetToken());
+				oalSource->SetRenderQuality(GetRenderQuality());
+                ReleaseSource(oalSource);
+			}
 		}
 	}
 }
@@ -1026,8 +1055,101 @@ void OALContext::SetRenderQuality (UInt32 inRenderQuality)
 	mRenderQuality = inRenderQuality;
 			
 	// change the spatialization for all mono busses on the mixer
-	InitRenderQualityOnBusses(); 
+	InitRenderQualityOnBusses();
+    
+    // reset the render quality on all the sources to the new render quality
+    InitRenderQualityOnSources();
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void OALContext::SetSourceDesiredRenderQualityOnBus (UInt32 inRenderQuality, int inBus)
+{
+#if LOG_CONTEXT_VERBOSE
+	DebugMessageN3("OALContext::SetSourceDesiredRenderQualityOnBus() - OALContext:inRenderQuality:inBus = %d:%d:%d", (int) mSelfToken, (int) inRenderQuality, inBus);
+#endif
+    
+    //if we're in multi-channel mode, don't change the render quality
+    UInt32		channelCount = mOwningDevice->GetDesiredRenderChannelCount();
+	if (channelCount > 2)
+        return;
+    
+    OSStatus err = noErr;
+    int spatialSetting = -1;
+    CAStreamBasicDescription format;  UInt32 propSize = sizeof(format);
+    
+	// make sure a valid quality setting is requested
+	if (!IsValidRenderQuality(inRenderQuality))
+    {
+		//err = -50;
+        goto end;
+    }
+    
+    if (inRenderQuality == ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_LOW)
+	{
+		// this is the default case for non headphone quality
+		spatialSetting =  kSpatializationAlgorithm_EqualPowerPanning;
+	}
+    else if (inRenderQuality == ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_HIGH)
+    {
+        spatialSetting = kSpatializationAlgorithm_HRTF;
+    }
+	else
+    {
+		//err = -50; // unknown quality setting
+        goto end;
+    }
+    
+    //check if it is appropriate to set the render quality based on the format of the bus
+    err = AudioUnitGetProperty (	mMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, inBus, &format, &propSize);
+    if (err == noErr)
+    {
+        //the spatial algorithm should be set only for Mono busses (Stereo busses are automatically set to kSpatializationAlgorithm_StereoPassThrough)
+        if ((format.mChannelsPerFrame == 1) && (spatialSetting != -1))
+        {
+            err = AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input, inBus, &spatialSetting, sizeof(spatialSetting));
+            if (err)
+                goto end;
+        }
+    }
+    
+end:
+    return;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+UInt32 OALContext::GetRenderQualityForBus (int inBus)
+{
+#if LOG_CONTEXT_VERBOSE
+    DebugMessageN1(XLOG_TRACE, kOALLogScope_Context, "OALContext::GetRenderQualityForBus() - inBus = %d", inBus);
+#endif
+    
+    //if we encounter any errors along the way, return the context's render quality
+    UInt32 renderQuality = mRenderQuality;
+    
+    UInt32 spatialAlgo = 0;  UInt32 propSize = sizeof(spatialAlgo);
+    OSStatus result = AudioUnitGetProperty(mMixerUnit, kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input, inBus, &spatialAlgo, &propSize);
+    if(result) {
+        goto end;
+    }
+    
+    switch (spatialAlgo)
+    {
+        case kSpatializationAlgorithm_EqualPowerPanning:
+            renderQuality = ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_LOW;
+            break;
+            
+        case kSpatializationAlgorithm_HRTF:
+            renderQuality = ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_HIGH;
+            break;
+            
+        default:
+            break;
+    }
+    
+end:
+    return renderQuality;
+}
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void    OALContext::SetDistanceAttenuation(UInt32    inBusIndex, Float64 inRefDist, Float64 inMaxDist, Float64 inRolloff)
@@ -1109,7 +1231,7 @@ UInt32		OALContext::GetAvailableMonoBus (ALuint inSourceToken)
 					render_flags_3d += k3DMixerRenderingFlags_InterAuralDelay; // off by default, on if the user sets High Quality rendering
 
 				// Render Flags
-				result = AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input, 
+				/*result =*/ AudioUnitSetProperty(	mMixerUnit, kAudioUnitProperty_3DMixerRenderingFlags, kAudioUnitScope_Input,
 												i, &render_flags_3d, sizeof(render_flags_3d));
 				
 				return (i);
@@ -1492,3 +1614,82 @@ OSStatus OALContext::DoPostRender ()
 	
 	return noErr;
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Output Capturer Extension
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+OSStatus    OALContext::OutputCapturerCreate(Float64 inSampleRate, UInt32 inOALFormat, UInt32 inBufferSize)
+{
+    try {
+        if (!mOutputCapturer)
+        {
+            mOutputCapturer = new OALCaptureMixer(GetMixerUnit(), inSampleRate, inOALFormat, inBufferSize);
+        }
+        else
+        {
+            if (mOutputCapturer->IsCapturing())
+            {
+                throw static_cast<OSStatus>(-1);
+            }
+            delete mOutputCapturer; mOutputCapturer = NULL;
+            mOutputCapturer = new OALCaptureMixer(GetMixerUnit(), inSampleRate, inOALFormat, inBufferSize);
+        }
+    }
+    catch (OSStatus result) {
+        delete mOutputCapturer;
+        mOutputCapturer = NULL;
+		return result;
+	}
+	catch (...) {
+        delete mOutputCapturer;
+        mOutputCapturer = NULL;
+		return static_cast<OSStatus>(-1);
+	}
+    
+    return noErr;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+OSStatus    OALContext::OutputCapturerStart()
+{
+    if (mOutputCapturer)
+        mOutputCapturer->StartCapture();
+    else
+        return static_cast<OSStatus>(-1);  //object doesn't exist
+    
+    return noErr;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+OSStatus    OALContext::OutputCapturerStop()
+{
+    if (mOutputCapturer)
+        mOutputCapturer->StopCapture();
+    else
+        return static_cast<OSStatus>(-1);  //object doesn't exist
+    
+    return noErr;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+OSStatus    OALContext::OutputCapturerGetFrames(UInt32 inFrameCount, UInt8*	inBuffer)
+{
+    if (mOutputCapturer)
+        return mOutputCapturer->GetFrames(inFrameCount, inBuffer);
+    else
+        return static_cast<OSStatus>(-1);  //object doesn't exist
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+UInt32    OALContext::OutputCapturerAvailableFrames()
+{
+    if (mOutputCapturer)
+    {
+        return mOutputCapturer->AvailableFrames();
+    }
+    
+    return 0;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

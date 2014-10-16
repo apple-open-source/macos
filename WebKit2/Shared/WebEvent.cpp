@@ -46,14 +46,14 @@ WebEvent::WebEvent(Type type, Modifiers modifiers, double timestamp)
 {
 }
 
-void WebEvent::encode(CoreIPC::ArgumentEncoder& encoder) const
+void WebEvent::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << m_type;
     encoder << m_modifiers;
     encoder << m_timestamp;
 }
 
-bool WebEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebEvent& result)
+bool WebEvent::decode(IPC::ArgumentDecoder& decoder, WebEvent& result)
 {
     if (!decoder.decode(result.m_type))
         return false;
@@ -63,5 +63,17 @@ bool WebEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebEvent& result)
         return false;
     return true;
 }
-    
+
+#if ENABLE(TOUCH_EVENTS)
+bool WebTouchEvent::allTouchPointsAreReleased() const
+{
+    for (const auto& touchPoint : touchPoints()) {
+        if (touchPoint.state() != WebPlatformTouchPoint::TouchReleased && touchPoint.state() != WebPlatformTouchPoint::TouchCancelled)
+            return false;
+    }
+
+    return true;
+}
+#endif
+
 } // namespace WebKit

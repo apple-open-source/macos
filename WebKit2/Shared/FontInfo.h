@@ -26,11 +26,11 @@
 #ifndef FontInfo_h
 #define FontInfo_h
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
 #endif
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
@@ -38,10 +38,10 @@ namespace CoreIPC {
 namespace WebKit {
     
 struct FontInfo {
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, FontInfo&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, FontInfo&);
     
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     RetainPtr<CFDictionaryRef> fontAttributeDictionary;
 #endif
 };

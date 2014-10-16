@@ -30,14 +30,26 @@
 
 #include "AuthenticationMac.h"
 #include "Credential.h"
+#include "ProtectionSpace.h"
 
 namespace WebCore {
 
 Credential CredentialStorage::getFromPersistentStorage(const ProtectionSpace& protectionSpace)
 {
-    NSURLCredential *credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:mac(protectionSpace)];
+    NSURLCredential *credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:protectionSpace.nsSpace()];
     return credential ? core(credential) : Credential();
 }
+
+#if PLATFORM(IOS)
+void CredentialStorage::saveToPersistentStorage(const ProtectionSpace& protectionSpace, const Credential& credential)
+{
+    if (credential.persistence() == CredentialPersistenceNone) {
+        Credential sessionCredential(credential, CredentialPersistenceForSession);
+        [[NSURLCredentialStorage sharedCredentialStorage] setDefaultCredential:mac(sessionCredential) forProtectionSpace:mac(protectionSpace)];
+    } else
+        [[NSURLCredentialStorage sharedCredentialStorage] setDefaultCredential:mac(credential) forProtectionSpace:mac(protectionSpace)];
+}
+#endif
 
 } // namespace WebCore
 

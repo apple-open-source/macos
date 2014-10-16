@@ -8,9 +8,9 @@
 
   CVS Info :
 
-    $Author: mrowe $ 
-    $Date: 2010/12/17 11:35:37 $ 
-    $Revision: 1.9 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
 */
 

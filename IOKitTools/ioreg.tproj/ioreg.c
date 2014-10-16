@@ -1807,7 +1807,7 @@ static void makepath(io_registry_entry_t target, io_string_t path)
     status = IORegistryEntryGetPath(target, kIODeviceTreePlane, path);
     assertion(status == KERN_SUCCESS, "unable to get path");
 
-    strlcpy(path, strchr(path, ':') + 1, sizeof(io_string_t));
+    memmove(path, strchr(path, ':') + 1, strlen(strchr(path, ':') + 1) + 1);
 }
 
 static Boolean lookupPHandle(UInt32 phandle, io_registry_entry_t * device)

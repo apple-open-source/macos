@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'ios_ota_cert_tool' target in the 'ios_ota_cert_tool' project
+//
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+#endif

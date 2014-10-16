@@ -1,0 +1,71 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		055C346A044F0AF9006A3C68 = {
+			children = (
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		055C346C044F0AF9006A3C68 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		055C346D044F0AF9006A3C68 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		055C346E044F0AF9006A3C68 = {
+			buildStyles = (
+				055C346C044F0AF9006A3C68,
+				055C346D044F0AF9006A3C68,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 055C346A044F0AF9006A3C68;
+			projectDirPath = "";
+			targets = (
+				055C346F044F0B1B006A3C68,
+			);
+		};
+		055C346F044F0B1B006A3C68 = {
+			buildArgumentsString = "$ACTION \"SRCROOT=$SRCROOT\" \"OBJROOT=$OBJROOT\" \"DSTROOT=$DSTROOT\" \"SRCROOT=$SRCROOT\"";
+			buildPhases = (
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cspxutils;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /usr/bin/gnumake;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = cspxutils;
+			passBuildSettingsInEnvironment = 1;
+			productName = cspxutils;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+	};
+	rootObject = 055C346E044F0AF9006A3C68;
+}

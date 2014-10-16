@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -38,21 +38,12 @@ int vmclear(vm)
 Vmalloc_t*	vm;
 #endif
 {
-	reg Seg_t*	seg;
-	reg Seg_t*	next;
-	reg Block_t*	tp;
-	reg size_t	size, s;
-	reg Vmdata_t*	vd = vm->data;
-	reg int		inuse;
+	Seg_t		*seg, *next;
+	Block_t		*tp;
+	size_t		size, s;
+	Vmdata_t	*vd = vm->data;
 
-	SETINUSE(vd, inuse);
-	if(!(vd->mode&VM_TRUST) )
-	{	if(ISLOCK(vd,0))
-		{	CLRINUSE(vd, inuse);
-			return -1;
-		}
-		SETLOCK(vd,0);
-	}
+	SETLOCK(vm, 0);
 
 	vd->free = vd->wild = NIL(Block_t*);
 	vd->pool = 0;
@@ -86,8 +77,8 @@ Vmalloc_t*	vm;
 		SIZE(tp) = BUSY;
 	}
 
-	CLRLOCK(vd,0);
-	CLRINUSE(vd, inuse);
+	CLRLOCK(vm, 0);
+
 	return 0;
 }
 

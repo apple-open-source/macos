@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,92 +33,39 @@
 #include "Event.h"
 #include "ExceptionCodePlaceholder.h"
 #include "HTMLMediaElement.h"
+#include "InbandDataTextTrack.h"
+#include "InbandGenericTextTrack.h"
 #include "InbandTextTrackPrivate.h"
+#include "InbandWebVTTTextTrack.h"
 #include "Logging.h"
-#include "TextTrackCueGeneric.h"
 #include "TextTrackCueList.h"
 #include <math.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
-void TextTrackCueMap::add(GenericCueData* cueData, TextTrackCueGeneric* cue)
+PassRefPtr<InbandTextTrack> InbandTextTrack::create(ScriptExecutionContext* context,
+    TextTrackClient* client, PassRefPtr<InbandTextTrackPrivate> trackPrivate)
 {
-    m_dataToCueMap.add(cueData, cue);
-    m_cueToDataMap.add(cue, cueData);
-}
-
-PassRefPtr<TextTrackCueGeneric> TextTrackCueMap::find(GenericCueData* cueData)
-{
-    GenericCueDataToCueMap::iterator iter = m_dataToCueMap.find(cueData);
-    if (iter == m_dataToCueMap.end())
-        return 0;
-    
-    return iter->value;
-}
-
-PassRefPtr<GenericCueData> TextTrackCueMap::find(TextTrackCueGeneric* cue)
-{
-    GenericCueToCueDataMap::iterator iter = m_cueToDataMap.find(cue);
-    if (iter == m_cueToDataMap.end())
-        return 0;
-    
-    return iter->value;
-}
-
-void TextTrackCueMap::remove(GenericCueData* cueData)
-{
-    RefPtr<TextTrackCueGeneric> cue = find(cueData);
-
-    if (cue)
-        m_cueToDataMap.remove(cue);
-    m_dataToCueMap.remove(cueData);
-}
-
-void TextTrackCueMap::remove(TextTrackCueGeneric* cue)
-{
-    RefPtr<GenericCueData> cueData = find(cue);
-
-    if (cueData)
-        m_dataToCueMap.remove(cueData);
-    m_cueToDataMap.remove(cue);
-}
-
-
-PassRefPtr<InbandTextTrack> InbandTextTrack::create(ScriptExecutionContext* context, TextTrackClient* client, PassRefPtr<InbandTextTrackPrivate> playerPrivate)
-{
-    return adoptRef(new InbandTextTrack(context, client, playerPrivate));
-}
-
-InbandTextTrack::InbandTextTrack(ScriptExecutionContext* context, TextTrackClient* client, PassRefPtr<InbandTextTrackPrivate> tracksPrivate)
-    : TextTrack(context, client, emptyString(), tracksPrivate->label(), tracksPrivate->language(), InBand)
-    , m_private(tracksPrivate)
-{
-    m_private->setClient(this);
-    
-    switch (m_private->kind()) {
-    case InbandTextTrackPrivate::Subtitles:
-        setKind(TextTrack::subtitlesKeyword());
-        break;
-    case InbandTextTrackPrivate::Captions:
-        setKind(TextTrack::captionsKeyword());
-        break;
-    case InbandTextTrackPrivate::Descriptions:
-        setKind(TextTrack::descriptionsKeyword());
-        break;
-    case InbandTextTrackPrivate::Chapters:
-        setKind(TextTrack::chaptersKeyword());
-        break;
-    case InbandTextTrackPrivate::Metadata:
-        setKind(TextTrack::metadataKeyword());
-        break;
-    case InbandTextTrackPrivate::Forced:
-        setKind(TextTrack::forcedKeyword());
-        break;
-    case InbandTextTrackPrivate::None:
+    switch (trackPrivate->cueFormat()) {
+    case InbandTextTrackPrivate::Data:
+        return InbandDataTextTrack::create(context, client, trackPrivate);
+    case InbandTextTrackPrivate::Generic:
+        return InbandGenericTextTrack::create(context, client, trackPrivate);
+    case InbandTextTrackPrivate::WebVTT:
+        return InbandWebVTTTextTrack::create(context, client, trackPrivate);
     default:
         ASSERT_NOT_REACHED();
-        break;
+        return 0;
     }
+}
+
+InbandTextTrack::InbandTextTrack(ScriptExecutionContext* context, TextTrackClient* client, PassRefPtr<InbandTextTrackPrivate> trackPrivate)
+    : TextTrack(context, client, emptyAtom, trackPrivate->id(), trackPrivate->label(), trackPrivate->language(), InBand)
+    , m_private(trackPrivate)
+{
+    m_private->setClient(this);
+    updateKindFromPrivate();
 }
 
 InbandTextTrack::~InbandTextTrack()
@@ -126,10 +73,30 @@ InbandTextTrack::~InbandTextTrack()
     m_private->setClient(0);
 }
 
+void InbandTextTrack::setPrivate(PassRefPtr<InbandTextTrackPrivate> trackPrivate)
+{
+    ASSERT(m_private);
+    ASSERT(trackPrivate);
+
+    if (m_private == trackPrivate)
+        return;
+
+    m_private->setClient(0);
+    m_private = trackPrivate;
+    m_private->setClient(this);
+
+    setModeInternal(mode());
+    updateKindFromPrivate();
+}
+
 void InbandTextTrack::setMode(const AtomicString& mode)
 {
     TextTrack::setMode(mode);
+    setModeInternal(mode);
+}
 
+void InbandTextTrack::setModeInternal(const AtomicString& mode)
+{
     if (mode == TextTrack::disabledKeyword())
         m_private->setMode(InbandTextTrackPrivate::Disabled);
     else if (mode == TextTrack::hiddenKeyword())
@@ -183,106 +150,75 @@ bool InbandTextTrack::isEasyToRead() const
 size_t InbandTextTrack::inbandTrackIndex()
 {
     ASSERT(m_private);
-    return m_private->textTrackIndex();
+    return m_private->trackIndex();
 }
 
-void InbandTextTrack::updateCueFromCueData(TextTrackCueGeneric* cue, GenericCueData* cueData)
+AtomicString InbandTextTrack::inBandMetadataTrackDispatchType() const
 {
-    cue->willChange();
-
-    cue->setStartTime(cueData->startTime(), IGNORE_EXCEPTION);
-    double endTime = cueData->endTime();
-    if (std::isinf(endTime) && mediaElement())
-        endTime = mediaElement()->duration();
-    cue->setEndTime(endTime, IGNORE_EXCEPTION);
-    cue->setText(cueData->content());
-    cue->setId(cueData->id());
-    cue->setBaseFontSizeRelativeToVideoHeight(cueData->baseFontSize());
-    cue->setFontSizeMultiplier(cueData->relativeFontSize());
-    cue->setFontName(cueData->fontName());
-
-    if (cueData->position() > 0)
-        cue->setPosition(lround(cueData->position()), IGNORE_EXCEPTION);
-    if (cueData->line() > 0)
-        cue->setLine(lround(cueData->line()), IGNORE_EXCEPTION);
-    if (cueData->size() > 0)
-        cue->setSize(lround(cueData->size()), IGNORE_EXCEPTION);
-    if (cueData->backgroundColor().isValid())
-        cue->setBackgroundColor(cueData->backgroundColor().rgb());
-    if (cueData->foregroundColor().isValid())
-        cue->setForegroundColor(cueData->foregroundColor().rgb());
-    if (cueData->highlightColor().isValid())
-        cue->setHighlightColor(cueData->highlightColor().rgb());
-
-    if (cueData->align() == GenericCueData::Start)
-        cue->setAlign(ASCIILiteral("start"), IGNORE_EXCEPTION);
-    else if (cueData->align() == GenericCueData::Middle)
-        cue->setAlign(ASCIILiteral("middle"), IGNORE_EXCEPTION);
-    else if (cueData->align() == GenericCueData::End)
-        cue->setAlign(ASCIILiteral("end"), IGNORE_EXCEPTION);
-    cue->setSnapToLines(false);
-
-    cue->didChange();
+    ASSERT(m_private);
+    return m_private->inBandMetadataTrackDispatchType();
 }
-    
-void InbandTextTrack::addGenericCue(InbandTextTrackPrivate* trackPrivate, PassRefPtr<GenericCueData> prpCueData)
+
+void InbandTextTrack::idChanged(TrackPrivateBase* trackPrivate, const AtomicString& id)
 {
-    UNUSED_PARAM(trackPrivate);
-    ASSERT(trackPrivate == m_private);
-
-    RefPtr<GenericCueData> cueData = prpCueData;
-    if (m_cueMap.find(cueData.get()))
-        return;
-
-    RefPtr<TextTrackCueGeneric> cue = TextTrackCueGeneric::create(scriptExecutionContext(), cueData->startTime(), cueData->endTime(), cueData->content());
-    updateCueFromCueData(cue.get(), cueData.get());
-    if (hasCue(cue.get(), TextTrackCue::IgnoreDuration)) {
-        LOG(Media, "InbandTextTrack::addGenericCue ignoring already added cue: start=%.2f, end=%.2f, content=\"%s\"\n", cueData->startTime(), cueData->endTime(), cueData->content().utf8().data());
-        return;
-    }
-
-    if (cueData->status() != GenericCueData::Complete)
-        m_cueMap.add(cueData.get(), cue.get());
-
-    addCue(cue);
+    ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
+    setId(id);
 }
 
-void InbandTextTrack::updateGenericCue(InbandTextTrackPrivate*, GenericCueData* cueData)
+void InbandTextTrack::labelChanged(TrackPrivateBase* trackPrivate, const AtomicString& label)
 {
-    RefPtr<TextTrackCueGeneric> cue = m_cueMap.find(cueData);
-    if (!cue)
-        return;
-
-    updateCueFromCueData(cue.get(), cueData);
-    
-    if (cueData->status() == GenericCueData::Complete)
-        m_cueMap.remove(cueData);
+    ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
+    setLabel(label);
 }
 
-void InbandTextTrack::removeGenericCue(InbandTextTrackPrivate*, GenericCueData* cueData)
+void InbandTextTrack::languageChanged(TrackPrivateBase* trackPrivate, const AtomicString& language)
 {
-    RefPtr<TextTrackCueGeneric> cue = m_cueMap.find(cueData);
-    if (cue) {
-        LOG(Media, "InbandTextTrack::removeGenericCue removing cue: start=%.2f, end=%.2f, content=\"%s\"\n", cueData->startTime(), cueData->endTime(), cueData->content().utf8().data());
-        removeCue(cue.get(), IGNORE_EXCEPTION);
-    } else
-        m_cueMap.remove(cueData);
+    ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
+    setLanguage(language);
 }
 
-void InbandTextTrack::removeCue(TextTrackCue* cue, ExceptionCode& ec)
-{
-    m_cueMap.remove(static_cast<TextTrackCueGeneric*>(cue));
-    TextTrack::removeCue(cue, ec);
-}
-
-void InbandTextTrack::willRemoveTextTrackPrivate(InbandTextTrackPrivate* trackPrivate)
+void InbandTextTrack::willRemove(TrackPrivateBase* trackPrivate)
 {
     if (!mediaElement())
         return;
-
-    UNUSED_PARAM(trackPrivate);
-    ASSERT(trackPrivate == m_private);
+    ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
     mediaElement()->removeTextTrack(this);
+}
+
+void InbandTextTrack::updateKindFromPrivate()
+{
+    switch (m_private->kind()) {
+    case InbandTextTrackPrivate::Subtitles:
+        setKind(TextTrack::subtitlesKeyword());
+        break;
+    case InbandTextTrackPrivate::Captions:
+        setKind(TextTrack::captionsKeyword());
+        break;
+    case InbandTextTrackPrivate::Descriptions:
+        setKind(TextTrack::descriptionsKeyword());
+        break;
+    case InbandTextTrackPrivate::Chapters:
+        setKind(TextTrack::chaptersKeyword());
+        break;
+    case InbandTextTrackPrivate::Metadata:
+        setKind(TextTrack::metadataKeyword());
+        break;
+    case InbandTextTrackPrivate::Forced:
+        setKind(TextTrack::forcedKeyword());
+        break;
+    case InbandTextTrackPrivate::None:
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
+double InbandTextTrack::startTimeVariance() const
+{
+    if (!m_private)
+        return false;
+    
+    return m_private->startTimeVariance();
 }
 
 } // namespace WebCore

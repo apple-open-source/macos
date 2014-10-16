@@ -49,30 +49,36 @@ SecItemRequestData::SecItemRequestData(Type type, CFDictionaryRef query, CFDicti
 {
 }
 
-void SecItemRequestData::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SecItemRequestData::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder.encodeEnum(m_type);
 
-    CoreIPC::encode(encoder, m_queryDictionary.get());
+    encoder << static_cast<bool>(m_queryDictionary);
+    if (m_queryDictionary)
+        IPC::encode(encoder, m_queryDictionary.get());
 
     encoder << static_cast<bool>(m_attributesToMatch);
     if (m_attributesToMatch)
-        CoreIPC::encode(encoder, m_attributesToMatch.get());
+        IPC::encode(encoder, m_attributesToMatch.get());
 }
 
-bool SecItemRequestData::decode(CoreIPC::ArgumentDecoder& decoder, SecItemRequestData& secItemRequestData)
-{    
+bool SecItemRequestData::decode(IPC::ArgumentDecoder& decoder, SecItemRequestData& secItemRequestData)
+{
     if (!decoder.decodeEnum(secItemRequestData.m_type))
         return false;
 
-    if (!CoreIPC::decode(decoder, secItemRequestData.m_queryDictionary))
+    bool expectQuery;
+    if (!decoder.decode(expectQuery))
+        return false;
+
+    if (expectQuery && !IPC::decode(decoder, secItemRequestData.m_queryDictionary))
         return false;
     
     bool expectAttributes;
     if (!decoder.decode(expectAttributes))
         return false;
     
-    if (expectAttributes && !CoreIPC::decode(decoder, secItemRequestData.m_attributesToMatch))
+    if (expectAttributes && !IPC::decode(decoder, secItemRequestData.m_attributesToMatch))
         return false;
     
     return true;

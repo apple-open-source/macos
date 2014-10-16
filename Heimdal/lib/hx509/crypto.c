@@ -715,7 +715,7 @@ rsa_create_signature(hx509_context context,
 	if (ret)
 	    return ret;
     } else {
-	if (data->length > RSA_size(signer->private_key.rsa)) {
+	if (data->length > (size_t)RSA_size(signer->private_key.rsa)) {
 	    ret = HX509_CMS_FAILED_CREATE_SIGATURE;
 	    hx509_set_error_string(context, 0, ret,
 				   "RSA private decrypt failed: %d", ret);
@@ -2216,7 +2216,7 @@ static int
 CMSCBCParam_get(hx509_context context, const hx509_crypto crypto,
 		 const heim_octet_string *ivec, heim_octet_string *param)
 {
-    size_t size;
+    size_t size = 0;
     int ret;
 
     assert(crypto->param == NULL);
@@ -2270,7 +2270,7 @@ CMSRC2CBCParam_get(hx509_context context, const hx509_crypto crypto,
     CMSRC2CBCParameter rc2params;
     const struct _RC2_params *p = crypto->param;
     int maximum_effective_key = 128;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     memset(&rc2params, 0, sizeof(rc2params));
@@ -2558,7 +2558,7 @@ hx509_crypto_set_padding(hx509_crypto crypto, int padding_type)
 int
 hx509_crypto_set_key_data(hx509_crypto crypto, const void *data, size_t length)
 {
-    if (EVP_CIPHER_key_length(crypto->c) > (int)length)
+    if ((size_t)EVP_CIPHER_key_length(crypto->c) > length)
 	return HX509_CRYPTO_INTERNAL_ERROR;
 
     if (crypto->key.data) {
@@ -2655,7 +2655,7 @@ hx509_crypto_encrypt(hx509_crypto crypto,
 	(crypto->flags & ALLOW_WEAK) == 0)
 	return HX509_CRYPTO_ALGORITHM_BEST_BEFORE;
 
-    assert(EVP_CIPHER_iv_length(crypto->c) == (int)ivec->length);
+    assert((size_t)EVP_CIPHER_iv_length(crypto->c) == ivec->length);
 
     EVP_CIPHER_CTX_init(&evp);
 
@@ -2744,7 +2744,7 @@ hx509_crypto_decrypt(hx509_crypto crypto,
 	(crypto->flags & ALLOW_WEAK) == 0)
 	return HX509_CRYPTO_ALGORITHM_BEST_BEFORE;
 
-    if (ivec && EVP_CIPHER_iv_length(crypto->c) < (int)ivec->length)
+    if (ivec && (size_t)EVP_CIPHER_iv_length(crypto->c) < ivec->length)
 	return HX509_CRYPTO_INTERNAL_ERROR;
 
     if (crypto->key.data == NULL)

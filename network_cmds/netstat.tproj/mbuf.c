@@ -139,7 +139,7 @@ static int mbpr_getdata(void);
 void
 mbpr(void)
 {
-	unsigned long totmem = 0, totfree = 0, totmbufs, totused;
+	unsigned long totmem = 0, totfree = 0, totmbufs, totused, totreturned = 0;
 	double totpct;
 	u_int32_t m_msize, m_mbufs = 0, m_clfree = 0, m_bigclfree = 0;
 	u_int32_t m_mbufclfree = 0, m_mbufbigclfree = 0;
@@ -183,6 +183,7 @@ mbpr(void)
 
 		mem = cp->mbcl_ctotal * cp->mbcl_size;
 		totmem += mem;
+		totreturned += cp->mbcl_release_cnt;
 		totfree += (cp->mbcl_mc_cached + cp->mbcl_infree) *
 		    cp->mbcl_size;
 		if (mflag > 1) {
@@ -270,6 +271,7 @@ mbpr(void)
 	}
 	printf("%lu KB allocated to network (%.1f%% in use)\n",
 		totmem / 1024, totpct);
+	printf("%lu KB returned to the system\n", totreturned / 1024);
 
 	printf("%u requests for memory denied\n", (unsigned int)mbstat.m_drops);
 	printf("%u requests for memory delayed\n", (unsigned int)mbstat.m_wait);

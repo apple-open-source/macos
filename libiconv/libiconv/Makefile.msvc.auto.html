@@ -1,0 +1,327 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.msvc</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.msvc&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># -*- Makefile -*- for libiconv
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Flags that can be set on the nmake command line:
+</span><span class="enscript-comment">#   DLL=1     for compiling a .dll with a stub .lib (default is a static .lib)
+</span><span class="enscript-comment">#             Note that this works only with MFLAGS=-MD.
+</span><span class="enscript-comment">#   MFLAGS={-ML|-MT|-MD} for defining the compilation model
+</span><span class="enscript-comment">#     MFLAGS=-ML (the default)  Single-threaded, statically linked - libc.lib
+</span><span class="enscript-comment">#     MFLAGS=-MT                Multi-threaded, statically linked  - libcmt.lib
+</span><span class="enscript-comment">#     MFLAGS=-MD                Multi-threaded, dynamically linked - msvcrt.lib
+</span><span class="enscript-comment">#   DEBUG=1   for compiling with debugging information
+</span><span class="enscript-comment">#   NO_NLS=1  do not use Native Language Support
+</span><span class="enscript-comment">#   PREFIX=Some\Directory       Base directory for installation
+</span><span class="enscript-comment">#   IIPREFIX=Some\\Directory    Same thing with doubled backslashes
+</span><span class="enscript-comment"># Note that nmake command line flags are automatically passed to subdirectory
+</span><span class="enscript-comment"># Makefiles. Therefore we don't need to pass them explicitly to subdirectory
+</span><span class="enscript-comment"># Makefiles, but the subdirectory Makefiles need to have the same defaults.
+</span>!if !defined(DLL)
+DLL=0
+!endif
+!if !defined(DEBUG)
+DEBUG=0
+!endif
+!if !defined(MFLAGS)
+!if !$(<span class="enscript-reference">DLL</span>)
+MFLAGS=
+!else
+MFLAGS=-MD
+!endif
+!endif
+!if !defined(NO_NLS)
+NO_NLS=0
+!endif
+!if !defined(PREFIX)
+PREFIX = c:\usr
+!endif
+!if !defined(IIPREFIX)
+IIPREFIX = c:\\usr
+!endif
+
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = $(<span class="enscript-reference">PREFIX</span>)
+exec_prefix = $(<span class="enscript-reference">prefix</span>)
+bindir = $(<span class="enscript-reference">exec_prefix</span>)\bin
+libdir = $(<span class="enscript-reference">exec_prefix</span>)\lib
+includedir = $(<span class="enscript-reference">prefix</span>)\include
+datadir = $(<span class="enscript-reference">prefix</span>)\share
+localedir = $(<span class="enscript-reference">datadir</span>)\locale
+mandir = $(<span class="enscript-reference">datadir</span>)\man
+docdir = $(<span class="enscript-reference">datadir</span>)\doc\libiconv
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>LN = copy
+RM = -del
+
+<span class="enscript-comment"># Programs used by &quot;make install&quot;:
+</span>INSTALL = copy
+INSTALL_PROGRAM = copy
+INSTALL_DATA = copy
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+SHELL = /bin/sh
+
+all : config.h force
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	$(<span class="enscript-reference">LN</span>) libcharset\include\localcharset.h lib\localcharset.h
+!if !$(<span class="enscript-reference">DLL</span>)
+	$(<span class="enscript-reference">LN</span>) include\iconv.h.msvc-static include\iconv.h
+!else
+	$(<span class="enscript-reference">LN</span>) include\iconv.h.msvc-shared include\iconv.h
+!endif
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc all
+	cd ..
+
+config.h : config.h.msvc
+	-$(<span class="enscript-reference">RM</span>) config.h
+	$(<span class="enscript-reference">LN</span>) config.h.msvc config.h
+
+install : force
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc install
+	cd ..
+	-mkdir $(<span class="enscript-reference">prefix</span>)
+	-mkdir $(<span class="enscript-reference">includedir</span>)
+	$(<span class="enscript-reference">INSTALL_DATA</span>) include\iconv.h $(<span class="enscript-reference">includedir</span>)\iconv.h
+
+installdirs : force
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc installdirs
+	cd ..
+	-mkdir $(<span class="enscript-reference">prefix</span>)
+	-mkdir $(<span class="enscript-reference">includedir</span>)
+
+uninstall : force
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc uninstall
+	cd ..
+	$(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">includedir</span>)\iconv.h
+
+check : all force
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc check
+	cd ..
+
+mostlyclean : force
+	$(<span class="enscript-reference">RM</span>) config.h
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	$(<span class="enscript-reference">RM</span>) lib\localcharset.h
+	$(<span class="enscript-reference">RM</span>) include\iconv.h
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc mostlyclean
+	cd ..
+
+clean : force
+	$(<span class="enscript-reference">RM</span>) config.h
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	$(<span class="enscript-reference">RM</span>) lib\localcharset.h
+	$(<span class="enscript-reference">RM</span>) include\iconv.h
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc clean
+	cd ..
+
+distclean : force
+	$(<span class="enscript-reference">RM</span>) config.h
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	$(<span class="enscript-reference">RM</span>) lib\localcharset.h
+	$(<span class="enscript-reference">RM</span>) include\iconv.h
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc distclean
+	cd ..
+
+maintainer-clean : force
+	$(<span class="enscript-reference">RM</span>) config.h
+	cd libcharset
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	$(<span class="enscript-reference">RM</span>) lib\localcharset.h
+	$(<span class="enscript-reference">RM</span>) include\iconv.h
+	cd lib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	cd srclib
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	cd src
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	cd po
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	cd man
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+	cd tests
+	$(<span class="enscript-reference">MAKE</span>) -f Makefile.msvc maintainer-clean
+	cd ..
+
+force :
+
+</pre>
+<hr />
+</body></html>

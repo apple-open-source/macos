@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,17 +28,15 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "JSCInlines.h"
 #include <wtf/CommaPrinter.h>
+#include <wtf/StringPrintStream.h>
 
 namespace JSC { namespace DFG {
 
-void dumpNodeFlags(PrintStream& out, NodeFlags flags)
+void dumpNodeFlags(PrintStream& actualOut, NodeFlags flags)
 {
-    if (!(flags ^ NodeDoesNotExit)) {
-        out.print("<empty>");
-        return;
-    }
-
+    StringPrintStream out;
     CommaPrinter comma("|");
     
     if (flags & NodeResultMask) {
@@ -49,8 +47,14 @@ void dumpNodeFlags(PrintStream& out, NodeFlags flags)
         case NodeResultNumber:
             out.print(comma, "Number");
             break;
+        case NodeResultDouble:
+            out.print(comma, "Double");
+            break;
         case NodeResultInt32:
             out.print(comma, "Int32");
+            break;
+        case NodeResultInt52:
+            out.print(comma, "Int52");
             break;
         case NodeResultBoolean:
             out.print(comma, "Boolean");
@@ -77,30 +81,45 @@ void dumpNodeFlags(PrintStream& out, NodeFlags flags)
         out.print(comma, "MightClobber");
     
     if (flags & NodeResultMask) {
-        if (!(flags & NodeUsedAsNumber) && !(flags & NodeNeedsNegZero))
+        if (!(flags & NodeBytecodeUsesAsNumber) && !(flags & NodeBytecodeNeedsNegZero))
             out.print(comma, "PureInt");
-        else if (!(flags & NodeUsedAsNumber))
+        else if (!(flags & NodeBytecodeUsesAsNumber))
             out.print(comma, "PureInt(w/ neg zero)");
-        else if (!(flags & NodeNeedsNegZero))
+        else if (!(flags & NodeBytecodeNeedsNegZero))
             out.print(comma, "PureNum");
-        if (flags & NodeUsedAsOther)
+        if (flags & NodeBytecodeUsesAsOther)
             out.print(comma, "UseAsOther");
     }
     
-    if (flags & NodeMayOverflow)
-        out.print(comma, "MayOverflow");
+    if (flags & NodeMayOverflowInBaseline)
+        out.print(comma, "MayOverflowInBaseline");
     
-    if (flags & NodeMayNegZero)
-        out.print(comma, "MayNegZero");
+    if (flags & NodeMayOverflowInDFG)
+        out.print(comma, "MayOverflowInDFG");
     
-    if (flags & NodeUsedAsInt)
+    if (flags & NodeMayNegZeroInBaseline)
+        out.print(comma, "MayNegZeroInBaseline");
+    
+    if (flags & NodeMayNegZeroInDFG)
+        out.print(comma, "MayNegZeroInDFG");
+    
+    if (flags & NodeBytecodeUsesAsInt)
         out.print(comma, "UseAsInt");
+
+    if (flags & NodeBytecodeUsesAsArrayIndex)
+        out.print(comma, "ReallyWantsInt");
     
     if (!(flags & NodeDoesNotExit))
         out.print(comma, "CanExit");
     
-    if (flags & NodeExitsForward)
-        out.print(comma, "NodeExitsForward");
+    if (flags & NodeIsFlushed)
+        out.print(comma, "IsFlushed");
+    
+    CString string = out.toCString();
+    if (!string.length())
+        actualOut.print("<empty>");
+    else
+        actualOut.print(string);
 }
 
 } } // namespace JSC::DFG

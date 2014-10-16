@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.3</string>
+	<string>3.0.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.3</string>
+	<string>3.0.0</string>
 	<key>FSPersonalities</key>
 	<dict>
 		<key>SMB_FS_CDFS</key>
@@ -41,7 +41,7 @@
 		<key>SMB_FS_MAC_OS_X</key>
 		<dict>
 			<key>FSName</key>
-			<string>SMB (Mac OS X)</string>
+			<string>SMB (OS X)</string>
 			<key>FSSubType</key>
 			<integer>6</integer>
 		</dict>

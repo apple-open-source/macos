@@ -64,13 +64,11 @@
 #define	_TIME_H_
 
 #include <_types.h>
-
-#define __need_struct_timespec
-#include <_structs.h>
-#include <sys/_types/_null.h>
 #include <sys/_types/_clock_t.h>
+#include <sys/_types/_null.h>
 #include <sys/_types/_size_t.h>
 #include <sys/_types/_time_t.h>
+#include <sys/_types/_timespec.h>
 
 struct tm {
 	int	tm_sec;		/* seconds after the minute [0-60] */

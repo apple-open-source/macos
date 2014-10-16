@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ee.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ee.xml
+ * ICU <specials> source: <path>/common/main/ee.xml
  */
 ee{
     AuxExemplarCharacters{"[ă â å ä ā æ c ç ĕ ê ë ĭ î ï j ñ ŏ ô ö ø œ q ŭ û ü ÿ]"}
@@ -23,10 +23,12 @@ ee{
     LocaleScript{
         "Latn",
     }
+    MoreInformation{"..."}
     NumberElements{
         latn{
             patterns{
-                currencyFormat{"¤#,##0.00;(¤#,##0.00)"}
+                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
+                currencyFormat{"¤#,##0.00"}
             }
             patternsShort{
                 decimalFormat{
@@ -77,7 +79,7 @@ ee{
             }
         }
     }
-    Version{"2.0.82.57"}
+    Version{"2.0.98.52"}
     calendar{
         generic{
             DateTimePatterns{
@@ -88,7 +90,7 @@ ee{
                 "EEEE, MMMM d 'lia' y G",
                 "MMMM d 'lia' y G",
                 "MMM d 'lia', y G",
-                "M/d/yy GGGGG",
+                "M/d/y GGGGG",
                 "{0} {1}",
                 "{0} {1}",
                 "{0} {1}",
@@ -97,6 +99,10 @@ ee{
             }
             availableFormats{
                 Ed{"E d"}
+                Gy{"y G"}
+                GyMMM{"MMM y G"}
+                GyMMMEd{"E, MMM d 'lia' y G"}
+                GyMMMd{"MMM d 'lia', y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -113,16 +119,17 @@ ee{
                 hm{"a 'ga' h:mm"}
                 hms{"a 'ga' h:mm:ss"}
                 ms{"'aɖabaƒoƒo' mm:ss"}
-                y{"y"}
-                yM{"M/y"}
-                yMEd{"E, M/d/y"}
-                yMMM{"MMM y"}
-                yMMMEd{"E, MMM d, y"}
-                yMMMM{"MMMM y"}
-                yMMMd{"MMM d 'lia', y"}
-                yMd{"M/d/y"}
-                yQQQ{"QQQ y"}
-                yQQQQ{"QQQQ y"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyM{"M/y G"}
+                yyyyMEd{"E, M/d/y G"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E, MMM d 'lia' y G"}
+                yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"MMM d 'lia', y G"}
+                yyyyMd{"M/d/y G"}
+                yyyyQQQ{"QQQ y G"}
+                yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
                 H{
@@ -184,36 +191,36 @@ ee{
                     h{"a 'ga' h–h v"}
                 }
                 yM{
-                    M{"M/y – M/y"}
-                    y{"M/y – M/y"}
+                    M{"M/y – M/y G"}
+                    y{"M/y – M/y G"}
                 }
                 yMEd{
-                    M{"E, M/d/y – E, M/d/y"}
-                    d{"E, M/d/y – E, M/d/y"}
-                    y{"E, M/d/y – E, M/d/y"}
+                    M{"E, M/d/y – E, M/d/y G"}
+                    d{"E, M/d/y – E, M/d/y G"}
+                    y{"E, M/d/y – E, M/d/y G"}
                 }
                 yMMM{
-                    M{"MMM–MMM y"}
-                    y{"MMM y – MMM y"}
+                    M{"MMM–MMM y G"}
+                    y{"MMM y – MMM y G"}
                 }
                 yMMMEd{
-                    M{"E, MMM d 'lia' – E, MMM d 'lia', y"}
-                    d{"E, MMM d 'lia' – E, MMM d 'lia', y"}
-                    y{"E, MMM d 'lia', y – E, MMM d 'lia', y"}
+                    M{"E, MMM d 'lia' – E, MMM d 'lia', y G"}
+                    d{"E, MMM d 'lia' – E, MMM d 'lia', y G"}
+                    y{"E, MMM d 'lia', y – E, MMM d 'lia', y G"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM y"}
-                    y{"MMMM y – MMMM y"}
+                    M{"MMMM–MMMM y G"}
+                    y{"MMMM y – MMMM y G"}
                 }
                 yMMMd{
-                    M{"MMM d 'lia' – MMM d 'lia', y"}
-                    d{"MMM d 'lia' – d 'lia' , y"}
-                    y{"MMM d 'lia' , y – MMM d 'lia', y"}
+                    M{"MMM d 'lia' – MMM d 'lia', y G"}
+                    d{"MMM d 'lia' – d 'lia' , y G"}
+                    y{"MMM d 'lia' , y – MMM d 'lia', y G"}
                 }
                 yMd{
-                    M{"M/d/y – M/d/y"}
-                    d{"M/d/y – M/d/y"}
-                    y{"M/d/y – M/d/y"}
+                    M{"M/d/y – M/d/y G"}
+                    d{"M/d/y – M/d/y G"}
+                    y{"M/d/y – M/d/y G"}
                 }
             }
         }
@@ -239,6 +246,10 @@ ee{
             }
             availableFormats{
                 Ed{"E d"}
+                Gy{"y G"}
+                GyMMM{"MMM y G"}
+                GyMMMEd{"E, MMM d 'lia' y G"}
+                GyMMMd{"MMM d 'lia', y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -585,10 +596,20 @@ ee{
             dn{"ŋkeke"}
             relative{
                 "-1"{"etsɔ si va yi"}
-                "-2"{"nyitsɔ"}
+                "-2"{"nyitsɔ si va yi"}
                 "0"{"egbe"}
                 "1"{"etsɔ si gbɔna"}
                 "2"{"nyitsɔ si gbɔna"}
+            }
+            relativeTime{
+                future{
+                    one{"le ŋkeke {0} me"}
+                    other{"le ŋkeke {0} wo me"}
+                }
+                past{
+                    one{"ŋkeke {0} si va yi"}
+                    other{"ŋkeke {0} si wo va yi"}
+                }
             }
         }
         dayperiod{
@@ -597,29 +618,156 @@ ee{
         era{
             dn{"ŋɔli"}
         }
+        fri{
+            relative{
+                "-1"{"fiɖa si va yi"}
+                "0"{"fiɖa sia"}
+                "1"{"fiɖa si gbɔ na"}
+            }
+        }
         hour{
             dn{"gaƒoƒo"}
+            relativeTime{
+                future{
+                    one{"le gaƒoƒo {0} me"}
+                    other{"le gaƒoƒo {0} wo me"}
+                }
+                past{
+                    one{"gaƒoƒo {0} si va yi"}
+                    other{"gaƒoƒo {0} si wo va yi"}
+                }
+            }
         }
         minute{
-            dn{"Mintigaƒoƒo"}
+            dn{"aɖabaƒoƒo"}
+            relativeTime{
+                future{
+                    one{"le aɖabaƒoƒo {0} me"}
+                    other{"le aɖabaƒoƒo {0} wo me"}
+                }
+                past{
+                    one{"aɖabaƒoƒo {0} si va yi"}
+                    other{"aɖabaƒoƒo {0} si wo va yi"}
+                }
+            }
+        }
+        mon{
+            relative{
+                "-1"{"dzoɖa si va yi"}
+                "0"{"dzoɖa sia"}
+                "1"{"dzoɖa si gbɔ na"}
+            }
         }
         month{
-            dn{"Xleti"}
+            dn{"ɣleti"}
+            relative{
+                "-1"{"ɣleti si va yi"}
+                "0"{"ɣleti sia"}
+                "1"{"ɣleti si gbɔ na"}
+            }
+            relativeTime{
+                future{
+                    one{"le ɣleti {0} me"}
+                    other{"le ɣleti {0} wo me"}
+                }
+                past{
+                    one{"ɣleti {0} si va yi"}
+                    other{"ɣleti {0} si wo va yi"}
+                }
+            }
+        }
+        sat{
+            relative{
+                "-1"{"memleɖa si va yi"}
+                "0"{"memleɖa sia"}
+                "1"{"memleɖa si gbɔ na"}
+            }
         }
         second{
             dn{"sekend"}
+            relative{
+                "0"{"fifi"}
+            }
+            relativeTime{
+                future{
+                    one{"le sekend {0} me"}
+                    other{"le sekend {0} wo me"}
+                }
+                past{
+                    one{"sekend {0} si va yi"}
+                    other{"sekend {0} si wo va yi"}
+                }
+            }
+        }
+        sun{
+            relative{
+                "-1"{"kɔsiɖa si va yi"}
+                "0"{"kɔsiɖa sia"}
+                "1"{"kɔsiɖa si gbɔ na"}
+            }
+        }
+        thu{
+            relative{
+                "-1"{"yawoɖa si va yi"}
+                "0"{"yawoɖa sia"}
+                "1"{"yawoɖa si gbɔ na"}
+            }
+        }
+        tue{
+            relative{
+                "-1"{"blaɖa si va yi"}
+                "0"{"blaɖa sia"}
+                "1"{"blaɖa si gbɔ na"}
+            }
+        }
+        wed{
+            relative{
+                "-1"{"kuɖa si va yi"}
+                "0"{"kuɖa sia"}
+                "1"{"kuɖa si gbɔ na"}
+            }
         }
         week{
             dn{"kɔsiɖa ɖeka"}
+            relative{
+                "-1"{"kɔsiɖa si va yi"}
+                "0"{"kɔsiɖa sia"}
+                "1"{"kɔsiɖa si gbɔ na"}
+            }
+            relativeTime{
+                future{
+                    one{"le kɔsiɖa {0} me"}
+                    other{"le kɔsiɖa {0} wo me"}
+                }
+                past{
+                    one{"kɔsiɖa {0} si va yi"}
+                    other{"kɔsiɖa {0} si wo va yi"}
+                }
+            }
         }
         weekday{
             dn{"kɔsiɖa me ŋkeke"}
         }
         year{
             dn{"ƒe"}
+            relative{
+                "-1"{"ƒe si va yi"}
+                "0"{"ƒe sia"}
+                "1"{"ƒe si gbɔ na"}
+            }
+            relativeTime{
+                future{
+                    one{"le ƒe {0} me"}
+                    other{"le ƒe {0} wo me"}
+                }
+                past{
+                    one{"ƒe {0} si va yi"}
+                    other{"ƒe {0} si wo va yi"}
+                }
+            }
         }
         zone{
-            dn{"nutomegaƒoƒome"}
+            dn{"nutomegaƒoƒo"}
         }
     }
     listPattern{
@@ -634,89 +782,83 @@ ee{
         metric{"metric"}
     }
     units{
-        day{
-            one{"ŋkeke {0} wo"}
-            other{"ŋkeke {0} wo"}
+        duration{
+            day{
+                one{"ŋkeke {0} wo"}
+                other{"ŋkeke {0} wo"}
+            }
+            hour{
+                one{"gaƒoƒo {0} wo"}
+                other{"gaƒoƒo {0} wo"}
+            }
+            minute{
+                one{"aɖabaƒoƒo {0} wo"}
+                other{"aɖabaƒoƒo {0} wo"}
+            }
+            month{
+                one{"ɣleti {0} wo"}
+                other{"ɣleti {0} wo"}
+            }
+            second{
+                one{"sekend {0} wo"}
+                other{"sekend {0} wo"}
+            }
+            week{
+                one{"kɔsiɖa {0} wo"}
+                other{"kɔsiɖa {0} wo"}
+            }
+            year{
+                one{"ƒe {0} wo"}
+                other{"ƒe {0} wo"}
+            }
         }
-        day-future{
-            one{"le ŋkeke {0} wo me"}
-            other{"le ŋkeke {0} wo me"}
+    }
+    unitsNarrow{
+        duration{
+            hour{
+                one{"g {0}"}
+                other{"g {0}"}
+            }
+            minute{
+                one{"a {0}"}
+                other{"a {0}"}
+            }
+            second{
+                one{"s {0}"}
+                other{"s {0}"}
+            }
         }
-        day-past{
-            one{"ŋkeke {0} si wo va yi"}
-            other{"ŋkeke {0} si wo va yi"}
-        }
-        hour{
-            one{"gaƒoƒo {0} wo"}
-            other{"gaƒoƒo {0} wo"}
-        }
-        hour-future{
-            one{"le gaƒoƒo {0} wo me"}
-            other{"le gaƒoƒo {0} wo me"}
-        }
-        hour-past{
-            one{"gaƒoƒo {0} si wo va yi"}
-            other{"gaƒoƒo {0} si wo va yi"}
-        }
-        minute{
-            one{"aɖabaƒoƒo {0} wo"}
-            other{"aɖabaƒoƒo {0} wo"}
-        }
-        minute-future{
-            one{"le aɖabaƒoƒo {0} wo me"}
-            other{"le aɖabaƒoƒo {0} wo me"}
-        }
-        minute-past{
-            one{"aɖabaƒoƒo {0} si wo va yi"}
-            other{"aɖabaƒoƒo {0} si wo va yi"}
-        }
-        month{
-            one{"ɣleti {0} wo"}
-            other{"ɣleti {0} wo"}
-        }
-        month-future{
-            one{"le ɣleti {0} wo me"}
-            other{"le ɣleti {0} wo me"}
-        }
-        month-past{
-            one{"ɣleti {0} si wo va yi"}
-            other{"ɣleti {0} si wo va yi"}
-        }
-        second{
-            one{"sekend {0} wo"}
-            other{"sekend {0} wo"}
-        }
-        second-future{
-            one{"le sekend {0} wo me"}
-            other{"le sekend {0} wo me"}
-        }
-        second-past{
-            one{"sekend {0} si wo va yi"}
-            other{"sekend {0} si wo va yi"}
-        }
-        week{
-            one{"kɔsiɖa {0} wo"}
-            other{"kɔsiɖa {0} wo"}
-        }
-        week-future{
-            one{"le kɔsiɖa {0} wo me"}
-            other{"le kɔsiɖa {0} wo me"}
-        }
-        week-past{
-            one{"kɔsiɖa {0} si wo va yi"}
-            other{"kɔsiɖa {0} si wo va yi"}
-        }
-        year{
-            one{"ƒe {0} wo"}
-            other{"ƒe {0} wo"}
-        }
-        year-future{
-            one{"le ƒe {0} wo me"}
-            other{"le ƒe {0} wo me"}
-        }
-        year-past{
-            one{"ƒe {0} si wo va yi"}
-            other{"ƒe {0} si wo va yi"}
+    }
+    unitsShort{
+        duration{
+            day{
+                one{"ŋkeke {0}"}
+                other{"ŋkeke {0}"}
+            }
+            hour{
+                one{"gaƒoƒo {0}"}
+                other{"gaƒoƒo {0}"}
+            }
+            minute{
+                one{"aɖabaƒoƒo {0}"}
+                other{"aɖabaƒoƒo {0}"}
+            }
+            month{
+                one{"ɣleti {0}"}
+                other{"ɣleti {0}"}
+            }
+            second{
+                one{"sekend {0}"}
+                other{"sekend {0}"}
+            }
+            week{
+                one{"kɔsiɖa {0}"}
+                other{"kɔsiɖa {0}"}
+            }
+            year{
+                one{"ƒe {0}"}
+                other{"ƒe {0}"}
+            }
         }
     }
 }

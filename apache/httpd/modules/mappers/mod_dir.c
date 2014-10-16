@@ -19,6 +19,7 @@
  */
 
 #include "apr_strings.h"
+#include "apr_lib.h"
 #include "ap_config.h"
 #include "httpd.h"
 #include "http_config.h"
@@ -28,18 +29,24 @@
 #include "http_log.h"
 #include "http_main.h"
 #include "util_script.h"
+#include "mod_rewrite.h"
 
 module AP_MODULE_DECLARE_DATA dir_module;
 
 typedef enum {
-    SLASH_OFF = 0,
-    SLASH_ON,
-    SLASH_UNSET
-} slash_cfg;
+    MODDIR_OFF = 0,
+    MODDIR_ON,
+    MODDIR_UNSET
+} moddir_cfg;
+
+#define REDIRECT_OFF   0
+#define REDIRECT_UNSET 1
 
 typedef struct dir_config_struct {
     apr_array_header_t *index_names;
-    slash_cfg do_slash;
+    moddir_cfg do_slash;
+    moddir_cfg checkhandler;
+    int redirect_index;
     const char *dflt;
 } dir_config_rec;
 
@@ -48,11 +55,29 @@ typedef struct dir_config_struct {
 static const char *add_index(cmd_parms *cmd, void *dummy, const char *arg)
 {
     dir_config_rec *d = dummy;
+    const char *t, *w;
+    int count = 0;
 
     if (!d->index_names) {
         d->index_names = apr_array_make(cmd->pool, 2, sizeof(char *));
     }
-    *(const char **)apr_array_push(d->index_names) = arg;
+
+    t = arg;
+    while ((w = ap_getword_conf(cmd->pool, &t)) && w[0]) {
+        if (count == 0 && !strcasecmp(w, "disabled")) {
+            /* peek to see if "disabled" is first in a series of arguments */
+            const char *tt = t;
+            const char *ww = ap_getword_conf(cmd->temp_pool, &tt);
+            if (ww[0] == '\0') {
+               /* "disabled" is first, and alone */
+               apr_array_clear(d->index_names); 
+               break;
+            }
+        }
+        *(const char **)apr_array_push(d->index_names) = w;
+        count++;
+    }
+
     return NULL;
 }
 
@@ -60,19 +85,58 @@ static const char *configure_slash(cmd_parms *cmd, void *d_, int arg)
 {
     dir_config_rec *d = d_;
 
-    d->do_slash = arg ? SLASH_ON : SLASH_OFF;
+    d->do_slash = arg ? MODDIR_ON : MODDIR_OFF;
     return NULL;
 }
+static const char *configure_checkhandler(cmd_parms *cmd, void *d_, int arg)
+{
+    dir_config_rec *d = d_;
 
+    d->checkhandler = arg ? MODDIR_ON : MODDIR_OFF;
+    return NULL;
+}
+static const char *configure_redirect(cmd_parms *cmd, void *d_, const char *arg1)
+{
+    dir_config_rec *d = d_;
+    int status;
+
+    if (!strcasecmp(arg1, "ON"))
+        status = HTTP_MOVED_TEMPORARILY;
+    else if (!strcasecmp(arg1, "OFF"))
+        status = REDIRECT_OFF;
+    else if (!strcasecmp(arg1, "permanent"))
+        status = HTTP_MOVED_PERMANENTLY;
+    else if (!strcasecmp(arg1, "temp"))
+        status = HTTP_MOVED_TEMPORARILY;
+    else if (!strcasecmp(arg1, "seeother"))
+        status = HTTP_SEE_OTHER;
+    else if (apr_isdigit(*arg1)) {
+        status = atoi(arg1);
+        if (!ap_is_HTTP_REDIRECT(status)) {
+            return "DirectoryIndexRedirect only accepts values between 300 and 399";
+        }
+    }
+    else {
+        return "DirectoryIndexRedirect ON|OFF|permanent|temp|seeother|3xx";
+    }
+
+    d->redirect_index = status;
+    return NULL;
+}
 static const command_rec dir_cmds[] =
 {
     AP_INIT_TAKE1("FallbackResource", ap_set_string_slot,
                   (void*)APR_OFFSETOF(dir_config_rec, dflt),
                   DIR_CMD_PERMS, "Set a default handler"),
-    AP_INIT_ITERATE("DirectoryIndex", add_index, NULL, DIR_CMD_PERMS,
+    AP_INIT_RAW_ARGS("DirectoryIndex", add_index, NULL, DIR_CMD_PERMS,
                     "a list of file names"),
     AP_INIT_FLAG("DirectorySlash", configure_slash, NULL, DIR_CMD_PERMS,
                  "On or Off"),
+    AP_INIT_FLAG("DirectoryCheckHandler", configure_checkhandler, NULL, DIR_CMD_PERMS,
+                 "On or Off"),
+    AP_INIT_TAKE1("DirectoryIndexRedirect", configure_redirect,
+                   NULL, DIR_CMD_PERMS, "On, Off, or a 3xx status code."),
+
     {NULL}
 };
 
@@ -81,7 +145,9 @@ static void *create_dir_config(apr_pool_t *p, char *dummy)
     dir_config_rec *new = apr_pcalloc(p, sizeof(dir_config_rec));
 
     new->index_names = NULL;
-    new->do_slash = SLASH_UNSET;
+    new->do_slash = MODDIR_UNSET;
+    new->checkhandler = MODDIR_UNSET;
+    new->redirect_index = REDIRECT_UNSET;
     return (void *) new;
 }
 
@@ -93,7 +159,11 @@ static void *merge_dir_configs(apr_pool_t *p, void *basev, void *addv)
 
     new->index_names = add->index_names ? add->index_names : base->index_names;
     new->do_slash =
-        (add->do_slash == SLASH_UNSET) ? base->do_slash : add->do_slash;
+        (add->do_slash == MODDIR_UNSET) ? base->do_slash : add->do_slash;
+    new->checkhandler =
+        (add->checkhandler == MODDIR_UNSET) ? base->checkhandler : add->checkhandler;
+    new->redirect_index=
+        (add->redirect_index == REDIRECT_UNSET) ? base->redirect_index : add->redirect_index;
     new->dflt = add->dflt ? add->dflt : base->dflt;
     return new;
 }
@@ -106,10 +176,10 @@ static int fixup_dflt(request_rec *r)
     int error_notfound = 0;
 
     name_ptr = d->dflt;
-    if ((name_ptr == NULL) || !(strcasecmp(name_ptr,"disabled"))) {
+    if ((name_ptr == NULL) || !(strcasecmp(name_ptr,"disabled"))){
         return DECLINED;
     }
-    /* XXX: if DefaultHandler points to something that doesn't exist,
+    /* XXX: if FallbackResource points to something that doesn't exist,
      * this may recurse until it hits the limit for internal redirects
      * before returning an Internal Server Error.
      */
@@ -150,6 +220,7 @@ static int fixup_dflt(request_rec *r)
     /* nothing for us to do, pass on through */
     return DECLINED;
 }
+
 static int fixup_dir(request_rec *r)
 {
     dir_config_rec *d;
@@ -203,7 +274,12 @@ static int fixup_dir(request_rec *r)
         return HTTP_MOVED_PERMANENTLY;
     }
 
-    if (strcmp(r->handler, DIR_MAGIC_TYPE)) {
+    /* we're running between mod_rewrites fixup and its internal redirect handler, step aside */
+    if (!strcmp(r->handler, REWRITE_REDIRECT_HANDLER_NAME)) { 
+        return DECLINED;
+    }
+
+    if (d->checkhandler == MODDIR_ON && strcmp(r->handler, DIR_MAGIC_TYPE)) {
         return DECLINED;
     }
 
@@ -247,6 +323,12 @@ static int fixup_dir(request_rec *r)
         if (rr->status == HTTP_OK
             && (   (rr->handler && !strcmp(rr->handler, "proxy-server"))
                 || rr->finfo.filetype == APR_REG)) {
+
+            if (ap_is_HTTP_REDIRECT(d->redirect_index)) {
+                apr_table_setn(r->headers_out, "Location", ap_construct_url(r->pool, rr->uri, r));
+                return d->redirect_index;
+            }
+
             ap_internal_fast_redirect(rr, r);
             return OK;
         }
@@ -288,9 +370,16 @@ static int fixup_dir(request_rec *r)
         return error_notfound;
     }
 
+    /* record what we tried, mostly for the benefit of mod_autoindex */
+    apr_table_set(r->notes, "dir-index-names",
+                  d->index_names ?
+                  apr_array_pstrcat(r->pool, d->index_names, ','):
+                  AP_DEFAULT_INDEX);
+
     /* nothing for us to do, pass on through */
     return DECLINED;
 }
+
 static int dir_fixups(request_rec *r)
 {
     if (r->finfo.filetype == APR_DIR) {
@@ -309,7 +398,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_fixups(dir_fixups,NULL,NULL,APR_HOOK_LAST);
 }
 
-module AP_MODULE_DECLARE_DATA dir_module = {
+AP_DECLARE_MODULE(dir) = {
     STANDARD20_MODULE_STUFF,
     create_dir_config,          /* create per-directory config structure */
     merge_dir_configs,          /* merge per-directory config structures */

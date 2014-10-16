@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -38,20 +38,18 @@
 #include "RenderStyle.h"
 #include "StyleResolver.h"
 
-using namespace std;
-
 namespace WebCore {
 
-KeyframeAnimation::KeyframeAnimation(const Animation* animation, RenderObject* renderer, int index, CompositeAnimation* compAnim, RenderStyle* unanimatedStyle)
-    : AnimationBase(animation, renderer, compAnim)
-    , m_keyframes(renderer, animation->name())
+KeyframeAnimation::KeyframeAnimation(const Animation& animation, RenderElement* renderer, int index, CompositeAnimation* compositeAnimation, RenderStyle* unanimatedStyle)
+    : AnimationBase(animation, renderer, compositeAnimation)
+    , m_keyframes(animation.name())
     , m_index(index)
     , m_startEventDispatched(false)
     , m_unanimatedStyle(unanimatedStyle)
 {
     // Get the keyframe RenderStyles
-    if (m_object && m_object->node() && m_object->node()->isElementNode())
-        m_object->document()->ensureStyleResolver()->keyframeStylesForAnimation(toElement(m_object->node()), unanimatedStyle, m_keyframes);
+    if (m_object && m_object->element())
+        m_object->document().ensureStyleResolver().keyframeStylesForAnimation(m_object->element(), unanimatedStyle, m_keyframes);
 
     // Update the m_transformFunctionListValid flag based on whether the function lists in the keyframes match.
     validateTransformFunctionList();
@@ -67,25 +65,12 @@ KeyframeAnimation::~KeyframeAnimation()
         endAnimation();
 }
 
-static const Animation* getAnimationFromStyleByName(const RenderStyle* style, const AtomicString& name)
-{
-    if (!style->animations())
-        return 0;
-
-    for (size_t i = 0; i < style->animations()->size(); i++) {
-        if (name == style->animations()->animation(i)->name())
-            return style->animations()->animation(i);
-    }
-
-    return 0;
-}
-
 void KeyframeAnimation::fetchIntervalEndpointsForProperty(CSSPropertyID property, const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& prog) const
 {
     // Find the first key
     double elapsedTime = getElapsedTime();
     if (m_animation->duration() && m_animation->iterationCount() != Animation::IterationCountInfinite)
-        elapsedTime = min(elapsedTime, m_animation->duration() * m_animation->iterationCount());
+        elapsedTime = std::min(elapsedTime, m_animation->duration() * m_animation->iterationCount());
 
     const double fractionalTime = this->fractionalTime(1, elapsedTime, 0);
 
@@ -132,21 +117,17 @@ void KeyframeAnimation::fetchIntervalEndpointsForProperty(CSSPropertyID property
     offset = prevKeyframe.key();
     scale = 1.0 / (nextKeyframe.key() - prevKeyframe.key());
 
-    const TimingFunction* timingFunction = 0;
-    if (const Animation* matchedAnimation = getAnimationFromStyleByName(fromStyle, name()))
-        timingFunction = matchedAnimation->timingFunction().get();
-
-    prog = progress(scale, offset, timingFunction);
+    prog = progress(scale, offset, prevKeyframe.timingFunction(name()));
 }
 
-void KeyframeAnimation::animate(CompositeAnimation* compositeAnimation, RenderObject*, const RenderStyle*, RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
+void KeyframeAnimation::animate(CompositeAnimation* compositeAnimation, RenderElement*, const RenderStyle*, RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
 {
     // Fire the start timeout if needed
     fireAnimationEventsIfNeeded();
     
     // If we have not yet started, we will not have a valid start time, so just start the animation if needed.
     if (isNew() && m_animation->playState() == AnimPlayStatePlaying && !compositeAnimation->isSuspended())
-        updateStateMachine(AnimationStateInputStartAnimation, -1);
+        updateStateMachine(AnimationStateInput::StartAnimation, -1);
 
     // If we get this far and the animation is done, it means we are cleaning up a just finished animation.
     // If so, we need to send back the targetStyle.
@@ -166,7 +147,7 @@ void KeyframeAnimation::animate(CompositeAnimation* compositeAnimation, RenderOb
     
     // If we have no keyframes, don't animate.
     if (!m_keyframes.size()) {
-        updateStateMachine(AnimationStateInputEndAnimation, -1);
+        updateStateMachine(AnimationStateInput::EndAnimation, -1);
         return;
     }
 
@@ -184,14 +165,13 @@ void KeyframeAnimation::animate(CompositeAnimation* compositeAnimation, RenderOb
         const RenderStyle* toStyle = 0;
         double progress = 0.0;
         fetchIntervalEndpointsForProperty(*it, fromStyle, toStyle, progress);
-#if USE(ACCELERATED_COMPOSITING)
+
         bool needsAnim = CSSPropertyAnimation::blendProperties(this, *it, animatedStyle.get(), fromStyle, toStyle, progress);
         if (!needsAnim)
             // If we are running an accelerated animation, set a flag in the style
             // to indicate it. This can be used to make sure we get an updated
             // style for hit testing, etc.
             animatedStyle->setIsRunningAcceleratedAnimation();
-#endif
     }
 }
 
@@ -206,7 +186,7 @@ void KeyframeAnimation::getAnimatedStyle(RefPtr<RenderStyle>& animatedStyle)
         return;
 
     if (!animatedStyle)
-        animatedStyle = RenderStyle::clone(m_object->style());
+        animatedStyle = RenderStyle::clone(&m_object->style());
 
     HashSet<CSSPropertyID>::const_iterator endProperties = m_keyframes.endProperties();
     for (HashSet<CSSPropertyID>::const_iterator it = m_keyframes.beginProperties(); it != endProperties; ++it) {
@@ -227,13 +207,9 @@ bool KeyframeAnimation::hasAnimationForProperty(CSSPropertyID property) const
 
 bool KeyframeAnimation::startAnimation(double timeOffset)
 {
-#if USE(ACCELERATED_COMPOSITING)
     if (m_object && m_object->isComposited()) {
         return toRenderBoxModelObject(m_object)->startAnimation(timeOffset, m_animation.get(), m_keyframes);
     }
-#else
-    UNUSED_PARAM(timeOffset);
-#endif
     return false;
 }
 
@@ -242,15 +218,12 @@ void KeyframeAnimation::pauseAnimation(double timeOffset)
     if (!m_object)
         return;
 
-#if USE(ACCELERATED_COMPOSITING)
     if (m_object->isComposited())
         toRenderBoxModelObject(m_object)->animationPaused(timeOffset, m_keyframes.animationName());
-#else
-    UNUSED_PARAM(timeOffset);
-#endif
+
     // Restore the original (unanimated) style
     if (!paused())
-        setNeedsStyleRecalc(m_object->node());
+        setNeedsStyleRecalc(m_object->element());
 }
 
 void KeyframeAnimation::endAnimation()
@@ -258,18 +231,17 @@ void KeyframeAnimation::endAnimation()
     if (!m_object)
         return;
 
-#if USE(ACCELERATED_COMPOSITING)
     if (m_object->isComposited())
         toRenderBoxModelObject(m_object)->animationFinished(m_keyframes.animationName());
-#endif
+
     // Restore the original (unanimated) style
     if (!paused())
-        setNeedsStyleRecalc(m_object->node());
+        setNeedsStyleRecalc(m_object->element());
 }
 
 bool KeyframeAnimation::shouldSendEventForListener(Document::ListenerType listenerType) const
 {
-    return m_object->document()->hasListenerType(listenerType);
+    return m_object->document().hasListenerType(listenerType);
 }
 
 void KeyframeAnimation::onAnimationStart(double elapsedTime)
@@ -308,16 +280,14 @@ bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double
 
     if (shouldSendEventForListener(listenerType)) {
         // Dispatch the event
-        RefPtr<Element> element;
-        if (m_object->node() && m_object->node()->isElementNode())
-            element = toElement(m_object->node());
+        RefPtr<Element> element = m_object->element();
 
-        ASSERT(!element || (element->document() && !element->document()->inPageCache()));
+        ASSERT(!element || !element->document().inPageCache());
         if (!element)
             return false;
 
         // Schedule event handling
-        m_compAnim->animationController()->addEventToDispatch(element, eventType, m_keyframes.animationName(), elapsedTime);
+        m_compositeAnimation->animationController()->addEventToDispatch(element, eventType, m_keyframes.animationName(), elapsedTime);
 
         // Restore the original (unanimated) style
         if (eventType == eventNames().webkitAnimationEndEvent && element->renderer())
@@ -435,7 +405,6 @@ void KeyframeAnimation::checkForMatchingFilterFunctionLists()
 double KeyframeAnimation::timeToNextService()
 {
     double t = AnimationBase::timeToNextService();
-#if USE(ACCELERATED_COMPOSITING)
     if (t != 0 || preActive())
         return t;
         
@@ -455,7 +424,7 @@ double KeyframeAnimation::timeToNextService()
         bool isLooping;
         getTimeToNextEvent(t, isLooping);
     }
-#endif
+
     return t;
 }
 

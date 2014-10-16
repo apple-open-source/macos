@@ -1,10 +1,10 @@
 /*
  * MUSCLE SmartCard Development ( http://www.linuxnet.com )
  *
- * Copyright (C) 2004
+ * Copyright (C) 2004-2010
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: strlcpycat.h 1421 2005-04-12 12:09:21Z rousseau $
+ * $Id: strlcpycat.h 4974 2010-06-01 09:43:47Z rousseau $
  */
 
 /**
@@ -12,7 +12,9 @@
  * @brief prototypes of strlcpy()/strlcat() imported from OpenBSD
  */
 
-#ifndef HAVE_STRLCPY
+#ifdef HAVE_STRLCPY
+#include <string.h>
+#else
 size_t strlcpy(char *dst, const char *src, size_t siz);
 #endif
 

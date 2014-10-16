@@ -1,0 +1,79 @@
+#
+# Verify fix for 3855635, which ensures that CSSM_CERT_STATUS_IS_IN_ANCHORS and
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS are correctly generated for all combinations
+# of conditions they represent. Before the fix, the TP considered these to 
+# to be mutually exclusive.
+#
+#
+# Assumes the presence of two certs: one for amazon.com and the root that signed it.
+# The former can be regenerated on expiration via sslViewer's f option. The latter
+# can be recreated with the certChain program. There are also two keychains in
+# this directory, each containing exactly one of those certs. If you recreate the certs
+# be sure to replace the certs in the corresponding keychain.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+end
+
+# Note the amazon cert expired 11/27/2007; let's just keep using 
+# it by specifying a verify time.
+
+#test = "Baseline, implicit root, no DLDB"
+#cert = amazon_v3.100.cer
+#verifyTime = 20071120000000
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 0:0x4
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | CSSM_CERT_STATUS_IS_ROOT
+#certstatus = 1:0x18  ### not in anchors any more, so only 1 cert in chain
+#end
+
+#test = "Baseline, explicit root, no DLDB"
+#cert = amazon_v3.100.cer
+#cert = root_1.cer
+#verifyTime = 20071120000000
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 0:0x4
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | CSSM_CERT_STATUS_IS_ROOT | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+# certstatus = 1:0x1C  ### not in anchors any more
+# CSSM_CERT_STATUS_IS_ROOT | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 1:0x14
+#end
+
+#test = "Leaf is in DB"
+#cert = amazon_v3.100.cer
+#certDb = dbWithLeaf.db
+#verifyTime = 20071120000000
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 0:0x4
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | CSSM_CERT_STATUS_IS_ROOT
+# certstatus = 1:0x18  ### not in anchors any more, so only 1 cert in chain
+#end
+
+#test = "Implicit root is in DB"
+#cert = amazon_v3.100.cer
+#certDb = dbWithRoot.db
+#verifyTime = 20071120000000
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 0:0x4
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | CSSM_CERT_STATUS_IS_ROOT
+#certstatus = 1:0x18  ### not in anchors any more
+# CSSM_CERT_STATUS_IS_ROOT
+#certstatus = 1:0x10
+#end
+
+#test = "Explicit root is in DB"
+#cert = amazon_v3.100.cer
+#cert = root_1.cer
+#certDb = dbWithRoot.db
+#verifyTime = 20071120000000
+# CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 0:0x4
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | CSSM_CERT_STATUS_IS_ROOT | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+# certstatus = 1:0x1C  ### not in anchors any more
+# CSSM_CERT_STATUS_IS_ROOT | CSSM_CERT_STATUS_IS_IN_INPUT_CERTS
+#certstatus = 1:0x14
+#end
+

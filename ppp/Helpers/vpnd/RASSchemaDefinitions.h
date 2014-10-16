@@ -244,6 +244,7 @@
 #define kRASPropIPSecLocalIdentifier			CFSTR("LocalIdentifier") 		/*									CFString */
 #define kRASPropIPSecRemoteIdentifier			CFSTR("RemoteIdentifier") 		/*									CFString */
 #define kRASPropIPSecLocalAddress				CFSTR("LocalAddress")			/*									CFString */
+#define kRASPropIPSecForceLocalAddress			CFSTR("ForceLocalAddress")		/*									CFBoolean */
 #define kRASPropIPSecRemoteAddress				CFSTR("RemoteAddress")			/*									CFString */
 #define kRASPropIPSecSharedSecret				CFSTR("SharedSecret")			/*									CFString */
 #define kRASPropIPSecSharedSecretEncryption		CFSTR("SharedSecretEncryption") /*									CFString */

@@ -63,6 +63,7 @@ typedef struct __IOMIGMachPort {
 
 static void             __IOMIGMachPortRelease(CFTypeRef object);
 static void             __IOMIGMachPortRegister(void);
+static void             __IOMIGMachPortSourceCallback(void * info);
 static void             __IOMIGMachPortPortCallback(CFMachPortRef port, void *msg, CFIndex size __unused, void *info);
 static Boolean          __NoMoreSenders(mach_msg_header_t *request, mach_msg_header_t *reply);
 
@@ -91,8 +92,8 @@ static pthread_mutex_t          __ioPortCacheLock         = PTHREAD_MUTEX_INITIA
 //------------------------------------------------------------------------------
 void __IOMIGMachPortRegister(void)
 {
-    __IOMIGMachPortTypeID = _CFRuntimeRegisterClass(&__IOMIGMachPortClass);
     __ioPortCache         = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, NULL, NULL);
+    __IOMIGMachPortTypeID = _CFRuntimeRegisterClass(&__IOMIGMachPortClass);
 }
 
 //------------------------------------------------------------------------------
@@ -165,6 +166,41 @@ exit:
     return NULL;
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// __IOMIGMachPortSourceCallback
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void __IOMIGMachPortSourceCallback(void * info)
+{
+    IOMIGMachPortRef migPort = (IOMIGMachPortRef)info;
+    
+    CFRetain(migPort);
+    
+    mach_port_t         port    = CFMachPortGetPort(migPort->port);
+    mach_msg_size_t     size    = migPort->maxMessageSize + MAX_TRAILER_SIZE;
+    mach_msg_header_t * msg     = (mach_msg_header_t *)CFAllocatorAllocate(CFGetAllocator(migPort), size, 0);
+    
+    msg->msgh_size = size;
+    for (;;) {
+        msg->msgh_bits = 0;
+        msg->msgh_local_port = port;
+        msg->msgh_remote_port = MACH_PORT_NULL;
+        msg->msgh_id = 0;
+        kern_return_t ret = mach_msg(msg, MACH_RCV_MSG|MACH_RCV_LARGE|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AV), 0, msg->msgh_size, port, 0, MACH_PORT_NULL);
+        if (MACH_MSG_SUCCESS == ret) break;
+        if (MACH_RCV_TOO_LARGE != ret) goto inner_exit;
+        uint32_t newSize = round_msg(msg->msgh_size + MAX_TRAILER_SIZE);
+        msg = CFAllocatorReallocate(CFGetAllocator(migPort), msg, newSize, 0);
+        msg->msgh_size = newSize;
+    }
+
+    __IOMIGMachPortPortCallback(migPort->port, msg, msg->msgh_size, migPort);
+
+inner_exit:
+    CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
+    CFRelease(migPort);
+}
+
+
 //------------------------------------------------------------------------------
 // IOMIGMachPortScheduleWithDispatchQueue
 //------------------------------------------------------------------------------
@@ -182,30 +218,8 @@ void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef migPort, dispatch_q
         migPort->dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, port, 0, migPort->dispatchQueue);
         require(migPort->dispatchSource, exit);
 
-        dispatch_source_set_event_handler(migPort->dispatchSource, ^{
-            CFRetain(migPort);
-            mach_msg_size_t size = migPort->maxMessageSize + MAX_TRAILER_SIZE;
-            mach_msg_header_t *msg = (mach_msg_header_t *)CFAllocatorAllocate(CFGetAllocator(migPort), size, 0);
-            msg->msgh_size = size;
-            for (;;) {
-                msg->msgh_bits = 0;
-                msg->msgh_local_port = port;
-                msg->msgh_remote_port = MACH_PORT_NULL;
-                msg->msgh_id = 0;
-                kern_return_t ret = mach_msg(msg, MACH_RCV_MSG|MACH_RCV_LARGE|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AV), 0, msg->msgh_size, port, 0, MACH_PORT_NULL);
-                if (MACH_MSG_SUCCESS == ret) break;
-                if (MACH_RCV_TOO_LARGE != ret) goto inner_exit;
-                uint32_t newSize = round_msg(msg->msgh_size + MAX_TRAILER_SIZE);
-                msg = CFAllocatorReallocate(CFGetAllocator(migPort), msg, newSize, 0);
-                msg->msgh_size = newSize;
-            }
-            
-            __IOMIGMachPortPortCallback(migPort->port, msg, msg->msgh_size, migPort);
-            
-        inner_exit:
-            CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
-            CFRelease(migPort);
-        });
+        dispatch_set_context(migPort->dispatchSource, migPort);
+        dispatch_source_set_event_handler_f(migPort->dispatchSource, __IOMIGMachPortSourceCallback);
     }
     
     dispatch_resume(migPort->dispatchSource);

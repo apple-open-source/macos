@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>SASL Plugin Programmer's Guide</title>
-<!-- $Id: plugprog.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
+<!-- $Id: plugprog.html,v 1.6 2011/09/07 12:41:51 mel Exp $ -->
 </HEAD>
 <BODY>
 <h1>SASL Plugin Programmer's Guide</h1>
@@ -184,7 +184,7 @@ may not send last (e.g. SRP), *serverout must be set accordingly.
 	This is only called when the connection will no longer be used
         (e.g. when <tt>sasl_dispose</tt> is called)</li>
       <li><b>mech_free</b> - Called when the sasl library is shutting down
-	(by <tt>sasl_done</tt>).
+	(by <tt>sasl_client_done/sasl_server_done/sasl_done</tt>).
 	Intended to free any global state of the plugin.</li>
     </ul>
 <a name="server"><h2>Server Plugins</h2></a>
@@ -239,7 +239,7 @@ may not send last (e.g. SRP), *serverout must be set accordingly.
 	This is only called when the connection will no longer be used
         (e.g. when <tt>sasl_dispose</tt> is called)</li>
       <li><b>mech_free</b> - Called when the sasl library is shutting down
-	(by <tt>sasl_done</tt>).
+	(by <tt>sasl_client_done/sasl_server_done/sasl_done</tt>).
 	Intended to free any global state of the plugin.</li>
       <li><b>setpass</b> - Called to set a user's password.  This allows
 	mechanisms to support their own internal password or secret

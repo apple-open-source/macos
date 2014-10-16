@@ -1,0 +1,69 @@
+//
+// script0007.000
+//
+//		KCSetData
+//		KCGetData
+//
+// Check the item created in script0007 still exists
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0007.001
+   Results : 2
+     OSStatus 0
+     KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+48 KCFindFirstItem
+   Input Arguments : 2
+     KeychainIndex : 0
+	 AttributeList :
+	 .count : 2
+	 .0 :
+     .tag : clas
+     .data : /4/inet
+	 .1 :
+     .tag : crtr
+     .data : /4/meme
+   Results : 3
+     OSStatus 0
+     SearchIndex : 0
+     ItemIndex : 0
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /6/000000
+   Results : 3
+     OSStatus 0
+     Data : /6/Monkey
+     ActualLength : 6
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus -25300
+     ItemIndex : 1
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0
+50 KCReleaseSearch
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 1
+     OSStatus 0

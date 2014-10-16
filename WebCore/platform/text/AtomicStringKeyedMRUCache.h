@@ -36,7 +36,7 @@ public:
     T get(const AtomicString& key)
     {
         if (key.isNull()) {
-            DEFINE_STATIC_LOCAL(T, valueForNull, (createValueForNullKey()));
+            DEPRECATED_DEFINE_STATIC_LOCAL(T, valueForNull, (createValueForNullKey()));
             return valueForNull;
         }
 
@@ -63,7 +63,7 @@ private:
     T createValueForNullKey();
     T createValueForKey(const AtomicString&);
 
-    typedef pair<AtomicString, T> Entry;
+    typedef std::pair<AtomicString, T> Entry;
     typedef Vector<Entry, capacity> Cache;
     Cache m_cache;
 };

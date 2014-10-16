@@ -38,19 +38,6 @@ BEGIN
 	self->a = 0xbad;
 }
 
-#if !defined(__APPLE__)
-BEGIN
-/b[curthread->t_did] == 0/
-{
-	exit(0);
-}
-
-BEGIN
-{
-	printf("value should be 0; value is %x!", b[curthread->t_did]);
-	exit(1);
-}
-#else
 BEGIN
 /b[((uint32_t)curthread)<<32 | (uint32_t)curthread] == 0/
 {
@@ -62,5 +49,3 @@ BEGIN
 	printf("value should be 0; value is %x!", b[((uint32_t)curthread)<<32 | (uint32_t)curthread]);
 	exit(1);
 }
-#endif /* __APPLE__ */
-

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsSignedData.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -37,7 +37,6 @@
 
 #include <Security/SecCmsBase.h>
 #include <Security/SecTrust.h>
-
 
 #if defined(__cplusplus)
 extern "C" {
@@ -160,23 +159,8 @@ SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd);
     @function
     @abstract Retrieve the SignedData's certificate list.
  */
-extern CSSM_DATA_PTR *
+extern SecAsn1Item * *
 SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd);
-
-/*!
-    @function
- */
-extern OSStatus
-SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
-				SecCmsSignerInfoRef signerinfo);
-
-/*!
-    @function
- */
-extern OSStatus
-SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
-				SECAlgorithmID **digestalgs,
-				CSSM_DATA_PTR *digests);
 
 /*!
     @function
@@ -189,6 +173,17 @@ SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
 extern SecCmsSignedDataRef
 SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, Boolean include_chain);
 
+/*!
+	@function
+    @abstract Finalize the digests in digestContext and apply them to sigd.
+    @param sigd A SecCmsSignedDataRef for which the digests have been calculated
+    @param digestContext A digestContext created with SecCmsDigestContextStartMultiple.
+	@result The digest will have been applied to sigd.  After this call completes sigd is ready to accept
+	SecCmsSignedDataVerifySignerInfo() calls.  The caller should still destroy digestContext with a SecCmsDigestContextDestroy() call.
+
+ */
+extern OSStatus SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
+												 SecCmsDigestContextRef digestContext);
 
 #if defined(__cplusplus)
 }

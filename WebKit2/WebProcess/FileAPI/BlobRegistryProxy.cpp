@@ -26,40 +26,69 @@
 #include "config.h"
 #include "BlobRegistryProxy.h"
 
-#if ENABLE(BLOB) && ENABLE(NETWORK_PROCESS)
+#if ENABLE(NETWORK_PROCESS)
 
-#include "BlobRegistrationData.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
-#include <WebCore/BlobData.h>
+#include <WebCore/BlobDataFileReference.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-void BlobRegistryProxy::registerBlobURL(const KURL& url, PassOwnPtr<BlobData> blobData)
+void BlobRegistryProxy::registerFileBlobURL(const WebCore::URL& url, PassRefPtr<BlobDataFileReference> file, const String& contentType)
 {
     ASSERT(WebProcess::shared().usesNetworkProcess());
 
-    WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::RegisterBlobURL(url, BlobRegistrationData(blobData)), 0);
+    SandboxExtension::Handle extensionHandle;
+
+    // File path can be empty when submitting a form file input without a file, see bug 111778.
+    if (!file->path().isEmpty())
+        SandboxExtension::createHandle(file->path(), SandboxExtension::ReadOnly, extensionHandle);
+
+    WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::RegisterFileBlobURL(url, file->path(), extensionHandle, contentType), 0);
 }
 
-void BlobRegistryProxy::registerBlobURL(const KURL& url, const KURL& srcURL)
+void BlobRegistryProxy::registerBlobURL(const URL& url, Vector<BlobPart> blobParts, const String& contentType)
+{
+    ASSERT(WebProcess::shared().usesNetworkProcess());
+
+    WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::RegisterBlobURL(url, blobParts, contentType), 0);
+}
+
+void BlobRegistryProxy::registerBlobURL(const URL& url, const URL& srcURL)
 {
     ASSERT(WebProcess::shared().usesNetworkProcess());
 
     WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::RegisterBlobURLFromURL(url, srcURL), 0);
 }
 
-void BlobRegistryProxy::unregisterBlobURL(const KURL& url)
+void BlobRegistryProxy::unregisterBlobURL(const URL& url)
 {
     ASSERT(WebProcess::shared().usesNetworkProcess());
 
     WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::UnregisterBlobURL(url), 0);
 }
 
+void BlobRegistryProxy::registerBlobURLForSlice(const URL& url, const URL& srcURL, long long start, long long end)
+{
+    ASSERT(WebProcess::shared().usesNetworkProcess());
+
+    WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::RegisterBlobURLForSlice(url, srcURL, start, end), 0);
 }
 
-#endif // ENABLE(BLOB) && ENABLE(NETWORK_PROCESS)
+unsigned long long BlobRegistryProxy::blobSize(const URL& url)
+{
+    ASSERT(WebProcess::shared().usesNetworkProcess());
+
+    uint64_t resultSize;
+    if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::BlobSize(url), Messages::NetworkConnectionToWebProcess::BlobSize::Reply(resultSize), 0))
+        return 0;
+    return resultSize;
+}
+
+}
+
+#endif // ENABLE(NETWORK_PROCESS)

@@ -12,7 +12,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -34,18 +34,16 @@
 #include <algorithm>
 #include <limits>
 
-using namespace std;
-
 namespace WebCore {
 
 static inline float min4(float a, float b, float c, float d)
 {
-    return min(min(a, b), min(c, d));
+    return std::min(std::min(a, b), std::min(c, d));
 }
 
 static inline float max4(float a, float b, float c, float d)
 {
-    return max(max(a, b), max(c, d));
+    return std::max(std::max(a, b), std::max(c, d));
 }
 
 inline float dot(const FloatSize& a, const FloatSize& b)
@@ -94,7 +92,7 @@ FloatRect FloatQuad::boundingBox() const
 
 static inline bool withinEpsilon(float a, float b)
 {
-    return fabs(a - b) < numeric_limits<float>::epsilon();
+    return fabs(a - b) < std::numeric_limits<float>::epsilon();
 }
 
 bool FloatQuad::isRectilinear() const

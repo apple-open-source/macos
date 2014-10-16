@@ -30,7 +30,6 @@
 #include <TargetConditionals.h>
 #endif
 
-#if TARGET_OS_EMBEDDED
 #include <stdio.h>
 #include <err.h>
 #include <stdlib.h>
@@ -154,4 +153,3 @@ mptcppr(uint32_t off, char *name, int af)
 	}
 	free(buf);
 }
-#endif /* TARGET_OS_EMBEDDED */

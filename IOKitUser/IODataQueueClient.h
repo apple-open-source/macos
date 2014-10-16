@@ -66,7 +66,7 @@ IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *
  * @abstract Wait for an incoming dataAvailable message on the given notifyPort.
  * @discussion This method will simply wait for an incoming message on the given notifyPort.  Once it is received, the return from mach_msg() is returned.
  * @param dataQueue The IODataQueueMemory region mapped from the kernel.
- * @param notifyPort Mach port on which to listen for incoming messages.
+ * @param notificationPort Mach port on which to listen for incoming messages.
  * @result Returns kIOReturnSuccess on success.  Returns kIOReturnBadArgument if either dataQueue is 0 (NULL) or notiryPort is MACH_PORT_NULL.  Returns the result of the mach_msg() listen call on the given port.
  */
 IOReturn IODataQueueWaitForAvailableData(IODataQueueMemory *dataQueue, mach_port_t notificationPort);

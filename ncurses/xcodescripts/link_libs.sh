@@ -8,7 +8,7 @@ ver=5.4
 
 # check if we're building for the simulator
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	DSTROOT="${DSTROOT}${SDKROOT}"
+	DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 	[ -n "${RC_TARGET_CONFIG}" ] || RC_TARGET_CONFIG="iPhone"
 
 	for lib in libform.${ver}.dylib libmenu.${ver}.dylib libncurses.${ver}.dylib libpanel.${ver}.dylib ; do

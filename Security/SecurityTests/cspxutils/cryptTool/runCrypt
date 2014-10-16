@@ -1,0 +1,27 @@
+#! /bin/csh -f
+#
+# Simple script to demonstrate usage of cryptTool. 
+#
+#   create a simple text file; dump its contents;
+#   encrypt the file using RC4;
+#   dump the binary contents of the resulting ciphertext;
+#   decrypt using RC4;
+#   dump the resulting plaintext file;
+#
+set PLAINTEXT_FILE=ptext
+set CIPHERTEXT_FILE=ctext
+set RECOVERED_FILE=rptext
+#
+echo Creating plaintext....
+echo "This is a simple plaintext file for demonstration." > $PLAINTEXT_FILE
+echo Contents of plaintext:
+cat $PLAINTEXT_FILE
+echo Encrypting plaintext...
+./cryptTool e foobar 16 $PLAINTEXT_FILE $CIPHERTEXT_FILE
+echo Contents of ciphertext:
+/usr/bin/hexdump $CIPHERTEXT_FILE
+echo Decrypting....
+./cryptTool d foobar 16 $CIPHERTEXT_FILE $RECOVERED_FILE
+echo Contents of recovered text:
+cat $RECOVERED_FILE
+echo Done.

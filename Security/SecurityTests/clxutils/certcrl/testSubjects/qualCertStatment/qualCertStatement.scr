@@ -1,0 +1,32 @@
+#
+# Test Qualified Cert Statement processing,, Radar 4449558
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+useTrustSettings = true
+end
+
+test = "Quo Vadis"
+cert = ICA3.cer
+leafCertIsCA = true
+verifyTime = 20060701000000
+end
+
+# we don't know this root as an anchor yet, so use implicitAnchors
+test = "Netlock"
+cert = Netlock1.der
+implicitAnchors = true
+verifyTime = 20060701000000
+end
+
+# this one has a bogus statementID and should fail
+test = "Bad statementId"
+cert = badStatementId.cer
+implicitAnchors = true
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 0:CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT
+verifyTime = 20060613000000
+end

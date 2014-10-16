@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -65,9 +65,9 @@ protected:
 
     ResourceErrorBase(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription)
         : m_domain(domain)
-        , m_errorCode(errorCode)
         , m_failingURL(failingURL)
         , m_localizedDescription(localizedDescription)
+        , m_errorCode(errorCode)
         , m_isNull(false)
         , m_isCancellation(false)
         , m_isTimeout(false)
@@ -86,12 +86,12 @@ protected:
     static bool platformCompare(const ResourceError&, const ResourceError&) { return true; }
 
     String m_domain;
-    int m_errorCode;
     String m_failingURL;
     String m_localizedDescription;
-    bool m_isNull;
-    bool m_isCancellation;
-    bool m_isTimeout;
+    int m_errorCode;
+    bool m_isNull : 1;
+    bool m_isCancellation : 1;
+    bool m_isTimeout : 1;
 };
 
 inline bool operator==(const ResourceError& a, const ResourceError& b) { return ResourceErrorBase::compare(a, b); }

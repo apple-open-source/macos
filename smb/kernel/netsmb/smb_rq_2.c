@@ -39,7 +39,7 @@ static int smb2_rq_new(struct smb_rq *rqp);
 
 
 /* 
- * Adds padding to 8 byte boundary for SMB2 compound requests
+ * Adds padding to 8 byte boundary for SMB 2/3 compound requests
  */
 void
 smb2_rq_align8(struct smb_rq *rqp)
@@ -71,7 +71,7 @@ smb2_rq_alloc(struct smb_connobj *obj, u_char cmd, uint32_t *rq_len,
 	int error;
     
     /* 
-     * This function allocates smb_rq and creates the SMB2 header 
+     * This function allocates smb_rq and creates the SMB 2/3 header
      */
 	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
 	if (rqp == NULL)
@@ -141,7 +141,7 @@ smb2_rq_bstart32(struct smb_rq *rqp, uint32_t *len_ptr)
 }
 
 /*
- * SMB 2.x crediting
+ * SMB 2/3 crediting
  *
  * CreditCharge - number of credits consumed by response
  * CreditRequest/CreditResponse - used to request more credits.
@@ -274,11 +274,11 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         default:
             if (!(vcp->vc_flags & SMBV_SMB2)) {
                 /*
-                 * Huh? Why are we trying to send SMB 2.x request on SMB 1.x
+                 * Huh? Why are we trying to send SMB 2/3 request on SMB 1
                  * connection. This is not allowed. Need to find the code path
                  * that got to here and fix it.
                  */
-                SMBERROR("SMB 2.x not allowed on SMB 1.x connection. cmd = %x\n",
+                SMBERROR("SMB 2/3 not allowed on SMB 1 connection. cmd = %x\n",
                          rqp->sr_command);
                 error = ERPCMISMATCH;
                 goto out;
@@ -307,8 +307,8 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         if (curr_credits >= kCREDIT_MIN_AMT) {
             if (vcp->vc_req_pending == 0) {
                 /* Have enough credits and no pending reqs, so go send it */
-            break;
-        }
+                break;
+            }
         
             /* Have a pending request, see if send window is open */
             if (vcp->vc_message_id > vcp->vc_oldest_message_id) {
@@ -365,7 +365,9 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             
             if (ret == EWOULDBLOCK) {
                 /* Timed out, so decrement wait counter */
-                 OSAddAtomic(-1, &vcp->vc_credits_wait);
+                if (vcp->vc_credits_wait) {
+                    OSAddAtomic(-1, &vcp->vc_credits_wait);
+                }
 
                 /* If the share is going away, just return immediately */
                 if ((rqp->sr_share) &&
@@ -373,6 +375,13 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
                     (rqp->sr_share->ss_going_away(rqp->sr_share))) {
                     SMBC_CREDIT_UNLOCK(vcp);
                     return ENXIO;
+                }
+                
+                /* If have credits, go and check to see if we can send now */
+                curr_credits = OSAddAtomic(0, &vcp->vc_credits_granted);
+                if (curr_credits > 0) {
+                    ret = 0;
+                    break;
                 }
                 
                 /* Loop again and wait some more */
@@ -391,8 +400,12 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
              * Something really went wrong here. We should not have to wait
              * this long to get any credits. Force a reconnect.
              */
-            SMBERROR("Timed out waiting for credits %d \n", ret);
-
+            curr_credits = OSAddAtomic(0, &vcp->vc_credits_granted);
+            SMBERROR("Timed out waiting for credits curr %d max %d curr ID %lld pending ID %lld vc_credits_wait %d\n",
+            curr_credits, vcp->vc_credits_max,
+            vcp->vc_message_id, vcp->vc_oldest_message_id,
+            vcp->vc_credits_wait);
+            
             /* Reconnect requests will need the credit lock so free it */
             SMBC_CREDIT_UNLOCK(vcp);
 
@@ -660,7 +673,7 @@ smb2_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
             break;
     }
     
-    /* Create the SMB2 Header */
+    /* Create the SMB 2/3 Header */
     error = smb2_rq_new(rqp);
 done:
 	if (error) {
@@ -670,7 +683,7 @@ done:
 }
 
 /*
- * Returns uint32_t length of the SMB2 request
+ * Returns uint32_t length of the SMB 2/3 request
  */
 uint32_t
 smb2_rq_length(struct smb_rq *rqp)
@@ -800,7 +813,7 @@ smb2_rq_new(struct smb_rq *rqp)
     
     if (!(rqp->sr_flags & SMBR_ASYNC)) {
         /* 
-         * Build SMB2 Sync Header 
+         * Build SMB 2/3 Sync Header
          */
         mb_put_mem(mbp, SMB2_SIGNATURE, SMB2_SIGLEN, MB_MSYSTEM); /* Protocol ID */
         mb_put_uint16le(mbp, SMB2_HDRLEN);                      /* Struct Size */
@@ -824,7 +837,7 @@ smb2_rq_new(struct smb_rq *rqp)
     }
     else {
         /* 
-         * Build SMB2 Async Header 
+         * Build SMB 2/3 Async Header
          */
         mb_put_mem(mbp, SMB2_SIGNATURE, SMB2_SIGLEN, MB_MSYSTEM); /* Protocol ID */
         mb_put_uint16le(mbp, SMB2_HDRLEN);                      /* Struct Size */
@@ -851,7 +864,7 @@ smb2_rq_new(struct smb_rq *rqp)
 }
 
 /*
- * Parses SMB2 Response Header
+ * Parses SMB 2/3 Response Header
  * For non compound responses, the mdp is from the rqp.
  * For compound responses, the mdp may be from the first rqp in the chain and 
  * not from the rqp passed into this function. 
@@ -865,10 +878,11 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     uint64_t message_id = 0;
     uint64_t async_id = 0;
     struct mdchain md_sign;
+    uint32_t encryption_on;
     uint8_t signature[16];
 
     /* 
-     * Parse SMB2 Header 
+     * Parse SMB 2/3 Header
      * We are already pointing to begining of header data
      */
 
@@ -1004,9 +1018,30 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
         goto bad;
     }
     
-    /* If it's signed, then verify the signature */
-    if ( (error == 0) &&
-        (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE)) {
+    /* Can skip signature verification if we're encrypting */
+    encryption_on = 0;
+    
+    if (rqp->sr_vc->vc_flags & (SMBV_SMB30 | SMBV_SMB302)) {
+        /* Check if session is encrypted */
+        if (rqp->sr_vc->vc_sopt.sv_sessflags & SMB2_SESSION_FLAG_ENCRYPT_DATA) {
+            if (rqp->sr_command != SMB2_NEGOTIATE) {
+                encryption_on = 1;
+            }
+        } else if (rqp->sr_share != NULL) {
+            /* Check if share is encrypted */
+            if ( (rqp->sr_command != SMB2_NEGOTIATE) &&
+                (rqp->sr_command != SMB2_SESSION_SETUP) &&
+                (rqp->sr_command != SMB2_TREE_CONNECT) &&
+                (rqp->sr_share->ss_share_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) ){
+                encryption_on = 1;
+            }
+        }
+    }
+    
+    /* If it's signed and encryption is off, then verify the signature */
+    if ( (error == 0) && (encryption_on == 0) &&
+        ((rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) ||
+         (rqp->sr_flags & SMBR_SIGNED))) {
         error = smb2_rq_verify(rqp, &md_sign, signature);
     }
     
@@ -1068,7 +1103,7 @@ bad:
 }
 
 /*
- * Sets SMB2 Header Flags and NextCommand for Compound req chains
+ * Sets SMB 2/3 Header Flags and NextCommand for Compound req chains
  */
 int
 smb2_rq_update_cmpd_hdr(struct smb_rq *rqp, uint32_t position_flag)

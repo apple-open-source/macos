@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,24 +26,33 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebHistoryItem.h>
+#import <WebKitLegacy/WebHistoryItem.h>
+
+#if TARGET_OS_IPHONE
+#import <Foundation/NSCalendarDate.h>
+
+extern NSString *WebViewportInitialScaleKey;
+extern NSString *WebViewportMinimumScaleKey;
+extern NSString *WebViewportMaximumScaleKey;
+extern NSString *WebViewportUserScalableKey;
+extern NSString *WebViewportWidthKey;
+extern NSString *WebViewportHeightKey;
+extern NSString *WebViewportMinimalUIKey;
+#endif
 
 @interface WebHistoryItem (WebPrivate)
 
+#if !TARGET_OS_IPHONE
 + (void)_releaseAllPendingPageCaches;
+#endif
 
 - (id)initWithURL:(NSURL *)URL title:(NSString *)title;
 
 - (NSURL *)URL;
-- (int)visitCount;
 - (BOOL)lastVisitWasFailure;
-- (void)_setLastVisitWasFailure:(BOOL)failure;
-
-- (BOOL)_lastVisitWasHTTPNonGet;
 
 - (NSString *)RSSFeedReferrer;
 - (void)setRSSFeedReferrer:(NSString *)referrer;
-- (NSCalendarDate *)_lastVisitedDate;
 
 - (NSArray *)_redirectURLs;
 
@@ -52,17 +61,29 @@
 - (BOOL)isTargetItem;
 - (NSArray *)children;
 - (NSDictionary *)dictionaryRepresentation;
+#if TARGET_OS_IPHONE
+- (NSDictionary *)dictionaryRepresentationIncludingChildren:(BOOL)includesChildren;
+#endif
 
-// This should not be called directly for WebHistoryItems that are already included
-// in WebHistory. Use -[WebHistory setLastVisitedTimeInterval:forItem:] instead.
-- (void)_setLastVisitedTimeInterval:(NSTimeInterval)time;
 // Transient properties may be of any ObjC type.  They are intended to be used to store state per back/forward list entry.
 // The properties will not be persisted; when the history item is removed, the properties will be lost.
 - (id)_transientPropertyForKey:(NSString *)key;
 - (void)_setTransientProperty:(id)property forKey:(NSString *)key;
 
-- (size_t)_getDailyVisitCounts:(const int**)counts;
-- (size_t)_getWeeklyVisitCounts:(const int**)counts;
+#if TARGET_OS_IPHONE
+- (void)_setScale:(float)scale isInitial:(BOOL)aFlag;
+- (float)_scale;
+- (BOOL)_scaleIsInitial;
+- (NSDictionary *)_viewportArguments;
+- (void)_setViewportArguments:(NSDictionary *)arguments;
+- (CGPoint)_scrollPoint;
+- (void)_setScrollPoint:(CGPoint)scrollPoint;
+
+- (uint32_t)_bookmarkID;
+- (void)_setBookmarkID:(uint32_t)bookmarkID;
+- (NSString *)_sharedLinkUniqueIdentifier;
+- (void)_setSharedLinkUniqueIdentifier:(NSString *)identifier;
+#endif
 
 - (BOOL)_isInPageCache;
 - (BOOL)_hasCachedPageExpired;

@@ -305,8 +305,8 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                 case L2TP_OPT_SETDELEGATEDPID:
                     if (sopt->sopt_valsize != 4)
                         error = EMSGSIZE;
-                    else if ((error = sooptcopyin(sopt, &val, 4, 4)) == 0)
-                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETDELEGATEDPID, &val);
+                    else if ((error = sooptcopyin(sopt, &lval, 4, 4)) == 0)
+                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETDELEGATEDPID, &lval);
                     break;
                     
                 default:

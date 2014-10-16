@@ -40,12 +40,15 @@
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorRef          allocator, 
-                                    CFAllocatorContext *    context __unused);
+                                    CFAllocatorContext *    context __unused,
+                                    IOOptionBits            options);
 static void                 __IOHIDUserDeviceRelease( CFTypeRef object );
 static void                 __IOHIDUserDeviceRegister(void);
 static void                 __IOHIDUserDeviceQueueCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
 static void                 __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result);
 static Boolean              __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device);
+static IOReturn             __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef device, IOOptionBits options);
+
 
 typedef struct __IOHIDUserDevice
 {
@@ -54,6 +57,7 @@ typedef struct __IOHIDUserDevice
     io_service_t                    service;
     io_connect_t                    connect;
     CFDictionaryRef                 properties;
+    IOOptionBits                    options;
     
     CFRunLoopRef                    runLoop;
     CFStringRef                     runLoopMode;
@@ -115,8 +119,8 @@ typedef struct __IOHIDDeviceHandleReportAsyncContext {
 //------------------------------------------------------------------------------
 void __IOHIDUserDeviceRegister(void)
 {
-    __kIOHIDUserDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDUserDeviceClass);
     IOMasterPort(bootstrap_port, &__masterPort);
+    __kIOHIDUserDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDUserDeviceClass);
 }
 
 //------------------------------------------------------------------------------
@@ -124,7 +128,8 @@ void __IOHIDUserDeviceRegister(void)
 //------------------------------------------------------------------------------
 IOHIDUserDeviceRef __IOHIDUserDeviceCreate(   
                                 CFAllocatorRef              allocator, 
-                                CFAllocatorContext *        context __unused)
+                                CFAllocatorContext *        context __unused,
+                                IOOptionBits                options)
 {
     IOHIDUserDeviceRef  device = NULL;
     void *          offset  = NULL;
@@ -139,6 +144,8 @@ IOHIDUserDeviceRef __IOHIDUserDeviceCreate(
 
     offset = device;
     bzero(offset + sizeof(CFRuntimeBase), size);
+    
+    device->options = options;
     
     return device;
 }
@@ -221,6 +228,29 @@ CFTypeID IOHIDUserDeviceGetTypeID(void)
     return __kIOHIDUserDeviceTypeID;
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// __IOHIDUserDeviceStartDevice
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOReturn __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef device, IOOptionBits options)
+{
+    CFDataRef   data = NULL;
+    IOReturn    kr;
+    uint64_t    input = options;
+    
+    data = IOCFSerialize(device->properties, 0);
+    require_action(data, error, kr=kIOReturnNoMemory);
+    
+    kr = IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodCreate, &input, 1, CFDataGetBytePtr(data), CFDataGetLength(data), NULL, NULL, NULL, NULL);
+    require_noerr(kr, error);
+    
+error:
+    if ( data )
+        CFRelease(data);
+    
+    return kr;
+    
+}
+
 //------------------------------------------------------------------------------
 // IOHIDUserDeviceCreate
 //------------------------------------------------------------------------------
@@ -228,36 +258,46 @@ IOHIDUserDeviceRef IOHIDUserDeviceCreate(
                                 CFAllocatorRef                  allocator, 
                                 CFDictionaryRef                 properties)
 {
+    return IOHIDUserDeviceCreateWithOptions(allocator, properties, 0);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceCreateWithOptions
+//------------------------------------------------------------------------------
+IOHIDUserDeviceRef IOHIDUserDeviceCreateWithOptions(CFAllocatorRef allocator, CFDictionaryRef properties, IOOptionBits options)
+{
     IOHIDUserDeviceRef  device = NULL;
-    CFDataRef           data;
+    IOHIDUserDeviceRef  result = NULL;
     kern_return_t       kr;
     
     require(properties, error);
         
-    device = __IOHIDUserDeviceCreate(allocator, NULL);
+    device = __IOHIDUserDeviceCreate(allocator, NULL, options);
     require(device, error);
+    
+    device->properties = CFDictionaryCreateCopy(allocator, properties);
+    require(device->properties, error);
 
-    device->service = IOServiceGetMatchingService(__masterPort, IOServiceMatching( "IOHIDResource" ));
+    device->service = IOServiceGetMatchingService(__masterPort, IOServiceMatching("IOHIDResource"));
     require(device->service, error);
         
     kr = IOServiceOpen(device->service, mach_task_self(), kIOHIDResourceUserClientTypeDevice, &device->connect);
     require_noerr(kr, error);
-        
-    data = IOCFSerialize(properties, 0);
-    require(data, error);
-        
-    kr = IOConnectCallStructMethod(device->connect, kIOHIDResourceDeviceUserClientMethodCreate, CFDataGetBytePtr(data), CFDataGetLength(data), NULL, NULL);
-    CFRelease(data);
-
-    require_noerr(kr, error);
     
-    return device;
+    if ( (device->options & kIOHIDUserDeviceCreateOptionStartWhenScheduled) == 0 ) {
+        kr = __IOHIDUserDeviceStartDevice(device, device->options);
+        require_noerr(kr, error);
+    }
+    
+    result = device;
+    CFRetain(result);
 
-error:    
+error:
+
     if ( device )
         CFRelease(device);
 
-    return NULL;
+    return result;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -265,6 +305,8 @@ error:
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
 {
+    Boolean result;
+    
     if ( !device->queue.data ) {
         IOReturn ret;
     #if !__LP64__
@@ -274,16 +316,10 @@ Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
         mach_vm_address_t   address = 0;
         mach_vm_size_t      size    = 0;
     #endif
-        ret = IOConnectMapMemory (	device->connect,
-                                  0,
-                                  mach_task_self(),
-                                  &address,
-                                  &size,
-                                  kIOMapAnywhere	);
         
-        if ( ret != kIOReturnSuccess )
-            return false;
-
+        ret = IOConnectMapMemory(device->connect, 0, mach_task_self(), &address, &size, kIOMapAnywhere);
+        require_noerr_action(ret, exit, result=false);
+        
         device->queue.data =(IODataQueueMemory * )address;
     }
 
@@ -295,17 +331,18 @@ Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
             
             device->queue.port = CFMachPortCreateWithPort(CFGetAllocator(device), port, __IOHIDUserDeviceQueueCallback, &context, FALSE);
         }
-
-        if ( !device->queue.port )
-            return false;
     }
+    require_action(device->queue.port, exit, result=false);
 
     if ( !device->async.port ) {
-        
         device->async.port = IONotificationPortCreate(kIOMasterPortDefault);
-        if ( !device->async.port )
-            return false;
     }
+
+    require_action(device->async.port, exit, result=false);
+
+    result = true;
+    
+exit:
     
     return true;
 }
@@ -333,6 +370,11 @@ void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef 
     CFRunLoopAddSource(runLoop, device->async.source, runLoopMode);
     CFRunLoopAddSource(runLoop, device->queue.source, runLoopMode);
     IOConnectSetNotificationPort(device->connect, 0, CFMachPortGetPort(device->queue.port), (uintptr_t)NULL);
+    
+    if ( device->options & kIOHIDUserDeviceCreateOptionStartWhenScheduled ) {
+        __IOHIDUserDeviceStartDevice(device, device->options);
+    }
+    
 }
 
 //------------------------------------------------------------------------------
@@ -394,6 +436,11 @@ void IOHIDUserDeviceScheduleWithDispatchQueue(IOHIDUserDeviceRef device, dispatc
     IOConnectSetNotificationPort(device->connect, 0, CFMachPortGetPort(device->queue.port), (uintptr_t)NULL);
     
     device->dispatchQueue = queue;
+    
+    if ( device->options & kIOHIDUserDeviceCreateOptionStartWhenScheduled ) {
+        __IOHIDUserDeviceStartDevice(device, device->options);
+    }
+    
 }
 
 //------------------------------------------------------------------------------

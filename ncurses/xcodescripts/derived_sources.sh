@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e -x
 
-CC=`xcrun -find cc -sdk macosx`
+CC=`xcrun -find cc -sdk macosx.internal`
 AWK=/usr/bin/awk
 
 CAPS="$PROJECT_DIR"/ncurses/include/Caps

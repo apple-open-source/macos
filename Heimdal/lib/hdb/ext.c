@@ -71,7 +71,7 @@ hdb_find_extension(const hdb_entry *entry, int type)
 	return NULL;
 
     for (i = 0; i < entry->extensions->len; i++)
-	if (entry->extensions->val[i].data.element == (unsigned)type)
+	if (entry->extensions->val[i].data.element == (enum HDB_extension_data_enum)type)
 	    return &entry->extensions->val[i];
     return NULL;
 }
@@ -188,7 +188,7 @@ hdb_clear_extension(krb5_context context,
 	return 0;
 
     for (i = 0; i < entry->extensions->len; i++) {
-	if (entry->extensions->val[i].data.element == (unsigned)type) {
+	if (entry->extensions->val[i].data.element == (enum HDB_extension_data_enum)type) {
 	    free_HDB_extension(&entry->extensions->val[i]);
 	    memmove(&entry->extensions->val[i],
 		    &entry->extensions->val[i + 1],
@@ -484,7 +484,7 @@ hdb_entry_get_aliases(const hdb_entry *entry, const HDB_Ext_Aliases **a)
     return 0;
 }
 
-unsigned int
+krb5_kvno
 hdb_entry_get_kvno_diff_clnt(const hdb_entry *entry)
 {
     const HDB_extension *ext;
@@ -516,7 +516,7 @@ hdb_entry_clear_kvno_diff_clnt(krb5_context context, hdb_entry *entry)
 			       choice_HDB_extension_data_hist_kvno_diff_clnt);
 }
 
-unsigned int
+krb5_kvno
 hdb_entry_get_kvno_diff_svc(const hdb_entry *entry)
 {
     const HDB_extension *ext;

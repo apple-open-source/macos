@@ -70,6 +70,7 @@ includes
 #include "../Drivers/PPTP/PPTP-plugin/pptp.h"
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
+#include "ne_sm_bridge_private.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -1502,7 +1503,7 @@ get dictionary for ip addresses to publish later to configd
 use new state information model
 ----------------------------------------------------------------------------- */
 CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o,
-			u_int32_t h, u_int32_t m, int isprimary)
+			u_int32_t h, u_int32_t m, int isprimary, CFArrayRef includedRoutes, CFArrayRef excludedRoutes)
 {
     struct in_addr		addr;
     CFMutableArrayRef		array;
@@ -1571,6 +1572,14 @@ CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID,
 			SCNetworkServiceSetPrimaryRank(netservRef, kSCNetworkServicePrimaryRankLast);
 			CFRelease(netservRef);
 		}
+	}
+	
+	if (includedRoutes) {
+		CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4AdditionalRoutes, includedRoutes);
+	}
+	
+	if (excludedRoutes) {
+		CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4ExcludedRoutes, excludedRoutes);
 	}
 
     return ipv4_dict;
@@ -2293,32 +2302,34 @@ done:
 }
 
 void
-applyEnvironmentVariablesApplierFunction (const void *key, const void *value, void *context)
+extractEnvironmentVariablesApplierFunction (const void *key, const void *value, void *context)
 {
+	struct service *serv = (struct service *)context;
 	CFRange range;
 
 	if (isA_CFString(key)) {
-		char key_buf[256];
-		char value_buf[256];
+		char *key_buf = (char *)serv->envKeys[serv->envCount];
+		char *value_buf = (char *)serv->envValues[serv->envCount];
 
+		key_buf[0] = '\0';
 		range.location = 0;
 		range.length = CFStringGetLength((CFStringRef)key);
 		if (range.length <= 0 ||
-			range.length >= sizeof(key_buf) ||
-			CFStringGetBytes((CFStringRef)key, range, kCFStringEncodingUTF8, 0, false, (UInt8 *)key_buf, sizeof(key_buf), NULL) <= 0) {
+			range.length >= sizeof(*serv->envKeys) ||
+			CFStringGetBytes((CFStringRef)key, range, kCFStringEncodingUTF8, 0, false, (UInt8 *)key_buf, sizeof(*serv->envKeys), NULL) <= 0) {
 			SCLog(TRUE, LOG_ERR, CFSTR("invalid EnvironmentVariables key %@, value %@"), key, value);
 			return;
 		}
 		key_buf[range.length] = '\0';
+		serv->envCount++;
 
-		unsetenv((const char *)key_buf);
-
+		value_buf[0] = '\0';
 		if (isA_CFString(value)) {
 			range.location = 0;
 			range.length = CFStringGetLength((CFStringRef)value);
 			if (range.length <= 0 ||
-				range.length >= sizeof(value_buf) ||
-				CFStringGetBytes((CFStringRef)value, range, kCFStringEncodingUTF8, 0, false, (UInt8 *)value_buf, sizeof(value_buf), NULL) <= 0) {
+				range.length >= sizeof(*serv->envValues) ||
+				CFStringGetBytes((CFStringRef)value, range, kCFStringEncodingUTF8, 0, false, (UInt8 *)value_buf, sizeof(*serv->envValues), NULL) <= 0) {
 				SCLog(TRUE, LOG_ERR, CFSTR("invalid EnvironmentVariables key %@, value %@"), key, value);
 				return;
 			}
@@ -2326,19 +2337,17 @@ applyEnvironmentVariablesApplierFunction (const void *key, const void *value, vo
 		} else if (isA_CFNumber(value)) {
 			int64_t number = 0;
 			if (CFNumberGetValue((CFNumberRef)value, kCFNumberSInt64Type, &number)) {
-				snprintf(value_buf,sizeof(value_buf), "%lld", number);
+				snprintf(value_buf, sizeof(*serv->envValues), "%lld", number);
 			} else {
 				SCLog(TRUE, LOG_ERR, CFSTR("invalid EnvironmentVariables key %@, value %@"), key, value);
 				return;
 			}
 		} else if (isA_CFBoolean(value)) {
-			snprintf(value_buf, sizeof(value_buf), "%s", CFBooleanGetValue((CFBooleanRef)value) ? "Yes" : "No");
+			snprintf(value_buf, sizeof(*serv->envValues), "%s", CFBooleanGetValue((CFBooleanRef)value) ? "Yes" : "No");
 		} else {
 			SCLog(TRUE, LOG_ERR, CFSTR("invalid EnvironmentVariables key %@, value %@"), key, value);
 			return;
 		}
-
-		setenv(key_buf, value_buf, TRUE);
 	} else {
 		SCLog(TRUE, LOG_ERR, CFSTR("invalid EnvironmentVariables key"));
 	}
@@ -2361,17 +2370,63 @@ collectEnvironmentVariables (SCDynamicStoreRef storeRef, CFStringRef serviceID)
 }
 
 void
-applyEnvironmentVariables (CFDictionaryRef envVarDict)
+extractEnvironmentVariables (CFDictionaryRef envVarDict, struct service *serv)
 {
 	if (!envVarDict) {
 		return;
 	} else if (isA_CFDictionary(envVarDict) &&
 			   CFDictionaryGetCount(envVarDict) > 0) {
-		CFDictionaryApplyFunction(envVarDict, applyEnvironmentVariablesApplierFunction, NULL);
+		int count = CFDictionaryGetCount(envVarDict);
+
+		if (serv->envKeys) {
+			free(serv->envKeys);
+			serv->envKeys = NULL;
+		}
+		if (serv->envValues) {
+			free(serv->envValues);
+			serv->envValues = NULL;
+		}
+
+		serv->envCount = 0;
+		serv->envKeys = (char *)malloc(count * sizeof(envKeyValue_t));
+		serv->envValues = (char *)malloc(count * sizeof(envKeyValue_t));
+		if (!serv->envKeys || !serv->envValues) {
+			SCLog(TRUE, LOG_ERR, CFSTR("Failed to allocate for environment variables"));
+			return;
+		}
+
+		CFDictionaryApplyFunction(envVarDict, extractEnvironmentVariablesApplierFunction, serv);
 	} else {
-		/* don't call SCLog() as it's unsafe in a post-fork handler that requires async-signal safe. */
-		// SCLog(TRUE, LOG_ERR, CFSTR("empty or invalid EnvironmentVariables dictionary"));
+		SCLog(TRUE, LOG_ERR, CFSTR("empty or invalid EnvironmentVariables dictionary"));
 	}
+}
+
+/* 
+ * Don't call SCLog() in this function as it's unsafe in a post-fork handler that requires async-signal safe.
+ */
+void
+applyEnvironmentVariables (struct service *serv)
+{
+	int i;
+
+	for (i = 0; i < serv->envCount; i++) {
+		if (serv->envKeys[i]) {
+			unsetenv(serv->envKeys[i]);
+			if (serv->envValues[i])
+			    setenv(serv->envKeys[i], serv->envValues[i], TRUE);
+		}
+	}
+
+	serv->envCount = 0;
+	if (serv->envKeys) {
+		free(serv->envKeys);
+		serv->envKeys = NULL;
+	}
+	if (serv->envValues) {
+		free(serv->envValues);
+		serv->envValues = NULL;
+	}
+
 }
 
 const char *
@@ -2888,6 +2943,62 @@ done:
 	return interface_type;
 }
 
+Boolean primary_interface_is_cellular(Boolean *hasPrimaryInterface)
+{
+    Boolean isCellular = FALSE;
+#if TARGET_OS_IPHONE
+	Boolean foundPrimaryInterface = FALSE;
+	nwi_state_t state = nwi_state_copy();
+	if (state != NULL) {
+		int families[] = { AF_INET, AF_INET6 };
+		for (uint32_t i = 0; !foundPrimaryInterface && (i < sizeof(families) / sizeof(families[0])); i++) {
+			nwi_ifstate_t ifstate;
+			for (ifstate = nwi_state_get_first_ifstate(state, families[i]);
+				 ifstate != NULL;
+				 ifstate = nwi_ifstate_get_next(ifstate, families[i]))
+			{
+				if (nwi_ifstate_get_vpn_server(ifstate) != NULL) {
+					// Skip VPN interfaces
+					continue;
+				}
+
+				foundPrimaryInterface = TRUE;
+				isCellular = nwi_ifstate_get_reachability_flags(ifstate) & kSCNetworkReachabilityFlagsIsWWAN;
+				break;
+			}
+		}
+		nwi_state_release(state);
+	}
+
+    if (hasPrimaryInterface) {
+        *hasPrimaryInterface = foundPrimaryInterface;
+    }
+#endif
+	return isCellular;
+}
+
+Boolean interface_is_cellular(const char *interface_name)
+{
+	Boolean isCellular = FALSE;
+	if (interface_name == NULL) {
+		return isCellular;
+	}
+
+#if TARGET_OS_IPHONE
+	nwi_state_t state = nwi_state_copy();
+
+	if (state != NULL) {
+		nwi_ifstate_t ifstate = nwi_state_get_ifstate(state, interface_name);
+		if (ifstate != NULL) {
+			isCellular = ((nwi_ifstate_get_reachability_flags(ifstate) & kSCNetworkReachabilityFlagsIsWWAN) != 0);
+		}
+		nwi_state_release(state);
+	}
+#endif
+
+	return isCellular;
+}
+
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
 CFDictionaryRef copy_dns_dict(CFStringRef serviceID)
@@ -2978,4 +3089,118 @@ copy_service_order(void)
 	}
 
 	return serviceorder;
+}
+
+CFStringRef scnc_copy_remote_server (struct service *serv, Boolean *isHostname)
+{
+	CFStringRef remote_address_key = NULL;
+	
+	switch (serv->type) {
+		case TYPE_PPP:
+			remote_address_key = kSCPropNetPPPCommRemoteAddress;
+			break;
+		case TYPE_IPSEC:
+			remote_address_key = kSCPropNetIPSecRemoteAddress;
+			break;
+		case TYPE_VPN:
+			remote_address_key = kSCPropNetVPNRemoteAddress;
+			break;
+	}
+	
+	if (isHostname)
+	{
+		*isHostname = FALSE;
+	}
+	
+	if (remote_address_key == NULL) {
+		return NULL;
+	}
+	
+	CFStringRef remote_address = CFDictionaryGetValue(serv->systemprefs, remote_address_key);
+	if (isA_CFString(remote_address) && CFStringGetLength(remote_address) > 0) {
+		CFCharacterSetRef slash_set = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, CFSTR("/"));
+		CFCharacterSetRef colon_set = CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault, CFSTR(":"));
+		CFRange slash_range;
+		CFRange colon_range;
+		
+		CFRetain(remote_address);
+		
+		
+		if (CFStringFindCharacterFromSet(remote_address,
+		                                 slash_set,
+		                                 CFRangeMake(0, CFStringGetLength(remote_address)),
+		                                 0,
+		                                 &slash_range))
+		{
+			CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, remote_address, NULL);
+			if (url != NULL) {
+				/* Check to see if there is a scheme on the URL. If not, add one. The hostname will not parse without a scheme */
+				CFRange schemeRange = CFURLGetByteRangeForComponent(url, kCFURLComponentScheme, NULL);
+				if (schemeRange.location == kCFNotFound) {
+					CFRelease(url);
+					CFStringRef address = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("https://%@"), remote_address);
+					url = CFURLCreateWithString(kCFAllocatorDefault, address, NULL);
+					CFRelease(address);
+				}
+				if (url != NULL) {
+					CFRelease(remote_address);
+					remote_address = CFURLCopyHostName(url);
+					CFRelease(url);
+				}
+			}
+		} else if (CFStringFindCharacterFromSet(remote_address,
+		                                        colon_set,
+		                                        CFRangeMake(0, CFStringGetLength(remote_address)),
+		                                        0,
+		                                        &colon_range))
+		{
+			CFStringRef address = CFStringCreateWithSubstring(kCFAllocatorDefault,
+															  remote_address,
+															  CFRangeMake(0, colon_range.location));
+			CFRelease(remote_address);
+			remote_address = address;
+		}
+		
+		CFRelease(slash_set);
+		CFRelease(colon_set);
+		
+		if (remote_address == NULL) {
+			return NULL;
+		}
+		
+		if (isHostname)
+		{
+			char *addr_cstr;
+			CFIndex addr_cstr_len;
+			struct sockaddr_storage sa_storage;
+			memset(&sa_storage, 0, sizeof(sa_storage));
+			addr_cstr_len = CFStringGetLength(remote_address); /* Assume that the address is ASCII */
+			addr_cstr = CFAllocatorAllocate(kCFAllocatorDefault, addr_cstr_len + 1, 0);
+			
+			CFStringGetCString(remote_address, addr_cstr, addr_cstr_len, kCFStringEncodingASCII);
+			
+			if (inet_pton(AF_INET, addr_cstr, &((struct sockaddr_in *)&sa_storage)->sin_addr) == 1 ||
+				inet_pton(AF_INET6, addr_cstr, &((struct sockaddr_in6 *)&sa_storage)->sin6_addr) == 1) {
+				*isHostname = FALSE;
+			} else {
+				*isHostname = TRUE;
+			}
+			
+			CFAllocatorDeallocate(kCFAllocatorDefault, addr_cstr);
+		}
+	}
+	return remote_address;
+}
+
+void
+scnc_log(int level, CFStringRef format, ...)
+{
+	if (ne_sm_bridge_is_logging_at_level(level)) {
+		va_list args;
+		va_start(args, format);
+		if (!ne_sm_bridge_logv(level, format, args)) {
+			SCLoggerVLog(NULL, level, format, args);
+		}
+		va_end(args);
+	}
 }

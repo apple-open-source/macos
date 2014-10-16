@@ -42,10 +42,14 @@
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
+
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
+#include <limits.h>
 
 struct SecCmsDecoderStr {
     SEC_ASN1DecoderContext *		dcx;		/* ASN.1 decoder context */
@@ -59,6 +63,8 @@ struct SecCmsDecoderStr {
     void *				cb_arg;
 };
 
+/* We use size_t for len in this function because the SEC_ASN1Decoder* layer
+   uses that for callback function */
 static void nss_cms_decoder_update_filter (void *arg, const char *data, size_t len,
                           int depth, SEC_ASN1EncodingPart data_kind);
 static OSStatus nss_cms_before_data(SecCmsDecoderRef p7dcx);
@@ -89,7 +95,7 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
     /* XXX error handling: need to set p7dcx->error */
 
 #ifdef CMSDEBUG 
-    fprintf(stderr, "%6.6s, dest = %p, depth = %d\n", before ? "before" : "after", dest, depth);
+    fprintf(stderr, "%6.6s, dest = 0x%08x, depth = %d\n", before ? "before" : "after", dest, depth);
 #endif
 
     /* so what are we working on right now? */
@@ -110,7 +116,6 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
 	}
 	break;
     case SEC_OID_PKCS7_DATA:
-    case SEC_OID_OTHER:
 	/* this can only happen if the outermost cinfo has DATA in it */
 	/* otherwise, we handle this type implicitely in the inner decoders */
 
@@ -150,16 +155,16 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
 	    /* please give me C++ */
 	    switch (p7dcx->type) {
 	    case SEC_OID_PKCS7_SIGNED_DATA:
-		p7dcx->content.signedData->cmsg = p7dcx->cmsg;
+		p7dcx->content.signedData->contentInfo.cmsg = p7dcx->cmsg;
 		break;
 	    case SEC_OID_PKCS7_DIGESTED_DATA:
-		p7dcx->content.digestedData->cmsg = p7dcx->cmsg;
+		p7dcx->content.digestedData->contentInfo.cmsg = p7dcx->cmsg;
 		break;
 	    case SEC_OID_PKCS7_ENVELOPED_DATA:
-		p7dcx->content.envelopedData->cmsg = p7dcx->cmsg;
+		p7dcx->content.envelopedData->contentInfo.cmsg = p7dcx->cmsg;
 		break;
 	    case SEC_OID_PKCS7_ENCRYPTED_DATA:
-		p7dcx->content.encryptedData->cmsg = p7dcx->cmsg;
+		p7dcx->content.encryptedData->contentInfo.cmsg = p7dcx->cmsg;
 		break;
 	    default:
 		PORT_Assert(0);
@@ -249,13 +254,8 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
     
     cinfo = SecCmsContentGetContentInfo(p7dcx->content.pointer, p7dcx->type);
     childtype = SecCmsContentInfoGetContentTypeTag(cinfo);
-    
-    /* special case for SignedData: "unknown" child type maps to SEC_OID_OTHER */
-    if((childtype == SEC_OID_UNKNOWN) && (p7dcx->type == SEC_OID_PKCS7_SIGNED_DATA)) {
-	childtype = SEC_OID_OTHER;
-    }
-    
-    if ((childtype == SEC_OID_PKCS7_DATA) || (childtype == SEC_OID_OTHER)){
+
+    if (childtype == SEC_OID_PKCS7_DATA) {
 	cinfo->content.data = SECITEM_AllocItem(poolp, NULL, 0);
 	if (cinfo->content.data == NULL)
 	    /* set memory error */
@@ -282,9 +282,6 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
     if (childp7dcx->content.pointer == NULL)
 	goto loser;
 
-    /* Apple: link the new content to parent ContentInfo */
-    cinfo->content.pointer = childp7dcx->content.pointer;
-    
     /* start the child decoder */
     childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL);
     if (childp7dcx->dcx == NULL)
@@ -324,11 +321,8 @@ loser:
 static OSStatus
 nss_cms_after_data(SecCmsDecoderRef p7dcx)
 {
-    PLArenaPool *poolp;
     SecCmsDecoderRef childp7dcx;
     OSStatus rv = SECFailure;
-
-    poolp = p7dcx->cmsg->poolp;
 
     /* Handle last block. This is necessary to flush out the last bytes
      * of a possibly incomplete block */
@@ -421,10 +415,10 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
     SecCmsContentInfoRef cinfo;
     unsigned char *buf = NULL;
     unsigned char *dest;
-    CSSM_SIZE offset;
+    size_t offset;
     OSStatus rv;
-    CSSM_DATA_PTR storage;
-    
+    SecAsn1Item * storage;
+
     /*
      * We should really have data to process, or we should be trying
      * to finish/flush the last block.  (This is an overly paranoid
@@ -433,6 +427,8 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
      * modifications/development, that is why it is here.)
      */
     PORT_Assert ((data != NULL && len) || final);
+    /* Debug check for 64 bits cast later */
+    PORT_Assert (len <= UINT_MAX);
 
     if (!p7dcx->content.pointer)	// might be ExContent??
         return;
@@ -449,11 +445,12 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 	 * sending the data back and they want to know that.
 	 */
 
-	CSSM_SIZE outlen = 0;	/* length of decrypted data */
-	CSSM_SIZE buflen;		/* length available for decrypted data */
+	unsigned int outlen = 0;	/* length of decrypted data */
+	unsigned int buflen;		/* length available for decrypted data */
 
 	/* find out about the length of decrypted data */
-	buflen = SecCmsCipherContextDecryptLength(cinfo->ciphcx, len, final);
+        /* 64 bits cast: Worst case here is we may not decrypt the full CMS blob, if the blob is bigger than 4GB */
+	buflen = SecCmsCipherContextDecryptLength(cinfo->ciphcx, (unsigned int)len, final);
 
 	/*
 	 * it might happen that we did not provide enough data for a full
@@ -485,13 +482,13 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 	 * keep track of incoming data
 	 */
 	rv = SecCmsCipherContextDecrypt(cinfo->ciphcx, buf, &outlen, buflen,
-			       data, len, final);
+			       data, (unsigned int)len, final);
 	if (rv != SECSuccess) {
 	    p7dcx->error = PORT_GetError();
 	    goto loser;
 	}
 
-	PORT_Assert (final || outlen == buflen);
+	//PORT_Assert (final || outlen == buflen);
 	
 	/* swap decrypted data in */
 	data = buf;
@@ -519,11 +516,7 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 #if 1
     else
 #endif
-    switch(SecCmsContentInfoGetContentTypeTag(cinfo)) {
-	default:
-	    break;
-	case SEC_OID_PKCS7_DATA:
-	case SEC_OID_OTHER:
+    if (SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_DATA) {
 	/* store it in "inner" data item as well */
 	/* find the DATA item in the encapsulated cinfo and store it there */
 	storage = cinfo->content.data;
@@ -562,6 +555,9 @@ loser:
  * all data processed by the ASN.1 decoder is also passed through here.
  * we pass the content bytes (as opposed to length and tag bytes) on to
  * nss_cms_decoder_work_data().
+ *
+ * len has to be of type size_t because it is a callback to the
+ * SEC_ASN1Decoder layer
  */
 static void
 nss_cms_decoder_update_filter (void *arg, const char *data, size_t len,
@@ -586,8 +582,7 @@ nss_cms_decoder_update_filter (void *arg, const char *data, size_t len,
  * SecCmsDecoderCreate - set up decoding of a BER-encoded CMS message
  */
 OSStatus
-SecCmsDecoderCreate(SecArenaPoolRef pool,
-                    SecCmsContentCallback cb, void *cb_arg,
+SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
                     SecCmsDecoderRef *outDecoder)
@@ -596,12 +591,11 @@ SecCmsDecoderCreate(SecArenaPoolRef pool,
     SecCmsMessageRef cmsg;
     OSStatus result;
 
-    cmsg = SecCmsMessageCreate(pool);
+    cmsg = SecCmsMessageCreate();
     if (cmsg == NULL)
         goto loser;
 
-    SecCmsMessageSetEncodingParams(cmsg, pwfn, pwfn_arg, decrypt_key_cb, decrypt_key_cb_arg,
-					NULL, NULL);
+    SecCmsMessageSetEncodingParams(cmsg, pwfn, pwfn_arg, decrypt_key_cb, decrypt_key_cb_arg);
 
     p7dcx = (SecCmsDecoderRef)PORT_ZAlloc(sizeof(struct SecCmsDecoderStr));
     if (p7dcx == NULL) {
@@ -625,7 +619,7 @@ SecCmsDecoderCreate(SecArenaPoolRef pool,
     p7dcx->cb_arg = cb_arg;
 
     *outDecoder = p7dcx;
-    return noErr;
+    return errSecSuccess;
 
 loser:
     result = PORT_GetError();
@@ -689,13 +683,13 @@ SecCmsDecoderFinish(SecCmsDecoderRef p7dcx, SecCmsMessageRef *outMessage)
     if (p7dcx->dcx == NULL || SEC_ASN1DecoderFinish(p7dcx->dcx) != SECSuccess ||
 	nss_cms_after_end(p7dcx) != SECSuccess)
     {
-	SecCmsMessageDestroy(cmsg);	/* needs to get rid of pool if it's ours */
+	SecCmsMessageDestroy(cmsg);
         result = PORT_GetError();
         goto loser;
     }
 
     *outMessage = cmsg;
-    result = noErr;
+    result = errSecSuccess;
 
 loser:
     PORT_Free(p7dcx);
@@ -703,16 +697,16 @@ loser:
 }
 
 OSStatus
-SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
+SecCmsMessageDecode(const SecAsn1Item *encodedMessage,
                     SecCmsContentCallback cb, void *cb_arg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
                     SecCmsMessageRef *outMessage)
 {
     OSStatus result;
-    SecCmsDecoderRef decoder;
+    SecCmsDecoderRef decoder = NULL;
 
-    result = SecCmsDecoderCreate(NULL, cb, cb_arg, pwfn, pwfn_arg, decrypt_key_cb, decrypt_key_cb_arg, &decoder);
+    result = SecCmsDecoderCreate(cb, cb_arg, pwfn, pwfn_arg, decrypt_key_cb, decrypt_key_cb_arg, &decoder);
     if (result)
         goto loser;
     result = SecCmsDecoderUpdate(decoder, encodedMessage->Data, encodedMessage->Length);
@@ -725,4 +719,3 @@ SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
 loser:
     return result;
 }
-

@@ -1,4 +1,0 @@
-#this must be run on a native system
-
-zic -y datfiles/yearistype.sh -d /tmp/zoneinfo -L /dev/null datfiles/africa datfiles/antarctica datfiles/asia datfiles/australasia datfiles/europe datfiles/northamerica datfiles/southamerica datfiles/pacificnew datfiles/etcetera datfiles/factory datfiles/backward datfiles/systemv datfiles/solar87 datfiles/solar88 datfiles/solar89
-

@@ -1,0 +1,16 @@
+/^service_resolve_callback/a
+.
+/"(OiiissiisO)"/s//"(OiiissiiyO)"/
+/^service_query_callback/a
+.
+/"(OiiisiiisiO)"/s//"(OiiisiiiyiO)"/
+/^DNSServiceReconfirmRecord(/-1i
+%typemap(in) const char *rdata {
+    if (!PyBytes_Check($input)) {
+	SWIG_exception_fail(SWIG_TypeError, "in method '" "DNSServiceReconfirmRecord" "', argument " "7"" must be a bytes string");
+    }
+    $1 = PyBytes_AsString($input);
+}
+
+.
+w

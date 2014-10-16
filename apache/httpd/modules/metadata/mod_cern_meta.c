@@ -231,13 +231,13 @@ static int scan_meta_file(request_rec *r, apr_file_t *f)
         /* if we see a bogus header don't ignore it. Shout and scream */
 
         if (!(l = strchr(w, ':'))) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01560)
                 "malformed header in meta file: %s", r->filename);
             return HTTP_INTERNAL_SERVER_ERROR;
         }
 
         *l++ = '\0';
-        while (*l && apr_isspace(*l))
+        while (apr_isspace(*l))
             ++l;
 
         if (!strcasecmp(w, "Content-type")) {
@@ -285,7 +285,7 @@ static int add_cern_meta_data(request_rec *r)
 
     /* if ./.web/$1.meta exists then output 'asis' */
 
-    if (r->finfo.filetype == 0) {
+    if (r->finfo.filetype == APR_NOFILE) {
         return DECLINED;
     }
 
@@ -307,7 +307,7 @@ static int add_cern_meta_data(request_rec *r)
     }
     else {
         /* no last slash, buh?! */
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01561)
             "internal error in mod_cern_meta: %s", r->filename);
         /* should really barf, but hey, let's be friends... */
         return DECLINED;
@@ -342,7 +342,7 @@ static int add_cern_meta_data(request_rec *r)
         if (APR_STATUS_IS_ENOENT(retcode)) {
             return DECLINED;
         }
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01562)
             "meta file permissions deny server access: %s", metafilename);
         return HTTP_FORBIDDEN;
     }
@@ -359,7 +359,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_fixups(add_cern_meta_data,NULL,NULL,APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA cern_meta_module =
+AP_DECLARE_MODULE(cern_meta) =
 {
     STANDARD20_MODULE_STUFF,
     create_cern_meta_dir_config, /* dir config creater */

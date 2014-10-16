@@ -4,7 +4,7 @@ dtrace \- generic front-end to the DTrace facility
 .SH SYNOPSIS
 .HP
 .B dtrace
-[\fB\-aACeFhHlqSvVwZ\fR]
+[\fB\-aACeFhHlqSvVwWZ\fR]
 [\fB\-arch\fR \fIarch_name\fR]
 .br
 [\fB\-b\fR \fIbufsz\fR]
@@ -15,6 +15,7 @@ dtrace \- generic front-end to the DTrace facility
 [\fB\-L\fR \fIpath\fR]
 [\fB\-o\fR \fIoutput\fR]
 [\fB\-p\fR \fIpid\fR]
+[\fB\-W\fR \fIpname\fR]
 .br
 [\fB\-s\fR \fIscript\fR]
 [\fB\-U\fR \fIname\fR]
@@ -72,10 +73,10 @@ have exited, reporting the exit status for each child process as it terminates. 
 on the command line or using the \fB-s\fR option through the \fB$target\fR macro variable.
 .TP
 .B \-C
-Run the C preprocessor \fIcpp\fP over D programs before compiling them.  Options can be passed to the C preprocessor using the \fB\-D\fP, \fB\-U\fP, \fB\-I\fP, and \fB\-H\fP options.  The degree of C standard conformance can be selected using the \fB\-X\fP option.  Refer to the description of the \fB\-X\fP option for a description of the set of tokens defined by the D compiler when invoking the C preprocessor.
+Run the C preprocessor of \fIclang\fP over D programs before compiling them.  Options can be passed to the C preprocessor using the \fB\-D\fP, \fB\-U\fP, \fB\-I\fP, and \fB\-H\fP options.  The degree of C standard conformance can be selected using the \fB\-X\fP option.  Refer to the description of the \fB\-X\fP option for a description of the set of tokens defined by the D compiler when invoking the C preprocessor.
 .TP
 .B \-D
-Define the specified \fIname\fP when invoking \fIcpp\fP (enabled using the \fB\-C\fP option).  If an equals sign (=) and additional \fIvalue\fP are specified, the name is assigned the corresponding value.  This options passes the \fB\-D\fP option to each \fIcpp\fP invocation.
+Define the specified \fIname\fP when invoking \fIclang\fP (enabled using the \fB\-C\fP option).  If an equals sign (=) and additional \fIvalue\fP are specified, the name is assigned the corresponding value.  This options passes the \fB\-D\fP option to each \fIclang\fP invocation.
 .TP
 .B \-e
 Exit after compiling any requests and consuming anonymous tracing state (\fB\-a\fP option) but prior to enabling any probes.  This option can be combined with the \fB\-a\fP option to print anonymous tracing data and exit, or it can be compiled with D compiler options to verify that programs compile without actually executing them and enabling the corresponding instrumentation.
@@ -90,13 +91,13 @@ Coalesce trace output by identifying function entry and return.  Function entry 
 Generate a header file containing macro definitions for USDT probes. If the \fB\-o\fP option is present, the header file is saved using the pathname specified as the argument for this flag. If the \fB\-o\fP option is not present and the DTrace program is contained in a file whose name is filename.d, the header file is saved using the name filename.h.
 .TP
 .B \-H
-Print the pathnames of included files when invoking \fIcpp\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-H\fP option to each \fIcpp\fP invocation, causing it to display the list of pathnames, one per line, to stderr.
+Print the pathnames of included files when invoking \fIclang\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-H\fP option to each \fIclang\fP invocation, causing it to display the list of pathnames, one per line, to stderr.
 .TP
 .B \-i
 Specify probe identifier to trace or list (\fB\-l\fP option).  Probe IDs are specified using decimal integers as shown by \fIdtrace\fP \fB\-l\fP.  The \fB\-i\fP argument can be suffixed with an optional D probe clause.  More than one \fB\-i\fP option may be specified on the command-line at a time.
 .TP
 .B \-I
-Add the specified directory \fIpath\fP to the search path for #include files when invoking \fIcpp\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-I\fP option to each \fIcpp\fP invocation.  The specified directory is inserted into the search path ahead of the default directory list.
+Add the specified directory \fIpath\fP to the search path for #include files when invoking \fIclang\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-I\fP option to each \fIclang\fP invocation.  The specified directory is inserted into the search path ahead of the default directory list.
 .TP
 .B \-l
 List all probes matching probe specifications appearing in \fB\-f\fP, \fB\-i\fP, \fB\-m\fP, \fB\-n\fP, or \fB\-P\fP options. No tracing is initiated for any probes.
@@ -112,6 +113,8 @@ Specify probe name to trace or list (\fB\-l\fP option).  The corresponding argum
 .TP
 .B \-o
 Specify the \fIoutput\fP file for the \fB\-A\fP and \fB\-l\fP options, or for the traced data.  If the \fB\-A\fP option is present, and \fB\-o\fP is not present, the default output file is /kernel/drv/dtrace.conf.
+.br
+Note that with successive invocations of dtrace with the -o option, dtrace does not overwrite, but rather appends to the output file.
 .TP
 .B \-p
 Grab the specified process-ID \fIpid\fR, cache its symbol tables, and exit upon its completion. If more than one \fB-p\fR option is present on the command line, \fBdtrace\fR
@@ -131,7 +134,7 @@ Compile the specified D program source file.  If the \fB\-e\fP option is present
 Show D compiler intermediate code.  The D compiler will produce a report of the intermediate code generated for each D program to stderr.
 .TP
 .B \-U
-Undefine the specified \fIname\fP when invoking \fIcpp\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-U\fP option to each \fIcpp\fP invocation.
+Undefine the specified \fIname\fP when invoking \fIclang\fP (enabled using the \fB\-C\fP option).  This option passes the \fB\-U\fP option to each \fIclang\fP invocation.
 .TP
 .B \-v
 Set verbose mode.  If the \fB\-v\fP option is specified, \fIdtrace\fP produces a program stability report showing the minimum interface stability and dependency level for the specified D programs.
@@ -141,6 +144,12 @@ Report the highest D programming interface version supported by \fIdtrace\fP.  T
 .TP
 .B \-w
 Allow destructive actions. D programs containing destructive actions will fail to compile unless this flag is specified.
+.TP
+.B \-W
+Wait for the specified process \fIpname\fR, cache its symbol tables, and exit upon its completion.  If more than one \fB-W\fR option is present on the command line, \fBdtrace\fR will
+start tracing when all processes have been executed, in the order they have been specified.  Furthermore, \fBdtrace\fR exits when all processes have exited, reporting the exit status for each process
+as it terminates.  The first process-ID  is made available to any D programs specified on the command line or using the \fB-s\fR option through the \fB$target\fR macro variable.  The process name \fIpname\fR
+must not exceed the limit of \fBMAXCOMLEN\fR characters, as defined in \fI/usr/include/sys/param.h\fR
 .TP
 .B \-x
 Enable or modify a DTrace runtime option or D compiler option.  Boolean options are enabled by specifying their name.  Options with values are set by separating the option name and value with an equals sign (=).
@@ -255,6 +264,9 @@ A small number of DTrace builtin variables have OS X specific changes:
 A string giving the name that was passed to exec(2) to execute the current process.
 The string consists of at most MAXCOMLEN-1 characters.
 The constant MAXCOMLEN is defined in /usr/include/sys/param.h to be 16.
+.TP
+.B machtimestamp
+A uint64_t timestamp returning mach_absolute_time().
 .TP
 .B tid
 A uint64_t thread ID of the currently executing thread. The thread ID is guaranteed to be unique and non repeating. The tid value is not equivalent to pthread_self.

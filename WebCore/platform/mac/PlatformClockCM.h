@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,6 +29,7 @@
 #if USE(COREMEDIA)
 
 #include "Clock.h"
+#include <wtf/MediaTime.h>
 #include <wtf/RetainPtr.h>
 
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
@@ -36,23 +37,28 @@ typedef struct OpaqueCMClock* CMClockRef;
 
 namespace WebCore {
 
-class PlatformClockCM : public Clock {
+class PlatformClockCM final : public Clock {
 public:
     PlatformClockCM();
     PlatformClockCM(CMClockRef);
 
+    virtual void setCurrentTime(double) override;
+    virtual double currentTime() const override;
+
+    void setCurrentMediaTime(const MediaTime&);
+    MediaTime currentMediaTime() const;
+
+    virtual void setPlayRate(double) override;
+    virtual double playRate() const override { return m_rate; }
+
+    virtual void start() override;
+    virtual void stop() override;
+    virtual bool isRunning() const override { return m_running; }
+
+    CMTimebaseRef timebase() const { return m_timebase.get(); }
+
 private:
     void initializeWithTimingSource(CMClockRef);
-
-    virtual void setCurrentTime(double);
-    virtual double currentTime() const;
-
-    virtual void setPlayRate(double);
-    virtual double playRate() const { return m_rate; }
-
-    virtual void start();
-    virtual void stop();
-    virtual bool isRunning() const { return m_running; }
 
     RetainPtr<CMTimebaseRef> m_timebase;
     double m_rate;

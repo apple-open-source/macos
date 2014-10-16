@@ -1,6 +1,6 @@
 /*
     debug.c: log (or not) messages
-    Copyright (C) 2003-2005   Ludovic Rousseau
+    Copyright (C) 2003-2011   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,58 +18,140 @@
 */
 
 /*
- * $Id: debug.c 3268 2009-01-05 14:28:26Z rousseau $
+ * $Id: debug.c 6760 2013-10-01 12:57:50Z rousseau $
  */
 
 
 #include "config.h"
+#include "misc.h"
 #include "debug.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+#include <stdlib.h>
 
-#define DEBUG_BUF_SIZE ((256+20)*3+10)
+#include "strlcpycat.h"
 
-static char DebugBuffer[DEBUG_BUF_SIZE];
+#undef LOG_TO_STDERR
 
-#define LOG_TO_STDERR
+#ifdef LOG_TO_STDERR
+#define LOG_STREAM stderr
+#else
+#define LOG_STREAM stdout
+#endif
 
 void log_msg(const int priority, const char *fmt, ...)
 {
+	char debug_buffer[160]; /* up to 2 lines of 80 characters */
 	va_list argptr;
+	static struct timeval last_time = { 0, 0 };
+	struct timeval new_time = { 0, 0 };
+	struct timeval tmp;
+	int delta;
+	const char *color_pfx = "", *color_sfx = "";
+	const char *time_pfx = "", *time_sfx = "";
+	static int initialized = 0;
+	static int LogDoColor = 0;
+
+	if (!initialized)
+	{
+		char *term;
+
+		initialized = 1;
+		term = getenv("TERM");
+		if (term)
+		{
+			const char *terms[] = { "linux", "xterm", "xterm-color", "Eterm", "rxvt", "rxvt-unicode", "xterm-256color" };
+			unsigned int i;
+
+			/* for each known color terminal */
+			for (i = 0; i < COUNT_OF(terms); i++)
+			{
+				/* we found a supported term? */
+				if (0 == strcmp(terms[i], term))
+				{
+					LogDoColor = 1;
+					break;
+				}
+			}
+		}
+	}
+
+	if (LogDoColor)
+	{
+		color_sfx = "\33[0m";
+		time_sfx = color_sfx;
+		time_pfx = "\33[36m"; /* Cyan */
+
+		switch (priority)
+		{
+			case PCSC_LOG_CRITICAL:
+				color_pfx = "\33[01;31m"; /* bright + Red */
+				break;
+
+			case PCSC_LOG_ERROR:
+				color_pfx = "\33[35m"; /* Magenta */
+				break;
+
+			case PCSC_LOG_INFO:
+				color_pfx = "\33[34m"; /* Blue */
+				break;
+
+			case PCSC_LOG_DEBUG:
+				color_pfx = ""; /* normal (black) */
+				color_sfx = "";
+				break;
+		}
+	}
+
+	gettimeofday(&new_time, NULL);
+	if (0 == last_time.tv_sec)
+		last_time = new_time;
+
+	tmp.tv_sec = new_time.tv_sec - last_time.tv_sec;
+	tmp.tv_usec = new_time.tv_usec - last_time.tv_usec;
+	if (tmp.tv_usec < 0)
+	{
+		tmp.tv_sec--;
+		tmp.tv_usec += 1000000;
+	}
+	if (tmp.tv_sec < 100)
+		delta = tmp.tv_sec * 1000000 + tmp.tv_usec;
+	else
+		delta = 99999999;
+
+	last_time = new_time;
 
 	va_start(argptr, fmt);
-	(void)vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
+	(void)vsnprintf(debug_buffer, sizeof debug_buffer, fmt, argptr);
 	va_end(argptr);
 
-#ifdef LOG_TO_STDERR
-	(void)fprintf(stderr, "%s\n", DebugBuffer);
-#endif
+	(void)fprintf(LOG_STREAM, "%s%.8d%s %s%s%s\n", time_pfx, delta, time_sfx,
+		color_pfx, debug_buffer, color_sfx);
+	fflush(LOG_STREAM);
 } /* log_msg */
 
 void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
 	const int len)
 {
 	int i;
-	char *c, *debug_buf_end;
+	char *c, debug_buffer[len*3 + strlen(msg) +1];
+	size_t l;
 
-	debug_buf_end = DebugBuffer + DEBUG_BUF_SIZE - 5;
+	(void)priority;
 
-	strncpy(DebugBuffer, msg, sizeof(DebugBuffer)-1);
-	c = DebugBuffer + strlen(DebugBuffer);
+	l = strlcpy(debug_buffer, msg, sizeof debug_buffer);
+	c = debug_buffer + l;
 
-	for (i = 0; (i < len) && (c < debug_buf_end); ++i)
+	for (i = 0; i < len; ++i)
 	{
-		(void)sprintf(c, "%02X ", (unsigned char)buffer[i]);
-		c += strlen(c);
+		/* 2 hex characters, 1 space, 1 NUL : total 4 characters */
+		(void)snprintf(c, 4, "%02X ", buffer[i]);
+		c += 3;
 	}
 
-#ifdef LOG_TO_STDERR
-	if (c >= debug_buf_end)
-		(void)fprintf(stderr, "Debug buffer too short\n");
-
-	(void)fprintf(stderr, "%s\n", DebugBuffer);
-#endif
+	(void)fprintf(LOG_STREAM, "%s\n", debug_buffer);
+	fflush(LOG_STREAM);
 } /* log_xxd */
-

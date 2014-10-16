@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,6 +128,10 @@ S_build_interface_list(interface_list_t * interfaces)
 	goto done;
     }
     size = count_ifaddrs(addrs);
+    if (size == 0) {
+	interfaces->list = NULL;
+	goto done;
+    }
     interfaces->list 
 	= (interface_t *)malloc(size * sizeof(*(interfaces->list)));
     if (interfaces->list == NULL) {
@@ -284,7 +288,7 @@ ifl_at_index(interface_list_t * list_p, int i)
 int
 ifl_index(interface_list_t * list_p, interface_t * if_p)
 {
-    return (if_p - list_p->list);
+    return ((int)(if_p - list_p->list));
 }
 
 /*

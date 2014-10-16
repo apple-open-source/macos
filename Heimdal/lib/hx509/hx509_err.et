@@ -88,6 +88,7 @@ error_code PARSING_KEY_FAILED, "Failed to parse key"
 error_code UNSUPPORTED_OPERATION, "Unsupported operation"
 error_code UNIMPLEMENTED_OPERATION, "Unimplemented operation"
 error_code PARSING_NAME_FAILED, "Failed to parse name"
+error_code CERTIFICATE_UNKNOWN_TYPE, "Certificate is of unknown type"
 
 # keystore related error
 index 128

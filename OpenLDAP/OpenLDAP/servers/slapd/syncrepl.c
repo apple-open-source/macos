@@ -592,6 +592,8 @@ check_syncprov(
 		slap_compose_sync_cookie( NULL, &si->si_syncCookie.octet_str,
 			si->si_syncCookie.ctxcsn, si->si_syncCookie.rid,
 			si->si_syncCookie.sid );
+		ber_bvarray_free( si->si_syncCookie.ctxcsn );
+		ch_free( si->si_syncCookie.sids );
 		slap_parse_sync_cookie( &si->si_syncCookie, NULL );
 	}
 	ldap_pvt_thread_mutex_unlock( &si->si_cookieState->cs_mutex );
@@ -603,7 +605,7 @@ do_syncrep1(
 	Operation *op,
 	syncinfo_t *si )
 {
-	int	rc;
+	int	rc = LDAP_SERVER_DOWN;
 	int cmdline_cookie_found = 0;
 
 	struct sync_cookie	*sc = NULL;
@@ -611,57 +613,88 @@ do_syncrep1(
 	void	*ssl;
 #endif
 
-	rc = slap_client_connect( &si->si_ld, &si->si_bindconf );
-	if ( rc != LDAP_SUCCESS ) {
-		static struct berval bv_GSSAPI = BER_BVC( "GSSAPI" );
-		Debug( LDAP_DEBUG_ANY, "do_syncrep1: client_connect failed (%d) - searchbase(%s) URI(%s)\n",rc, si->si_base.bv_val, si->si_bindconf.sb_uri.bv_val );
-		
-		if ((ber_bvcmp( &si->si_bindconf.sb_saslmech, &bv_GSSAPI ) == 0 && rc == LDAP_SERVER_DOWN))
-		{
-			krb5_context ctx = NULL;
-			krb5_error_code code = 0;
-			krb5_ccache cc = NULL;
-			krb5_principal principal = NULL;
-			krb5_creds my_creds;
-			krb5_get_init_creds_opt *opt = NULL;
+	krb5_context ctx = NULL;
+	krb5_error_code code = 0;
+	krb5_ccache cc = NULL;
+	krb5_principal principal = NULL;
+	krb5_creds my_creds;
+	krb5_creds mcred;
+	krb5_get_init_creds_opt *opt = NULL;
+	static struct berval bv_GSSAPI = BER_BVC( "GSSAPI" );
 
-			if ((code = krb5_init_context(&ctx)))
-                goto done;
-			if ((code = krb5_cc_resolve(ctx, krb5_cc_default_name(ctx), &cc))) {
-                krb5_free_context(ctx);
-                goto done;
-			}
-			if ((code = krb5_build_principal(ctx, &principal, si->si_bindconf.sb_realm.bv_len, si->si_bindconf.sb_realm.bv_val, si->si_bindconf.sb_authcId.bv_val, NULL))){
-                krb5_cc_close(ctx, cc);
-				krb5_free_context(ctx);
-                goto done;
-			}
-			
+	if (ber_bvcmp( &si->si_bindconf.sb_saslmech, &bv_GSSAPI ) == 0) {
+		if ((code = krb5_init_context(&ctx)))
+			goto done;
+		if ((code = krb5_cc_resolve(ctx, krb5_cc_default_name(ctx), &cc))) {
+			Debug(LDAP_DEBUG_ANY, "%s: krb5_cc_resolve returned %d", __func__, code, 0);
+			krb5_free_context(ctx);
+			goto done;
+		}
+		if ((code = krb5_build_principal(ctx, &principal, si->si_bindconf.sb_realm.bv_len, si->si_bindconf.sb_realm.bv_val, si->si_bindconf.sb_authcId.bv_val, NULL))) {
+			Debug(LDAP_DEBUG_ANY, "%s: krb5_build_principal returned %d", __func__, code, 0);
+			krb5_cc_close(ctx, cc);
+			krb5_free_context(ctx);
+			goto done;
+		}
+
+		memset(&mcred, 0, sizeof(mcred));
+		if ((code = krb5_build_principal(ctx, &mcred.client, si->si_bindconf.sb_realm.bv_len, si->si_bindconf.sb_realm.bv_val, si->si_bindconf.sb_authcId.bv_val, NULL))) {
+			Debug(LDAP_DEBUG_ANY, "%s: krb5_build_principal returned %d", __func__, code, 0);
+			krb5_cc_close(ctx, cc);
+			krb5_free_principal(ctx, principal);
+			krb5_free_context(ctx);
+			goto done;
+		}
+
+		if((code = krb5_make_principal(ctx, &mcred.server, si->si_bindconf.sb_realm.bv_val, KRB5_TGS_NAME, si->si_bindconf.sb_realm.bv_val, NULL))) {
+			Debug(LDAP_DEBUG_ANY, "%s: krb5_build_principal_ext returned %d", __func__, code, 0);
+			krb5_cc_close(ctx, cc);
+			krb5_free_cred_contents(ctx, &mcred);
+			krb5_free_principal(ctx, principal);
+			krb5_free_context(ctx);
+			goto done;
+		}
+
+		memset(&my_creds, 0, sizeof(my_creds));
+		if ((code = krb5_cc_retrieve_cred(ctx, cc, KRB5_TC_MATCH_KTYPE, &mcred, &my_creds))) {
 			krb5_get_init_creds_opt_alloc(ctx, &opt);
 			krb5_get_init_creds_opt_set_forwardable(opt,1);
 			
 			memset(&my_creds, 0, sizeof(my_creds));
 			if ((code = krb5_get_init_creds_password(ctx, &my_creds, principal, si->si_bindconf.sb_cred.bv_val, NULL, 0, 0, NULL, opt)))
 			{
-                Debug( LDAP_DEBUG_ANY, "do_syncrep1: krb5_get_init_creds_password failed (%d)\n",code, 0,0 );
-                krb5_cc_close(ctx, cc);
-                krb5_get_init_creds_opt_free(ctx, opt);
-                krb5_free_principal(ctx, principal);
-                krb5_free_context(ctx);
-                goto done;
+				Debug( LDAP_DEBUG_ANY, "do_syncrep1: krb5_get_init_creds_password failed (%d)\n",code, 0,0 );
+				krb5_cc_close(ctx, cc);
+				krb5_get_init_creds_opt_free(ctx, opt);
+				krb5_free_cred_contents(ctx, &mcred);
+				krb5_free_principal(ctx, principal);
+				krb5_free_context(ctx);
+				goto done;
 			} else {
-                krb5_cc_initialize(ctx, cc, principal);
-                code = krb5_cc_store_cred(ctx, cc, &my_creds);
-                if(code)
-                    Debug( LDAP_DEBUG_ANY, "do_syncrep1: krb5_cc_store_cred failed (%d)\n",code, 0,0 );
-                krb5_cc_close(ctx, cc);
-                krb5_free_cred_contents(ctx, &my_creds);
-                krb5_get_init_creds_opt_free(ctx, opt);
-                krb5_free_principal(ctx, principal);
-                krb5_free_context(ctx);
+				krb5_cc_initialize(ctx, cc, principal);
+				code = krb5_cc_store_cred(ctx, cc, &my_creds);
+				if(code)
+				Debug( LDAP_DEBUG_ANY, "do_syncrep1: krb5_cc_store_cred failed (%d)\n",code, 0,0 );
+				krb5_cc_close(ctx, cc);
+				krb5_free_cred_contents(ctx, &my_creds);
+				krb5_free_cred_contents(ctx, &mcred);
+				krb5_get_init_creds_opt_free(ctx, opt);
+				krb5_free_principal(ctx, principal);
+				krb5_free_context(ctx);
 			}
 
+		} else {
+			krb5_cc_close(ctx, cc);
+			krb5_free_cred_contents(ctx, &mcred);
+			krb5_get_init_creds_opt_free(ctx, opt);
+			krb5_free_principal(ctx, principal);
+			krb5_free_context(ctx);
 		}
+	}
+
+	rc = slap_client_connect( &si->si_ld, &si->si_bindconf );
+	if ( rc != LDAP_SUCCESS ) {
+		Debug( LDAP_DEBUG_ANY, "do_syncrep1: client_connect failed (%d) - searchbase(%s) URI(%s)\n",rc, si->si_base.bv_val, si->si_bindconf.sb_uri.bv_val );
 		goto done;
 	}
 	Debug( LDAP_DEBUG_ANY, "do_syncrep1: CONNECTED(%p) searchbase(%s) URI(%s)\n", si->si_ld, si->si_base.bv_val, si->si_bindconf.sb_uri.bv_val );
@@ -885,7 +918,7 @@ do_syncrep2(
 		tout_p = NULL;
 	}
 
-	while ( ( rc = ldap_result( si->si_ld, si->si_msgid, LDAP_MSG_ONE,
+	while ( si->si_ld && ( rc = ldap_result( si->si_ld, si->si_msgid, LDAP_MSG_ONE,
 		tout_p, &msg ) ) > 0 )
 	{
 		int				match, punlock, syncstate;

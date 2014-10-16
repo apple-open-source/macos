@@ -33,6 +33,7 @@
 #include "File.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "StyleSheet.h"
 #include "UIEvent.h"
@@ -54,12 +55,22 @@
 #include "WebKitDOMHTMLDocumentPrivate.h"
 #include "WebKitDOMHTMLOptionsCollectionPrivate.h"
 #include "WebKitDOMHTMLPrivate.h"
+#include "WebKitDOMKeyboardEventPrivate.h"
 #include "WebKitDOMMouseEventPrivate.h"
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitDOMProcessingInstructionPrivate.h"
 #include "WebKitDOMStyleSheetPrivate.h"
 #include "WebKitDOMTextPrivate.h"
 #include "WebKitDOMUIEventPrivate.h"
+#include "WebKitDOMWheelEventPrivate.h"
+
+#if ENABLE(VIDEO_TRACK)
+#include "DataCue.h"
+#include "VTTCue.h"
+#include "WebKitDOMDataCuePrivate.h"
+#include "WebKitDOMTextTrackCuePrivate.h"
+#include "WebKitDOMVTTCuePrivate.h"
+#endif
 
 namespace WebKit {
 
@@ -75,7 +86,7 @@ WebKitDOMNode* wrap(Node* node)
     case Node::ELEMENT_NODE:
         if (node->isHTMLElement())
             return WEBKIT_DOM_NODE(wrap(toHTMLElement(node)));
-        return WEBKIT_DOM_NODE(wrapElement(static_cast<Element*>(node)));
+        return WEBKIT_DOM_NODE(wrapElement(toElement(node)));
     case Node::ATTRIBUTE_NODE:
         return WEBKIT_DOM_NODE(wrapAttr(static_cast<Attr*>(node)));
     case Node::TEXT_NODE:
@@ -109,11 +120,18 @@ WebKitDOMEvent* wrap(Event* event)
 {
     ASSERT(event);
 
-    if (event->isMouseEvent())
-        return WEBKIT_DOM_EVENT(wrapMouseEvent(static_cast<MouseEvent*>(event)));
+    if (event->isUIEvent()) {
+        if (event->isMouseEvent())
+            return WEBKIT_DOM_EVENT(wrapMouseEvent(static_cast<MouseEvent*>(event)));
 
-    if (event->isUIEvent())
+        if (event->isKeyboardEvent())
+            return WEBKIT_DOM_EVENT(wrapKeyboardEvent(static_cast<KeyboardEvent*>(event)));
+
+        if (event->eventInterface() == WheelEventInterfaceType)
+            return WEBKIT_DOM_EVENT(wrapWheelEvent(static_cast<WheelEvent*>(event)));
+
         return WEBKIT_DOM_EVENT(wrapUIEvent(static_cast<UIEvent*>(event)));
+    }
 
     return wrapEvent(event);
 }
@@ -157,5 +175,21 @@ WebKitDOMBlob* wrap(Blob* blob)
         return WEBKIT_DOM_BLOB(wrapFile(static_cast<File*>(blob)));
     return wrapBlob(blob);
 }
+
+#if ENABLE(VIDEO_TRACK)
+WebKitDOMTextTrackCue* wrap(TextTrackCue* cue)
+{
+    ASSERT(cue);
+
+    switch (cue->cueType()) {
+    case TextTrackCue::Data:
+        return WEBKIT_DOM_TEXT_TRACK_CUE(wrapDataCue(static_cast<DataCue*>(cue)));
+    case TextTrackCue::WebVTT:
+    case TextTrackCue::Generic:
+        return WEBKIT_DOM_TEXT_TRACK_CUE(wrapVTTCue(static_cast<VTTCue*>(cue)));
+    }
+    return wrapTextTrackCue(cue);
+}
+#endif
 
 } // namespace WebKit

@@ -117,7 +117,7 @@ reset_notify_change(struct watch_item *watchItem, int RemoveRQ)
 	struct smb_rq *	rqp = (watchItem->ntp) ? watchItem->ntp->nt_rq : NULL;
 	
     if (watchItem->flags & SMBV_SMB2) {
-        /* Using SMB 2.x */
+        /* Using SMB 2/3 */
         rqp = watchItem->rqp;
     }
     
@@ -158,8 +158,19 @@ smbfs_notified_vnode(struct smbnode *np, int throttleBack, uint32_t events,
 		return; /* Nothing to do here */
     }
 	
-	np->attribute_cache_timer = 0;
-	np->n_symlink_cache_timer = 0;
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_NOTIFY | DBG_FUNC_START,
+                   throttleBack, events, np->d_fid, 0, 0);
+
+    if (!throttleBack) {
+        /*
+         * Always reset the cache timer and force a lookup except for ETIMEDOUT
+         * where we want to return cached meta data if possible. When we stop
+         * throttling, we will do an update at that time.
+         */
+        np->attribute_cache_timer = 0;
+        np->n_symlink_cache_timer = 0;
+    }
+    
 	/* 
 	 * The fid changed while we were blocked just unlock and get out. If we are
 	 * throttling back then skip this notify.  
@@ -178,7 +189,7 @@ smbfs_notified_vnode(struct smbnode *np, int throttleBack, uint32_t events,
     }
     /* Should never happen but lets test and make sure */
      if (VTOSMB(vp) != np) {
-         SMBWARNING("%s vnode_fsnode(vp) and np don't match!\n", np->n_name);
+         SMBWARNING_LOCK(np, "%s vnode_fsnode(vp) and np don't match!\n", np->n_name);
          vnode_put(vp);
          goto done;        
     }
@@ -198,6 +209,8 @@ done:
 	else		/* Still need to process the event */
 		np->d_needsUpdate = TRUE;
 	smbnode_unlock(np);
+
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_NOTIFY | DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
 
 /*
@@ -304,7 +317,7 @@ rcvd_notify_change(struct watch_item *watchItem, vfs_context_t context)
 	uint32_t events = VNODE_EVENT_ATTRIB | VNODE_EVENT_WRITE;
 	
     if (watchItem->flags & SMBV_SMB2) {
-        /* Using SMB 2.x */
+        /* Using SMB 2/3 */
         rqp = watchItem->rqp;
 
         if (rqp) {
@@ -329,23 +342,29 @@ rcvd_notify_change(struct watch_item *watchItem, vfs_context_t context)
          * Either we close the file descriptor or we canceled the 
          * operation. Nothing else to do here just get out.
          */
-        SMBDEBUG("Notification for %s was canceled.\n", np->n_name);
+        SMBDEBUG_LOCK(np, "Notification for %s was canceled.\n", np->n_name);
         goto done;
     }
 
-	/* Always reset the cache timer and force a lookup */
-	np->attribute_cache_timer = 0;
-	np->n_symlink_cache_timer = 0;
+    if (error != ETIMEDOUT) {
+        /* 
+         * Always reset the cache timer and force a lookup except for ETIMEDOUT
+         * where we want to return cached meta data if possible
+         */
+        np->attribute_cache_timer = 0;
+        np->n_symlink_cache_timer = 0;
+    }
+    
 	if (error == ENOTSUP) {
 		/* This server doesn't support notifications */
 		SMBWARNING("Server doesn't support notifications, polling\n");		
 		return error;
 		
 	} else if ((error == ETIMEDOUT) || (error == ENOTCONN)) {
-		SMBDEBUG("Processing notify for %s error = %d\n", np->n_name, error);	
+		SMBDEBUG_LOCK(np, "Processing notify for %s error = %d\n", np->n_name, error);
 		watchItem->throttleBack = TRUE;
 	} else if (error)  {
-		SMBWARNING("We got an unexpected error: %d for %s\n", error, np->n_name);		
+		SMBWARNING_LOCK(np, "We got an unexpected error: %d for %s\n", error, np->n_name);
 		watchItem->throttleBack = TRUE;
 	} else {
 		struct timespec ts;
@@ -361,6 +380,7 @@ rcvd_notify_change(struct watch_item *watchItem, vfs_context_t context)
 				watchItem->throttleBack = TRUE;
 		}
 	}
+    
 	/* Notify them that something changed */
 	smbfs_notified_vnode(np, watchItem->throttleBack, events, context);
 
@@ -379,7 +399,7 @@ rcvd_svrmsg_notify(struct smbmount	*smp, struct watch_item *watchItem)
     uint32_t action, delay;
 	int error = 0;
 	
-    /* svrmsg notify always uses SMB 2.x */
+    /* svrmsg notify always uses SMB 2/3 */
     rqp = watchItem->rqp;
     
     if (rqp == NULL) {
@@ -474,13 +494,13 @@ send_notify_change(struct watch_item *watchItem, vfs_context_t context)
 		watchItem->last_notify_time.tv_sec += SMBFS_MAX_RCVD_NOTIFY_TIME;
 	}
 	
-	SMBDEBUG("Sending notify for %s with fid = 0x%llx\n", np->n_name, np->d_fid);
+	SMBDEBUG_LOCK(np, "Sending notify for %s with fid = 0x%llx\n", np->n_name, np->d_fid);
 
 	/* Items we want to be notified about. */
 	CompletionFilters = SMBFS_NOTIFY_CHANGE_FILTERS;
 
     /*
-    * Let SMB2 handle this
+    * Let SMB 2/3 handle this
     */
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
         /* Set max response size to 64K which should be plenty */
@@ -599,11 +619,11 @@ VolumeMaxNotification(struct smbmount *smp, vfs_context_t context)
 	}
     
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        /* SMB 2.x relies on crediting */
+        /* SMB 2/3 relies on crediting */
         maxWorkingCnt = (SSTOVC(share)->vc_credits_max / 2) / vc_volume_cnt;
     }
     else {
-        /* SMB 1.x relies on maxmux */
+        /* SMB 1 relies on maxmux */
         maxWorkingCnt = (SSTOVC(share)->vc_maxmux / 2) / vc_volume_cnt;
     }
     
@@ -776,7 +796,7 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 				} else {
 					watchItem->state = kSendNotify;
 					if (watchItem->throttleBack) {
-						SMBDEBUG("Throttling back %s\n", watchItem->np->n_name);
+						SMBDEBUG_LOCK(watchItem->np, "Throttling back %s\n", watchItem->np->n_name);
 						notify->sleeptimespec.tv_sec = NOTIFY_THROTTLE_SLEEP_TIMO;
 						break;	/* Pull back sending notification, until next time */					
 					}
@@ -798,7 +818,7 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 					watchItem->state = kUsePollingToNotify;
 					moveToPollCnt--;
 					notify->watchPollCnt++;
-					SMBDEBUG("Moving %s to poll state\n", watchItem->np->n_name);
+					SMBDEBUG_LOCK(watchItem->np, "Moving %s to poll state\n", watchItem->np->n_name);
 				} else {
 					/* If an error then keep trying */
 					watchItem->state = kSendNotify;
@@ -815,11 +835,11 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 					moveFromPollCnt--;
 					notify->watchPollCnt--;
 					notify->haveMoreWork = TRUE; /* Force us to resend these items */
-					SMBDEBUG("Moving %s from polling to send state\n", watchItem->np->n_name);
+					SMBDEBUG_LOCK(watchItem->np, "Moving %s from polling to send state\n", watchItem->np->n_name);
 				} else if (updatePollingNodes) {
 					uint32_t events = VNODE_EVENT_ATTRIB | VNODE_EVENT_WRITE;
 					smbfs_notified_vnode(watchItem->np, FALSE, events, context);
-					SMBDEBUG("Updating %s using polling\n", watchItem->np->n_name);
+                    SMBDEBUG_LOCK(watchItem->np, "Updating %s using polling\n", watchItem->np->n_name);
 				}
 				break;
 			case kWaitingOnNotify:
@@ -975,8 +995,10 @@ enqueue_notify_change_request(struct smbfs_notify_change *notify,
 	watchItem->last_notify_time.tv_sec += SMBFS_MAX_RCVD_NOTIFY_TIME;
 	lck_mtx_lock(&notify->watch_list_lock);
 	notify->watchCnt++;
-	SMBDEBUG("Enqueue %s count = %d poll count = %d\n", np->n_name, 
-			 notify->watchCnt, notify->watchPollCnt);
+
+    SMBDEBUG_LOCK(np, "Enqueue %s count = %d poll count = %d\n", np->n_name,
+                  notify->watchCnt, notify->watchPollCnt);
+
 	/* Always make sure the root vnode is the first item in the list */
 	if (watchItem->isRoot) {
 		STAILQ_INSERT_HEAD(&notify->watch_list, watchItem, entries);
@@ -1037,8 +1059,10 @@ dequeue_notify_change_request(struct smbfs_notify_change *notify,
 			lck_mtx_lock(&watchItem->watch_statelock);
 			if (watchItem->state == kUsePollingToNotify)
 				notify->watchPollCnt--;				
-			SMBDEBUG("Dequeue %s count = %d poll count = %d\n", np->n_name, 
-					 notify->watchCnt, notify->watchPollCnt);
+
+            SMBDEBUG_LOCK(np, "Dequeue %s count = %d poll count = %d\n", np->n_name,
+                          notify->watchCnt, notify->watchPollCnt);
+
 			watchItem->state = kCancelNotify;
 			lck_mtx_unlock(&watchItem->watch_statelock);
 			notify_wakeup(notify);
@@ -1109,7 +1133,7 @@ smbfs_start_change_notify(struct smb_share *share, struct smbnode *np,
 	if (smp->notify_thread == NULL) {
 		/* This server doesn't support notify change so turn on polling */
 		np->n_flag |= N_POLLNOTIFY;
-		SMBDEBUG("Monitoring %s with polling\n", np->n_name);
+		SMBDEBUG_LOCK(np, "Monitoring %s with polling\n", np->n_name);
 	} else {
 		if (np->d_kqrefcnt) {
 			np->d_kqrefcnt++;	/* Already processing this node, we are done */
@@ -1122,10 +1146,11 @@ smbfs_start_change_notify(struct smb_share *share, struct smbnode *np,
 		if (error)	{
 			/* Open failed so turn on polling */
 			np->n_flag |= N_POLLNOTIFY;
-			SMBDEBUG("Monitoring %s failed to open. %d\n", np->n_name, error);
+			SMBDEBUG_LOCK(np, "Monitoring %s failed to open. %d\n", np->n_name, error);
 		} else {
-			SMBDEBUG("Monitoring %s\n", np->n_name);
-			/* 
+			SMBDEBUG_LOCK(np, "Monitoring %s\n", np->n_name);
+            
+			/*
 			 * We no longer need the node lock. So unlock the node so we have no
 			 * lock contention with the notify list lock.
 			 *
@@ -1205,7 +1230,9 @@ smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 	if (fid != 0) {
 		(void)smbfs_tmpclose(share, np, fid, context);
     }
-	SMBDEBUG("We are no longer monitoring  %s\n", np->n_name);
+    
+	SMBDEBUG_LOCK(np, "We are no longer monitoring  %s\n", np->n_name);
+
 	if (smp->notify_thread) {
 		/* 
 		 * We no longer need the node lock. So unlock the node so we have no
@@ -1262,9 +1289,10 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 		}
 			
 		/* We sent something see how long we have been waiting */				
-		SMBDEBUG("Need to close '%s' so we can force it to use polling\n", 
-				 np->n_name);
-		np->d_needReopen = TRUE; 
+		SMBDEBUG_LOCK(np, "Need to close '%s' so we can force it to use polling\n",
+                      np->n_name);
+
+		np->d_needReopen = TRUE;
 		np->d_fid = 0;
 		/*
 		 * Closing it here will cause the server to send a cancel error, which
@@ -1275,8 +1303,10 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 		OSAddAtomic(-1, &smp->tooManyNotifies);
 		return;	/* Nothing left to do here, just get out */
 	}
-	SMBDEBUG("%s is being reopened for monitoring\n", np->n_name);
-	/* 
+
+    SMBDEBUG_LOCK(np, "%s is being reopened for monitoring\n", np->n_name);
+
+    /*
 	 * We set the capabilities VOL_CAP_INT_REMOTE_EVENT for all supported
 	 * servers. So if they call us without checking the
 	 * capabilities then they get what they get.
@@ -1288,7 +1318,7 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 	error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA | SMB2_SYNCHRONIZE,  
 						  &np->d_fid, context);
 	if (error) {
-		SMBWARNING("Attempting to reopen %s failed %d\n", np->n_name, error);
+		SMBWARNING_LOCK(np, "Attempting to reopen %s failed %d\n", np->n_name, error);
 		return;
 	}
 	

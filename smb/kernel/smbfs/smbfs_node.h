@@ -37,7 +37,7 @@
 
 /*
  * OS X semantics expect that node id of 2 is the root of the share.
- * If File IDs are supported by the SMB 2.x server, then we need to return 2
+ * If File IDs are supported by the SMB 2/3 server, then we need to return 2
  * for the root vnode File ID . If some other item on the server has the 
  * File ID of 2, then we return the actual root File ID instead.
  * When vget is supported, then if they ask for File ID of 2, we return the 
@@ -109,7 +109,7 @@ struct fileRefEntry {
     uint32_t        refcnt;     /* open file reference count */
     uint32_t        mmapped;    /* This entry has been mmaped */
     pid_t           p_pid;      /* proc that did the open */
-    SMBFID          fid;        /* file handle, smb1 fid in volatile */
+    SMBFID          fid;        /* file handle, SMB 1 fid in volatile */
     uint16_t        accessMode; /* access mode for this open */
     uint32_t        rights;     /* nt granted rights */
     struct proc     *proc;      /* used in cluster IO strategy function */
@@ -121,7 +121,7 @@ struct fileRefEntry {
 struct smb_open_dir {
 	uint32_t		refcnt;
 	uint32_t		kq_refcnt;
-	SMBFID          fid;			/* directory handle, smb1 fid in volatile */
+	SMBFID          fid;			/* directory handle, SMB 1 fid in volatile */
 	struct smbfs_fctx *fctx;		/* ff context */
 	void			*nextEntry;		/* directory entry that didn't fit */
 	int32_t			nextEntryLen;	/* size of directory entry that didn't fit */
@@ -133,8 +133,8 @@ struct smb_open_dir {
 };
 
 struct smb_open_file {
-	uint32_t		refcnt;		/* open file reference count */
-	SMBFID         fid;		/* file handle, smb1 fid in volatile */
+	int32_t         refcnt;		/* open file reference count */
+	SMBFID          fid;		/* file handle, SMB 1 fid in volatile */
 	uint32_t		rights;		/* nt granted rights */
 	uint16_t		accessMode;	/* access mode used when opening  */
 	uint32_t		mmapMode;	/* The mode we used when opening from mmap */
@@ -180,7 +180,7 @@ struct smbnode {
 	uid_t				n_nfs_uid;
 	gid_t				n_nfs_gid;
 	int					set_create_va_mode;
-	time_t				finfo_cache;	/* finder info cache timer, only used by the data node */
+	time_t				finfo_cache_timer;	/* finder info cache timer, only used by the data node */
 	uint8_t				finfo[FINDERINFOSIZE];	/* finder info , only used by the data node */
 	time_t				rfrk_cache_timer;		/* resource stream size cache timer, only used by the data node */
 	u_quad_t			rfrk_size;		/* resource stream size, only used by the data node */
@@ -194,11 +194,12 @@ struct smbnode {
 		struct smb_open_file file;
 	}open_type;
 	void				*acl_cache_data;
-	struct timespec		acl_cache_timer;
+	time_t				acl_cache_timer;
 	int					acl_error;
 	size_t				acl_cache_len;
-	lck_mtx_t			f_ACLCacheLock;	/* Locks the ACL Cache */
-	lck_rw_t			n_name_rwlock;	/* ReadWrite lock for name changes */ 
+	lck_mtx_t			f_ACLCacheLock;     /* Locks the ACL Cache */
+	lck_rw_t			n_name_rwlock;      /* Read/Write lock for n_name */
+	lck_rw_t			n_parent_rwlock;    /* Read/Write lock for n_parent */
 	char				*n_name;	/* node's file or directory name */
 	size_t				n_nmlen;	/* node's name length */
 	size_t				n_snmlen;	/* if a stream then the legnth of the stream name */
@@ -266,30 +267,6 @@ struct smbnode {
 	nanouptime(&ts);	\
 }
 
-/* ACL cache timeouts in seconds */
-#define	SMB_ACL_MINTIMO 1
-#define	SMB_ACL_MAXTIMO 30
-
-/*
- * If we are negative caching ( got an error back) then set our cache time
- * to a longer value than normal caching. Remember that the vfs will help 
- * us with cache, but not in the negative case.
- */
-#define SET_ACL_CACHE_TIME(np) { \
-	struct timespec waittime;	\
-								\
-	nanouptime(&np->acl_cache_timer);	\
-	if (np->acl_error) { \
-		waittime.tv_sec = SMB_ACL_MAXTIMO;	\
-		waittime.tv_nsec = 0;	\
-	} else {	\
-		waittime.tv_sec = SMB_ACL_MINTIMO;	\
-		waittime.tv_nsec = 0;	\
-	}\
-	timespecadd(&np->acl_cache_timer, &waittime);	\
-}
-
-
 #define VTOSMB(vp)	((struct smbnode *)vnode_fsnode(vp))
 #define SMBTOV(np)	((vnode_t )(np)->n_vnode)
 
@@ -335,7 +312,7 @@ int smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t cont
 vnode_t smb_update_rsrc_and_getparent(vnode_t vp, int setsize);
 int smb_check_posix_access(vfs_context_t context, struct smbnode * np, 
 						   mode_t rq_mode);
-Boolean node_isimmutable(struct smb_share *share, vnode_t vp);
+Boolean node_isimmutable(struct smb_share *share, vnode_t vp, struct smbfattr *fap);
 void smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap, 
 						   int UpdateResourceParent, vfs_context_t context);
 int smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *va, 

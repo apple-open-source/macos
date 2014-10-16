@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,24 +26,14 @@
 #ifndef WebLayer_h
 #define WebLayer_h
 
-#if USE(ACCELERATED_COMPOSITING)
+#include <QuartzCore/QuartzCore.h>
 
-#import <QuartzCore/QuartzCore.h>
-
-namespace WebCore {
-    class GraphicsLayer;
-    class PlatformCALayer;
-    class PlatformCALayerClient;
-}
-
-@interface WebLayer : CALayer 
-{
-}
+#ifdef __OBJC__
+@interface WebSimpleLayer : CALayer
 @end
 
-// Functions allows us to share implementation across WebTiledLayer and WebLayer
-void drawLayerContents(CGContextRef, CALayer *, WebCore::PlatformCALayer*);
-
-#endif // USE(ACCELERATED_COMPOSITING)
+@interface WebLayer : WebSimpleLayer
+@end
+#endif
 
 #endif // WebLayer_h

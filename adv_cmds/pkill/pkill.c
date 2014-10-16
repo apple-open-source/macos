@@ -65,7 +65,7 @@ __FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp 
 #ifdef __APPLE__
 #include <xpc/xpc.h>
 #include <sys/proc_info.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include <sysmon.h>
 #endif
 
@@ -79,8 +79,8 @@ __FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp 
 
 #ifdef __APPLE__
 /* Ignore system processes and myself. */
-#define	PSKIP(kp)	((pid_t)xpc_dictionary_get_uint64(kp, "pid") == mypid ||			\
-			 ((xpc_dictionary_get_uint64(kp, "flags") & PROC_FLAG_SYSTEM) != 0))
+#define	PSKIP(kp)	((pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)) == mypid ||			\
+			 ((xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_FLAGS)) & PROC_FLAG_SYSTEM) != 0))
 #else
 /* Ignore system-processes (if '-S' flag is not specified) and myself. */
 #define	PSKIP(kp)	((kp)->ki_pid == mypid ||			\
@@ -107,7 +107,7 @@ struct list {
 SLIST_HEAD(listhead, list);
 
 #ifdef __APPLE__
-static xpc_object_t plist;
+static sysmon_table_t plist;
 #else
 static struct kinfo_proc *plist;
 #endif
@@ -146,14 +146,47 @@ static struct listhead jidlist = SLIST_HEAD_INITIALIZER(jidlist);
 
 static void	usage(void) __attribute__((__noreturn__));
 #ifdef __APPLE__
-static int	killact(const xpc_object_t);
-static int	grepact(const xpc_object_t);
+static int	killact(const sysmon_row_t);
+static int	grepact(const sysmon_row_t);
 #else
 static int	killact(const struct kinfo_proc *);
 static int	grepact(const struct kinfo_proc *);
 #endif
 static void	makelist(struct listhead *, enum listtype, char *);
 static int	takepid(const char *, int);
+
+#ifdef __APPLE__
+static sysmon_table_t
+copy_process_info(void)
+{
+	dispatch_semaphore_t sema;
+	sysmon_request_t request;
+	__block sysmon_table_t result = NULL;
+
+	sema = dispatch_semaphore_create(0);
+	request = sysmon_request_create(SYSMON_REQUEST_TYPE_PROCESS, ^(sysmon_table_t table) {
+		result = sysmon_retain(table);
+		dispatch_semaphore_signal(sema);
+	});
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_PID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_FLAGS);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_UID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_COMM);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_ARGUMENTS);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_RUID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_RGID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_PPID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_PGID);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_TDEV);
+	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_START);
+	sysmon_request_execute(request);
+	dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+	dispatch_release(sema);
+	sysmon_release(request);
+
+	return result;
+}
+#endif /* __APPLE__ */
 
 int
 main(int argc, char **argv)
@@ -169,8 +202,8 @@ main(int argc, char **argv)
 	int i, ch, bestidx, rv, criteria, pidfromfile, pidfilelock;
 #ifdef __APPLE__
 	__block size_t jsz;
-	int (*action)(const xpc_object_t);
-	xpc_object_t kp;
+	int (*action)(const sysmon_row_t);
+	sysmon_row_t kp;
 #else
 	size_t jsz;
 	int (*action)(const struct kinfo_proc *);
@@ -362,11 +395,11 @@ main(int argc, char **argv)
 	mypid = getpid();
 
 #ifdef __APPLE__
-	plist = sysmon_copy_process_info(NULL);
+	plist = copy_process_info();
 	if (plist == NULL) {
 		errx(STATUS_ERROR, "Cannot get process list");
 	}
-	nproc = xpc_array_get_count(plist);
+	nproc = sysmon_table_get_count(plist);
 #else
 	/*
 	 * Retrieve the list of running processes from the kernel.
@@ -409,7 +442,7 @@ main(int argc, char **argv)
 
 #ifdef __APPLE__
 		for (i = 0; i < nproc; i++) {
-			kp = xpc_array_get_value(plist, i);
+			kp = sysmon_table_get_row(plist, i);
 #else
 		for (i = 0, kp = plist; i < nproc; i++, kp++) {
 #endif
@@ -417,9 +450,9 @@ main(int argc, char **argv)
 				if (debug_opt > 0)
 				    fprintf(stderr, "* Skipped %5d %3d %s\n",
 #ifdef __APPLE__
-					(pid_t)xpc_dictionary_get_uint64(kp, "pid"),
-					(uid_t)xpc_dictionary_get_uint64(kp, "uid"),
-					xpc_dictionary_get_string(kp, "comm"));
+					(pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)),
+					(uid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_UID)),
+					xpc_string_get_string_ptr(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_COMM)));
 #else
 					kp->ki_pid, kp->ki_uid, kp->ki_comm);
 #endif
@@ -428,9 +461,9 @@ main(int argc, char **argv)
 
 #ifdef __APPLE__
 			if (matchargs &&
-			    (pargv = xpc_dictionary_get_value(kp, "arguments")) != NULL) {
+			    (pargv = sysmon_row_get_value(kp, SYSMON_ATTR_PROC_ARGUMENTS)) != NULL) {
 				jsz = 0;
-				osx_assert(sizeof(buf) == _POSIX2_LINE_MAX);
+				os_assert(sizeof(buf) == _POSIX2_LINE_MAX);
 				bufp = buf;
 				xpc_array_apply(pargv, ^(size_t index, xpc_object_t value) {
 					if (jsz >= _POSIX2_LINE_MAX) {
@@ -463,20 +496,22 @@ main(int argc, char **argv)
 				 * Try to use argv[0] (trimmed) if available.
 				 */
 				mstr = NULL;
-				pargv = xpc_dictionary_get_value(kp, "arguments");
+				pargv = sysmon_row_get_value(kp, SYSMON_ATTR_PROC_ARGUMENTS);
 				if (pargv != NULL && xpc_array_get_count(pargv) > 0) {
 					const char *tmp = xpc_array_get_string(pargv, 0);
 					if (tmp != NULL) {
 						mstr = strrchr(tmp, '/');
 						if (mstr != NULL) {
 							mstr++;
+						} else {
+							mstr = (char *)tmp;
 						}
 					}
 				}
 
 				/* Fall back to "comm" if we failed to get argv[0]. */
 				if (mstr == NULL || *mstr == '\0') {
-					mstr = (char *)xpc_dictionary_get_string(kp, "comm");
+					mstr = (char *)xpc_string_get_string_ptr(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_COMM));
 				}
 
 				/* Couldn't find process name, it probably exited. */
@@ -509,7 +544,9 @@ main(int argc, char **argv)
 					rv_res = "Matched";
 				fprintf(stderr, "* %s %5d %3d %s\n", rv_res,
 #ifdef __APPLE__
-				    (pid_t)xpc_dictionary_get_uint64(kp, "pid"), (uid_t)xpc_dictionary_get_uint64(kp, "uid"), mstr);
+				    (pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)),
+				    (uid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_UID)),
+				    mstr);
 #else
 				    kp->ki_pid, kp->ki_uid, mstr);
 #endif
@@ -521,7 +558,7 @@ main(int argc, char **argv)
 
 #ifdef __APPLE__
 	for (i = 0; i < nproc; i++) {
-		kp = xpc_array_get_value(plist, i);
+		kp = sysmon_table_get_row(plist, i);
 #else
 	for (i = 0, kp = plist; i < nproc; i++, kp++) {
 #endif
@@ -529,7 +566,7 @@ main(int argc, char **argv)
 			continue;
 
 #ifdef __APPLE__
-		if (pidfromfile >= 0 && (pid_t)xpc_dictionary_get_uint64(kp, "pid") != pidfromfile) {
+		if (pidfromfile >= 0 && (pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)) != pidfromfile) {
 #else
 		if (pidfromfile >= 0 && kp->ki_pid != pidfromfile) {
 #endif
@@ -539,7 +576,7 @@ main(int argc, char **argv)
 
 		SLIST_FOREACH(li, &ruidlist, li_chain)
 #ifdef __APPLE__
-			if ((uid_t)xpc_dictionary_get_uint64(kp, "ruid") == (uid_t)li->li_number)
+			if ((uid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_RUID)) == (uid_t)li->li_number)
 #else
 			if (kp->ki_ruid == (uid_t)li->li_number)
 #endif
@@ -551,7 +588,7 @@ main(int argc, char **argv)
 
 		SLIST_FOREACH(li, &rgidlist, li_chain)
 #ifdef __APPLE__
-			if ((gid_t)xpc_dictionary_get_uint64(kp, "rgid") == (gid_t)li->li_number)
+			if ((gid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_RGID)) == (gid_t)li->li_number)
 #else
 			if (kp->ki_rgid == (gid_t)li->li_number)
 #endif
@@ -563,7 +600,7 @@ main(int argc, char **argv)
 
 		SLIST_FOREACH(li, &euidlist, li_chain)
 #ifdef __APPLE__
-			if ((uid_t)xpc_dictionary_get_uint64(kp, "uid") == (uid_t)li->li_number)
+			if ((uid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_UID)) == (uid_t)li->li_number)
 #else
 			if (kp->ki_uid == (uid_t)li->li_number)
 #endif
@@ -575,7 +612,7 @@ main(int argc, char **argv)
 
 		SLIST_FOREACH(li, &ppidlist, li_chain)
 #ifdef __APPLE__
-			if ((pid_t)xpc_dictionary_get_uint64(kp, "ppid") == (pid_t)li->li_number)
+			if ((pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PPID)) == (pid_t)li->li_number)
 #else
 			if (kp->ki_ppid == (pid_t)li->li_number)
 #endif
@@ -587,7 +624,7 @@ main(int argc, char **argv)
 
 		SLIST_FOREACH(li, &pgrplist, li_chain)
 #ifdef __APPLE__
-			if ((pid_t)xpc_dictionary_get_uint64(kp, "pgid") == (pid_t)li->li_number)
+			if ((pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PGID)) == (pid_t)li->li_number)
 #else
 			if (kp->ki_pgid == (pid_t)li->li_number)
 #endif
@@ -600,13 +637,13 @@ main(int argc, char **argv)
 		SLIST_FOREACH(li, &tdevlist, li_chain) {
 			if (li->li_number == -1 &&
 #ifdef __APPLE__
-			    (xpc_dictionary_get_uint64(kp, "flags") & PROC_FLAG_CONTROLT) == 0)
+			    (xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_FLAGS)) & PROC_FLAG_CONTROLT) == 0)
 #else
 			    (kp->ki_flag & P_CONTROLT) == 0)
 #endif
 				break;
 #ifdef __APPLE__
-			if ((dev_t)xpc_dictionary_get_uint64(kp, "tdev") == (dev_t)li->li_number)
+			if ((dev_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_TDEV)) == (dev_t)li->li_number)
 #else
 			if (kp->ki_tdev == (dev_t)li->li_number)
 #endif
@@ -649,16 +686,16 @@ main(int argc, char **argv)
 		while (pid) {
 #ifdef __APPLE__
 			for (i = 0; i < nproc; i++) {
-				kp = xpc_array_get_value(plist, i);
+				kp = sysmon_table_get_row(plist, i);
 #else
 			for (i = 0, kp = plist; i < nproc; i++, kp++) {
 #endif
 				if (PSKIP(kp))
 					continue;
 #ifdef __APPLE__
-				if ((pid_t)xpc_dictionary_get_uint64(kp, "pid") == pid) {
+				if ((pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)) == pid) {
 					selected[i] = 0;
-					pid = (pid_t)xpc_dictionary_get_uint64(kp, "ppid");
+					pid = (pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PPID));
 					break;
 				}
 #else
@@ -689,7 +726,7 @@ main(int argc, char **argv)
 
 #ifdef __APPLE__
 		for (i = 0; i < nproc; i++) {
-			kp = xpc_array_get_value(plist, i);
+			kp = sysmon_table_get_row(plist, i);
 #else
 		for (i = 0, kp = plist; i < nproc; i++, kp++) {
 #endif
@@ -699,7 +736,7 @@ main(int argc, char **argv)
 				/* The first entry of the list which matched. */
 				;
 #ifdef __APPLE__
-			} else if (xpc_dictionary_get_date(kp, "start") > best_tval) {
+			} else if (xpc_date_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_START)) > best_tval) {
 #else
 			} else if (timercmp(&kp->ki_start, &best_tval, >)) {
 #endif
@@ -713,7 +750,7 @@ main(int argc, char **argv)
 			}
 			/* This entry is better than previous "best" entry. */
 #ifdef __APPLE__
-			best_tval = xpc_dictionary_get_date(kp, "start");
+			best_tval = xpc_date_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_START));
 #else
 			best_tval.tv_sec = kp->ki_start.tv_sec;
 			best_tval.tv_usec = kp->ki_start.tv_usec;
@@ -732,7 +769,7 @@ main(int argc, char **argv)
 	did_action = 0;
 #ifdef __APPLE__
 	for (i = 0, rv = 0; i < nproc; i++) {
-		kp = xpc_array_get_value(plist, i);
+		kp = sysmon_table_get_row(plist, i);
 #else
 	for (i = 0, rv = 0, kp = plist; i < nproc; i++, kp++) {
 #endif
@@ -742,7 +779,7 @@ main(int argc, char **argv)
 			if (longfmt && !pgrep) {
 				did_action = 1;
 #ifdef __APPLE__
-				printf("kill -%d %d\n", signum, (int)xpc_dictionary_get_uint64(kp, "pid"));
+				printf("kill -%d %d\n", signum, (int)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)));
 #else
 				printf("kill -%d %d\n", signum, kp->ki_pid);
 #endif
@@ -790,7 +827,7 @@ usage(void)
 
 static void
 #ifdef __APPLE__
-show_process(const xpc_object_t kp)
+show_process(const sysmon_row_t kp)
 #else
 show_process(const struct kinfo_proc *kp)
 #endif
@@ -807,8 +844,8 @@ show_process(const struct kinfo_proc *kp)
 	}
 #ifdef __APPLE__
 	if ((longfmt || !pgrep) && matchargs &&
-	    (argv = xpc_dictionary_get_value(kp, "arguments")) != NULL) {
-		printf("%d ", (int)xpc_dictionary_get_uint64(kp, "pid"));
+	    (argv = sysmon_row_get_value(kp, SYSMON_ATTR_PROC_ARGUMENTS)) != NULL) {
+		printf("%d ", (int)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)));
 		(void)xpc_array_apply(argv, ^(size_t index, xpc_object_t value) {
 			printf("%s", xpc_string_get_string_ptr(value));
 			if (index < xpc_array_get_count(argv) - 1)
@@ -816,9 +853,11 @@ show_process(const struct kinfo_proc *kp)
 			return (bool)true;
 		});
 	} else if (longfmt || !pgrep)
-		printf("%d %s", (int)xpc_dictionary_get_uint64(kp, "pid"), xpc_dictionary_get_string(kp, "comm"));
+		printf("%d %s",
+		    (int)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)),
+		    xpc_string_get_string_ptr(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_COMM)));
 	else
-		printf("%d", (int)xpc_dictionary_get_uint64(kp, "pid"));
+		printf("%d", (int)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)));
 #else
 	if ((longfmt || !pgrep) && matchargs &&
 	    (argv = kvm_getargv(kd, kp, 0)) != NULL) {
@@ -837,7 +876,7 @@ show_process(const struct kinfo_proc *kp)
 
 static int
 #ifdef __APPLE__
-killact(const xpc_object_t kp)
+killact(const sysmon_row_t kp)
 #else
 killact(const struct kinfo_proc *kp)
 #endif
@@ -859,7 +898,7 @@ killact(const struct kinfo_proc *kp)
 			return (1);
 	}
 #ifdef __APPLE__
-	if (kill((pid_t)xpc_dictionary_get_uint64(kp, "pid"), signum) == -1) {
+	if (kill((pid_t)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)), signum) == -1) {
 #else
 	if (kill(kp->ki_pid, signum) == -1) {
 #endif
@@ -870,7 +909,7 @@ killact(const struct kinfo_proc *kp)
 		 */
 		if (errno != ESRCH)
 #ifdef __APPLE__
-			warn("signalling pid %d", (int)xpc_dictionary_get_uint64(kp, "pid"));
+			warn("signalling pid %d", (int)xpc_uint64_get_value(sysmon_row_get_value(kp, SYSMON_ATTR_PROC_PID)));
 #else
 			warn("signalling pid %d", (int)kp->ki_pid);
 #endif
@@ -886,7 +925,7 @@ killact(const struct kinfo_proc *kp)
 
 static int
 #ifdef __APPLE__
-grepact(const xpc_object_t kp)
+grepact(const sysmon_row_t kp)
 #else
 grepact(const struct kinfo_proc *kp)
 #endif

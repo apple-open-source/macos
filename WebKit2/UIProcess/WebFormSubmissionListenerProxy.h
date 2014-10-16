@@ -28,13 +28,19 @@
 
 #include "WebFrameListenerProxy.h"
 
+#if PLATFORM(COCOA)
+#include "WKFoundation.h"
+#endif
+
+#define DELEGATE_REF_COUNTING_TO_COCOA (PLATFORM(COCOA) && WK_API_ENABLED)
+
 namespace WebKit {
 
 class WebFrameProxy;
 
 class WebFormSubmissionListenerProxy : public WebFrameListenerProxy {
 public:
-    static const Type APIType = TypeFormSubmissionListener;
+    static const Type APIType = Type::FormSubmissionListener;
 
     static PassRefPtr<WebFormSubmissionListenerProxy> create(WebFrameProxy* frame, uint64_t listenerID)
     {
@@ -47,8 +53,14 @@ private:
     WebFormSubmissionListenerProxy(WebFrameProxy*, uint64_t listenerID);
 
     virtual Type type() const { return APIType; }
+
+#if DELEGATE_REF_COUNTING_TO_COCOA
+    void* operator new(size_t size) { return newObject(size, APIType); }
+#endif
 };
 
 } // namespace WebKit
+
+#undef DELEGATE_REF_COUNTING_TO_COCOA
 
 #endif // WebFramePolicyListenerProxy_h

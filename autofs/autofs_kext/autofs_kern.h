@@ -178,6 +178,8 @@ typedef struct fnnode {
 	}		fn_u;
 	vnode_t		fn_vnode;
 	uint32_t	fn_vid;			/* vid of the vnode */
+	vnode_t		fn_parentvp;
+	uint32_t	fn_parentvid;		/* vid of parent's vnode */
 	struct fnnode	*fn_parent;
 	struct fnnode	*fn_next;		/* sibling */
 	lck_rw_t	*fn_rwlock;		/* protects list traversal */
@@ -188,6 +190,7 @@ typedef struct fnnode {
 	struct timeval	fn_ctime;
 	struct autofs_globals *fn_globals;	/* global variables */
 	lck_mtx_t	*fn_mnt_lock;		/* protects race between autofs and homedirmounter */
+	uint32_t        fn_restart_cnt;        	/* count of auto_lookup() ERESTART(s)- 17454528*/
 } fnnode_t;
 
 #define vntofn(vp)	((struct fnnode *)(vnode_fsnode(vp)))
@@ -226,7 +229,7 @@ extern int auto_wait4unmount_tree(fnnode_t *, vfs_context_t);
 extern int auto_makefnnode(fnnode_t **, int, mount_t,
 	struct componentname *, const char *, vnode_t, int,
 	struct autofs_globals *);
-extern void auto_freefnnode(fnnode_t *);
+extern void auto_freefnnode(fnnode_t *, int);
 extern void auto_disconnect(fnnode_t *, fnnode_t *);
 /*PRINTFLIKE2*/
 extern void auto_dprint(int level, const char *fmt, ...)
@@ -249,8 +252,8 @@ extern int auto_lookup_request(fninfo_t *, char *, int, char *,
 
 extern void autofs_free_globals(struct autofs_globals *);
 	
-extern void auto_fninfo_lock_shared(fninfo_t *fnip, int pid);
-extern void auto_fninfo_unlock_shared(fninfo_t *fnip, int pid);
+extern boolean_t auto_fninfo_lock_shared(fninfo_t *fnip, int pid);
+extern void auto_fninfo_unlock_shared(fninfo_t *fnip, boolean_t have_lock);
 
 #endif /* __APPLE_API_PRIVATE */
 

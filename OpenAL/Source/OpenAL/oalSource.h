@@ -518,6 +518,8 @@ class OALSource
 		Float32						mASAReverbSendLevel;
 		Float32						mASAOcclusion;
 		Float32						mASAObstruction;
+    
+        UInt32                      mRenderQuality;
 
 		// thread protection
 		OALRenderLocker				mRenderLocker;
@@ -563,6 +565,7 @@ class OALSource
     void        UpdateMinBusGain ();
     void        UpdateMaxBusGain ();
 	void        UpdateBusFormat ();
+    void        UpdateBusRenderQuality ();
 	void        UpdateBusReverb ();
 	void        UpdateBusOcclusion ();
 	void        UpdateBusObstruction ();
@@ -698,6 +701,10 @@ class OALSource
 	// source notification methods
 	ALenum		AddNotification(ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
 	void		RemoveNotification(ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
+    
+    // source spatialization methods
+    OSStatus    SetRenderQuality(ALuint inValue);
+    ALint       GetRenderQuality();
 
 	// notification methods
 	void		ClearMessageQueue();

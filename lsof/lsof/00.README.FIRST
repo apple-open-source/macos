@@ -17,7 +17,8 @@ Now that you have the lsof distribution, I suggest:
 
    Please don't be impatient -- read the documentation first.
 
-*  Read the current distribution's details in 00DIST.
+*  Read the current distribution's details in 00DIST.  (The
+   ChangeLog file points to 00DIST.)
 
 *  If you want technical details, read 00DCACHE and 00PORTING.
 
@@ -44,4 +45,4 @@ Now that you have the lsof distribution, I suggest:
 
 
 Vic Abell <abe@purdue.edu>
-April 19, 2002
+January 2, 2013

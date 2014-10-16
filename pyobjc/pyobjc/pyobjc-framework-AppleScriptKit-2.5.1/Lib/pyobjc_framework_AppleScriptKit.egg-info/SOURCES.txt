@@ -1,0 +1,17 @@
+LICENSE.txt
+MANIFEST.in
+README.txt
+distribute_setup.py
+pyobjc_setup.py
+setup.py
+Doc/api-notes-AppleScriptKit.txt
+Lib/AppleScriptKit/__init__.py
+Lib/AppleScriptKit/_metadata.py
+Lib/pyobjc_framework_AppleScriptKit.egg-info/PKG-INFO
+Lib/pyobjc_framework_AppleScriptKit.egg-info/SOURCES.txt
+Lib/pyobjc_framework_AppleScriptKit.egg-info/dependency_links.txt
+Lib/pyobjc_framework_AppleScriptKit.egg-info/not-zip-safe
+Lib/pyobjc_framework_AppleScriptKit.egg-info/requires.txt
+Lib/pyobjc_framework_AppleScriptKit.egg-info/top_level.txt
+PyObjCTest/__init__.py
+PyObjCTest/test_applescriptkit.py

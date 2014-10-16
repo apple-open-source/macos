@@ -1,0 +1,38 @@
+#! /bin/csh -f
+#
+# run urlPageGrab on a list of sites known to have images at their root page, and
+# also to work with URLSimpleDownload with SSL. Arguments to this 
+# script are passed on to urlPageGrab unmodified.
+#
+set ARG_LIST =
+set SSL = NO
+#
+while ( $#argv > 0 )
+	set thisArg = "$argv[1]"
+	if ( $thisArg == "s" ) then
+		set SSL = YES
+	endif
+	set ARG_LIST = "$ARG_LIST $thisArg"
+	shift
+end
+echo Starting grabPages\; args: $ARG_LIST
+#
+# sites which fail when SSL is NOT specified
+#
+set SSL_SITES = 
+
+set NORM_SITES = ( \
+   www.proteron.com \
+   www.thawte.com \
+   www.cduniverse.com \
+   www.yellownet.ch)
+
+if ($SSL == "YES") then
+	set ALL_SITES = "$SSL_SITES $NORM_SITES"
+else
+	set ALL_SITES = "$NORM_SITES"
+endif
+#
+foreach site ($ALL_SITES);
+	urlPageGrab $site / $ARG_LIST;
+end

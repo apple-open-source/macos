@@ -1,0 +1,29 @@
+From a88956ae39790d1fbd5acfdc060ea5ae95792b2d Mon Sep 17 00:00:00 2001
+From: Dave Zarzycki <davez@apple.com>
+Date: Mon, 7 May 2012 08:46:33 -0700
+Subject: [PATCH] 11393674 move to os_assumes*()
+
+---
+ runtime.cpp |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/runtime.cpp b/runtime.cpp
+index a7ace9f24d8..cb4fdc1ed13 100644
+--- a/runtime.cpp
++++ b/runtime.cpp
+@@ -30,6 +30,12 @@
+ #define osx_assert(_x) if (!(_x)) abort()
+ #else
+ #include <assumes.h>
++#ifndef osx_assumes
++#define osx_assumes(_x) os_assumes(_x)
++#endif
++#ifndef osx_assert
++#define osx_assert(_x) os_assert(_x)
++#endif
+ #endif
+ 
+ #if TARGET_OS_WIN32
+-- 
+1.7.9.6 (Apple Git-31)
+

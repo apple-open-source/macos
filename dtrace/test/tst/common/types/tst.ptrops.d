@@ -38,22 +38,12 @@
 
 #pragma D option quiet
 
-
-#if !defined(__APPLE__)
-BEGIN
-{
-	ptr_1 = &`kmem_flags;
-	ptr_2 = (&`kmem_flags) + 1;
-	ptr_3 = (&`kmem_flags) - 1 ;
-}
-#else
 BEGIN
 {
 	ptr_1 = &`max_ncpus;
 	ptr_2 = (&`max_ncpus) + 1;
 	ptr_3 = (&`max_ncpus) - 1 ;
 }
-#endif /* __APPLE__ */
 
 tick-1
 /ptr_1 >= ptr_2 || ptr_2 <= ptr_1 || ptr_1 == ptr_2/

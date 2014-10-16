@@ -58,11 +58,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char rcsid[] =
-	"$Id: unix.c,v 1.4 2006/02/07 06:22:20 lindak Exp $";
-#endif /* not lint */
-
 /*
  * Display protocol blocks in the unix domain.
  */

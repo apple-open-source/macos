@@ -1,0 +1,18 @@
+IO-SessionData
+===========================
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2000 Lincoln D. Stein
+Slightly modified by Paul Kulchenko to work on multiple platforms
+Formatting changed to match the layout layed out in Perl Best Practices
+(by Damian Conway) by Martin Kutter in 2008
+
+Packaged extracted from SOAP::Lite by Fred Moyer
+
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.16.1 or,
+at your option, any later version of Perl 5 you may have available.
+
+

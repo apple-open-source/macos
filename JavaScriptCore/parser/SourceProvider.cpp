@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "SourceProvider.h"
+
+#include "JSCInlines.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/TCSpinLock.h>
 
@@ -40,11 +42,6 @@ SourceProvider::SourceProvider(const String& url, const TextPosition& startPosit
 
 SourceProvider::~SourceProvider()
 {
-}
-
-static inline size_t charPositionExtractor(const size_t* value)
-{
-    return *value;
 }
 
 static TCMalloc_SpinLock providerIdLock = SPINLOCK_INITIALIZER;

@@ -1,0 +1,6 @@
+/^import _xattr/s/^/from . /
+/def list(/a
+.
+/'\\x00'/s//b&/
+/return .*/s//return res/
+w

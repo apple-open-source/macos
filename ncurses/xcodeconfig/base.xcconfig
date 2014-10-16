@@ -1,0 +1,9 @@
+#include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
+
+ARCHS = $(ARCHS_STANDARD_32_64_BIT)
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+ALTERNATE_MODE = go-w,a+rX
+INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
+STRIP_INSTALLED_PRODUCT = YES
+HEADER_SEARCH_PATHS = $(BUILT_PRODUCTS_DIR) $(PROJECT_DIR)/ncurses/include $(PROJECT_DIR)/ncurses/ncurses $(PROJECT_DIR)/ncurses/progs

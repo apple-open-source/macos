@@ -101,7 +101,7 @@ main(int argc, char **argv)
 	    krb5_err (context, 1, ret, "krb5_derive_key");
 	if (memcmp (dkey->keyvalue.data, t->res, dkey->keyvalue.length) != 0) {
 	    const unsigned char *p = dkey->keyvalue.data;
-	    int i;
+	    size_t i;
 
 	    printf ("derive_key failed\n");
 	    printf ("should be: ");

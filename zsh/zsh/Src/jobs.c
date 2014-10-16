@@ -376,6 +376,36 @@ check_cursh_sig(int sig)
     }
 }
 
+/**/
+void
+storepipestats(Job jn, int inforeground, int fixlastval)
+{
+    int i, pipefail = 0, jpipestats[MAX_PIPESTATS];
+    Process p;
+
+    for (p = jn->procs, i = 0; p && i < MAX_PIPESTATS; p = p->next, i++) {
+	jpipestats[i] = ((WIFSIGNALED(p->status)) ?
+			 0200 | WTERMSIG(p->status) :
+			 WEXITSTATUS(p->status));
+	if (jpipestats[i])
+	    pipefail = jpipestats[i];
+    }
+    if (inforeground) {
+	memcpy(pipestats, jpipestats, sizeof(int)*i);
+	if ((jn->stat & STAT_CURSH) && i < MAX_PIPESTATS)
+	    pipestats[i++] = lastval;
+	numpipestats = i;
+    }
+
+    if (fixlastval) {
+      if (jn->stat & STAT_CURSH) {
+	if (!lastval && isset(PIPEFAIL))
+	  lastval = pipefail;
+      } else if (isset(PIPEFAIL))
+	lastval = pipefail;
+    }
+}
+
 /* Update status of job, possibly printing it */
 
 /**/
@@ -507,17 +537,13 @@ update_job(Job jn)
 	return;
     jn->stat |= (somestopped) ? STAT_CHANGED | STAT_STOPPED :
 	STAT_CHANGED | STAT_DONE;
-    if (job == thisjob && (jn->stat & STAT_DONE)) {
-	int i;
-	Process p;
-
-	for (p = jn->procs, i = 0; p && i < MAX_PIPESTATS; p = p->next, i++)
-	    pipestats[i] = ((WIFSIGNALED(p->status)) ?
-			    0200 | WTERMSIG(p->status) :
-			    WEXITSTATUS(p->status));
-	if ((jn->stat & STAT_CURSH) && i < MAX_PIPESTATS)
-	    pipestats[i++] = lastval;
-	numpipestats = i;
+    if (jn->stat & STAT_DONE) {
+	/* This may be redundant with printjob() but note that inforeground
+	 * is true here for STAT_CURSH jobs even when job != thisjob, most
+	 * likely because thisjob = -1 from exec.c:execsimple() trickery.
+	 * However, if we reset lastval here we break it for printjob().
+	 */
+	storepipestats(jn, inforeground, 0);
     }
     if (!inforeground &&
 	(jn->stat & (STAT_SUBJOB | STAT_DONE)) == (STAT_SUBJOB | STAT_DONE)) {
@@ -915,10 +941,13 @@ printjob(Job jn, int lng, int synch)
     int doneprint = 0, skip_print = 0;
     FILE *fout = (synch == 2 || !shout) ? stdout : shout;
 
-    if (oldjobtab != NULL)
+    if (synch > 1 && oldjobtab != NULL)
 	job = jn - oldjobtab;
     else
 	job = jn - jobtab;
+    DPUTS3(job < 0 || job > (oldjobtab && synch > 1 ? oldmaxjob : maxjob),
+	   "bogus job number, jn = %L, jobtab = %L, oldjobtab = %L",
+	   (long)jn, (long)jobtab, (long)oldjobtab);
 
     if (jn->stat & STAT_NOPRINT) {
 	skip_print = 1;
@@ -968,6 +997,9 @@ printjob(Job jn, int lng, int synch)
 
     if (skip_print) {
 	if (jn->stat & STAT_DONE) {
+	    /* This looks silly, but see update_job() */
+	    if (synch <= 1)
+		storepipestats(jn, job == thisjob, job == thisjob);
 	    if (should_report_time(jn))
 		dumptime(jn);
 	    deletejob(jn, 0);
@@ -1083,9 +1115,9 @@ printjob(Job jn, int lng, int synch)
 	fflush(fout);
     }
 
-/* print "(pwd now: foo)" messages: with (lng & 4) we are printing
- * the directory where the job is running, otherwise the current directory
- */
+    /* print "(pwd now: foo)" messages: with (lng & 4) we are printing
+     * the directory where the job is running, otherwise the current directory
+     */
 
     if ((lng & 4) || (interact && job == thisjob &&
 		      jn->pwd && strcmp(jn->pwd, pwd))) {
@@ -1095,9 +1127,13 @@ printjob(Job jn, int lng, int synch)
 	fprintf(fout, ")\n");
 	fflush(fout);
     }
-/* delete job if done */
+
+    /* delete job if done */
 
     if (jn->stat & STAT_DONE) {
+	/* This looks silly, but see update_job() */
+	if (synch <= 1)
+	    storepipestats(jn, job == thisjob, job == thisjob);
 	if (should_report_time(jn))
 	    dumptime(jn);
 	deletejob(jn, 0);
@@ -1113,16 +1149,72 @@ printjob(Job jn, int lng, int synch)
     return doneprint;
 }
 
+/* Add a file to be deleted or fd to be closed to the current job */
+
+/**/
+void
+addfilelist(const char *name, int fd)
+{
+    Jobfile jf = (Jobfile)zalloc(sizeof(struct jobfile));
+    LinkList ll = jobtab[thisjob].filelist;
+
+    if (!ll)
+	ll = jobtab[thisjob].filelist = znewlinklist();
+    if (name)
+    {
+	jf->u.name = ztrdup(name);
+	jf->is_fd = 0;
+    }
+    else
+    {
+	jf->u.fd = fd;
+	jf->is_fd = 1;
+    }
+    zaddlinknode(ll, jf);
+}
+
+/* Clean up pipes no longer needed associated with a job */
+
+/**/
+void
+pipecleanfilelist(LinkList filelist)
+{
+    LinkNode node;
+
+    if (!filelist)
+	return;
+    node = firstnode(filelist);
+    while (node) {
+	Jobfile jf = (Jobfile)getdata(node);
+	if (jf->is_fd) {
+	    LinkNode next = nextnode(node);
+	    zclose(jf->u.fd);
+	    (void)remnode(filelist, node);
+	    zfree(jf, sizeof(*jf));
+	    node = next;
+	} else
+	    incnode(node);
+    }
+}
+
+/* Finished with list of files for a job */
+
 /**/
 void
 deletefilelist(LinkList file_list, int disowning)
 {
-    char *s;
+    Jobfile jf;
     if (file_list) {
-	while ((s = (char *)getlinknode(file_list))) {
-	    if (!disowning)
-		unlink(s);
-	    zsfree(s);
+	while ((jf = (Jobfile)getlinknode(file_list))) {
+	    if (jf->is_fd) {
+		if (!disowning)
+		    zclose(jf->u.fd);
+	    } else {
+		if (!disowning)
+		    unlink(jf->u.name);
+		zsfree(jf->u.name);
+	    }
+	    zfree(jf, sizeof(*jf));
 	}
 	zfree(file_list, sizeof(struct linklist));
     }
@@ -1336,6 +1428,19 @@ zwaitjob(int job, int wait_cmd)
 	jn->stat |= STAT_LOCKED;
 	if (jn->stat & STAT_CHANGED)
 	    printjob(jn, !!isset(LONGLISTJOBS), 1);
+	if (jn->filelist) {
+	    /*
+	     * The main shell is finished with any file descriptors used
+	     * for process substitution associated with this job: close
+	     * them to indicate to listeners there's no more input.
+	     *
+	     * Note we can't safely delete temporary files yet as these
+	     * are directly visible to other processes.  However,
+	     * we can't deadlock on the fact that those still exist, so
+	     * that's not a problem.
+	     */
+	    pipecleanfilelist(jn->filelist);
+	}
 	while (!errflag && jn->stat &&
 	       !(jn->stat & STAT_DONE) &&
 	       !(interact && (jn->stat & STAT_STOPPED))) {
@@ -2514,6 +2619,7 @@ acquire_pgrp(void)
     sigset_t blockset, oldset;
 
     if ((mypgrp = GETPGRP()) > 0) {
+	long lastpgrp = mypgrp;
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGTTIN);
 	sigaddset(&blockset, SIGTTOU);
@@ -2522,6 +2628,8 @@ acquire_pgrp(void)
 	while ((ttpgrp = gettygrp()) != -1 && ttpgrp != mypgrp) {
 	    mypgrp = GETPGRP();
 	    if (mypgrp == mypid) {
+		if (!interact)
+		    break; /* attachtty() will be a no-op, give up */
 		signal_setmask(oldset);
 		attachtty(mypgrp); /* Might generate SIGT* */
 		signal_block(blockset);
@@ -2532,6 +2640,9 @@ acquire_pgrp(void)
 	    if (read(0, NULL, 0) != 0) {} /* Might generate SIGT* */
 	    signal_block(blockset);
 	    mypgrp = GETPGRP();
+	    if (mypgrp == lastpgrp && !interact)
+		break; /* Unlikely that pgrp will ever change */
+	    lastpgrp = mypgrp;
 	}
 	if (mypgrp != mypid) {
 	    if (setpgrp(0, 0) == 0) {

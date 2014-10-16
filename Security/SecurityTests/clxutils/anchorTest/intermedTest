@@ -1,0 +1,128 @@
+#! /bin/csh -f
+#
+# verify contents of /System/Library/Keychains/SystemCACertificates.keychain
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set QUIET=NO
+#
+set CERT_KC=/System/Library/Keychains/SystemCACertificates.keychain
+#
+# the contents of SystemCACertificates gets dumped here as a pile of certs.
+# We delete on successful exit, else we leave them there.
+#
+set CERTS_DIR=$BUILD_DIR/intermediateCerts
+#
+# binaries we need
+#
+set CERTCRL=$BUILD_DIR/certcrl
+set CERTS_FROM_DB=$BUILD_DIR/certsFromDb
+foreach targ ($CERTCRL $CERTS_FROM_DB)
+	if(! -e $targ) then
+		echo === $targ is missing. Try building clxutil. 
+		exit(1)
+	endif
+end
+
+#
+set TRUST_SETTINGS_ARG=
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+            shift
+            breaksw
+		case 't':
+			set TRUST_SETTINGS_ARG=-g
+            shift
+            breaksw
+        default:
+            echo "Usage: intermedTest [q(uiet)] [t(rustSettings)]"
+            exit(1)
+    endsw
+end
+#
+echo Starting intermedTest
+
+if ($QUIET == NO) then
+	echo Initializing $CERTS_DIR... 
+endif
+set cmd="rm -rf $CERTS_DIR"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="mkdir -p $CERTS_DIR"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Extracting certs from $CERT_KC... ===
+endif
+set cmd="$CERTS_FROM_DB $CERT_KC f $CERTS_DIR/intermed q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+#
+# certcrl args:
+#
+#  -s  use system anchors
+#  -a  allow certs unverified by CRLs
+#  -f  leaf cert is a CA
+#  -L  silent
+#  -g  use Trust Settings
+#
+# We can also specify an evaluation date prior to the expiration of 
+# various intermediate certs via the EVAL_TIME string:
+#
+#set EVAL_TIME="-T 20081201000000"
+#echo "### Verification date for intermedTest is 2008-12-01"
+set EVAL_TIME=""
+
+set GOT_ERROR=0
+foreach certFile ($CERTS_DIR/*)
+	set cmd="$CERTCRL -c $certFile -s -a -f -L $TRUST_SETTINGS_ARG $EVAL_TIME"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+
+	set CERTNAM=`basename "$certFile"`
+	set CERTNUM=`echo -n "$CERTNAM" | sed -e 's/^intermed_\([0-9].*\)/\1/g'`
+	# skip DOD intermediates in this range as AIA fetch is timing out!
+	if($CERTNUM > 43 && $CERTNUM < 54) then
+		echo "******** Note: skipping $CERTNAM due to unreachable AIA location"
+		set ERR=0
+	else
+		$cmd
+		set ERR=$status
+	endif
+
+	if($ERR == 1) then
+	   echo "******** Note: $CERTNAM is expired"
+	else
+	if($ERR != 0) then
+	   echo "++++++++ Verification error on $CERTNAM"
+	   $CERTCRL -c $certFile -s -a -f -v
+	   set GOT_ERROR=1
+	endif
+	endif
+end
+
+if($GOT_ERROR == 1) then
+	echo ++++ TEST FAILED ++++
+	exit(1)
+endif
+
+set cmd="rm -rf $CERTS_DIR"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+# $cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo "...intermedTest complete"
+endif

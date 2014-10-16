@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,8 +88,11 @@ ExitStatus main(int argc, char * const * argv)
         if (toolArgs.runningKernelArch->cputype & CPU_ARCH_ABI64) {
             printf("        ");
         }
-        printf("Size       Wired      "
-            "Name (Version) <Linked Against>\n");
+        printf("Size       Wired      ");
+        if (toolArgs.flagShowArchitecture) {
+            printf("Architecture       ");
+        }
+        printf("Name (Version) <Linked Against>\n");
     }
 
     count = CFDictionaryGetCount(toolArgs.loadedKextInfo);
@@ -172,6 +175,10 @@ ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs)
                 }
                 CFArrayAppendValue(toolArgs->bundleIDs, scratchString);
                 break;
+            
+            case kOptArchitecture:
+                toolArgs->flagShowArchitecture = true;
+                break;
                 
             }
     }
@@ -221,6 +228,8 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     uint64_t          loadAddressValue       = (uint64_t)-1;
     uint32_t          loadSizeValue          = (uint32_t)-1;
     uint32_t          wiredSizeValue         = (uint32_t)-1;
+    uint32_t          cpuTypeValue           = (uint32_t)-1;
+    uint32_t          cpuSubTypeValue        = (uint32_t)-1;
     char            * bundleIDCString        = NULL;  // must free
     char            * bundleVersionCString   = NULL;  // must free
     
@@ -281,6 +290,12 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     if (!getNumValue(wiredSize, kCFNumberSInt32Type, &wiredSizeValue)) {
         wiredSizeValue = (uint32_t)-1;
     }
+    if (!getNumValue(((CFNumberRef)CFDictionaryGetValue(kextInfo, CFSTR(kOSBundleCPUTypeKey))), kCFNumberSInt32Type, &cpuTypeValue)) {
+        cpuTypeValue = (uint32_t)-1;
+    }
+    if (!getNumValue(((CFNumberRef)CFDictionaryGetValue(kextInfo, CFSTR(kOSBundleCPUSubtypeKey))), kCFNumberSInt32Type, &cpuSubTypeValue)) {
+        cpuSubTypeValue = (uint32_t)-1;
+    }
 
     bundleIDCString = createUTF8CStringForCFString(bundleID);
     bundleVersionCString = createUTF8CStringForCFString(bundleVersion);
@@ -325,6 +340,23 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
         fprintf(stdout, " %-10s", kStringInvalidLong);
     } else {
         fprintf(stdout, " %#-10x", wiredSizeValue);
+    }
+
+    if (toolArgs->flagShowArchitecture) {
+        // include kext cputype/cpusubtype info
+        if (cpuTypeValue == (uint32_t) -1) {
+            fprintf(stdout, " %10s/%-7s", kStringInvalidLong, kStringInvalidLong);
+        }
+        else {
+            const NXArchInfo * archName = NXGetArchInfoFromCpuType(cpuTypeValue, cpuSubTypeValue);
+
+            if (archName != NULL) {
+                fprintf(stdout, " %-18s", archName->name);
+            }
+            else {
+                fprintf(stdout, " %#010x/%#-7x", cpuTypeValue, cpuSubTypeValue);
+            }
+        }
     }
 
     fprintf(stdout, " %s",
@@ -436,7 +468,7 @@ CFComparisonResult compareNumbers(
 *******************************************************************************/
 static void usage(UsageLevel usageLevel)
 {
-    fprintf(stderr, "usage: %s [-k] [-l] [-b bundle_id] ...\n", progname);
+    fprintf(stderr, "usage: %s [-a] [-k] [-l] [-b bundle_id] ...\n", progname);
         
     if (usageLevel == kUsageLevelBrief) {
         fprintf(stderr, "\nUse %s -%s (-%c) for a list of options.\n",
@@ -450,6 +482,8 @@ static void usage(UsageLevel usageLevel)
         kOptNameListOnly, kOptListOnly);
     fprintf(stderr, "-%s (-%c) <bundle_id>: print info for kexts named by identifier.\n",
         kOptNameBundleIdentifier, kOptBundleIdentifier);
+    fprintf(stderr, "-%s (-%c): Include architecture info in output.\n",
+        kOptNameArchitecture, kOptArchitecture);
 
     return;
 }

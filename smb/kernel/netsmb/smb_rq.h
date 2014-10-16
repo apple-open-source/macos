@@ -47,9 +47,10 @@
 #define	SMBR_DEAD			0x0020	/* Network down nothing we can do with it. */
 #define	SMBR_MULTIPACKET	0x0040	/* multiple packets can be sent and received */
 #define	SMBR_INTERNAL		0x0080	/* request is internal to smbrqd runs off the main thread. */
-#define	SMBR_COMPOUND_RQ	0x0100	/* SMB2 compound request */
+#define	SMBR_COMPOUND_RQ	0x0100	/* SMB 2/3 compound request */
 #define	SMBR_NO_TIMEOUT     0x0200  /* Do not timeout, long-running request (i.e. Mac-to-Mac COPYCHUNK IOCTL) */
                                     /* Note: we need to remove this in Sarah */
+#define	SMBR_SIGNED         0x0400	/* SMB 2/3 sign this packet */
 #define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
 
 /* smb_t2rq t2_flags and smb_ntrq nt_flags */
@@ -82,7 +83,7 @@ struct smb_rq {
 	struct smb_share	*sr_share;
 	uint32_t		sr_reconnect_cnt;
 
-    /* SMB2 fields */
+    /* SMB 2/3 fields */
     uint32_t        sr_extflags;
 	uint16_t		sr_command;
 	uint16_t		sr_creditcharge;
@@ -109,7 +110,7 @@ struct smb_rq {
     uint64_t		sr_rspasyncid;
 	uint64_t		sr_rspsessionid;
 
-    /* SMB1 fields */
+    /* SMB 1 fields */
 	uint16_t		sr_mid;
 	uint16_t		sr_pidHigh;
 	uint16_t		sr_pidLow;
@@ -127,7 +128,7 @@ struct smb_rq {
 	uint16_t		sr_rpuid;
 	uint16_t		sr_rpmid;	/* Currently never used, handle with macro */
     
-    /* Used by SMB1 and SMB2 */
+    /* Used by SMB 1 and SMB 2/3 */
 	uint32_t		sr_seqno;
 	uint32_t		sr_rseqno;
 	struct mbchain	sr_rq;
@@ -136,8 +137,8 @@ struct smb_rq {
 	uint32_t		sr_ntstatus;
 
     /* %%% TO DO
-     * Finish sorting rest of these fields on whether they belong to SMB1 or
-     * or SMB2 or both.
+     * Finish sorting rest of these fields on whether they belong to SMB 1 or
+     * or SMB 2/3 or both.
      */
 	int				sr_rpgen;
 	int				sr_rplast;
@@ -146,6 +147,7 @@ struct smb_rq {
 	vfs_context_t	sr_context;
 	int				sr_timo;
 	struct timespec 	sr_timesent;
+	thread_t        sr_threadId;
 	int				sr_lerror;
 	lck_mtx_t		sr_slock;		/* short term locks */
 	struct smb_t2rq *sr_t2;

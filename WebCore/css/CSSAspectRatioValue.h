@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -36,12 +36,12 @@ namespace WebCore {
 
 class CSSAspectRatioValue : public CSSValue {
 public:
-    static PassRefPtr<CSSAspectRatioValue> create(float numeratorValue, float denominatorValue)
+    static PassRef<CSSAspectRatioValue> create(float numeratorValue, float denominatorValue)
     {
-        return adoptRef(new CSSAspectRatioValue(numeratorValue, denominatorValue));
+        return adoptRef(*new CSSAspectRatioValue(numeratorValue, denominatorValue));
     }
 
-    String customCssText() const;
+    String customCSSText() const;
 
     float numeratorValue() const { return m_numeratorValue; }
     float denominatorValue() const { return m_denominatorValue; }
@@ -59,6 +59,8 @@ private:
     float m_numeratorValue;
     float m_denominatorValue;
 };
+
+CSS_VALUE_TYPE_CASTS(CSSAspectRatioValue, isAspectRatioValue())
 
 }
 

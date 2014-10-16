@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2007-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -78,7 +78,7 @@ typedef struct {
 
 	Boolean				debug;
 
-	aslmsg				log_msg;
+	asl_object_t			log_msg;
 
 	CFStringRef			configuration_action;
 
@@ -124,7 +124,7 @@ getAuthorization(MyType *myInstance)
 		if (status != errAuthorizationSuccess) {
 			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
 			      CFSTR("AuthorizationCreate() failed: status = %d"),
-			      status);
+			      (int)status);
 		}
 	}
 
@@ -203,7 +203,7 @@ open_NetworkPrefPane(MyType *myInstance)
 			      strlen(NETWORK_PREF_CMD),
 			      &aeDesc);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: AECreateDesc() failed: %d"), status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: AECreateDesc() failed: %d"), (int)status);
 	}
 
 	prefSpec.appURL		= NULL;
@@ -214,7 +214,7 @@ open_NetworkPrefPane(MyType *myInstance)
 
 	status = LSOpenFromURLSpec(&prefSpec, NULL);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: LSOpenFromURLSpec() failed: %d"), status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: LSOpenFromURLSpec() failed: %d"), (int)status);
 	}
 
 	CFRelease(prefArray);
@@ -250,7 +250,7 @@ notify_remove(MyType *myInstance, Boolean cancel)
 			if (status != 0) {
 				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
 				      CFSTR("SCMonitor: CFUserNotificationCancel() failed, status=%d"),
-				      status);
+				      (int)status);
 			}
 		}
 		CFRelease(myInstance->userNotification);
@@ -418,7 +418,7 @@ notify_add(MyType *myInstance)
 								&error,
 								dict);
 	if (myInstance->userNotification == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreate() failed, %d"), error);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreate() failed, %d"), (int)error);
 		goto done;
 	}
 
@@ -490,7 +490,7 @@ notify_configure(MyType *myInstance)
 			CFStringRef	name;
 
 			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_NOTICE, CFSTR("add service for %@"), name);
+			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_NOTICE, CFSTR("add/update service for %@"), name);
 		}
 	}
 
@@ -532,6 +532,10 @@ notify_configure(MyType *myInstance)
 #pragma mark -
 
 
+// configure ONLY IF authorized
+#define kSCNetworkInterfaceConfigurationActionValueConfigureAuthorized	CFSTR("Configure-Authorized")
+
+
 static void
 updateInterfaceList(MyType *myInstance)
 {
@@ -567,11 +571,6 @@ updateInterfaceList(MyType *myInstance)
 
 			interface = CFArrayGetValueAtIndex(interfaces, i);
 
-			if (_SCNetworkInterfaceIsBuiltin(interface)) {
-				// skip built-in interfaces
-				continue;
-			}
-
 			// track new vs. old (removed) interfaces
 			CFSetRemoveValue(interfaces_old, interface);
 			if (CFSetContainsValue(myInstance->interfaces_known, interface)) {
@@ -595,7 +594,12 @@ updateInterfaceList(MyType *myInstance)
 				if ((action == NULL) ||
 				    (!CFEqual(action, kSCNetworkInterfaceConfigurationActionValueNone) &&
 				     !CFEqual(action, kSCNetworkInterfaceConfigurationActionValueConfigure))) {
-					action = kSCNetworkInterfaceConfigurationActionValuePrompt;
+					    if (_SCNetworkInterfaceIsBuiltin(interface)) {
+						    // if built-in interface
+						    action = kSCNetworkInterfaceConfigurationActionValueConfigureAuthorized;
+					    } else {
+						    action = kSCNetworkInterfaceConfigurationActionValuePrompt;
+					    }
 				}
 
 				if (CFEqual(action, kSCNetworkInterfaceConfigurationActionValueNone)) {
@@ -607,13 +611,13 @@ updateInterfaceList(MyType *myInstance)
 					}
 					CFArrayAppendValue(myInstance->interfaces_configure, interface);
 				} else if (hasAuthorization(myInstance)) {
-					// if we already have the "admin" (kSCPreferencesWriteAuthorizationRight)
+					// if we already have the "admin" (kSCPreferencesAuthorizationRight_write)
 					// right, configure automatically (without user intervention)
 					if (myInstance->interfaces_configure == NULL) {
 						myInstance->interfaces_configure = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 					}
 					CFArrayAppendValue(myInstance->interfaces_configure, interface);
-				} else {
+				} else if (!CFEqual(action, kSCNetworkInterfaceConfigurationActionValueConfigureAuthorized)) {
 					// notify user
 					if (myInstance->interfaces_prompt == NULL) {
 						myInstance->interfaces_prompt = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -1192,7 +1196,7 @@ watcher_remove(MyType *myInstance)
 		myInstance->interfaces_known = NULL;
 	}
 
-	asl_free(myInstance->log_msg);
+	asl_release(myInstance->log_msg);
 	myInstance->log_msg = NULL;
 	return;
 }

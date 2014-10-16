@@ -1,5 +1,0 @@
-^\.git/
-^MANIFEST\.bak
-^Makefile$
-^blib/
-^pm_to_blib$

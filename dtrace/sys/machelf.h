@@ -33,26 +33,11 @@
 extern "C" {
 #endif
 
-#if !defined(__APPLE__)
-#if defined(__amd64)
-#include <sys/elf_amd64.h>
-#elif defined(__i386)
-#include <sys/elf_386.h>
-#elif defined(__sparc)
-#include <sys/elf_SPARC.h>
-#endif
-#else /* is Apple Mac OS X */
 #if defined(__i386__) || defined(__x86_64__)
 #include "elf_386.h" /* In lieu of Solaris <sys/elf_386.h> */
 #endif
-#endif /* __APPLE__ */
 
 #ifndef	_ASM
-#if !defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/elf.h>
-#include <sys/link.h>	/* for Elf*_Dyn */
-#else /* is Apple Mac OS X */
 
 #ifdef KERNEL
 #ifndef _KERNEL
@@ -64,7 +49,6 @@ extern "C" {
 #include "gelf.h"
 #include "elf.h" /* In lieu of Solaris <sys/elf.h> */
 #include "link.h" /* In lieu of Solaris <sys/link.h> */
-#endif /* __APPLE__ */
 #endif	/* _ASM */
 
 /*

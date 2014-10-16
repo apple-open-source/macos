@@ -42,12 +42,12 @@ ALL : "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - Win32 Release" "libaprutil - Win32 Release" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - Win32 Release" "libapr - Win32 Release" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - Win32 ReleaseCLEAN" "libapr - Win32 ReleaseCLEAN" 
+CLEAN :"libapr - Win32 ReleaseCLEAN" "libaprutil - Win32 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -106,8 +106,8 @@ LINK32=link.exe
 LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib odbc32.lib odbccp32.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_odbc-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_odbc-1.dll" /implib:"$(OUTDIR)\apr_dbd_odbc-1.lib" /MACHINE:X86 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_odbc.obj" \
-	"..\Release\libaprutil-1.lib" \
-	"..\..\apr\Release\libapr-1.lib"
+	"..\..\apr\Release\libapr-1.lib" \
+	"..\Release\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbd_odbc-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -142,12 +142,12 @@ ALL : "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - Win32 Debug" "libaprutil - Win32 Debug" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - Win32 Debug" "libapr - Win32 Debug" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - Win32 DebugCLEAN" "libapr - Win32 DebugCLEAN" 
+CLEAN :"libapr - Win32 DebugCLEAN" "libaprutil - Win32 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -206,8 +206,8 @@ LINK32=link.exe
 LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib odbc32.lib odbccp32.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_odbc-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_odbc-1.dll" /implib:"$(OUTDIR)\apr_dbd_odbc-1.lib" /MACHINE:X86 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_odbc.obj" \
-	"..\Debug\libaprutil-1.lib" \
-	"..\..\apr\Debug\libapr-1.lib"
+	"..\..\apr\Debug\libapr-1.lib" \
+	"..\Debug\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbd_odbc-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -242,12 +242,12 @@ ALL : "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - x64 Release" "libaprutil - x64 Release" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - x64 Release" "libapr - x64 Release" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - x64 ReleaseCLEAN" "libapr - x64 ReleaseCLEAN" 
+CLEAN :"libapr - x64 ReleaseCLEAN" "libaprutil - x64 ReleaseCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -306,8 +306,8 @@ LINK32=link.exe
 LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib odbc32.lib odbccp32.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_odbc-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_odbc-1.dll" /implib:"$(OUTDIR)\apr_dbd_odbc-1.lib" /MACHINE:X64 /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_odbc.obj" \
-	"..\x64\Release\libaprutil-1.lib" \
-	"..\..\apr\x64\Release\libapr-1.lib"
+	"..\..\apr\x64\Release\libapr-1.lib" \
+	"..\x64\Release\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbd_odbc-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -342,12 +342,12 @@ ALL : "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ELSE 
 
-ALL : "libapr - x64 Debug" "libaprutil - x64 Debug" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
+ALL : "libaprutil - x64 Debug" "libapr - x64 Debug" "$(OUTDIR)\apr_dbd_odbc-1.dll" "$(DS_POSTBUILD_DEP)"
 
 !ENDIF 
 
 !IF "$(RECURSE)" == "1" 
-CLEAN :"libaprutil - x64 DebugCLEAN" "libapr - x64 DebugCLEAN" 
+CLEAN :"libapr - x64 DebugCLEAN" "libaprutil - x64 DebugCLEAN" 
 !ELSE 
 CLEAN :
 !ENDIF 
@@ -406,8 +406,8 @@ LINK32=link.exe
 LINK32_FLAGS=kernel32.lib advapi32.lib ws2_32.lib mswsock.lib ole32.lib odbc32.lib odbccp32.lib /nologo /base:"0x6EF00000" /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\apr_dbd_odbc-1.pdb" /debug /out:"$(OUTDIR)\apr_dbd_odbc-1.dll" /implib:"$(OUTDIR)\apr_dbd_odbc-1.lib" /MACHINE:X64 
 LINK32_OBJS= \
 	"$(INTDIR)\apr_dbd_odbc.obj" \
-	"..\x64\Debug\libaprutil-1.lib" \
-	"..\..\apr\x64\Debug\libapr-1.lib"
+	"..\..\apr\x64\Debug\libapr-1.lib" \
+	"..\x64\Debug\libaprutil-1.lib"
 
 "$(OUTDIR)\apr_dbd_odbc-1.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -444,56 +444,6 @@ SOURCE=.\apr_dbd_odbc.c
 
 "$(INTDIR)\apr_dbd_odbc.obj" : $(SOURCE) "$(INTDIR)"
 
-
-!IF  "$(CFG)" == "apr_dbd_odbc - Win32 Release"
-
-"libaprutil - Win32 Release" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" 
-   cd ".\dbd"
-
-"libaprutil - Win32 ReleaseCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" RECURSE=1 CLEAN 
-   cd ".\dbd"
-
-!ELSEIF  "$(CFG)" == "apr_dbd_odbc - Win32 Debug"
-
-"libaprutil - Win32 Debug" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" 
-   cd ".\dbd"
-
-"libaprutil - Win32 DebugCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" RECURSE=1 CLEAN 
-   cd ".\dbd"
-
-!ELSEIF  "$(CFG)" == "apr_dbd_odbc - x64 Release"
-
-"libaprutil - x64 Release" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" 
-   cd ".\dbd"
-
-"libaprutil - x64 ReleaseCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" RECURSE=1 CLEAN 
-   cd ".\dbd"
-
-!ELSEIF  "$(CFG)" == "apr_dbd_odbc - x64 Debug"
-
-"libaprutil - x64 Debug" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" 
-   cd ".\dbd"
-
-"libaprutil - x64 DebugCLEAN" : 
-   cd ".\.."
-   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" RECURSE=1 CLEAN 
-   cd ".\dbd"
-
-!ENDIF 
 
 !IF  "$(CFG)" == "apr_dbd_odbc - Win32 Release"
 
@@ -542,6 +492,56 @@ SOURCE=.\apr_dbd_odbc.c
    cd ".\..\..\apr"
    $(MAKE) /$(MAKEFLAGS) /F ".\libapr.mak" CFG="libapr - x64 Debug" RECURSE=1 CLEAN 
    cd "..\apr-util\dbd"
+
+!ENDIF 
+
+!IF  "$(CFG)" == "apr_dbd_odbc - Win32 Release"
+
+"libaprutil - Win32 Release" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" 
+   cd ".\dbd"
+
+"libaprutil - Win32 ReleaseCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Release" RECURSE=1 CLEAN 
+   cd ".\dbd"
+
+!ELSEIF  "$(CFG)" == "apr_dbd_odbc - Win32 Debug"
+
+"libaprutil - Win32 Debug" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" 
+   cd ".\dbd"
+
+"libaprutil - Win32 DebugCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - Win32 Debug" RECURSE=1 CLEAN 
+   cd ".\dbd"
+
+!ELSEIF  "$(CFG)" == "apr_dbd_odbc - x64 Release"
+
+"libaprutil - x64 Release" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" 
+   cd ".\dbd"
+
+"libaprutil - x64 ReleaseCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Release" RECURSE=1 CLEAN 
+   cd ".\dbd"
+
+!ELSEIF  "$(CFG)" == "apr_dbd_odbc - x64 Debug"
+
+"libaprutil - x64 Debug" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" 
+   cd ".\dbd"
+
+"libaprutil - x64 DebugCLEAN" : 
+   cd ".\.."
+   $(MAKE) /$(MAKEFLAGS) /F ".\libaprutil.mak" CFG="libaprutil - x64 Debug" RECURSE=1 CLEAN 
+   cd ".\dbd"
 
 !ENDIF 
 

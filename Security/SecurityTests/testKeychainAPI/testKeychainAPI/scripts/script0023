@@ -1,0 +1,43 @@
+//
+// script0023
+//
+//		KCStatus
+//
+// Check lock state
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0023.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+//										keychain is locked by default
+//										keychain is now unlocked
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+//										status bitmask
+//										kcUnlockState 1 : unlocked
+//										kcRdPerm      2 : unlocked with read permission
+//										kcWrPerm      4 : unlocked with write permission
+16 KCGetStatus
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 2
+     OSStatus 0
+     KeychainStatus : 7
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

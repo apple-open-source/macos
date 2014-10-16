@@ -563,28 +563,28 @@ SOURCE=..\libaprutil.rc
 
 
 "$(INTDIR)\apr_dbd_mysql-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_mysql" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_mysql" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_mysql - Win32 Debug"
 
 
 "$(INTDIR)\apr_dbd_mysql-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_mysql" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_mysql" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_mysql - x64 Release"
 
 
 "$(INTDIR)\apr_dbd_mysql-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_mysql" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_mysql" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_mysql - x64 Debug"
 
 
 "$(INTDIR)\apr_dbd_mysql-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_mysql" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_mysql-1.res" /i "../include" /i "../../apr/include" /i "\httpd-2.4.4\srclib\apr-util" /d DLL_NAME="apr_dbd_mysql" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

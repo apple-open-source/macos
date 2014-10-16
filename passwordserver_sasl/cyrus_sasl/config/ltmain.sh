@@ -1775,11 +1775,12 @@ compiler."
 	darwin)
 	  # Like Linux, but with the current version available in
 	  # verstring for coding it into the library header
-	  major=.`expr $current - $age`
-	  versuffix="$major.$age.$revision"
+	  major=`expr $current - $age`
+	  versuffix=".$major.$age.$revision"
 	  # Darwin ld doesn't like 0 for these options...
 	  minor_current=`expr $current + 1`
-	  verstring="-compatibility_version $minor_current -current_version $minor_current.$revision"
+	  verstring="-compatibility_version $major -current_version $major.$age.$revision"
+	  major=".$major"
 	  ;;
 
 	*)

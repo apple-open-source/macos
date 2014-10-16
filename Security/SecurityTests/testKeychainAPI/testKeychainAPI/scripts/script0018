@@ -1,0 +1,32 @@
+//
+// script0018
+//
+//		KCNewItem
+//
+// Create an Apple Share Password item with its data length > 8
+//
+// This length is enforced by AppleShare client, but we can't enforce this
+// limit in case it is lifted later.
+// 
+35 KCNewItem
+   Input Arguments : 4
+     Class : ashp
+     Creator : meme
+     Data : /14/apple computer
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+35 KCNewItem
+   Input Arguments : 4
+     Class : ashp
+     Creator : meme
+     Data : /5/apple
+   Results : 2
+     OSStatus 0
+     ItemIndex : 1
+38 KCSetData
+   Input Arguments : 2
+     ItemIndex : 1
+     Data : /14/apple computer
+   Results : 1
+     OSStatus 0

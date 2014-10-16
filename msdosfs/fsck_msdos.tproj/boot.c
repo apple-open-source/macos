@@ -199,8 +199,10 @@ readboot(dosfs, boot)
 					return FSFATAL;
 				}
 				ret = FSBOOTMOD;
-			} else
+			} else {
 				boot->FSInfo = 0;
+				ret = FSERROR;
+			}
 		}
 		if (boot->FSInfo) {
 			boot->FSFree = fsinfo[0x1e8] + (fsinfo[0x1e9] << 8)

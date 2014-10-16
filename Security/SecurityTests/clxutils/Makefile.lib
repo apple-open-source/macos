@@ -1,0 +1,113 @@
+#
+# Common makefile fragment for dmitch's SecurityX-style clxutils,
+# tailored for building a library.
+# This is -included from project-specific Makefiles, assumed
+# to be one directory down from this file.
+#
+# See Makefile.template for sample project-specific Makefile.
+#
+
+# Defaults for variables provided by buildit
+# 
+# Object files written to '.' unless OBJROOT specified
+#
+OBJROOT ?= .
+SRCROOT ?= .
+#
+# Library written to SYMROOT if specified, else to LOCAL_BUILD_DIR
+# env var if specified, else to '.'.
+#
+SYMROOT ?= $(shell echo $(LOCAL_BUILD_DIR))
+LOCAL_BUILD=$(SYMROOT)
+ifeq "" "$(LOCAL_BUILD)"
+	LOCAL_BUILD = .
+endif
+
+# independent of SYMROOT
+CLEAN_DIR=$(shell echo $(LOCAL_BUILD_DIR))
+ifeq "" "$(CLEAN_DIR)"
+	CLEAN_DIR = .
+endif
+
+#
+# DSTROOT only used for install
+#
+DSTROOT ?= ""
+
+# if DSTROOT  not specified, skip the extra -I to get to cspxutils headers
+ifeq ("", $(DSTROOT))
+	UTILLIB_HDRS=
+else
+	UTILLIB_HDRS="-I$(DSTROOT)/usr/local/include"
+endif
+
+INSTALLDIR := $(DSTROOT)/usr/local/lib
+
+CC=c++
+
+COMMON_LIB_SRC= -I../../cspxutils/ 
+
+OFILES := $(CSOURCE:%.c=$(OBJROOT)/%.o) $(CPSOURCE:%.cpp=$(OBJROOT)/%.o)
+
+PRIV_FRAMEWORK_PATH= /System/Library/PrivateFrameworks
+
+ALL_LDFLAGS= -static $(PROJ_LDFLAGS)
+
+STD_FRAMEWORKS= 
+ALL_FRAMEWORKS= $(STD_FRAMEWORKS) $(PROJ_FRAMEWORKS)
+
+#
+# to get to headers in frameworks 
+#
+STD_FINCLUDES= -F$(LOCAL_BUILD) -F/System/Library/Frameworks/CoreServices.framework/Frameworks
+STD_INCLUDES= -I.. $(COMMON_LIB_SRC) $(UTILLIB_HDRS) -F$(PRIV_FRAMEWORK_PATH)
+
+ALL_INCLUDES= $(STD_INCLUDES) $(PROJ_INCLUDES)
+CINCLUDES= $(STD_FINCLUDES) $(ALL_INCLUDES)
+
+###WFLAGS= -Wno-four-char-constants -Wall -Werror
+WFLAGS= -Wno-four-char-constants -Wall -Wno-deprecated-declarations
+STD_CFLAGS= -g $(VERBOSE)
+DEBUG_CFLAGS?=
+
+ALL_CFLAGS= $(CINCLUDES) $(STD_CFLAGS) $(PROJ_CFLAGS) $(WFLAGS) $(DEBUG_CFLAGS)
+
+#
+# Executable has to be in build folder for MDS
+#
+BUILT_TARGET= $(LOCAL_BUILD)/$(EXECUTABLE)
+
+first:	 $(PROJ_DEPENDS) $(BUILT_TARGET)
+
+build: first
+
+# architecture options
+
+64bit:
+	make "DEBUG_CFLAGS=-arch x86_64"
+	
+64bitFat:
+	make "DEBUG_CFLAGS=-arch x86_64 -arch i386"
+	
+fat:
+	make "DEBUG_CFLAGS=-arch i386" "CMDLINE_LDFLAGS=-arch i386" 
+	
+install: build
+	install -d -m 0755 $(INSTALLDIR)
+	install -p -m 0644 $(BUILT_TARGET) $(INSTALLDIR)
+
+installhdrs:
+
+$(BUILT_TARGET):	$(OFILES)
+	libtool $(ALL_LDFLAGS) -o $(BUILT_TARGET) $^
+
+clean:
+	cd $(SRCROOT); rm -f $(OFILES) *.o
+	rm -f $(BUILT_TARGET)
+	rm -f $(CLEAN_DIR)/$(EXECUTABLE)
+
+$(OBJROOT)/%.o: %.c
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<
+
+$(OBJROOT)/%.o: %.cpp
+	$(CC) $(ALL_CFLAGS) -c -o $(OBJROOT)/$*.o $<

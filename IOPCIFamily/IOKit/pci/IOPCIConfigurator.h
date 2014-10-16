@@ -130,9 +130,9 @@ enum {
     kIOPCIConfiguratorKPrintf        = 0x00000002,
     kIOPCIConfiguratorVTLog          = 0x00000004,
     
-    kIOPCIConfiguratorCheckTunnel    = 0x00000008,
-    kIOPCIConfiguratorNoTunnelDrv    = 0x00000010,
-    kIOPCIConfiguratorNoTerminate    = 0x00000020,
+    kIOPCIConfiguratorAER            = 0x00000008,
+    //        = 0x00000010,
+    //        = 0x00000020,
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
     kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
@@ -149,6 +149,10 @@ enum {
     kIOPCIConfiguratorReset          = 0x00010000,
     kIOPCIConfiguratorAllocate       = 0x00020000,
 	kIOPCIConfiguratorUsePause       = 0x00040000,
+
+    kIOPCIConfiguratorCheckTunnel    = 0x00080000,
+    kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
+    kIOPCIConfiguratorNoTerminate    = 0x00200000,
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
@@ -222,20 +226,6 @@ enum {
     kPCIHotPlugTunnelRootParent = 6,
 };
 
-enum {
-    kPCI2PCIPrimaryBus          = 0x18,
-    kPCI2PCISecondaryBus        = 0x19,
-    kPCI2PCISubordinateBus      = 0x1a,
-    kPCI2PCISecondaryLT         = 0x1b,
-    kPCI2PCIIORange             = 0x1c,
-    kPCI2PCIMemoryRange         = 0x20,
-    kPCI2PCIPrefetchMemoryRange = 0x24,
-    kPCI2PCIPrefetchUpperBase   = 0x28,
-    kPCI2PCIPrefetchUpperLimit  = 0x2c,
-    kPCI2PCIUpperIORange        = 0x30,
-    kPCI2PCIBridgeControl       = 0x3e
-};
-
 #define kPCIBridgeMaxCount  256
 
 enum 
@@ -297,10 +287,13 @@ struct IOPCIConfigEntry
     uint8_t   			expressPayloadSetting;
 //	uint16_t            pausedCommand;
 
-    IORegistryEntry *   dtNub;
+    IORegistryEntry *   dtEntry;
 #if ACPI_SUPPORT
     IORegistryEntry *   acpiDevice;
 #endif
+    IORegistryEntry *   dtNub;
+
+
 	uint8_t *			configShadow;
 
 #if PLX8680

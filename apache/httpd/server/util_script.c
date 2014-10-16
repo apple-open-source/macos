@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #endif
 
-#define CORE_PRIVATE
 #include "ap_config.h"
 #include "httpd.h"
 #include "http_config.h"
@@ -50,12 +49,13 @@
  * where there don't have to be).
  */
 
-#define MALFORMED_MESSAGE "malformed header from script. Bad header="
-#define MALFORMED_HEADER_LENGTH_TO_SHOW 30
+/* we know core's module_index is 0 */
+#undef APLOG_MODULE_INDEX
+#define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
 
-static char *http2env(apr_pool_t *a, const char *w)
+static char *http2env(request_rec *r, const char *w)
 {
-    char *res = (char *)apr_palloc(a, sizeof("HTTP_") + strlen(w));
+    char *res = (char *)apr_palloc(r->pool, sizeof("HTTP_") + strlen(w));
     char *cp = res;
     char c;
 
@@ -66,16 +66,35 @@ static char *http2env(apr_pool_t *a, const char *w)
     *cp++ = '_';
 
     while ((c = *w++) != 0) {
-        if (!apr_isalnum(c)) {
+        if (apr_isalnum(c)) {
+            *cp++ = apr_toupper(c);
+        }
+        else if (c == '-') {
             *cp++ = '_';
         }
         else {
-            *cp++ = apr_toupper(c);
+            if (APLOGrtrace1(r))
+                ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, r,
+                            "Not exporting header with invalid name as envvar: %s",
+                            ap_escape_logitem(r->pool, w));
+            return NULL;
         }
     }
     *cp = 0;
 
     return res;
+}
+
+static void add_unless_null(apr_table_t *table, const char *name, const char *val)
+{
+    if (name && val) {
+        apr_table_addn(table, name, val);
+    }
+}
+
+static void env2env(apr_table_t *table, const char *name)
+{
+    add_unless_null(table, name, getenv(name));
 }
 
 AP_DECLARE(char **) ap_create_environment(apr_pool_t *p, apr_table_t *t)
@@ -104,7 +123,7 @@ AP_DECLARE(char **) ap_create_environment(apr_pool_t *p, apr_table_t *t)
             *whack++ = '_';
         }
         while (*whack != '=') {
-            if (!apr_isalnum(*whack) && *whack != '_') {
+            if (!apr_isalnum(*whack)) {
                 *whack = '_';
             }
             ++whack;
@@ -121,16 +140,12 @@ AP_DECLARE(void) ap_add_common_vars(request_rec *r)
     apr_table_t *e;
     server_rec *s = r->server;
     conn_rec *c = r->connection;
-    const char *rem_logname;
-    char *env_path;
-#if defined(WIN32) || defined(OS2) || defined(BEOS)
-    char *env_temp;
-#endif
-    const char *host;
+    const char *env_temp;
     const apr_array_header_t *hdrs_arr = apr_table_elts(r->headers_in);
     const apr_table_entry_t *hdrs = (const apr_table_entry_t *) hdrs_arr->elts;
     int i;
     apr_port_t rport;
+    char *q;
 
     /* use a temporary apr_table_t which we'll overlap onto
      * r->subprocess_env later
@@ -176,69 +191,68 @@ AP_DECLARE(void) ap_add_common_vars(request_rec *r)
             continue;
         }
 #endif
-        else {
-            apr_table_addn(e, http2env(r->pool, hdrs[i].key), hdrs[i].val);
-        }
+        else
+            add_unless_null(e, http2env(r, hdrs[i].key), hdrs[i].val);
     }
 
-    if (!(env_path = getenv("PATH"))) {
-        env_path = DEFAULT_PATH;
+    env_temp = apr_table_get(r->subprocess_env, "PATH");
+    if (env_temp == NULL) {
+        env_temp = getenv("PATH");
     }
-    apr_table_addn(e, "PATH", apr_pstrdup(r->pool, env_path));
+    if (env_temp == NULL) {
+        env_temp = DEFAULT_PATH;
+    }
+    apr_table_addn(e, "PATH", apr_pstrdup(r->pool, env_temp));
 
-#ifdef WIN32
-    if ((env_temp = getenv("SystemRoot")) != NULL) {
-        apr_table_addn(e, "SystemRoot", env_temp);
-    }
-    if ((env_temp = getenv("COMSPEC")) != NULL) {
-        apr_table_addn(e, "COMSPEC", env_temp);
-    }
-    if ((env_temp = getenv("PATHEXT")) != NULL) {
-        apr_table_addn(e, "PATHEXT", env_temp);
-    }
-    if ((env_temp = getenv("WINDIR")) != NULL) {
-        apr_table_addn(e, "WINDIR", env_temp);
-    }
-#endif
-
-#ifdef OS2
-    if ((env_temp = getenv("COMSPEC")) != NULL) {
-        apr_table_addn(e, "COMSPEC", env_temp);
-    }
-    if ((env_temp = getenv("ETC")) != NULL) {
-        apr_table_addn(e, "ETC", env_temp);
-    }
-    if ((env_temp = getenv("DPATH")) != NULL) {
-        apr_table_addn(e, "DPATH", env_temp);
-    }
-    if ((env_temp = getenv("PERLLIB_PREFIX")) != NULL) {
-        apr_table_addn(e, "PERLLIB_PREFIX", env_temp);
-    }
-#endif
-
-#ifdef BEOS
-    if ((env_temp = getenv("LIBRARY_PATH")) != NULL) {
-        apr_table_addn(e, "LIBRARY_PATH", env_temp);
-    }
+#if defined(WIN32)
+    env2env(e, "SystemRoot");
+    env2env(e, "COMSPEC");
+    env2env(e, "PATHEXT");
+    env2env(e, "WINDIR");
+#elif defined(OS2)
+    env2env(e, "COMSPEC");
+    env2env(e, "ETC");
+    env2env(e, "DPATH");
+    env2env(e, "PERLLIB_PREFIX");
+#elif defined(BEOS)
+    env2env(e, "LIBRARY_PATH");
+#elif defined(DARWIN)
+    env2env(e, "DYLD_LIBRARY_PATH");
+#elif defined(_AIX)
+    env2env(e, "LIBPATH");
+#elif defined(__HPUX__)
+    /* HPUX PARISC 2.0W knows both, otherwise redundancy is harmless */
+    env2env(e, "SHLIB_PATH");
+    env2env(e, "LD_LIBRARY_PATH");
+#else /* Some Unix */
+    env2env(e, "LD_LIBRARY_PATH");
 #endif
 
     apr_table_addn(e, "SERVER_SIGNATURE", ap_psignature("", r));
     apr_table_addn(e, "SERVER_SOFTWARE", ap_get_server_banner());
     apr_table_addn(e, "SERVER_NAME",
-                   ap_escape_html(r->pool, ap_get_server_name(r)));
+                   ap_escape_html(r->pool, ap_get_server_name_for_url(r)));
     apr_table_addn(e, "SERVER_ADDR", r->connection->local_ip);  /* Apache */
     apr_table_addn(e, "SERVER_PORT",
                   apr_psprintf(r->pool, "%u", ap_get_server_port(r)));
-    host = ap_get_remote_host(c, r->per_dir_config, REMOTE_HOST, NULL);
-    if (host) {
-        apr_table_addn(e, "REMOTE_HOST", host);
-    }
-    apr_table_addn(e, "REMOTE_ADDR", c->remote_ip);
+    add_unless_null(e, "REMOTE_HOST",
+                    ap_get_remote_host(c, r->per_dir_config, REMOTE_HOST, NULL));
+    apr_table_addn(e, "REMOTE_ADDR", r->useragent_ip);
     apr_table_addn(e, "DOCUMENT_ROOT", ap_document_root(r));    /* Apache */
+    apr_table_setn(e, "REQUEST_SCHEME", ap_http_scheme(r));
+    apr_table_addn(e, "CONTEXT_PREFIX", ap_context_prefix(r));
+    apr_table_addn(e, "CONTEXT_DOCUMENT_ROOT", ap_context_document_root(r));
     apr_table_addn(e, "SERVER_ADMIN", s->server_admin); /* Apache */
-    apr_table_addn(e, "SCRIPT_FILENAME", r->filename);  /* Apache */
+    if (apr_table_get(r->notes, "proxy-noquery") && (q = ap_strchr(r->filename, '?'))) {
+        *q = '\0';
+        apr_table_addn(e, "SCRIPT_FILENAME", apr_pstrdup(r->pool, r->filename));
+        *q = '?';
+    }
+    else {
+        apr_table_addn(e, "SCRIPT_FILENAME", r->filename);  /* Apache */
+    }
 
-    rport = c->remote_addr->port;
+    rport = c->client_addr->port;
     apr_table_addn(e, "REMOTE_PORT", apr_itoa(r->pool, rport));
 
     if (r->user) {
@@ -255,23 +269,17 @@ AP_DECLARE(void) ap_add_common_vars(request_rec *r)
             back = back->prev;
         }
     }
-    if (r->ap_auth_type) {
-        apr_table_addn(e, "AUTH_TYPE", r->ap_auth_type);
-    }
-    rem_logname = ap_get_remote_logname(r);
-    if (rem_logname) {
-        apr_table_addn(e, "REMOTE_IDENT", apr_pstrdup(r->pool, rem_logname));
+    add_unless_null(e, "AUTH_TYPE", r->ap_auth_type);
+    env_temp = ap_get_remote_logname(r);
+    if (env_temp) {
+        apr_table_addn(e, "REMOTE_IDENT", apr_pstrdup(r->pool, env_temp));
     }
 
     /* Apache custom error responses. If we have redirected set two new vars */
 
     if (r->prev) {
-        if (r->prev->args) {
-            apr_table_addn(e, "REDIRECT_QUERY_STRING", r->prev->args);
-        }
-        if (r->prev->uri) {
-            apr_table_addn(e, "REDIRECT_URL", r->prev->uri);
-        }
+        add_unless_null(e, "REDIRECT_QUERY_STRING", r->prev->args);
+        add_unless_null(e, "REDIRECT_URL", r->prev->uri);
     }
 
     if (e != r->subprocess_env) {
@@ -399,10 +407,12 @@ static int set_cookie_doo_doo(void *v, const char *key, const char *val)
 }
 
 #define HTTP_UNSET (-HTTP_OK)
+#define SCRIPT_LOG_MARK  __FILE__,__LINE__,module_index
 
-AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
+AP_DECLARE(int) ap_scan_script_header_err_core_ex(request_rec *r, char *buffer,
                                        int (*getsfunc) (char *, int, void *),
-                                       void *getsfunc_data)
+                                       void *getsfunc_data,
+                                       int module_index)
 {
     char x[MAX_STRING_LEN];
     char *w, *l;
@@ -410,6 +420,8 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
     int cgi_status = HTTP_UNSET;
     apr_table_t *merge;
     apr_table_t *cookie_table;
+    int trace_log = APLOG_R_MODULE_IS_LEVEL(r, module_index, APLOG_TRACE1);
+    int first_header = 1;
 
     if (buffer) {
         *buffer = '\0';
@@ -432,13 +444,16 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
 
         int rv = (*getsfunc) (w, MAX_STRING_LEN - 1, getsfunc_data);
         if (rv == 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
-                          "Premature end of script headers: %s",
+            const char *msg = "Premature end of script headers";
+            if (first_header)
+                msg = "End of script output before headers";
+            ap_log_rerror(SCRIPT_LOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
+                          "%s: %s", msg,
                           apr_filepath_name_get(r->filename));
             return HTTP_INTERNAL_SERVER_ERROR;
         }
         else if (rv == -1) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
+            ap_log_rerror(SCRIPT_LOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
                           "Script timed out before returning headers: %s",
                           apr_filepath_name_get(r->filename));
             return HTTP_GATEWAY_TIME_OUT;
@@ -475,17 +490,17 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
         if (w[0] == '\0') {
             int cond_status = OK;
 
-           /* PR#38070: This fails because it gets confused when a
-            * CGI Status header overrides ap_meets_conditions.
-            * 
-            * We can fix that by dropping ap_meets_conditions when
-            * Status has been set.  Since this is the only place
-            * cgi_status gets used, let's test it explicitly.
-            *
-            * The alternative would be to ignore CGI Status when
-            * ap_meets_conditions returns anything interesting.
-            * That would be safer wrt HTTP, but would break CGI.
-            */
+            /* PR#38070: This fails because it gets confused when a
+             * CGI Status header overrides ap_meets_conditions.
+             *
+             * We can fix that by dropping ap_meets_conditions when
+             * Status has been set.  Since this is the only place
+             * cgi_status gets used, let's test it explicitly.
+             *
+             * The alternative would be to ignore CGI Status when
+             * ap_meets_conditions returns anything interesting.
+             * That would be safer wrt HTTP, but would break CGI.
+             */
             if ((cgi_status == HTTP_UNSET) && (r->method_number == M_GET)) {
                 cond_status = ap_meets_conditions(r);
             }
@@ -498,6 +513,14 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
                     r->err_headers_out, cookie_table);
             }
             return cond_status;
+        }
+
+        if (trace_log) {
+            if (first_header)
+                ap_log_rerror(SCRIPT_LOG_MARK, APLOG_TRACE4, 0, r,
+                              "Headers from script '%s':",
+                              apr_filepath_name_get(r->filename));
+            ap_log_rerror(SCRIPT_LOG_MARK, APLOG_TRACE4, 0, r, "  %s", w);
         }
 
         /* if we see a bogus header don't ignore it. Shout and scream */
@@ -519,7 +542,7 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
                     ++maybeASCII;
             }
             if (maybeASCII > maybeEBCDIC) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
+                ap_log_error(SCRIPT_LOG_MARK, APLOG_ERR, 0, r->server,
                              "CGI Interface Error: Script headers apparently ASCII: (CGI = %s)",
                              r->filename);
                 inbytes_left = outbytes_left = cp - w;
@@ -529,12 +552,6 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
         }
 #endif /*APR_CHARSET_EBCDIC*/
         if (!(l = strchr(w, ':'))) {
-            char malformed[(sizeof MALFORMED_MESSAGE) + 1
-                           + MALFORMED_HEADER_LENGTH_TO_SHOW];
-
-            strcpy(malformed, MALFORMED_MESSAGE);
-            strncat(malformed, w, MALFORMED_HEADER_LENGTH_TO_SHOW);
-
             if (!buffer) {
                 /* Soak up all the script output - may save an outright kill */
                 while ((*getsfunc)(w, MAX_STRING_LEN - 1, getsfunc_data) > 0) {
@@ -542,14 +559,14 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
                 }
             }
 
-            ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
-                          "%s: %s", malformed,
-                          apr_filepath_name_get(r->filename));
+            ap_log_rerror(SCRIPT_LOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
+                          "malformed header from script '%s': Bad header: %.30s",
+                          apr_filepath_name_get(r->filename), w);
             return HTTP_INTERNAL_SERVER_ERROR;
         }
 
         *l++ = '\0';
-        while (*l && apr_isspace(*l)) {
+        while (apr_isspace(*l)) {
             ++l;
         }
 
@@ -573,6 +590,15 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
          */
         else if (!strcasecmp(w, "Status")) {
             r->status = cgi_status = atoi(l);
+            if (!ap_is_HTTP_VALID_RESPONSE(cgi_status))
+                ap_log_rerror(SCRIPT_LOG_MARK, APLOG_ERR|APLOG_TOCLIENT, 0, r,
+                              "Invalid status line from script '%s': %.30s",
+                              apr_filepath_name_get(r->filename), l);
+            else
+                if (APLOGrtrace1(r))
+                   ap_log_rerror(SCRIPT_LOG_MARK, APLOG_TRACE1, 0, r,
+                                 "Status line from script '%s': %.30s",
+                                 apr_filepath_name_get(r->filename), l);
             r->status_line = apr_pstrdup(r->pool, l);
         }
         else if (!strcasecmp(w, "Location")) {
@@ -585,6 +611,9 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
             apr_table_set(r->headers_out, w, l);
         }
         else if (!strcasecmp(w, "Transfer-Encoding")) {
+            apr_table_set(r->headers_out, w, l);
+        }
+        else if (!strcasecmp(w, "ETag")) {
             apr_table_set(r->headers_out, w, l);
         }
         /*
@@ -601,9 +630,19 @@ AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
         else {
             apr_table_add(merge, w, l);
         }
+        first_header = 0;
     }
-
+    /* never reached - we leave this function within the while loop above */
     return OK;
+}
+
+AP_DECLARE(int) ap_scan_script_header_err_core(request_rec *r, char *buffer,
+                                       int (*getsfunc) (char *, int, void *),
+                                       void *getsfunc_data)
+{
+    return ap_scan_script_header_err_core_ex(r, buffer, getsfunc,
+                                             getsfunc_data,
+                                             APLOG_MODULE_INDEX);
 }
 
 static int getsfunc_FILE(char *buf, int len, void *f)
@@ -614,8 +653,17 @@ static int getsfunc_FILE(char *buf, int len, void *f)
 AP_DECLARE(int) ap_scan_script_header_err(request_rec *r, apr_file_t *f,
                                           char *buffer)
 {
-    return ap_scan_script_header_err_core(r, buffer, getsfunc_FILE, f);
+    return ap_scan_script_header_err_core_ex(r, buffer, getsfunc_FILE, f,
+                                             APLOG_MODULE_INDEX);
 }
+
+AP_DECLARE(int) ap_scan_script_header_err_ex(request_rec *r, apr_file_t *f,
+                                          char *buffer, int module_index)
+{
+    return ap_scan_script_header_err_core_ex(r, buffer, getsfunc_FILE, f,
+                                             module_index);
+}
+
 
 static int getsfunc_BRIGADE(char *buf, int len, void *arg)
 {
@@ -668,8 +716,19 @@ AP_DECLARE(int) ap_scan_script_header_err_brigade(request_rec *r,
                                                   apr_bucket_brigade *bb,
                                                   char *buffer)
 {
-    return ap_scan_script_header_err_core(r, buffer, getsfunc_BRIGADE, bb);
+    return ap_scan_script_header_err_core_ex(r, buffer, getsfunc_BRIGADE, bb,
+                                             APLOG_MODULE_INDEX);
 }
+
+AP_DECLARE(int) ap_scan_script_header_err_brigade_ex(request_rec *r,
+                                                     apr_bucket_brigade *bb,
+                                                     char *buffer,
+                                                     int module_index)
+{
+    return ap_scan_script_header_err_core_ex(r, buffer, getsfunc_BRIGADE, bb,
+                                             module_index);
+}
+
 
 struct vastrs {
     va_list args;
@@ -711,6 +770,28 @@ static int getsfunc_STRING(char *w, int len, void *pvastrs)
  * character is returned to **arg, **data.  (The first optional arg is
  * counted as 0.)
  */
+AP_DECLARE_NONSTD(int) ap_scan_script_header_err_strs_ex(request_rec *r,
+                                                         char *buffer,
+                                                         int module_index,
+                                                         const char **termch,
+                                                         int *termarg, ...)
+{
+    struct vastrs strs;
+    int res;
+
+    va_start(strs.args, termarg);
+    strs.arg = 0;
+    strs.curpos = va_arg(strs.args, char*);
+    res = ap_scan_script_header_err_core_ex(r, buffer, getsfunc_STRING,
+                                            (void *) &strs, module_index);
+    if (termch)
+        *termch = strs.curpos;
+    if (termarg)
+        *termarg = strs.arg;
+    va_end(strs.args);
+    return res;
+}
+
 AP_DECLARE_NONSTD(int) ap_scan_script_header_err_strs(request_rec *r,
                                                       char *buffer,
                                                       const char **termch,
@@ -722,11 +803,47 @@ AP_DECLARE_NONSTD(int) ap_scan_script_header_err_strs(request_rec *r,
     va_start(strs.args, termarg);
     strs.arg = 0;
     strs.curpos = va_arg(strs.args, char*);
-    res = ap_scan_script_header_err_core(r, buffer, getsfunc_STRING, (void *) &strs);
+    res = ap_scan_script_header_err_core_ex(r, buffer, getsfunc_STRING,
+                                            (void *) &strs, APLOG_MODULE_INDEX);
     if (termch)
         *termch = strs.curpos;
     if (termarg)
         *termarg = strs.arg;
     va_end(strs.args);
     return res;
+}
+
+static void
+argstr_to_table(char *str, apr_table_t *parms)
+{
+    char *key;
+    char *value;
+    char *strtok_state;
+
+    if (str == NULL) {
+        return;
+    }
+
+    key = apr_strtok(str, "&", &strtok_state);
+    while (key) {
+        value = strchr(key, '=');
+        if (value) {
+            *value = '\0';      /* Split the string in two */
+            value++;            /* Skip passed the = */
+        }
+        else {
+            value = "1";
+        }
+        ap_unescape_url(key);
+        ap_unescape_url(value);
+        apr_table_set(parms, key, value);
+        key = apr_strtok(NULL, "&", &strtok_state);
+    }
+}
+
+AP_DECLARE(void) ap_args_to_table(request_rec *r, apr_table_t **table)
+{
+    apr_table_t *t = apr_table_make(r->pool, 10);
+    argstr_to_table(apr_pstrdup(r->pool, r->args), t);
+    *table = t;
 }

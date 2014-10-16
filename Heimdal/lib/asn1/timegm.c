@@ -115,7 +115,7 @@ _der_gmtime(time_t t, struct tm *tm)
 
     tm->tm_year = 70;
     while(1) {
-	unsigned dayinyear = (is_leap(tm->tm_year) ? 366 : 365);
+	time_t dayinyear = (is_leap(tm->tm_year) ? 366 : 365);
 	if (days < dayinyear)
 	    break;
 	tm->tm_year += 1;
@@ -124,7 +124,7 @@ _der_gmtime(time_t t, struct tm *tm)
     tm->tm_mon = 0;
 
     while (1) {
-	unsigned daysinmonth = ndays[is_leap(tm->tm_year)][tm->tm_mon];
+	time_t daysinmonth = ndays[is_leap(tm->tm_year)][tm->tm_mon];
 	if (days < daysinmonth)
 	    break;
 	days -= daysinmonth;

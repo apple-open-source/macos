@@ -624,6 +624,9 @@ gss_mg_validate_cb(OM_uint32 *, const gss_channel_bindings_t,
 OM_uint32 gss_mg_gen_cb(OM_uint32 *, const gss_channel_bindings_t,
 			uint8_t [16], gss_buffer_t);
 
+gss_OID
+_gss_mg_support_mechanism(gss_const_OID mech);
+
 struct _gss_oid_name_table {
     gss_OID oid;
     const char *name;

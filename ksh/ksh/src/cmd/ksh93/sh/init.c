@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -32,6 +32,7 @@
 #include        <ccode.h>
 #include        <pwd.h>
 #include        <tmx.h>
+#include        <regex.h>
 #include        "variables.h"
 #include        "path.h"
 #include        "fault.h"
@@ -75,7 +76,7 @@ static int towctrans(int c, wctrans_t t)
 {
 	if(t==1 && isupper(c))
 		c = tolower(c);
-	else if(t==2 && isupper(c))
+	else if(t==2 && islower(c))
 		c = toupper(c);
 	return(c);
 }
@@ -165,12 +166,16 @@ struct ifs
 struct match
 {
 	Namfun_t	hdr;
+	const char	*v;
 	char		*val;
-	char		*rval;
+	char		*rval[2];
+	regoff_t	*match;
+	char		node[NV_MINSZ+sizeof(char*)];
+	regoff_t	first;
 	int		vsize;
 	int		nmatch;
-	int		lastsub;
-	int		match[2*(MATCH_MAX+1)];
+	int		index;
+	int		lastsub[2];
 };
 
 typedef struct _init_
@@ -210,6 +215,7 @@ typedef struct _init_
 #endif /* _hdr_locale */
 } Init_t;
 
+static Init_t		*ip;
 static int		lctype;
 static int		nbltins;
 static void		env_init(Shell_t*);
@@ -503,18 +509,24 @@ static void put_cdpath(register Namval_t* np,const char *val,int flags,Namfun_t 
 static void put_ifs(register Namval_t* np,const char *val,int flags,Namfun_t *fp)
 {
 	register struct ifs *ip = (struct ifs*)fp;
-	Shell_t		*shp;
 	ip->ifsnp = 0;
 	if(!val)
 	{
 		fp = nv_stack(np, NIL(Namfun_t*));
 		if(fp && !fp->nofree)
+		{
 			free((void*)fp);
+			fp = 0;
+		}
 	}
 	if(val != np->nvalue.cp)
 		nv_putv(np, val, flags, fp);
-	if(!val && !(flags&NV_CLONE) && (fp=np->nvfun) && !fp->disc && (shp=(Shell_t*)(fp->last)))
-		nv_stack(np,&((Init_t*)shp->init_context)->IFS_init.hdr);
+	if(!val)
+	{
+		if(fp)
+			fp->next = np->nvfun;
+		np->nvfun = fp;
+	}
 }
 
 /*
@@ -585,10 +597,10 @@ static void put_seconds(register Namval_t* np,const char *val,int flags,Namfun_t
 	struct tms tp;
 	if(!val)
 	{
+		nv_putv(np, val, flags, fp);
 		fp = nv_stack(np, NIL(Namfun_t*));
 		if(fp && !fp->nofree)
 			free((void*)fp);
-		nv_putv(np, val, flags, fp);
 		return;
 	}
 	if(!np->nvalue.dp)
@@ -749,40 +761,103 @@ static int hasgetdisc(register Namfun_t *fp)
 
 /*
  * store the most recent value for use in .sh.match
+ * treat .sh.match as a two dimensional array
  */
-void sh_setmatch(const char *v, int vsize, int nmatch, int match[])
+void sh_setmatch(Shell_t *shp,const char *v, int vsize, int nmatch, regoff_t match[],int index)
 {
-	struct match *mp = (struct match*)(SH_MATCHNOD->nvfun->next);
-	register int i,n;
-	if(mp->nmatch = nmatch)
+	struct match	*mp = &ip->SH_MATCH_init;
+	Namval_t	*np = nv_namptr(mp->node,0); 
+	register int	i,n,x, savesub=shp->subshell;
+	Namarr_t	*ap = nv_arrayptr(SH_MATCHNOD);
+	shp->subshell = 0;
+#ifndef SHOPT_2DMATCH
+	index = 0;
+#else
+	if(index==0)
+#endif /* SHOPT_2DMATCH */
 	{
-		memcpy(mp->match,match,nmatch*2*sizeof(match[0]));
-		for(n=match[0],vsize=0,i=0; i < 2*nmatch; i++)
+		if(ap->hdr.next != &mp->hdr)
 		{
-			if(mp->match[i]>=0 && (mp->match[i] -= n) > vsize)
-				vsize = mp->match[i];
+			free((void*)ap);
+			ap = nv_arrayptr(np);
+			SH_MATCHNOD->nvfun = &ap->hdr;
 		}
-		v += n;
-		if(vsize >= mp->vsize)
+		if(ap)
 		{
-			if(mp->vsize)
-				mp->val = (char*)realloc(mp->val,vsize+1);
-			else
-				mp->val = (char*)malloc(vsize+1);
-			mp->vsize = vsize;
-		}
-		memcpy(mp->val,v,vsize);
-		mp->val[vsize] = 0;
-		nv_putsub(SH_MATCHNOD, NIL(char*), (nmatch-1)|ARRAY_FILL|ARRAY_SETSUB);
-		for(n=match[0],i=1; i < nmatch; i++)
-		{
-			if(mp->match[2*i] < 0)
+			ap->nelem &= ~ARRAY_SCAN;
+			i = array_elem(ap);
+			ap->nelem++;
+			while(--i>= 0)
 			{
-				nv_putsub(SH_MATCHNOD,NIL(char*),i);
+				nv_putsub(SH_MATCHNOD, (char*)0,i);
 				_nv_unset(SH_MATCHNOD,NV_RDONLY);
 			}
+			ap->nelem--;
 		}
-		mp->lastsub = -1;
+		if(!nv_hasdisc(SH_MATCHNOD,mp->hdr.disc))
+			nv_disc(SH_MATCHNOD,&mp->hdr,NV_LAST);
+		if(nmatch)
+			nv_putsub(SH_MATCHNOD, NIL(char*), (nmatch-1)|ARRAY_FILL|ARRAY_SETSUB);
+		ap = nv_arrayptr(SH_MATCHNOD);
+		ap->nelem = mp->nmatch = nmatch;
+		mp->v = v;
+		mp->first = match[0];
+	}
+#ifdef SHOPT_2DMATCH
+	else
+	{
+		if(index==1)
+		{
+			np->nvalue.cp = Empty;
+			np->nvfun = SH_MATCHNOD->nvfun;
+			nv_onattr(np,NV_NOFREE|NV_ARRAY);
+			SH_MATCHNOD->nvfun = 0;
+			for(i=0; i < mp->nmatch; i++)
+			{
+				nv_putsub(SH_MATCHNOD, (char*)0, i);
+				nv_arraychild(SH_MATCHNOD, np,0);
+			}
+			if(ap = nv_arrayptr(SH_MATCHNOD))
+				ap->nelem = mp->nmatch;
+		}
+		ap = nv_arrayptr(np);
+		nv_putsub(np, NIL(char*), index|ARRAY_FILL|ARRAY_SETSUB);
+	}
+#endif /* SHOPT_2DMATCH */
+	shp->subshell = savesub;
+	index *= 2*mp->nmatch;
+	if(mp->nmatch)
+	{
+		for(n=mp->first+(mp->v-v),vsize=0,i=0; i < 2*nmatch; i++)
+		{
+			if(match[i]>=0 && (match[i] - n) > vsize)
+				vsize = match[i] -n;
+		}
+		i = (index+2*mp->nmatch)*sizeof(match[0]);
+		if((i+vsize) >= mp->vsize)
+		{
+			if(mp->vsize)
+				mp->match = (int*)realloc(mp->match,i+vsize+1);
+			else
+				mp->match = (int*)malloc(i+vsize+1);
+			mp->vsize = i+vsize+1;
+		}
+		mp->val =  ((char*)mp->match)+i; 
+		memcpy(mp->match+index,match,nmatch*2*sizeof(match[0]));
+		for(x=0,i=0; i < 2*nmatch; i++)
+		{
+			if(match[i]>=0)
+				mp->match[index+i] -= n;
+			else
+				x=1;
+
+		}
+		ap->nelem -= x;
+		while(i < 2*mp->nmatch)
+			mp->match[index+i++] = -1;
+		memcpy(mp->val,v+n,vsize);
+		mp->val[vsize] = 0;
+		mp->lastsub[0] = mp->lastsub[1] = -1;
 	}
 } 
 
@@ -790,30 +865,37 @@ void sh_setmatch(const char *v, int vsize, int nmatch, int match[])
 
 static char* get_match(register Namval_t* np, Namfun_t *fp)
 {
-	struct match *mp = (struct match*)fp;
-	int sub,n;
-	char *val;
-	sub = nv_aindex(np);
+	struct match	*mp = (struct match*)fp;
+	int		sub,sub2=0,n,i =!mp->index;
+	char		*val;
+	sub = nv_aindex(SH_MATCHNOD);
+	if(np!=SH_MATCHNOD)
+		sub2 = nv_aindex(np);
 	if(sub>=mp->nmatch)
 		return(0);
-	if(sub==mp->lastsub)
-		return(mp->rval);
-	if(mp->rval)
-	{
-		free((void*)mp->rval);
-		mp->rval = 0;
-	}
+	if(sub2>0)
+		sub += sub2*mp->nmatch;
+	if(sub==mp->lastsub[!i])
+		return(mp->rval[!i]);
+	else if(sub==mp->lastsub[i])
+		return(mp->rval[i]);
 	n = mp->match[2*sub+1]-mp->match[2*sub];
 	if(n<=0)
-		return("");
+		return(mp->match[2*sub]<0?Empty:"");
 	val = mp->val+mp->match[2*sub];
 	if(mp->val[mp->match[2*sub+1]]==0)
 		return(val);
-	mp->rval = (char*)malloc(n+1);
-	mp->lastsub = sub;
-	memcpy(mp->rval,val,n);
-	mp->rval[n] = 0;
-	return(mp->rval);
+	mp->index = i;
+	if(mp->rval[i])
+	{
+		free((void*)mp->rval[i]);
+		mp->rval[i] = 0;
+	}
+	mp->rval[i] = (char*)malloc(n+1);
+	mp->lastsub[i] = sub;
+	memcpy(mp->rval[i],val,n);
+	mp->rval[i][n] = 0;
+	return(mp->rval[i]);
 }
 
 static const Namdisc_t SH_MATCH_disc  = { sizeof(struct match), 0, get_match };
@@ -1146,7 +1228,7 @@ static void put_mode(Namval_t* np, const char* val, int flag, Namfun_t* nfp)
 	if(val)
 	{
 		mode_t mode;
-		char *last;
+		char *last=0;
 		if(flag&NV_INTEGER)
 		{
 			if(flag&NV_LONG)
@@ -1223,7 +1305,7 @@ Shell_t *sh_init(register int argc,register char *argv[], Shinit_f userinit)
 		error_info.id = path_basename(argv[0]);
 	}
 	else
-		newof(0,Shell_t,1,0);
+		shp = newof(0,Shell_t,1,0);
 	umask(shp->mask=umask(0));
 	shp->gd = shgd;
 	shp->mac_context = sh_macopen(shp);
@@ -1350,6 +1432,7 @@ Shell_t *sh_init(register int argc,register char *argv[], Shinit_f userinit)
 #endif /* SHOPT_TIMEOUT */
 	/* initialize jobs table */
 	job_clear();
+	sh_onoption(SH_MULTILINE);
 	if(argc>0)
 	{
 		/* check for restricted shell */
@@ -1591,6 +1674,11 @@ int sh_reinit(char *argv[])
 	*SHLVL->nvalue.ip +=1;
 	nv_offattr(SHLVL,NV_IMPORT);
 	shp->st.filename = strdup(shp->lastarg);
+	nv_delete((Namval_t*)0, (Dt_t*)0, 0);
+	job.exitval = 0;
+	shp->inpipe = shp->outpipe = 0;
+	job_clear();
+	job.in_critical = 0;
 	return(1);
 }
 
@@ -1692,7 +1780,7 @@ static void stat_init(Shell_t *shp)
 	Namval_t	*np;
 	sp->numnodes = nstat;
 	sp->nodes = (char*)(sp+1);
-	shgd->stats = (int*)calloc(sizeof(int*),nstat);
+	shgd->stats = (int*)calloc(sizeof(int),nstat);
 	sp->sh = shp;
 	for(i=0; i < nstat; i++)
 	{
@@ -1718,7 +1806,6 @@ static void stat_init(Shell_t *shp)
  */
 static Init_t *nv_init(Shell_t *shp)
 {
-	register Init_t *ip;
 	double d=0;
 	ip = newof(0,Init_t,1,0);
 	if(!ip)
@@ -1802,7 +1889,7 @@ static Init_t *nv_init(Shell_t *shp)
 	d = (shp->gd->pid&RANDMASK);
 	nv_putval(RANDNOD, (char*)&d, NV_DOUBLE);
 	nv_stack(LINENO, &ip->LINENO_init);
-	nv_stack(SH_MATCHNOD, &ip->SH_MATCH_init.hdr);
+	SH_MATCHNOD->nvfun =  &ip->SH_MATCH_init.hdr;
 	nv_putsub(SH_MATCHNOD,(char*)0,10);
 	nv_stack(SH_MATHNOD, &ip->SH_MATH_init);
 	nv_stack(SH_VERSIONNOD, &ip->SH_VERSION_init);
@@ -1827,6 +1914,7 @@ static Init_t *nv_init(Shell_t *shp)
 	nv_mount(DOTSHNOD, "type", shp->typedict=dtopen(&_Nvdisc,Dtoset));
 	nv_adddisc(DOTSHNOD, shdiscnames, (Namval_t**)0);
 	DOTSHNOD->nvalue.cp = Empty;
+	nv_onattr(DOTSHNOD,NV_RDONLY);
 	SH_LINENO->nvalue.ip = &shp->st.lineno;
 	VERSIONNOD->nvalue.nrp = newof(0,struct Namref,1,0);
         VERSIONNOD->nvalue.nrp->np = SH_VERSIONNOD;
@@ -1876,7 +1964,7 @@ static Dt_t *inittree(Shell_t *shp,const struct shtable2 *name_vals)
 		}
 		np->nvenv = 0;
 		if(name_vals==(const struct shtable2*)shtab_builtins)
-			np->nvalue.bfp = ((struct shtable3*)tp)->sh_value;
+			np->nvalue.bfp = (Nambfp_f)((struct shtable3*)tp)->sh_value;
 		else
 		{
 			if(name_vals == shtab_variables)
@@ -2050,9 +2138,10 @@ unsigned long sh_offoption DISABLE (int opt)
 	return(sh_offoption(opt));
 }
 
-void	sh_sigcheck DISABLE (void)
+void	sh_sigcheck DISABLE (Shell_t *shp)
 {
-	Shell_t *shp = sh_getinterp();
+	if(!shp)
+		shp = sh_getinterp();
 	sh_sigcheck(shp);
 }
 
@@ -2099,9 +2188,12 @@ static void put_trans(register Namval_t* np,const char *val,int flags,Namfun_t *
 	}
 	else
 	{
+		nv_putv(np,val,flags,fp);
 		nv_disc(np,fp,NV_POP);
 		if(!(fp->nofree&1))
 			free((void*)fp);
+		stakseek(offset);
+		return;
 	}
 skip:
 	nv_putv(np,val,flags,fp);

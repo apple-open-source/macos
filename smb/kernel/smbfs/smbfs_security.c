@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 
 
 #define MAX_SID_PRINTBUFFER	256	/* Used to print out the sid in case of an error */
+#define DEBUG_ACLS 0
 
 /*
  * Directory Service generates these UUIDs for SIDs that are unknown. These UUIDs 
@@ -65,6 +66,205 @@ static void * smb_sdoffset(struct ntsecdesc *w_secp, size_t w_seclen, int sd_typ
 #define sdgroup(s, s_len) (struct ntsid *)smb_sdoffset(s, s_len, GROUP_SECURITY_INFORMATION)
 #define sdsacl(s, s_len) (struct ntacl *)smb_sdoffset(s, s_len, SACL_SECURITY_INFORMATION)
 #define sddacl(s, s_len) (struct ntacl *)smb_sdoffset(s, s_len, DACL_SECURITY_INFORMATION)
+
+#if DEBUG_ACLS
+static void
+smb_print_guid(guid_t *uuidp)
+{
+    char *user = NULL;
+    char *group = NULL;
+    uid_t uid = 0;
+    gid_t gid = 0;
+    
+    SMB_MALLOC(user, char *, MAXPATHLEN, M_TEMP, M_WAITOK | M_ZERO);
+    if (user == NULL) {
+        SMBERROR("user failed malloc\n");
+        return;
+    }
+    
+    SMB_MALLOC(group, char *, MAXPATHLEN, M_TEMP, M_WAITOK | M_ZERO);
+    if (group == NULL) {
+        SMBERROR("group failed malloc\n");
+        return;
+    }
+   
+    if (is_memberd_tempuuid(uuidp)) {
+        SMBERROR("\tguid: TEMPUUID \n");
+    }
+    else {
+        SMBERROR("\tguid: 0x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x \n",
+                 uuidp->g_guid[0], uuidp->g_guid[1], uuidp->g_guid[2],
+                 uuidp->g_guid[3], uuidp->g_guid[4], uuidp->g_guid[5],
+                 uuidp->g_guid[6], uuidp->g_guid[7], uuidp->g_guid[8],
+                 uuidp->g_guid[9], uuidp->g_guid[10], uuidp->g_guid[11],
+                 uuidp->g_guid[12], uuidp->g_guid[13], uuidp->g_guid[14],
+                 uuidp->g_guid[15]
+                 );
+        kauth_cred_guid2uid(uuidp, &uid);
+        kauth_cred_guid2gid(uuidp, &gid);
+        kauth_cred_guid2pwnam(uuidp, user);
+        kauth_cred_guid2grnam(uuidp, group);
+        SMBERROR("\tuser/group: %s (%d)/%s (%d) \n", user, uid, group, gid);
+    }
+    
+    if (user) {
+        SMB_FREE(user, M_TEMP);
+    }
+    
+    if (group) {
+        SMB_FREE(group, M_TEMP);
+    }
+}
+
+
+static void
+smb_print_acl(struct smbnode *np, const char *function, struct kauth_acl *acl)
+{
+    uint32_t i;
+    char *buffer = NULL;
+    size_t buf_len = MAXPATHLEN * 2;
+    
+    SMB_MALLOC(buffer, char *, buf_len, M_TEMP, M_WAITOK | M_ZERO);
+    if (buffer == NULL) {
+        SMBERROR("buffer failed malloc\n");
+        return;
+    }
+
+    if ((np == NULL) || (acl == NULL)) {
+        SMBERROR("node or acl is null \n");
+        return;
+    }
+
+    SMBERROR_LOCK(np, "function: %s node %s \n", function, np->n_name);
+    
+    SMBERROR("acl_entrycount %d\n", acl->acl_entrycount);
+    
+    bzero(buffer, buf_len);
+    if (acl->acl_flags & KAUTH_ACL_DEFER_INHERIT) {
+        strlcat(buffer, "defer_inherit ", buf_len);
+    }
+    if (acl->acl_flags & KAUTH_ACL_NO_INHERIT) {
+        strlcat(buffer, "no_inherit ", buf_len);
+    }
+    SMBERROR("acl_flags 0x%x ( %s) \n", acl->acl_flags, buffer);
+    
+    if (acl->acl_entrycount != KAUTH_FILESEC_NOACL) {
+        for (i = 0; i < acl->acl_entrycount; i++) {
+            SMBERROR("ACE: %d \n", i);
+            smb_print_guid(&acl->acl_ace[i].ace_applicable);
+
+            /* Try to print out ace_flags in same order as ls does */
+            bzero(buffer, MAXPATHLEN);
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_INHERITED) {
+                strlcat(buffer, "inherited ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_FILE_INHERIT) {
+                strlcat(buffer, "file_inherit ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_DIRECTORY_INHERIT) {
+                strlcat(buffer, "dir_inherit ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_LIMIT_INHERIT) {
+                strlcat(buffer, "limit_inherit ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_ONLY_INHERIT) {
+                strlcat(buffer, "only_inherit ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_SUCCESS) {
+                strlcat(buffer, "success ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_flags & KAUTH_ACE_FAILURE) {
+                strlcat(buffer, "failure ", buf_len);
+            }
+            switch(acl->acl_ace[i].ace_flags & KAUTH_ACE_KINDMASK) {
+				case KAUTH_ACE_PERMIT:
+                    strlcat(buffer, "allow ", buf_len);
+					break;
+			    case KAUTH_ACE_DENY:
+                    strlcat(buffer, "deny ", buf_len);
+					break;
+			    case KAUTH_ACE_AUDIT:
+                    strlcat(buffer, "audit ", buf_len);
+					break;
+			    case KAUTH_ACE_ALARM:
+                    strlcat(buffer, "alarm ", buf_len);
+					break;
+			    default:
+                    strlcat(buffer, "unknown_kind ", buf_len);
+			}
+            
+            SMBERROR("\tflags 0x%x ( %s) \n", acl->acl_ace[i].ace_flags,
+                     buffer);
+
+            /* Try to print out ace_rights in same order as ls does */
+            bzero(buffer, buf_len);
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_READ_DATA) {
+                strlcat(buffer, "read ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_WRITE_DATA) {
+                strlcat(buffer, "write ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_EXECUTE) {
+                strlcat(buffer, "execute ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_DELETE) {
+                strlcat(buffer, "delete ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_APPEND_DATA) {
+                strlcat(buffer, "append ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_DELETE_CHILD) {
+                strlcat(buffer, "delete_child ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_READ_ATTRIBUTES) {
+                strlcat(buffer, "read_attr ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_WRITE_ATTRIBUTES) {
+                strlcat(buffer, "write_attr ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_READ_EXTATTRIBUTES) {
+                strlcat(buffer, "read_ext_attr ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_WRITE_EXTATTRIBUTES) {
+                strlcat(buffer, "write_ext_attr ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_READ_SECURITY) {
+                strlcat(buffer, "read_security ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_WRITE_SECURITY) {
+                strlcat(buffer, "write_security ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_CHANGE_OWNER) {
+                strlcat(buffer, "change_owner ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_ACE_GENERIC_READ) {
+                strlcat(buffer, "generic_read ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_ACE_GENERIC_WRITE) {
+                strlcat(buffer, "generic_write ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_ACE_GENERIC_EXECUTE) {
+                strlcat(buffer, "generic_execute ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_ACE_GENERIC_ALL) {
+                strlcat(buffer, "generic_all ", buf_len);
+            }
+            if (acl->acl_ace[i].ace_rights & KAUTH_VNODE_SYNCHRONIZE) {
+                strlcat(buffer, "synchronize ", buf_len);
+            }
+            SMBERROR("\trights 0x%x ( %s) \n", acl->acl_ace[i].ace_rights,
+                     buffer);
+        }
+    }
+    else {
+        SMBERROR("No ACE's \n");
+    }
+
+    if (buffer) {
+        SMB_FREE(buffer, M_TEMP);
+    }
+}
+#endif
 
 /*
  * Check to see if this is a temporary uuid, generated by Directory Service
@@ -92,8 +292,7 @@ smbfs_clear_acl_cache(struct smbnode *np)
         SMB_FREE(np->acl_cache_data, M_TEMP);
     }
 	np->acl_cache_data = NULL;
-	np->acl_cache_timer.tv_sec = 0;
-	np->acl_cache_timer.tv_nsec = 0;
+	np->acl_cache_timer = 0;
 	np->acl_error = 0;
 	np->acl_cache_len = 0;
 	lck_mtx_unlock(&np->f_ACLCacheLock);
@@ -291,29 +490,29 @@ WindowsNfsSID(struct smbnode *np, ntsid_t *sidptr)
 		
 		switch (sidptr->sid_authorities[1]) {
 			case NfsSidTypeOwner:
-				SMB_LOG_ACCESS("%s has a NfsSidTypeOwner of %d\n", 
-							   np->n_name, sidptr->sid_authorities[2]);
+				SMB_LOG_ACCESS_LOCK(np, "%s has a NfsSidTypeOwner of %d\n",
+                                    np->n_name, sidptr->sid_authorities[2]);
 				np->n_nfs_uid = sidptr->sid_authorities[2];
 				break;
 			case NfsSidTypeGroup:
-				SMB_LOG_ACCESS("%s has a NfsSidTypeGroup of %d\n", 
-							   np->n_name, sidptr->sid_authorities[2]);
+				SMB_LOG_ACCESS_LOCK(np, "%s has a NfsSidTypeGroup of %d\n",
+                                    np->n_name, sidptr->sid_authorities[2]);
 				np->n_nfs_gid = sidptr->sid_authorities[2];
 				break;
 			case NfsSidTypeModes:
-				SMB_LOG_ACCESS("%s has a NfsSidTypeModes of O%o\n", 
-							   np->n_name, sidptr->sid_authorities[2]);
+				SMB_LOG_ACCESS_LOCK(np, "%s has a NfsSidTypeModes of O%o\n",
+                                    np->n_name, sidptr->sid_authorities[2]);
 				np->n_flag |= NHAS_POSIXMODES;
 				np->n_mode &= ~ACCESSPERMS;
 				np->n_mode |= (mode_t)(sidptr->sid_authorities[2] & ACCESSPERMS);
 				break;
 			case NfsSidTypeOther:
-				SMB_LOG_ACCESS("%s has a NfsSidTypeOther of O%o\n", 
-							   np->n_name, sidptr->sid_authorities[2]);
+				SMB_LOG_ACCESS_LOCK(np, "%s has a NfsSidTypeOther of O%o\n",
+                                    np->n_name, sidptr->sid_authorities[2]);
 				break;
 			default:
-				SMB_LOG_ACCESS("%s: unknown NfsSidType of 0x%x 0x%x\n", np->n_name, 
-							   sidptr->sid_authorities[1], sidptr->sid_authorities[2]);
+				SMB_LOG_ACCESS_LOCK(np, "%s: unknown NfsSidType of 0x%x 0x%x\n", np->n_name,
+                                    sidptr->sid_authorities[1], sidptr->sid_authorities[2]);
 				break;
 		}
 		return TRUE;
@@ -438,26 +637,38 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
 	struct ntsecdesc *acl_cache_data = NULL;
 	size_t acl_cache_len = 0;
 	int	error = 0;
-	
-	/* Check to see if the cache has time out */
-	nanouptime(&ts);
-	if (timespeccmp(&np->acl_cache_timer, &ts, >)) {
+	time_t attrtimeo;
+	int use_cached_data = 0;
+    
+    /* If we are in reconnect, use cached data if we have it */
+    if (np->acl_cache_timer != 0) {
+        use_cached_data = (share->ss_flags & SMBS_RECONNECTING);
+    }
+
+	/* Check to see if the cache has timed out */
+    SMB_CACHE_TIME(ts, np, attrtimeo);
+    if (((ts.tv_sec - np->acl_cache_timer) <= attrtimeo) ||
+        use_cached_data) {
 		/* Ok the cache is still good take a lock and retrieve the data */
 		lck_mtx_lock(&np->f_ACLCacheLock);
-		if (timespeccmp(&np->acl_cache_timer, &ts, >)) {
+        
+        SMB_CACHE_TIME(ts, np, attrtimeo);
+        if (((ts.tv_sec - np->acl_cache_timer) <= attrtimeo) ||
+            use_cached_data) {
 			/* We have the lock and the cache is still good, use the cached ACL */
 			goto done;
-		} else {
-			/* 
-			 * Cache expired while we were waiting on the lock, release the lock 
+		}
+        else {
+			/*
+			 * Cache expired while we were waiting on the lock, release the lock
 			 * and get the ACL from the network.
 			 */
 			lck_mtx_unlock(&np->f_ACLCacheLock);
 		}
-	}
+    }
 	
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-        /* Only open file if its SMB1 */
+        /* Only open file if its SMB 1 */
         error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL, &fid, context);
     }
 
@@ -469,11 +680,12 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
                                  &acl_cache_len, context);
         
         if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-            /* Only close file if its SMB1 */
+            /* Only close file if its SMB 1 */
             cerror = smbfs_tmpclose(share, np, fid, context);
-            if (cerror)
-                SMBWARNING("error %d closing fid %llx file %s\n", 
-                           cerror, fid, np->n_name);
+            if (cerror) {
+                SMBWARNING_LOCK(np, "error %d closing fid %llx file %s\n",
+                                cerror, fid, np->n_name);
+            }
         }
 
         if ((error == 0) && (acl_cache_data == NULL))
@@ -482,14 +694,24 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
 	
 	/* Don't let anyone play with the acl cache until we are done */
 	lck_mtx_lock(&np->f_ACLCacheLock);
+    
+    if ((error == ETIMEDOUT) && (np->acl_cache_timer != 0)) {
+        /* Just return the cached data */
+        error = 0;
+        np->acl_error = error;
+        goto done;
+    }
+    
 	/* Free the old data no longer needed */
 	if (np->acl_cache_data)
 		SMB_FREE(np->acl_cache_data, M_TEMP);
+    
 	np->acl_cache_data = acl_cache_data;
 	np->acl_cache_len = acl_cache_len;
 	np->acl_error = error;
+    
 	/* We have new information reset our timer  */
-	SET_ACL_CACHE_TIME(np);
+    np->acl_cache_timer = ts.tv_sec;
 	
 done:
 	if (np->acl_error || (np->acl_cache_data == NULL)) {
@@ -507,8 +729,7 @@ done:
 			*seclen = np->acl_cache_len;
 			np->acl_cache_data = NULL;
 			np->acl_cache_len = 0;
-			np->acl_cache_timer.tv_sec = 0;
-			np->acl_cache_timer.tv_nsec = 0;
+			np->acl_cache_timer = 0;
 		}
 	}
 	error = np->acl_error;
@@ -542,8 +763,8 @@ smbfs_set_node_identifier(struct smbnode *np, struct ntsecdesc *w_sec,
 	}
 	
 	if (!w_sidp || !w_sec) {
-		SMB_LOG_ACCESS("no %s sid received, file %s\n", 
-					   (owner) ? "user" : "group", np->n_name);
+		SMB_LOG_ACCESS_LOCK(np, "no %s sid received, file %s\n",
+                            (owner) ? "user" : "group", np->n_name);
 		goto error_out;
 	}
 	
@@ -558,9 +779,12 @@ smbfs_set_node_identifier(struct smbnode *np, struct ntsecdesc *w_sec,
 	
 	error = kauth_cred_ntsid2guid(&sid, unique_identifier);
 	if (error) {
-		if (smbfs_loglevel == SMB_ACL_LOG_LEVEL)
-			smb_printsid(w_sidp, (char*)w_sec+seclen, "Owner/Group lookup failed", 
+		if (smbfs_loglevel == SMB_ACL_LOG_LEVEL) {
+            lck_rw_lock_shared(&np->n_name_rwlock);
+			smb_printsid(w_sidp, (char*)w_sec+seclen, "Owner/Group lookup failed",
 						 (const char  *)np->n_name, 0, error);
+            lck_rw_unlock_shared(&np->n_name_rwlock);
+        }
 		goto error_out;
 	} 
 	
@@ -594,8 +818,8 @@ error_out:
 			error = kauth_cred_gid2guid(*node_identifier, unique_identifier);
 		/* Should never error out in the case, but just in case lets log it */
 		if (error) {
-			SMB_LOG_ACCESS("%s couldn't translate the uid/gid %d to a UUID/GUID, error = %d\n", 
-						   np->n_name, *node_identifier, error);
+			SMB_LOG_ACCESS_LOCK(np, "%s couldn't translate the uid/gid %d to a UUID/GUID, error = %d\n",
+                                np->n_name, *node_identifier, error);
 		}
 	}
 }
@@ -608,8 +832,8 @@ error_out:
  *
  */
 int 
-smbfs_getsecurity(struct smb_share	*share, struct smbnode *np, 
-					  struct vnode_attr *vap, vfs_context_t context)
+smbfs_getsecurity(struct smb_share *share, struct smbnode *np,
+                  struct vnode_attr *vap, vfs_context_t context)
 {
 	struct smbmount		*smp = np->n_mount;
 	int					error;
@@ -621,6 +845,8 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 	if (vnode_isnamedstream(np->n_vnode))
 		return EINVAL;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_GET_SEC | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
 	if (VATTR_IS_ACTIVE(vap, va_acl))
 		vap->va_acl = NULL;					/* default */
 	
@@ -645,9 +871,10 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 		 */
 		if (error == EACCES) {
 			error = 0;
-		} else {
-			SMB_LOG_ACCESS("smbfs_update_acl_cache of %s failed with error = %d\n", 
-						   np->n_name, error);
+		}
+        else {
+			SMB_LOG_ACCESS_LOCK(np, "smbfs_update_acl_cache of %s failed with error = %d\n",
+                                np->n_name, error);
 		}
 	}
 	
@@ -655,6 +882,9 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 	 * The smbfs_set_node_identifier routine will check to see if w_sec
 	 * is null. If null it will do what is need to return the correct 
 	 * values.
+     *
+     * smbfs_set_node_identifier will set the np->n_uid/n_gid based on the 
+     * ACL values returned by the server
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
 		smbfs_set_node_identifier(np, w_sec, seclen, &vap->va_guuid, FALSE);
@@ -712,14 +942,15 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 					aflags = KAUTH_ACE_ALARM;
 					break;
 			    default:
-					SMBERROR("ACE type %d file(%s)\n", acetype(w_acep), np->n_name);
+					SMBERROR_LOCK(np, "ACE type %d file(%s)\n", acetype(w_acep), np->n_name);
 					error = EPROTO;	/* Should it be EIO */
 					goto exit;
 			}
 			w_sidp = acesid(w_acep);
 			if ((char *)w_sidp+sizeof(*w_sidp) > endptr) {
-				SMBERROR("ACE type %d file(%s) would have caused a buffer overrun!\n", 
-						 acetype(w_acep), np->n_name);
+				SMBERROR_LOCK(np, "ACE type %d file(%s) would have caused a buffer overrun!\n",
+                              acetype(w_acep), np->n_name);
+                
 				error = EPROTO;	/* Should it be EIO */
 				goto exit;				
 			}
@@ -735,11 +966,23 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 			}
 			if (warn_error) {
 				if (smbfs_loglevel == SMB_ACL_LOG_LEVEL) {
-					smb_printsid(w_sidp, (char*)w_sec+seclen, "ACL lookup failed", 
+                    lck_rw_lock_shared(&np->n_name_rwlock);
+					smb_printsid(w_sidp, (char*)w_sec+seclen, "ACL lookup failed",
 								 (const char  *)np->n_name, j, warn_error);
+                    lck_rw_unlock_shared(&np->n_name_rwlock);
 				}
 				continue;
 			}
+#if DEBUG_ACLS
+            else {
+                lck_rw_lock_shared(&np->n_name_rwlock);
+                smb_printsid(w_sidp, (char*)w_sec+seclen, "sid maps to",
+                             (const char  *)np->n_name, j, 0);
+                lck_rw_unlock_shared(&np->n_name_rwlock);
+                smb_print_guid(&res->acl_ace[res->acl_entrycount].ace_applicable);
+            }
+#endif
+            
 			if (aceflags(w_acep) & OBJECT_INHERIT_ACE_FLAG)
 				aflags |= KAUTH_ACE_FILE_INHERIT;
 			if (aceflags(w_acep) & CONTAINER_INHERIT_ACE_FLAG)
@@ -750,14 +993,16 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 				aflags |= KAUTH_ACE_ONLY_INHERIT;
 			if (aceflags(w_acep) & INHERITED_ACE_FLAG)
 				aflags |= KAUTH_ACE_INHERITED;
-			if (aceflags(w_acep) & UNDEF_ACE_FLAG)
-				SMBERROR("unknown ACE flag on file(%s)\n", np->n_name);
+			if (aceflags(w_acep) & UNDEF_ACE_FLAG) {
+				SMBERROR_LOCK(np, "unknown ACE flag on file(%s)\n", np->n_name);
+            }
 			if (aceflags(w_acep) & SUCCESSFUL_ACCESS_ACE_FLAG)
 				aflags |= KAUTH_ACE_SUCCESS;
 			if (aceflags(w_acep) & FAILED_ACCESS_ACE_FLAG)
 				aflags |= KAUTH_ACE_FAILURE;
 			res->acl_ace[res->acl_entrycount].ace_flags = aflags;
-			w_rights = acerights(w_acep);
+			
+            w_rights = acerights(w_acep);
 			arights = 0;
 			if (w_rights & SMB2_GENERIC_READ)
 				arights |= KAUTH_ACE_GENERIC_READ;
@@ -797,9 +1042,14 @@ smbfs_getsecurity(struct smb_share	*share, struct smbnode *np,
 			if (w_rights & SMB2_FILE_READ_DATA)
 				arights |= KAUTH_VNODE_READ_DATA;
 			res->acl_ace[res->acl_entrycount].ace_rights = arights;
-			/* Success we have an entry, now count it */ 
+
+			/* Success we have an entry, now count it */
 			res->acl_entrycount++;
 		}
+#if DEBUG_ACLS
+        smb_print_acl(np, "smbfs_getsecurity", res);
+#endif
+
 		/* Only return the acl if we have at least one ace. */ 
 		if (res->acl_entrycount) {
 			vap->va_acl = res;
@@ -821,6 +1071,7 @@ exit:
 	if (w_sec)
 		SMB_FREE(w_sec, M_TEMP);
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_GET_SEC | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -872,8 +1123,11 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	if (vnode_isnamedstream(vp))
 		return ENOTSUP;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_SET_SEC | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
 	openrights = SMB2_READ_CONTROL | SMB2_SYNCHRONIZE;
 	error = 0;
+    
 	if (VATTR_IS_ACTIVE(vap, va_guuid) &&  !kauth_guid_equal(&vap->va_guuid, &kauth_null_guid)) {
 		SMB_MALLOC(w_grp, struct ntsid *, MAXSIDLEN, M_TEMP, M_WAITOK);
 		bzero(w_grp, MAXSIDLEN);
@@ -888,6 +1142,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		openrights |= SMB2_WRITE_OWNER;
 		selector |= GROUP_SECURITY_INFORMATION;
 	}
+    
 	if (VATTR_IS_ACTIVE(vap, va_uuuid) && !kauth_guid_equal(&vap->va_uuuid, &kauth_null_guid)) {
 		SMB_MALLOC(w_usr, struct ntsid *, MAXSIDLEN, M_TEMP, M_WAITOK);
 		bzero(w_usr, MAXSIDLEN);
@@ -909,12 +1164,17 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		openrights |= SMB2_WRITE_OWNER;
 		selector |= OWNER_SECURITY_INFORMATION;
 	}
+    
 	if (VATTR_IS_ACTIVE(vap, va_acl)) {
 		ntsid_t nfs_sid;
 
 		openrights |= SMB2_WRITE_DAC;
 		selector |= DACL_SECURITY_INFORMATION;
+        
 		if (vap->va_acl) {
+#if DEBUG_ACLS
+            smb_print_acl(np, "smbfs_setsecurity", vap->va_acl);
+#endif
 			if (vap->va_acl->acl_flags & KAUTH_FILESEC_NO_INHERIT) {
 				selector |= PROTECTED_DACL_SECURITY_INFORMATION;
 				ControlFlags |= SE_DACL_PROTECTED;
@@ -931,24 +1191,28 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		}
 		
 		if (vap->va_acl->acl_entrycount > KAUTH_ACL_MAX_ENTRIES) {
-			SMBERROR("acl_entrycount=%d, file(%s)\n", 
-					 vap->va_acl->acl_entrycount, np->n_name);
+			SMBERROR_LOCK(np, "acl_entrycount=%d, file(%s)\n",
+                          vap->va_acl->acl_entrycount, np->n_name);
 			error = EINVAL;
 			goto exit;
 		}
+        
 		acecount = vap->va_acl->acl_entrycount;
 		if (np->n_nfs_uid != KAUTH_UID_NONE) {
 			/* Make room for the Windows NFS UID ACE */
 			acecount += 1;
 		}
+        
 		if (np->n_nfs_gid != KAUTH_GID_NONE) {
 			/* Make room for the Windows NFS GID ACE */
 			acecount += 1;
 		}
+        
 		if (np->n_flag & NHAS_POSIXMODES) {
 			/* Make room for the Windows NFS Modes ACE */
 			acecount += 1;
 		}
+        
 		needed = sizeof(struct ntacl) + acecount * (sizeof(struct ntace) + MAXSIDLEN);
 		SMB_MALLOC(w_dacl, struct ntacl *, needed, M_TEMP, M_WAITOK);
 		bzero(w_dacl, needed);
@@ -968,6 +1232,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 			start_acep = set_nfs_ace(start_acep,&nfs_sid, needed);
 			acecount--;
 		}
+        
 		if (np->n_nfs_gid != KAUTH_GID_NONE) {
 			/* Set the Windows nfs gid ace */
 			nfs_sid.sid_authorities[1] = NfsSidTypeGroup;
@@ -975,6 +1240,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 			start_acep = set_nfs_ace(start_acep,&nfs_sid, needed);
 			acecount--;
 		}
+        
 		if (np->n_flag & NHAS_POSIXMODES) {
 			/* Set the Windows nfs posix modes ace */
 			nfs_sid.sid_authorities[1] = NfsSidTypeModes;
@@ -999,8 +1265,8 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 					wset_acetype(w_acep, SYSTEM_ALARM_ACE_TYPE);
 					break;
 			    default:
-					SMBERROR("ace_flags=0x%x, file(%s)\n", 
-							 acep->ace_flags, np->n_name);
+					SMBERROR_LOCK(np, "ace_flags=0x%x, file(%s)\n",
+                                  acep->ace_flags, np->n_name);
 					error = EINVAL;
 					goto exit;
 			}
@@ -1057,18 +1323,29 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 				arights |= SMB2_FILE_WRITE_DATA;
 			if (acep->ace_rights & KAUTH_VNODE_READ_DATA)
 				arights |= SMB2_FILE_READ_DATA;
-
+            
             /* <15782523> Always set the Synchronize bit for now */
             arights |= SMB2_SYNCHRONIZE;
             
-            wset_acerights(w_acep, arights);
+			wset_acerights(w_acep, arights);
 			w_sidp = acesid(w_acep);
+            
 			if ((smp->sm_flags & MNT_MAPS_NETWORK_LOCAL_USER) && 
 				(kauth_guid_equal(&smp->sm_args.uuid, &acep->ace_applicable))) {
 				bcopy(&smp->ntwrk_sids[0], w_sidp, sizeof(ntsid_t));
-			} else {
+			}
+            else {
 				error = kauth_cred_guid2ntsid(&acep->ace_applicable, (ntsid_t *)w_sidp);
 			}
+#if DEBUG_ACLS
+            lck_rw_lock_shared(&np->n_name_rwlock);
+            smb_printsid(w_sidp, (char*)w_sidp+sidlen(w_sidp), "guid maps to",
+                             (const char  *)np->n_name, acecount, 0);
+            lck_rw_unlock_shared(&np->n_name_rwlock);
+
+            smb_print_guid(&acep->ace_applicable);
+#endif 
+            
 			if (error) {
 				uuid_unparse(*((const uuid_t *)&acep->ace_applicable), out_str);
 				SMBERROR("kauth_cred_guid2ntsid failed with va_acl %s and error %d\n", 
@@ -1083,7 +1360,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	
 set_dacl:
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-        /* Only open file if its SMB1 */
+        /* Only open file if its SMB 1 */
         error = smbfs_tmpopen(share, np, openrights, &fid, context);
     }
     
@@ -1093,7 +1370,7 @@ set_dacl:
                                  w_usr, w_grp, NULL, w_dacl, context);
         
         if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-            /* Only close file if its SMB1 */
+            /* Only close file if its SMB 1 */
             (void)smbfs_tmpclose(share, np, fid, context);
         }
 	}
@@ -1110,6 +1387,8 @@ exit:
     
 	/* The current cache is out of date clear it */
 	smbfs_clear_acl_cache(np);
+    
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_SET_SEC | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
 
@@ -1267,6 +1546,8 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 	if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))
 		return 0;
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_GET_MAX_ACCESS | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
 	np = VTOSMB(vp);
 	np->n_lastvop = smbfs_get_maximum_access;
     
@@ -1342,10 +1623,10 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 	 if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
         struct smbfattr *fap = NULL;
         uint32_t desired_access = 0;
-        enum vtype vnode_type  = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+        enum vtype vnode_type = vnode_isdir(np->n_vnode) ? VDIR : VREG;
         uint32_t share_access = NTCREATEX_SHARE_ACCESS_ALL;
         uint64_t create_flags = SMB2_CREATE_GET_MAX_ACCESS;
-         uint32_t ntstatus = 0;
+        uint32_t ntstatus = 0;
 
         /* 
          * Do a compound create/close 
@@ -1400,8 +1681,10 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
                 np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
             }
         }
-        SMB_LOG_ACCESS("Opening %s failed with error = %d, granting %s access\n",
-                    np->n_name, error, (np->maxAccessRights) ? "full" : "no");
+
+        SMB_LOG_ACCESS_LOCK(np, "Opening %s failed with error = %d, granting %s access\n",
+                            np->n_name, error, (np->maxAccessRights) ? "full" : "no");
+
         /*
          * The open call failed so the cache timer wasn't set, so do that
          * here
@@ -1431,12 +1714,14 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
         }
     }
 
-	SMB_LOG_ACCESS("%s maxAccessRights = 0x%x\n", np->n_name, 
-                                                  np->maxAccessRights);
+	SMB_LOG_ACCESS_LOCK(np, "%s maxAccessRights = 0x%x\n", np->n_name, np->maxAccessRights);
+
 done:
 	maxAccessRights = np->maxAccessRights;
 	smbnode_unlock(VTOSMB(vp));
-	return maxAccessRights;
+
+    SMB_LOG_KTRACE(SMB_DBG_SMBFS_GET_MAX_ACCESS | DBG_FUNC_END, 0, 0, 0, 0, 0);
+    return maxAccessRights;
 }
 
 /* 
@@ -1578,7 +1863,7 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
 	struct ntace *w_acep;	/* Wire ACE */
 	
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-        /* Only open file if its SMB1 */
+        /* Only open file if its SMB 1 */
         error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC, &fid,
                               context);
         if (error) {
@@ -1607,7 +1892,7 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
                              NULL, w_dacl, context);
 	
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
-        /* Only close file if its SMB1 */
+        /* Only close file if its SMB 1 */
         (void)smbfs_tmpclose(share, np, fid, context);
     }
     

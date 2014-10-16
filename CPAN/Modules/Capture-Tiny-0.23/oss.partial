@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Capture-Tiny</string>
+        <key>OpenSourceVersion</key>
+        <string>0.23</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DA/DAGOLDEN/Capture-Tiny-0.23.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2014-02-04</string>
+        <key>OpenSourceLicense</key>
+        <string>Apache 2.0</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

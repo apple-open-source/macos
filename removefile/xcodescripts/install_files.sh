@@ -1,20 +1,9 @@
 #!/bin/sh
 set -e -x
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-        if [ -d ${DSTROOT}${SDKROOT}/usr/lib/system ] ; then
-                for lib in ${DSTROOT}${SDKROOT}/usr/lib/system/*.dylib ; do
-                        install_name_tool -id "${lib#${DSTROOT}${SDKROOT}}" "${lib}"
-                done
-        fi
-	exit 0
-fi
-
-# don't install files for installhdrs or simulator builds
-if [ "$ACTION" == "installhdrs" ] ; then
-	exit 0
-fi
+# don't install man pages for installhdrs or iOS builds
+if [ "$ACTION" = installhdrs ]; then exit 0; fi
+if [ "${PLATFORM_NAME/iphone/}" != "${PLATFORM_NAME}" ]; then exit 0; fi
 
 # open source plist
 OSV="$DSTROOT"/usr/local/OpenSourceVersions

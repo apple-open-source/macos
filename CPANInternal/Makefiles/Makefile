@@ -5,9 +5,11 @@ export SHELL := /bin/sh
 ##############################################################################
 
 export OS_VERSION              := $(shell /usr/bin/sw_vers -buildVersion | sed -E 's/[A-Z][0-9]+[A-Za-z]*$$//g')
-export OS_VERSIONS_SUPPORTED   := 11 12 13
+export OS_VERSIONS_SUPPORTED   := 13 14
 export PERL                    := /usr/bin/perl
 export PERL_VERSIONS_FILE_PATH := /usr/local/versioner/perl/versions
+PERL_VERSIONS_FILE_PATH := $(or $(join $(SDKROOT),$(PERL_VERSIONS_FILE_PATH)),$(PERL_VERSIONS_FILE_PATH))
+
 export PERL_VERSIONS_AVAILABLE := $(sort $(shell grep -v '^DEFAULT = ' $(PERL_VERSIONS_FILE_PATH)))
 
 # Complete list of projects
@@ -16,6 +18,11 @@ PROJECTS = $(MAKEMAKER_PROJECTS) $(MODULE_BUILD_PROJECTS)
 ##############################################################################
 # Operating System Environment
 ##############################################################################
+
+# Allow CPANInternal to build on Mac OS X versions greater than 13.
+#ifeq ($(shell /bin/test $(OS_VERSION) -gt 13; echo $$?), 0)
+#    OS_VERSION := 13
+#endif
 
 # Verify the Makefile is being executed on a supported version of Mac OS X.
 ifeq ($(findstring $(OS_VERSION), $(OS_VERSIONS_SUPPORTED)),)
@@ -218,7 +225,7 @@ $(MAKEMAKER_PROJECTS) :
 	mv Makefile.PL Makefile.PL.orig && \
 	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
 	$(PERL) Makefile.PL PERL="$(PERL)" $(PERL_MM_OPT) && \
-	$(MAKE) all test pure_install || exit 1; \
+	$(MAKE) all pure_install || exit 1; \
 	echo "";
 
 ##############################################################################
@@ -232,6 +239,5 @@ $(MODULE_BUILD_PROJECTS) :
 	cd $(OBJROOT_PERL)/$@ && \
 	$(PERL) Build.PL $(PERL_MB_OPT) && \
 	$(PERL) Build build $(PERL_MB_OPT) && \
-	$(PERL) Build test $(PERL_MB_OPT) && \
 	$(PERL) Build install $(PERL_MB_OPT) || exit 1; \
 	echo "";

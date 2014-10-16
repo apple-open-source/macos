@@ -37,37 +37,29 @@ namespace WebCore {
 class IntRect;
 }
 
-#if PLATFORM(MAC)
-OBJC_CLASS WKView;
-#elif PLATFORM(GTK)
-typedef struct _WebKitWebViewBase WebKitWebViewBase;
-#elif PLATFORM(QT)
-class QQuickWebView;
-#endif
-
 namespace WebKit {
-    
-#if PLATFORM(MAC)
-typedef WKView PlatformWebView;
-#elif PLATFORM(QT)
-typedef QQuickWebView PlatformWebView;
-#elif PLATFORM(GTK)
-typedef WebKitWebViewBase PlatformWebView;
-#elif PLATFORM(EFL)
-typedef Evas_Object PlatformWebView;
-#endif
 
 class WebPageProxy;
-class LayerTreeContext;
 
-class WebFullScreenManagerProxy : public RefCounted<WebFullScreenManagerProxy>, public CoreIPC::MessageReceiver {
+class WebFullScreenManagerProxyClient {
 public:
-    static PassRefPtr<WebFullScreenManagerProxy> create(WebPageProxy*);
+    virtual ~WebFullScreenManagerProxyClient() { }
+
+    virtual void closeFullScreenManager() = 0;
+    virtual bool isFullScreen() = 0;
+    virtual void enterFullScreen() = 0;
+    virtual void exitFullScreen() = 0;
+    virtual void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) = 0;
+    virtual void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) = 0;
+};
+
+class WebFullScreenManagerProxy : public RefCounted<WebFullScreenManagerProxy>, public IPC::MessageReceiver {
+public:
+    static PassRefPtr<WebFullScreenManagerProxy> create(WebPageProxy&, WebFullScreenManagerProxyClient&);
     virtual ~WebFullScreenManagerProxy();
 
     void invalidate();
 
-    void setWebView(PlatformWebView*);
     bool isFullScreen();
     void close();
 
@@ -81,7 +73,7 @@ public:
     void restoreScrollPosition();
 
 private:
-    explicit WebFullScreenManagerProxy(WebPageProxy*);
+    explicit WebFullScreenManagerProxy(WebPageProxy&, WebFullScreenManagerProxyClient&);
 
     void supportsFullScreen(bool withKeyboard, bool&);
     void enterFullScreen();
@@ -89,15 +81,11 @@ private:
     void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame);
     void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame);
 
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
     WebPageProxy* m_page;
-    PlatformWebView* m_webView;
-
-#if PLATFORM(EFL)
-    bool m_hasRequestedFullScreen;
-#endif
+    WebFullScreenManagerProxyClient* m_client;
 };
 
 } // namespace WebKit

@@ -54,10 +54,7 @@
 
 #include "ifconfig.h"
 
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/sbin/ifconfig/ifvlan.c,v 1.12.2.1.2.1 2008/11/25 02:59:29 kensmith Exp $";
-#endif
+#include <sys/cdefs.h>
 
 #define	NOTAG	((u_short) -1)
 

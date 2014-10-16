@@ -8,4 +8,4 @@
 +	$(MAKE) install STRIPFLAGS=""
  
  # install/uninstall most things
- install: install.bin install.modules install.fns install.man
+ install: install.bin install.modules install.fns install.man install.runhelp

@@ -1,0 +1,4 @@
+/def _try_compile_deployment_target(/a
+.
+/'%02d%01d0' % target/s//('%02d%02d00' if target[1] >= 10 else '%02d%01d0') % target/
+w

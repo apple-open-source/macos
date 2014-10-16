@@ -29,35 +29,29 @@ class HTMLInputElement;
 class MouseEvent;
 class SliderThumbElement;
 
-class RenderSlider : public RenderFlexibleBox {
+class RenderSlider final : public RenderFlexibleBox {
 public:
     static const int defaultTrackLength;
 
-    explicit RenderSlider(HTMLInputElement*);
+    RenderSlider(HTMLInputElement&, PassRef<RenderStyle>);
     virtual ~RenderSlider();
+
+    HTMLInputElement& element() const;
 
     bool inDragMode() const;
 
 private:
-    virtual const char* renderName() const { return "RenderSlider"; }
-    virtual bool isSlider() const { return true; }
-    virtual bool canBeReplacedWithInlineRunIn() const OVERRIDE;
+    virtual const char* renderName() const override { return "RenderSlider"; }
+    virtual bool isSlider() const override { return true; }
 
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
-    virtual void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const OVERRIDE;
-    virtual void computePreferredLogicalWidths() OVERRIDE;
-    virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
-    virtual void layout();
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
+    virtual void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
+    virtual void computePreferredLogicalWidths() override;
+    virtual bool requiresForcedStyleRecalcPropagation() const override { return true; }
+    virtual void layout() override;
 };
 
-inline RenderSlider* toRenderSlider(RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isSlider());
-    return static_cast<RenderSlider*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toRenderSlider(const RenderSlider*);
+RENDER_OBJECT_TYPE_CASTS(RenderSlider, isSlider())
 
 } // namespace WebCore
 

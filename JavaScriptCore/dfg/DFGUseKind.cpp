@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,8 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "JSCInlines.h"
+
 namespace WTF {
 
 using namespace JSC::DFG;
@@ -44,14 +46,23 @@ void printInternal(PrintStream& out, UseKind useKind)
     case KnownInt32Use:
         out.print("KnownInt32");
         break;
-    case RealNumberUse:
-        out.print("RealNumber");
+    case Int52RepUse:
+        out.print("Int52Rep");
+        break;
+    case MachineIntUse:
+        out.print("MachineInt");
         break;
     case NumberUse:
         out.print("Number");
         break;
-    case KnownNumberUse:
-        out.print("KnownNumber");
+    case DoubleRepUse:
+        out.print("DoubleRep");
+        break;
+    case DoubleRepRealUse:
+        out.print("DoubleRepReal");
+        break;
+    case DoubleRepMachineIntUse:
+        out.print("DoubleRepMachineInt");
         break;
     case BooleanUse:
         out.print("Boolean");
@@ -65,8 +76,14 @@ void printInternal(PrintStream& out, UseKind useKind)
     case ObjectUse:
         out.print("Object");
         break;
+    case FinalObjectUse:
+        out.print("FinalObject");
+        break;
     case ObjectOrOtherUse:
         out.print("ObjectOrOther");
+        break;
+    case StringIdentUse:
+        out.print("StringIdent");
         break;
     case StringUse:
         out.print("String");
@@ -80,11 +97,17 @@ void printInternal(PrintStream& out, UseKind useKind)
     case StringOrStringObjectUse:
         out.print("StringOrStringObject");
         break;
+    case NotStringVarUse:
+        out.print("NotStringVar");
+        break;
     case NotCellUse:
         out.print("NotCell");
         break;
     case OtherUse:
         out.print("Other");
+        break;
+    case MiscUse:
+        out.print("Misc");
         break;
     default:
         RELEASE_ASSERT_NOT_REACHED();

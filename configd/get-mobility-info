@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2013 Apple Inc.
+# Copyright (c) 2004-2014 Apple Inc.
 #
 # get-mobility-info
 #
@@ -20,7 +20,7 @@ limited to, the serial number or similar unique number for your device, your
 user name, or your computer name. The information is used by Apple in
 accordance with its privacy policy (www.apple.com/privacy) and is not shared
 with any third party. By enabling this diagnostic tool and sending a copy of
-the generated files to Apple, you are consenting to Apple’s use of the content
+the generated files to Apple, you are consenting to Apple's use of the content
 of such files.
 
 _END_OF_DISCLAIMER
@@ -82,22 +82,97 @@ echo "Please wait, collecting information and statistics"
 echo ""
 
 #
-# Execute network reachability/DNS commands early as "mDNSResponder" will block while
-# logging its "state" info.
+# Execute network reachability/DNS commands early
 #
-scutil -d -v -r www.apple.com "" no-server		> reachability-info	2>&1
+echo "#"						>  reachability-info
+echo '# scutil -d -v -r www.apple.com "" no-server'	>> reachability-info
+echo "#"						>> reachability-info
+scutil -d -v -r www.apple.com "" no-server		>> reachability-info	2>&1
+
+echo "#"						>> reachability-info
+echo '# scutil -d -v -r 0.0.0.0 no-server'		>> reachability-info
+echo "#"						>> reachability-info
+scutil -d -v -r 0.0.0.0          no-server		>> reachability-info	2>&1
+
 if [ -x /usr/bin/dig -a -f /etc/resolv.conf ]; then
 	/usr/bin/dig -t any -c any www.apple.com	> dig-results		2>/dev/null
 fi
 
 #
-# Signal "networkd" and "mDNSResponder" to log their "state" info. This logging will
-# continue while we execute a few other commands and should be complete by the time
-# we collect the log content.
+# Signal "networkd" to log its "state" info. This logging will continue while
+# we execute a few other commands and should be complete by the time we collect
+# the log content.
 #
 if [ -x /usr/bin/killall ]; then
-	${PRIV} /usr/bin/killall -INFO networkd
-	${PRIV} /usr/bin/killall -INFO mDNSResponder
+	#
+	# request networkd state
+	#
+	${PRIV} /usr/bin/killall -INFO networkd					2>/dev/null
+
+	#
+	# discoveryd info
+	#
+	if [ -x /usr/libexec/discoveryd -a -x /usr/sbin/discoveryutil ]; then
+		${PRIV} pgrep -q -x discoveryd
+		if [ $? -eq 0 ]; then
+			P_ARG=""
+			case "`${PRIV} discoveryutil help 2>&1`" in
+			    Warning:* )
+				P_ARG="--priv"
+				;;
+			esac
+			#
+			# upgrade logging (if needed)
+			#
+			CLASS_o=`${PRIV} discoveryutil ${P_ARG} logclass`
+			CLASS_n=`${PRIV} discoveryutil ${P_ARG} logclass Cache`
+
+			LEVEL_o=`${PRIV} discoveryutil ${P_ARG} loglevel | awk '{ print $5 }'`
+			if [ ${LEVEL_o} -le 1 ]; then
+				LEVEL_n=`${PRIV} discoveryutil ${P_ARG} loglevel Intermediate | awk '{ print $5 }'`
+			else
+				LEVEL_n=${LEVEL_o}
+			fi
+
+			cp /dev/null						discoveryd-info
+			for c in			\
+				clientlisteners		\
+				configinterfaces	\
+				configresolvers		\
+				dnsproxystate		\
+				mdnsbrowses		\
+				mdnscachecontents	\
+				mdnscachestats		\
+				mdnslisteners		\
+				mdnsregistrations	\
+				nattraversals		\
+				udnscachecontents	\
+				udnscachestats		\
+				udnsresolvers		\
+				udnsunanswered		\
+
+			do
+				echo "#"					>> discoveryd-info
+				echo "# discoveryutil ${c}"			>> discoveryd-info
+				echo "#"					>> discoveryd-info
+				${PRIV} discoveryutil ${P_ARG} --timeout ${c}	>> discoveryd-info
+			done
+
+			if [ "$CLASS_o" != "$CLASS_n" ]; then
+				#
+				# restore log settings
+				#
+				${PRIV} discoveryutil ${P_ARG} lognoclass Cache		>/dev/null
+			fi
+
+			if [ "$LEVEL_o" != "$LEVEL_n" ]; then
+				${PRIV} discoveryutil ${P_ARG} loglevel ${LEVEL_o}	>/dev/null
+			fi
+
+			${PRIV} cat /var/run/com.apple.discoveryd-trace.sb	> com.apple.discoveryd-trace.sb	2>/dev/null
+		fi
+	fi
+
 	sleep 1
 fi
 
@@ -150,7 +225,7 @@ fi
 #
 # collect wifi dump
 #
-if [ -x /usr/bin/wdutil ]; then
+if [ -x /usr/bin/wdutil -a -x /bin/ls ]; then
 	${PRIV} /usr/bin/wdutil dump
 	mkdir -p "wifi_dump"
 	/bin/ls -1 /private/tmp/wifi-*						2>/dev/null	\
@@ -169,10 +244,6 @@ fi
 if [ -e /System/Library/CoreServices/SystemVersion.plist ]; then
 	cat /System/Library/CoreServices/SystemVersion.plist	\
 							> SystemVersion.plist	2>&1
-fi
-if [ -e /System/Library/CoreServices/ServerVersion.plist ]; then
-	cat /System/Library/CoreServices/ServerVersion.plist	\
-							> ServerVersion.plist	2>&1
 fi
 
 #
@@ -260,6 +331,9 @@ for f in										\
 	/Library/Preferences/SystemConfiguration/preferences.plist			\
 	/Library/Preferences/com.apple.alf.plist					\
 	/Library/Preferences/com.apple.sharing.firewall.plist				\
+	/Library/Preferences/com.apple.networkextension.plist				\
+	/Library/Preferences/com.apple.networkextension.control.plist			\
+	/Library/Preferences/com.apple.networkextension.necp.plist			\
 	/Library/Preferences/com.apple.wwand.plist					\
 
 do
@@ -272,11 +346,14 @@ done
 #
 # System / network preferences (from other volumes)
 #
-mount											\
-| awk 'BEGIN { FS= "[/ \t]+" } /^\/dev\/disk.* on \/Volumes\// { print $6 }'		\
+/bin/ls /Volumes 2>/dev/null								\
 | while read volume
 do
 	V_PATH="/Volumes/${volume}"
+	if [ -h "${V_PATH}" ]; then
+		# if the path is a symlink
+		continue
+	fi
 	for f in									\
 		/Library/Preferences/SystemConfiguration/Networkinterfaces.plist	\
 		/Library/Preferences/SystemConfiguration/preferences.plist		\
@@ -318,7 +395,7 @@ if [ -f /var/tmp/configd-state ]; then
 	cat /var/tmp/configd-state			> configd-state		2>&1
 fi
 if [ -f /var/tmp/configd-reachability ]; then
-	cat /var/tmp/configd-reachability		> configd-reachability		2>&1
+	cat /var/tmp/configd-reachability		> configd-reachability	2>&1
 fi
 
 #
@@ -333,14 +410,12 @@ ${PRIV} cat /etc/hosts 					> etc.hosts		2>/dev/null
 #
 if   [ -x /usr/sbin/kextstat ]; then
 	/usr/sbin/kextstat				> kextstat		2>&1
-elif [ -x /usr/sbin/kmodstat ]; then
-	/usr/sbin/kmodstat				> kmodstat		2>&1
 fi
 
 #
 # network statistics
 #
-echo -n ""							>  network-statistics
+/bin/echo -n ""							>  network-statistics
 
 if   [ -x /usr/sbin/arp ]; then
 	echo "#"						>> network-statistics
@@ -351,9 +426,9 @@ fi
 
 if [ -x /usr/sbin/netstat ]; then
 	echo "#"						>> network-statistics
-	echo "# netstat -n -a -A"				>> network-statistics
+	echo "# netstat -A -a -l -n"				>> network-statistics
 	echo "#"						>> network-statistics
-	/usr/sbin/netstat -n -a -A				>> network-statistics	2>&1
+	/usr/sbin/netstat -A -a -l -n				>> network-statistics	2>&1
 
 	echo "#"						>> network-statistics
 	echo "# netstat -s"					>> network-statistics
@@ -438,20 +513,6 @@ if [ -x /usr/sbin/ndp ]; then
 	fi
 fi
 
-if [ -x /sbin/ipfw ]; then
-	echo "#"					>> network-statistics
-	echo "# ipfw -at show"				>> network-statistics
-	echo "#"					>> network-statistics
-	${PRIV} /sbin/ipfw -at show			>> network-statistics	2>&1
-fi
-
-if [ -x /sbin/ip6fw ]; then
-	echo "#"					>> network-statistics
-	echo "# ip6fw -at show"				>> network-statistics
-	echo "#"					>> network-statistics
-	${PRIV} /sbin/ip6fw -at show			>> network-statistics	2>&1
-fi
-
 if [ -x /sbin/pfctl ]; then
 	echo "#"					>  pf
 	echo "# pfctl -s all"				>> pf
@@ -472,36 +533,45 @@ if [ -x /sbin/pfctl ]; then
 	done
 fi
 
-if [ -x /usr/sbin/lsof ]; then
-	echo "#"					>> network-statistics
-	echo "# lsof -i -U -n -P"			>> network-statistics
-	echo "#"					>> network-statistics
-	${PRIV} /usr/sbin/lsof -i -U -n -P		>> network-statistics	2>&1
+#
+# mach port info
+#
+if [ -x /usr/local/bin/lsmp ]; then
+	${PRIV} /usr/local/bin/lsmp -a -v		> lsmp			2>&1
 fi
 
 #
-# DirectoryService info
+# open files
+#
+if [ -x /usr/sbin/lsof ]; then
+	${PRIV} /usr/sbin/lsof -n -P -T q		> lsof			2>&1
+fi
+
+#
+# [lib]dispatch info
+#
+if [ -x /usr/local/bin/ddt ]; then
+    /bin/echo -n ""					>  dispatch-info
+    for BIN in		\
+	configd		\
+	discoveryd	\
+
+    do
+	echo "#"					>> dispatch-info
+	echo "# ddt -vkp ${BIN}"			>> dispatch-info
+	echo "#"					>> dispatch-info
+	${PRIV} /usr/local/bin/ddt -vkp ${BIN}		>> dispatch-info	2>&1
+    done
+fi
+
+#
+# OpenDirectory info
 #
 if [ -x /usr/bin/odutil ]; then
 	echo "#"					>  od-info
 	echo "# odutil show all"			>> od-info
 	echo "#"					>> od-info
 	${PRIV} /usr/bin/odutil show all		>> od-info		2>&1
-elif [ -x /usr/bin/dscacheutil ]; then
-	echo "#"					>  ds-info
-	echo "# dscacheutil -configuration"		>> ds-info
-	echo "#"					>> ds-info
-	/usr/bin/dscacheutil -configuration		>> ds-info		2>&1
-
-	echo "#"					>> ds-info
-	echo "# dscacheutil -statistics"		>> ds-info
-	echo "#"					>> ds-info
-	/usr/bin/dscacheutil -statistics		>> ds-info		2>&1
-
-	echo "#"					>> ds-info
-	echo "# dscacheutil -cachedump -entries"	>> ds-info
-	echo "#"					>> ds-info
-	/usr/bin/dscacheutil -cachedump -entries	>> ds-info		2>&1
 fi
 
 #
@@ -585,7 +655,7 @@ fi
 #
 # system usage statistics
 #
-echo -n ""						> system-statistics
+/bin/echo -n ""						> system-statistics
 
 if [ -x /usr/bin/uptime ]; then
 	echo "#"					>> system-statistics
@@ -596,9 +666,9 @@ fi
 
 if [ -x /usr/sbin/sysctl ]; then
 	echo "#"					>> system-statistics
-	echo "# sysctl -a"				>> system-statistics
+	echo "# sysctl kern hw net debug"		>> system-statistics
 	echo "#"					>> system-statistics
-	/usr/sbin/sysctl -a				>> system-statistics	2>&1
+	/usr/sbin/sysctl kern hw net debug		>> system-statistics	2>&1
 fi
 
 if [ -x /usr/bin/zprint ]; then
@@ -608,22 +678,39 @@ if [ -x /usr/bin/zprint ]; then
 	${PRIV} /usr/bin/zprint				>> system-statistics	2>&1
 fi
 
+if [ -x /usr/sbin/lsof -a -x /bin/ls ]; then
+	N=0
+	/bin/ls -1	/Library/Preferences/SystemConfiguration/*-lock		\
+			2>/dev/null						\
+	| while read lock
+	do
+		if [ ${N} -eq 0 ]; then
+			echo "#"					>> system-statistics
+			echo "# lsof [SCPreferences lock files]"	>> system-statistics
+		fi
+		N=`expr ${N} + 1`
+
+		echo "#"						>> system-statistics
+		${PRIV} /usr/sbin/lsof -- ${lock}			>> system-statistics	2>&1
+	done
+fi
+
 #
 # collect executable and plugin info
 #
 report_binary_info()
 {
-    if [ ! -f ${1} ]; then
+    if [ ! -f "${1}" ]; then
 	return
     fi
 
-    VERSION=`what ${1}`
+    VERSION=`what "${1}"`
     echo "${VERSION}"					>> versions	2>&1
 
-    SUM=`sum ${1}`
+    SUM=`sum "${1}"`
     echo "\tsum: ${SUM}"				>> versions	2>&1
 
-    LSINFO=`ls -lu ${1}`
+    LSINFO=`ls -lu "${1}"`
     echo "\tadditional info: ${LSINFO}"			>> versions	2>&1
 
     echo ""						>> versions	2>&1
@@ -634,7 +721,7 @@ get_binary_info()
     for BIN in										\
 	/usr/libexec/bootpd								\
 	/usr/libexec/configd								\
-	/usr/sbin/mDNSResponder								\
+	/usr/libexec/discoveryd								\
 	/usr/sbin/awacsd								\
 	/usr/sbin/pppd									\
 	/usr/sbin/racoon								\
@@ -646,13 +733,15 @@ get_binary_info()
 	report_binary_info "${BIN}"
     done
 
-    if [ -x /usr/bin/xcodebuild ]; then
-	    /usr/bin/xcodebuild -showsdks			\
-	    | grep iphone					\
-	    | awk '{print $NF}'					\
-	    | while read IOS
+    if [ -x /usr/bin/xcode-select -a -x /usr/bin/xcodebuild -a -x /usr/bin/xcrun ]; then
+	SDKPATH="`xcode-select --print-path 2>/dev/null`"
+	if [ $? -eq 0 -a -n "${SDKPATH}" ]; then
+	    /usr/bin/xcodebuild -showsdks 2>/dev/null	\
+	    | grep iphone				\
+	    | awk '{ print $NF }'			\
+	    | while read SDK
 	    do
-		SDKPATH="`xcrun --sdk $IOS --show-sdk-path`"
+		SDKPATH="`xcrun --sdk $SDK --show-sdk-path`"
 		for BIN in										\
 		    /usr/libexec/configd_sim								\
 		    /System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration	\
@@ -661,16 +750,20 @@ get_binary_info()
 		    report_binary_info "${SDKPATH}${BIN}"
 		done
 	    done
+	else
+	    echo "*** NO SDKs ***"	>> versions
+	    echo ""			>> versions
+	fi
     fi
 }
 
 get_plugins_info()
 {
     num=0
-    cd ${ROOT}/System/Library/SystemConfiguration
+    cd /System/Library/SystemConfiguration
     for PLUGIN in *.bundle
     do
-	plugins[$num]=$PLUGIN
+	plugins[$num]="${PLUGIN}"
 	num=$(( $num + 1 ))
     done
 
@@ -678,11 +771,11 @@ get_plugins_info()
 
     for PLUGIN in "${plugins[@]}"
     do
-	PLUGIN_DIR="${ROOT}/System/Library/SystemConfiguration/${PLUGIN}"
-	PLUGIN_INF=${PLUGIN_DIR}/Contents/Info.plist
-	if [ ! -f ${PLUGIN_INF} ]; then
-	    PLUGIN_INF=${PLUGIN_DIR}/Info.plist
-	    if [ ! -f ${PLUGIN_INF} ]; then
+	PLUGIN_DIR="/System/Library/SystemConfiguration/${PLUGIN}"
+	PLUGIN_INF="${PLUGIN_DIR}/Contents/Info.plist"
+	if [ ! -f "${PLUGIN_INF}" ]; then
+	    PLUGIN_INF="${PLUGIN_DIR}/Info.plist"
+	    if [ ! -f "${PLUGIN_INF}" ]; then
 		echo "${PLUGIN_INF}: No Info.plist"		>> versions		2>&1
 	    fi
 	fi
@@ -690,7 +783,7 @@ get_plugins_info()
 	echo "${PLUGIN}"					>> versions		2>&1
 
 	ENABLED="Enabled"
-	BOOL=`scutil --get ${PLUGIN_INF} / Enabled					2>/dev/null`
+	BOOL=`scutil --get "${PLUGIN_INF}" / Enabled					2>/dev/null`
 	if [ $? -eq 0 ]; then
 	    if [ ${BOOL} = "TRUE" ]; then
 		ENABLED="Enabled*"
@@ -701,7 +794,7 @@ get_plugins_info()
 	echo "\t${ENABLED}"					>> versions		2>&1
 
 	VERBOSE=""
-	BOOL=`scutil --get ${PLUGIN_INF} / Verbose					2>/dev/null`
+	BOOL=`scutil --get "${PLUGIN_INF}" / Verbose					2>/dev/null`
 	if [ $? -eq 0 ]; then
 	    if [ ${BOOL} = "TRUE" ]; then
 		VERBOSE="Verbose"
@@ -711,23 +804,23 @@ get_plugins_info()
 		echo "\t${VERBOSE}"				>> versions		2>&1
 	fi
 
-	VERSION=`scutil --get ${PLUGIN_INF} / CFBundleVersion				2>/dev/null`
+	VERSION=`scutil --get "${PLUGIN_INF}" / CFBundleVersion				2>/dev/null`
 	if [ $? -eq 1 ]; then
-		VERSION=`scutil --get ${PLUGIN_INF} / CFBundleShortVersionString	2>/dev/null`
+		VERSION=`scutil --get "${PLUGIN_INF}" / CFBundleShortVersionString	2>/dev/null`
 	fi
 	echo "\tVersion: ${VERSION}"				>> versions		2>&1
 
-	if [ -f ${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*} ]; then
-	    SUM=`sum ${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*}`
+	if [ -f "${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*}" ]; then
+	    SUM=`sum "${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*}"`
 	    echo "\tsum: ${SUM}"				>> versions		2>&1
 
-	    LSINFO=`ls -lu ${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*}`
+	    LSINFO=`ls -lu "${PLUGIN_DIR}/Contents/MacOS/${PLUGIN%.*}"`
 	    echo "\tadditional info: ${LSINFO}"			>> versions		2>&1
-	elif [ -f ${PLUGIN_DIR}/${PLUGIN%.*} ]; then
-	    SUM=`sum ${PLUGIN_DIR}/${PLUGIN%.*}`
+	elif [ -f "${PLUGIN_DIR}/${PLUGIN%.*}" ]; then
+	    SUM=`sum "${PLUGIN_DIR}/${PLUGIN%.*}"`
 	    echo "\tsum: ${SUM}"				>> versions		2>&1
 
-	    LSINFO=`ls -lu ${PLUGIN_DIR}/${PLUGIN%.*}`
+	    LSINFO=`ls -lu "${PLUGIN_DIR}/${PLUGIN%.*}"`
 	    echo "\tadditional info: ${LSINFO}"			>> versions		2>&1
 	fi
 
@@ -741,39 +834,45 @@ if [ -x /usr/bin/what -a -x /usr/bin/sum -a -x /bin/ls ]; then
 fi
 
 #
-# Last thing is to collect the logs to give a chance for networkd and mDNSResponder
-# to finish dumping their state
+# to give a chance for "networkd" to finish dumping its state, the last
+# thing we do is collect the logs
 #
 
 #
 # system log, kernel.log, early boot log messages
 #
 if [ -x /usr/bin/syslog ]; then
+	#
 	# save the recent activity
-	${PRIV} /usr/bin/syslog | ${TAIL_25000}				> syslog
+	#
+	${PRIV} /usr/bin/syslog -T local.3					\
+		| ${TAIL_25000}							> syslog
 
+	#
 	# save just the "kernel" activity (in case some of the
 	# interesting/relevant message are before the messages
 	# captured above.
-	${PRIV} /usr/bin/syslog -k Facility kern | ${TAIL_25000}	> kernel
+	#
+	${PRIV} /usr/bin/syslog -T local.3 -k Facility kern			\
+		| ${TAIL_25000}							> kernel
 
 	if [ -d /var/log/DiagnosticMessages ]; then
 		# save any MessageTracer activity
-		${PRIV} /usr/bin/syslog	-d /var/log/DiagnosticMessages	\
-					-F raw				\
-					-T local			\
-			| ${TAIL_25000}					> DiagnosticMessages
+		${PRIV} /usr/bin/syslog	-d /var/log/DiagnosticMessages		\
+					-F raw					\
+					-T local.3				\
+			| ${TAIL_25000}						> DiagnosticMessages
 	fi
 else
 	if [ -f /var/log/system.log ]; then
-		${PRIV} ${TAIL_25000} /var/log/system.log		> system.log
+		${PRIV} ${TAIL_25000} /var/log/system.log			> system.log
 	fi
 	if [ -f /var/log/kernel.log ]; then
-		${PRIV} ${TAIL_25000} /var/log/kernel.log		> kernel.log
+		${PRIV} ${TAIL_25000} /var/log/kernel.log			> kernel.log
 	fi
 fi
 if [ -x /sbin/dmesg ]; then
-	${PRIV} /sbin/dmesg						> dmesg
+	${PRIV} /sbin/dmesg							> dmesg
 fi
 
 #
@@ -823,22 +922,24 @@ if [ -x /bin/ls ]; then
 	# collect crash reports
 	#
 	for daemon in				\
-			bootpd			\
-			configd			\
-			eapolclient		\
-			mDNSResponder		\
-			mDNSResponderHelper	\
-			awacsd			\
-			pppd			\
-			racoon			\
-			socketfilterfw		\
 			InternetSharing		\
 			SCHelper		\
 			SCMonitor		\
+			awacsd			\
+			bootpd			\
+			configd			\
+			discoveryd		\
+			discoveryd_helper	\
+			eapolclient		\
+			pppd			\
+			racoon			\
+			socketfilterfw		\
 
 	do
 		/bin/ls -1	/Library/Logs/DiagnosticReports/${daemon}_*.crash	\
+				/Library/Logs/DiagnosticReports/${daemon}_*.ips		\
 				/Library/Logs/CrashReporter/${daemon}_*.crash		\
+				/Library/Logs/CrashReporter/${daemon}_*.ips		\
 				/Library/Logs/CrashReporter/${daemon}_*.plist		\
 				2>/dev/null						\
 		| while read log
@@ -864,6 +965,12 @@ if [ -x /bin/ls ]; then
 	done
 fi
 
+#
+# stackshot
+#
+if [ -x /usr/local/bin/crstackshot ]; then
+	/usr/local/bin/crstackshot				2>/dev/null
+fi
 
 #
 # collect everything into a single archive

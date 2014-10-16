@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,9 +29,9 @@
 
 #include "WebGLFramebuffer.h"
 
-#include "EXTDrawBuffers.h"
 #include "Extensions3D.h"
 #include "WebGLContextGroup.h"
+#include "WebGLDrawBuffers.h"
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -49,17 +49,17 @@ namespace {
 
     private:
         WebGLRenderbufferAttachment(WebGLRenderbuffer*);
-        virtual GC3Dsizei getWidth() const;
-        virtual GC3Dsizei getHeight() const;
-        virtual GC3Denum getFormat() const;
-        virtual WebGLSharedObject* getObject() const;
-        virtual bool isSharedObject(WebGLSharedObject*) const;
-        virtual bool isValid() const;
-        virtual bool isInitialized() const;
-        virtual void setInitialized();
-        virtual void onDetached(GraphicsContext3D*);
-        virtual void attach(GraphicsContext3D*, GC3Denum attachment);
-        virtual void unattach(GraphicsContext3D*, GC3Denum attachment);
+        virtual GC3Dsizei getWidth() const override;
+        virtual GC3Dsizei getHeight() const override;
+        virtual GC3Denum getFormat() const override;
+        virtual WebGLSharedObject* getObject() const override;
+        virtual bool isSharedObject(WebGLSharedObject*) const override;
+        virtual bool isValid() const override;
+        virtual bool isInitialized() const override;
+        virtual void setInitialized() override;
+        virtual void onDetached(GraphicsContext3D*) override;
+        virtual void attach(GraphicsContext3D*, GC3Denum attachment) override;
+        virtual void unattach(GraphicsContext3D*, GC3Denum attachment) override;
 
         WebGLRenderbufferAttachment() { };
 
@@ -143,17 +143,17 @@ namespace {
 
     private:
         WebGLTextureAttachment(WebGLTexture*, GC3Denum target, GC3Dint level);
-        virtual GC3Dsizei getWidth() const;
-        virtual GC3Dsizei getHeight() const;
-        virtual GC3Denum getFormat() const;
-        virtual WebGLSharedObject* getObject() const;
-        virtual bool isSharedObject(WebGLSharedObject*) const;
-        virtual bool isValid() const;
-        virtual bool isInitialized() const;
-        virtual void setInitialized();
-        virtual void onDetached(GraphicsContext3D*);
-        virtual void attach(GraphicsContext3D*, GC3Denum attachment);
-        virtual void unattach(GraphicsContext3D*, GC3Denum attachment);
+        virtual GC3Dsizei getWidth() const override;
+        virtual GC3Dsizei getHeight() const override;
+        virtual GC3Denum getFormat() const override;
+        virtual WebGLSharedObject* getObject() const override;
+        virtual bool isSharedObject(WebGLSharedObject*) const override;
+        virtual bool isValid() const override;
+        virtual bool isInitialized() const override;
+        virtual void setInitialized() override;
+        virtual void onDetached(GraphicsContext3D*) override;
+        virtual void attach(GraphicsContext3D*, GC3Denum attachment) override;
+        virtual void unattach(GraphicsContext3D*, GC3Denum attachment) override;
 
         WebGLTextureAttachment() { };
 
@@ -538,7 +538,7 @@ bool WebGLFramebuffer::initializeAttachments(GraphicsContext3D* g3d, const char*
     if (initDepth) {
         g3d->getFloatv(GraphicsContext3D::DEPTH_CLEAR_VALUE, &depthClearValue);
         g3d->getBooleanv(GraphicsContext3D::DEPTH_WRITEMASK, &depthMask);
-        g3d->clearDepth(0);
+        g3d->clearDepth(1.0f);
         g3d->depthMask(true);
     }
     if (initStencil) {
@@ -601,7 +601,7 @@ void WebGLFramebuffer::drawBuffers(const Vector<GC3Denum>& bufs)
 
 void WebGLFramebuffer::drawBuffersIfNecessary(bool force)
 {
-    if (!context()->m_extDrawBuffers)
+    if (!context()->m_webglDrawBuffers)
         return;
     bool reset = force;
     // This filtering works around graphics driver bugs on Mac OS X.

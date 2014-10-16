@@ -33,12 +33,6 @@
  *
  */
 
-#if !defined(__APPLE__)
-pid$1:a.out:main:beginning
-{
-}
-#else
 pid$1::exit:beginning
 {
 }
-#endif /* __APPLE__ */

@@ -30,3 +30,5 @@ HeimODSetACL
 HeimODClearACL
 HeimODModifyKeys
 HeimODKeysetToString
+HeimODCreateSRPKeys
+HeimODSetVerifiers

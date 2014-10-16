@@ -24,6 +24,7 @@
 #include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
     #include <bless.h>
+    #include "bootcaches.h"
 #endif  // !TARGET_OS_EMBEDDED
 
 #include <libc.h>
@@ -36,10 +37,10 @@
 
 #include "kext_tools_util.h"
 
-
 #if PRAGMA_MARK
 #pragma mark Basic Utility
 #endif /* PRAGMA_MARK */
+
 /*********************************************************************
 *********************************************************************/
 char * createUTF8CStringForCFString(CFStringRef aString)
@@ -405,6 +406,45 @@ finish:
     return;
 }
 
+
+/*******************************************************************************
+ * isDebugSetInBootargs() - check to see if boot-args has debug set.  We cache
+ * the result.
+ *******************************************************************************/
+Boolean isDebugSetInBootargs(void)
+{
+    static int          didOnce         = 0;
+    static Boolean      result          = false;
+    io_registry_entry_t optionsNode     = MACH_PORT_NULL;   // must release
+    CFStringRef         bootargsEntry   = NULL;             // must release
+    
+    if (didOnce) {
+        return(result);
+    }
+    optionsNode = IORegistryEntryFromPath(kIOMasterPortDefault,
+                                          "IODeviceTree:/options");
+    if (optionsNode) {
+        bootargsEntry = (CFStringRef)
+        IORegistryEntryCreateCFProperty(optionsNode,
+                                        CFSTR("boot-args"),
+                                        kCFAllocatorDefault, 0);
+        if (bootargsEntry &&
+            (CFGetTypeID(bootargsEntry) == CFStringGetTypeID())) {
+            CFRange     findRange;
+            findRange = CFStringFind(bootargsEntry, CFSTR("debug"), 0);
+            
+            if (findRange.length != 0) {
+                result = true;
+            }
+        }
+    }
+    didOnce++;
+    if (optionsNode)  IOObjectRelease(optionsNode);
+    SAFE_RELEASE(bootargsEntry);
+    
+    return(result);
+}
+
 #endif  // !TARGET_OS_EMBEDDED
 
 #if PRAGMA_MARK
@@ -647,7 +687,7 @@ getLatestTimesFromCFURLArray(
         goto finish;
     }
     bzero(dirTimeVals, (sizeof(struct timeval) * 2));
- 
+    
     for (i = 0; i < CFArrayGetCount(dirURLArray); i++) {
         myURL = (CFURLRef) CFArrayGetValueAtIndex(dirURLArray, i);
         if (myURL == NULL) {
@@ -656,14 +696,14 @@ getLatestTimesFromCFURLArray(
                       "%s: NO fileURL at index %d!!!! ", __FUNCTION__, i);
             goto finish;
         }
- 
+
         result = statURL(myURL, &myStatBuf);
         if (result != EX_OK) {
             goto finish;
         }
         TIMESPEC_TO_TIMEVAL(&myTempAccessTime, &myStatBuf.st_atimespec);
         TIMESPEC_TO_TIMEVAL(&myTempModTime, &myStatBuf.st_mtimespec);
-        
+       
         if (timercmp(&myTempModTime, &dirTimeVals[1], >)) {
             dirTimeVals[0].tv_sec = myTempAccessTime.tv_sec;
             dirTimeVals[0].tv_usec = myTempAccessTime.tv_usec;
@@ -673,6 +713,125 @@ getLatestTimesFromCFURLArray(
     }
     
     result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+ * Returns the access and mod times from the file in the given directory with 
+ * the latest mod time.
+ *******************************************************************************/
+ExitStatus
+getLatestTimesFromDirURL(
+                         CFURLRef       dirURL,
+                         struct timeval dirTimeVals[2])
+{
+    ExitStatus          result              = EX_SOFTWARE;
+    CFURLEnumeratorRef  myEnumerator        = NULL; // must release
+    struct stat         myStatBuf;
+    struct timeval      myTempModTime;
+    struct timeval      myTempAccessTime;
+    
+    bzero(dirTimeVals, (sizeof(struct timeval) * 2));
+    
+    if (dirURL == NULL) {
+        goto finish;
+    }
+   
+    myEnumerator = CFURLEnumeratorCreateForDirectoryURL(
+                                            NULL,
+                                            dirURL,
+                                            kCFURLEnumeratorDefaultBehavior,
+                                            NULL );
+    if (myEnumerator == NULL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    CFURLRef myURL = NULL;
+    while (CFURLEnumeratorGetNextURL(
+                                     myEnumerator,
+                                     &myURL,
+                                     NULL) == kCFURLEnumeratorSuccess) {
+        if (statURL(myURL, &myStatBuf) != EX_OK) {
+            goto finish;
+        }
+        TIMESPEC_TO_TIMEVAL(&myTempAccessTime, &myStatBuf.st_atimespec);
+        TIMESPEC_TO_TIMEVAL(&myTempModTime, &myStatBuf.st_mtimespec);
+       
+        if (timercmp(&myTempModTime, &dirTimeVals[1], >)) {
+            dirTimeVals[0].tv_sec = myTempAccessTime.tv_sec;
+            dirTimeVals[0].tv_usec = myTempAccessTime.tv_usec;
+            dirTimeVals[1].tv_sec = myTempModTime.tv_sec;
+            dirTimeVals[1].tv_usec = myTempModTime.tv_usec;
+        }
+    } // while loop...
+   
+    result = EX_OK;
+finish:
+    if (myEnumerator)   CFRelease(myEnumerator);
+    return result;
+}
+
+/*******************************************************************************
+ * Returns the access and mod times from the file in the given directory with
+ * the latest mod time.
+ *******************************************************************************/
+ExitStatus
+getLatestTimesFromDirPath(
+                          const char *   dirPath,
+                          struct timeval dirTimeVals[2])
+{
+    ExitStatus          result              = EX_SOFTWARE;
+    CFURLRef            kernURL             = NULL; // must release
+    
+    if (dirPath == NULL) {
+        goto finish;
+    }
+ 
+    kernURL = CFURLCreateFromFileSystemRepresentation(
+                                                      NULL,
+                                                      (const UInt8 *)dirPath,
+                                                      strlen(dirPath),
+                                                      true );
+    if (kernURL == NULL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+   
+    result = getLatestTimesFromDirURL(kernURL, dirTimeVals);
+finish:
+    if (kernURL)        CFRelease(kernURL);
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+getParentPathTimes(
+                   const char        * thePath,
+                   struct timeval      cacheFileTimes[2] )
+{
+    ExitStatus          result          = EX_SOFTWARE;
+    char *              lastSlash       = NULL;
+    char                myTempPath[PATH_MAX];
+   
+    if (thePath == NULL) {
+        goto finish;
+    }
+    
+    lastSlash = strrchr(thePath, '/');
+    // bail if no '/' or if length is < 2 (shortest possible dir path "/a/")
+    if (lastSlash == NULL || (lastSlash - thePath) < 2) {
+        goto finish;
+    }
+    // drop off everything at last '/' and beyond
+    if (strlcpy(myTempPath,
+                thePath,
+                (lastSlash - thePath) + 1) >= PATH_MAX) {
+        goto finish;
+    }
+   
+    result = getFilePathTimes(myTempPath, cacheFileTimes);
 finish:
     return result;
 }
@@ -744,6 +903,67 @@ statPath(const char *path, struct stat *statBuffer)
     
 finish:
     return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+statParentPath(const char *thePath, struct stat *statBuffer)
+{
+    ExitStatus          result          = EX_SOFTWARE;
+    char *              lastSlash       = NULL;
+    char                myTempPath[PATH_MAX];
+    
+    if (thePath == NULL) {
+        goto finish;
+    }
+    
+    lastSlash = strrchr(thePath, '/');
+    // bail if no '/' or if length is < 2 (shortest possible dir path "/a/")
+    if (lastSlash == NULL || (lastSlash - thePath) < 2) {
+        goto finish;
+    }
+    // drop off everything at last '/' and beyond
+    if (strlcpy(myTempPath,
+                thePath,
+                (lastSlash - thePath) + 1) >= PATH_MAX) {
+        goto finish;
+    }
+    
+    result = statPath(myTempPath, statBuffer);
+finish:
+    return result;
+}
+
+/*******************************************************************************
+ * caller must free returned pointer
+ *******************************************************************************/
+char *
+getPathExtension(const char * pathPtr)
+{
+    char *              suffixPtr       = NULL; // caller must free
+    CFURLRef            pathURL         = NULL; // must release
+    CFStringRef         tmpCFString     = NULL; // must release
+    
+    pathURL = CFURLCreateFromFileSystemRepresentation(
+                                                      NULL,
+                                                      (const UInt8 *)pathPtr,
+                                                      strlen(pathPtr),
+                                                      true );
+    if (pathURL == NULL) {
+        goto finish;
+    }
+    tmpCFString =  CFURLCopyPathExtension(pathURL);
+    if (tmpCFString == NULL) {
+        goto finish;
+    }
+    suffixPtr = createUTF8CStringForCFString(tmpCFString);
+    
+finish:
+    SAFE_RELEASE(pathURL);
+    SAFE_RELEASE(tmpCFString);
+    
+    return suffixPtr;
 }
 
 #if PRAGMA_MARK
@@ -900,6 +1120,44 @@ void tool_openlog(const char * name)
     return;
 }
 
+#if !TARGET_OS_EMBEDDED
+/*******************************************************************************
+ * Check to see if this is an Apple internal build.  If apple internel then 
+ * use development kernel if it exists.
+ * /System/Library/Kernels/kernel.development
+ *******************************************************************************/
+Boolean useDevelopmentKernel(const char * theKernelPath)
+{
+    struct stat     statBuf;
+    char *          tempPath = NULL;
+    size_t          length = 0;
+    Boolean         myResult = FALSE;
+    
+    if (statPath(kAppleInternalPath, &statBuf) != EX_OK) {
+        return(myResult);
+    }
+    tempPath = malloc(PATH_MAX);
+    
+    while (tempPath) {
+        length = strlcpy(tempPath, theKernelPath, PATH_MAX);
+        if (length >= PATH_MAX)   break;
+        length = strlcat(tempPath,
+                         kDefaultKernelSuffix,
+                         PATH_MAX);
+        if (length >= PATH_MAX)   break;
+        if (statPath(tempPath, &statBuf) == EX_OK) {
+            // use kernel.development
+            myResult = TRUE;
+        }
+        break;
+    } // while...
+    
+    if (tempPath)   free(tempPath);
+    
+    return(myResult);
+}
+#endif  // !TARGET_OS_EMBEDDED
+
 /*******************************************************************************
 * Basic log function. If any log flags are set, log the message
 * to syslog/stderr.  Note: exported as SPI in bootroot.h.
@@ -1007,6 +1265,151 @@ BRBLLogFunc(void *refcon __unused, int32_t level, const char *string)
     }
     OSKextLog(NULL, logSpec, "%s", string);
     return 0;
+}
+
+/*******************************************************************************
+ * returns TRUE and fills the Buffer with path to kernel extracted from
+ * Kernelcache dictionary from /usr/standalone/bootcaches.plist on the
+ * given volume.  If we can't find the path or if it does not exist or if
+ * theBuffer is too small we return FALSE.
+ *
+ * If we find the kernel path in bootcaches.plist, but the file does not exist
+ * we will copy the path into the buffer.  In that case the result will be FALSE
+ * and strlen on buffer will be > 0.
+ *
+ * theVolRootURL == NULL means we want root volume.
+ *******************************************************************************/
+Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
+                            char *      theBuffer,
+                            int         theBufferSize)
+{
+    CFDictionaryRef myDict              = NULL;     // must release
+    CFDictionaryRef postBootPathsDict   = NULL;     // do not release
+    CFDictionaryRef kernelCacheDict     = NULL;     // do not release
+    Boolean			myResult            = FALSE;
+   
+    if (theBuffer) {
+        *theBuffer = 0x00;
+        
+        myDict = copyBootCachesDictForURL(theVolRootURL);
+        if (myDict != NULL) {
+            postBootPathsDict = (CFDictionaryRef)
+                CFDictionaryGetValue(myDict, kBCPostBootKey);
+            
+            if (postBootPathsDict &&
+                CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
+                
+                kernelCacheDict = (CFDictionaryRef)
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
+            }
+        }
+    } // theBuffer
+    
+    if (kernelCacheDict &&
+        CFGetTypeID(kernelCacheDict) == CFDictionaryGetTypeID()) {
+        CFStringRef     myTempStr;      // do not release
+        
+        myTempStr = (CFStringRef) CFDictionaryGetValue(kernelCacheDict,
+                                                       kBCKernelPathKey);
+        if (myTempStr != NULL &&
+            CFGetTypeID(myTempStr) == CFStringGetTypeID()) {
+            
+            if (CFStringGetFileSystemRepresentation(myTempStr,
+                                                    theBuffer,
+                                                    theBufferSize)) {
+                struct stat     statBuf;
+                if (statPath(theBuffer, &statBuf) == EX_OK) {
+                    myResult = TRUE;
+                }
+            }
+        }
+    } // kernelCacheDict
+    
+    SAFE_RELEASE(myDict);
+        
+    return(myResult);
+}
+
+/*******************************************************************************
+ * returns copy of /usr/standalone/bootcaches.plist (as CFDictionary) from
+ * given volume.
+ *
+ * theVolRootURL == NULL means we want root volume.
+ *
+ * Caller must release returned CFDictionaryRef.
+ *******************************************************************************/
+CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL) 
+{
+    CFStringRef             myVolRoot = NULL;           // must release
+    CFStringRef             myPath = NULL;              // must release
+    CFURLRef                myURL = NULL;               // must release
+    CFDictionaryRef         myBootCachesPlist = NULL;   // do not release
+    
+    if (theVolRootURL) {
+        myVolRoot = CFURLCopyFileSystemPath(theVolRootURL,
+                                            kCFURLPOSIXPathStyle);
+        if (myVolRoot == NULL) {
+            goto finish;
+        }
+        myPath = CFStringCreateWithFormat(
+                                          kCFAllocatorDefault,
+                                          /* formatOptions */ NULL,
+                                          CFSTR("%@%s"),
+                                          myVolRoot,
+                                          "/usr/standalone/bootcaches.plist" );
+    }
+    else {
+        myPath = CFStringCreateWithCString(
+                                           kCFAllocatorDefault,
+                                           "/usr/standalone/bootcaches.plist",
+                                           kCFStringEncodingUTF8 );
+    }
+    if (myPath == NULL) {
+        goto finish;
+    }
+    
+    myURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+                                          myPath,
+                                          kCFURLPOSIXPathStyle,
+                                          false );
+    if (myURL && CFURLResourceIsReachable(myURL, NULL)) {
+        CFReadStreamRef         readStream      = NULL;  // must release
+        struct stat             myStatBuf;
+        ExitStatus              myExitStatus;
+        
+        myExitStatus = statURL(myURL, &myStatBuf);
+        if (myExitStatus != EX_OK) {
+            goto finish;
+        }
+        if (myStatBuf.st_uid != 0) {
+            goto finish;
+        }
+        if (myStatBuf.st_mode & S_IWGRP || myStatBuf.st_mode & S_IWOTH) {
+            goto finish;
+        }
+        
+        readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, myURL);
+        if (readStream) {
+            if (CFReadStreamOpen(readStream)) {
+                /* read in contents of bootcaches.plist */
+                myBootCachesPlist = CFPropertyListCreateWithStream(
+                                                                   kCFAllocatorDefault,
+                                                                   readStream,
+                                                                   0,
+                                                                   kCFPropertyListMutableContainersAndLeaves,
+                                                                   NULL, NULL);
+                CFReadStreamClose(readStream);
+            }
+            SAFE_RELEASE(readStream);
+        }
+    }
+    
+finish:    
+    SAFE_RELEASE(myURL);
+    SAFE_RELEASE(myPath);
+    SAFE_RELEASE(myVolRoot);
+    
+    return(myBootCachesPlist);
 }
 #endif   // !TARGET_OS_EMBEDDED
 

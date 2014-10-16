@@ -25,7 +25,6 @@
 #include "Color.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include "RenderTreeAsText.h"
 #include "TextStream.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
@@ -39,23 +38,23 @@ PassRefPtr<SourceAlpha> SourceAlpha::create(Filter* filter)
 
 const AtomicString& SourceAlpha::effectName()
 {
-    DEFINE_STATIC_LOCAL(const AtomicString, s_effectName, ("SourceAlpha", AtomicString::ConstructFromLiteral));
+    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, s_effectName, ("SourceAlpha", AtomicString::ConstructFromLiteral));
     return s_effectName;
 }
 
 void SourceAlpha::determineAbsolutePaintRect()
 {
-    Filter* filter = this->filter();
-    FloatRect paintRect = filter->sourceImageRect();
-    paintRect.scale(filter->filterResolution().width(), filter->filterResolution().height());
+    Filter& filter = this->filter();
+    FloatRect paintRect = filter.sourceImageRect();
+    paintRect.scale(filter.filterResolution().width(), filter.filterResolution().height());
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
 void SourceAlpha::platformApplySoftware()
 {
     ImageBuffer* resultImage = createImageBufferResult();
-    Filter* filter = this->filter();
-    if (!resultImage || !filter->sourceImage())
+    Filter& filter = this->filter();
+    if (!resultImage || !filter.sourceImage())
         return;
 
     setIsAlphaImage(true);
@@ -63,7 +62,7 @@ void SourceAlpha::platformApplySoftware()
     FloatRect imageRect(FloatPoint(), absolutePaintRect().size());
     GraphicsContext* filterContext = resultImage->context();
     filterContext->fillRect(imageRect, Color::black, ColorSpaceDeviceRGB);
-    filterContext->drawImageBuffer(filter->sourceImage(), ColorSpaceDeviceRGB, IntPoint(), CompositeDestinationIn);
+    filterContext->drawImageBuffer(filter.sourceImage(), ColorSpaceDeviceRGB, IntPoint(), CompositeDestinationIn);
 }
 
 void SourceAlpha::dump()

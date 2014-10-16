@@ -6,9 +6,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/02/20 23:59:55 $ 
-    $Revision: 1.8 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
 */
 

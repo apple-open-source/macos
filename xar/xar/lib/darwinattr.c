@@ -257,7 +257,7 @@ TRYAGAIN:
 		}
 
 		e = xar_ea_new(f, i);
-		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_ea_read, context);
+		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_ea_read, context);
 	}
 BAIL:
 	free(buf);
@@ -292,7 +292,7 @@ static int32_t ea_extract(xar_t x, xar_file_t f, const char* file, void *context
 			return -1;
 		DARWINATTR_CONTEXT(context)->len = len;
 
-		xar_attrcopy_from_heap(x, f, p, xar_ea_write, context);
+		XAR(x)->attrcopy_from_heap(x, f, p, xar_ea_write, context);
 
 		name = NULL;
 		tmpp = xar_prop_pget(p, "name");
@@ -339,7 +339,7 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 	if( memcmp(finfo.finderinfo, z, sizeof(finfo.finderinfo)) != 0 ) {
 		e = xar_ea_new(f, "com.apple.FinderInfo");
 		DARWINATTR_CONTEXT(context)->finfo = finfo.finderinfo;
-		xar_attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
+		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
 	}
 
 		
@@ -359,7 +359,7 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 		return -1;
 
 	e = xar_ea_new(f, "com.apple.ResourceFork");
-	xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
+	XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -389,7 +389,7 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 
 	p = xar_ea_find(f, "com.apple.ResourceFork");
 	if( p )
-		xar_attrcopy_from_heap(x, f, p, finfo_write, context);
+		XAR(x)->attrcopy_from_heap(x, f, p, finfo_write, context);
 #endif /* HAVE_SETATTRLIST */
 	
 	memset(rsrcname, 0, sizeof(rsrcname));
@@ -400,7 +400,7 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 
 	p = xar_ea_find(f, "com.apple.ResourceFork");
 	if( p )
-		xar_attrcopy_from_heap(x, f, p, xar_rsrc_write, context);
+		XAR(x)->attrcopy_from_heap(x, f, p, xar_rsrc_write, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -543,7 +543,7 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 			
 			DARWINATTR_CONTEXT(context)->finfo = z;
 			e = xar_ea_new(f, "com.apple.FinderInfo");
-			xar_attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
+			XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
 			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
 				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
@@ -558,7 +558,7 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 			}
 
 			e = xar_ea_new(f, "com.apple.ResourceFork");
-			xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
+			XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
 
 			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
 				close(DARWINATTR_CONTEXT(context)->fd);
@@ -648,9 +648,9 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 	}
 	
 	if( have_fi )
-		xar_attrcopy_from_heap(x, f, fiprop, xar_rsrc_write, context);
+		XAR(x)->attrcopy_from_heap(x, f, fiprop, xar_rsrc_write, context);
 	if( have_rsrc )
-		xar_attrcopy_from_heap(x, f, rfprop, xar_rsrc_write, context);
+		XAR(x)->attrcopy_from_heap(x, f, rfprop, xar_rsrc_write, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 
 	DARWINATTR_CONTEXT(context)->fd = 0;

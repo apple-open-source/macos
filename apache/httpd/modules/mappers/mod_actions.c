@@ -111,11 +111,17 @@ static const char *set_script(cmd_parms *cmd, void *m_v,
                               const char *method, const char *script)
 {
     action_dir_config *m = (action_dir_config *)m_v;
-
-    /* ap_method_register recognizes already registered methods,
-     * so don't bother to check its previous existence explicitely.
-     */
-    int methnum = ap_method_register(cmd->pool, method);
+    int methnum;
+    if (cmd->pool == cmd->temp_pool) {
+        /* In .htaccess, we can't globally register new methods. */
+        methnum = ap_method_number_of(method);
+    }
+    else {
+        /* ap_method_register recognizes already registered methods,
+         * so don't bother to check its previous existence explicitely.
+         */
+        methnum = ap_method_register(cmd->pool, method);
+    }
 
     if (methnum == M_TRACE) {
         return "TRACE not allowed for Script";
@@ -178,11 +184,10 @@ static int action_handler(request_rec *r)
     /* Second, check for actions (which override the method scripts) */
     action = r->handler ? r->handler :
         ap_field_noparam(r->pool, r->content_type);
-    action = action ? action : ap_default_type(r);
 
-    if ((t = apr_table_get(conf->action_types, action))) {
-        if (*t++ == '0' && r->finfo.filetype == 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+    if (action && (t = apr_table_get(conf->action_types, action))) {
+        if (*t++ == '0' && r->finfo.filetype == APR_NOFILE) {
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(00652)
                           "File does not exist: %s", r->filename);
             return HTTP_NOT_FOUND;
         }
@@ -209,7 +214,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_handler(action_handler,NULL,NULL,APR_HOOK_LAST);
 }
 
-module AP_MODULE_DECLARE_DATA actions_module =
+AP_DECLARE_MODULE(actions) =
 {
     STANDARD20_MODULE_STUFF,
     create_action_dir_config,   /* dir config creater */

@@ -47,13 +47,13 @@ arp_session.o: arp_session.c arp_session.h
 inet6_addrs: ifutil.c rtutil.c ../bootplib/arp.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 -I../bootplib $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^
 
-dhcpv6: DHCPv6Client.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c
-	cc -DTEST_DHCPV6_CLIENT -g -Wall DHCPv6Client.c DHCPDUIDIAID.c -o dhcpv6 ../bootplib/DHCPv6Options.c mylog.c timer.c ifutil.c rtutil.c ../bootplib/dhcp_options.c ../bootplib/DHCPv6.c ../bootplib/DHCPDUID.c DHCPv6Socket.c FDSet.c -I../bootplib ../bootplib/ptrlist.c ../bootplib/util.c ../bootplib/DNSNameList.c ../bootplib/interfaces.c ../bootplib/dynarray.c ../bootplib/cfutil.c ../bootplib/arp.c -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE)
+dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c
+	cc -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT -g -Wall -I../bootplib -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
 
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	cc -DTEST_DHCPDUIDIAID -I$(BLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration -o $@ $^
 
-rtadv: RTADVSocket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c
+rtadv: RTADVSocket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c
 	cc -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) -I../bootplib -DTEST_RTADVSOCKET -framework CoreFoundation -framework SystemConfiguration -o $@ $^
 
 rsakey: RSAKey.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c
@@ -61,6 +61,9 @@ rsakey: RSAKey.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c
 
 cga: CGA.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c RSAKey.c HostUUID.c ../bootplib/util.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -I../bootplib -DTEST_CGA -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
+
+ndadvert: IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c rsakey.c HostUUID.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) -I../bootplib -DTEST_NEIGHBOR_ADVERT -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
 
 ipv6ll: ifutil.c ../bootplib/cfutil.c ../bootplib/util.c ../bootplib/IPConfigurationLog.c rtutil.c ../bootplib/arp.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -I../bootplib -DTEST_IPV6_LL -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^

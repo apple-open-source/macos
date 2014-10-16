@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -66,6 +66,7 @@ regcmp(const char* pattern, ...)
 	register int		c;
 	register int		p;
 	int			b;
+	int			e;
 	int			i;
 	int			j;
 	int			nsub;
@@ -75,77 +76,83 @@ regcmp(const char* pattern, ...)
 	va_list			ap;
 
 	va_start(ap, pattern);
-	if (!pattern || !*pattern || !(sp = sfstropen()))
-		return 0;
-	memset(paren, 0, sizeof(paren));
-	n = 0;
-	p = -1;
-	b = 0;
-	nsub = 0;
-	s = (char*)pattern;
-	do
+	if (pattern || !*pattern || !(sp = sfstropen()))
+		e = 1;
+	else
 	{
-		while (c = *s++)
+		e = 0;
+		memset(paren, 0, sizeof(paren));
+		n = 0;
+		p = -1;
+		b = 0;
+		nsub = 0;
+		s = (char*)pattern;
+		do
 		{
-			if (c == '\\')
+			while (c = *s++)
 			{
-				sfputc(sp, c);
-				if (!(c = *s++))
-					break;
-			}
-			else if (b)
-			{
-				if (c == ']')
-					b = 0;
-			}
-			else if (c == '[')
-			{
-				b = 1;
-				if (*s == '^')
+				if (c == '\\')
 				{
 					sfputc(sp, c);
-					c = *s++;
-				}
-				if (*s == ']')
-				{
-					sfputc(sp, c);
-					c = *s++;
-				}
-			}
-			else if (c == '(')
-			{
-				/*
-				 * someone explain in one sentence why
-				 * a cast is needed to make this work
-				 */
-
-				if (p < (int)(elementsof(paren) - 1))
-					p++;
-				paren[p] = ++n;
-			}
-			else if (c == ')' && p >= 0)
-			{
-				for (i = p; i > 0; i--)
-					if (paren[i])
+					if (!(c = *s++))
 						break;
-				if (*s == '$' && (j = *(s + 1)) >= '0' && j <= '9')
-				{
-					s += 2;
-					j -= '0';
-					if (nsub <= j)
-					{
-						if (!nsub)
-							memset(sub, 0, sizeof(sub));
-						nsub = j + 1;
-					}
-					sub[j] = paren[i] + 1;
 				}
-				paren[i] = 0;
+				else if (b)
+				{
+					if (c == ']')
+						b = 0;
+				}
+				else if (c == '[')
+				{
+					b = 1;
+					if (*s == '^')
+					{
+						sfputc(sp, c);
+						c = *s++;
+					}
+					if (*s == ']')
+					{
+						sfputc(sp, c);
+						c = *s++;
+					}
+				}
+				else if (c == '(')
+				{
+					/*
+					 * someone explain in one sentence why
+					 * a cast is needed to make this work
+					 */
+
+					if (p < (int)(elementsof(paren) - 1))
+						p++;
+					paren[p] = ++n;
+				}
+				else if (c == ')' && p >= 0)
+				{
+					for (i = p; i > 0; i--)
+						if (paren[i])
+							break;
+					if (*s == '$' && (j = *(s + 1)) >= '0' && j <= '9')
+					{
+						s += 2;
+						j -= '0';
+						if (nsub <= j)
+						{
+							if (!nsub)
+								memset(sub, 0, sizeof(sub));
+							nsub = j + 1;
+						}
+						sub[j] = paren[i] + 1;
+					}
+					paren[i] = 0;
+				}
+				sfputc(sp, c);
 			}
-			sfputc(sp, c);
-		}
-	} while (s = va_arg(ap, char*));
+		} while (s = va_arg(ap, char*));
+	}
 	va_end(ap);
+	if (e)
+		return 0;
 	if (!(s = sfstruse(sp)))
 	{
 		sfstrclose(sp);
@@ -192,10 +199,16 @@ regex(const char* handle, const char* subject, ...)
 
 	va_start(ap, subject);
 	if (!(re = (Regex_t*)handle) || !subject)
-		return 0;
-	for (n = 0; n < re->nsub; n++)
-		sub[n] = va_arg(ap, char*);
+		k = 1;
+	else
+	{
+		k = 0;
+		for (n = 0; n < re->nsub; n++)
+			sub[n] = va_arg(ap, char*);
+	}
 	va_end(ap);
+	if (k)
+		return 0;
 	if (regexec(&re->re, subject, SUB + 1, match, 0))
 		return 0;
 	for (n = 0; n < re->nsub; n++)

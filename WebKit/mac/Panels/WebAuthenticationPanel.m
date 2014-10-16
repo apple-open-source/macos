@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,17 +26,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebAuthenticationPanel.h>
+#if !PLATFORM(IOS)
+
+#import <WebKitLegacy/WebAuthenticationPanel.h>
 
 #import "WebLocalizableStringsInternal.h"
 #import <Foundation/NSURLAuthenticationChallenge.h>
 #import <Foundation/NSURLProtectionSpace.h>
 #import <Foundation/NSURLCredential.h>
-#import <WebKit/WebKitNSStringExtras.h>
-#import <WebKit/WebNSURLExtras.h>
+#import <WebKitLegacy/WebKitNSStringExtras.h>
+#import <WebKitLegacy/WebNSURLExtras.h>
 #import <wtf/Assertions.h>
 
-#import <WebKit/WebNSControlExtras.h>
+#import <WebKitLegacy/WebNSControlExtras.h>
 
 #define WebAuthenticationPanelNibName @"WebAuthenticationPanel"
 
@@ -77,7 +79,11 @@
 
     [panel close];
     if (usingSheet) {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+        [panel.sheetParent endSheet:panel returnCode:NSModalResponseCancel];
+#else
         [[NSApplication sharedApplication] endSheet:panel returnCode:1];
+#endif
     } else {
         [[NSApplication sharedApplication] stopModalWithCode:1];
     }
@@ -93,7 +99,11 @@
 
     [panel close];
     if (usingSheet) {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+        [panel.sheetParent endSheet:panel returnCode:NSModalResponseOK];
+#else
         [[NSApplication sharedApplication] endSheet:panel returnCode:0];
+#endif
     } else {
         [[NSApplication sharedApplication] stopModalWithCode:0];
     }
@@ -245,8 +255,15 @@
 
     usingSheet = TRUE;
     challenge = [chall retain];
-    
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    [window beginSheet:panel completionHandler:^(NSModalResponse modalResponse) {
+        int returnCode = (modalResponse == NSModalResponseCancel) ? 1 : 0;
+        [self sheetDidEnd:panel returnCode:returnCode contextInfo:NULL];
+    }];
+#else
     [[NSApplication sharedApplication] beginSheet:panel modalForWindow:window modalDelegate:self didEndSelector:@selector(sheetDidEnd:returnCode:contextInfo:) contextInfo:NULL];
+#endif
 }
 
 - (void)sheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void  *)contextInfo
@@ -290,3 +307,5 @@
 }
 
 @end
+
+#endif // !PLATFORM(IOS)

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,6 +28,8 @@
 
 #include "FocusDirection.h"
 #include "LayoutRect.h"
+#include "Timer.h"
+#include "ViewState.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
@@ -62,28 +64,38 @@ private:
 class FocusController {
     WTF_MAKE_NONCOPYABLE(FocusController); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<FocusController> create(Page*);
+    explicit FocusController(Page&, ViewState::Flags);
 
     void setFocusedFrame(PassRefPtr<Frame>);
     Frame* focusedFrame() const { return m_focusedFrame.get(); }
-    Frame* focusedOrMainFrame() const;
+    Frame& focusedOrMainFrame() const;
 
     bool setInitialFocus(FocusDirection, KeyboardEvent*);
     bool advanceFocus(FocusDirection, KeyboardEvent*, bool initialFocus = false);
 
     bool setFocusedElement(Element*, PassRefPtr<Frame>, FocusDirection = FocusDirectionNone);
 
+    void setViewState(ViewState::Flags);
+
     void setActive(bool);
-    bool isActive() const { return m_isActive; }
+    bool isActive() const { return m_viewState & ViewState::WindowIsActive; }
 
     void setFocused(bool);
-    bool isFocused() const { return m_isFocused; }
+    bool isFocused() const { return m_viewState & ViewState::IsFocused; }
 
-    void setContainingWindowIsVisible(bool);
-    bool containingWindowIsVisible() const { return m_containingWindowIsVisible; }
+    bool contentIsVisible() const { return m_viewState & ViewState::IsVisible; }
+
+    // These methods are used in WebCore/bindings/objc/DOM.mm.
+    Element* nextFocusableElement(FocusNavigationScope, Node* start, KeyboardEvent*);
+    Element* previousFocusableElement(FocusNavigationScope, Node* start, KeyboardEvent*);
+
+    void setFocusedElementNeedsRepaint();
+    double timeSinceFocusWasSet() const;
 
 private:
-    explicit FocusController(Page*);
+    void setActiveInternal(bool);
+    void setFocusedInternal(bool);
+    void setIsVisibleAndActiveInternal(bool);
 
     bool advanceFocusDirectionally(FocusDirection, KeyboardEvent*);
     bool advanceFocusInDocumentOrder(FocusDirection, KeyboardEvent*, bool initialFocus);
@@ -103,21 +115,20 @@ private:
     // See http://www.w3.org/TR/html4/interact/forms.html#h-17.11.1
     Element* findFocusableElement(FocusDirection, FocusNavigationScope, Node* start, KeyboardEvent*);
 
-    Element* nextFocusableElement(FocusNavigationScope, Node* start, KeyboardEvent*);
-    Element* previousFocusableElement(FocusNavigationScope, Node* start, KeyboardEvent*);
-
     Element* findElementWithExactTabIndex(Node* start, int tabIndex, KeyboardEvent*, FocusDirection);
 
     bool advanceFocusDirectionallyInContainer(Node* container, const LayoutRect& startingRect, FocusDirection, KeyboardEvent*);
     void findFocusCandidateInContainer(Node* container, const LayoutRect& startingRect, FocusDirection, KeyboardEvent*, FocusCandidate& closest);
 
-    Page* m_page;
-    RefPtr<Frame> m_focusedFrame;
-    bool m_isActive;
-    bool m_isFocused;
-    bool m_isChangingFocusedFrame;
-    bool m_containingWindowIsVisible;
+    void focusRepaintTimerFired(Timer<FocusController>&);
 
+    Page& m_page;
+    RefPtr<Frame> m_focusedFrame;
+    bool m_isChangingFocusedFrame;
+    ViewState::Flags m_viewState;
+
+    Timer<FocusController> m_focusRepaintTimer;
+    double m_focusSetTime;
 };
 
 } // namespace WebCore

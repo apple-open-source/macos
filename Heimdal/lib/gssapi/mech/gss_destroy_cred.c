@@ -36,7 +36,7 @@
  * gss_release_cred() frees the memory, gss_destroy_cred() removes the credentials from memory/disk and then call gss_release_cred() on the credential.
  *
  * @param min_stat minor status code
- * @param cred credentail to destory
+ * @param cred_handle credentail to destory
  *
  * @returns a gss_error code, see gss_display_status() about printing
  *          the error code.
@@ -58,6 +58,7 @@ gss_destroy_cred(OM_uint32 *min_stat,
 	return GSS_S_COMPLETE;
 
     cred = (struct _gss_cred *)*cred_handle;
+    *cred_handle = GSS_C_NO_CREDENTIAL;
 
     while (HEIM_SLIST_FIRST(&cred->gc_mc)) {
 	mc = HEIM_SLIST_FIRST(&cred->gc_mc);

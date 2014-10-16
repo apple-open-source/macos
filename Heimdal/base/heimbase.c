@@ -346,54 +346,6 @@ heim_base_once_f(heim_base_once_t *once, void *ctx, void (*func)(void *))
  *
  */
 
-#ifdef __APPLE_PRIVATE__
-const char *__crashreporter_info__ = NULL;
-asm(".desc ___crashreporter_info__, 0x10");
-#endif
-
-
-/**
- * Abort and log the failure (using syslog)
- */
-
-void
-heim_abort(const char *fmt, ...)
-    HEIMDAL_NORETURN_ATTRIBUTE
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 2))
-{
-    va_list ap;
-    va_start(ap, fmt);
-    heim_abortv(fmt, ap);
-    va_end(ap);
-}
-
-/**
- * Abort and log the failure (using syslog)
- */
-
-void
-heim_abortv(const char *fmt, va_list ap)
-    HEIMDAL_NORETURN_ATTRIBUTE
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 0))
-{
-    char *str = NULL;
-    int ret;
-    
-    ret = vasprintf(&str, fmt, ap);
-    if (ret > 0 && str) {
-	syslog(LOG_ERR, "heim_abort: %s", str);
-
-#ifdef __APPLE_PRIVATE__
-	__crashreporter_info__ = str;
-#endif
-    }
-    abort();
-}
-
-/*
- *
- */
-
 static int ar_created = 0;
 static HEIMDAL_thread_key ar_key;
 

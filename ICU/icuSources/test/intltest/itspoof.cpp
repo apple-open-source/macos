@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (C) 2011-2013, International Business Machines Corporation 
+* Copyright (C) 2011-2014, International Business Machines Corporation 
 * and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -505,9 +505,9 @@ void IntlTestSpoof::testIdentifierInfo() {
             {"\\u0061\\u0031\\u0661",         USPOOF_UNRESTRICTIVE,      "[\\u0030\\u0660]", "Latn", "Arab Thaa", "Arab Thaa"},
             {"\\u0061\\u0031\\u0661\\u06F1",  USPOOF_UNRESTRICTIVE,      "[\\u0030\\u0660\\u06F0]", "Latn Arab", "", ""},
             {"\\u0661\\u30FC\\u3006\\u0061\\u30A2\\u0031\\u0967\\u06F1",  USPOOF_UNRESTRICTIVE, 
-                  "[\\u0030\\u0660\\u06F0\\u0966]", "Latn Kana Arab Deva", "", ""},
+                  "[\\u0030\\u0660\\u06F0\\u0966]", "Latn Kana Arab", "Deva Kthi", "Deva Kthi"},
             {"\\u0061\\u30A2\\u30FC\\u3006\\u0031\\u0967\\u0661\\u06F1",  USPOOF_UNRESTRICTIVE, 
-                  "[\\u0030\\u0660\\u06F0\\u0966]", "Latn Kana Arab Deva", "", ""}
+                  "[\\u0030\\u0660\\u06F0\\u0966]", "Latn Kana Arab", "Deva Kthi", "Deva Kthi"}
     };
 
     int testNum;
@@ -675,15 +675,16 @@ void IntlTestSpoof::testRestrictionLevel() {
     } tests[] = {
         {"\\u0061\\u03B3\\u2665", USPOOF_UNRESTRICTIVE},
         {"a",                     USPOOF_ASCII},
-        {"\\u03B3",               USPOOF_HIGHLY_RESTRICTIVE},
+        {"\\u03B3",               USPOOF_SINGLE_SCRIPT_RESTRICTIVE},
         {"\\u0061\\u30A2\\u30FC", USPOOF_HIGHLY_RESTRICTIVE},
         {"\\u0061\\u0904",        USPOOF_MODERATELY_RESTRICTIVE},
         {"\\u0061\\u03B3",        USPOOF_MINIMALLY_RESTRICTIVE}
     };
     char msgBuffer[100];
 
-    URestrictionLevel restrictionLevels[] = { USPOOF_ASCII, USPOOF_HIGHLY_RESTRICTIVE, 
-         USPOOF_MODERATELY_RESTRICTIVE, USPOOF_MINIMALLY_RESTRICTIVE, USPOOF_UNRESTRICTIVE};
+    URestrictionLevel restrictionLevels[] = { USPOOF_ASCII, USPOOF_SINGLE_SCRIPT_RESTRICTIVE, 
+         USPOOF_HIGHLY_RESTRICTIVE, USPOOF_MODERATELY_RESTRICTIVE, USPOOF_MINIMALLY_RESTRICTIVE, 
+         USPOOF_UNRESTRICTIVE};
     
     UErrorCode status = U_ZERO_ERROR;
     IdentifierInfo idInfo(status);
@@ -706,14 +707,32 @@ void IntlTestSpoof::testRestrictionLevel() {
             uspoof_setChecks(sc, USPOOF_RESTRICTION_LEVEL, &status);
             uspoof_setAllowedChars(sc, uspoof_getRecommendedSet(&status), &status);
             uspoof_setRestrictionLevel(sc, levelSetInSpoofChecker);
-            UBool actualValue = uspoof_checkUnicodeString(sc, testString, NULL, &status) != 0;
-
+            int32_t actualValue = uspoof_checkUnicodeString(sc, testString, NULL, &status);
+            
             // we want to fail if the text is (say) MODERATE and the testLevel is ASCII
-            UBool expectedFailure = expectedLevel > levelSetInSpoofChecker ||
-                                    !uspoof_getRecommendedUnicodeSet(&status)->containsAll(testString);
-            sprintf(msgBuffer, "testNum = %d, levelIndex = %d", testNum, levelIndex);
-            TEST_ASSERT_MSG(expectedFailure == actualValue, msgBuffer);
+            int32_t expectedValue = 0;
+            if (expectedLevel > levelSetInSpoofChecker) {
+                expectedValue |= USPOOF_RESTRICTION_LEVEL;
+            }
+            if (!uspoof_getRecommendedUnicodeSet(&status)->containsAll(testString)) {
+                expectedValue |= USPOOF_CHAR_LIMIT;
+            }
+            sprintf(msgBuffer, "testNum = %d, levelIndex = %d, expected = %#x, actual = %#x",
+                    testNum, levelIndex, expectedValue, actualValue);
+            TEST_ASSERT_MSG(expectedValue == actualValue, msgBuffer);
             TEST_ASSERT_SUCCESS(status);
+
+            // Run the same check again, with the Spoof Checker configured to return
+            // the actual restriction level.
+            uspoof_setChecks(sc, USPOOF_AUX_INFO | USPOOF_RESTRICTION_LEVEL, &status);
+            uspoof_setAllowedChars(sc, uspoof_getRecommendedSet(&status), &status);
+            uspoof_setRestrictionLevel(sc, levelSetInSpoofChecker);
+            int32_t result = uspoof_checkUnicodeString(sc, testString, NULL, &status);
+            TEST_ASSERT_SUCCESS(status);
+            if (U_SUCCESS(status)) {
+                TEST_ASSERT_EQ(expectedLevel, result & USPOOF_RESTRICTION_LEVEL_MASK);
+                TEST_ASSERT_EQ(expectedValue, result & USPOOF_ALL_CHECKS);
+            }
             uspoof_close(sc);
         }
     }

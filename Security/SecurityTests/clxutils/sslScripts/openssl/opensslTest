@@ -1,0 +1,49 @@
+#!/bin/csh
+# openssl/certtool compatibility
+#
+# openssl file arguments
+set CSR_FILE=new.cert.csr
+set PRIV_KEY_ENCR=privkey.pem
+set PRIV_RAW_KEY_PEM=new.key.pem
+set CERT_FILE_PEM=new.cert.pem
+set CERT_FILE_DER=new.cert.der
+#
+echo Preparing to delete $CSR_FILE $PRIV_KEY_ENCR $PRIV_RAW_KEY_PEM $CERT_FILE_PEM $CERT_FILE_DER
+echo Ctl-c to abort, or....
+doprompt
+rm -f $CSR_FILE $PRIV_KEY_ENCR $PRIV_RAW_KEY_PEM $CERT_FILE_PEM $CERT_FILE_DER
+#
+# 1. Create the key and request. This will require
+#    some user interaction.
+#
+set cmd="openssl req -new"
+echo $cmd \> $CSR_FILE
+$cmd > $CSR_FILE || exit(1)
+echo ...$PRIV_KEY_ENCR contains encrypted signing key in PEM format.
+#
+# 2. Remove the passphrase from the key.
+#
+set cmd="openssl rsa -in $PRIV_KEY_ENCR -out $PRIV_RAW_KEY_PEM"
+echo $cmd
+$cmd || exit(1)
+echo ...$PRIV_RAW_KEY_PEM contains raw signing key in PEM format. 
+#
+# 3. Convert request into signed cert.
+#
+set cmd="openssl x509 -in $CSR_FILE -out $CERT_FILE_PEM -req -signkey $PRIV_RAW_KEY_PEM -days 365"
+echo $cmd
+$cmd || exit(1)
+echo ...$CERT_FILE_PEM contains signing cert in PEM format. 
+#
+# 4. convert cert to DER form for use by sslViewer
+#
+set cmd="openssl x509 -inform PEM -outform DER -in $CERT_FILE_PEM -out $CERT_FILE_DER"
+echo $cmd
+$cmd || exit(1)
+echo ...$CERT_FILE_DER contains cert in DER format. 
+#
+echo preparing to run runServeView script. Ctl-c to abort, or....
+doprompt
+./runServeView || exit(1)
+#
+echo === COMPLETE ===

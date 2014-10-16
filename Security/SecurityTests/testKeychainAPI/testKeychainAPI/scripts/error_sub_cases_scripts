@@ -1,0 +1,494 @@
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Orange
+   Results : 1
+     OSStatus -25293
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus -25315
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus -25315
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /5/00000
+   Results : 3
+     OSStatus 0
+     Data : /5/Dog00
+     ActualLength : 3
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus 0
+     ItemIndex : 1
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /50/00000000000000000000000000000000000000000000000000
+   Results : 3
+     OSStatus 0
+     Data : /50/This item is not identical.00000000000000000000000
+     ActualLength : 27
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus -25300
+     ItemIndex : 3
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 1
+   Results : 1
+     OSStatus 0
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : type
+     .data : /2/00
+   Results : 3
+     OSStatus -25301
+     Attribute : 
+     .tag : type
+     .data : /2/00
+     ActualLength : 4
+48 KCFindFirstItem
+   Input Arguments : 2
+     KeychainIndex : 0
+     AttributeList : 
+     .count : 5
+     .0 :
+     .tag : desc
+     .data : /21/Description Attribute
+     .1 :
+     .tag : icmt
+     .data : /17/Comment Attribute
+     .2 :
+     .tag : labl
+     .data : /15/Label Attribute
+     .3 :
+     .tag : crtr
+     .data : /4/meme
+     .4 :
+     .tag : type
+     .data : /4/yuyu
+   Results : 3
+     OSStatus 0
+     SearchIndex : 0
+     ItemIndex : 0
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : desc
+     .data : /25/0000000000000000000000000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : desc
+     .data : /25/Description Attribute0000
+     ActualLength : 21
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : icmt
+     .data : /17/00000000000000000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : icmt
+     .data : /17/Comment Attribute
+     ActualLength : 17
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : labl
+     .data : /15/000000000000000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : labl
+     .data : /15/Label Attribute
+     ActualLength : 15
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : crtr
+     .data : /5/00000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : crtr
+     .data : /4/meme
+     ActualLength : 4
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : type
+     .data : /4/0000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : type
+     .data : /4/yuyu
+     ActualLength : 4
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : type
+     .data : /2/00
+   Results : 3
+     OSStatus -25301
+     Attribute : 
+     .tag : type
+     .data : /2/00
+     ActualLength : 4
+37 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : clas
+     .data : /4/0000
+   Results : 3
+     OSStatus 0
+     Attribute : 
+     .tag : clas
+     .data : /4/inet
+     ActualLength : 4
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus -25300
+     ItemIndex : 1
+50 KCReleaseSearch
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 1
+     OSStatus 037 KCGetAttribute
+   Input Arguments : 2
+     ItemIndex : 0
+     Attribute : 
+     .tag : type
+     .data : /2/00
+   Results : 3
+     OSStatus -25301
+     Attribute : 
+     .tag : type
+     .data : /2/00
+     ActualLength : 4
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus -25300
+     ItemIndex : 1
+49 KCFindNextItem
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 2
+     OSStatus -25300
+     ItemIndex : 1
+50 KCReleaseSearch
+   Input Arguments : 1
+     SearchIndex : 0
+   Results : 1
+     OSStatus 0
+28 KCFindAppleSharePassword
+   Input Arguments : 6
+     ServerSignature : My Signature....
+     ServerAddress : This is my Server Address
+     ServerName : This is my Server Name
+     VolumeName : This is my Volume Name
+     AccountName : This is my Account Name
+     Password : /8/00000000
+   Results : 4
+     OSStatus 0
+     Password : /8/Apple000
+     ActualLength : 5
+     ItemIndex : 0
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+34 KCFindGenericPassword
+   Input Arguments : 3
+     ServiceName : This is my Service Name
+     AccountName : This is my Account Name
+     Password : /10/0000000000
+   Results : 4
+     OSStatus 0
+     Password : /10/Apple00000
+     ActualLength : 0
+     ItemIndex : 1
+7 KCUnlockNoUI
+   Input Arguments : 2
+     KeychainIndex : 0      Password : Apple 
+     OSStatus 0 
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+40 KCGetDataNoUI
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /8/00000000
+   Results : 3
+     OSStatus -25308
+     Data : /8/00000000
+     ActualLength : 0
+42 KCAddItemNoUI
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus -25308
+40 KCGetDataNoUI
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /50/00000000000000000000000000000000000000000000000000
+   Results : 3
+     OSStatus -25308
+     Data : /50/00000000000000000000000000000000000000000000000000
+     ActualLength : 0
+42 KCAddItemNoUI
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 040 KCGetDataNoUI
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /50/00000000000000000000000000000000000000000000000000
+   Results : 3
+     OSStatus -25308
+     Data : /50/00000000000000000000000000000000000000000000000000
+     ActualLength : 0
+42 KCAddItemNoUI
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus -25308
+40 KCGetDataNoUI
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /8/00000000
+   Results : 3
+     OSStatus -25308
+     Data : /8/00000000
+     ActualLength : 0
+26 KCIsInteractionAllowed
+   Input Arguments : 0
+   Results : 2
+     OSStatus 0
+     AllowInteraction : 1
+//
+// script0025
+//
+//		KCChangeSettings
+//		KCSetInteractionAllowed
+//		KCGetInteractionAllowed
+//
+// Change keychain settings w/ and w/o interaction allowed enabled
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0025.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 0
+   Results : 1
+     OSStatus 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+20 KCChangeSettings
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus -25308
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 1
+   Results : 1
+     OSStatus 0
+26 KCIsInteractionAllowed
+   Input Arguments : 0
+   Results : 2
+     OSStatus 0
+     AllowInteraction : 1
+     
+//
+## Click the Cancel button ##
+20 KCChangeSettings
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus -128
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0
+      
+      
+      24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 5
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 1
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 6
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 7
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 9
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 1
+     DataAccessCount : 1
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 10
+   Results : 12
+     OSStatus 0
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 0
+     DataAccessCount : 1
+//										remove twice
+24 KCRemoveCallback
+   Input Arguments : 1
+     KCEvent : 1
+   Results : 12
+     OSStatus -25298
+     IdleCount : 0
+     LockCount : 0
+     UnlockCount : 0
+     AddCount : 0
+     DeleteCount : 0
+     UpdateCount : 0
+     ChangeIdentityCount : 0
+     FindCount : 0
+     SystemCount : 0
+     DefaultChangedCount : 0
+     DataAccessCount : 0
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 0
+   Results : 1
+     OSStatus 0
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 1
+   Results : 1
+     OSStatus 0
+25 KCSetInteractionAllowed
+   Input Arguments : 1
+     AllowInteraction : 1
+   Results : 1
+     OSStatus 0
+26 KCIsInteractionAllowed
+   Input Arguments : 0
+   Results : 2
+     OSStatus 0
+     AllowInteraction : 1
+
+

@@ -1,0 +1,104 @@
+#! /bin/csh -f
+#
+# Run one iteration of PKCS8 export test.
+# Only used as a subroutine call from importExportPkcs8.
+#
+# Usage
+#   exportPkcs8Tool rawKey p8keyGen p8KeyParse keychain p8Format(PEM|DER) alg(rsa|dsa) keysize quiet(YES|NO) noACL(YES|NO) securePhrase(YES|NO)
+#
+if ( $#argv != 10 ) then
+	exit(1)
+endif
+set RAWKEY=$argv[1]
+set PKCS8_KEY_EXP=$argv[2]
+set PKCS8_KEY_PARSE_OS=$argv[3]
+set KEYCHAIN=$argv[4]
+set FORMAT=$argv[5]
+set KEY_ALG=$argv[6]
+set KEY_SIZE=$argv[7]
+set QUIET=$argv[8]
+set QUIET_ARG=
+if ($QUIET == YES) then
+	set QUIET_ARG=-q
+endif
+set NOACL_ARG=
+if ($argv[9] == YES) then
+	set NOACL_ARG=-n
+endif
+set SECURE_PHRASE_ARG=
+if ($argv[10] == YES) then
+	set SECURE_PHRASE_ARG=-Z
+endif
+
+set PEM_ARG=
+if ($FORMAT == PEM) then
+	set PEM_ARG=-p
+endif
+
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+source setupCommon
+
+set P8_PASSWORD=foobar
+set OS_PWD_ARG="-passout pass:$P8_PASSWORD"
+
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+#
+# import the raw key
+#
+set cmd="$KCIMPORT $RAWKEY -k $KEYCHAIN -f openssl -F openssl -T priv -K 1 $QUIET_ARG $NOACL_ARG $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$DBVERIFY $KEYCHAIN_PATH $KEY_ALG priv $KEY_SIZE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Export it in P8 form 
+#
+set cmd="$RM -f $PKCS8_KEY_EXP"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f pkcs8 -z $P8_PASSWORD -o $PKCS8_KEY_EXP $PEM_ARG -q $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Ensure that openssl can read it
+#
+set cmd="$RM -f $PKCS8_KEY_PARSE_OS"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$OPENSSL pkcs8 -inform $FORMAT -outform DER -in $PKCS8_KEY_EXP -passin pass:$P8_PASSWORD -out $PKCS8_KEY_PARSE_OS"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Then ensure we can read the parsed result
+#
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PKCS8_KEY_PARSE_OS -k $KEYCHAIN -f openssl -F openssl -T priv -K 1 $QUIET_ARG $NOACL_ARG $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$DBVERIFY $KEYCHAIN_PATH $KEY_ALG priv $KEY_SIZE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)

@@ -22,22 +22,30 @@
 
 messages -> WebPageProxy {
     # UI messages
-    CreateNewPage(WebCore::ResourceRequest request, WebCore::WindowFeatures windowFeatures, uint32_t modifiers, int32_t mouseButton) -> (uint64_t newPageID, WebKit::WebPageCreationParameters newPageParameters)
+    CreateNewPage(uint64_t frameID, WebCore::ResourceRequest request, WebCore::WindowFeatures windowFeatures, WebKit::NavigationActionData navigationActionData) -> (uint64_t newPageID, WebKit::WebPageCreationParameters newPageParameters)
     ShowPage()
     ClosePage(bool stopResponsivenessTimer)
-    RunJavaScriptAlert(uint64_t frameID, WTF::String message) -> ()
-    RunJavaScriptConfirm(uint64_t frameID, WTF::String message) -> (bool result)
-    RunJavaScriptPrompt(uint64_t frameID, WTF::String message, WTF::String defaultValue) -> (WTF::String result)
+    RunJavaScriptAlert(uint64_t frameID, String message) -> () Delayed
+    RunJavaScriptConfirm(uint64_t frameID, String message) -> (bool result) Delayed
+    RunJavaScriptPrompt(uint64_t frameID, String message, String defaultValue) -> (String result) Delayed
     ShouldInterruptJavaScript() -> (bool shouldInterupt)
     MouseDidMoveOverElement(WebKit::WebHitTestResult::Data hitTestResultData, uint32_t modifiers, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    UnavailablePluginButtonClicked(uint32_t pluginUnavailabilityReason, WTF::String mimeType, WTF::String pluginURLString, WTF::String pluginspageAttributeURLString, WTF::String frameURLString, WTF::String pageURLString)
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    UnavailablePluginButtonClicked(uint32_t pluginUnavailabilityReason, String mimeType, String pluginURLString, String pluginspageAttributeURLString, String frameURLString, String pageURLString)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
+#if ENABLE(WEBGL)
+    WebGLPolicyForURL(String url) -> (uint32_t loadPolicy)
+    ResolveWebGLPolicyForURL(String url) -> (uint32_t loadPolicy)
+#endif // ENABLE(WEBGL)
     DidChangeViewportProperties(WebCore::ViewportAttributes attributes)
     DidReceiveEvent(uint32_t type, bool handled)
     StopResponsivenessTimer()
+#if !PLATFORM(IOS)
     SetCursor(WebCore::Cursor cursor)
     SetCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
-    SetStatusText(WTF::String statusText)
-    SetToolTip(WTF::String toolTip)
+#endif
+    SetStatusText(String statusText)
+    SetToolTip(String toolTip)
     SetFocus(bool focused)
     TakeFocus(uint32_t direction)
     FocusedFrameChanged(uint64_t frameID)
@@ -53,9 +61,15 @@ messages -> WebPageProxy {
     GetIsResizable() -> (bool isResizable)
     SetWindowFrame(WebCore::FloatRect windowFrame)
     GetWindowFrame() -> (WebCore::FloatRect windowFrame)
-    ScreenToWindow(WebCore::IntPoint screenPoint) -> (WebCore::IntPoint windowPoint)
-    WindowToScreen(WebCore::IntRect rect) -> (WebCore::IntRect screenFrame)
-    RunBeforeUnloadConfirmPanel(WTF::String message, uint64_t frameID) -> (bool shouldClose)
+    ScreenToRootView(WebCore::IntPoint screenPoint) -> (WebCore::IntPoint windowPoint)
+    RootViewToScreen(WebCore::IntRect rect) -> (WebCore::IntRect screenFrame)
+
+#if PLATFORM(IOS)
+    AccessibilityScreenToRootView(WebCore::IntPoint screenPoint) -> (WebCore::IntPoint windowPoint)
+    RootViewToAccessibilityScreen(WebCore::IntRect rect) -> (WebCore::IntRect screenFrame)
+#endif
+
+    RunBeforeUnloadConfirmPanel(String message, uint64_t frameID) -> (bool shouldClose)
     PageDidScroll()
     RunOpenPanel(uint64_t frameID, WebCore::FileChooserSettings parameters)
     PrintFrame(uint64_t frameID) -> ()
@@ -64,9 +78,12 @@ messages -> WebPageProxy {
     RecommendedScrollbarStyleDidChange(int32_t newStyle)
     DidChangeScrollbarsForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar)
     DidChangeScrollOffsetPinningForMainFrame(bool pinnedToLeftSide, bool pinnedToRightSide, bool pinnedToTopSide, bool pinnedToBottomSide)
-    DidChangePageCount(unsigned pageCount);
-    DidFailToInitializePlugin(WTF::String mimeType, WTF::String frameURLString, WTF::String pageURLString)
-    DidBlockInsecurePluginVersion(WTF::String mimeType, WTF::String pluginURLString, WTF::String frameURLString, WTF::String pageURLString, bool replacementObscured)
+    DidChangePageCount(unsigned pageCount)
+    PageExtendedBackgroundColorDidChange(WebCore::Color backgroundColor)
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    DidFailToInitializePlugin(String mimeType, String frameURLString, String pageURLString)
+    DidBlockInsecurePluginVersion(String mimeType, String pluginURLString, String frameURLString, String pageURLString, bool replacementObscured)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
     SetCanShortCircuitHorizontalWheelEvents(bool canShortCircuitHorizontalWheelEvents)
 
 #if PLATFORM(EFL)
@@ -77,31 +94,24 @@ messages -> WebPageProxy {
     PageDidRequestScroll(WebCore::IntPoint point)
     PageTransitionViewportReady()
 #endif
-#if PLATFORM(QT)
+#if USE(COORDINATED_GRAPHICS)
     DidFindZoomableArea(WebCore::IntPoint target, WebCore::IntRect area)
-    AuthenticationRequiredRequest(WTF::String hostname, WTF::String realm, WTF::String prefilledUsername) -> (WTF::String username, WTF::String password)
-    CertificateVerificationRequest(WTF::String hostname) -> (bool ignoreErrors)
-    ProxyAuthenticationRequiredRequest(WTF::String hostname, uint16_t port, WTF::String prefilledUsername) -> (WTF::String username, WTF::String password)
 #endif
 
-#if PLATFORM(QT) || PLATFORM(EFL)
-    DidChangeContentsSize(WebCore::IntSize newSize)
-#endif
-
-#if ENABLE(TOUCH_EVENTS)
-    NeedTouchEvents(bool needTouchEvents)
+#if PLATFORM(EFL)
+    DidChangeContentSize(WebCore::IntSize newSize)
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    ShowColorChooser(WebCore::Color initialColor, WebCore::IntRect elementRect);
-    SetColorChooserColor(WebCore::Color color);
-    EndColorChooser();
+    ShowColorPicker(WebCore::Color initialColor, WebCore::IntRect elementRect);
+    SetColorPickerColor(WebCore::Color color);
+    EndColorPicker();
 #endif
 
     # Policy messages
-    DecidePolicyForResponseSync(uint64_t frameID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) -> (bool receivedPolicyAction, uint64_t policyAction, uint64_t downloadID) Variadic
-    DecidePolicyForNavigationAction(uint64_t frameID, uint32_t navigationType, uint32_t modifiers, int32_t mouseButton, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) -> (bool receivedPolicyAction, uint64_t policyAction, uint64_t downloadID) Variadic
-    DecidePolicyForNewWindowAction(uint64_t frameID, uint32_t navigationType, uint32_t modifiers, int32_t mouseButton, WebCore::ResourceRequest request, WTF::String frameName, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DecidePolicyForResponseSync(uint64_t frameID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) -> (bool receivedPolicyAction, uint64_t policyAction, uint64_t downloadID) Variadic
+    DecidePolicyForNavigationAction(uint64_t frameID, uint64_t navigationID, WebKit::NavigationActionData navigationActionData, uint64_t originatingFrameID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) -> (bool receivedPolicyAction, uint64_t newNavigationID, uint64_t policyAction, uint64_t downloadID) Variadic
+    DecidePolicyForNewWindowAction(uint64_t frameID, WebKit::NavigationActionData navigationActionData, WebCore::ResourceRequest request, String frameName, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     UnableToImplementPolicy(uint64_t frameID, WebCore::ResourceError error, WebKit::InjectedBundleUserMessageEncoder userData)  Variadic
 
     # Progress messages
@@ -109,49 +119,71 @@ messages -> WebPageProxy {
     DidFinishProgress()
     DidStartProgress()
 
+    SetNetworkRequestsInProgress(bool networkRequestsInProgress)
+
     # Frame lifetime messages
     DidCreateMainFrame(uint64_t frameID)
     DidCreateSubframe(uint64_t frameID)
 
     # Frame load messages
-    DidCommitLoadForFrame(uint64_t frameID, WTF::String mimeType, bool hasCustomRepresentation, uint32_t loadType, WebKit::PlatformCertificateInfo certificateInfo, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidFailLoadForFrame(uint64_t frameID, WebCore::ResourceError error, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidFailProvisionalLoadForFrame(uint64_t frameID, WebCore::ResourceError error, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidFinishDocumentLoadForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidFinishLoadForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidStartProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, String url, String unreachableURL, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, String url, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidFailProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, WebCore::ResourceError error, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidCommitLoadForFrame(uint64_t frameID, uint64_t navigationID, String mimeType, bool hasCustomContentProvider, uint32_t loadType, WebCore::CertificateInfo certificateInfo, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidFailLoadForFrame(uint64_t frameID, uint64_t navigationID, WebCore::ResourceError error, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidFinishDocumentLoadForFrame(uint64_t frameID, uint64_t navigationID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidFinishLoadForFrame(uint64_t frameID, uint64_t navigationID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidFirstLayoutForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidFirstVisuallyNonEmptyLayoutForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidNewFirstVisuallyNonEmptyLayout(WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidLayout(uint32_t type, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, WTF::String url, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidRemoveFrameFromHierarchy(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidStartProvisionalLoadForFrame(uint64_t frameID, WTF::String url, WTF::String unreachableURL, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidReceiveTitleForFrame(uint64_t frameID, WTF::String title, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidReceiveTitleForFrame(uint64_t frameID, String title, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidDisplayInsecureContentForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidRunInsecureContentForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
     DidDetectXSSForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
-    DidSameDocumentNavigationForFrame(uint64_t frameID, uint32_t type, WTF::String url, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidSameDocumentNavigationForFrame(uint64_t frameID, uint64_t navigationID, uint32_t type, String url, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    DidDestroyNavigation(uint64_t navigationID)
 
     FrameDidBecomeFrameSet(uint64_t frameID, bool value)
 
-#if PLATFORM(QT)
-    ResolveApplicationSchemeRequest(WebKit::QtNetworkRequestData request)
-#endif
-
     # Custom representations
-    DidFinishLoadingDataForCustomRepresentation(WTF::String suggestedFilename, CoreIPC::DataReference data)
+    DidFinishLoadingDataForCustomContentProvider(String suggestedFilename, IPC::DataReference data)
 
     # Forms messages
-    WillSubmitForm(uint64_t frameID, uint64_t sourceFrameID, WTF::Vector<std::pair<WTF::String, WTF::String>> textFieldValues, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    WillSubmitForm(uint64_t frameID, uint64_t sourceFrameID, Vector<std::pair<String, String>> textFieldValues, uint64_t listenerID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
 
     # Callback messages
     VoidCallback(uint64_t callbackID)
-    DataCallback(CoreIPC::DataReference resultData, uint64_t callbackID)
+    DataCallback(IPC::DataReference resultData, uint64_t callbackID)
     ImageCallback(WebKit::ShareableBitmap::Handle bitmapHandle, uint64_t callbackID)
-    StringCallback(WTF::String resultString, uint64_t callbackID)
-    ScriptValueCallback(CoreIPC::DataReference resultData, uint64_t callbackID)
+    StringCallback(String resultString, uint64_t callbackID)
+    ScriptValueCallback(IPC::DataReference resultData, uint64_t callbackID)
     ComputedPagesCallback(Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, uint64_t callbackID)
-    ValidateCommandCallback(WTF::String command, bool isEnabled, int32_t state, uint64_t callbackID)
+    ValidateCommandCallback(String command, bool isEnabled, int32_t state, uint64_t callbackID)
+    EditingRangeCallback(WebKit::EditingRange range, uint64_t callbackID)
+    UnsignedCallback(uint64_t result, uint64_t callbackID)
+    RectForCharacterRangeCallback(WebCore::IntRect rect, WebKit::EditingRange actualRange, uint64_t callbackID)
+#if PLATFORM(MAC)
+    AttributedStringForCharacterRangeCallback(WebKit::AttributedString string, WebKit::EditingRange actualRange, uint64_t callbackID)
+#endif
+#if PLATFORM(IOS)
+    GestureCallback(WebCore::IntPoint point, uint32_t gestureType, uint32_t gestureState, uint32_t flags, uint64_t callbackID)
+    TouchesCallback(WebCore::IntPoint point, uint32_t touches, uint64_t callbackID)
+    AutocorrectionDataCallback(Vector<WebCore::FloatRect> textRects, String fontName, double fontSize, uint64_t traits, uint64_t callbackID)
+    AutocorrectionContextCallback(String beforeText, String markedText, String selectedText, String afterText, uint64_t location, uint64_t length, uint64_t callbackID)
+    DictationContextCallback(String selectedText, String beforeText, String afterText, uint64_t callbackID)
+    InterpretKeyEvent(WebKit::EditorState state, bool isCharEvent) -> (bool handled)
+    DidReceivePositionInformation(WebKit::InteractionInformationAtPosition information)
+    SaveImageToLibrary(WebKit::SharedMemory::Handle handle, uint64_t size)
+    DidUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
+    ShowPlaybackTargetPicker(bool hasVideo, WebCore::IntRect elementRect)
+    ZoomToRect(WebCore::FloatRect rect, double minimumScale, double maximumScale)
+    CommitPotentialTapFailed()
+    DidNotHandleTapAsClick(WebCore::IntPoint point)
+    ViewportMetaTagWidthDidChange(float width)
+    SetUsesMinimalUI(bool usesMinimalUI)
+    DidFinishDrawingPagesToPDF(IPC::DataReference pdfData)
+#endif
 #if PLATFORM(GTK)
     PrintFinishedCallback(WebCore::ResourceError error, uint64_t callbackID)
 #endif
@@ -161,10 +193,10 @@ messages -> WebPageProxy {
 
 #if PLATFORM(GTK)
     # Support for GTK+ platform keybindings
-    GetEditorCommandsForKeyEvent(AtomicString eventType) -> (Vector<WTF::String> commandsList)
+    GetEditorCommandsForKeyEvent(AtomicString eventType) -> (Vector<String> commandsList)
 
     # Support for connecting the Accessibility worlds of the UI and the Web processes
-    BindAccessibilityTree(WTF::String plugID)
+    BindAccessibilityTree(String plugID)
 
     SetInputMethodState(bool enabled);
 #endif
@@ -176,26 +208,25 @@ messages -> WebPageProxy {
     BackForwardBackListCount() -> (int32_t count)
     BackForwardForwardListCount() -> (int32_t count)
     BackForwardClear()
-    ShouldGoToBackForwardListItem(uint64_t itemID) -> (bool shouldGoToBackForwardListItem)
     WillGoToBackForwardListItem(uint64_t itemID, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
 
     # Undo/Redo messages
     RegisterEditCommandForUndo(uint64_t commandID, uint32_t editAction)
     ClearAllEditCommands()
+    RegisterInsertionUndoGrouping()
     CanUndoRedo(uint32_t action) -> (bool result)
     ExecuteUndoRedo(uint32_t action) -> (bool result)
 
     # Editor notifications
     EditorStateChanged(WebKit::EditorState editorState)
-#if PLATFORM(QT)
-    WillSetInputMethodState()
-#endif
+    CompositionWasCanceled(WebKit::EditorState editorState)
+
     # Find messages
-    DidCountStringMatches(WTF::String string, uint32_t matchCount)
+    DidCountStringMatches(String string, uint32_t matchCount)
     SetFindIndicator(WebCore::FloatRect selectionRect, Vector<WebCore::FloatRect> textRects, float contentImageScaleFactor, WebKit::ShareableBitmap::Handle contentImageHandle, bool fadeOut, bool animate)
-    DidFindString(WTF::String string, uint32_t matchCount)
-    DidFailToFindString(WTF::String string)
-    DidFindStringMatches(WTF::String string, Vector<Vector<WebCore::IntRect>> matches, int32_t firstIndexAfterSelection)
+    DidFindString(String string, uint32_t matchCount, int32_t matchIndex)
+    DidFailToFindString(String string)
+    DidFindStringMatches(String string, Vector<Vector<WebCore::IntRect>> matches, int32_t firstIndexAfterSelection)
     DidGetImageForFindMatch(WebKit::ShareableBitmap::Handle contentImageHandle, uint32_t matchIndex)
 
     # PopupMenu messages
@@ -204,7 +235,7 @@ messages -> WebPageProxy {
 
 #if ENABLE(CONTEXT_MENUS)
     # ContextMenu messages
-    ShowContextMenu(WebCore::IntPoint menuLocation, WebKit::WebHitTestResult::Data hitTestResultData, Vector<WebKit::WebContextMenuItemData> items, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    ShowContextMenu(WebCore::IntPoint menuLocation, WebKit::ContextMenuContextData contextMenuContextData, Vector<WebKit::WebContextMenuItemData> items, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
 #endif
 
     # Authentication messages
@@ -212,54 +243,56 @@ messages -> WebPageProxy {
     DidReceiveAuthenticationChallenge(uint64_t frameID, WebCore::AuthenticationChallenge challenge, uint64_t challengeID)
 
     # Database messages
-    ExceededDatabaseQuota(uint64_t frameID, WTF::String originIdentifier, WTF::String databaseName, WTF::String databaseDisplayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage) -> (uint64_t newQuota) Delayed
+    ExceededDatabaseQuota(uint64_t frameID, String originIdentifier, String databaseName, String databaseDisplayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage) -> (uint64_t newQuota) Delayed
+
+    # Application cache messages
+    ReachedApplicationCacheOriginQuota(String originIdentifier, uint64_t currentQuota, uint64_t totalBytesNeeded) -> (uint64_t newQuota) Delayed
 
     # Geolocation messages
-    RequestGeolocationPermissionForFrame(uint64_t geolocationID, uint64_t frameID, WTF::String originIdentifier)
+    RequestGeolocationPermissionForFrame(uint64_t geolocationID, uint64_t frameID, String originIdentifier)
     
     # Notification messages
-    RequestNotificationPermission(uint64_t requestID, WTF::String originIdentifier)
-    ShowNotification(WTF::String title, WTF::String body, WTF::String iconURL, WTF::String tag, WTF::String lang, WTF::String dir, WTF::String originIdentifier, uint64_t notificationID)
+    RequestNotificationPermission(uint64_t requestID, String originIdentifier)
+    ShowNotification(String title, String body, String iconURL, String tag, String lang, String dir, String originIdentifier, uint64_t notificationID)
     CancelNotification(uint64_t notificationID)
     ClearNotifications(Vector<uint64_t> notificationIDs)
     DidDestroyNotification(uint64_t notificationID)
 
     # Spelling and grammar messages
 #if USE(UNIFIED_TEXT_CHECKING)  
-    CheckTextOfParagraph(WTF::String text, uint64_t checkingTypes) -> (Vector<WebCore::TextCheckingResult> results)
+    CheckTextOfParagraph(String text, uint64_t checkingTypes) -> (Vector<WebCore::TextCheckingResult> results)
 #endif
-    CheckSpellingOfString(WTF::String text) -> (int32_t misspellingLocation, int32_t misspellingLength)
-    CheckGrammarOfString(WTF::String text) -> (Vector<WebCore::GrammarDetail> results, int32_t badGrammarLocation, int32_t badGrammarLength)
+    CheckSpellingOfString(String text) -> (int32_t misspellingLocation, int32_t misspellingLength)
+    CheckGrammarOfString(String text) -> (Vector<WebCore::GrammarDetail> results, int32_t badGrammarLocation, int32_t badGrammarLength)
     SpellingUIIsShowing() -> (bool isShowing)
-    UpdateSpellingUIWithMisspelledWord(WTF::String misspelledWord)
-    UpdateSpellingUIWithGrammarString(WTF::String badGrammarPhrase, WebCore::GrammarDetail grammarDetail)
-    GetGuessesForWord(WTF::String word, WTF::String context) -> (Vector<WTF::String> guesses)
-    LearnWord(WTF::String word);
-    IgnoreWord(WTF::String word);
+    UpdateSpellingUIWithMisspelledWord(String misspelledWord)
+    UpdateSpellingUIWithGrammarString(String badGrammarPhrase, WebCore::GrammarDetail grammarDetail)
+    GetGuessesForWord(String word, String context) -> (Vector<String> guesses)
+    LearnWord(String word);
+    IgnoreWord(String word);
     RequestCheckingOfString(uint64_t requestID, WebCore::TextCheckingRequestData request)
 
     # Drag and drop messages
 #if ENABLE(DRAG_SUPPORT)
-    DidPerformDragControllerAction(WebCore::DragSession dragSession)
+    DidPerformDragControllerAction(uint64_t dragOperation, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted)
 #endif
-#if PLATFORM(MAC) && ENABLE(DRAG_SUPPORT)
+#if PLATFORM(COCOA) && ENABLE(DRAG_SUPPORT)
     SetDragImage(WebCore::IntPoint clientPosition, WebKit::ShareableBitmap::Handle dragImage, bool linkDrag)
-    SetPromisedData(WTF::String pasteboardName, WebKit::SharedMemory::Handle imageHandle, uint64_t imageSize, WTF::String filename, WTF::String extension, WTF::String title, WTF::String url, WTF::String visibleURL, WebKit::SharedMemory::Handle archiveHandle, uint64_t archiveSize)
+    SetPromisedData(String pasteboardName, WebKit::SharedMemory::Handle imageHandle, uint64_t imageSize, String filename, String extension, String title, String url, String visibleURL, WebKit::SharedMemory::Handle archiveHandle, uint64_t archiveSize)
 #endif
-#if (PLATFORM(QT) || PLATFORM(GTK)) && ENABLE(DRAG_SUPPORT)
+#if PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
     StartDrag(WebCore::DragData dragData, WebKit::ShareableBitmap::Handle dragImage)
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     # Dictionary support.
     DidPerformDictionaryLookup(WebKit::AttributedString text, WebKit::DictionaryPopupInfo dictionaryPopupInfo)
 
     # Keyboard input support messages
-    InterpretQueuedKeyEvent(WebKit::EditorState state) -> (bool handled, Vector<WebCore::KeypressCommand> savedCommands)
-    ExecuteSavedCommandBySelector(WTF::String selector) -> (bool handled)
+    ExecuteSavedCommandBySelector(String selector) -> (bool handled)
 
     # Remote accessibility messages
-    RegisterWebProcessAccessibilityToken(CoreIPC::DataReference data)
+    RegisterWebProcessAccessibilityToken(IPC::DataReference data)
 
     # Plug-in complex text input support messages
     PluginFocusOrWindowFocusChanged(uint64_t pluginComplexTextInputIdentifier, bool pluginHasFocusAndWindowHasFocus)
@@ -267,18 +300,18 @@ messages -> WebPageProxy {
 
     # Speech messages
     GetIsSpeaking() -> (bool isSpeaking)
-    Speak(WTF::String string)
+    Speak(String string)
     StopSpeaking()
 
     MakeFirstResponder()
 
     # Spotlight
-    SearchWithSpotlight(WTF::String string)
+    SearchWithSpotlight(String string)
 
-    SearchTheWeb(WTF::String string)
+    SearchTheWeb(String string)
 #endif
 
-#if PLATFORM(MAC)
+#if USE(APPKIT)
     SubstitutionsPanelIsShowing() -> (bool isShowing)
 #endif
 #if PLATFORM(MAC)
@@ -299,29 +332,81 @@ messages -> WebPageProxy {
     # X11 windowed plugin messages
     CreatePluginContainer() -> (uint64_t windowID)
     WindowedPluginGeometryDidChange(WebCore::IntRect frameRect, WebCore::IntRect clipRect, uint64_t windowID)
+    WindowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID)
+#endif
+
+#if PLATFORM(IOS)
+    DynamicViewportUpdateChangedTarget(double newTargetScale, WebCore::FloatPoint newScrollPosition)
+    RestorePageState(WebCore::FloatRect exposedRect, double scale)
+    RestorePageCenterAndScale(WebCore::FloatPoint unobscuredCenter, double scale)
+    DidGetTapHighlightGeometries(uint64_t requestID, WebCore::Color color, Vector<WebCore::FloatQuad> geometries, WebCore::IntSize topLeftRadius, WebCore::IntSize topRightRadius, WebCore::IntSize bottomLeftRadius, WebCore::IntSize bottomRightRadius)
+
+    StartAssistingNode(WebKit::AssistedNodeInformation information, bool userIsInteracting, bool blurPreviousNode, WebKit::InjectedBundleUserMessageEncoder userData) Variadic
+    StopAssistingNode()
+    NotifyRevealedSelection()
+
+#if ENABLE(INSPECTOR)
+    ShowInspectorHighlight(WebCore::Highlight highlight)
+    HideInspectorHighlight()
+
+    ShowInspectorIndication()
+    HideInspectorIndication()
+
+    EnableInspectorNodeSearch()
+    DisableInspectorNodeSearch()
+#endif
 #endif
 
     # Search popup menus
-    SaveRecentSearches(WTF::String name, Vector<String> searchItems)
-    LoadRecentSearches(WTF::String name) -> (Vector<String> result)
+    SaveRecentSearches(String name, Vector<String> searchItems)
+    LoadRecentSearches(String name) -> (Vector<String> result)
 
 #if USE(SOUP)
+#if !ENABLE(CUSTOM_PROTOCOLS)
     # Soup custom URI request messages
-    DidReceiveURIRequest(WTF::String uriString, uint64_t requestID);
+    DidReceiveURIRequest(String uriString, uint64_t requestID);
+#endif
 #endif
 
-    SavePDFToFileInDownloadsFolder(WTF::String suggestedFilename, WTF::String originatingURLString, CoreIPC::DataReference data)
+    SavePDFToFileInDownloadsFolder(String suggestedFilename, String originatingURLString, IPC::DataReference data)
 
-#if PLATFORM(MAC)
-    SavePDFToTemporaryFolderAndOpenWithNativeApplication(WTF::String suggestedFilename, WTF::String originatingURLString, CoreIPC::DataReference data, WTF::String pdfUUID)
-    OpenPDFFromTemporaryFolderWithNativeApplication(WTF::String pdfUUID)
+#if PLATFORM(COCOA)
+    SavePDFToTemporaryFolderAndOpenWithNativeApplication(String suggestedFilename, String originatingURLString, IPC::DataReference data, String pdfUUID)
+    OpenPDFFromTemporaryFolderWithNativeApplication(String pdfUUID)
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    FindPlugin(WTF::String mimeType, uint32_t processType, WTF::String urlString, WTF::String frameURLString, WTF::String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, WTF::String newMIMEType, uint32_t pluginLoadPolicy, WTF::String unavailabilityDescription)
+    FindPlugin(String mimeType, uint32_t processType, String urlString, String frameURLString, String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, String newMIMEType, uint32_t pluginLoadPolicy, String unavailabilityDescription)
 #endif
 
-    DidUpdateInWindowState()
+    DidUpdateViewState()
     
     DidSaveToPageCache()
+
+#if ENABLE(SUBTLE_CRYPTO)
+    WrapCryptoKey(Vector<uint8_t> key) -> (bool succeeded, Vector<uint8_t> wrappedKey)
+    UnwrapCryptoKey(Vector<uint8_t> wrappedKey) -> (bool succeeded, Vector<uint8_t> key)
+#endif
+
+
+#if ENABLE(TELEPHONE_NUMBER_DETECTION)
+#if PLATFORM(MAC)
+    ShowTelephoneNumberMenu(String telephoneNumber, WebCore::IntPoint point)
+#endif
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+    ShowSelectionServiceMenu(IPC::DataReference selectionAsRTFD, Vector<String> telephoneNumbers, bool isEditable, WebCore::IntPoint point)
+#endif
+
+#if USE(QUICK_LOOK)
+    DidStartLoadForQuickLookDocumentInMainFrame(String fileName, String uti)
+    DidFinishLoadForQuickLookDocumentInMainFrame(WebKit::QuickLookDocumentData data)
+#endif
+
+    WillChangeCurrentHistoryItemForMainFrame()
+
+#if USE(CONTENT_FILTERING)
+    ContentFilterDidBlockLoadForFrame(WebCore::ContentFilter contentFilter, uint64_t frameID)
+#endif
 }

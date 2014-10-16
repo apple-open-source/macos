@@ -26,9 +26,9 @@
 #ifndef WKPageEfl_h
 #define WKPageEfl_h
 
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKGeometry.h>
-#include <WebKit2/WKPopupItem.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKGeometry.h>
+#include <WebKit/WKPopupItem.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,17 +37,19 @@ extern "C" {
 typedef void (*WKPageShowPopupMenuCallback)(WKPageRef page, WKPopupMenuListenerRef menuListenerRef, WKRect rect, WKPopupItemTextDirection textDirection, double pageScaleFactor, WKArrayRef itemsRef, int32_t selectedIndex, const void* clientInfo);
 typedef void (*WKPageHidePopupMenuCallback)(WKPageRef page, const void* clientInfo);
 
-struct WKPageUIPopupMenuClient {
+typedef struct WKPageUIPopupMenuClientBase {
     int                                            version;
     const void*                                    clientInfo;
+} WKPageUIPopupMenuClientBase;
+
+typedef struct WKPageUIPopupMenuClientV0 {
+    WKPageUIPopupMenuClientBase                    base;
+
     WKPageShowPopupMenuCallback                    showPopupMenu;
     WKPageHidePopupMenuCallback                    hidePopupMenu;
-};
-typedef struct WKPageUIPopupMenuClient WKPageUIPopupMenuClient;
+} WKPageUIPopupMenuClientV0;
 
-enum { kWKPageUIPopupMenuClientCurrentVersion = 0 };
-
-WK_EXPORT void WKPageSetUIPopupMenuClient(WKPageRef page, const WKPageUIPopupMenuClient* client);
+WK_EXPORT void WKPageSetUIPopupMenuClient(WKPageRef page, const WKPageUIPopupMenuClientBase* client);
 
 #ifdef __cplusplus
 }

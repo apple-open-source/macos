@@ -123,7 +123,7 @@ _mergeUnspecifiedUPSThresholds(
     return;
 }
 
-
+#if 0
 static void    
 _removeUnsupportedUPSThresholds(
     CFTypeRef whichUPS __unused, 
@@ -132,7 +132,7 @@ _removeUnsupportedUPSThresholds(
     CFTypeRef                   snap;
     CFTypeRef                   our_favorite_ups;
     CFDictionaryRef             description;
-    
+
     snap = IOPSCopyPowerSourcesInfo();
     if(!snap) return;
     our_favorite_ups = IOPSGetActiveUPS(snap);
@@ -159,7 +159,7 @@ exit:
     CFRelease(snap);
     return;
 }
-
+#endif
 
 extern IOReturn 
 IOPMSetUPSShutdownLevels(CFTypeRef whichUPS, CFDictionaryRef UPSPrefs)
@@ -231,10 +231,10 @@ IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
         
     // Merge in the default values
     _mergeUnspecifiedUPSThresholds(whichUPS, ret_dict);
-    
+#if 0
     // Remove any unsupported values
     _removeUnsupportedUPSThresholds(whichUPS, ret_dict);
-
+#endif
     // Does this UPS support NOTHING? If so, just return NULL.
     if( (0 == CFDictionaryGetCount(ret_dict)) ||
         !_validUPSShutdownSettings(ret_dict) )

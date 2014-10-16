@@ -31,21 +31,26 @@
 #include "RenderMathMLBlock.h"
 
 namespace WebCore {
-    
+
+class RenderMathMLRoot;
+
 class RenderMathMLRow : public RenderMathMLBlock {
 public:
-    RenderMathMLRow(Element*);
+    RenderMathMLRow(Element&, PassRef<RenderStyle>);
+    RenderMathMLRow(Document&, PassRef<RenderStyle>);
 
-    static RenderMathMLRow* createAnonymousWithParentRenderer(const RenderObject*);
-    
-    virtual bool isRenderMathMLRow() const { return true; }
-    
+    static RenderPtr<RenderMathMLRow> createAnonymousWithParentRenderer(RenderMathMLRoot&);
+    void updateOperatorProperties();
+
 protected:
     virtual void layout();
 
 private:
-    virtual const char* renderName() const { return isAnonymous() ? "RenderMathMLRow (anonymous)" : "RenderMathMLRow"; }
+    virtual bool isRenderMathMLRow() const override final { return true; }
+    virtual const char* renderName() const override { return isAnonymous() ? "RenderMathMLRow (anonymous)" : "RenderMathMLRow"; }
 };
+
+RENDER_OBJECT_TYPE_CASTS(RenderMathMLRow, isRenderMathMLRow())
 
 }
 

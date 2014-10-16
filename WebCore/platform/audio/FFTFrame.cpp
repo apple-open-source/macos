@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,7 +35,6 @@
 #include "Logging.h"
 #include <complex>
 #include <wtf/MathExtras.h>
-#include <wtf/OwnPtr.h>
 
 #ifndef NDEBUG
 #include <stdio.h>
@@ -53,9 +52,9 @@ void FFTFrame::doPaddedFFT(const float* data, size_t dataSize)
     doFFT(paddedResponse.data());
 }
 
-PassOwnPtr<FFTFrame> FFTFrame::createInterpolatedFrame(const FFTFrame& frame1, const FFTFrame& frame2, double x)
+std::unique_ptr<FFTFrame> FFTFrame::createInterpolatedFrame(const FFTFrame& frame1, const FFTFrame& frame2, double x)
 {
-    OwnPtr<FFTFrame> newFrame = adoptPtr(new FFTFrame(frame1.fftSize()));
+    auto newFrame = std::make_unique<FFTFrame>(frame1.fftSize());
 
     newFrame->interpolateFrequencyComponents(frame1, frame2, x);
 
@@ -68,7 +67,7 @@ PassOwnPtr<FFTFrame> FFTFrame::createInterpolatedFrame(const FFTFrame& frame1, c
     // Put back into frequency domain.
     newFrame->doFFT(buffer.data());
 
-    return newFrame.release();
+    return newFrame;
 }
 
 void FFTFrame::interpolateFrequencyComponents(const FFTFrame& frame1, const FFTFrame& frame2, double interp)

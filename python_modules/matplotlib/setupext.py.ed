@@ -1,8 +1,0 @@
-/def add_ft2font_flags/a
-.
-/else:/i
-        module.extra_link_args.extend(['-framework', 'CoreServices',
-                                       '-framework', 'ApplicationServices',
-                                       '-framework', 'CoreFoundation'])
-.
-w

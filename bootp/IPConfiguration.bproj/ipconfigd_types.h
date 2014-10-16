@@ -1,8 +1,5 @@
-#ifndef _S_IPCONFIGD_TYPES_H
-#define _S_IPCONFIGD_TYPES_H
-
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +20,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef _S_IPCONFIGD_TYPES_H
+#define _S_IPCONFIGD_TYPES_H
 
 #include <mach/boolean.h>
 #include <netinet/in.h>
@@ -55,43 +55,8 @@ typedef enum {
     ipconfig_method_linklocal_v6_e = 0x205,
 } ipconfig_method_t;
 
-static __inline__ const char *
-ipconfig_method_string(ipconfig_method_t m)
-{
-    switch (m) {
-    case ipconfig_method_none_e:
-	return ("NONE");
-    case ipconfig_method_none_v4_e:
-	return ("NONE-V4");
-    case ipconfig_method_none_v6_e:
-	return ("NONE-V6");
-    case ipconfig_method_manual_e:
-	return ("MANUAL");
-    case ipconfig_method_bootp_e:
-	return ("BOOTP");
-    case ipconfig_method_dhcp_e:
-	return ("DHCP");
-    case ipconfig_method_inform_e:
-	return ("INFORM");
-    case ipconfig_method_linklocal_e:
-	return ("LINKLOCAL");
-    case ipconfig_method_failover_e:
-	return ("FAILOVER");
-    case ipconfig_method_manual_v6_e:
-	return ("MANUAL-V6");
-    case ipconfig_method_automatic_v6_e:
-	return ("AUTOMATIC-V6");
-    case ipconfig_method_rtadv_e:
-	return ("RTADV");
-    case ipconfig_method_stf_e:
-	return ("6TO4");
-    case ipconfig_method_linklocal_v6_e:
-	return ("LINKLOCAL-V6");
-    default:
-	break;
-    }
-    return ("<unknown>");
-}
+const char *
+ipconfig_method_string(ipconfig_method_t m);
 
 static __inline__ boolean_t
 ipconfig_method_is_dhcp_or_bootp(ipconfig_method_t method)
@@ -199,5 +164,10 @@ typedef struct {
     const struct in6_addr *	dns_servers;
     int				dns_servers_count;
 } dhcpv6_info_t;
+
+typedef struct {
+    boolean_t			requested;
+    boolean_t			supported;
+} active_during_sleep_t;
 
 #endif /* _S_IPCONFIGD_TYPES_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,9 +96,9 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	/* send the keys and patterns, fetch the associated result from the server */
 	status = configget_m(storePrivate->server,
 			     myKeysRef,
-			     myKeysLen,
+			     (mach_msg_type_number_t)myKeysLen,
 			     myPatternsRef,
-			     myPatternsLen,
+			     (mach_msg_type_number_t)myPatternsLen,
 			     &xmlDictRef,
 			     &xmlDictLen,
 			     (int *)&sc_status);
@@ -175,7 +175,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	/* send the key & fetch the associated data from the server */
 	status = configget(storePrivate->server,
 			   myKeyRef,
-			   myKeyLen,
+			   (mach_msg_type_number_t)myKeyLen,
 			   &xmlDataRef,
 			   &xmlDataLen,
 			   &newInstance,

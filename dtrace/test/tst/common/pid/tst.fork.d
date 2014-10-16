@@ -41,21 +41,12 @@ pid$1:a.out:waiting:entry
 	copyout(this->value, arg0, sizeof (int));
 }
 
-#if !defined(__APPLE__)
-syscall::forkall:return
-/curpsinfo->pr_ppid == $1/
-{
-	child = pid;
-	trace(pid);
-}
-#else
 syscall::fork:return
 /curpsinfo->pr_pid == $1/
 {
 	child = arg0;
 	trace(arg0);
 }
-#endif /* __APPLE__ */
 
 pid$1:a.out:go:
 /pid == child/
@@ -64,23 +55,14 @@ pid$1:a.out:go:
 	exit(1);
 }
 
-#if !defined(__APPLE__)
-syscall::rexit:entry
-/pid == $1 || pid == child/
-#else
 proc:::lwp-exit
 /pid == $1 || pid == child/
-#endif /* __APPLE__ */
 {
 	out++;
 	trace(pid);
 }
 
-#if !defined(__APPLE__)
-syscall::rexit:entry
-#else
 proc:::lwp-exit
-#endif /* __APPLE__ */
 /out == 2/
 {
 	exit(0);

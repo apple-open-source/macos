@@ -43,23 +43,73 @@
 /* Recovery OS directory in Apple_Boot */
 #define kRecoveryBootDir        "com.apple.recovery.boot"
 
-/* Recovery OS NVRAM variables & values */
-// No recovery-boot-mode or Installer automation vars -> generic recovery
-// with all functions available.  boot.efi boots the Recovery OS
-// regardless of the value assigned to recovery-boot-mode.
-#define kRecoveryBootVar        "recovery-boot-mode"
-#define kRecoveryBootModeGuest      "guest"         // guest boot (usu. once)
-#define kRecoveryBootModeLocked     "locked"        // system is FMM-locked
-#define kRcevoeryBootModeRecovery   "recovery"      // OS->booter: generic pls
+/* Recovery boot hints */
 
-// Variable indicating that the user had trouble at EFI Login.
-// Indicates to the OS that it should allow Bluetooth pairing, etc
-// For now, this variable is set to "true" by the booter.
-// The OS should unset this variable.
-#define kRecoveryBootEFILoginHelpVar "recovery-boot-efilogin-help"
+/* With minor exceptions for things like reanimation, efiboot will
+   bypass primary OS booting in favor of executing the booter from
+   com.apple.recovery.boot any time the NVRAM variable recovery-boot-mode
+   is set to any value.  The Recovery OS is generally responsible for
+   interpreting these values and unsetting the variable as appropriate.
+   See comments for each value as to which components set which values.
+*/
+#define kRecoveryBootVar        "recovery-boot-mode"  // how to boot Recovery
+
+/* Recovery-based Guest Mode is used on FDE systems.
+   Set by: any login panel (EFI, OS, or screen lock) when "guest" is selected
+   Cleared by: Recovery OS (which component?), presumably on entry
+
+   Guest mode can be enabled in Users & Groups, but is also implicitly
+   enabled by Find My Mac (FMM).  FMM needs guest mode so that people who
+   find FDE machines can get them online to receive "good samaritan,"
+   "lock," and "wipe" messages.  Guest mode is restrictive and generally
+   only allows connecting to networks and running Safari.
+*/
+#define kRecoveryBootModeGuest   "guest"             // guest boot (usu. once)
+
+/* Locked mode is used by Find My Mac to restrict access to a machine.
+   Set by: Find My Mac
+   Cleared by: Find My Mac only with the locking user's authorization.
+
+   When Find My Mac receives a remote message to lock the computer, FMM
+   sets this variable and reboots.  The Recovery OS enters a highly
+   restrictive mode which only displays a prompt for a PIN code.  This
+   variable is only unset when the original user unlocks FMM.
+*/
+#define kRecoveryBootModeLocked     "locked"        // system is FMM-locked
+
+/* FDE password reset mode helps users reset their passwords.
+   Set by: efiboot
+   Cleared by: Recovery OS on entry
+
+   If a user has trouble remembering their password, they can click on
+   "reset my password using iCloud" at EFI Login.  efiboot then sets this
+   variable and boots the Recovery OS, which takes the user directly to
+   a "reset password" panel.
+*/
+#define kRecoveryBootModeFDEPasswordReset   "fde-password-reset"  // forgot
+
+/* FDE Recovery mode helps solve EFI Login issues
+   Set by: efiboot
+   Cleared by: Recovery OS on entry
+
+   Users having trouble entering passwords at EFI Login can force power
+   off while an "if you are having trouble" message is showing.  efiboot
+   will notice that the message was visible when power was forced off and
+   the next power-on will go to the Recovery OS with the variable set to
+   this value.  The Recovery OS then guides the user towards a password
+   change or disabling FDE.  The latter accomodates those with with
+   hardware or software issues that prevent them from using FDE.
+*/
+#define kRecoveryBootModeFDERecovery        "fde-recovery"      // help!
+
+/* A generic mode is defined, but has not yet been meaningfully used. */
+// #define kRecoveryBootModeGeneric     "generic"
+#define kRcevoeryBootModeRecovery       "unused"
+
 
 /* The kernel */
-#define kDefaultKernel        "/mach_kernel"
+#define kDefaultKernelPath  "/System/Library/Kernels/kernel"
+#define kDefaultKernel      "/mach_kernel"
 #define kKernelSymfile        (_PATH_VARRUN "mach.sym")
 // kKernelSymfile obsolete, remove when load.c deleted
 

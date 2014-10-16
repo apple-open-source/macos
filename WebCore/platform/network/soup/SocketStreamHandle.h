@@ -33,10 +33,13 @@
 #ifndef SocketStreamHandle_h
 #define SocketStreamHandle_h
 
-#include <wtf/gobject/GRefPtr.h>
 #include "SocketStreamHandleBase.h"
+
+#if USE(SOUP)
+
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/gobject/GRefPtr.h>
 
 namespace WebCore {
 
@@ -46,7 +49,7 @@ namespace WebCore {
 
     class SocketStreamHandle : public RefCounted<SocketStreamHandle>, public SocketStreamHandleBase {
     public:
-        static PassRefPtr<SocketStreamHandle> create(const KURL& url, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(url, client)); }
+        static PassRefPtr<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(url, client)); }
         static PassRefPtr<SocketStreamHandle> create(GSocketConnection* socketConnection, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(socketConnection, client)); }
 
         virtual ~SocketStreamHandle();
@@ -64,10 +67,10 @@ namespace WebCore {
         GRefPtr<GInputStream> m_inputStream;
         GRefPtr<GPollableOutputStream> m_outputStream;
         GRefPtr<GSource> m_writeReadySource;
-        char* m_readBuffer;
+        std::unique_ptr<char[]> m_readBuffer;
         void* m_id;
 
-        SocketStreamHandle(const KURL&, SocketStreamHandleClient*);
+        SocketStreamHandle(const URL&, SocketStreamHandleClient*);
         SocketStreamHandle(GSocketConnection*, SocketStreamHandleClient*);
 
         // No authentication for streams per se, but proxy may ask for credentials.
@@ -75,10 +78,15 @@ namespace WebCore {
         void receivedCredential(const AuthenticationChallenge&, const Credential&);
         void receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&);
         void receivedCancellation(const AuthenticationChallenge&);
+        void receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&);
+        void receivedChallengeRejection(const AuthenticationChallenge&);
+
         void beginWaitingForSocketWritability();
         void stopWaitingForSocketWritability();
     };
 
 }  // namespace WebCore
+
+#endif
 
 #endif  // SocketStreamHandle_h

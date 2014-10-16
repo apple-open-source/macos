@@ -51,6 +51,11 @@
 #include <getarg.h>
 
 static void
+gss_err(int exitval, int status, const char *fmt, ...)
+    __attribute__((format (printf, 3, 4)));
+
+
+static void
 gss_print_errors (int min_stat)
 {
     OM_uint32 new_stat;

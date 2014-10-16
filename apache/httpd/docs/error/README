@@ -22,14 +22,15 @@
   | French (fr)           | Cecile de Crecy                          |
   | German (de)           | Lars Eilebrecht                          |
   | Italian (it)          | Luigi Rosa                               |
+  | Japanese (ja)         | TAKAHASHI Makoto                         |
   | Korean (ko)           | Jaeho Shin                               |
   | Polish (pl)           | Tomasz Kepczynski                        |
   | Romanian (ro)         | Andrei Besleaga                          |
   | Serbian (sr)          | Nikola Smolenski                         |
   | Spanish (es)          | Karla Quintero                           |
-  | Swedish (sv)          | Thomas Sj�gren                           |
-  | Turkish (tr)          | Emre Sokullu                             |
-  | Irish (ga)            | Noirin Plunkett                          |
+  | Swedish (sv)          | Thomas Sjögren                           |
+  | Turkish (tr)          | Emre Sokullu & Nilgün Belma Bugüner      |
+  | Irish (ga)            | Noirin Shirley                           |
   +-----------------------+------------------------------------------+
   (Please see http://httpd.apache.org/docs-project/ if you would
    like to contribute the pages in an additional language.)

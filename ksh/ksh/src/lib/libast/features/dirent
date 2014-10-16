@@ -73,7 +73,7 @@ cat <<!
 
 	#ifndef _AST_STD_H
 
-	#include $_nxt_dirent	/* the native <dirent.h> */
+	#include ${_nxt_dirent-_nxt_dirent}	/* the native <dirent.h> */
 
 	#else
 
@@ -89,7 +89,7 @@ cat <<!
 	#undef	__ino64_t
 	#define __ino64_t	int64_t
 
-	#include $_nxt_dirent	/* the native <dirent.h> */
+	#include ${_nxt_dirent-_nxt_dirent}	/* the native <dirent.h> */
 
 	#undef	__ino64_t
 	#define __ino64_t	__ino64_t
@@ -120,7 +120,7 @@ cat <<!
 
 	#ifndef _AST_STD_H
 
-	#include $_nxt_dirent	/* the native <dirent.h> */
+	#include ${_nxt_dirent-_nxt_dirent}	/* the native <dirent.h> */
 
 	#else
 
@@ -133,7 +133,7 @@ cat <<!
 	#undef	off_t
 	#endif
 
-	#include $_nxt_dirent	/* the native <dirent.h> */
+	#include ${_nxt_dirent-_nxt_dirent}	/* the native <dirent.h> */
 
 	#if _typ_off64_t
 	#define	off_t		off64_t
@@ -161,7 +161,7 @@ cat <<!
 
 	#ifndef _DIRENT_H
 
-	#include $_nxt_dirent	/* the native <dirent.h> */
+	#include ${_nxt_dirent-_nxt_dirent}	/* the native <dirent.h> */
 
 	#ifndef _DIRENT_H
 	#define _DIRENT_H

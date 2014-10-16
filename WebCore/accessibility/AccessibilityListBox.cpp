@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -36,8 +36,6 @@
 #include "HitTestResult.h"
 #include "RenderListBox.h"
 #include "RenderObject.h"
-
-using namespace std;
 
 namespace WebCore {
 
@@ -74,18 +72,16 @@ void AccessibilityListBox::addChildren()
     
     m_haveChildren = true;
     
-    const Vector<HTMLElement*>& listItems = toHTMLSelectElement(selectNode)->listItems();
-    unsigned length = listItems.size();
-    for (unsigned i = 0; i < length; i++) {
+    for (const auto& listItem : toHTMLSelectElement(selectNode)->listItems()) {
         // The cast to HTMLElement below is safe because the only other possible listItem type
         // would be a WMLElement, but WML builds don't use accessibility features at all.
-        AccessibilityObject* listOption = listBoxOptionAccessibilityObject(listItems[i]);
+        AccessibilityObject* listOption = listBoxOptionAccessibilityObject(listItem);
         if (listOption && !listOption->accessibilityIsIgnored())
             m_children.append(listOption);
     }
 }
 
-void AccessibilityListBox::setSelectedChildren(AccessibilityChildrenVector& children)
+void AccessibilityListBox::setSelectedChildren(const AccessibilityChildrenVector& children)
 {
     if (!canSetSelectedChildrenAttribute())
         return;
@@ -95,20 +91,17 @@ void AccessibilityListBox::setSelectedChildren(AccessibilityChildrenVector& chil
         return;
     
     // disable any selected options
-    unsigned length = m_children.size();
-    for (unsigned i = 0; i < length; i++) {
-        AccessibilityListBoxOption* listBoxOption = static_cast<AccessibilityListBoxOption*>(m_children[i].get());
+    for (const auto& child : m_children) {
+        AccessibilityListBoxOption* listBoxOption = toAccessibilityListBoxOption(child.get());
         if (listBoxOption->isSelected())
             listBoxOption->setSelected(false);
     }
     
-    length = children.size();
-    for (unsigned i = 0; i < length; i++) {
-        AccessibilityObject* obj = children[i].get();
+    for (const auto& obj : children) {
         if (obj->roleValue() != ListBoxOptionRole)
             continue;
                 
-        static_cast<AccessibilityListBoxOption*>(obj)->setSelected(true);
+        toAccessibilityListBoxOption(obj.get())->setSelected(true);
     }
 }
     
@@ -119,10 +112,9 @@ void AccessibilityListBox::selectedChildren(AccessibilityChildrenVector& result)
     if (!hasChildren())
         addChildren();
         
-    unsigned length = m_children.size();
-    for (unsigned i = 0; i < length; i++) {
-        if (static_cast<AccessibilityListBoxOption*>(m_children[i].get())->isSelected())
-            result.append(m_children[i]);
+    for (const auto& child : m_children) {
+        if (toAccessibilityListBoxOption(child.get())->isSelected())
+            result.append(child.get());
     }    
 }
 
@@ -146,8 +138,8 @@ AccessibilityObject* AccessibilityListBox::listBoxOptionAccessibilityObject(HTML
     if (!element || element->hasTagName(hrTag))
         return 0;
     
-    AccessibilityObject* listBoxObject = m_renderer->document()->axObjectCache()->getOrCreate(ListBoxOptionRole);
-    static_cast<AccessibilityListBoxOption*>(listBoxObject)->setHTMLElement(element);
+    AccessibilityObject* listBoxObject = m_renderer->document().axObjectCache()->getOrCreate(ListBoxOptionRole);
+    toAccessibilityListBoxOption(listBoxObject)->setHTMLElement(element);
     
     return listBoxObject;
 }

@@ -33,9 +33,9 @@
 #include "WKPageEfl.h"
 #include "WKString.h"
 #include "ewk_file_chooser_request_private.h"
+#include "ewk_url_request_private.h"
 #include "ewk_window_features_private.h"
 #include <Ecore_Evas.h>
-#include <WebCore/Color.h>
 
 using namespace EwkViewCallbacks;
 
@@ -52,10 +52,10 @@ PageUIClientEfl::PageUIClientEfl(EwkView* view)
     WKPageRef pageRef = m_view->wkPage();
     ASSERT(pageRef);
 
-    WKPageUIClient uiClient;
+    WKPageUIClientV2 uiClient;
     memset(&uiClient, 0, sizeof(WKPageUIClient));
-    uiClient.version = kWKPageUIClientCurrentVersion;
-    uiClient.clientInfo = this;
+    uiClient.base.version = 2;
+    uiClient.base.clientInfo = this;
     uiClient.close = close;
     uiClient.takeFocus = takeFocus;
     uiClient.focus = focus;
@@ -79,21 +79,17 @@ PageUIClientEfl::PageUIClientEfl(EwkView* view)
 #endif
     uiClient.runOpenPanel = runOpenPanel;
     uiClient.createNewPage = createNewPage;
-#if ENABLE(INPUT_TYPE_COLOR)
-    uiClient.showColorPicker = showColorPicker;
-    uiClient.hideColorPicker = hideColorPicker;
-#endif
 
-    WKPageSetPageUIClient(pageRef, &uiClient);
+    WKPageSetPageUIClient(pageRef, &uiClient.base);
 
     // Popup Menu UI client.
-    WKPageUIPopupMenuClient uiPopupMenuClient;
-    memset(&uiPopupMenuClient, 0, sizeof(WKPageUIPopupMenuClient));
-    uiPopupMenuClient.version = kWKPageUIPopupMenuClientCurrentVersion;
-    uiPopupMenuClient.clientInfo = this;
+    WKPageUIPopupMenuClientV0 uiPopupMenuClient;
+    memset(&uiPopupMenuClient, 0, sizeof(WKPageUIPopupMenuClientV0));
+    uiPopupMenuClient.base.version = 0;
+    uiPopupMenuClient.base.clientInfo = this;
     uiPopupMenuClient.showPopupMenu = showPopupMenu;
     uiPopupMenuClient.hidePopupMenu = hidePopupMenu;
-    WKPageSetUIPopupMenuClient(pageRef, &uiPopupMenuClient);
+    WKPageSetUIPopupMenuClient(pageRef, &uiPopupMenuClient.base);
 }
 
 
@@ -225,21 +221,6 @@ WKPageRef PageUIClientEfl::createNewPage(WKPageRef, WKURLRequestRef wkRequest, W
     RefPtr<EwkUrlRequest> request = EwkUrlRequest::create(wkRequest);
     return toPageUIClientEfl(clientInfo)->m_view->createNewPage(request, wkWindowFeatures);
 }
-
-#if ENABLE(INPUT_TYPE_COLOR)
-void PageUIClientEfl::showColorPicker(WKPageRef, WKStringRef initialColor, WKColorPickerResultListenerRef listener, const void* clientInfo)
-{
-    PageUIClientEfl* pageUIClient = toPageUIClientEfl(clientInfo);
-    WebCore::Color color = WebCore::Color(WebKit::toWTFString(initialColor));
-    pageUIClient->m_view->requestColorPicker(listener, color);
-}
-
-void PageUIClientEfl::hideColorPicker(WKPageRef, const void* clientInfo)
-{
-    PageUIClientEfl* pageUIClient = toPageUIClientEfl(clientInfo);
-    pageUIClient->m_view->dismissColorPicker();
-}
-#endif
 
 void PageUIClientEfl::showPopupMenu(WKPageRef, WKPopupMenuListenerRef menuListenerRef, WKRect rect, WKPopupItemTextDirection textDirection, double pageScaleFactor, WKArrayRef itemsRef, int32_t selectedIndex, const void* clientInfo)
 {

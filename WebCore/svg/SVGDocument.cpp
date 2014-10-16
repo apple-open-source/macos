@@ -19,13 +19,11 @@
  */
 
 #include "config.h"
-#if ENABLE(SVG)
 #include "SVGDocument.h"
 
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FrameView.h"
-#include "NodeRenderingContext.h"
 #include "RenderView.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
@@ -36,7 +34,7 @@
 
 namespace WebCore {
 
-SVGDocument::SVGDocument(Frame* frame, const KURL& url)
+SVGDocument::SVGDocument(Frame* frame, const URL& url)
     : Document(frame, url, SVGDocumentClass)
 {
 }
@@ -48,22 +46,6 @@ SVGSVGElement* SVGDocument::rootElement() const
         return toSVGSVGElement(elem);
 
     return 0;
-}
-
-void SVGDocument::dispatchZoomEvent(float prevScale, float newScale)
-{
-    RefPtr<SVGZoomEvent> event = static_pointer_cast<SVGZoomEvent>(createEvent("SVGZoomEvents", IGNORE_EXCEPTION));
-    event->initEvent(eventNames().zoomEvent, true, false);
-    event->setPreviousScale(prevScale);
-    event->setNewScale(newScale);
-    rootElement()->dispatchEvent(event.release(), IGNORE_EXCEPTION);
-}
-
-void SVGDocument::dispatchScrollEvent()
-{
-    RefPtr<Event> event = createEvent("SVGEvents", IGNORE_EXCEPTION);
-    event->initEvent(eventNames().scrollEvent, true, false);
-    rootElement()->dispatchEvent(event.release(), IGNORE_EXCEPTION);
 }
 
 bool SVGDocument::zoomAndPanEnabled() const
@@ -89,19 +71,21 @@ void SVGDocument::updatePan(const FloatPoint& pos) const
 {
     if (rootElement()) {
         rootElement()->setCurrentTranslate(FloatPoint(pos.x() - m_translate.x(), pos.y() - m_translate.y()));
-        if (renderer())
-            renderer()->repaint();
+        if (renderView())
+            renderView()->repaint();
     }
 }
 
-bool SVGDocument::childShouldCreateRenderer(const NodeRenderingContext& childContext) const
+bool SVGDocument::childShouldCreateRenderer(const Node& child) const
 {
-    if (childContext.node()->hasTagName(SVGNames::svgTag))
-        return toSVGSVGElement(childContext.node())->isValid();
+    if (isSVGSVGElement(child))
+        return toSVGSVGElement(child).isValid();
     return true;
 }
 
+PassRefPtr<Document> SVGDocument::cloneDocumentWithoutChildren() const
+{
+    return create(nullptr, url());
 }
 
-// vim:ts=4:noet
-#endif // ENABLE(SVG)
+}

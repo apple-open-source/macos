@@ -28,7 +28,7 @@
 
 #include <wtf/Forward.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "PluginComplexTextInputState.h"
 #endif
 
@@ -39,7 +39,7 @@ typedef void* NPIdentifier;
 namespace WebCore {
     class HTTPHeaderMap;
     class IntRect;
-    class KURL;
+    class URL;
     class ProtectionSpace;
 }
 
@@ -86,10 +86,8 @@ public:
     // Set the statusbar text.
     virtual void setStatusbarText(const String&) = 0;
 
-#if USE(ACCELERATED_COMPOSITING)
     // Return whether accelerated compositing is enabled.
     virtual bool isAcceleratedCompositingEnabled() = 0;
-#endif
 
     // Tells the controller that the plug-in process has crashed.
     virtual void pluginProcessCrashed() = 0;
@@ -97,7 +95,7 @@ public:
     // Tells the controller that we're about to dispatch an event to the plug-in.
     virtual void willSendEventToPlugin() = 0;
     
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     // Tells the controller that the plug-in focus or window focus did change.
     virtual void pluginFocusOrWindowFocusChanged(bool) = 0;
 
@@ -148,6 +146,7 @@ public:
     // Create a plugin container for windowed plugins
     virtual uint64_t createPluginContainer() = 0;
     virtual void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID) = 0;
+    virtual void windowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID) = 0;
 #endif
 
     // Called when the a plug-in instance is successfully initialized, either synchronously or asynchronously.

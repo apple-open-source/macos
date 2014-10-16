@@ -39,6 +39,7 @@
 #include "WebPageProxy.h"
 #include "ewk_text_checker_private.h"
 #include <Eina.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -55,9 +56,11 @@ TextCheckerClientEfl::TextCheckerClientEfl()
 {
     memset(&m_clientCallbacks, 0, sizeof(ClientCallbacks));
 
-    WKTextCheckerClient wkTextCheckerClient = {
-        kWKTextCheckerClientCurrentVersion,
-        this,
+    WKTextCheckerClientV0 wkTextCheckerClient = {
+        {
+            0, // version
+            this, // clientInfo
+        },
         0, // continuousSpellCheckingAllowed
         isContinuousSpellCheckingEnabledCallback,
         setContinuousSpellCheckingEnabledCallback,
@@ -75,12 +78,12 @@ TextCheckerClientEfl::TextCheckerClientEfl()
         learnWordCallback,
         ignoreWordCallback
     };
-    WKTextCheckerSetClient(&wkTextCheckerClient);
+    WKTextCheckerSetClient(&wkTextCheckerClient.base);
 }
 
 TextCheckerClientEfl& TextCheckerClientEfl::instance()
 {
-    DEFINE_STATIC_LOCAL(TextCheckerClientEfl, textCheckerClient, ());
+    static NeverDestroyed<TextCheckerClientEfl> textCheckerClient;
     return textCheckerClient;
 }
 

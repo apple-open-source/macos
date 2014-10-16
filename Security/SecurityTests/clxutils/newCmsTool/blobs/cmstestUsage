@@ -1,0 +1,11 @@
+Usage: cmstest [-q(uiet)] [-r(efblobs)] [-s signer1] [-S signer2] [-k keychain] [-a anchorFile]
+
+By default this test expects to see two identities, with email addresses of 
+dmitch@apple.com and dmitch@dmitch.com, in a standard Identity search of the 
+current user's default keychain search list. You can specify different 
+Identities (by email address) and/or a specific keychain with the -s, -S, 
+and -k options.
+
+Note: if you do specify alternate Identities, the identities you specify have
+to resolve to a known root cert with a total cert chain length of 3 (one for the
+leaf, one intermediate, one root).

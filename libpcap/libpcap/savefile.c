@@ -67,6 +67,11 @@ static const char rcsid[] _U_ =
 #include "sf-pcap.h"
 #include "sf-pcap-ng.h"
 
+static pcap_t *
+pcap_fopen_offline_internal(FILE *fp, u_int precision,
+			    char *errbuf, int isng);
+
+
 /*
  * Setting O_BINARY on DOS/Windows is a bit tricky
  */
@@ -160,20 +165,19 @@ sf_setdirection(pcap_t *p, pcap_direction_t d)
 	return (-1);
 }
 
-static void
+void
 sf_cleanup(pcap_t *p)
 {
-	if (p->sf.rfile != stdin)
-		(void)fclose(p->sf.rfile);
+	if (p->rfile != stdin)
+		(void)fclose(p->rfile);
 	if (p->buffer != NULL)
 		free(p->buffer);
 	pcap_freecode(&p->fcode);
 }
 
-static pcap_t * pcap_fopen_offline_internal(FILE *, char *, int );
-
-static pcap_t *
-pcap_open_offline_internal(const char *fname, char *errbuf, int isng)
+pcap_t *
+pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
+    char *errbuf)
 {
 	FILE *fp;
 	pcap_t *p;
@@ -201,7 +205,7 @@ pcap_open_offline_internal(const char *fname, char *errbuf, int isng)
 			return (NULL);
 		}
 	}
-	p = pcap_fopen_offline_internal(fp, errbuf, isng);
+	p = pcap_fopen_offline_with_tstamp_precision(fp, precision, errbuf);
 	if (p == NULL) {
 		if (fp != stdin)
 			fclose(fp);
@@ -212,17 +216,13 @@ pcap_open_offline_internal(const char *fname, char *errbuf, int isng)
 pcap_t *
 pcap_open_offline(const char *fname, char *errbuf)
 {
-	return pcap_open_offline_internal(fname, errbuf, 0);
-}
-
-pcap_t *
-pcap_ng_open_offline(const char *fname, char *errbuf)
-{
-	return pcap_open_offline_internal(fname, errbuf, 1);
+	return (pcap_open_offline_with_tstamp_precision(fname,
+	    PCAP_TSTAMP_PRECISION_MICRO, errbuf));
 }
 
 #ifdef WIN32
-pcap_t* pcap_hopen_offline(intptr_t osfd, char *errbuf)
+pcap_t* pcap_hopen_offline_with_tstamp_precision(intptr_t osfd, u_int precision,
+    char *errbuf)
 {
 	int fd;
 	FILE *file;
@@ -241,11 +241,18 @@ pcap_t* pcap_hopen_offline(intptr_t osfd, char *errbuf)
 		return NULL;
 	}
 
-	return pcap_fopen_offline(file, errbuf);
+	return pcap_fopen_offline_with_tstamp_precision(file, precision,
+	    errbuf);
+}
+
+pcap_t* pcap_hopen_offline(intptr_t osfd, char *errbuf)
+{
+	return pcap_hopen_offline_with_tstamp_precision(osfd,
+	    PCAP_TSTAMP_PRECISION_MICRO, errbuf);
 }
 #endif
 
-static int (*check_headers[])(pcap_t *, bpf_u_int32, FILE *, char *, int) = {
+static pcap_t *(*check_headers[])(bpf_u_int32, FILE *, u_int, char *, int *, int) = {
 	pcap_check_header,
 	pcap_ng_check_header
 };
@@ -256,16 +263,73 @@ static int (*check_headers[])(pcap_t *, bpf_u_int32, FILE *, char *, int) = {
 static
 #endif
 pcap_t *
-pcap_fopen_offline_internal(FILE *fp, char *errbuf, int isng)
+pcap_fopen_offline_with_tstamp_precision(FILE *fp, u_int precision,
+    char *errbuf)
 {
-	register pcap_t *p;
+	return pcap_fopen_offline_internal(fp, precision, errbuf, 0);
+}
+
+#ifdef __APPLE__
+
+pcap_t *
+pcap_ng_open_offline(const char *fname, char *errbuf)
+{
+	FILE *fp;
+	pcap_t *p;
+	
+	if (fname[0] == '-' && fname[1] == '\0')
+	{
+		fp = stdin;
+#if defined(WIN32) || defined(MSDOS)
+		/*
+		 * We're reading from the standard input, so put it in binary
+		 * mode, as savefiles are binary files.
+		 */
+		SET_BINMODE(fp);
+#endif
+	}
+	else {
+#if !defined(WIN32) && !defined(MSDOS)
+		fp = fopen(fname, "r");
+#else
+		fp = fopen(fname, "rb");
+#endif
+		if (fp == NULL) {
+			snprintf(errbuf, PCAP_ERRBUF_SIZE, "%s: %s", fname,
+				 pcap_strerror(errno));
+			return (NULL);
+		}
+	}
+	p = pcap_fopen_offline_internal(fp,
+					  PCAP_TSTAMP_PRECISION_MICRO,
+					  errbuf, 1);
+	if (p == NULL) {
+		if (fp != stdin)
+			fclose(fp);
+	}
+	return (p);
+}
+
+pcap_t *
+pcap_ng_fopen_offline(FILE *fp, char *errbuf)
+{
+	return pcap_fopen_offline_internal(fp,
+					   PCAP_TSTAMP_PRECISION_MICRO,
+					   errbuf, 1);
+}
+
+#endif /* __APPLE__ */
+
+static pcap_t *
+pcap_fopen_offline_internal(FILE *fp, u_int precision,
+    char *errbuf, int isng)
+{
+	register pcap_t *p = NULL;
 	bpf_u_int32 magic;
 	size_t amt_read;
 	u_int i;
-
-	p = pcap_create_common("(savefile)", errbuf);
-	if (p == NULL)
-		return (NULL);
+	int err;
+	off_t offset = ftello(fp);
 
 	/*
 	 * Read the first 4 bytes of the file; the network analyzer dump
@@ -293,36 +357,34 @@ pcap_fopen_offline_internal(FILE *fp, char *errbuf, int isng)
 	 * When using the PCAP-NG extension APIs we are expected a PCAP-NG file
 	 */
 	if (isng) {
-		switch (pcap_ng_check_header(p, magic, fp, errbuf, isng)) {
-			case 1:
+		p = pcap_ng_check_header(magic, fp, precision, errbuf, &err, isng);
+		if (p != NULL) {
 				/*
 				 * Yup, that's a PCAP-NG file.
 				 */
 				goto found;
-			default:
-				/*
-				 * That's not a PCAP-NG file
-				 */
-				goto bad;
 		}
+		/*
+		 * That's not a PCAP-NG file
+		 */
+		snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
+		goto bad;
 	}
 	/*
 	 * Try all file types.
 	 */
 	for (i = 0; i < N_FILE_TYPES; i++) {
-		switch ((*check_headers[i])(p, magic, fp, errbuf, isng)) {
-
-		case -1:
+		p = (*check_headers[i])(magic, fp, precision, errbuf, &err, isng);
+		if (p != NULL) {
+			/* Yup, that's it. */
+			goto found;
+		}
+		if (err) {
 			/*
 			 * Error trying to read the header.
 			 */
+			snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
 			goto bad;
-
-		case 1:
-			/*
-			 * Yup, that's it.
-			 */
-			goto found;
 		}
 	}
 
@@ -333,12 +395,10 @@ pcap_fopen_offline_internal(FILE *fp, char *errbuf, int isng)
 	goto bad;
 
 found:
-	p->sf.rfile = fp;
+	p->rfile = fp;
 
-#ifdef PCAP_FDDIPAD
 	/* Padding only needed for live capture fcode */
 	p->fddipad = 0;
-#endif
 
 #if !defined(WIN32) && !defined(MSDOS)
 	/*
@@ -364,12 +424,21 @@ found:
 	p->setmode_op = sf_setmode;
 	p->setmintocopy_op = sf_setmintocopy;
 #endif
+
+	/*
+	 * For offline captures, the standard one-shot callback can
+	 * be used for pcap_next()/pcap_next_ex().
+	 */
+	p->oneshot_callback = pcap_oneshot;
+
 	p->cleanup_op = sf_cleanup;
 	p->activated = 1;
 
 	return (p);
  bad:
-	free(p);
+	fseeko(fp, offset, SEEK_SET);
+	if (p != NULL)
+		free(p);
 	return (NULL);
 }
 
@@ -379,13 +448,8 @@ static
 pcap_t *
 pcap_fopen_offline(FILE *fp, char *errbuf)
 {
-	return pcap_fopen_offline_internal(fp, errbuf, 0);
-}
-
-pcap_t *
-pcap_ng_fopen_offline(FILE *fp, char *errbuf)
-{
-	return pcap_fopen_offline_internal(fp, errbuf, 1);
+	return (pcap_fopen_offline_with_tstamp_precision(fp,
+	    PCAP_TSTAMP_PRECISION_MICRO, errbuf));
 }
 
 /*
@@ -421,7 +485,7 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 				return (n);
 		}
 
-		status = p->sf.next_packet_op(p, &h, &data);
+		status = p->next_packet_op(p, &h, &data);
 		if (status) {
 			if (status == 1)
 				return (0);
@@ -476,7 +540,7 @@ pcap_ng_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
          * The begining of the block is always returned into p->buffer 
          * even when data is NULL (because it's not a data block)
          */
-		status = p->sf.next_packet_op(p, &h, &data);
+		status = p->next_packet_op(p, &h, &data);
 		if (status) {
 			if (status == 1)
 				return (0);

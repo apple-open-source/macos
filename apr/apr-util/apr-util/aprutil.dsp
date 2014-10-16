@@ -196,6 +196,10 @@ SOURCE=.\buckets\apr_buckets_socket.c
 # PROP Default_Filter ""
 # Begin Source File
 
+SOURCE=.\crypto\apr_crypto.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\crypto\apr_md4.c
 # End Source File
 # Begin Source File
@@ -204,7 +208,19 @@ SOURCE=.\crypto\apr_md5.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\crypto\apr_passwd.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\crypto\apr_sha1.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\crypto\crypt_blowfish.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\crypto\crypt_blowfish.h
 # End Source File
 # Begin Source File
 

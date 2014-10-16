@@ -1,0 +1,2 @@
+/'blib\/man1\/pp\.1'/s,'[^']*','lib/pp.pm',
+w

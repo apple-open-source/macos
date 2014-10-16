@@ -25,8 +25,10 @@
 #define CommonCrypto_corecryptoSymmetricBridge_h
 
 #include <stdbool.h>
+#include <corecrypto/ccn.h>
 #include <corecrypto/ccmode.h>
 #include <corecrypto/ccmode_impl.h>
+#include <corecrypto/ccmode_factory.h>
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccdes.h>
 #include <corecrypto/cccast.h>
@@ -46,6 +48,7 @@ typedef union {
     const struct ccmode_ofb *ofb;
     const struct ccmode_xts *xts;
     const struct ccmode_gcm *gcm;
+    const struct ccmode_ccm *ccm;
 } corecryptoMode;
 
 typedef const struct ccmode_ecb* (*ecb_p) (void);
@@ -56,6 +59,7 @@ typedef const struct ccmode_ctr* (*ctr_p) (void);
 typedef const struct ccmode_ofb* (*ofb_p) (void);
 typedef const struct ccmode_xts* (*xts_p) (void);
 typedef const struct ccmode_gcm* (*gcm_p) (void);
+typedef const struct ccmode_ccm* (*ccm_p) (void);
 
 
 
@@ -68,6 +72,7 @@ typedef struct modes_t {
     ofb_p   ofb;
     xts_p   xts;
     gcm_p   gcm;
+    ccm_p   ccm;
 } modeList;
 
 const modeList ccmodeList[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS];
@@ -76,6 +81,17 @@ typedef struct cbc_with_iv_t {
     uint8_t iv[16];
     cccbc_ctx cbc;
 } cbc_iv_ctx;
+
+typedef struct ccm_with_nonce_t {
+    size_t total_len;
+    size_t mac_size;
+    size_t nonce_size;
+    size_t ad_len;
+    uint8_t nonce_buf[16];
+    uint8_t mac[16];
+    struct _ccmode_ccm_nonce nonce;
+    ccccm_ctx ccm;
+} ccm_nonce_ctx;
 
 typedef union {
     void *data;
@@ -87,6 +103,7 @@ typedef union {
     ccofb_ctx *ofb;
     ccxts_ctx *xts;
     ccgcm_ctx *gcm;
+    ccm_nonce_ctx *ccm;
 } modeCtx;
 
 
@@ -198,6 +215,7 @@ extern const cc2CCModeDescriptor ccctr_mode;
 extern const cc2CCModeDescriptor ccofb_mode;
 extern const cc2CCModeDescriptor ccxts_mode;
 extern const cc2CCModeDescriptor ccgcm_mode;
+extern const cc2CCModeDescriptor ccccm_mode;
 
 
 // Buffer and Padding Handling

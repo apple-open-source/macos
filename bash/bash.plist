@@ -1,17 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>OpenSourceProject</key>
-	<string>bash</string>
-	<key>OpenSourceVersion</key>
-	<string>3.2</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.gnu.org/software/bash/bash.html</string>
-	<key>OpenSourceURL</key>
-	<string>ftp://ftp.cwru.edu/pub/bash/bash-3.2.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>fe6466c7ee98061e044dae0347ca5d1a8eab4a0d</string>
 	<key>OpenSourceImportDate</key>
 	<string>2006-10-17</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>bash.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>source /etc/profile and $HOME/profile even if posixly correct</string>
@@ -20,10 +16,19 @@
 		<string>Fix off-by-1 error in compact_jobs_list</string>
 		<string>Do not rl_forward_char past rl_end</string>
 		<string>Do not echo \e as ESC when in posix mode</string>
+		<string>Update to patch 52 for CVE-2014-6271</string>	
+		<string>Wrap/unwrap function exports/imports</string>
+		<string>Update to patch 53 for CVE-2014-7169</string>	
 	</array>
-	<key>OpenSourceLicenseFile</key>
-	<string>bash.txt</string>
-        <key>OpenSourceLicense</key>
-        <string>GPL</string>
+	<key>OpenSourceProject</key>
+	<string>bash</string>
+	<key>OpenSourceSHA1</key>
+	<string>fe6466c7ee98061e044dae0347ca5d1a8eab4a0d</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.cwru.edu/pub/bash/bash-3.2.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>3.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/bash/bash.html</string>
 </dict>
 </plist>

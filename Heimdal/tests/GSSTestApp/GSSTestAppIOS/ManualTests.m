@@ -78,7 +78,7 @@
     
     NSMutableArray *items = [NSMutableArray array];
     
-    NSLog(@"found: %d entries:", [array count]);
+    NSLog(@"found: %lu entries:", (unsigned long)[array count]);
 
     self.selectedRow = 0;
     

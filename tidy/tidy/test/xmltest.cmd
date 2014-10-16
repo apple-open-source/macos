@@ -9,8 +9,8 @@ REM <URL:http://tidy.sourceforge.net/>
 REM
 REM CVS Info:
 REM
-REM    $Author: iccir $
-REM    $Date: 2007/01/31 02:33:39 $
-REM    $Revision: 1.1 $
+REM    $Author$
+REM    $Date$
+REM    $Revision$
 
 for /F "tokens=1*" %%i in (xmlcases.txt) do call onetest.cmd %%i %%j

@@ -1,0 +1,36 @@
+---
+abstract: 'Create DateTime parser classes and objects.'
+author:
+  - 'Dave Rolsky <autarch@urth.org>'
+  - 'Iain Truskett'
+build_requires:
+  Test::More: 0.88
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300032, CPAN::Meta::Converter version 2.120921'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Builder
+requires:
+  Carp: 0
+  Class::Factory::Util: 1.6
+  DateTime: 1.00
+  DateTime::Format::Strptime: 1.04
+  Params::Validate: 0.72
+  Scalar::Util: 0
+  base: 0
+  perl: 5.005
+  strict: 0
+  vars: 0
+  warnings: 0
+resources:
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=DateTime-Format-Builder
+  repository: git://git.urth.org/DateTime-Format-Builder.git
+version: 0.81
+x_contributors:
+  - '(no author) <(no author)@49043108-e40d-0410-ab17-85caa8b5b18d>'
+  - 'Daisuke Maki <daisuke@endeworks.jp>'
+  - 'Ian Truskett <spoon@cpan.org>'

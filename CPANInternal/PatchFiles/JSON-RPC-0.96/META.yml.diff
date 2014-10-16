@@ -1,0 +1,12 @@
+diff --git a/JSON-RPC-0.96/META.yml b/JSON-RPC-0.96/META.yml
+index b0af68b..1560dfa 100644
+--- JSON-RPC-0.96/META.yml
++++ JSON-RPC-0.96/META.yml
+@@ -11,7 +11,6 @@ requires:
+     CGI:                           2.92
+     HTTP::Request:                 0
+     HTTP::Response:                0
+-    JSON:                          2
+     LWP::UserAgent:                2.001
+     Test::More:                    0
+ meta-spec:

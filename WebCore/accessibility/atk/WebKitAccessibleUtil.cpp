@@ -94,10 +94,7 @@ String accessibilityTitle(AccessibilityObject* coreObject)
     Vector<AccessibilityText> textOrder;
     coreObject->accessibilityText(textOrder);
 
-    unsigned length = textOrder.size();
-    for (unsigned k = 0; k < length; k++) {
-        const AccessibilityText& text = textOrder[k];
-
+    for (const AccessibilityText& text : textOrder) {
         // Once we encounter visible text, or the text from our children that should be used foremost.
         if (text.textSource == VisibleText || text.textSource == ChildrenText)
             return text.text;
@@ -116,6 +113,7 @@ String accessibilityTitle(AccessibilityObject* coreObject)
         if (text.textSource == TitleTagText && !titleTagShouldBeUsedInDescriptionField(coreObject))
             return text.text;
     }
+
     return String();
 }
 
@@ -124,14 +122,21 @@ String accessibilityDescription(AccessibilityObject* coreObject)
     Vector<AccessibilityText> textOrder;
     coreObject->accessibilityText(textOrder);
 
-    unsigned length = textOrder.size();
-    for (unsigned k = 0; k < length; k++) {
-        const AccessibilityText& text = textOrder[k];
-
+    bool visibleTextAvailable = false;
+    for (const AccessibilityText& text : textOrder) {
         if (text.textSource == AlternativeText)
             return text.text;
 
-        if (text.textSource == TitleTagText && titleTagShouldBeUsedInDescriptionField(coreObject))
+        switch (text.textSource) {
+        case VisibleText:
+        case ChildrenText:
+        case LabelByElementText:
+            visibleTextAvailable = true;
+        default:
+            break;
+        }
+
+        if (text.textSource == TitleTagText && !visibleTextAvailable)
             return text.text;
     }
 

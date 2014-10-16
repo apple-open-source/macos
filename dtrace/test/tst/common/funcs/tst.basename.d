@@ -54,45 +54,12 @@ BEGIN
 	dir[i++] = "f";
 	dir[i++] = "f/";
 	dir[i++] = "/////";
-#if !defined(__APPLE__)
-	dir[i++] = "";
-#endif /* __APPLE__ */
-
 	end = i;
 	i = 0;
 
-#if !defined(__APPLE__)
-	printf("#!/usr/bin/ksh\n\n");
-#else
 	printf("#!/bin/ksh\n\n");
-#endif /* __APPLE__ */
 }
 
-#if !defined(__APPLE__)
-tick-1ms
-/i < end/
-{
-	printf("if [ `basename \"%s\"` != \"%s\" ]; then\n",
-	    dir[i], basename(dir[i]));
-	printf("	echo \"basename(\\\"%s\\\") is \\\"%s\\\"; ",
-	    dir[i], basename(dir[i]));
-	printf("expected \\\"`basename \"%s\"`\"\\\"\n", dir[i]);
-	printf("fi\n\n");
-	printf("if [ `dirname \"%s\"` != \"%s\" ]; then\n",
-	    dir[i], dirname(dir[i]));
-	printf("	echo \"dirname(\\\"%s\\\") is \\\"%s\\\"; ",
-	    dir[i], dirname(dir[i]));
-	printf("expected \\\"`dirname \"%s\"`\"\\\"\n", dir[i]);
-	printf("fi\n\n");
-	i++;
-}
-
-tick-1ms
-/i == end/
-{
-	exit(0);
-}
-#else
 /* Avoid race to collect buffers on SMP. */
 tick-1ms
 {
@@ -364,4 +331,3 @@ tick-1ms
 	exit(0);
 
 }
-#endif /* __APPLE__ */

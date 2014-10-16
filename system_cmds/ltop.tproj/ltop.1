@@ -8,13 +8,52 @@
 .Nd Display ledger information for processes on the system
 .Sh SYNOPSIS
 .Nm ltop
+.Bk -words
 .Fl h
 .Pp
 .Nm ltop
-.Fl p Ar pid
+.Op Fl dL
+.Op Fl g Ar group
+.Op Fl p Ar pid
+.Op Fl r Ar resource
+.Op Ar interval
+.Ek
 .Sh DESCRIPTION
-The
 .Nm ltop
-command allows the user to print the resource ledger information maintained by kernel for each process. The ledger information provides insights into cpu time, memory usage of a process and also know the limits set on them.
+displays the contents of system ledgers maintained by the kernel for each process in the system. Ledgers are a general accounting mechanism that the kernel uses to track and limit things like CPU time and memory usage.
+.Pp
+If the optional
+.Ar interval
+is specified, then
+.Nm
+will display the ledger contents every interval seconds.
+.Pp
+The options are as follows:
+.Bl -tag -width indent
+.\" ==========
+.It Fl d
+In conjunction with
+.Ar interval ,
+display the rate of change for each value, as compared to the previous sample displayed.
+.\" ==========
+.It Fl L
+Display template info. Shows which resources are tracked, and lists the associated units.
+.\" ==========
+.It Fl g Ar group
+Only display info for the ledgers associated with
+.Ar group .
+Group topology can be seen via the
+.Fl L
+option.
+.\" ==========
+.It Fl p Ar pid
+Only display info for process
+.Ar pid .
+.\" ==========
+.It Fl r Ar resource
+Only display info for resource
+.Ar resource .
+.\" ==========
+.El
 .Sh SEE ALSO
 .Xr top 1 

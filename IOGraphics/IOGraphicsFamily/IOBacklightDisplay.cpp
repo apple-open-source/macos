@@ -22,6 +22,7 @@
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOUserClient.h>
+#include <IOKit/IOTimerEventSource.h>
 
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/IOHibernatePrivate.h>
@@ -85,9 +86,21 @@ protected:
     SInt32      fMaxBrightness;
 
     IOInterruptEventSource * fDeferredEvents;
+
+    IOTimerEventSource *     fFadeTimer;
+	AbsoluteTime		     fFadeDeadline;
+	AbsoluteTime		     fFadeInterval;
+	uint32_t				 fFadeState;
+	uint32_t				 fFadeStateEnd;
+	uint32_t				 fFadeStateFadeMin;
+	uint32_t				 fFadeStateFadeDelta;
     uint8_t                  fClamshellSlept;
 	uint8_t					 fDisplayDims;
 	uint8_t					 fProviderPower;
+	uint8_t					 fFadeBacklight;
+	uint8_t					 fFadeGamma;
+	uint8_t					 fFadeDown;
+	uint8_t					 fFadeAbort;
 
 public:
 
@@ -115,6 +128,8 @@ private:
     void handlePMSettingCallback(const OSSymbol *, OSObject *, uintptr_t);
     static void _deferredEvent( OSObject * target,
                                 IOInterruptEventSource * evtSrc, int intCount );
+    void fadeAbort(void);
+    void fadeWork(IOTimerEventSource * sender);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -128,6 +143,19 @@ OSDefineMetaClassAndStructors(AppleBacklightDisplay, IOBacklightDisplay)
 
 //#define kIOBacklightUserBrightnessKey   "IOBacklightUserBrightness"
 #define fPowerUsesBrightness	fMaxBrightness
+
+#define IOG_FADE 1
+
+enum 
+{
+    // fFadeState
+    kFadeIdle        = (1 << 24),
+    kFadePostDelay   = (2 << 24),
+    kFadeUpdatePower = (3 << 24),
+
+	kFadeDimLevel    = ((uint32_t) (0.75f * 1024)),
+	kFadeMidLevel    = ((uint32_t) (0.50f * 1024)),
+};
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // probe
@@ -175,15 +203,23 @@ IOService * AppleBacklightDisplay::probe( IOService * provider, SInt32 * score )
 
 bool AppleBacklightDisplay::start( IOService * provider )
 {
-    if (!super::start(provider))
-        return (false);
+    IOFramebuffer * fb;
+    if (!super::start(provider)) return (false);
 
 	fClamshellSlept = gIOFBCurrentClamshellState;
-    fDeferredEvents = IOInterruptEventSource::interruptEventSource(this, _deferredEvent);
-    if (fDeferredEvents)
-        getConnection()->getFramebuffer()->getControllerWorkLoop()->addEventSource(fDeferredEvents);
+    fb = getConnection()->getFramebuffer();
 
-    getConnection()->getFramebuffer()->setProperty(kIOFBBuiltInKey, this, 0);
+    fDeferredEvents = IOInterruptEventSource::interruptEventSource(this, _deferredEvent);
+    if (fDeferredEvents) fb->getControllerWorkLoop()->addEventSource(fDeferredEvents);
+
+	fFadeTimer = IOTimerEventSource::timerEventSource(this, 
+								OSMemberFunctionCast(IOTimerEventSource::Action, this, 
+													&AppleBacklightDisplay::fadeWork));
+    if (fFadeTimer) fb->getControllerWorkLoop()->addEventSource(fFadeTimer);
+
+	fFadeState = kFadeIdle;
+
+    fb->setProperty(kIOFBBuiltInKey, this, 0);
 
     return (true);
 }
@@ -195,6 +231,15 @@ void AppleBacklightDisplay::stop( IOService * provider )
         getConnection()->getFramebuffer()->getControllerWorkLoop()->removeEventSource(fDeferredEvents);
         fDeferredEvents->release();
         fDeferredEvents = 0;
+    }
+
+    fadeAbort();
+    if (fFadeTimer)
+    {
+    	fFadeTimer->disable();
+        getConnection()->getFramebuffer()->getControllerWorkLoop()->removeEventSource(fFadeTimer);
+        fFadeTimer->release();
+	    fFadeTimer = 0;
     }
 
     return (super::stop(provider));
@@ -228,8 +273,9 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
     obj = getPMRootDomain()->copyPMSetting(
                     const_cast<OSSymbol *>(gIOFBPMSettingDisplaySleepUsesDimKey));
     fDisplayDims = (!(num = OSDynamicCast(OSNumber, obj)) || (num->unsigned32BitValue()));
-    if (obj)
-        obj->release();
+    if (obj) obj->release();
+
+	fCurrentPowerState = -1U;
 
     displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
     if (displayParams)
@@ -239,35 +285,26 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
         if (getIntegerRange(displayParams, gIODisplayPowerStateKey,
                              &value, &min, &max))
         {
-
-
-        }
-        else if (getIntegerRange(displayParams, gIODisplayBrightnessKey,
-                         &value, &fMinBrightness, &fMaxBrightness))
-        {
-        	// old behavior
-			if (value < (fMinBrightness + 2))
-				value = fMinBrightness + 2;
-		
-#if 0
-			if ((num = OSDynamicCast(OSNumber,
-									 getPMRootDomain()->getProperty(kIOBacklightUserBrightnessKey))))
-			{
-				fCurrentUserBrightness = num->unsigned32BitValue();
-				if (fCurrentUserBrightness != value)
-				{
-					doIntegerSet(displayParams, gIODisplayBrightnessKey, fCurrentUserBrightness);
-				}
-			}
-			else
-				fCurrentUserBrightness = value;
-#endif
         }
 		else
 		{
 			fMinBrightness = 0;
 			fMaxBrightness = 255;
 		}
+#if IOG_FADE
+		OSDictionary * newParams;
+		newParams = OSDictionary::withDictionary(displayParams);
+		addParameter(newParams, gIODisplayFadeTime1Key, 0, 10000);
+		setParameter(newParams, gIODisplayFadeTime1Key, 500);
+		addParameter(newParams, gIODisplayFadeTime2Key, 0, 10000);
+		setParameter(newParams, gIODisplayFadeTime2Key, 4000);
+		addParameter(newParams, gIODisplayFadeTime3Key, 0, 10000);
+		setParameter(newParams, gIODisplayFadeTime3Key, 500);
+		addParameter(newParams, gIODisplayFadeStyleKey, 0, 10);
+		setParameter(newParams, gIODisplayFadeStyleKey, 0);
+		setProperty(gIODisplayParametersKey, newParams);
+		newParams->release();
+#endif
         displayParams->release();
     }
 
@@ -284,9 +321,13 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 // setPowerState
 //
 
+//#define DEBGFADE(fmt, args...) do { kprintf(fmt, ## args); } while(false)          
+#define DEBGFADE(fmt, args...) do {} while(false)          
+
 IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
-    IOReturn    ret = IOPMAckImplied;
+    IOReturn ret = IOPMAckImplied;
+    UInt32   fromPowerState;
 
     if (powerState >= kIODisplayNumPowerStates)
         return (IOPMAckImplied);
@@ -300,7 +341,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
         framebuffer->fbUnlock();
         return (IOPMAckImplied);
     }
-
+    fromPowerState = fCurrentPowerState;
     fCurrentPowerState = powerState;
 	if (fCurrentPowerState) fProviderPower = true;
 
@@ -312,36 +353,124 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 	else
 	{
 #if IOG_FADE
-        SInt32 current, min, max, fade, gamma;
+        SInt32         current, min, max, steps;
         OSDictionary * displayParams;
+		uint32_t       fadeTime;
+		uint32_t       dimFade;
+		bool           doFadeDown, doFadeGamma, doFadeBacklight;
+
         displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-        if (!powerState 
-            && displayParams 
-            && (getIntegerRange(displayParams, gIODisplayBrightnessFadeKey, &current, &min, &max))
-            && (getIntegerRange(displayParams, gIODisplayBrightnessKey, &current, &min, &max)))
-        {
-            for (fade = max - current; fade < max; fade++)
-            {
-                if (!fDisplayPMVars->displayIdle) break;
-                doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
+		fadeTime        = 0;
+	    doFadeDown      = true;
+	    doFadeGamma     = false;
+	    doFadeBacklight = true;
 
-                gamma = 65536 - ((fade - (max - current)) * 65536 / current);
-                doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
-                doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+		DEBGFADE("AppleBacklight: ps [%d->%ld]\n", fromPowerState, powerState);
 
-                framebuffer->fbUnlock();
-                IOSleep(5);
-                framebuffer->fbLock();
-            }
-            if (fDisplayPMVars->displayIdle) updatePowerParam();
-            doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, 0);
-            gamma = 65536;
-            doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
-            doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
-        }
-        else 
-#endif
+		if (gIOGFades
+			&& displayParams 
+			&& (getIntegerRange(displayParams, gIODisplayBrightnessFadeKey, NULL, &min, &max))
+			&& (getIntegerRange(displayParams, gIODisplayBrightnessKey, &current, NULL, NULL))
+			&& current
+			&& !fFadeAbort)
+		{
+			if (current < ((kFadeMidLevel * max) / 1024)) dimFade = max;
+			else                                          dimFade = (kFadeDimLevel * max) / 1024;
+
+			if (-1U == fromPowerState) { /* boot */ }
+			else if ((powerState > fromPowerState) && (1 >= fromPowerState))
+			{
+				// fade up from off
+				fadeTime    = gIODisplayFadeTime3*1000;
+				doFadeGamma = true;
+				doFadeDown  = false;
+			}
+			if ((3 == powerState) && (1 >= fromPowerState))
+			{
+				// fade up from off
+				fadeTime   = gIODisplayFadeTime3*1000;
+				doFadeDown = false;
+			}
+			if ((3 == powerState) && (2 == fromPowerState))
+			{
+				// fade up from dim
+				fadeTime   = gIODisplayFadeTime3*1000;
+				max        = dimFade;
+				doFadeDown = false;
+			}
+			else if ((0 == powerState) && (3 == fromPowerState))
+			{
+				// user initiated -> off
+				fadeTime    = gIODisplayFadeTime1*1000;
+				doFadeGamma = true;
+			}
+			else if (1 != gIODisplayFadeStyle)
+			{
+				 if ((2 == powerState) && (3 == fromPowerState))
+				 {
+					 // idle initiated -> dim
+					 fadeTime = gIODisplayFadeTime1*1000;
+			         max      = dimFade;
+				 }
+				 if ((1 == powerState) && (2 == fromPowerState))
+				 {
+					 // idle initiated -> off
+					 fadeTime    = gIODisplayFadeTime1*1000;
+					 doFadeBacklight = (dimFade != max);
+					 if (doFadeBacklight) current = max - dimFade;
+					 doFadeGamma = true;
+				 }
+			}
+			else if (1 == gIODisplayFadeStyle)
+			{
+				 if ((2 == powerState) && (3 == fromPowerState))
+				 {
+					 // idle initiated
+					 fCurrentPowerState = 1; 
+					 fadeTime           = gIODisplayFadeTime2*1000;
+					 doFadeGamma        = true;
+				 };
+			}
+			DEBGFADE("AppleBacklight: fadeTime %d style %d abort %d\n", fadeTime, gIODisplayFadeStyle, fFadeAbort);
+		}
+
+		if (fadeTime)
+		{
+			steps = fadeTime / 16667;
+
+			DEBGFADE("AppleBacklight: p %d -> %ld, c %d -> m %d\n", fromPowerState, powerState, current, max);
+
+			if (current > max)   current = max;
+
+			fFadeStateFadeMin   = max - current;
+			fFadeStateFadeDelta = current;
+			if (steps > fFadeStateFadeDelta) steps = fFadeStateFadeDelta;
+
+			fFadeDown      = doFadeDown;
+			fFadeGamma     = doFadeGamma;
+			fFadeBacklight = doFadeBacklight;
+
+			DEBGFADE("AppleBacklight:  %d -> %d\n", fFadeStateFadeMin, fFadeStateFadeDelta);
+
+			fFadeState      = 0;
+			if (!fFadeDown) updatePowerParam();
+
+			fFadeDeadline = mach_absolute_time();
+			fadeTime     /= steps;
+			fFadeStateEnd = (steps - 1);
+		    if (framebuffer->isWakingFromHibernateGfxOn()) fFadeState = fFadeStateEnd;
+			clock_interval_to_absolutetime_interval(fadeTime, kMicrosecondScale, &fFadeInterval);
+			fadeWork(fFadeTimer);
+			if (fFadeDown)  ret = 20 * 1000 * 1000;
+		}
+		else
+		{
+			updatePowerParam();
+			fFadeAbort = false;
+		}
+#else
         updatePowerParam();
+#endif
 	}
 
 	if (!fCurrentPowerState) fProviderPower = false;
@@ -349,6 +478,92 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
     framebuffer->fbUnlock();
 
     return (ret);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+void AppleBacklightDisplay::fadeAbort(void)
+{
+    OSDictionary * displayParams;
+
+	if (kFadeIdle == fFadeState) return;
+	displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+	if (!displayParams) return;
+
+	// abort
+	DEBGFADE("AppleBacklight: fadeAbort\n");
+	doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, 0);
+	if (fFadeGamma)
+	{
+		doIntegerSet(displayParams, gIODisplayGammaScaleKey, 65536);
+		doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+	}
+	displayParams->release();
+	if (fFadeDown)  acknowledgeSetPowerState();
+	fFadeState = kFadeIdle;
+}
+
+void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
+{
+    OSDictionary * displayParams;
+	SInt32 fade, gamma, point;
+    
+	DEBGFADE("AppleBacklight: fadeWork(fFadeStateEnd %d, fFadeState %d, %d, fFadeStateEnd %d)\n", 
+			fFadeStateEnd, fFadeState & 0xffff, fFadeState >> 24, fFadeStateEnd);
+
+	if (kFadeIdle == fFadeState) return;
+	displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+	if (!displayParams) return;
+
+    fFadeAbort = (fFadeDown && !fDisplayPMVars->displayIdle);
+
+	if (fFadeAbort) fadeAbort();
+	else if (fFadeState <= fFadeStateEnd)
+    {
+		point = fFadeState;
+		if (!fFadeDown) point = (fFadeStateEnd - point);
+		if (fFadeBacklight)
+		{
+			if (!fFadeDown && !point) fade = 0;
+			else
+			{
+				fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);
+				fade = fFadeStateFadeMin + fade;
+			}
+			DEBGFADE("AppleBacklight: backlight: %d\n", fade);
+			doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
+		}
+		if (fFadeGamma)
+		{
+			gamma = 65536 - ((point * 65536) / fFadeStateEnd);
+			DEBGFADE("AppleBacklight: gamma: %d\n", gamma);
+			doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
+			doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+		}
+
+		fFadeState++;
+		if (fFadeState > fFadeStateEnd) 
+		{
+			if (fFadeDown) updatePowerParam();
+			fFadeState = kFadePostDelay;
+			clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
+		}
+	}
+	else if (kFadePostDelay == fFadeState)
+	{
+		fFadeState = kFadeIdle;
+	}
+
+	if (kFadeIdle == fFadeState)
+	{
+	    DEBGFADE("AppleBacklight: fadeWork ack\n");
+	    if (fFadeDown)  acknowledgeSetPowerState();
+	}
+	else
+	{
+		ADD_ABSOLUTETIME(&fFadeDeadline, &fFadeInterval);
+		fFadeTimer->wakeAtTime(fFadeDeadline);
+	}
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -508,7 +723,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 				value = kIODisplayPowerStateOff;
 				break;
 			case 2:
-				value = fDisplayDims ? kIODisplayPowerStateMinUsable : kIODisplayPowerStateOn;
+				value = (fDisplayDims && (kFadeIdle == fFadeState)) ? kIODisplayPowerStateMinUsable : kIODisplayPowerStateOn;
 				break;
 			case 3:
 				value = kIODisplayPowerStateOn;
@@ -581,4 +796,5 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
 
     return (super::framebufferEvent( framebuffer, event, info ));
 }
+
 

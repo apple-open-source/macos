@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,11 +35,12 @@
 namespace WebCore {
 
 class Event;
-#if ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
 class TouchList;
 #endif
 
 class EventContext {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     // FIXME: Use ContainerNode instead of Node.
     EventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
@@ -48,7 +49,7 @@ public:
     Node* node() const { return m_node.get(); }
     EventTarget* target() const { return m_target.get(); }
     bool currentTargetSameAsTarget() const { return m_currentTarget.get() == m_target.get(); }
-    virtual void handleLocalEvents(Event*) const;
+    virtual void handleLocalEvents(Event&) const;
     virtual bool isMouseOrFocusEventContext() const;
     virtual bool isTouchEventContext() const;
 
@@ -62,30 +63,51 @@ protected:
     RefPtr<EventTarget> m_target;
 };
 
-typedef Vector<OwnPtr<EventContext>, 32> EventPath;
-
-class MouseOrFocusEventContext : public EventContext {
+class MouseOrFocusEventContext final : public EventContext {
 public:
     MouseOrFocusEventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
     virtual ~MouseOrFocusEventContext();
     EventTarget* relatedTarget() const { return m_relatedTarget.get(); }
     void setRelatedTarget(PassRefPtr<EventTarget>);
-    virtual void handleLocalEvents(Event*) const OVERRIDE;
-    virtual bool isMouseOrFocusEventContext() const OVERRIDE;
+    virtual void handleLocalEvents(Event&) const override;
+    virtual bool isMouseOrFocusEventContext() const override;
 
 private:
     RefPtr<EventTarget> m_relatedTarget;
 };
 
+inline MouseOrFocusEventContext& toMouseOrFocusEventContext(EventContext& eventContext)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(eventContext.isMouseOrFocusEventContext());
+    return static_cast<MouseOrFocusEventContext&>(eventContext);
+}
 
-#if ENABLE(TOUCH_EVENTS)
-class TouchEventContext : public EventContext {
+
+#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
+class TouchEventContext final : public EventContext {
 public:
     TouchEventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
     virtual ~TouchEventContext();
 
-    virtual void handleLocalEvents(Event*) const OVERRIDE;
-    virtual bool isTouchEventContext() const OVERRIDE;
+    virtual void handleLocalEvents(Event&) const override;
+    virtual bool isTouchEventContext() const override;
+
+    enum TouchListType { Touches, TargetTouches, ChangedTouches, NotTouchList };
+    TouchList* touchList(TouchListType type)
+    {
+        switch (type) {
+        case Touches:
+            return m_touches.get();
+        case TargetTouches:
+            return m_targetTouches.get();
+        case ChangedTouches:
+            return m_changedTouches.get();
+        case NotTouchList:
+            break;
+        }
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
 
     TouchList* touches() { return m_touches.get(); }
     TouchList* targetTouches() { return m_targetTouches.get(); }
@@ -100,12 +122,18 @@ private:
 #endif
 };
 
+inline TouchEventContext& toTouchEventContext(EventContext& eventContext)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(eventContext.isTouchEventContext());
+    return static_cast<TouchEventContext&>(eventContext);
+}
+
 inline TouchEventContext* toTouchEventContext(EventContext* eventContext)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(!eventContext || eventContext->isTouchEventContext());
     return static_cast<TouchEventContext*>(eventContext);
 }
-#endif // ENABLE(TOUCH_EVENTS)
+#endif // ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
 
 #ifndef NDEBUG
 inline bool EventContext::isUnreachableNode(EventTarget* target)
@@ -117,9 +145,9 @@ inline bool EventContext::isUnreachableNode(EventTarget* target)
 inline bool EventContext::isReachable(Node* target) const
 {
     ASSERT(target);
-    TreeScope* targetScope = target->treeScope();
-    for (TreeScope* scope = m_node->treeScope(); scope; scope = scope->parentTreeScope()) {
-        if (scope == targetScope)
+    TreeScope& targetScope = target->treeScope();
+    for (TreeScope* scope = &m_node->treeScope(); scope; scope = scope->parentTreeScope()) {
+        if (scope == &targetScope)
             return true;
     }
     return false;

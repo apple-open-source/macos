@@ -43,28 +43,35 @@ namespace WebKit {
 class WebProcess;
 class WebPage;
 
-class WebGeolocationManager : public WebProcessSupplement, public CoreIPC::MessageReceiver {
+class WebGeolocationManager : public WebProcessSupplement, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebGeolocationManager);
 public:
     explicit WebGeolocationManager(WebProcess*);
-    ~WebGeolocationManager();
 
     static const char* supplementName();
 
     void registerWebPage(WebPage*);
     void unregisterWebPage(WebPage*);
+    void setEnableHighAccuracyForPage(WebPage*, bool);
 
     void requestPermission(WebCore::Geolocation*);
 
 private:
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+
+    bool isUpdating() const { return !m_pageSet.isEmpty(); }
+    bool isHighAccuracyEnabled() const { return !m_highAccuracyPageSet.isEmpty(); }
 
     void didChangePosition(const WebGeolocationPosition::Data&);
     void didFailToDeterminePosition(const String& errorMessage);
+#if PLATFORM(IOS)
+    void resetPermissions();
+#endif // PLATFORM(IOS)
 
     WebProcess* m_process;
     HashSet<WebPage*> m_pageSet;
+    HashSet<WebPage*> m_highAccuracyPageSet;
 };
 
 } // namespace WebKit

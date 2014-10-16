@@ -1,0 +1,14 @@
+#! /bin/csh -f
+#
+# make private key in specified keychain trusted by a list of apps we'll
+# be running.
+#
+if ( $#argv < 1 ) then
+        echo Usage: trustAll keychain
+        exit(1)
+endif
+cd $LOCAL_BUILD_DIR
+set d=`pwd`
+trustApps $argv[1] $d/sslAlert $d/sslProt $d/sslSession $d/sslAuth $d/sslCipher
+
+

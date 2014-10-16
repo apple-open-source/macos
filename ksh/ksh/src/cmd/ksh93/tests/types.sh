@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -576,5 +576,67 @@ u_t -a x | read z
 
 { z=$($SHELL 2> /dev/null 'typeset -T foo=bar; typeset -T') ;} 2> /dev/null
 [[ $z ]] && err_exit '"typeset -T foo=bar" should not creates type foo'
+
+{
+$SHELL << \EOF
+	typeset -T board_t=(
+		compound -a board_y
+		function binsert
+		{
+			nameref figure=$1
+			integer y=$2 x=$3
+			typeset -m "_.board_y[y].board_x[x].field=figure"
+		}
+	)
+	function main
+	{
+		compound c=(
+			 board_t b
+		)
+		for ((i=0 ; i < 2 ; i++ )) ; do
+			 compound p=( hello=world )
+			 c.b.binsert p 1 $i
+		done
+		exp='typeset -C c=(board_t b=(typeset -a board_y=( [1]=(typeset -a board_x=( [0]=(field=(hello=world;))[1]=(field=(hello=world)));));))'
+		[[ $(typeset -p c) == "$exp" ]] || exit 1
+	}
+	main
+EOF
+} 2> /dev/null
+if	(( exitval=$?))
+then	if	[[ $(kill -l $exitval) == SEGV ]]
+	then	err_exit 'typeset -m in type discipline causes exception'
+	else	err_exit 'typeset -m in type discipline gives wrong value'
+	fi
+fi
+
+typeset -T pawn_t=(
+	print_debug()
+	{
+		print 'PAWN'
+	}
+)
+function main
+{
+	compound c=(
+		compound -a board
+	)
+
+	for ((i=2 ; i < 8 ; i++ )) ; do
+		pawn_t c.board[1][$i]
+	done
+	
+}
+main 2> /dev/null && err_exit 'type assignment to compound array instance should generate an error'
+
+{	$SHELL -c 'typeset -T Foo_t=(integer -a data=([0]=0) );Foo_t x=(data[0]=2);((x.data[0]==2))'
+} 2> /dev/null || err_exit 'type definition with integer array variable not working'
+
+typeset -T Bar_t=(
+	typeset -a foo
+)
+Bar_t bar
+bar.foo+=(bam)
+[[ ${bar.foo[0]} == bam ]] || err_exit 'appending to empty array variable in type does not create element 0'
 
 exit $((Errors<125?Errors:125))

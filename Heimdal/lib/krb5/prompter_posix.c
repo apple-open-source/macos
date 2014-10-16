@@ -34,12 +34,12 @@
 #include "krb5_locl.h"
 
 KRB5_LIB_FUNCTION int KRB5_CALLCONV
-krb5_prompter_posix (krb5_context context,
-		     void *data,
-		     const char *name,
-		     const char *banner,
-		     int num_prompts,
-		     krb5_prompt prompts[])
+krb5_prompter_posix(krb5_context context,
+		    void *data,
+		    const char *name,
+		    const char *banner,
+		    int num_prompts,
+		    krb5_prompt prompts[])
 {
     int i;
 
@@ -51,16 +51,16 @@ krb5_prompter_posix (krb5_context context,
 	fflush(stderr);
     for (i = 0; i < num_prompts; ++i) {
 	if (prompts[i].hidden) {
-	    if(UI_UTIL_read_pw_string(prompts[i].reply->data,
-				  (int)prompts[i].reply->length,
-				  prompts[i].prompt,
-				  0))
+	    if (UI_UTIL_read_pw_string(prompts[i].reply->data,
+				       (int)prompts[i].reply->length,
+				       prompts[i].prompt,
+				       0))
 	       return 1;
 	} else {
 	    char *s = prompts[i].reply->data;
 
-	    fputs (prompts[i].prompt, stdout);
-	    fflush (stdout);
+	    fputs(prompts[i].prompt, stdout);
+	    fflush(stdout);
 	    if(fgets(prompts[i].reply->data,
 		     (int)prompts[i].reply->length,
 		     stdin) == NULL)
@@ -69,4 +69,27 @@ krb5_prompter_posix (krb5_context context,
 	}
     }
     return 0;
+}
+
+KRB5_LIB_FUNCTION int KRB5_CALLCONV
+krb5_prompter_print_only(krb5_context context,
+			 void *data,
+			 const char *name,
+			 const char *banner,
+			 int num_prompts,
+			 krb5_prompt prompts[])
+{
+    if (name)
+	fprintf (stderr, "%s\n", name);
+    if (banner)
+	fprintf (stderr, "%s\n", banner);
+    if (name || banner)
+	fflush(stderr);
+
+    if (num_prompts) {
+	_krb5_debugx(context, 10, "prompter disabled");
+	return 1;
+    } else {
+	return 0;
+    }
 }

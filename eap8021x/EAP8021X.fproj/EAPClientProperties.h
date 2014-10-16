@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,15 +95,6 @@
 	CFSTR("TLSSaveTrustExceptions")			/* boolean (false) */
 
 /*
- * kEAPClientPropTLSAllowTrustExceptions
- * - enables trust exceptions for storing dynamic trust
- * - the default value of this property is true unless the 
- *   kEAPClientPropTLSTrustedCertificates property is specified, in which
- *   case the default is false
- */
-#define kEAPClientPropTLSAllowTrustExceptions \
-	CFSTR("TLSAllowTrustExceptions") 		/* boolean (see above) */
-/*
  * kEAPClientPropTLSTrustExceptionsDomain 
  * kEAPClientPropTLSTrustExceptionsID
  * - properties used to locate the appropriate trust exception for the
@@ -145,15 +136,6 @@
 #define kEAPClientPropSaveCredentialsOnSuccessfulAuthentication \
     CFSTR("SaveCredentialsOnSuccessfulAuthentication")
 
-/*
- * kEAPClientPropTLSAllowTrustDecisions
- * - enables trust decisions by the user
- * - the default value of this property is true unless the 
- *   kEAPClientPropTLSTrustedCertificates property is specified, in which
- *   case the default is false
- */
-#define kEAPClientPropTLSAllowTrustDecisions \
-	CFSTR("TLSAllowTrustDecisions")		/* boolean (see above) */
 #endif /* TARGET_OS_EMBEDDED */
 
 #define kEAPClientPropTLSVerifyServerCertificate \
@@ -249,4 +231,27 @@
 	CFSTR("TLSTrustedRootCertificates") 		/* array[data] */
 #define kEAPClientPropTLSAllowAnyRoot \
 	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
+
+#if TARGET_OS_EMBEDDED
+/*
+ * kEAPClientPropTLSAllowTrustExceptions
+ * - this property is no longer consulted
+ * - if trust is explicitly configured using 
+ *   kEAPClientPropTLSTrustedCertificate and/or
+ *   kEAPClientPropTLSTrustedServerNames), trust exceptions are not allowed
+ */
+#define kEAPClientPropTLSAllowTrustExceptions \
+	CFSTR("TLSAllowTrustExceptions") 		/* boolean (see above) */
+#else /* TARGET_OS_EMBEDDED */
+/*
+ * kEAPClientPropTLSAllowTrustDecisions
+ * - this property is no longer consulted
+ * - if trust is explicitly configured using 
+ *   kEAPClientPropTLSTrustedCertificate and/or
+ *   kEAPClientPropTLSTrustedServerNames), trust decisions are not allowed
+ */
+#define kEAPClientPropTLSAllowTrustDecisions \
+	CFSTR("TLSAllowTrustDecisions")		/* boolean (see above) */
+#endif /* TARGET_OS_EMBEDDED */
+
 #endif /* _EAP8021X_EAPCLIENTPROPERTIES_H */

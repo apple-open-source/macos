@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,9 @@
 #ifndef DFGUseKind_h
 #define DFGUseKind_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
+#include "DFGNodeFlags.h"
 #include "SpeculatedType.h"
 #include <wtf/PrintStream.h>
 
@@ -39,36 +38,50 @@ enum UseKind {
     UntypedUse,
     Int32Use,
     KnownInt32Use,
-    RealNumberUse,
+    Int52RepUse,
+    MachineIntUse,
     NumberUse,
-    KnownNumberUse,
+    DoubleRepUse,
+    DoubleRepRealUse,
+    DoubleRepMachineIntUse,
     BooleanUse,
     CellUse,
     KnownCellUse,
     ObjectUse,
+    FinalObjectUse,
     ObjectOrOtherUse,
+    StringIdentUse,
     StringUse,
     KnownStringUse,
     StringObjectUse,
     StringOrStringObjectUse,
+    NotStringVarUse,
     NotCellUse,
     OtherUse,
+    MiscUse,
     LastUseKind // Must always be the last entry in the enum, as it is used to denote the number of enum elements.
 };
 
-ALWAYS_INLINE SpeculatedType typeFilterFor(UseKind useKind)
+inline SpeculatedType typeFilterFor(UseKind useKind)
 {
     switch (useKind) {
     case UntypedUse:
-        return SpecEmptyOrTop; // TOP isn't good enough; untyped uses may use the normally unseen empty value, in the case of lazy registers.
+        return SpecFullTop;
     case Int32Use:
     case KnownInt32Use:
         return SpecInt32;
-    case RealNumberUse:
-        return SpecRealNumber;
+    case Int52RepUse:
+        return SpecMachineInt;
+    case MachineIntUse:
+        return SpecInt32 | SpecInt52AsDouble;
     case NumberUse:
-    case KnownNumberUse:
-        return SpecNumber;
+        return SpecBytecodeNumber;
+    case DoubleRepUse:
+        return SpecFullDouble;
+    case DoubleRepRealUse:
+        return SpecDoubleReal;
+    case DoubleRepMachineIntUse:
+        return SpecInt52AsDouble;
     case BooleanUse:
         return SpecBoolean;
     case CellUse:
@@ -76,8 +89,12 @@ ALWAYS_INLINE SpeculatedType typeFilterFor(UseKind useKind)
         return SpecCell;
     case ObjectUse:
         return SpecObject;
+    case FinalObjectUse:
+        return SpecFinalObject;
     case ObjectOrOtherUse:
         return SpecObject | SpecOther;
+    case StringIdentUse:
+        return SpecStringIdent;
     case StringUse:
     case KnownStringUse:
         return SpecString;
@@ -85,26 +102,110 @@ ALWAYS_INLINE SpeculatedType typeFilterFor(UseKind useKind)
         return SpecStringObject;
     case StringOrStringObjectUse:
         return SpecString | SpecStringObject;
+    case NotStringVarUse:
+        return ~SpecStringVar;
     case NotCellUse:
         return ~SpecCell;
     case OtherUse:
         return SpecOther;
+    case MiscUse:
+        return SpecMisc;
     default:
         RELEASE_ASSERT_NOT_REACHED();
-        return SpecTop;
+        return SpecFullTop;
     }
 }
 
-ALWAYS_INLINE bool isNumerical(UseKind kind)
+inline bool shouldNotHaveTypeCheck(UseKind kind)
+{
+    switch (kind) {
+    case UntypedUse:
+    case KnownInt32Use:
+    case KnownCellUse:
+    case KnownStringUse:
+    case Int52RepUse:
+    case DoubleRepUse:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool mayHaveTypeCheck(UseKind kind)
+{
+    return !shouldNotHaveTypeCheck(kind);
+}
+
+inline bool isNumerical(UseKind kind)
 {
     switch (kind) {
     case Int32Use:
     case KnownInt32Use:
-    case RealNumberUse:
     case NumberUse:
+    case Int52RepUse:
+    case DoubleRepUse:
+    case DoubleRepRealUse:
+    case MachineIntUse:
+    case DoubleRepMachineIntUse:
         return true;
     default:
         return false;
+    }
+}
+
+inline bool isDouble(UseKind kind)
+{
+    switch (kind) {
+    case DoubleRepUse:
+    case DoubleRepRealUse:
+    case DoubleRepMachineIntUse:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool isCell(UseKind kind)
+{
+    switch (kind) {
+    case CellUse:
+    case KnownCellUse:
+    case ObjectUse:
+    case FinalObjectUse:
+    case StringIdentUse:
+    case StringUse:
+    case KnownStringUse:
+    case StringObjectUse:
+    case StringOrStringObjectUse:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Returns true if it uses structure in a way that could be clobbered by
+// things that change the structure.
+inline bool usesStructure(UseKind kind)
+{
+    switch (kind) {
+    case StringObjectUse:
+    case StringOrStringObjectUse:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline UseKind useKindForResult(NodeFlags result)
+{
+    ASSERT(!(result & ~NodeResultMask));
+    switch (result) {
+    case NodeResultInt52:
+        return Int52RepUse;
+    case NodeResultDouble:
+        return DoubleRepUse;
+    default:
+        return UntypedUse;
     }
 }
 

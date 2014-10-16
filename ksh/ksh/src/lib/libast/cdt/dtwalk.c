@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -28,17 +28,17 @@
 */
 
 #if __STD_C
-int dtwalk(reg Dt_t* dt, int (*userf)(Dt_t*, Void_t*, Void_t*), Void_t* data)
+int dtwalk(Dt_t* dt, int (*userf)(Dt_t*, Void_t*, Void_t*), Void_t* data)
 #else
 int dtwalk(dt,userf,data)
-reg Dt_t*	dt;
-int(*		userf)();
-Void_t*		data;
+Dt_t*	dt;
+int(*	userf)();
+Void_t*	data;
 #endif
 {
-	reg Void_t	*obj, *next;
-	reg Dt_t*	walk;
-	reg int		rv;
+	Void_t	*obj, *next;
+	Dt_t	*walk;
+	int	rv;
 
 	for(obj = dtfirst(dt); obj; )
 	{	if(!(walk = dt->walk) )
@@ -48,5 +48,6 @@ Void_t*		data;
 			return rv;
 		obj = next;
 	}
+
 	return 0;
 }

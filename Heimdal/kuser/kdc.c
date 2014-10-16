@@ -57,6 +57,7 @@ kdc(struct kdc_options *opt, int argc, char **argv)
     char host[MAXHOSTNAMELEN];
     krb5_error_code ret;
     int first_realm = 1;
+    size_t n;
     int i;
     
     if (argc == 0) {
@@ -66,13 +67,16 @@ kdc(struct kdc_options *opt, int argc, char **argv)
 
     if (opt->type_string) {
 
-	for (i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
-	    if (strcasecmp(types[i].name, opt->type_string) == 0)
-		type = types[i].type;
-	    if (i == sizeof(types)/sizeof(types[0])) {
-		printf("unknown type: %s\n", opt->type_string);
-		return 1;
-	    }
+	for (n = 0; n < sizeof(types)/sizeof(types[0]); n++) {
+	    if (strcasecmp(types[n].name, opt->type_string) == 0)
+		type = types[n].type;
+	}
+	if (n == sizeof(types)/sizeof(types[0])) {
+	    printf("unknown type: %s\nAvailaile types are: \n", opt->type_string);
+	    for (n = 0; n < sizeof(types)/sizeof(types[0]); n++)
+		printf("%s ", types[n].name);
+	    printf("\n");
+	    return 1;
 	}
     }
 
@@ -90,7 +94,7 @@ kdc(struct kdc_options *opt, int argc, char **argv)
 
 	if (opt->json_flag) {
 	    int first = 1;
-	    printf("%s\n\t%s = [ ", first_realm ? "" : ",", realm);
+	    printf("%s\n\t\"%s\" = [ ", first_realm ? "" : ",", realm);
 	    first_realm = 0;
 
 	    while(krb5_krbhst_next_as_string(kcc_context, handle, host, sizeof(host)) == 0) {

@@ -20,6 +20,8 @@
 #ifndef _LDAP_PVT_H
 #define _LDAP_PVT_H 1
 
+#include <Availability.h>
+
 #include <lber.h>				/* get ber_slen_t */
 #include <lber_pvt.h>				/* get Sockbuf_Buf */
 
@@ -60,7 +62,7 @@ ldap_url_parse_ext LDAP_P((
 
 LDAP_F (int) ldap_url_parselist LDAP_P((	/* deprecated, use ldap_url_parselist_ext() */
 	struct ldap_url_desc **ludlist,
-	const char *url ));
+	const char *url )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_url_parselist_ext");
 
 LDAP_F (int) ldap_url_parselist_ext LDAP_P((
 	struct ldap_url_desc **ludlist,

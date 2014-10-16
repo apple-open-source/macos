@@ -232,8 +232,8 @@ init(struct init_options *opt, int argc, char **argv)
 	krb5_free_principal(context, princ);
 
 
-	/* Create `WELLKNONW/org.h5l.fast-cookie@WELLKNOWN:ORG.H5L' for FAST cookie */
-	krb5_make_principal(context, &princ, KRB5_WELLKNOWN_ORG_H5L_REALM,
+	/* Create `WELLKNOWN/org.h5l.fast-cookie' for FAST cookie */
+	krb5_make_principal(context, &princ, realm,
 			    KRB5_WELLKNOWN_NAME, "org.h5l.fast-cookie", NULL);
 	create_random_entry(princ, 60*60, 60*60,
 			    KRB5_KDB_REQUIRES_PRE_AUTH|

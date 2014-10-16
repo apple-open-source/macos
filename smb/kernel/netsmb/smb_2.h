@@ -28,7 +28,7 @@
 #include <sys/types.h>
 
 /*
- * SMB 2.x Crediting constants
+ * SMB 2/3 Crediting constants
  * kCREDIT_REQUEST_AMT - number of credits to request when client needs more
  * kCREDIT_LOW_WATER - If client gets below this number of credits,
  *                     1) Start using only 1 credit at a time instead of multi
@@ -45,7 +45,7 @@
 #define kCREDIT_REQUEST_AMT 256
 #define kCREDIT_LOW_WATER 10
 #define kCREDIT_MIN_AMT 1
-/* crediting fields are UInt32, but SMB2 Header has UInt16 credit fields */
+/* crediting fields are UInt32, but SMB 2/3 Header has UInt16 credit fields */
 #define kCREDIT_MAX_AMT UINT16_MAX
 
 /* smb2_durable_handle flags */
@@ -67,7 +67,7 @@ struct smb2_durable_handle {
 };
 
 /* 
- * Apple SMB 2.x "AAPL" Create Context extensions
+ * Apple SMB 2/3 "AAPL" Create Context extensions
  */
 
 /* Define "AAPL" Context Command Codes */
@@ -323,7 +323,7 @@ struct finder_info {
 };
 
 
-/* SMB2 Commands, 2.2.1 */
+/* SMB 2/3 Commands, 2.2.1 */
 #define SMB2_NEGOTIATE		0x0000
 #define SMB2_SESSION_SETUP	0x0001
 #define SMB2_LOGOFF		0x0002
@@ -344,20 +344,22 @@ struct finder_info {
 #define SMB2_SET_INFO		0x0011
 #define SMB2_OPLOCK_BREAK	0x0012
 
-/* SMB2 Write Request Header Length, 2.2.21 */
+/* SMB 2/3 Write Request Header Length, 2.2.21 */
 #define SMB2_WRITE_REQ_HDRLEN       48
 
-/* SMB2 Dialects, 2.2.3 */
+/* SMB 2/3 Dialects, 2.2.3 */
 #define SMB2_DIALECT_0202   0x0202
 #define SMB2_DIALECT_02ff   0x02ff
 #define SMB2_DIALECT_0210   0x0210
+#define SMB2_DIALECT_0300   0x0300
+#define SMB2_DIALECT_0302   0x0302
 
 #define	SMB2_TID_UNKNOWN	0xffffffff
 
 /* Bitmask to define the valid SMB command range. */
 #define SMB2_VALID_COMMAND_MASK 0x001F
 
-/* SMB2 Flags, 2.2.1 */
+/* SMB 2/3 Flags, 2.2.1 */
 #define SMB2_FLAGS_SERVER_TO_REDIR      0x00000001
 #define SMB2_FLAGS_ASYNC_COMMAND        0x00000002
 #define SMB2_FLAGS_RELATED_OPERATIONS   0x00000004
@@ -367,11 +369,11 @@ struct finder_info {
 /* Bitmask to define the valid SMB flags set. */
 #define SMB2_VALID_FLAGS_MASK 0x1000000F
 
-/* SMB2 Security Mode, 2.2.3 */
+/* SMB 2/3 Security Mode, 2.2.3 */
 #define SMB2_NEGOTIATE_SIGNING_ENABLED	0x0001
 #define SMB2_NEGOTIATE_SIGNING_REQUIRED	0x0002
 
-/* SMB2 Negotiate Capabilities, 2.2.3 */
+/* SMB 2/3 Negotiate Capabilities, 2.2.3 */
 #define SMB2_GLOBAL_CAP_DFS                 0x00000001
 #define SMB2_GLOBAL_CAP_LEASING             0x00000002
 #define SMB2_GLOBAL_CAP_LARGE_MTU           0x00000004
@@ -380,35 +382,42 @@ struct finder_info {
 #define SMB2_GLOBAL_CAP_DIRECTORY_LEASING	0x00000020
 #define SMB2_GLOBAL_CAP_ENCRYPTION          0x00000040
 
-/* SMB2 SessionFlags, 2.2.6 */
-#define SMB2_SESSION_FLAG_IS_GUEST  0x0001
-#define SMB2_SESSION_FLAG_IS_NULL   0x0002
+/* SMB 2/3 SessionFlags, 2.2.6 */
+#define SMB2_SESSION_FLAG_IS_GUEST      0x0001
+#define SMB2_SESSION_FLAG_IS_NULL       0x0002
+#define SMB2_SESSION_FLAG_ENCRYPT_DATA  0x0004  /* Encryption Required */
 
-/* SMB2 ShareType, 2.2.10 */
+/* SMB 2/3 ShareType, 2.2.10 */
 #define SMB2_SHARE_TYPE_DISK	0x01
 #define SMB2_SHARE_TYPE_PIPE	0x02
 #define SMB2_SHARE_TYPE_PRINT	0x03
 
+/* SMB 2/3 ShareFlags, 2.2.10 */
+#define SMB2_SHAREFLAG_DFS              0x00000001
+#define SMB2_SHAREFLAG_DFS_ROOT         0x00000002
+#define SMB2_SHAREFLAG_ENCRYPT_DATA     0x00008000 /* Encryption Required */
+
+/* SMB 2/3 ShareCapabilities, 2.2.10 */
 #define SMB2_SHARE_CAP_DFS                      0x00000008
 #define SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY  0x00000010
 
-/* SMB2 RequestedOplockLevel, 2.2.13 */
+/* SMB 2/3 RequestedOplockLevel, 2.2.13 */
 #define SMB2_OPLOCK_LEVEL_NONE	    0x00
 #define SMB2_OPLOCK_LEVEL_II	    0x01
 #define SMB2_OPLOCK_LEVEL_EXCLUSIVE 0x08
 #define SMB2_OPLOCK_LEVEL_BATCH	    0x09
 #define SMB2_OPLOCK_LEVEL_LEASE	    0xff
 
-/* SMB2 Lease Break Notification Flags, 2.2.23.2 */
+/* SMB 2/3 Lease Break Notification Flags, 2.2.23.2 */
 #define SMB2_NOTIFY_BREAK_LEASE_FLAG_ACK_REQUIRED   0x01
 
-/* SMB2 RequestedLeaseLevel, 2.2.13 */
+/* SMB 2/3 RequestedLeaseLevel, 2.2.13 */
 #define SMB2_LEASE_NONE             0x00
 #define SMB2_LEASE_READ_CACHING	    0x01
 #define SMB2_LEASE_HANDLE_CACHING   0x02
 #define SMB2_LEASE_WRITE_CACHING	0x04
 
-/* SMB2 ImpersonationLevel, 2.2.13 */
+/* SMB 2/3 ImpersonationLevel, 2.2.13 */
 #define SMB2_IMPERSONATION_ANONYMOUS	    0x00000000
 #define SMB2_IMPERSONATION_IDENTIFICATION   0x00000001
 #define SMB2_IMPERSONATION_IMPERSONATION    0x00000002
@@ -460,7 +469,7 @@ struct finder_info {
 #define SMB2_STD_RESERVED_1		0x04000000
 #define SMB2_STD_RESERVED_2		0x08000000
 
-/* SMB2 CREATE_CONTEXT names, 2.2.13.2 */
+/* SMB 2/3 CREATE_CONTEXT names, 2.2.13.2 */
 #define SMB2_CREATE_EA_BUFFER                   0x45787441 /* "ExtA" */
 #define SMB2_CREATE_SD_BUFFER                   0x53656344 /* "SecD" */
 #define SMB2_CREATE_DURABLE_HANDLE_REQUEST      0x44486e51 /* "DHnQ" */
@@ -475,28 +484,28 @@ struct finder_info {
 #define	SMB2_CREATE_AAPL                        0x4141504c
 
 
-/* SMB2 CloseFlags, 2.2.15 */
+/* SMB 2/3 CloseFlags, 2.2.15 */
 #define SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB    0x0001
 
-/* SMB2 Lockflags, 2.2.26.1 */
+/* SMB 2/3 Lockflags, 2.2.26.1 */
 #define SMB2_LOCKFLAG_SHARED_LOCK	0x00000001
 #define SMB2_LOCKFLAG_EXCLUSIVE_LOCK	0x00000002
 #define SMB2_LOCKFLAG_UNLOCK		0x00000004
 #define SMB2_LOCKFLAG_FAIL_IMMEDIATELY	0x00000010
 
-/* SMB2 IoctlFlags, 2.2.31 */
+/* SMB 2/3 IoctlFlags, 2.2.31 */
 #define SMB2_IOCTL_IS_FSCTL		0x00000001
 
-/* SMB2 QUERY_DIRECTORY Flags, 2.2.33 */
+/* SMB 2/3 QUERY_DIRECTORY Flags, 2.2.33 */
 #define SMB2_RESTART_SCANS		0x01
 #define SMB2_RETURN_SINGLE_ENTRY	0x02
 #define SMB2_INDEX_SPECIFIED		0x04
 #define SMB2_REOPEN			0x10
 
-/* SMB2 CHANGE_NOTIFY Flags, 2.2.35 */
+/* SMB 2/3 CHANGE_NOTIFY Flags, 2.2.35 */
 #define SMB2_WATCH_TREE			0x0001
 
-/* SMB2 QUERY_INFO InfoType, 2.2.37 */
+/* SMB 2/3 QUERY_INFO InfoType, 2.2.37 */
 #define SMB2_0_INFO_FILE	0x01
 #define SMB2_0_INFO_FILESYSTEM	0x02
 #define SMB2_0_INFO_SECURITY	0x03
@@ -621,7 +630,8 @@ typedef enum _FILE_STREAM_INFO_FLAGS
 {
     SMB_NO_RESOURCE_FORK = 0x0001,
     SMB_NO_FINDER_INFO = 0x0002,
-    SMB_NO_TRANSLATE_NAMES = 0x0010  /* input flag-  Don't translate stream names to xattr names */
+    SMB_NO_TRANSLATE_NAMES = 0x0010,  /* input flag-  Don't translate stream names to xattr names */
+    SMB_NO_SUBSTREAMS = 0x0020
 } _FILE_STREAM_INFO_FLAGS;
 
 struct FILE_STREAM_INFORMATION
@@ -637,5 +647,51 @@ struct FILE_STREAM_INFORMATION
     uint64_t *stream_alloc_sizep;
     uint32_t *stream_flagsp;
 };
+
+/* SMB3 Encryption defines */
+
+/* Authenticated Data */
+#define SMB3_AES_AUTHDATA_OFF       20
+#define SMB3_AES_AUTHDATA_LEN       32
+#define SMB3_CCM_NONCE_LEN          11
+
+/* Transform Header (TF) */
+#define SMB3_AES_TF_HDR_LEN         52
+
+#define SMB2_ENCRYPTION_AES128_CCM  0x0001
+
+#define SMB3_AES_TF_PROTO_OFF   0
+#define	SMB3_AES_TF_PROTO_STR   "\xFDSMB"
+#define	SMB3_AES_TF_PROTO_LEN   4
+
+#define SMB3_AES_TF_SIG_OFF     4
+#define SMB3_AES_TF_SIG_LEN     16
+
+#define SMB3_AES_TF_NONCE_OFF   20
+#define SMB3_AES_TF_NONCE_LEN   16
+
+#define SMB3_AES_TF_MSGLEN_OFF  36
+#define SMB3_AES_TF_MSGLEN_LEN  4
+
+#define SMB3_AES_TF_ENCR_ALG_OFF    42
+#define SMB3_AES_TF_ENCR_ALG_LEN    2
+
+#define SMB3_AES_TF_SESSID_OFF      44
+#define SMB3_AES_TF_SESSID_LEN      8
+
+/* SMB 3 Transform Header */
+
+struct smb3_aes_transform_hdr
+{
+    uint32_t        proto;
+    unsigned char   signature[SMB3_AES_TF_SIG_LEN];
+    unsigned char   nonce[SMB3_AES_TF_NONCE_LEN];
+    uint32_t        orig_msg_size;
+    uint16_t        reserved;
+    uint16_t        encrypt_algorithm;
+    uint64_t        sess_id;
+} __attribute__((__packed__));
+
+typedef struct smb3_aes_transform_hdr SMB3_AES_TF_HEADER;
 
 #endif /* SMB_SMB2_H */

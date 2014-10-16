@@ -35,7 +35,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD9B8A56104DCC830096D791 /* Build configuration list for PBXAggregateTarget "All" */;
 			buildPhases = (
-				3F080EB811E7B70A0066F666 /* simulator cleanup */,
 			);
 			dependencies = (
 				FD033CAE1484565800AD35B6 /* PBXTargetDependency */,
@@ -188,7 +187,7 @@
 		FD9B8AAE104DD4610096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8AAD104DD4360096D791 /* bsdtar.1 in Install Man Page */,
@@ -199,7 +198,7 @@
 		FD9B8AB0104DD4A60096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8ACC104DD5950096D791 /* bsdcpio.1 in Install Man Page */,
@@ -210,6 +209,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8154971E185E6F1500B3E145 /* libs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libs.xcconfig; path = xcodeconfig/libs.xcconfig; sourceTree = "<group>"; };
+		8154971F185E709800B3E145 /* executables.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = executables.xcconfig; path = xcodeconfig/executables.xcconfig; sourceTree = "<group>"; };
+		81549720185E714D00B3E145 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcodeconfig/base.xcconfig; sourceTree = "<group>"; };
 		FD7846521537B5F3003C8F36 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
 		FD9B8961104D9F050096D791 /* libarchive.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libarchive.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9B8969104DC7F00096D791 /* archive_check_magic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_check_magic.c; path = libarchive/libarchive/archive_check_magic.c; sourceTree = "<group>"; };
@@ -347,6 +349,9 @@
 		FD9B894C104D9EED0096D791 = {
 			isa = PBXGroup;
 			children = (
+				8154971F185E709800B3E145 /* executables.xcconfig */,
+				81549720185E714D00B3E145 /* base.xcconfig */,
+				8154971E185E6F1500B3E145 /* libs.xcconfig */,
 				FD9B8AAA104DD3F80096D791 /* libarchive.plist */,
 				FD9B8AAB104DD4090096D791 /* COPYING */,
 				FD9B89E5104DC8010096D791 /* libarchive */,
@@ -581,6 +586,8 @@
 /* Begin PBXProject section */
 		FD9B894E104D9EED0096D791 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = FD9B8951104D9EED0096D791 /* Build configuration list for PBXProject "libarchive" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -608,20 +615,6 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3F080EB811E7B70A0066F666 /* simulator cleanup */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "simulator cleanup";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR\"/xcodescripts/simulator_nobins.sh";
-		};
 		FD9B8A82104DD01C0096D791 /* Make .dylib Symlinks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -829,6 +822,7 @@
 /* Begin XCBuildConfiguration section */
 		FD033C9F1484562E00AD35B6 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8154971F185E709800B3E145 /* executables.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -836,6 +830,7 @@
 		};
 		FD033CAA1484564700AD35B6 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8154971E185E6F1500B3E145 /* libs.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -844,47 +839,22 @@
 		FD9B8950104D9EED0096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				PREBINDING = NO;
-				USE_HEADERMAP = NO;
-				VERSIONING_SYSTEM = "apple-generic";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		FD9B8964104D9F060096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8154971E185E6F1500B3E145 /* libs.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.2;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = "PLATFORM_CONFIG_H=\\\"$(SRCROOT)/config.h\\\"";
-				HEADER_SEARCH_PATHS = /usr/include/libxml2;
-				"HEADER_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include/libxml2";
-				INSTALL_PATH = /usr/lib;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
 				PRODUCT_NAME = archive.2;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/include";
-				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};
 		FD9B8A21104DCB9B0096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8154971F185E709800B3E145 /* executables.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = "PLATFORM_CONFIG_H=\\\"$(SRCROOT)/config.h\\\"";
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
 				PRODUCT_NAME = bsdtar;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/libarchive_fe";
 			};
 			name = Release;
 		};
@@ -897,13 +867,9 @@
 		};
 		FD9B8A55104DCC640096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8154971F185E709800B3E145 /* executables.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = "PLATFORM_CONFIG_H=\\\"$(SRCROOT)/config.h\\\"";
-				INSTALL_PATH = /usr/bin;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/bin";
 				PRODUCT_NAME = cpio;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/libarchive/libarchive_fe";
 			};
 			name = Release;
 		};

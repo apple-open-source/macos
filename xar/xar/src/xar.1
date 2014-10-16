@@ -1,4 +1,4 @@
-.TH XAR "1" "November 1, 2007" "version 1.6" "User Commands"
+.TH XAR "1" "November 1, 2013" "version 1.7" "User Commands"
 .SH NAME
 xar \- eXtensible ARchiver
 .SH SYNOPSIS
@@ -66,7 +66,11 @@ List the subdocuments in the xml header
 .TP
 \-\-toc\-cksum
 Specifies the hashing algorithm to use for xml header verification.
-Valid values: none, sha1, and md5.  Default value: sha1
+Valid values: none, md5, sha1, sha256, and sha512.  Default value: sha1
+.TP
+\-\-file\-cksum
+Specifies the hashing algorithm to use for file content verification.
+Valid values: none, md5, sha1, sha256, and sha512.  Default value: sha1
 .TP
 \-l
 On archival, stay on the local device.
@@ -110,7 +114,7 @@ Specifies a file property to be included in the archive.  When this option is sp
 \-\-prop-exclude
 Specifies a file property to be excluded from the archive.  When this option is specified, all file properties will be included except the specified properties.  This option can be used multiple times.
 .TP
-\\-\-distribution
+\-\-distribution
 Creates an archive to only contain file properties safe for file distribution.  Currently, only name, type, mode, and data are preserved with this option.
 .TP
 \-\-keep-existing

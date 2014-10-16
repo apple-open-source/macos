@@ -9,17 +9,17 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Apache HTTP Server Tutorial: .htaccess files</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Apache HTTP Server Tutorial: .htaccess files</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/howto/htaccess.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/howto/htaccess.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
@@ -43,7 +43,7 @@ changes on a per-directory basis.</p>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="related" id="related">.htaccess files</a></h2>
-    <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="../mod/core.html">core</a></code></li><li><code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code></li><li><code class="module"><a href="../mod/mod_authz_groupfile.html">mod_authz_groupfile</a></code></li><li><code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code></li><li><code class="module"><a href="../mod/mod_include.html">mod_include</a></code></li><li><code class="module"><a href="../mod/mod_mime.html">mod_mime</a></code></li></ul></td><td><ul><li><code class="directive"><a href="../mod/core.html#accessfilename">AccessFileName</a></code></li><li><code class="directive"><a href="../mod/core.html#allowoverride">AllowOverride</a></code></li><li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li><li><code class="directive"><a href="../mod/mod_mime.html#addhandler">AddHandler</a></code></li><li><code class="directive"><a href="../mod/core.html#sethandler">SetHandler</a></code></li><li><code class="directive"><a href="../mod/core.html#authtype">AuthType</a></code></li><li><code class="directive"><a href="../mod/core.html#authname">AuthName</a></code></li><li><code class="directive"><a href="../mod/mod_authn_file.html#authuserfile">AuthUserFile</a></code></li><li><code class="directive"><a href="../mod/mod_authz_groupfile.html#authgroupfile">AuthGroupFile</a></code></li><li><code class="directive"><a href="../mod/core.html#require">Require</a></code></li></ul></td></tr></table>
+    <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="../mod/core.html">core</a></code></li><li><code class="module"><a href="../mod/mod_authn_file.html">mod_authn_file</a></code></li><li><code class="module"><a href="../mod/mod_authz_groupfile.html">mod_authz_groupfile</a></code></li><li><code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code></li><li><code class="module"><a href="../mod/mod_include.html">mod_include</a></code></li><li><code class="module"><a href="../mod/mod_mime.html">mod_mime</a></code></li></ul></td><td><ul><li><code class="directive"><a href="../mod/core.html#accessfilename">AccessFileName</a></code></li><li><code class="directive"><a href="../mod/core.html#allowoverride">AllowOverride</a></code></li><li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li><li><code class="directive"><a href="../mod/mod_mime.html#addhandler">AddHandler</a></code></li><li><code class="directive"><a href="../mod/core.html#sethandler">SetHandler</a></code></li><li><code class="directive"><a href="../mod/mod_authn_core.html#authtype">AuthType</a></code></li><li><code class="directive"><a href="../mod/mod_authn_core.html#authname">AuthName</a></code></li><li><code class="directive"><a href="../mod/mod_authn_file.html#authuserfile">AuthUserFile</a></code></li><li><code class="directive"><a href="../mod/mod_authz_groupfile.html#authgroupfile">AuthGroupFile</a></code></li><li><code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code></li></ul></td></tr></table>
 
     <div class="note">You should avoid using <code>.htaccess</code> files completely if you have access to
     httpd main server config file. Using <code>.htaccess</code> files slows down your Apache http server.
@@ -65,9 +65,8 @@ changes on a per-directory basis.</p>
       if you would rather call the file <code>.config</code> then you
       can put the following in your server configuration file:</p>
 
-      <div class="example"><p><code>
-        AccessFileName .config
-      </code></p></div>
+      <pre class="prettyprint lang-config">AccessFileName .config</pre>
+
     </div>
 
     <p>In general, <code>.htaccess</code> files use the same syntax as
@@ -198,13 +197,10 @@ changes on a per-directory basis.</p>
 </div>
 
     <div class="example"><h3>Section from your <code>httpd.conf</code>
-    file</h3><p><code>
-      &lt;Directory /www/htdocs/example&gt;<br />
-      <span class="indent">
-        AddType text/example .exm<br />
-      </span>
-&lt;/Directory&gt;
-    </code></p></div>
+    file</h3><pre class="prettyprint lang-config">&lt;Directory /www/htdocs/example&gt;
+    AddType text/example .exm
+&lt;/Directory&gt;</pre>
+</div>
 
     <p>However, putting this configuration in your server configuration
     file will result in less of a performance hit, as the configuration is
@@ -215,9 +211,8 @@ changes on a per-directory basis.</p>
     by setting the <code class="directive"><a href="../mod/core.html#allowoverride">AllowOverride</a></code>
     directive to <code>none</code>:</p>
 
-    <div class="example"><p><code>
-      AllowOverride None
-    </code></p></div>
+    <pre class="prettyprint lang-config">AllowOverride None</pre>
+
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="how" id="how">How directives are applied</a></h2>
@@ -238,9 +233,8 @@ changes on a per-directory basis.</p>
     <p>In the directory <code>/www/htdocs/example1</code> we have a
     <code>.htaccess</code> file containing the following:</p>
 
-    <div class="example"><p><code>
-       Options +ExecCGI
-    </code></p></div>
+    <pre class="prettyprint lang-config">Options +ExecCGI</pre>
+
 
     <p>(Note: you must have "<code>AllowOverride Options</code>" in effect
     to permit the use of the "<code class="directive"><a href="../mod/core.html#options">Options</a></code>" directive in
@@ -249,9 +243,8 @@ changes on a per-directory basis.</p>
     <p>In the directory <code>/www/htdocs/example1/example2</code> we have
     a <code>.htaccess</code> file containing:</p>
 
-    <div class="example"><p><code>
-       Options Includes
-    </code></p></div>
+    <pre class="prettyprint lang-config">Options Includes</pre>
+
 
     <p>Because of this second <code>.htaccess</code> file, in the directory
     <code>/www/htdocs/example1/example2</code>, CGI execution is not
@@ -271,19 +264,16 @@ changes on a per-directory basis.</p>
     prevent script execution while allowing anything else to be set in
     <code>.htaccess</code> you can use:</p>
 
-    <div class="example"><p><code>
-&lt;Directory /&gt;<br />
-<span class="indent">
-Allowoverride All<br />
-</span>
-&lt;/Directory&gt;<br />
-<br />
-&lt;Location /&gt;<br />
-<span class="indent">
+    <pre class="prettyprint lang-config">&lt;Directory /www/htdocs&gt;
+    AllowOverride All
+&lt;/Directory&gt;
+
+&lt;Location /&gt;
     Options +IncludesNoExec -ExecCGI<br />
-</span>
-&lt;/Location&gt;
-    </code></p></div>
+&lt;/Location&gt;</pre>
+
+
+    <div class="note">This example assumes that your <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> is <code>/www/htdocs</code>.</div>
 
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -307,13 +297,12 @@ Allowoverride All<br />
 
     <p><code>.htaccess</code> file contents:</p>
 
-    <div class="example"><p><code>
-      AuthType Basic<br />
-      AuthName "Password Required"<br />
-      AuthUserFile /www/passwords/password.file<br />
-      AuthGroupFile /www/passwords/group.file<br />
-Require Group admins
-    </code></p></div>
+    <pre class="prettyprint lang-config">AuthType Basic
+AuthName "Password Required"
+AuthUserFile /www/passwords/password.file
+AuthGroupFile /www/passwords/group.file
+Require Group admins</pre>
+
 
     <p>Note that <code>AllowOverride AuthConfig</code> must be in effect
     for these directives to have any effect.</p>
@@ -329,11 +318,10 @@ Require Group admins
     the following configuration directives, placed in a
     <code>.htaccess</code> file in the desired directory:</p>
 
-    <div class="example"><p><code>
-       Options +Includes<br />
-       AddType text/html shtml<br />
-AddHandler server-parsed shtml
-    </code></p></div>
+    <pre class="prettyprint lang-config">Options +Includes
+AddType text/html shtml
+AddHandler server-parsed shtml</pre>
+
 
     <p>Note that <code>AllowOverride Options</code> and <code>AllowOverride
     FileInfo</code> must both be in effect for these directives to have any
@@ -349,19 +337,17 @@ AddHandler server-parsed shtml
     the execution of CGI programs in a particular directory. This may be
     implemented with the following configuration:</p>
 
-    <div class="example"><p><code>
-       Options +ExecCGI<br />
-AddHandler cgi-script cgi pl
-    </code></p></div>
+    <pre class="prettyprint lang-config">Options +ExecCGI
+AddHandler cgi-script cgi pl</pre>
+
 
     <p>Alternately, if you wish to have all files in the given directory be
     considered to be CGI programs, this may be done with the following
     configuration:</p>
 
-    <div class="example"><p><code>
-       Options +ExecCGI<br />
-SetHandler cgi-script
-    </code></p></div>
+    <pre class="prettyprint lang-config">Options +ExecCGI
+SetHandler cgi-script</pre>
+
 
     <p>Note that <code>AllowOverride Options</code> and <code>AllowOverride
     FileInfo</code> must both be in effect for these directives to have any
@@ -422,7 +408,7 @@ SetHandler cgi-script
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/htaccess.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/htaccess.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -437,7 +423,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/htaccess.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

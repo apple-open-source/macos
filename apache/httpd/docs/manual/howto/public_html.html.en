@@ -9,19 +9,20 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Per-user web directories</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Per-user web directories</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/howto/public_html.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/public_html.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
@@ -67,9 +68,8 @@
     assumed to be a directory path relative to the home directory of the
     specified user. Given this configuration:</p>
 
-    <div class="example"><p><code>
-      UserDir public_html
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir public_html</pre>
+
 
     <p>the URL <code>http://example.com/~rbowen/file.html</code> will be
     translated to the file path
@@ -79,9 +79,8 @@
     constructed using that path, plus the username specified. Given this
     configuration:</p>
 
-    <div class="example"><p><code>
-      UserDir /var/html
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir /var/html</pre>
+
 
     <p>the URL <code>http://example.com/~rbowen/file.html</code> will be
     translated to the file path <code>/var/html/rbowen/file.html</code></p>
@@ -90,9 +89,8 @@
     in which the asterisk is replaced with the username. Given this
     configuration:</p>
 
-    <div class="example"><p><code>
-      UserDir /var/www/*/docs
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir /var/www/*/docs</pre>
+
 
     <p>the URL <code>http://example.com/~rbowen/file.html</code> will be
     translated to the file path
@@ -100,9 +98,8 @@
 
     <p>Multiple directories or directory paths can also be set.</p>
 
-    <div class="example"><p><code>
-      UserDir public_html /var/html
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir public_html /var/html</pre>
+
 
     <p>For the URL <code>http://example.com/~rbowen/file.html</code>,
     Apache will search for <code>~rbowen</code>. If it isn't found,
@@ -117,9 +114,8 @@
     <p>The <code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code> directive can be
       used to redirect user directory requests to external URLs.</p>
 
-    <div class="example"><p><code>
-      UserDir http://example.org/users/*/
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir http://example.org/users/*/</pre>
+
 
     <p>The above example will redirect a request for
     <code>http://example.com/~bob/abc.html</code> to
@@ -133,19 +129,17 @@
     <p>Using the syntax shown in the UserDir documentation, you can restrict
     what users are permitted to use this functionality:</p>
 
-    <div class="example"><p><code>
-      UserDir disabled root jro fish
-    </code></p></div>
+    <pre class="prettyprint lang-config">UserDir disabled root jro fish</pre>
+
 
     <p>The configuration above will enable the feature for all users
     except for those listed in the <code>disabled</code> statement.
     You can, likewise, disable the feature for all but a few users by
     using a configuration like the following:</p>
 
-    <div class="example"><p><code>
-      UserDir disabled<br />
-      UserDir enabled rbowen krietz
-    </code></p></div>
+    <pre class="prettyprint lang-config">      UserDir disabled<br />
+      UserDir enabled rbowen krietz</pre>
+
 
     <p>See <code class="directive"><a href="../mod/mod_userdir.html#userdir">UserDir</a></code>
     documentation for additional examples.</p>
@@ -160,12 +154,11 @@
     directive to make a particular subdirectory of a user's home directory
     cgi-enabled.</p>
 
-    <div class="example"><p><code>
-      &lt;Directory /home/*/public_html/cgi-bin/&gt;<br />
-       Options ExecCGI<br />
-       SetHandler cgi-script<br />
-&lt;/Directory&gt;
-    </code></p></div>
+    <pre class="prettyprint lang-config">&lt;Directory /home/*/public_html/cgi-bin/&gt;
+    Options ExecCGI
+    SetHandler cgi-script
+&lt;/Directory&gt;</pre>
+
 
     <p>Then, presuming that <code>UserDir</code> is set to
     <code>public_html</code>, a cgi program <code>example.cgi</code>
@@ -190,13 +183,14 @@
   </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/howto/public_html.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/howto/public_html.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/public_html.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/public_html.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -211,7 +205,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/public_html.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -25,20 +25,20 @@
 
 #include "QuotesData.h"
 #include "RenderTextFragment.h"
+#include "RenderView.h"
 
 using namespace WTF::Unicode;
 
 namespace WebCore {
 
-RenderQuote::RenderQuote(Document* document, QuoteType quote)
-    : RenderInline(0)
+RenderQuote::RenderQuote(Document& document, PassRef<RenderStyle> style, QuoteType quote)
+    : RenderInline(document, WTF::move(style))
     , m_type(quote)
     , m_depth(-1)
     , m_next(0)
     , m_previous(0)
     , m_isAttached(false)
 {
-    setDocumentForAnonymous(document);
 }
 
 RenderQuote::~RenderQuote()
@@ -317,7 +317,7 @@ static StringImpl* stringForQuoteCharacter(UChar character)
             return strings[i].string;
         if (!strings[i].character) {
             strings[i].character = character;
-            strings[i].string = StringImpl::create8BitIfPossible(&character, 1).leakRef();
+            strings[i].string = &StringImpl::create8BitIfPossible(&character, 1).leakRef();
             return strings[i].string;
         }
     }
@@ -353,45 +353,43 @@ void RenderQuote::updateText()
 
     m_text = text;
 
-    RenderTextFragment* fragment = new (document()->renderArena()) RenderTextFragment(document(), m_text.impl());
-    fragment->setStyle(style());
+    RenderTextFragment* fragment = new RenderTextFragment(document(), m_text.impl());
     addChild(fragment);
 }
 
-PassRefPtr<StringImpl> RenderQuote::computeText() const
+String RenderQuote::computeText() const
 {
     if (m_depth < 0)
-        return StringImpl::empty();
+        return emptyString();
     bool isOpenQuote = false;
     switch (m_type) {
     case NO_OPEN_QUOTE:
     case NO_CLOSE_QUOTE:
-        return StringImpl::empty();
+        return emptyString();
     case OPEN_QUOTE:
         isOpenQuote = true;
-        // fall through
+        FALLTHROUGH;
     case CLOSE_QUOTE:
-        if (const QuotesData* quotes = style()->quotes())
+        if (const QuotesData* quotes = style().quotes())
             return isOpenQuote ? quotes->openQuote(m_depth).impl() : quotes->closeQuote(m_depth).impl();
-        if (const QuotesForLanguage* quotes = quotesForLanguage(style()->locale()))
+        if (const QuotesForLanguage* quotes = quotesForLanguage(style().locale()))
             return stringForQuoteCharacter(isOpenQuote ? (m_depth ? quotes->open2 : quotes->open1) : (m_depth ? quotes->close2 : quotes->close1));
         // FIXME: Should the default be the quotes for "en" rather than straight quotes?
         return m_depth ? apostropheString() : quotationMarkString();
     }
     ASSERT_NOT_REACHED();
-    return StringImpl::empty();
+    return emptyString();
 }
 
 void RenderQuote::attachQuote()
 {
-    ASSERT(view());
     ASSERT(!m_isAttached);
     ASSERT(!m_next);
     ASSERT(!m_previous);
     ASSERT(isRooted());
 
     // Optimize case where this is the first quote in a RenderView by not searching for predecessors in that case.
-    if (view()->renderQuoteHead()) {
+    if (view().renderQuoteHead()) {
         for (RenderObject* predecessor = previousInPreOrder(); predecessor; predecessor = predecessor->previousInPreOrder()) {
             // Skip unattached predecessors to avoid having stale m_previous pointers
             // if the previous node is never attached and is then destroyed.
@@ -407,8 +405,8 @@ void RenderQuote::attachQuote()
     }
 
     if (!m_previous) {
-        m_next = view()->renderQuoteHead();
-        view()->setRenderQuoteHead(this);
+        m_next = view().renderQuoteHead();
+        view().setRenderQuoteHead(this);
         if (m_next)
             m_next->m_previous = this;
     }
@@ -432,8 +430,8 @@ void RenderQuote::detachQuote()
         return;
     if (m_previous)
         m_previous->m_next = m_next;
-    else if (view())
-        view()->setRenderQuoteHead(m_next);
+    else
+        view().setRenderQuoteHead(m_next);
     if (m_next)
         m_next->m_previous = m_previous;
     if (!documentBeingDestroyed()) {

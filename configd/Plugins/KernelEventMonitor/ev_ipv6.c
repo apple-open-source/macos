@@ -331,7 +331,10 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 		ifr6.ifr_addr = *sin6;
 		if (ioctl(sock, SIOCGIFAFLAG_IN6, &ifr6) == -1) {
 			/* if flags not available for this address */
-			SCLog(TRUE, LOG_NOTICE, CFSTR("interface_update_ipv6: ioctl failed, %s"), strerror(errno));
+			SCLog(TRUE,
+			      (errno != EADDRNOTAVAIL) ? LOG_NOTICE : LOG_DEBUG,
+			      CFSTR("interface_update_ipv6: ioctl failed, %s"),
+			      strerror(errno));
 		}
 
 		appendAddress  (newDict, kSCPropNetIPv6Addresses, sin6);

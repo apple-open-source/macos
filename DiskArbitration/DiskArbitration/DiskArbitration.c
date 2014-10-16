@@ -247,6 +247,11 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
 
                 flags = kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagPreAuthorize;
 
+                if ( CFDictionaryGetValue( description, kDADiskDescriptionVolumeNetworkKey ) == kCFBooleanTrue )
+                {
+                    asprintf( &name, "system.volume.network.%s", right );
+                }
+                else
                 {
                     CFTypeRef object;
 
@@ -260,7 +265,14 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
                     {
                         if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
                         {
-                            asprintf( &name, "system.volume.removable.%s", right );
+                            if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaTypeKey ) )
+                            {
+                                asprintf( &name, "system.volume.optical.%s", right );
+                            }
+                            else
+                            {
+                                asprintf( &name, "system.volume.removable.%s", right );
+                            }
                         }
                         else
                         {

@@ -149,6 +149,9 @@ main(int argc, char *argv[])
 #endif
 	char *ep;
 
+	// radar:17828581
+	(void)signal(SIGTERM, SIG_DFL);
+
 	pfrontp = pbackp = ptyobuf;
 	netip = netibuf;
 	nfrontp = nbackp = netobuf;

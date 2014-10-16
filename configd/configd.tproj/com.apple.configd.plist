@@ -12,12 +12,6 @@
 	<dict>
 		<key>com.apple.SystemConfiguration.configd</key>
 		<true/>
-		<key>com.apple.SystemConfiguration.SCNetworkReachability</key>
-		<true/>
-		<key>com.apple.SystemConfiguration.DNSConfiguration</key>
-		<true/>
-		<key>com.apple.SystemConfiguration.NetworkInformation</key>
-		<true/>
 	</dict>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>

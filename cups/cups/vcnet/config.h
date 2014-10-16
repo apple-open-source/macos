@@ -1,16 +1,16 @@
 /*
- * "$Id: config.h 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $"
  *
- *   Configuration file for CUPS on Windows.
+ * Configuration file for CUPS on Windows.
  *
- *   Copyright 2007-2013 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 #ifndef _CUPS_CONFIG_H_
@@ -54,9 +54,19 @@
 
 
 /*
+ * Map the POSIX strcasecmp() and strncasecmp() functions to the Win32 stricmp()
+ * and strnicmp() functions...
+ */
+
+#define strcasecmp	stricmp
+#define strncasecmp	strnicmp
+
+
+/*
  * Map the POSIX sleep() and usleep() functions to the Win32 Sleep() function...
  */
 
+typedef unsigned long useconds_t;
 #define sleep(X)	Sleep(1000 * (X))
 #define usleep(X)	Sleep((X)/1000)
 
@@ -70,7 +80,7 @@
 #  define R_OK		04
 #  define O_RDONLY	_O_RDONLY
 #  define O_WRONLY	_O_WRONLY
-#  define O_CREATE	_O_CREAT
+#  define O_CREAT	_O_CREAT
 #  define O_TRUNC	_O_TRUNC
 
 
@@ -86,8 +96,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v1.7.0"
-#define CUPS_MINIMAL "CUPS/1.7.0"
+#define CUPS_SVERSION "CUPS v2.0.0"
+#define CUPS_MINIMAL "CUPS/2.0.0"
 
 
 /*
@@ -162,7 +172,7 @@
 
 
 /*
- * Do we have domain socket support?
+ * Do we have domain socket support, and if so what is the default one?
  */
 
 #undef CUPS_DEFAULT_DOMAINSOCKET
@@ -197,6 +207,13 @@
 
 
 /*
+ * Do we have posix_spawn?
+ */
+
+/* #undef HAVE_POSIX_SPAWN */
+
+
+/*
  * Do we have ZLIB?
  */
 
@@ -208,10 +225,7 @@
  * Do we have PAM stuff?
  */
 
-#ifndef HAVE_LIBPAM
 #define HAVE_LIBPAM 0
-#endif /* !HAVE_LIBPAM */
-
 /* #undef HAVE_PAM_PAM_APPL_H */
 /* #undef HAVE_PAM_SET_ITEM */
 /* #undef HAVE_PAM_SETCRED */
@@ -355,16 +369,15 @@
 
 /* #undef HAVE_CDSASSL */
 /* #undef HAVE_GNUTLS */
-/* #undef HAVE_LIBSSL */
 #define HAVE_SSPISSL
 #define HAVE_SSL
 
 
 /*
- * Do we have the SSL_set_tlsext_host_name function?
+ * Do we have the gnutls_transport_set_pull_timeout_function function?
  */
 
-/* #undef HAVE_SSL_SET_TLSEXT_HOST_NAME */
+/* #undef HAVE_GNUTLS_TRANSPORT_SET_PULL_TIMEOUT_FUNCTION */
 
 
 /*
@@ -387,6 +400,20 @@
  */
 
 /* #undef HAVE_CSSMERRORSTRING */
+
+
+/*
+ * Do we have the SecGenerateSelfSignedCertificate function?
+ */
+
+/* #undef HAVE_SECGENERATESELFSIGNEDCERTIFICATE */
+
+
+/*
+ * Do we have the SecKeychainOpen function?
+ */
+
+/* #undef HAVE_SECKEYCHAINOPEN */
 
 
 /*
@@ -495,13 +522,6 @@
 
 
 /*
- * Do we have the AIX usersec.h header file?
- */
-
-/* #undef HAVE_USERSEC_H */
-
-
-/*
  * Do we have pthread support?
  */
 
@@ -514,6 +534,13 @@
 
 /* #undef HAVE_LAUNCH_H */
 /* #undef HAVE_LAUNCHD */
+
+
+/*
+ * Do we have systemd support?
+ */
+
+/* #undef HAVE_SYSTEMD */
 
 
 /*
@@ -588,18 +615,12 @@
 
 
 /*
- * Do we have Darwin's IOKit private headers?
- */
-
-/* #undef HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H */
-
-
-/*
  * Do we have DBUS?
  */
 
 /* #undef HAVE_DBUS */
 /* #undef HAVE_DBUS_MESSAGE_ITER_INIT_APPEND */
+/* #undef HAVE_DBUS_THREADS_INIT */
 
 
 /*
@@ -771,5 +792,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $".
  */

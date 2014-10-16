@@ -24,6 +24,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Portions Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ */
+
 #ifndef	_DTRACE_H
 #define	_DTRACE_H
 
@@ -94,6 +98,7 @@ typedef struct {
 	GElf_Half	st_shndx;	/* SHN_... */
 	GElf_Addr	st_value;
 	GElf_Xword	st_size;
+	uint32_t	st_arch_subinfo;/* Needed for arm function info */		
 } GElf_Sym;
 
 extern char* demangleSymbolCString(const char*);
@@ -403,6 +408,12 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *,
 #define	DTRACE_A_PERCPU		0x0001
 #define	DTRACE_A_KEEPDELTA	0x0002
 #define	DTRACE_A_ANONYMOUS	0x0004
+#define	DTRACE_A_TOTAL		0x0008
+#define	DTRACE_A_MINMAXBIN	0x0010
+#define	DTRACE_A_HASNEGATIVES	0x0020
+#define	DTRACE_A_HASPOSITIVES	0x0040
+
+#define	DTRACE_AGGZOOM_MAX	0.95  /* height of max bar */
 
 #define	DTRACE_AGGWALK_ERROR		-1	/* error while processing */
 #define	DTRACE_AGGWALK_NEXT		0	/* proceed to next element */
@@ -423,6 +434,10 @@ struct dtrace_aggdata {
 	caddr_t dtada_delta;			/* delta data, if available */
 	caddr_t *dtada_percpu;			/* per CPU data, if avail */
 	caddr_t *dtada_percpu_delta;		/* per CPU delta, if avail */
+	int64_t dtada_total;			/* per agg total, if avail */
+	uint16_t dtada_minbin;			/* minimum bin, if avail */
+	uint16_t dtada_maxbin;			/* maximum bin, if avail */
+	uint32_t dtada_flags;			/* flags */
 };
 
 typedef int dtrace_aggregate_f(const dtrace_aggdata_t *, void *);
@@ -482,6 +497,7 @@ extern struct ps_prochandle *dtrace_proc_create(dtrace_hdl_t *,
     const char *, char *const *);
 
 extern struct ps_prochandle *dtrace_proc_grab(dtrace_hdl_t *, pid_t, int);
+extern struct ps_prochandle *dtrace_proc_waitfor(dtrace_hdl_t *, char const *);
 extern void dtrace_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 

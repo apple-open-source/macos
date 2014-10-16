@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,16 +26,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebNSViewExtras.h>
+#import <WebKitLegacy/WebNSViewExtras.h>
 
-#import <WebKit/DOMExtensions.h>
-#import <WebKit/WebDataSource.h>
-#import <WebKit/WebFramePrivate.h>
-#import <WebKit/WebFrameViewInternal.h>
-#import <WebKit/WebNSImageExtras.h>
-#import <WebKit/WebNSPasteboardExtras.h>
-#import <WebKit/WebNSURLExtras.h>
-#import <WebKit/WebView.h>
+#import <WebKitLegacy/DOMExtensions.h>
+#import <WebKitLegacy/WebDataSource.h>
+#import <WebKitLegacy/WebFramePrivate.h>
+#import <WebKitLegacy/WebFrameViewInternal.h>
+#import <WebKitLegacy/WebNSImageExtras.h>
+#import <WebKitLegacy/WebNSURLExtras.h>
+#import <WebKitLegacy/WebView.h>
+
+#if !PLATFORM(IOS)
+#import <WebKitLegacy/WebNSPasteboardExtras.h>
+#endif
+
+#if PLATFORM(IOS)
+#import <WebCore/WAKViewPrivate.h>
+#import <WebCore/WAKWindow.h>
+#endif
 
 #define WebDragStartHysteresisX                 5.0f
 #define WebDragStartHysteresisY                 5.0f
@@ -59,6 +67,7 @@
     return (WebFrameView *)[self _web_superviewOfClass:[WebFrameView class]];
 }
 
+#if !PLATFORM(IOS)
 // FIXME: Mail is the only client of _webView, remove this method once no versions of Mail need it.
 - (WebView *)_webView
 {
@@ -168,7 +177,10 @@
         origin = rect.origin;
         
         dragImage = [[image copy] autorelease];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [dragImage setScalesWhenResized:YES];
+#pragma clang diagnostic pop
         [dragImage setSize:originalSize];
         
         [dragImage _web_scaleToMaxSize:WebMaxDragImageSize];
@@ -198,8 +210,12 @@
     }
     
     // Per kwebster, offset arg is ignored
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [self dragImage:dragImage at:origin offset:NSZeroSize event:event pasteboard:pasteboard source:source slideBack:YES];
+#pragma clang diagnostic pop
 }
+#endif // !PLATFORM(IOS)
 
 - (BOOL)_web_firstResponderIsSelfOrDescendantView
 {
@@ -229,10 +245,13 @@
     NSRect convertedRect = [self convertRect:aRect toView:nil];
     
     // Convert to screen coordinates
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     convertedRect.origin = [thisWindow convertBaseToScreen:convertedRect.origin];
-    
+
     // Convert to other window's coordinates
     convertedRect.origin = [otherWindow convertScreenToBase:convertedRect.origin];
+#pragma clang diagnostic pop
     
     // Convert to other view's coordinates
     convertedRect = [aView convertRect:convertedRect fromView:nil];
@@ -241,3 +260,22 @@
 }
 
 @end
+
+#if PLATFORM(IOS)
+@implementation NSView (WebDocumentViewExtras)
+
+- (WebFrame *)_frame
+{
+    WebFrameView *webFrameView = [self _web_parentWebFrameView];
+    return [webFrameView webFrame];
+}
+
+- (WebView *)_webView
+{
+    // We used to use the view hierarchy exclusively here, but that won't work
+    // right when the first viewDidMoveToSuperview call is done, and this will.
+    return [[self _frame] webView];
+}
+
+@end
+#endif

@@ -32,6 +32,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 namespace JSC { namespace ARMv7Disassembler {
 
@@ -48,7 +49,7 @@ const char* const ARMv7DOpcode::s_optionName[8] = {
 };
 
 const char* const ARMv7DOpcode::s_shiftNames[4] = {
-    "lsl", "lsr", "asl", "ror"
+    "lsl", "lsr", "asr", "ror"
 };
 
 const char* const ARMv7DOpcode::s_specialRegisterNames[3] = { "sp", "lr", "pc" };
@@ -269,7 +270,7 @@ void ARMv7DOpcode::appendRegisterList(unsigned registers)
     appendCharacter('{');
 
     for (unsigned i = 0; i < 16; i++) {
-        if (registers & i) {
+        if (registers & (1 << i)) {
             if (numberPrinted++)
                 appendSeparator();
             appendRegisterName(i);

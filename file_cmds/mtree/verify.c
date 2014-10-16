@@ -91,6 +91,9 @@ vwalk(void)
 		case FTS_SL:
 			break;
 		case FTS_DP:
+			if (level == NULL) {
+				errx(1 , "invalid root in vwalk");
+			}
 			if (specdepth > p->fts_level) {
 				for (level = level->parent; level->prev;
 				      level = level->prev);

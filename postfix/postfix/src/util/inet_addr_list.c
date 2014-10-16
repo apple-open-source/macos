@@ -137,24 +137,6 @@ void    inet_addr_list_uniq(INET_ADDR_LIST *list)
     list->used = n;
 }
 
-#ifdef __APPLE_OS_X_SERVER__
-void inet_addr_list_clean(INET_ADDR_LIST *list)
-{
-    int n = 0;
-
-    /* remove IPv6 scoped addresses */
-    while (n < list->used) {
-	if (list->addrs[n].ss_family == AF_INET6 &&
-	    SOCK_ADDR_IN6_PTR(&list->addrs[n])->sin6_scope_id != 0) {
-	    memmove(&list->addrs[n], &list->addrs[n + 1],
-		    sizeof list->addrs[0] * (list->used - n - 1));
-	    --list->used;
-	} else
-	    ++n;
-    }
-}
-#endif
-
 /* inet_addr_list_free - destroy internet address list */
 
 void    inet_addr_list_free(INET_ADDR_LIST *list)

@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>mkinstalldirs</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">mkinstalldirs&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-reference">#! /bin/sh
+</span><span class="enscript-comment"># mkinstalldirs --- make directory hierarchy
+</span><span class="enscript-comment"># Author: Noah Friedman &lt;<a href="mailto:friedman@prep.ai.mit.edu">friedman@prep.ai.mit.edu</a>&gt;
+</span><span class="enscript-comment"># Created: 1993-05-16
+</span><span class="enscript-comment"># Public domain
+</span>
+errstatus=0
+dirmode=<span class="enscript-string">&quot;&quot;</span>
+
+usage=<span class="enscript-string">&quot;\
+Usage: mkinstalldirs [-h] [--help] [-m mode] dir ...&quot;</span>
+
+<span class="enscript-comment"># process command line arguments
+</span><span class="enscript-keyword">while</span> <span class="enscript-keyword">test</span> $<span class="enscript-comment"># -gt 0 ; do
+</span>  <span class="enscript-keyword">case</span> $1 <span class="enscript-keyword">in</span>
+    -h | --help | --h*)         <span class="enscript-comment"># -h for help
+</span>      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$usage&quot;</span> 1&gt;&amp;2
+      <span class="enscript-keyword">exit</span> 0
+      ;;
+    -m)                         <span class="enscript-comment"># -m PERM arg
+</span>      <span class="enscript-keyword">shift</span>
+      <span class="enscript-keyword">test</span> $<span class="enscript-comment"># -eq 0 &amp;&amp; { echo &quot;$usage&quot; 1&gt;&amp;2; exit 1; }
+</span>      dirmode=$1
+      <span class="enscript-keyword">shift</span>
+      ;;
+    --)                         <span class="enscript-comment"># stop option processing
+</span>      <span class="enscript-keyword">shift</span>
+      <span class="enscript-keyword">break</span>
+      ;;
+    -*)                         <span class="enscript-comment"># unknown option
+</span>      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;$usage&quot;</span> 1&gt;&amp;2
+      <span class="enscript-keyword">exit</span> 1
+      ;;
+    *)                          <span class="enscript-comment"># first non-opt arg
+</span>      <span class="enscript-keyword">break</span>
+      ;;
+  <span class="enscript-keyword">esac</span>
+<span class="enscript-keyword">done</span>
+
+<span class="enscript-keyword">for</span> file
+<span class="enscript-keyword">do</span>
+  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> -d <span class="enscript-string">&quot;$file&quot;</span>; <span class="enscript-keyword">then</span>
+    <span class="enscript-keyword">shift</span>
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">break</span>
+  <span class="enscript-keyword">fi</span>
+<span class="enscript-keyword">done</span>
+
+<span class="enscript-keyword">case</span> $<span class="enscript-comment"># in
+</span>  0) <span class="enscript-keyword">exit</span> 0 ;;
+<span class="enscript-keyword">esac</span>
+
+<span class="enscript-keyword">case</span> $dirmode <span class="enscript-keyword">in</span>
+  '')
+    <span class="enscript-keyword">if</span> mkdir -p -- . 2&gt;/dev/null; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mkdir -p -- $*&quot;</span>
+      <span class="enscript-keyword">exec</span> mkdir -p -- <span class="enscript-string">&quot;$@&quot;</span>
+    <span class="enscript-keyword">fi</span>
+    ;;
+  *)
+    <span class="enscript-keyword">if</span> mkdir -m <span class="enscript-string">&quot;$dirmode&quot;</span> -p -- . 2&gt;/dev/null; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mkdir -m $dirmode -p -- $*&quot;</span>
+      <span class="enscript-keyword">exec</span> mkdir -m <span class="enscript-string">&quot;$dirmode&quot;</span> -p -- <span class="enscript-string">&quot;$@&quot;</span>
+    <span class="enscript-keyword">fi</span>
+    ;;
+<span class="enscript-keyword">esac</span>
+
+<span class="enscript-keyword">for</span> file
+<span class="enscript-keyword">do</span>
+  <span class="enscript-keyword">set</span> fnord `<span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;:$file&quot;</span> | sed -ne 's/^:\//<span class="enscript-comment">#/;s/^://;s/\// /g;s/^#/\//;p'`
+</span>  <span class="enscript-keyword">shift</span>
+
+  pathcomp=
+  <span class="enscript-keyword">for</span> d
+  <span class="enscript-keyword">do</span>
+    pathcomp=<span class="enscript-string">&quot;$pathcomp$d&quot;</span>
+    <span class="enscript-keyword">case</span> $pathcomp <span class="enscript-keyword">in</span>
+      -*) pathcomp=./$pathcomp ;;
+    <span class="enscript-keyword">esac</span>
+
+    <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -d <span class="enscript-string">&quot;$pathcomp&quot;</span>; <span class="enscript-keyword">then</span>
+      <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;mkdir $pathcomp&quot;</span>
+
+      mkdir <span class="enscript-string">&quot;$pathcomp&quot;</span> || lasterr=$?
+
+      <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -d <span class="enscript-string">&quot;$pathcomp&quot;</span>; <span class="enscript-keyword">then</span>
+  	errstatus=$lasterr
+      <span class="enscript-keyword">else</span>
+  	<span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -z <span class="enscript-string">&quot;$dirmode&quot;</span>; <span class="enscript-keyword">then</span>
+	  <span class="enscript-keyword">echo</span> <span class="enscript-string">&quot;chmod $dirmode $pathcomp&quot;</span>
+    	  lasterr=<span class="enscript-string">&quot;&quot;</span>
+  	  chmod <span class="enscript-string">&quot;$dirmode&quot;</span> <span class="enscript-string">&quot;$pathcomp&quot;</span> || lasterr=$?
+
+  	  <span class="enscript-keyword">if</span> <span class="enscript-keyword">test</span> ! -z <span class="enscript-string">&quot;$lasterr&quot;</span>; <span class="enscript-keyword">then</span>
+  	    errstatus=$lasterr
+  	  <span class="enscript-keyword">fi</span>
+  	<span class="enscript-keyword">fi</span>
+      <span class="enscript-keyword">fi</span>
+    <span class="enscript-keyword">fi</span>
+
+    pathcomp=<span class="enscript-string">&quot;$pathcomp/&quot;</span>
+  <span class="enscript-keyword">done</span>
+<span class="enscript-keyword">done</span>
+
+<span class="enscript-keyword">exit</span> $errstatus
+
+<span class="enscript-comment"># Local Variables:
+</span><span class="enscript-comment"># mode: shell-script
+</span><span class="enscript-comment"># sh-indentation: 2
+</span><span class="enscript-comment"># End:
+</span><span class="enscript-comment"># mkinstalldirs ends here
+</span></pre>
+<hr />
+</body></html>

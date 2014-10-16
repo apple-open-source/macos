@@ -18,8 +18,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGTextMetrics.h"
 
 #include "RenderSVGInlineText.h"
@@ -42,14 +40,12 @@ SVGTextMetrics::SVGTextMetrics(SVGTextMetrics::MetricsType)
 {
 }
 
-SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun& run)
+SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText& textRenderer, const TextRun& run)
 {
-    ASSERT(textRenderer);
-
-    float scalingFactor = textRenderer->scalingFactor();
+    float scalingFactor = textRenderer.scalingFactor();
     ASSERT(scalingFactor);
 
-    const Font& scaledFont = textRenderer->scaledFont();
+    const Font& scaledFont = textRenderer.scaledFont();
     int length = 0;
 
     // Calculate width/height using the scaled font, divide this result by the scalingFactor afterwards.
@@ -63,20 +59,18 @@ SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun&
     m_length = static_cast<unsigned>(length);
 }
 
-TextRun SVGTextMetrics::constructTextRun(RenderSVGInlineText* text, const UChar* characters, unsigned position, unsigned length)
+TextRun SVGTextMetrics::constructTextRun(RenderSVGInlineText& text, unsigned position, unsigned length)
 {
-    RenderStyle* style = text->style();
-    ASSERT(style);
+    const RenderStyle& style = text.style();
 
-    TextRun run(characters + position
-                , length
+    TextRun run(StringView(text.text()).substring(position, length)
                 , 0 /* xPos, only relevant with allowTabs=true */
                 , 0 /* padding, only relevant for justified text, not relevant for SVG */
                 , TextRun::AllowTrailingExpansion
-                , style->direction()
-                , isOverride(style->unicodeBidi()) /* directionalOverride */);
+                , style.direction()
+                , isOverride(style.unicodeBidi()) /* directionalOverride */);
 
-    if (textRunNeedsRenderingContext(style->font()))
+    if (style.font().primaryFont()->isSVGFont())
         run.setRenderingContext(SVGTextRunRenderingContext::create(text));
 
     run.disableRoundingHacks();
@@ -85,30 +79,27 @@ TextRun SVGTextMetrics::constructTextRun(RenderSVGInlineText* text, const UChar*
     run.disableSpacing();
 
     // Propagate the maximum length of the characters buffer to the TextRun, even when we're only processing a substring.
-    run.setCharactersLength(text->textLength() - position);
+    run.setCharactersLength(text.textLength() - position);
     ASSERT(run.charactersLength() >= run.length());
     return run;
 }
 
-SVGTextMetrics SVGTextMetrics::measureCharacterRange(RenderSVGInlineText* text, unsigned position, unsigned length)
+SVGTextMetrics SVGTextMetrics::measureCharacterRange(RenderSVGInlineText& text, unsigned position, unsigned length)
 {
-    ASSERT(text);
-    return SVGTextMetrics(text, constructTextRun(text, text->characters(), position, length));
+    return SVGTextMetrics(text, constructTextRun(text, position, length));
 }
 
-SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* text, unsigned position, unsigned length, float width, const String& glyphName)
+SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText& text, unsigned position, unsigned length, float width, const String& glyphName)
 {
-    ASSERT(text);
-
-    bool needsContext = textRunNeedsRenderingContext(text->style()->font());
-    float scalingFactor = text->scalingFactor();
+    bool needsContext = text.style().font().primaryFont()->isSVGFont();
+    float scalingFactor = text.scalingFactor();
     ASSERT(scalingFactor);
 
     m_width = width / scalingFactor;
-    m_height = text->scaledFont().fontMetrics().floatHeight() / scalingFactor;
+    m_height = text.scaledFont().fontMetrics().floatHeight() / scalingFactor;
     if (needsContext) {
         m_glyph.isValid = true;
-        m_glyph.unicodeString = String(text->characters() + position, length);
+        m_glyph.unicodeString = text.text()->substring(position, length);
         m_glyph.name = glyphName;
     }
 
@@ -116,5 +107,3 @@ SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* text, unsigned position, uns
 }
 
 }
-
-#endif // ENABLE(SVG)

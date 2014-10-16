@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,21 +33,22 @@
 
 namespace WebCore {
 
-class KURL;
+class URL;
 class NetworkStorageSession;
 struct Cookie;
 
 // FIXME: These should probably be NetworkStorageSession member functions.
 
-String cookiesForDOM(const NetworkStorageSession&, const KURL& firstParty, const KURL&);
-void setCookiesFromDOM(const NetworkStorageSession&, const KURL& firstParty, const KURL&, const String&);
-bool cookiesEnabled(const NetworkStorageSession&, const KURL& firstParty, const KURL&);
-String cookieRequestHeaderFieldValue(const NetworkStorageSession&, const KURL& firstParty, const KURL&);
-bool getRawCookies(const NetworkStorageSession&, const KURL& firstParty, const KURL&, Vector<Cookie>&);
-void deleteCookie(const NetworkStorageSession&, const KURL&, const String&);
+String cookiesForDOM(const NetworkStorageSession&, const URL& firstParty, const URL&);
+void setCookiesFromDOM(const NetworkStorageSession&, const URL& firstParty, const URL&, const String&);
+bool cookiesEnabled(const NetworkStorageSession&, const URL& firstParty, const URL&);
+String cookieRequestHeaderFieldValue(const NetworkStorageSession&, const URL& firstParty, const URL&);
+bool getRawCookies(const NetworkStorageSession&, const URL& firstParty, const URL&, Vector<Cookie>&);
+void deleteCookie(const NetworkStorageSession&, const URL&, const String&);
 void getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>& hostnames);
 void deleteCookiesForHostname(const NetworkStorageSession&, const String& hostname);
 void deleteAllCookies(const NetworkStorageSession&);
+void deleteAllCookiesModifiedAfterDate(const NetworkStorageSession&, double date);
 
 }
 

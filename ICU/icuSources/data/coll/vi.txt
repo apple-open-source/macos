@@ -1,20 +1,20 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/collation/vi.xml
+// * Copyright (C) 2014 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/collation/vi.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/collation/vi.xml
+ * ICU <specials> source: <path>/xml/collation/vi.xml
  */
 vi{
-    Version{"2.0.82.42"}
+    Version{"2.0.96.14"}
     collations{
         standard{
             Sequence{
-                " [normalization on]"
+                "[normalization on]"
                 "&̀<<̉<<̃<<́<<̣"
                 "&a<ă<<<Ă<â<<<Â"
                 "&d<đ<<<Đ"
@@ -22,26 +22,26 @@ vi{
                 "&o<ô<<<Ô<ơ<<<Ơ"
                 "&u<ư<<<Ư"
             }
-            Version{"23"}
+            Version{"25"}
         }
         traditional{
             Sequence{
-                " [normalization on]"
+                "[normalization on]"
                 "&̀<<̉<<̃<<́<<̣"
                 "&a<ă<<<Ă<â<<<Â"
-                "&c<ch<<<Ch<<<CH"
+                "&C<ch<<<Ch<<<CH"
                 "&d<đ<<<Đ"
                 "&e<ê<<<Ê"
-                "&g<gh<<<Gh<<<GH<gi<<<Gi<<<GI"
-                "&k<kh<<<Kh<<<KH"
-                "&n<nh<<<Nh<<<NH<ng<<<Ng<<<NG<ngh<<<Ngh<<<NGh<<<NGH"
+                "&G<gh<<<Gh<<<GH<gi<<<Gi<<<GI"
+                "&K<kh<<<Kh<<<KH"
+                "&N<nh<<<Nh<<<NH<ng<<<Ng<<<NG<ngh<<<Ngh<<<NGh<<<NGH"
                 "&o<ô<<<Ô<ơ<<<Ơ"
-                "&p<ph<<<Ph<<<PH"
-                "&q<qu<<<Qu<<<QU"
-                "&t<th<<<Th<<<TH<tr<<<Tr<<<TR"
+                "&P<ph<<<Ph<<<PH"
+                "&Q<qu<<<Qu<<<QU"
+                "&T<th<<<Th<<<TH<tr<<<Tr<<<TR"
                 "&u<ư<<<Ư"
             }
-            Version{"23"}
+            Version{"25"}
         }
     }
 }

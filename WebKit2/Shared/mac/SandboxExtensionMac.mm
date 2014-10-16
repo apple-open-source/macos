@@ -26,7 +26,7 @@
 #import "config.h"
 #import "SandboxExtension.h"
 
-#if ENABLE(WEB_PROCESS_SANDBOX)
+#if ENABLE(SANDBOX_EXTENSIONS)
 
 #import "ArgumentDecoder.h"
 #import "ArgumentEncoder.h"
@@ -53,10 +53,10 @@ SandboxExtension::Handle::~Handle()
     }
 }
 
-void SandboxExtension::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SandboxExtension::Handle::encode(IPC::ArgumentEncoder& encoder) const
 {
     if (!m_sandboxExtension) {
-        encoder << CoreIPC::DataReference();
+        encoder << IPC::DataReference();
         return;
     }
 
@@ -64,18 +64,18 @@ void SandboxExtension::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
     const char *serializedFormat = WKSandboxExtensionGetSerializedFormat(m_sandboxExtension, &length);
     ASSERT(serializedFormat);
 
-    encoder << CoreIPC::DataReference(reinterpret_cast<const uint8_t*>(serializedFormat), length);
+    encoder << IPC::DataReference(reinterpret_cast<const uint8_t*>(serializedFormat), length);
 
     // Encoding will destroy the sandbox extension locally.
     WKSandboxExtensionDestroy(m_sandboxExtension);
     m_sandboxExtension = 0;
 }
 
-bool SandboxExtension::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& result)
+bool SandboxExtension::Handle::decode(IPC::ArgumentDecoder& decoder, Handle& result)
 {
     ASSERT(!result.m_sandboxExtension);
 
-    CoreIPC::DataReference dataReference;
+    IPC::DataReference dataReference;
     if (!decoder.decode(dataReference))
         return false;
 
@@ -87,15 +87,12 @@ bool SandboxExtension::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle&
 }
 
 SandboxExtension::HandleArray::HandleArray()
-    : m_data(0)
-    , m_size(0)
+    : m_size(0)
 {
 }
 
 SandboxExtension::HandleArray::~HandleArray()
 {
-    if (m_data)
-        delete[] m_data;
 }
 
 void SandboxExtension::HandleArray::allocate(size_t size)
@@ -105,7 +102,7 @@ void SandboxExtension::HandleArray::allocate(size_t size)
 
     ASSERT(!m_data);
 
-    m_data = new SandboxExtension::Handle[size];
+    m_data = std::make_unique<SandboxExtension::Handle[]>(size);
     m_size = size;
 }
 
@@ -126,7 +123,7 @@ size_t SandboxExtension::HandleArray::size() const
     return m_size;
 }
 
-void SandboxExtension::HandleArray::encode(CoreIPC::ArgumentEncoder& encoder) const
+void SandboxExtension::HandleArray::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << static_cast<uint64_t>(size());
     for (size_t i = 0; i < m_size; ++i)
@@ -134,7 +131,7 @@ void SandboxExtension::HandleArray::encode(CoreIPC::ArgumentEncoder& encoder) co
     
 }
 
-bool SandboxExtension::HandleArray::decode(CoreIPC::ArgumentDecoder& decoder, SandboxExtension::HandleArray& handles)
+bool SandboxExtension::HandleArray::decode(IPC::ArgumentDecoder& decoder, SandboxExtension::HandleArray& handles)
 {
     uint64_t size;
     if (!decoder.decode(size))
@@ -178,7 +175,7 @@ static CString resolveSymlinksInPath(const CString& path)
         return realpath(path.data(), resolvedName);
     }
 
-    char* slashPtr = strrchr(path.data(), '/');
+    const char* slashPtr = strrchr(path.data(), '/');
     if (slashPtr == path.data())
         return path;
 
@@ -208,6 +205,11 @@ static CString resolveSymlinksInPath(const CString& path)
     memcpy(resolvedPathBuffer + resolvedParentDirectory.length(), slashPtr, lastPathComponentLength);
 
     return resolvedPath;
+}
+
+String stringByResolvingSymlinksInPath(const String& path)
+{
+    return String::fromUTF8(resolveSymlinksInPath(path.utf8()));
 }
 
 void SandboxExtension::createHandle(const String& path, Type type, Handle& handle)
@@ -325,4 +327,4 @@ bool SandboxExtension::consumePermanently(const Handle& handle)
 
 } // namespace WebKit
 
-#endif // ENABLE(WEB_PROCESS_SANDBOX)
+#endif // ENABLE(SANDBOX_EXTENSIONS)

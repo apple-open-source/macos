@@ -26,35 +26,18 @@
 #import "config.h"
 #import "RemoteNetworkingContext.h"
 
+#import "NetworkProcess.h"
+#import "SessionTracker.h"
 #import "WebErrors.h"
 #import <WebCore/ResourceError.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/MainThread.h>
-#import <wtf/PassOwnPtr.h>
+#import <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-static OwnPtr<NetworkStorageSession>& privateBrowsingStorageSession()
-{
-    ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(OwnPtr<NetworkStorageSession>, session, ());
-    return session;
-}
-
-bool RemoteNetworkingContext::shouldClearReferrerOnHTTPSToHTTPRedirect() const
-{
-    return m_shouldClearReferrerOnHTTPSToHTTPRedirect;
-}
-
-RemoteNetworkingContext::RemoteNetworkingContext(bool needsSiteSpecificQuirks, bool localFileContentSniffingEnabled, bool privateBrowsingEnabled, bool shouldClearReferrerOnHTTPSToHTTPRedirect)
-    : m_needsSiteSpecificQuirks(needsSiteSpecificQuirks)
-    , m_localFileContentSniffingEnabled(localFileContentSniffingEnabled)
-    , m_privateBrowsingEnabled(privateBrowsingEnabled)
-    , m_shouldClearReferrerOnHTTPSToHTTPRedirect(shouldClearReferrerOnHTTPSToHTTPRedirect)
-{
-}
 
 RemoteNetworkingContext::~RemoteNetworkingContext()
 {
@@ -77,26 +60,29 @@ bool RemoteNetworkingContext::localFileContentSniffingEnabled() const
 
 NetworkStorageSession& RemoteNetworkingContext::storageSession() const
 {
-    if (m_privateBrowsingEnabled) {
-        NetworkStorageSession* privateSession = privateBrowsingStorageSession().get();
-        if (privateSession)
-            return *privateSession;
-        // Some requests with private browsing mode requested may still be coming shortly after NetworkProcess was told to destroy its session.
-        // FIXME: Find a way to track private browsing sessions more rigorously.
-        LOG_ERROR("Private browsing was requested, but there was no session for it. Please file a bug unless you just disabled private browsing, in which case it's an expected race.");
-    }
-
+    NetworkStorageSession* session = SessionTracker::session(m_sessionID);
+    if (session)
+        return *session;
+    // Some requests may still be coming shortly after NetworkProcess was told to destroy its session.
+    LOG_ERROR("Invalid session ID. Please file a bug unless you just disabled private browsing, in which case it's an expected race.");
     return NetworkStorageSession::defaultStorageSession();
-}
-
-NetworkStorageSession* RemoteNetworkingContext::privateBrowsingSession()
-{
-    return privateBrowsingStorageSession().get();
 }
 
 RetainPtr<CFDataRef> RemoteNetworkingContext::sourceApplicationAuditData() const
 {
-    return nil;
+#if PLATFORM(IOS)
+    audit_token_t auditToken;
+    if (!NetworkProcess::shared().parentProcessConnection()->getAuditToken(auditToken))
+        return nullptr;
+    return adoptCF(CFDataCreate(0, (const UInt8*)&auditToken, sizeof(auditToken)));
+#else
+    return nullptr;
+#endif
+}
+
+String RemoteNetworkingContext::sourceApplicationIdentifier() const
+{
+    return SessionTracker::getIdentifierBase();
 }
 
 ResourceError RemoteNetworkingContext::blockedError(const ResourceRequest& request) const
@@ -104,32 +90,15 @@ ResourceError RemoteNetworkingContext::blockedError(const ResourceRequest& reque
     return WebKit::blockedError(request);
 }
 
-static String& privateBrowsingStorageSessionIdentifierBase()
+void RemoteNetworkingContext::ensurePrivateBrowsingSession(SessionID sessionID)
 {
-    ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(String, base, ());
-    return base;
-}
+    ASSERT(sessionID.isEphemeral());
 
-void RemoteNetworkingContext::setPrivateBrowsingStorageSessionIdentifierBase(const String& identifier)
-{
-    privateBrowsingStorageSessionIdentifierBase() = identifier;
-}
-
-void RemoteNetworkingContext::ensurePrivateBrowsingSession()
-{
-    if (privateBrowsingStorageSession())
+    if (SessionTracker::session(sessionID))
         return;
 
-    ASSERT(!privateBrowsingStorageSessionIdentifierBase().isNull());
-    RetainPtr<CFStringRef> cfIdentifier = String(privateBrowsingStorageSessionIdentifierBase() + ".PrivateBrowsing").createCFString();
-
-    privateBrowsingStorageSession() = NetworkStorageSession::createPrivateBrowsingSession(privateBrowsingStorageSessionIdentifierBase());
-}
-
-void RemoteNetworkingContext::destroyPrivateBrowsingSession()
-{
-    privateBrowsingStorageSession() = nullptr;
+    ASSERT(!SessionTracker::getIdentifierBase().isNull());
+    SessionTracker::setSession(sessionID, NetworkStorageSession::createPrivateBrowsingSession(SessionTracker::getIdentifierBase() + '.' + String::number(sessionID.sessionID())));
 }
 
 }

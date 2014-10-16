@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -69,7 +69,7 @@ PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const Fo
     fontDesc.setComputedSize(lroundf(scaleFactor * fontDesc.computedSize()));
     fontDesc.setSpecifiedSize(lroundf(scaleFactor * fontDesc.specifiedSize()));
     fontDesc.setKeywordSize(lroundf(scaleFactor * fontDesc.keywordSize()));
-    FontPlatformData* result = fontCache()->getCachedFontPlatformData(fontDesc, m_platformData.family());
+    FontPlatformData* result = fontCache().getCachedFontPlatformData(fontDesc, m_platformData.family());
     if (!result)
         return 0;
     return SimpleFontData::create(*result);
@@ -87,7 +87,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     // cover a given code page?
 
     // FIXME: in the case that we failed to get the interface, still use the font.
-    IMLangFontLinkType* langFontLink = fontCache()->getFontLinkInterface();
+    IMLangFontLinkType* langFontLink = fontCache().getFontLinkInterface();
     if (!langFontLink)
         return true;
 

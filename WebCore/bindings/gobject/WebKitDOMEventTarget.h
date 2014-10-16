@@ -24,37 +24,47 @@
 
 G_BEGIN_DECLS
 
-#define WEBKIT_TYPE_DOM_EVENT_TARGET            (webkit_dom_event_target_get_type ())
-#define WEBKIT_DOM_EVENT_TARGET(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), WEBKIT_TYPE_DOM_EVENT_TARGET, WebKitDOMEventTarget))
-#define WEBKIT_DOM_EVENT_TARGET_CLASS(obj)      (G_TYPE_CHECK_CLASS_CAST ((obj), WEBKIT_TYPE_DOM_EVENT_TARGET, WebKitDOMEventTargetIface))
-#define WEBKIT_DOM_IS_EVENT_TARGET(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), WEBKIT_TYPE_DOM_EVENT_TARGET))
-#define WEBKIT_DOM_EVENT_TARGET_GET_IFACE(obj)  (G_TYPE_INSTANCE_GET_INTERFACE ((obj), WEBKIT_TYPE_DOM_EVENT_TARGET, WebKitDOMEventTargetIface))
-
-typedef struct _WebKitDOMEventTargetIface WebKitDOMEventTargetIface;
+#define WEBKIT_DOM_TYPE_EVENT_TARGET            (webkit_dom_event_target_get_type ())
+#define WEBKIT_DOM_EVENT_TARGET(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), WEBKIT_DOM_TYPE_EVENT_TARGET, WebKitDOMEventTarget))
+#define WEBKIT_DOM_EVENT_TARGET_CLASS(obj)      (G_TYPE_CHECK_CLASS_CAST ((obj), WEBKIT_DOM_TYPE_EVENT_TARGET, WebKitDOMEventTargetIface))
+#define WEBKIT_DOM_IS_EVENT_TARGET(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), WEBKIT_DOM_TYPE_EVENT_TARGET))
+#define WEBKIT_DOM_EVENT_TARGET_GET_IFACE(obj)  (G_TYPE_INSTANCE_GET_INTERFACE ((obj), WEBKIT_DOM_TYPE_EVENT_TARGET, WebKitDOMEventTargetIface))
 
 struct _WebKitDOMEventTargetIface {
     GTypeInterface gIface;
 
     /* virtual table */
-    void          (* dispatch_event)(WebKitDOMEventTarget *target,
+    gboolean      (* dispatch_event)(WebKitDOMEventTarget *target,
                                      WebKitDOMEvent       *event,
                                      GError              **error);
 
     gboolean      (* add_event_listener)(WebKitDOMEventTarget *target,
                                          const char           *event_name,
-                                         GCallback             handler,
-                                         gboolean              bubble,
-                                         gpointer              user_data);
+                                         GClosure             *handler,
+                                         gboolean              use_capture);
     gboolean      (* remove_event_listener)(WebKitDOMEventTarget *target,
                                             const char           *event_name,
-                                            GCallback             handler,
-                                            gboolean              bubble);
+                                            GClosure             *handler,
+                                            gboolean              use_capture);
+
+    void (*_webkitdom_reserved0) (void);
+    void (*_webkitdom_reserved1) (void);
+    void (*_webkitdom_reserved2) (void);
+    void (*_webkitdom_reserved3) (void);
 };
 
 
 WEBKIT_API GType     webkit_dom_event_target_get_type(void) G_GNUC_CONST;
 
-WEBKIT_API void      webkit_dom_event_target_dispatch_event(WebKitDOMEventTarget *target,
+/**
+ * webkit_dom_event_target_dispatch_event:
+ * @target: A #WebKitDOMEventTarget
+ * @event: A #WebKitDOMEvent
+ * @error: return location for an error or %NULL
+ *
+ * Returns: a #gboolean
+ */
+WEBKIT_API gboolean  webkit_dom_event_target_dispatch_event(WebKitDOMEventTarget *target,
                                                             WebKitDOMEvent       *event,
                                                             GError              **error);
 
@@ -63,14 +73,15 @@ WEBKIT_API void      webkit_dom_event_target_dispatch_event(WebKitDOMEventTarget
  * @target: A #WebKitDOMEventTarget
  * @event_name: A #gchar
  * @handler: (scope async): A #GCallback
- * @bubble: A #gboolean
+ * @use_capture: A #gboolean
  * @user_data: A #gpointer
  *
+ * Returns: a #gboolean
  */
 WEBKIT_API gboolean  webkit_dom_event_target_add_event_listener(WebKitDOMEventTarget *target,
                                                                 const char           *event_name,
                                                                 GCallback             handler,
-                                                                gboolean              bubble,
+                                                                gboolean              use_capture,
                                                                 gpointer              user_data);
 
 /**
@@ -78,13 +89,49 @@ WEBKIT_API gboolean  webkit_dom_event_target_add_event_listener(WebKitDOMEventTa
  * @target: A #WebKitDOMEventTarget
  * @event_name: A #gchar
  * @handler: (scope call): A #GCallback
- * @bubble: A #gboolean
+ * @use_capture: A #gboolean
  *
+ * Returns: a #gboolean
  */
 WEBKIT_API gboolean  webkit_dom_event_target_remove_event_listener(WebKitDOMEventTarget *target,
                                                                    const char           *event_name,
                                                                    GCallback             handler,
-                                                                   gboolean              bubble);
+                                                                   gboolean              use_capture);
+
+/**
+ * webkit_dom_event_target_add_event_listener_with_closure: (rename-to webkit_dom_event_target_add_event_listener)
+ * @target: A #WebKitDOMEventTarget
+ * @event_name: A #gchar
+ * @handler: A #GClosure
+ * @use_capture: A #gboolean
+ *
+ * Version of webkit_dom_event_target_add_event_listener() using a closure
+ * instead of a callbacks for easier binding in other languages.
+ *
+ * Returns: a #gboolean
+ */
+WEBKIT_API gboolean webkit_dom_event_target_add_event_listener_with_closure(WebKitDOMEventTarget *target,
+                                                                            const char           *event_name,
+                                                                            GClosure             *handler,
+                                                                            gboolean              use_capture);
+
+/**
+ * webkit_dom_event_target_remove_event_listener_with_closure: (rename-to webkit_dom_event_target_remove_event_listener)
+ * @target: A #WebKitDOMEventTarget
+ * @event_name: A #gchar
+ * @handler: A #GClosure
+ * @use_capture: A #gboolean
+ *
+ * Version of webkit_dom_event_target_remove_event_listener() using a closure
+ * instead of a callbacks for easier binding in other languages.
+ *
+ * Returns: a #gboolean
+ */
+WEBKIT_API gboolean webkit_dom_event_target_remove_event_listener_with_closure(WebKitDOMEventTarget *target,
+                                                                               const char           *event_name,
+                                                                               GClosure             *handler,
+                                                                               gboolean              use_capture);
+
 
 G_END_DECLS
 

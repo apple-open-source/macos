@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1990-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1990-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,13 +27,11 @@
 
 #include "colib.h"
 
-char	coident[] =
-"# @(#)$Id: libcoshell (AT&T Research) 2010-05-19 $\n"
-CO_ENV_MSGFD "=%d\n"
-"{ { (eval 'function fun { trap \":\" 0; return 1; }; trap \"exit 0\" 0; fun; exit 1') && PATH= print -u$"
-CO_ENV_MSGFD " ksh; } || { times && echo bsh >&$" CO_ENV_MSGFD
-"; } || { echo osh >&$" CO_ENV_MSGFD "; }; } >/dev/null 2>&1\n"
-;
+char	coident[] = "\
+# @(#)$Id: libcoshell (AT&T Research) 2012-02-22 $\n\
+%s=%d\n\
+{ { (eval 'function fun { trap \":\" 0; return 1; }; trap \"exit 0\" 0; fun; exit 1') && PATH= print -u$%s ksh; } || { times && echo bsh >&$%s; } || { echo osh >&$%s; }; } >/dev/null 2>&1\n\
+";
 
 char	cobinit[] = "\
 if	(eval 'f() echo') >/dev/null 2>&1\n\

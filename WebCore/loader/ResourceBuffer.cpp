@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,7 +35,7 @@ ResourceBuffer::ResourceBuffer()
 {
 }
 
-ResourceBuffer::ResourceBuffer(const char* data, int size)
+ResourceBuffer::ResourceBuffer(const char* data, unsigned size)
     : m_sharedBuffer(SharedBuffer::create(data, size))
 {
 }
@@ -112,11 +112,17 @@ bool ResourceBuffer::hasPurgeableBuffer() const
     return m_sharedBuffer->hasPurgeableBuffer();
 }
 
+#if PLATFORM(IOS)
+void ResourceBuffer::setShouldUsePurgeableMemory(bool shouldUsePurgeableMemory)
+{
+    ASSERT(m_sharedBuffer);
+    sharedBuffer()->shouldUsePurgeableMemory(shouldUsePurgeableMemory);
+}
+#endif
+
 void ResourceBuffer::createPurgeableBuffer() const
 {
     ASSERT(m_sharedBuffer);
-    if (!sharedBuffer()->hasOneRef())
-        return;
     sharedBuffer()->createPurgeableBuffer();
 }
 
@@ -126,9 +132,17 @@ PassOwnPtr<PurgeableBuffer> ResourceBuffer::releasePurgeableBuffer()
 }
 
 #if USE(CF)
-CFDataRef ResourceBuffer::createCFData()
+RetainPtr<CFDataRef> ResourceBuffer::createCFData()
 {
     return m_sharedBuffer->createCFData();
+}
+#endif
+
+#if ENABLE(DISK_IMAGE_CACHE)
+bool ResourceBuffer::isUsingDiskImageCache() const
+{
+    ASSERT(m_sharedBuffer);
+    return m_sharedBuffer && m_sharedBuffer->isAllowedToBeMemoryMapped();
 }
 #endif
 

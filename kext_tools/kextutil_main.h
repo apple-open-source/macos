@@ -169,7 +169,7 @@ typedef struct {
     CFMutableArrayRef      kextURLs;         // kext args; must release
     CFMutableArrayRef      scanURLs;         // all URLs to scan
 
-    CFURLRef               kernelURL;        // overriden by -k option
+    CFURLRef               kernelURL;        // overriden by -kernel option
     CFDataRef              kernelFile;       // contents of kernelURL
     CFURLRef               symbolDirURL;     // -s option;
     const NXArchInfo     * archInfo;         // set by -arch

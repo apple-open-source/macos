@@ -89,8 +89,8 @@ enum { kIOFBMapCacheMode = kIOMapWriteCombineCache };
 enum { kIOFBMapCacheMode = kIOMapInhibitCache };
 #endif
 
-#ifndef kBootArgsFlagBlack
-#define kBootArgsFlagBlack		(1 << 2)
+#ifndef kBootArgsFlagBlackBg
+#define kBootArgsFlagBlackBg		(1 << 6)
 #endif
 
 #ifndef kIOPMUserTriggeredFullWakeKey
@@ -214,6 +214,9 @@ OSData *                    gIOFBOne32Data;
 uint32_t             		gIOFBGrayValue = kIOFBBootGrayValue;
 OSData *                    gIOFBGray32Data;
 static uint8_t				gIOFBBlackBoot;
+static uint8_t				gIOFBBlackBootTheme;
+static uint8_t				gIOFBVerboseBoot;
+
 static const OSSymbol *     gIOGraphicsPrefsVersionKey;
 static OSNumber *           gIOGraphicsPrefsVersionValue;
 static uint8_t				gIOFBLidOpenMode;
@@ -221,7 +224,7 @@ static uint8_t				gIOFBVBLThrottle;
 static uint8_t				gIOFBVBLDrift;
 uint32_t					gIOGDebugFlags;
 uint32_t					gIOGNotifyTO;
-static bool                 gIOGFades;
+bool                        gIOGFades;
 
 #define kIOFBGetSensorValueKey  "getSensorValue"
 
@@ -380,6 +383,7 @@ struct IOFramebufferPrivate
     UInt8                       cursorSlept;
     UInt8                       cursorPanning;
     UInt8                       pendingSpeedChange;
+    UInt8                       pendingUsable;
 
     UInt8                       lli2c;
     UInt8                       cursorClutDependent;
@@ -401,6 +405,8 @@ struct IOFramebufferPrivate
 	UInt8						colorModesAllowed;
 	UInt8						needsInit;
 	UInt8						audioStreaming;
+	UInt8                       refreshBootGraphics;
+	UInt8                       wakingFromHibernateGfxOn;
 	uint32_t					uiScale;
 
 	uint32_t					colorModesSupported;
@@ -1039,60 +1045,85 @@ inline void IOFramebuffer::CheckShield( IOFramebuffer * inst )
 #include "AppleLogo.h"
 #include "AppleLogo2x.h"
 
-/**************************************************************
- LZSS.C -- A Data Compression Program
-***************************************************************
-    4/6/1989 Haruhiko Okumura
-    Use, distribute, and modify this program freely.
-    Please send me your improved versions.
-        PC-VAN      SCIENCE
-        NIFTY-Serve PAF01022
-        CompuServe  74050,1022
+extern "C" size_t lzvn_decode(void * __restrict dst, size_t dst_size, const void * __restrict src, size_t src_size);
 
-**************************************************************/
-#define N         4096  /* size of ring buffer - must be power of 2 */
-#define F         18    /* upper limit for match_length */
-#define THRESHOLD 2     /* encode string into position and length
-                           if match_length is greater than this */
+#define rgb108(x) (((x) << 2) | ((x) >> 6))
 
 static void IOFramebufferBootInitFB(IOVirtualAddress frameBuffer, 
 			uint32_t framebufferWidth, uint32_t framebufferHeight, 
 			uint32_t totalWidth, uint32_t consoleDepth, uint8_t logo)
 {
 	const uint8_t  * src;
+	const uint8_t  * clut;
+	uint8_t  *       logoData;
+	size_t           unpackedSize, srcSize, clutSize;
 	uint32_t *       out;
 	uint32_t         gray, data, x, y, ox, oy, sx, lw, lh;
 
 	if (gIOFBBlackBoot)
 		gray = logo = 0;
+	else if (gIOFBBlackBootTheme)
+	    gray = 0;
 	else if (32 == consoleDepth)
 		gray = 0xbfbfbf;
 	else if (30 == consoleDepth)
-#define g10 ((0xbf << 2) | (0xbf >> 6))
-		gray = (g10 | (g10 << 10 ) | (g10 << 20));
+		gray = (rgb108(0xbf) | (rgb108(0xbf) << 10 ) | (rgb108(0xbf) << 20));
 	else
 		return;
 
-    src = (2 == logo) ? &gAppleLogo2XPacked[0] : &gAppleLogoPacked[0];
-	lw  = (2 == logo) ? kAppleLogo2XWidth      : kAppleLogoWidth;
-	lh  = (2 == logo) ? kAppleLogo2XHeight     : kAppleLogoHeight;
+	if (!logo) logoData = NULL;
+	else
+	{
+		if (gIOFBBlackBootTheme)
+		{
+			if (2 == logo)
+			{
+				src      = &gAppleLogoBlack2XPacked[0];
+				clut     = &gAppleLogoBlack2XClut[0];
+				srcSize  = sizeof(gAppleLogoBlack2XPacked);
+				clutSize = sizeof(gAppleLogoBlack2XClut) / 3;
+			}
+			else
+			{
+				src      = &gAppleLogoBlackPacked[0];
+				clut     = &gAppleLogoBlackClut[0];
+				srcSize  = sizeof(gAppleLogoBlackPacked);
+				clutSize = sizeof(gAppleLogoBlackClut) / 3;
+			}
+		}
+		else
+		{
+			if (2 == logo)
+			{
+				src      = &gAppleLogo2XPacked[0];
+				clut     = &gAppleLogo2XClut[0];
+				srcSize  = sizeof(gAppleLogo2XPacked);
+				clutSize = sizeof(gAppleLogo2XClut) / 3;
+			}
+			else
+			{
+				src      = &gAppleLogoPacked[0];
+				clut     = &gAppleLogoClut[0];
+				srcSize  = sizeof(gAppleLogoPacked);
+				clutSize = sizeof(gAppleLogoClut) / 3;
+			}
+		}
 
-	ox = (framebufferWidth - lw) / 2;
-	oy = (framebufferHeight - lh) / 2;
+		lw  = (2 == logo) ? kAppleLogo2XWidth  : kAppleLogoWidth;
+		lh  = (2 == logo) ? kAppleLogo2XHeight : kAppleLogoHeight;
+		ox = (framebufferWidth - lw) / 2;
+		oy = (framebufferHeight - lh) / 2;
 
-    out = (uint32_t *) frameBuffer;
+		logoData = IONew(uint8_t, lw * lh);
+		if (!logoData) logo = 0;
+		else
+		{
+			unpackedSize = lzvn_decode(logoData, lw * lh, src, srcSize);
+			if (unpackedSize != (lw * lh)) logo = 0;
+		}
+	}
 
-    /* ring buffer of size N, with extra F-1 bytes to aid string comparison */
-    uint8_t text_buf[N + F - 1];
-    int32_t  i, j, k, r;
-    uint32_t flags;
-
-    for (i = 0; i < N - F; i++) text_buf[i] = ' ';
-    r = N - F;
-    flags = 0;
-    j = 0;
-    k = INT32_MAX;
-
+	out = (uint32_t *) frameBuffer;
 	for (y = 0; y < framebufferHeight; y++)
 	{
 		if ((!logo) || (y < oy) || (y >= (oy + lh)))
@@ -1104,37 +1135,25 @@ static void IOFramebufferBootInitFB(IOVirtualAddress frameBuffer,
 			for (x = 0; x < ox; x++) out[x] = gray;
 			for (sx = 0; sx < lw; sx++)
 			{
-				if (k > j) {
-					if (((flags >>= 1) & 0x100) == 0) {
-						data = *src++;
-						flags = data | 0xFF00;  /* uses higher byte cleverly */
-					}   					    /* to count eight */
-					if (flags & 1) data = *src++;
-					else {
-						i = *src++;
-						j = *src++;
-						i |= ((j & 0xF0) << 4);
-						j  =  (j & 0x0F) + THRESHOLD;
-						k = 0;
-					}
-				}
-				if (k <= j) {
-					data = text_buf[(i + k) & (N - 1)];
-					k++;
-				}
-				text_buf[r++] = data;
-				r &= (N - 1);
-
+				data = logoData[(y - oy) * lw + sx];
+				if (data >= clutSize) data = gray;
+				data *= 3;
 				if (32 == consoleDepth)
-					data |= (data << 8) | (data << 16);
+				{
+				    data = ((clut[data+0] << 16) | (clut[data+1] << 8) | clut[data+2]);
+				}
 				else if (30 == consoleDepth)
-					data |= (data << 10) | (data << 20);
+				{
+					data = ((rgb108(clut[data+0]) << 20) | (rgb108(clut[data+1]) << 10) | rgb108(clut[data+2]));
+				}
 				out[x++] = data;
 			}
 			for (; x < framebufferWidth; x++) out[x] = gray;
 		}
 		out += totalWidth;
 	}
+
+	if (logoData) IODelete(logoData, uint8_t, lw * lh);
 }
 
 void IOFramebuffer::setupCursor(void)
@@ -1663,6 +1682,7 @@ void IOFramebuffer::saveGammaTables(void)
 					data->appendBytes(bootGamma, bootGamma->length);
 				}
 			}
+
 		}
 		while (false);
 		FBUNLOCK(fb);
@@ -2658,19 +2678,21 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
 	gStartedFramebuffers = OSArray::withCapacity(1);
 	gIOFramebufferKey    = OSSymbol::withCStringNoCopy("IOFramebuffer");
 
-	if (PE_parse_boot_argn("iog", &gIOGDebugFlags, sizeof(gIOGDebugFlags)))
-	{
-		DEBG1("IOGraphics", " flags 0x%x\n", gIOGDebugFlags);
-		gIOFBLidOpenMode = (0 != (kIOGDbgLidOpen     & gIOGDebugFlags));
-		gIOFBVBLThrottle = (0 != (kIOGDbgVBLThrottle & gIOGDebugFlags));
-		gIOFBVBLDrift    = (0 != (kIOGDbgVBLDrift & gIOGDebugFlags));
-	}
-	else
-	{
-		gIOFBLidOpenMode = (version_major >= 11);
-		gIOFBVBLThrottle = (version_major >= 11);
-	}
-	gIOGFades = (version_major >= 14);
+	gIOGDebugFlags = kIOGDbgVBLThrottle
+				   | kIOGDbgLidOpen;
+	if (version_major >= 14) gIOGDebugFlags |= kIOGDbgFades;
+
+	uint32_t flags;
+	if (PE_parse_boot_argn("iog",  &flags, sizeof(flags))) gIOGDebugFlags |= flags;
+	if (PE_parse_boot_argn("niog", &flags, sizeof(flags))) gIOGDebugFlags &= ~flags;
+
+	IOLog("IOGraphics flags 0x%x\n", gIOGDebugFlags);
+
+	gIOFBLidOpenMode = (0 != (kIOGDbgLidOpen     & gIOGDebugFlags));
+	gIOFBVBLThrottle = (0 != (kIOGDbgVBLThrottle & gIOGDebugFlags));
+	gIOFBVBLDrift    = (0 != (kIOGDbgVBLDrift    & gIOGDebugFlags));
+	gIOGFades        = (0 != (kIOGDbgFades       & gIOGDebugFlags));
+
 	if (!PE_parse_boot_argn("iognotifyto", &gIOGNotifyTO, sizeof(gIOGNotifyTO)) 
 		|| !gIOGNotifyTO)
 	{
@@ -2696,9 +2718,12 @@ void IOFramebuffer::initialize()
 	OSDictionary  *     matching;
 	OSIterator    *     iter;
 
-	gIOFBServerInit = true;
-	gIOFBBlackBoot  = (0 != (kBootArgsFlagBlack & ((boot_args *) PE_state.bootArgs)->flags));
-	if (gIOFBBlackBoot) gIOFBGrayValue = 0;
+	gIOFBServerInit      = true;
+	gIOFBBlackBoot       = (0 != (kBootArgsFlagBlack & ((boot_args *) PE_state.bootArgs)->flags));
+	gIOFBBlackBootTheme  = (0 != (kBootArgsFlagBlackBg & ((boot_args *) PE_state.bootArgs)->flags));
+	if (gIOFBBlackBoot || gIOFBBlackBootTheme) gIOFBGrayValue = 0;
+    gIOFBVerboseBoot     = PE_parse_boot_argn("-v", NULL,0);
+
 
 	gIOFBGetSensorValueKey = OSSymbol::withCStringNoCopy(kIOFBGetSensorValueKey);
 	gIOFBRotateKey = OSSymbol::withCStringNoCopy(kIOFBRotatePrefsKey);
@@ -4203,7 +4228,9 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 
 	if ((kIOFBNotifyVRAMReady != event) && __private->restoreType && __private->needGammaRestore)
 	{
-		if (__private->gammaDataLen && __private->gammaData && !__private->scaledMode)
+		if (__private->gammaDataLen && __private->gammaData 
+		  && !__private->scaledMode
+		  && !__private->wakingFromHibernateGfxOn)
 		{
 			DEBG1(thisName, " set gamma\n");
 			setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
@@ -5011,6 +5038,11 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOFBController * controller, IOOption
     return (state);
 }
 
+bool IOFramebuffer::isWakingFromHibernateGfxOn(void)
+{
+	return (__private->wakingFromHibernateGfxOn);
+}
+
 IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 {
     IOOptionBits ourState = kIOFBPaging;
@@ -5025,6 +5057,7 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 
     	__private->controller->powerThread = current_thread();
 		__private->hibernateGfxStatus = 0;
+		__private->wakingFromHibernateGfxOn = false;
 		if (!pagingState)
 		{
 			device = __private->controller->device;
@@ -5045,7 +5078,7 @@ IOOptionBits IOFramebuffer::checkPowerWork(IOOptionBits state)
 					else
 					{
 						device->setProperty(kIOHibernateStateKey, stateData);
-
+						__private->wakingFromHibernateGfxOn = true;
 
 						OSData * 
 						data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateGfxStatusKey));
@@ -5685,6 +5718,24 @@ IOReturn IOFramebuffer::powerStateWillChangeTo( IOPMPowerFlags flags,
 	FBLOCK(this);
     if (isUsable && !(IOPMDeviceUsable & flags))
     {
+		__private->pendingUsable = false;
+		FBWL(this)->wakeupGate(&__private->pendingUsable, false);
+		FBUNLOCK(this);
+
+		IOFramebuffer * fb;
+		for (UInt32 index = 0;
+				(fb = (IOFramebuffer *) gAllFramebuffers->getObject(index));
+				index++)
+		{
+			FBLOCK(fb);
+			if (fb->__private->display && fb->__private->pendingUsable)
+			{
+				FBWL(fb)->sleepGate(&fb->__private->pendingUsable, THREAD_UNINT);
+			}
+			FBUNLOCK(fb);
+		}
+
+		FBLOCK(this);
 		isUsable = false;
 		controllerDidWork(__private->controller, kWorkStateChange);
 	}
@@ -5701,7 +5752,7 @@ IOReturn IOFramebuffer::powerStateDidChangeTo( IOPMPowerFlags flags,
 	FBLOCK(this);
     if ((IOPMDeviceUsable & flags) && !isUsable)
     {
-		isUsable = true;
+		isUsable = __private->pendingUsable = true;
 		controllerDidWork(__private->controller, kWorkStateChange);
 	}
 	FBUNLOCK(this);
@@ -5744,6 +5795,7 @@ void IOFramebuffer::displayOnline(IODisplay * display, SInt32 delta, uint32_t op
 	{
 //		if (display != __private->display) panic("(display != __private->display)");
 		__private->display        = NULL;
+		FBWL(this)->wakeupGate(&__private->pendingUsable, false);
 		__private->displayOptions = 0;
 		if (kIODisplayOptionBacklight & options)
 		{
@@ -6283,12 +6335,16 @@ IOReturn IOFramebuffer::open( void )
         }
 
         if (!gIOFBServerInit) IOFramebuffer::initialize();
-        if (!gAllFramebuffers)  continue;
-        if (!gIOFBRootNotifier) continue;
-        if (!gIOFBHIDWorkLoop)  continue;
-        if (!gIOFBWorkES)       continue;
 
-        if (!IODisplayWrangler::serverStart()) continue;
+        if (!gAllFramebuffers
+         || !gIOFBRootNotifier
+         || !gIOFBHIDWorkLoop
+         || !gIOFBWorkES
+         || !IODisplayWrangler::serverStart())
+        {
+            err = kIOReturnVMError;
+            continue;
+        }
 
         if (!gIOFBClamshellNotify)
             gIOFBClamshellNotify = addMatchingNotification( gIOPublishNotification,
@@ -6683,6 +6739,7 @@ IOReturn IOFramebuffer::open( void )
 			setAttribute(kIOFBSpeedAttribute, __private->reducedSpeed);
 			__private->controller->powerThread = NULL;
 		}
+		setAttribute(kIOWindowServerActiveAttribute, (uintptr_t) true);
 		FBUNLOCK(this);
 	}
     
@@ -6881,22 +6938,30 @@ void IOFramebuffer::initFB(void)
 		}
 		DEBG1(thisName, " initFB: needsInit %d logo %d\n", 
 				__private->needsInit, logo);
-		IOFramebufferBootInitFB(
-			vramMap->getVirtualAddress(), 
-			pixelInfo.activeWidth, pixelInfo.activeHeight, 
-			totalWidth, consoleDepth, 
-			logo);
+		if (gIOFBVerboseBoot || (2 != __private->needsInit))
+		{
+			IOFramebufferBootInitFB(
+				vramMap->getVirtualAddress(), 
+				pixelInfo.activeWidth, pixelInfo.activeHeight, 
+				totalWidth, consoleDepth, 
+				logo);
+			if (logo) __private->refreshBootGraphics = true;
+		}
 		DEBG1(thisName, " initFB: done\n");
-		if (logo && !getProperty(kIOFBBootGammaRestoredKey, gIOServicePlane)) updateGammaTable(3, 256, 16, NULL, false);
+		bool bootGamma = getProperty(kIOFBBootGammaRestoredKey, gIOServicePlane);
+		if (logo && !bootGamma) updateGammaTable(3, 256, 16, NULL, false);
 		__private->needsInit = false;
 		setProperty(kIOFBNeedsRefreshKey, (0 == logo));
+		setProperty(kIOFBBootGammaRestoredKey, bootGamma ? gIOFBOne32Data : gIOFBZero32Data);
 	}
 	while (false);
 }
 
 IOReturn IOFramebuffer::postOpen( void )
 {
+	OSObject * obj;
 	__private->needsInit = true;
+	obj = getProperty(kIOFBNeedsRefreshKey);
 	__private->needsInit += (kOSBooleanFalse == getProperty(kIOFBNeedsRefreshKey));
 	setProperty(kIOFBNeedsRefreshKey, true);
 	initFB();
@@ -7086,6 +7151,8 @@ void IOFramebuffer::close( void )       // called by the user client when
     if ((err = extEntrySys(true)))
         return;
 
+	setAttribute(kIOWindowServerActiveAttribute, (uintptr_t) false);
+
     if ((this == gIOFBConsoleFramebuffer) && getPowerState())
         getPlatform()->setConsoleInfo( 0, kPEAcquireScreen);
 
@@ -7217,6 +7284,16 @@ void IOFramebuffer::findConsole(void)
         //      strcpy( consoleInfo->v_pixelFormat, "PPPPPPPP");
         getPlatform()->setConsoleInfo( &newConsole, kPEReleaseScreen );
         getPlatform()->setConsoleInfo( &newConsole, kPEEnableScreen );
+
+#ifndef kPERefreshBootGraphics
+#define kPERefreshBootGraphics	9
+#endif
+		if (fb->__private->refreshBootGraphics)
+		{
+			fb->__private->refreshBootGraphics = false;
+			getPlatform()->setConsoleInfo( 0, kPERefreshBootGraphics);
+		}
+
         gIOFBConsoleFramebuffer = fb;
         DEBG1(fb->thisName, " now console\n");
     }
@@ -8389,16 +8466,34 @@ IOReturn IOFramebuffer::deliverFramebufferNotification(
 
     if (iter)
     {
-        while ((notify = (_IOFramebufferNotifier *) iter->getNextObject()))
-        {
-            if (notify->fEnable)
-            {
-                r = (*notify->handler)( notify->self, notify->ref, this,
-                                        event, info );
-                if (kIOReturnSuccess != r)
-                    ret = r;
-            }
-        }
+		IOFramebufferNotificationNotify hook;
+		hook.event = event;
+		hook.info  = info;
+
+		while ((notify = (_IOFramebufferNotifier *) iter->getNextObject()))
+		{
+			if (!notify->fEnable) continue;
+			(*notify->handler)(notify->self, notify->ref, this,
+							   kIOFBNotifyWillNotify, &hook);
+		}
+
+		iter->reset();
+		while ((notify = (_IOFramebufferNotifier *) iter->getNextObject()))
+		{
+			if (!notify->fEnable) continue;
+			r = (*notify->handler)(notify->self, notify->ref, this,
+								   event, info );
+			if (kIOReturnSuccess != r) ret = r;
+
+		}
+
+		iter->reset();
+		while ((notify = (_IOFramebufferNotifier *) iter->getNextObject()))
+		{
+			if (!notify->fEnable) continue;
+			(*notify->handler)(notify->self, notify->ref, this,
+							   kIOFBNotifyDidNotify, &hook);
+		}
         iter->release();
     }
 

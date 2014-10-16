@@ -28,10 +28,11 @@
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
 #include "IOAudioControl.h"
+#include "AudioTracepoints.h"
+
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
-#include <IOKit/pwr_mgt/RootDomain.h>					// <rdar://13220155>
 
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSNumber.h>
@@ -561,6 +562,7 @@ bool IOAudioEngine::start(IOService *provider, IOAudioDevice *device)
     bool result = false;
     
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::start(%p, %p)\n", this, provider, device);
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineStart, (uintptr_t)this, (uintptr_t)provider, (uintptr_t)device, 0);
 	
 	if ( super::start ( provider ) )
 	{
@@ -590,6 +592,7 @@ bool IOAudioEngine::start(IOService *provider, IOAudioDevice *device)
 	}
         
     audioDebugIOLog(3, "- IOAudioEngine[%p]::start(%p, %p)\n", this, provider, device);
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineStart, (uintptr_t)this, (uintptr_t)provider, (uintptr_t)device, result);
     return result;
 }
 
@@ -695,17 +698,16 @@ void IOAudioEngine::registerService(IOOptionBits options)
 
 OSString *IOAudioEngine::getGlobalUniqueID()
 {
-    const OSMetaClass *metaClass;
+    const OSMetaClass * const myMetaClass = getMetaClass();
     const char *className = NULL;
     const char *location = NULL;
     char *uniqueIDStr;
     OSString *localID = NULL;
     OSString *uniqueID = NULL;
     UInt32 uniqueIDSize;
-    
-    metaClass = getMetaClass();
-    if (metaClass) {
-        className = metaClass->getClassName();
+
+    if (myMetaClass) {
+        className = myMetaClass->getClassName();
     }
     
     location = getLocation();
@@ -1152,24 +1154,6 @@ IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 	while ( audioDevice->getPowerState() == kIOAudioDeviceSleep )
 	{
 		retain();
-		
-		// <rdar://13220155>
-		// Check the SystemCapabilities in IOPMrootDomain to determine if the system current power state supports audio.
-		// When in dark wake, the system is not capable of audio streaming, so return kIOReturnOffline status when asked 
-		// to start.
-        IOPMrootDomain * pmRootDomain = getPMRootDomain ();
-        if ( pmRootDomain )
-        {
-            OSNumber * capabilities = OSDynamicCast(OSNumber, pmRootDomain->getProperty("System Capabilities"));
-            if (capabilities)
-            {
-                if (0 == (capabilities->unsigned8BitValue() & kIOPMSystemCapabilityAudio))
-                {
-                    release();
-                    return kIOReturnOffline;
-                }
-            }
-        }
 
 		//  <rdar://10885615> Make sure the command gate remains valid while it is being used.
 		if (commandGate) {
@@ -1364,6 +1348,7 @@ void IOAudioEngine::detachAudioStreams()
         if (iterator) {
             while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 if (!isInactive()) {
+					stream->detach(this);			//	<rdar://14773236>
                     stream->terminate();
                 }
             }
@@ -1381,6 +1366,7 @@ void IOAudioEngine::detachAudioStreams()
         if (iterator) {
             while ( (stream = OSDynamicCast(IOAudioStream, iterator->getNextObject())) ) {
                 if (!isInactive()) {
+					stream->detach(this);				//	<rdar://14773236>
                     stream->terminate();
                 }
             }
@@ -1799,6 +1785,20 @@ IOReturn IOAudioEngine::resumeAudioEngine()
 			if (getState() == kIOAudioEnginePaused) {
 				setState(kIOAudioEngineResumed);
 				sendNotification(kIOAudioEngineResumedNotification);
+
+				// <rdar://15485249>
+				if (commandGate) {
+					audioDebugIOLog(3, "send commandWakeup on resume for [%p]\n", this);
+					
+					setCommandGateUsage(this, true);
+					commandGate->commandWakeup(&state);
+					setCommandGateUsage(this, false);
+					
+					// <rdar://15917322,16383922> don't rely on audioEngineStopPosition if there are no clients and we've just resumed.
+					if ((numActiveUserClients == 0) && !IOAUDIOENGINEPOSITION_IS_ZERO(&audioEngineStopPosition) && ( kIOAudioDeviceSleep != audioDevice->getPowerState() )) {
+						stopAudioEngine();
+					}
+				}
 			}
 		}
 	}
@@ -1888,6 +1888,16 @@ IOAudioEngineState IOAudioEngine::setState(IOAudioEngineState newState)
                 removeTimer();
                 performErase();
             }
+			// <rdar://15485249,17416423>
+			if (oldState == kIOAudioEnginePaused) {
+				if (commandGate) {
+					audioDebugIOLog(3, "send commandWakeup on stop for [%p]\n", this);
+					
+					setCommandGateUsage(this, true);
+					commandGate->commandWakeup(&state);
+					setCommandGateUsage(this, false);
+				}
+			}
             break;
         default:
             break;
@@ -2603,3 +2613,38 @@ void IOAudioEngine::setCommandGateUsage(IOAudioEngine *engine, bool increment)
 		}
 	}
 }
+
+// <rdar://15485249>
+IOReturn IOAudioEngine::waitForEngineResume ( void )
+{
+	IOReturn err, result = kIOReturnError;
+	
+	if (commandGate) {
+		retain();
+
+		audioDebugIOLog(3, "Waiting on engine[%p] resume...\n", this);
+		setCommandGateUsage(this, true);
+		err = commandGate->commandSleep( &state );
+		setCommandGateUsage(this, false);
+		
+		audioDebugIOLog(3, "...wait completed for engine[%p] with err=%#x\n", this, err);
+		
+		if ( THREAD_INTERRUPTED == err ) {
+			result = kIOReturnAborted;
+		}
+		else if ( THREAD_TIMED_OUT == err ) {
+			result = kIOReturnTimeout;
+		}
+		else if ( THREAD_RESTART == err ) {
+			result = kIOReturnNotPermitted;
+		}
+		else if ( THREAD_AWAKENED == err )	{
+			result = kIOReturnSuccess;
+		}
+
+		release();
+	}
+	
+	return result;
+}
+

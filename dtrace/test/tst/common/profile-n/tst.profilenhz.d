@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-100
-#else
 tick-100
-#endif
 {
 	printf("This test is a simple profile implicit hz test");
 	exit(0);

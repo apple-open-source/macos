@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -38,11 +38,11 @@
 #endif
 
 #ifdef _no_ulimit
-	int	b_ulimit(int argc,char *argv[],void *extra)
+	int	b_ulimit(int argc,char *argv[],Shbltin_t *context)
 	{
 		NOT_USED(argc);
 		NOT_USED(argv);
-		NOT_USED(extra);
+		NOT_USED(context);
 		errormsg(SH_DICT,ERROR_exit(2),e_nosupport);
 		return(0);
 	}
@@ -65,12 +65,12 @@ static int infof(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
 #define HARD	2
 #define SOFT	4
 
-int	b_ulimit(int argc,char *argv[],void *extra)
+int	b_ulimit(int argc,char *argv[],Shbltin_t *context)
 {
 	register char *limit;
 	register int mode=0, n;
 	register unsigned long hit = 0;
-	Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	Shell_t *shp = context->shp;
 #ifdef _lib_getrlimit
 	struct rlimit rlp;
 #endif /* _lib_getrlimit */
@@ -139,9 +139,15 @@ int	b_ulimit(int argc,char *argv[],void *extra)
 			else
 			{
 				char *last;
-				if((i=sh_strnum(limit,&last,2))==INFINITY || *last)
-					errormsg(SH_DICT,ERROR_system(1),e_number,limit);
-				i *= unit;
+				/* an explicit suffix unit overrides the default */
+				if((i=strtol(limit,&last,0))!=INFINITY && !*last)
+					i *= unit;
+				else if((i=strton(limit,&last,NiL,0))==INFINITY || *last)
+				{
+					if((i=sh_strnum(limit,&last,2))==INFINITY || *last)
+						errormsg(SH_DICT,ERROR_system(1),e_number,limit);
+					i *= unit;
+				}
 			}
 			if(nosupport)
 				errormsg(SH_DICT,ERROR_system(1),e_readonly,tp->name);

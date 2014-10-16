@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/gl.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/gl.xml
+ * ICU <specials> source: <path>/common/main/gl.xml
  */
 gl{
     Countries{
@@ -81,7 +81,7 @@ gl{
         BY{"Bielorrusia"}
         BZ{"Belice"}
         CA{"Canadá"}
-        CC{"Illas Cocos [Keeling]"}
+        CC{"Illas Cocos (Keeling)"}
         CD{"República Democrática do Congo"}
         CF{"República Africana Central"}
         CG{"Congo"}
@@ -193,7 +193,7 @@ gl{
         MH{"Illas Marshall"}
         MK{"Macedonia"}
         ML{"Mali"}
-        MM{"Myanmar [Birmania]"}
+        MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
         MO{"Macau RAE de China"}
         MP{"Illas Marianas do norte"}
@@ -257,7 +257,7 @@ gl{
         SO{"Somalia"}
         SR{"Surinam"}
         SS{"Sudán do sur"}
-        ST{"Santo Tomé e Príncipe"}
+        ST{"San Tomé e Príncipe"}
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Siria"}
@@ -294,6 +294,7 @@ gl{
         VU{"Vanuatu"}
         WF{"Wallis e Futuna"}
         WS{"Samoa"}
+        XK{"Kosovo"}
         YE{"Iemen"}
         YT{"Mayotte"}
         ZA{"Sudáfrica"}
@@ -301,5 +302,10 @@ gl{
         ZW{"Cimbabue"}
         ZZ{"Rexión descoñecida"}
     }
-    Version{"2.0.82.45"}
+    CountriesShort{
+        HK{"Hong Kong"}
+        MO{"Macau"}
+        PS{"Palestina"}
+    }
+    Version{"2.0.98.76"}
 }

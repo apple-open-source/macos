@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2013, International Business Machines Corporation and
+ * Copyright (C) 1996-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -745,7 +745,6 @@ ucal_setTimeZone(UCalendar*    cal,
                  int32_t       len,
                  UErrorCode*   status);
 
-#ifndef U_HIDE_DRAFT_API
 /** 
  * Get the ID of the UCalendar's time zone. 
  * 
@@ -754,14 +753,13 @@ ucal_setTimeZone(UCalendar*    cal,
  * @param resultLength  The maximum size of result. 
  * @param status        Receives the status. 
  * @return              The total buffer size needed; if greater than resultLength, the output was truncated. 
- * @draft ICU 51 
+ * @stable ICU 51 
  */ 
 U_DRAFT int32_t U_EXPORT2 
 ucal_getTimeZoneID(const UCalendar *cal,
                    UChar *result,
                    int32_t resultLength,
                    UErrorCode *status);
-#endif /* U_HIDE_DRAFT_API */
 
 /**
  * Possible formats for a UCalendar's display name 
@@ -1289,7 +1287,7 @@ ucal_getTZDataVersion(UErrorCode* status);
  * @param resultCapacity    The capacity of the result buffer.
  * @param isSystemID        Receives if the given ID is a known system
      *                      timezone ID.
- * @param status    Recevies the status.  When the given timezone ID
+ * @param status    Receives the status.  When the given timezone ID
  *                  is neither a known system time zone ID nor a
  *                  valid custom timezone ID, U_ILLEGAL_ARGUMENT_ERROR
  *                  is set.
@@ -1445,40 +1443,38 @@ ucal_getFieldDifference(UCalendar* cal,
                         UCalendarDateFields field,
                         UErrorCode* status);
 
-#ifndef U_HIDE_DRAFT_API
 /**
  * Time zone transition types for ucal_getTimeZoneTransitionDate
- * @draft ICU 50
+ * @stable ICU 50
  */
 enum UTimeZoneTransitionType {
     /**
      * Get the next transition after the current date,
      * i.e. excludes the current date
-     * @draft ICU 50
+     * @stable ICU 50
      */
     UCAL_TZ_TRANSITION_NEXT,
     /**
      * Get the next transition on or after the current date,
      * i.e. may include the current date
-     * @draft ICU 50
+     * @stable ICU 50
      */
     UCAL_TZ_TRANSITION_NEXT_INCLUSIVE,
     /**
      * Get the previous transition before the current date,
      * i.e. excludes the current date
-     * @draft ICU 50
+     * @stable ICU 50
      */
     UCAL_TZ_TRANSITION_PREVIOUS,
     /**
      * Get the previous transition on or before the current date,
      * i.e. may include the current date
-     * @draft ICU 50
+     * @stable ICU 50
      */
     UCAL_TZ_TRANSITION_PREVIOUS_INCLUSIVE
 };
 
-/** @draft ICU 50 */
-typedef enum UTimeZoneTransitionType UTimeZoneTransitionType;
+typedef enum UTimeZoneTransitionType UTimeZoneTransitionType; /**< @stable ICU 50 */
 
 /**
 * Get the UDate for the next/previous time zone transition relative to
@@ -1493,11 +1489,72 @@ typedef enum UTimeZoneTransitionType UTimeZoneTransitionType;
 * @param status A pointer to a UErrorCode to receive any errors.
 * @return TRUE if a valid transition time is set in *transition, FALSE
 *         otherwise.
-* @draft ICU 50
+* @stable ICU 50
 */
 U_DRAFT UBool U_EXPORT2 
 ucal_getTimeZoneTransitionDate(const UCalendar* cal, UTimeZoneTransitionType type,
                                UDate* transition, UErrorCode* status);
+
+#ifndef U_HIDE_DRAFT_API
+/**
+* Converts a system time zone ID to an equivalent Windows time zone ID. For example,
+* Windows time zone ID "Pacific Standard Time" is returned for input "America/Los_Angeles".
+*
+* <p>There are system time zones that cannot be mapped to Windows zones. When the input
+* system time zone ID is unknown or unmappable to a Windows time zone, then this
+* function returns 0 as the result length, but the operation itself remains successful
+* (no error status set on return).
+*
+* <p>This implementation utilizes <a href="http://unicode.org/cldr/charts/supplemental/zone_tzid.html">
+* Zone-Tzid mapping data</a>. The mapping data is updated time to time. To get the latest changes,
+* please read the ICU user guide section <a href="http://userguide.icu-project.org/datetime/timezone#TOC-Updating-the-Time-Zone-Data">
+* Updating the Time Zone Data</a>.
+*
+* @param id            A system time zone ID.
+* @param len           The length of <code>id</code>, or -1 if null-terminated.
+* @param winid         A buffer to receive a Windows time zone ID.
+* @param winidCapacity The capacity of the result buffer <code>winid</code>.
+* @param status        Receives the status.
+* @return              The result string length, not including the terminating null.
+* @see ucal_getTimeZoneIDForWindowsID
+*
+* @draft ICU 52
+*/
+U_DRAFT int32_t U_EXPORT2
+ucal_getWindowsTimeZoneID(const UChar* id, int32_t len,
+                            UChar* winid, int32_t winidCapacity, UErrorCode* status);
+
+/**
+* Converts a Windows time zone ID to an equivalent system time zone ID
+* for a region. For example, system time zone ID "America/Los_Angeles" is returned
+* for input Windows ID "Pacific Standard Time" and region "US" (or <code>null</code>),
+* "America/Vancouver" is returned for the same Windows ID "Pacific Standard Time" and
+* region "CA".
+*
+* <p>Not all Windows time zones can be mapped to system time zones. When the input
+* Windows time zone ID is unknown or unmappable to a system time zone, then this
+* function returns 0 as the result length, but the operation itself remains successful
+* (no error status set on return).
+*
+* <p>This implementation utilizes <a href="http://unicode.org/cldr/charts/supplemental/zone_tzid.html">
+* Zone-Tzid mapping data</a>. The mapping data is updated time to time. To get the latest changes,
+* please read the ICU user guide section <a href="http://userguide.icu-project.org/datetime/timezone#TOC-Updating-the-Time-Zone-Data">
+* Updating the Time Zone Data</a>.
+*
+* @param winid         A Windows time zone ID.
+* @param len           The length of <code>winid</code>, or -1 if null-terminated.
+* @param region        A null-terminated region code, or <code>NULL</code> if no regional preference.
+* @param id            A buffer to receive a system time zone ID.
+* @param idCapacity    The capacity of the result buffer <code>id</code>.
+* @param status        Receives the status.
+* @return              The result string length, not including the terminating null.
+* @see ucal_getWindowsTimeZoneID
+*
+* @draft ICU 52
+*/
+U_DRAFT int32_t U_EXPORT2
+ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* region,
+                                UChar* id, int32_t idCapacity, UErrorCode* status);
 
 #endif  /* U_HIDE_DRAFT_API */
 

@@ -7,7 +7,7 @@
    (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
    See tidy.h for the copyright notice.
 
-   $Id: win32tc.h,v 1.3 2007/01/30 23:46:52 iccir Exp $
+   $Id$
 */
 
 uint TY_(Win32MLangGetCPFromName)(ctmbstr encoding);

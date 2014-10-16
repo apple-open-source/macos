@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -101,39 +101,41 @@
 /*
  * VC flags
  */
-#define SMBV_USER_SECURITY			SMB_SM_USER		/* 0x01, server in the user security mode */
-#define SMBV_ENCRYPT_PASSWORD		SMB_SM_ENCRYPT	/* 0x02 use challenge/responce for password */
-#define SMBV_SIGNING				SMB_SM_SIGS		/* 0x04 server does smb signing */
-#define SMBV_SIGNING_REQUIRED		SMB_SM_SIGS_REQ	/* 0x08 serrver requires smb signing */
-#define SMBV_SECURITY_MODE_MASK		0x000000ff		/* Lower byte reserved for the security modes */
+#define SMBV_USER_SECURITY          SMB_SM_USER		/* 0x01, server in the user security mode */
+#define SMBV_ENCRYPT_PASSWORD       SMB_SM_ENCRYPT	/* 0x02 use challenge/response for password */
+#define SMBV_SIGNING                SMB_SM_SIGS		/* 0x04 server does SMB Signing */
+#define SMBV_SIGNING_REQUIRED       SMB_SM_SIGS_REQ	/* 0x08 server requires SMB Signing */
+#define SMBV_SECURITY_MODE_MASK     0x000000ff		/* Lower byte reserved for the security modes */
 
-#define	SMBV_NT4					0x00000100		/* Tells us the server is a NT4 */
-#define	SMBV_WIN2K_XP				0x00000200		/* Tells us the server is Windows 2000 or XP */
-#define SMBV_DARWIN					0x00000400		/* Mac OS X Server */
-#define SMBV_SMB2                 0x00001000		/* Using some version of SMB 2.x */
-#define SMBV_SMB2002              0x00002000		/* Using SMB 2.002 */
-#define SMBV_SMB21                0x00004000		/* Using SMB 2.1 */
-#define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is reserved for special server types */
+#define	SMBV_NT4                    0x00000100		/* Tells us the server is a NT4 */
+#define	SMBV_WIN2K_XP               0x00000200		/* Tells us the server is Windows 2000 or XP */
+#define SMBV_DARWIN                 0x00000400		/* Mac OS X Server */
+#define SMBV_SMB30                  0x00000800		/* Using SMB 3.0 */
+#define SMBV_SMB2                   0x00001000		/* Using some version of SMB 2 or 3 */
+#define SMBV_SMB2002                0x00002000		/* Using SMB 2.002 */
+#define SMBV_SMB21                  0x00004000		/* Using SMB 2.1 */
+#define SMBV_SMB302                 0x00008000		/* Using SMB 3.02 */
+#define SMBV_SERVER_MODE_MASK       0x0000ff00		/* This nible is reserved for special server types */
 
-#define SMBV_NETWORK_SID			0x00010000		/* The user's sid has been set on the vc */
-#define	SMBV_AUTH_DONE				0x00080000		/* Security compeleted successfully */
-#define SMBV_PRIV_GUEST_ACCESS		0x00100000		/* Guest access is private */
-#define SMBV_KERBEROS_ACCESS		0x00200000		/* This VC is using Kerberos */
-#define SMBV_GUEST_ACCESS			0x00400000		/* user is using guess security */
-#define SMBV_ANONYMOUS_ACCESS		0x00800000		/* user is using anonymous security */
-#define SMBV_HOME_ACCESS_OK			0x01000000		/* gssd can touch the user home directory */
-#define SMBV_RAW_NTLMSSP			0x02000000		/* server only supports RAW NTLM, no NTLMSSP */
-#define SMBV_USER_LAND_MASK			0x07f00000		/* items that are changable by the user */
-#define SMBV_SFS_ACCESS				0x08000000		/* Server is using simple file sharing. All access is forced to guest This is a kernel only flag */
-#define	SMBV_GONE					SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
+#define SMBV_NETWORK_SID            0x00010000		/* The user's sid has been set on the vc */
+#define	SMBV_AUTH_DONE              0x00080000		/* Security compeleted successfully */
+#define SMBV_PRIV_GUEST_ACCESS      0x00100000		/* Guest access is private */
+#define SMBV_KERBEROS_ACCESS        0x00200000		/* This VC is using Kerberos */
+#define SMBV_GUEST_ACCESS           0x00400000		/* user is using guess security */
+#define SMBV_ANONYMOUS_ACCESS       0x00800000		/* user is using anonymous security */
+#define SMBV_HOME_ACCESS_OK         0x01000000		/* <Currently unused> can touch the user home directory */
+#define SMBV_RAW_NTLMSSP            0x02000000		/* server only supports RAW NTLM, no NTLMSSP */
+#define SMBV_NO_NTLMV1              0x04000000		/* NTLMv1 not allowed in non Extended Security case */
+#define SMBV_USER_LAND_MASK         0x07f00000		/* items that are changable by the user */
+#define SMBV_SFS_ACCESS             0x08000000		/* Server is using simple file sharing. All access is forced to guest This is a kernel only flag */
+#define	SMBV_GONE                   SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
 /*
  * vc_misc_flags - another flags field since vc_flags is almost full.
  */
-#define	SMBV_NEG_SMB1_ONLY  0x00000001		/* Only allow SMB1 */
-#define	SMBV_NEG_SMB2_ONLY  0x00000002		/* Only allow SMB2 */
+#define	SMBV_NEG_SMB1_ONLY  0x00000001		/* Only allow SMB 1 */
+#define	SMBV_NEG_SMB2_ONLY  0x00000002		/* Only allow SMB 2 */
 #define	SMBV_64K_QUERY_DIR  0x00000004		/* Use 64Kb OutputBufLen in Query_Dir */
-#define	SMBV_64K_QUERY_INFO 0x00000008		/* Use 64Kb OutputBufLen in Query_Info */
 #define	SMBV_HAS_FILEIDS    0x00000010		/* Has File IDs that we can use for hash values and inode number */
 #define	SMBV_NO_QUERYINFO   0x00000020		/* Server does not like Query Info for FileAllInformation */
 #define	SMBV_OSX_SERVER     0x00000040		/* Server is OS X based */
@@ -141,12 +143,22 @@
 #define SMBV_CLIENT_SIGNING_REQUIRED	0x00000100
 #define SMBV_NON_COMPOUND_REPLIES       0x00000200    /* Server does not send compound replies */
 #define SMBV_63K_IOCTL      0x00000400      /* Use 63K MaxOutputResponse */
+#define SMBV_HAS_COPYCHUNK  0x00000800      /* Server supports FSCTL_SRV_COPY_CHUNK IOCTL */
+#define	SMBV_NEG_SMB3_ONLY  0x00001000		/* Only allow SMB 3 */
+#define	SMBV_NO_WRITE_THRU  0x00002000		/* Server does not like Write Through */
 
 #define SMBV_HAS_GUEST_ACCESS(vcp)		(((vcp)->vc_flags & (SMBV_GUEST_ACCESS | SMBV_SFS_ACCESS)) != 0)
 #define SMBV_HAS_ANONYMOUS_ACCESS(vcp)	(((vcp)->vc_flags & (SMBV_ANONYMOUS_ACCESS | SMBV_SFS_ACCESS)) != 0)
 
+/*
+ * True if dialect is SMB 2.1 or later (i.e., SMB 2.1, SMB 3.0, SMB 3.1, SMB 3.02, ...)
+ * Important: Remember to update this when adding new dialects.
+ */
+#define SMBV_SMB21_OR_LATER(vcp) (((vcp)->vc_flags & (SMBV_SMB21 | SMBV_SMB30 | SMBV_SMB302)) != 0)
+
 #define kSMB_64K 65536      /* For the QueryDir and QueryInfo limits */
 #define kSMB_63K 65534      /* <14281932> Max Net App can handle in IOCTL */
+#define kSMB_MAX_TX 1048576 /* 1 MB max transaction size to match Win Clients */
 
 /*
  * smb_share flags
@@ -161,16 +173,19 @@
  * Negotiated protocol parameters
  */
 struct smb_sopt {
-	uint32_t	sv_maxtx;	/* maximum transmit buf size */
-	uint16_t	sv_maxmux;	/* SMB1 - max number of outstanding rq's */
-	uint16_t 	sv_maxvcs;	/* SMB1 - max number of VCs */
-	uint32_t	sv_skey;	/* session key */
-	uint32_t	sv_caps;	/* SMB1 - capabilities, preset for SMB2 */
-	uint16_t	sv_dialect;         /* SMB2 - dialect (non zero for SMB2 */
-	uint32_t	sv_capabilities;	/* SMB2 - capabilities */
-	uint32_t	sv_maxtransact;     /* SMB2 - max transact size */
-	uint32_t	sv_maxread;         /* SMB2 - max read size */
-	uint32_t	sv_maxwrite;        /* SMB2 - max write size */
+    uint32_t    sv_maxtx;           /* maximum transmit buf size */
+    uint16_t    sv_maxmux;          /* SMB 1 - max number of outstanding rq's */
+    uint16_t    sv_maxvcs;          /* SMB 1 - max number of VCs */
+    uint32_t    sv_skey;            /* session key */
+    uint32_t    sv_caps;            /* SMB 1 - capabilities, preset for SMB 2/3 */
+    uint32_t    sv_sessflags;       /* SMB 2/3 - final session setup reply flags */
+    uint16_t    sv_dialect;         /* SMB 2 - dialect (non zero for SMB 2/3 */
+    uint32_t    sv_capabilities;    /* SMB 2 - capabilities */
+    uint32_t    sv_maxtransact;     /* SMB 2 - max transact size */
+    uint32_t    sv_maxread;         /* SMB 2 - max read size */
+    uint32_t    sv_maxwrite;        /* SMB 2 - max write size */
+    uint8_t     sv_guid[16];        /* SMB 2 - GUID */
+    uint16_t    sv_security_mode;   /* SMB 2 - security mode */
 };
 
 /*
@@ -197,7 +212,7 @@ enum smb_fs_types {
 	SMB_FS_NTFS_UNKNOWN = 3,	/* NTFS file system, sometimes faked by server no streams support */
 	SMB_FS_NTFS = 4,			/* Real NTFS or fully pretending, NTFS share that also supports STREAMS. */
 	SMB_FS_NTFS_UNIX = 5,		/* Pretending to be NTFS file system, no streams, but it is a UNIX system */
-	SMB_FS_MAC_OS_X = 6			/* Mac OS X Server, SMB2 or greater */
+	SMB_FS_MAC_OS_X = 6			/* Mac OS X Server, SMB 2/3 or greater */
 };
 
 #ifdef _KERNEL
@@ -304,6 +319,8 @@ struct smb_gss {
 #define	SMBC_CREDIT_LOCK(vcp)	lck_mtx_lock(&(vcp)->vc_credits_lock)
 #define	SMBC_CREDIT_UNLOCK(vcp)	lck_mtx_unlock(&(vcp)->vc_credits_lock)
 
+/* SMB3 Signing/Encrypt Key Length */
+#define SMB3_KEY_LEN 16
 
 struct smb_vc {
 	struct smb_connobj	obj;
@@ -328,18 +345,18 @@ struct smb_vc {
 	u_char				vc_ch[SMB_MAXCHALLENGELEN];
 	uint16_t			vc_mid;				/* multiplex id */
 	uint16_t			vc_low_pid;			/* used for async requests only */
-    uuid_t              vc_client_guid;     /* SMB2 client Guid for Neg req */
-	uint64_t            vc_message_id;		/* SMB2 request message id */
-	uint32_t            vc_credits_granted; /* SMB2 credits granted */
-	uint32_t            vc_credits_ss_granted; /* SMB2 credits granted from session setup replies */
-	uint32_t            vc_credits_max;     /* SMB2 max amount of credits server has granted us */
-	uint32_t            vc_credits_wait;    /* SMB2 credit wait */
-    uint32_t            vc_req_pending;     /* SMB2 set if there is a pending request */
-    uint64_t            vc_oldest_message_id; /* SMB2 oldest pending request message id */
+    uuid_t              vc_client_guid;     /* SMB 2/3 client Guid for Neg req */
+	uint64_t            vc_message_id;		/* SMB 2/3 request message id */
+	uint32_t            vc_credits_granted; /* SMB 2/3 credits granted */
+	uint32_t            vc_credits_ss_granted; /* SMB 2/3 credits granted from session setup replies */
+	uint32_t            vc_credits_max;     /* SMB 2/3 max amount of credits server has granted us */
+	int32_t             vc_credits_wait;    /* SMB 2/3 credit wait */
+    uint32_t            vc_req_pending;     /* SMB 2/3 set if there is a pending request */
+    uint64_t            vc_oldest_message_id; /* SMB 2/3 oldest pending request message id */
 	lck_mtx_t			vc_credits_lock;
-	uint64_t            vc_session_id;      /* SMB2 session id */
-	uint64_t            vc_prev_session_id; /* SMB2 prev sessID for reconnect */
-	uint64_t            vc_misc_flags;      /* SMB2 misc flags */
+	uint64_t            vc_session_id;      /* SMB 2/3 session id */
+	uint64_t            vc_prev_session_id; /* SMB 2/3 prev sessID for reconnect */
+	uint64_t            vc_misc_flags;      /* SMB 2/3 misc flags */
 	struct smb_sopt		vc_sopt;			/* server options */
 	uint32_t			vc_txmax;			/* max tx/rx packet size */
 	uint32_t			vc_rxmax;			/* max readx data size */
@@ -349,6 +366,25 @@ struct smb_vc {
 	uint32_t			vc_seqno;			/* my next sequence number */
 	uint8_t				*vc_mackey;			/* MAC key */
 	uint32_t			vc_mackeylen;		/* length of MAC key */
+    
+    /* SMB 3 signing key (Session.SessionKey) */
+    uint8_t             vc_smb3_signing_key[SMB3_KEY_LEN];
+    uint32_t            vc_smb3_signing_key_len;
+    
+    /* SMB 3 encryption key (Session.EncryptionKey) */
+    /* A 128-bit key used for encrypting messages sent by the client */
+    uint8_t             vc_smb3_encrypt_key[SMB3_KEY_LEN];
+    uint32_t            vc_smb3_encrypt_key_len;
+    
+    /* SMB 3 decryption key (Session.DecryptionKey) */
+    /* A 128-bit key used for decrypting messages received from the server. */
+    uint8_t             vc_smb3_decrypt_key[SMB3_KEY_LEN];
+    uint32_t            vc_smb3_decrypt_key_len;
+    
+    /* SMB 3 Nonce used for encryption */
+    uint64_t            vc_smb3_nonce_high;
+    uint64_t            vc_smb3_nonce_low;
+    
 	uint32_t			reconnect_wait_time;	/* Amount of time to wait while reconnecting */
 	uint32_t			*connect_flag;
 	char				*NativeOS;
@@ -358,10 +394,11 @@ struct smb_vc {
 	struct smb_gss		vc_gss;				/* Parameters for gssd */
 	ntsid_t				vc_ntwrk_sid;
 	void				*throttle_info;
-	uint64_t            vc_server_caps;     /* SMB2 server capabilities */
-	uint64_t            vc_volume_caps;     /* SMB2 volume capabilities*/
-	char                *vc_model_info;     /* SMB2 server model string */
-    int32_t             vc_lease_key;       /* SMB2 lease key incrementer to keep it unique */
+	uint64_t            vc_server_caps;     /* SMB 2/3 server capabilities */
+	uint64_t            vc_volume_caps;     /* SMB 2/3 volume capabilities*/
+	char                *vc_model_info;     /* SMB 2/3 server model string */
+    int32_t             vc_lease_key;       /* SMB 2/3 lease key incrementer to keep it unique */
+    uint32_t            vc_resp_wait_timeout; /* max time to wait for any response to arrive */
 };
 
 #define vc_maxmux	vc_sopt.sv_maxmux
@@ -395,20 +432,20 @@ struct smb_share {
 	lck_mtx_t		ss_shlock;	/* used to protect ss_mount */ 
 	uint32_t		ss_dead_timer;	/* Time to wait before this share should be marked dead, zero means never */
 	uint32_t		ss_soft_timer;	/* Time to wait before this share should return time out errors, zero means never */
-	u_short			ss_tid;         /* Tree ID for SMB1 */
-	uint32_t		ss_tree_id;		/* Tree ID for SMB2 */
-	uint32_t		ss_share_type;	/* Tree share type for SMB2 */
-	uint32_t		ss_share_flags;	/* Tree share flags for SMB2 */
-	uint32_t		ss_share_caps;	/* Tree share capabilities for SMB2 */
+	u_short			ss_tid;         /* Tree ID for SMB 1 */
+	uint32_t		ss_tree_id;		/* Tree ID for SMB 2/3 */
+	uint32_t		ss_share_type;	/* Tree share type for SMB 2/3 */
+	uint32_t		ss_share_flags;	/* Tree share flags for SMB 2/3 */
+	uint32_t		ss_share_caps;	/* Tree share capabilities for SMB 2/3 */
 	uint64_t		ss_unix_caps;	/* Unix capabilites are per share not VC */
 	enum smb_fs_types ss_fstype;	/* File system type of the share */
 	uint32_t		ss_attributes;	/* File System Attributes */
 	uint32_t		ss_maxfilenamelen;
 	uint16_t		optionalSupport;
-	uint32_t		maxAccessRights;    /* SMB1 and SMB2 */
+	uint32_t		maxAccessRights;    /* SMB 1 and SMB 2/3 */
 	uint32_t		maxGuestAccessRights;
 	
-	/* SMB2 FID mapping support */
+	/* SMB 2/3 FID mapping support */
 	lck_mtx_t		ss_fid_lock;
 	uint64_t		ss_fid_collisions;
 	uint64_t		ss_fid_inserted;
@@ -480,7 +517,7 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
 #define SMBIOD_INTR_TIMO		2       
 #define SMBIOD_SLEEP_TIMO       2       
 #define SMB_SEND_WAIT_TIMO		60 * 2	/* How long should we wait for the server to response to a request. */
-#define SMB_RESP_WAIT_TIMO		60		/* How long should we wait for the server to response to any request. */
+#define SMB_RESP_WAIT_TIMO		30		/* How long should we wait for the server to response to any request. */
 
 /*
  * After this many seconds we want an unresponded-to request to trigger 
@@ -492,15 +529,16 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
  * At present this latter dialogue does not exist so we have no UE and
  * just keep waiting for the slow operation.
  *
- * Raised from 8 to 12, to improve PPP DSL connections.
+ * Raised from 8 to 12, to improve PPP DSL connections. Set to 10s to better
+ * match SMB_RESP_WAIT_TIMO second timeout of 30s.
  */
-#define SMBUETIMEOUT			12		/* seconds */
+#define SMBUETIMEOUT			10		/* Seconds until we send an Echo request */
 #define SMB_MAX_SLEEP_CNT		5		/* Max seconds we wait between connections while doing a reconnect. */
-#define NOTIFY_USER_TIMEOUT		5		/* The number of seconds before we will the user there is a problem. */
-#define SOFTMOUNT_TIMEOUT		12		/* The number of seconds to wait before soft mount calls time out */
-#define DEAD_TIMEOUT			60		/* Default dead timer for any share */
-#define HARD_DEAD_TIMER			10 * 60	/* Hard mount dead timer */
-#define TRIGGER_DEAD_TIMEOUT	30		/* trigger mount dead timer */
+#define NOTIFY_USER_TIMEOUT		5		/* Seconds before we will notify user there is a problem. */
+#define SOFTMOUNT_TIMEOUT		12		/* Seconds to wait before soft mount calls time out */
+#define DEAD_TIMEOUT			60		/* Seconds until we force unmount a soft mount (ie its dead) */
+#define HARD_DEAD_TIMER			10 * 60	/* Seconds until we force unmount a hard mount (ie its dead) */
+#define TRIGGER_DEAD_TIMEOUT	30		/* Seconds until we force unmount a trigger mount (ie its dead) */
 
 #define SMB_IOD_EVLOCKPTR(iod)  (&((iod)->iod_evlock))
 #define SMB_IOD_EVLOCK(iod)     lck_mtx_lock(&((iod)->iod_evlock))

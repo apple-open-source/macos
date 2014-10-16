@@ -70,62 +70,11 @@ void SSL_set_app_data2(SSL *ssl, void *arg)
 
 /*  _________________________________________________________________
 **
-**  High-Level Certificate / Private Key Loading
+**  High-Level Private Key Loading
 **  _________________________________________________________________
 */
 
-X509 *SSL_read_X509(char* filename, X509 **x509, modssl_read_bio_cb_fn *cb)
-{
-    X509 *rc;
-    BIO *bioS;
-    BIO *bioF;
-
-    /* 1. try PEM (= DER+Base64+headers) */
-    if ((bioS=BIO_new_file(filename, "r")) == NULL)
-        return NULL;
-    rc = modssl_PEM_read_bio_X509 (bioS, x509, cb, NULL);
-    BIO_free(bioS);
-
-    if (rc == NULL) {
-        /* 2. try DER+Base64 */
-        if ((bioS=BIO_new_file(filename, "r")) == NULL)
-            return NULL;
-
-        if ((bioF = BIO_new(BIO_f_base64())) == NULL) {
-            BIO_free(bioS);
-            return NULL;
-        }
-        bioS = BIO_push(bioF, bioS);
-        rc = d2i_X509_bio(bioS, NULL);
-        BIO_free_all(bioS);
-
-        if (rc == NULL) {
-            /* 3. try plain DER */
-            if ((bioS=BIO_new_file(filename, "r")) == NULL)
-                return NULL;
-            rc = d2i_X509_bio(bioS, NULL);
-            BIO_free(bioS);
-        }
-    }
-    if (rc != NULL && x509 != NULL) {
-        if (*x509 != NULL)
-            X509_free(*x509);
-        *x509 = rc;
-    }
-    return rc;
-}
-
-#if SSL_LIBRARY_VERSION <= 0x00904100
-static EVP_PKEY *d2i_PrivateKey_bio(BIO *bio, EVP_PKEY **key)
-{
-     return ((EVP_PKEY *)ASN1_d2i_bio(
-             (char *(*)())EVP_PKEY_new,
-             (char *(*)())d2i_PrivateKey,
-             (bio), (unsigned char **)(key)));
-}
-#endif
-
-EVP_PKEY *SSL_read_PrivateKey(char* filename, EVP_PKEY **key, modssl_read_bio_cb_fn *cb, void *s)
+EVP_PKEY *SSL_read_PrivateKey(const char* filename, EVP_PKEY **key, pem_password_cb *cb, void *s)
 {
     EVP_PKEY *rc;
     BIO *bioS;
@@ -134,7 +83,7 @@ EVP_PKEY *SSL_read_PrivateKey(char* filename, EVP_PKEY **key, modssl_read_bio_cb
     /* 1. try PEM (= DER+Base64+headers) */
     if ((bioS=BIO_new_file(filename, "r")) == NULL)
         return NULL;
-    rc = modssl_PEM_read_bio_PrivateKey(bioS, key, cb, s);
+    rc = PEM_read_bio_PrivateKey(bioS, key, cb, s);
     BIO_free(bioS);
 
     if (rc == NULL) {
@@ -194,147 +143,19 @@ int SSL_smart_shutdown(SSL *ssl)
 
 /*  _________________________________________________________________
 **
-**  Certificate Revocation List (CRL) Storage
-**  _________________________________________________________________
-*/
-
-X509_STORE *SSL_X509_STORE_create(char *cpFile, char *cpPath)
-{
-    X509_STORE *pStore;
-    X509_LOOKUP *pLookup;
-    int rv = 1;
-
-    ERR_clear_error();
-
-    if (cpFile == NULL && cpPath == NULL)
-        return NULL;
-    if ((pStore = X509_STORE_new()) == NULL)
-        return NULL;
-    if (cpFile != NULL) {
-        pLookup = X509_STORE_add_lookup(pStore, X509_LOOKUP_file());
-        if (pLookup == NULL) {
-            X509_STORE_free(pStore);
-            return NULL;
-        }
-        rv = X509_LOOKUP_load_file(pLookup, cpFile, X509_FILETYPE_PEM);
-    }
-    if (cpPath != NULL && rv == 1) {
-        pLookup = X509_STORE_add_lookup(pStore, X509_LOOKUP_hash_dir());
-        if (pLookup == NULL) {
-            X509_STORE_free(pStore);
-            return NULL;
-        }
-        rv = X509_LOOKUP_add_dir(pLookup, cpPath, X509_FILETYPE_PEM);
-    }
-    return rv == 1 ? pStore : NULL;
-}
-
-int SSL_X509_STORE_lookup(X509_STORE *pStore, int nType,
-                          X509_NAME *pName, X509_OBJECT *pObj)
-{
-    X509_STORE_CTX pStoreCtx;
-    int rc;
-
-    X509_STORE_CTX_init(&pStoreCtx, pStore, NULL, NULL);
-    rc = X509_STORE_get_by_subject(&pStoreCtx, nType, pName, pObj);
-    X509_STORE_CTX_cleanup(&pStoreCtx);
-    return rc;
-}
-
-/*  _________________________________________________________________
-**
-**  Cipher Suite Spec String Creation
-**  _________________________________________________________________
-*/
-
-char *SSL_make_ciphersuite(apr_pool_t *p, SSL *ssl)
-{
-    STACK_OF(SSL_CIPHER) *sk;
-    SSL_CIPHER *c;
-    int i;
-    int l;
-    char *cpCipherSuite;
-    char *cp;
-
-    if (ssl == NULL)
-        return "";
-    if ((sk = (STACK_OF(SSL_CIPHER) *)SSL_get_ciphers(ssl)) == NULL)
-        return "";
-    l = 0;
-    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
-        c = sk_SSL_CIPHER_value(sk, i);
-        l += strlen(SSL_CIPHER_get_name(c))+2+1;
-    }
-    if (l == 0)
-        return "";
-    cpCipherSuite = (char *)apr_palloc(p, l+1);
-    cp = cpCipherSuite;
-    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
-        c = sk_SSL_CIPHER_value(sk, i);
-        l = strlen(SSL_CIPHER_get_name(c));
-        memcpy(cp, SSL_CIPHER_get_name(c), l);
-        cp += l;
-        *cp++ = '/';
-        *cp++ = (SSL_CIPHER_get_valid(c) == 1 ? '1' : '0');
-        *cp++ = ':';
-    }
-    *(cp-1) = NUL;
-    return cpCipherSuite;
-}
-
-/*  _________________________________________________________________
-**
 **  Certificate Checks
 **  _________________________________________________________________
 */
 
-/* check whether cert contains extended key usage with a SGC tag */
-BOOL SSL_X509_isSGC(X509 *cert)
-{
-#ifdef HAVE_SSL_X509V3_EXT_d2i
-    X509_EXTENSION *ext;
-    int ext_nid;
-    EXTENDED_KEY_USAGE *sk;
-    BOOL is_sgc;
-    int idx;
-    int i;
-
-    is_sgc = FALSE;
-    idx = X509_get_ext_by_NID(cert, NID_ext_key_usage, -1);
-    if (idx >= 0) {
-        ext = X509_get_ext(cert, idx);
-        if ((sk = (EXTENDED_KEY_USAGE *)X509V3_EXT_d2i(ext)) != NULL) {
-            for (i = 0; i < sk_ASN1_OBJECT_num(sk); i++) {
-                ext_nid = OBJ_obj2nid((ASN1_OBJECT *)sk_ASN1_OBJECT_value(sk, i));
-                if (ext_nid == NID_ms_sgc || ext_nid == NID_ns_sgc) {
-                    is_sgc = TRUE;
-                    break;
-                }
-            }
-        }
-    }
-    return is_sgc;
-#else
-    return FALSE;
-#endif
-}
-
 /* retrieve basic constraints ingredients */
 BOOL SSL_X509_getBC(X509 *cert, int *ca, int *pathlen)
 {
-#ifdef HAVE_SSL_X509V3_EXT_d2i
-    X509_EXTENSION *ext;
     BASIC_CONSTRAINTS *bc;
-    int idx;
     BIGNUM *bn = NULL;
     char *cp;
 
-    if ((idx = X509_get_ext_by_NID(cert, NID_basic_constraints, -1)) < 0)
-        return FALSE;
-    ext = X509_get_ext(cert, idx);
-    if (ext == NULL)
-        return FALSE;
-    if ((bc = (BASIC_CONSTRAINTS *)X509V3_EXT_d2i(ext)) == NULL)
+    bc = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
+    if (bc == NULL)
         return FALSE;
     *ca = bc->ca;
     *pathlen = -1 /* unlimited */;
@@ -349,44 +170,33 @@ BOOL SSL_X509_getBC(X509 *cert, int *ca, int *pathlen)
     }
     BASIC_CONSTRAINTS_free(bc);
     return TRUE;
-#else
-    return FALSE;
-#endif
 }
 
-/* retrieve subject CommonName of certificate */
-BOOL SSL_X509_getCN(apr_pool_t *p, X509 *xs, char **cppCN)
+/* convert a NAME_ENTRY to UTF8 string */
+char *SSL_X509_NAME_ENTRY_to_string(apr_pool_t *p, X509_NAME_ENTRY *xsne)
 {
-    X509_NAME *xsn;
-    X509_NAME_ENTRY *xsne;
-    int i, nid;
-    unsigned char *data_ptr;
-    int data_len;
+    char *result = NULL;
+    BIO* bio;
+    int len;
 
-    xsn = X509_get_subject_name(xs);
-    for (i = 0; i < sk_X509_NAME_ENTRY_num((STACK_OF(X509_NAME_ENTRY) *)
-                                           X509_NAME_get_entries(xsn)); i++) {
-        xsne = sk_X509_NAME_ENTRY_value((STACK_OF(X509_NAME_ENTRY) *)
-                                         X509_NAME_get_entries(xsn), i);
-        nid = OBJ_obj2nid((ASN1_OBJECT *)X509_NAME_ENTRY_get_object(xsne));
-        if (nid == NID_commonName) {
-            data_ptr = X509_NAME_ENTRY_get_data_ptr(xsne);
-            data_len = X509_NAME_ENTRY_get_data_len(xsne);
-            *cppCN = apr_palloc(p, data_len+1);
-            apr_cpystrn(*cppCN, (char *)data_ptr, data_len+1);
-            (*cppCN)[data_len] = NUL;
-            ap_xlate_proto_from_ascii(*cppCN, data_len);
-            return TRUE;
-        }
-    }
-    return FALSE;
+    if ((bio = BIO_new(BIO_s_mem())) == NULL)
+        return NULL;
+    ASN1_STRING_print_ex(bio, X509_NAME_ENTRY_get_data(xsne),
+                         ASN1_STRFLGS_ESC_CTRL|ASN1_STRFLGS_UTF8_CONVERT);
+    len = BIO_pending(bio);
+    result = apr_palloc(p, len+1);
+    len = BIO_read(bio, result, len);
+    result[len] = NUL;
+    BIO_free(bio);
+    ap_xlate_proto_from_ascii(result, len);
+    return result;
 }
 
 /*
  * convert an X509_NAME to an RFC 2253 formatted string, optionally truncated
  * to maxlen characters (specify a maxlen of 0 for no length limit)
  */
-char *SSL_X509_NAME_to_string(apr_pool_t *p, X509_NAME *dn, unsigned int maxlen)
+char *SSL_X509_NAME_to_string(apr_pool_t *p, X509_NAME *dn, int maxlen)
 {
     char *result = NULL;
     BIO *bio;
@@ -397,8 +207,8 @@ char *SSL_X509_NAME_to_string(apr_pool_t *p, X509_NAME *dn, unsigned int maxlen)
     X509_NAME_print_ex(bio, dn, 0, XN_FLAG_RFC2253);
     len = BIO_pending(bio);
     if (len > 0) {
-        result = apr_palloc(p, maxlen ? maxlen+1 : len+1);
-        if (maxlen && maxlen < len) {
+        result = apr_palloc(p, (maxlen > 0) ? maxlen+1 : len+1);
+        if (maxlen > 0 && maxlen < len) {
             len = BIO_read(bio, result, maxlen);
             if (maxlen > 2) {
                 /* insert trailing ellipsis if there's enough space */
@@ -412,6 +222,132 @@ char *SSL_X509_NAME_to_string(apr_pool_t *p, X509_NAME *dn, unsigned int maxlen)
     BIO_free(bio);
 
     return result;
+}
+
+/* return an array of (RFC 6125 coined) DNS-IDs and CN-IDs in a certificate */
+BOOL SSL_X509_getIDs(apr_pool_t *p, X509 *x509, apr_array_header_t **ids)
+{
+    STACK_OF(GENERAL_NAME) *names;
+    BIO *bio;
+    X509_NAME *subj;
+    char **cpp;
+    int i, n;
+
+    if (!x509 || !(*ids = apr_array_make(p, 0, sizeof(char *)))) {
+        *ids = NULL;
+        return FALSE;
+    }
+
+    /* First, the DNS-IDs (dNSName entries in the subjectAltName extension) */
+    if ((names = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL)) &&
+        (bio = BIO_new(BIO_s_mem()))) {
+        GENERAL_NAME *name;
+
+        for (i = 0; i < sk_GENERAL_NAME_num(names); i++) {
+            name = sk_GENERAL_NAME_value(names, i);
+            if (name->type == GEN_DNS) {
+                ASN1_STRING_print_ex(bio, name->d.ia5, ASN1_STRFLGS_ESC_CTRL|
+                                     ASN1_STRFLGS_UTF8_CONVERT);
+                n = BIO_pending(bio);
+                if (n > 0) {
+                    cpp = (char **)apr_array_push(*ids);
+                    *cpp = apr_palloc(p, n+1);
+                    n = BIO_read(bio, *cpp, n);
+                    (*cpp)[n] = NUL;
+                }
+            }
+        }
+        BIO_free(bio);
+    }
+
+    if (names)
+        sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free);
+
+    /* Second, the CN-IDs (commonName attributes in the subject DN) */
+    subj = X509_get_subject_name(x509);
+    i = -1;
+    while ((i = X509_NAME_get_index_by_NID(subj, NID_commonName, i)) != -1) {
+        cpp = (char **)apr_array_push(*ids);
+        *cpp = SSL_X509_NAME_ENTRY_to_string(p, X509_NAME_get_entry(subj, i));
+    }
+
+    return apr_is_empty_array(*ids) ? FALSE : TRUE;
+}
+
+/* 
+ * Check if a certificate matches for a particular name, by iterating over its
+ * DNS-IDs and CN-IDs (RFC 6125), optionally with basic wildcard matching.
+ * If server_rec is non-NULL, some (debug/trace) logging is enabled.
+ */
+BOOL SSL_X509_match_name(apr_pool_t *p, X509 *x509, const char *name,
+                         BOOL allow_wildcard, server_rec *s)
+{
+    BOOL matched = FALSE;
+    apr_array_header_t *ids;
+
+    /*
+     * At some day in the future, this might be replaced with X509_check_host()
+     * (available in OpenSSL 1.0.2 and later), but two points should be noted:
+     * 1) wildcard matching in X509_check_host() might yield different
+     *    results (by default, it supports a broader set of patterns, e.g.
+     *    wildcards in non-initial positions);
+     * 2) we lose the option of logging each DNS- and CN-ID (until a match
+     *    is found).
+     */
+
+    if (SSL_X509_getIDs(p, x509, &ids)) {
+        const char *cp;
+        int i;
+        char **id = (char **)ids->elts;
+        BOOL is_wildcard;
+
+        for (i = 0; i < ids->nelts; i++) {
+            if (!id[i])
+                continue;
+
+            /*
+             * Determine if it is a wildcard ID - we're restrictive
+             * in the sense that we require the wildcard character to be
+             * THE left-most label (i.e., the ID must start with "*.")
+             */
+            is_wildcard = (*id[i] == '*' && *(id[i]+1) == '.') ? TRUE : FALSE;
+
+            /*
+             * If the ID includes a wildcard character (and the caller is
+             * allowing wildcards), check if it matches for the left-most
+             * DNS label - i.e., the wildcard character is not allowed
+             * to match a dot. Otherwise, try a simple string compare.
+             */
+            if ((allow_wildcard == TRUE && is_wildcard == TRUE &&
+                 (cp = ap_strchr_c(name, '.')) && !strcasecmp(id[i]+1, cp)) ||
+                !strcasecmp(id[i], name)) {
+                matched = TRUE;
+            }
+
+            if (s) {
+                ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
+                             "[%s] SSL_X509_match_name: expecting name '%s', "
+                             "%smatched by ID '%s'",
+                             (mySrvConfig(s))->vhost_id, name,
+                             matched == TRUE ? "" : "NOT ", id[i]);
+            }
+
+            if (matched == TRUE) {
+                break;
+            }
+        }
+
+    }
+
+    if (s) {
+        ssl_log_xerror(SSLLOG_MARK, APLOG_DEBUG, 0, p, s, x509,
+                       APLOGNO(02412) "[%s] Cert %s for name '%s'",
+                       (mySrvConfig(s))->vhost_id,
+                       matched == TRUE ? "matches" : "does not match",
+                       name);
+    }
+
+    return matched;
 }
 
 /*  _________________________________________________________________
@@ -430,14 +366,14 @@ BOOL SSL_X509_INFO_load_file(apr_pool_t *ptemp,
         return FALSE;
     }
 
-    if (BIO_read_filename(in, MODSSL_PCHAR_CAST filename) <= 0) {
+    if (BIO_read_filename(in, filename) <= 0) {
         BIO_free(in);
         return FALSE;
     }
 
     ERR_clear_error();
 
-    modssl_PEM_X509_INFO_read_bio(in, sk, NULL, NULL);
+    PEM_X509_INFO_read_bio(in, sk, NULL, NULL);
 
     BIO_free(in);
 
@@ -483,6 +419,38 @@ BOOL SSL_X509_INFO_load_path(apr_pool_t *ptemp,
 
 /*  _________________________________________________________________
 **
+**  Custom (EC)DH parameter support
+**  _________________________________________________________________
+*/
+
+DH *ssl_dh_GetParamFromFile(const char *file)
+{
+    DH *dh = NULL;
+    BIO *bio;
+
+    if ((bio = BIO_new_file(file, "r")) == NULL)
+        return NULL;
+    dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    return (dh);
+}
+
+#ifdef HAVE_ECC
+EC_GROUP *ssl_ec_GetParamFromFile(const char *file)
+{
+    EC_GROUP *group = NULL;
+    BIO *bio;
+
+    if ((bio = BIO_new_file(file, "r")) == NULL)
+        return NULL;
+    group = PEM_read_bio_ECPKParameters(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    return (group);
+}
+#endif
+
+/*  _________________________________________________________________
+**
 **  Extra Server Certificate Chain Support
 **  _________________________________________________________________
 */
@@ -493,13 +461,12 @@ BOOL SSL_X509_INFO_load_path(apr_pool_t *ptemp,
  * should be sent to the peer in the SSL Certificate message.
  */
 int SSL_CTX_use_certificate_chain(
-    SSL_CTX *ctx, char *file, int skipfirst, modssl_read_bio_cb_fn *cb)
+    SSL_CTX *ctx, char *file, int skipfirst, pem_password_cb *cb)
 {
     BIO *bio;
     X509 *x509;
     unsigned long err;
     int n;
-    STACK_OF(X509) *extra_certs;
 
     if ((bio = BIO_new(BIO_s_file_internal())) == NULL)
         return -1;
@@ -509,21 +476,24 @@ int SSL_CTX_use_certificate_chain(
     }
     /* optionally skip a leading server certificate */
     if (skipfirst) {
-        if ((x509 = modssl_PEM_read_bio_X509(bio, NULL, cb, NULL)) == NULL) {
+        if ((x509 = PEM_read_bio_X509(bio, NULL, cb, NULL)) == NULL) {
             BIO_free(bio);
             return -1;
         }
         X509_free(x509);
     }
     /* free a perhaps already configured extra chain */
-    extra_certs=SSL_CTX_get_extra_certs(ctx);
-    if (extra_certs != NULL) {
-        sk_X509_pop_free((STACK_OF(X509) *)extra_certs, X509_free);
-        SSL_CTX_set_extra_certs(ctx,NULL);
+#ifdef OPENSSL_NO_SSL_INTERN
+    SSL_CTX_clear_extra_chain_certs(ctx);
+#else
+    if (ctx->extra_certs != NULL) {
+        sk_X509_pop_free((STACK_OF(X509) *)ctx->extra_certs, X509_free);
+        ctx->extra_certs = NULL;
     }
+#endif
     /* create new extra chain by loading the certs */
     n = 0;
-    while ((x509 = modssl_PEM_read_bio_X509(bio, NULL, cb, NULL)) != NULL) {
+    while ((x509 = PEM_read_bio_X509(bio, NULL, cb, NULL)) != NULL) {
         if (!SSL_CTX_add_extra_chain_cert(ctx, x509)) {
             X509_free(x509);
             BIO_free(bio);
@@ -553,55 +523,15 @@ int SSL_CTX_use_certificate_chain(
 char *SSL_SESSION_id2sz(unsigned char *id, int idlen,
                         char *str, int strsize)
 {
-    char *cp;
-    int n;
+    if (idlen > SSL_MAX_SSL_SESSION_ID_LENGTH)
+        idlen = SSL_MAX_SSL_SESSION_ID_LENGTH;
+        
+    /* We must ensure not to process more than what would fit in the
+     * destination buffer, including terminating NULL */
+    if (idlen > (strsize-1) / 2)
+        idlen = (strsize-1) / 2;
 
-    cp = str;
-    for (n = 0; n < idlen && n < SSL_MAX_SSL_SESSION_ID_LENGTH; n++) {
-        apr_snprintf(cp, strsize - (cp-str), "%02X", id[n]);
-        cp += 2;
-    }
-    *cp = NUL;
+    ap_bin2hex(id, idlen, str);
+
     return str;
-}
-
-/* sslc+OpenSSL compat */
-
-int modssl_session_get_time(SSL_SESSION *session)
-{
-#ifdef OPENSSL_VERSION_NUMBER
-    return SSL_SESSION_get_time(session);
-#else /* assume sslc */
-    CRYPTO_TIME_T ct;
-    SSL_SESSION_get_time(session, &ct);
-    return CRYPTO_time_to_int(&ct);
-#endif
-}
-
-#ifndef SSLC_VERSION_NUMBER
-#define SSLC_VERSION_NUMBER 0x0000
-#endif
-
-DH *modssl_dh_configure(unsigned char *p, int plen,
-                        unsigned char *g, int glen)
-{
-    DH *dh;
-
-    if (!(dh = DH_new())) {
-        return NULL;
-    }
-
-#if defined(OPENSSL_VERSION_NUMBER) || (SSLC_VERSION_NUMBER < 0x2000)
-    dh->p = BN_bin2bn(p, plen, NULL);
-    dh->g = BN_bin2bn(g, glen, NULL);
-    if (!(dh->p && dh->g)) {
-        DH_free(dh);
-        return NULL;
-    }
-#else
-    R_EITEMS_add(dh->data, PK_TYPE_DH, PK_DH_P, 0, p, plen, R_EITEMS_PF_COPY);
-    R_EITEMS_add(dh->data, PK_TYPE_DH, PK_DH_G, 0, g, glen, R_EITEMS_PF_COPY);
-#endif
-
-    return dh;
 }

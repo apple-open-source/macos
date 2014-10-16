@@ -1,0 +1,194 @@
+//
+// Copyright (c) 2004,2006-2007,2011 Apple Inc. All Rights Reserved.
+//
+// @APPLE_LICENSE_HEADER_START@
+// 
+// This file contains Original Code and/or Modifications of Original Code
+// as defined in and that are subject to the Apple Public Source License
+// Version 2.0 (the 'License'). You may not use this file except in
+// compliance with the License. Please obtain a copy of the License at
+// http://www.opensource.apple.com/apsl/ and read it before using this
+// file.
+// 
+// The Original Code and all software distributed under the License are
+// distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+// EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+// INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+// Please see the License for the specific language governing rights and
+// limitations under the License.
+// 
+// @APPLE_LICENSE_HEADER_END@
+//
+// ucsp.defs - Mach RPC interface between SecurityServer and its clients
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+import <securityd_client/ss_types.h>;
+
+
+//
+// Data types
+//
+type Data = array [] of char;
+
+type Pointer = uint32_t;
+type BasePointer = uint32_t;
+
+type XMLBlob = Data;
+type XMLBlobOut = Data;
+
+type KeyBlob = Data
+	ctype: Pointer;
+
+type IPCHandle = uint32_t;
+type IPCDbHandle = IPCHandle;
+type IPCKeyHandle = IPCHandle;
+type IPCRecordHandle = IPCHandle;
+type IPCSearchHandle = IPCHandle;
+type IPCGenericHandle = IPCHandle;
+
+type DbHandle = uint32_t;
+type DbBlob = Data
+	ctype: Pointer;
+
+type CssmKeyBlob = Data
+	ctype: CssmKeyPtr;
+type CssmKeyPtr = BasePointer;
+
+type AclEntryPrototypeBlob = Data
+	ctype: AclEntryPrototypePtr;
+type AclEntryPrototypePtr = BasePointer;
+
+type AclEntryInfoBlob = Data
+	ctype: AclEntryInfoPtr;
+type AclEntryInfoPtr = BasePointer;
+
+type AclEntryInputBlob = Data
+	ctype: AclEntryInputPtr;
+type AclEntryInputPtr = BasePointer;
+
+type AclOwnerPrototypeBlob = Data
+	ctype: AclOwnerPrototypePtr;
+type AclOwnerPrototypePtr = BasePointer;
+
+type AccessCredentialsBlob = Data
+	ctype: AccessCredentialsPtr;
+type AccessCredentialsPtr = BasePointer;
+
+type DLDbIdentBlob = Data
+    ctype: DLDbIdentPtr;
+type DLDbIdentPtr = BasePointer;
+
+type ParamInputBlob = Data
+	ctype: ParamInputPtr;
+type ParamInputPtr = BasePointer;
+
+type CssmDbRecordAttributeDataBlob = Data
+	ctype: CssmDbRecordAttributeDataPtr;
+type CssmDbRecordAttributeDataPtr = BasePointer;
+
+type CssmQueryBlob = Data
+	ctype: CssmQueryPtr;
+type CssmQueryPtr = BasePointer;
+
+type CssmSubserviceUidBlob = Data
+	ctype: CssmSubserviceUidPtr;
+type CssmSubserviceUidPtr = BasePointer;
+
+type CssmDeriveDataBlob = Data
+	ctype: CssmDeriveDataPtr;
+type CssmDeriveDataPtr = BasePointer;
+
+type CSSM_DBINFOBlob = Data
+	ctype: CSSM_DBINFOPtr;
+type CSSM_DBINFOPtr = BasePointer;
+
+type CSSM_DB_SCHEMA_ATTRIBUTE_INFOBlob = Data
+	ctype: CSSM_DB_SCHEMA_ATTRIBUTE_INFOPtr;
+type CSSM_DB_SCHEMA_ATTRIBUTE_INFOPtr = BasePointer;
+
+type CSSM_DB_SCHEMA_INDEX_INFOBlob = Data
+	ctype: CSSM_DB_SCHEMA_INDEX_INFOPtr;
+type CSSM_DB_SCHEMA_INDEX_INFOPtr = BasePointer;
+
+type CSSM_NAME_LISTBlob = Data
+	ctype: CSSM_NAME_LISTPtr;
+type CSSM_NAME_LISTPtr = BasePointer;
+
+type CssmNetAddressBlob = Data
+	ctype: CssmNetAddressPtr;
+type CssmNetAddressPtr = BasePointer;
+
+type Guid = struct[4] of char
+	ctype: CSSM_GUID;
+
+type SetupInfo = struct[8] of uint8_t	// don't interpret!
+	ctype: ClientSetupInfo;
+
+type Context = struct [9] of uint8_t
+	ctype: CSSM_CONTEXT
+	intran: Context inTrans(CSSM_CONTEXT);
+type ContextAttributes = array [] of char
+	cservertype: ContextAttributesPointer;
+	
+type CssmKeyHeader = struct [23] of uint8_t;
+
+type CssmKey = struct [23+2] of uint8_t
+	ctype: CSSM_KEY
+	intran: CssmKey inTrans(CSSM_KEY)
+	outtran: CSSM_KEY outTrans(CssmKey);
+    
+type CSSM_KEY_SIZE = struct [2] of uint32_t
+    ctype: CSSM_KEY_SIZE;
+
+type DBParameters = struct [2] of uint32_t;
+
+type CSSM_CSP_OPERATIONAL_STATISTICS = struct [10] of uint32_t;
+type CSPOperationalStatistics = CSSM_CSP_OPERATIONAL_STATISTICS;
+
+type AuthorizationBlob = struct [8] of uint8_t;					// 8 opaque bytes
+type AuthorizationExternalForm = struct [32] of uint8_t;		// 32 opaque bytes
+
+type CssmString = c_string[*:64+4];
+type AuthorizationString = c_string[*:1024];
+type CSSM_RETURN = int32_t;
+type OSStatus = int32_t;
+type CSSM_ALGORITHMS = uint32_t;
+type CSSM_ACL_EDIT_MODE = uint32_t;
+type CSSM_ACL_HANDLE = uint32_t;
+type AclKind = uint32_t;
+type uint32 = uint32_t;
+type SecuritySessionId = uint32_t;
+type SessionAttributeBits = uint32_t;
+type SessionCreationFlags = uint32_t;
+type uid_t = uint32_t;
+
+type KeyHandle = uint32_t;
+type RecordHandle = uint32_t;
+type SearchHandle = uint32_t;
+type GenericHandle = uint32_t;
+type CSSM_DB_RECORDTYPE = uint32_t;
+type CSSM_DB_ACCESS_TYPE = uint32_t;
+type CSSM_DB_MODIFY_MODE = uint32_t;
+
+type FilePath = c_string[*:1024];		// PATH_MAX
+type FilePathOut = c_string[*:1024];	// PATH_MAX
+type RelationName = c_string[*:2048];	//@@@ a bit big, no?
+type HashData = array[*:64] of char;
+type HashDataOut = array [64] of char;	// returning hash data, max. 512 bits
+
+type pid_t = unsigned32;
+
+type SecGuestRef = unsigned32;
+type GuestChain = array [] of SecGuestRef;
+
+
+//
+// Common argument pattern macros.
+// Watch for matching macros on the sending and receiving code sides.
+//
+#define IN_CONTEXT	in context: Context; in contextBase: BasePointer; in attrs: ContextAttributes
+#define IN_BLOB(name,type)	in name: type##Blob; in name##Base: type##Ptr
+#define OUT_BLOB(name,type)	out name: type##Blob; out name##Base: type##Ptr

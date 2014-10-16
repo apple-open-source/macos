@@ -1,0 +1,186 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>cp950ext.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">cp950ext.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * CP950 extensions
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> cp950ext_2uni_pagef9[157-116] = {
+  <span class="enscript-comment">/* 0xf9 */</span>
+                                  0x7881, 0x92b9, 0x88cf, 0x58bb,
+  0x6052, 0x7ca7, 0x5afa, 0x2554, 0x2566, 0x2557, 0x2560, 0x256c,
+  0x2563, 0x255a, 0x2569, 0x255d, 0x2552, 0x2564, 0x2555, 0x255e,
+  0x256a, 0x2561, 0x2558, 0x2567, 0x255b, 0x2553, 0x2565, 0x2556,
+  0x255f, 0x256b, 0x2562, 0x2559, 0x2568, 0x255c, 0x2551, 0x2550,
+  0x256d, 0x256e, 0x2570, 0x256f, 0x2593,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">cp950ext_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1 = s[0];
+  <span class="enscript-keyword">if</span> (c1 == 0xf9) {
+    <span class="enscript-keyword">if</span> (n &gt;= 2) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c2 = s[1];
+      <span class="enscript-keyword">if</span> ((c2 &gt;= 0x40 &amp;&amp; c2 &lt; 0x7f) || (c2 &gt;= 0xa1 &amp;&amp; c2 &lt; 0xff)) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i = 157 * (c1 - 0xa1) + (c2 - (c2 &gt;= 0xa1 ? 0x62 : 0x40));
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> wc = 0xfffd;
+        {
+          <span class="enscript-keyword">if</span> (i &gt;= 13932 &amp;&amp; i &lt; 13973)
+            wc = cp950ext_2uni_pagef9[i-13932];
+        }
+        <span class="enscript-keyword">if</span> (wc != 0xfffd) {
+          *pwc = (ucs4_t) wc;
+          <span class="enscript-keyword">return</span> 2;
+        }
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+  }
+  <span class="enscript-keyword">return</span> RET_ILSEQ;
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> cp950ext_2charset[41] = {
+  0xf9f9, 0xf9f8, 0xf9e6, 0xf9ef, 0xf9dd, 0xf9e8, 0xf9f1, 0xf9df,
+  0xf9ec, 0xf9f5, 0xf9e3, 0xf9ee, 0xf9f7, 0xf9e5, 0xf9e9, 0xf9f2,
+  0xf9e0, 0xf9eb, 0xf9f4, 0xf9e2, 0xf9e7, 0xf9f0, 0xf9de, 0xf9ed,
+  0xf9f6, 0xf9e4, 0xf9ea, 0xf9f3, 0xf9e1, 0xf9fa, 0xf9fb, 0xf9fd,
+  0xf9fc, 0xf9fe, 0xf9d9, 0xf9dc, 0xf9da, 0xf9d6, 0xf9db, 0xf9d8,
+  0xf9d7,
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page25[10] = {
+  <span class="enscript-comment">/* 0x2500 */</span>
+  {    0, 0x0000 }, {    0, 0x0000 }, {    0, 0x0000 }, {    0, 0x0000 },
+  {    0, 0x0000 }, {    0, 0xffff }, {   16, 0xffff }, {   32, 0x0001 },
+  {   33, 0x0000 }, {   33, 0x0008 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page58[12] = {
+  <span class="enscript-comment">/* 0x5800 */</span>
+  {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0000 },
+  {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0000 },
+  {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0000 }, {   34, 0x0800 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page5a[16] = {
+  <span class="enscript-comment">/* 0x5a00 */</span>
+  {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 },
+  {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 },
+  {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 },
+  {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0000 }, {   35, 0x0400 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page60[6] = {
+  <span class="enscript-comment">/* 0x6000 */</span>
+  {   36, 0x0000 }, {   36, 0x0000 }, {   36, 0x0000 }, {   36, 0x0000 },
+  {   36, 0x0000 }, {   36, 0x0004 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page78[9] = {
+  <span class="enscript-comment">/* 0x7800 */</span>
+  {   37, 0x0000 }, {   37, 0x0000 }, {   37, 0x0000 }, {   37, 0x0000 },
+  {   37, 0x0000 }, {   37, 0x0000 }, {   37, 0x0000 }, {   37, 0x0000 },
+  {   37, 0x0002 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page7c[11] = {
+  <span class="enscript-comment">/* 0x7c00 */</span>
+  {   38, 0x0000 }, {   38, 0x0000 }, {   38, 0x0000 }, {   38, 0x0000 },
+  {   38, 0x0000 }, {   38, 0x0000 }, {   38, 0x0000 }, {   38, 0x0000 },
+  {   38, 0x0000 }, {   38, 0x0000 }, {   38, 0x0080 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page88[13] = {
+  <span class="enscript-comment">/* 0x8800 */</span>
+  {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 },
+  {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 },
+  {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 }, {   39, 0x0000 },
+  {   39, 0x8000 },
+};
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> Summary16 cp950ext_uni2indx_page92[12] = {
+  <span class="enscript-comment">/* 0x9200 */</span>
+  {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0000 },
+  {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0000 },
+  {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0000 }, {   40, 0x0200 },
+};
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">cp950ext_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-keyword">if</span> (n &gt;= 2) {
+    <span class="enscript-type">const</span> Summary16 *summary = NULL;
+    <span class="enscript-keyword">if</span> (wc &gt;= 0x2500 &amp;&amp; wc &lt; 0x25a0)
+      summary = &amp;cp950ext_uni2indx_page25[(wc&gt;&gt;4)-0x250];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x5800 &amp;&amp; wc &lt; 0x58c0)
+      summary = &amp;cp950ext_uni2indx_page58[(wc&gt;&gt;4)-0x580];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x5a00 &amp;&amp; wc &lt; 0x5b00)
+      summary = &amp;cp950ext_uni2indx_page5a[(wc&gt;&gt;4)-0x5a0];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x6000 &amp;&amp; wc &lt; 0x6060)
+      summary = &amp;cp950ext_uni2indx_page60[(wc&gt;&gt;4)-0x600];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x7800 &amp;&amp; wc &lt; 0x7890)
+      summary = &amp;cp950ext_uni2indx_page78[(wc&gt;&gt;4)-0x780];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x7c00 &amp;&amp; wc &lt; 0x7cb0)
+      summary = &amp;cp950ext_uni2indx_page7c[(wc&gt;&gt;4)-0x7c0];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x8800 &amp;&amp; wc &lt; 0x88d0)
+      summary = &amp;cp950ext_uni2indx_page88[(wc&gt;&gt;4)-0x880];
+    <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (wc &gt;= 0x9200 &amp;&amp; wc &lt; 0x92c0)
+      summary = &amp;cp950ext_uni2indx_page92[(wc&gt;&gt;4)-0x920];
+    <span class="enscript-keyword">if</span> (summary) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> used = summary-&gt;used;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i = wc &amp; 0x0f;
+      <span class="enscript-keyword">if</span> (used &amp; ((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>) 1 &lt;&lt; i)) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> c;
+        <span class="enscript-comment">/* Keep in `used' only the bits 0..i-1. */</span>
+        used &amp;= ((<span class="enscript-type">unsigned</span> <span class="enscript-type">short</span>) 1 &lt;&lt; i) - 1;
+        <span class="enscript-comment">/* Add `summary-&gt;indx' and the number of bits set in `used'. */</span>
+        used = (used &amp; 0x5555) + ((used &amp; 0xaaaa) &gt;&gt; 1);
+        used = (used &amp; 0x3333) + ((used &amp; 0xcccc) &gt;&gt; 2);
+        used = (used &amp; 0x0f0f) + ((used &amp; 0xf0f0) &gt;&gt; 4);
+        used = (used &amp; 0x00ff) + (used &gt;&gt; 8);
+        c = cp950ext_2charset[summary-&gt;indx + used];
+        r[0] = (c &gt;&gt; 8); r[1] = (c &amp; 0xff);
+        <span class="enscript-keyword">return</span> 2;
+      }
+    }
+    <span class="enscript-keyword">return</span> RET_ILUNI;
+  }
+  <span class="enscript-keyword">return</span> RET_TOOSMALL;
+}
+</pre>
+<hr />
+</body></html>

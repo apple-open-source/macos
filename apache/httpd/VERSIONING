@@ -1,6 +1,6 @@
 APACHE 2.x VERSIONING
 =====================
-[$LastChangedDate: 2005-10-17 17:17:21 +0000 (Mon, 17 Oct 2005) $]
+[$LastChangedDate: 2007-02-28 17:12:06 +0000 (Wed, 28 Feb 2007) $]
 
 
 INTRODUCTION
@@ -68,7 +68,7 @@ keeping the stable tree as safe as possible:
     stable release due to API change requirements.
 
   * The stable subversion tree should not remain unstable at any time.  Atomic 
-    commits aught be used to introduce code from the development version to the 
+    commits ought be used to introduce code from the development version to the 
     stable  tree.  At any given time a security release may be in preparation, 
     unbeknownst to other contributors.  At any given time, testers may be
     checking out SVN trunk to confirm that a bug has been corrected.  And as

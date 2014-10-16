@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -386,7 +386,7 @@ DNSNameCreate(const char * dns_name)
     int			size = 0;
     uint32_t		start_offset;
 
-    name_len = strlen(dns_name);
+    name_len = (int)strlen(dns_name);
     new_name = (DNSNameRef)malloc(sizeof(*new_name) + name_len + 2);
     new_name->dn_offsets = DNSNameOffsetsCreate();
     new_name->dn_buf = (uint8_t *)(new_name + 1);
@@ -526,6 +526,10 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
 	DNSNameOffsetsRef	this_offset;
 
 	this_offset = DNSNameOffsetsListElement(&nb->dnb_names, i);
+	if (this_offset == NULL) {
+	    /* this can't happen */
+	    break;
+	}
 	this_name.dn_buf = DNSNamesBufBuffer(nb);
 	this_name.dn_offsets = this_offset;
 	matched = DNSNameMatch(&this_name, new_name);

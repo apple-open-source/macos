@@ -30,7 +30,7 @@
 #include <WebCore/ResourceLoadPriority.h>
 #include <WebCore/ResourceLoadScheduler.h>
 #include <WebCore/ResourceLoader.h>
-#include <WebCore/RunLoop.h>
+#include <wtf/RunLoop.h>
 
 #if ENABLE(NETWORK_PROCESS)
 
@@ -45,18 +45,19 @@ public:
     WebResourceLoadScheduler();
     virtual ~WebResourceLoadScheduler();
     
-    virtual PassRefPtr<WebCore::SubresourceLoader> scheduleSubresourceLoad(WebCore::Frame*, WebCore::CachedResource*, const WebCore::ResourceRequest&, WebCore::ResourceLoadPriority, const WebCore::ResourceLoaderOptions&) OVERRIDE;
-    virtual PassRefPtr<WebCore::NetscapePlugInStreamLoader> schedulePluginStreamLoad(WebCore::Frame*, WebCore::NetscapePlugInStreamLoaderClient*, const WebCore::ResourceRequest&) OVERRIDE;
+    virtual PassRefPtr<WebCore::SubresourceLoader> scheduleSubresourceLoad(WebCore::Frame*, WebCore::CachedResource*, const WebCore::ResourceRequest&, WebCore::ResourceLoadPriority, const WebCore::ResourceLoaderOptions&) override;
+    virtual PassRefPtr<WebCore::NetscapePlugInStreamLoader> schedulePluginStreamLoad(WebCore::Frame*, WebCore::NetscapePlugInStreamLoaderClient*, const WebCore::ResourceRequest&) override;
     
-    virtual void remove(WebCore::ResourceLoader*) OVERRIDE;
-    virtual void crossOriginRedirectReceived(WebCore::ResourceLoader*, const WebCore::KURL& redirectURL) OVERRIDE;
+    virtual void remove(WebCore::ResourceLoader*) override;
+    virtual void setDefersLoading(WebCore::ResourceLoader*, bool) override;
+    virtual void crossOriginRedirectReceived(WebCore::ResourceLoader*, const WebCore::URL& redirectURL) override;
     
-    virtual void servePendingRequests(WebCore::ResourceLoadPriority minimumPriority = WebCore::ResourceLoadPriorityVeryLow) OVERRIDE;
+    virtual void servePendingRequests(WebCore::ResourceLoadPriority minimumPriority = WebCore::ResourceLoadPriorityVeryLow) override;
 
-    virtual void suspendPendingRequests() OVERRIDE;
-    virtual void resumePendingRequests() OVERRIDE;
+    virtual void suspendPendingRequests() override;
+    virtual void resumePendingRequests() override;
 
-    virtual void setSerialLoadingEnabled(bool) OVERRIDE;
+    virtual void setSerialLoadingEnabled(bool) override;
 
     WebResourceLoader* webResourceLoaderForIdentifier(ResourceLoadIdentifier identifier) const { return m_webResourceLoaders.get(identifier); }
 
@@ -68,7 +69,7 @@ private:
     void internallyFailedLoadTimerFired();
     
     HashSet<RefPtr<WebCore::ResourceLoader>> m_internallyFailedResourceLoaders;
-    WebCore::RunLoop::Timer<WebResourceLoadScheduler> m_internallyFailedLoadTimer;
+    RunLoop::Timer<WebResourceLoadScheduler> m_internallyFailedLoadTimer;
     
     HashMap<unsigned long, RefPtr<WebResourceLoader>> m_webResourceLoaders;
     

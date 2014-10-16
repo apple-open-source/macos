@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -25,6 +25,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <TargetConditionals.h>
 
 #ifdef __cplusplus
 #define NULL __null
@@ -54,6 +56,7 @@
 
 #endif
 
+#if !TARGET_OS_IPHONE
 #import <ApplicationServices/ApplicationServices.h>
 #import <Carbon/Carbon.h>
 
@@ -65,16 +68,20 @@ typedef float CGFloat;
 #endif
 #define CGFLOAT_DEFINED 1
 #endif
+#endif
 
 #ifdef __OBJC__
+#if !TARGET_OS_IPHONE
 #import <Cocoa/Cocoa.h>
+#else
+#import <Foundation/Foundation.h>
+#endif
 #endif
 
 #include <wtf/Platform.h>
 #include <wtf/ExportMacros.h>
 #include <runtime/JSExportMacros.h>
 #include <WebCore/PlatformExportMacros.h>
-#include <WebCore/EmptyProtocolDefinitions.h>
 
 /* Work around bug with C++ library that screws up Objective-C++ when exception support is disabled. */
 #undef try

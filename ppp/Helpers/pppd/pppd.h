@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -338,6 +338,7 @@ extern int 	pty_delay;	/* timeout to wait for the pty command */
 extern char 	*device;	 /* device we are using (can be use as a generic device container) */
 extern char 	*remoteaddress; /* remoteaddress we are connecting to (can be use as a generic address container) */
 extern char 	*altremoteaddress; /* alternate remoteaddress we are connecting to */
+extern char 	*ifscope; /* interface to establish over */
 extern int 	redialcount;	/* number of time to redial */
 extern int 	redialtimer;	/* delay in seconds to wait before to redial */
 extern bool 	redialalternate; /* do we redial alternate number */
@@ -735,9 +736,6 @@ int check_vpn_interface_address_change (int                    transport_down,
 int check_vpn_interface_alternate (int                    transport_down,
                                    struct kern_event_msg *ev_msg,
                                    char                  *interface_buf);
-int
-check_vpn_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
-										   char              *interface_buf);
 
 
 /* -----------------------------------------------------------------------------
@@ -884,6 +882,7 @@ void sys_statusnotify(); /* send status notification to the controller */
 void sys_reinit();			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
 int sys_check_controller(void);
+int sys_setup_security_session(void);
 int sys_loadplugin(char *arg);
 void sys_publish_remoteaddress(char *addr);
 int getabsolutetime(struct timeval *timenow);
@@ -899,6 +898,8 @@ void set_network_signature(char *, char *, char *, char *); /* set the network s
 int wait_input_fd(int fd, int delay);
 void closeallfrom(int from);
 void options_close __P((void));	/* close options stuff */
+void sys_install(void);
+void sys_uninstall(void);
 #ifdef INET6
 int ether_to_eui64(eui64_t *p_eui64);
 #endif
@@ -906,6 +907,9 @@ void generic_send_config __P((int, u_int32_t, int, int));
 				/* Configure i/f transmit parameters */
 void generic_recv_config __P((int, u_int32_t, int, int));
 				/* Configure i/f receive parameters */
+void sys_log(int priority, const char *message, ...) __attribute__((format(__printf__, 2, 0)));
+#else
+#define sys_log syslog
 #endif
 int  read_packet __P((u_char *)); /* Read PPP packet */
 int  get_loop_output __P((void)); /* Read pkts from loopback */

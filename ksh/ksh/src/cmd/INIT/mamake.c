@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*                     Copyright (c) 1994-2011 AT&T                     *
+*          Copyright (c) 1994-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
-*                               by AT&T                                *
+*                 Eclipse Public License, Version 1.0                  *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -25,7 +25,7 @@
  * coded for portability
  */
 
-static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2009-05-05 $\0\n";
+static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2011-08-31 $\0\n";
 
 #if _PACKAGE_ast
 
@@ -33,7 +33,7 @@ static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2009-05-05 $\0\n";
 #include <error.h>
 
 static const char usage[] =
-"[-?\n@(#)$Id: mamake (AT&T Research) 2009-05-05 $\n]"
+"[-?\n@(#)$Id: mamake (AT&T Research) 2011-08-31 $\n]"
 USAGE_LICENSE
 "[+NAME?mamake - make abstract machine make]"
 "[+DESCRIPTION?\bmamake\b reads \amake abstract machine\a target and"
@@ -57,9 +57,9 @@ USAGE_LICENSE
 "[+?\bmamprobe\b(1) is called to probe and generate system specific variable"
 "	definitions. The probe information is regenerated when it is older"
 "	than the \bmamprobe\b command.]"
-"[+?For compatibility with \bnmake\b(1) the \b-e\b and \b-K\b options and the"
+"[+?For compatibility with \bnmake\b(1) the \b-K\b option and the"
 "	\brecurse\b and \bcc-*\b command line targets are ignored.]"
-"[e:?Ignored.]"
+"[e:?Explain reason for triggering action. Ignored if -F is on.]"
 "[f:?Read \afile\a instead of the default.]:[file:=Mamfile]"
 "[i:?Ignore action errors.]"
 "[k:?Continue after error with sibling prerequisites.]"
@@ -186,6 +186,7 @@ typedef struct Rule_s			/* rule item			*/
 	List_t*		prereqs;	/* prerequisites		*/
 	struct Rule_s*	leaf;		/* recursion leaf alias		*/
 	int		flags;		/* RULE_* flags			*/
+	int		making;		/* currently make()ing		*/
 	unsigned long	time;		/* modification time		*/
 } Rule_t;
 
@@ -228,6 +229,7 @@ static struct				/* program state		*/
 	int		debug;		/* negative of debug level	*/
 	int		errors;		/* some error(s) occurred	*/
 	int		exec;		/* execute actions		*/
+	int		explain;	/* explain actions		*/
 	int		force;		/* all targets out of date	*/
 	int		ignore;		/* ignore command errors	*/
 	int		indent;		/* debug indent			*/
@@ -1555,6 +1557,7 @@ make(Rule_t* r)
 	Buf_t*			buf;
 	Buf_t*			cmd;
 
+	r->making++;
 	if (r->flags & RULE_active)
 		state.active++;
 	if (*r->name)
@@ -1616,6 +1619,13 @@ make(Rule_t* r)
 			attributes(r, v);
 			if (cmd && state.active && (state.force || r->time < z || !r->time && !z))
 			{
+				if (state.explain && !state.force)
+				{
+					if (!r->time)
+						fprintf(stderr, "%s [not found]\n", r->name);
+					else
+						fprintf(stderr, "%s [%lu] older than prerequisites [%lu]\n", r->name, r->time, z);
+				}
 				substitute(buf, use(cmd));
 				x = run(r, use(buf));
 				if (z < x)
@@ -1644,22 +1654,28 @@ make(Rule_t* r)
 			continue;
 		case KEY('m','a','k','e'):
 			q = rule(expand(buf, t));
-			attributes(q, v);
-			x = make(q);
-			if (!(q->flags & RULE_ignore) && z < x)
-				z = x;
-			if (q->flags & RULE_error)
-				r->flags |= RULE_error;
+			if (!q->making)
+			{
+				attributes(q, v);
+				x = make(q);
+				if (!(q->flags & RULE_ignore) && z < x)
+					z = x;
+				if (q->flags & RULE_error)
+					r->flags |= RULE_error;
+			}
 			continue;
 		case KEY('p','r','e','v'):
 			q = rule(expand(buf, t));
-			if (!(q->flags & RULE_ignore) && z < q->time)
-				z = q->time;
-			if (q->flags & RULE_error)
-				r->flags |= RULE_error;
-			state.indent++;
-			report(-2, q->name, "prev", q->time);
-			state.indent--;
+			if (!q->making)
+			{
+				if (!(q->flags & RULE_ignore) && z < q->time)
+					z = q->time;
+				if (q->flags & RULE_error)
+					r->flags |= RULE_error;
+				state.indent++;
+				report(-2, q->name, "prev", q->time);
+				state.indent--;
+			}
 			continue;
 		case KEY('s','e','t','v'):
 			if (!search(state.vars, t, NiL))
@@ -1696,6 +1712,7 @@ make(Rule_t* r)
 	}
 	if (r->flags & RULE_active)
 		state.active--;
+	r->making--;
 	return r->time = z;
 }
 
@@ -2079,6 +2096,8 @@ main(int argc, char** argv)
 		switch (optget(argv, usage))
 		{
 		case 'e':
+			append(state.opt, " -e");
+			state.explain = 1;
 			continue;
 		case 'i':
 			append(state.opt, " -i");
@@ -2182,6 +2201,8 @@ main(int argc, char** argv)
 			case 0:
 				break;
 			case 'e':
+				append(state.opt, " -e");
+				state.explain = 1;
 				continue;
 			case 'i':
 				append(state.opt, " -i");

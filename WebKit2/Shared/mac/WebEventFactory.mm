@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,12 @@
 #if USE(APPKIT)
 
 #import "WebKitSystemInterface.h"
-#import <wtf/ASCIICType.h>
+#import <WebCore/KeyboardEvent.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/Scrollbar.h>
 #import <WebCore/WindowsKeyboardCodes.h>
+#import <wtf/ASCIICType.h>
+
 
 using namespace WebCore;
 
@@ -144,7 +146,10 @@ static NSPoint flipScreenPoint(const NSPoint& screenPoint, NSScreen *screen)
 
 static NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     return flipScreenPoint([window convertBaseToScreen:windowPoint], screenForWindow(window));
+#pragma clang diagnostic pop
 }
 
 static NSPoint globalPointForEvent(NSEvent *event)
@@ -236,32 +241,17 @@ static WebWheelEvent::Phase momentumPhaseForEvent(NSEvent *event)
     return static_cast<WebWheelEvent::Phase>(phase);
 }
 
-#if ENABLE(GESTURE_EVENTS)
-static WebEvent::Type gestureEventTypeForEvent(NSEvent *event)
-{
-    switch ([event type]) {
-    case NSEventTypeBeginGesture:
-        return WebEvent::GestureScrollBegin;
-    case NSEventTypeEndGesture:
-        return WebEvent::GestureScrollEnd;
-    default:
-        ASSERT_NOT_REACHED();
-        return WebEvent::GestureScrollEnd;
-    }
-}
-#endif
-
 static inline String textFromEvent(NSEvent* event)
 {
     if ([event type] == NSFlagsChanged)
-        return String("");
+        return emptyString();
     return String([event characters]);
 }
 
 static inline String unmodifiedTextFromEvent(NSEvent* event)
 {
     if ([event type] == NSFlagsChanged)
-        return String("");
+        return emptyString();
     return String([event charactersIgnoringModifiers]);
 }
 
@@ -362,7 +352,7 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSView *windo
     float deltaZ                            = [event deltaZ];
     int clickCount                          = clickCountForEvent(event);
     WebEvent::Modifiers modifiers           = modifiersForEvent(event);
-    double timestamp                        = [event timestamp];
+    double timestamp                        = eventTimeStampSince1970(event);
 
     return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp);
 }
@@ -393,13 +383,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
     }
 
     WebWheelEvent::Granularity granularity  = WebWheelEvent::ScrollByPixelWheelEvent;
-
-#if HAVE(INVERTED_WHEEL_EVENTS)
     bool directionInvertedFromDevice        = [event isDirectionInvertedFromDevice];
-#else
-    bool directionInvertedFromDevice        = false;
-#endif
-
     WebWheelEvent::Phase phase              = phaseForEvent(event);
     WebWheelEvent::Phase momentumPhase      = momentumPhaseForEvent(event);
     bool hasPreciseScrollingDeltas          = continuous;
@@ -417,12 +401,12 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windo
     }
 
     WebEvent::Modifiers modifiers           = modifiersForEvent(event);
-    double timestamp                        = [event timestamp];
+    double timestamp                        = eventTimeStampSince1970(event);
     
     return WebWheelEvent(WebEvent::Wheel, IntPoint(position), IntPoint(globalPosition), FloatSize(deltaX, deltaY), FloatSize(wheelTicksX, wheelTicksY), granularity, directionInvertedFromDevice, phase, momentumPhase, hasPreciseScrollingDeltas, scrollCount, unacceleratedScrollingDelta, modifiers, timestamp);
 }
 
-WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, NSView *)
+WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool handledByInputMethod, const Vector<WebCore::KeypressCommand>& commands)
 {
     WebEvent::Type type             = isKeyUpEvent(event) ? WebEvent::KeyUp : WebEvent::KeyDown;
     String text                     = textFromEvent(event);
@@ -435,7 +419,7 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, NSView 
     bool isKeypad                   = isKeypadEvent(event);
     bool isSystemKey                = false; // SystemKey is always false on the Mac.
     WebEvent::Modifiers modifiers   = modifiersForEvent(event);
-    double timestamp                = [event timestamp];
+    double timestamp                = eventTimeStampSince1970(event);
 
     // Always use 13 for Enter/Return -- we don't want to use AppKit's different character for Enter.
     if (windowsVirtualKeyCode == VK_RETURN) {
@@ -455,21 +439,8 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, NSView 
         unmodifiedText = "\x9";
     }
 
-    return WebKeyboardEvent(type, text, unmodifiedText, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, autoRepeat, isKeypad, isSystemKey, modifiers, timestamp);
+    return WebKeyboardEvent(type, text, unmodifiedText, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, handledByInputMethod, commands, autoRepeat, isKeypad, isSystemKey, modifiers, timestamp);
 }
-
-#if ENABLE(GESTURE_EVENTS)
-WebGestureEvent WebEventFactory::createWebGestureEvent(NSEvent *event, NSView *windowView)
-{
-    WebEvent::Type type             = gestureEventTypeForEvent(event);
-    NSPoint position                = pointForEvent(event, windowView);
-    NSPoint globalPosition          = globalPointForEvent(event);
-    WebEvent::Modifiers modifiers   = modifiersForEvent(event);
-    double timestamp                = [event timestamp];
-
-    return WebGestureEvent(type, IntPoint(position), IntPoint(globalPosition), modifiers, timestamp);
-}
-#endif
 
 } // namespace WebKit
 

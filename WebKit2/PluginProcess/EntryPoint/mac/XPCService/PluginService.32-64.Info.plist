@@ -44,10 +44,14 @@
 		<true/>
 		<key>_MultipleInstances</key>
 		<true/>
+		<key>_AbandonCoalition</key>
+		<true/>
 		<key>EnvironmentVariables</key>
 		<dict>
 			<key>DYLD_INSERT_LIBRARIES</key>
-			<string>$(WEBKIT2_FRAMEWORKS_DIR)/WebKit2.framework/PluginProcess.app/Contents/MacOS/PluginProcessShim.dylib</string>
+			<string>$(WEBKIT_FRAMEWORKS_DIR)/WebKit.framework/PluginProcess.app/Contents/MacOS/PluginProcessShim.dylib</string>
+			<key>NSStringDisableTagged</key>
+			<string>YES</string>
 		</dict>
 	</dict>
 </dict>

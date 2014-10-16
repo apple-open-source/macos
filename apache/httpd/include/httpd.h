@@ -18,15 +18,16 @@
  * @file httpd.h
  * @brief HTTP Daemon routines
  *
- * @defgroup APACHE Apache
+ * @defgroup APACHE Apache HTTP Server
  *
  * Top level group of which all other groups are a member
  * @{
  *
- * @defgroup APACHE_MODS Apache Modules
- *           Top level group for Apache Modules
+ * @defgroup APACHE_MODS Loadable modules
+ *           Top level group for modules
  * @defgroup APACHE_OS Operating System Specific
- * @defgroup APACHE_CORE Apache Core
+ * @defgroup APACHE_INTERNAL Internal interfaces
+ * @defgroup APACHE_CORE Core routines
  * @{
  * @defgroup APACHE_CORE_DAEMON HTTP Daemon Routine
  * @{
@@ -53,6 +54,7 @@
 #include "apr_network_io.h"
 #include "apr_buckets.h"
 #include "apr_poll.h"
+#include "apr_thread_proc.h"
 
 #include "os.h"
 
@@ -68,8 +70,6 @@
 extern "C" {
 #endif
 
-#ifdef CORE_PRIVATE
-
 /* ----------------------------- config dir ------------------------------ */
 
 /** Define this to be the default server home dir. Most things later in this
@@ -82,9 +82,6 @@ extern "C" {
 #elif defined(WIN32)
 /** Set default for Windows file system */
 #define HTTPD_ROOT "/apache"
-#elif defined (BEOS)
-/** Set the default for BeOS */
-#define HTTPD_ROOT "/boot/home/apache"
 #elif defined (NETWARE)
 /** Set the default for NetWare */
 #define HTTPD_ROOT "/apache"
@@ -94,15 +91,15 @@ extern "C" {
 #endif
 #endif /* HTTPD_ROOT */
 
-/* 
+/*
  * --------- You shouldn't have to edit anything below this line ----------
  *
- * Any modifications to any defaults not defined above should be done in the 
- * respective configuration file. 
+ * Any modifications to any defaults not defined above should be done in the
+ * respective configuration file.
  *
  */
 
-/** 
+/**
  * Default location of documents.  Can be overridden by the DocumentRoot
  * directive.
  */
@@ -118,7 +115,7 @@ extern "C" {
 
 /** Maximum number of dynamically loaded modules */
 #ifndef DYNAMIC_MODULE_LIMIT
-#define DYNAMIC_MODULE_LIMIT 128
+#define DYNAMIC_MODULE_LIMIT 256
 #endif
 
 /** Default administrator's address */
@@ -154,15 +151,13 @@ extern "C" {
 #endif
 
 /** The path to the suExec wrapper, can be overridden in Configuration */
-#if !defined(NETWARE) && !defined(WIN32)
 #ifndef SUEXEC_BIN
 #define SUEXEC_BIN  HTTPD_ROOT "/bin/suexec"
-#endif
 #endif
 
 /** The timeout for waiting for messages */
 #ifndef DEFAULT_TIMEOUT
-#define DEFAULT_TIMEOUT 300 
+#define DEFAULT_TIMEOUT 60
 #endif
 
 /** The timeout for waiting for keepalive timeout until next request */
@@ -186,7 +181,7 @@ extern "C" {
  *
  * Internal buffer sizes are two bytes more than the DEFAULT_LIMIT_REQUEST_LINE
  * and DEFAULT_LIMIT_REQUEST_FIELDSIZE below, which explains the 8190.
- * These two limits can be lowered (but not raised) by the server config
+ * These two limits can be lowered or raised by the server config
  * directives LimitRequestLine and LimitRequestFieldsize, respectively.
  *
  * DEFAULT_LIMIT_REQUEST_FIELDS can be modified or disabled (set = 0) by
@@ -196,23 +191,21 @@ extern "C" {
 /** default limit on bytes in Request-Line (Method+URI+HTTP-version) */
 #ifndef DEFAULT_LIMIT_REQUEST_LINE
 #define DEFAULT_LIMIT_REQUEST_LINE 8190
-#endif 
+#endif
 /** default limit on bytes in any one header field  */
 #ifndef DEFAULT_LIMIT_REQUEST_FIELDSIZE
 #define DEFAULT_LIMIT_REQUEST_FIELDSIZE 8190
-#endif 
+#endif
 /** default limit on number of request header fields */
 #ifndef DEFAULT_LIMIT_REQUEST_FIELDS
 #define DEFAULT_LIMIT_REQUEST_FIELDS 100
-#endif 
+#endif
 
 /**
  * The default default character set name to add if AddDefaultCharset is
  * enabled.  Overridden with AddDefaultCharsetName.
  */
 #define DEFAULT_ADD_DEFAULT_CHARSET_NAME "iso-8859-1"
-
-#endif /* CORE_PRIVATE */
 
 /** default HTTP Server protocol */
 #define AP_SERVER_PROTOCOL "HTTP/1.1"
@@ -223,24 +216,6 @@ extern "C" {
 /** Define this to be what your HTML directory content files are called */
 #ifndef AP_DEFAULT_INDEX
 #define AP_DEFAULT_INDEX "index.html"
-#endif
-
-
-/** 
- * Define this to be what type you'd like returned for files with unknown 
- * suffixes.  
- * @warning MUST be all lower case. 
- */
-#ifndef DEFAULT_CONTENT_TYPE
-#define DEFAULT_CONTENT_TYPE "text/plain"
-#endif
-
-/**
- * NO_CONTENT_TYPE is an alternative DefaultType value that suppresses
- * setting any default type when there's no information (e.g. a proxy).
- */
-#ifndef NO_CONTENT_TYPE
-#define NO_CONTENT_TYPE "none"
 #endif
 
 /** The name of the MIME types file */
@@ -295,26 +270,26 @@ extern "C" {
 /* -------------- Port number for server running standalone --------------- */
 
 /** default HTTP Port */
-#define DEFAULT_HTTP_PORT	80
+#define DEFAULT_HTTP_PORT       80
 /** default HTTPS Port */
-#define DEFAULT_HTTPS_PORT	443
+#define DEFAULT_HTTPS_PORT      443
 /**
  * Check whether @a port is the default port for the request @a r.
  * @param port The port number
  * @param r The request
  * @see #ap_default_port
  */
-#define ap_is_default_port(port,r)	((port) == ap_default_port(r))
+#define ap_is_default_port(port,r)      ((port) == ap_default_port(r))
 /**
  * Get the default port for a request (which depends on the scheme).
  * @param r The request
  */
-#define ap_default_port(r)	ap_run_default_port(r)
+#define ap_default_port(r)      ap_run_default_port(r)
 /**
  * Get the scheme for a request.
  * @param r The request
  */
-#define ap_http_scheme(r)	ap_run_http_scheme(r)
+#define ap_http_scheme(r)       ap_run_http_scheme(r)
 
 /** The default string length */
 #define MAX_STRING_LEN HUGE_STRING_LEN
@@ -329,8 +304,8 @@ extern "C" {
 #define AP_MAX_REG_MATCH 10
 
 /**
- * APR_HAS_LARGE_FILES introduces the problem of spliting sendfile into 
- * mutiple buckets, no greater than MAX(apr_size_t), and more granular 
+ * APR_HAS_LARGE_FILES introduces the problem of spliting sendfile into
+ * mutiple buckets, no greater than MAX(apr_size_t), and more granular
  * than that in case the brigade code/filters attempt to read it directly.
  * ### 16mb is an invention, no idea if it is reasonable.
  */
@@ -342,23 +317,23 @@ extern "C" {
  * error handling is required.
  */
 /** a normal exit */
-#define APEXIT_OK		0x0
+#define APEXIT_OK               0x0
 /** A fatal error arising during the server's init sequence */
-#define APEXIT_INIT		0x2
+#define APEXIT_INIT             0x2
 /**  The child died during its init sequence */
-#define APEXIT_CHILDINIT	0x3
-/**  
+#define APEXIT_CHILDINIT        0x3
+/**
  *   The child exited due to a resource shortage.
  *   The parent should limit the rate of forking until
  *   the situation is resolved.
  */
 #define APEXIT_CHILDSICK        0x7
-/** 
+/**
  *     A fatal error, resulting in the whole server aborting.
  *     If a child exits with this error, the parent process
  *     considers this a server-wide fatal error and aborts.
  */
-#define APEXIT_CHILDFATAL	0xf
+#define APEXIT_CHILDFATAL       0xf
 
 #ifndef AP_DECLARE
 /**
@@ -398,7 +373,7 @@ extern "C" {
  * modules should not use functions marked AP_CORE_DECLARE
  */
 #ifndef AP_CORE_DECLARE
-# define AP_CORE_DECLARE	AP_DECLARE
+# define AP_CORE_DECLARE        AP_DECLARE
 #endif
 
 /**
@@ -407,12 +382,24 @@ extern "C" {
  */
 
 #ifndef AP_CORE_DECLARE_NONSTD
-# define AP_CORE_DECLARE_NONSTD	AP_DECLARE_NONSTD
+# define AP_CORE_DECLARE_NONSTD AP_DECLARE_NONSTD
 #endif
 
-/** 
- * @brief The numeric version information is broken out into fields within this 
- * structure. 
+/**
+ * @defgroup APACHE_APR_STATUS_T HTTPD specific values of apr_status_t
+ * @{
+ */
+#define AP_START_USERERR            (APR_OS_START_USERERR + 2000)
+#define AP_USERERR_LEN              1000
+
+/** The function declines to handle the request */
+#define AP_DECLINED                 (AP_START_USERERR + 0)
+
+/** @} */
+
+/**
+ * @brief The numeric version information is broken out into fields within this
+ * structure.
  */
 typedef struct {
     int major;              /**< major number */
@@ -428,13 +415,6 @@ typedef struct {
  *                 information.
  */
 AP_DECLARE(void) ap_get_server_revision(ap_version_t *version);
-
-/**
- * Get the server version string, as controlled by the ServerTokens directive
- * @return The server version string
- * @deprecated @see ap_get_server_banner() and ap_get_server_description()
- */
-AP_DECLARE(const char *) ap_get_server_version(void);
 
 /**
  * Get the server banner in a form suitable for sending over the
@@ -455,8 +435,6 @@ AP_DECLARE(const char *) ap_get_server_description(void);
 
 /**
  * Add a component to the server description and banner strings
- * (The latter is returned by the deprecated function
- * ap_get_server_version().)
  * @param pconf The pool to allocate the component from
  * @param component The string to add
  */
@@ -468,73 +446,96 @@ AP_DECLARE(void) ap_add_version_component(apr_pool_t *pconf, const char *compone
  */
 AP_DECLARE(const char *) ap_get_server_built(void);
 
-#define DECLINED -1		/**< Module declines to handle */
-#define DONE -2			/**< Module has served the response completely 
-				 *  - it's safe to die() with no more output
-				 */
-#define OK 0			/**< Module has handled this stage. */
+/* non-HTTP status codes returned by hooks */
 
+#define OK 0                    /**< Module has handled this stage. */
+#define DECLINED -1             /**< Module declines to handle */
+#define DONE -2                 /**< Module has served the response completely
+                                 *  - it's safe to die() with no more output
+                                 */
+#define SUSPENDED -3 /**< Module will handle the remainder of the request.
+                      * The core will never invoke the request again, */
+
+/** Returned by the bottom-most filter if no data was written.
+ *  @see ap_pass_brigade(). */
+#define AP_NOBODY_WROTE         -100
+/** Returned by the bottom-most filter if no data was read.
+ *  @see ap_get_brigade(). */
+#define AP_NOBODY_READ          -101
+/** Returned by any filter if the filter chain encounters an error
+ *  and has already dealt with the error response.
+ */
+#define AP_FILTER_ERROR         -102
 
 /**
  * @defgroup HTTP_Status HTTP Status Codes
  * @{
  */
 /**
- * The size of the static array in http_protocol.c for storing
- * all of the potential response status-lines (a sparse table).
+ * The size of the static status_lines array in http_protocol.c for
+ * storing all of the potential response status-lines (a sparse table).
+ * When adding a new code here add it to status_lines as well.
  * A future version should dynamically generate the apr_table_t at startup.
  */
-#define RESPONSE_CODES 57
+#define RESPONSE_CODES 83
 
-#define HTTP_CONTINUE                      100
-#define HTTP_SWITCHING_PROTOCOLS           101
-#define HTTP_PROCESSING                    102
-#define HTTP_OK                            200
-#define HTTP_CREATED                       201
-#define HTTP_ACCEPTED                      202
-#define HTTP_NON_AUTHORITATIVE             203
-#define HTTP_NO_CONTENT                    204
-#define HTTP_RESET_CONTENT                 205
-#define HTTP_PARTIAL_CONTENT               206
-#define HTTP_MULTI_STATUS                  207
-#define HTTP_MULTIPLE_CHOICES              300
-#define HTTP_MOVED_PERMANENTLY             301
-#define HTTP_MOVED_TEMPORARILY             302
-#define HTTP_SEE_OTHER                     303
-#define HTTP_NOT_MODIFIED                  304
-#define HTTP_USE_PROXY                     305
-#define HTTP_TEMPORARY_REDIRECT            307
-#define HTTP_BAD_REQUEST                   400
-#define HTTP_UNAUTHORIZED                  401
-#define HTTP_PAYMENT_REQUIRED              402
-#define HTTP_FORBIDDEN                     403
-#define HTTP_NOT_FOUND                     404
-#define HTTP_METHOD_NOT_ALLOWED            405
-#define HTTP_NOT_ACCEPTABLE                406
-#define HTTP_PROXY_AUTHENTICATION_REQUIRED 407
-#define HTTP_REQUEST_TIME_OUT              408
-#define HTTP_CONFLICT                      409
-#define HTTP_GONE                          410
-#define HTTP_LENGTH_REQUIRED               411
-#define HTTP_PRECONDITION_FAILED           412
-#define HTTP_REQUEST_ENTITY_TOO_LARGE      413
-#define HTTP_REQUEST_URI_TOO_LARGE         414
-#define HTTP_UNSUPPORTED_MEDIA_TYPE        415
-#define HTTP_RANGE_NOT_SATISFIABLE         416
-#define HTTP_EXPECTATION_FAILED            417
-#define HTTP_UNPROCESSABLE_ENTITY          422
-#define HTTP_LOCKED                        423
-#define HTTP_FAILED_DEPENDENCY             424
-#define HTTP_UPGRADE_REQUIRED              426
-#define HTTP_INTERNAL_SERVER_ERROR         500
-#define HTTP_NOT_IMPLEMENTED               501
-#define HTTP_BAD_GATEWAY                   502
-#define HTTP_SERVICE_UNAVAILABLE           503
-#define HTTP_GATEWAY_TIME_OUT              504
-#define HTTP_VERSION_NOT_SUPPORTED         505
-#define HTTP_VARIANT_ALSO_VARIES           506
-#define HTTP_INSUFFICIENT_STORAGE          507
-#define HTTP_NOT_EXTENDED                  510
+#define HTTP_CONTINUE                        100
+#define HTTP_SWITCHING_PROTOCOLS             101
+#define HTTP_PROCESSING                      102
+#define HTTP_OK                              200
+#define HTTP_CREATED                         201
+#define HTTP_ACCEPTED                        202
+#define HTTP_NON_AUTHORITATIVE               203
+#define HTTP_NO_CONTENT                      204
+#define HTTP_RESET_CONTENT                   205
+#define HTTP_PARTIAL_CONTENT                 206
+#define HTTP_MULTI_STATUS                    207
+#define HTTP_ALREADY_REPORTED                208
+#define HTTP_IM_USED                         226
+#define HTTP_MULTIPLE_CHOICES                300
+#define HTTP_MOVED_PERMANENTLY               301
+#define HTTP_MOVED_TEMPORARILY               302
+#define HTTP_SEE_OTHER                       303
+#define HTTP_NOT_MODIFIED                    304
+#define HTTP_USE_PROXY                       305
+#define HTTP_TEMPORARY_REDIRECT              307
+#define HTTP_PERMANENT_REDIRECT              308
+#define HTTP_BAD_REQUEST                     400
+#define HTTP_UNAUTHORIZED                    401
+#define HTTP_PAYMENT_REQUIRED                402
+#define HTTP_FORBIDDEN                       403
+#define HTTP_NOT_FOUND                       404
+#define HTTP_METHOD_NOT_ALLOWED              405
+#define HTTP_NOT_ACCEPTABLE                  406
+#define HTTP_PROXY_AUTHENTICATION_REQUIRED   407
+#define HTTP_REQUEST_TIME_OUT                408
+#define HTTP_CONFLICT                        409
+#define HTTP_GONE                            410
+#define HTTP_LENGTH_REQUIRED                 411
+#define HTTP_PRECONDITION_FAILED             412
+#define HTTP_REQUEST_ENTITY_TOO_LARGE        413
+#define HTTP_REQUEST_URI_TOO_LARGE           414
+#define HTTP_UNSUPPORTED_MEDIA_TYPE          415
+#define HTTP_RANGE_NOT_SATISFIABLE           416
+#define HTTP_EXPECTATION_FAILED              417
+#define HTTP_UNPROCESSABLE_ENTITY            422
+#define HTTP_LOCKED                          423
+#define HTTP_FAILED_DEPENDENCY               424
+#define HTTP_UPGRADE_REQUIRED                426
+#define HTTP_PRECONDITION_REQUIRED           428
+#define HTTP_TOO_MANY_REQUESTS               429
+#define HTTP_REQUEST_HEADER_FIELDS_TOO_LARGE 431
+#define HTTP_INTERNAL_SERVER_ERROR           500
+#define HTTP_NOT_IMPLEMENTED                 501
+#define HTTP_BAD_GATEWAY                     502
+#define HTTP_SERVICE_UNAVAILABLE             503
+#define HTTP_GATEWAY_TIME_OUT                504
+#define HTTP_VERSION_NOT_SUPPORTED           505
+#define HTTP_VARIANT_ALSO_VARIES             506
+#define HTTP_INSUFFICIENT_STORAGE            507
+#define HTTP_LOOP_DETECTED                   508
+#define HTTP_NOT_EXTENDED                    510
+#define HTTP_NETWORK_AUTHENTICATION_REQUIRED 511
 
 /** is the status code informational */
 #define ap_is_HTTP_INFO(x)         (((x) >= 100)&&((x) < 200))
@@ -560,7 +561,7 @@ AP_DECLARE(const char *) ap_get_server_built(void);
                                     ((x) == HTTP_REQUEST_URI_TOO_LARGE) || \
                                     ((x) == HTTP_INTERNAL_SERVER_ERROR) || \
                                     ((x) == HTTP_SERVICE_UNAVAILABLE) || \
-				    ((x) == HTTP_NOT_IMPLEMENTED))
+                                    ((x) == HTTP_NOT_IMPLEMENTED))
 /** @} */
 
 /**
@@ -603,7 +604,7 @@ AP_DECLARE(const char *) ap_get_server_built(void);
 #define M_MKACTIVITY            23
 #define M_BASELINE_CONTROL      24
 #define M_MERGE                 25
-#define M_INVALID               26      /** RFC 3253: WebDAV Versioning */
+#define M_INVALID               26      /** no valid method */
 
 /**
  * METHODS needs to be equal to the number of bits
@@ -623,9 +624,9 @@ typedef struct ap_method_list_t ap_method_list_t;
 
 /**
  * @struct ap_method_list_t
- * @brief  Structure for handling HTTP methods.  
+ * @brief  Structure for handling HTTP methods.
  *
- * Methods known to the server are accessed via a bitmask shortcut; 
+ * Methods known to the server are accessed via a bitmask shortcut;
  * extension methods are handled by an array.
  */
 struct ap_method_list_t {
@@ -667,12 +668,12 @@ struct ap_method_list_t {
 #define CR '\r'
 #define LF '\n'
 #define CRLF "\r\n"
-#endif /* APR_CHARSET_EBCDIC */                                   
+#endif /* APR_CHARSET_EBCDIC */
 /** Useful for common code with either platform charset. */
 #define CRLF_ASCII "\015\012"
 
 /**
- * @defgroup values_request_rec_body Possible values for request_rec.read_body 
+ * @defgroup values_request_rec_body Possible values for request_rec.read_body
  * @{
  * Possible values for request_rec.read_body (set by handling module):
  */
@@ -686,7 +687,7 @@ struct ap_method_list_t {
 /** @} // values_request_rec_body */
 
 /**
- * @defgroup values_request_rec_used_path_info Possible values for request_rec.used_path_info 
+ * @defgroup values_request_rec_used_path_info Possible values for request_rec.used_path_info
  * @ingroup APACHE_CORE_DAEMON
  * @{
  * Possible values for request_rec.used_path_info:
@@ -727,6 +728,8 @@ struct htaccess_result {
     int override;
     /** the override options allowed for the .htaccess file */
     int override_opts;
+    /** Table of allowed directives for override */
+    apr_table_t *override_list;
     /** the configuration directives */
     struct ap_conf_vector_t *htaccess;
     /** the next one, or NULL if no more; N.B. never change this */
@@ -756,24 +759,24 @@ typedef struct conn_state_t conn_state_t;
 /* This comes after we have defined the request_rec type */
 #include "apr_uri.h"
 
-/** 
- * @brief A structure that represents one process 
+/**
+ * @brief A structure that represents one process
  */
 struct process_rec {
     /** Global pool. Cleared upon normal exit */
     apr_pool_t *pool;
     /** Configuration pool. Cleared upon restart */
     apr_pool_t *pconf;
-    /** Number of command line arguments passed to the program */
-    int argc;
-    /** The command line arguments */
-    const char * const *argv;
     /** The program name used to execute the program */
     const char *short_name;
+    /** The command line arguments */
+    const char * const *argv;
+    /** Number of command line arguments passed to the program */
+    int argc;
 };
 
-/** 
- * @brief A structure that represents the current request 
+/**
+ * @brief A structure that represents the current request
  */
 struct request_rec {
     /** The pool associated with the request */
@@ -806,10 +809,10 @@ struct request_rec {
     int proxyreq;
     /** HEAD request, as opposed to GET */
     int header_only;
-    /** Protocol string, as given to us, or HTTP/0.9 */
-    char *protocol;
     /** Protocol version number of protocol; 1.1 = 1001 */
     int proto_num;
+    /** Protocol string, as given to us, or HTTP/0.9 */
+    char *protocol;
     /** Host, as set by full URI or Host: */
     const char *hostname;
 
@@ -825,10 +828,10 @@ struct request_rec {
      * look, but don't touch.
      */
 
-    /** Request method (eg. GET, HEAD, POST, etc.) */
-    const char *method;
     /** M_GET, M_POST, etc. */
     int method_number;
+    /** Request method (eg. GET, HEAD, POST, etc.) */
+    const char *method;
 
     /**
      *  'allowed' is a bitvector of the allowed methods.
@@ -852,9 +855,9 @@ struct request_rec {
      */
     apr_int64_t allowed;
     /** Array of extension methods */
-    apr_array_header_t *allowed_xmethods; 
+    apr_array_header_t *allowed_xmethods;
     /** List of allowed methods */
-    ap_method_list_t *allowed_methods; 
+    ap_method_list_t *allowed_methods;
 
     /** byte count in stream is for body */
     apr_off_t sent_bodyct;
@@ -865,17 +868,13 @@ struct request_rec {
 
     /* HTTP/1.1 connection-level features */
 
-    /** sending chunked transfer-coding */
-    int chunked;
     /** The Range: header */
     const char *range;
     /** The "real" content length */
     apr_off_t clength;
+    /** sending chunked transfer-coding */
+    int chunked;
 
-    /** Remaining bytes left to read from the request body */
-    apr_off_t remaining;
-    /** Number of bytes that have been read  from the request body */
-    apr_off_t read_length;
     /** Method for reading the request body
      * (eg. REQUEST_CHUNKED_ERROR, REQUEST_NO_BODY,
      *  REQUEST_CHUNKED_DECHUNK, etc...) */
@@ -884,6 +883,16 @@ struct request_rec {
     int read_chunked;
     /** is client waiting for a 100 response? */
     unsigned expecting_100;
+    /** The optional kept body of the request. */
+    apr_bucket_brigade *kept_body;
+    /** For ap_body_to_table(): parsed body */
+    /* XXX: ap_body_to_table has been removed. Remove body_table too or
+     * XXX: keep it to reintroduce ap_body_to_table without major bump? */
+    apr_table_t *body_table;
+    /** Remaining bytes left to read from the request body */
+    apr_off_t remaining;
+    /** Number of bytes that have been read  from the request body */
+    apr_off_t read_length;
 
     /* MIME header environments, in and out.  Also, an array containing
      * environment variables to be passed to subprocesses, so people can
@@ -909,14 +918,14 @@ struct request_rec {
     /** Notes from one module to another */
     apr_table_t *notes;
 
-    /* content_type, handler, content_encoding, and all content_languages 
+    /* content_type, handler, content_encoding, and all content_languages
      * MUST be lowercased strings.  They may be pointers to static strings;
      * they should not be modified in place.
      */
     /** The content-type for the current request */
-    const char *content_type;	/* Break these out --- we dispatch on 'em */
+    const char *content_type;   /* Break these out --- we dispatch on 'em */
     /** The handler string that we use to call a handler function */
-    const char *handler;	/* What we *really* dispatch on */
+    const char *handler;        /* What we *really* dispatch on */
 
     /** How to encode the data */
     const char *content_encoding;
@@ -925,23 +934,18 @@ struct request_rec {
 
     /** variant list validator (if negotiated) */
     char *vlist_validator;
-    
+
     /** If an authentication check was made, this gets set to the user name. */
-    char *user;	
+    char *user;
     /** If an authentication check was made, this gets set to the auth type. */
     char *ap_auth_type;
-
-    /** This response can not be cached */
-    int no_cache;
-    /** There is no local copy of this response */
-    int no_local_copy;
 
     /* What object is being requested (either directly, or via include
      * or content-negotiation mapping).
      */
 
     /** The URI without any parsing performed */
-    char *unparsed_uri;	
+    char *unparsed_uri;
     /** The path portion of the URI, or "/" if no path provided */
     char *uri;
     /** The filename on disk corresponding to this response */
@@ -952,21 +956,20 @@ struct request_rec {
     /** The PATH_INFO extracted from this request */
     char *path_info;
     /** The QUERY_ARGS extracted from this request */
-    char *args;	
-    /**  finfo.protection (st_mode) set to zero if no such file */
-    apr_finfo_t finfo;
-    /** A struct containing the components of URI */
-    apr_uri_t parsed_uri;
+    char *args;
 
     /**
-     * Flag for the handler to accept or reject path_info on 
+     * Flag for the handler to accept or reject path_info on
      * the current request.  All modules should respect the
-     * AP_REQ_ACCEPT_PATH_INFO and AP_REQ_REJECT_PATH_INFO 
+     * AP_REQ_ACCEPT_PATH_INFO and AP_REQ_REJECT_PATH_INFO
      * values, while AP_REQ_DEFAULT_PATH_INFO indicates they
      * may follow existing conventions.  This is set to the
      * user's preference upon HOOK_VERY_FIRST of the fixups.
      */
     int used_path_info;
+
+    /** A flag to determine if the eos bucket has been sent yet */
+    int eos_sent;
 
     /* Various other config info which may change with .htaccess files
      * These are config vectors, with one void* pointer for each module
@@ -977,6 +980,16 @@ struct request_rec {
     struct ap_conf_vector_t *per_dir_config;
     /** Notes on *this* request */
     struct ap_conf_vector_t *request_config;
+
+    /** Optional request log level configuration. Will usually point
+     *  to a server or per_dir config, i.e. must be copied before
+     *  modifying */
+    const struct ap_logconf *log;
+
+    /** Id to identify request in access and error log. Set when the first
+     *  error log entry for this request is generated.
+     */
+    const char *log_id;
 
     /**
      * A linked list of the .htaccess configuration directives
@@ -998,14 +1011,27 @@ struct request_rec {
      *  request */
     struct ap_filter_t *proto_input_filters;
 
-    /** A flag to determine if the eos bucket has been sent yet */
-    int eos_sent;
+    /** This response can not be cached */
+    int no_cache;
+    /** There is no local copy of this response */
+    int no_local_copy;
 
-/* Things placed at the end of the record to avoid breaking binary
- * compatibility.  It would be nice to remember to reorder the entire
- * record to improve 64bit alignment the next time we need to break
- * binary compatibility for some other reason.
- */
+    /** Mutex protect callbacks registered with ap_mpm_register_timed_callback
+     * from being run before the original handler finishes running
+     */
+    apr_thread_mutex_t *invoke_mtx;
+
+    /** A struct containing the components of URI */
+    apr_uri_t parsed_uri;
+    /**  finfo.protection (st_mode) set to zero if no such file */
+    apr_finfo_t finfo;
+
+    /** remote address information from conn_rec, can be overridden if
+     * necessary by a module.
+     * This is the address that originated the request.
+     */
+    apr_sockaddr_t *useragent_addr;
+    char *useragent_ip;
 };
 
 /**
@@ -1018,10 +1044,10 @@ struct request_rec {
  * @{
  */
 
-#define PROXYREQ_NONE 0		/**< No proxy */
-#define PROXYREQ_PROXY 1	/**< Standard proxy */
-#define PROXYREQ_REVERSE 2	/**< Reverse proxy */
-#define PROXYREQ_RESPONSE 3 /**< Origin response */
+#define PROXYREQ_NONE     0     /**< No proxy */
+#define PROXYREQ_PROXY    1     /**< Standard proxy */
+#define PROXYREQ_REVERSE  2     /**< Reverse proxy */
+#define PROXYREQ_RESPONSE 3     /**< Origin response */
 
 /* @} */
 
@@ -1034,8 +1060,8 @@ typedef enum {
     AP_CONN_KEEPALIVE
 } ap_conn_keepalive_e;
 
-/** 
- * @brief Structure to store things which are per connection 
+/**
+ * @brief Structure to store things which are per connection
  */
 struct conn_rec {
     /** Pool associated with this connection */
@@ -1048,11 +1074,15 @@ struct conn_rec {
     /* Information about the connection itself */
     /** local address */
     apr_sockaddr_t *local_addr;
-    /** remote address */
-    apr_sockaddr_t *remote_addr;
+    /** remote address; this is the end-point of the next hop, for the address
+     *  of the request creator, see useragent_addr in request_rec
+     */
+    apr_sockaddr_t *client_addr;
 
-    /** Client's IP address */
-    char *remote_ip;
+    /** Client's IP address; this is the end-point of the next hop, for the
+     *  IP of the request creator, see useragent_ip in request_rec
+     */
+    char *client_ip;
     /** Client's DNS name, if known.  NULL if DNS hasn't been checked,
      *  "" if it has and no address was found.  N.B. Only access this though
      * get_remote_host() */
@@ -1061,19 +1091,6 @@ struct conn_rec {
      *  get_remote_logname() */
     char *remote_logname;
 
-    /** Are we still talking? */
-    unsigned aborted:1;
-
-    /** Are we going to keep the connection alive for another request?
-     * @see ap_conn_keepalive_e */
-    ap_conn_keepalive_e keepalive;
-
-    /** have we done double-reverse DNS? -1 yes/failure, 0 not yet, 
-     *  1 yes/success */
-    signed int double_reverse:2;
-
-    /** How many times have we used it? */
-    int keepalives;
     /** server IP address */
     char *local_ip;
     /** used for ap_get_server_name when UseCanonicalName is set to DNS
@@ -1081,7 +1098,7 @@ struct conn_rec {
     char *local_host;
 
     /** ID of this connection; unique at any point in time */
-    long id; 
+    long id;
     /** Config vector containing pointers to connections per-server
      *  config structures. */
     struct ap_conf_vector_t *conn_config;
@@ -1096,44 +1113,82 @@ struct conn_rec {
     void *sbh;
     /** The bucket allocator to use for all bucket/brigade creations */
     struct apr_bucket_alloc_t *bucket_alloc;
-    /** The current state of this connection */
+    /** The current state of this connection; may be NULL if not used by MPM */
     conn_state_t *cs;
-    /** Is there data pending in the input filters? */ 
+    /** Is there data pending in the input filters? */
     int data_in_input_filters;
-    
+    /** Is there data pending in the output filters? */
+    int data_in_output_filters;
+
     /** Are there any filters that clogg/buffer the input stream, breaking
      *  the event mpm.
      */
-    int clogging_input_filters;
+    unsigned int clogging_input_filters:1;
+
+    /** have we done double-reverse DNS? -1 yes/failure, 0 not yet,
+     *  1 yes/success */
+    signed int double_reverse:2;
+
+    /** Are we still talking? */
+    unsigned aborted;
+
+    /** Are we going to keep the connection alive for another request?
+     * @see ap_conn_keepalive_e */
+    ap_conn_keepalive_e keepalive;
+
+    /** How many times have we used it? */
+    int keepalives;
+
+    /** Optional connection log level configuration. May point to a server or
+     *  per_dir config, i.e. must be copied before modifying */
+    const struct ap_logconf *log;
+
+    /** Id to identify this connection in error log. Set when the first
+     *  error log entry for this connection is generated.
+     */
+    const char *log_id;
+
+
+    /** This points to the current thread being used to process this request,
+     * over the lifetime of a request, the value may change. Users of the connection
+     * record should not rely upon it staying the same between calls that involve
+     * the MPM.
+     */
+#if APR_HAS_THREADS
+    apr_thread_t *current_thread;
+#endif
 };
 
-/** 
- * Enumeration of connection states 
+/**
+ * Enumeration of connection states
+ * The two states CONN_STATE_LINGER_NORMAL and CONN_STATE_LINGER_SHORT may
+ * only be set by the MPM. Use CONN_STATE_LINGER outside of the MPM.
  */
 typedef enum  {
     CONN_STATE_CHECK_REQUEST_LINE_READABLE,
     CONN_STATE_READ_REQUEST_LINE,
-    CONN_STATE_LINGER
+    CONN_STATE_HANDLER,
+    CONN_STATE_WRITE_COMPLETION,
+    CONN_STATE_SUSPENDED,
+    CONN_STATE_LINGER,          /* connection may be closed with lingering */
+    CONN_STATE_LINGER_NORMAL,   /* MPM has started lingering close with normal timeout */
+    CONN_STATE_LINGER_SHORT     /* MPM has started lingering close with short timeout */
 } conn_state_e;
 
-/** 
- * @brief A structure to contain connection state information 
+typedef enum  {
+    CONN_SENSE_DEFAULT,
+    CONN_SENSE_WANT_READ,       /* next event must be read */
+    CONN_SENSE_WANT_WRITE       /* next event must be write */
+} conn_sense_e;
+
+/**
+ * @brief A structure to contain connection state information
  */
 struct conn_state_t {
-    /** APR_RING of expiration timeouts */
-    APR_RING_ENTRY(conn_state_t) timeout_list;
-    /** the expiration time of the next keepalive timeout */
-    apr_time_t expiration_time;
     /** Current state of the connection */
     conn_state_e state;
-    /** connection record this struct refers to */
-    conn_rec *c;
-    /** memory pool to allocate from */
-    apr_pool_t *p;
-    /** bucket allocator */
-    apr_bucket_alloc_t *bucket_alloc;
-    /** poll file decriptor information */
-    apr_pollfd_t pfd;
+    /** Whether to read instead of write, or write instead of read */
+    conn_sense_e sense;
 };
 
 /* Per-vhost config... */
@@ -1147,22 +1202,29 @@ struct conn_state_t {
 
 /**
  * @struct server_addr_rec
- * @brief  A structure to be used for Per-vhost config 
+ * @brief  A structure to be used for Per-vhost config
  */
 typedef struct server_addr_rec server_addr_rec;
 struct server_addr_rec {
     /** The next server in the list */
     server_addr_rec *next;
+    /** The name given in "<VirtualHost>" */
+    char *virthost;
     /** The bound address, for this server */
     apr_sockaddr_t *host_addr;
     /** The bound port, for this server */
     apr_port_t host_port;
-    /** The name given in "<VirtualHost>" */
-    char *virthost;
 };
 
-/** 
- * @brief A structure to store information for each virtual server 
+struct ap_logconf {
+    /** The per-module log levels */
+    signed char *module_levels;
+
+    /** The log level for this server */
+    int level;
+};
+/**
+ * @brief A structure to store information for each virtual server
  */
 struct server_rec {
     /** The process this server is running in */
@@ -1170,10 +1232,37 @@ struct server_rec {
     /** The next server in the list */
     server_rec *next;
 
+    /* Log files --- note that transfer log is now in the modules... */
+
+    /** The name of the error log */
+    char *error_fname;
+    /** A file descriptor that references the error log */
+    apr_file_t *error_log;
+    /** The log level configuration */
+    struct ap_logconf log;
+
+    /* Module-specific configuration for server, and defaults... */
+
+    /** Config vector containing pointers to modules' per-server config
+     *  structures. */
+    struct ap_conf_vector_t *module_config;
+    /** MIME type info, etc., before we start checking per-directory info */
+    struct ap_conf_vector_t *lookup_defaults;
+
     /** The name of the server */
     const char *defn_name;
     /** The line of the config file that the server was defined on */
     unsigned defn_line_number;
+    /** true if this is the virtual server */
+    char is_virtual;
+
+
+    /* Information for redirects */
+
+    /** for redirects, etc. */
+    apr_port_t port;
+    /** The server request scheme for redirect responses */
+    const char *server_scheme;
 
     /* Contact information */
 
@@ -1181,27 +1270,6 @@ struct server_rec {
     char *server_admin;
     /** The server hostname */
     char *server_hostname;
-    /** for redirects, etc. */
-    apr_port_t port;
-
-    /* Log files --- note that transfer log is now in the modules... */
-
-    /** The name of the error log */
-    char *error_fname;
-    /** A file descriptor that references the error log */
-    apr_file_t *error_log;
-    /** The log level for this server */
-    int loglevel;
-
-    /* Module-specific configuration for server, and defaults... */
-
-    /** true if this is the virtual server */
-    int is_virtual;
-    /** Config vector containing pointers to modules' per-server config 
-     *  structures. */
-    struct ap_conf_vector_t *module_config; 
-    /** MIME type info, etc., before we start checking per-directory info */
-    struct ap_conf_vector_t *lookup_defaults;
 
     /* Transaction handling */
 
@@ -1216,50 +1284,93 @@ struct server_rec {
     /** Use persistent connections? */
     int keep_alive;
 
-    /** Pathname for ServerPath */
-    const char *path;
-    /** Length of path */
-    int pathlen;
-
     /** Normal names for ServerAlias servers */
     apr_array_header_t *names;
     /** Wildcarded names for ServerAlias servers */
     apr_array_header_t *wild_names;
+
+    /** Pathname for ServerPath */
+    const char *path;
+    /** Length of path */
+    int pathlen;
 
     /** limit on size of the HTTP request line    */
     int limit_req_line;
     /** limit on size of any request header field */
     int limit_req_fieldsize;
     /** limit on number of request header fields  */
-    int limit_req_fields; 
+    int limit_req_fields;
 
-    /** The server request scheme for redirect responses */
-    const char *server_scheme;
+
+    /** Opaque storage location */
+    void *context;
 };
 
-typedef struct core_output_filter_ctx {
-    apr_bucket_brigade *b;
-    /** subpool of c->pool used for resources 
-     * which may outlive the request
-     */
-    apr_pool_t *deferred_write_pool;
-} core_output_filter_ctx_t;
- 
-typedef struct core_filter_ctx {
-    apr_bucket_brigade *b;
-    apr_bucket_brigade *tmpbb;
-} core_ctx_t;
- 
-typedef struct core_net_rec {
-    /** Connection to the client */
-    apr_socket_t *client_socket;
+/**
+ * @struct ap_sload_t
+ * @brief  A structure to hold server load params
+ */
+typedef struct ap_sload_t ap_sload_t;
+struct ap_sload_t {
+    /* percentage of process/threads ready/idle (0->100)*/
+    int idle;
+    /* percentage of process/threads busy (0->100) */
+    int busy;
+    /* total bytes served */
+    apr_off_t bytes_served;
+    /* total access count */
+    unsigned long access_count;
+};
 
-    /** connection record */
-    conn_rec *c;
- 
-    core_output_filter_ctx_t *out_ctx;
-    core_ctx_t *in_ctx;
-} core_net_rec;
+/**
+ * @struct ap_loadavg_t
+ * @brief  A structure to hold various server loadavg
+ */
+typedef struct ap_loadavg_t ap_loadavg_t;
+struct ap_loadavg_t {
+    /* current loadavg, ala getloadavg() */
+    float loadavg;
+    /* 5 min loadavg */
+    float loadavg5;
+    /* 15 min loadavg */
+    float loadavg15;
+};
+
+/**
+ * Get the context_document_root for a request. This is a generalization of
+ * the document root, which is too limited in the presence of mappers like
+ * mod_userdir and mod_alias. The context_document_root is the directory
+ * on disk that maps to the context_prefix URI prefix.
+ * @param r The request
+ * @note For resources that do not map to the file system or for very complex
+ * mappings, this information may still be wrong.
+ */
+AP_DECLARE(const char *) ap_context_document_root(request_rec *r);
+
+/**
+ * Get the context_prefix for a request. The context_prefix URI prefix
+ * maps to the context_document_root on disk.
+ * @param r The request
+ */
+AP_DECLARE(const char *) ap_context_prefix(request_rec *r);
+
+/** Set context_prefix and context_document_root for a request.
+ * @param r The request
+ * @param prefix the URI prefix, without trailing slash
+ * @param document_root the corresponding directory on disk, without trailing
+ * slash
+ * @note If one of prefix of document_root is NULL, the corrsponding
+ * property will not be changed.
+ */
+AP_DECLARE(void) ap_set_context_info(request_rec *r, const char *prefix,
+                                     const char *document_root);
+
+/** Set per-request document root. This is for mass virtual hosting modules
+ * that want to provide the correct DOCUMENT_ROOT value to scripts.
+ * @param r The request
+ * @param document_root the document root for the request.
+ */
+AP_DECLARE(void) ap_set_document_root(request_rec *r, const char *document_root);
 
 /**
  * Examine a field value (such as a media-/content-type) string and return
@@ -1285,7 +1396,7 @@ AP_DECLARE(char *) ap_ht_time(apr_pool_t *p, apr_time_t t, const char *fmt, int 
    char **) */
 
 /**
- * Get the characters until the first occurance of a specified character
+ * Get the characters until the first occurrence of a specified character
  * @param p The pool to allocate memory from
  * @param line The string to get the characters from
  * @param stop The character to stop at
@@ -1294,7 +1405,7 @@ AP_DECLARE(char *) ap_ht_time(apr_pool_t *p, apr_time_t t, const char *fmt, int 
 AP_DECLARE(char *) ap_getword(apr_pool_t *p, const char **line, char stop);
 
 /**
- * Get the characters until the first occurance of a specified character
+ * Get the characters until the first occurrence of a specified character
  * @param p The pool to allocate memory from
  * @param line The string to get the characters from
  * @param stop The character to stop at
@@ -1323,22 +1434,22 @@ AP_DECLARE(char *) ap_getword_white(apr_pool_t *p, const char **line);
 AP_DECLARE(char *) ap_getword_white_nc(apr_pool_t *p, char **line);
 
 /**
- * Get all characters from the first occurance of @a stop to the first "\0"
+ * Get all characters from the first occurrence of @a stop to the first "\0"
  * @param p The pool to allocate memory from
  * @param line The line to traverse
  * @param stop The character to start at
- * @return A copy of all caracters after the first occurance of the specified
+ * @return A copy of all characters after the first occurrence of the specified
  *         character
  */
 AP_DECLARE(char *) ap_getword_nulls(apr_pool_t *p, const char **line,
-				    char stop);
+                                    char stop);
 
 /**
- * Get all characters from the first occurance of @a stop to the first "\0"
+ * Get all characters from the first occurrence of @a stop to the first "\0"
  * @param p The pool to allocate memory from
  * @param line The line to traverse
  * @param stop The character to start at
- * @return A copy of all caracters after the first occurance of the specified
+ * @return A copy of all characters after the first occurrence of the specified
  *         character
  * @note The same as ap_getword_nulls(), except it doesn't use const char **.
  */
@@ -1362,23 +1473,24 @@ AP_DECLARE(char *) ap_getword_conf(apr_pool_t *p, const char **line);
 AP_DECLARE(char *) ap_getword_conf_nc(apr_pool_t *p, char **line);
 
 /**
- * Check a string for any ${ENV} environment variable construct and replace 
- * each them by the value of that environment variable, if it exists. If the 
- * environment value does not exist, leave the ${ENV} construct alone; it 
- * means something else.
+ * Check a string for any config define or environment variable construct
+ * and replace each of them by the value of that variable, if it exists.
+ * The default syntax of the constructs is ${ENV} but can be changed by
+ * setting the define::* config defines. If the variable does not exist,
+ * leave the ${ENV} construct alone but print a warning.
  * @param p The pool to allocate from
  * @param word The string to check
  * @return The string with the replaced environment variables
  */
-AP_DECLARE(const char *) ap_resolve_env(apr_pool_t *p, const char * word); 
+AP_DECLARE(const char *) ap_resolve_env(apr_pool_t *p, const char * word);
 
 /**
  * Size an HTTP header field list item, as separated by a comma.
  * @param field The field to size
  * @param len The length of the field
- * @return The return value is a pointer to the beginning of the non-empty 
- * list item within the original string (or NULL if there is none) and the 
- * address of field is shifted to the next non-comma, non-whitespace 
+ * @return The return value is a pointer to the beginning of the non-empty
+ * list item within the original string (or NULL if there is none) and the
+ * address of field is shifted to the next non-comma, non-whitespace
  * character.  len is the length of the item excluding any beginning whitespace.
  */
 AP_DECLARE(const char *) ap_size_list_item(const char **field, int *len);
@@ -1386,24 +1498,42 @@ AP_DECLARE(const char *) ap_size_list_item(const char **field, int *len);
 /**
  * Retrieve an HTTP header field list item, as separated by a comma,
  * while stripping insignificant whitespace and lowercasing anything not in
- * a quoted string or comment.  
+ * a quoted string or comment.
  * @param p The pool to allocate from
  * @param field The field to retrieve
- * @return The return value is a new string containing the converted list 
- *         item (or NULL if none) and the address pointed to by field is 
+ * @return The return value is a new string containing the converted list
+ *         item (or NULL if none) and the address pointed to by field is
  *         shifted to the next non-comma, non-whitespace.
  */
 AP_DECLARE(char *) ap_get_list_item(apr_pool_t *p, const char **field);
 
 /**
  * Find an item in canonical form (lowercase, no extra spaces) within
- * an HTTP field value list.  
+ * an HTTP field value list.
  * @param p The pool to allocate from
  * @param line The field value list to search
  * @param tok The token to search for
  * @return 1 if found, 0 if not found.
  */
 AP_DECLARE(int) ap_find_list_item(apr_pool_t *p, const char *line, const char *tok);
+
+/**
+ * Do a weak ETag comparison within an HTTP field value list.
+ * @param p The pool to allocate from
+ * @param line The field value list to search
+ * @param tok The token to search for
+ * @return 1 if found, 0 if not found.
+ */
+AP_DECLARE(int) ap_find_etag_weak(apr_pool_t *p, const char *line, const char *tok);
+
+/**
+ * Do a strong ETag comparison within an HTTP field value list.
+ * @param p The pool to allocate from
+ * @param line The field value list to search
+ * @param tok The token to search for
+ * @return 1 if found, 0 if not found.
+ */
+AP_DECLARE(int) ap_find_etag_strong(apr_pool_t *p, const char *line, const char *tok);
 
 /**
  * Retrieve a token, spacing over it and adjusting the pointer to
@@ -1418,7 +1548,7 @@ AP_DECLARE(int) ap_find_list_item(apr_pool_t *p, const char *line, const char *t
 AP_DECLARE(char *) ap_get_token(apr_pool_t *p, const char **accept_line, int accept_white);
 
 /**
- * Find http tokens, see the definition of token from RFC2068 
+ * Find http tokens, see the definition of token from RFC2068
  * @param p The pool to allocate from
  * @param line The line to find the token
  * @param tok The token to find
@@ -1443,6 +1573,13 @@ AP_DECLARE(int) ap_find_last_token(apr_pool_t *p, const char *line, const char *
 AP_DECLARE(int) ap_is_url(const char *u);
 
 /**
+ * Unescape a string
+ * @param url The string to unescape
+ * @return 0 on success, non-zero otherwise
+ */
+AP_DECLARE(int) ap_unescape_all(char *url);
+
+/**
  * Unescape a URL
  * @param url The url to unescape
  * @return 0 on success, non-zero otherwise
@@ -1450,19 +1587,19 @@ AP_DECLARE(int) ap_is_url(const char *u);
 AP_DECLARE(int) ap_unescape_url(char *url);
 
 /**
- * Unescape a URL, including encoded slashes.
+ * Unescape a URL, but leaving %2f (slashes) escaped
  * @param url The url to unescape
+ * @param decode_slashes Whether or not slashes should be decoded
  * @return 0 on success, non-zero otherwise
  */
-AP_DECLARE(int) ap_unescape_url_keep2f(char *url);
+AP_DECLARE(int) ap_unescape_url_keep2f(char *url, int decode_slashes);
 
 /**
- * Unescape a URL, including encoded slashes.
- * @param url The url to unescape
- * @param decode_slashes Whether or not slashes should be decoded or not
+ * Unescape an application/x-www-form-urlencoded string
+ * @param query The query to unescape
  * @return 0 on success, non-zero otherwise
  */
-AP_DECLARE(int) ap_unescape_url_keep2f_ex(char *url, int decode_slashes);
+AP_DECLARE(int) ap_unescape_urlencoded(char *query);
 
 /**
  * Convert all double slashes to single slashes
@@ -1486,6 +1623,14 @@ AP_DECLARE(void) ap_getparents(char *name);
 AP_DECLARE(char *) ap_escape_path_segment(apr_pool_t *p, const char *s);
 
 /**
+ * Escape a path segment, as defined in RFC 1808, to a preallocated buffer.
+ * @param c The preallocated buffer to write to
+ * @param s The path to convert
+ * @return The converted URL (c)
+ */
+AP_DECLARE(char *) ap_escape_path_segment_buffer(char *c, const char *s);
+
+/**
  * convert an OS path to a URL in an OS dependant way.
  * @param p The pool to allocate from
  * @param path The path to convert
@@ -1499,17 +1644,33 @@ AP_DECLARE(char *) ap_os_escape_path(apr_pool_t *p, const char *path, int partia
 #define ap_escape_uri(ppool,path) ap_os_escape_path(ppool,path,1)
 
 /**
+ * Escape a string as application/x-www-form-urlencoded
+ * @param p The pool to allocate from
+ * @param s The path to convert
+ * @return The converted URL
+ */
+AP_DECLARE(char *) ap_escape_urlencoded(apr_pool_t *p, const char *s);
+
+/**
+ * Escape a string as application/x-www-form-urlencoded, to a preallocated buffer
+ * @param c The preallocated buffer to write to
+ * @param s The path to convert
+ * @return The converted URL (c)
+ */
+AP_DECLARE(char *) ap_escape_urlencoded_buffer(char *c, const char *s);
+
+/**
  * Escape an html string
  * @param p The pool to allocate from
  * @param s The html to escape
  * @return The escaped string
  */
-AP_DECLARE(char *) ap_escape_html(apr_pool_t *p, const char *s);
+#define ap_escape_html(p,s) ap_escape_html2(p,s,0)
 /**
  * Escape an html string
  * @param p The pool to allocate from
  * @param s The html to escape
- * @param toasc Whether to escape all non-ASCII chars to &#nnn;
+ * @param toasc Whether to escape all non-ASCII chars to \&\#nnn;
  * @return The escaped string
  */
 AP_DECLARE(char *) ap_escape_html2(apr_pool_t *p, const char *s, int toasc);
@@ -1541,7 +1702,7 @@ AP_DECLARE(apr_size_t) ap_escape_errorlog_item(char *dest, const char *source,
  * @return The server's hostname
  */
 AP_DECLARE(char *) ap_construct_server(apr_pool_t *p, const char *hostname,
-				    apr_port_t port, const request_rec *r);
+                                    apr_port_t port, const request_rec *r);
 
 /**
  * Escape a shell command
@@ -1566,7 +1727,7 @@ AP_DECLARE(int) ap_count_dirs(const char *path);
  * @param s The location to copy from
  * @param n The number of directories to copy
  * @return value is the ever useful pointer to the trailing "\0" of d
- * @note on platforms with drive letters, n = 0 returns the "/" root, 
+ * @note on platforms with drive letters, n = 0 returns the "/" root,
  * whereas n = 1 returns the "d:/" root.  On all other platforms, n = 0
  * returns the empty string.  */
 AP_DECLARE(char *) ap_make_dirstr_prefix(char *d, const char *s, int n);
@@ -1617,7 +1778,7 @@ AP_DECLARE(int) ap_is_matchexp(const char *str);
  * Determine if a string matches a patterm containing the wildcards '?' or '*'
  * @param str The string to check
  * @param expected The pattern to match against
- * @return 1 if the two strings match, 0 otherwise
+ * @return 0 if the two strings match, 1 otherwise
  */
 AP_DECLARE(int) ap_strcmp_match(const char *str, const char *expected);
 
@@ -1626,7 +1787,7 @@ AP_DECLARE(int) ap_strcmp_match(const char *str, const char *expected);
  * ignoring case
  * @param str The string to check
  * @param expected The pattern to match against
- * @return 1 if the two strings match, 0 otherwise
+ * @return 0 if the two strings match, 1 otherwise
  */
 AP_DECLARE(int) ap_strcasecmp_match(const char *str, const char *expected);
 
@@ -1662,10 +1823,11 @@ AP_DECLARE(char *) ap_pbase64decode(apr_pool_t *p, const char *bufcoded);
  * @param string The plaintext string
  * @return The encoded string
  */
-AP_DECLARE(char *) ap_pbase64encode(apr_pool_t *p, char *string); 
+AP_DECLARE(char *) ap_pbase64encode(apr_pool_t *p, char *string);
 
 /**
- * Compile a regular expression to be used later
+ * Compile a regular expression to be used later. The regex is freed when
+ * the pool is destroyed.
  * @param p The pool to allocate from
  * @param pattern the regular expression to compile
  * @param cflags The bitwise or of one or more of the following:
@@ -1683,22 +1845,27 @@ AP_DECLARE(ap_regex_t *) ap_pregcomp(apr_pool_t *p, const char *pattern,
  * Free the memory associated with a compiled regular expression
  * @param p The pool the regex was allocated from
  * @param reg The regular expression to free
+ * @note This function is only necessary if the regex should be cleaned
+ * up before the pool
  */
 AP_DECLARE(void) ap_pregfree(apr_pool_t *p, ap_regex_t *reg);
 
 /**
- * After performing a successful regex match, you may use this function to 
+ * After performing a successful regex match, you may use this function to
  * perform a series of string substitutions based on subexpressions that were
- * matched during the call to ap_regexec
+ * matched during the call to ap_regexec. This function is limited to
+ * result strings of 64K. Consider using ap_pregsub_ex() instead.
  * @param p The pool to allocate from
- * @param input An arbitrary string containing $1 through $9.  These are 
+ * @param input An arbitrary string containing $1 through $9.  These are
  *              replaced with the corresponding matched sub-expressions
  * @param source The string that was originally matched to the regex
  * @param nmatch the nmatch returned from ap_pregex
  * @param pmatch the pmatch array returned from ap_pregex
+ * @return The substituted string, or NULL on error
  */
-AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input, const char *source,
-                              size_t nmatch, ap_regmatch_t pmatch[]);
+AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
+                              const char *source, apr_size_t nmatch,
+                              ap_regmatch_t pmatch[]);
 
 /**
  * After performing a successful regex match, you may use this function to
@@ -1729,21 +1896,27 @@ AP_DECLARE(void) ap_content_type_tolower(char *s);
 
 /**
  * convert a string to all lowercase
- * @param s The string to convert to lowercase 
+ * @param s The string to convert to lowercase
  */
 AP_DECLARE(void) ap_str_tolower(char *s);
 
 /**
- * Search a string from left to right for the first occurrence of a 
+ * convert a string to all uppercase
+ * @param s The string to convert to uppercase
+ */
+AP_DECLARE(void) ap_str_toupper(char *s);
+
+/**
+ * Search a string from left to right for the first occurrence of a
  * specific character
  * @param str The string to search
  * @param c The character to search for
  * @return The index of the first occurrence of c in str
  */
-AP_DECLARE(int) ap_ind(const char *str, char c);	/* Sigh... */
+AP_DECLARE(int) ap_ind(const char *str, char c);        /* Sigh... */
 
 /**
- * Search a string from right to left for the first occurrence of a 
+ * Search a string from right to left for the first occurrence of a
  * specific character
  * @param str The string to search
  * @param c The character to search for
@@ -1752,10 +1925,10 @@ AP_DECLARE(int) ap_ind(const char *str, char c);	/* Sigh... */
 AP_DECLARE(int) ap_rind(const char *str, char c);
 
 /**
- * Given a string, replace any bare " with \" .
+ * Given a string, replace any bare &quot; with \\&quot; .
  * @param p The pool to allocate memory from
- * @param instring The string to search for "
- * @return A copy of the string with escaped quotes 
+ * @param instring The string to search for &quot;
+ * @return A copy of the string with escaped quotes
  */
 AP_DECLARE(char *) ap_escape_quotes(apr_pool_t *p, const char *instring);
 
@@ -1767,7 +1940,7 @@ AP_DECLARE(char *) ap_escape_quotes(apr_pool_t *p, const char *instring);
  * @param p The pool to allocate memory from
  * @param string The string to append the PID to
  * @param delim The string to use to deliminate the string from the PID
- * @return A copy of the string with the PID appended 
+ * @return A copy of the string with the PID appended
  */
 AP_DECLARE(char *) ap_append_pid(apr_pool_t *p, const char *string,
                                  const char *delim);
@@ -1795,10 +1968,69 @@ AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
                                                apr_interval_time_t *timeout,
                                                const char *default_time_unit);
 
+/**
+ * Determine if a request has a request body or not.
+ *
+ * @param r the request_rec of the request
+ * @return truth value
+ */
+AP_DECLARE(int) ap_request_has_body(request_rec *r);
+
+/**
+ * Cleanup a string (mainly to be filesystem safe)
+ * We only allow '_' and alphanumeric chars. Non-printable
+ * map to 'x' and all others map to '_'
+ *
+ * @param  p pool to use to allocate dest
+ * @param  src string to clean up
+ * @param  dest cleaned up, allocated string
+ * @return Status value indicating whether the cleaning was successful or not.
+ */
+AP_DECLARE(apr_status_t) ap_pstr2_alnum(apr_pool_t *p, const char *src,
+                                        const char **dest);
+
+/**
+ * Cleanup a string (mainly to be filesystem safe)
+ * We only allow '_' and alphanumeric chars. Non-printable
+ * map to 'x' and all others map to '_'
+ *
+ * @param  src string to clean up
+ * @param  dest cleaned up, pre-allocated string
+ * @return Status value indicating whether the cleaning was successful or not.
+ */
+AP_DECLARE(apr_status_t) ap_str2_alnum(const char *src, char *dest);
+
+/**
+ * Structure to store the contents of an HTTP form of the type
+ * application/x-www-form-urlencoded.
+ *
+ * Currently it contains the name as a char* of maximum length
+ * HUGE_STRING_LEN, and a value in the form of a bucket brigade
+ * of arbitrary length.
+ */
+typedef struct {
+    const char *name;
+    apr_bucket_brigade *value;
+} ap_form_pair_t;
+
+/**
+ * Read the body and parse any form found, which must be of the
+ * type application/x-www-form-urlencoded.
+ * @param r request containing POSTed form data
+ * @param f filter
+ * @param ptr returned array of ap_form_pair_t
+ * @param num max num of params or -1 for unlimited
+ * @param size max size allowed for parsed data
+ * @return OK or HTTP error
+ */
+AP_DECLARE(int) ap_parse_form_data(request_rec *r, struct ap_filter_t *f,
+                                   apr_array_header_t **ptr,
+                                   apr_size_t num, apr_size_t size);
+
 /* Misc system hackery */
 /**
  * Given the name of an object in the file system determine if it is a directory
- * @param p The pool to allocate from 
+ * @param p The pool to allocate from
  * @param name The name of the object to check
  * @return 1 if it is a directory, 0 otherwise
  */
@@ -1806,7 +2038,7 @@ AP_DECLARE(int) ap_is_rdirectory(apr_pool_t *p, const char *name);
 
 /**
  * Given the name of an object in the file system determine if it is a directory - this version is symlink aware
- * @param p The pool to allocate from 
+ * @param p The pool to allocate from
  * @param name The name of the object to check
  * @return 1 if it is a directory, 0 otherwise
  */
@@ -1830,9 +2062,9 @@ char *ap_get_local_host(apr_pool_t *p);
  * @param nLine The line the assertion is defined on
  */
 AP_DECLARE(void) ap_log_assert(const char *szExp, const char *szFile, int nLine)
-			    __attribute__((noreturn));
+                            __attribute__((noreturn));
 
-/** 
+/**
  * @internal Internal Assert function
  */
 #define ap_assert(exp) ((exp) ? (void)0 : ap_log_assert(#exp,__FILE__,__LINE__))
@@ -1851,7 +2083,7 @@ AP_DECLARE(void) ap_log_assert(const char *szExp, const char *szFile, int nLine)
 #endif
 
 /**
- * @defgroup stopsignal Flags which indicate places where the sever should stop for debugging.
+ * @defgroup stopsignal Flags which indicate places where the server should stop for debugging.
  * @{
  * A set of flags which indicate places where the server should raise(SIGSTOP).
  * This is useful for debugging, because you can then attach to that process
@@ -1859,21 +2091,21 @@ AP_DECLARE(void) ap_log_assert(const char *szExp, const char *szFile, int nLine)
  * debugging isn't possible.
  */
 /** stop on a Detach */
-#define SIGSTOP_DETACH			1
+#define SIGSTOP_DETACH                  1
 /** stop making a child process */
-#define SIGSTOP_MAKE_CHILD		2
+#define SIGSTOP_MAKE_CHILD              2
 /** stop spawning a child process */
-#define SIGSTOP_SPAWN_CHILD		4
+#define SIGSTOP_SPAWN_CHILD             4
 /** stop spawning a child process with a piped log */
-#define SIGSTOP_PIPED_LOG_SPAWN		8
+#define SIGSTOP_PIPED_LOG_SPAWN         8
 /** stop spawning a CGI child process */
-#define SIGSTOP_CGI_CHILD		16
+#define SIGSTOP_CGI_CHILD               16
 
 /** Macro to get GDB started */
 #ifdef DEBUG_SIGSTOP
 extern int raise_sigstop_flags;
-#define RAISE_SIGSTOP(x)	do { \
-	if (raise_sigstop_flags & SIGSTOP_##x) raise(SIGSTOP);\
+#define RAISE_SIGSTOP(x)        do { \
+        if (raise_sigstop_flags & SIGSTOP_##x) raise(SIGSTOP);\
     } while (0)
 #else
 #define RAISE_SIGSTOP(x)
@@ -1887,30 +2119,11 @@ extern int raise_sigstop_flags;
  */
 AP_DECLARE(const char *) ap_psignature(const char *prefix, request_rec *r);
 
-
-/**
- * Short function to execute a command and return the first line of
- * output minus \r \n. Useful for "obscuring" passwords via exec calls
- * @param p the pool to allocate from
- * @param cmd the command to execute
- * @param argv the arguments to pass to the cmd
- * @return ptr to characters or NULL on any error
- */
-AP_DECLARE(char *) ap_get_exec_line(apr_pool_t *p,
-                                    const char *cmd,
-                                    const char * const *argv);
-
-/** strtoul does not exist on sunos4. */
-#ifdef strtoul
-#undef strtoul
-#endif
-#define strtoul strtoul_is_not_a_portable_function_use_strtol_instead
-
   /* The C library has functions that allow const to be silently dropped ...
      these macros detect the drop in maintainer mode, but use the native
      methods for normal builds
 
-     Note that on some platforms (e.g., AIX with gcc, Solaris with gcc), string.h needs 
+     Note that on some platforms (e.g., AIX with gcc, Solaris with gcc), string.h needs
      to be included before the macros are defined or compilation will fail.
   */
 #include <string.h>
@@ -1925,36 +2138,125 @@ AP_DECLARE(const char *) ap_strstr_c(const char *s, const char *c);
 #ifdef AP_DEBUG
 
 #undef strchr
-# define strchr(s, c)	ap_strchr(s,c)
+# define strchr(s, c)  ap_strchr(s,c)
 #undef strrchr
-# define strrchr(s, c)  ap_strrchr(s,c)
+# define strrchr(s, c) ap_strrchr(s,c)
 #undef strstr
 # define strstr(s, c)  ap_strstr(s,c)
 
 #else
 
 /** use this instead of strchr */
-# define ap_strchr(s, c)	strchr(s, c)
+# define ap_strchr(s, c)     strchr(s, c)
 /** use this instead of strchr */
-# define ap_strchr_c(s, c)	strchr(s, c)
+# define ap_strchr_c(s, c)   strchr(s, c)
 /** use this instead of strrchr */
-# define ap_strrchr(s, c)	strrchr(s, c)
+# define ap_strrchr(s, c)    strrchr(s, c)
 /** use this instead of strrchr */
-# define ap_strrchr_c(s, c)	strrchr(s, c)
+# define ap_strrchr_c(s, c)  strrchr(s, c)
 /** use this instead of strrstr*/
-# define ap_strstr(s, c)	strstr(s, c)
+# define ap_strstr(s, c)     strstr(s, c)
 /** use this instead of strrstr*/
-# define ap_strstr_c(s, c)	strstr(s, c)
+# define ap_strstr_c(s, c)   strstr(s, c)
 
 #endif
 
-#define AP_NORESTART		APR_OS_START_USEERR + 1
+/**
+ * Generate pseudo random bytes.
+ * This is a convenience interface to apr_random. It is cheaper but less
+ * secure than apr_generate_random_bytes().
+ * @param buf where to store the bytes
+ * @param size number of bytes to generate
+ * @note ap_random_insecure_bytes() is thread-safe, it uses a mutex on
+ *       threaded MPMs.
+ */
+AP_DECLARE(void) ap_random_insecure_bytes(void *buf, apr_size_t size);
+
+/**
+ * Get a pseudo random number in a range.
+ * @param min low end of range
+ * @param max high end of range
+ * @return a number in the range
+ */
+AP_DECLARE(apr_uint32_t) ap_random_pick(apr_uint32_t min, apr_uint32_t max);
+
+/**
+ * Abort with a error message signifying out of memory
+ */
+AP_DECLARE(void) ap_abort_on_oom(void) __attribute__((noreturn));
+
+/**
+ * Wrapper for malloc() that calls ap_abort_on_oom() if out of memory
+ * @param size size of the memory block
+ * @return pointer to the allocated memory
+ * @note ap_malloc may be implemented as a macro
+ */
+AP_DECLARE(void *) ap_malloc(size_t size)
+                    __attribute__((malloc))
+                    AP_FN_ATTR_ALLOC_SIZE(1);
+
+/**
+ * Wrapper for calloc() that calls ap_abort_on_oom() if out of memory
+ * @param nelem number of elements to allocate memory for
+ * @param size size of a single element
+ * @return pointer to the allocated memory
+ * @note ap_calloc may be implemented as a macro
+ */
+AP_DECLARE(void *) ap_calloc(size_t nelem, size_t size)
+                   __attribute__((malloc))
+                   AP_FN_ATTR_ALLOC_SIZE2(1,2);
+
+/**
+ * Wrapper for realloc() that calls ap_abort_on_oom() if out of memory
+ * @param ptr pointer to the old memory block (or NULL)
+ * @param size new size of the memory block
+ * @return pointer to the reallocated memory
+ * @note ap_realloc may be implemented as a macro
+ */
+AP_DECLARE(void *) ap_realloc(void *ptr, size_t size)
+                   AP_FN_ATTR_WARN_UNUSED_RESULT
+                   AP_FN_ATTR_ALLOC_SIZE(2);
+
+/**
+ * Get server load params
+ * @param ld struct to populate: -1 in fields means error
+ */
+AP_DECLARE(void) ap_get_sload(ap_sload_t *ld);
+
+/**
+ * Get server load averages (ala getloadavg)
+ * @param ld struct to populate: -1 in fields means error
+ */
+AP_DECLARE(void) ap_get_loadavg(ap_loadavg_t *ld);
+
+/**
+ * Convert binary data into a hex string
+ * @param src pointer to the data
+ * @param srclen length of the data
+ * @param dest pointer to buffer of length (2 * srclen + 1). The resulting
+ *        string will be NUL-terminated.
+ */
+AP_DECLARE(void) ap_bin2hex(const void *src, apr_size_t srclen, char *dest);
+
+/**
+ * Short function to execute a command and return the first line of
+ * output minus \r \n. Useful for "obscuring" passwords via exec calls
+ * @param p the pool to allocate from
+ * @param cmd the command to execute
+ * @param argv the arguments to pass to the cmd
+ * @return ptr to characters or NULL on any error
+ */
+AP_DECLARE(char *) ap_get_exec_line(apr_pool_t *p,
+                                    const char *cmd,
+                                    const char * const *argv);
+
+#define AP_NORESTART APR_OS_START_USEERR + 1
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif	/* !APACHE_HTTPD_H */
+#endif  /* !APACHE_HTTPD_H */
 
 /** @} //APACHE Daemon      */
 /** @} //APACHE Core        */

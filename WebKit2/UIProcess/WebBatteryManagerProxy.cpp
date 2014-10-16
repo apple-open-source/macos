@@ -39,23 +39,23 @@ const char* WebBatteryManagerProxy::supplementName()
     return "WebBatteryManagerProxy";
 }
 
-PassRefPtr<WebBatteryManagerProxy> WebBatteryManagerProxy::create(WebContext* context)
+PassRef<WebBatteryManagerProxy> WebBatteryManagerProxy::create(WebContext* context)
 {
-    return adoptRef(new WebBatteryManagerProxy(context));
+    return adoptRef(*new WebBatteryManagerProxy(context));
 }
 
 WebBatteryManagerProxy::WebBatteryManagerProxy(WebContext* context)
     : WebContextSupplement(context)
     , m_isUpdating(false)
 {
-    WebContextSupplement::context()->addMessageReceiver(Messages::WebBatteryManagerProxy::messageReceiverName(), this);
+    WebContextSupplement::context()->addMessageReceiver(Messages::WebBatteryManagerProxy::messageReceiverName(), *this);
 }
 
 WebBatteryManagerProxy::~WebBatteryManagerProxy()
 {
 }
 
-void WebBatteryManagerProxy::initializeProvider(const WKBatteryProvider* provider)
+void WebBatteryManagerProxy::initializeProvider(const WKBatteryProviderBase* provider)
 {
     m_provider.initialize(provider);
 }
@@ -91,12 +91,12 @@ void WebBatteryManagerProxy::processDidClose(WebProcessProxy*)
 
 void WebBatteryManagerProxy::refWebContextSupplement()
 {
-    APIObject::ref();
+    API::Object::ref();
 }
 
 void WebBatteryManagerProxy::derefWebContextSupplement()
 {
-    APIObject::deref();
+    API::Object::deref();
 }
 
 void WebBatteryManagerProxy::startUpdating()

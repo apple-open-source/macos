@@ -1,0 +1,4 @@
+/^from distribute_setup import use_setuptools/a
+.
+.,/^use_setuptools()/s/^/#/
+w

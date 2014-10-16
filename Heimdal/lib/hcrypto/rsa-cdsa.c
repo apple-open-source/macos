@@ -61,7 +61,7 @@ load_key(CSSM_CSP_HANDLE cspHandle, RSA *rsa, int use_public, CSSM_KEY_PTR key, 
 {
     CSSM_KEY_SIZE keySize;
     CSSM_RETURN ret;
-    size_t size;
+    size_t size = 0;
 	
     memset(key, 0, sizeof(*key));
 
@@ -168,7 +168,7 @@ perform_rsa_op(int flen, const unsigned char* from,
     int fret = 0;
     CSSM_SIZE outlen = 0;
     char remdata[1024];
-    size_t keysize;
+    size_t keysize = 0;
 
     if (padding != RSA_PKCS1_PADDING)
 	return -1;

@@ -20,9 +20,12 @@
 #include "config.h"
 #include "WebKitSoupRequestGeneric.h"
 
+#include <wtf/text/CString.h>
+
+#if !ENABLE(CUSTOM_PROTOCOLS)
 #include "WebProcess.h"
 #include "WebSoupRequestManager.h"
-#include <wtf/text/CString.h>
+#endif
 
 using namespace WebKit;
 
@@ -48,19 +51,25 @@ static void webkit_soup_request_generic_init(WebKitSoupRequestGeneric* request)
 
 static void webkitSoupRequestGenericSendAsync(SoupRequest* request, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
 {
-    GSimpleAsyncResult* result = g_simple_async_result_new(G_OBJECT(request), callback, userData, reinterpret_cast<void*>(webkitSoupRequestGenericSendAsync));
-    WebProcess::shared().supplement<WebSoupRequestManager>()->send(result, cancellable);
+#if ENABLE(CUSTOM_PROTOCOLS)
+    CustomProtocolManagerImpl* customProtocolManager = WEBKIT_SOUP_REQUEST_GENERIC_GET_CLASS(request)->customProtocolManager;
+    ASSERT(customProtocolManager);
+    customProtocolManager->send(g_task_new(request, cancellable, callback, userData));
+#else
+    WebProcess::shared().supplement<WebSoupRequestManager>()->send(g_task_new(request, cancellable, callback, userData));
+#endif
 }
 
-static GInputStream* webkitSoupRequestGenericSendFinish(SoupRequest*, GAsyncResult* result, GError** error)
+static GInputStream* webkitSoupRequestGenericSendFinish(SoupRequest* request, GAsyncResult* result, GError** error)
 {
-    GSimpleAsyncResult* simpleResult = G_SIMPLE_ASYNC_RESULT(result);
-    g_warn_if_fail(g_simple_async_result_get_source_tag(simpleResult) == webkitSoupRequestGenericSendAsync);
-
-    if (g_simple_async_result_propagate_error(simpleResult, error))
-        return 0;
-
-    return WebProcess::shared().supplement<WebSoupRequestManager>()->finish(simpleResult);
+    g_return_val_if_fail(g_task_is_valid(result, request), 0);
+#if ENABLE(CUSTOM_PROTOCOLS)
+    CustomProtocolManagerImpl* customProtocolManager = WEBKIT_SOUP_REQUEST_GENERIC_GET_CLASS(request)->customProtocolManager;
+    ASSERT(customProtocolManager);
+    return customProtocolManager->finish(G_TASK(result), error);
+#else
+    return WebProcess::shared().supplement<WebSoupRequestManager>()->finish(G_TASK(result), error);
+#endif
 }
 
 static goffset webkitSoupRequestGenericGetContentLength(SoupRequest* request)

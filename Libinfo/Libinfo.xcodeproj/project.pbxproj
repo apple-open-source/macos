@@ -6,114 +6,25 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		3F397F7E185BD71400987BCC /* Libinfo_Sim */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3F397F7F185BD71500987BCC /* Build configuration list for PBXAggregateTarget "Libinfo_Sim" */;
+			buildPhases = (
+				3F397F83185BD74800987BCC /* Comment on this Target */,
+			);
+			dependencies = (
+				3F397F82185BD71900987BCC /* PBXTargetDependency */,
+			);
+			name = Libinfo_Sim;
+			productName = Libinfo_Sim;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
-		2D31A0FD128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
 		2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
-		2D4070B2129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
 		2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
-		2D5DD5D31608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
-		3FCF60EC1257C272008D8BB1 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
-		3FCF60ED1257C272008D8BB1 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
-		3FCF60F21257C272008D8BB1 /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FC11478C200058CCB0 /* res_query.c */; };
-		3FCF60F41257C272008D8BB1 /* getifaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840411478C200058CCB0 /* getifaddrs.c */; };
-		3FCF60F51257C272008D8BB1 /* if_indextoname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840A11478C200058CCB0 /* if_indextoname.c */; };
-		3FCF60F61257C272008D8BB1 /* if_nameindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840B11478C200058CCB0 /* if_nameindex.c */; };
-		3FCF60F71257C272008D8BB1 /* if_nametoindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840C11478C200058CCB0 /* if_nametoindex.c */; };
-		3FCF60FA1257C272008D8BB1 /* ip6opt.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841211478C200058CCB0 /* ip6opt.c */; };
-		3FCF60FB1257C272008D8BB1 /* map_v4v6.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841411478C200058CCB0 /* map_v4v6.c */; };
-		3FCF60FC1257C272008D8BB1 /* rthdr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841511478C200058CCB0 /* rthdr.c */; };
-		3FCF60FD1257C272008D8BB1 /* vars.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841611478C200058CCB0 /* vars.c */; };
-		3FCF610A1257C272008D8BB1 /* membership.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843E11478C200058CCB0 /* membership.c */; };
-		3FCF610C1257C272008D8BB1 /* getdomainname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844611478C200058CCB0 /* getdomainname.c */; };
-		3FCF610D1257C272008D8BB1 /* getnetgrent.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844711478C200058CCB0 /* getnetgrent.c */; };
-		3FCF610E1257C272008D8BB1 /* innetgr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844811478C200058CCB0 /* innetgr.c */; };
-		3FCF610F1257C272008D8BB1 /* setdomainname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844A11478C200058CCB0 /* setdomainname.c */; };
-		3FCF61101257C272008D8BB1 /* xdr_domainname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844B11478C200058CCB0 /* xdr_domainname.c */; };
-		3FCF61111257C272008D8BB1 /* xdr_keydat.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844C11478C200058CCB0 /* xdr_keydat.c */; };
-		3FCF61121257C272008D8BB1 /* xdr_mapname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844D11478C200058CCB0 /* xdr_mapname.c */; };
-		3FCF61131257C272008D8BB1 /* xdr_peername.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844E11478C200058CCB0 /* xdr_peername.c */; };
-		3FCF61141257C272008D8BB1 /* xdr_valdat.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844F11478C200058CCB0 /* xdr_valdat.c */; };
-		3FCF61151257C272008D8BB1 /* xdr_ypbind_binding.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845011478C200058CCB0 /* xdr_ypbind_binding.c */; };
-		3FCF61161257C272008D8BB1 /* xdr_ypbind_resp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845111478C200058CCB0 /* xdr_ypbind_resp.c */; };
-		3FCF61171257C272008D8BB1 /* xdr_ypbind_resptype.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845211478C200058CCB0 /* xdr_ypbind_resptype.c */; };
-		3FCF61181257C272008D8BB1 /* xdr_ypbind_setdom.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845311478C200058CCB0 /* xdr_ypbind_setdom.c */; };
-		3FCF61191257C272008D8BB1 /* xdr_ypmaplist.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845411478C200058CCB0 /* xdr_ypmaplist.c */; };
-		3FCF611A1257C272008D8BB1 /* xdr_ypreq_key.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845511478C200058CCB0 /* xdr_ypreq_key.c */; };
-		3FCF611B1257C272008D8BB1 /* xdr_ypreq_nokey.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845611478C200058CCB0 /* xdr_ypreq_nokey.c */; };
-		3FCF611C1257C272008D8BB1 /* xdr_ypresp_all.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845711478C200058CCB0 /* xdr_ypresp_all.c */; };
-		3FCF611D1257C272008D8BB1 /* xdr_ypresp_key_val.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845811478C200058CCB0 /* xdr_ypresp_key_val.c */; };
-		3FCF611E1257C272008D8BB1 /* xdr_ypresp_maplist.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845911478C200058CCB0 /* xdr_ypresp_maplist.c */; };
-		3FCF611F1257C272008D8BB1 /* xdr_ypresp_master.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845A11478C200058CCB0 /* xdr_ypresp_master.c */; };
-		3FCF61201257C272008D8BB1 /* xdr_ypresp_order.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845B11478C200058CCB0 /* xdr_ypresp_order.c */; };
-		3FCF61211257C272008D8BB1 /* xdr_ypresp_val.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845C11478C200058CCB0 /* xdr_ypresp_val.c */; };
-		3FCF61221257C272008D8BB1 /* xdr_ypstat.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52845D11478C200058CCB0 /* xdr_ypstat.c */; };
-		3FCF61231257C272008D8BB1 /* yp_all.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846011478C200058CCB0 /* yp_all.c */; };
-		3FCF61241257C272008D8BB1 /* yp_bind.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846211478C200058CCB0 /* yp_bind.c */; };
-		3FCF61251257C272008D8BB1 /* yp_first.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846411478C200058CCB0 /* yp_first.c */; };
-		3FCF61261257C272008D8BB1 /* yp_get_default_domain.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846611478C200058CCB0 /* yp_get_default_domain.c */; };
-		3FCF61271257C272008D8BB1 /* yp_maplist.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846711478C200058CCB0 /* yp_maplist.c */; };
-		3FCF61281257C272008D8BB1 /* yp_master.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846911478C200058CCB0 /* yp_master.c */; };
-		3FCF61291257C272008D8BB1 /* yp_order.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52846D11478C200058CCB0 /* yp_order.c */; };
-		3FCF612A1257C272008D8BB1 /* yperr_string.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847311478C200058CCB0 /* yperr_string.c */; };
-		3FCF612B1257C272008D8BB1 /* ypmatch_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847511478C200058CCB0 /* ypmatch_cache.c */; };
-		3FCF612C1257C272008D8BB1 /* yppasswdd_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847611478C200058CCB0 /* yppasswdd_xdr.c */; };
-		3FCF612D1257C272008D8BB1 /* ypprot_err.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847811478C200058CCB0 /* ypprot_err.c */; };
-		3FCF612E1257C272008D8BB1 /* auth_none.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847B11478C200058CCB0 /* auth_none.c */; };
-		3FCF612F1257C272008D8BB1 /* auth_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847C11478C200058CCB0 /* auth_unix.c */; };
-		3FCF61301257C272008D8BB1 /* authunix_prot.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52847E11478C200058CCB0 /* authunix_prot.c */; };
-		3FCF61311257C272008D8BB1 /* bindresvport.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848011478C200058CCB0 /* bindresvport.c */; };
-		3FCF61321257C272008D8BB1 /* clnt_generic.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848211478C200058CCB0 /* clnt_generic.c */; };
-		3FCF61331257C272008D8BB1 /* clnt_perror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848311478C200058CCB0 /* clnt_perror.c */; };
-		3FCF61341257C272008D8BB1 /* clnt_raw.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848411478C200058CCB0 /* clnt_raw.c */; };
-		3FCF61351257C272008D8BB1 /* clnt_simple.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848511478C200058CCB0 /* clnt_simple.c */; };
-		3FCF61361257C272008D8BB1 /* clnt_tcp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848611478C200058CCB0 /* clnt_tcp.c */; };
-		3FCF61371257C272008D8BB1 /* clnt_udp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848711478C200058CCB0 /* clnt_udp.c */; };
-		3FCF61381257C272008D8BB1 /* get_myaddress.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848911478C200058CCB0 /* get_myaddress.c */; };
-		3FCF61391257C272008D8BB1 /* getrpcent.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848B11478C200058CCB0 /* getrpcent.c */; };
-		3FCF613A1257C272008D8BB1 /* getrpcport.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52848D11478C200058CCB0 /* getrpcport.c */; };
-		3FCF613B1257C272008D8BB1 /* pmap_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849011478C200058CCB0 /* pmap_clnt.c */; };
-		3FCF613C1257C272008D8BB1 /* pmap_getmaps.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849211478C200058CCB0 /* pmap_getmaps.c */; };
-		3FCF613D1257C272008D8BB1 /* pmap_getport.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849311478C200058CCB0 /* pmap_getport.c */; };
-		3FCF613E1257C272008D8BB1 /* pmap_prot.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849411478C200058CCB0 /* pmap_prot.c */; };
-		3FCF613F1257C272008D8BB1 /* pmap_prot2.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849611478C200058CCB0 /* pmap_prot2.c */; };
-		3FCF61401257C272008D8BB1 /* pmap_rmt.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849711478C200058CCB0 /* pmap_rmt.c */; };
-		3FCF61411257C272008D8BB1 /* pmap_wakeup.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849911478C200058CCB0 /* pmap_wakeup.c */; };
-		3FCF61421257C272008D8BB1 /* rpc_callmsg.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849E11478C200058CCB0 /* rpc_callmsg.c */; };
-		3FCF61431257C272008D8BB1 /* rpc_commondata.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52849F11478C200058CCB0 /* rpc_commondata.c */; };
-		3FCF61441257C272008D8BB1 /* rpc_dtablesize.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A011478C200058CCB0 /* rpc_dtablesize.c */; };
-		3FCF61451257C272008D8BB1 /* rpc_prot.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A211478C200058CCB0 /* rpc_prot.c */; };
-		3FCF61461257C272008D8BB1 /* svc.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A311478C200058CCB0 /* svc.c */; };
-		3FCF61471257C272008D8BB1 /* svc_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A511478C200058CCB0 /* svc_auth.c */; };
-		3FCF61481257C272008D8BB1 /* svc_auth_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A711478C200058CCB0 /* svc_auth_unix.c */; };
-		3FCF61491257C272008D8BB1 /* svc_raw.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A811478C200058CCB0 /* svc_raw.c */; };
-		3FCF614A1257C272008D8BB1 /* svc_run.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284A911478C200058CCB0 /* svc_run.c */; };
-		3FCF614B1257C272008D8BB1 /* svc_simple.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284AA11478C200058CCB0 /* svc_simple.c */; };
-		3FCF614C1257C272008D8BB1 /* svc_tcp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284AB11478C200058CCB0 /* svc_tcp.c */; };
-		3FCF614D1257C272008D8BB1 /* svc_udp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284AC11478C200058CCB0 /* svc_udp.c */; };
-		3FCF614E1257C272008D8BB1 /* xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284AF11478C200058CCB0 /* xdr.c */; };
-		3FCF614F1257C272008D8BB1 /* xdr_array.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B111478C200058CCB0 /* xdr_array.c */; };
-		3FCF61501257C272008D8BB1 /* xdr_float.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B211478C200058CCB0 /* xdr_float.c */; };
-		3FCF61511257C272008D8BB1 /* xdr_mem.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B311478C200058CCB0 /* xdr_mem.c */; };
-		3FCF61521257C272008D8BB1 /* xdr_rec.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B411478C200058CCB0 /* xdr_rec.c */; };
-		3FCF61531257C272008D8BB1 /* xdr_reference.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B511478C200058CCB0 /* xdr_reference.c */; };
-		3FCF61541257C272008D8BB1 /* xdr_sizeof.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B611478C200058CCB0 /* xdr_sizeof.c */; };
-		3FCF61551257C272008D8BB1 /* xdr_stdio.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B711478C200058CCB0 /* xdr_stdio.c */; };
-		3FCF61561257C272008D8BB1 /* hton.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BA11478C200058CCB0 /* hton.c */; };
-		3FCF61581257C272008D8BB1 /* rcmd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BE11478C200058CCB0 /* rcmd.c */; };
-		3FCF615D1257C272008D8BB1 /* ether_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5285F6114793400058CCB0 /* ether_addr.c */; };
-		3FFC065C167132160007509F /* cache_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841B11478C200058CCB0 /* cache_module.c */; };
-		3FFC065D167132180007509F /* ds_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841C11478C200058CCB0 /* ds_module.c */; };
-		3FFC065E1671321B0007509F /* file_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841D11478C200058CCB0 /* file_module.c */; };
-		3FFC065F1671321E0007509F /* ils.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842611478C200058CCB0 /* ils.c */; };
-		3FFC0660167132270007509F /* kvbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842911478C200058CCB0 /* kvbuf.c */; };
-		3FFC0661167132270007509F /* libinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842B11478C200058CCB0 /* libinfo.c */; };
-		3FFC0662167132270007509F /* mdns_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842E11478C200058CCB0 /* mdns_module.c */; };
-		3FFC0663167132270007509F /* search_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843211478C200058CCB0 /* search_module.c */; };
-		3FFC0664167132270007509F /* si_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843311478C200058CCB0 /* si_data.c */; };
-		3FFC0665167132270007509F /* si_getaddrinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843511478C200058CCB0 /* si_getaddrinfo.c */; };
-		3FFC0666167132270007509F /* si_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843611478C200058CCB0 /* si_module.c */; };
-		3FFC0667167132270007509F /* thread_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843811478C200058CCB0 /* thread_data.c */; };
 		FC5284C011478C200058CCB0 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
 		FC5284C811478C200058CCB0 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
 		FC5284CD11478C200058CCB0 /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FC11478C200058CCB0 /* res_query.c */; };
@@ -217,6 +128,16 @@
 		FC5285F7114793400058CCB0 /* ether_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5285F6114793400058CCB0 /* ether_addr.c */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		3F397F81185BD71900987BCC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2AAC0620554660B00DB518D;
+			remoteInfo = Libinfo;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		2D31A0FA128074E700D5A84C /* getifmaddrs.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = getifmaddrs.3; sourceTree = "<group>"; };
 		2D31A0FB128074E700D5A84C /* getifmaddrs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getifmaddrs.c; sourceTree = "<group>"; };
@@ -225,7 +146,7 @@
 		2D5DD5D01608E6E80051891A /* configuration_profile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = configuration_profile.c; sourceTree = "<group>"; };
 		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
-		3FCF61621257C272008D8BB1 /* libsystem_sim_info.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_sim_info.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
 		D2AAC0630554660B00DB518D /* libsystem_info.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_info.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC5283EE11478C200058CCB0 /* herror.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = herror.c; sourceTree = "<group>"; };
 		FC5283F711478C200058CCB0 /* res_comp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_comp.c; sourceTree = "<group>"; };
@@ -407,13 +328,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		3FCF615E1257C272008D8BB1 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D289988505E68E00004EDB86 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -427,11 +341,11 @@
 		08FB7794FE84155DC02AAC07 /* Libinfo */ = {
 			isa = PBXGroup;
 			children = (
+				3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */,
 				FC5283ED11478C200058CCB0 /* dns.subproj */,
 				FC52840011478C200058CCB0 /* gen.subproj */,
 				FC52841711478C200058CCB0 /* lookup.subproj */,
 				FC52843A11478C200058CCB0 /* membership.subproj */,
-				FC52844211478C200058CCB0 /* netinfo.subproj */,
 				FC52844511478C200058CCB0 /* nis.subproj */,
 				FC52847911478C200058CCB0 /* rpc.subproj */,
 				FC5284B811478C200058CCB0 /* util.subproj */,
@@ -444,7 +358,6 @@
 			isa = PBXGroup;
 			children = (
 				D2AAC0630554660B00DB518D /* libsystem_info.dylib */,
-				3FCF61621257C272008D8BB1 /* libsystem_sim_info.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -685,23 +598,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3FCF60EA1257C272008D8BB1 /* Libinfo_Sim */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 3FCF61601257C272008D8BB1 /* Build configuration list for PBXNativeTarget "Libinfo_Sim" */;
-			buildPhases = (
-				3FCF60EB1257C272008D8BB1 /* Sources */,
-				3FCF615E1257C272008D8BB1 /* Frameworks */,
-				3FCF615F1257C272008D8BB1 /* Install Files */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = Libinfo_Sim;
-			productName = Libinfo;
-			productReference = 3FCF61621257C272008D8BB1 /* libsystem_sim_info.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
 		D2AAC0620554660B00DB518D /* Libinfo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "Libinfo" */;
@@ -742,25 +638,25 @@
 			projectRoot = "";
 			targets = (
 				D2AAC0620554660B00DB518D /* Libinfo */,
-				3FCF60EA1257C272008D8BB1 /* Libinfo_Sim */,
+				3F397F7E185BD71400987BCC /* Libinfo_Sim */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3FCF615F1257C272008D8BB1 /* Install Files */ = {
+		3F397F83185BD74800987BCC /* Comment on this Target */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
+			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Install Files";
+			name = "Comment on this Target";
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_files.sh";
+			shellScript = "# This target is here for compatibility reasons.  It can be removed once B&I has updated Libinfo_Sim is\n# building with the default -target (https://buildcentral.apple.com/XBSProjectInfo)\n\ntrue";
 		};
 		FC52866A114795BD0058CCB0 /* Install Files */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -779,117 +675,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		3FCF60EB1257C272008D8BB1 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3FCF60EC1257C272008D8BB1 /* herror.c in Sources */,
-				3FCF60ED1257C272008D8BB1 /* res_comp.c in Sources */,
-				3FCF60F21257C272008D8BB1 /* res_query.c in Sources */,
-				3FCF60F41257C272008D8BB1 /* getifaddrs.c in Sources */,
-				3FCF60F51257C272008D8BB1 /* if_indextoname.c in Sources */,
-				3FCF60F61257C272008D8BB1 /* if_nameindex.c in Sources */,
-				3FCF60F71257C272008D8BB1 /* if_nametoindex.c in Sources */,
-				3FCF60FA1257C272008D8BB1 /* ip6opt.c in Sources */,
-				3FCF60FB1257C272008D8BB1 /* map_v4v6.c in Sources */,
-				3FCF60FC1257C272008D8BB1 /* rthdr.c in Sources */,
-				3FCF60FD1257C272008D8BB1 /* vars.c in Sources */,
-				3FCF610A1257C272008D8BB1 /* membership.c in Sources */,
-				3FCF610C1257C272008D8BB1 /* getdomainname.c in Sources */,
-				3FCF610D1257C272008D8BB1 /* getnetgrent.c in Sources */,
-				3FCF610E1257C272008D8BB1 /* innetgr.c in Sources */,
-				3FCF610F1257C272008D8BB1 /* setdomainname.c in Sources */,
-				3FCF61101257C272008D8BB1 /* xdr_domainname.c in Sources */,
-				3FCF61111257C272008D8BB1 /* xdr_keydat.c in Sources */,
-				3FCF61121257C272008D8BB1 /* xdr_mapname.c in Sources */,
-				3FCF61131257C272008D8BB1 /* xdr_peername.c in Sources */,
-				3FCF61141257C272008D8BB1 /* xdr_valdat.c in Sources */,
-				3FCF61151257C272008D8BB1 /* xdr_ypbind_binding.c in Sources */,
-				3FCF61161257C272008D8BB1 /* xdr_ypbind_resp.c in Sources */,
-				3FCF61171257C272008D8BB1 /* xdr_ypbind_resptype.c in Sources */,
-				3FCF61181257C272008D8BB1 /* xdr_ypbind_setdom.c in Sources */,
-				3FCF61191257C272008D8BB1 /* xdr_ypmaplist.c in Sources */,
-				3FCF611A1257C272008D8BB1 /* xdr_ypreq_key.c in Sources */,
-				3FCF611B1257C272008D8BB1 /* xdr_ypreq_nokey.c in Sources */,
-				3FCF611C1257C272008D8BB1 /* xdr_ypresp_all.c in Sources */,
-				3FCF611D1257C272008D8BB1 /* xdr_ypresp_key_val.c in Sources */,
-				3FCF611E1257C272008D8BB1 /* xdr_ypresp_maplist.c in Sources */,
-				3FCF611F1257C272008D8BB1 /* xdr_ypresp_master.c in Sources */,
-				3FCF61201257C272008D8BB1 /* xdr_ypresp_order.c in Sources */,
-				3FCF61211257C272008D8BB1 /* xdr_ypresp_val.c in Sources */,
-				3FCF61221257C272008D8BB1 /* xdr_ypstat.c in Sources */,
-				3FCF61231257C272008D8BB1 /* yp_all.c in Sources */,
-				3FCF61241257C272008D8BB1 /* yp_bind.c in Sources */,
-				3FCF61251257C272008D8BB1 /* yp_first.c in Sources */,
-				3FCF61261257C272008D8BB1 /* yp_get_default_domain.c in Sources */,
-				3FCF61271257C272008D8BB1 /* yp_maplist.c in Sources */,
-				3FCF61281257C272008D8BB1 /* yp_master.c in Sources */,
-				3FCF61291257C272008D8BB1 /* yp_order.c in Sources */,
-				3FCF612A1257C272008D8BB1 /* yperr_string.c in Sources */,
-				3FCF612B1257C272008D8BB1 /* ypmatch_cache.c in Sources */,
-				3FCF612C1257C272008D8BB1 /* yppasswdd_xdr.c in Sources */,
-				3FCF612D1257C272008D8BB1 /* ypprot_err.c in Sources */,
-				3FCF612E1257C272008D8BB1 /* auth_none.c in Sources */,
-				3FCF612F1257C272008D8BB1 /* auth_unix.c in Sources */,
-				3FCF61301257C272008D8BB1 /* authunix_prot.c in Sources */,
-				3FCF61311257C272008D8BB1 /* bindresvport.c in Sources */,
-				3FCF61321257C272008D8BB1 /* clnt_generic.c in Sources */,
-				3FCF61331257C272008D8BB1 /* clnt_perror.c in Sources */,
-				3FCF61341257C272008D8BB1 /* clnt_raw.c in Sources */,
-				3FCF61351257C272008D8BB1 /* clnt_simple.c in Sources */,
-				3FCF61361257C272008D8BB1 /* clnt_tcp.c in Sources */,
-				3FCF61371257C272008D8BB1 /* clnt_udp.c in Sources */,
-				3FCF61381257C272008D8BB1 /* get_myaddress.c in Sources */,
-				3FCF61391257C272008D8BB1 /* getrpcent.c in Sources */,
-				3FCF613A1257C272008D8BB1 /* getrpcport.c in Sources */,
-				3FCF613B1257C272008D8BB1 /* pmap_clnt.c in Sources */,
-				3FCF613C1257C272008D8BB1 /* pmap_getmaps.c in Sources */,
-				3FCF613D1257C272008D8BB1 /* pmap_getport.c in Sources */,
-				3FCF613E1257C272008D8BB1 /* pmap_prot.c in Sources */,
-				3FCF613F1257C272008D8BB1 /* pmap_prot2.c in Sources */,
-				3FCF61401257C272008D8BB1 /* pmap_rmt.c in Sources */,
-				3FCF61411257C272008D8BB1 /* pmap_wakeup.c in Sources */,
-				3FCF61421257C272008D8BB1 /* rpc_callmsg.c in Sources */,
-				3FCF61431257C272008D8BB1 /* rpc_commondata.c in Sources */,
-				3FCF61441257C272008D8BB1 /* rpc_dtablesize.c in Sources */,
-				3FCF61451257C272008D8BB1 /* rpc_prot.c in Sources */,
-				3FCF61461257C272008D8BB1 /* svc.c in Sources */,
-				3FCF61471257C272008D8BB1 /* svc_auth.c in Sources */,
-				3FCF61481257C272008D8BB1 /* svc_auth_unix.c in Sources */,
-				3FCF61491257C272008D8BB1 /* svc_raw.c in Sources */,
-				3FCF614A1257C272008D8BB1 /* svc_run.c in Sources */,
-				3FCF614B1257C272008D8BB1 /* svc_simple.c in Sources */,
-				3FCF614C1257C272008D8BB1 /* svc_tcp.c in Sources */,
-				3FCF614D1257C272008D8BB1 /* svc_udp.c in Sources */,
-				3FCF614E1257C272008D8BB1 /* xdr.c in Sources */,
-				3FCF614F1257C272008D8BB1 /* xdr_array.c in Sources */,
-				3FCF61501257C272008D8BB1 /* xdr_float.c in Sources */,
-				3FCF61511257C272008D8BB1 /* xdr_mem.c in Sources */,
-				3FCF61521257C272008D8BB1 /* xdr_rec.c in Sources */,
-				3FCF61531257C272008D8BB1 /* xdr_reference.c in Sources */,
-				3FCF61541257C272008D8BB1 /* xdr_sizeof.c in Sources */,
-				3FCF61551257C272008D8BB1 /* xdr_stdio.c in Sources */,
-				3FCF61561257C272008D8BB1 /* hton.c in Sources */,
-				3FCF61581257C272008D8BB1 /* rcmd.c in Sources */,
-				3FCF615D1257C272008D8BB1 /* ether_addr.c in Sources */,
-				2D31A0FD128074E700D5A84C /* getifmaddrs.c in Sources */,
-				2D4070B2129354A700FE81ED /* getnameinfo_link.c in Sources */,
-				2D5DD5D31608E6E80051891A /* configuration_profile.c in Sources */,
-				3FFC065C167132160007509F /* cache_module.c in Sources */,
-				3FFC065D167132180007509F /* ds_module.c in Sources */,
-				3FFC065E1671321B0007509F /* file_module.c in Sources */,
-				3FFC065F1671321E0007509F /* ils.c in Sources */,
-				3FFC0660167132270007509F /* kvbuf.c in Sources */,
-				3FFC0661167132270007509F /* libinfo.c in Sources */,
-				3FFC0662167132270007509F /* mdns_module.c in Sources */,
-				3FFC0663167132270007509F /* search_module.c in Sources */,
-				3FFC0664167132270007509F /* si_data.c in Sources */,
-				3FFC0665167132270007509F /* si_getaddrinfo.c in Sources */,
-				3FFC0666167132270007509F /* si_module.c in Sources */,
-				3FFC0667167132270007509F /* thread_data.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D2AAC0610554660B00DB518D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1003,49 +788,19 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		3F397F82185BD71900987BCC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2AAC0620554660B00DB518D /* Libinfo */;
+			targetProxy = 3F397F81185BD71900987BCC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1DEB914C08733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */;
 			buildSettings = {
-				EXECUTABLE_PREFIX = libsystem_;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"__DARWIN_NON_CANCELABLE=1",
-					"__MigTypeCheck=1",
-					"INET6=1",
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphone*][arch=*]" = (
-					CONFIG_IPHONE,
-					"$(GCC_PREPROCESSOR_DEFINITIONS)",
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
-					CONFIG_MAC,
-					DS_AVAILABLE,
-					SYNTH_ROOTFS,
-					"$(GCC_PREPROCESSOR_DEFINITIONS)",
-				);
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /usr/lib/system;
-				LINK_WITH_STANDARD_LIBRARIES = NO;
-				ORDER_FILE = "$(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libsystem_info.order";
-				OTHER_LDFLAGS = (
-					"-Wl,-umbrella,System",
-					"-L/usr/lib/system",
-					"-lcompiler_rt",
-					"-ldispatch",
-					"-ldyld",
-					"-llaunch",
-					"-lsystem_asl",
-					"-lsystem_blocks",
-					"-lsystem_dnssd",
-					"-lsystem_kernel",
-					"-lsystem_notify",
-					"-lsystem_malloc",
-					"-lsystem_platform",
-					"-lsystem_pthread",
-					"-lsystem_c",
-					"-lxpc",
-					"-Wl,-upward-lsystem_network",
-				);
 				PRODUCT_NAME = info;
 				VERSION_INFO_EXPORT_DECL = static;
 				VERSION_INFO_PREFIX = __;
@@ -1076,35 +831,10 @@
 			};
 			name = Release;
 		};
-		3FCF61611257C272008D8BB1 /* Release */ = {
+		3F397F80185BD71500987BCC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				EXECUTABLE_PREFIX = libsystem_sim_;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"__DARWIN_NON_CANCELABLE=1",
-					"__MigTypeCheck=1",
-					"INET6=1",
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphone*][arch=*]" = (
-					CONFIG_IPHONE,
-					"$(GCC_PREPROCESSOR_DEFINITIONS)",
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
-					CONFIG_MAC,
-					DS_AVAILABLE,
-					SYNTH_ROOTFS,
-					"$(GCC_PREPROCESSOR_DEFINITIONS)",
-				);
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = "$(SDKROOT)/usr/lib/system";
-				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_LDFLAGS = (
-					"-Wl,-umbrella,System",
-					"-Wl,-upward-lSystem",
-				);
-				PRODUCT_NAME = info;
-				VERSION_INFO_EXPORT_DECL = static;
-				VERSION_INFO_PREFIX = __;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1127,13 +857,12 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3FCF61601257C272008D8BB1 /* Build configuration list for PBXNativeTarget "Libinfo_Sim" */ = {
+		3F397F7F185BD71500987BCC /* Build configuration list for PBXAggregateTarget "Libinfo_Sim" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3FCF61611257C272008D8BB1 /* Release */,
+				3F397F80185BD71500987BCC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

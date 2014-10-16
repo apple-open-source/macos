@@ -36,10 +36,6 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	this->x = `kmem_flags;
-#else
 	this->x = `max_ncpus;
-#endif /* __APPLE__ */
 	this->x = *`rootvp;
 }

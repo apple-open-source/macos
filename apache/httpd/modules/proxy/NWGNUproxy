@@ -19,10 +19,10 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
 			$(AP_WORK)/include \
+			$(AP_WORK)/modules/http \
+			$(AP_WORK)/modules/generators \
+			$(AP_WORK)/modules/ssl \
 			$(NWOS) \
-			$(HTTPD) \
-			$(STDMOD)/generators \
-			$(STDMOD)/ssl \
 			$(EOLIST)
 
 #
@@ -97,7 +97,7 @@ endif
 NLM_NAME	= proxy
 
 #
-# This is used by the link '-desc ' directive. 
+# This is used by the link '-desc ' directive.
 # If left blank, NLM_NAME will be used.
 #
 NLM_DESCRIPTION	= Apache $(VERSION_STR) Proxy Module
@@ -109,7 +109,7 @@ NLM_DESCRIPTION	= Apache $(VERSION_STR) Proxy Module
 NLM_THREAD_NAME	= Proxy Module
 
 #
-# If this is specified, it will override VERSION value in 
+# If this is specified, it will override VERSION value in
 # $(AP_WORK)/build/NWGNUenvironment.inc
 #
 NLM_VERSION	=
@@ -141,11 +141,11 @@ NLM_CHECK_SYM	=
 NLM_FLAGS	=
 
 #
-# If this is specified it will be linked in with the XDCData option in the def 
+# If this is specified it will be linked in with the XDCData option in the def
 # file instead of the default of $(NWOS)/apache.xdc.  XDCData can be disabled
 # by setting APACHE_UNIPROC in the environment
 #
-XDCDATA		= 
+XDCDATA		=
 
 #
 # If there is an NLM target, put it here
@@ -191,7 +191,7 @@ FILES_nlm_modules = \
 # If the nlm has a msg file, put it's path here
 #
 FILE_nlm_msg =
- 
+
 #
 # If the nlm has a hlp file put it's path here
 #
@@ -210,21 +210,21 @@ FILES_nlm_Ximports = \
 	@httpd.imp \
 	@libc.imp \
 	$(EOLIST)
- 
+
 # Don't link with Winsock if standard sockets are being used
 ifndef USE_STDSOCKETS
 FILES_nlm_Ximports += @ws2nlm.imp \
 	$(EOLIST)
 endif
- 
-#   
+
+#
 # Any symbols exported to here
 #
 FILES_nlm_exports = \
 	@$(OBJDIR)/mod_proxy.imp \
 	$(EOLIST)
 
-#   
+#
 # These are the OBJ files needed to create the LIB target above.
 # Paths must all use the '/' character
 #
@@ -240,7 +240,7 @@ libs :: $(OBJDIR) $(TARGET_lib)
 nlms :: libs $(OBJDIR)/mod_proxy.imp $(TARGET_nlm)
 
 #
-# Updated this target to create necessary directories and copy files to the 
+# Updated this target to create necessary directories and copy files to the
 # correct place.  (See $(AP_WORK)/build/NWGNUhead.inc for examples)
 #
 install :: nlms FORCE
@@ -251,19 +251,75 @@ install :: nlms FORCE
 
 vpath %.c ../arch/netware
 
-$(OBJDIR)/mod_proxy.imp:
-	@echo Creating $@
-	@echo # Exports of mod_proxy > $@
-	@echo   proxy_module, >> $@
-	@echo   proxy_hook_canon_handler, >> $@
-	@echo   proxy_hook_post_request, >> $@
-	@echo   proxy_hook_pre_request, >> $@
-	@echo   proxy_hook_scheme_handler, >> $@
-	@echo   proxy_run_fixups, >> $@
-	@echo   ap_proxy_conn_is_https, >> $@
-	@echo   ap_proxy_ssl_enable, >> $@
-	@echo   ap_proxy_ssl_disable, >> $@
-	@echo   ap_proxy_ssl_val >> $@
+$(OBJDIR)/mod_proxy.imp: NWGNUproxy
+	@echo $(DL)GEN  $@$(DL)
+	@echo $(DL)# Exports of mod_proxy$(DL)> $@
+	@echo $(DL) (AP$(VERSION_MAJMIN))$(DL)>> $@
+	@echo $(DL) proxy_module,$(DL)>> $@
+	@echo $(DL) proxy_hook_canon_handler,$(DL)>> $@
+	@echo $(DL) proxy_hook_get_canon_handler,$(DL)>> $@
+	@echo $(DL) proxy_hook_get_post_request,$(DL)>> $@
+	@echo $(DL) proxy_hook_get_pre_request,$(DL)>> $@
+	@echo $(DL) proxy_hook_get_scheme_handler,$(DL)>> $@
+	@echo $(DL) proxy_hook_post_request,$(DL)>> $@
+	@echo $(DL) proxy_hook_pre_request,$(DL)>> $@
+	@echo $(DL) proxy_hook_scheme_handler,$(DL)>> $@
+	@echo $(DL) proxy_run_canon_handler,$(DL)>> $@
+	@echo $(DL) proxy_run_create_req,$(DL)>> $@
+	@echo $(DL) proxy_run_fixups,$(DL)>> $@
+	@echo $(DL) proxy_run_post_request,$(DL)>> $@
+	@echo $(DL) proxy_run_pre_request,$(DL)>> $@
+	@echo $(DL) proxy_run_request_status,$(DL)>> $@
+	@echo $(DL) proxy_run_scheme_handler,$(DL)>> $@
+	@echo $(DL) ap_proxy_acquire_connection,$(DL)>> $@
+	@echo $(DL) ap_proxy_backend_broke,$(DL)>> $@
+	@echo $(DL) ap_proxy_c2hex,$(DL)>> $@
+	@echo $(DL) ap_proxy_canon_netloc,$(DL)>> $@
+	@echo $(DL) ap_proxy_canonenc,$(DL)>> $@
+	@echo $(DL) ap_proxy_checkproxyblock,$(DL)>> $@
+	@echo $(DL) ap_proxy_checkproxyblock2,$(DL)>> $@
+	@echo $(DL) ap_proxy_conn_is_https,$(DL)>> $@
+	@echo $(DL) ap_proxy_connect_backend,$(DL)>> $@
+	@echo $(DL) ap_proxy_connect_to_backend,$(DL)>> $@
+	@echo $(DL) ap_proxy_connection_create,$(DL)>> $@
+	@echo $(DL) ap_proxy_cookie_reverse_map,$(DL)>> $@
+	@echo $(DL) ap_proxy_create_hdrbrgd,$(DL)>> $@
+	@echo $(DL) ap_proxy_define_balancer,$(DL)>> $@
+	@echo $(DL) ap_proxy_define_worker,$(DL)>> $@
+	@echo $(DL) ap_proxy_determine_connection,$(DL)>> $@
+	@echo $(DL) ap_proxy_find_balancershm,$(DL)>> $@
+	@echo $(DL) ap_proxy_find_workershm,$(DL)>> $@
+	@echo $(DL) ap_proxy_get_balancer,$(DL)>> $@
+	@echo $(DL) ap_proxy_get_worker,$(DL)>> $@
+	@echo $(DL) ap_proxy_hashfunc,$(DL)>> $@
+	@echo $(DL) ap_proxy_hex2c,$(DL)>> $@
+	@echo $(DL) ap_proxy_initialize_balancer,$(DL)>> $@
+	@echo $(DL) ap_proxy_initialize_worker,$(DL)>> $@
+	@echo $(DL) ap_proxy_is_domainname,$(DL)>> $@
+	@echo $(DL) ap_proxy_is_hostname,$(DL)>> $@
+	@echo $(DL) ap_proxy_is_ipaddr,$(DL)>> $@
+	@echo $(DL) ap_proxy_is_word,$(DL)>> $@
+	@echo $(DL) ap_proxy_location_reverse_map,$(DL)>> $@
+	@echo $(DL) ap_proxy_parse_wstatus,$(DL)>> $@
+	@echo $(DL) ap_proxy_pass_brigade,$(DL)>> $@
+	@echo $(DL) ap_proxy_port_of_scheme,$(DL)>> $@
+	@echo $(DL) ap_proxy_post_request,$(DL)>> $@
+	@echo $(DL) ap_proxy_pre_http_request,$(DL)>> $@
+	@echo $(DL) ap_proxy_pre_request,$(DL)>> $@
+	@echo $(DL) ap_proxy_release_connection,$(DL)>> $@
+	@echo $(DL) ap_proxy_set_wstatus,$(DL)>> $@
+	@echo $(DL) ap_proxy_share_balancer,$(DL)>> $@
+	@echo $(DL) ap_proxy_share_worker,$(DL)>> $@
+	@echo $(DL) ap_proxy_ssl_connection_cleanup,$(DL)>> $@
+	@echo $(DL) ap_proxy_ssl_disable,$(DL)>> $@
+	@echo $(DL) ap_proxy_ssl_enable,$(DL)>> $@
+	@echo $(DL) ap_proxy_ssl_val,$(DL)>> $@
+	@echo $(DL) ap_proxy_strncpy,$(DL)>> $@
+	@echo $(DL) ap_proxy_sync_balancer,$(DL)>> $@
+	@echo $(DL) ap_proxy_trans_match,$(DL)>> $@
+	@echo $(DL) ap_proxy_valid_balancer_name,$(DL)>> $@
+	@echo $(DL) ap_proxy_worker_name,$(DL)>> $@
+	@echo $(DL) ap_proxyerror$(DL)>> $@
 
 #
 # Include the 'tail' makefile that has targets that depend on variables defined

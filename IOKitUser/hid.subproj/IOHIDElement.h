@@ -155,7 +155,7 @@ IOHIDElementType IOHIDElementGetType(IOHIDElementRef element)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
-	@function   IOHIDElementCollectionType
+	@function   IOHIDElementGetCollectionType
 	@abstract   Retrieves the collection type for the element.
     @discussion The value returned by this method only makes sense if the element type is kIOHIDElementTypeCollection.
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.
@@ -347,7 +347,7 @@ CFIndex IOHIDElementGetLogicalMin(IOHIDElementRef element)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
-	@function   IOHIDElementGetMax
+	@function   IOHIDElementGetLogicalMax
 	@abstract   Returns the maximum value possible for the element.
     @discussion This corresponds to the logical maximum, which indicates the upper bounds of a variable element.
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.

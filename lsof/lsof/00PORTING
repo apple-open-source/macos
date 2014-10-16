@@ -1334,6 +1334,10 @@ possibilities
     HASVXFS_VX_INODE    indicates that <sys/fs/vx_inode.h> contains
 			a vx_inode structure.
 
+    HASWCTYPE_H		indicates the FreeBSD version has wide-character
+			support and the <wctype.h> header file.  Note:
+			the HASWIDECHAR #define will also be set.
+
     HASWIDECHAR         indicates the dialect has the wide-character
 			support functions iswprint(), mblen() and mbtowc().
 
@@ -1831,4 +1835,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-??? ??? 2012
+January 2, 2013

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -391,7 +391,7 @@ Exit:
 	return result;
 }
 
-IOReturn IOAudioTimeIntervalFilterFIR::reInitialiseFilter(uint64_t expectedInterval /* =0 */, uint32_t multiIntervalCount /* =1 */)
+IOReturn IOAudioTimeIntervalFilterFIR::reInitialiseFilter(uint32_t expectedInterval /* =0 */, uint32_t multiIntervalCount /* =1 */)
 {
 	IOReturn result = IOAudioTimeIntervalFilter::reInitialiseFilter ( expectedInterval, multiIntervalCount );
 	

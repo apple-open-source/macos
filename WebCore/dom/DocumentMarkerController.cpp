@@ -27,10 +27,10 @@
 #include "config.h"
 #include "DocumentMarkerController.h"
 
-#include "Node.h"
 #include "NodeTraversal.h"
 #include "Range.h"
-#include "RenderObject.h"
+#include "RenderBlockFlow.h"
+#include "RenderText.h"
 #include "RenderedDocumentMarker.h"
 #include "TextIterator.h"
 #include <stdio.h>
@@ -107,6 +107,43 @@ void DocumentMarkerController::addTextMatchMarker(const Range* range, bool activ
     }
 }
 
+#if PLATFORM(IOS)
+void DocumentMarkerController::addMarker(Range* range, DocumentMarker::MarkerType type, String description, const Vector<String>& interpretations, const RetainPtr<id>& metadata)
+{
+    // Use a TextIterator to visit the potentially multiple nodes the range covers.
+    for (TextIterator markedText(range); !markedText.atEnd(); markedText.advance()) {
+        RefPtr<Range> textPiece = markedText.range();
+        addMarker(textPiece->startContainer(), DocumentMarker(type, textPiece->startOffset(), textPiece->endOffset(), description, interpretations, metadata));
+    }
+}
+
+void DocumentMarkerController::addDictationPhraseWithAlternativesMarker(Range* range, const Vector<String>& interpretations)
+{
+    ASSERT(interpretations.size() > 1);
+    if (interpretations.size() <= 1)
+        return;
+
+    size_t numberOfAlternatives = interpretations.size() - 1;
+    // Use a TextIterator to visit the potentially multiple nodes the range covers.
+    for (TextIterator markedText(range); !markedText.atEnd(); markedText.advance()) {
+        RefPtr<Range> textPiece = markedText.range();
+        DocumentMarker marker(DocumentMarker::DictationPhraseWithAlternatives, textPiece->startOffset(), textPiece->endOffset(), "", Vector<String>(numberOfAlternatives), RetainPtr<id>());
+        for (size_t i = 0; i < numberOfAlternatives; ++i)
+            marker.setAlternative(interpretations[i + 1], i);
+        addMarker(textPiece->startContainer(), marker);
+    }
+}
+
+void DocumentMarkerController::addDictationResultMarker(Range* range, const RetainPtr<id>& metadata)
+{
+    // Use a TextIterator to visit the potentially multiple nodes the range covers.
+    for (TextIterator markedText(range); !markedText.atEnd(); markedText.advance()) {
+        RefPtr<Range> textPiece = markedText.range();
+        addMarker(textPiece->startContainer(), DocumentMarker(DocumentMarker::DictationResult, textPiece->startOffset(), textPiece->endOffset(), String(), Vector<String>(), metadata));
+    }
+}
+#endif
+
 void DocumentMarkerController::removeMarkers(Range* range, DocumentMarker::MarkerTypes markerTypes, RemovePartiallyOverlappingMarkerOrNot shouldRemovePartiallyOverlappingMarker)
 {
     for (TextIterator markedText(range); !markedText.atEnd(); markedText.advance()) {
@@ -130,13 +167,33 @@ void DocumentMarkerController::addMarker(Node* node, const DocumentMarker& newMa
     if (newMarker.endOffset() == newMarker.startOffset())
         return;
 
+    if (auto* renderer = node->renderer()) {
+        // FIXME: Factor the marker painting code out of InlineTextBox and teach simple line layout to use it.
+        if (renderer->isText())
+            toRenderText(*renderer).ensureLineBoxes();
+        else if (renderer->isRenderBlockFlow())
+            toRenderBlockFlow(*renderer).ensureLineBoxes();
+    }
+
     m_possiblyExistingMarkerTypes.add(newMarker.type());
 
-    OwnPtr<MarkerList>& list = m_markers.add(node, nullptr).iterator->value;
+    std::unique_ptr<MarkerList>& list = m_markers.add(node, nullptr).iterator->value;
 
     if (!list) {
-        list = adoptPtr(new MarkerList);
+        list = std::make_unique<MarkerList>();
         list->append(RenderedDocumentMarker(newMarker));
+#if PLATFORM(IOS)
+    } else if (newMarker.type() == DocumentMarker::DictationPhraseWithAlternatives || newMarker.type() == DocumentMarker::DictationResult) {
+        // We don't merge dictation markers.
+        size_t i;
+        size_t numberOfMarkers = list->size();
+        for (i = 0; i < numberOfMarkers; ++i) {
+            DocumentMarker marker = list->at(i);
+            if (marker.startOffset() > newMarker.startOffset())
+                break;
+        }
+        list->insert(i, RenderedDocumentMarker(newMarker));
+#endif
     } else {
         RenderedDocumentMarker toInsert(newMarker);
         size_t numMarkers = list->size();
@@ -334,20 +391,6 @@ Vector<DocumentMarker*> DocumentMarkerController::markersFor(Node* node, Documen
     return result;
 }
 
-// FIXME: Should be removed after all relevant patches are landed
-Vector<DocumentMarker> DocumentMarkerController::markersForNode(Node* node)
-{
-    Vector<DocumentMarker> result;
-    MarkerList* list = m_markers.get(node);
-    if (!list)
-        return result;
-
-    for (size_t i = 0; i < list->size(); ++i)
-        result.append(list->at(i));
-
-    return result;
-}
-
 Vector<DocumentMarker*> DocumentMarkerController::markersInRange(Range* range, DocumentMarker::MarkerTypes markerTypes)
 {
     if (!possiblyHasMarkers(markerTypes))
@@ -426,7 +469,7 @@ void DocumentMarkerController::removeMarkers(DocumentMarker::MarkerTypes markerT
         return;
     ASSERT(!m_markers.isEmpty());
 
-    Vector<RefPtr<Node> > nodesWithMarkers;
+    Vector<RefPtr<Node>> nodesWithMarkers;
     copyKeysToVector(m_markers, nodesWithMarkers);
     unsigned size = nodesWithMarkers.size();
     for (unsigned i = 0; i < size; ++i) {
@@ -468,7 +511,7 @@ void DocumentMarkerController::removeMarkersFromList(MarkerMap::iterator iterato
     }
 
     if (needsRepainting) {
-        if (RenderObject* renderer = iterator->key->renderer())
+        if (auto renderer = iterator->key->renderer())
             renderer->repaint();
     }
 
@@ -507,7 +550,7 @@ void DocumentMarkerController::repaintMarkers(DocumentMarker::MarkerTypes marker
             continue;
 
         // cause the node to be redrawn
-        if (RenderObject* renderer = node->renderer())
+        if (auto renderer = node->renderer())
             renderer->repaint();
     }
 }
@@ -536,8 +579,16 @@ void DocumentMarkerController::shiftMarkers(Node* node, unsigned startOffset, in
         return;
 
     bool docDirty = false;
-    for (size_t i = 0; i != list->size(); ++i) {
+    for (size_t i = 0; i != list->size(); ) {
         RenderedDocumentMarker& marker = list->at(i);
+#if PLATFORM(IOS)
+        int targetStartOffset = marker.startOffset() + delta;
+        int targetEndOffset = marker.endOffset() + delta;
+        if (targetStartOffset >= node->maxCharacterOffset() || targetEndOffset <= 0) {
+            list->remove(i);
+            continue;
+        }
+#endif
         if (marker.startOffset() >= startOffset) {
             ASSERT((int)marker.startOffset() + delta >= 0);
             marker.shiftOffsets(delta);
@@ -545,7 +596,24 @@ void DocumentMarkerController::shiftMarkers(Node* node, unsigned startOffset, in
 
             // Marker moved, so previously-computed rendered rectangle is now invalid
             marker.invalidate();
+#if !PLATFORM(IOS)
         }
+#else
+        // FIXME: Inserting text inside a DocumentMarker does not grow the marker.
+        // See <https://bugs.webkit.org/show_bug.cgi?id=62504>.
+        } else if (marker.endOffset() > startOffset) {
+            if (marker.endOffset() + delta <= marker.startOffset()) {
+                list->remove(i);
+                continue;
+            }
+            marker.setEndOffset(targetEndOffset < node->maxCharacterOffset() ? targetEndOffset : node->maxCharacterOffset());
+            docDirty = true;
+
+            // Marker moved, so previously-computed rendered rectangle is now invalid
+            marker.invalidate();
+        }
+#endif
+        ++i;
     }
 
     // repaint the affected node

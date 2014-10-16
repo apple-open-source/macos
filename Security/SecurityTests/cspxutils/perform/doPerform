@@ -1,0 +1,31 @@
+#! /bin/csh -f
+#
+# run symmteric performance tests on all algorithms.
+#
+if ( $#argv < 2 ) then
+        echo Usage: doPerform iterations bufsize
+        exit(1)
+endif
+#
+set ITER=$argv[1]
+set BUFSIZE=$argv[2]
+#
+cd $LOCAL_BUILD_DIR
+#
+# ASC doesn't work due to different ptext/ctext size
+# RC4 skipped because it generates ctext==ptext if iterations is even
+#
+./perform $ITER $BUFSIZE a=d
+./perform $ITER $BUFSIZE a=d e
+./perform $ITER $BUFSIZE a=3
+./perform $ITER $BUFSIZE a=3 e
+./perform $ITER $BUFSIZE a=2
+./perform $ITER $BUFSIZE a=2 e
+./perform $ITER $BUFSIZE a=5
+./perform $ITER $BUFSIZE a=5 e
+./perform $ITER $BUFSIZE a=a
+./perform $ITER $BUFSIZE a=a e
+./perform $ITER $BUFSIZE a=b
+./perform $ITER $BUFSIZE a=b e
+./perform $ITER $BUFSIZE a=c
+./perform $ITER $BUFSIZE a=c e

@@ -1,13 +1,7 @@
 #
-# "$Id: snmp.conf.in 11093 2013-07-03 20:48:42Z msweet $"
-#
-#   Sample SNMP configuration file for CUPS.  See "man cups-snmp.conf" for a
-#   complete description of this file.
+# SNMP configuration file for CUPS.  See "man cups-snmp.conf" for a complete
+# description of this file.
 #
 
 @CUPS_SNMP_ADDRESS@
 @CUPS_SNMP_COMMUNITY@
-
-#
-# End of "$Id: snmp.conf.in 11093 2013-07-03 20:48:42Z msweet $".
-#

@@ -34,6 +34,7 @@
 #include "IDBBindingUtilities.h"
 #include "IDBKeyPath.h"
 #include "IDBObjectStore.h"
+#include "JSDOMBinding.h"
 #include "JSIDBIndex.h"
 #include <runtime/Error.h>
 #include <runtime/JSString.h>
@@ -46,10 +47,10 @@ JSValue JSIDBObjectStore::createIndex(ExecState* exec)
 {
     ScriptExecutionContext* context = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
     if (!context)
-        return throwError(exec, createReferenceError(exec, "IDBObjectStore script execution context is unavailable"));
+        return exec->vm().throwException(exec, createReferenceError(exec, "IDBObjectStore script execution context is unavailable"));
 
     if (exec->argumentCount() < 2)
-        return throwError(exec, createNotEnoughArgumentsError(exec));
+        return exec->vm().throwException(exec, createNotEnoughArgumentsError(exec));
 
     String name = exec->argument(0).toString(exec)->value(exec);
     if (exec->hadException())
@@ -76,7 +77,7 @@ JSValue JSIDBObjectStore::createIndex(ExecState* exec)
     }
 
     ExceptionCode ec = 0;
-    JSValue result = toJS(exec, globalObject(), impl()->createIndex(context, name, keyPath, unique, multiEntry, ec).get());
+    JSValue result = toJS(exec, globalObject(), impl().createIndex(context, name, keyPath, unique, multiEntry, ec).get());
     setDOMException(exec, ec);
     return result;
 }

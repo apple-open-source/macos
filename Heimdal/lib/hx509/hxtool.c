@@ -33,6 +33,8 @@
 
 #include "hx_locl.h"
 
+static void usage(int code) __attribute__((noreturn));
+
 #include <hxtool-commands.h>
 #include <sl.h>
 #include <rtbl.h>
@@ -682,7 +684,7 @@ print_certificate(hx509_context context, hx509_cert cert, int verbose)
     printf("    private key: %s\n",
 	   _hx509_cert_private_key(cert) ? "yes" : "no");
 
-    ret = hx509_print_cert(hxcontext, cert, NULL);
+    ret = hx509_print_cert(hxcontext, cert, stdout);
     if (ret)
 	errx(1, "failed to print cert");
 
@@ -1055,6 +1057,23 @@ query(struct query_options *opt, int argc, char **argv)
     if (opt->expr_string)
 	hx509_query_match_expr(hxcontext, q, opt->expr_string);
 #endif
+
+    if (opt->persistent_string) {
+	heim_octet_string os;
+	ssize_t len;
+
+	os.data = malloc(strlen(opt->persistent_string));
+	if (os.data == NULL)
+	    errx(1, "malloc");
+
+	len = hex_decode(opt->persistent_string, os.data, strlen(opt->persistent_string));
+	if (len < 0)
+	    errx(1, "hex decoding of %s failed", opt->persistent_string);
+	os.length = (size_t)len;
+
+	hx509_query_match_persistent(q, &os);
+	free(os.data);
+    }
 
     ret = hx509_certs_find(hxcontext, certs, q, &c);
     hx509_query_free(hxcontext, q);

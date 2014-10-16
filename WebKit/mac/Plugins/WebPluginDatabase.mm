@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -44,6 +44,10 @@
 #import "WebViewInternal.h"
 #import <WebKitSystemInterface.h>
 #import <wtf/Assertions.h>
+
+#if PLATFORM(IOS)
+#import "WebUIKitSupport.h"
+#endif
 
 using namespace WebCore;
 
@@ -386,6 +390,7 @@ static NSArray *additionalWebPlugInPaths;
 
 + (NSArray *)_defaultPlugInPaths
 {
+#if !PLATFORM(IOS)
     // Plug-ins are found in order of precedence.
     // If there are duplicates, the first found plug-in is used.
     // For example, if there is a QuickTime.plugin in the users's home directory
@@ -396,6 +401,19 @@ static NSArray *additionalWebPlugInPaths;
         @"/Library/Internet Plug-Ins",
         [[NSBundle mainBundle] builtInPlugInsPath],
         nil];
+#else
+    // iOS plug-ins are all located in /System/Library/Internet Plug-Ins
+#if !PLATFORM(IOS_SIMULATOR)
+    NSArray *systemLibrary = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSSystemDomainMask, YES);
+    if (!systemLibrary || [systemLibrary count] == 0)
+        return nil;
+    NSString *systemDir = (NSString*)[systemLibrary objectAtIndex:0];
+#else
+    NSString* platformRootDir = [NSString stringWithUTF8String:WebKitPlatformSystemRootDirectory()];
+    NSString *systemDir = [platformRootDir stringByAppendingPathComponent:@"System/Library"];
+#endif
+    return [NSArray arrayWithObject:[systemDir stringByAppendingPathComponent:@"Internet Plug-Ins"]];
+#endif
 }
 
 - (NSArray *)_plugInPaths

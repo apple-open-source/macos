@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2006-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <dispatch/dispatch.h>
 #include <os/assumes.h>
 #include <xpc/xpc.h>
+#include <syslog.h>
 #include <asl_private.h>
 
 static uint8_t *b64charset = (uint8_t *)"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -179,10 +180,10 @@ asl_b64_encode(const uint8_t *buf, size_t len)
 	uint8_t *out;
 	uint8_t b;
 	size_t i0, i1, i2, j, outlen;
-	
+
 	if (buf == NULL) return NULL;
 	if (len == 0) return NULL;
-	
+
 	outlen = ((len + 2) / 3) * 4;
 	out = (uint8_t *)malloc(outlen + 1);
 	if (out == NULL)
@@ -190,56 +191,124 @@ asl_b64_encode(const uint8_t *buf, size_t len)
 		errno = ENOMEM;
 		return NULL;
 	}
-	
+
 	out[outlen] = 0;
-	
+
 	i0 = 0;
 	i1 = 1;
 	i2 = 2;
 	j = 0;
-	
+
 	while (i2 < len)
 	{
 		b = buf[i0] >> 2;
 		out[j++] = b64charset[b];
-		
+
 		b = ((buf[i0] & 0x03) << 4) | (buf[i1] >> 4);
 		out[j++] = b64charset[b];
-		
+
 		b = ((buf[i1] & 0x0f) << 2) | ((buf[i2] & 0xc0) >> 6);
 		out[j++] = b64charset[b];
-		
+
 		b = buf[i2] & 0x3f;
 		out[j++] = b64charset[b];
-		
+
 		i0 += 3;
 		i1 = i0 + 1;
 		i2 = i1 + 1;
 	}
-	
+
 	if (i0 < len)
 	{
 		b = buf[i0] >> 2;
 		out[j++] = b64charset[b];
-		
+
 		b = (buf[i0] & 0x03) << 4;
-		
+
 		if (i1 < len) b |= (buf[i1] >> 4);
 		out[j++] = b64charset[b];
-		
+
 		if (i1 >= len)
 		{
 			out[j++] = '=';
 			out[j++] = '=';
 			return out;
 		}
-		
+
 		b = (buf[i1] & 0x0f) << 2;
 		out[j++] = b64charset[b];
 		out[j++] = '=';
 	}
-	
+
 	return out;
+}
+
+int
+asl_syslog_faciliy_name_to_num(const char *name)
+{
+	if (name == NULL) return -1;
+
+	if (strcaseeq(name, "auth")) return LOG_AUTH;
+	if (strcaseeq(name, "authpriv")) return LOG_AUTHPRIV;
+	if (strcaseeq(name, "cron")) return LOG_CRON;
+	if (strcaseeq(name, "daemon")) return LOG_DAEMON;
+	if (strcaseeq(name, "ftp")) return LOG_FTP;
+	if (strcaseeq(name, "install")) return LOG_INSTALL;
+	if (strcaseeq(name, "kern")) return LOG_KERN;
+	if (strcaseeq(name, "lpr")) return LOG_LPR;
+	if (strcaseeq(name, "mail")) return LOG_MAIL;
+	if (strcaseeq(name, "netinfo")) return LOG_NETINFO;
+	if (strcaseeq(name, "remoteauth")) return LOG_REMOTEAUTH;
+	if (strcaseeq(name, "news")) return LOG_NEWS;
+	if (strcaseeq(name, "security")) return LOG_AUTH;
+	if (strcaseeq(name, "syslog")) return LOG_SYSLOG;
+	if (strcaseeq(name, "user")) return LOG_USER;
+	if (strcaseeq(name, "uucp")) return LOG_UUCP;
+	if (strcaseeq(name, "local0")) return LOG_LOCAL0;
+	if (strcaseeq(name, "local1")) return LOG_LOCAL1;
+	if (strcaseeq(name, "local2")) return LOG_LOCAL2;
+	if (strcaseeq(name, "local3")) return LOG_LOCAL3;
+	if (strcaseeq(name, "local4")) return LOG_LOCAL4;
+	if (strcaseeq(name, "local5")) return LOG_LOCAL5;
+	if (strcaseeq(name, "local6")) return LOG_LOCAL6;
+	if (strcaseeq(name, "local7")) return LOG_LOCAL7;
+	if (strcaseeq(name, "launchd")) return LOG_LAUNCHD;
+
+	return -1;
+}
+
+const char *
+asl_syslog_faciliy_num_to_name(int n)
+{
+	if (n < 0) return NULL;
+
+	if (n == LOG_AUTH) return "auth";
+	if (n == LOG_AUTHPRIV) return "authpriv";
+	if (n == LOG_CRON) return "cron";
+	if (n == LOG_DAEMON) return "daemon";
+	if (n == LOG_FTP) return "ftp";
+	if (n == LOG_INSTALL) return "install";
+	if (n == LOG_KERN) return "kern";
+	if (n == LOG_LPR) return "lpr";
+	if (n == LOG_MAIL) return "mail";
+	if (n == LOG_NETINFO) return "netinfo";
+	if (n == LOG_REMOTEAUTH) return "remoteauth";
+	if (n == LOG_NEWS) return "news";
+	if (n == LOG_AUTH) return "security";
+	if (n == LOG_SYSLOG) return "syslog";
+	if (n == LOG_USER) return "user";
+	if (n == LOG_UUCP) return "uucp";
+	if (n == LOG_LOCAL0) return "local0";
+	if (n == LOG_LOCAL1) return "local1";
+	if (n == LOG_LOCAL2) return "local2";
+	if (n == LOG_LOCAL3) return "local3";
+	if (n == LOG_LOCAL4) return "local4";
+	if (n == LOG_LOCAL5) return "local5";
+	if (n == LOG_LOCAL6) return "local6";
+	if (n == LOG_LOCAL7) return "local7";
+	if (n == LOG_LAUNCHD) return "launchd";
+
+	return NULL;
 }
 
 static xpc_connection_t

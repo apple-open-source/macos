@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,16 +28,25 @@
 
 #include "CodeBlock.h"
 #include "ExecutableAllocator.h"
+#include "JSCInlines.h"
 #include <wtf/StringExtras.h>
 
 namespace JSC {
 
-ExecutionCounter::ExecutionCounter()
+template<CountingVariant countingVariant>
+ExecutionCounter<countingVariant>::ExecutionCounter()
 {
     reset();
 }
 
-bool ExecutionCounter::checkIfThresholdCrossedAndSet(CodeBlock* codeBlock)
+template<CountingVariant countingVariant>
+void ExecutionCounter<countingVariant>::forceSlowPathConcurrently()
+{
+    m_counter = 0;
+}
+
+template<CountingVariant countingVariant>
+bool ExecutionCounter<countingVariant>::checkIfThresholdCrossedAndSet(CodeBlock* codeBlock)
 {
     if (hasCrossedThreshold(codeBlock))
         return true;
@@ -48,21 +57,23 @@ bool ExecutionCounter::checkIfThresholdCrossedAndSet(CodeBlock* codeBlock)
     return false;
 }
 
-void ExecutionCounter::setNewThreshold(int32_t threshold, CodeBlock* codeBlock)
+template<CountingVariant countingVariant>
+void ExecutionCounter<countingVariant>::setNewThreshold(int32_t threshold, CodeBlock* codeBlock)
 {
     reset();
     m_activeThreshold = threshold;
     setThreshold(codeBlock);
 }
 
-void ExecutionCounter::deferIndefinitely()
+template<CountingVariant countingVariant>
+void ExecutionCounter<countingVariant>::deferIndefinitely()
 {
     m_totalCount = 0;
     m_activeThreshold = std::numeric_limits<int32_t>::max();
     m_counter = std::numeric_limits<int32_t>::min();
 }
 
-double ExecutionCounter::applyMemoryUsageHeuristics(int32_t value, CodeBlock* codeBlock)
+double applyMemoryUsageHeuristics(int32_t value, CodeBlock* codeBlock)
 {
 #if ENABLE(JIT)
     double multiplier =
@@ -77,8 +88,7 @@ double ExecutionCounter::applyMemoryUsageHeuristics(int32_t value, CodeBlock* co
     return multiplier * value;
 }
 
-int32_t ExecutionCounter::applyMemoryUsageHeuristicsAndConvertToInt(
-    int32_t value, CodeBlock* codeBlock)
+int32_t applyMemoryUsageHeuristicsAndConvertToInt(int32_t value, CodeBlock* codeBlock)
 {
     double doubleResult = applyMemoryUsageHeuristics(value, codeBlock);
     
@@ -90,7 +100,8 @@ int32_t ExecutionCounter::applyMemoryUsageHeuristicsAndConvertToInt(
     return static_cast<int32_t>(doubleResult);
 }
 
-bool ExecutionCounter::hasCrossedThreshold(CodeBlock* codeBlock) const
+template<CountingVariant countingVariant>
+bool ExecutionCounter<countingVariant>::hasCrossedThreshold(CodeBlock* codeBlock) const
 {
     // This checks if the current count rounded up to the threshold we were targeting.
     // For example, if we are using half of available executable memory and have
@@ -114,21 +125,22 @@ bool ExecutionCounter::hasCrossedThreshold(CodeBlock* codeBlock) const
     
     return static_cast<double>(m_totalCount) + m_counter >=
         modifiedThreshold - static_cast<double>(
-            std::min(m_activeThreshold, Options::maximumExecutionCountsBetweenCheckpoints())) / 2;
+            std::min(m_activeThreshold, maximumExecutionCountsBetweenCheckpoints())) / 2;
 }
 
-bool ExecutionCounter::setThreshold(CodeBlock* codeBlock)
+template<CountingVariant countingVariant>
+bool ExecutionCounter<countingVariant>::setThreshold(CodeBlock* codeBlock)
 {
     if (m_activeThreshold == std::numeric_limits<int32_t>::max()) {
         deferIndefinitely();
         return false;
     }
         
-    ASSERT(!hasCrossedThreshold(codeBlock));
+    ASSERT(!m_activeThreshold || !hasCrossedThreshold(codeBlock));
         
     // Compute the true total count.
     double trueTotalCount = count();
-        
+    
     // Correct the threshold for current memory usage.
     double threshold = applyMemoryUsageHeuristics(m_activeThreshold, codeBlock);
         
@@ -154,17 +166,22 @@ bool ExecutionCounter::setThreshold(CodeBlock* codeBlock)
     return false;
 }
 
-void ExecutionCounter::reset()
+template<CountingVariant countingVariant>
+void ExecutionCounter<countingVariant>::reset()
 {
     m_counter = 0;
     m_totalCount = 0;
     m_activeThreshold = 0;
 }
 
-void ExecutionCounter::dump(PrintStream& out) const
+template<CountingVariant countingVariant>
+void ExecutionCounter<countingVariant>::dump(PrintStream& out) const
 {
     out.printf("%lf/%lf, %d", count(), static_cast<double>(m_activeThreshold), m_counter);
 }
+
+template class ExecutionCounter<CountingForBaseline>;
+template class ExecutionCounter<CountingForUpperTiers>;
 
 } // namespace JSC
 

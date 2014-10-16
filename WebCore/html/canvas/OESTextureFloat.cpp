@@ -45,11 +45,6 @@ WebGLExtension::ExtensionName OESTextureFloat::getName() const
     return OESTextureFloatName;
 }
 
-PassOwnPtr<OESTextureFloat> OESTextureFloat::create(WebGLRenderingContext* context)
-{
-    return adoptPtr(new OESTextureFloat(context));
-}
-
 } // namespace WebCore
 
 #endif // ENABLE(WEBGL)

@@ -32,13 +32,36 @@
 #include <WebCore/CFURLExtras.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(MAC)
+#if USE(FOUNDATION)
 #import <Foundation/Foundation.h>
+#endif
+
+#if defined(__has_include) && __has_include(<Security/SecIdentityPriv.h>)
+#include <Security/SecIdentityPriv.h>
+#endif
+
+extern "C" SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator, SecCertificateRef certificate, SecKeyRef privateKey);
+
+#if PLATFORM(IOS)
+#if defined(__has_include) && __has_include(<Security/SecKeyPriv.h>)
+#include <Security/SecKeyPriv.h>
+#endif
+
+extern "C" OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedUpData);
+#endif
+
+#if HAVE(SEC_ACCESS_CONTROL)
+#if defined(__has_include) && __has_include(<Security/SecAccessControlPriv.h>)
+#include <Security/SecAccessControlPriv.h>
+#endif
+
+extern "C" SecAccessControlRef SecAccessControlCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error);
+extern "C" CFDataRef SecAccessControlCopyData(SecAccessControlRef access_control);
 #endif
 
 using namespace WebCore;
 
-namespace CoreIPC {
+namespace IPC {
 
 CFTypeRef tokenNullTypeRef()
 {
@@ -56,9 +79,15 @@ enum CFType {
     CFNumber,
     CFString,
     CFURL,
-#if USE(SECURITY_FRAMEWORK)
     SecCertificate,
+#if PLATFORM(IOS)
+    SecIdentity,
+#endif
+#if HAVE(SEC_KEYCHAIN)
     SecKeychainItem,
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+    SecAccessControl,
 #endif
     Null,
     Unknown,
@@ -90,11 +119,19 @@ static CFType typeFromCFTypeRef(CFTypeRef type)
         return CFString;
     if (typeID == CFURLGetTypeID())
         return CFURL;
-#if USE(SECURITY_FRAMEWORK)
     if (typeID == SecCertificateGetTypeID())
         return SecCertificate;
+#if PLATFORM(IOS)
+    if (typeID == SecIdentityGetTypeID())
+        return SecIdentity;
+#endif
+#if HAVE(SEC_KEYCHAIN)
     if (typeID == SecKeychainItemGetTypeID())
         return SecKeychainItem;
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+    if (typeID == SecAccessControlGetTypeID())
+        return SecAccessControl;
 #endif
 
     ASSERT_NOT_REACHED();
@@ -133,12 +170,22 @@ void encode(ArgumentEncoder& encoder, CFTypeRef typeRef)
     case CFURL:
         encode(encoder, static_cast<CFURLRef>(typeRef));
         return;
-#if USE(SECURITY_FRAMEWORK)
     case SecCertificate:
         encode(encoder, (SecCertificateRef)typeRef);
         return;
+#if PLATFORM(IOS)
+    case SecIdentity:
+        encode(encoder, (SecIdentityRef)(typeRef));
+        return;
+#endif
+#if HAVE(SEC_KEYCHAIN)
     case SecKeychainItem:
         encode(encoder, (SecKeychainItemRef)typeRef);
+        return;
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+    case SecAccessControl:
+        encode(encoder, (SecAccessControlRef)typeRef);
         return;
 #endif
     case Null:
@@ -216,7 +263,6 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFTypeRef>& result)
         result = adoptCF(url.leakRef());
         return true;
     }
-#if USE(SECURITY_FRAMEWORK)
     case SecCertificate: {
         RetainPtr<SecCertificateRef> certificate;
         if (!decode(decoder, certificate))
@@ -224,11 +270,30 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFTypeRef>& result)
         result = adoptCF(certificate.leakRef());
         return true;
     }
+#if PLATFORM(IOS)
+    case SecIdentity: {
+        RetainPtr<SecIdentityRef> identity;
+        if (!decode(decoder, identity))
+            return false;
+        result = adoptCF(identity.leakRef());
+        return true;
+    }
+#endif
+#if HAVE(SEC_KEYCHAIN)
     case SecKeychainItem: {
         RetainPtr<SecKeychainItemRef> keychainItem;
         if (!decode(decoder, keychainItem))
             return false;
         result = adoptCF(keychainItem.leakRef());
+        return true;
+    }
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+    case SecAccessControl: {
+        RetainPtr<SecAccessControlRef> accessControl;
+        if (!decode(decoder, accessControl))
+            return false;
+        result = adoptCF(accessControl.leakRef());
         return true;
     }
 #endif
@@ -299,12 +364,12 @@ void encode(ArgumentEncoder& encoder, CFDataRef data)
     CFIndex length = CFDataGetLength(data);
     const UInt8* bytePtr = CFDataGetBytePtr(data);
 
-    encoder << CoreIPC::DataReference(bytePtr, length);
+    encoder << IPC::DataReference(bytePtr, length);
 }
 
 bool decode(ArgumentDecoder& decoder, RetainPtr<CFDataRef>& result)
 {
-    CoreIPC::DataReference dataReference;
+    IPC::DataReference dataReference;
     if (!decoder.decode(dataReference))
         return false;
 
@@ -384,7 +449,7 @@ void encode(ArgumentEncoder& encoder, CFNumberRef number)
     ASSERT_UNUSED(result, result);
 
     encoder.encodeEnum(numberType);
-    encoder << CoreIPC::DataReference(buffer);
+    encoder << IPC::DataReference(buffer);
 }
 
 static size_t sizeForNumberType(CFNumberType numberType)
@@ -441,7 +506,7 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFNumberRef>& result)
     if (!decoder.decodeEnum(numberType))
         return false;
 
-    CoreIPC::DataReference dataReference;
+    IPC::DataReference dataReference;
     if (!decoder.decode(dataReference))
         return false;
 
@@ -472,7 +537,7 @@ void encode(ArgumentEncoder& encoder, CFStringRef string)
     ASSERT(numConvertedBytes == length);
 
     encoder.encodeEnum(encoding);
-    encoder << CoreIPC::DataReference(buffer);
+    encoder << IPC::DataReference(buffer);
 }
 
 bool decode(ArgumentDecoder& decoder, RetainPtr<CFStringRef>& result)
@@ -484,7 +549,7 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFStringRef>& result)
     if (!CFStringIsEncodingAvailable(encoding))
         return false;
     
-    CoreIPC::DataReference dataReference;
+    IPC::DataReference dataReference;
     if (!decoder.decode(dataReference))
         return false;
 
@@ -505,7 +570,7 @@ void encode(ArgumentEncoder& encoder, CFURLRef url)
 
     URLCharBuffer urlBytes;
     getURLBytes(url, urlBytes);
-    CoreIPC::DataReference dataReference(reinterpret_cast<const uint8_t*>(urlBytes.data()), urlBytes.size());
+    IPC::DataReference dataReference(reinterpret_cast<const uint8_t*>(urlBytes.data()), urlBytes.size());
     encoder << dataReference;
 }
 
@@ -520,11 +585,11 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFURLRef>& result)
             return false;
     }
 
-    CoreIPC::DataReference urlBytes;
+    IPC::DataReference urlBytes;
     if (!decoder.decode(urlBytes))
         return false;
 
-#if PLATFORM(MAC)
+#if USE(FOUNDATION)
     // FIXME: Move this to ArgumentCodersCFMac.mm and change this file back to be C++
     // instead of Objective-C++.
     if (urlBytes.isEmpty()) {
@@ -539,7 +604,6 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<CFURLRef>& result)
     return result;
 }
 
-#if USE(SECURITY_FRAMEWORK)
 void encode(ArgumentEncoder& encoder, SecCertificateRef certificate)
 {
     RetainPtr<CFDataRef> data = adoptCF(SecCertificateCopyData(certificate));
@@ -556,6 +620,91 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<SecCertificateRef>& result)
     return true;
 }
 
+#if PLATFORM(IOS)
+static bool secKeyRefDecodingAllowed;
+
+void setAllowsDecodingSecKeyRef(bool allowsDecodingSecKeyRef)
+{
+    secKeyRefDecodingAllowed = allowsDecodingSecKeyRef;
+}
+
+static CFDataRef copyPersistentRef(SecKeyRef key)
+{
+    // This function differs from SecItemCopyPersistentRef in that it specifies an access group.
+    // This is necessary in case there are multiple copies of the key in the keychain, because we
+    // need a reference to the one that the Networking process will be able to access.
+    CFDataRef persistentRef = nullptr;
+    SecItemCopyMatching((CFDictionaryRef)@{
+        (id)kSecReturnPersistentRef: @YES,
+        (id)kSecValueRef: (id)key,
+        (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+        (id)kSecAttrAccessGroup: @"com.apple.identities",
+    }, (CFTypeRef*)&persistentRef);
+
+    return persistentRef;
+}
+#endif
+
+void encode(ArgumentEncoder& encoder, SecIdentityRef identity)
+{
+    SecCertificateRef certificate = nullptr;
+    SecIdentityCopyCertificate(identity, &certificate);
+    encode(encoder, certificate);
+    CFRelease(certificate);
+
+    SecKeyRef key = nullptr;
+    SecIdentityCopyPrivateKey(identity, &key);
+
+    CFDataRef keyData = nullptr;
+#if PLATFORM(IOS)
+    keyData = copyPersistentRef(key);
+#endif
+#if PLATFORM(MAC)
+    SecKeychainItemCreatePersistentReference((SecKeychainItemRef)key, &keyData);
+#endif
+    CFRelease(key);
+
+    encoder << !!keyData;
+    if (keyData) {
+        encode(encoder, keyData);
+        CFRelease(keyData);
+    }
+}
+
+bool decode(ArgumentDecoder& decoder, RetainPtr<SecIdentityRef>& result)
+{
+    RetainPtr<SecCertificateRef> certificate;
+    if (!decode(decoder, certificate))
+        return false;
+
+    bool hasKey;
+    if (!decoder.decode(hasKey))
+        return false;
+
+    if (!hasKey)
+        return true;
+
+    RetainPtr<CFDataRef> keyData;
+    if (!decode(decoder, keyData))
+        return false;
+
+    SecKeyRef key = nullptr;
+#if PLATFORM(IOS)
+    if (secKeyRefDecodingAllowed)
+        SecKeyFindWithPersistentRef(keyData.get(), &key);
+#endif
+#if PLATFORM(MAC)
+    SecKeychainItemCopyFromPersistentReference(keyData.get(), (SecKeychainItemRef*)&key);
+#endif
+    if (key) {
+        result = adoptCF(SecIdentityCreate(kCFAllocatorDefault, certificate.get(), key));
+        CFRelease(key);
+    }
+
+    return true;
+}
+
+#if HAVE(SEC_KEYCHAIN)
 void encode(ArgumentEncoder& encoder, SecKeychainItemRef keychainItem)
 {
     CFDataRef data;
@@ -568,7 +717,7 @@ void encode(ArgumentEncoder& encoder, SecKeychainItemRef keychainItem)
 bool decode(ArgumentDecoder& decoder, RetainPtr<SecKeychainItemRef>& result)
 {
     RetainPtr<CFDataRef> data;
-    if (!CoreIPC::decode(decoder, data))
+    if (!IPC::decode(decoder, data))
         return false;
 
     SecKeychainItemRef item;
@@ -580,4 +729,27 @@ bool decode(ArgumentDecoder& decoder, RetainPtr<SecKeychainItemRef>& result)
 }
 #endif
 
-} // namespace CoreIPC
+#if HAVE(SEC_ACCESS_CONTROL)
+void encode(ArgumentEncoder& encoder, SecAccessControlRef accessControl)
+{
+    RetainPtr<CFDataRef> data = adoptCF(SecAccessControlCopyData(accessControl));
+    if (data)
+        encode(encoder, data.get());
+}
+
+bool decode(ArgumentDecoder& decoder, RetainPtr<SecAccessControlRef>& result)
+{
+    RetainPtr<CFDataRef> data;
+    if (!decode(decoder, data))
+        return false;
+
+    result = adoptCF(SecAccessControlCreateFromData(kCFAllocatorDefault, data.get(), nullptr));
+    if (!result)
+        return false;
+
+    return true;
+}
+
+#endif
+
+} // namespace IPC

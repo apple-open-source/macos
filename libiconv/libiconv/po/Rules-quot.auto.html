@@ -1,0 +1,67 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Rules-quot</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Rules-quot&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+# Special Makefile rules for English message catalogs with quotation marks.
+
+DISTFILES.common.extra1 = quot.sed boldquot.sed <a href="mailto:en@quot.head">en@quot.head</a>er <a href="mailto:en@boldquot.head">en@boldquot.head</a>er insert-header.sin Rules-quot
+
+.SUFFIXES: .insert-header .po-update-en
+
+<a href="mailto:en@quot.po">en@quot.po</a>-update: <a href="mailto:en@quot.po">en@quot.po</a>-update-en
+<a href="mailto:en@boldquot.po">en@boldquot.po</a>-update: <a href="mailto:en@boldquot.po">en@boldquot.po</a>-update-en
+
+.insert-header.po-update-en:
+	@lang=`echo $@ | sed -e 's/\.po-update-en$$//'`; \
+	if test &quot;$(PACKAGE)&quot; = &quot;gettext&quot;; then PATH=`pwd`/../src:$$PATH; GETTEXTLIBDIR=`cd $(top_srcdir)/src &amp;&amp; pwd`; export GETTEXTLIBDIR; fi; \
+	tmpdir=`pwd`; \
+	echo &quot;$$lang:&quot;; \
+	ll=`echo $$lang | sed -e 's/@.*//'`; \
+	LC_ALL=C; export LC_ALL; \
+	cd $(srcdir); \
+	if $(MSGINIT) -i $(DOMAIN).pot --no-translator -l $$ll -o - 2&gt;/dev/null | sed -f $$tmpdir/$$lang.insert-header | $(MSGCONV) -t UTF-8 | $(MSGFILTER) sed -f `echo $$lang | sed -e 's/.*@//'`.sed 2&gt;/dev/null &gt; $$tmpdir/$$lang.new.po; then \
+	  if cmp $$lang.po $$tmpdir/$$lang.new.po &gt;/dev/null 2&gt;&amp;1; then \
+	    rm -f $$tmpdir/$$lang.new.po; \
+	  else \
+	    if mv -f $$tmpdir/$$lang.new.po $$lang.po; then \
+	      :; \
+	    else \
+	      echo &quot;creation of $$lang.po failed: cannot move $$tmpdir/$$lang.new.po to $$lang.po&quot; 1&gt;&amp;2; \
+	      exit 1; \
+	    fi; \
+	  fi; \
+	else \
+	  echo &quot;creation of $$lang.po failed!&quot; 1&gt;&amp;2; \
+	  rm -f $$tmpdir/$$lang.new.po; \
+	fi
+
+<a href="mailto:en@quot.inse">en@quot.inse</a>rt-header: insert-header.sin
+	sed -e '/^#/d' -e 's/HEADER/<a href="mailto:en@quot.head">en@quot.head</a>er/g' $(srcdir)/insert-header.sin &gt; <a href="mailto:en@quot.inse">en@quot.inse</a>rt-header
+
+<a href="mailto:en@boldquot.inse">en@boldquot.inse</a>rt-header: insert-header.sin
+	sed -e '/^#/d' -e 's/HEADER/<a href="mailto:en@boldquot.head">en@boldquot.head</a>er/g' $(srcdir)/insert-header.sin &gt; <a href="mailto:en@boldquot.inse">en@boldquot.inse</a>rt-header
+
+mostlyclean: mostlyclean-quot
+mostlyclean-quot:
+	rm -f *.insert-header
+</pre>
+<hr />
+</body></html>

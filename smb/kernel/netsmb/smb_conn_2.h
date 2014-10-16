@@ -43,6 +43,11 @@ void smb2_smb_dur_handle_parse_lease_key(uint64_t lease_key_hi, uint64_t lease_k
 int smb_smb_echo(struct smb_vc *vcp, int timeout, uint32_t EchoCount,
                  vfs_context_t context);
 int smb2_smb_flush(struct smb_share *share, SMBFID fid, vfs_context_t context);
+uint32_t smb2_smb_get_client_capabilities(struct smb_vc *vcp);
+uint32_t smb2_smb_get_client_dialects(struct smb_vc *vcp, int inReconnect,
+                                      uint16_t *dialect_cnt, uint16_t dialects[],
+                                      size_t max_dialects_size);
+uint16_t smb2_smb_get_client_security_mode(struct smb_vc *vcp);
 int smb2_smb_gss_session_setup(struct smb_vc *vcp, uint16_t *session_flags,
                                vfs_context_t context);
 int smb2_smb_ioctl(struct smb_share *share, void *arg_ptr, 
@@ -81,6 +86,9 @@ int smb2_smb_parse_set_info(struct mdchain *mdp,
                             struct smb2_set_info_rq *infop);
 int smb2_smb_parse_security(struct mdchain *mdp,
                             struct smb2_query_info_rq *queryp);
+int smb2_smb_parse_write_one(struct mdchain *mdp,
+                             user_ssize_t *rresid,
+                             struct smb2_rw_rq *writep);
 int smb2_smb_query_dir(struct smb_share *share, void *args_ptr,
                        struct smb_rq **compound_rqp, vfs_context_t context);
 int smb2_smb_query_info(struct smb_share *share, void *args_ptr, 
@@ -104,8 +112,14 @@ int smb2_smb_tree_connect(struct smb_vc *vcp, struct smb_share *share,
                           vfs_context_t context);
 int smb1_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
 int smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
-int smb2_smb_write(struct smb_share *share, void *arg_ptr, 
+int smb2_smb_write(struct smb_share *share, void *arg_ptr,
                    vfs_context_t context);
+int smb2_smb_write_one(struct smb_share *share,
+                       struct smb2_rw_rq *writep,
+                       user_ssize_t *len,
+                       user_ssize_t *rresid,
+                       struct smb_rq **compound_rqp,
+                       vfs_context_t context);
 int smb_smb_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
                   vfs_context_t context);
 

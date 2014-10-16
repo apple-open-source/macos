@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -55,18 +55,12 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1983, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
+#include <sys/cdefs.h>
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)ifconfig.c	8.2 (Berkeley) 2/16/94";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/sbin/ifconfig/ifconfig.c,v 1.134.2.2.2.1 2008/11/25 02:59:29 kensmith Exp $";
+__unused static const char copyright[] =
+"@(#) Copyright (c) 1983, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -257,13 +251,9 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/* -l cannot be used with -a or -q or -r or -m or -b */
+	/* -l cannot be used with -a or -q or -m or -b */
 	if (namesonly &&
-#ifdef TARGET_OS_EMBEDDED
-        (all || supmedia || bond_details))
-#else /* TARGET_OS_EMBEDDED */
-	    (all || supmedia || showrtref || bond_details))
-#endif /* !TARGET_OS_EMBEDDED */
+	    (all || supmedia || bond_details))
 		usage();
 
 	/* nonsense.. */
@@ -971,6 +961,16 @@ setlog(const char *val, int dummy __unused, int s,
 		warn("ioctl (set logging parameters)");
 }
 
+void
+setcl2k(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_ifru.ifru_2kcl = value;
+	
+	if (ioctl(s, SIOCSIF2KCL, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -978,9 +978,9 @@ setlog(const char *val, int dummy __unused, int s,
 
 #define	IFEFBITS \
 "\020\1AUTOCONFIGURING\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
-"\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\20ROUTER4\21ROUTER6" \
-"\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI\35SENDLIST" \
-"\36DIRECTLINK"
+"\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
+"\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
+"\27AWDL_RESTRICTED\30CL2K\35SENDLIST\36DIRECTLINK\40UPDOWNCHANGE"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -1576,6 +1576,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD_ARG("tbr",			settbr),
 	DEF_CMD_ARG("throttle",			setthrottle),
 	DEF_CMD_ARG("log",			setlog),
+	DEF_CMD("cl2k",	1,			setcl2k),
+	DEF_CMD("-cl2k",	0,		setcl2k),
 };
 
 static __constructor void

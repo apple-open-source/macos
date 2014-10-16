@@ -1,0 +1,103 @@
+#! /bin/csh -f
+#
+# Run one iteration of openssl wrap export test.
+# Only used as a subroutine call from importExportOpensslWrap
+#
+# Usage
+#   exportOpensslTool rawKey oskeyGen osKeyParse alg(rsa|dsa) keysize quiet(YES|NO) noACL(YES|NO) securePhrase(YES|NO)
+#
+if ( $#argv != 8 ) then
+	echo usage error for exportOpensslTool
+	exit(1)
+endif
+set RAWKEY=$argv[1]
+set OS_KEY_EXP=$argv[2]
+set OS_KEY_PARSE_OS=$argv[3]
+set KEY_ALG=$argv[4]
+set KEY_SIZE=$argv[5]
+set QUIET=$argv[6]
+set QUIET_ARG=
+if ($QUIET == YES) then
+	set QUIET_ARG=-q
+endif
+set NOACL_ARG=
+if ($argv[7] == YES) then
+	set NOACL_ARG=-n
+endif
+set SECURE_PHRASE_ARG=
+if ($argv[8] == YES) then
+	set SECURE_PHRASE_ARG=-Z
+endif
+
+source setupCommon
+
+set PASSWORD=foobar
+set OS_PWD_ARG="-passout pass:$PASSWORD"
+
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+#
+# import the raw key
+#
+set cmd="$KCIMPORT $RAWKEY -k $KEYCHAIN -f openssl -F openssl -T priv -K 1 $QUIET_ARG $NOACL_ARG $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$DBVERIFY $KEYCHAIN_PATH $KEY_ALG priv $KEY_SIZE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Export it in openssl wrap form 
+#
+set cmd="$RM -f $OS_KEY_EXP"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t privKeys -f openssl -w -z $PASSWORD -o $OS_KEY_EXP -q $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Ensure that openssl can read it, then write it in unencrypted form
+# Save openssl's stderr in a temp file and cat that to our stderr only on error.
+#
+set STDERR_TMP=/tmp/openssl_stderr
+set cmd="$RM -f $OS_KEY_PARSE_OS"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$OPENSSL $KEY_ALG -inform PEM -outform DER -in $OS_KEY_EXP -passin pass:$PASSWORD -out $OS_KEY_PARSE_OS"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd >& $STDERR_TMP
+if($status != 0) then
+	cat $STDERR_TMP > /dev/stderr
+	exit(1)
+endif
+rm $STDERR_TMP
+#
+# Then ensure we can read the parsed result
+#
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $OS_KEY_PARSE_OS -k $KEYCHAIN -f openssl -F openssl -T priv -K 1 $QUIET_ARG $NOACL_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$DBVERIFY $KEYCHAIN_PATH $KEY_ALG priv $KEY_SIZE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)

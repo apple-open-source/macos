@@ -100,11 +100,6 @@ void CCHmacInit(
         CC_DEBUG_LOG(CC_DEBUG, "NULL Context passed in\n");
         return;
     }
-	
-	if(key == NULL) {
-        CC_DEBUG_LOG(CC_DEBUG, "NULL Context passed in\n");
-        return;
-    }
 
 	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
 	
@@ -200,6 +195,23 @@ CCHmacCreate(CCDigestAlg alg, const void *key, size_t keyLength)
 	}
     
     cchmac_init(hmacCtx->di, hmacCtx->ctx, keyLength, key);
+	return (CCHmacContextRef) hmacCtx;
+}
+
+void CCHmacOneShot(CCDigestAlg alg,  const void *key, size_t keyLength, const void *data, size_t dataLength, void *macOut) {
+    const struct ccdigest_info *di = CCDigestGetDigestInfo(alg);
+    cchmac(di, keyLength, key, dataLength, data, macOut);
+}
+
+CCHmacContextRef
+CCHmacClone(CCHmacContextRef ctx) {
+	_NewHmacContext		*hmacCtx;
+    
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
+    if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
+	
+	CC_MEMCPY(hmacCtx, ctx, sizeof(_NewHmacContext));
 	return (CCHmacContextRef) hmacCtx;
 }
 

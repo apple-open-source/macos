@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,29 +26,27 @@
 
 #include "CSSPropertyNames.h"
 #include "GraphicsContext.h"
+#include "HTMLFieldSetElement.h"
 #include "HTMLNames.h"
 #include "PaintInfo.h"
-
-using std::min;
-using std::max;
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderFieldset::RenderFieldset(Element* element)
-    : RenderBlock(element)
+RenderFieldset::RenderFieldset(HTMLFieldSetElement& element, PassRef<RenderStyle> style)
+    : RenderBlockFlow(element, WTF::move(style))
 {
 }
 
 void RenderFieldset::computePreferredLogicalWidths()
 {
-    RenderBlock::computePreferredLogicalWidths();
+    RenderBlockFlow::computePreferredLogicalWidths();
     if (RenderBox* legend = findLegend()) {
         int legendMinWidth = legend->minPreferredLogicalWidth();
 
-        Length legendMarginLeft = legend->style()->marginLeft();
-        Length legendMarginRight = legend->style()->marginLeft();
+        Length legendMarginLeft = legend->style().marginLeft();
+        Length legendMarginRight = legend->style().marginLeft();
 
         if (legendMarginLeft.isFixed())
             legendMinWidth += legendMarginLeft.value();
@@ -56,71 +54,74 @@ void RenderFieldset::computePreferredLogicalWidths()
         if (legendMarginRight.isFixed())
             legendMinWidth += legendMarginRight.value();
 
-        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, legendMinWidth + borderAndPaddingWidth());
+        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, legendMinWidth + horizontalBorderAndPaddingExtent());
     }
 }
 
 RenderObject* RenderFieldset::layoutSpecialExcludedChild(bool relayoutChildren)
 {
-    RenderBox* legend = findLegend();
-    if (legend) {
-        if (relayoutChildren)
-            legend->setNeedsLayout(true);
-        legend->layoutIfNeeded();
+    RenderBox* box = findLegend();
+    if (!box)
+        return nullptr;
 
-        LayoutUnit logicalLeft;
-        if (style()->isLeftToRightDirection()) {
-            switch (legend->style()->textAlign()) {
-            case CENTER:
-                logicalLeft = (logicalWidth() - logicalWidthForChild(legend)) / 2;
-                break;
-            case RIGHT:
-                logicalLeft = logicalWidth() - borderEnd() - paddingEnd() - logicalWidthForChild(legend);
-                break;
-            default:
-                logicalLeft = borderStart() + paddingStart() + marginStartForChild(legend);
-                break;
-            }
-        } else {
-            switch (legend->style()->textAlign()) {
-            case LEFT:
-                logicalLeft = borderStart() + paddingStart();
-                break;
-            case CENTER: {
-                // Make sure that the extra pixel goes to the end side in RTL (since it went to the end side
-                // in LTR).
-                LayoutUnit centeredWidth = logicalWidth() - logicalWidthForChild(legend);
-                logicalLeft = centeredWidth - centeredWidth / 2;
-                break;
-            }
-            default:
-                logicalLeft = logicalWidth() - borderStart() - paddingStart() - marginStartForChild(legend) - logicalWidthForChild(legend);
-                break;
-            }
+    RenderBox& legend = *box;
+    if (relayoutChildren)
+        legend.setNeedsLayout();
+    legend.layoutIfNeeded();
+
+    LayoutUnit logicalLeft;
+    if (style().isLeftToRightDirection()) {
+        switch (legend.style().textAlign()) {
+        case CENTER:
+            logicalLeft = (logicalWidth() - logicalWidthForChild(legend)) / 2;
+            break;
+        case RIGHT:
+            logicalLeft = logicalWidth() - borderEnd() - paddingEnd() - logicalWidthForChild(legend);
+            break;
+        default:
+            logicalLeft = borderStart() + paddingStart() + marginStartForChild(legend);
+            break;
         }
-
-        setLogicalLeftForChild(legend, logicalLeft);
-
-        LayoutUnit fieldsetBorderBefore = borderBefore();
-        LayoutUnit legendLogicalHeight = logicalHeightForChild(legend);
-
-        LayoutUnit legendLogicalTop;
-        LayoutUnit collapsedLegendExtent;
-        // FIXME: We need to account for the legend's margin before too.
-        if (fieldsetBorderBefore > legendLogicalHeight) {
-            // The <legend> is smaller than the associated fieldset before border
-            // so the latter determines positioning of the <legend>. The sizing depends
-            // on the legend's margins as we want to still follow the author's cues.
-            // Firefox completely ignores the margins in this case which seems wrong.
-            legendLogicalTop = (fieldsetBorderBefore - legendLogicalHeight) / 2;
-            collapsedLegendExtent = max<LayoutUnit>(fieldsetBorderBefore, legendLogicalTop + legendLogicalHeight + marginAfterForChild(legend));
-        } else
-            collapsedLegendExtent = legendLogicalHeight + marginAfterForChild(legend);
-
-        setLogicalTopForChild(legend, legendLogicalTop);
-        setLogicalHeight(paddingBefore() + collapsedLegendExtent);
+    } else {
+        switch (legend.style().textAlign()) {
+        case LEFT:
+            logicalLeft = borderStart() + paddingStart();
+            break;
+        case CENTER: {
+            // Make sure that the extra pixel goes to the end side in RTL (since it went to the end side
+            // in LTR).
+            LayoutUnit centeredWidth = logicalWidth() - logicalWidthForChild(legend);
+            logicalLeft = centeredWidth - centeredWidth / 2;
+            break;
+        }
+        default:
+            logicalLeft = logicalWidth() - borderStart() - paddingStart() - marginStartForChild(legend) - logicalWidthForChild(legend);
+            break;
+        }
     }
-    return legend;
+
+    setLogicalLeftForChild(legend, logicalLeft);
+
+    LayoutUnit fieldsetBorderBefore = borderBefore();
+    LayoutUnit legendLogicalHeight = logicalHeightForChild(legend);
+
+    LayoutUnit legendLogicalTop;
+    LayoutUnit collapsedLegendExtent;
+    // FIXME: We need to account for the legend's margin before too.
+    if (fieldsetBorderBefore > legendLogicalHeight) {
+        // The <legend> is smaller than the associated fieldset before border
+        // so the latter determines positioning of the <legend>. The sizing depends
+        // on the legend's margins as we want to still follow the author's cues.
+        // Firefox completely ignores the margins in this case which seems wrong.
+        legendLogicalTop = (fieldsetBorderBefore - legendLogicalHeight) / 2;
+        collapsedLegendExtent = std::max<LayoutUnit>(fieldsetBorderBefore, legendLogicalTop + legendLogicalHeight + marginAfterForChild(legend));
+    } else
+        collapsedLegendExtent = legendLogicalHeight + marginAfterForChild(legend);
+
+    setLogicalTopForChild(legend, legendLogicalTop);
+    setLogicalHeight(paddingBefore() + collapsedLegendExtent);
+
+    return &legend;
 }
 
 RenderBox* RenderFieldset::findLegend(FindLegendOption option) const
@@ -132,23 +133,23 @@ RenderBox* RenderFieldset::findLegend(FindLegendOption option) const
         if (legend->node() && (legend->node()->hasTagName(legendTag)))
             return toRenderBox(legend);
     }
-    return 0;
+    return nullptr;
 }
 
 void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (!paintInfo.shouldPaintWithinRoot(this))
+    if (!paintInfo.shouldPaintWithinRoot(*this))
         return;
 
     LayoutRect paintRect(paintOffset, size());
     RenderBox* legend = findLegend();
     if (!legend)
-        return RenderBlock::paintBoxDecorations(paintInfo, paintOffset);
+        return RenderBlockFlow::paintBoxDecorations(paintInfo, paintOffset);
 
     // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
-    if (style()->isHorizontalWritingMode()) {
+    if (style().isHorizontalWritingMode()) {
         LayoutUnit yOff = (legend->y() > 0) ? LayoutUnit() : (legend->height() - borderTop()) / 2;
         paintRect.setHeight(paintRect.height() - yOff);
         paintRect.setY(paintRect.y() + yOff);
@@ -160,10 +161,10 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint
 
     if (!boxShadowShouldBeAppliedToBackground(determineBackgroundBleedAvoidance(paintInfo.context)))
         paintBoxShadow(paintInfo, paintRect, style(), Normal);
-    paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), paintRect);
+    paintFillLayers(paintInfo, style().visitedDependentColor(CSSPropertyBackgroundColor), style().backgroundLayers(), paintRect);
     paintBoxShadow(paintInfo, paintRect, style(), Inset);
 
-    if (!style()->hasBorder())
+    if (!style().hasBorder())
         return;
     
     // Create a clipping region around the legend and paint the border as normal
@@ -173,33 +174,37 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint
     // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
-    if (style()->isHorizontalWritingMode()) {
-        LayoutUnit clipTop = paintRect.y();
-        LayoutUnit clipHeight = max(static_cast<LayoutUnit>(style()->borderTopWidth()), legend->height() - ((legend->height() - borderTop()) / 2));
-        graphicsContext->clipOut(pixelSnappedIntRect(paintRect.x() + legend->x(), clipTop, legend->width(), clipHeight));
+    LayoutRect clipRect;
+    if (style().isHorizontalWritingMode()) {
+        clipRect.setX(paintRect.x() + legend->x());
+        clipRect.setY(paintRect.y());
+        clipRect.setWidth(legend->width());
+        clipRect.setHeight(std::max<LayoutUnit>(style().borderTopWidth(), legend->height() - ((legend->height() - borderTop()) / 2)));
     } else {
-        LayoutUnit clipLeft = paintRect.x();
-        LayoutUnit clipWidth = max(static_cast<LayoutUnit>(style()->borderLeftWidth()), legend->width());
-        graphicsContext->clipOut(pixelSnappedIntRect(clipLeft, paintRect.y() + legend->y(), clipWidth, legend->height()));
+        clipRect.setX(paintRect.x());
+        clipRect.setY(paintRect.y() + legend->y());
+        clipRect.setWidth(std::max<LayoutUnit>(style().borderLeftWidth(), legend->width()));
+        clipRect.setHeight(legend->height());
     }
+    graphicsContext->clipOut(pixelSnappedForPainting(clipRect, document().deviceScaleFactor()));
 
     paintBorder(paintInfo, paintRect, style());
 }
 
 void RenderFieldset::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style()->visibility() != VISIBLE || paintInfo.phase != PaintPhaseMask)
+    if (style().visibility() != VISIBLE || paintInfo.phase != PaintPhaseMask)
         return;
 
     LayoutRect paintRect = LayoutRect(paintOffset, size());
     RenderBox* legend = findLegend();
     if (!legend)
-        return RenderBlock::paintMask(paintInfo, paintOffset);
+        return RenderBlockFlow::paintMask(paintInfo, paintOffset);
 
     // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
-    if (style()->isHorizontalWritingMode()) {
+    if (style().isHorizontalWritingMode()) {
         LayoutUnit yOff = (legend->y() > 0) ? LayoutUnit() : (legend->height() - borderTop()) / 2;
         paintRect.expand(0, -yOff);
         paintRect.move(0, yOff);

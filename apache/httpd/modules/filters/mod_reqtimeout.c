@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#define CORE_PRIVATE
 #include "httpd.h"
 #include "http_config.h"
 #include "http_request.h"
@@ -29,6 +28,14 @@
 
 module AP_MODULE_DECLARE_DATA reqtimeout_module;
 
+#define UNSET                            -1
+#define MRT_DEFAULT_HEADER_TIMEOUT       20
+#define MRT_DEFAULT_HEADER_MAX_TIMEOUT   40
+#define MRT_DEFAULT_HEADER_MIN_RATE      500
+#define MRT_DEFAULT_BODY_TIMEOUT         20
+#define MRT_DEFAULT_BODY_MAX_TIMEOUT     0
+#define MRT_DEFAULT_BODY_MIN_RATE        500
+
 typedef struct
 {
     int header_timeout;     /* timeout for reading the req hdrs in secs */
@@ -37,7 +44,7 @@ typedef struct
     apr_time_t header_rate_factor;
     int body_timeout;       /* timeout for reading the req body in secs */
     int body_max_timeout;   /* max timeout for req body in secs */
-    int body_min_rate;      /* timeout for reading the req body in secs */
+    int body_min_rate;      /* min rate for reading req body in bytes/s */
     apr_time_t body_rate_factor;
 } reqtimeout_srv_cfg;
 
@@ -57,6 +64,8 @@ typedef struct
 } reqtimeout_con_cfg;
 
 static const char *const reqtimeout_filter_name = "reqtimeout";
+static int default_header_rate_factor;
+static int default_body_rate_factor;
 
 static void extend_timeout(reqtimeout_con_cfg *ccfg, apr_bucket_brigade *bb)
 {
@@ -76,12 +85,15 @@ static void extend_timeout(reqtimeout_con_cfg *ccfg, apr_bucket_brigade *bb)
 }
 
 static apr_status_t check_time_left(reqtimeout_con_cfg *ccfg,
-                                    apr_time_t *time_left_p)
+                                    apr_time_t *time_left_p,
+                                    apr_time_t now)
 {
-    *time_left_p = ccfg->timeout_at - apr_time_now();
+    if (!now)
+        now = apr_time_now();
+    *time_left_p = ccfg->timeout_at - now;
     if (*time_left_p <= 0)
         return APR_TIMEUP;
-    
+
     if (*time_left_p < apr_time_from_sec(1)) {
         *time_left_p = apr_time_from_sec(1);
     }
@@ -93,9 +105,9 @@ static apr_status_t have_lf_or_eos(apr_bucket_brigade *bb)
     apr_bucket *b = APR_BRIGADE_LAST(bb);
 
     for ( ; b != APR_BRIGADE_SENTINEL(bb) ; b = APR_BUCKET_PREV(b) ) {
-    	const char *str;
-    	apr_size_t len;
-    	apr_status_t rv;
+        const char *str;
+        apr_size_t len;
+        apr_status_t rv;
 
         if (APR_BUCKET_IS_EOS(b))
             return APR_SUCCESS;
@@ -160,9 +172,9 @@ static apr_status_t reqtimeout_filter(ap_filter_t *f,
                                       apr_off_t readbytes)
 {
     apr_time_t time_left;
-    apr_time_t now;
+    apr_time_t now = 0;
     apr_status_t rv;
-    apr_interval_time_t saved_sock_timeout = -1;
+    apr_interval_time_t saved_sock_timeout = UNSET;
     reqtimeout_con_cfg *ccfg = f->ctx;
 
     if (ccfg->in_keep_alive) {
@@ -171,9 +183,9 @@ static apr_status_t reqtimeout_filter(ap_filter_t *f,
         return ap_get_brigade(f->next, bb, mode, block, readbytes);
     }
 
-    now = apr_time_now();
     if (ccfg->new_timeout > 0) {
         /* set new timeout */
+        now = apr_time_now();
         ccfg->timeout_at = now + apr_time_from_sec(ccfg->new_timeout);
         ccfg->new_timeout = 0;
         if (ccfg->new_max_timeout > 0) {
@@ -187,10 +199,10 @@ static apr_status_t reqtimeout_filter(ap_filter_t *f,
     }
 
     if (!ccfg->socket) {
-        ccfg->socket = ap_get_module_config(f->c->conn_config, &core_module);
+        ccfg->socket = ap_get_conn_socket(f->c);
     }
 
-    rv = check_time_left(ccfg, &time_left);
+    rv = check_time_left(ccfg, &time_left, now);
     if (rv != APR_SUCCESS)
         goto out;
 
@@ -272,7 +284,7 @@ static apr_status_t reqtimeout_filter(ap_filter_t *f,
             if (rv != APR_SUCCESS)
                 break;
 
-            rv = check_time_left(ccfg, &time_left);
+            rv = check_time_left(ccfg, &time_left, 0);
             if (rv != APR_SUCCESS)
                 break;
 
@@ -298,7 +310,7 @@ static apr_status_t reqtimeout_filter(ap_filter_t *f,
 
 out:
     if (APR_STATUS_IS_TIMEUP(rv)) {
-        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c,
+        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c, APLOGNO(01382)
                       "Request %s read timeout", ccfg->type);
         /*
          * If we allow a normal lingering close, the client may keep this
@@ -326,17 +338,25 @@ static int reqtimeout_init(conn_rec *c)
     cfg = ap_get_module_config(c->base_server->module_config,
                                &reqtimeout_module);
     AP_DEBUG_ASSERT(cfg != NULL);
-    if (cfg->header_timeout <= 0 && cfg->body_timeout <= 0) {
-        /* not configured for this vhost */
+    if (cfg->header_timeout == 0 && cfg->body_timeout == 0) {
+        /* disabled for this vhost */
         return DECLINED;
     }
 
     ccfg = apr_pcalloc(c->pool, sizeof(reqtimeout_con_cfg));
-    ccfg->new_timeout = cfg->header_timeout;
-    ccfg->new_max_timeout = cfg->header_max_timeout;
     ccfg->type = "header";
-    ccfg->min_rate = cfg->header_min_rate;
-    ccfg->rate_factor = cfg->header_rate_factor;
+    if (cfg->header_timeout != UNSET) {
+        ccfg->new_timeout     = cfg->header_timeout;
+        ccfg->new_max_timeout = cfg->header_max_timeout;
+        ccfg->min_rate        = cfg->header_min_rate;
+        ccfg->rate_factor     = cfg->header_rate_factor;
+    }
+    else {
+        ccfg->new_timeout     = MRT_DEFAULT_HEADER_TIMEOUT;
+        ccfg->new_max_timeout = MRT_DEFAULT_HEADER_MAX_TIMEOUT;
+        ccfg->min_rate        = MRT_DEFAULT_HEADER_MIN_RATE;
+        ccfg->rate_factor     = default_header_rate_factor;
+    }
     ap_set_module_config(c->conn_config, &reqtimeout_module, ccfg);
 
     ap_add_input_filter("reqtimeout", ccfg, NULL, c);
@@ -350,25 +370,29 @@ static int reqtimeout_after_headers(request_rec *r)
     reqtimeout_con_cfg *ccfg =
         ap_get_module_config(r->connection->conn_config, &reqtimeout_module);
 
-    if (ccfg == NULL) {
-        /* not configured for this connection */
+    if (ccfg == NULL || r->method_number == M_CONNECT) {
+        /* either disabled for this connection or a CONNECT request */
         return OK;
     }
-
     cfg = ap_get_module_config(r->connection->base_server->module_config,
                                &reqtimeout_module);
     AP_DEBUG_ASSERT(cfg != NULL);
 
     ccfg->timeout_at = 0;
     ccfg->max_timeout_at = 0;
-    if (r->method_number != M_CONNECT) {
-        ccfg->new_timeout = cfg->body_timeout;
+    ccfg->type = "body";
+    if (cfg->body_timeout != UNSET) {
+        ccfg->new_timeout     = cfg->body_timeout;
         ccfg->new_max_timeout = cfg->body_max_timeout;
-        ccfg->min_rate = cfg->body_min_rate;
-        ccfg->rate_factor = cfg->body_rate_factor;
-        ccfg->type = "body";
+        ccfg->min_rate        = cfg->body_min_rate;
+        ccfg->rate_factor     = cfg->body_rate_factor;
     }
-
+    else {
+        ccfg->new_timeout     = MRT_DEFAULT_BODY_TIMEOUT;
+        ccfg->new_max_timeout = MRT_DEFAULT_BODY_MAX_TIMEOUT;
+        ccfg->min_rate        = MRT_DEFAULT_BODY_MIN_RATE;
+        ccfg->rate_factor     = default_body_rate_factor;
+    }
     return OK;
 }
 
@@ -390,12 +414,19 @@ static int reqtimeout_after_body(request_rec *r)
     ccfg->timeout_at = 0;
     ccfg->max_timeout_at = 0;
     ccfg->in_keep_alive = 1;
-    ccfg->new_timeout = cfg->header_timeout;
-    ccfg->new_max_timeout = cfg->header_max_timeout;
-    ccfg->min_rate = cfg->header_min_rate;
-    ccfg->rate_factor = cfg->header_rate_factor;
-    
     ccfg->type = "header";
+    if (ccfg->new_timeout != UNSET) {
+        ccfg->new_timeout     = cfg->header_timeout;
+        ccfg->new_max_timeout = cfg->header_max_timeout;
+        ccfg->min_rate        = cfg->header_min_rate;
+        ccfg->rate_factor     = cfg->header_rate_factor;
+    }
+    else {
+        ccfg->new_timeout     = MRT_DEFAULT_HEADER_TIMEOUT;
+        ccfg->new_max_timeout = MRT_DEFAULT_HEADER_MAX_TIMEOUT;
+        ccfg->min_rate        = MRT_DEFAULT_HEADER_MIN_RATE;
+        ccfg->rate_factor     = default_header_rate_factor;
+    }
 
     return OK;
 }
@@ -404,17 +435,17 @@ static void *reqtimeout_create_srv_config(apr_pool_t *p, server_rec *s)
 {
     reqtimeout_srv_cfg *cfg = apr_pcalloc(p, sizeof(reqtimeout_srv_cfg));
 
-    cfg->header_timeout = -1;
-    cfg->header_max_timeout = -1;
-    cfg->header_min_rate = -1;
-    cfg->body_timeout = -1;
-    cfg->body_max_timeout = -1;
-    cfg->body_min_rate = -1;
+    cfg->header_timeout = UNSET;
+    cfg->header_max_timeout = UNSET;
+    cfg->header_min_rate = UNSET;
+    cfg->body_timeout = UNSET;
+    cfg->body_max_timeout = UNSET;
+    cfg->body_min_rate = UNSET;
 
     return cfg;
 }
 
-#define MERGE_INT(cfg, b, a, val) cfg->val = (a->val == -1) ? b->val : a->val;
+#define MERGE_INT(cfg, b, a, val) cfg->val = (a->val == UNSET) ? b->val : a->val;
 static void *reqtimeout_merge_srv_config(apr_pool_t *p, void *base_, void *add_)
 {
     reqtimeout_srv_cfg *base = base_;
@@ -428,11 +459,10 @@ static void *reqtimeout_merge_srv_config(apr_pool_t *p, void *base_, void *add_)
     MERGE_INT(cfg, base, add, body_max_timeout);
     MERGE_INT(cfg, base, add, body_min_rate);
 
-    cfg->header_rate_factor = (cfg->header_min_rate == -1) ? base->header_rate_factor :
-                              add->header_rate_factor;
-    cfg->body_rate_factor = (cfg->body_min_rate == -1) ? base->body_rate_factor :
-    			     add->body_rate_factor;
-
+    cfg->header_rate_factor = (cfg->header_min_rate == UNSET) ?
+                              base->header_rate_factor : add->header_rate_factor;
+    cfg->body_rate_factor = (cfg->body_min_rate == UNSET) ?
+                            base->body_rate_factor : add->body_rate_factor;
     return cfg;
 }
 
@@ -471,7 +501,7 @@ static const char *set_reqtimeout_param(reqtimeout_srv_cfg *conf,
     else {
         return "Unknown RequestReadTimeout parameter";
     }
-    
+
     if ((rate_str = ap_strcasestr(val, ",minrate="))) {
         initial_str = apr_pstrndup(p, val, rate_str - val);
         rate_str += strlen(",minrate=");
@@ -488,7 +518,7 @@ static const char *set_reqtimeout_param(reqtimeout_srv_cfg *conf,
             if (ret)
                 return ret;
         }
-        
+
         ret = parse_int(p, initial_str, &initial);
     }
     else {
@@ -496,7 +526,7 @@ static const char *set_reqtimeout_param(reqtimeout_srv_cfg *conf,
             return "Must set MinRate option if using timeout range";
         ret = parse_int(p, val, &initial);
     }
-        
+
     if (ret)
         return ret;
 
@@ -527,12 +557,12 @@ static const char *set_reqtimeouts(cmd_parms *cmd, void *mconfig,
     reqtimeout_srv_cfg *conf =
     ap_get_module_config(cmd->server->module_config,
                          &reqtimeout_module);
-    
+
     while (*arg) {
         char *word, *val;
         const char *err;
-        
-        word = ap_getword_conf(cmd->pool, &arg);
+
+        word = ap_getword_conf(cmd->temp_pool, &arg);
         val = strchr(word, '=');
         if (!val) {
             return "Invalid RequestReadTimeout parameter. Parameter must be "
@@ -542,14 +572,14 @@ static const char *set_reqtimeouts(cmd_parms *cmd, void *mconfig,
             *val++ = '\0';
 
         err = set_reqtimeout_param(conf, cmd->pool, word, val);
-        
+
         if (err)
             return apr_psprintf(cmd->temp_pool, "RequestReadTimeout: %s=%s: %s",
                                word, val, err);
     }
-    
+
     return NULL;
-    
+
 }
 
 static void reqtimeout_hooks(apr_pool_t *pool)
@@ -575,6 +605,13 @@ static void reqtimeout_hooks(apr_pool_t *pool)
                               APR_HOOK_MIDDLE);
     ap_hook_log_transaction(reqtimeout_after_body, NULL, NULL,
                             APR_HOOK_MIDDLE);
+
+#if MRT_DEFAULT_HEADER_MIN_RATE > 0
+    default_header_rate_factor = apr_time_from_sec(1) / MRT_DEFAULT_HEADER_MIN_RATE;
+#endif
+#if MRT_DEFAULT_BODY_MIN_RATE > 0
+    default_body_rate_factor = apr_time_from_sec(1) / MRT_DEFAULT_BODY_MIN_RATE;
+#endif
 }
 
 static const command_rec reqtimeout_cmds[] = {
@@ -584,7 +621,7 @@ static const command_rec reqtimeout_cmds[] = {
     {NULL}
 };
 
-module AP_MODULE_DECLARE_DATA reqtimeout_module = {
+AP_DECLARE_MODULE(reqtimeout) = {
     STANDARD20_MODULE_STUFF,
     NULL,                           /* create per-dir config structures */
     NULL,                           /* merge  per-dir config structures */

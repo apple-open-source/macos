@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -37,41 +37,33 @@ int vmwalk(Vmalloc_t* vm, int(*segf)(Vmalloc_t*, Void_t*, size_t, Vmdisc_t*, Voi
 #else
 int vmwalk(vm, segf, handle)
 Vmalloc_t*	vm;
-int(*		segf)(/* Vmalloc_t*, Void_t*, size_t, Vmdisc_t* */);
+int(*		segf)(/* Vmalloc_t*, Void_t*, size_t, Vmdisc_t*, Void_t* */);
 Void_t*		handle;
 #endif
 {	
-	reg Seg_t*	seg;
-	reg int		rv;
+	reg Seg_t	*seg;
+	reg int		rv = 0;
 
 	if(!vm)
-	{	for(vm = Vmheap; vm; vm = vm->next)
-		{	if(!(vm->data->mode&VM_TRUST) && ISLOCK(vm->data,0) )
-				continue;
-
-			SETLOCK(vm->data,0);
+	{	_vmlock(NIL(Vmalloc_t*), 1);
+		for(vm = Vmheap; vm; vm = vm->next)
+		{	SETLOCK(vm, 0);
 			for(seg = vm->data->seg; seg; seg = seg->next)
-			{	rv = (*segf)(vm, seg->addr, seg->extent, vm->disc, handle);
-				if(rv < 0)
-					return rv;
-			}
-			CLRLOCK(vm->data,0);
+				if((rv = (*segf)(vm, seg->addr, seg->extent, vm->disc, handle)) < 0 )
+					break;
+			CLRLOCK(vm, 0);
 		}
+		_vmlock(NIL(Vmalloc_t*), 0);
 	}
 	else
-	{	if(!(vm->data->mode&VM_TRUST) && ISLOCK(vm->data,0) )
-			return -1;
-
-		SETLOCK(vm->data,0);
+	{	SETLOCK(vm, 0);
 		for(seg = vm->data->seg; seg; seg = seg->next)
-		{	rv = (*segf)(vm, seg->addr, seg->extent, vm->disc, handle);
-			if(rv < 0)
-				return rv;
-		}
-		CLRLOCK(vm->data,0);
+			if((rv = (*segf)(vm, seg->addr, seg->extent, vm->disc, handle)) < 0 )
+				break;
+		CLRLOCK(vm, 0);
 	}
 
-	return 0;
+	return rv;
 }
 
 #endif

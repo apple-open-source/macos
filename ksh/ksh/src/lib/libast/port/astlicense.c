@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -34,6 +34,14 @@
 #ifndef	_PPLIB_H
 #include <ast.h>
 #include <time.h>
+#endif
+
+#ifndef O_cloexec
+#ifdef	O_CLOEXEC
+#define O_cloexec		0
+#else
+#define O_cloexec		0
+#endif
 #endif
 
 #undef	copy
@@ -63,22 +71,27 @@
 #define AUTHOR			0
 #define CLASS			1
 #define COMPANY			2
-#define CONTRIBUTOR		3
-#define CORPORATION		4
-#define DOMAIN			5
-#define INCORPORATION		6
-#define LICENSE			7
-#define LOCATION		8
-#define NOTICE			9
-#define ORGANIZATION		10
-#define PACKAGE			11
-#define PARENT			12
-#define QUERY			13
-#define SINCE			14
-#define STYLE			15
-#define URL			16
-#define URLMD5			17
-#define VERSION			18
+#define COMPONENT		3
+#define CONTRIBUTOR		4
+#define CORPORATION		5
+#define DOMAIN			6
+#define ID			7
+#define INCORPORATION		8
+#define LICENSE			9
+#define LOCATION		10
+#define NAME			11
+#define NOTICE			12
+#define ORGANIZATION		13
+#define PACKAGE			14
+#define PARENT			15
+#define QUERY			16
+#define SINCE			17
+#define SOURCE			18
+#define START			19
+#define STYLE			20
+#define URL			21
+#define URLMD5			22
+#define VERSION			23
 
 #define IDS			64
 
@@ -129,18 +142,23 @@ static const Item_t	key[] =
 	KEY("author"),
 	KEY("class"),
 	KEY("company"),
+	KEY("component"),
 	KEY("contributor"),
 	KEY("corporation"),
 	KEY("domain"),
+	KEY("id"),
 	KEY("incorporation"),
 	KEY("license"),
 	KEY("location"),
+	KEY("name"),
 	KEY("notice"),
 	KEY("organization"),
 	KEY("package"),
 	KEY("parent"),
 	KEY("query"),
 	KEY("since"),
+	KEY("source"),
+	KEY("start"),
 	KEY("type"),
 	KEY("url"),
 	KEY("urlmd5"),
@@ -284,20 +302,28 @@ expand(Notice_t* notice, register Buffer_t* b, const Item_t* item)
 	register char*	z;
 	register int	c;
 	int		m;
+	int		i;
+	int		k;
 
 	if (t = item->data)
 	{
 		q = item->quote;
 		e = t + item->size;
+		i = 0;
 		while (t < e)
 		{
 			if (*t == '$' && t < (e + 2) && *(t + 1) == '{')
 			{
-				m = 0;
+				k = m = 0;
 				x = t += 2;
 				while (t < e && (c = *t++) != '}')
 					if (c == '.')
 						x = t;
+					else if (c == '-')
+					{
+						k = 1;
+						break;
+					}
 					else if (c == '/')
 					{
 						m = 1;
@@ -313,11 +339,28 @@ expand(Notice_t* notice, register Buffer_t* b, const Item_t* item)
 							PUT(b, c);
 					}
 				}
-				if (m)
-					while (t < e && *t++ != '}');
+				else if (k)
+				{
+					k = 0;
+					i++;
+				}
+				if (k || m)
+				{
+					k = 1;
+					while (t < e)
+						if ((c = *t++) == '{')
+							k++;
+						else if (c == '}' && !--k)
+							break;
+				}
 			}
 			else if (q > 0 && *t == '\\' && (*(t + 1) == q || *(t + 1) == '\\'))
 				t++;
+			else if (*t == '}' && i)
+			{
+				t++;
+				i--;
+			}
 			else
 				PUT(b, *t++);
 		}
@@ -337,11 +380,18 @@ copyright(Notice_t* notice, register Buffer_t* b)
 
 	copy(b, "Copyright (c) ", -1);
 	if (notice->test)
+	{
 		clock = (time_t)1000212300;
-	else
+		t = ctime(&clock) + 20;
+	}
+	else if (!(t = notice->item[SOURCE].data))
+	{
 		time(&clock);
-	t = ctime(&clock) + 20;
-	if ((x = notice->item[SINCE].data) && strncmp(x, t, 4))
+		t = ctime(&clock) + 20;
+	}
+	if ((x = notice->item[START].data) && strncmp(t, x, 4) < 0)
+		t = x;
+	if ((x = notice->item[SINCE].data) && strncmp(x, t, 4) < 0)
 	{
 		expand(notice, b, &notice->item[SINCE]);
 		PUT(b, '-');
@@ -369,6 +419,77 @@ copyright(Notice_t* notice, register Buffer_t* b)
 	}
 }
 
+typedef struct Stack_s
+{
+	char*	info;
+	char*	file;
+	int	line;
+	int	size;
+} Stack_t;
+
+static int
+push(Stack_t* sp, char* file, char* parent, char* info, int size, Buffer_t* buf)
+{
+	char*		s;
+	char*		t;
+	int		i;
+	int		n;
+	char		path[1024];
+
+	if (size <= 8)
+	{
+		copy(buf, file, -1);
+		copy(buf, ": no space", -1);
+		PUT(buf, 0);
+		return -1;
+	}
+	if (*file != '/' && parent && (s = strrchr(parent, '/')))
+	{
+		n = s - parent + 1;
+		if ((strlen(file) + n + 1) <= sizeof(path))
+		{
+			memcpy(path, parent, n);
+			strcpy(path + n, file);
+			file = path;
+		}
+	}
+	if ((i = open(file, O_RDONLY|O_cloexec)) < 0)
+	{
+		/* this hack viewpath lookup works for default package setups */
+		if (file == path)
+			for (s = path; *s; s++)
+				if (s[0] == '/' && s[1] == 'a' && s[2] == 'r' && s[3] == 'c' && s[4] == 'h' && s[5] == '/')
+				{
+					t = s;
+					for (s += 6; *s && *s != '/'; s++);
+					while (*t++ = *s++);
+					i = open(file, O_RDONLY|O_cloexec);
+				}
+		if (i < 0)
+		{
+			copy(buf, file, -1);
+			copy(buf, ": cannot open", -1);
+			PUT(buf, 0);
+			return -1;
+		}
+	}
+	n = read(i, info, size - 1);
+	close(i);
+	if (n < 0)
+	{
+		copy(buf, file, -1);
+		copy(buf, ": cannot read", -1);
+		PUT(buf, 0);
+		return -1;
+	}
+	info[n++] = 0;
+	sp->file = file;
+	sp->info = info;
+	sp->line = 0;
+	sp->size = n;
+	return 0;
+}
+
 /*
  * read the license file and generate a comment in p, length size
  * license length in p returned, -1 on error
@@ -389,10 +510,12 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 	int		q;
 	int		contributor;
 	int		first;
-	int		line;
+	int		level;
 	int		quote;
+	char*		data;
 	char		tmpbuf[COMLINE];
 	char		info[8 * 1024];
+	Stack_t		input[4];
 	Notice_t	notice;
 	Item_t		item;
 	Buffer_t	buf;
@@ -400,34 +523,25 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 
 	buf.end = (buf.buf = buf.nxt = p) + size;
 	tmp.end = (tmp.buf = tmp.nxt = tmpbuf) + sizeof(tmpbuf);
+	level = 0;
+	data = info;
+	level = -1;
+	if (options)
+	{
+		level++;
+		input[level].file = "<options>";
+		input[level].info = options;
+		input[level].line = 0;
+	}
 	if (file && *file)
 	{
-		if ((i = open(file, O_RDONLY)) < 0)
-		{
-			copy(&buf, file, -1);
-			copy(&buf, ": cannot open", -1);
-			PUT(&buf, 0);
+		if (push(&input[++level], file, 0, data, &info[sizeof(info)] - data, &buf))
 			return -1;
-		}
-		n = read(i, info, sizeof(info) - 1);
-		close(i);
-		if (n < 0)
-		{
-			copy(&buf, file, -1);
-			copy(&buf, ": cannot read", -1);
-			PUT(&buf, 0);
-			return -1;
-		}
-		s = info;
-		s[n] = 0;
+		data += input[level].size;
 	}
-	else if (!options)
+	if (level < 0)
 		return 0;
-	else
-	{
-		s = options;
-		options = 0;
-	}
+	s = input[level].info;
 	notice.test = 0;
 	notice.type = NONE;
 	notice.verbose = 0;
@@ -440,13 +554,12 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 	notice.item[STYLE] = notice.item[CLASS] = lic[notice.type];
 	notice.item[STYLE].quote = notice.item[CLASS].quote = 0;
 	contributor = i = k = 0;
-	line = 0;
 	for (;;)
 	{
 		first = 1;
 		while (c = *s)
 		{
-			while (c == ' ' || c == '\t' || c == '\n' && ++line || c == '\r' || c == ',' || c == ';' || c == ')')
+			while (c == ' ' || c == '\t' || c == '\n' && ++input[level].line || c == '\r' || c == ',' || c == ';' || c == ')')
 				c = *++s;
 			if (!c)
 				break;
@@ -455,24 +568,43 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 				while (*++s && *s != '\n');
 				if (*s)
 					s++;
-				line++;
+				input[level].line++;
+				continue;
+			}
+			if (c == '.')
+			{
+				while ((c = *++s) && (c == ' ' || c == '\t'));
+				file = s;
+				while (c && c != ' ' && c != '\t' && c != '\r' && c != '\n')
+					c = *++s;
+				*s = 0;
+				while (c && c != '\n')
+					c = *++s;
+				if (*file)
+				{
+					input[level].info = s + (c != 0);
+					if (++level >= (sizeof(input) / sizeof(input[0])) || push(&input[level], file, input[level-1].file, data, &info[sizeof(info)] - data, &buf))
+						return -1;
+					data += input[level].size;
+					s = input[level].info;
+				}
 				continue;
 			}
 			if (c == '\n')
 			{
 				s++;
-				line++;
+				input[level].line++;
 				continue;
 			}
 			if (c == '[')
 				c = *++s;
 			x = s;
 			n = 0;
-			while (c && c != '=' && c != ']' && c != ')' && c != ',' && c != ' ' && c != '\t' && c != '\n' && c != '\r')
+			while (c && c != '+' && c != '=' && c != ']' && c != ')' && c != ',' && c != ' ' && c != '\t' && c != '\n' && c != '\r')
 				c = *++s;
 			n = s - x;
 			h = lookup(key, x, n);
-			if (c == ']')
+			if (c == '+' || c == ']')
 				c = *++s;
 			quote = 0;
 			if (c == '=' || first)
@@ -518,7 +650,7 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 										i++;
 									continue;
 								case '\n':
-									line++;
+									input[level].line++;
 									continue;
 								default:
 									continue;
@@ -532,7 +664,7 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 					while ((c = *s) && (q == '"' && (c == '\\' && (*(s + 1) == '"' || *(s + 1) == '\\') && s++ && (quote = q)) || q && c != q || !q && c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != ',' && c != ';'))
 					{
 						if (c == '\n')
-							line++;
+							input[level].line++;
 						s++;
 					}
 				}
@@ -542,7 +674,7 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 					v = x;
 				}
 				if (c == '\n')
-					line++;
+					input[level].line++;
 				if (contributor)
 				{
 					for (i = 0; i < notice.ids; i++)
@@ -626,6 +758,8 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 							notice.type = c;
 							notice.item[CLASS].data = lic[lic[c].quote].data;
 							notice.item[CLASS].size = lic[lic[c].quote].size;
+							if (notice.item[STYLE].data != lic[NONE].data)
+								h = -1;
 							break;
 						}
 					if (h >= 0)
@@ -638,15 +772,15 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 			}
 			else
 			{
-				if (file)
+				if (input[level].file)
 				{
 					copy(&buf, "\"", -1);
-					copy(&buf, file, -1);
+					copy(&buf, input[level].file, -1);
 					copy(&buf, "\", line ", -1);
 					x = &tmpbuf[sizeof(tmpbuf)];
 					*--x = 0;
-					line++;
-					do *--x = ("0123456789")[line % 10]; while (line /= 10);
+					n = ++input[level].line;
+					do *--x = ("0123456789")[n % 10]; while (n /= 10);
 					copy(&buf, x, -1);
 					copy(&buf, ": ", -1);
 				}
@@ -658,9 +792,9 @@ astlicense(char* p, int size, char* file, char* options, int cc1, int cc2, int c
 				s++;
 			first = 0;
 		}
-		if (!options || !*(s = options))
+		if (!level--)
 			break;
-		options = 0;
+		s = input[level].info;
 	}
 	if (!k)
 		return 0;

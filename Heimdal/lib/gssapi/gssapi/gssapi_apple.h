@@ -4,6 +4,14 @@
 
 #include <stdarg.h>
 
+#ifndef HEIMDAL_PRINTF_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_PRINTF_ATTRIBUTE(x) __attribute__((format x))
+#else
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,8 +39,15 @@ extern "C" {
  *
  * @ingroup gssapi
  */
+
 gss_cred_id_t GSSAPI_LIB_FUNCTION
-GSSCreateCredentialFromUUID (CFUUIDRef /*uuid*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSCreateCredentialFromUUID (CFUUIDRef uuid)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+
+CFErrorRef
+GSSCreateError (
+	gss_const_OID mech,
+	OM_uint32 major_status,
+	OM_uint32 minor_status)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 /**
  * Create a GSS name from a buffer and type.
@@ -45,11 +60,12 @@ GSSCreateCredentialFromUUID (CFUUIDRef /*uuid*/)  __OSX_AVAILABLE_STARTING(__MAC
  *
  * @ingroup gssapi
  */
+
 gss_name_t
 GSSCreateName (
-	CFTypeRef /*name*/,
-	gss_const_OID /*name_type*/,
-	CFErrorRef */*error*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+	CFTypeRef name,
+	gss_const_OID name_type,
+	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Copy the name describing the credential
@@ -60,8 +76,9 @@ GSSCreateName (
  *
  * @ingroup gssapi
  */
+
 gss_name_t
-GSSCredentialCopyName (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSCredentialCopyName (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Returns a copy of the UUID of the GSS credential
@@ -74,8 +91,9 @@ GSSCredentialCopyName (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MAC_1
  *
  * @ingroup gssapi
  */
+
 CFUUIDRef
-GSSCredentialCopyUUID (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSCredentialCopyUUID (gss_cred_id_t credential)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Return the lifetime (in seconds) left of the credential.
@@ -87,8 +105,9 @@ GSSCredentialCopyUUID (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MAC_1
  *
  * @ingroup gssapi
  */
+
 OM_uint32
-GSSCredentialGetLifetime (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSCredentialGetLifetime (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Returns a string that is suitable for displaying to user, must not
@@ -100,18 +119,31 @@ GSSCredentialGetLifetime (gss_cred_id_t /*cred*/)  __OSX_AVAILABLE_STARTING(__MA
  *
  * @ingroup gssapi
  */
+
 CFStringRef
-GSSNameCreateDisplayString (gss_name_t /*name*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSNameCreateDisplayString (gss_name_t name)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
-     * The credential can be validated by adding kGSSICVerifyCredential to the attributes with any value.
+ * Change pasword for a gss name
+ *
+ * @param name name to change password for
+ * @param mech mechanism to use
+ * @param attributes old and new password (kGSSChangePasswordOldPassword and kGSSChangePasswordNewPassword) and other attributes.
+ * @param error if not NULL, error might be set case function doesn't
+ *       return GSS_S_COMPLETE, in that case is must be released with
+ *       CFRelease().
+ *
+ * @returns returns GSS_S_COMPLETE on success, error might be set if passed in.
+ *
+ * @ingroup gssapi
  */
+
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_change_password (
-	const gss_name_t /*name*/,
-	gss_const_OID /*mech*/,
-	CFDictionaryRef /*attributes*/,
-	CFErrorRef */*error*/)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
+	const gss_name_t name,
+	gss_const_OID mech,
+	CFDictionaryRef attributes,
+	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
 
 /**
  * Acquire a new initial credentials using long term credentials (password, certificate).
@@ -128,7 +160,7 @@ gss_aapl_change_password (
  *
  * @param desired_name name to use to acquire credential. Import the name using gss_import_name(). The type of the name has to be supported by the desired_mech used.
  *
- * @param mech mechanism to use to acquire credential. GSS_C_NO_OID is not valid input and a mechanism must be selected. For example GSS_KRB5_MECHANISM, GSS_NTLM_MECHNISM or any other mechanisms supported by the implementation. See gss_indicate_mechs().
+ * @param desired_mech mechanism to use to acquire credential. GSS_C_NO_OID is not valid input and a mechanism must be selected. For example GSS_KRB5_MECHANISM, GSS_NTLM_MECHNISM or any other mechanisms supported by the implementation. See gss_indicate_mechs().
  *
  * @param attributes CFDictionary that contains how to acquire the credential, see below for examples
  *
@@ -153,13 +185,14 @@ gss_aapl_change_password (
  *	  
  * @ingroup gssapi
  */
+
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_initial_cred (
-	const gss_name_t /*desired_name*/,
-	gss_const_OID /*desired_mech*/,
-	CFDictionaryRef /*attributes*/,
-	gss_cred_id_t * /*output_cred_handle*/,
-	CFErrorRef */*error*/)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	const gss_name_t desired_name,
+	gss_const_OID desired_mech,
+	CFDictionaryRef attributes,
+	gss_cred_id_t * output_cred_handle,
+	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #ifdef __cplusplus
 }

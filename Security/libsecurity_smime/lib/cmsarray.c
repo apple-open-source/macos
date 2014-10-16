@@ -38,6 +38,7 @@
 #include "cmslocal.h"
 
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
 
 /*
  * ARRAY FUNCTIONS

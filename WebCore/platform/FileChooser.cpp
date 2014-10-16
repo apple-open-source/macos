@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -70,18 +70,39 @@ void FileChooser::chooseFiles(const Vector<String>& filenames)
         return;
 
     Vector<FileChooserFileInfo> files;
-    for (unsigned i = 0; i < filenames.size(); ++i)
-        files.append(FileChooserFileInfo(filenames[i]));
+    for (auto& filename : filenames)
+        files.append(FileChooserFileInfo(filename));
     m_client->filesChosen(files);
 }
 
-void FileChooser::chooseFiles(const Vector<FileChooserFileInfo>& files)
+#if PLATFORM(IOS)
+
+// FIXME: This function is almost identical to FileChooser::chooseFiles(). We should merge this function
+// with FileChooser::chooseFiles() and hence remove the PLATFORM(IOS)-guard.
+void FileChooser::chooseMediaFiles(const Vector<String>& filenames, const String& displayString, Icon* icon)
 {
     // FIXME: This is inelegant. We should not be looking at settings here.
-    Vector<String> paths;
-    for (unsigned i = 0; i < files.size(); ++i)
-        paths.append(files[i].path);
+    if (m_settings.selectedFiles == filenames)
+        return;
 
+    if (!m_client)
+        return;
+
+    Vector<FileChooserFileInfo> files;
+    for (auto& filename : filenames)
+        files.append(FileChooserFileInfo(filename));
+    m_client->filesChosen(files, displayString, icon);
+}
+
+#endif
+
+void FileChooser::chooseFiles(const Vector<FileChooserFileInfo>& files)
+{
+    Vector<String> paths;
+    for (auto& file : files)
+        paths.append(file.path);
+
+    // FIXME: This is inelegant. We should not be looking at settings here.
     if (m_settings.selectedFiles == paths)
         return;
 

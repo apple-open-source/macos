@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,13 +26,14 @@
 #ifndef PlatformCAFilters_h
 #define PlatformCAFilters_h
 
-#if USE(ACCELERATED_COMPOSITING)
 #if ENABLE(CSS_FILTERS)
 
 #include "FilterOperations.h"
+#include "GraphicsTypes.h"
+#include "PlatformLayer.h"
 #include <wtf/RetainPtr.h>
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
 #define USE_CA_FILTERS 1
 #else
 #define USE_CA_FILTERS 0
@@ -41,15 +42,17 @@
 OBJC_CLASS NSValue;
 
 namespace WebCore {
+
 class PlatformCALayer;
 
 class PlatformCAFilters {
 public:
-    static void setFiltersOnLayer(PlatformCALayer*, const FilterOperations&);
+    static void setFiltersOnLayer(PlatformLayer*, const FilterOperations&);
+    static void setBlendingFiltersOnLayer(PlatformLayer*, const BlendMode);
     static int numAnimatedFilterProperties(FilterOperation::OperationType);
     static const char* animatedFilterPropertyName(FilterOperation::OperationType, int internalFilterPropertyIndex);
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     static RetainPtr<NSValue> filterValueForOperation(const FilterOperation*, int internalFilterPropertyIndex);
 #endif
 
@@ -62,6 +65,5 @@ public:
 }
 
 #endif // ENABLE(CSS_FILTERS)
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // PlatformCAFilters_h

@@ -32,10 +32,12 @@
 #include "NetscapePlugin.h"
 #include "PluginController.h"
 #include <WebCore/HTTPHeaderMap.h>
+#include <WebCore/HTTPHeaderNames.h>
 #include <WebCore/IdentifierRep.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/SharedBuffer.h>
+#include <memory>
 #include <utility>
 #include <wtf/text/StringBuilder.h>
 
@@ -49,11 +51,11 @@ public:
     explicit PluginDestructionProtector(NetscapePlugin* plugin)
     {
         if (plugin)
-            m_protector = adoptPtr(new PluginController::PluginDestructionProtector(static_cast<Plugin*>(plugin)->controller()));
+            m_protector = std::make_unique<PluginController::PluginDestructionProtector>(static_cast<Plugin*>(plugin)->controller());
     }
     
 private:
-    OwnPtr<PluginController::PluginDestructionProtector> m_protector;
+    std::unique_ptr<PluginController::PluginDestructionProtector> m_protector;
 };
 
 static bool startsWithBlankLine(const char* bytes, unsigned length)
@@ -244,15 +246,14 @@ static NPError parsePostBuffer(bool isFile, const char *buffer, uint32_t length,
                 // Sometimes plugins like to set Content-Length themselves when they post,
                 // but WebFoundation does not like that. So we will remove the header
                 // and instead truncate the data to the requested length.
-                String contentLength = headerFields.get("Content-Length");
+                String contentLength = headerFields.get(HTTPHeaderName::ContentLength);
                 
                 if (!contentLength.isNull())
                     dataLength = std::min(contentLength.toInt(), (int)dataLength);
-                headerFields.remove("Content-Length");
+                headerFields.remove(HTTPHeaderName::ContentLength);
                 
                 postBuffer += location;
                 postBufferSize = dataLength;
-                
             }
         }
     }
@@ -298,7 +299,7 @@ static NPError NPN_PostURL(NPP npp, const char* url, const char* target, uint32_
         return error;
 
     RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
-    plugin->loadURL("POST", makeURLString(url), target, headerFields, postData, false, 0);
+    plugin->loadURL("POST", makeURLString(url), target, WTF::move(headerFields), postData, false, 0);
     return NPERR_NO_ERROR;
 }
 
@@ -400,7 +401,7 @@ static NPError NPN_PostURLNotify(NPP npp, const char* url, const char* target, u
     return NPERR_NO_ERROR;
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 // Whether the browser supports compositing of Core Animation plug-ins.
 static const unsigned WKNVSupportsCompositingCoreAnimationPluginsBool = 74656;
 
@@ -441,7 +442,7 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             *(NPBool*)value = plugin->isPrivateBrowsingEnabled();
             break;
         }
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         case NPNVsupportsCoreGraphicsBool:
             // Always claim to support the Core Graphics drawing model.
             *(NPBool*)value = true;
@@ -546,7 +547,7 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
 static NPError NPN_SetValue(NPP npp, NPPVariable variable, void *value)
 {
     switch (variable) {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         case NPPVpluginDrawingModel: {
             RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
             
@@ -940,7 +941,7 @@ static void NPN_UnscheduleTimer(NPP npp, uint32_t timerID)
     plugin->unscheduleTimer(timerID);
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 static NPError NPN_PopUpContextMenu(NPP npp, NPMenu* menu)
 {
     RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
@@ -1022,7 +1023,7 @@ static void initializeBrowserFuncs(NPNetscapeFuncs &netscapeFuncs)
     netscapeFuncs.getauthenticationinfo = NPN_GetAuthenticationInfo;
     netscapeFuncs.scheduletimer = NPN_ScheduleTimer;
     netscapeFuncs.unscheduletimer = NPN_UnscheduleTimer;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     netscapeFuncs.popupcontextmenu = NPN_PopUpContextMenu;
     netscapeFuncs.convertpoint = NPN_ConvertPoint;
 #else

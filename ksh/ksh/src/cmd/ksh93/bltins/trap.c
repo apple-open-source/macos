@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -41,11 +41,11 @@ static const char trapfmt[] = "trap -- %s %s\n";
 static int	sig_number(Shell_t*,const char*);
 static void	sig_list(Shell_t*,int);
 
-int	b_trap(int argc,char *argv[],void *extra)
+int	b_trap(int argc,char *argv[],Shbltin_t *context)
 {
 	register char *arg = argv[1];
 	register int sig, clear = 0, dflag = 0, pflag = 0;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
 	NOT_USED(argc);
 	while (sig = optget(argv, sh_opttrap)) switch (sig)
 	{
@@ -102,6 +102,7 @@ int	b_trap(int argc,char *argv[],void *extra)
 			/* internal traps */
 			if(sig&SH_TRAP)
 			{
+				char **trap = (shp->st.otrap?shp->st.otrap:shp->st.trap);
 				sig &= ~SH_TRAP;
 				if(sig>SH_DEBUGTRAP)
 				{
@@ -110,10 +111,11 @@ int	b_trap(int argc,char *argv[],void *extra)
 				}
 				if(pflag)
 				{
-					if(arg=shp->st.trap[sig])
+					if(arg=trap[sig])
 						sfputr(sfstdout,sh_fmtq(arg),'\n');
 					continue;
 				}
+				shp->st.otrap = 0;
 				if(shp->st.trap[sig])
 					free(shp->st.trap[sig]);
 				shp->st.trap[sig] = 0;
@@ -158,15 +160,16 @@ int	b_trap(int argc,char *argv[],void *extra)
 		}
 	}
 	else /* print out current traps */
-		sig_list(shp,-1);
+		sig_list(shp,-2);
 	return(0);
 }
 
-int	b_kill(int argc,char *argv[],void *extra)
+int	b_kill(int argc,char *argv[],Shbltin_t *context)
 {
 	register char *signame;
 	register int sig=SIGTERM, flag=0, n;
-	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	register Shell_t *shp = context->shp;
+	int usemenu = 0;
 	NOT_USED(argc);
 	while((n = optget(argv,sh_optkill))) switch(n)
 	{
@@ -183,6 +186,8 @@ int	b_kill(int argc,char *argv[],void *extra)
 			flag |= S_FLAG;
 			signame = opt_info.arg;
 			goto endopts;
+		case 'L':
+			usemenu = -1;
 		case 'l':
 			flag |= L_FLAG;
 			break;
@@ -201,7 +206,7 @@ endopts:
 	if(flag&L_FLAG)
 	{
 		if(!(*argv))
-			sig_list(shp,0);
+			sig_list(shp,usemenu);
 		else while(signame = *argv++)
 		{
 			if(isdigit(*signame))
@@ -349,7 +354,8 @@ static char* sig_name(Shell_t *shp,int sig, char* buf, int pfx)
 /*
  * if <flag> is positive, then print signal name corresponding to <flag>
  * if <flag> is zero, then print all signal names
- * if <flag> is negative, then print all traps
+ * if <flag> is -1, then print all signal names in menu format
+ * if <flag> is <-1, then print all traps
  */
 static void sig_list(register Shell_t *shp,register int flag)
 {
@@ -385,7 +391,7 @@ static void sig_list(register Shell_t *shp,register int flag)
 	}
 	if(flag > 0)
 		sfputr(sfstdout, sig_name(shp,flag-1,name,0), '\n');
-	else if(flag<0)
+	else if(flag<-1)
 	{
 		/* print the traps */
 		register char *trap,**trapcom;
@@ -402,7 +408,7 @@ static void sig_list(register Shell_t *shp,register int flag)
 		}
 		for(sig=SH_DEBUGTRAP; sig>=0; sig--)
 		{
-			if(!(trap=shp->st.trap[sig]))
+			if(!(trap=shp->st.otrap?shp->st.otrap[sig]:shp->st.trap[sig]))
 				continue;
 			sfprintf(sfstdout,trapfmt,sh_fmtq(trap),traps[sig]);
 		}
@@ -413,8 +419,20 @@ static void sig_list(register Shell_t *shp,register int flag)
 		for(sig=1; sig <= shp->gd->sigmax; sig++)
 		{
 			if(!(sname=(char*)names[sig]))
+			{
 				sname = sig_name(shp,sig,name,1);
-			sfputr(sfstdout,sname,'\n');
+				if(flag)
+					sname = stakcopy(sname);
+			}
+			if(flag)
+				names[sig] = sname;
+			else
+				sfputr(sfstdout,sname,'\n');
+		}
+		if(flag)
+		{
+			names[sig] = 0;
+			sh_menu(sfstdout,shp->gd->sigmax,(char**)names+1);
 		}
 	}
 }

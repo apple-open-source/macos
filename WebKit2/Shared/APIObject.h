@@ -26,147 +26,211 @@
 #ifndef APIObject_h
 #define APIObject_h
 
+#include <functional>
 #include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
-namespace WebKit {
+#if PLATFORM(COCOA)
+#include "WKFoundation.h"
+#ifdef __OBJC__
+#include "WKObject.h"
+#endif
+#endif
 
-class APIObject : public ThreadSafeRefCounted<APIObject> {
+#define DELEGATE_REF_COUNTING_TO_COCOA (PLATFORM(COCOA) && WK_API_ENABLED)
+
+#if DELEGATE_REF_COUNTING_TO_COCOA
+OBJC_CLASS NSObject;
+#endif
+
+namespace API {
+
+class Object
+#if !DELEGATE_REF_COUNTING_TO_COCOA
+    : public ThreadSafeRefCounted<Object>
+#endif
+{
 public:
-    enum Type {
+    enum class Type {
         // Base types
-        TypeNull = 0,
-        TypeArray,
-        TypeAuthenticationChallenge,
-        TypeAuthenticationDecisionListener,
-        TypeCertificateInfo,
-        TypeConnection,
-        TypeContextMenuItem,
-        TypeCredential,
-        TypeData,
-        TypeDictionary,
-        TypeError,
-        TypeGraphicsContext,
-        TypeImage,
-        TypeProtectionSpace,
-        TypeRenderLayer,
-        TypeRenderObject,
-        TypeSecurityOrigin,
-        TypeSerializedScriptValue,
-        TypeString,
-        TypeURL,
-        TypeURLRequest,
-        TypeURLResponse,
-        TypeUserContentURLPattern,
-        TypeWebArchive,
-        TypeWebArchiveResource,
+        Null = 0,
+        Array,
+        AuthenticationChallenge,
+        AuthenticationDecisionListener,
+        CertificateInfo,
+        Connection,
+        ContextMenuItem,
+        Credential,
+        Data,
+        Dictionary,
+        Error,
+        FrameHandle,
+        Image,
+        PageGroupData,
+        PageHandle,
+        ProtectionSpace,
+        RenderLayer,
+        RenderObject,
+        SecurityOrigin,
+        SessionState,
+        SerializedScriptValue,
+        String,
+        URL,
+        URLRequest,
+        URLResponse,
+        UserContentURLPattern,
+        WebArchive,
+        WebArchiveResource,
 
         // Base numeric types
-        TypeBoolean,
-        TypeDouble,
-        TypeUInt64,
+        Boolean,
+        Double,
+        UInt64,
         
         // Geometry types
-        TypePoint,
-        TypeSize,
-        TypeRect,
+        Point,
+        Size,
+        Rect,
         
         // UIProcess types
-        TypeApplicationCacheManager,
-        TypeBackForwardList,
-        TypeBackForwardListItem,
-        TypeBatteryManager,
-        TypeBatteryStatus,
-        TypeCacheManager,
-        TypeColorPickerResultListener,
-        TypeContext,
-        TypeCookieManager,
-        TypeDatabaseManager,
-        TypeDownload,
-        TypeFormSubmissionListener,
-        TypeFrame,
-        TypeFramePolicyListener,
-        TypeFullScreenManager,
-        TypeGeolocationManager,
-        TypeGeolocationPermissionRequest,
-        TypeHitTestResult,
-        TypeGeolocationPosition,
-        TypeGrammarDetail,
-        TypeIconDatabase,
-        TypeInspector,
-        TypeKeyValueStorageManager,
-        TypeMediaCacheManager,
-        TypeNavigationData,
-        TypeNetworkInfo,
-        TypeNetworkInfoManager,
-        TypeNotification,
-        TypeNotificationManager,
-        TypeNotificationPermissionRequest,
-        TypeOpenPanelParameters,
-        TypeOpenPanelResultListener,
-        TypePage,
-        TypePageGroup,
-        TypePluginSiteDataManager,
-        TypePreferences,
-        TypeTextChecker,
-        TypeVibration,
-        TypeViewportAttributes,
+        ApplicationCacheManager,
+        BackForwardList,
+        BackForwardListItem,
+        BatteryManager,
+        BatteryStatus,
+        CacheManager,
+        ColorPickerResultListener,
+        Context,
+        ContextConfiguration,
+        CookieManager,
+        DatabaseManager,
+        Download,
+        FormSubmissionListener,
+        Frame,
+        FramePolicyListener,
+        FullScreenManager,
+        GeolocationManager,
+        GeolocationPermissionRequest,
+        HitTestResult,
+        GeolocationPosition,
+        GrammarDetail,
+        IconDatabase,
+        Inspector,
+        KeyValueStorageManager,
+        MediaCacheManager,
+        NavigationData,
+        Notification,
+        NotificationManager,
+        NotificationPermissionRequest,
+        OpenPanelParameters,
+        OpenPanelResultListener,
+        OriginDataManager,
+        Page,
+        PageGroup,
+        PluginSiteDataManager,
+        Preferences,
+        Session,
+        TextChecker,
+        Vibration,
+        ViewportAttributes,
 
         // Bundle types
-        TypeBundle,
-        TypeBundleBackForwardList,
-        TypeBundleBackForwardListItem,
-        TypeBundleDOMWindowExtension,
-        TypeBundleFrame,
-        TypeBundleHitTestResult,
-        TypeBundleInspector,
-        TypeBundleNavigationAction,
-        TypeBundleNodeHandle,
-        TypeBundlePage,
-        TypeBundlePageBanner,
-        TypeBundlePageGroup,
-        TypeBundlePageOverlay,
-        TypeBundleRangeHandle,
-        TypeBundleScriptWorld,
+        Bundle,
+        BundleBackForwardList,
+        BundleBackForwardListItem,
+        BundleDOMWindowExtension,
+        BundleFrame,
+        BundleHitTestResult,
+        BundleInspector,
+        BundleNavigationAction,
+        BundleNodeHandle,
+        BundlePage,
+        BundlePageBanner,
+        BundlePageGroup,
+        BundlePageOverlay,
+        BundleRangeHandle,
+        BundleScriptWorld,
 
         // Platform specific
-        TypeEditCommandProxy,
-        TypeObjCObjectGraph,
-        TypeView,
+        EditCommandProxy,
+        ObjCObjectGraph,
+        View,
 #if USE(SOUP)
-        TypeSoupRequestManager,
+        SoupRequestManager,
+        SoupCustomProtocolRequestManager,
 #endif
 #if PLATFORM(EFL)
-        TypePopupMenuItem,
+        PopupMenuItem,
+#if ENABLE(TOUCH_EVENTS)
+        TouchPoint,
+        TouchEvent,
+#endif
 #endif
     };
 
-    virtual ~APIObject()
+    virtual ~Object()
     {
     }
 
     virtual Type type() const = 0;
 
+#if DELEGATE_REF_COUNTING_TO_COCOA
+#ifdef __OBJC__
+    template<typename T, typename... Args>
+    static void constructInWrapper(NSObject <WKObject> *wrapper, Args&&... args)
+    {
+        Object* object = new (&wrapper._apiObject) T(std::forward<Args>(args)...);
+        object->m_wrapper = wrapper;
+    }
+#endif
+
+    NSObject *wrapper() { return m_wrapper; }
+
+    void ref();
+    void deref();
+#endif // DELEGATE_REF_COUNTING_TO_COCOA
+
 protected:
-    APIObject();
+    Object();
+
+#if DELEGATE_REF_COUNTING_TO_COCOA
+    static void* newObject(size_t, Type);
+
+private:
+    // Derived classes must override operator new and call newObject().
+    void* operator new(size_t) = delete;
+
+    NSObject *m_wrapper;
+#endif // DELEGATE_REF_COUNTING_TO_COCOA
 };
 
-template <APIObject::Type ArgumentType>
-class TypedAPIObject : public APIObject {
+template <Object::Type ArgumentType>
+class ObjectImpl : public Object {
 public:
     static const Type APIType = ArgumentType;
 
-    virtual ~TypedAPIObject()
+    virtual ~ObjectImpl()
     {
     }
 
 protected:
-    TypedAPIObject()
+    friend class Object;
+
+    ObjectImpl()
     {
     }
 
-    virtual Type type() const OVERRIDE { return APIType; }
+    virtual Type type() const override { return APIType; }
+
+#if DELEGATE_REF_COUNTING_TO_COCOA
+    void* operator new(size_t size) { return newObject(size, APIType); }
+    void* operator new(size_t size, void* value) { return value; }
+#endif
 };
 
-} // namespace WebKit
+} // namespace Object
+
+#undef DELEGATE_REF_COUNTING_TO_COCOA
 
 #endif // APIObject_h

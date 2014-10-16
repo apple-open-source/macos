@@ -26,36 +26,40 @@
 #include "config.h"
 #include "ScrollingTreeStickyNode.h"
 
-#if ENABLE(THREADED_SCROLLING)
+#if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateStickyNode.h"
 #include "ScrollingTree.h"
+#include "ScrollingTreeOverflowScrollingNode.h"
+#include <QuartzCore/CALayer.h>
 
 namespace WebCore {
 
-PassOwnPtr<ScrollingTreeStickyNode> ScrollingTreeStickyNode::create(ScrollingTree* scrollingTree, ScrollingNodeID nodeID)
+PassRefPtr<ScrollingTreeStickyNode> ScrollingTreeStickyNode::create(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
 {
-    return adoptPtr(new ScrollingTreeStickyNode(scrollingTree, nodeID));
+    return adoptRef(new ScrollingTreeStickyNode(scrollingTree, nodeID));
 }
 
-ScrollingTreeStickyNode::ScrollingTreeStickyNode(ScrollingTree* scrollingTree, ScrollingNodeID nodeID)
-    : ScrollingTreeNode(scrollingTree, nodeID)
+ScrollingTreeStickyNode::ScrollingTreeStickyNode(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
+    : ScrollingTreeNode(scrollingTree, StickyNode, nodeID)
 {
+    scrollingTree.fixedOrStickyNodeAdded();
 }
 
 ScrollingTreeStickyNode::~ScrollingTreeStickyNode()
 {
+    scrollingTree().fixedOrStickyNodeRemoved();
 }
 
-void ScrollingTreeStickyNode::updateBeforeChildren(ScrollingStateNode* stateNode)
+void ScrollingTreeStickyNode::updateBeforeChildren(const ScrollingStateNode& stateNode)
 {
-    ScrollingStateStickyNode* stickyStateNode = toScrollingStateStickyNode(stateNode);
+    const ScrollingStateStickyNode& stickyStateNode = toScrollingStateStickyNode(stateNode);
 
-    if (stickyStateNode->hasChangedProperty(ScrollingStateNode::ScrollLayer))
-        m_layer = stickyStateNode->platformScrollLayer();
+    if (stickyStateNode.hasChangedProperty(ScrollingStateNode::ScrollLayer))
+        m_layer = stickyStateNode.layer();
 
-    if (stateNode->hasChangedProperty(ScrollingStateStickyNode::ViewportConstraints))
-        m_constraints = stickyStateNode->viewportConstraints();
+    if (stateNode.hasChangedProperty(ScrollingStateStickyNode::ViewportConstraints))
+        m_constraints = stickyStateNode.viewportConstraints();
 }
 
 static inline CGPoint operator*(CGPoint& a, const CGSize& b)
@@ -63,30 +67,39 @@ static inline CGPoint operator*(CGPoint& a, const CGSize& b)
     return CGPointMake(a.x * b.width, a.y * b.height);
 }
 
-void ScrollingTreeStickyNode::parentScrollPositionDidChange(const IntRect& viewportRect, const FloatSize& cumulativeDelta)
+void ScrollingTreeStickyNode::updateLayersAfterAncestorChange(const ScrollingTreeNode& changedNode, const FloatRect& fixedPositionRect, const FloatSize& cumulativeDelta)
 {
-    FloatPoint layerPosition = m_constraints.layerPositionForViewportRect(viewportRect);
+    bool adjustStickyLayer = false;
+    FloatRect constrainingRect;
 
-    // FIXME: Subtracting the cumulativeDelta is not totally sufficient to get the new position right for nested
-    // sticky objects. We probably need a way to modify the absoluteContainingBlockRect in the ViewportContraints
-    // to get this right in all cases.
-    layerPosition -= cumulativeDelta;
+    if (parent()->isOverflowScrollingNode()) {
+        constrainingRect = FloatRect(toScrollingTreeOverflowScrollingNode(parent())->scrollPosition(), m_constraints.constrainingRectAtLastLayout().size());
+        adjustStickyLayer = true;
+    } else if (parent()->isFrameScrollingNode()) {
+        constrainingRect = fixedPositionRect;
+        adjustStickyLayer = true;
+    }
 
-    CGRect layerBounds = [m_layer.get() bounds];
-    CGPoint anchorPoint = [m_layer.get() anchorPoint];
-    CGPoint newPosition = layerPosition - m_constraints.alignmentOffset() + anchorPoint * layerBounds.size;
-    [m_layer.get() setPosition:newPosition];
+    FloatSize deltaForDescendants = cumulativeDelta;
+
+    if (adjustStickyLayer) {
+        FloatPoint layerPosition = m_constraints.layerPositionForConstrainingRect(constrainingRect);
+
+        CGRect layerBounds = [m_layer bounds];
+        CGPoint anchorPoint = [m_layer anchorPoint];
+        CGPoint newPosition = layerPosition - m_constraints.alignmentOffset() + anchorPoint * layerBounds.size;
+        [m_layer setPosition:newPosition];
+
+        deltaForDescendants = layerPosition - m_constraints.layerPositionAtLastLayout() + cumulativeDelta;
+    }
 
     if (!m_children)
         return;
 
-    FloatSize newDelta = layerPosition - m_constraints.layerPositionAtLastLayout() + cumulativeDelta;
-
-    size_t size = m_children->size();
-    for (size_t i = 0; i < size; ++i)
-        m_children->at(i)->parentScrollPositionDidChange(viewportRect, newDelta);
+    for (auto& child : *m_children)
+        child->updateLayersAfterAncestorChange(changedNode, fixedPositionRect, deltaForDescendants);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING)
+#endif // ENABLE(ASYNC_SCROLLING)

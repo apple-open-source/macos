@@ -32,15 +32,13 @@
 #endif /* OPENSSL */
 
 #include <notify.h>
-/*
- * Clock skew is managed by the "pacemaker" daemon on OS X.
- */
-#ifdef __APPLE__
-static int do_adjtime = 0;
-#else
-static int do_adjtime = 1;
-#endif /* __APPLE__ */
+#include <sys/sysctl.h>
+
+int use_pacemaker = 0;
 int mode_wakeup;
+#define TV_SLEEP 0
+#define TV_WAKE 1
+static struct timeval tvals[2];
 
 /*
  * These routines provide support for the event timer.	The timer is
@@ -68,8 +66,9 @@ static	u_long adjust_timer;	/* second timer */
 static	u_long stats_timer;	/* stats timer */
 static	u_long huffpuff_timer;	/* huff-n'-puff timer */
 u_long  dns_timer;		/* update DNS flags on peers */
-u_long	awake_timer;		/* Force a time sync after wakeup */
-static int awake_token;
+static u_long	sleep_timer;		/* system is going to sleep -- start checking for wake */
+u_long wake_timer; /* check for new wake time in kern.waketime */
+static int sleep_token;
 u_long	leapsec;		/* leapseconds countdown */
 l_fp	sys_time;		/* current system time */
 #ifdef OPENSSL
@@ -176,11 +175,31 @@ trigger_timer(void)
     setitimer(ITIMER_REAL, &itimerval, NULL);
 }
 
-static RETSIGTYPE sigwake(int sig) {
-        if (awake_timer == 0) {
-            awake_timer = current_time;
-            trigger_timer();
-        }
+// 1 == new waketime on system
+static int
+check_sleep_wake_tv(int which)
+{
+	int rc = 0;
+	struct timeval tv;
+	size_t tv_size = sizeof(tv);
+	
+	if (0 == sysctlbyname(which ? "kern.sleeptime" : "kern.waketime", &tv, &tv_size, NULL, 0)) {
+		if (tv.tv_sec != tvals[which].tv_sec) {
+			tvals[which] = tv;
+			rc = 1;
+		}
+	}
+	return rc;
+}
+
+static RETSIGTYPE sigsleep(int sig) {
+	if (check_sleep_wake_tv(1)) {
+		wake_timer = current_time;
+	} else {
+		sleep_timer = current_time;
+		mode_wakeup = FALSE;		// Avoid timesync while going to sleep
+	}
+	trigger_timer();
 }
 
 /*
@@ -265,8 +284,10 @@ init_timer(void)
 	}
 
 #endif /* SYS_WINNT */
-	signal_no_reset(SIGINFO, sigwake);
-	notify_register_signal("com.apple.powermanagement.systempowerstate", SIGINFO, &awake_token);
+	signal_no_reset(SIGINFO, sigsleep);
+	check_sleep_wake_tv(TV_SLEEP);
+	check_sleep_wake_tv(TV_WAKE);
+	notify_register_signal("com.apple.powermanagement.systempowerstate", SIGINFO, &sleep_token);
 }
 
 #if defined(SYS_WINNT)
@@ -315,7 +336,7 @@ timer(void)
 	get_systime(&sys_time);
 	nap_time = (u_long)-1;
 
-	if (do_adjtime) {
+	if (!use_pacemaker) {
 		if (adjust_timer <= current_time) {
 			adjust_timer += 1;
 			adj_host_clock();
@@ -331,25 +352,44 @@ timer(void)
 		}
         nap_time = 1;
     }
-    
-    if (awake_timer) {
-        if (awake_timer <= current_time) {
-            mode_wakeup = TRUE;
-            allow_panic = TRUE;
-            peer = sys_peer;
-            if (peer == NULL) {
-                for (n = 0; n < NTP_HASH_SIZE; n++) {
-                    for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
-                        transmit(peer);
-                    }
-                }
-            } else {
-                transmit(peer);
-            }
-	    msyslog(LOG_DEBUG, "awake transmit");
-            awake_timer = 0;
+	if (wake_timer) {
+		if (wake_timer <= current_time) {
+			mode_wakeup = TRUE;
+			allow_panic = TRUE;
+			peer = sys_peer;
+			if (peer) {
+				transmit(peer);
+			} else {
+				for (n = 0; n < NTP_HASH_SIZE; n++) {
+					for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
+						next_peer = peer->next;
+						transmit(peer);
+					}
+				}
+			}
+			msyslog(LOG_DEBUG, "wake transmit");
+		} else {
+			delta = wake_timer - current_time;
+			if (delta < nap_time) {
+				nap_time = delta;
+			}
+			
+		}
+	}
+    if (sleep_timer) {
+        if (sleep_timer <= current_time) {
+			if (check_sleep_wake_tv(TV_WAKE)) {
+				sleep_timer = 0;
+				wake_timer = current_time;
+			} else {
+				msyslog(LOG_DEBUG, "sleep noticed");
+				if (sleep_timer < current_time + 10) { // If we don't get a wake in 10s bail
+					sleep_timer = 0;
+				}
+				wake_timer = 0;
+			}
         } else {
-            delta = awake_timer - current_time;
+            delta = sleep_timer - current_time;
             if (delta < nap_time) {
                 nap_time = delta;
             }
@@ -540,7 +580,7 @@ timer(void)
 		write_stats();
 		if (sys_tai != 0 && sys_time.l_ui > leap_expire)
 			report_event(EVNT_LEAPVAL, NULL, NULL);
-	} else if (!do_adjtime && drift_file_sw) {
+	} else if (use_pacemaker && drift_file_sw) {
         write_stats(); /* update more frequently for pacemaker */
     }
 	

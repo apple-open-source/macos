@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,16 +29,11 @@
 
 #import "DOMTestObj.h"
 
-#import "DOMBlobInternal.h"
-#import "DOMCSSRuleInternal.h"
-#import "DOMCSSValueInternal.h"
 #import "DOMDictionaryInternal.h"
 #import "DOMDocumentInternal.h"
-#import "DOMEventInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMSVGDocumentInternal.h"
 #import "DOMSVGPointInternal.h"
-#import "DOMStyleSheetInternal.h"
 #import "DOMTestEnumTypeInternal.h"
 #import "DOMTestNodeInternal.h"
 #import "DOMTestObjInternal.h"
@@ -54,11 +49,10 @@
 #import "ExceptionHandlers.h"
 #import "HTMLNames.h"
 #import "JSMainThreadExecState.h"
-#import "KURL.h"
 #import "Node.h"
 #import "ObjCEventListener.h"
 #import "SVGDocument.h"
-#import "SVGStaticPropertyTearOff.h"
+#import "SVGPoint.h"
 #import "SerializedScriptValue.h"
 #import "TestEnumType.h"
 #import "TestNode.h"
@@ -68,6 +62,7 @@
 #import "TestObjectCConstructor.h"
 #import "TestSubObjConstructor.h"
 #import "ThreadCheck.h"
+#import "URL.h"
 #import "WebCoreObjCExtras.h"
 #import "WebScriptObjectPrivate.h"
 #import "any.h"
@@ -266,13 +261,13 @@
 - (NSString *)reflectedStringAttr
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->fastGetAttribute(WebCore::HTMLNames::reflectedstringattrAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::reflectedstringattrAttr);
 }
 
 - (void)setReflectedStringAttr:(NSString *)newReflectedStringAttr
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setAttribute(WebCore::HTMLNames::reflectedstringattrAttr, newReflectedStringAttr);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::reflectedstringattrAttr, newReflectedStringAttr);
 }
 
 - (int)reflectedIntegralAttr
@@ -320,19 +315,19 @@
 - (void)setReflectedURLAttr:(NSString *)newReflectedURLAttr
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setAttribute(WebCore::HTMLNames::reflectedurlattrAttr, newReflectedURLAttr);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::reflectedurlattrAttr, newReflectedURLAttr);
 }
 
 - (NSString *)reflectedStringAttr
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->fastGetAttribute(WebCore::HTMLNames::customContentStringAttrAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::customContentStringAttrAttr);
 }
 
 - (void)setReflectedStringAttr:(NSString *)newReflectedStringAttr
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setAttribute(WebCore::HTMLNames::customContentStringAttrAttr, newReflectedStringAttr);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::customContentStringAttrAttr, newReflectedStringAttr);
 }
 
 - (int)reflectedCustomIntegralAttr
@@ -368,7 +363,7 @@
 - (void)setReflectedCustomURLAttr:(NSString *)newReflectedCustomURLAttr
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setAttribute(WebCore::HTMLNames::customContentURLAttrAttr, newReflectedCustomURLAttr);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::customContentURLAttrAttr, newReflectedCustomURLAttr);
 }
 
 - (int)attrWithGetterException
@@ -673,7 +668,7 @@
 - (DOMSVGPoint *)mutablePoint
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(WebCore::SVGStaticPropertyTearOff<WebCore::TestObj, WebCore::FloatPoint>::create(IMPL, IMPL->mutablePoint(), &WebCore::TestObj::updateMutablePoint)));
+    return kit(WTF::getPtr(IMPL->mutablePoint()));
 }
 
 - (void)setMutablePoint:(DOMSVGPoint *)newMutablePoint
@@ -687,7 +682,7 @@
 - (DOMSVGPoint *)immutablePoint
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(WebCore::SVGPropertyTearOff<WebCore::FloatPoint>::create(IMPL->immutablePoint())));
+    return kit(WTF::getPtr(IMPL->immutablePoint()));
 }
 
 - (void)setImmutablePoint:(DOMSVGPoint *)newImmutablePoint
@@ -801,6 +796,12 @@
 {
     WebCore::JSMainThreadNullState state;
     IMPL->setNullableStringValue(newNullableStringValue);
+}
+
+- (NSString *)attribute
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->attribute();
 }
 
 - (void)voidMethod
@@ -1126,19 +1127,19 @@
 - (DOMSVGPoint *)mutablePointFunction
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(WebCore::SVGPropertyTearOff<WebCore::FloatPoint>::create(IMPL->mutablePointFunction())));
+    return kit(WTF::getPtr(IMPL->mutablePointFunction()));
 }
 
 - (DOMSVGPoint *)immutablePointFunction
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(WebCore::SVGPropertyTearOff<WebCore::FloatPoint>::create(IMPL->immutablePointFunction())));
+    return kit(WTF::getPtr(IMPL->immutablePointFunction()));
 }
 
 - (void)orange
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->orange();
+    IMPL->banana();
 }
 
 - (DOMbool *)strictFunction:(NSString *)str a:(float)a b:(int)b
@@ -1166,6 +1167,12 @@
 {
     WebCore::JSMainThreadNullState state;
     IMPL->variadicNodeMethod(core(head), core(tail));
+}
+
+- (void)any:(float)a b:(int)b
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->any(a, b);
 }
 
 @end

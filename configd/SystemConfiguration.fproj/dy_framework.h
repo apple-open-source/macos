@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2008, 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,9 +31,13 @@
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
+#if	!TARGET_OS_IPHONE
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#endif	// !TARGET_OS_IPHONE
 #include <Security/Security.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecItem.h>	// only needed for Mac OS X 10.6[.x]
+
 
 __BEGIN_DECLS
 
@@ -80,6 +84,50 @@ _IOObjectRelease			(
 					io_object_t		object
 					);
 #define IOObjectRelease _IOObjectRelease
+
+#if	!TARGET_OS_IPHONE
+
+IOReturn
+_IOPMConnectionAcknowledgeEvent		(
+					IOPMConnection			myConnection,
+					IOPMConnectionMessageToken	token
+					);
+#define IOPMConnectionAcknowledgeEvent _IOPMConnectionAcknowledgeEvent
+
+IOReturn
+_IOPMConnectionCreate			(
+					CFStringRef		myName,
+					IOPMCapabilityBits	interests,
+					IOPMConnection		*newConnection
+					);
+#define IOPMConnectionCreate _IOPMConnectionCreate
+
+IOPMCapabilityBits
+_IOPMConnectionGetSystemCapabilities	(void);
+#define IOPMConnectionGetSystemCapabilities _IOPMConnectionGetSystemCapabilities
+
+IOReturn
+_IOPMConnectionRelease			(
+					IOPMConnection		myConnection
+					);
+#define IOPMConnectionRelease _IOPMConnectionRelease
+
+void
+_IOPMConnectionSetDispatchQueue		(
+					IOPMConnection		myConnection,
+					dispatch_queue_t	myQueue
+					);
+#define IOPMConnectionSetDispatchQueue _IOPMConnectionSetDispatchQueue
+
+IOReturn
+_IOPMConnectionSetNotification		(
+					IOPMConnection		myConnection,
+					void			*param,
+					IOPMEventHandlerType	handler
+					);
+#define IOPMConnectionSetNotification _IOPMConnectionSetNotification
+
+#endif	// !TARGET_OS_IPHONE
 
 CFTypeRef
 _IORegistryEntryCreateCFProperty	(
@@ -264,12 +312,6 @@ _SecKeychainCopyDomainDefault		(
 #define SecKeychainCopyDomainDefault _SecKeychainCopyDomainDefault
 
 OSStatus
-_SecKeychainGetPreferenceDomain		(
-					SecPreferencesDomain		*domain
-					);
-#define SecKeychainGetPreferenceDomain _SecKeychainGetPreferenceDomain
-
-OSStatus
 _SecKeychainOpen			(
 					const char			*pathName,
 					SecKeychainRef			*keychain
@@ -282,12 +324,6 @@ _SecKeychainSetDomainDefault		(
 					SecKeychainRef			keychain
 					);
 #define SecKeychainSetDomainDefault _SecKeychainSetDomainDefault
-
-OSStatus
-_SecKeychainSetPreferenceDomain		(
-					SecPreferencesDomain		domain
-					);
-#define SecKeychainSetPreferenceDomain _SecKeychainSetPreferenceDomain
 
 OSStatus
 _SecKeychainItemCopyContent		(
@@ -363,6 +399,9 @@ _SecCertificateCreateWithData		(
 					CFDataRef			data
 					);
 #define SecCertificateCreateWithData _SecCertificateCreateWithData
+
+
+
 
 
 

@@ -25,11 +25,15 @@
 
 @implementation AppDelegate
 
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication {
+    return YES;
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
     self.tests = [[TestHarness alloc] init];
     self.tests.delegate = self;
-    self.queue = dispatch_queue_create("test-qeueu", NULL);
+    self.queue = dispatch_queue_create("test-queue", NULL);
     
     self.runMeOnce = (getenv("RUN_ME_ONCE") != NULL);
 
@@ -39,12 +43,39 @@
         dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
             [self runTests:self];
         });
+    } else {
+        [self addExistingCredentials];
+        [self loadCertificates];
+        [self credentialSelector:self];
     }
+}
 
-    [self loadCertificates];
-    [self credentialSelector:self];
+
+- (void)addCredentialTab:(gss_cred_id_t)cred {
+    CredentialTesterView *ctv = [[CredentialTesterView alloc] initWithGSSCredential:cred];
     
+    gss_name_t gssName = GSSCredentialCopyName(cred);
+    CFStringRef name = GSSNameCreateDisplayString(gssName);
+    
+    NSTabViewItem *tabViewItem = [[NSTabViewItem alloc] init];
+    [tabViewItem setLabel:(__bridge NSString *)name];
+    [tabViewItem setView:ctv.view];
+    [tabViewItem setIdentifier:ctv];
+    
+    ctv.tabViewItem = tabViewItem;
+    
+    [self.tabView addTabViewItem:tabViewItem];
+    [self.tabView selectTabViewItem:tabViewItem];
 
+}
+
+- (void)addExistingCredentials {
+    OM_uint32 min_stat;
+    
+    gss_iter_creds(&min_stat, 0, GSS_KRB5_MECHANISM, ^(gss_OID mech, gss_cred_id_t cred) {
+        if (cred)
+            [self addCredentialTab:cred];
+    });
 }
 
 - (void)loadCertificates {
@@ -76,10 +107,11 @@
         NSLog(@"SecIdentityRef : %@", ident);
         
         SecCertificateRef cert = NULL;
-        NSString *name;
+        NSString *name = NULL;
         
         SecIdentityCopyCertificate(ident, &cert);
         if (cert) {
+#if 0
             CFErrorRef error = NULL;
             NSString *appleIDName = CFBridgingRelease(_CSCopyAppleIDAccountForAppleIDCertificate(cert, &error));
             if (appleIDName == NULL) {
@@ -89,10 +121,15 @@
             } else {
                 name = [NSString stringWithFormat:@"AppleID: %@", appleIDName];
             }
+#else
+            name = CFBridgingRelease(SecCertificateCopySubjectSummary(cert));
+#endif
             CFRelease(cert);
-        } else {
-            name = @"<noname>";
         }
+        
+        if (name == NULL)
+            name = @"<can't find certificate/name, how is this an identity ?>";
+
         NSLog(@"SecIdentityRef: %@ subject: %@", identity, name);
         
         [items addObject:@{
@@ -262,25 +299,10 @@ enum : NSInteger {
     }
     
     if (cred) {
-        
         NSLog(@"got cred: %@", cred);
         
-        CredentialTesterView *ctv = [[CredentialTesterView alloc] initWithGSSCredential:cred];
-        
-        gss_name_t gssName = GSSCredentialCopyName(cred);
-        CFStringRef name = GSSNameCreateDisplayString(gssName);
-        
-        
-        NSTabViewItem *tabViewItem = [[NSTabViewItem alloc] init];
-        [tabViewItem setLabel:(__bridge NSString *)name];
-        [tabViewItem setView:ctv.view];
-        [tabViewItem setIdentifier:ctv];
-        
-        ctv.tabViewItem = tabViewItem;
-        
-        [self.tabView addTabViewItem:tabViewItem];
-        [self.tabView selectTabViewItem:tabViewItem];
-        
+        [self addCredentialTab:cred];
+
         CFRelease(cred);
     }
 

@@ -47,26 +47,45 @@ compare_keyblock(const krb5_keyblock *a, const krb5_keyblock *b)
 }
 
 int
-kt_copy (void *opt, int argc, char **argv)
+kt_copy (struct copy_options *opt, int argc, char **argv)
 {
-    krb5_error_code ret;
-    krb5_keytab src_keytab, dst_keytab;
-    krb5_kt_cursor cursor;
+    krb5_keytab src_keytab = NULL, dst_keytab = NULL;
+    krb5_principal match_principal = NULL;
     krb5_keytab_entry entry, dummy;
     const char *from = argv[0];
     const char *to = argv[1];
+    krb5_kt_cursor cursor;
+    krb5_error_code ret;
 
     ret = krb5_kt_resolve (context, from, &src_keytab);
     if (ret) {
 	krb5_warn (context, ret, "resolving src keytab `%s'", from);
-	return 1;
+	goto out;
     }
 
     ret = krb5_kt_resolve (context, to, &dst_keytab);
     if (ret) {
-	krb5_kt_close (context, src_keytab);
 	krb5_warn (context, ret, "resolving dst keytab `%s'", to);
-	return 1;
+	goto out;
+    }
+
+    if (opt->match_principal_string) {
+	ret = krb5_parse_name(context,
+			      opt->match_principal_string,
+			      &match_principal);
+	if (ret) {
+	    krb5_warn (context, ret, "failed parsing match principal `%s'",
+		       opt->match_principal_string);
+	    goto out;
+	}
+	if (verbose_flag) {
+	    char *str = NULL;
+	    ret = krb5_unparse_name(context, match_principal, &str);
+	    if (ret == 0) {
+		fprintf(stderr, "matching on principal %s\n", str);
+		krb5_xfree(str);
+	    }
+	}
     }
 
     ret = krb5_kt_start_seq_get (context, src_keytab, &cursor);
@@ -92,6 +111,19 @@ kt_copy (void *opt, int argc, char **argv)
 	    krb5_warn(context, ret, "krb5_enctype_to_string");
 	    etype_str = NULL; /* XXX */
 	}
+
+	if (match_principal &&
+	    !krb5_principal_match(context, entry.principal, match_principal))
+	{
+	    if (verbose_flag) {
+		krb5_warnx(context, "skipping %s, keytype %s, kvno %d",
+			   name_str, etype_str, entry.vno);
+	    }
+	    free(name_str);
+	    free(etype_str);
+	    continue;
+	}
+
 	ret = krb5_kt_get_entry(context, dst_keytab,
 				entry.principal,
 				entry.vno,
@@ -137,7 +169,11 @@ kt_copy (void *opt, int argc, char **argv)
     krb5_kt_end_seq_get (context, src_keytab, &cursor);
 
   out:
-    krb5_kt_close (context, src_keytab);
-    krb5_kt_close (context, dst_keytab);
+    if (match_principal)
+	krb5_free_principal(context, match_principal);
+    if (src_keytab)
+	krb5_kt_close (context, src_keytab);
+    if (dst_keytab)
+	krb5_kt_close (context, dst_keytab);
     return ret != 0;
 }

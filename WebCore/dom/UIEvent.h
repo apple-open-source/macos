@@ -2,7 +2,7 @@
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2001 Tobias Anton (anton@stud.fbi.fh-darmstadt.de)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2013 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,7 +26,6 @@
 
 #include "DOMWindow.h"
 #include "Event.h"
-#include "EventDispatchMediator.h"
 
 namespace WebCore {
 
@@ -34,6 +33,7 @@ typedef DOMWindow AbstractView;
 
 struct UIEventInit : public EventInit {
     UIEventInit();
+    UIEventInit(bool bubbles, bool cancelable);
 
     RefPtr<AbstractView> view;
     int detail;
@@ -60,8 +60,8 @@ public:
     AbstractView* view() const { return m_view.get(); }
     int detail() const { return m_detail; }
 
-    virtual const AtomicString& interfaceName() const;
-    virtual bool isUIEvent() const;
+    virtual EventInterface eventInterface() const override;
+    virtual bool isUIEvent() const override;
 
     virtual int keyCode() const;
     virtual int charCode() const;
@@ -77,12 +77,15 @@ public:
 protected:
     UIEvent();
     UIEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView>, int detail);
+    UIEvent(const AtomicString& type, bool canBubble, bool cancelable, double timestamp, PassRefPtr<AbstractView>, int detail);
     UIEvent(const AtomicString&, const UIEventInit&);
 
 private:
     RefPtr<AbstractView> m_view;
     int m_detail;
 };
+
+EVENT_TYPE_CASTS(UIEvent)
 
 } // namespace WebCore
 

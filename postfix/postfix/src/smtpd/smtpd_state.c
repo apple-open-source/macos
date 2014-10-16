@@ -67,7 +67,6 @@
 #include "smtpd.h"
 #include "smtpd_chat.h"
 #include "smtpd_sasl_glue.h"
-#include "smtpd_binary.h"				/* APPLE - RFC 3030 */
 
 /* smtpd_state_init - initialize after connection establishment */
 
@@ -105,8 +104,6 @@ void    smtpd_state_init(SMTPD_STATE *state, VSTREAM *stream,
     state->protocol = mystrdup(MAIL_PROTO_SMTP);
     state->where = SMTPD_AFTER_CONNECT;
     state->recursion = 0;
-    state->chunking = 0;				/* APPLE - RFC 3030 */
-    state->chunking_context = 0;			/* APPLE - RFC 3030 */
     state->msg_size = 0;
     state->act_size = 0;
     state->junk_cmds = 0;

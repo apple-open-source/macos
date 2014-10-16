@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -49,10 +49,10 @@ using namespace WebCore;
 
 + (NSString *)nameForLayer:(RenderLayer*)layer
 {
-    RenderObject* renderer = layer->renderer();
-    NSString *name = [NSString stringWithUTF8String:renderer->renderName()];
+    const RenderObject& renderer = layer->renderer();
+    NSString *name = [NSString stringWithUTF8String:renderer.renderName()];
 
-    if (Element* element = renderer->node() && renderer->node()->isElementNode() ? toElement(renderer->node()) : 0) {
+    if (Element* element = renderer.node() && renderer.node()->isElementNode() ? toElement(renderer.node()) : 0) {
         name = [name stringByAppendingFormat:@" %@", (NSString *)element->tagName()];
         if (element->hasID())
             name = [name stringByAppendingFormat:@" id=\"%@\"", (NSString *)element->getIdAttribute()];
@@ -80,7 +80,6 @@ using namespace WebCore;
         return @"";
 
     NSString *layerType = @"";
-#if USE(ACCELERATED_COMPOSITING)
     RenderLayerBacking* backing = layer->backing();
     switch (backing->compositingLayerType()) {
         case NormalCompositingLayer:
@@ -102,7 +101,6 @@ using namespace WebCore;
 
     if (backing->hasAncestorClippingLayer())
         layerType = [layerType stringByAppendingString:@" (clipped)"];
-#endif
 
     return layerType;
 }
@@ -135,7 +133,7 @@ using namespace WebCore;
     self = [super init];
     
     Frame* frame = core(webFrame);
-    if (!frame->loader()->client()->hasHTMLView()) {
+    if (!frame->loader().client().hasHTMLView()) {
         [self release];
         return nil;
     }

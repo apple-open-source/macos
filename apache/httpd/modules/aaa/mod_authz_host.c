@@ -24,159 +24,37 @@
 #include "apr_strings.h"
 #include "apr_network_io.h"
 #include "apr_md5.h"
+#include "apr_hash.h"
 
 #define APR_WANT_STRFUNC
 #define APR_WANT_BYTEFUNC
 #include "apr_want.h"
 
 #include "ap_config.h"
+#include "ap_provider.h"
 #include "httpd.h"
 #include "http_core.h"
 #include "http_config.h"
 #include "http_log.h"
+#include "http_protocol.h"
 #include "http_request.h"
+
+#include "mod_auth.h"
 
 #if APR_HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 
-enum allowdeny_type {
-    T_ENV,
-    T_NENV,
-    T_ALL,
-    T_IP,
-    T_HOST,
-    T_FAIL
-};
+/*
+ * To save memory if the same subnets are used in hundres of vhosts, we store
+ * each subnet only once and use this temporary hash to find it again.
+ */
+static apr_hash_t *parsed_subnets;
 
-typedef struct {
-    apr_int64_t limited;
-    union {
-        char *from;
-        apr_ipsubnet_t *ip;
-    } x;
-    enum allowdeny_type type;
-} allowdeny;
-
-/* things in the 'order' array */
-#define DENY_THEN_ALLOW 0
-#define ALLOW_THEN_DENY 1
-#define MUTUAL_FAILURE 2
-
-typedef struct {
-    int order[METHODS];
-    apr_array_header_t *allows;
-    apr_array_header_t *denys;
-} authz_host_dir_conf;
-
-module AP_MODULE_DECLARE_DATA authz_host_module;
-
-static void *create_authz_host_dir_config(apr_pool_t *p, char *dummy)
-{
-    int i;
-    authz_host_dir_conf *conf =
-        (authz_host_dir_conf *)apr_pcalloc(p, sizeof(authz_host_dir_conf));
-
-    for (i = 0; i < METHODS; ++i) {
-        conf->order[i] = DENY_THEN_ALLOW;
-    }
-    conf->allows = apr_array_make(p, 1, sizeof(allowdeny));
-    conf->denys = apr_array_make(p, 1, sizeof(allowdeny));
-
-    return (void *)conf;
-}
-
-static const char *order(cmd_parms *cmd, void *dv, const char *arg)
-{
-    authz_host_dir_conf *d = (authz_host_dir_conf *) dv;
-    int i, o;
-
-    if (!strcasecmp(arg, "allow,deny"))
-        o = ALLOW_THEN_DENY;
-    else if (!strcasecmp(arg, "deny,allow"))
-        o = DENY_THEN_ALLOW;
-    else if (!strcasecmp(arg, "mutual-failure"))
-        o = MUTUAL_FAILURE;
-    else
-        return "unknown order";
-
-    for (i = 0; i < METHODS; ++i)
-        if (cmd->limited & (AP_METHOD_BIT << i))
-            d->order[i] = o;
-
-    return NULL;
-}
-
-static const char *allow_cmd(cmd_parms *cmd, void *dv, const char *from,
-                             const char *where_c)
-{
-    authz_host_dir_conf *d = (authz_host_dir_conf *) dv;
-    allowdeny *a;
-    char *where = apr_pstrdup(cmd->pool, where_c);
-    char *s;
-    char msgbuf[120];
-    apr_status_t rv;
-
-    if (strcasecmp(from, "from"))
-        return "allow and deny must be followed by 'from'";
-
-    a = (allowdeny *) apr_array_push(cmd->info ? d->allows : d->denys);
-    a->x.from = where;
-    a->limited = cmd->limited;
-
-    if (!strncasecmp(where, "env=!", 5)) {
-        a->type = T_NENV;
-        a->x.from += 5;
-
-    }
-    else if (!strncasecmp(where, "env=", 4)) {
-        a->type = T_ENV;
-        a->x.from += 4;
-
-    }
-    else if (!strcasecmp(where, "all")) {
-        a->type = T_ALL;
-    }
-    else if ((s = ap_strchr(where, '/'))) {
-        *s++ = '\0';
-        rv = apr_ipsubnet_create(&a->x.ip, where, s, cmd->pool);
-        if(APR_STATUS_IS_EINVAL(rv)) {
-            /* looked nothing like an IP address */
-            return "An IP address was expected";
-        }
-        else if (rv != APR_SUCCESS) {
-            apr_strerror(rv, msgbuf, sizeof msgbuf);
-            return apr_pstrdup(cmd->pool, msgbuf);
-        }
-        a->type = T_IP;
-    }
-    else if (!APR_STATUS_IS_EINVAL(rv = apr_ipsubnet_create(&a->x.ip, where,
-                                                            NULL, cmd->pool))) {
-        if (rv != APR_SUCCESS) {
-            apr_strerror(rv, msgbuf, sizeof msgbuf);
-            return apr_pstrdup(cmd->pool, msgbuf);
-        }
-        a->type = T_IP;
-    }
-    else { /* no slash, didn't look like an IP address => must be a host */
-        a->type = T_HOST;
-    }
-
-    return NULL;
-}
-
-static char its_an_allow;
-
-static const command_rec authz_host_cmds[] =
-{
-    AP_INIT_TAKE1("order", order, NULL, OR_LIMIT,
-                  "'allow,deny', 'deny,allow', or 'mutual-failure'"),
-    AP_INIT_ITERATE2("allow", allow_cmd, &its_an_allow, OR_LIMIT,
-                     "'from' followed by hostnames or IP-address wildcards"),
-    AP_INIT_ITERATE2("deny", allow_cmd, NULL, OR_LIMIT,
-                     "'from' followed by hostnames or IP-address wildcards"),
-    {NULL}
-};
+static apr_ipsubnet_t *localhost_v4;
+#if APR_HAVE_IPV6
+static apr_ipsubnet_t *localhost_v6;
+#endif
 
 static int in_domain(const char *domain, const char *what)
 {
@@ -205,131 +83,234 @@ static int in_domain(const char *domain, const char *what)
     }
 }
 
-static int find_allowdeny(request_rec *r, apr_array_header_t *a, int method)
+static const char *ip_parse_config(cmd_parms *cmd,
+                                   const char *require_line,
+                                   const void **parsed_require_line)
 {
+    const char *t, *w;
+    int count = 0;
+    apr_ipsubnet_t **ip;
+    apr_pool_t *ptemp = cmd->temp_pool;
+    apr_pool_t *p = cmd->pool;
 
-    allowdeny *ap = (allowdeny *) a->elts;
-    apr_int64_t mmask = (AP_METHOD_BIT << method);
-    int i;
-    int gothost = 0;
-    const char *remotehost = NULL;
+    /* The 'ip' provider will allow the configuration to specify a list of
+        ip addresses to check rather than a single address.  This is different
+        from the previous host based syntax. */
 
-    for (i = 0; i < a->nelts; ++i) {
-        if (!(mmask & ap[i].limited)) {
+    t = require_line;
+    while ((w = ap_getword_conf(ptemp, &t)) && w[0])
+        count++;
+
+    if (count == 0)
+        return "'require ip' requires an argument";
+
+    ip = apr_pcalloc(p, sizeof(apr_ipsubnet_t *) * (count + 1));
+    *parsed_require_line = ip;
+
+    t = require_line;
+    while ((w = ap_getword_conf(ptemp, &t)) && w[0]) {
+        char *addr = apr_pstrdup(ptemp, w);
+        char *mask;
+        apr_status_t rv;
+
+        if (parsed_subnets &&
+            (*ip = apr_hash_get(parsed_subnets, w, APR_HASH_KEY_STRING)) != NULL)
+        {
+            /* we already have parsed this subnet */
+            ip++;
             continue;
         }
 
-        switch (ap[i].type) {
-        case T_ENV:
-            if (apr_table_get(r->subprocess_env, ap[i].x.from)) {
-                return 1;
-            }
-            break;
+        if ((mask = ap_strchr(addr, '/')))
+            *mask++ = '\0';
 
-        case T_NENV:
-            if (!apr_table_get(r->subprocess_env, ap[i].x.from)) {
-                return 1;
-            }
-            break;
+        rv = apr_ipsubnet_create(ip, addr, mask, p);
 
-        case T_ALL:
-            return 1;
-
-        case T_IP:
-            if (apr_ipsubnet_test(ap[i].x.ip, r->connection->remote_addr)) {
-                return 1;
-            }
-            break;
-
-        case T_HOST:
-            if (!gothost) {
-                int remotehost_is_ip;
-
-                remotehost = ap_get_remote_host(r->connection,
-                                                r->per_dir_config,
-                                                REMOTE_DOUBLE_REV,
-                                                &remotehost_is_ip);
-
-                if ((remotehost == NULL) || remotehost_is_ip) {
-                    gothost = 1;
-                }
-                else {
-                    gothost = 2;
-                }
-            }
-
-            if ((gothost == 2) && in_domain(ap[i].x.from, remotehost)) {
-                return 1;
-            }
-            break;
-
-        case T_FAIL:
-            /* do nothing? */
-            break;
+        if(APR_STATUS_IS_EINVAL(rv)) {
+            /* looked nothing like an IP address */
+            return apr_psprintf(p, "ip address '%s' appears to be invalid", w);
         }
+        else if (rv != APR_SUCCESS) {
+            return apr_psprintf(p, "ip address '%s' appears to be invalid: %pm",
+                                w, &rv);
+        }
+
+        if (parsed_subnets)
+            apr_hash_set(parsed_subnets, w, APR_HASH_KEY_STRING, *ip);
+        ip++;
     }
 
-    return 0;
+    return NULL;
 }
 
-static int check_dir_access(request_rec *r)
+static authz_status ip_check_authorization(request_rec *r,
+                                           const char *require_line,
+                                           const void *parsed_require_line)
 {
-    int method = r->method_number;
-    int ret = OK;
-    authz_host_dir_conf *a = (authz_host_dir_conf *)
-        ap_get_module_config(r->per_dir_config, &authz_host_module);
+    /* apr_ipsubnet_test should accept const but doesn't */
+    apr_ipsubnet_t **ip = (apr_ipsubnet_t **)parsed_require_line;
 
-    if (a->order[method] == ALLOW_THEN_DENY) {
-        ret = HTTP_FORBIDDEN;
-        if (find_allowdeny(r, a->allows, method)) {
-            ret = OK;
-        }
-        if (find_allowdeny(r, a->denys, method)) {
-            ret = HTTP_FORBIDDEN;
-        }
+    while (*ip) {
+        if (apr_ipsubnet_test(*ip, r->useragent_addr))
+            return AUTHZ_GRANTED;
+        ip++;
     }
-    else if (a->order[method] == DENY_THEN_ALLOW) {
-        if (find_allowdeny(r, a->denys, method)) {
-            ret = HTTP_FORBIDDEN;
-        }
-        if (find_allowdeny(r, a->allows, method)) {
-            ret = OK;
-        }
+
+    /* authz_core will log the require line and the result at DEBUG */
+    return AUTHZ_DENIED;
+}
+
+static authz_status host_check_authorization(request_rec *r,
+                                             const char *require_line,
+                                             const void *parsed_require_line)
+{
+    const char *t, *w;
+    const char *remotehost = NULL;
+    int remotehost_is_ip;
+
+    remotehost = ap_get_remote_host(r->connection,
+                                    r->per_dir_config,
+                                    REMOTE_DOUBLE_REV,
+                                    &remotehost_is_ip);
+
+    if ((remotehost == NULL) || remotehost_is_ip) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01753)
+                      "access check of '%s' to %s failed, reason: unable to get the "
+                      "remote host name", require_line, r->uri);
     }
     else {
-        if (find_allowdeny(r, a->allows, method)
-            && !find_allowdeny(r, a->denys, method)) {
-            ret = OK;
+        const char *err = NULL;
+        const ap_expr_info_t *expr = parsed_require_line;
+        const char *require;
+
+        require = ap_expr_str_exec(r, expr, &err);
+        if (err) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02593)
+                          "authz_host authorize: require host: Can't "
+                          "evaluate require expression: %s", err);
+            return AUTHZ_DENIED;
         }
-        else {
-            ret = HTTP_FORBIDDEN;
+
+        /* The 'host' provider will allow the configuration to specify a list of
+            host names to check rather than a single name.  This is different
+            from the previous host based syntax. */
+        t = require;
+        while ((w = ap_getword_conf(r->pool, &t)) && w[0]) {
+            if (in_domain(w, remotehost)) {
+                return AUTHZ_GRANTED;
+            }
         }
     }
 
-    if (ret == HTTP_FORBIDDEN
-        && (ap_satisfies(r) != SATISFY_ANY || !ap_some_auth_required(r))) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-            "client denied by server configuration: %s%s",
-            r->filename ? "" : "uri ",
-            r->filename ? r->filename : r->uri);
-    }
+    /* authz_core will log the require line and the result at DEBUG */
+    return AUTHZ_DENIED;
+}
 
-    return ret;
+static authz_status local_check_authorization(request_rec *r,
+                                              const char *require_line,
+                                              const void *parsed_require_line)
+{
+     if (   apr_sockaddr_equal(r->connection->local_addr,
+                               r->useragent_addr)
+         || apr_ipsubnet_test(localhost_v4, r->useragent_addr)
+#if APR_HAVE_IPV6
+         || apr_ipsubnet_test(localhost_v6, r->useragent_addr)
+#endif
+        )
+     {
+        return AUTHZ_GRANTED;
+     }
+
+     return AUTHZ_DENIED;
+}
+
+static const char *host_parse_config(cmd_parms *cmd, const char *require_line,
+                                     const void **parsed_require_line)
+{
+    const char *expr_err = NULL;
+    ap_expr_info_t *expr;
+
+    expr = ap_expr_parse_cmd(cmd, require_line, AP_EXPR_FLAG_STRING_RESULT,
+            &expr_err, NULL);
+
+    if (expr_err)
+        return apr_pstrcat(cmd->temp_pool,
+                           "Cannot parse expression in require line: ",
+                           expr_err, NULL);
+
+    *parsed_require_line = expr;
+
+    return NULL;
+}
+
+static const authz_provider authz_ip_provider =
+{
+    &ip_check_authorization,
+    &ip_parse_config,
+};
+
+static const authz_provider authz_host_provider =
+{
+    &host_check_authorization,
+    &host_parse_config,
+};
+
+static const authz_provider authz_local_provider =
+{
+    &local_check_authorization,
+    NULL,
+};
+
+
+static int authz_host_pre_config(apr_pool_t *p, apr_pool_t *plog,
+                                 apr_pool_t *ptemp)
+{
+    /* we only use this hash in the parse config phase, ptemp is enough */
+    parsed_subnets = apr_hash_make(ptemp);
+
+    apr_ipsubnet_create(&localhost_v4, "127.0.0.0", "8", p);
+    apr_hash_set(parsed_subnets, "127.0.0.0/8", APR_HASH_KEY_STRING, localhost_v4);
+
+#if APR_HAVE_IPV6
+    apr_ipsubnet_create(&localhost_v6, "::1", NULL, p);
+    apr_hash_set(parsed_subnets, "::1", APR_HASH_KEY_STRING, localhost_v6);
+#endif
+
+    return OK;
+}
+
+static int authz_host_post_config(apr_pool_t *p, apr_pool_t *plog,
+                                  apr_pool_t *ptemp, server_rec *s)
+{
+    /* make sure we don't use this during .htaccess parsing */
+    parsed_subnets = NULL;
+
+    return OK;
 }
 
 static void register_hooks(apr_pool_t *p)
 {
-    /* This can be access checker since we don't require r->user to be set. */
-    ap_hook_access_checker(check_dir_access,NULL,NULL,APR_HOOK_MIDDLE);
+    ap_hook_pre_config(authz_host_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_post_config(authz_host_post_config, NULL, NULL, APR_HOOK_MIDDLE);
+
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "ip",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_ip_provider, AP_AUTH_INTERNAL_PER_CONF);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "host",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_host_provider, AP_AUTH_INTERNAL_PER_CONF);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "local",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_local_provider, AP_AUTH_INTERNAL_PER_CONF);
 }
 
-module AP_MODULE_DECLARE_DATA authz_host_module =
+AP_DECLARE_MODULE(authz_host) =
 {
     STANDARD20_MODULE_STUFF,
-    create_authz_host_dir_config,   /* dir config creater */
+    NULL,                           /* dir config creater */
     NULL,                           /* dir merger --- default is to override */
     NULL,                           /* server config */
     NULL,                           /* merge server config */
-    authz_host_cmds,
+    NULL,
     register_hooks                  /* register hooks */
 };

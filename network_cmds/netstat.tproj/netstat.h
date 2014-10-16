@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -121,14 +121,7 @@ extern void	ip6_stats(uint32_t, char *, int);
 extern void	ip6_ifstats(char *);
 extern void	icmp6_stats(uint32_t, char *, int);
 extern void	icmp6_ifstats(char *);
-#ifdef notyet
-extern void	pim6_stats(uint32_t, char *, int);
-#endif
 extern void	rip6_stats(uint32_t, char *, int);
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
-extern void	mroute6pr(void);
-extern void	mrt6_stats(void);
-#endif
 
 /* forward references */
 struct sockaddr_in6;
@@ -142,6 +135,10 @@ extern char	*netname6(struct sockaddr_in6 *, struct sockaddr *);
 #ifdef IPSEC
 extern void	pfkey_stats(uint32_t, char *, int);
 #endif
+
+extern void	systmpr(uint32_t, char *, int);
+extern void	kctl_stats(uint32_t, char *, int);
+extern void	kevt_stats(uint32_t, char *, int);
 
 extern void	mbpr(void);
 
@@ -161,11 +158,6 @@ extern void	routepr(void);
 extern void	unixpr(void);
 extern void	aqstatpr(void);
 extern void	rxpollstatpr(void);
-
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
-extern void	mroutepr(void);
-extern void	mrt_stats(void);
-#endif
 
 extern void	ifmalist_dump(void);
 

@@ -93,6 +93,10 @@ const OSSymbol * gIODisplayParametersCommitKey;
 const OSSymbol * gIODisplayParametersDefaultKey;
 const OSSymbol * gIODisplayParametersFlushKey;
 
+const OSSymbol * gIODisplayFadeTime1Key;
+const OSSymbol * gIODisplayFadeTime2Key;
+const OSSymbol * gIODisplayFadeTime3Key;
+const OSSymbol * gIODisplayFadeStyleKey;
 
 static const OSSymbol * gIODisplayFastBootEDIDKey;
 static IODTPlatformExpert * gIODisplayFastBootPlatform;
@@ -241,6 +245,11 @@ void IODisplay::initialize( void )
 											kIODisplayControllerIDKey);
 	gIODisplayCapabilityStringKey = OSSymbol::withCStringNoCopy(
 											kIODisplayCapabilityStringKey);
+
+	gIODisplayFadeTime1Key = OSSymbol::withCStringNoCopy("fade-time1");
+	gIODisplayFadeTime2Key = OSSymbol::withCStringNoCopy("fade-time2");
+	gIODisplayFadeTime3Key = OSSymbol::withCStringNoCopy("fade-time3");
+	gIODisplayFadeStyleKey = OSSymbol::withCStringNoCopy("fade-style");
 
     IORegistryEntry * entry;
     if ((entry = getServiceRoot())
@@ -1014,12 +1023,38 @@ IOReturn IODisplay::framebufferEvent( IOFramebuffer * framebuffer,
     return (err);
 }
 
+UInt32 gIODisplayFadeTime1;
+UInt32 gIODisplayFadeTime2;
+UInt32 gIODisplayFadeTime3;
+UInt32 gIODisplayFadeStyle;
+
 bool IODisplay::doIntegerSet( OSDictionary * params,
                               const OSSymbol * paramName, UInt32 value )
 {
     IODisplayParameterHandler * parameterHandler;
     OSArray *                   array;
     bool                        ok = false;
+
+    if (gIODisplayFadeTime1Key == paramName)
+    {
+    	gIODisplayFadeTime1 = value;
+        return (true);
+    }
+    if (gIODisplayFadeTime2Key == paramName)
+    {
+    	gIODisplayFadeTime2 = value;
+        return (true);
+    }
+    if (gIODisplayFadeTime3Key == paramName)
+    {
+    	gIODisplayFadeTime3 = value;
+        return (true);
+    }
+    if (gIODisplayFadeStyleKey == paramName)
+    {
+    	gIODisplayFadeStyle = value;
+        return (true);
+    }
 
     parameterHandler = OSDynamicCast(IODisplayParameterHandler, fParameterHandler);
 
@@ -1172,13 +1207,10 @@ void IODisplay::setDisplayPowerState(unsigned long state)
     }
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // obsolete
-void IODisplay::dropOneLevel(void)
-{
-}
-void IODisplay::makeDisplayUsable(void)
-{
-}
+void IODisplay::dropOneLevel(void)		{}
+void IODisplay::makeDisplayUsable(void)	{}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // setPowerState

@@ -30,27 +30,24 @@
 
 #include "config.h"
 
-#if ENABLE(BLOB)
-
 #include "FileReaderLoader.h"
 
 #include "Blob.h"
 #include "BlobURL.h"
 #include "FileReaderLoaderClient.h"
+#include "HTTPHeaderNames.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
 #include "TextResourceDecoder.h"
 #include "ThreadableBlobRegistry.h"
 #include "ThreadableLoader.h"
-#include <wtf/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/StringBuilder.h>
-
-using namespace std;
 
 namespace WebCore {
 
@@ -92,13 +89,13 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
     ResourceRequest request(m_urlForReading);
     request.setHTTPMethod("GET");
     if (m_hasRange)
-        request.setHTTPHeaderField("Range", String::format("bytes=%d-%d", m_rangeStart, m_rangeEnd));
+        request.setHTTPHeaderField(HTTPHeaderName::Range, String::format("bytes=%d-%d", m_rangeStart, m_rangeEnd));
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = SendCallbacks;
-    options.sniffContent = DoNotSniffContent;
+    options.setSendLoadCallbacks(SendCallbacks);
+    options.setSniffContent(DoNotSniffContent);
     options.preflightPolicy = ConsiderPreflight;
-    options.allowCredentials = AllowStoredCredentials;
+    options.setAllowCredentials(AllowStoredCredentials);
     options.crossOriginRequestPolicy = DenyCrossOriginRequests;
 
     if (m_client)
@@ -154,7 +151,7 @@ void FileReaderLoader::didReceiveResponse(unsigned long, const ResourceResponse&
     // Check that we can cast to unsigned since we have to do
     // so to call ArrayBuffer's create function.
     // FIXME: Support reading more than the current size limit of ArrayBuffer.
-    if (length > numeric_limits<unsigned>::max()) {
+    if (length > std::numeric_limits<unsigned>::max()) {
         failed(FileError::NOT_READABLE_ERR);
         return;
     }
@@ -186,14 +183,14 @@ void FileReaderLoader::didReceiveData(const char* data, int dataLength)
     unsigned remainingBufferSpace = m_totalBytes - m_bytesLoaded;
     if (length > static_cast<long long>(remainingBufferSpace)) {
         // If the buffer has hit maximum size, it can't be grown any more.
-        if (m_totalBytes >= numeric_limits<unsigned>::max()) {
+        if (m_totalBytes >= std::numeric_limits<unsigned>::max()) {
             failed(FileError::NOT_READABLE_ERR);
             return;
         }
         if (m_variableLength) {
             unsigned long long newLength = m_totalBytes * 2;
-            if (newLength > numeric_limits<unsigned>::max())
-                newLength = numeric_limits<unsigned>::max();
+            if (newLength > std::numeric_limits<unsigned>::max())
+                newLength = std::numeric_limits<unsigned>::max();
             RefPtr<ArrayBuffer> newData =
                 ArrayBuffer::create(static_cast<unsigned>(newLength), 1);
             memcpy(static_cast<char*>(newData->data()), static_cast<char*>(m_rawData->data()), m_bytesLoaded);
@@ -274,29 +271,6 @@ PassRefPtr<ArrayBuffer> FileReaderLoader::arrayBufferResult() const
     return ArrayBuffer::create(m_rawData.get());
 }
 
-#if ENABLE(STREAM)
-PassRefPtr<Blob> FileReaderLoader::blobResult()
-{
-    ASSERT(m_readType == ReadAsBlob);
-
-    // If the loading is not finished or an error occurs, return an empty result.
-    if (!m_rawData || m_errorCode || !isCompleted())
-        return 0;
-
-    if (!m_blobResult) {
-        OwnPtr<BlobData> blobData = BlobData::create();
-        size_t size = 0;
-        RefPtr<RawData> rawData = RawData::create();
-        size = m_rawData->byteLength();
-        rawData->mutableData()->append(static_cast<char*>(m_rawData->data()), size);
-        blobData->appendData(rawData, 0, size);
-        blobData->setContentType(m_dataType);
-        m_blobResult = Blob::create(blobData.release(), size);
-    }
-    return m_blobResult;
-}
-#endif // ENABLE(STREAM)
-
 String FileReaderLoader::stringResult()
 {
     ASSERT(m_readType != ReadAsArrayBuffer && m_readType != ReadAsBlob);
@@ -341,15 +315,12 @@ void FileReaderLoader::convertToText()
     // requirement in order to be consistent with how WebKit decodes the web content: always has the BOM override the
     // provided encoding.     
     // FIXME: consider supporting incremental decoding to improve the perf.
-    StringBuilder builder;
     if (!m_decoder)
         m_decoder = TextResourceDecoder::create("text/plain", m_encoding.isValid() ? m_encoding : UTF8Encoding());
-    builder.append(m_decoder->decode(static_cast<const char*>(m_rawData->data()), m_bytesLoaded));
-
     if (isCompleted())
-        builder.append(m_decoder->flush());
-
-    m_stringResult = builder.toString();
+        m_stringResult = m_decoder->decodeAndFlush(static_cast<const char*>(m_rawData->data()), m_bytesLoaded);
+    else
+        m_stringResult = m_decoder->decode(static_cast<const char*>(m_rawData->data()), m_bytesLoaded);
 }
 
 void FileReaderLoader::convertToDataURL()
@@ -366,7 +337,7 @@ void FileReaderLoader::convertToDataURL()
     builder.append(";base64,");
 
     Vector<char> out;
-    base64Encode(static_cast<const char*>(m_rawData->data()), m_bytesLoaded, out);
+    base64Encode(m_rawData->data(), m_bytesLoaded, out);
     out.append('\0');
     builder.append(out.data());
 
@@ -384,16 +355,4 @@ void FileReaderLoader::setEncoding(const String& encoding)
         m_encoding = TextEncoding(encoding);
 }
 
-#if ENABLE(STREAM)
-void FileReaderLoader::setRange(unsigned start, unsigned length)
-{
-    ASSERT(length > 0);
-    m_hasRange = true;
-    m_rangeStart = start;
-    m_rangeEnd = start + length - 1;
-}
-#endif // ENABLE(STREAM)
-
 } // namespace WebCore
- 
-#endif // ENABLE(BLOB)

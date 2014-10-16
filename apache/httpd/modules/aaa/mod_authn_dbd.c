@@ -18,6 +18,7 @@
 #include "httpd.h"
 #include "http_config.h"
 #include "http_log.h"
+#include "http_request.h"
 #include "apr_lib.h"
 #include "apr_dbd.h"
 #include "mod_dbd.h"
@@ -40,6 +41,10 @@ typedef struct {
 /* optional function - look it up once in post_config */
 static ap_dbd_t *(*authn_dbd_acquire_fn)(request_rec*) = NULL;
 static void (*authn_dbd_prepare_fn)(server_rec*, const char*, const char*) = NULL;
+static APR_OPTIONAL_FN_TYPE(ap_authn_cache_store) *authn_cache_store = NULL;
+#define AUTHN_CACHE_STORE(r,user,realm,data) \
+    if (authn_cache_store != NULL) \
+        authn_cache_store((r), "dbd", (user), (realm), (data))
 
 static void *authn_dbd_cr_conf(apr_pool_t *pool, char *dummy)
 {
@@ -59,6 +64,9 @@ static const char *authn_dbd_prepare(cmd_parms *cmd, void *cfg, const char *quer
 {
     static unsigned int label_num = 0;
     char *label;
+    const char *err = ap_check_cmd_context(cmd, NOT_IN_HTACCESS);
+    if (err)
+        return err;
 
     if (authn_dbd_prepare_fn == NULL) {
         authn_dbd_prepare_fn = APR_RETRIEVE_OPTIONAL_FN(ap_dbd_prepare);
@@ -92,42 +100,44 @@ static authn_status authn_dbd_password(request_rec *r, const char *user,
     apr_dbd_prepared_t *statement;
     apr_dbd_results_t *res = NULL;
     apr_dbd_row_t *row = NULL;
+    int ret;
 
     authn_dbd_conf *conf = ap_get_module_config(r->per_dir_config,
                                                 &authn_dbd_module);
     ap_dbd_t *dbd = authn_dbd_acquire_fn(r);
     if (dbd == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01653)
                       "Failed to acquire database connection to look up "
                       "user '%s'", user);
         return AUTH_GENERAL_ERROR;
     }
 
     if (conf->user == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01654)
                       "No AuthDBDUserPWQuery has been specified");
         return AUTH_GENERAL_ERROR;
     }
 
     statement = apr_hash_get(dbd->prepared, conf->user, APR_HASH_KEY_STRING);
     if (statement == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01655)
                       "A prepared statement could not be found for "
                       "AuthDBDUserPWQuery with the key '%s'", conf->user);
         return AUTH_GENERAL_ERROR;
     }
-    if (apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res, statement,
-                              0, user, NULL) != 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+    if ((ret = apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res,
+                                statement, 0, user, NULL) != 0)) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01656)
                       "Query execution error looking up '%s' "
-                      "in database", user);
+                      "in database [%s]",
+                      user, apr_dbd_error(dbd->driver, dbd->handle, ret));
         return AUTH_GENERAL_ERROR;
     }
     for (rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1);
          rv != -1;
          rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1)) {
         if (rv != 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01657)
                           "Error retrieving results while looking up '%s' "
                           "in database", user);
             return AUTH_GENERAL_ERROR;
@@ -167,6 +177,7 @@ static authn_status authn_dbd_password(request_rec *r, const char *user,
     if (!dbd_password) {
         return AUTH_USER_NOT_FOUND;
     }
+    AUTHN_CACHE_STORE(r, user, NULL, dbd_password);
 
     rv = apr_password_validate(password, dbd_password);
 
@@ -184,40 +195,43 @@ static authn_status authn_dbd_realm(request_rec *r, const char *user,
     apr_dbd_prepared_t *statement;
     apr_dbd_results_t *res = NULL;
     apr_dbd_row_t *row = NULL;
+    int ret;
 
     authn_dbd_conf *conf = ap_get_module_config(r->per_dir_config,
                                                 &authn_dbd_module);
     ap_dbd_t *dbd = authn_dbd_acquire_fn(r);
     if (dbd == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01658)
                       "Failed to acquire database connection to look up "
                       "user '%s:%s'", user, realm);
         return AUTH_GENERAL_ERROR;
     }
     if (conf->realm == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01659)
                       "No AuthDBDUserRealmQuery has been specified");
         return AUTH_GENERAL_ERROR;
     }
     statement = apr_hash_get(dbd->prepared, conf->realm, APR_HASH_KEY_STRING);
     if (statement == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01660)
                       "A prepared statement could not be found for "
                       "AuthDBDUserRealmQuery with the key '%s'", conf->realm);
         return AUTH_GENERAL_ERROR;
     }
-    if (apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res, statement,
-                              0, user, realm, NULL) != 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+    if ((ret = apr_dbd_pvselect(dbd->driver, r->pool, dbd->handle, &res,
+                                statement, 0, user, realm, NULL) != 0)) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01661)
                       "Query execution error looking up '%s:%s' "
-                      "in database", user, realm);
+                      "in database [%s]",
+                      user, realm,
+                      apr_dbd_error(dbd->driver, dbd->handle, ret));
         return AUTH_GENERAL_ERROR;
     }
     for (rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1);
          rv != -1;
          rv = apr_dbd_get_row(dbd->driver, r->pool, res, &row, -1)) {
         if (rv != 0) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01662)
                           "Error retrieving results while looking up '%s:%s' "
                           "in database", user, realm);
             return AUTH_GENERAL_ERROR;
@@ -257,9 +271,13 @@ static authn_status authn_dbd_realm(request_rec *r, const char *user,
     if (!dbd_hash) {
         return AUTH_USER_NOT_FOUND;
     }
-
+    AUTHN_CACHE_STORE(r, user, realm, dbd_hash);
     *rethash = apr_pstrdup(r->pool, dbd_hash);
     return AUTH_USER_FOUND;
+}
+static void opt_retr(void)
+{
+    authn_cache_store = APR_RETRIEVE_OPTIONAL_FN(ap_authn_cache_store);
 }
 static void authn_dbd_hooks(apr_pool_t *p)
 {
@@ -268,9 +286,12 @@ static void authn_dbd_hooks(apr_pool_t *p)
         &authn_dbd_realm
     };
 
-    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "dbd", "0", &authn_dbd_provider);
+    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "dbd",
+                              AUTHN_PROVIDER_VERSION,
+                              &authn_dbd_provider, AP_AUTH_INTERNAL_PER_CONF);
+    ap_hook_optional_fn_retrieve(opt_retr, NULL, NULL, APR_HOOK_MIDDLE);
 }
-module AP_MODULE_DECLARE_DATA authn_dbd_module =
+AP_DECLARE_MODULE(authn_dbd) =
 {
     STANDARD20_MODULE_STUFF,
     authn_dbd_cr_conf,

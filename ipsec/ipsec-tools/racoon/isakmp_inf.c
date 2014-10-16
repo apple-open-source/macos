@@ -92,7 +92,6 @@
 #include "isakmp_cfg.h" 
 #endif
 #include "isakmp_inf.h"
-#include "ikev2_info_rfc.h"
 #include "oakley.h"
 #include "ipsec_doi.h"
 #include "crypto_openssl.h"
@@ -680,7 +679,9 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
             if (del_ph1->sce_rekey &&
                 del_ph1->parent_session &&
                 del_ph1->parent_session->is_client &&
-                del_ph1->parent_session->established) {
+                del_ph1->parent_session->established &&
+		!(del_ph1->rmconf->natt_multiple_user &&
+		  del_ph1->parent_session->is_l2tpvpn_ipsec)) {
                 isakmp_ph1rekeyexpire(del_ph1, FALSE);
             }
             
@@ -700,7 +701,7 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 #endif
 			if (del_ph1->rmconf->natt_multiple_user &&
 				del_ph1->parent_session->is_l2tpvpn_ipsec) {
-				plog(ASL_LEVEL_DEBUG, "Ignoring IKE delete from peer for L2TP server\n");
+			    	plog(ASL_LEVEL_DEBUG, "Ignoring IKE delete from peer for L2TP server\n");
 				break;
 			}
 			isakmp_ph1expire(del_ph1);
@@ -718,8 +719,14 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 		}
 		if (iph1->rmconf->natt_multiple_user &&
 			iph1->parent_session->is_l2tpvpn_ipsec) {
-			plog(ASL_LEVEL_DEBUG, "Ignoring SA delete from peer for L2TP server\n");
-			break;
+		    	uint32_t *ph2_spi = ALIGNED_CAST(u_int32_t *)(delete + 1);
+			phase2_handle_t *iph2 = ike_session_getph2bysaidx(iph1->local, iph1->remote, delete->proto_id, ph2_spi[0]);
+			
+			if (iph2 != NULL) {
+				iph2->is_defunct = 1;
+				plog(ASL_LEVEL_DEBUG, "Ignoring SA delete from peer for L2TP server\n");
+	    			break;
+			}
 		}
 		purge_ipsec_spi(iph1->remote, delete->proto_id,
 		    ALIGNED_CAST(u_int32_t *)(delete + 1), num_spi, NULL, NULL);     // Wcast-align fix (void*) - delete payload is aligned
@@ -827,7 +834,7 @@ isakmp_info_send_d2(phase2_handle_t *iph2)
 
 	if (!FSM_STATE_IS_ESTABLISHED(iph2->status))
 		return 0;
-
+	
 	/*
 	 * don't send delete information if there is no phase 1 handler.
 	 * It's nonsensical to negotiate phase 1 to send the information.

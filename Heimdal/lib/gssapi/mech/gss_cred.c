@@ -65,6 +65,9 @@ gss_export_cred(OM_uint32 * minor_status,
     HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 	if (mc->gmc_mech->gm_export_cred == NULL) {
 	    *minor_status = 0;
+	    gss_mg_set_error_string(&mc->gmc_mech->gm_mech_oid,
+				    GSS_S_NO_CRED, *minor_status,
+				    "Credential doesn't support exporting");
 	    return GSS_S_NO_CRED;
 	}
     }
@@ -85,12 +88,14 @@ gss_export_cred(OM_uint32 * minor_status,
 	    return major;
 	}
 
-	sret = krb5_storage_write(sp, buffer.value, buffer.length);
-	if (sret < 0 || (size_t)sret != buffer.length) {
-	    gss_release_buffer(minor_status, &buffer);
-	    krb5_storage_free(sp);
-	    *minor_status = EINVAL;
-	    return GSS_S_FAILURE;
+	if (buffer.length) {
+	    sret = krb5_storage_write(sp, buffer.value, buffer.length);
+	    if (sret < 0 || (size_t)sret != buffer.length) {
+		gss_release_buffer(minor_status, &buffer);
+		krb5_storage_free(sp);
+		*minor_status = EINVAL;
+		return GSS_S_FAILURE;
+	    }
 	}
 	gss_release_buffer(minor_status, &buffer);
     }
@@ -100,6 +105,14 @@ gss_export_cred(OM_uint32 * minor_status,
     if (ret) {
 	*minor_status = ret;
 	return GSS_S_FAILURE;
+    }
+
+    if (data.length == 0)  {
+	*minor_status = 0;
+	gss_mg_set_error_string(GSS_C_NO_OID,
+				GSS_S_NO_CRED, *minor_status,
+				"Credential was not exportable");
+	return GSS_S_NO_CRED;
     }
 
     token->value = data.data;

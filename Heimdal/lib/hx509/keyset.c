@@ -749,6 +749,7 @@ hx509_certs_info(hx509_context context,
 void
 _hx509_pi_printf(int (*func)(void *, const char *), void *ctx,
 		 const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     va_list ap;
     char *str;

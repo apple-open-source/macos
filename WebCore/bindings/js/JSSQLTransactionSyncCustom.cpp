@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -33,9 +33,9 @@
 #include "JSSQLTransactionSync.h"
 
 #include "ExceptionCode.h"
+#include "JSDOMBinding.h"
 #include "JSSQLResultSet.h"
 #include "SQLResultSet.h"
-#include "SQLTransactionSync.h"
 #include "SQLValue.h"
 
 using namespace JSC;
@@ -49,7 +49,7 @@ JSValue JSSQLTransactionSync::executeSql(ExecState* exec)
         return jsUndefined();
     }
 
-    String sqlStatement = exec->argument(0).toString(exec)->value(exec);
+    String sqlStatement = exec->uncheckedArgument(0).toString(exec)->value(exec);
     if (exec->hadException())
         return jsUndefined();
 

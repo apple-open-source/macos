@@ -28,11 +28,14 @@
 #ifndef WebFrameNetworkingContext_h
 #define WebFrameNetworkingContext_h
 
+#include "HTTPCookieAcceptPolicy.h"
 #include <WebCore/FrameNetworkingContext.h>
+#include <WebCore/SessionID.h>
 
 namespace WebKit {
 
 class WebFrame;
+class WebFrameLoaderClient;
 
 class WebFrameNetworkingContext : public WebCore::FrameNetworkingContext {
 public:
@@ -41,13 +44,15 @@ public:
         return adoptRef(new WebFrameNetworkingContext(frame));
     }
 
+    static void ensurePrivateBrowsingSession(WebCore::SessionID);
+    static void setCookieAcceptPolicyForAllContexts(HTTPCookieAcceptPolicy);
+
+    WebFrameLoaderClient* webFrameLoaderClient() const;
+
 private:
     WebFrameNetworkingContext(WebFrame*);
 
     virtual WebCore::NetworkStorageSession& storageSession() const;
-    virtual uint64_t initiatingPageID() const;
-
-    uint64_t m_initiatingPageID;
 };
 
 }

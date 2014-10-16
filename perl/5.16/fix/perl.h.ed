@@ -1,0 +1,9 @@
+/#define[ 	]dNOOP/i
+#ifdef __cplusplus
+#define dNOOP (void)0
+#else
+.
+/#define[ 	]dNOOP/a
+#endif
+.
+w

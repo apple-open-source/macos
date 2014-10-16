@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -29,7 +29,7 @@
 */
 
 #if __STD_C
-static Void_t* dtmemory(Dt_t* dt,Void_t* addr,size_t size,Dtdisc_t* disc)
+static Void_t* dtmemory(Dt_t* dt, Void_t* addr, size_t size, Dtdisc_t* disc)
 #else
 static Void_t* dtmemory(dt, addr, size, disc)
 Dt_t* 		dt;	/* dictionary			*/
@@ -57,10 +57,8 @@ Dtdisc_t*	disc;
 int		type;
 #endif
 {
-	reg Dtsearch_f	searchf;
-	reg Dtlink_t	*r, *t;
-	reg char*	k;
-	reg Dtdisc_t*	old;
+	Dtdisc_t	*old;
+	Dtlink_t	*list;
 
 	if(!(old = dt->disc) )	/* initialization call from dtopen() */
 	{	dt->disc = disc;
@@ -69,61 +67,22 @@ int		type;
 		return disc;
 	}
 
-	if(!disc)	/* only want to know current discipline */
+	if(!disc) /* only want to know current discipline */
 		return old;
-
-	searchf = dt->meth->searchf;
-
-	UNFLATTEN(dt);
 
 	if(old->eventf && (*old->eventf)(dt,DT_DISC,(Void_t*)disc,old) < 0)
 		return NIL(Dtdisc_t*);
+
+	if((type & (DT_SAMEHASH|DT_SAMECMP)) != (DT_SAMEHASH|DT_SAMECMP) )
+		list = dtextract(dt); /* grab the list of objects if any */
+	else	list = NIL(Dtlink_t*);
 
 	dt->disc = disc;
 	if(!(dt->memoryf = disc->memoryf) )
 		dt->memoryf = dtmemory;
 
-	if(dt->data->type&(DT_STACK|DT_QUEUE|DT_LIST))
-		goto done;
-	else if(dt->data->type&DT_BAG)
-	{	if(type&DT_SAMEHASH)
-			goto done;
-		else	goto dt_renew;
-	}
-	else if(dt->data->type&(DT_SET|DT_BAG))
-	{	if((type&DT_SAMEHASH) && (type&DT_SAMECMP))
-			goto done;
-		else	goto dt_renew;
-	}
-	else /*if(dt->data->type&(DT_OSET|DT_OBAG))*/
-	{	if(type&DT_SAMECMP)
-			goto done;
-	dt_renew:
-		r = dtflatten(dt);
-		dt->data->type &= ~DT_FLATTEN;
-		dt->data->here = NIL(Dtlink_t*);
-		dt->data->size = 0;
+	if(list ) /* reinsert extracted objects (with new discipline) */
+		dtrestore(dt, list);
 
-		if(dt->data->type&(DT_SET|DT_BAG))
-		{	reg Dtlink_t	**s, **ends;
-			ends = (s = dt->data->htab) + dt->data->ntab;
-			while(s < ends)
-				*s++ = NIL(Dtlink_t*);
-		}
-
-		/* reinsert them */
-		while(r)
-		{	t = r->right;
-			if(!(type&DT_SAMEHASH))	/* new hash value */
-			{	k = (char*)_DTOBJ(r,disc->link);
-				k = _DTKEY((Void_t*)k,disc->key,disc->size);
-				r->hash = _DTHSH(dt,k,disc,disc->size);
-			}
-			(void)(*searchf)(dt,(Void_t*)r,DT_RENEW);
-			r = t;
-		}
-	}
-
-done:
 	return old;
 }

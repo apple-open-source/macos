@@ -1,3 +1,305 @@
+2014-05-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Rename translation domain as WebKit2GTK-3.0
+        https://bugs.webkit.org/show_bug.cgi?id=132953
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt:
+
+2014-04-08  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] Remove the WebKitGTK+ WebKit 1 code
+        https://bugs.webkit.org/show_bug.cgi?id=131399
+
+        Reviewed by Anders Carlsson.
+
+        * POTFILES.in: Remove references to WebKit1 source files from the list of
+        files with translatable strings.
+
+2014-03-25  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] Remove the autotools build
+        https://bugs.webkit.org/show_bug.cgi?id=130717
+
+        Reviewed by Anders Carlsson.
+
+        * GNUmakefile.am: Removed.
+
+2014-03-19  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=130334
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * pl.po: updated.
+
+2014-03-17  ChangSeok Oh  <changseok.oh@collabora.com>
+
+        [GTK] Update Korean translations - Jan 15, 2014
+        https://bugs.webkit.org/show_bug.cgi?id=127001
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * ko.po: Updated korean translations.
+
+2014-03-14  Jiro Matsuzawa  <jmatsuzawa@gnome.org>
+
+        Add Japanese translation for webkitgtk+
+        https://bugs.webkit.org/show_bug.cgi?id=125638
+
+        Reviewed by Gustavo Noronha.
+
+        * ja.po: Added.
+
+2014-01-23  Max Vujovic  <mvujovic@adobe.com>
+
+        Remove CSS Custom Filters code and tests
+        https://bugs.webkit.org/show_bug.cgi?id=127382
+
+        Reviewed by Simon Fraser.
+
+        No new tests. Removing functionality.
+
+        * ar.po:
+        * as.po:
+        * bg.po:
+        * cs.po:
+        * de.po:
+        * el.po:
+        * en_CA.po:
+        * en_GB.po:
+        * eo.po:
+        * es.po:
+        * et.po:
+        * eu.po:
+        * fr.po:
+        * gl.po:
+        * gu.po:
+        * he.po:
+        * hi.po:
+        * hu.po:
+        * id.po:
+        * it.po:
+        * kn.po:
+        * ko.po:
+        * lt.po:
+        * lv.po:
+        * ml.po:
+        * mr.po:
+        * nb.po:
+        * nl.po:
+        * or.po:
+        * pa.po:
+        * pl.po:
+        * pt.po:
+        * pt_BR.po:
+        * ro.po:
+        * ru.po:
+        * sl.po:
+        * sr.po:
+        * sr@latin.po:
+        * sv.po:
+        * ta.po:
+        * te.po:
+        * uk.po:
+        * vi.po:
+        * zh_CN.po:
+
+2014-01-08  Enrico Nicoletto  <liverig@gmail.com>
+
+        Updated Brazilian Portuguese translation of WebKitGTK+ - December 30, 2013
+        https://bugs.webkit.org/show_bug.cgi?id=126315
+
+        Reviewed by Gustavo Noronha.
+
+        * pt_BR.po: updated translation.
+
+2014-01-06  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] [CMake] Improve the way that translations are built with the built-in gettext support CMake
+        https://bugs.webkit.org/show_bug.cgi?id=126453
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Use the built-in CMake support for gettext to simplify the way we
+        build translation files and to automatically take care of installing them. Also adjust
+        the pot file build location to make the CMake build more similar to autotools.
+
+2014-01-05  Reinout van Schouwen  <reinouts@gnome.org>
+
+        [GTK] Updated Dutch translation
+        https://bugs.webkit.org/show_bug.cgi?id=126365
+
+        Reviewed by Gustavo Noronha.
+
+        * nl.po: Updated.
+
+2013-12-29  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK][CMake] Translations must be built
+        https://bugs.webkit.org/show_bug.cgi?id=125513
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Added.
+
+2013-11-26  Enrico Nicoletto  <liverig@gmail.com>
+
+        Updated Brazilian Portuguese translation of WebKitGTK+ - November 02, 2013
+        https://bugs.webkit.org/show_bug.cgi?id=123694
+
+        Reviewed by Gustavo Noronha.
+
+        * pt_BR.po: updated.
+
+2013-11-12  Shantha kumar  <shkumar@redhat.com>
+
+        Webkit - Updated Tamil translation
+        https://bugs.webkit.org/show_bug.cgi?id=124142
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * ta.po: updated.
+
+2013-11-05  Xabier Rodriguez Calvar  <calvaris@igalia.com>
+
+        [GStreamer] Remove NATIVE_FULLSCREEN_VIDEO support
+        https://bugs.webkit.org/show_bug.cgi?id=123437
+
+        Reviewed by Philippe Normand.
+
+        * POTFILES.in: Removed FullscreenVideoControllerGtk.cpp.
+        * gl.po: Removed appearances of strings of
+        FullscreenVideoControllerGtk.cpp.
+
+2013-10-10  Shantha kumar  <shkumar@redhat.com>
+
+        Webkit - Updated Tamil translation
+        https://bugs.webkit.org/show_bug.cgi?id=120520
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * ta.po: updated.
+
+2013-09-16  Daniel Mustieles  <daniel.mustieles@gmail.com>
+
+        Updated spanish Translation
+        https://bugs.webkit.org/show_bug.cgi?id=100677
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * es.po: updated.
+
+2013-09-16  Fran Dieguez  <frandieguez@gnome.org>
+
+        Add new Galician translations
+        https://bugs.webkit.org/show_bug.cgi?id=105079
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * gl.po: updated
+
+2013-09-16  Chris Leonard  <cjlhomeaddress@gmail.com>
+
+        L10n - en_GB PO file for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=100255
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * en_GB.po: updated.
+
+2013-09-16  Enrico Nicoletto  <liverig@gmail.com>
+
+        [l10n] [pt_BR] Updated Brazilian Portuguese translation of WebKitGTK+ - 12/09/2013
+        https://bugs.webkit.org/show_bug.cgi?id=121255
+
+        Reviewed by Gustavo Noronha.
+
+        * pt_BR.po: updated.
+
+2013-09-15  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=121392
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * pl.po: updated.
+
+2013-09-10  Daniel Mustieles  <daniel.mustieles@gmail.com>
+
+        Updated Spanish translation for WebKitGtk+
+        https://bugs.webkit.org/show_bug.cgi?id=121032
+
+        Reviewed by Gustavo Noronha.
+
+        * es.po: updated.
+
+2013-09-10  Enrico Nicoletto  <liverig@gmail.com>
+
+        [l10n] [pt_BR] Updated Brazilian Portuguese translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=120642
+
+        Reviewed by Gustavo Noronha.
+
+        * pt_BR.po: updated.
+
+2013-08-28  Christian Kirbach  <Christian.Kirbach@googlemail.com>
+
+        [GTK] Please incorporate German translation update
+        https://bugs.webkit.org/show_bug.cgi?id=120016
+
+        Reviewed by Gustavo Noronha.
+
+        * de.po: updated.
+
+2013-08-27  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=119986
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * pl.po: updated.
+
+2013-08-26  Enrico Nicoletto  <liverig@gmail.com>
+
+        [GTK L10N] Updated Brazilian Portuguese translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=120193
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * pt_BR.po: Updated.
+
+2013-07-29  Krishnababu Krothapalli  <k.meetme@gmail.com>
+
+        Updated Telugu [te] Translations for WebKitGTK+ HEAD
+        https://bugs.webkit.org/show_bug.cgi?id=117501
+
+        Reviewed by Gustavo Noronha.
+
+        * te.po: Updated.
+
+2013-07-29  Sandeep Shedmake  <sandeep.shedmake@gmail.com>
+
+        [l10n] [mr] Updated WebKitGTK+ Translation(s) in Marathi [mr] language
+        https://bugs.webkit.org/show_bug.cgi?id=119001
+
+        Reviewed by Gustavo Noronha.
+
+        * mr.po: Updated.
+
+2013-07-25  Sandeep Shedmake  <sandeep.shedmake@gmail.com>
+
+        [l10n] [mr] Updated WebKitGTK+ Translation(s) in Marathi [mr] language
+        https://bugs.webkit.org/show_bug.cgi?id=117282
+
+        Reviewed by Gustavo Noronha.
+
+        * mr.po: Updated.
+
 2013-06-04  Rajesh Ranjan  <rajeshkajha@yahoo.com>
 
         [GTK] Updated WebKit Translation in Hindi [hi] language

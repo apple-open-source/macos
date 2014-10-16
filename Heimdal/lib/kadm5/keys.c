@@ -68,13 +68,13 @@ _kadm5_init_keys (Key *keys, int len)
  * return 1 if any key in `keys1, len1' exists in `keys2, len2'
  */
 static int
-_kadm5_exists_keys(Key *keys1, int len1, Key *keys2, int len2)
+_kadm5_exists_keys(Key *keys1, unsigned len1, Key *keys2, unsigned len2)
 {
-    size_t i, j;
-    size_t optimize;
+    unsigned i, j;
 
     for (i = 0; i < len1; ++i) {
-	optimize = 0;
+	int optimize = 0;
+
 	for (j = 0; j < len2; j++) {
 	    if ((keys1[i].salt != NULL && keys2[j].salt == NULL)
 		|| (keys1[i].salt == NULL && keys2[j].salt != NULL))
@@ -117,14 +117,14 @@ _kadm5_exists_keys(Key *keys1, int len1, Key *keys2, int len2)
  * return 1 if any key in `keys1, len1' exists in hist_keys
  */
 int
-_kadm5_exists_keys_hist(Key *keys1, int len1, HDB_Ext_KeySet *hist_keys)
+_kadm5_exists_keys_hist(Key *keys1, unsigned len1, HDB_Ext_KeySet *hist_keys)
 {
-    size_t i;
+    unsigned n;
 
-    for (i = 0; i < hist_keys->len; i++) {
+    for (n = 0; n < hist_keys->len; n++) {
 	if (_kadm5_exists_keys(keys1, len1,
-			       hist_keys->val[i].keys.val,
-			       hist_keys->val[i].keys.len))
+			       hist_keys->val[n].keys.val,
+			       hist_keys->val[n].keys.len))
 	    return 1;
     }
 

@@ -251,6 +251,7 @@ bool IOHIDLibUserClient::start(IOService *provider)
     fNub = OSDynamicCast(IOHIDDevice, provider);
     if (!fNub)
         return false;
+    fNub->retain();
 
     fWL = getWorkLoop();
     if (!fWL)
@@ -316,6 +317,11 @@ ABORT_START:
     fWL = 0;
 
     return false;
+}
+
+void IOHIDLibUserClient::stop(IOService *provider)
+{
+    super::stop(provider);
 }
 
 bool IOHIDLibUserClient::resourceNotification(void * refcon __unused, IOService *service __unused, IONotifier *notifier __unused)
@@ -440,6 +446,8 @@ IOReturn IOHIDLibUserClient::externalMethod(
                                 OSObject *                    target,
                                 void *                        reference)
 {
+    IOReturn status = kIOReturnOffline;
+    
     if (fGate) {
         HIDCommandGateArgs args;
         
@@ -449,11 +457,11 @@ IOReturn IOHIDLibUserClient::externalMethod(
         args.target        = target;
         args.reference    = reference;
         
-        return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, target, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
+        if (!isInactive())
+            status = fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, target, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
     }
-    else {
-        return kIOReturnOffline;
-    }
+
+    return status;
 }
 
 IOReturn IOHIDLibUserClient::externalMethodGated(void * args)
@@ -465,6 +473,9 @@ IOReturn IOHIDLibUserClient::externalMethodGated(void * args)
     OSObject *                    target        = cArgs->target;
     void *                        reference    = cArgs->reference;
 
+    if (isInactive())
+        return kIOReturnOffline;
+    
     if (selector < (uint32_t) kIOHIDLibUserClientNumCommands)
     {
         dispatch = (IOExternalMethodDispatch *) &sMethods[selector];
@@ -519,6 +530,8 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
     if (ret != kIOReturnSuccess)
         return ret;
 
+    if (!fNub)
+        return kIOReturnOffline;
     if (!fNub->open(this, options))
         return kIOReturnExclusiveAccess;
         
@@ -538,6 +551,7 @@ IOReturn IOHIDLibUserClient::_close(IOHIDLibUserClient * target, void * referenc
 
 IOReturn IOHIDLibUserClient::close()
 {
+    if (fNub)
     fNub->close(this, fCachedOptionBits);
 
     setValid(false);
@@ -561,15 +575,9 @@ IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bo
 
 void IOHIDLibUserClient::free()
 {
-    if (fQueueMap) {
-        fQueueMap->release();
-        fQueueMap = 0;
-    }
-        
-    if (fNub) {
-        fNub = 0;
-    }
-
+    OSSafeReleaseNULL(fQueueMap);
+    OSSafeReleaseNULL(fNub);
+    
     if (fResourceES) {
         if (fWL)
             fWL->removeEventSource(fResourceES);
@@ -585,10 +593,7 @@ void IOHIDLibUserClient::free()
         fGate = 0;
     }
     
-    if ( fWL ) {
-        fWL->release();
-        fWL = 0;
-    }
+    OSSafeReleaseNULL(fWL);
     
     if ( fValidMessage ) {
         IOFree(fValidMessage, sizeof (struct _notifyMsg));

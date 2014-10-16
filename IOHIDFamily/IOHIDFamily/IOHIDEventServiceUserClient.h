@@ -77,6 +77,7 @@ private:
 protected:
     // IOUserClient methods
     virtual IOReturn clientClose( void );
+    virtual void stop( IOService * provider );
 
     virtual IOService * getService( void );
 

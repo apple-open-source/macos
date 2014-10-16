@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -34,8 +34,9 @@ char*		s;	/* string to write	*/
 int		rc;	/* record separator.	*/
 #endif
 {
-	reg ssize_t	p, n, w;
-	reg uchar*	ps;
+	ssize_t		p, n, w, sn;
+	uchar		*ps;
+	char		*ss;
 	SFMTXDECL(f);
 
 	SFMTXENTER(f,-1);
@@ -45,12 +46,24 @@ int		rc;	/* record separator.	*/
 
 	SFLOCK(f,0);
 
+	f->val = sn = -1; ss = (char*)s; 
 	for(w = 0; (*s || rc >= 0); )
-	{	if(SFWPEEK(f,ps,p) < 0)
+	{	/* need to communicate string size to exception handler */
+		if((f->flags&SF_STRING) && f->next >= f->endb )
+		{	sn = sn < 0 ? strlen(s) : (sn - (s-ss));
+			ss = (char*)s; /* save current checkpoint */
+			f->val = sn + (rc >= 0 ? 1 : 0); /* space requirement */
+			f->bits |= SF_PUTR; /* tell sfflsbuf to use f->val */
+		}
+
+		SFWPEEK(f,ps,p);
+		f->bits &= ~SF_PUTR; /* remove any trace of this */
+
+		if(p < 0 ) /* something not right about buffering */
 			break;
 
 		if(p == 0 || (f->flags&SF_WHOLE) )
-		{	n = strlen(s);
+		{	n = sn < 0 ? strlen(s) : sn - (s-ss);
 			if(p >= (n + (rc < 0 ? 0 : 1)) )
 			{	/* buffer can hold everything */
 				if(n > 0)

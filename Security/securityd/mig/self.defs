@@ -1,0 +1,43 @@
+//
+// Copyright (c) 2004,2009 Apple Inc. All Rights Reserved.
+//
+// @APPLE_LICENSE_HEADER_START@
+// 
+// This file contains Original Code and/or Modifications of Original Code
+// as defined in and that are subject to the Apple Public Source License
+// Version 2.0 (the 'License'). You may not use this file except in
+// compliance with the License. Please obtain a copy of the License at
+// http://www.opensource.apple.com/apsl/ and read it before using this
+// file.
+// 
+// The Original Code and all software distributed under the License are
+// distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+// EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+// INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+// Please see the License for the specific language governing rights and
+// limitations under the License.
+// 
+// @APPLE_LICENSE_HEADER_END@
+//
+// self.defs - Mach RPC interface for messages security sends to itself
+//
+// Note: Main (ucsp) dispatch starts at 1000; make sure you don't overlap it.
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem self 900;
+serverprefix self_server_;
+userprefix self_client_;
+
+
+//
+// Sent to ourselves upon receipt of a signal (so we get out from under
+// the dreaded "can't do anything useful in a signal handler" problem).
+//
+simpleroutine handleSignal(requestport sport: mach_port_make_send_once_t;
+    in task_port: mach_port_t; in signal_number: int);
+
+simpleroutine handleSession(requestport sport: mach_port_make_send_once_t;
+	in task_port: mach_port_t; in events: uint32_t; in ident: uint64_t);

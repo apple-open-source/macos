@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebNSFileManagerExtras.h>
+#import <WebKitLegacy/WebNSFileManagerExtras.h>
 
 #import "WebKitNSStringExtras.h"
 #import "WebNSURLExtras.h"
@@ -36,12 +36,13 @@
 #import <wtf/ObjcRuntimeExtras.h>
 #import <wtf/RetainPtr.h>
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
-extern "C" DADiskRef DADiskCreateFromVolumePath(CFAllocatorRef allocator, DASessionRef session, CFURLRef path);
+#if PLATFORM(IOS)
+#import <WebCore/FileSystemIOS.h>
 #endif
 
 @implementation NSFileManager (WebNSFileManagerExtras)
 
+#if !PLATFORM(IOS)
 
 typedef struct MetaDataInfo
 {
@@ -100,10 +101,10 @@ static void *setMetaData(void* context)
 {
     RetainPtr<DASessionRef> session = adoptCF(DASessionCreate(kCFAllocatorDefault));
     RetainPtr<DADiskRef> disk = adoptCF(DADiskCreateFromVolumePath(kCFAllocatorDefault, session.get(), (CFURLRef)[NSURL fileURLWithPath:@"/"]));
-    RetainPtr<CFDictionaryRef> diskDescription = adoptCF(DADiskCopyDescription(disk.get()));
-    RetainPtr<NSString> diskName = (NSString *)CFDictionaryGetValue(diskDescription.get(), kDADiskDescriptionVolumeNameKey);
-    return HardAutorelease(diskName.leakRef());
+    return [[(NSString *)CFDictionaryGetValue(adoptCF(DADiskCopyDescription(disk.get())).get(), kDADiskDescriptionVolumeNameKey) copy] autorelease];
 }
+
+#endif // !PLATFORM(IOS)
 
 // -[NSFileManager fileExistsAtPath:] returns NO if there is a broken symlink at the path.
 // So we use this function instead, which returns YES if there is anything there, including
@@ -145,6 +146,13 @@ static BOOL fileExists(NSString *path)
 
     return path;
 }
+
+#if PLATFORM(IOS)
+- (NSString *)_webkit_createTemporaryDirectoryWithTemplatePrefix:(NSString *)prefix
+{
+    return WebCore::createTemporaryDirectory(prefix);
+}
+#endif
 
 @end
 

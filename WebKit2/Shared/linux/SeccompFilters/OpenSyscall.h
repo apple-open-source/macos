@@ -31,7 +31,7 @@
 #include "Syscall.h"
 #include <wtf/text/CString.h>
 
-namespace CoreIPC {
+namespace IPC {
 class ArgumentDecoder;
 class ArgumentEncoder;
 }
@@ -40,8 +40,8 @@ namespace WebKit {
 
 class OpenSyscall : public Syscall {
 public:
-    static PassOwnPtr<Syscall> createFromOpenatContext(mcontext_t*);
-    static PassOwnPtr<Syscall> createFromCreatContext(mcontext_t*);
+    static std::unique_ptr<Syscall> createFromOpenatContext(mcontext_t*);
+    static std::unique_ptr<Syscall> createFromCreatContext(mcontext_t*);
 
     explicit OpenSyscall(mcontext_t*);
 
@@ -51,9 +51,9 @@ public:
 
     // Syscall implementation.
     virtual void setResult(const SyscallResult*);
-    virtual PassOwnPtr<SyscallResult> execute(const SyscallPolicy&);
-    virtual void encode(CoreIPC::ArgumentEncoder&) const;
-    virtual bool decode(CoreIPC::ArgumentDecoder*);
+    virtual std::unique_ptr<SyscallResult> execute(const SyscallPolicy&);
+    virtual void encode(IPC::ArgumentEncoder&) const;
+    virtual bool decode(IPC::ArgumentDecoder*);
 
 private:
     CString m_path;
@@ -70,8 +70,8 @@ public:
     int errorNumber() const { return m_errorNumber; }
 
     // SyscallResult implementation.
-    virtual void encode(CoreIPC::ArgumentEncoder&) const;
-    virtual bool decode(CoreIPC::ArgumentDecoder*, int fd);
+    virtual void encode(IPC::ArgumentEncoder&) const;
+    virtual bool decode(IPC::ArgumentDecoder*, int fd);
 
 private:
     int m_fd;

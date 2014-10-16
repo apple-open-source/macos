@@ -53,10 +53,10 @@ SEC_ASN1_CHOOSER_DECLARE(SECOID_AlgorithmIDTemplate)
 /*
  * OID handling routines
  */
-extern SECOidData *SECOID_FindOID(const SECItem *oid);
-extern SECOidTag SECOID_FindOIDTag(const SECItem *oid);
+extern SECOidData *SECOID_FindOID(const SecAsn1Item *oid);
+extern SECOidTag SECOID_FindOIDTag(const SecAsn1Item *oid);
 extern SECOidData *SECOID_FindOIDByTag(SECOidTag tagnum);
-extern SECOidData *SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm);
+extern SECOidData *SECOID_FindOIDByCssmAlgorithm(SecAsn1AlgId cssmAlgorithm);
 
 /****************************************/
 /*
@@ -71,7 +71,7 @@ extern SECOidData *SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm);
 **	"params" if not NULL, the parameters to go with the algorithm
 */
 extern SECStatus SECOID_SetAlgorithmID(PRArenaPool *arena, SECAlgorithmID *aid,
-				   SECOidTag tag, SECItem *params);
+				   SECOidTag tag, const SecAsn1Item *params);
 
 /*
 ** Copy the "src" object to "dest". Memory is allocated in "dest" for
@@ -101,16 +101,18 @@ extern void SECOID_DestroyAlgorithmID(SECAlgorithmID *aid, Boolean freeit);
 extern SECComparison SECOID_CompareAlgorithmID(const SECAlgorithmID *a,
 					   const SECAlgorithmID *b);
 
-extern Boolean SECOID_KnownCertExtenOID (const SECItem *extenOid);
+extern Boolean SECOID_KnownCertExtenOID (const SecAsn1Item *extenOid);
 
 /* Given a SEC_OID_* tag, return a string describing it.
  */
 extern const char *SECOID_FindOIDTagDescription(SECOidTag tagnum);
 
+#if 0
 /*
  * free up the oid data structures.
  */
 extern SECStatus SECOID_Shutdown(void);
+#endif
 
 
 SEC_END_PROTOS

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -140,13 +140,9 @@ IOATACommand::zeroCommand(void)
 	_taskFile.taskFile.ataTFCylHigh  = 0;  		
 	_taskFile.taskFile.ataTFSDH  = 0;  		
 	_taskFile.taskFile.ataTFCommand  = 0;  		
-	
-	
-	for( int i = 0; i < 16 ; i += 2 )
-	{
-		_packet.atapiCommandByte[ i ] = 0x000;
-	}
-
+    
+    bzero ( _packet.atapiCommandByte, sizeof ( _packet.atapiCommandByte ) );
+    
 	_packet.atapiPacketSize = 0;
 	
 	getExtendedLBA()->zeroData();

@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 2011-2012, International Business Machines Corporation
+ * Copyright (c) 2011-2014, International Business Machines Corporation
  * and others. All Rights Reserved.
  ********************************************************************/
 /* C API TEST FOR PLURAL RULES */

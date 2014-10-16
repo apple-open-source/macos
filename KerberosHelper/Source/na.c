@@ -44,7 +44,8 @@
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
 
-#include "LKDCHelper.h"
+#include <asl.h>
+
 #include "DeconstructServiceName.h"
 #include "utils.h"
 
@@ -75,11 +76,7 @@ enum NAHMechType {
 struct NAHSelectionData {
     CFRuntimeBase base;
     NAHRef na;
-    dispatch_semaphore_t wait;
-    int waiting;
     int have_cred;
-    int canceled;
-    int done;
 
     enum NAHMechType mech;
     CFStringRef client;
@@ -127,8 +124,6 @@ struct NAHData {
     CFMutableArrayRef selections;
 };
 
-static void signal_result(NAHSelectionRef selection);
-static Boolean wait_result(NAHSelectionRef selection);
 static void nalog(int level, CFStringRef fmt, ...)
     __attribute__((format(CFString, 2, 3)));
 
@@ -223,10 +218,6 @@ nalog(int level, CFStringRef fmt, ...)
 static void
 naselrelease(NAHSelectionRef nasel)
 {
-    if (nasel->waiting != 0)
-	abort();
-    if (nasel->wait)
-	dispatch_release(nasel->wait);
     CFRELEASE(nasel->client);
     CFRELEASE(nasel->clienttype);
     CFRELEASE(nasel->server);
@@ -246,9 +237,6 @@ static CFStringRef naselformatting(CFTypeRef cf, CFDictionaryRef formatOptions) 
 static CFStringRef
 naseldebug(NAHSelectionRef nasel)
 {
-    if (!wait_result(nasel))
-	return CFSTR("selection canceled");
-
     CFStringRef mech = NAHSelectionGetInfoForKey(nasel, kNAHMechanism);
     CFStringRef innermech = NAHSelectionGetInfoForKey(nasel, kNAHInnerMechanism);
 
@@ -585,16 +573,7 @@ addSelection(NAHRef na,
 	return NULL;
 
     nasel->client = CFRetain(client);
-    if (server) {
-	nasel->server = CFRetain(server);
-	nasel->waiting = 0;
-	nasel->wait = NULL;
-    } else {
-	nasel->server = NULL;
-	nasel->waiting = 0;
-	nasel->wait = dispatch_semaphore_create(0);
-    }
-    nasel->done = 0;
+    nasel->server = CFRetain(server);
     nasel->clienttype = clienttype;
     CFRetain(clienttype);
     nasel->servertype = servertype;
@@ -652,37 +631,6 @@ findUsername(CFAllocatorRef alloc, NAHRef na, CFDictionaryRef info)
     return true;
 }
 
-static void
-classic_lkdc_background(NAHSelectionRef nasel)
-{
-    LKDCHelperErrorType ret;
-    char *hostname = NULL, *realm = NULL;
-    CFStringRef u;
-
-    ret = __KRBCreateUTF8StringFromCFString(nasel->na->hostname, &hostname);
-    if (ret)
-	goto out;
-
-    ret = LKDCDiscoverRealm(hostname, &realm);
-    if (ret)
-	goto out;
-
-    nasel->server = CFStringCreateWithFormat(nasel->na->alloc, NULL,
-					     CFSTR("%@/%s@%s"),
-					     nasel->na->service, realm, realm);
-
-    u = nasel->client;
-
-    nasel->client =
-	CFStringCreateWithFormat(nasel->na->alloc, 0, CFSTR("%@@%s"), u, realm);
-    CFRELEASE(u);
-
- out:
-    __KRBReleaseUTF8String(hostname);
-    free(realm);
-    signal_result(nasel);
-}
-
 /*
  * Returns true for those hostname that looks like those hostname
  * where we should use LKDC hostnames instead. This check is only used
@@ -726,30 +674,6 @@ have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
     CFRELEASE(btmmDomain);
 
     return ret;
-}
-
-static void
-classic_lkdc(NAHRef na, unsigned long flags)
-{
-    NAHSelectionRef nasel;
-    int duplicate;
-
-    if (!have_lkdcish_hostname(na, true))
-	return;
-
-    if (na->password) {
-	nasel = addSelection(na,
-			     na->username, kNAHNTKRB5Principal,
-			     NULL, kNAHNTKRB5PrincipalReferral,
-			     GSS_KERBEROS, &duplicate, flags);
-	if (nasel && !duplicate) {
-	    CFRetain(na);
-	    dispatch_async(na->bgq, ^{
-		    classic_lkdc_background(nasel);
-		    CFRelease(na);
-		});
-	}
-    }
 }
 
 static void
@@ -1072,7 +996,6 @@ is_smb(NAHRef na)
 static void
 guess_kerberos(NAHRef na)
 {
-    bool try_lkdc_classic = true;
     bool try_wlkdc = false;
     bool try_iakerb_with_lkdc = false;
     bool have_kerberos = false;
@@ -1095,28 +1018,6 @@ guess_kerberos(NAHRef na)
     }
 
     /*
-     * let check if we should disable LKDC classic mode
-     *
-     * There is two cases where we know that we don't want to do LKDC
-     * - Server supports PKU2U or announce support for AppleLKDC
-     * - Server didn't do above and didn't have LKDC in the announced name
-     *   This later is true for windows servers and 10.7 SMB servers,
-     *   10.7 afp server does announce LKDC names though (tracked by 9002742).
-     */
-
-    if (haveMech(na, kGSSAPIMechPKU2UOID) || haveMech(na, kGSSAPIMechSupportsAppleLKDC)) {
-	try_lkdc_classic = false;
-	nalog(ASL_LEVEL_DEBUG, CFSTR("Turing off LKDC classic since server announces support for wellknown name: %@"), na->servermechs);
-    } else if (na->spnegoServerName) {
-	CFRange res = CFStringFind(na->spnegoServerName, CFSTR("@LKDC"), 0);
-	if (res.location == kCFNotFound) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("Turing off LKDC classic since spnegoServerName didn't contain LKDC: %@"),
-		  na->spnegoServerName);
-	    try_lkdc_classic = false;
-	}
-    }
-
-    /*
      * If we are using an old AFP server, disable SPNEGO
      */
     if (CFStringCompare(na->service, kNAHServiceAFPServer, 0) == kCFCompareEqualTo &&
@@ -1132,11 +1033,10 @@ guess_kerberos(NAHRef na)
 	haveMech(na, kGSSAPIMechKerberosMicrosoftOID) ||
 	haveMech(na, kGSSAPIMechPKU2UOID);
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s try-lkdc-classic=%s use-spnego=%s"),
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s use-spnego=%s"),
 	  have_kerberos ? "yes" : "no",
 	  try_iakerb_with_lkdc ? "yes" : "no",
 	  try_wlkdc ? "yes" : "no",
-	  try_lkdc_classic ? "yes" : "no",
 	  (flags & USE_SPNEGO) ? "yes" : "no");
     
     if (!have_kerberos)
@@ -1183,15 +1083,6 @@ guess_kerberos(NAHRef na)
     if (na->password)
 	use_classic_kerberos(na, flags);
 
-
-    /*
-     * Classic LKDC style, causes mDNS lookups, so avoid if possible
-     */
-
-    if (try_lkdc_classic) {
-	/* classic name */
-	classic_lkdc(na, flags);
-    }
 
     /*
      * We'll use existing credentials if we have them
@@ -1811,11 +1702,6 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 
     CFRetain(selection->na);
 
-    if (!wait_result(selection)) {
-	CFRelease(selection->na);
-	return false;
-    }
-
     if (selection->mech == GSS_KERBEROS) {
 
 	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: kerberos client: %@ (server %@)"),
@@ -2045,46 +1931,6 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
     return false;
 }
 
-
-
-static void
-signal_result(NAHSelectionRef s)
-{
-    dispatch_sync(s->na->q, ^{
-	    if (s->done)
-		abort();
-	    s->done = 1;
-	    while (s->waiting > 0) {
-		dispatch_semaphore_signal(s->wait);
-		s->waiting--;
-	    }
-	});
-}
-
-static Boolean
-wait_result(NAHSelectionRef s)
-{
-    __block dispatch_semaphore_t sema;
-
-    dispatch_sync(s->na->q, ^{
-	    if (s->canceled || s->done) {
-		sema = NULL;
-	    } else {
-		sema = s->wait;
-		if (sema)
-		    s->waiting++;
-	    }
-	});
-    if (sema)
-	dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-
-    if (s->canceled) {
-	CFRelease(s);
-	return false;
-    }
-    return true;
-}
-
 /*
  *
  */
@@ -2092,9 +1938,6 @@ wait_result(NAHSelectionRef s)
 CFTypeRef
 NAHSelectionGetInfoForKey(NAHSelectionRef selection, CFStringRef key)
 {
-    if (!wait_result(selection))
-	return NULL;
-
     if (CFStringCompare(kNAHSelectionHaveCredential, key, 0) == kCFCompareEqualTo) {
 	if (selection->ccache)
 	    return kCFBooleanTrue;
@@ -2133,9 +1976,6 @@ NAHSelectionCopyAuthInfo(NAHSelectionRef selection)
     CFMutableDictionaryRef dict;
     CFStringRef string;
     int gssdclient, gssdserver;
-
-    if (!wait_result(selection))
-	return NULL;
 
     if (selection->server == NULL)
 	return NULL;
@@ -2209,23 +2049,6 @@ NAHSelectionCopyAuthInfo(NAHSelectionRef selection)
 void
 NAHCancel(NAHRef na)
 {
-    dispatch_sync(na->q, ^{
-	    NAHSelectionRef s;
-	    CFIndex n, num;
-
-	    num = CFArrayGetCount(na->selections);
-	    for (n = 0; n < num; n++) {
-		s = (NAHSelectionRef)CFArrayGetValueAtIndex(na->selections, n);
-
-		s->canceled = 1;
-
-		while (s->waiting > 0) {
-		    CFRetain(s);
-		    dispatch_semaphore_signal(s->wait);
-		    s->waiting--;
-		}
-	    }
-	});
 }
 
 /*
@@ -2363,9 +2186,6 @@ NAHAddReferenceAndLabel(NAHSelectionRef selection,
     CFStringRef ref;
     Boolean res;
     char *ident;
-
-    if (!wait_result(selection))
-	return false;
 
     ref = NAHCopyReferenceKey(selection);
     if (ref == NULL)
@@ -2579,9 +2399,6 @@ NAHSelectionGetGSSCredential(NAHSelectionRef selection, CFErrorRef *error)
     if (error)
 	*error = NULL;
 
-    if (!wait_result(selection))
-	return NULL;
-
     if (selection->client == NULL)
 	return NULL;
 
@@ -2601,7 +2418,7 @@ NAHSelectionGetGSSCredential(NAHSelectionRef selection, CFErrorRef *error)
 	return NULL;
     }
 
-    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INITIATE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
+    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INDEFINITE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
     gss_release_name(&junk, &name);
     if (major_status) {
 	updateError(NULL, error, major_status, CFSTR("Failed create credential for %@"), selection->server);
@@ -2621,9 +2438,6 @@ NAHSelectionGetGSSAcceptorName(NAHSelectionRef selection, CFErrorRef *error)
 
     if (error)
 	*error = NULL;
-
-    if (!wait_result(selection))
-	return GSS_C_NO_NAME;
 
     if (selection->server == NULL)
 	return GSS_C_NO_NAME;
@@ -2648,9 +2462,6 @@ NAHSelectionGetGSSAcceptorName(NAHSelectionRef selection, CFErrorRef *error)
 gss_OID
 NAHSelectionGetGSSMech(NAHSelectionRef selection)
 {
-    if (!wait_result(selection))
-	return  NULL;
-
     return mech2oid(selection->mech);
 }
 
@@ -2701,7 +2512,7 @@ NAHAuthenticationInfoCopyClientCredential(CFDictionaryRef authInfo, CFErrorRef *
 	return NULL;
     }
 
-    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INITIATE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
+    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INDEFINITE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
     gss_release_name(&junk, &name);
     if (major_status) {
 	updateError(NULL, error, major_status, CFSTR("Failed create credential for %@"), clientName);

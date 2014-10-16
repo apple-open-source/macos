@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,12 +27,17 @@
 #include "Structure.h"
 
 #include "CodeBlock.h"
+#include "DumpContext.h"
+#include "JSCInlines.h"
 #include "JSObject.h"
 #include "JSPropertyNameIterator.h"
 #include "Lookup.h"
+#include "PropertyMapHashTable.h"
 #include "PropertyNameArray.h"
 #include "StructureChain.h"
 #include "StructureRareDataInlines.h"
+#include <wtf/CommaPrinter.h>
+#include <wtf/ProcessID.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
@@ -48,15 +53,6 @@
 using namespace std;
 using namespace WTF;
 
-#if DUMP_PROPERTYMAP_STATS
-
-int numProbes;
-int numCollisions;
-int numRehashes;
-int numRemoves;
-
-#endif
-
 namespace JSC {
 
 #if DUMP_STRUCTURE_ID_STATISTICS
@@ -69,7 +65,7 @@ bool StructureTransitionTable::contains(StringImpl* rep, unsigned attributes) co
         Structure* transition = singleTransition();
         return transition && transition->m_nameInPrevious == rep && transition->m_attributesInPrevious == attributes;
     }
-    return map()->get(make_pair(rep, attributes));
+    return map()->get(std::make_pair(rep, attributes));
 }
 
 inline Structure* StructureTransitionTable::get(StringImpl* rep, unsigned attributes) const
@@ -78,7 +74,7 @@ inline Structure* StructureTransitionTable::get(StringImpl* rep, unsigned attrib
         Structure* transition = singleTransition();
         return (transition && transition->m_nameInPrevious == rep && transition->m_attributesInPrevious == attributes) ? transition : 0;
     }
-    return map()->get(make_pair(rep, attributes));
+    return map()->get(std::make_pair(rep, attributes));
 }
 
 inline void StructureTransitionTable::add(VM& vm, Structure* structure)
@@ -103,7 +99,7 @@ inline void StructureTransitionTable::add(VM& vm, Structure* structure)
     // Newer versions of the STL have an std::make_pair function that takes rvalue references.
     // When either of the parameters are bitfields, the C++ compiler will try to bind them as lvalues, which is invalid. To work around this, use unary "+" to make the parameter an rvalue.
     // See https://bugs.webkit.org/show_bug.cgi?id=59261 for more details
-    map()->set(make_pair(structure->m_nameInPrevious, +structure->m_attributesInPrevious), structure);
+    map()->set(std::make_pair(structure->m_nameInPrevious.get(), +structure->m_attributesInPrevious), structure);
 }
 
 void Structure::dumpStatistics()
@@ -153,28 +149,33 @@ void Structure::dumpStatistics()
 
 Structure::Structure(VM& vm, JSGlobalObject* globalObject, JSValue prototype, const TypeInfo& typeInfo, const ClassInfo* classInfo, IndexingType indexingType, unsigned inlineCapacity)
     : JSCell(vm, vm.structureStructure.get())
+    , m_blob(vm.heap.structureIDTable().allocateID(this), indexingType, typeInfo)
+    , m_outOfLineTypeFlags(typeInfo.outOfLineTypeFlags())
     , m_globalObject(vm, this, globalObject, WriteBarrier<JSGlobalObject>::MayBeNull)
     , m_prototype(vm, this, prototype)
     , m_classInfo(classInfo)
-    , m_transitionWatchpointSet(InitializedWatching)
+    , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_typeInfo(typeInfo)
-    , m_indexingType(indexingType)
     , m_inlineCapacity(inlineCapacity)
     , m_dictionaryKind(NoneDictionaryKind)
+    , m_hasBeenFlattenedBefore(false)
     , m_isPinnedPropertyTable(false)
-    , m_hasGetterSetterProperties(false)
-    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(false)
+    , m_hasGetterSetterProperties(classInfo->hasStaticSetterOrReadonlyProperties(vm))
+    , m_hasCustomGetterSetterProperties(false)
+    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(classInfo->hasStaticSetterOrReadonlyProperties(vm))
     , m_hasNonEnumerableProperties(false)
     , m_attributesInPrevious(0)
     , m_specificFunctionThrashCount(0)
     , m_preventExtensions(false)
     , m_didTransition(false)
     , m_staticFunctionReified(false)
+    , m_hasRareData(false)
 {
     ASSERT(inlineCapacity <= JSFinalObject::maxInlineCapacity());
     ASSERT(static_cast<PropertyOffset>(inlineCapacity) < firstOutOfLineOffset);
-    ASSERT(!typeInfo.structureHasRareData());
+    ASSERT(!m_hasRareData);
+    ASSERT(hasReadOnlyOrGetterSetterPropertiesExcludingProto() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
+    ASSERT(hasGetterSetterProperties() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
 }
 
 const ClassInfo Structure::s_info = { "Structure", 0, 0, 0, CREATE_METHOD_TABLE(Structure) };
@@ -182,37 +183,44 @@ const ClassInfo Structure::s_info = { "Structure", 0, 0, 0, CREATE_METHOD_TABLE(
 Structure::Structure(VM& vm)
     : JSCell(CreatingEarlyCell)
     , m_prototype(vm, this, jsNull())
-    , m_classInfo(&s_info)
-    , m_transitionWatchpointSet(InitializedWatching)
+    , m_classInfo(info())
+    , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_typeInfo(CompoundType, OverridesVisitChildren)
-    , m_indexingType(0)
     , m_inlineCapacity(0)
     , m_dictionaryKind(NoneDictionaryKind)
+    , m_hasBeenFlattenedBefore(false)
     , m_isPinnedPropertyTable(false)
-    , m_hasGetterSetterProperties(false)
-    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(false)
+    , m_hasGetterSetterProperties(m_classInfo->hasStaticSetterOrReadonlyProperties(vm))
+    , m_hasCustomGetterSetterProperties(false)
+    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(m_classInfo->hasStaticSetterOrReadonlyProperties(vm))
     , m_hasNonEnumerableProperties(false)
     , m_attributesInPrevious(0)
     , m_specificFunctionThrashCount(0)
     , m_preventExtensions(false)
     , m_didTransition(false)
     , m_staticFunctionReified(false)
+    , m_hasRareData(false)
 {
+    TypeInfo typeInfo = TypeInfo(CompoundType, OverridesVisitChildren | StructureIsImmortal);
+    m_blob = StructureIDBlob(vm.heap.structureIDTable().allocateID(this), 0, typeInfo);
+    m_outOfLineTypeFlags = typeInfo.outOfLineTypeFlags();
+
+    ASSERT(hasReadOnlyOrGetterSetterPropertiesExcludingProto() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
+    ASSERT(hasGetterSetterProperties() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
 }
 
-Structure::Structure(VM& vm, const Structure* previous)
+Structure::Structure(VM& vm, Structure* previous)
     : JSCell(vm, vm.structureStructure.get())
     , m_prototype(vm, this, previous->storedPrototype())
     , m_classInfo(previous->m_classInfo)
-    , m_transitionWatchpointSet(InitializedWatching)
+    , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_typeInfo(previous->typeInfo().type(), previous->typeInfo().flags() & ~StructureHasRareData)
-    , m_indexingType(previous->indexingTypeIncludingHistory())
     , m_inlineCapacity(previous->m_inlineCapacity)
     , m_dictionaryKind(previous->m_dictionaryKind)
+    , m_hasBeenFlattenedBefore(previous->m_hasBeenFlattenedBefore)
     , m_isPinnedPropertyTable(false)
     , m_hasGetterSetterProperties(previous->m_hasGetterSetterProperties)
+    , m_hasCustomGetterSetterProperties(previous->m_hasCustomGetterSetterProperties)
     , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(previous->m_hasReadOnlyOrGetterSetterPropertiesExcludingProto)
     , m_hasNonEnumerableProperties(previous->m_hasNonEnumerableProperties)
     , m_attributesInPrevious(0)
@@ -220,15 +228,29 @@ Structure::Structure(VM& vm, const Structure* previous)
     , m_preventExtensions(previous->m_preventExtensions)
     , m_didTransition(true)
     , m_staticFunctionReified(previous->m_staticFunctionReified)
+    , m_hasRareData(false)
 {
-    if (previous->typeInfo().structureHasRareData() && previous->rareData()->needsCloning())
+    TypeInfo typeInfo = previous->typeInfo();
+    m_blob = StructureIDBlob(vm.heap.structureIDTable().allocateID(this), previous->indexingTypeIncludingHistory(), typeInfo);
+    m_outOfLineTypeFlags = typeInfo.outOfLineTypeFlags();
+
+    ASSERT(!previous->typeInfo().structureIsImmortal());
+    if (previous->m_hasRareData && previous->rareData()->needsCloning())
         cloneRareDataFrom(vm, previous);
-    else if (previous->previousID())
-        m_previousOrRareData.set(vm, this, previous->previousID());
+    setPreviousID(vm, previous);
 
     previous->notifyTransitionFromThisStructure();
     if (previous->m_globalObject)
         m_globalObject.set(vm, this, previous->m_globalObject.get());
+    ASSERT(hasReadOnlyOrGetterSetterPropertiesExcludingProto() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
+    ASSERT(hasGetterSetterProperties() || !m_classInfo->hasStaticSetterOrReadonlyProperties(vm));
+}
+
+Structure::~Structure()
+{
+    if (typeInfo().structureIsImmortal())
+        return;
+    Heap::heap(this)->structureIDTable().deallocateID(this, m_blob.structureID());
 }
 
 void Structure::destroy(JSCell* cell)
@@ -236,33 +258,55 @@ void Structure::destroy(JSCell* cell)
     static_cast<Structure*>(cell)->Structure::~Structure();
 }
 
+void Structure::findStructuresAndMapForMaterialization(Vector<Structure*, 8>& structures, Structure*& structure, PropertyTable*& table)
+{
+    ASSERT(structures.isEmpty());
+    table = 0;
+
+    for (structure = this; structure; structure = structure->previousID()) {
+        structure->m_lock.lock();
+        
+        table = structure->propertyTable().get();
+        if (table) {
+            // Leave the structure locked, so that the caller can do things to it atomically
+            // before it loses its property table.
+            return;
+        }
+        
+        structures.append(structure);
+        structure->m_lock.unlock();
+    }
+    
+    ASSERT(!structure);
+    ASSERT(!table);
+}
+
 void Structure::materializePropertyMap(VM& vm)
 {
-    ASSERT(structure()->classInfo() == &s_info);
+    ASSERT(structure()->classInfo() == info());
     ASSERT(!propertyTable());
 
     Vector<Structure*, 8> structures;
-    structures.append(this);
-
-    Structure* structure = this;
-
-    // Search for the last Structure with a property table.
-    while ((structure = structure->previousID())) {
-        if (structure->m_isPinnedPropertyTable) {
-            ASSERT(structure->propertyTable());
-            ASSERT(!structure->previousID());
-
-            propertyTable().set(vm, this, structure->propertyTable()->copy(vm, 0, numberOfSlotsForLastOffset(m_offset, m_inlineCapacity)));
-            break;
-        }
-
-        structures.append(structure);
+    Structure* structure;
+    PropertyTable* table;
+    
+    findStructuresAndMapForMaterialization(structures, structure, table);
+    
+    if (table) {
+        table = table->copy(vm, numberOfSlotsForLastOffset(m_offset, m_inlineCapacity));
+        structure->m_lock.unlock();
     }
+    
+    // Must hold the lock on this structure, since we will be modifying this structure's
+    // property map. We don't want getConcurrently() to see the property map in a half-baked
+    // state.
+    GCSafeConcurrentJITLocker locker(m_lock, vm.heap);
+    if (!table)
+        createPropertyMap(locker, vm, numberOfSlotsForLastOffset(m_offset, m_inlineCapacity));
+    else
+        propertyTable().set(vm, this, table);
 
-    if (!propertyTable())
-        createPropertyMap(vm, numberOfSlotsForLastOffset(m_offset, m_inlineCapacity));
-
-    for (ptrdiff_t i = structures.size() - 1; i >= 0; --i) {
+    for (size_t i = structures.size(); i--;) {
         structure = structures[i];
         if (!structure->m_nameInPrevious)
             continue;
@@ -273,38 +317,27 @@ void Structure::materializePropertyMap(VM& vm)
     checkOffsetConsistency();
 }
 
-inline size_t nextOutOfLineStorageCapacity(size_t currentCapacity)
-{
-    if (!currentCapacity)
-        return initialOutOfLineCapacity;
-    return currentCapacity * outOfLineGrowthFactor;
-}
-
-size_t Structure::suggestedNewOutOfLineStorageCapacity()
-{
-    return nextOutOfLineStorageCapacity(outOfLineCapacity());
-}
- 
 void Structure::despecifyDictionaryFunction(VM& vm, PropertyName propertyName)
 {
     StringImpl* rep = propertyName.uid();
 
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
 
     ASSERT(isDictionary());
     ASSERT(propertyTable());
 
-    PropertyMapEntry* entry = propertyTable()->find(rep).first;
+    PropertyMapEntry* entry = propertyTable()->get(rep);
     ASSERT(entry);
     entry->specificValue.clear();
 }
 
-Structure* Structure::addPropertyTransitionToExistingStructure(Structure* structure, PropertyName propertyName, unsigned attributes, JSCell* specificValue, PropertyOffset& offset)
+Structure* Structure::addPropertyTransitionToExistingStructureImpl(Structure* structure, StringImpl* uid, unsigned attributes, JSCell* specificValue, PropertyOffset& offset)
 {
     ASSERT(!structure->isDictionary());
     ASSERT(structure->isObject());
 
-    if (Structure* existingTransition = structure->m_transitionTable.get(propertyName.uid(), attributes)) {
+    if (Structure* existingTransition = structure->m_transitionTable.get(uid, attributes)) {
         JSCell* specificValueInPrevious = existingTransition->m_specificValueInPrevious.get();
         if (specificValueInPrevious && specificValueInPrevious != specificValue)
             return 0;
@@ -314,6 +347,18 @@ Structure* Structure::addPropertyTransitionToExistingStructure(Structure* struct
     }
 
     return 0;
+}
+
+Structure* Structure::addPropertyTransitionToExistingStructure(Structure* structure, PropertyName propertyName, unsigned attributes, JSCell* specificValue, PropertyOffset& offset)
+{
+    ASSERT(!isCompilationThread());
+    return addPropertyTransitionToExistingStructureImpl(structure, propertyName.uid(), attributes, specificValue, offset);
+}
+
+Structure* Structure::addPropertyTransitionToExistingStructureConcurrently(Structure* structure, StringImpl* uid, unsigned attributes, JSCell* specificValue, PropertyOffset& offset)
+{
+    ConcurrentJITLocker locker(structure->m_lock);
+    return addPropertyTransitionToExistingStructureImpl(structure, uid, attributes, specificValue, offset);
 }
 
 bool Structure::anyObjectInChainMayInterceptIndexedAccesses() const
@@ -330,6 +375,30 @@ bool Structure::anyObjectInChainMayInterceptIndexedAccesses() const
     }
 }
 
+bool Structure::holesMustForwardToPrototype(VM& vm) const
+{
+    if (this->mayInterceptIndexedAccesses())
+        return true;
+
+    JSValue prototype = this->storedPrototype();
+    if (!prototype.isObject())
+        return false;
+    JSObject* object = asObject(prototype);
+
+    while (true) {
+        Structure& structure = *object->structure(vm);
+        if (hasIndexedProperties(object->indexingType()) || structure.mayInterceptIndexedAccesses())
+            return true;
+        prototype = structure.storedPrototype();
+        if (!prototype.isObject())
+            return false;
+        object = asObject(prototype);
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+    return false;
+}
+
 bool Structure::needsSlowPutIndexing() const
 {
     return anyObjectInChainMayInterceptIndexedAccesses()
@@ -344,7 +413,7 @@ NonPropertyTransition Structure::suggestedArrayStorageTransition() const
     return AllocateArrayStorage;
 }
 
-Structure* Structure::addPropertyTransition(VM& vm, Structure* structure, PropertyName propertyName, unsigned attributes, JSCell* specificValue, PropertyOffset& offset)
+Structure* Structure::addPropertyTransition(VM& vm, Structure* structure, PropertyName propertyName, unsigned attributes, JSCell* specificValue, PropertyOffset& offset, PutPropertySlot::Context context)
 {
     // If we have a specific function, we may have got to this point if there is
     // already a transition with the correct property name and attributes, but
@@ -363,7 +432,12 @@ Structure* Structure::addPropertyTransition(VM& vm, Structure* structure, Proper
     if (structure->m_specificFunctionThrashCount == maxSpecificFunctionThrashCount)
         specificValue = 0;
 
-    if (structure->transitionCount() > s_maxTransitionLength) {
+    int maxTransitionLength;
+    if (context == PutPropertySlot::PutById)
+        maxTransitionLength = s_maxTransitionLengthForNonEvalPutById;
+    else
+        maxTransitionLength = s_maxTransitionLength;
+    if (structure->transitionCount() > maxTransitionLength) {
         Structure* transition = toCacheableDictionaryTransition(vm, structure);
         ASSERT(structure != transition);
         offset = transition->putSpecificValue(vm, propertyName, attributes, specificValue);
@@ -373,17 +447,19 @@ Structure* Structure::addPropertyTransition(VM& vm, Structure* structure, Proper
     Structure* transition = create(vm, structure);
 
     transition->m_cachedPrototypeChain.setMayBeNull(vm, transition, structure->m_cachedPrototypeChain.get());
-    transition->setPreviousID(vm, transition, structure);
     transition->m_nameInPrevious = propertyName.uid();
     transition->m_attributesInPrevious = attributes;
     transition->m_specificValueInPrevious.setMayBeNull(vm, transition, specificValue);
-    transition->propertyTable().set(vm, transition, structure->takePropertyTableOrCloneIfPinned(vm, transition));
+    transition->propertyTable().set(vm, transition, structure->takePropertyTableOrCloneIfPinned(vm));
     transition->m_offset = structure->m_offset;
 
     offset = transition->putSpecificValue(vm, propertyName, attributes, specificValue);
 
     checkOffset(transition->m_offset, transition->inlineCapacity());
-    structure->m_transitionTable.add(vm, transition);
+    {
+        ConcurrentJITLocker locker(structure->m_lock);
+        structure->m_transitionTable.add(vm, transition);
+    }
     transition->checkOffsetConsistency();
     structure->checkOffsetConsistency();
     return transition;
@@ -407,8 +483,9 @@ Structure* Structure::changePrototypeTransition(VM& vm, Structure* structure, JS
 
     transition->m_prototype.set(vm, transition, prototype);
 
-    structure->materializePropertyMapIfNecessary(vm);
-    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm, transition));
+    DeferGC deferGC(vm.heap);
+    structure->materializePropertyMapIfNecessary(vm, deferGC);
+    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm));
     transition->m_offset = structure->m_offset;
     transition->pin();
 
@@ -423,8 +500,9 @@ Structure* Structure::despecifyFunctionTransition(VM& vm, Structure* structure, 
 
     ++transition->m_specificFunctionThrashCount;
 
-    structure->materializePropertyMapIfNecessary(vm);
-    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm, transition));
+    DeferGC deferGC(vm.heap);
+    structure->materializePropertyMapIfNecessary(vm, deferGC);
+    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm));
     transition->m_offset = structure->m_offset;
     transition->pin();
 
@@ -441,11 +519,12 @@ Structure* Structure::despecifyFunctionTransition(VM& vm, Structure* structure, 
 
 Structure* Structure::attributeChangeTransition(VM& vm, Structure* structure, PropertyName propertyName, unsigned attributes)
 {
+    DeferGC deferGC(vm.heap);
     if (!structure->isUncacheableDictionary()) {
         Structure* transition = create(vm, structure);
 
-        structure->materializePropertyMapIfNecessary(vm);
-        transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm, transition));
+        structure->materializePropertyMapIfNecessary(vm, deferGC);
+        transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm));
         transition->m_offset = structure->m_offset;
         transition->pin();
         
@@ -453,7 +532,7 @@ Structure* Structure::attributeChangeTransition(VM& vm, Structure* structure, Pr
     }
 
     ASSERT(structure->propertyTable());
-    PropertyMapEntry* entry = structure->propertyTable()->find(propertyName.uid()).first;
+    PropertyMapEntry* entry = structure->propertyTable()->get(propertyName.uid());
     ASSERT(entry);
     entry->attributes = attributes;
 
@@ -467,8 +546,9 @@ Structure* Structure::toDictionaryTransition(VM& vm, Structure* structure, Dicti
     
     Structure* transition = create(vm, structure);
 
-    structure->materializePropertyMapIfNecessary(vm);
-    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm, transition));
+    DeferGC deferGC(vm.heap);
+    structure->materializePropertyMapIfNecessary(vm, deferGC);
+    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm));
     transition->m_offset = structure->m_offset;
     transition->m_dictionaryKind = kind;
     transition->pin();
@@ -516,6 +596,8 @@ Structure* Structure::freezeTransition(VM& vm, Structure* structure)
             iter->attributes |= iter->attributes & Accessor ? DontDelete : (DontDelete | ReadOnly);
     }
 
+    ASSERT(transition->hasReadOnlyOrGetterSetterPropertiesExcludingProto() || !transition->classInfo()->hasStaticSetterOrReadonlyProperties(vm));
+    ASSERT(transition->hasGetterSetterProperties() || !transition->classInfo()->hasStaticSetterOrReadonlyProperties(vm));
     transition->checkOffsetConsistency();
     return transition;
 }
@@ -527,8 +609,9 @@ Structure* Structure::preventExtensionsTransition(VM& vm, Structure* structure)
 
     // Don't set m_offset, as one can not transition to this.
 
-    structure->materializePropertyMapIfNecessary(vm);
-    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm, transition));
+    DeferGC deferGC(vm.heap);
+    structure->materializePropertyMapIfNecessary(vm, deferGC);
+    transition->propertyTable().set(vm, transition, structure->copyPropertyTableForPinning(vm));
     transition->m_offset = structure->m_offset;
     transition->m_preventExtensions = true;
     transition->pin();
@@ -537,11 +620,18 @@ Structure* Structure::preventExtensionsTransition(VM& vm, Structure* structure)
     return transition;
 }
 
-PropertyTable* Structure::takePropertyTableOrCloneIfPinned(VM& vm, Structure* owner)
+PropertyTable* Structure::takePropertyTableOrCloneIfPinned(VM& vm)
 {
-    materializePropertyMapIfNecessaryForPinning(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessaryForPinning(vm, deferGC);
+    
     if (m_isPinnedPropertyTable)
-        return propertyTable()->copy(vm, owner, propertyTable()->size() + 1);
+        return propertyTable()->copy(vm, propertyTable()->size() + 1);
+    
+    // Hold the lock while stealing the table - so that getConcurrently() on another thread
+    // will either have to bypass this structure, or will get to use the property table
+    // before it is stolen.
+    ConcurrentJITLocker locker(m_lock);
     PropertyTable* takenPropertyTable = propertyTable().get();
     propertyTable().clear();
     return takenPropertyTable;
@@ -562,21 +652,26 @@ Structure* Structure::nonPropertyTransition(VM& vm, Structure* structure, NonPro
         }
     }
     
-    if (Structure* existingTransition = structure->m_transitionTable.get(0, attributes)) {
+    Structure* existingTransition;
+    if (!structure->isDictionary() && (existingTransition = structure->m_transitionTable.get(0, attributes))) {
         ASSERT(existingTransition->m_attributesInPrevious == attributes);
         ASSERT(existingTransition->indexingTypeIncludingHistory() == indexingType);
         return existingTransition;
     }
     
     Structure* transition = create(vm, structure);
-    transition->setPreviousID(vm, transition, structure);
     transition->m_attributesInPrevious = attributes;
-    transition->m_indexingType = indexingType;
-    transition->propertyTable().set(vm, transition, structure->takePropertyTableOrCloneIfPinned(vm, transition));
+    transition->m_blob.setIndexingType(indexingType);
+    transition->propertyTable().set(vm, transition, structure->takePropertyTableOrCloneIfPinned(vm));
     transition->m_offset = structure->m_offset;
     checkOffset(transition->m_offset, transition->inlineCapacity());
     
-    structure->m_transitionTable.add(vm, transition);
+    if (structure->isDictionary())
+        transition->pin();
+    else {
+        ConcurrentJITLocker locker(structure->m_lock);
+        structure->m_transitionTable.add(vm, transition);
+    }
     transition->checkOffsetConsistency();
     return transition;
 }
@@ -587,7 +682,8 @@ bool Structure::isSealed(VM& vm)
     if (isExtensible())
         return false;
 
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
     if (!propertyTable())
         return true;
 
@@ -605,7 +701,8 @@ bool Structure::isFrozen(VM& vm)
     if (isExtensible())
         return false;
 
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
     if (!propertyTable())
         return true;
 
@@ -623,6 +720,8 @@ Structure* Structure::flattenDictionaryStructure(VM& vm, JSObject* object)
 {
     checkOffsetConsistency();
     ASSERT(isDictionary());
+
+    size_t beforeOutOfLineCapacity = this->outOfLineCapacity();
     if (isUncacheableDictionary()) {
         ASSERT(propertyTable());
 
@@ -649,11 +748,22 @@ Structure* Structure::flattenDictionaryStructure(VM& vm, JSObject* object)
     }
 
     m_dictionaryKind = NoneDictionaryKind;
+    m_hasBeenFlattenedBefore = true;
 
-    // If the object had a Butterfly but after flattening/compacting we no longer have need of it,
-    // we need to zero it out because the collector depends on the Structure to know the size for copying.
-    if (object->butterfly() && !this->outOfLineCapacity() && !hasIndexingHeader(this->indexingType()))
-        object->setButterfly(vm, 0, this);
+    size_t afterOutOfLineCapacity = this->outOfLineCapacity();
+
+    if (beforeOutOfLineCapacity != afterOutOfLineCapacity) {
+        ASSERT(beforeOutOfLineCapacity > afterOutOfLineCapacity);
+        // If the object had a Butterfly but after flattening/compacting we no longer have need of it,
+        // we need to zero it out because the collector depends on the Structure to know the size for copying.
+        if (object->butterfly() && !afterOutOfLineCapacity && !this->hasIndexingHeader(object))
+            object->setStructureAndButterfly(vm, this, 0);
+        // If the object was down-sized to the point where the base of the Butterfly is no longer within the 
+        // first CopiedBlock::blockSize bytes, we'll get the wrong answer if we try to mask the base back to 
+        // the CopiedBlock header. To prevent this case we need to memmove the Butterfly down.
+        else if (object->butterfly())
+            object->shiftButterflyAfterFlattening(vm, beforeOutOfLineCapacity, afterOutOfLineCapacity);
+    }
 
     return this;
 }
@@ -665,7 +775,8 @@ PropertyOffset Structure::addPropertyWithoutTransition(VM& vm, PropertyName prop
     if (m_specificFunctionThrashCount == maxSpecificFunctionThrashCount)
         specificValue = 0;
 
-    materializePropertyMapIfNecessaryForPinning(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessaryForPinning(vm, deferGC);
     
     pin();
 
@@ -677,7 +788,8 @@ PropertyOffset Structure::removePropertyWithoutTransition(VM& vm, PropertyName p
     ASSERT(isUncacheableDictionary());
     ASSERT(!enumerationCache());
 
-    materializePropertyMapIfNecessaryForPinning(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessaryForPinning(vm, deferGC);
 
     pin();
     return remove(propertyName);
@@ -693,35 +805,52 @@ void Structure::pin()
 
 void Structure::allocateRareData(VM& vm)
 {
-    ASSERT(!typeInfo().structureHasRareData());
+    ASSERT(!m_hasRareData);
     StructureRareData* rareData = StructureRareData::create(vm, previous());
-    m_typeInfo = TypeInfo(typeInfo().type(), typeInfo().flags() | StructureHasRareData);
     m_previousOrRareData.set(vm, this, rareData);
+    m_hasRareData = true;
+    ASSERT(m_hasRareData);
 }
 
 void Structure::cloneRareDataFrom(VM& vm, const Structure* other)
 {
-    ASSERT(other->typeInfo().structureHasRareData());
+    ASSERT(!m_hasRareData);
+    ASSERT(other->m_hasRareData);
     StructureRareData* newRareData = StructureRareData::clone(vm, other->rareData());
-    m_typeInfo = TypeInfo(typeInfo().type(), typeInfo().flags() | StructureHasRareData);
     m_previousOrRareData.set(vm, this, newRareData);
+    m_hasRareData = true;
+    ASSERT(m_hasRareData);
 }
 
 #if DUMP_PROPERTYMAP_STATS
 
+PropertyMapHashTableStats* propertyMapHashTableStats = 0;
+
 struct PropertyMapStatisticsExitLogger {
+    PropertyMapStatisticsExitLogger();
     ~PropertyMapStatisticsExitLogger();
 };
 
-static PropertyMapStatisticsExitLogger logger;
+DEFINE_GLOBAL_FOR_LOGGING(PropertyMapStatisticsExitLogger, logger, );
+
+PropertyMapStatisticsExitLogger::PropertyMapStatisticsExitLogger()
+{
+    propertyMapHashTableStats = adoptPtr(new PropertyMapHashTableStats()).leakPtr();
+}
 
 PropertyMapStatisticsExitLogger::~PropertyMapStatisticsExitLogger()
 {
-    dataLogF("\nJSC::PropertyMap statistics\n\n");
-    dataLogF("%d probes\n", numProbes);
-    dataLogF("%d collisions (%.1f%%)\n", numCollisions, 100.0 * numCollisions / numProbes);
-    dataLogF("%d rehashes\n", numRehashes);
-    dataLogF("%d removes\n", numRemoves);
+    unsigned finds = propertyMapHashTableStats->numFinds;
+    unsigned collisions = propertyMapHashTableStats->numCollisions;
+    dataLogF("\nJSC::PropertyMap statistics for process %d\n\n", getCurrentProcessID());
+    dataLogF("%d finds\n", finds);
+    dataLogF("%d collisions (%.1f%%)\n", collisions, 100.0 * collisions / finds);
+    dataLogF("%d lookups\n", propertyMapHashTableStats->numLookups.load());
+    dataLogF("%d lookup probings\n", propertyMapHashTableStats->numLookupProbing.load());
+    dataLogF("%d adds\n", propertyMapHashTableStats->numAdds.load());
+    dataLogF("%d removes\n", propertyMapHashTableStats->numRemoves.load());
+    dataLogF("%d rehashes\n", propertyMapHashTableStats->numRehashes.load());
+    dataLogF("%d reinserts\n", propertyMapHashTableStats->numReinserts.load());
 }
 
 #endif
@@ -735,44 +864,61 @@ inline void Structure::checkConsistency()
 
 #endif
 
-PropertyTable* Structure::copyPropertyTable(VM& vm, Structure* owner)
+PropertyTable* Structure::copyPropertyTable(VM& vm)
 {
     if (!propertyTable())
         return 0;
-    return PropertyTable::clone(vm, owner, *propertyTable().get());
+    return PropertyTable::clone(vm, *propertyTable().get());
 }
 
-PropertyTable* Structure::copyPropertyTableForPinning(VM& vm, Structure* owner)
+PropertyTable* Structure::copyPropertyTableForPinning(VM& vm)
 {
     if (propertyTable())
-        return PropertyTable::clone(vm, owner, *propertyTable().get());
+        return PropertyTable::clone(vm, *propertyTable().get());
     return PropertyTable::create(vm, numberOfSlotsForLastOffset(m_offset, m_inlineCapacity));
 }
 
-PropertyOffset Structure::get(VM& vm, PropertyName propertyName, unsigned& attributes, JSCell*& specificValue)
+PropertyOffset Structure::getConcurrently(VM&, StringImpl* uid, unsigned& attributes, JSCell*& specificValue)
 {
-    ASSERT(structure()->classInfo() == &s_info);
-
-    materializePropertyMapIfNecessary(vm);
-    if (!propertyTable())
-        return invalidOffset;
-
-    PropertyMapEntry* entry = propertyTable()->find(propertyName.uid()).first;
-    if (!entry)
-        return invalidOffset;
-
-    attributes = entry->attributes;
-    specificValue = entry->specificValue.get();
-    return entry->offset;
+    Vector<Structure*, 8> structures;
+    Structure* structure;
+    PropertyTable* table;
+    
+    findStructuresAndMapForMaterialization(structures, structure, table);
+    
+    if (table) {
+        PropertyMapEntry* entry = table->get(uid);
+        if (entry) {
+            attributes = entry->attributes;
+            specificValue = entry->specificValue.get();
+            PropertyOffset result = entry->offset;
+            structure->m_lock.unlock();
+            return result;
+        }
+        structure->m_lock.unlock();
+    }
+    
+    for (unsigned i = structures.size(); i--;) {
+        structure = structures[i];
+        if (structure->m_nameInPrevious.get() != uid)
+            continue;
+        
+        attributes = structure->m_attributesInPrevious;
+        specificValue = structure->m_specificValueInPrevious.get();
+        return structure->m_offset;
+    }
+    
+    return invalidOffset;
 }
 
 bool Structure::despecifyFunction(VM& vm, PropertyName propertyName)
 {
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
     if (!propertyTable())
         return false;
 
-    PropertyMapEntry* entry = propertyTable()->find(propertyName.uid()).first;
+    PropertyMapEntry* entry = propertyTable()->get(propertyName.uid());
     if (!entry)
         return false;
 
@@ -783,7 +929,8 @@ bool Structure::despecifyFunction(VM& vm, PropertyName propertyName)
 
 void Structure::despecifyAllFunctions(VM& vm)
 {
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
     if (!propertyTable())
         return;
 
@@ -794,6 +941,8 @@ void Structure::despecifyAllFunctions(VM& vm)
 
 PropertyOffset Structure::putSpecificValue(VM& vm, PropertyName propertyName, unsigned attributes, JSCell* specificValue)
 {
+    GCSafeConcurrentJITLocker locker(m_lock, vm.heap);
+    
     ASSERT(!JSC::isValidOffset(get(vm, propertyName)));
 
     checkConsistency();
@@ -803,11 +952,11 @@ PropertyOffset Structure::putSpecificValue(VM& vm, PropertyName propertyName, un
     StringImpl* rep = propertyName.uid();
 
     if (!propertyTable())
-        createPropertyMap(vm);
+        createPropertyMap(locker, vm);
 
     PropertyOffset newOffset = propertyTable()->nextOffset(m_inlineCapacity);
 
-    propertyTable()->add(PropertyMapEntry(vm, this, rep, newOffset, attributes, specificValue), m_offset, PropertyTable::PropertyOffsetMayChange);
+    propertyTable()->add(PropertyMapEntry(vm, propertyTable().get(), rep, newOffset, attributes, specificValue), m_offset, PropertyTable::PropertyOffsetMayChange);
     
     checkConsistency();
     return newOffset;
@@ -815,6 +964,8 @@ PropertyOffset Structure::putSpecificValue(VM& vm, PropertyName propertyName, un
 
 PropertyOffset Structure::remove(PropertyName propertyName)
 {
+    ConcurrentJITLocker locker(m_lock);
+    
     checkConsistency();
 
     StringImpl* rep = propertyName.uid();
@@ -835,7 +986,7 @@ PropertyOffset Structure::remove(PropertyName propertyName)
     return offset;
 }
 
-void Structure::createPropertyMap(VM& vm, unsigned capacity)
+void Structure::createPropertyMap(const GCSafeConcurrentJITLocker&, VM& vm, unsigned capacity)
 {
     ASSERT(!propertyTable());
 
@@ -845,7 +996,8 @@ void Structure::createPropertyMap(VM& vm, unsigned capacity)
 
 void Structure::getPropertyNamesFromStructure(VM& vm, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
-    materializePropertyMapIfNecessary(vm);
+    DeferGC deferGC(vm.heap);
+    materializePropertyMapIfNecessary(vm, deferGC);
     if (!propertyTable())
         return;
 
@@ -854,7 +1006,7 @@ void Structure::getPropertyNamesFromStructure(VM& vm, PropertyNameArray& propert
     PropertyTable::iterator end = propertyTable()->end();
     for (PropertyTable::iterator iter = propertyTable()->begin(); iter != end; ++iter) {
         ASSERT(m_hasNonEnumerableProperties || !(iter->attributes & DontEnum));
-        if (iter->key->isIdentifier() && (!(iter->attributes & DontEnum) || mode == IncludeDontEnumProperties)) {
+        if (!iter->key->isEmptyUnique() && (!(iter->attributes & DontEnum) || mode == IncludeDontEnumProperties)) {
             if (knownUnique)
                 propertyNames.addKnownUnique(iter->key);
             else
@@ -871,7 +1023,7 @@ JSValue Structure::prototypeForLookup(CodeBlock* codeBlock) const
 void Structure::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     Structure* thisObject = jsCast<Structure*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
 
     JSCell::visitChildren(thisObject, visitor);
@@ -903,7 +1055,7 @@ bool Structure::prototypeChainMayInterceptStoreTo(VM& vm, PropertyName propertyN
         if (prototype.isNull())
             return false;
         
-        current = prototype.asCell()->structure();
+        current = prototype.asCell()->structure(vm);
         
         unsigned attributes;
         JSCell* specificValue;
@@ -916,6 +1068,70 @@ bool Structure::prototypeChainMayInterceptStoreTo(VM& vm, PropertyName propertyN
         
         return false;
     }
+}
+
+void Structure::dump(PrintStream& out) const
+{
+    out.print(RawPointer(this), ":[", classInfo()->className, ", {");
+    
+    Vector<Structure*, 8> structures;
+    Structure* structure;
+    PropertyTable* table;
+    
+    const_cast<Structure*>(this)->findStructuresAndMapForMaterialization(
+        structures, structure, table);
+    
+    CommaPrinter comma;
+    
+    if (table) {
+        PropertyTable::iterator iter = table->begin();
+        PropertyTable::iterator end = table->end();
+        for (; iter != end; ++iter) {
+            out.print(comma, iter->key, ":", static_cast<int>(iter->offset));
+            if (iter->specificValue) {
+                DumpContext dummyContext;
+                out.print("=>", RawPointer(iter->specificValue.get()));
+            }
+        }
+        
+        structure->m_lock.unlock();
+    }
+    
+    for (unsigned i = structures.size(); i--;) {
+        Structure* structure = structures[i];
+        if (!structure->m_nameInPrevious)
+            continue;
+        out.print(comma, structure->m_nameInPrevious.get(), ":", static_cast<int>(structure->m_offset));
+        if (structure->m_specificValueInPrevious) {
+            DumpContext dummyContext;
+            out.print("=>", RawPointer(structure->m_specificValueInPrevious.get()));
+        }
+    }
+    
+    out.print("}, ", IndexingTypeDump(indexingType()));
+    
+    if (m_prototype.get().isCell())
+        out.print(", Proto:", RawPointer(m_prototype.get().asCell()));
+    
+    out.print("]");
+}
+
+void Structure::dumpInContext(PrintStream& out, DumpContext* context) const
+{
+    if (context)
+        context->structures.dumpBrief(this, out);
+    else
+        dump(out);
+}
+
+void Structure::dumpBrief(PrintStream& out, const CString& string) const
+{
+    out.print("%", string, ":", classInfo()->className);
+}
+
+void Structure::dumpContextHeader(PrintStream& out)
+{
+    out.print("Structures:");
 }
 
 #if DO_PROPERTYMAP_CONSTENCY_CHECK
@@ -994,5 +1210,16 @@ void Structure::checkConsistency()
 }
 
 #endif // DO_PROPERTYMAP_CONSTENCY_CHECK
+
+bool ClassInfo::hasStaticSetterOrReadonlyProperties(VM& vm) const
+{
+    for (const ClassInfo* ci = this; ci; ci = ci->parentClass) {
+        if (const HashTable* table = ci->propHashTable(vm)) {
+            if (table->hasSetterOrReadonlyProperties)
+                return true;
+        }
+    }
+    return false;
+}
 
 } // namespace JSC

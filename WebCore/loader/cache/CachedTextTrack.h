@@ -33,16 +33,18 @@
 
 namespace WebCore {
 
-class CachedTextTrack FINAL : public CachedResource {
+class CachedTextTrack final : public CachedResource {
 public:
-    CachedTextTrack(const ResourceRequest&);
+    CachedTextTrack(const ResourceRequest&, SessionID);
     virtual ~CachedTextTrack();
 
 private:
-    virtual bool mayTryReplaceEncodedData() const OVERRIDE { return true; }
-    virtual void addDataBuffer(ResourceBuffer*) OVERRIDE;
-    virtual void finishLoading(ResourceBuffer*) OVERRIDE;
+    virtual bool mayTryReplaceEncodedData() const override { return true; }
+    virtual void addDataBuffer(ResourceBuffer*) override;
+    virtual void finishLoading(ResourceBuffer*) override;
 };
+
+CACHED_RESOURCE_TYPE_CASTS(CachedTextTrack, CachedResource, CachedResource::TextTrackResource)
 
 }
 

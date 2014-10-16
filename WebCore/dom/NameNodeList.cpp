@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2007, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,29 +23,21 @@
 #include "config.h"
 #include "NameNodeList.h"
 
-#include "Element.h"
-#include "HTMLNames.h"
 #include "NodeRareData.h"
-#include <wtf/Assertions.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-NameNodeList::NameNodeList(PassRefPtr<Node> rootNode, const AtomicString& name)
-    : LiveNodeList(rootNode, NameNodeListType, InvalidateOnNameAttrChange)
+NameNodeList::NameNodeList(ContainerNode& rootNode, const AtomicString& name)
+    : CachedLiveNodeList(rootNode, InvalidateOnNameAttrChange)
     , m_name(name)
 {
 }
 
 NameNodeList::~NameNodeList()
 {
-    ownerNode()->nodeLists()->removeCacheWithAtomicName(this, NameNodeListType, m_name);
+    ownerNode().nodeLists()->removeCacheWithAtomicName(this, m_name);
 } 
-
-bool NameNodeList::nodeMatches(Element* testNode) const
-{
-    return testNode->getNameAttribute() == m_name;
-}
 
 } // namespace WebCore

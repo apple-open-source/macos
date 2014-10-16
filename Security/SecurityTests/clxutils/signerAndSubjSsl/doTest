@@ -1,0 +1,215 @@
+#! /bin/csh -f
+#
+# Test SSL's hostname compare using subjectAltName extensions. 
+#
+# these can be overridden by the 'q' and 'v' cmd line options
+#
+set QUIET = 0
+set VERBOSE = 0
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case v:
+            set VERBOSE = 1
+            shift
+            breaksw
+        case q:
+            set QUIET = 1
+            shift
+            breaksw
+        default:
+            echo usage: doTest \[q\] \[v\]
+            exit(1)
+    endsw
+end
+
+#
+# hard coded in signerAndSubjSsl
+#
+set ROOT_CERT = ssRootCert.der
+set LEAF_CERT = ssSubjCert.der
+set COMMON_NAME = something.org
+#
+# the common arguments to certcrl
+#
+set STD_CRL_ARGS = "-c $LEAF_CERT -C $ROOT_CERT -a -n -N -q"
+#
+# DNS_NAME goes in the leaf cert's subjectAltName, which is supposed to have precedence
+# over the common name (which is fixed at something.org).
+#
+set DNS_NAME = foo.bar
+set BAD_DNS_NAME = foo.foo.bar
+#
+if($QUIET == 0) then
+	echo === leaf cert with DNS name $DNS_NAME
+endif
+#
+set cmd = "signerAndSubjSsl d=$DNS_NAME q"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+# Note the app is passing in $HOST_NAME which differs from the leaf cert's common name
+#
+if($QUIET == 0) then
+	echo === ...verify success with hostname $DNS_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $DNS_NAME"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify failure with common name $COMMON_NAME when DNS name present 
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $COMMON_NAME -e=CSSMERR_TP_VERIFY_ACTION_FAILED"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify failure with host name $BAD_DNS_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $BAD_DNS_NAME -e=CSSMERR_TP_VERIFY_ACTION_FAILED"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+######
+#
+set IP_ADDR = 1.0.5.8
+set IP_ADDR_PAD = 1.0.05.008
+set BAD_IP_ADDR = 2.0.5.8
+#
+if($QUIET == 0) then
+	echo === leaf cert with IP address $IP_ADDR
+endif
+set cmd = "signerAndSubjSsl i=$IP_ADDR q"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify with hostname $IP_ADDR
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $IP_ADDR"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify with hostname $IP_ADDR_PAD
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $IP_ADDR_PAD"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify with hostname $COMMON_NAME when no DNS name present 
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $COMMON_NAME"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify failure with host name $BAD_IP_ADDR
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $BAD_IP_ADDR -e=CSSMERR_TP_VERIFY_ACTION_FAILED"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+######
+#
+set DNS_WC_NAME = "*.foo.bar"
+set DNS_GOOD_WC_NAME = bar.foo.bar
+set DNS_BAD_WC_NAME = foo.bar
+#
+if($QUIET == 0) then
+	echo === leaf cert with DNS name "$DNS_WC_NAME"
+endif
+set cmd = "signerAndSubjSsl d=*.foo.bar q"
+if($VERBOSE == 1) then
+	echo "$cmd"
+endif
+signerAndSubjSsl "d=*.foo.bar" q || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify with hostname $DNS_GOOD_WC_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $DNS_GOOD_WC_NAME"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify failure with hostname $DNS_BAD_WC_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $DNS_BAD_WC_NAME -e=CSSMERR_TP_VERIFY_ACTION_FAILED"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+######
+#
+set DNS_WC_NAME = "*foo.bar"
+set DNS_GOOD_WC_NAME = barfoo.bar
+set DNS_BAD_WC_NAME = bar.foo.bar
+#
+if($QUIET == 0) then
+	echo === leaf cert with DNS name "$DNS_WC_NAME"
+endif
+set cmd = "signerAndSubjSsl d=*foo.bar q"
+if($VERBOSE == 1) then
+	echo "$cmd"
+endif
+signerAndSubjSsl "d=*foo.bar" q || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify with hostname $DNS_GOOD_WC_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $DNS_GOOD_WC_NAME"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+if($QUIET == 0) then
+	echo === ...verify failure with hostname $DNS_BAD_WC_NAME
+endif
+set cmd = "certcrl $STD_CRL_ARGS -h $DNS_BAD_WC_NAME -e=CSSMERR_TP_VERIFY_ACTION_FAILED"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+#
+######
+#
+if($QUIET == 0) then
+	echo === leaf cert with no DNS name, verify with common name
+endif
+set cmd = "signerAndSubjSsl q"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd = "certcrl $STD_CRL_ARGS -h $COMMON_NAME"
+if($VERBOSE == 1) then
+	echo $cmd
+endif
+$cmd || exit(1)
+echo ...signerAndSubjSslTest complete
+

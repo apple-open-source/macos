@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,10 +30,10 @@
 #include "JSObject.h"
 #include "Structure.h"
 
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -55,15 +55,20 @@ namespace JSC {
         WriteBarrier<Structure>* head() { return m_vector.get(); }
         static void visitChildren(JSCell*, SlotVisitor&);
 
-        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype) { return Structure::create(vm, globalObject, prototype, TypeInfo(CompoundType, OverridesVisitChildren), &s_info); }
+        static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
+        {
+            return Structure::create(vm, globalObject, prototype, TypeInfo(CompoundType, StructureFlags), info());
+        }
         
-        static ClassInfo s_info;
+        DECLARE_INFO;
 
         static const bool needsDestruction = true;
         static const bool hasImmortalStructure = true;
         static void destroy(JSCell*);
 
     protected:
+        static const unsigned StructureFlags = OverridesVisitChildren | StructureIsImmortal;
+
         void finishCreation(VM& vm, Structure* head)
         {
             Base::finishCreation(vm);
@@ -71,7 +76,7 @@ namespace JSC {
             for (Structure* current = head; current; current = current->storedPrototype().isNull() ? 0 : asObject(current->storedPrototype())->structure())
                 ++size;
     
-            m_vector = adoptArrayPtr(new WriteBarrier<Structure>[size + 1]);
+            m_vector = std::make_unique<WriteBarrier<Structure>[]>(size + 1);
 
             size_t i = 0;
             for (Structure* current = head; current; current = current->storedPrototype().isNull() ? 0 : asObject(current->storedPrototype())->structure())
@@ -82,7 +87,7 @@ namespace JSC {
         friend class LLIntOffsetsExtractor;
         
         StructureChain(VM&, Structure*);
-        OwnArrayPtr<WriteBarrier<Structure> > m_vector;
+        std::unique_ptr<WriteBarrier<Structure>[]> m_vector;
     };
 
 } // namespace JSC

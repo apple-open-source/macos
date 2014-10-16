@@ -33,8 +33,6 @@
 #include "WebGLRenderingContext.h"
 #include "WebGLShader.h"
 
-#include <wtf/OwnArrayPtr.h>
-
 namespace WebCore {
 
 WebGLDebugShaders::WebGLDebugShaders(WebGLRenderingContext* context)
@@ -49,11 +47,6 @@ WebGLDebugShaders::~WebGLDebugShaders()
 WebGLExtension::ExtensionName WebGLDebugShaders::getName() const
 {
     return WebGLDebugShadersName;
-}
-
-PassOwnPtr<WebGLDebugShaders> WebGLDebugShaders::create(WebGLRenderingContext* context)
-{
-    return adoptPtr(new WebGLDebugShaders(context));
 }
 
 String WebGLDebugShaders::getTranslatedShaderSource(WebGLShader* shader, ExceptionCode& ec)

@@ -1,0 +1,39 @@
+#include "base.xcconfig"
+
+PRODUCT_NAME = $(TARGET_NAME)
+EXECUTABLE_PREFIX = 
+
+CODE_SIGN_IDENTITY = 
+
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
+
+HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(PROJECT_DIR)/../sec $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
+
+// Set INSTALL_PATH_ACTUAL to whatever INSTALL_PATH would normally be
+INSTALL_PATH_ACTUAL = /usr/local/lib
+
+// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
+INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
+
+// Use $(INSTALL_PATH_PREFIX) instead of $(SDKROOT) as a prefix for other
+// variables as appropriate
+PUBLIC_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include/security_asn1
+PRIVATE_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include/security_asn1
+
+ALWAYS_SEARCH_USER_PATHS = NO
+
+GCC_C_LANGUAGE_STANDARD = gnu99
+
+WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
+
+GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO
+
+GCC_SYMBOLS_PRIVATE_EXTERN = NO
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES
+GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
+GCC_WARN_ABOUT_RETURN_TYPE = YES
+GCC_WARN_UNUSED_VARIABLE = YES
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator

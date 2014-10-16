@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_server_new "16 May 2001" SASL "SASL man pages"
+.TH sasl_server_new 3 "16 May 2001" SASL "SASL man pages"
 .SH NAME
 sasl_server_new \- Create a new server authentication object
 
@@ -62,7 +62,7 @@ sasl_server_new \- Create a new server authentication object
 .B sasl_server_new()
 creates a new SASL context. This context will be used for all SASL
 calls for one connection. It handles both authentication and
-integrity/encyption layers after authentication.
+integrity/encryption layers after authentication.
 .PP
 .I service
 is the registered name of the service (usually the protocol name) using SASL (e.g. "imap").
@@ -88,7 +88,7 @@ iplocalport)
 are connection flags (see below)
 .PP
 .I pconn
-is a pointer to the conection context allocated by the library. This
+is a pointer to the connection context allocated by the library. This
 structure will be used for all future SASL calls for this connection.
 .PP
 
@@ -110,6 +110,6 @@ others indicate errors and should either be handled or the
 authentication session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_server_init(3), sasl_server_start(3), sasl_server_step(3), sasl_setprop(3)

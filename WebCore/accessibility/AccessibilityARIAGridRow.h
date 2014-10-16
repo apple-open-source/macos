@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -33,6 +33,8 @@
 
 namespace WebCore {
     
+class AccessibilityTable;
+    
 class AccessibilityARIAGridRow : public AccessibilityTableRow {
     
 private:
@@ -44,13 +46,15 @@ public:
     void disclosedRows(AccessibilityChildrenVector&);
     AccessibilityObject* disclosedByRow() const;
     
-    virtual AccessibilityObject* headerObject();
+    virtual AccessibilityObject* headerObject() override;
     
 private:
-    virtual bool isARIATreeGridRow() const;
-    virtual AccessibilityObject* parentTable() const;
+    virtual bool isARIATreeGridRow() const override;
+    virtual AccessibilityTable* parentTable() const override;
 }; 
-    
+
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityARIAGridRow, isARIATreeGridRow())
+
 } // namespace WebCore 
 
 #endif // AccessibilityARIAGridRow_h

@@ -26,8 +26,6 @@
 #ifndef SMILTimeContainer_h
 #define SMILTimeContainer_h
 
-#if ENABLE(SVG)
-
 #include "QualifiedName.h"
 #include "SMILTime.h"
 #include "Timer.h"
@@ -78,16 +76,17 @@ private:
 
     double m_beginTime;
     double m_pauseTime;
-    double m_accumulatedPauseTime;
+    double m_accumulatedActiveTime;
+    double m_resumeTime;
     double m_presetStartTime;
 
     bool m_documentOrderIndexesDirty;
     
     Timer<SMILTimeContainer> m_timer;
 
-    typedef pair<SVGElement*, QualifiedName> ElementAttributePair;
+    typedef std::pair<SVGElement*, QualifiedName> ElementAttributePair;
     typedef Vector<SVGSMILElement*> AnimationsVector;
-    typedef HashMap<ElementAttributePair, OwnPtr<AnimationsVector> > GroupedAnimationsMap;
+    typedef HashMap<ElementAttributePair, std::unique_ptr<AnimationsVector>> GroupedAnimationsMap;
     GroupedAnimationsMap m_scheduledAnimations;
 
     SVGSVGElement* m_ownerSVGElement;
@@ -98,5 +97,4 @@ private:
 };
 }
 
-#endif // ENABLE(SVG)
 #endif // SMILTimeContainer_h

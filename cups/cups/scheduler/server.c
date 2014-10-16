@@ -1,5 +1,5 @@
 /*
- * "$Id: server.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: server.c 11573 2014-02-10 20:40:04Z msweet $"
  *
  *   Server start/stop routines for the CUPS scheduler.
  *
@@ -54,7 +54,7 @@ cupsdStartServer(void)
   * Create the default security profile...
   */
 
-  DefaultProfile = cupsdCreateProfile(0);
+  DefaultProfile = cupsdCreateProfile(0, 1);
 
  /*
   * Startup all the networking stuff...
@@ -180,5 +180,5 @@ cupsdStopServer(void)
 
 
 /*
- * End of "$Id: server.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: server.c 11573 2014-02-10 20:40:04Z msweet $".
  */

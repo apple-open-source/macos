@@ -77,7 +77,10 @@
 	"gss_duplicate_oid" : {
 		"export" : true,
 		"ios" : "5_0",
-		"macos" : "10_7"
+		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
+		"deprecated" : "Not standardised"
 	},
 	"gss_encapsulate_token" : {
 		"export" : true,
@@ -150,6 +153,11 @@
 		"macos" : "10_7"
 	},
 	"gss_inquire_mechs_for_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_name" : {
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7"
@@ -237,7 +245,10 @@
 	"gss_release_oid" : {
 		"export" : true,
 		"ios" : "5_0",
-		"macos" : "10_7"
+		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
+		"deprecated" : "Not standardised and not safe to call for most gss_OIDs"
 	},
 	"gss_release_oid_set" : {
 		"export" : true,
@@ -248,6 +259,8 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
 		"deprecated" : "Use gss_wrap"
 	},
 	"gss_set_cred_option" : {
@@ -264,6 +277,8 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
 		"deprecated" : "Use gss_get_mic"
 	},
 	"gss_test_oid_set_member" : {
@@ -280,6 +295,8 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
 		"deprecated" : "Use gss_unwrap"
 	},
 	"gss_unwrap" : {
@@ -291,6 +308,8 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
 		"deprecated" : "Use gss_verify_mic"
 	},
 	"gss_verify_mic" : {
@@ -352,6 +371,8 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7",
+		"iosDep" : "7_0",
+		"macosDep" : "10_9",
 		"deprecated" : "Use gss_export_cred"
 	},
 	"gss_krb5_export_lucid_sec_context" : {
@@ -378,5 +399,20 @@
 		"export" : true,
 		"ios" : "5_0",
 		"macos" : "10_7"
+	},
+	"gss_inquire_saslname_for_mech" : {
+		"export" : true,
+		"ios" : "8_0",
+		"macos" : "10_10"
+	},
+	"gss_inquire_mech_for_saslname" : {
+		"export" : true,
+		"ios" : "8_0",
+		"macos" : "10_10"
+	},
+	"gss_indicate_mechs_by_attrs" : {
+		"export" : true,
+		"ios" : "8_0",
+		"macos" : "10_10"
 	}
 }

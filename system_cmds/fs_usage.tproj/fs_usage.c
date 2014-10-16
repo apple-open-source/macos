@@ -277,7 +277,7 @@ struct diskio {
 	uint64_t   vnodeid;
         uintptr_t  issuing_thread;
         uintptr_t  completion_thread;
-        char issuing_command[MAXCOMLEN];
+        char issuing_command[MAXCOMLEN + 1];
         double issued_time;
         double completed_time;
 		uint32_t bc_info;
@@ -578,6 +578,22 @@ int		quit();
 
 #define BSC_fsgetpath		0x040c06ac
 
+#define	BSC_getattrlistbulk 0x040c0734
+
+#define BSC_openat			0x040c073c
+#define BSC_openat_nocancel	0x040c0740
+#define BSC_renameat		0x040c0744
+#define BSC_chmodat			0x040c074c
+#define BSC_chownat			0x040c0750
+#define BSC_fstatat			0x040c0754
+#define BSC_fstatat64		0x040c0758
+#define BSC_linkat			0x040c075c
+#define BSC_unlinkat		0x040c0760
+#define BSC_readlinkat		0x040c0764
+#define BSC_symlinkat		0x040c0768
+#define BSC_mkdirat			0x040c076c
+#define BSC_getattrlistat	0x040c0770
+
 #define BSC_msync_extended	0x040e0104
 #define BSC_pread_extended	0x040e0264
 #define BSC_pwrite_extended	0x040e0268
@@ -700,8 +716,12 @@ int		quit();
 #define FMT_UNMAP_INFO	40
 #define FMT_HFS_update	41
 #define FMT_FLOCK	42
+#define FMT_AT		43
+#define FMT_CHMODAT	44
+#define FMT_OPENAT  45
+#define FMT_RENAMEAT	46
 
-#define MAX_BSD_SYSCALL	512
+#define MAX_BSD_SYSCALL	526
 
 struct bsd_syscall {
         char	*sc_name;
@@ -855,6 +875,20 @@ int bsd_syscall_types[] = {
 	BSC_guarded_open_np,
 	BSC_guarded_close_np,
 	BSC_fsgetpath,
+	BSC_getattrlistbulk,
+	BSC_openat,
+	BSC_openat_nocancel,
+	BSC_renameat,
+	BSC_chmodat,
+	BSC_chownat,
+	BSC_fstatat,
+	BSC_fstatat64,
+	BSC_linkat,
+	BSC_unlinkat,
+	BSC_readlinkat,
+	BSC_symlinkat,
+	BSC_mkdirat,
+	BSC_getattrlistat,
 	0
 };
 
@@ -1744,6 +1778,75 @@ void init_tables(void)
 		    case BSC_fsgetpath:
 		      bsd_syscalls[code].sc_name = "fsgetpath";
 		      break;
+				
+			case BSC_getattrlistbulk:
+			  bsd_syscalls[code].sc_name = "getattrlistbulk";
+			  break;
+				
+			case BSC_openat:
+			  bsd_syscalls[code].sc_name = "openat";
+			  bsd_syscalls[code].sc_format = FMT_OPENAT;
+			  break;
+				
+			case BSC_openat_nocancel:
+				bsd_syscalls[code].sc_name = "openat_nocanel";
+				bsd_syscalls[code].sc_format = FMT_OPENAT;
+				break;
+			
+			case BSC_renameat:
+				bsd_syscalls[code].sc_name = "renameat";
+				bsd_syscalls[code].sc_format = FMT_RENAMEAT;
+				break;
+				
+		    case BSC_chmodat:
+				bsd_syscalls[code].sc_name = "chmodat";
+				bsd_syscalls[code].sc_format = FMT_CHMODAT;
+				break;
+				
+		    case BSC_chownat:
+				bsd_syscalls[code].sc_name = "chownat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+		    case BSC_fstatat:
+				bsd_syscalls[code].sc_name = "fstatat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+			case BSC_fstatat64:
+				bsd_syscalls[code].sc_name = "fstatat64";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+			case BSC_linkat:
+				bsd_syscalls[code].sc_name = "linkat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+			case BSC_unlinkat:
+				bsd_syscalls[code].sc_name = "unlinkat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+		    case BSC_readlinkat:
+				bsd_syscalls[code].sc_name = "readlinkat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+			case BSC_symlinkat:
+				bsd_syscalls[code].sc_name = "symlinkat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+		    case BSC_mkdirat:
+				bsd_syscalls[code].sc_name = "mkdirat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
+				
+		    case BSC_getattrlistat:
+				bsd_syscalls[code].sc_name = "getattrlistat";
+				bsd_syscalls[code].sc_format = FMT_AT;
+				break;
 		}
 	}
 
@@ -3288,6 +3391,8 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 		
 		switch (format) {
 
+			  case FMT_AT:
+			  case FMT_RENAMEAT:
 		      case FMT_DEFAULT:
 			/*
 			 * pathname based system calls or 
@@ -3398,9 +3503,10 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
  				else
  					clen += printf(" D=0x%8.8x  B=0x%-6x /dev/%s ", dio->blkno, dio->iosize, find_disk_name(dio->dev));
 
-				if (dio->is_meta)
-				        pathname = find_meta_name(dio->blkno);
-				else
+				if (dio->is_meta) {
+					if (!(type & P_DISKIO_READ))
+					        pathname = find_meta_name(dio->blkno);
+				} else
 				        pathname = find_vnode_name(dio->vnodeid);
 				nopadding = 1;
 			}
@@ -3831,6 +3937,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 		      case FMT_FCHMOD_EXT:
 		      case FMT_CHMOD:
 		      case FMT_CHMOD_EXT:
+			  case FMT_CHMODAT:
 		      {
 			/*
 			 * fchmod, fchmod_extended, chmod, chmod_extended
@@ -3850,7 +3957,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 			}
 			if (format == FMT_UMASK)
 				mode = ti->arg1;
-			else if (format == FMT_FCHMOD || format == FMT_CHMOD)
+			else if (format == FMT_FCHMOD || format == FMT_CHMOD || format == FMT_CHMODAT)
 			        mode = ti->arg2;
 			else
 			        mode = ti->arg4;
@@ -3921,6 +4028,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 			      break;
 		      }
 
+			  case FMT_OPENAT:
 		      case FMT_OPEN:
 		      {
 			/*
@@ -4138,7 +4246,18 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 	if (framework_name)
 	        len = sprintf(&buf[0], " %s %s ", framework_type, framework_name);
 	else if (*pathname != '\0') {
-	        len = sprintf(&buf[0], " %s ", pathname);
+		switch(format) {
+			case FMT_AT:
+			case FMT_OPENAT:
+			case FMT_CHMODAT:
+				len = sprintf(&buf[0], " [%d]/%s ", ti->arg1, pathname);
+				break;
+			case FMT_RENAMEAT:
+				len = sprintf(&buf[0], " [%d]/%s ", ti->arg3, pathname);
+				break;
+			default:
+				len = sprintf(&buf[0], " %s ", pathname);
+		}
 
 		if (format == FMT_MOUNT && ti->lookups[1].pathname[0]) {
 			int	len2;
@@ -4932,7 +5051,7 @@ struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, 
 	
 	if ((tme = find_map_entry(thread))) {
 		strncpy(dio->issuing_command, tme->tm_command, MAXCOMLEN);
-		dio->issuing_command[MAXCOMLEN-1] = '\0';
+		dio->issuing_command[MAXCOMLEN] = '\0';
 	} else
 		strcpy(dio->issuing_command, "");
     

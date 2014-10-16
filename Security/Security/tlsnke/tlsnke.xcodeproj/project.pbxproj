@@ -1,0 +1,611 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		0CE08A7E148FF61C000473EB /* host-loadkext */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE08A7F148FF61C000473EB /* Build configuration list for PBXAggregateTarget "host-loadkext" */;
+			buildPhases = (
+				0CE08A89148FF86C000473EB /* ShellScript */,
+			);
+			dependencies = (
+				0CE08A83148FF628000473EB /* PBXTargetDependency */,
+			);
+			name = "host-loadkext";
+			productName = all;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		0C271D7515C8C80300560531 /* libsecurity_ssl_kext.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CBE354615C8C3A5006241C7 /* libsecurity_ssl_kext.a */; };
+		0C38E43D14BF707500DD862C /* tlsnke.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C38E43C14BF707500DD862C /* tlsnke.h */; };
+		0C6C642715D5A9C200BC68CD /* ssl-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C6C642515D5A9C200BC68CD /* ssl-utils.c */; };
+		0C7CF8D714E18A9F00DF9D95 /* dtls_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C7CF8D614E18A9F00DF9D95 /* dtls_client.c */; };
+		0CBE354515C8C340006241C7 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CBE354415C8C340006241C7 /* Security.framework */; };
+		0CC9A7FA146DF66000C18F89 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0CC9A7F8146DF66000C18F89 /* InfoPlist.strings */; };
+		0CC9A7FC146DF66000C18F89 /* tlsnke.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CC9A7FB146DF66000C18F89 /* tlsnke.c */; };
+		0CDF46A414DC794F00FFE2FD /* tlssocket.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CA31A4214B7DFAB00BD348C /* tlssocket.c */; };
+		0CDF46A514DC795400FFE2FD /* tlssocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CA31A4514B7DFBA00BD348C /* tlssocket.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0CDF46A614DC79FA00FFE2FD /* libtlssocket.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CDF46A014DC794300FFE2FD /* libtlssocket.a */; };
+		0CE08A77148FF2C7000473EB /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CE08A76148FF2C7000473EB /* main.c */; };
+		0CEF580014C0E227000A93B0 /* st_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CEF57FF14C0E227000A93B0 /* st_test.c */; };
+		0CEF580614C0E566000A93B0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CEF580514C0E566000A93B0 /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0CDF46A714DC79FF00FFE2FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0CC9A7E5146DF66000C18F89 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CDF469F14DC794300FFE2FD;
+			remoteInfo = tlssocket;
+		};
+		0CE08A82148FF628000473EB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0CC9A7E5146DF66000C18F89 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CC9A7EF146DF66000C18F89;
+			remoteInfo = tlsnke;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0CE08A71148FF2C6000473EB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0C31453A1492D4B600427C0B /* tlsnke-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "tlsnke-Info.plist"; sourceTree = "<group>"; };
+		0C38E43C14BF707500DD862C /* tlsnke.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tlsnke.h; sourceTree = "<group>"; };
+		0C6C642515D5A9C200BC68CD /* ssl-utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-utils.c"; sourceTree = "<group>"; };
+		0C6C642615D5A9C200BC68CD /* ssl-utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ssl-utils.h"; sourceTree = "<group>"; };
+		0C7CF8D614E18A9F00DF9D95 /* dtls_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dtls_client.c; sourceTree = "<group>"; };
+		0CA31A4214B7DFAB00BD348C /* tlssocket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tlssocket.c; path = tlsnketest/tlssocket.c; sourceTree = "<group>"; };
+		0CA31A4514B7DFBA00BD348C /* tlssocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tlssocket.h; path = tlsnketest/tlssocket.h; sourceTree = "<group>"; };
+		0CBE354415C8C340006241C7 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CBE354615C8C3A5006241C7 /* libsecurity_ssl_kext.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libsecurity_ssl_kext.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CC9A7F0146DF66000C18F89 /* tlsnke.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tlsnke.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CC9A7F4146DF66000C18F89 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
+		0CC9A7F9146DF66000C18F89 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0CC9A7FB146DF66000C18F89 /* tlsnke.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tlsnke.c; sourceTree = "<group>"; };
+		0CC9A7FD146DF66000C18F89 /* tlsnke-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "tlsnke-Prefix.pch"; sourceTree = "<group>"; };
+		0CDF468F14DC788000FFE2FD /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		0CDF46A014DC794300FFE2FD /* libtlssocket.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libtlssocket.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CE08A73148FF2C6000473EB /* tlsnketest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tlsnketest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CE08A76148FF2C7000473EB /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		0CEF57FF14C0E227000A93B0 /* st_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = st_test.c; sourceTree = "<group>"; };
+		0CEF580514C0E566000A93B0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0CC9A7EB146DF66000C18F89 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C271D7515C8C80300560531 /* libsecurity_ssl_kext.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CDF469D14DC794300FFE2FD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CE08A70148FF2C6000473EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CDF46A614DC79FA00FFE2FD /* libtlssocket.a in Frameworks */,
+				0CBE354515C8C340006241C7 /* Security.framework in Frameworks */,
+				0CEF580614C0E566000A93B0 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0C953FB814E4621800077526 /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				0CBE354615C8C3A5006241C7 /* libsecurity_ssl_kext.a */,
+			);
+			name = Libraries;
+			sourceTree = "<group>";
+		};
+		0CC9A7E3146DF66000C18F89 = {
+			isa = PBXGroup;
+			children = (
+				0CDF468814DC784200FFE2FD /* tlssocket */,
+				0CC9A7F5146DF66000C18F89 /* tlsnke */,
+				0CE08A75148FF2C6000473EB /* tlsnketest */,
+				0CC9A7F2146DF66000C18F89 /* Frameworks */,
+				0C953FB814E4621800077526 /* Libraries */,
+				0CC9A7F1146DF66000C18F89 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0CC9A7F1146DF66000C18F89 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0CC9A7F0146DF66000C18F89 /* tlsnke.kext */,
+				0CE08A73148FF2C6000473EB /* tlsnketest */,
+				0CDF46A014DC794300FFE2FD /* libtlssocket.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0CC9A7F2146DF66000C18F89 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0CBE354415C8C340006241C7 /* Security.framework */,
+				0CEF580514C0E566000A93B0 /* CoreFoundation.framework */,
+				0CDF468F14DC788000FFE2FD /* Foundation.framework */,
+				0CC9A7F3146DF66000C18F89 /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0CC9A7F3146DF66000C18F89 /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0CC9A7F4146DF66000C18F89 /* Kernel.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		0CC9A7F5146DF66000C18F89 /* tlsnke */ = {
+			isa = PBXGroup;
+			children = (
+				0CC9A7FB146DF66000C18F89 /* tlsnke.c */,
+				0C38E43C14BF707500DD862C /* tlsnke.h */,
+				0CC9A7F6146DF66000C18F89 /* Supporting Files */,
+			);
+			path = tlsnke;
+			sourceTree = "<group>";
+		};
+		0CC9A7F6146DF66000C18F89 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				0C31453A1492D4B600427C0B /* tlsnke-Info.plist */,
+				0CC9A7F8146DF66000C18F89 /* InfoPlist.strings */,
+				0CC9A7FD146DF66000C18F89 /* tlsnke-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		0CDF468814DC784200FFE2FD /* tlssocket */ = {
+			isa = PBXGroup;
+			children = (
+				0CA31A4214B7DFAB00BD348C /* tlssocket.c */,
+				0CA31A4514B7DFBA00BD348C /* tlssocket.h */,
+			);
+			name = tlssocket;
+			sourceTree = "<group>";
+		};
+		0CE08A75148FF2C6000473EB /* tlsnketest */ = {
+			isa = PBXGroup;
+			children = (
+				0C6C642515D5A9C200BC68CD /* ssl-utils.c */,
+				0C6C642615D5A9C200BC68CD /* ssl-utils.h */,
+				0CE08A76148FF2C7000473EB /* main.c */,
+				0CEF57FF14C0E227000A93B0 /* st_test.c */,
+				0C7CF8D614E18A9F00DF9D95 /* dtls_client.c */,
+			);
+			path = tlsnketest;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0CC9A7EC146DF66000C18F89 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C38E43D14BF707500DD862C /* tlsnke.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CDF469E14DC794300FFE2FD /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CDF46A514DC795400FFE2FD /* tlssocket.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0CC9A7EF146DF66000C18F89 /* tlsnke */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CC9A800146DF66000C18F89 /* Build configuration list for PBXNativeTarget "tlsnke" */;
+			buildPhases = (
+				0CC9A7EA146DF66000C18F89 /* Sources */,
+				0CC9A7EB146DF66000C18F89 /* Frameworks */,
+				0CC9A7EC146DF66000C18F89 /* Headers */,
+				0CC9A7ED146DF66000C18F89 /* Resources */,
+				0CC9A7EE146DF66000C18F89 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tlsnke;
+			productName = tlsnke;
+			productReference = 0CC9A7F0146DF66000C18F89 /* tlsnke.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		0CDF469F14DC794300FFE2FD /* tlssocket */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CDF46A114DC794300FFE2FD /* Build configuration list for PBXNativeTarget "tlssocket" */;
+			buildPhases = (
+				0CDF469C14DC794300FFE2FD /* Sources */,
+				0CDF469D14DC794300FFE2FD /* Frameworks */,
+				0CDF469E14DC794300FFE2FD /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tlssocket;
+			productName = tlssocket;
+			productReference = 0CDF46A014DC794300FFE2FD /* libtlssocket.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		0CE08A72148FF2C6000473EB /* tlsnketest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CE08A7C148FF2C7000473EB /* Build configuration list for PBXNativeTarget "tlsnketest" */;
+			buildPhases = (
+				0CE08A6F148FF2C6000473EB /* Sources */,
+				0CE08A70148FF2C6000473EB /* Frameworks */,
+				0CE08A71148FF2C6000473EB /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0CDF46A814DC79FF00FFE2FD /* PBXTargetDependency */,
+			);
+			name = tlsnketest;
+			productName = tlsnketest;
+			productReference = 0CE08A73148FF2C6000473EB /* tlsnketest */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0CC9A7E5146DF66000C18F89 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+				ORGANIZATIONNAME = "Apple, Inc.";
+			};
+			buildConfigurationList = 0CC9A7E8146DF66000C18F89 /* Build configuration list for PBXProject "tlsnke" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 0CC9A7E3146DF66000C18F89;
+			productRefGroup = 0CC9A7F1146DF66000C18F89 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0CE08A7E148FF61C000473EB /* host-loadkext */,
+				0CC9A7EF146DF66000C18F89 /* tlsnke */,
+				0CE08A72148FF2C6000473EB /* tlsnketest */,
+				0CDF469F14DC794300FFE2FD /* tlssocket */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0CC9A7ED146DF66000C18F89 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CC9A7FA146DF66000C18F89 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		0CC9A7EE146DF66000C18F89 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		0CE08A89148FF86C000473EB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sudo /var/root/loadkext.sh ${BUILT_PRODUCTS_DIR}/tlsnke.kext\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0CC9A7EA146DF66000C18F89 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CC9A7FC146DF66000C18F89 /* tlsnke.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CDF469C14DC794300FFE2FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CDF46A414DC794F00FFE2FD /* tlssocket.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CE08A6F148FF2C6000473EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CE08A77148FF2C7000473EB /* main.c in Sources */,
+				0CEF580014C0E227000A93B0 /* st_test.c in Sources */,
+				0C7CF8D714E18A9F00DF9D95 /* dtls_client.c in Sources */,
+				0C6C642715D5A9C200BC68CD /* ssl-utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0CDF46A814DC79FF00FFE2FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CDF469F14DC794300FFE2FD /* tlssocket */;
+			targetProxy = 0CDF46A714DC79FF00FFE2FD /* PBXContainerItemProxy */;
+		};
+		0CE08A83148FF628000473EB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CC9A7EF146DF66000C18F89 /* tlsnke */;
+			targetProxy = 0CE08A82148FF628000473EB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		0CC9A7F8146DF66000C18F89 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0CC9A7F9146DF66000C18F89 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		0CC9A7FE146DF66000C18F89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_STATIC_ANALYZER_MODE = deep;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
+			};
+			name = Debug;
+		};
+		0CC9A7FF146DF66000C18F89 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_STATIC_ANALYZER_MODE = deep;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
+			};
+			name = Release;
+		};
+		0CC9A801146DF66000C18F89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "tlsnke/tlsnke-Prefix.pch";
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../libsecurity_ssl/lib",
+					/usr/local/include,
+				);
+				INFOPLIST_FILE = "tlsnke/tlsnke-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.nke.tls;
+				MODULE_START = tlsnke_start;
+				MODULE_STOP = tlsnke_stop;
+				MODULE_VERSION = 1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		0CC9A802146DF66000C18F89 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "tlsnke/tlsnke-Prefix.pch";
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../libsecurity_ssl/lib",
+					/usr/local/include,
+				);
+				INFOPLIST_FILE = "tlsnke/tlsnke-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.nke.tls;
+				MODULE_START = tlsnke_start;
+				MODULE_STOP = tlsnke_stop;
+				MODULE_VERSION = 1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Release;
+		};
+		0CDF46A214DC794300FFE2FD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					../libsecurity_ssl,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0CDF46A314DC794300FFE2FD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					../libsecurity_ssl,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		0CE08A7A148FF2C7000473EB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/usr/local/include";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0CE08A7B148FF2C7000473EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/usr/local/include";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		0CE08A80148FF61C000473EB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0CE08A81148FF61C000473EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0CC9A7E8146DF66000C18F89 /* Build configuration list for PBXProject "tlsnke" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CC9A7FE146DF66000C18F89 /* Debug */,
+				0CC9A7FF146DF66000C18F89 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CC9A800146DF66000C18F89 /* Build configuration list for PBXNativeTarget "tlsnke" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CC9A801146DF66000C18F89 /* Debug */,
+				0CC9A802146DF66000C18F89 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CDF46A114DC794300FFE2FD /* Build configuration list for PBXNativeTarget "tlssocket" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CDF46A214DC794300FFE2FD /* Debug */,
+				0CDF46A314DC794300FFE2FD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CE08A7C148FF2C7000473EB /* Build configuration list for PBXNativeTarget "tlsnketest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE08A7A148FF2C7000473EB /* Debug */,
+				0CE08A7B148FF2C7000473EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CE08A7F148FF61C000473EB /* Build configuration list for PBXAggregateTarget "host-loadkext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE08A80148FF61C000473EB /* Debug */,
+				0CE08A81148FF61C000473EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0CC9A7E5146DF66000C18F89 /* Project object */;
+}

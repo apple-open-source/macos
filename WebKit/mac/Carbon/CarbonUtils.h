@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -33,7 +33,7 @@
 
 // These functions are only available for 32-bit.
 
-#include <JavaScriptCore/WebKitAvailability.h>
+#include <WebKitLegacy/WebKitAvailability.h>
 
 #ifdef __OBJC__
 #import <ApplicationServices/ApplicationServices.h>
@@ -45,12 +45,12 @@ extern "C" {
 #endif
 
 extern void
-WebInitForCarbon(void) AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_4_0;
+WebInitForCarbon(void) CF_DEPRECATED_MAC(10_3, 10_6);
 
 #ifdef __OBJC__
 
 extern CGImageRef
-WebConvertNSImageToCGImageRef(NSImage * inImage) AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_4_0;
+WebConvertNSImageToCGImageRef(NSImage * inImage) CF_DEPRECATED_MAC(10_3, 10_6);
 
 #endif
 

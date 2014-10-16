@@ -16,10 +16,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,9 +34,9 @@
 #define EventListenerMap_h
 
 #include "RegisteredEventListener.h"
+#include <memory>
 #include <wtf/Forward.h>
-#include <wtf/PassOwnPtr.h>
-#include <wtf/text/AtomicStringHash.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -58,17 +58,15 @@ public:
     EventListenerVector* find(const AtomicString& eventType);
     Vector<AtomicString> eventTypes() const;
 
-#if ENABLE(SVG)
     void removeFirstEventListenerCreatedFromMarkup(const AtomicString& eventType);
     void copyEventListenersNotCreatedFromMarkupToTarget(EventTarget*);
-#endif
 
 private:
     friend class EventListenerIterator;
 
     void assertNoActiveIterators();
 
-    Vector<std::pair<AtomicString, OwnPtr<EventListenerVector> >, 2> m_entries;
+    Vector<std::pair<AtomicString, std::unique_ptr<EventListenerVector>>, 2> m_entries;
 
 #ifndef NDEBUG
     int m_activeIteratorCount;
@@ -79,7 +77,7 @@ class EventListenerIterator {
     WTF_MAKE_NONCOPYABLE(EventListenerIterator);
 public:
     EventListenerIterator();
-    EventListenerIterator(EventTarget*);
+    explicit EventListenerIterator(EventTarget*);
 #ifndef NDEBUG
     ~EventListenerIterator();
 #endif

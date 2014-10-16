@@ -31,6 +31,7 @@
 #include "ExceptionCode.h"
 #include "PannerNode.h"
 #include <runtime/Error.h>
+#include <runtime/JSCJSValueInlines.h>
 
 using namespace JSC;
 
@@ -38,13 +39,13 @@ namespace WebCore {
 
 void JSPannerNode::setPanningModel(ExecState* exec, JSValue value)
 {
-    PannerNode* imp = static_cast<PannerNode*>(impl());
+    PannerNode& imp = impl();
 
 #if ENABLE(LEGACY_WEB_AUDIO)
     if (value.isNumber()) {
         uint32_t model = value.toUInt32(exec);
-        if (!imp->setPanningModel(model))
-            throwError(exec, createTypeError(exec, "Illegal panningModel"));
+        if (!imp.setPanningModel(model))
+            exec->vm().throwException(exec, createTypeError(exec, "Illegal panningModel"));
         return;
     }
 #endif
@@ -52,23 +53,23 @@ void JSPannerNode::setPanningModel(ExecState* exec, JSValue value)
     if (value.isString()) {
         String model = value.toString(exec)->value(exec);
         if (model == "equalpower" || model == "HRTF" || model == "soundfield") {
-            imp->setPanningModel(model);
+            imp.setPanningModel(model);
             return;
         }
     }
     
-    throwError(exec, createTypeError(exec, "Illegal panningModel"));
+    exec->vm().throwException(exec, createTypeError(exec, "Illegal panningModel"));
 }
 
 void JSPannerNode::setDistanceModel(ExecState* exec, JSValue value)
 {
-    PannerNode* imp = static_cast<PannerNode*>(impl());
+    PannerNode& imp = impl();
 
 #if ENABLE(LEGACY_WEB_AUDIO)
     if (value.isNumber()) {
         uint32_t model = value.toUInt32(exec);
-        if (!imp->setDistanceModel(model))
-            throwError(exec, createTypeError(exec, "Illegal distanceModel"));
+        if (!imp.setDistanceModel(model))
+            exec->vm().throwException(exec, createTypeError(exec, "Illegal distanceModel"));
         return;
     }
 #endif
@@ -76,12 +77,12 @@ void JSPannerNode::setDistanceModel(ExecState* exec, JSValue value)
     if (value.isString()) {
         String model = value.toString(exec)->value(exec);
         if (model == "linear" || model == "inverse" || model == "exponential") {
-            imp->setDistanceModel(model);
+            imp.setDistanceModel(model);
             return;
         }
     }
     
-    throwError(exec, createTypeError(exec, "Illegal distanceModel"));
+    exec->vm().throwException(exec, createTypeError(exec, "Illegal distanceModel"));
 }
 
 } // namespace WebCore

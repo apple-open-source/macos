@@ -30,18 +30,24 @@
 #include "DataReference.h"
 #include "NetworkResourceLoadParameters.h"
 #include "PluginInfoStore.h"
+#include "SessionTracker.h"
 #include "StorageNamespaceImpl.h"
 #include "WebContextMessages.h"
 #include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
+#include "WebFrame.h"
+#include "WebFrameLoaderClient.h"
+#include "WebFrameNetworkingContext.h"
+#include "WebIDBFactoryBackend.h"
 #include "WebPage.h"
+#include "WebPasteboardOverrides.h"
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/Color.h>
-#include <WebCore/Frame.h>
-#include <WebCore/KURL.h>
+#include <WebCore/IDBFactoryBackendInterface.h>
 #include <WebCore/LoaderStrategy.h>
+#include <WebCore/MainFrame.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NetworkingContext.h>
 #include <WebCore/Page.h>
@@ -49,7 +55,10 @@
 #include <WebCore/PlatformCookieJar.h>
 #include <WebCore/PlatformPasteboard.h>
 #include <WebCore/ResourceError.h>
+#include <WebCore/SessionID.h>
 #include <WebCore/StorageNamespace.h>
+#include <WebCore/SubframeLoader.h>
+#include <WebCore/URL.h>
 #include <wtf/Atomics.h>
 
 #if ENABLE(NETWORK_PROCESS)
@@ -68,8 +77,8 @@ namespace WebKit {
 
 void WebPlatformStrategies::initialize()
 {
-    DEFINE_STATIC_LOCAL(WebPlatformStrategies, platformStrategies, ());
-    setPlatformStrategies(&platformStrategies);
+    static NeverDestroyed<WebPlatformStrategies> platformStrategies;
+    setPlatformStrategies(&platformStrategies.get());
 }
 
 WebPlatformStrategies::WebPlatformStrategies()
@@ -115,19 +124,14 @@ StorageStrategy* WebPlatformStrategies::createStorageStrategy()
     return this;
 }
 
-VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
-{
-    return this;
-}
-
 // CookiesStrategy
 
-String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
         String result;
-        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookiesForDOM(session.isPrivateBrowsingSession(), firstParty, url), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(result), 0))
+        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookiesForDOM(SessionTracker::sessionID(session), firstParty, url), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(result), 0))
             return String();
         return result;
     }
@@ -136,11 +140,11 @@ String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session
     return WebCore::cookiesForDOM(session, firstParty, url);
 }
 
-void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, const String& cookieString)
+void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, const String& cookieString)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
-        WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::SetCookiesFromDOM(session.isPrivateBrowsingSession(), firstParty, url, cookieString), 0);
+        WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::SetCookiesFromDOM(SessionTracker::sessionID(session), firstParty, url, cookieString), 0);
         return;
     }
 #endif
@@ -148,12 +152,12 @@ void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& sessi
     WebCore::setCookiesFromDOM(session, firstParty, url, cookieString);
 }
 
-bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
         bool result;
-        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookiesEnabled(session.isPrivateBrowsingSession(), firstParty, url), Messages::NetworkConnectionToWebProcess::CookiesEnabled::Reply(result), 0))
+        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookiesEnabled(SessionTracker::sessionID(session), firstParty, url), Messages::NetworkConnectionToWebProcess::CookiesEnabled::Reply(result), 0))
             return false;
         return result;
     }
@@ -162,12 +166,12 @@ bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session,
     return WebCore::cookiesEnabled(session, firstParty, url);
 }
 
-String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
         String result;
-        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(session.isPrivateBrowsingSession(), firstParty, url), Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue::Reply(result), 0))
+        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(SessionTracker::sessionID(session), firstParty, url), Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue::Reply(result), 0))
             return String();
         return result;
     }
@@ -176,11 +180,11 @@ String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorage
     return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
 }
 
-bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, Vector<Cookie>& rawCookies)
+bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, Vector<Cookie>& rawCookies)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
-        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::GetRawCookies(session.isPrivateBrowsingSession(), firstParty, url), Messages::NetworkConnectionToWebProcess::GetRawCookies::Reply(rawCookies), 0))
+        if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::GetRawCookies(SessionTracker::sessionID(session), firstParty, url), Messages::NetworkConnectionToWebProcess::GetRawCookies::Reply(rawCookies), 0))
             return false;
         return true;
     }
@@ -189,11 +193,11 @@ bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, 
     return WebCore::getRawCookies(session, firstParty, url, rawCookies);
 }
 
-void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const KURL& url, const String& cookieName)
+void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
 {
 #if ENABLE(NETWORK_PROCESS)
     if (WebProcess::shared().usesNetworkProcess()) {
-        WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::DeleteCookie(session.isPrivateBrowsingSession(), url, cookieName), 0);
+        WebProcess::shared().networkConnection()->connection()->send(Messages::NetworkConnectionToWebProcess::DeleteCookie(SessionTracker::sessionID(session), url, cookieName), 0);
         return;
     }
 #endif
@@ -206,9 +210,20 @@ void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, c
 #if ENABLE(SQL_DATABASE)
 AbstractDatabaseServer* WebPlatformStrategies::getDatabaseServer()
 {
-    return DatabaseStrategy::getDatabaseServer(); // Use the default for now.
+    return DatabaseStrategy::getDatabaseServer();
 }
+#endif // ENABLE(SQL_DATABASE)
+
+#if ENABLE(INDEXED_DATABASE)
+PassRefPtr<IDBFactoryBackendInterface> WebPlatformStrategies::createIDBFactoryBackend(const String& databaseDirectoryIdentifier)
+{
+#if !ENABLE(DATABASE_PROCESS)
+    return DatabaseStrategy::createIDBFactoryBackend(databaseDirectoryIdentifier);
 #endif
+
+    return WebIDBFactoryBackend::create(databaseDirectoryIdentifier);
+}
+#endif // ENABLE(INDEXED_DATABASE)
 
 // LoaderStrategy
 
@@ -233,14 +248,24 @@ void WebPlatformStrategies::loadResourceSynchronously(NetworkingContext* context
         return;
     }
 
+    WebFrameNetworkingContext* webContext = static_cast<WebFrameNetworkingContext*>(context);
+    // FIXME: Some entities in WebCore use WebCore's "EmptyFrameLoaderClient" instead of having a proper WebFrameLoaderClient.
+    // EmptyFrameLoaderClient shouldn't exist and everything should be using a WebFrameLoaderClient,
+    // but in the meantime we have to make sure not to mis-cast.
+    WebFrameLoaderClient* webFrameLoaderClient = webContext->webFrameLoaderClient();
+    WebFrame* webFrame = webFrameLoaderClient ? webFrameLoaderClient->webFrame() : 0;
+    WebPage* webPage = webFrame ? webFrame->page() : 0;
+
     NetworkResourceLoadParameters loadParameters;
     loadParameters.identifier = resourceLoadIdentifier;
+    loadParameters.webPageID = webPage ? webPage->pageID() : 0;
+    loadParameters.webFrameID = webFrame ? webFrame->frameID() : 0;
+    loadParameters.sessionID = webPage ? webPage->sessionID() : SessionID::defaultSessionID();
     loadParameters.request = request;
     loadParameters.priority = ResourceLoadPriorityHighest;
     loadParameters.contentSniffingPolicy = SniffContent;
     loadParameters.allowStoredCredentials = storedCredentials;
     loadParameters.clientCredentialPolicy = clientCredentialPolicy;
-    loadParameters.inPrivateBrowsingMode = context->storageSession().isPrivateBrowsingSession();
     loadParameters.shouldClearReferrerOnHTTPSToHTTPRedirect = context->shouldClearReferrerOnHTTPSToHTTPRedirect();
 
     data.resize(0);
@@ -248,19 +273,15 @@ void WebPlatformStrategies::loadResourceSynchronously(NetworkingContext* context
     if (!WebProcess::shared().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad(loadParameters), Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::Reply(error, response, data), 0)) {
         response = ResourceResponse();
         error = internalError(request.url());
-
-        return;
     }
 }
 
-#if ENABLE(BLOB)
 BlobRegistry* WebPlatformStrategies::createBlobRegistry()
 {
     if (!WebProcess::shared().usesNetworkProcess())
         return LoaderStrategy::createBlobRegistry();
     return new BlobRegistryProxy;    
 }
-#endif
 #endif
 
 // PluginStrategy
@@ -279,13 +300,24 @@ void WebPlatformStrategies::getPluginInfo(const WebCore::Page* page, Vector<WebC
 #if ENABLE(NETSCAPE_PLUGIN_API)
     populatePluginCache();
 
-    if (page->mainFrame()->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin)) {
+    if (page->mainFrame().loader().subframeLoader().allowPlugins(NotAboutToInstantiatePlugin)) {
         plugins = m_cachedPlugins;
         return;
     }
 
     plugins = m_cachedApplicationPlugins;
+#else
+    UNUSED_PARAM(page);
+    UNUSED_PARAM(plugins);
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
+}
+
+// SharedWorkerStrategy
+
+bool WebPlatformStrategies::isAvailable() const
+{
+    // Shared workers do not work across multiple processes, and using network process is tied to multiple secondary process model. 
+    return !WebProcess::shared().usesNetworkProcess();
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -305,18 +337,6 @@ void WebPlatformStrategies::populatePluginCache()
 }
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 
-// SharedWorkerStrategy.
-
-bool WebPlatformStrategies::isAvailable() const
-{
-    // Shared workers do not work across multiple processes, and using network process is tied to multiple secondary process model.
-#if ENABLE(NETWORK_PROCESS)
-    return !WebProcess::shared().usesNetworkProcess();
-#else
-    return true;
-#endif
-}
-
 // StorageStrategy
 
 PassRefPtr<StorageNamespace> WebPlatformStrategies::localStorageNamespace(PageGroup* pageGroup)
@@ -331,6 +351,7 @@ PassRefPtr<StorageNamespace> WebPlatformStrategies::localStorageNamespace(PageGr
 PassRefPtr<StorageNamespace> WebPlatformStrategies::transientLocalStorageNamespace(PageGroup* pageGroup, SecurityOrigin*securityOrigin)
 {
 #if ENABLE(UI_PROCESS_STORAGE)
+    UNUSED_PARAM(securityOrigin);
     // FIXME: This could be more clever and made to work across processes.
     return StorageStrategy::sessionStorageNamespace(*pageGroup->pages().begin());
 #else
@@ -347,29 +368,30 @@ PassRefPtr<StorageNamespace> WebPlatformStrategies::sessionStorageNamespace(Page
 #endif
 }
 
-// VisitedLinkStrategy
-
-bool WebPlatformStrategies::isLinkVisited(Page*, LinkHash linkHash, const KURL&, const AtomicString&)
-{
-    return WebProcess::shared().isLinkVisited(linkHash);
-}
-
-void WebPlatformStrategies::addVisitedLink(Page*, LinkHash linkHash)
-{
-    WebProcess::shared().addVisitedLink(linkHash);
-}
-
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 // PasteboardStrategy
 
 void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteboardName)
 {
+    // First check the overrides.
+    // The purpose of the overrides is to avoid messaging back to the UI process.
+    // Therefore, if there are any overridden types, we return just those.
+    types = WebPasteboardOverrides::sharedPasteboardOverrides().overriddenTypes(pasteboardName);
+    if (!types.isEmpty())
+        return;
+
     WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardTypes(pasteboardName),
                                                 Messages::WebContext::GetPasteboardTypes::Reply(types), 0);
 }
 
 PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
 {
+    // First check the overrides.
+    Vector<char> overrideBuffer;
+    if (WebPasteboardOverrides::sharedPasteboardOverrides().getDataForOverride(pasteboardName, pasteboardType, overrideBuffer))
+        return SharedBuffer::adoptVector(overrideBuffer);
+
+    // Fallback to messaging the UI process for native pasteboard content.
     SharedMemory::Handle handle;
     uint64_t size = 0;
     WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardBufferForType(pasteboardName, pasteboardType),
@@ -394,12 +416,15 @@ String WebPlatformStrategies::stringForType(const String& pasteboardType, const 
     return value;
 }
 
-void WebPlatformStrategies::copy(const String& fromPasteboard, const String& toPasteboard)
+long WebPlatformStrategies::copy(const String& fromPasteboard, const String& toPasteboard)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::PasteboardCopy(fromPasteboard, toPasteboard), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::PasteboardCopy(fromPasteboard, toPasteboard),
+        Messages::WebContext::PasteboardCopy::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
 
-int WebPlatformStrategies::changeCount(const WTF::String &pasteboardName)
+long WebPlatformStrategies::changeCount(const WTF::String &pasteboardName)
 {
     uint64_t changeCount;
     WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardChangeCount(pasteboardName),
@@ -423,44 +448,126 @@ Color WebPlatformStrategies::color(const String& pasteboardName)
     return color;
 }
 
-KURL WebPlatformStrategies::url(const String& pasteboardName)
+URL WebPlatformStrategies::url(const String& pasteboardName)
 {
     String urlString;
     WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardURL(pasteboardName),
                                                 Messages::WebContext::GetPasteboardURL::Reply(urlString), 0);
-    return KURL(ParsedURLString, urlString);
+    return URL(ParsedURLString, urlString);
 }
 
-void WebPlatformStrategies::addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+long WebPlatformStrategies::addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::AddPasteboardTypes(pasteboardName, pasteboardTypes), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::AddPasteboardTypes(pasteboardName, pasteboardTypes),
+        Messages::WebContext::AddPasteboardTypes::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
 
-void WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+long WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::SetPasteboardTypes(pasteboardName, pasteboardTypes), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::SetPasteboardTypes(pasteboardName, pasteboardTypes),
+        Messages::WebContext::SetPasteboardTypes::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
 
-void WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
 {
     SharedMemory::Handle handle;
     if (buffer) {
         RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(buffer->size());
-        memcpy(sharedMemoryBuffer->data(), buffer->data(), buffer->size());
-        sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+        // FIXME: Null check prevents crashing, but it is not great that we will have empty pasteboard content for this type,
+        // because we've already set the types.
+        if (sharedMemoryBuffer) {
+            memcpy(sharedMemoryBuffer->data(), buffer->data(), buffer->size());
+            sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+        }
     }
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::SetPasteboardBufferForType(pasteboardName, pasteboardType, handle, buffer ? buffer->size() : 0), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::SetPasteboardBufferForType(pasteboardName, pasteboardType, handle, buffer ? buffer->size() : 0),
+        Messages::WebContext::SetPasteboardBufferForType::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
 
-void WebPlatformStrategies::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::SetPasteboardPathnamesForType(pasteboardName, pasteboardType, pathnames), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::SetPasteboardPathnamesForType(pasteboardName, pasteboardType, pathnames),
+        Messages::WebContext::SetPasteboardPathnamesForType::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
 
-void WebPlatformStrategies::setStringForType(const String& string, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setStringForType(const String& string, const String& pasteboardType, const String& pasteboardName)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::SetPasteboardStringForType(pasteboardName, pasteboardType, string), 0);
+    uint64_t newChangeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::SetPasteboardStringForType(pasteboardName, pasteboardType, string),
+        Messages::WebContext::SetPasteboardStringForType::Reply(newChangeCount), 0);
+    return newChangeCount;
 }
-#endif
+
+#if PLATFORM(IOS)
+void WebPlatformStrategies::writeToPasteboard(const WebCore::PasteboardWebContent& content)
+{
+    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::WriteWebContentToPasteboard(content), 0);
+}
+
+void WebPlatformStrategies::writeToPasteboard(const WebCore::PasteboardImage& image)
+{
+    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::WriteImageToPasteboard(image), 0);
+}
+
+void WebPlatformStrategies::writeToPasteboard(const String& pasteboardType, const String& text)
+{
+    WebProcess::shared().parentProcessConnection()->send(Messages::WebContext::WriteStringToPasteboard(pasteboardType, text), 0);
+}
+
+int WebPlatformStrategies::getPasteboardItemsCount()
+{
+    uint64_t itemsCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardItemsCount(),
+        Messages::WebContext::GetPasteboardItemsCount::Reply(itemsCount), 0);
+    return itemsCount;
+}
+
+PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::readBufferFromPasteboard(int index, const String& pasteboardType)
+{
+    SharedMemory::Handle handle;
+    uint64_t size = 0;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::ReadBufferFromPasteboard(index, pasteboardType),
+        Messages::WebContext::ReadBufferFromPasteboard::Reply(handle, size), 0);
+    if (handle.isNull())
+        return 0;
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(handle, SharedMemory::ReadOnly);
+    return SharedBuffer::create(static_cast<unsigned char *>(sharedMemoryBuffer->data()), size);
+}
+
+WebCore::URL WebPlatformStrategies::readURLFromPasteboard(int index, const String& pasteboardType)
+{
+    String urlString;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::ReadURLFromPasteboard(index, pasteboardType),
+        Messages::WebContext::ReadURLFromPasteboard::Reply(urlString), 0);
+    return URL(ParsedURLString, urlString);
+}
+
+String WebPlatformStrategies::readStringFromPasteboard(int index, const String& pasteboardType)
+{
+    String value;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::ReadStringFromPasteboard(index, pasteboardType),
+        Messages::WebContext::ReadStringFromPasteboard::Reply(value), 0);
+    return value;
+}
+
+long WebPlatformStrategies::changeCount()
+{
+    uint64_t changeCount;
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebContext::GetPasteboardChangeCount(String()),
+        Messages::WebContext::GetPasteboardChangeCount::Reply(changeCount), 0);
+    return changeCount;
+}
+
+#endif // PLATFORM(IOS)
+
+#endif // PLATFORM(COCOA)
 
 } // namespace WebKit

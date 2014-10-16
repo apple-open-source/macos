@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -59,8 +59,8 @@ typedef struct pathcomp
 	time_t		mtime;
 	char		*name;
 	char		*lib;
+	char		*bbuf;
 	char		*blib;
-	void		*bltin_lib;
 	unsigned short	len;
 	unsigned short	flags;
 	Shell_t		*shp;
@@ -98,9 +98,11 @@ extern int		path_complete(Shell_t*,const char*, const char*,struct argnod**);
 #if SHOPT_BRACEPAT
     extern int 		path_generate(Shell_t*,struct argnod*,struct argnod**);
 #endif /* SHOPT_BRACEPAT */
-#if SHOPT_PFSH
     extern int		path_xattr(Shell_t*, const char*, char*);
-#endif /* SHOPT_PFSH */
+
+/* builtin/plugin routines */
+extern int		sh_addlib(Shell_t*,void*,char*,Pathcomp_t*);
+extern Shbltin_f	sh_getlib(Shell_t*,char*,Pathcomp_t*);
 
 /* constant strings needed for whence */
 extern const char e_timeformat[];

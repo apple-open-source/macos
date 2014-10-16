@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -174,6 +174,13 @@ enum {
  */
 #define MAC_GMT_FACTOR		2082844800UL
 
+/*
+ * Maximum number of bytes in an HFS+ filename.
+ * It's 255 characters; a UTF16 character may translate
+ * to 3 bytes.  Plus one for NUL.
+ */
+
+#define kHFSPlusMaxFileNameBytes	(3 * 255 + 1)
 
 /* sectorSize = kBytesPerSector = 512
    sectorOffset and totalSectors are in terms of 512-byte sector size.
@@ -231,7 +238,7 @@ struct hfsparams {
 
 	uint32_t        createDate;             /* in UTC */
 	uint32_t	hfsAlignment;
-	unsigned char volumeName[kHFSPlusMaxFileNameChars + 1];  /* in UTF-8 */
+	unsigned char	*volumeName;		/* In UTF8, but we need to allocate space for it. */
 	uint32_t	encodingHint;
 	uint32_t 	journaledHFS;
 	uint32_t 	journalSize;

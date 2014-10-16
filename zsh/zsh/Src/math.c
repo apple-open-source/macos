@@ -362,8 +362,9 @@ mathevall(char *s, enum prec_type prec_tp, char **ep)
     if (mlevel >= MAX_MLEVEL) {
 	xyyval.type = MN_INTEGER;
 	xyyval.u.l = 0;
+	*ep = s;
 
-	zerr("math recursion limit exceeded");
+	zerr("math recursion limit exceeded: %s", *ep);
 
 	return xyyval;
     }
@@ -447,15 +448,18 @@ lexconstant(void)
     if (*nptr == '-')
 	nptr++;
 
-    if (*nptr == '0' &&
-	(memchr(nptr, '.', strlen(nptr)) == NULL))
-    {
+    if (*nptr == '0') {
 	nptr++;
 	if (*nptr == 'x' || *nptr == 'X') {
 	    /* Let zstrtol parse number with base */
 	    yyval.u.l = zstrtol_underscore(ptr, &ptr, 0, 1);
 	    /* Should we set lastbase here? */
 	    lastbase = 16;
+	    if (isset(FORCEFLOAT))
+	    {
+		yyval.type = MN_FLOAT;
+		yyval.u.d = (double)yyval.u.l;
+	    }
 	    return NUM;
 	}
 	else if (isset(OCTALZEROES))
@@ -475,16 +479,18 @@ lexconstant(void)
 	    {
 		yyval.u.l = zstrtol_underscore(ptr, &ptr, 0, 1);
 		lastbase = 8;
+		if (isset(FORCEFLOAT))
+		{
+		    yyval.type = MN_FLOAT;
+		    yyval.u.d = (double)yyval.u.l;
+		}
 		return NUM;
 	    }
 	    nptr = ptr2;
 	}
     }
-    else
-    {
-	while (idigit(*nptr) || *nptr == '_')
-	    nptr++;
-    }
+    while (idigit(*nptr) || *nptr == '_')
+	nptr++;
 
     if (*nptr == '.' || *nptr == 'e' || *nptr == 'E') {
 	char *ptr2;
@@ -536,6 +542,11 @@ lexconstant(void)
 	    ptr++;
 	    lastbase = yyval.u.l;
 	    yyval.u.l = zstrtol_underscore(ptr, &ptr, lastbase, 1);
+	}
+	if (isset(FORCEFLOAT))
+	{
+	    yyval.type = MN_FLOAT;
+	    yyval.u.d = (double)yyval.u.l;
 	}
     }
     return NUM;
@@ -1358,6 +1369,19 @@ mathevalarg(char *s, char **ss)
     mnumber x;
     int xmtok = mtok;
 
+    /*
+     * At this entry point we don't allow an empty expression,
+     * whereas we do with matheval().  I'm not sure if this
+     * difference is deliberate, but it does mean that e.g.
+     * $array[$ind] where ind hasn't been set produces an error,
+     * which is probably safe.
+     *
+     * To avoid a more opaque error further in, bail out here.
+     */
+    if (!*s) {
+	zerr("bad math expression: empty string");
+	return (zlong)0;
+    }
     x = mathevall(s, MPREC_ARG, ss);
     if (mtok == COMMA)
 	(*ss)--;
@@ -1385,6 +1409,7 @@ checkunary(int mtokc, char *mptr)
     }
     if (errmsg) {
 	int len, over = 0;
+	char *errtype = errmsg == 2 ? "operator" : "operand";
 	while (inblank(*mptr))
 	    mptr++;
 	len = ztrlen(mptr);
@@ -1392,9 +1417,12 @@ checkunary(int mtokc, char *mptr)
 	    len = 10;
 	    over = 1;
 	}
-	zerr("bad math expression: %s expected at `%l%s'",
-	     errmsg == 2 ? "operator" : "operand",
-	     mptr, len, over ? "..." : "");
+	if (!*mptr)
+	    zerr("bad math expression: %s expected at end of string",
+		errtype);
+	else
+	    zerr("bad math expression: %s expected at `%l%s'",
+		 errtype, mptr, len, over ? "..." : "");
     }
     unary = !(tp & OP_OPF);
 }
@@ -1443,7 +1471,8 @@ mathparse(int pc)
 	case QUEST:
 	    if (stack[sp].val.type == MN_UNSET)
 		stack[sp].val = getmathparam(stack + sp);
-	    q = (stack[sp].val.type == MN_FLOAT) ? (zlong)stack[sp].val.u.d :
+	    q = (stack[sp].val.type == MN_FLOAT) ?
+		(stack[sp].val.u.d == 0 ? 0 : 1) :
 		stack[sp].val.u.l;
 
 	    if (!q)

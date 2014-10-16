@@ -3,19 +3,14 @@
  *
  * MUSCLE SmartCard Development ( http://www.linuxnet.com )
  *
- * Copyright (C) 2005
+ * Copyright (C) 2005-2010
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: misc.h 2481 2007-03-15 08:23:07Z rousseau $
+ * $Id: misc.h 6758 2013-10-01 12:55:58Z rousseau $
  */
 
 #ifndef __misc_h__
 #define __misc_h__
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
 /*
  * Declare the function as internal to the library: the function name is
@@ -24,9 +19,13 @@ extern "C"
  * see http://gcc.gnu.org/onlinedocs/gcc-3.3.5/gcc/Function-Attributes.html#Function-Attributes
  * see http://www.nedprod.com/programs/gccvisibility.html
  */
-#if defined __GNUC__ && (__GNUC__ >= 4 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3))
+#if defined __GNUC__ && (! defined (__sun)) && (__GNUC__ >= 4 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3))
 #define INTERNAL __attribute__ ((visibility("hidden")))
 #define PCSC_API __attribute__ ((visibility("default")))
+#elif (! defined __GNUC__ ) && defined (__sun)
+/* http://wikis.sun.com/display/SunStudio/Macros+for+Shared+Library+Symbol+Visibility */
+#define INTERNAL __hidden
+#define PCSC_API __global
 #else
 #define INTERNAL
 #define PCSC_API
@@ -56,8 +55,8 @@ extern "C"
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
-#ifdef __cplusplus
-}
+#ifndef COUNT_OF
+#define COUNT_OF(arr) (sizeof(arr)/sizeof(arr[0]))
 #endif
 
 #endif /* __misc_h__ */

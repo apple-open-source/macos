@@ -29,22 +29,25 @@
 
 #include "RenderMathMLUnderOver.h"
 
+#include "MathMLElement.h"
 #include "MathMLNames.h"
+#include "RenderIterator.h"
+#include "RenderMathMLOperator.h"
 
 namespace WebCore {
 
 using namespace MathMLNames;
     
-RenderMathMLUnderOver::RenderMathMLUnderOver(Element* element)
-    : RenderMathMLBlock(element)
+RenderMathMLUnderOver::RenderMathMLUnderOver(Element& element, PassRef<RenderStyle> style)
+    : RenderMathMLBlock(element, WTF::move(style))
 {
     // Determine what kind of under/over expression we have by element name
-    if (element->hasLocalName(MathMLNames::munderTag))
+    if (element.hasTagName(MathMLNames::munderTag))
         m_kind = Under;
-    else if (element->hasLocalName(MathMLNames::moverTag))
+    else if (element.hasTagName(MathMLNames::moverTag))
         m_kind = Over;
     else {
-        ASSERT(element->hasLocalName(MathMLNames::munderoverTag));
+        ASSERT(element.hasTagName(MathMLNames::munderoverTag));
         m_kind = UnderOver;
     }
 }
@@ -57,15 +60,36 @@ RenderMathMLOperator* RenderMathMLUnderOver::unembellishedOperator()
     return toRenderMathMLBlock(base)->unembellishedOperator();
 }
 
-int RenderMathMLUnderOver::firstLineBoxBaseline() const
+int RenderMathMLUnderOver::firstLineBaseline() const
 {
     RenderBox* base = firstChildBox();
     if (!base)
         return -1;
-    LayoutUnit baseline = base->firstLineBoxBaseline();
+    LayoutUnit baseline = base->firstLineBaseline();
     if (baseline != -1)
         baseline += base->logicalTop();
     return baseline;
+}
+
+void RenderMathMLUnderOver::layout()
+{
+    LayoutUnit stretchWidth = 0;
+    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+        if (child->needsLayout())
+            toRenderElement(child)->layout();
+        // Skipping the embellished op does not work for nested structures like
+        // <munder><mover><mo>_</mo>...</mover> <mo>_</mo></munder>.
+        if (child->isBox())
+            stretchWidth = std::max<LayoutUnit>(stretchWidth, toRenderBox(child)->logicalWidth());
+    }
+
+    // Set the sizes of (possibly embellished) stretchy operator children.
+    for (auto& child : childrenOfType<RenderMathMLBlock>(*this)) {
+        if (auto renderOperator = child.unembellishedOperator())
+            renderOperator->stretchTo(stretchWidth);
+    }
+
+    RenderMathMLBlock::layout();
 }
 
 }

@@ -2,7 +2,7 @@
  * ntfs_volume.h - Defines for volume structures in the NTFS kernel driver.
  *
  * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2014 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -104,7 +104,8 @@ struct _ntfs_volume {
 	unsigned name_size;		/* Size in bytes of volume name buffer,
 					   i.e. size of string in bytes plus
 					   the NUL terminator. */
-
+        uuid_t uuid;                    /* Volume UUID derived from
+                                           ($Volume:$OBJECT_ID). */
 	/* Variables used by the cluster and mft allocators. */
 	s64 mft_data_pos;		/* Mft record number at which to
 					   allocate the next mft record. */
@@ -223,6 +224,7 @@ enum {
 				      $Secure. */
 	NV_PostponedRelease,	/* 1: Postponed release of volume has been
 				      scheduled. */
+        NV_HasGUID,             /* 1: Volume has a GUID (in field "guid"). */
 };
 
 /*
@@ -256,5 +258,6 @@ DEFINE_NVOL_BIT_OPS(CompressionEnabled)
 DEFINE_NVOL_BIT_OPS(ReadOnly)
 DEFINE_NVOL_BIT_OPS(UseSDAttr)
 DEFINE_NVOL_BIT_OPS(PostponedRelease)
+DEFINE_NVOL_BIT_OPS(HasGUID)
 
 #endif /* !_OSX_NTFS_VOLUME_H */

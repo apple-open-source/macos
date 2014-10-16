@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,6 +49,7 @@ struct smb_prefs {
 	uint32_t			smb_negotiate; 
 	uint32_t			lanman_on;
 	uint32_t			signing_required;
+	int32_t             max_resp_timeout;
 };
 
 void getDefaultPreferences(struct smb_prefs *prefs);

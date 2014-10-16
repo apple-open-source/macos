@@ -24,6 +24,7 @@ WEBKIT_OBSOLETE_API
 <TITLE>WebKitWebContext</TITLE>
 WebKitWebContext
 WebKitCacheModel
+WebKitProcessModel
 WebKitTLSErrorsPolicy
 webkit_web_context_get_default
 webkit_web_context_get_cache_model
@@ -46,8 +47,12 @@ webkit_web_context_set_preferred_languages
 webkit_web_context_set_tls_errors_policy
 webkit_web_context_get_tls_errors_policy
 webkit_web_context_set_web_extensions_directory
+webkit_web_context_set_web_extensions_initialization_user_data
 webkit_web_context_prefetch_dns
 webkit_web_context_set_disk_cache_directory
+webkit_web_context_allow_tls_certificate_for_host
+webkit_web_context_get_process_model
+webkit_web_context_set_process_model
 
 <SUBSECTION URI Scheme>
 WebKitURISchemeRequestCallback
@@ -68,13 +73,51 @@ webkit_web_context_get_type
 </SECTION>
 
 <SECTION>
+<FILE>WebKitUserContent</FILE>
+<TITLE>WebKitUserContent</TITLE>
+WebKitUserStyleSheet
+WebKitUserContentInjectedFrames
+WebKitUserStyleLevel
+webkit_user_style_sheet_ref
+webkit_user_style_sheet_unref
+webkit_user_style_sheet_new
+
+<SUBSECTION Standard>
+WEBKIT_TYPE_USER_STYLE_SHEET
+
+<SUBSECTION Private>
+webkit_user_style_sheet_get_type
+</SECTION>
+
+<SECTION>
+<FILE>WebKitUserContentManager</FILE>
+<TITLE>WebKitUserContentManager</TITLE>
+WebKitUserContentManager
+webkit_user_content_manager_new
+webkit_user_content_manager_add_style_sheet
+webkit_user_content_manager_remove_all_style_sheets
+
+<SUBSECTION Standard>
+WEBKIT_IS_USER_CONTENT_MANAGER
+WEBKIT_IS_USER_CONTENT_MANAGER_CLASS
+WEBKIT_TYPE_USER_CONTENT_MANAGER
+WEBKIT_USER_CONTENT_MANAGER
+WEBKIT_USER_CONTENT_MANAGER_CLASS
+WEBKIT_USER_CONTENT_MANAGER_GET_CLASS
+WebKitUserContentManagerClass
+
+<SUBSECTION Private>
+WebKitUserContentManagerPrivate
+webkit_user_content_manager_get_type
+</SECTION>
+
+<SECTION>
 <FILE>WebKitWebView</FILE>
 <TITLE>WebKitWebView</TITLE>
 WebKitWebView
 WebKitLoadEvent
 WebKitPolicyDecisionType
 WebKitSaveMode
-WebKitViewMode
 WebKitInsecureContentEvent
 WebKitSnapshotOptions
 WebKitSnapshotRegion
@@ -90,9 +133,12 @@ WEBKIT_EDITING_COMMAND_REDO
 <SUBSECTION>
 webkit_web_view_new
 webkit_web_view_new_with_context
+webkit_web_view_new_with_related_view
 webkit_web_view_new_with_group
+webkit_web_view_new_with_user_content_manager
 webkit_web_view_get_context
 webkit_web_view_get_group
+webkit_web_view_get_user_content_manager
 webkit_web_view_load_uri
 webkit_web_view_load_html
 webkit_web_view_load_alternate_html
@@ -136,8 +182,6 @@ webkit_web_view_save_finish
 webkit_web_view_save_to_file
 webkit_web_view_save_to_file_finish
 webkit_web_view_download_uri
-webkit_web_view_set_view_mode
-webkit_web_view_get_view_mode
 webkit_web_view_get_tls_info
 webkit_web_view_get_snapshot
 webkit_web_view_get_snapshot_finish
@@ -175,6 +219,48 @@ webkit_web_view_get_type
 webkit_javascript_result_get_type
 webkit_script_dialog_get_type
 WebKitWebViewPrivate
+</SECTION>
+
+<SECTION>
+<FILE>WebKitAuthenticationRequest</FILE>
+WebKitAuthenticationRequest
+WebKitAuthenticationScheme
+webkit_authentication_request_authenticate
+webkit_authentication_request_cancel
+webkit_authentication_request_can_save_credentials
+webkit_authentication_request_get_host
+webkit_authentication_request_get_port
+webkit_authentication_request_is_retry
+webkit_authentication_request_get_proposed_credential
+webkit_authentication_request_get_realm
+webkit_authentication_request_get_scheme
+webkit_authentication_request_is_for_proxy
+
+<SUBSECTION Standard>
+WebKitAuthenticationRequestClass
+WEBKIT_TYPE_AUTHENTICATION_REQUEST
+WEBKIT_AUTHENTICATION_REQUEST
+WEBKIT_AUTHENTICATION_REQUEST_CLASS
+WEBKIT_AUTHENTICATION_REQUEST_GET_CLASS
+WEBKIT_IS_AUTHENTICATION_REQUEST
+WEBKIT_IS_AUTHENTICATION_REQUEST_CLASS
+WEBKIT_TYPE_CREDENTIAL
+
+<SUBSECTION Private>
+WebKitAuthenticationRequestPrivate
+webkit_authentication_request_get_type
+webkit_credential_get_type
+
+<SUBSECTION>
+WebKitCredential
+WebKitCredentialPersistence
+webkit_credential_new
+webkit_credential_copy
+webkit_credential_free
+webkit_credential_get_password
+webkit_credential_get_persistence
+webkit_credential_get_username
+webkit_credential_has_password
 </SECTION>
 
 <SECTION>
@@ -321,6 +407,12 @@ webkit_settings_get_enable_accelerated_2d_canvas
 webkit_settings_set_enable_accelerated_2d_canvas
 webkit_settings_get_enable_write_console_messages_to_stdout
 webkit_settings_set_enable_write_console_messages_to_stdout
+webkit_settings_get_enable_media_stream
+webkit_settings_set_enable_media_stream
+webkit_settings_get_enable_spatial_navigation
+webkit_settings_set_enable_spatial_navigation
+webkit_settings_get_enable_mediasource
+webkit_settings_set_enable_mediasource
 
 <SUBSECTION Standard>
 WebKitSettingsClass
@@ -470,6 +562,24 @@ webkit_geolocation_permission_request_get_type
 </SECTION>
 
 <SECTION>
+<FILE>WebKitNavigationAction</FILE>
+WebKitNavigationAction
+webkit_navigation_action_copy
+webkit_navigation_action_free
+webkit_navigation_action_get_navigation_type
+webkit_navigation_action_get_mouse_button
+webkit_navigation_action_get_modifiers
+webkit_navigation_action_get_request
+webkit_navigation_action_is_user_gesture
+
+<SUBSECTION Standard>
+WEBKIT_TYPE_NAVIGATION_ACTION
+
+<SUBSECTION Private>
+webkit_navigation_action_get_type
+</SECTION>
+
+<SECTION>
 <FILE>WebKitPolicyDecision</FILE>
 WebKitPolicyDecision
 webkit_policy_decision_download
@@ -519,6 +629,7 @@ webkit_navigation_policy_decision_get_type
 WebKitResponsePolicyDecision
 webkit_response_policy_decision_get_request
 webkit_response_policy_decision_get_response
+webkit_response_policy_decision_is_mime_type_supported
 
 <SUBSECTION Standard>
 WebKitResponsePolicyDecisionClass
@@ -955,8 +1066,6 @@ webkit_web_view_group_new
 webkit_web_view_group_get_name
 webkit_web_view_group_get_settings
 webkit_web_view_group_set_settings
-webkit_web_view_group_add_user_style_sheet
-webkit_web_view_group_remove_all_user_style_sheets
 
 <SUBSECTION Standard>
 WebKitWebViewGroupClass
@@ -976,6 +1085,7 @@ webkit_web_view_group_get_type
 <FILE>WebKitWebExtension</FILE>
 WebKitWebExtension
 WebKitWebExtensionInitializeFunction
+WebKitWebExtensionInitializeWithUserDataFunction
 webkit_web_extension_get_page
 
 <SUBSECTION Standard>
@@ -998,6 +1108,7 @@ WebKitWebPage
 webkit_web_page_get_dom_document
 webkit_web_page_get_id
 webkit_web_page_get_uri
+webkit_web_page_get_main_frame
 
 <SUBSECTION Standard>
 WebKitWebPageClass
@@ -1011,4 +1122,61 @@ WEBKIT_WEB_PAGE_GET_CLASS
 <SUBSECTION Private>
 WebKitWebPagePrivate
 webkit_web_page_get_type
+</SECTION>
+
+<SECTION>
+<FILE>WebKitFrame</FILE>
+WebKitFrame
+webkit_frame_is_main_frame
+webkit_frame_get_uri
+webkit_frame_get_javascript_global_context
+webkit_frame_get_javascript_context_for_script_world
+
+<SUBSECTION Standard>
+WebKitFrameClass
+WEBKIT_TYPE_FRAME
+WEBKIT_FRAME
+WEBKIT_IS_FRAME
+WEBKIT_FRAME_CLASS
+WEBKIT_IS_FRAME_CLASS
+WEBKIT_FRAME_GET_CLASS
+
+<SUBSECTION Private>
+WebKitFramePrivate
+webkit_frame_get_type
+</SECTION>
+
+<SECTION>
+<FILE>WebKitScriptWorld</FILE>
+WebKitScriptWorld
+webkit_script_world_get_default
+webkit_script_world_new
+
+<SUBSECTION Standard>
+WebKitScriptWorldClass
+WEBKIT_TYPE_SCRIPT_WORLD
+WEBKIT_SCRIPT_WORLD
+WEBKIT_IS_SCRIPT_WORLD
+WEBKIT_SCRIPT_WORLD_CLASS
+WEBKIT_IS_SCRIPT_WORLD_CLASS
+WEBKIT_SCRIPT_WORLD_GET_CLASS
+
+<SUBSECTION Private>
+WebKitScriptWorldPrivate
+webkit_script_world_get_type
+</SECTION>
+
+<SECTION>
+<FILE>WebKitCertificateInfo</FILE>
+WebKitCertificateInfo
+webkit_certificate_info_copy
+webkit_certificate_info_free
+webkit_certificate_info_get_tls_certificate
+webkit_certificate_info_get_tls_errors
+
+<SUBSECTION Standard>
+WEBKIT_TYPE_CERTIFICATE_INFO
+
+<SUBSECTION Private>
+webkit_certificate_info_get_type
 </SECTION>

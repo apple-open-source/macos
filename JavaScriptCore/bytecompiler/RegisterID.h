@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -29,6 +29,8 @@
 #ifndef RegisterID_h
 #define RegisterID_h
 
+#include "VirtualRegister.h"
+
 #include <wtf/Assertions.h>
 #include <wtf/VectorTraits.h>
 
@@ -46,9 +48,19 @@ namespace JSC {
         {
         }
 
+        RegisterID(VirtualRegister virtualRegister)
+            : m_refCount(0)
+            , m_virtualRegister(virtualRegister)
+            , m_isTemporary(false)
+#ifndef NDEBUG
+            , m_didSetIndex(true)
+#endif
+        {
+        }
+        
         explicit RegisterID(int index)
             : m_refCount(0)
-            , m_index(index)
+            , m_virtualRegister(VirtualRegister(index))
             , m_isTemporary(false)
 #ifndef NDEBUG
             , m_didSetIndex(true)
@@ -62,7 +74,7 @@ namespace JSC {
 #ifndef NDEBUG
             m_didSetIndex = true;
 #endif
-            m_index = index;
+            m_virtualRegister = VirtualRegister(index);
         }
 
         void setTemporary()
@@ -73,7 +85,13 @@ namespace JSC {
         int index() const
         {
             ASSERT(m_didSetIndex);
-            return m_index;
+            return m_virtualRegister.offset();
+        }
+
+        VirtualRegister virtualRegister() const
+        {
+            ASSERT(m_virtualRegister.isValid());
+            return m_virtualRegister;
         }
 
         bool isTemporary()
@@ -100,7 +118,7 @@ namespace JSC {
     private:
 
         int m_refCount;
-        int m_index;
+        VirtualRegister m_virtualRegister;
         bool m_isTemporary;
 #ifndef NDEBUG
         bool m_didSetIndex;

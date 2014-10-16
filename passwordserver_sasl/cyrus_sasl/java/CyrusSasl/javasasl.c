@@ -229,7 +229,7 @@ JNIEXPORT jint JNICALL Java_CyrusSasl_ServerFactory_jni_1sasl_1server_1new
 JNIEXPORT jint JNICALL JNICALL Java_CyrusSasl_ClientFactory_jni_1sasl_1client_1new
   (JNIEnv *env,
    jobject obj __attribute__((unused)),
-   jstring jservice, jstring jserver, jint jsecflags)
+   jstring jservice, jstring jserver, jint jsecflags, jboolean successdata)
 {
   sasl_conn_t *conn;
 
@@ -238,7 +238,8 @@ JNIEXPORT jint JNICALL JNICALL Java_CyrusSasl_ClientFactory_jni_1sasl_1client_1n
   int result;
 
   result=sasl_client_new(service, serverFQDN, NULL, NULL, NULL,
-			 jsecflags, &conn);
+			 jsecflags | (successdata ? SASL_SUCCESS_DATA : 0), 
+                         &conn);
 
   if (result!=SASL_OK)
     throwexception(env,result);
@@ -317,19 +318,24 @@ static int getvalue(JNIEnv *env, jobject obj, char *funcname, char **result, int
 	return SASL_FAIL;
     }
 
-    /* do the callback */
+    VL(("do the callback\n"));
     jstr = (jstring) (*env)->CallObjectMethod(env, obj, mid);
 
-    /* convert the result string into a char * */
-    str = (*env)->GetStringUTFChars(env, jstr, 0);
+    if (jstr) {
+        VL(("convert the result string into a char *\n"));
+        str = (*env)->GetStringUTFChars(env, jstr, 0);
 
-    /* copy password into the result */    
-    *result=(char *) malloc( strlen(str));
-    strcpy(*result, str);
-    *len=strlen(str);
+        /* copy password into the result */    
+        *result=(char *) malloc( strlen(str));
+        strcpy(*result, str);
+        *len=strlen(str);
 
-    /* Now we are done with str */
-    (*env)->ReleaseStringUTFChars(env, jstr, str);
+        /* Now we are done with str */
+        (*env)->ReleaseStringUTFChars(env, jstr, str);
+    } else {
+        *result = NULL;
+        *len = 0;
+    }
 
     return SASL_OK;
 }
@@ -352,6 +358,7 @@ static int callall_callbacks(JNIEnv *env, jobject obj,
     /* do the callback */
     (*env)->CallVoidMethod(env, obj, mid,calluid,callaid,callpass,callrealm);
 
+    VL(("callall_callbacks worked\n"));
     return SASL_OK;
 }
 
@@ -389,15 +396,23 @@ static int fillin_interactions(JNIEnv *env, jobject obj,
   callall_callbacks(env,obj,is_uid,is_aid,is_pass,is_realm);
 
   if (is_pass) {
+      VL(("in is_pass\n"));
+
       getvalue(env,obj,"get_password",(char **) &(pass->result),(int *) &(pass->len));
   }
   if (is_aid) {
+      VL(("in is_aid\n"));
+
       getvalue(env,obj,"get_authid",(char **) &(aid->result),(int *) &(aid->len));
   }
   if (is_uid) {
+      VL(("in is_uid\n"));
+
       getvalue(env,obj,"get_userid",(char **) &(uid->result),(int *) &(uid->len)); 
   }
   if (is_realm) {
+      VL(("in is_realm\n"));
+
       getvalue(env,obj,"get_realm",(char **) &(realm->result),(int *) &(realm->len));
   }
 
@@ -409,8 +424,7 @@ static int fillin_interactions(JNIEnv *env, jobject obj,
 
 /* client start */
 
-JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1start
-  (JNIEnv *env, jobject obj, jint ptr, jstring jstr)
+JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1start(JNIEnv *env, jobject obj, jint ptr, jstring jstr)
 {    
   sasl_conn_t *conn=(sasl_conn_t *) ptr;
   const char *mechlist = (*env)->GetStringUTFChars(env, jstr, 0);
@@ -431,11 +445,13 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1sta
 
       result=sasl_client_start(conn, mechlist,
 			       &client_interact,
-			       &out, &outlen,
+			       &out, 
+                               &outlen,
 			       &mechusing);
 
-      if (result==SASL_INTERACT)
-	  result=fillin_interactions(env,obj,client_interact);
+      if (result==SASL_INTERACT) {
+	  int res2 = fillin_interactions(env,obj,client_interact);
+      }
 
   } while (result==SASL_INTERACT);
 
@@ -453,7 +469,7 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1sta
   /* set up for java callback */
   cls = (*env)->GetObjectClass(env, obj);
   mid = (*env)->GetMethodID(env, cls, "callback_setmechanism",
-			    "(Ljava/lang/String;)V");
+			    "(Ljava/lang/String;I)V");
   if (mid == 0) {
       throwexception(env,SASL_FAIL);
     return NULL;
@@ -474,12 +490,12 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1sta
       throwexception(env, SASL_NOMEM);
       return NULL;
   }
-
+  
   memcpy(tmp, out, outlen);
   
   arr=(*env)->NewByteArray(env,outlen);
   (*env)->SetByteArrayRegion(env,arr, 0, outlen, (char *)tmp);
-  
+
   return arr;
 }
 
@@ -587,6 +603,8 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1ste
        in = NULL;
   }
 
+  VL(("in client step 2\n"));
+
   globalenv=env;
   globalobj=obj;
 
@@ -595,13 +613,14 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1ste
 			      &client_interact,
 			      &out, &outlen);
 
-      if (result==SASL_INTERACT)
-	  result= fillin_interactions(env,obj,client_interact);
+      VL(("in client step 3\n"));
 
+      if (result==SASL_INTERACT) {
+	  result = fillin_interactions(env,obj,client_interact);
+      }
   } while (result==SASL_INTERACT);
 
-  if ((result!=SASL_OK) && (result!=SASL_CONTINUE))
-  {
+  if ((result!=SASL_OK) && (result!=SASL_CONTINUE)) {
       /* throw exception */
       VL (("Throwing exception %d\n",result));
       throwexception(env,result);
@@ -614,7 +633,7 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1ste
   }
 
   if (jarr) {
-      VL(("about to releasebytearrayelements"));
+      VL(("about to releasebytearrayelements\n"));
       (*env)->ReleaseByteArrayElements(env, jarr,in ,0);
   }
       
@@ -625,6 +644,8 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1ste
       throwexception(env, SASL_NOMEM);
       return NULL;
   }
+
+  VL(("in client step 4\n"));
 
   memcpy(tmp, out, outlen);
   
@@ -822,7 +843,7 @@ JNIEXPORT void JNICALL Java_CyrusSasl_GenericCommon_jni_1sasl_1set_1server
 
   VL(("Set IP_REMOTE: %s: %d\n",out, result));
 
-  /* if not set throw and exception */
+  /* if not set throw an exception */
   if (result!=SASL_OK)
     throwexception(env,result); 
 }

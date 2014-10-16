@@ -26,7 +26,7 @@
 #include "config.h"
 #include "PluginProxy.h"
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "DataReference.h"
 #include "NPRemoteObjectMap.h"
@@ -96,7 +96,7 @@ bool PluginProxy::initialize(const Parameters& parameters)
     m_connection->addPluginProxy(this);
 
     // Ask the plug-in process to create a plug-in.
-    m_pendingPluginCreationParameters = adoptPtr(new PluginCreationParameters);
+    m_pendingPluginCreationParameters = std::make_unique<PluginCreationParameters>();
 
     m_pendingPluginCreationParameters->pluginInstanceID = m_pluginInstanceID;
     m_pendingPluginCreationParameters->windowNPObjectID = windowNPObjectID();
@@ -105,10 +105,7 @@ bool PluginProxy::initialize(const Parameters& parameters)
     m_pendingPluginCreationParameters->contentsScaleFactor = contentsScaleFactor();
     m_pendingPluginCreationParameters->isPrivateBrowsingEnabled = controller()->isPrivateBrowsingEnabled();
     m_pendingPluginCreationParameters->artificialPluginInitializationDelayEnabled = controller()->artificialPluginInitializationDelayEnabled();
-
-#if USE(ACCELERATED_COMPOSITING)
     m_pendingPluginCreationParameters->isAcceleratedCompositingEnabled = controller()->isAcceleratedCompositingEnabled();
-#endif
 
     if (!canInitializeAsynchronously())
         return initializeSynchronously();
@@ -173,21 +170,21 @@ void PluginProxy::didCreatePluginInternal(bool wantsWheelEvents, uint32_t remote
 
     // Whether synchronously or asynchronously, this plug-in was created and we shouldn't need to remember
     // anything about how.
-    m_pendingPluginCreationParameters.clear();
+    m_pendingPluginCreationParameters = nullptr;
     m_waitingOnAsynchronousInitialization = false;
 }
 
 void PluginProxy::didFailToCreatePluginInternal()
 {
     // Calling out to the connection and the controller could potentially cause the plug-in proxy to go away, so protect it here.
-    RefPtr<PluginProxy> protect(this);
+    Ref<PluginProxy> protect(*this);
 
     m_connection->removePluginProxy(this);
     controller()->didFailToInitializePlugin();
 
     // Whether synchronously or asynchronously, this plug-in failed to create and we shouldn't need to remember
     // anything about how.
-    m_pendingPluginCreationParameters.clear();
+    m_pendingPluginCreationParameters = nullptr;
     m_waitingOnAsynchronousInitialization = false;
 }
 
@@ -211,7 +208,7 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
         m_connection->connection()->sendSync(Messages::PluginControllerProxy::PaintEntirePlugin(), Messages::PluginControllerProxy::PaintEntirePlugin::Reply(), m_pluginInstanceID);
     
         // Blit the plug-in backing store into our own backing store.
-        OwnPtr<WebCore::GraphicsContext> graphicsContext = m_backingStore->createGraphicsContext();
+        auto graphicsContext = m_backingStore->createGraphicsContext();
         graphicsContext->applyDeviceScaleFactor(contentsScaleFactor());
         graphicsContext->setCompositeOperation(CompositeCopy);
 
@@ -286,7 +283,7 @@ void PluginProxy::geometryDidChange()
         m_pluginBackingStoreContainsValidData = false;
     }
 
-    m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(m_pluginSize, m_clipRect, m_pluginToRootViewTransform, contentsScaleFactor(), pluginBackingStoreHandle), m_pluginInstanceID, CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
+    m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(m_pluginSize, m_clipRect, m_pluginToRootViewTransform, contentsScaleFactor(), pluginBackingStoreHandle), m_pluginInstanceID, IPC::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void PluginProxy::geometryDidChange(const IntSize& pluginSize, const IntRect& clipRect, const AffineTransform& pluginToRootViewTransform)
@@ -303,10 +300,10 @@ void PluginProxy::geometryDidChange(const IntSize& pluginSize, const IntRect& cl
     geometryDidChange();
 }
 
-void PluginProxy::visibilityDidChange()
+void PluginProxy::visibilityDidChange(bool isVisible)
 {
     ASSERT(m_isStarted);
-    notImplemented();
+    m_connection->connection()->send(Messages::PluginControllerProxy::VisibilityDidChange(isVisible), m_pluginInstanceID);
 }
 
 void PluginProxy::frameDidFinishLoading(uint64_t requestID)
@@ -324,14 +321,14 @@ void PluginProxy::didEvaluateJavaScript(uint64_t requestID, const WTF::String& r
     m_connection->connection()->send(Messages::PluginControllerProxy::DidEvaluateJavaScript(requestID, result), m_pluginInstanceID);
 }
 
-void PluginProxy::streamDidReceiveResponse(uint64_t streamID, const KURL& responseURL, uint32_t streamLength, uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& /* suggestedFileName */)
+void PluginProxy::streamDidReceiveResponse(uint64_t streamID, const URL& responseURL, uint32_t streamLength, uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& /* suggestedFileName */)
 {
     m_connection->connection()->send(Messages::PluginControllerProxy::StreamDidReceiveResponse(streamID, responseURL.string(), streamLength, lastModifiedTime, mimeType, headers), m_pluginInstanceID);
 }
                                            
 void PluginProxy::streamDidReceiveData(uint64_t streamID, const char* bytes, int length)
 {
-    m_connection->connection()->send(Messages::PluginControllerProxy::StreamDidReceiveData(streamID, CoreIPC::DataReference(reinterpret_cast<const uint8_t*>(bytes), length)), m_pluginInstanceID);
+    m_connection->connection()->send(Messages::PluginControllerProxy::StreamDidReceiveData(streamID, IPC::DataReference(reinterpret_cast<const uint8_t*>(bytes), length)), m_pluginInstanceID);
 }
 
 void PluginProxy::streamDidFinishLoading(uint64_t streamID)
@@ -344,14 +341,14 @@ void PluginProxy::streamDidFail(uint64_t streamID, bool wasCancelled)
     m_connection->connection()->send(Messages::PluginControllerProxy::StreamDidFail(streamID, wasCancelled), m_pluginInstanceID);
 }
 
-void PluginProxy::manualStreamDidReceiveResponse(const KURL& responseURL, uint32_t streamLength,  uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& /* suggestedFileName */)
+void PluginProxy::manualStreamDidReceiveResponse(const URL& responseURL, uint32_t streamLength,  uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& /* suggestedFileName */)
 {
     m_connection->connection()->send(Messages::PluginControllerProxy::ManualStreamDidReceiveResponse(responseURL.string(), streamLength, lastModifiedTime, mimeType, headers), m_pluginInstanceID);
 }
 
 void PluginProxy::manualStreamDidReceiveData(const char* bytes, int length)
 {
-    m_connection->connection()->send(Messages::PluginControllerProxy::ManualStreamDidReceiveData(CoreIPC::DataReference(reinterpret_cast<const uint8_t*>(bytes), length)), m_pluginInstanceID);
+    m_connection->connection()->send(Messages::PluginControllerProxy::ManualStreamDidReceiveData(IPC::DataReference(reinterpret_cast<const uint8_t*>(bytes), length)), m_pluginInstanceID);
 }
 
 void PluginProxy::manualStreamDidFinishLoading()
@@ -488,7 +485,7 @@ NPObject* PluginProxy::pluginScriptableNPObject()
     return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginScriptableNPObjectID, this);
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 void PluginProxy::windowFocusChanged(bool hasFocus)
 {
     m_connection->connection()->send(Messages::PluginControllerProxy::WindowFocusChanged(hasFocus), m_pluginInstanceID);
@@ -683,6 +680,11 @@ void PluginProxy::windowedPluginGeometryDidChange(const WebCore::IntRect& frameR
 {
     controller()->windowedPluginGeometryDidChange(frameRect, clipRect, windowID);
 }
+
+void PluginProxy::windowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID)
+{
+    controller()->windowedPluginVisibilityDidChange(isVisible, windowID);
+}
 #endif
 
 void PluginProxy::update(const IntRect& paintedRect)
@@ -692,7 +694,7 @@ void PluginProxy::update(const IntRect& paintedRect)
 
     if (m_backingStore) {
         // Blit the plug-in backing store into our own backing store.
-        OwnPtr<GraphicsContext> graphicsContext = m_backingStore->createGraphicsContext();
+        auto graphicsContext = m_backingStore->createGraphicsContext();
         graphicsContext->applyDeviceScaleFactor(contentsScaleFactor());
         graphicsContext->setCompositeOperation(CompositeCopy);
         m_pluginBackingStore->paint(*graphicsContext, contentsScaleFactor(), paintedRect.location(), paintedRect);
@@ -713,6 +715,13 @@ PassRefPtr<WebCore::SharedBuffer> PluginProxy::liveResourceData() const
     return 0;
 }
 
+#if PLATFORM(COCOA)
+WebCore::AudioHardwareActivityType PluginProxy::audioHardwareActivity() const
+{
+    return m_connection->audioHardwareActivity();
+}
+#endif
+
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

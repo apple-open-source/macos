@@ -2,12 +2,10 @@
 
 set -ex
 
+DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
+
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	[ -z "${DSTROOT}" ] && exit 1
-	DSTROOT="${DSTROOT}${SDKROOT}"
-
-	install_name_tool -id /usr/lib/libedit.3.dylib ${DSTROOT}/usr/lib/libedit.3.dylib
-
 	# Don't keep static libraries for the simulator SDK
 	rm -rf ${DSTROOT}/usr/local/lib
 fi

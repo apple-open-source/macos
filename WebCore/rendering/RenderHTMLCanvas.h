@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,29 +32,24 @@ namespace WebCore {
 
 class HTMLCanvasElement;
 
-class RenderHTMLCanvas : public RenderReplaced {
+class RenderHTMLCanvas final : public RenderReplaced {
 public:
-    explicit RenderHTMLCanvas(HTMLCanvasElement*);
+    RenderHTMLCanvas(HTMLCanvasElement&, PassRef<RenderStyle>);
 
-    virtual bool isCanvas() const { return true; }
-    virtual bool requiresLayer() const;
+    HTMLCanvasElement& canvasElement() const;
 
     void canvasSizeChanged();
-    
+
 private:
-    virtual const char* renderName() const { return "RenderHTMLCanvas"; }
-    virtual void paintReplaced(PaintInfo&, const LayoutPoint&);
-    virtual void intrinsicSizeChanged() { canvasSizeChanged(); }
+    void element() const = delete;
+    virtual bool requiresLayer() const override;
+    virtual bool isCanvas() const override { return true; }
+    virtual const char* renderName() const override { return "RenderHTMLCanvas"; }
+    virtual void paintReplaced(PaintInfo&, const LayoutPoint&) override;
+    virtual void intrinsicSizeChanged() override { canvasSizeChanged(); }
 };
 
-inline RenderHTMLCanvas* toRenderHTMLCanvas(RenderObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isCanvas());
-    return static_cast<RenderHTMLCanvas*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toRenderHTMLCanvas(const RenderHTMLCanvas*);
+RENDER_OBJECT_TYPE_CASTS(RenderHTMLCanvas, isCanvas())
 
 } // namespace WebCore
 

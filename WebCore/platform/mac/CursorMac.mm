@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -84,13 +84,7 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::Hand:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = [NSCursor pointingHandCursor];
-#else
-        // The pointingHandCursor from NSCursor does not have a shadow on
-        // older versions of OS X, so use our own custom cursor.
-        m_platformCursor = createNamedCursor("linkCursor", 6, 1);
-#endif
         break;
 
     case Cursor::IBeam:
@@ -98,133 +92,75 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::Wait:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("BusyButClickable");
-#else
-        m_platformCursor = createNamedCursor("waitCursor", 7, 7);
-#endif
         break;
 
     case Cursor::Help:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("Help");
         if (m_platformCursor)
             break;
-#endif
         m_platformCursor = createNamedCursor("helpCursor", 8, 8);
         break;
 
     case Cursor::Move:
     case Cursor::MiddlePanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("Move");
-#else
-        m_platformCursor = createNamedCursor("moveCursor", 7, 7);
-#endif
         break;
 
     case Cursor::EastResize:
     case Cursor::EastPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeEast");
-#else
-        m_platformCursor = createNamedCursor("eastResizeCursor", 14, 7);
-#endif
         break;
 
     case Cursor::NorthResize:
     case Cursor::NorthPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNorth");
-#else
-        m_platformCursor = createNamedCursor("northResizeCursor", 7, 1);
-#endif
         break;
 
     case Cursor::NorthEastResize:
     case Cursor::NorthEastPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNortheast");
-#else
-        m_platformCursor = createNamedCursor("northEastResizeCursor", 14, 1);
-#endif
         break;
 
     case Cursor::NorthWestResize:
     case Cursor::NorthWestPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNorthwest");
-#else
-        m_platformCursor = createNamedCursor("northWestResizeCursor", 0, 0);
-#endif
         break;
 
     case Cursor::SouthResize:
     case Cursor::SouthPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeSouth");
-#else
-        m_platformCursor = createNamedCursor("southResizeCursor", 7, 14);
-#endif
         break;
 
     case Cursor::SouthEastResize:
     case Cursor::SouthEastPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeSoutheast");
-#else
-        m_platformCursor = createNamedCursor("southEastResizeCursor", 14, 14);
-#endif
         break;
 
     case Cursor::SouthWestResize:
     case Cursor::SouthWestPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeSouthwest");
-#else
-        m_platformCursor = createNamedCursor("southWestResizeCursor", 1, 14);
-#endif
         break;
 
     case Cursor::WestResize:
     case Cursor::WestPanning:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeWest");
-#else
-        m_platformCursor = createNamedCursor("westResizeCursor", 1, 7);
-#endif
         break;
 
     case Cursor::NorthSouthResize:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNorthSouth");
-#else
-        m_platformCursor = createNamedCursor("northSouthResizeCursor", 7, 7);
-#endif
         break;
 
     case Cursor::EastWestResize:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeEastWest");
-#else
-        m_platformCursor = createNamedCursor("eastWestResizeCursor", 7, 7);
-#endif
         break;
 
     case Cursor::NorthEastSouthWestResize:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNortheastSouthwest");
-#else
-        m_platformCursor = createNamedCursor("northEastSouthWestResizeCursor", 7, 7);
-#endif
         break;
 
     case Cursor::NorthWestSouthEastResize:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ResizeNorthwestSoutheast");
-#else
-        m_platformCursor = createNamedCursor("northWestSouthEastResizeCursor", 7, 7);
-#endif
         break;
 
     case Cursor::ColumnResize:
@@ -236,19 +172,13 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::VerticalText:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = [NSCursor IBeamCursorForVerticalLayout];
-#else
-        m_platformCursor = createNamedCursor("verticalTextCursor", 7, 7);
-#endif
         break;
 
     case Cursor::Cell:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("Cell");
         if (m_platformCursor)
             break;
-#endif
         m_platformCursor = createNamedCursor("cellCursor", 7, 7);
         break;
 
@@ -257,19 +187,11 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::Alias:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("MakeAlias");
-#else
-        m_platformCursor = createNamedCursor("aliasCursor", 11, 3);
-#endif
         break;
 
     case Cursor::Progress:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("BusyButClickable");
-#else
-        m_platformCursor = createNamedCursor("progressCursor", 3, 2);
-#endif
         break;
 
     case Cursor::NoDrop:
@@ -289,20 +211,16 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::ZoomIn:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ZoomIn");
         if (m_platformCursor)
             break;
-#endif
         m_platformCursor = createNamedCursor("zoomInCursor", 7, 7);
         break;
 
     case Cursor::ZoomOut:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         m_platformCursor = wkCursor("ZoomOut");
         if (m_platformCursor)
             break;
-#endif
         m_platformCursor = createNamedCursor("zoomOutCursor", 7, 7);
         break;
 

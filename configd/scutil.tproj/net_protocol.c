@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009, 2011, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1590,11 +1590,11 @@ show_protocols(int argc, char **argv)
 		protocol     = CFArrayGetValueAtIndex(protocols, i);
 		protocolType = SCNetworkProtocolGetProtocolType(protocol);
 
-		SCPrint(TRUE, stdout, CFSTR("%c%2d: %@%*s :"),
+		SCPrint(TRUE, stdout, CFSTR("%c%2ld: %@%*s :"),
 			((net_protocol != NULL) && CFEqual(protocol, net_protocol)) ? '>' : ' ',
 			i + 1,
 			protocolType,
-			sizeof("AppleTalk") - CFStringGetLength(protocolType) - 1,
+			(int)(sizeof("AppleTalk") - CFStringGetLength(protocolType) - 1),
 			"");
 
 		if (SCNetworkProtocolGetEnabled(protocol)) {

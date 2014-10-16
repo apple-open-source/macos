@@ -25,7 +25,6 @@
 #include <errno.h>
 #include <libc.h>
 #include <libgen.h>     // dirname()
-#include <Kernel/libkern/mkext.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <fts.h>
@@ -140,7 +139,9 @@ int main(int argc, char * const * argv)
     if (toolArgs.prelinkedKernelPath && !CFArrayGetCount(toolArgs.argURLs) &&
         (toolArgs.compress || toolArgs.uncompress)) 
     {
-        result = compressPrelinkedKernel(toolArgs.prelinkedKernelPath, toolArgs.compress);
+        result = compressPrelinkedKernel(toolArgs.prelinkedKernelPath,
+                                         toolArgs.compress,
+                                         toolArgs.compressionType);
         goto finish;
     }
 
@@ -175,7 +176,7 @@ int main(int argc, char * const * argv)
     if (result != EX_OK) {
         goto finish;
     }
-
+    
     if (toolArgs.prelinkedKernelPath) {
         result = createPrelinkedKernel(&toolArgs);
         if (result != EX_OK) {
@@ -366,6 +367,24 @@ ExitStatus readArgs(
           
                     case kLongOptCompressed:
                         toolArgs->compress = true;
+                        if (optarg == NULL) {
+                            toolArgs->compressionType = COMP_TYPE_LZSS;
+                        } else if (0 == strcasecmp(optarg, "lzvn")) {
+                            if (!supportsFastLibCompression()) {
+                                OSKextLog(/* kext */ NULL,
+                                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                          "Error - lzvn compression specified but not supported");
+                                goto finish;
+                            }
+                            toolArgs->compressionType = COMP_TYPE_FASTLIB;
+                        } else if (0 == strcasecmp(optarg, "lzss")) {
+                            toolArgs->compressionType = COMP_TYPE_LZSS;
+                        } else {
+                            OSKextLog(/* kext */ NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                      "Error - unrecognized compression type %s", optarg);
+                            goto finish;
+                        }
                         break;
 
                     case kLongOptUncompressed:
@@ -689,6 +708,7 @@ ExitStatus checkArgs(KcgenArgs * toolArgs)
 
     if (!toolArgs->compress && !toolArgs->uncompress) {
         toolArgs->compress = true;
+        toolArgs->compressionType = COMP_TYPE_LZSS;
     } else if (toolArgs->compress && toolArgs->uncompress) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -902,7 +922,7 @@ createPrelinkedKernelArchs(
     CFMutableArrayRef   prelinkArchs    = NULL;  // must release
     const NXArchInfo  * targetArch      = NULL;  // do not free
     int                 i               = 0;
-
+    
     result = readFatFileArchsWithPath(toolArgs->kernelPath, &kernelArchs);
     if (result != EX_OK) {
         goto finish;
@@ -918,11 +938,11 @@ createPrelinkedKernelArchs(
 
     for (i = 0; i < CFArrayGetCount(prelinkArchs); ++i) {
         targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
-        if (!CFArrayContainsValue(kernelArchs, 
+        if (!CFArrayContainsValue(kernelArchs,
             RANGE_ALL(kernelArchs), targetArch)) 
         {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
+                      kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
                 "Warning - kernel file %s does not contain requested arch: %s",
                 toolArgs->kernelPath, targetArch->name);
             CFArrayRemoveValueAtIndex(prelinkArchs, i);
@@ -964,7 +984,7 @@ createPrelinkedKernel(
     int                 j                   = 0;
 
     bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
-
+        
     result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
     if (result != EX_OK) {
         goto finish;
@@ -982,7 +1002,7 @@ createPrelinkedKernel(
         result = EX_OSERR;
         goto finish;
     }
-
+    
     for (i = 0; i < numArchs; i++) {
         targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
 
@@ -1009,12 +1029,12 @@ createPrelinkedKernel(
                 continue;
             }
         }
-
+        
         OSKextLog(/* kext */ NULL,
-            kOSKextLogDebugLevel | kOSKextLogArchiveFlag,
-            "Generating a new prelinked slice for arch %s",
-            targetArch->name);
-
+                  kOSKextLogDebugLevel | kOSKextLogArchiveFlag,
+                  "Generating a new prelinked slice for arch %s",
+                  targetArch->name);
+        
         result = createPrelinkedKernelForArch(toolArgs, &prelinkSlice,
             &sliceSymbols, targetArch);
         if (result != EX_OK) {
@@ -1052,7 +1072,7 @@ createPrelinkedKernel(
             goto finish;
         }
     }
-
+    
     OSKextLog(/* kext */ NULL,
         kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogArchiveFlag,
         "Created prelinked kernel %s.", 
@@ -1076,7 +1096,7 @@ finish:
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus createPrelinkedKernelForArch(
-    KcgenArgs       * toolArgs,
+    KcgenArgs           * toolArgs,
     CFDataRef           * prelinkedKernelOut,
     CFDictionaryRef     * prelinkedSymbolsOut,
     const NXArchInfo    * archInfo)
@@ -1087,7 +1107,7 @@ ExitStatus createPrelinkedKernelForArch(
     CFDataRef prelinkedKernel = NULL;
     uint32_t flags = 0;
     Boolean fatalOut = false;
-
+    
     /* Retrieve the kernel image for the requested architecture.
      */
     kernelImage = readMachOSliceForArch(toolArgs->kernelPath, archInfo, /* checkArch */ TRUE);
@@ -1097,18 +1117,18 @@ ExitStatus createPrelinkedKernelForArch(
                 "Error - failed to read kernel file.");
         goto finish;
     }
-
+    
     /* Set the architecture in the OSKext library */
 
     if (!OSKextSetArchitecture(archInfo)) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Error - can't set architecture %s to create prelinked kernel.",
-            archInfo->name);
-        result = EX_OSERR;
-        goto finish;
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Error - can't set architecture %s to create prelinked kernel.",
+                      archInfo->name);
+            result = EX_OSERR;
+            goto finish;
     }
-
+    
    /*****
     * Figure out which kexts we're actually archiving.
     * This uses toolArgs->allKexts, which must already be created.
@@ -1163,11 +1183,13 @@ ExitStatus createPrelinkedKernelForArch(
    /* Compress the prelinked kernel if needed */
 
     if (toolArgs->compress) {
-        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel, true);
+        *prelinkedKernelOut = compressPrelinkedSlice(toolArgs->compressionType,
+                                                     prelinkedKernel,
+                                                     true);
     } else {
         *prelinkedKernelOut = CFRetain(prelinkedKernel);
     }
-
+    
     if (!*prelinkedKernelOut) {
         goto finish;
     }
@@ -1186,8 +1208,9 @@ finish:
 /*********************************************************************
  *********************************************************************/
 ExitStatus compressPrelinkedKernel(
-    const char        * prelinkPath,
-    Boolean             compress)
+                                   const char        * prelinkPath,
+                                   Boolean             compress,
+                                   uint32_t            compressionType)
 {
     ExitStatus          result          = EX_SOFTWARE;
     struct timeval      prelinkedKernelTimes[2];
@@ -1204,7 +1227,7 @@ ExitStatus compressPrelinkedKernel(
     if (result != EX_OK) {
         goto finish;
     }
-
+    
     /* Compress/uncompress each slice of the prelinked kernel.
      */
 
@@ -1214,7 +1237,9 @@ ExitStatus compressPrelinkedKernel(
         prelinkedSlice = CFArrayGetValueAtIndex(prelinkedSlices, i);
 
         if (compress) {
-            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice, true);
+            prelinkedSlice = compressPrelinkedSlice(compressionType,
+                                                    prelinkedSlice,
+                                                    true);
             if (!prelinkedSlice) {
                 result = EX_DATAERR;
                 goto finish;

@@ -128,7 +128,7 @@ public:
         m_wheelTicksY = webEvent.wheelTicks().height();
         m_granularity = (webEvent.granularity() == WebWheelEvent::ScrollByPageWheelEvent) ? WebCore::ScrollByPageWheelEvent : WebCore::ScrollByPixelWheelEvent;
         m_directionInvertedFromDevice = webEvent.directionInvertedFromDevice();
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
         m_phase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.phase());
         m_momentumPhase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.momentumPhase());
         m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
@@ -185,6 +185,10 @@ public:
         m_windowsVirtualKeyCode = webEvent.windowsVirtualKeyCode();
         m_nativeVirtualKeyCode = webEvent.nativeVirtualKeyCode();
         m_macCharCode = webEvent.macCharCode();
+#if USE(APPKIT)
+        m_handledByInputMethod = webEvent.handledByInputMethod();
+        m_commands = webEvent.commands();
+#endif
         m_autoRepeat = webEvent.isAutoRepeat();
         m_isKeypad = webEvent.isKeypad();
         m_isSystemKey = webEvent.isSystemKey();
@@ -196,55 +200,34 @@ WebCore::PlatformKeyboardEvent platform(const WebKeyboardEvent& webEvent)
     return WebKit2PlatformKeyboardEvent(webEvent);
 }
 
-#if ENABLE(GESTURE_EVENTS)
-class WebKit2PlatformGestureEvent : public WebCore::PlatformGestureEvent {
-public:
-    WebKit2PlatformGestureEvent(const WebGestureEvent& webEvent)
-    {
-        // PlatformEvent
-        switch (webEvent.type()) {
-        case WebEvent::GestureScrollBegin:
-            m_type = WebCore::PlatformEvent::GestureScrollBegin;
-            break;
-        case WebEvent::GestureScrollEnd:
-            m_type = WebCore::PlatformEvent::GestureScrollEnd;
-            break;
-        case WebEvent::GestureSingleTap:
-            m_type = WebCore::PlatformEvent::GestureTap;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
-        m_modifiers = 0;
-        if (webEvent.shiftKey())
-            m_modifiers |= ShiftKey;
-        if (webEvent.controlKey())
-            m_modifiers |= CtrlKey;
-        if (webEvent.altKey())
-            m_modifiers |= AltKey;
-        if (webEvent.metaKey())
-            m_modifiers |= MetaKey;
-
-        m_timestamp = webEvent.timestamp();
-
-        // PlatformGestureEvent
-        m_position = webEvent.position();
-        m_globalPosition = webEvent.globalPosition();
-
-        m_area = webEvent.area();
-        m_deltaX = webEvent.delta().x();
-        m_deltaY = webEvent.delta().y();
-    }
-};
-
-WebCore::PlatformGestureEvent platform(const WebGestureEvent& webEvent)
-{
-    return WebKit2PlatformGestureEvent(webEvent);
-}
-#endif
-
 #if ENABLE(TOUCH_EVENTS)
+
+#if PLATFORM(IOS)
+static WebCore::PlatformTouchPoint::TouchPhaseType touchEventType(const WebPlatformTouchPoint& webTouchPoint)
+{
+    switch (webTouchPoint.phase()) {
+    case WebPlatformTouchPoint::TouchReleased:
+        return WebCore::PlatformTouchPoint::TouchPhaseEnded;
+    case WebPlatformTouchPoint::TouchPressed:
+        return WebCore::PlatformTouchPoint::TouchPhaseBegan;
+    case WebPlatformTouchPoint::TouchMoved:
+        return WebCore::PlatformTouchPoint::TouchPhaseMoved;
+    case WebPlatformTouchPoint::TouchStationary:
+        return WebCore::PlatformTouchPoint::TouchPhaseStationary;
+    case WebPlatformTouchPoint::TouchCancelled:
+        return WebCore::PlatformTouchPoint::TouchPhaseCancelled;
+    }
+}
+
+class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {
+public:
+WebKit2PlatformTouchPoint(const WebPlatformTouchPoint& webTouchPoint)
+    : PlatformTouchPoint(webTouchPoint.identifier(), webTouchPoint.location(), touchEventType(webTouchPoint))
+{
+}
+};
+#else
+
 class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {
 public:
     WebKit2PlatformTouchPoint(const WebPlatformTouchPoint& webTouchPoint)
@@ -279,6 +262,7 @@ public:
         m_rotationAngle = webTouchPoint.rotationAngle();
     }
 };
+#endif // PLATFORM(IOS)
 
 class WebKit2PlatformTouchEvent : public WebCore::PlatformTouchEvent {
 public:
@@ -314,9 +298,23 @@ public:
 
         m_timestamp = webEvent.timestamp();
 
+#if PLATFORM(IOS)
+        unsigned touchCount = webEvent.touchPoints().size();
+        m_touchPoints.reserveInitialCapacity(touchCount);
+        for (unsigned i = 0; i < touchCount; ++i)
+            m_touchPoints.uncheckedAppend(WebKit2PlatformTouchPoint(webEvent.touchPoints().at(i)));
+
+        m_gestureScale = webEvent.gestureScale();
+        m_gestureRotation = webEvent.gestureRotation();
+        m_canPreventNativeGestures = webEvent.canPreventNativeGestures();
+        m_isGesture = webEvent.isGesture();
+        m_position = webEvent.position();
+        m_globalPosition = webEvent.position();
+#else
         // PlatformTouchEvent
         for (size_t i = 0; i < webEvent.touchPoints().size(); ++i)
             m_touchPoints.append(WebKit2PlatformTouchPoint(webEvent.touchPoints().at(i)));
+#endif //PLATFORM(IOS)
     }
 };
 

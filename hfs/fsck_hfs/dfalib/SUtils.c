@@ -1596,7 +1596,7 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 
 enum { WIDTH = 16, };
 
-static void
+void
 DumpData(const void *data, size_t len)
 {
 	unsigned char *base = (unsigned char*)data;
@@ -1707,6 +1707,7 @@ done:
 		} else {
 			uint8_t *ptr = (uint8_t*)theBlockDesc.buffer;
 			DumpData(ptr, theBlockDesc.blockSize);
+			ReleaseVolumeBlock(myVOPtr->vcbPtr, &theBlockDesc, kReleaseBlock);
 		}
 	}
 	return retval;

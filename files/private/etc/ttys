@@ -3,9 +3,6 @@
 #
 # name	getty				type	status		comments
 #
-# To secure single-user mode, enable Firmware password protection.
-# http://docs.info.apple.com/article.html?artnum=106482
-#
 #console 	"/usr/libexec/getty std.57600"	vt100	on secure
 console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure onoption="/usr/libexec/getty std.9600"
 #tahoe's only

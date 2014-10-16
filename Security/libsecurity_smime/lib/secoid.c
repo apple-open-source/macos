@@ -32,11 +32,18 @@
  */
 
 #include "secoid.h"
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "plhash.h"
 
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
+#if USE_CDSA_CRYPTO
 #include <Security/cssmapple.h>
+#else
+#include <Security/oidsalg.h>
+#include <CommonCrypto/CommonCryptor.h>
+#endif
 #include <pthread.h>
 
 /* MISSI Mosaic Object ID space */
@@ -122,7 +129,6 @@
 #define PKCS9_CERT_TYPES	PKCS9, 0x16
 #define PKCS9_CRL_TYPES		PKCS9, 0x17
 #define PKCS9_SMIME_IDS		PKCS9, 0x10
-#define PKCS9_SMIME_CTYPE	PKCS9_SMIME_IDS, 1
 #define PKCS9_SMIME_ATTRS	PKCS9_SMIME_IDS, 2
 #define PKCS9_SMIME_ALGS	PKCS9_SMIME_IDS, 3
 #define PKCS12_VERSION1		PKCS12, 0x0a
@@ -155,20 +161,9 @@
 /* { 1.3.6.1.4.1.311 } */
 #define MICROSOFT_OID 0x2b, 0x6, 0x1, 0x4, 0x1, 0x82, 0x37
 
-/* ECDSA OIDs from X9.62 */
-#define ANSI_X9_62						0x2A, 0x86, 0x48, 0xCE, 0x3D
-#define ANSI_X9_62_FIELD_TYPE			ANSI_X9_62, 1
-#define ANSI_X9_62_PUBKEY_TYPE			ANSI_X9_62, 2
-#define ANSI_X9_62_SIG_TYPE				ANSI_X9_62, 4
-
-/* X9.63 schemes */
-#define ANSI_X9_63						0x2B, 0x81, 0x05, 0x10, 0x86, 0x48, 0x3F
-#define ANSI_X9_63_SCHEME				ANSI_X9_63, 0
-
-/* ECDH curves */
-#define CERTICOM_ELL_CURVE				0x2B, 0x81, 0x04, 0x00
-
 #define CONST_OID static const unsigned char
+
+CONST_OID null_oid[]                = { };
 
 CONST_OID md2[]        				= { DIGEST, 0x02 };
 CONST_OID md4[]        				= { DIGEST, 0x04 };
@@ -236,10 +231,6 @@ CONST_OID cmsRC2wrap[]  			= { PKCS9_SMIME_ALGS, 7 };
 /* RFC2633 SMIME message attributes */
 CONST_OID smimeEncryptionKeyPreference[] 	= { PKCS9_SMIME_ATTRS, 11 };
 CONST_OID ms_smimeEncryptionKeyPreference[] 	= { MICROSOFT_OID, 0x10, 0x4 };
-
-CONST_OID smimeSigningCertificate[] 	= { PKCS9_SMIME_ATTRS, 12 };
-CONST_OID smimeTimeStampToken[]         = { PKCS9_SMIME_ATTRS, 14 };
-CONST_OID smimeTimeStampTokenInfo[] 	= { PKCS9_SMIME_CTYPE, 0x04 };
 
 CONST_OID x520CommonName[]          		= { X520_ATTRIBUTE_TYPE, 3 };
 CONST_OID x520CountryName[]         		= { X520_ATTRIBUTE_TYPE, 6 };
@@ -443,41 +434,188 @@ CONST_OID aes256_KEY_WRAP[]			= { AES, 45 };
 CONST_OID sha256[]                              = { SHAXXX, 1 };
 CONST_OID sha384[]                              = { SHAXXX, 2 };
 CONST_OID sha512[]                              = { SHAXXX, 3 };
+CONST_OID sha224[]                              = { SHAXXX, 4 };
 
-CONST_OID ecdsaWithSHA1[]			= { ANSI_X9_62_SIG_TYPE, 1 };
-CONST_OID ecPublicKey[]				= { ANSI_X9_62_PUBKEY_TYPE, 1 };
-/* This OID doesn't appear in a CMS msg */
-CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
-
-/* ECDH curves */
-CONST_OID secp256r1[]				= { 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
-CONST_OID secp384r1[]				= { CERTICOM_ELL_CURVE, 0x22 };
-CONST_OID secp521r1[]				= { CERTICOM_ELL_CURVE, 0x23 };
-
-/* RFC 3278 */
-CONST_OID dhSinglePassStdDHsha1kdf[]		= {ANSI_X9_63_SCHEME, 2 };
-CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
-CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
-
-/* a special case: always associated with a caller-specified OID */
-CONST_OID noOid[]				= { 0 };
-
-#define OI(x) { sizeof x, (uint8 *)x }
+#define OI(x) { sizeof x, (uint8_t *)x }
 #ifndef SECOID_NO_STRINGS
+#if USE_CDSA_CRYPTO
 #define OD(oid,tag,desc,mech,ext) { OI(oid), tag, desc, mech, ext }
+#else
+#define OD(oid,tag,desc,mech,ext) { OI(oid), tag, desc, ext }
+#endif
 #else
 #define OD(oid,tag,desc,mech,ext) { OI(oid), tag, 0, mech, ext }
 #endif
 
-/*
- * NOTE: the order of these entries must mach the SECOidTag enum in secoidt.h!
+#if 0 // !USE_CDSA_CRYPTO
+
+enum {
+	CSSM_ALGID_NONE =					0,
+	CSSM_ALGID_CUSTOM =					CSSM_ALGID_NONE + 1,
+	CSSM_ALGID_DH =						CSSM_ALGID_NONE + 2,
+	CSSM_ALGID_PH =						CSSM_ALGID_NONE + 3,
+	CSSM_ALGID_KEA =					CSSM_ALGID_NONE + 4,
+	CSSM_ALGID_MD2 =					CSSM_ALGID_NONE + 5,
+	CSSM_ALGID_MD4 =					CSSM_ALGID_NONE + 6,
+	CSSM_ALGID_MD5 =					CSSM_ALGID_NONE + 7,
+	CSSM_ALGID_SHA1 =					CSSM_ALGID_NONE + 8,
+	CSSM_ALGID_NHASH =					CSSM_ALGID_NONE + 9,
+	CSSM_ALGID_HAVAL =					CSSM_ALGID_NONE + 10,
+	CSSM_ALGID_RIPEMD =					CSSM_ALGID_NONE + 11,
+	CSSM_ALGID_IBCHASH =				CSSM_ALGID_NONE + 12,
+	CSSM_ALGID_RIPEMAC =				CSSM_ALGID_NONE + 13,
+	CSSM_ALGID_DES =					CSSM_ALGID_NONE + 14,
+	CSSM_ALGID_DESX =					CSSM_ALGID_NONE + 15,
+	CSSM_ALGID_RDES =					CSSM_ALGID_NONE + 16,
+	CSSM_ALGID_3DES_3KEY_EDE =			CSSM_ALGID_NONE + 17,
+	CSSM_ALGID_3DES_2KEY_EDE =			CSSM_ALGID_NONE + 18,
+	CSSM_ALGID_3DES_1KEY_EEE =			CSSM_ALGID_NONE + 19,
+	CSSM_ALGID_3DES_3KEY =           	CSSM_ALGID_3DES_3KEY_EDE,
+	CSSM_ALGID_3DES_3KEY_EEE =       	CSSM_ALGID_NONE + 20,
+	CSSM_ALGID_3DES_2KEY =           	CSSM_ALGID_3DES_2KEY_EDE,
+	CSSM_ALGID_3DES_2KEY_EEE =       	CSSM_ALGID_NONE + 21,
+	CSSM_ALGID_3DES_1KEY =				CSSM_ALGID_3DES_3KEY_EEE,
+	CSSM_ALGID_IDEA =					CSSM_ALGID_NONE + 22,
+	CSSM_ALGID_RC2 =					CSSM_ALGID_NONE + 23,
+	CSSM_ALGID_RC5 =					CSSM_ALGID_NONE + 24,
+	CSSM_ALGID_RC4 =					CSSM_ALGID_NONE + 25,
+	CSSM_ALGID_SEAL =					CSSM_ALGID_NONE + 26,
+	CSSM_ALGID_CAST =					CSSM_ALGID_NONE + 27,
+	CSSM_ALGID_BLOWFISH =				CSSM_ALGID_NONE + 28,
+	CSSM_ALGID_SKIPJACK =				CSSM_ALGID_NONE + 29,
+	CSSM_ALGID_LUCIFER =				CSSM_ALGID_NONE + 30,
+	CSSM_ALGID_MADRYGA =				CSSM_ALGID_NONE + 31,
+	CSSM_ALGID_FEAL =					CSSM_ALGID_NONE + 32,
+	CSSM_ALGID_REDOC =					CSSM_ALGID_NONE + 33,
+	CSSM_ALGID_REDOC3 =					CSSM_ALGID_NONE + 34,
+	CSSM_ALGID_LOKI =					CSSM_ALGID_NONE + 35,
+	CSSM_ALGID_KHUFU =					CSSM_ALGID_NONE + 36,
+	CSSM_ALGID_KHAFRE =					CSSM_ALGID_NONE + 37,
+	CSSM_ALGID_MMB =					CSSM_ALGID_NONE + 38,
+	CSSM_ALGID_GOST =					CSSM_ALGID_NONE + 39,
+	CSSM_ALGID_SAFER =					CSSM_ALGID_NONE + 40,
+	CSSM_ALGID_CRAB =					CSSM_ALGID_NONE + 41,
+	CSSM_ALGID_RSA =					CSSM_ALGID_NONE + 42,
+	CSSM_ALGID_DSA =					CSSM_ALGID_NONE + 43,
+	CSSM_ALGID_MD5WithRSA =				CSSM_ALGID_NONE + 44,
+	CSSM_ALGID_MD2WithRSA =				CSSM_ALGID_NONE + 45,
+	CSSM_ALGID_ElGamal =				CSSM_ALGID_NONE + 46,
+	CSSM_ALGID_MD2Random =				CSSM_ALGID_NONE + 47,
+	CSSM_ALGID_MD5Random =				CSSM_ALGID_NONE + 48,
+	CSSM_ALGID_SHARandom =				CSSM_ALGID_NONE + 49,
+	CSSM_ALGID_DESRandom =				CSSM_ALGID_NONE + 50,
+	CSSM_ALGID_SHA1WithRSA =			CSSM_ALGID_NONE + 51,
+	CSSM_ALGID_CDMF =					CSSM_ALGID_NONE + 52,
+	CSSM_ALGID_CAST3 =					CSSM_ALGID_NONE + 53,
+	CSSM_ALGID_CAST5 =					CSSM_ALGID_NONE + 54,
+	CSSM_ALGID_GenericSecret =			CSSM_ALGID_NONE + 55,
+	CSSM_ALGID_ConcatBaseAndKey =		CSSM_ALGID_NONE + 56,
+	CSSM_ALGID_ConcatKeyAndBase =		CSSM_ALGID_NONE + 57,
+	CSSM_ALGID_ConcatBaseAndData =		CSSM_ALGID_NONE + 58,
+	CSSM_ALGID_ConcatDataAndBase =		CSSM_ALGID_NONE + 59,
+	CSSM_ALGID_XORBaseAndData =			CSSM_ALGID_NONE + 60,
+	CSSM_ALGID_ExtractFromKey =			CSSM_ALGID_NONE + 61,
+	CSSM_ALGID_SSL3PreMasterGen =		CSSM_ALGID_NONE + 62,
+	CSSM_ALGID_SSL3MasterDerive =		CSSM_ALGID_NONE + 63,
+	CSSM_ALGID_SSL3KeyAndMacDerive =	CSSM_ALGID_NONE + 64,
+	CSSM_ALGID_SSL3MD5_MAC =			CSSM_ALGID_NONE + 65,
+	CSSM_ALGID_SSL3SHA1_MAC =			CSSM_ALGID_NONE + 66,
+	CSSM_ALGID_PKCS5_PBKDF1_MD5 =		CSSM_ALGID_NONE + 67,
+	CSSM_ALGID_PKCS5_PBKDF1_MD2 =		CSSM_ALGID_NONE + 68,
+	CSSM_ALGID_PKCS5_PBKDF1_SHA1 =		CSSM_ALGID_NONE + 69,
+	CSSM_ALGID_WrapLynks =				CSSM_ALGID_NONE + 70,
+	CSSM_ALGID_WrapSET_OAEP =			CSSM_ALGID_NONE + 71,
+	CSSM_ALGID_BATON =					CSSM_ALGID_NONE + 72,
+	CSSM_ALGID_ECDSA =					CSSM_ALGID_NONE + 73,
+	CSSM_ALGID_MAYFLY =					CSSM_ALGID_NONE + 74,
+	CSSM_ALGID_JUNIPER =				CSSM_ALGID_NONE + 75,
+	CSSM_ALGID_FASTHASH =				CSSM_ALGID_NONE + 76,
+	CSSM_ALGID_3DES =					CSSM_ALGID_NONE + 77,
+	CSSM_ALGID_SSL3MD5 =				CSSM_ALGID_NONE + 78,
+	CSSM_ALGID_SSL3SHA1 =				CSSM_ALGID_NONE + 79,
+	CSSM_ALGID_FortezzaTimestamp =		CSSM_ALGID_NONE + 80,
+	CSSM_ALGID_SHA1WithDSA =			CSSM_ALGID_NONE + 81,
+	CSSM_ALGID_SHA1WithECDSA =			CSSM_ALGID_NONE + 82,
+	CSSM_ALGID_DSA_BSAFE =				CSSM_ALGID_NONE + 83,
+	CSSM_ALGID_ECDH =					CSSM_ALGID_NONE + 84,
+	CSSM_ALGID_ECMQV =					CSSM_ALGID_NONE + 85,
+	CSSM_ALGID_PKCS12_SHA1_PBE =		CSSM_ALGID_NONE + 86,
+	CSSM_ALGID_ECNRA =					CSSM_ALGID_NONE + 87,
+	CSSM_ALGID_SHA1WithECNRA =			CSSM_ALGID_NONE + 88,
+	CSSM_ALGID_ECES =					CSSM_ALGID_NONE + 89,
+	CSSM_ALGID_ECAES =					CSSM_ALGID_NONE + 90,
+	CSSM_ALGID_SHA1HMAC =				CSSM_ALGID_NONE + 91,
+	CSSM_ALGID_FIPS186Random =			CSSM_ALGID_NONE + 92,
+	CSSM_ALGID_ECC =					CSSM_ALGID_NONE + 93,
+	CSSM_ALGID_MQV =					CSSM_ALGID_NONE + 94,
+	CSSM_ALGID_NRA =					CSSM_ALGID_NONE + 95,
+	CSSM_ALGID_IntelPlatformRandom =	CSSM_ALGID_NONE + 96,
+	CSSM_ALGID_UTC =					CSSM_ALGID_NONE + 97,
+	CSSM_ALGID_HAVAL3 =					CSSM_ALGID_NONE + 98,
+	CSSM_ALGID_HAVAL4 =					CSSM_ALGID_NONE + 99,
+	CSSM_ALGID_HAVAL5 =					CSSM_ALGID_NONE + 100,
+	CSSM_ALGID_TIGER =					CSSM_ALGID_NONE + 101,
+	CSSM_ALGID_MD5HMAC =				CSSM_ALGID_NONE + 102,
+	CSSM_ALGID_PKCS5_PBKDF2 = 			CSSM_ALGID_NONE + 103,
+	CSSM_ALGID_RUNNING_COUNTER =		CSSM_ALGID_NONE + 104,
+	CSSM_ALGID_LAST =					CSSM_ALGID_NONE + 0x7FFFFFFF,
+/* All algorithms IDs that are vendor specific, and not
+   part of the CSSM specification should be defined relative
+   to CSSM_ALGID_VENDOR_DEFINED. */
+	CSSM_ALGID_VENDOR_DEFINED =			CSSM_ALGID_NONE + 0x80000000
+};
+
+enum
+{
+    CSSM_ALGID_APPLE_YARROW = CSSM_ALGID_VENDOR_DEFINED,
+        CSSM_ALGID_AES,                         /* RijnDael */
+        CSSM_ALGID_FEE,                         /* FEE Key Generation */ 
+        CSSM_ALGID_FEE_MD5,                     /* FEE/ElGamal signature w/ MD5 
+hash */
+        CSSM_ALGID_FEE_SHA1,            /* FEE/ElGamal signature w/ SHA1 hash */
+        CSSM_ALGID_FEED,                        /* 1:1 FEE asymmetric encryption
  */
-const static SECOidData oids[] = {
-    { { 0, NULL }, SEC_OID_UNKNOWN,
-	"Unknown OID", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION },
+        CSSM_ALGID_FEEDEXP,                     /* 2:1 FEE asymmetric encryption
+ */
+        CSSM_ALGID_ASC,                         /* Apple Secure Compression */
+        CSSM_ALGID_SHA1HMAC_LEGACY,     /* HMAC/SHA1, legacy compatible */
+        CSSM_ALGID_KEYCHAIN_KEY,        /* derive or manipulate keychain master 
+keys */
+        CSSM_ALGID_PKCS12_PBE_ENCR,     /* PKCS12, encrypt/decrypt key */
+        CSSM_ALGID_PKCS12_PBE_MAC,      /* PKCS12, MAC key */
+        CSSM_ALGID_SECURE_PASSPHRASE,   /* passphrase acquired by SecurityServer
+ */
+        CSSM_ALGID_PBE_OPENSSL_MD5, /* traditional openssl key derivation */
+        CSSM_ALGID_SHA256,                      /* 256-bit SHA2 */
+        CSSM_ALGID_SHA384,                      /* 384-bit SHA2 */
+        CSSM_ALGID_SHA512,                      /* 512-bit SHA2 */
+        CSSM_ALGID_ENTROPY_DEFAULT,     /* default entropy source of (CSP) devic
+e, if any */
+        CSSM_ALGID_SHA224,                      /* SHA2, 224 bit */
+        CSSM_ALGID_SHA224WithRSA,       /* RSA signature on SHA224 digest */
+        CSSM_ALGID_SHA256WithRSA,       /* RSA signature on SHA256 digest */
+        CSSM_ALGID_SHA384WithRSA,       /* RSA signature on SHA384 digest */
+        CSSM_ALGID_SHA512WithRSA,       /* RSA signature on SHA512 digest */
+        CSSM_ALGID_OPENSSH1,            /* OpenSSH v1 RSA key wrapping */
+    CSSM_ALGID__FIRST_UNUSED
+};
+
+#endif
+
+
+/*
+   NOTE: the order of these entries must mach the SECOidTag enum in secoidt.h!
+   @@@ We are sticking a enum type in a field of type SecAsn1AlgId, which is
+   defined as:
+        typedef struct {
+            SecAsn1Oid algorithm;
+            SecAsn1Item parameters;
+        } SecAsn1AlgId;
+ */
+static const SECOidData oids[] = {
+    OD( null_oid, SEC_OID_UNKNOWN, "Unknown OID", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
     OD( md2, SEC_OID_MD2, "MD2", CSSM_ALGID_MD2, INVALID_CERT_EXTENSION ),
-    OD( md4, SEC_OID_MD4,
-	"MD4", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
+    OD( md4, SEC_OID_MD4, "MD4", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
     OD( md5, SEC_OID_MD5, "MD5", CSSM_ALGID_MD5, INVALID_CERT_EXTENSION ),
     OD( sha1, SEC_OID_SHA1, "SHA-1", CSSM_ALGID_SHA1, INVALID_CERT_EXTENSION ),
     OD( rc2cbc, SEC_OID_RC2_CBC,
@@ -745,10 +883,8 @@ const static SECOidData oids[] = {
 	"CRL reason code", CSSM_ALGID_NONE, SUPPORTED_CERT_EXTENSION ),
     OD( x509InvalidDate, SEC_OID_X509_INVALID_DATE, 
 	"Invalid Date", CSSM_ALGID_NONE, SUPPORTED_CERT_EXTENSION ),
-	
     OD( x500RSAEncryption, SEC_OID_X500_RSA_ENCRYPTION,
 	"X500 RSA Encryption", CSSM_ALGID_RSA, INVALID_CERT_EXTENSION ),
-
     /* added for alg 1485 */
     OD( rfc1274Uid, SEC_OID_RFC1274_UID,
 	"RFC1274 User Id", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
@@ -933,11 +1069,9 @@ const static SECOidData oids[] = {
 
     OD( netscapeSMimeKEA, SEC_OID_NETSCAPE_SMIME_KEA,
 	"Netscape S/MIME KEA", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
-
       /* Skipjack OID -- ### mwelch temporary */
     OD( skipjackCBC, SEC_OID_FORTEZZA_SKIPJACK,
 	"Skipjack CBC64", CSSM_ALGID_SKIPJACK, INVALID_CERT_EXTENSION ),
-
     /* pkcs12 v2 oids */
     OD( pkcs12V2PBEWithSha1And128BitRC4,
         SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_128_BIT_RC4,
@@ -1052,7 +1186,6 @@ const static SECOidData oids[] = {
 	"AES-256-ECB", CSSM_ALGID_AES, INVALID_CERT_EXTENSION ),
     OD( aes256_CBC, SEC_OID_AES_256_CBC,
 	"AES-256-CBC", CSSM_ALGID_AES, INVALID_CERT_EXTENSION ),
-
     /* More bogus DSA OIDs */
     OD( sdn702DSASignature, SEC_OID_SDN702_DSA_SIGNATURE, 
 	"SDN.702 DSA Signature", CSSM_ALGID_SHA1WithDSA, INVALID_CERT_EXTENSION ),
@@ -1061,19 +1194,18 @@ const static SECOidData oids[] = {
         SEC_OID_MS_SMIME_ENCRYPTION_KEY_PREFERENCE,
 	"Microsoft S/MIME Encryption Key Preference", 
 	CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
-
-    OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_SHA256, INVALID_CERT_EXTENSION),
-    OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_SHA384, INVALID_CERT_EXTENSION),
-    OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_SHA512, INVALID_CERT_EXTENSION),
+    OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+    OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+    OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 
     OD( pkcs1SHA256WithRSAEncryption, SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-256 With RSA Encryption", CSSM_ALGID_SHA256WithRSA,
+	"PKCS #1 SHA-256 With RSA Encryption", CSSM_ALGID_NONE,
 	INVALID_CERT_EXTENSION ),
     OD( pkcs1SHA384WithRSAEncryption, SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-384 With RSA Encryption", CSSM_ALGID_SHA384WithRSA,
+	"PKCS #1 SHA-384 With RSA Encryption", CSSM_ALGID_NONE,
 	INVALID_CERT_EXTENSION ),
     OD( pkcs1SHA512WithRSAEncryption, SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-512 With RSA Encryption", CSSM_ALGID_SHA512WithRSA,
+	"PKCS #1 SHA-512 With RSA Encryption", CSSM_ALGID_NONE,
 	INVALID_CERT_EXTENSION ),
 
     OD( aes128_KEY_WRAP, SEC_OID_AES_128_KEY_WRAP,
@@ -1082,42 +1214,8 @@ const static SECOidData oids[] = {
 	"AES-192 Key Wrap", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( aes256_KEY_WRAP, SEC_OID_AES_256_KEY_WRAP,
 	"AES-256 Key Wrap", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
-	
-    /* caller-specified OID for eContentType */
-    OD( noOid, SEC_OID_OTHER,
-	"Caller-specified eContentType", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 
-    OD( ecPublicKey, SEC_OID_EC_PUBLIC_KEY,
-	"ECDSA Public Key", CSSM_ALGID_ECDSA,
-	INVALID_CERT_EXTENSION ),
-    OD( ecdsaWithSHA1, SEC_OID_ECDSA_WithSHA1,
-	"SHA-1 With ECDSA", CSSM_ALGID_SHA1WithECDSA,
-	INVALID_CERT_EXTENSION ),
-    OD( dhSinglePassStdDHsha1kdf, SEC_OID_DH_SINGLE_STD_SHA1KDF,
-	"ECDH With SHA1 KDF", CSSM_ALGID_ECDH_X963_KDF,
-	INVALID_CERT_EXTENSION ),
-    OD( secp256r1, SEC_OID_SECP_256_R1,
-	"secp256r1", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-    OD( secp384r1, SEC_OID_SECP_384_R1,
-	"secp384r1", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-    OD( secp521r1, SEC_OID_SECP_521_R1,
-	"secp521r1", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-    
-    OD( smimeTimeStampTokenInfo, SEC_OID_PKCS9_ID_CT_TSTInfo,
-	"id-ct-TSTInfo", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-
-    OD( smimeTimeStampToken, SEC_OID_PKCS9_TIMESTAMP_TOKEN,
-	"id-aa-timeStampToken", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-
-    OD( smimeSigningCertificate, SEC_OID_PKCS9_SIGNING_CERTIFICATE,
-	"id-aa-signing-certificate", CSSM_ALGID_NONE,
-	INVALID_CERT_EXTENSION ),
-
+    OD( sha224, SEC_OID_SHA224, "SHA-224", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 };
 
 /*
@@ -1125,19 +1223,15 @@ const static SECOidData oids[] = {
  *  and gets modified if the user loads new crypto modules.
  */
 
+#if 0 /* disabled since its not used (the only function that could "add" items was disabled before */
+
+// TODO: protect this: used multi-threaded
 static PLHashTable *oid_d_hash = 0;
 static SECOidData **secoidDynamicTable = NULL;
 static int secoidDynamicTableSize = 0;
 static int secoidLastDynamicEntry = 0;
 static int secoidLastHashEntry = 0;
 
-/* 
- * A mutex to protect creation and writing of all three hash tables in
- * this module, and reading of the dynamic table.
- */
-static pthread_mutex_t oid_hash_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-/* caller holds oid_hash_mutex */
 static SECStatus
 secoid_DynamicRehash(void)
 {
@@ -1174,27 +1268,23 @@ secoid_DynamicRehash(void)
 /*
  * Lookup a Dynamic OID. Dynamic OID's still change slowly, so it's
  * cheaper to rehash the table when it changes than it is to do the loop
- * each time.
+ * each time. Worry: what about thread safety here? Global Static data with
+ * no locks.... (sigh).
  */
 static SECOidData *
-secoid_FindDynamic(const SECItem *key) {
+secoid_FindDynamic(const SecAsn1Item *key) {
     SECOidData *ret = NULL;
-
-    pthread_mutex_lock(&oid_hash_mutex);
-    /* subsequent errors to loser: */
     if (secoidDynamicTable == NULL) {
 	/* PORT_SetError! */
-	goto loser;
+	return NULL;
     }
     if (secoidLastHashEntry != secoidLastDynamicEntry) {
 	SECStatus rv = secoid_DynamicRehash();
 	if ( rv != SECSuccess ) {
-	    goto loser;
+	    return NULL;
 	}
     }
     ret = (SECOidData *)PL_HashTableLookup (oid_d_hash, key);
-loser:
-    pthread_mutex_unlock(&oid_hash_mutex);
     return ret;
 	
 }
@@ -1203,58 +1293,45 @@ static SECOidData *
 secoid_FindDynamicByTag(SECOidTag tagnum)
 {
     int tagNumDiff;
-    SECOidData *rtn = NULL;
-    
+
+    if (secoidDynamicTable == NULL) {
+	return NULL;
+    }
+
     if (tagnum < SEC_OID_TOTAL) {
 	return NULL;
     }
 
-    pthread_mutex_lock(&oid_hash_mutex);
-    /* subsequent errors to loser: */
-    
-    if (secoidDynamicTable == NULL) {
-	goto loser;
-    }
-
     tagNumDiff = tagnum - SEC_OID_TOTAL;
     if (tagNumDiff >= secoidLastDynamicEntry) {
-	goto loser;
+	return NULL;
     }
 
-    rtn = secoidDynamicTable[tagNumDiff];
-loser:
-    pthread_mutex_unlock(&oid_hash_mutex);
-    return rtn;
+    return(secoidDynamicTable[tagNumDiff]);
 }
 
-#if 0
+/*
+ * this routine is definately not thread safe. It is only called out
+ * of the UI, or at init time. If we want to call it any other time,
+ * we need to make it thread safe.
+ */
 SECStatus
-SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) {
-    SECOidData *oiddp;
-    int last;
-    int tableSize;
-    int next;
-    SECOidData **newTable;
+SECOID_AddEntry(SecAsn1Item *oid, char *description, SecAsn1AlgId cssmAlgorithm) {
+    SECOidData *oiddp = (SECOidData *)PORT_Alloc(sizeof(SECOidData));
+    int last = secoidLastDynamicEntry;
+    int tableSize = secoidDynamicTableSize;
+    int next = last++;
+    SECOidData **newTable = secoidDynamicTable;
     SECOidData **oldTable = NULL;
-    SECStatus srtn = SECFailure;
 
     if (oid == NULL) {
 	return SECFailure;
     }
 
-    pthread_mutex_lock(&oid_hash_mutex);
-    /* subsequent errors to loser: */
-    
-    oiddp = (SECOidData *)PORT_Alloc(sizeof(SECOidData));
-    last = secoidLastDynamicEntry;
-    tableSize = secoidDynamicTableSize;
-    next = last++;
-    newTable = secoidDynamicTable;    
-
     /* fill in oid structure */
     if (SECITEM_CopyItem(NULL,&oiddp->oid,oid) != SECSuccess) {
 	PORT_Free(oiddp);
-	goto loser;
+	return SECFailure;
     }
     oiddp->offset = (SECOidTag)(next + SEC_OID_TOTAL);
     /* may we should just reference the copy passed to us? */
@@ -1270,7 +1347,7 @@ SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) 
 	if (newTable == NULL) {
 	   PORT_Free(oiddp->oid.Data);
 	   PORT_Free(oiddp);
-	   goto loser;
+	   return SECFailure;
 	}
 	PORT_Memcpy(newTable,oldTable,sizeof(SECOidData *)*oldTableSize);
 	PORT_Free(oldTable);
@@ -1279,38 +1356,32 @@ SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) 
     newTable[next] = oiddp;
     secoidDynamicTable = newTable;
     secoidDynamicTableSize = tableSize;
-    secoidLastDynamicEntry = last;
-    srtn = SECSuccess;
-loser:
-    pthread_mutex_unlock(&oid_hash_mutex);    
-    return srtn;
+    secoidLastDynamicEntry= last;
+    return SECSuccess;
 }
 #endif
-	
 
 /* normal static table processing */
 
-/* creation and writes to these hash tables is protected by oid_hash_mutex */
+/* TODO: MORE GLOBAL DATA */
+static pthread_once_t hash_once = PTHREAD_ONCE_INIT;
 static PLHashTable *oidhash     = NULL;
 static PLHashTable *oidmechhash = NULL;
 
 static PLHashNumber
 secoid_HashNumber(const void *key)
 {
-	intptr_t keyint = (intptr_t)key;
-	// XXX/gh  revisit this
-	keyint ^= (keyint >> 8);
-	keyint ^= (keyint << 8);
-	return (PLHashNumber) keyint;
+    /* This truncate the hash to the lower 32 bits -- probably safe right ??? */
+    return (PLHashNumber)(PRUword)key;
 }
 
-/* caller holds oid_hash_mutex */
+
 static SECStatus
 InitOIDHash(void)
 {
     PLHashEntry *entry;
     const SECOidData *oid;
-    int i;
+    size_t ix;
     
     oidhash = PL_NewHashTable(0, SECITEM_Hash, SECITEM_HashCompare,
 			PL_CompareValues, NULL, NULL);
@@ -1323,10 +1394,10 @@ InitOIDHash(void)
 	return(SECFailure);
     }
 
-    for ( i = 0; i < ( sizeof(oids) / sizeof(SECOidData) ); i++ ) {
-	oid = &oids[i];
+    for ( ix = 0; ix < ( sizeof(oids) / sizeof(SECOidData) ); ix++ ) {
+	oid = &oids[ix];
 
-	PORT_Assert ( oid->offset == i );
+	PORT_Assert ( oid->offset == ix );
 
 	entry = PL_HashTableAdd( oidhash, &oid->oid, (void *)oid );
 	if ( entry == NULL ) {
@@ -1335,41 +1406,39 @@ InitOIDHash(void)
 	    return(SECFailure);
 	}
 
-	if ( oid->cssmAlgorithm != CSSM_ALGID_NONE ) {
-		intptr_t algorithm = oid->cssmAlgorithm;
+#if USE_CDSA_CRYPTO
+	if ( oid->cssmAlgorithm.algorithm.Length /*CSSM_ALGID_NONE*/ ) {
 	    entry = PL_HashTableAdd( oidmechhash, 
-					(void *)algorithm, (void *)oid );
+					(void *)&(oid->cssmAlgorithm), (void *)oid );
 	    if ( entry == NULL ) {
 	        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
                 PORT_Assert(0); /* This function should never fail. */
 		return(SECFailure);
 	    }
 	}
+#endif
     }
 
-    PORT_Assert (i == SEC_OID_TOTAL);
+    PORT_Assert (ix == SEC_OID_TOTAL);
 
     return(SECSuccess);
 }
 
+static void InitOIDHashOnce()
+{
+    if (SECSuccess != InitOIDHash())
+        abort();
+}
+
+/* TODO: appears to be the public entry point */
 SECOidData *
-SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm)
+SECOID_FindOIDByCssmAlgorithm(SecAsn1AlgId cssmAlgorithm)
 {
     SECOidData *ret;
-    int rv;
 
-    pthread_mutex_lock(&oid_hash_mutex);
-    if ( !oidhash ) {
-        rv = InitOIDHash();
-	if ( rv != SECSuccess ) {
-	    pthread_mutex_unlock(&oid_hash_mutex);
-	    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
-	    return NULL;
-	}
-    }
-    pthread_mutex_unlock(&oid_hash_mutex);
-    intptr_t algorithm = cssmAlgorithm;
-    ret = PL_HashTableLookupConst ( oidmechhash, (void *)algorithm);
+    pthread_once(&hash_once, InitOIDHashOnce);
+
+    ret = PL_HashTableLookupConst ( oidmechhash, (void *)&cssmAlgorithm);
     if ( ret == NULL ) {
         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
     }
@@ -1377,26 +1446,19 @@ SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm)
     return (ret);
 }
 
+/* TODO: appears to be the public entry point */
 SECOidData *
-SECOID_FindOID(const SECItem *oid)
+SECOID_FindOID(const SecAsn1Item *oid)
 {
     SECOidData *ret;
-    int rv;
     
-    pthread_mutex_lock(&oid_hash_mutex);
-    if ( !oidhash ) {
-	rv = InitOIDHash();
-	if ( rv != SECSuccess ) {
-	    pthread_mutex_unlock(&oid_hash_mutex);
-	    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
-	    return NULL;
-	}
-    }
-    pthread_mutex_unlock(&oid_hash_mutex);
+    pthread_once(&hash_once, InitOIDHashOnce);
     
     ret = PL_HashTableLookupConst ( oidhash, oid );
     if ( ret == NULL ) {
+#if 0
 	ret  = secoid_FindDynamic(oid);
+#endif
 	if (ret == NULL) {
 	    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
 	}
@@ -1406,7 +1468,7 @@ SECOID_FindOID(const SECItem *oid)
 }
 
 SECOidTag
-SECOID_FindOIDTag(const SECItem *oid)
+SECOID_FindOIDTag(const SecAsn1Item *oid)
 {
     SECOidData *oiddata;
 
@@ -1421,16 +1483,22 @@ SECOID_FindOIDTag(const SECItem *oid)
 SECOidData *
 SECOID_FindOIDByTag(SECOidTag tagnum)
 {
+    pthread_once(&hash_once, InitOIDHashOnce);
 
+#if 0
     if (tagnum >= SEC_OID_TOTAL) {
 	return secoid_FindDynamicByTag(tagnum);
     }
+#else
+    if (tagnum >= SEC_OID_TOTAL)
+	return NULL;
+#endif
 
     PORT_Assert((unsigned int)tagnum < (sizeof(oids) / sizeof(SECOidData)));
     return (SECOidData *)(&oids[tagnum]);
 }
 
-Boolean SECOID_KnownCertExtenOID (const SECItem *extenOid)
+Boolean SECOID_KnownCertExtenOID (const SecAsn1Item *extenOid)
 {
     SECOidData * oidData;
 
@@ -1449,6 +1517,7 @@ SECOID_FindOIDTagDescription(SECOidTag tagnum)
   return oidData ? oidData->desc : 0;
 }
 
+#if 0
 /*
  * free up the oid tables.
  */
@@ -1457,7 +1526,6 @@ SECOID_Shutdown(void)
 {
     int i;
 
-    pthread_mutex_lock(&oid_hash_mutex);
     if (oidhash) {
 	PL_HashTableDestroy(oidhash);
 	oidhash = NULL;
@@ -1480,6 +1548,6 @@ SECOID_Shutdown(void)
 	secoidLastDynamicEntry = 0;
 	secoidLastHashEntry = 0;
     }
-    pthread_mutex_unlock(&oid_hash_mutex);
     return SECSuccess;
 }
+#endif

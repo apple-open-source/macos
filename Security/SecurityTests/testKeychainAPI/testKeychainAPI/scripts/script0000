@@ -1,0 +1,19 @@
+//
+// script0000
+//
+//		KCGetKeychainManagerVersion
+//		KeychainManagerAvailable
+//
+// ** note ** update the expected version number for different
+//            version of SecurityLib
+//
+0 KCGetKeychainManagerVersion
+   Input Arguments : 0
+   Results : 1
+      OSStatus 0
+      Version : 33718272
+1 KeychainManagerAvailable
+   Input Arguments : 0
+   Results : 1
+      OSStatus 0
+      Available 1

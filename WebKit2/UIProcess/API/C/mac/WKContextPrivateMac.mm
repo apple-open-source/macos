@@ -26,7 +26,9 @@
 #import "config.h"
 #import "WKContextPrivateMac.h"
 
-#import "ImmutableArray.h"
+#import "APIArray.h"
+#import "APINumber.h"
+#import "APIString.h"
 #import "ImmutableDictionary.h"
 #import "PluginInfoStore.h"
 #import "PluginInformation.h"
@@ -36,47 +38,46 @@
 #import "WKSharedAPICast.h"
 #import "WKStringCF.h"
 #import "WebContext.h"
-#import "WebNumber.h"
-#import "WebString.h"
 #import <WebKitSystemInterface.h>
 #import <wtf/RetainPtr.h>
 
 using namespace WebKit;
 
-bool WKContextGetProcessSuppressionEnabled(WKContextRef contextRef)
-{
-    return toImpl(contextRef)->processSuppressionEnabled();
-}
-
-void WKContextSetProcessSuppressionEnabled(WKContextRef contextRef, bool enabled)
-{
-    toImpl(contextRef)->setProcessSuppressionEnabled(enabled);
-}
-
 bool WKContextIsPlugInUpdateAvailable(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
 {
+#if PLATFORM(IOS)
+    return false;
+#else
     return WKIsPluginUpdateAvailable((NSString *)adoptCF(WKStringCopyCFString(kCFAllocatorDefault, plugInBundleIdentifierRef)).get());
+#endif
 }
 
 WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     PluginModuleInfo plugin = toImpl(contextRef)->pluginInfoStore().findPluginWithBundleIdentifier(toWTFString(plugInBundleIdentifierRef));
     if (plugin.path.isNull())
         return 0;
 
     RefPtr<ImmutableDictionary> dictionary = createPluginInformationDictionary(plugin);
     return toAPI(dictionary.release().leakRef());
+#else
+    return 0;
+#endif
 }
 
 void WKContextGetInfoForInstalledPlugIns(WKContextRef contextRef, WKContextGetInfoForInstalledPlugInsBlock block)
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     Vector<PluginModuleInfo> plugins = toImpl(contextRef)->pluginInfoStore().plugins();
 
-    Vector<RefPtr<APIObject>> pluginInfoDictionaries;
-    for (const auto& plugin: plugins)
-        pluginInfoDictionaries.append(createPluginInformationDictionary(plugin));
+    Vector<RefPtr<API::Object>> pluginInfoDictionaries;
+    pluginInfoDictionaries.reserveInitialCapacity(plugins.size());
 
-    RefPtr<ImmutableArray> array = ImmutableArray::adopt(pluginInfoDictionaries);
+    for (const auto& plugin: plugins)
+        pluginInfoDictionaries.uncheckedAppend(createPluginInformationDictionary(plugin));
+
+    RefPtr<API::Array> array = API::Array::create(WTF::move(pluginInfoDictionaries));
 
     toImpl(contextRef)->ref();
     dispatch_async(dispatch_get_main_queue(), ^() {
@@ -84,6 +85,7 @@ void WKContextGetInfoForInstalledPlugIns(WKContextRef contextRef, WKContextGetIn
     
         toImpl(contextRef)->deref();
     });
+#endif
 }
 
 void WKContextResetHSTSHosts(WKContextRef context)
@@ -91,6 +93,17 @@ void WKContextResetHSTSHosts(WKContextRef context)
     return toImpl(context)->resetHSTSHosts();
 }
 
+
+
+void WKContextRegisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme)
+{
+    WebContext::registerGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
+}
+
+void WKContextUnregisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme)
+{
+    WebContext::unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
+}
 
 /* DEPRECATED -  Please use constants from WKPluginInformation instead. */
 
@@ -122,4 +135,14 @@ WKStringRef WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailableKey()
 WKStringRef WKPlugInInfoIsSandboxedKey()
 {
     return WKPluginInformationHasSandboxProfileKey();
+}
+
+bool WKContextShouldBlockWebGL()
+{
+    return WKShouldBlockWebGL();
+}
+
+bool WKContextShouldSuggestBlockWebGL()
+{
+    return WKShouldSuggestBlockingWebGL();
 }

@@ -1,0 +1,83 @@
+#
+# Test Software Update Apple Code Signing cert verification policy.
+# This used to be called the Code Signing POlicy; it was renamed on 8/15/06.
+#
+# The keychain CodeSignTest.keychain, in this directory, contains all the 
+# keys and certs used to generate these test cases. Password is CodeSignTest. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Full Code Signing verification success"
+cert = csLeaf.cer
+cert = csCA.cer
+root = csRoot.cer
+policy = swuSign
+end
+
+test = "DEVELOPMENT detection"
+cert = csDevLeaf.cer
+cert = csCA.cer
+root = csRoot.cer
+policy = swuSign
+error = APPLETP_CODE_SIGN_DEVELOPMENT
+certerror = 0:APPLETP_CODE_SIGN_DEVELOPMENT
+end
+
+test = "No ExtendedKeyUsage in Leaf"
+cert = csLeafNoEKU.cer
+cert = csCA.cer
+root = csRoot.cer
+policy = swuSign
+error = APPLETP_CS_NO_EXTENDED_KEY_USAGE
+certerror = 0:APPLETP_CS_NO_EXTENDED_KEY_USAGE
+end
+
+test = "Bad ExtendedKeyUsage in Leaf"
+cert = csLeafBadEKU.cer
+cert = csCA.cer
+root = csRoot.cer
+policy = swuSign
+error = APPLETP_INVALID_EXTENDED_KEY_USAGE
+certerror = 0:APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "No ExtendedKeyUsage in Intermediate"
+cert = csLeafNoEKUinInt.cer
+cert = csCaNoEKU.cer
+root = csRoot.cer
+policy = swuSign
+error = APPLETP_CS_NO_EXTENDED_KEY_USAGE
+certerror = 1:APPLETP_CS_NO_EXTENDED_KEY_USAGE
+end
+
+test = "Bad ExtendedKeyUsage in Intermediate"
+cert = csLeafBadEKUinInt.cer
+cert = csCaBadEKU.cer
+root = csRoot.cer
+policy = swuSign
+error = APPLETP_INVALID_EXTENDED_KEY_USAGE
+certerror = 1:APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "No BC in Intermediate"
+cert = csLeafNoBcInInt.cer
+cert = csCaNoBC.cer
+root = csRoot.cer
+policy = swuSign
+error = CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS
+certerror = 1:CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS
+end
+
+test = "Short Path"
+cert = csLeafShortPath.cer
+root = csRoot.cer
+policy = swuSign
+error = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH
+end
+
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,7 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
+
+#if !TARGET_OS_IPHONE
+#import <AppKit/AppKit.h>
+#else
+#import <WebKitLegacy/WAKAppKitStubs.h>
+#import <WebKitLegacy/WAKView.h>
+#endif
 
 @class WebDataSource;
 @class WebFrame;
@@ -44,39 +51,30 @@
 }
 
 /*!
-    @method webFrame
-    @abstract Returns the WebFrame associated with this WebFrameView
-    @result The WebFrameView's frame.
+    @property webFrame
+    @abstract The WebFrame associated with this WebFrameView
 */
-- (WebFrame *)webFrame;
+@property (nonatomic, readonly, strong) WebFrame *webFrame;
 
 /*!
-    @method documentView
-    @abstract Returns the WebFrameView's document subview
-    @result The subview that renders the WebFrameView's contents
+    @property documentView
+    @abstract The WebFrameView's document subview
+    @discussion The subview that renders the WebFrameView's contents
 */
-- (NSView <WebDocumentView> *)documentView;
+@property (nonatomic, readonly, strong) NSView<WebDocumentView> *documentView;
 
 /*!
-    @method setAllowsScrolling:
-    @abstract Sets whether the WebFrameView allows its document to be scrolled
-    @param flag YES to allow the document to be scrolled, NO to disallow scrolling
+    @property allowsScrolling
+    @abstract Whether the WebFrameView allows its document to be scrolled
 */
-- (void)setAllowsScrolling:(BOOL)flag;
+@property (nonatomic) BOOL allowsScrolling;
 
+#if !TARGET_OS_IPHONE
 /*!
-    @method allowsScrolling
-    @abstract Returns whether the WebFrameView allows its document to be scrolled
-    @result YES if the document is allowed to scroll, otherwise NO
+    @property canPrintHeadersAndFooters
+    @abstract Whether this frame can print headers and footers
 */
-- (BOOL)allowsScrolling;
-
-/*!
-    @method canPrintHeadersAndFooters
-    @abstract Tells whether this frame can print headers and footers
-    @result YES if the frame can, no otherwise
-*/
-- (BOOL)canPrintHeadersAndFooters;
+@property (nonatomic, readonly) BOOL canPrintHeadersAndFooters;
 
 /*!
     @method printOperationWithPrintInfo
@@ -84,15 +82,16 @@
     @result A newly created print operation object
 */
 - (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo;
+#endif
 
 /*!
-    @method documentViewShouldHandlePrint
+    @property documentViewShouldHandlePrint
     @abstract Called by the host application before it initializes and runs a print operation.
-    @result If NO is returned, the host application will abort its print operation and call -printDocumentView on the
+    @discussion If NO is returned, the host application will abort its print operation and call -printDocumentView on the
     WebFrameView.  The document view is then expected to run its own print operation.  If YES is returned, the host 
     application's print operation will continue as normal.
 */
-- (BOOL)documentViewShouldHandlePrint;
+@property (nonatomic, readonly) BOOL documentViewShouldHandlePrint;
 
 /*!
     @method printDocumentView

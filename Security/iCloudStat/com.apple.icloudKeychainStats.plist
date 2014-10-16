@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.iCloudKeychainStats</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/iCloudKeychainStats</string>
+	</array>
+	<!-- Check every seven days   60 * 60 * 24 * 1 =  86400 -->
+	<key>StartInterval</key>
+	<integer>86400</integer>
+	<key>Umask</key>
+	<integer>18</integer>
+	<key>UserName</key>
+	<string>_securityd</string>
+</dict>
+</plist>

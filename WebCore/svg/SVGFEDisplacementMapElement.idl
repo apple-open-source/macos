@@ -24,10 +24,9 @@
  */
 
 [
-    Conditional=SVG&FILTERS,
+    Conditional=FILTERS,
     DoNotCheckConstants
-] interface SVGFEDisplacementMapElement : SVGStyledElement,
-                           SVGFilterPrimitiveStandardAttributes {
+] interface SVGFEDisplacementMapElement : SVGElement {
     // Channel Selectors
     const unsigned short SVG_CHANNEL_UNKNOWN = 0;
     const unsigned short SVG_CHANNEL_R       = 1;
@@ -42,3 +41,4 @@
     readonly attribute SVGAnimatedEnumeration yChannelSelector;
 };
 
+SVGFEDisplacementMapElement implements SVGFilterPrimitiveStandardAttributes;

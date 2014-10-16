@@ -188,6 +188,7 @@ static int fix_lifebyte (u_long);
 %token VERIFY_CERT SEND_CERT SEND_CR
 %token IDENTIFIERTYPE IDENTIFIERQUAL MY_IDENTIFIER 
 %token PEERS_IDENTIFIER VERIFY_IDENTIFIER
+%token LOCAL_ADDRESS
 %token SHARED_SECRET SECRETTYPE
 %token OPEN_DIR_AUTH_GROUP IN_KEYCHAIN
 %token CERTIFICATE_VERIFICATION VERIFICATION_MODULE VERIFICATION_OPTION
@@ -203,7 +204,6 @@ static int fix_lifebyte (u_long);
 %token DPD DPD_DELAY DPD_RETRY DPD_MAXFAIL DPD_ALGORITHM
 %token DISCONNECT_ON_IDLE IDLE_TIMEOUT IDLE_DIRECTION
 %token XAUTH_LOGIN WEAK_PHASE1_CHECK
-%token EAP_TYPE EAP_TYPES EAP_OPTIONS
 
 %token PREFIX PORT PORTANY UL_PROTO ANY IKE_FRAG ESP_FRAG MODE_CFG
 %token PFS_GROUP LIFETIME LIFETYPE_TIME LIFETYPE_BYTE STRENGTH REMOTEID
@@ -223,7 +223,7 @@ static int fix_lifebyte (u_long);
 %type <num> ALGORITHMTYPE STRENGTHTYPE
 %type <num> PREFIX prefix PORT port ike_port
 %type <num> ul_proto UL_PROTO
-%type <num> EXCHANGETYPE DOITYPE SITUATIONTYPE EAP_TYPE
+%type <num> EXCHANGETYPE DOITYPE SITUATIONTYPE
 %type <num> CERTTYPE CERT_X509 CERT_PLAINRSA PROPOSAL_CHECK_LEVEL NAT_TRAVERSAL_LEVEL GENERATE_LEVEL
 %type <num> VERIFICATION_MODULE VERIFICATION_OPTION
 %type <num> unittype_time unittype_byte
@@ -1405,9 +1405,8 @@ remote_specs_block
 			if (set_isakmp_proposal(cur_rmconf, cur_rmconf->prhead) != 0)
 				return -1;
 
-			/* DH group settting if aggressive mode or IKEv2. */
-			if (check_etypeok(cur_rmconf, ISAKMP_ETYPE_AGG) != NULL
-                ) {
+			/* DH group setting if aggressive mode or IKEv2. */
+			if (check_etypeok(cur_rmconf, ISAKMP_ETYPE_AGG) != NULL) {
 				struct isakmpsa *p;
 				int b = 0;
 
@@ -1591,6 +1590,15 @@ remote_spec
 		}
 		EOS
 	|	VERIFY_IDENTIFIER SWITCH { cur_rmconf->verify_identifier = $2; } EOS
+	|	LOCAL_ADDRESS ADDRSTRING
+		{
+			struct sockaddr_storage *saddr;
+			saddr = str2saddr($2->v, NULL);
+			vfree($2);
+			if (saddr == NULL)
+			return -1;
+			cur_rmconf->forced_local = saddr;
+		} EOS
 	|	SHARED_SECRET SECRETTYPE QUOTEDSTRING 
 		{
 			cur_rmconf->secrettype = $2; 
@@ -1628,32 +1636,6 @@ remote_spec
 	|	WEAK_PHASE1_CHECK SWITCH {
 			cur_rmconf->weak_phase1_check = $2;
 		} EOS
-    |   EAP_TYPES { cur_rmconf->eap_types = NULL; } eap_types EOS
-    |	EAP_OPTIONS QUOTEDSTRING {
-        vchar_t *options_path = $2;
-        cur_rmconf->eap_options = NULL;
-        if (options_path) {
-            CFStringRef option_path_str = CFStringCreateWithCString(kCFAllocatorDefault, options_path->v, kCFStringEncodingASCII);
-            if (option_path_str) {
-                CFURLRef plist_url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, option_path_str, kCFURLPOSIXPathStyle, false);
-                if (plist_url) {
-                    CFReadStreamRef read_stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, plist_url);
-                    if (read_stream) {
-                        CFReadStreamOpen (read_stream);
-                        cur_rmconf->eap_options = CFPropertyListCreateWithStream(kCFAllocatorDefault, read_stream, 0, kCFPropertyListImmutable, NULL, NULL);
-                        CFRelease (read_stream);
-                    }
-                    CFRelease (plist_url);
-                } else {
-                    racoon_yywarn("eap_options must contain a path to a property list");
-                }
-                CFRelease(option_path_str);
-            } else {
-                racoon_yywarn("eap_options string could not be processed");
-            }
-            vfree(options_path);
-        }
-    } EOS
 	|	GENERATE_POLICY SWITCH { cur_rmconf->gen_policy = $2; } EOS
 	|	GENERATE_POLICY GENERATE_LEVEL { cur_rmconf->gen_policy = $2; } EOS
 	|	SUPPORT_PROXY SWITCH { cur_rmconf->support_proxy = $2; } EOS
@@ -1795,30 +1777,6 @@ exchange_types
 			}
 		}
 	;
-eap_types
-    :	/* nothing */
-    |	eap_types EAP_TYPE
-        {
-            struct etypes *new_eaps;
-            new_eaps = racoon_malloc(sizeof(struct etypes));
-            if (new_eaps == NULL) {
-				racoon_yyerror("failed to allocate etypes");
-				return -1;
-			}
-			new_eaps->type = $2;
-			new_eaps->next = NULL;
-			if (cur_rmconf->eap_types == NULL)
-                cur_rmconf->eap_types = new_eaps;
-			else {
-				struct etypes *p;
-				for (p = cur_rmconf->eap_types;
-                     p->next != NULL;
-                     p = p->next)
-                    ;
-				p->next = new_eaps;
-			}
-		}
-    ;
 cert_spec
 	:	CERT_X509 IN_KEYCHAIN
 		{

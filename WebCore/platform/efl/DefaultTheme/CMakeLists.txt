@@ -21,40 +21,27 @@ macro(GENERATE_THEME _target_name _name _option)
             widget/check/img_check_on.png
             widget/combo/combo.edc
             widget/combo/combo_focus_button.png
+            widget/combo/combo_focus_button_transparent.png
             widget/combo/combo_focus.png
+            widget/combo/combo_focus_transparent.png
             widget/combo/combo_hover_button.png
+            widget/combo/combo_hover_button_transparent.png
             widget/combo/combo_hover.png
+            widget/combo/combo_hover_transparent.png
             widget/combo/combo_normal_button.png
+            widget/combo/combo_normal_button_transparent.png
             widget/combo/combo_normal.png
+            widget/combo/combo_normal_transparent.png
             widget/combo/combo_press_button.png
+            widget/combo/combo_press_button_transparent.png
             widget/combo/combo_press.png
+            widget/combo/combo_press_transparent.png
             widget/combo/icon.png
             widget/cursor/cursor.edc
             widget/entry/entry.edc
             widget/entry/img_focused.png
             widget/entry/img_hovered.png
             widget/entry/img_normal.png
-            widget/file/file.edc
-            widget/file/file_focus.png
-            widget/file/file_hover.png
-            widget/file/file_normal.png
-            widget/file/file_press.png
-            widget/mediacontrol/fullscreenbutton/enterfullscreenbutton.png
-            widget/mediacontrol/fullscreenbutton/exitfullscreenbutton.png
-            widget/mediacontrol/fullscreenbutton/fullscreen_button.edc
-            widget/mediacontrol/mutebutton/mute_button.edc
-            widget/mediacontrol/mutebutton/mutebutton.png
-            widget/mediacontrol/mutebutton/unmutebutton.png
-            widget/mediacontrol/playpausebutton/pausebutton.png
-            widget/mediacontrol/playpausebutton/playbutton.png
-            widget/mediacontrol/playpausebutton/playpause_button.edc
-            widget/mediacontrol/seekbackwardbutton/seekbackward_button.edc
-            widget/mediacontrol/seekbackwardbutton/seekbackwardbutton.png
-            widget/mediacontrol/seekforwardbutton/seekforward_button.edc
-            widget/mediacontrol/seekforwardbutton/seekforwardbutton.png
-            widget/mediacontrol/togglecaptionsbutton/closedcaption_disabled.png
-            widget/mediacontrol/togglecaptionsbutton/closedcaption.png
-            widget/mediacontrol/togglecaptionsbutton/toggle_captions_button.edc
             widget/progressbar/bt_base.png
             widget/progressbar/progressbar.edc
             widget/progressbar/shelf_inset.png
@@ -131,9 +118,6 @@ macro(GENERATE_THEME _target_name _name _option)
 endmacro()
 
 set(DefaultTheme_DEFINITION "")
-if (ENABLE_PROGRESS_ELEMENT)
-    list(APPEND DefaultTheme_DEFINITION "-DENABLE_PROGRESS_ELEMENT")
-endif ()
 
 GENERATE_THEME(DefaultTheme "default.edj" "-DCURSOR_IMAGE_DIR=${Resources_DIR} ${DefaultTheme_DEFINITION}")
 install(FILES "${THEME_BINARY_DIR}/default.edj" DESTINATION ${DATA_INSTALL_DIR}/themes)

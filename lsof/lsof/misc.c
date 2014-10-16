@@ -32,15 +32,20 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.26 2008/10/21 16:21:41 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.27 2013/01/02 17:14:59 abe Exp $";
 #endif
 
 
 #include "lsof.h"
 
-#if	defined(HASWIDECHAR) && defined(WIDECHARINCL)
+#if	defined(HASWIDECHAR)
+# if	defined(WIDECHARINCL)
 #include WIDECHARINCL
-#endif	/* defined(HASWIDECHAR) && defined(WIDECHARINCL) */
+# endif	/* defined(WIDECHARINCL) */
+# if	defined(HASWCTYPE_H)
+#include <wctype.h>
+# endif	/* defined(HASWCTYPE_H) */
+#endif	/* defined(HASWIDECHAR) */
 
 
 /*

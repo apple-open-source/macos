@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,7 +45,7 @@ public:
             : 0;
     }
 
-    virtual bool operator==(const EventListener& other);
+    virtual bool operator==(const EventListener& other) override;
 
 private:
     MediaControlsAppleEventListener(MediaControlsApple* mediaControls)
@@ -54,51 +54,52 @@ private:
     {
     }
 
-    virtual void handleEvent(ScriptExecutionContext*, Event*);
+    virtual void handleEvent(ScriptExecutionContext*, Event*) override;
 
     MediaControlsApple* m_mediaControls;
 };
 
 class MediaControlsApple : public MediaControls {
 public:
-    static PassRefPtr<MediaControlsApple> createControls(Document*);
+    static PassRefPtr<MediaControlsApple> createControls(Document&);
 
     // MediaControls implementation.
-    virtual void setMediaController(MediaControllerInterface*) OVERRIDE;
+    virtual void setMediaController(MediaControllerInterface*) override;
 
-    virtual void hide() OVERRIDE;
-    virtual void makeTransparent() OVERRIDE;
+    virtual void hide() override;
+    virtual void makeTransparent() override;
 
-    virtual void reset() OVERRIDE;
+    virtual void reset() override;
 
-    virtual void changedMute() OVERRIDE;
-    virtual void changedVolume() OVERRIDE;
+    virtual void changedMute() override;
+    virtual void changedVolume() override;
 
-    virtual void enteredFullscreen() OVERRIDE;
-    virtual void exitedFullscreen() OVERRIDE;
+    virtual void enteredFullscreen() override;
+    virtual void exitedFullscreen() override;
 
-    virtual void reportedError() OVERRIDE;
-    virtual void loadedMetadata() OVERRIDE;
+    virtual void reportedError() override;
+    virtual void loadedMetadata() override;
 
-    virtual void showVolumeSlider() OVERRIDE;
-    virtual void updateCurrentTimeDisplay() OVERRIDE;
-    virtual void updateStatusDisplay() OVERRIDE;
+    virtual void showVolumeSlider() override;
+    virtual void updateCurrentTimeDisplay() override;
+    virtual void updateStatusDisplay() override;
 
-    virtual void changedClosedCaptionsVisibility() OVERRIDE;
-    virtual void toggleClosedCaptionTrackList() OVERRIDE;
-    virtual void closedCaptionTracksChanged() OVERRIDE;
+    virtual void changedClosedCaptionsVisibility() override;
+    virtual void toggleClosedCaptionTrackList() override;
+    virtual void closedCaptionTracksChanged() override;
 
     bool shouldClosedCaptionsContainerPreventPageScrolling(int wheelDeltaY);
     void handleClickEvent(Event*);
 
 private:
-    MediaControlsApple(Document*);
+    MediaControlsApple(Document&);
 
-    virtual void defaultEventHandler(Event*) OVERRIDE;
+    virtual void defaultEventHandler(Event*) override;
     PassRefPtr<MediaControlsAppleEventListener> eventListener();
 
     void showClosedCaptionTrackList();
     void hideClosedCaptionTrackList();
+    void setFullscreenSliderVolume();
 
     MediaControlRewindButtonElement* m_rewindButton;
     MediaControlReturnToRealtimeButtonElement* m_returnToRealTimeButton;

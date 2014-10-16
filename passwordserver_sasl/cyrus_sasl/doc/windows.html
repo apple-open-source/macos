@@ -8,7 +8,8 @@
 
 Note, that Cyrus SASL on Windows is still laregely a "work in progress".
 So far only the main library, plugins (SASLDB using SleepyCat, no MySQL)
-and two applications (saslpasswd2.exe and sasldblistusers2.exe) can be built.
+and several applications (see the list below) can be built. In particular,
+saslauthd doesn't compile on Windows.
 
 <h2>Prerequisites</h2>
 
@@ -17,12 +18,12 @@ and two applications (saslpasswd2.exe and sasldblistusers2.exe) can be built.
 By default we are using Visual Studio 7 (both 2002 and 2003 versions were tested). If you want to use Visual Studio 6,
 you need to remove the leading # character from the line containing "<tt>#VCVER=6</tt>" in win32/common.mak.
 
-<li>The latest Platform SDK. We've tested November 2001.
+<li>The latest Platform SDK. We are currently using March 2006. (The earliest tested version was November 2001.)
 
 <li>SleepyCat include files and libraries are required to buil SASLDB plugin,
-saslpasswd2.exe and sasldblistusers2.exe. We have tested SleepyCat 4.1.X.
+saslpasswd2.exe and sasldblistusers2.exe. We have tested SleepyCat 4.1.X-4.4.X.
 
-<li>If you are building directly from CVS, you'll need the <a
+<li>If you are building directly from GIT, you'll need the <a
 href="http://www.cygwin.com/">Cygwin</a> Unix-compatibility
 environment to create the <tt>_init.c</tt> files needed for dynamic
 loading. Cygwin is <em>not</em> required for building from our tar
@@ -32,10 +33,10 @@ distribution.
 
 <h2>Step by step</h2>
 
-These directions assume that you've untarred the library or used CVS
+These directions assume that you've untarred the library or used GIT
 and the sources are in <tt>C:\SASL</tt>.
 
-<h3>preparing to build (cvs only!)</h3>
+<h3>preparing to build (GIT only!)</h3>
 
 Start a cygwin shell and create the dynamic loading stubs:
 
@@ -164,6 +165,7 @@ In utils:
 <li>sasldblistusers2
 <li>saslpasswd2
 <li>testsuite
+<li>pluginviewer
 </ul>
 
 Note that saslauthd is <em>NOT</em> in this list.

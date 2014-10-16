@@ -5,7 +5,7 @@
 # For common configuration examples, see BASIC_CONFIGURATION_README
 # and STANDARD_CONFIGURATION_README. To find these documents, use
 # the command "postconf html_directory readme_directory", or go to
-# http://www.postfix.org/.
+# http://www.postfix.org/BASIC_CONFIGURATION_README.html etc.
 #
 # For best results, change no more than 2-3 parameters at a time,
 # and test if Postfix still works after every change.
@@ -458,7 +458,12 @@ unknown_local_recipient_reject_code = 550
 # the main.cf file, otherwise the SMTP server will reject mail for    
 # non-UNIX accounts with "User unknown in local recipient table".
 #
-#mailbox_transport = lmtp:unix:/file/name
+# Cyrus IMAP over LMTP. Specify ``lmtpunix      cmd="lmtpd"
+# listen="/var/imap/socket/lmtp" prefork=0'' in cyrus.conf.
+#mailbox_transport = lmtp:unix:/var/imap/socket/lmtp
+#
+# Cyrus IMAP via command line. Uncomment the "cyrus...pipe" and
+# subsequent line in master.cf.
 #mailbox_transport = cyrus
 
 # The fallback_transport specifies the optional transport in master.cf
@@ -587,7 +592,7 @@ debug_peer_level = 2
 #
 debugger_command =
 	 PATH=/bin:/usr/bin:/usr/local/bin:/usr/X11R6/bin
-	 xxgdb $daemon_directory/$process_name $process_id & sleep 5
+	 ddd $daemon_directory/$process_name $process_id & sleep 5
 
 # If you can't use X, use this to capture the call stack when a
 # daemon crashes. The result is in a file in the configuration
@@ -649,32 +654,4 @@ sample_directory =
 # readme_directory: The location of the Postfix README files.
 #
 readme_directory =
-#======================================================================
-# dovecot
-dovecot_destination_recipient_limit = 1
-
-# default mailbox size limit set to no limit
-mailbox_size_limit = 0
-
-# List of ciphers or cipher types to exclude from the SMTP server cipher
-# list at all TLS security levels.
-smtpd_tls_exclude_ciphers = SSLv2, aNULL, ADH, eNULL
-
-# Protect SSL/TLS encryption keys
-tls_random_source = dev:/dev/urandom
-
-# (APPLE) Credentials for using URLAUTH with IMAP servers.
-imap_submit_cred_file =
-
-# (APPLE) The SACL cache caches the results of Mail Service ACL lookups.
-# Tune these to make the cache more responsive to changes in the SACL.
-# The cache is only in memory, so bouncing the sacl-cache service clears it.
-use_sacl_cache = yes
-# sacl_cache_positive_expire_time = 7d
-# sacl_cache_negative_expire_time = 1d
-# sacl_cache_disabled_expire_time = 1m
-
-# (APPLE) Reject messages having any MIME body part (attachment, etc.)
-# larger than this number of bytes.  0, the default, means no limit.
-# mime_max_body_size = 0
-#======================================================================
+inet_protocols = ipv4

@@ -19,5 +19,22 @@
 	</array>
 	<key>POSIXSpawnType</key>
 	<string>Adaptive</string>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.xpc.activity</key>
+		<dict>
+			<key>com.apple.security.syspolicy.rearm</key>
+			<dict>
+				<key>Delay</key>
+				<integer>86400</integer>
+				<key>GracePeriod</key>
+				<integer>3600</integer>
+				<key>Priority</key>
+				<string>Maintenance</string>
+				<key>Repeating</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

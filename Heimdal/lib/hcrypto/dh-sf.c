@@ -59,7 +59,7 @@ static int
 sf_dh_generate_key(DH *dh)
 {
     struct dh_sf *sf = DH_get_ex_data(dh, 0);
-    size_t length, size;
+    size_t length, size = 0;
     DHParameter dp;
     void *data = NULL;
     int ret;

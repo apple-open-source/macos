@@ -739,7 +739,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphics;
 				SECTORDER_FLAGS = "";
@@ -758,7 +758,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphics;
 				SECTORDER_FLAGS = "";
@@ -775,7 +775,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphics;
 				SECTORDER_FLAGS = "";
@@ -821,7 +821,7 @@
 				MODULE_START = "IOGraphicsFamilyModuleStart";
 				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphicsFamily;
 				SECTORDER_FLAGS = "";
@@ -893,7 +893,7 @@
 				MODULE_START = "IOGraphicsFamilyModuleStart";
 				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOGraphicsFamily;
 				SECTORDER_FLAGS = "";

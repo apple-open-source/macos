@@ -1,0 +1,33 @@
+#! /bin/csh -f
+#
+# run secTrustTime in various interesting configurations.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+set LOOPS="-l 100"
+set SECTIME="$LOCAL_BUILD_DIR/secTrustTime $LOOPS"
+set DO_LEOPARD=YES
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case -tiger:
+            set DO_LEOPARD = NO
+            shift
+            breaksw
+		default:
+			echo "Usage: secTrustTime [-tiger]"
+			exit(1)
+    endsw
+end
+
+$SECTIME || exit(1)
+$SECTIME -k || exit(1)
+$SECTIME -k -n || exit(1)
+$SECTIME -K || exit(1)
+$SECTIME -K -n || exit(1)
+$SECTIME -T || exit(1)
+$SECTIME -T -n || exit(1)
+if($DO_LEOPARD == YES) then
+	$SECTIME -t || exit(1)
+endif
+
+

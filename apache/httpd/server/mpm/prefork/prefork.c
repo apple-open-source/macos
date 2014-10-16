@@ -31,8 +31,6 @@
 #include <sys/types.h>
 #endif
 
-#define CORE_PRIVATE
-
 #include "ap_config.h"
 #include "httpd.h"
 #include "mpm_default.h"
@@ -43,15 +41,13 @@
 #include "http_connection.h"
 #include "scoreboard.h"
 #include "ap_mpm.h"
+#include "util_mutex.h"
 #include "unixd.h"
 #include "mpm_common.h"
 #include "ap_listen.h"
 #include "ap_mmn.h"
 #include "apr_poll.h"
 
-#ifdef HAVE_BSTRING_H
-#include <bstring.h>            /* for IRIX, FD_SET calls bzero() */
-#endif
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif
@@ -90,25 +86,46 @@
 
 /* config globals */
 
-int ap_threads_per_child=0;         /* Worker threads per child */
 static apr_proc_mutex_t *accept_mutex;
 static int ap_daemons_to_start=0;
 static int ap_daemons_min_free=0;
 static int ap_daemons_max_free=0;
-static int ap_daemons_limit=0;      /* MaxClients */
-static int server_limit = DEFAULT_SERVER_LIMIT;
-static int first_server_limit = 0;
-static int changed_limit_at_restart;
+static int ap_daemons_limit=0;      /* MaxRequestWorkers */
+static int server_limit = 0;
 static int mpm_state = AP_MPMQ_STARTING;
 static ap_pod_t *pod;
 
-/*
- * The max child slot ever assigned, preserved across restarts.  Necessary
- * to deal with MaxClients changes across AP_SIG_GRACEFUL restarts.  We
- * use this value to optimize routines that have to scan the entire scoreboard.
+/* data retained by prefork across load/unload of the module
+ * allocated on first call to pre-config hook; located on
+ * subsequent calls to pre-config hook
  */
-int ap_max_daemons_limit = -1;
-server_rec *ap_server_conf;
+typedef struct prefork_retained_data {
+    int first_server_limit;
+    int module_loads;
+    ap_generation_t my_generation;
+    int volatile is_graceful; /* set from signal handler */
+    int maxclients_reported;
+    /*
+     * The max child slot ever assigned, preserved across restarts.  Necessary
+     * to deal with MaxRequestWorkers changes across AP_SIG_GRACEFUL restarts.  We
+     * use this value to optimize routines that have to scan the entire scoreboard.
+     */
+    int max_daemons_limit;
+    /*
+     * idle_spawn_rate is the number of children that will be spawned on the
+     * next maintenance cycle if there aren't enough idle servers.  It is
+     * doubled up to MAX_SPAWN_RATE, and reset only when a cycle goes by
+     * without the need to spawn.
+     */
+    int idle_spawn_rate;
+#ifndef MAX_SPAWN_RATE
+#define MAX_SPAWN_RATE  (32)
+#endif
+    int hold_off_on_exponential_spawning;
+} prefork_retained_data;
+static prefork_retained_data *retained;
+
+#define MPM_CHILD_PID(i) (ap_scoreboard_image->parent[i].pid)
 
 /* one_process --- debugging mode variable; can be set from the command line
  * with the -X flag.  If set, this gets you the child_main loop running
@@ -128,17 +145,7 @@ static apr_pool_t *pchild;              /* Pool for httpd child stuff */
 
 static pid_t ap_my_pid; /* it seems silly to call getpid all the time */
 static pid_t parent_pid;
-#ifndef MULTITHREAD
 static int my_child_num;
-#endif
-ap_generation_t volatile ap_my_generation=0;
-
-#ifdef TPF
-int tpf_child = 0;
-char tpf_server_name[INETD_SERVNAME_LENGTH+1];
-#endif /* TPF */
-
-static volatile int die_now = 0;
 
 #ifdef GPROF
 /*
@@ -150,7 +157,7 @@ static volatile int die_now = 0;
 static void chdir_for_gprof(void)
 {
     core_server_config *sconf =
-        ap_get_module_config(ap_server_conf->module_config, &core_module);
+        ap_get_core_module_config(ap_server_conf->module_config);
     char *dir = sconf->gprof_dir;
     const char *use_dir;
 
@@ -168,12 +175,12 @@ static void chdir_for_gprof(void)
                            APR_GREAD | APR_GEXECUTE |
                            APR_WREAD | APR_WEXECUTE, pconf);
         if(res != APR_SUCCESS && !APR_STATUS_IS_EEXIST(res)) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, res, ap_server_conf,
+            ap_log_error(APLOG_MARK, APLOG_ERR, res, ap_server_conf, APLOGNO(00142)
                          "gprof: error creating directory %s", dir);
         }
     }
     else {
-        use_dir = ap_server_root_relative(pconf, DEFAULT_REL_RUNTIMEDIR);
+        use_dir = ap_runtime_dir_relative(pconf, "");
     }
 
     chdir(use_dir);
@@ -182,9 +189,24 @@ static void chdir_for_gprof(void)
 #define chdir_for_gprof()
 #endif
 
-/* XXX - I don't know if TPF will ever use this module or not, so leave
- * the ap_check_signals calls in but disable them - manoj */
-#define ap_check_signals()
+static void prefork_note_child_killed(int childnum, pid_t pid,
+                                      ap_generation_t gen)
+{
+    AP_DEBUG_ASSERT(childnum != -1); /* no scoreboard squatting with this MPM */
+    ap_run_child_status(ap_server_conf,
+                        ap_scoreboard_image->parent[childnum].pid,
+                        ap_scoreboard_image->parent[childnum].generation,
+                        childnum, MPM_CHILD_EXITED);
+    ap_scoreboard_image->parent[childnum].pid = 0;
+}
+
+static void prefork_note_child_started(int slot, pid_t pid)
+{
+    ap_scoreboard_image->parent[slot].pid = pid;
+    ap_run_child_status(ap_server_conf,
+                        ap_scoreboard_image->parent[slot].pid,
+                        retained->my_generation, slot, MPM_CHILD_STARTED);
+}
 
 /* a clean exit from a child with proper cleanup */
 static void clean_child_exit(int code) __attribute__ ((noreturn));
@@ -195,6 +217,11 @@ static void clean_child_exit(int code)
     if (pchild) {
         apr_pool_destroy(pchild);
     }
+
+    if (one_process) {
+        prefork_note_child_killed(/* slot */ 0, 0, 0);
+    }
+
     ap_mpm_pod_close(pod);
     chdir_for_gprof();
     exit(code);
@@ -206,13 +233,13 @@ static void accept_mutex_on(void)
     if (rv != APR_SUCCESS) {
         const char *msg = "couldn't grab the accept mutex";
 
-        if (ap_my_generation !=
+        if (retained->my_generation !=
             ap_scoreboard_image->global->running_generation) {
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, NULL, "%s", msg);
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, ap_server_conf, APLOGNO(00143) "%s", msg);
             clean_child_exit(0);
         }
         else {
-            ap_log_error(APLOG_MARK, APLOG_EMERG, rv, NULL, "%s", msg);
+            ap_log_error(APLOG_MARK, APLOG_EMERG, rv, ap_server_conf, APLOGNO(00144) "%s", msg);
             exit(APEXIT_CHILDFATAL);
         }
     }
@@ -224,16 +251,16 @@ static void accept_mutex_off(void)
     if (rv != APR_SUCCESS) {
         const char *msg = "couldn't release the accept mutex";
 
-        if (ap_my_generation !=
+        if (retained->my_generation !=
             ap_scoreboard_image->global->running_generation) {
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, NULL, "%s", msg);
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, ap_server_conf, APLOGNO(00145) "%s", msg);
             /* don't exit here... we have a connection to
              * process, after which point we'll see that the
              * generation changed and we'll exit cleanly
              */
         }
         else {
-            ap_log_error(APLOG_MARK, APLOG_EMERG, rv, NULL, "%s", msg);
+            ap_log_error(APLOG_MARK, APLOG_EMERG, rv, ap_server_conf, APLOGNO(00146) "%s", msg);
             exit(APEXIT_CHILDFATAL);
         }
     }
@@ -250,74 +277,63 @@ static void accept_mutex_off(void)
 #define SAFE_ACCEPT(stmt) do {stmt;} while(0)
 #endif
 
-AP_DECLARE(apr_status_t) ap_mpm_query(int query_code, int *result)
+static int prefork_query(int query_code, int *result, apr_status_t *rv)
 {
+    *rv = APR_SUCCESS;
     switch(query_code){
     case AP_MPMQ_MAX_DAEMON_USED:
         *result = ap_daemons_limit;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_IS_THREADED:
         *result = AP_MPMQ_NOT_SUPPORTED;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_IS_FORKED:
         *result = AP_MPMQ_DYNAMIC;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_HARD_LIMIT_DAEMONS:
         *result = server_limit;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_HARD_LIMIT_THREADS:
         *result = HARD_THREAD_LIMIT;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MAX_THREADS:
-        *result = 0;
-        return APR_SUCCESS;
+        *result = 1;
+        break;
     case AP_MPMQ_MIN_SPARE_DAEMONS:
         *result = ap_daemons_min_free;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MIN_SPARE_THREADS:
         *result = 0;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MAX_SPARE_DAEMONS:
         *result = ap_daemons_max_free;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MAX_SPARE_THREADS:
         *result = 0;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MAX_REQUESTS_DAEMON:
         *result = ap_max_requests_per_child;
-        return APR_SUCCESS;
+        break;
     case AP_MPMQ_MAX_DAEMONS:
-        *result = server_limit;
-        return APR_SUCCESS;
+        *result = ap_daemons_limit;
+        break;
     case AP_MPMQ_MPM_STATE:
         *result = mpm_state;
-        return APR_SUCCESS;
+        break;
+    case AP_MPMQ_GENERATION:
+        *result = retained->my_generation;
+        break;
+    default:
+        *rv = APR_ENOTIMPL;
+        break;
     }
-    return APR_ENOTIMPL;
+    return OK;
 }
 
-#if defined(NEED_WAITPID)
-/*
-   Systems without a real waitpid sometimes lose a child's exit while waiting
-   for another.  Search through the scoreboard for missing children.
- */
-int reap_children(int *exitcode, apr_exit_why_e *status)
+static const char *prefork_get_name(void)
 {
-    int n, pid;
-
-    for (n = 0; n < ap_max_daemons_limit; ++n) {
-        if (ap_scoreboard_image->servers[n][0].status != SERVER_DEAD &&
-                kill((pid = ap_scoreboard_image->parent[n].pid), 0) == -1) {
-            ap_update_child_status_from_indexes(n, 0, SERVER_DEAD, NULL);
-            /* just mark it as having a successful exit status */
-            *status = APR_PROC_EXIT;
-            *exitcode = 0;
-            return(pid);
-        }
-    }
-    return 0;
+    return "prefork";
 }
-#endif
 
 /*****************************************************************
  * Connection structures and accounting...
@@ -328,6 +344,11 @@ static void just_die(int sig)
     clean_child_exit(0);
 }
 
+/* volatile because they're updated from a signal handler */
+static int volatile shutdown_pending;
+static int volatile restart_pending;
+static int volatile die_now = 0;
+
 static void stop_listening(int sig)
 {
     mpm_state = AP_MPMQ_STOPPING;
@@ -336,11 +357,6 @@ static void stop_listening(int sig)
     /* For a graceful stop, we want the child to exit when done */
     die_now = 1;
 }
-
-/* volatile just in case */
-static int volatile shutdown_pending;
-static int volatile restart_pending;
-static int volatile is_graceful;
 
 static void sig_term(int sig)
 {
@@ -353,7 +369,7 @@ static void sig_term(int sig)
     }
     mpm_state = AP_MPMQ_STOPPING;
     shutdown_pending = 1;
-    is_graceful = (sig == AP_SIG_GRACEFUL_STOP);
+    retained->is_graceful = (sig == AP_SIG_GRACEFUL_STOP);
 }
 
 /* restart() is the signal handler for SIGHUP and AP_SIG_GRACEFUL
@@ -367,7 +383,7 @@ static void restart(int sig)
     }
     mpm_state = AP_MPMQ_STOPPING;
     restart_pending = 1;
-    is_graceful = (sig == AP_SIG_GRACEFUL);
+    retained->is_graceful = (sig == AP_SIG_GRACEFUL);
 }
 
 static void set_signals(void)
@@ -386,30 +402,33 @@ static void set_signals(void)
 
     sa.sa_handler = sig_term;
     if (sigaction(SIGTERM, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGTERM)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00147) "sigaction(SIGTERM)");
 #ifdef AP_SIG_GRACEFUL_STOP
     if (sigaction(AP_SIG_GRACEFUL_STOP, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00148)
                      "sigaction(" AP_SIG_GRACEFUL_STOP_STRING ")");
 #endif
 #ifdef SIGINT
     if (sigaction(SIGINT, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGINT)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00149) "sigaction(SIGINT)");
 #endif
 #ifdef SIGXCPU
     sa.sa_handler = SIG_DFL;
     if (sigaction(SIGXCPU, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGXCPU)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00150) "sigaction(SIGXCPU)");
 #endif
 #ifdef SIGXFSZ
-    sa.sa_handler = SIG_DFL;
+    /* For systems following the LFS standard, ignoring SIGXFSZ allows
+     * a write() beyond the 2GB limit to fail gracefully with E2BIG
+     * rather than terminate the process. */
+    sa.sa_handler = SIG_IGN;
     if (sigaction(SIGXFSZ, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGXFSZ)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00151) "sigaction(SIGXFSZ)");
 #endif
 #ifdef SIGPIPE
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGPIPE, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGPIPE)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00152) "sigaction(SIGPIPE)");
 #endif
 
     /* we want to ignore HUPs and AP_SIG_GRACEFUL while we're busy
@@ -419,16 +438,16 @@ static void set_signals(void)
     sigaddset(&sa.sa_mask, AP_SIG_GRACEFUL);
     sa.sa_handler = restart;
     if (sigaction(SIGHUP, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGHUP)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00153) "sigaction(SIGHUP)");
     if (sigaction(AP_SIG_GRACEFUL, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(" AP_SIG_GRACEFUL_STRING ")");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00154) "sigaction(" AP_SIG_GRACEFUL_STRING ")");
 #else
     if (!one_process) {
 #ifdef SIGXCPU
         apr_signal(SIGXCPU, SIG_DFL);
 #endif /* SIGXCPU */
 #ifdef SIGXFSZ
-        apr_signal(SIGXFSZ, SIG_DFL);
+        apr_signal(SIGXFSZ, SIG_IGN);
 #endif /* SIGXFSZ */
     }
 
@@ -458,18 +477,12 @@ static void set_signals(void)
 static int requests_this_child;
 static int num_listensocks = 0;
 
-
-int ap_graceful_stop_signalled(void)
-{
-    /* Return true if the server is stopping for whatever reason; the
-     * function is used to initiate a fast exit from the connection
-     * processing loop. */
-    return mpm_state == AP_MPMQ_STOPPING;
-}
-
-
 static void child_main(int child_num_arg)
 {
+#if APR_HAS_THREADS
+    apr_thread_t *thd = NULL;
+    apr_os_thread_t osthd;
+#endif
     apr_pool_t *ptrans;
     apr_allocator_t *allocator;
     apr_status_t status;
@@ -479,6 +492,7 @@ static void child_main(int child_num_arg)
     ap_sb_handle_t *sbh;
     apr_bucket_alloc_t *bucket_alloc;
     int last_poll_idx = 0;
+    const char *lockfile;
 
     mpm_state = AP_MPMQ_STARTING; /* for benefit of any hooks that run as this
                                    * child initializes
@@ -497,21 +511,32 @@ static void child_main(int child_num_arg)
     apr_allocator_max_free_set(allocator, ap_max_mem_free);
     apr_pool_create_ex(&pchild, pconf, NULL, allocator);
     apr_allocator_owner_set(allocator, pchild);
+    apr_pool_tag(pchild, "pchild");
+
+#if APR_HAS_THREADS
+    osthd = apr_os_thread_current();
+    apr_os_thread_put(&thd, &osthd, pchild);
+#endif
 
     apr_pool_create(&ptrans, pchild);
     apr_pool_tag(ptrans, "transaction");
 
     /* needs to be done before we switch UIDs so we have permissions */
     ap_reopen_scoreboard(pchild, NULL, 0);
-    status = apr_proc_mutex_child_init(&accept_mutex, ap_lock_fname, pchild);
+    lockfile = apr_proc_mutex_lockfile(accept_mutex);
+    status = apr_proc_mutex_child_init(&accept_mutex,
+                                       lockfile,
+                                       pchild);
     if (status != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_EMERG, status, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_EMERG, status, ap_server_conf, APLOGNO(00155)
                      "Couldn't initialize cross-process lock in child "
-                     "(%s) (%d)", ap_lock_fname, ap_accept_lock_mech);
+                     "(%s) (%s)",
+                     lockfile ? lockfile : "none",
+                     apr_proc_mutex_name(accept_mutex));
         clean_child_exit(APEXIT_CHILDFATAL);
     }
 
-    if (unixd_setup_child()) {
+    if (ap_run_drop_privileges(pchild, ap_server_conf)) {
         clean_child_exit(APEXIT_CHILDFATAL);
     }
 
@@ -524,7 +549,7 @@ static void child_main(int child_num_arg)
     /* Set up the pollfd array */
     status = apr_pollset_create(&pollset, num_listensocks, pchild, 0);
     if (status != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_EMERG, status, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_EMERG, status, ap_server_conf, APLOGNO(00156)
                      "Couldn't create pollset in child; check system or user limits");
         clean_child_exit(APEXIT_CHILDSICK); /* assume temporary resource issue */
     }
@@ -537,8 +562,21 @@ static void child_main(int child_num_arg)
         pfd.reqevents = APR_POLLIN;
         pfd.client_data = lr;
 
-        /* ### check the status */
-        (void) apr_pollset_add(pollset, &pfd);
+        status = apr_pollset_add(pollset, &pfd);
+        if (status != APR_SUCCESS) {
+            /* If the child processed a SIGWINCH before setting up the
+             * pollset, this error path is expected and harmless,
+             * since the listener fd was already closed; so don't
+             * pollute the logs in that case. */
+            if (!die_now) {
+                ap_log_error(APLOG_MARK, APLOG_EMERG, status, ap_server_conf, APLOGNO(00157)
+                             "Couldn't add listener to pollset; check system or user limits");
+                clean_child_exit(APEXIT_CHILDSICK);
+            }
+            clean_child_exit(0);
+        }
+
+        lr->accept_func = ap_unixd_accept;
     }
 
     mpm_state = AP_MPMQ_RUNNING;
@@ -585,20 +623,16 @@ static void child_main(int child_num_arg)
                 /* check for termination first so we don't sleep for a while in
                  * poll if already signalled
                  */
-                if (one_process && shutdown_pending) {
-                    SAFE_ACCEPT(accept_mutex_off());
-                    return;
-                }
-                else if (die_now) {
-                    /* In graceful stop/restart; drop the mutex
-                     * and terminate the child. */
+                if (die_now         /* in graceful stop/restart */
+                    || (one_process && shutdown_pending)) {
                     SAFE_ACCEPT(accept_mutex_off());
                     clean_child_exit(0);
                 }
+
                 /* timeout == 10 seconds to avoid a hang at graceful restart/stop
                  * caused by the closing of sockets by the signal handler
                  */
-                status = apr_pollset_poll(pollset, apr_time_from_sec(10), 
+                status = apr_pollset_poll(pollset, apr_time_from_sec(10),
                                           &numdesc, &pdesc);
                 if (status != APR_SUCCESS) {
                     if (APR_STATUS_IS_TIMEUP(status) ||
@@ -612,7 +646,7 @@ static void child_main(int child_num_arg)
                      * occasionally, and we'd loop forever due to it.
                      */
                     ap_log_error(APLOG_MARK, APLOG_ERR, status,
-                                 ap_server_conf, "apr_pollset_poll: (listen)");
+                                 ap_server_conf, APLOGNO(00158) "apr_pollset_poll: (listen)");
                     SAFE_ACCEPT(accept_mutex_off());
                     clean_child_exit(APEXIT_CHILDSICK);
                 }
@@ -664,6 +698,9 @@ static void child_main(int child_num_arg)
 
         current_conn = ap_run_create_connection(ptrans, ap_server_conf, csd, my_child_num, sbh, bucket_alloc);
         if (current_conn) {
+#if APR_HAS_THREADS
+            current_conn->current_thread = thd;
+#endif
             ap_process_connection(current_conn, csd);
             ap_lingering_close(current_conn);
         }
@@ -676,7 +713,7 @@ static void child_main(int child_num_arg)
         if (ap_mpm_pod_check(pod) == APR_SUCCESS) { /* selected as idle? */
             die_now = 1;
         }
-        else if (ap_my_generation !=
+        else if (retained->my_generation !=
                  ap_scoreboard_image->global->running_generation) { /* restart? */
             /* yeah, this could be non-graceful restart, in which case the
              * parent will kill us soon enough, but why bother checking?
@@ -684,11 +721,7 @@ static void child_main(int child_num_arg)
             die_now = 1;
         }
     }
-    /* This apr_pool_clear call is redundant, should be redundant, but compensates
-     * a flaw in the apr reslist code.  This should be removed once that flaw has
-     * been addressed.
-     */
-    apr_pool_clear(ptrans);
+    apr_pool_clear(ptrans); /* kludge to avoid crash in APR reslist cleanup code */
     clean_child_exit(0);
 }
 
@@ -697,8 +730,8 @@ static int make_child(server_rec *s, int slot)
 {
     int pid;
 
-    if (slot + 1 > ap_max_daemons_limit) {
-        ap_max_daemons_limit = slot + 1;
+    if (slot + 1 > retained->max_daemons_limit) {
+        retained->max_daemons_limit = slot + 1;
     }
 
     if (one_process) {
@@ -709,8 +742,9 @@ static int make_child(server_rec *s, int slot)
         apr_signal(SIGQUIT, SIG_DFL);
 #endif
         apr_signal(SIGTERM, sig_term);
+        prefork_note_child_started(slot, getpid());
         child_main(slot);
-        return 0;
+        /* NOTREACHED */
     }
 
     (void) ap_update_child_status_from_indexes(slot, 0, SERVER_STARTING,
@@ -719,13 +753,11 @@ static int make_child(server_rec *s, int slot)
 
 #ifdef _OSD_POSIX
     /* BS2000 requires a "special" version of fork() before a setuid() call */
-    if ((pid = os_fork(unixd_config.user_name)) == -1) {
-#elif defined(TPF)
-    if ((pid = os_fork(s, slot)) == -1) {
+    if ((pid = os_fork(ap_unixd_config.user_name)) == -1) {
 #else
     if ((pid = fork()) == -1) {
 #endif
-        ap_log_error(APLOG_MARK, APLOG_ERR, errno, s, "fork: Unable to fork new process");
+        ap_log_error(APLOG_MARK, APLOG_ERR, errno, s, APLOGNO(00159) "fork: Unable to fork new process");
 
         /* fork didn't succeed. Fix the scoreboard or else
          * it will say SERVER_STARTING forever and ever
@@ -750,8 +782,8 @@ static int make_child(server_rec *s, int slot)
         int status = bindprocessor(BINDPROCESS, (int)getpid(),
                                    PROCESSOR_CLASS_ANY);
         if (status != OK) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, errno,
-                         ap_server_conf, "processor unbind failed %d", status);
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, errno,
+                         ap_server_conf, APLOGNO(00160) "processor unbind failed");
         }
 #endif
         RAISE_SIGSTOP(MAKE_CHILD);
@@ -768,7 +800,7 @@ static int make_child(server_rec *s, int slot)
         child_main(slot);
     }
 
-    ap_scoreboard_image->parent[slot].pid = pid;
+    prefork_note_child_started(slot, pid);
 
     return 0;
 }
@@ -790,23 +822,9 @@ static void startup_children(int number_to_start)
     }
 }
 
-
-/*
- * idle_spawn_rate is the number of children that will be spawned on the
- * next maintenance cycle if there aren't enough idle servers.  It is
- * doubled up to MAX_SPAWN_RATE, and reset only when a cycle goes by
- * without the need to spawn.
- */
-static int idle_spawn_rate = 1;
-#ifndef MAX_SPAWN_RATE
-#define MAX_SPAWN_RATE  (32)
-#endif
-static int hold_off_on_exponential_spawning;
-
 static void perform_idle_server_maintenance(apr_pool_t *p)
 {
     int i;
-    int to_kill;
     int idle_count;
     worker_score *ws;
     int free_length;
@@ -817,7 +835,6 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
     /* initialize the free_list */
     free_length = 0;
 
-    to_kill = -1;
     idle_count = 0;
     last_non_dead = -1;
     total_non_dead = 0;
@@ -825,13 +842,13 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
     for (i = 0; i < ap_daemons_limit; ++i) {
         int status;
 
-        if (i >= ap_max_daemons_limit && free_length == idle_spawn_rate)
+        if (i >= retained->max_daemons_limit && free_length == retained->idle_spawn_rate)
             break;
         ws = &ap_scoreboard_image->servers[i][0];
         status = ws->status;
         if (status == SERVER_DEAD) {
             /* try to keep children numbers as low as possible */
-            if (free_length < idle_spawn_rate) {
+            if (free_length < retained->idle_spawn_rate) {
                 free_slots[free_length] = i;
                 ++free_length;
             }
@@ -845,77 +862,58 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
              */
             if (status <= SERVER_READY) {
                 ++ idle_count;
-                /* always kill the highest numbered child if we have to...
-                 * no really well thought out reason ... other than observing
-                 * the server behaviour under linux where lower numbered children
-                 * tend to service more hits (and hence are more likely to have
-                 * their data in cpu caches).
-                 */
-                to_kill = i;
             }
 
             ++total_non_dead;
             last_non_dead = i;
         }
     }
-    ap_max_daemons_limit = last_non_dead + 1;
+    retained->max_daemons_limit = last_non_dead + 1;
     if (idle_count > ap_daemons_max_free) {
         /* kill off one child... we use the pod because that'll cause it to
          * shut down gracefully, in case it happened to pick up a request
          * while we were counting
          */
         ap_mpm_pod_signal(pod);
-        idle_spawn_rate = 1;
+        retained->idle_spawn_rate = 1;
     }
     else if (idle_count < ap_daemons_min_free) {
         /* terminate the free list */
         if (free_length == 0) {
             /* only report this condition once */
-            static int reported = 0;
-
-            if (!reported) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf,
-                            "server reached MaxClients setting, consider"
-                            " raising the MaxClients setting");
-                reported = 1;
+            if (!retained->maxclients_reported) {
+                ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf, APLOGNO(00161)
+                            "server reached MaxRequestWorkers setting, consider"
+                            " raising the MaxRequestWorkers setting");
+                retained->maxclients_reported = 1;
             }
-            idle_spawn_rate = 1;
+            retained->idle_spawn_rate = 1;
         }
         else {
-            if (idle_spawn_rate >= 8) {
-                ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf,
+            if (retained->idle_spawn_rate >= 8) {
+                ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf, APLOGNO(00162)
                     "server seems busy, (you may need "
                     "to increase StartServers, or Min/MaxSpareServers), "
                     "spawning %d children, there are %d idle, and "
-                    "%d total children", idle_spawn_rate,
+                    "%d total children", retained->idle_spawn_rate,
                     idle_count, total_non_dead);
             }
             for (i = 0; i < free_length; ++i) {
-#ifdef TPF
-                if (make_child(ap_server_conf, free_slots[i]) == -1) {
-                    if(free_length == 1) {
-                        shutdown_pending = 1;
-                        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, ap_server_conf,
-                                    "No active child processes: shutting down");
-                    }
-                }
-#else
                 make_child(ap_server_conf, free_slots[i]);
-#endif /* TPF */
             }
             /* the next time around we want to spawn twice as many if this
              * wasn't good enough, but not if we've just done a graceful
              */
-            if (hold_off_on_exponential_spawning) {
-                --hold_off_on_exponential_spawning;
+            if (retained->hold_off_on_exponential_spawning) {
+                --retained->hold_off_on_exponential_spawning;
             }
-            else if (idle_spawn_rate < MAX_SPAWN_RATE) {
-                idle_spawn_rate *= 2;
+            else if (retained->idle_spawn_rate < MAX_SPAWN_RATE) {
+                retained->idle_spawn_rate *= 2;
             }
         }
     }
     else {
-        idle_spawn_rate = 1;
+        retained->idle_spawn_rate = 1;
     }
 }
 
@@ -923,7 +921,7 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
  * Executive routines.
  */
 
-int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
+static int prefork_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 {
     int index;
     int remaining_children_to_start;
@@ -931,61 +929,32 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 
     ap_log_pid(pconf, ap_pid_fname);
 
-    first_server_limit = server_limit;
-    if (changed_limit_at_restart) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
-                     "WARNING: Attempt to change ServerLimit "
-                     "ignored during restart");
-        changed_limit_at_restart = 0;
-    }
-
     /* Initialize cross-process accept lock */
-    ap_lock_fname = apr_psprintf(_pconf, "%s.%" APR_PID_T_FMT,
-                                 ap_server_root_relative(_pconf, ap_lock_fname),
-                                 ap_my_pid);
-
-    rv = apr_proc_mutex_create(&accept_mutex, ap_lock_fname,
-                               ap_accept_lock_mech, _pconf);
+    rv = ap_proc_mutex_create(&accept_mutex, NULL, AP_ACCEPT_MUTEX_TYPE, NULL,
+                              s, _pconf, 0);
     if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s,
-                     "Couldn't create accept lock (%s) (%d)",
-                     ap_lock_fname, ap_accept_lock_mech);
         mpm_state = AP_MPMQ_STOPPING;
-        return 1;
+        return DONE;
     }
 
-#if APR_USE_SYSVSEM_SERIALIZE
-    if (ap_accept_lock_mech == APR_LOCK_DEFAULT ||
-        ap_accept_lock_mech == APR_LOCK_SYSVSEM) {
-#else
-    if (ap_accept_lock_mech == APR_LOCK_SYSVSEM) {
-#endif
-        rv = unixd_set_proc_mutex_perms(accept_mutex);
-        if (rv != APR_SUCCESS) {
-            ap_log_error(APLOG_MARK, APLOG_EMERG, rv, s,
-                         "Couldn't set permissions on cross-process lock; "
-                         "check User and Group directives");
-            mpm_state = AP_MPMQ_STOPPING;
-            return 1;
-        }
-    }
-
-    if (!is_graceful) {
+    if (!retained->is_graceful) {
         if (ap_run_pre_mpm(s->process->pool, SB_SHARED) != OK) {
             mpm_state = AP_MPMQ_STOPPING;
-            return 1;
+            return DONE;
         }
         /* fix the generation number in the global score; we just got a new,
          * cleared scoreboard
          */
-        ap_scoreboard_image->global->running_generation = ap_my_generation;
+        ap_scoreboard_image->global->running_generation = retained->my_generation;
     }
 
+    restart_pending = shutdown_pending = 0;
     set_signals();
 
     if (one_process) {
         AP_MONCONTROL(1);
         make_child(ap_server_conf, 0);
+        /* NOTREACHED */
     }
     else {
     if (ap_daemons_max_free < ap_daemons_min_free + 1)  /* Don't thrash... */
@@ -1003,7 +972,7 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
     if (remaining_children_to_start > ap_daemons_limit) {
         remaining_children_to_start = ap_daemons_limit;
     }
-    if (!is_graceful) {
+    if (!retained->is_graceful) {
         startup_children(remaining_children_to_start);
         remaining_children_to_start = 0;
     }
@@ -1011,21 +980,19 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         /* give the system some time to recover before kicking into
          * exponential mode
          */
-        hold_off_on_exponential_spawning = 10;
+        retained->hold_off_on_exponential_spawning = 10;
     }
 
-    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00163)
                 "%s configured -- resuming normal operations",
                 ap_get_server_description());
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf,
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf, APLOGNO(00164)
                 "Server built: %s", ap_get_server_built());
-#ifdef AP_MPM_WANT_SET_ACCEPT_LOCK_MECH
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf,
-                "AcceptMutex: %s (default: %s)",
+    ap_log_command_line(plog, s);
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf, APLOGNO(00165)
+                "Accept mutex: %s (default: %s)",
                 apr_proc_mutex_name(accept_mutex),
                 apr_proc_mutex_defname());
-#endif
-    restart_pending = shutdown_pending = 0;
 
     mpm_state = AP_MPMQ_RUNNING;
 
@@ -1036,7 +1003,7 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         /* this is a memory leak, but I'll fix it later. */
         apr_proc_t pid;
 
-        ap_wait_or_timeout(&exitwhy, &status, &pid, pconf);
+        ap_wait_or_timeout(&exitwhy, &status, &pid, pconf, ap_server_conf);
 
         /* XXX: if it takes longer than 1 second for all our children
          * to start up and get into IDLE state then we may spawn an
@@ -1044,21 +1011,37 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
          */
         if (pid.pid != -1) {
             processed_status = ap_process_child_status(&pid, exitwhy, status);
+            child_slot = ap_find_child_by_pid(&pid);
             if (processed_status == APEXIT_CHILDFATAL) {
-                mpm_state = AP_MPMQ_STOPPING;
-                return 1;
+                /* fix race condition found in PR 39311
+                 * A child created at the same time as a graceful happens 
+                 * can find the lock missing and create a fatal error.
+                 * It is not fatal for the last generation to be in this state.
+                 */
+                if (child_slot < 0
+                    || ap_get_scoreboard_process(child_slot)->generation
+                       == retained->my_generation) {
+                    mpm_state = AP_MPMQ_STOPPING;
+                    return DONE;
+                }
+                else {
+                    ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ap_server_conf, APLOGNO(00166)
+                                 "Ignoring fatal error in child of previous "
+                                 "generation (pid %ld).",
+                                 (long)pid.pid);
+                }
             }
 
             /* non-fatal death... note that it's gone in the scoreboard. */
-            child_slot = find_child_by_pid(&pid);
             if (child_slot >= 0) {
                 (void) ap_update_child_status_from_indexes(child_slot, 0, SERVER_DEAD,
                                                            (request_rec *) NULL);
+                prefork_note_child_killed(child_slot, 0, 0);
                 if (processed_status == APEXIT_CHILDSICK) {
                     /* child detected a resource shortage (E[NM]FILE, ENOBUFS, etc)
                      * cut the fork rate to the minimum
                      */
-                    idle_spawn_rate = 1;
+                    retained->idle_spawn_rate = 1;
                 }
                 else if (remaining_children_to_start
                     && child_slot < ap_daemons_limit) {
@@ -1074,13 +1057,13 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
                 /* handled */
 #endif
             }
-            else if (is_graceful) {
+            else if (retained->is_graceful) {
                 /* Great, we've probably just lost a slot in the
                  * scoreboard.  Somehow we don't know about this
                  * child.
                  */
                 ap_log_error(APLOG_MARK, APLOG_WARNING,
-                            0, ap_server_conf,
+                            0, ap_server_conf, APLOGNO(00167)
                             "long lost child came home! (pid %ld)", (long)pid.pid);
             }
             /* Don't perform idle maintenance when a child dies,
@@ -1105,40 +1088,27 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         }
 
         perform_idle_server_maintenance(pconf);
-#ifdef TPF
-        shutdown_pending = os_check_server(tpf_server_name);
-        ap_check_signals();
-        sleep(1);
-#endif /*TPF */
     }
     } /* one_process */
 
     mpm_state = AP_MPMQ_STOPPING;
 
-    if (shutdown_pending && !is_graceful) {
+    if (shutdown_pending && !retained->is_graceful) {
         /* Time to shut down:
          * Kill child processes, tell them to call child_exit, etc...
          */
-        if (unixd_killpg(getpgrp(), SIGTERM) < 0) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "killpg SIGTERM");
+        if (ap_unixd_killpg(getpgrp(), SIGTERM) < 0) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00168) "killpg SIGTERM");
         }
-        ap_reclaim_child_processes(1);          /* Start with SIGTERM */
+        ap_reclaim_child_processes(1, /* Start with SIGTERM */
+                                   prefork_note_child_killed);
 
         /* cleanup pid file on normal shutdown */
-        {
-            const char *pidfile = NULL;
-            pidfile = ap_server_root_relative (pconf, ap_pid_fname);
-            if ( pidfile != NULL && unlink(pidfile) == 0)
-                ap_log_error(APLOG_MARK, APLOG_INFO,
-                                0, ap_server_conf,
-                                "removed PID file %s (pid=%ld)",
-                                pidfile, (long)getpid());
-        }
-
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+        ap_remove_pid(pconf, ap_pid_fname);
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00169)
                     "caught SIGTERM, shutting down");
 
-        return 1;
+        return DONE;
     } else if (shutdown_pending) {
         /* Time to perform a graceful shut down:
          * Reap the inactive children, and ask the active ones
@@ -1152,7 +1122,7 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         ap_close_listeners();
 
         /* kill off the idle ones */
-        ap_mpm_pod_killpg(pod, ap_max_daemons_limit);
+        ap_mpm_pod_killpg(pod, retained->max_daemons_limit);
 
         /* Send SIGUSR1 to the active children */
         active_children = 0;
@@ -1165,20 +1135,11 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         }
 
         /* Allow each child which actually finished to exit */
-        ap_relieve_child_processes();
+        ap_relieve_child_processes(prefork_note_child_killed);
 
         /* cleanup pid file */
-        {
-            const char *pidfile = NULL;
-            pidfile = ap_server_root_relative (pconf, ap_pid_fname);
-            if ( pidfile != NULL && unlink(pidfile) == 0)
-                ap_log_error(APLOG_MARK, APLOG_INFO,
-                                0, ap_server_conf,
-                                "removed PID file %s (pid=%ld)",
-                                pidfile, (long)getpid());
-        }
-
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+        ap_remove_pid(pconf, ap_pid_fname);
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00170)
            "caught " AP_SIG_GRACEFUL_STOP_STRING ", shutting down gracefully");
 
         if (ap_graceful_shutdown_timeout) {
@@ -1193,7 +1154,7 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
             sleep(1);
 
             /* Relieve any children which have now exited */
-            ap_relieve_child_processes();
+            ap_relieve_child_processes(prefork_note_child_killed);
 
             active_children = 0;
             for (index = 0; index < ap_daemons_limit; ++index) {
@@ -1210,9 +1171,9 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
          * way, try and make sure that all of our processes are
          * really dead.
          */
-        unixd_killpg(getpgrp(), SIGTERM);
+        ap_unixd_killpg(getpgrp(), SIGTERM);
 
-        return 1;
+        return DONE;
     }
 
     /* we've been told to restart */
@@ -1220,22 +1181,22 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
     apr_signal(AP_SIG_GRACEFUL, SIG_IGN);
     if (one_process) {
         /* not worth thinking about */
-        return 1;
+        return DONE;
     }
 
     /* advance to the next generation */
     /* XXX: we really need to make sure this new generation number isn't in
      * use by any of the children.
      */
-    ++ap_my_generation;
-    ap_scoreboard_image->global->running_generation = ap_my_generation;
+    ++retained->my_generation;
+    ap_scoreboard_image->global->running_generation = retained->my_generation;
 
-    if (is_graceful) {
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+    if (retained->is_graceful) {
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00171)
                     "Graceful restart requested, doing restart");
 
         /* kill off the idle ones */
-        ap_mpm_pod_killpg(pod, ap_max_daemons_limit);
+        ap_mpm_pod_killpg(pod, retained->max_daemons_limit);
 
         /* This is mostly for debugging... so that we know what is still
          * gracefully dealing with existing request.  This will break
@@ -1258,15 +1219,16 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
     }
     else {
         /* Kill 'em off */
-        if (unixd_killpg(getpgrp(), SIGHUP) < 0) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "killpg SIGHUP");
+        if (ap_unixd_killpg(getpgrp(), SIGHUP) < 0) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00172) "killpg SIGHUP");
         }
-        ap_reclaim_child_processes(0);          /* Not when just starting up */
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+        ap_reclaim_child_processes(0, /* Not when just starting up */
+                                   prefork_note_child_killed);
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00173)
                     "SIGHUP received.  Attempting to restart");
     }
 
-    return 0;
+    return OK;
 }
 
 /* This really should be a post_config hook, but the error log is already
@@ -1274,20 +1236,29 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
  */
 static int prefork_open_logs(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s)
 {
+    int startup = 0;
+    int level_flags = 0;
     apr_status_t rv;
 
     pconf = p;
-    ap_server_conf = s;
+
+    /* the reverse of pre_config, we want this only the first time around */
+    if (retained->module_loads == 1) {
+        startup = 1;
+        level_flags |= APLOG_STARTUP;
+    }
 
     if ((num_listensocks = ap_setup_listeners(ap_server_conf)) < 1) {
-        ap_log_error(APLOG_MARK, APLOG_ALERT|APLOG_STARTUP, 0,
-                     NULL, "no listening sockets available, shutting down");
+        ap_log_error(APLOG_MARK, APLOG_ALERT | level_flags, 0,
+                     (startup ? NULL : s),
+                     "no listening sockets available, shutting down");
         return DONE;
     }
 
     if ((rv = ap_mpm_pod_open(pconf, &pod))) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT|APLOG_STARTUP, rv, NULL,
-                "Could not open pipe-of-death.");
+        ap_log_error(APLOG_MARK, APLOG_CRIT | level_flags, rv,
+                     (startup ? NULL : s),
+                     "could not open pipe-of-death");
         return DONE;
     }
     return OK;
@@ -1295,9 +1266,9 @@ static int prefork_open_logs(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
 
 static int prefork_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
 {
-    static int restart_num = 0;
     int no_detach, debug, foreground;
     apr_status_t rv;
+    const char *userdata_key = "mpm_prefork_module";
 
     mpm_state = AP_MPMQ_STARTING;
 
@@ -1314,59 +1285,182 @@ static int prefork_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp
         foreground = ap_exists_config_define("FOREGROUND");
     }
 
-    /* sigh, want this only the second time around */
-    if (restart_num++ == 1) {
-        is_graceful = 0;
+    ap_mutex_register(p, AP_ACCEPT_MUTEX_TYPE, NULL, APR_LOCK_DEFAULT, 0);
 
+    /* sigh, want this only the second time around */
+    retained = ap_retained_data_get(userdata_key);
+    if (!retained) {
+        retained = ap_retained_data_create(userdata_key, sizeof(*retained));
+        retained->max_daemons_limit = -1;
+        retained->idle_spawn_rate = 1;
+    }
+    ++retained->module_loads;
+    if (retained->module_loads == 2) {
         if (!one_process && !foreground) {
+            /* before we detach, setup crash handlers to log to errorlog */
+            ap_fatal_signal_setup(ap_server_conf, pconf);
             rv = apr_proc_detach(no_detach ? APR_PROC_DETACH_FOREGROUND
                                            : APR_PROC_DETACH_DAEMONIZE);
             if (rv != APR_SUCCESS) {
-                ap_log_error(APLOG_MARK, APLOG_CRIT, rv, NULL,
+                ap_log_error(APLOG_MARK, APLOG_CRIT, rv, NULL, APLOGNO(00174)
                              "apr_proc_detach failed");
                 return HTTP_INTERNAL_SERVER_ERROR;
             }
         }
-
-        parent_pid = ap_my_pid = getpid();
     }
 
-    unixd_pre_config(ptemp);
+    parent_pid = ap_my_pid = getpid();
+
     ap_listen_pre_config();
     ap_daemons_to_start = DEFAULT_START_DAEMON;
     ap_daemons_min_free = DEFAULT_MIN_FREE_DAEMON;
     ap_daemons_max_free = DEFAULT_MAX_FREE_DAEMON;
+    server_limit = DEFAULT_SERVER_LIMIT;
     ap_daemons_limit = server_limit;
-    ap_pid_fname = DEFAULT_PIDLOG;
-    ap_lock_fname = DEFAULT_LOCKFILE;
-    ap_max_requests_per_child = DEFAULT_MAX_REQUESTS_PER_CHILD;
     ap_extended_status = 0;
-#ifdef AP_MPM_WANT_SET_MAX_MEM_FREE
-    ap_max_mem_free = APR_ALLOCATOR_MAX_FREE_UNLIMITED;
-#endif
 
-    apr_cpystrn(ap_coredump_dir, ap_server_root, sizeof(ap_coredump_dir));
+    return OK;
+}
+
+static int prefork_check_config(apr_pool_t *p, apr_pool_t *plog,
+                                apr_pool_t *ptemp, server_rec *s)
+{
+    int startup = 0;
+
+    /* the reverse of pre_config, we want this only the first time around */
+    if (retained->module_loads == 1) {
+        startup = 1;
+    }
+
+    if (server_limit > MAX_SERVER_LIMIT) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00175)
+                         "WARNING: ServerLimit of %d exceeds compile-time "
+                         "limit of", server_limit);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " %d servers, decreasing to %d.",
+                         MAX_SERVER_LIMIT, MAX_SERVER_LIMIT);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00176)
+                         "ServerLimit of %d exceeds compile-time limit "
+                         "of %d, decreasing to match",
+                         server_limit, MAX_SERVER_LIMIT);
+        }
+        server_limit = MAX_SERVER_LIMIT;
+    }
+    else if (server_limit < 1) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00177)
+                         "WARNING: ServerLimit of %d not allowed, "
+                         "increasing to 1.", server_limit);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00178)
+                         "ServerLimit of %d not allowed, increasing to 1",
+                         server_limit);
+        }
+        server_limit = 1;
+    }
+
+    /* you cannot change ServerLimit across a restart; ignore
+     * any such attempts
+     */
+    if (!retained->first_server_limit) {
+        retained->first_server_limit = server_limit;
+    }
+    else if (server_limit != retained->first_server_limit) {
+        /* don't need a startup console version here */
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00179)
+                     "changing ServerLimit to %d from original value of %d "
+                     "not allowed during restart",
+                     server_limit, retained->first_server_limit);
+        server_limit = retained->first_server_limit;
+    }
+
+    if (ap_daemons_limit > server_limit) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00180)
+                         "WARNING: MaxRequestWorkers of %d exceeds ServerLimit "
+                         "value of", ap_daemons_limit);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " %d servers, decreasing MaxRequestWorkers to %d.",
+                         server_limit, server_limit);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " To increase, please see the ServerLimit "
+                         "directive.");
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00181)
+                         "MaxRequestWorkers of %d exceeds ServerLimit value "
+                         "of %d, decreasing to match",
+                         ap_daemons_limit, server_limit);
+        }
+        ap_daemons_limit = server_limit;
+    }
+    else if (ap_daemons_limit < 1) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00182)
+                         "WARNING: MaxRequestWorkers of %d not allowed, "
+                         "increasing to 1.", ap_daemons_limit);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00183)
+                         "MaxRequestWorkers of %d not allowed, increasing to 1",
+                         ap_daemons_limit);
+        }
+        ap_daemons_limit = 1;
+    }
+
+    /* ap_daemons_to_start > ap_daemons_limit checked in prefork_run() */
+    if (ap_daemons_to_start < 0) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00184)
+                         "WARNING: StartServers of %d not allowed, "
+                         "increasing to 1.", ap_daemons_to_start);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00185)
+                         "StartServers of %d not allowed, increasing to 1",
+                         ap_daemons_to_start);
+        }
+        ap_daemons_to_start = 1;
+    }
+
+    if (ap_daemons_min_free < 1) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00186)
+                         "WARNING: MinSpareServers of %d not allowed, "
+                         "increasing to 1", ap_daemons_min_free);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " to avoid almost certain server failure.");
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " Please read the documentation.");
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00187)
+                         "MinSpareServers of %d not allowed, increasing to 1",
+                         ap_daemons_min_free);
+        }
+        ap_daemons_min_free = 1;
+    }
+
+    /* ap_daemons_max_free < ap_daemons_min_free + 1 checked in prefork_run() */
 
     return OK;
 }
 
 static void prefork_hooks(apr_pool_t *p)
 {
-    /* The prefork open_logs phase must run before the core's, or stderr
+    /* Our open_logs hook function must run before the core's, or stderr
      * will be redirected to a file, and the messages won't print to the
      * console.
      */
     static const char *const aszSucc[] = {"core.c", NULL};
 
-#ifdef AUX3
-    (void) set42sig();
-#endif
-
-    ap_hook_open_logs(prefork_open_logs, NULL, aszSucc, APR_HOOK_MIDDLE);
+    ap_hook_open_logs(prefork_open_logs, NULL, aszSucc, APR_HOOK_REALLY_FIRST);
     /* we need to set the MPM state before other pre-config hooks use MPM query
      * to retrieve it, so register as REALLY_FIRST
      */
     ap_hook_pre_config(prefork_pre_config, NULL, NULL, APR_HOOK_REALLY_FIRST);
+    ap_hook_check_config(prefork_check_config, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_mpm(prefork_run, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_mpm_query(prefork_query, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_mpm_get_name(prefork_get_name, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 static const char *set_daemons_to_start(cmd_parms *cmd, void *dummy, const char *arg)
@@ -1388,16 +1482,6 @@ static const char *set_min_free_servers(cmd_parms *cmd, void *dummy, const char 
     }
 
     ap_daemons_min_free = atoi(arg);
-    if (ap_daemons_min_free <= 0) {
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "WARNING: detected MinSpareServers set to non-positive.");
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "Resetting to 1 to avoid almost certain Apache failure.");
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "Please read the documentation.");
-       ap_daemons_min_free = 1;
-    }
-
     return NULL;
 }
 
@@ -1412,120 +1496,33 @@ static const char *set_max_free_servers(cmd_parms *cmd, void *dummy, const char 
     return NULL;
 }
 
-#include <sys/resource.h>
-static int getproclimit(void)
-{
-    struct rlimit rl;
-    memset(&rl, 0, sizeof rl);
-    return getrlimit(RLIMIT_NPROC, &rl) == 0 ? rl.rlim_cur : 0;
-}
-
 static const char *set_max_clients (cmd_parms *cmd, void *dummy, const char *arg)
 {
-    int tmp_daemons_limit;
-
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
     if (err != NULL) {
         return err;
     }
-
-    tmp_daemons_limit = atoi(arg);
-    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
-	int proclimit = getproclimit();
-	if (proclimit <= 0) {
-	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-			 "WARNING: MaxClients %d%% ignored because "
-			 "RLIMIT_NPROC is unknown", tmp_daemons_limit);
-	    return NULL;
-	}
-	if (tmp_daemons_limit < 1 || tmp_daemons_limit > 100) {
-	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-			 "WARNING: MaxClients %d%% ignored because "
-			 "percentage is out of range 1-100%%",
-			 tmp_daemons_limit);
-	    return NULL;
-	}
-	tmp_daemons_limit = proclimit * tmp_daemons_limit / 100.0 + 0.5;
+    if (!strcasecmp(cmd->cmd->name, "MaxClients")) {
+        ap_log_error(APLOG_MARK, APLOG_INFO, 0, NULL, APLOGNO(00188)
+                     "MaxClients is deprecated, use MaxRequestWorkers "
+                     "instead.");
     }
-    ap_daemons_limit = tmp_daemons_limit;
-    if (ap_daemons_limit > server_limit) {
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "WARNING: MaxClients of %d exceeds ServerLimit value "
-                    "of %d servers,", ap_daemons_limit, server_limit);
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    " lowering MaxClients to %d.  To increase, please "
-                    "see the ServerLimit", server_limit);
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    " directive.");
-       ap_daemons_limit = server_limit;
-    }
-    else if (ap_daemons_limit < 1) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                     "WARNING: Require MaxClients > 0, setting to 1");
-        ap_daemons_limit = 1;
-    }
+    ap_daemons_limit = atoi(arg);
     return NULL;
 }
 
 static const char *set_server_limit (cmd_parms *cmd, void *dummy, const char *arg)
 {
-    int tmp_server_limit;
-
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
     if (err != NULL) {
         return err;
     }
 
-    tmp_server_limit = atoi(arg);
-    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
-	int proclimit = getproclimit();
-	if (proclimit <= 0) {
-	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-			 "WARNING: ServerLimit %d%% ignored because "
-			 "RLIMIT_NPROC is unknown", tmp_server_limit);
-	    return NULL;
-	}
-	if (tmp_server_limit < 1 || tmp_server_limit > 100) {
-	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-			 "WARNING: ServerLimit %d%% ignored because "
-			 "percentage is out of range 1-100%%",
-			 tmp_server_limit);
-	    return NULL;
-	}
-	tmp_server_limit = proclimit * tmp_server_limit / 100.0 + 0.5;
-    }
-    /* you cannot change ServerLimit across a restart; ignore
-     * any such attempts
-     */
-    if (first_server_limit &&
-        tmp_server_limit != server_limit) {
-        /* how do we log a message?  the error log is a bit bucket at this
-         * point; we'll just have to set a flag so that ap_mpm_run()
-         * logs a warning later
-         */
-        changed_limit_at_restart = 1;
-        return NULL;
-    }
-    server_limit = tmp_server_limit;
-
-    if (server_limit > MAX_SERVER_LIMIT) {
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "WARNING: ServerLimit of %d exceeds compile time limit "
-                    "of %d servers,", server_limit, MAX_SERVER_LIMIT);
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    " lowering ServerLimit to %d.", MAX_SERVER_LIMIT);
-       server_limit = MAX_SERVER_LIMIT;
-    }
-    else if (server_limit < 1) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                     "WARNING: Require ServerLimit > 0, setting to 1");
-        server_limit = 1;
-    }
+    server_limit = atoi(arg);
     return NULL;
 }
 
 static const command_rec prefork_cmds[] = {
-UNIX_DAEMON_COMMANDS,
 LISTEN_COMMANDS,
 AP_INIT_TAKE1("StartServers", set_daemons_to_start, NULL, RSRC_CONF,
               "Number of child processes launched at server startup"),
@@ -1534,16 +1531,18 @@ AP_INIT_TAKE1("MinSpareServers", set_min_free_servers, NULL, RSRC_CONF,
 AP_INIT_TAKE1("MaxSpareServers", set_max_free_servers, NULL, RSRC_CONF,
               "Maximum number of idle children"),
 AP_INIT_TAKE1("MaxClients", set_max_clients, NULL, RSRC_CONF,
+              "Deprecated name of MaxRequestWorkers"),
+AP_INIT_TAKE1("MaxRequestWorkers", set_max_clients, NULL, RSRC_CONF,
               "Maximum number of children alive at the same time"),
 AP_INIT_TAKE1("ServerLimit", set_server_limit, NULL, RSRC_CONF,
-              "Maximum value of MaxClients for this run of Apache"),
+              "Maximum value of MaxRequestWorkers for this run of Apache"),
 AP_GRACEFUL_SHUTDOWN_TIMEOUT_COMMAND,
 { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA mpm_prefork_module = {
+AP_DECLARE_MODULE(mpm_prefork) = {
     MPM20_MODULE_STUFF,
-    ap_mpm_rewrite_args,        /* hook to run before apache parses args */
+    NULL,                       /* hook to run before apache parses args */
     NULL,                       /* create per-directory config structure */
     NULL,                       /* merge per-directory config structures */
     NULL,                       /* create per-server config structure */

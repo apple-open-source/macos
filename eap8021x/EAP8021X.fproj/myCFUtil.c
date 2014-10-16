@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -197,9 +197,9 @@ my_CFPropertyListCreateFromFile(const char * filename)
     if (data == NULL) {
 	goto done;
     }
-    plist = CFPropertyListCreateFromXMLData(NULL, data, 
-					    kCFPropertyListImmutable,
-					    NULL);
+    plist = CFPropertyListCreateWithData(NULL, data, 
+					 kCFPropertyListImmutable,
+					 NULL, NULL);
  done:
     if (data)
 	CFRelease(data);
@@ -217,7 +217,9 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
     if (plist == NULL)
 	return (0);
 
-    data = CFPropertyListCreateXMLData(NULL, plist);
+    data = CFPropertyListCreateData(NULL, plist,
+				    kCFPropertyListXMLFormat_v1_0,
+				    0, NULL);
     if (data == NULL) {
 	return (0);
     }
@@ -240,9 +242,9 @@ my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
     if (xml_data == NULL) {
 	return (NULL);
     }
-    plist = CFPropertyListCreateFromXMLData(NULL, xml_data,
-					    kCFPropertyListImmutable,
-					    NULL);
+    plist = CFPropertyListCreateWithData(NULL, xml_data,
+					 kCFPropertyListImmutable,
+					 NULL, NULL);
     CFRelease(xml_data);
     return (plist);
 }
@@ -363,3 +365,64 @@ my_CFPropertyListCopyAsXMLString(CFPropertyListRef plist)
     CFRelease(data);
     return (str);
 }
+
+vm_address_t
+my_CFPropertyListCreateVMData(CFPropertyListRef plist,
+			      mach_msg_type_number_t * 	ret_data_len)
+{
+    vm_address_t	data;
+    int			data_len;
+    kern_return_t	status;
+    CFDataRef		xml_data;
+
+    data = 0;
+    *ret_data_len = 0;
+    xml_data = CFPropertyListCreateData(NULL, plist,
+					kCFPropertyListBinaryFormat_v1_0,
+					0, NULL);
+    if (xml_data == NULL) {
+	goto done;
+    }
+    data_len = (int)CFDataGetLength(xml_data);
+    status = vm_allocate(mach_task_self(), &data, data_len, TRUE);
+    if (status != KERN_SUCCESS) {
+	goto done;
+    }
+    bcopy((char *)CFDataGetBytePtr(xml_data), (char *)data, data_len);
+    *ret_data_len = data_len;
+
+ done:
+    my_CFRelease(&xml_data);
+    return (data);
+}
+
+/* 
+ * Function: my_CFStringCopyComponent
+ * Purpose:
+ *    Separates the given string using the given separator, and returns
+ *    the component at the specified index.
+ * Returns:
+ *    NULL if no such component exists, non-NULL component otherwise
+ */
+CFStringRef
+my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
+			 CFIndex component_index)
+{
+    CFArrayRef		arr;
+    CFStringRef		component = NULL;
+
+    arr = CFStringCreateArrayBySeparatingStrings(NULL, path, separator);
+    if (arr == NULL) {
+	goto done;
+    }
+    if (CFArrayGetCount(arr) <= component_index) {
+	goto done;
+    }
+    component = CFRetain(CFArrayGetValueAtIndex(arr, component_index));
+
+ done:
+    my_CFRelease(&arr);
+    return (component);
+
+}
+

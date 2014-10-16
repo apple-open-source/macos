@@ -1,0 +1,60 @@
+#
+# common setup for all import/export test scripts.
+#
+
+#
+# safely look for this required env var
+#
+setenv | /usr/bin/grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+        echo Please set env var LOCAL_BUILD_DIR.
+        exit(1)
+endif
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+#
+# hard coded executables
+# first the ones built by cspxutils and clxutils...
+#
+set KCIMPORT=$BUILD_DIR/kcImport
+set KCEXPORT=$BUILD_DIR/kcExport
+set RSATOOL=$BUILD_DIR/rsatool
+set DBTOOL=$BUILD_DIR/dbTool
+set DBVERIFY=$BUILD_DIR/dbVerifyKey
+set PEMTOOL=$BUILD_DIR/pemtool
+set KEY_FROM_CERT=$BUILD_DIR/keyFromCert
+#
+# now standard system tools...
+#
+set CERTTOOL=/usr/bin/certtool
+set SECURITY=/usr/bin/security
+set CERTTOOL=/usr/bin/certtool
+set OPENSSL=/usr/bin/openssl
+set RM=/bin/rm
+set CMP=/usr/bin/cmp
+
+# one keychain name used by all tests...
+set KEYCHAIN=importExport.keychain
+
+#
+# and one path, which varies depending on whether we are root
+# Note since root behaves differently depending on whether we actually logged in 
+# as root, or is running via e.g. cron, we force the issue of "where are root's
+# keychains kept" by specifying a full path for the keychain for root in any case. 
+#
+set USERNAME=`whoami`
+if($USERNAME == root) then
+	set KEYCHAIN_PATH=/Library/Keychains/$KEYCHAIN
+	set KEYCHAIN=$KEYCHAIN_PATH
+else
+	set KEYCHAIN_PATH=$HOME/Library/Keychains/$KEYCHAIN
+endif
+
+#
+# our keychain's password
+#
+set KEYCHAIN_PWD=password
+
+# this command cleans out $KEYCHAIN_PATH, leaving it empty
+set CLEANKC="$DBTOOL $KEYCHAIN_PATH D R q"
+

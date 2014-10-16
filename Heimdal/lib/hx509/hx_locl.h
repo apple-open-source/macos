@@ -77,12 +77,6 @@
 #define HC_DEPRECATED_CRYPTO
 #include "crypto-headers.h"
 
-#ifdef HAVE_TRUSTEVALUATIONAGENT
-#include <dispatch/dispatch.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <TrustEvaluationAgent/TrustEvaluationAgent.h>
-#endif
-
 struct hx509_keyset_ops;
 struct hx509_collector;
 struct hx509_generate_private_context;

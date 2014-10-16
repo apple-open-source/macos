@@ -1,0 +1,57 @@
+#
+# TrustSettings tests/
+#
+# This must be run with trustSettingsTest.keychain in your KC search path 
+# and TBD.plist as your per-user trust settings. 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end

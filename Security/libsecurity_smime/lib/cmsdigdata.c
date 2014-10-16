@@ -42,10 +42,12 @@
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
+
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
 
 /*
  * SecCmsDigestedDataCreate - create a digestedData object (presumably for encoding)
@@ -70,7 +72,7 @@ SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg)
     if (digd == NULL)
 	goto loser;
 
-    digd->cmsg = cmsg;
+    digd->contentInfo.cmsg = cmsg;
 
     if (SECOID_CopyAlgorithmID (poolp, &(digd->digestAlg), digestalg) != SECSuccess)
 	goto loser;
@@ -114,13 +116,13 @@ OSStatus
 SecCmsDigestedDataEncodeBeforeStart(SecCmsDigestedDataRef digd)
 {
     unsigned long version;
-    CSSM_DATA_PTR dummy;
+    SecAsn1Item * dummy;
 
     version = SEC_CMS_DIGESTED_DATA_VERSION_DATA;
     if (SecCmsContentInfoGetContentTypeTag(&(digd->contentInfo)) != SEC_OID_PKCS7_DATA)
 	version = SEC_CMS_DIGESTED_DATA_VERSION_ENCAP;
 
-    dummy = SEC_ASN1EncodeInteger(digd->cmsg->poolp, &(digd->version), version);
+    dummy = SEC_ASN1EncodeInteger(digd->contentInfo.cmsg->poolp, &(digd->version), version);
     return (dummy == NULL) ? SECFailure : SECSuccess;
 }
 
@@ -157,9 +159,12 @@ SecCmsDigestedDataEncodeAfterData(SecCmsDigestedDataRef digd)
     OSStatus rv = SECSuccess;
     /* did we have digest calculation going on? */
     if (digd->contentInfo.digcx) {
-	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx,
-					     (SecArenaPoolRef)digd->cmsg->poolp, &(digd->digest));
-	/* error has been set by SecCmsDigestContextFinishSingle */
+	SecAsn1Item data;
+	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx, &data);
+	if (rv == SECSuccess)
+	    rv = SECITEM_CopyItem(digd->contentInfo.cmsg->poolp, &(digd->digest), &data);
+	if (rv == SECSuccess)
+	    SecCmsDigestContextDestroy(digd->contentInfo.digcx);
 	digd->contentInfo.digcx = NULL;
     }
 
@@ -200,9 +205,12 @@ SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd)
     OSStatus rv = SECSuccess;
     /* did we have digest calculation going on? */
     if (digd->contentInfo.digcx) {
-	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx,
-					     (SecArenaPoolRef)digd->cmsg->poolp, &(digd->cdigest));
-	/* error has been set by SecCmsDigestContextFinishSingle */
+	SecAsn1Item data;
+	rv = SecCmsDigestContextFinishSingle(digd->contentInfo.digcx, &data);
+	if (rv == SECSuccess)
+	    rv = SECITEM_CopyItem(digd->contentInfo.cmsg->poolp, &(digd->digest), &data);
+	if (rv == SECSuccess)
+	    SecCmsDigestContextDestroy(digd->contentInfo.digcx);
 	digd->contentInfo.digcx = NULL;
     }
 

@@ -11,11 +11,15 @@
 .Fl h
 .Pp
 .Nm lsmp
-.Ar <pid>   
-Show mach port usage for <pid>
+.Ar -p <pid>
+Show mach port usage for <pid>. Run with root privileges to see detailed info about port destinations etc.
 .Pp
 .Nm lsmp
-.Ar -all    
+.Ar -v
+Show information in detail for Kernel object based ports. Including thread ports and special ports attached to it.
+.Pp
+.Nm lsmp
+.Ar -a
 Show mach port usage for all tasks in the system
 .Sh DESCRIPTION
 The

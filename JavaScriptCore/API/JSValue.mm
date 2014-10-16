@@ -20,13 +20,12 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 
 #import "APICast.h"
-#import "APIShims.h"
 #import "DateInstance.h"
 #import "Error.h"
 #import "JavaScriptCore.h"
@@ -35,8 +34,9 @@
 #import "JSValueInternal.h"
 #import "JSWrapperMap.h"
 #import "ObjcRuntimeExtras.h"
-#import "Operations.h"
+#import "JSCInlines.h"
 #import "JSCJSValue.h"
+#import "Strong.h"
 #import "StrongInlines.h"
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
@@ -45,6 +45,12 @@
 #import <wtf/TCSpinLock.h>
 #import <wtf/text/WTFString.h>
 #import <wtf/text/StringHash.h>
+
+#if ENABLE(REMOTE_INSPECTOR)
+#import "CallFrame.h"
+#import "JSGlobalObject.h"
+#import "JSGlobalObjectInspectorController.h"
+#endif
 
 #if JSC_OBJC_API_ENABLED
 
@@ -453,8 +459,8 @@ NSString * const JSPropertyDescriptorSetKey = @"set";
 - (CGPoint)toPoint
 {
     return (CGPoint){
-        [self[@"x"] toDouble],
-        [self[@"y"] toDouble]
+        static_cast<CGFloat>([self[@"x"] toDouble]),
+        static_cast<CGFloat>([self[@"y"] toDouble])
     };
 }
 
@@ -477,8 +483,8 @@ NSString * const JSPropertyDescriptorSetKey = @"set";
 - (CGSize)toSize
 {
     return (CGSize){
-        [self[@"width"] toDouble],
-        [self[@"height"] toDouble]
+        static_cast<CGFloat>([self[@"width"] toDouble]),
+        static_cast<CGFloat>([self[@"height"] toDouble])
     };
 }
 
@@ -556,14 +562,14 @@ NSString * const JSPropertyDescriptorSetKey = @"set";
 
 inline bool isDate(JSObjectRef object, JSGlobalContextRef context)
 {
-    JSC::APIEntryShim entryShim(toJS(context));
-    return toJS(object)->inherits(&JSC::DateInstance::s_info);
+    JSC::JSLockHolder locker(toJS(context));
+    return toJS(object)->inherits(JSC::DateInstance::info());
 }
 
 inline bool isArray(JSObjectRef object, JSGlobalContextRef context)
 {
-    JSC::APIEntryShim entryShim(toJS(context));
-    return toJS(object)->inherits(&JSC::JSArray::s_info);
+    JSC::JSLockHolder locker(toJS(context));
+    return toJS(object)->inherits(JSC::JSArray::info());
 }
 
 @implementation JSValue(Internal)
@@ -628,6 +634,14 @@ JSContainerConvertor::Task JSContainerConvertor::take()
     return last;
 }
 
+#if ENABLE(REMOTE_INSPECTOR)
+static void reportExceptionToInspector(JSGlobalContextRef context, JSC::JSValue exception)
+{
+    JSC::ExecState* exec = toJS(context);
+    exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exception);
+}
+#endif
+
 static JSContainerConvertor::Task valueToObjectWithoutCopy(JSGlobalContextRef context, JSValueRef value)
 {
     if (!JSValueIsObject(context, value)) {
@@ -660,7 +674,7 @@ static JSContainerConvertor::Task valueToObjectWithoutCopy(JSGlobalContextRef co
         return (JSContainerConvertor::Task){ object, wrapped, ContainerNone };
 
     if (isDate(object, context))
-        return (JSContainerConvertor::Task){ object, [NSDate dateWithTimeIntervalSince1970:JSValueToNumber(context, object, 0)], ContainerNone };
+        return (JSContainerConvertor::Task){ object, [NSDate dateWithTimeIntervalSince1970:JSValueToNumber(context, object, 0) / 1000.0], ContainerNone };
 
     if (isArray(object, context))
         return (JSContainerConvertor::Task){ object, [NSMutableArray array], ContainerArray };
@@ -671,7 +685,7 @@ static JSContainerConvertor::Task valueToObjectWithoutCopy(JSGlobalContextRef co
 static id containerValueToObject(JSGlobalContextRef context, JSContainerConvertor::Task task)
 {
     ASSERT(task.type != ContainerNone);
-    JSC::APIEntryShim entryShim(toJS(context));
+    JSC::JSLockHolder locker(toJS(context));
     JSContainerConvertor convertor(context);
     convertor.add(task);
     ASSERT(!convertor.isWorkListEmpty());
@@ -696,6 +710,8 @@ static id containerValueToObject(JSGlobalContextRef context, JSContainerConverto
         } else {
             ASSERT([current.objc isKindOfClass:[NSMutableDictionary class]]);
             NSMutableDictionary *dictionary = (NSMutableDictionary *)current.objc;
+
+            JSC::JSLockHolder locker(toJS(context));
 
             JSPropertyNameArrayRef propertyNameArray = JSObjectCopyPropertyNames(context, js);
             size_t length = JSPropertyNameArrayGetCount(propertyNameArray);
@@ -751,7 +767,7 @@ id valueToString(JSGlobalContextRef context, JSValueRef value, JSValueRef* excep
         return nil;
     }
 
-    NSString *stringNS = HardAutorelease(JSStringCopyCFString(kCFAllocatorDefault, jsstring));
+    NSString *stringNS = CFBridgingRelease(JSStringCopyCFString(kCFAllocatorDefault, jsstring));
     JSStringRelease(jsstring);
     return stringNS;
 }
@@ -764,7 +780,7 @@ id valueToDate(JSGlobalContextRef context, JSValueRef value, JSValueRef* excepti
             return wrapped;
     }
 
-    double result = JSValueToNumber(context, value, exception);
+    double result = JSValueToNumber(context, value, exception) / 1000.0;
     return *exception ? nil : [NSDate dateWithTimeIntervalSince1970:result];
 }
 
@@ -779,8 +795,14 @@ id valueToArray(JSGlobalContextRef context, JSValueRef value, JSValueRef* except
     if (JSValueIsObject(context, value))
         return containerValueToObject(context, (JSContainerConvertor::Task){ value, [NSMutableArray array], ContainerArray});
 
-    if (!(JSValueIsNull(context, value) || JSValueIsUndefined(context, value)))
-        *exception = toRef(JSC::createTypeError(toJS(context), "Cannot convert primitive to NSArray"));
+    JSC::JSLockHolder locker(toJS(context));
+    if (!(JSValueIsNull(context, value) || JSValueIsUndefined(context, value))) {
+        JSC::JSObject* exceptionObject = JSC::createTypeError(toJS(context), ASCIILiteral("Cannot convert primitive to NSArray"));
+        *exception = toRef(exceptionObject);
+#if ENABLE(REMOTE_INSPECTOR)
+        reportExceptionToInspector(context, exceptionObject);
+#endif
+    }
     return nil;
 }
 
@@ -795,8 +817,14 @@ id valueToDictionary(JSGlobalContextRef context, JSValueRef value, JSValueRef* e
     if (JSValueIsObject(context, value))
         return containerValueToObject(context, (JSContainerConvertor::Task){ value, [NSMutableDictionary dictionary], ContainerDictionary});
 
-    if (!(JSValueIsNull(context, value) || JSValueIsUndefined(context, value)))
-        *exception = toRef(JSC::createTypeError(toJS(context), "Cannot convert primitive to NSDictionary"));
+    JSC::JSLockHolder locker(toJS(context));
+    if (!(JSValueIsNull(context, value) || JSValueIsUndefined(context, value))) {
+        JSC::JSObject* exceptionObject = JSC::createTypeError(toJS(context), ASCIILiteral("Cannot convert primitive to NSDictionary"));
+        *exception = toRef(exceptionObject);
+#if ENABLE(REMOTE_INSPECTOR)
+        reportExceptionToInspector(context, exceptionObject);
+#endif
+    }
     return nil;
 }
 
@@ -897,7 +925,7 @@ static ObjcContainerConvertor::Task objectToValueWithoutCopy(JSContext *context,
         }
 
         if ([object isKindOfClass:[NSDate class]]) {
-            JSValueRef argument = JSValueMakeNumber(contextRef, [object timeIntervalSince1970]);
+            JSValueRef argument = JSValueMakeNumber(contextRef, [object timeIntervalSince1970] * 1000.0);
             JSObjectRef result = JSObjectMakeDate(contextRef, 1, &argument, 0);
             return (ObjcContainerConvertor::Task){ object, result, ContainerNone };
         }
@@ -921,7 +949,7 @@ JSValueRef objectToValue(JSContext *context, id object)
     if (task.type == ContainerNone)
         return task.js;
 
-    JSC::APIEntryShim entryShim(toJS(contextRef));
+    JSC::JSLockHolder locker(toJS(contextRef));
     ObjcContainerConvertor convertor(context);
     convertor.add(task);
     ASSERT(!convertor.isWorkListEmpty());

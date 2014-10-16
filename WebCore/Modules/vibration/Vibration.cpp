@@ -26,11 +26,15 @@
 
 namespace WebCore {
 
+// Maximum number of entries in a vibration pattern.
+const unsigned MaxVibrationPatternLength = 99;
+// Maximum duration of a vibration in 10 seconds.
+const unsigned MaxVibrationDuration = 10000;
+
 Vibration::Vibration(VibrationClient* client)
     : m_vibrationClient(client)
-    , m_timerStart(this, &Vibration::timerStartFired)
-    , m_timerStop(this, &Vibration::timerStopFired)
-    , m_isVibrating(false)
+    , m_timer(this, &Vibration::timerFired)
+    , m_state(State::Idle)
 {
 }
 
@@ -39,91 +43,77 @@ Vibration::~Vibration()
     m_vibrationClient->vibrationDestroyed();
 }
 
-PassOwnPtr<Vibration> Vibration::create(VibrationClient* client)
+bool Vibration::vibrate(const VibrationPattern& pattern)
 {
-    return adoptPtr(new Vibration(client));
-}
+    VibrationPattern& sanitized = const_cast<VibrationPattern&>(pattern);
+    size_t length = sanitized.size();
 
-void Vibration::vibrate(const unsigned& time)
-{
-    if (!time) {
-        cancelVibration();
-        return;
-    }
-    m_pattern.append(time);
-    m_timerStart.startOneShot(0);
-}
-
-void Vibration::vibrate(const VibrationPattern& pattern)
-{
-    int length = pattern.size();
-
-    // Cancel the pre-existing instance of vibration patterns, if the pattern is 0 or an empty list.
-    if (!length || (length == 1 && !pattern[0])) {
-        cancelVibration();
-        return;
+    // If the pattern is too long then truncate it.
+    if (length > MaxVibrationPatternLength) {
+        sanitized.shrink(MaxVibrationPatternLength);
+        length = MaxVibrationPatternLength;
     }
 
-    if (m_isVibrating)
+    // If the length of pattern is even and is not zero, then remove the last entry in pattern.
+    if (length && !(length % 2)) {
+        sanitized.removeLast();
+        length--;
+    }
+
+    // If any pattern entry is too long then truncate it.
+    for (auto& duration : sanitized)
+        duration = std::min(duration, MaxVibrationDuration);
+
+    // Pre-exisiting instance need to be canceled when vibrate() is called.
+    if (isVibrating())
         cancelVibration();
 
-    if (m_timerStart.isActive())
-        m_timerStart.stop();
+    // If pattern is an empty list, then return true and terminate these steps.
+    if (!length || (length == 1 && !sanitized[0])) {
+        cancelVibration();
+        return true;
+    }
 
-    m_pattern = pattern;
-    m_timerStart.startOneShot(0);
+    m_pattern = sanitized;
+
+    m_timer.startOneShot(0);
+    m_state = State::Waiting;
+    return true;
 }
 
 void Vibration::cancelVibration()
 {
     m_pattern.clear();
-    if (m_isVibrating) {
+    if (isVibrating()) {
+        m_timer.stop();
+        m_state = State::Idle;
         m_vibrationClient->cancelVibration();
-        m_isVibrating = false;
-        m_timerStop.stop();
     }
 }
 
-void Vibration::suspendVibration()
+void Vibration::timerFired(Timer<Vibration>* timer)
 {
-    if (!m_isVibrating)
+    ASSERT_UNUSED(timer, timer == &m_timer);
+
+    m_timer.stop();
+
+    if (m_pattern.isEmpty()) {
+        m_state = State::Idle;
         return;
+    }
 
-    m_pattern.insert(0, m_timerStop.nextFireInterval());
-    m_timerStop.stop();
-    cancelVibration();
-}
-
-void Vibration::resumeVibration()
-{
-    m_timerStart.startOneShot(0);
-}
-
-void Vibration::timerStartFired(Timer<Vibration>* timer)
-{
-    ASSERT_UNUSED(timer, timer == &m_timerStart);
-
-    m_timerStart.stop();
-
-    if (m_pattern.size()) {
-        m_isVibrating = true;
+    switch (m_state) {
+    case State::Vibrating:
+        m_state = State::Waiting;
+        break;
+    case State::Waiting:
+    case State::Idle:
+        m_state = State::Vibrating;
         m_vibrationClient->vibrate(m_pattern[0]);
-        m_timerStop.startOneShot(m_pattern[0] / 1000.0);
-        m_pattern.remove(0);
+        break;
     }
-}
-
-void Vibration::timerStopFired(Timer<Vibration>* timer)
-{
-    ASSERT_UNUSED(timer, timer == &m_timerStop);
-
-    m_timerStop.stop();
-    m_isVibrating = false;
-
-    if (m_pattern.size()) {
-        m_timerStart.startOneShot(m_pattern[0] / 1000.0);
-        m_pattern.remove(0);
-    }
+    m_timer.startOneShot(m_pattern[0] / 1000.0);
+    m_pattern.remove(0);
 }
 
 const char* Vibration::supplementName()
@@ -131,14 +121,9 @@ const char* Vibration::supplementName()
     return "Vibration";
 }
 
-bool Vibration::isActive(Page* page)
-{
-    return static_cast<bool>(Vibration::from(page));
-}
-
 void provideVibrationTo(Page* page, VibrationClient* client)
 {
-    Vibration::provideTo(page, Vibration::supplementName(), Vibration::create(client));
+    Vibration::provideTo(page, Vibration::supplementName(), std::make_unique<Vibration>(client));
 }
 
 } // namespace WebCore

@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/khq.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/khq.xml
+ * ICU <specials> source: <path>/common/main/khq.xml
  */
 khq{
     AuxExemplarCharacters{"[v]"}
@@ -26,7 +26,7 @@ khq{
             }
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.97.28"}
     calendar{
         generic{
             DateTimePatterns{
@@ -51,7 +51,6 @@ khq{
                 MMMMEd{"E d MMMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
-                MMMdd{"dd MMM"}
                 MMd{"d/MM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
@@ -95,7 +94,6 @@ khq{
                 MMMMEd{"E d MMMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
-                MMMdd{"dd MMM"}
                 MMd{"d/MM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}

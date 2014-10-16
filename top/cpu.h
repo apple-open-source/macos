@@ -26,5 +26,8 @@
 #include "statistic.h"
 
 struct statistic *top_cpu_create(WINDOW *parent, const char *name);
+struct statistic *top_cpu_me_create(WINDOW *parent, const char *name);
+struct statistic *top_cpu_others_create(WINDOW *parent, const char *name);
+struct statistic *top_boosts_create(WINDOW *parent, const char *name);
 
 #endif /*CPU_H*/

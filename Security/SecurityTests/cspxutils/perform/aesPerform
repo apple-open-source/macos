@@ -1,0 +1,22 @@
+#! /bin/csh -f
+#
+# run symmteric performance tests on AES, all key sizes and block sizes.
+#
+if ( $#argv < 2 ) then
+        echo Usage: aesPerform iterations bufsize
+        exit(1)
+endif
+#
+set ITER=$argv[1]
+set BUFSIZE=$argv[2]
+#
+cd $LOCAL_BUILD_DIR
+perform $ITER $BUFSIZE a=a e b=128 k=128
+perform $ITER $BUFSIZE a=a e b=128 k=192
+perform $ITER $BUFSIZE a=a e b=128 k=256
+perform $ITER $BUFSIZE a=a e b=192 k=128
+perform $ITER $BUFSIZE a=a e b=192 k=192
+perform $ITER $BUFSIZE a=a e b=192 k=256
+perform $ITER $BUFSIZE a=a e b=256 k=128
+perform $ITER $BUFSIZE a=a e b=256 k=192
+perform $ITER $BUFSIZE a=a e b=256 k=256

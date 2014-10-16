@@ -1,0 +1,17 @@
+LICENSE.txt
+MANIFEST.in
+README.txt
+distribute_setup.py
+pyobjc_setup.py
+setup.py
+Doc/api-notes-DictionaryServices.txt
+Lib/DictionaryServices/__init__.py
+Lib/DictionaryServices/_metadata.py
+Lib/pyobjc_framework_DictionaryServices.egg-info/PKG-INFO
+Lib/pyobjc_framework_DictionaryServices.egg-info/SOURCES.txt
+Lib/pyobjc_framework_DictionaryServices.egg-info/dependency_links.txt
+Lib/pyobjc_framework_DictionaryServices.egg-info/not-zip-safe
+Lib/pyobjc_framework_DictionaryServices.egg-info/requires.txt
+Lib/pyobjc_framework_DictionaryServices.egg-info/top_level.txt
+PyObjCTest/__init__.py
+PyObjCTest/test_dictionaryservices.py

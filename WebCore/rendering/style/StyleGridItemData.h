@@ -31,6 +31,7 @@
 #ifndef StyleGridItemData_h
 #define StyleGridItemData_h
 
+#if ENABLE(CSS_GRID_LAYOUT)
 
 #include "GridPosition.h"
 #include <wtf/PassRefPtr.h>
@@ -41,13 +42,13 @@ namespace WebCore {
 
 class StyleGridItemData : public RefCounted<StyleGridItemData> {
 public:
-    static PassRefPtr<StyleGridItemData> create() { return adoptRef(new StyleGridItemData); }
-    PassRefPtr<StyleGridItemData> copy() const { return adoptRef(new StyleGridItemData(*this)); }
+    static PassRef<StyleGridItemData> create() { return adoptRef(*new StyleGridItemData); }
+    PassRef<StyleGridItemData> copy() const;
 
     bool operator==(const StyleGridItemData& o) const
     {
-        return m_gridStart == o.m_gridStart && m_gridEnd == o.m_gridEnd
-            && m_gridBefore == o.m_gridBefore && m_gridAfter == o.m_gridAfter;
+        return m_gridColumnStart == o.m_gridColumnStart && m_gridColumnEnd == o.m_gridColumnEnd
+            && m_gridRowStart == o.m_gridRowStart && m_gridRowEnd == o.m_gridRowEnd;
     }
 
     bool operator!=(const StyleGridItemData& o) const
@@ -55,10 +56,10 @@ public:
         return !(*this == o);
     }
 
-    GridPosition m_gridStart;
-    GridPosition m_gridEnd;
-    GridPosition m_gridBefore;
-    GridPosition m_gridAfter;
+    GridPosition m_gridColumnStart;
+    GridPosition m_gridColumnEnd;
+    GridPosition m_gridRowStart;
+    GridPosition m_gridRowEnd;
 
 private:
     StyleGridItemData();
@@ -66,5 +67,7 @@ private:
 };
 
 } // namespace WebCore
+
+#endif /* ENABLE(CSS_GRID_LAYOUT) */
 
 #endif // StyleGridItemData_h

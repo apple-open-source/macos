@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
- * Copyright (C) 2013 Samsung Electronics. All rights reserved.
+ * Copyright (C) 2013-2014 Samsung Electronics. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,17 +42,18 @@ using namespace WebKit;
 EwkFaviconDatabase::EwkFaviconDatabase(WKIconDatabaseRef iconDatabase)
     : m_iconDatabase(iconDatabase)
 {
-    WKIconDatabaseClient iconDatabaseClient;
+    WKIconDatabaseClientV1 iconDatabaseClient;
     memset(&iconDatabaseClient, 0, sizeof(WKIconDatabaseClient));
-    iconDatabaseClient.version = kWKIconDatabaseClientCurrentVersion;
-    iconDatabaseClient.clientInfo = this;
+    iconDatabaseClient.base.version = kWKIconDatabaseClientCurrentVersion;
+    iconDatabaseClient.base.clientInfo = this;
     iconDatabaseClient.iconDataReadyForPageURL = iconDataReadyForPageURL;
-    WKIconDatabaseSetIconDatabaseClient(m_iconDatabase.get(), &iconDatabaseClient);
+    WKIconDatabaseSetIconDatabaseClient(m_iconDatabase.get(), &iconDatabaseClient.base);
 }
 
 EwkFaviconDatabase::~EwkFaviconDatabase()
 {
     WKIconDatabaseSetIconDatabaseClient(m_iconDatabase.get(), 0);
+    WKIconDatabaseClose(m_iconDatabase.get());
 }
 
 void EwkFaviconDatabase::watchChanges(const IconChangeCallbackData& callbackData)
@@ -68,21 +69,6 @@ void EwkFaviconDatabase::unwatchChanges(Ewk_Favicon_Database_Icon_Change_Cb call
 {
     ASSERT(callback);
     m_changeListeners.remove(callback);
-}
-
-void EwkFaviconDatabase::didChangeIconForPageURL(WKIconDatabaseRef, WKURLRef pageURLRef, const void* clientInfo)
-{
-    const EwkFaviconDatabase* ewkIconDatabase = static_cast<const EwkFaviconDatabase*>(clientInfo);
-
-    if (ewkIconDatabase->m_changeListeners.isEmpty())
-        return;
-
-    CString pageURL = toWTFString(pageURLRef).utf8();
-
-    ChangeListenerMap::const_iterator it = ewkIconDatabase->m_changeListeners.begin();
-    ChangeListenerMap::const_iterator end = ewkIconDatabase->m_changeListeners.end();
-    for (; it != end; ++it)
-        it->value.callback(pageURL.data(), it->value.userData);
 }
 
 PassRefPtr<cairo_surface_t> EwkFaviconDatabase::getIconSurfaceSynchronously(const char* pageURL) const
@@ -103,10 +89,8 @@ void EwkFaviconDatabase::iconDataReadyForPageURL(WKIconDatabaseRef, WKURLRef pag
     WKIconDatabaseRetainIconForURL(ewkIconDatabase->m_iconDatabase.get(), pageURL);
 
     CString urlString = toWTFString(pageURL).utf8();
-    ChangeListenerMap::const_iterator it = ewkIconDatabase->m_changeListeners.begin();
-    ChangeListenerMap::const_iterator end = ewkIconDatabase->m_changeListeners.end();
-    for (; it != end; ++it)
-        it->value.callback(urlString.data(), it->value.userData);
+    for (auto& it : ewkIconDatabase->m_changeListeners)
+        it.value.callback(ewkIconDatabase, urlString.data(), it.value.userData);
 }
 
 Evas_Object* ewk_favicon_database_icon_get(Ewk_Favicon_Database* ewkIconDatabase, const char* pageURL, Evas* evas)
@@ -119,7 +103,7 @@ Evas_Object* ewk_favicon_database_icon_get(Ewk_Favicon_Database* ewkIconDatabase
     if (!surface)
         return 0;
 
-    return WebCore::evasObjectFromCairoImageSurface(evas, surface.get()).leakRef();
+    return WebCore::evasObjectFromCairoImageSurface(evas, surface.get()).release();
 }
 
 void ewk_favicon_database_icon_change_callback_add(Ewk_Favicon_Database* ewkIconDatabase, Ewk_Favicon_Database_Icon_Change_Cb callback, void* userData)

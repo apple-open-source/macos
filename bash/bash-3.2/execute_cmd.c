@@ -535,6 +535,8 @@ execute_command_internal (command, asynchronous, pipe_in, pipe_out,
   if (command->type == cm_subshell && (command->flags & CMD_NO_FORK))
     return (execute_in_subshell (command, asynchronous, pipe_in, pipe_out, fds_to_close));
 
+  ignore_return = (command->flags & CMD_IGNORE_RETURN) != 0;
+
   if (command->type == cm_subshell ||
       (command->flags & (CMD_WANT_SUBSHELL|CMD_FORCE_SUBSHELL)) ||
       (shell_control_structure (command->type) &&
@@ -577,6 +579,15 @@ execute_command_internal (command, asynchronous, pipe_in, pipe_out,
 				: EXECUTION_SUCCESS);
 	      else
 		exec_result = last_command_exit_value;
+
+            if (ignore_return == 0 && invert == 0 &&
+                ((posixly_correct && interactive == 0 && special_builtin_failed) ||
+                 (exit_immediately_on_error && (exec_result != EXECUTION_SUCCESS))))
+            {
+                last_command_exit_value = exec_result;
+                run_pending_traps ();
+                jump_to_top_level (ERREXIT);
+            }
 
 	      return (last_command_exit_value = exec_result);
 	    }
@@ -650,8 +661,6 @@ execute_command_internal (command, asynchronous, pipe_in, pipe_out,
 
   if (exec_undo_list)
     add_unwind_protect ((Function *)dispose_redirects, exec_undo_list);
-
-  ignore_return = (command->flags & CMD_IGNORE_RETURN) != 0;
 
   QUIT;
 

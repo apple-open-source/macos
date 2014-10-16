@@ -31,12 +31,6 @@ if int(os.uname()[2].split('.')[0]) >= 10:
 SDKROOT = os.environ.get('SDKROOT')
 if SDKROOT is None or SDKROOT is '':
     SDKROOT = '/'
-def fixsdk(arg):
-    if arg.startswith('-I/'):
-        arg = '-I' + os.path.join(SDKROOT, arg[3:])
-    elif arg.startswith('-L/'):
-        arg = '-L' + os.path.join(SDKROOT, arg[3:])
-    return arg
 
 
 # Some PiPy stuff
@@ -224,7 +218,7 @@ def xml2config(arg):
     ln = os.popen('xml2-config %s'%(arg,), 'r').readline()
     ln = ln.strip()
 
-    return map(fixsdk, shlex.split(ln))
+    return shlex.split(ln)
 
 CFLAGS.extend(xml2config('--cflags'))
 OBJC_LDFLAGS.extend(xml2config('--libs'))

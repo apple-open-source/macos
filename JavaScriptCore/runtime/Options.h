@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,11 @@
 #ifndef Options_h
 #define Options_h
 
+#include "GCLogging.h"
 #include "JSExportMacros.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -87,54 +89,145 @@ private:
 };
 
 typedef OptionRange optionRange;
+typedef const char* optionString;
 
 #define JSC_OPTIONS(v) \
+    v(bool, useLLInt,  true) \
     v(bool, useJIT,    true) \
     v(bool, useDFGJIT, true) \
     v(bool, useRegExpJIT, true) \
     \
+    v(unsigned, maxPerThreadStackUsage, 4 * MB) \
+    v(unsigned, reservedZoneSize, 128 * KB) \
+    v(unsigned, errorModeReservedZoneSize, 64 * KB) \
+    \
+    v(bool, crashIfCantAllocateJITMemory, false) \
+    \
     v(bool, forceDFGCodeBlockLiveness, false) \
+    v(bool, forceICFailure, false) \
     \
     v(bool, dumpGeneratedBytecodes, false) \
+    v(bool, dumpBytecodeLivenessResults, false) \
+    v(bool, validateBytecode, false) \
+    v(bool, forceDebuggerBytecodeGeneration, false) \
+    v(bool, forceProfilerBytecodeGeneration, false) \
     \
     /* showDisassembly implies showDFGDisassembly. */ \
     v(bool, showDisassembly, false) \
     v(bool, showDFGDisassembly, false) \
+    v(bool, showFTLDisassembly, false) \
     v(bool, showAllDFGNodes, false) \
     v(optionRange, bytecodeRangeToDFGCompile, 0) \
+    v(optionString, dfgFunctionWhitelistFile, nullptr) \
     v(bool, dumpBytecodeAtDFGTime, false) \
     v(bool, dumpGraphAtEachPhase, false) \
+    v(bool, verboseDFGByteCodeParsing, false) \
     v(bool, verboseCompilation, false) \
+    v(bool, verboseFTLCompilation, false) \
     v(bool, logCompilationChanges, false) \
     v(bool, printEachOSRExit, false) \
     v(bool, validateGraph, false) \
     v(bool, validateGraphAtEachPhase, false) \
+    v(bool, verboseOSR, false) \
+    v(bool, verboseFTLOSRExit, false) \
+    v(bool, verboseCallLink, false) \
+    v(bool, verboseCompilationQueue, false) \
+    v(bool, reportCompileTimes, false) \
+    v(bool, reportFTLCompileTimes, false) \
+    v(bool, verboseCFA, false) \
+    v(bool, verboseFTLToJSThunk, false) \
+    v(bool, verboseFTLFailure, false) \
+    v(bool, alwaysComputeHash, false) \
+    v(bool, testTheFTL, false) \
+    v(bool, verboseSanitizeStack, false) \
+    v(bool, alwaysDoFullCollection, false) \
+    v(bool, eagerlyUpdateTopCallFrame, false) \
+    \
+    v(bool, enableOSREntryToDFG, true) \
+    v(bool, enableOSREntryToFTL, true) \
+    \
+    v(bool, useFTLJIT, true) \
+    v(bool, enableExperimentalFTLCoverage, false) \
+    v(bool, useFTLTBAA, true) \
+    v(bool, enableLLVMFastISel, false) \
+    v(bool, useLLVMSmallCodeModel, false) \
+    v(bool, dumpLLVMIR, false) \
+    v(bool, validateFTLOSRExitLiveness, false) \
+    v(bool, llvmAlwaysFailsBeforeCompile, false) \
+    v(bool, llvmAlwaysFailsBeforeLink, false) \
+    v(bool, llvmSimpleOpt, true) \
+    v(unsigned, llvmBackendOptimizationLevel, 2) \
+    v(unsigned, llvmOptimizationLevel, 2) \
+    v(unsigned, llvmSizeLevel, 0) \
+    v(unsigned, llvmMaxStackSize, 128 * KB) \
+    v(bool, llvmDisallowAVX, true) \
+    v(bool, ftlCrashes, false) /* fool-proof way of checking that you ended up in the FTL. ;-) */\
+    v(bool, clobberAllRegsInFTLICSlowPath, !ASSERT_DISABLED) \
+    v(bool, assumeAllRegsInFTLICAreLive, false) \
+    v(bool, enableAccessInlining, true) \
+    v(bool, enablePolyvariantDevirtualization, true) \
+    v(bool, enablePolymorphicAccessInlining, true) \
+    \
+    v(bool, enableConcurrentJIT, true) \
+    v(unsigned, numberOfDFGCompilerThreads, computeNumberOfWorkerThreads(2, 2) - 1) \
+    v(unsigned, numberOfFTLCompilerThreads, computeNumberOfWorkerThreads(8, 2) - 1) \
+    v(int32, priorityDeltaOfDFGCompilerThreads, computePriorityDeltaOfWorkerThreads(-1, 0)) \
+    v(int32, priorityDeltaOfFTLCompilerThreads, computePriorityDeltaOfWorkerThreads(-2, 0)) \
     \
     v(bool, enableProfiler, false) \
     \
-    v(unsigned, maximumOptimizationCandidateInstructionCount, 10000) \
+    v(bool, forceUDis86Disassembler, false) \
+    v(bool, forceLLVMDisassembler, false) \
+    \
+    v(bool, enableArchitectureSpecificOptimizations, true) \
+    \
+    v(bool, breakOnThrow, false) \
+    \
+    v(unsigned, maximumOptimizationCandidateInstructionCount, 100000) \
     \
     v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 180) \
     v(unsigned, maximumFunctionForClosureCallInlineCandidateInstructionCount, 100) \
     v(unsigned, maximumFunctionForConstructInlineCandidateInstructionCount, 100) \
     \
+    v(unsigned, maximumFTLCandidateInstructionCount, 20000) \
+    \
     /* Depth of inline stack, so 1 = no inlining, 2 = one level, etc. */ \
     v(unsigned, maximumInliningDepth, 5) \
+    v(unsigned, maximumInliningRecursion, 2) \
+    v(unsigned, maximumInliningDepthForMustInline, 7) \
+    v(unsigned, maximumInliningRecursionForMustInline, 3) \
     \
-    v(int32, thresholdForJITAfterWarmUp, 100) \
+    /* Maximum size of a caller for enabling inlining. This is purely to protect us */\
+    /* from super long compiles that take a lot of memory. */\
+    v(unsigned, maximumInliningCallerSize, 10000) \
+    \
+    v(bool, enablePolyvariantCallInlining, true) \
+    v(bool, enablePolyvariantByIdInlining, true) \
+    \
+    v(unsigned, maximumBinaryStringSwitchCaseLength, 50) \
+    v(unsigned, maximumBinaryStringSwitchTotalLength, 2000) \
+    \
+    v(int32, thresholdForJITAfterWarmUp, 500) \
     v(int32, thresholdForJITSoon, 100) \
     \
     v(int32, thresholdForOptimizeAfterWarmUp, 1000) \
     v(int32, thresholdForOptimizeAfterLongWarmUp, 1000) \
     v(int32, thresholdForOptimizeSoon, 1000) \
-    \
     v(int32, executionCounterIncrementForLoop, 1) \
-    v(int32, executionCounterIncrementForReturn, 15) \
+    v(int32, executionCounterIncrementForEntry, 15) \
+    \
+    v(int32, thresholdForFTLOptimizeAfterWarmUp, 100000) \
+    v(int32, thresholdForFTLOptimizeSoon, 1000) \
+    v(int32, ftlTierUpCounterIncrementForLoop, 1) \
+    v(int32, ftlTierUpCounterIncrementForReturn, 15) \
+    v(unsigned, ftlOSREntryFailureCountForReoptimization, 15) \
+    v(unsigned, ftlOSREntryRetryThreshold, 100) \
     \
     v(int32, evalThresholdMultiplier, 10) \
     \
     v(bool, randomizeExecutionCountsBetweenCheckpoints, false) \
-    v(int32, maximumExecutionCountsBetweenCheckpoints, 1000) \
+    v(int32, maximumExecutionCountsBetweenCheckpointsForBaseline, 1000) \
+    v(int32, maximumExecutionCountsBetweenCheckpointsForUpperTiers, 50000) \
     \
     v(unsigned, likelyToTakeSlowCaseMinimumCount, 100) \
     v(unsigned, couldTakeSlowCaseMinimumCount, 10) \
@@ -152,12 +245,19 @@ typedef OptionRange optionRange;
     \
     v(double, doubleVoteRatioForDoubleFormat, 2) \
     v(double, structureCheckVoteRatioForHoisting, 1) \
+    v(double, checkArrayVoteRatioForHoisting, 1) \
     \
     v(unsigned, minimumNumberOfScansBetweenRebalance, 100) \
     v(unsigned, numberOfGCMarkers, computeNumberOfGCMarkers(7)) \
     v(unsigned, opaqueRootMergeThreshold, 1000) \
     v(double, minHeapUtilization, 0.8) \
     v(double, minCopiedBlockUtilization, 0.9) \
+    v(double, minMarkedBlockUtilization, 0.9) \
+    v(unsigned, slowPathAllocsBetweenGCs, 0) \
+    \
+    v(double, percentCPUPerMBForFullTimer, 0.0003125) \
+    v(double, percentCPUPerMBForEdenTimer, 0.0025) \
+    v(double, collectionTimerMaxPercentCPU, 0.05) \
     \
     v(bool, forceWeakRandomSeed, false) \
     v(unsigned, forcedWeakRandomSeed, 0) \
@@ -166,9 +266,14 @@ typedef OptionRange optionRange;
     v(bool, objectsAreImmortal, false) \
     v(bool, showObjectStatistics, false) \
     \
+    v(gcLogLevel, logGC, GCLogging::None) \
+    v(bool, disableGC, false) \
     v(unsigned, gcMaxHeapSize, 0) \
     v(bool, recordGCPauseTimes, false) \
-    v(bool, logHeapStatisticsAtExit, false) 
+    v(bool, logHeapStatisticsAtExit, false) \
+    \
+    v(bool, enableExceptionFuzz, false) \
+    v(unsigned, fireExceptionFuzzAt, 0)
 
 class Options {
 public:
@@ -196,7 +301,8 @@ public:
 
     // Declare accessors for each option:
 #define FOR_EACH_OPTION(type_, name_, defaultValue_) \
-    ALWAYS_INLINE static type_& name_() { return s_options[OPT_##name_].u.type_##Val; }
+    ALWAYS_INLINE static type_& name_() { return s_options[OPT_##name_].u.type_##Val; } \
+    static bool name_##WasOverridden() { return s_options[OPT_##name_].didOverride; }
 
     JSC_OPTIONS(FOR_EACH_OPTION)
 #undef FOR_EACH_OPTION
@@ -208,6 +314,8 @@ private:
         doubleType,
         int32Type,
         optionRangeType,
+        optionStringType,
+        gcLogLevelType,
     };
 
     // For storing for an option value:
@@ -218,7 +326,10 @@ private:
             double doubleVal;
             int32 int32Val;
             OptionRange optionRangeVal;
+            const char* optionStringVal;
+            GCLogging::Level gcLogLevelVal;
         } u;
+        bool didOverride;
     };
 
     // For storing constant meta data about each option:

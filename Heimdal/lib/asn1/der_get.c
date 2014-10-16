@@ -170,7 +170,7 @@ der_get_utf8string (const unsigned char *p, size_t len,
     return der_get_general_string(p, len, str, size);
 }
 
-#define gen_data_zero(_data) \
+#define GEN_DATA_ZERO(_data) \
 	do { (_data)->length = 0; (_data)->data = NULL; } while(0)
 
 int
@@ -178,13 +178,13 @@ der_get_printable_string(const unsigned char *p, size_t len,
 			 heim_printable_string *str, size_t *size)
 {
     if (len > len + 1) {
-	gen_data_zero(str);
+	GEN_DATA_ZERO(str);
 	return ASN1_BAD_LENGTH;
     }
     str->length = len;
     str->data = malloc(len + 1);
     if (str->data == NULL) {
-	gen_data_zero(str);
+	GEN_DATA_ZERO(str);
 	return ENOMEM;
     }
     memcpy(str->data, p, len);
@@ -206,18 +206,23 @@ der_get_bmp_string (const unsigned char *p, size_t len,
 {
     size_t i;
 
+    if (len == 0) {
+	GEN_DATA_ZERO(data);
+	return 0;
+    }
+
     if (len & 1) {
-	gen_data_zero(data);
+	GEN_DATA_ZERO(data);
 	return ASN1_BAD_FORMAT;
     }
     data->length = len / 2;
     if (data->length > UINT_MAX/sizeof(data->data[0])) {
-	gen_data_zero(data);
+	GEN_DATA_ZERO(data);
 	return ERANGE;
     }
     data->data = malloc(data->length * sizeof(data->data[0]));
     if (data->data == NULL && data->length != 0) {
-	gen_data_zero(data);
+	GEN_DATA_ZERO(data);
 	return ENOMEM;
     }
 
@@ -227,7 +232,7 @@ der_get_bmp_string (const unsigned char *p, size_t len,
 	/* check for NUL in the middle of the string */
 	if (data->data[i] == 0 && i != (data->length - 1)) {
 	    free(data->data);
-	    gen_data_zero(data);
+	    GEN_DATA_ZERO(data);
 	    return ASN1_BAD_CHARACTER;
 	}
     }
@@ -242,18 +247,23 @@ der_get_universal_string (const unsigned char *p, size_t len,
 {
     size_t i;
 
+    if (len == 0) {
+	GEN_DATA_ZERO(data);
+	return 0;
+    }
+
     if (len & 3) {
-	gen_data_zero(data);
+	GEN_DATA_ZERO(data);
 	return ASN1_BAD_FORMAT;
     }
     data->length = len / 4;
     if (data->length > UINT_MAX/sizeof(data->data[0])) {
-	gen_data_zero(data);
+	GEN_DATA_ZERO(data);
 	return ERANGE;
     }
     data->data = malloc(data->length * sizeof(data->data[0]));
-    if (data->data == NULL && data->length != 0) {
-	gen_data_zero(data);
+    if (data->data == NULL) {
+	GEN_DATA_ZERO(data);
 	return ENOMEM;
     }
 
@@ -263,7 +273,7 @@ der_get_universal_string (const unsigned char *p, size_t len,
 	/* check for NUL in the middle of the string */
 	if (data->data[i] == 0 && i != (data->length - 1)) {
 	    free(data->data);
-	    gen_data_zero(data);
+	    GEN_DATA_ZERO(data);
 	    return ASN1_BAD_CHARACTER;
 	}
     }
@@ -283,10 +293,14 @@ der_get_octet_string (const unsigned char *p, size_t len,
 		      heim_octet_string *data, size_t *size)
 {
     data->length = len;
-    data->data = malloc(len);
-    if (data->data == NULL && data->length != 0)
-	return ENOMEM;
-    memcpy (data->data, p, len);
+    if (len == 0) {
+	data->data = NULL;
+    } else {
+	data->data = malloc(len);
+	if (data->data == NULL)
+	    return ENOMEM;
+	memcpy (data->data, p, len);
+    }
     if(size) *size = len;
     return 0;
 }
@@ -408,14 +422,18 @@ der_get_heim_integer (const unsigned char *p, size_t len,
 	    p++;
 	    data->length--;
 	}
-	data->data = malloc(data->length);
-	if (data->data == NULL && data->length != 0) {
-	    data->length = 0;
-	    if (size)
-		*size = 0;
-	    return ENOMEM;
+	if (data->length == 0) {
+	    data->data = NULL;
+	} else {
+	    data->data = malloc(data->length);
+	    if (data->data == NULL) {
+		data->length = 0;
+		if (size)
+		    *size = 0;
+		return ENOMEM;
+	    }
+	    memcpy(data->data, p, data->length);
 	}
-	memcpy(data->data, p, data->length);
     }
     if (size)
 	*size = len;

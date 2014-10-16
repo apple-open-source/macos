@@ -26,8 +26,9 @@
 #ifndef DateInstanceCache_h
 #define DateInstanceCache_h
 
+#include "JSCJSValue.h"
 #include "JSDateMath.h"
-#include <wtf/FixedArray.h>
+#include <array>
 #include <wtf/HashFunctions.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -45,8 +46,8 @@ namespace JSC {
 
     private:
         DateInstanceData()
-            : m_gregorianDateTimeCachedForMS(QNaN)
-            , m_gregorianDateTimeUTCCachedForMS(QNaN)
+            : m_gregorianDateTimeCachedForMS(PNaN)
+            , m_gregorianDateTimeUTCCachedForMS(PNaN)
         {
         }
     };
@@ -61,7 +62,7 @@ namespace JSC {
         void reset()
         {
             for (size_t i = 0; i < cacheSize; ++i)
-                m_cache[i].key = QNaN;
+                m_cache[i].key = PNaN;
         }
         
         DateInstanceData* add(double d)
@@ -85,7 +86,7 @@ namespace JSC {
 
         CacheEntry& lookup(double d) { return m_cache[WTF::FloatHash<double>::hash(d) & (cacheSize - 1)]; }
 
-        FixedArray<CacheEntry, cacheSize> m_cache;
+        std::array<CacheEntry, cacheSize> m_cache;
     };
 
 } // namespace JSC

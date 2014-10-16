@@ -1,6 +1,6 @@
 /* sample-client.c -- sample SASL client
  * Rob Earhart
- * $Id: sample-client.c,v 1.3 2005/05/17 21:56:45 snsimon Exp $
+ * $Id: sample-client.c,v 1.33 2011/09/01 14:12:18 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -41,7 +41,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <config.h>
+#include "../../cyrus_sasl/config.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -54,8 +54,15 @@ __declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, 
 #else  /* WIN32 */
 # include <netinet/in.h>
 #endif /* WIN32 */
+#ifdef __APPLE__
+#include <sasl/sasl.h>
+#include <sasl/saslplug.h>
+#include <sasl/saslutil.h>
+#else
 #include <sasl.h>
+#include <saslplug.h>
 #include <saslutil.h>
+#endif
 
 #ifdef macintosh
 #include <sioux.h>
@@ -221,11 +228,11 @@ simple(void *context,
 
   switch (id) {
   case SASL_CB_USER:
-    *result = value;
-    if (len)
-      *len = value ? (unsigned) strlen(value) : 0;
-    break;
   case SASL_CB_AUTHNAME:
+  case SASL_CB_AUTHN_PRSID:
+  case SASL_CB_AUTHZ_PRSID:
+  case SASL_CB_ATOKEN_TOKEN:
+  case SASL_CB_CLIENTTOKEN_TOKEN:
     *result = value;
     if (len)
       *len = value ? (unsigned) strlen(value) : 0;
@@ -264,7 +271,10 @@ getsecret(sasl_conn_t *conn,
   if (! conn || ! psecret || id != SASL_CB_PASS)
     return SASL_BADPARAM;
 
-  password = getpassphrase("Password: ");
+
+  password = getenv("SASL_SAMPLE_CLIENT_PASSWORD");
+  if (! password)
+    password = getpassphrase("Password: ");
   if (! password)
     return SASL_FAIL;
 
@@ -387,6 +397,7 @@ samp_send(const char *buffer,
     saslfail(result, "Encoding data in base64", NULL);
   printf("C: %s\n", buf);
   free(buf);
+  fflush(stdout);
 }
 
 static unsigned
@@ -395,9 +406,19 @@ samp_recv()
   unsigned len;
   int result;
   
-  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)
-      || strncmp(buf, "S: ", 3))
+  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)) {
     fail("Unable to parse input");
+  }
+
+  if (strncmp(buf, "S: ", 3) != 0) {
+    fail("Line must start with 'S: '");
+  }
+
+  len = strlen(buf);
+  if (len > 0 && buf[len-1] == '\n') {
+      buf[len-1] = '\0';
+  }
+
   result = sasl_decode64(buf + 3, (unsigned) strlen(buf + 3), buf,
 			 SAMPLE_SEC_BUF_SIZE, &len);
   if (result != SASL_OK)
@@ -432,7 +453,11 @@ main(int argc, char *argv[])
     *service = "rcmd",
     *fqdn = "",
     *userid = NULL,
-    *authid = NULL;
+    *authid = NULL,
+    *authnPrsid = NULL,
+    *authzPrsid = NULL,
+    *atokenToken = NULL,
+    *clienttokenToken = NULL;
   sasl_ssf_t *ssf;
     
 #ifdef WIN32
@@ -457,7 +482,7 @@ main(int argc, char *argv[])
   secprops.max_ssf = UINT_MAX;
 
   verbose = 0;
-  while ((c = getopt(argc, argv, "vhldb:e:m:f:i:p:r:s:n:u:a:?")) != EOF)
+  while ((c = getopt(argc, argv, "vhldb:e:m:f:i:p:r:s:n:u:a:N:Z:T:C:?")) != EOF)
     switch (c) {
     case 'v':
 	verbose = 1;
@@ -465,7 +490,7 @@ main(int argc, char *argv[])
     case 'b':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)bit_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)bit_subopts, &value)) {
 	case OPT_MIN:
 	  if (! value)
 	    errflag = 1;
@@ -495,7 +520,7 @@ main(int argc, char *argv[])
     case 'e':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)ext_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)ext_subopts, &value)) {
 	case OPT_EXT_SSF:
 	  if (! value)
 	    errflag = 1;
@@ -521,7 +546,7 @@ main(int argc, char *argv[])
     case 'f':
       options = optarg;
       while (*options != '\0') {
-	switch(getsubopt(&options, (const char * const *)flag_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)flag_subopts, &value)) {
 	case OPT_NOPLAIN:
 	  secprops.security_flags |= SASL_SEC_NOPLAINTEXT;
 	  break;
@@ -551,7 +576,7 @@ main(int argc, char *argv[])
     case 'i':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)ip_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)ip_subopts, &value)) {
 	case OPT_IP_LOCAL:
 	  if (! value)
 	    errflag = 1;
@@ -597,6 +622,22 @@ main(int argc, char *argv[])
       authid = optarg;
       break;
 
+    case 'N':
+      authnPrsid = optarg;
+      break;
+
+    case 'Z':
+      authzPrsid = optarg;
+      break;
+
+    case 'T':
+      atokenToken = optarg;
+      break;
+
+    case 'C':
+      clienttokenToken = optarg;
+      break;
+           
     default:			/* unknown flag */
       errflag = 1;
       break;
@@ -632,6 +673,11 @@ main(int argc, char *argv[])
 	    "\t-n FQDN\tserver fully-qualified domain name\n"
 	    "\t-u ID\tuser (authorization) id to request\n"
 	    "\t-a ID\tid to authenticate as\n"
+	    "\t-N ID\tprsid to authenticate as\n"
+	    "\t-Z ID\tprsid to authorize as\n"
+	    "\t-T ID\tauthentication token\n"
+	    "\t-C ID\tclient token\n"
+	    "\t-a ID\tid to authenticate as\n"
 	    "\t-d\tDisable client-send-first\n"
 	    "\t-l\tEnable server-send-last\n",
 	    progname, progname);
@@ -643,14 +689,14 @@ main(int argc, char *argv[])
 
   /* log */
   callback->id = SASL_CB_LOG;
-  callback->proc = &sasl_my_log;
+  callback->proc = (sasl_callback_ft)&sasl_my_log;
   callback->context = NULL;
   ++callback;
   
   /* getpath */
   if (searchpath) {
     callback->id = SASL_CB_GETPATH;
-    callback->proc = &getpath;
+    callback->proc = (sasl_callback_ft)&getpath;
     callback->context = searchpath;
     ++callback;
   }
@@ -658,7 +704,7 @@ main(int argc, char *argv[])
   /* user */
   if (userid) {
     callback->id = SASL_CB_USER;
-    callback->proc = &simple;
+    callback->proc = (sasl_callback_ft)&simple;
     callback->context = userid;
     ++callback;
   }
@@ -666,34 +712,62 @@ main(int argc, char *argv[])
   /* authname */
   if (authid) {
     callback->id = SASL_CB_AUTHNAME;
-    callback->proc = &simple;
+    callback->proc = (sasl_callback_ft)&simple;
     callback->context = authid;
     ++callback;
   }
 
+  /* ATOKEN */
+
+  if (authnPrsid) {
+    callback->id = SASL_CB_AUTHN_PRSID;
+    callback->proc = &simple;
+    callback->context = authnPrsid;
+    ++callback;
+  }
+  if (authzPrsid) {
+    callback->id = SASL_CB_AUTHZ_PRSID;
+    callback->proc = &simple;
+    callback->context = authzPrsid;
+    ++callback;
+  }
+  if (atokenToken) {
+    callback->id = SASL_CB_ATOKEN_TOKEN;
+    callback->proc = &simple;
+    callback->context = atokenToken;
+    ++callback;
+  }
+  if (clienttokenToken) {
+    callback->id = SASL_CB_CLIENTTOKEN_TOKEN;
+    callback->proc = &simple;
+    callback->context = clienttokenToken;
+    ++callback;
+  }
+
+ 
   if (realm!=NULL)
   {
     callback->id = SASL_CB_GETREALM;
-    callback->proc = &getrealm;
+    callback->proc = (sasl_callback_ft)&getrealm;
     callback->context = realm;
     callback++;
   }
 
   /* password */
   callback->id = SASL_CB_PASS;
-  callback->proc = &getsecret;
+  callback->proc = (sasl_callback_ft)&getsecret;
   callback->context = NULL;
   ++callback;
 
   /* echoprompt */
   callback->id = SASL_CB_ECHOPROMPT;
-  callback->proc = &prompt;
+  callback->proc = (sasl_callback_ft)&prompt;
   callback->context = NULL;
   ++callback;
 
   /* noechoprompt */
   callback->id = SASL_CB_NOECHOPROMPT;
-  callback->proc = &prompt;
+  callback->proc = (sasl_callback_ft)&prompt;
   callback->context = NULL;
   ++callback;
 

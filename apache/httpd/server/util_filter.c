@@ -21,6 +21,8 @@
 #include "apr_strings.h"
 
 #include "httpd.h"
+#include "http_config.h"
+#include "http_core.h"
 #include "http_log.h"
 #include "util_filter.h"
 
@@ -28,7 +30,7 @@
    so we depend on a global to hold the correct pool
 */
 #define FILTER_POOL     apr_hook_global_pool
-#include "apr_hooks.h"   /* for apr_hook_global_pool */
+#include "ap_hooks.h"   /* for apr_hook_global_pool */
 
 /*
 ** This macro returns true/false if a given filter should be inserted BEFORE
@@ -43,6 +45,10 @@
 /* Trie structure to hold the mapping from registered
  * filter names to filters
  */
+
+/* we know core's module_index is 0 */
+#undef APLOG_MODULE_INDEX
+#define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
 
 typedef struct filter_trie_node filter_trie_node;
 
@@ -248,15 +254,15 @@ AP_DECLARE(ap_filter_rec_t *) ap_register_input_filter(const char *name,
                            &registered_input_filters);
 }
 
-/* Prepare to make this a #define in 2.2 */
 AP_DECLARE(ap_filter_rec_t *) ap_register_output_filter(const char *name,
                                            ap_out_filter_func filter_func,
                                            ap_init_filter_func filter_init,
                                            ap_filter_type ftype)
 {
     return ap_register_output_filter_protocol(name, filter_func,
-                                              filter_init, ftype, 0) ;
+                                              filter_init, ftype, 0);
 }
+
 AP_DECLARE(ap_filter_rec_t *) ap_register_output_filter_protocol(
                                            const char *name,
                                            ap_out_filter_func filter_func,
@@ -279,7 +285,7 @@ static ap_filter_t *add_any_filter_handle(ap_filter_rec_t *frec, void *ctx,
                                           ap_filter_t **p_filters,
                                           ap_filter_t **c_filters)
 {
-    apr_pool_t* p = r ? r->pool : c->pool;
+    apr_pool_t *p = frec->ftype < AP_FTYPE_CONNECTION && r ? r->pool : c->pool;
     ap_filter_t *f = apr_palloc(p, sizeof(*f));
     ap_filter_t **outf;
 
@@ -288,8 +294,8 @@ static ap_filter_t *add_any_filter_handle(ap_filter_rec_t *frec, void *ctx,
             outf = r_filters;
         }
         else {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                      "a content filter was added without a request: %s", frec->name);
+            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(00080)
+                          "a content filter was added without a request: %s", frec->name);
             return NULL;
         }
     }
@@ -298,8 +304,8 @@ static ap_filter_t *add_any_filter_handle(ap_filter_rec_t *frec, void *ctx,
             outf = p_filters;
         }
         else {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                         "a protocol filter was added without a request: %s", frec->name);
+            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(00081)
+                          "a protocol filter was added without a request: %s", frec->name);
             return NULL;
         }
     }
@@ -309,7 +315,8 @@ static ap_filter_t *add_any_filter_handle(ap_filter_rec_t *frec, void *ctx,
 
     f->frec = frec;
     f->ctx = ctx;
-    f->r = r;
+    /* f->r must always be NULL for connection filters */
+    f->r = frec->ftype < AP_FTYPE_CONNECTION ? r : NULL;
     f->c = c;
     f->next = NULL;
 
@@ -394,8 +401,8 @@ static ap_filter_t *add_any_filter(const char *name, void *ctx,
         }
     }
 
-    ap_log_error(APLOG_MARK, APLOG_ERR, 0, NULL,
-                 "an unknown filter was not added: %s", name);
+    ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r ? r->connection : c, APLOGNO(00082)
+                  "an unknown filter was not added: %s", name);
     return NULL;
 }
 
@@ -472,6 +479,63 @@ AP_DECLARE(void) ap_remove_output_filter(ap_filter_t *f)
                       &f->c->output_filters);
 }
 
+AP_DECLARE(apr_status_t) ap_remove_input_filter_byhandle(ap_filter_t *next,
+                                                         const char *handle)
+{
+    ap_filter_t *found = NULL;
+    ap_filter_rec_t *filter;
+
+    if (!handle) {
+        return APR_EINVAL;
+    }
+    filter = ap_get_input_filter_handle(handle);
+    if (!filter) {
+        return APR_NOTFOUND;
+    }
+
+    while (next) {
+        if (next->frec == filter) {
+            found = next;
+            break;
+        }
+        next = next->next;
+    }
+    if (found) {
+        ap_remove_input_filter(found);
+        return APR_SUCCESS;
+    }
+    return APR_NOTFOUND;
+}
+
+AP_DECLARE(apr_status_t) ap_remove_output_filter_byhandle(ap_filter_t *next,
+                                                          const char *handle)
+{
+    ap_filter_t *found = NULL;
+    ap_filter_rec_t *filter;
+
+    if (!handle) {
+        return APR_EINVAL;
+    }
+    filter = ap_get_output_filter_handle(handle);
+    if (!filter) {
+        return APR_NOTFOUND;
+    }
+
+    while (next) {
+        if (next->frec == filter) {
+            found = next;
+            break;
+        }
+        next = next->next;
+    }
+    if (found) {
+        ap_remove_output_filter(found);
+        return APR_SUCCESS;
+    }
+    return APR_NOTFOUND;
+}
+
+
 /*
  * Read data from the next filter in the filter stack.  Data should be
  * modified in the bucket brigade that is passed in.  The core allocates the
@@ -526,6 +590,41 @@ AP_DECLARE(apr_status_t) ap_pass_brigade(ap_filter_t *next,
         return next->frec->filter_func.out_func(next, bb);
     }
     return AP_NOBODY_WROTE;
+}
+
+/* Pass the buckets to the next filter in the filter stack
+ * checking return status for filter errors.
+ * returns: OK if ap_pass_brigade returns APR_SUCCESS
+ *          AP_FILTER_ERROR if filter error exists
+ *          HTTP_INTERNAL_SERVER_ERROR for all other cases
+ *          logged with optional errmsg
+ */
+AP_DECLARE(apr_status_t) ap_pass_brigade_fchk(request_rec *r,
+                                              apr_bucket_brigade *bb,
+                                              const char *fmt,
+                                              ...)
+{
+    apr_status_t rv;
+
+    rv = ap_pass_brigade(r->output_filters, bb);
+    if (rv != APR_SUCCESS) {
+        if (rv != AP_FILTER_ERROR) {
+            if (!fmt)
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r, APLOGNO(00083)
+                              "ap_pass_brigade returned %d", rv);
+            else {
+                va_list ap;
+                const char *res;
+                va_start(ap, fmt);
+                res = apr_pvsprintf(r->pool, fmt, ap);
+                va_end(ap);
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, rv, r, "%s", res);
+            }
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+        return AP_FILTER_ERROR;
+    }
+    return OK;
 }
 
 AP_DECLARE(apr_status_t) ap_save_brigade(ap_filter_t *f,

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -25,6 +25,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#if !PLATFORM(IOS)
 
 #import "WebDynamicScrollBarsView.h"
 #import <WebCore/WebCoreFrameView.h>
@@ -62,3 +64,5 @@
 // scrollers from inside this class should not fire JS events.
 - (BOOL)inProgrammaticScroll;
 @end
+
+#endif // !PLATFORM(IOS)

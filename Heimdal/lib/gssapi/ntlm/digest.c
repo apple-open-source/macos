@@ -85,7 +85,7 @@ dstg_probe(OM_uint32 *minor_status, void *ctx, const char *realm, unsigned int *
     struct ntlmdgst *c = ctx;
     heim_idata dreq, drep;
     NTLMInitReply ir;
-    size_t size;
+    size_t size = 0;
     NTLMInit ni;
     int ret;
 
@@ -156,7 +156,7 @@ dstg_ti(OM_uint32 *minor_status,
     OM_uint32 maj_stat = GSS_S_FAILURE;
     heim_idata dreq, drep;
     NTLMInitReply ir;
-    size_t size;
+    size_t size = 0;
     NTLMInit ni;
     int ret;
 
@@ -234,7 +234,7 @@ dstg_type3(OM_uint32 *minor_status,
     NTLMRequest2 req;
     NTLMReply rep;
     heim_idata dreq, drep;
-    size_t size;
+    size_t size = 0;
     
     *avflags = *flags = 0;
 

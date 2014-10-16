@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,33 +24,17 @@
  */
 
 #ifndef DFGInsertionSet_h
-#define DFGInsectionSet_h
-
-#include <wtf/Platform.h>
+#define DFGInsertionSet_h
 
 #if ENABLE(DFG_JIT)
 
 #include "DFGGraph.h"
+#include <wtf/Insertion.h>
 #include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
-class Insertion {
-public:
-    Insertion() { }
-    
-    Insertion(size_t index, Node* element)
-        : m_index(index)
-        , m_element(element)
-    {
-    }
-    
-    size_t index() const { return m_index; }
-    Node* element() const { return m_element; }
-private:
-    size_t m_index;
-    Node* m_element;
-};
+typedef WTF::Insertion<Node*> Insertion;
 
 class InsertionSet {
 public:
@@ -71,30 +55,50 @@ public:
         return insert(Insertion(index, element));
     }
 
-#define DFG_DEFINE_INSERT_NODE(templatePre, templatePost, typeParams, valueParamsComma, valueParams, valueArgs) \
-    templatePre typeParams templatePost Node* insertNode(size_t index, SpeculatedType type valueParamsComma valueParams) \
-    { \
-        return insert(index, m_graph.addNode(type valueParamsComma valueArgs)); \
+    template<typename... Params>
+    Node* insertNode(size_t index, SpeculatedType type, Params... params)
+    {
+        return insert(index, m_graph.addNode(type, params...));
     }
-    DFG_VARIADIC_TEMPLATE_FUNCTION(DFG_DEFINE_INSERT_NODE)
-#undef DFG_DEFINE_INSERT_NODE
     
+    Node* insertConstant(
+        size_t index, NodeOrigin origin, JSValue value,
+        NodeType op = JSConstant)
+    {
+        unsigned constantReg =
+            m_graph.constantRegisterForConstant(value);
+        return insertNode(
+            index, speculationFromValue(value), op, origin, OpInfo(constantReg));
+    }
+    
+    Node* insertConstant(
+        size_t index, CodeOrigin origin, JSValue value, NodeType op = JSConstant)
+    {
+        return insertConstant(index, NodeOrigin(origin), value, op);
+    }
+    
+    Edge insertConstantForUse(
+        size_t index, NodeOrigin origin, JSValue value, UseKind useKind)
+    {
+        NodeType op;
+        if (isDouble(useKind))
+            op = DoubleConstant;
+        else if (useKind == Int52RepUse)
+            op = Int52Constant;
+        else
+            op = JSConstant;
+        return Edge(insertConstant(index, origin, value, op), useKind);
+    }
+    
+    Edge insertConstantForUse(
+        size_t index, CodeOrigin origin, JSValue value, UseKind useKind)
+    {
+        return insertConstantForUse(index, NodeOrigin(origin), value, useKind);
+    }
+
     void execute(BasicBlock* block)
     {
-        if (!m_insertions.size())
-            return;
-        block->grow(block->size() + m_insertions.size());
-        size_t lastIndex = block->size();
-        for (size_t indexInInsertions = m_insertions.size(); indexInInsertions--;) {
-            Insertion& insertion = m_insertions[indexInInsertions];
-            size_t firstIndex = insertion.index() + indexInInsertions;
-            size_t indexOffset = indexInInsertions + 1;
-            for (size_t i = lastIndex; --i > firstIndex;)
-                block->at(i) = block->at(i - indexOffset);
-            block->at(firstIndex) = insertion.element();
-            lastIndex = firstIndex;
-        }
-        m_insertions.resize(0);
+        executeInsertions(*block, m_insertions);
     }
 private:
     Graph& m_graph;

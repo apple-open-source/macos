@@ -74,6 +74,12 @@ aggs/err.D_TRUNC_AGGARG.bad.d
 aggs/err.D_TRUNC_PROTO.badmany.d
 aggs/err.D_TRUNC_PROTO.badnone.d
 aggs/err.D_TRUNC_SCALAR.bad.d
+aggs/tst.aggencoding.d
+aggs/tst.agghist.d
+aggs/tst.aggpack.d
+aggs/tst.aggpackbanner.ksh
+aggs/tst.aggpackzoom.d
+aggs/tst.aggzoom.d
 aggs/tst.allquant.d
 aggs/tst.avg.d
 aggs/tst.clear.d
@@ -220,6 +226,7 @@ builtinvar/tst.ipl.d
 builtinvar/tst.ipl1.d
 builtinvar/tst.lwpsinfo.d
 builtinvar/tst.lwpsinfo1.d
+builtinvar/tst.machtimestamp.d
 builtinvar/tst.pid.d
 builtinvar/tst.pid1.d
 builtinvar/tst.psinfo.d
@@ -424,6 +431,8 @@ funcs/err.D_PROTO_ARG.chillbadarg.d
 funcs/err.D_PROTO_ARG.copyoutbadarg.d
 # funcs/err.D_PROTO_ARG.mobadarg.d				/* RADAR 4769158: Awaits mutex_enter mutex_owner probes. */
 funcs/err.D_PROTO_ARG.raisebadarg.d
+funcs/err.D_PROTO_ARG.tolowerbadarg.d
+funcs/err.D_PROTO_ARG.toupperbadarg.d
 funcs/err.D_PROTO_LEN.allocanoarg.d
 funcs/err.D_PROTO_LEN.badbreakpoint.d
 funcs/err.D_PROTO_LEN.chilltoofew.d
@@ -440,6 +449,10 @@ funcs/err.D_PROTO_LEN.copyouttoomany.d
 funcs/err.D_PROTO_LEN.panicbadarg.d
 funcs/err.D_PROTO_LEN.progenyofbad2.d
 funcs/err.D_PROTO_LEN.stopbadarg.d
+funcs/err.D_PROTO_LEN.tolowertoofew.d
+funcs/err.D_PROTO_LEN.tolowertoomany.d
+funcs/err.D_PROTO_LEN.touppertoofew.d
+funcs/err.D_PROTO_LEN.touppertoomany.d
 funcs/err.D_STRINGOF_TYPE.badstringof.d
 funcs/err.D_VAR_UNDEF.badvar.d
 funcs/tst.badfreopen.ksh
@@ -468,6 +481,8 @@ funcs/tst.strstr.d
 funcs/tst.strtok.d
 funcs/tst.substr.d
 funcs/tst.system.d
+funcs/tst.tolower.d
+funcs/tst.toupper.d
 grammar/err.D_ADDROF_LVAL.d
 grammar/err.D_EMPTY.empty.d
 grammar/tst.clauses.d
@@ -541,6 +556,7 @@ pid/err.D_PROC_NAME.alldash.d
 pid/err.D_PROC_NAME.badname.d
 pid/err.D_PROC_NAME.globdash.d
 pid/err.D_PROC_OFF.toobig.d
+pid/tst.ProbeModUTF8.ksh
 pid/tst.args1.d
 pid/tst.coverage.d
 # pid/tst.emptystack.d							/* $1 gets pid of perl!? */
@@ -646,6 +662,7 @@ printf/err.D_PRINTF_ARG_EXTRA.widths.d
 printf/err.D_PRINTF_ARG_FMT.badfmt.d
 printf/err.D_PRINTF_ARG_PROTO.novalue.d
 printf/err.D_PRINTF_ARG_TYPE.aggarg.d
+printf/err.D_PRINTF_ARG_TYPE.different-encoding.d
 printf/err.D_PRINTF_ARG_TYPE.recursive.d
 printf/err.D_PRINTF_DYN_PROTO.noprec.d
 printf/err.D_PRINTF_DYN_PROTO.nowidth.d
@@ -667,6 +684,7 @@ printf/tst.printgG.d
 printf/tst.printT.d
 printf/tst.printY.d
 printf/tst.rawfmt.d
+printf/tst.same-encoding.d
 printf/tst.str.d
 printf/tst.sym.d
 printf/tst.uints.d
@@ -947,11 +965,14 @@ trace/tst.qstring.d
 trace/tst.string.d
 tracemem/err.D_PROTO_ARG.badsize.d
 tracemem/err.D_PROTO_LEN.toofew.d
-tracemem/err.D_PROTO_LEN.toomany.d
 tracemem/err.D_TRACEMEM_ADDR.badaddr.d
+tracemem/err.D_TRACEMEM_ARGS.d
+tracemem/err.D_TRACEMEM_DYNSIZE.d
 tracemem/err.D_TRACEMEM_SIZE.negsize.d
 tracemem/err.D_TRACEMEM_SIZE.zerosize.d
+tracemem/tst.dynsize.d
 tracemem/tst.rootvp.d
+tracemem/tst.smallsize.d
 translators/err.D_DECL_TYPERED.BadTransDecl.d
 translators/err.D_OP_INCOMPLETE.NonExistentInput1.d
 translators/err.D_SYNTAX.BadTransDecl1.d
@@ -996,6 +1017,8 @@ types/err.D_DECL_BADCLASS.bad.d
 types/err.D_DECL_CHARATTR.badtype3.d
 types/err.D_DECL_COMBO.badtype4.d
 types/err.D_DECL_COMBO.badtype5.d
+types/err.D_DECL_COMBO.badtype6.d
+types/err.D_DECL_COMBO.badtype7.d
 types/err.D_DECL_ENCONST.badeval.d
 types/err.D_DECL_ENOFLOW.enoflow.d
 types/err.D_DECL_ENOFLOW.enuflow.d

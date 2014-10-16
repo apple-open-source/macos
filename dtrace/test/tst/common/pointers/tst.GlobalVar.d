@@ -38,28 +38,6 @@
 #pragma D option quiet
 
 
-#if !defined(__APPLE__)
-BEGIN
-{
-	i = 0;
-	kmemAddress = &`kmem_flags;
-	kmemValue = *kmemAddress;
-	printf("Address of kmem_flags: %x\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", kmemValue);
-}
-
-profile:::tick-1sec
-/(i < 1) && (&`kmem_flags == kmemAddress) && (*kmemAddress == kmemValue)/
-{
-	exit(1);
-}
-
-END
-/(&`kmem_flags == kmemAddress) && (*kmemAddress == kmemValue)/
-{
-	exit(0);
-}
-#else
 BEGIN
 {
 	i = 0;
@@ -80,4 +58,3 @@ END
 {
 	exit(0);
 }
-#endif /* __APPLE__ */

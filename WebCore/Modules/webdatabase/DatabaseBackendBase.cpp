@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -40,11 +40,13 @@
 #include "DatabaseTracker.h"
 #include "ExceptionCode.h"
 #include "Logging.h"
+#include "SQLiteDatabaseTracker.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SecurityOrigin.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -136,27 +138,28 @@ static bool setTextValueInDatabase(SQLiteDatabase& db, const String& query, cons
 }
 
 // FIXME: move all guid-related functions to a DatabaseVersionTracker class.
-static Mutex& guidMutex()
+static std::mutex& guidMutex()
 {
-    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    static std::once_flag onceFlag;
+    static LazyNeverDestroyed<std::mutex> mutex;
+
+    std::call_once(onceFlag, []{
+        mutex.construct();
+    });
+
     return mutex;
 }
 
 typedef HashMap<DatabaseGuid, String> GuidVersionMap;
 static GuidVersionMap& guidToVersionMap()
 {
-    // Ensure the the mutex is locked.
-    ASSERT(!guidMutex().tryLock());
-    DEFINE_STATIC_LOCAL(GuidVersionMap, map, ());
+    static NeverDestroyed<GuidVersionMap> map;
     return map;
 }
 
 // NOTE: Caller must lock guidMutex().
 static inline void updateGuidVersionMap(DatabaseGuid guid, String newVersion)
 {
-    // Ensure the the mutex is locked.
-    ASSERT(!guidMutex().tryLock());
-
     // Note: It is not safe to put an empty string into the guidToVersionMap() map.
     // That's because the map is cross-thread, but empty strings are per-thread.
     // The copy() function makes a version of the string you can use on the current
@@ -167,29 +170,25 @@ static inline void updateGuidVersionMap(DatabaseGuid guid, String newVersion)
     guidToVersionMap().set(guid, newVersion.isEmpty() ? String() : newVersion.isolatedCopy());
 }
 
-typedef HashMap<DatabaseGuid, HashSet<DatabaseBackendBase*>*> GuidDatabaseMap;
+typedef HashMap<DatabaseGuid, std::unique_ptr<HashSet<DatabaseBackendBase*>>> GuidDatabaseMap;
+
 static GuidDatabaseMap& guidToDatabaseMap()
 {
-    // Ensure the the mutex is locked.
-    ASSERT(!guidMutex().tryLock());
-    DEFINE_STATIC_LOCAL(GuidDatabaseMap, map, ());
+    static NeverDestroyed<GuidDatabaseMap> map;
     return map;
 }
 
 static DatabaseGuid guidForOriginAndName(const String& origin, const String& name)
 {
-    // Ensure the the mutex is locked.
-    ASSERT(!guidMutex().tryLock());
-
     String stringID = origin + "/" + name;
 
     typedef HashMap<String, int> IDGuidMap;
-    DEFINE_STATIC_LOCAL(IDGuidMap, stringIdentifierToGUIDMap, ());
-    DatabaseGuid guid = stringIdentifierToGUIDMap.get(stringID);
+    static NeverDestroyed<HashMap<String, int>> map;
+    DatabaseGuid guid = map.get().get(stringID);
     if (!guid) {
         static int currentNewGUID = 1;
         guid = currentNewGUID++;
-        stringIdentifierToGUIDMap.set(stringID, guid);
+        map.get().set(stringID, guid);
     }
 
     return guid;
@@ -215,7 +214,6 @@ DatabaseBackendBase::DatabaseBackendBase(PassRefPtr<DatabaseBackendContext> data
     , m_expectedVersion(expectedVersion.isolatedCopy())
     , m_displayName(displayName.isolatedCopy())
     , m_estimatedSize(estimatedSize)
-    , m_guid(0)
     , m_opened(false)
     , m_new(false)
     , m_isSyncDatabase(databaseType == DatabaseType::Sync)
@@ -225,17 +223,15 @@ DatabaseBackendBase::DatabaseBackendBase(PassRefPtr<DatabaseBackendContext> data
     m_databaseAuthorizer = DatabaseAuthorizer::create(infoTableName);
 
     if (m_name.isNull())
-        m_name = "";
+        m_name = emptyString();
 
     {
-        MutexLocker locker(guidMutex());
-        m_guid = guidForOriginAndName(securityOrigin()->toString(), name);
-        HashSet<DatabaseBackendBase*>* hashSet = guidToDatabaseMap().get(m_guid);
-        if (!hashSet) {
-            hashSet = new HashSet<DatabaseBackendBase*>;
-            guidToDatabaseMap().set(m_guid, hashSet);
-        }
+        std::lock_guard<std::mutex> locker(guidMutex());
 
+        m_guid = guidForOriginAndName(securityOrigin()->toString(), name);
+        std::unique_ptr<HashSet<DatabaseBackendBase*>>& hashSet = guidToDatabaseMap().add(m_guid, nullptr).iterator->value;
+        if (!hashSet)
+            hashSet = std::make_unique<HashSet<DatabaseBackendBase*>>();
         hashSet->add(this);
     }
 
@@ -266,15 +262,15 @@ void DatabaseBackendBase::closeDatabase()
     // See comment at the top this file regarding calling removeOpenDatabase().
     DatabaseTracker::tracker().removeOpenDatabase(this);
     {
-        MutexLocker locker(guidMutex());
+        std::lock_guard<std::mutex> locker(guidMutex());
 
-        HashSet<DatabaseBackendBase*>* hashSet = guidToDatabaseMap().get(m_guid);
-        ASSERT(hashSet);
-        ASSERT(hashSet->contains(this));
-        hashSet->remove(this);
-        if (hashSet->isEmpty()) {
-            guidToDatabaseMap().remove(m_guid);
-            delete hashSet;
+        auto it = guidToDatabaseMap().find(m_guid);
+        ASSERT(it != guidToDatabaseMap().end());
+        ASSERT(it->value);
+        ASSERT(it->value->contains(this));
+        it->value->remove(this);
+        if (it->value->isEmpty()) {
+            guidToDatabaseMap().remove(it);
             guidToVersionMap().remove(m_guid);
         }
     }
@@ -316,6 +312,15 @@ bool DatabaseBackendBase::performOpenAndVerify(bool shouldSetVersionInNewDatabas
 
     const int maxSqliteBusyWaitTime = 30000;
 
+#if PLATFORM(IOS)
+    {
+        // Make sure we wait till the background removal of the empty database files finished before trying to open any database.
+        MutexLocker locker(DatabaseTracker::openDatabaseMutex());
+    }
+#endif
+
+    SQLiteTransactionInProgressAutoCounter transactionCounter;
+
     if (!m_sqliteDatabase.open(m_filename, true)) {
         errorMessage = formatErrorMessage("unable to open database", m_sqliteDatabase.lastError(), m_sqliteDatabase.lastErrorMsg());
         return false;
@@ -327,9 +332,9 @@ bool DatabaseBackendBase::performOpenAndVerify(bool shouldSetVersionInNewDatabas
 
     String currentVersion;
     {
-        MutexLocker locker(guidMutex());
+        std::lock_guard<std::mutex> locker(guidMutex());
 
-        GuidVersionMap::iterator entry = guidToVersionMap().find(m_guid);
+        auto entry = guidToVersionMap().find(m_guid);
         if (entry != guidToVersionMap().end()) {
             // Map null string to empty string (see updateGuidVersionMap()).
             currentVersion = entry->value.isNull() ? emptyString() : entry->value.isolatedCopy();
@@ -438,7 +443,8 @@ String DatabaseBackendBase::fileName() const
 
 DatabaseDetails DatabaseBackendBase::details() const
 {
-    return DatabaseDetails(stringIdentifier(), displayName(), estimatedSize(), 0);
+    // This code path is only used for database quota delegate calls, so file dates are irrelevant and left uninitialized.
+    return DatabaseDetails(stringIdentifier(), displayName(), estimatedSize(), 0, 0, 0);
 }
 
 bool DatabaseBackendBase::getVersionFromDatabase(String& version, bool shouldCacheVersion)
@@ -486,14 +492,16 @@ void DatabaseBackendBase::setExpectedVersion(const String& version)
 
 String DatabaseBackendBase::getCachedVersion() const
 {
-    MutexLocker locker(guidMutex());
+    std::lock_guard<std::mutex> locker(guidMutex());
+
     return guidToVersionMap().get(m_guid).isolatedCopy();
 }
 
 void DatabaseBackendBase::setCachedVersion(const String& actualVersion)
 {
     // Update the in memory database version map.
-    MutexLocker locker(guidMutex());
+    std::lock_guard<std::mutex> locker(guidMutex());
+
     updateGuidVersionMap(m_guid, actualVersion);
 }
 
@@ -566,6 +574,8 @@ unsigned long long DatabaseBackendBase::maximumSize() const
 
 void DatabaseBackendBase::incrementalVacuumIfNeeded()
 {
+    SQLiteTransactionInProgressAutoCounter transactionCounter;
+
     int64_t freeSpaceSize = m_sqliteDatabase.freeSpaceSize();
     int64_t totalSize = m_sqliteDatabase.totalSize();
     if (totalSize <= 10 * freeSpaceSize) {

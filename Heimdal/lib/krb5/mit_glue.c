@@ -163,12 +163,12 @@ krb5_c_is_keyed_cksum(krb5_cksumtype ctype)
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_copy_checksum (krb5_context context,
 		    const krb5_checksum *old,
-		    krb5_checksum **new)
+		    krb5_checksum **output)
 {
-    *new = malloc(sizeof(**new));
-    if (*new == NULL)
+    *output = malloc(sizeof(*output));
+    if (*output == NULL)
 	return ENOMEM;
-    return copy_Checksum(old, *new);
+    return copy_Checksum(old, *output);
 }
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL

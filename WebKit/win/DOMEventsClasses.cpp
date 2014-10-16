@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -112,13 +112,13 @@ IDOMEvent* DOMEvent::createInstance(PassRefPtr<WebCore::Event> e)
     } else if (e->isMouseEvent()) {
         DOMMouseEvent* newEvent = new DOMMouseEvent(e);
         hr = newEvent->QueryInterface(IID_IDOMMouseEvent, (void**)&domEvent);
-    } else if (e->hasInterface(WebCore::eventNames().interfaceForMutationEvent)) {
+    } else if (e->eventInterface() == WebCore::MutationEventInterfaceType) {
         DOMMutationEvent* newEvent = new DOMMutationEvent(e);
         hr = newEvent->QueryInterface(IID_IDOMMutationEvent, (void**)&domEvent);
-    } else if (e->hasInterface(WebCore::eventNames().interfaceForOverflowEvent)) {
+    } else if (e->eventInterface() == WebCore::OverflowEventInterfaceType) {
         DOMOverflowEvent* newEvent = new DOMOverflowEvent(e);
         hr = newEvent->QueryInterface(IID_IDOMOverflowEvent, (void**)&domEvent);
-    } else if (e->hasInterface(WebCore::eventNames().interfaceForWheelEvent)) {
+    } else if (e->eventInterface() == WebCore::WheelEventInterfaceType) {
         DOMWheelEvent* newEvent = new DOMWheelEvent(e);
         hr = newEvent->QueryInterface(IID_IDOMWheelEvent, (void**)&domEvent);
     } else if (e->isUIEvent()) {
@@ -303,6 +303,12 @@ HRESULT STDMETHODCALLTYPE DOMKeyboardEvent::QueryInterface(REFIID riid, void** p
 
 HRESULT STDMETHODCALLTYPE DOMKeyboardEvent::keyIdentifier( 
     /* [retval][out] */ BSTR* /*result*/)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE DOMKeyboardEvent::location(
+    /* [retval][out] */ unsigned long* /*result*/)
 {
     return E_NOTIMPL;
 }

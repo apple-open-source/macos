@@ -1,0 +1,71 @@
+#! /bin/csh -f
+#
+# Run one iteration of PKCS8 portion of import/export tests.
+# Only used as a subroutine call from importExportPkcs8.
+#
+# Usage
+#   importExportPkcs8Tool rawKey p8key keychain pbe_vers pbe_alg keyAlg keySize quiet(YES|NO) noACL(YES|NO) p8Format(PEM|DER) securePhrase(YES|NO)
+#
+if ( $#argv != 11 ) then
+	exit(1)
+endif
+set RAWKEY=$argv[1]
+set P8KEY=$argv[2]
+set KEYCHAIN=$argv[3]
+set PBE_VERS=$argv[4]
+set PBE_ALG=$argv[5]
+set KEY_ALG=$argv[6]
+set KEY_SIZE=$argv[7]
+set QUIET=$argv[8]
+set QUIET_ARG=
+if ($QUIET == YES) then
+	set QUIET_ARG=-q
+endif
+set NOACL_ARG=
+if ($argv[9] == YES) then
+	set NOACL_ARG=-n
+endif
+set FORMAT=$argv[10]
+set SECURE_PHRASE_ARG=
+if ($argv[11] == YES) then
+	set SECURE_PHRASE_ARG=-Z
+endif
+
+source setupCommon
+
+set PASSWORD=foobar
+set OS_PWD_ARG="-passout pass:$PASSWORD"
+
+#
+# convert raw private key to specified P8 form using openssl
+#
+set cmd="$RM -f $P8KEY"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$OPENSSL pkcs8 -topk8 -inform PEM -outform $FORMAT -in $RAWKEY -out $P8KEY $OS_PWD_ARG $PBE_VERS $PBE_ALG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# empty the keychain 
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+
+# import the p8
+set cmd="$KCIMPORT $P8KEY -k $KEYCHAIN -z $PASSWORD -f pkcs8 -K 1 $QUIET_ARG $NOACL_ARG $SECURE_PHRASE_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# verify by examining the keychain 
+set cmd="$DBVERIFY $KEYCHAIN_PATH $KEY_ALG priv $KEY_SIZE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)

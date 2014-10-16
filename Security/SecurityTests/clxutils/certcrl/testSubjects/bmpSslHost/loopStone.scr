@@ -1,0 +1,63 @@
+# test an SSL server certs with UNICODE-encoded commonName
+# this version does the test a bunch of times, for use with certcrl's -P option
+# and MallocDebug.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+# common name has wildcard *.tees.ac.uk
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+test = stone
+cert = stone.tees_v3.100.cer
+cert = stone.tees_v3.101.cer
+cert = stone.tees_v3.102.cer
+sslHost = foo.tees.ac.uk
+end
+
+
+

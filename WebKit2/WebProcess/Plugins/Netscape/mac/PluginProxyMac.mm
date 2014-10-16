@@ -26,7 +26,7 @@
 #import "config.h"
 #import "PluginProxy.h"
 
-#if ENABLE(PLUGIN_PROCESS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #import "PluginController.h"
 #import "PluginControllerProxyMessages.h"
@@ -52,7 +52,7 @@ PlatformLayer* PluginProxy::pluginLayer()
         // Create a layer with flipped geometry and add the real plug-in layer as a sublayer
         // so the coordinate system will match the event coordinate system.
         m_pluginLayer = adoptNS([[CALayer alloc] init]);
-        [m_pluginLayer.get() setGeometryFlipped:YES];
+        [m_pluginLayer setGeometryFlipped:YES];
 
         if (m_isRestartedProcess) {
             CABasicAnimation *fadeInAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
@@ -60,7 +60,7 @@ PlatformLayer* PluginProxy::pluginLayer()
             fadeInAnimation.toValue = [NSNumber numberWithFloat:1];
             fadeInAnimation.duration = fadeInDuration;
             fadeInAnimation.removedOnCompletion = NO;
-            [m_pluginLayer.get() addAnimation:fadeInAnimation forKey:@"restarted-plugin-fade-in"];
+            [m_pluginLayer addAnimation:fadeInAnimation forKey:@"restarted-plugin-fade-in"];
         }
 
         makeRenderLayer(m_pluginLayer.get(), m_remoteLayerClientID);
@@ -86,7 +86,7 @@ void PluginProxy::setComplexTextInputState(uint64_t complexTextInputState)
 
 void PluginProxy::setLayerHostingMode(LayerHostingMode layerHostingMode)
 {
-    m_connection->connection()->send(Messages::PluginControllerProxy::SetLayerHostingMode(layerHostingMode), m_pluginInstanceID);
+    m_connection->connection()->send(Messages::PluginControllerProxy::SetLayerHostingMode(static_cast<unsigned>(layerHostingMode)), m_pluginInstanceID);
 }
 
 void PluginProxy::setLayerHostingContextID(uint32_t layerHostingContextID)
@@ -99,4 +99,4 @@ void PluginProxy::setLayerHostingContextID(uint32_t layerHostingContextID)
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS) && ENABLE(NETSCAPE_PLUGIN_API)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -181,6 +181,8 @@ static int p_arg(register const struct argnod *arg)
 			sfputu(outfile,fp->fortyp);
 			p_tree(fp->fortre);
 		}
+		else if(n==0 && (arg->argflag&ARG_EXP) && arg->argchn.ap)
+			p_tree((Shnode_t*)arg->argchn.ap);
 		arg = arg->argnxt.ap;
 	}
 	return(sfputu(outfile,0));

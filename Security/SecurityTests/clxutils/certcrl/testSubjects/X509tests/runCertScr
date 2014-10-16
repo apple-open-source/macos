@@ -1,0 +1,11 @@
+#! /bin/tcsh -f
+#
+# run makeCertScr on test*.
+#
+foreach i (test*)
+   cd $i
+   makeCertScr
+   cd ..
+end
+
+   

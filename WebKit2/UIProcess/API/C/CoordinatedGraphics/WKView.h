@@ -21,8 +21,12 @@
 #ifndef WKView_h
 #define WKView_h
 
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKGeometry.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKGeometry.h>
+
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,11 +40,16 @@ typedef void (*WKViewPageDidChangeContentsPositionCallback)(WKViewRef view, WKPo
 typedef void (*WKViewPageDidRenderFrameCallback)(WKViewRef view, WKSize contentsSize, WKRect coveredRect, const void* clientInfo);
 typedef void (*WKViewPageDidChangeViewportAttributesCallback)(WKViewRef view, WKViewportAttributesRef, const void* clientInfo);
 typedef void (*WKViewPageDidChangeTooltipCallback)(WKViewRef view, WKStringRef newTooltip, const void* clientInfo);
+typedef void (*WKViewDidFindZoomableAreaCallback)(WKViewRef view, WKPoint point, WKRect area, const void* clientInfo);
+typedef void (*WKViewDoneWithTouchEventCallback)(WKViewRef view, WKTouchEventRef touchEvent, bool wasEventHandled, const void* clientInfo);
 
-struct WKViewClient {
+typedef struct WKViewClientBase {
     int                                              version;
     const void*                                      clientInfo;
+} WKViewClientBase;
 
+typedef struct WKViewClientV0 {
+    WKViewClientBase                                 base;
     // Version 0
     WKViewViewNeedsDisplayCallback                   viewNeedsDisplay;
     WKViewPageDidChangeContentsSizeCallback          didChangeContentsSize;
@@ -51,10 +60,9 @@ struct WKViewClient {
     WKViewCallback                                   didCompletePageTransition;
     WKViewPageDidChangeViewportAttributesCallback    didChangeViewportAttributes;
     WKViewPageDidChangeTooltipCallback               didChangeTooltip;
-};
-typedef struct WKViewClient WKViewClient;
-
-enum { kWKViewClientCurrentVersion = 0 };
+    WKViewDidFindZoomableAreaCallback                didFindZoomableArea;
+    WKViewDoneWithTouchEventCallback                 doneWithTouchEvent;
+} WKViewClientV0;
 
 WK_EXPORT WKViewRef WKViewCreate(WKContextRef context, WKPageGroupRef pageGroup);
 
@@ -63,7 +71,10 @@ WK_EXPORT void WKViewInitialize(WKViewRef);
 WK_EXPORT WKSize WKViewGetSize(WKViewRef);
 WK_EXPORT void WKViewSetSize(WKViewRef, WKSize size);
 
-WK_EXPORT void WKViewSetViewClient(WKViewRef, const WKViewClient*);
+WK_EXPORT void WKViewSetViewClient(WKViewRef, const WKViewClientBase*);
+
+WK_EXPORT bool WKViewIsActive(WKViewRef);
+WK_EXPORT void WKViewSetIsActive(WKViewRef, bool);
 
 WK_EXPORT bool WKViewIsFocused(WKViewRef);
 WK_EXPORT void WKViewSetIsFocused(WKViewRef, bool);
@@ -95,13 +106,14 @@ WK_EXPORT bool WKViewGetDrawsTransparentBackground(WKViewRef);
 WK_EXPORT void WKViewSuspendActiveDOMObjectsAndAnimations(WKViewRef);
 WK_EXPORT void WKViewResumeActiveDOMObjectsAndAnimations(WKViewRef);
 
-WK_EXPORT void WKViewSetShowsAsSource(WKViewRef, bool);
-WK_EXPORT bool WKViewGetShowsAsSource(WKViewRef);
-
 WK_EXPORT bool WKViewExitFullScreen(WKViewRef);
 
 WK_EXPORT void WKViewSetOpacity(WKViewRef view, double opacity);
 WK_EXPORT double WKViewOpacity(WKViewRef view);
+
+WK_EXPORT void WKViewFindZoomableAreaForRect(WKViewRef, WKRect);
+
+WK_EXPORT WKSize WKViewGetContentsSize(WKViewRef);
 
 #ifdef __cplusplus
 }

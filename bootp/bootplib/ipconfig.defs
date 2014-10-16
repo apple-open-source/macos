@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,3 +128,16 @@ routine ipconfig_get_v6_packet(	server : mach_port_t;
 			 out	packet : inline_data;
 			 out	status : ipconfig_status);
 
+routine ipconfig_remove_service_on_interface(
+				server : mach_port_t;
+				name : if_name;
+				service_id : inline_data;
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
+
+routine ipconfig_refresh_service(
+				server : mach_port_t;
+				name : if_name;
+				service_id : inline_data;
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);

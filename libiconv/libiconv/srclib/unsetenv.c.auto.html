@@ -1,0 +1,120 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>unsetenv.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">unsetenv.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 1992,1995-1999,2000-2002,2005-2006 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Library General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU C Library; see the file COPYING.LIB.  If not,
+   write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;config.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;errno.h&gt;</span>
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">__set_errno</span>(ev) ((errno) = (ev))
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;unistd.h&gt;</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">__environ</span>	environ
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">HAVE_ENVIRON_DECL</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">char</span> **environ;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">_LIBC</span>
+<span class="enscript-comment">/* This lock protects against simultaneous modifications of `environ'.  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;bits/libc-lock.h&gt;</span>
+<span class="enscript-function-name">__libc_lock_define_initialized</span> (<span class="enscript-type">static</span>, envlock)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">LOCK</span>	__libc_lock_lock (envlock)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UNLOCK</span>	__libc_lock_unlock (envlock)
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">LOCK</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UNLOCK</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* In the GNU C library we must keep the namespace clean.  */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">unsetenv</span> __unsetenv
+#<span class="enscript-reference">endif</span>
+
+
+<span class="enscript-type">int</span>
+<span class="enscript-function-name">unsetenv</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name)
+{
+  size_t len;
+  <span class="enscript-type">char</span> **ep;
+
+  <span class="enscript-keyword">if</span> (name == NULL || *name == <span class="enscript-string">'\0'</span> || strchr (name, <span class="enscript-string">'='</span>) != NULL)
+    {
+      __set_errno (EINVAL);
+      <span class="enscript-keyword">return</span> -1;
+    }
+
+  len = strlen (name);
+
+  LOCK;
+
+  ep = __environ;
+  <span class="enscript-keyword">while</span> (*ep != NULL)
+    <span class="enscript-keyword">if</span> (!strncmp (*ep, name, len) &amp;&amp; (*ep)[len] == <span class="enscript-string">'='</span>)
+      {
+	<span class="enscript-comment">/* Found it.  Remove this pointer by moving later ones back.  */</span>
+	<span class="enscript-type">char</span> **dp = ep;
+
+	<span class="enscript-keyword">do</span>
+	  dp[0] = dp[1];
+	<span class="enscript-keyword">while</span> (*dp++);
+	<span class="enscript-comment">/* Continue the loop in case NAME appears again.  */</span>
+      }
+    <span class="enscript-keyword">else</span>
+      ++ep;
+
+  UNLOCK;
+
+  <span class="enscript-keyword">return</span> 0;
+}
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">unsetenv</span>
+<span class="enscript-function-name">weak_alias</span> (__unsetenv, unsetenv)
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

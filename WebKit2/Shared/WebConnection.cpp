@@ -41,21 +41,21 @@ WebConnection::~WebConnection()
 {
 }
 
-void WebConnection::initializeConnectionClient(const WKConnectionClient* client)
+void WebConnection::initializeConnectionClient(const WKConnectionClientBase* client)
 {
     m_client.initialize(client);
 }
 
-void WebConnection::postMessage(const String& messageName, APIObject* messageBody)
+void WebConnection::postMessage(const String& messageName, API::Object* messageBody)
 {
     if (!hasValidConnection())
         return;
 
-    OwnPtr<CoreIPC::MessageEncoder> encoder = CoreIPC::MessageEncoder::create(Messages::WebConnection::HandleMessage::receiverName(), Messages::WebConnection::HandleMessage::name(), 0);
+    auto encoder = std::make_unique<IPC::MessageEncoder>(Messages::WebConnection::HandleMessage::receiverName(), Messages::WebConnection::HandleMessage::name(), 0);
     encoder->encode(messageName);
     encodeMessageBody(*encoder, messageBody);
 
-    sendMessage(encoder.release());
+    sendMessage(WTF::move(encoder), 0);
 }
 
 void WebConnection::didClose()
@@ -63,18 +63,18 @@ void WebConnection::didClose()
     m_client.didClose(this);
 }
 
-void WebConnection::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageDecoder& decoder)
+void WebConnection::didReceiveMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder)
 {
     didReceiveWebConnectionMessage(connection, decoder);
 }
 
-void WebConnection::handleMessage(CoreIPC::MessageDecoder& decoder)
+void WebConnection::handleMessage(IPC::MessageDecoder& decoder)
 {
     String messageName;
     if (!decoder.decode(messageName))
         return;
 
-    RefPtr<APIObject> messageBody;
+    RefPtr<API::Object> messageBody;
     if (!decodeMessageBody(decoder, messageBody))
         return;
 

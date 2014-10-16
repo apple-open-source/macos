@@ -1865,7 +1865,7 @@ input_handler(void)
 	register int n;
 	register struct recvbuf *rb;
 	struct sock_timeval tvzero;
-	int fromlen;
+	socklen_t fromlen;
 	l_fp ts;
 	int i;
 #ifdef HAVE_POLL_H

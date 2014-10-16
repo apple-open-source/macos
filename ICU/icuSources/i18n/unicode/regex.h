@@ -68,21 +68,6 @@ class  UVector;
 class  UVector32;
 class  UVector64;
 
-#ifndef U_HIDE_INTERNAL_API
-/**
- *   RBBIPatternDump   Debug function, displays the compiled form of a pattern.
- *   @internal
- */
-#ifdef REGEX_DEBUG
-U_INTERNAL void U_EXPORT2
-    RegexPatternDump(const RegexPattern *pat);
-#else
-    #undef RegexPatternDump
-    #define RegexPatternDump(pat)
-#endif
-#endif  /* U_HIDE_INTERNAL_API */
-
-
 
 /**
   * Class <code>RegexPattern</code> represents a compiled regular expression.  It includes
@@ -370,7 +355,6 @@ private:
      * or in a UText, using
      * <code>utext_openUChars(UText *ut, const UChar *text, int64_t textLength, UErrorCode *status);</code>
      *
-     * @internal
      */
     RegexMatcher *matcher(const UChar *input,
         UErrorCode          &status) const;
@@ -614,11 +598,17 @@ private:
     //
     void        init();            // Common initialization, for use by constructors.
     void        zap();             // Common cleanup
-#ifdef REGEX_DEBUG
-    void        dumpOp(int32_t index) const;
-    friend     void U_EXPORT2 RegexPatternDump(const RegexPattern *);
-#endif
 
+    void        dumpOp(int32_t index) const;
+
+  public:
+#ifndef U_HIDE_INTERNAL_API
+    /**
+      * Dump a compiled pattern. Internal debug function.
+      * @internal
+      */
+    void        dumpPattern() const;
+#endif
 };
 
 
@@ -728,7 +718,6 @@ private:
      * or in a UText, using
      * <code>utext_openUChars(UText *ut, const UChar *text, int64_t textLength, UErrorCode *status);</code>
      *
-     * @internal
      */
     RegexMatcher(const UnicodeString &regexp, const UChar *input,
         uint32_t flags, UErrorCode &status);
@@ -1133,7 +1122,6 @@ private:
      * or in a UText, using
      * <code>utext_openUChars(UText *ut, const UChar *text, int64_t textLength, UErrorCode *status);</code>
      *
-     * @internal
      */
     RegexMatcher &reset(const UChar *input);
 public:

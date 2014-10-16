@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -232,23 +232,31 @@ IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
     return(kIOReturnSuccess);
 }
 
+IOReturn
+IOBlockStorageDevice::doSetPriority(IOBlockStorageDeviceExtent * extents,
+                                    UInt32                       extentsCount,
+                                    IOStoragePriority            priority)
+{
+    return(kIOReturnUnsupported);
+}
+
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  0);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  1);
 #ifdef __LP64__
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  2);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  7);
 #else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  2);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  5);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  6);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  7);
 #endif /* !__LP64__ */
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  7);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  8);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  9);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice, 10);

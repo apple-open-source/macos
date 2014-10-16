@@ -42,7 +42,7 @@ namespace WebKit {
 
 class ChildProcess;
 
-class WebCookieManager : public WebProcessSupplement, public NetworkProcessSupplement, public CoreIPC::MessageReceiver {
+class WebCookieManager : public WebProcessSupplement, public NetworkProcessSupplement, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebCookieManager);
 public:
     WebCookieManager(ChildProcess*);
@@ -55,12 +55,13 @@ public:
 #endif
 
 private:
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
     void getHostnamesWithCookies(uint64_t callbackID);
     void deleteCookiesForHostname(const String&);
     void deleteAllCookies();
+    void deleteAllCookiesModifiedAfterDate(double date);
 
     void platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
     void getHTTPCookieAcceptPolicy(uint64_t callbackID);

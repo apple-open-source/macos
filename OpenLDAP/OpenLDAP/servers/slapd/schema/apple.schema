@@ -302,6 +302,69 @@ attributetype (
 	ORDERING generalizedTimeOrderingMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 SINGLE-VALUE )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.40
+	NAME 'apple-accountpolicy'
+	DESC 'account policy options'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype ( 
+	1.3.6.1.4.1.63.1000.1.1.1.1.41
+  NAME 'lastFailedLoginTime'
+  EQUALITY generalizedTimeMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+  SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.42
+	NAME 'apple-authenticationAllowed'
+	DESC 'account policy APAuthenticationAllowed proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.43
+	NAME 'apple-passwordChangeAllowed'
+	DESC 'account policy APPasswordChangeAllowed proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.44
+	NAME 'apple-willPasswordExpire'
+	DESC 'account policy APWillPasswordExpire proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.45
+	NAME 'apple-willAuthenticationsExpire'
+	DESC 'account policy APWillAuthenticationsExpire proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.46
+	NAME 'apple-secondsUntilPasswordExpires'
+	DESC 'account policy APSecondsUntilPasswordExpiration proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.47
+	NAME 'apple-secondsUntilAuthenticationsExpire'
+	DESC 'account policy APSecondsUntilAuthenticationExpiration proxy'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
 # Alternative to using homeDirectory from RFC 2307.
 #attributetype (
 #        1.3.6.1.4.1.63.1000.1.1.1.1.100
@@ -324,7 +387,7 @@ objectclass (
 		apple-user-printattribute $ apple-mcxflags $
 		apple-mcxsettings $ apple-user-adminlimits $
 		apple-user-picture $ apple-user-authenticationhint $ 
-		apple-user-homesoftquota $ apple-user-passwordpolicy $
+		apple-user-homesoftquota $ apple-user-passwordpolicy $ apple-accountpolicy $
 		apple-keyword $ apple-generateduid $ apple-imhandle $ apple-webloguri $
 		authAuthority $ acctFlags $ pwdLastSet $ logonTime $ 
 		logoffTime $ kickoffTime $ homeDrive $ scriptPath $ 
@@ -953,7 +1016,7 @@ objectclass (
 		apple-password-server-list $ apple-ldap-replica $
 		apple-ldap-writable-replica $ apple-keyword $
 		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist $ ttl $
-		apple-last-serverid $ apple-enabled-auth-mech ) )
+		apple-last-serverid $ apple-enabled-auth-mech $ apple-accountpolicy ) )
 
 #
 # Preset computer list object class.
@@ -1625,8 +1688,8 @@ objectclass (
   NAME 'pwsAuthdata'
   STRUCTURAL
   MUST ( authGUID )
-  MAY ( uid $ authGUID $ passwordModDate $ lastLoginTime $ loginFailedAttempts $
-        disableReason $ apple-user-passwordpolicy $ adminGroups $ cmusaslsecretSMBNT $
+  MAY ( uid $ authGUID $ passwordModDate $ lastLoginTime $ lastFailedLoginTime $ loginFailedAttempts $
+        disableReason $ apple-user-passwordpolicy $ apple-accountpolicy $ adminGroups $ cmusaslsecretSMBNT $
 		 cmusaslsecretSMBLM $ cmusaslsecretDIGEST-MD5 $ cmusaslsecretCRAM-MD5 $ cmusaslsecretPPS $
 		 KerberosRealmName $ KerberosPrincName $ password $ creationDate $ historyData $
 		 draft-krbPrincipalName $ draft-krbRealmName $ draft-krbPrincipalAliases $
@@ -1648,7 +1711,7 @@ objectclass (
   NAME 'pwPolicy'
   STRUCTURAL
   MUST ( cn )
-  MAY ( apple-user-passwordpolicy $ weakAuthMethod $ passwordRequiredDate) )
+  MAY ( apple-user-passwordpolicy $ apple-accountpolicy $ weakAuthMethod $ passwordRequiredDate) )
 
 # PWS' private key.  Stored in authdata container for security.
 attributetype ( 1.3.6.1.1.1.1.77

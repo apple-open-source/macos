@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #define CSSSelectorList_h
 
 #include "CSSSelector.h"
+#include <memory>
 
 namespace WebCore {
 
@@ -37,11 +38,11 @@ class CSSSelectorList {
 public:
     CSSSelectorList() : m_selectorArray(0) { }
     CSSSelectorList(const CSSSelectorList&);
+    CSSSelectorList(CSSSelectorList&&);
 
-    ~CSSSelectorList();
+    ~CSSSelectorList() { deleteSelectors(); }
 
-    void adopt(CSSSelectorList& list);
-    void adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector);
+    void adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectorVector);
     void adoptSelectorArray(CSSSelector* selectors) { ASSERT(!m_selectorArray); m_selectorArray = selectors; }
 
     bool isValid() const { return !!m_selectorArray; }
@@ -65,6 +66,8 @@ public:
     String selectorsText() const;
 
     unsigned componentCount() const;
+
+    CSSSelectorList& operator=(CSSSelectorList&&);
 
 private:
     void deleteSelectors();

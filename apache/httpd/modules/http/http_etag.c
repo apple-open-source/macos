@@ -20,7 +20,6 @@
 #define APR_WANT_STRFUNC
 #include "apr_want.h"
 
-#define CORE_PRIVATE
 #include "httpd.h"
 #include "http_config.h"
 #include "http_connection.h"
@@ -71,8 +70,7 @@ AP_DECLARE(char *) ap_make_etag(request_rec *r, int force_weak)
     etag_components_t etag_bits;
     etag_components_t bits_added;
 
-    cfg = (core_dir_config *)ap_get_module_config(r->per_dir_config,
-                                                  &core_module);
+    cfg = (core_dir_config *)ap_get_core_module_config(r->per_dir_config);
     etag_bits = (cfg->etag_bits & (~ cfg->etag_remove)) | cfg->etag_add;
 
     /*
@@ -110,7 +108,7 @@ AP_DECLARE(char *) ap_make_etag(request_rec *r, int force_weak)
         weak_len = sizeof(ETAG_WEAK);
     }
 
-    if (r->finfo.filetype != 0) {
+    if (r->finfo.filetype != APR_NOFILE) {
         /*
          * ETag gets set to [W/]"inode-size-mtime", modulo any
          * FileETag keywords.

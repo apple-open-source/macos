@@ -9,18 +9,18 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body>
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.2</a> &gt; <a href="./">Modüller</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.4</a> &gt; <a href="./">Modüller</a></div>
 <div id="page-content">
 <div id="preamble"><h1>Apache Modülü mod_autoindex</h1>
 <div class="toplang">
@@ -40,9 +40,10 @@ yaptığı gibi dizin içeriğini listeler.</td></tr>
       <p>Bir dizin içerik dosyası iki kaynaktan gelebilir:</p>
 
     <ul>
-      <li>Kullanıcı tarafından yazılmış ve genellikle <code>index.html</code>
-        adında bir dosya olarak. Dosyanın ismi <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code> yönergesi ile belirlenir ve
-        <code class="module"><a href="../mod/mod_dir.html">mod_dir</a></code> tarafından denetlenir.</li>
+      <li>Bu dizinde bulunan ve genellikle <code>index.html</code>
+        adında bir dosya olarak. Kullanılan dosyanın veya dosyaların ismi
+        <code class="directive"><a href="../mod/mod_dir.html#directoryindex">DirectoryIndex</a></code> yönergesi ile
+        belirlenir ve <code class="module"><a href="../mod/mod_dir.html">mod_dir</a></code> tarafından denetlenir.</li>
 
       <li>Kullanıcı tarafından böyle bir dosya sağlanmadığı takdirde dizin
         içerik listesini sunucu üretir. Diğer yönergeler bu listenin biçemini
@@ -84,6 +85,7 @@ yaptığı gibi dizin içeriğini listeler.</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#headername">HeaderName</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexheadinsert">IndexHeadInsert</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexignore">IndexIgnore</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#indexignorereset">IndexIgnoreReset</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexoptions">IndexOptions</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexorderdefault">IndexOrderDefault</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexstylesheet">IndexStyleSheet</a></li>
@@ -98,8 +100,9 @@ yaptığı gibi dizin içeriğini listeler.</td></tr>
 <h2><a name="query" id="query">Sütun Sıralamada Sorgu Seçenekleri</a></h2>
     
 
-    <p>Apache 2.0.23’te Sütun Sıralama için Sorgu Seçenekleri yeniden
-      düzenlenip tamamen yeni bir sorgu seçenekleri grubu oluşturulmuştur.
+    <p>İstemciye, dizin içeriğini listelerken neleri hangi sırada
+      listeleyeceğini belirleyebilmesi için içerik üzerinde biraz denetim
+      sağlayabileceği çeşitli sorgu dizgesi bileşenleri sağlanmıştır.
       Çıktı üzerinde kullanıcı denetimini tamamen ortadan kaldırmak için
       <code class="directive"><a href="#indexoptions">IndexOptions</a></code> yönergesinin
       <code><a href="#indexoptions.ignoreclient">IgnoreClient</a></code>
@@ -159,8 +162,7 @@ yaptığı gibi dizin içeriğini listeler.</td></tr>
       <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code> tarafından son argüman olarak ele
       alınacak ve çözümleme işlemi o noktada duracaktır.</p>
 
-    <div class="example"><pre>
-&lt;form action="" method="get"&gt;
+    <div class="example"><pre>&lt;form action="" method="get"&gt;
   &lt;input type="text" name="P" value="*" /&gt; ile eşleşen
   &lt;select name="C"&gt;
     &lt;option value="N" selected="selected"&gt;isme&lt;/option&gt;
@@ -206,10 +208,9 @@ yaptığı gibi dizin içeriğini listeler.</td></tr>
       bulunamadığı veya istemci resim gösteremediği takdirde ya da kullanıcı
       resim yüklememeyi tercih etmişse gösterilir.</p>
 
-    <div class="example"><h3>Örnekler</h3><p><code>
-      AddAlt "PDF dosya" *.pdf<br />
-      AddAlt Sıkıştırılmış *.gz *.zip *.Z
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddAlt "PDF file" *.pdf
+AddAlt Compressed *.gz *.zip *.Z</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -234,9 +235,8 @@ gösterilecek metni belirler.</td></tr>
       gösteremediği takdirde ya da kullanıcı resim yüklememeyi tercih etmişse
       gösterilir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      AddAltByEncoding gzip x-gzip
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddAltByEncoding gzip x-gzip</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -260,9 +260,8 @@ metni belirler.</td></tr>
       simge bulunamadığı veya istemci resim gösteremediği takdirde ya da
       kullanıcı resim yüklememeyi tercih etmişse gösterilir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      AddAltByType 'salt metin' text/plain
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddAltByType 'salt metin' text/plain</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -283,16 +282,24 @@ metni belirler.</td></tr>
       <code><em>metin</em></code> boşluk karakterleri içeriyorsa çift tırnak
       (<code>"</code>) içine alınmalıdır.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      AddDescription "Mars Gezegeni" mars.gif<br />
-      AddDescription "Maraşlı dostum" dostlar/mars.gif
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddDescription "Mars Gezegeni" mars.gif <br />
+AddDescription "Dostum Marshall" dostlar/mars.gif</pre>
+
 
     <p>Normalde öntanımlı açıklama alanının genişliği 23 bayttır. <code><a href="#indexoptions.suppressicon">IndexOptions SuppressIcon</a></code>
       seçeneği buna 6 bayt daha ekler; <code><a href="#indexoptions.suppresssize">IndexOptions SuppressSize</a></code>
       seçeneği 7 bayt, <code><a href="#indexoptions.suppresslastmodified">IndexOptions SuppressLastModified</a></code> seçeneği ise 19 bayt
       ekler. Böylece en fazla 55 karakterlik öntanımlı sütun genişliğine
       ulaşılabilir.</p>
+
+    <p><var>dosya</var> kısmî dosya ismi içerebileceğinden çok kısa dosya ismi
+      belirtilmesi yüzünden istemeden de olsa başka dosyalarla
+      eşleşebileceğini unutmayın. Örneğin, <code>le.html</code> doğrudan
+      <code>le.html</code> ile eşleşebileceği gibi <code>example.html</code>
+      ile de eşleşecektir. Şüpheli durumların ortaya çıkabileceği durumlarda
+      mümkün olduğunca dosya isminin tamamını kullanın ve saptanan ilk
+      eşleşmenin kullanılacağını aklınızdan çıkarmayın ayrıca,
+      <code>AddDescription</code> listesini de uygun şekilde sıralayın.</p>
 
     <p>Açıklama sütununun öntanımlı genişliği geçersiz kılınabilir hatta
       sınırsız açıklama uzunluğu atanabilir. Bu konu için <code class="directive"><a href="#indexoptions">IndexOptions</a></code> yönergesinin <a href="#indexoptions.descriptionwidth"><code>DescriptionWidth</code></a>
@@ -306,11 +313,11 @@ metni belirler.</td></tr>
         kalın gösterim listenin kalanına yayılabilir).</p>
     </div>
 
-    <div class="note"><h3>Yol bilgisi içeren argümanlar</h3>
-      <p>Mutlak yollar şu an desteklenmemektedir ve çalışma anında hiçbir
-        şeyle eşleşmezler. Normalde sadece htaccess bağlamında kullanılan,
-        göreli yol bilgisi içeren argümanların önüne, kısmen de olsa dizin
-        isimleriyle eşleşmemeleri için örtük olarak '*/' dizgesi eklenir.</p>
+    <div class="note"><h3>Yol bilgisi içeren değiştirgeler</h3>
+      <p>Mutlak yollar henüz desteklenmemetedir ve çalışma anında hiçbir şeyle
+        eşleşmeyeceklerdir. Normalde sadece htaccess bağlamında kullanılan,
+        göreli yol bilgisi içeren değiştirgeler, kısmi dizin isimleriyle
+        eşleşmemeleri için örtük olarak '*/' öneki alırlar.</p>
     </div>
 
 
@@ -330,7 +337,7 @@ metni belirler.</td></tr>
     <p>Yönerge, <code><a href="#indexoptions.fancyindexing">FancyIndexing</a></code> seçeneğiyle üretilen dizin listesinde adı
       <code><em>isim</em></code> ile biten bir dosya için gösterilecek simgeyi
       belirler. <code><em>simge</em></code> ya simgenin göreli URL’si (%
-      öncelemeli), tam nitelenmiş uzak bir URL ya da
+      öncelemeli), tam nitelenmiş bir uzak URL ya da
       <code>(<var>alt-metin</var>,<var>url</var>)</code>
       biçeminde olmalıdır; buradaki <code><em>alt-metin</em></code> simge
       gösterilemediği durumda tarayıcı tarafından simgenin yerinde
@@ -342,14 +349,15 @@ metni belirler.</td></tr>
       uzantısı, dosya isminin bir kısmı, bir dosya ismi kalıbı veya tam
       yoluyla bir dosya ismi belirtilebilir.</p>
 
-    <p><code>^^BLANKICON^^</code> sadece biçimleme için kullanılır, dolayısıyla
-      <code>IndexOptions HTMLTable</code> kullanıyorsanız gereksizdir.</p>
+    <p><code>^^BLANKICON^^</code> sadece biçemleme için kullanılır,
+      dolayısıyla <code>IndexOptions HTMLTable</code> kullanıyorsanız
+      gereksizdir.</p>
 
-    <div class="example"><h3>Örnekler</h3><p><code>
-      AddIcon (IMG,/icons/image.xbm) .gif .jpg .xbm<br />
-      AddIcon /icons/dir.xbm ^^DIRECTORY^^<br />
-      AddIcon /icons/backup.xbm *~
-    </code></p></div>
+    <pre class="prettyprint lang-config">#Examples
+AddIcon (IMG,/icons/image.png) .gif .jpg .png
+AddIcon /icons/dir.png ^^DIRECTORY^^
+AddIcon /icons/backup.png *~</pre>
+
 
     <p>Mümkünse <code class="directive">AddIcon</code> yerine <code class="directive"><a href="#addiconbytype">AddIconByType</a></code> yönergesi tercih
       edilmelidir.</p>
@@ -377,9 +385,8 @@ göre belirler.</td></tr>
     <p><code><em>MIME-kodlaması</em></code> olarak <code>x-compress</code>
       gibi geçerli bir içerik kodlaması belirtilmelidir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      AddIconByEncoding /icons/compress.xbm x-compress
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddIconByEncoding /icons/compress.png x-compress</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -405,9 +412,8 @@ belirler.</td></tr>
     <p><var>MIME-türü</var> MIME türleri ile eşleşen bir dosya kalıbı ifadesi
       olabilir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      AddIconByType (IMG,/icons/image.xbm) image/*
-    </code></p></div>
+    <pre class="prettyprint lang-config">AddIconByType (IMG,/icons/image.png) image/*</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -427,9 +433,8 @@ belirler.</td></tr>
       bir göreli URL (% öncelemeli) veya tam nitelenmiş uzak bir URL
       belirtir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      DefaultIcon /icon/unknown.xbm
-    </code></p></div>
+    <pre class="prettyprint lang-config">DefaultIcon /icon/unknown.png</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -447,9 +452,8 @@ belirler.</td></tr>
       yerleştirilecek dosyanın ismini belirler. Dosyanın ismi
       <code><em>dosya-ismi</em></code> ile belirtilir.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      HeaderName HEADER.html
-    </code></p></div>
+    <pre class="prettyprint lang-config">HeaderName HEADER.html</pre>
+
 
     <div class="note">
       <p><code>HeaderName</code> and <code class="directive"><a href="#readmename">ReadmeName</a></code> yönergelerinde
@@ -459,9 +463,8 @@ belirler.</td></tr>
         başlıyorsa <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>
         yönergesinde belirtilen dizine göre belirtildiği varsayılır.</p>
 
-      <div class="example"><h3>Örnek</h3><p><code>
-        HeaderName /include/HEADER.html
-      </code></p></div>
+      <pre class="prettyprint lang-config">HeaderName /include/HEADER.html</pre>
+
 
       <p><code><em>dosya-ismi</em></code>,  içerik türü <code>text/*</code>
         (<code>text/html</code>, <code>text/plain</code> gibi) olan bir belge
@@ -470,9 +473,8 @@ belirler.</td></tr>
         <code><em>dosya-ismi</em></code> bir CGI betiğinin ismi bile
         olabilir:</p>
 
-      <div class="example"><p><code>
-        AddType text/html .cgi
-      </code></p></div>
+      <pre class="prettyprint lang-config">AddType text/html .cgi</pre>
+
 
       <p><code class="directive"><a href="../mod/core.html#options">Options</a></code> ile
         <code>MultiViews</code> etkin kılınmışsa dosyaya <a href="../content-negotiation.html">içerik dili uzlaşımı</a> da
@@ -489,27 +491,26 @@ belirler.</td></tr>
       istiyorsanız <a href="#indexoptions.suppresshtmlpreamble"><code>IndexOptions +SuppressHTMLPreamble</code></a> ataması yapmanız
       gerekecektir.</p>
 
+<h3>Ayrıca bakınız:</h3>
+<ul>
+<li><code class="directive"><a href="#readmename">ReadmeName</a></code></li>
+</ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IndexHeadInsert" id="IndexHeadInsert">IndexHeadInsert</a> <a name="indexheadinsert" id="indexheadinsert">Yönergesi</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Bir dizin sayfasının HEAD bölümüne metin yerleştirir.
-</td></tr>
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Bir dizin sayfasının HEAD bölümüne metin yerleştirir.</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>IndexHeadInsert <var>"imlenim ..."</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>Indexes</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Temel</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>mod_autoindex</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache 2.2.11 ve sonrasında kullanılabilmektedir.
-</td></tr>
 </table>
     <p><code class="directive">IndexHeadInsert</code> yönergesi, dizin listesi için
     üretilen HTML’nin <var>&lt;head&gt;</var> bölümüne yerleştirilecek bir
     dizge tanımlar.</p>
-    <div class="example"><h3>Example</h3><p><code>
-      
-      IndexHeadInsert "&lt;link rel=\"sitemap\" href=\"/sitemap.html\"&gt;"
-    </code></p></div>
+    <pre class="prettyprint lang-config">IndexHeadInsert "&lt;link rel=\"sitemap\" href=\"/sitemap.html\"&gt;"</pre>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -532,14 +533,43 @@ belirler.</td></tr>
       <code class="directive">IndexIgnore</code> ataması yapabilirsiniz. Liste
       öntanımlı olarak içinde bulunulan dizini (<code>./</code>) içerir.</p>
 
-    <div class="example"><p><code>
-      IndexIgnore .??* *~ *# HEADER* README* RCS CVS *,v *,t
-    </code></p></div>
+    <pre class="prettyprint lang-config">IndexIgnore .??* *~ *# HEADER* README* RCS CVS *,v *,t</pre>
+
 
     <div class="note"><h3>Düzenli İfadeler</h3>
-      <p>Bu yönerge, <code class="directive"><a href="../mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a></code> gibi düzenli ifade bileşenlerine sahip
-        yapılandırma bölümlerinde şu an çalışmamaktadır.</p>
+      <p>Bu yönerge, <code class="directive"><a href="../mod/core.html#directorymatch">&lt;DirectoryMatch&gt;</a></code> gibidüzenli ifadeler içeren yapılandırma
+      bölümlerinde henüz çalışmamaktadır.</p>
     </div>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="IndexIgnoreReset" id="IndexIgnoreReset">IndexIgnoreReset</a> <a name="indexignorereset" id="indexignorereset">Yönergesi</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Bir dizini listelerken gizlenecek dosyalar listesini boşaltır
+</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>IndexIgnoreReset ON|OFF</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin, .htaccess</td></tr>
+<tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>Indexes</td></tr>
+<tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Temel</td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>mod_autoindex</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache HTTP Sunucusunun 2.3.10 ve sonraki sürümlerinde kullanılabilmektedir.</td></tr>
+</table>
+    <p>Bu yönerge, diğer yapılandırma bölümlerince bir şekilde miras alınmayan
+      ve <code class="directive">IndexIgnore</code> tarafından yoksayılan dosyaları
+      kaldırır. </p>
+
+    <pre class="prettyprint lang-config">&lt;Directory /var/www&gt;
+    IndexIgnore *.bak .??* *~ *# HEADER* README* RCS CVS *,v *,t
+&lt;/Directory&gt;
+&lt;Directory /var/www/backups&gt;
+    IndexIgnoreReset ON
+    IndexIgnore .??* *# HEADER* README* RCS CVS *,v *,t
+&lt;/Directory&gt;</pre>
+
+
+    <div class="warning"><p>Bu yönergeyi kullandıktan sonra, açıkça yoksaymak
+      istediğiniz kalıpların bir listesi için öntanımlı yapılandırmayı gözden
+      geçirin.</p></div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -560,32 +590,33 @@ belirler.</td></tr>
       belirtilebilir:</p>
 
     <dl>
-      <dt><a name="indexoptions.charset" id="indexoptions.charset"><code>Charset=<em>karakter-kümesi</em></code></a> (<em>Apache 2.0.61
-        ve sonrası</em>)</dt>
+      <dt><a name="indexoptions.addaltclass" id="indexoptions.addaltclass">AddAltClass</a></dt>
+      <dd><code>IndexOptions HTMLTable</code> etkin ve bir
+        <code>IndexStyleSheet</code> tanımlı olduğunda dizin listesi
+        tablosunun her satırına fazladan bir CSS sınıfı bildirimi ekler.
+        Tablonun her satırına uygulanmaması için standart <code>even</code> ve
+        <code>odd</code> sınıfları yerine <code>even-<em>ALT</em></code> ve
+        <code>odd-<em>ALT</em></code> bildirimleri kullanılabilir. Burada
+        <em>ALT</em> ya bir dosya biçimiyle ilişkili standat bir alt
+        dizgesidir ya da <code>AddAlt*</code> yönergeleriyle tanımlanan bir
+        alt dizgesidir.
+      </dd>
+
+      <dt><a name="indexoptions.charset" id="indexoptions.charset"><code>Charset=<em>karakter-kümesi</em></code></a> (<em>Apache HTTP
+        Sunucusunun 2.0.61 ve sonraki sürümleri</em>)</dt>
 
       <dd><code>Charset</code> seçeneği üretilen sayfa için bir karakter
         kümesi belirtebilmenizi sağlar. Dizinin bulunduğu dosya sisteminin
-        karakter kodlamasına bağlı olarak öntanımlı değeri ya
-        <var>ISO-8859-1</var> ya da <var>UTF-8</var>’dir.
+        karakter kodlamasına bağlı olarak öntanımlı değeri Windows ve Mac OS
+        X'te <var>UTF-8</var>, diğerlerinde <var>ISO-8859-1</var>’dir (İlgili
+        dosya sisteminin Unicode dosya isimleri kullanıp kullanmamasına
+        bağlıdır).
 
-      <div class="example"><h3>Örnek</h3><p><code>
-        IndexOptions Charset=UTF-8
-      </code></p></div>
+      <pre class="prettyprint lang-config">IndexOptions Charset=UTF-8</pre>
+
       </dd>
 
-      <dt><a name="indexoptions.type" id="indexoptions.type"><code>Type=<em>MIME-türü</em></code></a> (<em>Apache 2.0.61 ve
-        sonrası</em>)</dt>
-
-      <dd><code>Type</code> seçeneği üretilen sayfa için bir MIME türü
-        belirtebilmenizi sağlar. Öntanımlı değer <var>text/html</var>’dir.
-
-      <div class="example"><h3>Örnek</h3><p><code>
-        IndexOptions Type=text/plain
-      </code></p></div>
-      </dd>
-
-      <dt><a name="indexoptions.descriptionwidth" id="indexoptions.descriptionwidth"><code>DescriptionWidth=[<em>n</em> | *]</code></a>
-            (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      <dt><a name="indexoptions.descriptionwidth" id="indexoptions.descriptionwidth"><code>DescriptionWidth=[<em>n</em> | *]</code></a></dt>
 
       <dd><p><code>DescriptionWidth</code> seçeneği üretilen sayfada açıklama
         sütununun genişliğini sizin belirleyebilmenizi sağlar. Bu seçenek
@@ -607,8 +638,7 @@ belirler.</td></tr>
 
       <dd>Dizin içerik listesi süslü olur.</dd>
 
-      <dt><a name="indexoptions.foldersfirst" id="indexoptions.foldersfirst"><code>FoldersFirst</code></a>
-             (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      <dt><a name="indexoptions.foldersfirst" id="indexoptions.foldersfirst"><code>FoldersFirst</code></a></dt>
 
       <dd>Bu seçenek etkin kılındığında dizin içerik listesinde alt dizinler
         dosyalardan önce listelenir. Listelemede genel olarak iki bileşen
@@ -621,14 +651,14 @@ belirler.</td></tr>
         seçenek sadece <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a>  seçeneği etkinse etkili
         olacaktır.</strong></dd>
 
-      <dt><a name="indexoptions.htmltable" id="indexoptions.htmltable"><code>HTMLTable</code></a>
-             (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      <dt><a name="indexoptions.htmltable" id="indexoptions.htmltable"><code>HTMLTable</code></a></dt>
 
-      <dd>Bu deneysel seçenek <a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a>  seçeneği ile birlikte süslü listeleme
-        için basit bir tablo oluşturur. UTF-8'in etkin kılndığı platformlarda
-        veya Linux, WinNT gibi sağdan sola veya soldan sağa yazım yönünün UTF-8
-        karakter koduna göre değiştiği platformlarda dosya isimleri ve
-        açıklamalar için bu seçenek gereklidir.</dd>
+      <dd><a href="#indexoptions.fancyindexing"><code>FancyIndexing</code></a>
+        seçeneği ile birlikte süslü listeleme için basit bir tablo oluşturur.
+        UTF-8'in etkin olduğu platformlarda gereklidir. Bununla birlikte,
+        Linux, WinNT gibi sağdan sola veya soldan sağa yazım yönünün değiştiği
+        platformlarda dosya isimleri ve açıklamalar için bu özellikle gerekli
+        olabilir.</dd>
 
       <dt><a name="indexoptions.iconsarelinks" id="indexoptions.iconsarelinks"><code>IconsAreLinks</code></a></dt>
 
@@ -642,8 +672,8 @@ belirler.</td></tr>
         <code>height</code> ve <code>width</code> özniteliklerini içermesine
         sebep olur. Böylece tarayıcının tüm simgelerin yüklenmesini beklemeden
         sayfa yerleşimi için bir ön hesaplama yapabilmesi mümkün olur. Seçenek
-        bir değer belirtilmeksizin kullanıldığında Apache tarafından atanmış
-        standart simge yüksekliği öntanımlıdır.</dd>
+        bir değer belirtilmeksizin kullanıldığında Apache http tarafından
+        atanmış standart simge yüksekliği öntanımlıdır.</dd>
 
       <dt><a name="indexoptions.iconwidth" id="indexoptions.iconwidth"><code>IconWidth[=<em>benek-sayısı</em>]</code></a></dt>
 
@@ -652,8 +682,8 @@ belirler.</td></tr>
         <code>height</code> ve <code>width</code> özniteliklerini içermesine
         sebep olur. Böylece tarayıcının tüm simgelerin yüklenmesini beklemeden
         sayfa yerleşimi için bir ön hesaplama yapabilmesi mümkün olur. Seçenek
-        bir değer belirtilmeksizin kullanıldığında Apache tarafından atanmış
-        standart simge genişliği öntanımlıdır.</dd>
+        bir değer belirtilmeksizin kullanıldığında Apache httpd tarafından
+        atanmış standart simge genişliği öntanımlıdır.</dd>
 
       <dt><a name="indexoptions.ignorecase" id="indexoptions.ignorecase"><code>IgnoreCase</code></a></dt>
 
@@ -675,7 +705,7 @@ belirler.</td></tr>
 
       <p>Hiç belirtilmediğinde veya <code>-NameWidth</code> biçeminde
         belirtildiğinde <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code> uygun genişliği kendisi
-        hesaplayacaktır.</p>
+        hesaplayacaktır, fakat en fazla 20 karakter olabilir.</p>
 
       <p><code>NameWidth=<em>n</em></code> ile sütun genişliği
         <code><em>n</em></code> bayt genişlikte sabitlenir.</p>
@@ -686,8 +716,8 @@ belirler.</td></tr>
       <dt><a name="indexoptions.scanhtmltitles" id="indexoptions.scanhtmltitles"><code>ScanHTMLTitles</code></a></dt>
 
       <dd>Bu seçenek süslü listeleme için HTML belgelerden sayfa başlığının
-        okunmasını sağlar. Dosya için <code class="directive"><a href="#adddescription">AddDescription</a></code> ile bir açıklama tanımlanmımışsa httpd
-        belgenin <code>title</code> etiketinin içeriğini okuyacaktır. Bu
+        okunmasını sağlar. Dosya için <code class="directive"><a href="#adddescription">AddDescription</a></code> ile bir açıklama tanımlanmımışsa Apache
+        httpd belgenin <code>title</code> etiketinin içeriğini okuyacaktır. Bu
         seçenek işlemciyi ve diski fazla meşgul eder.</dd>
 
       <dt><a name="indexoptions.showforbidden" id="indexoptions.showforbidden"><code>ShowForbidden</code></a></dt>
@@ -702,10 +732,7 @@ belirler.</td></tr>
         başlıklarını sıralama için hiper bağ haline getirmeyecektir. Sütun
         başlıkları için öntanımlı davranış hiper bağ olmak olup bunlar
         seçilerek dizin listesinin o sütundaki değerlere göre sıralanması
-        sağlanır. <strong>Apache 2.0.23 öncesinde, bu seçenek ayrıca, sıralama
-        dizgesi için sorgu sözcüklerinin çözümlenmesini de iptal
-        ederdi.</strong> Bu davranış Apache 2.0.23’ten beri <a href="#indexoptions.ignoreclient"><code>IndexOptions
-        IgnoreClient</code></a> ile sağlanmaktadır.</dd>
+        sağlanır. Bu davranış <a href="#indexoptions.ignoreclient"><code>IndexOptions IgnoreClient</code></a> ile sağlanmaktadır.</dd>
 
       <dt><a name="indexoptions.suppressdescription" id="indexoptions.suppressdescription"><code>SuppressDescription</code></a></dt>
 
@@ -726,10 +753,14 @@ belirler.</td></tr>
         vs.) yerleştirir. Bu seçenek bu davranışı iptal ederek modülün dosya
         içeriğinin başlangıcına bir şey eklememesini sağlar. Bu durumda başlık
         dosyasının uygun HTML etiketlerini içermesi gerekir. Böyle bir başlık
-        dosyası yoksa normal olarak HTML başlangıç etiketleri üretilir.</dd>
+        dosyası yoksa normal olarak HTML başlangıç etiketleri üretilir. Eğer
+        bir <code class="directive"><a href="#readmename">ReadmeName</a></code> yönergesi
+        de belirtilirse ve bu dosya mevcutsa, kapayan
+        &lt;/body&gt;&lt;/html&gt; etiketleri de çıktı bulunmaz. Buna
+        dayanarak bu etiketleri de sizin koymanız gerekebilir.</dd>
 
       <dt><a name="indexoptions.suppressicon" id="indexoptions.suppressicon"><code>SuppressIcon</code></a>
-              (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      </dt>
 
       <dd>Süslü dizin listesinde dosya simgelerinin gösterilmesini engeller.
         Son belirtim, süslü dizin listelemede kullanılan <code>pre</code>
@@ -744,7 +775,7 @@ belirler.</td></tr>
         engellenir.</dd>
 
       <dt><a name="indexoptions.suppressrules" id="indexoptions.suppressrules"><code>SuppressRules</code></a>
-              (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      </dt>
 
       <dd>Dizin listelemede <code>hr</code> etiketinin kullanımını engeller.
         Son belirtim, süslü dizin listelemede kullanılan <code>pre</code>
@@ -755,16 +786,17 @@ belirler.</td></tr>
 
       <dt><a name="indexoptions.suppresssize" id="indexoptions.suppresssize"><code>SuppressSize</code></a></dt>
 
-      <dd>Süslü dizin listelemede dosya boyutunun gösterilmesi engellenir.</dd>
+      <dd>Süslü dizin listelemede dosya boyutunun gösterilmesi engellenir.
+      </dd>
 
       <dt><a name="indexoptions.trackmodified" id="indexoptions.trackmodified"><code>TrackModified</code></a>
-               (<em>Apache 2.0.23 ve sonrası</em>)</dt>
+      </dt>
 
       <dd>Bu seçenek listelenen dizin için HTTP başlığında
         <code>Last-Modified</code> ve <code>ETag</code> alanlarının dönmesini
         sağlar. Sadece işletim sistemi veya dosya sistemi uygun stat()
-        sonuçlarını döndürüyorsa bu geçerlidir. Bazı Unix sistemleri, OS2’nin
-        JFS’si ve Win32’nin NTFS’i böyledir. Ancak OS2 ve Win32 FAT dosya
+        sonuçlarını döndürüyorsa bu geçerlidir. Bazı Unix sistemleri ve
+        OS/2'nin JFS'si ile Win32’nin NTFS’i böyledir. Ancak OS/2 ve Win32 FAT dosya
         sistemleri böyle değildir. Bu özellik etkin kılındığında istemci veya
         vekil <code>HEAD</code> istekleriyle dosya listesindeki değişiklikleri
         izleyebilirler. Yalnız, bazı işletim sistemlerinin yeni ve silinmiş
@@ -775,8 +807,16 @@ belirler.</td></tr>
         sistemlerinde sağlamaz</strong>. Bu gibi durumlarda bu seçeneğin
         kapalı kalması daha iyidir.</dd>
 
+      <dt><a name="indexoptions.type" id="indexoptions.type">Type=<var>MIME-türü</var></a></dt>
+
+      <dd><code>Type</code> anahtar sözcüğü üretilen sayfanın MIME içerik
+        türünün belirtilebilmesini sağlar. <var>text/html</var> öntanımlıdır.
+
+      <pre class="prettyprint lang-config">IndexOptions Type=text/plain</pre>
+
+      </dd>
       <dt><a name="indexoptions.versionsort" id="indexoptions.versionsort"><code>VersionSort</code></a>
-              (<em>Apache 2.0a3 ve sonrası</em>)</dt>
+      </dt>
 
       <dd><code>VersionSort</code> seçeneği isimlerinde sürüm numarası bulunan
         dosyaların sayısal sıralamaya uygun olarak sıralanmalarını sağlar.
@@ -803,8 +843,7 @@ belirler.</td></tr>
       </code></p></div>
       </dd>
 
-      <dt><a name="indexoptions.xhtml" id="indexoptions.xhtml"><code>XHTML</code></a>
-          (<em>Apache 2.0.49 ve sonrası</em>)</dt>
+      <dt><a name="indexoptions.xhtml" id="indexoptions.xhtml"><code>XHTML</code></a></dt>
 
       <dd><code>XHTML</code> seçeneği <code class="module"><a href="../mod/mod_autoindex.html">mod_autoindex</a></code>’in kodu
         HTML 3.2’ye değil XHTML 1.0’a uygun üretmesini sağlar.</dd>
@@ -813,29 +852,25 @@ belirler.</td></tr>
    
   <dl><dt><code>+</code> veya <code>-</code> Önekli Seçenekler</dt>
     <dd>
-      <p>Apache 1.3.3’te <code class="directive">IndexOptions</code> yönergelerinin ele
-        alınışıyla ilgili önemil değişiklikler yapılmıştır. Bunlar:</p>
+      <p>Çok sayıda <code class="directive">IndexOptions</code> yönergesinin
+        işlenebileceğine dikkat edin.</p>
 
       <ul>
       <li>Tek bir dizin için çok sayıda <code class="directive">IndexOptions</code>
         yönergesi belirtilmişse bunlar ayrı ayrı değil birlikte ele alınır.
         Yani,
 
-      <div class="example"><p><code>
-        &lt;Directory /foo&gt;
-        <span class="indent">
-          IndexOptions HTMLTable<br />
-          IndexOptions SuppressColumnsorting
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+     <pre class="prettyprint lang-config">&lt;Directory /foo&gt;
+    IndexOptions HTMLTable
+    IndexOptions SuppressColumnsorting
+&lt;/Directory&gt;</pre>
+
 
       <p>yapılandırmasındaki <code class="directive">IndexOptions</code>
         yönergeleri</p>
 
-      <div class="example"><p><code>
-        IndexOptions HTMLTable SuppressColumnsorting
-      </code></p></div>
+     <pre class="prettyprint lang-config">IndexOptions HTMLTable SuppressColumnsorting</pre>
+
 
       <p>yönergesine eşdeğerdir.</p>
       </li>
@@ -848,17 +883,18 @@ belirler.</td></tr>
         bunlar mevcut (üst dizinden miras alınanlar ve/veya önceki atamalar)
         <code class="directive">IndexOptions</code> yönergelerine uygulanır. Ancak,
         önek kullanılmamış bir seçeneğe raslandığında, o noktada önceki ve
-        miras alınmış bu tür seçenekler iptal edilir. Şu örneği ele alalım:</p>
+        miras alınmış bu tür seçenekler iptal edilir. Şu örneği ele
+        alalım:</p>
 
-      <div class="example"><p><code>
-        IndexOptions +ScanHTMLTitles -IconsAreLinks FancyIndexing<br />
-        IndexOptions +SuppressSize
-      </code></p></div>
+     <pre class="prettyprint lang-config">IndexOptions +ScanHTMLTitles -IconsAreLinks FancyIndexing
+IndexOptions +SuppressSize</pre>
 
-      <p>Bunun net etkisi <code>IndexOptions FancyIndexing +SuppressSize</code>
-        atamasına eşdeğerdir, çünkü öneksiz <code>FancyIndexing</code> seçeneği
-        kendinden önceki önekli seçenekleri iptal etmiş fakat hemen ardından
-        eklenmelerine izin vermiştir.</p>
+
+      <p>Bunun net etkisi
+        <code>IndexOptions FancyIndexing +SuppressSize</code>
+        atamasına eşdeğerdir, çünkü öneksiz <code>FancyIndexing</code>
+        seçeneği kendinden önceki önekli seçenekleri iptal etmiş fakat hemen
+        ardından eklenmelerine izin vermiştir.</p>
 
       <p>Belli bir dizine önceki seçenekleri temizleyerek koşulsuz olarak
         tamamen yeni seçenekler atamak istiyorsanız
@@ -891,20 +927,19 @@ Name|Date|Size|Description</code></td></tr>
     <p><code class="directive">IndexOrderDefault</code> yönergesi iki değer alır. İlki
       sıralama yönünü belirtmek üzere <code>Ascending</code> (küçükten büyüğe)
       veya <code>Descending</code> (büyükten küçüğe) olmak zorundadır. İkinci
-      değer ise birincil sıralama anahtarını belirtmek üzere <code>Name</code>,
-      <code>Date</code>, <code>Size</code> ve <code>Description</code>
-      sözcüklerinden biri olmalıdır (anlamları sırayla: İsim, Tarih, Boyut,
-      Açıklama). İkincil sıralama anahtarı <em>daima</em> artan sıralamayla
-      dosya ismidir.</p>
+      değer ise birincil sıralama anahtarını belirtmek üzere
+      <code>Name</code>, <code>Date</code>, <code>Size</code> ve
+      <code>Description</code> sözcüklerinden biri olmalıdır (anlamları
+      sırayla: İsim, Tarih, Boyut, Açıklama). İkincil sıralama anahtarı
+      <em>daima</em> artan sıralamayla dosya ismidir.</p>
 
-    <p>İsterseniz, bir istemcinin listeyi yeniden sıralamasını
-      engelleyebilirsiniz. Dizin listesinin belli bir sırada gösterilmesini
-      zorunlu kılmak için yönergeyi <code><a href="#indexoptions.suppresscolumnsorting">SuppressColumnSorting</a></code>
-      sıralama seçeneği ile birlikte belirtebilirsiniz; buna ek olarak,
-      istemcinin sorgu dizgesine sıralama seçenekleri ekleyerek sıralama
-      tercihlerinizi değiştirmesini engellemek için <code><a href="#indexoptions.ignoreclient">IgnoreClient</a></code> seçeneğini de
-      belirtebir, böylece istemcinin farklı sıralamalara sahip içerik
-      isteğini engellemiş olursunuz.</p>
+    <p>Sütunun tepesindeki sıralama bağını kaldırmak için
+      <code><a href="#indexoptions.suppresscolumnsorting">SuppressColumnSorting</a></code> seçeneğinin yanında, sıralama
+      tercihlerinizi geçersiz kılmak için sorgu dizgesine elle sıralama
+      seçenekleri eklenmesini engellemek için
+      <code><a href="#indexoptions.ignoreclient">IgnoreClient</a></code>
+      seçeneğini de kullanarak istemcinin listeyi yeniden sıralamasını
+      engelleyebilirsiniz.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -920,9 +955,33 @@ Name|Date|Size|Description</code></td></tr>
     <p><code class="directive">IndexStyleSheet</code> yönergesi dizin listelemesi için
       kullanılacak biçembent dosyasının ismini belirtmek için kullanılır.</p>
 
-    <div class="example"><h3>Örnek</h3><p><code>
-      IndexStyleSheet "/css/style.css"
-    </code></p></div>
+    <pre class="prettyprint lang-config">IndexStyleSheet "/css/style.css"</pre>
+
+
+    <p>Bu yönergenin <code>IndexOptions HTMLTable</code> ile birlikte
+      kullanılması sonuçlanan HTML dosyasına bir miktar CSS sınıfı ekler.
+      Tablonun tamamı <code>indexlist</code> için bir CSS kimliği verir ve
+      aşağıdaki sınıflar listenin çeşitli parçalarıyla ilişkilendirilir:</p>
+
+    <table class="bordered"><tr class="header"><th>Sınıf</th><th>Tanım</th></tr>
+<tr><td>tr.indexhead</td>
+        <td>Liste satırının başlığı</td></tr>
+<tr class="odd"><td>th.indexcolicon and td.indexcolicon</td>
+         <td>Simge sütunu</td></tr>
+<tr><td>th.indexcolname and td.indexcolname</td>
+         <td>Dosya ismi sütunu</td></tr>
+<tr class="odd"><td>th.indexcollastmod and td.indexcollastmod</td>
+        <td>Son değişiklik sütunu</td></tr>
+<tr><td>th.indexcolsize and td.indexcolsize</td>
+        <td>Dosya boyutu sütunu</td></tr>
+<tr class="odd"><td>th.indexcoldesc and td.indexcoldesc</td>
+        <td>Açıklama sütunu</td></tr>
+<tr><td>tr.breakrow</td>
+        <td>Tablonun altınaki yatay çizgi</td></tr>
+<tr class="odd"><td>tr.odd and tr.even</td>
+        <td>Tek ve çift satırlar</td></tr>
+</table>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -939,16 +998,17 @@ belirler.</td></tr>
     <p><code class="directive">ReadmeName</code> yönergesi dizin listesinin sonuna
       eklenecek dosyanın ismini belirler. <code><em>dosya-ismi</em></code> ile
       listeye dahil edilecek dosyanın ismi listelenen dizine göreli olarak
-      belirtilir. Eğer dosya ismi bir bölü çizgisi ile başlıyorsa <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>’a göreli belirtildiği
-      varsayılır.</p>
+      belirtilir. Eğer dosya ismi 2. örnekteki gibi bir bölü çizgisi ile
+      başlıyorsa <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>’a göreli
+      belirtildiği varsayılır.</p>
 
-    <div class="example"><h3>1. Örnek</h3><p><code>
-      ReadmeName FOOTER.html
-    </code></p></div>
+    <pre class="prettyprint lang-config"># 1. Örnek
+ReadmeName FOOTER.html</pre>
 
-    <div class="example"><h3>2. Örnek</h3><p><code>
-      ReadmeName /include/FOOTER.html
-    </code></p></div>
+
+    <pre class="prettyprint lang-config"># 2. Örnek
+ReadmeName /include/FOOTER.html</pre>
+
 
     <p>Ayrıca bu davranışın daha ayrıntılı ele alındığı <code class="directive"><a href="#headername">HeaderName</a></code> yönergesine de
       bakınız.</p>
@@ -964,7 +1024,7 @@ belirler.</td></tr>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_autoindex.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_autoindex.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -979,7 +1039,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/mod/mod_autoindex.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

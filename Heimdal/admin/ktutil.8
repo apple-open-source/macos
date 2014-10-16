@@ -79,11 +79,16 @@ server for the realm of a keytab entry.  Otherwise it will use the
 values specified by the options.
 .Pp
 If no principals are given, all the ones in the keytab are updated.
-.It copy Ar keytab-src Ar keytab-dest
+.It copy Oo Fl Fl filter-principal= NS Ar string Oc
+Ar keytab-src Ar keytab-dest
 Copies all the entries from
 .Ar keytab-src
 to
 .Ar keytab-dest .
+Optionally a princial can be selected as a filter and then just
+entries matching that principal is copied out.
+The matching applies globing rules on each component (eg
+foo*/host.domain@REALM) is a valid filter principal.
 .It get Oo Fl p Ar admin principal Oc \
 Oo Fl Fl principal= Ns Ar admin principal Oc Oo Fl e Ar enctype Oc \
 Oo Fl Fl enctypes= Ns Ar enctype Oc Oo Fl r Ar realm Oc \

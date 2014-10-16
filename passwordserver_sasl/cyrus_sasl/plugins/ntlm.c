@@ -1,6 +1,6 @@
 /* NTLM SASL plugin
  * Ken Murchison
- * $Id: ntlm.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $
+ * $Id: ntlm.c,v 1.37 2011/11/08 17:31:55 murch Exp $
  *
  * References:
  *   http://www.innovation.ch/java/ntlm.html
@@ -73,34 +73,20 @@
   typedef int SOCKET;
 #endif /* WIN32 */
 
-#include <openssl/md4.h>
-#include <openssl/md5.h>
-#include <openssl/hmac.h>
-#include <openssl/des.h>
-#include <openssl/opensslv.h>
-#if (OPENSSL_VERSION_NUMBER >= 0x0090700f) && \
-     !defined(OPENSSL_ENABLE_OLD_DES_SUPPORT)
-# define des_cblock DES_cblock
-# define des_key_schedule DES_key_schedule
-# define des_set_odd_parity(k) \
-	 DES_set_odd_parity((k))
-# define des_set_key(k,ks) \
-	 DES_set_key((k),&(ks))
-# define des_key_sched(k,ks) \
-         DES_key_sched((k),&(ks))
-# define des_ecb_encrypt(i,o,k,e) \
-	 DES_ecb_encrypt((i),(o),&(k),(e))
-#endif /* OpenSSL 0.9.7+ w/o old DES support */
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonCryptor.h>
 
 #include <sasl.h>
-#define MD5_H  /* suppress internal MD5 */
+// Use internal MD5 implementation so we can get off of OpenSSL - TODO: <rdar://problem/14931407> passwordserver_sasl should use CommonCrypto for MD5 where possible
+//#define MD5_H  /* suppress internal MD5 */
 #include <saslplug.h>
 
 #include "plugin_common.h"
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: ntlm.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $";
+static const char plugin_id[] = "$Id: ntlm.c,v 1.37 2011/11/08 17:31:55 murch Exp $";
 
 #ifdef WIN32
 static ssize_t writev (SOCKET fd, const struct iovec *iov, size_t iovcnt);
@@ -275,7 +261,7 @@ static void load_buffer(u_char *buf, const u_char *str, uint16 len,
 {
     if (len) {
 	if (unicode) {
-	    to_unicode(base + *offset, str, len);
+	    to_unicode(base + *offset, (const char *)str, len);
 	    len *= 2;
 	}
 	else {
@@ -337,8 +323,7 @@ static void E(unsigned char *out, unsigned char *K, unsigned Klen,
 	      
 {
     unsigned k, d;
-    des_cblock K64;
-    des_key_schedule ks;
+    unsigned char K64[8];
     unsigned char *Dp;
 #define KEY_SIZE   7
 #define BLOCK_SIZE 8
@@ -354,12 +339,11 @@ static void E(unsigned char *out, unsigned char *K, unsigned Klen,
 	K64[6] = ((K[5] << 2) & 0xFF) | (K[6] >> 6);
 	K64[7] =  (K[6] << 1) & 0xFF;
 
- 	des_set_odd_parity(&K64); /* XXX is this necessary? */
- 	des_set_key(&K64, ks);
+ 	//DES_set_odd_parity(&K64); /* XXX is this necessary? */
 
 	for (d = 0, Dp = D; d < Dlen;
 	     d += BLOCK_SIZE, Dp += BLOCK_SIZE, out += BLOCK_SIZE) {
- 	    des_ecb_encrypt((void *) Dp, (void *) out, ks, DES_ENCRYPT);
+ 	    CCCrypt(kCCEncrypt, kCCAlgorithmDES, kCCOptionECBMode, K64, sizeof(K64), NULL, (const void *)Dp, BLOCK_SIZE, (void *)out, BLOCK_SIZE, NULL);
 	}
     }
 }
@@ -373,10 +357,10 @@ static unsigned char *P16_lm(unsigned char *P16, sasl_secret_t *passwd,
     char P14[14];
     unsigned char S8[] = { 0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25 };
 
-    strncpy(P14, (char *)passwd->data, sizeof(P14));
+    strncpy(P14, (const char *)passwd->data, sizeof(P14));
     ucase(P14, sizeof(P14));
 
-    E(P16, P14, sizeof(P14), S8, sizeof(S8));
+    E(P16, (unsigned char *)P14, sizeof(P14), S8, sizeof(S8));
     *result = SASL_OK;
     return P16;
 }
@@ -390,8 +374,8 @@ static unsigned char *P16_nt(unsigned char *P16, sasl_secret_t *passwd,
 	*result = SASL_NOMEM;
     }
     else {
-	to_unicode(*buf, passwd->data, passwd->len);
-	MD4(*buf, 2 * passwd->len, P16);
+	to_unicode((u_char *)*buf, (const char *)passwd->data, passwd->len);
+	CC_MD4(*buf, 2 * passwd->len, P16);
 	*result = SASL_OK;
     }
     return P16;
@@ -424,13 +408,13 @@ static unsigned char *V2(unsigned char *V2, sasl_secret_t *passwd,
 			 const sasl_utils_t *utils,
 			 char **buf, unsigned *buflen, int *result)
 {
-    HMAC_CTX ctx;
-    unsigned char hash[EVP_MAX_MD_SIZE];
+    CCHmacContext ctx;
+    unsigned char hash[CC_MD5_DIGEST_LENGTH];
     char *upper;
-    int len;
+    unsigned int len;
 
     /* Allocate enough space for the unicode target */
-    len = (int) (strlen(authid) + xstrlen(target));
+    len = (unsigned int) (strlen(authid) + xstrlen(target));
     if (_plug_buf_alloc(utils, buf, buflen, 2 * len + 1) != SASL_OK) {
 	SETERROR(utils, "cannot allocate NTLMv2 hash");
 	*result = SASL_NOMEM;
@@ -444,16 +428,15 @@ static unsigned char *V2(unsigned char *V2, sasl_secret_t *passwd,
 	strcpy(upper, authid);
 	if (target) strcat(upper, target);
 	ucase(upper, len);
-	to_unicode(*buf, upper, len);
+	to_unicode((u_char *)*buf, upper, len);
 
-	HMAC(EVP_md5(), hash, MD4_DIGEST_LENGTH, *buf, 2 * len, hash, &len);
+	CCHmac(kCCHmacAlgMD5, hash, CC_MD5_DIGEST_LENGTH, *buf, 2 * len, hash);
 
 	/* V2 = HMAC-MD5(NTLMv2hash, challenge + blob) + blob */
-	HMAC_Init(&ctx, hash, len, EVP_md5());
-	HMAC_Update(&ctx, challenge, NTLM_NONCE_LENGTH);
-	HMAC_Update(&ctx, blob, bloblen);
-	HMAC_Final(&ctx, V2, &len);
-	HMAC_cleanup(&ctx);
+	CCHmacInit(&ctx, kCCHmacAlgMD5, hash, CC_MD5_DIGEST_LENGTH);
+	CCHmacUpdate(&ctx, challenge, NTLM_NONCE_LENGTH);
+	CCHmacUpdate(&ctx, blob, bloblen);
+	CCHmacFinal(&ctx, V2);
 
 	/* the blob is concatenated outside of this function */
 
@@ -697,7 +680,7 @@ static int retry_writev(SOCKET fd, struct iovec *iov, int iovcnt)
 
 	if (!iovcnt) return written;
 
-	n = writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
+	n = (int) writev(fd, iov, iovcnt > iov_max ? iov_max : iovcnt);
 	if (n == -1) {
 #ifndef WIN32
 	    if (errno == EINVAL && iov_max > 10) {
@@ -769,7 +752,7 @@ static void make_netbios_name(const char *in, unsigned char out[])
     n = strcspn(in, ".");
     if (n > 16) n = 16;
     strncpy((char *)out+18, in, n);
-    in = out+18;
+    in = (char *)out+18;
     ucase(in, n);
 
     out[j++] = 0x20;
@@ -952,7 +935,7 @@ static int smb_negotiate_protocol(const sasl_utils_t *utils,
     uint32 len, nl;
     int n_dialects = N(SMB_DIALECTS);
     struct iovec iov[4+N(SMB_DIALECTS)];
-    size_t i, n;
+    int i, n;
     int rc;
     pid_t current_pid;
 
@@ -1033,7 +1016,7 @@ static int smb_negotiate_protocol(const sasl_utils_t *utils,
 		   "NTLM: error reading NEGPROT response");
 	return SASL_FAIL;
     }
-    p = text->out_buf;
+    p = (unsigned char *)text->out_buf;
 
     /* parse the header */
     if (len < SMB_HDR_SIZE) {
@@ -1115,7 +1098,7 @@ static int smb_negotiate_protocol(const sasl_utils_t *utils,
 	    return SASL_NOMEM;
 	}
 	memcpy(*domain, p, len);
-	from_unicode(*domain, *domain, len);
+	from_unicode(*domain, (u_char *)*domain, len);
 
 	text->flags |= NTLM_TARGET_IS_DOMAIN;
     }
@@ -1137,9 +1120,9 @@ static int smb_session_setup(const sasl_utils_t *utils, server_context_t *text,
     uint16 bytecount;
     uint32 len, nl;
     struct iovec iov[12];
-    size_t i, n;
+    int i, n;
     int rc;
-#if (defined(WIN32) || defined(__APPLE__))
+#ifdef WIN32
     char osbuf[80];
 #else
     char osbuf[2*SYS_NMLN+2];
@@ -1256,7 +1239,7 @@ static int smb_session_setup(const sasl_utils_t *utils, server_context_t *text,
 		   "NTLM: error reading SESSIONSETUP response");
 	return SASL_FAIL;
     }
-    p = text->out_buf;
+    p = (unsigned char *)text->out_buf;
 
     /* parse the header */
     if (len < SMB_HDR_SIZE) {
@@ -1336,19 +1319,19 @@ static int create_challenge(const sasl_utils_t *utils,
 	return SASL_FAIL;
     }
 
-    *outlen = offset + 2 * xstrlen(target);
+    *outlen = offset + 2 * (unsigned) xstrlen(target);
 
     if (_plug_buf_alloc(utils, buf, buflen, *outlen) != SASL_OK) {
 	SETERROR(utils, "cannot allocate NTLM challenge");
 	return SASL_NOMEM;
     }
 
-    base = *buf;
+    base = (u_char *)*buf;
     memset(base, 0, *outlen);
     memcpy(base + NTLM_SIG_OFFSET, NTLM_SIGNATURE, sizeof(NTLM_SIGNATURE));
     htoil(base + NTLM_TYPE_OFFSET, NTLM_TYPE_CHALLENGE);
     load_buffer(base + NTLM_TYPE2_TARGET_OFFSET,
-		ucase(target, 0), (uint16) xstrlen(target), flags & NTLM_USE_UNICODE,
+		(const u_char *)ucase(target, 0), (uint16) xstrlen(target), flags & NTLM_USE_UNICODE,
 		base, &offset);
     htoil(base + NTLM_TYPE2_FLAGS_OFFSET, flags);
     memcpy(base + NTLM_TYPE2_CHALLENGE_OFFSET, nonce, NTLM_NONCE_LENGTH);
@@ -1370,8 +1353,30 @@ static int ntlm_server_mech_new(void *glob_context __attribute__((unused)),
     sparams->utils->getopt(sparams->utils->getopt_context,
 			   "NTLM", "ntlm_server", &serv, &len);
     if (serv) {
-	/* try to start a NetBIOS session with the server */
-	sock = smb_connect_server(sparams->utils, sparams->serverFQDN, serv);
+	unsigned int i,j;
+	char *tmp, *next;
+
+	/* strip any whitespace */
+	if(_plug_strdup(sparams->utils, serv, &tmp, NULL) != SASL_OK) {
+	    MEMERROR( sparams->utils );
+	    return SASL_NOMEM;
+	}
+	for(i=0, j=0; i<len; i++) {
+	    if(!isspace(tmp[i])) tmp[j++] = tmp[i];
+	}
+	tmp[j] = '\0';
+	next = tmp;
+
+	/* try to connect to a list of servers */
+	do {
+	    serv = next;
+	    next = strchr(serv, ',');
+	    if(next) *(next++) = '\0';
+	    /* try to start a NetBIOS session with the server */
+	    sock = smb_connect_server(sparams->utils, sparams->serverFQDN, serv);
+	} while(sock == (SOCKET) -1 && next);
+
+	sparams->utils->free(tmp);
 	if (sock == (SOCKET) -1) return SASL_UNAVAIL;
     }
     
@@ -1559,7 +1564,7 @@ static int ntlm_server_mech_step2(server_context_t *text,
 	    goto cleanup;
 	}
 	
-	password->len = pass_len;
+	password->len = (unsigned) pass_len;
 	strncpy((char *)password->data, auxprop_values[0].values[0], pass_len + 1);
 
 	/* erase the plaintext password */
@@ -1572,12 +1577,12 @@ static int ntlm_server_mech_step2(server_context_t *text,
 	    sparams->utils->log(NULL, SASL_LOG_DEBUG,
 				"calculating NTv2 response");
 	    V2(resp, password, authid, domain, text->nonce,
-	       lm_resp + MD5_DIGEST_LENGTH, nt_resp_len - MD5_DIGEST_LENGTH,
+	       nt_resp + CC_MD5_DIGEST_LENGTH, nt_resp_len - CC_MD5_DIGEST_LENGTH,
 	       sparams->utils, &text->out_buf, &text->out_buf_len,
 	       &result);
 
 	    /* No need to compare the blob */
-	    if (memcmp(nt_resp, resp, MD5_DIGEST_LENGTH)) {
+	    if (memcmp(nt_resp, resp, CC_MD5_DIGEST_LENGTH)) {
 		SETERROR(sparams->utils, "incorrect NTLMv2 response");
 		result = SASL_BADAUTH;
 	    }
@@ -1599,12 +1604,12 @@ static int ntlm_server_mech_step2(server_context_t *text,
 	    sparams->utils->log(NULL, SASL_LOG_DEBUG,
 				"calculating LMv2 response");
 	    V2(resp, password, authid, domain, text->nonce,
-	       lm_resp + MD5_DIGEST_LENGTH, lm_resp_len - MD5_DIGEST_LENGTH,
+	       lm_resp + CC_MD5_DIGEST_LENGTH, lm_resp_len - CC_MD5_DIGEST_LENGTH,
 	       sparams->utils, &text->out_buf, &text->out_buf_len,
 	       &result);
 		
 	    /* No need to compare the blob */
-	    if (memcmp(lm_resp, resp, MD5_DIGEST_LENGTH)) {
+	    if (memcmp(lm_resp, resp, CC_MD5_DIGEST_LENGTH)) {
 		/* Try LM response */
 		sparams->utils->log(NULL, SASL_LOG_DEBUG,
 				    "calculating LM response");
@@ -1667,6 +1672,10 @@ static int ntlm_server_mech_step(void *conn_context,
     *serverout = NULL;
     *serveroutlen = 0;
     
+    if (text == NULL) {
+	return SASL_BADPROT;
+    }
+
     sparams->utils->log(NULL, SASL_LOG_DEBUG,
 		       "NTLM server step %d\n", text->state);
 
@@ -1709,7 +1718,8 @@ static sasl_server_plug_t ntlm_server_plugins[] =
 	0,				/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_SUPPORTS_HTTP,	/* features */
 	NULL,				/* glob_context */
 	&ntlm_server_mech_new,		/* mech_new */
 	&ntlm_server_mech_step,		/* mech_step */
@@ -1772,7 +1782,7 @@ static int create_request(const sasl_utils_t *utils,
     uint32 offset = NTLM_TYPE1_DATA_OFFSET;
     u_char *base;
 
-    *outlen = offset + xstrlen(domain) + xstrlen(wkstn);
+    *outlen = (unsigned) (offset + xstrlen(domain) + xstrlen(wkstn));
     if (_plug_buf_alloc(utils, buf, buflen, *outlen) != SASL_OK) {
 	SETERROR(utils, "cannot allocate NTLM request");
 	return SASL_NOMEM;
@@ -1784,9 +1794,9 @@ static int create_request(const sasl_utils_t *utils,
     htoil(base + NTLM_TYPE_OFFSET, NTLM_TYPE_REQUEST);
     htoil(base + NTLM_TYPE1_FLAGS_OFFSET, flags);
     load_buffer(base + NTLM_TYPE1_DOMAIN_OFFSET,
-		domain, (uint16) xstrlen(domain), 0, base, &offset);
+		(const u_char *)domain, (uint16) xstrlen(domain), 0, base, &offset);
     load_buffer(base + NTLM_TYPE1_WORKSTN_OFFSET,
-		wkstn, (uint16) xstrlen(wkstn), 0, base, &offset);
+		(const u_char *)wkstn, (uint16) xstrlen(wkstn), 0, (u_char *)base, &offset);
 
     return SASL_OK;
 }
@@ -1820,8 +1830,8 @@ static int create_response(const sasl_utils_t *utils,
 	return SASL_FAIL;
     }
 
-    *outlen = offset + (flags & NTLM_USE_UNICODE ? 2 : 1) * 
-	(xstrlen(domain) + xstrlen(user) + xstrlen(wkstn));
+    *outlen = (unsigned) (offset + (flags & NTLM_USE_UNICODE ? 2 : 1) * 
+	(xstrlen(domain) + xstrlen(user) + xstrlen(wkstn)));
     if (lm_resp) *outlen += NTLM_RESP_LENGTH;
     if (nt_resp) *outlen += NTLM_RESP_LENGTH;
     if (key) *outlen += NTLM_SESSKEY_LENGTH;
@@ -1840,12 +1850,12 @@ static int create_response(const sasl_utils_t *utils,
     load_buffer(base + NTLM_TYPE3_NTRESP_OFFSET,
 		nt_resp, nt_resp ? NTLM_RESP_LENGTH : 0, 0, base, &offset);
     load_buffer(base + NTLM_TYPE3_DOMAIN_OFFSET,
-		ucase(domain, 0), (uint16) xstrlen(domain), flags & NTLM_USE_UNICODE,
+		(const u_char *)ucase(domain, 0), (uint16) xstrlen(domain), flags & NTLM_USE_UNICODE,
 		base, &offset);
     load_buffer(base + NTLM_TYPE3_USER_OFFSET,
-		user, (uint16) xstrlen(user), flags & NTLM_USE_UNICODE, base, &offset);
+		(const u_char *)user, (uint16) xstrlen(user), flags & NTLM_USE_UNICODE, base, &offset);
     load_buffer(base + NTLM_TYPE3_WORKSTN_OFFSET,
-		ucase(wkstn, 0), (uint16) xstrlen(wkstn), flags & NTLM_USE_UNICODE,
+		(const u_char *)ucase(wkstn, 0), (uint16) xstrlen(wkstn), flags & NTLM_USE_UNICODE,
 		base, &offset);
     load_buffer(base + NTLM_TYPE3_SESSIONKEY_OFFSET,
 		key, key ? NTLM_SESSKEY_LENGTH : 0, 0, base, &offset);
@@ -1996,19 +2006,19 @@ static int ntlm_client_mech_step2(client_context_t *text,
     params->utils->getopt(params->utils->getopt_context,
 			  "NTLM", "ntlm_v2", &sendv2, NULL);
     if (sendv2 &&
-	(*sendv2 == '1' || *sendv2 == 'y' ||
-	 (*sendv2 == 'o' && *sendv2 == 'n') || *sendv2 == 't')) {
+	(sendv2[0] == '1' || sendv2[0] == 'y' ||
+	 (sendv2[0] == 'o' && sendv2[1] == 'n') || sendv2[0] == 't')) {
 
 	/* put the cnonce in place after the LMv2 HMAC */
-	char *cnonce = (char *)(resp + MD5_DIGEST_LENGTH);
-	
+	char *cnonce = (char *)(resp + CC_MD5_DIGEST_LENGTH);
+
 	params->utils->log(NULL, SASL_LOG_DEBUG,
 			   "calculating LMv2 response");
 
 	params->utils->rand(params->utils->rpool, cnonce, NTLM_NONCE_LENGTH);
 
 	V2(resp, password, oparams->authid, domain,
-	   serverin + NTLM_TYPE2_CHALLENGE_OFFSET, cnonce, NTLM_NONCE_LENGTH,
+	   (const u_char *)serverin + NTLM_TYPE2_CHALLENGE_OFFSET, (const unsigned char *)cnonce, NTLM_NONCE_LENGTH,
 	   params->utils, &text->out_buf, &text->out_buf_len, &result);
 
 	lm_resp = resp;
@@ -2115,7 +2125,8 @@ static sasl_client_plug_t ntlm_client_plugins[] =
 	0,				/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST,	/* features */
+	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_SUPPORTS_HTTP,	/* features */
 	NULL,				/* required_prompts */
 	NULL,				/* glob_context */
 	&ntlm_client_mech_new,		/* mech_new */

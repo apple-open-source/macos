@@ -1,4 +1,0 @@
-# login: account session
-account    required       pam_nologin.so
-account    required       pam_opendirectory.so
-session    required       pam_uwtmp.so

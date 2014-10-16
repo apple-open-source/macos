@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -54,7 +54,12 @@ class RenderTextControl;
 class RenderView;
 class VisibleSelection;
 class Widget;
-    
+
+enum MouseButtonListenerResultFilter {
+    ExcludeBodyElement = 1,
+    IncludeBodyElement,
+};
+
 class AccessibilityNodeObject : public AccessibilityObject {
 protected:
     explicit AccessibilityNodeObject(Node*);
@@ -62,95 +67,96 @@ public:
     static PassRefPtr<AccessibilityNodeObject> create(Node*);
     virtual ~AccessibilityNodeObject();
 
-    virtual void init();
+    virtual void init() override;
     
-    virtual bool isAccessibilityNodeObject() const { return true; }
+    virtual bool isAccessibilityNodeObject() const override { return true; }
 
-    virtual bool canvasHasFallbackContent() const;
+    virtual bool canvasHasFallbackContent() const override;
 
-    virtual bool isAnchor() const;
-    virtual bool isControl() const;
-    virtual bool isFieldset() const;
-    virtual bool isGroup() const;
-    virtual bool isHeading() const;
-    virtual bool isHovered() const;
-    virtual bool isImage() const;
-    virtual bool isImageButton() const;
-    virtual bool isInputImage() const;
-    virtual bool isLink() const;
-    virtual bool isMenu() const;
-    virtual bool isMenuBar() const;
-    virtual bool isMenuButton() const;
-    virtual bool isMenuItem() const;
-    virtual bool isMenuRelated() const;
-    virtual bool isMultiSelectable() const;
+    virtual bool isAnchor() const override;
+    virtual bool isControl() const override;
+    virtual bool isFieldset() const override;
+    virtual bool isGroup() const override;
+    virtual bool isHeading() const override;
+    virtual bool isHovered() const override;
+    virtual bool isImage() const override;
+    virtual bool isImageButton() const override;
+    virtual bool isInputImage() const override;
+    virtual bool isLink() const override;
+    virtual bool isMenu() const override;
+    virtual bool isMenuBar() const override;
+    virtual bool isMenuButton() const override;
+    virtual bool isMenuItem() const override;
+    virtual bool isMenuRelated() const override;
+    virtual bool isMultiSelectable() const override;
     virtual bool isNativeCheckboxOrRadio() const;
-    virtual bool isNativeImage() const;
-    virtual bool isNativeTextControl() const;
-    virtual bool isPasswordField() const;
-    virtual bool isProgressIndicator() const;
-    virtual bool isSearchField() const;
-    virtual bool isSlider() const;
+    virtual bool isNativeImage() const override;
+    virtual bool isNativeTextControl() const override;
+    virtual bool isPasswordField() const override;
+    virtual bool isProgressIndicator() const override;
+    virtual bool isSearchField() const override;
+    virtual bool isSlider() const override;
 
-    virtual bool isChecked() const;
-    virtual bool isEnabled() const;
-    virtual bool isIndeterminate() const;
-    virtual bool isPressed() const;
-    virtual bool isReadOnly() const;
-    virtual bool isRequired() const;
-    virtual bool supportsRequiredAttribute() const;
+    virtual bool isChecked() const override;
+    virtual bool isEnabled() const override;
+    virtual bool isIndeterminate() const override;
+    virtual bool isPressed() const override;
+    virtual bool isReadOnly() const override;
+    virtual bool isRequired() const override;
+    virtual bool supportsRequiredAttribute() const override;
 
-    virtual bool canSetSelectedAttribute() const OVERRIDE;
+    virtual bool canSetSelectedAttribute() const override;
 
     void setNode(Node*);
-    virtual Node* node() const { return m_node; }
-    virtual Document* document() const;
+    virtual Node* node() const override { return m_node; }
+    virtual Document* document() const override;
 
-    virtual bool canSetFocusAttribute() const;
-    virtual int headingLevel() const;
+    virtual bool canSetFocusAttribute() const override;
+    virtual int headingLevel() const override;
 
-    virtual String valueDescription() const;
-    virtual float valueForRange() const;
-    virtual float maxValueForRange() const;
-    virtual float minValueForRange() const;
-    virtual float stepValueForRange() const;
+    virtual String valueDescription() const override;
+    virtual float valueForRange() const override;
+    virtual float maxValueForRange() const override;
+    virtual float minValueForRange() const override;
+    virtual float stepValueForRange() const override;
 
-    virtual AccessibilityObject* selectedRadioButton();
-    virtual AccessibilityObject* selectedTabItem();
-    virtual AccessibilityButtonState checkboxOrRadioValue() const;
+    virtual AccessibilityObject* selectedRadioButton() override;
+    virtual AccessibilityObject* selectedTabItem() override;
+    virtual AccessibilityButtonState checkboxOrRadioValue() const override;
 
-    virtual unsigned hierarchicalLevel() const;
-    virtual String textUnderElement() const;
-    virtual String accessibilityDescription() const;
-    virtual String helpText() const;
-    virtual String title() const;
-    virtual String text() const;
-    virtual String stringValue() const;
-    virtual void colorValue(int& r, int& g, int& b) const;
-    virtual String ariaLabeledByAttribute() const;
+    virtual unsigned hierarchicalLevel() const override;
+    virtual String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override;
+    virtual String accessibilityDescription() const override;
+    virtual String helpText() const override;
+    virtual String title() const override;
+    virtual String text() const override;
+    virtual String stringValue() const override;
+    virtual void colorValue(int& r, int& g, int& b) const override;
+    virtual String ariaLabeledByAttribute() const override;
+    virtual bool hasAttributesRequiredForInclusion() const override final;
 
-    virtual Element* actionElement() const;
-    Element* mouseButtonListener() const;
-    virtual Element* anchorElement() const;
+    virtual Element* actionElement() const override;
+    Element* mouseButtonListener(MouseButtonListenerResultFilter = ExcludeBodyElement) const;
+    virtual Element* anchorElement() const override;
     AccessibilityObject* menuForMenuButton() const;
    
     virtual void changeValueByPercent(float percentChange);
  
-    virtual AccessibilityObject* firstChild() const;
-    virtual AccessibilityObject* lastChild() const;
-    virtual AccessibilityObject* previousSibling() const;
-    virtual AccessibilityObject* nextSibling() const;
-    virtual AccessibilityObject* parentObject() const;
-    virtual AccessibilityObject* parentObjectIfExists() const;
+    virtual AccessibilityObject* firstChild() const override;
+    virtual AccessibilityObject* lastChild() const override;
+    virtual AccessibilityObject* previousSibling() const override;
+    virtual AccessibilityObject* nextSibling() const override;
+    virtual AccessibilityObject* parentObject() const override;
+    virtual AccessibilityObject* parentObjectIfExists() const override;
 
-    virtual void detach();
-    virtual void childrenChanged();
-    virtual void updateAccessibilityRole();
+    virtual void detach(AccessibilityDetachmentType, AXObjectCache*) override;
+    virtual void childrenChanged() override;
+    virtual void updateAccessibilityRole() override;
 
-    virtual void increment();
-    virtual void decrement();
+    virtual void increment() override;
+    virtual void decrement() override;
 
-    virtual LayoutRect elementRect() const;
+    virtual LayoutRect elementRect() const override;
 
 protected:
     AccessibilityRole m_ariaRole;
@@ -160,19 +166,18 @@ protected:
     bool m_initialized;
 #endif
 
-    virtual bool isDetached() const { return !m_node; }
+    virtual bool isDetached() const override { return !m_node; }
 
     virtual AccessibilityRole determineAccessibilityRole();
-    virtual void addChildren();
-    virtual void addChild(AccessibilityObject*);
-    virtual void insertChild(AccessibilityObject*, unsigned index);
+    virtual void addChildren() override;
+    virtual void addChild(AccessibilityObject*) override;
+    virtual void insertChild(AccessibilityObject*, unsigned index) override;
 
-    virtual bool canHaveChildren() const;
-    AccessibilityRole ariaRoleAttribute() const;
+    virtual bool canHaveChildren() const override;
+    virtual AccessibilityRole ariaRoleAttribute() const override;
     AccessibilityRole determineAriaRoleAttribute() const;
     AccessibilityRole remapAriaRoleDueToParent(AccessibilityRole) const;
-    bool hasContentEditableAttributeSet() const;
-    virtual bool isDescendantOfBarrenParent() const;
+    virtual bool isDescendantOfBarrenParent() const override;
     void alterSliderValue(bool increase);
     void changeValueByStep(bool increase);
     // This returns true if it's focusable but it's not content editable and it's not a control or ARIA control.
@@ -181,9 +186,8 @@ protected:
     String ariaAccessibilityDescription() const;
     void ariaLabeledByElements(Vector<Element*>& elements) const;
     String accessibilityDescriptionForElements(Vector<Element*> &elements) const;
-    void elementsFromAttribute(Vector<Element*>& elements, const QualifiedName&) const;
-    virtual LayoutRect boundingBoxRect() const;
-    String ariaDescribedByAttribute() const;
+    virtual LayoutRect boundingBoxRect() const override;
+    virtual String ariaDescribedByAttribute() const override;
     
     Element* menuElementForMenuButton() const;
     Element* menuItemElementForMenu() const;
@@ -192,30 +196,18 @@ protected:
 private:
     Node* m_node;
 
-    virtual void accessibilityText(Vector<AccessibilityText>&);
-    void titleElementText(Vector<AccessibilityText>&);
+    virtual void accessibilityText(Vector<AccessibilityText>&) override;
+    virtual void titleElementText(Vector<AccessibilityText>&) const;
     void alternativeText(Vector<AccessibilityText>&) const;
     void visibleText(Vector<AccessibilityText>&) const;
     void helpText(Vector<AccessibilityText>&) const;
     String alternativeTextForWebArea() const;
     void ariaLabeledByText(Vector<AccessibilityText>&) const;
-    virtual bool computeAccessibilityIsIgnored() const;
+    virtual bool computeAccessibilityIsIgnored() const override;
+    bool usesAltTagForTextComputation() const;
 };
 
-inline AccessibilityNodeObject* toAccessibilityNodeObject(AccessibilityObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isAccessibilityNodeObject());
-    return static_cast<AccessibilityNodeObject*>(object);
-}
-
-inline const AccessibilityNodeObject* toAccessibilityNodeObject(const AccessibilityObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isAccessibilityNodeObject());
-    return static_cast<const AccessibilityNodeObject*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toAccessibilityNodeObject(const AccessibilityNodeObject*);
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityNodeObject, isAccessibilityNodeObject())
 
 } // namespace WebCore
 

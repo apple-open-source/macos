@@ -30,7 +30,6 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/SegmentedVector.h>
 #include <wtf/Vector.h>
-#include <wtf/unicode/Unicode.h>
 
 namespace JSC {
 
@@ -41,7 +40,7 @@ public:
         return m_keywordTable.entry(m_vm, ident);
     }
     
-    const HashEntry* getKeyword(const Identifier& ident) const
+    const HashTableValue* getKeyword(const Identifier& ident) const
     {
         return m_keywordTable.entry(m_vm, ident);
     }
@@ -54,9 +53,9 @@ public:
 private:
     friend class VM;
     
-    Keywords(VM*);
+    explicit Keywords(VM&);
     
-    VM* m_vm;
+    VM& m_vm;
     const HashTable m_keywordTable;
 };
 
@@ -72,7 +71,7 @@ class Lexer {
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    Lexer(VM*);
+    Lexer(VM*, JSParserStrictness);
     ~Lexer();
 
     // Character manipulation functions.
@@ -86,15 +85,19 @@ public:
     void setIsReparsing() { m_isReparsing = true; }
     bool isReparsing() const { return m_isReparsing; }
 
-    JSTokenType lex(JSTokenData*, JSTokenLocation*, unsigned, bool strictMode);
+    JSTokenType lex(JSToken*, unsigned, bool strictMode);
     bool nextTokenIsColon();
     int lineNumber() const { return m_lineNumber; }
     ALWAYS_INLINE int currentOffset() const { return offsetFromSourcePtr(m_code); }
     ALWAYS_INLINE int currentLineStartOffset() const { return offsetFromSourcePtr(m_lineStart); }
+    ALWAYS_INLINE JSTextPosition currentPosition() const
+    {
+        return JSTextPosition(m_lineNumber, currentOffset(), currentLineStartOffset());
+    }
+    JSTextPosition positionBeforeLastNewline() const { return m_positionBeforeLastNewline; }
     void setLastLineNumber(int lastLineNumber) { m_lastLineNumber = lastLineNumber; }
     int lastLineNumber() const { return m_lastLineNumber; }
     bool prevTerminator() const { return m_terminator; }
-    SourceCode sourceCode(int openBrace, int closeBrace, int firstLine, unsigned startColumn);
     bool scanRegExp(const Identifier*& pattern, const Identifier*& flags, UChar patternPrefix = 0);
     bool skipRegExp();
 
@@ -125,7 +128,7 @@ public:
 
     SourceProvider* sourceProvider() const { return m_source->provider(); }
 
-    JSTokenType lexExpectIdentifier(JSTokenData*, JSTokenLocation*, unsigned, bool strictMode);
+    JSTokenType lexExpectIdentifier(JSToken*, unsigned, bool strictMode);
 
 private:
     void record8(int);
@@ -223,6 +226,7 @@ private:
     const T* m_codeEnd;
     const T* m_codeStartPlusOffset;
     const T* m_lineStart;
+    JSTextPosition m_positionBeforeLastNewline;
     bool m_isReparsing;
     bool m_atLineStart;
     bool m_error;
@@ -233,6 +237,7 @@ private:
     IdentifierArena* m_arena;
 
     VM* m_vm;
+    bool m_parsingBuiltinFunction;
 };
 
 template <>
@@ -244,7 +249,8 @@ ALWAYS_INLINE bool Lexer<LChar>::isWhiteSpace(LChar ch)
 template <>
 ALWAYS_INLINE bool Lexer<UChar>::isWhiteSpace(UChar ch)
 {
-    return (ch < 256) ? Lexer<LChar>::isWhiteSpace(static_cast<LChar>(ch)) : (WTF::Unicode::isSeparatorSpace(ch) || ch == 0xFEFF);
+    // 0x180E used to be in Zs category before Unicode 6.3, and EcmaScript says that we should keep treating it as such.
+    return (ch < 256) ? Lexer<LChar>::isWhiteSpace(static_cast<LChar>(ch)) : (u_charType(ch) == U_SPACE_SEPARATOR || ch == 0x180E || ch == 0xFEFF);
 }
 
 template <>
@@ -330,13 +336,22 @@ ALWAYS_INLINE const Identifier* Lexer<T>::makeLCharIdentifier(const UChar* chara
     return &m_arena->makeIdentifierLCharFromUChar(m_vm, characters, length);
 }
 
+#if ASSERT_DISABLED
+ALWAYS_INLINE bool isSafeBuiltinIdentifier(VM&, const Identifier*) { return true; }
+#else
+bool isSafeBuiltinIdentifier(VM&, const Identifier*);
+#endif
+
 template <typename T>
-ALWAYS_INLINE JSTokenType Lexer<T>::lexExpectIdentifier(JSTokenData* tokenData, JSTokenLocation* tokenLocation, unsigned lexerFlags, bool strictMode)
+ALWAYS_INLINE JSTokenType Lexer<T>::lexExpectIdentifier(JSToken* tokenRecord, unsigned lexerFlags, bool strictMode)
 {
+    JSTokenData* tokenData = &tokenRecord->m_data;
+    JSTokenLocation* tokenLocation = &tokenRecord->m_location;
     ASSERT((lexerFlags & LexerFlagsIgnoreReservedWords));
     const T* start = m_code;
     const T* ptr = start;
     const T* end = m_codeEnd;
+    JSTextPosition startPosition = currentPosition();
     if (ptr >= end) {
         ASSERT(ptr == end);
         goto slowCase;
@@ -362,20 +377,34 @@ ALWAYS_INLINE JSTokenType Lexer<T>::lexExpectIdentifier(JSTokenData* tokenData, 
     ASSERT(currentOffset() >= currentLineStartOffset());
 
     // Create the identifier if needed
-    if (lexerFlags & LexexFlagsDontBuildKeywords)
+    if (lexerFlags & LexexFlagsDontBuildKeywords
+#if !ASSERT_DISABLED
+        && !m_parsingBuiltinFunction
+#endif
+        )
         tokenData->ident = 0;
     else
         tokenData->ident = makeLCharIdentifier(start, ptr - start);
+
     tokenLocation->line = m_lineNumber;
     tokenLocation->lineStartOffset = currentLineStartOffset();
     tokenLocation->startOffset = offsetFromSourcePtr(start);
     tokenLocation->endOffset = currentOffset();
     ASSERT(tokenLocation->startOffset >= tokenLocation->lineStartOffset);
+    tokenRecord->m_startPosition = startPosition;
+    tokenRecord->m_endPosition = currentPosition();
+#if !ASSERT_DISABLED
+    if (m_parsingBuiltinFunction) {
+        if (!isSafeBuiltinIdentifier(*m_vm, tokenData->ident))
+            return ERRORTOK;
+    }
+#endif
+
     m_lastToken = IDENT;
     return IDENT;
     
 slowCase:
-    return lex(tokenData, tokenLocation, lexerFlags, strictMode);
+    return lex(tokenRecord, lexerFlags, strictMode);
 }
 
 } // namespace JSC

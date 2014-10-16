@@ -141,8 +141,6 @@ static bool
 upcomingToday(CFDictionaryRef event, int today_cf)
 {
     static const int        kAllowScheduleWindowSeconds = 5;
-    CFGregorianDate         greg_now;
-    CFTimeZoneRef           tizzy;
     uint32_t                secondsToday;
     int                     secondsScheduled;
 	int						days_mask;
@@ -153,12 +151,10 @@ upcomingToday(CFDictionaryRef event, int today_cf)
     if(!(days_mask & (1 << (today_cf-1)))) return false;
     
     // get gregorian date for right now
-    tizzy = CFTimeZoneCopySystem();    
-    greg_now = CFAbsoluteTimeGetGregorianDate(
-                    CFAbsoluteTimeGetCurrent(), tizzy);
-    CFRelease(tizzy);
+    int hour, minute;
+    CFCalendarDecomposeAbsoluteTime(_gregorian(), CFAbsoluteTimeGetCurrent(), "Hm", &hour, &minute);
     
-    secondsToday = 60 * ((greg_now.hour*60) + greg_now.minute);
+    secondsToday = 60 * (hour*60 + minute);
     secondsScheduled = 60 * getRepeatingDictionaryMinutes(event);
 
     // Initially, we required a 2 minute safety window before scheduling the next
@@ -247,13 +243,18 @@ copyNextRepeatingEvent(CFStringRef type)
     CFDictionaryRef         repeatDict = NULL;
     CFStringRef             repeatDictType = NULL;
     CFMutableDictionaryRef  repeatDictCopy = NULL;
-    CFGregorianDate         greg;
-    CFTimeZoneRef           tizzy;
-    CFAbsoluteTime          ev_time;
-    CFDateRef               ev_date;
-    int                     days;
-    int                     minutes_scheduled;
-    int                     cf_day_of_week;
+    CFAbsoluteTime          ev_time = 0.0;
+    CFAbsoluteTime          adjustedForDays = 0.0;
+    CFDateRef               ev_date = NULL;
+    int                     minutes_scheduled = 0;
+    int                     year = 0;
+    int                     month = 0;
+    int                     day = 0;
+    int                     day_of_week = 0;
+    int                     myhour = 0;
+    int                     myminute = 0;
+    int                     mysecond = 0;
+    int                     days_until_event = 0;
 
     /*
      * 'WakeOrPowerOn' repeat events are returned when caller asks
@@ -262,8 +263,8 @@ copyNextRepeatingEvent(CFStringRef type)
      * WakeOrPowerOn type repeat events.
      */
     if( CFEqual(type, CFSTR(kIOPMAutoSleep))
-        || CFEqual(type, CFSTR(kIOPMAutoShutdown)) ||
-        CFEqual(type, CFSTR(kIOPMAutoRestart)) )
+        || CFEqual(type, CFSTR(kIOPMAutoShutdown))
+        || CFEqual(type, CFSTR(kIOPMAutoRestart)) )
     {
         repeatDict = repeatingPowerOff;
     }
@@ -284,35 +285,36 @@ copyNextRepeatingEvent(CFStringRef type)
        )
     {
         repeatDictCopy = CFDictionaryCreateMutableCopy(0,0,repeatDict);
+        if (!repeatDictCopy)
+            return NULL;
 
-        tizzy = CFTimeZoneCopySystem();
+        CFCalendarDecomposeAbsoluteTime(_gregorian(), CFAbsoluteTimeGetCurrent(), "E", &day_of_week);
 
-        // Massage the scheduled time into today's date
-        cf_day_of_week = CFAbsoluteTimeGetDayOfWeek(
-                CFAbsoluteTimeGetCurrent(), tizzy);
-        days = daysUntil(repeatDict, cf_day_of_week);
+        // CFCalendarDecomposeAbsoluteTime starts week with Sunday as "1".
+        // IOPMScheduleRepeatingPowerEvent() is defined to start week with Monday as "1".
+        // Reduce day_of_week by 1 to match with week used by IOPMScheduleRepeatingPowerEvent.
+        
+        day_of_week = (day_of_week == 1) ? 7 : --day_of_week;
+        days_until_event = daysUntil(repeatDict, day_of_week);
 
-        greg = CFAbsoluteTimeGetGregorianDate(
-                        CFAbsoluteTimeGetCurrent() + days*(60*60*24), 
-                        tizzy);
-                                
+        adjustedForDays = CFAbsoluteTimeGetCurrent();
+        CFCalendarAddComponents(_gregorian(), &adjustedForDays, 0, "d", days_until_event);
+        CFCalendarDecomposeAbsoluteTime(_gregorian(), adjustedForDays, "yMd", &year, &month, &day);
+
         minutes_scheduled = getRepeatingDictionaryMinutes(repeatDict);
 
-        greg.hour = minutes_scheduled/60;
-        greg.minute = minutes_scheduled%60;
-        greg.second = 0.0;
-        
-        ev_time = CFGregorianDateGetAbsoluteTime(greg, tizzy);
-        ev_date = CFDateCreate(kCFAllocatorDefault, ev_time);
- 
-        CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventTimeKey),
-                ev_date);
+        myhour = minutes_scheduled/60;
+        myminute = minutes_scheduled%60;
+        mysecond = 0;
 
-        /* Set 'AppNameKey' to 'Repeating' */
-        CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventAppNameKey),
-                CFSTR(kIOPMRepeatingAppName));
-        CFRelease(ev_date);
-        CFRelease(tizzy);
+        CFCalendarComposeAbsoluteTime(_gregorian(), &ev_time, "yMdHms", year, month, day, myhour, myminute, mysecond);
+        
+        ev_date = CFDateCreate(0, ev_time);
+        if (ev_date) {
+            CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventTimeKey), ev_date);
+            CFDictionarySetValue(repeatDictCopy, CFSTR(kIOPMPowerEventAppNameKey), CFSTR(kIOPMRepeatingAppName));
+            CFRelease(ev_date);
+        }
     }
 
     return repeatDictCopy;

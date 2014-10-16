@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -70,7 +70,7 @@
 #include "tests.h"
 
 
-#define LINE_LENGTH 256
+#define LINE_LENGTH 2048
 
 
 __private_extern__ AuthorizationRef	authorization	= NULL;
@@ -96,6 +96,7 @@ static const struct option longopts[] = {
 //	{ "watch-reachability",	no_argument,		NULL,	'W'	},
 	{ "dns",		no_argument,		NULL,	0	},
 	{ "get",		required_argument,	NULL,	0	},
+	{ "error",		required_argument,	NULL,	0	},
 	{ "help",		no_argument,		NULL,	'?'	},
 	{ "nc",			required_argument,	NULL,	0	},
 	{ "net",		no_argument,		NULL,	0	},
@@ -120,9 +121,9 @@ _copyStringFromSTDIN(CFStringRef prompt, CFStringRef defaultValue)
 	char		buf[1024];
 	int		i;
 	Boolean		is_user_prompt = (prompt != NULL && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO));
-	size_t		len;
+	int		len;
 	char		*modbuf;
-	size_t		modlen;
+	int		modlen;
 	CFStringRef	utf8;
 
 	/* Print out a prompt to user that entry is desired */
@@ -140,7 +141,7 @@ _copyStringFromSTDIN(CFStringRef prompt, CFStringRef defaultValue)
 	}
 
 	/* Prepare for trim */
-	len = strlen(buf);
+	len = (int)strlen(buf);
 	modbuf = buf;
 	modlen = len;
 
@@ -162,7 +163,7 @@ _copyStringFromSTDIN(CFStringRef prompt, CFStringRef defaultValue)
 		modlen--;
 	}
 
-	/* Trim spaces  from back */
+	/* Trim spaces from back */
 	for (i = modlen - 1; i >= 0; i--) {
 		if (isspace(buf[i])) {
 			buf[i] = '\0';
@@ -195,7 +196,7 @@ getLine(char *buf, int len, InputRef src)
 			return NULL;
 	}
 
-	n = strlen(buf);
+	n = (int)strlen(buf);
 	if (buf[n-1] == '\n') {
 		/* the entire line fit in the buffer, remove the newline */
 		buf[n-1] = '\0';
@@ -356,11 +357,21 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --nc\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow VPN network configuration information. Use --nc help for full command list\n"));
 
+	if (_sc_debug) {
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --log IPMonitor [off|on]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage logging.\n"));
+	}
+
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --net\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage network configuration.\n"));
 	}
+
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --error err#\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tdisplay a descriptive message for the given error code\n"));
 
 	exit (EX_USAGE);
 }
@@ -387,6 +398,7 @@ main(int argc, char * const argv[])
 	Boolean			doProxy	= FALSE;
 	Boolean			doReach	= FALSE;
 	Boolean			doSnap	= FALSE;
+	char			*error	= NULL;
 	char			*get	= NULL;
 	char			*log	= NULL;
 	extern int		optind;
@@ -437,6 +449,9 @@ main(int argc, char * const argv[])
 		case 0:
 			if        (strcmp(longopts[opti].name, "dns") == 0) {
 				doDNS = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "error") == 0) {
+				error = optarg;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "get") == 0) {
 				get = optarg;
@@ -509,12 +524,20 @@ main(int argc, char * const argv[])
 
 	/* are we looking up the DNS configuration */
 	if (doDNS) {
-		do_showDNSConfiguration(argc, (char **)argv);
+		if (watch) {
+			do_watchDNSConfiguration(argc, (char **)argv);
+		} else {
+			do_showDNSConfiguration(argc, (char **)argv);
+		}
 		/* NOT REACHED */
 	}
 
 	if (doNWI) {
-		do_nwi(argc, (char**)argv);
+		if (watch) {
+			do_watchNWI(argc, (char**)argv);
+		} else {
+			do_showNWI(argc, (char**)argv);
+		}
 		/* NOT REACHED */
 	}
 
@@ -529,6 +552,17 @@ main(int argc, char * const argv[])
 
 		do_open(0, NULL);	/* open the dynamic store */
 		do_snapshot(argc, (char**)argv);
+		exit(0);
+	}
+
+	/* are we translating error #'s to descriptive text */
+	if (error != NULL) {
+		int	sc_status	= atoi(error);
+
+		SCPrint(TRUE, stdout, CFSTR("Error: 0x%08x %d %s\n"),
+			sc_status,
+			sc_status,
+			SCErrorString(sc_status));
 		exit(0);
 	}
 
@@ -572,6 +606,7 @@ main(int argc, char * const argv[])
 		do_log(log, argc, (char * *)argv);
 		/* NOT REACHED */
 	}
+
 	/* network connection commands */
 	if (nc_cmd) {
 		if (find_nc_cmd(nc_cmd) < 0) {

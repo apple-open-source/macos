@@ -384,7 +384,7 @@ SASL}} software which supports a number of mechanisms including
 {{B:{{TERM[expand]TLS}}}}: {{slapd}} supports certificate-based
 authentication and data security (integrity and confidentiality)
 services through the use of TLS (or SSL).  {{slapd}}'s TLS
-implementation can utilize {{PRD:OpenSSL}}, {{PRD:GnuTLS}},
+implementation can utilize {{PRD:SecureTransport}}, {{PRD:OpenSSL}}, {{PRD:GnuTLS}},
 or {{PRD:MozNSS}} software.
 
 {{B:Topology control}}: {{slapd}} can be configured to restrict

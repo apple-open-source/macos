@@ -1106,7 +1106,8 @@ IOReturn IOFireWireController::poweredStart( void )
 
     // Create local node
     IOFireWireLocalNode *localNode = OSTypeAlloc( IOFireWireLocalNode );
-    
+    fLocalNode = localNode;
+
 	localNode->setConfigDirectory( fRootDir );
 	
     OSDictionary *propTable;
@@ -1233,9 +1234,9 @@ bool IOFireWireController::requestTerminate( IOService * provider, IOOptionBits 
     }
 
     // delete local node
-    IOFireWireLocalNode *localNode = getLocalNode(this);
-    if(localNode) {
-        localNode->release();
+    if(fLocalNode) {
+        fLocalNode->release();
+        fLocalNode = NULL;
     }
 
     return IOService::requestTerminate(provider, options);

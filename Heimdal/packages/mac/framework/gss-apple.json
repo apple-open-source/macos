@@ -38,5 +38,10 @@
 		"export" : true,
 		"ios" : "7_0",
 		"macos" : "10_9"
+	},
+	"GSSCreateError" : {
+		"export" : true,
+		"ios" : "8_0",
+		"macos" : "10_10"
 	}
 }

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -72,7 +72,7 @@ struct Namfun
 	const Namdisc_t	*disc;
 	char		nofree;
 	unsigned char	subshell;
-	unsigned short	dsize;
+	uint32_t	dsize;
 	Namfun_t	*next;
 	char		*last;
 	Namval_t	*type;
@@ -113,8 +113,19 @@ struct Namval
 {
 	Dtlink_t	nvlink;		/* space for cdt links */
 	char		*nvname;	/* pointer to name of the node */
+#if _ast_sizeof_pointer == 8
+#   if _ast_intswap > 0
+	unsigned short	nvflag; 	/* attributes */
+	unsigned short	pad1;
+#   else
+	unsigned short	pad1;
+	unsigned short	nvflag; 	/* attributes */
+#   endif
+	uint32_t  	nvsize;		/* size or base */
+#else
 	unsigned short	nvflag; 	/* attributes */
 	unsigned short 	nvsize;		/* size or base */
+#endif
 #ifdef _NV_PRIVATE
 	_NV_PRIVATE
 #else

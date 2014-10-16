@@ -23,18 +23,18 @@
 
 /*
   * Fun with FIDs
- * (1) SMB2 uses two uint64_t of fid_persistent and fid_volatile
- * (2) SMB1 uses a single uint16_t for the FID
+ * (1) SMB 2/3 uses two uint64_t of fid_persistent and fid_volatile
+ * (2) SMB 1 uses a single uint16_t for the FID
  * (3) User space functions use a single uint64_t for the FID
  *
  * Solution: All functions will pass around a single uint64_t FID.
- * (1) SMB2 will map the uint64_t FID to the two uint64_t SMB2 FID.  This will
- *     done at the very last layer when the SMB2 packets are being built and
+ * (1) SMB 2/3 will map the uint64_t FID to the two uint64_t SMB 2/3 FID.  This will
+ *     done at the very last layer when the SMB 2/3 packets are being built and
  *     in the code that parses out the reply packet.
- * (2) SMB1 will just saves its uint16_t FID inside the uint64_t and will just
+ * (2) SMB 1 will just saves its uint16_t FID inside the uint64_t and will just
  *     assign it or read it to/from a uint16_t temp value.
  * (3) User space functions will remain unchanged and continue to use a 
- *     uint64_t regardless of whether they are using SMB1 or SMB2. This will
+ *     uint64_t regardless of whether they are using SMB 1 or SMB 2/3. This will
  *     also make reconnect "invisible" to the user level since a reconnect will
  *     just update the mapping table.
  *
@@ -171,7 +171,7 @@ smb_fid_get_kernel_fid(struct smb_share *share, SMBFID fid, int remove_fid,
             found_it = 1;
             
             if (remove_fid == 1) {
-                /*SMBERROR("remove smb2 fid %llx %llx -> fid %llx\n",
+                /*SMBERROR("remove SMB 2/3 fid %llx %llx -> fid %llx\n",
                          node->smb2_fid.fid_persistent,
                          node->smb2_fid.fid_volatile,
                          fid);*/
@@ -188,14 +188,14 @@ smb_fid_get_kernel_fid(struct smb_share *share, SMBFID fid, int remove_fid,
     }
 
     if (found_it == 1) {
-        /*SMBERROR("fid %llx -> smb2 fid %llx %llx\n",
+        /*SMBERROR("fid %llx -> SMB 2/3 fid %llx %llx\n",
                  fid,
                  smb2_fid->fid_persistent,
                  smb2_fid->fid_volatile);*/
         error = 0;
     }
     else {
-        SMBERROR("No smb2 fid found for fid %llx\n", fid);
+        SMBERROR("No SMB 2/3 fid found for fid %llx\n", fid);
     }
 exit:    
     smb_fid_table_unlock(share);
@@ -230,7 +230,7 @@ smb_fid_get_user_fid(struct smb_share *share, SMB2FID smb2_fid, SMBFID *ret_fid)
         
         // insert our new node into the hash table
         smb_fid_insert_new_node(share, node);
-        /*SMBERROR("insert smb2 fid %llx %llx -> fid %llx\n",
+        /*SMBERROR("insert SMB 2/3 fid %llx %llx -> fid %llx\n",
                  smb2_fid.fid_persistent,
                  smb2_fid.fid_volatile,
                  fid);*/

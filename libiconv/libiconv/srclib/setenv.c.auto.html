@@ -1,0 +1,354 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>setenv.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">setenv.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 1992,1995-1999,2000-2003,2005 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Library General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU C Library; see the file COPYING.LIB.  If not,
+   write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">HAVE_CONFIG_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;config.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;alloca.h&gt;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;errno.h&gt;</span>
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">__set_errno</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">__set_errno</span>(ev) ((errno) = (ev))
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">_LIBC</span> || <span class="enscript-variable-name">HAVE_UNISTD_H</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;unistd.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&quot;allocsa.h&quot;</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> !<span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">__environ</span>	environ
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">HAVE_ENVIRON_DECL</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">char</span> **environ;
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">_LIBC</span>
+<span class="enscript-comment">/* This lock protects against simultaneous modifications of `environ'.  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;bits/libc-lock.h&gt;</span>
+<span class="enscript-function-name">__libc_lock_define_initialized</span> (<span class="enscript-type">static</span>, envlock)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">LOCK</span>	__libc_lock_lock (envlock)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UNLOCK</span>	__libc_lock_unlock (envlock)
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">LOCK</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">UNLOCK</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* In the GNU C library we must keep the namespace clean.  */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">setenv</span> __setenv
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">clearenv</span> __clearenv
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">tfind</span> __tfind
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">tsearch</span> __tsearch
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* In the GNU C library implementation we try to be more clever and
+   allow arbitrarily many changes of the environment given that the used
+   values are from a small set.  Outside glibc this will eat up all
+   memory after a while.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span> || (<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">HAVE_SEARCH_H</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">HAVE_TSEARCH</span> \
+		      &amp;&amp; defined __GNUC__)
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">USE_TSEARCH</span>	1
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;search.h&gt;</span>
+<span class="enscript-type">typedef</span> <span class="enscript-function-name">int</span> (*compar_fn_t) (<span class="enscript-type">const</span> <span class="enscript-type">void</span> *, <span class="enscript-type">const</span> <span class="enscript-type">void</span> *);
+
+<span class="enscript-comment">/* This is a pointer to the root of the search tree with the known
+   values.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">void</span> *known_values;
+
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">KNOWN_VALUE</span>(Str) \
+  ({									      \
+    <span class="enscript-type">void</span> *value = tfind (Str, &amp;known_values, (compar_fn_t) strcmp);	      \
+    value != NULL ? *(<span class="enscript-type">char</span> **) value : NULL;				      \
+  })
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">STORE_VALUE</span>(Str) \
+  tsearch (Str, &amp;known_values, (compar_fn_t) strcmp)
+
+#<span class="enscript-reference">else</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">KNOWN_VALUE</span>(Str) NULL
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">STORE_VALUE</span>(Str) do { } while (0)
+
+#<span class="enscript-reference">endif</span>
+
+
+<span class="enscript-comment">/* If this variable is not a null pointer we allocated the current
+   environment.  */</span>
+<span class="enscript-type">static</span> <span class="enscript-type">char</span> **last_environ;
+
+
+<span class="enscript-comment">/* This function is used by `setenv' and `putenv'.  The difference between
+   the two functions is that for the former must create a new string which
+   is then placed in the environment, while the argument of `putenv'
+   must be used directly.  This is all complicated by the fact that we try
+   to reuse values once generated for a `setenv' call since we can never
+   free the strings.  */</span>
+<span class="enscript-type">int</span>
+<span class="enscript-function-name">__add_to_environ</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *value, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *combined,
+		  <span class="enscript-type">int</span> replace)
+{
+  <span class="enscript-type">register</span> <span class="enscript-type">char</span> **ep;
+  <span class="enscript-type">register</span> size_t size;
+  <span class="enscript-type">const</span> size_t namelen = strlen (name);
+  <span class="enscript-type">const</span> size_t vallen = value != NULL ? strlen (value) + 1 : 0;
+
+  LOCK;
+
+  <span class="enscript-comment">/* We have to get the pointer now that we have the lock and not earlier
+     since another thread might have created a new environment.  */</span>
+  ep = __environ;
+
+  size = 0;
+  <span class="enscript-keyword">if</span> (ep != NULL)
+    {
+      <span class="enscript-keyword">for</span> (; *ep != NULL; ++ep)
+	<span class="enscript-keyword">if</span> (!strncmp (*ep, name, namelen) &amp;&amp; (*ep)[namelen] == <span class="enscript-string">'='</span>)
+	  <span class="enscript-keyword">break</span>;
+	<span class="enscript-keyword">else</span>
+	  ++size;
+    }
+
+  <span class="enscript-keyword">if</span> (ep == NULL || *ep == NULL)
+    {
+      <span class="enscript-type">char</span> **new_environ;
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+      <span class="enscript-type">char</span> *new_value;
+#<span class="enscript-reference">endif</span>
+
+      <span class="enscript-comment">/* We allocated this space; we can extend it.  */</span>
+      new_environ =
+	(<span class="enscript-type">char</span> **) (last_environ == NULL
+		   ? malloc ((size + 2) * <span class="enscript-keyword">sizeof</span> (<span class="enscript-type">char</span> *))
+		   : realloc (last_environ, (size + 2) * <span class="enscript-keyword">sizeof</span> (<span class="enscript-type">char</span> *)));
+      <span class="enscript-keyword">if</span> (new_environ == NULL)
+	{
+	  UNLOCK;
+	  <span class="enscript-keyword">return</span> -1;
+	}
+
+      <span class="enscript-comment">/* If the whole entry is given add it.  */</span>
+      <span class="enscript-keyword">if</span> (combined != NULL)
+	<span class="enscript-comment">/* We must not add the string to the search tree since it belongs
+	   to the user.  */</span>
+	new_environ[size] = (<span class="enscript-type">char</span> *) combined;
+      <span class="enscript-keyword">else</span>
+	{
+	  <span class="enscript-comment">/* See whether the value is already known.  */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+	  new_value = (<span class="enscript-type">char</span> *) alloca (namelen + 1 + vallen);
+	  __mempcpy (__mempcpy (__mempcpy (new_value, name, namelen), <span class="enscript-string">&quot;=&quot;</span>, 1),
+		     value, vallen);
+# <span class="enscript-reference">else</span>
+	  new_value = (<span class="enscript-type">char</span> *) allocsa (namelen + 1 + vallen);
+	  <span class="enscript-keyword">if</span> (new_value == NULL)
+	    {
+	      __set_errno (ENOMEM);
+	      UNLOCK;
+	      <span class="enscript-keyword">return</span> -1;
+	    }
+	  memcpy (new_value, name, namelen);
+	  new_value[namelen] = <span class="enscript-string">'='</span>;
+	  memcpy (&amp;new_value[namelen + 1], value, vallen);
+# <span class="enscript-reference">endif</span>
+
+	  new_environ[size] = KNOWN_VALUE (new_value);
+	  <span class="enscript-keyword">if</span> (new_environ[size] == NULL)
+#<span class="enscript-reference">endif</span>
+	    {
+	      new_environ[size] = (<span class="enscript-type">char</span> *) malloc (namelen + 1 + vallen);
+	      <span class="enscript-keyword">if</span> (new_environ[size] == NULL)
+		{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">USE_TSEARCH</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+		  freesa (new_value);
+#<span class="enscript-reference">endif</span>
+		  __set_errno (ENOMEM);
+		  UNLOCK;
+		  <span class="enscript-keyword">return</span> -1;
+		}
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+	      memcpy (new_environ[size], new_value, namelen + 1 + vallen);
+#<span class="enscript-reference">else</span>
+	      memcpy (new_environ[size], name, namelen);
+	      new_environ[size][namelen] = <span class="enscript-string">'='</span>;
+	      memcpy (&amp;new_environ[size][namelen + 1], value, vallen);
+#<span class="enscript-reference">endif</span>
+	      <span class="enscript-comment">/* And save the value now.  We cannot do this when we remove
+		 the string since then we cannot decide whether it is a
+		 user string or not.  */</span>
+	      STORE_VALUE (new_environ[size]);
+	    }
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">USE_TSEARCH</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+	  freesa (new_value);
+#<span class="enscript-reference">endif</span>
+	}
+
+      <span class="enscript-keyword">if</span> (__environ != last_environ)
+	memcpy ((<span class="enscript-type">char</span> *) new_environ, (<span class="enscript-type">char</span> *) __environ,
+		size * <span class="enscript-keyword">sizeof</span> (<span class="enscript-type">char</span> *));
+
+      new_environ[size + 1] = NULL;
+
+      last_environ = __environ = new_environ;
+    }
+  <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (replace)
+    {
+      <span class="enscript-type">char</span> *np;
+
+      <span class="enscript-comment">/* Use the user string if given.  */</span>
+      <span class="enscript-keyword">if</span> (combined != NULL)
+	np = (<span class="enscript-type">char</span> *) combined;
+      <span class="enscript-keyword">else</span>
+	{
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+	  <span class="enscript-type">char</span> *new_value;
+# <span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+	  new_value = alloca (namelen + 1 + vallen);
+	  __mempcpy (__mempcpy (__mempcpy (new_value, name, namelen), <span class="enscript-string">&quot;=&quot;</span>, 1),
+		     value, vallen);
+# <span class="enscript-reference">else</span>
+	  new_value = allocsa (namelen + 1 + vallen);
+	  <span class="enscript-keyword">if</span> (new_value == NULL)
+	    {
+	      __set_errno (ENOMEM);
+	      UNLOCK;
+	      <span class="enscript-keyword">return</span> -1;
+	    }
+	  memcpy (new_value, name, namelen);
+	  new_value[namelen] = <span class="enscript-string">'='</span>;
+	  memcpy (&amp;new_value[namelen + 1], value, vallen);
+# <span class="enscript-reference">endif</span>
+
+	  np = KNOWN_VALUE (new_value);
+	  <span class="enscript-keyword">if</span> (np == NULL)
+#<span class="enscript-reference">endif</span>
+	    {
+	      np = malloc (namelen + 1 + vallen);
+	      <span class="enscript-keyword">if</span> (np == NULL)
+		{
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">USE_TSEARCH</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+		  freesa (new_value);
+#<span class="enscript-reference">endif</span>
+		  __set_errno (ENOMEM);
+		  UNLOCK;
+		  <span class="enscript-keyword">return</span> -1;
+		}
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">USE_TSEARCH</span>
+	      memcpy (np, new_value, namelen + 1 + vallen);
+#<span class="enscript-reference">else</span>
+	      memcpy (np, name, namelen);
+	      np[namelen] = <span class="enscript-string">'='</span>;
+	      memcpy (&amp;np[namelen + 1], value, vallen);
+#<span class="enscript-reference">endif</span>
+	      <span class="enscript-comment">/* And remember the value.  */</span>
+	      STORE_VALUE (np);
+	    }
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">USE_TSEARCH</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_LIBC</span>
+	  freesa (new_value);
+#<span class="enscript-reference">endif</span>
+	}
+
+      *ep = np;
+    }
+
+  UNLOCK;
+
+  <span class="enscript-keyword">return</span> 0;
+}
+
+<span class="enscript-type">int</span>
+<span class="enscript-function-name">setenv</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *name, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *value, <span class="enscript-type">int</span> replace)
+{
+  <span class="enscript-keyword">return</span> __add_to_environ (name, value, NULL, replace);
+}
+
+<span class="enscript-comment">/* The `clearenv' was planned to be added to POSIX.1 but probably
+   never made it.  Nevertheless the POSIX.9 standard (POSIX bindings
+   for Fortran 77) requires this function.  */</span>
+<span class="enscript-type">int</span>
+<span class="enscript-function-name">clearenv</span> (<span class="enscript-type">void</span>)
+{
+  LOCK;
+
+  <span class="enscript-keyword">if</span> (__environ == last_environ &amp;&amp; __environ != NULL)
+    {
+      <span class="enscript-comment">/* We allocated this environment so we can free it.  */</span>
+      free (__environ);
+      last_environ = NULL;
+    }
+
+  <span class="enscript-comment">/* Clear the environment pointer removes the whole environment.  */</span>
+  __environ = NULL;
+
+  UNLOCK;
+
+  <span class="enscript-keyword">return</span> 0;
+}
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">_LIBC</span>
+<span class="enscript-type">static</span> <span class="enscript-type">void</span>
+<span class="enscript-function-name">free_mem</span> (<span class="enscript-type">void</span>)
+{
+  <span class="enscript-comment">/* Remove all traces.  */</span>
+  clearenv ();
+
+  <span class="enscript-comment">/* Now remove the search tree.  */</span>
+  __tdestroy (known_values, free);
+  known_values = NULL;
+}
+<span class="enscript-function-name">text_set_element</span> (__libc_subfreeres, free_mem);
+
+
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">setenv</span>
+# <span class="enscript-reference">undef</span> <span class="enscript-variable-name">clearenv</span>
+<span class="enscript-function-name">weak_alias</span> (__setenv, setenv)
+<span class="enscript-function-name">weak_alias</span> (__clearenv, clearenv)
+#<span class="enscript-reference">endif</span>
+</pre>
+<hr />
+</body></html>

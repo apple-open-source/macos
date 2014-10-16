@@ -1,6 +1,6 @@
 /* canonusr.c - user canonicalization support
  * Rob Siemborski
- * $Id: canonusr.c,v 1.3 2004/07/07 22:48:35 snsimon Exp $
+ * $Id: canonusr.c,v 1.22 2011/09/01 16:33:42 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -63,10 +63,7 @@ static canonuser_plug_list_t *canonuser_head = NULL;
 /* default behavior:
  *                   eliminate leading & trailing whitespace,
  *                   null-terminate, and get into the outparams
- *
  *                   (handled by INTERNAL plugin) */
-/* Also does auxprop lookups once username is canonicalized */
-/* a zero ulen or alen indicates that it is strlen(value) */
 int _sasl_canon_user(sasl_conn_t *conn,
                      const char *user, unsigned ulen,
                      unsigned flags,
@@ -103,15 +100,22 @@ int _sasl_canon_user(sasl_conn_t *conn,
     if(!ulen) ulen = (unsigned int)strlen(user);
     
     /* check to see if we have a callback to make*/
-    result = _sasl_getcallback(conn, SASL_CB_CANON_USER,
-			       &cuser_cb, &context);
+    result = _sasl_getcallback(conn,
+			       SASL_CB_CANON_USER,
+			       (sasl_callback_ft *)&cuser_cb,
+			       &context);
     if(result == SASL_OK && cuser_cb) {
-	result = cuser_cb(conn, context,
-			user, ulen,
-			flags, (conn->type == SASL_CONN_SERVER ?
-				((sasl_server_conn_t *)conn)->user_realm :
+	result = cuser_cb(conn,
+			  context,
+			  user,
+			  ulen,
+			  flags,
+			  (conn->type == SASL_CONN_SERVER ?
+				sconn->user_realm :
 				NULL),
-			user_buf, CANON_BUF_SIZE, lenp);
+			  user_buf,
+			  CANON_BUF_SIZE,
+			  lenp);
 	
 
 	if (result != SASL_OK) return result;
@@ -122,32 +126,34 @@ int _sasl_canon_user(sasl_conn_t *conn,
     }
 
     /* which plugin are we supposed to use? */
-    result = _sasl_getcallback(conn, SASL_CB_GETOPT,
-			       &getopt, &context);
-    if(result == SASL_OK && getopt) {
+    result = _sasl_getcallback(conn,
+			       SASL_CB_GETOPT,
+			       (sasl_callback_ft *)&getopt,
+			       &context);
+    if (result == SASL_OK && getopt) {
 	getopt(context, NULL, "canon_user_plugin", &plugin_name, NULL);
     }
 
-    if(!plugin_name) {
-	/* Use Defualt */
+    if (!plugin_name) {
+	/* Use Default */
 	plugin_name = "INTERNAL";
     }
     
-    for(ptr = canonuser_head; ptr; ptr = ptr->next) {
+    for (ptr = canonuser_head; ptr; ptr = ptr->next) {
 	/* A match is if we match the internal name of the plugin, or if
 	 * we match the filename (old-style) */
-	if((ptr->plug->name && !strcmp(plugin_name, ptr->plug->name))
+	if ((ptr->plug->name && !strcmp(plugin_name, ptr->plug->name))
 	   || !strcmp(plugin_name, ptr->name)) break;
     }
 
     /* We clearly don't have this one! */
-    if(!ptr) {
+    if (!ptr) {
 	sasl_seterror(conn, 0, "desired canon_user plugin %s not found",
 		      plugin_name);
 	return SASL_NOMECH;
     }
     
-    if(sconn) {
+    if (sconn) {
 	/* we're a server */
 	result = ptr->plug->canon_user_server(ptr->plug->glob_context,
 					      sconn->sparams,
@@ -165,9 +171,9 @@ int _sasl_canon_user(sasl_conn_t *conn,
 					      CANON_BUF_SIZE, lenp);
     }
 
-    if(result != SASL_OK) return result;
+    if (result != SASL_OK) return result;
 
-    if((flags & SASL_CU_AUTHID) && (flags & SASL_CU_AUTHZID)) {
+    if ((flags & SASL_CU_AUTHID) && (flags & SASL_CU_AUTHZID)) {
 	/* We did both, so we need to copy the result into
 	 * the buffer for the authzid from the buffer for the authid */
 	memcpy(conn->user_buf, conn->authid_buf, CANON_BUF_SIZE);
@@ -175,7 +181,7 @@ int _sasl_canon_user(sasl_conn_t *conn,
     }
 	
     /* Set the appropriate oparams (lengths have already been set by lenp) */
-    if(flags & SASL_CU_AUTHID) {
+    if (flags & SASL_CU_AUTHID) {
 	oparams->authid = conn->authid_buf;
     }
 
@@ -183,22 +189,100 @@ int _sasl_canon_user(sasl_conn_t *conn,
 	oparams->user = conn->user_buf;
     }
 
+    RETURN(conn, result);
+}
+
+/* Lookup all properties for authentication and/or authorization identity. */
+static int _sasl_auxprop_lookup_user_props (sasl_conn_t *conn,
+					    unsigned flags,
+					    sasl_out_params_t *oparams)
+{
+    sasl_server_conn_t *sconn = NULL;
+    int result = SASL_OK;
+
+    if (!conn) return SASL_BADPARAM;    
+    if (!oparams) return SASL_BADPARAM;
+
 #ifndef macintosh
+    if (conn->type == SASL_CONN_SERVER) sconn = (sasl_server_conn_t *)conn;
+
     /* do auxprop lookups (server only) */
-    if(sconn) {
-	if(flags & SASL_CU_AUTHID) {
-	    _sasl_auxprop_lookup(sconn->sparams, 0,
-				 oparams->authid, oparams->alen);
+    if (sconn) {
+	int authz_result;
+	unsigned auxprop_lookup_flags = flags & SASL_CU_ASIS_MASK;
+
+	if (flags & SASL_CU_OVERRIDE) {
+	    auxprop_lookup_flags |= SASL_AUXPROP_OVERRIDE;
 	}
-	if(flags & SASL_CU_AUTHZID) {
-	    _sasl_auxprop_lookup(sconn->sparams, SASL_AUXPROP_AUTHZID,
-				 oparams->user, oparams->ulen);
+
+	if (flags & SASL_CU_AUTHID) {
+	    result = _sasl_auxprop_lookup(sconn->sparams,
+					  auxprop_lookup_flags,
+					  oparams->authid,
+					  oparams->alen);
+	} else {
+	    result = SASL_CONTINUE;
 	}
+	if (flags & SASL_CU_AUTHZID) {
+	    authz_result = _sasl_auxprop_lookup(sconn->sparams,
+						auxprop_lookup_flags | SASL_AUXPROP_AUTHZID,
+						oparams->user,
+						oparams->ulen);
+
+	    if (result == SASL_CONTINUE) {
+		/* Only SASL_CU_AUTHZID was requested.
+		   The authz_result value is authoritative. */
+		result = authz_result;
+	    } else if (result == SASL_OK && authz_result != SASL_NOUSER) {
+		/* Use the authz_result value, unless "result"
+		   already contains an error */
+		result = authz_result;
+	    }
+	}
+
+	if ((flags & SASL_CU_EXTERNALLY_VERIFIED) && (result == SASL_NOUSER || result == SASL_NOMECH)) {
+	    /* The called has explicitly told us that the authentication identity
+	       was already verified or will be verified independently.
+	       So a failure to retrieve any associated properties
+	       is not an error. For example the caller is using Kerberos to verify user,
+	       but the LDAPDB/SASLDB auxprop plugin doesn't contain any auxprops for
+	       the user.
+	       Another case is PLAIN/LOGIN not using auxprop to verify user passwords. */
+	    result = SASL_OK;
+	}	
     }
 #endif
 
+    RETURN(conn, result);
+}
 
-    RETURN(conn, SASL_OK);
+/* default behavior:
+ *                   Eliminate leading & trailing whitespace,
+ *                   null-terminate, and get into the outparams
+ *                   (handled by INTERNAL plugin).
+ *
+ *                   Server only: Also does auxprop lookups once username
+ *                   is canonicalized. */
+int _sasl_canon_user_lookup (sasl_conn_t *conn,
+			     const char *user,
+			     unsigned ulen,
+			     unsigned flags,
+			     sasl_out_params_t *oparams)
+{
+    int result;
+
+    result = _sasl_canon_user (conn,
+			       user,
+			       ulen,
+			       flags,
+			       oparams);
+    if (result == SASL_OK) {
+	result = _sasl_auxprop_lookup_user_props (conn,
+						  flags,
+						  oparams);
+    }
+
+    RETURN(conn, result);
 }
 
 void _sasl_canonuser_free() 
@@ -233,14 +317,15 @@ int sasl_canonuser_add_plugin(const char *plugname,
 			   &out_version, &plug, plugname);
 
     if(result != SASL_OK) {
-	_sasl_log(NULL, SASL_LOG_ERR, "canonuserfunc error %i\n",result);
+	_sasl_log(NULL, SASL_LOG_ERR, "%s_canonuser_plug_init() failed in sasl_canonuser_add_plugin(): %z\n",
+		  plugname, result);
 	return result;
     }
 
     if(!plug->canon_user_server && !plug->canon_user_client) {
 	/* We need at least one of these implemented */
 	_sasl_log(NULL, SASL_LOG_ERR,
-		  "canonuser plugin without either client or server side");
+		  "canonuser plugin '%s' without either client or server side", plugname);
 	return SASL_BADPROT;
     }
     
@@ -270,7 +355,7 @@ static int _canonuser_internal(const sasl_utils_t *utils,
     unsigned i;
     char *in_buf, *userin;
     const char *begin_u;
-    size_t u_apprealm = 0;
+    unsigned u_apprealm = 0;
     sasl_server_conn_t *sconn = NULL;
 
     if(!utils || !user) return SASL_BADPARAM;
@@ -300,7 +385,7 @@ static int _canonuser_internal(const sasl_utils_t *utils,
 
     /* Need to append realm if necessary (see sasl.h) */
     if(sconn && sconn->user_realm && !strchr(user, '@')) {
-	u_apprealm = strlen(sconn->user_realm) + 1;
+	u_apprealm = (unsigned) strlen(sconn->user_realm) + 1;
     }
     
     /* Now Copy */

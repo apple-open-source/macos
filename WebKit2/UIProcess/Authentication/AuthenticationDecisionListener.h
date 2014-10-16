@@ -35,7 +35,7 @@ namespace WebKit {
 class AuthenticationChallengeProxy;
 class WebCredential;
 
-class AuthenticationDecisionListener : public TypedAPIObject<APIObject::TypeAuthenticationDecisionListener> {
+class AuthenticationDecisionListener : public API::ObjectImpl<API::Object::Type::AuthenticationDecisionListener> {
 public:
     static PassRefPtr<AuthenticationDecisionListener> create(AuthenticationChallengeProxy* authenticationChallenge)
     {
@@ -44,7 +44,9 @@ public:
     
     void useCredential(WebCredential*);
     void cancel();
-    
+    void performDefaultHandling();
+    void rejectProtectionSpaceAndContinue();
+
     void detachChallenge();
 
 private:

@@ -1,0 +1,37 @@
+#! /bin/csh -f
+#
+# run sslViewer on a list of known sites. Arguments to this script are passed on
+# to sslViewer unmodified.
+#
+set ARG_LIST =
+#
+while ( $#argv > 0 )
+	set thisArg = "$argv[1]"
+	set ARG_LIST = "$ARG_LIST $thisArg"
+	shift
+end
+echo Starting pingSslSites\; args: $ARG_LIST
+#
+# NOTE: using this list generates two errors when run without the 'e r' options. 
+# -- www.xdss.com has an unrecognized root cert.
+# -- accounts2.keybank.com has an unrecognized cert in SSLv2 mode only
+#
+# Other anomalies:
+#
+# -- store.apple.com only supports SSlv2 (!)
+# -- www.xdss.com does not support TLSv1
+# 
+set SSL_SITES = (www.cduniverse.com \
+   www.amazon.com \
+   store.apple.com \
+   www.xdss.com \
+   accounts2.keybank.com \
+   cdnow.com \
+   www.proteron.com \
+   config.puretec.de \
+   www.thawte.com \
+   secure.authorize.net)
+
+foreach site ($SSL_SITES);
+	$LOCAL_BUILD_DIR/sslViewer $site $ARG_LIST;
+end

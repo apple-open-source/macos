@@ -177,7 +177,7 @@ wind_utf8ucs4_copy(const char *in, uint32_t **out, size_t *out_len)
     if (*out_len == 0)
         return 0;
 
-    *out = malloc(*out_len * sizeof(*out_len));
+    *out = malloc(*out_len * sizeof((*out)[0]));
     if (*out == NULL) {
 	*out_len = 0;
 	return ENOMEM;

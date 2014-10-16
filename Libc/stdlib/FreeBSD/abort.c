@@ -45,7 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.11 2007/01/09 00:28:09 imp E
 
 #include "libc_private.h"
 
-#include "CrashReporterClient.h"
+#include <CrashReporterClient.h>
 #include "_simple.h"
 
 extern void (*__cleanup)();

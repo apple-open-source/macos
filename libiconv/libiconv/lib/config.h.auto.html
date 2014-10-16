@@ -1,0 +1,98 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>config.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">config.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* lib/config.h.  Generated from config.h.in by configure.  */</span>
+<span class="enscript-comment">/* Copyright (C) 1999-2003, 2005 Free Software Foundation, Inc.
+   This file is part of the GNU LIBICONV Library.
+
+   The GNU LIBICONV Library is free software; you can redistribute it
+   and/or modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   The GNU LIBICONV Library is distributed in the hope that it will be
+   useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+
+<span class="enscript-comment">/* Define to 1 to enable a few rarely used encodings. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ENABLE_EXTRA</span> 1
+
+<span class="enscript-comment">/* Define to 1 if the package shall run at any location in the filesystem. */</span>
+<span class="enscript-comment">/* #undef ENABLE_RELOCATABLE */</span>
+
+<span class="enscript-comment">/* Define to a type if &lt;wchar.h&gt; does not define. */</span>
+<span class="enscript-comment">/* #undef mbstate_t */</span>
+
+<span class="enscript-comment">/* Define if you have &lt;iconv.h&gt;, the iconv_t type, and the
+   iconv_open, iconv, iconv_close functions. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_ICONV</span> 1
+<span class="enscript-comment">/* Define as const if the declaration of iconv() needs const. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">ICONV_CONST</span> 
+
+<span class="enscript-comment">/* Define to 1 if you have the getc_unlocked() function. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_GETC_UNLOCKED</span> 1
+
+<span class="enscript-comment">/* Define if you have &lt;langinfo.h&gt; and nl_langinfo(CODESET). */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_LANGINFO_CODESET</span> 1
+
+<span class="enscript-comment">/* Define if you have the mbrtowc() function. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_MBRTOWC</span> 1
+
+<span class="enscript-comment">/* Define to 1 if you have the setlocale() function. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_SETLOCALE</span> 1
+
+<span class="enscript-comment">/* Define to 1 if you have the &lt;stddef.h&gt; header file. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_STDDEF_H</span> 1
+
+<span class="enscript-comment">/* Define to 1 if you have the &lt;stdlib.h&gt; header file. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_STDLIB_H</span> 1
+
+<span class="enscript-comment">/* Define to 1 if you have the &lt;string.h&gt; header file. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_STRING_H</span> 1
+
+<span class="enscript-comment">/* Define to 1 or 0, depending whether the compiler supports simple visibility
+   declarations. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_VISIBILITY</span> 1
+
+<span class="enscript-comment">/* Define if you have the wcrtomb() function. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">HAVE_WCRTOMB</span> 1
+
+<span class="enscript-comment">/* Define if the machine's byte ordering is little endian. */</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__LITTLE_ENDIAN__</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">WORDS_LITTLEENDIAN</span> 1
+#<span class="enscript-reference">else</span> <span class="enscript-comment">/* !__LITTLE_ENDIAN__ */</span>
+#<span class="enscript-reference">undef</span> <span class="enscript-variable-name">WORDS_LITTLEENDIAN</span>
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* __LITTLE_ENDIAN__ */</span>
+
+<span class="enscript-comment">/* Define to the value of ${prefix}, as a string. */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">INSTALLPREFIX</span> <span class="enscript-string">&quot;/usr&quot;</span>
+
+</pre>
+<hr />
+</body></html>

@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.161 2012/04/10 16:35:46 abe Exp abe $
+# $Id: Configure,v 1.162 2013/01/02 17:13:48 abe Exp $
 
 # LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -886,13 +886,16 @@ case $LSOF_TGT in	# {
       12.*)			# Mac OS X 10.8 (Mountain Lion)
  	LSOF_VERS=1200
  	;;
-      13.*)			# Next Mac OS X
+      13.*)			# Mac OS X 10.9 (Mavericks)
  	LSOF_VERS=1300
+ 	;;
+      14.*)			# Next Mac OS X
+ 	LSOF_VERS=1400
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 12.0
-	LSOF_VERS=1200
+	echo Assuming Darwin 13.0
+	LSOF_VERS=1300
 	;;
       esac	# }
     fi	# }
@@ -921,7 +924,7 @@ case $LSOF_TGT in	# {
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
       ;;
-    900|1000|1100|1200)
+    900|1000|1100|1200|1300)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       LSOF_UNSUP=""
@@ -931,7 +934,7 @@ case $LSOF_TGT in	# {
 	LSOF_CFGF="$LSOF_CFGF -DNEEDS_MACH_PORT_T"
       fi	# }
       ;;
-    1300)
+    1400)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       ;;
@@ -1777,6 +1780,10 @@ kernel generation process.
 
       # Do FreeBSD 5.2 and higher version-specific stuff.
 
+	if test -r ${LSOF_INCLUDE}/wctype.h	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASWCTYPE_H"
+	fi	# }
 	if test $LSOF_VERS -ge 5020	# {
 	then
 

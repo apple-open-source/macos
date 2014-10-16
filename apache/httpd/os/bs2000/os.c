@@ -30,6 +30,8 @@
 
 #define USER_LEN 8
 
+APLOG_USE_MODULE(core);
+
 typedef enum
 {
     bs2_unknown,     /* not initialized yet. */
@@ -39,15 +41,6 @@ typedef enum
 } bs2_ForkType;
 
 static bs2_ForkType forktype = bs2_unknown;
-
-
-static void ap_str_toupper(char *str)
-{
-    while (*str) {
-        *str = apr_toupper(*str);
-        ++str;
-    }
-}
 
 /* Determine the method for forking off a child in such a way as to
  * set both the POSIX and BS2000 user id's to the unprivileged user.
@@ -92,7 +85,7 @@ int os_init_job_environment(server_rec *server, const char *user_name, int one_p
 
         type = forktype = bs2_noFORK;
 
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server,
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, server, APLOGNO(02170)
                      "The debug mode of Apache should only "
                      "be started by an unprivileged user!");
         return 0;
@@ -122,7 +115,7 @@ pid_t os_fork(const char *user)
         pid = ufork(username);
         if (pid == -1 && errno == EPERM) {
             ap_log_error(APLOG_MARK, APLOG_EMERG, errno,
-                         NULL, "ufork: Possible mis-configuration "
+                         ap_server_conf, APLOGNO(02171) "ufork: Possible mis-configuration "
                          "for user %s - Aborting.", user);
             exit(1);
         }

@@ -20,10 +20,8 @@
 #ifndef SVGMarkerData_h
 #define SVGMarkerData_h
 
-#if ENABLE(SVG)
 #include "FloatConversion.h"
 #include "Path.h"
-#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -127,6 +125,7 @@ private:
             break;
         case PathElementMoveToPoint:
             m_subpathStart = points[0];
+            FALLTHROUGH;
         case PathElementAddLineToPoint:
             updateInslope(points[0]);
             m_origin = points[0];
@@ -154,5 +153,4 @@ private:
 
 }
 
-#endif // ENABLE(SVG)
 #endif // SVGMarkerData_h

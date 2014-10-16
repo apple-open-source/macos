@@ -28,7 +28,6 @@
 
 #if USE(LEVELDB)
 
-#include "HistogramSupport.h"
 #include "LevelDBComparator.h"
 #include "LevelDBIterator.h"
 #include "LevelDBSlice.h"
@@ -41,7 +40,6 @@
 #include <leveldb/env.h>
 #include <leveldb/slice.h>
 #include <string>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -111,9 +109,9 @@ LevelDBDatabase::LevelDBDatabase()
 LevelDBDatabase::~LevelDBDatabase()
 {
     // m_db's destructor uses m_comparatorAdapter; order of deletion is important.
-    m_db.clear();
-    m_comparatorAdapter.clear();
-    m_env.clear();
+    m_db = nullptr;
+    m_comparatorAdapter = nullptr;
+    m_env = nullptr;
 }
 
 static leveldb::Status openDB(leveldb::Comparator* comparator, leveldb::Env* env, const String& path, leveldb::DB** db)
@@ -137,52 +135,30 @@ bool LevelDBDatabase::destroy(const String& fileName)
     return s.ok();
 }
 
-static void histogramLevelDBError(const char* histogramName, const leveldb::Status& s)
+std::unique_ptr<LevelDBDatabase> LevelDBDatabase::open(const String& fileName, const LevelDBComparator* comparator)
 {
-    ASSERT(!s.ok());
-    enum {
-        LevelDBNotFound,
-        LevelDBCorruption,
-        LevelDBIOError,
-        LevelDBOther,
-        LevelDBMaxError
-    };
-    int levelDBError = LevelDBOther;
-    if (s.IsNotFound())
-        levelDBError = LevelDBNotFound;
-    else if (s.IsCorruption())
-        levelDBError = LevelDBCorruption;
-    else if (s.IsIOError())
-        levelDBError = LevelDBIOError;
-    HistogramSupport::histogramEnumeration(histogramName, levelDBError, LevelDBMaxError);
-}
-
-PassOwnPtr<LevelDBDatabase> LevelDBDatabase::open(const String& fileName, const LevelDBComparator* comparator)
-{
-    OwnPtr<ComparatorAdapter> comparatorAdapter = adoptPtr(new ComparatorAdapter(comparator));
+    auto comparatorAdapter = std::make_unique<ComparatorAdapter>(comparator);
 
     leveldb::DB* db;
     const leveldb::Status s = openDB(comparatorAdapter.get(), leveldb::IDBEnv(), fileName, &db);
 
     if (!s.ok()) {
-        histogramLevelDBError("WebCore.IndexedDB.LevelDBOpenErrors", s);
-
         LOG_ERROR("Failed to open LevelDB database from %s: %s", fileName.ascii().data(), s.ToString().c_str());
         return nullptr;
     }
 
-    OwnPtr<LevelDBDatabase> result = adoptPtr(new LevelDBDatabase);
-    result->m_db = adoptPtr(db);
-    result->m_comparatorAdapter = comparatorAdapter.release();
+    auto result = std::make_unique<LevelDBDatabase>();
+    result->m_db = std::unique_ptr<leveldb::DB>(db);
+    result->m_comparatorAdapter = WTF::move(comparatorAdapter);
     result->m_comparator = comparator;
 
-    return result.release();
+    return result;
 }
 
-PassOwnPtr<LevelDBDatabase> LevelDBDatabase::openInMemory(const LevelDBComparator* comparator)
+std::unique_ptr<LevelDBDatabase> LevelDBDatabase::openInMemory(const LevelDBComparator* comparator)
 {
-    OwnPtr<ComparatorAdapter> comparatorAdapter = adoptPtr(new ComparatorAdapter(comparator));
-    OwnPtr<leveldb::Env> inMemoryEnv = adoptPtr(leveldb::NewMemEnv(leveldb::IDBEnv()));
+    auto comparatorAdapter = std::make_unique<ComparatorAdapter>(comparator);
+    std::unique_ptr<leveldb::Env> inMemoryEnv(leveldb::NewMemEnv(leveldb::IDBEnv()));
 
     leveldb::DB* db;
     const leveldb::Status s = openDB(comparatorAdapter.get(), inMemoryEnv.get(), String(), &db);
@@ -192,13 +168,13 @@ PassOwnPtr<LevelDBDatabase> LevelDBDatabase::openInMemory(const LevelDBComparato
         return nullptr;
     }
 
-    OwnPtr<LevelDBDatabase> result = adoptPtr(new LevelDBDatabase);
-    result->m_env = inMemoryEnv.release();
-    result->m_db = adoptPtr(db);
-    result->m_comparatorAdapter = comparatorAdapter.release();
+    auto result = std::make_unique<LevelDBDatabase>();
+    result->m_env = WTF::move(inMemoryEnv);
+    result->m_db = std::unique_ptr<leveldb::DB>(db);
+    result->m_comparatorAdapter = WTF::move(comparatorAdapter);
     result->m_comparator = comparator;
 
-    return result.release();
+    return result;
 }
 
 bool LevelDBDatabase::put(const LevelDBSlice& key, const Vector<char>& value)
@@ -256,7 +232,6 @@ bool LevelDBDatabase::write(LevelDBWriteBatch& writeBatch)
     const leveldb::Status s = m_db->Write(writeOptions, writeBatch.m_writeBatch.get());
     if (s.ok())
         return true;
-    histogramLevelDBError("WebCore.IndexedDB.LevelDBWriteErrors", s);
     LOG_ERROR("LevelDB write failed: %s", s.ToString().c_str());
     return false;
 }
@@ -264,6 +239,7 @@ bool LevelDBDatabase::write(LevelDBWriteBatch& writeBatch)
 namespace {
 class IteratorImpl : public LevelDBIterator {
 public:
+    explicit IteratorImpl(std::unique_ptr<leveldb::Iterator>);
     ~IteratorImpl() { };
 
     virtual bool isValid() const;
@@ -275,16 +251,14 @@ public:
     virtual LevelDBSlice value() const;
 
 private:
-    friend class WebCore::LevelDBDatabase;
-    IteratorImpl(PassOwnPtr<leveldb::Iterator>);
     void checkStatus();
 
-    OwnPtr<leveldb::Iterator> m_iterator;
+    std::unique_ptr<leveldb::Iterator> m_iterator;
 };
 }
 
-IteratorImpl::IteratorImpl(PassOwnPtr<leveldb::Iterator> it)
-    : m_iterator(it)
+IteratorImpl::IteratorImpl(std::unique_ptr<leveldb::Iterator> it)
+    : m_iterator(WTF::move(it))
 {
 }
 
@@ -338,15 +312,15 @@ LevelDBSlice IteratorImpl::value() const
     return makeLevelDBSlice(m_iterator->value());
 }
 
-PassOwnPtr<LevelDBIterator> LevelDBDatabase::createIterator(const LevelDBSnapshot* snapshot)
+std::unique_ptr<LevelDBIterator> LevelDBDatabase::createIterator(const LevelDBSnapshot* snapshot)
 {
     leveldb::ReadOptions readOptions;
     readOptions.verify_checksums = true; // FIXME: Disable this if the performance impact is too great.
     readOptions.snapshot = snapshot ? snapshot->m_snapshot : 0;
-    OwnPtr<leveldb::Iterator> i = adoptPtr(m_db->NewIterator(readOptions));
+    std::unique_ptr<leveldb::Iterator> i(m_db->NewIterator(readOptions));
     if (!i) // FIXME: Double check if we actually need to check this.
         return nullptr;
-    return adoptPtr(new IteratorImpl(i.release()));
+    return std::make_unique<IteratorImpl>(WTF::move(i));
 }
 
 const LevelDBComparator* LevelDBDatabase::comparator() const

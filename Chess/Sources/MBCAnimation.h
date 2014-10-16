@@ -58,6 +58,7 @@
 }
 
 - (void) runWithTime:(float)seconds view:(MBCBoardView *)view;
+- (void) cancel;
  
 @end
 

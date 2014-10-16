@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,9 +34,9 @@ extern IOStorageAttributes gIOStorageAttributesUnsupported;
 
 enum
 {
-    kIOStorageAccessWriter       = 0x00000002,
-    kIOStorageAccessInvalid      = 0x0000000D,
-    kIOStorageAccessReservedMask = 0xFFFFFFF0
+    kIOStorageAccessWriter   = 0x00000002,
+    kIOStorageAccessInvalid  = 0x0000000D,
+    kIOStorageAccessReserved = 0xFFFFFFF0
 };
 
 static UInt8 gIOMediaAccessTable[8][8] =
@@ -995,6 +995,45 @@ void IOMedia::unlockPhysicalExtents(IOService * client)
     getProvider( )->unlockPhysicalExtents( this );
 }
 
+IOReturn IOMedia::setPriority(IOService *       client,
+                              IOStorageExtent * extents,
+                              UInt32            extentsCount,
+                              IOStoragePriority priority)
+{
+    //
+    // Reprioritize read or write requests at the specified byte offsets.
+    //
+
+    UInt32 extentsIndex;
+
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        return kIOReturnNotOpen;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        return kIOReturnUnformattedMedia;
+    }
+
+    for (extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++)
+    {
+        if (_mediaSize < extents[extentsIndex].byteStart + extents[extentsIndex].byteCount)
+        {
+            return kIOReturnBadArgument;
+        }
+
+        extents[extentsIndex].byteStart += _mediaBase;
+    }
+
+    return getProvider()->setPriority(this, extents, extentsCount, priority);
+}
+
 UInt64 IOMedia::getPreferredBlockSize() const
 {
     //
@@ -1017,8 +1056,7 @@ UInt64 IOMedia::getSize() const
 UInt64 IOMedia::getBase() const
 {
     //
-    // Ask the media object for its byte offset relative to its provider media
-    // object below it in the storage hierarchy.
+    // Ask the media object for its byte offset relative to the provider media.
     //
 
     return _mediaBase;

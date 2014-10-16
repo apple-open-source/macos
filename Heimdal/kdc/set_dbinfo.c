@@ -69,7 +69,7 @@ krb5_kdc_set_dbinfo(krb5_context context, struct krb5_kdc_configuration *c)
 {
     struct hdb_dbinfo *info, *d;
     krb5_error_code ret;
-    int i;
+    unsigned i;
 
     /* fetch the databases */
     ret = hdb_get_dbinfo(context, &info);

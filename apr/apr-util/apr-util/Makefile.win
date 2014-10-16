@@ -7,7 +7,7 @@
 #     install  - compile everything
 #     clean    - mop up everything
 #
-# You can override the build mechansim, choose only one;
+# You can override the build mechanism, choose only one;
 #
 #     USEMAK=1 - compile from exported make files
 #     USEDSW=1 - compile from .dsw / .dsp VC6 projects
@@ -45,6 +45,11 @@
 # Note that at this time, none of these are supported on win32, per say.
 #
 #     DBM_LIST="db gdbm"
+#
+# Provide a CRYPTO_LIST argument after configuring LIB and INCLUDE with
+# the SDK paths of the corresponding cryptographic support libraries.
+#
+#     CRYPTO_LIST="nss openssl"
 #
 # For example;
 #
@@ -86,6 +91,7 @@ APU_PATH=..\apr-util
 !MESSAGE PREFIX      = $(PREFIX)  (install path)
 !MESSAGE DBD_LIST    = $(DBD_LIST)
 !MESSAGE DBM_LIST    = $(DBM_LIST)
+!MESSAGE CRYPTO_LIST = $(CRYPTO_LIST)
 
 # Utility and Translation things, nothing here for the user
 #
@@ -173,8 +179,8 @@ buildall:
 	 $(MAKE) $(MAKEOPT) -f apr.mak         CFG="apr - $(ARCH)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f libapr.mak      CFG="libapr - $(ARCH)" RECURSE=0 $(CTARGET)
 	 cd build
-	  $(MAKE) $(MAKEOPT) -f apr_app.mak    CFG="apr_app - $(ARCH)" RECURSE=0 $(CTARGET)
-	  $(MAKE) $(MAKEOPT) -f libapr_app.mak CFG="libapr_app - $(ARCH)" RECURSE=0 $(CTARGET)
+	  $(MAKE) $(MAKEOPT) -f aprapp.mak    CFG="aprapp - $(ARCH)" RECURSE=0 $(CTARGET)
+	  $(MAKE) $(MAKEOPT) -f libaprapp.mak CFG="libaprapp - $(ARCH)" RECURSE=0 $(CTARGET)
 	 cd ..
 	cd $(API_PATH)
 	 $(MAKE) $(MAKEOPT) -f apriconv.mak    CFG="apriconv - $(ARCH)" RECURSE=0 $(CTARGET)
@@ -207,6 +213,10 @@ buildall:
 	  for %d in ($(DBM_LIST) x) do if not %d == x \
 	    $(MAKE) $(MAKEOPT) -f apr_dbm_%d.mak CFG="apr_dbm_%d - $(ARCH)" RECURSE=0 $(CTARGET)
 	cd ..
+	cd crypto
+	  for %d in ($(CRYPTO_LIST) x) do if not %d == x \
+	    $(MAKE) $(MAKEOPT) -f apr_crypto_%d.mak CFG="apr_crypto_%d - $(ARCH)" RECURSE=0 $(CTARGET)
+	cd ..
 
 !ELSEIF $(USESLN) == 1
 
@@ -215,6 +225,8 @@ clean:
 	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_dbd_%d
 	-for %d in ($(DBM_LIST) x) do if not %d == x \
 	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_dbm_%d
+	-for %d in ($(CRYPTO_LIST) x) do if not %d == x \
+	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_crypto_%d
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_ldap
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libaprutil
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project aprutil
@@ -224,14 +236,14 @@ clean:
 	cd $(APU_PATH)
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapriconv
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apriconv
-	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapr_app
-	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_app
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libaprapp
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project aprapp
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapr
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr
 
 buildall:
-	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_app
-	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project libapr_app
+	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project aprapp
+	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project libaprapp
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project aprutil
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project libaprutil
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_ldap
@@ -239,6 +251,8 @@ buildall:
 	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_dbd_%d
 	for %d in ($(DBM_LIST) x) do if not %d == x \
 	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_dbm_%d
+	for %d in ($(CRYPTO_LIST) x) do if not %d == x \
+	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_crypto_%d
 
 !ELSE
 #	$(USEDSP) == 1
@@ -248,6 +262,8 @@ clean:
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)" /CLEAN
 	-for %d in ($(DBM_LIST) x) do if not %d == x \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbm_%d - $(ARCH)" /CLEAN
+	-for %d in ($(CRYPTO_LIST) x) do if not %d == x \
+	  msdev aprutil.dsw /USEENV /MAKE "apr_crypto_%d - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "libaprutil - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "aprutil - $(ARCH)" /CLEAN
@@ -257,21 +273,23 @@ clean:
 	cd $(APU_PATH)
 	-msdev aprutil.dsw /USEENV /MAKE "libapriconv - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "apriconv - $(ARCH)" /CLEAN
-	-msdev aprutil.dsw /USEENV /MAKE "libapr_app - $(ARCH)" /CLEAN
-	-msdev aprutil.dsw /USEENV /MAKE "apr_app - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "libaprapp - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "aprapp - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "libapr - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "apr - $(ARCH)" /CLEAN
 
 buildall:
-	@msdev aprutil.dsw /USEENV /MAKE "apr_app - $(ARCH)"
+	@msdev aprutil.dsw /USEENV /MAKE "aprapp - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "aprutil - $(ARCH)"
-	@msdev aprutil.dsw /USEENV /MAKE "libapr_app - $(ARCH)"
+	@msdev aprutil.dsw /USEENV /MAKE "libaprapp - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "libaprutil - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)"
 	@for %d in (odbc $(DBD_LIST)) do \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)"
 	@for %d in ($(DBM_LIST) x) do if not %d == x \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbm_%d - $(ARCH)"
+	@for %d in ($(CRYPTO_LIST) x) do if not %d == x \
+	  msdev aprutil.dsw /USEENV /MAKE "apr_crypto_%d - $(ARCH)"
 
 !ENDIF
 
@@ -335,6 +353,10 @@ install:
 	for %d in ($(DBM_LIST) x) do if not %d == x ( \
 	  copy $(APU_PATH)\dbm\$(ARCHPATH)\apr_dbm_%d-1.dll "$(PREFIX)\bin\" <.y && \
 	  copy $(APU_PATH)\dbm\$(ARCHPATH)\apr_dbm_%d-1.pdb "$(PREFIX)\bin\" <.y \
+	)
+	for %d in ($(CRYPTO_LIST) x) do if not %d == x ( \
+	  copy $(APU_PATH)\crypto\$(ARCHPATH)\apr_crypto_%d-1.dll "$(PREFIX)\bin\" <.y && \
+	  copy $(APU_PATH)\crypto\$(ARCHPATH)\apr_crypto_%d-1.pdb "$(PREFIX)\bin\" <.y \
 	)
 	xcopy $(API_PATH)\$(ARCHPATH)\iconv\*.so  "$(PREFIX)\bin\iconv\" /d < .a
 	xcopy $(API_PATH)\$(ARCHPATH)\iconv\*.pdb "$(PREFIX)\bin\iconv\" /d < .a

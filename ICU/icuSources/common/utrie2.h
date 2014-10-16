@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001-2011, International Business Machines
+*   Copyright (C) 2001-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -319,7 +319,7 @@ utrie2_isFrozen(const UTrie2 *trie);
  * @see utrie2_openFromSerialized()
  */
 U_CAPI int32_t U_EXPORT2
-utrie2_serialize(UTrie2 *trie,
+utrie2_serialize(const UTrie2 *trie,
                  void *data, int32_t capacity,
                  UErrorCode *pErrorCode);
 
@@ -657,19 +657,6 @@ public:
     uint16_t next16();
 
     const UChar *limit;
-};
-
-class UTrie2Singleton {
-public:
-    UTrie2Singleton(SimpleSingleton &s) : singleton(s) {}
-    void deleteInstance() {
-        utrie2_close((UTrie2 *)singleton.fInstance);
-        singleton.reset();
-    }
-    UTrie2 *getInstance(InstantiatorFn *instantiator, const void *context,
-                        UErrorCode &errorCode);
-private:
-    SimpleSingleton &singleton;
 };
 
 U_NAMESPACE_END

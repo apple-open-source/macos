@@ -9,23 +9,24 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page">
 <div id="page-header">
 <p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa de este sitio web</a></p>
-<p class="apache">Versión 2.2 del Servidor HTTP Apache</p>
+<p class="apache">Versión 2.4 del Servidor HTTP Apache</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Servidor HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentación</a> &gt; <a href="./">Versión 2.2</a></div>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Servidor HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentación</a> &gt; <a href="./">Versión 2.4</a></div>
 <div id="page-content"><div id="preamble"><h1>Mapa de este sitio web</h1>
 <div class="toplang">
 <p><span>Idiomas disponibles: </span><a href="./de/sitemap.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/sitemap.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./es/sitemap.html" title="Español">&nbsp;es&nbsp;</a> |
+<a href="./fr/sitemap.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="./ja/sitemap.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="./ko/sitemap.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./tr/sitemap.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
@@ -37,7 +38,7 @@
             recientemente.</div>
 
 <p>Esta página contiene la lista con los documentos actualmente
-disponibles de la <a href="./">Versión 2.2 de la
+disponibles de la <a href="./">Versión 2.4 de la
 Documentación del Servidor HTTP Apache</a>.</p>
 </div>
 <div id="quickview"><ul id="toc">
@@ -162,44 +163,51 @@ usados para describir las directivas de Apache</a></li>
 </ul><ul><li><a href="mod/core.html">Funcionalidad Básica de Apache</a></li>
 <li><a href="mod/mpm_common.html">Directivas Comunes de los MPM de
             Apache</a></li>
-<li><a href="mod/beos.html">MPM de Apache beos</a></li>
 <li><a href="mod/event.html">MPM de Apache event</a></li>
 <li><a href="mod/mpm_netware.html">MPM de Apache netware</a></li>
 <li><a href="mod/mpmt_os2.html">MPM de Apache os2</a></li>
 <li><a href="mod/prefork.html">MPM de Apache prefork</a></li>
 <li><a href="mod/mpm_winnt.html">MPM de Apache winnt</a></li>
 <li><a href="mod/worker.html">MPM de Apache worker</a></li>
-</ul><ul><li><a href="mod/mod_actions.html">Módulo Apache mod_actions</a></li>
+</ul><ul><li><a href="mod/mod_access_compat.html">Módulo Apache mod_access_compat</a></li>
+<li><a href="mod/mod_actions.html">Módulo Apache mod_actions</a></li>
 <li><a href="mod/mod_alias.html">Módulo Apache mod_alias</a></li>
+<li><a href="mod/mod_allowmethods.html">Módulo Apache mod_allowmethods</a></li>
 <li><a href="mod/mod_asis.html">Módulo Apache mod_asis</a></li>
 <li><a href="mod/mod_auth_basic.html">Módulo Apache mod_auth_basic</a></li>
 <li><a href="mod/mod_auth_digest.html">Módulo Apache mod_auth_digest</a></li>
-<li><a href="mod/mod_authn_alias.html">Módulo Apache mod_authn_alias</a></li>
+<li><a href="mod/mod_auth_form.html">Módulo Apache mod_auth_form</a></li>
 <li><a href="mod/mod_authn_anon.html">Módulo Apache mod_authn_anon</a></li>
+<li><a href="mod/mod_authn_core.html">Módulo Apache mod_authn_core</a></li>
 <li><a href="mod/mod_authn_dbd.html">Módulo Apache mod_authn_dbd</a></li>
 <li><a href="mod/mod_authn_dbm.html">Módulo Apache mod_authn_dbm</a></li>
-<li><a href="mod/mod_authn_default.html">Módulo Apache mod_authn_default</a></li>
 <li><a href="mod/mod_authn_file.html">Módulo Apache mod_authn_file</a></li>
+<li><a href="mod/mod_authn_socache.html">Módulo Apache mod_authn_socache</a></li>
 <li><a href="mod/mod_authnz_ldap.html">Módulo Apache mod_authnz_ldap</a></li>
+<li><a href="mod/mod_authz_core.html">Módulo Apache mod_authz_core</a></li>
+<li><a href="mod/mod_authz_dbd.html">Módulo Apache mod_authz_dbd</a></li>
 <li><a href="mod/mod_authz_dbm.html">Módulo Apache mod_authz_dbm</a></li>
-<li><a href="mod/mod_authz_default.html">Módulo Apache mod_authz_default</a></li>
 <li><a href="mod/mod_authz_groupfile.html">Módulo Apache mod_authz_groupfile</a></li>
 <li><a href="mod/mod_authz_host.html">Módulo Apache mod_authz_host</a></li>
 <li><a href="mod/mod_authz_owner.html">Módulo Apache mod_authz_owner</a></li>
 <li><a href="mod/mod_authz_user.html">Módulo Apache mod_authz_user</a></li>
 <li><a href="mod/mod_autoindex.html">Módulo Apache mod_autoindex</a></li>
+<li><a href="mod/mod_buffer.html">Módulo Apache mod_buffer</a></li>
 <li><a href="mod/mod_cache.html">Módulo Apache mod_cache</a></li>
+<li><a href="mod/mod_cache_disk.html">Módulo Apache mod_cache_disk</a></li>
+<li><a href="mod/mod_cache_socache.html">Módulo Apache mod_cache_socache</a></li>
 <li><a href="mod/mod_cern_meta.html">Módulo Apache mod_cern_meta</a></li>
 <li><a href="mod/mod_cgi.html">Módulo Apache mod_cgi</a></li>
 <li><a href="mod/mod_cgid.html">Módulo Apache mod_cgid</a></li>
 <li><a href="mod/mod_charset_lite.html">Módulo Apache mod_charset_lite</a></li>
+<li><a href="mod/mod_data.html">Módulo Apache mod_data</a></li>
 <li><a href="mod/mod_dav.html">Módulo Apache mod_dav</a></li>
 <li><a href="mod/mod_dav_fs.html">Módulo Apache mod_dav_fs</a></li>
 <li><a href="mod/mod_dav_lock.html">Módulo Apache mod_dav_lock</a></li>
 <li><a href="mod/mod_dbd.html">Módulo Apache mod_dbd</a></li>
 <li><a href="mod/mod_deflate.html">Módulo Apache mod_deflate</a></li>
+<li><a href="mod/mod_dialup.html">Módulo Apache mod_dialup</a></li>
 <li><a href="mod/mod_dir.html">Módulo Apache mod_dir</a></li>
-<li><a href="mod/mod_disk_cache.html">Módulo Apache mod_disk_cache</a></li>
 <li><a href="mod/mod_dumpio.html">Módulo Apache mod_dumpio</a></li>
 <li><a href="mod/mod_echo.html">Módulo Apache mod_echo</a></li>
 <li><a href="mod/mod_env.html">Módulo Apache mod_env</a></li>
@@ -209,41 +217,73 @@ usados para describir las directivas de Apache</a></li>
 <li><a href="mod/mod_file_cache.html">Módulo Apache mod_file_cache</a></li>
 <li><a href="mod/mod_filter.html">Módulo Apache mod_filter</a></li>
 <li><a href="mod/mod_headers.html">Módulo Apache mod_headers</a></li>
+<li><a href="mod/mod_heartbeat.html">Módulo Apache mod_heartbeat</a></li>
+<li><a href="mod/mod_heartmonitor.html">Módulo Apache mod_heartmonitor</a></li>
 <li><a href="mod/mod_ident.html">Módulo Apache mod_ident</a></li>
 <li><a href="mod/mod_imagemap.html">Módulo Apache mod_imagemap</a></li>
 <li><a href="mod/mod_include.html">Módulo Apache mod_include</a></li>
 <li><a href="mod/mod_info.html">Módulo Apache mod_info</a></li>
 <li><a href="mod/mod_isapi.html">Módulo Apache mod_isapi</a></li>
+<li><a href="mod/mod_lbmethod_bybusyness.html">Módulo Apache mod_lbmethod_bybusyness</a></li>
+<li><a href="mod/mod_lbmethod_byrequests.html">Módulo Apache mod_lbmethod_byrequests</a></li>
+<li><a href="mod/mod_lbmethod_bytraffic.html">Módulo Apache mod_lbmethod_bytraffic</a></li>
+<li><a href="mod/mod_lbmethod_heartbeat.html">Módulo Apache mod_lbmethod_heartbeat</a></li>
 <li><a href="mod/mod_ldap.html">Módulo Apache mod_ldap</a></li>
 <li><a href="mod/mod_log_config.html">Módulo Apache mod_log_config</a></li>
+<li><a href="mod/mod_log_debug.html">Módulo Apache mod_log_debug</a></li>
 <li><a href="mod/mod_log_forensic.html">Módulo Apache mod_log_forensic</a></li>
 <li><a href="mod/mod_logio.html">Módulo Apache mod_logio</a></li>
-<li><a href="mod/mod_mem_cache.html">Módulo Apache mod_mem_cache</a></li>
+<li><a href="mod/mod_lua.html">Módulo Apache mod_lua</a></li>
+<li><a href="mod/mod_macro.html">Módulo Apache mod_macro</a></li>
 <li><a href="mod/mod_mime.html">Módulo Apache mod_mime</a></li>
 <li><a href="mod/mod_mime_magic.html">Módulo Apache mod_mime_magic</a></li>
 <li><a href="mod/mod_negotiation.html">Módulo Apache mod_negotiation</a></li>
 <li><a href="mod/mod_nw_ssl.html">Módulo Apache mod_nw_ssl</a></li>
+<li><a href="mod/mod_privileges.html">Módulo Apache mod_privileges</a></li>
 <li><a href="mod/mod_proxy.html">Módulo Apache mod_proxy</a></li>
 <li><a href="mod/mod_proxy_ajp.html">Módulo Apache mod_proxy_ajp</a></li>
 <li><a href="mod/mod_proxy_balancer.html">Módulo Apache mod_proxy_balancer</a></li>
 <li><a href="mod/mod_proxy_connect.html">Módulo Apache mod_proxy_connect</a></li>
+<li><a href="mod/mod_proxy_express.html">Módulo Apache mod_proxy_express</a></li>
+<li><a href="mod/mod_proxy_fcgi.html">Módulo Apache mod_proxy_fcgi</a></li>
+<li><a href="mod/mod_proxy_fdpass.html">Módulo Apache mod_proxy_fdpass</a></li>
 <li><a href="mod/mod_proxy_ftp.html">Módulo Apache mod_proxy_ftp</a></li>
+<li><a href="mod/mod_proxy_html.html">Módulo Apache mod_proxy_html</a></li>
 <li><a href="mod/mod_proxy_http.html">Módulo Apache mod_proxy_http</a></li>
 <li><a href="mod/mod_proxy_scgi.html">Módulo Apache mod_proxy_scgi</a></li>
+<li><a href="mod/mod_proxy_wstunnel.html">Módulo Apache mod_proxy_wstunnel</a></li>
+<li><a href="mod/mod_ratelimit.html">Módulo Apache mod_ratelimit</a></li>
+<li><a href="mod/mod_reflector.html">Módulo Apache mod_reflector</a></li>
+<li><a href="mod/mod_remoteip.html">Módulo Apache mod_remoteip</a></li>
 <li><a href="mod/mod_reqtimeout.html">Módulo Apache mod_reqtimeout</a></li>
+<li><a href="mod/mod_request.html">Módulo Apache mod_request</a></li>
 <li><a href="mod/mod_rewrite.html">Módulo Apache mod_rewrite</a></li>
+<li><a href="mod/mod_sed.html">Módulo Apache mod_sed</a></li>
+<li><a href="mod/mod_session.html">Módulo Apache mod_session</a></li>
+<li><a href="mod/mod_session_cookie.html">Módulo Apache mod_session_cookie</a></li>
+<li><a href="mod/mod_session_crypto.html">Módulo Apache mod_session_crypto</a></li>
+<li><a href="mod/mod_session_dbd.html">Módulo Apache mod_session_dbd</a></li>
 <li><a href="mod/mod_setenvif.html">Módulo Apache mod_setenvif</a></li>
+<li><a href="mod/mod_slotmem_plain.html">Módulo Apache mod_slotmem_plain</a></li>
+<li><a href="mod/mod_slotmem_shm.html">Módulo Apache mod_slotmem_shm</a></li>
 <li><a href="mod/mod_so.html">Módulo Apache mod_so</a></li>
+<li><a href="mod/mod_socache_dbm.html">Módulo Apache mod_socache_dbm</a></li>
+<li><a href="mod/mod_socache_dc.html">Módulo Apache mod_socache_dc</a></li>
+<li><a href="mod/mod_socache_memcache.html">Módulo Apache mod_socache_memcache</a></li>
+<li><a href="mod/mod_socache_shmcb.html">Módulo Apache mod_socache_shmcb</a></li>
 <li><a href="mod/mod_speling.html">Módulo Apache mod_speling</a></li>
 <li><a href="mod/mod_ssl.html">Módulo Apache mod_ssl</a></li>
 <li><a href="mod/mod_status.html">Módulo Apache mod_status</a></li>
 <li><a href="mod/mod_substitute.html">Módulo Apache mod_substitute</a></li>
 <li><a href="mod/mod_suexec.html">Módulo Apache mod_suexec</a></li>
 <li><a href="mod/mod_unique_id.html">Módulo Apache mod_unique_id</a></li>
+<li><a href="mod/mod_unixd.html">Módulo Apache mod_unixd</a></li>
 <li><a href="mod/mod_userdir.html">Módulo Apache mod_userdir</a></li>
 <li><a href="mod/mod_usertrack.html">Módulo Apache mod_usertrack</a></li>
 <li><a href="mod/mod_version.html">Módulo Apache mod_version</a></li>
 <li><a href="mod/mod_vhost_alias.html">Módulo Apache mod_vhost_alias</a></li>
+<li><a href="mod/mod_watchdog.html">Módulo Apache mod_watchdog</a></li>
+<li><a href="mod/mod_xml2enc.html">Módulo Apache mod_xml2enc</a></li>
 </ul>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section"><h2><a name="developer" id="developer">Documentación para desarrolladores</a></h2>
@@ -269,6 +309,7 @@ Referencia de Directivas</a></li>
 <p><span>Idiomas disponibles: </span><a href="./de/sitemap.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/sitemap.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./es/sitemap.html" title="Español">&nbsp;es&nbsp;</a> |
+<a href="./fr/sitemap.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="./ja/sitemap.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="./ko/sitemap.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./tr/sitemap.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
@@ -276,7 +317,7 @@ Referencia de Directivas</a></li>
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comentarios</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/sitemap.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/sitemap.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -291,7 +332,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/sitemap.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa de este sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

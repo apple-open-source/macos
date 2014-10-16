@@ -11,12 +11,24 @@ AC_DEFINE(_DARWIN_C_SOURCE, 1, [Define on Darwin to activate all library feature
 .
 /Darwin\/@<:@6789@:>@/s/9//
 g/-current_version $(VERSION)/s//-current_version $(PYTHON_CURRENT_VERSION)/
+/# -Wno-long-double, -no-cpp-precomp, and -mno-fused-madd/i
+	    function vers2str() {
+		printf '%02d%02d' `echo $1 | sed 's/\./ /'`
+	    }
+	    function cmpvers() {
+		test `vers2str $1` "$2" `vers2str $3`
+	    }
+.
+/if test ${cur_target} '>' 10\.2/s/test/cmpvers/
 /^AC_SUBST(OTHER_LIBTOOL_OPT)/i
 AC_SUBST(LIBTOOL)
 .
 /LIBTOOL_CRUFT=""/i
             LIBTOOL='$(CC) -dynamiclib -all_load $(CFLAGS)'
 .
+/# LDSHARED is the ld \*command\* used to create shared library/a
+.
+/if test ${MACOSX_DEPLOYMENT_TARGET} '>' 10\.2/s/test/cmpvers/
 g/-O3/s//-Os/g
 /^# check for endianness/i
 

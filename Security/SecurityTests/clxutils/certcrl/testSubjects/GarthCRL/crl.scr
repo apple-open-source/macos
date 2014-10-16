@@ -1,0 +1,19 @@
+# 
+# CRL verfication of certs obtained from SSL sites
+#
+globals
+certNetFetchEnable = true
+crlNetFetchEnable = true
+useSystemAnchors = false
+allowUnverified = false
+requireCrlIfPresent = true
+end
+
+test = "CNTMTT68S21G224G.cer"
+revokePolicy = crl
+cert = CNTMTT68S21G224G.cer
+crl = fetched.crl
+root = InfoCamereRoot.cer
+root = InfoCamereFirmaQualificata.cer
+end
+

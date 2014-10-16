@@ -1,0 +1,239 @@
+                         cspxutils Info
+				   last update 9/12/06 dmitch
+				 
+This directory contains a set of programs intended for use in testing the
+AppleCSP on the OS X platform. The intended users are software engineers
+who are familiar with the CSSM CSP API. The programs are used for design 
+verification testing (DVT), for interactive exercising of the CSP 
+subsystem during bringup, and for subsequent regression testing. 
+
+The intention is that there is a test here for every supported CSP function. 
+No additions to the CSP functionality will be checked into CVS unless there
+is a corresponding test here to verify that functionality. 
+
+
+Building
+--------
+
+Short version: to build everything in cspxutils, cd to cspxutils and 
+type 'make'. The resulting executables are placed in the location specified
+in the LOCAL_BUILD_DIR environment variable (which you really must set to use
+these tests effectively). 
+
+There is also an 'all' target in the top level Makefile which builds not 
+only everything here, but everything in ../clxutils as well. This target
+requires the LOCAL_BUILD_DIR environment variable to work. 
+
+Long version: The programs in cspxutils build via standard Unix 
+Makefiles, not by Xcode. You generally want to set LOCAL_BUILD_DIR to 
+the same place Xcode places its built binaries ("Place Build Products in:" 
+in the Building pane in Xcode app's Preferences). This package builds OK
+if you do not have $LOCAL_BUILD_DIR set, but the installed
+Security.framework has to be up-to-date, and the cspdvt script (see
+below) will not run since executables are placed in their respective
+source directories. 
+
+(Note: the number of times the LOCAL_BUILD_DIR environment variable is
+mentioned here tends to lead an alert user of this code to just set that in
+the user's .cshrc or equivalent and be done with it.)
+
+The source for each program is contained in its own directory; you can 
+build a program on its own by typing 'make' in that directory. There is 
+also a top-level Makefile in cspxutils so that you can go there and type 
+'make' and all of the included programs will build. The 'make clean' 
+target is supported at both levels. 
+
+This source tree is generally up-to-date with top-of-tree tla/. 
+No changes will be checked in to TOT cspxutils until the corresponding
+changes to Security, if any are needed, are also checked into TOT
+Security. 
+
+
+Running
+-------
+
+Each executable can be run on its own, generally from anywhere (although
+a few tests expect specific files in cwd and will let you know about 
+this right away if they are not there). All of these are UNIX command 
+line tools using only a console (tty). There are some common command 
+line arguments described below. There is also a script in cspxutils 
+named cspdvt which runs many of the programs in sequence, aborting on 
+any error. 
+
+Note that if you're running the Security framework which
+you have built yourself, you'll need to set the DYLD_FRAMEWORK_PATH 
+environment variable. Generally this will be set to the same
+value as the LOCAL_BUILD_DIR environment variable described above.
+
+Some programs contain many command line options which are intended for
+use in poking around the CSP and setting up unusual or pesky conditions. 
+Use the 'h' command line argument to get a list of available options for
+a given program. Most programs do something useful when run with no command 
+line options (except for randTest, which is menu-driven, and attachLeak,
+which is interactive). 
+
+There is also a script called 'testall' which runs cspdvt twice - once for 
+the raw CSP and once for the CSPDL ('D' argument), as well as the cltpdvt
+script in ../clxutils. 
+
+  Common command line arguments
+  -----------------------------
+
+  Note the absence of the standard UNIX '-' prefix for arguments. Each
+  argument is specified separately (e.g., "symTest c D", NOT "symTest cD"). 
+    
+  h  help, display usage
+  q  quiet, minimal stdout activity; abort immediately on any error with
+     nonzero exit status
+  c  verbose, additional stdout info 
+  D  use AppleCSPDL, not AppleCSP (not all programs actually work this option). 
+
+  The 'q', 'c', and 'D' arguments are passed down from the cspdvt script
+  to individual tests. 
+  
+  Many programs also allow a loop count to be specified (l=loopCount). 
+  Specifying l=0 results in the test running forever. This option is 
+  not passed down from the cspdvt script. Use shell commands (while, 
+  etc.) for repeated runs of cspdvt. 
+
+  Many programs offer a 'p' option which causes a pause in the operation 
+  every so often, waiting for a CR. This is used in conjunction with 
+  MallocDebug for analyzing memory leaks. 
+  
+  Note that when you do NOT specify 'q' (either to the cspdvt script or
+  an individual program), any error encountered will result in a 'pause'
+  condition, awaiting further interaction. To run cspdvt from another
+  script, you need to specify 'q'. All programs and the cspdvt script
+  return a nonzero exit status when they abort on error. 
+  
+  The cspdvt script also has a command line argument, 'l' (the letter l), 
+  which when specified, causes a longer, more extensive test run than 
+  normal. The normal test run currently takes about 1.5 minutes on a
+  2 GHx Intel iMac. A 'long' test run takes about 10 minutes on the same machine. 
+  The cspdvt script passes through the 'D' argument to all programs which 
+  support it; thus 'cspdvt D' runs the entire suite on the CSPDL rather
+  than the raw CSP.
+  
+Diagnosing a failure of cspdvt
+------------------------------
+
+A normal run of the cspdvt script - e.g. when run in the nightly build and
+in the buildbot environment - specifies the 'q' argument, which for all tests
+causes just a startup banner for each test to be printed; the banner shows the 
+command line arguments passed to the tests. For example
+
+   # cspdvt q
+   Starting ccSymCompat; args: q 
+   Starting ccSymCompat; args: o q 
+   Starting ccSymTest; args: q 
+   ...etc.
+   
+The first step in diagnosing a failure is generally to run the last test
+command seen in the list, without the 'q' option, in order to get more
+info about the failure. 
+
+
+Description of tests
+-------------------
+
+asymCompat : Test compatibility of CSP's RSA and DSA implementation with 
+			 the reference BSAFE library.
+asymTest   : test asymmetric encrypt/decrypt
+badattr    : Verifies proper behavior of CSP with respect to illegal attribute
+             and usage bits in key headers
+badmac     : extensive MAC test which verifies detection of bad MACs
+badsig     : extensive signature test which verifies detection of bad 
+             signatures
+ccCtxSize  : Verify CommonCryptor context size constants
+ccHmacClone: Test cloning of CommonCrypto HMAC contexts
+ccHmacCompat: Verify compatibility of CommonCrypto HMAC with openssl.
+ccOneShot  : Test one-shot CommonDigest.
+ccSymCompat: Verify compatibility of CommonCryptor with reference implementations. 
+ccSymTest  : extensive test of CommonCryptor modes and options. 
+contextReuse : Verify proper operation of crypto context when they are reused
+             for multiple operations. 
+dhTest     : simple version of dhFullTest. 
+dsaPartial : test partial DSA public key processing. 
+hashClone  : Test CSSM_DigestDataClone()
+hashCompat : Test compatibility of CSP's digest implementations with 
+			 the reference BSAFE library.
+hashTest   : test digest functions
+keyDate    : test KeyHEader.{Start,End}Date handling. 
+keyHash    : test the CSSM_APPLECSP_KEYDIGEST passthrough. 
+keyHashAsym: extensive test of public/private key digest compare.
+keyStore   : Test persistence and retrieval of keys via CSPDL. Generally 
+			 requires user interaction via SecurityAgent. 
+macCompat  : Test compatibility of CSP's MAC implementation with 
+			 the reference BSAFE library.
+macTest    : Basic MAC test. 
+miniWrap   : brief and flexible key wrap/unwrap test
+pbeTest    : extensive test of DeriveKey operations
+rawRsaSig  : Test RAW RSA sign/verify by performing digest operations
+             manually, doing sign/verify, and comparing result with
+			 equivalent all-in-one op. Obsoleted by rawSig, which does 
+			 the same thing for all supported signature algorithms. 
+rawSig     : Like rawRsaSig, for all algs. 
+sigTest    : brief and flexible signature test
+ssl2Padding: test SSLv2 padding generation and detection
+symCompat  : verify compatibility of CSP symmetric encryption algorithms
+             with reference implementations. 
+symDelta   : verify that any change in any symmetric encryption parameter
+             (one bit of the key, one bit of the IV, etc.) alters the
+			 resulting ciphertext. 
+symTest    : extensive test of symmetric encrypt/decrypt
+utilLib	   : common routines used throughout the test suite.
+wrapTest   : extensive test of key wrap/unwrap. 
+
+
+Tools, not run as part of cspdvt
+--------------------------------
+
+aclTool    : Display and edit ACL entries.
+aesVect    : Generate test vectors, compare against NIST-provided references. Tests
+			 CSP, standalone reference implementation, standalone Gladman.
+ascTool    : File-based tool to encrypt decrypt via ASC.		
+asymPerform: Measure performance of asymmetric encryption algorithms.
+attachLeak : tool for analyzing leaks during CSSM_Init(), module load and
+             attach. 
+ccPerform  : Measure performance of CommonCrypto symmetric encryption.
+cryptTool  : Tool to demo simple CDSA crypto ops. Obsolete; replaced by similar
+             program in SecurityTech/libCdsaCrypt module. 
+dbTool     : Rudimentary tool to examine contents of a DB (a keychain). 
+dbVerifyKey: Verify that specified DB has exactly one key of specified
+			 algorithm, class, and key size - and no other keys.
+dhFullTest : file-based Diffie-Hellman exerciser/demo.
+genErrorStrings : Generate CSSSM error strings used in cssmErrToStr() to
+		     isolate these tests from irregularitiues in similar functions
+			 in Security.framework. 
+genKeyPair : create a key pair, store in specified keychain.
+hashTime   : measure performance of Digest algorithms. A similar version, 
+			 hashTimeLibCrypt, measures the performance of the openssl 
+			 implementations. HashTimeSA measures the performance of 
+			 digest algs directly, with no framework overhead. 
+keyStoreLeak: track down leaks involved in storing keys in DB. 
+mdsdump    : Utility to dump various portions of the MDS databases. 
+mdsLookup  : Example to demonstrate common usage of MDS lookups. 
+perform    : measure performance of symmetric encrypt/decrypt.
+performRaw : Like perform, but not burdened by CssmClient.
+pubKeyTool : calculate public key hash of arbitrary keys and certs; 
+			 derive public key from a private key or a cert. 
+randTest   : test the CSP's interface to the Yarrow pseudo random
+             number generator. Interactive (menu-driven) and not
+			 run as part of the cspdvt script. PRNGs are not easily 
+			 amenable to hands-off testing. 
+rsaTool    : utility to perform sign, verify, encrypt, decrypt ops on
+             raw files. 
+sha2Time   : measure performance of SHA2 using CommonCrypto
+sha2Vectors, sha2VectorsCdsa - verify SHA2 implementation against NIST
+			 test vectors using CommonCrypto and CDSA, respectively. 
+sigPerform : measure performance of signature operations. 
+symReference : write keys and ciphertext blobs, read them back
+             and decrypt on (possibly) a different platfrom
+wrap       : utility to perform key derivation and key wrap/unwrap. Mainly 
+             used to verify interoperability between different versions
+			 of CSP. 
+
+
+There is also directory called utilLib which contains common code used by 
+all of the tests in cspxutils. This library is mostly a set of C wrappers
+to make using the CSSM API a less painful experience than it otherwise is. 

@@ -26,20 +26,19 @@
 #ifndef ActivityAssertion_h
 #define ActivityAssertion_h
 
+#include <WebCore/CountedUserActivity.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebKit {
 
-class ChildProcess;
-
 class ActivityAssertion {
     WTF_MAKE_NONCOPYABLE(ActivityAssertion);
 public:
-    ActivityAssertion(ChildProcess&);
+    explicit ActivityAssertion(CountedUserActivity&);
     ~ActivityAssertion();
 
 private:
-    ChildProcess& m_process;
+    CountedUserActivity& m_activity;
 };
 
 }

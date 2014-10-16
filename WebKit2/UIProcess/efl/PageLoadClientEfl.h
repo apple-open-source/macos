@@ -27,8 +27,7 @@
 #define PageLoadClientEfl_h
 
 #include "WKPageLoadTypes.h"
-#include <WebKit2/WKBase.h>
-#include <wtf/PassOwnPtr.h>
+#include <WebKit/WKBase.h>
 
 class EwkView;
 
@@ -36,14 +35,9 @@ namespace WebKit {
 
 class PageLoadClientEfl {
 public:
-    static PassOwnPtr<PageLoadClientEfl> create(EwkView* viewImpl)
-    {
-        return adoptPtr(new PageLoadClientEfl(viewImpl));
-    }
-
-private:
     explicit PageLoadClientEfl(EwkView*);
 
+private:
     inline EwkView* view() const { return m_view; }
 
     static void didReceiveTitleForFrame(WKPageRef, WKStringRef title, WKFrameRef, WKTypeRef, const void* clientInfo);

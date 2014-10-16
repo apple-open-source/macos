@@ -1,0 +1,80 @@
+#! /bin/csh -f
+#
+# run client-side authenticaiton tests on external servers. These
+# servers will undoubtedly change their behavior some day.
+#
+#
+set TEST_HOST=www.cynic.org
+set TEST_PATH=//admin/status
+set SSL_KEYCHAIN=newcert
+#
+# use this to explicitly open the keychain
+#
+# not yet
+set KEYCHAIN_PWD=
+#set KEYCHAIN_PWD="z=newcert"
+
+echo =====
+echo ===== $TEST_HOST/$TEST_PATH requires authentication
+echo ===== Try without cert, expect fail
+set cmd="sslViewer $TEST_HOST $TEST_PATH a cynicRoot.cer t T=r"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+#
+echo ===== Try with our bogus cert, expect fail
+set cmd="sslViewer $TEST_HOST $TEST_PATH a cynicRoot.cer t k=$SSL_KEYCHAIN $KEYCHAIN_PWD T=s"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== $TEST_HOST/ allows but does not require authentication
+echo ===== Try without cert, expect success
+set cmd="sslViewer $TEST_HOST a cynicRoot.cer t T=r"
+echo $cmd
+$cmd || exit(1)
+echo ===== Try with our bogus cert, expect fail
+set cmd="sslViewer $TEST_HOST $TEST_PATH a cynicRoot.cer k=$SSL_KEYCHAIN $KEYCHAIN_PWD t T=s"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+#
+set TEST_HOST=doncio.net
+set TEST_PATH=/secure/DoD_soft_cert
+echo =====
+echo ===== $TEST_HOST/$TEST_PATH requests authentication
+set cmd="sslViewer $TEST_HOST $TEST_PATH 3 r T=r"
+echo $cmd
+$cmd || exit(1)
+set cmd="sslViewer $TEST_HOST $TEST_PATH t r T=r"
+echo $cmd
+$cmd || exit(1)
+echo ===== Try with our bogus cert, expect fail
+set cmd="sslViewer $TEST_HOST $TEST_PATH k=$SSL_KEYCHAIN $KEYCHAIN_PWD t r T=s"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+set cmd="sslViewer $TEST_HOST $TEST_PATH k=$SSL_KEYCHAIN $KEYCHAIN_PWD 3 r T=s"
+echo $cmd
+$cmd
+if($status != 1) then
+	echo @@@@@@ expected one error from sslViewer, got $status, aborting.
+	exit(1)
+endif
+
+echo =====
+echo ===== authExtern success
+echo =====

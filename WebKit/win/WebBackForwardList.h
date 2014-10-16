@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,15 +34,15 @@
 #include <WTF/RefPtr.h>
 
 namespace WebCore {
-    class BackForwardListImpl;
+    class BackForwardList;
 }
 
 class WebBackForwardList : public IWebBackForwardList, IWebBackForwardListPrivate
 {
 public:
-    static WebBackForwardList* createInstance(PassRefPtr<WebCore::BackForwardListImpl>);
+    static WebBackForwardList* createInstance(PassRefPtr<WebCore::BackForwardList>);
 protected:
-    WebBackForwardList(PassRefPtr<WebCore::BackForwardListImpl>);
+    WebBackForwardList(PassRefPtr<WebCore::BackForwardList>);
     ~WebBackForwardList();
 
 public:
@@ -109,7 +109,7 @@ public:
 
 protected:
     ULONG m_refCount;
-    RefPtr<WebCore::BackForwardListImpl> m_backForwardList;
+    RefPtr<WebCore::BackForwardList> m_backForwardList;
 };
 
 #endif

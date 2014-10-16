@@ -35,6 +35,7 @@
 #if 0
 static char sccsid[] = "@(#)measure.c	8.1 (Berkeley) 6/6/93";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.sbin/timed/timed/measure.c,v 1.7 2001/11/20 07:13:40 jhb Exp $";
 #endif /* not lint */

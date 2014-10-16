@@ -1,0 +1,19 @@
+/, popen4/s///
+a
+from subprocess import Popen, PIPE
+.
+/, string/s///
+s/, exceptions//
+/inStrm, outStrm = popen4("swig -version")/c
+    proc = Popen(['swig', '-version'], stdout=PIPE)
+.
+/outStrm/s//proc.stdout/
+/compile(r"/s//compile(b"/
+/exceptions\./s///
+/PACKAGENAME/c
+setup(name="bonjour-py", version="0.3",
+.
+g/	/s//        /g
+g/string\.find(\([^,]*\), \('[^']*'\)) == 0:/s//\1.startswith(\2):/
+g/string\.split(\([^,]*\), \('[^']*'\))/s//\1.split(\2)/
+w

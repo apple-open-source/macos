@@ -1,0 +1,176 @@
+#
+# TrustSettings tests. 
+#
+# This must be run with trustSettingsTest.keychain in your KC search path 
+# and userTrustSettings.plist as your per-user or admin trust settings. 
+#
+# A script to recreate userTrustSettings.plist is in the makeTrustSettings
+# script in this directory; the result can be imported into your user-domain 
+# settings via security trust-settings-import.  
+#
+# See the buildAndTest script in this directory for al all-in-one op.
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+#
+# Note: with TrustSettings disabled, we pass in roots as root certs;
+# with TrustSettings enabled, we pass roots as regular certs if we
+# want success. 
+#
+
+# 
+# debugRoot and localhost, with allowed HOSTNAME_MISMATCH test
+#
+test = "Ensure localhost.cer fails with TrustSettings disabled"
+useTrustSettings = false
+cert = localhost.cer
+cert = debugRoot.cer
+sslHost = localhost
+verifyTime = 20060601000000
+error = CSSMERR_TP_INVALID_ANCHOR_CERT
+# IS_IN_INPUT_CERTS | IS_ROOT
+certstatus = 1:0x14
+end
+
+test = "localhost.cer with TrustSettings enabled"
+useTrustSettings = true
+cert = localhost.cer
+cert = debugRoot.cer
+sslHost = localhost
+verifyTime = 20060601000000
+# IS_IN_INPUT_CERTS 
+certstatus = 0:0x4
+# IS_IN_INPUT_CERTS | IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTING_TRUST
+certstatus = 1:0x254
+end
+
+test = "localhost.cer with allowedError HOSTNAME_MISMATCH"
+useTrustSettings = true
+cert = localhost.cer
+cert = debugRoot.cer
+sslHost = 127.0.0.1
+verifyTime = 20060601000000
+# IS_IN_INPUT_CERTS | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_IGNORED_ERROR
+certstatus = 0:0x844
+# IS_IN_INPUT_CERTS | IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTING_TRUST
+certstatus = 1:0x254
+# Detected and logged but not a fatal error due to TrustSettings
+certerror = 0:CSSMERR_APPLETP_HOSTNAME_MISMATCH
+end
+
+#
+# Software Update Signing with allowed CS_BAD_CERT_CHAIN_LENGTH test
+#
+test = "SWUSigning, normal, no TrustSettings"
+useTrustSettings = false
+cert = csLeaf.cer
+cert = csCA.cer
+root = csRoot.cer
+policy = swuSign
+verifyTime = 20060601000000
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "SWUSigning, normal, TrustSettings"
+useTrustSettings = true
+cert = csLeaf.cer
+cert = csCA.cer
+cert = csRoot.cer
+policy = swuSign
+verifyTime = 20060601000000
+# IS_IN_INPUT_CERTS | IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_TRUST
+certstatus = 2:254
+end
+
+# note no per-cert status of CS_BAD_CERT_CHAIN_LENGTH, it applies
+# to the whole chain
+test = "SWUSigning, allowed bad path length"
+useTrustSettings = true
+cert = csLeafShortPath.cer
+cert = csRoot.cer
+policy = swuSign
+verifyTime = 20060601000000
+# IS_IN_INPUT_CERTS | IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_TRUST
+certstatus = 1:0x254
+# IS_IN_INPUT_CERTS | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_IGNORED_ERROR
+certstatus = 0:0x844
+end
+
+#
+# CRL testing with allowed CSSMERR_TP_CERT_REVOKED test
+# see documentation in clxutils/makeCrl/testFiles/crlTime.scr for info 
+# on certs and CRLs. 
+#
+test = "revoked by CRL, no TrustSettings, expect failure"
+useTrustSettings = false
+requireCrlForAll = true
+revokePolicy = crl
+cert = crlTestLeaf.cer
+root = crlTestRoot.cer
+crl = crl.crl
+# Normal revocation case. 
+verifyTime = 20060418090559Z
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | IS_ROOT
+certstatus = 1:0x18
+end
+
+test = "revoked by CRL, TrustSettings, expect success"
+useTrustSettings = true
+requireCrlForAll = true
+revokePolicy = crl
+cert = crlTestLeaf.cer
+cert = crlTestRoot.cer
+crl = crl.crl
+# Normal revocation case. 
+verifyTime = 20060418090559Z
+# IS_IN_INPUT_CERTS | TRUST_SETTINGS_FOUND_USER |  TRUST_SETTINGS_IGNORED_ERROR
+certstatus = 0:0x844
+# IS_IN_INPUT_CERTS | IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_TRUST
+certstatus = 1:0x254
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+#
+# dmitch@apple.com Thawte with test of default setting = deny for SMIME
+#
+test = "dmitch@apple.com Thawte, no TrustSettings"
+useTrustSettings = false
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+policy = smime
+verifyTime = 20060601000000
+senderEmail = dmitch@apple.com
+# CSSM_CERT_STATUS_IS_IN_ANCHORS | IS_ROOT
+certstatus = 2:0x18
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, generic"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+verifyTime = 20060601000000
+# IS_ROOT | TRUST_SETTINGS_FOUND_SYSTEM | TRUST_SETTINGS_TRUST
+certstatus = 2:0x310
+end
+
+test = "dmitch@apple.com Thawte, TrustSettings, SMIME, fail due to default Deny setting"
+useTrustSettings = true
+useSystemAnchors = true
+cert = dmitchAppleThawte.cer
+cert = thawteCA.cer
+senderEmail = dmitch@apple.com
+verifyTime = 20060601000000
+# IS_ROOT | TRUST_SETTINGS_FOUND_USER | TRUST_SETTINGS_DENY
+certstatus = 2:0x450
+error = CSSMERR_APPLETP_TRUST_SETTING_DENY
+end

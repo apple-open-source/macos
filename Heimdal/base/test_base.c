@@ -81,8 +81,8 @@ test_dict(void)
 
     dict = heim_dict_create(10);
 
-    heim_dict_add_value(dict, a1, a2);
-    heim_dict_add_value(dict, a3, a4);
+    heim_dict_set_value(dict, a1, a2);
+    heim_dict_set_value(dict, a3, a4);
 
     heim_dict_delete_key(dict, a3);
     heim_dict_delete_key(dict, a1);

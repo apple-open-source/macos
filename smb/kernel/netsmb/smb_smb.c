@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +49,7 @@
 
 #include <sys/kpi_mbuf.h>
 #include <sys/smb_apple.h>
+#include <sys/utfconv.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_2.h>
@@ -318,7 +319,7 @@ smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 	 * The dialects are never in UNICODE, so just put the strings in by hand. 
 	 */
     if (onlySMB1 == 1) {
-        /* only advertise SMB1 dialects */
+        /* only advertise SMB 1 dialects */
         for(dp = smb1_dialects; dp->d_id != -1; dp++) {
             mb_put_uint8(mbp, SMB_DT_DIALECT);
             mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
@@ -326,7 +327,7 @@ smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
         }
     } 
     else {
-        /* Advertise SMB1 and SMB2 dialects */
+        /* Advertise SMB 1 and SMB 2/3 dialects */
         for(dp = smb_dialects; dp->d_id != -1; dp++) {
             mb_put_uint8(mbp, SMB_DT_DIALECT);
             mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
@@ -340,13 +341,13 @@ smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 		goto bad;
 
     if (rqp->sr_extflags & SMB2_RESPONSE) {
-        /* Got a SMB2 response, do SMB2 Negotiate */
+        /* Got a SMB 2/3 response, do SMB 2/3 Negotiate */
         error = smb2_smb_negotiate(vcp, rqp, inReconnect, user_context, context);
         smb_rq_done(rqp);
         return (error);
     }
 
-    /* SMB 1.x does not support File IDs */
+    /* SMB 1 does not support File IDs */
     vcp->vc_misc_flags &= ~SMBV_HAS_FILEIDS;
 
     /* Now get the response */
@@ -499,7 +500,9 @@ smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 			error = md_get_mem(mdp, (void *)vcp->negotiate_token, vcp->negotiate_tokenlen, MB_MSYSTEM);
 			/* If we get an error pretend we have no blob and force NTLMSSP */
 			if (error) {
-				SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
+                if (vcp->negotiate_token != NULL) {
+                    SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
+                }
 			}
 		}
 		/* If no token then say we have no length */
@@ -689,6 +692,125 @@ done:
     }
 }
 
+static char *
+upper_casify_string(const char *string)
+{
+    size_t string_len, i;
+    char *ucstrbuf;
+
+    string_len = strlen(string);
+    SMB_MALLOC(ucstrbuf, char *, string_len + 1, M_SMBTEMP, M_WAITOK | M_ZERO);
+    
+    for (i = 0; i < string_len; i++) {
+        if ((string[i] >= 'a') && (string[i] <= 'z')) {
+            ucstrbuf[i] = string[i] - 32;
+        }
+        else {
+            ucstrbuf[i] = string[i];
+        }
+    }
+    
+    return (ucstrbuf);
+}
+
+static u_char *
+add_name_to_blob(u_char *blobnames, const u_char *name, size_t namelen,
+                 int nametype, int uppercase)
+{
+    struct ntlmv2_namehdr namehdr;
+    char *namebuf;
+    u_int16_t *uninamebuf;
+    size_t uninamelen;
+
+    if (name != NULL) {
+        SMB_MALLOC(uninamebuf, u_int16_t *, 2 * namelen, M_SMBTEMP, M_WAITOK | M_ZERO);
+        if (uppercase) {
+            namebuf = upper_casify_string((char *) name);
+            uninamelen = smb_strtouni(uninamebuf, namebuf, namelen,
+                                      UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+            if (namebuf) {
+                SMB_FREE(namebuf, M_SMBTEMP);
+            }
+        } else {
+            uninamelen = smb_strtouni(uninamebuf, (char *)name, namelen,
+                                      UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+		}
+    } else {
+        uninamelen = 0;
+        uninamebuf = NULL;
+    }
+    namehdr.type = htoles(nametype);
+    namehdr.len = htoles(uninamelen);
+    bcopy(&namehdr, blobnames, sizeof namehdr);
+    blobnames += sizeof namehdr;
+    if (uninamebuf != NULL) {
+        bcopy(uninamebuf, blobnames, uninamelen);
+        blobnames += uninamelen;
+        if (uninamebuf) {
+            SMB_FREE(uninamebuf, M_SMBTEMP);
+        }
+    }
+    return blobnames;
+}
+
+static u_char *
+make_ntlmv2_blob(struct smb_vc *vcp, char *dom, u_int64_t client_nonce, size_t *bloblen)
+{
+    u_char *blob;
+    size_t blobsize;
+    size_t domainlen, srvlen;
+    struct ntlmv2_blobhdr *blobhdr;
+    struct timespec now;
+    u_int64_t timestamp;
+    u_char *blobnames;
+
+    /*
+     * XXX - the information at
+     *
+     * http://davenport.sourceforge.net/ntlm.html#theNtlmv2Response
+     *
+     * says that the "target information" comes from the Type 2 message,
+     * but, as we're not doing NTLMSSP, we don't have that.
+     *
+     * Should we use the names from the NegProt response?  Can we trust
+     * the NegProt response?  (I've seen captures where the primary
+     * domain name has an extra byte in front of it.)
+     *
+     * For now, we don't trust it - we use vcp->vc_domain and
+     * vcp->vc_srvname, instead.  We upper-case them and convert
+     * them to Unicode, as that's what's supposed to be in the blob.
+     */
+    domainlen = strlen(dom);
+    srvlen = strlen(vcp->vc_srvname);
+    blobsize = sizeof(struct ntlmv2_blobhdr) +
+               (3 * sizeof (struct ntlmv2_namehdr))
+               + 4 + (2 * domainlen) + (2 * srvlen);
+    SMB_MALLOC(blob, u_char *, blobsize, M_SMBTEMP, M_WAITOK | M_ZERO);
+    blobhdr = (struct ntlmv2_blobhdr *)blob;
+    blobhdr->header = htolel(0x00000101);
+    nanotime(&now);
+    
+    /*
+     * %%%
+     * I would prefer not to change this yet. Once I am done with reconnects
+     * and the new auth methods, We should relook at this again.
+     *
+     * Really should not force this to be on a two second interval.
+     */
+    smb_time_local2NT(&now, &timestamp, 1);
+    blobhdr->timestamp = htoleq(timestamp);
+    blobhdr->client_nonce = client_nonce;
+    blobnames = blob + sizeof (struct ntlmv2_blobhdr);
+    blobnames = add_name_to_blob(blobnames, (u_char *)dom, domainlen,
+                                 NAMETYPE_DOMAIN_NB, 1);
+    
+    //	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)vcp->vc_srvname,
+    //				     srvlen, NAMETYPE_MACHINE_NB, 1);
+    blobnames = add_name_to_blob(blobnames, NULL, 0, NAMETYPE_EOL, 0);
+    *bloblen = blobnames - blob;
+    return (blob);
+}
+
 /*
  * If the server supports extended security then we let smb_gss_ssnsetup handle
  * that work. For the older systems that don't support extended security, either
@@ -703,7 +825,10 @@ done:
  * plain-text with the ASCII password
  *
  */
-int 
+#define kSTATE_NTLMv2 0
+#define kSTATE_NTLMv1 1
+
+int
 smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 {
 	struct smb_rq *rqp;
@@ -719,13 +844,23 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 	uint16_t maxtx = vcp->vc_txmax;
 	uint8_t lm[24] = {0};
 	uint8_t ntlm[24] = {0};
-	
+	int state = kSTATE_NTLMv2;
+	u_int64_t client_nonce;
+    u_char v2hash[16];
+	u_char *upper_case_userp = NULL;
+	u_int16_t string_len;
+	char *upper_case_domainp = NULL;
+	char *encrypted_password = NULL;
+    u_char *v2_blob = NULL;
+	size_t v2_bloblen;
+	smb_uniptr unipp = NULL, nt_encrypt_password = NULL;
+    
 	if (smb_smb_nomux(vcp, __FUNCTION__, context) != 0) {
 		error = EINVAL;
 		goto ssn_exit;
 	}
 
-	if ((VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY)) {		
+	if ((VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY)) {
 		error = smb_gss_ssnsetup(vcp, context);
 
         if (!(inReconnect) && (vcp->vc_flags & SMBV_SMB2)) {
@@ -737,7 +872,8 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 	}
 
 	caps = smb_vc_caps(vcp);
-	
+    
+again:
 	vcp->vc_smbuid = SMB_UID_UNKNOWN;
 
 	/*
@@ -747,12 +883,15 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 	 * (That appears not to be the case for the user name.  Go
 	 * figure.)
 	 *
-	 * don't need to uppercase domain. It's already uppercase UTF-8.
+	 * Don't need to uppercase domain. It's already uppercase UTF-8.
 	 *
 	 * NOTE: We use to copy the vc_domain into an allocated buffer and then
 	 * copy it into the mbuf, not sure why. Now we just copy vc_domain straight
 	 * in to the mbuf.
 	 */
+	string_len = strlen(vcp->vc_domain) + 1 /* strlen doesn't count null */;
+    SMB_MALLOC(upper_case_domainp, char *, string_len, M_SMBTEMP, M_WAITOK);
+	memcpy(upper_case_domainp, vcp->vc_domain, string_len);
 
 	if (!(vcp->vc_flags & SMBV_USER_SECURITY)) {
 		/*
@@ -781,28 +920,108 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 		plen = strnlen(pp, SMB_MAXPASSWORDLEN + 1);
 		uniplen = 0;
 	} else if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
-        /* The server wants NTLM without going through Extended Security Negotiation */
-        /* We no longer support this if signing is on */
+        /* 
+         * The server wants NTLMv1/v2 without going through Extended Security 
+         * Negotiation. We no longer support this if signing is on.
+         */
         SMBERROR("SIGNING REQUIRED: Server %s needs to enable extended security negotiation for NTLM authentication, disconnecting\n", vcp->vc_srvname);
 		error = SMB_ENETFSNOPROTOVERSSUPP;
         goto ssn_exit;
-	} else {
-		plen = sizeof(lm);
-		pp = (char *)lm;
-		uniplen = sizeof(ntlm);
-		smb_ntlmresponse((u_char *)smb_vc_getpass(vcp), vcp->vc_ch, (u_char*)ntlm);
-		SMBERROR("%s doesn't support extended security, this server will be deprecated in the future!\n", 
-				 vcp->vc_srvname);
 	}
+    else {
+        SMBERROR("%s doesn't support extended security, this server will be deprecated in the future!\n",
+                 vcp->vc_srvname);
+        
+        if (state == kSTATE_NTLMv2) {
+            /* Do NTLMv2 authentication */
+            
+            /*
+             * Compute the LMv2 and NTLMv2 responses,
+             * derived from the challenge, the user name,
+             * the domain/workgroup into which we're
+             * logging, and the Unicode password.
+             */
+            
+            /*
+             * Construct the client nonce by getting
+             * a bunch of random data.
+             */
+            read_random((void *)&client_nonce, sizeof(client_nonce));
+            
+            /*
+             * For anonymous login with packet signing we
+             * need a null domain as well as a null user
+             * and password.
+             */
+            if ((vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) &&
+                (vcp->vc_username[0] == '\0')) {
+                *upper_case_domainp = '\0';
+            }
+            
+            /*
+             * Convert the user name to upper-case, as
+             * that's what's used when computing LMv2
+             * and NTLMv2 responses.
+             */
+            upper_case_userp = (u_char *)upper_casify_string(vcp->vc_username);
+            
+            smb_ntlmv2hash((u_char *)smb_vc_getpass(vcp), upper_case_userp,
+                           (u_char *)upper_case_domainp, &v2hash[0]);
+            
+            if (upper_case_userp) {
+                SMB_FREE(upper_case_userp, M_SMBTEMP);
+            }
+            
+            /*
+             * Compute the LMv2 response, derived
+             * from the v2hash, the server challenge,
+             * and the client nonce.
+             */
+            smb_ntlmv2response(v2hash, vcp->vc_ch,
+                               (u_char *)&client_nonce, sizeof(client_nonce),
+                               (u_char**)&encrypted_password, &plen);
+            pp = encrypted_password;
+            
+            /*
+             * Construct the blob.
+             */
+            v2_blob = make_ntlmv2_blob(vcp, upper_case_domainp, client_nonce,
+                                       &v2_bloblen);
+            
+            /*
+             * Compute the NTLMv2 response, derived
+             * from the server challenge, the
+             * user name, the domain/workgroup
+             * into which we're logging, the
+             * blob, and the Unicode password.
+             */
+            smb_ntlmv2response(v2hash, vcp->vc_ch, v2_blob, v2_bloblen,
+                               (u_char**)&nt_encrypt_password, &uniplen);
+            if (v2_blob) {
+                SMB_FREE(v2_blob, M_SMBTEMP);
+            }
+            unipp = nt_encrypt_password;
+        }
+        else {
+            /* Do NTLMv1 authentication */
+            plen = sizeof(lm);
+            pp = (char *)lm;
+            uniplen = sizeof(ntlm);
+            smb_ntlmresponse((u_char *)smb_vc_getpass(vcp), vcp->vc_ch, (u_char*)ntlm);
+            unipp = (smb_uniptr) ntlm;
+        }
+	}
+    
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, 0, context, &rqp);
-	if (error)
-		goto ssn_exit;
+    if (error) {
+        goto ssn_exit;
+    }
 	
 	smb_rq_wstart(rqp);
     smb_rq_getrequest(rqp, &mbp);
 	/*
 	 * We now have a flag telling us to attempt an anonymous connection. All 
-	 * this means is  have no user name, password or domain.
+	 * this means is have no user name, password or domain.
 	 */
 	if (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS) /*  anon */
 		plen = uniplen = 0;
@@ -823,15 +1042,30 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 	smb_rq_bstart(rqp);
 	mb_put_mem(mbp, pp, plen, MB_MSYSTEM); /* password */
 	if (uniplen) {
-		mb_put_mem(mbp, (caddr_t)ntlm, uniplen, MB_MSYSTEM);
+		mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
 	}
-	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_username, SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
-	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_domain, SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_username,
+                    SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_domain,
+                    SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
 
-	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_NATIVEOS, sizeof(SMBFS_NATIVEOS), NO_SFM_CONVERSIONS);	/* Native OS */
-	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_LANMAN, sizeof(SMBFS_LANMAN), NO_SFM_CONVERSIONS);	/* LAN Mgr */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_NATIVEOS,
+                    sizeof(SMBFS_NATIVEOS), NO_SFM_CONVERSIONS);	/* Native OS */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_LANMAN,
+                    sizeof(SMBFS_LANMAN), NO_SFM_CONVERSIONS);	/* LAN Mgr */
 
 	smb_rq_bend(rqp);
+
+    if (nt_encrypt_password) {
+		SMB_FREE(nt_encrypt_password, M_SMBTEMP);
+		nt_encrypt_password = NULL;
+	}
+    
+    if (upper_case_domainp) {
+        SMB_FREE(upper_case_domainp, M_SMBTEMP);
+        upper_case_domainp = NULL;
+    }
+    
 	error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
 	if (error) {
 		SMBDEBUG("error = %d, rpflags2 = 0x%x, sr_ntstatus = 0x%x\n", error, 
@@ -864,10 +1098,10 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 
 		/* 
 		 * If we are doing UNICODE then byte count is always on an odd boundry
-		 * so we need to always deal with the padd byte.
+		 * so we need to always deal with the pad byte.
 		 */
 		if (bc > 0) {
-			md_get_uint8(mdp, NULL);	/* Skip Padd Byte */
+			md_get_uint8(mdp, NULL);	/* Skip Pad Byte */
 			bc -= 1;
 		}
 		/*
@@ -880,8 +1114,8 @@ smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 	} while (0);
 bad:
 	/*
-	 * We are in user level security, got log in as guest, but we are not using guest access. We need to log off
-	 * and return an error.
+	 * We are in user level security, got log in as guest, but we are not 
+     * using guest access. We need to log off and return an error.
 	 */
 	if ((error == 0) && (vcp->vc_flags & SMBV_USER_SECURITY) && 
 		!SMBV_HAS_GUEST_ACCESS(vcp) &&
@@ -896,6 +1130,20 @@ bad:
 		(void)smb_smb_ssnclose(vcp, context);
 		error = EAUTH;
 	}
+    else {
+        if ((error) && (vcp->vc_flags & SMBV_USER_SECURITY) && (state == kSTATE_NTLMv2)) {
+            if (vcp->vc_flags & SMBV_NO_NTLMV1) {
+                SMBERROR("NTLMv1 is not allowed!\n");
+                error = SMB_ENETFSNOAUTHMECHSUPP;
+            }
+            else {
+                SMBDEBUG("Trying NTLMv1 \n");
+                state = kSTATE_NTLMv1;
+                smb_rq_done(rqp);
+                goto again;
+            }
+        }
+    }
 	
 	smb_rq_done(rqp);
 
@@ -905,12 +1153,17 @@ ssn_exit:
 		/* We turned off UNICODE for Clear Text Password turn it back on */
 		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
 	}
-	if (error)	/* Reset the signature info */
-		smb_reset_sig(vcp);
+    
+    if (error) {
+        /* Reset the signature info */
+        smb_reset_sig(vcp);
+    }
 
-	if (error && (error != EAUTH))
-		SMBWARNING("SetupAndX failed error = %d\n", error);
-	return (error);
+    if (error && (error != EAUTH)) {
+        SMBWARNING("SetupAndX failed error = %d\n", error);
+    }
+    
+    return (error);
 }
 
 int
@@ -976,7 +1229,9 @@ smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share,
 	}
 	error = md_get_mem(mdp, (void *)tmpbuf, bc, MB_MSYSTEM);
 	if (error) {
-		SMB_FREE(tmpbuf, M_SMBFSDATA);
+        if (tmpbuf) {
+            SMB_FREE(tmpbuf, M_SMBFSDATA);
+        }
 		return;
 	}
 	/*
@@ -993,7 +1248,9 @@ smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share,
 	/* Get the offset to the file system name, skip the null byte */
 	fs_offset = strnlen(tmpbuf, bc) + 1;
 	if (fs_offset >= bc) {
-		SMB_FREE(tmpbuf, M_SMBFSDATA);
+        if (tmpbuf) {
+            SMB_FREE(tmpbuf, M_SMBFSDATA);
+        }
 		return;
 	}
 	/*
@@ -1188,11 +1445,15 @@ smb1_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,
 	share->ss_flags |= SMBS_CONNECTED;
 	lck_mtx_unlock(&share->ss_stlock);
 bad:
-	if (encpass)
-		SMB_FREE(encpass, M_SMBTEMP);
-	if (pbuf)
-		SMB_FREE(pbuf, M_SMBTEMP);
-	smb_rq_done(rqp);
+    if (encpass) {
+        SMB_FREE(encpass, M_SMBTEMP);
+    }
+    
+    if (pbuf) {
+        SMB_FREE(pbuf, M_SMBTEMP);
+    }
+    
+    smb_rq_done(rqp);
 treeconnect_exit:
 	return error;
 }

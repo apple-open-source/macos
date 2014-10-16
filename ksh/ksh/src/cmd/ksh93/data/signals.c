@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -17,9 +17,7 @@
 *                  David Korn <dgk@research.att.com>                   *
 *                                                                      *
 ***********************************************************************/
-#include	<ast.h>
-#include	"shtable.h"
-#include	"fault.h"
+#include	"defs.h"
 
 #if defined(SIGCLD) && !defined(SIGCHLD)
 #   define SIGCHLD	SIGCLD
@@ -189,6 +187,9 @@ const struct shtable2 shtab_signals[] =
 #ifdef SIGSYS
 	"SYS",		VAL(SIGSYS,SH_SIGDONE),				S("Bad system call"),
 #endif	/* SIGSYS */
+#ifdef SIGSTKFLT
+	"STKFLT",	VAL(SIGSTKFLT,SH_SIGDONE),			S("Stack Fault"),
+#endif /* SIGSTKFLT */
 	"TERM",		VAL(SIGTERM,SH_SIGDONE|SH_SIGINTERACTIVE),	S("Terminated"),
 #ifdef SIGTHAW
 	"THAW",		VAL(SIGTHAW,SH_SIGIGNORE),			S("Special signal used by CPR"),

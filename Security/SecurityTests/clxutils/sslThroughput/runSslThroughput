@@ -1,0 +1,27 @@
+#! /bin/csh -f
+#
+# Run sslThroughput with common ciphers and protocols
+#
+# Feed it arbitrary args which will be emitted as is to get an annotated output.
+#
+set COMMENT_STRING="SSL Throughput Tests:"
+while ( $#argv > 0 )
+	set COMMENT_STRING="$COMMENT_STRING $argv[1]"
+	shift
+end
+echo $COMMENT_STRING
+# AES
+$LOCAL_BUILD_DIR/sslThroughput -c a -v t -w localcert || exit(1)
+$LOCAL_BUILD_DIR/sslThroughput -c a -v 3 || exit(1)
+# RC4
+$LOCAL_BUILD_DIR/sslThroughput -c r -v t || exit(1)
+$LOCAL_BUILD_DIR/sslThroughput -c r -v 3 || exit(1)
+# DES
+$LOCAL_BUILD_DIR/sslThroughput -c d -v t || exit(1)
+$LOCAL_BUILD_DIR/sslThroughput -c d -v 3 || exit(1)
+# Triple DES
+$LOCAL_BUILD_DIR/sslThroughput -c D -v t || exit(1)
+$LOCAL_BUILD_DIR/sslThroughput -c D -v 3 || exit(1)
+# AES256
+$LOCAL_BUILD_DIR/sslThroughput -c A -v t || exit(1)
+$LOCAL_BUILD_DIR/sslThroughput -c A -v 3 || exit(1)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2010, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,11 +27,12 @@
 #include "GraphicsContextCG.h"
 
 #include "AffineTransform.h"
+#include "GraphicsContextPlatformPrivateCG.h"
 #include "Path.h"
 
 #include <CoreGraphics/CGBitmapContext.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
-#include "GraphicsContextPlatformPrivateCG.h"
+#include <wtf/win/GDIObject.h>
 
 using namespace std;
 
@@ -81,8 +82,8 @@ void GraphicsContext::platformInit(HDC hdc, bool hasAlpha)
     setPaintingDisabled(!m_data->m_cgContext);
     if (m_data->m_cgContext) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
-        setPlatformStrokeColor(strokeColor(), ColorSpaceDeviceRGB);
+        setPlatformFillColor(fillColor(), fillColorSpace());
+        setPlatformStrokeColor(strokeColor(), strokeColorSpace());
     }
 }
 
@@ -99,7 +100,7 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     if (dstRect.isEmpty())
         return;
 
-    OwnPtr<HBITMAP> bitmap = adoptPtr(static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP)));
+    auto bitmap = adoptGDIObject(static_cast<HBITMAP>(::GetCurrentObject(hdc, OBJ_BITMAP)));
 
     DIBPixelData pixelData(bitmap.get());
 
@@ -179,6 +180,11 @@ static const Color& spellingPatternColor() {
 static const Color& grammarPatternColor() {
     static const Color grammarColor(0, 128, 0);
     return grammarColor;
+}
+
+void GraphicsContext::updateDocumentMarkerResources()
+{
+    // Unnecessary, since our document markers don't use resources.
 }
 
 void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& point, float width, DocumentMarkerLineStyle style)

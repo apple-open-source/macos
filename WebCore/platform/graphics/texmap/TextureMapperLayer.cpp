@@ -24,7 +24,7 @@
 #include "Region.h"
 #include <wtf/MathExtras.h>
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+#if USE(TEXTURE_MAPPER)
 
 namespace WebCore {
 
@@ -72,8 +72,10 @@ void TextureMapperLayer::computeTransformsRecursive()
         m_state.maskLayer->computeTransformsRecursive();
     if (m_state.replicaLayer)
         m_state.replicaLayer->computeTransformsRecursive();
-    for (size_t i = 0; i < m_children.size(); ++i)
+    for (size_t i = 0; i < m_children.size(); ++i) {
+        RELEASE_ASSERT(m_children[i]->m_parent == this);
         m_children[i]->computeTransformsRecursive();
+    }
 
     // Reorder children if needed on the way back up.
     if (m_state.preserves3D)
@@ -460,10 +462,9 @@ void TextureMapperLayer::paintRecursive(const TextureMapperPaintOptions& options
 TextureMapperLayer::~TextureMapperLayer()
 {
     for (int i = m_children.size() - 1; i >= 0; --i)
-        m_children[i]->m_parent = 0;
+        m_children[i]->m_parent = nullptr;
 
-    if (m_parent)
-        m_parent->m_children.remove(m_parent->m_children.find(this));
+    removeFromParent();
 }
 
 TextureMapper* TextureMapperLayer::textureMapper() const
@@ -492,16 +493,12 @@ void TextureMapperLayer::addChild(TextureMapperLayer* childLayer)
 void TextureMapperLayer::removeFromParent()
 {
     if (m_parent) {
-        unsigned i;
-        for (i = 0; i < m_parent->m_children.size(); i++) {
-            if (this == m_parent->m_children[i]) {
-                m_parent->m_children.remove(i);
-                break;
-            }
-        }
-
-        m_parent = 0;
+        size_t index = m_parent->m_children.find(this);
+        ASSERT(index != notFound);
+        m_parent->m_children.remove(index);
     }
+
+    m_parent = nullptr;
 }
 
 void TextureMapperLayer::removeAllChildren()
@@ -563,7 +560,7 @@ void TextureMapperLayer::setChildrenTransform(const TransformationMatrix& childr
     m_currentTransform.setChildrenTransform(childrenTransform);
 }
 
-void TextureMapperLayer::setContentsRect(const IntRect& contentsRect)
+void TextureMapperLayer::setContentsRect(const FloatRect& contentsRect)
 {
     if (contentsRect == m_state.contentsRect)
         return;
@@ -571,7 +568,7 @@ void TextureMapperLayer::setContentsRect(const IntRect& contentsRect)
     m_patternTransformDirty = true;
 }
 
-void TextureMapperLayer::setContentsTileSize(const IntSize& size)
+void TextureMapperLayer::setContentsTileSize(const FloatSize& size)
 {
     if (size == m_state.contentsTileSize)
         return;
@@ -579,7 +576,7 @@ void TextureMapperLayer::setContentsTileSize(const IntSize& size)
     m_patternTransformDirty = true;
 }
 
-void TextureMapperLayer::setContentsTilePhase(const IntPoint& phase)
+void TextureMapperLayer::setContentsTilePhase(const FloatPoint& phase)
 {
     if (phase == m_state.contentsTilePhase)
         return;

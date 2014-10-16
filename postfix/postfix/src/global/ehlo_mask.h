@@ -27,16 +27,6 @@
 #define EHLO_MASK_XFORWARD	(1<<9)
 #define EHLO_MASK_ENHANCEDSTATUSCODES	(1<<10)
 #define EHLO_MASK_DSN		(1<<11)
-
-/* APPLE - RFC 3030 */
-#define EHLO_MASK_BINARYMIME	(1<<12)
-#define EHLO_MASK_CHUNKING	(1<<13)
-
-/* APPLE - burl */
-#if defined(USE_SASL_AUTH) && defined(USE_TLS)
-#define EHLO_MASK_BURL		(1<<14)
-#endif
-
 #define EHLO_MASK_SILENT	(1<<15)
 
 extern int ehlo_mask(const char *);

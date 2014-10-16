@@ -155,7 +155,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     NSPropertyListFormat    format;
     NSDictionary *          gameData        = !match.matchData ? nil :
         [NSPropertyListSerialization propertyListWithData:match.matchData options:0 format:&format error:nil];
-    MBCController *         controller      = [NSApp delegate];
+    MBCController *         controller      = (MBCController *)[NSApp delegate];
     NSString *              localPlayerID   = controller.localPlayer.playerID;
     if (!gameData) { 
         //
@@ -255,7 +255,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 {
     if (self = [self init]) {
         NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
-        if (![[NSApp delegate] localPlayer] && (MBCPlayers)[defaults integerForKey:kMBCNewGamePlayers] == kHumanVsGameCenter)
+        if (![(MBCController *)[NSApp delegate] localPlayer] && (MBCPlayers)[defaults integerForKey:kMBCNewGamePlayers] == kHumanVsGameCenter)
             [defaults setInteger:kHumanVsComputer forKey:kMBCNewGamePlayers];
         [self setEphemeral:NO];
         [self setNeedNewGameSheet:YES];
@@ -356,7 +356,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 - (void)postMatchOutcomeNotification
 {
     MBCMoveCode cmd;
-    NSString *  localPlayerID = [[NSApp delegate] localPlayer].playerID;
+    NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     for (GKTurnBasedParticipant * p in match.participants)
         if ([p.playerID isEqual:localPlayerID]) {
             if (p.matchOutcome == GKTurnBasedMatchOutcomeTied)
@@ -388,7 +388,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         [[match.participants objectAtIndex:firstIsDone] setMatchOutcome:outcome];
     }
     if ((firstIsDone || secondIsDone) && match.status != GKTurnBasedMatchStatusEnded
-        && [match.currentParticipant.playerID isEqual:[[NSApp delegate] localPlayer].playerID]
+        && [match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]
     )
         [match endMatchInTurnWithMatchData:[self matchData] completionHandler:^(NSError *error) {}];
     
@@ -397,7 +397,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void) updateMatchForEndOfGame:(MBCMoveCode)cmd
 {
-    if ([match.currentParticipant.playerID isEqual:[[NSApp delegate] localPlayer].playerID]) {
+    if ([match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]) {
         //
         // Participant whose turn it is updates the match
         //
@@ -430,7 +430,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         [self setInvitees:nil];
         [self setMatch:gkMatch];
         [self loadGame:gameData];
-        localWhite = [[[NSApp delegate] localPlayer].playerID isEqual:[properties objectForKey:@"WhitePlayerID"]];
+        localWhite = [[(MBCController *)[NSApp delegate] localPlayer].playerID isEqual:[properties objectForKey:@"WhitePlayerID"]];
         NSDictionary * localProps = [properties objectForKey:(localWhite ? @"WhiteProperties" : @"BlackProperties")];
         if (localProps)
             [properties addEntriesFromDictionary:localProps];
@@ -513,7 +513,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 {
     if (!match)
         return nil;
-    NSString * localPlayerID = [[NSApp delegate] localPlayer].playerID;
+    NSString * localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     for (GKTurnBasedParticipant * p in match.participants)
         if (![localPlayerID isEqual:p.playerID])
             return p.playerID;
@@ -862,7 +862,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 - (BOOL) canTakeback
 {
     return [board canUndo] && players != kComputerVsComputer
-        && (!match || [match.currentParticipant.playerID isEqual:[[NSApp delegate] localPlayer].playerID]);
+        && (!match || [match.currentParticipant.playerID isEqual:[(MBCController *)[NSApp delegate] localPlayer].playerID]);
 }
 
 - (void) setBoard:(MBCBoard *)b
@@ -931,7 +931,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void) resign
 {
-    NSString *  localPlayerID = [[NSApp delegate] localPlayer].playerID;
+    NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     BOOL        wasOurTurn;
     for (GKTurnBasedParticipant * p in match.participants) 
         if ([p.playerID isEqual:localPlayerID]) {

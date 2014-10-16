@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,64 +27,95 @@
 #ifndef ResourceRequest_h
 #define ResourceRequest_h
 
+#include "GUniquePtrSoup.h"
 #include "ResourceRequestBase.h"
-
 #include <libsoup/soup.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
     class ResourceRequest : public ResourceRequestBase {
     public:
         ResourceRequest(const String& url)
-            : ResourceRequestBase(KURL(ParsedURLString, url), UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(ParsedURLString, url), UseProtocolCachePolicy)
+            , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
         {
         }
 
-        ResourceRequest(const KURL& url)
+        ResourceRequest(const URL& url)
             : ResourceRequestBase(url, UseProtocolCachePolicy)
+            , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
         {
         }
 
-        ResourceRequest(const KURL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy)
+        ResourceRequest(const URL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy)
             : ResourceRequestBase(url, policy)
+            , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
         {
             setHTTPReferrer(referrer);
         }
 
         ResourceRequest()
-            : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(), UseProtocolCachePolicy)
+            , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
         {
         }
 
         ResourceRequest(SoupMessage* soupMessage)
-            : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(), UseProtocolCachePolicy)
+            , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
         {
             updateFromSoupMessage(soupMessage);
         }
 
-        void updateFromDelegatePreservingOldHTTPBody(const ResourceRequest& delegateProvidedRequest) { *this = delegateProvidedRequest; }
+        ResourceRequest(SoupRequest* soupRequest)
+            : ResourceRequestBase(URL(soup_request_get_uri(soupRequest)), UseProtocolCachePolicy)
+            , m_acceptEncoding(true)
+            , m_soupFlags(static_cast<SoupMessageFlags>(0))
+            , m_initiatingPageID(0)
+        {
+            updateFromSoupRequest(soupRequest);
+        }
+
+        void updateFromDelegatePreservingOldProperties(const ResourceRequest& delegateProvidedRequest) { *this = delegateProvidedRequest; }
+
+        bool acceptEncoding() const { return m_acceptEncoding; }
+        void setAcceptEncoding(bool acceptEncoding) { m_acceptEncoding = acceptEncoding; }
 
         void updateSoupMessageHeaders(SoupMessageHeaders*) const;
         void updateFromSoupMessageHeaders(SoupMessageHeaders*);
         void updateSoupMessage(SoupMessage*) const;
         SoupMessage* toSoupMessage() const;
         void updateFromSoupMessage(SoupMessage*);
+        void updateSoupRequest(SoupRequest*) const;
+        void updateFromSoupRequest(SoupRequest*);
 
         SoupMessageFlags soupMessageFlags() const { return m_soupFlags; }
         void setSoupMessageFlags(SoupMessageFlags soupFlags) { m_soupFlags = soupFlags; }
 
-        SoupURI* soupURI() const;
+        uint64_t initiatingPageID() const { return m_initiatingPageID; }
+        void setInitiatingPageID(uint64_t pageID) { m_initiatingPageID = pageID; }
+
+        GUniquePtr<SoupURI> createSoupURI() const;
 
     private:
         friend class ResourceRequestBase;
 
+        bool m_acceptEncoding : 1;
         SoupMessageFlags m_soupFlags;
+        uint64_t m_initiatingPageID;
 
+        void updateSoupMessageMembers(SoupMessage*) const;
         void doUpdatePlatformRequest() { }
         void doUpdateResourceRequest() { }
         void doUpdatePlatformHTTPBody() { }

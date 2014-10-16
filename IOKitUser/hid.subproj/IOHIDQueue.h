@@ -116,7 +116,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*!
 	@function   IOHIDQueueSetDepth
 	@abstract   Sets the depth of the queue.
-    @disussion  Set the appropriate depth value based on the number of elements
+    @discussion Set the appropriate depth value based on the number of elements
                 contained in a queue.
     @param      queue IOHIDQueue object to be modified.
     @param      depth The new queue depth.

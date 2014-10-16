@@ -1,6 +1,6 @@
 // ***************************************************************************
 // *
-// * Copyright (C) 2004-2013 International Business Machines
+// * Copyright (C) 2004-2014 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // *
 // ***************************************************************************
@@ -301,6 +301,14 @@ structLocale:table(nofallback){
         ZW{""}
         ZZ{""}
     }
+    CountriesShort{
+        GB{""}
+        HK{""}
+        MO{""}
+        PS{""}
+        SA{""}
+        US{""}
+    }
     Currencies{
         ADP{
             "",
@@ -321,7 +329,7 @@ structLocale:table(nofallback){
         ALK{
             "",
             "",
-	}
+        }
         ALL{
             "",
             "",
@@ -3868,6 +3876,14 @@ structLocale:table(nofallback){
     }
     defaultNumberingSystem{""}
     contextTransforms{
+        calendar-field:intvector{
+            2,
+            2,
+        }
+        currencyName:intvector{  
+            2,
+            2,
+        }
         day-format-except-narrow:intvector{  
             2,
             2,
@@ -3876,15 +3892,15 @@ structLocale:table(nofallback){
             2,
             2,
         }
-        displayName:intvector{  
-            2,
-            2,
-        }
         era-abbr:intvector{  
             2,
             2,
         }
         era-name:intvector{  
+            2,
+            2,
+        }
+        keyValue:intvector{  
             2,
             2,
         }
@@ -3900,11 +3916,19 @@ structLocale:table(nofallback){
             2,
             2,
         }
+        number-spellout:intvector{  
+            2,
+            2,
+        }
+        relative:intvector{  
+            2,
+            2,
+        }
         script:intvector{  
             2,
             2,
         }
-        type:intvector{  
+        unit-pattern:intvector{
             2,
             2,
         }
@@ -3914,6 +3938,19 @@ structLocale:table(nofallback){
         quotationEnd{""}
         alternateQuotationEnd{""}
         alternateQuotationStart{""}
+    }
+    durationUnits{
+        hm{""}
+        hms{""}
+        ms{""}
+    }
+    Ellipsis{
+        final{""}
+        initial{""}
+        medial{""}
+        word-final{""}
+        word-initial{""}
+        word-medial{""}
     }
     fields{
         day{
@@ -3926,6 +3963,24 @@ structLocale:table(nofallback){
                 "1"{""}
                 "2"{""}
                 "3"{""}
+            }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
             }
         }
         dayperiod{
@@ -3944,6 +3999,13 @@ structLocale:table(nofallback){
                 "1"{""}
             }
         }
+        fri{
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+        }
         hour{
             dn{"Hour"}
             relative{
@@ -3951,9 +4013,52 @@ structLocale:table(nofallback){
                 "0"{""}
                 "1"{""}
             }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+            }
         }
         minute{
             dn{"Minute"}
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+            }
+        }
+        mon{
             relative{
                 "-1"{""}
                 "0"{""}
@@ -3967,9 +4072,80 @@ structLocale:table(nofallback){
                 "0"{""}
                 "1"{""}
             }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+            }
+        }
+        sat{
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
         }
         second{
             dn{"Second"}
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+            }
+        }
+        sun{
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+        }
+        thu{
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+        }
+        tue{
+            relative{
+                "-1"{""}
+                "0"{""}
+                "1"{""}
+            }
+        }
+        wed{
             relative{
                 "-1"{""}
                 "0"{""}
@@ -3982,6 +4158,24 @@ structLocale:table(nofallback){
                 "-1"{""}
                 "0"{""}
                 "1"{""}
+            }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
             }
         }
         weekday{
@@ -3998,6 +4192,24 @@ structLocale:table(nofallback){
                 "-1"{""}
                 "0"{""}
                 "1"{""}
+            }
+            relativeTime{
+                future{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
+                past{
+                    zero{""}
+                    one{""}
+                    two{""}
+                    few{""}
+                    many{""}
+                    other{""}
+                }
             }
         }
         zone{
@@ -4597,6 +4809,7 @@ structLocale:table(nofallback){
         zap{""}
         zbl{""}
         zen{""}
+        zgh{""}
         zh{""}
         zh_Hans{""}
         zh_Hant{""}
@@ -4613,9 +4826,15 @@ structLocale:table(nofallback){
         "",
     }
     MeasurementSystem:int{0}
+    MoreInformation{""}
     NumberElements{
         arab{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -4834,10 +5053,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         arabext{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -5056,10 +5281,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         bali{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -5278,10 +5509,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         beng{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -5500,10 +5737,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         cham{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -5722,11 +5965,17 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         default{""}
         deva{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -5945,11 +6194,13 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         finance{""}
         fullwide{
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -6168,10 +6419,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         gujr{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -6390,10 +6647,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         guru{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -6612,10 +6875,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         hanidec{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -6834,10 +7103,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         java{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -7056,10 +7331,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         kali{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -7278,10 +7559,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         khmr{
-            patterns{
+             miscPatterns{
+                atLeast{""}
+                range{""}
+            }
+           patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -7500,10 +7787,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         knda{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -7722,10 +8015,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         lana{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -7944,10 +8243,12 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         lanatham{
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -8166,10 +8467,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         laoo{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -8388,10 +8695,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         latn{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -8610,10 +8923,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         lepc{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -8832,10 +9151,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         limb{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -9054,10 +9379,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         mlym{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -9276,10 +9607,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         mong{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -9498,10 +9835,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         mtei{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -9720,10 +10063,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         mymr{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -9942,10 +10291,12 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         mymrshan{
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -10164,11 +10515,17 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         native{""}
         nkoo{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -10387,10 +10744,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         olck{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -10609,10 +10972,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         orya{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -10831,10 +11200,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         saur{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -11053,10 +11428,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         sund{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -11275,10 +11656,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         talu{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -11497,10 +11884,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         tamldec{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -11719,10 +12112,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         telu{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -11941,10 +12340,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         thai{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -12163,10 +12568,16 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         tibt{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -12385,11 +12796,17 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
         traditional{""}
         vaii{
+            miscPatterns{
+                atLeast{""}
+                range{""}
+            }
             patterns{
+                accountingFormat{""}
                 currencyFormat{""}
                 decimalFormat{""}
                 percentFormat{""}
@@ -12608,6 +13025,7 @@ structLocale:table(nofallback){
                 plusSign{""}
                 currencyDecimal{""}
                 currencyGroup{""}
+                superscriptingExponent{""}
             }
         }
     }
@@ -12756,6 +13174,7 @@ structLocale:table(nofallback){
             buddhist{""}
             chinese{""}
             coptic{""}
+            dangi{""}
             ethiopic{""}
             ethiopic-amete-alem{""}
             gregorian{""}
@@ -12827,6 +13246,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -12868,7 +13291,7 @@ structLocale:table(nofallback){
                     "",
                 }
             }
-             intervalFormats{
+            intervalFormats{
                 H{
                     H{""}
                 }
@@ -12903,6 +13326,14 @@ structLocale:table(nofallback){
                 }
                 MMMM{
                     M{""}
+                }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
                 }
                 MMMd{
                     M{""}
@@ -12964,6 +13395,16 @@ structLocale:table(nofallback){
                     M{""}
                     y{""}
                 }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 yMMMd{
                     M{""}
                     d{""}
@@ -12975,9 +13416,13 @@ structLocale:table(nofallback){
                     y{""}
                 }
             }
-       }
+        }
         chinese{
             AmPmMarkers{
+                "",
+                "",
+            }
+            AmPmMarkersNarrow{
                 "",
                 "",
             }
@@ -13151,6 +13596,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -13209,6 +13662,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -13350,6 +13813,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -13415,6 +13882,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -13473,6 +13948,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -13585,9 +14070,404 @@ structLocale:table(nofallback){
                 }
             }
         }
+        dangi{
+            AmPmMarkers{
+                "",
+                "",
+            }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
+            availableFormats{
+                HHmm{""}
+                HHmmss{""}
+                KKmm{"KK:mm a"}
+                KKmmss{"KK:mm:ss a"}
+                MMMM{""}
+                MMMdd{""}
+                mmssSS{""}
+                ww{""}
+                yyMM{""}
+                yyMMMEEEd{""}
+                yyMMMd{""}
+                yyMd{""}
+                yyQQQQ{""}
+            }
+            DateTimePatterns{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
+                "",
+                "A4",
+                "A4",
+                "A4",
+                "A4",
+            }
+            cyclicNameSets{
+                dayParts{
+                    format{
+                        abbreviated{
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        }
+                    }
+                }
+                years{
+                    format{
+                        abbreviated{
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        }
+                    }
+                }
+                zodiacs{
+                    format{
+                        abbreviated{
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        }
+                    }
+                }
+            }
+            intervalFormats{
+                H{
+                    H{""}
+                }
+                Hm{
+                    H{""}
+                    m{""}
+                }
+                Hmv{
+                    H{""}
+                    m{""}
+                }
+                Hv{
+                    H{""}
+                }
+                M{
+                    M{""}
+                }
+                MEd{
+                    M{""}
+                    d{""}
+                }
+                MMM{
+                    M{""}
+                }
+                MMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMEEEEd{
+                    M{""}
+                    d{""}
+                }
+                MMMM{
+                    M{""}
+                }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
+                MMMd{
+                    M{""}
+                    d{""}
+                }
+                Md{
+                    M{""}
+                    d{""}
+                }
+                d{
+                    d{""}
+                }
+                fallback{""}
+                h{
+                    a{""}
+                    h{""}
+                }
+                hm{
+                    a{""}
+                    h{""}
+                    m{""}
+                }
+                hmv{
+                    a{""}
+                    h{""}
+                    m{""}
+                }
+                hv{
+                    a{""}
+                    h{""}
+                }
+                y{
+                    y{""}
+                }
+                yM{
+                    M{""}
+                    y{""}
+                }
+                yMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMM{
+                    M{""}
+                    y{""}
+                }
+                yMMMEEEEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMM{
+                    M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+            }
+            monthNames{
+                default{""}
+                format{
+                    abbreviated{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    default{""}
+                    narrow{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    wide{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    default{""}
+                    narrow{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    wide{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated{
+                        leap{""}
+                    }
+                    narrow{
+                        leap{""}
+                    }
+                    wide{
+                        leap{""}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{""}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        leap{""}
+                    }
+                    narrow{
+                        leap{""}
+                    }
+                    wide{
+                        leap{""}
+                    }
+                }
+            }
+        }
         default{""}
         ethiopic{
             AmPmMarkers{
+                "",
+                "",
+            }
+            AmPmMarkersNarrow{
                 "",
                 "",
             }
@@ -13656,6 +14536,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -13714,6 +14602,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -13831,15 +14729,19 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             DateTimePatterns{
                 "",
                 "",
                 "",
                 "",
-                "",
-                "",
-                "",
-                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
                 "",
                 "A4",
                 "A4",
@@ -13991,6 +14893,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -14049,6 +14959,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -14110,6 +15030,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             DateTimeElements:intvector{
                 2,
                 1,
@@ -14119,16 +15043,18 @@ structLocale:table(nofallback){
                 "",
                 "",
                 "",
-                "",
-                "",
-                "",
-                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
                 "",
                 "A4",
                 "A4",
                 "A4",
                 "A4",
             }
+            NoonMarker{""}
+            NoonMarkerNarrow{""}
             appendItems{
                 Day{"{0} ({2}: {1})"}
                 Day-Of-Week{"{0} {1}"}
@@ -14288,6 +15214,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -14346,6 +15280,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -14506,6 +15450,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             DateTimePatterns{
                 "A2",
                 "A2",
@@ -14583,6 +15531,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -14641,6 +15597,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -14765,6 +15731,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -14842,6 +15812,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -14900,6 +15878,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -15012,6 +16000,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -15093,6 +16085,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -15151,6 +16151,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -15263,6 +16273,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -15344,6 +16358,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -15402,6 +16424,16 @@ structLocale:table(nofallback){
                 }
                 yMMMM{
                     M{""}
+                    y{""}
+                }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
                     y{""}
                 }
                 yMMMd{
@@ -15512,6 +16544,10 @@ structLocale:table(nofallback){
         islamic-civil:alias{"structLocale/calendar/islamic"}
         japanese{
             AmPmMarkers{
+                "",
+                "",
+            }
+            AmPmMarkersNarrow{
                 "",
                 "",
             }
@@ -16267,6 +17303,10 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
+            AmPmMarkersNarrow{
+                "",
+                "",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -16347,6 +17387,14 @@ structLocale:table(nofallback){
                 MMMM{
                     M{""}
                 }
+                MMMMEd{
+                    M{""}
+                    d{""}
+                }
+                MMMMd{
+                    M{""}
+                    d{""}
+                }
                 MMMd{
                     M{""}
                     d{""}
@@ -16407,6 +17455,16 @@ structLocale:table(nofallback){
                     M{""}
                     y{""}
                 }
+                yMMMMEd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                yMMMMd{
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 yMMMd{
                     M{""}
                     d{""}
@@ -16426,6 +17484,24 @@ structLocale:table(nofallback){
         lines{""}
     }
     listPattern{
+        unit{
+            2{""}
+            end{""}
+            middle{""}
+            start{""}
+        }
+        unit-narrow{
+            2{""}
+            end{""}
+            middle{""}
+            start{""}
+        }
+        unit-short{
+            2{""}
+            end{""}
+            middle{""}
+            start{""}
+        }
         standard{
             2{""}
             end{""}
@@ -16449,344 +17525,1687 @@ structLocale:table(nofallback){
         yesexpr{""}
         noexpr{""}
     }
+    transformNames{
+        BGN{""}
+        Numeric{""}
+        Tone{""}
+        UNGEGN{""}
+        x-Accents{""}
+        x-Fullwidth{""}
+        x-Halfwidth{""}
+        x-Jamo{""}
+        x-Pinyin{""}
+        x-Publishing{""}
+    }
     units{
-        day{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        acceleration{
+            g-force{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        day-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        angle{
+            degree{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        day-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        area{
+            acre{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hectare{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        hour{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        compound{
+            per{""}
         }
-        hour-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        duration{
+            day{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millisecond{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        hour-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        energy{
+            calorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foodcalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            joule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilocalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilojoule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        length{
+            centimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            light-year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            picometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            yard{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        mass{
+            gram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilogram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            ounce{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            pound{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            stone{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        power{
+            horsepower{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilowatt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            watt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        pressure{
+            hectopascal{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch-hg{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millibar{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        speed{
+            kilometer-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter-per-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        temperature{
+            celsius{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            fahrenheit{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        second{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        volume{
+            cubic-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            cubic-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            liter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        second-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+    }
+    unitsNarrow{
+        acceleration{
+            g-force{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        second-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        angle{
+            degree{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        week{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        area{
+            acre{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hectare{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        week-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        compound{
+            per{""}
         }
-        week-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        duration{
+            day{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millisecond{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        year{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        energy{
+            calorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foodcalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            joule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilocalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilojoule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        year-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        length{
+            centimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            light-year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            picometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            yard{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        year-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        mass{
+            gram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilogram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            ounce{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            pound{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            stone{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+        }
+        power{
+            horsepower{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilowatt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            watt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+        }
+        pressure{
+            hectopascal{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch-hg{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millibar{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+        }
+        speed{
+            kilometer-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter-per-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+        }
+        temperature{
+            celsius{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            fahrenheit{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+        }
+        volume{
+            cubic-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            cubic-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            liter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
     }
     unitsShort{
-        day{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        acceleration{
+            g-force{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        day-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        angle{
+            degree{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            arc-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        day-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        area{
+            acre{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hectare{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            square-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        hour{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        compound{
+            per{""}
         }
-        hour-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        duration{
+            day{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            day-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            hour-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millisecond{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            minute-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            month-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            second-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            week-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-future{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            year-past{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        hour-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        energy{
+            calorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foodcalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            joule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilocalorie{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilojoule{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        length{
+            centimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            foot{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            light-year{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millimeter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            picometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            yard{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        mass{
+            gram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilogram{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            ounce{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            pound{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            stone{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        minute-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        power{
+            horsepower{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            kilowatt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            watt{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        pressure{
+            hectopascal{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            inch-hg{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            millibar{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        speed{
+            kilometer-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            meter-per-second{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            mile-per-hour{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        month-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        temperature{
+            celsius{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            fahrenheit{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
-        second{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        second-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        second-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        week{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        week-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        week-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        year{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        year-future{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        year-past{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
+        volume{
+            cubic-kilometer{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            cubic-mile{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
+            liter{
+                zero{""}
+                one{""}
+                two{""}
+                few{""}
+                many{""}
+                other{""}
+            }
         }
     }
     zoneStrings{

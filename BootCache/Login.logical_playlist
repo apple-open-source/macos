@@ -1,166 +1,180 @@
+/Applications/App Store.app/Contents/PlugIns/DockTile.docktileplugin/Contents/MacOS/DockTile
+/Applications/Calendar.app/Contents/Resources/Calendar.docktileplugin/Contents/MacOS/Calendar
+/Applications/Calendar.app/Contents/Resources/Calendar.docktileplugin/Contents/Resources/App-empty.icns
+/Applications/FaceTime.app/Contents/PlugIns/FaceTime.docktileplugin/Contents/MacOS/FaceTime
+/Applications/Messages.app/Contents/PlugIns/iChatDockTile.docktileplugin/Contents/MacOS/iChatDockTile
+/Applications/Reminders.app/Contents/Resources/Reminders.docktileplugin/Contents/MacOS/Reminders
 /Applications/iTunes.app/Contents/MacOS/iTunesHelper.app/Contents/MacOS/iTunesHelper
-/Library/Widgets/Calculator.wdgt/Default.png
-/Library/Widgets/Weather.wdgt/Default.png
-/Library/Widgets/World Clock.wdgt/Default.png
-/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc
-/System/Library/Components/AUSpeechSynthesis.component/Contents/MacOS/AUSpeechSynthesis
-/System/Library/Components/AppleScript.component/Contents/MacOS/AppleScript
-/System/Library/Components/AudioCodecs.component/Contents/MacOS/AudioCodecs
-/System/Library/Components/CoreAudio.component/Contents/MacOS/CoreAudio
+/Library/Preferences/com.apple.commerce.plist
+/Library/Preferences/com.apple.storeagent.plist
+/System/Library/Address Book Plug-Ins/CardDAVPlugin.sourcebundle/Contents/MacOS/CardDAVPlugin
+/System/Library/Address Book Plug-Ins/DirectoryServices.sourcebundle/Contents/MacOS/DirectoryServices
+/System/Library/Address Book Plug-Ins/LDAP.sourcebundle/Contents/MacOS/LDAP
+/System/Library/Address Book Plug-Ins/LocalSource.sourcebundle/Contents/MacOS/LocalSource
+/System/Library/Address Book Plug-Ins/POIPlugin.sourcebundle/Contents/MacOS/POIPlugin
+/System/Library/Caches/com.apple.CVMS/OpenCLCPU.x86_64.502.data
+/System/Library/Caches/com.apple.CVMS/OpenCLCPU.x86_64.502.maps
 /System/Library/CoreServices/AirPort Base Station Agent.app/Contents/MacOS/AirPort Base Station Agent
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns
-/System/Library/CoreServices/Dock.app/Contents/MacOS/Dock
-/System/Library/CoreServices/Dock.app/Contents/Resources/exitarrow.png
+/System/Library/CoreServices/Applications/Feedback Assistant.app/Contents/Library/LaunchServices/seedusaged
+/System/Library/CoreServices/CSUserAgent
+/System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+/System/Library/CoreServices/CoreLocationAgent.app/Contents/Resources/English.lproj/MainMenu.nib
+/System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+/System/Library/CoreServices/CoreServicesUIAgent.app/Contents/Resources/English.lproj/MainMenu.nib
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarExternalDisk.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarInternalDisk.icns
+/System/Library/CoreServices/Dock.app/Contents/Resources/empty.png
+/System/Library/CoreServices/Dock.app/Contents/XPCServices/com.apple.dock.extra.xpc/Contents/MacOS/com.apple.dock.extra
 /System/Library/CoreServices/Dock.app/Contents/_CodeSignature/CodeResources
-/System/Library/CoreServices/Encodings/libJapaneseConverter.dylib
 /System/Library/CoreServices/Expansion Slot Utility.app/Contents/Resources/PCIESlotCheck
-/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder
+/System/Library/CoreServices/Finder.app/Contents/Resources/Base.lproj/MenuBar.nib
+/System/Library/CoreServices/Finder.app/Contents/Resources/English.lproj/ArrangeByMenu.nib
 /System/Library/CoreServices/Finder.app/Contents/Resources/English.lproj/Localizable.strings
 /System/Library/CoreServices/Finder.app/Contents/_CodeSignature/CodeResources
-/System/Library/CoreServices/Menu Extras/TextInput.menu/Contents/SharedFrameworks/TextInputUI.framework/Versions/A/TextInputUI
-/System/Library/CoreServices/Menu Extras/TextInput.menu/Contents/SharedSupport/TIMCore.bundle/Contents/MacOS/TIMCore
-/System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
-/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCDNDWidget.nib
+/System/Library/CoreServices/Keychain Circle Notification.app/Contents/MacOS/Keychain Circle Notification
+/System/Library/CoreServices/Keychain Circle Notification.app/Contents/Resources/en.lproj/MainMenu.nib
+/System/Library/CoreServices/MRTAgent.app/Contents/MacOS/MRTAgent
+/System/Library/CoreServices/MRTAgent.app/Contents/Resources/English.lproj/MainMenu.nib
+/System/Library/CoreServices/Menu Extras/AirPort.menu/Contents/MacOS/AirPort
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/MacOS/Bluetooth
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_BrokenConnection.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Connected.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Error.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Idle.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Idle_Discoverable.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Low_Battery.pdf
+/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/Bluetooth_Off.pdf
+/System/Library/CoreServices/Menu Extras/Displays.menu/Contents/MacOS/Displays
+/System/Library/CoreServices/Menu Extras/Displays.menu/Contents/Resources/Airplay.pdf
+/System/Library/CoreServices/Menu Extras/TextInput.menu/Contents/MacOS/TextInput
+/System/Library/CoreServices/Menu Extras/TextInput.menu/Contents/SharedSupport/TISwitcher.app/Contents/MacOS/TISwitcher
+/System/Library/CoreServices/Menu Extras/TimeMachine.menu/Contents/MacOS/TimeMachine
+/System/Library/CoreServices/Menu Extras/TimeMachine.menu/Contents/Resources/TMIdle.pdf
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCDNDViewController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCListNotificationViewController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCNotificationCenterWindowController.nib
 /System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCNotificationTableController.nib
-/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCListNotificationViewController.nib
-/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCListProgressViewController.nib
-/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCprefs.tiff
-/System/Library/CoreServices/Setup Assistant.app/Contents/Resources/mbcachecleanup
-/System/Library/CoreServices/Setup Assistant.app/Contents/SharedSupport/MiniLauncher
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/Base.lproj/NCTodayShareViewController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCTodayHeaderViewController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCTodaySummaryItemController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/attachment.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/gears-system-prefs.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/logo-Yahoo.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/switch_knob.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/switch_off.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/switch_on.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/XPCServices/com.apple.notificationcenterui.WeatherSummary.xpc/Contents/MacOS/com.apple.notificationcenterui.WeatherSummary
+/System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
+/System/Library/CoreServices/SecurityAgentPlugins/DiskUnlock.bundle/Contents/MacOS/DiskUnlock
 /System/Library/CoreServices/SocialPushAgent.app/Contents/MacOS/SocialPushAgent
+/System/Library/CoreServices/Spotlight.app/Contents/MacOS/Spotlight
+/System/Library/CoreServices/Spotlight.app/Contents/Resources/Assets.car
+/System/Library/CoreServices/Spotlight.app/Contents/Resources/Base.lproj/MainMenu.nib
+/System/Library/CoreServices/Spotlight.app/Contents/Resources/Base.lproj/ResultsWithPreview.nib
 /System/Library/CoreServices/SubmitDiagInfo
 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
-/System/Library/CoreServices/UserAccountUpdater
+/System/Library/CoreServices/SystemUIServer.app/Contents/Resources/menuitemNormal.pdf
+/System/Library/CoreServices/SystemUIServer.app/Contents/XPCServices/com.apple.wifi.proxy.xpc/Contents/MacOS/com.apple.wifi.proxy
+/System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+/System/Library/CoreServices/ZoomWindow.app/Contents/Frameworks/ZoomWindowSupport.framework/Versions/A/ZoomWindowSupport
+/System/Library/CoreServices/backupd.bundle/Contents/Resources/TMCacheDelete
+/System/Library/CoreServices/cloudpaird
+/System/Library/CoreServices/diagnostics_agent
+/System/Library/CoreServices/lsuseractivityd
+/System/Library/CoreServices/mapspushd
+/System/Library/CoreServices/pbs
 /System/Library/CoreServices/talagent
-/System/Library/Extensions/IOAHCIFamily.kext/Contents/PlugIns/IOAHCIBlockStorage.kext/Contents/Info.plist
-/System/Library/Extensions/IOAHCIFamily.kext/Contents/PlugIns/IOAHCIBlockStorage.kext/Contents/version.plist
-/System/Library/Filesystems/NetFSPlugins/nfs.bundle/Contents/MacOS/nfs
-/System/Library/Fonts/LucidaGrande.ttc
-/System/Library/Frameworks/Accounts.framework/Versions/A/Support/accountsd
+/System/Library/Extensions/AppleHDA.kext/Contents/Resources/English.lproj/Localizable.strings
+/System/Library/Fonts/HelveticaNeueDeskInterface.ttc
 /System/Library/Frameworks/AddressBook.framework/Versions/A/Helpers/AddressBookSourceSync.app/Contents/MacOS/AddressBookSourceSync
-/System/Library/Frameworks/AppKit.framework/Versions/C/Resources/English.lproj/AppKitErrors.strings
-/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/Resources/SynthDB.rsrc
-/System/Library/Frameworks/AudioToolbox.framework/XPCServices/com.apple.audio.SandboxHelper.xpc/Contents/MacOS/com.apple.audio.SandboxHelper
-/System/Library/Frameworks/CFNetwork.framework/Versions/A/Support/cookied
+/System/Library/Frameworks/AddressBook.framework/Versions/A/Resources/ABAddressBook.momd/ABAddressBook-14-3.omo
+/System/Library/Frameworks/AddressBook.framework/Versions/A/Resources/ABAddressBook.momd/VersionInfo.plist
+/System/Library/Frameworks/AddressBook.framework/Versions/A/Resources/ABAddressFormats.plist
+/System/Library/Frameworks/AddressBook.framework/Versions/A/Resources/English.lproj/ABStrings.strings
+/System/Library/Frameworks/AppKit.framework/Versions/C/Resources/Latn1.data
+/System/Library/Frameworks/AppKit.framework/Versions/C/Resources/Latn2.data
+/System/Library/Frameworks/Collaboration.framework/Versions/A/Collaboration
 /System/Library/Frameworks/CoreFoundation.framework/Versions/A/Resources/tokruleLE.data
-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/Support/SFLConvertGlobalLoginItemsTool
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/Support/SFLIconTool
-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/Support/SFLSharedPrefsTool
-/System/Library/Frameworks/Foundation.framework/Versions/C/Resources/en.lproj/FoundationErrors.strings
+/System/Library/Frameworks/GSS.framework/Helpers/com.apple.GSSCred
 /System/Library/Frameworks/IMServicePlugIn.framework/Versions/A/Frameworks/IMServicePlugInSupport.framework/Versions/A/IMServicePlugInSupport
-/System/Library/Frameworks/IMServicePlugIn.framework/Versions/A/IMServicePlugIn
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/ImageFormats/unorm8_bgra.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/ImageFormats/unorm8_rgba.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/Vectorizer.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libCLVMCPUPlugin.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libcl2module.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libcldcpuengine.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Resources/cl_kernel.x86_64.pch
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Resources/runtime.x86_64.bc
-/System/Library/Frameworks/OpenCL.framework/Versions/A/lib/clang/3.2/include/cl_kernel.h
-/System/Library/Frameworks/OpenGL.framework/Versions/A/Resources/GLRendererFloat.bundle/GLRendererFloat
-/System/Library/Frameworks/QuickTime.framework/Versions/A/Resources/version.plist
+/System/Library/Frameworks/NotificationCenter.framework/PlugIns/com.apple.ncplugin.WorldClock.appex/Contents/Resources/Assets.car
+/System/Library/Frameworks/NotificationCenter.framework/PlugIns/com.apple.ncplugin.calculator.appex/Contents/Resources/Assets.car
+/System/Library/Frameworks/NotificationCenter.framework/PlugIns/com.apple.ncplugin.stocks.appex/Contents/MacOS/com.apple.ncplugin.stocks
+/System/Library/Frameworks/NotificationCenter.framework/PlugIns/com.apple.ncplugin.weather.appex/Contents/MacOS/com.apple.ncplugin.weather
+/System/Library/Frameworks/QuickLook.framework/Versions/A/Resources/quicklookd.app/Contents/MacOS/quicklookd
 /System/Library/Frameworks/Security.framework/Versions/A/Resources/CloudKeychainProxy.bundle/Contents/MacOS/CloudKeychainProxy
+/System/Library/Frameworks/Security.framework/Versions/A/XPCServices/XPCKeychainSandboxCheck.xpc/Contents/MacOS/XPCKeychainSandboxCheck
+/System/Library/Frameworks/Security.framework/Versions/A/XPCServices/com.apple.security.agentStub.xpc/Contents/MacOS/com.apple.security.agentStub
+/System/Library/Input Methods/CharacterPalette.app/Contents/Resources/CVIconTemplate.pdf
+/System/Library/Input Methods/KeyboardViewer.app/Contents/Resources/KVIconTemplate.pdf
 /System/Library/InternetAccounts/AddressBook.iaplugin/Contents/MacOS/AddressBook
 /System/Library/InternetAccounts/Calendar.iaplugin/Contents/MacOS/Calendar
+/System/Library/InternetAccounts/Facebook.iaplugin/Contents/MacOS/Facebook
+/System/Library/InternetAccounts/LinkedIn.iaplugin/Contents/MacOS/LinkedIn
 /System/Library/InternetAccounts/Mail.iaplugin/Contents/MacOS/Mail
 /System/Library/InternetAccounts/Notes.iaplugin/Contents/MacOS/Notes
 /System/Library/InternetAccounts/Reminders.iaplugin/Contents/MacOS/Reminders
-/System/Library/PrivateFrameworks/AOSKit.framework/Versions/A/Helpers/AOSPushRelay.app/Contents/MacOS/AOSPushRelay
-/System/Library/PrivateFrameworks/AOSKit.framework/Versions/A/Helpers/AOSPushRelay.app/Contents/Resources/en.lproj/MainMenu.nib
+/System/Library/InternetAccounts/iChat.iaplugin/Contents/MacOS/iChat
+/System/Library/InternetAccounts/iCloud.iaplugin/Contents/MacOS/iCloud
+/System/Library/Keychains/SystemRootCertificates.keychain
+/System/Library/PreferencePanes/TimeMachine.prefPane/Contents/Resources/English.lproj/Localizable.strings
+/System/Library/PrivateFrameworks/AOSKit.framework/Versions/A/Helpers/AOSHeartbeat.app/Contents/MacOS/AOSHeartbeat
+/System/Library/PrivateFrameworks/AOSKit.framework/Versions/A/Helpers/AOSHeartbeat.app/Contents/Resources/Base.lproj/MainMenu.nib
 /System/Library/PrivateFrameworks/AOSKit.framework/Versions/A/XPCServices/com.apple.iCloudHelper.xpc/Contents/MacOS/com.apple.iCloudHelper
-/System/Library/PrivateFrameworks/AOSUI.framework/Versions/A/AOSUI
-/System/Library/PrivateFrameworks/AccountsDaemon.framework/Versions/A/AccountsDaemon
+/System/Library/PrivateFrameworks/AccountsDaemon.framework/Versions/A/Resources/accounts.momd/accounts22.omo
 /System/Library/PrivateFrameworks/ApplePushService.framework/apsctl
-/System/Library/PrivateFrameworks/AppleScript.framework/Versions/A/AppleScript
-/System/Library/PrivateFrameworks/AssistantServices.framework/assistantd
-/System/Library/PrivateFrameworks/CalendarAgent.framework/Executables/CalendarAgent
-/System/Library/PrivateFrameworks/CalendarAgent.framework/Versions/A/CalendarAgent
+/System/Library/PrivateFrameworks/BookmarkDAV.framework/Versions/A/Frameworks/SafariDAVNotifier.framework/SafariDAVNotifier
+/System/Library/PrivateFrameworks/BookmarkDAV.framework/Versions/A/Helpers/SafariDAVClient
+/System/Library/PrivateFrameworks/CacheDelete.framework/deleted
+/System/Library/PrivateFrameworks/CalendarAgent.framework/Versions/A/XPCServices/CalNCService.xpc/Contents/MacOS/CalNCService
 /System/Library/PrivateFrameworks/CalendarPersistence.framework/Versions/A/Resources/CalendarStore.calmomd/CurrentModel.omo
 /System/Library/PrivateFrameworks/CalendarPersistence.framework/Versions/A/Resources/CalendarStore.calmomd/VersionInfo.plist
-/System/Library/PrivateFrameworks/CloudServices.framework/Versions/A/CloudServices
-/System/Library/PrivateFrameworks/CloudServices.framework/Versions/A/Resources/sbd
-/System/Library/PrivateFrameworks/CommunicationsFilter.framework/Versions/A/CommunicationsFilter
-/System/Library/PrivateFrameworks/CoreSDB.framework/Versions/A/CoreSDB
-/System/Library/PrivateFrameworks/CoreUI.framework/Versions/A/Resources/SArtFile.bin
-/System/Library/PrivateFrameworks/CoreWLANKit.framework/Versions/A/Resources/AirPort4.pdf
+/System/Library/PrivateFrameworks/CalendarPersistence.framework/Versions/A/Resources/English.lproj/Localizable.strings
+/System/Library/PrivateFrameworks/CallHistory.framework/Support/CallHistoryPluginHelper
+/System/Library/PrivateFrameworks/CallHistory.framework/Support/CallHistorySyncHelper
+/System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Support/bird
+/System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd
+/System/Library/PrivateFrameworks/CloudServices.framework/Versions/A/Resources/com.apple.sbd
+/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/maspushagent
+/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeaccountd
+/System/Library/PrivateFrameworks/CommunicationsFilter.framework/CMFSyncAgent.app/Contents/MacOS/CMFSyncAgent
+/System/Library/PrivateFrameworks/CoreRecents.framework/Versions/A/Support/recentsd
+/System/Library/PrivateFrameworks/CoreWLANKit.framework/Versions/A/Resources/Assets.car
 /System/Library/PrivateFrameworks/DataDetectorsCore.framework/Versions/A/Resources/com.apple.datadetectorscore.cache.urlifier.system
+/System/Library/PrivateFrameworks/DeviceLink.framework/Versions/A/Resources/Info.plist
 /System/Library/PrivateFrameworks/FamilyControls.framework/Versions/A/Resources/pcdCheck
-/System/Library/PrivateFrameworks/ICANotifications.framework/Versions/A/ICANotifications
-/System/Library/PrivateFrameworks/IDSCore.framework/Versions/A/IDSCore
-/System/Library/PrivateFrameworks/IDSCore.framework/identityservicesd.app/Contents/MacOS/identityservicesd
-/System/Library/PrivateFrameworks/IDSSystemPreferencesSignIn.framework/Versions/A/IDSSystemPreferencesSignIn
+/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/kcm
+/System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd
 /System/Library/PrivateFrameworks/IMCore.framework/imagent.app/Contents/MacOS/imagent
-/System/Library/PrivateFrameworks/IMDMessageServices.framework/Versions/A/IMDMessageServices
-/System/Library/PrivateFrameworks/IMDPersistence.framework/Versions/A/IMDPersistence
-/System/Library/PrivateFrameworks/IMDPersistence.framework/XPCServices/IMDPersistenceAgent.xpc/Contents/MacOS/IMDPersistenceAgent
-/System/Library/PrivateFrameworks/IMDaemonCore.framework/Versions/A/IMDaemonCore
-/System/Library/PrivateFrameworks/IMTransferServices.framework/Versions/A/IMTransferServices
-/System/Library/PrivateFrameworks/IconServices.framework/Versions/A/XPCServices/com.apple.IconServicesAgent.xpc/Contents/MacOS/com.apple.IconServicesAgent
-/System/Library/PrivateFrameworks/IncomingCallFilter.framework/Versions/A/IncomingCallFilter
 /System/Library/PrivateFrameworks/InternetAccounts.framework/Versions/A/XPCServices/com.apple.internetaccounts.xpc/Contents/MacOS/com.apple.internetaccounts
 /System/Library/PrivateFrameworks/InternetAccounts.framework/Versions/A/XPCServices/com.apple.internetaccounts.xpc/Contents/Resources/Application.nib
-/System/Library/PrivateFrameworks/MMCS.framework/Versions/A/MMCS
-/System/Library/PrivateFrameworks/MessageProtection.framework/Versions/A/MessageProtection
-/System/Library/PrivateFrameworks/MessagesHelperKit.framework/Versions/A/MessagesHelperKit
-/System/Library/PrivateFrameworks/MessagesKit.framework/Versions/A/Resources/soagent.app/Contents/MacOS/soagent
-/System/Library/PrivateFrameworks/MobileDevice.framework/MobileDevice
-/System/Library/PrivateFrameworks/Notes.framework/Versions/A/Resources/Notes.momd/2.0.omo
-/System/Library/PrivateFrameworks/PreferencePanesSupport.framework/Versions/A/PreferencePanesSupport
-/System/Library/PrivateFrameworks/SpotlightIndex.framework/Versions/A/SpotlightIndex
+/System/Library/PrivateFrameworks/InternetAccounts.framework/Versions/A/XPCServices/com.apple.internetaccounts.xpc/Contents/XPCServices/com.apple.internetaccounts-sampler.xpc/Contents/MacOS/com.apple.internetaccounts-sampler
+/System/Library/PrivateFrameworks/Notes.framework/Versions/A/Resources/Notes.momd/3.1.omo
+/System/Library/PrivateFrameworks/Notes.framework/Versions/A/XPCServices/com.apple.NotesMigratorService.xpc/Contents/MacOS/com.apple.NotesMigratorService
+/System/Library/PrivateFrameworks/ShareKit.framework/Versions/A/PlugIns/FacebookPost.appex/Contents/Resources/NC-icon.tiff
+/System/Library/PrivateFrameworks/ShareKit.framework/Versions/A/PlugIns/FacebookPost.appex/Contents/Resources/icon.icns
+/System/Library/PrivateFrameworks/ShareKit.framework/Versions/A/PlugIns/ShareMessages.appex/Contents/Resources/NC-icon.tiff
+/System/Library/PrivateFrameworks/ShareKit.framework/Versions/A/PlugIns/ShareMessages.appex/Contents/Resources/icon.icns
+/System/Library/PrivateFrameworks/ShareKit.framework/Versions/A/PlugIns/Twitter.appex/Contents/Resources/icon.icns
 /System/Library/PrivateFrameworks/SyncedDefaults.framework/Support/syncdefaultsd
-/System/Library/PrivateFrameworks/SyncedDefaults.framework/Versions/A/SyncedDefaults
-/System/Library/PrivateFrameworks/SystemAdministration.framework/Versions/A/Resources/activateSettings
-/System/Library/PrivateFrameworks/SystemMigration.framework/Frameworks/AutoLoader.framework/Versions/A/AutoLoader
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/Resources/MigrationIncompatibleApplicationsList.plist
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/Resources/compatchecker
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/SystemMigration
-/System/Library/PrivateFrameworks/SystemUIPlugin.framework/Versions/A/SystemUIPlugin
-/System/Library/PrivateFrameworks/Ubiquity.framework/Versions/A/Support/ubd
-/System/Library/PrivateFrameworks/Uninstall.framework/Versions/A/Uninstall
-/System/Library/PrivateFrameworks/WiFiCloudSyncEngine.framework/Versions/A/WiFiCloudSyncEngine
-/System/Library/PrivateFrameworks/iLifeSlideshow.framework/Versions/A/Resources/Info.plist
-/System/Library/PrivateFrameworks/iLifeSlideshow.framework/Versions/A/Resources/version.plist
-/System/Library/PrivateFrameworks/iPod.framework/Versions/A/iPod
-/System/Library/Sandbox/Profiles/application.sb
-/System/Library/UserEventPlugins/ACRRDaemon.plugin/Contents/MacOS/ACRRDaemon
-/System/Library/UserEventPlugins/AirPortUserAgent.plugin/Contents/MacOS/AirPortUserAgent
-/System/Library/UserEventPlugins/AppleHIDMouseAgent.plugin/Contents/MacOS/AppleHIDMouseAgent
-/System/Library/UserEventPlugins/AssistantUEA.plugin/Contents/MacOS/AssistantUEA
-/System/Library/UserEventPlugins/BTMMPortInUseAgent.plugin/Contents/MacOS/BTMMPortInUseAgent
-/System/Library/UserEventPlugins/CalendarMonitor.plugin/Contents/MacOS/CalendarMonitor
-/System/Library/UserEventPlugins/CaptiveUserAgent.plugin/Contents/MacOS/CaptiveUserAgent
-/System/Library/UserEventPlugins/EAPOLMonitor.plugin/Contents/MacOS/EAPOLMonitor
-/System/Library/UserEventPlugins/GSSNotificationForwarder.plugin/Contents/MacOS/GSSNotificationForwarder
-/System/Library/UserEventPlugins/PrinterMonitor.plugin/Contents/MacOS/PrinterMonitor
-/System/Library/UserEventPlugins/SCMonitor.plugin/Contents/MacOS/SCMonitor
-/System/Library/UserEventPlugins/com.apple.TimeMachine.plugin/Contents/MacOS/com.apple.TimeMachine
-/System/Library/UserEventPlugins/com.apple.cfnotification.plugin/Contents/MacOS/com.apple.cfnotification
-/System/Library/UserEventPlugins/com.apple.dispatch.vfs.plugin/Contents/MacOS/com.apple.dispatch.vfs
-/System/Library/UserEventPlugins/com.apple.locationd.events.plugin/Contents/MacOS/com.apple.locationd.events
-/System/Library/UserEventPlugins/com.apple.rcdevent.matching.plugin/Contents/MacOS/com.apple.rcdevent.matching
-/System/Library/UserEventPlugins/com.apple.universalaccess.events.plugin/Contents/MacOS/com.apple.universalaccess.events
-/System/Library/UserEventPlugins/com.apple.usernotificationcenter.matching.plugin/Contents/MacOS/com.apple.usernotificationcenter.matching
-/private/etc/services
-/usr/bin/sandbox-exec
-/usr/lib/dyld
-/usr/lib/libcrypto.0.9.7.dylib
-/usr/lib/pam/pam_deny.so.2
-/usr/lib/pam/pam_krb5.so.2
-/usr/lib/pam/pam_ntlm.so.2
+/System/Library/PrivateFrameworks/TelephonyUtilities.framework/callservicesd
+/private/etc/pam.d/screensaver
 /usr/lib/xpc/support.bundle/Contents/MacOS/support
-/usr/libexec/KeychainMigrator
-/usr/libexec/WiFiKeychainProxy
+/usr/libexec/MDCrashReportd
+/usr/libexec/automountd
+/usr/libexec/fmfd
 /usr/libexec/icbaccountsd
-/usr/libexec/launchproxyls
-/usr/libexec/lsboxd
+/usr/libexec/java_home
+/usr/libexec/od_user_homes
+/usr/libexec/otherbsd
+/usr/libexec/pkd
+/usr/libexec/sandboxd
 /usr/libexec/secd
-/usr/libexec/securityd_service
 /usr/libexec/sharingd
-/usr/libexec/transition
-/usr/sbin/diskmanagementd
+/usr/libexec/smd
+/usr/libexec/spindump_agent
 /usr/sbin/pboard
 /usr/sbin/usernoted
 /usr/share/langid/langid.inv
-/usr/share/locale/UTF-8/LC_CTYPE

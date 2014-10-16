@@ -111,7 +111,7 @@ krb5_recvauth_match_version(krb5_context context,
 	}
 	len = ntohl(len);
 	if (len != sizeof(her_version)
-	    || krb5_net_read (context, p_fd, her_version, len) != len
+	    || krb5_net_read (context, p_fd, her_version, len) != (ssize_t)len
 	    || strncmp (version, her_version, len)) {
 	    repl = 1;
 	    krb5_net_write (context, p_fd, &repl, 1);
@@ -131,6 +131,11 @@ krb5_recvauth_match_version(krb5_context context,
 	return KRB5_SENDAUTH_BADAPPLVERS;
     }
     len = ntohl(len);
+    if (len > UINT_MAX / 16) {
+	krb5_set_error_message(context, ERANGE,
+			       N_("packet to large", ""));
+	return ERANGE;
+    }
     her_appl_version = malloc (len);
     if (her_appl_version == NULL) {
 	repl = 2;
@@ -139,7 +144,7 @@ krb5_recvauth_match_version(krb5_context context,
 			       N_("malloc: out of memory", ""));
 	return ENOMEM;
     }
-    if (krb5_net_read (context, p_fd, her_appl_version, len) != len
+    if (krb5_net_read (context, p_fd, her_appl_version, len) != (ssize_t)len
 	|| !(*match_appl_version)(match_data, her_appl_version)) {
 	repl = 2;
 	krb5_net_write (context, p_fd, &repl, 1);

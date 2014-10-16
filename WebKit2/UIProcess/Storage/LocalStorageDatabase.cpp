@@ -33,13 +33,14 @@
 #include <WebCore/SQLiteTransaction.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/StorageMap.h>
+#include <WebCore/SuddenTermination.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
-static const double databaseUpdateIntervalInSeconds = 1.0;
+static const auto databaseUpdateInterval = std::chrono::seconds(1);
 
 static const int maximumItemsToUpdate = 100;
 
@@ -240,8 +241,15 @@ void LocalStorageDatabase::scheduleDatabaseUpdate()
     if (m_didScheduleDatabaseUpdate)
         return;
 
+    if (!m_disableSuddenTerminationWhileWritingToLocalStorage)
+        m_disableSuddenTerminationWhileWritingToLocalStorage = std::make_unique<SuddenTerminationDisabler>();
+
     m_didScheduleDatabaseUpdate = true;
-    m_queue->dispatchAfterDelay(bind(&LocalStorageDatabase::updateDatabase, this), databaseUpdateIntervalInSeconds);
+
+    RefPtr<LocalStorageDatabase> localStorageDatabase(this);
+    m_queue->dispatchAfter(databaseUpdateInterval, [localStorageDatabase] {
+        localStorageDatabase->updateDatabase();
+    });
 }
 
 void LocalStorageDatabase::updateDatabase()
@@ -256,6 +264,8 @@ void LocalStorageDatabase::updateDatabase()
     if (m_changedItems.size() <= maximumItemsToUpdate) {
         // There are few enough changed items that we can just always write all of them.
         m_changedItems.swap(changedItems);
+        updateDatabaseWithChangedItems(changedItems);
+        m_disableSuddenTerminationWhileWritingToLocalStorage = nullptr;
     } else {
         for (int i = 0; i < maximumItemsToUpdate; ++i) {
             auto it = m_changedItems.begin();
@@ -268,9 +278,8 @@ void LocalStorageDatabase::updateDatabase()
 
         // Reschedule the update for the remaining items.
         scheduleDatabaseUpdate();
+        updateDatabaseWithChangedItems(changedItems);
     }
-
-    updateDatabaseWithChangedItems(changedItems);
 }
 
 void LocalStorageDatabase::updateDatabaseWithChangedItems(const HashMap<String, String>& changedItems)

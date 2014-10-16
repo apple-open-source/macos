@@ -61,64 +61,78 @@ CF_EXPORT
 IOEthernetControllerRef IOEthernetControllerCreate(
                                 CFAllocatorRef                  allocator, 
                                 CFDictionaryRef                 properties);
-                                
+
 CF_EXPORT
 io_object_t IOEthernetControllerGetIONetworkInterfaceObject(
                                 IOEthernetControllerRef         controller);
 
 CF_EXPORT
-IOReturn IOEthernetControllerSetLinkStatus(
+IOReturn    IOEthernetControllerSetLinkStatus(
                                 IOEthernetControllerRef         controller, 
                                 Boolean                         state);
 
 CF_EXPORT
-IOReturn IOEthernetControllerSetPowerSavings(
+IOReturn    IOEthernetControllerSetPowerSavings(
 								IOEthernetControllerRef			controller,
 								Boolean							state);
-                                
+
 CF_EXPORT
-CFIndex IOEthernetControllerReadPacket(
+CFIndex     IOEthernetControllerReadPacket(
                                 IOEthernetControllerRef         controller, 
                                 uint8_t *                       buffer,
                                 CFIndex                         bufferLength);
 
 CF_EXPORT
-IOReturn IOEthernetControllerWritePacket(
+IOReturn    IOEthernetControllerWritePacket(
                                 IOEthernetControllerRef         controller, 
                                 const uint8_t *                 buffer,
                                 CFIndex                         bufferLength);
 
 CF_EXPORT
-void IOEthernetControllerScheduleWithRunLoop(
+void        IOEthernetControllerScheduleWithRunLoop(
                                 IOEthernetControllerRef         controller, 
                                 CFRunLoopRef                    runLoop,
                                 CFStringRef                     runLoopMode);
 
 CF_EXPORT
-void IOEthernetControllerUnscheduleFromRunLoop(
+void        IOEthernetControllerUnscheduleFromRunLoop(
                                 IOEthernetControllerRef         controller, 
                                 CFRunLoopRef                    runLoop,
                                 CFStringRef                     runLoopMode);
 
 CF_EXPORT
-void IOEthernetControllerRegisterEnableCallback(
+void        IOEthernetControllerSetDispatchQueue(
+                                IOEthernetControllerRef         controller, 
+                                dispatch_queue_t                queue);
+
+CF_EXPORT
+void        IOEthernetControllerRegisterEnableCallback(
                                 IOEthernetControllerRef         controller, 
                                 IOEthernetControllerCallback    callback, 
                                 void *                          refcon);
 
 CF_EXPORT
-void IOEthernetControllerRegisterDisableCallback(
+void        IOEthernetControllerRegisterDisableCallback(
                                 IOEthernetControllerRef         controller, 
                                 IOEthernetControllerCallback    callback, 
                                 void *                          refcon);
 
 CF_EXPORT
-void IOEthernetControllerRegisterPacketAvailableCallback(
+void        IOEthernetControllerRegisterPacketAvailableCallback(
                                 IOEthernetControllerRef         controller, 
                                 IOEthernetControllerCallback    callback, 
                                 void *                          refcon);
-                                
+
+CF_EXPORT
+void        IOEthernetControllerRegisterBSDAttachCallback(
+                                IOEthernetControllerRef         controller,
+                                IOEthernetControllerCallback    callback, 
+                                void *                          refcon);
+
+CF_EXPORT
+int         IOEthernetControllerGetBSDSocket(
+                                IOEthernetControllerRef         controller);
+
 __END_DECLS
 
 #endif /* _IOKIT_IOETHERNET_CONTROLLER_USER_H */
-

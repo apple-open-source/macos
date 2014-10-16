@@ -15,12 +15,13 @@ if len(sys.argv) > 2 :
 	
 	hasImages = False
 	defaultPageRect = CGRectMake(0, 0, 612, 792)
-	ctx = CGPDFContextCreateWithURL(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, sys.argv[-1], len(sys.argv[-1]), False), defaultPageRect, None)
+	ctx = CGPDFContextCreateWithURL(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, sys.argv[-1], kCFURLPOSIXPathStyle, False), defaultPageRect, None)
 	if ctx:
 		for arg in sys.argv[1:-1] :
 			image = None
 			transform = None
-			provider = CGDataProviderCreateWithFilename(arg)
+			url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, arg, kCFURLPOSIXPathStyle, False)
+			provider = CGDataProviderCreateWithURL(url)
 			if provider:
 				imageSrc = CGImageSourceCreateWithDataProvider(provider, None)
 				if imageSrc:

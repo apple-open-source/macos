@@ -1,15 +1,16 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = m4 readers examples contrib src
+SUBDIRS = readers examples contrib src
 
 EXTRA_DIST = bootstrap ChangeLog SCARDGETATTRIB.txt \
 	$(AUX_DIST) \
+	m4/ax_pthread.m4 \
 	MacOSX/configure \
 	MacOSX/convert_reader_h.pl \
 	MacOSX/debuglog.h \
 	MacOSX/ifdhandler.h \
 	MacOSX/pcsclite.h \
-	MacOSX/reader.h.in \
+	MacOSX/reader.h \
 	MacOSX/winscard.h \
 	MacOSX/wintypes.h
 

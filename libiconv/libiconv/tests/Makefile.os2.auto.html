@@ -1,0 +1,189 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.os2</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.os2&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libiconv/tests, OS2/EMX specific
+</span><span class="enscript-comment">#
+</span><span class="enscript-comment">#	requires EMX/GCC development environment and
+</span><span class="enscript-comment">#	GNU fileutils and GNU textutils installed
+</span><span class="enscript-comment">#
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>CC = gcc
+CFLAGS = -O2 -Zmtd
+INCLUDES = -I. -I../include -I../srclib -I../lib
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+srcdir = .
+
+<span class="enscript-keyword">.SUFFIXES:</span> .obj .o
+
+all :
+
+check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe gengb18030z.exe
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ASCII
+<span class="enscript-comment">#	/* General multi-byte encodings */
+</span>	.\genutf8 &gt; UTF-8.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless . UTF-8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UCS-2BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UCS-2LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UCS-4BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UCS-4LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-16
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-16BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-16LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-32
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-32BE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-32LE
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) UTF-7
+<span class="enscript-comment">#	/* 8-bit encodings */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-2
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-3
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-4
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-5
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-6
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-7
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-9
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-10
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-11
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-13
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-14
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-15
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-8859-16
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) KOI8-R
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) KOI8-U
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) KOI8-RU
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1250
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1251
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1252
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1253
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1254
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1255
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) CP1255
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1256
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1257
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1258
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) CP1258
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP850
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP862
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP866
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacRoman
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacCentralEurope
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacIceland
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacCroatian
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacRomania
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacCyrillic
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacUkraine
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacGreek
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacTurkish
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacHebrew
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacArabic
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MacThai
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) HP-ROMAN8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) NEXTSTEP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ARMSCII-8
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) Georgian-Academy
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) Georgian-PS
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) KOI8-T
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) PT154
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) MuleLao-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP1133
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) TIS-620
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP874
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) VISCII
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) TCVN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) TCVN
+<span class="enscript-comment">#	/* CJK character sets */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO646-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) JIS_X0201
+<span class="enscript-comment">#	$(srcdir)\check-stateless $(srcdir) JIS_X0208 # redundant, see EUC-JP
+</span><span class="enscript-comment">#	$(srcdir)\check-stateless $(srcdir) JIS_X0212 # redundant, see EUC-JP
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO646-CN
+<span class="enscript-comment">#	$(srcdir)\check-stateless $(srcdir) GB_2312-80 # redundant, see EUC-CN
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) ISO-IR-165
+<span class="enscript-comment">#	$(srcdir)\check-stateless $(srcdir) KSC_5601 # redundant, see EUC-KR
+</span><span class="enscript-comment">#	/* CJK encodings */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) EUC-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) SHIFT_JIS
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP932
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP-2
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-JP-1
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) EUC-CN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) GBK
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP936
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) GB18030
+	.\gengb18030z &gt; GB18030Z.TXT
+	copy /b $(<span class="enscript-reference">srcdir</span>)\GB18030-BMP.TXT + GB18030Z.TXT GB18030TMP.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030Z.TXT
+	sort &lt; GB18030TMP.TXT &gt; GB18030.TXT
+	$(<span class="enscript-reference">RM</span>) GB18030TMP.TXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless . GB18030
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-CN
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-CN-EXT
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) HZ
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) EUC-TW
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) BIG5
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP950
+<span class="enscript-comment">#	$(srcdir)\check-stateless $(srcdir) BIG5-HKSCS
+</span><span class="enscript-comment">#	$(srcdir)\check-stateful $(srcdir) BIG5-HKSCS
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) EUC-KR
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) CP949
+	$(<span class="enscript-reference">srcdir</span>)\check-stateless $(<span class="enscript-reference">srcdir</span>) JOHAB
+	$(<span class="enscript-reference">srcdir</span>)\check-stateful $(<span class="enscript-reference">srcdir</span>) ISO-2022-KR
+<span class="enscript-comment">#	/* transliteration */
+</span>	$(<span class="enscript-reference">srcdir</span>)\check-translit $(<span class="enscript-reference">srcdir</span>) Quotes UTF-8 ISO-8859-1
+	$(<span class="enscript-reference">srcdir</span>)\check-translit $(<span class="enscript-reference">srcdir</span>) Quotes UTF-8 ASCII
+	$(<span class="enscript-reference">srcdir</span>)\check-translit $(<span class="enscript-reference">srcdir</span>) Translit1 ISO-8859-1 ASCII
+
+table-from.exe : table-from.c 
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) table-from.c ../lib/iconv.a
+	copy ..\lib\iconv.dll iconv.dll
+
+table-to.exe : table-to.c
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) table-to.c ../lib/iconv.a
+	copy ..\lib\iconv.dll iconv.dll
+
+genutf8.exe : genutf8.c
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) genutf8.c
+
+gengb18030z.exe : gengb18030z.c
+	$(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) gengb18030z.c
+
+mostlyclean : clean
+
+clean : force
+	rm -f *.obj *.dll *.exe tmp* UTF-8.TXT GB18030Z.TXT GB18030TMP.TXT GB18030.TXT core
+
+distclean : clean
+	rm -f Makefile
+
+maintainer-clean : distclean
+
+force :
+</pre>
+<hr />
+</body></html>

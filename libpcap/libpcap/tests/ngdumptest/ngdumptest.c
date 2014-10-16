@@ -63,7 +63,7 @@ size_t packet_length = 0;
 unsigned long num_data_blocks = 1;
 int copy_data_buffer = 0;
 
-void hex_and_ascii_print(const char *, const void *, unsigned int , const char *);
+void hex_and_ascii_print(const char *, const void *, size_t, const char *);
 
 void
 help(const char *str)

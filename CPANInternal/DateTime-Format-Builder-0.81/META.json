@@ -1,0 +1,68 @@
+{
+   "abstract" : "Create DateTime parser classes and objects.",
+   "author" : [
+      "Dave Rolsky <autarch@urth.org>",
+      "Iain Truskett"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 4.300032, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "artistic_2"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "DateTime-Format-Builder",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.30"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::Pod" : "1.41"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : "0",
+            "Class::Factory::Util" : "1.6",
+            "DateTime" : "1.00",
+            "DateTime::Format::Strptime" : "1.04",
+            "Params::Validate" : "0.72",
+            "Scalar::Util" : "0",
+            "base" : "0",
+            "perl" : "5.005",
+            "strict" : "0",
+            "vars" : "0",
+            "warnings" : "0"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::More" : "0.88"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "mailto" : "bug-datetime-format-strptime@rt.cpan.org",
+         "web" : "http://rt.cpan.org/NoAuth/Bugs.html?Dist=DateTime-Format-Builder"
+      },
+      "repository" : {
+         "type" : "git",
+         "url" : "git://git.urth.org/DateTime-Format-Builder.git",
+         "web" : "http://git.urth.org/DateTime-Format-Builder.git"
+      }
+   },
+   "version" : "0.81",
+   "x_contributors" : [
+      "(no author) <(no author)@49043108-e40d-0410-ab17-85caa8b5b18d>",
+      "Daisuke Maki <daisuke@endeworks.jp>",
+      "Ian Truskett <spoon@cpan.org>"
+   ]
+}
+

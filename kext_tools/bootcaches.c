@@ -70,6 +70,9 @@
 #define kBRDiskArbMaxRetries   (10)
 
 static void removeTrailingSlashes(char * path);
+#if DEV_KERNEL_SUPPORT
+static int  getExtraKernelCachePaths(struct bootCaches *caches);
+#endif
 
 // XX These are used often together, rely on 'finish', and should be all-caps.
 // 'dst must be char[PATH_MAX]'
@@ -101,7 +104,8 @@ static void removeTrailingSlashes(char * path);
 /******************************************************************************
 * destroyCaches cleans up a bootCaches structure
 ******************************************************************************/
-void destroyCaches(struct bootCaches *caches)
+void
+destroyCaches(struct bootCaches *caches)
 {
     if (caches) {
         if (caches->cachefd != -1)  close(caches->cachefd);
@@ -110,6 +114,9 @@ void destroyCaches(struct bootCaches *caches)
         if (caches->rpspaths)       free(caches->rpspaths);
         if (caches->exts)           free(caches->exts);
         if (caches->csfde_uuid)     CFRelease(caches->csfde_uuid);
+#if DEV_KERNEL_SUPPORT
+        if (caches->extraKernelCachePaths) free(caches->extraKernelCachePaths);
+#endif
         free(caches);
     }
 }
@@ -179,6 +186,9 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
     keyCount = CFDictionaryGetCount(bcDict);        // start with the top
     caches->exts = NULL;
     caches->nexts = 0;
+#if DEV_KERNEL_SUPPORT
+    caches->kernelsCount = 0;
+#endif
 
     // process keys for paths read "before the booter"
     dict = (CFDictionaryRef)CFDictionaryGetValue(bcDict, kBCPreBootKey);
@@ -391,6 +401,14 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
                 } else {
                     goto finish;
                 }
+                
+                // background image (optional)
+                str = CFDictionaryGetValue(erDict, kBCCSFDEBackgroundImageKey);
+                if (str && CFGetTypeID(str) == CFStringGetTypeID() &&
+                    CFStringGetFileSystemRepresentation(str, caches->bgImage,
+                                                sizeof(caches->bgImage))) {
+                    keyCount--;
+                } 
             }
 
             keyCount--;     // handled EncryptedRoot
@@ -509,14 +527,21 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
 
             // kernelcaches have a kernel path key, which we set up by hand
             if (isKernelcache) {
-
-                str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCKernelPathKey);
-                if (!str || CFGetTypeID(str) != CFStringGetTypeID()) goto finish;
-
-                if (!CFStringGetFileSystemRepresentation(str, caches->kernel,
-                    sizeof(caches->kernel))) {
+                // <= 10.9 - /Volumes/foo/mach_kernel
+                // > 10.9 - /Volumes/foo/System/Library/Kernels/kernel
+                str = (CFStringRef)CFDictionaryGetValue(mkDict,
+                                                        kBCKernelPathKey);
+                if (!str || CFGetTypeID(str) != CFStringGetTypeID()) {
                     goto finish;
                 }
+                
+                if (!CFStringGetFileSystemRepresentation(str, caches->kernelpath,
+                                                         sizeof(caches->kernelpath))) {
+                    goto finish;
+                }
+#if DEV_KERNEL_SUPPORT
+                getExtraKernelCachePaths(caches);
+#endif
                 
             }
  
@@ -543,21 +568,219 @@ finish:
     return rval;
 }
 
-// helper to create cache dirs; updateStamps() calls and accepts errors
+#if DEV_KERNEL_SUPPORT
+
+/* getExtraKernelCachePaths:
+ * creates and populates extraKernelCachePaths.  Also sets kernelsCount.
+ * Looks for any kernel files in the format of "kernel.SUFFIX" in 
+ * /System/Library/Kernels then uses SUFFIX to create the corresponding 
+ * kernelcache.SUFFIX path.
+ *
+ * NOTE, we already have the kernelcache path for the "kernel" file as part of
+ * rpspaths so we do not add it to extraKernelCachePaths (thus "extra").  And
+ * that is why nekcp is one less than bootCaches.kernelsCount.
+ */
 static int
-createCacheDirs(struct bootCaches *caches)
+getExtraKernelCachePaths(struct bootCaches *caches)
+{
+    int                 result              = -1;
+    int                 maxCacheCount       = 0;
+    int                 cacheIndex          = 0;
+    CFURLRef            kernURL             = NULL; // must release
+    CFURLRef            kernParentURL       = NULL; // must release
+    CFURLEnumeratorRef  myEnumerator        = NULL; // must release
+    CFURLRef            enumURL             = NULL; // do not release
+    CFStringRef         tmpCFString         = NULL; // must release
+    CFArrayRef          resultArray         = NULL; // must release
+    char *              tmpKernelPath       = NULL; // must free
+    char *              tmpCachePath        = NULL; // must free
+    char *              suffixPtr           = NULL; // must free
+   
+    caches->kernelsCount = 0;
+    caches->nekcp = 0;
+    
+    tmpKernelPath = malloc(PATH_MAX);
+    tmpCachePath = malloc(PATH_MAX);
+    
+    if (tmpKernelPath == NULL || tmpCachePath == NULL)  goto finish;
+    
+    if (strlcpy(tmpKernelPath, caches->root, PATH_MAX) >= PATH_MAX)
+        goto finish;
+    if (strlcat(tmpKernelPath, caches->kernelpath, PATH_MAX) >= PATH_MAX)
+        goto finish;
+    
+    kernURL = CFURLCreateFromFileSystemRepresentation(
+                                                      NULL,
+                                                      (const UInt8 *)tmpKernelPath,
+                                                      strlen(tmpKernelPath),
+                                                      true );
+    if (kernURL == NULL) {
+        goto finish;
+    }
+
+    kernParentURL = CFURLCreateCopyDeletingLastPathComponent(NULL,
+                                                             kernURL );
+    if (kernParentURL == NULL) {
+        goto finish;
+    }
+   
+    // bail out if the parent is not "Kernels"
+    tmpCFString = CFURLCopyLastPathComponent(kernParentURL);
+    if (tmpCFString == NULL ||
+        CFStringCompare(tmpCFString, CFSTR("Kernels"), 0) != kCFCompareEqualTo) {
+        goto finish;
+    }
+    
+    myEnumerator = CFURLEnumeratorCreateForDirectoryURL(
+                                                        NULL,
+                                                        kernParentURL,
+                                                        kCFURLEnumeratorDefaultBehavior,
+                                                        NULL );
+    if (myEnumerator == NULL) {
+        goto finish;
+    }
+    
+    while (CFURLEnumeratorGetNextURL(myEnumerator,
+                                     &enumURL,
+                                     NULL) == kCFURLEnumeratorSuccess) {
+        SAFE_RELEASE_NULL(tmpCFString);
+        SAFE_FREE_NULL(suffixPtr);
+ 
+        // valid kernel name must be in the form of:
+        // "kernel" or
+        // "kernel.SUFFIX"
+        tmpCFString = CFURLCopyLastPathComponent(enumURL);
+        if (tmpCFString == NULL)       continue;
+
+        if (kCFCompareEqualTo == CFStringCompare(tmpCFString,
+                                                 CFSTR("kernel"),
+                                                 kCFCompareAnchored)) {
+            // this is "kernel" so count it and move on
+            caches->kernelsCount++;
+            continue;
+        }
+      
+        // only want kernel.SUFFIX from here on
+        if (CFStringHasPrefix(tmpCFString,
+                              CFSTR("kernel.")) == false) {
+            continue;
+        }
+
+        // skip any kernels with more than one '.' character.
+        // For example: kernel.foo.bar is not a valid kernel name
+        SAFE_RELEASE_NULL(resultArray);
+        resultArray = CFStringCreateArrayWithFindResults(
+                                                         NULL,
+                                                         tmpCFString,
+                                                         CFSTR("."),
+                                                         CFRangeMake(0, CFStringGetLength(tmpCFString)),
+                                                         0);
+        if (resultArray && CFArrayGetCount(resultArray) > 1) {
+            continue;
+        }
+        caches->kernelsCount++;
+        
+        SAFE_RELEASE(tmpCFString);
+        tmpCFString =  CFURLCopyPathExtension(enumURL);
+        if (tmpCFString == NULL)   continue;
+        
+        // build kernelcache file for each valid kernel suffix we find.
+        suffixPtr = createUTF8CStringForCFString(tmpCFString);
+        if (suffixPtr == NULL)    continue;
+        
+        if (strlcpy(tmpCachePath, caches->kext_boot_cache_file->rpath, PATH_MAX) >= PATH_MAX)
+            continue;
+        if (strlcat(tmpCachePath, ".", PATH_MAX) >= PATH_MAX)
+            continue;
+        if (strlcat(tmpCachePath, suffixPtr, PATH_MAX) >= PATH_MAX)
+            continue;
+        
+        SAFE_RELEASE_NULL(tmpCFString);
+        tmpCFString = CFStringCreateWithCString(kCFAllocatorDefault,
+                                                tmpCachePath,
+                                                kCFStringEncodingUTF8);
+        if (tmpCFString == NULL)   continue;
+        if (cacheIndex >= maxCacheCount) {
+            cachedPath *    tempCPPtr;
+            
+            maxCacheCount += 2;
+            tempCPPtr = (cachedPath *) calloc(maxCacheCount, sizeof(cachedPath));
+            if (tempCPPtr == NULL)  goto finish;
+            
+            if (caches->extraKernelCachePaths) {
+                // copy existing cache paths into new buffer
+                bcopy(caches->extraKernelCachePaths,
+                      tempCPPtr,
+                      sizeof(*caches->extraKernelCachePaths) * caches->nekcp);
+                SAFE_FREE(caches->extraKernelCachePaths);
+            }
+            caches->extraKernelCachePaths = tempCPPtr;
+        }
+        
+        MAKE_CACHEDPATH(&caches->extraKernelCachePaths[cacheIndex],
+                        caches,
+                        tmpCFString);
+        cacheIndex++;
+        caches->nekcp++;
+   } // while loop
+    
+    result = 0;
+    
+finish:
+    if (result != 0) {
+        SAFE_FREE_NULL(caches->extraKernelCachePaths);
+        caches->nekcp = 0;
+    }
+    SAFE_RELEASE(kernURL);
+    SAFE_RELEASE(kernParentURL);
+    SAFE_RELEASE(myEnumerator);
+    SAFE_RELEASE(tmpCFString);
+    SAFE_RELEASE(resultArray);
+    SAFE_FREE(tmpKernelPath);
+    SAFE_FREE(tmpCachePath);
+    SAFE_FREE(suffixPtr);
+
+#if 0
+    OSKextLogCFString(NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                      CFSTR("%s: kernelsCount %d nekcp %d"),
+                      __func__,
+                      caches->kernelsCount,
+                      caches->nekcp);
+    if (result == 0) {
+        int     j;
+        for (j = 0; j < cacheIndex; j++) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                              CFSTR("%s: extraKernelCachePaths at %d \"%s\""),
+                              __func__,
+                              j,
+                              caches->extraKernelCachePaths[j].rpath);
+        }
+    }
+#endif
+
+    return result;
+}
+
+#endif
+
+// helper to create cache dirs as needed
+static int
+ensureCacheDirs(struct bootCaches *caches)
 {
     int errnum, result = ELAST + 1;
     struct statfs sfs;
     char *errname;
     struct stat sb;
     char cachedir[PATH_MAX], uuiddir[PATH_MAX];      // bootstamps, csfde
+    Boolean checkOnly = false;
 
     // don't create new cache directories if owners are disabled
     errname = caches->root;
     if (statfs(caches->root, &sfs) == 0) {
         if (sfs.f_flags & MNT_IGNORE_OWNERSHIP) {
-            result = ENOTSUP; goto finish;
+            checkOnly = true;
         }
     } else {
         result = errno; goto finish;
@@ -573,6 +796,9 @@ createCacheDirs(struct bootCaches *caches)
     pathcat(uuiddir, caches->fsys_uuid);
     if ((errnum = stat(uuiddir, &sb))) {
         if (errno == ENOENT) {
+            if (checkOnly) {
+                result = ENOTSUP; goto finish;
+            }
             // attempt to clean up cache dir to eliminate stale UUID dirs
             if (stat(cachedir, &sb) == 0) {
                 (void)sdeepunlink(caches->cachefd, cachedir);
@@ -594,6 +820,9 @@ createCacheDirs(struct bootCaches *caches)
         errname = cachedir;
         if ((-1 == stat(cachedir, &sb))) {
             if (errno == ENOENT) {
+                if (checkOnly) {
+                    result = ENOTSUP; goto finish;
+                }
                 // s..mkdir ensures cachedir is on the same volume
                 errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
                 if (errnum) {
@@ -638,8 +867,12 @@ copy_dict_from_fd(int fd, struct stat *sb)
         goto finish;
 
     // Sec: see 4623105 & related for an assessment of our XML parsers
-    dict = (CFDictionaryRef)CFPropertyListCreateFromXMLData(nil,
-                data, kCFPropertyListImmutable, NULL);
+    dict = (CFDictionaryRef)
+            CFPropertyListCreateWithData(nil,
+                                         data,
+                                         kCFPropertyListImmutable,
+                                         NULL,
+                                         NULL);
     if (!dict || CFGetTypeID(dict)!=CFDictionaryGetTypeID()) {
         goto finish;
     }
@@ -778,8 +1011,9 @@ readBootCachesForDADisk(DADiskRef dadisk)
     char volRoot[PATH_MAX];
     int ntries = 0;
 
-    // 'kextcache -U /' needs this retry to work around 5454260
-    // kexd's vol_appeared filters volumes w/o mount points
+    // Work around inability to know if diskarb is up (4243227) by retrying
+    // until data is available.  5454260 tracks removal of the workaround.
+    // kexd's vol_appeared() also filters volumes w/o mount points.
     do {
         ddesc = DADiskCopyDescription(dadisk);
         if (!ddesc)     goto finish;
@@ -823,7 +1057,8 @@ finish:
 * compares/stores *ctime* of the source file vs. the *mtime* of the bootstamp.
 * returns false on error: if we can't tell, we probably can't update
 *******************************************************************************/
-Boolean needsUpdate(char *root, cachedPath* cpath)
+Boolean
+needsUpdate(char *root, cachedPath* cpath)
 {
     Boolean outofdate = false;
     Boolean rfpresent, tsvalid;
@@ -835,7 +1070,7 @@ Boolean needsUpdate(char *root, cachedPath* cpath)
     pathcat(fullrp, cpath->rpath);
     pathcpy(fulltsp, root);
     pathcat(fulltsp, cpath->tspath);
-
+    
     // check the source file in the root volume
     if (stat(fullrp, &rsb) == 0) {
         rfpresent = true;
@@ -900,33 +1135,78 @@ finish:
 }
 
 /*******************************************************************************
-* needUpdates checks all paths and returns details if you want them
-* It only to be called on volumes that will have timestamp paths
-* (i.e. BootRoot volumes! ;)
-* 
-* In theory, all we have to do is find one "problem" (out of date file)
-* but in practice, there could be real problems (like missing sources)
-* which would prevent a complete update (at a minimum, all updates copy
-* all RPS paths to a new RPS dir).  needsUpdate() also populates the
-* tstamps used by updateStamps (for all files, regardless of whether
-* they were updated).
+* needUpdates() checks all cached paths to see what looks out of date
+*
+* needUpdates() compares the cached timestamps from the helper partition
+* (stored in /S/L/Caches/c.a.bootstamps) to the corresponding source files
+* in the root volume.  Any caches built first into the root volume 
+* (kernel/kext, EFI Login locs, etc) should be checked and rebuilt prior
+* to calling this function.
+*
+* needsUpdate() also populates the timestamp structs for updateStamps().
 *******************************************************************************/
+
+#define kBRTaintFile ".notBootRootDefault"
+#define MAKETAINTPATH(taintpath, mount, subdir) do { \
+    unsigned fullLen;   \
+    fullLen = snprintf(taintpath, sizeof(taintpath), "%s/%s/%s",    \
+                       mount, subdir ? subdir : "", kBRTaintFile);  \
+    if (fullLen >= sizeof(taintpath))           goto finish;        \
+} while(0)
+Boolean 
+notBRDefault(const char *mount, const char *subdir)
+{
+    Boolean ismarked = false;
+    char taintf[PATH_MAX];
+    struct stat sb;
+
+    MAKETAINTPATH(taintf, mount, subdir);
+    ismarked = stat(taintf, &sb) == 0;
+
+finish:
+    return ismarked;
+}
+
 #define OODMSG "not cached."
-Boolean needUpdates(struct bootCaches *caches, Boolean *rps, Boolean *booters,
-                    Boolean *misc, OSKextLogSpec oodLogSpec)
+Boolean
+needUpdates(struct bootCaches *caches, BRUpdateOpts_t opts,
+            Boolean *rps, Boolean *booters, Boolean *misc,
+            OSKextLogSpec oodLogSpec)
 {
     Boolean rpsOOD, bootersOOD, miscOOD, anyOOD;
     cachedPath *cp;
 
-    // assume nothing needs updating (caller may interpret error -> needsUpdate)
+    // assume nothing needs updating (can't tell -> don't update)
     rpsOOD = bootersOOD = miscOOD = anyOOD = false;
 
+    // If attempting to make default-bootable, check for non-default content
+    if ((opts & kBRUCachesAnyRoot) == false &&
+            notBRDefault(caches->root,kTSCacheDir)){
+        rpsOOD = bootersOOD = miscOOD = anyOOD = true;
+        // not done yet, need to populate the tstamps!
+    }
+
+    // first check RPS paths
     for (cp = caches->rpspaths; cp < &caches->rpspaths[caches->nrps]; cp++) {
         if (needsUpdate(caches->root, cp)) {
             OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = rpsOOD = true;
         }
     }
+#if DEV_KERNEL_SUPPORT
+    if (caches->extraKernelCachePaths) {
+        for (cp = caches->extraKernelCachePaths;
+             cp < &caches->extraKernelCachePaths[caches->nekcp];
+             cp++) {
+            if (needsUpdate(caches->root, cp)) {
+                OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
+                anyOOD = rpsOOD = true;
+            }
+        }
+    }
+#endif
+
+    // then booters
     if ((cp = &(caches->efibooter)), cp->rpath[0]) {
         if (needsUpdate(caches->root, cp)) {
             OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
@@ -937,19 +1217,17 @@ Boolean needUpdates(struct bootCaches *caches, Boolean *rps, Boolean *booters,
         if (needsUpdate(caches->root, cp)) {
             OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = bootersOOD = true;
-        }
+       }
     }
-    for (cp = caches->miscpaths; cp < &caches->miscpaths[caches->nmisc]; cp++) {
+
+    // and finally misc paths (non-booter files read by EFI)
+    // kextcache -U -Boot -> misc = NULL
+    for (cp=caches->miscpaths; cp<&caches->miscpaths[caches->nmisc]; cp++){
         if (needsUpdate(caches->root, cp)) {
             OSKextLog(NULL, oodLogSpec, "%s " OODMSG, cp->rpath);
             anyOOD = miscOOD = true;
         }
     }
-
-    // This function only checks bootstamp timestamps as compared to
-    // the source file.  kernel/kext caches, property caches files,
-    // and other files are checked explicitly before this function
-    // is called.
 
     if (rps)        *rps = rpsOOD;
     if (booters)    *booters = bootersOOD;
@@ -1045,7 +1323,7 @@ updateStamps(struct bootCaches *caches, int command)
 
     // if writing stamps, make sure cache directory exists
     if (command == kBCStampsApplyTimes &&
-            (anyErr = createCacheDirs(caches))) {
+            (anyErr = ensureCacheDirs(caches))) {
         return anyErr;
     }
 
@@ -1053,6 +1331,15 @@ updateStamps(struct bootCaches *caches, int command)
     for (cp = caches->rpspaths; cp < &caches->rpspaths[caches->nrps]; cp++) {
         anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
+#if DEV_KERNEL_SUPPORT
+    if (caches->extraKernelCachePaths) {
+        for (cp = caches->extraKernelCachePaths;
+             cp < &caches->extraKernelCachePaths[caches->nekcp];
+             cp++) {
+            anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
+        }
+    }
+#endif
     if ((cp = &(caches->efibooter)), cp->rpath[0]) {
         anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
@@ -1063,20 +1350,136 @@ updateStamps(struct bootCaches *caches, int command)
         anyErr |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
 
-    // Clean shutdown should make sure these stamps are on disk; this
-    // code worked around 8603195/6848376 which were fixed by Lion GM.
+    // make sure stamps updates are on disk
     if (stat(BRDBG_DISABLE_EXTSYNC_F, &sb) == -1) {
         anyErr |= fcntl(caches->cachefd, F_FULLFSYNC);
     }
 
+    // bootstamps imply default content, so remove any taint
+    anyErr |= markNotBRDefault(caches->cachefd,caches->root,kTSCacheDir,false);
+
     return anyErr;
+}
+
+
+/*******************************************************************************
+* taintDefaultStamps() adds .notBootRootDefault to com.apple.bootstamps.
+* It takes only a helper identifier, from which it searches for any online
+* volume that stores Boot!=Root content in the specified helper.
+*
+* markNotBRDefault() is an exported helper that toggles the taint on/off
+*******************************************************************************/
+int
+markNotBRDefault(int scopefd, const char *mount, const char* subdir,
+                 Boolean marking)
+{
+    int rval = ELAST + 1;
+    char taintf[PATH_MAX];
+
+    if (!mount) {
+        rval = EINVAL; goto finish;
+    }
+
+    // create cookie file (unlink so sopen() O_EXCL is clean)
+    MAKETAINTPATH(taintf, mount, subdir);
+    (void)sunlink(scopefd, taintf);
+    if (marking) {
+        int fd = sopen(scopefd, taintf, O_CREAT, kCacheFileMode);
+        if (fd == -1) {
+            rval = errno;
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                      "Creating %s: %s", taintf, strerror(rval));
+            goto finish;
+        }
+        close(fd);
+    }
+
+    // success
+    rval = 0;
+
+finish:
+    return rval;
+}
+
+// search all volumes to see whether any use this helper, if found, taint
+int
+taintDefaultStamps(CFStringRef targetBSD)
+{
+    int rval = ELAST + 1;
+    struct bootCaches *defRootCaches = NULL;
+    char *errmsg = NULL;
+    int nfsys, i;
+    size_t bufsz;
+    struct statfs *mounts = NULL;
+
+    errmsg = "Error getting mount list.";
+    if (-1 == (nfsys = getfsstat(NULL, 0, MNT_NOWAIT))) {
+        rval = errno; goto finish;
+    }
+    bufsz = nfsys * sizeof(struct statfs);
+    if (!(mounts = malloc(bufsz))) {
+        rval = errno; goto finish;
+    }
+    if (-1 == getfsstat(mounts, (int)bufsz, MNT_NOWAIT)) {
+        rval = errno; goto finish;
+    }
+
+    errmsg = "error examining helper partitions";
+    for (i = 0; i < nfsys; i++) {
+        struct statfs *sfs = &mounts[i];
+        CFArrayRef helpers;
+        CFStringRef helper;
+        if (sfs->f_flags & MNT_LOCAL && strcmp(sfs->f_fstypename, "devfs")) {
+            CFURLRef volURL;
+            volURL = CFURLCreateFromFileSystemRepresentation(nil,
+                                                    (UInt8*)sfs->f_mntonname,
+                                                    strlen(sfs->f_mntonname),
+                                                    1 /* isDirectory */);
+            if (!volURL) {
+                rval = ENOMEM; goto finish;
+            }
+            if ((helpers = BRCopyActiveBootPartitions(volURL))) {
+                CFIndex hidx = CFArrayGetCount(helpers);
+                while (hidx--) {
+                    helper = CFArrayGetValueAtIndex(helpers, hidx);
+                    if (helper && CFEqual(helper, targetBSD)) {
+                        defRootCaches = readBootCaches(sfs->f_mntonname, 0);
+                    }
+                }
+                CFRelease(helpers);
+            }
+            CFRelease(volURL);
+        }
+        if (defRootCaches)      break;
+    }
+
+    // If we found a volume, leave the "helper contents non-standard" hint
+    errmsg = NULL;
+    if (defRootCaches) {
+        rval = markNotBRDefault(defRootCaches->cachefd, defRootCaches->root,
+                                kTSCacheDir, true);         // logs
+        destroyCaches(defRootCaches);
+    } else {
+        // success
+        rval = 0;
+    }
+
+finish:
+    if (errmsg) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "%s", errmsg);
+    }
+    if (mounts)     free(mounts);
+
+    return rval;
 }
 
 /*******************************************************************************
 * rebuild_kext_boot_cache_file fires off kextcache on the given volume
 * XX there is a bug here that can mask a stale mkext in the Apple_Boot (4764605)
 *******************************************************************************/
-int rebuild_kext_boot_cache_file(
+int
+rebuild_kext_boot_cache_file(
     struct bootCaches *caches,
     Boolean wait,
     const char * kext_boot_cache_file,
@@ -1103,7 +1506,7 @@ int rebuild_kext_boot_cache_file(
     ) {
        goto finish;
     }
-
+    
     fullextsp = malloc(caches->nexts * PATH_MAX);
     if (!fullextsp)  goto finish;
     *fullextsp = 0x00;
@@ -1255,19 +1658,6 @@ int rebuild_kext_boot_cache_file(
     }
     rval = 0;
 
-#if 0
-    OSKextLog(NULL,
-              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-              "%s: kextcache args %ld ",
-              __FUNCTION__, argi);
-    for (i = 0; i < argi; i++) {
-        OSKextLog(NULL,
-                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                  "%s ",
-                  kcargs[i]);
-    }
-#endif
-
    /* wait:false means the return value is <0 for fork/exec failures and
     * the pid of the forked process if >0.
     *
@@ -1307,7 +1697,8 @@ finish:
 *
 * This should only be called for the root volume!
 *******************************************************************************/
-Boolean plistCachesNeedRebuild(const NXArchInfo * kernelArchInfo)
+Boolean
+plistCachesNeedRebuild(const NXArchInfo * kernelArchInfo)
 {
     Boolean     result                     = true;
     CFArrayRef  systemExtensionsFolderURLs = NULL;  // need not release
@@ -1363,19 +1754,17 @@ finish:
     return result;
 }
 
-Boolean check_kext_boot_cache_file(
+Boolean
+check_kext_boot_cache_file(
     struct bootCaches * caches,
     const char * cache_path,
     const char * kernel_path)
 {   
     Boolean      needsrebuild                       = false;
-    char         full_cache_file_path[PATH_MAX]     = "";
-    char         fullextsp[PATH_MAX]                = "";
-    char         fullkernelp[PATH_MAX]              = "";
-    struct stat  extsb;
-    struct stat  kernelsb;
-    struct stat  sb;
+    char         fullPath[PATH_MAX]                 = "";
+    struct stat  statbuffer;
     time_t       validModtime                       = 0;
+    time_t       kernelcacheModtime                 = 0;
 
    /* Do we have a cache file (mkext or kernelcache)?
     * Note: cache_path is a pointer field, not a static array.
@@ -1385,67 +1774,83 @@ Boolean check_kext_boot_cache_file(
     
    /* If so, check the mod time of the cache file vs. the extensions folder.
     */
-    // struct bootCaches paths are all *relative*
-    pathcpy(full_cache_file_path, caches->root);
-    removeTrailingSlashes(full_cache_file_path);
-    pathcat(full_cache_file_path, cache_path);
-
     // we support multiple extensions directories, use latest mod time
     char    *bufptr;
     int     i;
     bufptr = caches->exts;
     
     for (i = 0; i < caches->nexts; i++) {
-        pathcpy(fullextsp, caches->root);
-        removeTrailingSlashes(fullextsp);
-        pathcat(fullextsp, bufptr);
+        pathcpy(fullPath, caches->root);
+        removeTrailingSlashes(fullPath);
+        pathcat(fullPath, bufptr);
 
-        if (stat(fullextsp, &extsb) == 0) {
-            if (extsb.st_mtime + 1 > validModtime) {
-                validModtime = extsb.st_mtime + 1;
-          }
+        if (stat(fullPath, &statbuffer) == 0) {
+#if 0
+            OSKextLogCFString(NULL,
+                              kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                              CFSTR("%s - %ld <- mod time of %s "),
+                              __func__, statbuffer.st_mtime, fullPath);
+#endif
+            if (statbuffer.st_mtime + 1 > validModtime) {
+               validModtime = statbuffer.st_mtime + 1;
+            }
         }
         else {
         OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                  "Warning: %s: %s", fullextsp, strerror(errno));
+                  "Warning: %s: %s", fullPath, strerror(errno));
         }
         bufptr += (strlen(bufptr) + 1);
-        fullextsp[0] = 0x00;
+        fullPath[0] = 0x00;
     }
 
    /* Check the mod time of the appropriate kernel too, if applicable.
-    */
-
-   /* A kernel path in bootcaches.plist means we should have a kernelcache.
+    * A kernel path in bootcaches.plist means we should have a kernelcache.
     * Note: kernel_path is a static array, not a pointer field.
     */
-    if (kernel_path[0]) {            
-        pathcpy(fullkernelp, caches->root);
-        removeTrailingSlashes(fullkernelp);
-        pathcat(fullkernelp, kernel_path);
-
-        if (stat(fullkernelp, &kernelsb) == -1) {
+    if (kernel_path[0]) {
+        pathcpy(fullPath, caches->root);
+        removeTrailingSlashes(fullPath);
+        pathcat(fullPath, kernel_path);
+       
+        if (stat(fullPath, &statbuffer) == -1) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogBasicLevel | kOSKextLogFileAccessFlag,
-                "Note: %s: %s", fullkernelp, strerror(errno));
+                      kOSKextLogBasicLevel | kOSKextLogFileAccessFlag,
+                      "Note: %s: %s", fullPath, strerror(errno));
             // assert(needsrebuild == false);   // we can't build w/o kernel
             goto finish;
         }
+#if 0
+        OSKextLogCFString(NULL,
+                          kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                          CFSTR("%s - %ld <- mod time of %s "),
+                          __func__, statbuffer.st_mtime, fullPath);
+#endif
 
-       /* The cache file should be 1 second newer than the newer of the
-        * Extensions folder(s) or the kernel.
-        */
-        if (kernelsb.st_mtime > validModtime) {
-            validModtime = kernelsb.st_mtime + 1;
-       }
+        /* The cache file should be 1 second newer than the newer of the
+         * Extensions folder(s) or the kernel.
+         */
+        if (statbuffer.st_mtime > validModtime) {
+            validModtime = statbuffer.st_mtime + 1;
+        }
     }
 
     // The cache file itself
     needsrebuild = true;  // since this stat() will fail if cache file is gone
-    if (stat(full_cache_file_path, &sb) == -1) {
+    pathcpy(fullPath, caches->root);
+    removeTrailingSlashes(fullPath);
+    pathcat(fullPath, cache_path);
+    if (stat(fullPath, &statbuffer) == -1) {
         goto finish;
     }
-    needsrebuild = (sb.st_mtime != validModtime);
+#if 0
+    OSKextLogCFString(NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                      CFSTR("%s - %ld <- mod time of %s "),
+                      __func__, statbuffer.st_mtime, fullPath);
+#endif
+   
+    kernelcacheModtime = statbuffer.st_mtime;
+    needsrebuild = (kernelcacheModtime != validModtime);
 
 finish:
     return needsrebuild;
@@ -1455,7 +1860,8 @@ finish:
 * createDiskForMount creates a DADisk object given a mount point
 * session is optional; one is created and released if the caller can't supply
 *******************************************************************************/
-DADiskRef createDiskForMount(DASessionRef session, const char *mount)
+DADiskRef
+createDiskForMount(DASessionRef session, const char *mount)
 {
     DADiskRef rval = NULL;
     DASessionRef dasession = NULL;
@@ -1825,7 +2231,7 @@ rebuild_csfde_cache(struct bootCaches *caches)
         rval = EINVAL; goto finish;
     }
 
-    if ((errnum = createCacheDirs(caches))) {
+    if ((errnum = ensureCacheDirs(caches))) {
         rval = errnum; goto finish;
     }
 
@@ -1876,6 +2282,7 @@ get_locres_info(struct bootCaches *caches, char locRsrcDir[PATH_MAX],
     int rval = EOVERFLOW;       // all other paths set rval
     time_t newestTime;
     struct stat sb;
+    char bgImagePath[PATH_MAX];
 
     if (!validModTime) {
         rval = EINVAL; LOGERRxlate("get_locres_info", NULL, rval); goto finish;
@@ -1900,6 +2307,16 @@ get_locres_info(struct bootCaches *caches, char locRsrcDir[PATH_MAX],
     } else {
         if (errno != ENOENT) {
             rval = errno; LOGERRxlate(prefPath, NULL, rval); goto finish;
+        }
+    }
+
+    // background image file (optional)
+    if (caches->bgImage[0]) {
+        pathcpy(bgImagePath, caches->root);
+        pathcat(bgImagePath, caches->bgImage);
+        if (stat(bgImagePath, &sb) == 0 &&
+                sb.st_mtime > newestTime) {
+            newestTime = sb.st_mtime;
         }
     }
     
@@ -2302,7 +2719,8 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void _daDone(DADiskRef disk __unused, DADissenterRef dissenter, void *ctx)
+void
+_daDone(DADiskRef disk __unused, DADissenterRef dissenter, void *ctx)
 {
     if (dissenter)
         CFRetain(dissenter);
@@ -2402,7 +2820,8 @@ finish:
  * - 'force' -> -f to ignore bootstamps (13784516 removed only use)
  *****************************************************************************/
 // kextcache -u helper sets up argv
-pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait)
+pid_t
+launch_rebuild_all(char * rootPath, Boolean force, Boolean wait)
 {
     pid_t rval = -1;
     int argc, argi = 0; 
@@ -2533,3 +2952,4 @@ finish:
 
     return rval;
 }
+

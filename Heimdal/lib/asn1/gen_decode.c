@@ -176,8 +176,6 @@ find_tag (const Type *t,
 	*ty  = PRIM;
 	*tag = UT_VisibleString;
 	break;
-    default:
-	abort();
     }
 }
 
@@ -262,7 +260,7 @@ decode_type (const char *name, const Type *t, int optional,
 	    decode_primitive ("heim_integer", name, forwstr);
 	} else if (t->range->min == INT_MIN && t->range->max == INT_MAX) {
 	    decode_primitive ("integer", name, forwstr);
-	} else if (t->range->min == 0 && t->range->max == UINT_MAX) {
+	} else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX) {
 	    decode_primitive ("unsigned", name, forwstr);
 	} else if (t->range->min == 0 && t->range->max == INT_MAX) {
 	    decode_primitive ("unsigned", name, forwstr);
@@ -663,8 +661,6 @@ decode_type (const char *name, const Type *t, int optional,
     case TOID:
 	decode_primitive ("oid", name, forwstr);
 	break;
-    default :
-	abort ();
     }
     return 0;
 }
@@ -733,8 +729,6 @@ generate_type_decode (const Symbol *s)
 		 "return e;\n",
 		 s->gen_name);
 	break;
-    default:
-	abort ();
     }
     fprintf (codefile, "}\n\n");
 }

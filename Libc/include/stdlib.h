@@ -131,7 +131,7 @@ extern int __mb_cur_max;
 __BEGIN_DECLS
 void	 abort(void) __dead2;
 //Begin-Libc
-__private_extern__
+__attribute__((visibility("hidden")))
 void	 abort_report_np(const char *, ...) __dead2 __printflike(1, 2);
 //End-Libc
 int	 abs(int) __pure2;
@@ -185,7 +185,7 @@ unsigned long long
 //Begin-Libc
 #ifndef LIBC_ALIAS_SYSTEM
 //End-Libc
-int	 system(const char *) __DARWIN_ALIAS_C(system);
+int	 system(const char *) __DARWIN_ALIAS_C(system) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0,__MAC_NA,__IPHONE_2_0,__IPHONE_8_0, "Use posix_spawn APIs instead.");
 //Begin-Libc
 #else /* LIBC_ALIAS_SYSTEM */
 int	 system(const char *) LIBC_ALIAS_C(system);

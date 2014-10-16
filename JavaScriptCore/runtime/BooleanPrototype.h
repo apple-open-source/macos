@@ -29,29 +29,27 @@ class BooleanPrototype : public BooleanObject {
 public:
     typedef BooleanObject Base;
 
-    static BooleanPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+    static BooleanPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
-        BooleanPrototype* prototype = new (NotNull, allocateCell<BooleanPrototype>(*exec->heap())) BooleanPrototype(exec, structure);
-        prototype->finishCreation(exec, globalObject);
+        BooleanPrototype* prototype = new (NotNull, allocateCell<BooleanPrototype>(vm.heap)) BooleanPrototype(vm, structure);
+        prototype->finishCreation(vm, globalObject);
         return prototype;
     }
         
-    static const ClassInfo s_info;
+    DECLARE_INFO;
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 protected:
-    void finishCreation(ExecState*, JSGlobalObject*);
+    void finishCreation(VM&, JSGlobalObject*);
     static const unsigned StructureFlags = OverridesGetOwnPropertySlot | BooleanObject::StructureFlags;
 
 private:
-    BooleanPrototype(ExecState*, Structure*);
-    static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
-
-    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+    BooleanPrototype(VM&, Structure*);
+    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 };
 
 } // namespace JSC

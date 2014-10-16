@@ -1,0 +1,41 @@
+Metadata-Version: 1.1
+Name: pyobjc-framework-ScriptingBridge
+Version: 2.5.1
+Summary: Wrappers for the framework ScriptingBridge on Mac OS X
+Home-page: http://pyobjc.sourceforge.net
+Author: Ronald Oussoren
+Author-email: pyobjc-dev@lists.sourceforge.net
+License: MIT License
+Description: 
+        Wrappers for the "ScriptingBrige" framework on MacOSX 10.5 or later. This
+        framework provides an easy way to use the scripting functionality of
+        applications ("AppleScript") from Cocoa applications.
+        
+        The functionality of this framework is comparable to that off "appscript",
+        although the latter is better tuned for use in Python applications and is
+        available on MacOSX 10.4 as well.
+        
+        These wrappers don't include documentation, please check Apple's documention
+        for information on how to use this framework and PyObjC's documentation
+        for general tips and tricks regarding the translation between Python
+        and (Objective-)C frameworks
+        
+Platform: MacOS X (>=10.5)
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X :: Cocoa
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.1
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Objective C
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: User Interfaces

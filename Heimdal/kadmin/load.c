@@ -530,7 +530,7 @@ doit(const char *filename, int mergep, int new_realm_name)
 
 	if (new_realm_name) {
 	    /* fix salt */
-	    int i;
+	    unsigned i;
 	    Salt salt;
 	    krb5_salt salt2;
 	    memset(&salt, 0, sizeof(salt));

@@ -32,11 +32,6 @@
 
 #include "WebSocketServerConnection.h"
 #include <WebCore/SocketStreamHandle.h>
-#include <wtf/PassOwnPtr.h>
-
-#if PLATFORM(QT)
-#include "WebSocketServerQt.h"
-#endif
 
 using namespace WebCore;
 
@@ -82,20 +77,20 @@ void WebSocketServer::close()
     m_bindAddress = String();
 }
 
-void WebSocketServer::didAcceptConnection(PassOwnPtr<WebSocketServerConnection> connection)
+void WebSocketServer::didAcceptConnection(std::unique_ptr<WebSocketServerConnection> connection)
 {
-    m_connections.append(connection);
+    m_connections.append(WTF::move(connection));
 }
 
 void WebSocketServer::didCloseWebSocketServerConnection(WebSocketServerConnection* connection)
 {
-    Deque<OwnPtr<WebSocketServerConnection> >::iterator end = m_connections.end();
-    for (Deque<OwnPtr<WebSocketServerConnection> >::iterator it = m_connections.begin(); it != end; ++it) {
+    for (auto it = m_connections.begin(), end = m_connections.end(); it != end; ++it) {
         if (it->get() == connection) {
             m_connections.remove(it);
             return;
         }
     }
+
     ASSERT_NOT_REACHED();
 }
 

@@ -26,36 +26,40 @@
 #include "config.h"
 #include "LocalStorageDatabaseTracker.h"
 
+#include "LocalStorageDetails.h"
 #include "WorkQueue.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/SQLiteStatement.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/TextEncoding.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<LocalStorageDatabaseTracker> LocalStorageDatabaseTracker::create(PassRefPtr<WorkQueue> queue)
+PassRefPtr<LocalStorageDatabaseTracker> LocalStorageDatabaseTracker::create(PassRefPtr<WorkQueue> queue, const String& localStorageDirectory)
 {
-    return adoptRef(new LocalStorageDatabaseTracker(queue));
+    return adoptRef(new LocalStorageDatabaseTracker(queue, localStorageDirectory));
 }
 
-LocalStorageDatabaseTracker::LocalStorageDatabaseTracker(PassRefPtr<WorkQueue> queue)
+LocalStorageDatabaseTracker::LocalStorageDatabaseTracker(PassRefPtr<WorkQueue> queue, const String& localStorageDirectory)
     : m_queue(queue)
+    , m_localStorageDirectory(localStorageDirectory.isolatedCopy())
 {
+    ASSERT(!m_localStorageDirectory.isEmpty());
+
+    // Make sure the encoding is initialized before we start dispatching things to the queue.
+    UTF8Encoding();
+
+    RefPtr<LocalStorageDatabaseTracker> localStorageDatabaseTracker(this);
+    m_queue->dispatch([localStorageDatabaseTracker] {
+        localStorageDatabaseTracker->importOriginIdentifiers();
+    });
 }
 
 LocalStorageDatabaseTracker::~LocalStorageDatabaseTracker()
 {
-}
-
-void LocalStorageDatabaseTracker::setLocalStorageDirectory(const String& localStorageDirectory)
-{
-    // FIXME: We should come up with a better idiom for safely copying strings across threads.
-    RefPtr<StringImpl> copiedLocalStorageDirectory = localStorageDirectory.impl() ? localStorageDirectory.impl()->isolatedCopy() : nullptr;
-
-    m_queue->dispatch(bind(&LocalStorageDatabaseTracker::setLocalStorageDirectoryInternal, this, copiedLocalStorageDirectory.release()));
 }
 
 String LocalStorageDatabaseTracker::databasePath(SecurityOrigin* securityOrigin) const
@@ -126,27 +130,35 @@ Vector<RefPtr<WebCore::SecurityOrigin>> LocalStorageDatabaseTracker::origins() c
     Vector<RefPtr<SecurityOrigin>> origins;
     origins.reserveInitialCapacity(m_origins.size());
 
-    for (HashSet<String>::const_iterator it = m_origins.begin(), end = m_origins.end(); it != end; ++it)
-        origins.uncheckedAppend(SecurityOrigin::createFromDatabaseIdentifier(*it));
+    for (const String& origin : m_origins)
+        origins.uncheckedAppend(SecurityOrigin::createFromDatabaseIdentifier(origin));
 
     return origins;
 }
 
-void LocalStorageDatabaseTracker::setLocalStorageDirectoryInternal(StringImpl* localStorageDirectory)
+Vector<LocalStorageDetails> LocalStorageDatabaseTracker::details()
 {
-    if (m_database.isOpen())
-        m_database.close();
+    Vector<LocalStorageDetails> result;
+    result.reserveInitialCapacity(m_origins.size());
 
-    m_localStorageDirectory = localStorageDirectory;
-    m_origins.clear();
+    for (const String& origin : m_origins) {
+        String filePath = pathForDatabaseWithOriginIdentifier(origin);
+        time_t time;
 
-    m_queue->dispatch(bind(&LocalStorageDatabaseTracker::importOriginIdentifiers, this));
+        LocalStorageDetails details;
+        details.originIdentifier = origin.isolatedCopy();
+        details.creationTime = getFileCreationTime(filePath, time) ? time : 0;
+        details.modificationTime = getFileModificationTime(filePath, time) ? time : 0;
+        result.uncheckedAppend(details);
+    }
+
+    return result;
 }
 
 String LocalStorageDatabaseTracker::databasePath(const String& filename) const
 {
     if (!makeAllDirectories(m_localStorageDirectory)) {
-        LOG_ERROR("Unabled to create LocalStorage database path %s", m_localStorageDirectory.utf8().data());
+        LOG_ERROR("Unable to create LocalStorage database path %s", m_localStorageDirectory.utf8().data());
         return String();
     }
 

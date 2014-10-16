@@ -18,7 +18,7 @@
 #define SSL_PRIVATE_H
 
 /**
- * @file  ssl_private.h 
+ * @file  ssl_private.h
  * @brief Internal interfaces private to mod_ssl.
  *
  * @defgroup MOD_SSL_PRIVATE Private
@@ -39,57 +39,152 @@
 #include "util_script.h"
 #include "util_filter.h"
 #include "util_ebcdic.h"
-#include "mpm.h"
+#include "util_mutex.h"
 #include "apr.h"
 #include "apr_strings.h"
 #define APR_WANT_STRFUNC
+#define APR_WANT_MEMFUNC
 #include "apr_want.h"
 #include "apr_tables.h"
 #include "apr_lib.h"
 #include "apr_fnmatch.h"
 #include "apr_strings.h"
-#include "apr_dbm.h"
-#include "apr_rmm.h"
-#include "apr_shm.h"
 #include "apr_global_mutex.h"
 #include "apr_optional.h"
+#include "ap_socache.h"
+#include "mod_auth.h"
 
-#define MOD_SSL_VERSION AP_SERVER_BASEREVISION
-
-/** mod_ssl headers */
-#include "ssl_toolkit_compat.h"
-#include "ssl_expr.h"
-
-#ifdef SSL_OP_NO_TLSv1_2
-#define HAVE_TLSV1_X
-#endif
-
-#if !defined(OPENSSL_NO_COMP) && !defined(SSL_OP_NO_COMPRESSION) \
-    && OPENSSL_VERSION_NUMBER < 0x00908000L
-#define OPENSSL_NO_COMP
-#endif
-
-#include "ssl_util_ssl.h"
-
-/** The #ifdef macros are only defined AFTER including the above
+/* The #ifdef macros are only defined AFTER including the above
  * therefore we cannot include these system files at the top  :-(
  */
+#ifdef APR_HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
 #if APR_HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 #if APR_HAVE_UNISTD_H
-#include <unistd.h> /** needed for STDIN_FILENO et.al., at least on FreeBSD */
+#include <unistd.h> /* needed for STDIN_FILENO et.al., at least on FreeBSD */
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE !FALSE
+#endif
+
+#ifndef BOOL
+#define BOOL unsigned int
+#endif
+
+#include "ap_expr.h"
+
+/* OpenSSL headers */
+#include <openssl/opensslv.h>
+#if (OPENSSL_VERSION_NUMBER >= 0x10001000)
+/* must be defined before including ssl.h */
+#define OPENSSL_NO_SSL_INTERN
+#endif
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/x509v3.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/ocsp.h>
+
+/* Avoid tripping over an engine build installed globally and detected
+ * when the user points at an explicit non-engine flavor of OpenSSL
+ */
+#if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ENGINE_INIT)
+#include <openssl/engine.h>
+#endif
+
+#if (OPENSSL_VERSION_NUMBER < 0x0090801f)
+#error mod_ssl requires OpenSSL 0.9.8a or later
 #endif
 
 /**
+ * ...shifting sands of OpenSSL...
+ * Note: when adding support for new OpenSSL features, avoid explicit
+ * version number checks whenever possible, and use "feature-based"
+ * detection instead (check for definitions of constants or functions)
+ */
+#if (OPENSSL_VERSION_NUMBER >= 0x10000000)
+#define MODSSL_SSL_CIPHER_CONST const
+#define MODSSL_SSL_METHOD_CONST const
+#else
+#define MODSSL_SSL_CIPHER_CONST
+#define MODSSL_SSL_METHOD_CONST
+#endif
+
+#if defined(OPENSSL_FIPS)
+#define HAVE_FIPS
+#endif
+
+#if defined(SSL_OP_NO_TLSv1_2)
+#define HAVE_TLSV1_X
+#endif
+
+#if defined(SSL_CONF_FLAG_FILE)
+#define HAVE_SSL_CONF_CMD
+#endif
+
+/**
+  * The following features all depend on TLS extension support.
+  * Within this block, check again for features (not version numbers).
+  */
+#if !defined(OPENSSL_NO_TLSEXT) && defined(SSL_set_tlsext_host_name)
+
+#define HAVE_TLSEXT
+
+/* ECC: make sure we have at least 1.0.0 */
+#if !defined(OPENSSL_NO_EC) && defined(TLSEXT_ECPOINTFORMAT_uncompressed)
+#define HAVE_ECC
+#endif
+
+/* OCSP stapling */
+#if !defined(OPENSSL_NO_OCSP) && defined(SSL_CTX_set_tlsext_status_cb)
+#define HAVE_OCSP_STAPLING
+#ifndef sk_OPENSSL_STRING_pop
+#define sk_OPENSSL_STRING_pop sk_pop
+#endif
+#endif
+
+/* TLS session tickets */
+#if defined(SSL_CTX_set_tlsext_ticket_key_cb)
+#define HAVE_TLS_SESSION_TICKETS
+#define TLSEXT_TICKET_KEY_LEN 48
+#ifndef tlsext_tick_md
+#ifdef OPENSSL_NO_SHA256
+#define tlsext_tick_md EVP_sha1
+#else
+#define tlsext_tick_md EVP_sha256
+#endif
+#endif
+#endif
+
+/* Secure Remote Password */
+#if !defined(OPENSSL_NO_SRP) && defined(SSL_CTRL_SET_TLS_EXT_SRP_USERNAME_CB)
+#define HAVE_SRP
+#include <openssl/srp.h>
+#endif
+
+#endif /* !defined(OPENSSL_NO_TLSEXT) && defined(SSL_set_tlsext_host_name) */
+
+/* mod_ssl headers */
+#include "ssl_util_ssl.h"
+
+APLOG_USE_MODULE(ssl);
+
+/*
  * Provide reasonable default for some defines
  */
-#ifndef FALSE
-#define FALSE (0)
-#endif
-#ifndef TRUE
-#define TRUE (!FALSE)
-#endif
 #ifndef PFALSE
 #define PFALSE ((void *)FALSE)
 #endif
@@ -110,9 +205,6 @@
 /**
  * Provide reasonable defines for some types
  */
-#ifndef BOOL
-#define BOOL unsigned int
-#endif
 #ifndef UCHAR
 #define UCHAR unsigned char
 #endif
@@ -144,9 +236,6 @@ ap_set_module_config(c->conn_config, &ssl_module, val)
 #define mySrvConfigFromConn(c) mySrvConfig(mySrvFromConn(c))
 #define myModConfigFromConn(c) myModConfig(mySrvFromConn(c))
 
-#define myCtxVarSet(mc,num,val)  mc->rCtx.pV##num = val
-#define myCtxVarGet(mc,num,type) (type)(mc->rCtx.pV##num)
-
 /**
  * Defaults for the configuration
  */
@@ -159,68 +248,14 @@ ap_set_module_config(c->conn_config, &ssl_module, val)
 #define DEFAULT_RENEG_BUFFER_SIZE (128 * 1024)
 #endif
 
-/**
- * Support for MM library
- */
-#define SSL_MM_FILE_MODE ( APR_UREAD | APR_UWRITE | APR_GREAD | APR_WREAD )
-
-/**
- * Support for DBM library
- */
-#define SSL_DBM_FILE_MODE ( APR_UREAD | APR_UWRITE | APR_GREAD | APR_WREAD )
-
-#if !defined(SSL_DBM_FILE_SUFFIX_DIR) && !defined(SSL_DBM_FILE_SUFFIX_PAG)
-#if defined(DBM_SUFFIX)
-#define SSL_DBM_FILE_SUFFIX_DIR DBM_SUFFIX
-#define SSL_DBM_FILE_SUFFIX_PAG DBM_SUFFIX
-#elif defined(__FreeBSD__) || (defined(DB_LOCK) && defined(DB_SHMEM))
-#define SSL_DBM_FILE_SUFFIX_DIR ".db"
-#define SSL_DBM_FILE_SUFFIX_PAG ".db"
-#else
-#define SSL_DBM_FILE_SUFFIX_DIR ".dir"
-#define SSL_DBM_FILE_SUFFIX_PAG ".pag"
-#endif
+/* Default for OCSP response validity */
+#ifndef DEFAULT_OCSP_MAX_SKEW
+#define DEFAULT_OCSP_MAX_SKEW (60 * 5)
 #endif
 
-/**
- * Define the certificate algorithm types
- */
-
-typedef int ssl_algo_t;
-
-#define SSL_ALGO_UNKNOWN (0)
-#define SSL_ALGO_RSA     (1<<0)
-#define SSL_ALGO_DSA     (1<<1)
-#ifndef OPENSSL_NO_EC
-#define SSL_ALGO_ECC     (1<<2)
-#define SSL_ALGO_ALL     (SSL_ALGO_RSA|SSL_ALGO_DSA|SSL_ALGO_ECC)
-#else
-#define SSL_ALGO_ALL     (SSL_ALGO_RSA|SSL_ALGO_DSA)
-#endif
-
-#define SSL_AIDX_RSA     (0)
-#define SSL_AIDX_DSA     (1)
-#ifndef OPENSSL_NO_EC
-#define SSL_AIDX_ECC     (2)
-#define SSL_AIDX_MAX     (3)
-#else
-#define SSL_AIDX_MAX     (2)
-#endif
-
-
-/**
- * Define IDs for the temporary RSA keys and DH params
- */
-
-#define SSL_TMP_KEY_RSA_512  (0)
-#define SSL_TMP_KEY_RSA_1024 (1)
-#define SSL_TMP_KEY_DH_512   (2)
-#define SSL_TMP_KEY_DH_1024  (3)
-#ifndef OPENSSL_NO_EC
-#define SSL_TMP_KEY_EC_256   (4)
-#define SSL_TMP_KEY_MAX      (5)
-#else
-#define SSL_TMP_KEY_MAX      (4)
+/* Default timeout for OCSP queries */
+#ifndef DEFAULT_OCSP_TIMEOUT
+#define DEFAULT_OCSP_TIMEOUT 10
 #endif
 
 /**
@@ -233,29 +268,23 @@ typedef int ssl_algo_t;
 #define SSL_OPT_FAKEBASICAUTH  (1<<4)
 #define SSL_OPT_STRICTREQUIRE  (1<<5)
 #define SSL_OPT_OPTRENEGOTIATE (1<<6)
-#define SSL_OPT_ALL            (SSL_OPT_STDENVVARS|SSL_OPT_EXPORTCERTDATA|SSL_OPT_FAKEBASICAUTH|SSL_OPT_STRICTREQUIRE|SSL_OPT_OPTRENEGOTIATE)
+#define SSL_OPT_LEGACYDNFORMAT (1<<7)
 typedef int ssl_opt_t;
 
 /**
  * Define the SSL Protocol options
  */
 #define SSL_PROTOCOL_NONE  (0)
-#ifndef OPENSSL_NO_SSL2
 #define SSL_PROTOCOL_SSLV2 (1<<0)
-#endif
 #define SSL_PROTOCOL_SSLV3 (1<<1)
 #define SSL_PROTOCOL_TLSV1 (1<<2)
-#ifdef OPENSSL_NO_SSL2
-#define SSL_MOST_ALL SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1
-#else
-#define SSL_MOST_ALL SSL_PROTOCOL_SSLV2|SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1
-#endif
 #ifdef HAVE_TLSV1_X
 #define SSL_PROTOCOL_TLSV1_1 (1<<3)
 #define SSL_PROTOCOL_TLSV1_2 (1<<4)
-#define SSL_PROTOCOL_ALL (SSL_MOST_ALL|SSL_PROTOCOL_TLSV1_1|SSL_PROTOCOL_TLSV1_2)
+#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1| \
+                            SSL_PROTOCOL_TLSV1_1|SSL_PROTOCOL_TLSV1_2)
 #else
-#define SSL_PROTOCOL_ALL (SSL_MOST_ALL)
+#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1)
 #endif
 typedef int ssl_proto_t;
 
@@ -273,16 +302,22 @@ typedef enum {
 #define SSL_VERIFY_PEER_STRICT \
      (SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
 
-#ifndef X509_V_ERR_CERT_UNTRUSTED
-#define X509_V_ERR_CERT_UNTRUSTED 27
-#endif
-
 #define ssl_verify_error_is_optional(errnum) \
    ((errnum == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT) \
     || (errnum == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN) \
     || (errnum == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY) \
     || (errnum == X509_V_ERR_CERT_UNTRUSTED) \
     || (errnum == X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE))
+
+/**
+  * CRL checking modes
+  */
+typedef enum {
+    SSL_CRLCHECK_UNSET = UNSET,
+    SSL_CRLCHECK_NONE  = 0,
+    SSL_CRLCHECK_LEAF  = 1,
+    SSL_CRLCHECK_CHAIN = 2
+} ssl_crlcheck_t;
 
 /**
  * Define the SSL pass phrase dialog types
@@ -304,27 +339,6 @@ typedef enum {
 typedef unsigned int ssl_pathcheck_t;
 
 /**
- * Define the SSL session cache modes and structures
- */
-typedef enum {
-    SSL_SCMODE_UNSET = UNSET,
-    SSL_SCMODE_NONE  = 0,
-    SSL_SCMODE_DBM   = 1,
-    SSL_SCMODE_SHMCB = 3,
-    SSL_SCMODE_DC    = 4,
-    SSL_SCMODE_NONE_NOT_NULL = 5
-} ssl_scmode_t;
-
-/**
- * Define the SSL mutex modes
- */
-typedef enum {
-    SSL_MUTEXMODE_UNSET  = UNSET,
-    SSL_MUTEXMODE_NONE   = 0,
-    SSL_MUTEXMODE_USED   = 1
-} ssl_mutexmode_t;
-
-/**
  * Define the SSL enabled state
  */
 typedef enum {
@@ -338,8 +352,8 @@ typedef enum {
  * Define the SSL requirement structure
  */
 typedef struct {
-    char     *cpExpr;
-    ssl_expr *mpExpr;
+    char           *cpExpr;
+    ap_expr_info_t *mpExpr;
 } ssl_require_t;
 
 /**
@@ -402,7 +416,7 @@ typedef struct {
     /* Track the handshake/renegotiation state for the connection so
      * that all client-initiated renegotiations can be rejected, as a
      * partial fix for CVE-2009-3555. */
-    enum { 
+    enum {
         RENEG_INIT = 0, /* Before initial handshake */
         RENEG_REJECT, /* After initial handshake; any client-initiated
                        * renegotiation should be rejected */
@@ -411,47 +425,78 @@ typedef struct {
         RENEG_ABORT /* Renegotiation initiated by client, abort the
                      * connection */
     } reneg_state;
-    
+
     server_rec *server;
 } SSLConnRec;
 
+/* BIG FAT WARNING: SSLModConfigRec has unusual memory lifetime: it is
+ * allocated out of the "process" pool and only a single such
+ * structure is created and used for the lifetime of the process.
+ * (The process pool is s->process->pool and is stored in the .pPool
+ * field.)  Most members of this structure are likewise allocated out
+ * of the process pool, but notably sesscache and sesscache_context
+ * are not.
+ *
+ * The structure is treated as mostly immutable after a single config
+ * parse has completed; the post_config hook (ssl_init_Module) flips
+ * the bFixed flag to true and subsequent invocations of the config
+ * callbacks hence do nothing.
+ *
+ * This odd lifetime strategy is used so that encrypted private keys
+ * can be decrypted once at startup and continue to be used across
+ * subsequent server reloads where the interactive password prompt is
+ * not possible.
+
+ * It is really an ABI nightmare waiting to happen since DSOs are
+ * reloaded across restarts, and nothing prevents the struct type
+ * changing across such reloads, yet the cached structure will be
+ * assumed to match regardless.
+ *
+ * This should really be fixed using a smaller structure which only
+ * stores that which is absolutely necessary (the private keys, maybe
+ * the random seed), and have that structure be strictly ABI-versioned
+ * for safety.
+ */
 typedef struct {
     pid_t           pid;
     apr_pool_t     *pPool;
     BOOL            bFixed;
-    int             nSessionCacheMode;
-    char           *szSessionCacheDataFile;
-    int             nSessionCacheDataSize;
-    apr_shm_t      *pSessionCacheDataMM;
-    apr_rmm_t      *pSessionCacheDataRMM;
-    void           *tSessionCacheDataTable;
-    ssl_mutexmode_t nMutexMode;
-    apr_lockmech_e  nMutexMech;
-    const char     *szMutexFile;
+
+    /* OpenSSL SSL_SESS_CACHE_* flags: */
+    long            sesscache_mode;
+
+    /* The configured provider, and associated private data
+     * structure. */
+    const ap_socache_provider_t *sesscache;
+    ap_socache_instance_t *sesscache_context;
+
     apr_global_mutex_t   *pMutex;
     apr_array_header_t   *aRandSeed;
     apr_hash_t     *tVHostKeys;
-    void           *pTmpKeys[SSL_TMP_KEY_MAX];
-    apr_hash_t     *tPublicCert;
+
+    /* A hash table of pointers to ssl_asn1_t structures.  The structures
+     * are used to store private keys in raw DER format (serialized OpenSSL
+     * PrivateKey structures).  The table is indexed by (vhost-id,
+     * index), for example the string "vhost.example.com:443:0". */
     apr_hash_t     *tPrivateKey;
+
 #if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ENGINE_INIT)
     const char     *szCryptoDevice;
 #endif
-    struct {
-        void *pV1, *pV2, *pV3, *pV4, *pV5, *pV6, *pV7, *pV8, *pV9, *pV10;
-    } rCtx;
+
+#ifdef HAVE_OCSP_STAPLING
+    const ap_socache_provider_t *stapling_cache;
+    ap_socache_instance_t *stapling_cache_context;
+    apr_global_mutex_t   *stapling_mutex;
+#endif
 } SSLModConfigRec;
 
-/** public cert/private key */
+/** Structure representing configured filenames for certs and keys for
+ * a given vhost */
 typedef struct {
-    /** 
-     * server only has 1-2 certs/keys
-     * 1 RSA and/or 1 DSA
-     */
-    const char  *cert_files[SSL_AIDX_MAX];
-    const char  *key_files[SSL_AIDX_MAX];
-    X509        *certs[SSL_AIDX_MAX];
-    EVP_PKEY    *keys[SSL_AIDX_MAX];
+    /* Lists of configured certs and keys for this server */
+    apr_array_header_t *cert_files;
+    apr_array_header_t *key_files;
 
     /** Certificates which specify the set of CA names which should be
      * sent in the CertificateRequest message: */
@@ -483,6 +528,22 @@ typedef struct {
     ssl_verify_t verify_mode;
 } modssl_auth_ctx_t;
 
+#ifdef HAVE_TLS_SESSION_TICKETS
+typedef struct {
+    const char *file_path;
+    unsigned char key_name[16];
+    unsigned char hmac_secret[16];
+    unsigned char aes_key[16];
+} modssl_ticket_key_t;
+#endif
+
+#ifdef HAVE_SSL_CONF_CMD
+typedef struct {
+    const char *name;
+    const char *value;
+} ssl_ctx_param_t;
+#endif
+
 typedef struct SSLSrvConfigRec SSLSrvConfigRec;
 
 typedef struct {
@@ -493,6 +554,10 @@ typedef struct {
     modssl_pk_server_t *pks;
     modssl_pk_proxy_t  *pkp;
 
+#ifdef HAVE_TLS_SESSION_TICKETS
+    modssl_ticket_key_t *ticket_key;
+#endif
+
     ssl_proto_t  protocol;
 
     /** config for handling encrypted keys */
@@ -502,11 +567,42 @@ typedef struct {
     const char  *cert_chain;
 
     /** certificate revocation list */
-    const char  *crl_path;
-    const char  *crl_file;
-    X509_STORE  *crl;
+    const char    *crl_path;
+    const char    *crl_file;
+    ssl_crlcheck_t crl_check_mode;
+
+#ifdef HAVE_OCSP_STAPLING
+    /** OCSP stapling options */
+    BOOL        stapling_enabled;
+    long        stapling_resptime_skew;
+    long        stapling_resp_maxage;
+    int         stapling_cache_timeout;
+    BOOL        stapling_return_errors;
+    BOOL        stapling_fake_trylater;
+    int         stapling_errcache_timeout;
+    apr_interval_time_t stapling_responder_timeout;
+    const char *stapling_force_url;
+#endif
+
+#ifdef HAVE_SRP
+    char *srp_vfile;
+    char *srp_unknown_user_seed;
+    SRP_VBASE  *srp_vbase;
+#endif
 
     modssl_auth_ctx_t auth;
+
+    BOOL ocsp_enabled; /* true if OCSP verification enabled */
+    BOOL ocsp_force_default; /* true if the default responder URL is
+                              * used regardless of per-cert URL */
+    const char *ocsp_responder; /* default responder URL */
+    long ocsp_resptime_skew;
+    long ocsp_resp_maxage;
+    apr_interval_time_t ocsp_responder_timeout;
+#ifdef HAVE_SSL_CONF_CMD
+    SSL_CONF_CTX *ssl_ctx_config; /* Configuration context */
+    apr_array_header_t *ssl_ctx_param; /* parameters to pass to SSL_CTX */
+#endif
 } modssl_ctx_t;
 
 struct SSLSrvConfigRec {
@@ -522,21 +618,22 @@ struct SSLSrvConfigRec {
     modssl_ctx_t    *proxy;
     ssl_enabled_t    proxy_ssl_check_peer_expire;
     ssl_enabled_t    proxy_ssl_check_peer_cn;
-#ifndef OPENSSL_NO_TLSEXT
+    ssl_enabled_t    proxy_ssl_check_peer_name;
+#ifdef HAVE_TLSEXT
     ssl_enabled_t    strict_sni_vhost_check;
 #endif
 #ifdef HAVE_FIPS
     BOOL             fips;
 #endif
+    BOOL             allow_empty_fragments;
 #ifndef OPENSSL_NO_COMP
     BOOL             compression;
 #endif
-    BOOL             allow_empty_fragments;
 };
 
 /**
  * Define the mod_ssl per-directory configuration structure
- * (i.e. the local configuration for all <Directory>
+ * (i.e. the local configuration for all &lt;Directory>
  *  and .htaccess contexts)
  */
 typedef struct {
@@ -561,9 +658,6 @@ typedef struct {
 /**  API glue structures  */
 extern module AP_MODULE_DECLARE_DATA ssl_module;
 
-/** "global" stuff */
-extern const char ssl_valid_ssl_mutex_string[];
-
 /**  configuration handling   */
 SSLModConfigRec *ssl_config_global_create(server_rec *);
 void         ssl_config_global_fix(SSLModConfigRec *);
@@ -572,7 +666,6 @@ void        *ssl_config_server_create(apr_pool_t *, server_rec *);
 void        *ssl_config_server_merge(apr_pool_t *, void *, void *);
 void        *ssl_config_perdir_create(apr_pool_t *, char *);
 void        *ssl_config_perdir_merge(apr_pool_t *, void *, void *);
-const char  *ssl_cmd_SSLMutex(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLPassPhraseDialog(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCryptoDevice(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLRandomSeed(cmd_parms *, void *, const char *, const char *, const char *);
@@ -587,6 +680,7 @@ const char  *ssl_cmd_SSLCADNRequestPath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCADNRequestFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCARevocationPath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLCARevocationFile(cmd_parms *, void *, const char *);
+const char  *ssl_cmd_SSLCARevocationCheck(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLHonorCipherOrder(cmd_parms *cmd, void *dcfg, int flag);
 const char  *ssl_cmd_SSLCompression(cmd_parms *, void *, int flag);
 const char  *ssl_cmd_SSLVerifyClient(cmd_parms *, void *, const char *);
@@ -611,21 +705,43 @@ const char  *ssl_cmd_SSLProxyCACertificatePath(cmd_parms *, void *, const char *
 const char  *ssl_cmd_SSLProxyCACertificateFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyCARevocationPath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyCARevocationFile(cmd_parms *, void *, const char *);
+const char  *ssl_cmd_SSLProxyCARevocationCheck(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyMachineCertificatePath(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyMachineCertificateFile(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLProxyMachineCertificateChainFile(cmd_parms *, void *, const char *);
+#ifdef HAVE_TLS_SESSION_TICKETS
+const char *ssl_cmd_SSLSessionTicketKeyFile(cmd_parms *cmd, void *dcfg, const char *arg);
+#endif
 const char  *ssl_cmd_SSLProxyCheckPeerExpire(cmd_parms *cmd, void *dcfg, int flag);
 const char  *ssl_cmd_SSLProxyCheckPeerCN(cmd_parms *cmd, void *dcfg, int flag);
+const char  *ssl_cmd_SSLProxyCheckPeerName(cmd_parms *cmd, void *dcfg, int flag);
+
+const char *ssl_cmd_SSLOCSPOverrideResponder(cmd_parms *cmd, void *dcfg, int flag);
+const char *ssl_cmd_SSLOCSPDefaultResponder(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLOCSPResponseTimeSkew(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLOCSPResponseMaxAge(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLOCSPResponderTimeout(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag);
+
+#ifdef HAVE_SSL_CONF_CMD
+const char *ssl_cmd_SSLOpenSSLConfCmd(cmd_parms *cmd, void *dcfg, const char *arg1, const char *arg2);
+#endif
+
+#ifdef HAVE_SRP
+const char *ssl_cmd_SSLSRPVerifierFile(cmd_parms *cmd, void *dcfg, const char *arg);
+const char *ssl_cmd_SSLSRPUnknownUserSeed(cmd_parms *cmd, void *dcfg, const char *arg);
+#endif
 
 const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag);
 const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag);
 
 /**  module initialization  */
-int          ssl_init_Module(apr_pool_t *, apr_pool_t *, apr_pool_t *, server_rec *);
-void         ssl_init_Engine(server_rec *, apr_pool_t *);
-void         ssl_init_ConfigureServer(server_rec *, apr_pool_t *, apr_pool_t *, SSLSrvConfigRec *);
-void         ssl_init_CheckServers(server_rec *, apr_pool_t *);
-STACK_OF(X509_NAME) 
+apr_status_t ssl_init_Module(apr_pool_t *, apr_pool_t *, apr_pool_t *, server_rec *);
+apr_status_t ssl_init_Engine(server_rec *, apr_pool_t *);
+apr_status_t ssl_init_ConfigureServer(server_rec *, apr_pool_t *, apr_pool_t *, SSLSrvConfigRec *,
+                                      apr_array_header_t *);
+apr_status_t ssl_init_CheckServers(server_rec *, apr_pool_t *);
+STACK_OF(X509_NAME)
             *ssl_init_FindCAList(server_rec *, apr_pool_t *, const char *, const char *);
 void         ssl_init_Child(apr_pool_t *, server_rec *);
 apr_status_t ssl_init_ModuleKill(void *data);
@@ -639,67 +755,71 @@ int          ssl_hook_ReadReq(request_rec *);
 int          ssl_hook_Upgrade(request_rec *);
 void         ssl_hook_ConfigTest(apr_pool_t *pconf, server_rec *s);
 
+/** Apache authz provisders */
+extern const authz_provider ssl_authz_provider_require_ssl;
+extern const authz_provider ssl_authz_provider_verify_client;
+
 /**  OpenSSL callbacks */
-RSA         *ssl_callback_TmpRSA(SSL *, int, int);
 DH          *ssl_callback_TmpDH(SSL *, int, int);
-#ifndef OPENSSL_NO_EC
-EC_KEY      *ssl_callback_TmpECDH(SSL *, int, int);
-#endif
 int          ssl_callback_SSLVerify(int, X509_STORE_CTX *);
 int          ssl_callback_SSLVerify_CRL(int, X509_STORE_CTX *, conn_rec *);
-int          ssl_callback_proxy_cert(SSL *ssl, MODSSL_CLIENT_CERT_CB_ARG_TYPE **x509, EVP_PKEY **pkey);
+int          ssl_callback_proxy_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey);
 int          ssl_callback_NewSessionCacheEntry(SSL *, SSL_SESSION *);
 SSL_SESSION *ssl_callback_GetSessionCacheEntry(SSL *, unsigned char *, int, int *);
 void         ssl_callback_DelSessionCacheEntry(SSL_CTX *, SSL_SESSION *);
-void         ssl_callback_Info(MODSSL_INFO_CB_ARG_TYPE, int, int);
-#ifndef OPENSSL_NO_TLSEXT
+void         ssl_callback_Info(const SSL *, int, int);
+#ifdef HAVE_TLSEXT
 int          ssl_callback_ServerNameIndication(SSL *, int *, modssl_ctx_t *);
+#endif
+#ifdef HAVE_TLS_SESSION_TICKETS
+int         ssl_callback_SessionTicket(SSL *, unsigned char *, unsigned char *,
+                                       EVP_CIPHER_CTX *, HMAC_CTX *, int);
 #endif
 
 /**  Session Cache Support  */
-void         ssl_scache_init(server_rec *, apr_pool_t *);
+apr_status_t ssl_scache_init(server_rec *, apr_pool_t *);
 void         ssl_scache_status_register(apr_pool_t *p);
 void         ssl_scache_kill(server_rec *);
-BOOL         ssl_scache_store(server_rec *, UCHAR *, int, time_t, SSL_SESSION *);
-SSL_SESSION *ssl_scache_retrieve(server_rec *, UCHAR *, int);
-void         ssl_scache_remove(server_rec *, UCHAR *, int);
-
-char        *ssl_scache_id2sz(UCHAR *, int);
-void         ssl_scache_dbm_init(server_rec *, apr_pool_t *);
-void         ssl_scache_dbm_kill(server_rec *);
-BOOL         ssl_scache_dbm_store(server_rec *, UCHAR *, int, time_t, SSL_SESSION *);
-SSL_SESSION *ssl_scache_dbm_retrieve(server_rec *, UCHAR *, int);
-void         ssl_scache_dbm_remove(server_rec *, UCHAR *, int);
-void         ssl_scache_dbm_status(request_rec *r, int flags, apr_pool_t *pool);
-
-void         ssl_scache_shmcb_init(server_rec *, apr_pool_t *);
-void         ssl_scache_shmcb_kill(server_rec *);
-BOOL         ssl_scache_shmcb_store(server_rec *, UCHAR *, int, time_t, SSL_SESSION *);
-SSL_SESSION *ssl_scache_shmcb_retrieve(server_rec *, UCHAR *, int);
-void         ssl_scache_shmcb_remove(server_rec *, UCHAR *, int);
-void         ssl_scache_shmcb_status(request_rec *r, int flags, apr_pool_t *pool);
-
-void         ssl_scache_dc_init(server_rec *, apr_pool_t *);
-void         ssl_scache_dc_kill(server_rec *);
-BOOL         ssl_scache_dc_store(server_rec *, UCHAR *, int, time_t, SSL_SESSION *);
-SSL_SESSION *ssl_scache_dc_retrieve(server_rec *, UCHAR *, int);
-void         ssl_scache_dc_remove(server_rec *, UCHAR *, int);
-void         ssl_scache_dc_status(request_rec *r, int flags, apr_pool_t *pool);
+BOOL         ssl_scache_store(server_rec *, UCHAR *, int,
+                              apr_time_t, SSL_SESSION *, apr_pool_t *);
+SSL_SESSION *ssl_scache_retrieve(server_rec *, UCHAR *, int, apr_pool_t *);
+void         ssl_scache_remove(server_rec *, UCHAR *, int,
+                               apr_pool_t *);
 
 /** Proxy Support */
 int ssl_proxy_enable(conn_rec *c);
 int ssl_engine_disable(conn_rec *c);
 
+/** OCSP Stapling Support */
+#ifdef HAVE_OCSP_STAPLING
+const char *ssl_cmd_SSLStaplingCache(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLUseStapling(cmd_parms *, void *, int);
+const char *ssl_cmd_SSLStaplingResponseTimeSkew(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLStaplingResponseMaxAge(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLStaplingStandardCacheTimeout(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLStaplingErrorCacheTimeout(cmd_parms *, void *, const char *);
+const char *ssl_cmd_SSLStaplingReturnResponderErrors(cmd_parms *, void *, int);
+const char *ssl_cmd_SSLStaplingFakeTryLater(cmd_parms *, void *, int);
+const char *ssl_cmd_SSLStaplingResponderTimeout(cmd_parms *, void *, const char *);
+const char  *ssl_cmd_SSLStaplingForceURL(cmd_parms *, void *, const char *);
+apr_status_t modssl_init_stapling(server_rec *, apr_pool_t *, apr_pool_t *, modssl_ctx_t *);
+void         ssl_stapling_ex_init(void);
+int          ssl_stapling_init_cert(server_rec *s, modssl_ctx_t *mctx, X509 *x);
+#endif
+#ifdef HAVE_SRP
+int          ssl_callback_SRPServerParams(SSL *, int *, void *);
+#endif
+
 /**  I/O  */
-void         ssl_io_filter_init(conn_rec *, SSL *);
+void         ssl_io_filter_init(conn_rec *, request_rec *r, SSL *);
 void         ssl_io_filter_register(apr_pool_t *);
-long         ssl_io_data_cb(BIO *, int, MODSSL_BIO_CB_ARG_TYPE *, int, long, long);
+long         ssl_io_data_cb(BIO *, int, const char *, int, long, long);
 
 /* ssl_io_buffer_fill fills the setaside buffering of the HTTP request
  * to allow an SSL renegotiation to take place. */
 int          ssl_io_buffer_fill(request_rec *r, apr_size_t maxlen);
 
-/*  PRNG  */
+/**  PRNG  */
 int          ssl_rand_seed(server_rec *, apr_pool_t *, ssl_rsctx_t, char *);
 
 /**  Utility Functions  */
@@ -710,17 +830,18 @@ void         ssl_util_ppclose(server_rec *, apr_pool_t *, apr_file_t *);
 char        *ssl_util_readfilter(server_rec *, apr_pool_t *, const char *,
                                  const char * const *);
 BOOL         ssl_util_path_check(ssl_pathcheck_t, const char *, apr_pool_t *);
-ssl_algo_t   ssl_util_algotypeof(X509 *, EVP_PKEY *); 
-char        *ssl_util_algotypestr(ssl_algo_t);
 void         ssl_util_thread_setup(apr_pool_t *);
-int          ssl_init_ssl_connection(conn_rec *c);
+int          ssl_init_ssl_connection(conn_rec *c, request_rec *r);
 
 /**  Pass Phrase Support  */
-void         ssl_pphrase_Handle(server_rec *, apr_pool_t *);
+apr_status_t ssl_load_encrypted_pkey(server_rec *, apr_pool_t *, int,
+                                     const char *, apr_array_header_t **);
 
 /**  Diffie-Hellman Parameter Support  */
-DH           *ssl_dh_GetTmpParam(int);
-DH           *ssl_dh_GetParamFromFile(char *);
+DH           *ssl_dh_GetParamFromFile(const char *);
+#ifdef HAVE_ECC
+EC_GROUP     *ssl_ec_GetParamFromFile(const char *);
+#endif
 
 unsigned char *ssl_asn1_table_set(apr_hash_t *table,
                                   const char *key,
@@ -732,29 +853,51 @@ ssl_asn1_t *ssl_asn1_table_get(apr_hash_t *table,
 void ssl_asn1_table_unset(apr_hash_t *table,
                           const char *key);
 
-const char *ssl_asn1_keystr(int keytype);
-
-const char *ssl_asn1_table_keyfmt(apr_pool_t *p,
-                                  const char *id,
-                                  int keytype);
 /**  Mutex Support  */
 int          ssl_mutex_init(server_rec *, apr_pool_t *);
 int          ssl_mutex_reinit(server_rec *, apr_pool_t *);
 int          ssl_mutex_on(server_rec *);
 int          ssl_mutex_off(server_rec *);
 
+int          ssl_stapling_mutex_reinit(server_rec *, apr_pool_t *);
+
+/* mutex type names for Mutex directive */
+#define SSL_CACHE_MUTEX_TYPE    "ssl-cache"
+#define SSL_STAPLING_MUTEX_TYPE "ssl-stapling"
+
+apr_status_t ssl_die(server_rec *);
+
 /**  Logfile Support  */
-void         ssl_die(void);
 void         ssl_log_ssl_error(const char *, int, int, server_rec *);
+
+/* ssl_log_xerror, ssl_log_cxerror and ssl_log_rxerror are wrappers for the
+ * respective ap_log_*error functions and take a certificate as an
+ * additional argument (whose details are appended to the log message).
+ * The other arguments are interpreted exactly as with their ap_log_*error
+ * counterparts. */
+void ssl_log_xerror(const char *file, int line, int level,
+                    apr_status_t rv, apr_pool_t *p, server_rec *s,
+                    X509 *cert, const char *format, ...)
+    __attribute__((format(printf,8,9)));
+
+void ssl_log_cxerror(const char *file, int line, int level,
+                     apr_status_t rv, conn_rec *c, X509 *cert,
+                     const char *format, ...)
+    __attribute__((format(printf,7,8)));
+
+void ssl_log_rxerror(const char *file, int line, int level,
+                     apr_status_t rv, request_rec *r, X509 *cert,
+                     const char *format, ...)
+    __attribute__((format(printf,7,8)));
+
+#define SSLLOG_MARK              __FILE__,__LINE__
 
 /**  Variables  */
 
 /* Register variables for the lifetime of the process pool 'p'. */
 void         ssl_var_register(apr_pool_t *p);
 char        *ssl_var_lookup(apr_pool_t *, server_rec *, conn_rec *, request_rec *, char *);
-const char  *ssl_ext_lookup(apr_pool_t *p, conn_rec *c, int peer, const char *oid);
-
-extern apr_array_header_t *ssl_extlist_by_oid(request_rec *r, const char *oidstr);
+apr_array_header_t *ssl_ext_list(apr_pool_t *p, conn_rec *c, int peer, const char *extension);
 
 void         ssl_var_log_config_register(apr_pool_t *p);
 
@@ -762,7 +905,22 @@ void         ssl_var_log_config_register(apr_pool_t *p);
  * allocating from 'p': */
 void modssl_var_extract_dns(apr_table_t *t, SSL *ssl, apr_pool_t *p);
 
-#define APR_SHM_MAXSIZE (64 * 1024 * 1024)
+#ifndef OPENSSL_NO_OCSP
+/* Perform OCSP validation of the current cert in the given context.
+ * Returns non-zero on success or zero on failure.  On failure, the
+ * context error code is set. */
+int modssl_verify_ocsp(X509_STORE_CTX *ctx, SSLSrvConfigRec *sc,
+                       server_rec *s, conn_rec *c, apr_pool_t *pool);
+
+/* OCSP helper interface; dispatches the given OCSP request to the
+ * responder at the given URI.  Returns the decoded OCSP response
+ * object, or NULL on error (in which case, errors will have been
+ * logged).  Pool 'p' is used for temporary allocations. */
+OCSP_RESPONSE *modssl_dispatch_ocsp_request(const apr_uri_t *uri,
+                                            apr_interval_time_t timeout,
+                                            OCSP_REQUEST *request,
+                                            conn_rec *c, apr_pool_t *p);
+#endif
 
 #endif /* SSL_PRIVATE_H */
 /** @} */

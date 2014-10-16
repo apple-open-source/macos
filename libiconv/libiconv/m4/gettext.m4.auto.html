@@ -1,0 +1,658 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>gettext.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">gettext.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># gettext.m4 serial 52 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 1995-2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span><span class="enscript-comment">dnl
+</span><span class="enscript-comment">dnl This file can can be used in projects which are not available under
+</span><span class="enscript-comment">dnl the GNU General Public License or the GNU Library General Public
+</span><span class="enscript-comment">dnl License but which still want to provide support for the GNU gettext
+</span><span class="enscript-comment">dnl functionality.
+</span><span class="enscript-comment">dnl Please note that the actual code of the GNU gettext library is covered
+</span><span class="enscript-comment">dnl by the GNU Library General Public License, and the rest of the GNU
+</span><span class="enscript-comment">dnl gettext package package is covered by the GNU General Public License.
+</span><span class="enscript-comment">dnl They are *not* in the public domain.
+</span>
+<span class="enscript-comment">dnl Authors:
+</span><span class="enscript-comment">dnl   Ulrich Drepper &lt;<a href="mailto:drepper@cygnus.com">drepper@cygnus.com</a>&gt;, 1995-2000.
+</span><span class="enscript-comment">dnl   Bruno Haible &lt;<a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a>&gt;, 2000-2005.
+</span>
+<span class="enscript-comment">dnl Macro to add for using GNU gettext.
+</span>
+<span class="enscript-comment">dnl Usage: AM_GNU_GETTEXT([INTLSYMBOL], [NEEDSYMBOL], [INTLDIR]).
+</span><span class="enscript-comment">dnl INTLSYMBOL can be one of 'external', 'no-libtool', 'use-libtool'. The
+</span><span class="enscript-comment">dnl    default (if it is not specified or empty) is 'no-libtool'.
+</span><span class="enscript-comment">dnl    INTLSYMBOL should be 'external' for packages with no intl directory,
+</span><span class="enscript-comment">dnl    and 'no-libtool' or 'use-libtool' for packages with an intl directory.
+</span><span class="enscript-comment">dnl    If INTLSYMBOL is 'use-libtool', then a libtool library
+</span><span class="enscript-comment">dnl    $(top_builddir)/intl/libintl.la will be created (shared and/or static,
+</span><span class="enscript-comment">dnl    depending on --{enable,disable}-{shared,static} and on the presence of
+</span><span class="enscript-comment">dnl    AM-DISABLE-SHARED). If INTLSYMBOL is 'no-libtool', a static library
+</span><span class="enscript-comment">dnl    $(top_builddir)/intl/libintl.a will be created.
+</span><span class="enscript-comment">dnl If NEEDSYMBOL is specified and is 'need-ngettext', then GNU gettext
+</span><span class="enscript-comment">dnl    implementations (in libc or libintl) without the ngettext() function
+</span><span class="enscript-comment">dnl    will be ignored.  If NEEDSYMBOL is specified and is
+</span><span class="enscript-comment">dnl    'need-formatstring-macros', then GNU gettext implementations that don't
+</span><span class="enscript-comment">dnl    support the ISO C 99 &lt;inttypes.h&gt; formatstring macros will be ignored.
+</span><span class="enscript-comment">dnl INTLDIR is used to find the intl libraries.  If empty,
+</span><span class="enscript-comment">dnl    the value `$(top_builddir)/intl/' is used.
+</span><span class="enscript-comment">dnl
+</span><span class="enscript-comment">dnl The result of the configuration is one of three cases:
+</span><span class="enscript-comment">dnl 1) GNU gettext, as included in the intl subdirectory, will be compiled
+</span><span class="enscript-comment">dnl    and used.
+</span><span class="enscript-comment">dnl    Catalog format: GNU --&gt; install in $(datadir)
+</span><span class="enscript-comment">dnl    Catalog extension: .mo after installation, .gmo in source tree
+</span><span class="enscript-comment">dnl 2) GNU gettext has been found in the system's C library.
+</span><span class="enscript-comment">dnl    Catalog format: GNU --&gt; install in $(datadir)
+</span><span class="enscript-comment">dnl    Catalog extension: .mo after installation, .gmo in source tree
+</span><span class="enscript-comment">dnl 3) No internationalization, always use English msgid.
+</span><span class="enscript-comment">dnl    Catalog format: none
+</span><span class="enscript-comment">dnl    Catalog extension: none
+</span><span class="enscript-comment">dnl If INTLSYMBOL is 'external', only cases 2 and 3 can occur.
+</span><span class="enscript-comment">dnl The use of .gmo is historical (it was needed to avoid overwriting the
+</span><span class="enscript-comment">dnl GNU format catalogs when building on a platform with an X/Open gettext),
+</span><span class="enscript-comment">dnl but we keep it in order not to force irrelevant filename changes on the
+</span><span class="enscript-comment">dnl maintainers.
+</span><span class="enscript-comment">dnl
+</span>AC_DEFUN([AM_GNU_GETTEXT],
+[
+  <span class="enscript-comment">dnl Argument checking.
+</span>  <span class="enscript-keyword">ifelse</span>([$1], [], , [<span class="enscript-keyword">ifelse</span>([$1], [external], , [<span class="enscript-keyword">ifelse</span>([$1], [no-libtool], , [<span class="enscript-keyword">ifelse</span>([$1], [use-libtool], ,
+    [<span class="enscript-keyword">errprint</span>([ERROR: invalid first argument to AM_GNU_GETTEXT
+])])])])])
+  <span class="enscript-keyword">ifelse</span>([$2], [], , [<span class="enscript-keyword">ifelse</span>([$2], [need-ngettext], , [<span class="enscript-keyword">ifelse</span>([$2], [need-formatstring-macros], ,
+    [<span class="enscript-keyword">errprint</span>([ERROR: invalid second argument to AM_GNU_GETTEXT
+])])])])
+  <span class="enscript-keyword">define</span>([gt_included_intl], <span class="enscript-keyword">ifelse</span>([$1], [external], [no], [yes]))
+  <span class="enscript-keyword">define</span>([gt_libtool_suffix_prefix], <span class="enscript-keyword">ifelse</span>([$1], [use-libtool], [l], []))
+
+  AC_REQUIRE([AM_PO_SUBDIRS])<span class="enscript-comment">dnl
+</span>  <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, [
+    AC_REQUIRE([AM_INTL_SUBDIR])<span class="enscript-comment">dnl
+</span>  ])
+
+  <span class="enscript-comment">dnl Prerequisites of AC_LIB_LINKFLAGS_BODY.
+</span>  AC_REQUIRE([AC_LIB_PREPARE_PREFIX])
+  AC_REQUIRE([AC_LIB_RPATH])
+
+  <span class="enscript-comment">dnl Sometimes libintl requires libiconv, so first search for libiconv.
+</span>  <span class="enscript-comment">dnl Ideally we would do this search only after the
+</span>  <span class="enscript-comment">dnl      if test &quot;$USE_NLS&quot; = &quot;yes&quot;; then
+</span>  <span class="enscript-comment">dnl        if test &quot;$gt_cv_func_gnugettext_libc&quot; != &quot;yes&quot;; then
+</span>  <span class="enscript-comment">dnl tests. But if configure.in invokes AM_ICONV after AM_GNU_GETTEXT
+</span>  <span class="enscript-comment">dnl the configure script would need to contain the same shell code
+</span>  <span class="enscript-comment">dnl again, outside any 'if'. There are two solutions:
+</span>  <span class="enscript-comment">dnl - Invoke AM_ICONV_LINKFLAGS_BODY here, outside any 'if'.
+</span>  <span class="enscript-comment">dnl - Control the expansions in more detail using AC_PROVIDE_IFELSE.
+</span>  <span class="enscript-comment">dnl Since AC_PROVIDE_IFELSE is only in autoconf &gt;= 2.52 and not
+</span>  <span class="enscript-comment">dnl documented, we avoid it.
+</span>  <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, , [
+    AC_REQUIRE([AM_ICONV_LINKFLAGS_BODY])
+  ])
+
+  <span class="enscript-comment">dnl Sometimes, on MacOS X, libintl requires linking with CoreFoundation.
+</span>  gt_INTL_MACOSX
+
+  <span class="enscript-comment">dnl Set USE_NLS.
+</span>  AC_REQUIRE([AM_NLS])
+
+  <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, [
+    BUILD_INCLUDED_LIBINTL=no
+    USE_INCLUDED_LIBINTL=no
+  ])
+  LIBINTL=
+  LTLIBINTL=
+  POSUB=
+
+  <span class="enscript-comment">dnl If we use NLS figure out what method
+</span>  if test &quot;$USE_NLS&quot; = &quot;yes&quot;; then
+    gt_use_preinstalled_gnugettext=no
+    <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, [
+      AC_MSG_CHECKING([whether included gettext is requested])
+      AC_ARG_WITH(included-gettext,
+        [  --with-included-gettext use the GNU gettext library included here],
+        nls_cv_force_use_gnu_gettext=$withval,
+        nls_cv_force_use_gnu_gettext=no)
+      AC_MSG_RESULT($nls_cv_force_use_gnu_gettext)
+
+      nls_cv_use_gnu_gettext=&quot;$nls_cv_force_use_gnu_gettext&quot;
+      if test &quot;$nls_cv_force_use_gnu_gettext&quot; != &quot;yes&quot;; then
+    ])
+        <span class="enscript-comment">dnl User does not insist on using GNU NLS library.  Figure out what
+</span>        <span class="enscript-comment">dnl to use.  If GNU gettext is available we use this.  Else we have
+</span>        <span class="enscript-comment">dnl to fall back to GNU NLS library.
+</span>
+        <span class="enscript-comment">dnl Add a version number to the cache macros.
+</span>        <span class="enscript-keyword">define</span>([gt_api_version], <span class="enscript-keyword">ifelse</span>([$2], [need-formatstring-macros], 3, <span class="enscript-keyword">ifelse</span>([$2], [need-ngettext], 2, 1)))
+        <span class="enscript-keyword">define</span>([gt_cv_func_gnugettext_libc], [gt_cv_func_gnugettext]gt_api_version[_libc])
+        <span class="enscript-keyword">define</span>([gt_cv_func_gnugettext_libintl], [gt_cv_func_gnugettext]gt_api_version[_libintl])
+
+        AC_CACHE_CHECK([for GNU gettext in libc], gt_cv_func_gnugettext_libc,
+         [AC_TRY_LINK([<span class="enscript-comment">#include &lt;libintl.h&gt;
+</span>]<span class="enscript-keyword">ifelse</span>([$2], [need-formatstring-macros],
+[[<span class="enscript-comment">#ifndef __GNU_GETTEXT_SUPPORTED_REVISION
+</span><span class="enscript-comment">#define __GNU_GETTEXT_SUPPORTED_REVISION(major) ((major) == 0 ? 0 : -1)
+</span><span class="enscript-comment">#endif
+</span>typedef int array [2 * (__GNU_GETTEXT_SUPPORTED_REVISION(0) &gt;= 1) - 1];
+]], [])[extern int _nl_msg_cat_cntr;
+extern int *_nl_domain_bindings;],
+            [bindtextdomain (&quot;&quot;, &quot;&quot;);
+return * gettext (&quot;&quot;)]<span class="enscript-keyword">ifelse</span>([$2], [need-ngettext], [ + * ngettext (&quot;&quot;, &quot;&quot;, 0)], [])[ + _nl_msg_cat_cntr + *_nl_domain_bindings],
+            gt_cv_func_gnugettext_libc=yes,
+            gt_cv_func_gnugettext_libc=no)])
+
+        if test &quot;$gt_cv_func_gnugettext_libc&quot; != &quot;yes&quot;; then
+          <span class="enscript-comment">dnl Sometimes libintl requires libiconv, so first search for libiconv.
+</span>          <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, , [
+            AM_ICONV_LINK
+          ])
+          <span class="enscript-comment">dnl Search for libintl and define LIBINTL, LTLIBINTL and INCINTL
+</span>          <span class="enscript-comment">dnl accordingly. Don't use AC_LIB_LINKFLAGS_BODY([intl],[iconv])
+</span>          <span class="enscript-comment">dnl because that would add &quot;-liconv&quot; to LIBINTL and LTLIBINTL
+</span>          <span class="enscript-comment">dnl even if libiconv doesn't exist.
+</span>          AC_LIB_LINKFLAGS_BODY([intl])
+          AC_CACHE_CHECK([for GNU gettext in libintl],
+            gt_cv_func_gnugettext_libintl,
+           [gt_save_CPPFLAGS=&quot;$CPPFLAGS&quot;
+            CPPFLAGS=&quot;$CPPFLAGS $INCINTL&quot;
+            gt_save_LIBS=&quot;$LIBS&quot;
+            LIBS=&quot;$LIBS $LIBINTL&quot;
+            <span class="enscript-comment">dnl Now see whether libintl exists and does not depend on libiconv.
+</span>            AC_TRY_LINK([<span class="enscript-comment">#include &lt;libintl.h&gt;
+</span>]<span class="enscript-keyword">ifelse</span>([$2], [need-formatstring-macros],
+[[<span class="enscript-comment">#ifndef __GNU_GETTEXT_SUPPORTED_REVISION
+</span><span class="enscript-comment">#define __GNU_GETTEXT_SUPPORTED_REVISION(major) ((major) == 0 ? 0 : -1)
+</span><span class="enscript-comment">#endif
+</span>typedef int array [2 * (__GNU_GETTEXT_SUPPORTED_REVISION(0) &gt;= 1) - 1];
+]], [])[extern int _nl_msg_cat_cntr;
+extern
+<span class="enscript-comment">#ifdef __cplusplus
+</span>&quot;C&quot;
+<span class="enscript-comment">#endif
+</span>const char *_nl_expand_alias (const char *);],
+              [bindtextdomain (&quot;&quot;, &quot;&quot;);
+return * gettext (&quot;&quot;)]<span class="enscript-keyword">ifelse</span>([$2], [need-ngettext], [ + * ngettext (&quot;&quot;, &quot;&quot;, 0)], [])[ + _nl_msg_cat_cntr + *_nl_expand_alias (&quot;&quot;)],
+              gt_cv_func_gnugettext_libintl=yes,
+              gt_cv_func_gnugettext_libintl=no)
+            <span class="enscript-comment">dnl Now see whether libintl exists and depends on libiconv.
+</span>            if test &quot;$gt_cv_func_gnugettext_libintl&quot; != yes &amp;&amp; test -n &quot;$LIBICONV&quot;; then
+              LIBS=&quot;$LIBS $LIBICONV&quot;
+              AC_TRY_LINK([<span class="enscript-comment">#include &lt;libintl.h&gt;
+</span>]<span class="enscript-keyword">ifelse</span>([$2], [need-formatstring-macros],
+[[<span class="enscript-comment">#ifndef __GNU_GETTEXT_SUPPORTED_REVISION
+</span><span class="enscript-comment">#define __GNU_GETTEXT_SUPPORTED_REVISION(major) ((major) == 0 ? 0 : -1)
+</span><span class="enscript-comment">#endif
+</span>typedef int array [2 * (__GNU_GETTEXT_SUPPORTED_REVISION(0) &gt;= 1) - 1];
+]], [])[extern int _nl_msg_cat_cntr;
+extern
+<span class="enscript-comment">#ifdef __cplusplus
+</span>&quot;C&quot;
+<span class="enscript-comment">#endif
+</span>const char *_nl_expand_alias (const char *);],
+                [bindtextdomain (&quot;&quot;, &quot;&quot;);
+return * gettext (&quot;&quot;)]<span class="enscript-keyword">ifelse</span>([$2], [need-ngettext], [ + * ngettext (&quot;&quot;, &quot;&quot;, 0)], [])[ + _nl_msg_cat_cntr + *_nl_expand_alias (&quot;&quot;)],
+               [LIBINTL=&quot;$LIBINTL $LIBICONV&quot;
+                LTLIBINTL=&quot;$LTLIBINTL $LTLIBICONV&quot;
+                gt_cv_func_gnugettext_libintl=yes
+               ])
+            fi
+            CPPFLAGS=&quot;$gt_save_CPPFLAGS&quot;
+            LIBS=&quot;$gt_save_LIBS&quot;])
+        fi
+
+        <span class="enscript-comment">dnl If an already present or preinstalled GNU gettext() is found,
+</span>        <span class="enscript-comment">dnl use it.  But if this macro is used in GNU gettext, and GNU
+</span>        <span class="enscript-comment">dnl gettext is already preinstalled in libintl, we update this
+</span>        <span class="enscript-comment">dnl libintl.  (Cf. the install rule in intl/Makefile.in.)
+</span>        if test &quot;$gt_cv_func_gnugettext_libc&quot; = &quot;yes&quot; \
+           || { test &quot;$gt_cv_func_gnugettext_libintl&quot; = &quot;yes&quot; \
+                &amp;&amp; test &quot;$PACKAGE&quot; != gettext-runtime \
+                &amp;&amp; test &quot;$PACKAGE&quot; != gettext-tools; }; then
+          gt_use_preinstalled_gnugettext=yes
+        else
+          <span class="enscript-comment">dnl Reset the values set by searching for libintl.
+</span>          LIBINTL=
+          LTLIBINTL=
+          INCINTL=
+        fi
+
+    <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, [
+        if test &quot;$gt_use_preinstalled_gnugettext&quot; != &quot;yes&quot;; then
+          <span class="enscript-comment">dnl GNU gettext is not found in the C library.
+</span>          <span class="enscript-comment">dnl Fall back on included GNU gettext library.
+</span>          nls_cv_use_gnu_gettext=yes
+        fi
+      fi
+
+      if test &quot;$nls_cv_use_gnu_gettext&quot; = &quot;yes&quot;; then
+        <span class="enscript-comment">dnl Mark actions used to generate GNU NLS library.
+</span>        BUILD_INCLUDED_LIBINTL=yes
+        USE_INCLUDED_LIBINTL=yes
+        LIBINTL=&quot;<span class="enscript-keyword">ifelse</span>([$3],[],\${top_builddir}/intl,[$3])/libintl.[]gt_libtool_suffix_prefix[]a $LIBICONV $LIBTHREAD&quot;
+        LTLIBINTL=&quot;<span class="enscript-keyword">ifelse</span>([$3],[],\${top_builddir}/intl,[$3])/libintl.[]gt_libtool_suffix_prefix[]a $LTLIBICONV $LTLIBTHREAD&quot;
+        LIBS=`echo &quot; $LIBS &quot; | sed -e 's/ -lintl / /' -e 's/^ //' -e 's/ $//'`
+      fi
+
+      CATOBJEXT=
+      if test &quot;$gt_use_preinstalled_gnugettext&quot; = &quot;yes&quot; \
+         || test &quot;$nls_cv_use_gnu_gettext&quot; = &quot;yes&quot;; then
+        <span class="enscript-comment">dnl Mark actions to use GNU gettext tools.
+</span>        CATOBJEXT=.gmo
+      fi
+    ])
+
+    if test -n &quot;$INTL_MACOSX_LIBS&quot;; then
+      if test &quot;$gt_use_preinstalled_gnugettext&quot; = &quot;yes&quot; \
+         || test &quot;$nls_cv_use_gnu_gettext&quot; = &quot;yes&quot;; then
+        <span class="enscript-comment">dnl Some extra flags are needed during linking.
+</span>        LIBINTL=&quot;$LIBINTL $INTL_MACOSX_LIBS&quot;
+        LTLIBINTL=&quot;$LTLIBINTL $INTL_MACOSX_LIBS&quot;
+      fi
+    fi
+
+    if test &quot;$gt_use_preinstalled_gnugettext&quot; = &quot;yes&quot; \
+       || test &quot;$nls_cv_use_gnu_gettext&quot; = &quot;yes&quot;; then
+      AC_DEFINE(ENABLE_NLS, 1,
+        [Define to 1 if translation of program messages to the user's native language
+   is requested.])
+    else
+      USE_NLS=no
+    fi
+  fi
+
+  AC_MSG_CHECKING([whether to use NLS])
+  AC_MSG_RESULT([$USE_NLS])
+  if test &quot;$USE_NLS&quot; = &quot;yes&quot;; then
+    AC_MSG_CHECKING([where the gettext function comes from])
+    if test &quot;$gt_use_preinstalled_gnugettext&quot; = &quot;yes&quot;; then
+      if test &quot;$gt_cv_func_gnugettext_libintl&quot; = &quot;yes&quot;; then
+        gt_source=&quot;external libintl&quot;
+      else
+        gt_source=&quot;libc&quot;
+      fi
+    else
+      gt_source=&quot;included intl directory&quot;
+    fi
+    AC_MSG_RESULT([$gt_source])
+  fi
+
+  if test &quot;$USE_NLS&quot; = &quot;yes&quot;; then
+
+    if test &quot;$gt_use_preinstalled_gnugettext&quot; = &quot;yes&quot;; then
+      if test &quot;$gt_cv_func_gnugettext_libintl&quot; = &quot;yes&quot;; then
+        AC_MSG_CHECKING([how to link with libintl])
+        AC_MSG_RESULT([$LIBINTL])
+        AC_LIB_APPENDTOVAR([CPPFLAGS], [$INCINTL])
+      fi
+
+      <span class="enscript-comment">dnl For backward compatibility. Some packages may be using this.
+</span>      AC_DEFINE(HAVE_GETTEXT, 1,
+       [Define if the GNU gettext() function is already present or preinstalled.])
+      AC_DEFINE(HAVE_DCGETTEXT, 1,
+       [Define if the GNU dcgettext() function is already present or preinstalled.])
+    fi
+
+    <span class="enscript-comment">dnl We need to process the po/ directory.
+</span>    POSUB=po
+  fi
+
+  <span class="enscript-keyword">ifelse</span>(gt_included_intl, yes, [
+    <span class="enscript-comment">dnl If this is used in GNU gettext we have to set BUILD_INCLUDED_LIBINTL
+</span>    <span class="enscript-comment">dnl to 'yes' because some of the testsuite requires it.
+</span>    if test &quot;$PACKAGE&quot; = gettext-runtime || test &quot;$PACKAGE&quot; = gettext-tools; then
+      BUILD_INCLUDED_LIBINTL=yes
+    fi
+
+    <span class="enscript-comment">dnl Make all variables we use known to autoconf.
+</span>    AC_SUBST(BUILD_INCLUDED_LIBINTL)
+    AC_SUBST(USE_INCLUDED_LIBINTL)
+    AC_SUBST(CATOBJEXT)
+
+    <span class="enscript-comment">dnl For backward compatibility. Some configure.ins may be using this.
+</span>    nls_cv_header_intl=
+    nls_cv_header_libgt=
+
+    <span class="enscript-comment">dnl For backward compatibility. Some Makefiles may be using this.
+</span>    DATADIRNAME=share
+    AC_SUBST(DATADIRNAME)
+
+    <span class="enscript-comment">dnl For backward compatibility. Some Makefiles may be using this.
+</span>    INSTOBJEXT=.mo
+    AC_SUBST(INSTOBJEXT)
+
+    <span class="enscript-comment">dnl For backward compatibility. Some Makefiles may be using this.
+</span>    GENCAT=gencat
+    AC_SUBST(GENCAT)
+
+    <span class="enscript-comment">dnl For backward compatibility. Some Makefiles may be using this.
+</span>    INTLOBJS=
+    if test &quot;$USE_INCLUDED_LIBINTL&quot; = yes; then
+      INTLOBJS=&quot;\$(GETTOBJS)&quot;
+    fi
+    AC_SUBST(INTLOBJS)
+
+    <span class="enscript-comment">dnl Enable libtool support if the surrounding package wishes it.
+</span>    INTL_LIBTOOL_SUFFIX_PREFIX=gt_libtool_suffix_prefix
+    AC_SUBST(INTL_LIBTOOL_SUFFIX_PREFIX)
+  ])
+
+  <span class="enscript-comment">dnl For backward compatibility. Some Makefiles may be using this.
+</span>  INTLLIBS=&quot;$LIBINTL&quot;
+  AC_SUBST(INTLLIBS)
+
+  <span class="enscript-comment">dnl Make all documented variables known to autoconf.
+</span>  AC_SUBST(LIBINTL)
+  AC_SUBST(LTLIBINTL)
+  AC_SUBST(POSUB)
+])
+
+
+<span class="enscript-comment">dnl Checks for all prerequisites of the intl subdirectory,
+</span><span class="enscript-comment">dnl except for INTL_LIBTOOL_SUFFIX_PREFIX (and possibly LIBTOOL), INTLOBJS,
+</span><span class="enscript-comment">dnl            USE_INCLUDED_LIBINTL, BUILD_INCLUDED_LIBINTL.
+</span>AC_DEFUN([AM_INTL_SUBDIR],
+[
+  AC_REQUIRE([AC_PROG_INSTALL])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AM_PROG_MKDIR_P])<span class="enscript-comment">dnl defined by automake
+</span>  AC_REQUIRE([AC_PROG_CC])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_CANONICAL_HOST])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_GLIBC2])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_PROG_RANLIB])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_ISC_POSIX])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_VISIBILITY])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_INTL_SUBDIR_CORE])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([bh_C_SIGNED])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_AC_TYPE_LONG_LONG])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_TYPE_LONGDOUBLE])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_TYPE_WCHAR_T])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_TYPE_WINT_T])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_AC_HEADER_INTTYPES_H])
+  AC_REQUIRE([gt_TYPE_INTMAX_T])
+  AC_REQUIRE([gt_PRINTF_POSIX])
+  AC_REQUIRE([gl_GLIBC21])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_XSIZE])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_INTL_MACOSX])<span class="enscript-comment">dnl
+</span>
+  AC_CHECK_TYPE([ptrdiff_t], ,
+    [AC_DEFINE([ptrdiff_t], [long],
+       [Define as the type of the result of subtracting two pointers, if the system doesn't <span class="enscript-keyword">define</span> it.])
+    ])
+  AC_CHECK_HEADERS([stddef.h stdlib.h string.h])
+  AC_CHECK_FUNCS([asprintf fwprintf putenv setenv setlocale snprintf wcslen])
+
+  <span class="enscript-comment">dnl Use the _snprintf function only if it is declared (because on NetBSD it
+</span>  <span class="enscript-comment">dnl is defined as a weak alias of snprintf; we prefer to use the latter).
+</span>  gt_CHECK_DECL(_snprintf, [<span class="enscript-comment">#include &lt;stdio.h&gt;])
+</span>  gt_CHECK_DECL(_snwprintf, [<span class="enscript-comment">#include &lt;stdio.h&gt;])
+</span>
+  <span class="enscript-comment">dnl Use the *_unlocked functions only if they are declared.
+</span>  <span class="enscript-comment">dnl (because some of them were defined without being declared in Solaris
+</span>  <span class="enscript-comment">dnl 2.5.1 but were removed in Solaris 2.6, whereas we want binaries built
+</span>  <span class="enscript-comment">dnl on Solaris 2.5.1 to run on Solaris 2.6).
+</span>  <span class="enscript-comment">dnl Don't use AC_CHECK_DECLS because it isn't supported in autoconf-2.13.
+</span>  gt_CHECK_DECL(getc_unlocked, [<span class="enscript-comment">#include &lt;stdio.h&gt;])
+</span>
+  case $gt_cv_func_printf_posix in
+    *yes) HAVE_POSIX_PRINTF=1 ;;
+    *) HAVE_POSIX_PRINTF=0 ;;
+  esac
+  AC_SUBST([HAVE_POSIX_PRINTF])
+  if test &quot;$ac_cv_func_asprintf&quot; = yes; then
+    HAVE_ASPRINTF=1
+  else
+    HAVE_ASPRINTF=0
+  fi
+  AC_SUBST([HAVE_ASPRINTF])
+  if test &quot;$ac_cv_func_snprintf&quot; = yes; then
+    HAVE_SNPRINTF=1
+  else
+    HAVE_SNPRINTF=0
+  fi
+  AC_SUBST([HAVE_SNPRINTF])
+  if test &quot;$ac_cv_func_wprintf&quot; = yes; then
+    HAVE_WPRINTF=1
+  else
+    HAVE_WPRINTF=0
+  fi
+  AC_SUBST([HAVE_WPRINTF])
+
+  AM_LANGINFO_CODESET
+  gt_LC_MESSAGES
+
+  <span class="enscript-comment">dnl Compilation on mingw and Cygwin needs special Makefile rules, because
+</span>  <span class="enscript-comment">dnl 1. when we install a shared library, we must arrange to export
+</span>  <span class="enscript-comment">dnl    auxiliary pointer variables for every exported variable,
+</span>  <span class="enscript-comment">dnl 2. when we install a shared library and a static library simultaneously,
+</span>  <span class="enscript-comment">dnl    the include file specifies __declspec(dllimport) and therefore we
+</span>  <span class="enscript-comment">dnl    must arrange to define the auxiliary pointer variables for the
+</span>  <span class="enscript-comment">dnl    exported variables _also_ in the static library.
+</span>  if test &quot;$enable_shared&quot; = yes; then
+    case &quot;$host_os&quot; in
+      cygwin*) is_woe32dll=yes ;;
+      *) is_woe32dll=no ;;
+    esac
+  else
+    is_woe32dll=no
+  fi
+  WOE32DLL=$is_woe32dll
+  AC_SUBST([WOE32DLL])
+
+  <span class="enscript-comment">dnl Rename some macros and functions used for locking.
+</span>  AH_BOTTOM([
+<span class="enscript-comment">#define __libc_lock_t                   gl_lock_t
+</span><span class="enscript-comment">#define __libc_lock_define              gl_lock_define
+</span><span class="enscript-comment">#define __libc_lock_define_initialized  gl_lock_define_initialized
+</span><span class="enscript-comment">#define __libc_lock_init                gl_lock_init
+</span><span class="enscript-comment">#define __libc_lock_lock                gl_lock_lock
+</span><span class="enscript-comment">#define __libc_lock_unlock              gl_lock_unlock
+</span><span class="enscript-comment">#define __libc_lock_recursive_t                   gl_recursive_lock_t
+</span><span class="enscript-comment">#define __libc_lock_define_recursive              gl_recursive_lock_define
+</span><span class="enscript-comment">#define __libc_lock_define_initialized_recursive  gl_recursive_lock_define_initialized
+</span><span class="enscript-comment">#define __libc_lock_init_recursive                gl_recursive_lock_init
+</span><span class="enscript-comment">#define __libc_lock_lock_recursive                gl_recursive_lock_lock
+</span><span class="enscript-comment">#define __libc_lock_unlock_recursive              gl_recursive_lock_unlock
+</span><span class="enscript-comment">#define glthread_in_use  libintl_thread_in_use
+</span><span class="enscript-comment">#define glthread_lock_init     libintl_lock_init
+</span><span class="enscript-comment">#define glthread_lock_lock     libintl_lock_lock
+</span><span class="enscript-comment">#define glthread_lock_unlock   libintl_lock_unlock
+</span><span class="enscript-comment">#define glthread_lock_destroy  libintl_lock_destroy
+</span><span class="enscript-comment">#define glthread_rwlock_init     libintl_rwlock_init
+</span><span class="enscript-comment">#define glthread_rwlock_rdlock   libintl_rwlock_rdlock
+</span><span class="enscript-comment">#define glthread_rwlock_wrlock   libintl_rwlock_wrlock
+</span><span class="enscript-comment">#define glthread_rwlock_unlock   libintl_rwlock_unlock
+</span><span class="enscript-comment">#define glthread_rwlock_destroy  libintl_rwlock_destroy
+</span><span class="enscript-comment">#define glthread_recursive_lock_init     libintl_recursive_lock_init
+</span><span class="enscript-comment">#define glthread_recursive_lock_lock     libintl_recursive_lock_lock
+</span><span class="enscript-comment">#define glthread_recursive_lock_unlock   libintl_recursive_lock_unlock
+</span><span class="enscript-comment">#define glthread_recursive_lock_destroy  libintl_recursive_lock_destroy
+</span><span class="enscript-comment">#define glthread_once                 libintl_once
+</span><span class="enscript-comment">#define glthread_once_call            libintl_once_call
+</span><span class="enscript-comment">#define glthread_once_singlethreaded  libintl_once_singlethreaded
+</span>])
+])
+
+
+<span class="enscript-comment">dnl Checks for the core files of the intl subdirectory:
+</span><span class="enscript-comment">dnl   dcigettext.c
+</span><span class="enscript-comment">dnl   eval-plural.h
+</span><span class="enscript-comment">dnl   explodename.c
+</span><span class="enscript-comment">dnl   finddomain.c
+</span><span class="enscript-comment">dnl   gettextP.h
+</span><span class="enscript-comment">dnl   gmo.h
+</span><span class="enscript-comment">dnl   hash-string.h hash-string.c
+</span><span class="enscript-comment">dnl   l10nflist.c
+</span><span class="enscript-comment">dnl   libgnuintl.h.in (except the *printf stuff)
+</span><span class="enscript-comment">dnl   loadinfo.h
+</span><span class="enscript-comment">dnl   loadmsgcat.c
+</span><span class="enscript-comment">dnl   localealias.c
+</span><span class="enscript-comment">dnl   log.c
+</span><span class="enscript-comment">dnl   plural-exp.h plural-exp.c
+</span><span class="enscript-comment">dnl   plural.y
+</span><span class="enscript-comment">dnl Used by libglocale.
+</span>AC_DEFUN([gt_INTL_SUBDIR_CORE],
+[
+  AC_REQUIRE([AC_C_CONST])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_C_INLINE])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_TYPE_SIZE_T])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_AC_HEADER_STDINT_H])
+  AC_REQUIRE([AC_FUNC_ALLOCA])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([AC_FUNC_MMAP])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_INTDIV0])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_AC_TYPE_UINTMAX_T])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_HEADER_INTTYPES_H])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gt_INTTYPES_PRI])<span class="enscript-comment">dnl
+</span>  AC_REQUIRE([gl_LOCK])<span class="enscript-comment">dnl
+</span>
+  AC_TRY_LINK(
+    [int foo (int a) { a = __builtin_expect (a, 10); return a == 10 ? 0 : 1; }],
+    [],
+    [AC_DEFINE([HAVE_BUILTIN_EXPECT], 1,
+       [Define to 1 if the compiler understands __builtin_expect.])])
+
+  AC_CHECK_HEADERS([argz.h limits.h unistd.h sys/param.h])
+  AC_CHECK_FUNCS([getcwd getegid geteuid getgid getuid mempcpy munmap \
+    stpcpy strcasecmp strdup strtoul tsearch argz_count argz_stringify \
+    argz_next __fsetlocking])
+
+<span class="enscript-string">  dnl Use the *_unlocked functions only if they are declared.
+  dnl (because some of them were defined without being declared in Solaris
+  dnl 2.5.1 but were removed in Solaris 2.6, whereas we want binaries built
+  dnl on Solaris 2.5.1 to run on Solaris 2.6).
+  dnl Don'</span>t use AC_CHECK_DECLS because it isn't supported in autoconf-2.13.
+  gt_CHECK_DECL(feof_unlocked, [<span class="enscript-comment">#include &lt;stdio.h&gt;])
+</span>  gt_CHECK_DECL(fgets_unlocked, [<span class="enscript-comment">#include &lt;stdio.h&gt;])
+</span>
+  AM_ICONV
+
+  <span class="enscript-comment">dnl glibc &gt;= 2.4 has a NL_LOCALE_NAME macro when _GNU_SOURCE is defined,
+</span>  <span class="enscript-comment">dnl and a _NL_LOCALE_NAME macro always.
+</span>  AC_CACHE_CHECK([for NL_LOCALE_NAME macro], gt_cv_nl_locale_name,
+    [AC_TRY_LINK([<span class="enscript-comment">#include &lt;langinfo.h&gt;
+</span><span class="enscript-comment">#include &lt;locale.h&gt;],
+</span>      [char* cs = nl_langinfo(_NL_LOCALE_NAME(LC_MESSAGES));],
+      gt_cv_nl_locale_name=yes,
+      gt_cv_nl_locale_name=no)
+    ])
+  if test $gt_cv_nl_locale_name = yes; then
+    AC_DEFINE(HAVE_NL_LOCALE_NAME, 1,
+      [Define if you have &lt;langinfo.h&gt; and it defines the NL_LOCALE_NAME macro if _GNU_SOURCE is defined.])
+  fi
+
+  <span class="enscript-comment">dnl intl/plural.c is generated from intl/plural.y. It requires bison,
+</span>  <span class="enscript-comment">dnl because plural.y uses bison specific features. It requires at least
+</span>  <span class="enscript-comment">dnl bison-1.26 because earlier versions generate a plural.c that doesn't
+</span>  <span class="enscript-comment">dnl compile.
+</span>  <span class="enscript-comment">dnl bison is only needed for the maintainer (who touches plural.y). But in
+</span>  <span class="enscript-comment">dnl order to avoid separate Makefiles or --enable-maintainer-mode, we put
+</span>  <span class="enscript-comment">dnl the rule in general Makefile. Now, some people carelessly touch the
+</span>  <span class="enscript-comment">dnl files or have a broken &quot;make&quot; program, hence the plural.c rule will
+</span>  <span class="enscript-comment">dnl sometimes fire. To avoid an error, defines BISON to &quot;:&quot; if it is not
+</span>  <span class="enscript-comment">dnl present or too old.
+</span>  AC_CHECK_PROGS([INTLBISON], [bison])
+  if test -z &quot;$INTLBISON&quot;; then
+    ac_verc_fail=yes
+  else
+    <span class="enscript-comment">dnl Found it, now check the version.
+</span>    AC_MSG_CHECKING([version of bison])
+<span class="enscript-keyword">changequote</span>(&lt;&lt;,&gt;&gt;)<span class="enscript-comment">dnl
+</span>    ac_prog_version=`$INTLBISON --version 2&gt;&amp;1 | sed -n 's/^.*GNU Bison.* \([0-9]*\.[0-9.]*\).*$/\1/p'`
+    case $ac_prog_version in
+      '') ac_prog_version=&quot;v. ?.??, bad&quot;; ac_verc_fail=yes;;
+      1.2[6-9]* | 1.[3-9][0-9]* | [2-9].*)
+<span class="enscript-keyword">changequote</span>([,])<span class="enscript-comment">dnl
+</span>         ac_prog_version=&quot;$ac_prog_version, ok&quot;; ac_verc_fail=no;;
+      *) ac_prog_version=&quot;$ac_prog_version, bad&quot;; ac_verc_fail=yes;;
+    esac
+    AC_MSG_RESULT([$ac_prog_version])
+  fi
+  if test $ac_verc_fail = yes; then
+    INTLBISON=:
+  fi
+])
+
+
+<span class="enscript-comment">dnl Checks for special options needed on MacOS X.
+</span><span class="enscript-comment">dnl Defines INTL_MACOSX_LIBS.
+</span>AC_DEFUN([gt_INTL_MACOSX],
+[
+  <span class="enscript-comment">dnl Check for API introduced in MacOS X 10.2.
+</span>  AC_CACHE_CHECK([for CFPreferencesCopyAppValue],
+    gt_cv_func_CFPreferencesCopyAppValue,
+    [gt_save_LIBS=&quot;$LIBS&quot;
+     LIBS=&quot;$LIBS -Wl,-framework -Wl,CoreFoundation&quot;
+     AC_TRY_LINK([<span class="enscript-comment">#include &lt;CoreFoundation/CFPreferences.h&gt;],
+</span>       [CFPreferencesCopyAppValue(NULL, NULL)],
+       [gt_cv_func_CFPreferencesCopyAppValue=yes],
+       [gt_cv_func_CFPreferencesCopyAppValue=no])
+     LIBS=&quot;$gt_save_LIBS&quot;])
+  if test $gt_cv_func_CFPreferencesCopyAppValue = yes; then
+    AC_DEFINE([HAVE_CFPREFERENCESCOPYAPPVALUE], 1,
+      [Define to 1 if you have the MacOS X function CFPreferencesCopyAppValue in the CoreFoundation framework.])
+  fi
+  <span class="enscript-comment">dnl Check for API introduced in MacOS X 10.3.
+</span>  AC_CACHE_CHECK([for CFLocaleCopyCurrent], gt_cv_func_CFLocaleCopyCurrent,
+    [gt_save_LIBS=&quot;$LIBS&quot;
+     LIBS=&quot;$LIBS -Wl,-framework -Wl,CoreFoundation&quot;
+     AC_TRY_LINK([<span class="enscript-comment">#include &lt;CoreFoundation/CFLocale.h&gt;], [CFLocaleCopyCurrent();],
+</span>       [gt_cv_func_CFLocaleCopyCurrent=yes],
+       [gt_cv_func_CFLocaleCopyCurrent=no])
+     LIBS=&quot;$gt_save_LIBS&quot;])
+  if test $gt_cv_func_CFLocaleCopyCurrent = yes; then
+    AC_DEFINE([HAVE_CFLOCALECOPYCURRENT], 1,
+      [Define to 1 if you have the MacOS X function CFLocaleCopyCurrent in the CoreFoundation framework.])
+  fi
+  INTL_MACOSX_LIBS=
+  if test $gt_cv_func_CFPreferencesCopyAppValue = yes || test $gt_cv_func_CFLocaleCopyCurrent = yes; then
+    INTL_MACOSX_LIBS=&quot;-Wl,-framework -Wl,CoreFoundation&quot;
+  fi
+  AC_SUBST([INTL_MACOSX_LIBS])
+])
+
+
+<span class="enscript-comment">dnl gt_CHECK_DECL(FUNC, INCLUDES)
+</span><span class="enscript-comment">dnl Check whether a function is declared.
+</span>AC_DEFUN([gt_CHECK_DECL],
+[
+  AC_CACHE_CHECK([whether $1 is declared], ac_cv_have_decl_$1,
+    [AC_TRY_COMPILE([$2], [
+<span class="enscript-comment">#ifndef $1
+</span>  char *p = (char *) $1;
+<span class="enscript-comment">#endif
+</span>], ac_cv_have_decl_$1=yes, ac_cv_have_decl_$1=no)])
+  if test $ac_cv_have_decl_$1 = yes; then
+    gt_value=1
+  else
+    gt_value=0
+  fi
+  AC_DEFINE_UNQUOTED([HAVE_DECL_]<span class="enscript-keyword">translit</span>($1, [a-z], [A-Z]), [$gt_value],
+    [Define to 1 if you have the declaration of `$1', and to 0 if you don't.])
+])
+
+
+<span class="enscript-comment">dnl Usage: AM_GNU_GETTEXT_VERSION([gettext-version])
+</span>AC_DEFUN([AM_GNU_GETTEXT_VERSION], [])
+</pre>
+<hr />
+</body></html>

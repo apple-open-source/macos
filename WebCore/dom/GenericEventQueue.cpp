@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,19 +24,14 @@
  */
 
 #include "config.h"
-
 #include "GenericEventQueue.h"
 
 #include "Event.h"
+#include "EventTarget.h"
 
 namespace WebCore {
 
-PassOwnPtr<GenericEventQueue> GenericEventQueue::create(EventTarget* owner)
-{
-    return adoptPtr(new GenericEventQueue(owner));
-}
-
-GenericEventQueue::GenericEventQueue(EventTarget* owner)
+GenericEventQueue::GenericEventQueue(EventTarget& owner)
     : m_owner(owner)
     , m_timer(this, &GenericEventQueue::timerFired)
     , m_isClosed(false)
@@ -52,7 +47,7 @@ bool GenericEventQueue::enqueueEvent(PassRefPtr<Event> event)
     if (m_isClosed)
         return false;
 
-    if (event->target() == m_owner)
+    if (event->target() == &m_owner)
         event->setTarget(0);
 
     m_pendingEvents.append(event);
@@ -63,31 +58,18 @@ bool GenericEventQueue::enqueueEvent(PassRefPtr<Event> event)
     return true;
 }
 
-bool GenericEventQueue::cancelEvent(Event* event)
-{
-    bool found = m_pendingEvents.contains(event);
-
-    if (found)
-        m_pendingEvents.remove(m_pendingEvents.find(event));
-
-    if (m_pendingEvents.isEmpty())
-        m_timer.stop();
-
-    return found;
-}
-
-void GenericEventQueue::timerFired(Timer<GenericEventQueue>*)
+void GenericEventQueue::timerFired(Timer<GenericEventQueue>&)
 {
     ASSERT(!m_timer.isActive());
     ASSERT(!m_pendingEvents.isEmpty());
 
-    Vector<RefPtr<Event> > pendingEvents;
+    Vector<RefPtr<Event>> pendingEvents;
     m_pendingEvents.swap(pendingEvents);
 
-    RefPtr<EventTarget> protect(m_owner);
+    Ref<EventTarget> protect(m_owner);
     for (unsigned i = 0; i < pendingEvents.size(); ++i) {
-        EventTarget* target = pendingEvents[i]->target() ? pendingEvents[i]->target() : m_owner;
-        target->dispatchEvent(pendingEvents[i].release());
+        EventTarget& target = pendingEvents[i]->target() ? *pendingEvents[i]->target() : m_owner;
+        target.dispatchEvent(pendingEvents[i].release());
     }
 }
 

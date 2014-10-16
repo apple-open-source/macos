@@ -22,8 +22,8 @@
  */
 
 
-#ifndef __l2tp_IPL_H__
-#define __l2tp_IP_H__
+#ifndef __L2TP_UDP_H__
+#define __L2TP_UDP_H__
 
 
 int l2tp_udp_init();

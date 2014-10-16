@@ -35,6 +35,7 @@
 # When multiple arguments are given, only the error from the _last_
 # one is reported.  Run "apachectl help" for usage info
 #
+ACMD="$1"
 ARGV="$@"
 #
 # |||||||||||||||||||| START CONFIGURATION SECTION  ||||||||||||||||||||
@@ -77,6 +78,7 @@ run_launchctl() {
     $LAUNCHCTL $@
 }
 
+
 # Set the maximum number of file descriptors allowed per child process.
 if [ "x$ULIMIT_MAX_FILES" != "x" ] ; then
     $ULIMIT_MAX_FILES
@@ -116,7 +118,7 @@ status|fullstatus)
     echo Note that mod_status must be enabled for this to work.
     ;;
 *)
-    $HTTPD $ARGV
+    $HTTPD "$@"
     ERROR=$?
 esac
 

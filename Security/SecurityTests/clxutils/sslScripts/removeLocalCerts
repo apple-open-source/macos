@@ -1,0 +1,24 @@
+#! /bin/csh -f
+#
+# Remove localcert, clientcert, and dsacert keychains.
+#
+
+source sslKcSetup
+echo Removing local keychains....
+
+set SECURITY=/usr/bin/security
+set cmd="$SECURITY delete-keychain $LOCAL_KC"
+echo $cmd
+$cmd
+# ignore errors, keep going 
+set cmd="$SECURITY delete-keychain $CLIENT_KC"
+echo $cmd
+$cmd
+
+set cmd="$SECURITY delete-keychain $DSA_KC"
+echo $cmd
+$cmd
+
+set cmd="$SECURITY delete-keychain $P12_KC"
+echo $cmd
+$cmd

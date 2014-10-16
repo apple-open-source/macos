@@ -34,6 +34,9 @@
 #import <Security/SecRandom.h>
 #import <CommonCrypto/CommonCryptor.h>
 #import <CommonCrypto/CommonCryptorSPI.h>
+#if TARGET_OS_EMBEDDED
+#import <libaks.h>
+#endif
 #import "HeimCredCoder.h"
 #import "common.h"
 
@@ -167,6 +170,33 @@ convertDict(const void *key, const void *value, void *context)
     return NULL;
 }
 
+#if TARGET_OS_EMBEDDED
+
+static keybag_handle_t
+get_keybag(void)
+{
+    static keybag_handle_t handle;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+	    keybag_handle_t special_handle;
+#if TARGET_OS_EMBEDDED
+	    special_handle = device_keybag_handle;
+#else
+	    special_handle = session_keybag_handle;
+#endif
+
+	    kern_return_t kr = aks_get_system(special_handle, &handle);
+	    if (kr != KERN_SUCCESS)
+		abort();
+	});
+    return handle;
+}
+#endif
+
+/*
+ * stored as [32:wrapped_key_len][wrapped_key_len:wrapped_key][variable:ctdata][16:tag] 
+ */
+
 static NSData *
 ksEncryptData(NSData *plainText)
 {
@@ -176,11 +206,9 @@ ksEncryptData(NSData *plainText)
     const uint32_t maxKeyWrapOverHead = 8 + 32;
     uint8_t bulkKey[bulkKeySize];
     uint8_t bulkKeyWrapped[bulkKeySize + maxKeyWrapOverHead];
-    size_t bulkKeyWrappedSize = sizeof(bulkKeyWrapped);
     uint32_t key_wrapped_size;
     CCCryptorStatus ccerr;
 
-    
     if (![plainText isKindOfClass:[NSData class]]) abort();
     
     size_t ctLen = [plainText length];
@@ -189,11 +217,16 @@ ksEncryptData(NSData *plainText)
     if (SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey))
         abort();
 
-#if 0
-    /* Now that we're done using the bulkKey, in place encrypt it. */
-    require_noerr_quiet(error = ks_crypt(kAppleKeyStoreKeyWrap, keybag, keyclass,
-					 bulkKeySize, bulkKey, bulkKeyWrapped,
-					 &bulkKeyWrappedSize), out);
+    int bulkKeyWrappedSize;
+#if TARGET_OS_EMBEDDED
+    kern_return_t error;
+
+    bulkKeyWrappedSize = sizeof(bulkKeyWrapped);
+
+    error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, get_keybag(), bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
+    if (error)
+	abort();
+
 #else
     bulkKeyWrappedSize = bulkKeySize;
     memcpy(bulkKeyWrapped, bulkKey, bulkKeySize);
@@ -202,7 +235,7 @@ ksEncryptData(NSData *plainText)
     
     size_t blobLen = sizeof(key_wrapped_size) + key_wrapped_size + ctLen + tagLen;
     
-    blob = [NSMutableData dataWithLength:blobLen];
+    blob = [[NSMutableData alloc] initWithLength:blobLen];
     if (blob == NULL)
 	return NULL;
 
@@ -236,6 +269,7 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
     uint8_t bulkKey[bulkKeySize];
     int error = EINVAL;
     CCCryptorStatus ccerr;
+    uint8_t *tag = NULL;
     
     CFMutableDataRef plainText = NULL;
     
@@ -249,19 +283,17 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
     
     size_t ctLen = blobLen;
     
-
+    /* tag is stored after the plain text data */
     size_t tagLen = 16;
     if (ctLen < tagLen)
 	return EINVAL;
-    
     ctLen -= tagLen;
-    
-    uint8_t tag[tagLen];
-    
+
     if (ctLen < sizeof(wrapped_key_size))
 	return EINVAL;
 
-    wrapped_key_size = *((uint32_t *)cursor);
+    memcpy(&wrapped_key_size, cursor, sizeof(wrapped_key_size));
+
     cursor += sizeof(wrapped_key_size);
     ctLen -= sizeof(wrapped_key_size);
     
@@ -269,20 +301,22 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
     if (ctLen < wrapped_key_size)
 	return EINVAL;
 
-#if 0
-    size_t bulkKeyCapacity = sizeof(bulkKey);
+    int keySize = sizeof(bulkKey);
+#if TARGET_OS_EMBEDDED
 
-    /* Now unwrap the bulk key using a key in the keybag. */
-    require_noerr_quiet(error = ks_crypt(kAppleKeyStoreKeyUnwrap, keybag,
-					 keyclass, wrapped_key_size, cursor, bulkKey, &bulkKeyCapacity), out);
+    error = aks_unwrap_key(cursor, wrapped_key_size, key_class_f, get_keybag(), bulkKey, &keySize);
+    if (error != KERN_SUCCESS)
+	goto out;
 #else
-    if (bulkKeySize != wrapped_key_size) {
+    memset(bulkKey, 0, sizeof(bulkKey));
+    keySize = 32;
+#endif
+
+    if (keySize != 32) {
 	error = EINVAL;
 	goto out;
     }
 
-    memcpy(bulkKey, cursor, wrapped_key_size);
-#endif
     cursor += wrapped_key_size;
     ctLen -= wrapped_key_size;
     
@@ -293,6 +327,12 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
     }
     CFDataSetLength(plainText, ctLen);
     
+    tag = malloc(tagLen);
+    if (tag == NULL) {
+	error = EINVAL;
+        goto out;
+    }
+
     /* Decrypt the cipherText with the bulkKey. */
 
     ccerr = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128,
@@ -310,6 +350,8 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
 	error = EINVAL;
 	goto out;
     }
+
+    /* check that tag stored after the plaintext is correct */
     cursor += ctLen;
     if (memcmp(tag, cursor, tagLen)) {
 	error = EINVAL;
@@ -320,6 +362,7 @@ ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
 
 out:
     memset(bulkKey, 0, bulkKeySize);
+    free(tag);
     if (error) {
 	CFRELEASE_NULL(plainText);
     } else {
@@ -371,6 +414,7 @@ out:
 	    return;
 	
 	[encText writeToFile:archiveFile atomically:NO];
+	[encText release];
     }
 }
 

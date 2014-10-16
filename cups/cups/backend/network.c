@@ -1,23 +1,18 @@
 /*
- * "$Id: network.c 3752 2012-03-28 21:58:13Z msweet $"
+ * "$Id: network.c 12131 2014-08-28 23:38:16Z msweet $"
  *
- *   Common backend network APIs for CUPS.
+ * Common backend network APIs for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
- *   Copyright 2006-2007 by Easy Software Products, all rights reserved.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2006-2007 by Easy Software Products, all rights reserved.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   "LICENSE" which should have been included with this file.  If this
- *   file is missing or damaged, see the license at "http://www.cups.org/".
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * "LICENSE" which should have been included with this file.  If this
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  *
- *   This file is subject to the Apple OS-Developed Software exception.
- *
- * Contents:
- *
- *   backendCheckSideChannel() - Check the side-channel for pending requests.
- *   backendNetworkSideCB()    - Handle common network side-channel commands.
+ * This file is subject to the Apple OS-Developed Software exception.
  */
 
 /*
@@ -26,11 +21,7 @@
 
 #include "backend-private.h"
 #include <limits.h>
-#ifdef __hpux
-#  include <sys/time.h>
-#else
-#  include <sys/select.h>
-#endif /* __hpux */
+#include <sys/select.h>
 
 
 /*
@@ -100,7 +91,7 @@ backendNetworkSideCB(
 
     case CUPS_SC_CMD_GET_BIDI :
 	status  = CUPS_SC_STATUS_OK;
-        data[0] = use_bc;
+        data[0] = (char)use_bc;
         datalen = 1;
         break;
 
@@ -139,13 +130,13 @@ backendNetworkSideCB(
 	    for (dataptr = data + strlen(data) + 1;
 	         count > 0 && dataptr < (data + sizeof(data) - 1);
 	         count --, dataptr += strlen(dataptr))
-	      strlcpy(dataptr, snmp_value, sizeof(data) - (dataptr - data));
+	      strlcpy(dataptr, snmp_value, sizeof(data) - (size_t)(dataptr - data));
 
 	    fprintf(stderr, "DEBUG: Returning %s %s\n", data,
 	            data + strlen(data) + 1);
 
 	    status  = CUPS_SC_STATUS_OK;
-	    datalen = dataptr - data;
+	    datalen = (int)(dataptr - data);
 	    break;
           }
 
@@ -168,7 +159,7 @@ backendNetworkSideCB(
           {
 	    if (_cupsSNMPRead(snmp_fd, &packet, 1.0))
 	    {
-	      int	i;		/* Looping var */
+	      size_t	i;		/* Looping var */
 
 
               if (!_cupsSNMPOIDToString(packet.object_name, data, sizeof(data)))
@@ -183,35 +174,31 @@ backendNetworkSideCB(
 	      switch (packet.object_type)
 	      {
 	        case CUPS_ASN1_BOOLEAN :
-		    snprintf(dataptr, sizeof(data) - (dataptr - data), "%d",
-		             packet.object_value.boolean);
+		    snprintf(dataptr, sizeof(data) - (size_t)(dataptr - data), "%d", packet.object_value.boolean);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
 	        case CUPS_ASN1_INTEGER :
-		    snprintf(dataptr, sizeof(data) - (dataptr - data), "%d",
+		    snprintf(dataptr, sizeof(data) - (size_t)(dataptr - data), "%d",
 		             packet.object_value.integer);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
 	        case CUPS_ASN1_BIT_STRING :
 	        case CUPS_ASN1_OCTET_STRING :
-		    if (packet.object_value.string.num_bytes < 0)
-		      i = 0;
-		    else if (packet.object_value.string.num_bytes <
-			     (sizeof(data) - (dataptr - data)))
+		    if (packet.object_value.string.num_bytes < (sizeof(data) - (size_t)(dataptr - data)))
 		      i = packet.object_value.string.num_bytes;
 		    else
-		      i = (int)(sizeof(data) - (dataptr - data));
+		      i = sizeof(data) - (size_t)(dataptr - data);
 
 		    memcpy(dataptr, packet.object_value.string.bytes, i);
 
-                    datalen += i;
+                    datalen += (int)i;
 		    break;
 
 	        case CUPS_ASN1_OID :
 		    _cupsSNMPOIDToString(packet.object_value.oid, dataptr,
-		                         sizeof(data) - (dataptr - data));
+		                         sizeof(data) - (size_t)(dataptr - data));
 	            datalen += (int)strlen(dataptr);
 		    break;
 
@@ -220,32 +207,27 @@ backendNetworkSideCB(
 		         i < packet.object_value.string.num_bytes &&
 			     dataptr < (data + sizeof(data) - 3);
 			 i ++, dataptr += 2)
-		      sprintf(dataptr, "%02X",
-		              packet.object_value.string.bytes[i]);
+		      sprintf(dataptr, "%02X", packet.object_value.string.bytes[i]);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
                 case CUPS_ASN1_COUNTER :
-		    snprintf(dataptr, sizeof(data) - (dataptr - data), "%d",
-		             packet.object_value.counter);
+		    snprintf(dataptr, sizeof(data) - (size_t)(dataptr - data), "%u", packet.object_value.counter);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
                 case CUPS_ASN1_GAUGE :
-		    snprintf(dataptr, sizeof(data) - (dataptr - data), "%u",
-		             packet.object_value.gauge);
+		    snprintf(dataptr, sizeof(data) - (size_t)(dataptr - data), "%u", packet.object_value.gauge);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
                 case CUPS_ASN1_TIMETICKS :
-		    snprintf(dataptr, sizeof(data) - (dataptr - data), "%u",
-		             packet.object_value.timeticks);
+		    snprintf(dataptr, sizeof(data) - (size_t)(dataptr - data), "%u", packet.object_value.timeticks);
 	            datalen += (int)strlen(dataptr);
 		    break;
 
                 default :
-	            fprintf(stderr, "DEBUG: Unknown OID value type %02X!\n",
-		            packet.object_type);
+	            fprintf(stderr, "DEBUG: Unknown OID value type %02X.\n", packet.object_type);
 
 		case CUPS_ASN1_NULL_VALUE :
 		    dataptr[0] = '\0';
@@ -267,6 +249,12 @@ backendNetworkSideCB(
         status  = CUPS_SC_STATUS_NOT_IMPLEMENTED;
 	datalen = 0;
 	break;
+
+    case CUPS_SC_CMD_GET_CONNECTED :
+	status  = CUPS_SC_STATUS_OK;
+        data[0] = device_fd != -1;
+        datalen = 1;
+        break;
 
     case CUPS_SC_CMD_GET_DEVICE_ID :
         if (snmp_fd >= 0)
@@ -305,12 +293,6 @@ backendNetworkSideCB(
 	  break;
 	}
 
-    case CUPS_SC_CMD_GET_CONNECTED :
-	status  = CUPS_SC_STATUS_OK;
-        data[0] = device_fd != -1;
-        datalen = 1;
-        break;
-
     default :
         status  = CUPS_SC_STATUS_NOT_IMPLEMENTED;
 	datalen = 0;
@@ -322,5 +304,5 @@ backendNetworkSideCB(
 
 
 /*
- * End of "$Id: network.c 3752 2012-03-28 21:58:13Z msweet $".
+ * End of "$Id: network.c 12131 2014-08-28 23:38:16Z msweet $".
  */

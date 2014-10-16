@@ -1,0 +1,83 @@
+#
+# Verification of ECC certs created by Microsoft
+#
+globals
+allowUnverified = true
+end
+
+#
+# some with combined digest OID, some with specified
+#
+test = "RootP256.cer root"
+cert = RootP256.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P256_Specified_SHA1.cer"
+cert = End_P256_Specified_SHA1.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P256_Specified_SHA256.cer"
+cert = End_P256_Specified_SHA256.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P256_combined_SHA256.cer"
+cert = End_P256_combined_SHA256.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P256_combined_SHA512.cer"
+cert = End_P256_combined_SHA512.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P384_Specified_SHA256.cer"
+cert = End_P384_Specified_SHA256.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P384_combined_SHA256.cer"
+cert = End_P384_combined_SHA256.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P384_Specified_SHA384.cer"
+cert = End_P384_Specified_SHA384.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P384_combined_SHA1.cer"
+cert = End_P384_combined_SHA1.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P521_Specified_SHA1.cer"
+cert = End_P521_Specified_SHA1.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P521_combined_SHA1.cer"
+cert = End_P521_combined_SHA1.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+test = "End_P521_combined_SHA512.cer"
+cert = End_P521_combined_SHA512.cer
+root = RootP256.cer
+verifyTime = 20060303001200
+end
+
+

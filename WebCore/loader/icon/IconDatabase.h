@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,119 +28,105 @@
 #define IconDatabase_h
 
 #include "IconDatabaseBase.h"
-#include "Timer.h"
-#include <wtf/HashCountedSet.h>
-#include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
-#include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
-#include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(ICONDATABASE)
 #include "SQLiteDatabase.h"
-#include <wtf/Threading.h>
-#endif // ENABLE(ICONDATABASE)
+#include "Timer.h"
+#include <wtf/HashCountedSet.h>
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+#endif
 
 namespace WebCore { 
 
-class DocumentLoader;
-class Image;
-class IntSize;
-class IconDatabaseClient;
-class IconRecord;
-class IconSnapshot;
-class KURL;
-class PageURLRecord;
-class PageURLSnapshot;
-class SharedBuffer;
-
-#if ENABLE(ICONDATABASE)
-class SQLTransaction;
-#endif
-
 #if !ENABLE(ICONDATABASE)
-// For builds with IconDatabase disabled, they'll just use a default derivation of IconDatabaseBase. Which does nothing.
-class IconDatabase : public IconDatabaseBase {
+
+// Dummy version of IconDatabase that does nothing.
+class IconDatabase final : public IconDatabaseBase {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<IconDatabase> create() { return adoptPtr(new IconDatabase); }
     static void delayDatabaseCleanup() { }
     static void allowDatabaseCleanup() { }
     static void checkIntegrityBeforeOpening() { }
-    static String defaultDatabaseFilename() { return "WebpageIcons.db"; }
-};
-#else 
 
-class IconDatabase : public IconDatabaseBase {
+    // FIXME: Is it really helpful to return a filename here rather than just the null string?
+    static String defaultDatabaseFilename() { return ASCIILiteral("WebpageIcons.db"); }
+};
+
+#else
+
+class IconRecord;
+class IconSnapshot;
+class PageURLRecord;
+class PageURLSnapshot;
+class SuddenTerminationDisabler;
+
+class IconDatabase final : public IconDatabaseBase {
     WTF_MAKE_FAST_ALLOCATED;
     
 // *** Main Thread Only ***
 public:
-    static PassOwnPtr<IconDatabase> create() { return adoptPtr(new IconDatabase); }
+    IconDatabase();
     ~IconDatabase();
 
-    virtual void setClient(IconDatabaseClient*);
+    virtual void setClient(IconDatabaseClient*) override;
 
-    virtual bool open(const String& directory, const String& filename);
-    virtual void close();
+    virtual bool open(const String& directory, const String& filename) override;
+    virtual void close() override;
             
-    virtual void removeAllIcons();
+    virtual void removeAllIcons() override;
 
     void readIconForPageURLFromDisk(const String&);
 
-    virtual Image* defaultIcon(const IntSize&);
+    virtual Image* defaultIcon(const IntSize&) override;
 
-    virtual void retainIconForPageURL(const String&);
-    virtual void releaseIconForPageURL(const String&);
-    virtual void setIconDataForIconURL(PassRefPtr<SharedBuffer> data, const String&);
-    virtual void setIconURLForPageURL(const String& iconURL, const String& pageURL);
+    virtual void retainIconForPageURL(const String&) override;
+    virtual void releaseIconForPageURL(const String&) override;
+    virtual void setIconDataForIconURL(PassRefPtr<SharedBuffer> data, const String&) override;
+    virtual void setIconURLForPageURL(const String& iconURL, const String& pageURL) override;
 
-    virtual Image* synchronousIconForPageURL(const String&, const IntSize&);
-    virtual PassNativeImagePtr synchronousNativeIconForPageURL(const String& pageURLOriginal, const IntSize&);
-    virtual String synchronousIconURLForPageURL(const String&);
-    virtual bool synchronousIconDataKnownForIconURL(const String&);
-    virtual IconLoadDecision synchronousLoadDecisionForIconURL(const String&, DocumentLoader*);    
-    
-    virtual void setEnabled(bool);
-    virtual bool isEnabled() const;
-    
-    virtual void setPrivateBrowsingEnabled(bool flag);
+    virtual Image* synchronousIconForPageURL(const String&, const IntSize&) override;
+    virtual PassNativeImagePtr synchronousNativeIconForPageURL(const String& pageURLOriginal, const IntSize&) override;
+    virtual String synchronousIconURLForPageURL(const String&) override;
+    virtual bool synchronousIconDataKnownForIconURL(const String&) override;
+    virtual IconLoadDecision synchronousLoadDecisionForIconURL(const String&, DocumentLoader*) override;
+
+    virtual void setEnabled(bool) override;
+    virtual bool isEnabled() const override;
+
+    virtual void setPrivateBrowsingEnabled(bool flag) override;
     bool isPrivateBrowsingEnabled() const;
-    
+
     static void delayDatabaseCleanup();
     static void allowDatabaseCleanup();
     static void checkIntegrityBeforeOpening();
-        
+
     // Support for WebCoreStatistics in WebKit
-    virtual size_t pageURLMappingCount();
-    virtual size_t retainedPageURLCount();
-    virtual size_t iconRecordCount();
-    virtual size_t iconRecordCountWithData();
+    virtual size_t pageURLMappingCount() override;
+    virtual size_t retainedPageURLCount() override;
+    virtual size_t iconRecordCount() override;
+    virtual size_t iconRecordCountWithData() override;
 
 private:
-    IconDatabase();
     friend IconDatabaseBase& iconDatabase();
 
-    static void notifyPendingLoadDecisionsOnMainThread(void*);
     void notifyPendingLoadDecisions();
 
     void wakeSyncThread();
     void scheduleOrDeferSyncTimer();
-    void syncTimerFired(Timer<IconDatabase>*);
+    void syncTimerFired(Timer<IconDatabase>&);
     
     Timer<IconDatabase> m_syncTimer;
     ThreadIdentifier m_syncThread;
     bool m_syncThreadRunning;
     
-    HashSet<RefPtr<DocumentLoader> > m_loadersPendingDecision;
+    HashSet<RefPtr<DocumentLoader>> m_loadersPendingDecision;
 
     RefPtr<IconRecord> m_defaultIconRecord;
 
-    static void performScheduleOrDeferSyncTimerOnMainThread(void*);
-    void performScheduleOrDeferSyncTimer();
-
     bool m_scheduleOrDeferSyncTimerRequested;
+    std::unique_ptr<SuddenTerminationDisabler> m_disableSuddenTerminationWhileSyncTimerScheduled;
 
 // *** Any Thread ***
 public:
@@ -165,7 +151,7 @@ private:
     bool m_removeIconsRequested;
     bool m_iconURLImportComplete;
     bool m_syncThreadHasWorkToDo;
-    bool m_disabledSuddenTerminationForSyncThread;
+    std::unique_ptr<SuddenTerminationDisabler> m_disableSuddenTerminationWhileSyncThreadHasWorkToDo;
 
     Mutex m_urlAndIconLock;
     // Holding m_urlAndIconLock is required when accessing any of the following data structures or the objects they contain
@@ -217,6 +203,9 @@ private:
     bool wasExcludedFromBackup();
     void setWasExcludedFromBackup();
 
+    bool isOpenBesidesMainThreadCallbacks() const;
+    void checkClosedAfterMainThreadCallback();
+
     bool m_initialPruningComplete;
         
     void setIconURLForPageURLInSQLDatabase(const String&, const String&);
@@ -235,6 +224,7 @@ private:
     void dispatchDidImportIconDataForPageURLOnMainThread(const String&);
     void dispatchDidRemoveAllIconsOnMainThread();
     void dispatchDidFinishURLImportOnMainThread();
+    std::atomic<uint32_t> m_mainThreadCallbackCount;
     
     // The client is set by the main thread before the thread starts, and from then on is only used by the sync thread
     IconDatabaseClient* m_client;

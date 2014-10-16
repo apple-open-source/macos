@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es_419.xml
@@ -70,7 +70,7 @@ es_419{
             }
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.96.24"}
     calendar{
         generic{
             availableFormats{
@@ -79,12 +79,54 @@ es_419{
             }
         }
         gregorian{
+            AmPmMarkers{
+                "a.m.",
+                "p.m.",
+            }
             availableFormats{
                 MMMMEd{"E, d 'de' MMMM"}
                 yMEd{"E d/M/y"}
             }
             dayNames{
+                format{
+                    abbreviated{
+                        "dom",
+                        "lun",
+                        "mar",
+                        "mié",
+                        "jue",
+                        "vie",
+                        "sáb",
+                    }
+                    short{
+                        "DO",
+                        "LU",
+                        "MA",
+                        "MI",
+                        "JU",
+                        "VI",
+                        "SA",
+                    }
+                    wide{
+                        "domingo",
+                        "lunes",
+                        "martes",
+                        "miércoles",
+                        "jueves",
+                        "viernes",
+                        "sábado",
+                    }
+                }
                 stand-alone{
+                    abbreviated{
+                        "Dom",
+                        "Lun",
+                        "Mar",
+                        "Mié",
+                        "Jue",
+                        "Vie",
+                        "Sáb",
+                    }
                     narrow{
                         "D",
                         "L",
@@ -93,6 +135,15 @@ es_419{
                         "J",
                         "V",
                         "S",
+                    }
+                    wide{
+                        "Domingo",
+                        "Lunes",
+                        "Martes",
+                        "Miércoles",
+                        "Jueves",
+                        "Viernes",
+                        "Sábado",
                     }
                 }
             }
@@ -109,11 +160,49 @@ es_419{
         }
     }
     fields{
+        day{
+            relativeTime{
+                future{
+                    one{"En {0} día"}
+                    other{"En {0} días"}
+                }
+            }
+        }
+        hour{
+            relativeTime{
+                future{
+                    one{"En {0} hora"}
+                    other{"En {0} horas"}
+                }
+            }
+        }
+        minute{
+            relativeTime{
+                future{
+                    one{"En {0} minuto"}
+                    other{"En {0} minutos"}
+                }
+            }
+        }
         month{
             relative{
                 "-1"{"El mes pasado"}
                 "0"{"Este mes"}
                 "1"{"Mes próximo"}
+            }
+            relativeTime{
+                future{
+                    one{"En {0} mes"}
+                    other{"En {0} meses"}
+                }
+            }
+        }
+        second{
+            relativeTime{
+                future{
+                    one{"En {0} segundo"}
+                    other{"En {0} segundos"}
+                }
             }
         }
         week{
@@ -122,6 +211,12 @@ es_419{
                 "0"{"Esta semana"}
                 "1"{"Próxima semana"}
             }
+            relativeTime{
+                future{
+                    one{"En {0} semana"}
+                    other{"En {0} semanas"}
+                }
+            }
         }
         year{
             relative{
@@ -129,39 +224,18 @@ es_419{
                 "0"{"Este año"}
                 "1"{"Año próximo"}
             }
+            relativeTime{
+                future{
+                    one{"En {0} año"}
+                    other{"En {0} años"}
+                }
+            }
         }
     }
     measurementSystemNames{
         UK{"Reino Unido"}
     }
-    units{
-        day-future{
-            one{"En {0} día"}
-            other{"En {0} días"}
-        }
-        hour-future{
-            one{"En {0} hora"}
-            other{"En {0} horas"}
-        }
-        minute-future{
-            one{"En {0} minuto"}
-            other{"En {0} minutos"}
-        }
-        month-future{
-            one{"En {0} mes"}
-            other{"En {0} meses"}
-        }
-        second-future{
-            one{"En {0} segundo"}
-            other{"En {0} segundos"}
-        }
-        week-future{
-            one{"En {0} semana"}
-            other{"En {0} semanas"}
-        }
-        year-future{
-            one{"En {0} año"}
-            other{"En {0} años"}
-        }
+    transformNames{
+        Numeric{"Numéricas"}
     }
 }

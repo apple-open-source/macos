@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#if ENABLE(SVG) && ENABLE(SVG_FONTS)
+#if ENABLE(SVG_FONTS)
 #include "SVGGlyphRefElement.h"
 
 #include "SVGGlyphElement.h"
@@ -27,6 +27,7 @@
 #include "SVGParserUtilities.h"
 #include "XLinkNames.h"
 #include <wtf/text/AtomicString.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -35,11 +36,11 @@ DEFINE_ANIMATED_STRING(SVGGlyphRefElement, XLinkNames::hrefAttr, Href, href)
 
 BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGGlyphRefElement)
     REGISTER_LOCAL_ANIMATED_PROPERTY(href)
-    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGElement)
 END_REGISTER_ANIMATED_PROPERTIES
 
-inline SVGGlyphRefElement::SVGGlyphRefElement(const QualifiedName& tagName, Document* document)
-    : SVGStyledElement(tagName, document)
+inline SVGGlyphRefElement::SVGGlyphRefElement(const QualifiedName& tagName, Document& document)
+    : SVGElement(tagName, document)
     , m_x(0)
     , m_y(0)
     , m_dx(0)
@@ -49,7 +50,7 @@ inline SVGGlyphRefElement::SVGGlyphRefElement(const QualifiedName& tagName, Docu
     registerAnimatedPropertiesForSVGGlyphRefElement();
 }
 
-PassRefPtr<SVGGlyphRefElement> SVGGlyphRefElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<SVGGlyphRefElement> SVGGlyphRefElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(new SVGGlyphRefElement(tagName, document));
 }
@@ -66,7 +67,8 @@ bool SVGGlyphRefElement::hasValidGlyphElement(String& glyphName) const
 
 void SVGGlyphRefElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    const UChar* startPtr = value.characters();
+    auto upconvertedCharacters = StringView(value.string()).upconvertedCharacters();
+    const UChar* startPtr = upconvertedCharacters;
     const UChar* endPtr = startPtr + value.length();
 
     // FIXME: We need some error handling here.
@@ -81,7 +83,7 @@ void SVGGlyphRefElement::parseAttribute(const QualifiedName& name, const AtomicS
     else {
         if (SVGURIReference::parseAttribute(name, value))
             return;
-        SVGStyledElement::parseAttribute(name, value);
+        SVGElement::parseAttribute(name, value);
     }
 }
 

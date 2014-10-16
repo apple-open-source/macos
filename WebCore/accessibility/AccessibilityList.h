@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -41,22 +41,19 @@ public:
     static PassRefPtr<AccessibilityList> create(RenderObject*);
     virtual ~AccessibilityList();
     
-    virtual bool isList() const { return true; }
+    virtual bool isList() const override { return true; }
     bool isUnorderedList() const;
     bool isOrderedList() const;
     bool isDescriptionList() const;
 
-    virtual AccessibilityRole roleValue() const { return ListRole; }
+    virtual AccessibilityRole roleValue() const override final;
 private:
-    virtual bool computeAccessibilityIsIgnored() const;
+    virtual bool computeAccessibilityIsIgnored() const override;
+    virtual AccessibilityRole determineAccessibilityRole() override;
 };
-    
-inline AccessibilityList* toAccessibilityList(AccessibilityObject* object)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isList());
-    return static_cast<AccessibilityList*>(object);
-}
-    
+
+ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityList, isList())
+
 } // namespace WebCore
 
 #endif // AccessibilityList_h

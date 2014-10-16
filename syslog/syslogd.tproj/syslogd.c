@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <signal.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach/mach_time.h>
@@ -50,6 +49,7 @@
 #include <notify_keys.h>
 #include <utmpx.h>
 #include <vproc_priv.h>
+#include <asl_private.h>
 #if !TARGET_OS_IPHONE
 #include <quarantine.h>
 #endif
@@ -65,7 +65,6 @@
 
 #define NOTIFY_DELAY 1
 
-#define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
 
 extern int _malloc_no_asl_log;
@@ -355,7 +354,7 @@ config_debug(int enable, const char *path)
 }
 
 void
-config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t mini_max)
+config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t str_memory_max)
 {
 	pthread_mutex_lock(global.db_lock);
 
@@ -371,16 +370,10 @@ config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t min
 		global.memory_db = NULL;
 	}
 
-	if (global.dbtype & DB_TYPE_MINI)
-	{
-		asl_mini_memory_close(global.mini_db);
-		global.mini_db = NULL;
-	}
-
 	global.dbtype = type;
 	global.db_file_max = file_max;
 	global.db_memory_max = memory_max;
-	global.db_mini_max = mini_max;
+	global.db_memory_str_max = str_memory_max;
 
 	pthread_mutex_unlock(global.db_lock);
 }
@@ -390,24 +383,24 @@ write_boot_log(int first)
 {
 	int mib[2] = {CTL_KERN, KERN_BOOTTIME};
 	size_t len;
-	aslmsg msg;
+	asl_msg_t *msg;
 	char buf[256];
 	struct utmpx utx;
 
 	if (first == 0)
 	{
 		/* syslogd restart */
-		msg = asl_new(ASL_TYPE_MSG);
+		msg = asl_msg_new(ASL_TYPE_MSG);
 		if (msg == NULL) return;
 
-		asl_set(msg, ASL_KEY_SENDER, "syslogd");
-		asl_set(msg, ASL_KEY_FACILITY, "daemon");
-		asl_set(msg, ASL_KEY_LEVEL, "Notice");
-		asl_set(msg, ASL_KEY_UID, "0");
-		asl_set(msg, ASL_KEY_GID, "0");
+		asl_msg_set_key_val(msg, ASL_KEY_SENDER, "syslogd");
+		asl_msg_set_key_val(msg, ASL_KEY_FACILITY, "daemon");
+		asl_msg_set_key_val(msg, ASL_KEY_LEVEL, "Notice");
+		asl_msg_set_key_val(msg, ASL_KEY_UID, "0");
+		asl_msg_set_key_val(msg, ASL_KEY_GID, "0");
 		snprintf(buf, sizeof(buf), "%u", global.pid);
-		asl_set(msg, ASL_KEY_PID, buf);
-		asl_set(msg, ASL_KEY_MSG, "--- syslogd restarted ---");
+		asl_msg_set_key_val(msg, ASL_KEY_PID, buf);
+		asl_msg_set_key_val(msg, ASL_KEY_MSG, "--- syslogd restarted ---");
 		process_message(msg, SOURCE_INTERNAL);
 		return;
 	}
@@ -425,27 +418,27 @@ write_boot_log(int first)
 
 	pututxline(&utx);
 
-	msg = asl_new(ASL_TYPE_MSG);
+	msg = asl_msg_new(ASL_TYPE_MSG);
 	if (msg == NULL) return;
 
-	asl_set(msg, ASL_KEY_SENDER, "bootlog");
-	asl_set(msg, ASL_KEY_FACILITY, "com.apple.system.utmpx");
-	asl_set(msg, ASL_KEY_LEVEL, "Notice");
-	asl_set(msg, ASL_KEY_UID, "0");
-	asl_set(msg, ASL_KEY_GID, "0");
-	asl_set(msg, ASL_KEY_PID, "0");
+	asl_msg_set_key_val(msg, ASL_KEY_SENDER, "bootlog");
+	asl_msg_set_key_val(msg, ASL_KEY_FACILITY, "com.apple.system.utmpx");
+	asl_msg_set_key_val(msg, ASL_KEY_LEVEL, "Notice");
+	asl_msg_set_key_val(msg, ASL_KEY_UID, "0");
+	asl_msg_set_key_val(msg, ASL_KEY_GID, "0");
+	asl_msg_set_key_val(msg, ASL_KEY_PID, "0");
 	snprintf(buf, sizeof(buf), "BOOT_TIME %lu %u", (unsigned long)utx.ut_tv.tv_sec, (unsigned int)utx.ut_tv.tv_usec);
-	asl_set(msg, ASL_KEY_MSG, buf);
-	asl_set(msg, "ut_id", "0x00 0x00 0x00 0x00");
-	asl_set(msg, "ut_pid", "1");
-	asl_set(msg, "ut_type", "2");
+	asl_msg_set_key_val(msg, ASL_KEY_MSG, buf);
+	asl_msg_set_key_val(msg, "ut_id", "0x00 0x00 0x00 0x00");
+	asl_msg_set_key_val(msg, "ut_pid", "1");
+	asl_msg_set_key_val(msg, "ut_type", "2");
 	snprintf(buf, sizeof(buf), "%lu", (unsigned long)utx.ut_tv.tv_sec);
-	asl_set(msg, ASL_KEY_TIME, buf);
-	asl_set(msg, "ut_tv.tv_sec", buf);
+	asl_msg_set_key_val(msg, ASL_KEY_TIME, buf);
+	asl_msg_set_key_val(msg, "ut_tv.tv_sec", buf);
 	snprintf(buf, sizeof(buf), "%u", (unsigned int)utx.ut_tv.tv_usec);
-	asl_set(msg, "ut_tv.tv_usec", buf);
+	asl_msg_set_key_val(msg, "ut_tv.tv_usec", buf);
 	snprintf(buf, sizeof(buf), "%u%s", (unsigned int)utx.ut_tv.tv_usec, (utx.ut_tv.tv_usec == 0) ? "" : "000");
-	asl_set(msg, ASL_KEY_TIME_NSEC, buf);
+	asl_msg_set_key_val(msg, ASL_KEY_TIME_NSEC, buf);
 
 	process_message(msg, SOURCE_INTERNAL);
 }
@@ -454,33 +447,51 @@ int
 main(int argc, const char *argv[])
 {
 	int32_t i;
-	int network_change_token, asl_db_token;
-	char tstr[32];
+#if !TARGET_IPHONE_SIMULATOR
+	int network_change_token;
+#endif
+	int quota_file_token, asl_db_token;
+	char tstr[32], *notify_key;
 	time_t now;
 	int first_syslogd_start = 1;
 
 #if TARGET_IPHONE_SIMULATOR
-	const char *sim_log_dir = getenv("IPHONE_SIMULATOR_LOG_ROOT");
-	const char *sim_resource_dir = getenv("IPHONE_SHARED_RESOURCES_DIRECTORY");
+	const char *sim_log_dir = getenv("SIMULATOR_LOG_ROOT");
+	const char *sim_resource_dir = getenv("SIMULATOR_SHARED_RESOURCES_DIRECTORY");
 	char *p;
+
+	/* assert is evil */
 	assert(sim_log_dir && sim_resource_dir);
 
 	asprintf((char **)&_path_syslogd_log, "%s/syslogd.log", sim_log_dir);
-	assert(_path_syslogd_log);
-
 	asprintf((char **)&_path_pidfile, "%s/var/run/syslog.pid", sim_resource_dir);
-	assert(_path_pidfile);
 
-	/* Make sure the directories exists */
-	mkpath_np(sim_log_dir, 0755);
+	if (_path_syslogd_log == NULL) _path_syslogd_log = "/tmp/syslogd.log";
+	else mkpath_np(sim_log_dir, 0755);
 
-	p = strrchr(_path_pidfile, '/');
-	*p = '\0';
-	mkpath_np(_path_pidfile, 0755);
-	*p = '/';
+	if (_path_pidfile == NULL)
+	{
+		_path_pidfile = "/tmp/syslog.pid";
+	}
+	else
+	{
+		p = strrchr(_path_pidfile, '/');
+		*p = '\0';
+		mkpath_np(_path_pidfile, 0755);
+		*p = '/';
+	}
+#endif
 
-	extern const char *store_path;
-	store_path = PATH_ASL_STORE;
+#if TARGET_OS_IPHONE
+	/*
+	 * Reset owner, group, and permissions in /var/mobile/Library/Logs
+	 * in case something created them incorrectly.  syslogd was
+	 * guilty of this in the past, creating them with owner root.
+	 */
+
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs", 501, 501, 0755);
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter", 501, 501, 0755);
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs", 501, 501, 0755);
 #endif
 
 	/* Set I/O policy */
@@ -540,7 +551,7 @@ main(int argc, const char *argv[])
 					global.dbtype = DB_TYPE_FILE;
 					global.db_file_max = 25600000;
 #else
-					global.dbtype = DB_TYPE_MINI;
+					global.dbtype = DB_TYPE_MEMORY;
 					remote_enabled = 1;
 #endif
 				}
@@ -569,11 +580,6 @@ main(int argc, const char *argv[])
 				{
 					global.dbtype |= DB_TYPE_MEMORY;
 					if (((i + 1) < argc) && (argv[i+1][0] != '-')) global.db_memory_max = atol(argv[++i]);
-				}
-				else if (streq(argv[i], "mini"))
-				{
-					global.dbtype |= DB_TYPE_MINI;
-					if (((i + 1) < argc) && (argv[i+1][0] != '-')) global.db_mini_max = atol(argv[++i]);
 				}
 			}
 		}
@@ -651,7 +657,7 @@ main(int argc, const char *argv[])
 	init_modules();
 
 #if !TARGET_IPHONE_SIMULATOR
-	asldebug("setting up notification handlers\n");
+	asldebug("setting up network change notification handler\n");
 
 	/* network change notification resets UDP and BSD modules */
 	notify_register_dispatch(kNotifySCNetworkChange, &network_change_token, global.work_queue, ^(int x){
@@ -659,6 +665,36 @@ main(int argc, const char *argv[])
 		if (activate_bsd_out != 0) bsd_out_reset();
 	});
 #endif
+
+	asldebug("setting up quota notification handler\n");
+
+	notify_key = NULL;
+	asprintf(&notify_key, "%s%s", NOTIFY_PATH_SERVICE, NOQUOTA_FILE_PATH);
+	if (notify_key != NULL)
+	{
+		int status;
+
+		status = notify_register_dispatch(notify_key, &quota_file_token, dispatch_get_main_queue(), ^(int t){
+			struct stat sb;
+			memset(&sb, 0, sizeof(sb));
+			if (stat(NOQUOTA_FILE_PATH, &sb) == 0)
+			{
+				char *str = NULL;
+				asprintf(&str, "[Sender syslogd] [Level 2] [PID %u] [Facility syslog] [Message *** MESSAGE QUOTAS DISABLED FOR ALL PROCESSES ***]", global.pid);
+				internal_log_message(str);
+				free(str);
+			}
+			else
+			{
+				char *str = NULL;
+				asprintf(&str, "[Sender syslogd] [Level 2] [PID %u] [Facility syslog] [Message *** MESSAGE QUOTAS ENABLED ***]", global.pid);
+				internal_log_message(str);
+				free(str);
+			}
+		});
+
+		free(notify_key);
+	}
 
 	/* SIGHUP resets all modules */
 	global.sig_hup_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, (uintptr_t)SIGHUP, 0, dispatch_get_main_queue());

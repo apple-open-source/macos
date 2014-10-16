@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -41,47 +41,49 @@ Vmalloc_t*	vm;
 	Seg_t		*seg, *vmseg, *next;
 	Vmalloc_t	*v, *last;
 	Vmdata_t*	vd = vm->data;
-	int		ev = 0;
+	Vmdisc_t*	disc = vm->disc;
+	int		mode, rv = 0;
 
-	if(vm == Vmheap)
+	if(vm == Vmheap) /* the heap is never freed */
 		return -1;
 
-	if(!(vd->mode&VM_TRUST) && ISLOCK(vd,0))
+	if(vm->disc->exceptf && /* announcing closing event */
+	   (rv = (*vm->disc->exceptf)(vm,VM_CLOSE,(Void_t*)1,vm->disc)) < 0 )
 		return -1;
 
-	if(vm->disc->exceptf &&
-	   (ev = (*vm->disc->exceptf)(vm,VM_CLOSE,NIL(Void_t*),vm->disc)) < 0 )
-		return -1;
+	mode = vd->mode; /* remember this in case it gets destroyed below */
 
-	/* make this region inaccessible until it disappears */
-	vd->mode &= ~VM_TRUST;
-	SETLOCK(vd,0);
-
-	if((vd->mode&VM_MTPROFILE) && _Vmpfclose)
+	if((mode&VM_MTPROFILE) && _Vmpfclose)
 		(*_Vmpfclose)(vm);
 
-	/* remove from linked list of regions	*/
+	/* remove from linked list of regions */
+	_vmlock(NIL(Vmalloc_t*), 1);
 	for(last = Vmheap, v = last->next; v; last = v, v = v->next)
 	{	if(v == vm)
 		{	last->next = v->next;
 			break;
 		}
 	}
+	_vmlock(NIL(Vmalloc_t*), 0);
 
-	if(ev == 0)
-	{	vmseg = NIL(Seg_t*);
+	if(rv == 0) /* deallocate memory obtained from the system */
+	{	/* lock-free because alzheimer can cause deadlocks :) */
+		vmseg = NIL(Seg_t*);
 		for(seg = vd->seg; seg; seg = next)
 		{	next = seg->next;
-			if(seg->extent == seg->size)
-				vmseg = seg;
-			else	(*vm->disc->memoryf)(vm,seg->addr,seg->extent,0,vm->disc);
+			if(seg->extent == seg->size) /* root segment */
+				vmseg = seg; /* don't free this yet */
+			else	(*disc->memoryf)(vm,seg->addr,seg->extent,0,disc);
 		}
-		if(vmseg)
-			(*vm->disc->memoryf)(vm,vmseg->addr,vmseg->extent,0,vm->disc);
+		if(vmseg) /* now safe to free root segment */
+			(*disc->memoryf)(vm,vmseg->addr,vmseg->extent,0,disc);
 	}
-	else	CLRLOCK(vd,0);
 
-	vmfree(Vmheap,vm);
+	if(disc->exceptf) /* finalizing closing */
+		(void)(*disc->exceptf)(vm, VM_ENDCLOSE, (Void_t*)0, disc);
+
+	if(!(mode & VM_MEMORYF) )
+		vmfree(Vmheap,vm);
 
 	return 0;
 }

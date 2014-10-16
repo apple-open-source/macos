@@ -97,7 +97,7 @@ AC_MSG_RESULT($dblib)
 
 SASL_DB_BACKEND="db_${dblib}.lo"
 SASL_DB_BACKEND_STATIC="db_${dblib}.o allockey.o"
-SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_${dblib}.c ../sasldb/allockey.c"
+SASL_DB_BACKEND_STATIC_SRCS="\$(top_srcdir)/sasldb/db_${dblib}.c \$(top_srcdir)/sasldb/allockey.c"
 SASL_DB_UTILS="saslpasswd2 sasldblistusers2"
 SASL_DB_MANS="saslpasswd2.8 sasldblistusers2.8"
 
@@ -120,7 +120,7 @@ case "$dblib" in
     dnl will just fail to load anyway.
     SASL_DB_BACKEND="db_none.lo"
     SASL_DB_BACKEND_STATIC="db_none.o"
-    SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_none.c"
+    SASL_DB_BACKEND_STATIC_SRCS="\$(top_srcdir)/sasldb/db_none.c"
     SASL_DB_UTILS=""
     SASL_DB_MANS=""
     SASL_DB_LIB=""
@@ -129,7 +129,7 @@ esac
 
 if test "$enable_static" = yes; then
     if test "$dblib" != "none"; then
-      SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/sasldb.c $SASL_DB_BACKEND_STATIC_SRCS"
+      SASL_STATIC_SRCS="$SASL_STATIC_SRCS \$(top_srcdir)/plugins/sasldb.c $SASL_DB_BACKEND_STATIC_SRCS"
       SASL_STATIC_OBJS="$SASL_STATIC_OBJS sasldb.o $SASL_DB_BACKEND_STATIC"
       AC_DEFINE(STATIC_SASLDB,[],[Link SASLdb Staticly])
     else

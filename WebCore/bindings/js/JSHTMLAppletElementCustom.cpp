@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "JSHTMLAppletElementCustom.h"
+#include "JSHTMLAppletElement.h"
 
 #include "HTMLAppletElement.h"
 #include "JSPluginElementFunctions.h"
@@ -38,19 +38,14 @@ bool JSHTMLAppletElement::getOwnPropertySlotDelegate(ExecState* exec, PropertyNa
     return pluginElementCustomGetOwnPropertySlot<JSHTMLAppletElement, Base>(exec, propertyName, slot, this);
 }
 
-bool JSHTMLAppletElement::getOwnPropertyDescriptorDelegate(ExecState* exec, PropertyName propertyName, PropertyDescriptor& descriptor)
-{
-    return pluginElementCustomGetOwnPropertyDescriptor<JSHTMLAppletElement, Base>(exec, propertyName, descriptor, this);
-}
-
 bool JSHTMLAppletElement::putDelegate(ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
-    return runtimeObjectCustomPut(exec, propertyName, value, this, slot);
+    return pluginElementCustomPut(exec, propertyName, value, this, slot);
 }
 
 CallType JSHTMLAppletElement::getCallData(JSCell* cell, CallData& callData)
 {
-    return runtimeObjectGetCallData(jsCast<JSHTMLAppletElement*>(cell), callData);
+    return pluginElementGetCallData(jsCast<JSHTMLAppletElement*>(cell), callData);
 }
 
 } // namespace WebCore

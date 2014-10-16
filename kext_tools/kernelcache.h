@@ -15,6 +15,10 @@
 #define PLATFORM_NAME_LEN  (64)
 #define ROOT_PATH_LEN     (256)
 
+#define COMP_TYPE_LZSS      'lzss'
+#define COMP_TYPE_FASTLIB   'lzvn'
+
+
 // prelinkVersion value >= 1 means KASLR supported
 typedef struct prelinked_kernel_header {
     uint32_t  signature;
@@ -92,13 +96,16 @@ int verifyMachOIsArch(
     const UInt8      * fileBuf,
     size_t              size,
     const NXArchInfo * archInfo);
+Boolean supportsFastLibCompression(
+    void);
 CF_RETURNS_RETAINED
 CFDataRef uncompressPrelinkedSlice(
     CFDataRef prelinkImage);
 CF_RETURNS_RETAINED
 CFDataRef compressPrelinkedSlice(
-    CFDataRef prelinkImage,
-    Boolean   hasRelocs);
+    uint32_t            compressionType,
+    CFDataRef           prelinkImage,
+    Boolean             hasRelocs);
 ExitStatus writePrelinkedSymbols(
     CFURLRef    symbolDirURL,
     CFArrayRef  prelinkSymbols,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -256,7 +256,7 @@ typedef UInt32 IOMediaAttributeMask;
  * access to the real disk device.  A read or write is accepted so long as the
  * client's access is valid, the media is formatted and the transfer is within
  * the bounds of the media.  An optional non-zero base (offset) is then applied
- * before the read or write is passed to provider object.
+ * before the read or write is passed to the provider object.
  */
 
 class IOMedia : public IOStorage
@@ -540,6 +540,28 @@ public:
     virtual void unlockPhysicalExtents(IOService * client);
 
     /*!
+     * @function setPriority
+     * @discussion
+     * Reprioritize read or write requests at the specified byte offsets.
+     * @param client
+     * Client requesting the operation.
+     * @param extents
+     * List of extents.  See IOStorageExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
+     * @param priority
+     * New priority.  See IOStoragePriority.
+     * @result
+     * Returns the status of the operation.
+     */
+
+    virtual IOReturn setPriority(IOService *       client,
+                                 IOStorageExtent * extents,
+                                 UInt32            extentsCount,
+                                 IOStoragePriority priority);
+
+    /*!
      * @function getPreferredBlockSize
      * @discussion
      * Ask the media object for its natural block size.  This information
@@ -563,8 +585,8 @@ public:
     /*!
      * @function getBase
      * @discussion
-     * Ask the media object for its byte offset relative to its provider media
-     * object below it in the storage hierarchy.
+     * Ask the media object for its byte offset relative to the provider media.
+     * @result
      * Media offset, in bytes.
      */
 

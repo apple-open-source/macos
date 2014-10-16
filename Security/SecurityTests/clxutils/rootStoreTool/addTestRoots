@@ -1,0 +1,21 @@
+#! /bin/csh -f
+#
+# add test roots using rootStoreTool.
+#
+# first the system certs
+#
+rootStoreTool a -c UnrestrictedSystemRoot.cer -s || exit(1)
+rootStoreTool a -c SMIME_SystemRoot.cer -s -p smime || exit(1)
+rootStoreTool a -c SSL_SystemRoot.cer -s -p ssl || exit(1)
+rootStoreTool a -c KeychainAccessSystemRoot.cer -s -a "/Applications/Utilities/Keychain Access.app" || exit(1)
+#
+# Now user certs - this will need UI 
+#
+rootStoreTool a -c UnrestrictedUserRoot.cer || exit(1)
+rootStoreTool a -c SMIME_UserRoot.cer -p smime || exit(1)
+rootStoreTool a -c SSL_UserRoot.cer -p ssl || exit(1)
+rootStoreTool a -c KeychainAccessUserRoot.cer -a "/Applications/Utilities/Keychain Access.app" || exit(1)
+#
+echo ...complete.
+rootStoreTool r -A
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,49 +29,46 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAbstractValue.h"
+#include "DFGAvailability.h"
 #include "DFGBranchDirection.h"
+#include "DFGFlushedAt.h"
 #include "DFGNode.h"
-#include "DFGVariadicFunction.h"
 #include "Operands.h"
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
 class Graph;
+class InsertionSet;
 
-typedef Vector <BlockIndex, 2> PredecessorList;
+typedef Vector<BasicBlock*, 2> PredecessorList;
 
-struct BasicBlock : Vector<Node*, 8> {
-    BasicBlock(unsigned bytecodeBegin, unsigned numArguments, unsigned numLocals)
-        : bytecodeBegin(bytecodeBegin)
-        , isOSRTarget(false)
-        , cfaHasVisited(false)
-        , cfaShouldRevisit(false)
-        , cfaFoundConstants(false)
-        , cfaDidFinish(true)
-        , cfaBranchDirection(InvalidBranchDirection)
-#if !ASSERT_DISABLED
-        , isLinked(false)
-#endif
-        , isReachable(false)
-        , variablesAtHead(numArguments, numLocals)
-        , variablesAtTail(numArguments, numLocals)
-        , valuesAtHead(numArguments, numLocals)
-        , valuesAtTail(numArguments, numLocals)
-    {
-    }
+struct BasicBlock : RefCounted<BasicBlock> {
+    BasicBlock(
+        unsigned bytecodeBegin, unsigned numArguments, unsigned numLocals,
+        float executionCount);
+    ~BasicBlock();
     
-    ~BasicBlock()
-    {
-    }
+    void ensureLocals(unsigned newNumLocals);
     
-    void ensureLocals(unsigned newNumLocals)
+    size_t size() const { return m_nodes.size(); }
+    bool isEmpty() const { return !size(); }
+    Node*& at(size_t i) { return m_nodes[i]; }
+    Node* at(size_t i) const { return m_nodes[i]; }
+    Node*& operator[](size_t i) { return at(i); }
+    Node* operator[](size_t i) const { return at(i); }
+    Node* last() const { return at(size() - 1); }
+    void resize(size_t size) { m_nodes.resize(size); }
+    void grow(size_t size) { m_nodes.grow(size); }
+    
+    void append(Node* node) { m_nodes.append(node); }
+    void insertBeforeLast(Node* node)
     {
-        variablesAtHead.ensureLocals(newNumLocals);
-        variablesAtTail.ensureLocals(newNumLocals);
-        valuesAtHead.ensureLocals(newNumLocals);
-        valuesAtTail.ensureLocals(newNumLocals);
+        append(last());
+        at(size() - 2) = node;
     }
     
     size_t numNodes() const { return phis.size() + size(); }
@@ -83,32 +80,36 @@ struct BasicBlock : Vector<Node*, 8> {
     }
     bool isPhiIndex(size_t i) const { return i < phis.size(); }
     
-    bool isInPhis(Node* node) const
+    bool isInPhis(Node* node) const;
+    bool isInBlock(Node* myNode) const;
+    
+    unsigned numSuccessors() { return last()->numSuccessors(); }
+    
+    BasicBlock*& successor(unsigned index)
     {
-        for (size_t i = 0; i < phis.size(); ++i) {
-            if (phis[i] == node)
-                return true;
-        }
-        return false;
+        return last()->successor(index);
+    }
+    BasicBlock*& successorForCondition(bool condition)
+    {
+        return last()->successorForCondition(condition);
     }
     
-    bool isInBlock(Node* myNode) const
-    {
-        for (size_t i = 0; i < numNodes(); ++i) {
-            if (node(i) == myNode)
-                return true;
-        }
-        return false;
-    }
+    void removePredecessor(BasicBlock* block);
+    void replacePredecessor(BasicBlock* from, BasicBlock* to);
+
+    template<typename... Params>
+    Node* appendNode(Graph&, SpeculatedType, Params...);
     
-#define DFG_DEFINE_APPEND_NODE(templatePre, templatePost, typeParams, valueParamsComma, valueParams, valueArgs) \
-    templatePre typeParams templatePost Node* appendNode(Graph&, SpeculatedType valueParamsComma valueParams);
-    DFG_VARIADIC_TEMPLATE_FUNCTION(DFG_DEFINE_APPEND_NODE)
-#undef DFG_DEFINE_APPEND_NODE
+    template<typename... Params>
+    Node* appendNonTerminal(Graph&, SpeculatedType, Params...);
+    
+    void dump(PrintStream& out) const;
     
     // This value is used internally for block linking and OSR entry. It is mostly meaningless
     // for other purposes due to inlining.
     unsigned bytecodeBegin;
+    
+    BlockIndex index;
     
     bool isOSRTarget;
     bool cfaHasVisited;
@@ -122,30 +123,63 @@ struct BasicBlock : Vector<Node*, 8> {
     bool isReachable;
     
     Vector<Node*> phis;
-    PredecessorList m_predecessors;
+    PredecessorList predecessors;
     
     Operands<Node*, NodePointerTraits> variablesAtHead;
     Operands<Node*, NodePointerTraits> variablesAtTail;
     
     Operands<AbstractValue> valuesAtHead;
     Operands<AbstractValue> valuesAtTail;
+    
+    float executionCount;
+    
+    // These fields are reserved for NaturalLoops.
+    static const unsigned numberOfInnerMostLoopIndices = 2;
+    unsigned innerMostLoopIndices[numberOfInnerMostLoopIndices];
+
+    struct SSAData {
+        Operands<Availability> availabilityAtHead;
+        Operands<Availability> availabilityAtTail;
+        HashSet<Node*> liveAtHead;
+        HashSet<Node*> liveAtTail;
+        HashMap<Node*, AbstractValue> valuesAtHead;
+        HashMap<Node*, AbstractValue> valuesAtTail;
+        
+        SSAData(BasicBlock*);
+        ~SSAData();
+    };
+    OwnPtr<SSAData> ssa;
+
+private:
+    friend class InsertionSet;
+    Vector<Node*, 8> m_nodes;
 };
 
 struct UnlinkedBlock {
-    BlockIndex m_blockIndex;
+    BasicBlock* m_block;
     bool m_needsNormalLinking;
     bool m_needsEarlyReturnLinking;
     
     UnlinkedBlock() { }
     
-    explicit UnlinkedBlock(BlockIndex blockIndex)
-        : m_blockIndex(blockIndex)
+    explicit UnlinkedBlock(BasicBlock* block)
+        : m_block(block)
         , m_needsNormalLinking(true)
         , m_needsEarlyReturnLinking(false)
     {
     }
 };
     
+static inline unsigned getBytecodeBeginForBlock(BasicBlock** basicBlock)
+{
+    return (*basicBlock)->bytecodeBegin;
+}
+
+static inline BasicBlock* blockForBytecodeOffset(Vector<BasicBlock*>& linkingTargets, unsigned bytecodeBegin)
+{
+    return *binarySearch<BasicBlock*, unsigned>(linkingTargets, linkingTargets.size(), bytecodeBegin, getBytecodeBeginForBlock);
+}
+
 } } // namespace JSC::DFG
 
 #endif // ENABLE(DFG_JIT)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,7 +31,7 @@
 
 #include "Event.h"
 #include "FrameLoaderTypes.h"
-#include "KURL.h"
+#include "URL.h"
 #include "ResourceRequest.h"
 #include <wtf/Forward.h>
 
@@ -48,16 +48,19 @@ namespace WebCore {
 
         bool isEmpty() const { return m_resourceRequest.url().isEmpty(); }
 
-        KURL url() const { return m_resourceRequest.url(); }
+        URL url() const { return m_resourceRequest.url(); }
         const ResourceRequest& resourceRequest() const { return m_resourceRequest; }
 
         NavigationType type() const { return m_type; }
         const Event* event() const { return m_event.get(); }
 
+        bool processingUserGesture() const { return m_processingUserGesture; }
+
     private:
         ResourceRequest m_resourceRequest;
         NavigationType m_type;
         RefPtr<Event> m_event;
+        bool m_processingUserGesture;
     };
 
 }

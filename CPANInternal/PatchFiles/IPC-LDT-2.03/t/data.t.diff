@@ -1,0 +1,24 @@
+diff --git a/IPC-LDT-2.03/t/data.t b/IPC-LDT-2.03/t/data.t
+index 1130307..81fe38f 100644
+--- IPC-LDT-2.03/t/data.t
++++ IPC-LDT-2.03/t/data.t
+@@ -7,7 +7,7 @@
+ # load modules
+ use IPC::LDT;
+ use FileHandle;
+-use Data::Dumper;
++use Data::Compare;
+ 
+ # display number of test
+ print "1..4\n";
+@@ -50,8 +50,8 @@ my $ref=\$IPC::LDT::VERSION;
+ 
+  # perform the checks
+  print $data[0]==$scalar ? 'ok' : 'not ok', "\n";
+- print Dumper(@{$data[1]}) eq Dumper(@array) ? 'ok' : 'not ok', "\n";
+- print Dumper(%{$data[2]}) eq Dumper(%hash)  ? 'ok' : 'not ok', "\n";
++ print Compare($data[1], \@array) ? 'ok' : 'not ok', "\n";
++ print Compare($data[2], \%hash)  ? 'ok' : 'not ok', "\n";
+  print ${$data[3]} eq $$ref ? 'ok' : 'not ok', "\n";
+ 
+  # close the temporary file

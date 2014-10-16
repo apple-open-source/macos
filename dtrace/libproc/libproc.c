@@ -32,19 +32,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#import <sys/sysctl.h>
+#include <sys/sysctl.h>
 
 // /System//Library/Frameworks/System.framework/Versions/B/PrivateHeaders/sys/proc_info.h
 #include <System/sys/proc_info.h>
+#include <System/sys/codesign.h>
+
+#if !TARGET_OS_EMBEDDED
+#include <System/sys/csr.h>
+#include <sandbox/rootless.h>
+#endif
 
 // This must be done *after* any references to Foundation.h!
 #define uint_t  __Solaris_uint_t
 
-#import "libproc.h"
-#import "libproc_apple.h"
+#include "libproc.h"
+#include "libproc_apple.h"
 
-#import <spawn.h>
-#import <pthread.h>
+#include <spawn.h>
+#include <pthread.h>
 
 #include <crt_externs.h>
 
@@ -52,6 +58,32 @@
 extern void dt_dprintf(const char *, ...);
 
 extern int _dtrace_mangled;
+
+
+/*
+ * Check if DTrace will be able to attach to the process with the current
+ * security configuration. The functions returns true if there is no issue,
+ * otherwise false is returner.
+ */
+bool
+canAttachToProcess(pid_t pid)
+{
+	bool canAttach = true;
+
+	assert(pid != -1);
+
+#if !TARGET_OS_EMBEDDED
+	/*
+	 * If rootless is enabled, ensure that the process is signed with the
+	 * following entitlements: com.apple.security.get-task-allow
+	 */
+	if (csr_check(CSR_ALLOW_TASK_FOR_PID) != 0) {
+		canAttach = rootless_allows_task_for_pid(pid);
+	}
+#endif
+
+	return canAttach;
+}
 
 /*
  * This is a helper method, it does extended lookups following roughly these rules
@@ -110,8 +142,10 @@ CSSymbolOwnerRef symbolOwnerForName(CSSymbolicatorRef symbolicator, const char* 
 	return owner;
 }
 
-#define APPLE_PCREATE_BAD_SYMBOLICATOR 0x0F000001
-#define APPLE_PCREATE_BAD_ARCHITECTURE 0x0F000002
+#define APPLE_PCREATE_BAD_SYMBOLICATOR		0x0F000001
+#define APPLE_PCREATE_BAD_ARCHITECTURE		0x0F000002
+#define APPLE_EXECUTABLE_RESTRICTED		0x0F000003
+#define APPLE_EXECUTABLE_NOT_ATTACHABLE		0x0F000004
 
 //
 // Helper function so that Pcreate & Pgrab can use the same code.
@@ -209,7 +243,8 @@ Pcreate(const char *file,	/* executable file name */
 	int pid;
 	posix_spawnattr_t attr;
 	task_t task;
-	
+	uint32_t flags;
+    
 	*perr = posix_spawnattr_init(&attr);
 	if (0 != *perr) goto destroy_attr;
 	
@@ -231,6 +266,30 @@ destroy_attr:
 	posix_spawnattr_destroy(&attr);
 	
 	if (0 == *perr) {
+		/*
+		 * <rdar://problem/13969762>:
+		 * If the process is signed with restricted entitlements, the libdtrace_dyld
+		 * library will not be injected in the process. In this case we kill the
+		 * process and report an error.
+		 */
+		if (csops(pid, CS_OPS_STATUS, &flags, sizeof(flags)) != -1
+			&& (flags & CS_RESTRICT))
+		{
+			if (kill(pid, SIGKILL))
+				perror("kill()");
+			*perr = APPLE_EXECUTABLE_RESTRICTED;
+			return NULL;
+		}
+
+		/*
+		 * Check if DTrace will be able to attach to the process.
+		 */
+		if (!canAttachToProcess(pid)) {
+			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
+			return NULL;
+		}
+
+
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			proc = createProcAndSymbolicator(pid, task, perr, true);
@@ -280,6 +339,12 @@ Pcreate_error(int error)
 		case APPLE_PCREATE_BAD_ARCHITECTURE:
 			str = "requested architecture missing from executable";
 			break;
+		case APPLE_EXECUTABLE_RESTRICTED:
+			str = "dtrace cannot control executables signed with restricted entitlements";
+			break;
+		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
+			str= "the current security restriction (rootless enabled) prevent dtrace from attaching to an executable not signed "
+			     "with the [com.apple.security.get-task-allow] entitlement";
 		default:
 			if (error < 0)
 				str = mach_error_string(-error);
@@ -320,6 +385,15 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 	
 	if (flags & PGRAB_RDONLY || (0 == flags)) {	
 		task_t task;
+
+		/*
+		 * Check if DTrace will be able to attach to the process.
+		 */
+		if (!canAttachToProcess(pid)) {
+			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
+			return NULL;
+		}
+
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			if (0 == (flags & PGRAB_RDONLY))
@@ -336,12 +410,18 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 
 const char *Pgrab_error(int err) {
 	const char* str;
-	
+
 	switch (err) {
 		case APPLE_PGRAB_BAD_SYMBOLICATOR:
 			str = "Pgrab could not create symbolicator for pid";
+			break;
 		case APPLE_PGRAB_UNSUPPORTED_FLAGS:
 			str = "Pgrab was called with unsupported flags";
+			break;
+		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
+			str = "the current security restriction (rootless enabled) prevent dtrace from attaching to an executable not signed "
+			      "with the [com.apple.security.get-task-allow] entitlement";
+			break;
 		default:
 			str = mach_error_string(err);
 	}
@@ -504,6 +584,13 @@ int Pxlookup_by_name(
 			
 			symp->st_name = 0;
 			symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+#if defined(__arm__) || defined(__arm64__)
+			if (CSSymbolIsArm(symbol)) {
+				symp->st_arch_subinfo = 1;
+			} else {
+				symp->st_arch_subinfo = 2;
+			}
+#endif
 			symp->st_other = 0;
 			symp->st_shndx = SHN_MACHO;
 			symp->st_value = addressRange.location;
@@ -583,6 +670,13 @@ Pxlookup_by_addr(
 			symbolp->st_name = 0;
 			symbolp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
 			symbolp->st_other = 0;
+#if defined(__arm__) || defined(__arm64__)
+			if (CSSymbolIsArm(symbol)) {
+				symbolp->st_arch_subinfo = 1;
+			} else {
+				symbolp->st_arch_subinfo = 2;
+			}
+#endif
 			symbolp->st_shndx = SHN_MACHO;
 			symbolp->st_value = addressRange.location;
 			symbolp->st_size = addressRange.length;
@@ -798,6 +892,13 @@ int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
 					gelf_sym.st_name = 0;
 					gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
 					gelf_sym.st_other = 0;
+#if defined(__arm__) || defined(__arm64__)
+					if (CSSymbolIsArm(symbol)) {
+						gelf_sym.st_arch_subinfo = 1;
+					} else {
+						gelf_sym.st_arch_subinfo = 2;
+					}
+#endif
 					gelf_sym.st_shndx = SHN_MACHO;
 					gelf_sym.st_value = addressRange.location;
 					gelf_sym.st_size = addressRange.length;
@@ -894,6 +995,13 @@ int Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name, int w
 				gelf_sym.st_name = 0;
 				gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
 				gelf_sym.st_other = 0;
+#if defined(__arm__) || defined(__arm64__)
+				if (CSSymbolIsArm(symbol)) {
+					gelf_sym.st_arch_subinfo = 1;
+				} else {
+					gelf_sym.st_arch_subinfo = 2;
+				}
+#endif
 				gelf_sym.st_shndx = SHN_MACHO;
 				gelf_sym.st_value = addressRange.location;
 				gelf_sym.st_size = addressRange.length;

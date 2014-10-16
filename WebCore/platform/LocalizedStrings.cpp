@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -37,7 +37,7 @@
 #include <wtf/RetainPtr.h>
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include "WebCoreSystemInterface.h"
 #endif
 
@@ -71,7 +71,7 @@ static String formatLocalizedString(String format, ...)
 #endif
 }
 
-#if !PLATFORM(MAC) || PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+#if ENABLE(CONTEXT_MENUS)
 static String truncatedStringForLookupMenuItem(const String& original)
 {
     if (original.isEmpty())
@@ -79,7 +79,7 @@ static String truncatedStringForLookupMenuItem(const String& original)
 
     // Truncate the string if it's too long. This is in consistency with AppKit.
     unsigned maxNumberOfGraphemeClustersInLookupMenuItem = 24;
-    DEFINE_STATIC_LOCAL(String, ellipsis, (&horizontalEllipsis, 1));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, ellipsis, (&horizontalEllipsis, 1));
 
     String trimmed = original.stripWhiteSpace();
     unsigned numberOfCharacters = numCharactersInGraphemeClusters(trimmed, maxNumberOfGraphemeClustersInLookupMenuItem);
@@ -133,7 +133,7 @@ String defaultDetailsSummaryText()
     return WEB_UI_STRING("Details", "text to display in <details> tag when it has no <summary> child");
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 String copyImageUnknownFileLabel()
 {
     return WEB_UI_STRING("unknown", "Unknown filename");
@@ -211,14 +211,6 @@ String contextMenuItemTagPaste()
     return WEB_UI_STRING("Paste", "Paste context menu item");
 }
 
-#if PLATFORM(QT)
-String contextMenuItemTagSelectAll()
-{
-    notImplemented();
-    return "Select All";
-}
-#endif
-
 String contextMenuItemTagNoGuessesFound()
 {
     return WEB_UI_STRING("No Guesses Found", "No Guesses Found context menu item");
@@ -234,7 +226,7 @@ String contextMenuItemTagLearnSpelling()
     return WEB_UI_STRING("Learn Spelling", "Learn Spelling context menu item");
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 String contextMenuItemTagSearchInSpotlight()
 {
     return WEB_UI_STRING("Search in Spotlight", "Search in Spotlight context menu item");
@@ -243,7 +235,7 @@ String contextMenuItemTagSearchInSpotlight()
 
 String contextMenuItemTagSearchWeb()
 {
-#if PLATFORM(MAC) && (PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+#if PLATFORM(COCOA)
     RetainPtr<CFStringRef> searchProviderName = adoptCF(wkCopyDefaultSearchProviderDisplayName());
     return formatLocalizedString(WEB_UI_STRING("Search with %@", "Search with search provider context menu item with provider name inserted"), searchProviderName.get());
 #else
@@ -253,16 +245,11 @@ String contextMenuItemTagSearchWeb()
 
 String contextMenuItemTagLookUpInDictionary(const String& selectedString)
 {
-#if PLATFORM(MAC) && !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
-    UNUSED_PARAM(selectedString);
-    return WEB_UI_STRING("Look Up in Dictionary", "Look Up in Dictionary context menu item");
-#else
 #if USE(CF)
     RetainPtr<CFStringRef> selectedCFString = truncatedStringForLookupMenuItem(selectedString).createCFString();
     return formatLocalizedString(WEB_UI_STRING("Look Up “%@”", "Look Up context menu item with selected word"), selectedCFString.get());
 #else
     return WEB_UI_STRING("Look Up “<selection>”", "Look Up context menu item with selected word").replace("<selection>", truncatedStringForLookupMenuItem(selectedString));
-#endif
 #endif
 }
 
@@ -308,7 +295,7 @@ String contextMenuItemTagFontMenu()
     return WEB_UI_STRING("Font", "Font context sub-menu item");
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 String contextMenuItemTagShowFonts()
 {
     return WEB_UI_STRING("Show Fonts", "Show fonts context menu item");
@@ -335,7 +322,7 @@ String contextMenuItemTagOutline()
     return WEB_UI_STRING("Outline", "Outline context menu item");
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 String contextMenuItemTagStyles()
 {
     return WEB_UI_STRING("Styles...", "Styles context menu item");
@@ -387,7 +374,7 @@ String contextMenuItemTagRightToLeft()
     return WEB_UI_STRING("Right to Left", "Right to Left context menu item");
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 
 String contextMenuItemTagCorrectSpellingAutomatically()
 {
@@ -457,7 +444,7 @@ String contextMenuItemTagChangeBack(const String& replacedString)
     return replacedString;
 }
 
-#endif // PLATFORM(MAC)
+#endif // PLATFORM(COCOA)
 
 String contextMenuItemTagOpenVideoInNewWindow()
 {
@@ -611,7 +598,12 @@ String AXFileUploadButtonText()
 {
     return WEB_UI_STRING("file upload button", "accessibility role description for a file upload button");
 }
-    
+
+String AXSearchFieldCancelButtonText()
+{
+    return WEB_UI_STRING("cancel", "accessibility description for a search field cancel button");
+}
+
 String AXButtonActionVerb()
 {
     return WEB_UI_STRING("press", "Verb stating the action that will occur when a button is pressed, as used by accessibility");
@@ -661,7 +653,7 @@ String AXListItemActionVerb()
 }
 #endif // !PLATFORM(IOS)
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(COCOA)
 String AXARIAContentGroupText(const String& ariaType)
 {
     if (ariaType == "ARIAApplicationAlert")
@@ -708,7 +700,13 @@ String AXARIAContentGroupText(const String& ariaType)
         return WEB_UI_STRING("math", "An ARIA accessibility group that contains mathematical symbols.");
     return String();
 }
-#endif // PLATFORM(MAC) || PLATFORM(IOS)
+
+String AXHorizontalRuleDescriptionText()
+{
+    return WEB_UI_STRING("separator", "accessibility role description for a horizontal rule [<hr>]");
+}
+    
+#endif // PLATFORM(COCOA)
 
 String missingPluginText()
 {
@@ -754,7 +752,7 @@ String allFilesText()
 }
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 String builtInPDFPluginName()
 {
     // Also exposed to DOM.
@@ -806,6 +804,26 @@ String htmlSelectMultipleItems(size_t count)
     default:
         return formatLocalizedString(WEB_UI_STRING("%zu Items", "Present the number of selected <option> items in a <select multiple> element (iOS only)"), count);
     }
+}
+
+String fileButtonChooseMediaFileLabel()
+{
+    return WEB_UI_STRING("Choose Media (Single)", "Title for file button used in HTML forms for media files");
+}
+
+String fileButtonChooseMultipleMediaFilesLabel()
+{
+    return WEB_UI_STRING("Choose Media (Multiple)", "Title for file button used in HTML5 forms for multiple media files");
+}
+
+String fileButtonNoMediaFileSelectedLabel()
+{
+    return WEB_UI_STRING("no media selected (single)", "Text to display in file button used in HTML forms for media files when no media file is selected");
+}
+
+String fileButtonNoMediaFilesSelectedLabel()
+{
+    return WEB_UI_STRING("no media selected (multiple)", "Text to display in file button used in HTML forms for media files when no media files are selected and the button allows multiple files to be selected");
 }
 #endif
 
@@ -1062,7 +1080,7 @@ String textTrackNoLabelText()
     return WEB_UI_STRING_KEY("Unknown", "Unknown (text track)", "Menu item label for a text track that has no other name");
 }
     
-#if PLATFORM(MAC) || PLATFORM(WIN)
+#if PLATFORM(COCOA) || PLATFORM(WIN)
 String textTrackCountryAndLanguageMenuItemText(const String& title, const String& country, const String& language)
 {
     return formatLocalizedString(WEB_UI_STRING("%@ (%@-%@)", "Text track display name format that includes the country and language of the subtitle, in the form of 'Title (Language-Country)'"), title.createCFString().get(), language.createCFString().get(), country.createCFString().get());
@@ -1100,5 +1118,22 @@ String snapshottedPlugInLabelSubtitle()
 {
     return WEB_UI_STRING("Click to restart", "Subtitle of the label to show on a snapshotted plug-in");
 }
+
+String useBlockedPlugInContextMenuTitle()
+{
+    return formatLocalizedString(WEB_UI_STRING("Show in blocked plug-in", "Title of the context menu item to show when PDFPlugin was used instead of a blocked plugin"));
+}
+
+#if ENABLE(SUBTLE_CRYPTO)
+String webCryptoMasterKeyKeychainLabel(const String& localizedApplicationName)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ WebCrypto Master Key", "Name of application's single WebCrypto master key in Keychain"), localizedApplicationName.createCFString().get());
+}
+
+String webCryptoMasterKeyKeychainComment()
+{
+    return WEB_UI_STRING("Used to encrypt WebCrypto keys in persistent storage, such as IndexedDB", "Description of WebCrypto master keys in Keychain");
+}
+#endif
 
 } // namespace WebCore

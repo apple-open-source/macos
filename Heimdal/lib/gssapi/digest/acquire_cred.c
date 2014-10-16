@@ -199,5 +199,7 @@ _gss_scram_acquire_cred_ext(OM_uint32 * minor_status,
  fail:
     if (request)
 	krb5_storage_free(request);
+    if (minor_status)
+	*minor_status = ret;
     return GSS_S_FAILURE;
 }

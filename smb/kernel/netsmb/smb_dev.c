@@ -869,7 +869,44 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			break;		
 		}
 
-		case SMB2IOC_READ: 
+		case SMB2IOC_QUERY_DIR:
+        {
+			struct smb2ioc_query_dir *query_dir_ioc = (struct smb2ioc_query_dir *) data;
+
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+            
+            /* free global lock now since we now have sd_rwlock */
+            lck_rw_unlock_shared(dev_rw_lck);
+            
+			/* Make sure the version match */
+			if (query_dir_ioc->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				error = smb_usr_query_dir(sdp->sd_share, query_dir_ioc,
+                                          context);
+                if (error) {
+                    /*
+                     * Note: On error, the ioctl code will NOT copy out the data
+                     * structure back to user space.
+                     *
+                     * If ioc_ret_ntstatus is filled in, change the error to 0
+                     * so that we can return the real NT error in user space.
+                     * User space code is responsible for checking both error
+                     * and ioc_ret_ntstatus for errors.
+                     */
+                    if (query_dir_ioc->ioc_ret_ntstatus & 0xC0000000) {
+                        error = 0;
+                    }
+                }
+			}
+            
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
+			break;
+        }
+
+		case SMB2IOC_READ:
 		case SMB2IOC_WRITE: 
 		{
 			struct smb2ioc_rw *rw_ioc = (struct smb2ioc_rw *) data;

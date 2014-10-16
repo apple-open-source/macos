@@ -236,19 +236,6 @@ init_descr(struct descr *d)
 }
 
 /*
- * re-initialize all `n' ->sa in `d'.
- */
-
-static void
-reinit_descrs (struct descr *d, int n)
-{
-    int i;
-
-    for (i = 0; i < n; ++i)
-	d[i].sa = (struct sockaddr *)&d[i].__ss;
-}
-
-/*
  * Create the socket (family, type, port) in `d'
  */
 
@@ -266,7 +253,7 @@ init_socket(krb5_context context,
     if (enable_http == 1)
 	http_flag = HEIM_SIPC_TYPE_HTTP;
 
-    init_descr (d);
+    init_descr(d);
 
     ret = krb5_addr2sockaddr (context, a, sa, &sa_size, port);
     if (ret) {
@@ -335,16 +322,15 @@ init_socket(krb5_context context,
  * and return the number of them.
  */
 
-static int
+static void
 init_sockets(krb5_context context,
-	     krb5_kdc_configuration *config,
-	     struct descr **desc)
+	     krb5_kdc_configuration *config)
 {
     krb5_error_code ret;
     size_t i, j;
     struct descr *d;
-    int num = 0;
     krb5_addresses addresses;
+    int found = 0;
 
     if (explicit_addresses.len) {
 	addresses = explicit_addresses;
@@ -359,48 +345,88 @@ init_sockets(krb5_context context,
     }
 
     parse_ports(context, config, port_str);
-    d = calloc(addresses.len * num_ports, sizeof(*d));
-    if (d == NULL)
-	krb5_errx(context, 1, "malloc(%lu) failed",
-		  (unsigned long)num_ports * sizeof(*d));
 
     for (i = 0; i < num_ports; i++){
 	for (j = 0; j < addresses.len; ++j) {
 	    char a_str[80];
 	    size_t len;
 
-	    init_socket(context, config, &d[num], &addresses.val[j],
+	    d = calloc(1, sizeof(*d));
+	    heim_assert(d != NULL, "out of memory");
+
+	    init_socket(context, config, d, &addresses.val[j],
 			ports[i].family, ports[i].type, ports[i].port);
 	    krb5_print_address (&addresses.val[j], a_str,
 				sizeof(a_str), &len);
 
 	    kdc_log(context, config, 5, "%slistening on %s port %u/%s",
-		    d[num].s != rk_INVALID_SOCKET ? "" : "FAILED ",
+		    d->s != rk_INVALID_SOCKET ? "" : "FAILED ",
 		    a_str,
 		    ntohs(ports[i].port),
 		    (ports[i].type == SOCK_STREAM) ? "tcp" : "udp");
 
-	    if(d[num].s != rk_INVALID_SOCKET)
-		num++;
+	    if(d->s == rk_INVALID_SOCKET)
+		free(d);
+	    else
+		found = 1;
 	}
     }
-    krb5_free_addresses (context, &addresses);
-    d = realloc(d, num * sizeof(*d));
-    if (d == NULL && num != 0)
-	krb5_errx(context, 1, "realloc(%lu) failed",
-		  (unsigned long)num * sizeof(*d));
-    reinit_descrs (d, num);
-    *desc = d;
-    return num;
+
+    if (explicit_addresses.len == 0)
+	krb5_free_addresses (context, &addresses);
+
+    if (!found)
+	krb5_errx(context, 1, "No sockets!");
 }
 
 /*
  *
  */
 
-static krb5_context kdc_context;
 static krb5_kdc_configuration *kdc_config;
 	   
+static HEIMDAL_MUTEX context_mutex = HEIMDAL_MUTEX_INITIALIZER;
+static int created_key;
+static HEIMDAL_thread_key context_key;
+
+
+static void
+destroy_context(void *ptr)
+{
+    krb5_context c = ptr;
+    if (c)
+	krb5_free_context(c);
+}
+
+
+static krb5_context
+thread_context(void)
+{
+    krb5_context context = NULL;
+    int ret = 0;
+
+    HEIMDAL_MUTEX_lock(&context_mutex);
+
+    if (!created_key) {
+	HEIMDAL_key_create(&context_key, destroy_context, ret);
+	heim_assert(ret == 0, "failed to create context key");
+	created_key = 1;
+    }
+    HEIMDAL_MUTEX_unlock(&context_mutex);
+
+    context = HEIMDAL_getspecific(context_key);
+    if (context == NULL) {
+	ret = krb5_init_context(&context);
+	heim_assert(ret == 0 && context != NULL, "failed to create context");
+
+	HEIMDAL_setspecific(context_key, context, ret);
+	heim_assert(ret == 0, "failed to set context key");
+
+    }
+    return context;
+}
+
+
 /*
  *
  */
@@ -418,6 +444,9 @@ kdc_service(void *ctx, const heim_idata *req,
     krb5_data reply;
     krb5_error_code ret;
     char addr[NI_MAXHOST], port[NI_MAXSERV];
+    krb5_context context;
+
+    context = thread_context();
 
     krb5_kdc_update_time(NULL);
     krb5_data_zero(&reply);
@@ -431,13 +460,13 @@ kdc_service(void *ctx, const heim_idata *req,
 	strlcat(addr, port, sizeof(addr));
     }
 
-    ret = krb5_kdc_process_request(kdc_context, kdc_config,
+    ret = krb5_kdc_process_request(context, kdc_config,
 				   req->data, req->length,
 				   &reply,
 				   addr, sa,
 				   datagram_reply);
     if(request_log)
-	krb5_kdc_save_request(kdc_context, request_log,
+	krb5_kdc_save_request(context, request_log,
 			      req->data, req->length, &reply, d->sa);
 
     (*complete)(cctx, ret, &reply);
@@ -450,13 +479,16 @@ kdc_local(void *ctx, const heim_idata *req,
 	  heim_ipc_complete complete,
 	  heim_sipc_call cctx)
 {
+    krb5_context context;
     krb5_error_code ret;
     krb5_data reply;
 
     krb5_kdc_update_time(NULL);
     krb5_data_zero(&reply);
 
-    ret = krb5_kdc_process_request(kdc_context, kdc_config,
+    context = thread_context();
+
+    ret = krb5_kdc_process_request(context, kdc_config,
 				   req->data, req->length,
 				   &reply,
 				   "local-ipc", NULL, 0);
@@ -466,22 +498,15 @@ kdc_local(void *ctx, const heim_idata *req,
 
 
 
-static struct descr *kdc_descrs;
-static unsigned int kdc_ndescr;
-
 void
 setup_listeners(krb5_context context,
 		krb5_kdc_configuration *config,
 		int ipc, int network)
 {
-    kdc_context = context;
     kdc_config = config;
 
-    if (network) {
-	kdc_ndescr = init_sockets(context, config, &kdc_descrs);
-	if(kdc_ndescr <= 0)
-	    krb5_errx(context, 1, "No sockets!");
-    }
+    if (network)
+	init_sockets(context, config);
 
 #ifdef __APPLE__
     if (ipc) {

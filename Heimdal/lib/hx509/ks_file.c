@@ -191,7 +191,7 @@ parse_pem_private_key(hx509_context context, const char *fn,
 	if (strcmp(enc, "4,ENCRYPTED") != 0) {
 	    hx509_set_error_string(context, 0, HX509_PARSING_KEY_FAILED,
 				   "Private key encrypted in unknown method %s "
-				   "in file",
+				   "in file %s",
 				   enc, fn);
 	    hx509_clear_error_string(context);
 	    return HX509_PARSING_KEY_FAILED;
@@ -246,7 +246,7 @@ parse_pem_private_key(hx509_context context, const char *fn,
 	type = NULL;
 	iv = NULL;
 
-	if (ssize < 0 || ssize < PKCS5_SALT_LEN || ssize < EVP_CIPHER_iv_length(cipher)) {
+	if (ssize < 0 || ssize < PKCS5_SALT_LEN || (size_t)ssize < EVP_CIPHER_iv_length(cipher)) {
 	    free(ivdata);
 	    hx509_set_error_string(context, 0, HX509_PARSING_KEY_FAILED,
 				   "Salt have wrong length in "
@@ -568,7 +568,7 @@ file_store(hx509_context context,
     sc.f = fopen(ksf->fn, "w");
     if (sc.f == NULL) {
 	hx509_set_error_string(context, 0, ENOENT,
-			       "Failed to open file %s for writing");
+			       "Failed to open file %s for writing", ksf->fn);
 	return ENOENT;
     }
     rk_cloexec_file(sc.f);

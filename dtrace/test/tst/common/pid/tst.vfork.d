@@ -54,11 +54,7 @@ pid$1:a.out:go:
 	exit(1);
 }
 
-#if !defined(__APPLE__)
-syscall::rexit:entry
-#else
 syscall::exit:entry,proc:::lwp-exit
-#endif
 /pid == $1/
 {
 	exit(0);

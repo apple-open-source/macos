@@ -144,10 +144,6 @@ length_IssuerAndSerialNumber
 length_KerberosTime
 length_Principal
 length_SubjectPublicKeyInfo
-asn1_fuzzer_done
-asn1_fuzzer_next
-asn1_fuzzer_method
-asn1_fuzzer_reset
 copy_GeneralName
 free_GeneralName
 length_GeneralName
@@ -161,3 +157,9 @@ decode_EncryptionKey
 length_KDC_PROXY_MESSAGE
 encode_KDC_PROXY_MESSAGE
 decode_KDC_PROXY_MESSAGE
+copy_KRB5_SRP_PA
+length_KRB5_SRP_PA
+free_KRB5_SRP_PA
+decode_KRB5_SRP_PA
+encode_KRB5_SRP_PA
+free_KDCSRPState

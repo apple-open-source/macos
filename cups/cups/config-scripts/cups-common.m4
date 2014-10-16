@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $"
+dnl "$Id: cups-common.m4 12142 2014-08-30 02:35:43Z msweet $"
 dnl
 dnl Common configuration stuff for CUPS.
 dnl
@@ -20,7 +20,7 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.7.2"
+CUPS_VERSION="2.0.0"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -89,7 +89,7 @@ fi
 AC_SUBST(INSTALLSTATIC)
 
 dnl Check for pkg-config, which is used for some other tests later on...
-AC_PATH_PROG(PKGCONFIG, pkg-config)
+AC_PATH_TOOL(PKGCONFIG, pkg-config)
 
 dnl Check for libraries...
 AC_SEARCH_LIBS(abs, m, AC_DEFINE(HAVE_ABS))
@@ -134,11 +134,9 @@ AC_CHECK_HEADER(stdint.h,AC_DEFINE(HAVE_STDINT_H))
 AC_CHECK_HEADER(string.h,AC_DEFINE(HAVE_STRING_H))
 AC_CHECK_HEADER(strings.h,AC_DEFINE(HAVE_STRINGS_H))
 AC_CHECK_HEADER(bstring.h,AC_DEFINE(HAVE_BSTRING_H))
-AC_CHECK_HEADER(usersec.h,AC_DEFINE(HAVE_USERSEC_H))
 AC_CHECK_HEADER(sys/ioctl.h,AC_DEFINE(HAVE_SYS_IOCTL_H))
 AC_CHECK_HEADER(sys/param.h,AC_DEFINE(HAVE_SYS_PARAM_H))
 AC_CHECK_HEADER(sys/ucred.h,AC_DEFINE(HAVE_SYS_UCRED_H))
-AC_CHECK_HEADER(scsi/sg.h,AC_DEFINE(HAVE_SCSI_SG_H))
 
 dnl Checks for iconv.h and iconv_open
 AC_CHECK_HEADER(iconv.h,
@@ -202,6 +200,9 @@ AC_CHECK_FUNCS(sigaction)
 dnl Checks for wait functions.
 AC_CHECK_FUNCS(waitpid wait3)
 
+dnl Check for posix_spawn
+AC_CHECK_FUNCS(posix_spawn)
+
 dnl See if the tm structure has the tm_gmtoff member...
 AC_MSG_CHECKING(for tm_gmtoff member in tm structure)
 AC_TRY_COMPILE([#include <time.h>],[struct tm t;
@@ -230,7 +231,7 @@ AC_SUBST(LIBUSB)
 AC_SUBST(USBQUIRKS)
 
 if test "x$PKGCONFIG" != x; then
-	if test x$enable_libusb = xyes -o $uname != Darwin; then
+	if test x$enable_libusb != xno -a $uname != Darwin; then
 		AC_MSG_CHECKING(for libusb-1.0)
 		if $PKGCONFIG --exists libusb-1.0; then
 			AC_MSG_RESULT(yes)
@@ -240,6 +241,9 @@ if test "x$PKGCONFIG" != x; then
 			USBQUIRKS="\$(DATADIR)/usb"
 		else
 			AC_MSG_RESULT(no)
+			if test x$enable_libusb = xyes; then
+				AC_MSG_ERROR(libusb required for --enable-libusb.)
+			fi
 		fi
 	fi
 elif test x$enable_libusb = xyes; then
@@ -356,7 +360,6 @@ case $uname in
 		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h,AC_DEFINE(HAVE_COREFOUNDATION_H))
 		AC_CHECK_HEADER(CoreFoundation/CFPriv.h,AC_DEFINE(HAVE_CFPRIV_H))
 		AC_CHECK_HEADER(CoreFoundation/CFBundlePriv.h,AC_DEFINE(HAVE_CFBUNDLEPRIV_H))
-		AC_CHECK_HEADER(IOKit/pwr_mgt/IOPMLibPrivate.h,AC_DEFINE(HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H))
 
 		dnl Check for dynamic store function...
 		AC_CHECK_FUNCS(SCDynamicStoreCopyComputerName)
@@ -365,9 +368,6 @@ case $uname in
 		AC_CHECK_HEADER(membership.h,AC_DEFINE(HAVE_MEMBERSHIP_H))
 		AC_CHECK_HEADER(membershipPriv.h,AC_DEFINE(HAVE_MEMBERSHIPPRIV_H))
 		AC_CHECK_FUNCS(mbr_uid_to_uuid)
-
-                dnl Check for the vproc_transaction_begin/end stuff...
-		AC_CHECK_FUNCS(vproc_transaction_begin)
 
 		dnl Need <dlfcn.h> header...
 		AC_CHECK_HEADER(dlfcn.h,AC_DEFINE(HAVE_DLFCN_H))
@@ -462,5 +462,5 @@ esac
 AC_SUBST(BUILDDIRS)
 
 dnl
-dnl End of "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $".
+dnl End of "$Id: cups-common.m4 12142 2014-08-30 02:35:43Z msweet $".
 dnl

@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,7 +28,7 @@
 #define ResourceResponseBase_h
 
 #include "HTTPHeaderMap.h"
-#include "KURL.h"
+#include "URL.h"
 #include "ResourceLoadTiming.h"
 
 #include <wtf/PassOwnPtr.h>
@@ -55,8 +55,8 @@ public:
     bool isNull() const { return m_isNull; }
     bool isHTTP() const;
 
-    const KURL& url() const;
-    void setURL(const KURL& url);
+    const URL& url() const;
+    void setURL(const URL& url);
 
     const String& mimeType() const;
     void setMimeType(const String& mimeType);
@@ -77,22 +77,25 @@ public:
     
     const String& httpStatusText() const;
     void setHTTPStatusText(const String&);
-    
-    String httpHeaderField(const AtomicString& name) const;
-    String httpHeaderField(const char* name) const;
-    void setHTTPHeaderField(const AtomicString& name, const String& value);
-    void addHTTPHeaderField(const AtomicString& name, const String& value);
+
     const HTTPHeaderMap& httpHeaderFields() const;
+
+    String httpHeaderField(const String& name) const;
+    String httpHeaderField(HTTPHeaderName) const;
+    void setHTTPHeaderField(const String& name, const String& value);
+    void setHTTPHeaderField(HTTPHeaderName, const String& value);
+
+    void addHTTPHeaderField(const String& name, const String& value);
+
+    // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
+    template<size_t length> String httpHeaderField(const char (&)[length]) const = delete;
+    template<size_t length> void setHTTPHeaderField(const char (&)[length], const String&) = delete;
+    template<size_t length> void addHTTPHeaderField(const char (&)[length], const String&) = delete;
 
     bool isMultipart() const { return mimeType() == "multipart/x-mixed-replace"; }
 
     bool isAttachment() const;
     
-    // FIXME: These are used by PluginStream on some platforms. Calculations may differ from just returning plain Last-Modified header.
-    // Leaving it for now but this should go away in favor of generic solution.
-    void setLastModifiedDate(time_t);
-    time_t lastModifiedDate() const; 
-
     // These functions return parsed values of the corresponding response headers.
     // NaN means that the header was not present or had invalid value.
     bool cacheControlContainsNoCache() const;
@@ -114,8 +117,7 @@ public:
     bool wasCached() const;
     void setWasCached(bool);
 
-    ResourceLoadTiming* resourceLoadTiming() const;
-    void setResourceLoadTiming(PassRefPtr<ResourceLoadTiming>);
+    ResourceLoadTiming& resourceLoadTiming() const { return m_resourceLoadTiming; }
 
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
@@ -135,7 +137,7 @@ protected:
     };
 
     ResourceResponseBase();
-    ResourceResponseBase(const KURL& url, const String& mimeType, long long expectedLength, const String& textEncodingName, const String& filename);
+    ResourceResponseBase(const URL& url, const String& mimeType, long long expectedLength, const String& textEncodingName, const String& filename);
 
     void lazyInit(InitLevel) const;
 
@@ -145,26 +147,35 @@ protected:
     // The ResourceResponse subclass may "shadow" this method to compare platform specific fields
     static bool platformCompare(const ResourceResponse&, const ResourceResponse&) { return true; }
 
-    KURL m_url;
-    String m_mimeType;
+    URL m_url;
+    AtomicString m_mimeType;
     long long m_expectedContentLength;
-    String m_textEncodingName;
+    AtomicString m_textEncodingName;
     String m_suggestedFilename;
-    int m_httpStatusCode;
-    String m_httpStatusText;
+    AtomicString m_httpStatusText;
     HTTPHeaderMap m_httpHeaderFields;
-    time_t m_lastModifiedDate;
-    bool m_wasCached : 1;
+    mutable ResourceLoadTiming m_resourceLoadTiming;
+
+    int m_httpStatusCode;
     unsigned m_connectionID;
+
+private:
+    mutable double m_cacheControlMaxAge;
+    mutable double m_age;
+    mutable double m_date;
+    mutable double m_expires;
+    mutable double m_lastModified;
+
+public:
+    bool m_wasCached : 1;
     bool m_connectionReused : 1;
-    RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
 
     bool m_isNull : 1;
     
 private:
     const ResourceResponse& asResourceResponse() const;
     void parseCacheControlDirectives() const;
-    void updateHeaderParsedState(const AtomicString& name);
+    void updateHeaderParsedState(HTTPHeaderName);
 
     mutable bool m_haveParsedCacheControlHeader : 1;
     mutable bool m_haveParsedAgeHeader : 1;
@@ -175,12 +186,6 @@ private:
     mutable bool m_cacheControlContainsNoCache : 1;
     mutable bool m_cacheControlContainsNoStore : 1;
     mutable bool m_cacheControlContainsMustRevalidate : 1;
-    mutable double m_cacheControlMaxAge;
-
-    mutable double m_age;
-    mutable double m_date;
-    mutable double m_expires;
-    mutable double m_lastModified;
 };
 
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
@@ -190,16 +195,15 @@ struct CrossThreadResourceResponseDataBase {
     WTF_MAKE_NONCOPYABLE(CrossThreadResourceResponseDataBase); WTF_MAKE_FAST_ALLOCATED;
 public:
     CrossThreadResourceResponseDataBase() { }
-    KURL m_url;
+    URL m_url;
     String m_mimeType;
     long long m_expectedContentLength;
     String m_textEncodingName;
     String m_suggestedFilename;
     int m_httpStatusCode;
     String m_httpStatusText;
-    OwnPtr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
-    time_t m_lastModifiedDate;
-    RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
+    std::unique_ptr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
+    ResourceLoadTiming m_resourceLoadTiming;
 };
 
 } // namespace WebCore

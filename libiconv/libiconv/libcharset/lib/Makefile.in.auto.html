@@ -1,0 +1,166 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.in</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.in&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libcharset/lib
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Directories used by &quot;make&quot;:
+</span>srcdir = @srcdir@
+
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = @prefix@
+local_prefix = /usr/local
+exec_prefix = @exec_prefix@
+libdir = @libdir@
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>CC = @CC@
+CFLAGS = @CFLAGS@ @CFLAG_VISIBILITY@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+INCLUDES = -I. -I$(<span class="enscript-reference">srcdir</span>) -I.. -I$(<span class="enscript-reference">srcdir</span>)/.. -I../include
+<span class="enscript-comment"># -DBUILDING_LIBCHARSET: Change expansion of LIBCHARSET_DLL_EXPORTED macro.
+</span><span class="enscript-comment"># -DBUILDING_DLL: Change expansion of RELOCATABLE_DLL_EXPORTED macro.
+</span>DEFS = -DLIBDIR=\&quot;$(<span class="enscript-reference">libdir</span>)\&quot; -DBUILDING_LIBCHARSET -DBUILDING_DLL \
+-DENABLE_RELOCATABLE=1 -DIN_LIBRARY -DINSTALLDIR=\&quot;$(<span class="enscript-reference">libdir</span>)\&quot; -DNO_XMALLOC \
+-Dset_relocation_prefix=libcharset_set_relocation_prefix \
+-Drelocate=libcharset_relocate @DEFS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_COMPILE = $(<span class="enscript-reference">LIBTOOL</span>) --mode=compile
+LIBTOOL_LINK = $(<span class="enscript-reference">LIBTOOL</span>) --mode=link
+LIBTOOL_INSTALL = $(<span class="enscript-reference">LIBTOOL</span>) --mode=install
+LIBTOOL_UNINSTALL = $(<span class="enscript-reference">LIBTOOL</span>) --mode=uninstall
+RM = rm -f
+
+<span class="enscript-comment"># Programs used by &quot;make install&quot;:
+</span>INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+mkinstalldirs = $(<span class="enscript-reference">SHELL</span>) @top_srcdir@/build-aux/mkinstalldirs
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+PACKAGE = @PACKAGE@
+VERSION = @VERSION@
+
+SHELL = /bin/sh
+
+<span class="enscript-comment"># Before making a release, change this according to the libtool documentation,
+</span><span class="enscript-comment"># section &quot;Library interface versions&quot;.
+</span>LIBCHARSET_VERSION_INFO = 1:0:0
+
+<span class="enscript-comment"># Needed by $(LIBTOOL).
+</span>top_builddir = ..
+
+SOURCES = $(<span class="enscript-reference">srcdir</span>)/localcharset.c $(<span class="enscript-reference">srcdir</span>)/relocatable.c
+
+OBJECTS = localcharset.lo relocatable.lo
+
+all : libcharset.la charset.alias ref-add.sed ref-del.sed
+
+libcharset.la : $(<span class="enscript-reference">OBJECTS</span>)
+	$(<span class="enscript-reference">LIBTOOL_LINK</span>) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">LDFLAGS</span>) -o libcharset.la -rpath $(<span class="enscript-reference">libdir</span>) -version-info $(<span class="enscript-reference">LIBCHARSET_VERSION_INFO</span>) -no-undefined $(<span class="enscript-reference">OBJECTS</span>)
+
+localcharset.lo : $(<span class="enscript-reference">srcdir</span>)/localcharset.c
+	$(<span class="enscript-reference">LIBTOOL_COMPILE</span>) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">CPPFLAGS</span>) $(<span class="enscript-reference">DEFS</span>) -c $(<span class="enscript-reference">srcdir</span>)/localcharset.c
+
+relocatable.lo : $(<span class="enscript-reference">srcdir</span>)/relocatable.c $(<span class="enscript-reference">srcdir</span>)/relocatable.h
+	$(<span class="enscript-reference">LIBTOOL_COMPILE</span>) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">INCLUDES</span>) $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">CPPFLAGS</span>) $(<span class="enscript-reference">DEFS</span>) -c $(<span class="enscript-reference">srcdir</span>)/relocatable.c
+
+<span class="enscript-keyword">charset.alias:</span> $(<span class="enscript-reference">srcdir</span>)/config.charset
+	$(<span class="enscript-reference">SHELL</span>) $(<span class="enscript-reference">srcdir</span>)/config.charset '@host@' &gt; t-$@
+	mv t-$@ $@
+
+ref-add.sed : $(<span class="enscript-reference">srcdir</span>)/ref-add.sin
+	sed -e '/^<span class="enscript-comment">#/d' -e 's/@''PACKAGE''@/@PACKAGE@/g' $(srcdir)/ref-add.sin &gt; t-$@
+</span>	mv t-$@ $@
+
+ref-del.sed : $(<span class="enscript-reference">srcdir</span>)/ref-del.sin
+	sed -e '/^<span class="enscript-comment">#/d' -e 's/@''PACKAGE''@/@PACKAGE@/g' $(srcdir)/ref-del.sin &gt; t-$@
+</span>	mv t-$@ $@
+
+<span class="enscript-comment"># Installs the library and include files only. Typically called with only
+</span><span class="enscript-comment"># $(libdir) and $(includedir) - don't use $(prefix) and $(exec_prefix) here.
+</span>install-lib : all force
+	$(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">libdir</span>)
+	$(<span class="enscript-reference">LIBTOOL_INSTALL</span>) $(<span class="enscript-reference">INSTALL_DATA</span>) libcharset.la $(<span class="enscript-reference">libdir</span>)/libcharset.la
+	test -f $(<span class="enscript-reference">libdir</span>)/charset.alias &amp;&amp; orig=$(<span class="enscript-reference">libdir</span>)/charset.alias \
+	                                || orig=charset.alias; \
+	sed -f ref-add.sed $$orig &gt; $(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	$(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">libdir</span>)/t-charset.alias $(<span class="enscript-reference">libdir</span>)/charset.alias; \
+	rm -f $(<span class="enscript-reference">libdir</span>)/t-charset.alias
+
+<span class="enscript-comment"># The following is needed in order to install a simple file in $(libdir)
+</span><span class="enscript-comment"># which is shared with other installed packages. We use a list of referencing
+</span><span class="enscript-comment"># packages so that &quot;make uninstall&quot; will remove the file if and only if it
+</span><span class="enscript-comment"># is not used by another installed package.
+</span><span class="enscript-comment"># On systems with glibc-2.1 or newer, the file is redundant, therefore we
+</span><span class="enscript-comment"># avoid installing it.
+</span>
+install : all force
+	$(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)
+	$(<span class="enscript-reference">LIBTOOL_INSTALL</span>) $(<span class="enscript-reference">INSTALL_DATA</span>) libcharset.la $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/libcharset.la
+	if test -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; then \
+	  sed -f ref-add.sed $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias &gt; $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	  $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; \
+	  rm -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	else \
+	  if test @GLIBC21@ = no; then \
+	    sed -f ref-add.sed charset.alias &gt; $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	    $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; \
+	    rm -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	  fi ; \
+	fi
+
+installdirs : force
+	$(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)
+
+uninstall : force
+	$(<span class="enscript-reference">LIBTOOL_UNINSTALL</span>) $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/libcharset.la
+	if test -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; then \
+	  sed -f ref-del.sed $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias &gt; $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	  if grep '^<span class="enscript-comment"># Packages using this file: $$' $(DESTDIR)$(libdir)/t-charset.alias &gt; /dev/null; then \
+</span>	    rm -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; \
+	  else \
+	    $(<span class="enscript-reference">INSTALL_DATA</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/charset.alias; \
+	  fi; \
+	  rm -f $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/t-charset.alias; \
+	fi
+
+check : all
+
+mostlyclean : clean
+
+clean : force
+	$(<span class="enscript-reference">RM</span>) *.o *.lo *.a *.la *.o.lock core *.stackdump charset.alias ref-add.sed ref-del.sed
+	$(<span class="enscript-reference">RM</span>) -r .libs _libs
+
+distclean : clean
+	$(<span class="enscript-reference">RM</span>) config.status config.log config.cache Makefile libtool
+
+maintainer-clean : distclean
+
+force :
+
+</pre>
+<hr />
+</body></html>

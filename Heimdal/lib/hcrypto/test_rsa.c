@@ -111,7 +111,7 @@ check_rsa(const unsigned char *in, size_t len, RSA *rsa, int padding)
     if (keylen <= 0)
 	errx(1, "failed to public decrypt: %d", (int)keylen);
 
-    if (keylen != len)
+    if ((size_t)keylen != len)
 	errx(1, "output buffer not same length: %d", (int)keylen);
 
     if (memcmp(res2, in, len) != 0)
@@ -130,7 +130,7 @@ check_rsa(const unsigned char *in, size_t len, RSA *rsa, int padding)
     if (keylen <= 0)
 	errx(1, "failed to private decrypt: %d", (int)keylen);
 
-    if (keylen != len)
+    if ((size_t)keylen != len)
 	errx(1, "output buffer not same length: %d", (int)keylen);
 
     if (memcmp(res2, in, len) != 0)

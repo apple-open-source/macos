@@ -46,6 +46,8 @@
 #include "../fsck_hfs.h"
 #include "fsck_journal.h"
 
+#define DEBUG_JOURNAL 0
+
 extern char debug;
 
 #include <hfs/hfs_format.h>
@@ -191,8 +193,10 @@ getJournalTransaction(JournalIOInfo_t *jinfo, swapper_t *swap)
 		 * Either there really are no blocks, or this is not a valid
 		 * transaction.  Either way, there's nothing for us to do here.
 		 */
+#if DEBUG_JOURNAL
 		if (debug)
 			fplog(stderr, "%s(%d):  hdr->num_blocks == 0\n", __FUNCTION__, __LINE__);
+#endif
 		return NULL;
 	}
 	/*
@@ -214,10 +218,12 @@ getJournalTransaction(JournalIOInfo_t *jinfo, swapper_t *swap)
 	}
 
 	if (swap->swap32(hdr->bytes_used) < sizeof(block)) {
+#if DEBUG_JOURNAL
 		if (debug) {
 			fplog(stderr, "%s(%d):  hdr has bytes_used (%u) less than sizeof block (%zd)\n",
 			      __FUNCTION__, __LINE__, swap->swap32(hdr->bytes_used), sizeof(block));
 		}
+#endif
 		return NULL;
 	}
 
@@ -267,8 +273,10 @@ replayTransaction(block_list_header *txn, size_t blSize, size_t blkSize, swapper
 	uint8_t *dataPtr = ((uint8_t*)txn) + blSize;
 	int retval = -1;
 	for (i = 1; i < swap->swap32(txn->num_blocks); i++) {
+#if DEBUG_JOURNAL
 		if (debug)
 			plog("\tBlock %d:  blkNum %llu, size %u, data offset = %zd\n", i, swap->swap64(txn->binfo[i].bnum), swap->swap32(txn->binfo[i].bsize), dataPtr - (uint8_t*)txn);
+#endif
 		/*
 		 * XXX
 		 * Check with security types on these checks.  Need to ensure
@@ -290,6 +298,7 @@ replayTransaction(block_list_header *txn, size_t blSize, size_t blkSize, swapper
 				plog("\tData end out of range for block_list_header\n");
 			return retval;
 		}
+#if DEBUG_JOURNAL
 		// Just for debugging
 		if (debug) {
 			if (swap->swap64(txn->binfo[i].bnum) == 2) {
@@ -297,10 +306,13 @@ replayTransaction(block_list_header *txn, size_t blSize, size_t blkSize, swapper
 				plog("vp->signature = %#x, version = %#x\n", vp->signature, vp->version);
 			}
 		}
+#endif
 		// It's in the spec, and I saw it come up once on a live volume.
 		if (swap->swap64(txn->binfo[i].bnum) == ~(uint64_t)0) {
+#if DEBUG_JOURNAL
 			if (debug)
 				plog("\tSkipping this block due to magic skip number\n");
+#endif
 		} else {
 			// Should we set retval to -2 here?
 			if (writer) {
@@ -451,8 +463,10 @@ journal_open(int jfd,
 
 	JournalIOInfo_t jinfo = { 0 };
 
+#if DEBUG_JOURNAL
 	if (debug)
 		plog("Journal start sequence number = %u\n", jnlSwap->swap32(jhdr.sequence_num));
+#endif
 
 	/*
 	 * Now set up the JournalIOInfo object with the file descriptor,
@@ -496,34 +510,44 @@ journal_open(int jfd,
 				plog("Journal sequence number is 0, is going into the end okay?\n");
 			}
 			into_the_weeds = 1;
+#if DEBUG_JOURNAL
 			if (debug)
 				plog("Attempting to read past stated end of journal\n");
+#endif
 			state = "tentative ";
 			jinfo.end = (jinfo.base + startOffset - jinfo.bSize);
 			continue;
 		}
+#if DEBUG_JOURNAL
 		if (debug)
 			plog("Before getting %stransaction:  jinfo.current = %llu\n", state, jinfo.current);
+#endif
 		/*
 		 * Note that getJournalTransaction verifies the checksum on the block_list_header, so
 		 * if it's bad, it'll return NULL.
 		 */
 		txn = getJournalTransaction(&jinfo, jnlSwap);
 		if (txn == NULL) {
+#if DEBUG_JOURNAL
 			if (debug)
 				plog("txn is NULL, jinfo.current = %llu\n", jinfo.current);
+#endif
 			if (into_the_weeds) {
+#if DEBUG_JOURNAL
 				if (debug)
 					plog("\tBut we do not care, since it is past the end of the journal\n");
+#endif
 			} else {
 				bad_journal = 1;
 			}
 			break;
 		}
+#if DEBUG_JOURNAL
 		if (debug) {
 			plog("After getting %stransaction:  jinfo.current = %llu\n", state, jinfo.current);
 			plog("%stxn = { %u max_blocks, %u num_blocks, %u bytes_used, binfo[0].next = %u }\n", state, jnlSwap->swap32(txn->max_blocks), jnlSwap->swap32(txn->num_blocks), jnlSwap->swap32(txn->bytes_used), jnlSwap->swap32(txn->binfo[0].next));
 		}
+#endif
 		if (into_the_weeds) {
 			/*
 			 * This seems to be what the kernel was checking:  if the
@@ -538,8 +562,10 @@ journal_open(int jfd,
 			    jnlSwap->swap32(txn->binfo[0].next) != last_sequence_number &&
 			    jnlSwap->swap32(txn->binfo[0].next) != (last_sequence_number + 1)) {
 				// Probably not a valid transaction
+#if DEBUG_JOURNAL
 				if (debug)
 					plog("\tTentative txn sequence %u is not expected %u, stopping journal replay\n", jnlSwap->swap32(txn->binfo[0].next), last_sequence_number + 1);
+#endif
 				break;
 			}
 		}

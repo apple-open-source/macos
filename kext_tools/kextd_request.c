@@ -509,78 +509,33 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     * xxx - if the request gets into the kernel and fails, OSKext.cpp
     * xxx - removes them, but there can be other failures on the way....
     */
-    OSStatus  sigResult = checkKextSignature(osKext, true);
+    OSStatus  sigResult = checkKextSignature(osKext, true, false);
     if ( sigResult != 0 ) {
-        CFMutableDictionaryRef      myAlertInfoDict = NULL; // must release
-        OSReturn                    myResult        = kOSReturnSuccess;
-        
-        if ( isInLibraryExtensionsFolder(osKext) ||
-            sigResult == CSSMERR_TP_CERT_REVOKED ) {
-            /* Do not load if kext has invalid signature and comes from
-             *  /Library/Extensions/
-             */
-            CFStringRef     myBundleID;         // do not release
-
+        if ( isInvalidSignatureAllowed() ) {
+            CFStringRef     myKextPath = NULL; // must release
+            
+            myKextPath = copyKextPath(osKext);
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext \"%@\""),
+                              (long)sigResult, (long)sigResult,
+                              myKextPath ? myKextPath : CFSTR("Unknown"));
+            SAFE_RELEASE(myKextPath);
+        }
+        else {
+            CFStringRef     myBundleID = NULL;         // do not release
+            
             myBundleID = OSKextGetIdentifier(osKext);
-            myResult = kOSKextReturnNotLoadable; // see 13024670
             OSKextLogCFString(NULL,
                               kOSKextLogErrorLevel |
                               kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                               CFSTR("ERROR: invalid signature for %@, will not load"),
                               myBundleID ? myBundleID : CFSTR("Unknown"));
-        }
-
-        /* Put up alert if this is the first time we've seen this
-         * kext and it is not an Apple kext.
-         */
-        addKextToAlertDict(&myAlertInfoDict, osKext);
-        if (myAlertInfoDict) {
-            CFRetain(myAlertInfoDict); // writeKextAlertPlist or sendRevokedCertAlert will release
-            if (sigResult == CSSMERR_TP_CERT_REVOKED) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    sendRevokedCertAlert(myAlertInfoDict);
-                });
-            }
-            else if (myResult == kOSKextReturnNotLoadable) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, NO_LOAD_KEXT_ALERT);
-                });
-            }
-#if 0 // not yet
-            else if (sigResult == errSecCSUnsigned) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, UNSIGNED_KEXT_ALERT);
-                });
-            }
-#endif
-            else {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, INVALID_SIGNATURE_KEXT_ALERT);
-                });
-            }
-            SAFE_RELEASE(myAlertInfoDict);
-        }
-        
-        if (myResult != kOSReturnSuccess) {
-            OSKextLog(/* kext */ NULL,
-                      kOSKextLogErrorLevel | kOSKextLogLoadFlag |
-                      kOSKextLogIPCFlag,
-                      "Load %s failed; removing personalities from kernel.",
-                      kext_id);
             OSKextRemoveKextPersonalitiesFromKernel(osKext);
             goto finish;
         }
-        CFStringRef     myKextPath = NULL; // must release
-        myKextPath = copyKextPath(osKext);
-        if ( myKextPath ) {
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                              CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%@\""),
-                              (long)sigResult, (long)sigResult, myKextPath);
-            SAFE_RELEASE(myKextPath);
-        }
     }
-
+    
     osLoadResult = OSKextLoad(osKext);
     if (osLoadResult != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
@@ -739,7 +694,7 @@ kextdProcessKernelResourceRequest(
     if (!OSKextIsAuthentic(osKext)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogProgressLevel | kOSKextLogIPCFlag | kOSKextLogAuthenticationFlag,
-            "%s is not authentic; can't retrieve requested resource.",
+            "%s has incorrect permissions; can't retrieve requested resource.",
             kextPathCString);
         requestResult = kOSKextReturnAuthentication;
         goto finish;
@@ -1303,76 +1258,32 @@ kextdProcessUserLoadRequest(
         goto finish;
     }
 
-    OSStatus  sigResult = checkKextSignature(theKext, true);
+    OSStatus    sigResult = checkKextSignature(theKext, true, false);
     if ( sigResult != 0 ) {
-        if ( isInLibraryExtensionsFolder(theKext) ||
-            sigResult == CSSMERR_TP_CERT_REVOKED ) {
-            /* Do not load if kext has invalid signature and comes from
-             *  /Library/Extensions/
-             */
+        if ( isInvalidSignatureAllowed() ) {
+            CFStringRef     myKextPath = NULL; // must release
+            myKextPath = copyKextPath(theKext);
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext \"%@\""),
+                              (long)sigResult, (long)sigResult,
+                              myKextPath ? myKextPath : CFSTR("Unknown"));
+            SAFE_RELEASE(myKextPath);
+        }
+        else {
             CFStringRef         myBundleID;          // do not release
             
             myBundleID = OSKextGetIdentifier(theKext);
-            result = kOSKextReturnNotLoadable; // see 13024670
             OSKextLogCFString(NULL,
                               kOSKextLogErrorLevel |
                               kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                               CFSTR("ERROR: invalid signature for %@, will not load"),
                               myBundleID ? myBundleID : CFSTR("Unknown"));
-        }
-            
-        /* Put up alert if this is the first time we've seen this 
-         * kext and it is not an Apple kext
-         */
-        CFMutableDictionaryRef myAlertInfoDict = NULL; // must release
-        
-        addKextToAlertDict(&myAlertInfoDict, theKext);
-        if (myAlertInfoDict) {
-            CFRetain(myAlertInfoDict); // writeKextAlertPlist or sendRevokedCertAlert will release
-            if (sigResult == CSSMERR_TP_CERT_REVOKED) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    sendRevokedCertAlert(myAlertInfoDict);
-                });
-            }
-            else if (result == kOSKextReturnNotLoadable) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, NO_LOAD_KEXT_ALERT);
-                });
-            }
-#if 0 // not yet
-            else if (sigResult == errSecCSUnsigned) {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, UNSIGNED_KEXT_ALERT);
-                });
-            }
-#endif
-            else {
-                dispatch_async(dispatch_get_main_queue(), ^ {
-                    writeKextAlertPlist(myAlertInfoDict, INVALID_SIGNATURE_KEXT_ALERT);
-                });
-            }
-            SAFE_RELEASE(myAlertInfoDict);
-        } // myAlertInfoDict
-    }
-    if (result != kOSReturnSuccess) {
-        goto finish;
-    }
-    if (sigResult != 0) {
-        CFStringRef     myKextPath = NULL; // must release
-        myKextPath = copyKextPath(theKext);
-        if ( myKextPath ) {
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                              CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%@\""),
-                              (long)sigResult, (long)sigResult, myKextPath);
-            SAFE_RELEASE(myKextPath);
+            result = kOSKextReturnNotLoadable;
+            goto finish;
         }
     }
-
-    /* <rdar://problem/12435992> 
-     */
-    recordKextLoadForMT(theKext);
-
+    
    /* The codepath from this function will do any error logging
     * and cleanup needed.
     */
@@ -1382,11 +1293,6 @@ kextdProcessUserLoadRequest(
         /* personalityNames */ NULL,
         /* delayAutounloadFlag */ false);
     
-    if (result == kOSKextReturnAuthentication) {
-        loadList = OSKextCopyLoadList(theKext, /* needAll? */ false);
-        recordNonsecureKexts(loadList);
-    }
-
 finish:            
     SAFE_RELEASE(kextURL);
     SAFE_RELEASE(kextAbsURL);

@@ -27,6 +27,7 @@
 #include <mach/bootstrap.h>
 #include <mach/host_priv.h>
 #include <mach/mach_error.h>
+#include <mach/mach_time.h>
 #include <mach/mach_host.h>
 #include <mach/mach_port.h>
 #include <mach/mach_vm.h>
@@ -34,9 +35,11 @@
 #include <mach/message.h>
 #include <mach/processor_set.h>
 #include <mach/task.h>
+#include <mach/task_policy.h>
 #include <mach/thread_act.h>
 #include <mach/shared_region.h>
 #include <mach/vm_map.h>
+#include <mach/vm_page_size.h>
 
 #define IOKIT 1 /* For io_name_t in device/device_types.h. */
 #include <device/device_types.h>
@@ -202,6 +205,7 @@ enum libtop_status {
 	LIBTOP_ERR_ALLOC  /* An allocation error. */
 };
 
+mach_timebase_info_data_t timebase_info;
 typedef enum libtop_status libtop_status_t; 
 
 /* Function prototypes. */
@@ -272,7 +276,7 @@ libtop_init(libtop_print_t *print, void *user_data)
 	tsamp.seq = 0;
 	interval = 1;
 	libtop_port = mach_host_self();
-	host_page_size(libtop_port, &tsamp.pagesize);
+	tsamp.pagesize = vm_kernel_page_size;
 
 	/* Get the physical memory size of the system. */
 	{
@@ -344,6 +348,7 @@ libtop_init(libtop_print_t *print, void *user_data)
 	gettimeofday(&tsamp.b_time, NULL);
 	tsamp.p_time = tsamp.b_time;
 	tsamp.time = tsamp.b_time;
+	mach_timebase_info(&timebase_info);
 
 	ignore_PPP = FALSE;
 	return 0;
@@ -1367,6 +1372,74 @@ kinfo_for_pid(struct kinfo_proc* kinfo, pid_t pid) {
 }
 
 static kern_return_t
+libtop_pinfo_update_boosts(task_t task, libtop_pinfo_t* pinfo) {
+
+#if !defined(TASK_POLICY_STATE_COUNT)
+	struct task_policy_state {
+		uint64_t requested;
+		uint64_t effective;
+		uint64_t pending;
+		uint32_t imp_assertcnt;
+		uint32_t imp_externcnt;
+		uint64_t flags;
+		uint64_t imp_transitions;
+		uint64_t reserved[2];
+	};
+
+	typedef struct task_policy_state *task_policy_state_t;
+
+#define TASK_POLICY_STATE_COUNT ((mach_msg_type_number_t) \
+				 (sizeof (struct task_policy_state) / sizeof (integer_t)))
+
+	/* task policy state flags */
+#define TASK_IMP_RECEIVER       0x00000001
+#define TASK_IMP_DONOR          0x00000002
+#define TASK_IMP_LIVE_DONOR     0x00000004
+#endif
+
+	struct task_policy_state policy_state = {0};
+	mach_msg_type_number_t count = TASK_POLICY_STATE_COUNT;
+	boolean_t get_default = FALSE;
+	kern_return_t kr;
+
+	pinfo->psamp.p_boosts = pinfo->psamp.boosts;
+	pinfo->psamp.p_assertcnt = pinfo->psamp.assertcnt;
+
+	kr = task_policy_get(task, TASK_POLICY_STATE, (task_info_t)&policy_state, &count, &get_default);
+	if (kr != KERN_SUCCESS) return kr;
+
+	pinfo->psamp.boosts = policy_state.imp_transitions;
+	pinfo->psamp.assertcnt = policy_state.imp_assertcnt;
+
+	/*
+	 * even if we aren't donating now,
+	 * if we got boosted during the last seq,
+	 * we must have been sometime during the seq.
+	 */
+	pinfo->psamp.boost_donating = (((policy_state.flags & TASK_IMP_DONOR) != 0) ||
+				       (((policy_state.flags & TASK_IMP_RECEIVER) != 0) && 
+					((policy_state.imp_assertcnt != 0) ||
+					 (pinfo->psamp.boosts > pinfo->psamp.p_boosts))));
+
+	/*
+	 * keep track of the last sequence we were seen donating:
+	 * we'll use this to sort.
+	 */
+	if (pinfo->psamp.boost_donating && pinfo->psamp.p_boosts > 1) {
+			pinfo->psamp.boost_last_donating_seq = pinfo->psamp.seq;
+	}
+
+	/* Set initial values */
+	if (pinfo->psamp.p_seq == 0) {
+		pinfo->psamp.b_boosts = pinfo->psamp.boosts;
+		pinfo->psamp.b_assertcnt = pinfo->psamp.assertcnt;
+	}
+
+	return KERN_SUCCESS;
+}
+
+
+static kern_return_t
 libtop_pinfo_update_mach_ports(task_t task, libtop_pinfo_t* pinfo) {
 	kern_return_t kr;
 	mach_msg_type_number_t ncnt, tcnt;
@@ -1968,6 +2041,29 @@ libtop_p_task_update(task_t task, boolean_t reg)
 
 	// Update total time.
 	pinfo->psamp.p_total_time = pinfo->psamp.total_time;
+
+	//Store the previous on-behalf CPU time
+	pinfo->psamp.p_cpu_billed_to_me = pinfo->psamp.cpu_billed_to_me;
+	pinfo->psamp.p_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
+
+	//Update the on-behalf CPU time
+	struct rusage_info_v3 ri;
+	proc_pid_rusage(pid, RUSAGE_INFO_V3, (rusage_info_t)&ri);
+	pinfo->psamp.cpu_billed_to_me = ri.ri_billed_system_time;
+	pinfo->psamp.cpu_billed_to_others = ri.ri_serviced_system_time;
+
+	if (pinfo->psamp.p_seq == 0) {
+		/* Set initial values. */
+		pinfo->psamp.b_cpu_billed_to_me = pinfo->psamp.cpu_billed_to_me;
+		pinfo->psamp.b_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
+		pinfo->psamp.p_cpu_billed_to_me = pinfo->psamp.cpu_billed_to_me;
+		pinfo->psamp.p_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
+	}
+
+	/*
+	 * Get boost transition counts
+	 */
+	kr = libtop_pinfo_update_boosts(task, pinfo);
 
 	struct timeval tv;
 	TIME_VALUE_TO_TIMEVAL(&ti.user_time, &pinfo->psamp.total_time);

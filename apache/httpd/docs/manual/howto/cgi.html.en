@@ -9,19 +9,20 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
-<p class="apache">Apache HTTP Server Version 2.2</p>
+<p class="apache">Apache HTTP Server Version 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Apache Tutorial: Dynamic Content with CGI</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Apache Tutorial: Dynamic Content with CGI</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/howto/cgi.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/howto/cgi.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/cgi.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/cgi.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div>
@@ -64,9 +65,7 @@
     directive has not been commented out.  A correctly configured directive
     may look like this:
 
-    <pre class="prettyprint lang-config">
-      LoadModule cgi_module modules/mod_cgi.so
-    </pre>
+    <pre class="prettyprint lang-config">LoadModule cgi_module modules/mod_cgi.so</pre>
 </div>
 
     <h3><a name="scriptalias" id="scriptalias">ScriptAlias</a></h3>
@@ -84,9 +83,8 @@
       <p>The <code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>
       directive looks like:</p>
 
-      <div class="example"><p><code>
-        ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/
-      </code></p></div>
+      <pre class="prettyprint lang-config">ScriptAlias /cgi-bin/ /usr/local/apache2/cgi-bin/</pre>
+
 
       <p>The example shown is from your default <code>httpd.conf</code>
       configuration file, if you installed Apache in the default
@@ -139,13 +137,10 @@
       file, to specify that CGI execution was permitted in a particular
       directory:</p>
 
-      <div class="example"><p><code>
-        &lt;Directory /usr/local/apache2/htdocs/somedir&gt;<br />
-        <span class="indent">
-          Options +ExecCGI<br />
-        </span>
-&lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">&lt;Directory /usr/local/apache2/htdocs/somedir&gt;
+    Options +ExecCGI
+&lt;/Directory&gt;</pre>
+
 
       <p>The above directive tells Apache to permit the execution
       of CGI files. You will also need to tell the server what
@@ -153,9 +148,8 @@
       files with the <code>cgi</code> or <code>pl</code> extension as CGI
       programs:</p>
 
-      <div class="example"><p><code>
-        AddHandler cgi-script .cgi .pl
-      </code></p></div>
+      <pre class="prettyprint lang-config">AddHandler cgi-script .cgi .pl</pre>
+
     
 
     <h3><a name="htaccess" id="htaccess">.htaccess files</a></h3>
@@ -173,27 +167,21 @@
       <code>.cgi</code> in users' directories, you can use the
       following configuration.</p>
 
-      <div class="example"><p><code>
-      &lt;Directory /home/*/public_html&gt;<br />
-      <span class="indent">
-        Options +ExecCGI<br />
-        AddHandler cgi-script .cgi<br />
-      </span>
-&lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">&lt;Directory /home/*/public_html&gt;
+    Options +ExecCGI
+    AddHandler cgi-script .cgi
+&lt;/Directory&gt;</pre>
+
 
       <p>If you wish designate a <code>cgi-bin</code> subdirectory of
       a user's directory where everything will be treated as a CGI
       program, you can use the following.</p>
 
-      <div class="example"><p><code>
-      &lt;Directory /home/*/public_html/cgi-bin&gt;<br />
-      <span class="indent">
-        Options ExecCGI<br />
-        SetHandler cgi-script<br />
-      </span>
-&lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">&lt;Directory /home/*/public_html/cgi-bin&gt;
+    Options ExecCGI
+    SetHandler cgi-script
+&lt;/Directory&gt;</pre>
+
 
     
 
@@ -231,11 +219,10 @@
       file called <code>first.pl</code>, and put it in your
       <code>cgi-bin</code> directory.</p>
 
-      <div class="example"><p><code>
-        #!/usr/bin/perl<br />
-        print "Content-type: text/html\n\n";<br />
-print "Hello, World.";
-      </code></p></div>
+      <pre class="prettyprint lang-perl">#!/usr/bin/perl
+print "Content-type: text/html\n\n";
+print "Hello, World.";</pre>
+
 
       <p>Even if you are not familiar with Perl, you should be able
       to see what is happening here. The first line tells Apache
@@ -339,9 +326,8 @@ print "Hello, World.";
       interpreter (often <code>perl</code>) indicated in the first
       line of your CGI program, which will look something like:</p>
 
-      <div class="example"><p><code>
-        #!/usr/bin/perl
-      </code></p></div>
+      <pre class="prettyprint lang-perl">#!/usr/bin/perl</pre>
+
 
       <p>Make sure that this is in fact the path to the
       interpreter.</p>
@@ -479,15 +465,15 @@ print "Hello, World.";
       <a href="../env.html">add your own environment variables</a>
       to the basic ones provided by default.</p>
 
-      <div class="example"><p><code>
-        #!/usr/bin/perl<br />
-        print "Content-type: text/html\n\n";<br />
-        foreach $key (keys %ENV) {<br />
-        <span class="indent">
-          print "$key --&gt; $ENV{$key}&lt;br&gt;";<br />
-        </span>
-}
-      </code></p></div>
+      <pre class="prettyprint lang-perl">#!/usr/bin/perl
+use strict;
+use warnings;
+
+print "Content-type: text/html\n\n";
+foreach my $key (keys %ENV) {
+    print "$key --&gt; $ENV{$key}&lt;br&gt;";
+}</pre>
+
     
 
     <h3><a name="stdin" id="stdin">STDIN and STDOUT</a></h3>
@@ -554,11 +540,6 @@ print "Hello, World.";
 <h2><a name="moreinfo" id="moreinfo">For more information</a></h2>
     
 
-    <p>There are a large number of CGI resources on the web.
-    The list from the HTML Writers Guild is a great source of answers
-    to your questions. You can find out more at
-    <a href="http://www.hwg.org/lists/hwg-servers/">http://www.hwg.org/lists/hwg-servers/</a>.</p>
-
     <p>The current CGI specification is available in the
     <a href="http://www.ietf.org/rfc/rfc3875">Common Gateway
     Interface RFC</a>.</p>
@@ -577,12 +558,13 @@ print "Hello, World.";
   </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/howto/cgi.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/howto/cgi.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/cgi.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/cgi.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/cgi.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/cgi.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -597,7 +579,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/howto/cgi.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

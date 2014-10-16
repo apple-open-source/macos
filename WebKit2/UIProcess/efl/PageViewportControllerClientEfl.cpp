@@ -25,13 +25,11 @@
  */
 
 #include "config.h"
-
-#if USE(ACCELERATED_COMPOSITING)
-
 #include "PageViewportControllerClientEfl.h"
 
 #include "EwkView.h"
 #include "PageViewportController.h"
+#include <WebCore/FloatPoint.h>
 
 using namespace WebCore;
 
@@ -49,16 +47,10 @@ void PageViewportControllerClientEfl::didChangeContentsSize(const WebCore::IntSi
     m_view->scheduleUpdateDisplay();
 }
 
-void PageViewportControllerClientEfl::setViewportPosition(const WebCore::FloatPoint& contentsPoint)
+void PageViewportControllerClientEfl::setViewportPosition(const WebCore::FloatPoint& contentsPosition)
 {
-    m_contentPosition = contentsPoint;
-
-    FloatPoint pos(contentsPoint);
-    float scaleFactor = WKViewGetContentScaleFactor(m_view->wkView());
-    pos.scale(scaleFactor, scaleFactor);
-    WKViewSetContentPosition(m_view->wkView(), WKPointMake(pos.x(), pos.y()));
-
-    m_controller->didChangeContentsVisibility(m_contentPosition, scaleFactor);
+    WKViewSetContentPosition(m_view->wkView(), WKPointMake(contentsPosition.x(), contentsPosition.y()));
+    m_controller->didChangeContentsVisibility(contentsPosition, m_controller->currentScale());
 }
 
 void PageViewportControllerClientEfl::setPageScaleFactor(float newScale)
@@ -68,6 +60,9 @@ void PageViewportControllerClientEfl::setPageScaleFactor(float newScale)
 
 void PageViewportControllerClientEfl::didChangeVisibleContents()
 {
+    if (m_view->didCommitNewPage())
+        return;
+
     m_view->scheduleUpdateDisplay();
 }
 
@@ -81,4 +76,3 @@ void PageViewportControllerClientEfl::setController(PageViewportController* cont
 }
 
 } // namespace WebKit
-#endif // USE(ACCELERATED_COMPOSITING)

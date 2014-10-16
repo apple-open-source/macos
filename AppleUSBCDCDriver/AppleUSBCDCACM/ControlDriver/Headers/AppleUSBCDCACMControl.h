@@ -66,8 +66,6 @@ private:
     IOUSBCompletion		fCommCompletionInfo;			// Interrupt completion routine
     IOUSBCompletion		fMERCompletionInfo;			// MER Completion routine
     UInt8			fCommInterfaceNumber;			// My interface number
-    UInt8			fCMCapabilities;			// Call Management Capabilities
-    UInt8			fACMCapabilities;			// Abstract Control Management
     
     static void			commReadComplete( void *obj, void *param, IOReturn ior, UInt32 remaining);
     static void			merWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
@@ -76,6 +74,8 @@ public:
 
     IOUSBInterface		*fControlInterface;
     UInt8			fDataInterfaceNumber;			// Matching Data interface number
+    UInt8			fCMCapabilities;			// Call Management Capabilities
+    UInt8			fACMCapabilities;			// Abstract Control Management
 
         // IOKit methods:
 		

@@ -1,2 +1,6 @@
 /CFBundleShortVersionString/+1s/\(>[0-9.]*\)[^<]*/\1/
+/^<\/dict>/i
+	<key>NSPrincipalClass</key>
+	<string>NSObject</string>
+.
 w

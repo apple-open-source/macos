@@ -39,6 +39,7 @@
 		722CFA150FF4271C0065AA57 /* nc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nc; sourceTree = BUILT_PRODUCTS_DIR; };
 		722CFA2E0FF429E20065AA57 /* netcat.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = netcat.plist; sourceTree = "<group>"; };
 		722CFA390FF42A9F0065AA57 /* netcat.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netcat.txt; sourceTree = "<group>"; };
+		72869D29190886BF00700749 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +58,7 @@
 			children = (
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
+				72869D281908869F00700749 /* Resources */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = netcat;
@@ -80,6 +82,14 @@
 				722CFA150FF4271C0065AA57 /* nc */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		72869D281908869F00700749 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				72869D29190886BF00700749 /* entitlements.plist */,
+			);
+			name = Resources;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
@@ -118,6 +128,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "netcat" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -190,6 +202,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SELECT;
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",

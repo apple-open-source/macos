@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@ typedef enum {
     IFEventID_get_dhcpv6_info_e,	/* event_data is (dhcpv6_info_t *) */
     IFEventID_ipv6_address_changed_e,	/* IPv6 address changed on interface */
     IFEventID_bssid_changed_e, 		/* BSSID has changed */
+    IFEventID_active_during_sleep_e,	/* (active_during_sleep_t) */
     IFEventID_last_e,
 } IFEventID_t;
 
@@ -116,6 +117,7 @@ typedef struct {
     struct in_addr		ip_addr;
     void *			hwaddr;
     int				hwlen;
+    boolean_t			is_sleep_proxy;
 } arp_collision_data_t;
 
 typedef enum {
@@ -220,6 +222,12 @@ CFStringRef
 ServiceGetSSID(ServiceRef service_p);
 
 void
+ServiceSetActiveDuringSleepNeedsAttention(ServiceRef service_p);
+
+CFStringRef
+ServiceCopyWakeID(ServiceRef service_p);
+
+void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
 
 struct in_addr
@@ -259,6 +267,9 @@ service_remove_address(ServiceRef service_p);
 void
 ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p);
 
+boolean_t
+ServiceDefendIPv4Address(ServiceRef service_p, arp_collision_data_t * arpc);
+
 void
 ServicePublishSuccessIPv6(ServiceRef service_p,
 			  inet6_addrinfo_t * addr, int addr_count,
@@ -275,7 +286,9 @@ ServiceGetRequestedIPv6Address(ServiceRef service_p,
 			       int * prefix_length);
 int
 ServiceSetIPv6Address(ServiceRef service_p, const struct in6_addr * addr_p,
-		      int prefix_length, u_int32_t valid_lifetime,
+		      int prefix_length,
+		      u_int32_t flags,
+		      u_int32_t valid_lifetime,
 		      u_int32_t preferred_lifetime);
 
 void

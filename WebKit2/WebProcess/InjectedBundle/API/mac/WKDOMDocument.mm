@@ -24,10 +24,9 @@
  */
 
 #import "config.h"
-
-#if defined(__LP64__) && defined(__clang__)
-
 #import "WKDOMDocument.h"
+
+#if WK_API_ENABLED
 
 #import "WKDOMInternals.h"
 #import <WebCore/Document.h>
@@ -55,4 +54,4 @@
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

@@ -28,24 +28,30 @@
 #ifndef PageClientImpl_h
 #define PageClientImpl_h
 
+#include "DefaultUndoController.h"
 #include "KeyBindingTranslator.h"
 #include "PageClient.h"
+#include "WebFullScreenManagerProxy.h"
 #include "WebPageProxy.h"
 #include "WindowsKeyboardCodes.h"
 #include <WebCore/IntSize.h>
 #include <gtk/gtk.h>
+#include <memory>
 
 namespace WebKit {
 
 class DrawingAreaProxy;
 class WebPageNamespace;
 
-class PageClientImpl : public PageClient {
+class PageClientImpl : public PageClient
+#if ENABLE(FULLSCREEN_API)
+    , public WebFullScreenManagerProxyClient
+#endif
+{
 public:
-    ~PageClientImpl();
-    static PassOwnPtr<PageClientImpl> create(GtkWidget* viewWidget)
+    static std::unique_ptr<PageClientImpl> create(GtkWidget* viewWidget)
     {
-        return adoptPtr(new PageClientImpl(viewWidget));
+        return std::unique_ptr<PageClientImpl>(new PageClientImpl(viewWidget));
     }
 
     GtkWidget* viewWidget() { return m_viewWidget; }
@@ -53,62 +59,79 @@ public:
 private:
     explicit PageClientImpl(GtkWidget*);
 
-    virtual PassOwnPtr<DrawingAreaProxy> createDrawingAreaProxy();
-    virtual void setViewNeedsDisplay(const WebCore::IntRect&);
-    virtual void displayView();
-    virtual bool canScrollView() { return false; }
-    virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
-    virtual WebCore::IntSize viewSize();
-    virtual bool isViewWindowActive();
-    virtual bool isViewFocused();
-    virtual bool isViewVisible();
-    virtual bool isViewInWindow();
-    virtual void processDidCrash();
-    virtual void didRelaunchProcess();
-    virtual void pageClosed();
-    virtual void preferencesDidChange();
-    virtual void takeFocus(bool direction);
-    virtual void toolTipChanged(const WTF::String&, const WTF::String&);
-    virtual void setCursor(const WebCore::Cursor&);
-    virtual void setCursorHiddenUntilMouseMoves(bool);
-    virtual void didChangeViewportProperties(const WebCore::ViewportAttributes&);
-    virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
-    virtual void clearAllEditCommands();
-    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo);
-    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo);
-    virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
-    virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
-    virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint&);
-    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
-    virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
-    virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
-    virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*);
+    // PageClient
+    virtual std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy() override;
+    virtual void setViewNeedsDisplay(const WebCore::IntRect&) override;
+    virtual void displayView() override;
+    virtual bool canScrollView() override { return false; }
+    virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) override;
+    virtual void requestScroll(const WebCore::FloatPoint& scrollPosition, bool isProgrammaticScroll) override;
+    virtual WebCore::IntSize viewSize() override;
+    virtual bool isViewWindowActive() override;
+    virtual bool isViewFocused() override;
+    virtual bool isViewVisible() override;
+    virtual bool isViewInWindow() override;
+    virtual void processDidExit() override;
+    virtual void didRelaunchProcess() override;
+    virtual void pageClosed() override;
+    virtual void preferencesDidChange() override;
+    virtual void toolTipChanged(const WTF::String&, const WTF::String&) override;
+    virtual void setCursor(const WebCore::Cursor&) override;
+    virtual void setCursorHiddenUntilMouseMoves(bool) override;
+    virtual void didChangeViewportProperties(const WebCore::ViewportAttributes&) override;
+    virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo) override;
+    virtual void clearAllEditCommands() override;
+    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo) override;
+    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo) override;
+    virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) override;
+    virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) override;
+    virtual WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) override;
+    virtual WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) override;
+    virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
+    virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) override;
+    virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) override;
 #if ENABLE(INPUT_TYPE_COLOR)
-    virtual PassRefPtr<WebColorChooserProxy> createColorChooserProxy(WebPageProxy*, const WebCore::Color& intialColor, const WebCore::IntRect&);
+    virtual PassRefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& intialColor, const WebCore::IntRect&) override;
 #endif
-    virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate);
-    virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
-    virtual void getEditorCommandsForKeyEvent(const NativeWebKeyboardEvent&, const AtomicString&, Vector<WTF::String>&);
-    virtual void findStringInCustomRepresentation(const String&, FindOptions, unsigned);
-    virtual void countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned);
-    virtual void updateTextInputState();
-    virtual void startDrag(const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage);
+    virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate) override;
+    virtual void getEditorCommandsForKeyEvent(const NativeWebKeyboardEvent&, const AtomicString&, Vector<WTF::String>&) override;
+    virtual void updateTextInputState() override;
+    virtual void startDrag(const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage) override;
 
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
-    virtual void exitAcceleratedCompositingMode();
-    virtual void updateAcceleratedCompositingMode(const LayerTreeContext&);
+    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
+    virtual void exitAcceleratedCompositingMode() override;
+    virtual void updateAcceleratedCompositingMode(const LayerTreeContext&) override;
+
+    virtual void handleDownloadRequest(DownloadProxy*) override;
+    virtual void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) override;
+
+    // Auxiliary Client Creation
+#if ENABLE(FULLSCREEN_API)
+    virtual WebFullScreenManagerProxyClient& fullScreenManagerProxyClient() final;
 #endif
 
-    virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
-    virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&);
-    virtual double customRepresentationZoomFactor();
-    virtual void setCustomRepresentationZoomFactor(double);
+#if ENABLE(FULLSCREEN_API)
+    // WebFullScreenManagerProxyClient
+    virtual void closeFullScreenManager() override;
+    virtual bool isFullScreen() override;
+    virtual void enterFullScreen() override;
+    virtual void exitFullScreen() override;
+    virtual void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
+    virtual void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
+#endif
 
-    virtual void handleDownloadRequest(DownloadProxy*);
+    virtual void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override;
+
+    virtual void navigationGestureDidBegin() override;
+    virtual void navigationGestureWillEnd(bool, WebBackForwardListItem&) override;
+    virtual void navigationGestureDidEnd(bool, WebBackForwardListItem&) override;
+    virtual void willRecordNavigationSnapshot(WebBackForwardListItem&) override;
+
+    virtual void doneWithTouchEvent(const NativeWebTouchEvent&, bool wasEventHandled) override;
 
     // Members of PageClientImpl class
     GtkWidget* m_viewWidget;
+    DefaultUndoController m_undoController;
     WebCore::KeyBindingTranslator m_keyBindingTranslator;
 };
 

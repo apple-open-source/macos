@@ -410,3 +410,27 @@ fill_with_random(void * buf, uint32_t len)
     return;
 }
 
+#define ROUNDUP(a) \
+    ((a) > 0 ? (1 + (((a) - 1) | (sizeof(u_int32_t) - 1))) : sizeof(u_int32_t))
+
+PRIVATE_EXTERN int
+rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo)
+{
+    int 		i;
+    struct sockaddr *	sa;
+
+    bzero(rtinfo->rti_info, sizeof(rtinfo->rti_info));
+    for (i = 0; (i < RTAX_MAX) && (cp < cplim); i++) {
+	if ((rtinfo->rti_addrs & (1 << i)) == 0) {
+	    continue;
+	}
+	sa = (struct sockaddr *)cp;
+	if ((cp + sa->sa_len) > cplim) {
+	    return (EINVAL);
+	}
+	rtinfo->rti_info[i] = sa;
+	cp += ROUNDUP(sa->sa_len);
+    }
+    return (0);
+}
+

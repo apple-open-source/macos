@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2014 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -31,7 +31,7 @@
 
 #include <WebCore/COMPtr.h>
 #include <WebCore/InspectorClient.h>
-#include <WebCore/InspectorFrontendChannel.h>
+#include <WebCore/InspectorForwarding.h>
 #include <WebCore/InspectorFrontendClientLocal.h>
 #include <WebCore/WindowMessageListener.h>
 #include <windows.h>
@@ -81,35 +81,35 @@ public:
 
 private:
     virtual ~WebInspectorClient();
-    WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
+    std::unique_ptr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
 
     WebView* m_inspectedWebView;
     WebCore::Page* m_frontendPage;
     WebInspectorFrontendClient* m_frontendClient;
-    HWND m_inspectedWebViewHwnd;
-    HWND m_frontendHwnd;
+    HWND m_inspectedWebViewHandle;
+    HWND m_frontendHandle;
 
     OwnPtr<WebNodeHighlight> m_highlight;
 };
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal, WebCore::WindowMessageListener {
 public:
-    WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frotnendWebView, HWND frontendWebViewHwnd, WebInspectorClient*, WTF::PassOwnPtr<Settings>);
+    WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frotnendWebView, HWND frontendWebViewHwnd, WebInspectorClient*, std::unique_ptr<Settings>);
     virtual ~WebInspectorFrontendClient();
 
     virtual void frontendLoaded();
-    
+
     virtual WTF::String localizedStringsURL();
-    
+
     virtual void bringToFront();
     virtual void closeWindow();
-    
+
     virtual void attachWindow(DockSide);
     virtual void detachWindow();
-    
+
     virtual void setAttachedWindowHeight(unsigned height);
     virtual void setAttachedWindowWidth(unsigned);
-    virtual void setToolbarHeight(unsigned) OVERRIDE;
+    virtual void setToolbarHeight(unsigned) override;
 
     virtual void inspectedURLChanged(const WTF::String& newURL);
 

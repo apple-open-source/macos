@@ -14,7 +14,7 @@
 # THIS SOFTWARE IS PROVIDED BY GOOGLE, INC. `AS IS'' AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
 # CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 # PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -467,7 +467,7 @@ EOF
         if ($conditional) {
             print $file "#if " . $InCompiler->conditionalStringFromAttributeValue($conditional) . "\n";
         }
-        print $file "    , m_$settingName(page->settings()->$settingName())\n";
+        print $file "    , m_$settingName(page->settings().$settingName())\n";
         if ($conditional) {
             print $file "#endif\n";
         }
@@ -494,7 +494,7 @@ EOF
         if ($conditional) {
             print $file "#if " . $InCompiler->conditionalStringFromAttributeValue($conditional) . "\n";
         }
-        print $file "    m_page->settings()->$setterFunctionName(m_$settingName);\n";
+        print $file "    m_page->settings().$setterFunctionName(m_$settingName);\n";
         if ($conditional) {
             print $file "#endif\n";
         }
@@ -517,7 +517,7 @@ EOF
         if ($conditional) {
             print $file "#if " . $InCompiler->conditionalStringFromAttributeValue($conditional) . "\n";
         }
-        print $file "    m_page->settings()->$setterFunctionName($settingName);\n";
+        print $file "    m_page->settings().$setterFunctionName($settingName);\n";
         if ($conditional) {
             print $file "#else\n";
             print $file "    UNUSED_PARAM($settingName);\n";

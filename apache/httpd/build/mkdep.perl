@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 #
-# $Id: mkdep.perl 106505 2004-11-25 00:01:34Z nd $
-#
 # Created: Thu Aug 15 11:57:33 1996 too
 # Last modified: Mon Dec 27 09:23:56 1999 too
 #

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -25,6 +25,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#if !PLATFORM(IOS)
 
 #import "WebDefaultContextMenuDelegate.h"
 
@@ -46,8 +48,8 @@
 #import <WebCore/Editor.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
-#import <WebKit/DOM.h>
-#import <WebKit/DOMPrivate.h>
+#import <WebKitLegacy/DOM.h>
+#import <WebKitLegacy/DOMPrivate.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/Assertions.h>
 
@@ -89,12 +91,8 @@
             action = @selector(_searchWithSpotlightFromMenu:);
             break;
         case WebMenuItemTagSearchWeb: {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
             RetainPtr<CFStringRef> searchProviderName = adoptCF(WKCopyDefaultSearchProviderDisplayName());
             title = [NSString stringWithFormat:UI_STRING_INTERNAL("Search with %@", "Search with search provider context menu item with provider name inserted"), searchProviderName.get()];
-#else
-            title = UI_STRING_INTERNAL("Search with Google", "Search with Google context menu item");
-#endif
             action = @selector(_searchWithGoogleFromMenu:);
             break;
         }
@@ -136,12 +134,6 @@
     }
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
-#define INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM 1
-#else
-#define INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM 0
-#endif
-
 - (NSArray *)webView:(WebView *)wv contextMenuItemsForElement:(NSDictionary *)element  defaultMenuItems:(NSArray *)defaultMenuItems
 {
     // The defaultMenuItems here are ones supplied by the WebDocumentView protocol implementation. WebPDFView is
@@ -161,21 +153,12 @@
         // existing clients that have code that relies on it being present (unlikely for clients outside of Apple, 
         // but Safari has such code).
 
-#if INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
-        [menuItems addObject:[self menuItemWithTag:WebMenuItemTagSearchInSpotlight target:nil representedObject:element]];
-#else
         NSMenuItem *lookupMenuItem = [self menuItemWithTag:WebMenuItemTagLookUpInDictionary target:nil representedObject:element];
         NSString *selectedString = [(id <WebDocumentText>)[[webFrame frameView] documentView] selectedString];
         [lookupMenuItem setTitle:[NSString stringWithFormat:UI_STRING_INTERNAL("Look Up “%@”", "Look Up context menu item with selected word"), selectedString]];
         [menuItems addObject:lookupMenuItem];
-#endif
 
         [menuItems addObject:[self menuItemWithTag:WebMenuItemTagSearchWeb target:nil representedObject:element]];
-
-#if INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
-        [menuItems addObject:[NSMenuItem separatorItem]];
-        [menuItems addObject:[self menuItemWithTag:WebMenuItemTagLookUpInDictionary target:nil representedObject:element]];
-#endif
 
         [menuItems addObject:[NSMenuItem separatorItem]];
         [menuItems addObject:[self menuItemWithTag:WebMenuItemTagCopy target:nil representedObject:element]];
@@ -205,3 +188,5 @@
 }
 
 @end
+
+#endif // !PLATFORM(IOS)

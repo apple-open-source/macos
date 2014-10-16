@@ -72,7 +72,7 @@ static void *qtn_file_clone(void *x) { return NULL; }
 
 #include "copyfile.h"
 #include "copyfile_private.h"
-#include "xattr_properties.h"
+#include "xattr_flags.h"
 
 enum cfInternalFlags {
 	cfDelayAce = 1 << 0,
@@ -109,7 +109,7 @@ struct _copyfile_state
     off_t totalCopied;
     int err;
     char *xattr_name;
-    CopyOperationIntent_t copyIntent;
+    xattr_operation_intent_t copyIntent;
 };
 
 struct acl_entry {
@@ -2105,7 +2105,8 @@ goto exit;
 static int copyfile_stat(copyfile_state_t s)
 {
     struct timeval tval[2];
-    unsigned int added_flags = 0;
+    unsigned int added_flags = 0, dst_flags = 0;
+    struct stat dst_sb;
 
     /*
      * NFS doesn't support chflags; ignore errors as a result, since
@@ -2114,7 +2115,18 @@ static int copyfile_stat(copyfile_state_t s)
     if (s->internal_flags & cfMakeFileInvisible)
 	added_flags |= UF_HIDDEN;
 
-    (void)fchflags(s->dst_fd, (u_int)s->sb.st_flags | added_flags);
+    /*
+    * We need to check if SF_RESTRICTED was set on the destination
+    * by the kernel.  If it was, don't drop it.
+    */
+    if (fstat(s->dst_fd, &dst_sb))
+	return -1;
+    if (dst_sb.st_flags & SF_RESTRICTED)
+	added_flags |= SF_RESTRICTED;
+
+    /* Copy file flags, masking out any we don't want to preserve */
+    dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS) | added_flags;
+    (void)fchflags(s->dst_fd, dst_flags);
 
     /* If this fails, we don't care */
     (void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
@@ -2288,9 +2300,49 @@ static int copyfile_xattr(copyfile_state_t s)
 	    if (OSSwapLittleToHostInt32(hdr->compression_magic) != DECMPFS_MAGIC) {
 		continue;
 	    }
-	    if (OSSwapLittleToHostInt32(hdr->compression_type) != 3 &&
-		OSSwapLittleToHostInt32(hdr->compression_type) != 4) {
-		continue;
+	    /*
+	     * From AppleFSCompression documentation:
+	     * "It is incumbent on the aware copy engine to identify
+	     *  the type of compression being used, and to perform an
+	     *  unaware copy of any file it does not recognize."
+	     *
+	     * Compression Types are defined in:
+	     * "AppleFSCompression/Common/compressorCommon.h"
+	     *
+	     * Unfortunately, they don't provide a way to dynamically
+	     * determine what possible compression_type values exist,
+	     * so we have to update this every time a new compression_type
+	     * is added (Types 7->10 were added in Yosemite)
+	     *
+	     * Ubiquity faulting file compression type 0x80000001 are
+	     * deprecated as of Yosemite, per rdar://17714998 don't copy the
+	     * decmpfs xattr on these files, zero byte files are safer
+	     * than a fault nobody knows how to handle.
+	     */
+	    switch (OSSwapLittleToHostInt32(hdr->compression_type)) {
+		case 3: /* zlib-compressed data in xattr */
+		case 4: /* 64k chunked zlib-compressed data in resource fork */
+
+		case 7: /* LZVN-compressed data in xattr */
+		case 8: /* 64k chunked LZVN-compressed data in resource fork */
+
+		case 9: /* uncompressed data in xattr (similar to but not identical to CMP_Type1) */
+		case 10: /* 64k chunked uncompressed data in resource fork */
+
+			/* valid compression type, we want to copy. */
+			break;
+                
+		case 5: /* specifies de-dup within the generation store. Don't copy decmpfs xattr. */
+			copyfile_debug(3, "compression_type <5> on attribute com.apple.decmpfs for src file %s is not copied.",
+				      s->src ? s->src : "(null string)");
+			continue;
+
+		case 6: /* unused */
+		case 0x80000001: /* faulting files are deprecated, don't copy decmpfs xattr */
+		default:
+			copyfile_warn("Invalid compression_type <%d> on attribute %s for src file %s",
+				      OSSwapLittleToHostInt32(hdr->compression_type), name, s->src ? s->src : "(null string)");
+			continue;
 	    }
 	    s->internal_flags |= cfSawDecmpEA;
 	}
@@ -2298,7 +2350,7 @@ static int copyfile_xattr(copyfile_state_t s)
 
 	// If we have a copy intention stated, and the EA is to be ignored, we ignore it
 	if (s->copyIntent
-	    && _PreserveEA(name, s->copyIntent) == 0)
+	    && xattr_preserve_for_intent(name, s->copyIntent) == 0)
 		continue;
 
 	s->xattr_name = strdup(name);
@@ -2412,7 +2464,7 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 #endif
 #ifdef COPYFILE_STATE_INTENT
        case COPYFILE_STATE_INTENT:
-           *(CopyOperationIntent_t*)ret = s->copyIntent;
+           *(xattr_operation_intent_t*)ret = s->copyIntent;
 	   break;
 #endif
 	default:
@@ -2488,7 +2540,7 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 #endif
 #ifdef COPYFILE_STATE_INTENT
        case COPYFILE_STATE_INTENT:
-           s->copyIntent = *(CopyOperationIntent_t*)thing;
+           s->copyIntent = *(xattr_operation_intent_t*)thing;
 	   break;
 #endif
 	default:
@@ -3238,7 +3290,7 @@ acl_done:
 	    else
 	    {
 		if (s->copyIntent ||
-		    _PreserveEA((char*)entry->name, s->copyIntent) == 1) {
+		    xattr_preserve_for_intent((char*)entry->name, s->copyIntent) == 1) {
 			if (s->statuscb) {
 				int rv;
 				s->xattr_name = strdup((char*)entry->name);
@@ -3793,7 +3845,7 @@ static int copyfile_pack(copyfile_state_t s)
 		namelen = XATTR_MAXNAMELEN + 1;
 	    }
 	    if (s->copyIntent &&
-		_PreserveEA(nameptr, s->copyIntent) == 0) {
+		xattr_preserve_for_intent(nameptr, s->copyIntent) == 0) {
 		    // Skip it
 		    size_t amt = endnamebuf - (nameptr + namelen);
 		    memmove(nameptr, nameptr + namelen, amt);
@@ -3807,7 +3859,7 @@ static int copyfile_pack(copyfile_state_t s)
 		int rv;
 		char eaname[namelen];
 		bcopy(nameptr, eaname, namelen);
-		eaname[namelen] = 0; // Just to be sure!
+		eaname[namelen - 1] = 0; // Just to be sure!
 		s->xattr_name = eaname;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
 		s->xattr_name = NULL;

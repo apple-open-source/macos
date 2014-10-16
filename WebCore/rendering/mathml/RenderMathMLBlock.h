@@ -41,20 +41,10 @@ class RenderMathMLOperator;
 
 class RenderMathMLBlock : public RenderFlexibleBox {
 public:
-    RenderMathMLBlock(Element* container);
+    RenderMathMLBlock(Element&, PassRef<RenderStyle>);
+    RenderMathMLBlock(Document&, PassRef<RenderStyle>);
 
-    virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
-    
-    virtual bool isRenderMathMLBlock() const { return true; }
-    virtual bool isRenderMathMLOperator() const { return false; }
-    virtual bool isRenderMathMLRow() const { return false; }
-    virtual bool isRenderMathMLMath() const { return false; }
-    virtual bool isRenderMathMLFenced() const { return false; }
-    virtual bool isRenderMathMLFraction() const { return false; }
-    virtual bool isRenderMathMLRoot() const { return false; }
-    virtual bool isRenderMathMLSquareRoot() const { return false; }
-    virtual bool isRenderMathMLSubSup() const { return false; }
-    virtual bool isRenderMathMLUnderOver() const { return false; }
+    virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
     
     // MathML defines an "embellished operator" as roughly an <mo> that may have subscripts,
     // superscripts, underscripts, overscripts, or a denominator (as in d/dx, where "d" is some
@@ -65,48 +55,41 @@ public:
     // https://bugs.webkit.org/show_bug.cgi?id=78617.
     virtual RenderMathMLOperator* unembellishedOperator() { return 0; }
     
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const OVERRIDE;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
     
 #if ENABLE(DEBUG_MATH_LAYOUT)
     virtual void paint(PaintInfo&, const LayoutPoint&);
 #endif
     
     // Create a new RenderMathMLBlock, with a new style inheriting from this->style().
-    RenderMathMLBlock* createAnonymousMathMLBlock(EDisplay = FLEX);
-    
-    void setIgnoreInAccessibilityTree(bool flag) { m_ignoreInAccessibilityTree = flag; }
-    bool ignoreInAccessibilityTree() const { return m_ignoreInAccessibilityTree; }
+    RenderPtr<RenderMathMLBlock> createAnonymousMathMLBlock();
     
 private:
-    virtual const char* renderName() const OVERRIDE;
-    bool m_ignoreInAccessibilityTree;
+    virtual bool isRenderMathMLBlock() const override final { return true; }
+    virtual const char* renderName() const override;
 };
 
-inline RenderMathMLBlock* toRenderMathMLBlock(RenderObject* object)
-{ 
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderMathMLBlock());
-    return static_cast<RenderMathMLBlock*>(object);
-}
+RENDER_OBJECT_TYPE_CASTS(RenderMathMLBlock, isRenderMathMLBlock())
 
-inline const RenderMathMLBlock* toRenderMathMLBlock(const RenderObject* object)
-{ 
-    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderMathMLBlock());
-    return static_cast<const RenderMathMLBlock*>(object);
-}
-
-// This will catch anyone doing an unnecessary cast.
-void toRenderMathMLBlock(const RenderMathMLBlock*);
-
-class RenderMathMLTable : public RenderTable {
+class RenderMathMLTable final : public RenderTable {
 public:
-    explicit RenderMathMLTable(Element* element) : RenderTable(element) { }
+    explicit RenderMathMLTable(Element& element, PassRef<RenderStyle> style)
+        : RenderTable(element, WTF::move(style))
+    {
+    }
     
-    virtual int firstLineBoxBaseline() const OVERRIDE;
+    virtual int firstLineBaseline() const override;
     
 private:
-    virtual const char* renderName() const OVERRIDE { return "RenderMathMLTable"; }
+    virtual bool isRenderMathMLTable() const override final { return true; }
+    virtual const char* renderName() const override { return "RenderMathMLTable"; }
 };
 
+RENDER_OBJECT_TYPE_CASTS(RenderMathMLTable, isRenderMathMLTable())
+
+// Parsing functions for MathML Length values
+bool parseMathMLLength(const String&, LayoutUnit&, const RenderStyle*, bool allowNegative = true);
+bool parseMathMLNamedSpace(const String&, LayoutUnit&, const RenderStyle*, bool allowNegative = true);
 }
 
 #endif // ENABLE(MATHML)

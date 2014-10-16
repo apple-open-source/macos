@@ -48,11 +48,16 @@ if($opt_b) {
 $export_file = 1 if ($opt_e);
 $header = 1 if ($opt_h);
 
-printf "/* Generated file */\n";
+if ($export_file) {
+    printf "# Generated file\n";
+} else {
+    printf "/* Generated file */\n";
+}
+
 if ($header) {
     printf "#ifndef GSSAPI_GSSAPI_OID\n";
     printf "#define GSSAPI_GSSAPI_OID 1\n\n";
-} else {
+} elsif (!$export_file) {
     printf "#include \"mech_locl.h\"\n\n";
 }
 
@@ -126,8 +131,8 @@ while(<>) {
 
 }
 
-foreach my $k (keys %types) {
-    if (!$header && !$export_file) {
+if (!$header && !$export_file) {
+    foreach my $k (keys %types) {
 	print "struct _gss_oid_name_table _gss_ont_" . $k . "[] = {\n";
 	foreach my $m (values %tables) {
 	    if ($$m->{type} eq $k) {

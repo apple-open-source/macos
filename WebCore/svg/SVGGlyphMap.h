@@ -21,19 +21,19 @@
 #define SVGGlyphMap_h
 
 #if ENABLE(SVG_FONTS)
+
 #include "SurrogatePairAwareTextIterator.h"
 #include "SVGGlyph.h"
-#include "SVGGlyphElement.h"
-
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
 struct GlyphMapNode;
 class SVGFontData;
 
-typedef HashMap<UChar32, RefPtr<GlyphMapNode> > GlyphMapLayer;
+typedef HashMap<UChar32, RefPtr<GlyphMapNode>> GlyphMapLayer;
 
 struct GlyphMapNode : public RefCounted<GlyphMapNode> {
 private:
@@ -69,7 +69,8 @@ public:
 
         UChar32 character = 0;
         unsigned clusterLength = 0;
-        SurrogatePairAwareTextIterator textIterator(unicodeString.characters(), 0, length, length);
+        auto upconvertedCharacters = StringView(unicodeString).upconvertedCharacters();
+        SurrogatePairAwareTextIterator textIterator(upconvertedCharacters, 0, length, length);
         while (textIterator.consume(character, clusterLength)) {
             node = currentLayer->get(character);
             if (!node) {
@@ -114,12 +115,12 @@ public:
     {
         GlyphMapLayer* currentLayer = &m_rootLayer;
 
-        const UChar* characters = string.characters();
+        auto upconvertedCharacters = StringView(string).upconvertedCharacters();
         size_t length = string.length();
 
         UChar32 character = 0;
         unsigned clusterLength = 0;
-        SurrogatePairAwareTextIterator textIterator(characters, 0, length, length);
+        SurrogatePairAwareTextIterator textIterator(upconvertedCharacters, 0, length, length);
         while (textIterator.consume(character, clusterLength)) {
             RefPtr<GlyphMapNode> node = currentLayer->get(character);
             if (!node)
@@ -142,7 +143,7 @@ public:
     const SVGGlyph& svgGlyphForGlyph(Glyph glyph) const
     {
         if (!glyph || glyph > m_glyphTable.size()) {
-            DEFINE_STATIC_LOCAL(SVGGlyph, defaultGlyph, ());
+            DEPRECATED_DEFINE_STATIC_LOCAL(SVGGlyph, defaultGlyph, ());
             return defaultGlyph;
         }
         return m_glyphTable[glyph - 1];

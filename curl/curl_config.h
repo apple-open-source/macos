@@ -139,8 +139,8 @@
 /* Define to 1 if you have the <crypto.h> header file. */
 /* #undef HAVE_CRYPTO_H */
 
-/* Define to 1 if you have the <des.h> header file. */
-/* #undef HAVE_DES_H */
+/* Define to 1 if you have the <cyassl/error-ssl.h> header file. */
+/* #undef HAVE_CYASSL_ERROR_SSL_H */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -253,6 +253,9 @@
 /* Define to 1 if you have the `getpwuid' function. */
 #define HAVE_GETPWUID 1
 
+/* Define to 1 if you have the `getpwuid_r' function. */
+#define HAVE_GETPWUID_R 1
+
 /* Define to 1 if you have the `getrlimit' function. */
 #define HAVE_GETRLIMIT 1
 
@@ -271,7 +274,7 @@
 /* if you have the function gnutls_srp_verifier */
 /* #undef HAVE_GNUTLS_SRP */
 
-/* if you have the gssapi libraries */
+/* if you have GSS-API libraries */
 /* #undef HAVE_GSSAPI */
 
 /* Define to 1 if you have the <gssapi/gssapi_generic.h> header file. */
@@ -283,13 +286,13 @@
 /* Define to 1 if you have the <gssapi/gssapi_krb5.h> header file. */
 #define HAVE_GSSAPI_GSSAPI_KRB5_H 1
 
-/* if you have the GNU gssapi libraries */
+/* if you have GNU GSS */
 /* #undef HAVE_GSSGNU */
 
-/* if you have the Heimdal gssapi libraries */
+/* if you have Heimdal */
 /* #undef HAVE_GSSHEIMDAL */
 
-/* if you have the MIT gssapi libraries */
+/* if you have MIT Kerberos */
 #define HAVE_GSSMIT 1
 
 /* Define to 1 if you have the `idna_strerror' function. */
@@ -303,6 +306,9 @@
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 #define HAVE_IFADDRS_H 1
+
+/* Define to 1 if you have the `if_nametoindex' function. */
+#define HAVE_IF_NAMETOINDEX 1
 
 /* Define to 1 if you have the `inet_addr' function. */
 #define HAVE_INET_ADDR 1
@@ -350,15 +356,6 @@
 /* Define to 1 if you have the <io.h> header file. */
 /* #undef HAVE_IO_H */
 
-/* if you have the Kerberos4 libraries (including -ldes) */
-/* #undef HAVE_KRB4 */
-
-/* Define to 1 if you have the `krb_get_our_ip_for_realm' function. */
-/* #undef HAVE_KRB_GET_OUR_IP_FOR_REALM */
-
-/* Define to 1 if you have the <krb.h> header file. */
-/* #undef HAVE_KRB_H */
-
 /* Define to 1 if you have the lber.h header file. */
 #define HAVE_LBER_H 1
 
@@ -385,9 +382,6 @@
 
 /* Define to 1 if you have the `idn' library (-lidn). */
 /* #undef HAVE_LIBIDN */
-
-/* Define to 1 if you have the `resolv' library (-lresolv). */
-/* #undef HAVE_LIBRESOLV */
 
 /* Define to 1 if you have the `resolve' library (-lresolve). */
 /* #undef HAVE_LIBRESOLVE */
@@ -461,13 +455,13 @@
 /* Define to 1 if you have the <net/if.h> header file. */
 #define HAVE_NET_IF_H 1
 
+/* Define to 1 if you have the <nghttp2/nghttp2.h> header file. */
+/* #undef HAVE_NGHTTP2_NGHTTP2_H */
+
 /* Define to 1 if NI_WITHSCOPEID exists and works. */
 /* #undef HAVE_NI_WITHSCOPEID */
 
-/* if you have the NSS_InitContext function */
-/* #undef HAVE_NSS_INITCONTEXT */
-
-/* if you have an old MIT gssapi library, lacking GSS_C_NT_HOSTBASED_SERVICE
+/* if you have an old MIT Kerberos version, lacking GSS_C_NT_HOSTBASED_SERVICE
    */
 /* #undef HAVE_OLD_GSSMIT */
 
@@ -505,10 +499,10 @@
 #define HAVE_PIPE 1
 
 /* Define to 1 if you have a working poll function. */
-/* #undef HAVE_POLL */
+#define HAVE_POLL 1
 
 /* If you have a fine poll */
-/* #undef HAVE_POLL_FINE */
+#define HAVE_POLL_FINE 1
 
 /* Define to 1 if you have the <poll.h> header file. */
 #define HAVE_POLL_H 1
@@ -606,6 +600,15 @@
 /* Define to 1 if you have the `SSLv2_client_method' function. */
 /* #undef HAVE_SSLV2_CLIENT_METHOD */
 
+/* Define to 1 if you have the `SSL_CTX_set_alpn_protos' function. */
+/* #undef HAVE_SSL_CTX_SET_ALPN_PROTOS */
+
+/* Define to 1 if you have the `SSL_CTX_set_alpn_select_cb' function. */
+/* #undef HAVE_SSL_CTX_SET_ALPN_SELECT_CB */
+
+/* Define to 1 if you have the `SSL_CTX_set_next_proto_select_cb' function. */
+/* #undef HAVE_SSL_CTX_SET_NEXT_PROTO_SELECT_CB */
+
 /* Define to 1 if you have the `SSL_get_shutdown' function. */
 /* #undef HAVE_SSL_GET_SHUTDOWN */
 
@@ -644,9 +647,6 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
-
-/* Define to 1 if you have the `strlcpy' function. */
-/* #undef HAVE_STRLCPY */
 
 /* Define to 1 if you have the strncasecmp function. */
 #define HAVE_STRNCASECMP 1
@@ -805,9 +805,6 @@
 /* Define to 1 if _THREAD_SAFE preprocessor symbol must be defined. */
 /* #undef NEED_THREAD_SAFE */
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-/* #undef NO_MINUS_C_MINUS_O */
-
 /* Define to enable NTLM delegation to winbind's ntlm_auth helper. */
 #define NTLM_WB_ENABLED 1
 
@@ -902,6 +899,9 @@
 #define SIZEOF_LONG 4
 #endif
 
+/* The size of `long long', as computed by sizeof. */
+/* #undef SIZEOF_LONG_LONG */
+
 /* The size of `off_t', as computed by sizeof. */
 #define SIZEOF_OFF_T 8
 
@@ -967,6 +967,9 @@
 
 /* Define to enable metalink support */
 /* #undef USE_METALINK */
+
+/* if nghttp2 is in use */
+/* #undef USE_NGHTTP2 */
 
 /* if NSS is enabled */
 /* #undef USE_NSS */

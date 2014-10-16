@@ -249,6 +249,7 @@ EVP_MD_CTX_block_size(EVP_MD_CTX *ctx)
 int
 EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *md, ENGINE *engine)
 {
+    assert(md != NULL);
     if (ctx->md != md || ctx->engine != engine) {
 	EVP_MD_CTX_cleanup(ctx);
 	ctx->md = md;
@@ -848,7 +849,7 @@ int
 EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, void *out, int *outlen,
 		 void *in, size_t inlen)
 {
-    int ret, left, blocksize;
+    size_t ret, left, blocksize;
 
     *outlen = 0;
 
@@ -1316,7 +1317,7 @@ static const struct cipher_name {
 const EVP_CIPHER *
 EVP_get_cipherbyname(const char *name)
 {
-    int i;
+    size_t i;
     for (i = 0; i < sizeof(cipher_name)/sizeof(cipher_name[0]); i++) {
 	if (strcasecmp(cipher_name[i].name, name) == 0)
 	    return (*cipher_name[i].func)();

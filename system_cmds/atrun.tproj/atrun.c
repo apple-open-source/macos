@@ -23,9 +23,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/libexec/atrun/atrun.c,v 1.27 2009/12/25 10:30:54 ed Exp $";
+__FBSDID("$FreeBSD: src/libexec/atrun/atrun.c,v 1.27 2009/12/25 10:30:54 ed Exp $");
 #endif /* not lint */
 
 /* System Headers */
@@ -92,7 +92,7 @@ void perrx(const char *fmt, ...);
 static void usage(void);
 
 /* Local functions */
-static int
+static ssize_t
 write_string(int fd, const char* a)
 {
     return write(fd, a, strlen(a));

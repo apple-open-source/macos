@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-1
-#else
 tick-1
-#endif
 {
 	printf("This test is a simple profile-n provider test\n");
 	exit(0);

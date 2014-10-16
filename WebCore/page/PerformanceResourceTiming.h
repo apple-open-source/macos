@@ -35,6 +35,7 @@
 #if ENABLE(RESOURCE_TIMING)
 
 #include "PerformanceEntry.h"
+#include "ResourceLoadTiming.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -42,7 +43,7 @@
 namespace WebCore {
 
 class Document;
-class KURL;
+class URL;
 class ResourceLoadTiming;
 class ResourceRequest;
 class ResourceResponse;
@@ -65,7 +66,6 @@ public:
     double connectEnd() const;
     double secureConnectionStart() const;
     double requestStart() const;
-    double responseStart() const;
     double responseEnd() const;
 
     virtual bool isResource() { return true; }
@@ -77,7 +77,7 @@ private:
     double resourceTimeToDocumentMilliseconds(int deltaMilliseconds) const;
 
     AtomicString m_initiatorType;
-    RefPtr<ResourceLoadTiming> m_timing;
+    ResourceLoadTiming m_timing;
     double m_finishTime;
     bool m_didReuseConnection;
     bool m_shouldReportDetails;

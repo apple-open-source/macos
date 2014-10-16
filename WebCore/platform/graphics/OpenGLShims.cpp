@@ -22,7 +22,7 @@
 #define DISABLE_SHIMS
 #include "OpenGLShims.h"
 
-#if !PLATFORM(QT)
+#if !PLATFORM(WIN)
 #include <dlfcn.h>
 #endif
 
@@ -37,10 +37,10 @@ OpenGLFunctionTable* openGLFunctionTable()
     return &table;
 }
 
-#if PLATFORM(QT)
+#if PLATFORM(WIN)
 static void* getProcAddress(const char* procName)
 {
-    return reinterpret_cast<void*>(QOpenGLContext::currentContext()->getProcAddress(procName));
+    return GetProcAddress(GetModuleHandleA("libGLESv2"), procName);
 }
 #else
 typedef void* (*glGetProcAddressType) (const char* procName);
@@ -99,18 +99,8 @@ static void* lookupOpenGLFunctionAddress(const char* functionName, bool* success
     return target;
 }
 
-#if PLATFORM(QT) && defined(QT_OPENGL_ES_2)
-
-// With Angle only EGL/GLES2 extensions are available through eglGetProcAddress, not the regular standardized functions.
-#define ASSIGN_FUNCTION_TABLE_ENTRY(FunctionName, success) \
-    openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(::FunctionName)
-
-#else
-
 #define ASSIGN_FUNCTION_TABLE_ENTRY(FunctionName, success) \
     openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(lookupOpenGLFunctionAddress(#FunctionName, &success))
-
-#endif
 
 #define ASSIGN_FUNCTION_TABLE_ENTRY_EXT(FunctionName) \
     openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(lookupOpenGLFunctionAddress(#FunctionName))
@@ -156,6 +146,9 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glDeleteVertexArrays);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDetachShader, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDisableVertexAttribArray, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glDrawArraysInstanced, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glDrawBuffers, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glDrawElementsInstanced, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glEnableVertexAttribArray, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glFramebufferRenderbuffer, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glFramebufferTexture2D, success);
@@ -230,6 +223,7 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glVertexAttrib3fv, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glVertexAttrib4f, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glVertexAttrib4fv, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glVertexAttribDivisor, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glVertexAttribPointer, success);
 
     if (!success)

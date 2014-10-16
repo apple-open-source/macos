@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -55,19 +55,17 @@
 #import <WebCore/ProtectionSpace.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
-#import <WebCore/RunLoop.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebKit/DOMPrivate.h>
+#import <WebKitLegacy/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
+#import <wtf/RunLoop.h>
 #import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
-
-static const NSTimeInterval ClearSubstituteImageDelay = 0.5;
 
 using namespace WebCore;
 
@@ -77,7 +75,7 @@ using namespace WebCore;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
@@ -175,7 +173,7 @@ using namespace WebCore;
     Frame* frame = core([self webFrame]);
     if (!frame)
         return nil;
-    [request _web_setHTTPReferrer:frame->loader()->outgoingReferrer()];
+    [request _web_setHTTPReferrer:frame->loader().outgoingReferrer()];
     return request;
 }
 
@@ -293,7 +291,7 @@ using namespace WebCore;
 - (NSRect)_windowClipRect
 {
     RenderObject* renderer = _element->renderer();
-    if (!renderer || !renderer->view())
+    if (!renderer)
         return NSZeroRect;
 
     return toRenderWidget(renderer)->windowClipRect();
@@ -304,11 +302,6 @@ using namespace WebCore;
     // WebCore may impose an additional clip (via CSS overflow or clip properties).  Fetch
     // that clip now.    
     return NSIntersectionRect([self convertRect:[self _windowClipRect] fromView:nil], [super visibleRect]);
-}
-
-- (void)visibleRectDidChange
-{
-    [self renewGState];
 }
 
 - (BOOL)acceptsFirstResponder
@@ -461,10 +454,8 @@ using namespace WebCore;
 - (BOOL)inFlatteningPaint
 {
     RenderObject* renderer = _element->renderer();
-    if (renderer && renderer->view()) {
-        if (FrameView* frameView = renderer->view()->frameView())
-            return frameView->paintBehavior() & PaintBehaviorFlattenCompositingLayers;
-    }
+    if (renderer)
+        return renderer->view().frameView().paintBehavior() & PaintBehaviorFlattenCompositingLayers;
 
     return NO;
 }
@@ -697,7 +688,7 @@ using namespace WebCore;
 
 - (WebFrame *)webFrame
 {
-    return kit(_element->document()->frame());
+    return kit(_element->document().frame());
 }
 
 - (WebView *)webView
@@ -768,16 +759,25 @@ using namespace WebCore;
     switch (sourceSpace) {
         case NPCoordinateSpacePlugin:
             sourcePointInScreenSpace = [self convertPoint:sourcePoint toView:nil];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePointInScreenSpace];
+#pragma clang diagnostic pop
             break;
             
         case NPCoordinateSpaceWindow:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePoint];
+#pragma clang diagnostic pop
             break;
             
         case NPCoordinateSpaceFlippedWindow:
             sourcePoint.y = [[self currentWindow] frame].size.height - sourcePoint.y;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePoint];
+#pragma clang diagnostic pop
             break;
             
         case NPCoordinateSpaceScreen:
@@ -797,16 +797,25 @@ using namespace WebCore;
     // Then convert back to the destination space
     switch (destSpace) {
         case NPCoordinateSpacePlugin:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+#pragma clang diagnostic pop
             destPoint = [self convertPoint:destPoint fromView:nil];
             break;
             
         case NPCoordinateSpaceWindow:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+#pragma clang diagnostic pop
             break;
             
         case NPCoordinateSpaceFlippedWindow:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+#pragma clang diagnostic pop
             destPoint.y = [[self currentWindow] frame].size.height - destPoint.y;
             break;
             
@@ -842,14 +851,14 @@ using namespace WebCore;
     if (!frame)
         return CString();
 
-    Frame* targetFrame = frame->tree()->find(String::fromUTF8(target));
+    Frame* targetFrame = frame->tree().find(String::fromUTF8(target));
     if (!targetFrame)
         return CString();
     
     if (!frame->document()->securityOrigin()->canAccess(targetFrame->document()->securityOrigin()))
         return CString();
   
-    KURL absoluteURL = targetFrame->document()->completeURL(relativeURLString);
+    URL absoluteURL = targetFrame->document()->completeURL(relativeURLString);
     return absoluteURL.string().utf8();
 }
 
@@ -866,15 +875,11 @@ using namespace WebCore;
 - (NSRect)actualVisibleRectInWindow
 {
     RenderObject* renderer = _element->renderer();
-    if (!renderer || !renderer->view())
-        return NSZeroRect;
-
-    FrameView* frameView = renderer->view()->frameView();
-    if (!frameView)
+    if (!renderer)
         return NSZeroRect;
 
     IntRect widgetRect = renderer->pixelSnappedAbsoluteClippedOverflowRect();
-    widgetRect = frameView->contentsToWindow(widgetRect);
+    widgetRect = renderer->view().frameView().contentsToWindow(widgetRect);
     return intersection(toRenderWidget(renderer)->windowClipRect(), widgetRect);
 }
 
@@ -923,7 +928,7 @@ bool getAuthenticationInfo(const char* protocolStr, const char* hostStr, int32_t
     
     RetainPtr<NSURLProtectionSpace> protectionSpace = adoptNS([[NSURLProtectionSpace alloc] initWithHost:host port:port protocol:protocol realm:realm authenticationMethod:authenticationMethod]);
     
-    NSURLCredential *credential = mac(CredentialStorage::get(core(protectionSpace.get())));
+    NSURLCredential *credential = mac(CredentialStorage::get(ProtectionSpace(protectionSpace.get())));
     if (!credential)
         credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:protectionSpace.get()];
     if (!credential)

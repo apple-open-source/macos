@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -635,5 +635,60 @@ compound -A c.b=( [2]=( bb=2 ) )
 typeset -m "c.b[9]=c.a[1]"
 exp='typeset -C c=(typeset -C -a a;typeset -C -A b=( [2]=(bb=2;)[9]=(aa=1));)'
 [[ $(typeset -p c) == "$exp" ]] || err_exit 'moving compound indexed array element to a compound associative array element fails'
+
+zzz=(
+	foo=(
+		bar=4
+	)
+)
+[[ $(set | grep "^zzz\.") ]] && err_exit 'set displays compound variables incorrectly'
+
+typeset -A stats
+stats[1]=(a=1 b=2)
+stats[2]=(a=1 b=2)
+stats[1]=(c=3 d=4)
+(( ${#stats[@]} == 2 )) || err_exit "stats[1] should contain 2 element not ${#stats[@]}"
+
+integer i=1
+foo[i++]=(x=3 y=4)
+[[ ${foo[1].x} == 3 ]] || err_exit "\${foo[1].x} should be 3"
+[[ ${foo[1].y} == 4 ]] || err_exit "\${foo[1].y} should be 4"
+
+# ${!x.} caused core dump in ks93u and earlier
+{ $SHELL -c 'compound x=(y=1); : ${!x.}' ; ((!$?));} || err_exit '${!x.} not working'
+
+$SHELL -c 'typeset -A a=([b]=c)' 2> /dev/null || err_exit 'typeset -A a=([b]=c) fails'
+
+compound -a a
+compound c=( name="container1" )
+a[4]=c 
+[[ ${a[4]} == $'(\n\tname=container1\n)' ]] || err_exit 'assignment of compound variable to compound array element not working'
+
+unset c
+compound  c
+compound  -a c.board
+for ((i=2; i < 4; i++))
+do	c.board[1][$i]=(foo=bar)
+done
+exp=$'(\n\ttypeset -C -a board=(\n\t\t[1]=(\n\t\t\t[2]=(\n\t\t\t\tfoo=bar\n\t\t\t)\n\t\t\t[3]=(\n\t\t\t\tfoo=bar\n\t\t\t)\n\t\t)\n\t)\n)'
+[[ "$(print -v c)" == "$exp" ]] || err_exit 'compound variable assignment to two dimensional array not working'
+
+unset zz
+zz=()
+zz.[foo]=abc
+zz.[2]=def
+exp='typeset -C zz=([2]=def;foo=abc)'
+[[ $(typeset -p zz) == "$exp" ]] || err_exit 'expansion of compound variables with non-identifiers not working'
+(
+	typeset -i zz.[3]=123
+	exec 2>& 3-
+	exp='typeset -C zz=([2]=def;typeset -i [3]=123;foo=abc)'
+	[[ $(typeset -p zz) == "$exp" ]] || err_exit 'expansion of compound variables with non-identifiers not working in subshells'
+)  3>&2 2> /dev/null || err_exit 'syntax errors expansion of compound variables with non-identifiers'
+
+unset xx
+xx=(foo=bar)
+xx=()
+[[ $xx == $'(\n)' ]] || err_exit 'xx=() not unsetting previous value'
 
 exit $((Errors<125?Errors:125))

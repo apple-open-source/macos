@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,12 +43,12 @@ namespace WebCore {
 // This information is needed by spell checking service to update user specific data.
 class SpellingCorrectionRecordUndoCommand : public SimpleEditCommand {
 public:
-    static PassRefPtr<SpellingCorrectionRecordUndoCommand> create(Document* document, const String& corrected, const String& correction)
+    static PassRefPtr<SpellingCorrectionRecordUndoCommand> create(Document& document, const String& corrected, const String& correction)
     {
         return adoptRef(new SpellingCorrectionRecordUndoCommand(document, corrected, correction));
     }
 private:
-    SpellingCorrectionRecordUndoCommand(Document* document, const String& corrected, const String& correction)
+    SpellingCorrectionRecordUndoCommand(Document& document, const String& corrected, const String& correction)
         : SimpleEditCommand(document)
         , m_corrected(corrected)
         , m_correction(correction)
@@ -56,21 +56,21 @@ private:
     {
     }
 
-    virtual void doApply() OVERRIDE
+    virtual void doApply() override
     {
     }
 
-    virtual void doUnapply() OVERRIDE
+    virtual void doUnapply() override
     {
         if (!m_hasBeenUndone) {
-            document()->frame()->editor().unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
+            frame().editor().unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
             m_hasBeenUndone = true;
         }
         
     }
 
 #ifndef NDEBUG
-    virtual void getNodesInCommand(HashSet<Node*>&) OVERRIDE
+    virtual void getNodesInCommand(HashSet<Node*>&) override
     {
     }
 #endif
@@ -95,14 +95,17 @@ void SpellingCorrectionCommand::doApply()
     if (!m_corrected.length())
         return;
 
-    if (!document()->frame()->selection()->shouldChangeSelection(m_selectionToBeCorrected))
+    if (!frame().selection().shouldChangeSelection(m_selectionToBeCorrected))
         return;
 
-    RefPtr<DocumentFragment> fragment = createFragmentFromText(m_rangeToBeCorrected.get(), m_correction);
+    if (!m_rangeToBeCorrected)
+        return;
+
+    RefPtr<DocumentFragment> fragment = createFragmentFromText(*m_rangeToBeCorrected, m_correction);
     if (!fragment)
         return;
 
-    applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, FrameSelection::SpellCorrectionTriggered | FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle));
+    applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, FrameSelection::defaultSetSelectionOptions() | FrameSelection::SpellCorrectionTriggered));
 #if USE(AUTOCORRECTION_PANEL)
     applyCommandToComposite(SpellingCorrectionRecordUndoCommand::create(document(), m_corrected, m_correction));
 #endif

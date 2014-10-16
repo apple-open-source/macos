@@ -80,12 +80,20 @@ struct kdc_request_desc {
     hdb_entry_ex *client;
     HDB *clientdb;
 
+    /* server used for krbtgt in TGS-REQ */
     krb5_principal server_princ;
     char *server_name;
     hdb_entry_ex *server;
 
+    krb5_keyblock strengthen_key;
+
+    /* only valid for tgs-req */
+    krb5_enctype server_enctype;
+    int rk_is_subkey;
+
     krb5_crypto armor_crypto;
 
+    int use_fast_cookie;
     KDCFastState fast;
 };
 
@@ -132,6 +140,11 @@ configure(krb5_context context, int argc, char **argv);
 #ifdef __APPLE__
 extern int sandbox_flag;
 void bonjour_announce(heim_array_t (*get_realms)(void));
+#endif
+
+#ifdef HEIMDAL_PRINTF_ATTRIBUTE
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
 #endif
 
 #endif /* __KDC_LOCL_H__ */

@@ -26,9 +26,9 @@
 
 
 /* smb_rq sr_extflags values */
-#define SMB2_REQUEST		0x0001	/* smb_rq is for SMB2 request */
-#define SMB2_RESPONSE		0x0002	/* smb_rq received SMB2 response */
-#define SMB2_REQ_SENT		0x0004	/* smb_rq is for SMB2 request */
+#define SMB2_REQUEST		0x0001	/* smb_rq is for SMB 2/3 request */
+#define SMB2_RESPONSE		0x0002	/* smb_rq received SMB 2/3 response */
+#define SMB2_REQ_SENT		0x0004	/* smb_rq is for SMB 2/3 request */
 
 
 /*
@@ -50,7 +50,8 @@ typedef enum _SMB2_CREATE_RQ_FLAGS
     SMB2_CREATE_AAPL_QUERY = 0x0010,
     SMB2_CREATE_AAPL_RESOLVE_ID = 0x0020,
     SMB2_CREATE_DUR_HANDLE = 0x0040,
-    SMB2_CREATE_DUR_HANDLE_RECONNECT = 0x0080
+    SMB2_CREATE_DUR_HANDLE_RECONNECT = 0x0080,
+    SMB2_CREATE_ASSUME_DELETE = 0x0100
 } _SMB2_CREATE_RQ_FLAGS;
 
 /* smb2_cmpd_position flags */
@@ -141,7 +142,7 @@ struct smb2_get_dfs_referral {
 };
 
 /*
- * The SRV_COPYCHUNK_COPY packet is sent in an SMB2 IOCTL Request
+ * The SRV_COPYCHUNK_COPY packet is sent in an SMB 2/3 IOCTL Request
  * by the client to initiate a server-side copy of data. It is
  * set as the contents of the input data buffer.
  */
@@ -233,6 +234,9 @@ struct smb2_query_dir_rq {
     struct smbnode *dnp;
     char *namep;
     
+    /* uio buffers used for ioctls from user space */
+    uio_t rcv_output_uio;
+    
     /* return values */
 	struct smb_rq *ret_rqp;
 	uint32_t ret_ntstatus;
@@ -263,7 +267,7 @@ typedef enum _SMB2_RW_RQ_FLAGS
 } _SMB2_RW_RQ_FLAGS;
 
 struct smb2_rw_rq {
-	uint64_t flags;
+    uint64_t flags;
 	uint32_t remaining;
 	uint32_t write_flags;
 	SMBFID fid;
@@ -273,6 +277,14 @@ struct smb2_rw_rq {
     /* return values */
 	uint32_t ret_ntstatus;
 	uint32_t ret_len;
+};
+
+struct smb2_secure_neg_info {
+    uint32_t capabilities;
+    uint8_t guid[16];
+    uint16_t security_mode;
+    uint16_t dialect_count;
+    uint16_t dialects[8];
 };
 
 struct smb2_set_info_file_basic_info {

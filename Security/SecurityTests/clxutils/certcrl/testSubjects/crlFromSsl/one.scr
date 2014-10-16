@@ -1,0 +1,18 @@
+# 
+# CRL verfication of certs obtained from SSL sites
+#
+globals
+certNetFetchEnable = false
+crlNetFetchEnable = true
+useSystemAnchors = true
+# alternate these two on successful runs, flip either one for failure
+allowUnverified = true
+requireCrlIfPresent = false
+end
+echo "================================="
+test = "www.amazon.com"
+revokePolicy = crl
+cert = amazon_v3.100.cer
+sslHost = www.amazon.com
+requireCrlIfPresent = true
+end

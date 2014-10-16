@@ -19,7 +19,7 @@ Source Package Installation Instructions:
   (4) If the bin/package script does not exist then run:
 		test -d bin || mkdir bin
 		url=$URL/package
-		(wget -O bin/package $url||curl $url||hurl $url) > bin/package
+		(wget -O - $url||curl -L $url||hurl $url) > bin/package
 		chmod +x bin/package
   (5) Determine the list of package names you want from the download site, then
       use the package(1) command to do the actual download:
@@ -93,6 +93,54 @@ All recorded changes follow.
 
 :::::::: INIT ::::::::
 
+12-07-17 iffe.sh: add C code NOTE("...") to ammend --verbose output
+12-06-26 iffe.sh: fix "npt foo" to handle function-like macro foo()
+12-06-20 package.sh: use $KSH for rt in "results test"
+12-06-15 Makefile: add PLUGIN_LIB to $INSTALLROOT/bin/.paths and BUILTIN_LIB => PLUGIN_LIB
+12-06-15 package.sh: add PLUGIN_LIB to $INSTALLROOT/bin/.paths and BUILTIN_LIB => PLUGIN_LIB
+12-06-13 package.sh: handle admin.db column output
+12-06-08 iffe.sh: fix 12-06-06 typo
+12-06-06 iffe.sh: check for -l* in reverse and accumulative order (e.g., for -last & -lm)
+12-06-04 package.sh: always check $INSTALLROOT/lib/package/profile
+12-05-31 Makefile: ID=ast; $(INSTALLROOT)/prototyped.h => $(INSTALLROOT)/$(ID)/prototyped.h
+12-05-28 iffe.sh: api foo YYYYMMDD => FOOAPI(rel) test macro
+12-05-24 package.sh: change admin.db comment => owner attributes
+12-04-25 ratz.c: add sear -k option to keep installation tmp dir on exit
+12-04-17 package.sh: skip sh version logic for ``use''
+12-04-17 cc.ibm.risc*: _LARGEFILE64_SOURCE => _LARGE_FILE_API moved to libast/features
+12-04-09 cc.ibm.risc*: speak aixese for _LARGEFILE64_SOURCE
+12-02-29 cc.darwin.i386*: handle default cc vs kernel bittedness
+12-02-29 C+probe: add __TIMESTAMP__ to the nopredefined list
+12-02-29 package.sh: don't assume grep -q or /usr/local/lib in LD_LIBRARY_PATH
+12-02-29 package.sh: fix ksh vs -lcmd compatibility checks
+12-02-23 iffe.sh: checkcc() before checkread() for sensible diagnostics
+12-02-14 package.mk: { --clobber --compare --link=lib*.a* } for --mam=static
+12-02-14 package.mk: export LICENSEFILEDEFAULT instead of LICENSEFILE
+12-02-14 package.sh: handle @(cc|ld).${HOSTTYPE}* intercepts
+12-02-07 package.sh: add { clean clobber } actions
+12-02-02 regress.sh: fix ulimit -c defaults for --nokeep
+12-01-18 regress.sh: add INPUT|OUTPUT|ERROR -e 'filter' to filter before comparison
+12-01-21 package.sh: fix `admin make' bug that created unused $INSTALLROOT/lib
+12-01-21 Makefile: :PACKAGE: license=ast -- oops
+12-01-20 cc.darwin,cc.mvs.390: tmp=/tmp/cc.${USER:-$LOGNAME}.$$.err
+12-01-12 package.sh: add admin make share closure to handle alternate HOSTTYPEs
+11-12-13 iffe.sh: add /*<NOSTDIO>*/ test code comment to disable default #include <stdio.h>
+11-11-11 C+probe: test for .so before .sl
+11-10-26 package.sh: don't forget about *.pkg for admin update
+11-10-18 cc.*-icc: update and add more
+11-10-11 package.sh: handle package make|view when no source installed
+11-09-11 package.sh: count admin '*** termination code' errors
+11-08-31 mamake.c: add -e, ignore use recursive prereq timestamps
+11-08-29 iffe.sh: add ``set stdio try1.h - try2.h ...''
+11-08-29 iffe.sh: trap EXIT => trap 0 for ancient sh
+11-08-11 iffe.sh: handle ancient sort that doesn't have -k
+11-06-01 make.probe: add more /lib64 logic
+11-05-01 package.sh: fix admin ditto to sync LICENSES too
+11-03-25 package.sh: initialize { $SED $TR } before first use!
+11-03-21 package.sh: fix vpath probes
+11-03-17 iffe.sh: fix cleanup to rm $tmp* instead of $tmp*.*
+11-02-24 package.sh: change curl usage to "curl -L ..."
+11-02-11 package.sh,C+probe,make.probe,mamprobe.sh: add ###.*archiac.*###
 11-02-02 Makefile: add :MAPLIB: check for ancient -lw
 11-02-02 make.probe: handle -print-multi-directory => 64 => /usr/lib64 /lib64
 11-02-02 package.sh: HOSTTYPE=*,*cc*[,-*,...] sets CC [ and CCFLAGS ]
@@ -113,7 +161,7 @@ All recorded changes follow.
 10-08-11 mktest.sh: add "DO command ..."
 10-07-27 rt.sh: handle "rt X=Y ..."
 10-06-29 ratz.c: non-option sear args passed to sear_exec()
-10-06-25 iffe.sh: "api" op chanegd to not do "map-libc" type mappings
+10-06-25 iffe.sh: "api" op changed to not do "map-libc" type mappings
 10-06-25 package.sh: "force admin ditto" => no ditto --update option
 10-06-22 C+probe: handle cc that require .[ci] input for version info
 10-06-21 ditto.sh: change default remote access to ssh (about time)

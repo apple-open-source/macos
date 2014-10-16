@@ -41,8 +41,8 @@
 
 namespace WebCore {
 
-class MediaStreamComponent;
-class MediaStreamDescriptor;
+class MediaStreamPrivate;
+class MediaStreamSource;
 class MediaStreamSourcesQueryClient;
 
 class MediaStreamCenterGStreamer : public MediaStreamCenter {
@@ -50,13 +50,9 @@ public:
     MediaStreamCenterGStreamer();
     ~MediaStreamCenterGStreamer();
 
-    // MediaStreamCenter
-    virtual void queryMediaStreamSources(PassRefPtr<MediaStreamSourcesQueryClient>) OVERRIDE;
-    virtual void didSetMediaStreamTrackEnabled(MediaStreamDescriptor*, MediaStreamComponent*) OVERRIDE;
-    virtual bool didAddMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*) OVERRIDE;
-    virtual bool didRemoveMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*) OVERRIDE;
-    virtual void didStopLocalMediaStream(MediaStreamDescriptor*) OVERRIDE;
-    virtual void didCreateMediaStream(MediaStreamDescriptor*) OVERRIDE;
+    virtual void validateRequestConstraints(PassRefPtr<MediaStreamCreationClient>, PassRefPtr<MediaConstraints> audioConstraints, PassRefPtr<MediaConstraints> videoConstraints);
+    virtual void createMediaStream(PassRefPtr<MediaStreamCreationClient>, PassRefPtr<MediaConstraints> audioConstraints, PassRefPtr<MediaConstraints> videoConstraints);
+    virtual bool getMediaStreamTrackSources(PassRefPtr<MediaStreamTrackSourcesRequestClient>) override;
 };
 
 } // namespace WebCore

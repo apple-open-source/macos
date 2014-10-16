@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
+#include "SCPreferencesInternal.h"
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -126,27 +127,30 @@ ifbifconf_copy(int s, const char * ifname)
 
 
 static void
-add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name)
+add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name, SCPreferencesRef ni_prefs)
 {
-	SCNetworkInterfaceRef	interface;
+	SCNetworkInterfaceRef	interface = NULL;
 
 	if (*interfaces == NULL) {
 		*interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
-
-	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
+	if (ni_prefs != NULL) {
+		interface = __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(NULL, ni_prefs, if_name);
+	}
+	if (interface == NULL) {
+		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
 							 kIncludeNoVirtualInterfaces);
-	CFArrayAppendValue(*interfaces, interface);
-	CFRelease(interface);
+	}
+
+	if (interface != NULL) {
+		CFArrayAppendValue(*interfaces, interface);
+		CFRelease(interface);
+	}
 }
-
-
-static Boolean
-_SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef members);
-
 
 typedef struct {
 	CFMutableArrayRef	bridges;
+	SCPreferencesRef	ni_prefs;
 	SCPreferencesRef	prefs;
 } addContext, *addContextRef;
 
@@ -183,11 +187,11 @@ add_configured_interface(const void *key, const void *value, void *context)
 
 		member = CFArrayGetValueAtIndex(interfaces, i);
 		if (isA_CFString(member)) {
-			add_interface(&members, member);
+			add_interface(&members, member, myContext->ni_prefs);
 		}
 	}
 	if (members != NULL) {
-		_SCBridgeInterfaceSetMemberInterfaces(bridge, members);
+		__SCBridgeInterfaceSetMemberInterfaces(bridge, members);
 		CFRelease(members);
 	}
 
@@ -242,11 +246,20 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 {
 	addContext		context;
 	CFDictionaryRef		dict;
+	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
 
+	if ((prefs == NULL) ||
+	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+		ni_prefs = NULL;
+	}
+	else {
+		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+	}
 	context.bridges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.prefs = prefs;
-
+	context.ni_prefs = ni_prefs;
+	
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
 					CFSTR("/%@/%@"),
@@ -257,7 +270,9 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
 	CFRelease(path);
-
+	if (ni_prefs != NULL) {
+		CFRelease(ni_prefs);
+	}
 	return context.bridges;
 }
 
@@ -412,9 +427,8 @@ _SCBridgeInterfaceCopyActive(void)
 			continue;
 		}
 
-		// check the interface name ("bridgeNNN") and ensure that
-		// we leave all non-SC configured bridge interfaces (those
-		// with unit #'s >= 100) alone.
+		// make sure that we leave non-SC configured bridge
+		// interfaces (those with unit #'s >= 100) alone.
 		n = strlen(ifp->ifa_name);
 		if ((n > 3) &&
 		    isdigit(ifp->ifa_name[n - 1]) &&
@@ -455,14 +469,14 @@ _SCBridgeInterfaceCopyActive(void)
 
 				ibr_p = ibc_p->ifbic_req + i;
 				member = CFStringCreateWithCString(NULL, ibr_p->ifbr_ifsname, kCFStringEncodingASCII);
-				add_interface(&members, member);
+				add_interface(&members, member, NULL);
 				CFRelease(member);
 			}
 		}
 		free(ibc_p);
 
 		if (members != NULL) {
-			_SCBridgeInterfaceSetMemberInterfaces(bridge, members);
+			__SCBridgeInterfaceSetMemberInterfaces(bridge, members);
 			CFRelease(members);
 		}
 
@@ -611,8 +625,9 @@ SCBridgeInterfaceGetOptions(SCBridgeInterfaceRef bridge)
 }
 
 
-static Boolean
-_SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef members)
+__private_extern__
+Boolean
+__SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef members)
 {
 	CFIndex				i;
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bridge;
@@ -760,7 +775,7 @@ SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef mem
 		return FALSE;
 	}
 
-	ok = _SCBridgeInterfaceSetMemberInterfaces(bridge, members);
+	ok = __SCBridgeInterfaceSetMemberInterfaces(bridge, members);
 	return ok;
 }
 

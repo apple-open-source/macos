@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2009 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2009 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -44,7 +44,10 @@ typedef enum {
   SMTP_AUTH_DIGESTMD5_RESP,
   SMTP_AUTH_NTLM,
   SMTP_AUTH_NTLM_TYPE2MSG,
+  SMTP_AUTH_XOAUTH2,
+  SMTP_AUTH_CANCEL,
   SMTP_AUTH_FINAL,
+  SMTP_COMMAND,     /* VRFY, EXPN, NOOP, RSET and HELP */
   SMTP_MAIL,        /* MAIL FROM */
   SMTP_RCPT,        /* RCPT TO */
   SMTP_DATA,
@@ -59,7 +62,11 @@ typedef enum {
    used. */
 struct SMTP {
   curl_pp_transfer transfer;
+  char *custom;            /* Custom Request */
   struct curl_slist *rcpt; /* Recipient list */
+  size_t eob;              /* Number of bytes of the EOB (End Of Body) that
+                              have been received so far */
+  bool trailing_crlf;      /* Specifies if the tailing CRLF is present */
 };
 
 /* smtp_conn is used for struct connection-oriented data in the connectdata
@@ -69,13 +76,13 @@ struct smtp_conn {
   smtpstate state;         /* Always use smtp.c:state() to change state! */
   bool ssldone;            /* Is connect() over SSL done? */
   char *domain;            /* Client address/name to send in the EHLO */
-  size_t eob;              /* Number of bytes of the EOB (End Of Body) that
-                              have been received so far */
   unsigned int authmechs;  /* Accepted authentication mechanisms */
+  unsigned int prefmech;   /* Preferred authentication mechanism */
   unsigned int authused;   /* Auth mechanism used for the connection */
   bool tls_supported;      /* StartTLS capability supported by server */
   bool size_supported;     /* If server supports SIZE extension according to
                               RFC 1870 */
+  bool auth_supported;     /* AUTH capability supported by server */
 };
 
 extern const struct Curl_handler Curl_handler_smtp;

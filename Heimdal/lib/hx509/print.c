@@ -95,6 +95,7 @@ Time2string(const Time *T, char **str)
 
 void
 hx509_print_stdout(void *ctx, const char *fmt, va_list va)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0))
 {
     FILE *f = ctx;
     if (f == NULL)
@@ -267,8 +268,6 @@ check_Null(hx509_validate_ctx ctx,
 	    validate_print(ctx, HX509_VALIDATE_F_VALIDATE,
 			   "\tCritical set on MUST NOT\n");
 	break;
-    default:
-	_hx509_abort("internal check_Null state error");
     }
     return 0;
 }
@@ -529,7 +528,7 @@ check_CRLDistributionPoints(hx509_validate_ctx ctx,
 		validate_print(ctx, HX509_VALIDATE_F_VERBOSE,
 			       "Unknown nameRelativeToCRLIssuer");
 		break;
-	    default:
+	    case invalid_choice_DistributionPointName:
 		validate_print(ctx, HX509_VALIDATE_F_VALIDATE,
 			       "Unknown DistributionPointName");
 		break;
@@ -616,7 +615,12 @@ check_altName(hx509_validate_ctx ctx,
 	    validate_print(ctx, HX509_VALIDATE_F_VERBOSE, "\n");
 	    break;
 	}
-	default: {
+	case choice_GeneralName_uniformResourceIdentifier:
+	case choice_GeneralName_directoryName:
+	case choice_GeneralName_dNSName:
+	case choice_GeneralName_iPAddress:
+	case choice_GeneralName_rfc822Name:
+	case choice_GeneralName_registeredID: {
 	    char *s;
 	    ret = hx509_general_name_unparse(&gn.val[i], &s);
 	    if (ret) {
@@ -628,6 +632,8 @@ check_altName(hx509_validate_ctx ctx,
 	    free(s);
 	    break;
 	}
+	case invalid_choice_GeneralName:
+	    break;
 	}
     }
 
@@ -824,8 +830,6 @@ hx509_validate_ctx_init(hx509_context context, hx509_validate_ctx *ctx)
  * @param func the printing function to usea.
  * @param c the context variable to the printing function.
  *
- * @return An hx509 error code, see hx509_get_error_string().
- *
  * @ingroup hx509_print
  */
 
@@ -844,8 +848,6 @@ hx509_validate_ctx_set_print(hx509_validate_ctx ctx,
  *
  * @param ctx A hx509 validation context.
  * @param flags flags to add to the validation context.
- *
- * @return An hx509 error code, see hx509_get_error_string().
  *
  * @ingroup hx509_print
  */

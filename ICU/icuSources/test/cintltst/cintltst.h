@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2012, International Business Machines Corporation and
+ * Copyright (c) 1997-2013, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -117,6 +117,12 @@ U_CFUNC UBool ctest_resetICU(void);
 U_CFUNC UBool assertSuccess(const char* msg, UErrorCode* ec);
 
 /**
+ * Assert that the given UErrorCode succeeds, and return TRUE if it does.
+ * Give data error if UErrorCode fails and possibleDataError is TRUE.
+ */
+U_CFUNC UBool assertSuccessCheck(const char* msg, UErrorCode* ec, UBool possibleDataError);
+
+/**
  * Assert that the UBool is TRUE, and return TRUE if it does.
  *
  * NOTE: Use 'int condition' rather than 'UBool condition' so the
@@ -132,14 +138,9 @@ U_CFUNC UBool assertTrue(const char* msg, int condition);
 U_CFUNC UBool assertEquals(const char* msg, const char* expectedString,
                            const char* actualString);
 
-/**
- * Returns true if u_getVersion() < major.minor.milli.
+/*
+ * note - isICUVersionBefore and isICUVersionAtLeast have been removed.
+ * use log_knownIssue() instead.
  */
-U_CFUNC UBool isICUVersionBefore(int major, int minor, int milli);
-
-/**
- * Returns true if u_getVersion() >= major.minor.milli.
- */
-U_CFUNC UBool isICUVersionAtLeast(int major, int minor, int milli);
 
 #endif

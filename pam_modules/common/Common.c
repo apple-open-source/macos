@@ -436,9 +436,7 @@ cleanup:
 int
 od_record_check_pwpolicy(ODRecordRef record)
 {
-	CFDictionaryRef policy = NULL;
-	const void *isDisabled;
-	const void *newPasswordRequired;
+    CFErrorRef oderror = NULL;
 	int retval = PAM_SERVICE_ERR;
 
 	if (NULL == record) {
@@ -447,20 +445,30 @@ od_record_check_pwpolicy(ODRecordRef record)
 		goto cleanup;
 	}
 
-	if (NULL == (policy = ODRecordCopyPasswordPolicy(kCFAllocatorDefault, record, NULL)) ||
-	    NULL == (isDisabled = CFDictionaryGetValue(policy, CFSTR("isDisabled"))) ||
-	    !cfboolean_get_value(isDisabled))
-		retval = PAM_SUCCESS;
-	else
-		retval = PAM_PERM_DENIED;
-	if (NULL != policy &&
-		NULL != (newPasswordRequired = CFDictionaryGetValue(policy, CFSTR("newPasswordRequired"))) &&
-	    cfboolean_get_value(newPasswordRequired))
-		retval = PAM_NEW_AUTHTOK_REQD;
+    if (!ODRecordAuthenticationAllowed(record, &oderror)) {
+        switch (CFErrorGetCode(oderror)) {
+			case kODErrorCredentialsAccountNotFound:
+				retval = PAM_USER_UNKNOWN;
+				break;
+			case kODErrorCredentialsAccountDisabled:
+			case kODErrorCredentialsAccountInactive:
+				retval = PAM_PERM_DENIED;
+				break;
+			case kODErrorCredentialsPasswordExpired:
+			case kODErrorCredentialsPasswordChangeRequired:
+				retval = PAM_NEW_AUTHTOK_REQD;
+				break;
+			case kODErrorCredentialsInvalid:
+				retval = PAM_AUTH_ERR;
+				break;
+			default:
+				retval = PAM_AUTH_ERR;
+				break;
+		}
 
-	if (NULL != policy) {
-		CFRelease(policy);
-	}
+    } else {
+        retval = PAM_SUCCESS;
+    }
 
 cleanup:
 	openpam_log(PAM_LOG_DEBUG, "retval: %d", retval);

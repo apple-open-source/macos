@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,8 @@
 #include "IOAudioDevice.h"
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
+#include "IOAudioDebug.h"
+#include "AudioTracepoints.h"
 
 #include <libkern/c++/OSSet.h>
 #include <libkern/c++/OSCollectionIterator.h>
@@ -139,6 +141,7 @@ void IOAudioPort::setName(const char *portName)
 
 bool IOAudioPort::start(IOService *provider)
 {
+    AudioTrace_Start(kAudioTIOAudioPort, kTPIOAudioPortStart, (uintptr_t)this, (uintptr_t)provider, 0, 0);
     if (!super::start(provider)) {
         return false;
     }
@@ -147,6 +150,7 @@ bool IOAudioPort::start(IOService *provider)
         return false;
     }
 
+    AudioTrace_End(kAudioTIOAudioPort, kTPIOAudioPortStart, (uintptr_t)this, (uintptr_t)provider, true, 0);
     return true;
 }
 

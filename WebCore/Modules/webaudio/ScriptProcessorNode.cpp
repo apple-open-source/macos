@@ -35,12 +35,10 @@
 #include "AudioNodeOutput.h"
 #include "AudioProcessingEvent.h"
 #include "Document.h"
-#include <wtf/Float32Array.h>
+#include <runtime/Float32Array.h>
 #include <wtf/MainThread.h>
 
 namespace WebCore {
-
-const size_t DefaultBufferSize = 4096;
 
 PassRefPtr<ScriptProcessorNode> ScriptProcessorNode::create(AudioContext* context, float sampleRate, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels)
 {
@@ -55,17 +53,17 @@ PassRefPtr<ScriptProcessorNode> ScriptProcessorNode::create(AudioContext* contex
     case 16384:
         break;
     default:
-        return 0;
+        return nullptr;
     }
 
     if (!numberOfInputChannels && !numberOfOutputChannels)
-        return 0;
+        return nullptr;
 
     if (numberOfInputChannels > AudioContext::maxNumberOfChannels())
-        return 0;
+        return nullptr;
 
     if (numberOfOutputChannels > AudioContext::maxNumberOfChannels())
-        return 0;
+        return nullptr;
 
     return adoptRef(new ScriptProcessorNode(context, sampleRate, bufferSize, numberOfInputChannels, numberOfOutputChannels));
 }
@@ -88,8 +86,8 @@ ScriptProcessorNode::ScriptProcessorNode(AudioContext* context, float sampleRate
 
     ASSERT(numberOfInputChannels <= AudioContext::maxNumberOfChannels());
 
-    addInput(adoptPtr(new AudioNodeInput(this)));
-    addOutput(adoptPtr(new AudioNodeOutput(this, numberOfOutputChannels)));
+    addInput(std::make_unique<AudioNodeInput>(this));
+    addOutput(std::make_unique<AudioNodeOutput>(this, numberOfOutputChannels));
 
     setNodeType(NodeTypeJavaScript);
 
@@ -257,9 +255,13 @@ void ScriptProcessorNode::fireProcessEvent()
     if (context()->scriptExecutionContext()) {
         // Let the audio thread know we've gotten to the point where it's OK for it to make another request.
         m_isRequestOutstanding = false;
-        
+
+        // Calculate playbackTime with the buffersize which needs to be processed each time when onaudioprocess is called.
+        // The outputBuffer being passed to JS will be played after exhausting previous outputBuffer by double-buffering.
+        double playbackTime = (context()->currentSampleFrame() + m_bufferSize) / static_cast<double>(context()->sampleRate());
+
         // Call the JavaScript event handler which will do the audio processing.
-        dispatchEvent(AudioProcessingEvent::create(inputBuffer, outputBuffer));
+        dispatchEvent(AudioProcessingEvent::create(inputBuffer, outputBuffer, playbackTime));
     }
 }
 

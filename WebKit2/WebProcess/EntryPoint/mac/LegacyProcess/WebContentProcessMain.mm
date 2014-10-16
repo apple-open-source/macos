@@ -31,14 +31,19 @@
 #import "StringUtilities.h"
 #import "WKBase.h"
 #import "WebProcess.h"
-#import <WebCore/RunLoop.h>
 #import <mach/mach_error.h>
 #import <servers/bootstrap.h>
 #import <spawn.h>
 #import <stdio.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RunLoop.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
+
+#if PLATFORM(IOS)
+#import <GraphicsServices/GraphicsServices.h>
+#import <WebCore/WebCoreThreadSystemInterface.h>
+#endif // PLATFORM(IOS)
 
 #if USE(APPKIT)
 @interface NSApplication (WebNSApplicationDetails)
@@ -61,9 +66,10 @@ public:
 
     virtual void doPreInitializationWork()
     {
-        // Remove the WebProcess shim from the DYLD_INSERT_LIBRARIES environment variable so any processes spawned by
-        // the WebProcess don't try to insert the shim and crash.
+        // Remove the WebProcess and SecItem shims from the DYLD_INSERT_LIBRARIES environment variable so any processes
+        // spawned by the WebProcess don't try to insert the shims and crash.
         EnvironmentUtilities::stripValuesEndingWithString("DYLD_INSERT_LIBRARIES", "/WebProcessShim.dylib");
+        EnvironmentUtilities::stripValuesEndingWithString("DYLD_INSERT_LIBRARIES", "/SecItemShim.dylib");
     
 #if USE(APPKIT)
         // Initialize AppKit.
@@ -73,9 +79,14 @@ public:
         // FIXME: Remove when <rdar://problem/8929426> is fixed.
         [NSApp _installAutoreleasePoolsOnCurrentThreadIfNecessary];
 #endif
+
+#if PLATFORM(IOS)
+        GSInitialize();
+        InitWebCoreThreadSystemInterface();
+#endif // PLATFORM(IOS)
     }
 
-    virtual bool getConnectionIdentifier(CoreIPC::Connection::Identifier& identifier)
+    virtual bool getConnectionIdentifier(IPC::Connection::Identifier& identifier)
     {
         String clientExecutable = m_commandLine["client-executable"];
         if (clientExecutable.isEmpty())
@@ -144,7 +155,7 @@ public:
         RetainPtr<NSURL> clientExecutableURL = adoptNS([[NSURL alloc] initFileURLWithPath:nsStringFromWebCoreString(clientExecutable)]);
         RetainPtr<CFURLRef> clientBundleURL = adoptCF(WKCopyBundleURLForExecutableURL((CFURLRef)clientExecutableURL.get()));
         RetainPtr<NSBundle> clientBundle = adoptNS([[NSBundle alloc] initWithURL:(NSURL *)clientBundleURL.get()]);
-        clientIdentifier = [clientBundle.get() bundleIdentifier];
+        clientIdentifier = [clientBundle bundleIdentifier];
         if (clientIdentifier.isEmpty())
             return false;
         return true;
@@ -165,10 +176,14 @@ public:
         return true;
     }
 
-    virtual void startRunLoop() OVERRIDE
+    virtual void startRunLoop() override
     {
+#if USE(APPKIT)
         ASSERT(NSApp);
         [NSApp run];
+#else
+        RunLoop::run();
+#endif
     }
 };
 

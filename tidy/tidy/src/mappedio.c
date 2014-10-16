@@ -5,7 +5,7 @@
 
    Originally contributed by Cory Nelson and Nuno Lopes
 
-   $Id: mappedio.c,v 1.1 2007/01/31 02:44:03 iccir Exp $
+   $Id$
 */
 
 /* keep these here to keep file non-empty */

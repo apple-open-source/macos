@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>realms</key>
+	<dict>
+		<key>QAD.APPLE.COM</key>
+		<dict>
+			<key>kdc</key>
+			<array>
+				<string>dc01qad.qad.apple.com</string>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>

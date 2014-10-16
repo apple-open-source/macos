@@ -26,41 +26,56 @@
 #ifndef VisitedLinkProvider_h
 #define VisitedLinkProvider_h
 
+#include "MessageReceiver.h"
 #include "VisitedLinkTable.h"
 #include <WebCore/LinkHash.h>
-#include <WebCore/RunLoop.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RunLoop.h>
 
 namespace WebKit {
 
 class WebContext;
+class WebPageProxy;
 class WebProcessProxy;
     
-class VisitedLinkProvider {
-    WTF_MAKE_NONCOPYABLE(VisitedLinkProvider);
+class VisitedLinkProvider : public RefCounted<VisitedLinkProvider>, private IPC::MessageReceiver {
 public:
-    explicit VisitedLinkProvider(WebContext*);
+    static PassRefPtr<VisitedLinkProvider> create();
+    ~VisitedLinkProvider();
 
-    void addVisitedLink(WebCore::LinkHash);
+    uint64_t identifier() const { return m_identifier; }
 
-    void processDidFinishLaunching(WebProcessProxy*);
-    void processDidClose(WebProcessProxy*);
+    void addProcess(WebProcessProxy&);
+    void removeProcess(WebProcessProxy&);
+
+    void addVisitedLinkHash(WebCore::LinkHash);
+    void removeAll();
 
 private:
+    VisitedLinkProvider();
+
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+
+    void addVisitedLinkHashFromPage(uint64_t pageID, WebCore::LinkHash);
+
     void pendingVisitedLinksTimerFired();
 
-    WebContext* m_context;
-    bool m_visitedLinksPopulated;
-    HashSet<WebProcessProxy*> m_processesWithVisitedLinkState;
-    HashSet<WebProcessProxy*> m_processesWithoutVisitedLinkState;
+    void resizeTable(unsigned newTableSize);
+    void sendTable(WebProcessProxy&);
+
+    HashSet<WebProcessProxy*> m_processes;
+
+    uint64_t m_identifier;
 
     unsigned m_keyCount;
     unsigned m_tableSize;
     VisitedLinkTable m_table;
 
     HashSet<WebCore::LinkHash, WebCore::LinkHashHash> m_pendingVisitedLinks;
-    WebCore::RunLoop::Timer<VisitedLinkProvider> m_pendingVisitedLinksTimer;
+    RunLoop::Timer<VisitedLinkProvider> m_pendingVisitedLinksTimer;
 };
 
 } // namespace WebKit

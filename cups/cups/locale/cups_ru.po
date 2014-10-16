@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: CUPS 1.4\n"
 "Report-Msgid-Bugs-To: http://www.cups.org/str.php\n"
-"POT-Creation-Date: 2014-03-28 11:06-0400\n"
+"POT-Creation-Date: 2014-08-29 22:25-0400\n"
 "PO-Revision-Date: 2009-02-16 12:00-0800\n"
 "Last-Translator: Apple Inc.\n"
 "Language-Team: Apple Inc.\n"
@@ -799,6 +799,9 @@ msgstr ""
 msgid "  --false                 Always false."
 msgstr ""
 
+msgid "  --help                  Show help."
+msgstr ""
+
 msgid "  --help                  Show this help."
 msgstr ""
 
@@ -806,6 +809,9 @@ msgid "  --host regex            Match hostname to regular expression."
 msgstr ""
 
 msgid "  --lf                    End lines with LF (UNIX/Linux/OS X)."
+msgstr ""
+
+msgid "  --list-filters          List filters that will be used."
 msgstr ""
 
 msgid "  --local                 True if service is local."
@@ -838,6 +844,11 @@ msgstr ""
 msgid "  --remote                True if service is remote."
 msgstr ""
 
+msgid ""
+"  --stop-after-include-error\n"
+"                          Stop tests after a failed INCLUDE."
+msgstr ""
+
 msgid "  --true                  Always true."
 msgstr ""
 
@@ -851,6 +862,9 @@ msgid "  --uri regex             Match URI to regular expression."
 msgstr ""
 
 msgid "  --version               Show program version."
+msgstr ""
+
+msgid "  --version               Show version."
 msgstr ""
 
 msgid "  -4                      Connect using IPv4."
@@ -893,6 +907,11 @@ msgstr ""
 msgid "  -L                      Send requests using content-length."
 msgstr ""
 
+msgid ""
+"  -P filename.plist       Produce XML plist to a file and test report to "
+"standard output."
+msgstr ""
+
 msgid "  -P filename.ppd         Set PPD file."
 msgstr ""
 
@@ -929,6 +948,9 @@ msgid "  -a                      Browse for all services."
 msgstr ""
 
 msgid "  -a                      Export all printers."
+msgstr ""
+
+msgid "  -c                      Produce CSV output."
 msgstr ""
 
 msgid "  -c catalog.po           Load the specified message catalog."
@@ -988,7 +1010,10 @@ msgstr ""
 msgid "  -l                      List attributes."
 msgstr ""
 
-msgid "  -l                      Run cupsd from launchd(8)."
+msgid "  -l                      Produce plain text output."
+msgstr ""
+
+msgid "  -l                      Run cupsd on demand."
 msgstr ""
 
 msgid "  -l lang[,lang,...]      Specify the output language(s) (locale)."
@@ -1319,11 +1344,35 @@ msgid ""
 msgstr ""
 
 #, c-format
-msgid "%-6s %-10.10s %-4d %-10d %-27.27s %.0f bytes"
+msgid "%-7s %-7.7s %-7d %-31.31s %.0f bytes"
 msgstr ""
 
 #, c-format
-msgid "%-7s %-7.7s %-7d %-31.31s %.0f bytes"
+msgid "%d x %d mm"
+msgstr ""
+
+#, c-format
+msgid "%g x %g"
+msgstr ""
+
+#, c-format
+msgid "%s (%s)"
+msgstr ""
+
+#, c-format
+msgid "%s (%s, %s)"
+msgstr ""
+
+#, c-format
+msgid "%s (Borderless)"
+msgstr ""
+
+#, c-format
+msgid "%s (Borderless, %s)"
+msgstr ""
+
+#, c-format
+msgid "%s (Borderless, %s, %s)"
 msgstr ""
 
 #, c-format
@@ -1551,6 +1600,10 @@ msgid "%s: Invalid filter string \"%s\"."
 msgstr ""
 
 #, c-format
+msgid "%s: Missing filename for \"-P\"."
+msgstr ""
+
+#, c-format
 msgid "%s: Missing timeout for \"-T\"."
 msgstr ""
 
@@ -1584,6 +1637,10 @@ msgstr ""
 
 #, c-format
 msgid "%s: Unable to determine MIME type of \"%s\"."
+msgstr ""
+
+#, c-format
+msgid "%s: Unable to open \"%s\": %s"
 msgstr ""
 
 #, c-format
@@ -2172,9 +2229,6 @@ msgstr ""
 msgid "70"
 msgstr "70"
 
-msgid "720dpi"
-msgstr "720dpi"
-
 msgid "75"
 msgstr "75"
 
@@ -2459,6 +2513,9 @@ msgstr "Неверный номер версии SNMP"
 msgid "Bad UIConstraints"
 msgstr "Неверное значение UIConstraints"
 
+msgid "Bad arguments to function"
+msgstr ""
+
 #, c-format
 msgid "Bad copies value %d."
 msgstr "Неверное значение количества копий %d."
@@ -2484,6 +2541,9 @@ msgstr ""
 
 msgid "Bad filename buffer"
 msgstr "Ошибка в буфере filename"
+
+msgid "Bad hostname/address in URI"
+msgstr ""
 
 #, c-format
 msgid "Bad job-name value: %s"
@@ -2529,15 +2589,18 @@ msgstr ""
 msgid "Bad page-ranges values %d-%d."
 msgstr "Неверные значения page-ranges %d-%d."
 
+msgid "Bad port number in URI"
+msgstr ""
+
 #, c-format
 msgid "Bad port-monitor \"%s\"."
 msgstr ""
 
-msgid "Bad printer URI."
-msgstr ""
-
 #, c-format
 msgid "Bad printer-state value %d."
+msgstr ""
+
+msgid "Bad printer-uri."
 msgstr ""
 
 #, c-format
@@ -2548,11 +2611,23 @@ msgstr ""
 msgid "Bad request version number %d.%d."
 msgstr ""
 
+msgid "Bad resource in URI"
+msgstr ""
+
+msgid "Bad scheme in URI"
+msgstr ""
+
 msgid "Bad subscription ID"
 msgstr "Неверный ID подписки"
 
+msgid "Bad username in URI"
+msgstr ""
+
 msgid "Bad value string"
 msgstr "Неверная строка значений"
+
+msgid "Bad/empty URI"
+msgstr ""
 
 msgid "Banners"
 msgstr "Баннеры"
@@ -2572,6 +2647,9 @@ msgstr "CMYK"
 
 msgid "CPCL Label Printer"
 msgstr "Принтер для печати этикеток CPCL"
+
+msgid "Cancel Jobs"
+msgstr ""
 
 msgid "Cancel RSS Subscription"
 msgstr "Отменить подписку на RSS"
@@ -2732,21 +2810,15 @@ msgstr "Редактировать файл конфигурации"
 msgid "Empty PPD file."
 msgstr ""
 
+msgid "Encryption is not supported."
+msgstr ""
+
 #. TRANSLATORS: Banner/cover sheet after the print job.
 msgid "Ending Banner"
 msgstr "Конечный баннер"
 
 msgid "English"
 msgstr "Russian"
-
-msgid "Enter old password:"
-msgstr "Введите старый пароль:"
-
-msgid "Enter password again:"
-msgstr "Введите пароль снова:"
-
-msgid "Enter password:"
-msgstr "Введите пароль:"
 
 msgid ""
 "Enter your username and password or the root username and password to access "
@@ -3317,6 +3389,9 @@ msgstr "Строка длиннее разрешенного предела (255
 msgid "List Available Printers"
 msgstr "Список доступных принтеров"
 
+msgid "Load paper."
+msgstr ""
+
 msgid "Long-Edge (Portrait)"
 msgstr "По длинной стороне (книжная)"
 
@@ -3384,6 +3459,12 @@ msgstr ""
 msgid "Missing required attributes."
 msgstr ""
 
+msgid "Missing resource in URI"
+msgstr ""
+
+msgid "Missing scheme in URI"
+msgstr ""
+
 #, c-format
 msgid "Missing value on line %d."
 msgstr ""
@@ -3435,12 +3516,6 @@ msgstr ""
 msgid "Never"
 msgstr "Никогда"
 
-msgid "New Stylus Color Series"
-msgstr "Серия Stylus Color нового поколения"
-
-msgid "New Stylus Photo Series"
-msgstr "Серия Stylus Photo нового поколения"
-
 msgid "No"
 msgstr "Нет"
 
@@ -3458,6 +3533,9 @@ msgstr ""
 
 msgid "No active connection"
 msgstr "Нет рабочего подключения"
+
+msgid "No active connection."
+msgstr ""
 
 #, c-format
 msgid "No active jobs on %s."
@@ -3509,6 +3587,15 @@ msgid "No printer-uri found for class"
 msgstr "Не указан адрес printer-uri для класса"
 
 msgid "No printer-uri in request."
+msgstr ""
+
+msgid "No request URI."
+msgstr ""
+
+msgid "No request protocol version."
+msgstr ""
+
+msgid "No request sent."
 msgstr ""
 
 msgid "No request-id"
@@ -3605,20 +3692,13 @@ msgstr ""
 msgid "Output Mode"
 msgstr "Режим вывода"
 
-#, c-format
-msgid "Output for printer %s is sent to %s"
+msgid "Output bin is almost full."
 msgstr ""
 
-#, c-format
-msgid "Output for printer %s is sent to remote printer %s on %s"
+msgid "Output bin is full."
 msgstr ""
 
-#, c-format
-msgid "Output for printer %s/%s is sent to %s"
-msgstr ""
-
-#, c-format
-msgid "Output for printer %s/%s is sent to remote printer %s on %s"
+msgid "Output bin is missing."
 msgstr ""
 
 msgid "PASS"
@@ -3650,6 +3730,18 @@ msgstr "В пакете нет Get-Response-PDU"
 
 msgid "Packet does not start with SEQUENCE"
 msgstr "Нет индикатора SEQUENCE в начале пакета"
+
+msgid "Paper jam."
+msgstr ""
+
+msgid "Paper tray is almost empty."
+msgstr ""
+
+msgid "Paper tray is empty."
+msgstr ""
+
+msgid "Paper tray is missing."
+msgstr ""
 
 msgid "ParamCustominCutInterval"
 msgstr "ParamCustominCutInterval"
@@ -3777,11 +3869,8 @@ msgid "Printers"
 msgstr "Принтеры"
 
 #, c-format
-msgid "Printing page %d, %d%% complete."
+msgid "Printing page %d, %u%% complete."
 msgstr ""
-
-msgid "Purge Jobs"
-msgstr "Удалить задания"
 
 msgid "Quarto"
 msgstr "Кватро"
@@ -3790,11 +3879,6 @@ msgid "Quota limit reached."
 msgstr "Предел квоты достигнут."
 
 msgid "Rank    Owner   Job     File(s)                         Total Size"
-msgstr ""
-
-#. TRANSLATORS: Pri is job priority.
-msgid ""
-"Rank   Owner      Pri  Job        Files                       Total Size"
 msgstr ""
 
 msgid "Reject Jobs"
@@ -3857,6 +3941,9 @@ msgstr "Сервер загружен"
 msgid "Server Stopped"
 msgstr "Сервер остановлен"
 
+msgid "Server credentials not set."
+msgstr ""
+
 msgid "Service Unavailable"
 msgstr "Служба недоступна"
 
@@ -3901,12 +3988,6 @@ msgstr ""
 
 msgid "Statement"
 msgstr "Оператор"
-
-msgid "Stylus Color Series"
-msgstr "Серия Stylus Color"
-
-msgid "Stylus Photo Series"
-msgstr "Серия Stylus Photo"
 
 #, c-format
 msgid "Subscription #%d does not exist."
@@ -4010,27 +4091,6 @@ msgstr "Оптический фоторегистратор должен быт�
 msgid "The optical photoconductor will need to be replaced soon."
 msgstr "Необходимо переместить оптический фоторегистратор."
 
-msgid "The output bin is almost full."
-msgstr "Лоток вывода почти заполнен."
-
-msgid "The output bin is full."
-msgstr "Лоток вывода заполнен."
-
-msgid "The output bin is missing."
-msgstr "Отсутствует лоток вывода."
-
-msgid "The paper tray is almost empty."
-msgstr "Лоток с бумагой почти пуст."
-
-msgid "The paper tray is empty."
-msgstr "Лоток с бумагой пуст."
-
-msgid "The paper tray is missing."
-msgstr "Лоток с бумагой отсутствует."
-
-msgid "The paper tray needs to be filled."
-msgstr "Необходимо наполнить лоток с бумагой."
-
 msgid "The printer configuration is incorrect or the printer no longer exists."
 msgstr ""
 
@@ -4039,6 +4099,12 @@ msgstr ""
 
 msgid "The printer is in use."
 msgstr ""
+
+msgid "The printer is low on ink."
+msgstr ""
+
+msgid "The printer is low on toner."
+msgstr "Заканчивается тонер."
 
 msgid "The printer is not connected."
 msgstr ""
@@ -4054,12 +4120,6 @@ msgstr ""
 
 msgid "The printer is offline."
 msgstr "Принтер выключен."
-
-msgid "The printer is running low on ink."
-msgstr ""
-
-msgid "The printer is running low on toner."
-msgstr ""
 
 msgid "The printer is unreachable at this time."
 msgstr ""
@@ -4135,9 +4195,6 @@ msgstr ""
 msgid "There are too many subscriptions."
 msgstr "Слишком много подписок."
 
-msgid "There is a paper jam."
-msgstr "Зажевало бумагу."
-
 msgid "There was an unrecoverable USB error."
 msgstr ""
 
@@ -4175,6 +4232,9 @@ msgstr "Лоток 4"
 
 msgid "URI Too Long"
 msgstr "Слишком длинный адрес URI"
+
+msgid "URI too large"
+msgstr ""
 
 msgid "US Ledger"
 msgstr "US Ledger"
@@ -4297,6 +4357,9 @@ msgstr "Не удается копировать скрипт интерфейс
 msgid "Unable to create printer-uri"
 msgstr "Не удается создать printer-uri"
 
+msgid "Unable to create server credentials."
+msgstr ""
+
 msgid "Unable to create temporary file"
 msgstr ""
 
@@ -4346,6 +4409,9 @@ msgid "Unable to find destination for job"
 msgstr "Не удается найти назначение для задания"
 
 msgid "Unable to find printer."
+msgstr ""
+
+msgid "Unable to find server credentials."
 msgstr ""
 
 msgid "Unable to get backend exit status."
@@ -4430,7 +4496,7 @@ msgstr ""
 msgid "Unable to read print data."
 msgstr ""
 
-msgid "Unable to resolve printer URI."
+msgid "Unable to resolve printer-uri."
 msgstr ""
 
 #, c-format
@@ -4519,6 +4585,15 @@ msgstr "Неизвестная политика printer-error-policy «%s»."
 #, c-format
 msgid "Unknown printer-op-policy \"%s\"."
 msgstr "Неизвестная политика printer-op-policy «%s»."
+
+msgid "Unknown request method."
+msgstr ""
+
+msgid "Unknown request version."
+msgstr ""
+
+msgid "Unknown scheme in URI"
+msgstr ""
 
 msgid "Unknown service name."
 msgstr ""
@@ -4609,7 +4684,7 @@ msgstr ""
 msgid "Usage: cupsd [options]"
 msgstr ""
 
-msgid "Usage: cupsfilter [ options ] filename"
+msgid "Usage: cupsfilter [ options ] [ -- ] filename"
 msgstr ""
 
 msgid "Usage: cupstestdsc [options] filename.ps [... filename.ps]"
@@ -4644,15 +4719,6 @@ msgid ""
 "       lpoptions [-h server] [-E] [-p printer] -l\n"
 "       lpoptions [-h server] [-E] -p printer -o option[=value] ...\n"
 "       lpoptions [-h server] [-E] -x printer"
-msgstr ""
-
-msgid "Usage: lppasswd [-g groupname]"
-msgstr ""
-
-msgid ""
-"Usage: lppasswd [-g groupname] [username]\n"
-"       lppasswd [-g groupname] -a [username]\n"
-"       lppasswd [-g groupname] -x [username]"
 msgstr ""
 
 msgid ""
@@ -4713,11 +4779,6 @@ msgstr ""
 "Вы должны получить доступ к этой странице с помощью URL <A HREF=«https://%s:"
 "%d%s»>https://%s:%d%s</A>."
 
-msgid ""
-"Your password must be at least 6 characters long, cannot contain your "
-"username, and must contain at least one letter and number."
-msgstr ""
-
 msgid "ZPL Label Printer"
 msgstr "Принтер для печати этикеток ZPL"
 
@@ -4764,6 +4825,9 @@ msgstr ""
 msgid "cupsd: Expected cups-files.conf filename after \"-s\" option."
 msgstr ""
 
+msgid "cupsd: On-demand support not compiled in, running in normal mode."
+msgstr ""
+
 msgid "cupsd: Relative cups-files.conf filename not allowed."
 msgstr ""
 
@@ -4779,9 +4843,6 @@ msgstr ""
 
 #, c-format
 msgid "cupsd: Unknown option \"%c\" - aborting."
-msgstr ""
-
-msgid "cupsd: launchd(8) support not compiled in, running in normal mode."
 msgstr ""
 
 #, c-format
@@ -4904,7 +4965,7 @@ msgstr ""
 msgid "ippfind: Unknown variable \"{%s}\"."
 msgstr ""
 
-msgid "ipptool: \"-i\" and \"-n\" are incompatible with -X\"."
+msgid "ipptool: \"-i\" and \"-n\" are incompatible with \"-P\" and \"-X\"."
 msgstr ""
 
 #, c-format
@@ -5114,48 +5175,6 @@ msgid "lpoptions: Unable to open PPD file for %s."
 msgstr ""
 
 msgid "lpoptions: Unknown printer or class."
-msgstr ""
-
-msgid "lppasswd: Only root can add or delete passwords."
-msgstr ""
-
-msgid "lppasswd: Password file busy."
-msgstr ""
-
-msgid "lppasswd: Password file not updated."
-msgstr ""
-
-msgid "lppasswd: Sorry, password doesn't match."
-msgstr ""
-
-msgid "lppasswd: Sorry, password rejected."
-msgstr ""
-
-msgid "lppasswd: Sorry, passwords don't match."
-msgstr ""
-
-#, c-format
-msgid "lppasswd: Unable to copy password string: %s"
-msgstr ""
-
-#, c-format
-msgid "lppasswd: Unable to open password file: %s"
-msgstr ""
-
-#, c-format
-msgid "lppasswd: Unable to write to password file: %s"
-msgstr ""
-
-#, c-format
-msgid "lppasswd: failed to backup old password file: %s"
-msgstr ""
-
-#, c-format
-msgid "lppasswd: failed to rename password file: %s"
-msgstr ""
-
-#, c-format
-msgid "lppasswd: user \"%s\" and group \"%s\" do not exist."
 msgstr ""
 
 #, c-format
@@ -7264,6 +7283,9 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "7 x 9\""
 #~ msgstr "7 x 9\""
 
+#~ msgid "720dpi"
+#~ msgstr "720dpi"
+
 #~ msgid "8 x 10\""
 #~ msgstr "8 x 10\""
 
@@ -8125,6 +8147,15 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "Empty PPD file!"
 #~ msgstr "Пустой PPD-файл!"
 
+#~ msgid "Enter old password:"
+#~ msgstr "Введите старый пароль:"
+
+#~ msgid "Enter password again:"
+#~ msgstr "Введите пароль снова:"
+
+#~ msgid "Enter password:"
+#~ msgstr "Введите пароль:"
+
 #~ msgid "Error: need hostname after '-h' option\n"
 #~ msgstr "ERROR: Требуется имя хоста после параметра '-h'\n"
 
@@ -8541,6 +8572,12 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "Nested classes are not allowed"
 #~ msgstr "Вложенные группы не допускаются"
 
+#~ msgid "New Stylus Color Series"
+#~ msgstr "Серия Stylus Color нового поколения"
+
+#~ msgid "New Stylus Photo Series"
+#~ msgstr "Серия Stylus Photo нового поколения"
+
 #~ msgid "No PPD name!"
 #~ msgstr "Нет имени PPD!"
 
@@ -8688,6 +8725,9 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "Printer offline."
 #~ msgstr "Принтер в режиме не подключен к сети."
 
+#~ msgid "Purge Jobs"
+#~ msgstr "Удалить задания"
+
 #~ msgid "Rank    Owner   Job     File(s)                         Total Size\n"
 #~ msgstr ""
 #~ "Ранг    Владелец   Задание     Файл(ы)                         Общий "
@@ -8714,6 +8754,12 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "Shipping Address - 2 5/16 x 4\""
 #~ msgstr "Адрес доставки - 2 5/16 x 4\""
 
+#~ msgid "Stylus Color Series"
+#~ msgstr "Серия Stylus Color"
+
+#~ msgid "Stylus Photo Series"
+#~ msgstr "Серия Stylus Photo"
+
 #~ msgid "Tabloid (Oversize)"
 #~ msgstr "Tabloid (расширенный)"
 
@@ -8723,11 +8769,29 @@ msgstr "Для variable-bindings длина не установлена"
 #~ msgid "The notify-user-data value is too large (%d > 63 octets)!"
 #~ msgstr "Значение notify-user-data слишком длинное (%d > 63 октетов)!"
 
+#~ msgid "The output bin is almost full."
+#~ msgstr "Лоток вывода почти заполнен."
+
+#~ msgid "The output bin is full."
+#~ msgstr "Лоток вывода заполнен."
+
+#~ msgid "The output bin is missing."
+#~ msgstr "Отсутствует лоток вывода."
+
+#~ msgid "The paper tray is almost empty."
+#~ msgstr "Лоток с бумагой почти пуст."
+
+#~ msgid "The paper tray is empty."
+#~ msgstr "Лоток с бумагой пуст."
+
+#~ msgid "The paper tray is missing."
+#~ msgstr "Лоток с бумагой отсутствует."
+
+#~ msgid "The paper tray needs to be filled."
+#~ msgstr "Необходимо наполнить лоток с бумагой."
+
 #~ msgid "The printer is almost out of ink."
 #~ msgstr "Заканчиваются чернила."
-
-#~ msgid "The printer is low on toner."
-#~ msgstr "Заканчивается тонер."
 
 #~ msgid "The printer is out of ink."
 #~ msgstr "Чернила закончились."
@@ -8749,6 +8813,9 @@ msgstr "Для variable-bindings длина не установлена"
 
 #~ msgid "The printer-uri attribute is required!"
 #~ msgstr "Требуется атрибут printer-uri!"
+
+#~ msgid "There is a paper jam."
+#~ msgstr "Зажевало бумагу."
 
 #~ msgid "Title: "
 #~ msgstr "Заголовок: "

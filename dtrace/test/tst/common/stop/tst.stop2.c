@@ -32,10 +32,6 @@ int
 main(int argc, char **argv)
 {
 	for (;;) {
-#if !defined(__APPLE__)
-		getpid();
-#else
 		geteuid();
-#endif
 	}
 }

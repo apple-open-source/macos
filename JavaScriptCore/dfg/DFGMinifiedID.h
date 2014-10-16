@@ -26,8 +26,6 @@
 #ifndef DFGMinifiedID_h
 #define DFGMinifiedID_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
@@ -66,20 +64,21 @@ public:
     
     bool isHashTableDeletedValue() const { return m_id == otherInvalidID(); }
     
-private:
-    friend class MinifiedNode;
-    friend class ValueSource;
-    
-    static uintptr_t invalidID() { return static_cast<uintptr_t>(static_cast<intptr_t>(-1)); }
-    static uintptr_t otherInvalidID() { return static_cast<uintptr_t>(static_cast<intptr_t>(-2)); }
-    
     static MinifiedID fromBits(uintptr_t value)
     {
         MinifiedID result;
         result.m_id = value;
         return result;
     }
+    
+    uintptr_t bits() const { return m_id; }
 
+private:
+    friend class MinifiedNode;
+    
+    static uintptr_t invalidID() { return static_cast<uintptr_t>(static_cast<intptr_t>(-1)); }
+    static uintptr_t otherInvalidID() { return static_cast<uintptr_t>(static_cast<intptr_t>(-2)); }
+    
     uintptr_t m_id;
 };
 

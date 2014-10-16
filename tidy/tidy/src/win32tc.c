@@ -3,7 +3,7 @@
   (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
-  $Id: win32tc.c,v 1.3 2007/01/30 23:46:52 iccir Exp $
+  $Id$
 */
 
 /* keep these here to keep file non-empty */

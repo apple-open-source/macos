@@ -18,8 +18,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGAnimatedEnumeration.h"
 
 #include "SVGAnimationElement.h"
@@ -88,8 +86,11 @@ static inline unsigned enumerationValueForTargetAttribute(SVGElement* targetElem
         return SVGPropertyTraits<ComponentTransferType>::fromString(value);
     }
 
-    if (attrName == SVGNames::modeAttr)
-        return SVGPropertyTraits<BlendModeType>::fromString(value);
+    if (attrName == SVGNames::modeAttr) {
+        BlendMode mode = BlendModeNormal;
+        parseBlendMode(value, mode);
+        return mode;
+    }
     if (attrName == SVGNames::stitchTilesAttr)
         return SVGPropertyTraits<SVGStitchOptions>::fromString(value);
     if (attrName == SVGNames::xChannelSelectorAttr)
@@ -107,15 +108,15 @@ SVGAnimatedEnumerationAnimator::SVGAnimatedEnumerationAnimator(SVGAnimationEleme
 {
 }
 
-PassOwnPtr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::constructFromString(const String& string)
+std::unique_ptr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::constructFromString(const String& string)
 {
     ASSERT(m_animationElement);
-    OwnPtr<SVGAnimatedType> animatedType = SVGAnimatedType::createEnumeration(new unsigned);
+    auto animatedType = SVGAnimatedType::createEnumeration(std::make_unique<unsigned>());
     animatedType->enumeration() = enumerationValueForTargetAttribute(m_animationElement->targetElement(), m_animationElement->attributeName(), string);
-    return animatedType.release();
+    return animatedType;
 }
 
-PassOwnPtr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
+std::unique_ptr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
     return SVGAnimatedType::createEnumeration(constructFromBaseValue<SVGAnimatedEnumeration>(animatedTypes));
 }
@@ -164,5 +165,3 @@ float SVGAnimatedEnumerationAnimator::calculateDistance(const String&, const Str
 }
 
 }
-
-#endif // ENABLE(SVG)

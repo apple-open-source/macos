@@ -65,7 +65,7 @@ public:
     JSC::JSValue callObject(JSC::ExecState*);
     JSC::JSValue callConstructor(JSC::ExecState*);
 
-    static const JSC::ClassInfo s_info;
+    DECLARE_INFO;
 
     NPObject* npObject() const { return m_npObject; }
 
@@ -79,14 +79,13 @@ private:
     
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
-        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
+        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
     static JSC::CallType getCallData(JSC::JSCell*, JSC::CallData&);
     static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
 
-    static bool getOwnPropertySlot(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
-    static bool getOwnPropertyDescriptor(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertyDescriptor&);
+    static bool getOwnPropertySlot(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
     static void put(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName, JSC::JSValue, JSC::PutPropertySlot&);
 
     static bool deleteProperty(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName);
@@ -96,8 +95,8 @@ private:
 
     static void getOwnPropertyNames(JSC::JSObject*, JSC::ExecState*, JSC::PropertyNameArray&, JSC::EnumerationMode);
 
-    static JSC::JSValue propertyGetter(JSC::ExecState*, JSC::JSValue, JSC::PropertyName);
-    static JSC::JSValue methodGetter(JSC::ExecState*, JSC::JSValue, JSC::PropertyName);
+    static JSC::EncodedJSValue propertyGetter(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
+    static JSC::EncodedJSValue methodGetter(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
     static JSC::JSObject* throwInvalidAccessError(JSC::ExecState*);
 
     NPRuntimeObjectMap* m_objectMap;

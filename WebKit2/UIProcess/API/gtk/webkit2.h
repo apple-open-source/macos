@@ -18,17 +18,24 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __WEBKIT2_H__
-#define __WEBKIT2_H__
+#ifdef __WEBKIT_WEB_EXTENSION_H__
+#error "Headers <webkit2/webkit2.h> and <webkit2/webkit-web-extension.h> cannot be included together."
+#endif
+
+#ifndef __WEBKIT_2_H__
+#define __WEBKIT_2_H__
 
 #define __WEBKIT2_H_INSIDE__
 
+#include <webkit2/WebKitAuthenticationRequest.h>
 #include <webkit2/WebKitBackForwardList.h>
 #include <webkit2/WebKitBackForwardListItem.h>
+#include <webkit2/WebKitCertificateInfo.h>
 #include <webkit2/WebKitContextMenu.h>
 #include <webkit2/WebKitContextMenuActions.h>
 #include <webkit2/WebKitContextMenuItem.h>
 #include <webkit2/WebKitCookieManager.h>
+#include <webkit2/WebKitCredential.h>
 #include <webkit2/WebKitDefines.h>
 #include <webkit2/WebKitDownload.h>
 #include <webkit2/WebKitEditingCommands.h>
@@ -42,6 +49,7 @@
 #include <webkit2/WebKitHitTestResult.h>
 #include <webkit2/WebKitJavascriptResult.h>
 #include <webkit2/WebKitMimeInfo.h>
+#include <webkit2/WebKitNavigationAction.h>
 #include <webkit2/WebKitNavigationPolicyDecision.h>
 #include <webkit2/WebKitPermissionRequest.h>
 #include <webkit2/WebKitPlugin.h>
@@ -53,6 +61,8 @@
 #include <webkit2/WebKitURIRequest.h>
 #include <webkit2/WebKitURIResponse.h>
 #include <webkit2/WebKitURISchemeRequest.h>
+#include <webkit2/WebKitUserContent.h>
+#include <webkit2/WebKitUserContentManager.h>
 #include <webkit2/WebKitVersion.h>
 #include <webkit2/WebKitWebContext.h>
 #include <webkit2/WebKitWebInspector.h>

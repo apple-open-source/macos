@@ -1,0 +1,89 @@
+#! /bin/csh -f
+#
+# run server side of SSL protocol version test.
+#
+set SSL_KEYCHAIN=localcert
+#
+# use this to explicitly open the keychain
+#
+set KEYCHAIN_PWD="z=localcert"
+echo =====
+echo ===== Run protClient script after server starts up
+echo ===== unrestricted server via SSLSetProtocolVersion
+echo =====
+set cmd="sslServer P=1200 k=$SSL_KEYCHAIN $KEYCHAIN_PWD t l=11"
+echo $cmd
+$cmd
+if($status != 0) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== prompt the protClient Script
+echo ===== server restricted to SSL2,3 via SSLSetProtocolVersion
+echo ===== Expect 2 errors from sslServer
+echo =====
+set cmd="sslServer P=1201 k=$SSL_KEYCHAIN $KEYCHAIN_PWD 3 l=5"
+echo $cmd
+$cmd
+if($status != 2) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== prompt the protClient Script
+echo ===== server restricted to SSL2 via SSLSetProtocolVersion
+echo ===== Expect 5 errors from sslServer
+echo =====
+set cmd="sslServer P=1202 k=$SSL_KEYCHAIN $KEYCHAIN_PWD 2 l=8"
+echo $cmd
+$cmd
+if($status != 5) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== prompt the protClient Script
+echo ===== unrestricted server via SSLSetProtocolVersionEnabled
+echo =====
+set cmd="sslServer P=1203 k=$SSL_KEYCHAIN $KEYCHAIN_PWD l=11 g=23t"
+echo $cmd
+$cmd
+if($status != 0) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== prompt the protClient Script
+echo ===== server restricted to SSL3, TLS1 via SSLSetProtocolVersionEnabled
+echo ===== Expect 2 errors from sslServe loops
+echo =====
+set cmd="sslServer P=1204 k=$SSL_KEYCHAIN $KEYCHAIN_PWD l=11 g=3t"
+echo $cmd
+$cmd
+if($status != 2) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+echo =====
+echo ===== prompt the protClient Script
+echo ===== server restricted to SSL2,3 via SSLSetProtocolVersionEnabled
+echo ===== Expect 3 errors from sslServe loops
+echo =====
+set cmd="sslServer P=1205 k=$SSL_KEYCHAIN $KEYCHAIN_PWD l=10 g=23"
+echo $cmd
+$cmd
+if($status != 3) then
+	echo @@@@@@ ERROR from sslServer; aborting.
+	exit(1)
+endif
+#
+
+echo =====
+echo ===== protServe success
+echo =====

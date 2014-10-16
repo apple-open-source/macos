@@ -41,6 +41,17 @@
 #define TTY_NUM_FLAGS		1
 #define TTY_NUM_TYPES		(1 << TTY_NUM_FLAGS)
 
+#define THREAD_LAUNCH_STARTED   0x0100
+#define THREAD_LAUNCH_FINISHED  0x0200
+#define THREAD_LAUNCH_MASK      (THREAD_LAUNCH_STARTED | THREAD_LAUNCH_FINISHED)
+
+#define THREAD_RX_STARTED       0x0010
+#define THREAD_RX_FINISHED      0x0020
+#define THREAD_RX_MASK          (THREAD_RX_STARTED | THREAD_RX_FINISHED)
+
+#define THREAD_TX_STARTED       0x0001
+#define THREAD_TX_FINISHED      0x0002
+#define THREAD_TX_MASK          (THREAD_TX_STARTED | THREAD_TX_FINISHED)
 
 class IOSerialStreamSync;
 class IOSerialSessionSync;
@@ -83,13 +94,12 @@ private:
     struct timeval fLastUsedTime;
 
     Session *fActiveSession;
-    IOThread frxThread;		// Recieve data and event's thread
-    IOThread ftxThread;		// Transmit data and state tracking thread
     IOLock * fThreadLock;
     IOLock * fIoctlLock;
     IOLock * fOpenCloseLock;
 	dev_t fBaseDev;
 
+    int fThreadState; /* fThreadLock protects access to fThreadState */
     int fInOpensPending;	/* Count of opens waiting for carrier */
     thread_call_t fDCDThreadCall;	/* used for DCD debouncing */
 
@@ -133,7 +143,7 @@ private:
     // General routines
     bool createDevNodes();
     bool setBaseTypeForDev();
-	IOThread createThread(IOThreadFunc fcn, void *arg);
+    IOReturn createThread(IOThreadFunc fcn, void *arg);
     IOReturn setOneProperty(const OSSymbol *key, OSObject *value);
 	
 	intptr_t whichSession(struct tty *tp);

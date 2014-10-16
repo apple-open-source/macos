@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -38,6 +38,8 @@
 #include	"builtins.h"
 #include	"jobs.h"
 #include	"edit.h"
+
+#include	"FEATURE/cmds"
 
 /* error messages */
 const char e_timewarn[]		= "\r\n\ashell will timeout in 60 seconds due to inactivity";
@@ -118,6 +120,7 @@ const char e_unknownmap[]	= "%s: unknown mapping name";
 const char e_mapchararg[]	= "-M requires argument when operands are specified";
 const char e_subcomvar[]	= "%s: compound assignment requires sub-variable name";
 const char e_badtypedef[]	= "%s: type definition requires compound assignment";
+const char e_typecompat[]	= "%s:  array instance incompatible with type assignment";
 const char e_nosupport[]	= "not supported";
 const char e_badrange[]		= "%d-%d: invalid range";
 const char e_eneedsarg[]	= "-e - requires single argument";
@@ -153,6 +156,7 @@ const char is_ufunction[]	= " is an undefined function";
     const char e_jobsrunning[]	= "You have running jobs";
     const char e_no_job[]	= "no such job";
     const char e_no_proc[]	= "no such process";
+    const char e_badpid[]	= "%s: invalid process id";
 #   if SHOPT_COSHELL
         const char e_jobusage[]	= "%s: Arguments must be %%job, process ids, or job pool names";
 #   else
@@ -177,7 +181,7 @@ const char e_sptbnl[]		= " \t\n";
 const char e_tolower[]		= "tolower";
 const char e_toupper[]		= "toupper";
 const char e_defpath[]		= "/bin:/usr/bin:";
-const char e_defedit[]		= "/bin/ed";
+const char e_defedit[]		= _pth_ed;
 const char e_unknown []		= "<command unknown>";
 const char e_devnull[]		= "/dev/null";
 const char e_traceprompt[]	= "+ ";

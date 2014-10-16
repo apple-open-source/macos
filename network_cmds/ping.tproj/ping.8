@@ -70,6 +70,7 @@ packets to network hosts
 .Op Fl g Ar sweepminsize
 .Op Fl h Ar sweepincrsize
 .Op Fl i Ar wait
+.Op Fl k Ar trafficclass
 .Op Fl l Ar preload
 .Op Fl M Cm mask | time
 .Op Fl m Ar ttl
@@ -87,6 +88,7 @@ packets to network hosts
 .Op Fl c Ar count
 .Op Fl I Ar iface
 .Op Fl i Ar wait
+.Op Fl k Ar trafficclass
 .Op Fl l Ar preload
 .Op Fl M Cm mask | time
 .Op Fl m Ar ttl
@@ -210,6 +212,13 @@ values less than 0.1 second.
 This option is incompatible with the
 .Fl f
 option.
+.It Fl k Ar trafficlass
+Specifies the traffic class to use for sending ICMP packets.
+The supported traffic classes are
+BK_SYS, BK, BE, RD, OAM, AV, RV, VI, VO and CTL.
+By default 
+.Nm
+uses the control traffic class (CTL).
 .It Fl L
 Suppress loopback of multicast packets.
 This flag only applies if the ping destination is a multicast address.

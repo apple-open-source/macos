@@ -22,4 +22,3 @@
 ] partial interface Navigator {
     readonly attribute BatteryManager webkitBattery;
 };
-

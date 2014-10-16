@@ -30,6 +30,14 @@
 
 #include "bzlib_private.h"
 
+#if defined(__x86_64__)
+#include <System/machine/cpu_capabilities.h>
+#include <libkern/OSAtomic.h>
+#endif
+
+#if defined(__x86_64__) || defined(__arm64__)
+extern int  crc32_vec(int crc, char *p, int len);
+#endif
 
 /*---------------------------------------------------*/
 /*--- Compression stuff                           ---*/
@@ -545,7 +553,6 @@ Bool unRLE_obuf_to_output_FAST ( DState* s )
             if (s->strm->avail_out == 0) return False;
             if (s->state_out_len == 0) break;
             *( (UChar*)(s->strm->next_out) ) = s->state_out_ch;
-            BZ_UPDATE_CRC ( s->calculatedBlockCRC, s->state_out_ch );
             s->state_out_len--;
             s->strm->next_out++;
             s->strm->avail_out--;
@@ -589,7 +596,6 @@ Bool unRLE_obuf_to_output_FAST ( DState* s )
    } else {
 
       /* restore */
-      UInt32        c_calculatedBlockCRC = s->calculatedBlockCRC;
       UChar         c_state_out_ch       = s->state_out_ch;
       Int32         c_state_out_len      = s->state_out_len;
       Int32         c_nblock_used        = s->nblock_used;
@@ -613,7 +619,6 @@ Bool unRLE_obuf_to_output_FAST ( DState* s )
                if (cs_avail_out == 0) goto return_notr;
                if (c_state_out_len == 1) break;
                *( (UChar*)(cs_next_out) ) = c_state_out_ch;
-               BZ_UPDATE_CRC ( c_calculatedBlockCRC, c_state_out_ch );
                c_state_out_len--;
                cs_next_out++;
                cs_avail_out--;
@@ -624,7 +629,6 @@ Bool unRLE_obuf_to_output_FAST ( DState* s )
                   c_state_out_len = 1; goto return_notr;
                };
                *( (UChar*)(cs_next_out) ) = c_state_out_ch;
-               BZ_UPDATE_CRC ( c_calculatedBlockCRC, c_state_out_ch );
                cs_next_out++;
                cs_avail_out--;
             }
@@ -667,7 +671,6 @@ Bool unRLE_obuf_to_output_FAST ( DState* s )
          s->strm->total_out_hi32++;
 
       /* save */
-      s->calculatedBlockCRC = c_calculatedBlockCRC;
       s->state_out_ch       = c_state_out_ch;
       s->state_out_len      = c_state_out_len;
       s->nblock_used        = c_nblock_used;
@@ -715,7 +718,6 @@ Bool unRLE_obuf_to_output_SMALL ( DState* s )
             if (s->strm->avail_out == 0) return False;
             if (s->state_out_len == 0) break;
             *( (UChar*)(s->strm->next_out) ) = s->state_out_ch;
-            BZ_UPDATE_CRC ( s->calculatedBlockCRC, s->state_out_ch );
             s->state_out_len--;
             s->strm->next_out++;
             s->strm->avail_out--;
@@ -764,7 +766,6 @@ Bool unRLE_obuf_to_output_SMALL ( DState* s )
             if (s->strm->avail_out == 0) return False;
             if (s->state_out_len == 0) break;
             *( (UChar*)(s->strm->next_out) ) = s->state_out_ch;
-            BZ_UPDATE_CRC ( s->calculatedBlockCRC, s->state_out_ch );
             s->state_out_len--;
             s->strm->next_out++;
             s->strm->avail_out--;
@@ -807,6 +808,14 @@ Bool unRLE_obuf_to_output_SMALL ( DState* s )
 /*---------------------------------------------------*/
 int BZ_API(BZ2_bzDecompress) ( bz_stream *strm )
 {
+
+#if defined(__x86_64__)
+   uint64_t capabilities = _get_cpu_capabilities();
+    Bool    useAsm = (capabilities & (kHasAES));
+#elif defined(__arm64__)
+    Bool    useAsm = True;
+#endif
+
    Bool    corrupt;
    DState* s;
    if (strm == NULL) return BZ_PARAM_ERROR;
@@ -817,9 +826,30 @@ int BZ_API(BZ2_bzDecompress) ( bz_stream *strm )
    while (True) {
       if (s->state == BZ_X_IDLE) return BZ_SEQUENCE_ERROR;
       if (s->state == BZ_X_OUTPUT) {
+
+        
+        // record starting address for crc computation
+         char * p = (char *) s->strm->next_out;
+
          if (s->smallDecompress)
             corrupt = unRLE_obuf_to_output_SMALL ( s ); else
             corrupt = unRLE_obuf_to_output_FAST  ( s );
+
+        // compute CRC at the end
+        {
+            int crc_length = s->strm->next_out - p;
+#if defined(__x86_64__) || defined(__arm64__)
+            if (useAsm && crc_length>=16) {
+                int vec_length = ((crc_length>>4)<<4); 
+                s->calculatedBlockCRC = crc32_vec(s->calculatedBlockCRC, p, vec_length);
+                p += vec_length;
+                crc_length -= vec_length;       
+            }
+#endif
+            while (crc_length--) BZ_UPDATE_CRC ( s->calculatedBlockCRC, *p++ ); 
+        }
+
+
          if (corrupt) return BZ_DATA_ERROR;
          if (s->nblock_used == s->save_nblock+1 && s->state_out_len == 0) {
             BZ_FINALISE_CRC ( s->calculatedBlockCRC );

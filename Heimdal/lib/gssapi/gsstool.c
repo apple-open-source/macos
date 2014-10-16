@@ -47,11 +47,18 @@
 #include <roken.h>
 #include <getarg.h>
 #include <rtbl.h>
+#include <hex.h>
 #include <gss-commands.h>
 #include <krb5.h>
+#ifdef __APPLE__
+#include <heimcred.h>
+#endif
 #include <parse_time.h>
 
 #include "crypto-headers.h"
+
+static void usage (int ret) __attribute__((noreturn));
+
 
 static int version_flag = 0;
 static int help_flag	= 0;
@@ -101,6 +108,7 @@ supported_mechanisms(struct supported_mechanisms_options *opt, int argc, char **
     rtbl_set_separator(ct, "  ");
     rtbl_add_column(ct, COL_OID, 0);
     rtbl_add_column(ct, COL_NAME, 0);
+    rtbl_add_column(ct, COL_SASL, 0);
     if (opt->options_flag) {
 	rtbl_add_column(ct, COL_OPTION, 0);
 	rtbl_add_column(ct, COL_ENABLED, 0);
@@ -124,6 +132,13 @@ supported_mechanisms(struct supported_mechanisms_options *opt, int argc, char **
 	else
 	    rtbl_add_column_entry(ct, COL_NAME, "");
 
+	maj_stat = gss_inquire_saslname_for_mech(&min_stat, &mechs->elements[i], &str, NULL, NULL);
+	if (maj_stat != GSS_S_COMPLETE)
+	    errx(1, "gss_inquire_saslname_for_mech failed");
+	rtbl_add_column_entryv(ct, COL_SASL, "%.*s",
+			       (int)str.length, (char *)str.value);
+	gss_release_buffer(&min_stat, &str);
+
 	if (opt->options_flag) {
 	    gss_OID_set options = GSS_C_NO_OID_SET;
 	    gss_buffer_desc oname;
@@ -132,20 +147,18 @@ supported_mechanisms(struct supported_mechanisms_options *opt, int argc, char **
 
 	    gss_mo_list(&mechs->elements[i], &options);
 	    
-	    if (options == NULL || options->count == 0) {
-		rtbl_add_column_entry(ct, COL_OPTION, "");
-	        rtbl_add_column_entry(ct, COL_ENABLED, "");
-	    }
+	    rtbl_add_column_entry(ct, COL_OPTION, "");
+	    rtbl_add_column_entry(ct, COL_ENABLED, "");
 
 	    for (n = 0; options && n < options->count; n++) {
 		maj_stat = gss_mo_name(&mechs->elements[i], &options->elements[n], &oname);
 		if (maj_stat != GSS_S_COMPLETE)
 		    continue;
 
-		if (n != 0) {
-		    rtbl_add_column_entry(ct, COL_OID, "");
-		    rtbl_add_column_entry(ct, COL_NAME, "");
-		}
+		rtbl_add_column_entry(ct, COL_OID, "");
+		rtbl_add_column_entry(ct, COL_NAME, "");
+		rtbl_add_column_entry(ct, COL_SASL, "");
+
 		ena = gss_mo_get(&mechs->elements[i], &options->elements[n], NULL);
 
 		rtbl_add_column_entryv(ct, COL_OPTION, "%.*s", (int)oname.length, (char *)oname.value);
@@ -213,17 +226,39 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
     if (maj_stat)
 	errx(1, "failed to import name");
 
-    /*
-     * password
-     */
 
-    if (UI_UTIL_read_pw_string(password, sizeof(password),
-			       "Password: ", 0) != 0)
-       errx(1, "failed reading password");
+    if (opt->certificate_persistant_string) {
+	size_t slen = strlen(opt->certificate_persistant_string);
+	CFMutableDataRef data = CFDataCreateMutable(NULL, slen);
+	ssize_t dlen;
 
-    pw = CFStringCreateWithCString(kCFAllocatorDefault, password, kCFStringEncodingUTF8);
-    CFDictionarySetValue(attributes, kGSSICPassword, pw);
-    CFRelease(pw);
+	CFDataSetLength(data, strlen);
+
+	dlen = hex_decode(opt->certificate_persistant_string,
+			  CFDataGetMutableBytePtr(data),
+			  slen);
+	if (dlen < 0)
+	    errx(1, "failed to hex decode reference");
+	
+	CFDataSetLength(data, dlen);
+
+	CFDictionarySetValue(attributes, kGSSICCertificate, data);
+	CFRelease(data);
+
+    } else {
+
+	/*
+	 * password
+	 */
+
+	if (UI_UTIL_read_pw_string(password, sizeof(password),
+				   "Password: ", 0) != 0)
+	    errx(1, "failed reading password");
+
+	pw = CFStringCreateWithCString(kCFAllocatorDefault, password, kCFStringEncodingUTF8);
+	CFDictionarySetValue(attributes, kGSSICPassword, pw);
+	CFRelease(pw);
+    }
 
     if (opt->validate_flag)
 	CFDictionarySetValue(attributes, kGSSICVerifyCredential, kCFBooleanTrue);
@@ -252,7 +287,6 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 	}
 	errx(1, "gss_aapl_initial_cred: %s: %d", 
 	     msg ? msg : "", (int)maj_stat);
-	free(msg);
     }
     gss_release_cred(&min_stat, &cred);
     gss_release_name(&min_stat, &name);
@@ -674,6 +708,76 @@ attrs_for_mech(struct attrs_for_mech_options *opt, int argc, char **argv)
     gss_release_oid_set(&minor, &mech_attr);
     gss_release_oid_set(&minor, &known_mech_attrs);
 
+    return 0;
+}
+
+int
+display_status(struct display_status_options *opt, int argc, char **argv)
+{
+    int status_type = GSS_C_GSS_CODE;
+    gss_const_OID mech = GSS_C_NO_OID;
+
+    if (opt->minor_status_flag)
+	status_type = GSS_C_MECH_CODE;
+
+    if (opt->mech_string) {
+	mech = gss_name_to_oid(opt->mech_string);
+	if (mech == NULL)
+	    errx(1, "mech %s is unknown", opt->mech_string);
+    }
+
+    for (;argc; argc--, argv++) {
+	OM_uint32 ret, new_stat, msg_ctx;
+	gss_buffer_desc status_string;
+	long num;
+
+	num = atol(argv[0]);
+	if (num == 0) {
+	    warnx("failed to parse %s as a number", argv[0]);
+	    continue;
+	}
+
+	msg_ctx = 0;
+	do {
+	    ret = gss_display_status(&new_stat,
+				     (OM_uint32)num,
+				     status_type,
+				     (gss_OID)mech,
+				     &msg_ctx,
+				     &status_string);
+	    if (!GSS_ERROR(ret)) {
+		printf("%s: %.*s\n", argv[0],
+		       (int)status_string.length,
+		       (char *)status_string.value);
+		gss_release_buffer(&new_stat, &status_string);
+	    }
+	} while (!GSS_ERROR(ret) && msg_ctx != 0);
+	
+    }
+    return 0;
+}
+
+/*
+ *
+ */
+
+int
+credentials_status(struct credentials_status_options *opt, int argc, char **argv)
+{
+#ifdef __APPLE__
+    CFDictionaryRef status = HeimCredCopyStatus(NULL);
+    if (status) {
+	CFDataRef data = CFPropertyListCreateData(NULL, status, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+	CFRelease(status);
+	if (data == NULL)
+	    return 1;
+	printf("%.*s\n", (int)CFDataGetLength(data), CFDataGetBytePtr(data));
+	CFRelease(data);
+    } else {
+	printf("no credentials to dump\n");
+	return 1;
+    }
+#endif
     return 0;
 }
 

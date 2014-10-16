@@ -206,6 +206,30 @@ command = {
     max_args = "2"
 }
 command = {
+    name = "srp-verifier"
+    help = "manipulate keysets"
+    option = {
+	long = "type"
+	type = "strings"
+	help = "srp verifier types to use enctype"
+    }
+    option = {
+	long = "delete"
+	type = "flag"
+	help = "delete all verifier"
+    }
+    argument = "principal password"
+    min_args = "2"
+    max_args = "2"
+}
+command = {
+	name = "print-keyset"
+	help = "print a base64 encoded keyset (like principal-get-keyinfo)"
+	argument = "[keydata]"
+	min_args = "0"
+	max_args = "1"
+}
+command = {
     option = {
 	long = "kdc-certificate"
 	type = "flag"

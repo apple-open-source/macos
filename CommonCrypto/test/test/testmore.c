@@ -89,23 +89,25 @@ static void test_plan_exit(void)
             // status = 255;
         }
     }
-    else if (test_num < test_cases)
-    {
-        fprintf(stderr, "%s:%u: warning: Looks like you planned %d tests but only ran %d.\n",
-               test_plan_file, test_plan_line, test_cases, test_num);
-        // status = test_fails + test_cases - test_num;
-    }
-    else if (test_num > test_cases)
-    {
-        fprintf(stderr, "%s:%u: warning: Looks like you planned %d tests but ran %d extra.\n",
-               test_plan_file, test_plan_line, test_cases, test_num - test_cases);
-        // status = test_fails;
-    }
-    else if (test_fails)
-    {
-        fprintf(stderr, "%s:%u: error: Looks like you failed %d tests of %d.\n",
-               test_plan_file, test_plan_line, test_fails, test_cases);
-        // status = test_fails;
+    else {
+        if (test_fails)
+        {
+            fprintf(stderr, "%s:%u: error: Looks like you failed %d tests of %d.\n",
+                    test_plan_file, test_plan_line, test_fails, test_cases);
+            // status = test_fails;
+        }
+        if (test_num < test_cases)
+        {
+            fprintf(stderr, "%s:%u: warning: Looks like you planned %d tests but only ran %d.\n",
+                    test_plan_file, test_plan_line, test_cases, test_num);
+            // status = test_fails + test_cases - test_num;
+        }
+        else if (test_num > test_cases)
+        {
+            fprintf(stderr, "%s:%u: warning: Looks like you planned %d tests but ran %d extra.\n",
+                    test_plan_file, test_plan_line, test_cases, test_num - test_cases);
+            // status = test_fails;
+        }
     }
 
     fflush(stderr);
@@ -220,8 +222,9 @@ test_ok(int passed, const char *description, const char *directive,
 		}
 
 		++test_num;
-		if (test_num > test_cases || (!passed && !is_todo))
-			++test_fails;
+        if (!passed && !is_todo) {
+            ++test_fails;
+        }
 /* We dont need to print this unless we want to */
 #if 0
 		fprintf(stderr, "%s:%u: note: %sok %d%s%s%s%s%s%s\n", file, line, passed ? "" : "not ", test_num,
@@ -255,7 +258,7 @@ test_ok(int passed, const char *description, const char *directive,
         else
 		{
 			fflush(stdout);
-			fprintf(stderr, "%s:%d: error: Failed test\n", file, line);
+			fprintf(stderr, "%s:%d: error: Failed test [%s]\n", file, line, description);
 			if (fmt)
 				vfprintf(stderr, fmt, args);
 			fflush(stderr);
@@ -306,12 +309,12 @@ int run_one_test(struct one_test_s *test, int argc, char * const *argv)
     gettimeofday(&start, NULL);
     test->entry(argc, argv);
     gettimeofday(&stop, NULL);
-    
+
+    test->failed_tests=test_fails;
     test_plan_exit();
     
     /* this may overflow... */
     test->duration=(unsigned int) (stop.tv_sec-start.tv_sec)*1000+(stop.tv_usec/1000)-(start.tv_usec/1000);
-    test->failed_tests=test_fails;
-    
-    return test_fails;
+
+    return test->failed_tests;
 };

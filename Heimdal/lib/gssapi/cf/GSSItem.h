@@ -33,9 +33,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <CoreFoundation/CoreFoundation.h>
-#import <dispatch/dispatch.h>
-#import <Availability.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
+#include <Availability.h>
 
 /*
  * Type is any of the kGSSAttrTypeNNN credential types below, type are

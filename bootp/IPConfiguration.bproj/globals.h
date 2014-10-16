@@ -54,6 +54,9 @@ extern boolean_t		G_dhcpv6_enabled;
 extern boolean_t		G_dhcpv6_stateful_enabled;
 extern int			G_dhcp_duid_type;
 extern boolean_t		G_is_netboot;
+extern int			G_min_short_wake_interval_secs;
+extern int			G_min_wake_interval_secs;
+extern int			G_wake_skew_secs;
 
 extern const unsigned char	G_rfc_magic[4];
 extern const struct in_addr	G_ip_broadcast;

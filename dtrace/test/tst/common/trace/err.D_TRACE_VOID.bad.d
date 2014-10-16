@@ -35,9 +35,5 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	trace((void)`kmem_flags);
-#else
 	trace((void)`max_ncpus);
-#endif /* __APPLE__ */
 }

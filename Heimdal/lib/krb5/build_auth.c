@@ -37,9 +37,10 @@ static krb5_error_code
 make_etypelist(krb5_context context,
 	       krb5_authdata **auth_data)
 {
+    AuthorizationDataElement el;
+    AuthorizationData ad;
     EtypeList etypes;
     krb5_error_code ret;
-    krb5_authdata ad;
     u_char *buf;
     size_t len = 0;
     size_t buf_size;
@@ -66,39 +67,38 @@ make_etypelist(krb5_context context,
 	return ENOMEM;
     }
 
-    ad.val[0].ad_type = KRB5_AUTHDATA_GSS_API_ETYPE_NEGOTIATION;
-    ad.val[0].ad_data.length = len;
-    ad.val[0].ad_data.data = buf;
+    el.ad_type = KRB5_AUTHDATA_GSS_API_ETYPE_NEGOTIATION;
+    el.ad_data.length = len;
+    el.ad_data.data = buf;
+
+    ret = add_AuthorizationData(&ad, &el);
+    free(buf);
+    if (ret) 
+	return ret;
 
     ASN1_MALLOC_ENCODE(AD_IF_RELEVANT, buf, buf_size, &ad, &len, ret);
-    if (ret) {
-	free_AuthorizationData(&ad);
+    free_AuthorizationData(&ad);
+    if (ret)
 	return ret;
-    }
     if(buf_size != len)
 	krb5_abortx(context, "internal error in ASN.1 encoder");
-    free_AuthorizationData(&ad);
 
-    ALLOC(*auth_data, 1);
     if (*auth_data == NULL) {
-        free(buf);
-	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
-	return ENOMEM;
+	ALLOC(*auth_data, 1);
+	if (*auth_data == NULL) {
+	    free(buf);
+	    krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
+	    return ENOMEM;
+	}
     }
 
-    ALLOC_SEQ(*auth_data, 1);
-    if ((*auth_data)->val == NULL) {
-        free(*auth_data);
-	free(buf);
-	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
+    el.ad_type = KRB5_AUTHDATA_IF_RELEVANT;
+    el.ad_data.length = len;
+    el.ad_data.data = buf;
 
-    (*auth_data)->val[0].ad_type = KRB5_AUTHDATA_IF_RELEVANT;
-    (*auth_data)->val[0].ad_data.length = len;
-    (*auth_data)->val[0].ad_data.data = buf;
-
-    return 0;
+    ret = add_AuthorizationData(*auth_data, &el);
+    free(buf);
+    return ret;
 }
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -142,7 +142,20 @@ _krb5_build_authenticator (krb5_context context,
 	*auth.seq_number = auth_context->local_seqnumber;
     } else
 	auth.seq_number = NULL;
-    auth.authorization_data = NULL;
+
+    if (auth_context->auth_data) {
+	auth.authorization_data = calloc(1, sizeof(*auth.authorization_data));
+	if (auth.authorization_data == NULL) {
+	    ret = ENOMEM;
+	    goto fail;
+	}
+	ret = copy_AuthorizationData(auth.authorization_data, auth_context->auth_data);
+	if (ret)
+	    goto fail;
+
+    } else {
+	auth.authorization_data = NULL;
+    }
 
     if (cksum) {
 	ALLOC(auth.cksum, 1);

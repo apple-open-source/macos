@@ -1,0 +1,4 @@
+/def ResolveCallback(/a
+.
+/unicode(fullname,'utf-8')\.encode('ascii','replace')/s//fullname.encode('ascii', 'replace').decode('utf-8')/
+w

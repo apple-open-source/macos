@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,6 +57,8 @@
 
 /* Needed for netfs MessageTracer logging */
 #include <NetFS/NetFSUtilPrivate.h>
+
+#include <Heimdal/krb5.h>
 
 #include "smbclient.h"
 #include <smbclient/ntstatus.h>
@@ -760,7 +762,11 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
             case 2:
                 rq.ioc_extra_flags |= SMB_SMB2_ONLY;
                 break;
-
+                
+            case 3:
+                rq.ioc_extra_flags |= SMB_SMB3_ONLY;
+                break;
+                
             default:
                 /* ignore any other values */
                 break;
@@ -771,23 +777,22 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
         
     }
     /* 
-     * If we are NOT doing SMB 1.x or 2.x only, then see if "cifs://" was  
-     * specified. Specifying "cifs://" forces us to only try SMB 1.x
+     * If we are NOT doing SMB 1/2/3 only, then see if "cifs://" was
+     * specified. Specifying "cifs://" forces us to only try SMB 1
      */
-    if (!(rq.ioc_extra_flags & SMB_SMB1_ONLY) &&
-        !(rq.ioc_extra_flags & SMB_SMB2_ONLY)) {
+    if (!(rq.ioc_extra_flags & (SMB_SMB1_ONLY | SMB_SMB2_ONLY | SMB_SMB3_ONLY))) {
         CFStringRef scheme = CFURLCopyScheme (ctx->ct_url);
         
         if (scheme != NULL) {
             if (kCFCompareEqualTo == CFStringCompare (scheme, CFSTR("cifs"),
                                                       kCFCompareCaseInsensitive)) {
-                smb_log_info("%s: cifs specified so force using SMB 1.x",
+                smb_log_info("%s: cifs specified so force using SMB 1",
                              ASL_LEVEL_DEBUG, __FUNCTION__);
                 
-                /* Clear SMB2 only flag in case its set */
-                rq.ioc_extra_flags &= ~SMB_SMB2_ONLY;
+                /* Clear SMB 2 and 3 only flags in case they are set */
+                rq.ioc_extra_flags &= ~(SMB_SMB2_ONLY | SMB_SMB3_ONLY);
                 
-                /* Set SMB1 only flag */
+                /* Set SMB 1 only flag */
                 rq.ioc_extra_flags |= SMB_SMB1_ONLY;
             }
 
@@ -795,9 +800,12 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
         }
     }
     
+    /* Pass in the max_resp_timeout */
+    rq.ioc_max_resp_timeout = ctx->prefs.max_resp_timeout;
+    
     rq.ioc_negotiate_token_len = SMB_IOC_SPI_INIT_SIZE;
 
-    /* Need Client Guid for SMB 2.x Neg request */
+    /* Need Client Guid for SMB 2/3 Neg request */
     timeout.tv_nsec = 0;
     timeout.tv_sec = 180;   /* 3 mins should be plenty of time to get uuid */
     
@@ -999,7 +1007,7 @@ void smb_get_vc_properties(struct smb_ctx *ctx)
 		ctx->ct_vc_txmax = properties.txmax;			
 		ctx->ct_vc_rxmax = properties.rxmax;
         ctx->ct_vc_wxmax = properties.wxmax;
-        /* if we are mac to mac and smb2 then we have model info, so update it */
+        /* if we are mac to mac and SMB 2/3 then we have model info, so update it */
         if (ctx->model_info) {
             free(ctx->model_info);
             ctx->model_info = NULL;
@@ -1527,6 +1535,17 @@ static int smb_session_security(struct smb_ctx *ctx, CFDictionaryRef authInfoDic
 		return ENETFSNOAUTHMECHSUPP;
 	}
 	
+    /* 
+     * If non extended security, we do NTLMv2 and if that fails, try NTLMv1.
+     * For extended security, GSS only allows a min of NTLM v2.
+     * 
+     * The new default min auth is NTLMv2.
+     */
+	if (((ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY) != SMB_CAP_EXT_SECURITY) &&
+		(ctx->prefs.minAuthAllowed >= SMB_MINAUTH_NTLMV2)) {
+        ctx->ct_setup.ioc_userflags |= SMBV_NO_NTLMV1;
+    }
+    
 	/* They want to use Kerberos, but the server doesn't support it */
 	if ((ctx->ct_setup.ioc_userflags & SMBV_KERBEROS_ACCESS) && !serverSupportsKerb) {
 		smb_log_info("%s: Server doesn't support Kerberos, syserr = %s", 
@@ -2378,6 +2397,14 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 	/* Tell the kernel that we shouldn't touch the home directory, ever on this VC */
 	if (noUserPrefs) {
 		ctx->ct_setup.ioc_userflags &= ~SMBV_HOME_ACCESS_OK;
+        
+        /* 
+         * Kerberos is not allowed to access home dir either. autofs and 
+         * home dir mounting *should* be setting the noUserPrefs flags. No
+         * access to mount flags which would tell us if its automounter, so 
+         * have to rely upon this flag to be set correctly.
+         */
+        krb5_set_home_dir_access(NULL, false);
 	}
 
 	/*  If they pass a URL then use it otherwise use the one we already have */
@@ -2598,7 +2625,12 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
 		
 	}
 	
-	/* Create the dictionary used to return mount information in. */
+	if (mntflags & MNT_AUTOMOUNTED) {
+        /* Kerberos is not allowed to access home dir for automounts */
+        krb5_set_home_dir_access(NULL, false);
+    }
+    
+    /* Create the dictionary used to return mount information in. */
 	mdict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (!mdict) {
 		error = ENOMEM;
@@ -2803,6 +2835,8 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
 		mdata.dir_mode |= S_IXOTH;
 	
 	mdata.KernelLogLevel = ctx->prefs.KernelLogLevel;
+    mdata.max_resp_timeout = ctx->prefs.max_resp_timeout;
+
 	mdata.dev = dfs_ctx->ct_fd;
 	
 	CreateSMBFromName(ctx, mdata.url_fromname, MAXPATHLEN);

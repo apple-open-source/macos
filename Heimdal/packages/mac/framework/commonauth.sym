@@ -52,6 +52,9 @@ heim_ntlm_ts2unixtime
 heim_ntlm_unix2ts_time
 heim_ntlm_time_skew
 initialize_ntlm_error_table_r
+heim_ntlm_mppe_getmasterkey
+heim_ntlm_mppe_getasymmetricstartkey
+heim_ntlm_mppe_getsessionkey
 %endif
 %ifdef ENABLE_SCRAM
 heim_scram_data_free

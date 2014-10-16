@@ -38,7 +38,16 @@ LIBAGE=5
 
 AC_CONFIG_HEADER(expat_config.h)
 
+dnl
+dnl Include our own M4 macros along with those for libtool
+dnl
 sinclude(conftools/ac_c_bigendian_cross.m4)
+sinclude(conftools/libtool.m4)
+sinclude(conftools/ltsugar.m4)
+sinclude(conftools/argz.m4)
+sinclude(conftools/ltoptions.m4)
+sinclude(conftools/ltversion.m4)
+sinclude(conftools/lt~obsolete.m4)
 
 AC_CANONICAL_SYSTEM
 

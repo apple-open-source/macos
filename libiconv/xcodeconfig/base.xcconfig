@@ -1,4 +1,6 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
+
 ALWAYS_SEARCH_USER_PATHS = NO
 COPY_PHASE_STRIP = YES
 ZERO_LINK = NO
@@ -9,3 +11,5 @@ GCC_TREAT_WARNINGS_AS_ERRORS = YES
 BASE_GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H
 GCC_PREPROCESSOR_DEFINITIONS = $(BASE_GCC_PREPROCESSOR_DEFINITIONS)
 
+// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
+INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)

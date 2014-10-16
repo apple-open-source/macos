@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -234,7 +234,9 @@ itemID_copy_data(EAPOLClientItemIDRef itemID)
     CFDictionaryRef	dict;
 
     dict = EAPOLClientItemIDCopyDictionary(itemID);
-    data = CFPropertyListCreateXMLData(NULL, dict);
+    data = CFPropertyListCreateData(NULL, dict,
+				    kCFPropertyListBinaryFormat_v1_0,
+				    0, NULL);
     if (dict != NULL) {
         CFRelease(dict);
     }
@@ -881,13 +883,6 @@ EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
     }
     switch (domain) {
     case kEAPOLClientDomainUser:
-	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainUser,
-					      &keychain);
-	if (status != noErr) {
-	    fprintf(stderr, "EAPOLClientItemIDCopyPasswordItem can't get"
-		    " User keychain\n");
-	    return (FALSE);
-	}
 	break;
     case kEAPOLClientDomainSystem:
 	if (EAPOLClientItemIDGetAuthorizationExternalForm(itemID) != NULL) {
@@ -982,14 +977,6 @@ EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
     }
     switch (domain) {
     case kEAPOLClientDomainUser:
-	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainUser,
-					      &keychain);
-	if (status != noErr) {
-	    fprintf(stderr, "EAPOLClientItemIDSetPasswordItem can't get"
-		    " User keychain,  %s (%d)\n",
-		    EAPSecurityErrorString(status), (int)status);
-	    return (FALSE);
-	}
 	break;
     case kEAPOLClientDomainSystem:
 	if (EAPOLClientItemIDGetAuthorizationExternalForm(itemID) != NULL) {
@@ -1147,14 +1134,6 @@ EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
 
     switch (domain) {
     case kEAPOLClientDomainUser:
-	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainUser,
-					      &keychain);
-	if (status != noErr) {
-	    fprintf(stderr, "EAPOLClientItemIDSetPasswordItem can't get"
-		    " User keychain,  %s (%d)\n",
-		    EAPSecurityErrorString(status), (int)status);
-	    return (FALSE);
-	}
 	break;
     case kEAPOLClientDomainSystem:
 	if (EAPOLClientItemIDGetAuthorizationExternalForm(itemID) != NULL) {
@@ -1163,7 +1142,7 @@ EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
 	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
 					      &keychain);
 	if (status != noErr) {
-	    fprintf(stderr, "EAPOLClientItemIDSetPasswordItem can't get"
+	    fprintf(stderr, "EAPOLClientItemIDRemovePasswordItem can't get"
 		    " System keychain,  %s (%d)\n",
 		    EAPSecurityErrorString(status), (int)status);
 	    return (FALSE);

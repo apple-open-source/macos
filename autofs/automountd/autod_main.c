@@ -1113,7 +1113,7 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 	}
 
 
-	switch ((child_pid = fork1())) {
+	switch ((child_pid = fork())) {
 	case -1:
 		/*
 		 * Fork failure.  Close the pipe,
@@ -1206,7 +1206,12 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		/*
 		 * Now wait for the child to finish.
 		 */
-		(void) waitpid(child_pid, &stat_loc, WUNTRACED);
+		while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
+			if (errno == EINTR)
+				continue;
+			syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
+			goto done;
+		}
 
 		if (WIFSIGNALED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess terminated with %s",

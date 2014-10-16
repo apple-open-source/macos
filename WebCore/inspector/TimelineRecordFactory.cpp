@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2014 University of Washington.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,14 +37,20 @@
 
 #include "Event.h"
 #include "FloatQuad.h"
-#include "InspectorValues.h"
 #include "IntRect.h"
+#include "JSMainThreadExecState.h"
 #include "LayoutRect.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptCallStack.h"
-#include "ScriptCallStackFactory.h"
+#include <inspector/InspectorValues.h>
+#include <inspector/ScriptBreakpoint.h>
+#include <inspector/ScriptCallStack.h>
+#include <inspector/ScriptCallStackFactory.h>
+#include <inspector/agents/InspectorProfilerAgent.h>
+#include <profiler/Profile.h>
 #include <wtf/CurrentTime.h>
+
+using namespace Inspector;
 
 namespace WebCore {
 
@@ -53,7 +60,7 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createGenericRecord(double st
     record->setNumber("startTime", startTime);
 
     if (maxCallStackDepth) {
-        RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(maxCallStackDepth, true);
+        RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(JSMainThreadExecState::currentState(), maxCallStackDepth);
         if (stackTrace && stackTrace->size())
             record->setValue("stackTrace", stackTrace->buildInspectorArray());
     }
@@ -80,6 +87,21 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createFunctionCallData(const 
     RefPtr<InspectorObject> data = InspectorObject::create();
     data->setString("scriptName", scriptName);
     data->setNumber("scriptLine", scriptLine);
+    return data.release();
+}
+
+PassRefPtr<InspectorObject> TimelineRecordFactory::createConsoleProfileData(const String& title)
+{
+    RefPtr<InspectorObject> data = InspectorObject::create();
+    data->setString("title", title);
+    return data.release();
+}
+
+PassRefPtr<InspectorObject> TimelineRecordFactory::createProbeSampleData(const ScriptBreakpointAction& action, int hitCount)
+{
+    RefPtr<InspectorObject> data = InspectorObject::create();
+    data->setNumber(ASCIILiteral("probeId"), action.identifier);
+    data->setNumber(ASCIILiteral("hitCount"), hitCount);
     return data.release();
 }
 
@@ -247,6 +269,11 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createPaintData(const FloatQu
 void TimelineRecordFactory::appendLayoutRoot(InspectorObject* data, const FloatQuad& quad)
 {
     data->setArray("root", createQuad(quad));
+}
+
+void TimelineRecordFactory::appendProfile(InspectorObject* data, PassRefPtr<JSC::Profile> profile)
+{
+    data->setValue(ASCIILiteral("profile"), InspectorProfilerAgent::buildProfileInspectorObject(profile.get()));
 }
 
 } // namespace WebCore

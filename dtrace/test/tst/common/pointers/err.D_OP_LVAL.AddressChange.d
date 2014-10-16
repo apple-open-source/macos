@@ -39,14 +39,8 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	&`kmem_flags = (int *) 0x185ede4;
-	printf("Address of kmem_flags: %d\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", `kmem_flags);
-#else
 	&`max_ncpus = (unsigned int *) 0x185ede4;
 	printf("Value of max_ncpus: %d\n", `max_ncpus);
-#endif /* __APPLE__ */
 }
 
 ERROR

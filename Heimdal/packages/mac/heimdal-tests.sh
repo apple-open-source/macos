@@ -4,6 +4,36 @@ pass=0
 count=0
 fail=""
 
+RUN_ME_ONCE=1
+export RUN_ME_ONCE
+
+name=$(basename $0)
+
+usage="$name --asan"
+
+asan=""
+
+while test $# -gt 0;
+do
+  case $1 in
+  --fuzzer)
+	  HEIMDAL_FUZZER=1
+	  export HEIMDAL_FUZZER
+	  shift
+	  ;;
+  --asan)
+	  asan="_asan";
+	  DYLD_IMAGE_SUFFIX="_asan"
+	  ASAN_OPTIONS="abort_on_error=1"
+	  export asan ASAN_OPTIONS DYLD_IMAGE_SUFFIX
+	  shift
+	  ;;
+  -h) echo $usage; exit 0;;
+  --help) echo $usage; exit 0;;
+  *) echo "unknown argument $0"; exit 1;;
+  esac
+done
+
 frame_echo() {
     r=$(echo "$@")
     echo $r | sed 's/./=/g'
@@ -15,6 +45,12 @@ run_test() {
     name=$1
     shift
     frame_echo "[BEGIN] $name"
+    arg="$1"
+    if [ -x "${arg}${asan}" ]; then
+	arg="${arg}${asan}"
+	shift
+	set -- "$arg" "$@"
+    fi
     "$@"
     res=$?
     if [ "$res" = 0 ]; then
@@ -36,12 +72,14 @@ check_crash() {
 }
 
 
-# kill kcm and digest-service to make sure we run new version
+# kill daemon/agent/services to make sure we run the new version
 if sudo -n true ; then
-    sudo killall -9 kcm digest-service
+    sudo killall -9 kcm digest-service kdc com.apple.GSSCred
     sudo defaults write org.h5l.hx509 AllowHX509Validation -bool true
 fi
 defaults write org.h5l.hx509 AllowHX509Validation -bool true
+
+killall -9 kcm digest-service kdc com.apple.GSSCred
 
 crashuserold=$(mktemp /tmp/heimdal-crash-user-old-XXXXXX)
 crashsystemold=$(mktemp /tmp/heimdal-crash-user-old-XXXXXX)
@@ -51,6 +89,11 @@ crashlogs=/Library/Logs/DiagnosticReports
 
 (cd $HOME/$crashlogs && ls -1 ) > $crashuserold
 (cd $crashlogs && ls -1 ) > $crashsystemold
+
+if [ X"$HEIMDAL_FUZZER" != "X" ] ; then
+    krb5fuzzer=test_srv
+fi
+
 
 # hcrypto
 #for a in test_cipher ; do
@@ -73,9 +116,19 @@ for a in test_base ; do
 done
 
 # libkrb5
-for a in test-principal heimdal-test-cc test_srv ; do
+for a in test-principal heimdal-test-cc test_fx $krb5fuzzer ; do
     run_test $a /usr/local/libexec/heimdal/bin/$a
 done
+
+# gss
+for a in test_gsscf ; do
+    run_test $a /usr/local/libexec/heimdal/bin/$a
+done
+
+# GSS Apps
+if [ "X${SSH_CONNECTION}" = X ] ; then
+    /AppleInternal/CoreOS/Heimdal/Applications/GSSTestApp.app/Contents/MacOS/GSSTestApp
+fi
 
 # check/kdc
 for a in check-kdc check-fast check-kpasswdd ; do
@@ -102,7 +155,7 @@ if sudo -n true ; then
     sudo launchctl load /System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist
 
     # server tests
-    if test -f /System/Library/CoreServices/ServerVersion.plist ; then
+    if serverinfo --software / > /dev/null 2>/dev/null ; then
 	for a in check-apple-server ; do
 	    run_test $a sudo /usr/local/libexec/heimdal/tests/apple/$a
 	done
@@ -115,6 +168,7 @@ else
 fi
 
 # check apple non root
+# check-apple-netlogon -- <rdar://problem/16389320> re-enabled netlogon tests
 for a in check-apple-ad check-apple-dump check-apple-mitdump  ; do
     run_test $a /usr/local/libexec/heimdal/tests/apple/$a
 done

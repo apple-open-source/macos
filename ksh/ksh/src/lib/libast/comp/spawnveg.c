@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -130,6 +130,7 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #include <error.h>
 #include <wait.h>
 #include <sig.h>
+#include <ast_tty.h>
 #include <ast_vfork.h>
 
 #ifndef ENOSYS
@@ -193,25 +194,35 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 		fcntl(err[1], F_SETFD, FD_CLOEXEC);
 	}
 #endif
-	sigcritical(1);
+	sigcritical(SIG_REG_EXEC|SIG_REG_PROC);
 #if _lib_vfork
 	pid = vfork();
 #else
 	pid = fork();
 #endif
-	sigcritical(0);
 	if (pid == -1)
 		n = errno;
 	else if (!pid)
 	{
-		if (pgid < 0)
+		sigcritical(0);
+		if (pgid == -1)
 			setsid();
-		else if (pgid > 0)
+		else if (pgid)
 		{
-			if (pgid == 1)
-				pgid = 0;
-			if (setpgid(0, pgid) < 0 && pgid && errno == EPERM)
-				setpgid(0, 0);
+			m = 0;
+			if (pgid == 1 || pgid == -2 && (m = 1))
+				pgid = getpid();
+			if (setpgid(0, pgid) < 0 && errno == EPERM)
+				setpgid(pgid, 0);
+#if _lib_tcgetpgrp
+			if (m)
+				tcsetpgrp(2, pgid);
+#else
+#ifdef TIOCSPGRP
+			if (m)
+				ioctl(2, TIOCSPGRP, &pgid);
+#endif
+#endif
 		}
 		execve(path, argv, envv);
 #if _real_vfork
@@ -219,8 +230,8 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #else
 		if (err[0] != -1)
 		{
-			n = errno;
-			write(err[1], &n, sizeof(n));
+			m = errno;
+			write(err[1], &m, sizeof(m));
 		}
 #endif
 		_exit(errno == ENOENT ? EXIT_NOTFOUND : EXIT_NOEXEC);
@@ -237,15 +248,26 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 	if (err[0] != -1)
 	{
 		close(err[1]);
-		if (pid != -1 && read(err[0], &m, sizeof(m)) == sizeof(m) && m)
+		if (pid != -1)
 		{
-			while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
-			rid = pid = -1;
-			n = m;
+			m = 0;
+			while (read(err[0], &m, sizeof(m)) == -1)
+				if (errno != EINTR)
+				{
+					m = errno;
+					break;
+				}
+			if (m)
+			{
+				while (waitpid(pid, &n, 0) && errno == EINTR);
+				rid = pid = -1;
+				n = m;
+			}
 		}
 		close(err[0]);
 	}
 #endif
+	sigcritical(0);
 	if (pid != -1 && pgid > 0)
 	{
 		/*

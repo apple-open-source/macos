@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -289,20 +289,15 @@ debug_mbtowc(register wchar_t* p, register const char* s, size_t n)
 		dr = DR1;
 		break;
 	default:
+	single:
 		if (p)
 			*p = ((unsigned char*)s)[0] & ((1<<DC)-1);
 		return 1;
 	}
 	if (n < 2)
 		return -1;
-	if ((w = ((unsigned char*)s)[1]) == ((unsigned char*)s)[0])
-	{
-		if (p)
-			*p = w;
-		return 2;
-	}
-	if (w < '0' || w > ('0' + DX))
-		return -1;
+	if ((w = ((unsigned char*)s)[1]) < '0' || w > ('0' + DX))
+		goto single;
 	if ((w -= '0' - DD) > n)
 		return -1;
 	r = s + w - 1;
@@ -560,23 +555,7 @@ sjis_mbtowc(register wchar_t* p, register const char* s, size_t n)
 static int
 utf8_wctomb(char* u, wchar_t w) 
 {
-	if (!u)
-		return 0;
-	if (w >= (1<<11))
-	{
-		*u++ = 0xe0|(w>>12);  
-		*u++ = 0x80|((w>>6)&0x3f);
-		*u++ = 0x80|(w&0x3f);
-		return 3;
-	}
-	if (w >= (1<<7))
-	{
-		*u++ = 0xc0|(w>>6);  
-		*u++ = 0x80|(w&0x3f);
-		return 2;
-	}
-	*u++ = w;
-	return 1;
+	return u ? wc2utf8(u, w) : 0;
 }
 
 #endif
@@ -2419,6 +2398,31 @@ default_setlocale(int category, const char* locale)
 
 #endif
 
+#if !_UWIN
+
+/*
+ * workaround for systems that shall not be named (solaris,freebsd)
+ * the call free() with addresses that look like the came from the stack
+ */
+
+extern int	_vmkeep(int);
+
+static char*
+_sys_setlocale(int category, const char* locale)
+{
+	char*	r;
+	int	k;
+
+	k = _vmkeep(1);
+	r = setlocale(category, locale);
+	(void)_vmkeep(k);
+	return r;
+}
+
+#define setlocale(a,b)	_sys_setlocale(a,b)
+
+#endif
+
 /*
  * set a single AST_LC_* locale category
  * the caller must validate category
@@ -2498,6 +2502,7 @@ single(int category, Lc_t* lc, unsigned int flags)
 			ast.locale.set &= ~(1<<category);
 		else
 			ast.locale.set |= (1<<category);
+		
 	}
 	else if (lc_categories[category].flags ^ flags)
 	{

@@ -104,39 +104,32 @@ enum {
 #define     _keyboard                           _reserved->keyboard
 #define     _multiAxis                          _reserved->multiAxis
 #define     _digitizer                          _reserved->digitizer
+#define     _relativePointer                    _reserved->relativePointer
 
 #if TARGET_OS_EMBEDDED
-    #define     _clientDict                         _reserved->clientDict
 
-    #define     kDebuggerDelayMS                    2500
+#define     _clientDict                         _reserved->clientDict
 
-    //===========================================================================
-    // IOHIDClientData class
-    class IOHIDClientData : public OSObject
-    {
-        OSDeclareDefaultStructors(IOHIDClientData)
+#define     kDebuggerDelayMS                    2500
 
-        IOService * client;
-        void *      context;
-        void *      action;
+//===========================================================================
+// IOHIDClientData class
+class IOHIDClientData : public OSObject
+{
+    OSDeclareDefaultStructors(IOHIDClientData)
 
-    public:
-        static IOHIDClientData* withClientInfo(IOService *client, void* context, void * action);
-        inline IOService *  getClient()     { return client; }
-        inline void *       getContext()    { return context; }
-        inline void *       getAction()     { return action; }
-    };
+    IOService * client;
+    void *      context;
+    void *      action;
+
+public:
+    static IOHIDClientData* withClientInfo(IOService *client, void* context, void * action);
+    inline IOService *  getClient()     { return client; }
+    inline void *       getContext()    { return context; }
+    inline void *       getAction()     { return action; }
+};
 
 #endif /* TARGET_OS_EMBEDDED */
-
-struct  TransducerData {
-    UInt32  reportID;
-    UInt32  deviceID;
-    UInt32  type;
-    UInt32  capabilities;
-    bool    digitizerCollection;
-    bool    supportsTransducerIndex;
-};
 
 //===========================================================================
 // IOHIDEventService class
@@ -188,6 +181,8 @@ bool IOHIDEventService::start ( IOService * provider )
         return false;
 
     _workLoop->retain();
+    
+    _keyboard.appleVendorSupported = (getProperty(kIOHIDAppleVendorSupported, gIOServicePlane) == kOSBooleanTrue);
 
     _keyboard.eject.timer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::ejectTimerCallback));
     if (!_keyboard.eject.timer || (_workLoop->addEventSource(_keyboard.eject.timer) != kIOReturnSuccess))
@@ -306,6 +301,7 @@ static void stopAndReleaseShim ( IOService * service, IOService * provider )
 void IOHIDEventService::stop( IOService * provider )
 {
     handleStop ( provider );
+    _provider = NULL;
 
     if (_keyboard.caps.timer) {
         _keyboard.caps.timer->cancelTimeout();
@@ -782,13 +778,8 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                         case kHIDUsage_GD_X:
                             if ( !(pointingResolution = determineResolution(element)) )
                                 pointingResolution = kDefaultFixedResolution;
-                        case kHIDUsage_GD_Y:
-                        case kHIDUsage_GD_Z:
-                            if ((element->getFlags() & kIOHIDElementFlagsRelativeMask) == 0)
-                            {
-                                processTabletElement ( element );
-                            }
                             break;
+                        case kHIDUsage_GD_Z:
                         case kHIDUsage_GD_Wheel:
                             if ( !(scrollResolution = determineResolution(element)) )
                                 scrollResolution = kDefaultScrollFixedResolution;
@@ -802,7 +793,6 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                     break;
 
                 case kHIDPage_Button:
-                    processTabletElement ( element );
                     buttonCount ++;
                     break;
 
@@ -866,13 +856,12 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                         case kHIDUsage_Dig_Eraser:
                             buttonCount ++;
                         default:
-                             processTabletElement ( element );
                             break;
                     }
                     break;
                 case kHIDPage_AppleVendorTopCase:
-                    if ((getVendorID() == kIOUSBVendorIDAppleComputer) &&
-                        (usage == kHIDUsage_AV_TopCase_KeyboardFn))
+                    if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) &&
+                        (_keyboard.appleVendorSupported))
                     {
                         supportedModifiers |= NX_SECONDARYFNMASK;
                     }
@@ -920,217 +909,28 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
         _deviceUsagePairs = functions;
     }
 
-    processTransducerData();
-
     NUB_LOCK;
 
     if ( pointingDevice )
     {
+        if ( pointingResolution )
+            setProperty(kIOHIDPointerResolutionKey, pointingResolution, 32);
+
+        if ( scrollResolution )
+            setProperty(kIOHIDScrollResolutionKey, scrollResolution, 32);
+
         _pointingNub = newPointingShim(buttonCount, pointingResolution, scrollResolution, kShimEventProcessor);
     }
     if ( keyboardDevice )
     {
         _keyboardNub = newKeyboardShim(supportedModifiers, kShimEventProcessor);
-	}
+    }
     if ( consumerDevice )
     {
         _consumerNub = newConsumerShim(kShimEventProcessor);
     }
 
     NUB_UNLOCK;
-}
-
-//====================================================================================================
-// IOHIDEventService::processTabletElement
-//====================================================================================================
-void IOHIDEventService::processTabletElement ( IOHIDElement * element )
-{
-    TransducerData *    transducerRef;
-    IOHIDElement *      parent;
-
-    transducerRef = getTransducerData(element->getReportID());
-
-    if ( !transducerRef )
-    {
-        transducerRef = createTransducerData ( element->getReportID() );
-    }
-
-    if ( element->getUsagePage() == kHIDPage_Digitizer )
-    {
-        switch (element->getUsage())
-        {
-            case kHIDUsage_Dig_Stylus:
-                transducerRef->type         = NX_TABLET_POINTER_PEN;
-                break;
-            case kHIDUsage_Dig_Puck:
-                transducerRef->type         = NX_TABLET_POINTER_CURSOR;
-                break;
-            case kHIDUsage_Dig_XTilt:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_TILTXMASK;
-                break;
-            case kHIDUsage_Dig_YTilt:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_TILTYMASK;
-                break;
-            case kHIDUsage_Dig_TipPressure:
-                if ( transducerRef->type == NX_TABLET_POINTER_UNKNOWN )
-                    transducerRef->type = NX_TABLET_POINTER_PEN;
-
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_PRESSUREMASK;
-                break;
-            case kHIDUsage_Dig_BarrelPressure:
-                if ( transducerRef->type == NX_TABLET_POINTER_UNKNOWN )
-                    transducerRef->type = NX_TABLET_POINTER_PEN;
-
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_TANGENTIALPRESSUREMASK;
-                break;
-            case kHIDUsage_Dig_Twist:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_ROTATIONMASK;
-                break;
-            case kHIDUsage_Dig_TransducerIndex:
-                transducerRef->supportsTransducerIndex = true;
-                break;
-            case kHIDUsage_Dig_Eraser:
-                if ( transducerRef->type == NX_TABLET_POINTER_UNKNOWN )
-                    transducerRef->type = NX_TABLET_POINTER_ERASER;
-            case kHIDUsage_Dig_TipSwitch:
-            case kHIDUsage_Dig_BarrelSwitch:
-                if ( transducerRef->type == NX_TABLET_POINTER_UNKNOWN )
-                    transducerRef->type = NX_TABLET_POINTER_PEN;
-
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_BUTTONSMASK;
-                break;
-        }
-    }
-    else if ( element->getUsagePage() == kHIDPage_GenericDesktop )
-    {
-        switch (element->getUsage())
-        {
-            case kHIDUsage_GD_X:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_ABSXMASK;
-                break;
-            case kHIDUsage_GD_Y:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_ABSYMASK;
-                break;
-            case kHIDUsage_GD_Z:
-                transducerRef->capabilities |= NX_TABLET_CAPABILITY_ABSZMASK;
-                break;
-        }
-    }
-    else if ( element->getUsagePage() == kHIDPage_Button )
-    {
-        transducerRef->capabilities |= NX_TABLET_CAPABILITY_BUTTONSMASK;
-    }
-
-    if ( element->getType() != kIOHIDElementTypeCollection )
-    {
-        parent = element->getParentElement();
-
-        if ( parent && ( parent->getUsagePage() == kHIDPage_Digitizer ))
-        {
-            transducerRef->digitizerCollection = true;
-        }
-    }
-}
-
-//====================================================================================================
-// IOHIDEventService::createTransducerData
-//====================================================================================================
-TransducerData * IOHIDEventService::createTransducerData ( UInt32 transducerID )
-{
-    TransducerData      temp;
-    OSData *            data;
-
-    if ( ! _transducerDataArray )
-        _transducerDataArray = OSArray::withCapacity(4);
-
-    bzero(&temp, sizeof(TransducerData));
-
-    temp.reportID   = transducerID;
-    temp.type       = NX_TABLET_POINTER_UNKNOWN;
-
-    data            = OSData::withBytes(&temp, sizeof(TransducerData));
-
-    _transducerDataArray->setObject(data);
-    data->release();
-
-    return (data) ? (TransducerData *)data->getBytesNoCopy() : 0;
-}
-
-//====================================================================================================
-// IOHIDEventService::getTransducerData
-//====================================================================================================
-TransducerData * IOHIDEventService::getTransducerData ( UInt32 transducerID )
-{
-    TransducerData *    transducerRef       = 0;
-    TransducerData *    transducerIndexRef  = 0;
-    OSData *            data                = 0;
-    bool                found               = 0;
-
-    if ( !_transducerDataArray )
-        return NULL;
-
-    UInt32  count = _transducerDataArray->getCount();
-
-    for (unsigned i=0; i<count; i++)
-    {
-        data = (OSData *)_transducerDataArray->getObject(i);
-
-        if (!data) continue;
-
-        transducerRef = (TransducerData *)data->getBytesNoCopy();
-
-        if (!transducerRef) continue;
-
-        if (transducerRef->supportsTransducerIndex)
-            transducerIndexRef = transducerRef;
-
-        if (transducerRef->reportID != transducerID) continue;
-
-        found = true;
-        break;
-    }
-
-    return ( found ) ? transducerRef : transducerIndexRef;
-}
-
-//====================================================================================================
-// IOHIDEventService::processTransducerData
-//====================================================================================================
-void IOHIDEventService::processTransducerData ()
-{
-#if !TARGET_OS_EMBEDDED
-    TransducerData *    transducerRef;
-    OSData *            data;
-
-    if ( ! _transducerDataArray )
-        return;
-
-    for (unsigned i=0; i<_transducerDataArray->getCount(); i++)
-    {
-        data = (OSData *)_transducerDataArray->getObject(i);
-
-        if (!data) continue;
-
-        transducerRef = (TransducerData *)data->getBytesNoCopy();
-
-        if ( (transducerRef->capabilities & ~NX_TABLET_CAPABILITY_BUTTONSMASK) ||
-             (transducerRef->digitizerCollection))
-        {
-            transducerRef->deviceID     = IOHIDPointing::generateDeviceID();
-            transducerRef->capabilities |= NX_TABLET_CAPABILITY_DEVICEIDMASK;
-        }
-        else
-        {
-            _transducerDataArray->removeObject(i--);
-        }
-    }
-
-    if ( _transducerDataArray->getCount() == 0 )
-    {
-        _transducerDataArray->release();
-        _transducerDataArray = 0;
-    }
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 //====================================================================================================
@@ -1152,6 +952,7 @@ IOHIDPointing * IOHIDEventService::newPointingShim (
 
     require(pointingNub->attach(this), no_attach);
     require(pointingNub->start(this), no_start);
+    pointingNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
 
     return pointingNub;
 
@@ -1185,6 +986,7 @@ IOHIDKeyboard * IOHIDEventService::newKeyboardShim (
 
     require(keyboardNub->attach(this), no_attach);
     require(keyboardNub->start(this), no_start);
+    keyboardNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
 
     return keyboardNub;
 
@@ -1216,6 +1018,7 @@ IOHIDConsumer * IOHIDEventService::newConsumerShim ( IOOptionBits options )
 
     require(consumerNub->attach(this), no_attach);
     require(consumerNub->start(this), no_start);
+    consumerNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
 
     return consumerNub;
 
@@ -1240,6 +1043,7 @@ IOFixed IOHIDEventService::determineResolution ( IOHIDElement * element )
     IOFixed resolution = 0;
     bool supportResolution = true;
 
+#if !TARGET_OS_EMBEDDED
     if ((element->getFlags() & kIOHIDElementFlagsRelativeMask) != 0) {
 
         if ( element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController) )
@@ -1248,7 +1052,8 @@ IOFixed IOHIDEventService::determineResolution ( IOHIDElement * element )
     else {
         supportResolution = false;
     }
-
+#endif /* !TARGET_OS_EMBEDDED */
+    
     if ( supportResolution ) {
         if ((element->getPhysicalMin() != element->getLogicalMin()) &&
             (element->getPhysicalMax() != element->getLogicalMax()))
@@ -1296,16 +1101,6 @@ void IOHIDEventService::free()
         IORecursiveLockLock(_nubLock);
         tempLock = _nubLock;
         _nubLock = NULL;
-    }
-
-    if ( _transducerDataArray ) {
-        _transducerDataArray->release();
-        _transducerDataArray = 0;
-    }
-
-    if ( _transducerDataArray ) {
-        _transducerDataArray->release();
-        _transducerDataArray = 0;
     }
 
     if (_keyboard.eject.timer) {
@@ -1494,7 +1289,7 @@ UInt32 IOHIDEventService::getLocationID ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDSerialNumberKey);
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDLocationIDKey);
 		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
 		OSSafeReleaseNULL(number);
@@ -1744,7 +1539,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
         }
     }
 
-    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value, options);
+    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
     if ( !event )
         return;
 
@@ -1761,7 +1556,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
     if ((( usagePage == kHIDPage_KeyboardOrKeypad ) &&
             (usage != kHIDUsage_KeyboardLockingNumLock) &&
             !(_keyboard.caps.delayMS && (usage == kHIDUsage_KeyboardCapsLock))) ||
-            ((getVendorID() == kIOUSBVendorIDAppleComputer) &&
+            (_keyboard.appleVendorSupported &&
              ((usagePage == kHIDPage_AppleVendorKeyboard) ||
               ((usagePage == kHIDPage_AppleVendorTopCase) &&
                (usage == kHIDUsage_AV_TopCase_KeyboardFn))))) {
@@ -1845,9 +1640,12 @@ void IOHIDEventService::dispatchRelativePointerEvent(
     if ( ! _readyForInputReports )
         return;
 
-#if TARGET_OS_EMBEDDED
+    if ( !dx && !dy && buttonState == _relativePointer.buttonState )
+        return;
 
-    IOHIDEvent *event = IOHIDEvent::relativePointerEvent(timeStamp, dx, dy, 0, buttonState);
+#if TARGET_OS_EMBEDDED
+    
+    IOHIDEvent *event = IOHIDEvent::relativePointerEvent(timeStamp, dx, dy, 0, buttonState, _relativePointer.buttonState);
 
     if ( event ) {
         dispatchEvent(event);
@@ -1865,6 +1663,8 @@ void IOHIDEventService::dispatchRelativePointerEvent(
 
     NUB_UNLOCK;
 #endif /* TARGET_OS_EMBEDDED */
+    
+    _relativePointer.buttonState = buttonState;
 }
 
 #if TARGET_OS_EMBEDDED
@@ -1934,9 +1734,13 @@ void IOHIDEventService::dispatchScrollWheelEvent(
                                 SInt32                      deltaAxis3,
                                 IOOptionBits                options)
 {
+    bool momentumOrPhase = options & (kHIDDispatchOptionScrollMomentumAny | kHIDDispatchOptionPhaseAny);
     IOHID_DEBUG(kIOHIDDebugCode_DispatchScroll, deltaAxis1, deltaAxis2, deltaAxis3, options);
 
     if ( ! _readyForInputReports )
+        return;
+    
+    if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
         return;
 
 #if TARGET_OS_EMBEDDED
@@ -1979,7 +1783,7 @@ static void ScalePressure(SInt32 *pressure, SInt32 pressureMin, SInt32 pressureM
 //====================================================================================================
 void IOHIDEventService::dispatchTabletPointerEvent(
                                 AbsoluteTime                timeStamp,
-                                UInt32                      transducerID,
+                                UInt32                      transducerID __unused,
                                 SInt32                      x,
                                 SInt32                      y,
                                 SInt32                      z,
@@ -2007,34 +1811,30 @@ void IOHIDEventService::dispatchTabletPointerEvent(
     if ( !_pointingNub )
         _pointingNub = newPointingShim();
 
-    TransducerData *    transducerRef = getTransducerData(transducerID);
+    NXEventData         tabletData = {};
 
-    if (transducerRef) {
-        NXEventData         tabletData = {};
+    ScalePressure(&tipPressure, tipPressureMin, tipPressureMax, 0, kMaxSystemTipPressure);
+    ScalePressure(&barrelPressure, barrelPressureMin, barrelPressureMax, -kMaxSystemBarrelPressure, kMaxSystemBarrelPressure);
 
-        ScalePressure(&tipPressure, tipPressureMin, tipPressureMax, 0, kMaxSystemTipPressure);
-        ScalePressure(&barrelPressure, barrelPressureMin, barrelPressureMax, -kMaxSystemBarrelPressure, kMaxSystemBarrelPressure);
+    IOGPoint newLoc;
 
-        IOGPoint newLoc;
+    newLoc.x = x;
+    newLoc.y = y;
 
-        newLoc.x = x;
-        newLoc.y = y;
+    //IOHIDSystem::scaleLocationToCurrentScreen(&newLoc, bounds);
 
-        //IOHIDSystem::scaleLocationToCurrentScreen(&newLoc, bounds);
+    tabletData.tablet.x                    = newLoc.x;
+    tabletData.tablet.y                    = newLoc.y;
+    tabletData.tablet.z                    = z;
+    tabletData.tablet.buttons              = buttonState;
+    tabletData.tablet.pressure             = tipPressure;
+    tabletData.tablet.tilt.x               = tiltX;
+    tabletData.tablet.tilt.y               = tiltY;
+    tabletData.tablet.rotation             = twist;
+    tabletData.tablet.tangentialPressure   = barrelPressure;
+    tabletData.tablet.deviceID             = _digitizer.deviceID;
 
-        tabletData.tablet.x                    = newLoc.x;
-        tabletData.tablet.y                    = newLoc.y;
-        tabletData.tablet.z                    = z;
-        tabletData.tablet.buttons              = buttonState;
-        tabletData.tablet.pressure             = tipPressure;
-        tabletData.tablet.tilt.x               = tiltX;
-        tabletData.tablet.tilt.y               = tiltY;
-        tabletData.tablet.rotation             = twist;
-        tabletData.tablet.tangentialPressure   = barrelPressure;
-        tabletData.tablet.deviceID             = transducerRef->deviceID;
-
-        _pointingNub->dispatchTabletEvent(&tabletData, timeStamp);
-    }
+    _pointingNub->dispatchTabletEvent(&tabletData, timeStamp);
 
     NUB_UNLOCK;
 #endif /* !TARGET_OS_EMBEDDED */
@@ -2063,26 +1863,39 @@ void IOHIDEventService::dispatchTabletProximityEvent(
     if ( !_pointingNub )
         _pointingNub = newPointingShim();
 
-    TransducerData *    transducerRef = getTransducerData(transducerID);
+    NXEventData tabletData      = {};
+    UInt32      capabilityMask  = NX_TABLET_CAPABILITY_DEVICEIDMASK | NX_TABLET_CAPABILITY_ABSXMASK | NX_TABLET_CAPABILITY_ABSYMASK;
+    
+    if ( _digitizer.deviceID == 0 )
+        _digitizer.deviceID = IOHIDPointing::generateDeviceID();
+    
+    if ( options & kDigitizerCapabilityButtons )
+        capabilityMask |= NX_TABLET_CAPABILITY_BUTTONSMASK;
+    if ( options & kDigitizerCapabilityPressure )
+        capabilityMask |= NX_TABLET_CAPABILITY_PRESSUREMASK;
+    if ( options & kDigitizerCapabilityTangentialPressure )
+        capabilityMask |= NX_TABLET_CAPABILITY_TANGENTIALPRESSUREMASK;
+    if ( options & kDigitizerCapabilityZ )
+        capabilityMask |= NX_TABLET_CAPABILITY_ABSZMASK;
+    if ( options & kDigitizerCapabilityTiltX )
+        capabilityMask |= NX_TABLET_CAPABILITY_TILTXMASK;
+    if ( options & kDigitizerCapabilityTiltY )
+        capabilityMask |= NX_TABLET_CAPABILITY_TILTYMASK;
+    if ( options & kDigitizerCapabilityTwist )
+        capabilityMask |= NX_TABLET_CAPABILITY_ROTATIONMASK;
 
-    if (transducerRef) {
-        NXEventData tabletData = {};
+    tabletData.proximity.vendorID               = getVendorID();
+    tabletData.proximity.tabletID               = getProductID();
+    tabletData.proximity.pointerID              = transducerID;
+    tabletData.proximity.deviceID               = _digitizer.deviceID;
+    tabletData.proximity.vendorPointerType      = NX_TABLET_POINTER_PEN;
+    tabletData.proximity.pointerSerialNumber    = vendorTransducerSerialNumber;
+    tabletData.proximity.uniqueID               = vendorTransducerUniqueID;
+    tabletData.proximity.capabilityMask         = capabilityMask;
+    tabletData.proximity.enterProximity         = inRange;
+    tabletData.proximity.pointerType            = invert ? NX_TABLET_POINTER_ERASER : NX_TABLET_POINTER_PEN;
 
-        tabletData.proximity.vendorID               = getVendorID();
-        tabletData.proximity.tabletID               = getProductID();
-        tabletData.proximity.pointerID              = transducerID;
-        tabletData.proximity.deviceID               = transducerRef->deviceID;
-        tabletData.proximity.vendorPointerType      = transducerRef->type;
-        tabletData.proximity.pointerSerialNumber    = vendorTransducerSerialNumber;
-        tabletData.proximity.uniqueID               = vendorTransducerUniqueID;
-        tabletData.proximity.capabilityMask         = transducerRef->capabilities;
-        tabletData.proximity.enterProximity         = inRange;
-        tabletData.proximity.pointerType            =
-            (invert && (transducerRef->type == NX_TABLET_POINTER_PEN)) ?
-            NX_TABLET_POINTER_ERASER : NX_TABLET_POINTER_PEN;
-
-        _pointingNub->dispatchProximityEvent(&tabletData, timeStamp);
-    }
+    _pointingNub->dispatchProximityEvent(&tabletData, timeStamp);
 
     NUB_UNLOCK;
 
@@ -2101,7 +1914,7 @@ OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
 OSArray * IOHIDEventService::getDeviceUsagePairs()
 {
     //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
-    OSArray * providerUsagePairs = (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey);
+    OSArray * providerUsagePairs = _provider ? (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey) : NULL;
 
     if ( OSDynamicCast(OSArray, providerUsagePairs) && ( providerUsagePairs != _deviceUsagePairs ) ) {
         setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePairs);
@@ -2195,9 +2008,11 @@ void IOHIDEventService::dispatchMultiAxisPointerEvent(
 
     if ( options & kMultiAxisOptionZForScroll ) {
         validScroll |= z || _multiAxis.z;
-    } else if ( z > 0 ){
+    }
+    // if z greater than .75 make it a button
+    else if ( z > 0xc000 ){
         isZButton = true;
-        buttonState |= (z>>16) & 1;
+        buttonState |= 1;
     }
 
     validRelative |= buttonState != _multiAxis.buttonState;
@@ -2223,7 +2038,7 @@ void IOHIDEventService::dispatchMultiAxisPointerEvent(
             GET_RELATIVE_VALUE_FROM_CENTERED(z, sx);
 
 #if TARGET_OS_EMBEDDED
-        IOHIDEvent * subEvent = IOHIDEvent::multiAxisPointerEvent(timeStamp, buttonState, x, y, z, rX, rY, rZ);
+        IOHIDEvent * subEvent = IOHIDEvent::multiAxisPointerEvent(timeStamp, x, y, z, rX, rY, rZ, buttonState, _multiAxis.buttonState);
         if ( subEvent ) {
 
             IOHIDEvent * event;
@@ -2289,8 +2104,8 @@ void IOHIDEventService::dispatchMultiAxisPointerEvent(
 //==============================================================================
 void IOHIDEventService::dispatchDigitizerEventWithOrientation(
                                 AbsoluteTime                    timeStamp,
-                                DigitizerTransducerType         type __unused,
                                 UInt32                          transducerID,
+                                DigitizerTransducerType         type __unused,
                                 bool                            inRange,
                                 UInt32                          buttonState,
                                 IOFixed                         x,
@@ -2389,7 +2204,7 @@ exit:
 
     // Entering proximity
     if ( inRange && inRange != _digitizer.range ) {
-        dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert);
+        dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert, options);
     }
 
     if ( inRange ) {
@@ -2412,7 +2227,7 @@ exit:
     }
 
     if ( !inRange && inRange != _digitizer.range ) {
-        dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert);
+        dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert, options);
     }
 
 
@@ -2500,15 +2315,33 @@ void IOHIDEventService::dispatchDigitizerEventWithPolarOrientation(
 }
 
 
+//==============================================================================
+// IOHIDEventService::dispatchUnicodeEvent
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService,  6);
+void IOHIDEventService::dispatchUnicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, UnicodeEncodingType encoding, IOFixed quality, IOOptionBits options)
+{
+#if TARGET_OS_EMBEDDED
+    IOHIDEvent * event = IOHIDEvent::unicodeEvent(timeStamp, payload, length, encoding, quality, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+#else
+#pragma unused(timeStamp, payload, length, encoding, quality, options)
+#endif
+}
+
 #if TARGET_OS_EMBEDDED
 void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 {
-    _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::closeGated), forClient, (void*)options);
+    _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::closeGated), forClient, &options);
 }
 
-void IOHIDEventService::closeGated(IOService *forClient, IOOptionBits options)
+void IOHIDEventService::closeGated(IOService *forClient, IOOptionBits * pOptions)
 {
-    super::close(forClient, options);
+    super::close(forClient, *pOptions);
 }
 
 OSDefineMetaClassAndStructors(IOHIDClientData, OSObject)
@@ -2533,13 +2366,13 @@ IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* conte
 //==============================================================================
 // IOHIDEventService::open
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  6);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  7);
 bool IOHIDEventService::open(   IOService *                 client,
                                 IOOptionBits                options,
                                 void *                      context,
                                 Action                      action)
 {
-    return _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::openGated), client, (void*)options, context, (void*)action);
+    return _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::openGated), client, &options, context, (void*)action);
 }
 
 //==============================================================================
@@ -2584,7 +2417,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 //==============================================================================
 // IOHIDEventService::getPrimaryUsagePage
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  8);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  7);
 UInt32 IOHIDEventService::getPrimaryUsagePage ()
 {
     UInt32		primaryUsagePage = 0;
@@ -2607,7 +2440,7 @@ UInt32 IOHIDEventService::getPrimaryUsagePage ()
 //==============================================================================
 // IOHIDEventService::getPrimaryUsage
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  9);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  10);
 UInt32 IOHIDEventService::getPrimaryUsage ()
 {
     UInt32		primaryUsage		= 0;
@@ -2630,7 +2463,7 @@ UInt32 IOHIDEventService::getPrimaryUsage ()
 //==============================================================================
 // IOHIDEventService::copyEvent
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  10);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  11);
 IOHIDEvent * IOHIDEventService::copyEvent(
                                 IOHIDEventType              type,
                                 IOHIDEvent *                matching,
@@ -2643,7 +2476,7 @@ IOHIDEvent * IOHIDEventService::copyEvent(
 // IOHIDEventService::openGated
 //==============================================================================
 bool IOHIDEventService::openGated(IOService *                 client,
-                                  IOOptionBits                options,
+                                  IOOptionBits *              pOptions,
                                   void *                      context,
                                   Action                      action)
 {
@@ -2652,7 +2485,7 @@ bool IOHIDEventService::openGated(IOService *                 client,
     bool ret = false;
 
     if ( clientData ) {
-        if ( super::open(client, options, clientData) )
+        if ( super::open(client, *pOptions, clientData) )
             ret = true;
         clientData->release();
     }
@@ -2660,15 +2493,16 @@ bool IOHIDEventService::openGated(IOService *                 client,
     return ret;
 }
 
+
+
 #else
 
-OSMetaClassDefineReservedUnused(IOHIDEventService,  6);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  7);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  8);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  9);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 10);
-#endif /* TARGET_OS_EMBEDDED */
 OSMetaClassDefineReservedUnused(IOHIDEventService, 11);
+#endif /* TARGET_OS_EMBEDDED */
 OSMetaClassDefineReservedUnused(IOHIDEventService, 12);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 13);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 14);

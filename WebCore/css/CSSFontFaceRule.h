@@ -36,9 +36,9 @@ public:
 
     virtual ~CSSFontFaceRule();
 
-    virtual CSSRule::Type type() const OVERRIDE { return FONT_FACE_RULE; }
-    virtual String cssText() const OVERRIDE;
-    virtual void reattach(StyleRuleBase*) OVERRIDE;
+    virtual CSSRule::Type type() const override { return FONT_FACE_RULE; }
+    virtual String cssText() const override;
+    virtual void reattach(StyleRuleBase*) override;
 
     CSSStyleDeclaration* style();
 
@@ -46,7 +46,7 @@ private:
     CSSFontFaceRule(StyleRuleFontFace*, CSSStyleSheet* parent);
 
     RefPtr<StyleRuleFontFace> m_fontFaceRule;
-    mutable RefPtr<StyleRuleCSSStyleDeclaration> m_propertiesCSSOMWrapper;
+    RefPtr<StyleRuleCSSStyleDeclaration> m_propertiesCSSOMWrapper;
 };
 
 } // namespace WebCore

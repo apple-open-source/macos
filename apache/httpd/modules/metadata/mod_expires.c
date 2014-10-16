@@ -217,7 +217,7 @@ static char *check_code(apr_pool_t *p, const char *code, char **real_code)
     char base = 'X';
     int modifier = 0;
     int num = 0;
-    int factor = 0;
+    int factor;
 
     /* 0.0.4 compatibility?
      */
@@ -267,14 +267,10 @@ static char *check_code(apr_pool_t *p, const char *code, char **real_code)
         /* <type>
          */
         word = ap_getword_conf(p, &code);
-        if (word[0]) {
-            /* do nothing */
-        }
-        else {
+        if (word[0] == '\0') {
             return apr_pstrcat(p, "bad expires code, missing <type>", NULL);
         }
 
-        factor = 0;
         if (!strncasecmp(word, "years", 1)) {
             factor = 60 * 60 * 24 * 365;
         }
@@ -402,7 +398,7 @@ static int set_expiration_fields(request_rec *r, const char *code,
 
     switch (code[0]) {
     case 'M':
-        if (r->finfo.filetype == 0) {
+        if (r->finfo.filetype == APR_NOFILE) {
             /* file doesn't exist on disk, so we can't do anything based on
              * modification time.  Note that this does _not_ log an error.
              */
@@ -424,7 +420,7 @@ static int set_expiration_fields(request_rec *r, const char *code,
         /* expecting the add_* routines to be case-hardened this
          * is just a reminder that module is beta
          */
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01500)
                     "internal error: bad expires code: %s", r->filename);
         return HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -557,7 +553,7 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_insert_filter(expires_insert_filter, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-module AP_MODULE_DECLARE_DATA expires_module =
+AP_DECLARE_MODULE(expires) =
 {
     STANDARD20_MODULE_STUFF,
     create_dir_expires_config,  /* dir config creater */

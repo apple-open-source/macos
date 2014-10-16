@@ -636,7 +636,9 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
 				
                         // Check the configuration supports data management on the data interface (that's all we support)
 				
-                    if (!(fCMCapabilities & CM_ManagementData))
+                    XTRACE(this, 0, CMFDesc->bmCapabilities, "getFunctionalDescriptors - CMFDesc->bmCapabilities");
+                    
+                   if (!(fCMCapabilities & CM_ManagementData))
                     {
                         XTRACE(this, 0, 0, "getFunctionalDescriptors - Interface doesn't support Call Management");
                         // return false;				// We'll relax this check too
@@ -1429,20 +1431,13 @@ IOReturn AppleUSBCDCACMControl::setPowerState(unsigned long powerStateOrdinal, I
 				
 				if (fDataDriver)
 				{
-					XTRACE(this, 0, fDataDriver->fThreadSleepCount, "setPowerState - Warning data driver");
-					
-					fDataDriver->fTerminate = true;
-                    fDataDriver->clearSleepingThreads();
+                     fControlInterface->GetDevice()->SuspendDevice(true);
 				}
 				
 				break;
 				
 			case kCDCPowerOnState:
-				
-					// See if we need to reset or reenumerate this device
-				
-				resetDevice();
-				
+                fControlInterface->GetDevice()->SuspendDevice(false);
 				break;
 
 			default:

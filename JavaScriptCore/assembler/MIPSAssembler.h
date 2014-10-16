@@ -151,11 +151,19 @@ public:
     typedef MIPSRegisters::FPRegisterID FPRegisterID;
     typedef SegmentedVector<AssemblerLabel, 64> Jumps;
 
+    static RegisterID firstRegister() { return MIPSRegisters::r0; }
+    static RegisterID lastRegister() { return MIPSRegisters::r31; }
+
+    static FPRegisterID firstFPRegister() { return MIPSRegisters::f0; }
+    static FPRegisterID lastFPRegister() { return MIPSRegisters::f31; }
+
     MIPSAssembler()
         : m_indexOfLastWatchpoint(INT_MIN)
         , m_indexOfTailOfLastWatchpoint(INT_MIN)
     {
     }
+
+    AssemblerBuffer& buffer() { return m_buffer; }
 
     // MIPS instruction opcode field position
     enum {
@@ -183,6 +191,11 @@ public:
     void nop()
     {
         emitInst(0x00000000);
+    }
+
+    void sync()
+    {
+        emitInst(0x0000000f);
     }
 
     /* Need to insert one load data delay nop for mips1.  */
@@ -676,16 +689,6 @@ public:
         return m_buffer.codeSize();
     }
 
-    PassRefPtr<ExecutableMemoryHandle> executableCopy(VM& vm, void* ownerUID, JITCompilationEffort effort)
-    {
-        RefPtr<ExecutableMemoryHandle> result = m_buffer.executableCopy(vm, ownerUID, effort);
-        if (!result)
-            return 0;
-
-        relocateJumps(m_buffer.data(), result->start());
-        return result.release();
-    }
-
     unsigned debugOffset() { return m_buffer.debugOffset(); }
 
     // Assembly helpers for moving data between fp and registers.
@@ -867,28 +870,8 @@ public:
 
     static void cacheFlush(void* code, size_t size)
     {
-#if GCC_VERSION_AT_LEAST(4, 3, 0)
-#if WTF_MIPS_ISA_REV(2) && !GCC_VERSION_AT_LEAST(4, 4, 3)
-        int lineSize;
-        asm("rdhwr %0, $1" : "=r" (lineSize));
-        //
-        // Modify "start" and "end" to avoid GCC 4.3.0-4.4.2 bug in
-        // mips_expand_synci_loop that may execute synci one more time.
-        // "start" points to the fisrt byte of the cache line.
-        // "end" points to the last byte of the line before the last cache line.
-        // Because size is always a multiple of 4, this is safe to set
-        // "end" to the last byte.
-        //
-        intptr_t start = reinterpret_cast<intptr_t>(code) & (-lineSize);
-        intptr_t end = ((reinterpret_cast<intptr_t>(code) + size - 1) & (-lineSize)) - 1;
-        __builtin___clear_cache(reinterpret_cast<char*>(start), reinterpret_cast<char*>(end));
-#else
         intptr_t end = reinterpret_cast<intptr_t>(code) + size;
         __builtin___clear_cache(reinterpret_cast<char*>(code), reinterpret_cast<char*>(end));
-#endif
-#else
-        _flush_cache(reinterpret_cast<char*>(code), size, BCACHE);
-#endif
     }
 
     static ptrdiff_t maxJumpReplacementSize()
@@ -945,7 +928,6 @@ public:
         cacheFlush(insn, 4);
     }
 
-private:
     /* Update each jump in the buffer of newBase.  */
     void relocateJumps(void* oldBase, void* newBase)
     {
@@ -988,6 +970,7 @@ private:
         }
     }
 
+private:
     static int linkWithOffset(MIPSWord* insn, void* to)
     {
         ASSERT((*insn & 0xfc000000) == 0x10000000 // beq

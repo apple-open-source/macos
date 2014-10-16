@@ -1,0 +1,11 @@
+--- lib/IO/Socket/SSL.pm.orig	2014-03-25 12:25:32.000000000 -0700
++++ lib/IO/Socket/SSL.pm	2014-03-25 12:26:00.000000000 -0700
+@@ -37,7 +37,7 @@
+ my $can_npn;         # do we support NPN
+ my $can_ecdh;        # do we support ECDH key exchange
+ BEGIN {
+-    $can_client_sni = Net::SSLeay::OPENSSL_VERSION_NUMBER() >= 0x01000000;
++    $can_client_sni = 1; # radar:16355672
+     $can_server_sni = defined &Net::SSLeay::get_servername;
+     $can_npn        = defined &Net::SSLeay::P_next_proto_negotiated;
+     $can_ecdh       = defined &Net::SSLeay::CTX_set_tmp_ecdh;

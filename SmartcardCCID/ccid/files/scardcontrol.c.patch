@@ -1,0 +1,117 @@
+--- ./examples/scardcontrol.c	2013-03-16 14:52:33.000000000 +0100
++++ ./examples/scardcontrol.c	2013-12-10 09:41:49.000000000 +0100
+@@ -59,7 +59,7 @@
+ #define PCSC_ERROR_EXIT(rv, text) \
+ if (rv != SCARD_S_SUCCESS) \
+ { \
+-	printf(text ": " RED "%s (0x%lX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
++	printf(text ": " RED "%s (0x%ulX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
+ 	goto end; \
+ } \
+ else \
+@@ -67,7 +67,7 @@
+ 
+ #define PCSC_ERROR_CONT(rv, text) \
+ if (rv != SCARD_S_SUCCESS) \
+-	printf(text ": " BLUE "%s (0x%lX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
++	printf(text ": " BLUE "%s (0x%ulX)\n" NORMAL, pcsc_stringify_error(rv), rv); \
+ else \
+ 	printf(text ": " BLUE "OK\n\n" NORMAL);
+ 
+@@ -212,7 +212,7 @@
+ 	rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
+ 	if (rv != SCARD_S_SUCCESS)
+ 	{
+-		printf("SCardEstablishContext: Cannot Connect to Resource Manager %lX\n", rv);
++		printf("SCardEstablishContext: Cannot Connect to Resource Manager %ulX\n", rv);
+ 		return 1;
+ 	}
+ 
+@@ -229,7 +229,7 @@
+ 
+ 	rv = SCardListReaders(hContext, NULL, mszReaders, &dwReaders);
+ 	if (rv != SCARD_S_SUCCESS)
+-		printf("SCardListReader: %lX\n", rv);
++		printf("SCardListReader: %ulX\n", rv);
+ 
+ 	/* Extract readers from the null separated string and get the total
+ 	 * number of readers */
+@@ -285,7 +285,7 @@
+ 	printf("Using reader: " GREEN "%s\n" NORMAL, readers[reader_nb]);
+ 	rv = SCardConnect(hContext, readers[reader_nb], SCARD_SHARE_SHARED,
+ 		SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, &hCard, &dwActiveProtocol);
+-	printf(" Protocol: " GREEN "%ld\n" NORMAL, dwActiveProtocol);
++	printf(" Protocol: " GREEN "%uld\n" NORMAL, dwActiveProtocol);
+ 	PCSC_ERROR_EXIT(rv, "SCardConnect")
+ 
+ #ifdef GET_GEMPC_FIRMWARE
+@@ -313,7 +313,7 @@
+ 		bRecvBuffer, sizeof(bRecvBuffer), &length);
+ 	PCSC_ERROR_EXIT(rv, "SCardControl")
+ 
+-	printf(" TLV (%ld): " GREEN, length);
++	printf(" TLV (%uld): " GREEN, length);
+ 	for (i=0; i<length; i++)
+ 		printf("%02X ", bRecvBuffer[i]);
+ 	printf(NORMAL "\n");
+@@ -373,7 +373,7 @@
+ 			bRecvBuffer, sizeof(bRecvBuffer), &length);
+ 		PCSC_ERROR_CONT(rv, "SCardControl(GET_TLV_PROPERTIES)")
+ 
+-		printf("GET_TLV_PROPERTIES (" GREEN "%ld" NORMAL "): " GREEN, length);
++		printf("GET_TLV_PROPERTIES (" GREEN "%uld" NORMAL "): " GREEN, length);
+ 		for (i=0; i<length; i++)
+ 			printf("%02X ", bRecvBuffer[i]);
+ 		printf(NORMAL "\n");
+@@ -405,7 +405,7 @@
+ 			sizeof(secoder_info), bRecvBuffer, sizeof(bRecvBuffer), &length);
+ 		PCSC_ERROR_CONT(rv, "SCardControl(MCT_READER_DIRECT)")
+ 
+-		printf("MCT_READER_DIRECT (%ld): ", length);
++		printf("MCT_READER_DIRECT (%uld): ", length);
+ 		for (i=0; i<length; i++)
+ 			printf("%02X ", bRecvBuffer[i]);
+ 		printf("\n");
+@@ -419,7 +419,7 @@
+ 			bRecvBuffer, sizeof(bRecvBuffer), &length);
+ 		PCSC_ERROR_CONT(rv, "SCardControl(pin_properties_ioctl)")
+ 
+-		printf("PIN PROPERTIES (" GREEN "%ld" NORMAL "): " GREEN, length);
++		printf("PIN PROPERTIES (" GREEN "%uld" NORMAL "): " GREEN, length);
+ 		for (i=0; i<length; i++)
+ 			printf("%02X ", bRecvBuffer[i]);
+ 		printf(NORMAL "\n");
+@@ -467,10 +467,10 @@
+ 	dwReaderLen = sizeof(pbReader);
+ 	rv = SCardStatus(hCard, pbReader, &dwReaderLen, &dwState, &dwProt,
+ 		pbAtr, &dwAtrLen);
+-	printf(" Reader: %s (length %ld bytes)\n", pbReader, dwReaderLen);
+-	printf(" State: 0x%04lX\n", dwState);
+-	printf(" Prot: %ld\n", dwProt);
+-	printf(" ATR (length %ld bytes):", dwAtrLen);
++	printf(" Reader: %s (length %uld bytes)\n", pbReader, dwReaderLen);
++	printf(" State: 0x%04ulX\n", dwState);
++	printf(" Prot: %uld\n", dwProt);
++	printf(" ATR (length %uld bytes):", dwAtrLen);
+ 	for (i=0; i<dwAtrLen; i++)
+ 		printf(" %02X", pbAtr[i]);
+ 	printf("\n");
+@@ -487,7 +487,7 @@
+ 	rv = SCardReconnect(hCard, SCARD_SHARE_SHARED,
+ 		SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1, SCARD_LEAVE_CARD,
+ 		&dwActiveProtocol);
+-	printf(" Protocol: %ld\n", dwActiveProtocol);
++	printf(" Protocol: %uld\n", dwActiveProtocol);
+ 	PCSC_ERROR_EXIT(rv, "SCardReconnect")
+ 
+ 	switch(dwActiveProtocol)
+@@ -805,7 +805,7 @@
+ 	/* We try to leave things as clean as possible */
+ 	rv = SCardReleaseContext(hContext);
+ 	if (rv != SCARD_S_SUCCESS)
+-		printf("SCardReleaseContext: %s (0x%lX)\n", pcsc_stringify_error(rv),
++		printf("SCardReleaseContext: %s (0x%ulX)\n", pcsc_stringify_error(rv),
+ 			rv);
+ 
+ 	/* free allocated memory */
+

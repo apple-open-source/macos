@@ -6,36 +6,46 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.11</string>
+		<string>1.4.14</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://alioth.debian.org/frs/?group_id=30105&amp;release_id=1192</string>
+		<string>http://pcsclite.alioth.debian.org/ccid.html</string>
 		<key>OpenSourceURL</key>
-		<string>http://alioth.debian.org/frs/download.php/3080/ccid-1.3.11.tar.bz2</string>
+		<string>https://alioth.debian.org/frs/download.php/file/3971/ccid-1.4.14.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2010-04-13</string>
+		<string>2013-12-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>destDirFix.patch - makefile.in, customized destination directory</string>
+			<string>ForceWithoutPcsc.patch - Makefile.am, Makefile.in, define PROVIDED_BY_PCSC</string>
+			<string>ccid-info-plist.patch - Info.plist.src, ifdLogLevel 0x0001</string>
+			<string>osxConfigure.patch - configure, if [[ (&quot;$*&quot; =~ &quot;--no-configure&quot;) ]]; then exit 0 fi</string>
+			<string>scardcontrol.c.patch - scardcontrol.c, fix formating string warnings</string>
+			<string>RSA_SecurID_getpasswd.c.patch - RSA_SecurID_getpasswd.c, fix formating string warnings</string>
+		</array>
 		<key>OpenSourceLicense</key>
-		<string>GPL</string>
+		<string>LGPL</string>
 		<key>OpenSourceLicenseFile</key>
-		<string>ccid.txt</string>
+		<string>SmartcardCCID.txt</string>
 	</dict>
 	<dict>
-        <key>OpenSourceProject</key>
-        <string>libusb</string>
-        <key>OpenSourceVersion</key>
-        <string>0.1.13b</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://www.ellert.se/twain-sane/</string>
-        <key>OpenSourceURL</key>
-        <string>http://www.ellert.se/PKGS/libusb-2008-02-02/src/libusb-2008-02-02-svn-macosx.tar.gz</string>
-        <key>OpenSourceImportDate</key>
-        <string>2008-07-22</string>
-        <key>OpenSourceModifications</key>
-        <array>
-        </array>
-        <key>OpenSourceLicense</key>
-        <string>LGPL</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>libusb.txt</string>
+		<key>OpenSourceProject</key>
+		<string>libusb</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.9</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.libusb.org</string>
+		<key>OpenSourceURL</key>
+		<string>http://sourceforge.net/projects/libusb/files/libusb-1.0/libusb-1.0.9/libusb-1.0.9.tar.bz2/download</string>
+		<key>OpenSourceImportDate</key>
+		<string>2013-12-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>darwin_no_seize.patch - darwin.c, replace USBDeviceOpenSeize by USBDeviceOpen</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>LGPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>SmartcardCCID.txt</string>
 	</dict>
 </array>
 </plist>

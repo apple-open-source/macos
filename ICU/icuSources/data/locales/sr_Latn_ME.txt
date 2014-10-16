@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/sr_Latn_ME.xml
 // *
 // ***************************************************************************
 sr_Latn_ME{
-    Version{"2.0.82.45"}
+    Version{"2.0.90.61"}
     calendar{
         generic{
             DateTimePatterns{
@@ -18,7 +18,7 @@ sr_Latn_ME{
                 "EEEE, dd. MMMM y. G",
                 "d.MM.y. G",
                 "dd.MM.y. G",
-                "d.M.yy. GGGGG",
+                "d.M.y. GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",

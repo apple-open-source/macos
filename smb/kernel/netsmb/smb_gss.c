@@ -61,7 +61,7 @@ extern kern_return_t host_get_special_port(host_priv_t, int, int, ipc_port_t *);
 
 /*
  * smb_gss_negotiate:
- * This routine is called form smb_smb_negotiate to initialize the vc_gss
+ * This routine is called from smb_smb_negotiate to initialize the vc_gss
  * structure in a vc for doing extened security. We asn.1 decode the security
  * blob passed in, and get the task special port for gssd.
  */
@@ -305,18 +305,29 @@ smb_gss_init(struct smb_vc *vcp, uid_t uid)
 	if (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS) {
 		flags |= GSSD_ANON_FLAG;
 	}
-	/* lha says we should set this bit when doing signing */
-	if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
-		flags |= GSSD_INTEG_FLAG; /* Doing signing */
-	}
-	/* See if its ok to touch the home directory */
-	if (vcp->vc_hflags2 & SMBV_HOME_ACCESS_OK) {
-		gssd_flags |= GSSD_HOME_ACCESS_OK; 
-	}
+    
+    /*
+     * lha says we should set this bit when doing signing.
+     */
+    if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
+        flags |= GSSD_INTEG_FLAG; /* Doing signing */
+    }
+    
+    /*
+     * If SMB 2/3, then we will need signing to do the validate negotiate
+     * but only if its not Anonymous and not Guest
+     */
+    if ((vcp->vc_flags & SMBV_SMB2) &&
+        !(vcp->vc_flags & SMBV_ANONYMOUS_ACCESS) &&
+        !(vcp->vc_flags & SMBV_GUEST_ACCESS)) {
+        flags |= GSSD_INTEG_FLAG; /* Doing signing */
+    }
+    
 	/* The server doesn't support NTLMSSP, send RAW NTLM */
 	if (vcp->vc_flags & SMBV_RAW_NTLMSSP) {
 		mechtype = GSSD_NTLM_MECH;
-	} else {
+	}
+    else {
 		mechtype = GSSD_SPNEGO_MECH;
 	}
 	
@@ -382,6 +393,11 @@ retry:
             if (vcp->vc_mackeylen > SMB2_KRB5_SESSION_KEYLEN) {
                 vcp->vc_mackeylen = SMB2_KRB5_SESSION_KEYLEN;
             }
+        }
+        
+        /* Derive SMB 3 keys from the session key from gssd */
+        if (vcp->vc_flags & (SMBV_SMB30 | SMBV_SMB302)) {
+            smb3_derive_keys(vcp);
         }
         
 		SMBDEBUG("%s keylen = %d seqno = %d\n", vcp->vc_srvname, keylen, vcp->vc_seqno);

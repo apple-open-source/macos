@@ -1,6 +1,6 @@
 /*
  ******************************************************************************
- * Copyright (C) 2007-2013, International Business Machines Corporation
+ * Copyright (C) 2007-2014, International Business Machines Corporation
  * and others. All Rights Reserved.
  ******************************************************************************
  *
@@ -54,7 +54,7 @@ static icu::CalendarAstronomer *gChineseCalendarAstro = NULL;
 static icu::CalendarCache *gChineseCalendarWinterSolsticeCache = NULL;
 static icu::CalendarCache *gChineseCalendarNewYearCache = NULL;
 static icu::TimeZone *gChineseCalendarZoneAstroCalc = NULL;
-static UBool gChineseCalendarZoneAstroCalcInitialized = FALSE;
+static icu::UInitOnce gChineseCalendarZoneAstroCalcInitOnce = U_INITONCE_INITIALIZER;
 
 /**
  * The start year of the Chinese calendar, the 61st year of the reign
@@ -97,7 +97,7 @@ static UBool calendar_chinese_cleanup(void) {
         delete gChineseCalendarZoneAstroCalc;
         gChineseCalendarZoneAstroCalc = NULL;
     }
-    gChineseCalendarZoneAstroCalcInitialized = FALSE;
+    gChineseCalendarZoneAstroCalcInitOnce.reset();
     return TRUE;
 }
 U_CDECL_END
@@ -150,20 +150,13 @@ const char *ChineseCalendar::getType() const {
     return "chinese";
 }
 
+static void U_CALLCONV initChineseCalZoneAstroCalc() {
+    gChineseCalendarZoneAstroCalc = new SimpleTimeZone(CHINA_OFFSET, UNICODE_STRING_SIMPLE("CHINA_ZONE") );
+    ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
+}
+
 const TimeZone* ChineseCalendar::getChineseCalZoneAstroCalc(void) const {
-    UBool initialized;
-    UMTX_CHECK(&astroLock, gChineseCalendarZoneAstroCalcInitialized, initialized);
-    if (!initialized) {
-        umtx_lock(&astroLock);
-        {
-            if (!gChineseCalendarZoneAstroCalcInitialized) {
-                gChineseCalendarZoneAstroCalc = new SimpleTimeZone(CHINA_OFFSET, UNICODE_STRING_SIMPLE("CHINA_ZONE") );
-                gChineseCalendarZoneAstroCalcInitialized = TRUE;
-                ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
-            }
-        }
-        umtx_unlock(&astroLock);
-    }
+    umtx_initOnce(gChineseCalendarZoneAstroCalcInitOnce, &initChineseCalZoneAstroCalc);
     return gChineseCalendarZoneAstroCalc;
 }
 
@@ -489,7 +482,7 @@ double ChineseCalendar::daysToMillis(double days) const {
         UErrorCode status = U_ZERO_ERROR;
         fZoneAstroCalc->getOffset(millis, FALSE, rawOffset, dstOffset, status);
         if (U_SUCCESS(status)) {
-        	return millis - (double)(rawOffset + dstOffset);
+            return millis - (double)(rawOffset + dstOffset);
         }
     }
     return millis - (double)CHINA_OFFSET;
@@ -506,7 +499,7 @@ double ChineseCalendar::millisToDays(double millis) const {
         UErrorCode status = U_ZERO_ERROR;
         fZoneAstroCalc->getOffset(millis, FALSE, rawOffset, dstOffset, status);
         if (U_SUCCESS(status)) {
-        	return ClockMath::floorDivide(millis + (double)(rawOffset + dstOffset), kOneDay);
+            return ClockMath::floorDivide(millis + (double)(rawOffset + dstOffset), kOneDay);
         }
     }
     return ClockMath::floorDivide(millis + (double)CHINA_OFFSET, kOneDay);
@@ -516,6 +509,23 @@ double ChineseCalendar::millisToDays(double millis) const {
 // Astronomical computations
 //------------------------------------------------------------------
 
+// bit array for gregorian 1900-2100 indicating years in
+// which the linear estimate needs to be adjusted by -1
+static const uint16_t winterSolsticeAdj[] = {
+    0x0001,     // 1900-1915, deltas for 1900
+    0x0444,     // 1916-1931, deltas for 1918, 1922, 1926
+    0x0000,     // 1932-1947
+    0x8880,     // 1948-1963, deltas for 1955, 1959, 1963
+    0x0000,     // 1964-1979
+    0x1100,     // 1980-1995, deltas for 1988, 1992
+    0x0011,     // 1996-2011, deltas for 1996, 2000
+    0x2200,     // 2012-2027, deltas for 2021, 2025
+    0x0022,     // 2028-2043, deltas for 2029, 2033
+    0x4000,     // 2044-2059, deltas for 2058
+    0x0444,     // 2060-2075, deltas for 2062, 2066, 2070
+    0x8000,     // 2076-2091, deltas for 2091
+    0x0088,     // 2092-2100, deltas for 2095, 2099
+};
 
 /**
  * Return the major solar term on or after December 15 of the given
@@ -526,6 +536,19 @@ double ChineseCalendar::millisToDays(double millis) const {
  * winter solstice of the given year
  */
 int32_t ChineseCalendar::winterSolstice(int32_t gyear) const {
+    if (gyear >= 1900 && gyear <= 2100) {
+        // Don't use cache, just return linear estimate + table correction
+        int32_t gyearadj = gyear - 1900;
+        int32_t result = (int32_t)(365.243*((double)gyearadj) - 0.3) - 25211;
+        uint16_t bitmap = winterSolsticeAdj[gyearadj / 16];
+        if (bitmap != 0) {
+            uint16_t bitmask = 1 << (gyearadj % 16);
+            if ((bitmask & bitmap) != 0) {
+                result--;
+            }
+        }
+        return result;
+    }
 
     UErrorCode status = U_ZERO_ERROR;
     int32_t cacheValue = CalendarCache::get(&gChineseCalendarWinterSolsticeCache, gyear, status);
@@ -566,15 +589,23 @@ int32_t ChineseCalendar::winterSolstice(int32_t gyear) const {
  * new moon after or before <code>days</code>
  */
 int32_t ChineseCalendar::newMoonNear(double days, UBool after) const {
-    
-    umtx_lock(&astroLock);
-    if(gChineseCalendarAstro == NULL) {
-        gChineseCalendarAstro = new CalendarAstronomer();
-        ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
+    double ms = daysToMillis(days);
+    // Try to get the new moon via static function directly from the table in
+    // CalendarAstronomer (for approx gregorian range 1900-2100) without having
+    // to use a CalendarAstronomer instance which requires a lock. This still
+    // involves extra conversion to/from millis. If static function returns 0
+    // we are out of its range and need to use the full machinery.
+    UDate newMoon = CalendarAstronomer::getNewMoonTimeInRange(ms, after);
+    if (newMoon == 0.0) {
+        umtx_lock(&astroLock);
+        if(gChineseCalendarAstro == NULL) {
+            gChineseCalendarAstro = new CalendarAstronomer();
+            ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
+        }
+        gChineseCalendarAstro->setTime(ms);
+        newMoon = gChineseCalendarAstro->getMoonTime(CalendarAstronomer::NEW_MOON(), after);
+        umtx_unlock(&astroLock);
     }
-    gChineseCalendarAstro->setTime(daysToMillis(days));
-    UDate newMoon = gChineseCalendarAstro->getMoonTime(CalendarAstronomer::NEW_MOON(), after);
-    umtx_unlock(&astroLock);
     
     return (int32_t) millisToDays(newMoon);
 }
@@ -599,14 +630,16 @@ int32_t ChineseCalendar::synodicMonthsBetween(int32_t day1, int32_t day2) const 
  */
 int32_t ChineseCalendar::majorSolarTerm(int32_t days) const {
     
-    umtx_lock(&astroLock);
-    if(gChineseCalendarAstro == NULL) {
-        gChineseCalendarAstro = new CalendarAstronomer();
-        ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
-    }
-    gChineseCalendarAstro->setTime(daysToMillis(days));
-    UDate solarLongitude = gChineseCalendarAstro->getSunLongitude();
-    umtx_unlock(&astroLock);
+    double ms = daysToMillis(days);
+    UDate solarLongitude = CalendarAstronomer::getSunLongitudeForTime(ms);
+
+    // There was almost never any benefit to using the CalendarAstronomer instance;
+    // it could cache intermediate results, but we rarely used it multiple times in
+    // succession for the same setTime value, so the intermediate results got
+    // discarded anyway.
+    //
+    // Deleted call to gChineseCalendarAstro->getSunLongitude() now that
+    // we use CalendarAstronomer::getSunLongitudeForTime()
 
     // Compute (floor(solarLongitude / (pi/6)) + 2) % 12
     int32_t term = ( ((int32_t)(6 * solarLongitude / CalendarAstronomer::PI)) + 2 ) % 12;
@@ -752,6 +785,21 @@ void ChineseCalendar::computeChineseFields(int32_t days, int32_t gyear, int32_t 
 // Fields to time
 //------------------------------------------------------------------
 
+// for gyear 1900 through 2100, corrections to linear estimate of newYear
+static const int8_t newYearAdj[] = {
+     -5,  14,   3,  -7,  11,  -1, -11,   8,  -3, -14,   5,  -6,  13,   1, -10,   9,  -1, -13,   6,  -4, // 1900-1919
+     15,   3,  -8,  11,   0, -12,   8,  -3, -13,   5,  -6,  12,   1, -10,   9,  -1, -12,   6,  -5,  14, // 1920-1939
+      3,  -9,  10,   0, -11,   9,  -3, -14,   5,  -6,  12,   1,  -9,  10,  -2, -12,   7,  -4,  13,   3, // 1940-1959
+     -8,  11,   0, -11,   8,  -2, -15,   4,  -6,  13,   1,  -9,  10,  -1, -13,   6,  -5,  14,   2,  -8, // 1960-1979
+     11,   1, -11,   8,  -3,  16,   5,  -7,  12,   2,  -8,  10,  -1, -12,   6,  -5,  14,   3,  -7,  11, // 1980-1999
+      0, -11,   8,  -4, -14,   5,  -6,  13,   2,  -9,  10,  -2, -13,   6,  -4,  14,   3,  -7,  12,   0, // 2000-2019
+    -11,   8,  -3, -14,   5,  -6,  13,   2, -10,   9,  -1, -12,   6,  -4,  15,   4,  -8,  11,   0, -11, // 2020-2039
+      7,  -3, -13,   6,  -6,  13,   2,  -9,   9,  -2, -12,   7,  -4,  15,   4,  -7,  10,   0, -11,   8, // 2040-2059
+     -3, -14,   5,  -6,  12,   1,  -9,  10,  -1, -12,   7,  -4,  15,   3,  -8,  11,   1, -11,   8,  -2, // 2060-2079
+    -13,   5,  -6,  13,   2,  -9,  10,  -1, -11,   6,  -5,  14,   3,  -8,  11,   1, -10,   8,  -3, -14, // 2080-2099
+      5 // 2100
+};
+
 /**
  * Return the Chinese new year of the given Gregorian year.
  * @param gyear a Gregorian year
@@ -759,6 +807,12 @@ void ChineseCalendar::computeChineseFields(int32_t days, int32_t gyear, int32_t 
  * Chinese new year of the given year (this will be a new moon)
  */
 int32_t ChineseCalendar::newYear(int32_t gyear) const {
+    if (gyear >= 1900 && gyear <= 2100) {
+        // Don't use cache, just return linear estimate + table correction
+        int32_t gyearadj = gyear - 1900;
+        return (int32_t)(365.244*((double)gyearadj)) - 25532 + newYearAdj[gyearadj];
+    }
+
     UErrorCode status = U_ZERO_ERROR;
     int32_t cacheValue = CalendarCache::get(&gChineseCalendarNewYearCache, gyear, status);
 
@@ -842,11 +896,10 @@ ChineseCalendar::inDaylightTime(UErrorCode& status) const
 }
 
 // default century
-const UDate     ChineseCalendar::fgSystemDefaultCentury        = DBL_MIN;
-const int32_t   ChineseCalendar::fgSystemDefaultCenturyYear    = -1;
 
-UDate           ChineseCalendar::fgSystemDefaultCenturyStart       = DBL_MIN;
-int32_t         ChineseCalendar::fgSystemDefaultCenturyStartYear   = -1;
+static UDate     gSystemDefaultCenturyStart       = DBL_MIN;
+static int32_t   gSystemDefaultCenturyStartYear   = -1;
+static icu::UInitOnce gSystemDefaultCenturyInitOnce = U_INITONCE_INITIALIZER;
 
 
 UBool ChineseCalendar::haveDefaultCentury() const
@@ -864,64 +917,37 @@ int32_t ChineseCalendar::defaultCenturyStartYear() const
     return internalGetDefaultCenturyStartYear();
 }
 
-UDate
-ChineseCalendar::internalGetDefaultCenturyStart() const
-{
-    // lazy-evaluate systemDefaultCenturyStart
-    UBool needsUpdate;
-    UMTX_CHECK(NULL, (fgSystemDefaultCenturyStart == fgSystemDefaultCentury), needsUpdate);
-
-    if (needsUpdate) {
-        initializeSystemDefaultCentury();
-    }
-
-    // use defaultCenturyStart unless it's the flag value;
-    // then use systemDefaultCenturyStart
-
-    return fgSystemDefaultCenturyStart;
-}
-
-int32_t
-ChineseCalendar::internalGetDefaultCenturyStartYear() const
-{
-    // lazy-evaluate systemDefaultCenturyStartYear
-    UBool needsUpdate;
-    UMTX_CHECK(NULL, (fgSystemDefaultCenturyStart == fgSystemDefaultCentury), needsUpdate);
-
-    if (needsUpdate) {
-        initializeSystemDefaultCentury();
-    }
-
-    // use defaultCenturyStart unless it's the flag value;
-    // then use systemDefaultCenturyStartYear
-
-    return    fgSystemDefaultCenturyStartYear;
-}
-
-void
-ChineseCalendar::initializeSystemDefaultCentury()
+static void U_CALLCONV initializeSystemDefaultCentury()
 {
     // initialize systemDefaultCentury and systemDefaultCenturyYear based
     // on the current time.  They'll be set to 80 years before
     // the current time.
     UErrorCode status = U_ZERO_ERROR;
     ChineseCalendar calendar(Locale("@calendar=chinese"),status);
-    if (U_SUCCESS(status))
-    {
+    if (U_SUCCESS(status)) {
         calendar.setTime(Calendar::getNow(), status);
         calendar.add(UCAL_YEAR, -80, status);
-        UDate    newStart =  calendar.getTime(status);
-        int32_t  newYear  =  calendar.get(UCAL_YEAR, status);
-        umtx_lock(NULL);
-        if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
-        {
-            fgSystemDefaultCenturyStartYear = newYear;
-            fgSystemDefaultCenturyStart = newStart;
-        }
-        umtx_unlock(NULL);
+        gSystemDefaultCenturyStart     = calendar.getTime(status);
+        gSystemDefaultCenturyStartYear = calendar.get(UCAL_YEAR, status);
     }
     // We have no recourse upon failure unless we want to propagate the failure
     // out.
+}
+
+UDate
+ChineseCalendar::internalGetDefaultCenturyStart() const
+{
+    // lazy-evaluate systemDefaultCenturyStart
+    umtx_initOnce(gSystemDefaultCenturyInitOnce, &initializeSystemDefaultCentury);
+    return gSystemDefaultCenturyStart;
+}
+
+int32_t
+ChineseCalendar::internalGetDefaultCenturyStartYear() const
+{
+    // lazy-evaluate systemDefaultCenturyStartYear
+    umtx_initOnce(gSystemDefaultCenturyInitOnce, &initializeSystemDefaultCentury);
+    return    gSystemDefaultCenturyStartYear;
 }
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ChineseCalendar)

@@ -1,7 +1,7 @@
 /* testsuite.c -- Stress the library a little
  * Rob Siemborski
  * Tim Martin
- * $Id: testsuite.c,v 1.6 2006/01/20 20:20:33 snsimon Exp $
+ * $Id: testsuite.c,v 1.49 2011/11/09 15:49:47 murch Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -63,11 +63,9 @@
 #include <stdlib.h>
 
 #include <sasl.h>
+#include <saslplug.h>
 #include <saslutil.h>
 #include <prop.h>
-#include <md5global.h>
-#include <md5.h>
-#include <hmac-md5.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -97,11 +95,12 @@ char myhostname[1024+1];
 #define REALLY_LONG_LENGTH  32000
 #define REALLY_LONG_BACKOFF  2000
 
-const char *username = "shadow";
+const char *username = "ken";
 const char *nonexistant_username = "ABCDEFGHIJ";
-const char *authname = "shadow";
-const char *proxyasname = "shadowproxy";
+const char *authname = "ken";
+const char *proxyasname = "kenproxy";
 const char *password = "1234";
+sasl_secret_t * g_secret = NULL;
 const char *cu_plugin = "INTERNAL";
 char other_result[1024];
 
@@ -170,8 +169,6 @@ int test_getrealm(void *context __attribute__((unused)), int id,
     return SASL_OK;
 }
 
-/* yeah, yeah, this leaks memory, but we don't really care in
- * the testsuite */
 int test_getsecret(sasl_conn_t *conn __attribute__((unused)),
 		   void *context __attribute__((unused)), int id,
 		   sasl_secret_t **psecret) 
@@ -179,9 +176,7 @@ int test_getsecret(sasl_conn_t *conn __attribute__((unused)),
     if(id != SASL_CB_PASS) fatal("test_getsecret not looking for pass");
     if(!psecret) return SASL_BADPARAM;
 
-    *psecret = malloc(sizeof(sasl_secret_t) + strlen(password));
-    (*psecret)->len = (unsigned) strlen(password);
-    strcpy((*psecret)->data, password);
+    *psecret = g_secret;
 
     return SASL_OK;
 }
@@ -209,13 +204,13 @@ int test_getsimple(void *context __attribute__((unused)), int id,
 /* callbacks we support */
 static sasl_callback_t client_callbacks[] = {
   {
-    SASL_CB_GETREALM, test_getrealm, NULL
+    SASL_CB_GETREALM, (sasl_callback_ft)test_getrealm, NULL
   }, {
-    SASL_CB_USER, test_getsimple, NULL
+    SASL_CB_USER, (sasl_callback_ft)test_getsimple, NULL
   }, {
-    SASL_CB_AUTHNAME, test_getsimple, NULL
+    SASL_CB_AUTHNAME, (sasl_callback_ft)test_getsimple, NULL
   }, {
-    SASL_CB_PASS, test_getsecret, NULL    
+    SASL_CB_PASS, (sasl_callback_ft)test_getsecret, NULL    
   }, {
     SASL_CB_LIST_END, NULL, NULL
   }
@@ -250,7 +245,7 @@ void *test_malloc(size_t size)
     out = malloc(size);
 
     if(DETAILED_MEMORY_DEBUGGING)
-	fprintf(stderr, "  %X = malloc(%u)\n", (unsigned)out, (unsigned) size);
+	fprintf(stderr, "  %p = malloc(%u)\n", out, (unsigned) size);
     
     if(out) {
 	new_data = malloc(sizeof(mem_info_t));
@@ -273,8 +268,8 @@ void *test_realloc(void *ptr, size_t size)
     out = realloc(ptr, size);
     
     if(DETAILED_MEMORY_DEBUGGING)
-	fprintf(stderr, "  %X = realloc(%X,%d)\n",
-		(unsigned)out, (unsigned)ptr, size);
+	fprintf(stderr, "  %p = realloc(%p,%d)\n",
+		out, ptr, size);
 
     prev = &head; cur = head;
     
@@ -313,8 +308,8 @@ void *test_calloc(size_t nmemb, size_t size)
     out = calloc(nmemb, size);
 
     if(DETAILED_MEMORY_DEBUGGING)    
-	fprintf(stderr, "  %X = calloc(%d, %d)\n",
-		(unsigned)out, nmemb, size);
+	fprintf(stderr, "  %p = calloc(%d, %d)\n",
+		out, nmemb, size);
 
     if(out) {
 	new_data = malloc(sizeof(mem_info_t));
@@ -335,8 +330,8 @@ void test_free(void *ptr)
     mem_info_t **prev, *cur;
 
     if(DETAILED_MEMORY_DEBUGGING)
-	fprintf(stderr, "  free(%X)\n",
-		(unsigned)ptr);
+	fprintf(stderr, "  free(%p)\n",
+		ptr);
 
     prev = &head; cur = head;
     
@@ -375,7 +370,7 @@ int mem_stat()
     
     fprintf(stderr, "  Currently Still Allocated:\n");
     for(cur = head; cur; cur = cur->next) {
-	fprintf(stderr, "    %X (%5d)\t", (unsigned)cur->addr, cur->size);
+	fprintf(stderr, "    %p (%5d)\t", cur->addr, cur->size);
 	for(data = (unsigned char *) cur->addr,
 		n = 0; n < (cur->size > 12 ? 12 : cur->size); n++) {
 	    if (isprint((int) data[n]))
@@ -482,7 +477,7 @@ int good_getopt(void *context __attribute__((unused)),
 }
 
 static struct sasl_callback goodsasl_cb[] = {
-    { SASL_CB_GETOPT, &good_getopt, NULL },
+    { SASL_CB_GETOPT, (sasl_callback_ft)&good_getopt, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -500,7 +495,7 @@ int givebadpath(void * context __attribute__((unused)),
 }
 
 static struct sasl_callback withbadpathsasl_cb[] = {
-    { SASL_CB_GETPATH, &givebadpath, NULL },
+    { SASL_CB_GETPATH, (sasl_callback_ft)&givebadpath, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -513,7 +508,7 @@ int giveokpath(void * context __attribute__((unused)),
 }
 
 static struct sasl_callback withokpathsasl_cb[] = {
-    { SASL_CB_GETPATH, &giveokpath, NULL },
+    { SASL_CB_GETPATH, (sasl_callback_ft)&giveokpath, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -546,8 +541,8 @@ static int proxy_authproc(sasl_conn_t *conn,
 }
 
 static struct sasl_callback goodsaslproxy_cb[] = {
-    { SASL_CB_PROXY_POLICY, &proxy_authproc, NULL },
-    { SASL_CB_GETOPT, &good_getopt, NULL },
+    { SASL_CB_PROXY_POLICY, (sasl_callback_ft)&proxy_authproc, NULL },
+    { SASL_CB_GETOPT, (sasl_callback_ft)&good_getopt, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -708,8 +703,9 @@ void test_listmech(void)
     sasl_conn_t *saslconn, *cconn;
     int result;
     const char *str = NULL;
-    unsigned int plen;
-    unsigned lup, flag, pcount;
+    unsigned plen;
+    unsigned lup, flag;
+    int pcount;
     const char **list;
 
     /* test without initializing library */
@@ -931,7 +927,7 @@ void test_random(void)
     
     for (lup=0;lup<(int) sizeof(buf);lup++)
     {
-	buf[lup] = (rand() % 256);	
+	buf[lup] = (char) (rand() % 256);	
     }
     sasl_randseed(rpool, buf, sizeof(buf));
     sasl_churn(rpool, buf, sizeof(buf));
@@ -956,9 +952,9 @@ void test_64(void)
     
     if (sasl_encode64(orig, sizeof(orig), enc, sizeof(enc), &encsize)!=SASL_OK) 
 	fatal("encode64 failed when we didn't expect it to");
-    
+
     if (sasl_decode64(enc, encsize, enc, 8192, &encsize)!=SASL_OK)
-	fatal("decode failed when didn't expect");
+	fatal("decode64 failed when we didn't expect it to");
     
     if (encsize != sizeof(orig)) fatal("Now has different size");
     
@@ -978,7 +974,48 @@ void test_64(void)
 
     if (sasl_encode64(orig, sizeof(orig), enc, sizeof(enc), NULL)!=SASL_OK)
 	fatal("Didn't allow null return size");
-    
+
+    /* New tests in 2.1.22 */
+    for (lup=0;lup<(int) sizeof(orig);lup++) {
+	enc[lup] = 'A';
+    }
+
+    if (sasl_decode64(enc, 3, orig, 8192, &encsize) != SASL_CONTINUE)
+	fatal("decode64 succeded on a 3 byte buffer when it shouldn't have");
+
+    enc[3] = '\r';
+    enc[4] = '\n';
+
+    if (sasl_decode64(enc, 4, orig, 8192, &encsize) == SASL_OK)
+	fatal("decode64 succeded on a 4 byte buffer with a bare CR");
+
+    if (sasl_decode64(enc, 5, orig, 8192, &encsize) == SASL_OK)
+	fatal("decode64 succeded on a 5 byte buffer with CRLF");
+
+    enc[2] = '=';
+    enc[3] = '=';
+    enc[4] = '=';
+
+    if (sasl_decode64(enc, 4, orig, 8192, &encsize) != SASL_OK)
+	fatal("decode64 failed on a 4 byte buffer with a terminating =");
+
+    if (sasl_decode64(enc, 5, orig, 8192, &encsize) != SASL_BADPROT)
+	fatal("decode64 did not return SASL_CONTINUE on a 5 byte buffer with a terminating =");
+
+    /* Test for invalid character after the terminating '=' */
+    enc[3] = '*';
+
+    if (sasl_decode64(enc, 4, orig, 8192, &encsize) == SASL_OK)
+	fatal("decode64 failed on a 4 byte buffer with invalid character a terminating =");
+
+    /* Test for '=' in the middle of an encoded string */
+    enc[3] = 'B';
+
+    if (sasl_decode64(enc, 4, orig, 8192, &encsize) == SASL_OK)
+	fatal("decode64 succeed on a 4 byte buffer with a data after a terminating =");
+
+    if (sasl_decode64(enc, 0, orig, 8192, &encsize) != SASL_OK)
+	fatal("decode64 should have succeeded on an empty buffer");
 }
 
 /* This isn't complete, but then, what in the testsuite is? */
@@ -1001,7 +1038,8 @@ void test_props(void)
 	"a",
 	"b",
 	"c",
-	"defghijklmnop"
+	"defghijklmnop",
+	NULL
     };
 
     const char *short_requests[] = {
@@ -1286,7 +1324,7 @@ void sendbadsecond(char *mech, void *rock)
 
     printf("%s --> start\n",mech);
     
-    if (strcmp(mech,"GSSAPI")==0) service = gssapi_service;
+    if (strncmp(mech,"GSS",3)==0) service = gssapi_service;
 
     if (sasl_client_init(client_interactions)!=SASL_OK) fatal("Unable to init client");
 
@@ -1536,7 +1574,7 @@ int doauth(char *mech, sasl_conn_t **server_conn, sasl_conn_t **client_conn,
 
     if(!server_conn || !client_conn) return SASL_BADPARAM;
     
-    if (strcmp(mech,"GSSAPI")==0) service = gssapi_service;
+    if (strncmp(mech,"GSS",3)==0) service = gssapi_service;
 
     result = sasl_client_init((c_calls ? c_calls : client_interactions));
     if (result!=SASL_OK) {
@@ -1691,7 +1729,7 @@ int doauth_noclientfirst(char *mech, sasl_conn_t **server_conn,
 
     if(!server_conn || !client_conn) return SASL_BADPARAM;
     
-    if (strcmp(mech,"GSSAPI")==0) service = gssapi_service;
+    if (strncmp(mech,"GSS",3)==0) service = gssapi_service;
 
 
     if (sasl_client_init((c_calls ? c_calls : client_interactions))!=SASL_OK)
@@ -1824,7 +1862,7 @@ int doauth_serverlast(char *mech, sasl_conn_t **server_conn,
 
     if(!server_conn || !client_conn) return SASL_BADPARAM;
     
-    if (strcmp(mech,"GSSAPI")==0) service = gssapi_service;
+    if (strncmp(mech,"GSS",3)==0) service = gssapi_service;
 
     if (sasl_client_init((c_calls ? c_calls : client_interactions))!=SASL_OK)
 	fatal("unable to init client");
@@ -1962,7 +2000,7 @@ int doauth_noclientfirst_andserverlast(char *mech, sasl_conn_t **server_conn,
 
     if(!server_conn || !client_conn) return SASL_BADPARAM;
     
-    if (strcmp(mech,"GSSAPI")==0) service = gssapi_service;
+    if (strncmp(mech,"GSS",3)==0) service = gssapi_service;
 
     if (sasl_client_init((c_calls ? c_calls : client_interactions))!=SASL_OK)
 	fatal("unable to init client");
@@ -2306,7 +2344,6 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
     sasl_encode(NULL, txstring, (unsigned) strlen(txstring), &out, &outlen);
     sasl_encode(cconn, NULL, (unsigned) strlen(txstring), &out, &outlen);
     sasl_encode(cconn, txstring, 0, &out, &outlen);
-    sasl_encode(cconn, txstring, (unsigned)-1, &out, &outlen);
     sasl_encode(cconn, txstring, (unsigned) strlen(txstring), NULL, &outlen);
     sasl_encode(cconn, txstring, (unsigned) strlen(txstring), &out, NULL);
     
@@ -2947,6 +2984,10 @@ int main(int argc, char **argv)
 	    break;
     }
 
+    g_secret = malloc(sizeof(sasl_secret_t) + strlen(password));
+    g_secret->len = (unsigned) strlen(password);
+    strcpy(g_secret->data, password);
+
     if(random_tests < 0) random_tests = 25;
 
     notes();
@@ -3079,6 +3120,8 @@ int main(int argc, char **argv)
     printf("Tests of security layer... ok\n");
 
     printf("All tests seemed to go ok (i.e. we didn't crash)\n");
+
+    free(g_secret);
 
     exit(0);
 }

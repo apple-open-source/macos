@@ -90,13 +90,8 @@ struct ps_prochandle;
 /*
  * Function prototypes for routines in the process control package.
  */
-#if !defined(__APPLE__)
-    extern struct ps_prochandle *Pcreate(const char *, char *const *,
-                                         int *, char *, size_t);
-#else
-    extern struct ps_prochandle *Pcreate(const char *, char *const *,
-                                         int *, char *, size_t, cpu_type_t);
-#endif
+extern struct ps_prochandle *Pcreate(const char *, char *const *,
+                                     int *, char *, size_t, cpu_type_t);
 extern const char *Pcreate_error(int);
 
 extern struct ps_prochandle *Pgrab(pid_t, int, int *);
@@ -183,7 +178,6 @@ extern const prmap_t *Plmid_to_map(struct ps_prochandle *, Lmid_t, const char *,
 extern char *Pobjname(struct ps_prochandle *, mach_vm_address_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, mach_vm_address_t, Lmid_t *);
 
-#if defined(__APPLE__)
         
 /*
  * Apple only objc iteration interface.  
@@ -194,7 +188,6 @@ extern int Pobjc_method_iter(struct ps_prochandle *, proc_objc_f* , void *);
 
 typedef void Phandler_func_t(void *);
 extern void Pactivityserver(struct ps_prochandle *, Phandler_func_t, void *);        
-#endif
         
 /*
  * Symbol table iteration interface.  The special lmid constants LM_ID_BASE,

@@ -1,0 +1,136 @@
+#! /bin/csh -f
+#
+# Run one iteration of PKCS8 portion of import/export tests.
+# Only used as a subroutine call from importExportPkcs8.
+#
+# Usage
+#   impExpOpensslEcdsaTool keySizeBits  quiet(YES|NO) noACL(YES|NO) securePhrase(YES|NO) noClean(YES|NO)
+#
+if ( $#argv != 5 ) then
+	exit(1)
+endif
+
+set KEYBITS=$argv[1]
+set QUIET=$argv[2]
+set QUIET_ARG=
+set QUIET_ARG_N=
+if ($QUIET == YES) then
+	set QUIET_ARG=q
+	set QUIET_ARG_N=-q
+endif
+set NOACL_ARG=
+if ($argv[3] == YES) then
+	set NOACL_ARG=-n
+endif
+set SECURE_PHRASE_ARG=
+if ($argv[4] == YES) then
+	set SECURE_PHRASE_ARG=-Z
+endif
+set NOCLEAN=$argv[5]
+
+set OS_CURVE=
+switch ( $KEYBITS )
+	case 256:
+		set OS_CURVE = prime256v1
+		breaksw
+	case 384:
+		set OS_CURVE = secp384r1
+		breaksw
+	case 521:
+		set OS_CURVE = secp521r1
+		breaksw
+	default:
+		echo "***Unknown key size"
+		exit(1)
+endsw
+
+source setupCommon
+
+set PASSWORD=foobar
+set OS_PWD_ARG="-passout pass:$PASSWORD"
+
+set PLAINTEXT=somePlainText
+set SIGFILE=${BUILD_DIR}/ecdsaSig
+set KEYBASE=${BUILD_DIR}/opensslGen
+# formats of these - with _priv.der, _pub.der suffixes - dictated by rsatool
+set KEYFILE_PRIV=${KEYBASE}_priv.der
+set KEYFILE_PUB=${KEYBASE}_pub.der
+set EXPORT_KEYBASE=${BUILD_DIR}/ecdsaExpFromP8
+set EXPORT_KEYFILE=${EXPORT_KEYBASE}_priv.der
+set P8FILE=${BUILD_DIR}/ecdsaPriv.p8
+
+# empty the keychain 
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+
+# generate the single key 
+set cmd="$OPENSSL ecparam -genkey -outform DER -out $KEYFILE_PRIV -name $OS_CURVE -noout"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# sign with CDSA
+set cmd="$RSATOOL s a=e k=$KEYBASE v=o p=$PLAINTEXT s=$SIGFILE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# Public key in openssl form is the unified key produced by openssl
+set cmd="cp $KEYFILE_PRIV $KEYFILE_PUB"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# verify with CDSA
+set cmd="$RSATOOL v a=e k=$KEYBASE b=L p=$PLAINTEXT s=$SIGFILE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# Use openssl to create a p8 with the private key
+set cmd="$OPENSSL pkcs8 -topk8 -inform DER -outform DER -in $KEYFILE_PRIV -out $P8FILE $OS_PWD_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# Import that p8, no ACL, extractable in the clear
+set cmd="$KCIMPORT $P8FILE -k $KEYCHAIN -f pkcs8 -w -n -e -z $PASSWORD $QUIET_ARG_N"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# export in openssl format
+set cmd="$KCEXPORT $KEYCHAIN -f openssl -o $EXPORT_KEYFILE -t privKeys $QUIET_ARG_N"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# Sign and verify again
+set cmd="$RSATOOL s a=e k=$EXPORT_KEYBASE v=o p=$PLAINTEXT s=$SIGFILE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$RSATOOL v a=e k=$KEYBASE b=L p=$PLAINTEXT s=$SIGFILE $QUIET_ARG"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if($NOCLEAN == NO) then
+	set cmd="rm -f $SIGFILE $KEYFILE_PRIV $KEYFILE_PUB $EXPORT_KEYFILE $P8FILE"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif

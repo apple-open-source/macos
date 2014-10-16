@@ -1,0 +1,246 @@
+0.81     2013-04-02
+
+- Fixes to pass tests with DateTime 1.00.
+
+
+0.80     2010-03-14
+
+- Remove the 00sig.t test, which seemed to cause random failures based on CPAN
+  testers reports.
+
+- Lots of cleanup in test code.
+
+- Future releases will all increment by 0.01 (0.81, 0.82, etc).
+
+- No code changes.
+
+
+0.7901   2007-09-01
+
+- The memory-cycle.t test will fail if you have PadWalker and the
+  current Devel::Cycle (1.07) installed. I forgot I had patched my
+  local Devel::Cycle to fix this bug.
+
+
+0.79     2007-08-30
+
+- Fix several circular references in
+  DateTime::Format::Builder::Parser. This would be triggered by any
+  standard usage of DT::F::Builder. Reported by Carl Franks. RT
+  #29034.
+
+
+0.7807   2006-05-29
+
+- Fix a test failure in on_fail_regex.t on Win32 (bug in the test code).
+  Reported by Ben Thul.
+
+
+0.7806   2004-09-09
+
+- When DateTime::Format::Builder::Parser loaded worker classes, it
+  ignored modules located under relative paths. This was fixed by using
+  Class::Factory::Util for this functionality instead.
+
+
+0.7805   2004-11-08
+
+- DateTime::Format::Build::Parser caused an exception when run in taint
+  mode. Reported by Curtis Hawthorne.
+
+
+0.7805   2004-11-08
+
+- DateTime::Format::Build::Parser caused an exception when run in taint
+  mode. Reported by Curtis Hawthorne.
+
+
+0.7804   2004-07-07
+
+- No code or doc changes, just change the code in examples to ensure
+  that PAUSE does not index it.
+
+
+0.7803   2004-02-13
+
+- Localize $_ before calling File::Find, otherwise it will be written
+  over for caller. Patch from Leon Brocard.
+
+
+0.7802   2004-02-13
+
+- Add dependency on DateTime::Format::Strptime.
+
+
+0.7801   2004-01-26
+
+- New maintainer - Dave Rolsky
+
+- Switched to a different build/install sysstem (Module::Build instead
+  of Module::Install)
+
+
+0.78     2003-12-01
+
+- Fix multigroup bug in Dispatch
+
+- Add Tivoli example.
+
+
+0.77     2003-08-14
+
+- Correct package name for Quick.
+
+- Augment license conditions.
+
+- Fixed timezones in fall.t and quick.t tests.
+
+
+0.76     2003-08-10
+
+- Fallthrough example and test added.
+
+- Quick parser added to simplify fallthrough stuff.
+
+- Rejigged internals to allow for on_fail argument to multi-parsers.
+
+
+0.75     2003-06-29
+
+- Silly MANIFEST.SKIP entry caused dispatch stuff to be skipped.
+
+
+0.74     2003-06-28
+
+- Dispatch Parser class added, which allows us to make groups of parsers
+  and hop quickly to them.
+
+- length parameter can now be an arrayref, hence we can have a parser
+  belong to more than one length group.
+
+- Version numbers are all identical now.
+
+- Regex Parser can call custom constructors.
+
+- Wrapped method only regards undef as a failure.
+
+
+0.73     2003-06-24
+
+- Exit parser more quickly if able.
+
+- Multiple same length parsers accepted.
+
+- Fixed some perl 5.005 testing problems.
+
+
+0.72     2003-05-28
+
+- Minor tweaks for the 'private' tag in META.yml
+
+
+0.71     2003-05-23
+
+- Massive doc (re)writing.
+
+- Examples tidied up.
+
+- Tutorial refactored.
+
+- Users of generic.pm get to subclass now rather than coderef.
+
+
+0.69     2003-04-28
+
+- DateTime::Format::Strptime is now supported.
+
+- To support the previous item, massive refactoring.
+
+- Minor API changes that shouldn't affect anyone.
+
+
+0.64     2003-04-27
+
+- Callbacks are given 'args' and 'self' keys.
+
+- Callbacks can be arrays of callbacks.
+
+
+0.62     2003-04-20
+
+- Fixed erroneous call to on_fail()
+
+- Added 'verbose' debugging capability.
+
+- Added 'constructor' option to create_class/import.
+
+- Avoid overwriting developers' own new() functions.
+
+- Complain if asked to overwrite methods.
+
+
+0.60     2003-04-12
+
+- Fixed missing '\' from a few '\d' in the docs.
+
+- Added ICal.pm example.
+
+- Added import() feature, to save lots of typing.
+
+- Completely revised documentation.
+
+- croak is same length is given twice.
+
+- Assorted refactoring, retouching.
+
+
+0.25     2003-03-29
+
+- Minor code cleanups.
+
+- Bug fix; 'extra' params were being ignored.
+
+- Doc fix; 'extra' params with 0 are not recommended.
+
+
+0.24     2003-03-25
+
+- First release!
+
+- Split POD into separate file.
+
+- Preprocess option for method building works.
+
+- Postprocess option per parser works.
+
+- Specification lists can now have coderefs in there.
+
+
+0.23     2003-03-25
+
+- Improved ancillary files.
+
+- Added basic use case test for new classes.
+
+- Assorted API changes.
+
+- create_class infers package name.
+
+- also creates specified methods rather than assumed ones.
+
+- Assorted POD updates. Still not complete.
+
+- Rejigged to only have an array of hashrefs. Simpler.
+
+- No inference of length/key stuff.
+
+- zero is now extra and is thus semantically different.
+
+- Preliminary pre/post processing per parser provided.
+
+
+0.22     2003-03-21
+
+- Initial (pre-actual release) version.
+
+

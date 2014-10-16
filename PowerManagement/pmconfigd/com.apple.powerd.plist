@@ -14,6 +14,8 @@
 	<dict>
 		<key>com.apple.PowerManagement.control</key>
 		<true/>
+		<key>com.apple.iokit.powerdxpc</key>
+		<true/>
 	</dict>
 	<key>JetsamProperties</key>
 	<dict>

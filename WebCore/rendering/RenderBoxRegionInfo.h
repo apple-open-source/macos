@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,10 +27,13 @@
 #ifndef RenderBoxRegionInfo_h
 #define RenderBoxRegionInfo_h
 
+#include "RenderOverflow.h"
+
 namespace WebCore {
 
 class RenderBoxRegionInfo {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(RenderBoxRegionInfo);
 public:
     RenderBoxRegionInfo(LayoutUnit logicalLeft, LayoutUnit logicalWidth, bool isShifted)
         : m_logicalLeft(logicalLeft)
@@ -45,10 +48,19 @@ public:
 
     bool isShifted() const { return m_isShifted; }
 
+    void createOverflow(const LayoutRect& layoutOverflow, const LayoutRect& visualOverflow) { m_overflow = adoptRef(new RenderOverflow(layoutOverflow, visualOverflow)); }
+    RenderOverflow* overflow() const { return m_overflow.get(); }
+    void clearOverflow()
+    {
+        if (m_overflow)
+            m_overflow.clear();
+    }
+
 private:
     LayoutUnit m_logicalLeft;
     LayoutUnit m_logicalWidth;
     bool m_isShifted;
+    RefPtr<RenderOverflow> m_overflow;
 };
 
 } // namespace WebCore

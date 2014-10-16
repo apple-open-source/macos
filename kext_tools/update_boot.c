@@ -120,9 +120,9 @@ struct updatingVol {
     BRUpdateOpts_t opts;                // "how hard to try" & other flags
 
     // default to false for the common kextcache -u case
-    Boolean earlyBoot;                  // detect early boot check
     Boolean doRPS, doMisc, doBooters;   // what needs updating
     Boolean doSanitize, cleanOnceDir;   // how to cleanse each helper
+    Boolean customSource, customDest;   // vs. default B!=R setup
     Boolean useOnceDir;                 // copy to com.apple.boot.once
 
     // updated as each Apple_Boot is updated
@@ -190,6 +190,7 @@ static int eraseRPS(struct updatingVol *up, char *toErase);
 static int addHostVolInfo(struct updatingVol *up, CFURLRef hostVol,
                           CFDictionaryRef bootPrefOverrides, CFURLRef targetStr,
                           CFStringRef pickerLabel);
+static CFStringRef copy_kcsuffix(void);
 
 // cleanup routines (RPS is the last step; activateMisc handles label)
 static int revertState(struct updatingVol *up);
@@ -409,13 +410,12 @@ finish:
 
 
 /******************************************************************************
- * checkForMissingFiles
- * Look for missing files in the relevant Apple_boot (helper) partition.  If
- * any of the files we care about are missing then we force an update of those 
- * files.
+ * checkBootContents
+ * Look for missing files in the current Apple_boot (helper) partition.  If
+ * anything seems amiss, force an appropriate update.
 ******************************************************************************/
 static void
-checkForMissingFiles(struct updatingVol *up)
+checkBootContents(struct updatingVol *up)
 {
     unsigned i;
     char srcpath[PATH_MAX], dstpath[PATH_MAX];
@@ -424,8 +424,11 @@ checkForMissingFiles(struct updatingVol *up)
     OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
               "Looking for missing files.");
    
-    // forced updates not allowed with -U (early boot)
-    if (up->opts & kBRUExpectUpToDate)  return;
+    // check for non-standard boot bits in this helper partition
+    if (notBRDefault(up->curMount, NULL)) {
+        up->doRPS = up->doBooters = up->doMisc = true;
+        goto finish;
+    }
     
     /* looking for missing .VolumeIcon.icns, SystemVersion.plist, 
      * PlatformSupport.plist, .disk_label, etc
@@ -436,9 +439,7 @@ checkForMissingFiles(struct updatingVol *up)
             pathcat(srcpath, up->caches->miscpaths[i].rpath);
             makebootpath(dstpath, up->caches->miscpaths[i].rpath);
         
-            /* look to see if our source file exists (some may not) and if it does
-             * and it's clone is NOT in Apple_Boot then force an update
-             */
+            // If in the root volume but not the helper, force update
             if (stat(srcpath, &sb) == 0) { 
                 // source file exists, now check on Apple_Boot
                 if (stat(dstpath, &sb) != 0 && errno == ENOENT) {
@@ -476,6 +477,8 @@ checkForMissingFiles(struct updatingVol *up)
             }
         }
     }
+
+    // RPS content not checked
     
 finish:
     return;
@@ -493,10 +496,14 @@ static int
 updateBootHelpers(struct updatingVol *up)
 {
     int errnum, result = 0;
-    up->curbootfd = -1;
     struct stat sb;
     CFIndex bootcount, bootupdates = 0;
  
+    if (up->curbootfd != -1) {
+        close(up->curbootfd);
+        up->curbootfd = -1;
+    }
+
     // if the plist has gone stale, punt
     if ((result = fstat(up->caches->cachefd, &sb))) {
         OSKextLog(NULL, up->errLogSpec, "fstat(cachefd): %s", strerror(errno));
@@ -512,7 +519,7 @@ updateBootHelpers(struct updatingVol *up)
             result = errnum; goto bootfail;  
         }
 
-        // if directed, nuke anything that doesn't belong
+        // if directed, do our best to nuke anything that doesn't belong
         if (up->doSanitize) {
             (void)sanitizeBoot(up);
         }
@@ -525,13 +532,18 @@ updateBootHelpers(struct updatingVol *up)
 
         // If files are missing, update up.do* to ensure we copy them
         // (implicitly forcing their update in subsequent helpers).
-        checkForMissingFiles(up);
+        checkBootContents(up);
+
+        // If breaking default config, mark helper as tainted
+        if (up->customSource && !up->customDest) {
+            markNotBRDefault(up->curbootfd, up->curMount, NULL, true);
+        }
 
         if (up->doRPS && (result = ucopyRPS(up))) {
-            goto bootfail;  // -> inactive
+            goto bootfail;          // new RPS content inactive
         }
         if (up->doMisc) {
-            (void) ucopyMisc(up);  // -> .new files
+            (void)ucopyMisc(up);    // -> .new files
         }
         
         // get the label out of the way (should be optional?)
@@ -560,6 +572,11 @@ updateBootHelpers(struct updatingVol *up)
         }
         if ((result = activateMisc(up))) {
             goto bootfail;      // reverts label
+        }
+
+        // if restoring the default configuration, remove any taint
+        if (!up->customSource && !up->customDest) {
+            markNotBRDefault(up->curbootfd, up->curMount, NULL, false);
         }
 
         up->changestate = nothingSerious;
@@ -617,63 +634,113 @@ finish:
    it would preclude multiple stacked kextcache -u processes (good)
    but change the nature of canceling in-progress updates (unknown).
    kextd's memory footprint would likely grow (one way or another).
+ 
+   invalidateKextCache - if TRUE then we mimic 
+   "sudo touch /System/Library/Extensions"
 */
 int
-checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
+checkRebuildAllCaches(struct bootCaches *caches,
+                      int oodLogSpec,
+                      Boolean invalidateKextCache,
+                      Boolean *anyUpdates)
 {
     int opres, result = ELAST + 1;  // no pathc() [yet]
     struct stat sb;
- 
+    Boolean didUpdate = false;
+#if DEV_KERNEL_SUPPORT
+    char *  suffixPtr           = NULL; // must free
+    char *  tmpKernelPath       = NULL; // must free
+#endif
+    
     if (caches == NULL)  goto finish;
     // if the caches data is no longer valid, abort immediately
-    if ((opres = fstat(caches->cachefd, &sb))) { 
+    if ((opres = fstat(caches->cachefd, &sb))) {
         result = opres; goto finish;
     }
-
+   
     OSKextLog(NULL, kOSKextLogProgressLevel | kOSKextLogArchiveFlag,
               "Ensuring %s's caches are up to date.", caches->root);
-
+    
     /* XX Sec (re-review?): can't let an external volume insert a cache
      * - mktmp/mkstmp used to create temp file at destination
      * - final rename must be on whatever volume provided the kexts
      * - if volume is /, then kexts owned by root can be trusted (4623559 fstat)
      * - otherwise, rename from wrong volume will fail
      */
-     
+    
     // We have to rely on the system's kextcache + IOKit.framework to
     // rebuild these caches.  If called on an older system via
     // libBootRoot against newer cache files, the launched kextcache
     // processes are unlikely to know how to update the caches.  Errors
     // should be returned.
-
+    
     // Avoid deadlock with the kextcache processes which might launch below.
     // This environment variable tells it *not* to take a lock since we
     // should be holding it (caller should have called initContext() XX?).
     setenv("_com_apple_kextd_skiplocks", "1", 1);
-
-
-    // update the various mach_kernel caches
-    if (check_kext_boot_cache_file(caches,
-                  caches->kext_boot_cache_file->rpath, caches->kernel)) {
-
+    
+    // update the various kernel caches
+    if (invalidateKextCache ||
+        check_kext_boot_cache_file(caches,
+                                   caches->kext_boot_cache_file->rpath,
+                                   caches->kernelpath)) {
         // rebuild the mkext under our lock / lack thereof
         // (-v forwarded via environment variable by kextcache & kextd)
-        OSKextLog(nil, oodLogSpec, "rebuilding %s",
-                caches->kext_boot_cache_file->rpath);
-        if ((opres = rebuild_kext_boot_cache_file(caches, true /*wait*/,
-                caches->kext_boot_cache_file->rpath, caches->kernel))) {
+        OSKextLog(nil, oodLogSpec, "rebuilding %s%s",
+                  caches->root ? caches->root : "/",
+                  caches->kext_boot_cache_file->rpath);
+        if ((opres = rebuild_kext_boot_cache_file(
+                                                  caches, true /*wait*/,
+                                                  caches->kext_boot_cache_file->rpath,
+                                                  caches->kernelpath))) {
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                       "Error %d rebuilding %s", result,
                       caches->kext_boot_cache_file->rpath);
                 result = opres; goto finish;
+        } else {
+            didUpdate = true;
         }
     } else {
         OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogArchiveFlag,
                   "Primary kext cache does not need update.");
     }
-
-
-
+#if DEV_KERNEL_SUPPORT
+    if (caches->extraKernelCachePaths) {
+        int             i;
+        cachedPath *    cp;
+        
+        tmpKernelPath = malloc(PATH_MAX);
+        if (tmpKernelPath) {
+            for (i = 0; i < caches->nekcp; i++) {
+                cp = &caches->extraKernelCachePaths[i];
+                SAFE_FREE_NULL(suffixPtr);
+                
+                suffixPtr = getPathExtension(cp->rpath);
+                if (suffixPtr == NULL)
+                    continue;
+                if (strlcpy(tmpKernelPath, caches->kernelpath, PATH_MAX) >= PATH_MAX)
+                    continue;
+                if (strlcat(tmpKernelPath, ".", PATH_MAX) >= PATH_MAX)
+                    continue;
+                if (strlcat(tmpKernelPath, suffixPtr, PATH_MAX) >= PATH_MAX)
+                    continue;
+                if (invalidateKextCache ||
+                    check_kext_boot_cache_file(caches, cp->rpath, tmpKernelPath)) {
+                    if ((opres = rebuild_kext_boot_cache_file(caches,
+                                                              true /*wait*/,
+                                                              cp->rpath,
+                                                              tmpKernelPath))) {
+                        result = opres; goto finish;
+                    }
+                }
+            } // for loop...
+        }
+    }
+    
+#endif
+    
+    
+    
     // Check/rebuild the CSFDE property cache which goes into the Apple_Boot.
     // It's less critical for booting, but more critical for security.
     if (check_csfde(caches)) {
@@ -683,12 +750,14 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
                       "Error %d rebuilding %s", result,
                       caches->erpropcache->rpath);
             result = opres; goto finish;
+        } else {
+            didUpdate = true;
         }
     } else {
         OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogArchiveFlag,
                   "CSFDE property cache does not need update.");
     }
-
+    
     // check on the (optional) localized resources used by EFI Login
     if (check_loccache(caches)) {
         OSKextLog(NULL,oodLogSpec,"rebuilding %s",caches->efiloccache->rpath);
@@ -696,6 +765,8 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
             OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
                       "Warning: Error %d rebuilding %s", result == -1
                       ? errno : result, caches->efiloccache->rpath);
+        } else {
+            didUpdate = true;
         }
         // efiloccache is not required when copying rpspaths
         // so we can ignore failures to rebuild the cache.
@@ -703,11 +774,19 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
         OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogArchiveFlag,
                   "Localized EFI Login resources do not need update.");
     }
-
+    
     // success!
     result = 0;
 
+    // report back if we did any updates
+    if (anyUpdates)     *anyUpdates = didUpdate;
+    
 finish:
+#if DEV_KERNEL_SUPPORT
+    SAFE_FREE(tmpKernelPath);
+    SAFE_FREE(suffixPtr);
+#endif
+    
     return result;
 }
 
@@ -723,20 +802,21 @@ finish:
 #define BOOTCOUNT 1
 static int
 initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
-            BRBlessStyle blessSpec, BRUpdateOpts_t opts)
+            BRUpdateOpts_t opts)
 {
     int opres, result = ELAST + 1;      // all paths should reset
     const void  *values[BOOTCOUNT] = { helperBSDName };
 
     // start fresh (all booleans to default false values)
     bzero(up, sizeof(struct updatingVol));
-
-    // callers want to rely on these log spec values even after failure
+    up->curbootfd = -1;                 // should be -1 or valid descriptor
+    
+    // establish default options
     up->warnLogSpec = kOSKextLogArchiveFlag | kOSKextLogWarningLevel;
     up->errLogSpec = kOSKextLogArchiveFlag | kOSKextLogErrorLevel;
+    up->blessSpec = kBRBlessFSDefault;
 
     // stash opts for subroutines
-    up->blessSpec = blessSpec;
     up->opts = opts;
 
     // takeVolumeForPath() wants a char* ... comes before up->caches = ...
@@ -746,17 +826,10 @@ initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
         result = ENOMEM; goto finish;
     }
 
-    // Technically, we don't need to lock to read bootcaches.plist,
-    // but if there are multiple kextcache -u processes, it leaves
-    // a longer window during which files can be updated.  Also, 
-    // being locked means owners are enabled so it's okay for
-    // read[SIC]BootCaches() to make the bootstamps directory.
-
-    // For now, kextcache -U in early boot doesn't lock.
-    // (part of why kextd delays auto-rebuild for 5 minutes)
-    if ((opts & kBRUExpectUpToDate) && getppid() == 2 /* launchctl */) {
-        up->earlyBoot = true;
-    } else {
+    // Theoretically we don't need to lock to read bootcaches.plist, but
+    // read[SIC]BootCaches() will create S/L/Caches/bootstamps if missing.
+    // -Boot -> don't sync w/kextd
+    if ((opts & kBRUEarlyBoot) == 0) {
         if ((opres = takeVolumeForPath(up->srcRoot))) { // lock (logs errors)
             result = opres; goto finish;
         }
@@ -793,7 +866,10 @@ releaseContext(struct updatingVol *up, int status)
 {
     // unmountBoot() not always called
     if (up->curBoot)            CFRelease(up->curBoot);
-    if (up->curbootfd != -1)    close(up->curbootfd);
+    if (up->curbootfd != -1) {
+        close(up->curbootfd);
+        up->curbootfd = -1;
+    }
 
     if (up->dasession) {
         DASessionUnscheduleFromRunLoop(up->dasession, CFRunLoopGetCurrent(),
@@ -855,8 +931,12 @@ createBootPrefData(struct updatingVol *up, uuid_string_t root_uuid,
             break;
 
         // make mutable dictionary from file data
-        pldict =(CFMutableDictionaryRef)CFPropertyListCreateFromXMLData(nil,
-                    data, kCFPropertyListMutableContainers, NULL/*errstr*/);
+        pldict =(CFMutableDictionaryRef)
+            CFPropertyListCreateWithData(nil,
+                                         data,
+                                         kCFPropertyListMutableContainers,
+                                         NULL,
+                                         NULL/*err*/);
     } while(0);
 
     errno = 0;
@@ -899,7 +979,8 @@ createBootPrefData(struct updatingVol *up, uuid_string_t root_uuid,
         CFDictionaryApplyFunction(bootPrefOverrides,addDictOverride,pldict);
     }
 
-    rval = CFPropertyListCreateXMLData(nil, pldict);
+    rval = CFPropertyListCreateData(nil, pldict, kCFPropertyListXMLFormat_v1_0,
+                                    0 /* !opts */, NULL);
 
 finish:
     if (kernPathStr)    CFRelease(kernPathStr);
@@ -933,6 +1014,7 @@ needUpdatesNoUUID(CFURLRef volURL, Boolean *anyCritical)
         rval = ENOMEM; goto finish;
     }
 
+    // "any stamps" option changes the embedded bootstamp paths
     caches = readBootCaches(volRoot, kBRAnyBootStamps);
     if (!caches) {
         rval = errno ? errno : ELAST + 1;
@@ -940,7 +1022,7 @@ needUpdatesNoUUID(CFURLRef volURL, Boolean *anyCritical)
     }
 
     // needUpdates() has already been called once with higher verbosity
-    doAnyNoUUID = needUpdates(caches, NULL, NULL, NULL,
+    doAnyNoUUID = needUpdates(caches, kBROptsNone, NULL, NULL, NULL,
                               kOSKextLogGeneralFlag | kOSKextLogDetailLevel);
 
     if (anyCritical) {
@@ -962,21 +1044,22 @@ finish:
 // keeping these active for reliability testing of live builds
 #define BRDBG_OOD_HANG_BOOT_F "/var/db/.BRHangBootOnOODCaches"
 #define BRDBG_HANG_MSG PRODUCT_NAME ": " BRDBG_OOD_HANG_BOOT_F \
-                    "-> hanging on out of date caches"
+                    " -> hanging on out of date caches"
 #define BRDBG_CONS_MSG "[via /dev/console] " BRDBG_HANG_MSG "\n"
 int
 checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 {
     int opres, result = ELAST + 1;          // try to always set on error
     OSKextLogSpec oodLogSpec = kOSKextLogGeneralFlag | kOSKextLogBasicLevel;
-    Boolean expectUpToDate = (opts & kBRUExpectUpToDate);
-    Boolean doAny = false, cachesUpToDate = false;
+    Boolean expectUpToDate = (opts & kBRUExpectUpToDate);   // used a lot
+    Boolean anyCacheUpdates = false;
+    Boolean doAny = false, cachesUpToDate = false, *doMiscp;
     Boolean loggedOOD = false;
     struct updatingVol up = { /*NULL...*/ };
     up.curbootfd = -1;
-
+    
     // try to configure 'up'; treat missing data per opts
-    if ((opres = initContext(&up, volumeURL, NULL, kBRBlessFSDefault, opts))) {
+    if ((opres = initContext(&up, volumeURL, NULL, opts))) {
         char *bcmsg = NULL;
         CFArrayRef helpers;
         switch (opres) {        // describe known problems
@@ -1008,7 +1091,9 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
     }
 
     // do some real work updating caches *in* the source volume
-    if ((opres = checkRebuildAllCaches(up.caches, oodLogSpec))) {
+    if ((opres = checkRebuildAllCaches(up.caches, oodLogSpec,
+                                       (opts & kBRUInvalidateKextcache),
+                                       &anyCacheUpdates))) {
         result = opres; goto finish;    // error logged by function
     }
 
@@ -1031,10 +1116,16 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
     // these are helper (not OS) partitions & should be clean
     up.doSanitize = true;
 
+    // -U -Boot means we don't care about misc files
+    if (expectUpToDate && (opts & kBRUEarlyBoot)) {
+        doMiscp = NULL;
+    } else {
+        doMiscp = &up.doMisc;
+    }
+
     // figure out what needs updating
     // needUpdates() also populates the timestamp values used by updateStamps()
-    // 12370665 tracks ignoring 'misc' files for the expectUpToDate (-U) case
-    doAny = needUpdates(up.caches, &up.doRPS, &up.doBooters, &up.doMisc,
+    doAny = needUpdates(up.caches, opts, &up.doRPS, &up.doBooters, doMiscp,
                         oodLogSpec);
 
     // for -U, give the non-UUID paths a chance (possibly resetting doAny)
@@ -1045,7 +1136,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 
 #ifdef BRDBG_OOD_HANG_BOOT_F
     // check to see if out of date at early boot should cause a hang
-    if (up.earlyBoot && doAny) {
+    if (doAny && expectUpToDate && (opts & kBRUEarlyBoot)) {
         struct stat sb;
         int consfd = open(_PATH_CONSOLE, O_WRONLY|O_APPEND);
         while (stat(BRDBG_OOD_HANG_BOOT_F, &sb) == 0) {
@@ -1058,6 +1149,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 #endif  // BRDBG_OOD_HANG_BOOT_F
 
     // force ignores needUpdates() and does extra helper cleanup
+    // (note: -Installer -> force, non-default cleanOnce preserves ANI)
     if (opts & kBRUForceUpdateHelpers) {
         up.doRPS = up.doBooters = up.doMisc = true;
         up.cleanOnceDir = true;
@@ -1109,7 +1201,7 @@ doneUpdatingHelpers:
     // kBRUExpectUpToDate is used to differentiate "success: everything clean"
     // from "successfully updated:" the latter exits with EX_OSFILE.  During
     // early boot, this informs launchd to force a reboot off fresh caches.
-    if (doAny && expectUpToDate) {
+    if (expectUpToDate && (anyCacheUpdates || doAny)) {
         result = EX_OSFILE;
     } 
 
@@ -1117,14 +1209,6 @@ finish:
     if ((up.opts & kBRUHelpersOptional) && cachesUpToDate) {
         // partial success okay
         result = 0;
-    }
-
-    // In early boot, kextcache -U pings kextd *after* successful non-update
-    // instead of before.  XX improve this handoff.
-    if (up.earlyBoot && expectUpToDate && result != EX_OSFILE) {
-        if (takeVolumeForPath(up.srcRoot)) {
-            OSKextLog(NULL, up.errLogSpec, "kextd lock/signal failed");
-        }
     }
 
     // since updateBoots() -> exit(), convert common errors to sysexits(3)
@@ -1231,10 +1315,32 @@ finish:
 /******************************************************************************
 * copy boot files from source volume to destination partition
 * - makes sure caches are up to date
-* - ignore up to date bootstamps
-* - *do* update bootstamps if srcVol == hostVol
+* - copies regardless of bootstamps
+* - updates bootstamps if default content -> likely default location
+* - w/custom content->default location, marks root and helpers as such
 * see bootroot.h for more details
 ******************************************************************************/
+/*
+   BRCopyBootFilesToDir() uses circa OS X 10.10 development
+   0) force an update like kextcache -u -f (which doesn't use this function)
+      B!=R already set up: default content -> default location
+   1a) switch a volume to Boot!=Root: 'diskutil cs convert', etc
+   1b) brtest copyfiles -anyboot to populate a disk image's Apple_Boot
+       setting up B!=R: future default content -> future default location
+   2) InstallAssistant (Install OS X.app) [boots until complete, canceled]
+      B!=R set up: BaseSystem.dmg (custom) content -> default location
+   3) AppleNetInstall [just boot it once]
+      B!=R set up: custom content -> custom location
+
+   While not in production use today, brtest allows
+   - copy one B!=R's content to another volume's helper (no CSFDE support)
+     manual override: non-default content to the default location
+
+   A libBootRoot client could also specify
+   - copy to the default location, FS-bless *and* boot once
+     potentially custom content -> default location
+*/
+
 OSStatus
 BRCopyBootFilesToDir(CFURLRef srcVol,
                      CFURLRef initialRoot,
@@ -1247,7 +1353,9 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
 {
     OSStatus            result = ELAST + 1;     // generic = safest
     OSStatus            errnum;
-    Boolean isBRDefault;
+    CFArrayRef          helpers;
+    CFStringRef         firstHelper;
+    Boolean             doUpdateStamps = false;
     struct updatingVol  up = { /* NULL, ... */ };
     up.curbootfd = -1;
 
@@ -1255,58 +1363,78 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     if (!srcVol || !initialRoot || !targetBSDName) {
         result = EINVAL; goto finish;
     }
-    
-    // attempt to detect updates that will later look valid to Boot!=Root
-    // XX: can't tell if helperBSDName will be "the" helper for srcVol
-    // XXX: could do better on existing B!=R, but need to review DM/FDE
-    // XX 9173158 tracks teaching B!=R to temporarily ignore custom configs
-    isBRDefault = !targetDir && (blessSpec & kBRBlessFSDefault) &&
-                  CFEqual(srcVol, initialRoot);
 
     // configure a single-helper context
-    errnum = initContext(&up, srcVol, targetBSDName, blessSpec, opts);
+    errnum = initContext(&up, srcVol, targetBSDName, opts);
     if (errnum) {
         result = errnum; goto finish;
     }
+
+    // Detect non-default destination or source
+    up.blessSpec = blessSpec;
+    up.useOnceDir = ((blessSpec & kBRBlessOnce) &&
+                     (blessSpec & kBRBlessFSDefault) == 0);
+    if (up.useOnceDir || targetDir) {
+        // A) a custom destination won't interact w/default
+        up.customDest = true;
+    } else if (CFEqual(srcVol, initialRoot) == false) {
+        // B) targetBSD can't belong to both, so the content won't be default
+        up.customSource = true;
+    } else if ((helpers = BRCopyActiveBootPartitions(initialRoot))) {
+        if ((CFArrayGetCount(helpers)) != 1 ||
+                (firstHelper = CFArrayGetValueAtIndex(helpers, 0)) == NULL ||
+                CFEqual(targetBSDName, firstHelper) == false) {
+        //    C) the only volume is B!=R, but targetBSD is not its only helper
+            up.customSource = true;
+        } else {
+            // looks like default, already-configured Boot!=Root
+            doUpdateStamps = true;
+        }
+        CFRelease(helpers);
+    } else {
+        // assume default Boot!=Root to be
+        doUpdateStamps = true;
+    }
+
+    // kBRAnyBootStamps forces a bootstamps update
+    if (opts & kBRAnyBootStamps) {
+        doUpdateStamps = true;
+    }
+    up.doSanitize = doUpdateStamps;
 
     // Make sure all caches are up to date on the source
-    // (undefined if OOD & system's kext management can't rebuild)
-    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec);
+    // (undefined if OOD & system's kext management/EFILogin can't rebuild)
+    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec,
+                                   (opts & kBRUInvalidateKextcache), NULL);
     if (errnum) {
         result = errnum; goto finish;
     }
 
-    // if appropriate, gather timestamp data to apply on success
-    if (isBRDefault || opts & kBRAnyBootStamps) {
-        (void)needUpdates(up.caches, NULL, NULL, NULL,
+    // if writing bootstamps, gather timestamp data to apply on success
+    if (doUpdateStamps) {
+        (void)needUpdates(up.caches, kBROptsNone, NULL, NULL, NULL,
                           kOSKextLogGeneralFlag | kOSKextLogProgressLevel);
     }
 
-    // configure additional options
+    // configure options shared with checkUpdate...()
     errnum = addHostVolInfo(&up, initialRoot, bootPrefOverrides,
                             targetDir, pickerLabel);
     if (errnum) {
         result = errnum; goto finish;
     }
 
-    // BRCopyBootFiles() always copies everything
+    // BRCopyBootFiles() always copies everything fresh
     up.doRPS = up.doBooters = up.doMisc = true;
-
-    // new content -> clean up any old temp stuff
     up.cleanOnceDir = true;
 
-    // sanitize if this is a default Boot!=Root setup
-    // (XX disables Spotlight, FSEvents; see 4 GB check in sanitizeBoot())
-    up.doSanitize = isBRDefault;
-
-    // get it updated!
-    errnum = updateBootHelpers(&up);
-    if (errnum) {
+    
+    // And finally, update!
+    if ((errnum = updateBootHelpers(&up))) {
         result = errnum; goto finish;
     }
 
-    // update stamps if this is likely [to later be] a valid B!=R setup
-    if (isBRDefault || (opts & kBRAnyBootStamps)) {
+    // update bootstamps if establishing a default configuration
+    if (doUpdateStamps) {
         if (opts & kBRAnyBootStamps) {
             // if writing top-level bootstamps, attempt start fresh
             char cachedir[PATH_MAX];
@@ -1318,6 +1446,12 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
         if (errnum) {
             result = errnum; goto finish;
         }
+    }
+
+    // Note any pollution of a default destination from a non-default source.
+    if (up.customSource && !up.customDest) {
+        (void)taintDefaultStamps(targetBSDName);       // logs warnings
+        // (if we failed, it would be up to the client to un-do?)
     }
 
     // success
@@ -1347,7 +1481,7 @@ BRCopyBootFiles(CFURLRef srcVol,
 ******************************************************************************/
 static int
 FindRPSDir(struct updatingVol *up, char prev[PATH_MAX], char current[PATH_MAX],
-            char next[PATH_MAX])
+           char next[PATH_MAX])
 {
      char rpath[PATH_MAX], ppath[PATH_MAX], spath[PATH_MAX];   
 /*
@@ -1485,6 +1619,7 @@ finish:
     return result;
 }
 
+// 17769081 tracks using this more, but ENOENT can't be right for all
 #define RECERR(up, opres, warnmsg) do { \
             if (opres == -1 && errno == ENOENT) { \
                 opres = 0; \
@@ -1519,8 +1654,7 @@ BREraseBootFiles(CFURLRef srcVolRoot, CFStringRef helperBSDName)
         result = EINVAL; goto finish;
     }
 
-    opres = initContext(&up, srcVolRoot, helperBSDName, kBRBlessFSDefault,
-                        kBROptsNone);
+    opres = initContext(&up, srcVolRoot, helperBSDName, kBROptsNone);
     if (opres) {
         result = opres; goto finish;
     }
@@ -1869,8 +2003,6 @@ mountBoot(struct updatingVol *up)
     struct statfs bsfs;
     uint32_t mntgoal;
     struct stat sb;
-    Boolean pureBootOnce = ((up->blessSpec & kBRBlessOnce) &&
-                            (up->blessSpec & kBRBlessFSDefault) == 0);
 
     OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
               "Mounting helper partition...");
@@ -1887,11 +2019,9 @@ mountBoot(struct updatingVol *up)
         if ((errnum = _mountBootDA(up))) {
             rval = errnum; goto finish;     // error logged by function
         }
-    } else {
-        if (_findMountedHelper(up) == ENOENT &&
+    } else if (_findMountedHelper(up) == ENOENT &&
                 (errnum = _mountBootBuiltIn(up))) {
             rval = errnum; goto finish;     // error logged by function
-        }
     }
 
     // Sec: get a non-spoofable handle to the current helper (extend trust)
@@ -1924,32 +2054,23 @@ mountBoot(struct updatingVol *up)
         goto finish;
     }
 
-    // check targetDir, blessSpec for errors, use of c.a.boot.once
-    if (up->flatTarget[0]) {
+    // If not using the default directories, confirm targetDir exists.
+    if (!up->useOnceDir && up->flatTarget[0]) {
         char path[PATH_MAX];
         pathcpy(path, up->curMount);
         pathcat(path, up->flatTarget);
         if (stat(path, &sb) != 0) {
             if (errno == ENOENT) {
-                // B!=R only creates non-standard dir in c.a.boot.once
-                if (pureBootOnce) {
-                    up->useOnceDir = true;
-                } else {
-                    rval = ENOENT;
-                    LOGERRxlate(up, "target directory must exist", path, rval);
-                    goto finish;
-                }
+                rval = ENOENT;
+                LOGERRxlate(up, "target directory must exist", path, rval);
+                goto finish;
             }
         } else if (!S_ISDIR(sb.st_mode)) {
             rval = ENOTDIR; LOGERRxlate(up, path, NULL, rval); goto finish;
         }
-        // directory exists, B!=R is happy to do whatever to it
-    } else if (pureBootOnce) {
-        // no need to cruft up the standard locations if it's just once
-        up->useOnceDir = true;
     }
-    // the above should ensure that we won't fs-bless c.a.boot.once
 
+    // success
     rval = 0;
 
 finish:
@@ -2237,7 +2358,6 @@ finish:
     return rval;
 }
 
-
 /* 
  * ucopyRPS - copy new RPS directory to "inactive" location
  * bails on any error because only a whole RPS dir makes sense
@@ -2250,7 +2370,12 @@ ucopyRPS(struct updatingVol *up)
     char *erdir;
     unsigned i;
     char srcpath[PATH_MAX], dstpath[PATH_MAX];
+#if DEV_KERNEL_SUPPORT
+    CFStringRef my_kcsuffix     = NULL;     // must release
+    Boolean copiedPrefKernel    = false;
+#endif
     COMPILE_TIME_ASSERT(sizeof(BOOTPLIST_NAME)==sizeof(BOOTPLIST_APM_NAME));
+    
     
     OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogGeneralFlag,
               "Copying files used by the booter.");
@@ -2283,9 +2408,64 @@ ucopyRPS(struct updatingVol *up)
         rval = bsderr; LOGERRxlate(up, up->dstdir, NULL, rval); goto finish;
     }
 
+#if DEV_KERNEL_SUPPORT
+    // NOTE - copy_kcsuffix will return ".release" suffix when kcsuffix is
+    // "kcsuffix=" or "kcsuffix=release".  Since the "release" kernel and
+    // kernelcache file names do NOT have a suffix the for loop for
+    // extraKernelCachePaths will not match via the CFStringHasSuffix() call and
+    // we will drop out of the for loop with copiedPrefKernel == false. This is
+    // by design.  The copy of the release kernelcache will happen lower down.
+    my_kcsuffix = copy_kcsuffix();
+    if (up->caches->extraKernelCachePaths && my_kcsuffix) {
+        int     i;
+        for (i = 0; i < up->caches->nekcp; i++) {
+            cachedPath *curItem = &up->caches->extraKernelCachePaths[i];
+            
+            // until 16140679 gets fixed we can only copy 1 kernelcache to
+            // Apple_Boot partitions.  We use boot-arg kcsuffix to give us a
+            // hint about which kernelcache to copy - 16929470
+            CFStringRef tempString;
+            Boolean     hasSuffix;
+            tempString = CFStringCreateWithCString(NULL,
+                                                   curItem->rpath,
+                                                   kCFStringEncodingUTF8);
+            if (tempString == NULL) {
+                continue;
+            }
+            hasSuffix = CFStringHasSuffix(tempString, my_kcsuffix);
+            SAFE_RELEASE_NULL(tempString);
+            if (hasSuffix == false) {
+                continue;
+            }
+            pathcpy(srcpath, up->caches->root);
+            pathcat(srcpath, curItem->rpath);
+            pathcpy(dstpath, up->dstdir);
+            pathcat(dstpath, curItem->rpath);
+            OSKextLog(NULL, kOSKextLogGeneralFlag|kOSKextLogDetailLevel,
+                      "copying %s to %s", srcpath, up->dstdir);
+            bsderr = scopyitem(up->caches->cachefd,
+                               srcpath,
+                               up->curbootfd,
+                               dstpath);
+            if (bsderr) {
+                rval = bsderr == -1 ? errno : bsderr;
+                OSKextLog(NULL,up->errLogSpec,"Error %d copying %s to %s: %s",
+                          rval, srcpath, dstpath, strerror(rval));
+                goto finish;
+            }
+            copiedPrefKernel = true;
+        } // for loop...
+    }
+#endif
+
     // and loop
     for (i = 0; i < up->caches->nrps; i++) {
         cachedPath *curItem = &up->caches->rpspaths[i];
+
+        // 15860955: skip release kernel if preferred has already been copied
+        if (copiedPrefKernel && curItem == up->caches->kext_boot_cache_file) {
+            continue;
+        }
 
         pathcpy(srcpath, up->caches->root);
         pathcat(srcpath, curItem->rpath);
@@ -2381,6 +2561,9 @@ ucopyRPS(struct updatingVol *up)
     rval = 0;
 
 finish:
+#if DEV_KERNEL_SUPPORT
+    SAFE_RELEASE(my_kcsuffix);
+#endif
     return rval;
 }
 
@@ -2872,7 +3055,6 @@ activateMisc(struct updatingVol *up)     // rename the .new
 
             nprocessed++;
         }
-
     }
 
     makebootpath(path, up->caches->label->rpath);
@@ -3177,7 +3359,6 @@ takeVolumeForPath(const char *path)
     if (macherr)  goto finish;
 
     // try to take the lock; warn if it's busy and then wait for it
-    // X kextcache -U, if it is going to lock at all, needs only WAITFORLOCK
     macherr = kextmanager_lock_volume(sKextdPort, sBRUptLock, s_vol_uuid,
                                       !WAITFORLOCK, &lckres);
     if (macherr)        goto finish;
@@ -3277,3 +3458,102 @@ finish:
 
     return rval;
 }
+
+/*******************************************************************************
+ * copy_kcsuffix() - return the current value of the kcsuffix boot-arg.
+ * Caller must release the returned CFStringRef.
+ *
+ * The kcsuffix value tells us which kernelcache file the booter should use.
+ * "kcsuffix=" is the same as "kcsuffix=release" which means the booter should
+ * use "kernelcache" file.  Any other suffix means use "kernelcache" plus the 
+ * given suffix with a '.' before the suffix. 
+ * 
+ * For example:
+ * "kcsuffix=development" means the booter should pick the 
+ * "kernelcache.development" file.
+ *******************************************************************************/
+CFStringRef copy_kcsuffix(void)
+{
+    CFStringRef         result          = NULL;
+    CFStringRef         myTempStr;
+    io_registry_entry_t optionsNode     = MACH_PORT_NULL;   // must release
+    CFStringRef         bootargsEntry   = NULL;             // must release
+    CFArrayRef          myStringArray   = NULL;             // must release
+    CFRange             findRange, myRange;
+    CFIndex             count, i;
+    
+    optionsNode = IORegistryEntryFromPath(kIOMasterPortDefault,
+                                          "IODeviceTree:/options");
+    while (optionsNode) {
+        bootargsEntry = (CFStringRef)
+        IORegistryEntryCreateCFProperty(optionsNode,
+                                        CFSTR("boot-args"),
+                                        kCFAllocatorDefault, 0);
+        if (bootargsEntry == NULL ||
+            (CFGetTypeID(bootargsEntry) != CFStringGetTypeID())) {
+            break;
+        }
+        
+        // a blank space is used to delimit the various values of boot-args
+        // We are looking for something like:
+        // boot-args="-v debug=0x146 kext-dev-mode=0 kcsuffix=release"
+        myStringArray = CFStringCreateArrayBySeparatingStrings(
+                                                               kCFAllocatorDefault,
+                                                               bootargsEntry,
+                                                               CFSTR(" ") );
+        if (myStringArray == NULL) {
+            break;
+        }
+        
+        count = CFArrayGetCount(myStringArray);
+        for (i = 0; i < count; i++) {
+            CFStringRef myString = NULL;
+            CFIndex     myStringLen;
+            
+            myString = CFArrayGetValueAtIndex(myStringArray, i);
+            if (myString == NULL)  continue;
+            findRange = CFStringFind(myString, CFSTR("kcsuffix="), 0);
+            if (findRange.length == 0) {
+                continue;
+            }
+            myStringLen = CFStringGetLength(myString);
+            if (findRange.length == 9 && myStringLen == 9) {
+                // "kcsuffix=" with no value means "release"
+                result = CFRetain(CFSTR(".release"));
+                break;
+            }
+            
+            // grab suffix and return it
+            myRange.length = myStringLen - 9;
+            myRange.location = findRange.location + 9;
+            
+            myTempStr = CFStringCreateWithSubstring(kCFAllocatorDefault,
+                                                    myString,
+                                                    myRange);
+            if (myTempStr) {
+                result = CFStringCreateWithFormat(
+                                                  kCFAllocatorDefault,
+                                                  /* formatOptions */ NULL,
+                                                  CFSTR("%s%@"),
+                                                  ".",
+                                                  myTempStr );
+                CFRelease(myTempStr);
+            }
+            
+            break;
+        } // for ...
+        break;
+    } // while ...
+    
+    if (optionsNode)  IOObjectRelease(optionsNode);
+    SAFE_RELEASE(bootargsEntry);
+    SAFE_RELEASE(myStringArray);
+    
+    if (result == NULL) {
+        // nothing set then let's default to development kernelcache
+        result = CFRetain(CFSTR(".development"));
+    }
+    
+    return(result);
+}
+

@@ -32,6 +32,7 @@
  */
 
 #ifndef lint
+__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1985, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
@@ -41,6 +42,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)timedc.c	8.1 (Berkeley) 6/6/93";
 #endif
+__attribute__((__used__))
 static const char rcsid[] =
   "$FreeBSD: src/usr.sbin/timed/timedc/timedc.c,v 1.6 2007/11/07 10:53:41 kevlo Exp $";
 #endif /* not lint */

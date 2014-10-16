@@ -27,17 +27,9 @@
 
 #pragma ident	"@(#)ctf_create.c	1.6	06/01/07 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <ctf_impl.h>
-#else /* is Apple Mac OS X */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-#include <sys/param.h>
-#include <sys/mman.h>
-#include <ctf_impl.h>
-#endif /* __APPLE__ */
 
 /*
  * This static string is used as the template for initially populating a

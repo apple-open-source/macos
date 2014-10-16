@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,60 +30,62 @@
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 
-using namespace std;
-
 namespace WebCore {
 
-CrossfadeGeneratedImage::CrossfadeGeneratedImage(Image* fromImage, Image* toImage, float percentage, IntSize crossfadeSize, const IntSize& size)
+CrossfadeGeneratedImage::CrossfadeGeneratedImage(Image* fromImage, Image* toImage, float percentage, const FloatSize& crossfadeSize, const FloatSize& size)
     : m_fromImage(fromImage)
     , m_toImage(toImage)
     , m_percentage(percentage)
     , m_crossfadeSize(crossfadeSize)
 {
-    m_size = size;
+    setContainerSize(size);
+}
+
+static void drawCrossfadeSubimage(GraphicsContext* context, Image* image, CompositeOperator operation, float opacity, const FloatSize& targetSize)
+{
+    FloatSize imageSize = image->size();
+
+    // SVGImage resets the opacity when painting, so we have to use transparency layers to accurately paint one at a given opacity.
+    bool useTransparencyLayer = image->isSVGImage();
+
+    GraphicsContextStateSaver stateSaver(*context);
+
+    context->setCompositeOperation(operation);
+
+    if (useTransparencyLayer)
+        context->beginTransparencyLayer(opacity);
+    else
+        context->setAlpha(opacity);
+
+    if (targetSize != imageSize)
+        context->scale(FloatSize(targetSize.width() / imageSize.width(), targetSize.height() / imageSize.height()));
+    context->drawImage(image, ColorSpaceDeviceRGB, IntPoint());
+
+    if (useTransparencyLayer)
+        context->endTransparencyLayer();
 }
 
 void CrossfadeGeneratedImage::drawCrossfade(GraphicsContext* context)
 {
-    float inversePercentage = 1 - m_percentage;
-
-    IntSize fromImageSize = m_fromImage->size();
-    IntSize toImageSize = m_toImage->size();
-
     // Draw nothing if either of the images hasn't loaded yet.
     if (m_fromImage == Image::nullImage() || m_toImage == Image::nullImage())
         return;
 
     GraphicsContextStateSaver stateSaver(*context);
 
-    context->clip(IntRect(IntPoint(), m_crossfadeSize));
+    context->clip(FloatRect(FloatPoint(), m_crossfadeSize));
     context->beginTransparencyLayer(1);
-    
-    // Draw the image we're fading away from.
-    context->save();
-    if (m_crossfadeSize != fromImageSize)
-        context->scale(FloatSize(static_cast<float>(m_crossfadeSize.width()) / fromImageSize.width(),
-                                 static_cast<float>(m_crossfadeSize.height()) / fromImageSize.height()));
-    context->setAlpha(inversePercentage);
-    context->drawImage(m_fromImage, ColorSpaceDeviceRGB, IntPoint());
-    context->restore();
 
-    // Draw the image we're fading towards.
-    context->save();
-    if (m_crossfadeSize != toImageSize)
-        context->scale(FloatSize(static_cast<float>(m_crossfadeSize.width()) / toImageSize.width(),
-                                 static_cast<float>(m_crossfadeSize.height()) / toImageSize.height()));
-    context->setAlpha(m_percentage);
-    context->drawImage(m_toImage, ColorSpaceDeviceRGB, IntPoint(), CompositePlusLighter);
-    context->restore();
+    drawCrossfadeSubimage(context, m_fromImage, CompositeSourceOver, 1 - m_percentage, m_crossfadeSize);
+    drawCrossfadeSubimage(context, m_toImage, CompositePlusLighter, m_percentage, m_crossfadeSize);
 
     context->endTransparencyLayer();
 }
 
-void CrossfadeGeneratedImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator compositeOp, BlendMode)
+void CrossfadeGeneratedImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator compositeOp, BlendMode blendMode, ImageOrientationDescription)
 {
     GraphicsContextStateSaver stateSaver(*context);
-    context->setCompositeOperation(compositeOp);
+    context->setCompositeOperation(compositeOp, blendMode);
     context->clip(dstRect);
     context->translate(dstRect.x(), dstRect.y());
     if (dstRect.size() != srcRect.size())
@@ -93,9 +95,9 @@ void CrossfadeGeneratedImage::draw(GraphicsContext* context, const FloatRect& ds
     drawCrossfade(context);
 }
 
-void CrossfadeGeneratedImage::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator compositeOp, const FloatRect& dstRect, BlendMode)
+void CrossfadeGeneratedImage::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator compositeOp, const FloatRect& dstRect, BlendMode blendMode)
 {
-    OwnPtr<ImageBuffer> imageBuffer = ImageBuffer::create(m_size, 1, ColorSpaceDeviceRGB, context->isAcceleratedContext() ? Accelerated : Unaccelerated);
+    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::create(size(), 1, ColorSpaceDeviceRGB, context->isAcceleratedContext() ? Accelerated : Unaccelerated);
     if (!imageBuffer)
         return;
 
@@ -104,7 +106,7 @@ void CrossfadeGeneratedImage::drawPattern(GraphicsContext* context, const FloatR
     drawCrossfade(graphicsContext);
 
     // Tile the image buffer into the context.
-    imageBuffer->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, compositeOp, dstRect);
+    imageBuffer->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, compositeOp, dstRect, blendMode);
 }
 
 }

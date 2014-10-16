@@ -1081,6 +1081,7 @@ emit_extended_header_record(int len, int total_len, int head_type,
 	return (total_len);
 }
 
+__attribute__((__malloc__))
 static char *
 substitute_percent(char * header, char * filename)
 {
@@ -1090,7 +1091,7 @@ substitute_percent(char * header, char * filename)
 	char *dname, *fname;
 
 	nextpercent = strchr(header,'%');
-	if (nextpercent==NULL) return header;
+	if (nextpercent==NULL) return strdup(header);
 	pos = nextpercent-header;
 	memcpy(buf,header, pos);
 	while (nextpercent++) {
@@ -1129,7 +1130,7 @@ substitute_percent(char * header, char * filename)
 			break;
 		default:
 			paxwarn(1,"header format substitution failed: '%c'", *nextpercent);
-			return (header);
+			return strdup(header);
 		}
 		nextpercent++;
 		if (*nextpercent=='\0') {
@@ -1239,6 +1240,8 @@ generate_pax_ext_header_and_data(ARCHD *arcn, int nfields, int *table,
 		strlcpy(hd->name, header_name, sizeof(hd->name));
 	}
 
+	free(header_name);
+	header_name = NULL;
 	records_size = (u_long)total_len;
 	if (ul_oct(records_size, hd->size, sizeof(hd->size), term_char)) {
 		paxwarn(1,"extended header data too long for header type '%c'", header_type);

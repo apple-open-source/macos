@@ -1,0 +1,6 @@
+#/bin/sh
+
+security item -q class=inet,sync=1 | grep acct | tail -3
+security item -q class=genp,sync=1 | grep acct | tail -3
+security item -q class=genp,sync=1 2>/dev/null | grep agrp > tmpkccount && security item -q class=inet,sync=1 2>/dev/null | grep agrp >> tmpkccount && echo "Syncable items: "`wc -l tmpkccount | awk '{print $1}'`
+

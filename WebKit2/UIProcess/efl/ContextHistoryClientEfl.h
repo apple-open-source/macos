@@ -27,26 +27,19 @@
 #define ContextHistoryClientEfl_h
 
 #include "ewk_context.h"
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKRetainPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKRetainPtr.h>
 
 namespace WebKit {
 
 class ContextHistoryClientEfl {
 public:
-    static PassOwnPtr<ContextHistoryClientEfl> create(WKContextRef context)
-    {
-        return adoptPtr(new ContextHistoryClientEfl(context));
-    }
-
+    explicit ContextHistoryClientEfl(WKContextRef);
     ~ContextHistoryClientEfl();
 
     void setCallbacks(Ewk_History_Navigation_Cb, Ewk_History_Client_Redirection_Cb, Ewk_History_Server_Redirection_Cb, Ewk_History_Title_Update_Cb, Ewk_History_Populate_Visited_Links_Cb, void*);
 
 private:
-    explicit ContextHistoryClientEfl(WKContextRef);
-
     static void didNavigateWithNavigationData(WKContextRef, WKPageRef, WKNavigationDataRef, WKFrameRef, const void*);
     static void didPerformClientRedirect(WKContextRef, WKPageRef, WKURLRef sourceURL, WKURLRef, WKFrameRef, const void*);
     static void didPerformServerRedirect(WKContextRef, WKPageRef, WKURLRef sourceURL, WKURLRef, WKFrameRef, const void*);

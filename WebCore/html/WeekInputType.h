@@ -38,17 +38,15 @@ namespace WebCore {
 
 class WeekInputType : public BaseChooserOnlyDateAndTimeInputType {
 public:
-    static PassOwnPtr<InputType> create(HTMLInputElement*);
+    explicit WeekInputType(HTMLInputElement& element) : BaseChooserOnlyDateAndTimeInputType(element) { }
 
 private:
-    WeekInputType(HTMLInputElement* element) : BaseWeekInputType(element) { }
-    virtual void attach() OVERRIDE;
-    virtual const AtomicString& formControlType() const OVERRIDE;
-    virtual DateComponents::Type dateType() const OVERRIDE;
-    virtual StepRange createStepRange(AnyStepHandling) const OVERRIDE;
-    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const OVERRIDE;
-    virtual bool setMillisecondToDateComponents(double, DateComponents*) const OVERRIDE;
-    virtual bool isWeekField() const OVERRIDE;
+    virtual const AtomicString& formControlType() const override;
+    virtual DateComponents::Type dateType() const override;
+    virtual StepRange createStepRange(AnyStepHandling) const override;
+    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const override;
+    virtual bool setMillisecondToDateComponents(double, DateComponents*) const override;
+    virtual bool isWeekField() const override;
 };
 
 } // namespace WebCore

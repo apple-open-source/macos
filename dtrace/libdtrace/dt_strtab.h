@@ -29,12 +29,8 @@
 
 #pragma ident	"@(#)dt_strtab.h	1.4	06/09/19 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/types.h>
-#else /* is Apple Mac OS X */
 #include <sys/types.h>
 #include "darwin_shim.h"
-#endif /* __APPLE__ */
 
 #ifdef	__cplusplus
 extern "C" {

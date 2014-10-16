@@ -14,10 +14,10 @@ CCFLAGS = $(CC.SUFFIX.DEBUG:+$(CC.DEBUG)) $(CC.OPTIMIZE) $(CC.DLL)
 
 IFFEFLAGS = -v -X ast -X std
 
-.SOURCE : cdt comp dir disc hash man misc obsolete path port preroot \
+.SOURCE : aso cdt comp dir disc hash man misc obsolete path port preroot \
 		regex sfio stdio string tm uwin vec vmalloc
 
-.SOURCE.h : include comp std
+.SOURCE.h : include comp std cdt vmalloc
 
 CP = $(STDCP|"cp")
 
@@ -29,14 +29,14 @@ __OBSOLETE__ == $("6 months ago":@F=%(%Y0101)T)
 
 HEADERSRC = ast.h ast_dir.h ast_getopt.h ast_std.h \
 	ast_namval.h ast_windows.h \
-	ccode.h cdt.h cmdarg.h debug.h dt.h error.h find.h ftw.h ftwalk.h \
-	fts.h fs3d.h getopt.h glob.h hash.h hashkey.h hashpart.h ip6.h \
-	lc.h ls.h magic.h mc.h mime.h mnt.h modecanon.h modex.h namval.h \
-	option.h proc.h re_comp.h recfmt.h regex.h regexp.h \
+	ccode.h cdt.h cdtlib.h cmdarg.h debug.h dt.h error.h find.h ftw.h \
+	ftwalk.h fts.h fs3d.h getopt.h glob.h hash.h hashkey.h hashpart.h \
+	ip6.h lc.h ls.h magic.h mc.h mime.h mnt.h modecanon.h modex.h \
+	namval.h option.h proc.h re_comp.h recfmt.h regex.h regexp.h \
 	sfio.h sfio_s.h sfio_t.h sfdisc.h shcmd.h \
 	stack.h stak.h stk.h swap.h tar.h times.h tm.h tok.h \
 	usage.h vdb.h vecargs.h vmalloc.h wait.h wordexp.h \
-	bytesex.h endian.h fnmatch.h magicid.h fnv.h \
+	bytesex.h endian.h fnmatch.h magicid.h fnv.h aso.h \
 	$(HEADERSTD)
 
 HEADERGEN = align.h preroot.h sig.h tmx.h tv.h \
@@ -53,14 +53,14 @@ HEADEROPT = fmtmsg.h libgen.h syslog.h
 HEADERSTD = dirent.h iconv.h nl_types.h stdio.h wchar.h wctype.h
 
 $(ID) 5.4 :LIBRARY: README RELEASE \
-	LIBAST.3 ast.3 astsa.3 cdt.3 chr.3 compat.3 error.3 find.3 fmt.3 \
-	fmtls.3 fs3d.3 ftwalk.3 getcwd.3 hash.3 iblocks.3 int.3 ip6.3 \
-	magic.3 mem.3 mime.3 modecanon.3 optget.3 path.3 preroot.3 \
-	proc.3 re.3 regex.3 setenviron.3 sfdisc.3 sfio.3 sig.3 spawnveg.3 \
-	stak.3 stk.3 strcopy.3 strdup.3 strelapsed.3 strerror.3 stresc.3 \
-	streval.3 strgid.3 strmatch.3 stropt.3 strperm.3 strsignal.3 \
-	strsort.3 strtape.3 strton.3 struid.3 swap.3 tab.3 tm.3 tmx.3  \
-	tok.3 touch.3 tv.3 vecargs.3 vmalloc.3 \
+	LIBAST.3 aso.3 ast.3 astsa.3 cdt.3 chr.3 compat.3 error.3 \
+	find.3 fmt.3 fmtls.3 fs3d.3 ftwalk.3 getcwd.3 hash.3 iblocks.3 \
+	int.3 ip6.3 magic.3 mem.3 mime.3 modecanon.3 optget.3 path.3 \
+	preroot.3 proc.3 re.3 regex.3 setenviron.3 sfdisc.3 sfio.3 \
+	sig.3 spawnveg.3 stak.3 stk.3 strcopy.3 strdup.3 strelapsed.3 \
+	strerror.3 stresc.3 streval.3 strgid.3 strmatch.3 stropt.3 \
+	strperm.3 strsignal.3 strsort.3 strtape.3 strton.3 struid.3 \
+	swap.3 tab.3 tm.3 tmx.3 tok.3 touch.3 tv.3 vecargs.3 vmalloc.3 \
 	$(HEADERSRC) \
 	state.c transition.c \
 	dirlib.h opendir.c readdir.c rewinddir.c seekdir.c telldir.c \
@@ -143,9 +143,9 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	regdecomp.c regerror.c regexec.c regfatal.c reginit.c regnexec.c \
 	regsubcomp.c regsubexec.c regsub.c regrecord.c regrexec.c regstat.c \
 	/* cdt */ \
-	dthdr.h dtclose.c dtdisc.c dtextract.c dtflatten.c dthash.c \
-	dtlist.c dtmethod.c dtnew.c dtopen.c dtrenew.c dtrestore.c dtsize.c \
-	dtstat.c dtstrhash.c dttree.c dttreeset.c dtview.c dtwalk.c \
+	dthdr.h dtclose.c dtdisc.c dthash.c dtlist.c dtmethod.c \
+	dtopen.c dtstrhash.c dttree.c dtview.c dtwalk.c \
+	dtnew.c dtcomp.c \
 	/* sfio */ \
 	sfhdr.h sfdchdr.h \
 	sfclose.c sfclrlock.c sfdisc.c sfdlen.c sfexcept.c \
@@ -194,6 +194,8 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	astcopy.c astconf.c astdynamic.c astlicense.c astquery.c astwinsize.c \
 	conftab.c \
 	$(CC.LD.STATIC) aststatic.c getopt.c getoptl.c $(CC.LD.DYNAMIC) \
+	/* aso */ \
+	aso.c asolock.c asometh.c asorelax.c aso-sem.c aso-fcntl.c \
 	/* vmalloc */ \
 	vmalloc.h vmhdr.h vmbest.c vmclear.c vmclose.c vmdcheap.c vmdebug.c \
 	vmdisc.c vmexit.c vmlast.c vmopen.c vmpool.c vmprivate.c vmprofile.c \
@@ -219,8 +221,6 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 .MAKEINIT : .AST.INIT
 .AST.INIT : .MAKE
 	CCFLAGS += -D_BLD_ast
-	ast_version.h : -IGNORE
-	(_AST_VERSION) : -PARAMETER
 
 parameter	(_BLD_ast)
 virtual		ast/stdio.h
@@ -229,8 +229,10 @@ virtual		ast/stdio.h
 
 		:NOOPTIMIZE: spawnveg.c
 "ibm.risc"	:NOOPTIMIZE: regcomp.c
+"linux.i386-64*":NOOPTIMIZE: sfset.c
 "sol?.*"	:NOOPTIMIZE: sfrd.c sfvprintf.c tmxfmt.c
 "win32*"	:NOOPTIMIZE: fastfind.c mc.c
+"win32*-64*"	:NOOPTIMIZE: sfvprintf.c
 
 /*
  * NOTE: sun4 runtime link botches ro data so advertised sig_info is rw
@@ -297,15 +299,6 @@ $(HEADEROPT:D=$(INCLUDEDIR):B:S) : $$(<:B:S) ast_lib.h
 		;;
 	esac
 
-/* a few headers are problematic */
-
-$(INCLUDEDIR)/prototyped.h :INSTALL: $(INCLUDEDIR)
-	echo "#include <../prototyped.h>" > 1.$(tmp).x
-	if	$(CMP) -s $(<) 1.$(tmp).x
-	then	$(RM) -f 1.$(tmp).x
-	else	$(MV) 1.$(tmp).x $(<)
-	fi
-
 /*
  * FEATURE/common for iffe probes, <ast_common.h> for ast source
  * *but* <ast_common.h> may get pulled in by intercepted headers
@@ -329,7 +322,8 @@ FEATURE/common : .SCAN.IGNORE
  */
 
 .check.hdr : .IGNORE .VIRTUAL \
-		FEATURE/standards - FEATURE/lib - FEATURE/common - FEATURE/param - \
+		FEATURE/standards - FEATURE/lib - FEATURE/common - \
+		FEATURE/param - FEATURE/aso - \
 		ast_map.h - ast_limits.h - ast_stdio.h ast_nl_types.h - \
 		ast_wchar.h ast_wctype.h
 	: clean up obsolete headers :
@@ -350,8 +344,9 @@ end
  * see astmath.c for details
  */
 
-.check.lib : .AFTER astmath.exe
-	if	test -f $(~)
+.check.lib : .AFTER astmath.exe FEATURE/aso
+	$(SED) -e '/^#define _REQ_/!d' -e 's/#define _REQ_\([a-z0-9_]*\).*/ -l\1/' $(*:N=FEATURE/*) >> $(<<)
+	if	test -f astmath.exe
 	then	touch $(<<)
 	else	echo ' -lm' >> $(<<)
 	fi

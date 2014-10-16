@@ -7,6 +7,7 @@ ab_LTFLAGS=""
 checkgid_LTFLAGS=""
 htcacheclean_LTFLAGS=""
 httxt2dbm_LTFLAGS=""
+fcgistarter_LTFLAGS=""
 
 AC_ARG_ENABLE(static-support,APACHE_HELP_STRING(--enable-static-support,Build a statically linked version of the support binaries),[
 if test "$enableval" = "yes" ; then
@@ -19,6 +20,7 @@ if test "$enableval" = "yes" ; then
   APR_ADDTO(checkgid_LTFLAGS, [-static])
   APR_ADDTO(htcacheclean_LTFLAGS, [-static])
   APR_ADDTO(httxt2dbm_LTFLAGS, [-static])
+  APR_ADDTO(fcgistarter_LTFLAGS, [-static])
 fi
 ])
 
@@ -103,6 +105,15 @@ fi
 ])
 APACHE_SUBST(httxt2dbm_LTFLAGS)
 
+AC_ARG_ENABLE(static-fcgistarter,APACHE_HELP_STRING(--enable-static-fcgistarter,Build a statically linked version of fcgistarter),[
+if test "$enableval" = "yes" ; then
+  APR_ADDTO(fcgistarter_LTFLAGS, [-static])
+else
+  APR_REMOVEFROM(fcgistarter, [-static])
+fi
+])
+APACHE_SUBST(fcgistarter_LTFLAGS)
+
 # Configure or check which of the non-portable support programs can be enabled.
 
 NONPORTABLE_SUPPORT=""
@@ -110,7 +121,7 @@ case $host in
     *mingw*)
         ;;
     *)
-        NONPORTABLE_SUPPORT="checkgid"
+        NONPORTABLE_SUPPORT="checkgid fcgistarter"
         ;;
 esac
 APACHE_SUBST(NONPORTABLE_SUPPORT)
@@ -130,7 +141,7 @@ case $host in
         APACHECTL_ULIMIT="ulimit -S -n \`ulimit -h -n\`"
         ;;
     *)
-        if TMP_ULIMIT=`ulimit -H -n` && ulimit -S -n $TMP_ULIMIT ; then
+        if TMP_ULIMIT=`ulimit -H -n` && ulimit -S -n $TMP_ULIMIT >/dev/null 2>&1; then
             APACHECTL_ULIMIT="ulimit -S -n \`ulimit -H -n\`"
         else
             APACHECTL_ULIMIT=""

@@ -1,0 +1,5 @@
+# logging for OpenSSH sshd
+#
+= enable [File /var/run/com.openssh.sshd-asl-enabled]
+> /var/log/sshd.log mode=0640 compress format=std rotate=seq file_max=5M all_max=20M
+? [CA= Sender sshd] file /var/log/sshd.log

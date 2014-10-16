@@ -1,0 +1,50 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>inttypes-h.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">inttypes-h.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># inttypes-h.m4 serial 1 (gettext-0.15)
+</span><span class="enscript-comment">dnl Copyright (C) 1997-2002, 2006 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-comment">dnl From Paul Eggert.
+</span>
+<span class="enscript-comment"># Define HAVE_INTTYPES_H if &lt;inttypes.h&gt; exists and doesn't clash with
+</span><span class="enscript-comment"># &lt;sys/types.h&gt;.
+</span>
+AC_DEFUN([gl_HEADER_INTTYPES_H],
+[
+  AC_CACHE_CHECK([for inttypes.h], gl_cv_header_inttypes_h,
+  [
+    AC_TRY_COMPILE(
+      [<span class="enscript-comment">#include &lt;sys/types.h&gt;
+</span><span class="enscript-comment">#include &lt;inttypes.h&gt;],
+</span>      [], gl_cv_header_inttypes_h=yes, gl_cv_header_inttypes_h=no)
+  ])
+  if test $gl_cv_header_inttypes_h = yes; then
+    AC_DEFINE_UNQUOTED(HAVE_INTTYPES_H, 1,
+      [Define if &lt;inttypes.h&gt; exists and doesn't clash with &lt;sys/types.h&gt;.])
+  fi
+])
+</pre>
+<hr />
+</body></html>

@@ -5,7 +5,7 @@
 # Set RC_CFLAGS to build multiple architectures.
 
 FREETYPENAME = freetype
-FREETYPEVERS = 2.4.10
+FREETYPEVERS = 2.4.12
 FREETYPENAMEVERS = $(FREETYPENAME)-$(FREETYPEVERS)
 
 FREETYPESRC = $(SRCROOT)/tmpprefix/$(FREETYPENAME)
@@ -30,6 +30,7 @@ $(FREETYPEDIR)/darwin:
 	CFLAGS='$(RC_CFLAGS)' LDFLAGS='$(RC_CFLAGS)' ../configure --without-fsspec --without-fsref --without-quickdraw-toolbox --disable-shared --enable-static --prefix=$(TMPPREFIX) && \
 	make && \
 	make install
+	ed - $(TMPPREFIX)/bin/freetype-config < $(FREETYPESRC)/bin_freetype-config.ed
 
 afterinstallsrc:
 	@true

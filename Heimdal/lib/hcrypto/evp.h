@@ -127,7 +127,7 @@ struct hc_CIPHER {
     int nid;
     int block_size;
     int key_len;
-    int iv_len;
+    unsigned int iv_len;
     unsigned long flags;
     /* The lowest 3 bits is used as integer field for the mode the
      * cipher is used in (use EVP_CIPHER.._mode() to extract the

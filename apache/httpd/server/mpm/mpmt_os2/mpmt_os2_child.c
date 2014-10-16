@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#define CORE_PRIVATE
 #define INCL_NOPMAPI
 #define INCL_DOS
 #define INCL_DOSERRORS
@@ -27,7 +26,7 @@
 #include "http_config.h"
 #include "http_core.h"  /* for get_remote_host */
 #include "http_connection.h"
-#include "mpm.h"
+#include "scoreboard.h"
 #include "ap_mpm.h"
 #include "ap_listen.h"
 #include "apr_portable.h"
@@ -36,6 +35,8 @@
 #include "apr_strings.h"
 #include <os2.h>
 #include <process.h>
+
+APLOG_USE_MODULE(mpm_mpmt_os2);
 
 /* XXXXXX move these to header file private to this MPM */
 
@@ -116,7 +117,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
     rc = DosCreateEventSem(NULL, &shutdown_event, 0, FALSE);
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00189)
                      "unable to create shutdown semaphore, exiting");
         clean_child_exit(APEXIT_CHILDFATAL);
     }
@@ -126,7 +127,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
                               PAG_READ|PAG_WRITE);
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00190)
                      "scoreboard not readable in child, exiting");
         clean_child_exit(APEXIT_CHILDFATAL);
     }
@@ -138,7 +139,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
     rc = DosOpenMutexSem(NULL, &ap_mpm_accept_mutex);
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00191)
                      "accept mutex couldn't be accessed in child, exiting");
         clean_child_exit(APEXIT_CHILDFATAL);
     }
@@ -147,7 +148,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
     for (child_slot = 0; ap_scoreboard_image->parent[child_slot].pid != my_pid && child_slot < HARD_SERVER_LIMIT; child_slot++);
 
     if (child_slot == HARD_SERVER_LIMIT) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf, APLOGNO(00192)
                      "child pid not found in scoreboard, exiting");
         clean_child_exit(APEXIT_CHILDFATAL);
     }
@@ -161,7 +162,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
     rc = DosCreateQueue(&workq, QUE_FIFO, apr_psprintf(pchild, "/queues/httpd/work.%d", my_pid));
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00193)
                      "unable to create work queue, exiting");
         clean_child_exit(APEXIT_CHILDFATAL);
     }
@@ -234,7 +235,7 @@ void ap_mpm_child_main(apr_pool_t *pconf)
 
         if (rv != APR_SUCCESS) {
             if (!APR_STATUS_IS_EINTR(rv)) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, rv, ap_server_conf,
+                ap_log_error(APLOG_MARK, APLOG_ERR, rv, ap_server_conf, APLOGNO(00194)
                              "apr_socket_accept");
                 clean_child_exit(APEXIT_CHILDFATAL);
             }
@@ -290,13 +291,14 @@ void ap_mpm_child_main(apr_pool_t *pconf)
 void add_worker()
 {
     int thread_slot;
+    int stacksize = ap_thread_stacksize == 0 ? 128*1024 : ap_thread_stacksize;
 
     /* Find a free thread slot */
     for (thread_slot=0; thread_slot < HARD_THREAD_LIMIT; thread_slot++) {
         if (ap_scoreboard_image->servers[child_slot][thread_slot].status == SERVER_DEAD) {
             ap_scoreboard_image->servers[child_slot][thread_slot].status = SERVER_STARTING;
             ap_scoreboard_image->servers[child_slot][thread_slot].tid =
-                _beginthread(worker_main, NULL, 128*1024, (void *)thread_slot);
+                _beginthread(worker_main, NULL, stacksize, (void *)thread_slot);
             break;
         }
     }
@@ -317,7 +319,7 @@ ULONG APIENTRY thread_exception_handler(EXCEPTIONREPORTRECORD *pReportRec,
 
     if (pReportRec->ExceptionNum == XCPT_ACCESS_VIOLATION ||
         pReportRec->ExceptionNum == XCPT_INTEGER_DIVIDE_BY_ZERO) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf, APLOGNO(00195)
                      "caught exception in worker thread, initiating child shutdown pid=%d", getpid());
         for (c=0; c<HARD_THREAD_LIMIT; c++) {
             if (ap_scoreboard_image->servers[child_slot][c].tid == _gettid()) {
@@ -340,6 +342,8 @@ ULONG APIENTRY thread_exception_handler(EXCEPTIONREPORTRECORD *pReportRec,
 
 static void worker_main(void *vpArg)
 {
+    apr_thread_t *thd = NULL;
+    apr_os_thread_t osthd;
     long conn_id;
     conn_rec *current_conn;
     apr_pool_t *pconn;
@@ -359,11 +363,14 @@ static void worker_main(void *vpArg)
     /* Trap exceptions in this thread so we don't take down the whole process */
     DosSetExceptionHandler( &reg_rec );
 
+    osthd = apr_os_thread_current();
+    apr_os_thread_put(&thd, &osthd, pchild);
+
     rc = DosOpenQueue(&owner, &workq,
                       apr_psprintf(pchild, "/queues/httpd/work.%d", getpid()));
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00196)
                      "unable to open work queue, exiting");
         ap_scoreboard_image->servers[child_slot][thread_slot].tid = 0;
     }
@@ -385,6 +392,7 @@ static void worker_main(void *vpArg)
                                                 sbh, bucket_alloc);
 
         if (current_conn) {
+            current_conn->current_thread = thd;
             ap_process_connection(current_conn, worker_args->conn_sd);
             ap_lingering_close(current_conn);
         }
@@ -416,7 +424,7 @@ static void server_maintenance(void *vpArg)
                       apr_psprintf(pchild, "/queues/httpd/work.%d", getpid()));
 
     if (rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_ERR, APR_FROM_OS_ERROR(rc), ap_server_conf, APLOGNO(00197)
                      "unable to open work queue in maintenance thread");
         return;
     }
@@ -471,10 +479,10 @@ static void set_signals()
     sa.sa_handler = sig_term;
 
     if (sigaction(SIGTERM, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGTERM)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00198) "sigaction(SIGTERM)");
 
     sa.sa_handler = sig_hup;
 
     if (sigaction(SIGHUP, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, "sigaction(SIGHUP)");
+        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, ap_server_conf, APLOGNO(00199) "sigaction(SIGHUP)");
 }

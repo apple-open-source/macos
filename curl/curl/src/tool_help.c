@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -23,6 +23,8 @@
 
 #include "tool_panykey.h"
 #include "tool_help.h"
+#include "tool_libinfo.h"
+#include "tool_version.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
@@ -69,6 +71,10 @@ static const char *const helptext[] = {
   "     --digest        Use HTTP Digest Authentication (H)",
   "     --disable-eprt  Inhibit using EPRT or LPRT (F)",
   "     --disable-epsv  Inhibit using EPSV (F)",
+  "     --dns-servers    DNS server addrs to use: 1.1.1.1;2.2.2.2",
+  "     --dns-interface  Interface to use for DNS requests",
+  "     --dns-ipv4-addr  IPv4 address to use for DNS requests, dot notation",
+  "     --dns-ipv6-addr  IPv6 address to use for DNS requests, dot notation",
   " -D, --dump-header FILE  Write the headers to this file",
   "     --egd-file FILE  EGD socket path for random data (SSL)",
   "     --engine ENGINE  Crypto engine (SSL). \"--engine list\" for list",
@@ -99,6 +105,8 @@ static const char *const helptext[] = {
   "     --hostpubmd5 MD5  "
   "Hex encoded MD5 string of the host public key. (SSH)",
   " -0, --http1.0       Use HTTP 1.0 (H)",
+  "     --http1.1       Use HTTP 1.1 (H)",
+  "     --http2         Use HTTP 2 (H)",
   "     --ignore-content-length  Ignore the HTTP Content-Length header",
   " -i, --include       Include protocol headers in the output (H/F)",
   " -k, --insecure      Allow connections to SSL sites without certs (H)",
@@ -114,14 +122,15 @@ static const char *const helptext[] = {
   "     --libcurl FILE  Dump libcurl equivalent code of this command line",
 #endif
   "     --limit-rate RATE  Limit transfer speed to this rate",
-  " -l, --list-only     List only names of an FTP directory (F)",
+  " -l, --list-only     List only mode (F/POP3)",
   "     --local-port RANGE  Force use of these local port numbers",
   " -L, --location      Follow redirects (H)",
   "     --location-trusted like --location and send auth to other hosts (H)",
+  "     --login-options OPTIONS  Server login options (IMAP, POP3, SMTP)",
   " -M, --manual        Display the full manual",
-  "     --mail-from FROM  Mail from this address",
-  "     --mail-rcpt TO  Mail to this receiver(s)",
-  "     --mail-auth AUTH  Originator address of the original email",
+  "     --mail-from FROM  Mail from this address (SMTP)",
+  "     --mail-rcpt TO  Mail to this/these addresses (SMTP)",
+  "     --mail-auth AUTH  Originator address of the original email (SMTP)",
   "     --max-filesize BYTES  Maximum file size to download (H/F)",
   "     --max-redirs NUM  Maximum number of redirects allowed (H)",
   " -m, --max-time SECONDS  Maximum time allowed for the transfer",
@@ -130,11 +139,16 @@ static const char *const helptext[] = {
   " -n, --netrc         Must read .netrc for user name and password",
   "     --netrc-optional Use either .netrc or URL; overrides -n",
   "     --netrc-file FILE  Set up the netrc filename to use",
+  " -:  --next          "
+  "Allows the following URL to use a separate set of options",
+  "     --no-alpn       Disable the ALPN TLS extension (H)",
   " -N, --no-buffer     Disable buffering of the output stream",
   "     --no-keepalive  Disable keepalive use on the connection",
+  "     --no-npn        Disable the NPN TLS extension (H)",
   "     --no-sessionid  Disable SSL session-ID reusing (SSL)",
   "     --noproxy       List of hosts which do not use proxy",
   "     --ntlm          Use HTTP NTLM authentication (H)",
+  "     --oauth2-bearer TOKEN  OAuth 2 Bearer Token (IMAP, POP3, SMTP)",
   " -o, --output FILE   Write output to <file> instead of stdout",
   "     --pass PASS     Pass phrase for the private key (SSL/SSH)",
   "     --post301       "
@@ -173,6 +187,7 @@ static const char *const helptext[] = {
   "     --retry-delay SECONDS "
   "When retrying, wait this many seconds between each",
   "     --retry-max-time SECONDS  Retry only within this period",
+  "     --sasl-ir       Enable initial response in SASL authentication",
   " -S, --show-error    "
   "Show error. With -s, make curl show errors when they occur",
   " -s, --silent        Silent mode. Don't output anything",
@@ -199,7 +214,10 @@ static const char *const helptext[] = {
   " -t, --telnet-option OPT=VAL  Set telnet option",
   "     --tftp-blksize VALUE  Set TFTP BLKSIZE option (must be >512)",
   " -z, --time-cond TIME  Transfer based on a time condition",
-  " -1, --tlsv1         Use TLSv1 (SSL)",
+  " -1, --tlsv1         Use => TLSv1 (SSL)",
+  "     --tlsv1.0       Use TLSv1.0 (SSL)",
+  "     --tlsv1.1       Use TLSv1.1 (SSL)",
+  "     --tlsv1.2       Use TLSv1.2 (SSL)",
   "     --trace FILE    Write a debug trace to the given file",
   "     --trace-ascii FILE  Like --trace but without the hex output",
   "     --trace-time    Add time stamps to trace/verbose output",
@@ -231,6 +249,31 @@ static const char *const helptext[] = {
 #  define PRINT_LINES_PAUSE 16
 #endif
 
+struct feat {
+  const char *name;
+  int bitmask;
+};
+
+static const struct feat feats[] = {
+  {"AsynchDNS",      CURL_VERSION_ASYNCHDNS},
+  {"Debug",          CURL_VERSION_DEBUG},
+  {"TrackMemory",    CURL_VERSION_CURLDEBUG},
+  {"GSS-Negotiate",  CURL_VERSION_GSSNEGOTIATE},
+  {"IDN",            CURL_VERSION_IDN},
+  {"IPv6",           CURL_VERSION_IPV6},
+  {"Largefile",      CURL_VERSION_LARGEFILE},
+  {"NTLM",           CURL_VERSION_NTLM},
+  {"NTLM_WB",        CURL_VERSION_NTLM_WB},
+  {"SPNEGO",         CURL_VERSION_SPNEGO},
+  {"SSL",            CURL_VERSION_SSL},
+  {"SSPI",           CURL_VERSION_SSPI},
+  {"krb4",           CURL_VERSION_KERBEROS4},
+  {"libz",           CURL_VERSION_LIBZ},
+  {"CharConv",       CURL_VERSION_CONV},
+  {"TLS-SRP",        CURL_VERSION_TLSAUTH_SRP},
+  {"HTTP2",          CURL_VERSION_HTTP2}
+};
+
 void tool_help(void)
 {
   int i;
@@ -243,3 +286,48 @@ void tool_help(void)
   }
 }
 
+void tool_version_info(void)
+{
+  const char *const *proto;
+
+  printf(CURL_ID "%s\n", curl_version());
+  if(curlinfo->protocols) {
+    printf("Protocols: ");
+    for(proto = curlinfo->protocols; *proto; ++proto) {
+      printf("%s ", *proto);
+    }
+    puts(""); /* newline */
+  }
+  if(curlinfo->features) {
+    unsigned int i;
+    printf("Features: ");
+    for(i = 0; i < sizeof(feats)/sizeof(feats[0]); i++) {
+      if(curlinfo->features & feats[i].bitmask)
+        printf("%s ", feats[i].name);
+    }
+#ifdef USE_METALINK
+    printf("Metalink ");
+#endif
+    puts(""); /* newline */
+  }
+}
+
+void tool_list_engines(CURL *curl)
+{
+  struct curl_slist *engines = NULL;
+
+  /* Get the list of engines */
+  curl_easy_getinfo(curl, CURLINFO_SSL_ENGINES, &engines);
+
+  puts("Build-time engines:");
+  if(engines) {
+    for(; engines; engines = engines->next)
+      printf("  %s\n", engines->data);
+  }
+  else {
+    puts("  <none>");
+  }
+
+  /* Cleanup the list of engines */
+  curl_slist_free_all(engines);
+}

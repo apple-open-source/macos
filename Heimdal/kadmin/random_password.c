@@ -47,7 +47,7 @@
 #ifdef OTP_STYLE
 #include <otp.h>
 #else
-static void generate_password(char **pw, int num_classes, ...);
+static void generate_password(char **pw, unsigned num_classes, ...);
 #endif
 
 void
@@ -109,7 +109,7 @@ RND(unsigned char *key, int keylen, int *left)
 
    */
 static void
-generate_password(char **pw, int num_classes, ...)
+generate_password(char **pw, unsigned num_classes, ...)
 {
     struct {
 	const char *str;
@@ -117,7 +117,8 @@ generate_password(char **pw, int num_classes, ...)
 	int freq;
     } *classes;
     va_list ap;
-    size_t len, i;
+    size_t len;
+    unsigned i;
     unsigned char rbuf[8]; /* random buffer */
     int rleft = 0;
 
@@ -141,7 +142,7 @@ generate_password(char **pw, int num_classes, ...)
 	return;
     }
     for(i = 0; i < len; i++) {
-	int j;
+	unsigned j;
 	int x = RND(rbuf, sizeof(rbuf), &rleft) % (len - i);
 	int t = 0;
 	for(j = 0; j < num_classes; j++) {

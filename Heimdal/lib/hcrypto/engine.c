@@ -389,7 +389,7 @@ ENGINE_by_dso(const char *path, const char *id)
 ENGINE *
 ENGINE_by_id(const char *id)
 {
-    int i;
+    size_t i;
 
     for (i = 0; i < num_engines; i++) {
 	if (strcmp(id, engines[i]->id) == 0) {

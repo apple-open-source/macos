@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHOPTIONS" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -289,6 +289,11 @@ Perform \fB=\fP filename expansion\&.
 Treat the `\fB#\fP\&', `\fB~\fP' and `\fB^\fP' characters as part of patterns
 for filename generation, etc\&.  (An initial unquoted `\fB~\fP\&'
 always produces named directory expansion\&.)
+.TP
+\fBFORCE_FLOAT\fP
+Constants in arithmetic evaluation will be treated as floating point
+even without the use of a decimal point\&.  Integers in any base
+will be converted\&.
 .TP
 \fBGLOB\fP (\fB+F\fP, ksh: \fB+f\fP) <D>
 Perform filename generation (globbing)\&.
@@ -772,6 +777,7 @@ printability of eight bit characters (see \fIctype\fP(3))\&.
 .TP
 \fBPRINT_EXIT_VALUE\fP (\fB\-1\fP)
 Print the exit value of programs with non\-zero exit status\&.
+This is only available at the command line in interactive shells\&.
 .TP
 \fBRC_QUOTES\fP
 Allow the character sequence `\fB\&''\fP' to signify a single quote
@@ -956,6 +962,10 @@ the trap\&.  If the option \fBDEBUG_BEFORE_CMD\fP is set,
 as it is by default, and the option \fBERR_EXIT\fP is found to have been set
 on exit, then the command for which the \fBDEBUG\fP trap is being executed is
 skipped\&.  The option is restored after the trap exits\&.
+.PP
+Exiting due to \fBERR_EXIT\fP has certain interactions with asynchronous
+jobs noted in
+the section JOBS in in \fIzshmisc\fP(1)\&.
 .RE
 .TP
 \fBERR_RETURN\fP
@@ -997,6 +1007,15 @@ force at the point of return will remain so\&.
 A shell function can also guarantee itself a known shell configuration
 with a formulation like `\fBemulate \-L zsh\fP\&'; the \fB\-L\fP activates
 \fBLOCAL_OPTIONS\fP\&.
+.TP
+\fBLOCAL_PATTERNS\fP
+If this option is set at the point of return from a shell function,
+the state of pattern disables, as set with the builtin command
+`\fBdisable \-p\fP\&', is restored to what it was when the function was
+entered\&.  The behaviour of this option is similar to the effect
+of \fBLOCAL_OPTIONS\fP on options; hence `\fBemulate \-L sh\fP\&' (or
+indeed any other emulation with the \fB\-L\fP option) activates
+\fBLOCAL_PATTERNS\fP\&.
 .TP
 \fBLOCAL_TRAPS\fP <K>
 If this option is set when a signal trap is set inside a function, then the
@@ -1041,6 +1060,13 @@ Sequences of digits indicating a numeric base such as the `\fB08\fP\&'
 component in `\fB08#77\fP\&' are always interpreted as decimal, regardless
 of leading zeroes\&.
 .RE
+.TP
+\fBPIPE_FAIL\fP
+By default, when a pipeline exits the exit status recorded by the shell
+and returned by the shell variable \fB$?\fP reflects that of the
+rightmost element of a pipeline\&.  If this option is set, the exit status
+instead reflects the status of the rightmost element of the pipeline
+that was non\-zero, or zero if all elements exited with zero status\&.
 .TP
 \fBSOURCE_TRACE\fP
 If set, zsh will print an informational message announcing the name of

@@ -44,14 +44,7 @@ BEGIN
 	i = 0;
 }
 
-#if !defined(__APPLE__)
-syscall::*lwp*:entry
-{
-	exit(0);
-}
-#else
 syscall::*proc*:entry
 {
 	exit(0);
 }
-#endif /* __APPLE__ */

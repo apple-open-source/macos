@@ -31,11 +31,13 @@
 #ifndef FileReaderSync_h
 #define FileReaderSync_h
 
-#if ENABLE(BLOB)
-
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
+
+namespace JSC {
+class ArrayBuffer;
+}
 
 namespace WebCore {
 
@@ -54,7 +56,7 @@ public:
 
     virtual ~FileReaderSync() { }
 
-    PassRefPtr<ArrayBuffer> readAsArrayBuffer(ScriptExecutionContext*, Blob*, ExceptionCode&);
+    PassRefPtr<JSC::ArrayBuffer> readAsArrayBuffer(ScriptExecutionContext*, Blob*, ExceptionCode&);
     String readAsBinaryString(ScriptExecutionContext*, Blob*, ExceptionCode&);
     String readAsText(ScriptExecutionContext* scriptExecutionContext, Blob* blob, ExceptionCode& ec)
     {
@@ -70,7 +72,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(BLOB)
 
 #endif // FileReaderSync_h

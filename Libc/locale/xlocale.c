@@ -40,10 +40,10 @@
 }
 
 static char C[] = "C";
-static const struct _xlocale __c_locale = C_LOCALE_INITIALIZER;
+static struct _xlocale __c_locale = C_LOCALE_INITIALIZER;
 const locale_t _c_locale = (const locale_t)&__c_locale;
-__private_extern__ struct _xlocale __global_locale = C_LOCALE_INITIALIZER;
-__private_extern__ pthread_key_t __locale_key = (pthread_key_t)-1;
+struct _xlocale __global_locale = C_LOCALE_INITIALIZER;
+pthread_key_t __locale_key = (pthread_key_t)-1;
 
 extern int __collate_load_tables(const char *, locale_t);
 extern int __detect_path_locale(void);

@@ -38,59 +38,15 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <dispatch/dispatch.h>
-#include <syslog.h>
 
 static void *
-_heim_create_cf_instance(CFTypeID typeID, CFIndex size, char *category)
+_heim_create_cf_instance(CFTypeID typeID, size_t size, char *category)
 {
     heim_assert(size >= sizeof(CFRuntimeBase), "cf runtime size too small");
     CFTypeRef type = _CFRuntimeCreateInstance(NULL, typeID, size - sizeof(struct heim_base), (unsigned char *)category);
     if (type)
 	memset(((uint8_t *)type) + sizeof(struct heim_base), 0, size - sizeof(struct heim_base));
     return (void *)type;
-}
-/*
- *
- */
-
-const char *__crashreporter_info__ = NULL;
-asm(".desc ___crashreporter_info__, 0x10");
-
-
-/**
- * Abort and log the failure (using syslog)
- */
-
-void
-heim_abort(const char *fmt, ...)
-    HEIMDAL_NORETURN_ATTRIBUTE
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 2))
-{
-    va_list ap;
-    va_start(ap, fmt);
-    heim_abortv(fmt, ap);
-    va_end(ap);
-}
-
-/**
- * Abort and log the failure (using syslog)
- */
-
-void
-heim_abortv(const char *fmt, va_list ap)
-    HEIMDAL_NORETURN_ATTRIBUTE
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 1, 0))
-{
-    char *str = NULL;
-    int ret;
-    
-    ret = vasprintf(&str, fmt, ap);
-    if (ret > 0 && str) {
-	syslog(LOG_ERR, "heim_abort: %s", str);
-	
-	__crashreporter_info__ = str;
-    }
-    abort();
 }
 
 void
@@ -215,7 +171,7 @@ heim_array_delete_value(heim_array_t array, size_t idx)
 void
 heim_array_filter(heim_array_t array, int (^block)(heim_object_t))
 {
-    size_t n = 0;
+    CFIndex n = 0;
     
     while (n < CFArrayGetCount((CFArrayRef)array)) {
 	if (block((heim_array_t)CFArrayGetValueAtIndex((CFArrayRef)array, n))) {
@@ -255,7 +211,7 @@ heim_dict_copy_value(heim_dict_t dict, heim_object_t key)
 }
 
 int
-heim_dict_add_value(heim_dict_t dict, heim_object_t key, heim_object_t value)
+heim_dict_set_value(heim_dict_t dict, heim_object_t key, heim_object_t value)
 {
     CFDictionarySetValue((CFMutableDictionaryRef)dict, key, value);
     return 0;
@@ -268,7 +224,6 @@ heim_dict_delete_key(heim_dict_t dict, heim_object_t key)
 }
 
 struct dict_iter {
-    heim_dict_t dict;
     union {
 	heim_dict_iterator_f_t func;
 	void (^block)(heim_object_t, heim_object_t);
@@ -280,15 +235,14 @@ static void
 dict_iterate_f(const void *key, const void *value, void *context)
 {
     struct dict_iter *ctx = context;
-    ctx->u.func(ctx->dict, (heim_object_t)key, (heim_object_t)value, ctx->arg);
+    ctx->u.func((heim_object_t)key, (heim_object_t)value, ctx->arg);
 
 }
 
 void
-heim_dict_iterate_f(heim_dict_t dict, heim_dict_iterator_f_t func, void *arg)
+heim_dict_iterate_f(heim_dict_t dict, void *arg, heim_dict_iterator_f_t func)
 {
     struct dict_iter ctx = {
-	.dict = dict,
 	.u.func = func,
 	.arg = arg
     };
@@ -320,6 +274,12 @@ heim_string_t
 heim_string_create(const char *string)
 {
     return (heim_string_t)CFStringCreateWithCString(NULL, string, kCFStringEncodingUTF8);
+}
+
+heim_string_t
+heim_string_create_with_bytes(const void *data, size_t len)
+{
+    return (heim_string_t)CFStringCreateWithBytes(NULL, data, len, kCFStringEncodingUTF8, false);
 }
 
 heim_tid_t
@@ -510,6 +470,12 @@ heim_error_createv(int error_code, const char *fmt, va_list ap)
     free(str);
     
     return e;
+}
+
+heim_error_t
+heim_error_create_enomem(void)
+{
+    return heim_error_create(ENOMEM, "out of memory");
 }
 
 heim_string_t

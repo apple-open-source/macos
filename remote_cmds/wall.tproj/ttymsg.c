@@ -36,6 +36,7 @@
 __FBSDID("$FreeBSD: src/usr.bin/wall/ttymsg.c,v 1.12 2006/01/27 08:52:14 ume Exp $");
 
 #ifndef lint
+__attribute__((__used__))
 static const char sccsid[] = "@(#)ttymsg.c	8.2 (Berkeley) 11/16/93";
 #endif
 

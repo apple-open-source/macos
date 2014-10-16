@@ -26,13 +26,19 @@
 #ifndef WebViewEfl_h
 #define WebViewEfl_h
 
+#include "WebColorPickerClient.h"
 #include "WebView.h"
 
 class EwkView;
 
 namespace WebKit {
 
-class WebViewEfl : public WebView {
+#if ENABLE(TOUCH_EVENTS)
+class EwkTouchEvent;
+#endif
+
+class WebViewEfl : public WebView
+    {
 public:
     void setEwkView(EwkView*);
     EwkView* ewkView() { return m_ewkView; }
@@ -40,17 +46,53 @@ public:
     void paintToCairoSurface(cairo_surface_t*);
     void setThemePath(const String&);
 
+#if ENABLE(TOUCH_EVENTS)
+    void sendTouchEvent(EwkTouchEvent*);
+#endif
+    void sendMouseEvent(const Evas_Event_Mouse_Down*);
+    void sendMouseEvent(const Evas_Event_Mouse_Up*);
+    void sendMouseEvent(const Evas_Event_Mouse_Move*);
+
+#if ENABLE(INPUT_TYPE_COLOR)
+    void initializeColorPickerClient(const WKColorPickerClientBase*);
+
+    WebColorPickerClient& colorPickerClient() { return m_colorPickerClient; }
+    virtual PassRefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color&, const WebCore::IntRect&) override;
+#endif
+
+    void setViewBackgroundColor(const WebCore::Color&);
+    WebCore::Color viewBackgroundColor();
 private:
     WebViewEfl(WebContext*, WebPageGroup*);
 
-    void setCursor(const WebCore::Cursor&) OVERRIDE;
-    PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) OVERRIDE;
-    PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) OVERRIDE;
-    void updateTextInputState() OVERRIDE;
-    void handleDownloadRequest(DownloadProxy*) OVERRIDE;
+    void setCursor(const WebCore::Cursor&) override;
+    PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) override;
+    void updateTextInputState() override;
+    void handleDownloadRequest(DownloadProxy*) override;
+
+#if ENABLE(CONTEXT_MENUS)
+    PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) override;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    // WebFullScreenManagerProxyClient
+    virtual void closeFullScreenManager() override final { }
+    virtual bool isFullScreen() override final;
+    virtual void enterFullScreen() override final;
+    virtual void exitFullScreen() override final;
+    virtual void beganEnterFullScreen(const WebCore::IntRect&, const WebCore::IntRect&) override final { }
+    virtual void beganExitFullScreen(const WebCore::IntRect&, const WebCore::IntRect&) override final { }
+#endif
+
+    virtual void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override final;
 
 private:
     EwkView* m_ewkView;
+    bool m_hasRequestedFullScreen;
+
+#if ENABLE(INPUT_TYPE_COLOR)
+    WebColorPickerClient m_colorPickerClient;
+#endif
 
     friend class WebView;
 };

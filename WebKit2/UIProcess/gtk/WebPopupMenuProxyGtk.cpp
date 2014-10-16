@@ -30,7 +30,7 @@
 #include "WebPopupItem.h"
 #include <WebCore/GtkUtilities.h>
 #include <gtk/gtk.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
@@ -54,7 +54,7 @@ WebPopupMenuProxyGtk::~WebPopupMenuProxyGtk()
 
 GtkAction* WebPopupMenuProxyGtk::createGtkActionForMenuItem(const WebPopupItem& item, int itemIndex)
 {
-    GOwnPtr<char> actionName(g_strdup_printf("popup-menu-action-%d", itemIndex));
+    GUniquePtr<char> actionName(g_strdup_printf("popup-menu-action-%d", itemIndex));
     GtkAction* action = gtk_action_new(actionName.get(), item.m_text.utf8().data(), item.m_toolTip.utf8().data(), 0);
     g_object_set_data(G_OBJECT(action), "popup-menu-action-index", GINT_TO_POINTER(itemIndex));
     g_signal_connect(action, "activate", G_CALLBACK(menuItemActivated), this);
@@ -63,7 +63,7 @@ GtkAction* WebPopupMenuProxyGtk::createGtkActionForMenuItem(const WebPopupItem& 
     return action;
 }
 
-void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection textDirection, double pageScaleFactor, const Vector<WebPopupItem>& items, const PlatformPopupMenuData& data, int32_t selectedIndex)
+void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection, double /* pageScaleFactor */, const Vector<WebPopupItem>& items, const PlatformPopupMenuData&, int32_t selectedIndex)
 {
     if (m_popup)
         m_popup->clear();
@@ -97,9 +97,13 @@ void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection text
     // menu right after calling WebPopupMenuProxy::showPopupMenu().
     m_runLoop = adoptGRef(g_main_loop_new(0, FALSE));
 
+// This is to suppress warnings about gdk_threads_leave and gdk_threads_enter.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     gdk_threads_leave();
     g_main_loop_run(m_runLoop.get());
     gdk_threads_enter();
+#pragma GCC diagnostic pop
 
     m_runLoop.clear();
 

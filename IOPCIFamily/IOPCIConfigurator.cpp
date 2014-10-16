@@ -40,17 +40,22 @@ __BEGIN_DECLS
 extern void mp_rendezvous_no_intrs(
                void (*action_func)(void *),
                void *arg);
-#else
+
+#else /* defined(__i386__) || defined(__x86_64__) */
 
 #define NO_RENDEZVOUS_KERNEL    1
 #define cpu_number()    (0)
 
-#endif
+#define KB		(1024ULL)		
+#define MB		(1024ULL*KB)
+#define GB		(1024ULL*MB)
+
+#endif /* ! defined(__i386__) || defined(__x86_64__) */
 
 __END_DECLS
 
 #define PFM64_SIZE    (2ULL*GB)
-#define MAX_BAR_SIZE  (32ULL*GB)
+#define MAX_BAR_SIZE  (1ULL*GB)
 // NPHYSMAP
 // #define PFM64_MAX     (100ULL*GB)
 
@@ -304,8 +309,8 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			DLOG("[ PCI configuration begin ]\n");
 			fChangedServices = OSSet::withCapacity(8);
 			configure(0);
-			DLOG("[ PCI configuration end, changed %d, bridges %d, devices %d, waiting %d ]\n", 
-				  fChangedServices->getCount(), fBridgeCount, fDeviceCount, fWaitingPause);
+			DLOG("[ PCI configuration end, bridges %d, devices %d, changed %d, waiting %d ]\n", 
+				  fBridgeCount, fDeviceCount, fChangedServices->getCount(), fWaitingPause);
 
 			if (arg)
 			{
@@ -457,7 +462,13 @@ bool CLASS::createRoot(void)
 		IOPCIRangeInitAlloc(range, kIOPCIResourceTypeMemory, start, size, 1);
 		root->ranges[kIOPCIRangeBridgeMemory] = range;
 	}
-#endif /* defined(__i386__) || defined(__x86_64__) */
+
+#else /* defined(__i386__) || defined(__x86_64__) */
+
+	IOLog  ("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
+	kprintf("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
+
+#endif /* !defined(__i386__) || defined(__x86_64__) */
 
     root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
     fRoot = root;
@@ -486,6 +497,7 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
     bridge->space        = hostBridge->getBridgeSpace();
 
     bridge->dtNub           = hostBridge->getProvider();
+    bridge->dtEntry         = bridge->dtNub;
 #if ACPI_SUPPORT
     bridge->acpiDevice      = IOPCICopyACPIDevice(bridge->dtNub);
 #endif
@@ -807,7 +819,7 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
     out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", vendor, product) + 1;
     out += snprintf(out, sizeof("pciclass,cccccc"), "pciclass,%06x", classCode) + 1;
 
-    if (device->dtNub && ((nameProp = device->dtNub->copyName())))
+    if (device->dtEntry && ((nameProp = device->dtEntry->copyName())))
 	{
 		out += strlcpy(out, nameProp->getCStringNoCopy(), 31) + 1;
 		nameProp->release();
@@ -975,9 +987,10 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
     assert(bridge);
     assert(dtEntry);
 
+    if (dtEntry->inPlane(gIOServicePlane)) return;
+
     location = dtEntry->copyLocation();
-    if (!location)
-        return;
+    if (!location)                         return;
 
     uint32_t devfn = strtoul(location->getCStringNoCopy(), NULL, 16);
     uint32_t deviceNum   = ((devfn >> 16) & 0x1f);
@@ -1001,9 +1014,9 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
 
     if (match)
     {
-        if (!match->dtNub)
+        if (!match->dtEntry)
         {
-            match->dtNub = dtEntry;
+            match->dtEntry = dtEntry;
             DLOGC(context->me, "Found PCI device for DT entry [%s] "D()"\n",
                  dtEntry->getName(), DEVICE_IDENT(match));
         }
@@ -1074,7 +1087,7 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
 
 void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 {
-    IORegistryEntry *   dtBridge = bridge->dtNub;
+    IORegistryEntry *   dtBridge = bridge->dtEntry;
     IOPCIConfigEntry *  parent;
 	OSObject *          obj;
     MatchDTEntryContext context;
@@ -1118,14 +1131,14 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				continue;
 			}
 
-			if (tbok && child->dtNub)
+			if (tbok && child->dtEntry)
 			{
-			    if (child->dtNub->getProperty(gIOPCIThunderboltKey))
+			    if (child->dtEntry->getProperty(gIOPCIThunderboltKey))
 			    {
 					child->supportsHotPlug = kPCIHotPlugTunnelRoot;
 					continue;
 				}
-				if ((obj = child->dtNub->copyProperty(gIOPCIThunderboltKey, gIODTPlane, 
+				if ((obj = child->dtEntry->copyProperty(gIOPCIThunderboltKey, gIODTPlane, 
 													   kIORegistryIterateRecursively)))
 				{
 					obj->release();
@@ -1150,9 +1163,9 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 
 			if (child->headerType == kPCIHeaderType2)
 				child->supportsHotPlug = kPCIHotPlugRoot;
-			else if (child->dtNub)
+			else if (child->dtEntry)
 			{
-				child->supportsHotPlug = IOPCIIsHotplugPort(child->dtNub);
+				child->supportsHotPlug = IOPCIIsHotplugPort(child->dtEntry);
 			}
 			else
 				child->supportsHotPlug = kPCIStatic;
@@ -1222,7 +1235,8 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
     IORegistryEntry *   dtBridge = bridge->dtNub;
     uint32_t            int32;
     bool                ok = true;
-    IOPCIDevice *       nub;
+    IOPCIDevice       * nub;
+    OSDictionary      * initFrom;
 
 //    DLOG("bridgeConstructDeviceTree(%p)\n", bridge);
     if (!dtBridge) return (ok);
@@ -1236,9 +1250,13 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
 
     FOREACH_CHILD( bridge, child )
     {
-        OSDictionary *     propTable;
-        OSObject *         obj;
-        const OSSymbol *   sym;
+        IOPCIDevice     * pciDevice;
+		IORegistryEntry * copyReg;
+        OSDictionary    * propTable;
+        OSObject        * obj;
+        const OSSymbol  * sym;
+		bool              addProps;
+		bool              initDT;
 
         if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
         child->deviceState |= kPCIDeviceStatePropertiesDone;
@@ -1248,55 +1266,80 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
         propTable = constructProperties(child);
         if (!propTable) continue;
 
-        if (!child->dtNub)
-        {
 #if ACPI_SUPPORT
-            if (child->acpiDevice)
+        if (child->acpiDevice)
+        {
+            OSObject  *    obj;
+            OSDictionary * mergeProps;
+            obj = child->acpiDevice->copyProperty(kACPIDevicePropertiesKey);
+            if (obj)
             {
-                OSObject  *    obj;
-                OSDictionary * mergeProps;
-                obj = child->acpiDevice->copyProperty(kACPIDevicePropertiesKey);
-                if (obj)
-                {
-                    if ((mergeProps = OSDynamicCast(OSDictionary, obj)))
-                        propTable->merge(mergeProps);
-                    obj->release();
-                }
+                if ((mergeProps = OSDynamicCast(OSDictionary, obj)))
+                    propTable->merge(mergeProps);
+                obj->release();
             }
+        }
 #endif /* ACPI_SUPPORT */
 
+        pciDevice = OSDynamicCast(IOPCIDevice, child->dtNub);
+        addProps = true;
+        if (!pciDevice)
+        {
             nub = OSTypeAlloc(IOPCIDevice);
-			if (!nub)
-				continue;
-			ok = (nub->init(propTable) 
-				&& nub->attachToParent(bridge->dtNub, gIODTPlane));
-			nub->release();
-			if (!ok)
-				continue;
+            if (!nub) continue;
+            initFrom = 0;
+            initDT = false;
+            ok = false;
+			if (child->dtEntry) 
+            {
+#if ACPI_SUPPORT
+                ok = nub->init(child->dtEntry, gIODTPlane);
+                child->dtNub = child->dtEntry = 0;
+                initDT = true;
+#else  /* !ACPI_SUPPORT */
+			    initFrom = child->dtEntry->dictionaryWithProperties();
+#endif /* !ACPI_SUPPORT */
+            }
+            if (!initDT)
+            {
+                if (!initFrom) 
+                {
+                    initFrom = propTable;
+                    initFrom->retain();
+                    addProps = false;
+                }
+                ok = (nub->init(initFrom) && nub->attachToParent(dtBridge, gIODTPlane));
+                initFrom->release();
+            }
+            nub->release();
+            if (!ok) continue;
             nub->reserved->configEntry = child;
             child->dtNub = nub;
-            if ((sym = OSDynamicCast(OSSymbol, propTable->getObject(gIONameKey))))
-                child->dtNub->setName(sym);
-
 #if ACPI_SUPPORT
-            if (child->acpiDevice)
+            child->dtEntry = nub;
+            copyReg = child->acpiDevice;
+#else /* !ACPI_SUPPORT */
+            copyReg = child->dtEntry;
+#endif /* !ACPI_SUPPORT */
+
+            if (!initDT)
             {
-                const OSSymbol * sym;
-                if ((sym = child->acpiDevice->copyName()))
+                if (copyReg)
                 {
+                    if ((sym = copyReg->copyName()))
+                    {
+                        nub->setName(sym);
+                        sym->release();
+                    }
+                }
+                else if ((sym = OSDynamicCast(OSSymbol, propTable->getObject(gIONameKey))))
                     nub->setName(sym);
-                    sym->release();
-                }
-                if ((sym = child->acpiDevice->copyLocation()))
-                {
-                    nub->setLocation(sym);
-                    sym->release();
-                }
             }
-#endif /* ACPI_SUPPORT */
         }
-        else
+
+        if (addProps)
         {
+            // update existing device
             OSCollectionIterator * propIter =
                 OSCollectionIterator::withCollection(propTable);
             if (propIter)
@@ -1310,41 +1353,32 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
 
                 while ((propKey = (const OSSymbol *)propIter->getNextObject()))
                 {
-                    if (child->dtNub->getProperty(propKey))
-                        continue;
+                    if (child->dtNub->getProperty(propKey)) continue;
                     obj = propTable->getObject(propKey);
                     child->dtNub->setProperty(propKey, obj);
                 }
                 propIter->release();
             }
-//
-			IOPCIDevice * pciDevice;
-			pciDevice = OSDynamicCast(IOPCIDevice, child->dtNub);
-            if (!pciDevice)
+        }
+
+        if (pciDevice
+          && (kPCIDeviceStatePaused & child->deviceState)
+            && pciDevice->getProperty(kIOPCIResourcedKey))
+        {
+            // relocate existing device
+            DLOG("IOPCIDevice::relocate at "D()"\n", DEVICE_IDENT(child));
+            for (uint32_t idx = 0; idx < kIOPCIRangeCount; idx++)
             {
-                nub = OSTypeAlloc(IOPCIDevice);
-                nub->init(child->dtNub, gIODTPlane);
-                nub->reserved->configEntry = child;
-                child->dtNub = nub;
+                IOPCIRange * range;
+                range = child->ranges[idx];
+                if (!range)	continue;
+                if (range->size < range->proposedSize)
+                {
+                    DLOG("  %s ", gPCIResourceTypeName[range->type]);
+                    DLOG_RANGE("short range", range);
+                }
             }
-            else if ((kPCIDeviceStatePaused & child->deviceState)
-			  		&& pciDevice->getProperty(kIOPCIResourcedKey))
-			{
-				// reloc existing
-				DLOG("IOPCIDevice::relocate at "D()"\n", DEVICE_IDENT(child));
-				for (uint32_t idx = 0; idx < kIOPCIRangeCount; idx++)
-				{
-					IOPCIRange * range;
-					range = child->ranges[idx];
-					if (!range)	continue;
-					if (range->size < range->proposedSize)
-					{
-						DLOG("  %s ", gPCIResourceTypeName[range->type]);
-						DLOG_RANGE("short range", range);
-					}
-				}
-				pciDevice->relocate(true);
-			}
+            pciDevice->relocate(true);
         }
         propTable->release();
     }
@@ -1402,11 +1436,13 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t re
 
 		if (noLink)
 		{
-            configWrite32(bridge, kPCI2PCIMemoryRange,         0);
-            configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0);
-            configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0);
-            configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0);
-
+			if (kPCIHotPlugTunnel <= bridge->supportsHotPlug)
+			{
+				configWrite32(bridge, kPCI2PCIMemoryRange,         0);
+				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0);
+				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0);
+				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0);
+			}
 			IOPCIConfigEntry * next;
 			for (child = bridge->child; child; child = next)
 			{
@@ -2132,7 +2168,14 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         value   &= ~barMask;
 		value64 |= value;
         size     = -value64;
-        if ((start == value64) || (size > MAX_BAR_SIZE)) 
+
+        if (size > MAX_BAR_SIZE)
+        {
+            size &= 0xFFFFFFFF;
+            clean64 = false;
+            nextBarNum--;
+        }
+        if (start == value64) 
         {
             DLOG("  [0x%x] can't probe\n", barOffset);
             continue;
@@ -3157,7 +3200,11 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			IOPCIRangeAppendSubRange(&requests[type], childRange);
 
 		    if ((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize)
-		             & childRange->flags)                       doOptimize |= (1 << type);
+		             & childRange->flags)
+		    {
+                doOptimize |= (1 << type);
+                if (!childRange->start) childRange->flags |= kIOPCIRangeFlagRelocatable;
+		    }
 		}
 	}
 
@@ -3627,8 +3674,10 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
     {
         uint16_t bridgeControl;
 
-        commandReg |= (kIOPCICommandIOSpace | kIOPCICommandMemorySpace |
-                       kIOPCICommandBusMaster);
+        commandReg |= (kIOPCICommandIOSpace 
+                     | kIOPCICommandMemorySpace 
+//                     | kIOPCICommandSERR 
+                     | kIOPCICommandBusMaster);
 
         // Turn off ISA bit.
         bridgeControl = configRead16(bridge, kPCI2PCIBridgeControl);

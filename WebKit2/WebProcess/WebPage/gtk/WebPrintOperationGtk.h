@@ -39,6 +39,7 @@ typedef struct _GtkPageRange GtkPageRange;
 namespace WebCore {
 class PrintContext;
 class ResourceError;
+class URL;
 };
 
 namespace WebKit {
@@ -53,6 +54,7 @@ public:
     WebCore::PrintContext* printContext() const { return m_printContext; }
     GtkPrintSettings* printSettings() const { return m_printSettings.get(); }
     GtkPageSetup* pageSetup() const { return m_pageSetup.get(); }
+    PrintInfo::PrintMode printMode() const { return m_printMode; }
     void setNumberOfPagesToPrint(size_t numberOfPages) { m_numberOfPagesToPrint = numberOfPages; }
     unsigned int pagesToPrint() const { return m_pagesToPrint; }
     int pageCount() const;
@@ -70,6 +72,8 @@ public:
     unsigned int copies() const { return m_copies; }
     bool collateCopies() const { return m_collateCopies; }
     double scale() const { return m_scale; }
+
+    void disconnectFromPage();
 
     virtual void startPrint(WebCore::PrintContext*, uint64_t callbackID) = 0;
 
@@ -91,10 +95,13 @@ protected:
     void prepareContextToDraw();
     void printPagesDone();
     void printDone(const WebCore::ResourceError&);
+    void sendPrintFinished(const WebCore::ResourceError&);
+    WebCore::URL frameURL() const;
 
     WebPage* m_webPage;
     GRefPtr<GtkPrintSettings> m_printSettings;
     GRefPtr<GtkPageSetup> m_pageSetup;
+    PrintInfo::PrintMode m_printMode;
     WebCore::PrintContext* m_printContext;
     uint64_t m_callbackID;
     RefPtr<cairo_t> m_cairoContext;

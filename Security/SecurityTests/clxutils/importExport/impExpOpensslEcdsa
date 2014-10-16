@@ -1,0 +1,78 @@
+#! /bin/csh -f
+#
+# Run OpenSSL/ECDSA import/export tests.
+#
+# Run this from SecurityTests/clxutils/importExport. The 
+# kcImport and kcExport programs must exist in the location
+# specified by the LOCAL_BUILD_DIR env var.
+#
+
+source setupCommon
+
+set ECDSASUBTOOL=./impExpOpensslEcdsaTool
+
+# user specified variables
+set QUIET=NO
+set QUIET_ARG=
+set NOACL=NO
+set NOACL_ARG=
+set SECURE_PHRASE=NO
+set SECURE_PHRASE_ARG=
+set NOCLEAN=NO
+
+# user options
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+			set QUIET_ARG=-q
+            shift
+            breaksw
+        case n:
+            set NOACL=YES
+			set NOACL_ARG=-n
+            shift
+            breaksw
+        case s:
+            set SECURE_PHRASE=YES
+			set SECURE_PHRASE_ARG=-Z
+            shift
+            breaksw
+		case N:
+			set NOCLEAN=YES
+            shift
+            breaksw
+        default:
+            echo Usage: impExpOpensslEcdsa \[q\(uiet\)\] \[n\(oACL\)\] \[s\(ecurePassphrase\)\]  \[N\(oClean\)\]
+            exit(1)
+    endsw
+end
+
+echo === Begin ECDSA/openssl test ===
+
+# always unlock first
+set cmd="$SECURITY unlock -p $KEYCHAIN_PWD $KEYCHAIN"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSASUBTOOL 256 $QUIET $NOACL $SECURE_PHRASE $NOCLEAN"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSASUBTOOL 384 $QUIET $NOACL $SECURE_PHRASE $NOCLEAN"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+set cmd="$ECDSASUBTOOL 521 $QUIET $NOACL $SECURE_PHRASE $NOCLEAN"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+

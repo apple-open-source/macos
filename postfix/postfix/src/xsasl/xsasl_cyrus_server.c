@@ -77,11 +77,6 @@
 #include <sasl.h>
 #include <saslutil.h>
 
-#ifdef __APPLE_OS_X_SERVER__
-/* temporary work around to <rdar://problem/8196059> */
-#include <ldap.h>
-#endif
-
 /*
  * Silly little macros.
  */
@@ -234,16 +229,7 @@ XSASL_SERVER_IMPL *xsasl_cyrus_server_init(const char *unused_server_type,
      */
     if (msg_verbose)
 	msg_info("%s: SASL config file is %s.conf", myname, path_info);
-
-#ifdef __APPLE_OS_X_SERVER__
-/* temporary work around to <rdar://problem/8196059> */
-LDAP *ldap_con = NULL;
-ldap_initialize(&ldap_con, "ldap://127.0.0.1");
-
-    if ((sasl_status = sasl_server_init_alt(callbacks, path_info)) != SASL_OK) {
-#else
     if ((sasl_status = sasl_server_init(callbacks, path_info)) != SASL_OK) {
-#endif /* __APPLE_OS_X_SERVER__ */
 	msg_warn("SASL per-process initialization failed: %s",
 		 xsasl_cyrus_strerror(sasl_status));
 	return (0);
@@ -439,8 +425,7 @@ static void xsasl_cyrus_server_free(XSASL_SERVER *xp)
 {
     XSASL_CYRUS_SERVER *server = (XSASL_CYRUS_SERVER *) xp;
 
-    /* temporary work around to <rdar://problem/8196059> */
-//    sasl_dispose(&server->sasl_conn);
+    sasl_dispose(&server->sasl_conn);
     vstring_free(server->decoded);
     if (server->username)
 	myfree(server->username);

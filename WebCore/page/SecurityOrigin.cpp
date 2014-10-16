@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,11 +31,12 @@
 
 #include "BlobURL.h"
 #include "FileSystem.h"
-#include "KURL.h"
+#include "URL.h"
 #include "SchemeRegistry.h"
 #include "SecurityPolicy.h"
 #include "ThreadableBlobRegistry.h"
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -44,7 +45,7 @@ namespace WebCore {
 const int InvalidPort = 0;
 const int MaxAllowedPort = 65535;
 
-static bool schemeRequiresHost(const KURL& url)
+static bool schemeRequiresHost(const URL& url)
 {
     // We expect URLs with these schemes to have authority components. If the
     // URL lacks an authority component, we get concerned and mark the origin
@@ -52,17 +53,11 @@ static bool schemeRequiresHost(const KURL& url)
     return url.protocolIsInHTTPFamily() || url.protocolIs("ftp");
 }
 
-bool SecurityOrigin::shouldUseInnerURL(const KURL& url)
+bool SecurityOrigin::shouldUseInnerURL(const URL& url)
 {
-#if ENABLE(BLOB)
     // FIXME: Blob URLs don't have inner URLs. Their form is "blob:<inner-origin>/<UUID>", so treating the part after "blob:" as a URL is incorrect.
     if (url.protocolIs("blob"))
         return true;
-#endif
-#if ENABLE(FILE_SYSTEM)
-    if (url.protocolIs("filesystem"))
-        return true;
-#endif
     UNUSED_PARAM(url);
     return false;
 }
@@ -70,38 +65,34 @@ bool SecurityOrigin::shouldUseInnerURL(const KURL& url)
 // In general, extracting the inner URL varies by scheme. It just so happens
 // that all the URL schemes we currently support that use inner URLs for their
 // security origin can be parsed using this algorithm.
-KURL SecurityOrigin::extractInnerURL(const KURL& url)
+URL SecurityOrigin::extractInnerURL(const URL& url)
 {
     if (url.innerURL())
         return *url.innerURL();
     // FIXME: Update this callsite to use the innerURL member function when
     // we finish implementing it.
-    return KURL(ParsedURLString, decodeURLEscapeSequences(url.path()));
+    return URL(ParsedURLString, decodeURLEscapeSequences(url.path()));
 }
 
-static PassRefPtr<SecurityOrigin> getCachedOrigin(const KURL& url)
+static PassRefPtr<SecurityOrigin> getCachedOrigin(const URL& url)
 {
-#if ENABLE(BLOB)
     if (url.protocolIs("blob"))
         return ThreadableBlobRegistry::getCachedOrigin(url);
-#else
-    UNUSED_PARAM(url);
-#endif
     return 0;
 }
 
-static bool shouldTreatAsUniqueOrigin(const KURL& url)
+static bool shouldTreatAsUniqueOrigin(const URL& url)
 {
     if (!url.isValid())
         return true;
 
     // FIXME: Do we need to unwrap the URL further?
-    KURL innerURL = SecurityOrigin::shouldUseInnerURL(url) ? SecurityOrigin::extractInnerURL(url) : url;
+    URL innerURL = SecurityOrigin::shouldUseInnerURL(url) ? SecurityOrigin::extractInnerURL(url) : url;
 
     // FIXME: Check whether innerURL is valid.
 
     // For edge case URLs that were probably misparsed, make sure that the origin is unique.
-    // This is an additional safety net against bugs in KURL parsing, and for network back-ends that parse URLs differently,
+    // This is an additional safety net against bugs in URL parsing, and for network back-ends that parse URLs differently,
     // and could misinterpret another component for hostname.
     if (schemeRequiresHost(innerURL) && innerURL.host().isEmpty())
         return true;
@@ -117,7 +108,7 @@ static bool shouldTreatAsUniqueOrigin(const KURL& url)
     return false;
 }
 
-SecurityOrigin::SecurityOrigin(const KURL& url)
+SecurityOrigin::SecurityOrigin(const URL& url)
     : m_protocol(url.protocol().isNull() ? "" : url.protocol().lower())
     , m_host(url.host().isNull() ? "" : url.host().lower())
     , m_port(url.port())
@@ -172,7 +163,7 @@ SecurityOrigin::SecurityOrigin(const SecurityOrigin* other)
 {
 }
 
-PassRefPtr<SecurityOrigin> SecurityOrigin::create(const KURL& url)
+PassRefPtr<SecurityOrigin> SecurityOrigin::create(const URL& url)
 {
     RefPtr<SecurityOrigin> cachedOrigin = getCachedOrigin(url);
     if (cachedOrigin.get())
@@ -216,7 +207,7 @@ void SecurityOrigin::setDomainFromDOM(const String& newDomain)
     m_domain = newDomain.lower();
 }
 
-bool SecurityOrigin::isSecure(const KURL& url)
+bool SecurityOrigin::isSecure(const URL& url)
 {
     // Invalid URLs are secure, as are URLs which have a secure protocol.
     if (!url.isValid() || SchemeRegistry::shouldTreatURLSchemeAsSecure(url.protocol()))
@@ -287,7 +278,7 @@ bool SecurityOrigin::passesFileCheck(const SecurityOrigin* other) const
     return (m_filePath == other->m_filePath);
 }
 
-bool SecurityOrigin::canRequest(const KURL& url) const
+bool SecurityOrigin::canRequest(const URL& url) const
 {
     if (m_universalAccess)
         return true;
@@ -314,7 +305,7 @@ bool SecurityOrigin::canRequest(const KURL& url) const
     return false;
 }
 
-bool SecurityOrigin::taintsCanvas(const KURL& url) const
+bool SecurityOrigin::taintsCanvas(const URL& url) const
 {
     if (canRequest(url))
         return false;
@@ -347,7 +338,7 @@ bool SecurityOrigin::canReceiveDragData(const SecurityOrigin* dragInitiator) con
 // http or https, otherwise we ignore the nesting for the purpose of a security check. We need
 // a facility for registering nesting schemes, and some generalized logic for them.
 // This function should be removed as an outcome of https://bugs.webkit.org/show_bug.cgi?id=69196
-static bool isFeedWithNestedProtocolInHTTPFamily(const KURL& url)
+static bool isFeedWithNestedProtocolInHTTPFamily(const URL& url)
 {
     const String& urlString = url.string();
     if (!urlString.startsWith("feed", false))
@@ -359,7 +350,7 @@ static bool isFeedWithNestedProtocolInHTTPFamily(const KURL& url)
         || urlString.startsWith("feedsearch:http:", false) || urlString.startsWith("feedsearch:https:", false);
 }
 
-bool SecurityOrigin::canDisplay(const KURL& url) const
+bool SecurityOrigin::canDisplay(const URL& url) const
 {
     if (m_universalAccess)
         return true;
@@ -448,10 +439,13 @@ String SecurityOrigin::cachePartition() const
     if (m_storageBlockingPolicy != BlockThirdPartyStorage)
         return String();
 
-    if (m_protocol != "http" && m_protocol != "https")
-        return String();
+    if (isHTTPFamily())
+        return host();
 
-    return host();
+    if (SchemeRegistry::shouldPartitionCacheForURLScheme(m_protocol))
+        return host();
+
+    return String();
 }
 #endif
 
@@ -496,44 +490,52 @@ String SecurityOrigin::toRawString() const
 
 PassRefPtr<SecurityOrigin> SecurityOrigin::createFromString(const String& originString)
 {
-    return SecurityOrigin::create(KURL(KURL(), originString));
+    return SecurityOrigin::create(URL(URL(), originString));
 }
 
 static const char separatorCharacter = '_';
 
-PassRefPtr<SecurityOrigin> SecurityOrigin::createFromDatabaseIdentifier(const String& databaseIdentifier)
+PassRefPtr<SecurityOrigin> SecurityOrigin::maybeCreateFromDatabaseIdentifier(const String& databaseIdentifier)
 { 
     // Make sure there's a first separator
     size_t separator1 = databaseIdentifier.find(separatorCharacter);
     if (separator1 == notFound)
-        return create(KURL());
+        return nullptr;
         
     // Make sure there's a second separator
     size_t separator2 = databaseIdentifier.reverseFind(separatorCharacter);
     if (separator2 == notFound)
-        return create(KURL());
-        
+        return nullptr;
+
     // Ensure there were at least 2 separator characters. Some hostnames on intranets have
     // underscores in them, so we'll assume that any additional underscores are part of the host.
     if (separator1 == separator2)
-        return create(KURL());
-        
+        return nullptr;
+
     // Make sure the port section is a valid port number or doesn't exist
     bool portOkay;
     int port = databaseIdentifier.right(databaseIdentifier.length() - separator2 - 1).toInt(&portOkay);
     bool portAbsent = (separator2 == databaseIdentifier.length() - 1);
     if (!(portOkay || portAbsent))
-        return create(KURL());
-    
+        return nullptr;
+
     if (port < 0 || port > MaxAllowedPort)
-        return create(KURL());
-        
+        return nullptr;
+
     // Split out the 3 sections of data
     String protocol = databaseIdentifier.substring(0, separator1);
     String host = databaseIdentifier.substring(separator1 + 1, separator2 - separator1 - 1);
     
     host = decodeURLEscapeSequences(host);
-    return create(KURL(KURL(), protocol + "://" + host + ":" + String::number(port) + "/"));
+    return create(URL(URL(), protocol + "://" + host + ":" + String::number(port) + "/"));
+}
+
+PassRefPtr<SecurityOrigin> SecurityOrigin::createFromDatabaseIdentifier(const String& databaseIdentifier)
+{
+    RefPtr<SecurityOrigin> origin = maybeCreateFromDatabaseIdentifier(databaseIdentifier);
+    if (origin)
+        return origin.release();
+    return create(URL());
 }
 
 PassRefPtr<SecurityOrigin> SecurityOrigin::create(const String& protocol, const String& host, int port)
@@ -541,7 +543,7 @@ PassRefPtr<SecurityOrigin> SecurityOrigin::create(const String& protocol, const 
     if (port < 0 || port > MaxAllowedPort)
         return createUnique();
     String decodedHost = decodeURLEscapeSequences(host);
-    return create(KURL(KURL(), protocol + "://" + host + ":" + String::number(port) + "/"));
+    return create(URL(URL(), protocol + "://" + host + ":" + String::number(port) + "/"));
 }
 
 String SecurityOrigin::databaseIdentifier() const 
@@ -598,10 +600,10 @@ bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin* other) const
     return true;
 }
 
-String SecurityOrigin::urlWithUniqueSecurityOrigin()
+URL SecurityOrigin::urlWithUniqueSecurityOrigin()
 {
     ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(const String, uniqueSecurityOriginURL, (ASCIILiteral("data:,")));
+    static NeverDestroyed<URL> uniqueSecurityOriginURL(ParsedURLString, ASCIILiteral("data:,"));
     return uniqueSecurityOriginURL;
 }
 

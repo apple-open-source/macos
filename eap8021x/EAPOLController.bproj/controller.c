@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,8 +127,8 @@ typedef struct eapolClient_s {
     CFSocketRef			eapol_sock;
     int				eapol_fd;
     bool			packet_received;
-    uint64_t			packet_received_time;
     struct ether_addr		authenticator_mac;
+
     bool			user_cancelled;	
 #endif /* ! TARGET_OS_EMBEDDED */
 } eapolClient, *eapolClientRef;
@@ -270,9 +270,8 @@ get_ifm_type(const char * name)
     if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
 	goto done;
     }
-    if (ifm.ifm_count == 1
-	&& IFM_SUBTYPE(ifm.ifm_ulist[0]) == IFM_AUTO) {
-	/* only support autoselect, not really ethernet */
+    if (ifm.ifm_count == 1) {
+	/* only support one media type, not real ethernet */
 	goto done;
     }
     for (i = 0; i < ifm.ifm_count; i++) {
@@ -538,6 +537,35 @@ eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
 #include "EAP.h"
 #include "EAPOLUtil.h"
 
+#define ALIGNED_BUF(name, size, type)	type 	name[(size) / (sizeof(type))]
+
+static boolean_t
+S_if_get_link_active(const char * if_name)
+{
+    boolean_t	link_active = TRUE;
+    int		s;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) {
+	EAPLOG(LOG_NOTICE, "EAPOLController: get link status, socket failed %s",
+	       strerror(errno));
+    }
+    else {
+	struct ifmediareq	ifmr;
+
+	memset(&ifmr, 0, sizeof(ifmr));
+	strlcpy(ifmr.ifm_name, if_name, sizeof(ifmr.ifm_name));
+	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) != -1
+	    && ifmr.ifm_count > 0 
+	    && (ifmr.ifm_status & IFM_AVALID) != 0
+	    && (ifmr.ifm_status & IFM_ACTIVE) == 0) {
+	    link_active = FALSE;
+	}
+	close(s);
+    }
+    return (link_active);
+}
+
 static void
 handle_config_changed(boolean_t start_system_mode);
 
@@ -547,9 +575,8 @@ static void
 monitoring_callback(CFSocketRef s, CFSocketCallBackType type, 
 		    CFDataRef address, const void * data, void * info)
 {
-    uint32_t			buf[RECV_SIZE / sizeof(uint32_t)]; /* force alignment */
+    ALIGNED_BUF(buf, RECV_SIZE, uint32_t);
     eapolClientRef		client = (eapolClientRef)info;
-    uint64_t			current_time;
     struct ether_header *	eh_p = (struct ether_header *)buf;
     EAPOLPacketRef		eapol_p;
     int				n;
@@ -577,22 +604,13 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
 	return;
     }
 
-    /* grab the current time (in seconds) */
-    current_time = (uint64_t)CFAbsoluteTimeGetCurrent();
-
-    /* throttle notifications to no more than once per second */
-    if (client->packet_received == FALSE
-	|| client->packet_received_time != current_time) {
-	bcopy(eh_p->ether_shost, &client->authenticator_mac,
-	      sizeof(client->authenticator_mac));
-	client->packet_received = TRUE;
-	client->packet_received_time = current_time;
-	EAPLOG(LOG_DEBUG, "EAPOLController: %s requires 802.1X",
-	       client->if_name);
-	if (S_store != NULL) {
-	    SCDynamicStoreNotifyValue(S_store, 
-				      kEAPOLControlAutoDetectInformationNotifyKey);
-	}
+    bcopy(eh_p->ether_shost, &client->authenticator_mac,
+	  sizeof(client->authenticator_mac));
+    client->packet_received = TRUE;
+    EAPLOG(LOG_DEBUG, "EAPOLController: %s requires 802.1X", client->if_name);
+    if (S_store != NULL) {
+	SCDynamicStoreNotifyValue(S_store, 
+				  kEAPOLControlAutoDetectInformationNotifyKey);
     }
     return;
 }
@@ -1336,8 +1354,6 @@ ControllerCopyAutoDetectInformation(CFDictionaryRef * info_p)
 
     LIST_FOREACH(scan, S_clientHead_p, link) {
 	CFDataRef		data;
-	int			elapsed_time;
-	CFNumberRef		num;
 	CFMutableDictionaryRef	this_dict = NULL;
 
 	if (scan->state != kEAPOLControlStateIdle
@@ -1345,24 +1361,9 @@ ControllerCopyAutoDetectInformation(CFDictionaryRef * info_p)
 	    || scan->packet_received == FALSE) {
 	    continue;
 	}
-
-	elapsed_time = ((uint64_t)CFAbsoluteTimeGetCurrent())
-	    - scan->packet_received_time;
-	if (elapsed_time < 0) {
-	    elapsed_time = 0;
-	}
-	else if (elapsed_time > 60) {
-	    /* if it's been awhile since we saw a packet, ignore this entry */
-	    continue;
-	}
 	this_dict = CFDictionaryCreateMutable(NULL, 0,
 					      &kCFTypeDictionaryKeyCallBacks,
 					      &kCFTypeDictionaryValueCallBacks);
-	num = make_number(elapsed_time);
-	CFDictionarySetValue(this_dict, kEAPOLAutoDetectSecondsSinceLastPacket,
-			     num);
-	CFRelease(num);
-
 	data = CFDataCreate(NULL, (const UInt8 *)&scan->authenticator_mac,
 			    sizeof(scan->authenticator_mac));
 	CFDictionarySetValue(this_dict, kEAPOLAutoDetectAuthenticatorMACAddress,
@@ -1622,35 +1623,6 @@ ControllerThread(void * arg)
     server_start();
     CFRunLoopRun();
     return (arg);
-}
-
-static void
-ControllerBegin(void)
-{
-    pthread_attr_t	attr;
-    int			ret;
-    pthread_t		thread;
-
-    ret = pthread_attr_init(&attr);
-    if (ret != 0) {
-	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_attr_init failed %d", ret);
-	return;
-    }
-    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if (ret != 0) {
-	EAPLOG(LOG_NOTICE, 
-	       "EAPOLController: pthread_attr_setdetachstate failed %d", ret);
-	goto done;
-    }
-    ret = pthread_create(&thread, &attr, ControllerThread, NULL);
-    if (ret != 0) {
-	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_create failed %d", ret);
-	goto done;
-    }
-    
- done:
-    (void)pthread_attr_destroy(&attr);
-    return;
 }
 
 #else /* TARGET_OS_EMBEDDED */
@@ -2059,6 +2031,30 @@ handle_config_changed(boolean_t start_system_mode)
 }
 
 static void
+handle_link_changed(CFStringRef if_name)
+{
+    eapolClientRef	client;
+    boolean_t		link_active;
+
+    client = eapolClientLookupInterfaceCF(if_name);
+    if (client == NULL) {
+	return;
+    }
+    if (client->eapol_fd == -1) {
+	/* we don't care about this interface */
+	return;
+    }
+    link_active = S_if_get_link_active(client->if_name);
+    EAPLOG(LOG_DEBUG, "EAPOLController: %s link %sactive",
+	   client->if_name,
+	   link_active ? "" : "in");
+    if (link_active == FALSE) {
+	client->packet_received = FALSE;
+    }
+    return;
+}
+
+static void
 eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
     boolean_t		config_changed = FALSE;
@@ -2066,6 +2062,7 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
     CFIndex		count;
     CFIndex		i;
     boolean_t		iflist_changed = FALSE;
+    CFMutableArrayRef	link_changes = NULL;
     boolean_t		user_changed = FALSE;
 
     console_user_key = SCDynamicStoreKeyCreateConsoleUser(NULL);
@@ -2086,6 +2083,21 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 	    /* list of interfaces changed */
 	    iflist_changed = TRUE;
 	}
+	else if (CFStringHasSuffix(cache_key, kSCEntNetLink)) {
+	    /* link status changed */
+	    CFStringRef		if_name;
+
+	    if_name = my_CFStringCopyComponent(cache_key, CFSTR("/"), 3);
+	    if (if_name != NULL) {
+		if (link_changes == NULL) {
+		    link_changes
+			= CFArrayCreateMutable(NULL, 
+					       count,
+					       &kCFTypeArrayCallBacks);
+		}
+		CFArrayAppendValue(link_changes, if_name);
+	    }
+	}
     }
 
     if (iflist_changed || config_changed) {
@@ -2093,6 +2105,16 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
     }
     if (user_changed) {
 	console_user_changed();
+    }
+    if (link_changes != NULL) {
+	count = CFArrayGetCount(link_changes);
+	for (i = 0; i < count; i++) {
+	    CFStringRef		if_name;
+
+	    if_name = CFArrayGetValueAtIndex(link_changes, i);
+	    handle_link_changed(if_name);
+	}
+	CFRelease(link_changes);
     }
 
  done:
@@ -2103,16 +2125,13 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 static SCDynamicStoreRef
 dynamic_store_create(void)
 {
-    SCDynamicStoreContext	context;
     CFArrayRef			keys = NULL;
-    CFStringRef			list[2];
+    CFStringRef			list[3];
     CFArrayRef			patterns = NULL;
-    CFRunLoopSourceRef		rls;
     SCDynamicStoreRef		store;
 
-    bzero(&context, sizeof(context));
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLController"), 
-				 eapol_handle_change, &context);
+				 eapol_handle_change, NULL);
     if (store == NULL) {
 	EAPLOG(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
 	       SCErrorString(SCError()));
@@ -2143,30 +2162,76 @@ dynamic_store_create(void)
 						      kSCDynamicStoreDomainSetup,
 						      kSCCompAnyRegex,
 						      kSCEntNetInterface);
-    patterns = CFArrayCreate(NULL, (const void * *)list, 2,
+    list[2]
+	= SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, 
+							kSCDynamicStoreDomainState,
+							kSCCompAnyRegex,
+							kSCEntNetLink);
+    patterns = CFArrayCreate(NULL, (const void * *)list, 3,
 			     &kCFTypeArrayCallBacks);
     CFRelease(list[0]);
     CFRelease(list[1]);
+    CFRelease(list[2]);
 
     SCDynamicStoreSetNotificationKeys(store, keys, patterns);
-    my_CFRelease(&keys);
-    my_CFRelease(&patterns);
-
-    rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    my_CFRelease(&rls);
+    CFRelease(keys);
+    CFRelease(patterns);
     return (store);
 }
 
 static void
-ControllerBegin(void)
+dynamic_store_schedule(SCDynamicStoreRef store)
 {
-    server_start();
-    handle_config_changed(TRUE);
+    CFRunLoopSourceRef		rls;
+
+    rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    my_CFRelease(&rls);
     return;
 }
 
+static void *
+ControllerThread(void * arg)
+{
+    server_start();
+    dynamic_store_schedule(S_store);
+    handle_config_changed(TRUE);
+    CFRunLoopRun();
+    return (arg);
+}
+
 #endif /* TARGET_OS_EMBEDDED */
+
+
+static void
+ControllerBegin(void)
+{
+    pthread_attr_t	attr;
+    int			ret;
+    pthread_t		thread;
+
+    ret = pthread_attr_init(&attr);
+    if (ret != 0) {
+	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_attr_init failed %d", ret);
+	return;
+    }
+    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if (ret != 0) {
+	EAPLOG(LOG_NOTICE, 
+	       "EAPOLController: pthread_attr_setdetachstate failed %d", ret);
+	goto done;
+    }
+    ret = pthread_create(&thread, &attr, ControllerThread, NULL);
+    if (ret != 0) {
+	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_create failed %d", ret);
+	goto done;
+    }
+    
+ done:
+    (void)pthread_attr_destroy(&attr);
+    return;
+}
+
 
 static void
 check_prefs(SCPreferencesRef prefs)
@@ -2192,10 +2257,6 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
     prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
     check_prefs(prefs);
-    if (server_active()) {
-	EAPLOG(LOG_NOTICE, "EAPOLController server already active");
-	return;
-    }
     /* get a path to eapolclient */
     url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient"), NULL, NULL);
     if (url == NULL) {

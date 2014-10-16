@@ -61,11 +61,15 @@ import_krb5_name(OM_uint32 *minor_status,
 
     if (tmp[0] == '@') {
 	princ = calloc(1, sizeof(*princ));
-	if (princ == NULL)
+	if (princ == NULL) {
+	    free(tmp);
+	    *minor_status = ENOMEM;
 	    return GSS_S_FAILURE;
+	}
 
 	princ->realm = strdup(&tmp[1]);
 	if (princ->realm == NULL) {
+	    free(tmp);
 	    free(princ);
 	    return GSS_S_FAILURE;
 	}
@@ -196,7 +200,7 @@ import_hostbased_name (OM_uint32 *minor_status,
     tmp[input_name_buffer->length] = '\0';
 
     p = strchr (tmp, '@');
-    if (p != NULL) {
+    if (p != NULL && p[1] != '\0') {
 	size_t len;
 
 	*p = '\0';

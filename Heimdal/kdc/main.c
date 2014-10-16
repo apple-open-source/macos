@@ -48,6 +48,9 @@ int sandbox_flag = 1;
 #include <cap-ng.h>
 #endif
 
+static void terminated(void *ctx) __attribute__((noreturn));
+
+
 #ifdef SUPPORT_DETACH
 int detach_from_console = -1;
 #endif
@@ -202,7 +205,4 @@ main(int argc, char **argv)
 #endif
 
     heim_ipc_main();
-
-    krb5_free_context(context);
-    return 0;
 }

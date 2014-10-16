@@ -34,8 +34,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__used static const char copyright[] =
 "@(#) Copyright (c) 1992, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -44,7 +45,7 @@ static const char copyright[] =
 #if 0
 static const char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] = "$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $";
+__used static const char rcsid[] = "$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $";
 #endif
 #endif /* not lint */
 
@@ -74,7 +75,7 @@ static int gen_init(void);
  * Variables that can be accessed by any routine within pax
  */
 int	act = DEFOP;		/* read/write/append/copy */
-FSUB	*frmt = NULL;		/* archive format type */
+const FSUB	*frmt = NULL;		/* archive format type */
 int	cflag;			/* match all EXCEPT pattern/file */
 int	cwdfd;			/* starting cwd */
 int	dflag;			/* directory member match only  */

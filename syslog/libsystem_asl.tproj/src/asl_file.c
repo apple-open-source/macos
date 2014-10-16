@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,7 +22,9 @@
  */
 
 #include <asl_core.h>
+#include <asl_msg.h>
 #include <asl_file.h>
+#include <asl.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -40,11 +42,7 @@
 #include <asl_legacy1.h>
 #include <TargetConditionals.h>
 
-extern time_t asl_parse_time(const char *str);
-extern int asl_msg_cmp(aslmsg a, aslmsg b);
-
 #define forever for(;;)
-#define MILLION 1000000
 
 /*
  * MSG and STR records have (at least) a type (uint16_t) and a length (uint32_t)
@@ -140,7 +138,7 @@ _asl_put_64(uint64_t i, char *h)
 	memcpy(h, &x, 8);
 }
 
-static uint32_t
+static ASL_STATUS
 asl_file_read_uint32(asl_file_t *s, off_t off, uint32_t *out)
 {
 	uint32_t status, val;
@@ -161,7 +159,7 @@ asl_file_read_uint32(asl_file_t *s, off_t off, uint32_t *out)
 	return ASL_STATUS_OK;
 }
 
-static uint32_t
+static ASL_STATUS
 asl_file_read_uint64(asl_file_t *s, off_t off, uint64_t *out)
 {
 	uint32_t status;
@@ -183,16 +181,40 @@ asl_file_read_uint64(asl_file_t *s, off_t off, uint64_t *out)
 	return ASL_STATUS_OK;
 }
 
-uint32_t
+asl_file_t *
+asl_file_retain(asl_file_t *s)
+{
+	if (s == NULL) return NULL;
+	asl_retain((asl_object_t)s);
+	return s;
+}
+
+void
+asl_file_release(asl_file_t *s)
+{
+	if (s == NULL) return;
+	asl_release((asl_object_t)s);
+}
+
+ASL_STATUS
 asl_file_close(asl_file_t *s)
+{
+	if (s == NULL) return ASL_STATUS_OK;
+	asl_release((asl_object_t)s);
+	return ASL_STATUS_OK;
+}
+
+static void
+_asl_file_free_internal(asl_file_t *s)
 {
 	file_string_t *x;
 
-	if (s == NULL) return ASL_STATUS_OK;
+	if (s == NULL) return;
 
 	if (s->version == 1)
 	{
-		return asl_legacy1_close((asl_legacy1_t *)s->legacy);
+		asl_legacy1_close((asl_legacy1_t *)s->legacy);
+		return;
 	}
 
 	while (s->string_list != NULL)
@@ -207,11 +229,9 @@ asl_file_close(asl_file_t *s)
 
 	memset(s, 0, sizeof(asl_file_t));
 	free(s);
-
-	return ASL_STATUS_OK;
 }
 
-__private_extern__ uint32_t
+__private_extern__ ASL_STATUS
 asl_file_open_write_fd(int fd, asl_file_t **s)
 {
 	time_t now;
@@ -224,6 +244,9 @@ asl_file_open_write_fd(int fd, asl_file_t **s)
 
 	out = (asl_file_t *)calloc(1, sizeof(asl_file_t));
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
+
+	out->asl_type = ASL_TYPE_FILE;
+	out->refcount = 1;
 
 	out->store = fdopen(fd, "w+");
 	if (out->store == NULL)
@@ -345,7 +368,7 @@ asl_file_create_return:
 #endif
 }
 
-uint32_t
+ASL_STATUS
 asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_file_t **s)
 {
 	int i, status, fd;
@@ -363,6 +386,10 @@ asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_fil
 		/* must be a plain file */
 		if (!S_ISREG(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
 
+		/*
+		 * If the file exists, we go with the existing mode, uid, and gid.
+		 */
+
 		if (sb.st_size == 0)
 		{
 			fd = open(path, O_RDWR | O_EXCL, mode);
@@ -372,9 +399,11 @@ asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_fil
 		}
 		else
 		{
-			/* XXX Check that mode, uid, and gid are correct */
 			out = (asl_file_t *)calloc(1, sizeof(asl_file_t));
 			if (out == NULL) return ASL_STATUS_NO_MEMORY;
+
+			out->asl_type = ASL_TYPE_FILE;
+			out->refcount = 1;
 
 			out->store = fopen(path, "r+");
 			if (out->store == NULL)
@@ -467,7 +496,10 @@ asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_fil
 		return ASL_STATUS_FAILED;
 	}
 
-	/* the file does not exist */
+	/*
+	 * If the file does not exist, we set the mode, uid, and gid.
+	 */
+
 	fd = asl_file_create(path, uid, gid, mode);
 	if (fd < 0) return ASL_STATUS_FAILED;
 
@@ -477,12 +509,12 @@ asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_fil
 	return aslstatus;
 }
 
-uint32_t
+ASL_STATUS
 asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t gid)
 {
 	asl_file_t *new;
 	struct stat sb;
-	aslmsg m;
+	asl_msg_t *m;
 	uint64_t xid;
 	uint32_t status;
 
@@ -512,14 +544,148 @@ asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t 
 
 		xid = 0;
 		status = asl_file_save(new, m, &xid);
-		asl_free(m);
+		asl_msg_release(m);
 	}
 
 	asl_file_close(new);
 	return status;
 }
 
-static uint32_t
+ASL_STATUS
+asl_file_filter(asl_file_t *s, const char *path, asl_msg_list_t *filter, uint32_t flags, mode_t mode, uid_t uid, gid_t gid, uint32_t *dstcount, void (*aux_callback)(const char *auxfile))
+{
+	asl_file_t *new;
+	struct stat sb;
+	asl_msg_t *m;
+	uint64_t xid = 0;
+	uint32_t status, n = 0;
+	uint32_t matchflag = flags & ASL_FILE_FILTER_FLAG_KEEP_MATCHES;
+
+	if (dstcount != NULL) *dstcount = n;
+
+	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (path == NULL) return ASL_STATUS_INVALID_ARG;
+
+	if (s->version == 1) return ASL_STATUS_FAILED;
+
+	memset(&sb, 0, sizeof(struct stat));
+
+	if (stat(path, &sb) == 0) return ASL_STATUS_FAILED;
+	if (errno != ENOENT) return ASL_STATUS_FAILED;
+
+	status = asl_file_read_set_position(s, ASL_FILE_POSITION_FIRST);
+	if (status != ASL_STATUS_OK) return status;
+
+	new = NULL;
+	status = asl_file_open_write(path, mode, uid, gid, &new);
+	if (status != ASL_STATUS_OK) return status;
+	new->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
+
+	while ((status == ASL_STATUS_OK) && (s->cursor != 0))
+	{
+		m = NULL;
+		status = asl_file_fetch_next(s, &m);
+		if (status != ASL_STATUS_OK) break;
+
+		/*
+		 * asl_msg_cmp_list is supposed to return 1 for a match, 0 otherwise,
+		 * but just to be sure we only get a 1 or zero, we do an extra test.
+		 */
+		uint32_t msgmatch = (asl_msg_cmp_list(m, filter) == 0) ? 0 : 1;
+		if (msgmatch == matchflag)
+		{
+			status = asl_file_save(new, m, &xid);
+			if (status == ASL_STATUS_OK) n++;
+		}
+		else if (aux_callback != NULL)
+		{
+			/* check for ASL_KEY_AUX_URL and pass it to callback */
+			const char *auxval = asl_msg_get_val_for_key(m, ASL_KEY_AUX_URL);
+			if (auxval != NULL) aux_callback(auxval);
+		}
+
+		asl_msg_release(m);
+	}
+
+	asl_file_close(new);
+	if (dstcount != NULL) *dstcount = n;
+	return status;
+}
+
+ASL_STATUS
+asl_file_filter_level(asl_file_t *s, const char *path, uint32_t keep_mask, mode_t mode, uid_t uid, gid_t gid, uint32_t *dstcount, void (*aux_callback)(const char *auxfile))
+{
+	asl_file_t *new;
+	struct stat sb;
+	asl_msg_t *m;
+	uint64_t xid = 0;
+	uint32_t status, n = 0;
+	uint8_t kmcur, kmnew;
+
+	if (dstcount != NULL) *dstcount = n;
+
+	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (path == NULL) return ASL_STATUS_INVALID_ARG;
+
+	if (s->version == 1) return ASL_STATUS_FAILED;
+
+	memset(&sb, 0, sizeof(struct stat));
+
+	if (stat(path, &sb) == 0) return ASL_STATUS_FAILED;
+	if (errno != ENOENT) return ASL_STATUS_FAILED;
+
+	kmnew = keep_mask;
+
+	/* get current filter mask in file's header */
+	status = fseeko(s->store, DB_HEADER_FILTER_MASK_OFFSET, SEEK_SET);
+	if (status != 0) return ASL_STATUS_READ_FAILED;
+	fread(&kmcur, 1, 1, s->store);
+
+	status = asl_file_read_set_position(s, ASL_FILE_POSITION_FIRST);
+	if (status != ASL_STATUS_OK) return status;
+
+	new = NULL;
+	status = asl_file_open_write(path, mode, uid, gid, &new);
+	if (status != ASL_STATUS_OK) return status;
+
+	new->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
+
+	while ((status == ASL_STATUS_OK) && (s->cursor != 0))
+	{
+		m = NULL;
+		status = asl_file_fetch_next(s, &m);
+		if (status != ASL_STATUS_OK) break;
+		if (m == NULL) continue;
+		const char *lval = asl_msg_get_val_for_key(m, ASL_KEY_LEVEL);
+		if (lval == NULL) continue;
+		uint32_t level_bit = 0x01 << atoi(lval);
+
+		if (level_bit & keep_mask)
+		{
+			status = asl_file_save(new, m, &xid);
+			if (status == ASL_STATUS_OK) n++;
+		}
+		else if (aux_callback != NULL)
+		{
+			/* check for ASL_KEY_AUX_URL and pass it to callback */
+			const char *auxval = asl_msg_get_val_for_key(m, ASL_KEY_AUX_URL);
+			if (auxval != NULL) aux_callback(auxval);
+		}
+
+		asl_msg_release(m);
+	}
+
+	kmnew = kmcur & kmnew;
+	status = fseeko(new->store, DB_HEADER_FILTER_MASK_OFFSET, SEEK_SET);
+	if (status != 0) return ASL_STATUS_READ_FAILED;
+	fwrite(&kmnew, 1, 1, new->store);
+
+	asl_file_close(new);
+	if (dstcount != NULL) *dstcount = n;
+	return status;
+}
+
+static ASL_STATUS
 asl_file_string_encode(asl_file_t *s, const char *str, uint64_t *out)
 {
 	uint32_t i, hash, len, x32;
@@ -531,6 +697,7 @@ asl_file_string_encode(asl_file_t *s, const char *str, uint64_t *out)
 	char *p;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (s->store == NULL) return ASL_STATUS_INVALID_STORE;
 	if (str == NULL) return ASL_STATUS_INVALID_ARG;
 
 	len = strlen(str);
@@ -604,7 +771,7 @@ asl_file_string_encode(asl_file_t *s, const char *str, uint64_t *out)
 
 	s->string_list = sx;
 
-	if (((s->flags & ASL_FILE_FLAG_UNLIMITED_CACHE) == 0) && (s->string_count == CACHE_SIZE))
+	if (((s->flags & ASL_FILE_FLAG_UNLIMITED_CACHE) == 0) && (s->string_cache_count == CACHE_SIZE))
 	{
 		/* drop last (lru) string from cache */
 		sp = s->string_list;
@@ -622,7 +789,7 @@ asl_file_string_encode(asl_file_t *s, const char *str, uint64_t *out)
 	}
 	else
 	{
-		s->string_count++;
+		s->string_cache_count++;
 	}
 
 	*out = off;
@@ -630,11 +797,11 @@ asl_file_string_encode(asl_file_t *s, const char *str, uint64_t *out)
 }
 
 /*
- * Encode an aslmsg as a record structure.
+ * Encode an asl_msg_t *as a record structure.
  * Creates and caches strings.
  */
-uint32_t
-asl_file_save(asl_file_t *s, aslmsg in, uint64_t *mid)
+ASL_STATUS
+asl_file_save(asl_file_t *s, asl_msg_t *in, uint64_t *mid)
 {
 	char *buf, *p;
 	uint32_t i, len, x, status;
@@ -646,9 +813,10 @@ asl_file_save(asl_file_t *s, aslmsg in, uint64_t *mid)
 	const char *key, *val;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (s->store == NULL) return ASL_STATUS_INVALID_STORE;
 	if (in == NULL) return ASL_STATUS_INVALID_MESSAGE;
 
-	if (s->flags & ASL_FILE_FLAG_READ_ONLY) return ASL_STATUS_READ_ONLY;
+	if (s->flags & ASL_FILE_FLAG_READ) return ASL_STATUS_READ_ONLY;
 
 	msg = (asl_msg_t *)in;
 
@@ -677,7 +845,7 @@ asl_file_save(asl_file_t *s, aslmsg in, uint64_t *mid)
 		}
 		else if (!strcmp(key, ASL_KEY_TIME))
 		{
-			if (val != NULL) r.time = asl_parse_time(val);
+			if (val != NULL) r.time = asl_core_parse_time(val, NULL);
 		}
 		else if (!strcmp(key, ASL_KEY_TIME_NSEC))
 		{
@@ -992,7 +1160,7 @@ asl_file_save(asl_file_t *s, aslmsg in, uint64_t *mid)
 	return ASL_STATUS_OK;
 }
 
-static uint32_t
+static ASL_STATUS
 asl_file_fetch_object(asl_file_t *s, uint64_t where, char **out, uint32_t *outlen)
 {
 	char ils[9];
@@ -1004,13 +1172,15 @@ asl_file_fetch_object(asl_file_t *s, uint64_t where, char **out, uint32_t *outle
 	uint16_t type;
 	off_t off;
 
-	*out = NULL;
-	*outlen = 0;
-
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (s->store == NULL) return ASL_STATUS_INVALID_STORE;
 	if (out == NULL) return ASL_STATUS_INVALID_ARG;
+	if (outlen == NULL) return ASL_STATUS_INVALID_ARG;
 	if (where == 0) return ASL_STATUS_INVALID_ARG;
 
+	*out = NULL;
+	*outlen = 0;
+	
 	inls = 0;
 	x64 = asl_core_htonq(where);
 	memcpy(&inls, &x64, 1);
@@ -1057,6 +1227,7 @@ asl_file_fetch_object(asl_file_t *s, uint64_t where, char **out, uint32_t *outle
 	if (status != 1)
 	{
 		free(*out);
+		*out = NULL;
 		return ASL_STATUS_READ_FAILED;
 	}
 
@@ -1065,7 +1236,7 @@ asl_file_fetch_object(asl_file_t *s, uint64_t where, char **out, uint32_t *outle
 }
 
 static uint16_t
-asl_file_fetch_helper_16(asl_file_t *s, char **p, aslmsg m, const char *key)
+asl_file_fetch_helper_16(asl_file_t *s, char **p, asl_msg_t *m, const char *key)
 {
 	uint16_t out;
 	char str[256];
@@ -1076,13 +1247,13 @@ asl_file_fetch_helper_16(asl_file_t *s, char **p, aslmsg m, const char *key)
 	if ((m == NULL) || (key == NULL)) return out;
 
 	snprintf(str, sizeof(str), "%hu", out);
-	asl_set(m, key, str);
+	asl_msg_set_key_val(m, key, str);
 
 	return out;
 }
 
 static uint32_t
-asl_file_fetch_helper_32(asl_file_t *s, char **p, aslmsg m, const char *key, int ignore, uint32_t ignoreval)
+asl_file_fetch_helper_32(asl_file_t *s, char **p, asl_msg_t *m, const char *key, int ignore, uint32_t ignoreval)
 {
 	uint32_t out, doit;
 	char str[256];
@@ -1097,14 +1268,14 @@ asl_file_fetch_helper_32(asl_file_t *s, char **p, aslmsg m, const char *key, int
 	if (doit != 0)
 	{
 		snprintf(str, sizeof(str), "%u", out);
-		asl_set(m, key, str);
+		asl_msg_set_key_val(m, key, str);
 	}
 
 	return out;
 }
 
 static uint64_t
-asl_file_fetch_helper_64(asl_file_t *s, char **p, aslmsg m, const char *key)
+asl_file_fetch_helper_64(asl_file_t *s, char **p, asl_msg_t *m, const char *key)
 {
 	uint64_t out;
 	char str[256];
@@ -1115,13 +1286,13 @@ asl_file_fetch_helper_64(asl_file_t *s, char **p, aslmsg m, const char *key)
 	if ((m == NULL) || (key == NULL)) return out;
 
 	snprintf(str, sizeof(str), "%llu", out);
-	asl_set(m, key, str);
+	asl_msg_set_key_val(m, key, str);
 
 	return out;
 }
 
 static uint64_t
-asl_file_fetch_helper_str(asl_file_t *s, char **p, aslmsg m, const char *key, uint32_t *err)
+asl_file_fetch_helper_str(asl_file_t *s, char **p, asl_msg_t *m, const char *key, uint32_t *err)
 {
 	uint64_t out;
 	char *val;
@@ -1138,26 +1309,27 @@ asl_file_fetch_helper_str(asl_file_t *s, char **p, aslmsg m, const char *key, ui
 	if (err != NULL) *err = status;
 	if ((status == ASL_STATUS_OK) && (val != NULL))
 	{
-		asl_set(m, key, val);
+		asl_msg_set_key_val(m, key, val);
 		free(val);
 	}
 
 	return out;
 }
 
-static uint32_t
-asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
+static ASL_STATUS
+asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, asl_msg_t **msg)
 {
 	char *buf, *p, *k, *v;
 	file_record_t r;
 	uint32_t i, status, len, buflen, kvn;
 	uint64_t x64, kv;
-	aslmsg out;
+	asl_msg_t *out;
 	off_t off;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (s->store == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return ASL_STATUS_WRITE_ONLY;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return ASL_STATUS_WRITE_ONLY;
 
 	buf = NULL;
 	buflen = 0;
@@ -1179,8 +1351,12 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 		return ASL_STATUS_READ_FAILED;
 	}
 
-	out = asl_new(ASL_TYPE_MSG);
-	if (out == NULL) return ASL_STATUS_NO_MEMORY;
+	out = asl_msg_new(ASL_TYPE_MSG);
+	if (out == NULL)
+	{
+		free(buf);
+		return ASL_STATUS_NO_MEMORY;
+	}
 
 	memset(&r, 0, sizeof(file_record_t));
 	p = buf;
@@ -1209,7 +1385,7 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 
 	if (status != ASL_STATUS_OK)
 	{
-		asl_free(out);
+		asl_msg_release(out);
 		free(buf);
 		s->cursor = 0;
 		s->cursor_xid = 0;
@@ -1220,14 +1396,17 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 
 	for (i = 0; i < kvn; i++)
 	{
+		k = NULL;
+		v = NULL;
+		len = 0;
+
 		kv = _asl_get_64(p);
 		p += sizeof(uint64_t);
-		k = NULL;
-		len = 0;
+
 		status = asl_file_fetch_object(s, kv, &k, &len);
 		if (status != ASL_STATUS_OK)
 		{
-			asl_free(out);
+			asl_msg_release(out);
 			free(buf);
 			s->cursor = 0;
 			s->cursor_xid = 0;
@@ -1236,7 +1415,6 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 
 		kv = _asl_get_64(p);
 		p += sizeof(uint64_t);
-		v = NULL;
 		len = 0;
 
 		if (kv != 0)
@@ -1244,7 +1422,8 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 			status = asl_file_fetch_object(s, kv, &v, &len);
 			if (status != ASL_STATUS_OK)
 			{
-				asl_free(out);
+				free(k);
+				asl_msg_release(out);
 				free(buf);
 				s->cursor = 0;
 				s->cursor_xid = 0;
@@ -1254,10 +1433,11 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 
 		if ((status == ASL_STATUS_OK) && (k != NULL))
 		{
-			asl_set(out, k, v);
-			if (v != NULL) free(v);
-			free(k);
+			asl_msg_set_key_val(out, k, v);
 		}
+
+		free(k);
+		free(v);
 	}
 
 	r.prev = asl_file_fetch_helper_64(s, &p, NULL, NULL); /* 116 */
@@ -1318,7 +1498,7 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 		status = fseeko(s->store, off, SEEK_SET);
 		if (status != 0)
 		{
-			asl_free(out);
+			asl_msg_release(out);
 			s->cursor = 0;
 			s->cursor_xid = 0;
 			return ASL_STATUS_READ_FAILED;
@@ -1327,7 +1507,7 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 		status = fread(&x64, sizeof(uint64_t), 1, s->store);
 		if (status != 1)
 		{
-			asl_free(out);
+			asl_msg_release(out);
 			s->cursor = 0;
 			s->cursor_xid = 0;
 			return ASL_STATUS_READ_FAILED;
@@ -1340,7 +1520,7 @@ asl_file_fetch_pos(asl_file_t *s, uint64_t where, int dir, aslmsg *msg)
 	return ASL_STATUS_OK;
 }
 
-uint32_t
+ASL_STATUS
 asl_file_open_read(const char *path, asl_file_t **s)
 {
 	asl_file_t *out;
@@ -1393,8 +1573,11 @@ asl_file_open_read(const char *path, asl_file_t **s)
 		return ASL_STATUS_NO_MEMORY;
 	}
 
+	out->asl_type = ASL_TYPE_FILE;
+	out->refcount = 1;
+
 	out->store = f;
-	out->flags = ASL_FILE_FLAG_READ_ONLY;
+	out->flags = ASL_FILE_FLAG_READ;
 	out->version = vers;
 
 	if (legacy != NULL)
@@ -1455,7 +1638,7 @@ asl_file_open_read(const char *path, asl_file_t **s)
 	return ASL_STATUS_OK;
 }
 
-static uint32_t
+static ASL_STATUS
 asl_file_read_set_position_first(asl_file_t *s)
 {
 	uint32_t status;
@@ -1472,8 +1655,8 @@ asl_file_read_set_position_first(asl_file_t *s)
 	return status;
 }
 
-static uint32_t
-asl_file_read_set_position_last(asl_file_t *s)
+static ASL_STATUS
+asl_file_read_set_position_last(asl_file_t *s, int do_count)
 {
 	uint64_t next;
 	uint32_t status;
@@ -1488,7 +1671,7 @@ asl_file_read_set_position_last(asl_file_t *s)
 	 * Note that s->last may be zero if the file is empty.
 	 */
 
-	if (s->last != 0)
+	if ((s->last != 0) && (do_count == 0))
 	{
 		s->cursor = s->last;
 		off = s->last + RECORD_COMMON_LEN + sizeof(uint64_t);
@@ -1501,6 +1684,7 @@ asl_file_read_set_position_last(asl_file_t *s)
 	/* start at the first record and iterate */
 	s->cursor = s->first;
 	s->cursor_xid = 0;
+	s->msg_count = 0;
 
 	forever
 	{
@@ -1513,6 +1697,8 @@ asl_file_read_set_position_last(asl_file_t *s)
 
 		/* detect bogus next pointer */
 		if (((next + MSG_RECORD_FIXED_LENGTH) > s->file_size) || (next <= s->cursor)) next = 0;
+
+		s->msg_count++;
 
 		if (next == 0)
 		{
@@ -1527,7 +1713,7 @@ asl_file_read_set_position_last(asl_file_t *s)
 	}
 }
 
-uint32_t
+ASL_STATUS
 asl_file_read_set_position(asl_file_t *s, uint32_t pos)
 {
 	uint64_t next;
@@ -1538,7 +1724,7 @@ asl_file_read_set_position(asl_file_t *s, uint32_t pos)
 	if (s->version == 1) return ASL_STATUS_FAILED;
 
 	if (pos == ASL_FILE_POSITION_FIRST) return asl_file_read_set_position_first(s);
-	if (pos == ASL_FILE_POSITION_LAST) return asl_file_read_set_position_last(s);
+	if (pos == ASL_FILE_POSITION_LAST) return asl_file_read_set_position_last(s, 0);
 
 	off = 0;
 
@@ -1587,8 +1773,8 @@ asl_file_read_set_position(asl_file_t *s, uint32_t pos)
 	return status;
 }
 
-uint32_t
-asl_file_fetch_next(asl_file_t *s, aslmsg *msg)
+ASL_STATUS
+asl_file_fetch_next(asl_file_t *s, asl_msg_t **msg)
 {
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (s->version == 1) return ASL_STATUS_FAILED;
@@ -1596,8 +1782,8 @@ asl_file_fetch_next(asl_file_t *s, aslmsg *msg)
 	return asl_file_fetch_pos(s, s->cursor, 1, msg);
 }
 
-uint32_t
-asl_file_fetch_previous(asl_file_t *s, aslmsg *msg)
+ASL_STATUS
+asl_file_fetch_previous(asl_file_t *s, asl_msg_t **msg)
 {
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (s->version == 1) return ASL_STATUS_FAILED;
@@ -1605,17 +1791,17 @@ asl_file_fetch_previous(asl_file_t *s, aslmsg *msg)
 	return asl_file_fetch_pos(s, s->cursor, -1, msg);
 }
 
-uint32_t
-asl_file_fetch(asl_file_t *s, uint64_t mid, aslmsg *msg)
+ASL_STATUS
+asl_file_fetch(asl_file_t *s, uint64_t mid, asl_msg_t **msg)
 {
 	uint32_t status;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return ASL_STATUS_WRITE_ONLY;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return ASL_STATUS_WRITE_ONLY;
 
 	if (s->version == 1)
 	{
+		if (msg == NULL) return ASL_STATUS_OK;
 		return asl_legacy1_fetch((asl_legacy1_t *)s->legacy, mid, msg);
 	}
 
@@ -1644,6 +1830,7 @@ asl_file_fetch(asl_file_t *s, uint64_t mid, aslmsg *msg)
 
 	if (s->cursor_xid != mid) return ASL_STATUS_INVALID_ID;
 
+	if (msg == NULL) return ASL_STATUS_OK;
 	return asl_file_fetch_pos(s, s->cursor, 1, msg);
 }
 
@@ -1651,20 +1838,20 @@ __private_extern__ uint64_t
 asl_file_cursor(asl_file_t *s)
 {
 	if (s == NULL) return 0;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return 0;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return 0;
 	if (s->version == 1) return 0;
 
 	return s->cursor_xid;
 }
 
-__private_extern__ uint32_t
-asl_file_match_start(asl_file_t *s, uint64_t start_id, int32_t direction)
+__private_extern__ ASL_STATUS
+asl_file_match_start(asl_file_t *s, uint64_t start, int32_t direction)
 {
 	uint32_t status, d;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (s->version == 1) return ASL_STATUS_INVALID_STORE;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return ASL_STATUS_WRITE_ONLY;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return ASL_STATUS_WRITE_ONLY;
 
 	d = ASL_FILE_POSITION_NEXT;
 	if (direction < 0) d = ASL_FILE_POSITION_PREVIOUS;
@@ -1677,7 +1864,7 @@ asl_file_match_start(asl_file_t *s, uint64_t start_id, int32_t direction)
 	else status = asl_file_read_set_position(s, ASL_FILE_POSITION_LAST);
 	if (status != ASL_STATUS_OK) return status;
 
-	while ((status == ASL_STATUS_OK) && (((direction >= 0) && (s->cursor_xid < start_id)) || ((direction < 0) && (s->cursor_xid > start_id))))
+	while ((status == ASL_STATUS_OK) && (((direction >= 0) && (s->cursor_xid < start)) || ((direction < 0) && (s->cursor_xid > start))))
 	{
 		status = asl_file_read_set_position(s, d);
 	}
@@ -1685,29 +1872,30 @@ asl_file_match_start(asl_file_t *s, uint64_t start_id, int32_t direction)
 	return status;
 }
 
-__private_extern__ uint32_t
-asl_file_match_next(asl_file_t *s, aslresponse query, aslmsg *msg, uint64_t *last_id, int32_t direction)
+__private_extern__ ASL_STATUS
+asl_file_match_next(asl_file_t *s, asl_msg_list_t *query, asl_msg_t **msg, uint64_t *last, int32_t direction)
 {
 	uint32_t status, d, i, do_match, did_match;
-	aslmsg m;
+	asl_msg_t *m;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
 	if (s->version == 1) return ASL_STATUS_INVALID_STORE;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return ASL_STATUS_WRITE_ONLY;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return ASL_STATUS_WRITE_ONLY;
 	if (s->cursor == 0) return ASL_STATUS_NO_RECORDS;
 
 	*msg = NULL;
+
 	do_match = 1;
+	if (query == NULL) do_match = 0;
+	else if (query->count == 0) do_match = 0;
 
 	d = ASL_FILE_POSITION_NEXT;
 	if (direction < 0) d = ASL_FILE_POSITION_PREVIOUS;
 
-	if ((query == NULL) || ((query != NULL) && (query->count == 0))) do_match = 0;
-
 	m = NULL;
 
-	*last_id = s->cursor_xid;
+	*last = s->cursor_xid;
 
 	status = asl_file_fetch_pos(s, s->cursor, direction, &m);
 	if (status == ASL_STATUS_ACCESS_DENIED) return ASL_STATUS_MATCH_FAILED;
@@ -1722,7 +1910,7 @@ asl_file_match_next(asl_file_t *s, aslresponse query, aslmsg *msg, uint64_t *las
 
 		for (i = 0; (i < query->count) && (did_match == 0); i++)
 		{
-			did_match = asl_msg_cmp((aslmsg)(query->msg[i]), m);
+			did_match = asl_msg_cmp(query->msg[i], m);
 		}
 	}
 
@@ -1733,32 +1921,35 @@ asl_file_match_next(asl_file_t *s, aslresponse query, aslmsg *msg, uint64_t *las
 	}
 
 	*msg = NULL;
-	asl_free(m);
+	asl_msg_release(m);
 	return ASL_STATUS_MATCH_FAILED;
 }
 
-uint32_t
-asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction)
+asl_msg_list_t *
+asl_file_match(asl_file_t *s, asl_msg_list_t *qlist, uint64_t *last, uint64_t start, uint32_t count, uint32_t duration, int32_t direction)
 {
 	uint32_t status, d, i, do_match, did_match, rescount;
-	aslmsg m;
+	asl_msg_t *m;
+	struct timeval now, finish;
+	asl_msg_list_t *out = NULL;
 
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (res == NULL) return ASL_STATUS_INVALID_ARG;
-	if ((s->flags & ASL_FILE_FLAG_READ_ONLY) == 0) return ASL_STATUS_WRITE_ONLY;
+	if (s == NULL) return NULL;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return NULL;
 
 	if (s->version == 1)
 	{
-		return asl_legacy1_match((asl_legacy1_t *)s->legacy, query, res, last_id, start_id, count, direction);
+		asl_legacy1_match((asl_legacy1_t *)s->legacy, qlist, &out, last, start, count, direction);
+		return out;
 	}
 
 	do_match = 1;
+	if (qlist == NULL) do_match = 0;
+	else if (qlist->count == 0) do_match = 0;
+
 	rescount = 0;
 
 	d = ASL_FILE_POSITION_NEXT;
 	if (direction < 0) d = ASL_FILE_POSITION_PREVIOUS;
-
-	if ((query == NULL) || ((query != NULL) && (query->count == 0))) do_match = 0;
 
 	/*
 	 * find starting point
@@ -1766,14 +1957,35 @@ asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *las
 	status = ASL_STATUS_OK;
 	if (direction >= 0) status = asl_file_read_set_position(s, ASL_FILE_POSITION_FIRST);
 	else status = asl_file_read_set_position(s, ASL_FILE_POSITION_LAST);
-	if (status != ASL_STATUS_OK) return status;
+	if (status != ASL_STATUS_OK) return NULL;
 
-	while ((status == ASL_STATUS_OK) && (((direction >= 0) && (s->cursor_xid < start_id)) || ((direction < 0) && (s->cursor_xid > start_id))))
+	while ((status == ASL_STATUS_OK) && (((direction >= 0) && (s->cursor_xid < start)) || ((direction < 0) && (s->cursor_xid > start))))
 	{
 		status = asl_file_read_set_position(s, d);
 	}
 
-	/* 
+	/* start the timer if a duration was specified */
+	memset(&finish, 0, sizeof(struct timeval));
+	if (duration != 0)
+	{
+		if (gettimeofday(&finish, NULL) == 0)
+		{
+			finish.tv_sec += (duration / USEC_PER_SEC);
+			finish.tv_usec += (duration % USEC_PER_SEC);
+			if (finish.tv_usec > USEC_PER_SEC)
+			{
+				finish.tv_usec -= USEC_PER_SEC;
+				finish.tv_sec += 1;
+			}
+		}
+		else
+		{
+			/* shouldn't happen, but if gettimeofday failed we just run without a timeout */
+			memset(&finish, 0, sizeof(struct timeval));
+		}
+	}
+
+	/*
 	 * loop through records
 	 */
 	forever
@@ -1783,7 +1995,7 @@ asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *las
 		if (status == ASL_STATUS_ACCESS_DENIED) continue;
 		if (status != ASL_STATUS_OK) break;
 
-		*last_id = s->cursor_xid;
+		*last = s->cursor_xid;
 
 		did_match = 1;
 
@@ -1791,50 +2003,36 @@ asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *las
 		{
 			did_match = 0;
 
-			for (i = 0; (i < query->count) && (did_match == 0); i++)
+			for (i = 0; (i < qlist->count) && (did_match == 0); i++)
 			{
-				did_match = asl_msg_cmp((aslmsg)query->msg[i], m);
+				did_match = asl_msg_cmp(qlist->msg[i], m);
 			}
 		}
 
 		if (did_match == 1)
 		{
 			/*  append m to res */
-			if (*res == NULL)
+			if (out == NULL)
 			{
-				*res = (aslresponse)calloc(1, sizeof(aslresponse));
-				if (*res == NULL) return ASL_STATUS_NO_MEMORY;
-				(*res)->msg = (asl_msg_t **)calloc(1, sizeof(aslmsg));
-				if ((*res)->msg == NULL)
-				{
-					free(*res);
-					return ASL_STATUS_NO_MEMORY;
-				}
-			}
-			else
-			{
-				(*res)->msg = (asl_msg_t **)reallocf((*res)->msg, ((*res)->count + 1) * sizeof(aslmsg));
-				if ((*res)->msg == NULL)
-				{
-					free(*res);
-					return ASL_STATUS_NO_MEMORY;
-				}
+				out = asl_msg_list_new();
+				if (out == NULL) return NULL;
 			}
 
-			(*res)->msg[(*res)->count] = (asl_msg_t *)m;
-			(*res)->count++;
-
+			asl_msg_list_append(out, m);
 			rescount++;
 			if ((count != 0) && (rescount >= count)) break;
+
+			/* check the timer */
+			if ((finish.tv_sec != 0) && (gettimeofday(&now, NULL) == 0))
+			{
+				if ((now.tv_sec > finish.tv_sec) || ((now.tv_sec == finish.tv_sec) && (now.tv_usec > finish.tv_usec))) break;
+			}
 		}
-		else
-		{
-			asl_free(m);
-		}
+
+		asl_msg_release(m);
 	}
 
-	/* NOT REACHED */
-	return ASL_STATUS_OK;
+	return out;
 }
 
 size_t
@@ -1933,7 +2131,7 @@ asl_file_list_add(asl_file_list_t *list, asl_file_t *f)
 }
 
 void *
-asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t direction)
+asl_file_list_match_start(asl_file_list_t *list, uint64_t start, int32_t direction)
 {
 	uint32_t status;
 	asl_file_list_t *n;
@@ -1947,7 +2145,7 @@ asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t dire
 	for (n = list; n != NULL; n = n->next)
 	{
 		/* init file for the search */
-		status = asl_file_match_start(n->file, start_id, direction);
+		status = asl_file_match_start(n->file, start, direction);
 		if (status != ASL_STATUS_OK) continue;
 		if (n->file->cursor_xid == 0) continue;
 
@@ -1958,14 +2156,14 @@ asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t dire
 	return out;
 }
 
-uint32_t
-asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint32_t count)
+ASL_STATUS
+asl_file_list_match_next(void *token, asl_msg_list_t *qlist, asl_msg_list_t **res, uint32_t count)
 {
 	uint32_t status, rescount;
 	asl_file_list_t *n;
-	aslmsg m;
+	asl_msg_t *m;
 	asl_file_match_token_t *work;
-	uint64_t last_id;
+	uint64_t last;
 
 	if (token == NULL) return ASL_STATUS_OK;
 	if (res == NULL) return ASL_STATUS_INVALID_ARG;
@@ -1973,15 +2171,15 @@ asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint3
 	work = (asl_file_match_token_t *)token;
 
 	rescount = 0;
-	last_id = 0;
+	last = 0;
 
 	while ((work->list != NULL) && ((rescount < count) || (count == 0)))
 	{
 		m = NULL;
-		status = asl_file_match_next(work->list->file, query, &m, &last_id, work->dir);
+		status = asl_file_match_next(work->list->file, qlist, &m, &last, work->dir);
 		if (m != NULL)
 		{
-			if (*res == NULL) *res = (aslresponse)calloc(1, sizeof(asl_search_result_t));
+			if (*res == NULL) *res = asl_msg_list_new();
 			if (*res == NULL)
 			{
 				asl_file_list_free(work->list);
@@ -1989,19 +2187,8 @@ asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint3
 				return ASL_STATUS_NO_MEMORY;
 			}
 
-			if ((*res)->msg == NULL) (*res)->msg = (asl_msg_t **)calloc(1, sizeof(aslmsg));
-			else (*res)->msg = (asl_msg_t **)reallocf((*res)->msg, ((*res)->count + 1) * sizeof(aslmsg));
-			if ((*res)->msg == NULL)
-			{
-				free(*res);
-				*res = NULL;
-				asl_file_list_free(work->list);
-				work->list = NULL;
-				return ASL_STATUS_NO_MEMORY;
-			}
-
-			(*res)->msg[(*res)->count] = (asl_msg_t *)m;
-			(*res)->count++;
+			asl_msg_list_append(*res, m);
+			asl_msg_release(m);
 			rescount++;
 		}
 
@@ -2046,24 +2233,24 @@ asl_file_list_match_end(void *token)
 	free(token);
 }
 
-uint32_t
-asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, uint32_t usec)
+asl_msg_list_t *
+asl_file_list_match(asl_file_list_t *list, asl_msg_list_t *qlist, uint64_t *last, uint64_t start, uint32_t count, uint32_t duration, int32_t direction)
 {
 	uint32_t status, rescount;
 	asl_file_list_t *files, *n;
-	aslmsg m;
+	asl_msg_t *m;
 	struct timeval now, finish;
+	asl_msg_list_t *out = NULL;
 
-	if (list == NULL) return ASL_STATUS_INVALID_ARG;
-	if (res == NULL) return ASL_STATUS_INVALID_ARG;
-	if (last_id == NULL) return ASL_STATUS_INVALID_ARG;
+	if (list == NULL) return NULL;
+	if (last == NULL) return NULL;
 
 	files = NULL;
 
 	for (n = list; n != NULL; n = n->next)
 	{
 		/* init file for the search */
-		status = asl_file_match_start(n->file, start_id, direction);
+		status = asl_file_match_start(n->file, start, direction);
 		if (status != ASL_STATUS_OK) continue;
 		if (n->file->cursor_xid == 0) continue;
 
@@ -2073,20 +2260,20 @@ asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslrespons
 	if (files == NULL)
 	{
 		asl_file_list_free(files);
-		return ASL_STATUS_OK;
+		return NULL;
 	}
 
 	/* start the timer if a timeout was specified */
 	memset(&finish, 0, sizeof(struct timeval));
-	if (usec != 0)
+	if (duration != 0)
 	{
 		if (gettimeofday(&finish, NULL) == 0)
 		{
-			finish.tv_sec += (usec / MILLION);
-			finish.tv_usec += (usec % MILLION);
-			if (finish.tv_usec > MILLION)
+			finish.tv_sec += (duration / USEC_PER_SEC);
+			finish.tv_usec += (duration % USEC_PER_SEC);
+			if (finish.tv_usec > USEC_PER_SEC)
 			{
-				finish.tv_usec -= MILLION;
+				finish.tv_usec -= USEC_PER_SEC;
 				finish.tv_sec += 1;
 			}
 		}
@@ -2101,28 +2288,18 @@ asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslrespons
 	while ((files != NULL) && ((rescount < count) || (count == 0)))
 	{
 		m = NULL;
-		status = asl_file_match_next(files->file, query, &m, last_id, direction);
+		status = asl_file_match_next(files->file, qlist, &m, last, direction);
 		if (m != NULL)
 		{
-			if (*res == NULL) *res = (aslresponse)calloc(1, sizeof(asl_search_result_t));
-			if (*res == NULL)
+			if (out == NULL) out = asl_msg_list_new();
+			if (out == NULL)
 			{
 				asl_file_list_free(files);
-				return ASL_STATUS_NO_MEMORY;
+				return NULL;
 			}
 
-			if ((*res)->msg == NULL) (*res)->msg = (asl_msg_t **)calloc(1, sizeof(aslmsg));
-			else (*res)->msg = (asl_msg_t **)reallocf((*res)->msg, ((*res)->count + 1) * sizeof(aslmsg));
-			if ((*res)->msg == NULL)
-			{
-				free(*res);
-				*res = NULL;
-				asl_file_list_free(files);
-				return ASL_STATUS_NO_MEMORY;
-			}
-
-			(*res)->msg[(*res)->count] = (asl_msg_t *)m;
-			(*res)->count++;
+			asl_msg_list_append(out, m);
+			asl_msg_release(m);
 			rescount++;
 		}
 
@@ -2157,11 +2334,168 @@ asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslrespons
 	}
 
 	asl_file_list_free(files);
-	return ASL_STATUS_OK;
+	return out;
 }
 
-uint32_t
-asl_file_list_match(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction)
+#pragma mark -
+#pragma mark asl_object support
+
+static void
+_jump_dealloc(asl_object_private_t *obj)
 {
-	return asl_file_list_match_timeout(list, query, res, last_id, start_id, count, direction, 0);
+	_asl_file_free_internal((asl_file_t *)obj);
+}
+
+static size_t
+_jump_count(asl_object_private_t *obj)
+{
+	asl_file_t *s = (asl_file_t *)obj;
+	if (s == NULL) return 0;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return 0;
+
+	uint64_t cursor = s->cursor;
+	uint64_t cursor_xid = s->cursor_xid;
+
+	if (asl_file_read_set_position_last((asl_file_t *)obj, 1) != ASL_STATUS_OK) return 0;
+
+	s->cursor = cursor;
+	s->cursor_xid = cursor_xid;
+	return s->msg_count;
+}
+
+static asl_object_private_t *
+_jump_next(asl_object_private_t *obj)
+{
+	asl_msg_t *msg = NULL;
+	if (asl_file_fetch_next((asl_file_t *)obj, &msg) != ASL_STATUS_OK) return NULL;
+	return (asl_object_private_t *)msg;
+}
+
+static asl_object_private_t *
+_jump_prev(asl_object_private_t *obj)
+{
+	asl_msg_t *msg = NULL;
+	if (asl_file_fetch_previous((asl_file_t *)obj, &msg) != ASL_STATUS_OK) return NULL;
+	return (asl_object_private_t *)msg;
+}
+
+/* we don't really need to support this, but we are generous */
+static asl_object_private_t *
+_jump_get_object_at_index(asl_object_private_t *obj, size_t n)
+{
+	asl_msg_t *msg = NULL;
+	uint64_t mid = n;
+	if (asl_file_fetch((asl_file_t *)obj, mid, &msg) != ASL_STATUS_OK) return NULL;
+	return (asl_object_private_t *)msg;
+}
+
+static void
+_jump_set_iteration_index(asl_object_private_t *obj, size_t n)
+{
+	asl_file_t *s = (asl_file_t *)obj;
+	if (s == NULL) return;
+	if ((s->flags & ASL_FILE_FLAG_READ) == 0) return;
+
+	if (n == 0)
+	{
+		asl_file_read_set_position_first(s);
+	}
+	else if (n == SIZE_MAX)
+	{
+		asl_file_read_set_position_last(s, 0);
+	}
+	else
+	{
+		/* we don't really need to support this, but we are generous */
+		asl_file_fetch(s, n, NULL);
+	}
+}
+
+static void
+_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj)
+{
+	uint64_t xid;
+	asl_file_t *s = (asl_file_t *)obj;
+	int type = asl_get_type((asl_object_t)newobj);
+	if (s == NULL) return;
+	if (s->flags & ASL_FILE_FLAG_READ) return;
+
+	if (type == ASL_TYPE_LIST)
+	{
+		asl_msg_t *msg;
+		asl_msg_list_reset_iteration((asl_msg_list_t *)newobj, 0);
+		while (NULL != (msg = asl_msg_list_next((asl_msg_list_t *)newobj)))
+		{
+			if (asl_file_save(s, msg, &xid) != ASL_STATUS_OK) return;
+		}
+	}
+	else if ((type == ASL_TYPE_MSG) || (type == ASL_TYPE_QUERY))
+	{
+		asl_file_save(s, (asl_msg_t *)newobj, &xid);
+	}
+}
+
+static asl_object_private_t *
+_jump_search(asl_object_private_t *obj, asl_object_private_t *query)
+{
+	asl_file_t *s = (asl_file_t *)obj;
+	int type = asl_get_type((asl_object_t)query);
+	asl_msg_list_t *out = NULL;
+	asl_msg_list_t *ql = NULL;
+	uint64_t last;
+
+	if (query == NULL)
+	{
+		return (asl_object_private_t *)asl_file_match(s, NULL, &last, 0, 0, 0, 1);
+	}
+	else if (type == ASL_TYPE_LIST)
+	{
+		return (asl_object_private_t *)asl_file_match(s, (asl_msg_list_t *)query, &last, 0, 0, 0, 1);
+	}
+	else if ((type == ASL_TYPE_MSG) || (type == ASL_TYPE_QUERY))
+	{
+		ql = asl_msg_list_new();
+		asl_msg_list_append(ql, query);
+
+		out = asl_file_match(s, ql, &last, 0, 0, 0, 1);
+		asl_msg_list_release(ql);
+		return (asl_object_private_t *)out;
+	}
+
+	return NULL;
+}
+
+static asl_object_private_t *
+_jump_match(asl_object_private_t *obj, asl_object_private_t *qlist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t dir)
+{
+	uint64_t x;
+	asl_msg_list_t *out = asl_file_match((asl_file_t *)obj, (asl_msg_list_t *)qlist, &x, start, count, duration, dir);
+	*last = x;
+	return (asl_object_private_t *)out;
+}
+
+__private_extern__ const asl_jump_table_t *
+asl_file_jump_table()
+{
+	static const asl_jump_table_t jump =
+	{
+		.alloc = NULL,
+		.dealloc = &_jump_dealloc,
+		.set_key_val_op = NULL,
+		.unset_key = NULL,
+		.get_val_op_for_key = NULL,
+		.get_key_val_op_at_index = NULL,
+		.count = &_jump_count,
+		.next = &_jump_next,
+		.prev = &_jump_prev,
+		.get_object_at_index = &_jump_get_object_at_index,
+		.set_iteration_index = &_jump_set_iteration_index,
+		.remove_object_at_index = NULL,
+		.append = &_jump_append,
+		.prepend = NULL,
+		.search = &_jump_search,
+		.match = &_jump_match
+	};
+
+	return &jump;
 }

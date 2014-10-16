@@ -211,7 +211,7 @@ domergeman:
 		    ff=`echo $$f | sed -E "s/\.[^.]*(.gz)?$$/$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
-			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
+			ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
 		    fi || exit 1; \
 		done && \
 		cd .. || exit 1; \

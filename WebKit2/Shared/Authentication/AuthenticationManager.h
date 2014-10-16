@@ -34,18 +34,18 @@
 #include <wtf/HashMap.h>
 
 namespace WebCore {
-    class AuthenticationChallenge;
-    class Credential;
+class AuthenticationChallenge;
+class CertificateInfo;
+class Credential;
 }
 
 namespace WebKit {
 
 class ChildProcess;
 class Download;
-class PlatformCertificateInfo;
 class WebFrame;
 
-class AuthenticationManager : public WebProcessSupplement, public NetworkProcessSupplement, public CoreIPC::MessageReceiver {
+class AuthenticationManager : public WebProcessSupplement, public NetworkProcessSupplement, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(AuthenticationManager);
 public:
     explicit AuthenticationManager(ChildProcess*);
@@ -59,17 +59,19 @@ public:
     // Called for downloads with or without the NetworkProcess
     void didReceiveAuthenticationChallenge(Download*, const WebCore::AuthenticationChallenge&);
 
-    void useCredentialForChallenge(uint64_t challengeID, const WebCore::Credential&, const PlatformCertificateInfo&);
+    void useCredentialForChallenge(uint64_t challengeID, const WebCore::Credential&, const WebCore::CertificateInfo&);
     void continueWithoutCredentialForChallenge(uint64_t challengeID);
     void cancelChallenge(uint64_t challengeID);
-    
+    void performDefaultHandling(uint64_t challengeID);
+    void rejectProtectionSpaceAndContinue(uint64_t challengeID);
+
     uint64_t outstandingAuthenticationChallengeCount() const { return m_challenges.size(); }
 
 private:
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
-    bool tryUsePlatformCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const PlatformCertificateInfo&);
+    bool tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const WebCore::CertificateInfo&);
 
     uint64_t establishIdentifierForChallenge(const WebCore::AuthenticationChallenge&);
 

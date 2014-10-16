@@ -61,8 +61,8 @@ struct _utmpx {
 extern const char __utx_magic__[]; /* size of UTMPX_MAGIC */
 
 #ifdef __LP64__
-#define __need_struct_timeval32
-#include <_structs.h>
+#include <sys/_types.h>
+#include <sys/_types/_timeval32.h>
 
 /*
  * these structures assume natural alignment so they are the same size

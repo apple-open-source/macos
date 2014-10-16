@@ -27,19 +27,17 @@
 
 #include "QualifiedName.h"
 #include "HTMLNames.h"
+#include "SVGNames.h"
 #include "XLinkNames.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashSet.h>
 #include <wtf/StaticConstructors.h>
+#include <wtf/text/StringBuilder.h>
 
 #if ENABLE(MATHML)
 #include "MathMLNames.h"
-#endif
-
-#if ENABLE(SVG)
-#include "SVGNames.h"
 #endif
 
 namespace WebCore {
@@ -48,9 +46,7 @@ static const int staticQualifiedNamesCount = HTMLNames::HTMLTagsCount + HTMLName
 #if ENABLE(MATHML)
     + MathMLNames::MathMLTagsCount + MathMLNames::MathMLAttrsCount
 #endif
-#if ENABLE(SVG)
     + SVGNames::SVGTagsCount + SVGNames::SVGAttrsCount
-#endif
     + XLinkNames::XLinkAttrsCount
     + XMLNSNames::XMLNSAttrsCount
     + XMLNames::XMLAttrsCount;
@@ -72,53 +68,34 @@ struct QNameComponentsTranslator {
     }
     static void translate(QualifiedName::QualifiedNameImpl*& location, const QualifiedNameComponents& components, unsigned)
     {
-        location = QualifiedName::QualifiedNameImpl::create(components.m_prefix, components.m_localName, components.m_namespace).leakRef();
+        location = &QualifiedName::QualifiedNameImpl::create(components.m_prefix, components.m_localName, components.m_namespace).leakRef();
     }
 };
 
-static QNameSet* gNameCache;
+static inline QNameSet& qualifiedNameCache()
+{
+    DEPRECATED_DEFINE_STATIC_LOCAL(QNameSet, nameCache, ());
+    return nameCache;
+}
 
 QualifiedName::QualifiedName(const AtomicString& p, const AtomicString& l, const AtomicString& n)
 {
-    if (!gNameCache)
-        gNameCache = new QNameSet;
-    QualifiedNameComponents components = { p.impl(), l.impl(), n.isEmpty() ? nullAtom.impl() : n.impl() };
-    QNameSet::AddResult addResult = gNameCache->add<QualifiedNameComponents, QNameComponentsTranslator>(components);
-    m_impl = *addResult.iterator;
-    if (!addResult.isNewEntry)
-        m_impl->ref();
-}
-
-QualifiedName::~QualifiedName()
-{
-    deref();
-}
-
-void QualifiedName::deref()
-{
-#ifdef QNAME_DEFAULT_CONSTRUCTOR
-    if (!m_impl)
-        return;
-#endif
-    ASSERT(!isHashTableDeletedValue());
-    m_impl->deref();
+    QualifiedNameComponents components = { p.impl(), l.impl(), n.isEmpty() ? nullptr : n.impl() };
+    QNameSet::AddResult addResult = qualifiedNameCache().add<QNameComponentsTranslator>(components);
+    m_impl = addResult.isNewEntry ? adoptRef(*addResult.iterator) : *addResult.iterator;
 }
 
 QualifiedName::QualifiedNameImpl::~QualifiedNameImpl()
 {
-    gNameCache->remove(this);
+    qualifiedNameCache().remove(this);
 }
 
 String QualifiedName::toString() const
 {
-    String local = localName();
-    if (hasPrefix()) {
-        String result = prefix().string();
-        result.append(":");
-        result.append(local);
-        return result;
-    }
-    return local;
+    if (!hasPrefix())
+        return localName();
+
+    return prefix().string() + ':' + localName().string();
 }
 
 // Global init routines
@@ -126,19 +103,19 @@ DEFINE_GLOBAL(QualifiedName, anyName, nullAtom, starAtom, starAtom)
 
 void QualifiedName::init()
 {
-    static bool initialized;
-    if (!initialized) {
-        // Use placement new to initialize the globals.
-        
-        AtomicString::init();
-        new (NotNull, (void*)&anyName) QualifiedName(nullAtom, starAtom, starAtom);
-        initialized = true;
-    }
+    static bool initialized = false;
+    if (initialized)
+        return;
+
+    // Use placement new to initialize the globals.
+    AtomicString::init();
+    new (NotNull, (void*)&anyName) QualifiedName(nullAtom, starAtom, starAtom);
+    initialized = true;
 }
 
 const QualifiedName& nullQName()
 {
-    DEFINE_STATIC_LOCAL(QualifiedName, nullName, (nullAtom, nullAtom, nullAtom));
+    DEPRECATED_DEFINE_STATIC_LOCAL(QualifiedName, nullName, (nullAtom, nullAtom, nullAtom));
     return nullName;
 }
 

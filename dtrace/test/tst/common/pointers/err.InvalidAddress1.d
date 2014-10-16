@@ -39,17 +39,10 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	kmemAddress = &`kmem_flags;
-	*kmemAddress = 20;
-	printf("Address of kmem_flags: %d\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", `kmem_flags);
-#else
 	kmemAddress = &`max_ncpus;
 	*kmemAddress = 20;
 	printf("Address of max_ncpus: %d\n", (int) kmemAddress);
 	printf("Value of max_ncpus: %d\n", `max_ncpus);
-#endif /* __APPLE__ */
 	exit(0);
 }
 

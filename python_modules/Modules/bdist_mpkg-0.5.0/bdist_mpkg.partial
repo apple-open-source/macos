@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>bdist_mpkg</string>
+        <key>OpenSourceVersion</key>
+        <string>0.5.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://undefined.org/python/#bdist_mpkg</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/b/bdist_mpkg/bdist_mpkg-0.5.0.tar.gz#md5=81f5f8601331acda2926efeb97a0804d</string>
+	<key>OpenSourceMD5</key>
+	<string>81f5f8601331acda2926efeb97a0804d</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-10-11</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

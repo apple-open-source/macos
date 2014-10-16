@@ -1,0 +1,192 @@
+#! /bin/csh -f
+#
+# Run import/export tests for various aggregate types.
+#
+# Run this from SecurityTests/clxutils/importExport. The 
+# kcImport and kcExport programs must exist in the location
+# specified by the LOCAL_BUILD_DIR env var.
+#
+
+source setupCommon
+
+# three RSA private keys, clear openssl PEM format
+set RSA_PRIV_KEY1=${BUILD_DIR}/rsapriv1.pem
+set RSA_PRIV_KEY2=${BUILD_DIR}/rsapriv2.pem
+set RSA_PRIV_KEY3=${BUILD_DIR}/rsapriv3.pem
+
+# PEM sequence
+set PEM_SEQUENCE_BLOB=${BUILD_DIR}/pemseq.pem
+
+# PKCS12 blob
+set P12_PFX=${BUILD_DIR}/p12.pfx
+
+# PKCS12 passphrase
+set PASSPHRASE=foobar
+
+# user specified variables
+set QUIET=NO
+set QUIET_ARG=
+set KEYSIZE=512
+set NOACL=NO
+set NOACL_ARG=
+set NOCLEAN=NO
+
+#
+# Verify existence of a few crucial things before we start.
+#
+if( ( ! -e $KCIMPORT ) || \
+    ( ! -e $KCEXPORT ) ) then
+        echo === You do not seem to have all of the required executables.
+        echo === Please build all of cspxutils and clxutils. 
+        echo === See the README files in those directories for info.
+        exit(1)
+endif
+
+# user options
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set QUIET=YES
+			set QUIET_ARG=-q
+            shift
+            breaksw
+        case n:
+            set NOACL=YES
+			set NOACL_ARG=-n
+            shift
+            breaksw
+		case N:
+			set NOCLEAN=YES
+            shift
+            breaksw
+        default:
+            echo Usage: importExportPkcs12 \[q\(uiet\)\] \[n\(oACL\)\] \[N\(oClean\)\]
+            exit(1)
+    endsw
+end
+
+# Create three keypairs with openssl
+
+echo === Begin Aggregate test ===
+if ($QUIET == NO) then
+	echo Creating three RSA private keys with openssl...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$OPENSSL genrsa -out $RSA_PRIV_KEY1 $KEYSIZE"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd >& /dev/null || exit(1)
+set cmd="$OPENSSL genrsa -out $RSA_PRIV_KEY2 $KEYSIZE"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd >& /dev/null || exit(1)
+set cmd="$OPENSSL genrsa -out $RSA_PRIV_KEY3 $KEYSIZE"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd >& /dev/null || exit(1)
+
+if ($QUIET == NO) then
+	echo Importing all three RSA private keys as one PEM sequence...
+endif
+if ($QUIET == NO) then
+	echo /bin/cat $RSA_PRIV_KEY1 $RSA_PRIV_KEY2 $RSA_PRIV_KEY3 \> $PEM_SEQUENCE_BLOB
+endif
+/bin/cat $RSA_PRIV_KEY1 $RSA_PRIV_KEY2 $RSA_PRIV_KEY3 > $PEM_SEQUENCE_BLOB || exit(1)
+# don't even bother specify format or type on input
+set cmd="$KCIMPORT $PEM_SEQUENCE_BLOB -k $KEYCHAIN -K 3 -F pemseq -q $NOACL_ARG -e"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Exporting all three RSA private keys as one PEM sequence...
+endif
+set cmd="$RM $PEM_SEQUENCE_BLOB"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t all -f pemseq -o $PEM_SEQUENCE_BLOB -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Importing generated PEM sequence...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PEM_SEQUENCE_BLOB -k $KEYCHAIN -K 3 -F pemseq -q $NOACL_ARG -e"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Importing generated PEM sequence, expecting errSecMultiplePrivKeys...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PEM_SEQUENCE_BLOB -k $KEYCHAIN -K 3 -F pemseq -q $NOACL_ARG -e -M"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# import one to test kSecKeyImportOnlyOne
+if ($QUIET == NO) then
+	echo Importing one private key with kSecKeyImportOnlyOne
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $RSA_PRIV_KEY1 -f openssl -k $KEYCHAIN -K 1 -q $NOACL_ARG -e -m"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+if ($QUIET == NO) then
+	echo Testing kSecKeyImportOnlyOne for PKCS12...
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $PEM_SEQUENCE_BLOB -k $KEYCHAIN -K 3 -F pemseq -q $NOACL_ARG -e"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd  || exit(1)
+set cmd="$KCEXPORT $KEYCHAIN -t all -f pkcs12 -z $PASSPHRASE -o $P12_PFX -q"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+if ($QUIET == NO) then
+	echo $CLEANKC
+endif
+$CLEANKC || exit(1)
+set cmd="$KCIMPORT $P12_PFX -k $KEYCHAIN -z $PASSPHRASE -q $NOACL_ARG -M"
+if ($QUIET == NO) then
+	echo $cmd
+endif
+$cmd || exit(1)
+
+# cleanup
+if ($NOCLEAN == NO) then
+	set cmd="rm -f $RSA_PRIV_KEY1 $RSA_PRIV_KEY2 $RSA_PRIV_KEY3 $PEM_SEQUENCE_BLOB $P12_PFX"
+	if ($QUIET == NO) then
+		echo $cmd
+	endif
+	$cmd || exit(1)
+endif
+
+if ($QUIET == NO) then
+	echo === Aggregate test complete ===
+endif
+

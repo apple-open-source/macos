@@ -56,11 +56,7 @@ main(int argc, char **argv)
 	while (waiting(&a) == 0)
 		continue;
 
-#if !defined(__APPLE__)
-	(void) forkall();
-#else
 	(void) fork();
-#endif /* __APPLE__ */
 	(void) go();
 
 	return (0);

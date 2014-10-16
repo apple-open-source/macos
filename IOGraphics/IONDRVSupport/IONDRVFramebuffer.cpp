@@ -253,7 +253,7 @@ IOService * IONDRVFramebuffer::probe( IOService * provider, SInt32 * score )
     if (getProperty(gIONameMatchedKey))
     {
         // matched
-        provider->setProperty(kIONDRVForXKey, inst, sizeof32(inst) );
+        provider->setProperty(kIONDRVForXKey, gIOFBOne32Data);
     }
 
     return (inst);
@@ -425,7 +425,7 @@ bool IONDRVFramebuffer::start( IOService * provider )
                                 if (!haveDoneLibInit)
                                     continue;
                             }
-                            next->setProperty( kIOFBDependentIDKey, (uintptr_t) provider, 64 );
+                            next->setProperty( kIOFBDependentIDKey, provider->getRegistryEntryID(), 64 );
                             next->setProperty( kIOFBDependentIndexKey, index, 32 );
                             index++;
                         }

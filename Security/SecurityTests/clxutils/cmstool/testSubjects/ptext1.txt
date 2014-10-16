@@ -1,0 +1,772 @@
+/*
+ * cmstool.cpp - manipluate CMS messages, intended to be an alternate for the 
+ *		 currently useless cms command in /usr/bin/security
+ */
+ 
+#include <Security/Security.h>
+#include <utilLib/fileIo.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <utilLib/common.h>
+#include <security_cdsa_utils/cuFileIo.h>
+#include <security_cdsa_utils/cuPrintCert.h>
+#include <clAppUtils/identPicker.h>
+#include <clAppUtils/sslAppUtils.h>
+#include <security_cdsa_utils/cuOidParser.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecCmsEncoder.h>
+#include <Security/SecCmsDecoder.h>
+#include <Security/SecCmsEncryptedData.h>
+#include <Security/SecCmsEnvelopedData.h>
+#include <Security/SecCmsMessage.h>
+#include <Security/SecCmsRecipientInfo.h>
+#include <Security/SecCmsSignedData.h>
+#include <Security/SecCmsSignerInfo.h>
+#include <Security/SecCmsContentInfo.h>
+#include <Security/SecTrustPriv.h>
+#include <Security/SecKeychainItemPriv.h>
+#include <Security/SecCertificate.h>
+#include <Security/SecSMIME.h>
+
+static void usage(char **argv)
+{
+    printf("Usage: %s cmd [option ...]\n", argv[0]);
+	printf("cmd values:\n");
+	printf("   sign       -- create signedData\n");
+	printf("   envel      -- create envelopedData\n");
+	printf("   parse      -- parse a CMS message file\n");
+	printf("Options:\n");
+	printf("   -i infile\n");
+	printf("   -o outfile\n");
+	printf("   -k keychain     -- Keychain to search for certs\n");
+	printf("   -p              -- Use identity picker\n");
+	printf("   -r recipient    -- specify recipient of enveloped data\n");
+	printf("   -c              -- parse signer cert\n");
+	printf("   -q              -- quiet\n");
+	exit(1);
+}
+
+typedef enum {
+	CTO_Sign,
+	CTO_Envelop,
+	CTO_Parse
+} CT_Op;
+
+/*
+ * Find a cert in specified keychain or keychain list matching specified 
+ * email address. We happen to knopw that the email address is stored with the 
+ * kSecAliasItemAttr attribute. 
+ */
+static OSStatus findCert(
+	const char *emailAddress,
+	CFTypeRef kcArArray,			// kc, array, or even NULL
+	SecCertificateRef *cert)
+{
+	OSStatus					ortn;
+	SecKeychainSearchRef		srch;
+	SecKeychainAttributeList	attrList;
+	SecKeychainAttribute		attr;
+	
+	attr.tag = kSecAliasItemAttr;
+	attr.length = strlen(emailAddress);
+	attr.data = (void *)emailAddress;
+	attrList.count = 1;
+	attrList.attr = &attr;
+	
+	ortn = SecKeychainSearchCreateFromAttributes(kcArArray,
+		kSecCertificateItemClass,
+		&attrList,
+		&srch);
+	if(ortn) {
+		cssmPerror("SecKeychainSearchCreateFromAttributes", ortn);
+		return ortn;
+	}
+	
+	ortn = SecKeychainSearchCopyNext(srch, (SecKeychainItemRef *)cert);
+	if(ortn) {
+		printf("***No certs founmd matching recipient %s. Aborting.\n");
+		return ortn;
+	}
+	CFRelease(srch);
+	return noErr;
+}
+
+static void evalSecTrust(
+	SecTrustRef secTrust)
+{
+	OSStatus ortn;
+	SecTrustResultType			secTrustResult;
+	
+	ortn = SecTrustEvaluate(secTrust, &secTrustResult);
+	if(ortn) {
+		/* should never happen */
+		cssmPerror("SecTrustEvaluate", ortn);
+		return;
+	}
+	switch(secTrustResult) {
+		case kSecTrustResultUnspecified:
+			/* cert chain valid, no special UserTrust assignments */
+		case kSecTrustResultProceed:
+			/* cert chain valid AND user explicitly trusts this */
+			fprintf(stderr, "Successful\n");
+			return;
+		case kSecTrustResultDeny:
+		case kSecTrustResultConfirm:
+			/*
+			 * Cert chain may well have verified OK, but user has flagged
+			 * one of these certs as untrustable.
+			 */
+			printf("Not trusted per user-specified Trust level\n");
+			return;
+		default:
+		{
+			/* get low-level TP error */
+			OSStatus tpStatus;
+			ortn = SecTrustGetCssmResultCode(secTrust, &tpStatus);
+			if(ortn) {
+				cssmPerror("SecTrustGetCssmResultCode", ortn);
+				return;
+			}
+			switch(tpStatus) {
+				case CSSMERR_TP_INVALID_ANCHOR_CERT: 
+					fprintf(stderr, "Untrusted root\n");
+					return;
+				case CSSMERR_TP_NOT_TRUSTED:
+					/* no root, not even in implicit SSL roots */
+					fprintf(stderr, "No root cert found\n");
+					return;
+				case CSSMERR_TP_CERT_EXPIRED:
+					fprintf(stderr, "Expired cert\n");
+					return;
+				case CSSMERR_TP_CERT_NOT_VALID_YET:
+					fprintf(stderr, "Cert not valid yet\n");
+					break;
+				default:
+					printf("Other cert failure: ");
+					cssmPerror("", tpStatus);
+					return;
+			}
+		}
+	} 	/* SecTrustEvaluate error */
+
+}
+static OSStatus parseSignedData(
+	SecCmsSignedDataRef signedData,
+	bool parseSignerCert)
+{
+	Boolean b; 
+	b = SecCmsSignedDataHasDigests(signedData);
+	printf("      has digests   : %s\n", b ? "true" : "false");
+	
+	SecTrustRef secTrust = NULL;
+	OSStatus ortn;
+	SecPolicyRef policy = NULL;
+	SecPolicySearchRef policySearch = NULL;
+	
+	ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
+		&CSSMOID_APPLE_X509_BASIC,
+		NULL,
+		&policySearch);
+	if(ortn) {
+		cssmPerror("SecPolicySearchCreate", ortn);
+		return ortn;
+	}
+	ortn = SecPolicySearchCopyNext(policySearch, &policy);
+	if(ortn) {
+		cssmPerror("SecPolicySearchCopyNext", ortn);
+		return ortn;
+	}
+	
+	int numSigners = SecCmsSignedDataSignerInfoCount(signedData);
+	printf("      num signers   : %d\n", numSigners);
+	for(int dex=0; dex<numSigners; dex++) {
+		fprintf(stderr, "      signer %d      :\n", dex);
+		Boolean b = SecCmsSignedDataHasDigests(signedData);
+		fprintf(stderr, "         vfy status : ");
+		if(b) {
+			ortn = SecCmsSignedDataVerifySignerInfo(signedData, dex, NULL, 
+				policy, &secTrust);
+			if(ortn) {
+				fprintf(stderr, "vfSignerInfo() returned %d\n", (int)ortn);
+				fprintf(stderr, "         vfy status : ");
+			}
+			if(secTrust == NULL) {
+				fprintf(stderr, "***NO SecTrust available!\n");
+			}
+			else {
+				evalSecTrust(secTrust);
+			}
+		}
+		else {
+			fprintf(stderr, "<<SecCmsSignedDataHasDigests returned false>>\n");
+		}
+		SecCmsSignerInfoRef signerInfo = SecCmsSignedDataGetSignerInfo(signedData, dex);
+		CFStringRef emailAddrs = SecCmsSignerInfoGetSignerCommonName(signerInfo);
+		char emailStr[1000];
+		fprintf(stderr, "         signer     : ");
+		if(emailAddrs == NULL) {
+			printf("<<SecCmsSignerInfoGetSignerCommonName returned NULL)>>\n");
+		}
+		else {
+			if(!CFStringGetCString(emailAddrs, emailStr, 1000, kCFStringEncodingASCII)) {
+				printf("*** Error converting email address to C string\n");
+			}
+			else {
+				printf("%s\n", emailStr);
+			}
+		}
+		if(parseSignerCert) {
+			SecCertificateRef signer;
+			signer = SecCmsSignerInfoGetSigningCertificate(signerInfo, NULL);
+			if(signer) {
+				CSSM_DATA certData;
+				ortn = SecCertificateGetData(signer, &certData);
+				if(ortn) {
+					fprintf(stderr, "***Error getting signing cert data***\n");
+					cssmPerror("SecCertificateGetData", ortn);
+				}
+				else {
+					printf("========== Signer Cert==========\n\n");
+					printCert(certData.Data, certData.Length, CSSM_FALSE);
+					printf("========== End Signer Cert==========\n\n");
+				}
+			}
+			else {
+				fprintf(stderr, "***Error getting signing cert ***\n");
+			}
+		}
+	}
+	return ortn;
+}
+
+static OSStatus doParse(
+	const unsigned char *data,
+	unsigned			dataLen,
+	bool				parseSignerCert,
+	unsigned char		**outData,		// mallocd and RETURNED
+	unsigned			*outDataLen)	// RETURNED
+{
+	if((data == NULL) || (dataLen == 0)) {
+		printf("***Parse requires input file. Aborting.\n");
+		return paramErr;
+	}
+	
+	SecArenaPoolRef arena = NULL;
+	SecArenaPoolCreate(1024, &arena);
+	SecCmsMessageRef cmsMsg = NULL;
+	SecCmsDecoderRef decoder;
+	OSStatus ortn;
+	
+	ortn = SecCmsDecoderCreate(arena, NULL, NULL, NULL, NULL, NULL, NULL, &decoder);
+	if(ortn) {
+		cssmPerror("SecCmsDecoderCreate", ortn);
+		return ortn;
+	}
+	ortn = SecCmsDecoderUpdate(decoder, data, dataLen);
+	if(ortn) {
+		cssmPerror("SecCmsDecoderUpdate", ortn);
+		return ortn;
+	}
+	ortn = SecCmsDecoderFinish(decoder, &cmsMsg);
+	if(ortn) {
+		cssmPerror("SecCmsDecoderFinish", ortn);
+		return ortn;
+	}
+	
+	Boolean b = SecCmsMessageIsSigned(cmsMsg);
+	printf("=== CMS message info ===\n");
+	printf("   Signed           : %s\n", b ? "true" : "false");
+	b = SecCmsMessageIsEncrypted(cmsMsg);
+	printf("   Encrypted        : %s\n", b ? "true" : "false");
+	b = SecCmsMessageContainsCertsOrCrls(cmsMsg);
+	printf("   certs/crls       : %s\n", b ? "present" : "not present");
+	int numContentInfos = SecCmsMessageContentLevelCount(cmsMsg);
+	printf("   Num ContentInfos : %d\n", numContentInfos);
+	
+	OidParser oidParser;
+	for(int dex=0; dex<numContentInfos; dex++) {
+		SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsMsg, dex);
+		printf("   Content Info %d   :\n", dex);
+		CSSM_OID *typeOid = SecCmsContentInfoGetContentTypeOID(ci);
+		printf("      OID Tag       : ");
+		if(typeOid == NULL) {
+			printf("***NONE FOUND***]n");
+		}
+		else if(typeOid->Length == 0) {
+			printf("***EMPTY***\n");
+		}
+		else {
+			char str[OID_PARSER_STRING_SIZE];
+			oidParser.oidParse(typeOid->Data, typeOid->Length, str);
+			printf("%s\n", str);
+		}
+		SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
+		switch(tag) {
+			case SEC_OID_PKCS7_SIGNED_DATA:
+			{
+				SecCmsSignedDataRef sd = 
+					(SecCmsSignedDataRef) SecCmsContentInfoGetContent(ci);
+				parseSignedData(sd, parseSignerCert);
+				break;
+			}
+			case SEC_OID_PKCS7_DATA:
+			case SEC_OID_PKCS7_ENVELOPED_DATA:
+			case SEC_OID_PKCS7_ENCRYPTED_DATA:
+				break;
+			default:
+				printf("      other content type TBD\n");
+		}
+	}
+	if(outData) {
+		CSSM_DATA_PTR odata = SecCmsMessageGetContent(cmsMsg);
+		if(odata == NULL) {
+			printf("***No inner content available\n");
+		}
+		else {
+			*outData = (unsigned char *)malloc(odata->Length);
+			memmove(*outData, odata->Data, odata->Length);
+			*outDataLen = odata->Length;
+		}
+	}
+	if(arena) {
+		SecArenaPoolFree(arena, false);
+	}
+	/* free decoder? cmsMsg? */
+	return noErr;
+}
+
+/*
+ * Common encode routine.
+ */
+#if 0
+/* the simple way, when 3655861 is fixed */
+static OSStatus encodeCms(
+	SecCmsMessageRef	cmsMsg,
+	const unsigned char *inData,		// add in this
+	unsigned			inDataLen,
+	unsigned char		**outData,		// mallocd and RETURNED
+	unsigned			*outDataLen)	// RETURNED
+{
+	SecArenaPoolRef arena = NULL;
+	SecArenaPoolCreate(1024, &arena);
+	CSSM_DATA cdataIn = {inDataLen, (uint8 *)inData};
+	CSSM_DATA cdataOut = {0, NULL};
+
+	OSStatus ortn = SecCmsMessageEncode(cmsMsg, &cdataIn, arena, &cdataOut);
+	if((ortn == noErr) && (cdataOut.Length != 0)) {
+		*outData = (unsigned char *)malloc(cdataOut.Length);
+		memmove(*outData, cdataOut.Data, cdataOut.Length);
+		*outDataLen = cdataOut.Length;
+	}
+	else {
+		*outData = NULL;
+		*outDataLen = 0;
+	}
+	SecArenaPoolFree(arena, false);
+	return ortn;
+}
+
+#else
+
+static OSStatus encodeCms(
+	SecCmsMessageRef	cmsMsg,
+	const unsigned char *inData,		// add in this
+	unsigned			inDataLen,
+	unsigned char		**outData,		// mallocd and RETURNED
+	unsigned			*outDataLen)	// RETURNED
+{
+	SecArenaPoolRef arena = NULL;
+	SecArenaPoolCreate(1024, &arena);
+	SecCmsEncoderRef cmsEnc = NULL;
+	CSSM_DATA output = { 0, NULL };
+	OSStatus ortn;
+	
+	ortn = SecCmsEncoderCreate(cmsMsg, 
+		NULL, NULL,			// no callback 
+		&output, arena,		// data goes here
+		NULL, NULL,			// no password callback (right?) 
+		NULL, NULL,			// decrypt key callback
+		NULL, NULL,			// detached digests
+		&cmsEnc);
+	if(ortn) {
+		cssmPerror("SecKeychainItemCopyKeychain", ortn);
+		goto errOut;
+	}
+	ortn = SecCmsEncoderUpdate(cmsEnc, (char *)inData, inDataLen);
+	if(ortn) {
+		cssmPerror("SecCmsEncoderUpdate", ortn);
+		goto errOut;
+	}
+	ortn = SecCmsEncoderFinish(cmsEnc);
+	if(ortn) {
+		cssmPerror("SecCMsEncoderFinish", ortn);
+		goto errOut;
+	}
+	
+	/* Did we get any data? */
+	if(output.Length) {
+		*outData = (unsigned char *)malloc(output.Length);
+		memmove(*outData, output.Data, output.Length);
+		*outDataLen = output.Length;
+	}
+	else {
+		*outData = NULL;
+		*outDataLen = 0;
+	}
+errOut:
+	if(arena) {
+		SecArenaPoolFree(arena, false);
+	}
+	return ortn;
+}
+
+#endif
+
+static OSStatus doSign(
+	SecIdentityRef		signerId,
+	const unsigned char *inData,
+	unsigned			inDataLen,
+	unsigned char		**outData,		// mallocd and RETURNED
+	unsigned			*outDataLen)	// RETURNED
+{
+	if((inData == NULL) || (inDataLen == 0) || (outData == NULL)) {	
+		printf("***Sign requires input file. Aborting.\n");
+		return paramErr;
+	}
+	if(signerId == NULL) {
+		printf("***Sign requires a signing identity. Aborting.\n");
+		return paramErr;
+	}
+	
+	SecCmsMessageRef cmsMsg = NULL;
+    SecCmsContentInfoRef contentInfo = NULL;
+    SecCmsSignedDataRef signedData = NULL;
+	SecCertificateRef ourCert = NULL;
+    SecCmsSignerInfoRef signerInfo;
+	OSStatus ortn;
+	SecKeychainRef ourKc = NULL;
+	
+	ortn = SecIdentityCopyCertificate(signerId, &ourCert);
+	if(ortn) {
+		cssmPerror("SecIdentityCopyCertificate", ortn);
+		return ortn;
+	}
+	ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)ourCert, &ourKc);
+	if(ortn) {
+		cssmPerror("SecKeychainItemCopyKeychain", ortn);
+		goto errOut;
+	}
+	
+    // build chain of objects: message->signedData->data
+	cmsMsg = SecCmsMessageCreate(NULL);
+	if(cmsMsg == NULL) {
+		printf("***Error creating SecCmsMessageRef\n");
+		ortn = -1;
+		goto errOut;
+	}
+	signedData = SecCmsSignedDataCreate(cmsMsg);
+	if(signedData == NULL) {
+		printf("***Error creating SecCmsSignedDataRef\n");
+		ortn = -1;
+		goto errOut;
+	}
+	contentInfo = SecCmsMessageGetContentInfo(cmsMsg);
+	ortn = SecCmsContentInfoSetContentSignedData(cmsMsg, contentInfo, signedData);
+	if(ortn) {
+		cssmPerror("SecCmsContentInfoSetContentSignedData", ortn);
+		goto errOut;
+	}
+    contentInfo = SecCmsSignedDataGetContentInfo(signedData);
+	ortn = SecCmsContentInfoSetContentData(cmsMsg, contentInfo, NULL /* data */, false);
+	if(ortn) {
+		cssmPerror("SecCmsContentInfoSetContentData", ortn);
+		goto errOut;
+	}
+	
+    /* 
+     * create & attach signer information
+     */
+    signerInfo = SecCmsSignerInfoCreate(cmsMsg, signerId, SEC_OID_SHA1);
+    if (signerInfo == NULL) {
+		printf("***Error on SecCmsSignerInfoCreate\n");
+		ortn = -1;
+		goto errOut;
+	}
+    /* we want the cert chain included for this one */
+	/* FIXME - what's the significance of the usage? */
+	ortn = SecCmsSignerInfoIncludeCerts(signerInfo, SecCmsCMCertChain, certUsageEmailSigner);
+	if(ortn) {
+		cssmPerror("SecCmsSignerInfoIncludeCerts", ortn);
+		goto errOut;
+	}
+	
+	/* other options go here - signing time, etc. */
+
+	ortn = SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerInfo, ourCert, ourKc);
+	if(ortn) {
+		cssmPerror("SecCmsSignerInfoAddSMIMEEncKeyPrefs", ortn);
+		goto errOut;
+	}
+	ortn = SecCmsSignedDataAddCertificate(signedData, ourCert);
+	if(ortn) {
+		cssmPerror("SecCmsSignedDataAddCertificate", ortn);
+		goto errOut;
+	}
+
+	ortn = SecCmsSignedDataAddSignerInfo(signedData, signerInfo);
+	if(ortn) {
+		cssmPerror("SecCmsSignedDataAddSignerInfo", ortn);
+		goto errOut;
+	}
+
+	/* go */
+	ortn = encodeCms(cmsMsg, inData, inDataLen, outData, outDataLen);
+errOut:
+	/* free resources */
+	if(cmsMsg) {
+		SecCmsMessageDestroy(cmsMsg);
+	}
+	if(ourCert) {
+		CFRelease(ourCert);
+	}
+	if(ourKc) {
+		CFRelease(ourKc);
+	}
+	return ortn;
+}
+
+static OSStatus doEncrypt(
+	SecCertificateRef   recipCert,		// eventually more than one
+	const unsigned char *inData,
+	unsigned			inDataLen,
+	unsigned char		**outData,		// mallocd and RETURNED
+	unsigned			*outDataLen)	// RETURNED
+{
+	if((inData == NULL) || (inDataLen == 0) || (outData == NULL)) {	
+		printf("***Sign requires input file. Aborting.\n");
+		return paramErr;
+	}
+	if(recipCert == NULL) {
+		printf("***Encrypt requires a recipient certificate. Aborting.\n");
+		return paramErr;
+	}
+	
+	SecCmsMessageRef cmsMsg = NULL;
+    SecCmsContentInfoRef contentInfo = NULL;
+    SecCmsEnvelopedDataRef envelopedData = NULL;
+	SecCmsRecipientInfoRef recipientInfo = NULL;
+	OSStatus ortn;
+	SecCertificateRef allCerts[2] = { recipCert, NULL};
+	
+	SECOidTag algorithmTag;
+    int keySize;
+	
+	ortn = SecSMIMEFindBulkAlgForRecipients(allCerts, &algorithmTag, &keySize);
+	if(ortn) {
+		cssmPerror("SecSMIMEFindBulkAlgForRecipients", ortn);
+		return ortn;
+	}
+	
+    // build chain of objects: message->envelopedData->data
+	cmsMsg = SecCmsMessageCreate(NULL);
+	if(cmsMsg == NULL) {
+		printf("***Error creating SecCmsMessageRef\n");
+		ortn = -1;
+		goto errOut;
+	}
+	envelopedData = SecCmsEnvelopedDataCreate(cmsMsg, algorithmTag, keySize);
+	if(envelopedData == NULL) {
+		printf("***Error creating SecCmsEnvelopedDataRef\n");
+		ortn = -1;
+		goto errOut;
+	}
+	contentInfo = SecCmsMessageGetContentInfo(cmsMsg);
+	ortn = SecCmsContentInfoSetContentEnvelopedData(cmsMsg, contentInfo, envelopedData);
+	if(ortn) {
+		cssmPerror("SecCmsContentInfoSetContentEnvelopedData", ortn);
+		goto errOut;
+	}
+    contentInfo = SecCmsEnvelopedDataGetContentInfo(envelopedData);
+	ortn = SecCmsContentInfoSetContentData(cmsMsg, contentInfo, NULL /* data */, false);
+	if(ortn) {
+		cssmPerror("SecCmsContentInfoSetContentData", ortn);
+		goto errOut;
+	}
+	
+    /* 
+     * create & attach recipient information
+     */
+	recipientInfo = SecCmsRecipientInfoCreate(cmsMsg, recipCert);
+	ortn = SecCmsEnvelopedDataAddRecipient(envelopedData, recipientInfo);
+	if(ortn) {
+		cssmPerror("SecCmsEnvelopedDataAddRecipient", ortn);
+		goto errOut;
+	}
+
+
+	/* go */
+	ortn = encodeCms(cmsMsg, inData, inDataLen, outData, outDataLen);
+errOut:
+	/* free resources */
+	if(cmsMsg) {
+		SecCmsMessageDestroy(cmsMsg);
+	}
+	return ortn;
+}
+
+int main(int argc, char **argv)
+{
+	if(argc < 2) {
+		usage(argv);
+	}
+	
+	CT_Op op;
+	bool needId = false;
+	if(!strcmp(argv[1], "sign")) {
+		op = CTO_Sign;
+		needId = true;
+	}
+	else if(!strcmp(argv[1], "envel")) {
+		op = CTO_Envelop;
+	}
+	else if(!strcmp(argv[1], "parse")) {
+		op = CTO_Parse;
+	}
+	else {
+		printf("***Unrecognized cmd.\n");
+		usage(argv);
+	}
+
+	extern int optind;
+	extern char *optarg;
+	int arg;
+	int ourRtn = 0;
+	
+	/* optional args */
+	const char *keychainName = NULL;
+	char *inFileName = NULL;
+	char *outFileName = NULL;
+	bool useIdPicker = false;
+	char *recipient = NULL;
+	bool quiet = false;
+	bool parseSignerCert = false;
+	
+	optind = 2;
+	while ((arg = getopt(argc, argv, "i:o:k:pr:qc")) != -1) {
+		switch (arg) {
+			case 'i':
+				inFileName = optarg;
+				break;
+			case 'o':
+				outFileName = optarg;
+				break;
+			case 'k':
+				keychainName = optarg;
+				break;
+			case 'p':
+				useIdPicker = true;
+				break;
+			case 'r':
+				recipient = optarg;
+				break;
+			case 'c':
+				parseSignerCert = true;
+				break;
+			case 'q':
+				quiet = true;
+				break;
+			default:
+			case '?':
+				usage(argv);
+		}
+	}
+	if(optind != argc) {
+		/* getopt does not return '?' */
+		usage(argv);
+	}
+	
+	SecIdentityRef idRef = NULL;
+	SecKeychainRef kcRef = NULL;
+	SecCertificateRef recipientCert;
+	unsigned char *inData = NULL;
+	unsigned inDataLen = 0;
+	unsigned char *outData = NULL;
+	unsigned outDataLen = 0;
+	OSStatus ortn;
+	
+	if(inFileName) {
+		if(readFile(inFileName, &inData, &inDataLen)) {
+			printf("***Error reading infile %s. Aborting.\n", inFileName);
+			exit(1);
+		}
+	}
+	if(keychainName) {
+		ortn = SecKeychainOpen(keychainName, &kcRef);
+		if(ortn) {
+			cssmPerror("SecKeychainOpen", ortn);
+			exit(1);
+		}
+	}
+	if(useIdPicker) {
+		ortn = sslSimpleIdentPicker(kcRef, &idRef);
+		if(ortn) {
+			printf("Error obtaining idenity via picker. Aborting.\n");
+			exit(1);
+		}
+	}
+	else if(needId) {
+		/* use first identity in specified keychain */
+		CFArrayRef array = sslKcRefToCertArray(kcRef, CSSM_FALSE, CSSM_FALSE, NULL);
+		if(array == NULL) {
+			printf("***Error finding a signing cert. Aborting.\n");
+			exit(1);
+		}
+		idRef = (SecIdentityRef)CFArrayGetValueAtIndex(array, 0);
+		if(idRef == NULL) {
+			printf("***No identities found. Aborting.\n");
+			exit(1);
+		}
+		CFRetain(idRef);
+		CFRelease(array);
+	}
+	if(recipient) {
+		ortn = findCert(recipient, kcRef, &recipientCert);
+		if(ortn) {
+			exit(1);
+		}
+	}
+	
+	switch(op) {
+		case CTO_Sign:
+			ortn = doSign(idRef, inData, inDataLen, &outData, &outDataLen);
+			break;
+		case CTO_Envelop:
+			ortn = doEncrypt(recipientCert, inData, inDataLen, &outData, &outDataLen);
+			break;
+		case CTO_Parse:
+			ortn = doParse(inData, inDataLen, parseSignerCert, &outData, &outDataLen);
+			break;
+	}
+	if(ortn) {
+		goto errOut;
+	}
+	if(outData && outFileName) {
+		if(writeFile(outFileName, outData, outDataLen)) {
+			printf("***Error writing to %s.\n", outFileName);
+		}
+		else {
+			printf("...wrote %lu bytes to %s.\n", outDataLen, outFileName);
+		}
+	}
+	else if(outData) {
+		printf("...generated %lu bytes but no place to write it.\n", outDataLen);
+	}
+	else if(outFileName) {
+		printf("...nothing to write to file %s.\n", outFileName);
+	}
+errOut:
+	return ourRtn;
+}

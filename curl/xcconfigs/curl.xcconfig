@@ -1,1 +1,5 @@
 #include "common.xcconfig"
+
+// Code Signing
+CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*] = $(SRCROOT)/entitlements.ios.plist
+CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*] = $(SRCROOT)/entitlements.ios.plist

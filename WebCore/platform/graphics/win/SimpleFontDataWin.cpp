@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2013 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -36,6 +36,7 @@
 #include "HWndDC.h"
 #include <mlang.h>
 #include <wtf/MathExtras.h>
+#include <wtf/win/GDIObject.h>
 
 namespace WebCore {
 
@@ -138,8 +139,8 @@ PassRefPtr<SimpleFontData> SimpleFontData::platformCreateScaledFontData(const Fo
     LOGFONT winfont;
     GetObject(m_platformData.hfont(), sizeof(LOGFONT), &winfont);
     winfont.lfHeight = -lroundf(scaledSize * (m_platformData.useGDI() ? 1 : 32));
-    HFONT hfont = CreateFontIndirect(&winfont);
-    return SimpleFontData::create(FontPlatformData(hfont, scaledSize, m_platformData.syntheticBold(), m_platformData.syntheticOblique(), m_platformData.useGDI()), isCustomFont(), false);
+    auto hfont = adoptGDIObject(::CreateFontIndirect(&winfont));
+    return SimpleFontData::create(FontPlatformData(WTF::move(hfont), scaledSize, m_platformData.syntheticBold(), m_platformData.syntheticOblique(), m_platformData.useGDI()), isCustomFont(), false);
 }
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
@@ -151,7 +152,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     // FIXME: Microsoft documentation seems to imply that characters can be output using a given font and DC
     // merely by testing code page intersection.  This seems suspect though.  Can't a font only partially
     // cover a given code page?
-    IMLangFontLinkType* langFontLink = fontCache()->getFontLinkInterface();
+    IMLangFontLinkType* langFontLink = fontCache().getFontLinkInterface();
     if (!langFontLink)
         return false;
 

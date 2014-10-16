@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,33 +20,35 @@
 #ifndef RenderSVGBlock_h
 #define RenderSVGBlock_h
 
-#if ENABLE(SVG)
-#include "RenderBlock.h"
+#include "RenderBlockFlow.h"
+#include "SVGGraphicsElement.h"
 #include "SVGRenderSupport.h"
 
 namespace WebCore {
 
 class SVGElement;
 
-class RenderSVGBlock : public RenderBlock {
+class RenderSVGBlock : public RenderBlockFlow {
 public:
-    explicit RenderSVGBlock(SVGElement*);
+    virtual LayoutRect visualOverflowRect() const override final;
 
-    virtual LayoutRect visualOverflowRect() const;
+    SVGGraphicsElement& graphicsElement() const { return toSVGGraphicsElement(nodeForNonAnonymous()); }
 
 protected:
-    virtual void willBeDestroyed() OVERRIDE;
+    RenderSVGBlock(SVGGraphicsElement&, PassRef<RenderStyle>);
+    virtual void willBeDestroyed() override;
 
 private:
-    virtual void setStyle(PassRefPtr<RenderStyle>);
-    virtual void updateFromStyle() OVERRIDE;
+    void element() const = delete;
+
+    virtual void updateFromStyle() override final;
+
+    virtual bool isRenderSVGBlock() const override final { return true; };
 
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const;
 
-    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override final;
 };
 
 }
-#endif
 #endif

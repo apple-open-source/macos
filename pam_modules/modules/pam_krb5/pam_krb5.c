@@ -734,8 +734,6 @@ cleanup2:
 		krb5_free_principal(pam_context, princ);
 	PAM_LOG("Done cleanup2");
 cleanup3:
-	if (NULL != p)
-		free(p);
 	krb5_free_context(pam_context);
 	PAM_LOG("Done cleanup3");
 

@@ -1147,8 +1147,8 @@ krb5_print_address (const krb5_address *addr,
  * krb5_addresses addresses .
  *
  * @param context a Keberos context
- * @param string
- * @param addresses
+ * @param string string to parse as an address
+ * @param addresses return address, free with krb5_free_addresses()
  *
  * @return Return an error code or 0.
  *

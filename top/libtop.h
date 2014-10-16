@@ -248,6 +248,28 @@ struct libtop_psamp_s {
 	struct timeval		b_total_time;
 	struct timeval		p_total_time;
 
+	/* Total on behalf cpu time. */
+	uint64_t 	cpu_billed_to_me;
+	uint64_t	cpu_billed_to_others;
+	uint64_t 	b_cpu_billed_to_me;
+	uint64_t	b_cpu_billed_to_others;
+	uint64_t 	p_cpu_billed_to_me;
+	uint64_t	p_cpu_billed_to_others;
+
+	/* assert counts */
+	uint64_t	assertcnt;
+	uint64_t	p_assertcnt;
+	uint64_t	b_assertcnt;
+
+	/* boost transition counts */
+	uint64_t	boosts;
+	uint64_t	b_boosts;
+	uint64_t	p_boosts;
+
+	/* last seq we were boost donating */
+	boolean_t	boost_donating;
+	uint32_t	boost_last_donating_seq;
+
 	/* Event counters. */
 	task_events_info_data_t	events;
 	task_events_info_data_t	b_events;

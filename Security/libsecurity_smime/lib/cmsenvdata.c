@@ -39,16 +39,22 @@
 
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsRecipientInfo.h>
+#include <Security/SecRandom.h>
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
 #include "cryptohi.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
+
 #include <Security/SecKeyPriv.h>
+#include <CommonCrypto/CommonCryptor.h>
+
+#include <AssertMacros.h>
 
 /*
  * SecCmsEnvelopedDataCreate - create an enveloped data message
@@ -69,11 +75,11 @@ SecCmsEnvelopedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
     if (envd == NULL)
 	goto loser;
 
-    envd->cmsg = cmsg;
+    envd->contentInfo.cmsg = cmsg;
 
     /* version is set in SecCmsEnvelopedDataEncodeBeforeStart() */
 
-    rv = SecCmsContentInfoSetContentEncAlg((SecArenaPoolRef)poolp, &(envd->contentInfo), algorithm, NULL, keysize);
+    rv = SecCmsContentInfoSetContentEncAlg(&(envd->contentInfo), algorithm, NULL, keysize);
     if (rv != SECSuccess)
 	goto loser;
 
@@ -133,15 +139,15 @@ SecCmsEnvelopedDataAddRecipient(SecCmsEnvelopedDataRef edp, SecCmsRecipientInfoR
     PR_ASSERT(edp != NULL);
     PR_ASSERT(rip != NULL);
 
-    mark = PORT_ArenaMark(edp->cmsg->poolp);
+    mark = PORT_ArenaMark(edp->contentInfo.cmsg->poolp);
 
-    rv = SecCmsArrayAdd(edp->cmsg->poolp, (void ***)&(edp->recipientInfos), (void *)rip);
+    rv = SecCmsArrayAdd(edp->contentInfo.cmsg->poolp, (void ***)&(edp->recipientInfos), (void *)rip);
     if (rv != SECSuccess) {
-	PORT_ArenaRelease(edp->cmsg->poolp, mark);
+	PORT_ArenaRelease(edp->contentInfo.cmsg->poolp, mark);
 	return SECFailure;
     }
 
-    PORT_ArenaUnmark (edp->cmsg->poolp, mark);
+    PORT_ArenaUnmark (edp->contentInfo.cmsg->poolp, mark);
     return SECSuccess;
 }
 
@@ -164,19 +170,21 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
     SecCmsRecipientInfoRef *recipientinfos;
     SecCmsContentInfoRef cinfo;
     SecSymmetricKeyRef bulkkey = NULL;
-    CSSM_ALGORITHMS algorithm;
+#if USE_CDSA_CRYPTO
+    SecAsn1AlgId algorithm;
+#endif
     SECOidTag bulkalgtag;
     //CK_MECHANISM_TYPE type;
     //PK11SlotInfo *slot;
     OSStatus rv;
-    CSSM_DATA_PTR dummy;
+    SecAsn1Item * dummy;
     PLArenaPool *poolp;
     extern const SecAsn1Template SecCmsRecipientInfoTemplate[];
     void *mark = NULL;
     int i;
 
-    poolp = envd->cmsg->poolp;
     cinfo = &(envd->contentInfo);
+    poolp = cinfo->cmsg->poolp;
 
     recipientinfos = envd->recipientInfos;
     if (recipientinfos == NULL) {
@@ -207,12 +215,13 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
      * we cannot do that on our level, so if none is set already, we'll just go
      * with one of the mandatory algorithms (3DES) */
     if ((bulkalgtag = SecCmsContentInfoGetContentEncAlgTag(cinfo)) == SEC_OID_UNKNOWN) {
-	rv = SecCmsContentInfoSetContentEncAlg((SecArenaPoolRef)poolp, cinfo, SEC_OID_DES_EDE3_CBC, NULL, 168);
+	rv = SecCmsContentInfoSetContentEncAlg(cinfo, SEC_OID_DES_EDE3_CBC, NULL, 192);
 	if (rv != SECSuccess)
 	    goto loser;
 	bulkalgtag = SEC_OID_DES_EDE3_CBC;
     }
 
+#if USE_CDSA_CRYPTO
     algorithm = SECOID_FindyCssmAlgorithmByTag(bulkalgtag);
     if (!algorithm)
 	goto loser;
@@ -226,6 +235,14 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
 		&bulkkey);
     if (rv)
 	goto loser;
+#else
+    {
+        size_t keysize = (cinfo->keysize + 7)/8;
+        uint8_t key_material[keysize];
+        require_noerr(SecRandomCopyBytes(kSecRandomDefault, keysize, key_material), loser);
+        bulkkey = (SecSymmetricKeyRef)CFDataCreate(kCFAllocatorDefault, key_material, keysize);
+    }
+#endif
 
     mark = PORT_ArenaMark(poolp);
 
@@ -286,7 +303,7 @@ SecCmsEnvelopedDataEncodeBeforeData(SecCmsEnvelopedDataRef envd)
     /* this may modify algid (with IVs generated in a token).
      * it is essential that algid is a pointer to the contentEncAlg data, not a
      * pointer to a copy! */
-    cinfo->ciphcx = SecCmsCipherContextStartEncrypt(envd->cmsg->poolp, bulkkey, algid);
+    cinfo->ciphcx = SecCmsCipherContextStartEncrypt(cinfo->cmsg->poolp, bulkkey, algid);
     CFRelease(bulkkey);
     if (cinfo->ciphcx == NULL)
 	return SECFailure;
@@ -340,11 +357,12 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
     if (recipient_list == NULL)
 	goto loser;
 
+    cinfo = &(envd->contentInfo);
     /* what about multiple recipientInfos that match?
      * especially if, for some reason, we could not produce a bulk key with the first match?!
      * we could loop & feed partial recipient_list to PK11_FindCertAndKeyByRecipientList...
      * maybe later... */
-    rlIndex = nss_cms_FindCertAndKeyByRecipientList(recipient_list, envd->cmsg->pwfn_arg);
+    rlIndex = nss_cms_FindCertAndKeyByRecipientList(recipient_list, cinfo->cmsg->pwfn_arg);
 
     /* if that fails, then we're not an intended recipient and cannot decrypt */
     if (rlIndex < 0) {
@@ -363,7 +381,6 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
     /* get a pointer to "our" recipientinfo */
     ri = envd->recipientInfos[recipient->riIndex];
 
-    cinfo = &(envd->contentInfo);
     bulkalgtag = SecCmsContentInfoGetContentEncAlgTag(cinfo);
     if (bulkalgtag == SEC_OID_UNKNOWN) {
 	PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
@@ -374,12 +391,11 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
 						    bulkalgtag);
     if (bulkkey == NULL) {
 	/* no success finding a bulk key */
-	rv = errSecDataNotAvailable;
 	goto loser;
     }
 
     SecCmsContentInfoSetBulkKey(cinfo, bulkkey);
-    // @@@ See 3401088 for details.  We need to CFRelease cinfo->bulkkey before recipient->privkey gets CFReleased. It's created with SecKeyCreateWithCSSMKey which is not safe currently.  If the private key's SecKeyRef from which we extracted the CSP gets CFRelease before the builkkey does we crash.  We should really fix SecKeyCreateWithCSSMKey which is a huge hack currently.  To work around this we add recipient->privkey to the cinfo so it gets when cinfo is destroyed.
+    // @@@ See 3401088 for details.  We need to CFRelease cinfo->bulkkey before recipient->privkey gets CFReleased. It's created with SecKeyCreate which is not safe currently.  If the private key's SecKeyRef from which we extracted the CSP gets CFRelease before the builkkey does we crash.  We should really fix SecKeyCreate which is a huge hack currently.  To work around this we add recipient->privkey to the cinfo so it gets when cinfo is destroyed.
     CFRetain(recipient->privkey);
     cinfo->privkey = recipient->privkey;
 

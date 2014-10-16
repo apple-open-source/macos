@@ -12,6 +12,8 @@
 .Op Fl d Ar mode
 .Op Fl f Ar mode
 .Op Fl h
+.Op Fl s
+.Op Fl v
 .\" //[domain;][user[:password]@]server[/share]
 .Pf // Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
@@ -71,6 +73,10 @@ Note that these permissions can differ from the rights granted by SMB
 server. 
 .It Fl h
 Prints a help message, much like the SYNOPSIS above.
+.It Fl s
+Force a new session to be created to the server.
+.It Fl v
+Prints version.
 .\" //[domain;][user[:password]@]server[/share]
 .It Xo
 .Pf // Oo Ar domain ;

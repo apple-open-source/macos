@@ -29,8 +29,41 @@ int fork_program(const char * argv0, char * const argv[], Boolean wait)
     pid_t          child_pid;
     int            child_status;
     int            normal_iopolicy = getiopolicy_np(IOPOL_TYPE_DISK,
-                                                    IOPOL_SCOPE_PROCESS);
+
+                                                    
+IOPOL_SCOPE_PROCESS);
     char ** environ = *(_NSGetEnviron());
+
+#if 0 // spew program and arguments we are forking... 
+    if (argv0) {
+        int i;
+        int commandLen = 0;
+        
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "Forking: %s",
+                  argv0);
+        for (i = 0; argv[i] != NULL; i++) {
+            commandLen += strlen(argv[i]);
+            commandLen++;
+        }
+        if (commandLen > 0) {
+            char * myCmd = NULL;
+            myCmd = (char *) malloc(commandLen);
+            if (myCmd) {
+                for (i = 0; argv[i] != NULL; i++) {
+                    strcat(myCmd, argv[i]);
+                    strcat(myCmd, " ");
+                }
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "%s ",
+                          myCmd);
+                free(myCmd);
+            }
+        }
+    }
+#endif
 
     if (!wait) {
         setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_THROTTLE);

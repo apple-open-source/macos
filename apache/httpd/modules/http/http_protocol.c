@@ -32,7 +32,6 @@
 #define APR_WANT_MEMFUNC
 #include "apr_want.h"
 
-#define CORE_PRIVATE
 #include "util_filter.h"
 #include "ap_config.h"
 #include "httpd.h"
@@ -59,21 +58,19 @@
 #include <unistd.h>
 #endif
 
+APLOG_USE_MODULE(http);
+
 /* New Apache routine to map status codes into array indicies
  *  e.g.  100 -> 0,  101 -> 1,  200 -> 2 ...
- * The number of status lines must equal the value of RESPONSE_CODES (httpd.h)
- * and must be listed in order.
+ * The number of status lines must equal the value of
+ * RESPONSE_CODES (httpd.h) and must be listed in order.
+ * No gaps are allowed between X00 and the largest Xnn
+ * for any X (see ap_index_of_response).
+ * When adding a new code here, add a define to httpd.h
+ * as well.
  */
 
-#ifdef UTS21
-/* The second const triggers an assembler bug on UTS 2.1.
- * Another workaround is to move some code out of this file into another,
- *   but this is easier.  Dave Dykstra, 3/31/99
- */
-static const char * status_lines[RESPONSE_CODES] =
-#else
 static const char * const status_lines[RESPONSE_CODES] =
-#endif
 {
     "100 Continue",
     "101 Switching Protocols",
@@ -87,58 +84,81 @@ static const char * const status_lines[RESPONSE_CODES] =
     "205 Reset Content",
     "206 Partial Content",
     "207 Multi-Status",
-#define LEVEL_300 11
+    "208 Already Reported",
+    NULL, /* 209 */
+    NULL, /* 210 */
+    NULL, /* 211 */
+    NULL, /* 212 */
+    NULL, /* 213 */
+    NULL, /* 214 */
+    NULL, /* 215 */
+    NULL, /* 216 */
+    NULL, /* 217 */
+    NULL, /* 218 */
+    NULL, /* 219 */
+    NULL, /* 220 */
+    NULL, /* 221 */
+    NULL, /* 222 */
+    NULL, /* 223 */
+    NULL, /* 224 */
+    NULL, /* 225 */
+    "226 IM Used",
+#define LEVEL_300 30
     "300 Multiple Choices",
     "301 Moved Permanently",
     "302 Found",
     "303 See Other",
     "304 Not Modified",
     "305 Use Proxy",
-    "306 unused",
+    NULL, /* 306 */
     "307 Temporary Redirect",
-#define LEVEL_400 19
+    "308 Permanent Redirect",
+#define LEVEL_400 39
     "400 Bad Request",
-    "401 Authorization Required",
+    "401 Unauthorized",
     "402 Payment Required",
     "403 Forbidden",
     "404 Not Found",
     "405 Method Not Allowed",
     "406 Not Acceptable",
     "407 Proxy Authentication Required",
-    "408 Request Time-out",
+    "408 Request Timeout",
     "409 Conflict",
     "410 Gone",
     "411 Length Required",
     "412 Precondition Failed",
     "413 Request Entity Too Large",
-    "414 Request-URI Too Large",
+    "414 Request-URI Too Long",
     "415 Unsupported Media Type",
     "416 Requested Range Not Satisfiable",
     "417 Expectation Failed",
-    "418 unused",
-    "419 unused",
-    "420 unused",
-    "421 unused",
+    NULL, /* 418 */
+    NULL, /* 419 */
+    NULL, /* 420 */
+    NULL, /* 421 */
     "422 Unprocessable Entity",
     "423 Locked",
     "424 Failed Dependency",
-    /* This is a hack, but it is required for ap_index_of_response
-     * to work with 426.
-     */
-    "425 No code",
+    NULL, /* 425 */
     "426 Upgrade Required",
-#define LEVEL_500 46
+    NULL, /* 427 */
+    "428 Precondition Required",
+    "429 Too Many Requests",
+    NULL, /* 430 */
+    "431 Request Header Fields Too Large",
+#define LEVEL_500 71
     "500 Internal Server Error",
-    "501 Method Not Implemented",
+    "501 Not Implemented",
     "502 Bad Gateway",
-    "503 Service Temporarily Unavailable",
-    "504 Gateway Time-out",
+    "503 Service Unavailable",
+    "504 Gateway Timeout",
     "505 HTTP Version Not Supported",
     "506 Variant Also Negotiates",
     "507 Insufficient Storage",
-    "508 unused",
-    "509 unused",
-    "510 Not Extended"
+    "508 Loop Detected",
+    NULL, /* 509 */
+    "510 Not Extended",
+    "511 Network Authentication Required"
 };
 
 APR_HOOK_STRUCT(
@@ -157,6 +177,21 @@ AP_IMPLEMENT_HOOK_VOID(insert_error_filter, (request_rec *r), (r))
  * special flag, so the last bit used has index 62.
  */
 #define METHOD_NUMBER_LAST  62
+
+static int is_mpm_running(void)
+{
+    int mpm_state = 0;
+
+    if (ap_mpm_query(AP_MPMQ_MPM_STATE, &mpm_state)) {
+      return 0;
+    }
+
+    if (mpm_state == AP_MPMQ_STOPPING) {
+      return 0;
+    }
+
+    return 1;
+}
 
 
 AP_DECLARE(int) ap_set_keepalive(request_rec *r)
@@ -220,7 +255,7 @@ AP_DECLARE(int) ap_set_keepalive(request_rec *r)
             || apr_table_get(r->headers_in, "Via"))
         && ((ka_sent = ap_find_token(r->pool, conn, "keep-alive"))
             || (r->proto_num >= HTTP_VERSION(1,1)))
-        && !ap_graceful_stop_signalled()) {
+        && is_mpm_running()) {
 
         r->connection->keepalive = AP_CONN_KEEPALIVE;
         r->connection->keepalives++;
@@ -271,13 +306,229 @@ AP_DECLARE(int) ap_set_keepalive(request_rec *r)
     return 0;
 }
 
+AP_DECLARE(ap_condition_e) ap_condition_if_match(request_rec *r,
+        apr_table_t *headers)
+{
+    const char *if_match, *etag;
+
+    /* A server MUST use the strong comparison function (see section 13.3.3)
+     * to compare the entity tags in If-Match.
+     */
+    if ((if_match = apr_table_get(r->headers_in, "If-Match")) != NULL) {
+        if (if_match[0] == '*'
+                || ((etag = apr_table_get(headers, "ETag")) == NULL
+                        && !ap_find_etag_strong(r->pool, if_match, etag))) {
+            return AP_CONDITION_STRONG;
+        }
+        else {
+            return AP_CONDITION_NOMATCH;
+        }
+    }
+
+    return AP_CONDITION_NONE;
+}
+
+AP_DECLARE(ap_condition_e) ap_condition_if_unmodified_since(request_rec *r,
+        apr_table_t *headers)
+{
+    const char *if_unmodified;
+
+    if_unmodified = apr_table_get(r->headers_in, "If-Unmodified-Since");
+    if (if_unmodified) {
+        apr_int64_t mtime, reqtime;
+
+        apr_time_t ius = apr_time_sec(apr_date_parse_http(if_unmodified));
+
+        /* All of our comparisons must be in seconds, because that's the
+         * highest time resolution the HTTP specification allows.
+         */
+        mtime = apr_time_sec(apr_date_parse_http(
+                        apr_table_get(headers, "Last-Modified")));
+        if (mtime == APR_DATE_BAD) {
+            mtime = apr_time_sec(r->mtime ? r->mtime : apr_time_now());
+        }
+
+        reqtime = apr_time_sec(apr_date_parse_http(
+                        apr_table_get(headers, "Date")));
+        if (!reqtime) {
+            reqtime = apr_time_sec(r->request_time);
+        }
+
+        if ((ius != APR_DATE_BAD) && (mtime > ius)) {
+            if (reqtime < mtime + 60) {
+                if (apr_table_get(r->headers_in, "Range")) {
+                    /* weak matches not allowed with Range requests */
+                    return AP_CONDITION_NOMATCH;
+                }
+                else {
+                    return AP_CONDITION_WEAK;
+                }
+            }
+            else {
+                return AP_CONDITION_STRONG;
+            }
+        }
+        else {
+            return AP_CONDITION_NOMATCH;
+        }
+    }
+
+    return AP_CONDITION_NONE;
+}
+
+AP_DECLARE(ap_condition_e) ap_condition_if_none_match(request_rec *r,
+        apr_table_t *headers)
+{
+    const char *if_nonematch, *etag;
+
+    if_nonematch = apr_table_get(r->headers_in, "If-None-Match");
+    if (if_nonematch != NULL) {
+
+        if (if_nonematch[0] == '*') {
+            return AP_CONDITION_STRONG;
+        }
+
+        /* See section 13.3.3 for rules on how to determine if two entities tags
+         * match. The weak comparison function can only be used with GET or HEAD
+         * requests.
+         */
+        if (r->method_number == M_GET) {
+            if ((etag = apr_table_get(headers, "ETag")) != NULL) {
+                if (apr_table_get(r->headers_in, "Range")) {
+                    if (ap_find_etag_strong(r->pool, if_nonematch, etag)) {
+                        return AP_CONDITION_STRONG;
+                    }
+                }
+                else {
+                    if (ap_find_etag_weak(r->pool, if_nonematch, etag)) {
+                        return AP_CONDITION_WEAK;
+                    }
+                }
+            }
+        }
+
+        else if ((etag = apr_table_get(headers, "ETag")) != NULL
+                && ap_find_etag_strong(r->pool, if_nonematch, etag)) {
+            return AP_CONDITION_STRONG;
+        }
+        return AP_CONDITION_NOMATCH;
+    }
+
+    return AP_CONDITION_NONE;
+}
+
+AP_DECLARE(ap_condition_e) ap_condition_if_modified_since(request_rec *r,
+        apr_table_t *headers)
+{
+    const char *if_modified_since;
+
+    if ((if_modified_since = apr_table_get(r->headers_in, "If-Modified-Since"))
+            != NULL) {
+        apr_int64_t mtime;
+        apr_int64_t ims, reqtime;
+
+        /* All of our comparisons must be in seconds, because that's the
+         * highest time resolution the HTTP specification allows.
+         */
+
+        mtime = apr_time_sec(apr_date_parse_http(
+                        apr_table_get(headers, "Last-Modified")));
+        if (mtime == APR_DATE_BAD) {
+            mtime = apr_time_sec(r->mtime ? r->mtime : apr_time_now());
+        }
+
+        reqtime = apr_time_sec(apr_date_parse_http(
+                        apr_table_get(headers, "Date")));
+        if (!reqtime) {
+            reqtime = apr_time_sec(r->request_time);
+        }
+
+        ims = apr_time_sec(apr_date_parse_http(if_modified_since));
+
+        if (ims >= mtime && ims <= reqtime) {
+            if (reqtime < mtime + 60) {
+                if (apr_table_get(r->headers_in, "Range")) {
+                    /* weak matches not allowed with Range requests */
+                    return AP_CONDITION_NOMATCH;
+                }
+                else {
+                    return AP_CONDITION_WEAK;
+                }
+            }
+            else {
+                return AP_CONDITION_STRONG;
+            }
+        }
+        else {
+            return AP_CONDITION_NOMATCH;
+        }
+    }
+
+    return AP_CONDITION_NONE;
+}
+
+AP_DECLARE(ap_condition_e) ap_condition_if_range(request_rec *r,
+        apr_table_t *headers)
+{
+    const char *if_range, *etag;
+
+    if ((if_range = apr_table_get(r->headers_in, "If-Range"))
+            && apr_table_get(r->headers_in, "Range")) {
+        if (if_range[0] == '"') {
+
+            if ((etag = apr_table_get(headers, "ETag"))
+                    && !strcmp(if_range, etag)) {
+                return AP_CONDITION_STRONG;
+            }
+            else {
+                return AP_CONDITION_NOMATCH;
+            }
+
+        }
+        else {
+            apr_int64_t mtime;
+            apr_int64_t rtime, reqtime;
+
+            /* All of our comparisons must be in seconds, because that's the
+             * highest time resolution the HTTP specification allows.
+             */
+
+            mtime = apr_time_sec(apr_date_parse_http(
+                            apr_table_get(headers, "Last-Modified")));
+            if (mtime == APR_DATE_BAD) {
+                mtime = apr_time_sec(r->mtime ? r->mtime : apr_time_now());
+            }
+
+            reqtime = apr_time_sec(apr_date_parse_http(
+                            apr_table_get(headers, "Date")));
+            if (!reqtime) {
+                reqtime = apr_time_sec(r->request_time);
+            }
+
+            rtime = apr_time_sec(apr_date_parse_http(if_range));
+
+            if (rtime == mtime) {
+                if (reqtime < mtime + 60) {
+                    /* weak matches not allowed with Range requests */
+                    return AP_CONDITION_NOMATCH;
+                }
+                else {
+                    return AP_CONDITION_STRONG;
+                }
+            }
+            else {
+                return AP_CONDITION_NOMATCH;
+            }
+        }
+    }
+
+    return AP_CONDITION_NONE;
+}
+
 AP_DECLARE(int) ap_meets_conditions(request_rec *r)
 {
-    const char *etag;
-    const char *if_match, *if_modified_since, *if_unmodified, *if_nonematch;
-    apr_time_t tmp_time;
-    apr_int64_t mtime;
-    int not_modified = 0;
+    int not_modified = -1; /* unset by default */
+    ap_condition_e cond;
 
     /* Check for conditional requests --- note that we only want to do
      * this if we are successful so far and we are not processing a
@@ -294,41 +545,30 @@ AP_DECLARE(int) ap_meets_conditions(request_rec *r)
         return OK;
     }
 
-    etag = apr_table_get(r->headers_out, "ETag");
-
-    /* All of our comparisons must be in seconds, because that's the
-     * highest time resolution the HTTP specification allows.
-     */
-    /* XXX: we should define a "time unset" constant */
-    tmp_time = ((r->mtime != 0) ? r->mtime : apr_time_now());
-    mtime =  apr_time_sec(tmp_time);
-
     /* If an If-Match request-header field was given
      * AND the field value is not "*" (meaning match anything)
      * AND if our strong ETag does not match any entity tag in that field,
      *     respond with a status of 412 (Precondition Failed).
      */
-    if ((if_match = apr_table_get(r->headers_in, "If-Match")) != NULL) {
-        if (if_match[0] != '*'
-            && (etag == NULL || etag[0] == 'W'
-                || !ap_find_list_item(r->pool, if_match, etag))) {
-            return HTTP_PRECONDITION_FAILED;
-        }
+    cond = ap_condition_if_match(r, r->headers_out);
+    if (AP_CONDITION_NOMATCH == cond) {
+        not_modified = 0;
     }
-    else {
-        /* Else if a valid If-Unmodified-Since request-header field was given
-         * AND the requested resource has been modified since the time
-         * specified in this field, then the server MUST
-         *     respond with a status of 412 (Precondition Failed).
-         */
-        if_unmodified = apr_table_get(r->headers_in, "If-Unmodified-Since");
-        if (if_unmodified != NULL) {
-            apr_time_t ius = apr_date_parse_http(if_unmodified);
+    else if (cond >= AP_CONDITION_WEAK) {
+        return HTTP_PRECONDITION_FAILED;
+    }
 
-            if ((ius != APR_DATE_BAD) && (mtime > apr_time_sec(ius))) {
-                return HTTP_PRECONDITION_FAILED;
-            }
-        }
+    /* Else if a valid If-Unmodified-Since request-header field was given
+     * AND the requested resource has been modified since the time
+     * specified in this field, then the server MUST
+     *     respond with a status of 412 (Precondition Failed).
+     */
+    cond = ap_condition_if_unmodified_since(r, r->headers_out);
+    if (AP_CONDITION_NOMATCH == cond) {
+        not_modified = 0;
+    }
+    else if (cond >= AP_CONDITION_WEAK) {
+        return HTTP_PRECONDITION_FAILED;
     }
 
     /* If an If-None-Match request-header field was given
@@ -343,27 +583,17 @@ AP_DECLARE(int) ap_meets_conditions(request_rec *r)
      * GET or HEAD allow weak etag comparison, all other methods require
      * strong comparison.  We can only use weak if it's not a range request.
      */
-    if_nonematch = apr_table_get(r->headers_in, "If-None-Match");
-    if (if_nonematch != NULL) {
+    cond = ap_condition_if_none_match(r, r->headers_out);
+    if (AP_CONDITION_NOMATCH == cond) {
+        not_modified = 0;
+    }
+    else if (cond >= AP_CONDITION_WEAK) {
         if (r->method_number == M_GET) {
-            if (if_nonematch[0] == '*') {
+            if (not_modified) {
                 not_modified = 1;
             }
-            else if (etag != NULL) {
-                if (apr_table_get(r->headers_in, "Range")) {
-                    not_modified = etag[0] != 'W'
-                                   && ap_find_list_item(r->pool,
-                                                        if_nonematch, etag);
-                }
-                else {
-                    not_modified = ap_find_list_item(r->pool,
-                                                     if_nonematch, etag);
-                }
-            }
         }
-        else if (if_nonematch[0] == '*'
-                 || (etag != NULL
-                     && ap_find_list_item(r->pool, if_nonematch, etag))) {
+        else {
             return HTTP_PRECONDITION_FAILED;
         }
     }
@@ -375,22 +605,27 @@ AP_DECLARE(int) ap_meets_conditions(request_rec *r)
      *    respond with a status of 304 (Not Modified).
      * A date later than the server's current request time is invalid.
      */
-    if (r->method_number == M_GET
-        && (not_modified || !if_nonematch)
-        && (if_modified_since =
-              apr_table_get(r->headers_in,
-                            "If-Modified-Since")) != NULL) {
-        apr_time_t ims_time;
-        apr_int64_t ims, reqtime;
-
-        ims_time = apr_date_parse_http(if_modified_since);
-        ims = apr_time_sec(ims_time);
-        reqtime = apr_time_sec(r->request_time);
-
-        not_modified = ims >= mtime && ims <= reqtime;
+    cond = ap_condition_if_modified_since(r, r->headers_out);
+    if (AP_CONDITION_NOMATCH == cond) {
+        not_modified = 0;
+    }
+    else if (cond >= AP_CONDITION_WEAK) {
+        if (r->method_number == M_GET) {
+            if (not_modified) {
+                not_modified = 1;
+            }
+        }
     }
 
-    if (not_modified) {
+    /* If an If-Range and an Range header is present, we must return
+     * 200 OK. The byterange filter will convert it to a range response.
+     */
+    cond = ap_condition_if_range(r, r->headers_out);
+    if (cond > AP_CONDITION_NONE) {
+        return OK;
+    }
+
+    if (not_modified == 1) {
         return HTTP_NOT_MODIFIED;
     }
 
@@ -489,7 +724,7 @@ AP_DECLARE(int) ap_method_register(apr_pool_t *p, const char *methname)
         /* The method registry  has run out of dynamically
          * assignable method numbers. Log this and return M_INVALID.
          */
-        ap_log_perror(APLOG_MARK, APLOG_ERR, 0, p,
+        ap_log_perror(APLOG_MARK, APLOG_ERR, 0, p, APLOGNO(01610)
                       "Maximum new request methods %d reached while "
                       "registering method %s.",
                       METHOD_NUMBER_LAST, methname);
@@ -731,6 +966,7 @@ AP_DECLARE(const char *) ap_method_name_of(apr_pool_t *p, int methnum)
  * decides to define a high-numbered code before the lower numbers.
  * If that sad event occurs, replace the code below with a linear search
  * from status_lines[shortcut[i]] to status_lines[shortcut[i+1]-1];
+ * or use NULL to fill the gaps.
  */
 AP_DECLARE(int) ap_index_of_response(int status)
 {
@@ -746,7 +982,7 @@ AP_DECLARE(int) ap_index_of_response(int status)
         status -= 100;
         if (status < 100) {
             pos = (status + shortcut[i]);
-            if (pos < shortcut[i + 1]) {
+            if (pos < shortcut[i + 1] && status_lines[pos] != NULL) {
                 return pos;
             }
             else {
@@ -763,17 +999,15 @@ AP_DECLARE(const char *) ap_get_status_line(int status)
 }
 
 /* Build the Allow field-value from the request handler method mask.
- * Note that we always allow TRACE, since it is handled below.
  */
 static char *make_allow(request_rec *r)
 {
-    char *list;
     apr_int64_t mask;
     apr_array_header_t *allow = apr_array_make(r->pool, 10, sizeof(char *));
     apr_hash_index_t *hi = apr_hash_first(r->pool, methods_registry);
     /* For TRACE below */
     core_server_config *conf =
-        ap_get_module_config(r->server->module_config, &core_module);
+        ap_get_core_module_config(r->server->module_config);
 
     mask = r->allowed_methods->method_mask;
 
@@ -795,25 +1029,15 @@ static char *make_allow(request_rec *r)
     if (conf->trace_enable != AP_TRACE_DISABLE)
         *(const char **)apr_array_push(allow) = "TRACE";
 
-    list = apr_array_pstrcat(r->pool, allow, ',');
-
     /* ### this is rather annoying. we should enforce registration of
        ### these methods */
     if ((mask & (AP_METHOD_BIT << M_INVALID))
         && (r->allowed_methods->method_list != NULL)
         && (r->allowed_methods->method_list->nelts != 0)) {
-        int i;
-        char **xmethod = (char **) r->allowed_methods->method_list->elts;
-
-        /*
-         * Append all of the elements of r->allowed_methods->method_list
-         */
-        for (i = 0; i < r->allowed_methods->method_list->nelts; ++i) {
-            list = apr_pstrcat(r->pool, list, ",", xmethod[i], NULL);
-        }
+        apr_array_cat(allow, r->allowed_methods->method_list);
     }
 
-    return list;
+    return apr_array_pstrcat(r->pool, allow, ',');
 }
 
 AP_DECLARE(int) ap_send_http_options(request_rec *r)
@@ -838,19 +1062,12 @@ AP_DECLARE(void) ap_set_content_type(request_rec *r, const char *ct)
     }
     else if (!r->content_type || strcmp(r->content_type, ct)) {
         r->content_type = ct;
-
-        /* Insert filters requested by the AddOutputFiltersByType
-         * configuration directive. Content-type filters must be
-         * inserted after the content handlers have run because
-         * only then, do we reliably know the content-type.
-         */
-        ap_add_output_filters_by_type(r);
     }
 }
 
 AP_DECLARE(void) ap_set_accept_ranges(request_rec *r)
 {
-    core_dir_config *d = ap_get_module_config(r->per_dir_config, &core_module);
+    core_dir_config *d = ap_get_core_module_config(r->per_dir_config);
     apr_table_setn(r->headers_out, "Accept-Ranges",
                   (d->max_ranges == AP_MAXRANGES_NORANGES) ? "none"
                                                            : "bytes");
@@ -886,6 +1103,7 @@ static const char *get_canned_error_string(int status,
     case HTTP_MOVED_PERMANENTLY:
     case HTTP_MOVED_TEMPORARILY:
     case HTTP_TEMPORARY_REDIRECT:
+    case HTTP_PERMANENT_REDIRECT:
         return(apr_pstrcat(p,
                            "<p>The document has moved <a href=\"",
                            ap_escape_html(r->pool, location),
@@ -1047,6 +1265,14 @@ static const char *get_canned_error_string(int status,
                "connection to SSL, but your client doesn't support it.\n"
                "Either upgrade your client, or try requesting the page\n"
                "using https://\n");
+    case HTTP_PRECONDITION_REQUIRED:
+        return("<p>The request is required to be conditional.</p>\n");
+    case HTTP_TOO_MANY_REQUESTS:
+        return("<p>The user has sent too many requests\n"
+               "in a given amount of time.</p>\n");
+    case HTTP_REQUEST_HEADER_FIELDS_TOO_LARGE:
+        return("<p>The server refused this request because\n"
+               "the request header fields are too large.</p>\n");
     case HTTP_INSUFFICIENT_STORAGE:
         return("<p>The method could not be performed on the resource\n"
                "because the server is unable to store the\n"
@@ -1060,9 +1286,15 @@ static const char *get_canned_error_string(int status,
     case HTTP_GATEWAY_TIME_OUT:
         return("<p>The gateway did not receive a timely response\n"
                "from the upstream server or application.</p>\n");
+    case HTTP_LOOP_DETECTED:
+        return("<p>The server terminated an operation because\n"
+               "it encountered an infinite loop.</p>\n");
     case HTTP_NOT_EXTENDED:
         return("<p>A mandatory extension policy in the request is not\n"
                "accepted by the server for this resource.</p>\n");
+    case HTTP_NETWORK_AUTHENTICATION_REQUIRED:
+        return("<p>The client needs to authenticate to gain\n"
+               "network access.</p>\n");
     default:                    /* HTTP_INTERNAL_SERVER_ERROR */
         /*
          * This comparison to expose error-notes could be modified to
@@ -1084,14 +1316,13 @@ static const char *get_canned_error_string(int status,
                                "misconfiguration and was unable to complete\n"
                                "your request.</p>\n"
                                "<p>Please contact the server "
-                               "administrator,\n ",
+                               "administrator at \n ",
                                ap_escape_html(r->pool,
                                               r->server->server_admin),
-                               " and inform them of the time the "
+                               " to inform them of the time this "
                                "error occurred,\n"
-                               "and anything you might have done that "
-                               "may have\n"
-                               "caused the error.</p>\n"
+                               " and the actions you performed just before "
+                               "this error.</p>\n"
                                "<p>More information about this error "
                                "may be available\n"
                                "in the server error log.</p>\n",
@@ -1193,7 +1424,7 @@ AP_DECLARE(void) ap_send_error_response(request_rec *r, int recursive_error)
         if (apr_table_get(r->subprocess_env,
                           "suppress-error-charset") != NULL) {
             core_request_config *request_conf =
-                        ap_get_module_config(r->request_config, &core_module);
+                        ap_get_core_module_config(r->request_config);
             request_conf->suppress_charset = 1; /* avoid adding default
                                                  * charset later
                                                  */
@@ -1242,16 +1473,28 @@ AP_DECLARE(void) ap_send_error_response(request_rec *r, int recursive_error)
         const char *h1;
 
         /* Accept a status_line set by a module, but only if it begins
-         * with the 3 digit status code
+         * with the correct 3 digit status code
          */
-        if (r->status_line != NULL
-            && strlen(r->status_line) > 4       /* long enough */
-            && apr_isdigit(r->status_line[0])
-            && apr_isdigit(r->status_line[1])
-            && apr_isdigit(r->status_line[2])
-            && apr_isspace(r->status_line[3])
-            && apr_isalnum(r->status_line[4])) {
-            title = r->status_line;
+        if (r->status_line) {
+            char *end;
+            int len = strlen(r->status_line);
+            if (len >= 3
+                && apr_strtoi64(r->status_line, &end, 10) == r->status
+                && (end - 3) == r->status_line
+                && (len < 4 || apr_isspace(r->status_line[3]))
+                && (len < 5 || apr_isalnum(r->status_line[4]))) {
+                /* Since we passed the above check, we know that length three
+                 * is equivalent to only a 3 digit numeric http status.
+                 * RFC2616 mandates a trailing space, let's add it.
+                 * If we have an empty reason phrase, we also add "Unknown Reason".
+                 */
+                if (len == 3) {
+                    r->status_line = apr_pstrcat(r->pool, r->status_line, " Unknown Reason", NULL);
+                } else if (len == 4) {
+                    r->status_line = apr_pstrcat(r->pool, r->status_line, "Unknown Reason", NULL);
+                }
+                title = r->status_line;
+            }
         }
 
         /* folks decided they didn't want the error code in the H1 text */

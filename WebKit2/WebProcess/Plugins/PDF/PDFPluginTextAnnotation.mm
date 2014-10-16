@@ -83,14 +83,14 @@ PassRefPtr<Element> PDFPluginTextAnnotation::createAnnotationElement()
 {
     RefPtr<Element> element;
 
-    Document* document = parent()->ownerDocument();
+    Document& document = parent()->document();
     PDFAnnotationTextWidget *textAnnotation = this->textAnnotation();
     bool isMultiline = textAnnotation.isMultiline;
 
     if (isMultiline)
-        element = document->createElement(textareaTag, false);
+        element = document.createElement(textareaTag, false);
     else
-        element = document->createElement(inputTag, false);
+        element = document.createElement(inputTag, false);
 
     element->addEventListener(eventNames().keydownEvent, eventListener(), false);
 
@@ -105,9 +105,9 @@ PassRefPtr<Element> PDFPluginTextAnnotation::createAnnotationElement()
     styledElement->setInlineStyleProperty(CSSPropertyTextAlign, cssAlignmentValueForNSTextAlignment(textAnnotation.alignment));
 
     if (isMultiline)
-        static_cast<HTMLTextAreaElement*>(styledElement)->setValue(textAnnotation.stringValue);
+        toHTMLTextAreaElement(styledElement)->setValue(textAnnotation.stringValue);
     else
-        static_cast<HTMLInputElement*>(styledElement)->setValue(textAnnotation.stringValue);
+        toHTMLInputElement(styledElement)->setValue(textAnnotation.stringValue);
 
     return element;
 }

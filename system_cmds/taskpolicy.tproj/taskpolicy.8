@@ -3,16 +3,25 @@
 .Os Darwin
 .Sh NAME
 .Nm taskpolicy
-.Nd execute a program with an altered I/O or scheduling policy
+.Nd execute a program with an altered I/O or scheduling policy or change settings of already running process
 .Sh SYNOPSIS
 .Nm
 .Op Fl d Ar policy
+.Op Fl g Ar policy
+.Op Fl c Ar clamp
 .Op Fl b
+.Op Fl t Ar thruput_tier
+.Op Fl l Ar latency_tier
 .Ar program
 .Oo
 .Ar arg1
 .Op Ar ...
 .Oc
+.Nm
+.Op Fl b|-B
+.Op Fl t Ar thruput_tier
+.Op Fl l Ar latency_tier
+.Op Fl p Ar pid
 .Sh DESCRIPTION
 The
 .Nm
@@ -38,10 +47,26 @@ Run the program after calling
 with an iotype of IOPOL_TYPE_DISK, a scope of IOPOL_SCOPE_DARWIN_BG, and the
 specified policy. The argument is interpreted in the same manor as
 .Fl d .
+.It Fl c Ar clamp
+Run the program using the specified QoS clamp. The argument can be either
+"utility", "background", or "maintenance", which is interpreted case-insensitively.
+.It Fl p Ar pid
+Change settings for the process specified by
+.Ar pid .
 .It Fl b
 Run the program after calling
 .Xr setpriority 2
 with a priority of PRIO_DARWIN_BG.
+.It Fl B
+Move target process out of PRIO_DARWIN_BG.
+.It Fl t
+Set throughput tier of the process to 
+.Ar thruput_tier .
+.It Fl l 
+Set latency tier of the process to 
+.Ar latency_tier .
+
+
 .El
 .Pp
 .Sh SEE ALSO 

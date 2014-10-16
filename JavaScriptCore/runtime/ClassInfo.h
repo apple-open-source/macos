@@ -25,11 +25,12 @@
 
 #include "CallFrame.h"
 #include "ConstructData.h"
+#include "CopyToken.h"
 #include "JSCell.h"
 
 namespace JSC {
 
-class HashEntry;
+class JSArrayBufferView;
 struct HashTable;
 
 struct MethodTable {
@@ -39,7 +40,7 @@ struct MethodTable {
     typedef void (*VisitChildrenFunctionPtr)(JSCell*, SlotVisitor&);
     VisitChildrenFunctionPtr visitChildren;
 
-    typedef void (*CopyBackingStoreFunctionPtr)(JSCell*, CopyVisitor&);
+    typedef void (*CopyBackingStoreFunctionPtr)(JSCell*, CopyVisitor&, CopyToken);
     CopyBackingStoreFunctionPtr copyBackingStore;
 
     typedef CallType (*GetCallDataFunctionPtr)(JSCell*, CallData&);
@@ -60,14 +61,14 @@ struct MethodTable {
     typedef bool (*DeletePropertyByIndexFunctionPtr)(JSCell*, ExecState*, unsigned);
     DeletePropertyByIndexFunctionPtr deletePropertyByIndex;
 
-    typedef bool (*GetOwnPropertySlotFunctionPtr)(JSCell*, ExecState*, PropertyName, PropertySlot&);
+    typedef bool (*GetOwnPropertySlotFunctionPtr)(JSObject*, ExecState*, PropertyName, PropertySlot&);
     GetOwnPropertySlotFunctionPtr getOwnPropertySlot;
 
-    typedef bool (*GetOwnPropertySlotByIndexFunctionPtr)(JSCell*, ExecState*, unsigned, PropertySlot&);
+    typedef bool (*GetOwnPropertySlotByIndexFunctionPtr)(JSObject*, ExecState*, unsigned, PropertySlot&);
     GetOwnPropertySlotByIndexFunctionPtr getOwnPropertySlotByIndex;
 
-    typedef JSObject* (*ToThisObjectFunctionPtr)(JSCell*, ExecState*);
-    ToThisObjectFunctionPtr toThisObject;
+    typedef JSValue (*ToThisFunctionPtr)(JSCell*, ExecState*, ECMAMode);
+    ToThisFunctionPtr toThis;
 
     typedef JSValue (*DefaultValueFunctionPtr)(const JSObject*, ExecState*, PreferredPrimitiveType);
     DefaultValueFunctionPtr defaultValue;
@@ -87,14 +88,17 @@ struct MethodTable {
     typedef bool (*CustomHasInstanceFunctionPtr)(JSObject*, ExecState*, JSValue);
     CustomHasInstanceFunctionPtr customHasInstance;
 
-    typedef void (*PutWithAttributesFunctionPtr)(JSObject*, ExecState*, PropertyName propertyName, JSValue, unsigned attributes);
-    PutWithAttributesFunctionPtr putDirectVirtual;
-
-    typedef bool (*DefineOwnPropertyFunctionPtr)(JSObject*, ExecState*, PropertyName, PropertyDescriptor&, bool);
+    typedef bool (*DefineOwnPropertyFunctionPtr)(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool);
     DefineOwnPropertyFunctionPtr defineOwnProperty;
 
-    typedef bool (*GetOwnPropertyDescriptorFunctionPtr)(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
-    GetOwnPropertyDescriptorFunctionPtr getOwnPropertyDescriptor;
+    typedef ArrayBuffer* (*SlowDownAndWasteMemory)(JSArrayBufferView*);
+    SlowDownAndWasteMemory slowDownAndWasteMemory;
+    
+    typedef PassRefPtr<ArrayBufferView> (*GetTypedArrayImpl)(JSArrayBufferView*);
+    GetTypedArrayImpl getTypedArrayImpl;
+
+    typedef void (*DumpToStreamFunctionPtr)(const JSCell*, PrintStream&);
+    DumpToStreamFunctionPtr dumpToStream;
 };
 
 #define CREATE_MEMBER_CHECKER(member) \
@@ -128,41 +132,47 @@ struct MethodTable {
         &ClassName::deletePropertyByIndex, \
         &ClassName::getOwnPropertySlot, \
         &ClassName::getOwnPropertySlotByIndex, \
-        &ClassName::toThisObject, \
+        &ClassName::toThis, \
         &ClassName::defaultValue, \
         &ClassName::getOwnPropertyNames, \
         &ClassName::getOwnNonIndexPropertyNames, \
         &ClassName::getPropertyNames, \
         &ClassName::className, \
         &ClassName::customHasInstance, \
-        &ClassName::putDirectVirtual, \
         &ClassName::defineOwnProperty, \
-        &ClassName::getOwnPropertyDescriptor, \
+        &ClassName::slowDownAndWasteMemory, \
+        &ClassName::getTypedArrayImpl, \
+        &ClassName::dumpToStream \
     }, \
     ClassName::TypedArrayStorageType
 
 struct ClassInfo {
-    /**
-     * A string denoting the class name. Example: "Window".
-     */
+    // A string denoting the class name. Example: "Window".
     const char* className;
 
-    /**
-     * Pointer to the class information of the base class.
-     * 0L if there is none.
-     */
+    // Pointer to the class information of the base class.
+    // nullptrif there is none.
     const ClassInfo* parentClass;
-    /**
-     * Static hash-table of properties.
-     * For classes that can be used from multiple threads, it is accessed via a getter function that would typically return a pointer to thread-specific value.
-     */
+
+    // Static hash-table of properties.
+    // For classes that can be used from multiple threads, it is accessed via a getter function
+    // that would typically return a pointer to a thread-specific value.
     const HashTable* propHashTable(ExecState* exec) const
     {
         if (classPropHashTableGetterFunction)
-            return classPropHashTableGetterFunction(exec);
+            return &classPropHashTableGetterFunction(exec->vm());
+
         return staticPropHashTable;
     }
-        
+
+    const HashTable* propHashTable(VM& vm) const
+    {
+        if (classPropHashTableGetterFunction)
+            return &classPropHashTableGetterFunction(vm);
+
+        return staticPropHashTable;
+    }
+
     bool isSubClassOf(const ClassInfo* other) const
     {
         for (const ClassInfo* ci = this; ci; ci = ci->parentClass) {
@@ -181,8 +191,10 @@ struct ClassInfo {
         return false;
     }
 
+    bool hasStaticSetterOrReadonlyProperties(VM&) const;
+
     const HashTable* staticPropHashTable;
-    typedef const HashTable* (*ClassPropHashTableGetterFunction)(ExecState*);
+    typedef const HashTable& (*ClassPropHashTableGetterFunction)(VM&);
     const ClassPropHashTableGetterFunction classPropHashTableGetterFunction;
 
     MethodTable methodTable;

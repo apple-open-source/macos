@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,31 +26,29 @@
 #include "config.h"
 #include "DrawingAreaProxy.h"
 
+#include "DrawingAreaMessages.h"
 #include "DrawingAreaProxyMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
-
-#if USE(COORDINATED_GRAPHICS)
-#include "CoordinatedLayerTreeHostProxy.h"
-#endif
 
 using namespace WebCore;
 
 namespace WebKit {
 
-const double DrawingAreaProxy::didUpdateBackingStoreStateTimeout = 0.5;
-
 DrawingAreaProxy::DrawingAreaProxy(DrawingAreaType type, WebPageProxy* webPageProxy)
     : m_type(type)
     , m_webPageProxy(webPageProxy)
     , m_size(webPageProxy->viewSize())
+#if PLATFORM(MAC)
+    , m_exposedRectChangedTimer(RunLoop::main(), this, &DrawingAreaProxy::exposedRectChangedTimerFired)
+#endif
 {
-    m_webPageProxy->process()->addMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), webPageProxy->pageID(), this);
+    m_webPageProxy->process().addMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), webPageProxy->pageID(), *this);
 }
 
 DrawingAreaProxy::~DrawingAreaProxy()
 {
-    m_webPageProxy->process()->removeMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), m_webPageProxy->pageID());
+    m_webPageProxy->process().removeMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), m_webPageProxy->pageID());
 }
 
 void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& layerPosition, const IntSize& scrollOffset)
@@ -64,16 +62,29 @@ void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& layerPosition
     sizeDidChange();
 }
 
-#if USE(COORDINATED_GRAPHICS)
-void DrawingAreaProxy::updateViewport()
+#if PLATFORM(MAC)
+void DrawingAreaProxy::setExposedRect(const FloatRect& exposedRect)
 {
-    m_webPageProxy->setViewNeedsDisplay(viewportVisibleRect());
+    if (!m_webPageProxy->isValid())
+        return;
+
+    m_exposedRect = exposedRect;
+
+    if (!m_exposedRectChangedTimer.isActive())
+        m_exposedRectChangedTimer.startOneShot(0);
 }
 
-WebCore::IntRect DrawingAreaProxy::contentsRect() const
+void DrawingAreaProxy::exposedRectChangedTimerFired()
 {
-    return IntRect(IntPoint::zero(), m_webPageProxy->viewSize());
+    if (!m_webPageProxy->isValid())
+        return;
+
+    if (m_exposedRect == m_lastSentExposedRect)
+        return;
+
+    m_webPageProxy->process().send(Messages::DrawingArea::SetExposedRect(m_exposedRect), m_webPageProxy->pageID());
+    m_lastSentExposedRect = m_exposedRect;
 }
-#endif
+#endif // PLATFORM(MAC)
 
 } // namespace WebKit

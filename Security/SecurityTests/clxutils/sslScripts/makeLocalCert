@@ -1,0 +1,72 @@
+#! /bin/csh -f
+#
+# Make up-to-date localcert, clientcert, and dsacert keychains and roots.
+#
+set BUILD_DIR=$LOCAL_BUILD_DIR
+
+echo === Creating certs and keychains for SSL testing ===
+
+source sslKcSetup
+
+set DSA_CT_INPUT=dsaCertToolInput
+set AUTO_RUN=0
+set DEFAULT_ACL=
+
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case a:
+            set AUTO_RUN = 1
+            shift
+            breaksw
+		case d:
+			set DEFAULT_ACL=a
+            shift
+            breaksw
+        default:
+            echo Usage: makeLocalCert \[a\(utorun\)\] \[d\(efault ACL\)\]
+            exit(1)
+    endsw
+end
+
+set ALL_KEYCHAINS="$LOCAL_KC $CLIENT_KC $DSA_KC $P12_KC"
+set ALL_CERTS="$LOCAL_CERT $CLIENT_CERT $DSA_CERT"
+#
+if($AUTO_RUN == 1) then
+	echo deleting $ALL_KEYCHAINS from $KC_DIR
+else 
+	echo Preparing to delete $ALL_KEYCHAINS from $KC_DIR
+	echo Ctl-c to abort, or....
+	simplePrompt
+endif
+(cd $KC_DIR; rm -f $ALL_KEYCHAINS)
+rm -f $ALL_CERTS
+
+echo Creating $LOCAL_KC and $LOCAL_CERT...
+set cmd="certtool c k=$LOCAL_KC c Z o=$LOCAL_CERT d p=$LOCAL_KC_PWD $DEFAULT_ACL x=S"
+echo $cmd
+$cmd || exit(1)
+
+echo Creating $CLIENT_KC and $CLIENT_CERT...
+set cmd="certtool c k=$CLIENT_KC c Z o=$CLIENT_CERT d p=$CLIENT_KC_PWD $DEFAULT_ACL x=s"
+echo $cmd
+$cmd || exit(1)
+
+echo Creating $DSA_KC and $DSA_CERT...
+set cmd="certtool c k=$DSA_KC c o=$DSA_CERT p=$DSA_KC_PWD $DEFAULT_ACL d"
+echo $cmd \< $DSA_CT_INPUT \> /dev/null
+$cmd < $DSA_CT_INPUT > /dev/null || exit(1)
+
+echo Creating $P12_KC and root $P12_ROOT_CERT via import of $P12_PFX...
+set cmd="certtool y k=$P12_KC c p=$P12_KC_PWD"
+echo $cmd
+$cmd > /dev/null || exit(1)
+set cmd="security import $P12_PFX -k $P12_KC -P $P12_PFX_PWD"
+echo $cmd
+$cmd || exit(1)
+set cmd="$BUILD_DIR/certsFromDb $P12_KC_PATH f $P12_CERT_BASE"
+echo $cmd
+$cmd || exit(1)
+echo P12 import complete.
+
+echo === Finished creating certs and keychains for SSL testing ===
+

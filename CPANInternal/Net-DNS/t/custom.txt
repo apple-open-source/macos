@@ -1,4 +1,0 @@
-# $Id: custom.txt 264 2005-04-06 09:16:15Z olaf $
-domain t2.net-dns.org
-search alt.net-dns.org ext.net-dns.org
-nameserver 10.0.1.42 10.0.2.42

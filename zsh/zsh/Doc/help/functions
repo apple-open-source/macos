@@ -1,0 +1,93 @@
+functions [ {+|-}UXkmtTuz ] [ name ... ]
+functions -M mathfn [ min [ max [ shellfn ] ] ]
+functions -M [ -m pattern ... ]
+functions +M [ -m ] mathfn
+       Equivalent to typeset -f, with the exception of the  -M  option.
+       Use of the -M option may not be combined with any of the options
+       handled by typeset -f.
+
+       functions -M mathfn defines mathfn as the name of a mathematical
+       function  recognised  in  all forms of arithmetical expressions;
+       see the  section  `Arithmetic  Evaluation'  in  zshmisc(1).   By
+       default mathfn may take any number of comma-separated arguments.
+       If min is given, it must have exactly min args; if min  and  max
+       are  both given, it must have at least min and at most max args.
+       max may be -1 to indicate that there is no upper limit.
+
+       By default the function is implemented by a  shell  function  of
+       the  same name; if shellfn is specified it gives the name of the
+       corresponding shell function while mathfn remains the name  used
+       in  arithmetical expressions.  The name of the function in $0 is
+       mathfn (not shellfn as would usually be the case), provided  the
+       option FUNCTION ARGZERO is in effect.  The positional parameters
+                      -
+       in the shell function correspond to the arguments of the  mathe-
+       matical  function  call.   The  result  of the last arithmetical
+       expression evaluated inside the shell function (even if it is  a
+       form  that  normally  only returns a status) gives the result of
+       the mathematical function.
+
+       functions -M with no arguments lists all such user-defined func-
+       tions  in  the  same  form as a definition.  With the additional
+       option -m and a list of arguments, all  functions  whose  mathfn
+       matches one of the pattern arguments are listed.
+
+       function +M removes the list of mathematical functions; with the
+       additional option -m the arguments are treated as  patterns  and
+       all  functions  whose  mathfn  matches  the pattern are removed.
+       Note that the shell function implementing the behaviour  is  not
+       removed (regardless of whether its name coincides with mathfn).
+
+       For example, the following prints the cube of 3:
+
+              zmath cube() { (( $1 * $1 * $1 )) }
+                   -
+              functions -M cube 1 1 zmath cube
+                                         -
+              print $(( cube(3) ))
+
+autoload [ {+|-}UXkmtz ] [ -w ] [ name ... ]
+       Equivalent to functions -u, with the exception of -X/+X and -w.
+
+       The flag -X may be used only inside a shell  function,  and  may
+       not be followed by a name.  It causes the calling function to be
+       marked for autoloading and then immediately loaded and executed,
+       with  the  current  array of positional parameters as arguments.
+       This replaces the previous definition of the  function.   If  no
+       function  definition is found, an error is printed and the func-
+       tion remains undefined and marked for autoloading.
+
+       The flag +X attempts to load each name as  an  autoloaded  func-
+       tion,  but  does  not execute it.  The exit status is zero (suc-
+       cess) if the function was not previously defined and  a  defini-
+       tion for it was found.  This does not replace any existing defi-
+       nition of the function.  The exit status is nonzero (failure) if
+       the  function  was  already  defined  or  when no definition was
+       found.  In the latter case the function  remains  undefined  and
+       marked  for  autoloading.   If ksh-style autoloading is enabled,
+       the function created will contain the contents of the file  plus
+       a call to the function itself appended to it, thus giving normal
+       ksh autoloading behaviour on the first call to the function.  If
+       the  -m flag is also given each name is treated as a pattern and
+       all functions already marked for autoload that match the pattern
+       are loaded.
+
+       With the -w flag, the names are taken as names of files compiled
+       with the zcompile builtin, and all functions defined in them are
+       marked for autoloading.
+
+       The flags -z and -k mark the function to be autoloaded using the
+       zsh or ksh style, as if the option KSH AUTOLOAD  were  unset  or
+                                             -
+       were  set,  respectively.  The flags override the setting of the
+       option at the time the function is loaded.
+
+       Note that the autoload command makes no attempt  to  ensure  the
+       shell  options  set  during the loading or execution of the file
+       have any particular value.  For this, the emulate command can be
+       used:
+
+              emulate zsh -c 'autoload -Uz func'
+
+       arranges  that  when  func  is loaded the shell is in native zsh
+       emulation, and this emulation is also applied when func is run.

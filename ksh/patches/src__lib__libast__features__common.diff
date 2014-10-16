@@ -29,22 +29,3 @@
  		printf("\n");
  		return 0;
  	}
-@@ -301,9 +309,17 @@ tst	- output{
- 	main()
- 	{
- 		register int	t;
--
-+#if 1
-+    printf("#define _ast_sizeof_short sizeof(short)\n");
-+    printf("#define _ast_sizeof_int sizeof(int)\n");
-+    printf("#define _ast_sizeof_long sizeof(long)\n");
-+    printf("#define _ast_sizeof_pointer sizeof(void*)\n");
-+    printf("#define _ast_sizeof_float sizeof(float)\n");
-+    printf("#define _ast_sizeof_double sizeof(double)\n");
-+#else
- 		for (t = 0; t < elementsof(types); t++)
- 			printf("#define _ast_sizeof_%s%s	%d	/* sizeof(%s) */\n", types[t].name, strlen(types[t].name) < 4 ? "\t" : "", types[t].size, types[t].name);
-+#endif
- 		printf("\n");
- 		return 0;
- 	}

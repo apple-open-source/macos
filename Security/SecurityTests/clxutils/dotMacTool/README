@@ -1,0 +1,107 @@
+dotMacTool notes May 4 2004
+
+-- for now you need this in /etc/hosts:
+
+# for INT2
+17.207.20.182 int-cert certmgmt.mac.com certinfo.mac.com
+
+# or, for INT1
+17.207.43.109 qa-cert certmgmt.mac.com certinfo.mac.com
+
+-- A good way to run tcpdump to show HTTP traffic on port 2150:
+
+   tcpdump -i en0 -s 0 -A -q tcp port 2150
+
+-- renew cert for existing account doug1 with password 123456:
+
+tower.local:dotMacTool> dotMacTool g -g -u doug1 -Z 123456 -k foobar -r -o /tmp/c2.pem
+<<<snip away debug logging>>>
+...cert acquisition complete
+...2496 bytes of Cert written to /tmp/c2.pem
+
+==============================================
+
+-- demo queued response and retrieval
+   -- set FORCE_SUCCESS_QUEUED to 1 in dotMacTpRpcGlue.cpp, this turns a full
+      success RPC into a successQueued RPC
+	  
+tower.local:dotMacTool> dotMacTool g -g -u doug1 -Z 123456 -k foobar -r -o /tmp/refid.pem
+<<<snip away debug logging>>>
+...Forcing REQ_QUEUED status
+...cert acquisition complete
+...105 bytes of Cert written to /tmp/refid.pem
+
+...then lookup....
+
+tower.local:dotMacTool> dotMacTool l -f /tmp/refid.pem -o /tmp/cert.pem
+<<<snip away debug logging>>>
+...cert retrieval complete
+...10010 bytes of cert data written to /tmp/cert.pem
+
+==============================================
+
+TO DO
+-----
+
+-- DOT_MAC_LOOKUP_ID_PATH* consts in dotMacTp.h will change to allow loopkup of one 
+   specific cert
+-- DOT_MAC_SIGN_HOST_NAME and DOT_MAC_LOOKUP_HOST will change to avoid the port 2150
+
+..........
+
+Aug 10 testing
+
+-- use INT1 environment 
+
+Ê  # in /etc/hosts:
+   17.207.20.58    int1-idiskng      certmgmt.mac.com certinfo.mac.com
+
+   -- lookup via  http://certinfo.mac.com:2150/lookup 
+   -- request via certmgmt.mac.com
+   
+-- provision http://17.207.20.58:2150/_provision/Public/account
+   -- account dmitch4 pwd password
+      -- signed up for IDEN
+
+   # note no more @mac.com for user name
+   % dotMacTool g -g -u dmitch4 -Z password -k foobar -o /tmp/refid -H certmgmt.mac.com:2150
+...Forcing REQ_QUEUED status
+...Cert request QUEUED
+...77 bytes of RefId written to /tmp/refid
+
+   # note we can't specify alternate host for lookup, have to use !NDEBUG config of .mac TP
+   % dotMacTool l -f /tmp/refid -k foobar 
+
+   -- account dmitch5 pwd password
+      -- signed up for EMAIL SIGN
+
+	% dotMacRequest s -u dmitch5 -Z password -k foobar -H certmgmt.mac.com:2150 -a
+	-- request had method sign.email
+	-- response had FailedNotSupportedForAccount
+	
+	# try again with ID cert, it works
+	% dotMacRequest i -u dmitch5 -Z password -k foobar -H certmgmt.mac.com:2150 -a
+
+    # get result, nothing in prefs - yep, OK, we ran async
+	
+	
+  -- dmitch6 password, async, OK
+  -- dmitch7, password
+  ...
+  dmitch10 pwd password
+  
+  % dotMacRequest i -u dmitch10 -Z password -k foobar -H certmgmt.mac.com:2150
+  ...works!
+  
+  dmitch11 password
+  
+1/10/05
+
+name dmitch_int2 pwd "password"
+
+% dotMacTool g -g -u dmitch_int2 -Z password -k newDotMac.keychain -o /tmp/refid
+...worked
+
+name dmitch_new pwd password, got a cert
+name dmitch_new2 pwd password
+

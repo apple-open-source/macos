@@ -26,10 +26,13 @@
 #ifndef PluginProcess_h
 #define PluginProcess_h
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "ChildProcess.h"
+#include <WebCore/CountedUserActivity.h>
+#include <WebCore/AudioHardwareListener.h>
 #include <wtf/Forward.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -38,8 +41,10 @@ class NetscapePluginModule;
 class WebProcessConnection;
 struct PluginProcessCreationParameters;
         
-class PluginProcess : public ChildProcess {
+class PluginProcess : public ChildProcess, private WebCore::AudioHardwareListener::Client
+{
     WTF_MAKE_NONCOPYABLE(PluginProcess);
+    friend class NeverDestroyed<PluginProcess>;
 public:
     static PluginProcess& shared();
 
@@ -49,13 +54,11 @@ public:
 
     const String& pluginPath() const { return m_pluginPath; }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     void setModalWindowIsShowing(bool);
     void setFullscreenWindowIsShowing(bool);
 
-#if USE(ACCELERATED_COMPOSITING)
     mach_port_t compositingRenderServerPort() const { return m_compositingRenderServerPort; }
-#endif
 
     bool launchProcess(const String& launchPath, const Vector<String>& arguments);
     bool launchApplicationAtURL(const String& urlString, const Vector<String>& arguments);
@@ -63,32 +66,42 @@ public:
     bool openFile(const String& urlString);
 #endif
 
+    CountedUserActivity& connectionActivity() { return m_connectionActivity; }
+
+    void pluginsForWebProcessDidBecomeHidden();
+    void pluginsForWebProcessDidBecomeVisible();
+
 private:
     PluginProcess();
     ~PluginProcess();
 
     // ChildProcess
-    virtual void initializeProcess(const ChildProcessInitializationParameters&) OVERRIDE;
-    virtual void initializeProcessName(const ChildProcessInitializationParameters&) OVERRIDE;
-    virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) OVERRIDE;
-    virtual bool shouldTerminate() OVERRIDE;
+    virtual void initializeProcess(const ChildProcessInitializationParameters&) override;
+    virtual void initializeProcessName(const ChildProcessInitializationParameters&) override;
+    virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
+    virtual bool shouldTerminate() override;
     void platformInitializeProcess(const ChildProcessInitializationParameters&);
 
-#if PLATFORM(MAC)
-    virtual void stopRunLoop() OVERRIDE;
+#if USE(APPKIT)
+    virtual void stopRunLoop() override;
 #endif
 
-    // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didClose(CoreIPC::Connection*) OVERRIDE;
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName) OVERRIDE;
+    // IPC::Connection::Client
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didClose(IPC::Connection*) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
 
     // Message handlers.
-    void didReceivePluginProcessMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceivePluginProcessMessage(IPC::Connection*, IPC::MessageDecoder&);
     void initializePluginProcess(const PluginProcessCreationParameters&);
     void createWebProcessConnection();
     void getSitesWithData(uint64_t callbackID);
     void clearSiteData(const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
+    
+    // AudioHardwareListenerClient
+    virtual void audioHardwareDidBecomeActive() override;
+    virtual void audioHardwareDidBecomeInactive() override;
+    virtual void audioOutputDeviceChanged() override { }
 
     void platformInitializePluginProcess(const PluginProcessCreationParameters&);
     
@@ -100,7 +113,7 @@ private:
     // The plug-in path.
     String m_pluginPath;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     String m_pluginBundleIdentifier;
 #endif
 
@@ -109,18 +122,24 @@ private:
     
     bool m_supportsAsynchronousPluginInitialization;
 
-    WebCore::RunLoop::Timer<PluginProcess> m_minimumLifetimeTimer;
+    RunLoop::Timer<PluginProcess> m_minimumLifetimeTimer;
 
-#if USE(ACCELERATED_COMPOSITING) && PLATFORM(MAC)
+#if PLATFORM(COCOA)
     // The Mach port used for accelerated compositing.
     mach_port_t m_compositingRenderServerPort;
+
+    String m_nsurlCacheDirectory;
 #endif
 
     static void lowMemoryHandler(bool critical);
+    CountedUserActivity m_connectionActivity;
+    CountedUserActivity m_visiblePluginsActivity;
+    
+    RefPtr<WebCore::AudioHardwareListener> m_audioHardwareListener;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // PluginProcess_h

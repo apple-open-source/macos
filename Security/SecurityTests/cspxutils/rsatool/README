@@ -1,0 +1,127 @@
+                        RSA Sample Code Info
+					 last update 4/24/02 dmitch
+						  
+Introduction
+------------
+This directory contains a program which demonstrates how to 
+write code associated with the RSA Public Key Cryptosystem using
+the CDSA API. One command-line executable program, called rsatool, 
+currently resides here.
+
+Building
+--------
+
+See the README in the parent directory (CDSA_Examples) for 
+information on building this program.
+
+Running rsatool
+---------------
+
+Rsatool is a UNIX command-line program which operates on files.
+It can generate key pairs (storing them in files), encrypt a file
+(placing the result in another file), decrypt, sign a file (placing
+the signature in another file), and verify signatures. 
+
+Please note that this type of operation, in which private keys
+are stored in files which anyone can read, is certainly not 
+recommended security procedure; the purpose of this tool is to
+demonstrate the use of the CDSA API. 
+
+To get a full list of rsatool's command-line options, just run it
+with no arguments:
+
+localhost> rsatool 
+usage: ./rsatool op [options]
+  op:
+     g  generate key pair
+     e  encrypt
+     d  decrypt
+     s  sign
+     v  verify
+     S  SHA-1 digest
+     M  MD5 digest
+  options:
+     k=keyfileBase keys are keyFileBase_pub.der, keyFileBase_priv.der)
+     p=plainFile
+     c=cipherFile
+     s=sigfile
+     b=keySizeInBits (default 512)
+     w (swap key class)
+     r (raw sign/verify)
+     P (no padding)
+     a=alg   d=DSA r=RSA, e=ECDSA, default = RSA
+localhost>
+
+
+Some examples:
+--------------
+
+To perform any operations using RSA, one must first have a key pair. 
+You generate them like so:
+
+localhost> rsatool g k=mykey b=1024
+...wrote 140 bytes to mykey_pub.der
+...wrote 636 bytes to mykey_priv.der
+localhostl> 
+
+This generates a 1024-bit key pair, places the public key 
+in mykey_pub.der, and the private key in mykey_priv.der. 
+
+Now, say you want to encrypt a file. You encrypt with a public key. 
+So first we create a file to encrypt:
+
+localhost:> cat > plaintext
+this is what we will encrypt
+localhostl> 
+
+Now we encrypt it, placing the result in ciphertext:
+
+localhost> rsatool e k=mykey p=plaintext c=ciphertext
+...wrote 128 bytes to ciphertext
+localhost> 
+
+The result looks like this:
+
+localhost> hexdump ciphertext
+0000000 8272 4ff9 d7ab 8ff0 3dee 543d 3f36 3d89
+0000010 ef80 f958 3b4f 1be1 bde8 6557 c215 9728
+0000020 4262 0c6a b81b 5782 444d 225c db3e 17d7
+0000030 7079 d3af 7e1e c215 2b14 bf35 20f7 ed33
+0000040 f311 6258 fd85 6679 e0bb ae33 4b26 c1f8
+0000050 4f33 ac24 1972 e048 915c 8386 5fc3 7f56
+0000060 e7b3 9b4a ad6b a192 84c3 fa6e 25ba 91a0
+0000070 05ef fe42 ebba 0290 99b1 5cc9 5e36 7954
+0000080
+localhost> 
+
+We decrypt it like so:
+
+localhost> rsatool d k=mykey p=recovered  c=ciphertext
+...wrote 29 bytes to recovered
+localhost> 
+
+Yielding:
+
+localhost> cat recovered 
+this is what we will encrypt
+localhost> 
+
+To generate a digital signature, putting the signature in sigfile:
+
+localhost> rsatool s k=mykey p=plaintext s=sigfile
+...wrote 128 bytes to sigfile
+localhost> 
+
+To verify the signature:
+
+localhost> rsatool v k=mykey p=plaintext s=sigfile
+...signature verifies OK
+localhost> 
+
+Note what happens if we specify a file other than 'plaintext' to 
+verify with plaintext's signature:
+
+localhost> rsatool v k=mykey p=ciphertext s=sigfile
+CSSM_VerifyData: CSP_VERIFY_FAILED
+sigVerify: CSP_VERIFY_FAILED
+localhost> 

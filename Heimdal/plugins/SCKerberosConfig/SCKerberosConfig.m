@@ -78,7 +78,7 @@ get_default_realm(krb5_context context, void *ptr, void *userctx,
     out:
 	do { } while(0);
     }
-    @catch (NSException *exception) { }
+    @catch (NSException * __unused exception) { }
     @finally {
 
 	if (vals)
@@ -126,7 +126,7 @@ get_host_domain(krb5_context context, const char *hostname, void *ptr, void *use
 	out:
 	do { } while(0);
     }
-    @catch (NSException *exception) { }
+    @catch (NSException * __unused exception) { }
     @finally {
 	
 	if (vals)

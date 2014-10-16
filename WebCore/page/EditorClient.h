@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -35,10 +35,15 @@
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
 OBJC_CLASS NSAttributedString;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
+#endif
+
+#if PLATFORM(IOS)
+OBJC_CLASS NSArray;
+OBJC_CLASS NSDictionary;
 #endif
 
 namespace WebCore {
@@ -50,22 +55,22 @@ class Element;
 class Frame;
 class HTMLElement;
 class KeyboardEvent;
+class LayoutRect;
 class Node;
 class Range;
 class SharedBuffer;
-class SpellChecker;
-class StylePropertySet;
+class StyleProperties;
 class TextCheckerClient;
 class VisibleSelection;
 class VisiblePosition;
 
+struct GapRects;
 struct GrammarDetail;
 
 class EditorClient {
 public:
     virtual ~EditorClient() {  }
     virtual void pageDestroyed() = 0;
-    virtual void frameWillDetachPage(Frame*) = 0;
 
     virtual bool shouldDeleteRange(Range*) = 0;
     virtual bool smartInsertDeleteEnabled() = 0; 
@@ -82,7 +87,7 @@ public:
     virtual bool shouldInsertText(const String&, Range*, EditorInsertAction) = 0;
     virtual bool shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity, bool stillSelecting) = 0;
     
-    virtual bool shouldApplyStyle(StylePropertySet*, Range*) = 0;
+    virtual bool shouldApplyStyle(StyleProperties*, Range*) = 0;
     virtual bool shouldMoveRangeAfterDelete(Range*, Range*) = 0;
 
     virtual void didBeginEditing() = 0;
@@ -91,8 +96,7 @@ public:
     virtual void didEndEditing() = 0;
     virtual void willWriteSelectionToPasteboard(Range*) = 0;
     virtual void didWriteSelectionToPasteboard() = 0;
-    virtual void getClientPasteboardDataForRange(Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<SharedBuffer> >& pasteboardData) = 0;
-    virtual void didSetSelectionTypesForPasteboard() = 0;
+    virtual void getClientPasteboardDataForRange(Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<SharedBuffer>>& pasteboardData) = 0;
     
     virtual void registerUndoStep(PassRefPtr<UndoStep>) = 0;
     virtual void registerRedoStep(PassRefPtr<UndoStep>) = 0;
@@ -115,10 +119,24 @@ public:
     virtual bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*) = 0;
     virtual void textWillBeDeletedInTextField(Element*) = 0;
     virtual void textDidChangeInTextArea(Element*) = 0;
+    virtual void overflowScrollPositionChanged() = 0;
 
-#if PLATFORM(MAC)
+#if PLATFORM(IOS)
+    virtual void startDelayingAndCoalescingContentChangeNotifications() = 0;
+    virtual void stopDelayingAndCoalescingContentChangeNotifications() = 0;
+    virtual void writeDataToPasteboard(NSDictionary*) = 0;
+    virtual NSArray* supportedPasteboardTypesForCurrentSelection() = 0;
+    virtual NSArray* readDataFromPasteboard(NSString* type, int index) = 0;
+    virtual bool hasRichlyEditableSelection() = 0;
+    virtual int getPasteboardItemsCount() = 0;
+    virtual DocumentFragment* documentFragmentFromDelegate(int index) = 0;
+    virtual bool performsTwoStepPaste(DocumentFragment*) = 0;
+    virtual int pasteboardChangeCount() = 0;
+#endif
+
+#if PLATFORM(COCOA)
     virtual NSString* userVisibleString(NSURL*) = 0;
-    virtual DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector< RefPtr<ArchiveResource> >&) = 0;
+    virtual DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector< RefPtr<ArchiveResource>>&) = 0;
     virtual void setInsertionPasteboard(const String& pasteboardName) = 0;
     virtual NSURL* canonicalizeURL(NSURL*) = 0;
     virtual NSURL* canonicalizeURLString(NSString*) = 0;
@@ -162,6 +180,11 @@ public:
     virtual bool spellingUIIsShowing() = 0;
     virtual void willSetInputMethodState() = 0;
     virtual void setInputMethodState(bool enabled) = 0;
+
+#if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
+    virtual void selectedTelephoneNumberRangesChanged() { }
+    virtual void selectionRectsDidChange(const Vector<LayoutRect>&, const Vector<GapRects>&, bool) { }
+#endif
 
     // Support for global selections, used on platforms like the X Window System that treat
     // selection as a type of clipboard.

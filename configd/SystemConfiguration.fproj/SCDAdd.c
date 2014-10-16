@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -83,9 +83,9 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 	/* send the key & data to the server */
 	status = configadd_s(storePrivate->server,
 			     myKeyRef,
-			     myKeyLen,
+			     (mach_msg_type_number_t)myKeyLen,
 			     myDataRef,
-			     myDataLen,
+			     (mach_msg_type_number_t)myDataLen,
 			     &newInstance,
 			     (int *)&sc_status);
 
@@ -156,9 +156,9 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	/* send the key & data to the server */
 	status = configadd(storePrivate->server,
 			   myKeyRef,
-			   myKeyLen,
+			   (mach_msg_type_number_t)myKeyLen,
 			   myDataRef,
-			   myDataLen,
+			   (mach_msg_type_number_t)myDataLen,
 			   &newInstance,
 			   (int *)&sc_status);
 

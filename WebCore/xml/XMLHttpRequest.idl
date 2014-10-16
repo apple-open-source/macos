@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -31,19 +31,18 @@ enum XMLHttpRequestResponseType {
     "arraybuffer",
     "blob",
     "document",
-//    FIXME: enable once support for json responseText is completed. (bug #73648)
-//    "json",
+    "json",
     "text"
 };
 
 [
-    GlobalContext=WindowAndWorker,
+    GlobalContext=DOMWindow&WorkerGlobalScope,
     ActiveDOMObject,
     Constructor,
     ConstructorCallWith=ScriptExecutionContext,
     JSCustomMarkFunction,
     EventTarget,
-    JSNoStaticTables
+    JSNoStaticTables,
 ] interface XMLHttpRequest {
     // From XMLHttpRequestEventTarget
     // event handler attributes
@@ -81,16 +80,16 @@ enum XMLHttpRequestResponseType {
     readonly attribute XMLHttpRequestUpload upload;
 
     // response
-    [TreatReturnedNullStringAs=Undefined, RaisesException] DOMString getAllResponseHeaders();
-    [TreatReturnedNullStringAs=Null, RaisesException] DOMString getResponseHeader(DOMString header);
+    [TreatReturnedNullStringAs=Undefined] DOMString getAllResponseHeaders();
+    [TreatReturnedNullStringAs=Null] DOMString getResponseHeader(DOMString header);
     [GetterRaisesException, CustomGetter] readonly attribute DOMString responseText; // The custom getter implements TreatReturnedNullStringAs=Null
     [GetterRaisesException] readonly attribute Document responseXML;
 
     [SetterRaisesException] attribute XMLHttpRequestResponseType responseType;
-    [GetterRaisesException, CustomGetter] readonly attribute Object response;
+    [GetterRaisesException, CachedAttribute, CustomGetter] readonly attribute Object response;
 
-    [GetterRaisesException] readonly attribute unsigned short status;
-    [GetterRaisesException] readonly attribute DOMString statusText;
+    readonly attribute unsigned short status;
+    readonly attribute DOMString statusText;
 
     // Extension
     void overrideMimeType(DOMString override);

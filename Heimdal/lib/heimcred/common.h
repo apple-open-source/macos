@@ -27,29 +27,41 @@
  * SUCH DAMAGE.
  */
 
-#import <CoreFoundation/CoreFoundation.h>
-#import <CoreFoundation/CFRuntime.h>
-#import <xpc/xpc.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFRuntime.h>
+#include <xpc/xpc.h>
 
-#import "heimcred.h"
+#include "heimcred.h"
 
 #define CFRELEASE_NULL(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
+
+struct HeimMech;
 
 struct HeimCred_s {
     CFRuntimeBase runtime;
     CFUUIDRef uuid;
     CFDictionaryRef attributes;
+#if HEIMCRED_SERVER
+    struct HeimMech *mech;
+#endif
 };
 
 typedef struct {
     dispatch_queue_t queue;
-    CFMutableDictionaryRef items;
     CFTypeID haid;
 #if HEIMCRED_SERVER
     CFSetRef connections;
+    CFMutableDictionaryRef sessions;
+    CFMutableDictionaryRef mechanisms;
+    CFMutableDictionaryRef schemas;
+    CFMutableDictionaryRef globalSchema;
+    pid_t session;
 #else
+    CFMutableDictionaryRef items;
     xpc_connection_t conn;
 #endif
+    bool needFlush;
+    bool flushPending;
 } HeimCredContext;
 
 extern HeimCredContext HeimCredCTX;
@@ -60,11 +72,14 @@ _HeimCredInitCommon(void);
 HeimCredRef
 HeimCredCreateItem(CFUUIDRef uuid);
 
+CFTypeID
+HeimCredGetTypeID(void);
+
 CFUUIDRef
 HeimCredCopyUUID(xpc_object_t object, const char *key);
 
-CFDictionaryRef
-HeimCredMessageCopyAttributes(xpc_object_t object, const char *key);
+CFTypeRef
+HeimCredMessageCopyAttributes(xpc_object_t object, const char *key, CFTypeID type);
 
 void
 HeimCredMessageSetAttributes(xpc_object_t object, const char *key, CFTypeRef attrs);
@@ -73,6 +88,6 @@ void
 HeimCredSetUUID(xpc_object_t object, const char *key, CFUUIDRef uuid);
 
 
-#define HEIMCRED_CONST(_t,_c) extern const char * _c##xpc;
+#define HEIMCRED_CONST(_t,_c) extern const char * _c##xpc
 #include "heimcred-const.h"
 #undef HEIMCRED_CONST

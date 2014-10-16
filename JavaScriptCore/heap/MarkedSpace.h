@@ -26,17 +26,19 @@
 #include "MarkedAllocator.h"
 #include "MarkedBlock.h"
 #include "MarkedBlockSet.h"
+#include <array>
 #include <wtf/PageAllocationAligned.h>
 #include <wtf/Bitmap.h>
 #include <wtf/DoublyLinkedList.h>
-#include <wtf/FixedArray.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 
+class DelayedReleaseScope;
 class Heap;
+class HeapIterationScope;
 class JSCell;
 class LiveObjectIterator;
 class LLIntOffsetsExtractor;
@@ -44,11 +46,29 @@ class WeakGCHandle;
 class SlotVisitor;
 
 struct ClearMarks : MarkedBlock::VoidFunctor {
-    void operator()(MarkedBlock* block) { block->clearMarks(); }
+    void operator()(MarkedBlock* block)
+    {
+        block->clearMarks();
+    }
+};
+
+struct ClearRememberedSet : MarkedBlock::VoidFunctor {
+    void operator()(MarkedBlock* block)
+    {
+        block->clearRememberedSet();
+    }
 };
 
 struct Sweep : MarkedBlock::VoidFunctor {
     void operator()(MarkedBlock* block) { block->sweep(); }
+};
+
+struct ZombifySweep : MarkedBlock::VoidFunctor {
+    void operator()(MarkedBlock* block)
+    {
+        if (block->needsSweeping())
+            block->sweep();
+    }
 };
 
 struct MarkCount : MarkedBlock::CountFunctor {
@@ -57,10 +77,6 @@ struct MarkCount : MarkedBlock::CountFunctor {
 
 struct Size : MarkedBlock::CountFunctor {
     void operator()(MarkedBlock* block) { count(block->markCount() * block->cellSize()); }
-};
-
-struct Capacity : MarkedBlock::CountFunctor {
-    void operator()(MarkedBlock* block) { count(block->capacity()); }
 };
 
 class MarkedSpace {
@@ -84,15 +100,20 @@ public:
     void reapWeakSets();
 
     MarkedBlockSet& blocks() { return m_blocks; }
-    
-    void canonicalizeCellLivenessData();
+
+    void willStartIterating();
+    bool isIterating() { return m_isIterating; }
+    void didFinishIterating();
+
+    void stopAllocating();
+    void resumeAllocating(); // If we just stopped allocation but we didn't do a collection, we need to resume allocation.
 
     typedef HashSet<MarkedBlock*>::iterator BlockIterator;
     
-    template<typename Functor> typename Functor::ReturnType forEachLiveCell(Functor&);
-    template<typename Functor> typename Functor::ReturnType forEachLiveCell();
-    template<typename Functor> typename Functor::ReturnType forEachDeadCell(Functor&);
-    template<typename Functor> typename Functor::ReturnType forEachDeadCell();
+    template<typename Functor> typename Functor::ReturnType forEachLiveCell(HeapIterationScope&, Functor&);
+    template<typename Functor> typename Functor::ReturnType forEachLiveCell(HeapIterationScope&);
+    template<typename Functor> typename Functor::ReturnType forEachDeadCell(HeapIterationScope&, Functor&);
+    template<typename Functor> typename Functor::ReturnType forEachDeadCell(HeapIterationScope&);
     template<typename Functor> typename Functor::ReturnType forEachBlock(Functor&);
     template<typename Functor> typename Functor::ReturnType forEachBlock();
     
@@ -102,17 +123,29 @@ public:
 
     void didAddBlock(MarkedBlock*);
     void didConsumeFreeList(MarkedBlock*);
+    void didAllocateInBlock(MarkedBlock*);
 
     void clearMarks();
+    void clearRememberedSet();
+    void clearNewlyAllocated();
     void sweep();
+    void zombifySweep();
     size_t objectCount();
     size_t size();
     size_t capacity();
 
     bool isPagedOut(double deadline);
 
+#if USE(CF)
+    template<typename T> void releaseSoon(RetainPtr<T>&&);
+#endif
+
 private:
+    friend class DelayedReleaseScope;
     friend class LLIntOffsetsExtractor;
+
+    template<typename Functor> void forEachAllocator(Functor&);
+    template<typename Functor> void forEachAllocator();
 
     // [ 32... 128 ]
     static const size_t preciseStep = MarkedBlock::atomSize;
@@ -125,8 +158,8 @@ private:
     static const size_t impreciseCount = impreciseCutoff / impreciseStep;
 
     struct Subspace {
-        FixedArray<MarkedAllocator, preciseCount> preciseAllocators;
-        FixedArray<MarkedAllocator, impreciseCount> impreciseAllocators;
+        std::array<MarkedAllocator, preciseCount> preciseAllocators;
+        std::array<MarkedAllocator, impreciseCount> impreciseAllocators;
         MarkedAllocator largeAllocator;
     };
 
@@ -135,39 +168,42 @@ private:
     Subspace m_normalSpace;
 
     Heap* m_heap;
+    size_t m_capacity;
+    bool m_isIterating;
     MarkedBlockSet m_blocks;
+    Vector<MarkedBlock*> m_blocksWithNewObjects;
+
+    DelayedReleaseScope* m_currentDelayedReleaseScope;
 };
 
-template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachLiveCell(Functor& functor)
+template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachLiveCell(HeapIterationScope&, Functor& functor)
 {
-    canonicalizeCellLivenessData();
-
+    ASSERT(isIterating());
     BlockIterator end = m_blocks.set().end();
     for (BlockIterator it = m_blocks.set().begin(); it != end; ++it)
         (*it)->forEachLiveCell(functor);
     return functor.returnValue();
 }
 
-template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachLiveCell()
+template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachLiveCell(HeapIterationScope& scope)
 {
     Functor functor;
-    return forEachLiveCell(functor);
+    return forEachLiveCell(scope, functor);
 }
 
-template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachDeadCell(Functor& functor)
+template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachDeadCell(HeapIterationScope&, Functor& functor)
 {
-    canonicalizeCellLivenessData();
-
+    ASSERT(isIterating());
     BlockIterator end = m_blocks.set().end();
     for (BlockIterator it = m_blocks.set().begin(); it != end; ++it)
         (*it)->forEachDeadCell(functor);
     return functor.returnValue();
 }
 
-template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachDeadCell()
+template<typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachDeadCell(HeapIterationScope& scope)
 {
     Functor functor;
-    return forEachDeadCell(functor);
+    return forEachDeadCell(scope, functor);
 }
 
 inline MarkedAllocator& MarkedSpace::allocatorFor(size_t bytes)
@@ -217,20 +253,22 @@ inline void* MarkedSpace::allocateWithNormalDestructor(size_t bytes)
 
 template <typename Functor> inline typename Functor::ReturnType MarkedSpace::forEachBlock(Functor& functor)
 {
-    for (size_t i = 0; i < preciseCount; ++i) {
+    for (size_t i = 0; i < preciseCount; ++i)
         m_normalSpace.preciseAllocators[i].forEachBlock(functor);
-        m_normalDestructorSpace.preciseAllocators[i].forEachBlock(functor);
-        m_immortalStructureDestructorSpace.preciseAllocators[i].forEachBlock(functor);
-    }
-
-    for (size_t i = 0; i < impreciseCount; ++i) {
+    for (size_t i = 0; i < impreciseCount; ++i)
         m_normalSpace.impreciseAllocators[i].forEachBlock(functor);
-        m_normalDestructorSpace.impreciseAllocators[i].forEachBlock(functor);
-        m_immortalStructureDestructorSpace.impreciseAllocators[i].forEachBlock(functor);
-    }
-
     m_normalSpace.largeAllocator.forEachBlock(functor);
+
+    for (size_t i = 0; i < preciseCount; ++i)
+        m_normalDestructorSpace.preciseAllocators[i].forEachBlock(functor);
+    for (size_t i = 0; i < impreciseCount; ++i)
+        m_normalDestructorSpace.impreciseAllocators[i].forEachBlock(functor);
     m_normalDestructorSpace.largeAllocator.forEachBlock(functor);
+
+    for (size_t i = 0; i < preciseCount; ++i)
+        m_immortalStructureDestructorSpace.preciseAllocators[i].forEachBlock(functor);
+    for (size_t i = 0; i < impreciseCount; ++i)
+        m_immortalStructureDestructorSpace.impreciseAllocators[i].forEachBlock(functor);
     m_immortalStructureDestructorSpace.largeAllocator.forEachBlock(functor);
 
     return functor.returnValue();
@@ -244,12 +282,22 @@ template <typename Functor> inline typename Functor::ReturnType MarkedSpace::for
 
 inline void MarkedSpace::didAddBlock(MarkedBlock* block)
 {
+    m_capacity += block->capacity();
     m_blocks.add(block);
 }
 
-inline void MarkedSpace::clearMarks()
+inline void MarkedSpace::didAllocateInBlock(MarkedBlock* block)
 {
-    forEachBlock<ClearMarks>();
+#if ENABLE(GGC)
+    m_blocksWithNewObjects.append(block);
+#else
+    UNUSED_PARAM(block);
+#endif
+}
+
+inline void MarkedSpace::clearRememberedSet()
+{
+    forEachBlock<ClearRememberedSet>();
 }
 
 inline size_t MarkedSpace::objectCount()
@@ -264,7 +312,7 @@ inline size_t MarkedSpace::size()
 
 inline size_t MarkedSpace::capacity()
 {
-    return forEachBlock<Capacity>();
+    return m_capacity;
 }
 
 } // namespace JSC

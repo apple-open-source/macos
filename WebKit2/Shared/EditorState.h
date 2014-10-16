@@ -28,10 +28,20 @@
 
 #include "ArgumentCoders.h"
 #include <WebCore/IntRect.h>
-#include <wtf/NotFound.h>
 #include <wtf/text/WTFString.h>
 
+#if PLATFORM(IOS)
+#include <WebCore/SelectionRect.h>
+#endif
+
 namespace WebKit {
+
+enum TypingAttributes {
+    AttributeNone = 0,
+    AttributeBold = 1,
+    AttributeItalics = 2,
+    AttributeUnderline = 4
+};
 
 struct EditorState {
     EditorState()
@@ -43,10 +53,14 @@ struct EditorState {
         , isInPasswordField(false)
         , isInPlugin(false)
         , hasComposition(false)
-#if PLATFORM(QT)
-        , cursorPosition(0)
-        , anchorPosition(0)
-        , inputMethodHints(0)
+#if PLATFORM(IOS)
+        , isReplaceAllowed(false)
+        , hasContent(false)
+        , characterAfterSelection(0)
+        , characterBeforeSelection(0)
+        , twoCharacterBeforeSelection(0)
+        , selectedTextLength(0)
+        , typingAttributes(AttributeNone)
 #endif
     {
     }
@@ -60,27 +74,30 @@ struct EditorState {
     bool isInPasswordField;
     bool isInPlugin;
     bool hasComposition;
-#if PLATFORM(QT)
-    // The anchor, cursor represent either the selection or composition, depending
-    // whether a composition exists or not.
-    unsigned cursorPosition;
-    unsigned anchorPosition;
 
-    WebCore::IntRect editorRect;
-    WebCore::IntRect compositionRect;
-
-    uint64_t inputMethodHints;
-
-    WTF::String selectedText;
-    WTF::String surroundingText;
+#if PLATFORM(IOS)
+    bool isReplaceAllowed;
+    bool hasContent;
+    UChar32 characterAfterSelection;
+    UChar32 characterBeforeSelection;
+    UChar32 twoCharacterBeforeSelection;
+    WebCore::IntRect caretRectAtStart;
+    WebCore::IntRect caretRectAtEnd;
+    Vector<WebCore::SelectionRect> selectionRects;
+    uint64_t selectedTextLength;
+    String wordAtSelection;
+    WebCore::IntRect firstMarkedRect;
+    WebCore::IntRect lastMarkedRect;
+    String markedText;
+    uint32_t typingAttributes;
 #endif
 
-#if PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(GTK)
     WebCore::IntRect cursorRect;
 #endif
 
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, EditorState&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, EditorState&);
 };
 
 }

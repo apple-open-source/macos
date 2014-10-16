@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2003-2005, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2003-2005, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,9 +42,9 @@ static UInt8 *
 S_get_char_array(CFArrayRef arr, CFIndex * len)
 {
     UInt8 *	buf = NULL;
-    int		count = 0;
-    int 	i;
-    int 	real_count;
+    CFIndex	count = 0;
+    CFIndex 	i;
+    CFIndex 	real_count;
 
     if (arr) {
 	count = CFArrayGetCount(arr);
@@ -77,8 +77,8 @@ S_get_char_array(CFArrayRef arr, CFIndex * len)
 static void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
 {
-    int i;
-    int n = CFArrayGetCount(arr);
+    CFIndex i;
+    CFIndex n = CFArrayGetCount(arr);
 
     for (i = 0; i < n; i++) {
 	CFStringRef element = CFArrayGetValueAtIndex(arr, i);

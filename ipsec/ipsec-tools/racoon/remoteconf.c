@@ -358,6 +358,7 @@ duprmconf (struct remoteconf *rmconf)
 
     // zero-out pointers
     new->remote = NULL;
+    new->forced_local = NULL;
     new->keychainCertRef = NULL;	/* peristant keychain ref for cert */
     new->shared_secret = NULL;	/* shared secret */
     new->open_dir_auth_group = NULL;	/* group to be used to authorize user */
@@ -420,6 +421,8 @@ delrmconf(struct remoteconf *rmconf)
 {
 	if (rmconf->remote)
 		racoon_free(rmconf->remote);
+	if (rmconf->forced_local)
+		racoon_free(rmconf->forced_local);
 #ifdef ENABLE_HYBRID
 	if (rmconf->xauth)
 		xauth_rmconf_delete(&rmconf->xauth);
@@ -444,13 +447,6 @@ delrmconf(struct remoteconf *rmconf)
 		vfree(rmconf->keychainCertRef);
 	if (rmconf->open_dir_auth_group)
 		vfree(rmconf->open_dir_auth_group);
-    
-    if (rmconf->eap_options)
-        CFRelease(rmconf->eap_options);
-    if (rmconf->eap_types)
-        deletypes(rmconf->eap_types);
-    if (rmconf->ikev2_cfg_request)
-        CFRelease(rmconf->ikev2_cfg_request);
 
 	racoon_free(rmconf);
 }

@@ -24,9 +24,9 @@
  */
 
 #include "config.h"
-#include "GLPlatformSurface.h"
 
-#if USE(ACCELERATED_COMPOSITING)
+#if USE(3D_GRAPHICS)
+#include "GLPlatformSurface.h"
 
 #if USE(GLX)
 #include "GLXSurface.h"
@@ -42,17 +42,20 @@ namespace WebCore {
 
 static GLPlatformSurface* m_currentDrawable = 0;
 
-PassOwnPtr<GLPlatformSurface> GLPlatformSurface::createOffScreenSurface(SurfaceAttributes attributes)
+std::unique_ptr<GLPlatformSurface> GLPlatformSurface::createOffScreenSurface(SurfaceAttributes attributes)
 {
-    OwnPtr<GLPlatformSurface> surface;
+    std::unique_ptr<GLPlatformSurface> surface;
 #if USE(GLX)
-    surface = adoptPtr(new GLXOffScreenSurface(attributes));
-#else
+    surface = std::make_unique<GLXOffScreenSurface>(attributes);
+#elif USE(EGL) && USE(GRAPHICS_SURFACE)
     surface = EGLOffScreenSurface::createOffScreenSurface(attributes);
+#else
+    // FIXME: Need WGL implementation for Windows
+    notImplemented();
 #endif
 
     if (surface && surface->drawable())
-        return surface.release();
+        return surface;
 
     return nullptr;
 }

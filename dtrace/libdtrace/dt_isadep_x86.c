@@ -54,23 +54,15 @@
 
 #define	DT_MODRM_REG(modrm)	(((modrm) >> 3) & 0x7)
 
-#if defined(__APPLE__)
 static int dt_instr_size(uchar_t *, dtrace_hdl_t *, pid_t, uint64_t, char);
-#else
-static int dt_instr_size(uchar_t *, dtrace_hdl_t *, pid_t, uintptr_t, char);
-#endif
 
 /*ARGSUSED*/
 int
 dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     fasttrap_probe_spec_t *ftp, const GElf_Sym *symp)
 {                
-#if defined(__APPLE__)
 	ftp->ftps_probe_type = DTFTP_ENTRY;
 	ftp->ftps_pc = symp->st_value; // Keep st_value as uint64_t
-#else
-        ftp->ftps_pc = (uintptr_t)symp->st_value;
-#endif
 	ftp->ftps_size = (size_t)symp->st_size;
 	ftp->ftps_noffs = 1;
 	ftp->ftps_offs[0] = 0;
@@ -153,12 +145,8 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		return (DT_PROC_ERR);
 	}
 
-#if defined(__APPLE__)
 	ftp->ftps_probe_type = DTFTP_RETURN;
 	ftp->ftps_pc = symp->st_value;
-#else	
-	ftp->ftps_pc = (uintptr_t)symp->st_value;
-#endif
 	ftp->ftps_size = (size_t)symp->st_size;
 	ftp->ftps_noffs = 0;
 
@@ -280,12 +268,8 @@ int
 dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     fasttrap_probe_spec_t *ftp, const GElf_Sym *symp, ulong_t off)
 {
-#if defined(__APPLE__)
 	ftp->ftps_probe_type = DTFTP_OFFSETS;
 	ftp->ftps_pc = symp->st_value;
-#else	
-	ftp->ftps_pc = (uintptr_t)symp->st_value;
-#endif
 	ftp->ftps_size = (size_t)symp->st_size;
 	ftp->ftps_noffs = 1;
 
@@ -392,12 +376,8 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		return (0);
 	}
 
-#if defined(__APPLE__)
 	ftp->ftps_probe_type = DTFTP_OFFSETS;
 	ftp->ftps_pc = symp->st_value;
-#else	
-	ftp->ftps_pc = (uintptr_t)symp->st_value;
-#endif
 	ftp->ftps_size = (size_t)symp->st_size;
 	ftp->ftps_noffs = 0;
 
@@ -447,11 +427,7 @@ typedef struct dtrace_dis {
 	uchar_t	*instr;
 	dtrace_hdl_t *dtp;
 	pid_t pid;
-#if defined(__APPLE__)
 	uint64_t addr;
-#else
-	uintptr_t addr;
-#endif
 } dtrace_dis_t;
 
 static int
@@ -476,9 +452,7 @@ dt_getbyte(void *data)
 		 */
 		if (ioctl(dis->dtp->dt_ftfd, FASTTRAPIOC_GETINSTR, &instr) == 0) {
 			ret = instr.ftiq_instr;
-#if defined(__APPLE__)
 			*dis->instr = instr.ftiq_instr; // Prevent false jump table detection
-#endif
 		}
 	}
 
@@ -488,13 +462,7 @@ dt_getbyte(void *data)
 	return (ret);
 }
 
-#if defined(__APPLE__)
 static int dt_instr_size(uchar_t *instr, dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char dmodel)
-#else
-static int
-dt_instr_size(uchar_t *instr, dtrace_hdl_t *dtp, pid_t pid, uintptr_t addr,
-    char dmodel)
-#endif
 {
 	dtrace_dis_t data;
 	dis86_t x86dis;

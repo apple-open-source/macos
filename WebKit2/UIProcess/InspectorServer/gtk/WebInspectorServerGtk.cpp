@@ -33,29 +33,42 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <gio/gio.h>
 #include <glib.h>
-#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenate.h>
 
 namespace WebKit {
 
 bool WebInspectorServer::platformResourceForPath(const String& path, Vector<char>& data, String& contentType)
 {
     // The page list contains an unformated list of pages that can be inspected with a link to open a session.
-    if (path == "/pagelist.json") {
+    if (path == "/pagelist.json" || path == "/json") {
         buildPageList(data, contentType);
         return true;
     }
 
     // Point the default path to a formatted page that queries the page list and display them.
-    CString localPath = WebCore::fileSystemRepresentation(inspectorServerFilesPath() + ((path == "/") ? "/webinspector/inspectorPageIndex.html" : path));
-    if (localPath.isNull())
+    CString resourceURI = makeString("resource:///org/webkitgtk/inspector/UserInterface", ((path == "/") ? "/inspectorPageIndex.html" : path)).utf8();
+    if (resourceURI.isNull())
         return false;
 
-    GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(localPath.data()));
-    GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_info(file.get(), G_FILE_ATTRIBUTE_STANDARD_SIZE "," G_FILE_ATTRIBUTE_STANDARD_FAST_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, 0, 0));
-    if (!fileInfo)
-        return false;
+    GRefPtr<GFile> file = adoptGRef(g_file_new_for_uri(resourceURI.data()));
+    GUniqueOutPtr<GError> error;
+    GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_info(file.get(), G_FILE_ATTRIBUTE_STANDARD_SIZE "," G_FILE_ATTRIBUTE_STANDARD_FAST_CONTENT_TYPE, G_FILE_QUERY_INFO_NONE, 0, &error.outPtr()));
+    if (!fileInfo) {
+        StringBuilder builder;
+        builder.appendLiteral("<!DOCTYPE html><html><head></head><body>Error: ");
+        builder.appendNumber(error->code);
+        builder.appendLiteral(", ");
+        builder.append(error->message);
+        builder.appendLiteral(" occurred during fetching inspector resource files.</body></html>");
+        CString cstr = builder.toString().utf8();
+        data.append(cstr.data(), cstr.length());
+        contentType = "text/html; charset=utf-8";
+        g_warning("Error fetching webinspector resource files: %d, %s", error->code, error->message);
+        return true;
+    }
 
     GRefPtr<GFileInputStream> inputStream = adoptGRef(g_file_read(file.get(), 0, 0));
     if (!inputStream)
@@ -65,12 +78,20 @@ bool WebInspectorServer::platformResourceForPath(const String& path, Vector<char
     if (!g_input_stream_read_all(G_INPUT_STREAM(inputStream.get()), data.data(), data.size(), 0, 0, 0))
         return false;
 
-    contentType = GOwnPtr<gchar>(g_file_info_get_attribute_as_string(fileInfo.get(), G_FILE_ATTRIBUTE_STANDARD_FAST_CONTENT_TYPE)).get();
+    contentType = GUniquePtr<gchar>(g_file_info_get_attribute_as_string(fileInfo.get(), G_FILE_ATTRIBUTE_STANDARD_FAST_CONTENT_TYPE)).get();
     return true;
 }
 
 void WebInspectorServer::buildPageList(Vector<char>& data, String& contentType)
 {
+    // chromedevtools (http://code.google.com/p/chromedevtools) 0.3.8 expected JSON format:
+    // {
+    //  "title": "Foo",
+    //  "url": "http://foo",
+    //  "devtoolsFrontendUrl": "/Main.html?ws=localhost:9222/devtools/page/1",
+    //  "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/1"
+    // },
+
     StringBuilder builder;
     builder.appendLiteral("[ ");
     ClientMap::iterator end = m_clientMap.end();
@@ -81,11 +102,25 @@ void WebInspectorServer::buildPageList(Vector<char>& data, String& contentType)
         builder.appendLiteral("{ \"id\": ");
         builder.appendNumber(it->key);
         builder.appendLiteral(", \"title\": \"");
-        builder.append(webPage->pageTitle());
+        builder.append(webPage->pageLoadState().title());
         builder.appendLiteral("\", \"url\": \"");
-        builder.append(webPage->activeURL());
+        builder.append(webPage->pageLoadState().activeURL());
         builder.appendLiteral("\", \"inspectorUrl\": \"");
-        builder.appendLiteral("/webinspector/inspector.html?page=");
+        builder.appendLiteral("/Main.html?page=");
+        builder.appendNumber(it->key);
+        builder.appendLiteral("\", \"devtoolsFrontendUrl\": \"");
+        builder.appendLiteral("/Main.html?ws=");
+        builder.append(bindAddress());
+        builder.appendLiteral(":");
+        builder.appendNumber(port());
+        builder.appendLiteral("/devtools/page/");
+        builder.appendNumber(it->key);
+        builder.appendLiteral("\", \"webSocketDebuggerUrl\": \"");
+        builder.appendLiteral("ws://");
+        builder.append(bindAddress());
+        builder.appendLiteral(":");
+        builder.appendNumber(port());
+        builder.appendLiteral("/devtools/page/");
         builder.appendNumber(it->key);
         builder.appendLiteral("\" }");
     }
@@ -93,20 +128,6 @@ void WebInspectorServer::buildPageList(Vector<char>& data, String& contentType)
     CString cstr = builder.toString().utf8();
     data.append(cstr.data(), cstr.length());
     contentType = "application/json; charset=utf-8";
-}
-
-String WebInspectorServer::inspectorServerFilesPath()
-{
-    if (!m_inspectorServerFilesPath.isNull())
-        return m_inspectorServerFilesPath;
-
-    const char* environmentPath = g_getenv("WEBKIT_INSPECTOR_SERVER_PATH");
-    if (environmentPath && g_file_test(environmentPath, G_FILE_TEST_IS_DIR))
-        m_inspectorServerFilesPath = String(environmentPath);
-    else
-        m_inspectorServerFilesPath = String(WebCore::sharedResourcesPath().data());
-
-    return m_inspectorServerFilesPath;
 }
 
 }

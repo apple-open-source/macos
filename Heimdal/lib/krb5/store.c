@@ -138,9 +138,9 @@ krb5_storage_set_max_alloc(krb5_storage *sp, size_t size)
 static krb5_error_code
 size_too_large(krb5_storage *sp, off_t size)
 {
-    if (sp->max_alloc && sp->max_alloc < size)
+    if (sp->max_alloc && (off_t)sp->max_alloc < size)
 	return HEIM_ERR_TOO_BIG;
-    if (size > SIZE_T_MAX)
+    if (size > (off_t)(SIZE_T_MAX / 16))
 	return HEIM_ERR_TOO_BIG;
     return 0;
 }

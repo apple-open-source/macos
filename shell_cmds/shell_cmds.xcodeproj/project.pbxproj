@@ -1592,7 +1592,7 @@
 		FCBA142A14A141A300AA698B /* xargs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xargs.c; sourceTree = "<group>"; };
 		FCBA142D14A141A300AA698B /* yes.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = yes.1; sourceTree = "<group>"; };
 		FCBA142E14A141A300AA698B /* yes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = yes.c; sourceTree = "<group>"; };
-		FCBA149E14A141FF00AA698B /* alias copy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = "alias copy"; path = apply; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCBA149E14A141FF00AA698B /* apply */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = apply; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA14B414A1422D00AA698B /* basename */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = basename; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA14BD14A1423E00AA698B /* chroot */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chroot; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA14C514A1426800AA698B /* date */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = date; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1600,7 +1600,7 @@
 		FCBA14D514A1433F00AA698B /* echo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = echo; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA14DD14A1434A00AA698B /* env */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = env; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA151414A1453A00AA698B /* expr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = expr; sourceTree = BUILT_PRODUCTS_DIR; };
-		FCBA151C14A1454D00AA698B /* expr copy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = "expr copy"; path = false; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCBA151C14A1454D00AA698B /* false */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = false; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA152414A1455600AA698B /* find */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = find; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA152C14A1455900AA698B /* getopt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = getopt; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCBA153414A1455C00AA698B /* hostname */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hostname; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2082,7 +2082,7 @@
 		FC80BF6114A05A2F00C6F7F5 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FCBA149E14A141FF00AA698B /* alias copy */,
+				FCBA149E14A141FF00AA698B /* apply */,
 				FCBA14B414A1422D00AA698B /* basename */,
 				FCBA14BD14A1423E00AA698B /* chroot */,
 				FCBA14C514A1426800AA698B /* date */,
@@ -2090,7 +2090,7 @@
 				FCBA14D514A1433F00AA698B /* echo */,
 				FCBA14DD14A1434A00AA698B /* env */,
 				FCBA151414A1453A00AA698B /* expr */,
-				FCBA151C14A1454D00AA698B /* expr copy */,
+				FCBA151C14A1454D00AA698B /* false */,
 				FCBA152414A1455600AA698B /* find */,
 				FCBA152C14A1455900AA698B /* getopt */,
 				FCBA153414A1455C00AA698B /* hostname */,
@@ -2675,7 +2675,7 @@
 			);
 			name = apply;
 			productName = shell_cmds;
-			productReference = FCBA149E14A141FF00AA698B /* alias copy */;
+			productReference = FCBA149E14A141FF00AA698B /* apply */;
 			productType = "com.apple.product-type.tool";
 		};
 		FCBA14AE14A1422D00AA698B /* basename */ = {
@@ -2811,7 +2811,7 @@
 			);
 			name = false;
 			productName = shell_cmds;
-			productReference = FCBA151C14A1454D00AA698B /* expr copy */;
+			productReference = FCBA151C14A1454D00AA698B /* false */;
 			productType = "com.apple.product-type.tool";
 		};
 		FCBA151E14A1455600AA698B /* find */ = {

@@ -1144,9 +1144,11 @@ gssapi_server_mech_step(void *conn_context,
 	    }
 	    
 	    ret = params->canon_user(params->utils->conn,
-				     text->authid,
-				     0, /* strlen(text->authid) */
-				     SASL_CU_AUTHID, oparams);
+				 text->authid,
+				 0, /* strlen(text->authid) */
+				 (oparams->user ? 0 : SASL_CU_AUTHZID)
+				 | SASL_CU_AUTHID | SASL_CU_EXTERNALLY_VERIFIED,
+				 oparams);
 	    if (ret != SASL_OK) {
 		sasl_gss_free_context_contents(text);
 		return ret;
@@ -1370,6 +1372,7 @@ static int gssapi_client_mech_step(void *conn_context,
     gss_buffer_desc real_input_token, real_output_token;
 	gss_cred_id_t credential;
     const void *krb5princ = NULL;
+    const void *krb5princ_client = NULL;
     OM_uint32 maj_stat = 0, min_stat = 0;
     OM_uint32 max_input;
     gss_buffer_desc name_token;
@@ -1444,9 +1447,12 @@ static int gssapi_client_mech_step(void *conn_context,
 					
 					newMethod = 1;
 					break;
-				} else if( strcmp(params->props.property_names[ii], "USE-KRB5-PRINCIPAL") == 0 && params->props.property_values[ii] != NULL ) {
+				} else if( strcmp(params->props.property_names[ii], SASL_SEC_PROP_USE_KRB5_PRINCIPAL) == 0 && params->props.property_values[ii] != NULL ) {
 					krb5princ = params->props.property_values[ii];
-				}
+				} else if( strcmp(params->props.property_names[ii], SASL_SEC_PROP_USE_KRB5_PRINCIPAL_CLIENT) == 0 && params->props.property_values[ii] != NULL ) {
+					krb5princ_client = params->props.property_values[ii];
+				} 
+
 			}
 		}
 
@@ -1545,6 +1551,45 @@ static int gssapi_client_mech_step(void *conn_context,
 			    	return SASL_FAIL;
 				}
 			}
+
+			if( krb5princ_client ) {
+				name_token.value = krb5princ_client;
+				name_token.length = sizeof(krb5princ_client);
+				GSS_LOCK_MUTEX(params->utils);
+				maj_stat = gss_import_name (&min_stat,
+											&name_token,
+											(gss_OID)gss_nt_krb5_principal,
+											&text->client_name);
+				GSS_UNLOCK_MUTEX(params->utils);
+				if (GSS_ERROR(maj_stat)) {
+					sasl_gss_seterror(text->utils, maj_stat, min_stat);
+					sasl_gss_free_context_contents(text);
+					return SASL_FAIL;
+				}
+
+				GSS_LOCK_MUTEX(params->utils);
+				maj_stat = gss_acquire_cred(&min_stat, 
+				                             text->client_name,
+				                             0,
+				                             GSS_C_NO_OID_SET,
+				                             GSS_C_INITIATE,
+				                            &credential,
+				                             NULL,
+				                             NULL);
+				GSS_UNLOCK_MUTEX(params->utils);
+	
+				if (GSS_ERROR(maj_stat)) {
+			    	sasl_gss_seterror(text->utils, maj_stat, min_stat);
+			    	if (output_token->value) {
+						GSS_LOCK_MUTEX(params->utils);
+						gss_release_buffer(&min_stat, output_token);
+						GSS_UNLOCK_MUTEX(params->utils);
+			    	}
+			    	sasl_gss_free_context_contents(text);
+			    	return SASL_FAIL;
+				}
+			}
+
 
 			/* this is the original GSS generic code */
 			name_token.length = strlen(params->service) + 1 + strlen(params->serverFQDN);
@@ -1665,6 +1710,9 @@ static int gssapi_client_mech_step(void *conn_context,
 	    	return SASL_FAIL;
 		}
 	}
+
+	gss_release_name(&min_stat, &text->server_name);
+	text->server_name = GSS_C_NO_NAME;
 
 	if ((out_req_flags & GSS_C_DELEG_FLAG) != (req_flags & GSS_C_DELEG_FLAG)) {
 	    text->utils->seterror(text->utils->conn, SASL_LOG_WARN, "GSSAPI warning: no credentials were passed");

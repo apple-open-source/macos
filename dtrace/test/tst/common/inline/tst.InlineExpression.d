@@ -62,11 +62,7 @@ inline double new_double = 2.34567890;
 inline long double new_long_double = 3.567890123;
 */
 
-#if !defined(__APPLE__)
-inline int * pointer = &`kmem_flags;
-#else
 inline unsigned int * pointer = &`max_ncpus;
-#endif /* __APPLE__ */
 inline int result = 3 > 2 ? 3 : 2;
 
 BEGIN

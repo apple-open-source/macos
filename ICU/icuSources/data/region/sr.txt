@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/sr.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/sr.xml
+ * ICU <specials> source: <path>/common/main/sr.xml
  */
 sr{
     Countries{
@@ -193,7 +193,7 @@ sr{
         MH{"Маршалска Острва"}
         MK{"Македонија"}
         ML{"Мали"}
-        MM{"Мијанмар [Бурма]"}
+        MM{"Мијанмар (Бурма)"}
         MN{"Монголија"}
         MO{"Макао С. А. Р. Кина"}
         MP{"Северна Маријанска Острва"}
@@ -294,6 +294,7 @@ sr{
         VU{"Вануату"}
         WF{"Валис и Футуна Острва"}
         WS{"Самоа"}
+        XK{"Косово"}
         YE{"Јемен"}
         YT{"Мајоте"}
         ZA{"Јужноафричка Република"}
@@ -301,5 +302,12 @@ sr{
         ZW{"Зимбабве"}
         ZZ{"Непозната или неважећа област"}
     }
-    Version{"2.0.82.47"}
+    CountriesShort{
+        GB{"УК"}
+        HK{"Хонг Конг"}
+        MO{"Макао"}
+        PS{"Палестина"}
+        US{"САД"}
+    }
+    Version{"2.0.98.52"}
 }

@@ -28,7 +28,7 @@
 
 using namespace WebKit;
 
-static void willSubmitForm(WKPageRef page, WKFrameRef frame, WKFrameRef sourceFrame, WKDictionaryRef values, WKTypeRef userData, WKFormSubmissionListenerRef listener, const void* clientInfo)
+static void willSubmitForm(WKPageRef, WKFrameRef, WKFrameRef, WKDictionaryRef values, WKTypeRef /* userData */, WKFormSubmissionListenerRef listener, const void* clientInfo)
 {
     GRefPtr<WebKitFormSubmissionRequest> request = adoptGRef(webkitFormSubmissionRequestCreate(toImpl(values), toImpl(listener)));
     webkitWebViewSubmitFormRequest(WEBKIT_WEB_VIEW(clientInfo), request.get());
@@ -36,11 +36,13 @@ static void willSubmitForm(WKPageRef page, WKFrameRef frame, WKFrameRef sourceFr
 
 void attachFormClientToView(WebKitWebView* webView)
 {
-    WKPageFormClient wkFormClient = {
-        kWKPageFormClientCurrentVersion,
-        webView, // clientInfo
+    WKPageFormClientV0 wkFormClient = {
+        {
+            0, // version
+            webView, // clientInfo
+        },
         willSubmitForm
     };
     WKPageRef wkPage = toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView)));
-    WKPageSetPageFormClient(wkPage, &wkFormClient);
+    WKPageSetPageFormClient(wkPage, &wkFormClient.base);
 }

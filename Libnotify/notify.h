@@ -94,6 +94,14 @@
 #define NOTIFY_REUSE 0x00000001
 
 
+/*!
+ * Token values are zero or positive integers.
+ * NOTIFY_TOKEN_INVALID is useful as an initial value for
+ * a token value passed as an in/out parameter to one of
+ * the registration routines below.
+ */
+#define NOTIFY_TOKEN_INVALID -1
+
 __BEGIN_DECLS
 
 /*!
@@ -311,6 +319,19 @@ __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
  */
 uint32_t notify_get_state(int token, uint64_t *state64)
 __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
+
+/*!
+ * Determine if a token is valid (currently registered).
+ * Negative integer values are always invalid.  Positive or
+ * zero values are valid only if they are associated with an
+ * existing registratiom.
+ *
+ * @param val
+ *     (input) integer value
+ * @result Returns true if the value is a valid token, false otherwise.
+ */
+bool notify_is_valid_token(int val)
+__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
 
 __END_DECLS
 

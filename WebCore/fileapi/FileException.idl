@@ -30,10 +30,9 @@
 
 [
     NoInterfaceObject,
-    Conditional=BLOB|FILE_SYSTEM,
     DoNotCheckConstants,
     JSNoStaticTables,
-    ImplementationLacksVTable
+    ImplementationLacksVTable,
 ] exception FileException {
 
     readonly attribute unsigned short   code;

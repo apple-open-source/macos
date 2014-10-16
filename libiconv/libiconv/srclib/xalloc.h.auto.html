@@ -1,0 +1,105 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>xalloc.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">xalloc.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* malloc with out of memory checking.
+   Copyright (C) 2001-2004 Free Software Foundation, Inc.
+   Written by Bruno Haible &lt;<a href="mailto:haible@clisp.cons.org">haible@clisp.cons.org</a>&gt;, 2001.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_XALLOC_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_XALLOC_H</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+<span class="enscript-type">extern</span> <span class="enscript-string">&quot;C&quot;</span> {
+#<span class="enscript-reference">endif</span>
+
+
+<span class="enscript-comment">/* Defined in xmalloc.c.  */</span>
+
+<span class="enscript-comment">/* Allocate SIZE bytes of memory dynamically, with error checking.  */</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> *<span class="enscript-function-name">xmalloc</span> (size_t size);
+
+<span class="enscript-comment">/* Allocate memory for NMEMB elements of SIZE bytes, with error checking.  */</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> *<span class="enscript-function-name">xcalloc</span> (size_t nmemb, size_t size);
+
+<span class="enscript-comment">/* Change the size of an allocated block of memory PTR to SIZE bytes,
+   with error checking.  If PTR is NULL, run xmalloc.  */</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> *<span class="enscript-function-name">xrealloc</span> (<span class="enscript-type">void</span> *ptr, size_t size);
+
+<span class="enscript-comment">/* This function is always triggered when memory is exhausted.  It is
+   in charge of honoring the three previous items.  This is the
+   function to call when one wants the program to die because of a
+   memory allocation failure.  */</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">void</span> <span class="enscript-function-name">xalloc_die</span> (<span class="enscript-type">void</span>)
+#<span class="enscript-reference">if</span> (<span class="enscript-variable-name">__GNUC__</span> &gt; 2 || (<span class="enscript-variable-name">__GNUC__</span> == 2 &amp;&amp; <span class="enscript-variable-name">__GNUC_MINOR__</span> &gt;= 5)) &amp;&amp; !<span class="enscript-variable-name">__STRICT_ANSI__</span>
+     __attribute__ ((__noreturn__))
+#<span class="enscript-reference">endif</span>
+     ;
+
+
+<span class="enscript-comment">/* Defined in xstrdup.c.  */</span>
+
+<span class="enscript-comment">/* Return a newly allocated copy of STRING.  */</span>
+<span class="enscript-type">extern</span> <span class="enscript-type">char</span> *<span class="enscript-function-name">xstrdup</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *string);
+
+
+<span class="enscript-comment">/* Return 1 if an array of N objects, each of size S, cannot exist due
+   to size arithmetic overflow.  S must be positive and N must be
+   nonnegative.  This is a macro, not an inline function, so that it
+   works correctly even when SIZE_MAX &lt; N.
+
+   By gnulib convention, SIZE_MAX represents overflow in size
+   calculations, so the conservative dividend to use here is
+   SIZE_MAX - 1, since SIZE_MAX might represent an overflowed value.
+   However, malloc (SIZE_MAX) fails on all known hosts where
+   sizeof (ptrdiff_t) &lt;= sizeof (size_t), so do not bother to test for
+   exactly-SIZE_MAX allocations on such hosts; this avoids a test and
+   branch when S is known to be 1.  */</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">xalloc_oversized</span>(n, s) \
+    ((size_t) (<span class="enscript-keyword">sizeof</span> (ptrdiff_t) &lt;= <span class="enscript-keyword">sizeof</span> (size_t) ? -1 : -2) / (s) &lt; (n))
+
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+}
+#<span class="enscript-reference">endif</span>
+
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _XALLOC_H */</span>
+</pre>
+<hr />
+</body></html>

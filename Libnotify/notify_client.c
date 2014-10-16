@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -42,6 +43,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 #include <libkern/OSAtomic.h>
 #include <Block.h>
 #include <dispatch/dispatch.h>
@@ -55,15 +57,7 @@
 #include "notify_ipc.h"
 #include "notify_private.h"
 
-#if TARGET_IPHONE_SIMULATOR
-/*
- * Give the host more than enough token_ids, nothing should actually be using it except Libinfo.
- * <rdar://problem/11352452>
- */
-#define INITIAL_TOKEN_ID (1 << 20)
-#else
 #define INITIAL_TOKEN_ID 0
-#endif
 
 // <rdar://problem/10385540>
 WEAK_IMPORT_ATTRIBUTE bool _dispatch_is_multithreaded(void);
@@ -121,6 +115,75 @@ static void _notify_lib_regenerate(int src);
 static void notify_retain_mach_port(mach_port_t mp, int mine);
 static void _notify_dispatch_handle(mach_port_t port);
 static notify_state_t *_notify_lib_self_state();
+
+#if TARGET_IPHONE_SIMULATOR
+const char *
+_notify_shm_id()
+{
+	static dispatch_once_t once;
+	static char *shm_id;
+
+	dispatch_once(&once, ^{
+		// According to documentation, our shm_id must be no more than 31 characters long
+		// but in practice, even 31 characters is too long (<rdar://problem/16860882>),
+		// so we jump through some hoops to make a smaller string based on our UDID.
+		const char *udid = getenv("SIMULATOR_UDID");
+		if (udid && strlen(udid) == 36) {
+			char scratch[34]; // 32 characters, 2 NUL
+
+			// 01234567890123456789012345678901234567890
+			// UUUUUUUU-UUUU-UUUU-LLLL-LLLLLLLLLLLL
+			memcpy(scratch, udid, 8);
+			memcpy(scratch+8, udid+9, 4);
+			memcpy(scratch+12, udid+14, 4);
+			scratch[16] = '\0';
+
+			memcpy(scratch+17, udid+19, 4);
+			memcpy(scratch+21, udid+24, 12);
+			scratch[33] = '\0';
+
+			// If the input is invalid, these will end up being undefined
+			// values, but they'll still be values we can use.
+			uint64_t upper = strtoull(scratch, NULL, 16);
+			uint64_t lower = strtoull(scratch + 17, NULL, 16);
+
+			const char *c64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+			scratch[0]  = c64[(upper >> 57) & 0xf];
+			scratch[1]  = c64[(upper >> 50) & 0xf];
+			scratch[2]  = c64[(upper >> 43) & 0xf];
+			scratch[3]  = c64[(upper >> 36) & 0xf];
+			scratch[4]  = c64[(upper >> 29) & 0xf];
+			scratch[5]  = c64[(upper >> 22) & 0xf];
+			scratch[6]  = c64[(upper >> 15) & 0xf];
+			scratch[7]  = c64[(upper >>  8) & 0xf];
+			scratch[8]  = c64[(upper >>  1) & 0xf];
+			// Drop a bit on the floor, but that probably doesn't matter.  It does not need to be reversible
+
+			scratch[10] = c64[(lower >> 57) & 0xf];
+			scratch[11] = c64[(lower >> 50) & 0xf];
+			scratch[12] = c64[(lower >> 43) & 0xf];
+			scratch[13] = c64[(lower >> 36) & 0xf];
+			scratch[14] = c64[(lower >> 29) & 0xf];
+			scratch[15] = c64[(lower >> 22) & 0xf];
+			scratch[16] = c64[(lower >> 15) & 0xf];
+			scratch[17] = c64[(lower >>  8) & 0xf];
+			scratch[18] = c64[(lower >>  1) & 0xf];
+			// Drop a bit on the floor, but that probably doesn't matter.  It does not need to be reversible
+
+			scratch[19] = '\0';
+
+			asprintf(&shm_id, "sim.not.%s", scratch);
+			assert(shm_id);
+		}
+
+		if (!shm_id) {
+			shm_id = "apple.shm.notification_center";
+		}
+	});
+
+	return shm_id;
+}
+#endif
 
 static int
 shm_attach(uint32_t size)
@@ -888,8 +951,38 @@ notify_set_options(uint32_t opts)
 {
 	notify_globals_t globals = _notify_globals();
 
-	/* ignore the call if NOTIFY_OPT_DISABLE is set */
-	if (globals->client_opts & NOTIFY_OPT_DISABLE) return;
+	/* NOTIFY_OPT_DISABLE can be unset with NOTIFY_OPT_ENABLE */
+	if (globals->client_opts & NOTIFY_OPT_DISABLE)
+	{
+		if ((opts & NOTIFY_OPT_ENABLE) == 0) return;
+
+		/* re-enable by swapping in the saved server port and saved opts*/
+		pthread_mutex_lock(&globals->notify_lock);
+
+		globals->client_opts = globals->saved_opts;
+		globals->notify_server_port = globals->saved_server_port;
+
+		pthread_mutex_unlock(&globals->notify_lock);
+		return;
+	}
+
+	/*
+	 * A client can disable the library even if the server port has already been fetched.
+	 * Note that this could race with another thread making a Libnotify call.
+	 */
+	if (opts & NOTIFY_OPT_DISABLE)
+	{
+		pthread_mutex_lock(&globals->notify_lock);
+
+		globals->saved_opts = globals->client_opts;
+		globals->client_opts = NOTIFY_OPT_DISABLE;
+
+		globals->saved_server_port = globals->notify_server_port;
+		globals->notify_server_port = MACH_PORT_NULL;
+
+		pthread_mutex_unlock(&globals->notify_lock);
+		return;
+	}
 
 	globals->client_opts = opts;
 
@@ -1177,24 +1270,30 @@ _notify_dispatch_handle(mach_port_t port)
 
 	t = token_table_find_retain(token);
 
-	if ((t != NULL) && (t->queue != NULL) && (t->block != NULL))
+	if (t != NULL)
 	{
-		/*
-		 * Don't reference into the token table node after token_table_release().
-		 * If the block calls notify_cancel, the node can get trashed, so
-		 * we keep anything we need from the block (properly retained and released)
-		 * in local variables.  Concurrent notify_cancel() calls in the block are safe.
-		 */
-		notify_handler_t theblock = Block_copy(t->block);
-		dispatch_queue_t thequeue = t->queue;
-		dispatch_retain(thequeue);
+		if ((t->queue != NULL) && (t->block != NULL))
+		{
+			/*
+			 * Don't reference into the token table node after token_table_release().
+			 * If the block calls notify_cancel, the node can get trashed, so
+			 * we keep anything we need from the block (properly retained and released)
+			 * in local variables.  Concurrent notify_cancel() calls in the block are safe.
+			 */
+			notify_handler_t theblock = Block_copy(t->block);
+			dispatch_queue_t thequeue = t->queue;
+			dispatch_retain(thequeue);
+
+			dispatch_async(thequeue, ^{
+				token_table_node_t *t = token_table_find_no_lock(token);
+				if (t != NULL) theblock(token);
+			});
+
+			_Block_release(theblock);
+			dispatch_release(thequeue);
+		}
 
 		token_table_release(t);
-
-		dispatch_async(thequeue, ^{ theblock(token); });
-
-		_Block_release(theblock);
-		dispatch_release(thequeue);
 	}
 }
 
@@ -2212,6 +2311,26 @@ notify_cancel(int token)
 	else if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 
 	return NOTIFY_STATUS_OK;
+}
+
+bool
+notify_is_valid_token(int val)
+{
+	token_table_node_t *t;
+	bool valid = false;
+
+	if (val < 0) return false;
+
+	notify_globals_t globals = _notify_globals();
+
+	pthread_mutex_lock(&globals->notify_lock);
+
+	t = (token_table_node_t *)_nc_table_find_n(globals->token_table, val);
+	if (t != NULL) valid = true;
+
+	pthread_mutex_unlock(&globals->notify_lock);
+
+	return valid;
 }
 
 uint32_t

@@ -1,0 +1,35 @@
+#
+# test handling of expired Apple development CA certs, Radar 3622125.
+#
+
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+#
+# Original Dev CA expires Sep 7, 2007
+# New Dev CA expires Dec 31, 2008
+# leaf cert expires Oct 13, 2006
+#
+# After initial sanity checks, we evaluate at a time after the 
+# original CA expired and before the new CA expires; we assume
+# that the leaf is expired in all cases. 
+#
+
+test = "No CA input certs, both CAs in DlDb"
+cert = dmitchtread.cer
+root = AppleDevRoot.pem
+certDb = appleDevCAs.keychain
+verifyTime = 20071201000000
+error = CSSMERR_TP_CERT_EXPIRED
+# leaf expired
+# IS_IN_INPUT_CERTS | EXPIRED
+certstatus = 0:0x05
+# !IS_IN_INPUT_CERTS, !EXPIRED
+certstatus = 1:0x0
+# IS_IN_ANCHORS  IS_ROOT
+certstatus = 2:0x18
+end

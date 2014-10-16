@@ -4,50 +4,19 @@
 Project = python_modules
 PYTHONPROJECT = python
 MYFIX = $(SRCROOT)/fix
-VERSIONERDIR = /usr/local/versioner
+_VERSIONERDIR := /usr/local/versioner
+# Look for /usr/local/versioner in $(SDKROOT), defaulting to /usr/local/versioner
+VERSIONERDIR := $(or $(wildcard $(SDKROOT)$(_VERSIONERDIR)),$(_VERSIONERDIR))
 PYTHONVERSIONS = $(VERSIONERDIR)/$(PYTHONPROJECT)/versions
-INCOMPATIBLE = 3.0
+INCOMPATIBLE =
 DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PYTHONVERSIONS))
-VERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
+KNOWNVERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
+BOOTSTRAPPYTHON =
+VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPYTHON))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PYTHONPROJECT) -I$(MYFIX) -framework CoreFoundation
-NO64 = 2.5
 OSV = OpenSourceVersions
 OSL = OpenSourceLicenses
-
-RSYNC = rsync -rlpt
-PWD = $(shell pwd)
-ifndef DSTROOT
-ifdef DESTDIR
-export DSTROOT = $(shell mkdir -p '$(DESTDIR)' && echo '$(DESTDIR)')
-else
-export DSTROOT = /
-endif
-endif
-ifndef OBJROOT
-export OBJROOT = $(shell mkdir -p '$(PWD)/OBJROOT' && echo '$(PWD)/OBJROOT')
-RSYNC += --exclude=OBJROOT
-endif
-ifndef SRCROOT
-export SRCROOT = $(PWD)
-endif
-ifndef SYMROOT
-export SYMROOT = $(shell mkdir -p '$(PWD)/SYMROOT' && echo '$(PWD)/SYMROOT')
-RSYNC += --exclude=SYMROOT
-endif
-ifndef RC_ARCHS
-export RC_ARCHS = $(shell arch)
-export RC_$(RC_ARCHS) = YES
-endif
-ifndef RC_CFLAGS
-export RC_CFLAGS = $(foreach A,$(RC_ARCHS),-arch $(A)) $(RC_NONARCH_CFLAGS)
-endif
-ifndef RC_NONARCH_CFLAGS
-export RC_NONARCH_CFLAGS = -pipe
-endif
-ifndef RC_ProjectName
-export RC_ProjectName = $(Project)
-endif
 
 FIX = $(VERSIONERDIR)/$(PYTHONPROJECT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
@@ -58,11 +27,10 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 installsrc: afterinstallsrc
 
 afterinstallsrc:
-	$(MAKE) -f Makefile afterinstallsrc Project=$(Project) TOPSRCROOT="$(SRCROOT)"
-	$(MAKE) -C $(SRCROOT)/tmpprefix afterinstallsrc TOPSRCROOT="$(SRCROOT)"
-	for vers in $(VERSIONS); do \
-	    [ ! -d $$vers ] || $(MAKE) -C $$vers -f Makefile afterinstallsrc Project=$(Project) SRCROOT="$(SRCROOT)/$$vers" TOPSRCROOT="$(SRCROOT)" || exit 1; \
+	for i in $(SRCROOT)/Modules/*; do \
+	    [ ! -d $$i ] || $(MAKE) -C $$i afterinstallsrc Project=$(Project) || exit 1; \
 	done
+	$(MAKE) -C $(SRCROOT)/tmpprefix afterinstallsrc
 
 build::
 	$(MKDIR) $(OBJROOT)/$(OSL)
@@ -72,27 +40,13 @@ build::
 	    TMPPREFIX='$(TMPPREFIX)'
 	@set -x && \
 	for vers in $(VERSIONS); do \
-	    no64= && \
-	    for n in $(NO64); do \
-		if [ $$n = $$vers ]; then \
-		    no64=YES; \
-		    break; \
-		fi; \
-	    done && \
-	    Copt= && \
-	    srcroot='$(SRCROOT)' && \
-	    if [ -d $$vers ]; then \
-		srcroot="$(SRCROOT)/$$vers"; \
-		Copt="-C $$vers"; \
-	    fi && \
 	    mkdir -p "$(SYMROOT)/$$vers" && \
 	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" || exit 1; \
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
+		PATH="$(TMPPREFIX)/bin:$$PATH" \
 		VERSIONER_PYTHON_VERSION=$$vers \
 		VERSIONER_PYTHON_PREFER_32_BIT=yes \
-		$(MAKE) $$Copt -f Makefile install Project=$(Project) NO64=$$no64 \
-		SRCROOT="$$srcroot" \
-		TOPSRCROOT="$(SRCROOT)" \
+		$(MAKE) -f Makefile install Project=$(Project) \
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \

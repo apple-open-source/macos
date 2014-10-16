@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,9 +40,19 @@
 #include <GSS/gssapi_netlogon.h>
 #include "gssd.h"
 
+/*
+ * Limit the number of contexts that we can have.
+ * If a kernel thread gets a context from us with 
+ * CONTINUE NEEDED, but never finish the context we
+ * and then loops before we idle out we can end up 
+ * consuming a large amount of memory.
+ */
+#define MAX_GSS_CONTEXTS 100
+
 static void *rootp = (void *)0;
 static pthread_mutex_t smutex;
 static pthread_once_t sonce = PTHREAD_ONCE_INIT;
+int ctx_counter = 0;
 
 
 static void
@@ -71,7 +81,16 @@ gssd_enter(void *ptr)
 
 	pthread_once(&sonce, init);
 	(void) pthread_mutex_lock(&smutex);
-	(void) tsearch(ptr, &rootp, compare);
+	if (ctx_counter > MAX_GSS_CONTEXTS) {
+		Log("To many contexes. Exiting\n");
+		/* Will exit with 0 so lanchd will start as again */
+		exit(0);
+	}
+	
+	if ((tfind(ptr, &rootp, compare) == (void *)0)) {
+		if (tsearch(ptr, &rootp, compare))
+			ctx_counter++;
+	}
 	(void) pthread_mutex_unlock(&smutex);
 }
 
@@ -83,7 +102,8 @@ gssd_remove(void *ptr)
 
 	pthread_once(&sonce, init);
 	(void) pthread_mutex_lock(&smutex);
-		(void) tdelete(ptr, &rootp, compare);
+	if (tdelete(ptr, &rootp, compare))
+		ctx_counter--;
 	(void) pthread_mutex_unlock(&smutex);
 }
 

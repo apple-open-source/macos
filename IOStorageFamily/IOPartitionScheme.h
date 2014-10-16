@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,18 @@
  */
 
 #define kIOPartitionSchemeClass "IOPartitionScheme"
+
+/*!
+ * @defined kIOMediaBaseKey
+ * @abstract
+ * A property of IOMedia objects.
+ * @discussion
+ * The kIOMediaBaseKey property has an OSNumber value and is placed into an
+ * IOMedia instance created via the partition scheme. It describes the byte
+ * offset of the partition relative to the provider media.
+ */
+
+#define kIOMediaBaseKey "Base"
 
 /*!
  * @defined kIOMediaLiveKey
@@ -368,6 +380,28 @@ public:
      */
 
     virtual void unlockPhysicalExtents(IOService * client);
+
+    /*!
+     * @function setPriority
+     * @discussion
+     * Reprioritize read or write requests at the specified byte offsets.
+     * @param client
+     * Client requesting the operation.
+     * @param extents
+     * List of extents.  See IOStorageExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
+     * @param priority
+     * New priority.  See IOStoragePriority.
+     * @result
+     * Returns the status of the operation.
+     */
+
+    virtual IOReturn setPriority(IOService *       client,
+                                 IOStorageExtent * extents,
+                                 UInt32            extentsCount,
+                                 IOStoragePriority priority);
 
     /*
      * Obtain this object's provider.  We override the superclass's method

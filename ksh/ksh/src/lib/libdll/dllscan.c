@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1997-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1997-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -502,7 +502,7 @@ dllsread(register Dllscan_t* scan)
 			scan->disc.key = offsetof(Uniq_t, name);
 			scan->disc.size = 0;
 			scan->disc.link = offsetof(Uniq_t, link);
-			if (!(scan->dict = dtopen(&scan->disc, Dthash)))
+			if (!(scan->dict = dtopen(&scan->disc, Dtset)))
 				return 0;
 			dtinsert(scan->dict, scan->uniq);
 		}
@@ -521,5 +521,6 @@ dllsread(register Dllscan_t* scan)
 		strcpy(scan->uniq->name, b);
 	scan->entry.name = b;
 	scan->entry.path = p;
+	errorf("dll", NiL, -1, "dllsread: %s bound to %s", b, p);
 	return &scan->entry;
 }

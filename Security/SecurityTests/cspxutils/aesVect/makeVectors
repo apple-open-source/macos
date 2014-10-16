@@ -1,0 +1,31 @@
+#! /bin/csh -f
+#
+# Create an AES vector text file, using aesVect, which will be compared against
+# ecb_vk.txt or ecb_vt.txt.
+#
+# usage: makeVectors r|t vectorStyle headerFile outFile
+#
+if ( $#argv != 4 ) then
+        echo Usage: makeVectors r\|t vectorStyle headerFile outFile
+        exit(1)
+endif
+#
+# start with header
+#
+set outFile=$argv[4]
+set separator="=========="
+
+cat $argv[3] > $outFile
+#
+# run thru all three key sizes
+#
+aesVect $argv[1] $argv[2] k=128 >> $outFile
+echo $separator >> $outFile 
+echo "" >> $outFile
+aesVect $argv[1] $argv[2] k=192 >> $outFile
+echo $separator >> $outFile 
+echo "" >> $outFile
+aesVect $argv[1] $argv[2] k=256 >> $outFile
+echo $separator >> $outFile 
+
+

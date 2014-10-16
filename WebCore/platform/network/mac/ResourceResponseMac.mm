@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,8 +33,6 @@
 #import <limits>
 #import <wtf/StdLibExtras.h>
 
-using namespace std;
-
 @interface NSURLResponse (WebNSURLResponseDetails)
 - (NSTimeInterval)_calculatedExpiration;
 - (id)_initWithCFURLResponse:(CFURLResponseRef)response;
@@ -45,18 +43,13 @@ using namespace std;
 
 namespace WebCore {
 
-static NSString* const commonHeaderFields[] = {
-    @"Age", @"Cache-Control", @"Content-Type", @"Date", @"Etag", @"Expires", @"Last-Modified", @"Pragma"
-};
-static const int numCommonHeaderFields = sizeof(commonHeaderFields) / sizeof(AtomicString*);
-
 void ResourceResponse::initNSURLResponse() const
 {
     // Work around a mistake in the NSURLResponse class - <rdar://problem/6875219>.
     // The init function takes an NSInteger, even though the accessor returns a long long.
     // For values that won't fit in an NSInteger, pass -1 instead.
     NSInteger expectedContentLength;
-    if (m_expectedContentLength < 0 || m_expectedContentLength > numeric_limits<NSInteger>::max())
+    if (m_expectedContentLength < 0 || m_expectedContentLength > std::numeric_limits<NSInteger>::max())
         expectedContentLength = -1;
     else
         expectedContentLength = static_cast<NSInteger>(m_expectedContentLength);
@@ -86,15 +79,19 @@ NSURLResponse *ResourceResponse::nsURLResponse() const
 }
 
 ResourceResponse::ResourceResponse(NSURLResponse* nsResponse)
-    : m_cfResponse([nsResponse _CFURLResponse])
-    , m_nsResponse(nsResponse)
-    , m_initLevel(Uninitialized)
+    : m_initLevel(Uninitialized)
     , m_platformResponseIsUpToDate(true)
+    , m_cfResponse([nsResponse _CFURLResponse])
+    , m_nsResponse(nsResponse)
 {
     m_isNull = !nsResponse;
 }
 
 #else
+
+static NSString* const commonHeaderFields[] = {
+    @"Age", @"Cache-Control", @"Content-Type", @"Date", @"Etag", @"Expires", @"Last-Modified", @"Pragma"
+};
 
 NSURLResponse *ResourceResponse::nsURLResponse() const
 {
@@ -123,7 +120,7 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
         // Workaround for <rdar://problem/8757088>, can be removed once that is fixed.
         unsigned textEncodingNameLength = m_textEncodingName.length();
         if (textEncodingNameLength >= 2 && m_textEncodingName[0U] == '"' && m_textEncodingName[textEncodingNameLength - 1] == '"')
-            m_textEncodingName = m_textEncodingName.substring(1, textEncodingNameLength - 2);
+            m_textEncodingName = m_textEncodingName.string().substring(1, textEncodingNameLength - 2);
 
         if ([m_nsResponse.get() isKindOfClass:[NSHTTPURLResponse class]]) {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)m_nsResponse.get();
@@ -132,9 +129,9 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
 
             NSDictionary *headers = [httpResponse allHeaderFields];
             
-            for (int i = 0; i < numCommonHeaderFields; i++) {
+            for (unsigned i = 0; i < WTF_ARRAY_LENGTH(commonHeaderFields); ++i) {
                 if (NSString* headerValue = [headers objectForKey:commonHeaderFields[i]])
-                    m_httpHeaderFields.set([commonHeaderFields[i] UTF8String], headerValue);
+                    m_httpHeaderFields.set(String(commonHeaderFields[i]), headerValue);
             }
         } else
             m_httpStatusCode = 0;
@@ -157,7 +154,7 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
             NSDictionary *headers = [httpResponse allHeaderFields];
             NSEnumerator *e = [headers keyEnumerator];
             while (NSString *name = [e nextObject])
-                m_httpHeaderFields.set(name, [headers objectForKey:name]);
+                m_httpHeaderFields.set(String(name), [headers objectForKey:name]);
             
             [pool drain];
         }
@@ -177,7 +174,7 @@ bool ResourceResponse::platformCompare(const ResourceResponse& a, const Resource
 
 #endif // USE(CFNETWORK)
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
 
 void ResourceResponse::setCertificateChain(CFArrayRef certificateChain)
 {
@@ -193,7 +190,7 @@ RetainPtr<CFArrayRef> ResourceResponse::certificateChain() const
     return adoptCF(wkCopyNSURLResponseCertificateChain(nsURLResponse()));
 }
 
-#endif // PLATFORM(MAC) || USE(CFNETWORK)
+#endif // PLATFORM(COCOA) || USE(CFNETWORK)
 
 } // namespace WebCore
 

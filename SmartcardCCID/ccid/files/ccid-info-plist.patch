@@ -1,5 +1,5 @@
---- src/Info.plist.src	2009-07-17 09:15:52.000000000 -0700
-+++ src/Info.plist.src	2010-04-14 17:38:14.000000000 -0700
+--- src/Info.plist.src	2013-01-27 11:53:40.000000000 +0100
++++ src/Info.plist.src	2013-08-20 12:22:41.000000000 +0200
 @@ -35,7 +35,7 @@
  	<string>0x00000001</string>
  
@@ -9,4 +9,3 @@
  
  	<!-- Possible values for ifdLogLevel
  	1: CRITICAL  important error messages
-

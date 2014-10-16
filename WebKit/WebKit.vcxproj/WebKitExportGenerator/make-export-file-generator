@@ -29,7 +29,7 @@ output_file = ARGV[1]
 require 'erb'
 
 def line_for_output line
-  return line.chomp if line =~ /#/
+    return line.chomp if line =~ /#/
     return "    printf(\"%s\\n\",#{line.chomp});" if line =~ /symbolWithPointer/
     return "    printf(\"#{line.chomp}\\n\");"
 end

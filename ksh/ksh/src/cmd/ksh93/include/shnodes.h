@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -41,7 +41,7 @@
 #define FALTPIPE	(02000<<COMBITS)	/* alternate pipes &| */
 #define FPOSIX		(02<<COMBITS)		/* posix semantics function */
 #define FLINENO		(04<<COMBITS)		/* for/case has line number */
-#define FOPTGET		(010<<COMBITS)		/* function calls getopts */
+#define FOPTGET		(0200<<COMBITS)		/* function calls getopts */
 
 #define TNEGATE		(01<<COMBITS)		/* ! inside [[...]] */
 #define TBINARY		(02<<COMBITS)		/* binary operator in [[...]] */
@@ -211,7 +211,7 @@ union Shnode_u
 
 extern void			sh_freeup(Shell_t*);
 extern void			sh_funstaks(struct slnod*,int);
-extern Sfio_t 			*sh_subshell(Shell_t*,Shnode_t*, int, int);
+extern Sfio_t 			*sh_subshell(Shell_t*,Shnode_t*, volatile int, int);
 #if defined(__EXPORT__) && defined(_BLD_DLL) && defined(_BLD_shell) 
    __EXPORT__
 #endif

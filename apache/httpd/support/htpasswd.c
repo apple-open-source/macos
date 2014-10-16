@@ -38,13 +38,9 @@
  *  7: Failure; file is not a valid htpasswd file
  */
 
-#include "apr.h"
-#include "apr_lib.h"
-#include "apr_strings.h"
-#include "apr_errno.h"
-#include "apr_file_io.h"
-#include "apr_general.h"
+#include "passwd_common.h"
 #include "apr_signal.h"
+#include "apr_getopt.h"
 
 #if APR_HAVE_STDIO_H
 #include <stdio.h>
@@ -52,11 +48,7 @@
 
 #include "apr_md5.h"
 #include "apr_sha1.h"
-#include <time.h>
 
-#if APR_HAVE_CRYPT_H
-#include <crypt.h>
-#endif
 #if APR_HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -72,221 +64,60 @@
 #define unlink _unlink
 #endif
 
-#if !APR_CHARSET_EBCDIC
-#define LF 10
-#define CR 13
-#else /*APR_CHARSET_EBCDIC*/
-#define LF '\n'
-#define CR '\r'
-#endif /*APR_CHARSET_EBCDIC*/
-
-#define MAX_STRING_LEN 256
-#define ALG_PLAIN 0
-#define ALG_CRYPT 1
-#define ALG_APMD5 2
-#define ALG_APSHA 3
-
-#define ERR_FILEPERM 1
-#define ERR_SYNTAX 2
-#define ERR_PWMISMATCH 3
-#define ERR_INTERRUPTED 4
-#define ERR_OVERFLOW 5
-#define ERR_BADUSER 6
-#define ERR_INVALID 7
-
 #define APHTP_NEWFILE        1
 #define APHTP_NOFILE         2
-#define APHTP_NONINTERACTIVE 4
-#define APHTP_DELUSER        8
+#define APHTP_DELUSER        4
+#define APHTP_VERIFY         8
 
-apr_file_t *errfile;
 apr_file_t *ftemp = NULL;
 
-#define NL APR_EOL_STR
-
-static void to64(char *s, unsigned long v, int n)
+static int mkrecord(struct passwd_ctx *ctx, char *user)
 {
-    static unsigned char itoa64[] =         /* 0 ... 63 => ASCII - 64 */
-        "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    char hash_str[MAX_STRING_LEN];
+    int ret;
+    ctx->out = hash_str;
+    ctx->out_len = sizeof(hash_str);
 
-    while (--n >= 0) {
-        *s++ = itoa64[v&0x3f];
-        v >>= 6;
-    }
-}
+    ret = mkhash(ctx);
+    if (ret)
+        return ret;
 
-static void generate_salt(char *s, size_t size)
-{
-    static unsigned char tbl[] = 
-        "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    size_t i;
-    for (i = 0; i < size; ++i) {
-        int idx = (int) (64.0 * rand() / (RAND_MAX + 1.0));
-        s[i] = tbl[idx];
-    }
-}
-
-static apr_status_t seed_rand(void)
-{
-    int seed = 0;
-    apr_status_t rv;
-    rv = apr_generate_random_bytes((unsigned char*) &seed, sizeof(seed));
-    if (rv) {
-        apr_file_printf(errfile, "Unable to generate random bytes: %pm" NL, &rv);
-        return rv;
-    }
-    srand(seed);
-    return rv;
-}
-
-static void putline(apr_file_t *f, const char *l)
-{
-    apr_status_t rc;
-    rc = apr_file_puts(l, f);
-    if (rc != APR_SUCCESS) {
-        char errstr[MAX_STRING_LEN];
-        apr_strerror(rc, errstr, MAX_STRING_LEN);
-        apr_file_printf(errfile, "Error writing temp file: %s" NL, errstr);
-        apr_file_close(f);
-        exit(ERR_FILEPERM);
-    }
-}
-
-/*
- * Make a password record from the given information.  A zero return
- * indicates success; failure means that the output buffer contains an
- * error message instead.
- */
-static int mkrecord(char *user, char *record, apr_size_t rlen, char *passwd,
-                    int alg)
-{
-    char *pw;
-    char cpw[120];
-    char pwin[MAX_STRING_LEN];
-    char pwv[MAX_STRING_LEN];
-    char salt[9];
-    apr_size_t bufsize;
-#if (!(defined(WIN32) || defined(NETWARE)))
-    char *cbuf;
-#endif
-
-    if (passwd != NULL) {
-        pw = passwd;
-    }
-    else {
-        bufsize = sizeof(pwin);
-        if (apr_password_get("New password: ", pwin, &bufsize) != 0) {
-            apr_snprintf(record, (rlen - 1), "password too long (>%"
-                         APR_SIZE_T_FMT ")", sizeof(pwin) - 1);
-            return ERR_OVERFLOW;
-        }
-        bufsize = sizeof(pwv);
-        apr_password_get("Re-type new password: ", pwv, &bufsize);
-        if (strcmp(pwin, pwv) != 0) {
-            apr_cpystrn(record, "password verification error", (rlen - 1));
-            return ERR_PWMISMATCH;
-        }
-        pw = pwin;
-        memset(pwv, '\0', sizeof(pwin));
-    }
-    switch (alg) {
-
-    case ALG_APSHA:
-        /* XXX cpw >= 28 + strlen(sha1) chars - fixed len SHA */
-        apr_sha1_base64(pw,strlen(pw),cpw);
-        break;
-
-    case ALG_APMD5:
-        if (seed_rand()) {
-            break;
-        }
-        generate_salt(&salt[0], 8);
-        salt[8] = '\0';
-
-        apr_md5_encode((const char *)pw, (const char *)salt,
-                     cpw, sizeof(cpw));
-        break;
-
-    case ALG_PLAIN:
-        /* XXX this len limitation is not in sync with any HTTPd len. */
-        apr_cpystrn(cpw,pw,sizeof(cpw));
-        break;
-
-#if (!(defined(WIN32) || defined(NETWARE)))
-    case ALG_CRYPT:
-    default:
-        if (seed_rand()) {
-            break;
-        }
-        to64(&salt[0], rand(), 8);
-        salt[8] = '\0';
-
-        cbuf = crypt(pw, salt);
-        if (cbuf == NULL) {
-            char errbuf[128];
-
-            apr_snprintf(record, rlen-1, "crypt() failed: %s", 
-                         apr_strerror(errno, errbuf, sizeof errbuf));
-            return ERR_PWMISMATCH;
-        }
-
-        apr_cpystrn(cpw, cbuf, sizeof(cpw) - 1);
-        if (strlen(pw) > 8) {
-            char *truncpw = strdup(pw);
-            truncpw[8] = '\0';
-            if (!strcmp(cpw, crypt(truncpw, salt))) {
-                apr_file_printf(errfile, "Warning: Password truncated to 8 characters "
-                                "by CRYPT algorithm." NL);
-            }
-            free(truncpw);
-        }
-        break;
-#endif
-    }
-    memset(pw, '\0', strlen(pw));
-
-    /*
-     * Check to see if the buffer is large enough to hold the username,
-     * hash, and delimiters.
-     */
-    if ((strlen(user) + 1 + strlen(cpw)) > (rlen - 1)) {
-        apr_cpystrn(record, "resultant record too long", (rlen - 1));
+    ctx->out = apr_pstrcat(ctx->pool, user, ":", hash_str, NL, NULL);
+    if (strlen(ctx->out) >= MAX_STRING_LEN) {
+        ctx->errstr = "resultant record too long";
         return ERR_OVERFLOW;
     }
-    strcpy(record, user);
-    strcat(record, ":");
-    strcat(record, cpw);
-    strcat(record, "\n");
     return 0;
 }
 
 static void usage(void)
 {
-    apr_file_printf(errfile, "Usage:" NL);
-    apr_file_printf(errfile, "\thtpasswd [-cmdpsD] passwordfile username" NL);
-    apr_file_printf(errfile, "\thtpasswd -b[cmdpsD] passwordfile username "
-                    "password" NL NL);
-    apr_file_printf(errfile, "\thtpasswd -n[mdps] username" NL);
-    apr_file_printf(errfile, "\thtpasswd -nb[mdps] username password" NL);
-    apr_file_printf(errfile, " -c  Create a new file." NL);
-    apr_file_printf(errfile, " -n  Don't update file; display results on "
-                    "stdout." NL);
-    apr_file_printf(errfile, " -m  Force MD5 encryption of the password"
-        " (default)"
-        "." NL);
-    apr_file_printf(errfile, " -d  Force CRYPT encryption of the password"
-            "." NL);
-    apr_file_printf(errfile, " -p  Do not encrypt the password (plaintext)." NL);
-    apr_file_printf(errfile, " -s  Force SHA encryption of the password." NL);
-    apr_file_printf(errfile, " -b  Use the password from the command line "
-            "rather than prompting for it." NL);
-    apr_file_printf(errfile, " -D  Delete the specified user." NL);
-    apr_file_printf(errfile,
-            "On other systems than Windows, NetWare and TPF the '-p' flag will "
-            "probably not work." NL);
-    apr_file_printf(errfile,
-            "The SHA algorithm does not use a salt and is less secure than "
-            "the MD5 algorithm." NL);
+    apr_file_printf(errfile, "Usage:" NL
+        "\thtpasswd [-cimBdpsDv] [-C cost] passwordfile username" NL
+        "\thtpasswd -b[cmBdpsDv] [-C cost] passwordfile username password" NL
+        NL
+        "\thtpasswd -n[imBdps] [-C cost] username" NL
+        "\thtpasswd -nb[mBdps] [-C cost] username password" NL
+        " -c  Create a new file." NL
+        " -n  Don't update file; display results on stdout." NL
+        " -b  Use the password from the command line rather than prompting "
+            "for it." NL
+        " -i  Read password from stdin without verification (for script usage)." NL
+        " -m  Force MD5 encryption of the password (default)." NL
+        " -B  Force bcrypt encryption of the password (very secure)." NL
+        " -C  Set the computing time used for the bcrypt algorithm" NL
+        "     (higher is more secure but slower, default: %d, valid: 4 to 31)." NL
+        " -d  Force CRYPT encryption of the password (8 chars max, insecure)." NL
+        " -s  Force SHA encryption of the password (insecure)." NL
+        " -p  Do not encrypt the password (plaintext, insecure)." NL
+        " -D  Delete the specified user." NL
+        " -v  Verify password for the specified user." NL
+        "On other systems than Windows and NetWare the '-p' flag will "
+            "probably not work." NL
+        "The SHA algorithm does not use a salt and is less secure than the "
+            "MD5 algorithm." NL,
+        BCRYPT_DEFAULT_COST
+    );
     exit(ERR_SYNTAX);
 }
 
@@ -325,115 +156,115 @@ static void terminate(void)
 #endif
 }
 
-static void check_args(apr_pool_t *pool, int argc, const char *const argv[],
-                       int *alg, int *mask, char **user, char **pwfilename,
-                       char **password)
+static void check_args(int argc, const char *const argv[],
+                       struct passwd_ctx *ctx, unsigned *mask, char **user,
+                       char **pwfilename)
 {
     const char *arg;
     int args_left = 2;
-    int i;
+    int i, ret;
+    apr_getopt_t *state;
+    apr_status_t rv;
+    char opt;
+    const char *opt_arg;
+    apr_pool_t *pool = ctx->pool;
 
-    /*
-     * Preliminary check to make sure they provided at least
-     * three arguments, we'll do better argument checking as
-     * we parse the command line.
-     */
-    if (argc < 3) {
-        usage();
-    }
+    rv = apr_getopt_init(&state, pool, argc, argv);
+    if (rv != APR_SUCCESS)
+        exit(ERR_SYNTAX);
 
-    /*
-     * Go through the argument list and pick out any options.  They
-     * have to precede any other arguments.
-     */
-    for (i = 1; i < argc; i++) {
-        arg = argv[i];
-        if (*arg != '-') {
+    while ((rv = apr_getopt(state, "cnmspdBbDiC:v", &opt, &opt_arg)) == APR_SUCCESS) {
+        switch (opt) {
+        case 'c':
+            *mask |= APHTP_NEWFILE;
             break;
-        }
-        while (*++arg != '\0') {
-            if (*arg == 'c') {
-                *mask |= APHTP_NEWFILE;
-            }
-            else if (*arg == 'n') {
-                *mask |= APHTP_NOFILE;
-                args_left--;
-            }
-            else if (*arg == 'm') {
-                *alg = ALG_APMD5;
-            }
-            else if (*arg == 's') {
-                *alg = ALG_APSHA;
-            }
-            else if (*arg == 'p') {
-                *alg = ALG_PLAIN;
-            }
-            else if (*arg == 'd') {
-                *alg = ALG_CRYPT;
-            }
-            else if (*arg == 'b') {
-                *mask |= APHTP_NONINTERACTIVE;
-                args_left++;
-            }
-            else if (*arg == 'D') {
-                *mask |= APHTP_DELUSER;
-            }
-            else {
-                usage();
+        case 'n':
+            args_left--;
+            *mask |= APHTP_NOFILE;
+            break;
+        case 'D':
+            *mask |= APHTP_DELUSER;
+            break;
+        case 'v':
+            *mask |= APHTP_VERIFY;
+            break;
+        default:
+            ret = parse_common_options(ctx, opt, opt_arg);
+            if (ret) {
+                apr_file_printf(errfile, "%s: %s" NL, argv[0], ctx->errstr);
+                exit(ret);
             }
         }
     }
+    if (ctx->passwd_src == PW_ARG)
+        args_left++;
+    if (rv != APR_EOF)
+        usage();
 
-    if ((*mask & APHTP_NEWFILE) && (*mask & APHTP_NOFILE)) {
-        apr_file_printf(errfile, "%s: -c and -n options conflict" NL, argv[0]);
+    if ((*mask) & (*mask - 1)) {
+        /* not a power of two, i.e. more than one flag specified */
+        apr_file_printf(errfile, "%s: only one of -c -n -v -D may be specified" NL,
+            argv[0]);
         exit(ERR_SYNTAX);
     }
-    if ((*mask & APHTP_NEWFILE) && (*mask & APHTP_DELUSER)) {
-        apr_file_printf(errfile, "%s: -c and -D options conflict" NL, argv[0]);
-        exit(ERR_SYNTAX);
-    }
-    if ((*mask & APHTP_NOFILE) && (*mask & APHTP_DELUSER)) {
-        apr_file_printf(errfile, "%s: -n and -D options conflict" NL, argv[0]);
-        exit(ERR_SYNTAX);
-    }
+    if ((*mask & APHTP_VERIFY) && ctx->passwd_src == PW_PROMPT)
+        ctx->passwd_src = PW_PROMPT_VERIFY;
+
     /*
      * Make sure we still have exactly the right number of arguments left
      * (the filename, the username, and possibly the password if -b was
      * specified).
      */
+    i = state->ind;
     if ((argc - i) != args_left) {
         usage();
     }
 
-    if (*mask & APHTP_NOFILE) {
-        i--;
-    }
-    else {
+    if (!(*mask & APHTP_NOFILE)) {
         if (strlen(argv[i]) > (APR_PATH_MAX - 1)) {
             apr_file_printf(errfile, "%s: filename too long" NL, argv[0]);
             exit(ERR_OVERFLOW);
         }
-        *pwfilename = apr_pstrdup(pool, argv[i]);
-        if (strlen(argv[i + 1]) > (MAX_STRING_LEN - 1)) {
-            apr_file_printf(errfile, "%s: username too long (> %d)" NL,
-                argv[0], MAX_STRING_LEN - 1);
-            exit(ERR_OVERFLOW);
-        }
+        *pwfilename = apr_pstrdup(pool, argv[i++]);
     }
-    *user = apr_pstrdup(pool, argv[i + 1]);
+    if (strlen(argv[i]) > (MAX_STRING_LEN - 1)) {
+        apr_file_printf(errfile, "%s: username too long (> %d)" NL,
+                        argv[0], MAX_STRING_LEN - 1);
+        exit(ERR_OVERFLOW);
+    }
+    *user = apr_pstrdup(pool, argv[i++]);
     if ((arg = strchr(*user, ':')) != NULL) {
         apr_file_printf(errfile, "%s: username contains illegal "
                         "character '%c'" NL, argv[0], *arg);
         exit(ERR_BADUSER);
     }
-    if (*mask & APHTP_NONINTERACTIVE) {
-        if (strlen(argv[i + 2]) > (MAX_STRING_LEN - 1)) {
+    if (ctx->passwd_src == PW_ARG) {
+        if (strlen(argv[i]) > (MAX_STRING_LEN - 1)) {
             apr_file_printf(errfile, "%s: password too long (> %d)" NL,
                 argv[0], MAX_STRING_LEN);
             exit(ERR_OVERFLOW);
         }
-        *password = apr_pstrdup(pool, argv[i + 2]);
+        ctx->passwd = apr_pstrdup(pool, argv[i]);
     }
+}
+
+static int verify(struct passwd_ctx *ctx, const char *hash)
+{
+    apr_status_t rv;
+    int ret;
+
+    if (ctx->passwd == NULL && (ret = get_password(ctx)) != 0)
+       return ret;
+    rv = apr_password_validate(ctx->passwd, hash);
+    if (rv == APR_SUCCESS)
+        return 0;
+    if (APR_STATUS_IS_EMISMATCH(rv)) {
+        ctx->errstr = "password verification failed";
+        return ERR_PWMISMATCH;
+    }
+    ctx->errstr = apr_psprintf(ctx->pool, "Could not verify password: %pm",
+                               &rv);
+    return ERR_GENERAL;
 }
 
 /*
@@ -443,9 +274,7 @@ static void check_args(apr_pool_t *pool, int argc, const char *const argv[],
 int main(int argc, const char * const argv[])
 {
     apr_file_t *fpw = NULL;
-    char record[MAX_STRING_LEN];
     char line[MAX_STRING_LEN];
-    char *password = NULL;
     char *pwfilename = NULL;
     char *user = NULL;
     char tn[] = "htpasswd.tmp.XXXXXX";
@@ -453,10 +282,10 @@ int main(int argc, const char * const argv[])
     char *scratch, cp[MAX_STRING_LEN];
     int found = 0;
     int i;
-    int alg = ALG_APMD5;
-    int mask = 0;
+    unsigned mask = 0;
     apr_pool_t *pool;
     int existing_file = 0;
+    struct passwd_ctx ctx = { 0 };
 #if APR_CHARSET_EBCDIC
     apr_status_t rv;
     apr_xlate_t *to_ascii;
@@ -465,7 +294,10 @@ int main(int argc, const char * const argv[])
     apr_app_initialize(&argc, &argv, NULL);
     atexit(terminate);
     apr_pool_create(&pool, NULL);
+    apr_pool_abort_set(abort_on_oom, pool);
     apr_file_open_stderr(&errfile, pool);
+    ctx.pool = pool;
+    ctx.alg = ALG_APMD5;
 
 #if APR_CHARSET_EBCDIC
     rv = apr_xlate_open(&to_ascii, "ISO-8859-1", APR_DEFAULT_CHARSET, pool);
@@ -485,22 +317,7 @@ int main(int argc, const char * const argv[])
     }
 #endif /*APR_CHARSET_EBCDIC*/
 
-    check_args(pool, argc, argv, &alg, &mask, &user, &pwfilename, &password);
-
-
-#if defined(WIN32) || defined(NETWARE)
-    if (alg == ALG_CRYPT) {
-        alg = ALG_APMD5;
-        apr_file_printf(errfile, "Automatically using MD5 format." NL);
-    }
-#endif
-
-#if (!(defined(WIN32) || defined(TPF) || defined(NETWARE)))
-    if (alg == ALG_PLAIN) {
-        apr_file_printf(errfile,"Warning: storing passwords as plain text "
-                        "might just not work on this platform." NL);
-    }
-#endif
+    check_args(argc, argv, &ctx, &mask, &user, &pwfilename);
 
     /*
      * Only do the file checks if we're supposed to frob it.
@@ -511,7 +328,7 @@ int main(int argc, const char * const argv[])
             /*
              * Check that this existing file is readable and writable.
              */
-            if (!accessible(pool, pwfilename, APR_READ | APR_APPEND)) {
+            if (!accessible(pool, pwfilename, APR_FOPEN_READ|APR_FOPEN_WRITE)) {
                 apr_file_printf(errfile, "%s: cannot open file %s for "
                                 "read/write access" NL, argv[0], pwfilename);
                 exit(ERR_FILEPERM);
@@ -530,7 +347,7 @@ int main(int argc, const char * const argv[])
             /*
              * As it doesn't exist yet, verify that we can create it.
              */
-            if (!accessible(pool, pwfilename, APR_CREATE | APR_WRITE)) {
+            if (!accessible(pool, pwfilename, APR_FOPEN_WRITE|APR_FOPEN_CREATE)) {
                 apr_file_printf(errfile, "%s: cannot create file %s" NL,
                                 argv[0], pwfilename);
                 exit(ERR_FILEPERM);
@@ -545,34 +362,35 @@ int main(int argc, const char * const argv[])
      * Any error message text is returned in the record buffer, since
      * the mkrecord() routine doesn't have access to argv[].
      */
-    if (!(mask & APHTP_DELUSER)) {
-        i = mkrecord(user, record, sizeof(record) - 1,
-                     password, alg);
+    if ((mask & (APHTP_DELUSER|APHTP_VERIFY)) == 0) {
+        i = mkrecord(&ctx, user);
         if (i != 0) {
-            apr_file_printf(errfile, "%s: %s" NL, argv[0], record);
+            apr_file_printf(errfile, "%s: %s" NL, argv[0], ctx.errstr);
             exit(i);
         }
         if (mask & APHTP_NOFILE) {
-            printf("%s" NL, record);
+            printf("%s" NL, ctx.out);
             exit(0);
         }
     }
 
-    /*
-     * We can access the files the right way, and we have a record
-     * to add or update.  Let's do it..
-     */
-    if (apr_temp_dir_get((const char**)&dirname, pool) != APR_SUCCESS) {
-        apr_file_printf(errfile, "%s: could not determine temp dir" NL,
-                        argv[0]);
-        exit(ERR_FILEPERM);
-    }
-    dirname = apr_psprintf(pool, "%s/%s", dirname, tn);
+    if ((mask & APHTP_VERIFY) == 0) {
+        /*
+         * We can access the files the right way, and we have a record
+         * to add or update.  Let's do it..
+         */
+        if (apr_temp_dir_get((const char**)&dirname, pool) != APR_SUCCESS) {
+            apr_file_printf(errfile, "%s: could not determine temp dir" NL,
+                            argv[0]);
+            exit(ERR_FILEPERM);
+        }
+        dirname = apr_psprintf(pool, "%s/%s", dirname, tn);
 
-    if (apr_file_mktemp(&ftemp, dirname, 0, pool) != APR_SUCCESS) {
-        apr_file_printf(errfile, "%s: unable to create temporary file %s" NL,
-                        argv[0], dirname);
-        exit(ERR_FILEPERM);
+        if (apr_file_mktemp(&ftemp, dirname, 0, pool) != APR_SUCCESS) {
+            apr_file_printf(errfile, "%s: unable to create temporary file %s" NL,
+                            argv[0], dirname);
+            exit(ERR_FILEPERM);
+        }
     }
 
     /*
@@ -623,33 +441,59 @@ int main(int argc, const char * const argv[])
                 continue;
             }
             else {
-                if (!(mask & APHTP_DELUSER)) {
-                    /* We found the user we were looking for.
-                     * Add him to the file.
-                    */
-                    apr_file_printf(errfile, "Updating ");
-                    putline(ftemp, record);
-                    found++;
+                /* We found the user we were looking for */
+                found++;
+                if ((mask & APHTP_DELUSER)) {
+                    /* Delete entry from the file */
+                    apr_file_printf(errfile, "Deleting ");
+                }
+                else if ((mask & APHTP_VERIFY)) {
+                    /* Verify */
+                    char *hash = colon + 1;
+                    size_t len;
+
+                    len = strcspn(hash, "\r\n");
+                    if (len == 0) {
+                        apr_file_printf(errfile, "Empty hash for user %s" NL,
+                                        user);
+                        exit(ERR_INVALID);
+                    }
+                    hash[len] = '\0';
+
+                    i = verify(&ctx, hash);
+                    if (i != 0) {
+                        apr_file_printf(errfile, "%s" NL, ctx.errstr);
+                        exit(i);
+                    }
                 }
                 else {
-                    /* We found the user we were looking for.
-                     * Delete them from the file.
-                     */
-                    apr_file_printf(errfile, "Deleting ");
-                    found++;
+                    /* Update entry */
+                    apr_file_printf(errfile, "Updating ");
+                    putline(ftemp, ctx.out);
                 }
             }
         }
         apr_file_close(fpw);
     }
-    if (!found && !(mask & APHTP_DELUSER)) {
-        apr_file_printf(errfile, "Adding ");
-        putline(ftemp, record);
+    if (!found) {
+        if (mask & APHTP_DELUSER) {
+            apr_file_printf(errfile, "User %s not found" NL, user);
+            exit(0);
+        }
+        else if (mask & APHTP_VERIFY) {
+            apr_file_printf(errfile, "User %s not found" NL, user);
+            exit(ERR_BADUSER);
+        }
+        else {
+            apr_file_printf(errfile, "Adding ");
+            putline(ftemp, ctx.out);
+        }
     }
-    else if (!found && (mask & APHTP_DELUSER)) {
-        apr_file_printf(errfile, "User %s not found" NL, user);
+    if (mask & APHTP_VERIFY) {
+        apr_file_printf(errfile, "Password for user %s correct." NL, user);
         exit(0);
     }
+
     apr_file_printf(errfile, "password for user %s" NL, user);
 
     /* The temporary file has all the data, just copy it to the new location.

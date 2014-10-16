@@ -29,6 +29,8 @@
 #include "DownloadManagerEfl.h"
 #include "EwkView.h"
 #include "InputMethodContextEfl.h"
+#include "NativeWebMouseEvent.h"
+#include "NotImplemented.h"
 #include "WebContextMenuProxyEfl.h"
 #include "WebPopupMenuListenerEfl.h"
 #include "ewk_context_private.h"
@@ -37,6 +39,14 @@
 
 #if ENABLE(FULLSCREEN_API)
 #include "WebFullScreenManagerProxy.h"
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#include "EwkTouchEvent.h"
+#endif
+
+#if ENABLE(INPUT_TYPE_COLOR)
+#include "WebColorPickerEfl.h"
 #endif
 
 using namespace EwkViewCallbacks;
@@ -52,16 +62,13 @@ PassRefPtr<WebView> WebView::create(WebContext* context, WebPageGroup* pageGroup
 WebViewEfl::WebViewEfl(WebContext* context, WebPageGroup* pageGroup)
     : WebView(context, pageGroup)
     , m_ewkView(0)
+    , m_hasRequestedFullScreen(false)
 {
 }
 
 void WebViewEfl::setEwkView(EwkView* ewkView)
 {
     m_ewkView = ewkView;
-
-#if ENABLE(FULLSCREEN_API)
-    m_page->fullScreenManager()->setWebView(ewkView->evasObject());
-#endif
 }
 
 void WebViewEfl::paintToCairoSurface(cairo_surface_t* surface)
@@ -85,10 +92,12 @@ PassRefPtr<WebPopupMenuProxy> WebViewEfl::createPopupMenuProxy(WebPageProxy* pag
     return WebPopupMenuListenerEfl::create(page);
 }
 
+#if ENABLE(CONTEXT_MENUS)
 PassRefPtr<WebContextMenuProxy> WebViewEfl::createContextMenuProxy(WebPageProxy* page)
 {
     return WebContextMenuProxyEfl::create(m_ewkView, page);
 }
+#endif
 
 void WebViewEfl::setCursor(const Cursor& cursor)
 {
@@ -111,5 +120,101 @@ void WebViewEfl::setThemePath(const String& theme)
 {
     m_page->setThemePath(theme);
 }
+
+#if ENABLE(TOUCH_EVENTS)
+void WebViewEfl::sendTouchEvent(EwkTouchEvent* touchEvent)
+{
+    ASSERT(touchEvent);
+    m_page->handleTouchEvent(NativeWebTouchEvent(touchEvent, transformFromScene()));
+}
+#endif
+
+void WebViewEfl::sendMouseEvent(const Evas_Event_Mouse_Down* event)
+{
+    ASSERT(event);
+    m_page->handleMouseEvent(NativeWebMouseEvent(event, transformFromScene(), m_userViewportTransform.toAffineTransform()));
+}
+
+void WebViewEfl::sendMouseEvent(const Evas_Event_Mouse_Up* event)
+{
+    ASSERT(event);
+    m_page->handleMouseEvent(NativeWebMouseEvent(event, transformFromScene(), m_userViewportTransform.toAffineTransform()));
+}
+
+void WebViewEfl::sendMouseEvent(const Evas_Event_Mouse_Move* event)
+{
+    ASSERT(event);
+    m_page->handleMouseEvent(NativeWebMouseEvent(event, transformFromScene(), m_userViewportTransform.toAffineTransform()));
+}
+
+void WebViewEfl::setViewBackgroundColor(const WebCore::Color& color)
+{
+    CoordinatedGraphicsScene* scene = coordinatedGraphicsScene();
+    if (!scene)
+        return;
+
+    scene->setViewBackgroundColor(color);
+}
+
+WebCore::Color WebViewEfl::viewBackgroundColor()
+{
+    CoordinatedGraphicsScene* scene = coordinatedGraphicsScene();
+    if (!scene)
+        return Color();
+
+    return scene->viewBackgroundColor();
+}
+
+#if ENABLE(FULLSCREEN_API)
+
+// WebFullScreenManagerProxyClient
+bool WebViewEfl::isFullScreen()
+{
+    return m_hasRequestedFullScreen;
+}
+
+void WebViewEfl::enterFullScreen()
+{
+    if (!m_ewkView || m_hasRequestedFullScreen)
+        return;
+
+    m_hasRequestedFullScreen = true;
+
+    WebFullScreenManagerProxy* manager = m_page->fullScreenManager();
+    manager->willEnterFullScreen();
+    m_ewkView->enterFullScreen();
+    manager->didEnterFullScreen();
+}
+
+void WebViewEfl::exitFullScreen()
+{
+    if (!m_ewkView || !m_hasRequestedFullScreen)
+        return;
+
+    m_hasRequestedFullScreen = false;
+
+    WebFullScreenManagerProxy* manager = m_page->fullScreenManager();
+    manager->willExitFullScreen();
+    m_ewkView->exitFullScreen();
+    manager->didExitFullScreen();
+}
+#endif // ENABLE(FULLSCREEN_API)
+
+void WebViewEfl::didFinishLoadingDataForCustomContentProvider(const String&, const IPC::DataReference&)
+{
+    notImplemented();
+}
+
+#if ENABLE(INPUT_TYPE_COLOR)
+void WebViewEfl::initializeColorPickerClient(const WKColorPickerClientBase* client)
+{
+    m_colorPickerClient.initialize(client);
+}
+
+PassRefPtr<WebColorPicker> WebViewEfl::createColorPicker(WebPageProxy* page, const WebCore::Color& color, const WebCore::IntRect&)
+{
+    return WebColorPickerEfl::create(this, page, color);
+}
+#endif
 
 } // namespace WebKit

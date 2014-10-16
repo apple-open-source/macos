@@ -485,6 +485,12 @@ command = {
 		help = "match on friendly name"
 	}
 	option = {
+		long = "persistent"
+		type = "string"
+		argument = "persistent-identity"
+		help = "match on persistent identity"
+	}
+	option = {
 		long = "eku"
 		type = "string"
 		argument = "oid-string"
@@ -537,7 +543,6 @@ command = {
 		help = "type of CMS algorithm"
 	}
 	name = "crypto-available"
-	min_args="0"
 	help = "Print available CMS crypto types"
 }
 command = {
@@ -557,7 +562,6 @@ command = {
 		help = "peer limiting cmstypes"
 	}
 	name = "crypto-select"
-	min_args="0"
 	help = "Print selected CMS type"
 }
 command = {
@@ -569,7 +573,6 @@ command = {
 	}
 	name = "hex"
 	function = "hxtool_hex"
-	min_args="0"
 	help = "Encode input to hex"
 }
 command = {
@@ -699,7 +702,6 @@ command = {
 	name = "issue-certificate"
 	name = "ca"
 	function = "hxtool_ca"
-	min_args="0"
 	help = "Issue a certificate"
 }
 command = {

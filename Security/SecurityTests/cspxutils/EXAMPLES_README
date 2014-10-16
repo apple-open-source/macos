@@ -1,0 +1,33 @@
+                        CDSA Sample Code Info
+					 last update 4/24/02 dmitch
+						  
+Introduction
+------------
+This directory contains three programs which demonstrate how to 
+write code using the Common Data Security Architecture (CDSA) 
+API.
+
+Building
+--------
+
+To build all of the examples, open a Terminal window, cd to the 
+CDSA_Examples directory, and type 'make'. If the LOCAL_BUILD_DIR 
+environment variable is set, the executables are placed there; 
+otherwise they are built in place in the respective directories.
+
+Source code
+-----------
+There are four directories in this package. Three contain the 
+source for three executables themselves - rsatool, dhTest, and 
+cryptTool. The fourth is utilLib, which contains a superset of 
+the code which the three examples need to link against. The only 
+two files in utilLib of interest for the purpose of these example are:
+
+common.c - setup and initialize CSSM and CSP (see cspDlDbStartup())
+cspwrap.c - wrapper functions for some of the crypto operations,
+like generate key pair (cspGenKeyPair()), encryption
+(cspEncrypt()), and decryption (cspDecrypt()). 
+
+See the README files in the respective directories for more 
+information.
+

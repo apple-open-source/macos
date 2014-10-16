@@ -138,6 +138,9 @@ static struct getargs args[] = {
      NULL, NULL }
 };
 
+static void usage (int ret) HEIMDAL_NORETURN_ATTRIBUTE;
+
+
 static void
 usage (int ret)
 {
@@ -153,7 +156,8 @@ main(int argc, char **argv)
 {
     krb5_context context;
     krb5_error_code ret;
-    int i, enciter, s2kiter;
+    int enciter, s2kiter;
+    size_t i;
     int optidx = 0;
     krb5_salt salt;
 

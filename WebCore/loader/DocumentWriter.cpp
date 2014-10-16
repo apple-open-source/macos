@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -36,7 +36,8 @@
 #include "FrameLoaderClient.h"
 #include "FrameLoaderStateMachine.h"
 #include "FrameView.h"
-#include "PlaceholderDocument.h"
+#include "MIMETypeRegistry.h"
+#include "MainFrame.h"
 #include "PluginDocument.h"
 #include "RawDataDocumentParser.h"
 #include "ScriptController.h"
@@ -46,6 +47,11 @@
 #include "Settings.h"
 #include "SinkDocument.h"
 #include "TextResourceDecoder.h"
+#include <wtf/Ref.h>
+
+#if PLATFORM(IOS)
+#include "PDFDocument.h"
+#endif
 
 namespace WebCore {
 
@@ -67,23 +73,19 @@ DocumentWriter::DocumentWriter(Frame* frame)
 // This is the <iframe src="javascript:'html'"> case.
 void DocumentWriter::replaceDocument(const String& source, Document* ownerDocument)
 {
-    m_frame->loader()->stopAllLoaders();
+    m_frame->loader().stopAllLoaders();
     begin(m_frame->document()->url(), true, ownerDocument);
 
     if (!source.isNull()) {
         if (!m_hasReceivedSomeData) {
             m_hasReceivedSomeData = true;
-            m_frame->document()->setCompatibilityMode(Document::NoQuirksMode);
+            m_frame->document()->setCompatibilityMode(DocumentCompatibilityMode::NoQuirksMode);
         }
 
         // FIXME: This should call DocumentParser::appendBytes instead of append
         // to support RawDataDocumentParsers.
-        if (DocumentParser* parser = m_frame->document()->parser()) {
-            parser->pinToMainThread();
-            // Because we're pinned to the main thread we don't need to worry about
-            // passing ownership of the source string.
+        if (DocumentParser* parser = m_frame->document()->parser())
             parser->append(source.impl());
-        }
     }
 
     end();
@@ -99,24 +101,28 @@ void DocumentWriter::clear()
 
 void DocumentWriter::begin()
 {
-    begin(KURL());
+    begin(URL());
 }
 
-PassRefPtr<Document> DocumentWriter::createDocument(const KURL& url)
+PassRefPtr<Document> DocumentWriter::createDocument(const URL& url)
 {
-    if (!m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->loader()->client()->shouldAlwaysUsePluginDocument(m_mimeType))
+    if (!m_frame->loader().stateMachine().isDisplayingInitialEmptyDocument() && m_frame->loader().client().shouldAlwaysUsePluginDocument(m_mimeType))
         return PluginDocument::create(m_frame, url);
-    if (!m_frame->loader()->client()->hasHTMLView())
-        return PlaceholderDocument::create(m_frame, url);
-    return DOMImplementation::createDocument(m_mimeType, m_frame, url, m_frame->inViewSourceMode());
+#if PLATFORM(IOS)
+    if (MIMETypeRegistry::isPDFMIMEType(m_mimeType) && (m_frame->isMainFrame() || !m_frame->settings().useImageDocumentForSubframePDF()))
+        return PDFDocument::create(m_frame, url);
+#endif
+    if (!m_frame->loader().client().hasHTMLView())
+        return Document::createNonRenderedPlaceholder(m_frame, url);
+    return DOMImplementation::createDocument(m_mimeType, m_frame, url);
 }
 
-void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ownerDocument)
+void DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* ownerDocument)
 {
     // We grab a local copy of the URL because it's easy for callers to supply
     // a URL that will be deallocated during the execution of this function.
     // For example, see <https://bugs.webkit.org/show_bug.cgi?id=66360>.
-    KURL url = urlReference;
+    URL url = urlReference;
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
@@ -129,19 +135,19 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
 
     // FIXME: Do we need to consult the content security policy here about blocked plug-ins?
 
-    bool shouldReuseDefaultView = m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->isSecureTransitionTo(url);
+    bool shouldReuseDefaultView = m_frame->loader().stateMachine().isDisplayingInitialEmptyDocument() && m_frame->document()->isSecureTransitionTo(url);
     if (shouldReuseDefaultView)
         document->takeDOMWindowFrom(m_frame->document());
     else
         document->createDOMWindow();
 
-    m_frame->loader()->clear(document.get(), !shouldReuseDefaultView, !shouldReuseDefaultView);
+    m_frame->loader().clear(document.get(), !shouldReuseDefaultView, !shouldReuseDefaultView);
     clear();
 
     if (!shouldReuseDefaultView)
-        m_frame->script()->updatePlatformScriptObjects();
+        m_frame->script().updatePlatformScriptObjects();
 
-    m_frame->loader()->setOutgoingReferrer(url);
+    m_frame->loader().setOutgoingReferrer(url);
     m_frame->setDocument(document);
 
     if (m_decoder)
@@ -151,7 +157,7 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
         document->setSecurityOrigin(ownerDocument->securityOrigin());
     }
 
-    m_frame->loader()->didBeginDocument(dispatch);
+    m_frame->loader().didBeginDocument(dispatch);
 
     document->implicitOpen();
 
@@ -160,7 +166,7 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
     // document.open).
     m_parser = document->parser();
 
-    if (m_frame->view() && m_frame->loader()->client()->hasHTMLView())
+    if (m_frame->view() && m_frame->loader().client().hasHTMLView())
         m_frame->view()->setContentsSize(IntSize());
 
     m_state = StartedWritingState;
@@ -169,25 +175,21 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
 TextResourceDecoder* DocumentWriter::createDecoderIfNeeded()
 {
     if (!m_decoder) {
-        if (Settings* settings = m_frame->settings()) {
-            m_decoder = TextResourceDecoder::create(m_mimeType,
-                settings->defaultTextEncodingName(),
-                settings->usesEncodingDetector());
-            Frame* parentFrame = m_frame->tree()->parent();
-            // Set the hint encoding to the parent frame encoding only if
-            // the parent and the current frames share the security origin.
-            // We impose this condition because somebody can make a child frame 
-            // containing a carefully crafted html/javascript in one encoding
-            // that can be mistaken for hintEncoding (or related encoding) by
-            // an auto detector. When interpreted in the latter, it could be
-            // an attack vector.
-            // FIXME: This might be too cautious for non-7bit-encodings and
-            // we may consider relaxing this later after testing.
-            if (canReferToParentFrameEncoding(m_frame, parentFrame))
-                m_decoder->setHintEncoding(parentFrame->document()->decoder());
-        } else
-            m_decoder = TextResourceDecoder::create(m_mimeType, String());
-        Frame* parentFrame = m_frame->tree()->parent();
+        m_decoder = TextResourceDecoder::create(m_mimeType,
+            m_frame->settings().defaultTextEncodingName(),
+            m_frame->settings().usesEncodingDetector());
+        Frame* parentFrame = m_frame->tree().parent();
+        // Set the hint encoding to the parent frame encoding only if
+        // the parent and the current frames share the security origin.
+        // We impose this condition because somebody can make a child frame
+        // containing a carefully crafted html/javascript in one encoding
+        // that can be mistaken for hintEncoding (or related encoding) by
+        // an auto detector. When interpreted in the latter, it could be
+        // an attack vector.
+        // FIXME: This might be too cautious for non-7bit-encodings and
+        // we may consider relaxing this later after testing.
+        if (canReferToParentFrameEncoding(m_frame, parentFrame))
+            m_decoder->setHintEncoding(parentFrame->document()->decoder());
         if (m_encoding.isEmpty()) {
             if (canReferToParentFrameEncoding(m_frame, parentFrame))
                 m_decoder->setEncoding(parentFrame->document()->inputEncoding(), TextResourceDecoder::EncodingFromParentFrame);
@@ -208,7 +210,7 @@ void DocumentWriter::reportDataReceived()
     m_hasReceivedSomeData = true;
     if (m_decoder->encoding().usesVisualOrdering())
         m_frame->document()->setVisuallyOrdered();
-    m_frame->document()->recalcStyle(Node::Force);
+    m_frame->document()->recalcStyle(Style::Force);
 }
 
 void DocumentWriter::addData(const char* bytes, size_t length)
@@ -222,7 +224,7 @@ void DocumentWriter::addData(const char* bytes, size_t length)
         CRASH();
 
     ASSERT(m_parser);
-    m_parser->appendBytes(this, bytes, length);
+    m_parser->appendBytes(*this, bytes, length);
 }
 
 void DocumentWriter::end()
@@ -237,12 +239,12 @@ void DocumentWriter::end()
     // http://bugs.webkit.org/show_bug.cgi?id=10854
     // The frame's last ref may be removed and it can be deleted by checkCompleted(), 
     // so we'll add a protective refcount
-    RefPtr<Frame> protector(m_frame);
+    Ref<Frame> protect(*m_frame);
 
     if (!m_parser)
         return;
     // FIXME: m_parser->finish() should imply m_parser->flush().
-    m_parser->flush(this);
+    m_parser->flush(*this);
     if (!m_parser)
         return;
     m_parser->finish();

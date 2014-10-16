@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -34,7 +34,7 @@
 #define _SFIO_PRIVATE \
 	Sfoff_t			extent;	/* current file	size		*/ \
 	Sfoff_t			here;	/* current physical location	*/ \
-	unsigned char		getr;	/* the last sfgetr separator 	*/ \
+	unsigned char		unused_1;/* unused #1			*/ \
 	unsigned char		tiny[1];/* for unbuffered read stream	*/ \
 	unsigned short		bits;	/* private flags		*/ \
 	unsigned int		mode;	/* current io mode		*/ \
@@ -47,7 +47,14 @@
 	Sfoff_t			lpos;	/* last seek position		*/ \
 	size_t			iosz;	/* preferred size for I/O	*/ \
 	size_t			blksz;	/* preferred block size		*/ \
-	Void_t*			fill[1];/* modest expansion		*/
+	int			getr;	/* the last sfgetr separator 	*/ \
+	_SFIO_PRIVATE_PAD
+
+#if _ast_sizeof_pointer == 8
+#define _SFIO_PRIVATE_PAD	int pad;
+#else
+#define _SFIO_PRIVATE_PAD
+#endif
 
 #include	"sfio.h"
 

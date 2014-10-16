@@ -1346,7 +1346,6 @@ isakmp_cfg_rmstate(phase1_handle_t *iph1)
 {
 	struct isakmp_cfg_state **state = &iph1->mode_cfg;
     
-    
     if (*state == NULL)
         return;
     

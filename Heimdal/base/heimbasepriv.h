@@ -91,3 +91,7 @@ extern struct heim_type_data _heim_null_object;
 extern struct heim_type_data _heim_bool_object;
 extern struct heim_type_data _heim_number_object;
 extern struct heim_type_data _heim_string_object;
+
+#ifdef __APPLE__
+#define __heim_string_constant(x) ((heim_object_t)CFSTR(x))
+#endif

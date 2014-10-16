@@ -52,12 +52,7 @@ void ContextMenuClientWinCE::contextMenuItemSelected(ContextMenuItem*, const Con
     notImplemented();
 }
 
-void ContextMenuClientWinCE::downloadURL(const KURL& url)
-{
-    notImplemented();
-}
-
-void ContextMenuClientWinCE::copyImageToClipboard(const HitTestResult&)
+void ContextMenuClientWinCE::downloadURL(const URL& url)
 {
     notImplemented();
 }

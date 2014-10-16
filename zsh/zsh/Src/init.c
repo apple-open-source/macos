@@ -77,7 +77,7 @@ mod_export int tclen[TC_COUNT];
 /**/
 int tclines, tccolumns;
 /**/
-mod_export int hasam, hasxn;
+mod_export int hasam, hasxn, hasye;
 
 /* Value of the Co (max_colors) entry: may not be set */
 
@@ -281,9 +281,10 @@ parseargs(char **argv, char **runscript)
 
 /**/
 static void
-parseopts_insert(LinkList optlist, void *ptr)
+parseopts_insert(LinkList optlist, char *base, int optno)
 {
     LinkNode node;
+    void *ptr = base + (optno < 0 ? -optno : optno);
 
     for (node = firstnode(optlist); node; incnode(node)) {
 	if (ptr < getdata(node)) {
@@ -390,7 +391,7 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
 			WARN_OPTION("can't change option: %s", *argv);
 		    } else if (optlist) {
-			parseopts_insert(optlist, new_opts+optno);
+			parseopts_insert(optlist, new_opts, optno);
 		    }
 		}
               break;
@@ -415,7 +416,7 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
 			WARN_OPTION("can't change option: -%c", **argv);
 		    } else if (optlist) {
-			parseopts_insert(optlist, new_opts+optno);
+			parseopts_insert(optlist, new_opts, optno);
 		    }
 		}
 	    }
@@ -698,6 +699,7 @@ init_term(void)
 	/* check whether terminal has automargin (wraparound) capability */
 	hasam = tgetflag("am");
 	hasxn = tgetflag("xn"); /* also check for newline wraparound glitch */
+	hasye = tgetflag("YE"); /* print in last column does carriage return */
 
 	tclines = tgetnum("li");
 	tccolumns = tgetnum("co");
@@ -747,6 +749,9 @@ init_term(void)
 	    tcstr[TCCLEARSCREEN] = ztrdup("\14");
 	    tclen[TCCLEARSCREEN] = 1;
 	}
+#if 0	/* This might work, but there may be more to it */
+	rprompt_indent = (hasye || !tccan(TCLEFT)) ? 1 : 0;
+#endif
     }
     return 1;
 }
@@ -998,6 +1003,15 @@ setupvals(void)
     setiparam("COLUMNS", zterm_columns);
     setiparam("LINES", zterm_lines);
 #endif
+    {
+	/* Import from environment, overrides init_term() */
+	struct value vbuf;
+	char *name = "ZLE_RPROMPT_INDENT";
+	if (getvalue(&vbuf, &name, 1) && !(vbuf.flags & PM_UNSET))
+	    rprompt_indent = getintvalue(&vbuf);
+	else
+	    rprompt_indent = 1;
+    }
 
 #ifdef HAVE_GETRLIMIT
     for (i = 0; i != RLIM_NLIMITS; i++) {
@@ -1113,6 +1127,7 @@ init_signals(void)
     install_handler(SIGCHLD);
 #ifdef SIGWINCH
     install_handler(SIGWINCH);
+    winch_block();	/* See utils.c:preprompt() */
 #endif
     if (interact) {
 	install_handler(SIGALRM);
@@ -1588,6 +1603,7 @@ zsh_main(int argc, char **argv)
 
     fdtable_size = zopenmax();
     fdtable = zshcalloc(fdtable_size*sizeof(*fdtable));
+    fdtable[0] = fdtable[1] = fdtable[2] = FDT_EXTERNAL;
 
     createoptiontable();
     emulate(zsh_name, 1, &emulation, opts);   /* initialises most options */

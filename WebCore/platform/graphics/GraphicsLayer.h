@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,12 +26,11 @@
 #ifndef GraphicsLayer_h
 #define GraphicsLayer_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
 #include "Animation.h"
 #include "Color.h"
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
+#include "FloatRect.h"
 #include "FloatSize.h"
 #include "GraphicsLayerClient.h"
 #include "IntRect.h"
@@ -44,19 +43,23 @@
 #include "FilterOperations.h"
 #endif
 
+#if ENABLE(CSS_COMPOSITING)
+#include "GraphicsTypes.h"
+#endif
+
+namespace WebCore {
+
 enum LayerTreeAsTextBehaviorFlags {
     LayerTreeAsTextBehaviorNormal = 0,
     LayerTreeAsTextDebug = 1 << 0, // Dump extra debugging info like layer addresses.
     LayerTreeAsTextIncludeVisibleRects = 1 << 1,
     LayerTreeAsTextIncludeTileCaches = 1 << 2,
     LayerTreeAsTextIncludeRepaintRects = 1 << 3,
-    LayerTreeAsTextIncludePaintingPhases = 1 << 4
+    LayerTreeAsTextIncludePaintingPhases = 1 << 4,
+    LayerTreeAsTextIncludeContentLayers = 1 << 5
 };
 typedef unsigned LayerTreeAsTextBehavior;
 
-namespace WebCore {
-
-class FloatRect;
 class GraphicsContext;
 class GraphicsLayerFactory;
 class Image;
@@ -74,19 +77,19 @@ class AnimationValue {
 public:
     virtual ~AnimationValue() { }
 
-    float keyTime() const { return m_keyTime; }
+    double keyTime() const { return m_keyTime; }
     const TimingFunction* timingFunction() const { return m_timingFunction.get(); }
     virtual PassOwnPtr<AnimationValue> clone() const = 0;
 
 protected:
-    AnimationValue(float keyTime, PassRefPtr<TimingFunction> timingFunction = 0)
+    AnimationValue(double keyTime, TimingFunction* timingFunction = nullptr)
         : m_keyTime(keyTime)
         , m_timingFunction(timingFunction)
     {
     }
 
 private:
-    float m_keyTime;
+    double m_keyTime;
     RefPtr<TimingFunction> m_timingFunction;
 };
 
@@ -94,12 +97,12 @@ private:
 // FIXME: Should be moved to its own header file.
 class FloatAnimationValue : public AnimationValue {
 public:
-    static PassOwnPtr<FloatAnimationValue> create(float keyTime, float value, PassRefPtr<TimingFunction> timingFunction = 0)
+    static PassOwnPtr<FloatAnimationValue> create(double keyTime, float value, TimingFunction* timingFunction = nullptr)
     {
         return adoptPtr(new FloatAnimationValue(keyTime, value, timingFunction));
     }
 
-    virtual PassOwnPtr<AnimationValue> clone() const OVERRIDE
+    virtual PassOwnPtr<AnimationValue> clone() const override
     {
         return adoptPtr(new FloatAnimationValue(*this));
     }
@@ -107,7 +110,7 @@ public:
     float value() const { return m_value; }
 
 private:
-    FloatAnimationValue(float keyTime, float value, PassRefPtr<TimingFunction> timingFunction)
+    FloatAnimationValue(double keyTime, float value, TimingFunction* timingFunction)
         : AnimationValue(keyTime, timingFunction)
         , m_value(value)
     {
@@ -120,12 +123,12 @@ private:
 // FIXME: Should be moved to its own header file.
 class TransformAnimationValue : public AnimationValue {
 public:
-    static PassOwnPtr<TransformAnimationValue> create(float keyTime, const TransformOperations& value, PassRefPtr<TimingFunction> timingFunction = 0)
+    static PassOwnPtr<TransformAnimationValue> create(double keyTime, const TransformOperations& value, TimingFunction* timingFunction = nullptr)
     {
         return adoptPtr(new TransformAnimationValue(keyTime, value, timingFunction));
     }
 
-    virtual PassOwnPtr<AnimationValue> clone() const OVERRIDE
+    virtual PassOwnPtr<AnimationValue> clone() const override
     {
         return adoptPtr(new TransformAnimationValue(*this));
     }
@@ -133,7 +136,7 @@ public:
     const TransformOperations& value() const { return m_value; }
 
 private:
-    TransformAnimationValue(float keyTime, const TransformOperations& value, PassRefPtr<TimingFunction> timingFunction)
+    TransformAnimationValue(double keyTime, const TransformOperations& value, TimingFunction* timingFunction)
         : AnimationValue(keyTime, timingFunction)
         , m_value(value)
     {
@@ -147,12 +150,12 @@ private:
 // FIXME: Should be moved to its own header file.
 class FilterAnimationValue : public AnimationValue {
 public:
-    static PassOwnPtr<FilterAnimationValue> create(float keyTime, const FilterOperations& value, PassRefPtr<TimingFunction> timingFunction = 0)
+    static PassOwnPtr<FilterAnimationValue> create(double keyTime, const FilterOperations& value, TimingFunction* timingFunction = nullptr)
     {
         return adoptPtr(new FilterAnimationValue(keyTime, value, timingFunction));
     }
 
-    virtual PassOwnPtr<AnimationValue> clone() const OVERRIDE
+    virtual PassOwnPtr<AnimationValue> clone() const override
     {
         return adoptPtr(new FilterAnimationValue(*this));
     }
@@ -160,7 +163,7 @@ public:
     const FilterOperations& value() const { return m_value; }
 
 private:
-    FilterAnimationValue(float keyTime, const FilterOperations& value, PassRefPtr<TimingFunction> timingFunction)
+    FilterAnimationValue(double keyTime, const FilterOperations& value, TimingFunction* timingFunction)
         : AnimationValue(keyTime, timingFunction)
         , m_value(value)
     {
@@ -213,7 +216,7 @@ public:
     void insert(PassOwnPtr<const AnimationValue>);
     
 protected:
-    Vector<OwnPtr<const AnimationValue> > m_values;
+    Vector<OwnPtr<const AnimationValue>> m_values;
     AnimatedPropertyID m_property;
 };
 
@@ -223,14 +226,16 @@ protected:
 class GraphicsLayer {
     WTF_MAKE_NONCOPYABLE(GraphicsLayer); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<GraphicsLayer> create(GraphicsLayerFactory*, GraphicsLayerClient*);
-
-    // FIXME: Replace all uses of this create function with the one that takes a GraphicsLayerFactory.
-    static PassOwnPtr<GraphicsLayer> create(GraphicsLayerClient*);
+    static std::unique_ptr<GraphicsLayer> create(GraphicsLayerFactory*, GraphicsLayerClient&);
     
     virtual ~GraphicsLayer();
 
-    GraphicsLayerClient* client() const { return m_client; }
+    virtual void initialize() { }
+
+    typedef uint64_t PlatformLayerID;
+    virtual PlatformLayerID primaryLayerID() const { return 0; }
+
+    GraphicsLayerClient& client() const { return m_client; }
 
     // Layer name. Only used to identify layers in debug output
     const String& name() const { return m_name; }
@@ -256,8 +261,12 @@ public:
     void removeAllChildren();
     virtual void removeFromParent();
 
+    // The parent() of a maskLayer is set to the layer being masked.
     GraphicsLayer* maskLayer() const { return m_maskLayer; }
-    virtual void setMaskLayer(GraphicsLayer* layer) { m_maskLayer = layer; }
+    virtual void setMaskLayer(GraphicsLayer*);
+
+    void setIsMaskLayer(bool isMask) { m_isMaskLayer = isMask; }
+    bool isMaskLayer() const { return m_isMaskLayer; }
     
     // The given layer will replicate this layer and its children; the replica renders behind this layer.
     virtual void setReplicatedByLayer(GraphicsLayer*);
@@ -274,9 +283,9 @@ public:
         SetNeedsDisplay
     };
 
-    // Offset is origin of the renderer minus origin of the graphics layer (so either zero or negative).
-    IntSize offsetFromRenderer() const { return m_offsetFromRenderer; }
-    void setOffsetFromRenderer(const IntSize&, ShouldSetNeedsDisplay = SetNeedsDisplay);
+    // Offset is origin of the renderer minus origin of the graphics layer.
+    FloatSize offsetFromRenderer() const { return m_offsetFromRenderer; }
+    void setOffsetFromRenderer(const FloatSize&, ShouldSetNeedsDisplay = SetNeedsDisplay);
 
     // The position of the layer (the location of its top-left corner in its parent)
     const FloatPoint& position() const { return m_position; }
@@ -284,7 +293,7 @@ public:
 
     // For platforms that move underlying platform layers on a different thread for scrolling; just update the GraphicsLayer state.
     virtual void syncPosition(const FloatPoint& p) { m_position = p; }
-    
+
     // Anchor point: (0, 0) is top left, (1, 1) is bottom right. The anchor point
     // affects the origin of the transforms.
     const FloatPoint3D& anchorPoint() const { return m_anchorPoint; }
@@ -297,6 +306,9 @@ public:
     // The boundOrigin affects the offset at which content is rendered, and sublayers are positioned.
     const FloatPoint& boundsOrigin() const { return m_boundsOrigin; }
     virtual void setBoundsOrigin(const FloatPoint& origin) { m_boundsOrigin = origin; }
+
+    // For platforms that move underlying platform layers on a different thread for scrolling; just update the GraphicsLayer state.
+    virtual void syncBoundsOrigin(const FloatPoint& origin) { m_boundsOrigin = origin; }
 
     const TransformationMatrix& transform() const { return m_transform; }
     virtual void setTransform(const TransformationMatrix& t) { m_transform = t; }
@@ -342,35 +354,48 @@ public:
     virtual bool setFilters(const FilterOperations& filters) { m_filters = filters; return true; }
 #endif
 
+#if ENABLE(CSS_COMPOSITING)
+    BlendMode blendMode() const { return m_blendMode; }
+    virtual void setBlendMode(BlendMode blendMode) { m_blendMode = blendMode; }
+#endif
+
     // Some GraphicsLayers paint only the foreground or the background content
     GraphicsLayerPaintingPhase paintingPhase() const { return m_paintingPhase; }
     void setPaintingPhase(GraphicsLayerPaintingPhase phase) { m_paintingPhase = phase; }
 
+    enum ShouldClipToLayer {
+        DoNotClipToLayer,
+        ClipToLayer
+    };
+
     virtual void setNeedsDisplay() = 0;
     // mark the given rect (in layer coords) as needing dispay. Never goes deep.
-    virtual void setNeedsDisplayInRect(const FloatRect&) = 0;
+    virtual void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer) = 0;
 
     virtual void setContentsNeedsDisplay() { };
 
     // The tile phase is relative to the GraphicsLayer bounds.
-    virtual void setContentsTilePhase(const IntPoint& p) { m_contentsTilePhase = p; }
-    IntPoint contentsTilePhase() const { return m_contentsTilePhase; }
+    virtual void setContentsTilePhase(const FloatPoint& p) { m_contentsTilePhase = p; }
+    FloatPoint contentsTilePhase() const { return m_contentsTilePhase; }
 
-    virtual void setContentsTileSize(const IntSize& s) { m_contentsTileSize = s; }
-    IntSize contentsTileSize() const { return m_contentsTileSize; }
+    virtual void setContentsTileSize(const FloatSize& s) { m_contentsTileSize = s; }
+    FloatSize contentsTileSize() const { return m_contentsTileSize; }
     bool hasContentsTiling() const { return !m_contentsTileSize.isEmpty(); }
 
     // Set that the position/size of the contents (image or video).
-    IntRect contentsRect() const { return m_contentsRect; }
-    virtual void setContentsRect(const IntRect& r) { m_contentsRect = r; }
-    
+    FloatRect contentsRect() const { return m_contentsRect; }
+    virtual void setContentsRect(const FloatRect& r) { m_contentsRect = r; }
+
+    FloatRect contentsClippingRect() const { return m_contentsClippingRect; }
+    virtual void setContentsClippingRect(const FloatRect& r) { m_contentsClippingRect = r; }
+
     // Transitions are identified by a special animation name that cannot clash with a keyframe identifier.
     static String animationNameForTransition(AnimatedPropertyID);
     
     // Return true if the animation is handled by the compositing system. If this returns
     // false, the animation will be run by AnimationController.
     // These methods handle both transitions and keyframe animations.
-    virtual bool addAnimation(const KeyframeValueList&, const IntSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
+    virtual bool addAnimation(const KeyframeValueList&, const FloatSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
     virtual void pauseAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
     virtual void removeAnimation(const String& /*animationName*/) { }
 
@@ -381,18 +406,19 @@ public:
     virtual void setContentsToImage(Image*) { }
     virtual bool shouldDirectlyCompositeImage(Image*) const { return true; }
     virtual void setContentsToMedia(PlatformLayer*) { } // video or plug-in
+#if PLATFORM(IOS)
+    virtual PlatformLayer* contentsLayerForMedia() const { return 0; }
+#endif
     // Pass an invalid color to remove the contents layer.
     virtual void setContentsToSolidColor(const Color&) { }
     virtual void setContentsToCanvas(PlatformLayer*) { }
     // FIXME: webkit.org/b/109658
     // Should unify setContentsToMedia and setContentsToCanvas
     virtual void setContentsToPlatformLayer(PlatformLayer* layer) { setContentsToMedia(layer); }
-    virtual bool hasContentsLayer() const { return false; }
+    virtual bool usesContentsLayer() const { return false; }
 
     // Callback from the underlying graphics system to draw layer contents.
-    void paintGraphicsLayerContents(GraphicsContext&, const IntRect& clip);
-    // Callback from the underlying graphics system when the layer has been displayed
-    virtual void layerDidDisplay(PlatformLayer*) { }
+    void paintGraphicsLayerContents(GraphicsContext&, const FloatRect& clip);
     
     // For hosting this GraphicsLayer in a native layer hierarchy.
     virtual PlatformLayer* platformLayer() const { return 0; }
@@ -418,6 +444,14 @@ public:
     virtual void setDebugBackgroundColor(const Color&) { }
     virtual void setDebugBorder(const Color&, float /*borderWidth*/) { }
 
+    enum CustomAppearance { NoCustomAppearance, ScrollingOverhang, ScrollingShadow };
+    virtual void setCustomAppearance(CustomAppearance customAppearance) { m_customAppearance = customAppearance; }
+    CustomAppearance customAppearance() const { return m_customAppearance; }
+
+    enum CustomBehavior { NoCustomBehavior, CustomScrollingBehavior, CustomScrolledContentsBehavior };
+    virtual void setCustomBehavior(CustomBehavior customBehavior) { m_customBehavior = customBehavior; }
+    CustomBehavior customBehavior() const { return m_customBehavior; }
+
     // z-position is the z-equivalent of position(). It's only used for debugging purposes.
     virtual float zPosition() const { return m_zPosition; }
     virtual void setZPosition(float);
@@ -425,14 +459,16 @@ public:
     virtual void distributeOpacity(float);
     virtual float accumulatedOpacity() const;
 
-    virtual void setMaintainsPixelAlignment(bool maintainsAlignment) { m_maintainsPixelAlignment = maintainsAlignment; }
-    virtual bool maintainsPixelAlignment() const { return m_maintainsPixelAlignment; }
+#if PLATFORM(IOS)
+    bool hasFlattenedPerspectiveTransform() const { return !preserves3D() && m_childrenTransform.hasPerspective(); }
+#endif
+    virtual FloatSize pixelAlignmentOffset() const { return FloatSize(); }
     
     virtual void setAppliesPageScale(bool appliesScale = true) { m_appliesPageScale = appliesScale; }
     virtual bool appliesPageScale() const { return m_appliesPageScale; }
 
-    float pageScaleFactor() const { return m_client ? m_client->pageScaleFactor() : 1; }
-    float deviceScaleFactor() const { return m_client ? m_client->deviceScaleFactor() : 1; }
+    float pageScaleFactor() const { return m_client.pageScaleFactor(); }
+    float deviceScaleFactor() const { return m_client.deviceScaleFactor(); }
 
     virtual void deviceOrPageScaleFactorChanged() { }
     void noteDeviceOrPageScaleFactorChangedIncludingDescendants();
@@ -483,6 +519,9 @@ public:
 
     virtual bool canThrottleLayerFlush() const { return false; }
 
+    virtual bool isGraphicsLayerCA() const { return false; }
+    virtual bool isGraphicsLayerCARemote() const { return false; }
+
 protected:
     // Should be called from derived class destructors. Should call willBeDestroyed() on super.
     virtual void willBeDestroyed();
@@ -512,20 +551,18 @@ protected:
     GraphicsLayer* replicatedLayer() const { return m_replicatedLayer; }
     virtual void setReplicatedLayer(GraphicsLayer* layer) { m_replicatedLayer = layer; }
 
-    GraphicsLayer(GraphicsLayerClient*);
-
-    static void writeIndent(TextStream&, int indent);
+    explicit GraphicsLayer(GraphicsLayerClient&);
 
     void dumpProperties(TextStream&, int indent, LayerTreeAsTextBehavior) const;
     virtual void dumpAdditionalProperties(TextStream&, int /*indent*/, LayerTreeAsTextBehavior) const { }
 
     virtual void getDebugBorderInfo(Color&, float& width) const;
 
-    GraphicsLayerClient* m_client;
+    GraphicsLayerClient& m_client;
     String m_name;
     
     // Offset from the owning renderer
-    IntSize m_offsetFromRenderer;
+    FloatSize m_offsetFromRenderer;
     
     // Position is relative to the parent GraphicsLayer
     FloatPoint m_position;
@@ -544,6 +581,10 @@ protected:
     FilterOperations m_filters;
 #endif
 
+#if ENABLE(CSS_COMPOSITING)
+    BlendMode m_blendMode;
+#endif
+
     bool m_contentsOpaque : 1;
     bool m_preserves3D: 1;
     bool m_backfaceVisibility : 1;
@@ -552,10 +593,10 @@ protected:
     bool m_drawsContent : 1;
     bool m_contentsVisible : 1;
     bool m_acceleratesDrawing : 1;
-    bool m_maintainsPixelAlignment : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;
+    bool m_isMaskLayer : 1;
     
     GraphicsLayerPaintingPhase m_paintingPhase;
     CompositingCoordinatesOrientation m_contentsOrientation; // affects orientation of layer contents
@@ -570,13 +611,18 @@ protected:
     GraphicsLayer* m_replicatedLayer; // For a replica layer, a reference to the original layer.
     FloatPoint m_replicatedLayerPosition; // For a replica layer, the position of the replica.
 
-    IntRect m_contentsRect;
-    IntPoint m_contentsTilePhase;
-    IntSize m_contentsTileSize;
+    FloatRect m_contentsRect;
+    FloatRect m_contentsClippingRect;
+    FloatPoint m_contentsTilePhase;
+    FloatSize m_contentsTileSize;
 
     int m_repaintCount;
+    CustomAppearance m_customAppearance;
+    CustomBehavior m_customBehavior;
 };
 
+#define GRAPHICSLAYER_TYPE_CASTS(ToValueTypeName, predicate) \
+    TYPE_CASTS_BASE(ToValueTypeName, WebCore::GraphicsLayer, value, value->predicate, value.predicate)
 
 } // namespace WebCore
 
@@ -584,7 +630,5 @@ protected:
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer);
 #endif
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // GraphicsLayer_h

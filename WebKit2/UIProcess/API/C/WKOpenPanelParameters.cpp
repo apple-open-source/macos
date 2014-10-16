@@ -27,7 +27,7 @@
 #include "config.h"
 #include "WKOpenPanelParameters.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
 #include "WKAPICast.h"
 #include "WebOpenPanelParameters.h"
 
@@ -48,12 +48,19 @@ WKArrayRef WKOpenPanelParametersCopyAcceptedMIMETypes(WKOpenPanelParametersRef p
     return toAPI(toImpl(parametersRef)->acceptMIMETypes().leakRef());
 }
 
-WKStringRef WKOpenPanelParametersCopyCapture(WKOpenPanelParametersRef parametersRef)
+// Deprecated.
+WKStringRef WKOpenPanelParametersCopyCapture(WKOpenPanelParametersRef)
+{
+    return 0;
+}
+
+bool WKOpenPanelParametersGetCaptureEnabled(WKOpenPanelParametersRef parametersRef)
 {
 #if ENABLE(MEDIA_CAPTURE)
-    return toCopiedAPI(toImpl(parametersRef)->capture());
+    return toImpl(parametersRef)->capture();
 #else
-    return 0;
+    UNUSED_PARAM(parametersRef);
+    return false;
 #endif
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,8 +86,6 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#include "scnc_utils_common.h"
 
 #include "pppd.h"
 #include "magic.h"
@@ -535,9 +533,9 @@ main(argc, argv)
     }
 #endif
 #ifdef __APPLE__
-    syslog(LOG_NOTICE, "pppd %s (Apple version %s) started by %s, uid %d", VERSION, PPP_VERSION,  p, uid);
+    sys_log(LOG_NOTICE, "pppd %s (Apple version %s) started by %s, uid %d", VERSION, PPP_VERSION,  p, uid);
 #else
-    syslog(LOG_NOTICE, "pppd %s started by %s, uid %d", VERSION, p, uid);
+    sys_log(LOG_NOTICE, "pppd %s started by %s, uid %d", VERSION, p, uid);
 #endif
     script_setenv("PPPLOGNAME", p, 0);
 
@@ -993,6 +991,18 @@ ppp_control()
             term(SIGTERM);
             continue;
         }
+		
+#ifdef __APPLE__
+        if (!strcmp(cmd, "[INSTALL]")) {
+			sys_install();
+            return;
+        }
+        
+        if (!strcmp(cmd, "[UNINSTALL]")) {
+			sys_uninstall();
+			return;
+        }
+#endif
 
 /* 
         if (!strcmp(cmd, "[SUSPEND]")) {
@@ -1596,7 +1606,7 @@ die(status)
 #endif
     cleanup();
     notify(exitnotify, status);
-    syslog(LOG_INFO, "Exit.");
+    sys_log(LOG_INFO, "Exit.");
     exit(status);
 }
 
@@ -2342,7 +2352,7 @@ run_program(prog, args, must_exist, done, arg)
 	/* have to reopen the log, there's nowhere else
 	   for the message to go. */
 	reopen_log();
-	syslog(LOG_ERR, "Can't execute %s: %m", prog);
+	sys_log(LOG_ERR, "Can't execute %s: %m", prog);
 	closelog();
     }
     _exit(-1);

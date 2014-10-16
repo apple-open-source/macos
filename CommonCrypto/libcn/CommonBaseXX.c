@@ -222,6 +222,7 @@ enCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
     
     CC_XZEROMEM(dest, needed);
     
+    dPos = 0;
     for(i=0; i<srcLen; i++) {
         int dBit = (i*8) % destBits;
         dPos = (i*8) / destBits;

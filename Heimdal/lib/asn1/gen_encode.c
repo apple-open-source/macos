@@ -48,7 +48,7 @@ classname(Der_class class)
 {
     const char *cn[] = { "ASN1_C_UNIV", "ASN1_C_APPL",
 			 "ASN1_C_CONTEXT", "ASN1_C_PRIV" };
-    if ((int)class >= sizeof(cn) / sizeof(cn[0]))
+    if ((size_t)class >= sizeof(cn) / sizeof(cn[0]))
 	return "???";
     return cn[class];
 }
@@ -129,7 +129,7 @@ encode_type (const char *name, const Type *t, const char *tmpstr)
 	    encode_primitive ("heim_integer", name);
 	} else if (t->range->min == INT_MIN && t->range->max == INT_MAX) {
 	    encode_primitive ("integer", name);
-	} else if (t->range->min == 0 && t->range->max == UINT_MAX) {
+	} else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX) {
 	    encode_primitive ("unsigned", name);
 	} else if (t->range->min == 0 && t->range->max == INT_MAX) {
 	    encode_primitive ("unsigned", name);
@@ -494,8 +494,6 @@ encode_type (const char *name, const Type *t, const char *tmpstr)
 	fprintf (codefile, "/* NULL */\n");
 	constructed = 0;
 	break;
-    default:
-	abort ();
     }
     return constructed;
 }
@@ -544,8 +542,6 @@ generate_type_encode (const Symbol *s)
 	fprintf (codefile, "*size = ret;\n"
 		 "return 0;\n");
 	break;
-    default:
-	abort ();
     }
     fprintf (codefile, "}\n\n");
 }

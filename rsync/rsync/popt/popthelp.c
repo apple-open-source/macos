@@ -613,7 +613,7 @@ static int showShortOptions(const struct poptOption * opt, FILE * fp,
     s[0] = '\0';
     /*@-branchstate@*/		/* FIX: W2DO? */
     if (str == NULL) {
-	memset(s, 0, sizeof(s));
+	memset(s, 0, 300);
 	str = s;
     }
     /*@=branchstate@*/

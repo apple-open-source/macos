@@ -1,0 +1,40 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>base.xcconfig</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">base.xcconfig&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+#include &quot;&lt;DEVELOPER_DIR&gt;/Makefiles/CoreOS/Xcode/BSD.xcconfig&quot;
+#include &quot;&lt;DEVELOPER_DIR&gt;/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig&quot;
+
+ALWAYS_SEARCH_USER_PATHS = NO
+COPY_PHASE_STRIP = YES
+ZERO_LINK = NO
+GCC_C_LANGUAGE_STANDARD = gnu89
+GCC_OPTIMIZATION_LEVEL = s
+GCC_TREAT_WARNINGS_AS_ERRORS = YES
+
+BASE_GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H
+GCC_PREPROCESSOR_DEFINITIONS = $(BASE_GCC_PREPROCESSOR_DEFINITIONS)
+
+// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
+INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
+</pre>
+<hr />
+</body></html>

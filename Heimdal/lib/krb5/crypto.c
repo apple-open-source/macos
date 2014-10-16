@@ -32,6 +32,7 @@
  */
 
 #include "krb5_locl.h"
+#include "hex.h"
 
 struct _krb5_key_usage {
     unsigned usage;
@@ -670,15 +671,26 @@ krb5_enctype_to_string(krb5_context context,
 		       char **string)
 {
     struct _krb5_encryption_type *e;
+    const char *name = NULL;
+    int i;
+
     e = _krb5_find_enctype(etype);
-    if(e == NULL) {
+    if(e) {
+	name = e->name;
+    } else {
+	for (i = 0; i < _krb5_num_deprecated_etypes && !name; i++)
+	    if(_krb5_deprecated_etypes[i].type == etype)
+		name = _krb5_deprecated_etypes[i].name;
+    }
+
+    if (name == NULL) {
 	krb5_set_error_message (context, KRB5_PROG_ETYPE_NOSUPP,
 				N_("encryption type %d not supported", ""),
 				etype);
 	*string = NULL;
 	return KRB5_PROG_ETYPE_NOSUPP;
     }
-    *string = strdup(e->name);
+    *string = strdup(name);
     if(*string == NULL) {
 	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
 	return ENOMEM;
@@ -1292,7 +1304,7 @@ krb5_encrypt_iov_ivec(krb5_context context,
 	    return KRB5_BAD_MSIZE;
 	piv->data.length = pad_sz;
 	if (pad_sz)
-	    memset(piv->data.data, pad_sz, pad_sz);
+	    memset(piv->data.data, (int)pad_sz, pad_sz);
 	else
 	    piv = NULL;
     }
@@ -1880,58 +1892,32 @@ _krb5_derive_key(krb5_context context,
     ret = _key_schedule(context, key);
     if(ret)
 	return ret;
-    if(et->blocksize * 8 < kt->bits || len != et->blocksize) {
-	nblocks = (kt->bits + et->blocksize * 8 - 1) / (et->blocksize * 8);
-	k = malloc(nblocks * et->blocksize);
-	if(k == NULL) {
-	    ret = ENOMEM;
-	    krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	    goto out;
-	}
-	ret = _krb5_n_fold(constant, len, k, et->blocksize);
-	if (ret) {
-	    krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	    goto out;
-	}
 
-	for(i = 0; i < nblocks; i++) {
-	    if(i > 0)
-		memcpy(k + i * et->blocksize,
-		       k + (i - 1) * et->blocksize,
-		       et->blocksize);
-	    (*et->encrypt)(context, key, k + i * et->blocksize, et->blocksize,
-			   1, 0, NULL);
-	}
-    } else {
-	/* this case is probably broken, but won't be run anyway */
-	void *c = malloc(len);
-	size_t res_len = (kt->bits + 7) / 8;
-
-	if(len != 0 && c == NULL) {
-	    ret = ENOMEM;
-	    krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	    goto out;
-	}
-	memcpy(c, constant, len);
-	(*et->encrypt)(context, key, c, len, 1, 0, NULL);
-	k = malloc(res_len);
-	if(res_len != 0 && k == NULL) {
-	    free(c);
-	    ret = ENOMEM;
-	    krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	    goto out;
-	}
-	ret = _krb5_n_fold(c, len, k, res_len);
-	free(c);
-	if (ret) {
-	    krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	    goto out;
-	}
+    nblocks = (kt->bits + et->blocksize * 8 - 1) / (et->blocksize * 8);
+    k = malloc(nblocks * et->blocksize);
+    if(k == NULL) {
+	ret = ENOMEM;
+	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
+	goto out;
+    }
+    ret = _krb5_n_fold(constant, len, k, et->blocksize);
+    if (ret) {
+	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
+	goto out;
     }
 
-    /* XXX keytype dependent post-processing */
+    for(i = 0; i < nblocks; i++) {
+	if(i > 0)
+	    memcpy(k + i * et->blocksize,
+		   k + (i - 1) * et->blocksize,
+		   et->blocksize);
+	(*et->encrypt)(context, key, k + i * et->blocksize, et->blocksize,
+		       1, 0, NULL);
+    }
+
     switch(kt->type) {
     case KRB5_ENCTYPE_OLD_DES3_CBC_SHA1:
+    case ETYPE_DES3_CBC_SHA1:
 	_krb5_DES3_random_to_key(context, key->key, k, nblocks * et->blocksize);
 	break;
     case KRB5_ENCTYPE_AES128_CTS_HMAC_SHA1_96:
@@ -1965,7 +1951,7 @@ static struct _krb5_key_data *
 _new_derived_key(krb5_crypto crypto, unsigned usage)
 {
     struct _krb5_key_usage **d, *e;
-    d = realloc(crypto->key_usage, (crypto->num_key_usage + 1) * sizeof(crypto->key_usage));
+    d = realloc(crypto->key_usage, (crypto->num_key_usage + 1) * sizeof(crypto->key_usage[0]));
     if(d == NULL)
 	return NULL;
     crypto->key_usage = d;
@@ -2584,7 +2570,7 @@ krb5_crypto_prfplus(krb5_context context,
     krb5_data_free(&input2);
     if (ret)
 	krb5_data_free(output);
-    return 0;
+    return ret;
 }
 
 /**
@@ -2622,9 +2608,6 @@ krb5_crypto_fx_cf2(krb5_context context,
     if (ret)
 	return ret;
 
-    ret = krb5_data_alloc(&res->keyvalue, keysize);
-    if (ret)
-	goto out;
     ret = krb5_crypto_prfplus(context, crypto1, pepper1, keysize, &os1);
     if (ret)
 	goto out;
@@ -2632,19 +2615,45 @@ krb5_crypto_fx_cf2(krb5_context context,
     if (ret)
 	goto out;
 
-    res->keytype = enctype;
     {
-	unsigned char *p1 = os1.data, *p2 = os2.data, *p3 = res->keyvalue.data;
+	uint8_t *p1 = os1.data, *p2 = os2.data;
 	for (i = 0; i < keysize; i++)
-	    p3[i] = p1[i] ^ p2[i];
+	    p1[i] ^= p2[i];
     }
+
+    ret = krb5_random_to_key(context, enctype, os1.data, keysize, res);
  out:
-    if (ret)
-	krb5_data_free(&res->keyvalue);
     krb5_data_free(&os1);
     krb5_data_free(&os2);
 
     return ret;
+}
+
+/**
+ * Print a keyblock
+ */
+
+void
+_krb5_debug_keyblock(krb5_context context, int level, const char *name, krb5_keyblock *keyblock)
+{
+    size_t size;
+    char *hex;
+
+    if (!_krb5_have_debug(context, level)) 
+	return;
+
+    /**
+     * Only print the first 2 bytes though since we really don't want
+     * the full key sprinkled though logs.
+     */
+    size = min(keyblock->keyvalue.length, 4);
+
+    if (hex_encode(keyblock->keyvalue.data, size, &hex) < 0)
+	return;
+
+    _krb5_debugx(context, level, "%s %d/%s", name, keyblock->keytype, hex);
+    memset(hex, 0, strlen(hex));
+    free(hex);
 }
 
 

@@ -40,10 +40,6 @@
 
 BEGIN
 {
-#if !defined(__APPLE__)
-	(char)trace(`kmem_flags);
-#else
 	(char)trace(`max_ncpus);
-#endif /* __APPLE__ */
 	exit();
 }

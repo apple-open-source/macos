@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>setuptools</string>
+        <key>OpenSourceVersion</key>
+        <string>1.1.6</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/setuptools</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/s/setuptools/setuptools-1.1.6.tar.gz#md5=ee82ea53def4480191061997409d2996</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-10-11</string>
+        <key>OpenSourceMD5</key>
+        <string>ee82ea53def4480191061997409d2996</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

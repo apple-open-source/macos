@@ -51,13 +51,8 @@ tick-1
 	trace(12345);		/* DT_TYPE_INT (constant) */
 	trace(x++);		/* DT_TYPE_INT (derived) */
 	trace(timestamp);	/* DT_TYPE_INT (variable) */
-#if !defined(__APPLE__)
-	trace(`kmem_flags);	/* CTF type (by value) */
-	trace(*`rootvp);	/* CTF type (by ref) */
-#else
 	trace(`max_ncpus);	/* CTF type (by value) */
 	trace(*`avenrun);	/* CTF type (by ref) */
-#endif /* __APPLE__ */
 	i++;
 }
 

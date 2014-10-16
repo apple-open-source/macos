@@ -27,9 +27,10 @@
 #include "WebCookieManager.h"
 
 #include "ChildProcess.h"
+#include "WebFrameNetworkingContext.h"
 #include "WebKitSoupCookieJarSqlite.h"
 #include <WebCore/CookieJarSoup.h>
-#include <WebCore/ResourceHandle.h>
+#include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
 #include <wtf/gobject/GRefPtr.h>
 #include <wtf/text/CString.h>
@@ -40,22 +41,7 @@ namespace WebKit {
 
 void WebCookieManager::platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy)
 {
-    SoupCookieJar* cookieJar = WebCore::soupCookieJar();
-    SoupCookieJarAcceptPolicy soupPolicy;
-
-    soupPolicy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
-    switch (policy) {
-    case HTTPCookieAcceptPolicyAlways:
-        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
-        break;
-    case HTTPCookieAcceptPolicyNever:
-        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NEVER;
-        break;
-    case HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
-        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
-        break;
-    }
-    soup_cookie_jar_set_accept_policy(cookieJar, soupPolicy);
+    WebFrameNetworkingContext::setCookieAcceptPolicyForAllContexts(policy);
 }
 
 HTTPCookieAcceptPolicy WebCookieManager::platformGetHTTPCookieAcceptPolicy()
@@ -96,12 +82,8 @@ void WebCookieManager::setCookiePersistentStorage(const String& storagePath, uin
         ASSERT_NOT_REACHED();
     }
 
-    SoupCookieJar* currentJar = WebCore::soupCookieJar();
-    soup_cookie_jar_set_accept_policy(jar.get(), soup_cookie_jar_get_accept_policy(currentJar));
-    SoupSession* session = ResourceHandle::defaultSession();
-    soup_session_remove_feature(session, SOUP_SESSION_FEATURE(currentJar));
-    soup_session_add_feature(session, SOUP_SESSION_FEATURE(jar.get()));
-
+    soup_cookie_jar_set_accept_policy(jar.get(), soup_cookie_jar_get_accept_policy(WebCore::soupCookieJar()));
+    SoupNetworkSession::defaultSession().setCookieJar(jar.get());
     WebCore::setSoupCookieJar(jar.get());
 }
 

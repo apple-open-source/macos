@@ -1,0 +1,14 @@
+--- support/Makefile.in.orig	2014-07-25 01:04:39.000000000 -0700
++++ support/Makefile.in	2014-07-25 01:06:02.000000000 -0700
+@@ -3,8 +3,8 @@
+ 
+ CLEAN_TARGETS = suexec
+ 
+-bin_PROGRAMS = htpasswd htdigest htdbm ab logresolve httxt2dbm
+-sbin_PROGRAMS = htcacheclean rotatelogs $(NONPORTABLE_SUPPORT)
++bin_PROGRAMS = 
++sbin_PROGRAMS = htpasswd htdigest htdbm ab logresolve httxt2dbm htcacheclean rotatelogs $(NONPORTABLE_SUPPORT)
+ TARGETS  = $(bin_PROGRAMS) $(sbin_PROGRAMS)
+ 
+ PROGRAM_LDADD        = $(UTIL_LDFLAGS) $(PROGRAM_DEPENDENCIES) $(EXTRA_LIBS) $(AP_LIBS)
+

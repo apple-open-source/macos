@@ -30,21 +30,6 @@
 
 #pragma ident	"@(#)dt_printf.c	1.20	06/04/29 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <alloca.h>
-#include <assert.h>
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
-
-#include <dt_printf.h>
-#include <dt_string.h>
-#include <dt_impl.h>
-
-#else /* is Apple Mac OS X */
 /* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
 #include <strings.h>
 #include <stdlib.h>
@@ -53,6 +38,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 
 #include <dt_printf.h>
 #include <dt_string.h>
@@ -60,7 +46,6 @@
 
 #define ctime_r(p, s, len) ctime_r(p,  s)
 #define ABS(x) ((x) < 0 ? (-(x)) : (x))
-#endif /* __APPLE__ */
 
 /*ARGSUSED*/
 static int
@@ -242,8 +227,8 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (ctf_type_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
-	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
+	return (ctf_type_printf_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp, dnp->dn_type),
+	                               pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
 }
 
 /*ARGSUSED*/
@@ -322,9 +307,11 @@ pfprint_fp(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	case sizeof (double):
 		return (dt_printf(dtp, fp, format,
 		    *((double *)addr) / n));
+#if !defined(__arm__) && !defined(__arm64__)
 	case sizeof (long double):
 		return (dt_printf(dtp, fp, format,
 		    *((long double *)addr) / ldn));
+#endif
 	default:
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 	}
@@ -646,10 +633,6 @@ static const dt_pfconv_t _dtrace_conversions[] = {
 { "S", "s", pfproto_cstr, pfcheck_str, pfprint_estr },
 { "T", "s", "int64_t", pfcheck_time, pfprint_time822 },
 { "u", "u", pfproto_xint, pfcheck_xint, pfprint_uint },
-#if !defined(__APPLE__) /*  PR_4769301 %wc and %ws are not part of Darwin's ISO-C printf formats. %lc %ls are. */
-{ "wc",	"wc", "int", pfcheck_type, pfprint_sint }, /* a.k.a. wchar_t */
-{ "ws", "ws", pfproto_wstr, pfcheck_wstr, pfprint_wstr },
-#endif /* __APPLE__ */
 { "x", "x", pfproto_xint, pfcheck_xint, pfprint_uint },
 { "X", "X", pfproto_xint, pfcheck_xint, pfprint_uint },
 { "Y", "s", "int64_t", pfcheck_time, pfprint_time },
@@ -1490,19 +1473,11 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		if (func == pfprint_stack && (pfd->pfd_flags & DT_PFCONV_LEFT))
 			width = 0;
 
-#if !defined(__APPLE__)
-		if (width != 0)
-			f += snprintf(f, sizeof (format), "%d", ABS(width));
-		
-		if (prec > 0)
-			f += snprintf(f, sizeof (format), ".%d", prec);
-#else
 		if (width != 0)
 			f += snprintf(f, sizeof (format) - (f - format), "%d", ABS(width));
 		
 		if (prec > 0)
 			f += snprintf(f, sizeof (format) - (f - format), ".%d", prec);
-#endif /* __APPLE__ */
 
 		(void) strcpy(f, pfd->pfd_fmt);
 		pfd->pfd_rec = rec;
@@ -1794,19 +1769,11 @@ dtrace_printf_format(dtrace_hdl_t *dtp, void *fmtdata, char *s, size_t len)
 		if (pfd->pfd_flags & DT_PFCONV_AGG)
 			*f++ = '@';
 
-#if !defined(__APPLE__)
-		if (width != 0)
-			f += snprintf(f, sizeof (format), "%d", width);
-
-		if (prec != 0)
-			f += snprintf(f, sizeof (format), ".%d", prec);
-#else
 		if (width != 0)
 			f += snprintf(f, formatlen - (f - format), "%d", width);
 
 		if (prec != 0)
 			f += snprintf(f, formatlen - (f - format), ".%d", prec);
-#endif /* __APPLE__ */
 
 		/*
 		 * If the output format is %s, then either %s is the underlying

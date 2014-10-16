@@ -33,6 +33,8 @@
  * SUCH DAMAGE.
  */
 
+#include "asn1-common.h"
+
 struct test_case {
     void *val;
     ssize_t byte_len;
@@ -67,8 +69,6 @@ generic_decode_fail(const struct test_case *tests,
 struct map_page;
 
 enum map_type { OVERRUN, UNDERRUN };
-
-struct map_page;
 
 void *	map_alloc(enum map_type, const void *, size_t, struct map_page **);
 void	map_free(struct map_page *, const char *, const char *);

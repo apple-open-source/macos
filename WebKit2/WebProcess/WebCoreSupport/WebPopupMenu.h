@@ -25,7 +25,6 @@
 #include "WebPopupItem.h"
 #include <WebCore/PopupMenu.h>
 #include <wtf/Forward.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -48,14 +47,14 @@ public:
     void disconnectFromPage() { m_page = 0; }
     void didChangeSelectedIndex(int newIndex);
     void setTextForIndex(int newIndex);
-#if PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(GTK)
     WebCore::PopupMenuClient* client() const { return m_popupClient; }
 #endif
 
-    virtual void show(const WebCore::IntRect&, WebCore::FrameView*, int index) OVERRIDE;
-    virtual void hide() OVERRIDE;
-    virtual void updateFromElement() OVERRIDE;
-    virtual void disconnectClient() OVERRIDE;
+    virtual void show(const WebCore::IntRect&, WebCore::FrameView*, int index) override;
+    virtual void hide() override;
+    virtual void updateFromElement() override;
+    virtual void disconnectClient() override;
 
 private:
     WebPopupMenu(WebPage*, WebCore::PopupMenuClient*);

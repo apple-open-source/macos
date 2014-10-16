@@ -315,7 +315,7 @@ kcm_op_retrieve(krb5_context context,
     krb5_creds mcreds;
     krb5_error_code ret;
     kcm_ccache ccache;
-    char *name;
+    char *name = NULL;
     krb5_creds *credp;
 
     ret = krb5_ret_stringz(request, &name);
@@ -326,7 +326,6 @@ kcm_op_retrieve(krb5_context context,
 
     ret = krb5_ret_uint32(request, &flags);
     if (ret) {
-	free(name);
 	goto out;
     }
 
@@ -335,7 +334,6 @@ kcm_op_retrieve(krb5_context context,
 
     ret = krb5_ret_creds_tag(request, &mcreds);
     if (ret) {
-	free(name);
 	goto out;
     }
 
@@ -345,7 +343,6 @@ kcm_op_retrieve(krb5_context context,
     {
 	krb5_free_cred_contents(context, &mcreds);
 	ret = KRB5_FCC_PERM;
-	free(name);
 	goto out;
     }
 
@@ -1514,7 +1511,7 @@ kcm_parse_digest_one(krb5_context context, krb5_storage *sp)
 	CHECK(ret = krb5_ret_data(sp, &data));
 	heim_data_t d = heim_data_create(data.data, data.length);
 	krb5_data_free(&data);
-	heim_dict_add_value(c->labels, s, d);
+	heim_dict_set_value(c->labels, s, d);
 	heim_release(s);
 	heim_release(d);
     }
@@ -2746,7 +2743,7 @@ kcm_op_cred_label_set(krb5_context context,
 
 		d = heim_data_create(data.data, data.length);
 
-		heim_dict_add_value(c->labels, s, d);
+		heim_dict_set_value(c->labels, s, d);
 		heim_release(d);
 	    } else {
 		heim_dict_delete_key(c->labels, s);

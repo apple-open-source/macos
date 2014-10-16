@@ -258,7 +258,7 @@ plogsetfile(file)
 	}
 	logfile = racoon_strdup(file);
 	STRDUP_FATAL(logfile);
-	if ((logfile_fd = open(logfile, O_CREAT | O_WRONLY | O_APPEND | O_NOFOLLOW, 0)) >= 0) {
+	if ((logfile_fd = open(logfile, O_CREAT | O_WRONLY | O_APPEND | O_NOFOLLOW, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) >= 0) {
 		asl_add_log_file(logRef, logfile_fd);
 	} else {
 		syslog(LOG_NOTICE, "%s: failed to add racoon log file: %s. error %d\n", __FUNCTION__, file? file:"bad file path", errno);

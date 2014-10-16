@@ -43,7 +43,6 @@
 #include "member.h"
 #include "msg.h"
 
-#if defined(__APPLE__)
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -127,7 +126,6 @@ Elf32_Word STTSect(const char *sectname)
 	else
 		return STT_OBJECT;
 }
-#endif /* __APPLE__ */
 
 /*
  * This module is compiled twice, the second time having
@@ -155,7 +153,6 @@ Elf32_Word STTSect(const char *sectname)
 #define	_elf_shdr	_elf64_shdr
 #define	_elf_prepscn	_elf64_prepscn
 
-#if defined(__APPLE__)
 #define _mach_header	mach_header_64
 #define _MH_CIGAM	MH_CIGAM_64
 #define _swap_mh	__swap_mach_header_64
@@ -172,8 +169,6 @@ Elf32_Word STTSect(const char *sectname)
 #define _sect		section_64
 #define _swapsegcmd	__swap_segment_command_64
 #define _swapsect	__swap_section_64
-
-#endif /* __APPLE__ */
 
 #else  /* Elf32 */
 #define	Snode		Snode32
@@ -192,7 +187,6 @@ Elf32_Word STTSect(const char *sectname)
 #define	_elf_shdr	_elf32_shdr
 #define	_elf_prepscn	_elf32_prepscn
 
-#if defined(__APPLE__)
 #define _mach_header	mach_header
 #define _MH_CIGAM	MH_CIGAM
 #define _swap_mh	__swap_mach_header
@@ -209,8 +203,6 @@ Elf32_Word STTSect(const char *sectname)
 #define _sect		section
 #define _swapsegcmd	__swap_segment_command
 #define _swapsect	__swap_section
-
-#endif /* __APPLE__ */
 
 #endif /* _ELF64 */
 
@@ -552,7 +544,6 @@ _elf_shdr(Elf * elf, int inplace)
 	dst.d_size = msz;
 	dst.d_version = EV_CURRENT;
 	
-#if defined(__APPLE__)
 	if (elf->ed_kind == ELF_K_MACHO) {
 		struct _mach_header hdr, *mh = (struct _mach_header *)(elf->ed_image);
 		struct load_command *thisLC = (struct load_command *)(&(mh[1]));
@@ -719,7 +710,6 @@ _elf_shdr(Elf * elf, int inplace)
 			}
 		}
 	}
-#endif /* __APPLE__ */
 
 	if ((_elf_vm(elf, (size_t)eh->e_shoff, fsz) != OK_YES) ||
 	    (elf_xlatetom(&dst, &src, elf->ed_encode) == 0) ||

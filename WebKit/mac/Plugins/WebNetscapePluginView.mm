@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -67,7 +67,6 @@
 #import <WebCore/Page.h> 
 #import <WebCore/PluginMainThreadScheduler.h>
 #import <WebCore/ProxyServer.h>
-#import <WebCore/RunLoop.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SoftLinking.h> 
@@ -75,13 +74,14 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <WebCore/npruntime_impl.h>
-#import <WebKit/DOMPrivate.h>
-#import <WebKit/WebUIDelegate.h>
+#import <WebKitLegacy/DOMPrivate.h>
+#import <WebKitLegacy/WebUIDelegate.h>
 #import <objc/runtime.h>
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
+#import <wtf/RunLoop.h>
 #import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
@@ -194,7 +194,7 @@ typedef struct {
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
@@ -669,7 +669,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     ASSERT(_eventHandler);
     {
         JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
-        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? DefinitelyProcessingNewUserGesture : PossiblyProcessingUserGesture);
+        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
     [self didCallPlugInFunction];
@@ -707,11 +707,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
 
-    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
-        PluginTimer* timer = it->value;
-        timer->stop();
-    }    
+    for (auto& it: timers->values())
+        it->stop();
 }
 
 - (void)startTimers
@@ -725,11 +722,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
     
-    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
-        PluginTimer* timer = it->value;
-        ASSERT(!timer->isActive());
-        timer->start(_isCompletelyObscured);
+    for (auto& it: timers->values()) {
+        ASSERT(!it->isActive());
+        it->start(_isCompletelyObscured);
     }    
 }
 
@@ -1093,9 +1088,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             _pluginLayer = adoptNS((CALayer *)value);
 
             BOOL accleratedCompositingEnabled = false;
-#if USE(ACCELERATED_COMPOSITING)
             accleratedCompositingEnabled = [[[self webView] preferences] acceleratedCompositingEnabled];
-#endif
             if (accleratedCompositingEnabled) {
                 // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
                 // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
@@ -1159,7 +1152,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // Check for this and don't start a load in this case.
     if (_sourceURL && ![_sourceURL.get() _web_isEmpty]) {
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:_sourceURL.get()];
-        [request _web_setHTTPReferrer:core([self webFrame])->loader()->outgoingReferrer()];
+        [request _web_setHTTPReferrer:core([self webFrame])->loader().outgoingReferrer()];
         [self loadRequest:request inTarget:nil withNotifyData:nil sendNotification:NO];
     } 
 }
@@ -1183,10 +1176,10 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // To stop active streams it's necessary to invoke stop() on a copy 
     // of streams. This is because calling WebNetscapePluginStream::stop() also has the side effect
     // of removing a stream from this hash set.
-    Vector<RefPtr<WebNetscapePluginStream> > streamsCopy;
+    Vector<RefPtr<WebNetscapePluginStream>> streamsCopy;
     copyToVector(streams, streamsCopy);
-    for (size_t i = 0; i < streamsCopy.size(); i++)
-        streamsCopy[i]->stop();
+    for (auto& stream: streamsCopy)
+        stream->stop();
 
     for (WebFrame *frame in [_pendingFrameLoads keyEnumerator])
         [frame _setInternalLoadDelegate:nil];
@@ -1369,11 +1362,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     
     ASSERT(!_eventHandler);
     
-    if (timers) {
-        deleteAllValues(*timers);
-        delete timers;
-    }  
-    
     [_containerChecksInProgress release];
 }
 
@@ -1499,7 +1487,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     ASSERT(_loadManually);
     ASSERT(!_manualStream);
 
-    _manualStream = WebNetscapePluginStream::create(core([self webFrame])->loader());
+    _manualStream = WebNetscapePluginStream::create(&core([self webFrame])->loader());
 }
 
 - (void)pluginView:(NSView *)pluginView receivedData:(NSData *)data
@@ -1657,7 +1645,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (frameName) {
         // FIXME - need to get rid of this window creation which
         // bypasses normal targeted link handling
-        frame = kit(core([self webFrame])->loader()->findFrameForNavigation(frameName));
+        frame = kit(core([self webFrame])->loader().findFrameForNavigation(frameName));
         if (frame == nil) {
             WebView *currentWebView = [self webView];
             NSDictionary *features = [[NSDictionary alloc] init];
@@ -1679,7 +1667,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             }
             
             frame = [newWebView mainFrame];
-            core(frame)->tree()->setName(frameName);
+            core(frame)->tree().setName(frameName);
             [[newWebView _UIDelegateForwarder] webViewShow:newWebView];
         }
     }
@@ -1723,7 +1711,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
     // don't let a plugin start any loads if it is no longer part of a document that is being 
     // displayed unless the loads are in the same frame as the plugin.
-    if ([[self dataSource] _documentLoader] != core([self webFrame])->loader()->activeDocumentLoader() &&
+    if ([[self dataSource] _documentLoader] != core([self webFrame])->loader().activeDocumentLoader() &&
         (!cTarget || [frame findFrameNamed:target] != frame)) {
         return NPERR_GENERIC_ERROR; 
     }
@@ -2001,7 +1989,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         case NPNVWindowNPObject:
         {
             Frame* frame = core([self webFrame]);
-            NPObject* windowScriptObject = frame ? frame->script()->windowScriptNPObject() : 0;
+            NPObject* windowScriptObject = frame ? frame->script().windowScriptNPObject() : 0;
 
             // Return value is expected to be retained, as described here: <http://www.mozilla.org/projects/plugins/npruntime.html#browseraccess>
             if (windowScriptObject)
@@ -2087,13 +2075,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             *(WKNBrowserContainerCheckFuncs **)value = browserContainerCheckFuncs();
             return NPERR_NO_ERROR;
         }
-#if USE(ACCELERATED_COMPOSITING)
+
         case WKNVSupportsCompositingCoreAnimationPluginsBool:
         {
             *(NPBool *)value = [[[self webView] preferences] acceleratedCompositingEnabled];
             return NPERR_NO_ERROR;
         }
-#endif
+
         default:
             break;
     }
@@ -2165,20 +2153,21 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         return 0;
     
     if (!timers)
-        timers = new HashMap<uint32_t, PluginTimer*>;
-    
+        timers = std::make_unique<HashMap<uint32_t, std::unique_ptr<PluginTimer>>>();
+
+    std::unique_ptr<PluginTimer>* slot;
     uint32_t timerID;
-    
-    do {
+    do
         timerID = ++currentTimerID;
-    } while (timers->contains(timerID) || timerID == 0);
-    
-    PluginTimer* timer = new PluginTimer(plugin, timerID, interval, repeat, timerFunc);
-    timers->set(timerID, timer);
+    while (!timers->isValidKey(timerID) || *(slot = &timers->add(timerID, nullptr).iterator->value));
+
+    auto timer = std::make_unique<PluginTimer>(plugin, timerID, interval, repeat, timerFunc);
 
     if (_shouldFireTimers)
         timer->start(_isCompletelyObscured);
     
+    *slot = WTF::move(timer);
+
     return timerID;
 }
 
@@ -2187,8 +2176,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
     
-    if (PluginTimer* timer = timers->take(timerID))
-        delete timer;
+    timers->remove(timerID);
 }
 
 - (NPError)popUpContextMenu:(NPMenu *)menu
@@ -2396,7 +2384,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     LOG(Plugins, "NPP_Destroy: %d", npErr);
     
     if (Frame* frame = core([self webFrame]))
-        frame->script()->cleanupScriptObjectsForPlugin(self);
+        frame->script().cleanupScriptObjectsForPlugin(self);
         
     free(plugin);
     plugin = NULL;

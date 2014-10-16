@@ -22,11 +22,11 @@
  */
 
 #include "config.h"
-#include "KURL.h"
+#include "URL.h"
 #include "LinkHash.h"
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/StringHash.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -214,10 +214,9 @@ static ALWAYS_INLINE LinkHash visitedLinkHashInline(const CharacterType* url, un
 LinkHash visitedLinkHash(const String& url)
 {
     unsigned length = url.length();
-
-    if (length && url.is8Bit())
+    if (!length || url.is8Bit())
         return visitedLinkHashInline(url.characters8(), length);
-    return visitedLinkHashInline(url.characters(), length);
+    return visitedLinkHashInline(url.characters16(), length);
 }
 
 LinkHash visitedLinkHash(const UChar* url, unsigned length)
@@ -226,13 +225,13 @@ LinkHash visitedLinkHash(const UChar* url, unsigned length)
 }
 
 template <typename CharacterType>
-static ALWAYS_INLINE void visitedURLInline(const KURL& base, const CharacterType* characters, unsigned length, Vector<CharacterType, 512>& buffer)
+static ALWAYS_INLINE void visitedURLInline(const URL& base, const CharacterType* characters, unsigned length, Vector<CharacterType, 512>& buffer)
 {
     if (!length)
         return;
 
     // This is a poor man's completeURL. Faster with less memory allocation.
-    // FIXME: It's missing a lot of what completeURL does and a lot of what KURL does.
+    // FIXME: It's missing a lot of what completeURL does and a lot of what URL does.
     // For example, it does not handle international domain names properly.
 
     // FIXME: It is wrong that we do not do further processing on strings that have "://" in them:
@@ -259,17 +258,17 @@ static ALWAYS_INLINE void visitedURLInline(const KURL& base, const CharacterType
     }
 
     if (!length)
-        buffer.append(base.string().getCharactersWithUpconvert<CharacterType>(), base.string().length());
+        append(buffer, base.string());
     else {
         switch (characters[0]) {
             case '/':
-                buffer.append(base.string().getCharactersWithUpconvert<CharacterType>(), base.pathStart());
+                append(buffer, StringView(base.string()).substring(0, base.pathStart()));
                 break;
             case '#':
-                buffer.append(base.string().getCharactersWithUpconvert<CharacterType>(), base.pathEnd());
+                append(buffer, StringView(base.string()).substring(0, base.pathEnd()));
                 break;
             default:
-                buffer.append(base.string().getCharactersWithUpconvert<CharacterType>(), base.pathAfterLastSlash());
+                append(buffer, StringView(base.string()).substring(0, base.pathAfterLastSlash()));
                 break;
         }
     }
@@ -284,12 +283,7 @@ static ALWAYS_INLINE void visitedURLInline(const KURL& base, const CharacterType
     return;
 }
 
-void visitedURL(const KURL& base, const AtomicString& attributeURL, Vector<UChar, 512>& buffer)
-{
-    return visitedURLInline(base, attributeURL.characters(), attributeURL.length(), buffer);
-}
-
-LinkHash visitedLinkHash(const KURL& base, const AtomicString& attributeURL)
+LinkHash visitedLinkHash(const URL& base, const AtomicString& attributeURL)
 {
     if (attributeURL.isEmpty())
         return 0;
@@ -304,7 +298,9 @@ LinkHash visitedLinkHash(const KURL& base, const AtomicString& attributeURL)
     }
 
     Vector<UChar, 512> url;
-    visitedURLInline(base, attributeURL.characters(), attributeURL.length(), url);
+    auto upconvertedCharacters = StringView(attributeURL.string()).upconvertedCharacters();
+    const UChar* characters = upconvertedCharacters;
+    visitedURLInline(base, characters, attributeURL.length(), url);
     if (url.isEmpty())
         return 0;
 

@@ -1,23 +1,16 @@
 /*
- * "$Id: testsub.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: testsub.c 11934 2014-06-17 18:58:29Z msweet $"
  *
- *   Scheduler notification tester for CUPS.
+ * Scheduler notification tester for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
- *   Copyright 2006-2007 by Easy Software Products.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2006-2007 by Easy Software Products.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * Contents:
- *
- *   main()             - Subscribe to the .
- *   print_attributes() - Print the attributes in a request...
- *   sigterm_handler()  - Flag when the user hits CTRL-C...
- *   usage()            - Show program usage...
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -251,7 +244,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       interval = 5;
 
     ippDelete(response);
-    sleep(interval);
+    sleep((unsigned)interval);
   }
 
  /*
@@ -435,17 +428,10 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
       case IPP_TAG_DATE :
           {
-	    time_t	vtime;		/* Date/Time value */
-	    struct tm	*vdate;		/* Date info */
 	    char	vstring[256];	/* Formatted time */
 
 	    for (i = 0, val = attr->values; i < attr->num_values; i ++, val ++)
-	    {
-	      vtime = ippDateToTime(val->date);
-	      vdate = localtime(&vtime);
-	      strftime(vstring, sizeof(vstring), "%c", vdate);
-	      printf(" (%s)", vstring);
-	    }
+	      printf(" (%s)", _cupsStrDate(vstring, sizeof(vstring), ippDateToTime(val->date)));
           }
           putchar('\n');
           break;
@@ -519,5 +505,5 @@ usage(void)
 
 
 /*
- * End of "$Id: testsub.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: testsub.c 11934 2014-06-17 18:58:29Z msweet $".
  */

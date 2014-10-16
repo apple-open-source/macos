@@ -619,7 +619,7 @@ To load tt(vcs_info):
 example(autoload -Uz vcs_info)
 
 It can be used in any existing prompt, because it does not require any
-tt($psvar) entries to be left available.
+specific tt($psvar) entries to be available.
 
 subsect(Quickstart)
 
@@ -2477,14 +2477,21 @@ See the function tt(modify-current-argument), described below, for
 an example of how to call this function.
 )
 tindex(modify-current-argument)
-item(tt(modify-current-argument) var(expr-using-)tt($ARG))(
+item(tt(modify-current-argument) [ var(expr-using-)tt($ARG) | var(func) ])(
 This function provides a simple method of allowing user-defined widgets
 to modify the command line argument under the cursor (or immediately to the
-left of the cursor if the cursor is between arguments).  The argument
-should be an expression which when evaluated operates on the shell
+left of the cursor if the cursor is between arguments).
+
+The argument can be an expression which when evaluated operates on the shell
 parameter tt(ARG), which will have been set to the command line argument
 under the cursor.  The expression should be suitably quoted to prevent
 it being evaluated too early.
+
+Alternatively, if the argument does not contain the string tt(ARG), it
+is assumed to be a shell function, to which the current command line
+argument is passed as the only argument.  The function should set the
+variable tt(REPLY) to the new value for the command line argument.
+If the function returns non-zero status, so does the calling function.
 
 For example, a user-defined widget containing the following code
 converts the characters in the argument under the cursor into all upper
@@ -2497,6 +2504,18 @@ or one of the styles of quotes), and replaces it with single quoting
 throughout:
 
 example(modify-current-argument '${(qq)${(Q)ARG}}')
+
+The following performs directory expansion on the command line
+argument and replaces it by the absolute path:
+
+example(expand-dir+LPAR()RPAR() {
+  REPLY=${~1}
+  REPLY=${REPLY:a}
+}
+modify-current-argument expand-dir)
+
+In practice the function tt(expand-dir) would probably not be defined
+within the widget where tt(modify-current-argument) is called.
 )
 enditem()
 
@@ -2842,6 +2861,14 @@ question is run using the tt(eval) builtin instead of by starting a new
 tt(sh) process.  This is more efficient, but may not work in the occasional
 cases where the mailcap handler uses strict POSIX syntax.
 )
+kindex(disown, MIME style)
+item(tt(disown))(
+If this boolean style is true, mailcap handlers started in the
+background will be disowned, i.e. not subject to job control within
+the parent shell.  Such handlers nearly always produce their own
+windows, so the only likely harmful side effect of setting the style is
+that it becomes harder to kill jobs from within the shell.
+)
 kindex(execute-as-is, MIME style)
 item(tt(execute-as-is))(
 This style gives a list of patterns to be matched against files
@@ -2853,6 +2880,28 @@ is not set, the pattern tt(*+LPAR()*+RPAR() *+LPAR()/+RPAR()) is used;
 hence executable files are executed directly and not passed to a
 handler, and the option tt(AUTO_CD) may be used to change to directories
 that happen to have MIME suffixes.
+)
+kindex(execute-never, MIME style)
+item(tt(execute-never))(
+This style is useful in combination with tt(execute-as-is).  It is
+set to an array of patterns corresponding to full paths to files that
+should never be treated as executable, even if the file passed to
+the MIME handler matches tt(execute-as-is).  This is useful for file
+systems that don't handle execute permission or that contain executables
+from another operating system.  For example, if tt(/mnt/windows) is a
+Windows mount, then
+
+example(zstyle ':mime:*' execute-never '/mnt/windows/*')
+
+will ensure that any files found in that area will be executed as MIME
+types even if they are executable.  As this example shows, the complete
+file name is matched against the pattern, regardless of how the file
+was passed to the handler.  The file is resolved to a full path using
+the tt(:A) modifier described in
+ifzman(the subsection Modifers in zmanref(zshexpn))\
+ifnzman(noderef(Modifiers)));
+this means that symbolic links are resolved where possible, so that
+links into other file systems behave in the correct fashion.
 )
 kindex(file-path, MIME style)
 item(tt(file-path))(
@@ -3106,7 +3155,7 @@ sect(Mathematical Functions)
 
 startitem()
 findex(zcalc)
-item(tt(zcalc) [ var(expression) ... ])(
+item(tt(zcalc) [ tt(-ef) ] [ var(expression) ... ])(
 A reasonably powerful calculator based on zsh's arithmetic evaluation
 facility.  The syntax is similar to that of formulae in most programming
 languages; see
@@ -3127,6 +3176,13 @@ the history of previous calculations, is available; the history is saved in
 the file tt(~/.zcalc_history).  To exit, enter a blank line or type `tt(:q)'
 on its own (`tt(q)' is allowed for historical compatibility).
 
+A line ending with a single backslash is treated in the same fashion
+as it is in command line editing:  the backslash is removed, the
+function prompts for more input (the prompt is preceded by `tt(...)'
+to indicate this), and the lines are combined into one to get the final
+result.  In addition, if the input so far contains more open than
+close parentheses tt(zcalc) will prompt for more input.
+
 If arguments are given to tt(zcalc) on start up, they are used to prime the
 first few positional parameters.  A visual indication of this is given when
 the calculator starts.
@@ -3138,6 +3194,14 @@ into the global namespace.
 The output base can be initialised by passing the option `tt(-#)var(base)',
 for example `tt(zcalc -#16)' (the `tt(#)' may have to be quoted, depending
 on the globbing options set).
+
+If the option `tt(-e)' is set, the function runs non-interactively:
+the arguments are treated as expressions to be evaluated as if entered
+interactively line by line.
+
+If the option `tt(-f)' is set, all numbers are treated as floating
+point, hence for example the expression `tt(3/4)' evaluates to 0.75
+rather than 0.  Options must appear in separate words.
 
 The prompt is configurable via the parameter tt(ZCALCPROMPT), which
 undergoes standard prompt expansion.  The index of the current entry is
@@ -3191,11 +3255,13 @@ scope.
 )
 item(tt(:function) var(name) [ var(body) ])(
 Define a mathematical function or (with no var(body)) delete it.
+tt(:function) may be abbreviated to tt(:func) or simply tt(:f).
+The var(name) may contain the same characters as a shell function name.
 The function is defined using tt(zmathfuncdef), see below.
 
 Note that tt(zcalc) takes care of all quoting.  Hence for example:
 
-example(function cube $1 * $1 * $1)
+example(:f cube $1 * $1 * $1)
 
 defines a function to cube the sole argument.
 )
@@ -3586,7 +3652,7 @@ ifzman(above)\
 ifnzman((noderef(Utilities))).
 )
 findex(zmv)
-item(tt(zmv) [ tt(-finqQsvwW) ] [ -C | -L | -M | -p var(program) ] [ -o var(optstring) ] var(srcpat) var(dest) )(
+item(tt(zmv) [ tt(-finqQsvwW) ] [ -C | -L | -M | -[pP] var(program) ] [ -o var(optstring) ] var(srcpat) var(dest) )(
 Move (usually, rename) files matching the pattern var(srcpat) to
 corresponding files having names of the form given by var(dest), where
 var(srcpat) contains parentheses surrounding patterns which will be
@@ -3631,7 +3697,13 @@ sitem(tt(-p) var(program))(Call var(program) instead of tt(cp), tt(ln) or
 tt(mv).  Whatever it does, it should at least understand the form
 ifzman(`var(program) tt(-)tt(-) var(oldname) var(newname)')\
 ifnzman(example(var(program) tt(-)tt(-) var(oldname) var(newname)))
-where var(oldname) and var(newname) are filenames generated by tt(zmv).)
+where var(oldname) and var(newname) are filenames generated by tt(zmv).
+var(program) will be split into words, so might be e.g. the name
+of an archive tool plus a copy or rename subcommand.)
+sitem(tt(-P) var(program))(As tt(-p) var(program), except that
+var(program) does not accept a following tt(-)tt(-) to indicate the
+end of options.  In this case filenames must already be in a sane
+form for the program in question.)
 sitem(tt(-o) var(optstring))(The var(optstring) is split into words and
 passed down verbatim to the tt(cp), tt(ln) or tt(mv) command called to
 perform the work.  It should probably begin with a `tt(-)'.)

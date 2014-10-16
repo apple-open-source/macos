@@ -19,8 +19,8 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
 			$(AP_WORK)/include \
+			$(AP_WORK)/modules/http \
 			$(NWOS) \
-			$(HTTPD) \
 			$(EOLIST)
 
 #
@@ -164,7 +164,6 @@ TARGET_lib = \
 #
 FILES_nlm_objs = \
 	$(OBJDIR)/mod_proxy_scgi.o \
-	$(OBJDIR)/proxy_util.o \
 	$(OBJDIR)/libprews.o \
 	$(EOLIST)
 

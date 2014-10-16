@@ -32,7 +32,6 @@
 #include "LocalizedStrings.h"
 #include "TextTrack.h"
 #include "Timer.h"
-#include <wtf/PassOwnPtr.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -43,7 +42,7 @@ class TextTrackList;
 
 class CaptionUserPreferences {
 public:
-    static PassOwnPtr<CaptionUserPreferences> create(PageGroup* group) { return adoptPtr(new CaptionUserPreferences(group)); }
+    CaptionUserPreferences(PageGroup&);
     virtual ~CaptionUserPreferences();
 
     enum CaptionDisplayMode {
@@ -79,7 +78,7 @@ public:
     virtual Vector<String> preferredLanguages() const;
 
     virtual String displayNameForTrack(TextTrack*) const;
-    virtual Vector<RefPtr<TextTrack> > sortedTrackListForMenu(TextTrackList*);
+    virtual Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList*);
 
     void setPrimaryAudioTrackLanguageOverride(const String& language) { m_primaryAudioTrackLanguageOverride = language;  }
     String primaryAudioTrackLanguageOverride() const;
@@ -87,17 +86,16 @@ public:
     virtual bool testingMode() const { return m_testingMode; }
     virtual void setTestingMode(bool override) { m_testingMode = override; }
     
-    PageGroup* pageGroup() const { return m_pageGroup; }
+    PageGroup& pageGroup() const { return m_pageGroup; }
 
 protected:
-    CaptionUserPreferences(PageGroup*);
     void updateCaptionStyleSheetOveride();
 
 private:
-    void timerFired(Timer<CaptionUserPreferences>*);
+    void timerFired(Timer<CaptionUserPreferences>&);
     void notify();
 
-    PageGroup* m_pageGroup;
+    PageGroup& m_pageGroup;
     CaptionDisplayMode m_displayMode;
     Timer<CaptionUserPreferences> m_timer;
     String m_userPreferredLanguage;

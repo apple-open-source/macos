@@ -39,36 +39,24 @@ namespace WebKit {
 
 void NetworkResourceLoadScheduler::platformInitializeMaximumHTTPConnectionCountPerHost()
 {
-    wkInitializeMaximumHTTPConnectionCountPerHost = WKInitializeMaximumHTTPConnectionCountPerHost;
-    wkSetHTTPPipeliningMaximumPriority = WKSetHTTPPipeliningMaximumPriority;
-    wkSetHTTPPipeliningMinimumFastLanePriority = WKSetHTTPPipeliningMinimumFastLanePriority;
+    static const unsigned preferredConnectionCount = 6;
+    static const unsigned unlimitedRequestCount = 10000;
 
-    // Our preferred connection-per-host limit is the standard 6, but we need to let CFNetwork handle a 7th
-    // in case a synchronous XHRs is made while 6 loads are already outstanding.
-    static const unsigned preferredConnectionCount = 7;
-    static const unsigned unlimitedConnectionCount = 10000;
-
-    // Always set the connection count per host, even when pipelining.
-    unsigned maximumHTTPConnectionCountPerHost = wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
+    unsigned maximumHTTPConnectionCountPerHost = WKInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
 
     Boolean keyExistsAndHasValidFormat = false;
     Boolean prefValue = CFPreferencesGetAppBooleanValue(CFSTR("WebKitEnableHTTPPipelining"), kCFPreferencesCurrentApplication, &keyExistsAndHasValidFormat);
-    
     if (keyExistsAndHasValidFormat)
         ResourceRequest::setHTTPPipeliningEnabled(prefValue);
 
-    if (ResourceRequest::httpPipeliningEnabled()) {
-        wkSetHTTPPipeliningMaximumPriority(toHTTPPipeliningPriority(ResourceLoadPriorityHighest));
-        wkSetHTTPPipeliningMinimumFastLanePriority(toHTTPPipeliningPriority(ResourceLoadPriorityMedium));
-
-        // When pipelining do not rate-limit requests sent from WebCore since CFNetwork handles that.
-        m_maxRequestsInFlightPerHost = unlimitedConnectionCount;
-
-        return;
+    if (ResourceRequest::resourcePrioritiesEnabled()) {
+        WKSetHTTPRequestMaximumPriority(toPlatformRequestPriority(ResourceLoadPriorityHighest));
+        WKSetHTTPRequestMinimumFastLanePriority(toPlatformRequestPriority(ResourceLoadPriorityMedium));
+        m_maxRequestsInFlightPerHost = unlimitedRequestCount;
+    } else {
+        // Use WebKit scheduler when we can't use request priorities with CFNetwork.
+        m_maxRequestsInFlightPerHost = maximumHTTPConnectionCountPerHost;
     }
-
-    // We've asked for one more connection per host than we intend to use in most cases so synch XHRs can bypass that limit.
-    m_maxRequestsInFlightPerHost = maximumHTTPConnectionCountPerHost - 1;
 }
 
 } // namespace WebKit

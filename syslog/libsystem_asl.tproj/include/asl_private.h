@@ -24,14 +24,19 @@
 #ifndef __ASL_PRIVATE_H__
 #define __ASL_PRIVATE_H__
 
+#include <asl.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "asl_file.h"
-#include "asl_msg.h"
 #include <Availability.h>
+#include <os/object.h>
+#include <os/object_private.h>
+
+#define streq(A, B) (strcmp(A, B) == 0)
+#define strcaseeq(A, B) (strcasecmp(A, B) == 0)
 
 #define ASL_QUERY_OP_NULL          0x00000
 
@@ -44,58 +49,44 @@
 
 #define ASL_OPT_IGNORE "ignore"
 #define ASL_OPT_STORE "store"
+#define ASL_OPT_CONTROL "control"
+
+/* File and Store Open Option */
+#define ASL_OPT_OPEN_READ   0x80000000
 
 #define ASL_STORE_LOCATION_FILE 0
 #define ASL_STORE_LOCATION_MEMORY 1
 
 #define ASL_OPT_SYSLOG_LEGACY  0x00010000
 
-#define ASL_KEY_SENDER_MACH_UUID "Sender_Mach_UUID"
+#define ASL_KEY_FREE_NOTE "ASLFreeNotify"
+
+/*
+ * Private types
+ */
+#define ASL_TYPE_STRING       6
+#define ASL_TYPE_COUNT        7
 
 /* SPI to enable ASL filter tunneling using asl_set_filter() */
 #define ASL_FILTER_MASK_TUNNEL   0x100
 
-typedef struct
-{
-	int fd;
-	uint32_t encoding;
-	uint32_t filter;
-	char *mfmt;
-	char *tfmt;
-} asl_out_file_t;
-
-typedef struct __aslclient
-{
-	uint32_t options;
-	struct sockaddr_un server;
-	int sock;
-	pid_t pid;
-	uid_t uid;
-	gid_t gid;
-	char *name;
-	char *facility;
-	uint32_t filter;
-	int notify_token;
-	int notify_master_token;
-	uint32_t out_count;
-	asl_out_file_t *out_list;
-	asl_file_t *aslfile;
-	uint64_t aslfileid;
-	uint32_t reserved1;
-	void *reserved2;
-	int32_t refcount;
-} asl_client_t;
+#define NOQUOTA_FILE_PATH "/etc/asl/.noquota"
 
 __BEGIN_DECLS
 
-int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-int asl_remove_output(aslclient asl, int fd) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int asl_store_location() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-int asl_get_filter(aslclient asl, int *local, int *master, int *remote, int *active) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 char *asl_remote_notify_name() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-int asl_trigger_aslmanager(void) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-aslmsg _asl_server_control_query(void) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+int asl_syslog_faciliy_name_to_num(const char *name) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+const char *asl_syslog_faciliy_num_to_name(int n) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int asl_trigger_aslmanager(void) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_get_filter(asl_object_t client, int *local, int *master, int *remote, int *active) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+/* EXCLUSIVLY FOR USE BY DEV TOOLS */
+/* DO NOT USE THIS INTERFACE OTHERWISE */
+
+uint32_t asl_store_match_timeout(void *ignored, void *query_v1, void **result_v1, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, uint32_t usec) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 __END_DECLS
+
 
 #endif /* __ASL_PRIVATE_H__ */

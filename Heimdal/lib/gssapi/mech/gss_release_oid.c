@@ -33,6 +33,27 @@
 
 #include "mech_locl.h"
 
+/**
+ * Release a gss_OID
+ *
+ * This function should never be used, this is since many of the
+ * gss_OID objects passed around are stack and data objected that are
+ * not free-able.
+ *
+ * The function tries to find internal OIDs that are static and avoid
+ * trying to free them.
+ *
+ * One could guess that gss_name_to_oid() might return an allocated
+ * OID.  In this implementation it wont, so there is no need to call
+ * gss_release_oid().
+ *
+ * @param minor_status minor status code returned
+ * @param oid oid to be released/freed.
+ *
+ * @returns GSS major status code
+ *
+ * @ingroup gssapi
+ */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
@@ -57,7 +78,7 @@ gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
 	if (_gss_ont_mech[n].oid == o)
 	    return GSS_S_COMPLETE;
     for (n = 0; _gss_ont_ma[n].oid; n++)
-	if (_gss_ont_mech[n].oid == o)
+	if (_gss_ont_ma[n].oid == o)
 	    return GSS_S_COMPLETE;
 
     HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {

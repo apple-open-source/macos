@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,10 +61,10 @@
 #include <dnsinfo.h>
 #include <network_information.h>
 #include <notify.h>
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#ifndef	TARGET_OS_EMBEDDED
 #include <utmpx.h>
 #include <utmpx_thread.h>
-#endif	// !(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#endif	// !TARGET_OS_EMBEDDED
 
 
 /* generic MessageTracer keys */
@@ -78,7 +78,7 @@
 #define MY_MSGTRACER_DOMAIN	"com.apple.network.log"
 
 
-static	aslmsg		log_msg	= NULL;
+static	asl_object_t	log_msg	= NULL;
 static	io_connect_t	power	= MACH_PORT_NULL;
 static	Boolean		verbose	= FALSE;
 
@@ -212,13 +212,13 @@ static void
 KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
 {
 	int			so		= CFSocketGetNative(s);
-	int			status;
+	size_t			status;
 	union {
 		char			bytes[1024];
 		struct kern_event_msg	ev_msg1;	// first kernel event
 	} buf;
 	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
-	int			offset		= 0;
+	size_t			offset		= 0;
 
 	status = recv(so, &buf, sizeof(buf), 0);
 	if (status == -1) {
@@ -1627,7 +1627,7 @@ add_smbconf_notification()
 #pragma mark pututxline Events
 
 
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#ifndef	TARGET_OS_EMBEDDED
 static const char *
 ut_time(struct utmpx *utmpx)
 {
@@ -1772,7 +1772,7 @@ pututxline_notification(CFMachPortRef port, void *msg, CFIndex size, void *info)
 			 entry_line != NULL ? entry_line : ""	// <= 32 chars
 			);
 
-		n = strlen(line) - 1;
+		n = (int)strlen(line) - 1;
 		while ((n > 0) && (line[n] == ' ')) {
 			line[n] = '\0';
 			--n;
@@ -1823,7 +1823,7 @@ add_pututxline_notification()
 	CFRelease(mp);
 	return;
 }
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#endif	// !TARGET_OS_EMBEDDED
 
 
 #pragma mark -
@@ -1984,11 +1984,11 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 #endif	// !TARGET_OS_EMBEDDED
 
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#ifndef	TARGET_OS_EMBEDDED
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_NOTIFY_UTMPX_CHANGE"))) {
 		add_pututxline_notification();
 	}
-#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
+#endif	// !TARGET_OS_EMBEDDED
 
 #if	!TARGET_OS_EMBEDDED
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_SC_BTMM_CONFIGURATION"))) {

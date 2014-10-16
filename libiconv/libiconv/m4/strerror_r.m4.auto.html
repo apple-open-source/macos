@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>strerror_r.m4</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">strerror_r.m4&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">#serial 1003
+</span><span class="enscript-comment"># Experimental replacement for the function in the latest CVS autoconf.
+</span><span class="enscript-comment"># Use with the error.c file in ../lib.
+</span>
+<span class="enscript-comment">dnl Copyright 2001 Free Software Foundation, Inc.
+</span><span class="enscript-comment">dnl This file is free software; the Free Software Foundation
+</span><span class="enscript-comment">dnl gives unlimited permission to copy and/or distribute it,
+</span><span class="enscript-comment">dnl with or without modifications, as long as this notice is preserved.
+</span>
+<span class="enscript-keyword">undefine</span>([AC_FUNC_STRERROR_R])
+
+<span class="enscript-comment"># AC_FUNC_STRERROR_R
+</span><span class="enscript-comment"># ------------------
+</span>AC_DEFUN([AC_FUNC_STRERROR_R],
+[AC_CHECK_DECLS([strerror_r])
+AC_CHECK_FUNCS([strerror_r])
+AC_CACHE_CHECK([whether strerror_r returns char *],
+               ac_cv_func_strerror_r_char_p,
+   [
+    ac_cv_func_strerror_r_char_p=no
+    if test $ac_cv_have_decl_strerror_r = yes; then
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
+	[[
+	  char buf[100];
+	  char x = *strerror_r (0, buf, sizeof buf);
+	  char *p = strerror_r (0, buf, sizeof buf);
+	]])],
+			ac_cv_func_strerror_r_char_p=yes)
+    else
+      <span class="enscript-comment"># strerror_r is not declared.  Choose between
+</span>      <span class="enscript-comment"># systems that have relatively inaccessible declarations for the
+</span>      <span class="enscript-comment"># function.  BeOS and DEC UNIX 4.0 fall in this category, but the
+</span>      <span class="enscript-comment"># former has a strerror_r that returns char*, while the latter
+</span>      <span class="enscript-comment"># has a strerror_r that returns `int'.
+</span>      <span class="enscript-comment"># This test should segfault on the DEC system.
+</span>      AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+	extern char *strerror_r ();],
+	[[char buf[100];
+	  char x = *strerror_r (0, buf, sizeof buf);
+	  exit (!isalpha (x));]])],
+                    ac_cv_func_strerror_r_char_p=yes, , :)
+    fi
+  ])
+if test $ac_cv_func_strerror_r_char_p = yes; then
+  AC_DEFINE([STRERROR_R_CHAR_P], 1,
+	    [Define to 1 if strerror_r returns char *.])
+fi
+])<span class="enscript-comment"># AC_FUNC_STRERROR_R
+</span></pre>
+<hr />
+</body></html>

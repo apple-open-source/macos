@@ -2189,7 +2189,10 @@ pfkey_setsadbxsa2(caddr_t buf, caddr_t lim, u_int32_t mode0, u_int32_t reqid, u_
 	p->sadb_x_sa2_exttype = SADB_X_EXT_SA2;
 	p->sadb_x_sa2_mode = mode;
 	p->sadb_x_sa2_reqid = reqid;
-    p->sadb_x_sa2_alwaysexpire = always_expire;
+	p->sadb_x_sa2_alwaysexpire = always_expire;
+#ifdef SADB_X_EXT_SA2_DELETE_ON_DETACH
+	p->sadb_x_sa2_flags |= SADB_X_EXT_SA2_DELETE_ON_DETACH;
+#endif /* SADB_X_EXT_SA2_DELETE_ON_DETACH */
 
 	return(buf + len);
 }

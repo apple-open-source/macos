@@ -47,16 +47,12 @@
 
 //#include "pk11func.h"
 #include "secoid.h"
-#include "secitem.h"
+#include "SecAsn1Item.h"
 
 #include <security_asn1/secerr.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <security_asn1/secport.h>
 
-/*
- * SecCmsContentInfoCreate - create a content info
- *
- * version is set in the _Finalize procedures for each content type
- */
+#include <Security/SecBase.h>
 
 /*
  * SecCmsContentInfoDestroy - destroy a CMS contentInfo and all of its sub-pieces.
@@ -130,7 +126,6 @@ SecCmsContentInfoGetChildContentInfo(SecCmsContentInfoRef cinfo)
 	ccinfo = &(cinfo->content.encryptedData->contentInfo);
 	break;
     case SEC_OID_PKCS7_DATA:
-    case SEC_OID_OTHER:
     default:
 	break;
     }
@@ -141,18 +136,18 @@ SecCmsContentInfoGetChildContentInfo(SecCmsContentInfoRef cinfo)
  * SecCmsContentInfoSetContent - set content type & content
  */
 OSStatus
-SecCmsContentInfoSetContent(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SECOidTag type, void *ptr)
+SecCmsContentInfoSetContent(SecCmsContentInfoRef cinfo, SECOidTag type, void *ptr)
 {
     OSStatus rv;
 
     cinfo->contentTypeTag = SECOID_FindOIDByTag(type);
     if (cinfo->contentTypeTag == NULL)
-	return paramErr;
+	return errSecParam;
     
     /* do not copy the oid, just create a reference */
-    rv = SECITEM_CopyItem (cmsg->poolp, &(cinfo->contentType), &(cinfo->contentTypeTag->oid));
+    rv = SECITEM_CopyItem (cinfo->cmsg->poolp, &(cinfo->contentType), &(cinfo->contentTypeTag->oid));
     if (rv != SECSuccess)
-	return memFullErr;
+	return errSecAllocate;
 
     cinfo->content.pointer = ptr;
 
@@ -160,14 +155,14 @@ SecCmsContentInfoSetContent(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, S
 	/* as we always have some inner data,
 	 * we need to set it to something, just to fool the encoder enough to work on it
 	 * and get us into nss_cms_encoder_notify at that point */
-	cinfo->rawContent = SECITEM_AllocItem(cmsg->poolp, NULL, 1);
+	cinfo->rawContent = SECITEM_AllocItem(cinfo->cmsg->poolp, NULL, 1);
 	if (cinfo->rawContent == NULL) {
 	    PORT_SetError(SEC_ERROR_NO_MEMORY);
-	    return memFullErr;
+	    return errSecAllocate;
 	}
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -179,70 +174,53 @@ SecCmsContentInfoSetContent(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, S
  * data != NULL -> take this data
  */
 OSStatus
-SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached)
+SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef dataRef, Boolean detached)
 {
-    if (SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_DATA, (void *)data) != SECSuccess)
+    SecAsn1Item * data = NULL;
+    if (dataRef) {
+	/* @@@ Fixme CFRetain the passed in data rather than
+	   always copying it for performance. */
+	data = PORT_ArenaAlloc(cinfo->cmsg->poolp, sizeof(SecAsn1Item));
+	data->Length = CFDataGetLength(dataRef);
+	if (data->Length) {
+	    data->Data = PORT_ArenaAlloc(cinfo->cmsg->poolp, data->Length);
+	    memcpy(data->Data, CFDataGetBytePtr(dataRef), data->Length);
+	}
+	else
+	    data->Data = NULL;
+    }
+
+    if (SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_DATA, (void *)data) != SECSuccess)
 	return PORT_GetError();
     cinfo->rawContent = (detached) ? 
 			    NULL : (data) ? 
-				data : SECITEM_AllocItem(cmsg->poolp, NULL, 1);
-    return noErr;
+				data : SECITEM_AllocItem(cinfo->cmsg->poolp, NULL, 1);
+    return errSecSuccess;
 }
 
 OSStatus
-SecCmsContentInfoSetContentSignedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd)
+SecCmsContentInfoSetContentSignedData(SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd)
 {
-    return SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_SIGNED_DATA, (void *)sigd);
+    return SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_SIGNED_DATA, (void *)sigd);
 }
 
 OSStatus
-SecCmsContentInfoSetContentEnvelopedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd)
+SecCmsContentInfoSetContentEnvelopedData(SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd)
 {
-    return SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_ENVELOPED_DATA, (void *)envd);
+    return SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_ENVELOPED_DATA, (void *)envd);
 }
 
 OSStatus
-SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd)
+SecCmsContentInfoSetContentDigestedData(SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd)
 {
-    return SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_DIGESTED_DATA, (void *)digd);
+    return SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_DIGESTED_DATA, (void *)digd);
 }
 
 OSStatus
-SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd)
+SecCmsContentInfoSetContentEncryptedData(SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd)
 {
-    return SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_ENCRYPTED_DATA, (void *)encd);
+    return SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_ENCRYPTED_DATA, (void *)encd);
 }
-
-OSStatus
-SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType)
-{
-    SECStatus srtn;
-    SECOidData *tmpOidData;
-    
-    /* just like SecCmsContentInfoSetContentData, except override the contentType and
-     * contentTypeTag. This OID is for encoding... */
-    srtn = SECITEM_CopyItem (cmsg->poolp, &(cinfo->contentType), eContentType);
-    if (srtn != SECSuccess) {
-	return memFullErr;
-    }
-    
-    /* this serves up a contentTypeTag with an empty OID */
-    tmpOidData = SECOID_FindOIDByTag(SEC_OID_OTHER);
-    /* but that's const: cook up a new one we can write to */
-    cinfo->contentTypeTag = (SECOidData *)PORT_ArenaZAlloc(cmsg->poolp, sizeof(SECOidData));
-    *cinfo->contentTypeTag = *tmpOidData;
-    /* now fill in the OID */
-    srtn = SECITEM_CopyItem (cmsg->poolp, &(cinfo->contentTypeTag->oid), eContentType);
-    if (srtn != SECSuccess) {
-	return memFullErr;
-    }
-    cinfo->content.pointer = data;
-    cinfo->rawContent = (detached) ? 
-			    NULL : (data) ? 
-				data : SECITEM_AllocItem(cmsg->poolp, NULL, 1);
-    return noErr;
-}
-
 
 /*
  * SecCmsContentInfoGetContent - get pointer to inner content
@@ -254,14 +232,13 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo)
 {
     SECOidTag tag = (cinfo && cinfo->contentTypeTag) 
 		     ? cinfo->contentTypeTag->offset 
-		     : cinfo->contentType.Data ? SEC_OID_OTHER : SEC_OID_UNKNOWN;
+		     : SEC_OID_UNKNOWN;
     switch (tag) {
     case SEC_OID_PKCS7_DATA:
     case SEC_OID_PKCS7_SIGNED_DATA:
     case SEC_OID_PKCS7_ENVELOPED_DATA:
     case SEC_OID_PKCS7_DIGESTED_DATA:
     case SEC_OID_PKCS7_ENCRYPTED_DATA:
-    case SEC_OID_OTHER:
 	return cinfo->content.pointer;
     default:
 	return NULL;
@@ -273,38 +250,35 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo)
  *
  * this is typically only called by SecCmsMessageGetContent()
  */
-CSSM_DATA_PTR
+const SecAsn1Item *
 SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
 {
+    SecCmsContentInfoRef ccinfo;
     SECOidTag tag;
+    SecAsn1Item * pItem;
 
-    for(;;) {
-	tag = SecCmsContentInfoGetContentTypeTag(cinfo);
-	switch (tag) {
-	case SEC_OID_PKCS7_DATA:
-	case SEC_OID_OTHER:
-	    /* end of recursion - every message has to have a data cinfo */
-	    return cinfo->content.data; 
-	case SEC_OID_PKCS7_DIGESTED_DATA:
-	case SEC_OID_PKCS7_ENCRYPTED_DATA:
-	case SEC_OID_PKCS7_ENVELOPED_DATA:
-	case SEC_OID_PKCS7_SIGNED_DATA:
-            cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
-	    if (cinfo == NULL) {
-		return NULL;
-	    }
-	    /* else recurse */
-	    break;
-        case SEC_OID_PKCS9_ID_CT_TSTInfo:
-	    /* end of recursion - every message has to have a data cinfo */
-	    return cinfo->rawContent; 
-	default:
-	    PORT_Assert(0);
-	    return NULL;
-	}
+    tag = SecCmsContentInfoGetContentTypeTag(cinfo);
+    switch (tag) {
+    case SEC_OID_PKCS7_DATA:
+	/* end of recursion - every message has to have a data cinfo */
+	pItem = cinfo->content.data; 
+	break;
+    case SEC_OID_PKCS7_DIGESTED_DATA:
+    case SEC_OID_PKCS7_ENCRYPTED_DATA:
+    case SEC_OID_PKCS7_ENVELOPED_DATA:
+    case SEC_OID_PKCS7_SIGNED_DATA:
+	ccinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
+	if (ccinfo == NULL)
+	    pItem = NULL;
+	else
+	    pItem = SecCmsContentInfoGetContent(ccinfo);
+	break;
+    default:
+	PORT_Assert(0);
+	pItem = NULL;
+	break;
     }
-    /* NOT REACHED */
-    return NULL;
+    return pItem;
 }
 
 /*
@@ -318,26 +292,20 @@ SecCmsContentInfoGetContentTypeTag(SecCmsContentInfoRef cinfo)
 	cinfo->contentTypeTag = SECOID_FindOID(&(cinfo->contentType));
 
     if (cinfo->contentTypeTag == NULL)
-	return SEC_OID_OTHER;	// was...SEC_OID_UNKNOWN OK?
+	return SEC_OID_UNKNOWN;
 
     return cinfo->contentTypeTag->offset;
 }
 
-CSSM_DATA_PTR
+SecAsn1Oid *
 SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo)
 {
     if (cinfo->contentTypeTag == NULL)
 	cinfo->contentTypeTag = SECOID_FindOID(&(cinfo->contentType));
 
-    if (cinfo->contentTypeTag == NULL) {
-	/* if we have an OID but we just don't recognize it, return that */
-	if(cinfo->contentType.Data != NULL) {
-	    return &cinfo->contentType;
-	}
-	else {
-	    return NULL;
-	}
-    }
+    if (cinfo->contentTypeTag == NULL)
+	return NULL;
+
     return &(cinfo->contentTypeTag->oid);
 }
 
@@ -364,10 +332,10 @@ SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo)
 }
 
 OSStatus
-SecCmsContentInfoSetContentEncAlg(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
-				    SECOidTag bulkalgtag, CSSM_DATA_PTR parameters, int keysize)
+SecCmsContentInfoSetContentEncAlg(SecCmsContentInfoRef cinfo,
+				  SECOidTag bulkalgtag, const SecAsn1Item *parameters, int keysize)
 {
-    PLArenaPool *poolp = (PLArenaPool *)pool;
+    PLArenaPool *poolp = cinfo->cmsg->poolp;
     OSStatus rv;
 
     rv = SECOID_SetAlgorithmID(poolp, &(cinfo->contentEncAlg), bulkalgtag, parameters);
@@ -378,10 +346,10 @@ SecCmsContentInfoSetContentEncAlg(SecArenaPoolRef pool, SecCmsContentInfoRef cin
 }
 
 OSStatus
-SecCmsContentInfoSetContentEncAlgID(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
+SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
 				    SECAlgorithmID *algid, int keysize)
 {
-    PLArenaPool *poolp = (PLArenaPool *)pool;
+    PLArenaPool *poolp = cinfo->cmsg->poolp;
     OSStatus rv;
 
     rv = SECOID_CopyAlgorithmID(poolp, &(cinfo->contentEncAlg), algid);
@@ -395,12 +363,18 @@ SecCmsContentInfoSetContentEncAlgID(SecArenaPoolRef pool, SecCmsContentInfoRef c
 void
 SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkkey)
 {
+#ifdef USE_CDSA_CRYPTO
     const CSSM_KEY *cssmKey = NULL;
-
+#endif
     cinfo->bulkkey = bulkkey;
     CFRetain(cinfo->bulkkey);
+#ifdef USE_CDSA_CRYPTO
     SecKeyGetCSSMKey(cinfo->bulkkey, &cssmKey);
     cinfo->keysize = cssmKey ? cssmKey->KeyHeader.LogicalKeySizeInBits : 0;
+#else
+    /* This cast should be always safe, there should be SecSymmetricKeyRef API to get the size anyway */
+    cinfo->keysize = (int)CFDataGetLength((CFDataRef)bulkkey) * 8;
+#endif
 }
 
 SecSymmetricKeyRef

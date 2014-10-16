@@ -31,14 +31,14 @@
 #include "Module.h"
 #include "NPRuntimeUtilities.h"
 #include "NetscapeBrowserFuncs.h"
-#include <wtf/PassOwnPtr.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 
 namespace WebKit {
 
 static Vector<NetscapePluginModule*>& initializedNetscapePluginModules()
 {
-    DEFINE_STATIC_LOCAL(Vector<NetscapePluginModule*>, initializedNetscapePluginModules, ());
+    static NeverDestroyed<Vector<NetscapePluginModule*>> initializedNetscapePluginModules;
     return initializedNetscapePluginModules;
 }
 
@@ -131,7 +131,7 @@ void NetscapePluginModule::shutdown()
 
     size_t pluginModuleIndex = initializedNetscapePluginModules().find(this);
     ASSERT(pluginModuleIndex != notFound);
-    
+
     initializedNetscapePluginModules().remove(pluginModuleIndex);
 }
 
@@ -169,7 +169,7 @@ void NetscapePluginModule::decrementLoadCount()
     ASSERT(m_loadCount > 0);
     m_loadCount--;
     
-    if (!m_loadCount) {
+    if (!m_loadCount && m_isInitialized) {
         shutdown();
         unload();
     }
@@ -199,7 +199,7 @@ bool NetscapePluginModule::load()
 
 bool NetscapePluginModule::tryLoad()
 {
-    m_module = adoptPtr(new Module(m_pluginPath));
+    m_module = std::make_unique<Module>(m_pluginPath);
     if (!m_module->load())
         return false;
 
@@ -226,10 +226,8 @@ bool NetscapePluginModule::tryLoad()
 #if PLUGIN_ARCHITECTURE(MAC)
 #ifndef NP_NO_CARBON
 
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
 
     // Plugins (at least QT) require that you call UseResFile on the resource file before loading it.
     ResFileRefNum currentResourceFile = CurResFile();
@@ -244,9 +242,7 @@ bool NetscapePluginModule::tryLoad()
     // Restore the resource file.
     UseResFile(currentResourceFile);
 
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 
 #endif
 

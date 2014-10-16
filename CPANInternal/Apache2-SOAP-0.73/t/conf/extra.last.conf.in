@@ -1,6 +1,0 @@
-<Location /TestSOAP__convert>
-   SetHandler perl-script
-   PerlResponseHandler Apache2::SOAP
-   PerlSetVar dispatch_to "@ServerRoot@/response, TestSOAP::convert"
-</Location>
-

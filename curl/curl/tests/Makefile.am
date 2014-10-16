@@ -27,7 +27,9 @@ EXTRA_DIST = ftpserver.pl httpserver.pl secureserver.pl runtests.pl getpart.pm \
  FILEFORMAT README stunnel.pem memanalyze.pl testcurl.pl valgrind.pm ftp.pm   \
  sshserver.pl sshhelp.pm testcurl.1 runtests.1 $(HTMLPAGES) $(PDFPAGES) \
  serverhelp.pm tftpserver.pl rtspserver.pl directories.pm symbol-scan.pl \
- CMakeLists.txt mem-include-scan.pl valgrind.supp
+ CMakeLists.txt mem-include-scan.pl valgrind.supp http_pipe.py
+
+DISTCLEANFILES = configurehelp.pm
 
 # we have two variables here to make sure DIST_SUBDIRS won't get 'unit'
 # added twice as then targets such as 'distclean' misbehave and try to
@@ -66,7 +68,7 @@ endif
 perlcheck:
 	@if ! test -x "$(PERL)"; then echo "No perl!"; exit 2; fi
 
-test: perhcheck all
+test: perlcheck all
 	$(TEST)
 
 quiet-test: perlcheck all

@@ -1411,14 +1411,19 @@ static slap_cf_aux_table bindkey[] = {
 #define aux_TLS (bindkey+13)	/* beginning of TLS keywords */
 
 	{ BER_BVC("starttls="), offsetof(slap_bindconf, sb_tls), 'i', 0, tlskey },
+#ifdef HAVE_SECURE_TRANSPORT
+	{ BER_BVC("tls_identity="), offsetof(slap_bindconf, sb_tls_identity), 's', 1, NULL },
+	{ BER_BVC("tls_trusted_certs="), offsetof(slap_bindconf, sb_tls_trusted_certs), 's', 1, NULL },
+#else
 	{ BER_BVC("tls_cert="), offsetof(slap_bindconf, sb_tls_cert), 's', 1, NULL },
 	{ BER_BVC("tls_key="), offsetof(slap_bindconf, sb_tls_key), 's', 1, NULL },
 	{ BER_BVC("tls_cacert="), offsetof(slap_bindconf, sb_tls_cacert), 's', 1, NULL },
 	{ BER_BVC("tls_cacertdir="), offsetof(slap_bindconf, sb_tls_cacertdir), 's', 1, NULL },
+#endif
 	{ BER_BVC("tls_reqcert="), offsetof(slap_bindconf, sb_tls_reqcert), 's', 0, NULL },
 	{ BER_BVC("tls_cipher_suite="), offsetof(slap_bindconf, sb_tls_cipher_suite), 's', 0, NULL },
 	{ BER_BVC("tls_protocol_min="), offsetof(slap_bindconf, sb_tls_protocol_min), 's', 0, NULL },
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 	{ BER_BVC("tls_crlcheck="), offsetof(slap_bindconf, sb_tls_crlcheck), 's', 0, NULL },
 #endif
 #endif
@@ -1763,6 +1768,16 @@ void bindconf_free( slap_bindconf *bc ) {
 		BER_BVZERO( &bc->sb_authzId );
 	}
 #ifdef HAVE_TLS
+#ifdef HAVE_SECURE_TRANSPORT
+	if ( bc->sb_tls_identity ) {
+		ch_free( bc->sb_tls_identity );
+		bc->sb_tls_identity = NULL;
+	}
+	if ( bc->sb_tls_trusted_certs ) {
+		ch_free( bc->sb_tls_trusted_certs );
+		bc->sb_tls_trusted_certs = NULL;
+	}
+#else
 	if ( bc->sb_tls_cert ) {
 		ch_free( bc->sb_tls_cert );
 		bc->sb_tls_cert = NULL;
@@ -1779,6 +1794,7 @@ void bindconf_free( slap_bindconf *bc ) {
 		ch_free( bc->sb_tls_cacertdir );
 		bc->sb_tls_cacertdir = NULL;
 	}
+#endif
 	if ( bc->sb_tls_reqcert ) {
 		ch_free( bc->sb_tls_reqcert );
 		bc->sb_tls_reqcert = NULL;
@@ -1791,7 +1807,7 @@ void bindconf_free( slap_bindconf *bc ) {
 		ch_free( bc->sb_tls_protocol_min );
 		bc->sb_tls_protocol_min = NULL;
 	}
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 	if ( bc->sb_tls_crlcheck ) {
 		ch_free( bc->sb_tls_crlcheck );
 		bc->sb_tls_crlcheck = NULL;
@@ -1809,6 +1825,14 @@ bindconf_tls_defaults( slap_bindconf *bc )
 {
 #ifdef HAVE_TLS
 	if ( bc->sb_tls_do_init ) {
+#ifdef HAVE_SECURE_TRANSPORT
+		if ( !bc->sb_tls_identity )
+			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_IDENTITY,
+				&bc->sb_tls_identity );
+		if ( !bc->sb_tls_trusted_certs )
+			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_TRUSTED_CERTS,
+				&bc->sb_tls_trusted_certs );
+#else
 		if ( !bc->sb_tls_cacert )
 			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTFILE,
 				&bc->sb_tls_cacert );
@@ -1821,12 +1845,13 @@ bindconf_tls_defaults( slap_bindconf *bc )
 		if ( !bc->sb_tls_key )
 			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_KEYFILE,
 				&bc->sb_tls_key );
+#endif
 		if ( !bc->sb_tls_cipher_suite )
 			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CIPHER_SUITE,
 				&bc->sb_tls_cipher_suite );
 		if ( !bc->sb_tls_reqcert )
 			bc->sb_tls_reqcert = ch_strdup("demand");
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 		if ( !bc->sb_tls_crlcheck )
 			slap_tls_get_config( slap_tls_ld, LDAP_OPT_X_TLS_CRLCHECK,
 				&bc->sb_tls_crlcheck );
@@ -1841,10 +1866,15 @@ static struct {
 	size_t offset;
 	int opt;
 } bindtlsopts[] = {
+#ifdef HAVE_SECURE_TRANSPORT
+	{ "tls_identity", offsetof(slap_bindconf, sb_tls_identity), LDAP_OPT_X_TLS_IDENTITY },
+	{ "tls_trusted_certs", offsetof(slap_bindconf, sb_tls_trusted_certs), LDAP_OPT_X_TLS_TRUSTED_CERTS },
+#else
 	{ "tls_cert", offsetof(slap_bindconf, sb_tls_cert), LDAP_OPT_X_TLS_CERTFILE },
 	{ "tls_key", offsetof(slap_bindconf, sb_tls_key), LDAP_OPT_X_TLS_KEYFILE },
 	{ "tls_cacert", offsetof(slap_bindconf, sb_tls_cacert), LDAP_OPT_X_TLS_CACERTFILE },
 	{ "tls_cacertdir", offsetof(slap_bindconf, sb_tls_cacertdir), LDAP_OPT_X_TLS_CACERTDIR },
+#endif
 	{ "tls_cipher_suite", offsetof(slap_bindconf, sb_tls_cipher_suite), LDAP_OPT_X_TLS_CIPHER_SUITE },
 	{ "tls_protocol_min", offsetof(slap_bindconf, sb_tls_protocol_min), LDAP_OPT_X_TLS_PROTOCOL_MIN },
 	{0, 0}
@@ -1892,7 +1922,7 @@ int bindconf_tls_set( slap_bindconf *bc, LDAP *ld )
 		} else
 			newctx = 1;
 	}
-#ifdef HAVE_OPENSSL_CRL
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
 	if ( bc->sb_tls_crlcheck ) {
 		rc = ldap_int_tls_config( ld, LDAP_OPT_X_TLS_CRLCHECK,
 			bc->sb_tls_crlcheck );

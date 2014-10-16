@@ -55,7 +55,7 @@ typedef struct krb5_kdc_configuration {
     time_t kdc_warn_pwexpire; /* time before expiration to print a warning */
 
     struct HDB **db;
-    int num_db;
+    unsigned int num_db;
 
     krb5_boolean encode_as_rep_as_tgs_rep; /* bug compatibility */
 

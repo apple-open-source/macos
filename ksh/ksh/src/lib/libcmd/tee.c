@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: tee (AT&T Research) 2010-12-01 $\n]"
+"[-?\n@(#)$Id: tee (AT&T Research) 2012-05-31 $\n]"
 USAGE_LICENSE
 "[+NAME?tee - duplicate standard input]"
 "[+DESCRIPTION?\btee\b copies standard input to standard output "
@@ -107,10 +107,10 @@ tee_cleanup(register Tee_t* tp)
 }
 
 int
-b_tee(int argc, register char** argv, void* context)
+b_tee(int argc, register char** argv, Shbltin_t* context)
 {
 	register Tee_t*		tp = 0;
-	register int		oflag = O_WRONLY|O_TRUNC|O_CREAT|O_BINARY;
+	register int		oflag = O_WRONLY|O_TRUNC|O_CREAT|O_BINARY|O_cloexec;
 	register int*		hp;
 	register char*		cp;
 	int			line;
@@ -195,7 +195,7 @@ b_tee(int argc, register char** argv, void* context)
 		else
 			error(ERROR_exit(0), "out of space");
 	}
-	if ((sfmove(sfstdin, sfstdout, SF_UNBOUND, -1) < 0 || !sfeof(sfstdin)) && errno != EPIPE)
+	if ((sfmove(sfstdin, sfstdout, SF_UNBOUND, -1) < 0 || !sfeof(sfstdin)) && !ERROR_PIPE(errno) && errno != EINTR)
 		error(ERROR_system(0), "read error");
 	if (sfsync(sfstdout))
 		error(ERROR_system(0), "write error");

@@ -35,6 +35,7 @@ struct notify_globals_s {
 	pid_t notify_server_pid;
 
 	uint32_t client_opts;
+	uint32_t saved_opts;
 
 	// Last allocated name id.
 	uint64_t name_id;
@@ -44,6 +45,7 @@ struct notify_globals_s {
 
 	dispatch_once_t notify_server_port_once;
 	mach_port_t notify_server_port;
+	mach_port_t saved_server_port;
 	
 	mach_port_t notify_common_port;
 	int notify_common_token;

@@ -34,26 +34,35 @@ lazy_install_source:: install-patched-source
 ##
 
 LSOF_CONFIGURE  = $(OBJROOT)/Configure
+LSOF_MAKEFILE3  = $(OBJROOT)/dialects/darwin/libproc/Makefile
 
 install-patched-source: shadow_source
 	$(_v) echo "*** patching Configure"
 	$(_v) $(CAT) $(LSOF_CONFIGURE)						>  /tmp/build.lsof.$(UNIQUE)
-	$(_v) echo '/^[ 	]*900|1000|1100|1200)/n'			>  /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*900|1000|1100|1200|1300)/n'			>  /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      if [ -n "$${SDKROOT}" ]; then'			>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_AR="`xcrun -sdk $${SDKROOT} -find ar` cr"'	>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk $${SDKROOT} -find cc`"'	>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CFGF="$$LSOF_CFGF -isysroot $${SDKROOT}"'	>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_INCLUDE="$${SDKROOT}/usr/include"'		>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_RANLIB="`xcrun -sdk $${SDKROOT} -find ranlib`"'>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      else'							>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_AR="`xcrun -sdk / -find ar` cr"'		>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk / -find cc`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_RANLIB="`xcrun -sdk / -find ranlib`"'		>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*1300)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*1400)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_UNSUP=""'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_TSTBIGF=" "'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      if [ -n "$${SDKROOT}" ]; then'			>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_AR="`xcrun -sdk $${SDKROOT} -find ar` cr"'	>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk $${SDKROOT} -find cc`"'	>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CFGF="$$LSOF_CFGF -isysroot $${SDKROOT}"'	>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_INCLUDE="$${SDKROOT}/usr/include"'		>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_RANLIB="`xcrun -sdk $${SDKROOT} -find ranlib`"'>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      else'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk / -find cc`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'							>> /tmp/build.lsof.$(UNIQUE)-ed
@@ -70,6 +79,22 @@ install-patched-source: shadow_source
 	$(_v) $(RM) /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_CONFIGURE)
 	$(_v) $(CHMOD) +x $(LSOF_CONFIGURE)
+
+	$(_v) echo "*** patching dialects/darwin/libproc/Makefile"
+	$(_v) $(CAT) $(LSOF_MAKEFILE3) |							\
+		$(SED)	-E									\
+			-e 's@(#define[ 	]+LSOF_CC[ 	]+)"@\1"" // "@'		\
+			-e 's@(#define[ 	]+LSOF_CCDATE[ 	]+)"@\1"" // "@'		\
+			-e 's@(#define[ 	]+LSOF_CCFLAGS[ 	]+)"@\1"" // "@'	\
+			-e 's@(#define[ 	]+LSOF_CCV[ 	]+)"@\1"" // "@'		\
+			-e 's@(#define[ 	]+LSOF_HOST[ 	]+)"@\1"" // "@'		\
+			-e 's@(#define[ 	]+LSOF_LDFLAGS[ 	]+)"@\1"" // "@'	\
+			-e 's@(#define[ 	]+LSOF_LOGNAME[ 	]+)"@\1"" // "@'	\
+			-e 's@(#define[ 	]+LSOF_SYSINFO[ 	]+)"@\1"" // "@'	\
+			-e 's@(#define[ 	]+LSOF_USER[ 	]+)"@\1"" // "@'		\
+		> /tmp/build.lsof.$(UNIQUE)
+	$(_v) $(RM) $(LSOF_MAKEFILE3)
+	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE3)
 
 ##
 # Change a few of compile time definitions

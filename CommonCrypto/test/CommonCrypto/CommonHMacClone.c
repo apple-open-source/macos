@@ -9,7 +9,12 @@
 #include <stdbool.h>
 #include <time.h>
 #include <string.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonHMacSPI.h>
+#include <CommonCrypto/CommonKeyDerivationSPI.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 #include "testmore.h"
 #include "testbyteBuffer.h"
 #include "capabilities.h"
@@ -95,6 +100,7 @@ static int doHMacCloneTest(const uint8_t *ptext,
 	int				rtn = 1;
 	CCHmacContext	ctxOrig;
 	CCHmacContext	ctxClone;
+    //CCHmacContextRef ctxClone2;
 	unsigned		die;		/* 0..3 indicates when to clone */
 	unsigned		loopNum = 0;
 	size_t			hmacLen;
@@ -157,10 +163,10 @@ static int doHMacCloneTest(const uint8_t *ptext,
             } else {
                 if(verbose) diag("*** context clone worked\n");
             }
-			
+            
 			/* do all of the clone's updates and final here */
 			hmacRun(&ctxClone, stagedClone, ptext, ptextLen, hmacClone);
-			
+
 			/* now do all remaining updates and final for original */
 			hmacRun(&ctxOrig, stagedOrig, ptext, ptextLen, hmacOrig);
 			

@@ -70,9 +70,17 @@
 #  include "pcomplete.h"
 #endif
 
+#include <syslog.h>
+
 #define TEMPENV_HASH_BUCKETS	4	/* must be power of two */
 
 #define ifsname(s)	((s)[0] == 'I' && (s)[1] == 'F' && (s)[2] == 'S' && (s)[3] == '\0')
+
+/* Wrap bash function exports/imports to avoid hijacking of typical USER_AGENT and similar */
+#define ENV_FUNCTION_PREFIX     "__BASH_FUNC<"
+#define ENV_FUNCTION_PREFIX_LEN (sizeof(ENV_FUNCTION_PREFIX)-1)
+#define ENV_FUNCTION_SUFFIX     ">()"
+#define ENV_FUNCTION_SUFFIX_LEN (sizeof(ENV_FUNCTION_SUFFIX)-1)
 
 extern char **environ;
 
@@ -241,7 +249,7 @@ static void push_temp_var __P((PTR_T));
 static void propagate_temp_var __P((PTR_T));
 static void dispose_temporary_env __P((sh_free_func_t *));     
 
-static inline char *mk_env_string __P((const char *, const char *));
+static inline char *mk_env_string __P((const char *, const char *, int));
 static char **make_env_array_from_var_list __P((SHELL_VAR **));
 static char **make_var_export_array __P((VAR_CONTEXT *));
 static char **make_func_export_array __P((void));
@@ -309,33 +317,40 @@ initialize_shell_variables (env, privmode)
 
       /* If exported function, define it now.  Don't import functions from
 	 the environment in privileged mode. */
-      if (privmode == 0 && read_but_dont_execute == 0 && STREQN ("() {", string, 4))
+      int legacy_function = 0; /* 1 just to syslog ignored function names */
+      if (privmode == 0 && read_but_dont_execute == 0 && (legacy_function=STREQN ("() {", string, 4)) &&
+          (char_index > ENV_FUNCTION_SUFFIX_LEN) &&
+          STREQN(ENV_FUNCTION_PREFIX, name, ENV_FUNCTION_PREFIX_LEN) &&
+          STREQ(name + char_index - ENV_FUNCTION_SUFFIX_LEN, ENV_FUNCTION_SUFFIX))
 	{
-	  string_length = strlen (string);
-	  temp_string = (char *)xmalloc (3 + string_length + char_index);
+      char *temp_name = name + ENV_FUNCTION_PREFIX_LEN;
+      /* Undone later */
+      name[char_index - ENV_FUNCTION_SUFFIX_LEN] = '\0';
+      int temp_name_length = strlen(temp_name);
+      string_length = strlen (string);
+      int temp_string_len = 2 + string_length + temp_name_length;
+        
+	  temp_string = (char *)xmalloc (temp_string_len);
 
-	  strcpy (temp_string, name);
-	  temp_string[char_index] = ' ';
-	  strcpy (temp_string + char_index + 1, string);
+      snprintf(temp_string, temp_string_len, "%s %s", temp_name, string);
 
-	  parse_and_execute (temp_string, name, SEVAL_NONINT|SEVAL_NOHIST);
+	  /* Don't import function names that are invalid identifiers from the
+	     environment. */
+	  if (legal_identifier (temp_name))
+	    parse_and_execute (temp_string, temp_name, SEVAL_NONINT|SEVAL_NOHIST|SEVAL_FUNCDEF|SEVAL_ONECMD);
 
-	  /* Ancient backwards compatibility.  Old versions of bash exported
-	     functions like name()=() {...} */
-	  if (name[char_index - 1] == ')' && name[char_index - 2] == '(')
-	    name[char_index - 2] = '\0';
-
-	  if (temp_var = find_function (name))
+	  if (temp_var = find_function (temp_name))
 	    {
 	      VSETATTR (temp_var, (att_exported|att_imported));
 	      array_needs_making = 1;
 	    }
-	  else
-	    report_error (_("error importing function definition for `%s'"), name);
-
-	  /* ( */
-	  if (name[char_index - 1] == ')' && name[char_index - 2] == '\0')
-	    name[char_index - 2] = '(';		/* ) */
+      else {
+        syslog(LOG_ERR, "CVE-2014-6271 invalid function definition");
+	    report_error (_("error importing function definition for `%s'"), temp_name);
+      }
+        // restore original
+        name[char_index - ENV_FUNCTION_SUFFIX_LEN] = ENV_FUNCTION_SUFFIX[0];
+        legacy_function = 0;
 	}
 #if defined (ARRAY_VARS)
 #  if 0
@@ -358,6 +373,9 @@ initialize_shell_variables (env, privmode)
 	  array_needs_making = 1;
 	}
 
+      if (legacy_function) {
+          syslog(LOG_INFO, "CVE-2014-6271 ignoring function definition");
+      }
       name[char_index] = '=';
       /* temp_var can be NULL if it was an exported function with a syntax
 	 error (a different bug, but it still shouldn't dump core). */
@@ -2213,7 +2231,7 @@ assign_in_env (word)
   var->context = variable_context;	/* XXX */
 
   INVALIDATE_EXPORTSTR (var);
-  var->exportstr = mk_env_string (name, value);
+  var->exportstr = mk_env_string (name, value, 0);
 
   array_needs_making = 1;
 
@@ -3004,21 +3022,21 @@ merge_temporary_env ()
 /* **************************************************************** */
 
 static inline char *
-mk_env_string (name, value)
+mk_env_string (name, value, is_function)
      const char *name, *value;
+     int is_function;
 {
-  int name_len, value_len;
+  int name_len, value_len, total_len;
   char	*p;
 
-  name_len = strlen (name);
+  name_len = strlen (name) + (is_function ? ENV_FUNCTION_PREFIX_LEN + ENV_FUNCTION_SUFFIX_LEN : 0);
   value_len = STRLEN (value);
-  p = (char *)xmalloc (2 + name_len + value_len);
-  strcpy (p, name);
-  p[name_len] = '=';
+  total_len = 2 + name_len + value_len;
+  p = (char *)xmalloc (total_len);
+  snprintf(p, total_len, "%s%s%s=", is_function ? ENV_FUNCTION_PREFIX : "",
+           name, is_function ? ENV_FUNCTION_SUFFIX : "");
   if (value && *value)
-    strcpy (p + name_len + 1, value);
-  else
-    p[name_len + 1] = '\0';
+    strlcat(p, value, total_len);
   return (p);
 }
 
@@ -3093,7 +3111,7 @@ make_env_array_from_var_list (vars)
 	  /* Gee, I'd like to get away with not using savestring() if we're
 	     using the cached exportstr... */
 	  list[list_index] = USE_EXPORTSTR ? savestring (value)
-					   : mk_env_string (var->name, value);
+					   : mk_env_string (var->name, value, function_p(var));
 
 	  if (USE_EXPORTSTR == 0)
 	    SAVE_EXPORTSTR (var, list[list_index]);

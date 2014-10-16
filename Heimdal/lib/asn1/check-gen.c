@@ -76,7 +76,7 @@ cmp_principal (void *a, void *b)
 {
     Principal *pa = a;
     Principal *pb = b;
-    int i;
+    unsigned i;
 
     COMPARE_STRING(pa,pb,realm);
     COMPARE_INTEGER(pa,pb,name.name_type);
@@ -145,7 +145,7 @@ cmp_authenticator (void *a, void *b)
 {
     Authenticator *aa = a;
     Authenticator *ab = b;
-    int i;
+    unsigned i;
 
     COMPARE_INTEGER(aa,ab,authenticator_vno);
     COMPARE_STRING(aa,ab,crealm);
@@ -215,7 +215,7 @@ cmp_KRB_ERROR (void *a, void *b)
 {
     KRB_ERROR *aa = a;
     KRB_ERROR *ab = b;
-    int i;
+    unsigned i;
 
     COMPARE_INTEGER(aa,ab,pvno);
     COMPARE_INTEGER(aa,ab,msg_type);
@@ -813,8 +813,9 @@ check_tag_length(void)
     TESTuint32 values[] = {0, 127, 128, 256, 512,
 			 0, 127, 128, 256, 512 };
     TESTuint32 u;
-    int i, ret, failed = 0;
+    int ret, failed = 0;
     void *buf;
+    size_t i;
 
     for (i = 0; i < sizeof(td)/sizeof(td[0]); i++) {
 	struct map_page *page;
@@ -824,20 +825,20 @@ check_tag_length(void)
 	ret = decode_TESTuint32(buf, td[i].len, &u, &sz);
 	if (ret) {
 	    if (td[i].ok) {
-		printf("failed with tag len test %d\n", i);
+		printf("failed with tag len test %d\n", (int)i);
 		failed = 1;
 	    }
 	} else {
 	    if (td[i].ok == 0) {
-		printf("failed with success for tag len test %d\n", i);
+		printf("failed with success for tag len test %d\n", (int)i);
 		failed = 1;
 	    }
 	    if (td[i].expected_len != sz) {
-		printf("wrong expected size for tag test %d\n", i);
+		printf("wrong expected size for tag test %d\n", (int)i);
 		failed = 1;
 	    }
 	    if (values[i] != u) {
-		printf("wrong value for tag test %d\n", i);
+		printf("wrong value for tag test %d\n", (int)i);
 		failed = 1;
 	    }
 	}
@@ -1367,7 +1368,7 @@ check_TESTMechTypeList(void)
                             { 7, oid2 },
                             { 10, oid3 },
                             { 10, oid4 }};
-    size_t size, len;
+    size_t size = 0, len;
     void *ptr;
     int ret;
 
@@ -1379,6 +1380,48 @@ check_TESTMechTypeList(void)
 	errx(1, "TESTMechTypeList: %d", ret);
     if (len != size)
 	abort();
+    return 0;
+}
+
+static unsigned char token[] = {
+  0x30, 0x81, 0xb1, 0xa0, 0x03, 0x0a, 0x05, 0x00, 0xa2, 0x81, 0xa9, 0x04,
+  0x81, 0xa6, 0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00, 0x03, 0x00,
+  0x00, 0x00, 0x18, 0x00, 0x18, 0x00, 0x76, 0x00, 0x00, 0x00, 0x18, 0x00,
+  0x18, 0x00, 0x8e, 0x00, 0x00, 0x00, 0x14, 0x00, 0x14, 0x00, 0x48, 0x00,
+  0x00, 0x00, 0x0e, 0x00, 0x0e, 0x00, 0x5c, 0x00, 0x00, 0x00, 0x0c, 0x00,
+  0x0c, 0x00, 0x6a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x05, 0x01, 0x28, 0x0a, 0x00, 0x00,
+  0x00, 0x0f, 0x54, 0x00, 0x45, 0x00, 0x53, 0x00, 0x54, 0x00, 0x44, 0x00,
+  0x4f, 0x00, 0x4d, 0x00, 0x41, 0x00, 0x49, 0x00, 0x4e, 0x00, 0x73, 0x00,
+  0x6d, 0x00, 0x62, 0x00, 0x74, 0x00, 0x65, 0x00, 0x73, 0x00, 0x74, 0x00,
+  0x54, 0x00, 0x45, 0x00, 0x53, 0x00, 0x54, 0x00, 0x50, 0x00, 0x43, 0x00,
+  0x73, 0x8c, 0x0f, 0xb0, 0xd4, 0xc1, 0xab, 0x7f, 0xe6, 0xeb, 0xb9, 0xc4,
+  0x04, 0xfb, 0x3d, 0xda, 0x5d, 0x76, 0x55, 0x5f, 0x3c, 0x75, 0xcc, 0xf9,
+  0xd5, 0x4a, 0x55, 0xc7, 0x0f, 0x2e, 0x03, 0xaf, 0xcf, 0x66, 0x1e, 0xc0,
+  0x52, 0x70, 0x89, 0xaa, 0x99, 0xa2, 0x9b, 0xa5, 0x91, 0x26, 0x61, 0x94
+};
+static size_t token_len = 180;
+
+static int
+check_negToken(void)
+{
+    TESTNegotiationToken tl;
+    TESTNegTokenResp tr;
+    size_t size;
+    int ret;
+
+    ret = decode_TESTNegotiationToken(token, token_len, &tl, &size);
+    if (ret)
+	;
+    else if (token_len != size)
+	errx(1, "token contains extra data");
+
+    ret = decode_TESTNegTokenResp(token, token_len, &tr, &size);
+    if (ret)
+	;
+    else if (token_len != size)
+	errx(1, "token contains extra data");
+
     return 0;
 }
 
@@ -1414,6 +1457,8 @@ main(int argc, char **argv)
     ret += test_SignedData();
 
     ret += check_TESTMechTypeList();
+    ret += check_negToken();
+
 
     return ret;
 }

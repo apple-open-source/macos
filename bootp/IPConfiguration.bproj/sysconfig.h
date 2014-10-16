@@ -65,6 +65,20 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 			    boolean_t alternate_location);
 
 /*
+ * Function: my_SCDynamicStoreSetInterface
+ * Purpose:
+ *   Accumulate the keys to set/remove for a particular interface.
+ * Note:
+ *   This function does not update the SCDynamicStore, it just
+ *   accumulates keys/values.
+ */
+void
+my_SCDynamicStoreSetInterface(SCDynamicStoreRef store,
+			      CFStringRef ifname,
+			      CFStringRef entity,
+			      CFDictionaryRef value);
+
+/*
  * Function: my_SCDynamicStorePublish
  * Purpose:
  *   Update the SCDynamicStore with the accumulated keys/values generated

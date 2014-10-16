@@ -34,6 +34,11 @@
 #include <hex.h>
 #include <ctype.h>
 
+static krb5_error_code
+append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
+    __attribute__((format (printf, 3, 4)));
+
+
 /*
    This is the present contents of a dump line. This might change at
    any time. Fields are separated by white space.
@@ -72,9 +77,11 @@ append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
 	return ENOMEM;
     }
     sret = krb5_storage_write(sp, s, strlen(s));
-    free(s);
-    if (sret != strlen(s))
+    if (sret < 0 || (size_t)sret != strlen(s)) {
+	free(s);
 	return ENOMEM;
+    }
+    free(s);
     return 0;
 }
 
@@ -93,7 +100,7 @@ append_hex(krb5_context context, krb5_storage *sp, krb5_data *data)
 	}
     if(printable)
 	return append_string(context, sp, "\"%.*s\"",
-			     data->length, data->data);
+			     (int)data->length, data->data);
     hex_encode(data->data, data->length, &p);
     append_string(context, sp, "%s", p);
     free(p);

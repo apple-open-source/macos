@@ -32,9 +32,9 @@
  configtest
  Run a configuration file syntax test\&. It parses the configuration files and either reports Syntax Ok or detailed information about the particular syntax error\&. This is equivalent to apachectl -t\&.  
   
---- support/apachectl.in.orig	2006-07-11 20:38:44.000000000 -0700
-+++ support/apachectl.in	2008-07-15 13:21:50.000000000 -0700
-@@ -65,6 +65,18 @@
+--- support/apachectl.in.orig	2012-01-31 19:47:28.000000000 -0800
++++ support/apachectl.in	2013-11-12 14:00:54.000000000 -0800
+@@ -66,6 +66,19 @@ ULIMIT_MAX_FILES="@APACHECTL_ULIMIT@"
  # --------------------                              --------------------
  # ||||||||||||||||||||   END CONFIGURATION SECTION  ||||||||||||||||||||
  
@@ -50,15 +50,18 @@
 +    $LAUNCHCTL $@
 +}
 +
++
  # Set the maximum number of file descriptors allowed per child process.
  if [ "x$ULIMIT_MAX_FILES" != "x" ] ; then
      $ULIMIT_MAX_FILES
-@@ -76,8 +88,17 @@
+@@ -76,9 +89,18 @@ if [ "x$ARGV" = "x" ] ; then 
+     ARGV="-h"
  fi
  
- case $ARGV in
+-case $ACMD in
 -start|stop|restart|graceful|graceful-stop)
 -    $HTTPD -k $ARGV
++case $ARGV in
 +start)
 +    run_launchctl load -w $LAUNCHD_JOB
 +    ERROR=$?
@@ -73,7 +76,7 @@
      ERROR=$?
      ;;
  startssl|sslstart|start-SSL)
-@@ -90,11 +111,9 @@
+@@ -91,11 +113,9 @@ configtest)
      $HTTPD -t
      ERROR=$?
      ;;
@@ -87,4 +90,4 @@
 +    echo Note that mod_status must be enabled for this to work.
      ;;
  *)
-     $HTTPD $ARGV
+     $HTTPD "$@"

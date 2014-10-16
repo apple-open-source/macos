@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -25,8 +25,6 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCNetworkReachabilityInternal.h"
-
-#ifdef	HAVE_REACHABILITY_SERVER
 
 #include <xpc/xpc.h>
 #include <xpc/private.h>
@@ -71,7 +69,13 @@ _rbt_compare_transaction_nodes(void *context, const void *n1, const void *n2)
 	uint64_t	a = (uintptr_t)(((reach_request_t *)n1)->target);
 	uint64_t	b = (uintptr_t)(((reach_request_t *)n2)->target);
 
-	return (a - b);
+	if (a == b) {
+		return 0;
+	} else if (a < b) {
+		return -1;
+	} else {
+		return 1;
+	}
 }
 
 
@@ -81,7 +85,13 @@ _rbt_compare_transaction_key(void *context, const void *n1, const void *key)
 	uint64_t	a = (uintptr_t)(((reach_request_t *)n1)->target);
 	uint64_t	b = *(uint64_t *)key;
 
-	return (a - b);
+	if (a == b) {
+		return 0;
+	} else if (a < b) {
+		return -1;
+	} else {
+		return 1;
+	}
 }
 
 
@@ -155,9 +165,7 @@ _reach_request_add(SCNetworkReachabilityRef target)
 		request = rb_tree_find_node(rbt, &target_id);
 		if (request == NULL) {
 			request = _reach_request_create(target);
-			if (request == NULL || !rb_tree_insert_node(rbt, request)) {
-				__builtin_trap();
-			}
+			rb_tree_insert_node(rbt, request);
 		}
 	});
 
@@ -220,7 +228,7 @@ handle_reachability_status(SCNetworkReachabilityRef target, xpc_object_t dict)
 //		log_xpc_object("  status", dict);
 	}
 
-	__SCNetworkReachabilityPerformConcurrent(target);
+	__SCNetworkReachabilityUpdateConcurrent(target);
 
 	return;
 }
@@ -238,7 +246,7 @@ handle_async_notification(SCNetworkReachabilityRef target, xpc_object_t dict)
 			handle_reachability_status(target, dict);
 			break;
 		default :
-			SCLog(TRUE, LOG_ERR, CFSTR("%sgot [async] unknown reply : %d"),
+			SCLog(TRUE, LOG_ERR, CFSTR("%sgot [async] unknown reply : %lld"),
 			      targetPrivate->log_prefix,
 			      op);
 			log_xpc_object("  reply", dict);
@@ -270,14 +278,14 @@ _reach_connection_reconnect(xpc_connection_t connection);
 static xpc_connection_t
 _reach_connection_create()
 {
-	xpc_connection_t		c;
+	xpc_connection_t	c;
 #if	!TARGET_IPHONE_SIMULATOR
-	const uint64_t		flags	=	XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
+	const uint64_t		flags	= XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
 #else	// !TARGET_IPHONE_SIMULATOR
-	const uint64_t		flags	=	0;
+	const uint64_t		flags	= 0;
 #endif	// !TARGET_IPHONE_SIMULATOR
-	const char			*name;
-	dispatch_queue_t		q	= _reach_xpc_queue();
+	const char		*name;
+	dispatch_queue_t	q	= _reach_xpc_queue();
 
 	// create XPC connection
 	name = getenv("REACH_SERVER");
@@ -340,7 +348,7 @@ _reach_connection_create()
 
 		} else {
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("reach client %p: unknown event type : %x"),
+			      CFSTR("reach client %p: unknown event type : %p"),
 			      c,
 			      type);
 		}
@@ -359,7 +367,7 @@ _reach_connection()
 	static dispatch_queue_t		q;
 
 	if (!serverAvailable) {
-		// if SCNetworkReachabilty [XPC] server not available
+		// if SCNetworkReachability [XPC] server not available
 		return NULL;
 	}
 
@@ -416,22 +424,33 @@ _reach_server_target_add(xpc_connection_t connection, SCNetworkReachabilityRef t
 	xpc_dictionary_set_int64(reqdict, REACH_REQUEST, REACH_REQUEST_CREATE);
 
 	// add reachability target info
-	if (targetPrivate->name != NULL) {
-		xpc_dictionary_set_string(reqdict,
-					  REACH_TARGET_NAME,
-					  targetPrivate->name);
-	}
-	if (targetPrivate->localAddress != NULL) {
-		xpc_dictionary_set_data(reqdict,
-					REACH_TARGET_LOCAL_ADDR,
-					targetPrivate->localAddress,
-					targetPrivate->localAddress->sa_len);
-	}
-	if (targetPrivate->remoteAddress != NULL) {
-		xpc_dictionary_set_data(reqdict,
-					REACH_TARGET_REMOTE_ADDR,
-					targetPrivate->remoteAddress,
-					targetPrivate->remoteAddress->sa_len);
+	switch (targetPrivate->type) {
+		case reachabilityTypeName :
+			xpc_dictionary_set_string(reqdict,
+						  REACH_TARGET_NAME,
+						  targetPrivate->name);
+			break;
+		case reachabilityTypeAddress :
+		case reachabilityTypeAddressPair :
+			if (targetPrivate->localAddress != NULL) {
+				xpc_dictionary_set_data(reqdict,
+							REACH_TARGET_LOCAL_ADDR,
+							targetPrivate->localAddress,
+							targetPrivate->localAddress->sa_len);
+			}
+			if (targetPrivate->remoteAddress != NULL) {
+				xpc_dictionary_set_data(reqdict,
+							REACH_TARGET_REMOTE_ADDR,
+							targetPrivate->remoteAddress,
+							targetPrivate->remoteAddress->sa_len);
+			}
+			break;
+		case reachabilityTypePTR :
+			xpc_dictionary_set_data(reqdict,
+						REACH_TARGET_PTR_ADDR,
+						targetPrivate->remoteAddress,
+						targetPrivate->remoteAddress->sa_len);
+			break;
 	}
 	if (targetPrivate->if_index != 0) {
 		xpc_dictionary_set_int64(reqdict,
@@ -663,11 +682,11 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 	targetPrivate->serverInfo.cycle = xpc_dictionary_get_uint64(reply,
 								    REACH_STATUS_CYCLE);
 
-	targetPrivate->serverInfo.flags = xpc_dictionary_get_uint64(reply,
-								    REACH_STATUS_FLAGS);
+	targetPrivate->serverInfo.flags = (SCNetworkReachabilityFlags)xpc_dictionary_get_uint64(reply,
+												REACH_STATUS_FLAGS);
 
-	targetPrivate->serverInfo.if_index = xpc_dictionary_get_uint64(reply,
-								       REACH_STATUS_IF_INDEX);
+	targetPrivate->serverInfo.if_index = (unsigned int)xpc_dictionary_get_uint64(reply,
+										     REACH_STATUS_IF_INDEX);
 
 	bzero(&targetPrivate->serverInfo.if_name, sizeof(targetPrivate->serverInfo.if_name));
 	if_name = (void *)xpc_dictionary_get_data(reply,
@@ -684,7 +703,7 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 	targetPrivate->serverInfo.sleeping = xpc_dictionary_get_bool(reply,
 								     REACH_STATUS_SLEEPING);
 
-	if (targetPrivate->type == reachabilityTypeName) {
+	if (isReachabilityTypeName(targetPrivate->type)) {
 		xpc_object_t		addresses;
 
 		if (targetPrivate->resolvedAddresses != NULL) {
@@ -692,8 +711,8 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 			targetPrivate->resolvedAddresses = NULL;
 		}
 
-		targetPrivate->resolvedError = xpc_dictionary_get_int64(reply,
-									REACH_STATUS_RESOLVED_ERROR);
+		targetPrivate->resolvedError = (int)xpc_dictionary_get_int64(reply,
+									     REACH_STATUS_RESOLVED_ERROR);
 
 		addresses = xpc_dictionary_get_value(reply, REACH_STATUS_RESOLVED_ADDRESSES);
 		if ((addresses != NULL) && (xpc_get_type(addresses) != XPC_TYPE_ARRAY)) {
@@ -702,21 +721,31 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 
 		if ((targetPrivate->resolvedError == NETDB_SUCCESS) && (addresses != NULL)) {
 			int			i;
-			int			n;
+			size_t			n;
 			CFMutableArrayRef	newAddresses;
 
 			newAddresses = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 			n = xpc_array_get_count(addresses);
 			for (i = 0; i < n; i++) {
-				struct addrinfo	*sa;
-				size_t		len;
-				CFDataRef	newAddress;
+				if (targetPrivate->type == reachabilityTypeName) {
+					struct sockaddr	*sa;
+					size_t		len;
+					CFDataRef	newAddress;
 
-				sa = (struct addrinfo *)xpc_array_get_data(addresses, i, &len);
-				newAddress = CFDataCreate(NULL, (const UInt8 *)sa, len);
-				CFArrayAppendValue(newAddresses, newAddress);
-				CFRelease(newAddress);
+					sa = (struct sockaddr *)xpc_array_get_data(addresses, i, &len);
+					newAddress = CFDataCreate(NULL, (const UInt8 *)sa, len);
+					CFArrayAppendValue(newAddresses, newAddress);
+					CFRelease(newAddress);
+				} else if (targetPrivate->type == reachabilityTypePTR) {
+					const char	*str;
+					CFStringRef	newName;
+
+					str = xpc_array_get_string(addresses, i);
+					newName = CFStringCreateWithCString(NULL, str, kCFStringEncodingUTF8);
+					CFArrayAppendValue(newAddresses, newName);
+					CFRelease(newName);
+				}
 			}
 
 			targetPrivate->resolvedAddresses = newAddresses;
@@ -724,6 +753,10 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 			/* save the error associated with the attempt to resolve the name */
 			targetPrivate->resolvedAddresses = CFRetain(kCFNull);
 		}
+
+		targetPrivate->dnsFlags = (uint32_t)xpc_dictionary_get_uint64(reply,
+									      REACH_STATUS_DNS_FLAGS);
+
 		targetPrivate->needResolve = FALSE;
 	}
 
@@ -794,7 +827,7 @@ _reach_server_target_status(xpc_connection_t connection, SCNetworkReachabilityRe
 					      targetPrivate->log_prefix,
 					      targetPrivate->serverInfo.flags);
 					if (targetPrivate->serverInfo.if_index != 0) {
-						SCLog(TRUE, LOG_INFO, CFSTR("%s  device    = %s (%hu%s)"),
+						SCLog(TRUE, LOG_INFO, CFSTR("%s  device    = %s (%u%s)"),
 						      targetPrivate->log_prefix,
 						      targetPrivate->serverInfo.if_name,
 						      targetPrivate->serverInfo.if_index,
@@ -966,8 +999,8 @@ _reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilit
 
 	// For addresses, update our status now.  For names, queries will
 	// be updated with a callback
-	if (targetPrivate->type != reachabilityTypeName) {
-		__SCNetworkReachabilityPerform(target);
+	if (isReachabilityTypeAddress(targetPrivate->type)) {
+		__SCNetworkReachabilityUpdate(target);
 	}
 
 	return;
@@ -1183,5 +1216,3 @@ __SCNetworkReachabilityServer_targetUnschedule(SCNetworkReachabilityRef target)
 }
 
 
-
-#endif	// HAVE_REACHABILITY_SERVER

@@ -1,20 +1,41 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/rbnf/hi.xml
+// * Copyright (C) 2014 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/rbnf/hi.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/rbnf/hi.xml
+ * ICU <specials> source: <path>/xml/rbnf/hi.xml
  */
 hi{
     RBNFRules{
         OrdinalRules{
-            "%digits-ordinal:",
+            "%%digits-ordinal-indicator-m:",
+            "0: \u0935\u093E\u0901;",
+            "1: \u0932\u093E;",
+            "2: \u0930\u093E;",
+            "4: \u0925\u093E;",
+            "5: \u0935\u093E\u0901;",
+            "6: \u091F\u093E;",
+            "7: \u0935\u093E\u0901;",
+            "%%digits-ordinal-indicator-f:",
+            "0: \u0935\u0940\u0902;",
+            "1: \u0932\u0940;",
+            "2: \u0930\u0940;",
+            "4: \u0925\u0940;",
+            "5: \u0935\u0940\u0902;",
+            "6: \u091F\u0940;",
+            "7: \u0935\u0940\u0902;",
+            "%digits-ordinal-masculine:",
             "-x: \u2212>>;",
-            "0: =#,##,##0=.;",
+            "0: =#,##0==%%digits-ordinal-indicator-m=;",
+            "%digits-ordinal-feminine:",
+            "-x: \u2212>>;",
+            "0: =#,##0==%%digits-ordinal-indicator-f=;",
+            "%digits-ordinal:",
+            "0: =%digits-ordinal-masculine=;",
         }
         SpelloutRules{
             "%spellout-numbering-year:",

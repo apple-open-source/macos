@@ -1,0 +1,34 @@
+# 
+# test Apple certs. Requires the root to be trusted somehow (it's not explicitly passed to 
+# the verifier here). . 
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = true
+useTrustSettings = true
+end
+#
+test = Development
+cert = AppleDevelopment.pem
+cert = AppleSWUPDATE.pem
+policy = swuSign
+error = CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT
+certerror=0:CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT
+end
+#
+#
+test = "Software Update"
+cert = AppleSoftUpdate.pem
+cert = AppleSWUPDATE.pem
+policy = swuSign
+end
+#
+test = "test the intermediate CA, wrong cert chain length"
+cert = AppleSWUPDATE.pem
+policy = swuSign
+error = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH
+end
+#
+

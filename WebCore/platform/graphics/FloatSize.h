@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Inc.  All rights reserved.
  * Copyright (C) 2005 Nokia.  All rights reserved.
  *               2008 Eric Seidel <eric@webkit.org>
  *
@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -31,18 +31,8 @@
 #include "IntPoint.h"
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(QT)
-QT_BEGIN_NAMESPACE
-class QSizeF;
-QT_END_NAMESPACE
-#endif
-
-#if PLATFORM(BLACKBERRY)
-namespace BlackBerry {
-namespace Platform {
-class FloatSize;
-}
-}
+#if PLATFORM(IOS)
+#include <CoreGraphics/CoreGraphics.h>
 #endif
 
 #if USE(CG)
@@ -55,19 +45,17 @@ typedef struct CGSize NSSize;
 #else
 typedef struct _NSSize NSSize;
 #endif
-#endif
+#endif // PLATFORM(MAC)
 
 namespace WebCore {
 
 class IntSize;
-class LayoutSize;
 
 class FloatSize {
 public:
     FloatSize() : m_width(0), m_height(0) { }
     FloatSize(float width, float height) : m_width(width), m_height(height) { }
     FloatSize(const IntSize&);
-    FloatSize(const LayoutSize&);
 
     static FloatSize narrowPrecision(double width, double height);
 
@@ -120,25 +108,17 @@ public:
         return FloatSize(m_height, m_width);
     }
 
-#if PLATFORM(QT)
-    explicit FloatSize(const QSizeF&);
-    operator QSizeF() const;
-#endif
-
-#if PLATFORM(BLACKBERRY)
-    FloatSize(const BlackBerry::Platform::FloatSize&);
-    operator BlackBerry::Platform::FloatSize() const;
-#endif
-
 #if USE(CG)
     explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
     operator CGSize() const;
 #endif
 
-#if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES))
+#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
     explicit FloatSize(const NSSize &); // don't do this implicitly since it's lossy
     operator NSSize() const;
 #endif
+
+    void dump(WTF::PrintStream& out) const;
 
 private:
     float m_width, m_height;

@@ -7,22 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		72406E631676C3C80099568B /* xattr_properties.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_properties.c */; };
+		72406E631676C3C80099568B /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
 		72B4C0F41676C47D00C13E05 /* copyfile_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B4C0F31676C47D00C13E05 /* copyfile_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		72EAA3B016A72F4500833E98 /* xattr_properties.h in Headers */ = {isa = PBXBuildFile; fileRef = 72EAA3AF16A72F4500833E98 /* xattr_properties.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72EAA3B016A72F4500833E98 /* xattr_flags.h in Headers */ = {isa = PBXBuildFile; fileRef = 72EAA3AF16A72F4500833E98 /* xattr_flags.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		86EF9F0A1834018C00AAB3F3 /* xattr_properties.h in Headers */ = {isa = PBXBuildFile; fileRef = 86EF9F091834018C00AAB3F3 /* xattr_properties.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FCCE17C3135A658F002CEE6D /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
 		FCCE17C4135A658F002CEE6D /* copyfile.h in Headers */ = {isa = PBXBuildFile; fileRef = FCCE17C2135A658F002CEE6D /* copyfile.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		72406E621676C3C80099568B /* xattr_properties.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xattr_properties.c; sourceTree = "<group>"; };
+		3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = copyfile.xcconfig; path = xcodescripts/copyfile.xcconfig; sourceTree = "<group>"; };
+		72406E621676C3C80099568B /* xattr_flags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xattr_flags.c; sourceTree = "<group>"; };
 		72B4C0F31676C47D00C13E05 /* copyfile_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = copyfile_private.h; sourceTree = "<group>"; };
-		72EAA3AF16A72F4500833E98 /* xattr_properties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_properties.h; sourceTree = "<group>"; };
+		72EAA3AF16A72F4500833E98 /* xattr_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_flags.h; sourceTree = "<group>"; };
+		861E1C14180F0AF900E65B9A /* xattr_name_with_flags.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = xattr_name_with_flags.3; sourceTree = "<group>"; };
+		86EF9F091834018C00AAB3F3 /* xattr_properties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_properties.h; sourceTree = "<group>"; };
 		FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcopyfile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE17C0135A658F002CEE6D /* copyfile.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = copyfile.3; sourceTree = "<group>"; };
 		FCCE17C1135A658F002CEE6D /* copyfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = copyfile.c; sourceTree = "<group>"; };
 		FCCE17C2135A658F002CEE6D /* copyfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = copyfile.h; sourceTree = "<group>"; };
-		FCCE17C5135A659B002CEE6D /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,13 +42,15 @@
 		FCCE17AB135A5FFB002CEE6D = {
 			isa = PBXGroup;
 			children = (
+				3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */,
+				861E1C14180F0AF900E65B9A /* xattr_name_with_flags.3 */,
 				72B4C0F31676C47D00C13E05 /* copyfile_private.h */,
-				72EAA3AF16A72F4500833E98 /* xattr_properties.h */,
-				72406E621676C3C80099568B /* xattr_properties.c */,
+				72EAA3AF16A72F4500833E98 /* xattr_flags.h */,
+				72406E621676C3C80099568B /* xattr_flags.c */,
 				FCCE17C0135A658F002CEE6D /* copyfile.3 */,
 				FCCE17C1135A658F002CEE6D /* copyfile.c */,
+				86EF9F091834018C00AAB3F3 /* xattr_properties.h */,
 				FCCE17C2135A658F002CEE6D /* copyfile.h */,
-				FCCE17C5135A659B002CEE6D /* BSD.xcconfig */,
 				FCCE17BC135A6444002CEE6D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,8 +71,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				FCCE17C4135A658F002CEE6D /* copyfile.h in Headers */,
+				72EAA3B016A72F4500833E98 /* xattr_flags.h in Headers */,
 				72B4C0F41676C47D00C13E05 /* copyfile_private.h in Headers */,
-				72EAA3B016A72F4500833E98 /* xattr_properties.h in Headers */,
+				86EF9F0A1834018C00AAB3F3 /* xattr_properties.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,7 +146,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FCCE17C3135A658F002CEE6D /* copyfile.c in Sources */,
-				72406E631676C3C80099568B /* xattr_properties.c in Sources */,
+				72406E631676C3C80099568B /* xattr_flags.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -149,7 +155,7 @@
 /* Begin XCBuildConfiguration section */
 		FCCE17B3135A5FFB002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FCCE17C5135A659B002CEE6D /* BSD.xcconfig */;
+			baseConfigurationReference = 3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */;
 			buildSettings = {
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -176,16 +182,9 @@
 		FCCE17BD135A6444002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__DARWIN_NOW_CANCELABLE=1";
-				INSTALL_PATH = /usr/lib/system;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib/system";
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
@@ -199,6 +198,8 @@
 					"-lquarantine",
 					"-lsystem_asl",
 					"-lsystem_info",
+					"-lxpc",
+					"-ldispatch",
 				);
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-Wl,-umbrella,System",
@@ -211,22 +212,23 @@
 					"-lsystem_blocks",
 					"-lsystem_asl",
 					"-lsystem_info",
+					"-ldispatch",
+					"-lxpc",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-ldyld_sim",
-					"-lcompiler_rt_sim",
+					"-ldyld",
+					"-lcompiler_rt",
+					"-lsystem_sim_kernel",
+					"-lsystem_malloc",
 					"-lsystem_sim_c",
 					"-lsystem_sim_blocks",
+					"-lsystem_sim_asl",
 					"-lsystem_sim_info",
-					"-Wl,-upward-lSystem",
+					"-ldispatch",
+					"-lxpc",
 				);
-				"PRIVATE_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/include";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				"PRODUCT_NAME[sdk=iphonesimulator*]" = copyfile_sim;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",

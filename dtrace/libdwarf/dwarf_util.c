@@ -100,11 +100,19 @@ _dwarf_get_size_of_val(Dwarf_Debug dbg,
 	return (strlen((char *) val_ptr) + 1);
 
     case DW_FORM_block:
-	length = _dwarf_decode_u_leb128(val_ptr, &leb128_length);
-	return (length + leb128_length);
+    case DW_FORM_exprloc:
+        length = _dwarf_decode_u_leb128(val_ptr, &leb128_length);
+        return (length + leb128_length);
 
+        /* According to the DWARF4 documentation, there is nothing to read. */
+    case DW_FORM_flag_present:
+        return (0);
     case DW_FORM_flag:
-	return (1);
+        return (1);
+
+    case DW_FORM_sec_offset:
+        /* If 32bit dwarf, is 4. Else is 64bit dwarf and is 8. */
+        return (v_length_size);
 
     case DW_FORM_ref_udata:
 	_dwarf_decode_u_leb128(val_ptr, &leb128_length);

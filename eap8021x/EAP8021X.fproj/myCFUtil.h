@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
  */
 
 #include <CoreFoundation/CFString.h>
+#include <mach/mach.h>
 
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2);
@@ -78,4 +79,11 @@ my_CFPropertyListCopyAsXMLString(CFPropertyListRef plist);
 			 CFSTR(__format),		\
 			 ## __VA_ARGS__)
 
+vm_address_t
+my_CFPropertyListCreateVMData(CFPropertyListRef plist,
+			      mach_msg_type_number_t * 	ret_data_len);
+
+CFStringRef
+my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
+			 CFIndex component_index);
 #endif /* _S_MYCFUTIL_H */

@@ -20,7 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
- 
+
+#include <pthread.h>
 #include <System/libkern/OSCrossEndian.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFData.h>
@@ -64,15 +65,21 @@ static const CFRuntimeClass __IOHIDValueClass = {
     NULL
 };
 
-static CFTypeID __kIOHIDValueTypeID = _kCFRuntimeNotATypeID;
+static CFTypeID         __valueTypeID   = _kCFRuntimeNotATypeID;
+static pthread_once_t   __valueTypeInit = PTHREAD_ONCE_INIT;
+
+void __IOHIDValueRegister(void)
+{
+    __valueTypeID = _CFRuntimeRegisterClass(&__IOHIDValueClass);
+}
 
 CFTypeID IOHIDValueGetTypeID(void)
 {
     /* initialize runtime */
-    if ( __kIOHIDValueTypeID == _kCFRuntimeNotATypeID )
-        __kIOHIDValueTypeID = _CFRuntimeRegisterClass(&__IOHIDValueClass);
+    if ( __valueTypeID == _kCFRuntimeNotATypeID )
+        pthread_once(&__valueTypeInit, __IOHIDValueRegister);
         
-    return __kIOHIDValueTypeID;
+    return __valueTypeID;
 }
 
 IOHIDValueRef __IOHIDValueCreatePrivate(CFAllocatorRef allocator, CFAllocatorContext * context __unused, size_t dataLength)

@@ -151,7 +151,6 @@ client_doit (const char *hostname, int port, const char *serv,
     error = getaddrinfo (hostname, portstr, &hints, &ai);
     if (error) {
 	errx (1, "%s: %s", hostname, gai_strerror(error));
-	return -1;
     }
 
     for (a = ai; a != NULL; a = a->ai_next) {

@@ -211,8 +211,14 @@ bool IOPCIDevice::attach( IOService * provider )
 
 void IOPCIDevice::detach( IOService * provider )
 {
-    if (parent)
-        parent->removeDevice(this);
+	IOPCIConfigShadow * shadow;
+
+	if ((shadow = configShadow(this)) && shadow->tunnelRoot)
+	{
+		setTunnelL1Enable(this, true);
+	}
+
+    if (parent) parent->removeDevice(this);
 
     PMstop();
 
@@ -340,8 +346,8 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
 
 IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 {
-	uint16_t pmeState;
-	uint8_t  prevState;
+	uint16_t            pmeState;
+	uint8_t             prevState;
 
     DLOG("%s[%p]::pciSetPowerState(%d->%d)\n", getName(), this, reserved->pciPMState, powerState);
 
@@ -354,10 +360,10 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	{
 		if ((idx != reserved->lastPSMethod) && !(kMachineRestoreDehibernate & options))
 		{
-		    IOPCIConfigShadow * shadow;
+			IOPCIConfigShadow * shadow = configShadow(this);
 			if ((powerState >= kIOPCIDeviceOnState)
 				&& !space.s.busNum 
-				&& (shadow = configShadow(this))
+				&& (shadow)
 				&& (shadow->bridge)
 				&& (kIOPCIConfigShadowValid 
 					== ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridgeDriver) & shadow->flags))
@@ -374,6 +380,8 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 			absolutetime_to_nanoseconds(time, &time);
 			DLOG("%s::evaluateObject(%s) ret 0x%x %qd ms\n", 
 				getName(), gIOPCIPSMethods[idx]->getCStringNoCopy(), ret, time / 1000000ULL);
+
+			if ((powerState < kIOPCIDeviceOnState) && shadow) shadow->restoreCount = 0;
 		}
 		reserved->lastPSMethod = idx;
 	}
@@ -733,11 +741,20 @@ UInt8 IOPCIDevice::getFunctionNumber( void )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+IODeviceMemory * IOPCIDevice::getDeviceMemoryWithIndex(unsigned int index)
+{
+	if (kTunnelL1NotSet == reserved->tunnelL1Allow) setTunnelL1Enable(this, false);
+
+    return (super::getDeviceMemoryWithIndex(index));
+}
+
 IODeviceMemory * IOPCIDevice::getDeviceMemoryWithRegister( UInt8 reg )
 {
     OSArray *           array;
     IODeviceMemory *    range;
     unsigned int        i = 0;
+
+	if (kTunnelL1NotSet == reserved->tunnelL1Allow) setTunnelL1Enable(this, false);
 
     array = (OSArray *) getProperty( gIODeviceMemoryKey);
     if (0 == array)
@@ -908,7 +925,8 @@ IOPCIDevice::callPlatformFunction(const OSSymbol * functionName,
      && (gIOPlatformDeviceASPMEnableKey == functionName)
      && getProperty(kIOPCIDeviceASPMSupportedKey))
     {
-        result = parent->setDeviceASPMState(this, (IOService *) p1, (IOOptionBits)(uintptr_t) p2);
+    	IOOptionBits state = (p2 != 0) ? reserved->expressASPMDefault : 0;
+        result = parent->setDeviceASPMState(this, (IOService *) p1, state);
     }
 
     return (result);
@@ -1023,6 +1041,36 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+IOReturn 
+IOPCIDevice::setASPMState(IOService * client, IOOptionBits state)
+{
+	IOPCI2PCIBridge * pcib;
+
+	if (!(pcib = OSDynamicCast(IOPCI2PCIBridge, parent))) return (kIOReturnUnsupported);
+
+    return (pcib->setDeviceASPMState(this, client, state));
+}
+
+IOReturn
+IOPCIDevice::setTunnelL1Enable(IOService * client, bool l1Enable)
+{
+	IOPCI2PCIBridge * pcib;
+
+	if (!(pcib = OSDynamicCast(IOPCI2PCIBridge, parent))) return (kIOReturnUnsupported);
+
+    return (pcib->setTunnelL1Enable(this, client, l1Enable));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOPCIEventSource * 
+IOPCIDevice::createEventSource(OSObject * owner, IOPCIEventSource::Action action, uint32_t options)
+{
+    return (parent->createEventSource(this, owner, action, options));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 IOReturn
 IOPCIDevice::setProperties(OSObject * properties)
 {
@@ -1099,60 +1147,6 @@ IOReturn IOPCIDevice::relocate(uint32_t options)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 IOReturn
-IOPCIDevice::newUserClient( task_t owningTask, void * securityID,
-                            UInt32 type,  OSDictionary * properties,
-                            IOUserClient ** handler )
-{
-    bool             ok;
-    OSObject *       obj;
-    OSObject *       service = 0;
-    const OSSymbol * userClientClass;
-    IOUserClient *   uc;
-
-    if (type != kIOPCIDeviceDiagnosticsClientType)
-        return (super::newUserClient(owningTask, securityID, type, properties, handler));
-
-    obj = getPlatform()->copyProperty(kIOPCIDeviceDiagnosticsClassKey);
-    if (obj)
-    {
-        if (obj && (userClientClass = OSDynamicCast(OSSymbol, obj)))
-            service = OSMetaClass::allocClassWithName(userClientClass);
-        obj->release();
-    }
-    do
-    {
-        ok = (NULL != (uc = OSDynamicCast(IOUserClient, service)));
-        if (!ok)
-            break;
-        ok = uc->initWithTask(owningTask, securityID, type, properties);
-        if (!ok)
-            break;
-        ok = uc->attach(this);
-        if (!ok)
-            break;
-        ok = uc->start(this);
-    }
-    while (false);
-
-    if (ok)
-    {
-        *handler = uc;
-        return (kIOReturnSuccess);
-    }
-    else
-    {
-        if (uc && uc->inPlane(gIOServicePlane))
-            uc->detach(this);
-        if (service)
-            service->release();
-        *handler = NULL;
-        return (kIOReturnUnsupported);
-    }
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-IOReturn
 IOPCIDevice::setConfigHandler(IOPCIDeviceConfigHandler handler, void * ref,
                               IOPCIDeviceConfigHandler * currentHandler, void ** currentRef)
 {
@@ -1168,6 +1162,15 @@ IOPCIDevice::setConfigHandler(IOPCIDeviceConfigHandler handler, void * ref,
 	configShadow(this)->handlerRef = ref;
 
     return (kIOReturnSuccess);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn IOPCIDevice::newUserClient(task_t owningTask, void * securityID,
+                                    UInt32 type,  OSDictionary * properties,
+                                    IOUserClient ** handler)
+{
+    return (kIOReturnUnsupported);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

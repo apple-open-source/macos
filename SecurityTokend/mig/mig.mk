@@ -29,6 +29,7 @@ HDRS = $(HEADER)
 SERVER = $(DERIVED_SRC)/tokendServer.cpp
 CLIENT = $(DERIVED_SRC)/tokendClient.cpp
 SRCS = $(SERVER) $(CLIENT)
+SDKROOT := $(shell xcrun --show-sdk-path --sdk macosx.internal)
 
 build: $(HDRS) $(SRCS)
 
@@ -43,4 +44,7 @@ clean:
 
 $(SRCS) $(HDRS): $(DEFS)
 	mkdir -p $(DERIVED_SRC)
-	mig $(MIGFLAGS) -server $(SERVER) -user $(CLIENT) -header $(HEADER) $(DEFS)
+	xcrun mig -isysroot "$(SDKROOT)" $(MIGFLAGS) \
+		-server $(SERVER) \
+		-user $(CLIENT) \
+		-header $(HEADER) $(DEFS)

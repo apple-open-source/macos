@@ -220,8 +220,6 @@ copy_type (const char *from, const char *to, const Type *t, int preserve)
 	break;
     case TNull:
 	break;
-    default :
-	abort ();
     }
 }
 

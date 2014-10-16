@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2012, International Business Machines Corporation and
+ * Copyright (c) 1999-2014, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -27,7 +27,7 @@
 #include "intltest.h"
 #include "tsmthred.h"
 #include "unicode/ushape.h"
-
+#include "unicode/translit.h"
 
 #if U_PLATFORM_USES_ONLY_WIN32_API
     /* Prefer native Windows APIs even if POSIX is implemented (i.e., on Cygwin). */
@@ -188,14 +188,20 @@ void MultithreadTest::runIndexedTest( int32_t index, UBool exec,
         }
         break;
 
-	case 5:
+    case 5:
         name = "TestArabicShapingThreads"; 
         if (exec) {
             TestArabicShapingThreads();
         }
         break;
-		
 
+    case 6:
+        name = "TestAnyTranslit";
+        if (exec) {
+            TestAnyTranslit();
+        }
+        break;
+     
     default:
         name = "";
         break; //needed to end loop
@@ -627,9 +633,8 @@ UnicodeString showDifference(const UnicodeString& expected, const UnicodeString&
 //
 //-------------------------------------------------------------------------------------------
 
-const int kFormatThreadIterations = 20;  // # of iterations per thread
+const int kFormatThreadIterations = 100;  // # of iterations per thread
 const int kFormatThreadThreads    = 10;  // # of threads to spawn   
-const int kFormatThreadPatience   = 60;  // time in seconds to wait for all threads
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -645,7 +650,7 @@ struct FormatThreadTestData
 
 // "Someone from {2} is receiving a #{0} error - {1}. Their telephone call is costing {3 number,currency}."
 
-void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, const Locale& theLocale,
+static void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, const Locale& theLocale,
                      UErrorCode inStatus0, /* statusString 1 */ const Locale &inCountry2, double currency3, // these numbers are the message arguments.
                      UnicodeString &result)
 {
@@ -679,6 +684,105 @@ void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, co
     delete fmt;
 }
 
+/**
+ * Class for thread-safe (theoretically) format.
+ * 
+ *
+ * Its constructor, destructor, and init/fini are NOT thread safe.
+ */
+class ThreadSafeFormat {
+public:
+  /* give a unique offset to each thread */
+  ThreadSafeFormat();
+  UBool doStuff(int32_t offset, UnicodeString &appendErr, UErrorCode &status);
+private:
+  LocalPointer<NumberFormat> fFormat; // formtter - default constructed currency
+  Formattable  fYDDThing;    // Formattable currency - YDD
+  Formattable  fBBDThing;   // Formattable currency - BBD
+
+  // statics
+private:
+  static LocalPointer<NumberFormat> gFormat;
+  static NumberFormat *createFormat(UErrorCode &status);
+  static Formattable gYDDThing, gBBDThing;
+public:
+  static void init(UErrorCode &status); // avoid static init.
+  static void fini(UErrorCode &status); // avoid static fini
+};
+
+LocalPointer<NumberFormat> ThreadSafeFormat::gFormat;
+Formattable ThreadSafeFormat::gYDDThing;
+Formattable ThreadSafeFormat::gBBDThing;
+UnicodeString gYDDStr, gBBDStr;
+NumberFormat *ThreadSafeFormat::createFormat(UErrorCode &status) {
+  LocalPointer<NumberFormat> fmt(NumberFormat::createCurrencyInstance(Locale::getUS(), status));
+  return fmt.orphan();
+}
+
+
+static const UChar kYDD[] = { 0x59, 0x44, 0x44, 0x00 };
+static const UChar kBBD[] = { 0x42, 0x42, 0x44, 0x00 };
+static const UChar kUSD[] = { 0x55, 0x53, 0x44, 0x00 };
+
+void ThreadSafeFormat::init(UErrorCode &status) {
+  gFormat.adoptInstead(createFormat(status));
+  gYDDThing.adoptObject(new CurrencyAmount(123.456, kYDD, status));
+  gBBDThing.adoptObject(new CurrencyAmount(987.654, kBBD, status));
+  if (U_FAILURE(status)) {
+      return;
+  }
+  gFormat->format(gYDDThing, gYDDStr, NULL, status);
+  gFormat->format(gBBDThing, gBBDStr, NULL, status);
+}
+
+void ThreadSafeFormat::fini(UErrorCode &/*status*/) {
+  gFormat.adoptInstead(NULL);
+}
+
+ThreadSafeFormat::ThreadSafeFormat() {
+}
+
+UBool ThreadSafeFormat::doStuff(int32_t offset, UnicodeString &appendErr, UErrorCode &status) {
+  UBool okay = TRUE;
+  if(fFormat.isNull()) {
+    fFormat.adoptInstead(createFormat(status));
+  }
+
+  if(u_strcmp(fFormat->getCurrency(), kUSD)) {
+    appendErr.append("fFormat currency != ")
+      .append(kUSD)
+      .append(", =")
+      .append(fFormat->getCurrency())
+      .append("! ");
+    okay = FALSE;
+  }
+
+  if(u_strcmp(gFormat->getCurrency(), kUSD)) {
+    appendErr.append("gFormat currency != ")
+      .append(kUSD)
+      .append(", =")
+      .append(gFormat->getCurrency())
+      .append("! ");
+    okay = FALSE;
+  }
+  UnicodeString str;
+  const UnicodeString *o=NULL;
+  Formattable f;
+  const NumberFormat *nf = NULL; // only operate on it as const.
+  switch(offset%4) {
+  case 0:  f = gYDDThing;  o = &gYDDStr;  nf = gFormat.getAlias();  break;
+  case 1:  f = gBBDThing;  o = &gBBDStr;  nf = gFormat.getAlias();  break;
+  case 2:  f = gYDDThing;  o = &gYDDStr;  nf = fFormat.getAlias();  break;
+  case 3:  f = gBBDThing;  o = &gBBDStr;  nf = fFormat.getAlias();  break;
+  }
+  nf->format(f, str, NULL, status);
+
+  if(*o != str) {
+    appendErr.append(showDifference(*o, str));
+    okay = FALSE;
+  }
+  return okay;
+}
 
 UBool U_CALLCONV isAcceptable(void *, const char *, const char *, const UDataInfo *) {
     return TRUE;
@@ -693,6 +797,8 @@ class FormatThreadTest : public ThreadWithStatus
 public:
     int     fNum;
     int     fTraceInfo;
+
+    ThreadSafeFormat fTSF;
 
     FormatThreadTest() // constructor is NOT multithread safe.
         : ThreadWithStatus(),
@@ -894,8 +1000,16 @@ public:
                 error("PatternFormat: \n" + showDifference(expected,result));
                 goto cleanupAndReturn;
             }
+            // test the Thread Safe Format
+            UnicodeString appendErr;
+            if(!fTSF.doStuff(fNum, appendErr, status)) {
+              error(appendErr);
+              goto cleanupAndReturn;
+            }
         }   /*  end of for loop */
-        
+
+
+
 cleanupAndReturn:
         //  while (fNum == 4) {SimpleThread::sleep(10000);}   // Force a failure by preventing thread from finishing
         fTraceInfo = 2;
@@ -913,6 +1027,11 @@ void MultithreadTest::TestThreadedIntl()
     UnicodeString theErr;
     UBool   haveDisplayedInfo[kFormatThreadThreads];
     static const int32_t PATIENCE_SECONDS = 45;
+
+    UErrorCode threadSafeErr = U_ZERO_ERROR;
+
+    ThreadSafeFormat::init(threadSafeErr);
+    assertSuccess("initializing ThreadSafeFormat", threadSafeErr, TRUE);
 
     //
     //  Create and start the test threads
@@ -936,13 +1055,18 @@ void MultithreadTest::TestThreadedIntl()
     UBool   stillRunning;
     UDate startTime, endTime;
     startTime = Calendar::getNow();
+    double lastComplaint = 0;
     do {
         /*  Spin until the test threads  complete. */
         stillRunning = FALSE;
         endTime = Calendar::getNow();
-        if (((int32_t)(endTime - startTime)/U_MILLIS_PER_SECOND) > PATIENCE_SECONDS) {
+        double elapsedSeconds =  ((int32_t)(endTime - startTime)/U_MILLIS_PER_SECOND);
+        if (elapsedSeconds > PATIENCE_SECONDS) {
             errln("Patience exceeded. Test is taking too long.");
             return;
+        } else if((elapsedSeconds-lastComplaint) > 2.0) {
+            infoln("%.1f seconds elapsed (still waiting..)", elapsedSeconds);
+            lastComplaint = elapsedSeconds;
         }
         /*
          The following sleep must be here because the *BSD operating systems
@@ -967,6 +1091,8 @@ void MultithreadTest::TestThreadedIntl()
     //
     //  All threads have finished.
     //
+    ThreadSafeFormat::fini(threadSafeErr);
+    assertSuccess("finalizing ThreadSafeFormat", threadSafeErr, TRUE);
 }
 #endif /* #if !UCONFIG_NO_FORMATTING */
 
@@ -1074,6 +1200,7 @@ public:
 
             oldSk = newSk;
             oldLen = resLen;
+            (void)oldLen;   // Suppress set but not used warning.
             prev = i;
 
             newSk = (newSk == sk1)?sk2:sk1;
@@ -1397,6 +1524,81 @@ cleanupAndReturn:
         }
         delete testString;
     }
+}
+
+
+// Test for ticket #10673, race in cache code in AnyTransliterator.
+// It's difficult to make the original unsafe code actually fail, but
+// this test will fairly reliably take the code path for races in 
+// populating the cache.
+
+#if !UCONFIG_NO_TRANSLITERATION
+class TxThread: public SimpleThread {
+  private:
+    Transliterator *fSharedTranslit;
+  public:
+    UBool fSuccess;
+    TxThread(Transliterator *tx) : fSharedTranslit(tx), fSuccess(FALSE) {};
+    ~TxThread();
+    void run();
+};
+
+TxThread::~TxThread() {}
+void TxThread::run() {
+    UnicodeString greekString("\\u03B4\\u03B9\\u03B1\\u03C6\\u03BF\\u03C1\\u03B5\\u03C4\\u03B9\\u03BA\\u03BF\\u03CD\\u03C2");
+    greekString = greekString.unescape();
+    fSharedTranslit->transliterate(greekString);
+    fSuccess = greekString[0] == 0x64; // 'd'. The whole transliterated string is "diaphoretikous" (accented u).
+}
+#endif
+    
+
+void MultithreadTest::TestAnyTranslit() {
+#if !UCONFIG_NO_TRANSLITERATION
+    UErrorCode status = U_ZERO_ERROR;
+    LocalPointer<Transliterator> tx(Transliterator::createInstance("Any-Latin", UTRANS_FORWARD, status));
+    if (U_FAILURE(status)) {
+        dataerrln("File %s, Line %d: Error, status = %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+    TxThread * threads[4];
+    int32_t i;
+    for (i=0; i<4; i++) {
+        threads[i] = new TxThread(tx.getAlias());
+    }
+    for (i=0; i<4; i++) {
+        threads[i]->start();
+    }
+    int32_t patience = 100;
+    UBool success;
+    UBool someThreadRunning;
+    do {
+        someThreadRunning = FALSE;
+        success = TRUE;
+        for (i=0; i<4; i++) {
+            if (threads[i]->isRunning()) {
+                someThreadRunning = TRUE;
+                SimpleThread::sleep(10);
+                break;
+            } else {
+                if (threads[i]->fSuccess == FALSE) {
+                    success = FALSE;
+                }
+            }
+        }
+    } while (someThreadRunning && --patience > 0);
+
+    if (patience <= 0) {
+        errln("File %s, Line %d: Error, one or more threads did not complete.", __FILE__, __LINE__);
+    }
+    if (success == FALSE) {
+        errln("File %s, Line %d: Error, transliteration result incorrect.", __FILE__, __LINE__);
+    }
+    
+    for (i=0; i<4; i++) {
+        delete threads[i];
+    }
+#endif  // !UCONFIG_NO_TRANSLITERATION
 }
 
 #endif // ICU_USE_THREADS

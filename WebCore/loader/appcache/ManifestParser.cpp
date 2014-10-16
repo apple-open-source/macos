@@ -26,17 +26,16 @@
 #include "config.h"
 #include "ManifestParser.h"
 
-#include "KURL.h"
 #include "TextResourceDecoder.h"
+#include "URL.h"
+#include <wtf/text/StringView.h>
 #include <wtf/unicode/CharacterNames.h>
-
-using namespace std;
 
 namespace WebCore {
 
 enum Mode { Explicit, Fallback, OnlineWhitelist, Unknown };
     
-bool parseManifest(const KURL& manifestURL, const char* data, int length, Manifest& manifest)
+bool parseManifest(const URL& manifestURL, const char* data, int length, Manifest& manifest)
 {
     ASSERT(manifest.explicitURLs.isEmpty());
     ASSERT(manifest.onlineWhitelistedURLs.isEmpty());
@@ -45,9 +44,7 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
 
     Mode mode = Explicit;
 
-    RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("text/cache-manifest", "UTF-8");
-    String s = decoder->decode(data, length);
-    s.append(decoder->flush());
+    String s = TextResourceDecoder::create("text/cache-manifest", "UTF-8")->decodeAndFlush(data, length);
     
     // Look for the magic signature: "^\xFEFF?CACHE MANIFEST[ \t]?" (the BOM is removed by TextResourceDecoder).
     // Example: "CACHE MANIFEST #comment" is a valid signature.
@@ -55,8 +52,10 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
     if (!s.startsWith("CACHE MANIFEST"))
         return false;
     
-    const UChar* end = s.characters() + s.length();    
-    const UChar* p = s.characters() + 14; // "CACHE MANIFEST" is 14 characters.
+    StringView manifestAfterSignature = StringView(s).substring(14); // "CACHE MANIFEST" is 14 characters.
+    auto upconvertedCharacters = manifestAfterSignature.upconvertedCharacters();
+    const UChar* p = upconvertedCharacters;
+    const UChar* end = p + manifestAfterSignature.length();
 
     if (p < end && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r')
         return false;
@@ -101,20 +100,21 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
         else if (mode == Unknown)
             continue;
         else if (mode == Explicit || mode == OnlineWhitelist) {
-            const UChar* p = line.characters();
+            auto upconvertedLineCharacters = StringView(line).upconvertedCharacters();
+            const UChar* p = upconvertedLineCharacters;
             const UChar* lineEnd = p + line.length();
             
             // Look for whitespace separating the URL from subsequent ignored tokens.
             while (p < lineEnd && *p != '\t' && *p != ' ') 
                 p++;
 
-            if (mode == OnlineWhitelist && p - line.characters() == 1 && *line.characters() == '*') {
+            if (mode == OnlineWhitelist && p - upconvertedLineCharacters == 1 && line[0] == '*') {
                 // Wildcard was found.
                 manifest.allowAllNetworkRequests = true;
                 continue;
             }
 
-            KURL url(manifestURL, String(line.characters(), p - line.characters()));
+            URL url(manifestURL, line.substring(0, p - upconvertedLineCharacters));
             
             if (!url.isValid())
                 continue;
@@ -134,7 +134,8 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
                 manifest.onlineWhitelistedURLs.append(url);
             
         } else if (mode == Fallback) {
-            const UChar* p = line.characters();
+            auto upconvertedLineCharacters = StringView(line).upconvertedCharacters();
+            const UChar* p = upconvertedLineCharacters;
             const UChar* lineEnd = p + line.length();
             
             // Look for whitespace separating the two URLs
@@ -146,7 +147,7 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
                 continue;
             }
             
-            KURL namespaceURL(manifestURL, String(line.characters(), p - line.characters()));
+            URL namespaceURL(manifestURL, line.substring(0, p - upconvertedLineCharacters));
             if (!namespaceURL.isValid())
                 continue;
             if (namespaceURL.hasFragmentIdentifier())
@@ -164,7 +165,7 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             while (p < lineEnd && *p != '\t' && *p != ' ') 
                 p++;
 
-            KURL fallbackURL(manifestURL, String(fallbackStart, p - fallbackStart));
+            URL fallbackURL(manifestURL, String(fallbackStart, p - fallbackStart));
             if (!fallbackURL.isValid())
                 continue;
             if (fallbackURL.hasFragmentIdentifier())
@@ -173,7 +174,7 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             if (!protocolHostAndPortAreEqual(manifestURL, fallbackURL))
                 continue;
 
-            manifest.fallbackURLs.append(make_pair(namespaceURL, fallbackURL));            
+            manifest.fallbackURLs.append(std::make_pair(namespaceURL, fallbackURL));            
         } else 
             ASSERT_NOT_REACHED();
     }

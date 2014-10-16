@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebPluginSiteDataManagerh
+#ifndef WebPluginSiteDataManager_h
 #define WebPluginSiteDataManager_h
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -31,6 +31,7 @@
 #include "APIObject.h"
 #include "Arguments.h"
 #include "GenericCallback.h"
+#include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 
@@ -39,9 +40,9 @@ namespace WebKit {
 class WebContext;
 class WebProcessProxy;
 
-typedef GenericCallback<WKArrayRef> ArrayCallback;
+typedef GenericCallback<API::Array*> ArrayCallback;
 
-class WebPluginSiteDataManager : public TypedAPIObject<APIObject::TypePluginSiteDataManager> {
+class WebPluginSiteDataManager : public API::ObjectImpl<API::Object::Type::PluginSiteDataManager> {
 public:
     static PassRefPtr<WebPluginSiteDataManager> create(WebContext*);
     virtual ~WebPluginSiteDataManager();
@@ -49,18 +50,14 @@ public:
     void invalidate();
     void clearContext() { m_webContext = 0; }
 
-    void getSitesWithData(PassRefPtr<ArrayCallback>);
+    void getSitesWithData(std::function<void (API::Array*, CallbackBase::Error)>);
     void didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID);
 
-    void clearSiteData(ImmutableArray* sites, uint64_t flags, uint64_t maxAgeInSeconds, PassRefPtr<VoidCallback>);
+    void clearSiteData(API::Array* sites, uint64_t flags, uint64_t maxAgeInSeconds, std::function<void (CallbackBase::Error)>);
     void didClearSiteData(uint64_t callbackID);
 
-#if ENABLE(PLUGIN_PROCESS)
     void didGetSitesWithDataForSinglePlugin(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteDataForSinglePlugin(uint64_t callbackID);    
-#endif
-
-    bool shouldTerminate(WebProcessProxy*) const;
 
 private:
     explicit WebPluginSiteDataManager(WebContext*);
@@ -69,16 +66,14 @@ private:
     HashMap<uint64_t, RefPtr<ArrayCallback>> m_arrayCallbacks;
     HashMap<uint64_t, RefPtr<VoidCallback>> m_voidCallbacks;
 
-#if ENABLE(PLUGIN_PROCESS)
     void didGetSitesWithDataForAllPlugins(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteDataForAllPlugins(uint64_t callbackID);
 
     class GetSitesWithDataState;
-    HashMap<uint64_t, OwnPtr<GetSitesWithDataState>> m_pendingGetSitesWithData;
+    HashMap<uint64_t, std::unique_ptr<GetSitesWithDataState>> m_pendingGetSitesWithData;
 
     class ClearSiteDataState;
-    HashMap<uint64_t, OwnPtr<ClearSiteDataState>> m_pendingClearSiteData;
-#endif
+    HashMap<uint64_t, std::unique_ptr<ClearSiteDataState>> m_pendingClearSiteData;
 };
 
 } // namespace WebKit

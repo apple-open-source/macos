@@ -7,9 +7,10 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ * ICU <specials> source: <path>/common/main/ms_Arab.xml
  */
 ms_Arab{
+    %%Parent{"root"}
     Currencies{
         BND{
             "BND",
@@ -39,5 +40,5 @@ ms_Arab{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.0.82.68"}
+    Version{"2.0.92.90"}
 }

@@ -29,6 +29,9 @@
 
 #include <ctf_impl.h>
 
+static int
+ctf_type_compat_helper(ctf_file_t*, ctf_id_t, ctf_file_t*,  ctf_id_t, int);
+
 ssize_t
 ctf_get_ctt_size(const ctf_file_t *fp, const ctf_type_t *tp, ssize_t *sizep,
     ssize_t *incrementp)
@@ -569,8 +572,26 @@ ctf_type_cmp(ctf_file_t *lfp, ctf_id_t ltype, ctf_file_t *rfp, ctf_id_t rtype)
  * This function could be extended to test for compatibility for other kinds.
  */
 int
-ctf_type_compat(ctf_file_t *lfp, ctf_id_t ltype,
-    ctf_file_t *rfp, ctf_id_t rtype)
+ctf_type_compat(ctf_file_t *lfp, ctf_id_t ltype, ctf_file_t *rfp, ctf_id_t rtype)
+{
+	return ctf_type_compat_helper(lfp, ltype, rfp, rtype, 1);
+}
+
+/*
+ * This is a less pedantic version of ctf_type_compat.  For printf
+ * compatibility, the function does not need the type to have the
+ * same type.  Calling this function will only check for encoding
+ * compatibility.
+ */
+int
+ctf_type_printf_compat(ctf_file_t *lfp, ctf_id_t ltype, ctf_file_t *rfp, ctf_id_t rtype)
+{
+	return ctf_type_compat_helper(lfp, ltype, rfp, rtype, 0);
+}
+
+
+int
+ctf_type_compat_helper(ctf_file_t *lfp, ctf_id_t ltype, ctf_file_t *rfp,  ctf_id_t rtype, int nameMustMatch)
 {
 	const ctf_type_t *ltp, *rtp;
 	ctf_encoding_t le, re;
@@ -586,12 +607,14 @@ ctf_type_compat(ctf_file_t *lfp, ctf_id_t ltype,
 	rtype = ctf_type_resolve(rfp, rtype);
 	rkind = ctf_type_kind(rfp, rtype);
 
-	if (lkind != rkind ||
-	    (ltp = ctf_lookup_by_id(&lfp, ltype)) == NULL ||
-	    (rtp = ctf_lookup_by_id(&rfp, rtype)) == NULL ||
-	    strcmp(ctf_strptr(lfp, ltp->ctt_name),
-	    ctf_strptr(rfp, rtp->ctt_name)) != 0)
-		return (0);
+	ltp = ctf_lookup_by_id(&lfp, ltype);
+	rtp = ctf_lookup_by_id(&rfp, rtype);
+
+	if (nameMustMatch) {
+		if (lkind != rkind || ltp == NULL || rtp == NULL ||
+		    strcmp(ctf_strptr(lfp, ltp->ctt_name), ctf_strptr(rfp, rtp->ctt_name)) != 0)
+			return (0);
+	}
 
 	switch (lkind) {
 	case CTF_K_INTEGER:

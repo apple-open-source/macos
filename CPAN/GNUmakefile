@@ -4,7 +4,12 @@
 Project = CPAN
 PERLPROJECT = perl
 MY_HOST := x86_64
-VERSIONERDIR = /usr/local/versioner
+ifdef SDKROOT
+PATH := $(SDKROOT)/usr/bin:$(PATH)
+endif
+_VERSIONERDIR := /usr/local/versioner
+# Look for /usr/local/versioner in $(SDKROOT), defaulting to /usr/local/versioner
+VERSIONERDIR := $(or $(wildcard $(SDKROOT)$(_VERSIONERDIR)),$(_VERSIONERDIR))
 PERLVERSIONS = $(VERSIONERDIR)/$(PERLPROJECT)/versions
 PWD = $(shell pwd)
 ifndef SRCROOT
@@ -26,7 +31,7 @@ include $(SrcDir)/Platforms/$(RC_TARGET_CONFIG)/GNUmakefile.inc
 MYFIX = $(SRCROOT)/fix
 VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPERL))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
-VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(PLATFORMDIR)$(VERSIONERDIR)/$(PERLPROJECT) -I$(MYFIX) -framework CoreFoundation $(EXTRAVERSIONERFLAGS)
+VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PERLPROJECT) -I$(MYFIX) -framework CoreFoundation $(EXTRAVERSIONERFLAGS)
 
 RSYNC = rsync -rlpt
 ifndef DSTROOT
@@ -58,14 +63,14 @@ ifndef RC_ProjectName
 export RC_ProjectName = $(Project)
 endif
 
-FIX = $(PLATFORMDIR)$(VERSIONERDIR)/$(PERLPROJECT)/fix
+FIX = $(VERSIONERDIR)/$(PERLPROJECT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
 
 MYVERSIONBINLIST = $(OBJROOT)/usr-bin.list
 MYVERSIONMANLIST = $(OBJROOT)/usr-share-man.list
-VERSIONER_C = $(PLATFORMDIR)$(VERSIONERDIR)/versioner.c
-VERSIONBINLIST = $(PLATFORMDIR)$(VERSIONERDIR)/$(PERLPROJECT)/usr-bin.list
-VERSIONMANLIST = $(PLATFORMDIR)$(VERSIONERDIR)/$(PERLPROJECT)/usr-share-man.list
+VERSIONER_C = $(VERSIONERDIR)/versioner.c
+VERSIONBINLIST = $(VERSIONERDIR)/$(PERLPROJECT)/usr-bin.list
+VERSIONMANLIST = $(VERSIONERDIR)/$(PERLPROJECT)/usr-share-man.list
 PERL_ARCHNAME = $(shell perl -MConfig -e 'print $$Config::Config{archname}')
 PERL_CC = $(shell perl -MConfig -e 'print $$Config::Config{cc}')
 
@@ -174,7 +179,7 @@ mergeman:
 		    ff=`echo $$f | sed -E "s/\.[^.]*(\.gz)?$$/$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
-			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
+			ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
 		    fi || exit 1; \
 		done && \
 		cd .. || exit 1; \

@@ -1,4 +1,4 @@
-.\" $Id: saslauthd.mdoc,v 1.9 2006/01/24 00:16:04 snsimon Exp $
+.\" $Id: saslauthd.mdoc,v 1.19 2009/04/11 20:08:48 mel Exp $
 .\" Copyright 1997-2001 Messaging Direct Ltd. All rights reserved.
 .\"
 .\" This manpage uses the BSD mdoc manpage macros. Please don't
@@ -10,7 +10,7 @@
 .\" manpage in saslauthd.8 whenever you change this source
 .\" version. Only the pre-formatted manpage is installed.
 .\"
-.Dd 10 24 2002
+.Dd 12 12 2005
 .Dt SASLAUTHD 8
 .Os "CMU-SASL"
 .Sh NAME
@@ -64,7 +64,7 @@ A mechanism specific option (e.g. rimap hostname or config file path)
 .It Fl H Ar hostname
 The remote host to be contacted by the
 .Li rimap
-authentication mechanism. (Depricated, use -O instead)
+authentication mechanism. (Deprecated, use -O instead)
 .It Fl m Ar path
 Use
 .Ar path
@@ -79,7 +79,7 @@ Use
 processes for responding to authentication queries. (default: 5)  A
 value of zero will indicate that saslauthd should fork an individual
 process for each connection.  This can solve leaks that occur in some
-deployments..
+deployments.
 .It Fl s Ar size
 Use
 .Ar size
@@ -93,13 +93,18 @@ Honour time-of-day login restrictions.
 .It Fl h
 Show usage information
 .It Fl c
-Enable cacheing of authentication credentials
+Enable caching of authentication credentials
 .It Fl l
 Disable the use of a lock file for controlling access to accept().
 .It Fl r
 Combine the realm with the login (with an '@' sign in between).  e.g.
-login: "foo" realm: "bar" will get passed as login: "foo@bar".  Note that
-the realm will still be passed, which may lead to unexpected behavior.
+login: "foo" realm: "bar" will get passed as login: "foo@bar".  Note
+that the realm will still be passed, which may lead to unexpected
+behavior for authentication mechanisms that make use of the realm,
+however for mechanisms which don't, such as
+.Ar getpwent ,
+this is the only way to authenticate domain-specific users sharing the
+same userid.
 .It Fl v
 Print the version number and available authentication
 mechanisms on standard error, then exit.
@@ -108,7 +113,7 @@ Debugging mode.
 .El
 .Ss Logging
 .Nm
-logs it's activities via
+logs its activities via
 .Nm syslogd
 using the
 .Dv LOG_AUTH
@@ -119,7 +124,7 @@ supports one or more
 .Qq authentication mechanisms ,
 dependent upon the facilities provided by the underlying operating system.
 The mechanism is selected by the
-.Fl aho
+.Fl a
 flag from the following list of choices:
 .Bl -tag -width "kerberos4"
 .It Li dce
@@ -132,7 +137,7 @@ Authenticate using the DCE authentication environment.
 Authenticate using the
 .Fn getpwent
 library function. Typically this authenticates against the
-local password file. See your systems
+local password file. See your system's
 .Xr getpwent 3
 man page for details.
 .It Li kerberos4
@@ -207,8 +212,8 @@ flag.
 .Em (All platforms)
 .Pp
 Authenticate against the
-SASL authentication database.  Note that this is probabally not what you
-want to be using, and is even disabled at compile-time by default.
+SASL authentication database.  Note that this is probably not what you
+want to use, and is even disabled at compile-time by default.
 If you want to use sasldb with the SASL library, you probably want to
 use the pwcheck_method of "auxprop" along with the sasldb auxprop plugin
 instead.

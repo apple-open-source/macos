@@ -39,8 +39,6 @@
  */
 #include <stdio.h>
 #include <security_asn1/prtypes.h>
-// @@@ for Boolean
-#include <Security/SecBase.h>
 
 PR_BEGIN_EXTERN_C
 
@@ -116,7 +114,7 @@ PL_HashTableDestroy(PLHashTable *ht);
 PR_EXTERN(PLHashEntry *)
 PL_HashTableAdd(PLHashTable *ht, const void *key, void *value);
 
-PR_EXTERN(Boolean)
+PR_EXTERN(unsigned char)
 PL_HashTableRemove(PLHashTable *ht, const void *key);
 
 PR_EXTERN(void *)

@@ -1,0 +1,37 @@
+# test handling of certs with localized time strings (Radar 4008642)
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+#
+test = test1
+cert = badCert_1
+root = badCert_1
+leafCertIsCA = true
+verifyTime = 20091001123456
+end
+#
+test = test1
+cert = badCert_2
+root = badCert_2
+leafCertIsCA = true
+verifyTime = 20091001123456
+end
+#
+test = test1
+cert = badCert_2
+root = badCert_2
+leafCertIsCA = true
+verifyTime = 20091001123456
+end
+#
+test = test1
+cert = badCert_2
+root = badCert_2
+leafCertIsCA = true
+verifyTime = 20091001123456
+end
+#

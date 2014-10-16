@@ -1,5 +1,12 @@
 #!/usr/bin/perl
 
+# getCPAN
+#
+# getCPAN downloads the latest version of perl modules, either specified on
+# the command line, or in a file (one per line) and specified with the -f
+# option.  By default, getCPAN tells you what files it would download.  Specify
+# the -d option to actually download into the current directory
+
 use strict;
 use CPAN;
 use File::Basename ();
@@ -28,12 +35,13 @@ if(defined($file)) {
     my $F = IO::File->new($file) or die "Can't open $file\n";
     while(<$F>) {
 	chomp;
+	s/::/-/g;
 	push(@modules, $_);
     }
     undef($F);
 } else {
     die "Usage: $0 [-f file] [module ...]\n" unless scalar(@ARGV) > 0;
-    @modules = @ARGV;
+    @modules = map {s/::/-/g; $_} @ARGV;
 }
 
 my($dist, $found, $foundvers, $name, $vers, %projects);

@@ -33,23 +33,81 @@
 extern "C" {
 #endif
 
-#define CC_CMACAES_DIGEST_LENGTH     16          /* digest length in bytes */
+#define CC_CMACAES_DIGEST_LENGTH     16          /* CMAC length in bytes - copy and paste error - */
+
+#define CC_CMACAES_OUTPUT_LENGTH     16          /* CMAC length in bytes */
 
 /*!
 @function   CCAESCmac
 @abstract   Stateless, one-shot AES CMAC function
      
 @param      key         Raw key bytes.
-@param      data        The data to digest. 
-@param      dataLength  The length of the data to digest. 
-@param      macOut      The digest bytes (space provided by the caller). 
+@param      data        The data to process.
+@param      dataLength  The length of the data to process.
+@param      macOut      The MAC bytes (space provided by the caller).
     
 Output is written to caller-supplied buffer.
 */
     
 void
-    CCAESCmac(const void *key, const uint8_t *data, size_t dataLength, void *macOut)
+CCAESCmac(const void *key, const uint8_t *data, size_t dataLength, void *macOut)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_6_0);
+
+
+typedef struct CCCmacContext * CCCmacContextPtr;
+
+
+/*!
+    @function   CCAESCmacCreate
+    @abstract   Create a CMac context.
+    
+    @param      key         The bytes of the AES key.
+    @param      keyLength   The length (in bytes) of the AES key.
+ 
+    @discussion This returns an AES-CMac context to be used with
+                CCAESCmacUpdate(), CCAESCmacFinal() and CCAESCmacDestroy().
+ */
+
+CCCmacContextPtr
+CCAESCmacCreate(const void *key, size_t keyLength)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
+/*!
+    @function   CCAESCmacUpdate
+    @abstract   Process some data.
+    
+    @param      ctx         An HMAC context.
+    @param      data        Data to process.
+    @param      dataLength  Length of data to process, in bytes.
+    
+    @discussion This can be called multiple times.
+ */
+ 
+void CCAESCmacUpdate(CCCmacContextPtr ctx, const void *data, size_t dataLength)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
+    
+/*!
+    @function   CCAESCmacFinal
+    @abstract   Obtain the final Message Authentication Code.
+    
+    @param      ctx         A CMAC context.
+    @param      macOut      Destination of MAC; allocated by caller. 
+    
+    @discussion The length of the MAC written to *macOut is 16
+*/
+
+void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
+void
+CCAESCmacDestroy(CCCmacContextPtr ctx)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
+size_t
+CCAESCmacOutputSizeFromContext(CCCmacContextPtr ctx)
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+
 
 #ifdef __cplusplus
 }

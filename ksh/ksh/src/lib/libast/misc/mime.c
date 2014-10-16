@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -550,7 +550,10 @@ static char*
 expand(Mime_t* mp, register char* s, const char* name, const char* type, const char* opts)
 {
 	register char*	t;
+	register char*	v;
 	register int	c;
+	register int	e;
+	register int	n;
 	Parse_t		pp;
 
 	mp->disc->flags |= MIME_PIPE;
@@ -562,15 +565,34 @@ expand(Mime_t* mp, register char* s, const char* name, const char* type, const c
 		case '\n':
 			break;
 		case '%':
-			switch (c = *s++)
+			if ((c = *s++) == '{' && (e = '}') || c == '(' && (e = ')'))
+			{
+				for (t = s; *s && *s != e; s++);
+				n = s - t;
+				switch (*s)
+				{
+				case '}':
+					s++;
+					c = '{';
+					break;
+				case ')':
+					s++;
+					if (c = *s)
+						s++;
+					break;
+				}
+			}
+			else
+				t = 0;
+			switch (c)
 			{
 			case 's':
-				sfputr(mp->buf, (char*)name, -1);
+				v = (char*)name;
 				mp->disc->flags &= ~MIME_PIPE;
-				continue;
+				break;
 			case 't':
-				sfputr(mp->buf, (char*)type, -1);
-				continue;
+				v = (char*)type;
+				break;
 			case '{':
 				for (t = s; *s && *s != '}'; s++);
 				if (*s && (c = s++ - t) && (pp.next = (char*)opts))
@@ -582,8 +604,18 @@ expand(Mime_t* mp, register char* s, const char* name, const char* type, const c
 							break;
 						}
 				continue;
+			default:
+				sfputc(mp->buf, c);
+				continue;
 			}
-			/*FALLTHROUGH*/
+			if (v && *v)
+				n = strlen(v);
+			else if (t)
+				v = t;
+			else
+				continue;
+			sfputr(mp->buf, fmtquote(v, 0, 0, n, FMT_SHELL), -1);
+			continue;
 		default:
 			sfputc(mp->buf, c);
 			continue;
@@ -778,7 +810,7 @@ mimeopen(Mimedisc_t* disc)
 	mp->dict.key = offsetof(Ent_t, name);
 	mp->dict.comparf = order;
 	mp->dict.freef = drop;
-	if (!(mp->buf = sfstropen()) || !(mp->cap = dtopen(&mp->dict, Dtorder)))
+	if (!(mp->buf = sfstropen()) || !(mp->cap = dtopen(&mp->dict, Dtoset)))
 	{
 		mimeclose(mp);
 		return 0;

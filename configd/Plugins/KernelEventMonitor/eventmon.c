@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -115,6 +115,9 @@ static const char *dlEventName[] = {
 #ifdef	KEV_DL_ISSUES
 	"KEV_DL_ISSUES",
 #endif
+#ifdef	KEV_DL_IFDELEGATE_CHANGED
+	"KEV_DL_IFDELEGATE_CHANGED",
+#endif
 };
 
 static const char *inet6EventName[] = {
@@ -134,6 +137,8 @@ static const char *nd6EventNameString[] = {
 };
 #endif	// KEV_ND6_SUBCLASS
 
+static dispatch_queue_t			S_kev_queue;
+static dispatch_source_t		S_kev_source;
 __private_extern__ Boolean		network_changed	= FALSE;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
 __private_extern__ Boolean		_verbose	= FALSE;
@@ -205,7 +210,7 @@ post_network_changed(void)
 
 		status = notify_post(_SC_NOTIFY_NETWORK_CHANGE);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_post() failed: error=%ld"), status);
+			SCLog(TRUE, LOG_ERR, CFSTR("notify_post() failed: error=%u"), status);
 		}
 
 		network_changed = FALSE;
@@ -234,7 +239,7 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 	      ev_msg->kev_subclass,
 	      ev_msg->event_code);
 	for (i = 0, j = KEV_MSG_HEADER_SIZE; j < ev_msg->total_size; i++, j+=4) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  Event data[%2d] = %08lx"), i, ev_msg->event_data[i]);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  Event data[%2d] = %08x"), i, ev_msg->event_data[i]);
 	}
 }
 
@@ -266,7 +271,7 @@ dlEventNameString(uint32_t event_code)
 }
 
 static void
-copy_if_name(struct net_event_data * ev, char * ifr_name, int ifr_len)
+copy_if_name(const struct net_event_data * ev, char * ifr_name, int ifr_len)
 {
 	snprintf(ifr_name, ifr_len, "%s%d", ev->if_name, ev->if_unit);
 	return;
@@ -301,7 +306,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					interface_update_ipv4(NULL, ifr_name);
+					ipv4_interface_update(NULL, ifr_name);
 					break;
 				}
 				case KEV_INET_ARPCOLLISION : {
@@ -314,10 +319,10 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					interface_collision_ipv4(ifr_name,
-								 ev->ia_ipaddr,
-								 ev->hw_len,
-								 ev->hw_addr);
+					ipv4_arp_collision(ifr_name,
+							   ev->ia_ipaddr,
+							   ev->hw_len,
+							   ev->hw_addr);
 					break;
 				}
 #if	!TARGET_OS_IPHONE
@@ -328,10 +333,34 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						handled = FALSE;
 						break;
 					}
-					port_in_use_ipv4(ev->port, ev->req_pid);
+					ipv4_port_in_use(ev->port, ev->req_pid);
 					break;
 				}
 #endif	/* !TARGET_OS_IPHONE */
+				case KEV_INET_ARPRTRFAILURE: {
+					const struct kev_in_arpfailure * ev;
+
+					ev = (const struct kev_in_arpfailure *)event_data;
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					ipv4_router_arp_failure(ifr_name);
+					break;
+				}
+				case KEV_INET_ARPRTRALIVE: {
+					const struct kev_in_arpalive * ev;
+
+					ev = (const struct kev_in_arpalive *)event_data;
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					ipv4_router_arp_alive(ifr_name);
+					break;
+				}
 				default :
 					handled = FALSE;
 					break;
@@ -546,22 +575,21 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	return;
 }
 
-static void
-eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
+static Boolean
+eventCallback(int so)
 {
-	int			so		= CFSocketGetNative(s);
-	int			status;
+	ssize_t			status;
 	union {
 		char			bytes[1024];
 		struct kern_event_msg	ev_msg1;	// first kernel event
 	} buf;
 	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
-	int			offset		= 0;
+	ssize_t			offset		= 0;
 
 	status = recv(so, &buf, sizeof(buf), 0);
 	if (status == -1) {
 		SCLog(TRUE, LOG_ERR, CFSTR("recv() failed: %s"), strerror(errno));
-		goto error;
+		return FALSE;
 	}
 
 	cache_open();
@@ -603,19 +631,12 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 	cache_close();
 	post_network_changed();
 
-	return;
-
-    error :
-
-	SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
-	CFSocketInvalidate(s);
-	return;
-
+	return TRUE;
 }
 
-__private_extern__
-void
-prime_KernelEventMonitor()
+
+static void
+prime(void)
 {
 	struct ifaddrs	*ifap	= NULL;
 	struct ifaddrs	*scan;
@@ -653,7 +674,7 @@ prime_KernelEventMonitor()
 	 * update IPv4 network addresses already assigned to
 	 * the interfaces.
 	 */
-	interface_update_ipv4(ifap, NULL);
+	ipv4_interface_update(ifap, NULL);
 
 	/*
 	 * update IPv6 network addresses already assigned to
@@ -673,28 +694,26 @@ prime_KernelEventMonitor()
 	network_changed = TRUE;
 	post_network_changed();
 
+	/* start handling kernel events */
+	dispatch_resume(S_kev_source);
+
 	return;
 }
 
-static CFStringRef
-kevSocketCopyDescription(const void *info)
+
+__private_extern__
+void
+prime_KernelEventMonitor()
 {
-	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<kernel event socket>"));
+	dispatch_async(S_kev_queue, ^{ prime(); });
+	return;
 }
 
 __private_extern__
 void
 load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
-	CFSocketContext		context = { 0
-					  , (void *)1
-					  , NULL
-					  , NULL
-					  , kevSocketCopyDescription
-					  };
-	CFSocketRef		es;
 	struct kev_request	kev_req;
-	CFRunLoopSourceRef	rls;
 	int			so;
 	int			status;
 
@@ -750,18 +769,23 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		return;
 	}
 
-	/* Create a CFSocketRef for the PF_SYSTEM kernel event socket */
-	es = CFSocketCreateWithNative(NULL,
-				      so,
-				      kCFSocketReadCallBack,
-				      eventCallback,
-				      &context);
+	S_kev_queue = dispatch_queue_create("com.apple.SystemConfiguration.KernelEventMonitor", NULL);
+	S_kev_source
+		= dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, so, 0, S_kev_queue);
+	dispatch_source_set_cancel_handler(S_kev_source, ^{
+		close(so);
+	});
+	dispatch_source_set_event_handler(S_kev_source, ^{
+		Boolean	ok;
 
-	/* Create and add a run loop source for the event socket */
-	rls = CFSocketCreateRunLoopSource(NULL, es, 0);
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-	CFRelease(rls);
-	CFRelease(es);
+		ok = eventCallback(so);
+		if (!ok) {
+			SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
+			dispatch_source_cancel(S_kev_source);
+		}
+
+	});
+	// NOTE: dispatch_resume() will be called in prime()
 
 	return;
 }
@@ -794,7 +818,7 @@ main(int argc, char **argv)
 
 	load_KernelEventMonitor(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
 	prime_KernelEventMonitor();
-	CFRunLoopRun();
+	dispatch_main();
 	/* not reached */
 	exit(0);
 	return 0;

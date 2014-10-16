@@ -34,11 +34,12 @@
 extern "C" {
 #endif
 
+typedef struct ap_slave_t ap_slave_t;
 typedef struct ap_listen_rec ap_listen_rec;
 typedef apr_status_t (*accept_function)(void **csd, ap_listen_rec *lr, apr_pool_t *ptrans);
 
 /**
- * @brief Apache's listeners record.  
+ * @brief Apache's listeners record.
  *
  * These are used in the Multi-Processing Modules
  * to setup all of the sockets for the MPM to listen to and accept on.
@@ -49,7 +50,7 @@ struct ap_listen_rec {
      */
     ap_listen_rec *next;
     /**
-     * The actual socket 
+     * The actual socket
      */
     apr_socket_t *sd;
     /**
@@ -61,13 +62,15 @@ struct ap_listen_rec {
      */
     accept_function accept_func;
     /**
-     * Is this socket currently active 
+     * Is this socket currently active
      */
     int active;
     /**
      * The default protocol for this listening socket.
      */
     const char* protocol;
+
+    ap_slave_t *slave;
 };
 
 /**
@@ -85,7 +88,7 @@ AP_DECLARE(void) ap_listen_pre_config(void);
  * sockets.  This executes the listen and bind on the sockets.
  * @param s The global server_rec
  * @return The number of open sockets.
- */ 
+ */
 AP_DECLARE(int) ap_setup_listeners(server_rec *s);
 
 /**
@@ -93,23 +96,28 @@ AP_DECLARE(int) ap_setup_listeners(server_rec *s);
  */
 AP_DECLARE_NONSTD(void) ap_close_listeners(void);
 
+/**
+ * FIXMEDOC
+ */
+AP_DECLARE_NONSTD(int) ap_close_selected_listeners(ap_slave_t *);
+
 /* Although these functions are exported from libmain, they are not really
  * public functions.  These functions are actually called while parsing the
  * config file, when one of the LISTEN_COMMANDS directives is read.  These
  * should not ever be called by external modules.  ALL MPMs should include
  * LISTEN_COMMANDS in their command_rec table so that these functions are
  * called.
- */ 
+ */
 AP_DECLARE_NONSTD(const char *) ap_set_listenbacklog(cmd_parms *cmd, void *dummy, const char *arg);
-AP_DECLARE_NONSTD(const char *) ap_set_listener(cmd_parms *cmd, void *dummy, 
+AP_DECLARE_NONSTD(const char *) ap_set_listener(cmd_parms *cmd, void *dummy,
                                                 int argc, char *const argv[]);
 AP_DECLARE_NONSTD(const char *) ap_set_send_buffer_size(cmd_parms *cmd, void *dummy,
-				    const char *arg);
+                                                        const char *arg);
 AP_DECLARE_NONSTD(const char *) ap_set_receive_buffer_size(cmd_parms *cmd,
                                                            void *dummy,
                                                            const char *arg);
 
-#define LISTEN_COMMANDS	\
+#define LISTEN_COMMANDS \
 AP_INIT_TAKE1("ListenBacklog", ap_set_listenbacklog, NULL, RSRC_CONF, \
   "Maximum length of the queue of pending connections, as used by listen(2)"), \
 AP_INIT_TAKE_ARGV("Listen", ap_set_listener, NULL, RSRC_CONF, \

@@ -474,7 +474,7 @@ hx509_ca_tbs_add_crl_dp_uri(hx509_context context,
     {
 	DistributionPointName name;
 	GeneralName gn;
-	size_t size;
+	size_t size = 0;
 
 	name.element = choice_DistributionPointName_fullName;
 	name.u.fullName.len = 1;
@@ -599,7 +599,7 @@ hx509_ca_tbs_add_san_pkinit(hx509_context context,
 {
     heim_octet_string os;
     KRB5PrincipalName p;
-    size_t size;
+    size_t size = 0;
     int ret;
     char *s = NULL;
 
@@ -691,7 +691,7 @@ add_utf8_san(hx509_context context,
 {
     const PKIXXmppAddr ustring = (const PKIXXmppAddr)(intptr_t)string;
     heim_octet_string os;
-    size_t size;
+    size_t size = 0;
     int ret;
 
     os.length = 0;
@@ -990,7 +990,7 @@ ca_sign(hx509_context context,
     heim_octet_string data;
     Certificate c;
     TBSCertificate *tbsc;
-    size_t size;
+    size_t size = 0;
     int ret;
     const AlgorithmIdentifier *sigalg;
     time_t notBefore;

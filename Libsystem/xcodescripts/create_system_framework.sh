@@ -1,11 +1,11 @@
-#!/bin/sh -x
+#!/bin/bash -x
 
 if [ $# -ne 5 ]; then
     echo "Usage: $0 <dstroot> <srcroot> <action> <archs> <variants>" 1>&2
     exit 1
 fi
 
-DSTROOT="$1"
+DSTROOT="$1${INSTALL_PATH_PREFIX}"
 SRCROOT="$2"
 ACTION="$3"
 ARCHS="$4"
@@ -27,6 +27,10 @@ for variant in ${VARIANTS}; do
 	suffix="_${variant}"
     fi
     ln -sf "Versions/Current/System${suffix}" "${DSTROOT}/${FPATH}/System${suffix}" || exit 1
-	ln -sf "../../../../../../usr/lib/libSystem.B${suffix}.dylib" "${DSTROOT}/${FPATH}/Versions/B/System${suffix}" || exit 1
 
+    if [[ "${PLATFORM_NAME}" =~ simulator ]] ; then
+	ln -sf "../../../../../../usr/lib/libSystem${suffix}.dylib" "${DSTROOT}/${FPATH}/Versions/B/System${suffix}" || exit 1
+    else
+	ln -sf "../../../../../../usr/lib/libSystem.B${suffix}.dylib" "${DSTROOT}/${FPATH}/Versions/B/System${suffix}" || exit 1
+    fi
 done

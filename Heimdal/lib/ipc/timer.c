@@ -244,8 +244,6 @@ heim_ipc_event_set_time(heim_event_t e, time_t t)
  * Cancel will block if the callback for the job is running.
  *
  * @param e event to schedule new timeout
- *
- * @return 0 on success
  */
 
 void

@@ -44,10 +44,13 @@ WKTypeID WKBatteryManagerGetTypeID()
 #endif
 }
 
-void WKBatteryManagerSetProvider(WKBatteryManagerRef batteryManager, const WKBatteryProvider* provider)
+void WKBatteryManagerSetProvider(WKBatteryManagerRef batteryManager, const WKBatteryProviderBase* provider)
 {
 #if ENABLE(BATTERY_STATUS)
     toImpl(batteryManager)->initializeProvider(provider);
+#else
+    UNUSED_PARAM(batteryManager);
+    UNUSED_PARAM(provider);
 #endif
 }
 
@@ -55,6 +58,10 @@ void WKBatteryManagerProviderDidChangeBatteryStatus(WKBatteryManagerRef batteryM
 {
 #if ENABLE(BATTERY_STATUS)
     toImpl(batteryManager)->providerDidChangeBatteryStatus(AtomicString(toImpl(eventType)->string()), toImpl(status));
+#else
+    UNUSED_PARAM(batteryManager);
+    UNUSED_PARAM(eventType);
+    UNUSED_PARAM(status);
 #endif
 }
 
@@ -62,5 +69,8 @@ void WKBatteryManagerProviderUpdateBatteryStatus(WKBatteryManagerRef batteryMana
 {
 #if ENABLE(BATTERY_STATUS)
     toImpl(batteryManager)->providerUpdateBatteryStatus(toImpl(status));
+#else
+    UNUSED_PARAM(batteryManager);
+    UNUSED_PARAM(status);
 #endif
 }

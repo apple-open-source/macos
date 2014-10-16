@@ -25,11 +25,10 @@
 #include "FontCache.h"
 #include "FontData.h"
 #include "SimpleFontData.h"
-#include "UnicodeRange.h"
-#include "wtf/OwnPtr.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
+#include <wtf/win/GDIObject.h>
 
 #include <windows.h>
 #include <mlang.h>
@@ -54,7 +53,7 @@ public:
     DWORD codePages() const
     {
         if (!m_codePages) {
-            if (IMLangFontLinkType* langFontLink = fontCache()->getFontLinkInterface())
+            if (IMLangFontLinkType* langFontLink = fontCache().getFontLinkInterface())
                 langFontLink->CodePageToCodePages(m_codePage, &m_codePages);
         }
         return m_codePages;
@@ -94,7 +93,7 @@ private:
 class FixedSizeFontData: public RefCounted<FixedSizeFontData> {
 public:
     LOGFONT m_font;
-    OwnPtr<HFONT> m_hfont;
+    GDIObject<HFONT> m_hfont;
     TEXTMETRIC m_metrics;
     DWORD m_codePages;
     unsigned m_weight;
@@ -158,7 +157,7 @@ struct FixedSizeFontDataKeyTraits : WTF::GenericHashTraits<FixedSizeFontDataKey>
     static const bool emptyValueIsZero = true;
     static const FixedSizeFontDataKey& emptyValue()
     {
-        DEFINE_STATIC_LOCAL(FixedSizeFontDataKey, key, (nullAtom));
+        DEPRECATED_DEFINE_STATIC_LOCAL(FixedSizeFontDataKey, key, (nullAtom));
         return key;
     }
     static void constructDeletedValue(FixedSizeFontDataKey& slot)
@@ -257,13 +256,13 @@ PassRefPtr<FixedSizeFontData> FixedSizeFontData::create(const AtomicString& fami
     wmemcpy(winFont.lfFaceName, family.characters(), len);
     winFont.lfFaceName[len] = L'\0';
 
-    fontData->m_hfont = adoptPtr(CreateFontIndirect(&winFont));
+    fontData->m_hfont = adoptGDIObject(::CreateFontIndirect(&winFont));
 
     HGDIOBJ oldFont = SelectObject(g_screenDC, fontData->m_hfont.get());
 
     GetTextMetrics(g_screenDC, &fontData->m_metrics);
 
-    if (IMLangFontLinkType* langFontLink = fontCache()->getFontLinkInterface()) {
+    if (IMLangFontLinkType* langFontLink = fontCache().getFontLinkInterface()) {
         langFontLink->GetFontCodePages(g_screenDC, fontData->m_hfont.get(), &fontData->m_codePages);
         fontData->m_codePages |= FontPlatformData::getKnownFontCodePages(winFont.lfFaceName);
     }
@@ -305,7 +304,7 @@ public:
     RefPtr<FixedSizeFontData> m_rootFontData;
     AtomicString m_family;
     FontDescription m_fontDescription;
-    OwnPtr<HFONT> m_hfontScaled;
+    GDIObject<HFONT> m_hfontScaled;
     int m_size;
     long m_fontScaledWidth;
     long m_fontScaledHeight;
@@ -336,7 +335,7 @@ public:
 FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const AtomicString& desiredFamily, bool useDefaultFontIfNotPresent)
 {
     String family(desiredFamily);
-    if (!equalIgnoringCase(family, defaultFontFamily()) && !FontFamilyChecker(family.charactersWithNullTermination()).isSupported()) {
+    if (!equalIgnoringCase(family, defaultFontFamily()) && !FontFamilyChecker(family.charactersWithNullTermination().data()).isSupported()) {
         if (equalIgnoringCase(family, String(heiTiStr)) && isSongTiSupported())
             family = String(songTiStr);
         else if (useDefaultFontIfNotPresent)
@@ -385,7 +384,7 @@ HFONT FontPlatformData::hfont() const
         return 0;
 
     if (!m_private->m_rootFontData->m_hfont)
-        m_private->m_rootFontData->m_hfont = adoptPtr(CreateFontIndirect(&m_private->m_rootFontData->m_font));
+        m_private->m_rootFontData->m_hfont = adoptGDIObject(::CreateFontIndirect(&m_private->m_rootFontData->m_font));
 
     return m_private->m_rootFontData->m_hfont.get();
 }
@@ -401,7 +400,7 @@ HFONT FontPlatformData::getScaledFontHandle(int height, int width) const
         LOGFONT font = m_private->m_rootFontData->m_font;
         font.lfHeight = -height;
         font.lfWidth = width;
-        m_private->m_hfontScaled = adoptPtr(CreateFontIndirect(&font));
+        m_private->m_hfontScaled = adoptGDIObject(::CreateFontIndirect(&font));
     }
 
     return m_private->m_hfontScaled.get();

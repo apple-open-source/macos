@@ -38,6 +38,7 @@
 #include <ctype.h>
 #include <net/ethernet.h>
 #include <sys/time.h>
+#include <net/route.h>
 #include <CoreFoundation/CFString.h>
 #include "symbol_scope.h"
 
@@ -155,5 +156,8 @@ link_addr_to_string(char * string_buffer, int string_buffer_length,
 
 void
 fill_with_random(void * buf, uint32_t len);
+
+int
+rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
 
 #endif /* _S_UTIL_H */

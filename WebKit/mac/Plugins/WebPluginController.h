@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,14 +26,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebBasePluginPackage.h>
-#import <WebKit/WebPluginContainerCheck.h>
+#import <WebKitLegacy/WebBasePluginPackage.h>
+#import <WebKitLegacy/WebPluginContainerCheck.h>
 
 @class WebFrame;
 @class WebHTMLView;
 @class WebPluginPackage;
 @class WebView;
 @class WebDataSource;
+#if PLATFORM(IOS)
+@class CALayer;
+#endif
 
 @interface WebPluginController : NSObject <WebPluginManualLoader, WebPluginContainerCheckController>
 {
@@ -42,12 +45,13 @@
     NSMutableArray *_views;
     BOOL _started;
     NSMutableSet *_checksInProgress;
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    NSMutableArray *_viewsNotInDocument;
-#endif
 }
 
-+ (NSView *)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)plugin;
+#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
++ (id)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)plugin;
+#else
+- (NSView *)plugInViewWithArguments:(NSDictionary *)arguments fromPluginPackage:(WebPluginPackage *)plugin;
+#endif
 + (BOOL)isPlugInView:(NSView *)view;
 
 - (id)initWithDocumentView:(NSView *)view;
@@ -56,14 +60,19 @@
 
 - (void)addPlugin:(NSView *)view;
 - (void)destroyPlugin:(NSView *)view;
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-- (void)pluginViewCreated:(NSView *)view;
-+ (void)pluginViewHidden:(NSView *)view;
-#endif
 
+#if PLATFORM(IOS)
++ (void)addPlugInView:(NSView *)view;
+- (BOOL)plugInsAreRunning;
+- (CALayer *)superlayerForPluginView:(NSView *)view;
+#endif
 - (void)startAllPlugins;
 - (void)stopAllPlugins;
 - (void)destroyAllPlugins;
+#if PLATFORM(IOS)
+- (void)stopPluginsForPageCache;
+- (void)restorePluginsFromCache;
+#endif
 
 - (WebFrame *)webFrame;
 - (WebView *)webView;

@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -42,12 +42,12 @@ public:
     virtual ~AccessibilityARIAGridCell();
     
     // fills in the start location and row span of cell
-    virtual void rowIndexRange(pair<unsigned, unsigned>& rowRange);
+    virtual void rowIndexRange(std::pair<unsigned, unsigned>& rowRange) override;
     // fills in the start location and column span of cell
-    virtual void columnIndexRange(pair<unsigned, unsigned>& columnRange);
+    virtual void columnIndexRange(std::pair<unsigned, unsigned>& columnRange) override;
     
 protected:
-    virtual AccessibilityObject* parentTable() const;
+    virtual AccessibilityTable* parentTable() const override;
 }; 
     
 } // namespace WebCore 

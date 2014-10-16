@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -911,12 +911,12 @@ show_interfaces(int argc, char **argv)
 			}
 
 			if (childIndex == 0) {
-				SCPrint(TRUE, stdout, CFSTR("%c%2d: %@\n"),
+				SCPrint(TRUE, stdout, CFSTR("%c%2ld: %@\n"),
 					isSelected,
 					i + 1,
 					interfaceName);
 			} else {
-				SCPrint(TRUE, stdout, CFSTR("%c%2d.%d: %@\n"),
+				SCPrint(TRUE, stdout, CFSTR("%c%2ld.%ld: %@\n"),
 					isSelected,
 					i + 1,
 					childIndex,
@@ -925,27 +925,50 @@ show_interfaces(int argc, char **argv)
 
 			if (_sc_debug) {
 				CFMutableStringRef	desc;
-				CFStringRef		str;
+				CFMutableDictionaryRef	formatOptions;
 
-				str = CFCopyDescription(interface);
-				desc = CFStringCreateMutableCopy(NULL, 0, str);
-				CFRelease(str);
+				desc = CFStringCreateMutable(NULL, 0);
 
+				formatOptions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				CFDictionarySetValue(formatOptions, CFSTR("PREFIX1"), CFSTR(""));
+				CFDictionarySetValue(formatOptions, CFSTR("PREFIX2"), CFSTR("$$"));
+				CFStringAppendFormat(desc, formatOptions, CFSTR("%@"), interface);
+				CFRelease(formatOptions);
+
+				// cleanup SCNetworkInterface details
 				CFStringFindAndReplace(desc,
-						       CFSTR(" {"),
-						       CFSTR("\n       {\n         "),
+						       CFSTR("]> {"),
+						       CFSTR("]>\n       {\n         "),
 						       CFRangeMake(0, CFStringGetLength(desc)),
 						       0);
 				CFStringFindAndReplace(desc,
 						       CFSTR(", "),
-						       CFSTR(",\n         "),
+						       CFSTR("\n         "),
 						       CFRangeMake(0, CFStringGetLength(desc)),
 						       0);
 				CFStringFindAndReplace(desc,
 						       CFSTR("}"),
 						       CFSTR("\n       }"),
+						       CFRangeMake(CFStringGetLength(desc) - 1, 1),
+						       kCFCompareBackwards|kCFCompareAnchored);
+
+				// additional cleanup for Bond, Bridge, VLAN options
+				CFStringFindAndReplace(desc,
+						       CFSTR("> {\n"),
+						       CFSTR(">\n           {\n"),
 						       CFRangeMake(0, CFStringGetLength(desc)),
 						       0);
+				CFStringFindAndReplace(desc,
+						       CFSTR("\n$$"),
+						       CFSTR("\n           "),
+						       CFRangeMake(0, CFStringGetLength(desc)),
+						       0);
+				CFStringFindAndReplace(desc,
+						       CFSTR("$$"),
+						       CFSTR(""),
+						       CFRangeMake(0, CFStringGetLength(desc)),
+						       0);
+
 				SCPrint(TRUE, stdout, CFSTR("\n     %@\n\n"), desc);
 				CFRelease(desc);
 			}
@@ -986,6 +1009,8 @@ __doRank(CFStringRef key, const char *description, void *info, int argc, char **
 		rank = kSCNetworkServicePrimaryRankLast;
 	} else if ((strcasecmp(argv[0], "Never") == 0)) {
 		rank = kSCNetworkServicePrimaryRankNever;
+	} else if ((strcasecmp(argv[0], "Scoped") == 0)) {
+		rank = kSCNetworkServicePrimaryRankScoped;
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("invalid rank\n"));
 		return -1;
@@ -1698,6 +1723,9 @@ static selections modemDialSelections[] = {
 };
 
 static options modemOptions[] = {
+	{ "ConnectionPersonality"        , "NULL"  , isString   , &kSCPropNetModemConnectionPersonality      , NULL, NULL                        },
+	{ "DeviceModel"                  , "model" , isString   , &kSCPropNetModemDeviceModel                , NULL, NULL                        },
+	{ "DeviceVendor"                 , "vendor", isString   , &kSCPropNetModemDeviceVendor               , NULL, NULL                        },
 	{ "ConnectionScript"             , "script", isString   , &kSCPropNetModemConnectionScript           , NULL, NULL                        },
 	{ "DialMode"                     , "mode"  , isChooseOne, &kSCPropNetModemDialMode                   , NULL, (void *)modemDialSelections },
 	{ "CallWaiting"                  , NULL    , isBoolean  , &kSCPropNetModemHoldEnabled                , NULL, NULL                        },
@@ -1712,7 +1740,12 @@ static options modemOptions[] = {
 
 	{ "?"                            , NULL    , isHelp     , NULL                                       , NULL,
 	    "\nModem configuration commands\n\n"
+	    " set interface [DeviceVendor vendor]\n"
+	    " set interface [DeviceModel model]\n"
+	    " set interface [ConnectionPersonality personality]\n"
+	    "\n"
 	    " set interface [ConnectionScript connection-script]\n"
+	    "\n"
 	    " set interface [CallWaiting {enable|disable}]\n"
 	    " set interface [CallWaitingAlert {enable|disable}]\n"
 	    " set interface [CallWaitingDisconnectOnAnswer {enable|disable}]\n"
@@ -2012,6 +2045,7 @@ static options pppOptions[] = {
 
 	// --- Comm: ---
 	{ "CommRemoteAddress"         , "phone#"      , isString         , &kSCPropNetPPPCommRemoteAddress         , NULL                , NULL                           },
+	{   "Number"                  , "phone#"      , isString         , &kSCPropNetPPPCommRemoteAddress         , NULL                , NULL                           },
 	{ "CommAlternateRemoteAddress", "phone#"      , isString         , &kSCPropNetPPPCommAlternateRemoteAddress, NULL                , NULL                           },
 	{ "CommConnectDelay"          , "time"        , isNumber         , &kSCPropNetPPPCommConnectDelay          , NULL                , NULL                           },
 	{ "CommDisplayTerminalWindow" , NULL          , isBoolean        , &kSCPropNetPPPCommDisplayTerminalWindow , NULL                , NULL                           },

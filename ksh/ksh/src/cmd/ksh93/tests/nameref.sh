@@ -1,14 +1,14 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2012 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
-#                  Common Public License, Version 1.0                  #
+#                 Eclipse Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
-#            http://www.opensource.org/licenses/cpl1.0.txt             #
-#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#          http://www.eclipse.org/org/documents/epl-v10.html           #
+#         (with md5 checksum b35adb5213ca9657e911e9befb180842)         #
 #                                                                      #
 #              Information and Software Systems Research               #
 #                            AT&T Research                             #
@@ -492,5 +492,206 @@ read line << \!
 !
 set -A ls -- $line
 [[ $a == 3 ]] || err_exit 'name reference to ls[0] when ls is not an array fails'
+
+$SHELL  2> /dev/null <<-\EOF || err_exit 'nameref to array element fails'
+	set -o errexit
+	function bf {
+		nameref treename=$1
+		nodepath="treename" ;
+		nameref x="$nodepath"
+		compound -A x.nodes
+		nameref node=treename.nodes[4]
+		node=()
+		typeset +p node.elements
+	}
+	compound c
+	bf c
+EOF
+
+function add_compound
+{
+	nameref arr=$1
+	arr[34]+=( float val=1.1 )
+}
+compound -a rootcpv
+nameref mycpv=rootcpv[4][8][16][32][64]
+compound -a mycpv.myindexedcompoundarray
+add_compound mycpv.myindexedcompoundarray
+(( mycpv.myindexedcompoundarray[34].val == 1.1 )) ||  err_exit 'nameref scoping error'
+
+function add_file_to_tree
+{
+	nameref node=$1
+	compound -A node.elements
+	node.elements[/]=(filepath=foobar)
+}
+function main
+{	
+	compound filetree
+	add_file_to_tree filetree
+}
+main 2> /dev/null
+[[ $? == 0 ]] || err_exit 'nameref binding to calling function compound variable failed'
+
+unset l
+typeset -a -C l
+printf "( typeset -a ar=( 1\n2\n3\n) b=1 )\n" | read -C l[4][6]
+exp=$(print -v l)
+unset l
+typeset -a -C l
+nameref l4=l[4]
+printf "( typeset -a ar=( 1\n2\n3\n) b=1 )\n" | read -C l4[6]
+[[ $(print -v l) == "$exp" ]] || err_exit  'nameref l4=l[4] not working'
+unset l
+typeset -a -C l
+nameref l46=l[4][6]
+printf "( typeset -a ar=( 1\n2\n3\n) b=1 )\n" | read -C l46
+[[ $(print -v l) == "$exp" ]] || err_exit  'nameref l46=l[4][6] not working'
+
+exp=$'(\n\t[4]=(\n\t\ttypeset -a ar=(\n\t\t\t1\n\t\t\t2\n\t\t)\n\t\tb=1\n\t)\n)'
+unset l
+typeset +n l4
+typeset -a -C l
+nameref l4=l[4]
+printf "( typeset -a ar=( 1\n2\n) b=1 )\n" | read -C l4
+[[ $(print -v l) == "$exp" ]] || err_exit  'nameref l4=l[4] not working with indexed array read'
+
+unset l
+typeset +n l4
+typeset -A -C l
+nameref l4=l[4]
+printf "( typeset -a ar=( 1\n2\n) b=1 )\n" | read -C l4
+[[ $(print -v l) == "$exp" ]] || err_exit  'nameref l4=l[4] not working with associative array read'
+
+exp=$'(\n\t[9]=(\n\t\tfish=4\n\t)\n)'
+function add_eval
+{
+	nameref pos=$1
+	source /dev/stdin <<<"$2"
+	typeset -m pos=addvar
+}
+function do_local_plain
+{
+	compound -A local_tree
+	add_eval local_tree[9].fish "typeset -i addvar=4"
+	[[ $(print -v local_tree) == "$exp" ]] || err_exit 'do_local_plain failed'
+}
+function do_global_throughnameref
+{
+	nameref tr=global_tree
+	add_eval tr[9].fish "typeset -i addvar=4"
+	[[ $(print -v tr) == "$exp" ]] || err_exit 'do_global_throughnameref failed'
+}
+function do_local_throughnameref
+{
+	compound -A local_tree
+	nameref tr=local_tree
+	add_eval tr[9].fish "typeset -i addvar=4"
+	[[ $(print -v tr) == "$exp" ]] || err_exit 'do_local_throughnameref failed'
+}
+compound -A global_tree
+do_global_throughnameref
+do_local_throughnameref
+do_local_plain
+
+unset ar
+compound -a ar
+function read_c
+{
+	nameref v=$1
+	read -C v
+}
+print "( typeset -i x=36 ) " | read_c ar[5][9][2]
+exp=$'(\n\t[5]=(\n\t\t[9]=(\n\t\t\t[2]=(\n\t\t\t\ttypeset -i x=36\n\t\t\t)\n\t\t)\n\t)\n)'
+[[ $(print -v ar) == "$exp" ]] || err_exit 'read into nameref of global array instance from within a function fails'
+
+function read_c
+{
+	nameref v=$1
+	read -C v
+}
+function main
+{
+	compound -a ar
+	nameref nar=ar
+	print "( typeset -i x=36 ) " | read_c nar[5][9][2]
+	exp=$'(\n\t[5]=(\n\t\t[9]=(\n\t\t\t[2]=(\n\t\t\t\ttypeset -i x=36\n\t\t\t)\n\t\t)\n\t)\n)'
+	[[ $(print -v nar) == "$exp" ]] || err_exit 'read from a nameref variable from calling scope fails'
+}
+main
+
+function rf2
+{
+	nameref val=$1
+	read -C val
+}
+function rf
+{
+	nameref val=$1
+	rf2 val
+}
+function main
+{
+	compound c
+	typeset -A -C c.l
+	nameref l4=c.l[4]
+	printf "( typeset -a ar=( 1\n2\n3\n) b=1 )\n" | rf l4
+	exp=$'(\n\ttypeset -C -A l=(\n\t\t[4]=(\n\t\t\ttypeset -a ar=(\n\t\t\t\t1\n\t\t\t\t2\n\t\t\t\t3\n\t\t\t)\n\t\t\tb=1\n\t\t)\n\t)\n)'
+	[[ $(print -v c) == "$exp" ]] || err_exit 'read -C with nameref to array element fails'
+}
+main
+
+# bug reported by ek
+cfg=( alarms=(type=3))
+function a
+{
+	typeset -n y=$1
+	print -- ${y.type}
+}
+function b
+{
+    a $1
+}
+[[  $(a cfg.alarms) == 3 ]] || err_exit  "nameref scoping error in function"
+[[  $(b cfg.alarms) == 3 ]] || err_exit  "nameref scoping error in nested function"
+
+function yy
+{
+	nameref n=$1
+	n=( z=4 )
+}
+yy foo
+unset foo
+[[ $foo ]] && err_exit 'unset after creating via nameref in function not working'
+
+unset arr
+typeset -a arr=( ( 1 2 3 ) ( 4 5 6 ) ( 7 8 9 ))
+typeset -n ref=arr[1]
+[[ $ref == 4 ]] || err_exit '$ref should be 4'
+[[ ${ref[@]} == '4 5 6' ]] || err_exit '${ref[@]} should be "4 5 6"'
+[[ $ref == "${arr[1]}" ]] || err_exit '$ref shuld be ${arr[1]}'
+[[ ${ref[@]} == "${arr[1][@]}" ]] || err_exit '${ref[@]} should be ${arr[1][@]}'
+
+function fun2
+{
+	nameref var=$1.foo
+	var=$2
+}
+function fun1
+{
+	xxx=$1
+	fun2 $xxx bam
+}
+args=(bar=yes)
+fun1 args
+[[ $args == *foo=bam* ]] || err_exit 'nameref does not bind to correct scope'
+
+typeset +n ref
+unset ref ar
+typeset -a arr=( 1 2 3 )
+typeset -n ref='arr[2]'
+[[ $(typeset -p ref) == *'arr[2]'* ]] || err_exit 'typeset -p ref when ref is a reference to an index array element is wrong'
+
+$SHELL  2> /dev/null -c 'function x { nameref lv=gg ; compound -A lv.c=( [4]=( x=1 )) ; } ; compound gg ; x' || err_exit 'compound array assignment with nameref in a function failed'
 
 exit $((Errors<125?Errors:125))

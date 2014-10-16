@@ -2465,6 +2465,10 @@ void edit_draw(const filestruct *fileptr, const char *converted, int
 	    regmatch_t endmatch;
 		/* Match position for end_regex. */
 
+	    /* radar:16401178 */
+	    memset(&startmatch, 0, sizeof(startmatch));
+	    memset(&endmatch, 0, sizeof(endmatch));
+
 	    if (tmpcolor->bright)
 		wattron(edit, A_BOLD);
 	    wattron(edit, COLOR_PAIR(tmpcolor->pairnum));

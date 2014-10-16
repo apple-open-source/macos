@@ -1,0 +1,15 @@
+//
+// script0001.001
+//
+//		KCUnlock
+//
+// ** note ** 
+// Once this script is executed, the Keychain "test0001.001" should not
+// be unlocked until the system rebooted. (run this script with discretion)
+// 
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+     KeychainFile : test0001.001
+   Results : 2
+     OSStatus 0
+     KeychainIndex : 0

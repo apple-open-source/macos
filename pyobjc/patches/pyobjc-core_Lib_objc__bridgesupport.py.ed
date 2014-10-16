@@ -1,0 +1,13 @@
+g/'latin1'/s//'utf-8'/
+/def xml_to_arg(/a
+.
+/s = self.attribute_string(node, "type", "type64")/a
+.
+.,/^$/-1s/[[:<:]]s[[:>:]]/typestr/g
+/if self.attribute_bool(node, "block", None, False):/s/:/ or typestr == "@?":/
+/# Apple's bridgesupport files contain nice encoding like this:/a
+.
+/# {tag="field"a"NSImage"},/s/"a"/"@"/
+/typestr = re.sub(/s/@"/"&/
+s/'@'/'"@'/
+w

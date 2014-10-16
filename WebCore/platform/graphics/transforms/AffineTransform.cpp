@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
  *               2010 Dirk Schulze <krit@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -38,13 +38,13 @@
 namespace WebCore {
 
 AffineTransform::AffineTransform()
+    : m_transform { { 1, 0, 0, 1, 0, 0 } }
 {
-    setMatrix(1, 0, 0, 1, 0, 0);
 }
 
 AffineTransform::AffineTransform(double a, double b, double c, double d, double e, double f)
+    : m_transform { { a, b, c, d, e, f } }
 {
-    setMatrix(a, b, c, d, e, f);
 }
 
 void AffineTransform::makeIdentity()
@@ -86,13 +86,15 @@ double AffineTransform::det() const
 
 bool AffineTransform::isInvertible() const
 {
-    return det() != 0.0;
+    double determinant = det();
+
+    return std::isfinite(determinant) && determinant != 0;
 }
 
 AffineTransform AffineTransform::inverse() const
 {
     double determinant = det();
-    if (determinant == 0.0)
+    if (!std::isfinite(determinant) || determinant == 0)
         return AffineTransform();
 
     AffineTransform result;
@@ -128,7 +130,7 @@ AffineTransform& AffineTransform::multiply(const AffineTransform& other)
     trans.m_transform[4] = other.m_transform[4] * m_transform[0] + other.m_transform[5] * m_transform[2] + m_transform[4];
     trans.m_transform[5] = other.m_transform[4] * m_transform[1] + other.m_transform[5] * m_transform[3] + m_transform[5];
 
-    setMatrix(trans.m_transform);
+    *this = trans;
     return *this;
 }
 

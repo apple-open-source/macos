@@ -63,11 +63,6 @@
 
 /* XXX Yes this is WAY too complicated */
 
-#ifndef lint
-static const char rcsid[] =
-    "@(#) $Id: findsaddr-socket.c,v 1.3 2005/02/12 00:04:09 lindak Exp $ (LBL)";
-#endif
-
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>

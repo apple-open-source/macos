@@ -1,16 +1,15 @@
---- docs/conf/httpd.conf.in.orig	2007-12-21 03:43:00.000000000 -0800
-+++ docs/conf/httpd.conf.in	2009-09-22 17:16:52.000000000 -0700
-@@ -52,6 +52,9 @@
+--- docs/conf/httpd.conf.in.orig	2014-03-14 15:48:11.000000000 -0700
++++ docs/conf/httpd.conf.in	2014-03-14 15:48:17.000000000 -0700
+@@ -64,6 +64,8 @@
  # LoadModule foo_module modules/mod_foo.so
  #
  @@LoadModule@@
-+#LoadModule perl_module libexec/apache2/mod_perl.so
 +#LoadModule php5_module libexec/apache2/libphp5.so
-+LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
++#LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
  
- <IfModule !mpm_netware_module>
- <IfModule !mpm_winnt_module>
-@@ -63,8 +63,8 @@
+ <IfModule unixd_module>
+ #
+@@ -74,8 +76,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.
  #
@@ -20,27 +19,27 @@
 +Group _www
  
  </IfModule>
- </IfModule>
-@@ -142,7 +142,7 @@
-     # http://httpd.apache.org/docs/2.2/mod/core.html#options
+ 
+@@ -143,7 +145,8 @@
+     # http://httpd.apache.org/docs/2.4/mod/core.html#options
      # for more information.
      #
 -    Options Indexes FollowSymLinks
-+    Options Indexes FollowSymLinks MultiViews
++    Options FollowSymLinks Multiviews
++    MultiviewsMatch Any
  
      #
      # AllowOverride controls what directives may be placed in .htaccess files.
-@@ -360,6 +360,9 @@
+@@ -369,6 +372,8 @@
  #EnableMMAP off
- #EnableSendfile off
+ #EnableSendfile on
  
-+# 6894961
 +TraceEnable off
 +
  # Supplemental configuration
  #
  # The configuration files in the @rel_sysconfdir@/extra/ directory can be 
-@@ -368,19 +371,19 @@
+@@ -377,13 +382,13 @@
  # necessary.
  
  # Server-pool management (MPM specific)
@@ -55,27 +54,14 @@
 +Include @rel_sysconfdir@/extra/httpd-autoindex.conf
  
  # Language settings
--#Include @rel_sysconfdir@/extra/httpd-languages.conf
-+Include @rel_sysconfdir@/extra/httpd-languages.conf
- 
- # User home directories
--#Include @rel_sysconfdir@/extra/httpd-userdir.conf
-+Include @rel_sysconfdir@/extra/httpd-userdir.conf
- 
- # Real-time info on requests and configuration
- #Include @rel_sysconfdir@/extra/httpd-info.conf
-@@ -389,7 +392,7 @@
- #Include @rel_sysconfdir@/extra/httpd-vhosts.conf
- 
- # Local access to the Apache HTTP Server Manual
--#Include @rel_sysconfdir@/extra/httpd-manual.conf
-+Include @rel_sysconfdir@/extra/httpd-manual.conf
- 
- # Distributed authoring and versioning (WebDAV)
- #Include @rel_sysconfdir@/extra/httpd-dav.conf
-@@ -408,3 +411,5 @@
+ #Include @rel_sysconfdir@/extra/httpd-languages.conf
+@@ -422,6 +427,9 @@
  SSLRandomSeed startup builtin
  SSLRandomSeed connect builtin
  </IfModule>
 +
 +Include @rel_sysconfdir@/other/*.conf
++
+ #
+ # uncomment out the below to deal with user agents that deliberately
+ # violate open standards by misusing DNT (DNT *must* be a specific

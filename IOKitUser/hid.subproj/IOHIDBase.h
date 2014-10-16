@@ -82,7 +82,6 @@ typedef void (*IOHIDCallback)(
     @discussion Type and arguments of callout C function that is used when a HID report completion routine is called.
     @param context void * pointer to your data, often a pointer to an object.
     @param result Completion result of desired operation.
-    @param refcon void * pointer to more data.
     @param sender Interface instance sending the completion routine.
     @param type The type of the report that was completed.
     @param reportID The ID of the report that was completed.
@@ -97,6 +96,27 @@ typedef void (*IOHIDReportCallback) (
                                     uint32_t                reportID,
                                     uint8_t *               report, 
                                     CFIndex                 reportLength);
+
+/*! @typedef IOHIDReportCallback
+    @discussion Type and arguments of callout C function that is used when a HID report completion routine is called.
+    @param context void * pointer to your data, often a pointer to an object.
+    @param result Completion result of desired operation.
+    @param sender Interface instance sending the completion routine.
+    @param type The type of the report that was completed.
+    @param reportID The ID of the report that was completed.
+    @param report Pointer to the buffer containing the contents of the report.
+    @param reportLength Size of the buffer received upon completion.
+    @param timeStamp The time at which the report arrived.
+*/
+typedef void (*IOHIDReportWithTimeStampCallback) (
+                                    void *                  context, 
+                                    IOReturn                result, 
+                                    void *                  sender, 
+                                    IOHIDReportType         type, 
+                                    uint32_t                reportID,
+                                    uint8_t *               report, 
+                                    CFIndex                 reportLength,
+                                    uint64_t                timeStamp);
 
 /*! @typedef IOHIDValueCallback
     @discussion Type and arguments of callout C function that is used when an element value completion routine is called.

@@ -1,4 +1,5 @@
-.ds DT July 9, 1993  \" use troff -mm
+.fp 5 CW
+.ds DT January 9, 2012  \" use troff -mm
 .nr C 3
 .nr N 2
 .SA 1  \"  right justified
@@ -14,15 +15,13 @@ is the ability to add built-in commands at run time.
 This feature only works on operating systems that have the ability
 to load and link code into the current process at run time.
 Some examples of the systems that have this feature
-are System V Release 4, Solaris, Sun OS, HP-UX Release 8 and above,
+are Linux, System V Release 4, Solaris, Sun OS, HP-UX Release 8 and above,
 AIX 3.2 and above, and Microsoft Windows systems. 
 .P
 This memo describes how to write and compile programs
-to can be loaded into \f5ksh\fP at run  time as built-in
+that can be loaded into \f5ksh\fP at run  time as built-in
 commands.
 .AE   \" abstract end
-.OK Shell "Command interpreter" Language UNIX  \" keyword
-.MT 1  \"  memo type
 .H 1 INTRODUCTION
 A built-in command is executed without creating a separate process.
 Instead, the command is invoked as a C function by \f5ksh\fP. 
@@ -31,18 +30,17 @@ then the behavior of this built-in is identical to that of
 the equivalent stand-alone command.  The primary difference
 in this case is performance.  The overhead of process creation
 is eliminated.  For commands of short duration, the effect
-can be dramatic.  For example, on SUN OS 4.1, the time do
+can be dramatic.  For example, on SUN OS 4.1, the time to
 run \f5wc\fP on a small file of about 1000 bytes, runs
 about 50 times faster as a built-in command.
 .P
-In addition, built-in commands that have side effects on the
-shell environment can be written.
+In addition, built-in commands may have side effects on the
+shell environment.
 This is usually done to extend the application domain for
-shell programming.  For example, an X-windows extension
-that makes heavy use of the shell variable namespace
-was added as a group of built-ins commands that
-are added at run time.
-The result is a windowing shell that can be used to write
+shell programming.  For example, there is a group of X-windows extension
+built-ins that make heavy use of the shell variable namespace.
+These built-ins are added at run time and
+result in a windowing shell that can be used to write
 X-windows applications.
 .P
 While there are definite advantages to adding built-in
@@ -56,15 +54,16 @@ a part of a larger entity.
 The isolation provided by a separate process
 guarantees that all resources used by the command
 will be freed when the command completes.
-Also, since the address space of \f5ksh\fP will be larger,
-this may increase the time it takes \f5ksh\fP to fork() and
-exec() a non-builtin command.
+Resources used by a built-in must be meticulously maintained and freed.
+Also, since the address space of \f5ksh\fP will be larger when built-in are loaded,
+it may increase the time it takes \f5ksh\fP to fork() and
+exec() non-built-in commands.
 It makes no sense to add a built-in command that takes
 a long time to run or that is run only once, since the performance
 benefits will be negligible.
 Built-ins that have side effects in the current shell
 environment have the disadvantage of increasing the
-coupling between the built-in and \f5ksh\fP making
+coupling between the built-in and \f5ksh\fP, making
 the overall system less modular and more monolithic.
 .P
 Despite these drawbacks, in many cases extending
@@ -74,65 +73,89 @@ scripting ability in an application specific domain.
 This memo describes how to write \f5ksh\fP extensions. 
 .H 1 "WRITING BUILT-IN COMMANDS"
 There is a development kit available for writing \f5ksh\fP
-built-ins.  The development kit has three directories,
+built-ins as part of the AST (AT&T Software Technology) Toolkit.
+The development kit has three directories,
 \f5include\fP, \f5lib\fP, and \f5bin\fP.
+It is best to set the value of the environment variable
+\f5PACKAGE_ast\fP to the pathname of the directory
+containing the development kit.
 The \f5include\fP directory contains a sub-directory
 named \f5ast\fP that contains interface prototypes
 for functions that you can call from built-ins.  The \f5lib\fP
-directory contains the \fBast\fP library\*F
-.FS
-\fBast\fP stands for Advanced Software Technology
-.FE
-and a library named \fBlibcmd\fP that contains a version
+directory contains the \f5ast\fP library
+and a library named \f5cmd\fP that contains a version
 of several of the standard POSIX\*(Rf
 .RS
 .I "POSIX \- Part 2: Shell and Utilities,"
 IEEE Std 1003.2-1992, ISO/IEC 9945-2:1993.
 .RF
 utilities that can be made run time built-ins.
-It is best to set the value of the environment variable
-\fB\s-1PACKAGE_\s+1ast\fP to the pathname of the directory
-containing the development kit.
-Users of \f5nmake\fP\*(Rf
+The \f5lib/ksh\fP directory contains shared libraries
+that implement other \f5ksh\fP built-ins.
+The \f5bin\fP directory contains build tools such as \f5nmake\fP\*(Rf.
 .RS
 Glenn Fowler,
-Nmake reference needed
+.IR "A Case for make" ,
+Software - Practice and Experience, Vol. 20 No. S1, pp. 30-46, June 1990.
 .RF
-2.3 and above will then be able to
-use the rule
-.nf
-.in .5i
-\f5:PACKAGE:	ast\fP
-.in
-.fi
-in their makefiles and not have to specify any \f5-I\fP switches
-to the compiler.
+To add built-ins at runtime, it is necessary to build a shared library
+containing one or more built-ins that you wish to add.
+The built-ins are then added by running \f5builtin \-f\fP \fIshared_lib\fP.
+Since the procedure for building share libraries is system dependent,
+it is best to use
+\f5nmake\fP
+using the sample nmake makefile below as a prototype.
+The AST Toolkit also contains some examples of built-in libraries under
+the \f5src/cmd/kshlib\fP directory.
 .P
-A built-in command has a calling convention similar to
-the \f5main\fP function of a program,
-.nf
-.in .5i
-\f5int main(int argc, char *argv[])\fP.
-.in
-.fi
-However, instead of \f5main\fP, you must use the function name
+There are two ways to code adding built-ins.  One method is to replace
+the function \f5main\fP with a function
 \f5b_\fP\fIname\fP, where \fIname\fP is the name
 of the built-in you wish to define.
-The built-in function takes a third
-\f5void*\fP  argument which you can define as \f5NULL\fP. 
+A built-in command has a calling convention similar to
+the \f5main\fP function of a program,
+\f5int main(int argc, char *argv[])\fP.
+except that it takes a third argument of type \f5Shbltin_t*\fP which can
+be passed as \f5\s-1NULL\s+1\fP if it is not used.  The definition for
+\f5Shbltin_t*\fP is in \f5<ast/shcmd.h>\fP.
 Instead of \f5exit\fP, you need to use \f5return\fP
 to terminate your command.
-The return value, will become the exit status of the command.
+The return value will become the exit status of the command.
+The \f5open\fP built-in, installed in \f5lib/ksh\fP in the AST Toolkit, uses this method.
+The \f5Shbltin_t\fP structure contains a field named \f5shp\fP which is
+a pointer the the shell data that is needed for \f5shell\fP library callbacks.
+It also contains the fields, \f5shrun\fP, \f5shtrap\fP, \f5shexit\fP,
+and \f5shbltin\fP
+that are function pointers to the \f5shell\fP library functions \f5sh_run\fP, \f5sh_trap\fP
+\f5sh_exit\fP, and \f5sh_addbuiltin\fP, respectively. These functions
+can be invoked without the need for runtime symbol lookup when the
+shell is statically linked with \f5libshell\fP.
+.P
+The alternative method is to create a function \f5lib_init\fP and
+use the \f5Shbltin_t.shbltin()\fP function to add one or more built-ins.
+The \f5lib_init\fP function will be called with two arguments.  The
+first argument will be 0 when the library is loaded and the second
+argument will be of type \f5Shbltin_t*\fP.
+The \f5dbm_t\fP and \f5dss\fP shell built-ins use this method.
+.P
+No matter which way you add built-ins you should add the line
+\f5SHLIB(\fP\fIidentifier\fP\f5)\fP as the last line of one
+of the built-in source file, where \fIidentifier\fP is any C identifier.
+This line provides version information to the shell \f5builtin\fP command
+that it uses to verify compatibility between the built-in and \f5ksh\fP
+implementation versions. \f5builtin\fP fails with a diagnostic on version 
+mismatch. The diagnostic helps determine whether \f5ksh\fP is out of
+date and requires an upgrade or the built-in is out of date and requires
+recompilation.
 .P
 The steps necessary to create and add a run time built-in are
 illustrated in the following simple example.
-Suppose, you wish to add a built-in command named \f5hello\fP
+Suppose you wish to add a built-in command named \f5hello\fP
 which requires one argument and prints the word hello followed
 by its argument.  First, write the following program in the file
 \f5hello.c\fP:
-.nf
-.in .5i
-\f5#include     <stdio.h>
+.EX
+#include     <stdio.h>
 int b_hello(int argc, char *argv[], void *context)
 {
         if(argc != 2)
@@ -142,51 +165,56 @@ int b_hello(int argc, char *argv[], void *context)
         }
         printf("hello %s\en",argv[1]);
         return(0);
-}\fP
-.in
-.fi
+}
+SHLIB(hello)
+.EE
 .P
 Next, the program needs to be compiled.
-On some systems it is necessary to specify a compiler
-option to produce position independent code
-for dynamic linking.
-If you do not compile with \f5nmake\fP
-it is important to specify the a special include directory
-when compiling built-ins. 
-.nf
-.in .5i
-\f5cc -pic -I$PACKAGE_ast/include -c hello.c\fP
-.in
-.fi
-since the special version of \f5<stdio.h>\fP
-in the development kit is required.
-This command generates \f5hello.o\fP in the current
-directory.
+If you are building with AT&T \f5nmake\fP use the following \f5Makefile\fP:
+.EX
+:PACKAGE: --shared ast
+hello plugin=ksh :LIBRARY: hello.c
+.EE
+and run \f5nmake install\fP to compile, link, and install the built-in shared library
+in \f5lib/ksh/\fP under \f5PACKAGE_ast\fP.
+If the built-in extension uses several \f5.c\fP files, list all of these on
+the \f5:LIBRARY:\fP line.
 .P
-On some systems, you cannot load \f5hello.o\fP directly,
-you must build a shared library instead.
-Unfortunately, the method for generating a shared library
-differs with operating system.
-However, if you are building with the AT\&T \f5nmake\fP
-program you can use the \f5:LIBRARY:\fP rule to specify
-this in a system independent fashion. 
-In addition, if you have several built-ins, it is desirable
+Otherwise you will have to compile \f5hello.c\fP with an option
+to pick up the AST include directory
+(since the AST \f5<stdio.h>\fP is required for \f5ksh\fP compatibility)
+and options required for generating shared libraries.
+For example, on Linux use this to compile:
+.EX
+cc -fpic -I$PACKAGE_ast/include/ast -c hello.c
+.EE
+and use the appropriate link line.
+It really is best to use \f5nmake\fP because the 2 line Makefile above
+will work on all systems that have \f5ksh\fP installed.
+.P
+If you have several built-ins, it is desirable
 to build a shared library that contains them all.
 .P
 The final step is using the built-in.
 This can be done with the \f5ksh\fP command \f5builtin\fP.
-To load the shared library \f5hello.so\fP and to add
-the built-in \f5hello\fP, invoke the command,
-.nf
-.in .5i
-\f5builtin -f hello hello\fP
-.in
-.fi
-The suffix for the shared library can be omitted in
-which case the shell will add an appropriate suffix
+To load the shared library \f5libhello.so\fP from the current directory
+and add the built-in \f5hello\fP, invoke the command,
+.EX
+builtin -f ./libhello.so hello
+.EE
+The shared library prefix (\f5lib\fP here) and suffix (\f5.so\fP here) be omitted;
+the shell will add an appropriate suffix
 for the system that it is loading from.
+If you install the shared library in \f5lib/ksh/\fP, where \f5../lib/ksh/\fP is
+a directory on \fB$PATH\fP, the command
+.EX
+builtin -f hello hello
+.EE
+will automatically find, load and install the built-in on any system.
 Once this command has been invoked, you can invoke \f5hello\fP
 as you do any other command. 
+If you are using \f5lib_init\fP method to add built-ins then no arguments
+follow the \f5\-f\fP option.
 .P
 It is often desirable to make a command \fIbuilt-in\fP
 the first time that it is referenced.  The first
@@ -194,26 +222,23 @@ time \f5hello\fP is invoked, \f5ksh\fP should load and execute it,
 whereas for subsequent invocations \f5ksh\fP should just execute the built-in.
 This can be done by creating a file named \f5hello\fP
 with the following contents:
-.nf
-.in .5i
-\f5function hello
+.EX
+function hello
 {
         unset -f hello
         builtin -f hello hello
         hello "$@"
-}\fP
-.in
-.fi
+}
+.EE
 This file \f5hello\fP needs to be placed in a directory that is
-in your \fB\s-1FPATH\s+1\fP variable.  In addition, the full
-pathname for \f5hello.so\fP should be used in this script
-so that the run time loader will be able to find this shared library
-no matter where the command \f5hello\fP is invoked.
+in your \fB\s-1FPATH\s+1\fP variable, and the built-in shared library
+should be installed in \f5lib/ksh/\fP, as described above.
 .H 1 "CODING REQUIREMENTS AND CONVENTIONS"
-As mentioned above, the entry point for built-ins must be of
-the form \f5b_\fP\fIname\fP.
+As mentioned above, the entry point for built-ins must either be of
+the form \f5b_\fP\fIname\fP or else be loaded from a function named
+\f5lib_init\fP.
 Your built-ins can call functions from the standard C library,
-the \fBast\fP library, interface functions provided by \f5ksh\fP,
+the \f5ast\fP library, interface functions provided by \f5ksh\fP,
 and your own functions.
 You should avoid using any global symbols beginning with
 .BR sh_ ,
@@ -221,9 +246,9 @@ You should avoid using any global symbols beginning with
 and
 .B ed_ 
 since these are used by \f5ksh\fP itself.
-In addition, \f5#define\fP constants in \f5ksh\fP interface
-files, use symbols beginning with \fBSH_\fP to that you should
-avoid using names beginning with \fBSH_\fP.
+\f5#define\fP constants in \f5ksh\fP interface
+files use symbols beginning with \f5SH_\fP and \f5NV_\fP,
+so avoid using names beginning with these too.
 .H 2 "Header Files"
 The development kit provides a portable interface
 to the C library and to libast.
@@ -294,19 +319,19 @@ I/O library defined in ANSI-C.
 If none of the additional functionality is required,
 and if you are not familiar with \fBsfio\fP and
 you do not want to spend the time learning it,
-then you can use \fBsfio\fP via the \fBstdio\fP library
+then you can use \f5sfio\fP via the \f5stdio\fP library
 interface.  The development kit contains the header \f5<stdio.h>\fP
-which maps \fBstdio\fP calls to \fBsfio\fP calls.
+which maps \f5stdio\fP calls to \f5sfio\fP calls.
 In most instances the mapping is done
 by macros or inline functions so that there is no overhead.
-The man page for the \fBsfio\fP library is in an Appendix.
+The man page for the \f5sfio\fP library is in an Appendix.
 .P
 However, there are some very nice extensions and
-performance improvements in \fBsfio\fP
+performance improvements in \f5sfio\fP
 and if you plan any major extensions I recommend
 that you use it natively.
 .H 2 "Error Handling"
-For error messages it is best to use the \fBast\fP library
+For error messages it is best to use the \f5ast\fP library
 function \f5errormsg()\fP rather that sending output to
 \f5stderr\fP or the equivalent \f5sfstderr\fP directly.
 Using \f5errormsg()\fP will make error message appear
@@ -348,7 +373,7 @@ For consistency with the rest of \f5ksh\fP, it is best
 to use the \f5libast\fP functions \f5optget()\fP and
 \f5optusage()\fPfor this
 purpose.
-The header \f5<error.h>\fP included prototypes for
+The header \f5<error.h>\fP includes prototypes for
 these functions.
 The \f5optget()\fP function is similar to the
 System V C library function \f5getopt()\fP,
@@ -357,11 +382,9 @@ Built-ins that use \f5optget()\fP provide a more
 consistent user interface.
 .P
 The \f5optget()\fP function is invoked as
-.nf
-.in .5i
-\f5int optget(char *argv[], const char *optstring)\fP
-.in
-.fi
+.EX
+int optget(char *\fIargv\fP[], const char *\fIoptstring\fP)
+.EE
 where \f5argv\fP is the argument list and \f5optstring\fP
 is a string that specifies the allowable arguments and
 additional information that is used to format \fIusage\fP
@@ -417,9 +440,8 @@ the usage message.
 .P
 The following is an example of the option parsing portion
 of the \f5wc\fP utility.
-.nf
-.in +5
-\f5#include <shell.h>
+.EX
+#include <shell.h>
 while(1) switch(n=optget(argv,"xf:[file]"))
 {
 	case 'f':
@@ -431,9 +453,8 @@ while(1) switch(n=optget(argv,"xf:[file]"))
 	case '?':
 		error(ERROR_usage(2), opt_info.arg);
 		break;
-}\fP
-.in
-.fi
+}
+.EE
 .H 2 "Storage Management"
 It is important that any memory used by your built-in
 be returned.  Otherwise, if your built-in is called frequently,
@@ -464,22 +485,20 @@ but you may want to write functions that use this stack
 are restore it when leaving the function.
 The following coding convention will do this in
 an efficient manner:
-.nf
-.in .5i
-\fIyourfunction\fP\f5()
+.EX
+\fIyourfunction\fP()
 {
         char	*savebase;
         int	saveoffset;
         if(saveoffset=staktell())
         	savebase = stakfreeze(0);
-        \fP...\f5
+        \fR...\fP
         if(saveoffset)
         	stakset(savebase,saveoffset);
         else
         	stakseek(0);
-}\fP
-.in
-.fi
+}
+.EE
 .H 1 "CALLING \f5ksh\fP SERVICES"
 Some of the more interesting applications are those that extend
 the functionality of \f5ksh\fP in application specific directions.
@@ -589,15 +608,13 @@ will be passed as an argument to
 each of these functions whenever any of these functions are called.
 To have private data, you need to define and allocate a structure
 that looks like
-.nf
-.in .5i
-\f5struct \fIyours\fP
+.EX
+struct \fIyours\fP
 {
         Namfun_t	fun;
 	\fIyour_data_fields\fP;
-};\fP
-.in
-.fi
+};
+.EE
 .H 2 "The shell library"
 There are several functions that are used by \f5ksh\fP itself
 that can also be called from built-in commands.

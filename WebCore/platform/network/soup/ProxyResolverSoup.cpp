@@ -24,6 +24,9 @@
  */
 
 #include "config.h"
+
+#if USE(SOUP)
+
 #include "ProxyResolverSoup.h"
 
 #include <libsoup/soup.h>
@@ -68,7 +71,7 @@ static void soupProxyResolverWkFinalize(GObject* object)
     G_OBJECT_CLASS(soup_proxy_resolver_wk_parent_class)->finalize(object);
 }
 
-static void soupProxyResolverWkSetProperty(GObject* object, uint propID, const GValue* value, GParamSpec* pspec)
+static void soupProxyResolverWkSetProperty(GObject* object, unsigned propID, const GValue* value, GParamSpec* pspec)
 {
     SoupProxyResolverWkPrivate* priv = SOUP_PROXY_RESOLVER_WK_GET_PRIVATE(object);
 
@@ -92,7 +95,7 @@ static void soupProxyResolverWkSetProperty(GObject* object, uint propID, const G
     }
 }
 
-static void soupProxyResolverWkGetProperty(GObject* object, uint propID, GValue* value, GParamSpec* pspec)
+static void soupProxyResolverWkGetProperty(GObject* object, unsigned propID, GValue* value, GParamSpec* pspec)
 {
     SoupProxyResolverWkPrivate* priv = SOUP_PROXY_RESOLVER_WK_GET_PRIVATE(object);
 
@@ -156,7 +159,7 @@ static void soupProxyResolverWkGetProxyURIAsync(SoupProxyURIResolver* proxyResol
     soup_add_completion(asyncContext, idle_return_proxy_uri, ssad);
 }
 
-static uint soupProxyResolverWkGetProxyURISync(SoupProxyURIResolver* proxyResolver, SoupURI* uri, GCancellable*, SoupURI** proxyURI)
+static unsigned soupProxyResolverWkGetProxyURISync(SoupProxyURIResolver* proxyResolver, SoupURI* uri, GCancellable*, SoupURI** proxyURI)
 {
     SoupProxyResolverWkPrivate* priv = SOUP_PROXY_RESOLVER_WK_GET_PRIVATE(proxyResolver);
 
@@ -208,3 +211,5 @@ SoupProxyURIResolver* soupProxyResolverWkNew(const char* httpProxy, const char* 
 
     return resolver;
 }
+
+#endif

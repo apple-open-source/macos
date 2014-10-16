@@ -151,7 +151,7 @@ private:
     IntSize m_size;
     PlatformBufferHandle m_sharedHandle;
     OwnPtr<GLTransportSurfaceClient> m_client;
-    OwnPtr<GLPlatformContext> m_sharedContext;
+    std::unique_ptr<GLPlatformContext> m_sharedContext;
     OwnPtr<GLTransportSurface> m_sharedSurface;
 };
 
@@ -253,7 +253,7 @@ void GraphicsSurface::platformDestroy()
     m_private = 0;
 }
 
-PassOwnPtr<GraphicsContext> GraphicsSurface::platformBeginPaint(const IntSize&, char*, int)
+std::unique_ptr<GraphicsContext> GraphicsSurface::platformBeginPaint(const IntSize&, char*, int)
 {
     notImplemented();
     return nullptr;

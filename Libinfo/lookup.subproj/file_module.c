@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <ils.h>
 #include <dispatch/dispatch.h>
+#include <TargetConditionals.h>
 
 /* notify SPI */
 uint32_t notify_peek(int token, uint32_t *val);
@@ -347,6 +348,11 @@ _fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
 	int status;
 
 	if (si == NULL) return 0;
+
+#if TARGET_OS_EMBEDDED
+	/* /etc is on a read-only filesystem, so no validation is required */
+	return 1;
+#endif
 
 	pp = (file_si_private_t *)si->private;
 	if (pp == NULL) return 0;
@@ -2354,7 +2360,7 @@ si_module_static_file(void)
 			for (i = 0; i < VALIDATION_COUNT; i++) pp->notify_token[i] = -1;
 
 			/* hardwired for now, but we may want to make this configurable someday */
-			pp->validation_notify_mask = VALIDATION_MASK_HOSTS | VALIDATION_MASK_SERVICES;
+			pp->validation_notify_mask = VALIDATION_MASK_HOSTS | VALIDATION_MASK_SERVICES | VALIDATION_MASK_PROTOCOLS;
 		}
 
 		si.private = pp;

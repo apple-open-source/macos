@@ -1,0 +1,46 @@
+#
+# Verification of ECC certs created by OpenSSL
+#
+globals
+allowUnverified = true
+end
+
+#
+# obtained from http://dev.experimentalstuff.com:8082/certs/
+#
+test = "secp256r1ca.cer root"
+cert = secp256r1ca.cer
+root = secp256r1ca.cer
+verifyTime = 20060303001200
+end
+
+test = "secp256r1server-secp256r1ca.cer"
+cert = secp256r1server-secp256r1ca.cer
+root = secp256r1ca.cer
+verifyTime = 20060303001200
+end
+
+test = "secp384r1ca.cer root"
+cert = secp384r1ca.cer
+root = secp384r1ca.cer
+verifyTime = 20060303001200
+end
+
+test = "secp384r1server-secp384r1ca.cer"
+cert = secp384r1server-secp384r1ca.cer
+root = secp384r1ca.cer
+verifyTime = 20060303001200
+end
+
+test = "secp521r1ca.cer root"
+cert = secp521r1ca.cer
+root = secp521r1ca.cer
+verifyTime = 20060303001200
+end
+
+test = "secp521r1server-secp521r1ca.cer"
+cert = secp521r1server-secp521r1ca.cer
+root = secp521r1ca.cer
+verifyTime = 20060303001200
+end
+

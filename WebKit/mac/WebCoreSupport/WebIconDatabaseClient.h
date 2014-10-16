@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,9 +31,9 @@
 
 class WebIconDatabaseClient : public WebCore::IconDatabaseClient {
 public:
-    virtual void didRemoveAllIcons() OVERRIDE;
-    virtual void didImportIconURLForPageURL(const String&) OVERRIDE;
-    virtual void didImportIconDataForPageURL(const String&) OVERRIDE;
-    virtual void didChangeIconForPageURL(const String&) OVERRIDE;
-    virtual void didFinishURLImport() OVERRIDE;
+    virtual void didRemoveAllIcons() override;
+    virtual void didImportIconURLForPageURL(const String&) override;
+    virtual void didImportIconDataForPageURL(const String&) override;
+    virtual void didChangeIconForPageURL(const String&) override;
+    virtual void didFinishURLImport() override;
 };

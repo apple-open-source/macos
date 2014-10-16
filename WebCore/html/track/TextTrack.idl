@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,30 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+enum TextTrackMode { "disabled",  "hidden",  "showing" };
+enum TextTrackKind { "subtitles",  "captions",  "descriptions",  "chapters", "metadata" };
+
 [
     Conditional=VIDEO_TRACK,
     EventTarget,
     GenerateIsReachable=ImplElementRoot,
     JSCustomMarkFunction,
-    SkipVTableValidation
+    SkipVTableValidation,
 ] interface TextTrack {
-    readonly attribute DOMString kind;
+    readonly attribute DOMString id;
+    [CustomSetter] attribute TextTrackKind kind;
     readonly attribute DOMString label;
-    readonly attribute DOMString language;
+    [CustomSetter] attribute DOMString language;
+    readonly attribute DOMString inBandMetadataTrackDispatchType;
 
-    attribute DOMString mode;
+    attribute TextTrackMode mode;
 
     readonly attribute TextTrackCueList cues;
     readonly attribute TextTrackCueList activeCues;
-             attribute EventListener oncuechange;
 
-    void addCue(TextTrackCue cue);
+    [RaisesException] void addCue(TextTrackCue cue);
     [RaisesException] void removeCue(TextTrackCue cue);
 
+             attribute EventListener oncuechange;
+
 #if defined(ENABLE_WEBVTT_REGIONS) && ENABLE_WEBVTT_REGIONS
-    readonly attribute TextTrackRegionList regions;
-    void addRegion(TextTrackRegion region);
-    [RaisesException] void removeRegion(TextTrackRegion region);
+    readonly attribute VTTRegionList regions;
+    void addRegion(VTTRegion region);
+    [RaisesException] void removeRegion(VTTRegion region);
 #endif
 
     // EventTarget interface

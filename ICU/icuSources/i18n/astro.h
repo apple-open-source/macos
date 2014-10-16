@@ -1,5 +1,5 @@
 /************************************************************************
- * Copyright (C) 1996-2008, International Business Machines Corporation *
+ * Copyright (C) 1996-2008,2014 International Business Machines Corporation *
  * and others. All Rights Reserved.                                     *
  ************************************************************************
  *  2003-nov-07   srl       Port from Java
@@ -465,6 +465,24 @@ public:
   //-------------------------------------------------------------------------
 
   /**
+   * Returns sunLongitude which may be adjusted for correctness
+   * based on the time, using a table which only has data covering
+   * gregorian years 1900-2100.
+   * <p>
+   * @param theSunLongitude the sunLongitude to be adjusted if necessary
+   * @param theTime         the time for which the sunLongitude is to be adjusted
+   * @internal
+   */
+  static double adjustSunLongitude(double &theSunLongitude, UDate theTime);
+
+  /**
+   * The longitude of the sun at the time specified by theTime.
+   * This does not result in caching of any of the intermediate computations.
+   * @internal
+   */
+  static double getSunLongitudeForTime(UDate theTime);
+
+  /**
    * The longitude of the sun at the time specified by this object.
    * The longitude is measured in radians along the ecliptic
    * from the "first point of Aries," the point at which the ecliptic
@@ -480,7 +498,7 @@ public:
   /**
    * TODO Make this public when the entire class is package-private.
    */
-  /*public*/ void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
+  /*public*/ static void getSunLongitude(double julianDay, double &longitude, double &meanAnomaly);
 
   /**
    * The position of the sun at this object's current date and time,
@@ -618,6 +636,19 @@ public:
    * @internal
    */
 //  static const MoonAge LAST_QUARTER();
+
+  /**
+   * Find the next or previous time of a new moon if date is in the
+   * range handled by this function (approx gregorian 1900-2100),
+   * else return 0.
+   * <p>
+   * @param theTime   the time relative to which the function should find
+   *                  the next or previous new moon
+   * @param next      <tt>true</tt> if the next occurrance of the new moon
+   *                  is desired, <tt>false</tt> for the previous occurrance.
+   * @internal
+   */
+  static UDate getNewMoonTimeInRange(UDate theTime, UBool next);
 
   /**
    * Find the next or previous time at which the Moon's ecliptic

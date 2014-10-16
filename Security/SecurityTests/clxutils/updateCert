@@ -1,0 +1,42 @@
+#! /bin/csh -f
+# 
+# Test certs; if expired, replace them via ssl PING
+#
+# usage: updateCert sslHost certFileBase cert...
+#
+# tweak this manually for debug
+set VERBOSE=NO
+#
+if ( $#argv < 3 ) then
+	echo "Usage: updateCert sslHost certFileBase cert..."
+	exit(1)
+endif
+set sslHost=$argv[1]
+shift
+set certFileBase=$argv[1]
+shift
+set certArgs="-c $argv[1]"
+shift
+while ( $#argv > 0 )
+	set certArgs="$certArgs -c $argv[1]"
+	shift
+end
+set OUTFILE=$LOCAL_BUILD_DIR/.certVerifyOut
+if($VERBOSE == YES) then
+	echo Testing $certArgs
+endif
+$LOCAL_BUILD_DIR/certcrl $certArgs -s >& $OUTFILE
+grep TP_CERT_EXPIRED $OUTFILE
+if($status == 1) then
+	if($VERBOSE == YES) then
+		echo "These certs look good."
+	endif
+	exit(0)
+endif
+echo "@@@ Warning: replacing certs for $sslHost @@@"
+$LOCAL_BUILD_DIR/sslViewer $sslHost f $certFileBase
+if($status == 1) then
+	echo "@@@ Error obtaining new cert for $sslHost @@@"
+else
+	echo ...certs replaced for $sslHost in `pwd`
+endif

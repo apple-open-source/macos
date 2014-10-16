@@ -28,7 +28,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_krb5.c,v 1.10 2006/02/03 22:33:14 snsimon Exp $"
+#ident "$Id: auth_krb5.c,v 1.18 2008/01/23 15:39:34 murch Exp $"
 #endif
 
 /* ok, this is  wrong but the most convenient way of doing 
@@ -56,8 +56,8 @@
 #ifdef AUTH_KRB5
 # include <krb5.h>
 static cfile config = 0;
-static const char *keytabname = NULL; /* "system default" */
-static const char *verify_principal = "host"; /* a principal in the default keytab */
+static char *keytabname = NULL; /* "system default" */
+static char *verify_principal = "host"; /* a principal in the default keytab */
 #endif /* AUTH_KRB5 */
 
 #include <errno.h>
@@ -95,15 +95,15 @@ auth_krb5_init (
     if (configname) {
 	char complaint[1024];
 
-	if (!(config = cfile_read(configname, complaint, (int)sizeof (complaint)))) {
+	if (!(config = cfile_read(configname, complaint, sizeof (complaint)))) {
 	    syslog(LOG_ERR, "auth_krb5_init %s", complaint);
 	    return -1;
 	}
     }
 
     if (config) {
-	keytabname = cfile_getstring(config, "krb5_keytab", keytabname);
-	verify_principal = cfile_getstring(config, "krb5_verify_principal", verify_principal);
+	keytabname = (char *)cfile_getstring(config, "krb5_keytab", keytabname); /* APPLE: cast */
+	verify_principal = (char *)cfile_getstring(config, "krb5_verify_principal", verify_principal); /* APPLE: cast */
     }
 
     return 0;
@@ -137,7 +137,7 @@ form_principal_name (
     if (forced_instance) {
 	char *user_specified;
 
-	if (user_specified = strchr(user, '/')) {
+	if ((user_specified = strchr(user, '/'))) { /* APPLE: add parenthesizes */
 	    if (strcmp(user_specified + 1, forced_instance)) {
 		/* user not allowed to override sysadmin */
 		return -1;
@@ -254,6 +254,16 @@ auth_krb5 (
 
 #else /* !KRB5_HEIMDAL */
 
+static void k5support_log_err(krb5_context context,
+			      krb5_error_code code,
+			      char const *msg)
+{
+    const char *k5_msg = krb5_get_error_message(context, code);
+
+    syslog(LOG_DEBUG, "auth_krb5: %s: %s (%d)\n", msg, k5_msg, code);
+    krb5_free_error_message(context, k5_msg);
+}
+
 /* returns 0 for failure, 1 for success */
 static int k5support_verify_tgt(krb5_context context, 
 				krb5_ccache ccache) 
@@ -269,19 +279,22 @@ static int k5support_verify_tgt(krb5_context context,
     
     memset(&packet, 0, sizeof(packet));
 
-    if (krb5_sname_to_principal(context, NULL, verify_principal,
-				KRB5_NT_SRV_HST, &server)) {
+    if ((k5_retcode = krb5_sname_to_principal(context, NULL, verify_principal,
+					      KRB5_NT_SRV_HST, &server))) {
+	k5support_log_err(context, k5_retcode, "krb5_sname_to_principal()");
 	return 0;
     }
 
     if (keytabname) {
-	if (krb5_kt_resolve(context, keytabname, &kt)) {
+	if ((k5_retcode = krb5_kt_resolve(context, keytabname, &kt))) {
+	    k5support_log_err(context, k5_retcode, "krb5_kt_resolve()");
 	    goto fini;
 	}
     }
     
-    if (krb5_kt_read_service_key(context, kt, server, 0,
-				 0, &keyblock)) {
+    if ((k5_retcode = krb5_kt_read_service_key(context, kt, server, 0,
+					       0, &keyblock))) {
+	k5support_log_err(context, k5_retcode, "krb5_kt_read_service_key()");
 	goto fini;
     }
     
@@ -297,18 +310,23 @@ static int k5support_verify_tgt(krb5_context context,
     }
     thishost[BUFSIZ-1] = '\0';
     
-    k5_retcode = krb5_mk_req(context, &auth_context, 0, (char*)verify_principal, thishost, NULL, ccache, &packet);
+    if ((k5_retcode = krb5_mk_req(context, &auth_context, 0, verify_principal, 
+				  thishost, NULL, ccache, &packet))) {
+	k5support_log_err(context, k5_retcode, "krb5_mk_req()");
+    }
+    
     if (auth_context) {
-		krb5_auth_con_free(context, auth_context);
-		auth_context = NULL;
+	krb5_auth_con_free(context, auth_context);
+	auth_context = NULL;
     }
     
     if (k5_retcode) {
 	goto fini;
     }
     
-    if (krb5_rd_req(context, &auth_context, &packet, 
-		    server, NULL, NULL, NULL)) {
+    if ((k5_retcode = krb5_rd_req(context, &auth_context, &packet, 
+				  server, NULL, NULL, NULL))) {
+	k5support_log_err(context, k5_retcode, "krb5_rd_req()");
 	goto fini;
     }
 
@@ -320,7 +338,9 @@ static int k5support_verify_tgt(krb5_context context,
     /* all is good now */
     result = 1;
  fini:
-    krb5_free_data_contents(context, &packet);
+    if (!k5_retcode) {
+        krb5_free_data_contents(context, &packet);
+    }
     krb5_free_principal(context, server);
     
     return result;
@@ -364,7 +384,7 @@ auth_krb5 (
 	return strdup("NO saslauthd internal error");
     }
 
-    if (form_principal_name(user, service, realm, principalbuf, (int)sizeof (principalbuf))) {
+    if (form_principal_name(user, service, realm, principalbuf, sizeof (principalbuf))) {
 	syslog(LOG_ERR, "auth_krb5: form_principal_name");
 	return strdup("NO saslauthd principal name error");
     }
@@ -375,7 +395,7 @@ auth_krb5 (
 	return strdup("NO saslauthd internal error");
     }
     
-    if (krbtf_name(tfname, (int)sizeof (tfname)) != 0) {
+    if (krbtf_name(tfname, sizeof (tfname)) != 0) {
 	syslog(LOG_ERR, "auth_krb5: could not generate ticket file name");
 	return strdup("NO saslauthd internal error");
     }
@@ -397,9 +417,9 @@ auth_krb5 (
     krb5_get_init_creds_opt_init(&opts);
     /* 15 min should be more than enough */
     krb5_get_init_creds_opt_set_tkt_life(&opts, 900); 
-    if (code = krb5_get_init_creds_password(context, &creds, 
-				     auth_user, (char*)password, NULL, NULL, 
-				     0, NULL, &opts)) {
+    if ((code = krb5_get_init_creds_password(context, &creds, 
+				     auth_user, (char *)password, NULL, NULL,
+				     0, NULL, &opts))) { /* APPLE: add parenthesizes, cast */
 	krb5_cc_destroy(context, ccache);
 	krb5_free_principal(context, auth_user);
 	krb5_free_context(context);

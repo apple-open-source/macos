@@ -51,7 +51,7 @@ bsd_in_acceptmsg(int fd)
 	int n;
 	char line[MAXLINE];
 	struct sockaddr_un sun;
-	aslmsg m;
+	asl_msg_t *m;
 
 	len = sizeof(struct sockaddr_un);
 	n = recvfrom(fd, line, MAXLINE, 0, (struct sockaddr *)&sun, &len);
@@ -145,7 +145,7 @@ bsd_in_init()
 
 	in_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)sock, 0, in_queue);
 	dispatch_source_set_event_handler(in_src, ^{ bsd_in_acceptmsg(sock); });
-	
+
 	dispatch_resume(in_src);
 	return 0;
 }

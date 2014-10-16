@@ -46,6 +46,7 @@
 #include <kcm.h>
 
 
+
 #include <notify.h>
 
 #include <Security/Security.h>
@@ -95,6 +96,7 @@ static CFStringRef kGSSConfKeys = CFSTR("kGSSConfKeys");
 struct GSSItem {
     CFRuntimeBase base;
     CFMutableDictionaryRef keys;
+    CFUUIDRef gssCredential;
 };
 
 static void
@@ -103,6 +105,10 @@ _gssitem_release(struct GSSItem *item)
     if (item->keys) {
 	CFRelease(item->keys);
 	item->keys = NULL;
+    }
+    if (item->gssCredential) {
+	CFRelease(item->gssCredential);
+	item->gssCredential = NULL;
     }
 }
 
@@ -208,6 +214,7 @@ GSSCreateItem(CFAllocatorRef alloc, CFDictionaryRef keys)
 	item->keys = CFDictionaryCreateMutableCopy(alloc, 0, keys);
     else
 	item->keys = CFDictionaryCreateMutable(alloc, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    item->gssCredential = NULL;
 
     return item;
 }
@@ -216,7 +223,7 @@ GSSCreateItem(CFAllocatorRef alloc, CFDictionaryRef keys)
 
 
 static CFStringRef
-GetNewUUID(GSSItemRef item)
+CreateNewUUID(GSSItemRef item)
 {
     CFUUIDRef uuid = CFUUIDCreate(NULL);
     if (uuid == NULL)
@@ -248,18 +255,15 @@ copyConfigurationURL(void)
 static CFStringRef
 CopyTransientUUID(gss_cred_id_t cred)
 {
-    OM_uint32 maj_stat, junk;
-    gss_buffer_set_t buffers = NULL;
-    CFStringRef uuid = NULL;
+    CFUUIDRef uuid = GSSCredentialCopyUUID(cred);
+    CFStringRef uuidstr = NULL;
 
-    maj_stat = gss_inquire_cred_by_oid(&junk, cred, GSS_C_NT_UUID, &buffers);
-    if (maj_stat == GSS_S_COMPLETE && buffers->count == 1) {
-	gss_buffer_t buf = &buffers->elements[0];
-	uuid = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.*s"), (int)buf->length, (char *)buf->value);
+    if (uuid) {
+	uuidstr = CFUUIDCreateString(NULL, uuid);
+	CFRelease(uuid);
     }
-    gss_release_buffer_set(&junk, &buffers);
 
-    return uuid;
+    return uuidstr;
 }
 
 struct CreateContext {
@@ -320,6 +324,7 @@ addTransientKeys(struct CreateContext *createContext)
 
 	    name = _gss_cred_copy_name(&junk, cred, NULL);
 	    if (name == NULL) {
+		CFRelease(uuid);
 		CFRelease(item);
 		return;
 	    }
@@ -341,6 +346,8 @@ addTransientKeys(struct CreateContext *createContext)
 	    CFDictionarySetValue(item->keys, kGSSAttrStatusTransient, kCFBooleanTrue);
 
 	    CFDictionarySetValue(createContext->c, uuid, item);
+
+	    item->gssCredential = GSSCredentialCopyUUID(cred);
 
 	    CFRelease(item);
 	    CFRelease(uuid);
@@ -547,6 +554,13 @@ itemToGSSCred(GSSItemRef item, OM_uint32 *lifetime, CFErrorRef *error)
     gss_const_OID mechoid;
     gss_name_t name;
 
+    if (item->gssCredential) {
+	gsscred = GSSCreateCredentialFromUUID(item->gssCredential);
+	if (gsscred && lifetime)
+	    (void)gss_inquire_cred(&min_stat, gsscred, NULL, lifetime, NULL, NULL);
+	return gsscred;
+    }
+
     mechoid = itemToMechOID(item, error);
     if (mechoid == NULL)
 	return GSS_C_NO_CREDENTIAL;
@@ -557,14 +571,14 @@ itemToGSSCred(GSSItemRef item, OM_uint32 *lifetime, CFErrorRef *error)
 
     maj_stat = gss_create_empty_oid_set(&min_stat, &mechs);
     if (maj_stat != GSS_S_COMPLETE) {
-	if (error) *error = _gss_mg_cferror(maj_stat, min_stat, NULL);
+	if (error) *error = _gss_mg_create_cferror(maj_stat, min_stat, NULL);
 	gss_release_name(&min_stat, &name);
 	return GSS_C_NO_CREDENTIAL;
     }
 
     maj_stat = gss_add_oid_set_member(&min_stat, mechoid, &mechs);
     if (maj_stat != GSS_S_COMPLETE) {
-	if (error) *error = _gss_mg_cferror(maj_stat, min_stat, NULL);
+	if (error) *error = _gss_mg_create_cferror(maj_stat, min_stat, NULL);
 	gss_release_oid_set(&min_stat, &mechs);
 	gss_release_name(&min_stat, &name);
 	return GSS_C_NO_CREDENTIAL;
@@ -575,9 +589,11 @@ itemToGSSCred(GSSItemRef item, OM_uint32 *lifetime, CFErrorRef *error)
     gss_release_oid_set(&min_stat, &mechs);
     gss_release_name(&min_stat, &name);
     if (maj_stat) {
-	if (error) *error = _gss_mg_cferror(maj_stat, min_stat, mechoid);
+	if (error) *error = _gss_mg_create_cferror(maj_stat, min_stat, mechoid);
 	return GSS_C_NO_CREDENTIAL;
     }
+
+    item->gssCredential = GSSCredentialCopyUUID(gsscred);
 
     return gsscred;
 }
@@ -585,7 +601,7 @@ itemToGSSCred(GSSItemRef item, OM_uint32 *lifetime, CFErrorRef *error)
 #pragma mark Keychain
 
 static CFTypeRef
-extractPassword(GSSItemRef item, bool getAttributes)
+extractCopyPassword(GSSItemRef item, bool getAttributes)
 {
 #ifndef __APPLE_TARGET_EMBEDDED__
     OM_uint32 maj_stat, junk;
@@ -727,7 +743,8 @@ storePassword(GSSItemRef item, CFDictionaryRef attributes, CFStringRef password,
     }	
     CFDictionaryAddValue(itemAttr, kSecAttrDescription, description);
     CFDictionaryAddValue(itemAttr, kSecAttrLabel, description);
-
+    CFRelease(description);
+    
     CFDictionaryAddValue(itemAttr, kSecClass, kSecClassGenericPassword);
     CFDictionaryAddValue(itemAttr, kSecAttrType, kGSSSecPasswordType);
     CFDictionaryAddValue(itemAttr, kSecAttrAccount, uuidname);
@@ -746,21 +763,11 @@ storePassword(GSSItemRef item, CFDictionaryRef attributes, CFStringRef password,
 	return false;
     }
     CFDictionaryAddValue(itemAttr, kSecValueData, datapw);
+    CFRelease(datapw);
 
-#ifndef __APPLE_TARGET_EMBEDDED__
-    CFTypeRef access = (void *)CFDictionaryGetValue(attributes, kSecAttrAccess);
-    if (access)
-	CFDictionaryAddValue(itemAttr, kSecAttrAccess, access);
-
-    SecKeychainRef keychain;
-    keychain = (void *)CFDictionaryGetValue(attributes, kSecUseKeychain);
-    if (keychain)
-	CFDictionaryAddValue(itemAttr, kSecUseKeychain, keychain);
-#else
     CFTypeRef access = (void *)CFDictionaryGetValue(attributes, kSecAttrAccessGroup);
     if (access)
 	CFDictionaryAddValue(itemAttr, kSecAttrAccessGroup, access);
-#endif /* !__APPLE_TARGET_EMBEDDED__ */
 
     osret = SecItemAdd(itemAttr, &itemRef);
     CFRelease(itemAttr);
@@ -959,7 +966,7 @@ updateTransientValues(GSSItemRef item)
     gss_cred_id_t gsscred = itemToGSSCred(item, &lifetime, NULL);
     gss_buffer_desc buffer;
 
-    CFDictionaryRef attributes = extractPassword(item, 1);
+    CFDictionaryRef attributes = extractCopyPassword(item, 1);
     if (attributes) {
 	CFDictionarySetValue(item->keys, kGSSAttrCredentialPassword, kCFBooleanTrue);
 	CFRelease(attributes);
@@ -1055,7 +1062,7 @@ GSSItemAdd(CFDictionaryRef attributes, CFErrorRef *error)
     if (item == NULL)
 	goto out;
 
-    uuidstr = GetNewUUID(item);
+    uuidstr = CreateNewUUID(item);
     if (uuidstr == NULL) {
 	CFRelease(item);
 	item = NULL;
@@ -1286,9 +1293,22 @@ itemAcquire(GSSItemRef item, CFDictionaryRef options, dispatch_queue_t q, GSSIte
 	}
     }
 
+    /*
+     * Force Kerberos/kcm/gsscred layer to use the the same UUID
+     */
+    CFTypeRef uuidstr = CFDictionaryGetValue(item->keys, kGSSAttrUUID);
+    if (uuidstr) {
+	CFStringRef cacheName = CFStringCreateWithFormat(NULL, NULL, CFSTR("API:%@"), uuidstr);
+	if (cacheName == NULL)
+	    goto out;
+
+	CFDictionarySetValue(gssattrs, kGSSICKerberosCacheName, cacheName);
+	CFRelease(cacheName);
+    }
+
     if (cred == NULL) {
 
-	if ((cred = extractPassword(item, 0)) != NULL) {
+	if ((cred = extractCopyPassword(item, 0)) != NULL) {
 	    CFDictionarySetValue(gssattrs, kGSSICPassword, cred);
 	    CFRelease(cred);
 	    cred = NULL;
@@ -1298,6 +1318,14 @@ itemAcquire(GSSItemRef item, CFDictionaryRef options, dispatch_queue_t q, GSSIte
     }
 
     (void)gss_aapl_initial_cred(name, mech, gssattrs, &gsscred, &error);
+
+    if (item->gssCredential) {
+	CFRelease(item->gssCredential);
+	item->gssCredential = NULL;
+    }
+
+    if (gsscred)
+	item->gssCredential = GSSCredentialCopyUUID(gsscred);
 
     updateTransientValues(item);
 
@@ -1330,7 +1358,7 @@ itemDestroyTransient(GSSItemRef item, CFDictionaryRef options, dispatch_queue_t 
 
     gsscred = itemToGSSCred(item, NULL, &error);
     if (gsscred) {
-	gss_destroy_cred(&junk, &gsscred);
+	(void)gss_destroy_cred(&junk, &gsscred);
 	result = kCFBooleanTrue;
     }
 
@@ -1481,7 +1509,7 @@ itemSetDefault(GSSItemRef item, CFDictionaryRef options, dispatch_queue_t q, GSS
 	gss_release_buffer_set(&junk, &data_set);
 	CFRelease(gsscred);
 	if (maj_stat != GSS_S_COMPLETE)
-	    error = _gss_mg_cferror(maj_stat, min_stat, NULL);
+	    error = _gss_mg_create_cferror(maj_stat, min_stat, NULL);
     }
 
     dispatch_async(q, ^{
@@ -1515,7 +1543,7 @@ itemRenewCredential(GSSItemRef item, CFDictionaryRef options, dispatch_queue_t q
 	gss_release_buffer_set(&min_stat, &data_set);
 	CFRelease(gsscred);
 	if (maj_stat != GSS_S_COMPLETE)
-	    error = _gss_mg_cferror(maj_stat, min_stat, NULL);
+	    error = _gss_mg_create_cferror(maj_stat, min_stat, NULL);
     }
 
     dispatch_async(q, ^{

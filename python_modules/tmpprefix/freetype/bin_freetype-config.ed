@@ -1,0 +1,2 @@
+/libs="-/s/"$/-framework CoreServices -framework ApplicationServices -framework CoreFoundation "/
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -222,6 +222,18 @@ void IOFilterScheme::unlockPhysicalExtents(IOService * client)
     //
 
     getProvider( )->unlockPhysicalExtents( this );
+}
+
+IOReturn IOFilterScheme::setPriority(IOService *       client,
+                                     IOStorageExtent * extents,
+                                     UInt32            extentsCount,
+                                     IOStoragePriority priority)
+{
+    //
+    // Reprioritize read or write requests at the specified byte offsets.
+    //
+
+    return getProvider( )->setPriority( this, extents, extentsCount, priority );
 }
 
 OSMetaClassDefineReservedUnused(IOFilterScheme,  0);

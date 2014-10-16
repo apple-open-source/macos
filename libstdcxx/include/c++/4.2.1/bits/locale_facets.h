@@ -893,6 +893,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param to  Pointer to the destination array.
        *  @return  @a hi.
       */
+#if BUILDING_LIBSTDCXX
+      __attribute__((used))
+#endif
       const char*
       widen(const char* __lo, const char* __hi, char_type* __to) const
       {

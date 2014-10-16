@@ -1,0 +1,1653 @@
+
+#include "sslAppUtils.h"
+#include "sslThreading.h"
+#include "identPicker.h"
+#include <utilLib/fileIo.h>
+#include <utilLib/common.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/AuthSession.h>		// for Sec errors 
+#include <CoreFoundation/CFDate.h>
+
+/* Set true when PR-3074739 is merged to TOT */
+#define NEW_SSL_ERRS_3074739		1
+
+const char *sslGetCipherSuiteString(SSLCipherSuite cs)
+{
+	static char noSuite[40];
+	
+	switch(cs) {
+		case SSL_NULL_WITH_NULL_NULL:
+			return "SSL_NULL_WITH_NULL_NULL";
+		case SSL_RSA_WITH_NULL_MD5:
+			return "SSL_RSA_WITH_NULL_MD5";
+		case SSL_RSA_WITH_NULL_SHA:
+			return "SSL_RSA_WITH_NULL_SHA";
+		case SSL_RSA_EXPORT_WITH_RC4_40_MD5:
+			return "SSL_RSA_EXPORT_WITH_RC4_40_MD5";
+		case SSL_RSA_WITH_RC4_128_MD5:
+			return "SSL_RSA_WITH_RC4_128_MD5";
+		case SSL_RSA_WITH_RC4_128_SHA:
+			return "SSL_RSA_WITH_RC4_128_SHA";
+		case SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5:
+			return "SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5";
+		case SSL_RSA_WITH_IDEA_CBC_SHA:
+			return "SSL_RSA_WITH_IDEA_CBC_SHA";
+		case SSL_RSA_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_RSA_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_RSA_WITH_DES_CBC_SHA:
+			return "SSL_RSA_WITH_DES_CBC_SHA";
+		case SSL_RSA_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_RSA_WITH_3DES_EDE_CBC_SHA";
+		case SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_DH_DSS_WITH_DES_CBC_SHA:
+			return "SSL_DH_DSS_WITH_DES_CBC_SHA";
+		case SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA";
+		case SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_DH_RSA_WITH_DES_CBC_SHA:
+			return "SSL_DH_RSA_WITH_DES_CBC_SHA";
+		case SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA";
+		case SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_DHE_DSS_WITH_DES_CBC_SHA:
+			return "SSL_DHE_DSS_WITH_DES_CBC_SHA";
+		case SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA";
+		case SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_DHE_RSA_WITH_DES_CBC_SHA:
+			return "SSL_DHE_RSA_WITH_DES_CBC_SHA";
+		case SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA";
+		case SSL_DH_anon_EXPORT_WITH_RC4_40_MD5:
+			return "SSL_DH_anon_EXPORT_WITH_RC4_40_MD5";
+		case SSL_DH_anon_WITH_RC4_128_MD5:
+			return "SSL_DH_anon_WITH_RC4_128_MD5";
+		case SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA:
+			return "SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA";
+		case SSL_DH_anon_WITH_DES_CBC_SHA:
+			return "SSL_DH_anon_WITH_DES_CBC_SHA";
+		case SSL_DH_anon_WITH_3DES_EDE_CBC_SHA:
+			return "SSL_DH_anon_WITH_3DES_EDE_CBC_SHA";
+		case SSL_FORTEZZA_DMS_WITH_NULL_SHA:
+			return "SSL_FORTEZZA_DMS_WITH_NULL_SHA";
+		case SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA:
+			return "SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA";
+		case SSL_RSA_WITH_RC2_CBC_MD5:
+			return "SSL_RSA_WITH_RC2_CBC_MD5";
+		case SSL_RSA_WITH_IDEA_CBC_MD5:
+			return "SSL_RSA_WITH_IDEA_CBC_MD5";
+		case SSL_RSA_WITH_DES_CBC_MD5:
+			return "SSL_RSA_WITH_DES_CBC_MD5";
+		case SSL_RSA_WITH_3DES_EDE_CBC_MD5:
+			return "SSL_RSA_WITH_3DES_EDE_CBC_MD5";
+		case SSL_NO_SUCH_CIPHERSUITE:
+			return "SSL_NO_SUCH_CIPHERSUITE";
+		case TLS_RSA_WITH_AES_128_CBC_SHA:
+			return "TLS_RSA_WITH_AES_128_CBC_SHA";
+		case TLS_DH_DSS_WITH_AES_128_CBC_SHA:
+			return "TLS_DH_DSS_WITH_AES_128_CBC_SHA";
+		case TLS_DH_RSA_WITH_AES_128_CBC_SHA:
+			return "TLS_DH_RSA_WITH_AES_128_CBC_SHA";
+		case TLS_DHE_DSS_WITH_AES_128_CBC_SHA:
+			return "TLS_DHE_DSS_WITH_AES_128_CBC_SHA";
+		case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
+			return "TLS_DHE_RSA_WITH_AES_128_CBC_SHA";
+		case TLS_DH_anon_WITH_AES_128_CBC_SHA:
+			return "TLS_DH_anon_WITH_AES_128_CBC_SHA";
+		case TLS_RSA_WITH_AES_256_CBC_SHA:
+			return "TLS_RSA_WITH_AES_256_CBC_SHA";
+		case TLS_DH_DSS_WITH_AES_256_CBC_SHA:
+			return "TLS_DH_DSS_WITH_AES_256_CBC_SHA";
+		case TLS_DH_RSA_WITH_AES_256_CBC_SHA:
+			return "TLS_DH_RSA_WITH_AES_256_CBC_SHA";
+		case TLS_DHE_DSS_WITH_AES_256_CBC_SHA:
+			return "TLS_DHE_DSS_WITH_AES_256_CBC_SHA";
+		case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
+			return "TLS_DHE_RSA_WITH_AES_256_CBC_SHA";
+		case TLS_DH_anon_WITH_AES_256_CBC_SHA:
+			return "TLS_DH_anon_WITH_AES_256_CBC_SHA";
+
+		/* ECDSA */
+		case TLS_ECDH_ECDSA_WITH_NULL_SHA:
+			return "TLS_ECDH_ECDSA_WITH_NULL_SHA";
+		case TLS_ECDH_ECDSA_WITH_RC4_128_SHA:
+			return "TLS_ECDH_ECDSA_WITH_RC4_128_SHA";
+		case TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA:
+			return "TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA";
+		case TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA:
+			return "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA";
+		case TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA:
+			return "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA";
+		case TLS_ECDHE_ECDSA_WITH_NULL_SHA:
+			return "TLS_ECDHE_ECDSA_WITH_NULL_SHA";
+		case TLS_ECDHE_ECDSA_WITH_RC4_128_SHA:
+			return "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA";
+		case TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA:
+			return "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA";
+		case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:
+			return "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA";
+		case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:
+			return "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA";
+		case TLS_ECDH_RSA_WITH_NULL_SHA:
+			return "TLS_ECDH_RSA_WITH_NULL_SHA";
+		case TLS_ECDH_RSA_WITH_RC4_128_SHA:
+			return "TLS_ECDH_RSA_WITH_RC4_128_SHA";
+		case TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA:
+			return "TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA";
+		case TLS_ECDH_RSA_WITH_AES_128_CBC_SHA:
+			return "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA";
+		case TLS_ECDH_RSA_WITH_AES_256_CBC_SHA:
+			return "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA";
+		case TLS_ECDHE_RSA_WITH_NULL_SHA:
+			return "TLS_ECDHE_RSA_WITH_NULL_SHA";
+		case TLS_ECDHE_RSA_WITH_RC4_128_SHA:
+			return "TLS_ECDHE_RSA_WITH_RC4_128_SHA";
+		case TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA:
+			return "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA";
+		case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
+			return "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA";
+		case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
+			return "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA";
+		case TLS_ECDH_anon_WITH_NULL_SHA:
+			return "TLS_ECDH_anon_WITH_NULL_SHA";
+		case TLS_ECDH_anon_WITH_RC4_128_SHA:
+			return "TLS_ECDH_anon_WITH_RC4_128_SHA";
+		case TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA:
+			return "TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA";
+		case TLS_ECDH_anon_WITH_AES_128_CBC_SHA:
+			return "TLS_ECDH_anon_WITH_AES_128_CBC_SHA";
+		case TLS_ECDH_anon_WITH_AES_256_CBC_SHA:
+			return "TLS_ECDH_anon_WITH_AES_256_CBC_SHA";
+
+		default:
+			sprintf(noSuite, "Unknown (%d)", (unsigned)cs);
+			return noSuite;	
+	}
+}
+
+/* 
+ * Given a SSLProtocolVersion - typically from SSLGetProtocolVersion -
+ * return a string representation.
+ */
+const char *sslGetProtocolVersionString(SSLProtocol prot)
+{
+	static char noProt[20];
+	
+	switch(prot) {
+		case kSSLProtocolUnknown:
+			return "kSSLProtocolUnknown";
+		case kSSLProtocol2:
+			return "kSSLProtocol2";
+		case kSSLProtocol3:
+			return "kSSLProtocol3";
+		case kSSLProtocol3Only:
+			return "kSSLProtocol3Only";
+		case kTLSProtocol1:
+			return "kTLSProtocol1";
+		case kTLSProtocol1Only:
+			return "kTLSProtocol1Only";
+		default:
+			sprintf(noProt, "Unknown (%d)", (unsigned)prot);
+			return noProt;	
+	}
+}
+
+/* 
+ * Return string representation of SecureTransport-related OSStatus.
+ */
+const char *sslGetSSLErrString(OSStatus err)
+{
+	static char noErrStr[20];
+	
+	switch(err) {
+		case noErr:
+			return "noErr";
+		case memFullErr:
+			return "memFullErr";
+		case paramErr:
+			return "paramErr";
+		case unimpErr:
+			return "unimpErr";
+		case ioErr:
+			return "ioErr";
+		case badReqErr:
+			return "badReqErr";
+		case errSSLProtocol:
+			return "errSSLProtocol";
+		case errSSLNegotiation:
+			return "errSSLNegotiation";
+		case errSSLFatalAlert:
+			return "errSSLFatalAlert";
+		case errSSLWouldBlock:
+			return "errSSLWouldBlock";
+		case errSSLSessionNotFound:
+			return "errSSLSessionNotFound";
+		case errSSLClosedGraceful:
+			return "errSSLClosedGraceful";
+		case errSSLClosedAbort:
+			return "errSSLClosedAbort";
+   		case errSSLXCertChainInvalid:
+			return "errSSLXCertChainInvalid";
+		case errSSLBadCert:
+			return "errSSLBadCert"; 
+		case errSSLCrypto:
+			return "errSSLCrypto";
+		case errSSLInternal:
+			return "errSSLInternal";
+		case errSSLModuleAttach:
+			return "errSSLModuleAttach";
+		case errSSLUnknownRootCert:
+			return "errSSLUnknownRootCert";
+		case errSSLNoRootCert:
+			return "errSSLNoRootCert";
+		case errSSLCertExpired:
+			return "errSSLCertExpired";
+		case errSSLCertNotYetValid:
+			return "errSSLCertNotYetValid";
+		case errSSLClosedNoNotify:
+			return "errSSLClosedNoNotify";
+		case errSSLBufferOverflow:
+			return "errSSLBufferOverflow";
+		case errSSLBadCipherSuite:
+			return "errSSLBadCipherSuite";
+		/* TLS/Panther addenda */
+		case errSSLPeerUnexpectedMsg:
+			return "errSSLPeerUnexpectedMsg";
+		case errSSLPeerBadRecordMac:
+			return "errSSLPeerBadRecordMac";
+		case errSSLPeerDecryptionFail:
+			return "errSSLPeerDecryptionFail";
+		case errSSLPeerRecordOverflow:
+			return "errSSLPeerRecordOverflow";
+		case errSSLPeerDecompressFail:
+			return "errSSLPeerDecompressFail";
+		case errSSLPeerHandshakeFail:
+			return "errSSLPeerHandshakeFail";
+		case errSSLPeerBadCert:
+			return "errSSLPeerBadCert";
+		case errSSLPeerUnsupportedCert:
+			return "errSSLPeerUnsupportedCert";
+		case errSSLPeerCertRevoked:
+			return "errSSLPeerCertRevoked";
+		case errSSLPeerCertExpired:
+			return "errSSLPeerCertExpired";
+		case errSSLPeerCertUnknown:
+			return "errSSLPeerCertUnknown";
+		case errSSLIllegalParam:
+			return "errSSLIllegalParam";
+		case errSSLPeerUnknownCA:
+			return "errSSLPeerUnknownCA";
+		case errSSLPeerAccessDenied:
+			return "errSSLPeerAccessDenied";
+		case errSSLPeerDecodeError:
+			return "errSSLPeerDecodeError";
+		case errSSLPeerDecryptError:
+			return "errSSLPeerDecryptError";
+		case errSSLPeerExportRestriction:
+			return "errSSLPeerExportRestriction";
+		case errSSLPeerProtocolVersion:
+			return "errSSLPeerProtocolVersion";
+		case errSSLPeerInsufficientSecurity:
+			return "errSSLPeerInsufficientSecurity";
+		case errSSLPeerInternalError:
+			return "errSSLPeerInternalError";
+		case errSSLPeerUserCancelled:
+			return "errSSLPeerUserCancelled";
+		case errSSLPeerNoRenegotiation:
+			return "errSSLPeerNoRenegotiation";
+		case errSSLHostNameMismatch:
+			return "errSSLHostNameMismatch";
+		case errSSLConnectionRefused:
+			return "errSSLConnectionRefused";
+		case errSSLDecryptionFail:
+			return "errSSLDecryptionFail";
+		case errSSLBadRecordMac:
+			return "errSSLBadRecordMac";
+		case errSSLRecordOverflow:
+			return "errSSLRecordOverflow";
+		case errSSLBadConfiguration:
+			return "errSSLBadConfiguration";
+		
+		/* some from the Sec layer */
+		case errSecNotAvailable:			return "errSecNotAvailable";
+		case errSecReadOnly:				return "errSecReadOnly";
+		case errSecAuthFailed:				return "errSecAuthFailed";
+		case errSecNoSuchKeychain:			return "errSecNoSuchKeychain";
+		case errSecInvalidKeychain:			return "errSecInvalidKeychain";
+		case errSecDuplicateItem:			return "errSecDuplicateItem";
+		case errSecItemNotFound:			return "errSecItemNotFound";
+		case errSecNoSuchAttr:				return "errSecNoSuchAttr";
+		case errSecInvalidItemRef:			return "errSecInvalidItemRef";
+		case errSecInvalidSearchRef:		return "errSecInvalidSearchRef";
+		case errSecNoSuchClass:				return "errSecNoSuchClass";
+		case errSecNoDefaultKeychain:		return "errSecNoDefaultKeychain";
+		case errSecWrongSecVersion:			return "errSecWrongSecVersion";
+		case errSessionInvalidId:			return "errSessionInvalidId";
+		case errSessionInvalidAttributes:	return "errSessionInvalidAttributes";
+		case errSessionAuthorizationDenied:	return "errSessionAuthorizationDenied";
+		case errSessionInternal:			return "errSessionInternal";
+		case errSessionInvalidFlags:		return "errSessionInvalidFlags";
+		case errSecInvalidTrustSettings:	return "errSecInvalidTrustSettings";
+		case errSecNoTrustSettings:			return "errSecNoTrustSettings";
+
+		default:
+			if(err < (CSSM_BASE_ERROR + 
+			         (CSSM_ERRORCODE_MODULE_EXTENT * 8))) {
+				/* assume CSSM error */
+				return cssmErrToStr(err);
+			}
+			else {
+				sprintf(noErrStr, "Unknown (%d)", (unsigned)err);
+				return noErrStr;	
+			}
+	}
+}
+
+void printSslErrStr(
+	const char 	*op,
+	OSStatus 	err)
+{
+	printf("*** %s: %s\n", op, sslGetSSLErrString(err));
+}
+
+const char *sslGetClientCertStateString(SSLClientCertificateState state)
+{
+	static char noState[20];
+	
+	switch(state) {
+		case kSSLClientCertNone:
+			return "ClientCertNone";
+		case kSSLClientCertRequested:
+			return "CertRequested";
+		case kSSLClientCertSent:
+			return "ClientCertSent";
+		case kSSLClientCertRejected:
+			return "ClientCertRejected";
+		default:
+			sprintf(noState, "Unknown (%d)", (unsigned)state);
+			return noState;	
+	}
+
+}
+
+const char *sslGetClientAuthTypeString(SSLClientAuthenticationType authType)
+{
+	static char noType[20];
+	
+	switch(authType) {
+		case SSLClientAuthNone:
+			return "None";
+		case SSLClientAuth_RSASign:
+			return "RSASign";
+		case SSLClientAuth_DSSSign:
+			return "DSSSign";
+		case SSLClientAuth_RSAFixedDH:
+			return "RSAFixedDH";
+		case SSLClientAuth_DSS_FixedDH:
+			return "DSS_FixedDH";
+		case SSLClientAuth_ECDSASign:
+			return "ECDSASign";
+		case SSLClientAuth_RSAFixedECDH:
+			return "RSAFixedECDH";
+		case SSLClientAuth_ECDSAFixedECDH:
+			return "ECDSAFixedECDH";
+		default:
+			sprintf(noType, "Unknown (%d)", (unsigned)authType);
+			return noType;	
+	}
+}
+
+/*
+ * Convert a keychain name (which may be NULL) into the CFArrayRef required
+ * by SSLSetCertificate. This is a bare-bones example of this operation,
+ * since it requires and assumes that there is exactly one SecIdentity
+ * in the keychain - i.e., there is exactly one matching cert/private key 
+ * pair. A real world server would probably search a keychain for a SecIdentity 
+ * matching some specific criteria. 
+ */
+CFArrayRef getSslCerts( 
+	const char			*kcName,				// may be NULL, i.e., use default
+	CSSM_BOOL			encryptOnly,
+	CSSM_BOOL			completeCertChain,
+	const char			*anchorFile,			// optional trusted anchor
+	SecKeychainRef		*pKcRef)				// RETURNED
+{
+	SecKeychainRef 		kcRef = nil;
+	OSStatus			ortn;
+	
+	*pKcRef = nil;
+	
+	/* pick a keychain */
+	if(kcName) {
+		ortn = SecKeychainOpen(kcName, &kcRef);
+		if(ortn) {
+			printf("SecKeychainOpen returned %d.\n", (int)ortn);
+			printf("Cannot open keychain at %s. Aborting.\n", kcName);
+			return NULL;
+		}
+	}
+	else {
+		/* use default keychain */
+		ortn = SecKeychainCopyDefault(&kcRef);
+		if(ortn) {
+			printf("SecKeychainCopyDefault returned %d; aborting.\n", (int)ortn);
+			return nil;
+		}
+	}
+	*pKcRef = kcRef;
+	return sslKcRefToCertArray(kcRef, encryptOnly, completeCertChain, 
+		NULL,		// SSL policy
+		anchorFile);
+}
+
+/*
+ * Determine if specified SecCertificateRef is a self-signed cert.
+ * We do this by comparing the subject and issuerr names; no cryptographic
+ * verification is performed.
+ *
+ * Returns true if the cert appears to be a root. 
+ */
+static bool isCertRefRoot(
+	SecCertificateRef certRef)
+{
+	/* just search for the two attrs we want */
+	UInt32 tags[2] = {kSecSubjectItemAttr, kSecIssuerItemAttr};
+	SecKeychainAttributeInfo attrInfo;
+	attrInfo.count = 2;
+	attrInfo.tag = tags;
+	attrInfo.format = NULL;
+	SecKeychainAttributeList *attrList = NULL;
+	SecKeychainAttribute *attr1 = NULL;
+	SecKeychainAttribute *attr2 = NULL;
+	bool brtn = false;
+	
+	OSStatus ortn = SecKeychainItemCopyAttributesAndData(
+		(SecKeychainItemRef)certRef, 
+		&attrInfo,
+		NULL,			// itemClass
+		&attrList, 
+		NULL,			// length - don't need the data
+		NULL);			// outData
+	if(ortn) {
+		cssmPerror("SecKeychainItemCopyAttributesAndData", ortn);
+		/* may want to be a bit more robust here, but this should
+		 * never happen */
+		return false;
+	}
+	/* subsequent errors to errOut: */
+	
+	if((attrList == NULL) || (attrList->count != 2)) {
+		printf("***Unexpected result fetching label attr\n");
+		goto errOut;
+	}
+	
+	/* rootness is just byte-for-byte compare of the two names */ 
+	attr1 = &attrList->attr[0];
+	attr2 = &attrList->attr[1];
+	if(attr1->length == attr2->length) {
+		if(memcmp(attr1->data, attr2->data, attr1->length) == 0) {
+			brtn = true;
+		}
+	}
+errOut:
+	SecKeychainItemFreeAttributesAndData(attrList, NULL);
+	return brtn;
+}
+
+
+/*
+ * Given a SecIdentityRef, do our best to construct a complete, ordered, and 
+ * verified cert chain, returning the result in a CFArrayRef. The result is 
+ * suitable for use when calling SSLSetCertificate().
+ */
+OSStatus sslCompleteCertChain(
+	SecIdentityRef 		identity, 
+	SecCertificateRef	trustedAnchor,	// optional additional trusted anchor
+	bool 				includeRoot, 	// include the root in outArray
+	const CSSM_OID		*vfyPolicy,		// optional - if NULL, use SSL
+	CFArrayRef			*outArray)		// created and RETURNED
+{
+	CFMutableArrayRef 			certArray;
+	SecTrustRef					secTrust = NULL;
+	SecPolicyRef				policy = NULL;
+	SecPolicySearchRef			policySearch = NULL;
+	SecTrustResultType			secTrustResult;
+	CSSM_TP_APPLE_EVIDENCE_INFO *dummyEv;			// not used
+	CFArrayRef					certChain = NULL;   // constructed chain
+	CFIndex 					numResCerts;
+	
+	certArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(certArray, identity);
+	
+	/*
+	 * Case 1: identity is a root; we're done. Note that this case
+	 * overrides the includeRoot argument.
+	 */
+	SecCertificateRef certRef;
+	OSStatus ortn = SecIdentityCopyCertificate(identity, &certRef);
+	if(ortn) {
+		/* should never happen */
+		cssmPerror("SecIdentityCopyCertificate", ortn);
+		return ortn;
+	}
+	bool isRoot = isCertRefRoot(certRef);
+	if(isRoot) {
+		*outArray = certArray;
+		CFRelease(certRef);
+		return noErr;
+	}
+	
+	/* 
+	 * Now use SecTrust to get a complete cert chain, using all of the 
+	 * user's keychains to look for intermediate certs.
+	 * NOTE this does NOT handle root certs which are not in the system
+	 * root cert DB. (The above case, where the identity is a root cert, does.)
+	 */
+	CFMutableArrayRef subjCerts = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+	CFArraySetValueAtIndex(subjCerts, 0, certRef);
+			
+	/* the array owns the subject cert ref now */
+	CFRelease(certRef);
+	
+	/* Get a SecPolicyRef for SSL cert chain verification */
+	ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
+		vfyPolicy ? vfyPolicy : &CSSMOID_APPLE_TP_SSL,
+		NULL,				// value
+		&policySearch);
+	if(ortn) {
+		cssmPerror("SecPolicySearchCreate", ortn);
+		goto errOut;
+	}
+	ortn = SecPolicySearchCopyNext(policySearch, &policy);
+	if(ortn) {
+		cssmPerror("SecPolicySearchCopyNext", ortn);
+		goto errOut;
+	}
+
+	/* build a SecTrustRef for specified policy and certs */
+	ortn = SecTrustCreateWithCertificates(subjCerts,
+		policy, &secTrust);
+	if(ortn) {
+		cssmPerror("SecTrustCreateWithCertificates", ortn);
+		goto errOut;
+	}
+	
+	if(trustedAnchor) {
+		/* 
+		 * Tell SecTrust to trust this one in addition to the current
+		 * trusted system-wide anchors.
+		 */
+		CFMutableArrayRef newAnchors;
+		CFArrayRef currAnchors;
+		
+		ortn = SecTrustCopyAnchorCertificates(&currAnchors);
+		if(ortn) {
+			/* should never happen */
+			cssmPerror("SecTrustCopyAnchorCertificates", ortn);
+			goto errOut;
+		}
+		newAnchors = CFArrayCreateMutableCopy(NULL,
+			CFArrayGetCount(currAnchors) + 1,
+			currAnchors);
+		CFRelease(currAnchors);
+		CFArrayAppendValue(newAnchors, trustedAnchor);
+		ortn = SecTrustSetAnchorCertificates(secTrust, newAnchors);
+		CFRelease(newAnchors);
+		if(ortn) {
+			cssmPerror("SecTrustSetAnchorCertificates", ortn);
+			goto errOut;
+		}
+	}
+	/* evaluate: GO */
+	ortn = SecTrustEvaluate(secTrust, &secTrustResult);
+	if(ortn) {
+		cssmPerror("SecTrustEvaluate", ortn);
+		goto errOut;
+	}
+	switch(secTrustResult) {
+		case kSecTrustResultUnspecified:
+			/* cert chain valid, no special UserTrust assignments */
+		case kSecTrustResultProceed:
+			/* cert chain valid AND user explicitly trusts this */
+			break;
+		default:
+			/*
+			 * Cert chain construction failed. 
+			 * Just go with the single subject cert we were given.
+			 */
+			printf("***Warning: could not construct completed cert chain\n");
+			ortn = noErr;
+			goto errOut;
+	}
+
+	/* get resulting constructed cert chain */
+	ortn = SecTrustGetResult(secTrust, &secTrustResult, &certChain, &dummyEv);
+	if(ortn) {
+		cssmPerror("SecTrustEvaluate", ortn);
+		goto errOut;
+	}
+	
+	/*
+	 * Copy certs from constructed chain to our result array, skipping 
+	 * the leaf (which is already there, as a SecIdentityRef) and possibly
+	 * a root.
+	 */
+	numResCerts = CFArrayGetCount(certChain);
+	if(numResCerts < 2) {
+		/*
+		 * Can't happen: if subject was a root, we'd already have returned. 
+		 * If chain doesn't verify to a root, we'd have bailed after
+		 * SecTrustEvaluate().
+		 */
+		printf("***sslCompleteCertChain screwup: numResCerts %d\n", 
+			(int)numResCerts);
+		ortn = noErr;
+		goto errOut;
+	}
+	if(!includeRoot) {
+		/* skip the last (root) cert) */
+		numResCerts--;
+	}
+	for(CFIndex dex=1; dex<numResCerts; dex++) {
+		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(certChain, dex);
+		CFArrayAppendValue(certArray, certRef);
+	}
+errOut:
+	/* clean up */
+	if(secTrust) {
+		CFRelease(secTrust);
+	}
+	if(subjCerts) {
+		CFRelease(subjCerts);
+	}
+	if(policy) {
+		CFRelease(policy);
+	}
+	if(policySearch) {
+		CFRelease(policySearch);
+	}
+	*outArray = certArray;
+	return ortn;
+}
+
+
+/*
+ * Given an open keychain, find a SecIdentityRef and munge it into
+ * a CFArrayRef required by SSLSetCertificate().
+ */
+CFArrayRef sslKcRefToCertArray(
+	SecKeychainRef		kcRef,
+	CSSM_BOOL			encryptOnly,
+	CSSM_BOOL			completeCertChain,
+	const CSSM_OID		*vfyPolicy,		// optional - if NULL, use SSL policy to complete
+	const char			*trustedAnchorFile)
+{
+	/* quick check to make sure the keychain exists */
+	SecKeychainStatus kcStat;
+	OSStatus ortn = SecKeychainGetStatus(kcRef, &kcStat);
+	if(ortn) {
+		printSslErrStr("SecKeychainGetStatus", ortn);
+		printf("Can not open keychain. Aborting.\n");
+		return nil;
+	}
+	
+	/*
+	 * Search for "any" identity matching specified key use; 
+	 * in this app, we expect there to be exactly one. 
+	 */
+	SecIdentitySearchRef srchRef = nil;
+	ortn = SecIdentitySearchCreate(kcRef, 
+		encryptOnly ? CSSM_KEYUSE_DECRYPT : CSSM_KEYUSE_SIGN,
+		&srchRef);
+	if(ortn) {
+		printf("SecIdentitySearchCreate returned %d.\n", (int)ortn);
+		printf("Cannot find signing key in keychain. Aborting.\n");
+		return nil;
+	}
+	SecIdentityRef identity = nil;
+	ortn = SecIdentitySearchCopyNext(srchRef, &identity);
+	if(ortn) {
+		printf("SecIdentitySearchCopyNext returned %d.\n", (int)ortn);
+		printf("Cannot find signing key in keychain. Aborting.\n");
+		return nil;
+	}
+	if(CFGetTypeID(identity) != SecIdentityGetTypeID()) {
+		printf("SecIdentitySearchCopyNext CFTypeID failure!\n");
+		return nil;
+	}
+
+	/* 
+	 * Found one. 
+	 */
+	if(completeCertChain) {
+		/* 
+		 * Place it and the other certs needed to verify it -
+		 * up to but not including the root - in a CFArray.
+		 */
+		SecCertificateRef anchorCert = NULL;
+		if(trustedAnchorFile) {
+			ortn = sslReadAnchor(trustedAnchorFile, &anchorCert);
+			if(ortn) {
+				printf("***Error reading anchor file\n");
+			}
+		}
+		CFArrayRef ca;
+		ortn = sslCompleteCertChain(identity, anchorCert, false, vfyPolicy, &ca);
+		if(anchorCert) {
+			CFRelease(anchorCert);
+		}
+		return ca;
+	}
+	else {
+		/* simple case, just this one identity */
+		CFArrayRef ca = CFArrayCreate(NULL,
+			(const void **)&identity,
+			1,
+			NULL);
+		if(ca == nil) {
+			printf("CFArrayCreate error\n");
+		}
+		return ca;
+	}
+}
+
+OSStatus addTrustedSecCert(
+	SSLContextRef 		ctx,
+	SecCertificateRef 	secCert, 
+	CSSM_BOOL 			replaceAnchors)
+{
+	OSStatus ortn;
+	CFMutableArrayRef array;
+	
+	if(secCert == NULL) {
+		printf("***addTrustedSecCert screwup\n");
+		return paramErr;
+	}
+	array = CFArrayCreateMutable(kCFAllocatorDefault,
+		(CFIndex)1, &kCFTypeArrayCallBacks);
+	if(array == NULL) {
+		return memFullErr;	
+	}
+	CFArrayAppendValue(array, secCert);
+	ortn = SSLSetTrustedRoots(ctx, array, replaceAnchors ? true : false);
+	if(ortn) {
+		printSslErrStr("SSLSetTrustedRoots", ortn);
+	}
+	CFRelease(array);
+	return ortn;
+}
+
+OSStatus sslReadAnchor(
+	const char 			*anchorFile,
+	SecCertificateRef 	*certRef)
+{
+	OSStatus ortn;
+	SecCertificateRef secCert;
+	unsigned char *certData;
+	unsigned certLen;
+	CSSM_DATA cert;
+	int rtn;
+
+	rtn = cspReadFile(anchorFile, &certData, &certLen);
+	if(rtn) {
+		printf("cspReadFile(%s) returned %d\n", anchorFile, rtn);
+		return -1;
+	}
+	cert.Data = certData;
+	cert.Length = certLen;
+	ortn = SecCertificateCreateFromData(&cert,
+			CSSM_CERT_X_509v3,
+			CSSM_CERT_ENCODING_DER,
+			&secCert);
+	free(certData);
+	if(ortn) {
+		printf("***SecCertificateCreateFromData returned %d\n", (int)ortn);
+		return ortn;
+	}
+	*certRef = secCert;
+	return noErr;
+}
+
+OSStatus sslAddTrustedRoot(
+	SSLContextRef 	ctx,
+	const char 		*anchorFile, 
+	CSSM_BOOL 		replaceAnchors)
+{
+	OSStatus ortn;
+	SecCertificateRef secCert;
+	
+	ortn = sslReadAnchor(anchorFile, &secCert);
+	if(ortn) {
+		printf("***Error (%ld) reading %s. SSLSetTrustedRoots skipped.\n",
+			(long)ortn, anchorFile);
+		return ortn;
+	}
+	return addTrustedSecCert(ctx, secCert, replaceAnchors);
+}
+
+#if 0
+/* Per 3537606 this is no longer necessary */
+/*
+ * Assume incoming identity contains a root (e.g., created by
+ * certtool) and add that cert to ST's trusted anchors. This
+ * enables ST's verify of the incoming chain to succeed without 
+ * a kludgy "AllowAnyRoot" specification.
+ */
+OSStatus addIdentityAsTrustedRoot(
+	SSLContextRef 	ctx,
+	CFArrayRef		identArray)
+{
+	CFIndex numItems = CFArrayGetCount(identArray);
+	if(numItems == 0) {
+		printf("***addIdentityAsTrustedRoot: empty identArray\n");
+		return paramErr;
+	}
+	
+	/* Root should be the last item - could be identity, could be cert */
+	CFTypeRef theItem = CFArrayGetValueAtIndex(identArray, numItems - 1);
+	if(CFGetTypeID(theItem) == SecIdentityGetTypeID()) {
+		/* identity */
+		SecCertificateRef certRef;
+		OSStatus ortn = SecIdentityCopyCertificate(
+			(SecIdentityRef)theItem, &certRef);
+		if(ortn) {
+			cssmPerror("SecIdentityCopyCertificate", ortn);
+			printf("***Error gettting cert from identity\n");
+			return ortn;
+		}
+		ortn = addTrustedSecCert(ctx, certRef, CSSM_FALSE);
+		CFRelease(certRef);
+		return ortn;
+	}
+	else if(CFGetTypeID(theItem) == SecCertificateGetTypeID()) {
+		/* certificate */
+		return addTrustedSecCert(ctx, (SecCertificateRef)theItem, CSSM_FALSE);
+	}
+	else {
+		printf("***Bogus item in identity array\n");
+		return paramErr;
+	}
+}
+#else
+OSStatus addIdentityAsTrustedRoot(
+	SSLContextRef 	ctx,
+	CFArrayRef		identArray)
+{
+	return noErr;
+}   
+#endif
+
+/*
+ * Lists of SSLCipherSuites used in sslSetCipherRestrictions. Note that the 
+ * SecureTransport library does not implement all of these; we only specify
+ * the ones it claims to support.
+ */
+const SSLCipherSuite suites40[] = {
+	SSL_RSA_EXPORT_WITH_RC4_40_MD5,
+	SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5,
+	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+	SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesDES[] = {
+	SSL_RSA_WITH_DES_CBC_SHA,
+	SSL_DH_DSS_WITH_DES_CBC_SHA,
+	SSL_DH_RSA_WITH_DES_CBC_SHA,
+	SSL_DHE_DSS_WITH_DES_CBC_SHA,
+	SSL_DHE_RSA_WITH_DES_CBC_SHA,
+	SSL_DH_anon_WITH_DES_CBC_SHA,
+	SSL_RSA_WITH_DES_CBC_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesDES40[] = {
+	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suites3DES[] = {
+	SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+	SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_anon_WITH_3DES_EDE_CBC_SHA,
+	SSL_RSA_WITH_3DES_EDE_CBC_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesRC4[] = {
+	SSL_RSA_WITH_RC4_128_MD5,
+	SSL_RSA_WITH_RC4_128_SHA,
+	SSL_DH_anon_WITH_RC4_128_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesRC4_40[] = {
+	SSL_RSA_EXPORT_WITH_RC4_40_MD5,
+	SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesRC2[] = {
+	SSL_RSA_WITH_RC2_CBC_MD5,
+	SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesAES128[] = {
+	TLS_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_anon_WITH_AES_128_CBC_SHA
+};
+const SSLCipherSuite suitesAES256[] = {
+	TLS_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DH_anon_WITH_AES_256_CBC_SHA
+};
+const SSLCipherSuite suitesDH[] = {
+    SSL_DH_DSS_WITH_DES_CBC_SHA,
+    SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DH_RSA_WITH_DES_CBC_SHA,
+    SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DHE_DSS_WITH_DES_CBC_SHA,
+    SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+    SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DHE_RSA_WITH_DES_CBC_SHA,
+    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DH_anon_WITH_RC4_128_MD5,
+    SSL_DH_anon_WITH_DES_CBC_SHA,
+    SSL_DH_anon_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+    SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_anon_WITH_AES_128_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DH_anon_WITH_AES_256_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesDHAnon[] = {
+    SSL_DH_anon_WITH_RC4_128_MD5,
+    SSL_DH_anon_WITH_DES_CBC_SHA,
+    SSL_DH_anon_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+    SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+	TLS_DH_anon_WITH_AES_128_CBC_SHA,
+	TLS_DH_anon_WITH_AES_256_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesDH_RSA[] = {
+    SSL_DH_RSA_WITH_DES_CBC_SHA,
+    SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA,
+    SSL_DHE_RSA_WITH_DES_CBC_SHA,
+    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suitesDH_DSS[] = {
+    SSL_DH_DSS_WITH_DES_CBC_SHA,
+    SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA,
+    SSL_DHE_DSS_WITH_DES_CBC_SHA,
+    SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+    SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA,
+    SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suites_SHA1[] = {
+	SSL_RSA_WITH_RC4_128_SHA,
+	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_RSA_WITH_IDEA_CBC_SHA,
+	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_RSA_WITH_DES_CBC_SHA,
+	SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_DSS_WITH_DES_CBC_SHA,
+	SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_RSA_WITH_DES_CBC_SHA,
+	SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_DSS_WITH_DES_CBC_SHA,
+	SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+	SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DHE_RSA_WITH_DES_CBC_SHA,
+	SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA,
+	SSL_DH_anon_WITH_DES_CBC_SHA,
+	SSL_DH_anon_WITH_3DES_EDE_CBC_SHA,
+	SSL_FORTEZZA_DMS_WITH_NULL_SHA,
+	SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA,
+	TLS_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+	TLS_DH_anon_WITH_AES_128_CBC_SHA,
+	TLS_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+	TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+	TLS_DH_anon_WITH_AES_256_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suites_MD5[] = {
+	SSL_RSA_EXPORT_WITH_RC4_40_MD5,
+	SSL_RSA_WITH_RC4_128_MD5,
+	SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5,
+	SSL_DH_anon_EXPORT_WITH_RC4_40_MD5,
+	SSL_DH_anon_WITH_RC4_128_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+const SSLCipherSuite suites_NULL[] = {
+	SSL_RSA_WITH_NULL_MD5,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+
+const SSLCipherSuite suites_ECDHE[] = {
+	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+	TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+	TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+	TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+	TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+
+const SSLCipherSuite suites_ECDH[] = {
+	TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+	TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+	TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
+	TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
+	TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+	TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+	TLS_ECDH_RSA_WITH_RC4_128_SHA,
+	TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
+	SSL_NO_SUCH_CIPHERSUITE
+};
+
+
+/*
+ * Given an SSLContextRef and an array of SSLCipherSuites, terminated by
+ * SSL_NO_SUCH_CIPHERSUITE, select those SSLCipherSuites which the library
+ * supports and do a SSLSetEnabledCiphers() specifying those. 
+ */
+OSStatus sslSetEnabledCiphers(
+	SSLContextRef ctx,
+	const SSLCipherSuite *ciphers)
+{
+	size_t numSupported;
+	OSStatus ortn;
+	SSLCipherSuite *supported = NULL;
+	SSLCipherSuite *enabled = NULL;
+	unsigned enabledDex = 0;	// index into enabled
+	unsigned supportedDex = 0;	// index into supported
+	unsigned inDex = 0;			// index into ciphers
+	
+	/* first get all the supported ciphers */
+	ortn = SSLGetNumberSupportedCiphers(ctx, &numSupported);
+	if(ortn) {
+		printSslErrStr("SSLGetNumberSupportedCiphers", ortn);
+		return ortn;
+	}
+	supported = (SSLCipherSuite *)malloc(numSupported * sizeof(SSLCipherSuite));
+	ortn = SSLGetSupportedCiphers(ctx, supported, &numSupported);
+	if(ortn) {
+		printSslErrStr("SSLGetSupportedCiphers", ortn);
+		return ortn;
+	}
+	
+	/* 
+	 * Malloc an array we'll use for SSLGetEnabledCiphers - this will  be
+	 * bigger than the number of suites we actually specify 
+	 */
+	enabled = (SSLCipherSuite *)malloc(numSupported * sizeof(SSLCipherSuite));
+	
+	/* 
+	 * For each valid suite in ciphers, see if it's in the list of 
+	 * supported ciphers. If it is, add it to the list of ciphers to be
+	 * enabled. 
+	 */
+	for(inDex=0; ciphers[inDex] != SSL_NO_SUCH_CIPHERSUITE; inDex++) {
+		for(supportedDex=0; supportedDex<numSupported; supportedDex++) {
+			if(ciphers[inDex] == supported[supportedDex]) {
+				enabled[enabledDex++] = ciphers[inDex];
+				break;
+			}
+		}
+	}
+	
+	/* send it on down. */
+	ortn = SSLSetEnabledCiphers(ctx, enabled, enabledDex);
+	if(ortn) {
+		printSslErrStr("SSLSetEnabledCiphers", ortn);
+	}
+	free(enabled);
+	free(supported);
+	return ortn;
+}
+
+/*
+ * Specify a restricted set of cipherspecs.
+ */
+OSStatus sslSetCipherRestrictions(
+	SSLContextRef ctx,
+	char cipherRestrict)
+{
+	OSStatus ortn;
+	
+	if(cipherRestrict == '\0') {
+		return noErr;		// actually should not have been called 
+	}
+	switch(cipherRestrict) {
+		case 'e':
+			ortn = sslSetEnabledCiphers(ctx, suites40);
+			break;
+		case 'd':
+			ortn = sslSetEnabledCiphers(ctx, suitesDES);
+			break;
+		case 'D':
+			ortn = sslSetEnabledCiphers(ctx, suitesDES40);
+			break;
+		case '3':
+			ortn = sslSetEnabledCiphers(ctx, suites3DES);
+			break;
+		case '4':
+			ortn = sslSetEnabledCiphers(ctx, suitesRC4);
+			break;
+		case '$':
+			ortn = sslSetEnabledCiphers(ctx, suitesRC4_40);
+			break;
+		case '2':
+			ortn = sslSetEnabledCiphers(ctx, suitesRC2);
+			break;
+		case 'a':
+			ortn = sslSetEnabledCiphers(ctx, suitesAES128);
+			break;
+		case 'A':
+			ortn = sslSetEnabledCiphers(ctx, suitesAES256);
+			break;
+		case 'h':
+			ortn = sslSetEnabledCiphers(ctx, suitesDH);
+			break;
+		case 'H':
+			ortn = sslSetEnabledCiphers(ctx, suitesDHAnon);
+			break;
+		case 'r':
+			ortn = sslSetEnabledCiphers(ctx, suitesDH_RSA);
+			break;
+		case 's':
+			ortn = sslSetEnabledCiphers(ctx, suitesDH_DSS);
+			break;
+		case 'n':
+			ortn = sslSetEnabledCiphers(ctx, suites_NULL);
+			break;
+		case 'E':
+			ortn = sslSetEnabledCiphers(ctx, suites_ECDHE);
+			break;
+		case 'F':
+			ortn = sslSetEnabledCiphers(ctx, suites_ECDH);
+			break;
+		default:
+			printf("***bad cipherSpec***\n");
+			exit(1);
+	}
+	return ortn;
+}
+
+int sslVerifyClientCertState(
+	const char					*whichSide,		// "client" or "server"
+	SSLClientCertificateState	expectState,
+	SSLClientCertificateState	gotState)
+{
+	if(expectState == SSL_CLIENT_CERT_IGNORE) {
+		/* app says "don't bother checking" */
+		return 0;
+	}
+	if(expectState == gotState) {
+		return 0;
+	}
+	printf("***%s: Expected clientCertState %s; got %s\n", whichSide,
+		sslGetClientCertStateString(expectState),
+		sslGetClientCertStateString(gotState));
+	return 1;
+}
+
+int sslVerifyRtn(
+	const char	*whichSide,		// "client" or "server"
+	OSStatus	expectRtn,
+	OSStatus	gotRtn)		
+{
+	if(expectRtn == gotRtn) {
+		return 0;
+	}
+	printf("***%s: Expected return %s; got %s\n", whichSide,
+		sslGetSSLErrString(expectRtn),
+		sslGetSSLErrString(gotRtn));
+	return 1;
+}
+
+int sslVerifyProtVers(
+	const char	*whichSide,		// "client" or "server"
+	SSLProtocol	expectProt,
+	SSLProtocol	gotProt)		
+{
+	if(expectProt == SSL_PROTOCOL_IGNORE) {
+		/* app says "don't bopther checking" */
+		return 0;
+	}
+	if(expectProt == gotProt) {
+		return 0;
+	}
+	printf("***%s: Expected return %s; got %s\n", whichSide,
+		sslGetProtocolVersionString(expectProt),
+		sslGetProtocolVersionString(gotProt));
+	return 1;
+}
+
+int sslVerifyCipher(
+	const char		*whichSide,		// "client" or "server"
+	SSLCipherSuite	expectCipher,
+	SSLCipherSuite	gotCipher)		
+{
+	if(expectCipher == SSL_CIPHER_IGNORE) {
+		/* app says "don't bopther checking" */
+		return 0;
+	}
+	if(expectCipher == gotCipher) {
+		return 0;
+	}
+	printf("***%s: Expected return %s; got %s\n", whichSide,
+		sslGetCipherSuiteString(expectCipher),
+		sslGetCipherSuiteString(gotCipher));
+	return 1;
+}
+
+
+OSStatus sslSetProtocols(
+	SSLContextRef 	ctx,
+	const char		*acceptedProts,
+	SSLProtocol		tryVersion)			// only used if acceptedProts NULL
+{
+	OSStatus ortn;
+	
+	if(acceptedProts) {
+		ortn = SSLSetProtocolVersionEnabled(ctx, kSSLProtocolAll, false);
+		if(ortn) {
+			printSslErrStr("SSLSetProtocolVersionEnabled(all off)", ortn);
+			return ortn;
+		}
+		for(const char *cp = acceptedProts; *cp; cp++) {
+			SSLProtocol prot;
+			switch(*cp) {
+				case '2':
+					prot = kSSLProtocol2;
+					break;
+				case '3':
+					prot = kSSLProtocol3;
+					break;
+				case 't':
+					prot = kTLSProtocol1;
+					break;
+				default:
+					printf("***BRRZAP! Bad acceptedProts string %s. Aborting.\n", acceptedProts);
+					exit(1);
+			}
+			ortn = SSLSetProtocolVersionEnabled(ctx, prot, true);
+			if(ortn) {
+				printSslErrStr("SSLSetProtocolVersionEnabled", ortn);
+				return ortn;
+			}
+		}
+	}
+	else {
+		ortn = SSLSetProtocolVersion(ctx, tryVersion);
+		if(ortn) {
+			printSslErrStr("SSLSetProtocolVersion", ortn);
+			return ortn;
+		} 
+	}
+	return noErr;
+}
+
+void sslShowResult(
+	const char			*whichSide,		// "client" or "server"
+	SslAppTestParams	*params)
+{
+	printf("%s status:\n", whichSide);
+	if(params->acceptedProts) {
+		printf("   Allowed SSL versions   : %s\n", params->acceptedProts);
+	}
+	else {
+		printf("   Attempted  SSL version : %s\n", 
+			sslGetProtocolVersionString(params->tryVersion));
+	}
+	printf("   Result                 : %s\n", sslGetSSLErrString(params->ortn));
+	printf("   Negotiated SSL version : %s\n", 
+		sslGetProtocolVersionString(params->negVersion));
+	printf("   Negotiated CipherSuite : %s\n",
+		sslGetCipherSuiteString(params->negCipher));
+	if(params->certState != kSSLClientCertNone) {
+		printf("   Client Cert State      : %s\n",
+			sslGetClientCertStateString(params->certState));
+	}
+}
+
+/* print a '.' every few seconds to keep UI alive while connecting */
+static CFAbsoluteTime lastTime = (CFAbsoluteTime)0.0;
+#define TIME_INTERVAL		3.0
+
+void sslOutputDot()
+{
+	CFAbsoluteTime thisTime = CFAbsoluteTimeGetCurrent();
+	
+	if(lastTime == 0.0) {
+		/* avoid printing first time thru */
+		lastTime = thisTime;
+		return;
+	}
+	if((thisTime - lastTime) >= TIME_INTERVAL) {
+		printf("."); fflush(stdout);
+		lastTime = thisTime;
+	}
+}
+
+/* main server pthread body */
+static void *sslServerThread(void *arg)
+{
+	SslAppTestParams *testParams = (SslAppTestParams *)arg;
+	OSStatus status;
+	
+	status = sslAppServe(testParams);
+	pthread_exit((void*)status);
+	/* NOT REACHED */
+	return (void *)status;
+}
+
+/*
+ * Run one session, with the server in a separate thread.
+ * On entry, serverParams->port is the port we attempt to run on;
+ * the server thread may overwrite that with a different port if it's 
+ * unable to open the port we specify. Whatever is left in 
+ * serverParams->port is what's used for the client side. 
+ */
+#define CLIENT_WAIT_SECONDS		1
+int sslRunSession(
+	SslAppTestParams*serverParams,
+	SslAppTestParams *clientParams,
+	const char 		*testDesc)
+{
+	pthread_t serverPthread;
+	OSStatus clientRtn;
+	void *serverRtn;
+	
+	if(testDesc && !clientParams->quiet) {
+		printf("===== %s =====\n", testDesc);
+	}
+	
+	/* 
+	 * Workaround for Radar 4619502: resolve references to Security.framework 
+	 * here, in main thread, before we fork off the server thread.
+	 */
+	SecKeychainRef defaultKc = NULL;
+	SecKeychainCopyDefault(&defaultKc);
+	/* end workaround */
+	
+	if(pthread_mutex_init(&serverParams->pthreadMutex, NULL)) {
+		printf("***Error initializing mutex; aborting.\n");
+		return -1;
+	}
+	if(pthread_cond_init(&serverParams->pthreadCond, NULL)) {
+		printf("***Error initializing pthreadCond; aborting.\n");
+		return -1;
+	}
+	serverParams->serverReady = false;		// server sets true
+	
+	int result = pthread_create(&serverPthread, NULL, 
+			sslServerThread, serverParams);
+	if(result) {
+		printf("***Error starting up server thread; aborting.\n");
+		return result;
+	}
+	
+	/* wait for server to set up a socket we can connect to */
+	if(pthread_mutex_lock(&serverParams->pthreadMutex)) {
+		printf("***Error acquiring server lock; aborting.\n");
+		return -1;
+	}
+	while(!serverParams->serverReady) {
+		if(pthread_cond_wait(&serverParams->pthreadCond, &serverParams->pthreadMutex)) {
+			printf("***Error waiting server thread; aborting.\n");
+			return -1;
+		}
+	}
+	pthread_mutex_unlock(&serverParams->pthreadMutex);
+	pthread_cond_destroy(&serverParams->pthreadCond);
+	pthread_mutex_destroy(&serverParams->pthreadMutex);
+	
+	clientParams->port = serverParams->port;
+	clientRtn = sslAppClient(clientParams);
+	/* server doesn't shut down its socket until it sees this */
+	serverParams->clientDone = 1;
+	result = pthread_join(serverPthread, &serverRtn);
+	if(result) {
+		printf("***pthread_join returned %d, aborting\n", result);
+		return result;
+	}
+	
+	if(serverParams->verbose) {
+		sslShowResult("server", serverParams);
+	}
+	if(clientParams->verbose) {
+		sslShowResult("client", clientParams);
+	}
+	
+	/* verify results */
+	int ourRtn = 0;
+	ourRtn += sslVerifyRtn("server", serverParams->expectRtn, serverParams->ortn);
+	ourRtn += sslVerifyRtn("client", clientParams->expectRtn, clientParams->ortn);
+	ourRtn += sslVerifyProtVers("server", serverParams->expectVersion, 
+		serverParams->negVersion);
+	ourRtn += sslVerifyProtVers("client", clientParams->expectVersion, 
+		clientParams->negVersion);
+	ourRtn += sslVerifyClientCertState("server", serverParams->expectCertState, 
+		serverParams->certState);
+	ourRtn += sslVerifyClientCertState("client", clientParams->expectCertState, 
+		clientParams->certState);
+	if(serverParams->ortn == noErr) {
+		ourRtn += sslVerifyCipher("server", serverParams->expectCipher, 
+			serverParams->negCipher);
+	}
+	if(clientParams->ortn == noErr) {
+		ourRtn += sslVerifyCipher("client", clientParams->expectCipher, 
+			clientParams->negCipher);
+	}
+	
+	if(defaultKc) {
+		/* for workaround for Radar 4619502 */
+		CFRelease(defaultKc);
+	}
+	return ourRtn;
+}
+
+/*
+ * Add all of the roots in a given KC to SSL ctx's trusted anchors.
+ */
+OSStatus sslAddTrustedRoots(
+	SSLContextRef 	ctx,
+	SecKeychainRef	keychain,
+	bool			*foundOne)		// RETURNED, true if we found 
+									//    at least one root cert
+{
+	OSStatus 				ortn;
+	SecCertificateRef 		secCert;
+	SecKeychainSearchRef 	srch;
+	
+	*foundOne = false;
+	ortn = SecKeychainSearchCreateFromAttributes(keychain,
+		kSecCertificateItemClass,
+		NULL,			// any attrs
+		&srch);
+	if(ortn) {
+		printSslErrStr("SecKeychainSearchCreateFromAttributes", ortn);
+		return ortn;
+	}
+	
+	/*
+	 * Only use root certs. Not an error if we don't find any.
+	 */
+	do {
+		ortn = SecKeychainSearchCopyNext(srch, 
+			(SecKeychainItemRef *)&secCert);
+		if(ortn) {
+			break;
+		}
+		
+		/* see if it's a root */
+		if(!isCertRefRoot(secCert)) {
+			continue;
+		}
+		
+		/* Tell Secure Transport to trust this one. */
+		ortn = addTrustedSecCert(ctx, secCert, false);
+		if(ortn) {
+			/* fatal */
+			printSslErrStr("addTrustedSecCert", ortn);
+			return ortn;
+		}
+		CFRelease(secCert);
+		*foundOne = true;
+	} while(ortn == noErr);
+	CFRelease(srch);
+	return noErr;
+}
+
+/*
+ * Wrapper for sslIdentPicker, with optional trusted anchor specified as a filename.
+ */
+OSStatus sslIdentityPicker(
+	SecKeychainRef		kcRef,			// NULL means use default list
+	const char			*trustedAnchor,	// optional additional trusted anchor
+	bool				includeRoot,	// true --> root is appended to outArray
+										// false --> root not included
+	const CSSM_OID		*vfyPolicy,		// optional - if NULL, use SSL
+	CFArrayRef			*outArray)		// created and RETURNED
+{
+	SecCertificateRef trustedCert = NULL;
+	OSStatus ortn;
+	
+	if(trustedAnchor) { 
+		ortn = sslReadAnchor(trustedAnchor, &trustedCert);
+		if(ortn) {
+			printf("***Error reading %s. sslIdentityPicker proceeding with no anchor.\n",
+				trustedAnchor);
+			trustedCert = NULL;
+		}
+	}
+	ortn = sslIdentPicker(kcRef, trustedCert, includeRoot, vfyPolicy, outArray);
+	if(trustedCert) {
+		CFRelease(trustedCert);
+	}
+	return ortn;
+}
+
+/*
+ * Given a keychain name, convert it into a full path using the "SSL regression 
+ * test suite algorithm". The Sec layer by default locates root root's keychains
+ * in different places depending on whether we're actually logged in as root
+ * or running via e.g. cron, so we force the location of root keychains to 
+ * a hard-coded path. User keychain names we leave alone.
+ * This has to be kept in sync with the sslKcSetup script fragment in 
+ * sslScripts. 
+ */
+void sslKeychainPath(
+	const char *kcName,
+	char *kcPath)			// allocd by caller, MAXPATHLEN
+{
+	if(kcName[0] == '\0') {
+		kcPath[0] = '\0';
+	}
+	else if(geteuid() == 0) {
+		/* root */
+		const char *buildDir = getenv("LOCAL_BUILD_DIR");
+		if(buildDir == NULL) {
+			buildDir = "";
+		}
+		sprintf(kcPath, "%s/Library/Keychains/%s", buildDir, kcName);
+	}
+	else {
+		/* user, leave alone */
+		strcpy(kcPath, kcName);
+	}
+}
+
+/* Verify presence of required file. Returns nonzero if not found. */
+int sslCheckFile(const char *path)
+{
+	struct stat sb;
+
+	if(stat(path, &sb)) {
+		printf("***Can't find file %s.\n", path);
+		printf("   Try running in the build directory, perhaps after running the\n"
+			   "   makeLocalCert script.\n");
+		return 1;
+	}
+	return 0;
+}
+
+/* Stringify a SSL_ECDSA_NamedCurve */
+extern const char *sslCurveString(
+	SSL_ECDSA_NamedCurve namedCurve)
+{
+	static char unk[100];
+	
+	switch(namedCurve) {
+		case SSL_Curve_None:	  return "Curve_None";
+		case SSL_Curve_secp256r1: return "secp256r1";
+		case SSL_Curve_secp384r1: return "secp384r1";
+		case SSL_Curve_secp521r1: return "secp521r1";
+		default:
+			sprintf(unk, "Unknown <%d>", (int)namedCurve);
+			return unk;
+	}
+}
+

@@ -37,6 +37,7 @@
 #ifndef ewk_context_h
 #define ewk_context_h
 
+#include "ewk_application_cache_manager.h"
 #include "ewk_cookie_manager.h"
 #include "ewk_database_manager.h"
 #include "ewk_favicon_database.h"
@@ -72,6 +73,32 @@ enum Ewk_Cache_Model {
 
 /// Creates a type name for the Ewk_Cache_Model.
 typedef enum Ewk_Cache_Model Ewk_Cache_Model;
+
+/**
+ * \enum    Ewk_Process_Model
+ *
+ * @brief   Contains option for process model
+ */
+enum Ewk_Process_Model {
+    EWK_PROCESS_MODEL_SHARED_SECONDARY,
+    EWK_PROCESS_MODEL_MULTIPLE_SECONDARY
+};
+
+/// Creates a type name for the Ewk_Process_Model.
+typedef enum Ewk_Process_Model Ewk_Process_Model;
+
+/**
+ * \enum    Ewk_TLS_Error_Policy
+ *
+ * @brief   Contains option for TLS error policy
+ */
+enum Ewk_TLS_Error_Policy {
+    EWK_TLS_ERROR_POLICY_FAIL, // Fail on TLS errors.
+    EWK_TLS_ERROR_POLICY_IGNORE // Ignore TLS errors.
+};
+
+// Creates a type name for the Ewk_TLS_Error_Policy.
+typedef enum Ewk_TLS_Error_Policy Ewk_TLS_Error_Policy;
 
 /**
  * @typedef Ewk_Url_Scheme_Request_Cb Ewk_Url_Scheme_Request_Cb
@@ -112,6 +139,19 @@ typedef void (*Ewk_History_Title_Update_Cb)(const Evas_Object *view, const char 
 typedef void (*Ewk_History_Populate_Visited_Links_Cb)(void *user_data);
 
 /**
+ * Callback for didReceiveMessageFromInjectedBundle and didReceiveSynchronousMessageFromInjectedBundle
+ *
+ * User should allocate new string for return_data before setting it.
+ * The return_data string will be freed on WebKit side.
+ *
+ * @param name name of message from injected bundle
+ * @param body body of message from injected bundle
+ * @param return_data return_data string from application
+ * @param user_data user_data will be passsed when receiving message from injected bundle
+ */
+typedef void (*Ewk_Context_Message_From_Injected_Bundle_Cb)(const char *name, const char *body, char **return_data, void *user_data);
+
+/**
  * Gets default Ewk_Context instance.
  *
  * The returned Ewk_Context object @b should not be unref'ed if application
@@ -146,6 +186,15 @@ EAPI Ewk_Context *ewk_context_new(void);
  * @see ewk_context_new
  */
 EAPI Ewk_Context *ewk_context_new_with_injected_bundle_path(const char *path);
+
+/**
+ * Gets the application cache manager instance for this @a context.
+ *
+ * @param context context object to query.
+ *
+ * @return Ewk_Cookie_Manager object instance or @c NULL in case of failure.
+ */
+EAPI Ewk_Application_Cache_Manager *ewk_context_application_cache_manager_get(const Ewk_Context *context);
 
 /**
  * Gets the cookie manager instance for this @a context.
@@ -318,6 +367,82 @@ EAPI Eina_Bool ewk_context_additional_plugin_path_set(Ewk_Context *context, cons
  * @param context context object to clear all resource caches
  */
 EAPI void ewk_context_resource_cache_clear(Ewk_Context *context);
+
+/**
+ * Posts message to injected bundle.
+ *
+ * @param context context object to post message to injected bundle
+ * @param name message name
+ * @param body message body
+ */
+EAPI void ewk_context_message_post_to_injected_bundle(Ewk_Context *context, const char *name, const char *body);
+
+/**
+ * Sets callback for received injected bundle message.
+ *
+ * Client can pass @c NULL for callback to stop listening for messages.
+ *
+ * @param context context object
+ * @param callback callback for received injected bundle message or @c NULL
+ * @param user_data user data
+ */
+EAPI void ewk_context_message_from_injected_bundle_callback_set(Ewk_Context *context, Ewk_Context_Message_From_Injected_Bundle_Cb callback, void *user_data);
+
+/**
+ * Sets a process model for @a context.
+ *
+ * Sets a process model for web views, which will be used to decide how
+ * processes should be handled. Default value is
+ * EWK_PROCESS_MODEL_SHARED_SECONDARY which means that there is only one
+ * web process. When EWK_PROCESS_MODEL_MULTIPLE_SECONDARY is set a
+ * network process is introduced and every web view starts new web process.
+ * This function should be used before first web process is spawned.
+ *
+ * @param context context object to set process model
+ * @param process_model a #Ewk_Process_Model
+ */
+EAPI Eina_Bool ewk_context_process_model_set(Ewk_Context *context, Ewk_Process_Model process_model);
+
+/**
+ * Gets the process model for @a context.
+ *
+ * @param context context object to query
+ *
+ * @return the process model for the @a context
+ */
+EAPI Ewk_Process_Model ewk_context_process_model_get(const Ewk_Context *context);
+
+/**
+ * Gets TLS error policy for @a context.
+ *
+ * @param context context object to get TLS error policy
+ *
+ * @return The TLS errors policy for the context
+ */
+EAPI Ewk_TLS_Error_Policy ewk_context_tls_error_policy_get(const Ewk_Context *context);
+
+/**
+ * Sets TLS error policy for @a context.
+ *
+ * Sets how TLS certificate errors should be handled. The available policies are listed in #Ewk_TLS_Error_Policy enumeration.
+ *
+ * @param context context object to set TLS error policy
+ * @param tls_error_policy a #Ewk_TLS_Error_Policy
+ */
+EAPI void ewk_context_tls_error_policy_set(Ewk_Context *context, Ewk_TLS_Error_Policy tls_error_policy);
+
+/**
+ * Sets the list of preferred languages.
+ *
+ * Sets the list of preferred langages. This list will be used to build the "Accept-Language"
+ * header that will be included in the network requests.
+ * Client can pass @c NULL for languages to clear what is set before.
+ *
+ * @param languages the list of preferred languages (char* as data) or @c NULL
+ *
+ * @note all contexts will be affected.
+ */
+EAPI void ewk_context_preferred_languages_set(Eina_List *languages);
 
 #ifdef __cplusplus
 }

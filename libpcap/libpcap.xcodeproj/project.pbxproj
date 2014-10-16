@@ -1264,10 +1264,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 				);
 				INSTALL_PATH = /usr/lib;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-all_load";
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include/pcap;
 				PRODUCT_NAME = libpcap.A;
@@ -1294,6 +1295,7 @@
 				HEADER_SEARCH_PATHS = libpcap;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				USER_HEADER_SEARCH_PATHS = "";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -1402,8 +1404,8 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				EXECUTABLE_PREFIX = "";
 				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 				);
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1416,8 +1418,8 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				EXECUTABLE_PREFIX = "";
 				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 				);
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1490,6 +1492,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				USER_HEADER_SEARCH_PATHS = "";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -1499,10 +1502,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					libpcap,
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 				);
 				INSTALL_PATH = /usr/lib;
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-all_load";
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include/pcap;
 				PRODUCT_NAME = libpcap.A;
@@ -1629,10 +1633,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					libpcap,
-				);
+				HEADER_SEARCH_PATHS = libpcap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = "";
 			};
@@ -1643,10 +1644,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				HEADER_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					libpcap,
-				);
+				HEADER_SEARCH_PATHS = libpcap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = "";
 			};

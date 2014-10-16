@@ -1,2 +1,0 @@
-perl "-MSOAP::Lite service=>'http://www.xmethods.net/sd/StockQuoteService.wsdl'" -le "print getQuote('MSFT')"
-perl "-MSOAP::Lite service=>'file:./quote.wsdl'" -le "print getQuote('MSFT')"

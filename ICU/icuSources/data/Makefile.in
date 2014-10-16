@@ -1,5 +1,5 @@
 ## Makefile.in for ICU data
-## Copyright (c) 1999-2012, International Business Machines Corporation and
+## Copyright (c) 1999-2014, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Source directory information
@@ -44,7 +44,11 @@ CURDIR:=$(CURR_FULL_DIR)
 ifeq ($(CURDIR),)
 CURDIR=.
 endif
+ifeq ($(OS390BATCH),1)
+PKGDATA = $(TOOLBINDIR)/pkgdata $(PKGDATA_OPTS) -z -q -c -s $(CURDIR)/out/build/$(ICUDATA_PLATFORM_NAME) -d $(ICUPKGDATA_OUTDIR)
+else
 PKGDATA = $(TOOLBINDIR)/pkgdata $(PKGDATA_OPTS) -q -c -s $(CURDIR)/out/build/$(ICUDATA_PLATFORM_NAME) -d $(ICUPKGDATA_OUTDIR)
+endif
 OS390_PDS_NAME = -z -L $(BATCH_STUB_TARGET)
 
 ifeq ($(OS390_STUBDATA),1)
@@ -109,7 +113,7 @@ TOOLDIR=$(top_builddir)/tools
 .PHONY : all all-local all-recursive install install-local install-files	\
 install-recursive clean clean-local clean-recursive distclean		\
 distclean-local distclean-recursive dist dist-local dist-recursive	\
-check check-local check-recursive build-local clean-resindex build-dir icudata.jar	\
+check check-local check-recursive clean-resindex icudata.jar	\
 check-exhaustive
 
 ## Clear suffix list
@@ -139,6 +143,7 @@ clean-map:
 	-test -z *.map || $(RMV) *.map
 
 clean-local: cleanpackage cleanfiles clean-map
+	$(RMV) build-dir* build-local packagedata uni-core-data
 
 cleanfiles:
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)
@@ -180,12 +185,10 @@ endif
 endif
 ifneq ($(ICUDATA_SOURCE_IS_NATIVE_TARGET),YES)
 	$(PKGDATA_INVOKE) $(PKGDATA) -e $(ICUDATA_ENTRY_POINT) -T $(OUTTMPDIR) -p $(ICUDATA_NAME) -m $(PKGDATA_MODE) $(PKGDATA_VERSIONING) $(PKGDATA_LIBNAME) $(PKGDATA_LIST)
-ifeq ($(OS390BATCH),1)
-	$(PKGDATA_INVOKE) $(PKGDATA) -e $(ICUDATA_ENTRY_POINT) -T $(OUTTMPDIR) -p $(ICUDATA_NAME) -m $(PKGDATA_MODE) $(PKGDATA_VERSIONING) $(OS390_PDS_NAME) $(PKGDATA_LIST)
-endif
 else
 	$(INSTALL_DATA) $(ICUDATA_SOURCE_ARCHIVE) $(OUTDIR)
 endif
+	echo timestamp > $@
 
 ## Install ICU data.
 install-local: $(PKGDATA_LIST) ./icupkg.inc packagedata $(OS390INSTALL)
@@ -240,7 +243,7 @@ package390: $(OUTTMPDIR)/icudata390.lst $(PKGDATA_LIST) ./icupkg.inc packagedata
 #  2010-dec Removed pnames.icu.
 # These are now hardcoded in ICU4C and only loaded in ICU4J.
 #
-DAT_FILES_SHORT=unames.icu cnvalias.icu coll/ucadata.icu coll/invuca.icu nfc.nrm nfkc.nrm nfkc_cf.nrm uts46.nrm
+DAT_FILES_SHORT=unames.icu cnvalias.icu coll/ucadata.icu nfc.nrm nfkc.nrm nfkc_cf.nrm uts46.nrm
 DAT_FILES=$(DAT_FILES_SHORT:%=$(BUILDDIR)/%)
 
 ## BRK files
@@ -430,16 +433,18 @@ UNI_CORE_TARGET_DATA=$(UNI_CORE_DATA:%=$(BUILDDIR)/%)
 ifneq ($(INCLUDE_UNI_CORE_DATA),)
 MISC_FILES_LIST+=$(UNI_CORE_DATA)
 build-local: uni-core-data
+	echo timestamp > $@
 endif
 
 #####################################################
 # General data build rules
 
 ## Files to remove for 'make clean'
-CLEANFILES = *~ icupkg.inc
+CLEANFILES = *~ icupkg.inc *.x
 
 ifeq ($(ICUDATA_SOURCE_ARCHIVE),)
 build-local: build-dir $(SO_VERSION_DATA) $(ALL_FILES) $(PKGDATA_LIST) $(OS390LIST)
+	echo timestamp > $@
 $(PKGDATA_LIST): $(SRCLISTDEPS)
 	@echo "generating $@ (list of data files)"
 	@-$(RMV) $@
@@ -457,6 +462,7 @@ $(PKGDATA_LIST): $(SRCLISTDEPS)
 	done;
 else
 build-local: build-dir $(SO_VERSION_DATA) $(PKGDATA_LIST) $(OS390LIST)
+	echo timestamp > $@
 $(PKGDATA_LIST): $(SRCLISTDEPS) $(ICUDATA_SOURCE_ARCHIVE)
 ifneq ($(ICUDATA_SOURCE_IS_NATIVE_TARGET),YES)
 	@echo "Unpacking $(ICUDATA_SOURCE_ARCHIVE) and generating $@ (list of data files)"
@@ -471,6 +477,8 @@ endif
 $(BUILD_DIRS): build-dir
 
 build-dir:
+	@-$(RMV) $@
+	echo timestamp > $@.tmp
 	@list='$(BUILD_DIRS)'; \
 	for dir in $$list; do \
 	  if ! test -d $$dir; then \
@@ -478,6 +486,7 @@ build-dir:
 	    $(MKINSTALLDIRS) $(BUILD_DIRS); \
 	  fi; \
 	done
+	mv $@.tmp $@
 
 # The | is an order-only prerequisite. This helps when the -j option is used,
 # and we don't want the files to be built before the directories are built.
@@ -526,6 +535,9 @@ $(BRKBLDDIR)/%.dict: $(TOOLBINDIR)/gendict$(TOOLEXEEXT) $(DAT_FILES)
 
 $(BRKBLDDIR)/thaidict.dict: $(TOOLBINDIR)/gendict$(TOOLEXEEXT) $(DAT_FILES)
 	$(INVOKE) $(TOOLBINDIR)/gendict --bytes --transform offset-0x0e00 -c -i $(BUILDDIR) $(BRKSRCDIR)/thaidict.txt $(BRKBLDDIR)/thaidict.dict
+
+$(BRKBLDDIR)/laodict.dict: $(TOOLBINDIR)/gendict$(TOOLEXEEXT) $(DAT_FILES)
+	$(INVOKE) $(TOOLBINDIR)/gendict --bytes --transform offset-0x0e80 -c -i $(BUILDDIR) $(BRKSRCDIR)/laodict.txt $(BRKBLDDIR)/laodict.dict
 
 # TODO: figure out why combining characters are here?
 $(BRKBLDDIR)/khmerdict.dict: $(TOOLBINDIR)/gendict$(TOOLEXEEXT) $(DAT_FILES)
@@ -778,6 +790,7 @@ $(BUILDDIR)/$(INDEX_NAME).res: $(INDEX_FILE) $(TOOLBINDIR)/genrb$(TOOLEXEEXT)
 # when updating the Unicode data.
 uni-core-data: build-dir $(UNI_CORE_TARGET_DATA)
 	@echo Unicode .icu files built to $(BUILDDIR)
+	echo timestamp > $@
 
 # Build the ICU4J icudata.jar.
 # Command line:

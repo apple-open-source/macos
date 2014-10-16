@@ -14,7 +14,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,25 +28,23 @@
 #define DNSResolveQueue_h
 
 #include "Timer.h"
+#include <atomic>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class DNSResolveQueue : public TimerBase {
+class DNSResolveQueue {
+    friend NeverDestroyed<DNSResolveQueue>;
 
 public:
-    static DNSResolveQueue& shared()
-    {
-      DEFINE_STATIC_LOCAL(DNSResolveQueue, queue, ());
-      return queue;
-    }
+    static DNSResolveQueue& shared();
 
     void add(const String& hostname);
     void decrementRequestCount()
     {
-      atomicDecrement(&m_requestsInFlight);
+        --m_requestsInFlight;
     }
 
 private:
@@ -57,10 +55,12 @@ private:
     bool platformProxyIsEnabledInSystemPreferences();
     void platformResolve(const String&);
 
-    void fired();
+    void timerFired(Timer<DNSResolveQueue>&);
+
+    Timer<DNSResolveQueue> m_timer;
 
     HashSet<String> m_names;
-    int m_requestsInFlight;
+    std::atomic<int> m_requestsInFlight;
     bool m_cachedProxyEnabledStatus;
     double m_lastProxyEnabledStatusCheckTime;
 };

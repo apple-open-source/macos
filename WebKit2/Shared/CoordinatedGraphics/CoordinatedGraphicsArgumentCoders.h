@@ -48,43 +48,17 @@ struct Length;
 class FilterOperations;
 #endif
 
-#if ENABLE(CSS_SHADERS)
-class CustomFilterProgramInfo;
-#endif
-
 #if USE(GRAPHICS_SURFACE)
 struct GraphicsSurfaceToken;
 #endif
 }
 
-namespace CoreIPC {
-
-template<> struct ArgumentCoder<WebCore::FloatPoint3D> {
-    static void encode(ArgumentEncoder&, const WebCore::FloatPoint3D&);
-    static bool decode(ArgumentDecoder&, WebCore::FloatPoint3D&);
-};
-
-template<> struct ArgumentCoder<WebCore::Length> {
-    static void encode(ArgumentEncoder&, const WebCore::Length&);
-    static bool decode(ArgumentDecoder&, WebCore::Length&);
-};
-
-template<> struct ArgumentCoder<WebCore::TransformationMatrix> {
-    static void encode(ArgumentEncoder&, const WebCore::TransformationMatrix&);
-    static bool decode(ArgumentDecoder&, WebCore::TransformationMatrix&);
-};
+namespace IPC {
 
 #if ENABLE(CSS_FILTERS)
 template<> struct ArgumentCoder<WebCore::FilterOperations> {
     static void encode(ArgumentEncoder&, const WebCore::FilterOperations&);
     static bool decode(ArgumentDecoder&, WebCore::FilterOperations&);
-};
-#endif
-
-#if ENABLE(CSS_SHADERS)
-template<> struct ArgumentCoder<WebCore::CustomFilterProgramInfo> {
-    static void encode(ArgumentEncoder&, const WebCore::CustomFilterProgramInfo&);
-    static bool decode(ArgumentDecoder&, WebCore::CustomFilterProgramInfo&);
 };
 #endif
 
@@ -135,7 +109,7 @@ template<> struct ArgumentCoder<WebCore::CoordinatedGraphicsState> {
     static bool decode(ArgumentDecoder&, WebCore::CoordinatedGraphicsState&);
 };
 
-} // namespace CoreIPC
+} // namespace IPC
 
 #endif // USE(COORDINATED_GRAPHICS)
 

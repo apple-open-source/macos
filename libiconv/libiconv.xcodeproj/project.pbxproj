@@ -163,7 +163,7 @@
 		594FCA33100BE26E009FDDA8 /* Copy man pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man3;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
 				594FCA36100BE29C009FDDA8 /* iconv.3 in Copy man pages */,
@@ -188,7 +188,7 @@
 		594FCA50100BE554009FDDA8 /* OS plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceVersions;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				594FCA4B100BE545009FDDA8 /* libiconv.plist in OS plist */,
@@ -199,7 +199,7 @@
 		594FCA52100BE5CB009FDDA8 /* OS licenses */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceLicenses;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				594FCA58100BE61B009FDDA8 /* libcharset.txt in OS licenses */,
@@ -211,7 +211,7 @@
 		594FCA6A100BFFF3009FDDA8 /* charset.alias */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/lib;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/lib";
 			dstSubfolderSpec = 0;
 			files = (
 				594FCA6C100C0026009FDDA8 /* charset.alias in charset.alias */,

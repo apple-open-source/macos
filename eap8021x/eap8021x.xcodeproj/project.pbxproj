@@ -222,6 +222,9 @@
 		F97C287C1713654A00940716 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
 		F97C287D1713656100940716 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
 		F98D3E460D5A788E00E3A5A0 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
+		F98E42EB19017F4900DE4397 /* wireless.m in Sources */ = {isa = PBXBuildFile; fileRef = F98E42EA19017F4900DE4397 /* wireless.m */; };
+		F98E42EE19017FB600DE4397 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F98E42EC19017FB600DE4397 /* CoreWLAN.framework */; };
+		F98E42EF19017FB600DE4397 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F98E42ED19017FB600DE4397 /* Foundation.framework */; };
 		F997F3B30F24F46C00A9DC1F /* SIMAccess.c in Sources */ = {isa = PBXBuildFile; fileRef = F997F3B20F24F46C00A9DC1F /* SIMAccess.c */; };
 		F997F3B40F24F46C00A9DC1F /* SIMAccess.c in Sources */ = {isa = PBXBuildFile; fileRef = F997F3B20F24F46C00A9DC1F /* SIMAccess.c */; };
 		F997F3B60F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F997F3B50F24F48800A9DC1F /* SIMAccess.h */; };
@@ -247,7 +250,6 @@
 		F9B7FB630C95CA7200BBD057 /* mylog.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B7D0C8F7F55000EA394 /* mylog.c */; };
 		F9B7FB650C95CA7300BBD057 /* wireless.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B870C8F7F55000EA394 /* wireless.c */; };
 		F9B7FB660C95CA7400BBD057 /* Dialogue.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B710C8F7F55000EA394 /* Dialogue.c */; };
-		F9B7FB6E0C95CBD900BBD057 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
 		F9B7FBB40C95CBDE00BBD057 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F9B7FC620C95CE4C00BBD057 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */; };
 		F9C18FD8163B995800F121AF /* eapaka_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F9C18FD7163B995800F121AF /* eapaka_plugin.c */; };
@@ -513,6 +515,9 @@
 		F96044A510D1CA78000D803D /* eapolcfg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolcfg; sourceTree = BUILT_PRODUCTS_DIR; };
 		F96E583F169E02E5001068C6 /* EAPOLControlPrefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLControlPrefs.c; sourceTree = "<group>"; };
 		F96E5840169E02E5001068C6 /* EAPOLControlPrefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLControlPrefs.h; sourceTree = "<group>"; };
+		F98E42EA19017F4900DE4397 /* wireless.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = wireless.m; sourceTree = "<group>"; };
+		F98E42EC19017FB600DE4397 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = /System/Library/Frameworks/CoreWLAN.framework; sourceTree = "<group>"; };
+		F98E42ED19017FB600DE4397 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<group>"; };
 		F997F3B20F24F46C00A9DC1F /* SIMAccess.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SIMAccess.c; sourceTree = "<group>"; };
 		F997F3B50F24F48800A9DC1F /* SIMAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SIMAccess.h; sourceTree = "<group>"; };
 		F99841D6128A09A700F11866 /* eapol_monitor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = eapol_monitor.c; path = EAPOLMonitor.bproj/eapol_monitor.c; sourceTree = "<group>"; };
@@ -632,9 +637,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F98E42EE19017FB600DE4397 /* CoreWLAN.framework in Frameworks */,
+				F98E42EF19017FB600DE4397 /* Foundation.framework in Frameworks */,
 				F9B7FC620C95CE4C00BBD057 /* EAP8021X.framework in Frameworks */,
 				F9D5E1210C95FE65004C0066 /* Security.framework in Frameworks */,
-				F9B7FB6E0C95CBD900BBD057 /* CoreFoundation.framework in Frameworks */,
 				F9B7FBB40C95CBDE00BBD057 /* SystemConfiguration.framework in Frameworks */,
 				F94E3F810F6729190061BC58 /* IOKit.framework in Frameworks */,
 				F9D4C2BF168238CC00D789F1 /* OpenDirectory.framework in Frameworks */,
@@ -668,6 +674,8 @@
 		F91F7AD40C8F5E37000EA394 = {
 			isa = PBXGroup;
 			children = (
+				F98E42EC19017FB600DE4397 /* CoreWLAN.framework */,
+				F98E42ED19017FB600DE4397 /* Foundation.framework */,
 				F90B1995169CE1B3005BE74F /* com.apple.networking.eapol */,
 				F9D4C2BE168238CC00D789F1 /* OpenDirectory.framework */,
 				F99841D3128A098200F11866 /* EAPOLMonitor.bproj */,
@@ -871,6 +879,7 @@
 		F91F7B9D0C8F84A7000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F98E42EA19017F4900DE4397 /* wireless.m */,
 				F94E3F730F6706420061BC58 /* InterestNotification.c */,
 				F91F7B6E0C8F7F55000EA394 /* Alert.c */,
 				F91F7B710C8F7F55000EA394 /* Dialogue.c */,
@@ -1551,6 +1560,7 @@
 				F9B7FB620C95CA7000BBD057 /* KeyValue.c in Sources */,
 				F9B7FB630C95CA7200BBD057 /* mylog.c in Sources */,
 				F9B7FB650C95CA7300BBD057 /* wireless.c in Sources */,
+				F98E42EB19017F4900DE4397 /* wireless.m in Sources */,
 				F9B7FB660C95CA7400BBD057 /* Dialogue.c in Sources */,
 				F94E3F740F6706420061BC58 /* InterestNotification.c in Sources */,
 			);
@@ -1859,6 +1869,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Deployment;
 		};
@@ -1902,8 +1914,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				RUN_CLANG_STATIC_ANALYZER = YES;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Development;
 		};

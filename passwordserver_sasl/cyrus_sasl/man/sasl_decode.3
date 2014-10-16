@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_decode "10 July 2001" SASL "SASL man pages"
+.TH sasl_decode 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_decode \- Decode data received
 
@@ -58,7 +58,7 @@ sasl_decode \- Decode data received
 .SH DESCRIPTION
 
 .B sasl_decode
-decodes data received. After succesful authentication this function
+decodes data received. After successful authentication this function
 should be called on all data received. It decodes the data from
 encrypted or signed form to plain data. If there was no security layer
 negotiated the output is identical to the input.
@@ -78,6 +78,6 @@ Returns SASL_OK on success. See sasl_errors(3) for meanings of other return
 codes.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_encode(3)

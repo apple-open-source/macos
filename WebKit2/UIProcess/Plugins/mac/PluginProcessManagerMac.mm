@@ -26,7 +26,7 @@
 #import "config.h"
 #import "PluginProcessManager.h"
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #import "PluginProcessProxy.h"
 
@@ -34,11 +34,10 @@ namespace WebKit {
 
 void PluginProcessManager::setProcessSuppressionEnabled(bool processSuppressionEnabled)
 {
-    size_t processCount = m_pluginProcesses.size();
-    for (size_t i = 0; i < processCount; ++i)
-        m_pluginProcesses[i]->setProcessSuppressionEnabled(processSuppressionEnabled);
+    for (auto& pluginProcess : m_pluginProcesses)
+        pluginProcess->setProcessSuppressionEnabled(processSuppressionEnabled);
 }
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

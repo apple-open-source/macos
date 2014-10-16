@@ -181,6 +181,34 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
     return;
 }
 
+PRIVATE_EXTERN void
+my_SCDynamicStoreSetInterface(SCDynamicStoreRef store,
+			      CFStringRef ifname,
+			      CFStringRef entity,
+			      CFDictionaryRef value)
+{
+    CFStringRef	key;
+	
+    if (S_keys_to_set == NULL) {
+	S_keys_to_set
+	    = CFDictionaryCreateMutable(NULL, 0,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+    }
+    if (S_keys_to_remove == NULL) {
+	S_keys_to_remove
+	    = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	S_keys_to_remove_range.location = 0;
+	S_keys_to_remove_range.length = 0;
+    }
+    key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							ifname,
+							entity);
+    update_key(store, key, value);
+    CFRelease(key);
+    return;
+}
 
 PRIVATE_EXTERN void
 my_SCDynamicStorePublish(SCDynamicStoreRef store)
@@ -202,12 +230,12 @@ my_SCDynamicStorePublish(SCDynamicStoreRef store)
 				  NULL);
 	if (G_IPConfiguration_verbose) {
 	    if (S_keys_to_set != NULL) {
-		my_log(-LOG_DEBUG, 
+		my_log(~LOG_DEBUG, 
 		       "DynamicStore Publish\n%@",
 		       S_keys_to_set);
 	    }
 	    if (S_keys_to_remove != NULL) {
-		my_log(-LOG_DEBUG, 
+		my_log(~LOG_DEBUG, 
 		       "DynamicStore Remove\n%@",
 		       S_keys_to_remove);
 	    }
@@ -287,7 +315,7 @@ bytesFromColonHexString(CFStringRef colon_hex, int * len)
  
     arr = CFStringCreateArrayBySeparatingStrings(NULL, colon_hex, CFSTR(":"));
     if (arr != NULL) {
-	n_bytes = CFArrayGetCount(arr);
+	n_bytes = (int)CFArrayGetCount(arr);
     }
     if (n_bytes == 0) {
 	goto failed;
@@ -627,7 +655,7 @@ merge_dict_arrays(CFMutableDictionaryRef dict, CFDictionaryRef one,
 {
     CFArrayRef		array_one;
     CFArrayRef		array_two;
-    int			count_two;
+    CFIndex		count_two;
     int			i;
     CFMutableArrayRef	merged;
     CFRange		range_one;

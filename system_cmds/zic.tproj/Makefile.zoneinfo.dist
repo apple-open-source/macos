@@ -5,6 +5,11 @@
 # Alternately, if you discover you've got the wrong time zone, you can just
 #	zic -l rightzone
 
+################################################################################
+# NOTE: THIS MAKEFILE IS FOR REFERENCE ONLY AND IS NOT ACTUALLY EXECUTED AT
+# 	BUILD TIME
+################################################################################
+
 # This line has been moved to /usr/src/etc/Makefile
 LOCALTIME=	US/Pacific
 

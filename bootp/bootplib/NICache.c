@@ -90,11 +90,6 @@ S_timestamp(char * msg)
 {
     timestamp_printf(msg);
 }
-#else /* NICACHE_TEST */
-static __inline__ void
-S_timestamp(char * msg)
-{
-}
 #endif /* TIMESTAMPS */
 
 /**
@@ -338,15 +333,15 @@ PLCache_read(PLCache_t * cache, const char * filename)
 	else {
 	    char	propname[128];
 	    char	propval[768] = "";
-	    int 	len = strlen(line);
+	    int 	len = (int)strlen(line);
 	    char *	sep = strchr(line, '=');
-	    int 	whitespace_len = strspn(line, " \t\n");
+	    int 	whitespace_len = (int)strspn(line, " \t\n");
 
 	    if (whitespace_len == len) {
 		continue;
 	    }
 	    if (sep) {
-		int nlen = (sep - line) - whitespace_len;
+		int nlen = (int)(sep - line) - whitespace_len;
 		int vlen = len - whitespace_len - nlen - 2;
 
 		if (nlen >= sizeof(propname)) {
@@ -469,7 +464,7 @@ PLCache_lookup_prop(PLCache_t * PLCache, char * prop, char * value, boolean_t ma
     for (scan = PLCache->head; scan; scan = scan->next) {
 	int		name_index;
 
-	name_index = ni_proplist_match(scan->pl, prop, value);
+	name_index = (int)ni_proplist_match(scan->pl, prop, value);
 	if (name_index != NI_INDEX_NULL) {
 	    if (make_head) {
 		PLCache_make_head(PLCache, scan);
@@ -499,10 +494,10 @@ PLCache_lookup_hw(PLCache_t * PLCache,
 	int		ip_index;
 	ni_namelist *	ip_nl_p;
 
-	en_index = ni_proplist_match(scan->pl, NIPROP_ENADDR, NULL);
+	en_index = (int)ni_proplist_match(scan->pl, NIPROP_ENADDR, NULL);
 	if (en_index == NI_INDEX_NULL)
 	    continue;
-	ip_index = ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
+	ip_index = (int)ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
 	if (ip_index == NI_INDEX_NULL)
 	    continue;
 
@@ -550,8 +545,8 @@ PLCache_lookup_identifier(PLCache_t * PLCache,
 	int		ip_index;
 	ni_namelist *	ip_nl_p;
 
-	ident_index = ni_proplist_match(scan->pl, NIPROP_IDENTIFIER, 
-					NULL);
+	ident_index = (int)ni_proplist_match(scan->pl, NIPROP_IDENTIFIER, 
+					     NULL);
 	if (ident_index == NI_INDEX_NULL)
 	    continue;
 	ident_nl_p = &scan->pl.nipl_val[ident_index].nip_val;
@@ -567,7 +562,7 @@ PLCache_lookup_identifier(PLCache_t * PLCache,
 	    }
 	}
 	    
-	ip_index = ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
+	ip_index = (int)ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
 	if (ip_index == NI_INDEX_NULL)
 	    continue;
 	ip_nl_p = &scan->pl.nipl_val[ip_index].nip_val;
@@ -604,7 +599,7 @@ PLCache_lookup_ip(PLCache_t * PLCache, struct in_addr iaddr)
 	int		ip_index;
 	ni_namelist *	ip_nl_p;
 
-	ip_index = ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
+	ip_index = (int)ni_proplist_match(scan->pl, NIPROP_IPADDR, NULL);
 	if (ip_index == NI_INDEX_NULL)
 	    continue;
 	ip_nl_p = &scan->pl.nipl_val[ip_index].nip_val;

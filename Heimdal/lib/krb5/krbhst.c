@@ -149,7 +149,7 @@ _krb5_state_srv_sort(struct _krb5_srv_query_ctx *query)
 		for (o = prio_marker; o < n; o++) {
 		    if (query->array[o].weight < 0)
 			continue;
-		    if (rnd <= query->array[o].weight) {
+		    if (rnd <= (uint32_t)query->array[o].weight) {
 			sum -= query->array[o].weight;
 			query->array[o].weight = count--;
 			break;
@@ -170,14 +170,22 @@ _krb5_state_srv_sort(struct _krb5_srv_query_ctx *query)
     qsort(query->array, query->len, sizeof(query->array[0]), compare_srv);
 }
 
-
 static void
 state_append_hosts(struct _krb5_srv_query_ctx *query)
 {
     size_t n;
 
-    for (n = 0; n < query->len; n++)
+    _krb5_debugx(query->context, 10, "SRV order after sorting");
+
+    for (n = 0; n < query->len; n++) {
+	_krb5_debugx(query->context, 10, "  SRV%lu kdc: %s prio: %d weight: %d",
+		     (unsigned long)n,
+		     query->array[n].hi->hostname, 
+		     query->array[n].priority,
+		     query->array[n].weight);
+
 	append_host_hostinfo(query->handle, query->array[n].hi);
+    }
 
     dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
 
@@ -240,7 +248,8 @@ QueryReplyCallback(DNSServiceRef sdRef,
     else
 	hi->port = port;
 
-    hi->path = rk_UNCONST(query->path);
+    if (query->path)
+	hi->path = strdup(query->path);
     
     tmp = realloc(query->array, (query->len + 1) * sizeof(query->array[0]));
     if (tmp == NULL) {
@@ -295,7 +304,10 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	} else
 	    ret = 0;
 
-	DNSServiceRefDeallocate (client);
+	/* must run the DNSServiceRefDeallocate on the same queue as dns request are processed on */
+	dispatch_sync((dispatch_queue_t)dnsQueue, ^{
+	    DNSServiceRefDeallocate(client);
+	});
     } else {
 	_krb5_debugx(context, 2,
 		     "searching DNS for domain %s failed: %d",
@@ -344,7 +356,8 @@ srv_query_domain(void *ctx)
 	    else
 		hi->port = rr->u.srv->port;
 
-	    hi->path = query->path;
+	    if (query->path)
+		hi->path = strdup(query->path);
 	    strlcpy(hi->hostname, rr->u.srv->target, len + 1);
 
 	    append_host_hostinfo(kd, hi);
@@ -468,7 +481,7 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	    portstr = p + end_hostname + 1;
 	    p = strchr(p, '/');
 	} else { 
-	    p = p + end_hostname + 1;
+	    p = p + end_hostname;
 	}
     } else {
 	memcpy(hi->hostname, p, strlen(p) + 1);
@@ -476,7 +489,7 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 
     /* if we had a path, pick it up now */
     if (p && p[0] == '/')
-	hi->path = (char *)(p + 1);
+	hi->path = strdup((char *)(p + 1));
 
     strlwr(hi->hostname);
 
@@ -485,6 +498,8 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	char *end;
 	hi->port = strtol(portstr, &end, 0);
 	if(end == portstr) {
+	    if (hi->path)
+		free(hi->path);
 	    free(hi);
 	    return NULL;
 	}
@@ -499,6 +514,8 @@ _krb5_free_krbhst_info(krb5_krbhst_info *hi)
 {
     if (hi->ai != NULL)
 	freeaddrinfo(hi->ai);
+    if (hi->path)
+	free(hi->path);
     free(hi);
 }
 
@@ -522,6 +539,8 @@ _krb5_krbhost_info_move(krb5_context context,
     (*to)->ai = from->ai;
     from->ai = NULL;
     (*to)->next = NULL;
+    (*to)->path = from->path;
+    from->path = NULL;
     memcpy((*to)->hostname, from->hostname, hostnamelen + 1);
     return 0;
 }
@@ -580,9 +599,13 @@ krb5_krbhst_format_string(krb5_context context, const krb5_krbhst_info *host,
 	proto = "tcp/";
     else if(host->proto == KRB5_KRBHST_HTTP)
 	proto = "http://";
+    else if(host->proto == KRB5_KRBHST_KKDCP)
+	proto = "kkdcp://";
     if(host->port != host->def_port)
 	snprintf(portstr, sizeof(portstr), ":%d", host->port);
-    snprintf(hostname, hostlen, "%s%s%s", proto, host->hostname, portstr);
+    snprintf(hostname, hostlen, "%s%s%s%s%s", proto, host->hostname, portstr,
+	     host->proto == KRB5_KRBHST_KKDCP ? "/" : "",
+	     host->proto == KRB5_KRBHST_KKDCP ? host->path : "");
     return 0;
 }
 

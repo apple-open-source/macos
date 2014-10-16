@@ -7,12 +7,12 @@
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/tk.xml
+ * ICU <specials> source: <path>/common/main/tk.xml
  */
 tk{
     AuxExemplarCharacters{"[c q v x]"}
-    ExemplarCharacters{"[a b ç d e ä f g h i j ž k l m n ň o ö p r s ş t u ü w y ý z]"}
-    ExemplarCharactersIndex{"[A B Ç D E Ä F G H I J Ž K L M N Ň O Ö P R S Ş T U Ü W Y Ý Z]"}
+    ExemplarCharacters{"[a ä b ç d e f g h i j k l m n ň o ö p r s ş t u ü w y ý z ž]"}
+    ExemplarCharactersIndex{"[A Ä B Ç D E F G H I J K L M N Ň O Ö P R S Ş T U Ü W Y Ý Z Ž]"}
     LocaleScript{
         "Latn",
     }
@@ -38,7 +38,7 @@ tk{
             }
         }
     }
-    Version{"2.0.82.15"}
+    Version{"2.0.92.90"}
     calendar{
         generic{
             DateTimePatterns{

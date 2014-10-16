@@ -102,7 +102,7 @@ hdb_default_db (krb5_context /*context*/);
 krb5_error_code
 hdb_enctype2key (
 	krb5_context /*context*/,
-	hdb_entry */*e*/,
+	const hdb_entry */*e*/,
 	krb5_enctype /*enctype*/,
 	Key **/*key*/);
 
@@ -154,10 +154,10 @@ hdb_entry_get_aliases (
 	const hdb_entry */*entry*/,
 	const HDB_Ext_Aliases **/*a*/);
 
-unsigned int
+krb5_kvno
 hdb_entry_get_kvno_diff_clnt (const hdb_entry */*entry*/);
 
-unsigned int
+krb5_kvno
 hdb_entry_get_kvno_diff_svc (const hdb_entry */*entry*/);
 
 int
@@ -470,6 +470,12 @@ hdb_mit_dump(krb5_context context,
 	     const char *file,
 	     krb5_error_code (*func)(krb5_context, HDB *, hdb_entry_ex *, void *),
 	     void *ctx);
+
+krb5_error_code
+hdb_set_srp_verifier(krb5_context, KRB5_SRP_GROUP, krb5_const_principal, const char *, uint32_t, hdb_srp *);
+
+krb5_error_code
+hdb_entry_set_srp_verifiers(krb5_context, hdb_entry *, const char *, uint32_t);
 
 #ifdef __cplusplus
 }

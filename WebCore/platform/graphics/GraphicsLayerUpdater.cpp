@@ -24,11 +24,9 @@
  */
 
 #include "config.h"
-
-#if USE(ACCELERATED_COMPOSITING)
-
 #include "GraphicsLayerUpdater.h"
 
+#include "DisplayRefreshMonitorManager.h"
 #include "GraphicsLayer.h"
 
 namespace WebCore {
@@ -38,9 +36,9 @@ GraphicsLayerUpdater::GraphicsLayerUpdater(GraphicsLayerUpdaterClient* client, P
     , m_scheduled(false)
 {
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    DisplayRefreshMonitorManager::sharedManager()->registerClient(this);
-    DisplayRefreshMonitorManager::sharedManager()->windowScreenDidChange(displayID, this);
-    DisplayRefreshMonitorManager::sharedManager()->scheduleAnimation(this);
+    DisplayRefreshMonitorManager::sharedManager().registerClient(this);
+    DisplayRefreshMonitorManager::sharedManager().windowScreenDidChange(displayID, this);
+    DisplayRefreshMonitorManager::sharedManager().scheduleAnimation(this);
 #else
     UNUSED_PARAM(displayID);
 #endif
@@ -57,7 +55,7 @@ void GraphicsLayerUpdater::scheduleUpdate()
         return;
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    DisplayRefreshMonitorManager::sharedManager()->scheduleAnimation(this);
+    DisplayRefreshMonitorManager::sharedManager().scheduleAnimation(this);
 #endif
     m_scheduled = true;
 }
@@ -65,7 +63,7 @@ void GraphicsLayerUpdater::scheduleUpdate()
 void GraphicsLayerUpdater::screenDidChange(PlatformDisplayID displayID)
 {
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    DisplayRefreshMonitorManager::sharedManager()->windowScreenDidChange(displayID, this);
+    DisplayRefreshMonitorManager::sharedManager().windowScreenDidChange(displayID, this);
 #else
     UNUSED_PARAM(displayID);
 #endif
@@ -77,9 +75,14 @@ void GraphicsLayerUpdater::displayRefreshFired(double timestamp)
     m_scheduled = false;
     
     if (m_client)
-        m_client->flushLayers(this);
+        m_client->flushLayersSoon(this);
 }
 
-} // namespace WebCore
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+PassRefPtr<DisplayRefreshMonitor> GraphicsLayerUpdater::createDisplayRefreshMonitor(PlatformDisplayID displayID) const
+{
+    return m_client ? m_client->createDisplayRefreshMonitor(displayID) : nullptr;
+}
+#endif
 
-#endif // USE(ACCELERATED_COMPOSITING)
+} // namespace WebCore

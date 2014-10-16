@@ -18,32 +18,12 @@
  * @file  netware/mpm_default.h
  * @brief Defaults for Netware MPM
  *
- * @addtogroup APACHE_MPM_NETWARE
+ * @defgroup APACHE_MPM_NETWARE Netware MPM
+ * @ingroup APACHE_INTERNAL
  * @{
  */
 #ifndef APACHE_MPM_DEFAULT_H
 #define APACHE_MPM_DEFAULT_H
-
-/* Number of servers to spawn off by default --- also, if fewer than
- * this free when the caretaker checks, it will spawn more.
- */
-#ifndef DEFAULT_START_DAEMON
-#define DEFAULT_START_DAEMON 1
-#endif
-
-/* Maximum number of *free* server processes --- more than this, and
- * they will die off.
- */
-
-#ifndef DEFAULT_MAX_FREE_DAEMON
-#define DEFAULT_MAX_FREE_DAEMON 1
-#endif
-
-/* Minimum --- fewer than this, and more will be created */
-
-#ifndef DEFAULT_MIN_FREE_DAEMON
-#define DEFAULT_MIN_FREE_DAEMON 1
-#endif
 
 /* Limit on the threads per process.  Clients will be locked out if more than
  * this  * HARD_SERVER_LIMIT are needed.
@@ -81,35 +61,11 @@
 #define DEFAULT_MIN_FREE_THREADS 10
 #endif
 
-/* Check for definition of DEFAULT_REL_RUNTIMEDIR */
-#ifndef DEFAULT_REL_RUNTIMEDIR
-#define DEFAULT_REL_RUNTIMEDIR "logs"
-#endif
-
-/* File used for accept locking, when we use a file */
-/*#ifndef DEFAULT_LOCKFILE
-  #define DEFAULT_LOCKFILE DEFAULT_REL_RUNTIMEDIR "/accept.lock"
-  #endif
-*/
-
-/* Where the main/parent process's pid is logged */
-/*#ifndef DEFAULT_PIDLOG
-  #define DEFAULT_PIDLOG DEFAULT_REL_RUNTIMEDIR "/httpd.pid"
-  #endif
-*/
-
 /*
  * Interval, in microseconds, between scoreboard maintenance.
  */
 #ifndef SCOREBOARD_MAINTENANCE_INTERVAL
 #define SCOREBOARD_MAINTENANCE_INTERVAL 1000000
-#endif
-
-/* Number of requests to try to handle in a single process.  If <= 0,
- * the children don't die off.
- */
-#ifndef DEFAULT_MAX_REQUESTS_PER_CHILD
-#define DEFAULT_MAX_REQUESTS_PER_CHILD 0
 #endif
 
 /* Default stack size allocated for each worker thread.

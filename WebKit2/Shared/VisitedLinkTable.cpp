@@ -34,7 +34,8 @@ namespace WebKit {
 
 VisitedLinkTable::VisitedLinkTable()
     : m_tableSize(0)
-    , m_table(0)
+    , m_tableSizeMask(0)
+    , m_table(nullptr)
 {
 }
 
@@ -42,12 +43,14 @@ VisitedLinkTable::~VisitedLinkTable()
 {
 }
 
+#if !ASSERT_DISABLED
 static inline bool isPowerOf2(unsigned v)
 {
     // Taken from http://www.cs.utk.edu/~vose/c-stuff/bithacks.html
     
     return !(v & (v - 1)) && v;
 }
+#endif
 
 void VisitedLinkTable::setSharedMemory(PassRefPtr<SharedMemory> sharedMemory)
 {
@@ -132,6 +135,13 @@ bool VisitedLinkTable::isLinkVisited(LinkHash linkHash) const
     }
 
     return false;
+}
+
+void VisitedLinkTable::clear()
+{
+    m_tableSize = 0;
+    m_tableSizeMask = 0;
+    m_sharedMemory = nullptr;
 }
 
 } // namespace WebKit

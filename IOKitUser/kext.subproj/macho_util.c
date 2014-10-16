@@ -108,6 +108,12 @@ macho_seek_result macho_find_symbol(
         goto finish;
     }
 
+    if ((char *)syms_address + syms_bytes > (char *)file_end ||
+        (char *)string_list > (char *)file_end) {
+        result = macho_seek_result_error;
+        goto finish;
+    }
+
     for (sym_index = 0; sym_index < num_syms; sym_index++) {
         struct nlist    * seekptr;
         struct nlist_64 * seekptr_64;
@@ -134,6 +140,10 @@ macho_seek_result macho_find_symbol(
             continue;
         }
         symbol_name = (char *)(string_list + string_index);
+        if (symbol_name > (char *)file_end) {
+            result = macho_seek_result_error;
+            goto finish;
+        }
 
         if (strcmp(name, symbol_name) == 0) {
 

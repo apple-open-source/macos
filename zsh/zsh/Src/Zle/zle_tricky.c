@@ -1071,7 +1071,7 @@ has_real_token(const char *s)
 static char *
 get_comp_string(void)
 {
-    enum lextok t0, tt0;
+    enum lextok t0, tt0, cmdtok;
     int i, j, k, cp, rd, sl, ocs, ins, oins, ia, parct, varq = 0;
     int ona = noaliases;
     /*
@@ -1095,6 +1095,7 @@ get_comp_string(void)
      * the command word is not at index zero in the array.
      */
     int redirpos;
+    int noword;
     char *s = NULL, *tmp, *p, *tt = NULL, rdop[20];
     char *linptr, *u;
 
@@ -1145,6 +1146,7 @@ get_comp_string(void)
     linredir = inredir;
     zsfree(cmdstr);
     cmdstr = NULL;
+    cmdtok = NULLTOK;
     zsfree(varname);
     varname = NULL;
     insubscr = 0;
@@ -1165,7 +1167,7 @@ get_comp_string(void)
     * and whatnot. */
 
     do {
-        qsub = 0;
+        qsub = noword = 0;
 
 	lincmd = ((incmdpos && !ins && !incond) ||
 		  (oins == 2 && wordpos == 2) ||
@@ -1239,6 +1241,19 @@ get_comp_string(void)
 	     * leave the loop.                                           */
 	    if (tt)
 		break;
+	    if (ins < 2) {
+		/*
+		 * Don't add this as a word, because we're about to start
+		 * a new command line: pretend there's no string here.
+		 * We don't dare do this if we're using one of the
+		 * *really* gross hacks with ins to get later words
+		 * to look like command words, because we don't
+		 * understand how they work.  Quite possibly we
+		 * should be using a mechanism like the one here rather
+		 * than the ins thing.
+		 */
+		noword = 1;
+	    }
 	    /* Otherwise reset the variables we are collecting data in. */
 	    wordpos = cp = rd = ins = redirpos = 0;
 	    tt0 = NULLTOK;
@@ -1250,9 +1265,19 @@ get_comp_string(void)
 	    ins = (tok == REPEAT ? 2 : (tok != STRING));
 	    zsfree(cmdstr);
 	    cmdstr = ztrdup(tokstr);
+	    cmdtok = tok;
 	    /* If everything before is a redirection, don't reset the index */
 	    if (wordpos != redirpos)
 		wordpos = redirpos = 0;
+	} else if (tok == SEPER) {
+	    /*
+	     * A following DOLOOP should cause us to reset to the start
+	     * of the command line.  For some reason we only recognise
+	     * DOLOOP for this purpose (above) if ins is set.  Why?  To
+	     * handle completing multiple SEPER-ated command positions on
+	     * the same command line, e.g., pipelines.
+	     */
+	    ins = (cmdtok != STRING);
 	}
 	if (!lexflags && tt0 == NULLTOK) {
 	    /* This is done when the lexer reached the word the cursor is on. */
@@ -1322,7 +1347,7 @@ get_comp_string(void)
 	    else if (tok == DAMPER)
 		tokstr = "&&";
 	}
-	if (!tokstr)
+	if (!tokstr || noword)
 	    continue;
 	/* Hack to allow completion after `repeat n do'. */
 	if (oins == 2 && !wordpos && !strcmp(tokstr, "do"))
@@ -1482,7 +1507,17 @@ get_comp_string(void)
 	    nnb = s + MB_METACHARLEN(s);
 	else
 	    nnb = s;
-	for (tt = s; tt < s + zlemetacs_qsub - wb;) {
+	tt = s;
+	if (lincmd)
+	{
+	    /*
+	     * Ignore '['s at the start of a command as they're not
+	     * matched by closing brackets.
+	     */
+	    while (*tt == Inbrack && tt < s + zlemetacs_qsub - wb)
+		tt++;
+	}
+	while (tt < s + zlemetacs_qsub - wb) {
 	    if (*tt == Inbrack) {
 		i++;
 		nb = nnb;
@@ -2114,8 +2149,8 @@ inststrlen(char *str, int move, int len)
 	return 0;
     if (len == -1)
 	len = strlen(str);
-    spaceinline(len);
     if (zlemetaline != NULL) {
+	spaceinline(len);
 	strncpy(zlemetaline + zlemetacs, str, len);
 	if (move)
 	    zlemetacs += len;
@@ -2126,6 +2161,7 @@ inststrlen(char *str, int move, int len)
 
 	instr = ztrduppfx(str, len);
 	zlestr = stringaszleline(instr, 0, &zlelen, NULL, NULL);
+	spaceinline(zlelen);
 	ZS_strncpy(zleline + zlecs, zlestr, zlelen);
 	free(zlestr);
 	zsfree(instr);

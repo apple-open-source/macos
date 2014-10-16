@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHZLE" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -355,6 +355,9 @@ by `\fBbindkey \-m\fP\&'\&.
 .PD 0
   [ \fB\-M\fP \fImain\-keymap\fP ] [ \fB\-m\fP \fIvicmd\-keymap\fP ]
 .TP
+.PD 0
+  [ \fB\-i\fP \fIinit\-widget\fP ] [ \fB\-f\fP \fIfinish\-widget\fP ]
+.TP
 .PD
   [ \fB\-t\fP \fItty\fP ] \fIname\fP
 The value of the parameter \fIname\fP is loaded into the edit
@@ -392,6 +395,10 @@ to override \fBviins\fP and \fBvicmd\fP\&.  For emacs\-style editing, only \fB\-
 is normally needed but the \fB\-m\fP option may still be used\&.  On exit, the
 previous keymaps will be restored\&.
 .PP
+\fBVared\fP calls the usual `\fBzle\-line\-init\fP\&' and `\fBzle\-line\-finish\fP'
+hooks before and after it takes control\&. Using the \fB\-i\fP and \fB\-f\fP
+options, it is possible to replace these with other custom widgets\&.
+.PP
 If `\fB\-t\fP \fItty\fP\&' is given, \fItty\fP is the name of a terminal device
 to be used instead of the default \fB/dev/tty\fP\&.  If \fItty\fP does not
 refer to a terminal an error is reported\&.
@@ -428,7 +435,7 @@ refer to a terminal an error is reported\&.
 \fBzle\fP \fB\-K\fP \fIkeymap\fP
 .TP
 .PD 0
-\fBzle\fP \fB\-F\fP [ \fB\-L\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
+\fBzle\fP \fB\-F\fP [ \fB\-L\fP | \fB\-w\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
 .TP
 .PD 0
 \fBzle\fP \fB\-I\fP
@@ -554,7 +561,7 @@ within this invocation of ZLE\&.  Any following invocation (e\&.g\&., the next
 command line) will start as usual with the `\fBmain\fP\&' keymap selected\&.
 .RE
 .TP
-\fB\-F\fP [ \fB\-L\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
+\fB\-F\fP [ \fB\-L\fP | \fB\-w\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
 Only available if your system supports one of the `poll\&' or `select' system
 calls; most modern systems do\&.
 .RS
@@ -569,6 +576,13 @@ so (see below)\&.  The handler should not attempt to read from the terminal\&.
 Note that zle makes no attempt to check whether this fd is actually
 readable when installing the handler\&.  The user must make their own
 arrangements for handling the file descriptor when zle is not active\&.
+.PP
+If the option \fB\-w\fP is also given, the \fIhandler\fP is instead a
+line editor widget, typically a shell function made into a widget using
+\fBzle \-N\fP\&.  In that case \fIhandler\fP can use all the facilities of
+zle to update the current editing line\&.  Note, however, that as handling
+\fIfd\fP takes place at a low level changes to the display will not
+automatically appear; the widget should call \fBzle \-R\fP to force redisplay\&.
 .PP
 Any number of handlers for any number of readable file descriptors may be
 installed\&.  Installing a handler for an \fIfd\fP which is already handled

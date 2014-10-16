@@ -45,11 +45,13 @@ enum {
 
 enum {                                                                                                                                         
     kIOPMMaxScheduledEntries = 1000                                                                                                            
-};        
+};
+
 #if TARGET_OS_EMBEDDED
-#define MIN_SCHEDULE_TIME   (5.0)
+static CFAbsoluteTime        gMinScheduleTime = 5.0;
+#define MIN_SCHEDULE_TIME   (gMinScheduleTime)
 #else
-#define MIN_SCHEDULE_TIME   (10.0)
+#define MIN_SCHEDULE_TIME   (0.0)
 #endif
 
 typedef void (*powerEventCallout)(CFDictionaryRef);
@@ -170,7 +172,7 @@ void restartTimerExpiredCallout(CFDictionaryRef);
 static void
 removeEventsByAppName(PowerEventBehavior *behave, CFStringRef appName)
 {
-    int                 count, j;
+    CFIndex             count, j;
     CFDictionaryRef     cancelee = 0;
 
 
@@ -257,6 +259,7 @@ AutoWake_prime(void)
         if (!CFEqual(this_behavior->title, CFSTR(kIOPMAutoWakeOrPowerOn)))
            schedulePowerEvent(this_behavior);
     }
+
 
     return;
 }
@@ -707,7 +710,7 @@ copyEarliestUpcoming(PowerEventBehavior *b)
     CFDateRef               now = NULL;
     CFDictionaryRef         the_result = NULL;
     CFDictionaryRef         repeatEvent = NULL;
-    int                     i, count;
+    CFIndex                 i, count;
     CFComparisonResult      eq;
 
     if(!b) return NULL;
@@ -807,7 +810,7 @@ copyMergedEventArray(
     PowerEventBehavior *b)
 {
     CFMutableArrayRef       merged;
-    int                     bcount;
+    CFIndex                 bcount;
     CFRange                 rng;
 
     if(!a || !b) return NULL;
@@ -952,7 +955,8 @@ static bool
 removeEvent(PowerEventBehavior  *behave, CFDictionaryRef event)   
 {
 
-    int                 count, i, j;
+    CFIndex             count, i;
+    int                 j;
     CFComparisonResult  eq;
     CFDictionaryRef     cancelee = 0;
 
@@ -1115,7 +1119,8 @@ __private_extern__ CFArrayRef copyScheduledPowerEvents(void)
 
     CFMutableArrayRef       powerEvents = NULL;
     PowerEventBehavior      *this_behavior;
-    int                     i, bcount;
+    int                     i;
+    CFIndex                 bcount;
     CFRange                 rng;
 
     powerEvents = CFArrayCreateMutable( 0, 0, &kCFTypeArrayCallBacks); 

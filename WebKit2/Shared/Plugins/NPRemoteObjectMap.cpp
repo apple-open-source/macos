@@ -26,13 +26,12 @@
 #include "config.h"
 #include "NPRemoteObjectMap.h"
 
-#if ENABLE(PLUGIN_PROCESS)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "NPObjectMessageReceiver.h"
 #include "NPObjectProxy.h"
 #include "NPRuntimeUtilities.h"
 #include "NPVariantData.h"
-#include <wtf/OwnPtr.h>
 
 namespace WebKit {
 
@@ -42,12 +41,12 @@ static uint64_t generateNPObjectID()
     return ++generateNPObjectID;
 }
 
-PassRefPtr<NPRemoteObjectMap> NPRemoteObjectMap::create(CoreIPC::Connection* connection)
+PassRefPtr<NPRemoteObjectMap> NPRemoteObjectMap::create(IPC::Connection* connection)
 {
     return adoptRef(new NPRemoteObjectMap(connection));
 }
 
-NPRemoteObjectMap::NPRemoteObjectMap(CoreIPC::Connection* connection)
+NPRemoteObjectMap::NPRemoteObjectMap(IPC::Connection* connection)
     : m_connection(connection)
 {
 }
@@ -78,7 +77,7 @@ void NPRemoteObjectMap::npObjectProxyDestroyed(NPObject* npObject)
 uint64_t NPRemoteObjectMap::registerNPObject(NPObject* npObject, Plugin* plugin)
 {
     uint64_t npObjectID = generateNPObjectID();
-    m_registeredNPObjects.set(npObjectID, NPObjectMessageReceiver::create(this, plugin, npObjectID, npObject).leakPtr());
+    m_registeredNPObjects.set(npObjectID, std::make_unique<NPObjectMessageReceiver>(this, plugin, npObjectID, npObject).release());
 
     return npObjectID;
 }
@@ -196,38 +195,29 @@ NPVariant NPRemoteObjectMap::npVariantDataToNPVariant(const NPVariantData& npVar
 
 void NPRemoteObjectMap::pluginDestroyed(Plugin* plugin)
 {
-    Vector<NPObjectMessageReceiver*> messageReceivers;
-
-    // Gather the receivers associated with this plug-in.
-    for (HashMap<uint64_t, NPObjectMessageReceiver*>::const_iterator it = m_registeredNPObjects.begin(), end = m_registeredNPObjects.end(); it != end; ++it) {
-        NPObjectMessageReceiver* npObjectMessageReceiver = it->value;
-        if (npObjectMessageReceiver->plugin() == plugin)
-            messageReceivers.append(npObjectMessageReceiver);
+    // Gather and delete the receivers associated with this plug-in.
+    Vector<NPObjectMessageReceiver*> receivers;
+    for (auto* receiver : m_registeredNPObjects.values()) {
+        if (receiver->plugin() == plugin)
+            receivers.append(receiver);
     }
-
-    // Now delete all the receivers.
-    deleteAllValues(messageReceivers);
-
-    Vector<NPObjectProxy*> objectProxies;
-    for (HashSet<NPObjectProxy*>::const_iterator it = m_npObjectProxies.begin(), end = m_npObjectProxies.end(); it != end; ++it) {
-        NPObjectProxy* npObjectProxy = *it;
-
-        if (npObjectProxy->plugin() == plugin)
-            objectProxies.append(npObjectProxy);
-    }
+    for (auto* receiver : receivers)
+        delete receiver;
 
     // Invalidate and remove all proxies associated with this plug-in.
-    for (size_t i = 0; i < objectProxies.size(); ++i) {
-        NPObjectProxy* npObjectProxy = objectProxies[i];
-
-        npObjectProxy->invalidate();
-
-        ASSERT(m_npObjectProxies.contains(npObjectProxy));
-        m_npObjectProxies.remove(npObjectProxy);
+    Vector<NPObjectProxy*> proxies;
+    for (auto* proxy : m_npObjectProxies) {
+        if (proxy->plugin() == plugin)
+            proxies.append(proxy);
+    }
+    for (auto* proxy : proxies) {
+        proxy->invalidate();
+        ASSERT(m_npObjectProxies.contains(proxy));
+        m_npObjectProxies.remove(proxy);
     }
 }
 
-void NPRemoteObjectMap::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageDecoder& decoder, OwnPtr<CoreIPC::MessageEncoder>& replyEncoder)
+void NPRemoteObjectMap::didReceiveSyncMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder, std::unique_ptr<IPC::MessageEncoder>& replyEncoder)
 {
     NPObjectMessageReceiver* messageReceiver = m_registeredNPObjects.get(decoder.destinationID());
     if (!messageReceiver)
@@ -238,4 +228,4 @@ void NPRemoteObjectMap::didReceiveSyncMessage(CoreIPC::Connection* connection, C
 
 } // namespace WebKit
 
-#endif // ENABLE(PLUGIN_PROCESS)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

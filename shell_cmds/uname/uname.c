@@ -185,9 +185,9 @@ main(argc, argv)
 #else
 #if defined(__ppc__) || defined(__ppc64__)
 		fputs("powerpc", stdout);
-#elif defined (__i386__) || defined(__x86_64__)
+#elif defined(__i386__) || defined(__x86_64__)
 		fputs("i386", stdout);
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__arm64__)
 		fputs("arm", stdout);
 #else
 		fputs("unknown", stdout);

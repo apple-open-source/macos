@@ -29,37 +29,34 @@
 
 #include "Page.h"
 #include "UserMediaClient.h"
-#include <wtf/PassOwnPtr.h>
+#include "UserMediaRequest.h"
 
 namespace WebCore {
 
 class UserMediaController : public Supplement<Page> {
 public:
+    explicit UserMediaController(UserMediaClient*);
     ~UserMediaController();
 
     UserMediaClient* client() const { return m_client; }
-    void requestUserMedia(PassRefPtr<UserMediaRequest>, const MediaStreamSourceVector& audioSources,  const MediaStreamSourceVector& videoSources);
-    void cancelUserMediaRequest(UserMediaRequest*);
+    void requestPermission(PassRefPtr<UserMediaRequest>);
+    void cancelRequest(UserMediaRequest*);
 
-    static PassOwnPtr<UserMediaController> create(UserMediaClient*);
     static const char* supplementName();
     static UserMediaController* from(Page* page) { return static_cast<UserMediaController*>(Supplement<Page>::from(page, supplementName())); }
-
-protected:
-    explicit UserMediaController(UserMediaClient*);
 
 private:
     UserMediaClient* m_client;
 };
 
-inline void UserMediaController::requestUserMedia(PassRefPtr<UserMediaRequest> request, const MediaStreamSourceVector& audioSources,  const MediaStreamSourceVector& videoSources)
+inline void UserMediaController::requestPermission(PassRefPtr<UserMediaRequest> request)
 {
-    m_client->requestUserMedia(request, audioSources, videoSources);
+    m_client->requestPermission(request);
 }
 
-inline void UserMediaController::cancelUserMediaRequest(UserMediaRequest* request)
+inline void UserMediaController::cancelRequest(UserMediaRequest* request)
 {
-    m_client->cancelUserMediaRequest(request);
+    m_client->cancelRequest(request);
 }
 
 } // namespace WebCore

@@ -43,6 +43,7 @@ return 0; \
 #define CCSYMOFB 1
 #define CCSYMCFB 1
 #define CCSYMGCM 1
+#define CCSYMCCM 1
 #define CCSYMXTS 1
 #define CCSYMRC2 1
 #define CCPADCTS 1
@@ -55,4 +56,7 @@ return 0; \
 #define CCBLOWFISH 1
 #define COMMON_CRC 1
 #define CNENCODER 1
+#define CCHKDFTEST 1
+#define CCNISTKDFTEST 1
+#define CCNOPAD 1
 #endif /* __CAPABILITIES_H__ */

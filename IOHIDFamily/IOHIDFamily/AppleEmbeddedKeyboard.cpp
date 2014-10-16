@@ -27,6 +27,7 @@
 #include "AppleHIDUsageTables.h"
 #include "IOHIDUsageTables.h"
 #include "IOHIDKeyboard.h"
+#include "IOHIDPrivateKeys.h"
 #include "IOLLEvent.h"
 
 #define super IOHIDEventDriver
@@ -62,9 +63,11 @@ void AppleEmbeddedKeyboard::free()
 //====================================================================================================
 bool AppleEmbeddedKeyboard::handleStart( IOService * provider )
 {
+    setProperty(kIOHIDAppleVendorSupported, kOSBooleanTrue);
+    
     if (!super::handleStart(provider))
         return false;
-
+    
     // RY: The fn key is reported in the 8th byte of the keyboard report.
     // This byte is part of the normal keyboard boot protocol report.
     // Unfortunately, because of this, a keyboard roll over will trick 

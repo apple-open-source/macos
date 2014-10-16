@@ -27,14 +27,14 @@
 #define WKURLRequestNS_h
 
 #include <Foundation/Foundation.h>
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 WK_EXPORT WKURLRequestRef WKURLRequestCreateWithNSURLRequest(NSURLRequest* urlRequest);
-WK_EXPORT NSURLRequest* WKURLRequestCopyNSURLRequest(WKURLRequestRef urlRequest);
+WK_EXPORT NSURLRequest* WKURLRequestCopyNSURLRequest(WKURLRequestRef urlRequest) NS_RETURNS_RETAINED;
 
 #ifdef __cplusplus
 }

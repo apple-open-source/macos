@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -248,7 +248,7 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
-			CFSTR("watch   : %5d : %d keys, %d patterns\n"),
+			CFSTR("watch   : %5d : %ld keys, %ld patterns\n"),
 			storePrivate->server,
 			keys     ? CFArrayGetCount(keys)     : 0,
 			patterns ? CFArrayGetCount(patterns) : 0);

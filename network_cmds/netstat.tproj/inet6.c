@@ -62,12 +62,6 @@
  * $FreeBSD: src/usr.bin/netstat/inet6.c,v 1.3.2.9 2001/08/10 09:07:09 ru Exp $
  */
 
-#ifndef lint
-/*
-static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
-*/
-#endif /* not lint */
-
 #ifdef INET6
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -85,7 +79,6 @@ static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
 #include <netinet6/in6_pcb.h>
 #include <netinet6/in6_var.h>
 #include <netinet6/ip6_var.h>
-#include <netinet6/pim6_var.h>
 #include <netinet6/raw_ip6.h>
 
 #include <arpa/inet.h>
@@ -1012,42 +1005,6 @@ icmp6_ifstats(char *ifname)
 	close(s);
 #undef p
 }
-
-/*
- * Dump PIM statistics structure.
- */
-#ifdef notyet 
-void
-pim6_stats(void)
-{
-	static struct pim6stat ppim6stat;
-	struct pim6stat pim6stat;
-	size_t len = sizeof(struct pim6stat);
-
-	if (sysctlbyname("net.inet6.ip6.pim6stat", &pim6stat, &len, 0, 0) == -1)
-		return;
-    if (interval && vflag > 0)
-        print_time();
-	printf("%s:\n", name);
-
-#define	PIM6DIFF(f) (pim6stat.f - ppim6stat.f)
-#define	p(f, m) if (PIM6DIFF(f) || sflag <= 1) \
-    printf(m, (unsigned long long)PIM6DIFF(f), plural(PIM6DIFF(f)))
-	p(pim6s_rcv_total, "\t%llu message%s received\n");
-	p(pim6s_rcv_tooshort, "\t%llu message%s received with too few bytes\n");
-	p(pim6s_rcv_badsum, "\t%llu message%s received with bad checksum\n");
-	p(pim6s_rcv_badversion, "\t%llu message%s received with bad version\n");
-	p(pim6s_rcv_registers, "\t%llu register%s received\n");
-	p(pim6s_rcv_badregisters, "\t%llu bad register%s received\n");
-	p(pim6s_snd_registers, "\t%llu register%s sent\n");
-
-	if (interval > 0)
-		bcopy(&pim6stat, &ppim6stat, len);
-
-#undef PIM6DIFF
-#undef p
-}
-#endif
 
 /*
  * Dump raw ip6 statistics structure.

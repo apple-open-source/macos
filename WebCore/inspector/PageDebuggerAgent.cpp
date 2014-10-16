@@ -29,61 +29,81 @@
  */
 
 #include "config.h"
-
-#if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR)
-
 #include "PageDebuggerAgent.h"
 
+#if ENABLE(INSPECTOR)
+
+#include "CachedResource.h"
 #include "InspectorOverlay.h"
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "Page.h"
 #include "PageConsole.h"
 #include "PageScriptDebugServer.h"
+#include "ScriptState.h"
+#include <inspector/InjectedScript.h>
+#include <inspector/InjectedScriptManager.h>
+#include <inspector/ScriptCallStack.h>
+#include <inspector/ScriptCallStackFactory.h>
+
+using namespace Inspector;
 
 namespace WebCore {
 
-PassOwnPtr<PageDebuggerAgent> PageDebuggerAgent::create(InstrumentingAgents* instrumentingAgents, InspectorCompositeState* inspectorState, InspectorPageAgent* pageAgent, InjectedScriptManager* injectedScriptManager, InspectorOverlay* overlay)
-{
-    return adoptPtr(new PageDebuggerAgent(instrumentingAgents, inspectorState, pageAgent, injectedScriptManager, overlay));
-}
-
-PageDebuggerAgent::PageDebuggerAgent(InstrumentingAgents* instrumentingAgents, InspectorCompositeState* inspectorState, InspectorPageAgent* pageAgent, InjectedScriptManager* injectedScriptManager, InspectorOverlay* overlay)
-    : InspectorDebuggerAgent(instrumentingAgents, inspectorState, injectedScriptManager)
+PageDebuggerAgent::PageDebuggerAgent(InjectedScriptManager* injectedScriptManager, InstrumentingAgents* instrumentingAgents, InspectorPageAgent* pageAgent, InspectorOverlay* overlay)
+    : WebDebuggerAgent(injectedScriptManager, instrumentingAgents)
     , m_pageAgent(pageAgent)
     , m_overlay(overlay)
-{
-}
-
-PageDebuggerAgent::~PageDebuggerAgent()
+    , m_scriptDebugServer(*pageAgent->page())
 {
 }
 
 void PageDebuggerAgent::enable()
 {
-    InspectorDebuggerAgent::enable();
+    WebDebuggerAgent::enable();
     m_instrumentingAgents->setPageDebuggerAgent(this);
 }
 
-void PageDebuggerAgent::disable()
+void PageDebuggerAgent::disable(bool isBeingDestroyed)
 {
-    InspectorDebuggerAgent::disable();
-    m_instrumentingAgents->setPageDebuggerAgent(0);
+    WebDebuggerAgent::disable(isBeingDestroyed);
+    m_instrumentingAgents->setPageDebuggerAgent(nullptr);
+}
+
+String PageDebuggerAgent::sourceMapURLForScript(const Script& script)
+{
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, sourceMapHTTPHeader, (ASCIILiteral("SourceMap")));
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, sourceMapHTTPHeaderDeprecated, (ASCIILiteral("X-SourceMap")));
+
+    if (!script.url.isEmpty()) {
+        CachedResource* resource = m_pageAgent->cachedResource(m_pageAgent->mainFrame(), URL(ParsedURLString, script.url));
+        if (resource) {
+            String sourceMapHeader = resource->response().httpHeaderField(sourceMapHTTPHeader);
+            if (!sourceMapHeader.isEmpty())
+                return sourceMapHeader;
+
+            sourceMapHeader = resource->response().httpHeaderField(sourceMapHTTPHeaderDeprecated);
+            if (!sourceMapHeader.isEmpty())
+                return sourceMapHeader;
+        }
+    }
+
+    return InspectorDebuggerAgent::sourceMapURLForScript(script);
 }
 
 void PageDebuggerAgent::startListeningScriptDebugServer()
 {
-    scriptDebugServer().addListener(this, m_pageAgent->page());
+    scriptDebugServer().addListener(this);
 }
 
-void PageDebuggerAgent::stopListeningScriptDebugServer()
+void PageDebuggerAgent::stopListeningScriptDebugServer(bool isBeingDestroyed)
 {
-    scriptDebugServer().removeListener(this, m_pageAgent->page());
+    scriptDebugServer().removeListener(this, isBeingDestroyed);
 }
 
 PageScriptDebugServer& PageDebuggerAgent::scriptDebugServer()
 {
-    return PageScriptDebugServer::shared();
+    return m_scriptDebugServer;
 }
 
 void PageDebuggerAgent::muteConsole()
@@ -96,15 +116,22 @@ void PageDebuggerAgent::unmuteConsole()
     PageConsole::unmute();
 }
 
+void PageDebuggerAgent::breakpointActionLog(JSC::ExecState* exec, const String& message)
+{
+    m_pageAgent->page()->console().addMessage(MessageSource::JS, MessageLevel::Log, message, createScriptCallStack(exec, ScriptCallStack::maxCallStackSizeToCapture));
+}
+
 InjectedScript PageDebuggerAgent::injectedScriptForEval(ErrorString* errorString, const int* executionContextId)
 {
     if (!executionContextId) {
-        ScriptState* scriptState = mainWorldScriptState(m_pageAgent->mainFrame());
+        JSC::ExecState* scriptState = mainWorldExecState(m_pageAgent->mainFrame());
         return injectedScriptManager()->injectedScriptFor(scriptState);
     }
+
     InjectedScript injectedScript = injectedScriptManager()->injectedScriptForId(*executionContextId);
     if (injectedScript.hasNoValue())
-        *errorString = "Execution context with given id not found.";
+        *errorString = ASCIILiteral("Execution context with given id not found.");
+
     return injectedScript;
 }
 
@@ -115,10 +142,9 @@ void PageDebuggerAgent::setOverlayMessage(ErrorString*, const String* message)
 
 void PageDebuggerAgent::didClearMainFrameWindowObject()
 {
-    reset();
-    scriptDebugServer().setScriptPreprocessor(m_pageAgent->scriptPreprocessor());
+    didClearGlobalObject();
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR)
+#endif // ENABLE(INSPECTOR)

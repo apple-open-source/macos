@@ -1,4 +1,0 @@
-<inner title="[% title %]">
-[% content %]
-</inner>
-[% title = "inner $title" -%]

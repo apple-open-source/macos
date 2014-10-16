@@ -1,0 +1,27 @@
+#! /bin/csh -f
+#
+# Generate AES test vectors for Known Asnwers Test, compare against NIST standards.
+##
+if ( $#argv != 1 ) then
+        echo Usage: testVectors r\|t\|c
+        exit(1)
+endif
+#
+# header, known vectors, output file
+#
+set vk_hdr=ecb_vk.hdr
+set vk_ref=ecb_vk.txt
+set vk_out=/tmp/vk_out
+#
+set vt_hdr=ecb_vt.hdr
+set vt_ref=ecb_vt.txt
+set vt_out=/tmp/vt_out
+#
+echo Generating Variable Key Known Answer Test vectors in $vk_out....
+./makeVectors $argv[1] k $vk_hdr $vk_out || exit(1)
+echo Generating Variable Text Known Answer Test vectors in $vt_out....
+./makeVectors $argv[1] p $vt_hdr $vt_out || exit(1)
+echo Comparing against reference vectors....
+diff $vk_out $vk_ref || exit(1)
+diff $vt_out $vt_ref || exit(1)
+echo === Known Answer Test PASSED ===

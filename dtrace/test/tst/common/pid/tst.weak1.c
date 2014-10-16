@@ -27,11 +27,7 @@
 #pragma ident	"@(#)tst.weak1.c	1.1	06/08/28 SMI"
 
 #include <signal.h>
-#if !defined(__APPLE__)
-#include <unistd.h>
-#else
 #include <stdlib.h>
-#endif /* __APPLE__ */
 
 /*
  * The canonical name should be 'go' since we prefer symbol names with fewer
@@ -58,9 +54,5 @@ main(int argc, char **argv)
 {
 	(void) signal(SIGUSR1, handle);
 	for (;;)
-#if !defined(__APPLE__)
-		getpid();
-#else
 		geteuid();
-#endif
 }

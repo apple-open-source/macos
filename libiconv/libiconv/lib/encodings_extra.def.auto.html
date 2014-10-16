@@ -1,0 +1,79 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>encodings_extra.def</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">encodings_extra.def&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+/* Copyright (C) 2002, 2005 Free Software Foundation, Inc.
+   This file is part of the GNU LIBICONV Library.
+
+   The GNU LIBICONV Library is free software; you can redistribute it
+   and/or modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   The GNU LIBICONV Library is distributed in the hope that it will be
+   useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+DEFENCODING(( &quot;EUC-JISX0213&quot;,
+            ),
+            euc_jisx0213,
+            { euc_jisx0213_mbtowc, euc_jisx0213_flushwc }, { euc_jisx0213_wctomb, euc_jisx0213_reset })
+
+DEFENCODING(( &quot;SHIFT_JISX0213&quot;,
+            ),
+            shift_jisx0213,
+            { shift_jisx0213_mbtowc, shift_jisx0213_flushwc }, { shift_jisx0213_wctomb, shift_jisx0213_reset })
+
+DEFENCODING(( &quot;ISO-2022-JP-3&quot;,
+            ),
+            iso2022_jp3,
+            { iso2022_jp3_mbtowc, iso2022_jp3_flushwc }, { iso2022_jp3_wctomb, iso2022_jp3_reset })
+
+DEFENCODING(( &quot;BIG5-2003&quot;,
+            ),
+            big5_2003,
+            { big5_2003_mbtowc, NULL },   { big5_2003_wctomb, NULL })
+
+DEFENCODING(( &quot;TDS565&quot;,
+              &quot;ISO-IR-230&quot;,
+            ),
+            tds565,
+            { tds565_mbtowc, NULL },      { tds565_wctomb, NULL })
+
+DEFENCODING(( &quot;ATARIST&quot;,
+              &quot;ATARI&quot;,
+            ),
+            atarist,
+            { atarist_mbtowc, NULL },     { atarist_wctomb, NULL })
+
+DEFENCODING(( &quot;RISCOS-LATIN1&quot;,
+            ),
+            riscos1,
+            { riscos1_mbtowc, NULL },     { riscos1_wctomb, NULL })
+</pre>
+<hr />
+</body></html>

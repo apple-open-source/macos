@@ -31,24 +31,13 @@
 
 #pragma ident	"@(#)update.c	1.31	08/05/31 SMI"
 
-#if !defined(__APPLE__)
 #include <memory.h>
-#include <malloc.h>
 #include <limits.h>
-
-#include <sgs.h>
-#include "decl.h"
-#include "msg.h"
-#else /* is Apple Mac OS X */
-#include <memory.h>
-/* NOTHING */ /* In lieu of Solaris <malloc.h> */
-#include <limits.h>
-/* NOTHING */ /* In lieu of Solaris <sgs.h> */
 #include "decl.h"
 #include "msg.h"
 #include <assert.h>
 #include <string.h>
-#endif /* __APPLE__ */
+#include <stdlib.h>
 
 /*
  * This module is compiled twice, the second time having
@@ -151,6 +140,8 @@ test_size(Lword hi)
 	return (1);
 }
 #endif				/* TEST_SIZE */
+
+uint_t _elf_sys_encoding(void);
 
 /*
  * Output file update

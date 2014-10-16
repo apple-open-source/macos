@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -33,8 +33,7 @@
 namespace WebCore {
 
 struct SameSizeAsFontDescription {
-    Vector<AtomicString, 1> families;
-    RefPtr<FontFeatureSettings> m_featureSettings;
+    void* pointers[2];
     float sizes[2];
     // FXIME: Make them fit into one word.
     uint32_t bitfields;
@@ -115,5 +114,23 @@ FontDescription FontDescription::makeNormalFeatureSettings() const
     normalDescription.setFeatureSettings(0);
     return normalDescription;
 }
+
+#if ENABLE(IOS_TEXT_AUTOSIZING)
+bool FontDescription::familiesEqualForTextAutoSizing(const FontDescription& other) const
+{
+    unsigned thisFamilyCount = familyCount();
+    unsigned otherFamilyCount = other.familyCount();
+
+    if (thisFamilyCount != otherFamilyCount)
+        return false;
+
+    for (unsigned i = 0; i < thisFamilyCount; ++i) {
+        if (!equalIgnoringCase(familyAt(i), other.familyAt(i)))
+            return false;
+    }
+
+    return true;
+}
+#endif // ENABLE(IOS_TEXT_AUTOSIZING)
 
 } // namespace WebCore

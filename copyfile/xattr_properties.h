@@ -27,7 +27,7 @@
 #include <stdint.h>
 
 #include <sys/cdefs.h>
-
+#include <Availability.h>
 
 __BEGIN_DECLS
 
@@ -89,9 +89,10 @@ typedef uint64_t CopyOperationProperties_t;
  */
 #define kCopyOperationPropertyNeverPreserve	((CopyOperationProperties_t)0x0004)
 
-// Given a named extended attribute, and a copy intent, should the EA be preserved?
-extern int _PreserveEA(const char *, CopyOperationIntent_t);
-
+#if 0
+/*
+ * These are all going to be removed, and I don't believe anyone used them.
+ */
 /*
  * Given an extended attribute name, and a set of properties, return an
  *  allocated C string with the name.  This will return NULL on error;
@@ -104,7 +105,7 @@ extern int _PreserveEA(const char *, CopyOperationIntent_t);
  * If the EA name is in the internal list, and the properties are the same as
  * defined there, then it will also return an unmodified copy of the EA name.
  */
-extern char *_xattrNameWithProperties(const char *, CopyOperationProperties_t);
+extern char *_xattrNameWithProperties(const char *, CopyOperationProperties_t) DEPRECATED_IN_MAC_OS_X_VERSION_10_10_AND_LATER;
 
 /*
  * Given an extended attribute name, which may or may not have properties encoded
@@ -113,13 +114,14 @@ extern char *_xattrNameWithProperties(const char *, CopyOperationProperties_t);
  * errno will be set to ENOMEM if it cannot be allocated.  The caller must deallocate
  * the return value.
  */
-extern char *_xattrNameWithoutProperties(const char *);
+extern char *_xattrNameWithoutProperties(const char *) DEPRECATED_IN_MAC_OS_X_VERSION_10_10_AND_LATER;
 
 /*
  * Given an EA name, return the properties.  If the name is in the internal list,
  * those properties will be returned.  Unknown property encodings are ignored.
  */
-extern CopyOperationProperties_t _xattrPropertiesFromName(const char *);
+extern CopyOperationProperties_t _xattrPropertiesFromName(const char *) DEPRECATED_IN_MAC_OS_X_VERSION_10_10_AND_LATER;
+#endif /* 0 */
 
 __END_DECLS
 

@@ -45,7 +45,7 @@ krb5_write_message (krb5_context context,
     len = (uint32_t)data->length;
     _krb5_put_int(buf, len, 4);
     if (krb5_net_write (context, p_fd, buf, 4) != 4
-	|| krb5_net_write (context, p_fd, data->data, len) != len) {
+	|| krb5_net_write (context, p_fd, data->data, len) != (ssize_t)len) {
 	ret = errno;
 	krb5_set_error_message (context, ret, "write: %s", strerror(ret));
 	return ret;

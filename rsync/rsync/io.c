@@ -236,6 +236,7 @@ static void read_msg_fd(void)
 	 * to this routine from writefd_unbuffered(). */
 	msg_fd_in = -1;
 
+	memset(buf, 0, 4);
 	read_loop(fd, buf, 4);
 	tag = IVAL(buf, 0);
 

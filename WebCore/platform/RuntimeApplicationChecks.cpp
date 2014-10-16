@@ -37,7 +37,9 @@ namespace WebCore {
     
 static bool mainBundleIsEqualTo(const String& bundleIdentifierString)
 {
-#if USE(CF)
+    // FIXME: We should consider merging this file with RuntimeApplicationChecksIOS.mm.
+    // Then we can remove the PLATFORM(IOS)-guard.
+#if USE(CF) && !PLATFORM(IOS)
     CFBundleRef mainBundle = CFBundleGetMainBundle();
     if (!mainBundle)
         return false;
@@ -100,6 +102,12 @@ bool applicationIsMicrosoftOutlook()
 {
     static bool isMicrosoftOutlook = mainBundleIsEqualTo("com.microsoft.Outlook");
     return isMicrosoftOutlook;
+}
+
+bool applicationIsQuickenEssentials()
+{
+    static bool isQuickenEssentials = mainBundleIsEqualTo("com.intuit.QuickenEssentials");
+    return isQuickenEssentials;
 }
 
 bool applicationIsAperture()

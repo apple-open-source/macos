@@ -4,3 +4,7 @@ lib	copysign,logb,finite,drem,sqrt,ilogb,remainder,scalb
 lib	_copysign,_finite,_scalb,__iob_func,_p__iob,__p__iob
 
 dat	_iob
+
+cat{
+	#define stricmp		strcasecmp
+}end

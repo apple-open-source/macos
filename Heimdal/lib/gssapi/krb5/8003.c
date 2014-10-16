@@ -56,7 +56,7 @@ store_ext(krb5_storage *sp, uint16_t type, krb5_data *data)
     ret = krb5_store_uint16(sp, data->length);
     if (ret) return ret;
     sret = krb5_storage_write(sp, data->data, data->length);
-    if (sret != data->length)
+    if (sret < 0 || (size_t)sret != data->length)
 	return ENOMEM;
     return 0;
 }
@@ -126,7 +126,7 @@ _gsskrb5_create_8003_checksum(OM_uint32 *minor_status,
     if (crypto && input_chan_bindings && cksum.length) {
 	Checksum checksum;
 	krb5_data data;
-	size_t size;
+	size_t size = 0;
 
 	memset(&checksum, 0, sizeof(checksum));
 	ret = krb5_create_checksum(context, crypto, KRB5_KU_GSSAPI_EXTS, 0,
@@ -187,7 +187,7 @@ read_ext(krb5_storage *sp, uint16_t *type, krb5_data *data)
 	return ret;
 
     sret = krb5_storage_read(sp, data->data, data->length);
-    if (sret != data->length) {
+    if (sret < 0 || (size_t)sret != data->length) {
 	krb5_data_free(data);
 	return HEIM_ERR_EOF;
     }

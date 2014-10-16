@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -38,12 +38,15 @@
 #include "ExceptionCode.h"
 #include "ExceptionCodePlaceholder.h"
 
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
+
 namespace WebCore {
 
 PassRefPtr<AudioBuffer> AudioBuffer::create(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate)
 {
     if (sampleRate < 22050 || sampleRate > 96000 || numberOfChannels > AudioContext::maxNumberOfChannels() || !numberOfFrames)
-        return 0;
+        return nullptr;
     
     return adoptRef(new AudioBuffer(numberOfChannels, numberOfFrames, sampleRate));
 }
@@ -54,7 +57,7 @@ PassRefPtr<AudioBuffer> AudioBuffer::createFromAudioFileData(const void* data, s
     if (bus.get())
         return adoptRef(new AudioBuffer(bus.get()));
 
-    return 0;
+    return nullptr;
 }
 
 AudioBuffer::AudioBuffer(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate)
@@ -96,7 +99,7 @@ PassRefPtr<Float32Array> AudioBuffer::getChannelData(unsigned channelIndex, Exce
 {
     if (channelIndex >= m_channels.size()) {
         ec = SYNTAX_ERR;
-        return 0;
+        return nullptr;
     }
 
     Float32Array* channelData = m_channels[channelIndex].get();
@@ -106,7 +109,7 @@ PassRefPtr<Float32Array> AudioBuffer::getChannelData(unsigned channelIndex, Exce
 Float32Array* AudioBuffer::getChannelData(unsigned channelIndex)
 {
     if (channelIndex >= m_channels.size())
-        return 0;
+        return nullptr;
 
     return m_channels[channelIndex].get();
 }

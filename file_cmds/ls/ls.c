@@ -34,8 +34,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__used static const char copyright[] =
 "@(#) Copyright (c) 1989, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -69,6 +70,9 @@ __RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
 #include <signal.h>
 #endif
 #ifdef __APPLE__
+#include <sys/acl.h>
+#include <sys/xattr.h>
+#include <sys/param.h>
 #include <get_compat.h>
 #else
 #define COMPAT_MODE(a,b) (1)
@@ -533,8 +537,10 @@ traverse(int argc, char *argv[], int options)
 			break;
 		case FTS_D:
 			if (p->fts_level != FTS_ROOTLEVEL &&
-			    p->fts_name[0] == '.' && !f_listdot)
+			    p->fts_name[0] == '.' && !f_listdot) {
+				fts_set(ftsp, p, FTS_SKIP);
 				break;
+			}
 
 			/*
 			 * If already output something, put out a newline as
@@ -606,7 +612,12 @@ display(FTSENT *p, FTSENT *list)
 	char buf[STRBUF_SIZEOF(u_quad_t) + 1];
 	char ngroup[STRBUF_SIZEOF(uid_t) + 1];
 	char nuser[STRBUF_SIZEOF(gid_t) + 1];
-
+#ifdef __APPLE__
+	acl_entry_t dummy;
+	ssize_t xattr_size;
+	char *filename;
+	char path[MAXPATHLEN+1];
+#endif // __APPLE__
 	/*
 	 * If list is NULL there are two possibilities: that the parent
 	 * directory p has no children, or that fts_children() returned an
@@ -777,7 +788,7 @@ display(FTSENT *p, FTSENT *list)
 				lattr = NULL;
 				lattrlen = 0;
 				
-				if ((np = malloc(sizeof(NAMES) + lattrlen +
+				if ((np = calloc(1, sizeof(NAMES) + lattrlen +
 				    ulen + glen + flen + 4)) == NULL)
 					err(1, "malloc");
 
@@ -785,7 +796,48 @@ display(FTSENT *p, FTSENT *list)
 				(void)strcpy(np->user, user);
 				np->group = &np->data[ulen + 1];
 				(void)strcpy(np->group, group);
-
+#ifdef __APPLE__
+				if (cur->fts_level == FTS_ROOTLEVEL) {
+					filename = cur->fts_name;
+				} else {
+					snprintf(path, sizeof(path), "%s/%s", cur->fts_parent->fts_accpath, cur->fts_name);
+					filename = path;
+				}
+				xattr_size = listxattr(filename, NULL, 0, XATTR_NOFOLLOW);
+				if (xattr_size < 0) {
+					xattr_size = 0;
+				}
+				if ((xattr_size > 0) && f_xattr) {
+					/* collect sizes */
+					np->xattr_names = malloc(xattr_size);
+					listxattr(filename, np->xattr_names, xattr_size, XATTR_NOFOLLOW);
+					for (char *name = np->xattr_names; name < np->xattr_names + xattr_size;
+					     name += strlen(name)+1) {
+						np->xattr_sizes = reallocf(np->xattr_sizes, (np->xattr_count+1) * sizeof(np->xattr_sizes[0]));
+						np->xattr_sizes[np->xattr_count] = getxattr(filename, name, 0, 0, 0, XATTR_NOFOLLOW);
+						np->xattr_count++;
+					}
+				}
+				/* symlinks can not have ACLs */
+				np->acl = acl_get_link_np(filename, ACL_TYPE_EXTENDED);
+				if (np->acl) {
+					if (acl_get_entry(np->acl, ACL_FIRST_ENTRY, &dummy) == -1) {
+						acl_free(np->acl);
+						np->acl = NULL;
+					}
+				}
+				if (xattr_size > 0) {
+					np->mode_suffix = '@';
+				} else if (np->acl) {
+					np->mode_suffix = '+';
+				} else {
+					np->mode_suffix = ' ';
+				}
+				if (!f_acl) {
+					acl_free(np->acl);
+					np->acl = NULL;
+				}
+#endif // __APPLE__
 				if (S_ISCHR(sp->st_mode) ||
 				    S_ISBLK(sp->st_mode))
 					bcfile = 1;
@@ -830,9 +882,20 @@ display(FTSENT *p, FTSENT *list)
 	printfcn(&d);
 	output = 1;
 
-	if (f_longform)
-		for (cur = list; cur; cur = cur->fts_link)
-			free(cur->fts_pointer);
+	if (f_longform) {
+		for (cur = list; cur; cur = cur->fts_link) {
+			np = cur->fts_pointer;
+			if (np) {
+				if (np->acl) {
+					acl_free(np->acl);
+				}
+				free(np->xattr_names);
+				free(np->xattr_sizes);
+				free(np);
+				cur->fts_pointer = NULL;
+			}
+		}
+	}
 }
 
 /*

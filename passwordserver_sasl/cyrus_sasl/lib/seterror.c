@@ -120,7 +120,7 @@ void sasl_seterror(sasl_conn_t *conn,
 #ifndef SASL_OSX_CFMGLUE
       if(!(flags & SASL_NOLOG)) {
 	  /* See if we have a logging callback... */
-	  result = _sasl_getcallback(NULL, SASL_CB_LOG, &log_cb, &log_ctx);
+	  result = _sasl_getcallback(NULL, SASL_CB_LOG, (sasl_callback_ft *)&log_cb, &log_ctx);
 	  if (result == SASL_OK && ! log_cb)
 	      result = SASL_FAIL;
 	  if (result != SASL_OK)
@@ -145,7 +145,7 @@ void sasl_seterror(sasl_conn_t *conn,
   {
     if (fmt[pos]!='%') /* regular character */
     {
-      result = _buf_alloc((void **)error_buf, error_buf_len, outlen+1);
+      result = _buf_alloc(error_buf, error_buf_len, outlen+1);
       if (result != SASL_OK)
 	return;
       (*error_buf)[outlen]=fmt[pos];
@@ -175,7 +175,7 @@ void sasl_seterror(sasl_conn_t *conn,
 	    break;
 
 	  case '%': /* double % output the '%' character */
-	    result = _buf_alloc((void **)error_buf, error_buf_len, outlen+1);
+	    result = _buf_alloc(error_buf, error_buf_len, outlen+1);
 	    if (result != SASL_OK)
 	      return;
 	    (*error_buf)[outlen]='%';
@@ -251,7 +251,7 @@ void sasl_seterror(sasl_conn_t *conn,
 #ifndef SASL_OSX_CFMGLUE
   if(!(flags & SASL_NOLOG)) {
       /* See if we have a logging callback... */
-      result = _sasl_getcallback(conn, SASL_CB_LOG, &log_cb, &log_ctx);
+      result = _sasl_getcallback(conn, SASL_CB_LOG, (sasl_callback_ft *)&log_cb, &log_ctx);
       if (result == SASL_OK && ! log_cb)
 	  result = SASL_FAIL;
       if (result != SASL_OK)

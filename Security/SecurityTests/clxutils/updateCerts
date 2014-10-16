@@ -1,0 +1,35 @@
+#! /bin/csh -f
+# 
+# Test certs using in certcrl script tests; if expired, replace them 
+# via ssl PING.
+#
+set CLXUTILS=`pwd`
+#
+cd certcrl/testSubjects/crlFromSsl
+$CLXUTILS/updateCert www.amazon.com amazon amazon_v3.100.cer amazon_v3.101.cer
+$CLXUTILS/updateCert www.cduniverse.com cduniverse cduniverse_v3.000.cer
+$CLXUTILS/updateCert store.apple.com apple apple_v3.100.cer apple_v3.101.cer
+$CLXUTILS/updateCert www.wellsfargo.com wellsfargo wellsfargo_v3.100.cer wellsfargo_v3.101.cer
+$CLXUTILS/updateCert www.verisign.com verisign verisign_v3.100.cer verisign_v3.101.cer
+$CLXUTILS/updateCert accounts.key.com keybank keybank_v3.100.cer keybank_v3.101.cer keybank_v3.102.cer
+$CLXUTILS/updateCert secure.authorize.net secauth secauth_v3.100.cer secauth_v3.101.cer
+$CLXUTILS/updateCert www.firstamlink.com firstamlink firstamlink_v3.100.cer
+$CLXUTILS/updateCert accesd.desjardins.com entrust entrust_v3.100.cer entrust_v3.101.cer
+$CLXUTILS/updateCert www.netfile.state.co.us netfile.state.co netfile.state.co_v3.100.cer netfile.state.co_v3.101.cer
+#
+cd $CLXUTILS/certcrl/testSubjects/ocspFromSsl
+$CLXUTILS/updateCert www.amazon.com amazon amazon_v3.100.cer amazon_v3.101.cer
+$CLXUTILS/updateCert www.cduniverse.com cduniverse cduniverse_v3.000.cer
+$CLXUTILS/updateCert store.apple.com apple apple_v3.100.cer apple_v3.101.cer
+$CLXUTILS/updateCert www.verisign.com verisign verisign_v3.100.cer verisign_v3.101.cer
+$CLXUTILS/updateCert accounts.key.com keybank keybank_v3.100.cer keybank_v3.101.cer keybank_v3.102.cer
+$CLXUTILS/updateCert secure.authorize.net secauth secauth_v3.100.cer secauth_v3.101.cer
+$CLXUTILS/updateCert www.wellsfargo.com wellsfargo wellsfargo_v3.100.cer wellsfargo_v3.101.cer
+$CLXUTILS/updateCert www.certum.pl certum certum_v3.100.cer certum_v3.101.cer
+#
+cd $CLXUTILS/threadTest
+$CLXUTILS/updateCert www.amazon.com amazon amazon_v3.100.cer amazon_v3.101.cer
+$CLXUTILS/updateCert mypage.apple.com mypage.apple mypage.apple_v3.100.cer
+cd $CLXUTILS/certcrl/testSubjects/expiredRoot
+$CLXUTILS/updateCert store.apple.com applestore applestore_v3.100.cer applestore_v3.101.cer
+

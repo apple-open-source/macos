@@ -34,9 +34,11 @@
 #include <WebCore/PluginStrategy.h>
 #include <WebCore/SharedWorkerStrategy.h>
 #include <WebCore/StorageStrategy.h>
-#include <WebCore/VisitedLinkStrategy.h>
 
-class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::DatabaseStrategy, private WebCore::LoaderStrategy, private WebCore::PasteboardStrategy, private WebCore::PluginStrategy, private WebCore::SharedWorkerStrategy, private WebCore::StorageStrategy, private WebCore::VisitedLinkStrategy {
+struct PasteboardImage;
+struct PasteboardWebContent;
+
+class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::DatabaseStrategy, private WebCore::LoaderStrategy, private WebCore::PasteboardStrategy, private WebCore::PluginStrategy, private WebCore::SharedWorkerStrategy, private WebCore::StorageStrategy {
 public:
     static void initializeIfNecessary();
     
@@ -44,22 +46,21 @@ private:
     WebPlatformStrategies();
     
     // WebCore::PlatformStrategies
-    virtual WebCore::CookiesStrategy* createCookiesStrategy() OVERRIDE;
-    virtual WebCore::DatabaseStrategy* createDatabaseStrategy() OVERRIDE;
-    virtual WebCore::LoaderStrategy* createLoaderStrategy() OVERRIDE;
-    virtual WebCore::PasteboardStrategy* createPasteboardStrategy() OVERRIDE;
-    virtual WebCore::PluginStrategy* createPluginStrategy() OVERRIDE;
-    virtual WebCore::SharedWorkerStrategy* createSharedWorkerStrategy() OVERRIDE;
+    virtual WebCore::CookiesStrategy* createCookiesStrategy() override;
+    virtual WebCore::DatabaseStrategy* createDatabaseStrategy() override;
+    virtual WebCore::LoaderStrategy* createLoaderStrategy() override;
+    virtual WebCore::PasteboardStrategy* createPasteboardStrategy() override;
+    virtual WebCore::PluginStrategy* createPluginStrategy() override;
+    virtual WebCore::SharedWorkerStrategy* createSharedWorkerStrategy() override;
     virtual WebCore::StorageStrategy* createStorageStrategy() override;
-    virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy() OVERRIDE;
 
     // WebCore::CookiesStrategy
-    virtual String cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
-    virtual void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&, const String&) OVERRIDE;
-    virtual bool cookiesEnabled(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
-    virtual String cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
-    virtual bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&, Vector<WebCore::Cookie>&) OVERRIDE;
-    virtual void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::KURL&, const String&) OVERRIDE;
+    virtual String cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    virtual void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, const String&) override;
+    virtual bool cookiesEnabled(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    virtual String cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    virtual bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, Vector<WebCore::Cookie>&) override;
+    virtual void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::URL&, const String&) override;
 
     // WebCore::DatabaseStrategy
     // - Using default implementation.
@@ -68,32 +69,38 @@ private:
     // - Using default implementation.
 
     // WebCore::PluginStrategy
-    virtual void refreshPlugins() OVERRIDE;
-    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) OVERRIDE;
+    virtual void refreshPlugins() override;
+    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) override;
 
     // WebCore::LoaderStrategy
     // - Using default implementation.
 
-    // WebCore::VisitedLinkStrategy
-    virtual bool isLinkVisited(WebCore::Page*, WebCore::LinkHash, const WebCore::KURL& baseURL, const WTF::AtomicString& attributeURL) OVERRIDE;
-    virtual void addVisitedLink(WebCore::Page*, WebCore::LinkHash) OVERRIDE;
-    
     // WebCore::PasteboardStrategy
-    virtual void getTypes(Vector<String>& types, const String& pasteboardName) OVERRIDE;
-    virtual PassRefPtr<WebCore::SharedBuffer> bufferForType(const String& pasteboardType, const String& pasteboardName) OVERRIDE;
-    virtual void getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
-    virtual String stringForType(const String& pasteboardType, const String& pasteboardName) OVERRIDE;
-    virtual int changeCount(const String& pasteboardName) OVERRIDE;
-    virtual String uniqueName() OVERRIDE;
-    virtual WebCore::Color color(const String& pasteboardName) OVERRIDE;
-    virtual WebCore::KURL url(const String& pasteboardName) OVERRIDE;
+#if PLATFORM(IOS)
+    virtual void writeToPasteboard(const WebCore::PasteboardWebContent&) override;
+    virtual void writeToPasteboard(const WebCore::PasteboardImage&) override;
+    virtual void writeToPasteboard(const String& pasteboardType, const String&) override;
+    virtual int getPasteboardItemsCount() override;
+    virtual String readStringFromPasteboard(int index, const String& pasteboardType) override;
+    virtual PassRefPtr<WebCore::SharedBuffer> readBufferFromPasteboard(int index, const String& pasteboardType) override;
+    virtual WebCore::URL readURLFromPasteboard(int index, const String& pasteboardType) override;
+    virtual long changeCount() override;
+#endif
+    virtual void getTypes(Vector<String>& types, const String& pasteboardName) override;
+    virtual PassRefPtr<WebCore::SharedBuffer> bufferForType(const String& pasteboardType, const String& pasteboardName) override;
+    virtual void getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName) override;
+    virtual String stringForType(const String& pasteboardType, const String& pasteboardName) override;
+    virtual long changeCount(const String& pasteboardName) override;
+    virtual String uniqueName() override;
+    virtual WebCore::Color color(const String& pasteboardName) override;
+    virtual WebCore::URL url(const String& pasteboardName) override;
 
-    virtual void copy(const String& fromPasteboard, const String& toPasteboard) OVERRIDE;
-    virtual void addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) OVERRIDE;
-    virtual void setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) OVERRIDE;
-    virtual void setBufferForType(PassRefPtr<WebCore::SharedBuffer>, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
-    virtual void setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
-    virtual void setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual long addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
+    virtual long setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
+    virtual long copy(const String& fromPasteboard, const String& toPasteboard) override;
+    virtual long setBufferForType(PassRefPtr<WebCore::SharedBuffer>, const String& pasteboardType, const String& pasteboardName) override;
+    virtual long setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) override;
+    virtual long setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) override;
 };
 
 #endif // WebPlatformStrategies_h

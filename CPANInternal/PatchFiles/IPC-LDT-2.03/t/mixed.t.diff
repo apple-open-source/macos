@@ -1,0 +1,31 @@
+diff --git a/IPC-LDT-2.03/t/mixed.t b/IPC-LDT-2.03/t/mixed.t
+index 443614b..87c79b5 100644
+--- IPC-LDT-2.03/t/mixed.t
++++ IPC-LDT-2.03/t/mixed.t
+@@ -8,7 +8,7 @@
+ # load modules
+ use IPC::LDT;
+ use FileHandle;
+-use Data::Dumper;
++use Data::Compare;
+ 
+ # display number of test
+ print "1..12\n";
+@@ -100,13 +100,13 @@ my $ref=\$IPC::LDT::VERSION;
+ 
+  # perform the data checks
+  print $data1[0]==$scalar ? 'ok' : 'not ok', "\n";
+- print Dumper(@{$data1[1]}) eq Dumper(@array) ? 'ok' : 'not ok', "\n";
+- print Dumper(%{$data1[2]}) eq Dumper(%hash)  ? 'ok' : 'not ok', "\n";
++ print Compare($data1[1], \@array) ? 'ok' : 'not ok', "\n";
++ print Compare($data1[2], \%hash)  ? 'ok' : 'not ok', "\n";
+  print ${$data1[3]} eq $$ref ? 'ok' : 'not ok', "\n";
+ 
+  print $data2[0]==$scalar ? 'ok' : 'not ok', "\n";
+- print Dumper(@{$data2[1]}) eq Dumper(@array) ? 'ok' : 'not ok', "\n";
+- print Dumper(%{$data2[2]}) eq Dumper(%hash)  ? 'ok' : 'not ok', "\n";
++ print Compare($data2[1], \@array) ? 'ok' : 'not ok', "\n";
++ print Compare($data2[2], \%hash)  ? 'ok' : 'not ok', "\n";
+  print ${$data2[3]} eq $$ref ? 'ok' : 'not ok', "\n";
+ 
+  # close the temporary file

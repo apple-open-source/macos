@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -24,11 +24,16 @@
  */
 
 #include "config.h"
+
+#if USE(CURL)
+
 #include "CurlDownload.h"
 
-#include <WebCore/HTTPParsers.h>
-#include <WebCore/MainThreadTask.h>
-
+#include "HTTPHeaderNames.h"
+#include "HTTPParsers.h"
+#include "MainThreadTask.h"
+#include "ResourceHandleManager.h"
+#include "ResourceRequest.h"
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
@@ -37,12 +42,13 @@ using namespace WebCore;
 template<> struct CrossThreadCopierBase<false, false, CurlDownload*> : public CrossThreadCopierPassThrough<CurlDownload*> {
 };
 
+namespace WebCore {
+
 // CurlDownloadManager -------------------------------------------------------------------
 
 CurlDownloadManager::CurlDownloadManager()
 : m_threadId(0)
 , m_curlMultiHandle(0)
-, m_activeDownloadCount(0)
 , m_runThread(false)
 {
     curl_global_init(CURL_GLOBAL_ALL);
@@ -77,7 +83,8 @@ bool CurlDownloadManager::remove(CURL* curlHandle)
 
 int CurlDownloadManager::getActiveDownloadCount() const
 {
-    return m_activeDownloadCount;
+    MutexLocker locker(m_mutex);
+    return m_activeHandleList.size();
 }
 
 int CurlDownloadManager::getPendingDownloadCount() const
@@ -118,23 +125,45 @@ void CurlDownloadManager::updateHandleList()
 {
     MutexLocker locker(m_mutex);
 
-    // Add pending curl easy handles to multi list 
-    int size = m_pendingHandleList.size();
-    for (int i = 0; i < size; i++) {
-        CURLMcode retval = curl_multi_add_handle(m_curlMultiHandle, m_pendingHandleList[0]);
-
-        if (retval == CURLM_OK)
-            m_pendingHandleList.remove(0);
-    }
-
     // Remove curl easy handles from multi list 
-    size = m_removedHandleList.size();
+    int size = m_removedHandleList.size();
     for (int i = 0; i < size; i++) {
-        CURLMcode retval = curl_multi_remove_handle(m_curlMultiHandle, m_removedHandleList[0]);
-
-        if (retval == CURLM_OK)
-            m_removedHandleList.remove(0);
+        removeFromCurl(m_removedHandleList[0]);
+        m_removedHandleList.remove(0);
     }
+
+    // Add pending curl easy handles to multi list 
+    size = m_pendingHandleList.size();
+    for (int i = 0; i < size; i++) {
+        addToCurl(m_pendingHandleList[0]);
+        m_pendingHandleList.remove(0);
+    }
+}
+
+bool CurlDownloadManager::addToCurl(CURL* curlHandle)
+{
+    CURLMcode retval = curl_multi_add_handle(m_curlMultiHandle, curlHandle);
+    if (retval == CURLM_OK) {
+        m_activeHandleList.append(curlHandle);
+        return true;
+    }
+    return false;
+}
+
+bool CurlDownloadManager::removeFromCurl(CURL* curlHandle)
+{
+    int handlePos = m_activeHandleList.find(curlHandle);
+
+    if (handlePos < 0)
+        return true;
+    
+    CURLMcode retval = curl_multi_remove_handle(m_curlMultiHandle, curlHandle);
+    if (retval == CURLM_OK) {
+        m_activeHandleList.remove(handlePos);
+        curl_easy_cleanup(curlHandle);
+        return true;
+    }
+    return false;
 }
 
 void CurlDownloadManager::downloadThread(void* data)
@@ -171,7 +200,8 @@ void CurlDownloadManager::downloadThread(void* data)
                 rc = ::select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
         } while (rc == -1 && errno == EINTR);
 
-        while (curl_multi_perform(downloadManager->getMultiHandle(), &downloadManager->m_activeDownloadCount) == CURLM_CALL_MULTI_PERFORM) { }
+        int activeDownloadCount = 0;
+        while (curl_multi_perform(downloadManager->getMultiHandle(), &activeDownloadCount) == CURLM_CALL_MULTI_PERFORM) { }
 
         int messagesInQueue = 0;
         CURLMsg* msg = curl_multi_info_read(downloadManager->getMultiHandle(), &messagesInQueue);
@@ -184,11 +214,11 @@ void CurlDownloadManager::downloadThread(void* data)
 
         if (msg->msg == CURLMSG_DONE) {
             if (msg->data.result == CURLE_OK)
-                callOnMainThread<CurlDownload*, CurlDownload*>(CurlDownload::downloadFinishedCallback, download);
+                callOnMainThread(MainThreadTask(CurlDownload::downloadFinishedCallback, download));
             else
-                callOnMainThread<CurlDownload*, CurlDownload*>(CurlDownload::downloadFailedCallback, download);
+                callOnMainThread(MainThreadTask(CurlDownload::downloadFailedCallback, download));
 
-            curl_multi_remove_handle(downloadManager->getMultiHandle(), msg->easy_handle);
+            downloadManager->removeFromCurl(msg->easy_handle);
         }
 
         downloadManager->stopThreadIfIdle();
@@ -201,6 +231,7 @@ CurlDownloadManager CurlDownload::m_downloadManager;
 
 CurlDownload::CurlDownload()
 : m_curlHandle(0)
+, m_customHeaders(0)
 , m_url(0)
 , m_tempHandle(invalidPlatformFileHandle)
 , m_deletesFileUponFailure(false)
@@ -212,17 +243,17 @@ CurlDownload::~CurlDownload()
 {
     MutexLocker locker(m_mutex);
 
-    if (m_curlHandle)
-        curl_easy_cleanup(m_curlHandle);
-
     if (m_url)
         fastFree(m_url);
+
+    if (m_customHeaders)
+        curl_slist_free_all(m_customHeaders);
 
     closeFile();
     moveFileToDestination();
 }
 
-void CurlDownload::init(CurlDownloadListener* listener, const KURL& url)
+void CurlDownload::init(CurlDownloadListener* listener, const URL& url)
 {
     if (!listener)
         return;
@@ -244,7 +275,29 @@ void CurlDownload::init(CurlDownloadListener* listener, const KURL& url)
     curl_easy_setopt(m_curlHandle, CURLOPT_MAXREDIRS, 10);
     curl_easy_setopt(m_curlHandle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
 
+    const char* certPath = getenv("CURL_CA_BUNDLE_PATH");
+    if (certPath)
+        curl_easy_setopt(m_curlHandle, CURLOPT_CAINFO, certPath);
+
+    CURLSH* curlsh = ResourceHandleManager::sharedInstance()->getCurlShareHandle();
+    if (curlsh)
+        curl_easy_setopt(m_curlHandle, CURLOPT_SHARE, curlsh);
+
     m_listener = listener;
+}
+
+void CurlDownload::init(CurlDownloadListener* listener, ResourceHandle*, const ResourceRequest& request, const ResourceResponse&)
+{
+    if (!listener)
+        return;
+
+    MutexLocker locker(m_mutex);
+
+    URL url(ParsedURLString, request.url());
+
+    init(listener, url);
+
+    addHeaders(request);
 }
 
 bool CurlDownload::start()
@@ -279,7 +332,7 @@ void CurlDownload::closeFile()
 {
     MutexLocker locker(m_mutex);
 
-    if (m_tempHandle) {
+    if (m_tempHandle != invalidPlatformFileHandle) {
         WebCore::closeFile(m_tempHandle);
         m_tempHandle = invalidPlatformFileHandle;
     }
@@ -290,7 +343,44 @@ void CurlDownload::moveFileToDestination()
     if (m_destination.isEmpty())
         return;
 
-    ::MoveFile(m_tempPath.charactersWithNullTermination(), m_destination.charactersWithNullTermination());
+    ::MoveFileEx(m_tempPath.charactersWithNullTermination().data(), m_destination.charactersWithNullTermination().data(), MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
+}
+
+void CurlDownload::writeDataToFile(const char* data, int size)
+{
+    if (m_tempPath.isEmpty())
+        m_tempPath = openTemporaryFile("download", m_tempHandle);
+
+    if (m_tempHandle != invalidPlatformFileHandle)
+        writeToFile(m_tempHandle, data, size);
+}
+
+void CurlDownload::addHeaders(const ResourceRequest& request)
+{
+    if (request.httpHeaderFields().size() > 0) {
+        struct curl_slist* headers = 0;
+
+        HTTPHeaderMap customHeaders = request.httpHeaderFields();
+        HTTPHeaderMap::const_iterator end = customHeaders.end();
+        for (HTTPHeaderMap::const_iterator it = customHeaders.begin(); it != end; ++it) {
+            const String& value = it->value;
+            String headerString(it->key);
+            if (value.isEmpty())
+                // Insert the ; to tell curl that this header has an empty value.
+                headerString.append(";");
+            else {
+                headerString.append(": ");
+                headerString.append(value);
+            }
+            CString headerLatin1 = headerString.latin1();
+            headers = curl_slist_append(headers, headerLatin1.data());
+        }
+
+        if (headers) {
+            curl_easy_setopt(m_curlHandle, CURLOPT_HTTPHEADER, headers);
+            m_customHeaders = headers;
+        }
+    }
 }
 
 void CurlDownload::didReceiveHeader(const String& header)
@@ -305,13 +395,13 @@ void CurlDownload::didReceiveHeader(const String& header)
         if (httpCode >= 200 && httpCode < 300) {
             const char* url = 0;
             err = curl_easy_getinfo(m_curlHandle, CURLINFO_EFFECTIVE_URL, &url);
-            m_response.setURL(KURL(ParsedURLString, url));
+            m_response.setURL(URL(ParsedURLString, url));
 
-            m_response.setMimeType(extractMIMETypeFromMediaType(m_response.httpHeaderField("Content-Type")));
-            m_response.setTextEncodingName(extractCharsetFromMediaType(m_response.httpHeaderField("Content-Type")));
-            m_response.setSuggestedFilename(filenameFromHTTPContentDisposition(m_response.httpHeaderField("Content-Disposition")));
+            m_response.setMimeType(extractMIMETypeFromMediaType(m_response.httpHeaderField(HTTPHeaderName::ContentType)));
+            m_response.setTextEncodingName(extractCharsetFromMediaType(m_response.httpHeaderField(HTTPHeaderName::ContentType)));
+            m_response.setSuggestedFilename(filenameFromHTTPContentDisposition(m_response.httpHeaderField(HTTPHeaderName::ContentDisposition)));
 
-            callOnMainThread<CurlDownload*, CurlDownload*>(receivedResponseCallback, this);
+            callOnMainThread(MainThreadTask(receivedResponseCallback, this));
         }
     } else {
         int splitPos = header.find(":");
@@ -324,15 +414,9 @@ void CurlDownload::didReceiveData(void* data, int size)
 {
     MutexLocker locker(m_mutex);
 
-    callOnMainThread<CurlDownload*, CurlDownload*, int, int>(receivedDataCallback, this, size);
+    callOnMainThread(MainThreadTask(receivedDataCallback, this, size));
 
-    if (m_tempPath.isEmpty())
-        m_tempPath = openTemporaryFile("download", m_tempHandle);
-
-    if (m_tempHandle != invalidPlatformFileHandle) {
-        const char* fileData = static_cast<const char*>(data);
-        writeToFile(m_tempHandle, fileData, size);
-    }
+    writeDataToFile(static_cast<const char*>(data), size);
 }
 
 void CurlDownload::didReceiveResponse()
@@ -385,7 +469,7 @@ size_t CurlDownload::headerCallback(char* ptr, size_t size, size_t nmemb, void* 
     size_t totalSize = size * nmemb;
     CurlDownload* download = reinterpret_cast<CurlDownload*>(data);
 
-    String header(static_cast<const char*>(ptr), totalSize);
+    String header = String::fromUTF8WithLatin1Fallback(static_cast<const char*>(ptr), totalSize);
 
     if (download)
         download->didReceiveHeader(header);
@@ -416,3 +500,7 @@ void CurlDownload::receivedResponseCallback(CurlDownload* download)
     if (download)
         download->didReceiveResponse();
 }
+
+}
+
+#endif

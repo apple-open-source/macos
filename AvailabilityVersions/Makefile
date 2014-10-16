@@ -4,7 +4,8 @@ include $(MAKEFILEPATH)/CoreOS/Standard/Commands.make
 include $(MAKEFILEPATH)/CoreOS/Standard/Variables.make
 
 ifeq "$(RC_INDIGO)" "YES"
-	VerifierDest	=	$(SDKROOT)/usr/local/libexec
+	include $(MAKEFILEPATH)/../AppleInternal/Makefiles/Makefile.indigo
+	VerifierDest	=	$(INDIGO_PREFIX)/usr/local/libexec
 else
 	VerifierDest	=	/usr/local/libexec
 endif

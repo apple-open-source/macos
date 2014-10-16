@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -268,9 +268,11 @@ sendlog(const char* msg)
 				continue;
 			if (*(s = p->name) != '/' && !(s = pathpath(buf, s, "", PATH_REGULAR|PATH_READ, sizeof(buf))))
 				continue;
-			if ((log.fd = open(s, O_WRONLY|O_APPEND|O_NOCTTY)) < 0 && (log.fd = sockopen(s)) < 0)
+			if ((log.fd = open(s, O_WRONLY|O_APPEND|O_NOCTTY|O_cloexec)) < 0 && (log.fd = sockopen(s)) < 0)
 				continue;
+#if !O_cloexec
 			fcntl(log.fd, F_SETFD, FD_CLOEXEC);
+#endif
 		}
 		if (!n || write(log.fd, msg, n) > 0)
 			break;

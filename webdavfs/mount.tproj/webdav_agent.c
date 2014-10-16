@@ -13,6 +13,7 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <IOKit/kext/KextManager.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/errno.h>
@@ -52,8 +53,6 @@
 #include "webdav_network.h"
 #include "webdav_requestqueue.h"
 #include "webdav_cache.h"
-#include "load_webdavfs.h"
-#include "webdavfs_load_kext.h"
 #include "webdav_cookie.h"
 #include "webdav_utils.h"
 
@@ -75,7 +74,6 @@ CFStringRef gBasePath = NULL;	/* the base path (from gBaseURL) for this mount */
 char gBasePathStr[MAXPATHLEN];	/* gBasePath as a c-string */
 uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
 fsid_t	g_fsid;					/* file system id */
-boolean_t gUrlIsIdisk = FALSE;	/* True if URL host domain is of form idisk.mac.com or idisk.me.com */
 char g_mountPoint[MAXPATHLEN];	/* path to our mount point */
 
 /*
@@ -83,9 +81,6 @@ char g_mountPoint[MAXPATHLEN];	/* path to our mount point */
  */
 static int wakeupFDs[2] = { -1, -1 };	/* used by webdav_kill() to communicate with main select loop */
 static char mntfromname[MNAMELEN];		/* the mntfromname */
-
-/* host names of .Mac iDisk servers */
-char *idisk_server_names[] = {"idisk.mac.com", "idisk.me.com", NULL};
 
 /*
  * We want getmntopts() to simply ignore
@@ -205,59 +200,6 @@ char *GetMountURI(char *arguri, int *isHTTPS)
 malloc_uri:
 
 	return ( uri );
-}
-
-/*****************************************************************************/
-
-static boolean_t urlIsIdisk(const char *url) {
-	boolean_t found_idisk;
-	size_t len, shortest_len, url_len;
-	char*  colon;
-	char** idisk_server;
-	
-	found_idisk = FALSE;
-	
-	if (url == NULL)
-		return (found_idisk);
-	
-	colon = strchr(url, ':');
-	if (colon == NULL)
-		return (found_idisk);
-	
-	// First, find the length of the shortest idisk server name
-	idisk_server = idisk_server_names;
-	shortest_len = strlen(*idisk_server);
-	while (*idisk_server != NULL) {
-		len = strlen(*idisk_server);
-		if (len < shortest_len)
-			shortest_len = len;
-		idisk_server++;
-	}
-	
-	if (strlen(colon) < shortest_len)
-		return (found_idisk);	// too short, not an idisk server name
-	
-    /*
-     * Move colon past "://".  We've already verified that
-     * colon is at least as long as the shortest iDisk server name
-     * so not worried about buffer overflows
-     */	
-	colon += 3;
-	url_len = strlen(colon);
-	idisk_server = idisk_server_names;
-	while (*idisk_server) {
-		len = strlen(*idisk_server);
-		if (url_len >= len) {
-			// check for match
-			if ( strncasecmp(colon, *idisk_server, len) == 0 ) {
-				found_idisk = TRUE;
-				break;
-			}
-		}
-		idisk_server++;
-	}
-	
-	return (found_idisk);
 }
 
 /*****************************************************************************/
@@ -481,32 +423,6 @@ Return:
 	check_noerr_string(errno, strerror(errno));
 
 	_exit(EXIT_FAILURE);
-}
-
-/*****************************************************************************/
-
-/*
- * The attempt_webdav_load function forks and executes the load_webdav command
- * which in turn loads the webdavfs kext.
- */
-static int attempt_webdav_load(void)
-{	
-	int error = 0;
-	mach_port_t mp = MACH_PORT_NULL;
-	
-	// Find the mach port
-	error = bootstrap_look_up(bootstrap_port, (char *)WEBDAVFS_LOAD_KEXT_BOOTSTRAP_NAME, &mp);
-
-	if (error != KERN_SUCCESS) {
-		syslog(LOG_ERR, "%s: bootstrap_look_up: %s", __FUNCTION__, bootstrap_strerror(error));
-		return error;
-	}
-
-	error = load_kext(mp, (string_t)WEBDAVFS_VFSNAME);
-	if (error != KERN_SUCCESS)
-			syslog(LOG_ERR, "%s: load_kext: %s", __FUNCTION__, bootstrap_strerror(error));
-
-	return error;	
 }
 
 /*****************************************************************************/
@@ -776,6 +692,7 @@ int main(int argc, char *argv[])
 	int tempError;
 	struct statfs buf;
 	boolean_t result;
+	kern_return_t status;
 	char	  *errorbuf = NULL;
 
 	
@@ -921,13 +838,6 @@ int main(int argc, char *argv[])
 	uri = GetMountURI(argv[optind], &gSecureConnection);
 	require_action_quiet(uri != NULL, error_exit, error = EINVAL);
 	
-	// check if this is an iDisk URL
-	gUrlIsIdisk = urlIsIdisk(uri);
-	
-	// Credentials must always be sent securely to iDisk servers
-	if (gUrlIsIdisk == TRUE)
-		gSecureServerAuth = TRUE;	
-
 	/* Create a mntfromname from the uri. Make sure the string is no longer than MNAMELEN */
 	strlcpy(mntfromname, uri , MNAMELEN);
 	
@@ -957,7 +867,7 @@ int main(int argc, char *argv[])
 				/* Yes, this mntfromname is in use - return EBUSY
 				 * (the same error that you'd get if you tried mount a disk device twice).
 				 */
-				LogMessage(kSysLog | kError, "%s is already mounted: %s\n", mntfromname, strerror(EBUSY));
+				syslog(LOG_ERR, "%s is already mounted: %s", mntfromname, strerror(EBUSY));
 				error = EBUSY;
 				goto error_exit;
 			}
@@ -1049,9 +959,10 @@ int main(int argc, char *argv[])
 	error = getvfsbyname("webdav", &vfc);
 	if (error)
 	{
-		error = attempt_webdav_load();
-		require_noerr_action_quiet(error, error_exit, error = EINVAL);
-
+		status = KextManagerLoadKextWithIdentifier(CFSTR("com.apple.filesystems.webdav") ,NULL);
+		if (status != KERN_SUCCESS) {
+			syslog(LOG_ERR, "Loading com.apple.filesystems.webdav status = %d", status);
+		}
 		error = getvfsbyname("webdav", &vfc);
 	}
 	require_noerr_action(error, error_exit, error = EINVAL);

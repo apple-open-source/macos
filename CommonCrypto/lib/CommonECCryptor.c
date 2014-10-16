@@ -71,7 +71,6 @@ ccMallocECCryptor(size_t nbits, CCECKeyType keyType)
             ctxSize = ccec_full_ctx_size(len);
             break;
         default:
-            retval = NULL;
             goto errOut;
     }
     

@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/rm.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/rm.xml
+ * ICU <specials> source: <path>/common/main/rm.xml
  */
 rm{
     AuxExemplarCharacters{"[á à ă â å ä ā æ ç é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ö ø ō œ ú ù ŭ û ü ū ÿ]"}
@@ -38,7 +38,7 @@ rm{
             }
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.98.52"}
     calendar{
         generic{
             DateTimePatterns{
@@ -68,7 +68,6 @@ rm{
                 MMMEd{"E d. MMM"}
                 MMMMEd{"E d. MMMM"}
                 MMMMd{"d. MMMM"}
-                MMMMdd{"dd. MMMM"}
                 MMMd{"d. MMM"}
                 MMd{"d.MM."}
                 MMdd{"dd.MM."}
@@ -115,22 +114,22 @@ rm{
                 }
                 fallback{"{0} - {1}"}
                 h{
-                    a{"HH-HH"}
-                    h{"HH-HH"}
+                    a{"h a - h a"}
+                    h{"h-h a"}
                 }
                 hm{
-                    a{"HH:mm-HH:mm"}
-                    h{"HH:mm-HH:mm"}
-                    m{"HH:mm-HH:mm"}
+                    a{"h:mm a - h:mm a"}
+                    h{"h:mm-h:mm a"}
+                    m{"h:mm-h:mm a"}
                 }
                 hmv{
-                    a{"HH:mm-HH:mm v"}
-                    h{"HH:mm-HH:mm v"}
-                    m{"HH:mm-HH:mm v"}
+                    a{"h:mm a - h:mm a v"}
+                    h{"h:mm-h:mm a v"}
+                    m{"h:mm-h:mm a v"}
                 }
                 hv{
-                    a{"HH-HH v"}
-                    h{"HH-HH v"}
+                    a{"h a - h a v"}
+                    h{"h-h a v"}
                 }
                 y{
                     y{"y-y"}
@@ -201,7 +200,6 @@ rm{
                 MMMEd{"E d. MMM"}
                 MMMMEd{"E d. MMMM"}
                 MMMMd{"d. MMMM"}
-                MMMMdd{"dd. MMMM"}
                 MMMd{"d. MMM"}
                 MMd{"d.MM."}
                 MMdd{"dd.MM."}
@@ -291,22 +289,22 @@ rm{
                 }
                 fallback{"{0} - {1}"}
                 h{
-                    a{"HH-HH"}
-                    h{"HH-HH"}
+                    a{"h a - h a"}
+                    h{"h-h a"}
                 }
                 hm{
-                    a{"HH:mm-HH:mm"}
-                    h{"HH:mm-HH:mm"}
-                    m{"HH:mm-HH:mm"}
+                    a{"h:mm a - h:mm a"}
+                    h{"h:mm-h:mm a"}
+                    m{"h:mm-h:mm a"}
                 }
                 hmv{
-                    a{"HH:mm-HH:mm v"}
-                    h{"HH:mm-HH:mm v"}
-                    m{"HH:mm-HH:mm v"}
+                    a{"h:mm a - h:mm a v"}
+                    h{"h:mm-h:mm a v"}
+                    m{"h:mm-h:mm a v"}
                 }
                 hv{
-                    a{"HH-HH v"}
-                    h{"HH-HH v"}
+                    a{"h a - h a v"}
+                    h{"h-h a v"}
                 }
                 y{
                     y{"y-y"}
@@ -457,63 +455,67 @@ rm{
         metric{"unitads metrics"}
     }
     units{
-        day{
-            one{"{0} di"}
-            other{"{0} dis"}
-        }
-        hour{
-            one{"{0} ura"}
-            other{"{0} uras"}
-        }
-        minute{
-            one{"{0} minuta"}
-            other{"{0} minutas"}
-        }
-        month{
-            one{"{0} mais"}
-            other{"{0} mais"}
-        }
-        second{
-            one{"{0} secunda"}
-            other{"{0} secundas"}
-        }
-        week{
-            one{"{0} emna"}
-            other{"{0} emnas"}
-        }
-        year{
-            one{"{0} onn"}
-            other{"{0} onns"}
+        duration{
+            day{
+                one{"{0} di"}
+                other{"{0} dis"}
+            }
+            hour{
+                one{"{0} ura"}
+                other{"{0} uras"}
+            }
+            minute{
+                one{"{0} minuta"}
+                other{"{0} minutas"}
+            }
+            month{
+                one{"{0} mais"}
+                other{"{0} mais"}
+            }
+            second{
+                one{"{0} secunda"}
+                other{"{0} secundas"}
+            }
+            week{
+                one{"{0} emna"}
+                other{"{0} emnas"}
+            }
+            year{
+                one{"{0} onn"}
+                other{"{0} onns"}
+            }
         }
     }
     unitsShort{
-        day{
-            one{"{0} di"}
-            other{"{0} dis"}
-        }
-        hour{
-            one{"{0} ura"}
-            other{"{0} uras"}
-        }
-        minute{
-            one{"{0} min."}
-            other{"{0} mins."}
-        }
-        month{
-            one{"{0} mais"}
-            other{"{0} mais"}
-        }
-        second{
-            one{"{0} sec."}
-            other{"{0} secs."}
-        }
-        week{
-            one{"{0} emna"}
-            other{"{0} emnas"}
-        }
-        year{
-            one{"{0} onn"}
-            other{"{0} onns"}
+        duration{
+            day{
+                one{"{0} di"}
+                other{"{0} dis"}
+            }
+            hour{
+                one{"{0} ura"}
+                other{"{0} uras"}
+            }
+            minute{
+                one{"{0} min."}
+                other{"{0} mins."}
+            }
+            month{
+                one{"{0} mais"}
+                other{"{0} mais"}
+            }
+            second{
+                one{"{0} sec."}
+                other{"{0} secs."}
+            }
+            week{
+                one{"{0} emna"}
+                other{"{0} emnas"}
+            }
+            year{
+                one{"{0} onn"}
+                other{"{0} onns"}
+            }
         }
     }
 }

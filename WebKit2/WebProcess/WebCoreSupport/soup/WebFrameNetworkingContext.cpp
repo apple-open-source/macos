@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Igalia S.L.
+ * Copyright (C) 2013 Company 100 Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,30 +27,76 @@
 #include "config.h"
 #include "WebFrameNetworkingContext.h"
 
+#include "SessionTracker.h"
 #include "WebFrame.h"
 #include "WebPage.h"
+#include <WebCore/CookieJarSoup.h>
+#include <WebCore/NetworkStorageSession.h>
+#include <WebCore/SessionID.h>
+#include <WebCore/Settings.h>
+#include <WebCore/SoupNetworkSession.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
+void WebFrameNetworkingContext::ensurePrivateBrowsingSession(SessionID sessionID)
+{
+    ASSERT(isMainThread());
+
+    if (SessionTracker::session(sessionID))
+        return;
+
+    SessionTracker::setSession(sessionID, NetworkStorageSession::createPrivateBrowsingSession(String::number(sessionID.sessionID())));
+}
+
+void WebFrameNetworkingContext::setCookieAcceptPolicyForAllContexts(HTTPCookieAcceptPolicy policy)
+{
+    SoupCookieJarAcceptPolicy soupPolicy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
+    switch (policy) {
+    case HTTPCookieAcceptPolicyAlways:
+        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
+        break;
+    case HTTPCookieAcceptPolicyNever:
+        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NEVER;
+        break;
+    case HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
+        soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
+        break;
+    }
+
+    SoupCookieJar* cookieJar = WebCore::soupCookieJar();
+    soup_cookie_jar_set_accept_policy(cookieJar, soupPolicy);
+
+    SoupNetworkSession& soupSession = NetworkStorageSession::defaultStorageSession().soupNetworkSession();
+    soup_cookie_jar_set_accept_policy(soupSession.cookieJar(), soupPolicy);
+
+    for (const auto& session : SessionTracker::sessionMap().values()) {
+        if (session)
+            soup_cookie_jar_set_accept_policy(session->soupNetworkSession().cookieJar(), soupPolicy);
+    }
+}
+
 WebFrameNetworkingContext::WebFrameNetworkingContext(WebFrame* frame)
     : FrameNetworkingContext(frame->coreFrame())
-    , m_initiatingPageID(0)
 {
-    if (WebPage* page = frame->page())
-        m_initiatingPageID = page->pageID();
 }
 
 NetworkStorageSession& WebFrameNetworkingContext::storageSession() const
 {
+    if (frame() && frame()->page()->usesEphemeralSession())
+        return *SessionTracker::session(SessionID::legacyPrivateSessionID());
+
     return NetworkStorageSession::defaultStorageSession();
 }
 
-uint64_t WebFrameNetworkingContext::initiatingPageID() const
+WebFrameLoaderClient* WebFrameNetworkingContext::webFrameLoaderClient() const
 {
-    return m_initiatingPageID;
+    if (!frame())
+        return nullptr;
+
+    return toWebFrameLoaderClient(frame()->loader().client());
 }
 
 }
-

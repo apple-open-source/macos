@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,24 +26,25 @@
 #ifndef JSClassRef_h
 #define JSClassRef_h
 
-#include <JavaScriptCore/JSObjectRef.h>
-
-#include "Weak.h"
+#include "OpaqueJSString.h"
 #include "Protect.h"
+#include "Weak.h"
+#include <JavaScriptCore/JSObjectRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
 struct StaticValueEntry {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    StaticValueEntry(JSObjectGetPropertyCallback _getProperty, JSObjectSetPropertyCallback _setProperty, JSPropertyAttributes _attributes)
-        : getProperty(_getProperty), setProperty(_setProperty), attributes(_attributes)
+    StaticValueEntry(JSObjectGetPropertyCallback _getProperty, JSObjectSetPropertyCallback _setProperty, JSPropertyAttributes _attributes, String& propertyName)
+    : getProperty(_getProperty), setProperty(_setProperty), attributes(_attributes), propertyNameRef(OpaqueJSString::create(propertyName))
     {
     }
     
     JSObjectGetPropertyCallback getProperty;
     JSObjectSetPropertyCallback setProperty;
     JSPropertyAttributes attributes;
+    RefPtr<OpaqueJSString> propertyNameRef;
 };
 
 struct StaticFunctionEntry {
@@ -58,8 +59,8 @@ public:
     JSPropertyAttributes attributes;
 };
 
-typedef HashMap<RefPtr<StringImpl>, OwnPtr<StaticValueEntry> > OpaqueJSClassStaticValuesTable;
-typedef HashMap<RefPtr<StringImpl>, OwnPtr<StaticFunctionEntry> > OpaqueJSClassStaticFunctionsTable;
+typedef HashMap<RefPtr<StringImpl>, std::unique_ptr<StaticValueEntry>> OpaqueJSClassStaticValuesTable;
+typedef HashMap<RefPtr<StringImpl>, std::unique_ptr<StaticFunctionEntry>> OpaqueJSClassStaticFunctionsTable;
 
 struct OpaqueJSClass;
 
@@ -78,8 +79,8 @@ public:
     // 4. When it is used, the old context data is found in VM and used.
     RefPtr<OpaqueJSClass> m_class;
 
-    OwnPtr<OpaqueJSClassStaticValuesTable> staticValues;
-    OwnPtr<OpaqueJSClassStaticFunctionsTable> staticFunctions;
+    std::unique_ptr<OpaqueJSClassStaticValuesTable> staticValues;
+    std::unique_ptr<OpaqueJSClassStaticFunctionsTable> staticFunctions;
     JSC::Weak<JSC::JSObject> cachedPrototype;
 };
 
@@ -117,7 +118,7 @@ private:
 
     OpaqueJSClassContextData& contextData(JSC::ExecState*);
 
-    // Strings in these data members should not be put into any IdentifierTable.
+    // Strings in these data members should not be put into any AtomicStringTable.
     String m_className;
     OwnPtr<OpaqueJSClassStaticValuesTable> m_staticValues;
     OwnPtr<OpaqueJSClassStaticFunctionsTable> m_staticFunctions;

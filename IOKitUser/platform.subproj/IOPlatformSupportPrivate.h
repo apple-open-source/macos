@@ -89,11 +89,29 @@ IOReturn IOPlatformCopyFeatureActive(
                                       CFTypeRef     *outValue);
 
 /*!
+ * @function    IOSMCKeyProxyPresent
+ * @abstract    Indicates whether this system has SMC Key Proxy.
+ * @discussion  Assumes that all systems have SMC Key Proxy except for
+                those on a blacklist of older systems.
+ * @result      true if system has SMC Key Proxy, false otherwise.
+ */
+Boolean IOSMCKeyProxyPresent(void);
+
+/*!
+ * @function    IONoteToSelfSupported
+ * @abstract    Indicates whether Note To Self is supported on this system.
+ * @discussion  Assumes that all systems support Note To Self except for
+                those on a blacklist of non-capable systems.
+ * @result      true if Note To Self can be used, false otherwise.
+ */
+Boolean IONoteToSelfSupported(void);
+
+/*!
  * @function    IOAuthenticatedRestartSupported
  * @abstract    Indicates whether Authenticated Restart is supported on this system.
  * @discussion  Call this function before using Authenticated Restart. 
-                Assumes that all systems support Authenticated Restart except for
-                those on a blacklist of non-authrestart-capable systems.
+                Assumes that Authenticated Restart can be used only if the system
+                has SMC Key Proxy or supports Note To Self.
  * @result      true if Authenticated Restart can be used, false otherwise.
  */
 Boolean IOAuthenticatedRestartSupported(void);

@@ -67,39 +67,39 @@ static const struct ccmode_ofb *cc_rc4_crypt_mode(void)
 
 const modeList ccmodeList[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS] = {
     { // AES
-        { ccaes_ecb_encrypt_mode, ccaes_cbc_encrypt_mode, ccaes_cfb_encrypt_mode, ccaes_cfb8_encrypt_mode, ccaes_ctr_crypt_mode, ccaes_ofb_crypt_mode, ccaes_xts_encrypt_mode, ccaes_gcm_encrypt_mode },
-        { ccaes_ecb_decrypt_mode, ccaes_cbc_decrypt_mode, ccaes_cfb_decrypt_mode, ccaes_cfb8_decrypt_mode, ccaes_ctr_crypt_mode, ccaes_ofb_crypt_mode, ccaes_xts_decrypt_mode, ccaes_gcm_decrypt_mode }
+        { ccaes_ecb_encrypt_mode, ccaes_cbc_encrypt_mode, ccaes_cfb_encrypt_mode, ccaes_cfb8_encrypt_mode, ccaes_ctr_crypt_mode, ccaes_ofb_crypt_mode, ccaes_xts_encrypt_mode, ccaes_gcm_encrypt_mode, ccaes_ccm_encrypt_mode },
+        { ccaes_ecb_decrypt_mode, ccaes_cbc_decrypt_mode, ccaes_cfb_decrypt_mode, ccaes_cfb8_decrypt_mode, ccaes_ctr_crypt_mode, ccaes_ofb_crypt_mode, ccaes_xts_decrypt_mode, ccaes_gcm_decrypt_mode,  ccaes_ccm_decrypt_mode }
     },
     
     { // DES
-        { ccdes_ecb_encrypt_mode, ccdes_cbc_encrypt_mode, ccdes_cfb_encrypt_mode, ccdes_cfb8_encrypt_mode, ccdes_ctr_crypt_mode, ccdes_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { ccdes_ecb_decrypt_mode, ccdes_cbc_decrypt_mode, ccdes_cfb_decrypt_mode, ccdes_cfb8_decrypt_mode, ccdes_ctr_crypt_mode, ccdes_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode }
+        { ccdes_ecb_encrypt_mode, ccdes_cbc_encrypt_mode, ccdes_cfb_encrypt_mode, ccdes_cfb8_encrypt_mode, ccdes_ctr_crypt_mode, ccdes_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { ccdes_ecb_decrypt_mode, ccdes_cbc_decrypt_mode, ccdes_cfb_decrypt_mode, ccdes_cfb8_decrypt_mode, ccdes_ctr_crypt_mode, ccdes_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode }
     },
     
     { // DES3
-        { ccdes3_ecb_encrypt_mode, ccdes3_cbc_encrypt_mode, ccdes3_cfb_encrypt_mode, ccdes3_cfb8_encrypt_mode, ccdes3_ctr_crypt_mode, ccdes3_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { ccdes3_ecb_decrypt_mode, ccdes3_cbc_decrypt_mode, ccdes3_cfb_decrypt_mode, ccdes3_cfb8_decrypt_mode, ccdes3_ctr_crypt_mode, ccdes3_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode }
+        { ccdes3_ecb_encrypt_mode, ccdes3_cbc_encrypt_mode, ccdes3_cfb_encrypt_mode, ccdes3_cfb8_encrypt_mode, ccdes3_ctr_crypt_mode, ccdes3_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { ccdes3_ecb_decrypt_mode, ccdes3_cbc_decrypt_mode, ccdes3_cfb_decrypt_mode, ccdes3_cfb8_decrypt_mode, ccdes3_ctr_crypt_mode, ccdes3_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode }
     },
     
     { // CAST
-        { cccast_ecb_encrypt_mode, cccast_cbc_encrypt_mode, cccast_cfb_encrypt_mode, cccast_cfb8_encrypt_mode, cccast_ctr_crypt_mode, cccast_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { cccast_ecb_decrypt_mode, cccast_cbc_decrypt_mode, cccast_cfb_decrypt_mode, cccast_cfb8_decrypt_mode, cccast_ctr_crypt_mode, cccast_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode }
+        { cccast_ecb_encrypt_mode, cccast_cbc_encrypt_mode, cccast_cfb_encrypt_mode, cccast_cfb8_encrypt_mode, cccast_ctr_crypt_mode, cccast_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { cccast_ecb_decrypt_mode, cccast_cbc_decrypt_mode, cccast_cfb_decrypt_mode, cccast_cfb8_decrypt_mode, cccast_ctr_crypt_mode, cccast_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode }
     },
     
     { // RC4 - hijack OFB to put in streaming cipher descriptor
-        { (ecb_p) noMode, (cbc_p) noMode, (cfb_p) noMode, (cfb8_p) noMode, (ctr_p) noMode, cc_rc4_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { (ecb_p) noMode, (cbc_p) noMode, (cfb_p) noMode, (cfb8_p) noMode, (ctr_p) noMode, cc_rc4_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
+        { (ecb_p) noMode, (cbc_p) noMode, (cfb_p) noMode, (cfb8_p) noMode, (ctr_p) noMode, cc_rc4_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { (ecb_p) noMode, (cbc_p) noMode, (cfb_p) noMode, (cfb8_p) noMode, (ctr_p) noMode, cc_rc4_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
     },
 
     
     { // RC2
-        { ccrc2_ecb_encrypt_mode, ccrc2_cbc_encrypt_mode, ccrc2_cfb_encrypt_mode, ccrc2_cfb8_encrypt_mode, ccrc2_ctr_crypt_mode, ccrc2_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { ccrc2_ecb_decrypt_mode, ccrc2_cbc_decrypt_mode, ccrc2_cfb_decrypt_mode, ccrc2_cfb8_decrypt_mode, ccrc2_ctr_crypt_mode, ccrc2_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode }
+        { ccrc2_ecb_encrypt_mode, ccrc2_cbc_encrypt_mode, ccrc2_cfb_encrypt_mode, ccrc2_cfb8_encrypt_mode, ccrc2_ctr_crypt_mode, ccrc2_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { ccrc2_ecb_decrypt_mode, ccrc2_cbc_decrypt_mode, ccrc2_cfb_decrypt_mode, ccrc2_cfb8_decrypt_mode, ccrc2_ctr_crypt_mode, ccrc2_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode }
     },
 
     { // Blowfish
-        { ccblowfish_ecb_encrypt_mode, ccblowfish_cbc_encrypt_mode, ccblowfish_cfb_encrypt_mode, ccblowfish_cfb8_encrypt_mode, ccblowfish_ctr_crypt_mode, ccblowfish_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode },
-        { ccblowfish_ecb_decrypt_mode, ccblowfish_cbc_decrypt_mode, ccblowfish_cfb_decrypt_mode, ccblowfish_cfb8_decrypt_mode, ccblowfish_ctr_crypt_mode, ccblowfish_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode }
+        { ccblowfish_ecb_encrypt_mode, ccblowfish_cbc_encrypt_mode, ccblowfish_cfb_encrypt_mode, ccblowfish_cfb8_encrypt_mode, ccblowfish_ctr_crypt_mode, ccblowfish_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode },
+        { ccblowfish_ecb_decrypt_mode, ccblowfish_cbc_decrypt_mode, ccblowfish_cfb_decrypt_mode, ccblowfish_cfb8_decrypt_mode, ccblowfish_ctr_crypt_mode, ccblowfish_ofb_crypt_mode, (xts_p) noMode, (gcm_p) noMode, (ccm_p) noMode }
     },
 };
 
@@ -407,6 +407,47 @@ const cc2CCModeDescriptor ccgcm_mode = {
     .mode_getiv = NULL
 };
 
+// CCM
+
+static size_t ccccm_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.ccm->size + sizeof(ccm_nonce_ctx); }
+static size_t ccccm_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.ccm->block_size; }
+static void ccccm_mode_setup(const corecryptoMode modeObj, const void *iv,
+                             const void *key, size_t keylen, const void *tweak,
+                             size_t tweaklen, int options, modeCtx ctx)
+{
+    modeObj.ccm->init(modeObj.ccm, &ctx.ccm->ccm, keylen, key);
+    ctx.ccm->nonce_size = (size_t) 0xffffffffffffffff;
+    ctx.ccm->mac_size = (size_t) 0xffffffffffffffff;
+    ctx.ccm->ad_len = (size_t) 0xffffffffffffffff;
+    ctx.ccm->total_len = (size_t) 0xffffffffffffffff;
+}
+
+static void ccccm_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+{
+    modeObj.ccm->ccm(&ctx.ccm->ccm, (ccccm_nonce *) &ctx.ccm->nonce, len, in, out);
+}
+
+static int ccccm_mode_done(const corecryptoMode modeObj, modeCtx ctx)
+{
+    modeObj.ccm->finalize(&ctx.ccm->ccm, (ccccm_nonce *) &ctx.ccm->nonce, ctx.ccm->mac);
+    ctx.ccm->mac_size = ctx.ccm->nonce.mac_size;
+    return 0;
+}
+
+const cc2CCModeDescriptor ccccm_mode = {
+    .mode_get_ctx_size = ccccm_mode_get_ctx_size,
+    .mode_get_block_size = ccccm_mode_get_block_size,
+    .mode_setup = ccccm_mode_setup,
+    .mode_encrypt = ccccm_mode_crypt,
+    .mode_decrypt = ccccm_mode_crypt,
+    .mode_encrypt_tweaked = NULL,
+    .mode_decrypt_tweaked = NULL,
+    .mode_done = ccccm_mode_done,
+    .mode_setiv = NULL,
+    .mode_getiv = NULL
+};
+
+
 // Padding
 
 static int ccpkcs7_encrypt_pad(modeCtx ctx, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *cipherText, size_t *moved)
@@ -598,11 +639,13 @@ const cc2CCPaddingDescriptor cccts3_pad = {
 static int ccnopad_encrypt_pad(modeCtx ctx, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *cipherText, size_t *moved)
 {
     *moved = 0;
+    if(len != 0) return -1;
     return 0;
 }
 static int ccnopad_decrypt_pad(modeCtx ctx, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *plainText, size_t *moved)
 {
     *moved = 0;
+    if(len != 0) return -1;
     return 0;
 }
 

@@ -1,6 +1,6 @@
 --- configure.orig	2011-12-14 16:04:39.000000000 -0800
 +++ configure	2011-12-14 16:05:47.000000000 -0800
-@@ -25199,7 +25199,7 @@
+@@ -18688,7 +18688,7 @@
  #include <stdio.h>
  #include <unistd.h>
  
@@ -9,7 +9,7 @@
  {
      int fd, ret = 0;
      struct stat64 st;
-@@ -34316,7 +34316,7 @@
+@@ -27826,7 +27826,7 @@
  #include <sys/socket.h>
  #endif
  
@@ -18,7 +18,7 @@
      struct addrinfo hints, *ai;
      int error;
  
-@@ -34379,7 +34379,7 @@
+@@ -27889,7 +27889,7 @@
  #include <netdb.h>
  #endif
  
@@ -27,7 +27,7 @@
      if (EAI_ADDRFAMILY < 0) {
          exit(0);
      }
-@@ -34440,7 +34440,7 @@
+@@ -27950,7 +27950,7 @@
  #include <netinet/in.h>
  #endif
  

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,6 +27,10 @@
 #include "SQLiteTransaction.h"
 
 #include "SQLiteDatabase.h"
+
+#if PLATFORM(IOS)
+#include "SQLiteDatabaseTracker.h"
+#endif
 
 namespace WebCore {
 
@@ -54,11 +58,18 @@ void SQLiteTransaction::begin()
         // any statements. If that happens, this transaction will fail.
         // http://www.sqlite.org/lang_transaction.html
         // http://www.sqlite.org/lockingv3.html#locking
+#if PLATFORM(IOS)
+        SQLiteDatabaseTracker::incrementTransactionInProgressCount();
+#endif
         if (m_readOnly)
             m_inProgress = m_db.executeCommand("BEGIN");
         else
             m_inProgress = m_db.executeCommand("BEGIN IMMEDIATE");
         m_db.m_transactionInProgress = m_inProgress;
+#if PLATFORM(IOS)
+        if (!m_inProgress)
+            SQLiteDatabaseTracker::decrementTransactionInProgressCount();
+#endif
     }
 }
 
@@ -68,6 +79,10 @@ void SQLiteTransaction::commit()
         ASSERT(m_db.m_transactionInProgress);
         m_inProgress = !m_db.executeCommand("COMMIT");
         m_db.m_transactionInProgress = m_inProgress;
+#if PLATFORM(IOS)
+        if (!m_inProgress)
+            SQLiteDatabaseTracker::decrementTransactionInProgressCount();
+#endif
     }
 }
 
@@ -82,6 +97,9 @@ void SQLiteTransaction::rollback()
         m_db.executeCommand("ROLLBACK");
         m_inProgress = false;
         m_db.m_transactionInProgress = false;
+#if PLATFORM(IOS)
+        SQLiteDatabaseTracker::decrementTransactionInProgressCount();
+#endif
     }
 }
 
@@ -90,6 +108,9 @@ void SQLiteTransaction::stop()
     if (m_inProgress) {
         m_inProgress = false;
         m_db.m_transactionInProgress = false;
+#if PLATFORM(IOS)
+        SQLiteDatabaseTracker::decrementTransactionInProgressCount();
+#endif
     }
 }
 

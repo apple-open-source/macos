@@ -38,6 +38,25 @@
 
 __BEGIN_DECLS
 
+/* Define pressure levels usable by OSThermalPressureLevel */
+typedef enum {
+	kOSThermalPressureLevelNominal = 0,
+	kOSThermalPressureLevelModerate,
+	kOSThermalPressureLevelHeavy,
+	kOSThermalPressureLevelTrapping,
+	kOSThermalPressureLevelSleeping
+} OSThermalPressureLevel;
+
+/*
+ ** External notify(3) string for thermal pressure level notification
+ */
+__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0)
+extern const char * const kOSThermalNotificationPressureLevelName;
+
+
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && \
+	__IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_2_0
+
 typedef enum {
 	OSThermalNotificationLevelAny      = -1,
 	OSThermalNotificationLevelNormal   =  0,
@@ -76,45 +95,31 @@ enum {
 #define OSThermalNotificationLevelUrgent OSThermalNotificationLevelAppTerminate
 #define OSThermalNotificationLevelCritical OSThermalNotificationLevelDeviceRestart
 
-/* Define pressure levels usable by OSThermalPressureLevel */
-typedef enum {
-	kOSThermalPressureLevelNominal = 0,
-	kOSThermalPressureLevelModerate,
-	kOSThermalPressureLevelHeavy,
-	kOSThermalPressureLevelTrapping,
-	kOSThermalPressureLevelSleeping
-} OSThermalPressureLevel;
-
 /*
 ** Simple polling interface to detect current thermal level
 */
-
-extern OSThermalNotificationLevel OSThermalNotificationCurrentLevel(void) __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0);
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0)
+extern OSThermalNotificationLevel OSThermalNotificationCurrentLevel(void);
 
 /*
 ** External notify(3) string for manual notification setup
 */
-
-extern const char * const kOSThermalNotificationName __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0);
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0)
+extern const char * const kOSThermalNotificationName;
 
 /*
 ** External notify(3) string for alerting user of a thermal condition
 */
-
-extern const char * const kOSThermalNotificationAlert __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_6_0);
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_6_0)
+extern const char * const kOSThermalNotificationAlert;
 
 /*
 ** External notify(3) string for notifying system the options taken to resolve thermal condition
 */
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_6_0)
+extern const char * const kOSThermalNotificationDecision;
 
-extern const char * const kOSThermalNotificationDecision __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_6_0);
-
-/*
-** External notify(3) string for thermal pressure level notification
-*/
-
-extern const char * const kOSThermalNotificationPressureLevelName __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_7_0);
-
+#endif // __IPHONE_OS_VERSION_MIN_REQUIRED
 
 __END_DECLS
 

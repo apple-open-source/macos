@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2003, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2003, 2005, 2013, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -144,7 +144,7 @@ MOHExec(int		ref,
 	bzero(&msg, sizeof(msg));
 	msg.m_type = cmd;
 	msg.m_link = link;
-	msg.m_len  = ((request != NULL) && (requestLen > 0)) ? requestLen : 0;
+	msg.m_len  = ((request != NULL) && (requestLen > 0)) ? (uint32_t)requestLen : 0;
 
 	//  send the command
 	n = writen(ref, &msg, sizeof(msg));
@@ -152,7 +152,7 @@ MOHExec(int		ref,
 		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: %s"), strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%d"), n);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%ld"), n);
 		return -1;
 	}
 
@@ -162,7 +162,7 @@ MOHExec(int		ref,
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: %s"), strerror(errno));
 			return errno;
 		} else if (n != (ssize_t)requestLen) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%d"), n);
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%ld"), n);
 			return -1;
 		}
 	}
@@ -173,7 +173,7 @@ MOHExec(int		ref,
 		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: error=%s"), strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%d"), n);
+		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%ld"), n);
 		return -1;
 	}
 
@@ -187,7 +187,7 @@ MOHExec(int		ref,
 				CFAllocatorDeallocate(NULL, buf);
 				return errno;
 			} else if (n != (ssize_t)msg.m_len) {
-				SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%d"), n);
+				SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%ld"), n);
 				CFAllocatorDeallocate(NULL, buf);
 				return -1;
 			}

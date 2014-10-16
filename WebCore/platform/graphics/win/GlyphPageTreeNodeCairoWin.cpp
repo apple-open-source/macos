@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -29,6 +29,7 @@
 #include "config.h"
 #include "GlyphPageTreeNode.h"
 
+#include "HWndDC.h"
 #include "SimpleFontData.h"
 
 namespace WebCore {
@@ -42,12 +43,9 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
 
     bool haveGlyphs = false;
 
-    HDC dc = GetDC((HWND)0);
+    HWndDC dc(0);
     SaveDC(dc);
     SelectObject(dc, fontData->platformData().hfont());
-
-    TEXTMETRIC tm;
-    GetTextMetrics(dc, &tm);
 
     WORD localGlyphBuffer[GlyphPage::size * 2];
     DWORD result = GetGlyphIndices(dc, buffer, bufferLength, localGlyphBuffer, 0);
@@ -64,7 +62,6 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
         }
     }
     RestoreDC(dc, -1);
-    ReleaseDC(0, dc);
 
     return haveGlyphs;
 }

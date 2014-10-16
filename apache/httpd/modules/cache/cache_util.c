@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#define CORE_PRIVATE
-
 #include "mod_cache.h"
 
+#include "cache_util.h"
 #include <ap_provider.h>
+
+APLOG_USE_MODULE(cache);
 
 /* -------------------------------------------------------------- */
 
@@ -29,49 +30,91 @@ extern module AP_MODULE_DECLARE_DATA cache_module;
 /* Determine if "url" matches the hostname, scheme and port and path
  * in "filter". All but the path comparisons are case-insensitive.
  */
-static int uri_meets_conditions(apr_uri_t filter, int pathlen, apr_uri_t url)
+static int uri_meets_conditions(const apr_uri_t *filter, const int pathlen,
+                                const apr_uri_t *url)
 {
-    /* Compare the hostnames */
-    if(filter.hostname) {
-        if (!url.hostname) {
-            return 0;
-        }
-        else if (strcasecmp(filter.hostname, url.hostname)) {
-            return 0;
-        }
-    }
 
-    /* Compare the schemes */
-    if(filter.scheme) {
-        if (!url.scheme) {
-            return 0;
-        }
-        else if (strcasecmp(filter.scheme, url.scheme)) {
-            return 0;
-        }
-    }
+    /* Scheme, hostname port and local part. The filter URI and the
+     * URI we test may have the following shapes:
+     *   /<path>
+     *   <scheme>[:://<hostname>[:<port>][/<path>]]
+     * That is, if there is no scheme then there must be only the path,
+     * and we check only the path; if there is a scheme, we check the
+     * scheme for equality, and then if present we match the hostname,
+     * and then if present match the port, and finally the path if any.
+     *
+     * Note that this means that "/<path>" only matches local paths,
+     * and to match proxied paths one *must* specify the scheme.
+     */
 
-    /* Compare the ports */
-    if(filter.port_str) {
-        if (url.port_str && filter.port != url.port) {
-            return 0;
-        }
-        /* NOTE:  ap_port_of_scheme will return 0 if given NULL input */
-        else if (filter.port != apr_uri_port_of_scheme(url.scheme)) {
+    /* Is the filter is just for a local path or a proxy URI? */
+    if (!filter->scheme) {
+        if (url->scheme || url->hostname) {
             return 0;
         }
     }
-    else if(url.port_str && filter.scheme) {
-        if (apr_uri_port_of_scheme(filter.scheme) == url.port) {
+    else {
+        /* The URI scheme must be present and identical except for case. */
+        if (!url->scheme || strcasecmp(filter->scheme, url->scheme)) {
             return 0;
+        }
+
+        /* If the filter hostname is null or empty it matches any hostname,
+         * if it begins with a "*" it matches the _end_ of the URI hostname
+         * excluding the "*", if it begins with a "." it matches the _end_
+         * of the URI * hostname including the ".", otherwise it must match
+         * the URI hostname exactly. */
+
+        if (filter->hostname && filter->hostname[0]) {
+            if (filter->hostname[0] == '.') {
+                const size_t fhostlen = strlen(filter->hostname);
+                const size_t uhostlen = url->hostname ? strlen(url->hostname) : 0;
+
+                if (fhostlen > uhostlen
+                    || (url->hostname
+                        && strcasecmp(filter->hostname,
+                                      url->hostname + uhostlen - fhostlen))) {
+                    return 0;
+                }
+            }
+            else if (filter->hostname[0] == '*') {
+                const size_t fhostlen = strlen(filter->hostname + 1);
+                const size_t uhostlen = url->hostname ? strlen(url->hostname) : 0;
+
+                if (fhostlen > uhostlen
+                    || (url->hostname
+                        && strcasecmp(filter->hostname + 1,
+                                      url->hostname + uhostlen - fhostlen))) {
+                    return 0;
+                }
+            }
+            else if (!url->hostname || strcasecmp(filter->hostname, url->hostname)) {
+                return 0;
+            }
+        }
+
+        /* If the filter port is empty it matches any URL port.
+         * If the filter or URL port are missing, or the URL port is
+         * empty, they default to the port for their scheme. */
+
+        if (!(filter->port_str && !filter->port_str[0])) {
+            /* NOTE:  ap_port_of_scheme will return 0 if given NULL input */
+            const unsigned fport = filter->port_str ? filter->port
+                    : apr_uri_port_of_scheme(filter->scheme);
+            const unsigned uport = (url->port_str && url->port_str[0])
+                    ? url->port : apr_uri_port_of_scheme(url->scheme);
+
+            if (fport != uport) {
+                return 0;
+            }
         }
     }
 
     /* For HTTP caching purposes, an empty (NULL) path is equivalent to
      * a single "/" path. RFCs 3986/2396
      */
-    if (!url.path) {
-        if (*filter.path == '/' && pathlen == 1) {
+    if (!url->path) {
+        if (*filter->path == '/' && pathlen == 1) {
             return 1;
         }
         else {
@@ -82,60 +125,83 @@ static int uri_meets_conditions(apr_uri_t filter, int pathlen, apr_uri_t url)
     /* Url has met all of the filter conditions so far, determine
      * if the paths match.
      */
-    return !strncmp(filter.path, url.path, pathlen);
+    return !strncmp(filter->path, url->path, pathlen);
 }
 
-CACHE_DECLARE(cache_provider_list *)ap_cache_get_providers(request_rec *r,
-                                                  cache_server_conf *conf,
-                                                  apr_uri_t uri)
+static cache_provider_list *get_provider(request_rec *r, struct cache_enable *ent,
+        cache_provider_list *providers)
 {
-    cache_provider_list *providers = NULL;
-    int i;
+    /* Fetch from global config and add to the list. */
+    cache_provider *provider;
+    provider = ap_lookup_provider(CACHE_PROVIDER_GROUP, ent->type,
+                                  "0");
+    if (!provider) {
+        /* Log an error! */
+    }
+    else {
+        cache_provider_list *newp;
+        newp = apr_pcalloc(r->pool, sizeof(cache_provider_list));
+        newp->provider_name = ent->type;
+        newp->provider = provider;
 
-    /* loop through all the cacheenable entries */
-    for (i = 0; i < conf->cacheenable->nelts; i++) {
-        struct cache_enable *ent =
-                                (struct cache_enable *)conf->cacheenable->elts;
-        if (uri_meets_conditions(ent[i].url, ent[i].pathlen, uri)) {
-            /* Fetch from global config and add to the list. */
-            cache_provider *provider;
-            provider = ap_lookup_provider(CACHE_PROVIDER_GROUP, ent[i].type,
-                                          "0");
-            if (!provider) {
-                /* Log an error! */
-            }
-            else {
-                cache_provider_list *newp;
-                newp = apr_pcalloc(r->pool, sizeof(cache_provider_list));
-                newp->provider_name = ent[i].type;
-                newp->provider = provider;
+        if (!providers) {
+            providers = newp;
+        }
+        else {
+            cache_provider_list *last = providers;
 
-                if (!providers) {
-                    providers = newp;
+            while (last->next) {
+                if (last->provider == provider) {
+                    return providers;
                 }
-                else {
-                    cache_provider_list *last = providers;
-
-                    while (last->next) {
-                        last = last->next;
-                    }
-                    last->next = newp;
-                }
+                last = last->next;
             }
+            if (last->provider == provider) {
+                return providers;
+            }
+            last->next = newp;
         }
     }
 
-    /* then loop through all the cachedisable entries
-     * Looking for urls that contain the full cachedisable url and possibly
-     * more.
-     * This means we are disabling cachedisable url and below...
-     */
+    return providers;
+}
+
+cache_provider_list *cache_get_providers(request_rec *r,
+        cache_server_conf *conf,
+        apr_uri_t uri)
+{
+    cache_dir_conf *dconf = ap_get_module_config(r->per_dir_config, &cache_module);
+    cache_provider_list *providers = NULL;
+    int i;
+
+    /* per directory cache disable */
+    if (dconf->disable) {
+        return NULL;
+    }
+
+    /* global cache disable */
     for (i = 0; i < conf->cachedisable->nelts; i++) {
         struct cache_disable *ent =
                                (struct cache_disable *)conf->cachedisable->elts;
-        if (uri_meets_conditions(ent[i].url, ent[i].pathlen, uri)) {
+        if (uri_meets_conditions(&ent[i].url, ent[i].pathlen, &uri)) {
             /* Stop searching now. */
             return NULL;
+        }
+    }
+
+    /* loop through all the per directory cacheenable entries */
+    for (i = 0; i < dconf->cacheenable->nelts; i++) {
+        struct cache_enable *ent =
+                                (struct cache_enable *)dconf->cacheenable->elts;
+        providers = get_provider(r, &ent[i], providers);
+    }
+
+    /* loop through all the global cacheenable entries */
+    for (i = 0; i < conf->cacheenable->nelts; i++) {
+        struct cache_enable *ent =
+                                (struct cache_enable *)conf->cacheenable->elts;
+        if (uri_meets_conditions(&ent[i].url, ent[i].pathlen, &uri)) {
+            providers = get_provider(r, &ent[i], providers);
         }
     }
 
@@ -163,6 +229,10 @@ CACHE_DECLARE(apr_int64_t) ap_cache_current_age(cache_info *info,
     resident_time = now - info->response_time;
     current_age = corrected_initial_age + resident_time;
 
+    if (current_age < 0) {
+        current_age = 0;
+    }
+
     return apr_time_sec(current_age);
 }
 
@@ -187,8 +257,9 @@ CACHE_DECLARE(apr_int64_t) ap_cache_current_age(cache_info *info,
  * no point is it possible for this lock to permanently deny access to
  * the backend.
  */
-CACHE_DECLARE(apr_status_t) ap_cache_try_lock(cache_server_conf *conf,
-        request_rec *r, char *key) {
+apr_status_t cache_try_lock(cache_server_conf *conf, cache_request_rec *cache,
+        request_rec *r)
+{
     apr_status_t status;
     const char *lockname;
     const char *path;
@@ -212,12 +283,12 @@ CACHE_DECLARE(apr_status_t) ap_cache_try_lock(cache_server_conf *conf,
     }
 
     /* create the key if it doesn't exist */
-    if (!key) {
-        cache_generate_key(r, r->pool, &key);
+    if (!cache->key) {
+        cache_generate_key(r, r->pool, &cache->key);
     }
 
     /* create a hashed filename from the key, and save it for later */
-    lockname = ap_cache_generate_name(r->pool, 0, 0, key);
+    lockname = ap_cache_generate_name(r->pool, 0, 0, cache->key);
 
     /* lock files represent discrete just-went-stale URLs "in flight", so
      * we support a simple two level directory structure, more is overkill.
@@ -232,9 +303,9 @@ CACHE_DECLARE(apr_status_t) ap_cache_try_lock(cache_server_conf *conf,
     path = apr_pstrcat(r->pool, conf->lockpath, dir, NULL);
     if (APR_SUCCESS != (status = apr_dir_make_recursive(path,
             APR_UREAD|APR_UWRITE|APR_UEXECUTE, r->pool))) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, status, r->server,
-                     "Could not create a cache lock directory: %s",
-                     path);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r, APLOGNO(00778)
+                "Could not create a cache lock directory: %s",
+                path);
         return status;
     }
     lockname = apr_pstrcat(r->pool, path, "/", lockname, NULL);
@@ -244,16 +315,16 @@ CACHE_DECLARE(apr_status_t) ap_cache_try_lock(cache_server_conf *conf,
     status = apr_stat(&finfo, lockname,
                 APR_FINFO_MTIME | APR_FINFO_NLINK, r->pool);
     if (!(APR_STATUS_IS_ENOENT(status)) && APR_SUCCESS != status) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, APR_EEXIST, r->server,
-                     "Could not stat a cache lock file: %s",
-                     lockname);
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EEXIST, r, APLOGNO(00779)
+                "Could not stat a cache lock file: %s",
+                lockname);
         return status;
     }
     if ((status == APR_SUCCESS) && (((now - finfo.mtime) > conf->lockmaxage)
                                   || (now < finfo.mtime))) {
-        ap_log_error(APLOG_MARK, APLOG_INFO, status, r->server,
-                     "Cache lock file for '%s' too old, removing: %s",
-                     r->uri, lockname);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, status, r, APLOGNO(00780)
+                "Cache lock file for '%s' too old, removing: %s",
+                r->uri, lockname);
         apr_file_remove(lockname, r->pool);
     }
 
@@ -279,8 +350,9 @@ CACHE_DECLARE(apr_status_t) ap_cache_try_lock(cache_server_conf *conf,
  * If an optional bucket brigade is passed, the lock will only be
  * removed if the bucket brigade contains an EOS bucket.
  */
-CACHE_DECLARE(apr_status_t) ap_cache_remove_lock(cache_server_conf *conf,
-        request_rec *r, char *key, apr_bucket_brigade *bb) {
+apr_status_t cache_remove_lock(cache_server_conf *conf,
+        cache_request_rec *cache, request_rec *r, apr_bucket_brigade *bb)
+{
     void *dummy;
     const char *lockname;
 
@@ -317,12 +389,12 @@ CACHE_DECLARE(apr_status_t) ap_cache_remove_lock(cache_server_conf *conf,
         char dir[5];
 
         /* create the key if it doesn't exist */
-        if (!key) {
-            cache_generate_key(r, r->pool, &key);
+        if (!cache->key) {
+            cache_generate_key(r, r->pool, &cache->key);
         }
 
         /* create a hashed filename from the key, and save it for later */
-        lockname = ap_cache_generate_name(r->pool, 0, 0, key);
+        lockname = ap_cache_generate_name(r->pool, 0, 0, cache->key);
 
         /* lock files represent discrete just-went-stale URLs "in flight", so
          * we support a simple two level directory structure, more is overkill.
@@ -338,9 +410,9 @@ CACHE_DECLARE(apr_status_t) ap_cache_remove_lock(cache_server_conf *conf,
     return apr_file_remove(lockname, r->pool);
 }
 
-CACHE_DECLARE(int) ap_cache_check_allowed(request_rec *r) {
-    const char *cc_req;
-    const char *pragma;
+int ap_cache_check_no_cache(cache_request_rec *cache, request_rec *r)
+{
+
     cache_server_conf *conf =
       (cache_server_conf *)ap_get_module_config(r->server->module_config,
                                                 &cache_module);
@@ -355,58 +427,81 @@ CACHE_DECLARE(int) ap_cache_check_allowed(request_rec *r) {
      * - RFC2616 14.9.4 End to end reload, Cache-Control: no-cache, or Pragma:
      * no-cache. The server MUST NOT use a cached copy when responding to such
      * a request.
-     *
-     * - RFC2616 14.9.2 What May be Stored by Caches. If Cache-Control:
-     * no-store arrives, do not serve from the cache.
      */
 
     /* This value comes from the client's initial request. */
-    cc_req = apr_table_get(r->headers_in, "Cache-Control");
-    pragma = apr_table_get(r->headers_in, "Pragma");
-
-    if (ap_cache_liststr(NULL, pragma, "no-cache", NULL)
-        || ap_cache_liststr(NULL, cc_req, "no-cache", NULL)) {
-
-        if (!conf->ignorecachecontrol) {
-            return 0;
-        }
-        else {
-            ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-                         "Incoming request is asking for an uncached version of "
-                         "%s, but we have been configured to ignore it and serve "
-                         "cached content anyway", r->unparsed_uri);
-        }
+    if (!cache->control_in.parsed) {
+        const char *cc_req = cache_table_getm(r->pool, r->headers_in,
+                "Cache-Control");
+        const char *pragma = cache_table_getm(r->pool, r->headers_in, "Pragma");
+        ap_cache_control(r, &cache->control_in, cc_req, pragma, r->headers_in);
     }
 
-    if (ap_cache_liststr(NULL, cc_req, "no-store", NULL)) {
+    if (cache->control_in.no_cache) {
 
         if (!conf->ignorecachecontrol) {
-            /* We're not allowed to serve a cached copy */
             return 0;
         }
         else {
-            ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-                         "Incoming request is asking for a no-store version of "
-                         "%s, but we have been configured to ignore it and serve "
-                         "cached content anyway", r->unparsed_uri);
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                    "Incoming request is asking for an uncached version of "
+                    "%s, but we have been configured to ignore it and serve "
+                    "cached content anyway", r->unparsed_uri);
         }
     }
 
     return 1;
 }
 
+int ap_cache_check_no_store(cache_request_rec *cache, request_rec *r)
+{
 
-CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
-                                            request_rec *r)
+    cache_server_conf *conf =
+      (cache_server_conf *)ap_get_module_config(r->server->module_config,
+                                                &cache_module);
+
+    /*
+     * At this point, we may have data cached, but the request may have
+     * specified that cached data may not be used in a response.
+     *
+     * - RFC2616 14.9.2 What May be Stored by Caches. If Cache-Control:
+     * no-store arrives, do not serve from or store to the cache.
+     */
+
+    /* This value comes from the client's initial request. */
+    if (!cache->control_in.parsed) {
+        const char *cc_req = cache_table_getm(r->pool, r->headers_in,
+                "Cache-Control");
+        const char *pragma = cache_table_getm(r->pool, r->headers_in, "Pragma");
+        ap_cache_control(r, &cache->control_in, cc_req, pragma, r->headers_in);
+    }
+
+    if (cache->control_in.no_store) {
+
+        if (!conf->ignorecachecontrol) {
+            /* We're not allowed to serve a cached copy */
+            return 0;
+        }
+        else {
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r,
+                    "Incoming request is asking for a no-store version of "
+                    "%s, but we have been configured to ignore it and serve "
+                    "cached content anyway", r->unparsed_uri);
+        }
+    }
+
+    return 1;
+}
+
+int cache_check_freshness(cache_handle_t *h, cache_request_rec *cache,
+        request_rec *r)
 {
     apr_status_t status;
     apr_int64_t age, maxage_req, maxage_cresp, maxage, smaxage, maxstale;
     apr_int64_t minfresh;
-    const char *cc_cresp, *cc_req;
+    const char *cc_req;
     const char *pragma;
     const char *agestr = NULL;
-    const char *expstr = NULL;
-    char *val;
     apr_time_t age_c = 0;
     cache_info *info = &(h->cache_obj->info);
     const char *warn_head;
@@ -452,29 +547,30 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
     cc_req = apr_table_get(r->headers_in, "Cache-Control");
     pragma = apr_table_get(r->headers_in, "Pragma");
 
-    if (ap_cache_liststr(NULL, pragma, "no-cache", NULL)
-        || ap_cache_liststr(NULL, cc_req, "no-cache", NULL)) {
+    ap_cache_control(r, &cache->control_in, cc_req, pragma, r->headers_in);
+
+    if (cache->control_in.no_cache) {
 
         if (!conf->ignorecachecontrol) {
             /* Treat as stale, causing revalidation */
             return 0;
         }
 
-        ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-                     "Incoming request is asking for a uncached version of "
-                     "%s, but we have been configured to ignore it and "
-                     "serve a cached response anyway",
-                     r->unparsed_uri);
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(00781)
+                "Incoming request is asking for a uncached version of "
+                "%s, but we have been configured to ignore it and "
+                "serve a cached response anyway",
+                r->unparsed_uri);
     }
 
     /* These come from the cached entity. */
-    cc_cresp = apr_table_get(h->resp_hdrs, "Cache-Control");
-    expstr = apr_table_get(h->resp_hdrs, "Expires");
-
-    if (ap_cache_liststr(NULL, cc_cresp, "no-cache", NULL)) {
+    if (h->cache_obj->info.control.no_cache
+            || h->cache_obj->info.control.invalidated) {
         /*
-         * The cached entity contained Cache-Control: no-cache, so treat as
-         * stale causing revalidation
+         * The cached entity contained Cache-Control: no-cache, or a
+         * no-cache with a header present, or a private with a header
+         * present, or the cached entity has been invalidated in the
+         * past, so treat as stale causing revalidation.
          */
         return 0;
     }
@@ -487,31 +583,23 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
     age = ap_cache_current_age(info, age_c, r->request_time);
 
     /* extract s-maxage */
-    if (cc_cresp && ap_cache_liststr(r->pool, cc_cresp, "s-maxage", &val)
-        && val != NULL) {
-        smaxage = apr_atoi64(val);
-    }
-    else {
-        smaxage = -1;
-    }
+    smaxage = h->cache_obj->info.control.s_maxage_value;
 
     /* extract max-age from request */
-    if (!conf->ignorecachecontrol
-        && cc_req && ap_cache_liststr(r->pool, cc_req, "max-age", &val)
-        && val != NULL) {
-        maxage_req = apr_atoi64(val);
-    }
-    else {
-        maxage_req = -1;
+    maxage_req = -1;
+    if (!conf->ignorecachecontrol) {
+        maxage_req = cache->control_in.max_age_value;
     }
 
-    /* extract max-age from response */
-    if (cc_cresp && ap_cache_liststr(r->pool, cc_cresp, "max-age", &val)
-        && val != NULL) {
-        maxage_cresp = apr_atoi64(val);
+    /*
+     * extract max-age from response, if both s-maxage and max-age, s-maxage
+     * takes priority
+     */
+    if (smaxage != -1) {
+        maxage_cresp = smaxage;
     }
     else {
-        maxage_cresp = -1;
+        maxage_cresp = h->cache_obj->info.control.max_age_value;
     }
 
     /*
@@ -528,9 +616,9 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
     }
 
     /* extract max-stale */
-    if (cc_req && ap_cache_liststr(r->pool, cc_req, "max-stale", &val)) {
-        if(val != NULL) {
-            maxstale = apr_atoi64(val);
+    if (cache->control_in.max_stale) {
+        if(cache->control_in.max_stale_value != -1) {
+            maxstale = cache->control_in.max_stale_value;
         }
         else {
             /*
@@ -549,28 +637,21 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
     }
 
     /* extract min-fresh */
-    if (!conf->ignorecachecontrol
-        && cc_req && ap_cache_liststr(r->pool, cc_req, "min-fresh", &val)
-        && val != NULL) {
-        minfresh = apr_atoi64(val);
+    if (!conf->ignorecachecontrol && cache->control_in.min_fresh) {
+        minfresh = cache->control_in.min_fresh_value;
     }
     else {
         minfresh = 0;
     }
 
-    /* override maxstale if must-revalidate or proxy-revalidate */
-    if (maxstale && ((cc_cresp &&
-                      ap_cache_liststr(NULL, cc_cresp,
-                                       "must-revalidate", NULL)) ||
-                     (cc_cresp &&
-                      ap_cache_liststr(NULL, cc_cresp,
-                                       "proxy-revalidate", NULL)))) {
+    /* override maxstale if must-revalidate, proxy-revalidate or s-maxage */
+    if (maxstale && (h->cache_obj->info.control.must_revalidate
+            || h->cache_obj->info.control.proxy_revalidate || smaxage != -1)) {
         maxstale = 0;
     }
 
     /* handle expiration */
-    if (((smaxage != -1) && (age < (smaxage - minfresh))) ||
-        ((maxage != -1) && (age < (maxage + maxstale - minfresh))) ||
+    if (((maxage != -1) && (age < (maxage + maxstale - minfresh))) ||
         ((smaxage == -1) && (maxage == -1) &&
          (info->expire != APR_DATE_BAD) &&
          (age < (apr_time_sec(info->expire - info->date) + maxstale - minfresh)))) {
@@ -583,24 +664,24 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
                       apr_psprintf(r->pool, "%lu", (unsigned long)age));
 
         /* add warning if maxstale overrode freshness calculation */
-        if (!(((smaxage != -1) && age < smaxage) ||
-              ((maxage != -1) && age < maxage) ||
+        if (!(((maxage != -1) && age < maxage) ||
               (info->expire != APR_DATE_BAD &&
                (apr_time_sec(info->expire - info->date)) > age))) {
             /* make sure we don't stomp on a previous warning */
             if ((warn_head == NULL) ||
                 ((warn_head != NULL) && (ap_strstr_c(warn_head, "110") == NULL))) {
-                apr_table_merge(h->resp_hdrs, "Warning",
-                                "110 Response is stale");
+                apr_table_mergen(h->resp_hdrs, "Warning",
+                                 "110 Response is stale");
             }
         }
+
         /*
          * If none of Expires, Cache-Control: max-age, or Cache-Control:
          * s-maxage appears in the response, and the response header age
          * calculated is more than 24 hours add the warning 113
          */
-        if ((maxage_cresp == -1) && (smaxage == -1) &&
-            (expstr == NULL) && (age > 86400)) {
+        if ((maxage_cresp == -1) && (smaxage == -1) && (apr_table_get(
+                h->resp_hdrs, "Expires") == NULL) && (age > 86400)) {
 
             /* Make sure we don't stomp on a previous warning, and don't dup
              * a 113 marning that is already present. Also, make sure to add
@@ -608,8 +689,8 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
              */
             if ((warn_head == NULL) ||
                 ((warn_head != NULL) && (ap_strstr_c(warn_head, "113") == NULL))) {
-                apr_table_merge(h->resp_hdrs, "Warning",
-                                "113 Heuristic expiration");
+                apr_table_mergen(h->resp_hdrs, "Warning",
+                                 "113 Heuristic expiration");
             }
         }
         return 1;    /* Cache object is fresh (enough) */
@@ -645,120 +726,41 @@ CACHE_DECLARE(int) ap_cache_check_freshness(cache_handle_t *h,
      * A lock that exceeds a maximum age will be deleted, and another
      * request gets to make a new lock and try again.
      */
-    status = ap_cache_try_lock(conf, r, (char *)h->cache_obj->key);
+    status = cache_try_lock(conf, cache, r);
     if (APR_SUCCESS == status) {
         /* we obtained a lock, follow the stale path */
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                     "Cache lock obtained for stale cached URL, "
-                     "revalidating entry: %s",
-                     r->unparsed_uri);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00782)
+                "Cache lock obtained for stale cached URL, "
+                "revalidating entry: %s",
+                r->unparsed_uri);
         return 0;
     }
     else if (APR_EEXIST == status) {
         /* lock already exists, return stale data anyway, with a warning */
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                     "Cache already locked for stale cached URL, "
-                     "pretend it is fresh: %s",
-                     r->unparsed_uri);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00783)
+                "Cache already locked for stale cached URL, "
+                "pretend it is fresh: %s",
+                r->unparsed_uri);
 
         /* make sure we don't stomp on a previous warning */
         warn_head = apr_table_get(h->resp_hdrs, "Warning");
         if ((warn_head == NULL) ||
             ((warn_head != NULL) && (ap_strstr_c(warn_head, "110") == NULL))) {
-            apr_table_merge(h->resp_hdrs, "Warning",
-                        "110 Response is stale");
+            apr_table_mergen(h->resp_hdrs, "Warning",
+                             "110 Response is stale");
         }
 
         return 1;
     }
     else {
         /* some other error occurred, just treat the object as stale */
-        ap_log_error(APLOG_MARK, APLOG_DEBUG, status, r->server,
-                     "Attempt to obtain a cache lock for stale "
-                     "cached URL failed, revalidating entry anyway: %s",
-                     r->unparsed_uri);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r, APLOGNO(00784)
+                "Attempt to obtain a cache lock for stale "
+                "cached URL failed, revalidating entry anyway: %s",
+                r->unparsed_uri);
         return 0;
     }
 
-}
-
-/*
- * list is a comma-separated list of case-insensitive tokens, with
- * optional whitespace around the tokens.
- * The return returns 1 if the token val is found in the list, or 0
- * otherwise.
- */
-CACHE_DECLARE(int) ap_cache_liststr(apr_pool_t *p, const char *list,
-                                    const char *key, char **val)
-{
-    apr_size_t key_len;
-    const char *next;
-
-    if (!list) {
-        return 0;
-    }
-
-    key_len = strlen(key);
-    next = list;
-
-    for (;;) {
-
-        /* skip whitespace and commas to find the start of the next key */
-        while (*next && (apr_isspace(*next) || (*next == ','))) {
-            next++;
-        }
-
-        if (!*next) {
-            return 0;
-        }
-
-        if (!strncasecmp(next, key, key_len)) {
-            /* this field matches the key (though it might just be
-             * a prefix match, so make sure the match is followed
-             * by either a space or an equals sign)
-             */
-            next += key_len;
-            if (!*next || (*next == '=') || apr_isspace(*next) ||
-                (*next == ',')) {
-                /* valid match */
-                if (val) {
-                    while (*next && (*next != '=') && (*next != ',')) {
-                        next++;
-                    }
-                    if (*next == '=') {
-                        next++;
-                        while (*next && apr_isspace(*next )) {
-                            next++;
-                        }
-                        if (!*next) {
-                            *val = NULL;
-                        }
-                        else {
-                            const char *val_start = next;
-                            while (*next && !apr_isspace(*next) &&
-                                   (*next != ',')) {
-                                next++;
-                            }
-                            *val = apr_pstrmemdup(p, val_start,
-                                                  next - val_start);
-                        }
-                    }
-                    else {
-                        *val = NULL;
-                    }
-                }
-                return 1;
-            }
-        }
-
-        /* skip to the next field */
-        do {
-            next++;
-            if (!*next) {
-                return 0;
-            }
-        } while (*next != ',');
-    }
 }
 
 /* return each comma separated token, one at a time */
@@ -878,23 +880,323 @@ CACHE_DECLARE(char *)ap_cache_generate_name(apr_pool_t *p, int dirlevels,
     return apr_pstrdup(p, hashfile);
 }
 
-/* Create a new table consisting of those elements from an input
+/**
+ * String tokenizer that ignores separator characters within quoted strings
+ * and escaped characters, as per RFC2616 section 2.2.
+ */
+char *cache_strqtok(char *str, const char *sep, char **last)
+{
+    char *token;
+    int quoted = 0;
+
+    if (!str) {         /* subsequent call */
+        str = *last;    /* start where we left off */
+    }
+
+    if (!str) {         /* no more tokens */
+        return NULL;
+    }
+
+    /* skip characters in sep (will terminate at '\0') */
+    while (*str && ap_strchr_c(sep, *str)) {
+        ++str;
+    }
+
+    if (!*str) {        /* no more tokens */
+        return NULL;
+    }
+
+    token = str;
+
+    /* skip valid token characters to terminate token and
+     * prepare for the next call (will terminate at '\0)
+     * on the way, ignore all quoted strings, and within
+     * quoted strings, escaped characters.
+     */
+    *last = token;
+    while (**last) {
+        if (!quoted) {
+            if (**last == '\"' && !ap_strchr_c(sep, '\"')) {
+                quoted = 1;
+                ++*last;
+            }
+            else if (!ap_strchr_c(sep, **last)) {
+                ++*last;
+            }
+            else {
+                break;
+            }
+        }
+        else {
+            if (**last == '\"') {
+                quoted = 0;
+                ++*last;
+            }
+            else if (**last == '\\') {
+                ++*last;
+                if (**last) {
+                    ++*last;
+                }
+            }
+            else {
+                ++*last;
+            }
+        }
+    }
+
+    if (**last) {
+        **last = '\0';
+        ++*last;
+    }
+
+    return token;
+}
+
+/**
+ * Parse the Cache-Control and Pragma headers in one go, marking
+ * which tokens appear within the header. Populate the structure
+ * passed in.
+ */
+int ap_cache_control(request_rec *r, cache_control_t *cc,
+        const char *cc_header, const char *pragma_header, apr_table_t *headers)
+{
+    char *last;
+
+    if (cc->parsed) {
+        return cc->cache_control || cc->pragma;
+    }
+
+    cc->parsed = 1;
+    cc->max_age_value = -1;
+    cc->max_stale_value = -1;
+    cc->min_fresh_value = -1;
+    cc->s_maxage_value = -1;
+
+    if (pragma_header) {
+        char *header = apr_pstrdup(r->pool, pragma_header);
+        const char *token = cache_strqtok(header, CACHE_SEPARATOR, &last);
+        while (token) {
+            /* handle most common quickest case... */
+            if (!strcmp(token, "no-cache")) {
+                cc->no_cache = 1;
+            }
+            /* ...then try slowest case */
+            else if (!strcasecmp(token, "no-cache")) {
+                cc->no_cache = 1;
+            }
+            token = cache_strqtok(NULL, CACHE_SEPARATOR, &last);
+        }
+        cc->pragma = 1;
+    }
+
+    if (cc_header) {
+        char *header = apr_pstrdup(r->pool, cc_header);
+        const char *token = cache_strqtok(header, CACHE_SEPARATOR, &last);
+        while (token) {
+            switch (token[0]) {
+            case 'n':
+            case 'N': {
+                /* handle most common quickest cases... */
+                if (!strcmp(token, "no-cache")) {
+                    cc->no_cache = 1;
+                }
+                else if (!strcmp(token, "no-store")) {
+                    cc->no_store = 1;
+                }
+                /* ...then try slowest cases */
+                else if (!strncasecmp(token, "no-cache", 8)) {
+                    if (token[8] == '=') {
+                        cc->no_cache_header = 1;
+                    }
+                    else if (!token[8]) {
+                        cc->no_cache = 1;
+                    }
+                    break;
+                }
+                else if (!strcasecmp(token, "no-store")) {
+                    cc->no_store = 1;
+                }
+                else if (!strcasecmp(token, "no-transform")) {
+                    cc->no_transform = 1;
+                }
+                break;
+            }
+            case 'm':
+            case 'M': {
+                /* handle most common quickest cases... */
+                if (!strcmp(token, "max-age=0")) {
+                    cc->max_age = 1;
+                    cc->max_age_value = 0;
+                }
+                else if (!strcmp(token, "must-revalidate")) {
+                    cc->must_revalidate = 1;
+                }
+                /* ...then try slowest cases */
+                else if (!strncasecmp(token, "max-age", 7)) {
+                    if (token[7] == '=') {
+                        cc->max_age = 1;
+                        cc->max_age_value = apr_atoi64(token + 8);
+                    }
+                    break;
+                }
+                else if (!strncasecmp(token, "max-stale", 9)) {
+                    if (token[9] == '=') {
+                        cc->max_stale = 1;
+                        cc->max_stale_value = apr_atoi64(token + 10);
+                    }
+                    else if (!token[10]) {
+                        cc->max_stale = 1;
+                        cc->max_stale_value = -1;
+                    }
+                    break;
+                }
+                else if (!strncasecmp(token, "min-fresh", 9)) {
+                    if (token[9] == '=') {
+                        cc->min_fresh = 1;
+                        cc->min_fresh_value = apr_atoi64(token + 10);
+                    }
+                    break;
+                }
+                else if (!strcasecmp(token, "must-revalidate")) {
+                    cc->must_revalidate = 1;
+                }
+                break;
+            }
+            case 'o':
+            case 'O': {
+                if (!strcasecmp(token, "only-if-cached")) {
+                    cc->only_if_cached = 1;
+                }
+                break;
+            }
+            case 'p':
+            case 'P': {
+                /* handle most common quickest cases... */
+                if (!strcmp(token, "private")) {
+                    cc->private = 1;
+                }
+                /* ...then try slowest cases */
+                else if (!strcasecmp(token, "public")) {
+                    cc->public = 1;
+                }
+                else if (!strncasecmp(token, "private", 7)) {
+                    if (token[7] == '=') {
+                        cc->private_header = 1;
+                    }
+                    else if (!token[7]) {
+                        cc->private = 1;
+                    }
+                    break;
+                }
+                else if (!strcasecmp(token, "proxy-revalidate")) {
+                    cc->proxy_revalidate = 1;
+                }
+                break;
+            }
+            case 's':
+            case 'S': {
+                if (!strncasecmp(token, "s-maxage", 8)) {
+                    if (token[8] == '=') {
+                        cc->s_maxage = 1;
+                        cc->s_maxage_value = apr_atoi64(token + 9);
+                    }
+                    break;
+                }
+                break;
+            }
+            }
+            token = cache_strqtok(NULL, CACHE_SEPARATOR, &last);
+        }
+        cc->cache_control = 1;
+    }
+
+    return (cc_header != NULL || pragma_header != NULL);
+}
+
+/**
+ * Parse the Cache-Control, identifying and removing headers that
+ * exist as tokens after the no-cache and private tokens.
+ */
+static int cache_control_remove(request_rec *r, const char *cc_header,
+        apr_table_t *headers)
+{
+    char *last, *slast;
+    int found = 0;
+
+    if (cc_header) {
+        char *header = apr_pstrdup(r->pool, cc_header);
+        char *token = cache_strqtok(header, CACHE_SEPARATOR, &last);
+        while (token) {
+            switch (token[0]) {
+            case 'n':
+            case 'N': {
+                if (!strncmp(token, "no-cache", 8)
+                        || !strncasecmp(token, "no-cache", 8)) {
+                    if (token[8] == '=') {
+                        const char *header = cache_strqtok(token + 9,
+                                CACHE_SEPARATOR "\"", &slast);
+                        while (header) {
+                            apr_table_unset(headers, header);
+                            header = cache_strqtok(NULL, CACHE_SEPARATOR "\"",
+                                    &slast);
+                        }
+                        found = 1;
+                    }
+                    break;
+                }
+                break;
+            }
+            case 'p':
+            case 'P': {
+                if (!strncmp(token, "private", 7)
+                        || !strncasecmp(token, "private", 7)) {
+                    if (token[7] == '=') {
+                        const char *header = cache_strqtok(token + 8,
+                                CACHE_SEPARATOR "\"", &slast);
+                        while (header) {
+                            apr_table_unset(headers, header);
+                            header = cache_strqtok(NULL, CACHE_SEPARATOR "\"",
+                                    &slast);
+                        }
+                        found = 1;
+                    }
+                }
+                break;
+            }
+            }
+            token = cache_strqtok(NULL, CACHE_SEPARATOR, &last);
+        }
+    }
+
+    return found;
+}
+
+/*
+ * Create a new table consisting of those elements from an
  * headers table that are allowed to be stored in a cache.
  */
-CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_hdrs_out(apr_pool_t *pool,
+CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_headers(apr_pool_t *pool,
                                                         apr_table_t *t,
                                                         server_rec *s)
 {
     cache_server_conf *conf;
     char **header;
     int i;
+    apr_table_t *headers_out;
+
+    /* Short circuit the common case that there are not
+     * (yet) any headers populated.
+     */
+    if (t == NULL) {
+        return apr_table_make(pool, 10);
+    };
 
     /* Make a copy of the headers, and remove from
      * the copy any hop-by-hop headers, as defined in Section
      * 13.5.1 of RFC 2616
      */
-    apr_table_t *headers_out;
     headers_out = apr_table_copy(pool, t);
+
     apr_table_unset(headers_out, "Connection");
     apr_table_unset(headers_out, "Keep-Alive");
     apr_table_unset(headers_out, "Proxy-Authenticate");
@@ -906,6 +1208,7 @@ CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_hdrs_out(apr_pool_t *pool,
 
     conf = (cache_server_conf *)ap_get_module_config(s->module_config,
                                                      &cache_module);
+
     /* Remove the user defined headers set with CacheIgnoreHeaders.
      * This may break RFC 2616 compliance on behalf of the administrator.
      */
@@ -914,4 +1217,104 @@ CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_hdrs_out(apr_pool_t *pool,
         apr_table_unset(headers_out, header[i]);
     }
     return headers_out;
+}
+
+/*
+ * Create a new table consisting of those elements from an input
+ * headers table that are allowed to be stored in a cache.
+ */
+CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_headers_in(request_rec *r)
+{
+    return ap_cache_cacheable_headers(r->pool, r->headers_in, r->server);
+}
+
+/*
+ * Create a new table consisting of those elements from an output
+ * headers table that are allowed to be stored in a cache;
+ * ensure there is a content type and capture any errors.
+ */
+CACHE_DECLARE(apr_table_t *)ap_cache_cacheable_headers_out(request_rec *r)
+{
+    apr_table_t *headers_out;
+
+    headers_out = apr_table_overlay(r->pool, r->headers_out,
+                                        r->err_headers_out);
+
+    apr_table_clear(r->err_headers_out);
+
+    headers_out = ap_cache_cacheable_headers(r->pool, headers_out,
+                                                  r->server);
+
+    cache_control_remove(r,
+            cache_table_getm(r->pool, headers_out, "Cache-Control"),
+            headers_out);
+
+    if (!apr_table_get(headers_out, "Content-Type")
+        && r->content_type) {
+        apr_table_setn(headers_out, "Content-Type",
+                       ap_make_content_type(r, r->content_type));
+    }
+
+    if (!apr_table_get(headers_out, "Content-Encoding")
+        && r->content_encoding) {
+        apr_table_setn(headers_out, "Content-Encoding",
+                       r->content_encoding);
+    }
+
+    return headers_out;
+}
+
+typedef struct
+{
+    apr_pool_t *p;
+    const char *first;
+    apr_array_header_t *merged;
+} cache_table_getm_t;
+
+static int cache_table_getm_do(void *v, const char *key, const char *val)
+{
+    cache_table_getm_t *state = (cache_table_getm_t *) v;
+
+    if (!state->first) {
+        /**
+         * The most common case is a single header, and this is covered by
+         * a fast path that doesn't allocate any memory. On the second and
+         * subsequent header, an array is created and the array concatenated
+         * together to form the final value.
+         */
+        state->first = val;
+    }
+    else {
+        const char **elt;
+        if (!state->merged) {
+            state->merged = apr_array_make(state->p, 10, sizeof(const char *));
+            elt = apr_array_push(state->merged);
+            *elt = state->first;
+        }
+        elt = apr_array_push(state->merged);
+        *elt = val;
+    }
+    return 1;
+}
+
+const char *cache_table_getm(apr_pool_t *p, const apr_table_t *t,
+        const char *key)
+{
+    cache_table_getm_t state;
+
+    state.p = p;
+    state.first = NULL;
+    state.merged = NULL;
+
+    apr_table_do(cache_table_getm_do, &state, t, key, NULL);
+
+    if (!state.first) {
+        return NULL;
+    }
+    else if (!state.merged) {
+        return state.first;
+    }
+    else {
+        return apr_array_pstrcat(p, state.merged, ',');
+    }
 }

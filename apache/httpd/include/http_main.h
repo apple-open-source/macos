@@ -26,6 +26,7 @@
 #ifndef APACHE_HTTP_MAIN_H
 #define APACHE_HTTP_MAIN_H
 
+#include "httpd.h"
 #include "apr_optional.h"
 
 /** AP_SERVER_BASEARGS is the command argument list parsed by http_main.c
@@ -42,6 +43,21 @@ extern "C" {
 AP_DECLARE_DATA extern const char *ap_server_argv0;
 /** The global server's ServerRoot */
 AP_DECLARE_DATA extern const char *ap_server_root;
+/** The global server's DefaultRuntimeDir
+ * This is not usable directly in the general case; use
+ * ap_runtime_dir_relative() instead.
+ */
+AP_DECLARE_DATA extern const char *ap_runtime_dir;
+/** The global server's server_rec */
+AP_DECLARE_DATA extern server_rec *ap_server_conf;
+/** global pool, for access prior to creation of server_rec */
+AP_DECLARE_DATA extern apr_pool_t *ap_pglobal;
+/** state of the server (startup, exiting, ...) */
+AP_DECLARE_DATA extern int ap_main_state;
+/** run mode (normal, config test, config dump, ...) */
+AP_DECLARE_DATA extern int ap_run_mode;
+/** run mode (normal, config test, config dump, ...) */
+AP_DECLARE_DATA extern int ap_config_generation;
 
 /* for -C, -c and -D switches */
 /** An array of all -C directives.  These are processed before the server's
@@ -59,15 +75,14 @@ AP_DECLARE_DATA extern int ap_document_root_check;
 /**
  * An optional function to send signal to server on presence of '-k'
  * command line argument.
- * Called if MPM defines AP_MPM_WANT_SIGNAL_SERVER
  * @param status The exit status after sending signal
  * @param pool Memory pool to allocate from
  */
-APR_DECLARE_OPTIONAL_FN(int, ap_signal_server, (int *, apr_pool_t *));
+APR_DECLARE_OPTIONAL_FN(int, ap_signal_server, (int *status, apr_pool_t *pool));
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif	/* !APACHE_HTTP_MAIN_H */
+#endif  /* !APACHE_HTTP_MAIN_H */
 /** @} */

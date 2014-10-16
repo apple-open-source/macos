@@ -85,7 +85,7 @@ inline bool checkIDValue(const Element* element, const CSSSelector* selector)
 
 inline bool checkExactAttributeValue(const Element* element, const CSSSelector* selector)
 {
-    return SelectorChecker::checkExactAttribute(element, selector->attribute(), selector->value().impl());
+    return SelectorChecker::checkExactAttribute(element, selector, selector->attribute(), selector->value().impl());
 }
 
 inline bool checkTagValue(const Element* element, const CSSSelector* selector)
@@ -206,13 +206,13 @@ bool SelectorCheckerFastPath::canUse(const CSSSelector* selector)
 bool SelectorCheckerFastPath::commonPseudoClassSelectorMatches(SelectorChecker::VisitedMatchType visitedMatchType) const
 {
     ASSERT(SelectorChecker::isCommonPseudoClassSelector(m_selector));
-    switch (m_selector->pseudoType()) {
-    case CSSSelector::PseudoLink:
-    case CSSSelector::PseudoAnyLink:
+    switch (m_selector->pseudoClassType()) {
+    case CSSSelector::PseudoClassLink:
+    case CSSSelector::PseudoClassAnyLink:
         return m_element->isLink();
-    case CSSSelector::PseudoVisited:
+    case CSSSelector::PseudoClassVisited:
         return m_element->isLink() && visitedMatchType == SelectorChecker::VisitedMatchEnabled;
-    case CSSSelector::PseudoFocus:
+    case CSSSelector::PseudoClassFocus:
         return SelectorChecker::matchesFocusPseudoClass(m_element);
     default:
         ASSERT_NOT_REACHED();

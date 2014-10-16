@@ -25,6 +25,7 @@
 #include <SystemConfiguration/SCSchemaDefinitions.h>
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
+#include <Security/Security.h>
 #include <netdb.h>
 #include <syslog.h>
 #include "webdavlib.h"
@@ -40,6 +41,14 @@
 
 /* Macro to simplify common CFRelease usage */
 #define CFReleaseNull(obj) do { if(obj != NULL) { CFRelease(obj); obj = NULL; } } while (0)
+
+#define kSSLClientPropTLSServerCertificateChain CFSTR("TLSServerCertificateChain") /* array[data] */
+#define kSSLClientPropTLSTrustClientStatus	CFSTR("TLSTrustClientStatus") /* CFNumberRef of kCFNumberSInt32Type (errSSLxxxx) */
+#define kSSLClientPropTLSServerHostName	CFSTR("TLSServerHostName") /* CFString */
+#define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
+
+#define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Support/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
+
 
 // Context for the callbacks
 enum CheckAuthCallbackStatus {CheckAuthInprogress = 0, CheckAuthCallbackDone = 1, CheckAuthCallbackStreamError = 2,
@@ -77,9 +86,13 @@ struct callback_ctx {
 
 // function prototypes
 // enum WEBDAVLIBAuthStatus checkServerAuth(CFURLRef a_url);
+static void SecAddTrustedCerts(CFArrayRef certs, CFMutableDictionaryRef sslPropDict);
+static CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs);
+static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert);
+static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURLRef a_url, CFMutableDictionaryRef sslPropDict);
 static enum WEBDAVLIBAuthStatus finalStatusFromStatusCode(struct callback_ctx *ctx, int *error);
-static int handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain);
-static int handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain);
+static int handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef rdStream, CFURLRef a_url);
+static int handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef rdStream, CFURLRef a_url);
 static enum WEBDAVLIBAuthStatus sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *result);
 static enum WEBDAVLIBAuthStatus sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDictionaryRef creds, int *result);
 static void applyCredentialsToRequest(struct callback_ctx *ctx, CFDictionaryRef creds, CFHTTPMessageRef request);
@@ -97,7 +110,302 @@ enum
 	kHttpsDefaultPort = 443	// default port for HTTPS
 };
 
+/******************************************************************************/
+/*
+ * SecAddTrustedCerts
+ *
+ * Adds trusted SecCertificateRefs to our global SSL properties dictionary
+ */
+static void SecAddTrustedCerts(CFArrayRef certs, CFMutableDictionaryRef	sslPropDict)
+{
+	SecCertificateRef certRef;
+	const void *certPtr;
+	CFMutableArrayRef newCertArr, incomingCerts;
+	CFArrayRef existingCertArr;
+	CFIndex i, count;
 	
+	require(certs != NULL, out);
+	require(sslPropDict != NULL, out);
+	
+	incomingCerts = NULL;
+	
+	// Make a mutable copy of incoming certs
+	incomingCerts = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, certs);
+	require(incomingCerts != NULL, out);
+	
+	// Any existing trusted certificates?
+	existingCertArr = CFDictionaryGetValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates);
+	
+	
+	if (existingCertArr == NULL) {
+		// Add our copy of incoming certs to the dictionary
+		CFDictionarySetValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates, incomingCerts);
+	}
+	else {
+		// Copy old certificates
+		newCertArr = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, existingCertArr);
+		require(newCertArr != NULL, MallocNewCerts);
+		
+		// Remove old certificates
+		CFDictionaryRemoveValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates);
+		
+		// Add any new certs
+		count = CFArrayGetCount(incomingCerts);
+		
+		for (i = 0; i < count; ++i)
+		{
+			certPtr = CFArrayGetValueAtIndex(incomingCerts, i);
+			if (certPtr == NULL)
+				continue;
+			
+			certRef = *((SecCertificateRef*)((void*)&certPtr));  /*ugly but it works*/
+			
+			if (CFArrayContainsValue(newCertArr, CFRangeMake(0, CFArrayGetCount(newCertArr)), certRef) == false) {
+				
+				// Don't have this cert yet, so add it
+				CFArrayAppendValue(newCertArr, certRef);
+			}
+		}
+		
+		// Now set the new array
+		CFDictionarySetValue(sslPropDict, _kCFStreamSSLTrustedLeafCertificates, newCertArr);
+	}
+	
+	if (incomingCerts != NULL) {
+		// Release our reference from the Copy
+		CFRelease(incomingCerts);
+	}
+out:
+MallocNewCerts:
+	return;
+}
+
+
+/******************************************************************************/
+
+/*
+ * SecCertificateCreateCFData
+ *
+ * Creates a CFDataRef from a SecCertificateRef.
+ */
+static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert)
+{
+	CFDataRef data;
+	
+	data = SecCertificateCopyData(cert);
+	
+	if (data == NULL)
+		syslog(LOG_ERR, "%s : SecCertificateCopyData returned NULL\n", __FUNCTION__);
+	
+	return (data);
+}
+
+/******************************************************************************/
+
+/*
+ * SecCertificateArrayCreateCFDataArray
+ *
+ * Convert a CFArray[SecCertificate] to CFArray[CFData].
+ */
+static CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs)
+{
+	CFMutableArrayRef array;
+	CFIndex count;
+	int i;
+	const void *certRef;
+	
+	count = CFArrayGetCount(certs);
+	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+	require(array != NULL, CFArrayCreateMutable);
+	
+	for (i = 0; i < count; ++i)
+	{
+		SecCertificateRef cert;
+		CFDataRef data;
+		
+		certRef = CFArrayGetValueAtIndex(certs, i);
+		cert = *((SecCertificateRef*)((void*)&certRef)); /* ugly but it works */
+		require(cert != NULL, CFArrayGetValueAtIndex);
+		
+		data = SecCertificateCreateCFData(cert);
+		require(data != NULL, SecCertificateCreateCFData);
+		
+		CFArrayAppendValue(array, data);
+		CFRelease(data);
+	}
+	
+	return (array);
+	
+	/************/
+	
+SecCertificateCreateCFData:
+CFArrayGetValueAtIndex:
+	CFRelease(array);
+CFArrayCreateMutable:
+	
+	return (NULL);
+}
+
+/******************************************************************************/
+/* returns TRUE if user asked to continue with this certificate problem; FALSE if not */
+static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURLRef a_url, CFMutableDictionaryRef sslPropDict)
+{
+	int result;
+	CFMutableDictionaryRef dict;
+	CFArrayRef certs;
+	CFArrayRef certs_data;
+	CFNumberRef error_number;
+	CFStringRef host_name;
+	CFDataRef theData;
+	int fd[2];
+	int pid, terminated_pid;
+	union wait status;
+	char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20];
+	char *env[] = {CFUserTextEncodingEnvSetting, "", (char *) 0 };
+	
+	/*
+	 * Create a new environment with a definition of __CF_USER_TEXT_ENCODING to work
+	 * around CF's interest in the user's home directory (which could be networked,
+	 * causing recursive references through automount). Make sure we include the uid
+	 * since CF will check for this when deciding if to look in the home directory.
+	 */
+	snprintf(CFUserTextEncodingEnvSetting, sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING, getuid());
+	
+	certs = NULL;
+	result = FALSE;
+	fd[0] = fd[1] = -1;
+	
+	/* create a dictionary to stuff things all in */
+	dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	require(dict != NULL, CFDictionaryCreateMutable);
+	
+	/* get the certificates from the stream and add it with the kSSLClientPropTLSServerCertificateChain key */
+	certs = (CFArrayRef)CFReadStreamCopyProperty(readStreamRef, kCFStreamPropertySSLPeerCertificates);
+	require(certs != NULL, CFReadStreamCopyProperty);
+	
+	certs_data = SecCertificateArrayCreateCFDataArray(certs);
+	require(certs_data != NULL, CFReadStreamCopyProperty);
+	
+	CFDictionaryAddValue(dict, kSSLClientPropTLSServerCertificateChain, certs_data);
+	CFRelease(certs_data);
+	
+	/* convert error to a CFNumberRef and add it with the kSSLClientPropTLSTrustClientStatus key */
+	error_number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &error);
+	require(error_number != NULL, CFNumberCreate);
+	
+	CFDictionaryAddValue(dict, kSSLClientPropTLSTrustClientStatus, error_number);
+	CFRelease(error_number);
+	
+	/* get the host name from the base URL and add it with the kSSLClientPropTLSServerHostName key */
+	host_name = CFURLCopyHostName(a_url);
+	require(host_name != NULL, CFURLCopyHostName);
+	
+	CFDictionaryAddValue(dict, kSSLClientPropTLSServerHostName, host_name);
+	CFRelease(host_name);
+	
+	/* flatten it */
+	theData = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
+	require(theData != NULL, CFPropertyListCreateXMLData);
+	
+	CFRelease(dict);
+	dict = NULL;
+	
+	/* open a pipe */
+	require(pipe(fd) >= 0, pipe);
+	
+	pid = fork();
+	require (pid >= 0, fork);
+	if ( pid > 0 )
+	{
+		/* parent */
+		size_t length;
+		ssize_t bytes_written;
+		
+		close(fd[0]); /* close read end */
+		fd[0] = -1;
+		length = CFDataGetLength(theData);
+		bytes_written = write(fd[1], CFDataGetBytePtr(theData), length);
+		require(bytes_written == (ssize_t)length, write);
+		
+		close(fd[1]); /* close write end */
+		fd[1] = -1;
+		
+		/* Parent waits for child's completion here */
+		while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 )
+		{
+			/* retry if EINTR, else break out with error */
+			if ( errno != EINTR )
+			{
+				break;
+			}
+		}
+		
+		/* we'll get here when the child completes */
+		if ( (terminated_pid == pid) && (WIFEXITED(status)) )
+		{
+			result = WEXITSTATUS(status) == 0;
+		}
+		else
+		{
+			result = FALSE;
+		}
+		
+		// Did the user confirm the certificate?
+		if (result == TRUE) {
+			// Yes, add them to the global SSL properties dictionary
+			SecAddTrustedCerts(certs, sslPropDict);
+		}
+	}
+	else
+	{
+		/* child */
+		close(fd[1]); /* close write end */
+		fd[1] = -1;
+		
+		if ( fd[0] != STDIN_FILENO )
+		{
+			require(dup2(fd[0], STDIN_FILENO) == STDIN_FILENO, dup2);
+			close(fd[0]); /* not needed after dup2 */
+			fd[0] = -1;
+		}
+		
+		require(execle(PRIVATE_CERT_UI_COMMAND, PRIVATE_CERT_UI_COMMAND, (char *) 0, env) >= 0, execl);
+	}
+	
+	return ( result );
+	
+	/************/
+	
+execl:
+dup2:
+write:
+fork:
+	if (fd[0] != -1)
+	{
+		close(fd[0]);
+	}
+	if (fd[1] != -1)
+	{
+		close(fd[1]);
+	}
+pipe:
+CFPropertyListCreateXMLData:
+CFURLCopyHostName:
+CFNumberCreate:
+	if ( certs != NULL )
+	{
+		CFRelease(certs);
+	}
+CFReadStreamCopyProperty:
+	if ( dict != NULL )
+	{
+		CFRelease(dict);
+	}
+CFDictionaryCreateMutable:
+	
+	return ( FALSE );
+}
+/******************************************************************************/
 enum WEBDAVLIBAuthStatus
 queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 {
@@ -243,8 +551,8 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 		ctx->status = CheckAuthInprogress;
 
 		// apply http/https proxy properties
-		if (ctx->proxyDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->proxyDict);
+		if (ctx->sslPropDict != NULL)
+			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->sslPropDict);
 		
 		// apply SSL properties
 		if (ctx->sslPropDict != NULL)
@@ -308,7 +616,7 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 			}
 		}
 		else if (ctx->status == CheckAuthCallbackStreamError) {
-			*err = handleStreamError(ctx, &tryAgain);
+			*err = handleStreamError(ctx, &tryAgain, rdStream, a_url);
 			
 			if ((tryAgain == FALSE) || (++ctx->againCount > WEBDAVLIB_MAX_AGAIN_COUNT)) {
 					finalStatus = WEBDAVLIB_IOError;
@@ -375,8 +683,8 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 		ctx->status = CheckAuthInprogress;
 			
 		// apply http/https proxy properties
-		if (ctx->proxyDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->proxyDict);
+		if (ctx->sslPropDict != NULL)
+			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->sslPropDict);
 			
 		// apply SSL properties
 		if (ctx->sslPropDict != NULL)
@@ -643,7 +951,7 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 			}
 		}
 		else if (ctx->status == CheckAuthCallbackStreamError) {
-			*err = handleStreamError(ctx, &tryAgain);
+			*err = handleStreamError(ctx, &tryAgain, rdStream, a_url);
 				
 			if ((tryAgain == FALSE) || (++ctx->againCount > WEBDAVLIB_MAX_AGAIN_COUNT)) {
 				finalStatus = WEBDAVLIB_IOError;
@@ -735,7 +1043,7 @@ finalStatusFromStatusCode(struct callback_ctx *ctx, int *error)
 }
 	
 static int
-handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain)
+handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef rdStream,CFURLRef a_url)
 {
 	int result = EIO;
 	
@@ -743,7 +1051,11 @@ handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain)
 	*tryAgain = FALSE;
 	
 	if (ctx->streamError.domain == kCFStreamErrorDomainSSL) {
-		result = handleSSLErrors(ctx, tryAgain);
+		
+		result = handleSSLErrors(ctx, tryAgain, rdStream, a_url);
+		if(result == ECANCELED) {
+			*tryAgain = FALSE;
+		}
 	}
 	else if (ctx->streamError.domain == kCFStreamErrorDomainPOSIX) {
 		result = ctx->streamError.error;
@@ -792,7 +1104,7 @@ handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain)
 }
 
 static int
-handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain)
+handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef readStreamRef, CFURLRef a_url)
 {
 	SInt32 error;
 	int result;
@@ -837,30 +1149,38 @@ handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain)
 		case errSSLCertExpired:
 		case errSSLCertNotYetValid:
 			/* The certificate for this server has expired or is not yet valid */
-			if ( (CFDictionaryGetValue(ctx->sslPropDict, kCFStreamSSLAllowsExpiredCertificates) == NULL) )
+			if ( ConfirmCertificate(readStreamRef, error, a_url, ctx->sslPropDict) )
 			{
-				// We are just trying to check for a proxy server, so it's okay to continue
-				CFDictionarySetValue(ctx->sslPropDict, kCFStreamSSLAllowsExpiredCertificates, kCFBooleanTrue);
-				CFDictionarySetValue(ctx->sslPropDict, kCFStreamSSLAllowsExpiredRoots, kCFBooleanTrue);
-			}		
+				result = EAGAIN;
+			}
+			else
+			{
+				result = ECANCELED;
+			}
 			break;
 				
 		case errSSLBadCert:
 		case errSSLXCertChainInvalid:
 		case errSSLHostNameMismatch:
-			/* The certificate for this server is invalid */
-			if ( (CFDictionaryGetValue(ctx->sslPropDict, kCFStreamSSLValidatesCertificateChain) == NULL) )
+			if ( ConfirmCertificate(readStreamRef, error, a_url, ctx->sslPropDict) )
 			{
-				CFDictionarySetValue(ctx->sslPropDict, kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
+				result = EAGAIN;
+			}
+			else
+			{
+				result = ECANCELED;
 			}
 			break;
 				
 		case errSSLUnknownRootCert:
 		case errSSLNoRootCert:
-			/* The certificate for this server was signed by an unknown certifying authority */
-			if ( (CFDictionaryGetValue(ctx->sslPropDict, kCFStreamSSLAllowsAnyRoot) == NULL) )
+			if ( ConfirmCertificate(readStreamRef, error, a_url, ctx->sslPropDict) )
 			{
-				CFDictionarySetValue(ctx->sslPropDict, kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
+				result = EAGAIN;
+			}
+			else
+			{
+				result = ECANCELED;
 			}
 			break;
 				

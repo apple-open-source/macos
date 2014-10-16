@@ -27,12 +27,17 @@
  */
 
 #include "CommonCryptor.h"
+#include "ccdebug.h"
 #ifndef CCERRORS_H
 #define CCERRORS_H
 
 #define CONTEXT_SIZE_CHK(CCCTX,DIGESTDI) (sizeof(CCCTX) < ccdigest_di_size(DIGESTDI))
 #define CC_NONULLPARM(X) if(NULL==(X)) return kCCParamError
 #define CC_NONULLPARMRETNULL(X) if(NULL==(X)) return NULL
+
+#define CC_FAILURE_LOG(...) ccdebug_imp(ASL_LEVEL_CRIT, __FUNCTION__, __VA_ARGS__)
+#define CC_ABORT()      abort()
+
 
 #endif /* CCERRORS_H */
 

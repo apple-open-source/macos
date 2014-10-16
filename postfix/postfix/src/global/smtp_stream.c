@@ -302,13 +302,7 @@ int     smtp_fgetc(VSTREAM *stream)
 
 /* smtp_get - read one line from SMTP peer */
 
-#ifdef __APPLE_OS_X_SERVER__
-/* APPLE - RFC 3030 */
-static int smtp_get_full(VSTRING *vp, VSTREAM *stream, ssize_t bound,
-			 int binary, int expect_eof, int flags)
-#else
 int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
-#endif
 {
     int     last_char;
     int     next_char;
@@ -350,18 +344,6 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
 	 * if received before CRLF, and leave it alone otherwise.
 	 */
     case '\n':
-	/* APPLE - RFC 3030 */
-	if (binary) {
-	    /* do not strip extra CRs.
-	       strip and return LF if and only if CRLF. */
-	    if (VSTRING_LEN(vp) > 1 && vstring_end(vp)[-2] == '\r')
-		vstring_truncate(vp, VSTRING_LEN(vp) - 2);
-	    else
-		last_char = 0;
-	    VSTRING_TERMINATE(vp);
-	    break;
-	}
-
 	vstring_truncate(vp, VSTRING_LEN(vp) - 1);
 	while (VSTRING_LEN(vp) > 0 && vstring_end(vp)[-1] == '\r')
 	    vstring_truncate(vp, VSTRING_LEN(vp) - 1);
@@ -375,10 +357,6 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
     default:
 	break;
     }
-
-    /* APPLE - RFC 3030 */
-    if (expect_eof && vstream_feof(stream))
-	return last_char;
 
     /*
      * Optionally, skip over excess input, protected by the same time limit.
@@ -398,39 +376,6 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
     if (vstream_feof(stream) || vstream_ferror(stream))
 	smtp_longjmp(stream, SMTP_ERR_EOF, "smtp_get");
     return (last_char);
-}
-
-
-/* smtp_get - read one line from SMTP peer */
-
-int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
-{
-    return smtp_get_full(vp, stream, bound, 0, 0, flags);
-}
-
-/* APPLE - RFC 3030 */
-int smtp_get_to_eof(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
-{
-    return smtp_get_full(vp, stream, bound, 0, 1, flags);
-}
-int smtp_get_binary_to_eof(VSTRING *vp, VSTREAM *stream, ssize_t bound, int flags)
-{
-    return smtp_get_full(vp, stream, bound, 1, 1, flags);
-}
-
-/* APPLE - RFC 3030 */
-void smtp_discard(VSTREAM *stream, off_t size)
-{
-    if (size <= 0)
-	return;
-
-    smtp_timeout_reset(stream);
-    while (VSTREAM_GETC(stream) != VSTREAM_EOF && --size > 0)
-	;
-    if (vstream_ftimeout(stream))
-	smtp_longjmp(stream, SMTP_ERR_TIME, "smtp_discard");
-    if (vstream_feof(stream) || vstream_ferror(stream))
-	smtp_longjmp(stream, SMTP_ERR_EOF, "smtp_discard");
 }
 
 /* smtp_fputs - write one line to SMTP peer */

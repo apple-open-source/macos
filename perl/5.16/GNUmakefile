@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = perl
-VERSION = 5.16.2
+VERSION = 5.16.3
 COMPATVERSIONS =
 MODSUFFIX = -mod
 #TARVERSION :=
@@ -204,6 +204,9 @@ $(OBJROOT)/$(PROJECT)::
 	rm -rf $(PROJECT) && \
 	mv $(PROJVERS) $(PROJECT) && \
 	cat hints.append >> $(PROJECT)/hints/darwin.sh && \
+	ed - $(PROJECT)/Configure < fix/Configure.ed && \
+	ed - $(PROJECT)/cpan/Compress-Raw-Bzip2/Makefile.PL < fix/cpan_Compress-Raw-Bzip2_Makefile.PL.ed && \
+	ed - $(PROJECT)/cpan/Compress-Raw-Zlib/Makefile.PL < fix/cpan_Compress-Raw-Zlib_Makefile.PL.ed && \
 	ed - $(PROJECT)/cpan/DB_File/config.in < fix/cpan_DB_File_config.in.ed && \
 	ed - $(PROJECT)/cpan/DB_File/Makefile.PL < fix/cpan_DB_File_Makefile.PL.ed && \
 	ed - $(PROJECT)/cpan/Pod-Perldoc/lib/Pod/Perldoc.pm < fix/lib_Pod_Perldoc.pm.ed && \
@@ -212,16 +215,15 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/ext/DynaLoader/dl_dlopen.xs < fix/dl_dlopen.xs.ed && \
 	ed - $(PROJECT)/handy.h < fix/handy.h.ed && \
 	ed - $(PROJECT)/hints/darwin.sh < fix/darwin.sh.ed && \
-	ed - $(PROJECT)/hints/darwin.sh < fix/darwin42.sh.ed && \
 	ed - $(PROJECT)/patchlevel.h < fix/patchlevel.h.ed && \
 	ed - $(PROJECT)/perl.c < fix/perl.c.ed && \
+	ed - $(PROJECT)/perl.h < fix/perl.h.ed && \
 	ed - $(PROJECT)/perlio.c < fix/perlio.c.ed && \
 	ed - $(PROJECT)/pp_sys.c < fix/pp_sys.c.ed && \
 	sed -e 's/@VERSION@/$(VERSION)/g' \
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
 	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx
-	patch -d '$(OBJROOT)/$(PROJECT)' -i '$(OBJROOT)/fix/CVE-2013-1667-rehash-5.16.2.patch' -p1 -F0
 
 ifneq "$(RC_XBS)" "YES"
 clean:

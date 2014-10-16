@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import <WebKit/WKWebProcessPlugIn.h>
 
-#import <WebKit2/WKWebProcessPlugIn.h>
+#if WK_API_ENABLED
 
 @interface WKWebProcessPlugInController (Private)
 
-@property(readonly) WKBundleRef _bundleRef;
+@property (readonly) WKBundleRef _bundleRef;
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

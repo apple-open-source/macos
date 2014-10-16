@@ -26,11 +26,12 @@
 #include "config.h"
 #include "DownloadProxy.h"
 
+#include "APIData.h"
+#include "APIDownloadClient.h"
 #include "AuthenticationChallengeProxy.h"
 #include "DataReference.h"
 #include "DownloadProxyMap.h"
 #include "WebContext.h"
-#include "WebData.h"
 #include "WebProcessMessages.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -50,14 +51,14 @@ static uint64_t generateDownloadID()
     return ++uniqueDownloadID;
 }
     
-PassRefPtr<DownloadProxy> DownloadProxy::create(DownloadProxyMap& downloadProxyMap, WebContext* webContext)
+PassRefPtr<DownloadProxy> DownloadProxy::create(DownloadProxyMap& downloadProxyMap, WebContext& webContext)
 {
     return adoptRef(new DownloadProxy(downloadProxyMap, webContext));
 }
 
-DownloadProxy::DownloadProxy(DownloadProxyMap& downloadProxyMap, WebContext* webContext)
+DownloadProxy::DownloadProxy(DownloadProxyMap& downloadProxyMap, WebContext& webContext)
     : m_downloadProxyMap(downloadProxyMap)
-    , m_webContext(webContext)
+    , m_webContext(&webContext)
     , m_downloadID(generateDownloadID())
 {
 }
@@ -135,6 +136,8 @@ void DownloadProxy::didReceiveData(uint64_t length)
 
 void DownloadProxy::shouldDecodeSourceDataOfMIMEType(const String& mimeType, bool& result)
 {
+    result = false;
+
     if (!m_webContext)
         return;
 
@@ -143,6 +146,8 @@ void DownloadProxy::shouldDecodeSourceDataOfMIMEType(const String& mimeType, boo
 
 void DownloadProxy::decideDestinationWithSuggestedFilename(const String& filename, String& destination, bool& allowOverwrite, SandboxExtension::Handle& sandboxExtensionHandle)
 {
+    allowOverwrite = false;
+
     if (!m_webContext)
         return;
 
@@ -171,20 +176,20 @@ void DownloadProxy::didFinish()
     m_downloadProxyMap.downloadFinished(this);
 }
 
-static PassRefPtr<WebData> createWebData(const CoreIPC::DataReference& data)
+static PassRefPtr<API::Data> createData(const IPC::DataReference& data)
 {
     if (data.isEmpty())
         return 0;
 
-    return WebData::create(data.data(), data.size());
+    return API::Data::create(data.data(), data.size());
 }
 
-void DownloadProxy::didFail(const ResourceError& error, const CoreIPC::DataReference& resumeData)
+void DownloadProxy::didFail(const ResourceError& error, const IPC::DataReference& resumeData)
 {
     if (!m_webContext)
         return;
 
-    m_resumeData = createWebData(resumeData);
+    m_resumeData = createData(resumeData);
 
     m_webContext->downloadClient().didFail(m_webContext.get(), this, error);
 
@@ -192,26 +197,15 @@ void DownloadProxy::didFail(const ResourceError& error, const CoreIPC::DataRefer
     m_downloadProxyMap.downloadFinished(this);
 }
 
-void DownloadProxy::didCancel(const CoreIPC::DataReference& resumeData)
+void DownloadProxy::didCancel(const IPC::DataReference& resumeData)
 {
-    m_resumeData = createWebData(resumeData);
+    m_resumeData = createData(resumeData);
 
     m_webContext->downloadClient().didCancel(m_webContext.get(), this);
 
     // This can cause the DownloadProxy object to be deleted.
     m_downloadProxyMap.downloadFinished(this);
 }
-
-#if PLATFORM(QT)
-void DownloadProxy::startTransfer(const String& filename)
-{
-    if (!m_webContext)
-        return;
-
-    // FIXME (Multi-WebProcess): <rdar://problem/12239483> Downloads shouldn't be handled in the web process.
-    m_webContext->sendToAllProcesses(Messages::WebProcess::StartTransfer(m_downloadID, filename));
-}
-#endif
 
 } // namespace WebKit
 

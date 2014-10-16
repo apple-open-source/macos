@@ -34,20 +34,14 @@
 
 namespace WebCore {
 
-PlatformLayer* ScrollingStateNode::platformScrollLayer() const
-{
-    notImplemented();
-    return 0;
-}
-
-void ScrollingStateNode::setScrollPlatformLayer(PlatformLayer*)
+void LayerRepresentation::retainPlatformLayer(PlatformLayer*)
 {
     notImplemented();
 }
 
-void ScrollingStateNode::setScrollLayer(GraphicsLayer* graphicsLayer)
+void LayerRepresentation::releasePlatformLayer(PlatformLayer*)
 {
-    m_graphicsLayer = graphicsLayer;
+    notImplemented();
 }
 
 } // namespace WebCore

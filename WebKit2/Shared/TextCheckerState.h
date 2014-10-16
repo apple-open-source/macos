@@ -34,7 +34,7 @@ struct TextCheckerState {
     bool isContinuousSpellCheckingEnabled;
     bool isGrammarCheckingEnabled;
 
-#if PLATFORM(MAC)
+#if USE(APPKIT)
     bool isAutomaticSpellingCorrectionEnabled;
     bool isAutomaticQuoteSubstitutionEnabled;
     bool isAutomaticDashSubstitutionEnabled;
@@ -45,7 +45,7 @@ struct TextCheckerState {
 
 } // namespace WebKit
 
-namespace CoreIPC {
+namespace IPC {
 template<> struct ArgumentCoder<WebKit::TextCheckerState> : SimpleArgumentCoder<WebKit::TextCheckerState> { };
 };
 

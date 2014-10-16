@@ -104,6 +104,21 @@ ${http_client} --mech=ntlm --cred-mech=ntlm --client=ktestuser@ADS \
     dc03.ads.apple.com /negotiate/ | grep 'http negotiate' > /dev/null || \
     { echo "spnego/ntlm failed" ; exit 1; }
 
+echo "	check delegation (spnego w/ kerberos credentials delegate)"
+${http_client} --mech=spnego --cred-mech=krb5 --delegate --client=ktestuser@ADS.APPLE.COM \
+    dc03.ads.apple.com /authpage/ | grep 'ImpersonationLevel: Delegation' > /dev/null || \
+    { echo "spnego/kerberos delegate failed" ; exit 1; }
+
+echo "	check delegation (spnego w/ kerberos credentials policy)"
+${http_client} --mech=spnego --cred-mech=krb5 --policy --client=ktestuser@ADS.APPLE.COM \
+    dc03.ads.apple.com /authpage/ | grep 'ImpersonationLevel: Delegation' > /dev/null || \
+    { echo "spnego/kerberos delegate failed" ; exit 1; }
+
+echo "	check delegation (spnego w/ kerberos credentials, no delegate)"
+${http_client} --mech=spnego --cred-mech=krb5 --client=ktestuser@ADS.APPLE.COM \
+    dc03.ads.apple.com /authpage/ | grep 'ImpersonationLevel: Impersonation' > /dev/null || \
+    { echo "spnego/kerberos delgate (not) failed" ; exit 1;
+}
 
 echo "	destroy all cred"
 ${gsstool} destroy --all
@@ -196,28 +211,6 @@ ${kdestroy}
 #else
 #    echo "not running windows mount test since you are no on apple network"
 #fi
-
-# ------------------------------------------------------------------------------------
-
-echo "checking ktestuser in ADS (no domain)"
-${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-echo "checking ktestuser in ADS (domain)"
-${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-echo "checking ktestuser in ADS (no domain)"
-sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-echo "checking ktestuser in ADS (domain)"
-sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-echo "checking ktestuser in ADS (failure, wrong password)"
-sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null --session-key-broken > /dev/null && \
-    { echo "test failed";  exit 1; }
 
 # ------------------------------------------------------------------------------------
 

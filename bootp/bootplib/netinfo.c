@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -115,7 +115,7 @@ ni_proplist_delete(
 	int i;
 
 	ni_prop_free(&pl->nipl_val[which]);
-	for (i = which + 1; i < pl->nipl_len; i++) {
+	for (i = (int)which + 1; i < pl->nipl_len; i++) {
 		pl->nipl_val[i - 1] = pl->nipl_val[i];
 	}
 	MM_SHRINK_ARRAY(pl->nipl_val, pl->nipl_len--);
@@ -219,7 +219,7 @@ ni_name_dup(
 	 ni_name_const nm
 	 )
 {
-	return (strcpy(malloc(strlen(nm) + 1), nm));
+	return (strdup(nm));
 }
 
 
@@ -293,7 +293,7 @@ ni_namelist_delete(
 	int i;
 
 	ni_name_free(&nl->ninl_val[which]);
-	for (i = which + 1; i < nl-> ninl_len; i++) {
+	for (i = (int)which + 1; i < nl-> ninl_len; i++) {
 		nl->ninl_val[i - 1] = nl->ninl_val[i];
 	}
 	MM_SHRINK_ARRAY(nl->ninl_val, nl->ninl_len--);
@@ -367,7 +367,7 @@ ni_delete_prop(ni_proplist * pl_p, ni_name prop, boolean_t * modified)
 {
     int where;
 
-    where = ni_proplist_match(*pl_p, prop, NULL);
+    where = (int)ni_proplist_match(*pl_p, prop, NULL);
     if (where != NI_INDEX_NULL) {
 	ni_proplist_delete(pl_p, where);
 	if (modified)

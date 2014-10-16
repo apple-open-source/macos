@@ -104,6 +104,9 @@
 #include "sainfo.h"
 #include "power_mgmt.h"
 
+#include <NetworkExtension/NEPolicy.h>
+#include <sys/proc_info.h>
+#include <libproc.h>
 
 
 extern pid_t racoon_pid;
@@ -123,6 +126,8 @@ int terminated = 0;
 static int64_t racoon_keepalive = -1;
 
 dispatch_queue_t main_queue;
+
+static NEPolicySessionRef policySession = NULL;
 
 /*
  * This is used to (manually) update racoon's launchd keepalive, which is needed because racoon is (mostly) 
@@ -144,6 +149,85 @@ launchd_update_racoon_keepalive (Boolean enabled)
 		}
 	}
 	return racoon_keepalive;
+}
+
+static CFUUIDRef
+copy_racoon_proc_uuid(void)
+{
+	struct proc_uniqidentifierinfo procu;
+	CFUUIDBytes uuidBytes;
+	int size = 0;
+
+	memset(&procu, 0, sizeof(procu));
+	size = proc_pidinfo(getpid(), PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, PROC_PIDUNIQIDENTIFIERINFO_SIZE);
+	if (size != PROC_PIDUNIQIDENTIFIERINFO_SIZE) {
+		return (NULL);
+	}
+
+	memcpy(&uuidBytes, procu.p_uuid, sizeof(CFUUIDBytes));
+	return CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, uuidBytes);
+}
+
+static bool
+policy_session_init(void)
+{
+	bool success = true;
+	policySession = NEPolicyCreateSession(kCFAllocatorDefault, CFSTR("racoon"), NULL, NULL);
+	if (policySession == NULL) {
+		return false;
+	}
+	
+	CFUUIDRef proc_uuid = copy_racoon_proc_uuid();
+	if (proc_uuid == NULL) {
+		return false;
+	}
+	
+	CFMutableArrayRef conditions = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+	if (conditions) {
+		CFMutableDictionaryRef uuidCondition = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (uuidCondition) {
+			CFDictionarySetValue(uuidCondition, kNEPolicyConditionType, kNEPolicyValPolicyConditionTypeApplication);
+			CFDictionarySetValue(uuidCondition, kNEPolicyApplicationUUID, proc_uuid);
+			CFArrayAppendValue(conditions, uuidCondition);
+			CFRelease(uuidCondition);
+		} else {
+			success = false;
+		}
+		
+		CFMutableDictionaryRef interfacesCondition = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (interfacesCondition) {
+			CFDictionarySetValue(interfacesCondition, kNEPolicyConditionType, kNEPolicyValPolicyConditionTypeAllInterfaces);
+			CFArrayAppendValue(conditions, interfacesCondition);
+			CFRelease(interfacesCondition);
+		} else {
+			success = false;
+		}
+	} else {
+		success = false;
+	}
+	
+	CFMutableDictionaryRef result = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (result) {
+		CFDictionaryAddValue(result, kNEPolicyResult, kNEPolicyValPolicyResultPass);
+	} else {
+		success = false;
+	}
+	
+	if (success) {
+		success = (NEPolicyAdd(policySession, 0, conditions, result, NULL) != kNEPolicyIDInvalid);
+	}
+	
+	if (result) {
+		CFRelease(result);
+	}
+	if (conditions) {
+		CFRelease(conditions);
+	}
+	if (proc_uuid) {
+		CFRelease(proc_uuid);
+	}
+	
+	return (success && NEPolicyApply(policySession));
 }
 
 //
@@ -176,6 +260,11 @@ session(void)
             plog(ASL_LEVEL_ERR, "failed to initialize route socket.\n");
             exit(1);
         }
+	
+	if (!policy_session_init()) {
+		plog(ASL_LEVEL_ERR, "failed to initialize NEPolicy session.\n");
+	}
+	
     if (initmyaddr()) {
         plog(ASL_LEVEL_ERR, "failed to initialize listening addresses.\n");
         exit(1);
@@ -343,9 +432,13 @@ auto_exit_do(void *p)
 {
 	plog(ASL_LEVEL_DEBUG, 
 				"performing auto exit\n");
+#if ENABLE_NO_SA_FLUSH
+	close_session(0);
+#else
 	pfkey_send_flush(lcconf->sock_pfkey, SADB_SATYPE_UNSPEC);
 	sched_new(1, check_flushsa_stub, NULL);
 	dying();
+#endif /* ENABLE_NO_SA_FLUSH */
 }
 
 void
@@ -439,13 +532,17 @@ check_sigreq()
 				            
 #if TARGET_OS_EMBEDDED
                 if (no_remote_configs(TRUE)) {
+#if ENABLE_NO_SA_FLUSH
+                    close_session(0);
+#else
                     pfkey_send_flush(lcconf->sock_pfkey, SADB_SATYPE_UNSPEC);
 #ifdef ENABLE_FASTQUIT
                     close_session(0);
 #else
                     sched_new(1, check_flushsa_stub, NULL);
-#endif
+#endif /* ENABLE_FASTQUIT */
                     dying();
+#endif /* ENABLE_NO_SA_FLUSH */
                 }
 #endif
 
@@ -455,7 +552,10 @@ check_sigreq()
             case SIGTERM:			
                 plog(ASL_LEVEL_INFO, 
                      "caught signal %d\n", sig);
-                pfkey_send_flush(lcconf->sock_pfkey, 
+#if ENABLE_NO_SA_FLUSH
+                close_session(0);
+#else
+                pfkey_send_flush(lcconf->sock_pfkey,
                                  SADB_SATYPE_UNSPEC);
                 if ( sig == SIGTERM ){
                     terminated = 1;			/* in case if it hasn't been set yet */
@@ -465,6 +565,7 @@ check_sigreq()
                     sched_new(1, check_flushsa_stub, NULL);
                 
 				dying();
+#endif /* ENABLE_NO_SA_FLUSH */
                 break;
                 
             default:

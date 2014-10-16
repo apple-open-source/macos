@@ -89,7 +89,6 @@ requestToURL(krb5_context context,
     }
 
     responseBytes = CFDataCreateMutable(NULL, 0);
-    numBytesRead = 0 ;
     do {
 	UInt8 buf[1024];
 	numBytesRead = CFReadStreamRead(requestStream, buf, sizeof(buf));
@@ -101,6 +100,8 @@ requestToURL(krb5_context context,
 	CFErrorRef error = CFReadStreamCopyError(requestStream);
 	ret = HEIM_ERR_EOF;
 	_krb5_set_cf_error_message(context, ret, error, "Failed to reading kkdcp stream");
+	if (error)
+	    CFRelease(error);
 	goto out;
     }
     CFReadStreamClose(requestStream);
@@ -145,7 +146,7 @@ _krb5_kkdcp_request(krb5_context context,
     KDC_PROXY_MESSAGE msg;
     krb5_data msgdata;
     krb5_error_code ret;
-    size_t size;
+    size_t size = 0;
 
     memset(&msg, 0, sizeof(msg));
     

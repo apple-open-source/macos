@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
 #define _IOKIT_IOAUDIOENGINE_H
 
 #include <IOKit/IOService.h>
+#include <AvailabilityMacros.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioTypes.h>
@@ -135,6 +136,12 @@ typedef struct {
  *  also call setSampleRate() at init time to indicate the starting sample rate of the device.
  *
  */
+
+#ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
+	#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+		#warning IOAudioEngine is deprecated use <CoreAudio/AudioServerPlugIn.h> instead.
+	#endif
+#endif
 
 class IOAudioEngine : public IOService
 {
@@ -249,16 +256,16 @@ protected:
 //	static UInt32	sInstanceCount;	
 
 public:
-	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
-    virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate);
-	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
-	virtual IOBufferMemoryDescriptor * getStatusDescriptor();
-	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 2);
-	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, bool isInput);
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 0 );
+    virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioStreamFormatExtension *formatExtension, const IOAudioSampleRate *newSampleRate ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 1 );
+	virtual IOBufferMemoryDescriptor * getStatusDescriptor( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 2 );
+	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, bool isInput ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 3);
-	virtual IOBufferMemoryDescriptor * getBytesInInputBufferArrayDescriptor();
+	virtual IOBufferMemoryDescriptor * getBytesInInputBufferArrayDescriptor( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 4);
-	virtual IOBufferMemoryDescriptor * getBytesInOutputBufferArrayDescriptor();
+	virtual IOBufferMemoryDescriptor * getBytesInOutputBufferArrayDescriptor( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 5);
     /*!
 	 * @function eraseOutputSamples
@@ -272,7 +279,7 @@ public:
 	 * @param audioStream Pointer to stream object that corresponds to the sample buffer being erased.
 	 * @result Must return kIOReturnSuccess if the samples have been erased.
      */
-	virtual IOReturn eraseOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+	virtual IOReturn eraseOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 6);
     /*!
 	 * @function setClockIsStable
@@ -283,7 +290,7 @@ public:
 	 * while FALSE tells CoreAudio to adjust more slowly to perceived sample rate changes that might just be the
 	 * result of an unstable clock.
      */
-	virtual void setClockIsStable(bool clockIsStable);
+	virtual void setClockIsStable(bool clockIsStable ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 7);
 	/*!
@@ -299,7 +306,7 @@ public:
 	 * mix and clip routines to run.  Valid values are 1 through 99, inclusive.
      * @result return no error
 	*/
-	virtual void setMixClipOverhead(UInt32 newMixClipOverhead);
+	virtual void setMixClipOverhead(UInt32 newMixClipOverhead ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 8);
     /*!
@@ -310,14 +317,14 @@ public:
 	 * @param clockDomain is the unique ID of another engine that this engine realizes it is synchronized to, use the default value kIOAudioNewClockDomain 
 	 * to have IOAudioEngine create a unique clock domain.
      */
-	virtual void setClockDomain(UInt32 clockDomain = kIOAudioNewClockDomain);
+	virtual void setClockDomain(UInt32 clockDomain = kIOAudioNewClockDomain ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 9);
     /*!
 	 * @function convertInputSamplesVBR
      * @abstract Override this method if you want to return a different number of sample frames than was requested.  
      */
-	virtual IOReturn convertInputSamplesVBR(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 &numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+	virtual IOReturn convertInputSamplesVBR(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 &numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 10);
     /*!
@@ -325,7 +332,7 @@ public:
      * @abstract set the offset CoreAudio will read from off the current read pointer
 	 * @param numSamples size of offset in sample
 	 */
-    virtual void setInputSampleOffset(UInt32 numSamples);
+    virtual void setInputSampleOffset(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 11);
     /*!
@@ -333,12 +340,12 @@ public:
      * @abstract set the offset CoreAudio will write at off the current write pointer
 	 * @param numSamples size of offset in sample
 	 */
-    virtual void setOutputSampleOffset(UInt32 numSamples);
+    virtual void setOutputSampleOffset(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
 	
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
-    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient, OSDictionary *properties);
+    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient, OSDictionary *properties ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 public:
 	
@@ -352,7 +359,7 @@ public:
 	 * @result an IOReturn code.
 	 */
 	
-    virtual IOReturn setAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t value );
+    virtual IOReturn setAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t value  ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 14);
 	/*! @function getAttributeForConnection
@@ -363,7 +370,7 @@ public:
 	 * @result an IOReturn code.
 	 */
 	
-    virtual IOReturn getAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t * value );
+    virtual IOReturn getAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t * value  ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
@@ -424,7 +431,7 @@ public:
      *  CoreAudio.framework.
      * @result Returns the newly create OSDictionary.
      */
-    static OSDictionary *createDictionaryFromSampleRate(const IOAudioSampleRate *sampleRate, OSDictionary *rateDict = 0);
+    static OSDictionary *createDictionaryFromSampleRate(const IOAudioSampleRate *sampleRate, OSDictionary *rateDict = 0 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function createSampleRateFromDictionary
@@ -433,7 +440,7 @@ public:
      *  from the CoreAudio.framework.
      * @result Returns the sample rate.
      */
-    static IOAudioSampleRate *createSampleRateFromDictionary(const OSDictionary *rateDict, IOAudioSampleRate *sampleRate = 0);
+    static IOAudioSampleRate *createSampleRateFromDictionary(const OSDictionary *rateDict, IOAudioSampleRate *sampleRate = 0 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function init
@@ -446,7 +453,7 @@ public:
      * @param properties The default properties for the IOAudioEngine.
      * @result Returns true if initialization was successful.
      */
-    virtual bool init(OSDictionary *properties);
+    virtual bool init(OSDictionary *properties ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function free
@@ -454,7 +461,7 @@ public:
      * @discussion Do not call this directly.  This is called automatically by the system when the instance's
      *  refcount goes to 0.  To decrement the refcount, call release() on the object.
      */
-    virtual void free();
+    virtual void free( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getWorkLoop
@@ -477,7 +484,7 @@ public:
      * @param provider The service provider for the IOAudioEngine (the IOAudioDevice in this case).
      * @result Returns true if the IOAudioEngine was successfully started.
      */
-    virtual bool start(IOService *provider);
+    virtual bool start(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function start
@@ -492,7 +499,7 @@ public:
      * @param device The IOAudioDevice to which this IOAudioEngine belongs.
      * @result Returns true if the service was successfully started.
      */
-    virtual bool start(IOService *provider, IOAudioDevice *device);
+    virtual bool start(IOService *provider, IOAudioDevice *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function initHardware
@@ -503,7 +510,7 @@ public:
      * @function provider The service provider numb for this audio engine - typically the IOAudioDevice.
      * @result Returns true if the hardware was successfully initialized.
      */
-    virtual bool initHardware(IOService *provider);
+    virtual bool initHardware(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function stop
@@ -512,7 +519,7 @@ public:
      *  has been removed from the system.
      * @param provider The service provider for the IOAudioEngine.
      */
-    virtual void stop(IOService *provider);
+    virtual void stop(IOService *provider ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function registerService
@@ -521,12 +528,12 @@ public:
      *  has been fully initialized and is ready to begin audio playback.
      * @param options
      */
-    virtual void registerService(IOOptionBits options = 0);
+    virtual void registerService(IOOptionBits options = 0 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setAudioDevice(IOAudioDevice *device);
-    virtual void setIndex(UInt32 index);
+    virtual void setAudioDevice(IOAudioDevice *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setIndex(UInt32 index ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setDescription(const char *description);
+    virtual void setDescription(const char *description ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function newUserClient
@@ -545,8 +552,8 @@ public:
      * @param properties A dictionary of additional properties for the connection.
      * @result Returns kIOReturnSuccess on success.  May also result kIOReturnError or kIOReturnNoMemory.
      */
-    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler);
-    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler);
+    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addAudioStream
@@ -555,14 +562,14 @@ public:
      * @param stream The IOAudioStream to be added.
      * @result Returns kIOReturnSuccess if the stream was successfully added.
      */
-    virtual IOReturn addAudioStream(IOAudioStream *stream);
+    virtual IOReturn addAudioStream(IOAudioStream *stream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOAudioStream *getAudioStream(IOAudioStreamDirection direction, UInt32 channelID);
+    virtual IOAudioStream *getAudioStream(IOAudioStreamDirection direction, UInt32 channelID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void lockAllStreams();
-    virtual void unlockAllStreams();
+    virtual void lockAllStreams( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void unlockAllStreams( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void updateChannelNumbers();
+    virtual void updateChannelNumbers( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function resetStatusBuffer
@@ -570,7 +577,7 @@ public:
      * @discussion This is called during startAudioEngine() and resumeAudioEngine() to clear out the status buffer
      *  in preparation of starting up the I/O engine.  There is no need to call this directly.
      */
-    virtual void resetStatusBuffer();
+    virtual void resetStatusBuffer( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function clearAllSampleBuffers
@@ -578,7 +585,7 @@ public:
      * @discussion This is called during resumeAudioEngine() since the audio engine gets started back at the
      *  beginning of the sample buffer.
      */
-    virtual void clearAllSampleBuffers();
+    virtual void clearAllSampleBuffers( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function getCurrentSampleFrame
@@ -601,7 +608,7 @@ public:
      *  comments for an example.
      * @result Must return kIOReturnSuccess on a successful start of the engine.
      */
-    virtual IOReturn startAudioEngine();
+    virtual IOReturn startAudioEngine( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function stopAudioEngine
@@ -616,9 +623,9 @@ public:
      *  consistent.
      * @result Must return kIOReturnSuccess on a successful stop of the engine.
      */
-    virtual IOReturn stopAudioEngine();
-    virtual IOReturn pauseAudioEngine();
-    virtual IOReturn resumeAudioEngine();
+    virtual IOReturn stopAudioEngine( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn pauseAudioEngine( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn resumeAudioEngine( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     /*!
      * @function performAudioEngineStart
@@ -629,7 +636,7 @@ public:
 	 *	that need to be enabled.
      * @result Must return kIOReturnSuccess on a successful start of the engine.
      */
-    virtual IOReturn performAudioEngineStart();
+    virtual IOReturn performAudioEngineStart( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function performAudioEngineStop
@@ -640,7 +647,7 @@ public:
      *  engine that needs to be stopped as well as any interrupts that need to be disabled.
      * @result Must return kIOReturnSuccess on a successful stop of the engine.
      */
-    virtual IOReturn performAudioEngineStop();
+    virtual IOReturn performAudioEngineStop( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*! 
      * @function getState
@@ -651,27 +658,27 @@ public:
      *  will cause a deadlock situation.
      * @result The current state of the IOAudioEngine: kIOAudioEngineRunning, kIOAudioEngineStopped.
      */
-    virtual IOAudioEngineState getState();
+    virtual IOAudioEngineState getState( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getSampleRate 
      * @abstract Returns the sample rate of the IOAudioEngine in samples per second.
      */
-    virtual const IOAudioSampleRate *getSampleRate();
+    virtual const IOAudioSampleRate *getSampleRate( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn hardwareSampleRateChanged(const IOAudioSampleRate *sampleRate);
+    virtual IOReturn hardwareSampleRateChanged(const IOAudioSampleRate *sampleRate ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getRunEraseHead 
      * @abstract Returns true if the audio engine will run the erase head when the audio engine is running.
      */
-    virtual bool getRunEraseHead();
+    virtual bool getRunEraseHead( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getStatus 
      * @abstract Returns a pointer to the shared status buffer.
      */
-    virtual const IOAudioEngineStatus *getStatus();
+    virtual const IOAudioEngineStatus *getStatus( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function timerCallback
@@ -680,7 +687,7 @@ public:
      * @param arg1 The IOAudioEngine that is the target of the event.
      * @param device The IOAudioDevice that sent the timer event.
      */
-    static void timerCallback(OSObject *arg1, IOAudioDevice *device);
+    static void timerCallback(OSObject *arg1, IOAudioDevice *device ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function timerFired
@@ -688,7 +695,7 @@ public:
      * @discussion This method is called by timerCallback to indicate the timer has fired.  This method calls performErase() and performFlush() to do erase head processing and
      *  audio engine flushing each time the timer event fires.
      */
-    virtual void timerFired();
+    virtual void timerFired( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function getTimerInterval
@@ -702,7 +709,7 @@ public:
      *  return the smaller of the two.
      * @result Returns the interval for the timer event.
      */
-    virtual AbsoluteTime getTimerInterval();
+    virtual AbsoluteTime getTimerInterval( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function performErase
@@ -710,7 +717,7 @@ public:
      * @discussion This method is called automatically each time the timer event fires and erases the sample
      *  buffer and mix buffer from the previous location up to the current location of the audio engine.
      */
-    virtual void performErase();
+    virtual void performErase( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function performFlush
@@ -718,32 +725,32 @@ public:
      * @discussion This method is called automatically each time the timer event fires.  It stops the audio engine
      *  if there are no more clients and the audio engine is passed the latest flush ending position.
      */
-    virtual void performFlush();
+    virtual void performFlush( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void stopEngineAtPosition(IOAudioEnginePosition *endingPosition);
+    virtual void stopEngineAtPosition(IOAudioEnginePosition *endingPosition ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
-    virtual IOReturn clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
-    virtual void resetClipPosition(IOAudioStream *audioStream, UInt32 clipSampleFrame);
-    virtual IOReturn convertInputSamples(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+    virtual IOReturn mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void resetClipPosition(IOAudioStream *audioStream, UInt32 clipSampleFrame ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn convertInputSamples(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void takeTimeStamp(bool incrementLoopCount = true, AbsoluteTime *timestamp = NULL);
-    virtual IOReturn getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime *timestamp);
+    virtual void takeTimeStamp(bool incrementLoopCount = true, AbsoluteTime *timestamp = NULL ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime *timestamp ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn calculateSampleTimeout(AbsoluteTime *sampleInterval, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime);
+    virtual IOReturn calculateSampleTimeout(AbsoluteTime *sampleInterval, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate);
+    virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void beginConfigurationChange();
-    virtual void completeConfigurationChange();
-    virtual void cancelConfigurationChange();
+    virtual void beginConfigurationChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void completeConfigurationChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void cancelConfigurationChange( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn addDefaultAudioControl(IOAudioControl *defaultAudioControl);
-    virtual IOReturn removeDefaultAudioControl(IOAudioControl *defaultAudioControl);
-    virtual void removeAllDefaultAudioControls();
+    virtual IOReturn addDefaultAudioControl(IOAudioControl *defaultAudioControl ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn removeDefaultAudioControl(IOAudioControl *defaultAudioControl ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void removeAllDefaultAudioControls( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual OSString *getGlobalUniqueID();
-    virtual OSString *getLocalUniqueID();
+    virtual OSString *getGlobalUniqueID( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual OSString *getLocalUniqueID( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
 
@@ -752,10 +759,10 @@ protected:
      * @abstract Generates the OSSymbols with the keys.
      * @discussion Do not call this directly.  This is an internal initialization routine.
      */ 
-    static void initKeys();
+    static void initKeys( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void setNumSampleFramesPerBuffer(UInt32 numSampleFrames);
-    virtual UInt32 getNumSampleFramesPerBuffer();
+    virtual void setNumSampleFramesPerBuffer(UInt32 numSampleFrames ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual UInt32 getNumSampleFramesPerBuffer( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setState
@@ -766,7 +773,7 @@ protected:
      * @param newState The state the audio engine is in.
      * @result Returns the old state.
      */
-    virtual IOAudioEngineState setState(IOAudioEngineState newState);
+    virtual IOAudioEngineState setState(IOAudioEngineState newState ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setSampleRate
@@ -777,7 +784,7 @@ protected:
      *  It may require that the sample buffers be re-sized.  This will be available in an upcoming release.
      * @param newSampleRate The sample rate of the audio engine in samples per second.
      */
-    virtual void setSampleRate(const IOAudioSampleRate *newSampleRate);
+    virtual void setSampleRate(const IOAudioSampleRate *newSampleRate ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setSampleLatency
@@ -787,10 +794,10 @@ protected:
      *  closer to the playback head than the number of samples specified.  For input audio engines
      *  the number of samples is behind the record head.
      */
-    virtual void setSampleLatency(UInt32 numSamples);
-    virtual void setOutputSampleLatency(UInt32 numSamples);
-    virtual void setInputSampleLatency(UInt32 numSamples);
-    virtual void setSampleOffset(UInt32 numSamples);
+    virtual void setSampleLatency(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setOutputSampleLatency(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setInputSampleLatency(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setSampleOffset(UInt32 numSamples ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function setRunEraseHead
@@ -799,7 +806,7 @@ protected:
      *  be called after setDirection() is called in order to change the default behavior.
      * @param runEraseHead The audio engine will run the erase head if this value is true.
      */
-    virtual void setRunEraseHead(bool runEraseHead);
+    virtual void setRunEraseHead(bool runEraseHead ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function clientClosed
@@ -808,7 +815,7 @@ protected:
      *  zero, the audio engine is called with a call to stopAudioEngine().  This method should not be called directly.
      * @param client The user client that has disconnected.
      */
-    virtual void clientClosed(IOAudioEngineUserClient *client);
+    virtual void clientClosed(IOAudioEngineUserClient *client ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addTimer
@@ -820,7 +827,7 @@ protected:
      *  is set to kIOAudioEngineRunning.  When the timer is no longer needed, removeTimer() is called.
      *  There is no need to call this directly.  
      */
-    virtual void addTimer();
+    virtual void addTimer( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function removeTimer
@@ -829,40 +836,42 @@ protected:
      *  There is need to call it directly.  This method is called by setState() when the audio engine state
      *  is changed from kIOAudioEngineRunning to one of the stopped states.
      */
-    virtual void removeTimer();
+    virtual void removeTimer( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void sendFormatChangeNotification(IOAudioStream *audioStream);
-    virtual void sendNotification(UInt32 notificationType);
+    virtual void sendFormatChangeNotification(IOAudioStream *audioStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void sendNotification(UInt32 notificationType ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient);
+    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);		// <rdar://7529580>
-    static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-    static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-    static IOReturn detachUserClientsAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://7529580>
+    static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+    static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    static IOReturn detachUserClientsAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4 ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn addUserClient(IOAudioEngineUserClient *newUserClient);
-    virtual IOReturn removeUserClient(IOAudioEngineUserClient *userClient);
-    virtual IOReturn detachUserClients();
+    virtual IOReturn addUserClient(IOAudioEngineUserClient *newUserClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn removeUserClient(IOAudioEngineUserClient *userClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn detachUserClients( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn startClient(IOAudioEngineUserClient *userClient);
-    virtual IOReturn stopClient(IOAudioEngineUserClient *userClient);
+    virtual IOReturn startClient(IOAudioEngineUserClient *userClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn stopClient(IOAudioEngineUserClient *userClient ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual IOReturn incrementActiveUserClients();
-    virtual IOReturn decrementActiveUserClients();
+    virtual IOReturn incrementActiveUserClients( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn decrementActiveUserClients( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
-    virtual void detachAudioStreams();
-	void setWorkLoopOnAllAudioControls(IOWorkLoop *wl);
+    virtual void detachAudioStreams( ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	void setWorkLoopOnAllAudioControls(IOWorkLoop *wl ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	static inline void lockStreamForIO(IOAudioStream *stream);
-	static inline void unlockStreamForIO(IOAudioStream *stream);
+	static inline void lockStreamForIO(IOAudioStream *stream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static inline void unlockStreamForIO(IOAudioStream *stream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	// These aren't virtual by design
-	UInt32 getNextStreamID(IOAudioStream * newStream);
-	IOAudioStream * getStreamForID(UInt32 streamID);
+	UInt32 getNextStreamID(IOAudioStream * newStream ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	IOAudioStream * getStreamForID(UInt32 streamID ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	static void setCommandGateUsage(IOAudioEngine *engine, bool increment);		// <rdar://8518215>
+	IOReturn waitForEngineResume ( void );										// <rdar://15485249>
+
+	static void setCommandGateUsage(IOAudioEngine *engine, bool increment ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://8518215>
 
 };
 

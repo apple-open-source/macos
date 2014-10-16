@@ -20,7 +20,6 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
 			$(APR)/misc/netware \
-			$(APR) \
 			$(EOLIST)
 
 #
@@ -56,7 +55,7 @@ XDEFINES	+= \
 			$(EOLIST)
 
 XLFLAGS		+= \
-			$(EOLIST)
+		   	$(EOLIST)
 endif
 
 ifeq "$(RELEASE)" "noopt"
@@ -70,7 +69,7 @@ XDEFINES	+= \
 			$(EOLIST)
 
 XLFLAGS		+= \
-			$(EOLIST)
+		   	$(EOLIST)
 endif
 
 ifeq "$(RELEASE)" "release"
@@ -92,7 +91,7 @@ endif
 # This is used by the link 'name' directive to name the nlm.  If left blank
 # TARGET_nlm (see below) will be used.
 #
-NLM_NAME	= htdigest
+NLM_NAME		= htdigest
 
 #
 # This is used by the link '-desc ' directive. 
@@ -116,7 +115,7 @@ NLM_SCREEN_NAME = Digest Password Management
 # If this is specified, it will override VERSION value in 
 # $(AP_WORK)/build/NWGNUenvironment.inc
 #
-NLM_VERSION	=
+NLM_VERSION		=
 
 #
 # If this is specified, it will override the default of 64K
@@ -142,14 +141,14 @@ NLM_CHECK_SYM	=
 #
 # If these are specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS	=
+NLM_FLAGS		= AUTOUNLOAD, PSEUDOPREEMPTION
 
 #
 # If this is specified it will be linked in with the XDCData option in the def 
 # file instead of the default of $(NWOS)/apache.xdc.  XDCData can be disabled
 # by setting APACHE_UNIPROC in the environment
 #
-XDCDATA		= 
+XDCDATA         = 
 
 #
 # If there is an NLM target, put it here
@@ -177,7 +176,7 @@ FILES_nlm_objs = \
 # These will be added as a library command in the link.opt file.
 #
 FILES_nlm_libs = \
-	$(PRELUDE) \
+   	$(PRELUDE) \
 	$(EOLIST)
 
 #
@@ -217,13 +216,13 @@ FILES_nlm_Ximports = \
 #
 FILES_nlm_exports = \
 	$(EOLIST)
-
+	
 #   
 # These are the OBJ files needed to create the LIB target above.
 # Paths must all use the '/' character
 #
 FILES_lib_objs = \
-	$(EOLIST)
+		$(EOLIST)
 
 #
 # implement targets and dependancies (leave this section alone)
@@ -249,5 +248,4 @@ install :: nlms FORCE
 #
 
 include $(APBUILD)/NWGNUtail.inc
-
 

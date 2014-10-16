@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2010, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,7 +89,7 @@ __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
 static void
 reportDelay(SCPreferencesRef prefs, struct timeval *delay)
 {
-	aslmsg			m;
+	asl_object_t		m;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	char			str[256];
 
@@ -110,7 +110,7 @@ reportDelay(SCPreferencesRef prefs, struct timeval *delay)
 	      prefsPrivate->prefsID,
 	      (int)delay->tv_sec,
 	      delay->tv_usec / 1000);
-	asl_free(m);
+	asl_release(m);
 
 	return;
 }

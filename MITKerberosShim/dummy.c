@@ -337,7 +337,6 @@ dummy(krb5_mk_1cred, ENOMEM);
 dummy(krb5_mk_error, ENOMEM);
 dummy(krb5_mk_ncred, ENOMEM);
 dummy(krb5_mk_rep, ENOMEM);
-dummy(krb5_parse_name_flags, 0);
 dummy(krb5_pkinit_get_client_cert, ENOMEM);
 dummy(krb5_pkinit_get_client_cert_db, ENOMEM);
 dummy(krb5_pkinit_get_kdc_cert, ENOMEM);

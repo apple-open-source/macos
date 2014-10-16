@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -62,7 +62,7 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
 JSStringRef JSStringCreateWithCharactersNoCopy(const JSChar* chars, size_t numChars)
 {
     initializeThreading();
-    return OpaqueJSString::create(StringImpl::createWithoutCopying(chars, numChars, WTF::DoesNotHaveTerminatingNullCharacter)).leakRef();
+    return OpaqueJSString::create(StringImpl::createWithoutCopying(chars, numChars)).leakRef();
 }
 
 JSStringRef JSStringRetain(JSStringRef string)
@@ -97,20 +97,26 @@ size_t JSStringGetUTF8CString(JSStringRef string, char* buffer, size_t bufferSiz
     if (!bufferSize)
         return 0;
 
-    char* p = buffer;
-    const UChar* d = string->characters();
-    ConversionResult result = convertUTF16ToUTF8(&d, d + string->length(), &p, p + bufferSize - 1, true);
-    *p++ = '\0';
+    char* destination = buffer;
+    ConversionResult result;
+    if (string->is8Bit()) {
+        const LChar* source = string->characters8();
+        result = convertLatin1ToUTF8(&source, source + string->length(), &destination, destination + bufferSize - 1);
+    } else {
+        const UChar* source = string->characters16();
+        result = convertUTF16ToUTF8(&source, source + string->length(), &destination, destination + bufferSize - 1, true);
+    }
+
+    *destination++ = '\0';
     if (result != conversionOK && result != targetExhausted)
         return 0;
 
-    return p - buffer;
+    return destination - buffer;
 }
 
 bool JSStringIsEqual(JSStringRef a, JSStringRef b)
 {
-    unsigned len = a->length();
-    return len == b->length() && 0 == memcmp(a->characters(), b->characters(), len * sizeof(UChar));
+    return OpaqueJSString::equal(a, b);
 }
 
 bool JSStringIsEqualToUTF8CString(JSStringRef a, const char* b)

@@ -6,7 +6,7 @@
 *
 * File CALENDAR.CPP
 *
-* Modification History:
+* Modification History: 
 *
 *   Date        Name        Description
 *   02/03/97    clhuang     Creation.
@@ -60,6 +60,7 @@
 
 #if !UCONFIG_NO_SERVICE
 static icu::ICULocaleService* gService = NULL;
+static icu::UInitOnce gServiceInitOnce = U_INITONCE_INITIALIZER;
 #endif
 
 // INTERNAL - for cleanup
@@ -71,6 +72,7 @@ static UBool calendar_cleanup(void) {
         delete gService;
         gService = NULL;
     }
+    gServiceInitOnce.reset();
 #endif
     return TRUE;
 }
@@ -104,7 +106,7 @@ U_CDECL_END
 */
 
 const char* fldName(UCalendarDateFields f) {
-	return udbg_enumName(UDBG_UCalendarDateFields, (int32_t)f);
+    return udbg_enumName(UDBG_UCalendarDateFields, (int32_t)f);
 }
 
 #if UCAL_DEBUG_DUMP
@@ -166,6 +168,9 @@ static const char * const gCalTypes[] = {
     "ethiopic-amete-alem",
     "iso8601",
     "dangi",
+    "islamic-umalqura",
+    "islamic-tbla",
+    "islamic-rgsa",
     NULL
 };
 
@@ -186,7 +191,10 @@ typedef enum ECalType {
     CALTYPE_ETHIOPIC,
     CALTYPE_ETHIOPIC_AMETE_ALEM,
     CALTYPE_ISO8601,
-    CALTYPE_DANGI
+    CALTYPE_DANGI,
+    CALTYPE_ISLAMIC_UMALQURA,
+    CALTYPE_ISLAMIC_TBLA,
+    CALTYPE_ISLAMIC_RGSA
 } ECalType;
 
 U_NAMESPACE_BEGIN
@@ -315,11 +323,19 @@ static Calendar *createStandardCalendar(ECalType calType, const Locale &loc, UEr
         case CALTYPE_PERSIAN:
             cal = new PersianCalendar(loc, status);
             break;
+        case CALTYPE_ISLAMIC_TBLA:
+            cal = new IslamicCalendar(loc, status, IslamicCalendar::TBLA);
+            break;
         case CALTYPE_ISLAMIC_CIVIL:
             cal = new IslamicCalendar(loc, status, IslamicCalendar::CIVIL);
             break;
+        case CALTYPE_ISLAMIC_RGSA:
+            // default any region specific not handled individually to islamic
         case CALTYPE_ISLAMIC:
             cal = new IslamicCalendar(loc, status, IslamicCalendar::ASTRONOMICAL);
+            break;
+        case CALTYPE_ISLAMIC_UMALQURA:
+            cal = new IslamicCalendar(loc, status, IslamicCalendar::UMALQURA);
             break;
         case CALTYPE_HEBREW:
             cal = new HebrewCalendar(loc, status);
@@ -517,33 +533,29 @@ CalendarService::~CalendarService() {}
 
 static inline UBool
 isCalendarServiceUsed() {
-    UBool retVal;
-    UMTX_CHECK(NULL, gService != NULL, retVal);
-    return retVal;
+    return !gServiceInitOnce.isReset();
 }
 
 // -------------------------------------
 
-static ICULocaleService* 
-getCalendarService(UErrorCode &status)
+static void U_CALLCONV
+initCalendarService(UErrorCode &status)
 {
-    UBool needInit;
-    UMTX_CHECK(NULL, (UBool)(gService == NULL), needInit);
-    if (needInit) {
 #ifdef U_DEBUG_CALSVC
         fprintf(stderr, "Spinning up Calendar Service\n");
 #endif
-        ICULocaleService * newservice = new CalendarService();
-        if (newservice == NULL) {
+    ucln_i18n_registerCleanup(UCLN_I18N_CALENDAR, calendar_cleanup);
+    gService = new CalendarService();
+    if (gService == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
-            return newservice;
+        return;
         }
 #ifdef U_DEBUG_CALSVC
         fprintf(stderr, "Registering classes..\n");
 #endif
 
         // Register all basic instances. 
-        newservice->registerFactory(new BasicCalendarFactory(),status);
+    gService->registerFactory(new BasicCalendarFactory(),status);
 
 #ifdef U_DEBUG_CALSVC
         fprintf(stderr, "Done..\n");
@@ -553,25 +565,15 @@ getCalendarService(UErrorCode &status)
 #ifdef U_DEBUG_CALSVC
             fprintf(stderr, "err (%s) registering classes, deleting service.....\n", u_errorName(status));
 #endif
-            delete newservice;
-            newservice = NULL;
+        delete gService;
+        gService = NULL;
+    }
         }
 
-        if (newservice) {
-            umtx_lock(NULL);
-            if (gService == NULL) {
-                gService = newservice;
-                newservice = NULL;
-            }
-            umtx_unlock(NULL);
-        }
-        if (newservice) {
-            delete newservice;
-        } else {
-            // we won the contention - we can register the cleanup.
-            ucln_i18n_registerCleanup(UCLN_I18N_CALENDAR, calendar_cleanup);
-        }
-    }
+static ICULocaleService* 
+getCalendarService(UErrorCode &status)
+{
+    umtx_initOnce(gServiceInitOnce, &initCalendarService, status);
     return gService;
 }
 
@@ -738,7 +740,7 @@ fSkippedWallTime(UCAL_WALLTIME_LAST)
     clear();
     fZone = zone.clone();
     if (fZone == NULL) {
-    	success = U_MEMORY_ALLOCATION_ERROR;
+        success = U_MEMORY_ALLOCATION_ERROR;
     }
     setWeekData(aLocale, NULL, success);
 }
@@ -1070,15 +1072,15 @@ Calendar::setTimeInMillis( double millis, UErrorCode& status ) {
         if(isLenient()) {
             millis = MAX_MILLIS;
         } else {
-            status = U_ILLEGAL_ARGUMENT_ERROR;
-            return;
+		    status = U_ILLEGAL_ARGUMENT_ERROR;
+		    return;
         }
     } else if (millis < MIN_MILLIS) {
         if(isLenient()) {
             millis = MIN_MILLIS;
         } else {
-            status = U_ILLEGAL_ARGUMENT_ERROR;
-            return;
+    		status = U_ILLEGAL_ARGUMENT_ERROR;
+	    	return;
         }
     }
 
@@ -1159,6 +1161,135 @@ Calendar::set(int32_t year, int32_t month, int32_t date, int32_t hour, int32_t m
     set(UCAL_HOUR_OF_DAY, hour);
     set(UCAL_MINUTE, minute);
     set(UCAL_SECOND, second);
+}
+
+// -------------------------------------
+// For now the full getRelatedYear implementation is here;
+// per #10752 move the non-default implementation to subclasses
+// (default implementation will do no year adjustment)
+
+static int32_t gregoYearFromIslamicStart(int32_t year) {
+    // ad hoc conversion, improve under #10752
+    // rough est for now, ok for grego 1846-2138,
+    // otherwise occasionally wrong (for 3% of years)
+    int cycle, offset, shift = 0;
+    if (year >= 1397) {
+        cycle = (year - 1397) / 67;
+        offset = (year - 1397) % 67;
+        shift = 2*cycle + ((offset >= 33)? 1: 0);
+    } else {
+        cycle = (year - 1396) / 67 - 1;
+        offset = -(year - 1396) % 67;
+        shift = 2*cycle + ((offset <= 33)? 1: 0);
+    }
+    return year + 579 - shift;
+}
+
+int32_t Calendar::getRelatedYear(UErrorCode &status) const
+{
+    if (U_FAILURE(status)) {
+        return 0;
+    }
+    int32_t year = get(UCAL_EXTENDED_YEAR, status);
+    if (U_FAILURE(status)) {
+        return 0;
+    }
+    // modify for calendar type
+    ECalType type = getCalendarType(getType());
+    switch (type) {
+        case CALTYPE_PERSIAN:
+            year += 622; break;
+        case CALTYPE_HEBREW:
+            year -= 3760; break;
+        case CALTYPE_CHINESE:
+            year -= 2637; break;
+        case CALTYPE_INDIAN:
+            year += 79; break;
+        case CALTYPE_COPTIC:
+            year += 284; break;
+        case CALTYPE_ETHIOPIC:
+            year += 8; break;
+        case CALTYPE_ETHIOPIC_AMETE_ALEM:
+            year -=5492; break;
+        case CALTYPE_DANGI:
+            year -= 2333; break;
+        case CALTYPE_ISLAMIC_CIVIL:
+        case CALTYPE_ISLAMIC:
+        case CALTYPE_ISLAMIC_UMALQURA:
+        case CALTYPE_ISLAMIC_TBLA:
+        case CALTYPE_ISLAMIC_RGSA:
+            year = gregoYearFromIslamicStart(year); break;
+        default:
+            // CALTYPE_GREGORIAN
+            // CALTYPE_JAPANESE
+            // CALTYPE_BUDDHIST
+            // CALTYPE_ROC
+            // CALTYPE_ISO8601
+            // do nothing, EXTENDED_YEAR same as Gregorian
+            break;
+    }
+    return year;
+}
+
+// -------------------------------------
+// For now the full setRelatedYear implementation is here;
+// per #10752 move the non-default implementation to subclasses
+// (default implementation will do no year adjustment)
+
+static int32_t firstIslamicStartYearFromGrego(int32_t year) {
+    // ad hoc conversion, improve under #10752
+    // rough est for now, ok for grego 1846-2138,
+    // otherwise occasionally wrong (for 3% of years)
+    int cycle, offset, shift = 0;
+    if (year >= 1977) {
+        cycle = (year - 1977) / 65;
+        offset = (year - 1977) % 65;
+        shift = 2*cycle + ((offset >= 32)? 1: 0);
+    } else {
+        cycle = (year - 1976) / 65 - 1;
+        offset = -(year - 1976) % 65;
+        shift = 2*cycle + ((offset <= 32)? 1: 0);
+    }
+    return year - 579 + shift;
+}
+void Calendar::setRelatedYear(int32_t year)
+{
+    // modify for calendar type
+    ECalType type = getCalendarType(getType());
+    switch (type) {
+        case CALTYPE_PERSIAN:
+            year -= 622; break;
+        case CALTYPE_HEBREW:
+            year += 3760; break;
+        case CALTYPE_CHINESE:
+            year += 2637; break;
+        case CALTYPE_INDIAN:
+            year -= 79; break;
+        case CALTYPE_COPTIC:
+            year -= 284; break;
+        case CALTYPE_ETHIOPIC:
+            year -= 8; break;
+        case CALTYPE_ETHIOPIC_AMETE_ALEM:
+            year +=5492; break;
+        case CALTYPE_DANGI:
+            year += 2333; break;
+        case CALTYPE_ISLAMIC_CIVIL:
+        case CALTYPE_ISLAMIC:
+        case CALTYPE_ISLAMIC_UMALQURA:
+        case CALTYPE_ISLAMIC_TBLA:
+        case CALTYPE_ISLAMIC_RGSA:
+            year = firstIslamicStartYearFromGrego(year); break;
+        default:
+            // CALTYPE_GREGORIAN
+            // CALTYPE_JAPANESE
+            // CALTYPE_BUDDHIST
+            // CALTYPE_ROC
+            // CALTYPE_ISO8601
+            // do nothing, EXTENDED_YEAR same as Gregorian
+            break;
+    }
+    // set extended year
+    set(UCAL_EXTENDED_YEAR, year);
 }
 
 // -------------------------------------
@@ -3757,3 +3888,4 @@ U_NAMESPACE_END
 
 
 //eof
+

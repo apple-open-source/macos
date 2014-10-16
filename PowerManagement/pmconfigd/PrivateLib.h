@@ -136,6 +136,8 @@ struct IOPMBattery {
     uint32_t                     isPresent:1;
     uint32_t                     markedDeclining:1;
     uint32_t                     isTimeRemainingUnknown:1;
+    uint32_t                     isCritical:1;
+    uint32_t                     isRestricted:1;
     uint32_t                pfStatus;
     int                     currentCap;
     int                     maxCap;
@@ -149,6 +151,7 @@ struct IOPMBattery {
     int                     hwAverageTR;
     int                     hwInstantTR;
     int                     swCalculatedTR;
+    int                     swCalculatedPR;
     int                     invalidWakeSecs;
     CFStringRef             batterySerialNumber;
     CFStringRef             health;
@@ -156,6 +159,8 @@ struct IOPMBattery {
     CFStringRef             name;
     CFStringRef             dynamicStoreKey;
     CFStringRef             chargeStatus;
+    time_t                  lowCapRatioSinceTime;
+    boolean_t               hasLowCapRatio;
 };
 typedef struct IOPMBattery IOPMBattery;
 
@@ -215,6 +220,8 @@ __private_extern__ IOReturn ActivatePMSettings(
 #define kPMASLValueExpired                  "expired"
 #define kPMASLValueActive                   "active"
 
+#define kPMASLClaimedEventKey               "claimedEvents"
+
 /*
  * Power Management Domains
  */
@@ -228,9 +235,12 @@ __private_extern__ IOReturn ActivatePMSettings(
 #define kPMASLDomainHibernateStatistics     "HibernateStats"
 #define kPMASLDomainFilteredFailure         "FilteredFailure"
 #define kPMASLDomainAppNotify               "Notification"
+#define kPMASLDomainSWFailure               "Failure"
 
 #define kPMASLDomainDWTEmergency            "ThermalEvent"
 #define kPMASLDomainSleepRevert             "SleepAborted"
+
+#define kPMASLDomainBattery                 "BatteryHealth"
 
 #define kPMASLDomainSummaryPrefix           "Summary."
     #define kPMASLDomainSummaryActive       "Summary.Active"
@@ -241,6 +251,32 @@ __private_extern__ IOReturn ActivatePMSettings(
     #define kPMASLDomainAppResponseCancel       "Response.Cancelled"
     #define kPMASLDomainAppResponseSlow         "Response.SlowResponse"
     #define kPMASLDomainAppResponseTimedOut     "Response.Timedout"
+
+#define kPMASLDomainKernelClientStats       "KernelClientStats"
+#define kPMASLDomainPMClientStats           "PMClientStats"
+
+    /*
+     * Below three definitions are prefixes. Actual ASL keys will be
+     * AppName0, DelayTypeApp0, DelayFromApp0
+     * AppName1, DelayTypeApp1, DelayFromApp1  etc...
+     */
+#define kPMASLResponseAppNamePrefix         "AppName"
+#define kPMASLResponseRespTypePrefix        "DelayTypeApp"
+#define kPMASLResponseDelayPrefix           "DelayFromApp"
+#define kPMASLResponsePSCapsPrefix          "PowerStateCaps"
+#define kPMASLResponseMessagePrefix         "Message"
+
+#define kPMASLResponseSystemTransition      "SystemTransition"
+
+
+#define kPMASLDomainClientWakeRequests      "ClientWakeRequests"
+
+#define KPMASLWakeReqAppNamePrefix          "WakeAppName"
+#define kPMASLWakeReqTimeDeltaPrefix        "WakeTimeDelta"
+#define kPMASLWakeReqTypePrefix             "WakeType"
+#define kPMASLWakeReqClientInfoPrefix       "WakeClientInfo"
+#define kPMASLWakeReqChosenIdx              "WakeRequestChosen"
+
 
 /*
  * Signatures
@@ -285,13 +321,14 @@ __private_extern__ IOReturn ActivatePMSettings(
 #define kPMASLPIDKey                            "Process"
 #define kPMASLAssertionNameKey                  "AssertName"
 #define kPMASLAssertionActionCreate             "Created"
+#define kPMASLAssertionActionRetain             "Retain"
 #define kPMASLAssertionActionRelease            "Released"
 #define kPMASLAssertionActionClientDeath        "ClientDied"
 #define kPMASLAssertionActionTimeOut            "TimedOut"
 #define kPMASLAssertionActionSummary            "Summary"
-#define kPMASLAssertionActionTurnOff            "Turned off"
-#define kPMASLAssertionActionTurnOn             "Turned on"
-
+#define kPMASLAssertionActionTurnOff            "TurnedOff"
+#define kPMASLAssertionActionTurnOn             "TurnedOn"
+#define kPMASlAssertionActionCapTimeOut         "CapExpired"
 /***************************************************************
  * FDR
  * Flight Data Recorder SPI calls
@@ -390,6 +427,13 @@ void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion);
  */
 void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName);
 
+/*
+ * mt2RecordWakeReason
+ * powerd should call to report wake reason claimed by the driver
+ * @arg wakeType     Wake Type
+ * @arg claimedWake  Wake reason string as provided by the driver
+ */
+void mt2RecordWakeReason(CFStringRef wakeType, CFStringRef claimedWake);
 
 /* mt2PublishReports
  * Debug routines. Should only be used for debugging to influence the mt2 publishing cycle.
@@ -444,6 +488,9 @@ __private_extern__ void                 logASLMessageWake(const char *sig, const
                                                         const char *failureStr,
                                                         IOPMCapabilityBits in_capabilities, WakeTypeEnum dark_wake);
 
+__private_extern__ void                 logASLAppWakeReason(const char * ident, const char * reason);
+
+
 __private_extern__ void                 logASLMessageHibernateStatistics(void);
 
 __private_extern__ void                 logASLMessagePMConnectionResponse(CFStringRef logSourceString, CFStringRef appNameString,
@@ -451,7 +498,8 @@ __private_extern__ void                 logASLMessagePMConnectionResponse(CFStri
                                                          int notificationBits);
 
 __private_extern__ void                 logASLPMConnectionNotify(CFStringRef appNameString, int notificationBits);
-__private_extern__ void                 logASLMessageIORegisterForSystemPowerResponses(void);
+__private_extern__ void                 logASLDisplayStateChange();
+__private_extern__ void                 logASLMessageAppStats(CFArrayRef appStats, char *domain);
 
 __private_extern__ void                 logASLMessagePMConnectionScheduledWakeEvents(CFStringRef requestedMaintenancesString);
 
@@ -462,6 +510,12 @@ __private_extern__ void                 logASLMessageIgnoredDWTEmergency(void);
 #endif
 
 __private_extern__ void                 logASLMessageSleepCanceledAtLastCall(void);
+
+__private_extern__ void                 logASLBatteryHealthChanged(const char *health,
+                                                                   const char *oldhealth,
+                                                                   const char *reason);
+__private_extern__ void                 logASLLowBatteryWarning(IOPSLowBatteryWarningLevel level,
+                                                   int time, int ccap);
 
 #define kAppResponseLogSourceKernel             CFSTR("Kernel")
 #define kAppResponseLogSourcePMConnection       CFSTR("PMConnection")
@@ -494,8 +548,12 @@ __private_extern__ int                  _batteryCount(void);
 __private_extern__ void                 _removeBattery(io_registry_entry_t);
 __private_extern__ IOReturn             _getACAdapterInfo(uint64_t *acBits);
 __private_extern__ PowerSources         _getPowerSource(void);
-
-__private_extern__ void                 wakeDozingMachine(void);
+__private_extern__ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
+                                                boolean_t *hasLowCapRatio,
+                                                time_t *since);
+__private_extern__ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
+                                                boolean_t hasLowCapRatio,
+                                                time_t since);
 
 #if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _copyUPSWarning(void);
@@ -516,11 +574,10 @@ __private_extern__ SCDynamicStoreRef    _getSharedPMDynamicStore(void);
 // returns true on success; or false if the copy failed, or the UUID does not exist
 __private_extern__ bool                 _getUUIDString(char *buf, int buflen);
 __private_extern__ CFStringRef          _updateSleepReason(void);
-__private_extern__ bool                 _getSleepReason(char *buf, int buflen);
+__private_extern__ CFStringRef          _getSleepReason();
 __private_extern__ void                 _resetWakeReason( );
 __private_extern__ void                 _updateWakeReason(CFStringRef *wakeReason, CFStringRef *wakeType);
-__private_extern__ bool                 _getWakeReason(char *buf, int buflen);
-__private_extern__ void                 getCFWakeReason (CFStringRef *wakeReason, CFStringRef *wakeType);
+__private_extern__ void                 getPlatformWakeReason(CFStringRef *wakeReason, CFStringRef *wakeType);
 
 __private_extern__ io_registry_entry_t  getRootDomain(void);
 __private_extern__ IOReturn             _setRootDomainProperty(CFStringRef key, CFTypeRef val);
@@ -546,11 +603,11 @@ __private_extern__ bool getAggressivenessValue(CFDictionaryRef     dict,
                                                CFNumberType        type,
                                                uint32_t           *ret);
 
-#if !TARGET_OS_EMBEDDED
 __private_extern__ bool auditTokenHasEntitlement(
                                                  audit_token_t token,
                                                  CFStringRef entitlement);
-#endif
+
+__private_extern__ CFCalendarRef        _gregorian(void);
 
 __private_extern__ void                 _oneOffHacksSetup(void);
 

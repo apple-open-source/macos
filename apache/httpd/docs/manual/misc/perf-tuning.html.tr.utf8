@@ -9,19 +9,20 @@
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
-<script src="../style/scripts/prettify.js" type="text/javascript">
+<script src="../style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="../images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.2</a> &gt; <a href="./">Çeşitli Belgeler</a></div><div id="page-content"><div id="preamble"><h1>Apache’de Başarımın Arttırılması</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.4</a> &gt; <a href="./">Çeşitli Belgeler</a></div><div id="page-content"><div id="preamble"><h1>Apache’de Başarımın Arttırılması</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="../en/misc/perf-tuning.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/misc/perf-tuning.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/misc/perf-tuning.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/misc/perf-tuning.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
@@ -61,7 +62,7 @@
       (RAM). Bir HTTP sunucusu asla takaslama yapmamalıdır. Çünkü takaslama,
       kullanıcının "yeterince hız" umduğu noktada sunumun gecikmesine sebep
       olur. Böyle bir durumda kullanıcılar yüklemeyi durdurup tekrar
-      başlatma eğilimindedirler; sonuçta yük daha da artar. <code class="directive"><a href="../mod/mpm_common.html#maxclients">MaxClients</a></code> yönergesinin değerini
+      başlatma eğilimindedirler; sonuçta yük daha da artar. <code class="directive"><a href="../mod/mpm_common.html#maxrequestworkers">MaxRequestWorkers</a></code> yönergesinin değerini
       değiştirerek takaslamaya sebep olabilecek kadar çok çocuk süreç
       oluşturulmasını engelleyebilirsiniz ve böyle bir durumda bunu mutlaka
       yapmalısınız. Bunun için yapacağınız işlem basittir: <code>top</code>
@@ -125,8 +126,8 @@
         günlük dosyasının bir kopyası üzerinde yapmanızı öneririz. Aksi
         takdirde sunucunuzun başarımı önemli ölçüde etkilenebilir.</p>
 
-      <p><code class="directive"><a href="../mod/mod_authz_host.html#allow">Allow</a></code> veya
-        <code class="directive"><a href="../mod/mod_authz_host.html#deny">Deny</a></code>
+      <p><code class="directive"><a href="../mod/mod_access_compat.html#allow">Allow</a></code> veya
+        <code class="directive"><a href="../mod/mod_access_compat.html#deny">Deny</a></code>
         yönergelerinde IP adresi yerine bir konak veya alan ismi
         belirtirseniz, iki DNS sorguluk bir bedel ödersiniz (biri normal,
         diğeri IP taklidine karşı ters DNS sorgusu). Başarımı en iyilemek
@@ -141,14 +142,11 @@
         <code>.cgi</code> dosyalarına yapılan istekler hariç DNS sorguları
         iptal edilmektedir:</p>
 
-      <div class="example"><p><code>
-        HostnameLookups off<br />
-        &lt;Files ~ "\.(html|cgi)$"&gt;<br />
-        <span class="indent">
-          HostnameLookups on<br />
-        </span>
-        &lt;/Files&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">HostnameLookups off
+&lt;Files ~ "\.(html|cgi)$"&gt;
+  HostnameLookups on
+&lt;/Files&gt;</pre>
+
 
       <p>Yine de bazı CGI’lerin DNS isimlerine ihtiyacı olursa bu CGI’lerin
         bu ihtiyaçlarına yönelik olarak <code>gethostbyname</code> çağrıları
@@ -167,14 +165,11 @@
         bağın üzerinde bazı sınamalar yapmak için ek bir sistem çağrısından
         başka istenen her dosya için de ayrı bir çağrı yapacaktır.</p>
 
-      <div class="example"><h3>Örnek:</h3><p><code>
-        DocumentRoot /siteler/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          Options SymLinksIfOwnerMatch<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /siteler/htdocs
+&lt;Directory /&gt;
+  Options SymLinksIfOwnerMatch
+&lt;/Directory&gt;</pre>
+
 
       <p>Bu durumda <code>/index.html</code> için bir istek yapıldığında
         Apache, <code>/siteler</code>, <code>/siteler/htdocs</code> ve<br />
@@ -184,20 +179,15 @@
         yinelenecektir. Amacınız gerçekten sembolik bağları güvenlik
         açısından sınamaksa bunu şöyle yapabilirsiniz:</p>
 
-      <div class="example"><p><code>
-        DocumentRoot /siteler/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          Options FollowSymLinks<br />
-        </span>
-        &lt;/Directory&gt;<br />
-        <br />
-        &lt;Directory /sitem/htdocs&gt;<br />
-        <span class="indent">
-          Options -FollowSymLinks +SymLinksIfOwnerMatch<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /siteler/htdocs
+&lt;Directory /&gt;
+  Options FollowSymLinks
+&lt;/Directory&gt;
+
+&lt;Directory /siteler/htdocs&gt;
+  Options -FollowSymLinks +SymLinksIfOwnerMatch
+&lt;/Directory&gt;</pre>
+
 
       <p>Böylece <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> altındaki
         dosyalar için fazladan bir çağrı yapılmasını engellemiş olursunuz.
@@ -220,14 +210,11 @@
         her dosya bileşeni için bu <code>.htaccess</code> dosyalarını açmaya
         çalışacaktır.</p>
 
-      <div class="example"><h3>Örnek:</h3><p><code>
-        DocumentRoot /siteler/htdocs<br />
-        &lt;Directory /&gt;<br />
-        <span class="indent">
-          AllowOverride all<br />
-        </span>
-        &lt;/Directory&gt;
-      </code></p></div>
+      <pre class="prettyprint lang-config">DocumentRoot /siteler/htdocs
+&lt;Directory /&gt;
+  AllowOverride all
+&lt;/Directory&gt;</pre>
+
 
       <p>Bu durumda <code>/index.html</code> sayfasına yapılan bir istek için
         Apache, <code>/.htaccess</code>, <code>/siteler/.htaccess</code> ve
@@ -247,16 +234,14 @@
         isterken büyük başarım kayıplarına uğrayabilirsiniz. Böyle bir
         durumda sunucunun başarımını arttırmanın tek bir yolu vardır. </p>
 
-      <div class="example"><p><code>
-        DirectoryIndex index
-      </code></p></div>
+      <pre class="prettyprint lang-config">DirectoryIndex index</pre>
+
 
       <p>Yukarıdaki gibi bir dosya ismi kalıbı kullanmak yerine, aşağıdaki
         gibi seçenekleri tam bir liste halinde belirtin:</p>
 
-      <div class="example"><p><code>
-        DirectoryIndex index.cgi index.pl index.shtml index.html
-      </code></p></div>
+      <pre class="prettyprint lang-config">DirectoryIndex index.cgi index.pl index.shtml index.html</pre>
+
 
       <p>Buradaki sıralama öncelik sırasını belirler; yani,
         öncelikli olmasını istediğiniz seçeneği listenin başına
@@ -393,7 +378,7 @@
         demektir. Bunun için <code class="module"><a href="../mod/mod_status.html">mod_status</a></code> çıktısını bir
         kılavuz olarak kullanabilirsiniz.</p>
 
-      <p>Süreç oluşturmayla ilgili olarak süreç ölümü <code class="directive"><a href="../mod/mpm_common.html#maxrequestsperchild">MaxRequestsPerChild</a></code> değeri ile
+      <p>Süreç oluşturmayla ilgili olarak süreç ölümü <code class="directive"><a href="../mod/mpm_common.html#maxconnectionsperchild">MaxConnectionsPerChild</a></code> değeri ile
         sağlanır. Bu değer öntanımlı olarak <code>0</code> olup, çocuk süreç
         başına istek sayısının sınırsız olduğu anlamına gelir. Eğer
         yapılandırmanızda bu değeri <code>30</code> gibi çok düşük bir
@@ -424,8 +409,8 @@
         (MPM) adı verilen eklemlenebilir çok görevlilik modellerini
         destekler. Apache’yi derlerken bu MPM’lerden birini seçmeniz
         gerekir. MPM’lerden bazıları platformlara özeldir:
-        <code class="module"><a href="../mod/beos.html">beos</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>,
-        <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code> ve <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>. Unix
+        <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code> ve
+        <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>. Unix
         benzeri sistemler için ise seçebileceğiniz modül sayısı birden
         fazladır. MPM seçiminin httpd’nin hızında ve ölçeklenebilirliğinde
         bazı etkileri olabilir:</p>
@@ -437,6 +422,12 @@
           bağlantıya hizmet sunar. Aynı hizmeti daha az bellek harcayarak
           vermesi nedeniyle yüksek trafiğe sahip sunucularda
           <code class="module"><a href="../mod/prefork.html">prefork</a></code> modülüne göre daha iyi bir seçimdir.</li>
+
+        <li><code class="module"><a href="../mod/event.html">event</a></code> modülü <code class="module"><a href="../mod/worker.html">worker</a></code> modülü gibi
+          çok evreli bir modüldür, fakat aunı anda dahafazla isteğe yanıt
+          verecek şekilde tasarlanmıştır. Bunu, evreleri destekleyen bazı
+          işlemleri yapmamak suretiyle yeni isteklerle çalışacak ana evreleri
+          serbestleştirerek sağlar.</li>
 
         <li><code class="module"><a href="../mod/prefork.html">prefork</a></code> modülü her biri tek bir evreye sahip
           çok sayıda çocuk süreç kullanımını destekler. Her süreç aynı anda
@@ -577,39 +568,28 @@
       bağlantılar denenebilir. Gerçekte çalışan kod bu olmasa da meramımızı
       anlatmak için kodun şöyle bir şey olduğunu varsayabiliriz:</p>
 
-      <div class="example"><p><code>
-        for (;;) {<br />
-        <span class="indent">
-          for (;;) {<br />
-          <span class="indent">
-            fd_set accept_fds;<br />
-            <br />
-            FD_ZERO (&amp;accept_fds);<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              FD_SET (i, &amp;accept_fds);<br />
-            </span>
-            }<br />
-            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);<br />
-            if (rc &lt; 1) continue;<br />
-            new_connection = -1;<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              if (FD_ISSET (i, &amp;accept_fds)) {<br />
-              <span class="indent">
-                new_connection = accept (i, NULL, NULL);<br />
-                if (new_connection != -1) break;<br />
-              </span>
-              }<br />
-            </span>
-            }<br />
-            if (new_connection != -1) break;<br />
-          </span>
-          }<br />
-          process the new_connection;<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        for (;;) {
+          for (;;) {
+            fd_set accept_fds;
+
+            FD_ZERO (&amp;accept_fds);
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              FD_SET (i, &amp;accept_fds);
+            }
+            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);
+            if (rc &lt; 1) continue;
+            new_connection = -1;
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              if (FD_ISSET (i, &amp;accept_fds)) {
+                new_connection = accept (i, NULL, NULL);
+                if (new_connection != -1) break;
+              }
+            }
+            if (new_connection != -1) break;
+          }
+          process_the(new_connection);
+        }</pre>
+
 
       <p>Bu özet gerçeklenim bir takım açlık sorunlarına sebep olur. Bu
       döngünün çalışması sırasında aynı anda çok sayıda çocuk süreç yeniden
@@ -646,41 +626,30 @@
       bir iç döngüde sıraya sokmaktır. Döngü aşağıda örneklenmiştir (farklar
       vurgulanmıştır):</p>
 
-      <div class="example"><p><code>
-        for (;;) {<br />
-        <span class="indent">
-          <strong>accept_mutex_on ();</strong><br />
-          for (;;) {<br />
-          <span class="indent">
-            fd_set accept_fds;<br />
-            <br />
-            FD_ZERO (&amp;accept_fds);<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              FD_SET (i, &amp;accept_fds);<br />
-            </span>
-            }<br />
-            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);<br />
-            if (rc &lt; 1) continue;<br />
-            new_connection = -1;<br />
-            for (i = first_socket; i &lt;= last_socket; ++i) {<br />
-            <span class="indent">
-              if (FD_ISSET (i, &amp;accept_fds)) {<br />
-              <span class="indent">
-                new_connection = accept (i, NULL, NULL);<br />
-                if (new_connection != -1) break;<br />
-              </span>
-              }<br />
-            </span>
-            }<br />
-            if (new_connection != -1) break;<br />
-          </span>
-          }<br />
-          <strong>accept_mutex_off ();</strong><br />
-          process the new_connection;<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        for (;;) {
+          <strong>accept_mutex_on ();</strong>
+          for (;;) {
+            fd_set accept_fds;
+
+            FD_ZERO (&amp;accept_fds);
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              FD_SET (i, &amp;accept_fds);
+            }
+            rc = select (last_socket+1, &amp;accept_fds, NULL, NULL, NULL);
+            if (rc &lt; 1) continue;
+            new_connection = -1;
+            for (i = first_socket; i &lt;= last_socket; ++i) {
+              if (FD_ISSET (i, &amp;accept_fds)) {
+                new_connection = accept (i, NULL, NULL);
+                if (new_connection != -1) break;
+              }
+            }
+            if (new_connection != -1) break;
+          }
+          <strong>accept_mutex_off ();</strong>
+          process the new_connection;
+        }</pre>
+
 
       <p><code>accept_mutex_on</code> ve <code>accept_mutex_off</code> <a id="serialize" name="serialize">işlevleri</a> bir karşılıklı red
       semoforu oluştururlar. Mutekse aynı anda sadece bir çocuk sahip
@@ -691,71 +660,10 @@
       değildir. Böyle mimarilerde çok sayıda <code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code> yönergesi kullanmak güvenilir
       olmayacaktır.</p>
 
-      <p><code class="directive"><a href="../mod/mpm_common.html#acceptmutex">AcceptMutex</a></code> yönergesi,
-      seçilen muteks gerçeklenimini çalışma anında değiştirmek için
-      kullanılabilir.</p>
-
-      <dl>
-        <dt><code>AcceptMutex flock</code></dt>
-
-        <dd>
-          <p>Bu yöntem, bir kilit dosyasını kilitlemek için
-          <code>flock(2)</code> sistem çağrısını kullanır (Kilit dosyasının
-          yeri <code class="directive"><a href="../mod/mpm_common.html#lockfile">LockFile</a></code>
-          yönergesiyle belirtilir).</p>
-        </dd>
-
-        <dt><code>AcceptMutex fcntl</code></dt>
-
-        <dd>
-          <p>Bu yöntem, bir kilit dosyasını kilitlemek için
-          <code>fcntl(2)</code> sistem çağrısını kullanır (Kilit dosyasının
-          yeri <code class="directive"><a href="../mod/mpm_common.html#lockfile">LockFile</a></code>
-          yönergesiyle belirtilir).</p>
-        </dd>
-
-        <dt><code>AcceptMutex sysvsem</code></dt>
-
-        <dd>
-          <p>(1.3 ve sonrası) Bu yöntem muteksi gerçeklemek için SysV tarzı
-          semaforları kullanır. Maalesef, SysV tarzı semaforların bazı yan
-          etkileri vardır. Bunlardan biri Apache'nin semaforu temizlemeden
-          ölme ihtimalidir (<code>ipcs(8)</code> kılavuz sayfasına bakınız).
-          Diğer biri, CGI'lerin sunucu ile aynı kullanıcı kimliğini
-          kullanmaları nedeniyle semafor arayüzünün hizmet reddi
-          saldırılarına açık olmasıdır (<code class="program"><a href="../programs/suexec.html">suexec</a></code> veya
-          <code>cgiwrapper</code> gibi bir şeyler kullanmadıkça bütün
-          CGI'ler için söz konusudur). Bu sebeple bu yöntem IRIX haricinde
-          hiçbir mimaride kullanılmaz (önceki ikisi çoğu IRIX makine için
-          elde edilmesi imkansız derecede pahalı olduğundan).</p>
-        </dd>
-
-        <dt><code>AcceptMutex pthread</code></dt>
-
-        <dd>
-          <p>(1.3 ve sonrası) Bu yöntem POSIX mutekslerini kullanır ve POSIX
-          evreleri belirtiminin tamamen gerçeklendiği mimarilerde çalışması
-          gerekirse de sadece Solaris (2.5 ve sonrası) üzerinde ve sadece
-          belli yapılandırmalarla çalışmakta gibi görünmektedir. Bunu
-          denemişseniz sunucunuzun çöktüğünü ve yanıt vermediğini
-          görmüşsünüzdür. Sadece duruk içerikli sunucular iyi
-          çalışmaktadır.</p>
-        </dd>
-
-        <dt><code>AcceptMutex posixsem</code></dt>
-
-        <dd>
-          <p>(2.0 ve sonrası)  Bu yöntem POSIX semaforlarını kullanır. Eğer
-          işlem sırasında bir evre muteks kaynaklı parçalama arızalarıyla
-          karşı karşıya kalırsa HTTP sunucusunun çökmesiyle semaforun sahibi
-          kurtarılamaz.</p>
-        </dd>
-
-      </dl>
-
-      <p>Eğer sisteminiz yukarıda bahsedilenler dışında başka bir dizgileme
-      yöntemi kullanıyorsa bununla ilgili kodun APR'ye eklenmesi girilen
-      zahmete değecektir.</p>
+      <p><code class="directive"><a href="../mod/core.html#mutex">Mutex</a></code> yönergesi,
+      <code>mpm-accept</code> muteks gerçeklenimini çalışma anında değiştirmek
+      için kullanılabilir. Farklı muteks gerçeklenimleri ile ilgili hususlar
+      bu yönergede belgelenmiştir.</p>
 
       <p>Başka bir çözüm daha vardır ancak döngü kısmen dizgilenmeyeceğinden
       (yani belli sayıda sürece izin verilemeyeceğinden) asla
@@ -817,9 +725,7 @@
       bahsedildiği gibi, bir HTTP sunucusunun protokolü <strong>güvenilir
       şekilde</strong> gerçeklemesi için her iki yöndeki iletişimi
       birbirinden bağımsız olarak (iki yönlü bir TCP bağlantısının her
-      yarısını diğerinden bağımsız olarak) kapatması gerekir. Bu olgu başka
-      sunucular tarafından çoğunlukla dikkate alınmaz fakat Apache'nin 1.2
-      sürümünden beri gerektiği gibi gerçeklenmektedir.</p>
+      yarısını diğerinden bağımsız olarak) kapatması gerekir.</p>
 
       <p>Bu özellik Apache'ye eklendiğinde Unix'in çeşitli sürümlerinde
       uzgörüsüzlükten dolayı bir takım geçici telaş sorunlarına sebep oldu.
@@ -843,42 +749,30 @@
       <code>lingering_close</code> adında bir işlevle gerçekler. Bu işlev
       kabaca şöyle görünür:</p>
 
-      <div class="example"><p><code>
-        void lingering_close (int s)<br />
-        {<br />
-        <span class="indent">
-          char junk_buffer[2048];<br />
-          <br />
-          /* gönderen tarafı kapat */<br />
-          shutdown (s, 1);<br />
-          <br />
-          signal (SIGALRM, lingering_death);<br />
-          alarm (30);<br />
-          <br />
-          for (;;) {<br />
-          <span class="indent">
-            /* s'i okumak için, 2 saniyelik zaman aşımı ile seç */<br />
-            select (s for reading, 2 second timeout);<br />
-            /* Hata oluşmuşsa döngüden çık */<br />
-            if (error) break;<br />
-            /* s okumak için hazırsa */<br />
-            if (s is ready for reading) {<br />
-            <span class="indent">
-              if (read (s, junk_buffer, sizeof (junk_buffer)) &lt;= 0) {<br />
-              <span class="indent">
-                break;<br />
-              </span>
-              }<br />
-              /* geri kalan herşey burada */<br />
-            </span>
-            }<br />
-          </span>
-          }<br />
-          <br />
-          close (s);<br />
-        </span>
-        }
-      </code></p></div>
+      <pre class="prettyprint lang-c">        void lingering_close (int s)
+        {
+          char junk_buffer[2048];
+
+          /* shutdown the sending side */
+          shutdown (s, 1);
+
+          signal (SIGALRM, lingering_death);
+          alarm (30);
+
+          for (;;) {
+            select (s for reading, 2 second timeout);
+            if (error) break;
+            if (s is ready for reading) {
+              if (read (s, junk_buffer, sizeof (junk_buffer)) &lt;= 0) {
+                break;
+              }
+              /* just toss away whatever is here */
+            }
+          }
+
+          close (s);
+        }</pre>
+
 
       <p>Bağlantı sonunda bu doğal olarak biraz daha masrafa yol açar, fakat
       güvenilir bir gerçeklenim için bu gereklidir. HTTP/1.1'in daha yaygın
@@ -1095,12 +989,13 @@
   </div></div>
 <div class="bottomlang">
 <p><span>Mevcut Diller: </span><a href="../en/misc/perf-tuning.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/misc/perf-tuning.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/misc/perf-tuning.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/misc/perf-tuning.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/misc/perf-tuning.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/perf-tuning.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -1115,7 +1010,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/misc/perf-tuning.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

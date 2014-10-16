@@ -10,7 +10,7 @@
  /* Heavy on no'ops, here's what we want to pass if there is APR_NO_FILE
   * requested for a specific child handle;
   */
-@@ -599,6 +602,84 @@
+@@ -597,6 +600,84 @@
      return APR_SUCCESS;
  }
  

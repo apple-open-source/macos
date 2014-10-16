@@ -3,141 +3,47 @@
 # These are the patches to apply.
 # Paths in patch files are relative to the root of the CPAN project
 my (@patchesToApply) = (
+
+    # Address a bogus warning we see in SnowLeopard inside Class::Std (6783174)
+    './PatchFiles/Class-Std-0.011/lib/Class/Std.pm.diff',
+
     # <rdar://problem/9559834> CPANInternal-103 (and earlier?) no longer builds
     # Disables all HTTP-Proxy tests which seem to depend on external web servers.
-    './PatchFiles/HTTP-Proxy.diff',
     './PatchFiles/HTTP-Proxy-0.25/t/Utils.pm.diff',
 
-    # <rdar://problem/8302449> CPANInternal build ignores test failure in Path-Class
-    # A long-standing oversight in the Makefile caused test results for all Module::Build modules
-    # to be ignored. This patch disables a test which is broken when OBJROOT is somewhere in /tmp/.
-    # A long-standing failure which is probably safe to ignore.
-    './PatchFiles/Path-Class.diff',
+    # IPC::LDT changes - replace use of fields / pseudohash with Perl 5.10
+    # compatible hash; add can_read method as implemented in Evolution's site_perl_custom.
+    './PatchFiles/IPC-LDT-2.03/LDT.pm.diff',
+    './PatchFiles/IPC-LDT-2.03/t/data.t.diff',
+    './PatchFiles/IPC-LDT-2.03/t/mixed.t.diff',
 
-    # <rdar://problem/7812410> CBL Tiger can't find _normalize_tai_seconds
-    # DateTime's Build.PL is patched to accept linker/compiler flags. Without these, the
-    # DateTime.bundle will build thin (esp. important for Tiger)
-    './PatchFiles/DateTime-Build.PL.diff',
-
-	# <rdar://problem/7817393> CPANInternal JSON-Any project fails running buildit on SnowLeopard
-	# The test fails because it sets the pretty_print option on the JSON object, which results in a
-	# trailing return placed in the 'actual' value, but is not specified in the 'expected' value.
-	'./PatchFiles/JSON-Any-02-JSON-XS.t.diff',
-
-    # We used to patch DBD-SQLite-1.07, but now that we've updated to
-    # DBD-SQLite-1.13, this isn't necessary.
-    # --- Unused: ---
-    # DBD-SQLite-1.07 puts up a warning about being incompatible with SQLite2
-    # and then prompts whether to continue - the default is no, which is what
-    # happens with buildit
-    # We could probably work around this in the Makefile but in order to keep
-    # that as general as possible, this patch just changes the default to
-    # yes
-    # Also, work around unitialized variable warnings in dbdimp.c
-    #'./PatchFiles/DBD-SQLite.diff',
-    
-    './PatchFiles/Krb5-1.9/Makefile.PL.diff',
-
-    ## the self test trys to connect to a unreliable server. 
-    ## so we skip those test
-    # disabled 3/9/2010 by DJW (<rdar://problem/7720374> Upgrade httpProxy on buildcentral to a newer version)
-    # './PatchFiles/23connect.t.diff',      
-
-    ## expat has to be set up for XML-Parser
-    './PatchFiles/Makefile.PL.diff', 
-
-    ## SOAP::Lite applied a patch for version .65 that
-    ## does not work as advertised. The previous 
-    ## code worked as expected. 
-    #'./PatchFiles/Lite.pm.diff', 
-    
-    # <rdar://problem/5460193> SOAP::Lite isn't compressing
-    './PatchFiles/SOAP-Transport-HTTP.pm.diff',
-
-    # <rdar://problem/6319392> SS2 fails to submit when submission notes contain "http:"
-    './PatchFiles/SOAP-Lite-Serializer.pm.diff',
-
-    # <rdar://problem/8419125> update CPAN modules to avoid perl 5.12 deprecation warnings
-	# <rdar://problem/8453094> SOAP::Lite.pm should be patched at build time
-    # Fixed in SOAP::Lite-0.
-	'./PatchFiles/SOAP-Lite.pm.diff',
-
-   ## JSON-Syck is replaced by YAML-Syck 0.82 which includes JSON-Syck
-   ## 0.21.  It doesn't require this patch.
-   ## --- Unused: ---
-   ## JSON-Syck: in syck.h there is a test on the flag
-   ## HAVE_STDLIB_H which is not set, however the lib does
-   ## exist. Without this library the extension will not bulid
-   ## so removed the existence test and always include the lib
-   #   './PatchFiles/syck.h.diff',
-
-   # 4546994 version perl module builds thin
-   # A Module::Build bug prevents us from doing this in the Makefile
-   # (see http://rt.cpan.org/Public/Bug/Display.html?id=19232)
-   # Fixed in version-0.2808
-   #'./PatchFiles/version.diff',                   
-
-    # Create a default .inflectrc file for Lingua-EN-Inflect
-    # indicating that the plural of hongo is hongos
-    './PatchFiles/inflectrc.diff',
-
-    # Fix an error attempting to locate the default .inflectrc
-    # file in Lingua-EN-Inflect
-    './PatchFiles/Inflect.pm.diff',
+    # Eliminate dependency on the JSON module
+    './PatchFiles/JSON-RPC-0.96/META.yml.diff',
+    './PatchFiles/JSON-RPC-0.96/Makefile.PL.diff',
+    './PatchFiles/JSON-RPC-0.96/lib/JSON/RPC/Client.pm.diff',
+    # Make JSON::RPC happy with CumulusDB. It shouldn't pass in $self needlessly.
+    './PatchFiles/JSON-RPC-0.96/lib/JSON/RPC/Server.pm.diff',
+    './PatchFiles/JSON-RPC-0.96/t/02_server.t.diff',
 
     # Added krb5_set_default_realm function to Authen::Krb5.xs
     # <rdar://problem/8370128> CPANInternal-94 project fails to build with LLVM compiler 2.0.
     './PatchFiles/Authen-Krb5.diff',
+    './PatchFiles/Krb5-1.9/Makefile.PL.diff',
 
-    # DBIx-Class-Storage-DBI doesn't like to txn_commit when AutoCommit
-    # is NOT on ... odd really. Simple patch to workaround this
-    './PatchFiles/DBIx-Class-Storage-DBI.pm.diff',
-
-
-    # Net-IP installs a couple of executable perl scripts into
-    # /usr/bin which we don't need or want to ship...
-    './PatchFiles/Net-IP-Makefile.PL.diff',
-    
-    # Address a bogus warning we see in SnowLeopard inside Class::Std (6783174)
-    './PatchFiles/Class-Std.diff',
-    './PatchFiles/Class-Std-0.011/lib/Class/Std.pm.diff',
-
-    # Net::Daemon patch for CPAN bug 39759 
-    # http://rt.cpan.org/Public/Bug/Display.html?id=39759
-    './PatchFiles/Net-Daemon-Daemon.pm.diff',
-
-    # Temporarily disable Net::Daemon ithread tests
-    './PatchFiles/Net-Daemon-t-ithread.t.diff',
-
-    # Temporarily disable Net::Daemon ithreadm tests 
-    './PatchFiles/Net-Daemon-t-ithreadm.t.diff',
+    # Fix for https://github.com/mschilli/log4perl/issues/27
+    './PatchFiles/Log-Log4perl-1.40/lib/Log/Log4perl/Appender/File.pm.diff',
 
     # The First Rule of Sys::Syslog is: You do not call "setlogsock". 
     # The Second Rule of Sys::Syslog is: You do not call "setlogsock". 
     # In the chroot environment, there is no unix domain socket for syslog
     # without launchd plist hackery and other build-time implications.  
     # Don't call setlogsock to force the use of /var/run/syslog if it doesn't exist.
-    './PatchFiles/Net-Daemon-Log.pm.diff',
     './PatchFiles/Net-Daemon-0.48/lib/Net/Daemon/Log.pm.diff',
 
-    # PlRPC tests fail due to failure to create a server inside the chroot
-    # environment on 5.8/Leopard (see Net::Daemon, above).  Temporarily disable.
-    './PatchFiles/PlRPC-t-methods.t',
-
-    # IPC::LDT changes - replace use of fields / pseudohash with Perl 5.10
-    # compatible hash; add can_read method as implemented in Evolution's site_perl_custom.
-    './PatchFiles/IPC-LDT-LDT.pm.diff',
-    './PatchFiles/IPC-LDT-2.03/LDT.pm.diff',
-
-    # Make JSON::RPC happy with CumulusDB. It shouldn't pass in $self needlessly.
-    './PatchFiles/JSON-RPC-Server.pm.diff',
-    './PatchFiles/JSON-RPC-0.96/lib/JSON/RPC/Server.pm.diff',
-
-    # The Apache2-SOAP test suite must be run as a non-privileged user otherwise
-    # the tests fail.
-    # We as root so the tests must be disabled.
-    # <rdar://problem/12886612> XBS-15: CPAN Module Apache::SOAP Build Error
-    './PatchFiles/Apache2-SOAP-0.73/Makefile.PL.diff',
+    # Eliminate dependency on the JSON module
+    './PatchFiles/Pod-ProjectDocs-0.40/META.yml.diff',
+    './PatchFiles/Pod-ProjectDocs-0.40/Makefile.PL.diff',
+    './PatchFiles/Pod-ProjectDocs-0.40/lib/Pod/ProjectDocs.pm.diff'
 );
 
 

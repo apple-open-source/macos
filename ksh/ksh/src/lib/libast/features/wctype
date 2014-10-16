@@ -4,7 +4,7 @@ nxt	wctype
 run{
 cat <<!
 	#if _hdr_wctype && defined(_nxt_wctype)
-	#include $_nxt_wctype	/* the native wctype.h */
+	#include ${_nxt_wctype-_nxt_wctype}	/* the native wctype.h */
 	#endif
 
 	#undef	iswalpha

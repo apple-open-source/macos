@@ -56,6 +56,7 @@ typedef struct {
     EAPClientPluginFuncFailureString *		failure_string;
     EAPClientPluginFuncSessionKey *		session_key;
     EAPClientPluginFuncSessionKey *		server_key;
+    EAPClientPluginFuncMasterSessionKeyCopyBytes * msk_copy_bytes;
     EAPClientPluginFuncRequireProperties *	require_properties;
     EAPClientPluginFuncPublishProperties *	publish_properties;
     EAPClientPluginFuncPacketDump *		packet_dump;
@@ -211,6 +212,8 @@ EAPClientModuleAddBuiltinModule(EAPClientPluginFuncIntrospect * func)
 	(*func)(kEAPClientPluginFuncNameSessionKey);
     info->server_key = (EAPClientPluginFuncServerKey *)
 	(*func)(kEAPClientPluginFuncNameServerKey);
+    info->msk_copy_bytes = (EAPClientPluginFuncMasterSessionKeyCopyBytes *)
+	(*func)(kEAPClientPluginFuncNameMasterSessionKeyCopyBytes);
     info->require_properties = (EAPClientPluginFuncRequireProperties *)
 	(*func)(kEAPClientPluginFuncNameRequireProperties);
     info->publish_properties = (EAPClientPluginFuncPublishProperties *)
@@ -348,6 +351,20 @@ EAPClientModulePluginServerKey(EAPClientModuleRef module,
 	return (NULL);
     }
     return (*server_key)(plugin, key_length);
+}
+
+int
+EAPClientModulePluginMasterSessionKeyCopyBytes(EAPClientModuleRef module,
+					       EAPClientPluginDataRef plugin, 
+					       uint8_t * msk, int msk_size)
+{
+    EAPClientPluginFuncMasterSessionKeyCopyBytes * msk_copy_bytes;
+
+    msk_copy_bytes = module->info->msk_copy_bytes;
+    if (msk_copy_bytes == NULL) {
+	return (0);
+    }
+    return (*msk_copy_bytes)(plugin, msk, msk_size);
 }
 
 CFArrayRef

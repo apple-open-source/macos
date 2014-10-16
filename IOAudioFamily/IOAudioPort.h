@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #define _IOKIT_IOAUDIOPORT_H
 
 #include <IOKit/IOService.h>
+#include <AvailabilityMacros.h>
 
 class IOAudioDevice;
 class IOAudioControl;
@@ -108,7 +109,7 @@ public:
      *  gets stored in the registry for this instance. (optional)
      * @result Returns the newly allocated and initialized IOAudioPort instance.
      */
-    static IOAudioPort *withAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0);
+    static IOAudioPort *withAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function initWithAttributes
@@ -125,7 +126,7 @@ public:
      *  gets stored in the registry for this instance. (optional)
      * @result Returns true on success.
      */
-    virtual bool initWithAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0);
+    virtual bool initWithAttributes(UInt32 portType, const char *portName = 0, UInt32 subType = 0, OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function free
@@ -133,7 +134,7 @@ public:
      * @discussion Do not call this directly.  This is called automatically by the system when the instance's
      *  refcount goes to 0.  To decrement the refcount, call release() on the object.
      */
-    virtual void free();
+    virtual void free() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function start
@@ -142,7 +143,7 @@ public:
      * @param provider The IOAudioDevice that owns this port
      * @result Returns true on success
      */
-    virtual bool start(IOService *provider);
+    virtual bool start(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function stop
@@ -151,11 +152,11 @@ public:
      *  this port.
      * @param provider The IOAudioDevice that owns this port
      */
-    virtual void stop(IOService *provider);
+    virtual void stop(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void registerService(IOOptionBits options = 0);
+    virtual void registerService(IOOptionBits options = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOAudioDevice *getAudioDevice();
+    virtual IOAudioDevice *getAudioDevice() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function addAudioControl
@@ -165,7 +166,7 @@ public:
      * @param control A newly created IOAudioControl instance that should belong to this port.
      * @result Returns true on successfully staring the IOAudioControl.
      */
-    virtual IOReturn addAudioControl(IOAudioControl *control);
+    virtual IOReturn addAudioControl(IOAudioControl *control) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     /*!
      * @function deactivateAudioControls
@@ -173,12 +174,12 @@ public:
      * @discussion This will stop all of the audio controls and release them so that the instances may be
      *  freed.  This is called from the free() method.
      */
-    virtual void deactivateAudioControls();
+    virtual void deactivateAudioControls() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 protected:
-    virtual void setType(UInt32 portType);
-    virtual void setSubType(UInt32 subType);
-    virtual void setName(const char *name);
+    virtual void setType(UInt32 portType) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setSubType(UInt32 subType) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual void setName(const char *name) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 };
 
 #endif /* _IOKIT_IOAUDIOPORT_H */

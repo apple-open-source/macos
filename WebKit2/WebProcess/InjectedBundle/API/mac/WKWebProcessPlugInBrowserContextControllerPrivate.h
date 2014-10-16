@@ -23,14 +23,32 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__LP64__) && defined(__clang__)
+#import <WebKit/WKWebProcessPlugInBrowserContextController.h>
 
-#import <WebKit2/WKWebProcessPlugInBrowserContextController.h>
+#if WK_API_ENABLED
 
-@interface WKWebProcessPlugInBrowserContextController (Private)
+#import <WebKit/WKBase.h>
 
-@property(readonly) WKBundlePageRef _bundlePageRef;
+@class WKBrowsingContextHandle;
+@class _WKRemoteObjectRegistry;
+@protocol WKWebProcessPlugInFormDelegatePrivate;
+
+@interface WKWebProcessPlugInBrowserContextController (WKPrivate)
+
+@property (nonatomic, readonly) WKBundlePageRef _bundlePageRef;
+
+@property (nonatomic, readonly) WKBrowsingContextHandle *handle;
+
+@property (nonatomic, readonly) _WKRemoteObjectRegistry *_remoteObjectRegistry;
+
+@property (weak, setter=_setFormDelegate:) id <WKWebProcessPlugInFormDelegatePrivate> _formDelegate;
+
+@property (nonatomic, setter=_setDefersLoading:) BOOL _defersLoading;
+
+@property (nonatomic, readonly) BOOL _usesNonPersistentWebsiteDataStore;
+
++ (instancetype)lookUpBrowsingContextFromHandle:(WKBrowsingContextHandle *)handle;
 
 @end
 
-#endif // defined(__LP64__) && defined(__clang__)
+#endif // WK_API_ENABLED

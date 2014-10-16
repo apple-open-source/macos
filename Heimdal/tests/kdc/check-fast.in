@@ -83,6 +83,8 @@ ${kadmin} \
     ${R} || exit 1
 
 ${kadmin} add -p foo --use-defaults foo@${R} || exit 1
+${kadmin} add -p foo --use-defaults oldname@${R} || exit 1
+${kadmin} rename oldname@${R} newname@${R}|| exit 1
 ${kadmin} add -p foo --use-defaults ${server}@${R} || exit 1
 
 echo "Doing database check"
@@ -129,7 +131,40 @@ ${aklist} --hidden | grep fast_avail > /dev/null || { exit 1; }
 # Client tests
 #
 
-echo "Getting client initial tickets with FAST armor ticket"
+echo "Getting client initial tickets with FAST armor ticket"; > ${logfile}
+${kinit} --fast-armor-cache=${acache} \
+   --password-file=${testdir}/foopassword foo@$R || \
+	{ ec=1 ; eval "${testfailed}"; }
+echo "Checking for FAST avail (in the FAST acquired cache)"
+${klist} --hidden | grep fast_avail > /dev/null || { exit 1; }
+
+echo "Getting service ticket"; > ${logfile}
+${kgetcred} ${server}@${R} || { exit 1; }
+${kdestroy}
+
+echo "Getting client initial tickets (renamed -> not default salt) with FAST armor ticket"
+${kinit} --fast-armor-cache=${acache} \
+   --password-file=${testdir}/foopassword newname@$R || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "Checking for FAST avail (in the FAST acquired cache)"
+${klist} --hidden | grep fast_avail > /dev/null || { exit 1; }
+
+echo "Getting service ticket"; > ${logfile}
+${kgetcred} ${server}@${R} || { exit 1; }
+${kdestroy}
+
+#
+# PKINIT/anon
+#
+
+echo "Getting anonymous initial tickets for armor use"
+${akinit} --anonymous $R || \
+	{ ec=1 ; eval "${testfailed}"; }
+echo "Checking for FAST avail (in the FAST armor cache)"
+${aklist} --hidden | grep fast_avail > /dev/null || { exit 1; }
+
+echo "Getting client initial tickets with FAST PKINIT/anon armor ticket"
 ${kinit} --fast-armor-cache=${acache} \
    --password-file=${testdir}/foopassword foo@$R || \
 	{ ec=1 ; eval "${testfailed}"; }
@@ -137,9 +172,6 @@ ${kinit} --fast-armor-cache=${acache} \
 echo "Checking for FAST avail (in the FAST acquired cache)"
 ${klist} --hidden | grep fast_avail > /dev/null || { exit 1; }
 
-echo "Getting service ticket"
-${kgetcred} ${server}@${R} || { exit 1; }
-${kdestroy}
 
 #
 # Use MIT client tools
@@ -150,35 +182,54 @@ mit=/usr/local/mitkerberos/bin
 if [ -f ${mit}/kinit ] ; then
    echo "Running MIT FAST tests"
 
+   KRB5_TRACE=${logfile}
+   export KRB5_TRACE
+
     kinitpty=${testdir}/foopassword.rkpty
 cat > ${kinitpty} <<EOF
 expect Password
 password foo\n
 EOF
 
-   echo "Acquire host ticket"
-   ${rkpty} ${kinitpty} ${mit}/kinit -c ${acache} ${server}@${R} >/dev/null|| { exit 1; }
-   (${aklist} | grep ${server} > /dev/null ) || { exit 1; }
+   echo "Acquire host ticket"; > ${logfile}
+   ${rkpty} ${kinitpty} ${mit}/kinit -c ${acache} ${server}@${R} >/dev/null|| { cat ${logfile}; exit 1; }
+   (${aklist} | grep ${server} > /dev/null ) || { cat ${logfile}; exit 1; }
 
    echo "Checking for FAST avail"
    ${aklist} --hidden | grep fast_avail > /dev/null || { exit 1; }
 
-   echo "Using plain to get a initial ticket"
-   ${rkpty} ${kinitpty} ${mit}/kinit -c ${cache} foo@${R} >/dev/null|| { exit 1; }
-   (${klist} | grep foo > /dev/null ) || { exit 1; }
+   echo "Using plain to get a initial ticket"; > ${logfile}
+   ${rkpty} ${kinitpty} ${mit}/kinit -c ${cache} foo@${R} >/dev/null|| { cat ${logfile}; exit 1; }
+   (${klist} | grep foo > /dev/null ) || { cat ${logfile}; exit 1; }
 
-   echo "Using FAST to get a initial ticket"
-   ${rkpty} ${kinitpty} ${mit}/kinit -c ${cache} -T ${acache} foo@${R} >/dev/null || { exit 1; }
-   (${klist} | grep foo > /dev/null ) || { exit 1; }
+   echo "Using FAST to get a initial ticket"; > ${logfile}
+   ${rkpty} ${kinitpty} ${mit}/kinit -c ${cache} -T ${acache} foo@${R} >/dev/null || { cat ${logfile}; exit 1; }
+   (${klist} | grep foo > /dev/null ) || { cat ${logfile}; exit 1; }
 
    echo "Checking for FAST avail"
    ${klist} --hidden | grep fast_avail > /dev/null || { exit 1; }
 
-   echo "Getting service ticket"
-   ${mit}/kvno -c ${cache} ${server}@${R} || { exit 1; }
+   echo "Getting service ticket"; > ${logfile}
+   ${mit}/kvno -c ${cache} ${server}@${R} || { cat "${logfile}" ; exit 1; }
+
+   echo "${mit}/kinit -X X509_user_identity=${hx509_data}/pkinit.crt,${hx509_data}/pkinit.key foo@${R}"
+
+   echo "check for pkinit anonymous"; > ${logfile}
+   ${mit}/kinit -c ${acache} -n @${R}
+   (${aklist} | grep "WELLKNOWN/ANONYMOUS@${R}" > /dev/null ) || { cat "${logfile}" ; exit 1; }
+
+   echo "Checking for FAST avail"; > ${logfile}
+   ${aklist} --hidden | grep fast_avail > /dev/null || { cat "${logfile}" ; exit 1; }
+
+   echo "Using FAST/PKINIT to get a initial ticket"; > ${logfile}
+   ${rkpty} ${kinitpty} ${mit}/kinit -c ${cache} -T ${acache} foo@${R} >/dev/null || { exit 1; }
+   (${klist} | grep foo > /dev/null ) || { exit 1; }
+
+   echo "Checking for FAST avail"; > ${logfile}
+   ${klist} --hidden | grep fast_avail > /dev/null || { exit 1; }
+
 
 fi
-
 
 echo "killing kdc (${kdcpid})"
 sh ${leaks_kill} kdc $kdcpid || exit 1

@@ -101,7 +101,7 @@ check_config_files(void)
 {
     krb5_context context;
     krb5_error_code ret;
-    int i;
+    size_t i;
 
     ret = krb5_init_context(&context);
     if (ret)
@@ -254,7 +254,7 @@ check_escaped_strings(void)
     krb5_context context;
     krb5_config_section *c = NULL;
     krb5_error_code ret;
-    int i;
+    size_t i;
 
     ret = krb5_init_context(&context);
     if (ret)

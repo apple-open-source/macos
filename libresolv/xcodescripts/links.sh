@@ -3,10 +3,7 @@ set -e -x
 
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	DSTROOT="${DSTROOT}${SDKROOT}"
-fi
+DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 
 LIBDIR="$DSTROOT"/usr/lib
 ln -s libresolv.9.dylib "$LIBDIR"/libresolv.dylib

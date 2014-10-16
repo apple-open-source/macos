@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -329,7 +329,7 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
-			CFSTR("set m   : %5d : %d set, %d remove, %d notify\n"),
+			CFSTR("set m   : %5d : %ld set, %ld remove, %ld notify\n"),
 			storePrivate->server,
 			keysToSet    ? CFDictionaryGetCount(keysToSet)    : 0,
 			keysToRemove ? CFArrayGetCount     (keysToRemove) : 0,

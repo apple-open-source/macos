@@ -68,21 +68,28 @@ mshim_hprinc2mprinc(krb5_context context, krb5_principal princ)
 mit_krb5_error_code KRB5_CALLCONV
 krb5_parse_name(mit_krb5_context context, const char *str, mit_krb5_principal *principal)
 {
+    return krb5_parse_name_flags(context, str, 0, principal);
+}
+
+mit_krb5_error_code KRB5_CALLCONV
+krb5_parse_name_flags(mit_krb5_context context, const char *str, int flags, mit_krb5_principal *principal)
+{
     struct comb_principal *p;
     krb5_error_code ret;
-
+    
     LOG_ENTRY();
-
+    
     p = calloc(1, sizeof(*p));
-    ret = heim_krb5_parse_name((krb5_context)context, str, &p->heim);
+    ret = heim_krb5_parse_name_flags((krb5_context)context, str, flags, &p->heim);
     if (ret) {
-	free(p);
-	return ret;
+        free(p);
+        return ret;
     }
     map_mit_principal(p);
     *principal = (mit_krb5_principal)p;
     return 0;
 }
+
 
 mit_krb5_error_code KRB5_CALLCONV_C
 krb5_build_principal_ext(mit_krb5_context context, mit_krb5_principal *principal, unsigned int rlen, const char *realm, ...)

@@ -1,7 +1,7 @@
 /*
  * This file is part of the WebKit project.
  *
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006 Apple Inc.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
@@ -35,7 +35,7 @@ typedef struct _GdkColormap GdkColormap;
 
 namespace WebCore {
 
-class RenderThemeGtk : public RenderTheme {
+class RenderThemeGtk final : public RenderTheme {
 private:
     RenderThemeGtk();
     virtual ~RenderThemeGtk();
@@ -44,61 +44,63 @@ public:
     static PassRefPtr<RenderTheme> create();
 
     // A method asking if the theme's controls actually care about redrawing when hovered.
-    virtual bool supportsHover(const RenderStyle* style) const { return true; }
+    virtual bool supportsHover(const RenderStyle&) const override { return true; }
 
     // A method asking if the theme is able to draw the focus ring.
-    virtual bool supportsFocusRing(const RenderStyle*) const;
+    virtual bool supportsFocusRing(const RenderStyle&) const override;
 
     // A method asking if the control changes its tint when the window has focus or not.
-    virtual bool controlSupportsTints(const RenderObject*) const;
+    virtual bool controlSupportsTints(const RenderObject&) const override;
 
     // A general method asking if any control tinting is supported at all.
-    virtual bool supportsControlTints() const { return true; }
+    virtual bool supportsControlTints() const override { return true; }
 
-    virtual void adjustRepaintRect(const RenderObject*, IntRect&);
+    virtual void adjustRepaintRect(const RenderObject&, FloatRect&) override;
 
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
     // controls that need to do this.
-    virtual int baselinePosition(const RenderObject*) const;
+    virtual int baselinePosition(const RenderObject&) const override;
 
     // The platform selection color.
-    virtual Color platformActiveSelectionBackgroundColor() const;
-    virtual Color platformInactiveSelectionBackgroundColor() const;
-    virtual Color platformActiveSelectionForegroundColor() const;
-    virtual Color platformInactiveSelectionForegroundColor() const;
+    virtual Color platformActiveSelectionBackgroundColor() const override;
+    virtual Color platformInactiveSelectionBackgroundColor() const override;
+    virtual Color platformActiveSelectionForegroundColor() const override;
+    virtual Color platformInactiveSelectionForegroundColor() const override;
 
     // List Box selection color
-    virtual Color activeListBoxSelectionBackgroundColor() const;
-    virtual Color activeListBoxSelectionForegroundColor() const;
-    virtual Color inactiveListBoxSelectionBackgroundColor() const;
-    virtual Color inactiveListBoxSelectionForegroundColor() const;
+    virtual Color platformActiveListBoxSelectionBackgroundColor() const override;
+    virtual Color platformActiveListBoxSelectionForegroundColor() const override;
+    virtual Color platformInactiveListBoxSelectionBackgroundColor() const override;
+    virtual Color platformInactiveListBoxSelectionForegroundColor() const override;
 
-    virtual double caretBlinkInterval() const;
+    virtual double caretBlinkInterval() const override;
 
-    virtual void platformColorsDidChange();
+    virtual void platformColorsDidChange() override;
 
     // System fonts and colors.
-    virtual void systemFont(int propId, FontDescription&) const;
-    virtual Color systemColor(int cssValueId) const;
+    virtual void systemFont(CSSValueID, FontDescription&) const override;
+    virtual Color systemColor(CSSValueID) const override;
 
-    virtual bool popsMenuBySpaceOrReturn() const OVERRIDE { return true; }
+    virtual bool popsMenuBySpaceOrReturn() const override { return true; }
 
 #if ENABLE(VIDEO)
-    virtual String extraMediaControlsStyleSheet();
-    virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
+    virtual String extraMediaControlsStyleSheet() override;
+    virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const override;
+    virtual bool supportsClosedCaptioning() const override { return true; }
+    virtual String mediaControlsScript() override;
 
 #if ENABLE(FULLSCREEN_API)
-    virtual String extraFullScreenStyleSheet();
+    virtual String extraFullScreenStyleSheet() override;
 #endif
 #endif
 
 #if ENABLE(DATALIST_ELEMENT)
     // Returns size of one slider tick mark for a horizontal track.
     // For vertical tracks we rotate it and use it. i.e. Width is always length along the track.
-    virtual IntSize sliderTickSize() const;
+    virtual IntSize sliderTickSize() const override;
     // Returns the distance of slider tick origin from the slider track center.
-    virtual int sliderTickOffsetFromTrackCenter() const;
+    virtual int sliderTickOffsetFromTrackCenter() const override;
 #endif
 
 #ifdef GTK_API_VERSION_2
@@ -111,96 +113,94 @@ public:
     GtkStyleContext* gtkScrollbarStyle();
 #endif
 
-protected:
-    virtual bool paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r);
-    virtual void setCheckboxSize(RenderStyle* style) const;
+private:
+    virtual bool paintCheckbox(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual void setCheckboxSize(RenderStyle&) const override;
 
-    virtual bool paintRadio(RenderObject* o, const PaintInfo& i, const IntRect& r);
-    virtual void setRadioSize(RenderStyle* style) const;
+    virtual bool paintRadio(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual void setRadioSize(RenderStyle&) const override;
 
-    virtual void adjustButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintTextField(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    virtual bool paintTextArea(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    int popupInternalPaddingLeft(RenderStyle*) const;
-    int popupInternalPaddingRight(RenderStyle*) const;
-    int popupInternalPaddingTop(RenderStyle*) const;
-    int popupInternalPaddingBottom(RenderStyle*) const;
+    int popupInternalPaddingLeft(RenderStyle&) const override;
+    int popupInternalPaddingRight(RenderStyle&) const override;
+    int popupInternalPaddingTop(RenderStyle&) const override;
+    int popupInternalPaddingBottom(RenderStyle&) const override;
 
     // The Mac port differentiates between the "menu list" and the "menu list button."
     // The former is used when a menu list button has been styled. This is used to ensure
     // Aqua themed controls whenever possible. We always want to use GTK+ theming, so
     // we don't maintain this differentiation.
-    virtual void adjustMenuListStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual void adjustMenuListButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintMenuList(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustMenuListStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustMenuListButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintMenuList(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    virtual bool paintMenuListButtonDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustSearchFieldResultsDecorationStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintSearchFieldResultsDecorationPart(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSearchFieldStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSearchFieldStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintSearchField(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSearchFieldResultsButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintSearchFieldResultsButton(const RenderObject&, const PaintInfo&, const IntRect&);
 
-    virtual void adjustSearchFieldCancelButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintSearchFieldCancelButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustSliderTrackStyle(StyleResolver*, RenderStyle*, Element*) const;
+    virtual bool paintSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual void adjustSliderTrackStyle(StyleResolver&, RenderStyle&, Element&) const override;
 
-    virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustSliderThumbStyle(StyleResolver*, RenderStyle*, Element*) const;
+    virtual bool paintSliderThumb(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual void adjustSliderThumbStyle(StyleResolver&, RenderStyle&, Element&) const override;
 
-    virtual void adjustSliderThumbSize(RenderStyle*, Element*) const;
+    virtual void adjustSliderThumbSize(RenderStyle&, Element&) const override;
 
 #if ENABLE(VIDEO)
     void initMediaColors();
     void initMediaButtons();
-    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const;
-    virtual bool paintMediaFullscreenButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekBackButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekForwardButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool paintMediaCurrentTime(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const override;
+    virtual bool paintMediaFullscreenButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaPlayButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaMuteButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaSeekBackButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaSeekForwardButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaSliderThumb(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaVolumeSliderContainer(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaVolumeSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaVolumeSliderThumb(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    virtual bool paintMediaCurrentTime(const RenderObject&, const PaintInfo&, const IntRect&) override;
+#if ENABLE(VIDEO_TRACK)
+    virtual bool paintMediaToggleClosedCaptionsButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+#endif
 #endif
 
-#if ENABLE(PROGRESS_ELEMENT)
-    virtual double animationRepeatIntervalForProgressBar(RenderProgress*) const;
-    virtual double animationDurationForProgressBar(RenderProgress*) const;
-    virtual void adjustProgressBarStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
-#endif
+    virtual double animationRepeatIntervalForProgressBar(RenderProgress&) const override;
+    virtual double animationDurationForProgressBar(RenderProgress&) const override;
+    virtual void adjustProgressBarStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual bool paintCapsLockIndicator(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintCapsLockIndicator(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
-    virtual bool paintInnerSpinButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustInnerSpinButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual bool paintInnerSpinButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-private:
-    virtual String fileListNameForWidth(const FileList*, const Font&, int width, bool multipleFilesAllowed) const OVERRIDE;
+    virtual String fileListNameForWidth(const FileList*, const Font&, int width, bool multipleFilesAllowed) const override;
 
     void platformInit();
-    static void setTextInputBorders(RenderStyle*);
+    static void setTextInputBorders(RenderStyle&);
     static double getScreenDPI();
 
 #if ENABLE(VIDEO)
-    bool paintMediaButton(RenderObject*, GraphicsContext*, const IntRect&, const char* symbolicIconName, const char* fallbackStockIconName);
+    bool paintMediaButton(const RenderObject&, GraphicsContext*, const IntRect&, const char* symbolicIconName, const char* fallbackStockIconName);
 #endif
 
-#if ENABLE(PROGRESS_ELEMENT)
-    static IntRect calculateProgressRect(RenderObject*, const IntRect&);
-#endif
+    static IntRect calculateProgressRect(const RenderObject&, const IntRect&);
 
     mutable Color m_panelColor;
     mutable Color m_sliderColor;
@@ -211,9 +211,9 @@ private:
 #ifdef GTK_API_VERSION_2
     void setupWidgetAndAddToContainer(GtkWidget*, GtkWidget*) const;
     void refreshComboBoxChildren() const;
-    void getComboBoxPadding(RenderStyle*, int& left, int& top, int& right, int& bottom) const;
+    void getComboBoxPadding(RenderStyle&, int& left, int& top, int& right, int& bottom) const;
     int getComboBoxSeparatorWidth() const;
-    int comboBoxArrowSize(RenderStyle*) const;
+    int comboBoxArrowSize(RenderStyle&) const;
 
     GtkWidget* gtkButton() const;
     GtkWidget* gtkTreeView() const;

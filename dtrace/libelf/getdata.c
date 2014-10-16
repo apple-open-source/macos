@@ -230,7 +230,6 @@ _elf_locked_getdata(Elf_Scn * scn, Elf_Data * data)
 	 * decide where to put destination
 	 */
 
-#if defined(__APPLE__)
 	if (elf->ed_kind == ELF_K_MACHO && NULL == data) {
 		if (elf->ed_class == ELFCLASS32) {
 			Elf32_Shdr	*sh = scn->s_shdr;
@@ -246,7 +245,6 @@ _elf_locked_getdata(Elf_Scn * scn, Elf_Data * data)
 			return &d->db_data;
 		}
 	}
-#endif /* __APPLE__ */
 
 	switch (elf->ed_status) {
 	case ES_COOKED:

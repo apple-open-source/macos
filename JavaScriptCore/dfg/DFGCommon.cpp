@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +29,17 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGNode.h"
+#include "JSCInlines.h"
 
 namespace JSC { namespace DFG {
 
-void NodePointerTraits::dump(Node* value, PrintStream& out)
+void startCrashing()
 {
-    out.print(value);
+#if ENABLE(COMPARE_AND_SWAP)
+    static unsigned lock;
+    while (!WTF::weakCompareAndSwap(&lock, 0, 1))
+        std::this_thread::yield();
+#endif
 }
 
 } } // namespace JSC::DFG
@@ -48,17 +53,15 @@ void printInternal(PrintStream& out, OptimizationFixpointState state)
     switch (state) {
     case BeforeFixpoint:
         out.print("BeforeFixpoint");
-        break;
+        return;
     case FixpointNotConverged:
         out.print("FixpointNotConverged");
-        break;
+        return;
     case FixpointConverged:
         out.print("FixpointConverged");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-        break;
+        return;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void printInternal(PrintStream& out, GraphForm form)
@@ -66,14 +69,15 @@ void printInternal(PrintStream& out, GraphForm form)
     switch (form) {
     case LoadStore:
         out.print("LoadStore");
-        break;
+        return;
     case ThreadedCPS:
         out.print("ThreadedCPS");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-        break;
+        return;
+    case SSA:
+        out.print("SSA");
+        return;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void printInternal(PrintStream& out, UnificationState state)
@@ -81,14 +85,12 @@ void printInternal(PrintStream& out, UnificationState state)
     switch (state) {
     case LocallyUnified:
         out.print("LocallyUnified");
-        break;
+        return;
     case GloballyUnified:
         out.print("GloballyUnified");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-        break;
+        return;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void printInternal(PrintStream& out, RefCountState state)
@@ -96,14 +98,12 @@ void printInternal(PrintStream& out, RefCountState state)
     switch (state) {
     case EverythingIsLive:
         out.print("EverythingIsLive");
-        break;
+        return;
     case ExactRefCount:
         out.print("ExactRefCount");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-        break;
+        return;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void printInternal(PrintStream& out, ProofStatus status)
@@ -111,14 +111,12 @@ void printInternal(PrintStream& out, ProofStatus status)
     switch (status) {
     case IsProved:
         out.print("IsProved");
-        break;
+        return;
     case NeedsCheck:
         out.print("NeedsCheck");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-        break;
+        return;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WTF

@@ -34,6 +34,9 @@
 #include <err.h>
 #include <getarg.h>
 
+static void usage (int ret) __attribute__((noreturn));
+
+
 struct {
     char *p1;
     char *pepper1;
@@ -82,7 +85,23 @@ struct {
 	"\x88\xbd\xb2\xa9\xf\x3e\x52\x5a\xb0\x5f\x68\xc5\x43\x9a\x4d\x5e"
 	"\x9c\x2b\xfd\x2b\x02\x24\xde\x39\xb5\x82\xf4\xbb\x05\xfe\x2\x2e",
 	32
+    },
+    {
+	"key1", "a", ETYPE_DES3_CBC_SHA1,
+	"key2", "b", ETYPE_DES3_CBC_SHA1,
+	ETYPE_DES3_CBC_SHA1,
+	"\xe5\x8f\x9e\xb6\x43\x86\x2c\x13\xad\x38\xe5\x29\x31\x34\x62\xa7\xf7\x3e\x62\x83\x4f\xe5\x4a\x01",
+	24
     }
+#if 0
+    {
+	"key1", "a", ETYPE_ARCFOUR_HMAC_MD5,
+	"key2", "b", ETYPE_ARCFOUR_HMAC_MD5,
+	ETYPE_ARCFOUR_HMAC_MD5,
+	"\x24\xd7\xf6\xb6\xba\xe4\xe5\xc0\x0d\x20\x82\xc5\xeb\xab\x36\x72",
+	16
+    }
+#endif
 };
 
 
@@ -141,13 +160,13 @@ test_cf2(krb5_context context)
 
 	ret = krb5_crypto_fx_cf2(context, c1, c2, &p1, &p2, cf2[i].e3, &k3);
 	if (ret)
-	    krb5_err(context, 1, ret, "krb5_crypto_fx_cf2");
+	    krb5_err(context, 1, ret, "krb5_crypto_fx_cf2: %d", (int)cf2[i].e3);
 
 	if (k3.keytype != cf2[i].e3)
-	    krb5_errx(context, 1, "length not right");
+	    krb5_errx(context, 1, "length not right: %d", (int)cf2[i].e3);
 	if (k3.keyvalue.length != cf2[i].len ||
 	    memcmp(k3.keyvalue.data, cf2[i].key, cf2[i].len) != 0)
-	    krb5_errx(context, 1, "key not same");
+	    krb5_errx(context, 1, "key not same for enctype: %d", (int)cf2[i].e3);
 
 	krb5_crypto_destroy(context, c1);
 	krb5_crypto_destroy(context, c2);

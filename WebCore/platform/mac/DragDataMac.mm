@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -109,7 +109,7 @@ bool DragData::containsPlainText() const
 
 String DragData::asPlainText(Frame *frame) const
 {
-    return Pasteboard(m_pasteboardName).plainText(frame);
+    return frame->editor().readPlainTextFromPasteboard(*Pasteboard::create(m_pasteboardName));
 }
 
 Color DragData::asColor() const
@@ -139,10 +139,9 @@ bool DragData::containsURL(Frame* frame, FilenameConversionPolicy filenamePolicy
     return !asURL(frame, filenamePolicy).isEmpty();
 }
 
-String DragData::asURL(Frame* frame, FilenameConversionPolicy filenamePolicy, String* title) const
+String DragData::asURL(Frame* frame, FilenameConversionPolicy, String* title) const
 {
     // FIXME: Use filenamePolicy.
-    (void)filenamePolicy;
 
     if (title) {
         String URLTitleString = platformStrategies()->pasteboardStrategy()->stringForType(String(WebURLNamePboardType), m_pasteboardName);
@@ -189,9 +188,10 @@ String DragData::asURL(Frame* frame, FilenameConversionPolicy filenamePolicy, St
     return String();        
 }
 
-PassRefPtr<DocumentFragment> DragData::asFragment(Frame* frame, PassRefPtr<Range> range, bool allowPlainText, bool& chosePlainText) const
+PassRefPtr<DocumentFragment> DragData::asFragment(Frame* frame, Range& range, bool allowPlainText, bool& chosePlainText) const
 {
-    return Pasteboard(m_pasteboardName).documentFragment(frame, range, allowPlainText, chosePlainText);
+    Pasteboard pasteboard(m_pasteboardName);
+    return frame->editor().webContentFromPasteboard(pasteboard, range, allowPlainText, chosePlainText);
 }
     
 } // namespace WebCore

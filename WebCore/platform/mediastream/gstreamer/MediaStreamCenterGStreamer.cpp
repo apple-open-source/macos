@@ -35,16 +35,19 @@
 
 #include "MediaStreamCenterGStreamer.h"
 
-#include "MediaStreamDescriptor.h"
-#include "MediaStreamSourcesQueryClient.h"
+#include "MediaStreamCreationClient.h"
+#include "MediaStreamPrivate.h"
+#include "MediaStreamSourceCapabilities.h"
+#include "MediaStreamTrackSourcesRequestClient.h"
+#include "NotImplemented.h"
 #include <wtf/MainThread.h>
 
 namespace WebCore {
 
-MediaStreamCenter& MediaStreamCenter::instance()
+MediaStreamCenter& MediaStreamCenter::platformCenter()
 {
     ASSERT(isMainThread());
-    DEFINE_STATIC_LOCAL(MediaStreamCenterGStreamer, center, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(MediaStreamCenterGStreamer, center, ());
     return center;
 }
 
@@ -56,32 +59,20 @@ MediaStreamCenterGStreamer::~MediaStreamCenterGStreamer()
 {
 }
 
-void MediaStreamCenterGStreamer::queryMediaStreamSources(PassRefPtr<MediaStreamSourcesQueryClient> client)
+void MediaStreamCenterGStreamer::validateRequestConstraints(PassRefPtr<MediaStreamCreationClient>, PassRefPtr<MediaConstraints>, PassRefPtr<MediaConstraints>)
 {
-    MediaStreamSourceVector audioSources, videoSources;
-    client->didCompleteQuery(audioSources, videoSources);
+    notImplemented();
+}
+    
+void MediaStreamCenterGStreamer::createMediaStream(PassRefPtr<MediaStreamCreationClient>, PassRefPtr<MediaConstraints>, PassRefPtr<MediaConstraints>)
+{
+    notImplemented();
 }
 
-void MediaStreamCenterGStreamer::didSetMediaStreamTrackEnabled(MediaStreamDescriptor*, MediaStreamComponent*)
+bool MediaStreamCenterGStreamer::getMediaStreamTrackSources(PassRefPtr<MediaStreamTrackSourcesRequestClient>)
 {
-}
-
-bool MediaStreamCenterGStreamer::didAddMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*)
-{
+    notImplemented();
     return false;
-}
-
-bool MediaStreamCenterGStreamer::didRemoveMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*)
-{
-    return false;
-}
-
-void MediaStreamCenterGStreamer::didStopLocalMediaStream(MediaStreamDescriptor*)
-{
-}
-
-void MediaStreamCenterGStreamer::didCreateMediaStream(MediaStreamDescriptor*)
-{
 }
 
 } // namespace WebCore

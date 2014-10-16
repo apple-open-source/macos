@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHCONTRIB" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-5\&.0\&.2/Util/helpfiles\fP
+perl ~/zsh\-5\&.0\&.5/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-5\&.0\&.2/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.0\&.5/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-5\&.0\&.2/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.0\&.5/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -690,7 +690,7 @@ To load \fBvcs_info\fP:
 .RE
 .PP
 It can be used in any existing prompt, because it does not require any
-\fB$psvar\fP entries to be left available\&.
+specific \fB$psvar\fP entries to be available\&.
 .PP
 .SS "Quickstart"
 .PP
@@ -3056,15 +3056,22 @@ See the function \fBmodify\-current\-argument\fP, described below, for
 an example of how to call this function\&.
 .RE
 .TP
-\fBmodify\-current\-argument\fP \fIexpr\-using\-\fP\fB$ARG\fP
+\fBmodify\-current\-argument\fP [ \fIexpr\-using\-\fP\fB$ARG\fP | \fIfunc\fP ]
 This function provides a simple method of allowing user\-defined widgets
 to modify the command line argument under the cursor (or immediately to the
-left of the cursor if the cursor is between arguments)\&.  The argument
-should be an expression which when evaluated operates on the shell
+left of the cursor if the cursor is between arguments)\&.
+.RS
+.PP
+The argument can be an expression which when evaluated operates on the shell
 parameter \fBARG\fP, which will have been set to the command line argument
 under the cursor\&.  The expression should be suitably quoted to prevent
 it being evaluated too early\&.
-.RS
+.PP
+Alternatively, if the argument does not contain the string \fBARG\fP, it
+is assumed to be a shell function, to which the current command line
+argument is passed as the only argument\&.  The function should set the
+variable \fBREPLY\fP to the new value for the command line argument\&.
+If the function returns non\-zero status, so does the calling function\&.
 .PP
 For example, a user\-defined widget containing the following code
 converts the characters in the argument under the cursor into all upper
@@ -3085,6 +3092,22 @@ throughout:
 \fBmodify\-current\-argument \&'${(qq)${(Q)ARG}}'\fP
 .fi
 .RE
+.PP
+The following performs directory expansion on the command line
+argument and replaces it by the absolute path:
+.PP
+.RS
+.nf
+\fBexpand\-dir() {
+  REPLY=${~1}
+  REPLY=${REPLY:a}
+}
+modify\-current\-argument expand\-dir\fP
+.fi
+.RE
+.PP
+In practice the function \fBexpand\-dir\fP would probably not be defined
+within the widget where \fBmodify\-current\-argument\fP is called\&.
 .RE
 .RE
 .PP
@@ -3462,6 +3485,13 @@ question is run using the \fBeval\fP builtin instead of by starting a new
 \fBsh\fP process\&.  This is more efficient, but may not work in the occasional
 cases where the mailcap handler uses strict POSIX syntax\&.
 .TP
+\fBdisown\fP
+If this boolean style is true, mailcap handlers started in the
+background will be disowned, i\&.e\&. not subject to job control within
+the parent shell\&.  Such handlers nearly always produce their own
+windows, so the only likely harmful side effect of setting the style is
+that it becomes harder to kill jobs from within the shell\&.
+.TP
 \fBexecute\-as\-is\fP
 This style gives a list of patterns to be matched against files
 passed for execution with a handler program\&.  If the file matches
@@ -3472,6 +3502,32 @@ is not set, the pattern \fB*(*) *(/)\fP is used;
 hence executable files are executed directly and not passed to a
 handler, and the option \fBAUTO_CD\fP may be used to change to directories
 that happen to have MIME suffixes\&.
+.TP
+\fBexecute\-never\fP
+This style is useful in combination with \fBexecute\-as\-is\fP\&.  It is
+set to an array of patterns corresponding to full paths to files that
+should never be treated as executable, even if the file passed to
+the MIME handler matches \fBexecute\-as\-is\fP\&.  This is useful for file
+systems that don\&'t handle execute permission or that contain executables
+from another operating system\&.  For example, if \fB/mnt/windows\fP is a
+Windows mount, then
+.RS
+.PP
+.RS
+.nf
+\fBzstyle \&':mime:*' execute\-never '/mnt/windows/*'\fP
+.fi
+.RE
+.PP
+will ensure that any files found in that area will be executed as MIME
+types even if they are executable\&.  As this example shows, the complete
+file name is matched against the pattern, regardless of how the file
+was passed to the handler\&.  The file is resolved to a full path using
+the \fB:A\fP modifier described in
+the subsection Modifers in \fIzshexpn\fP(1).RE;
+this means that symbolic links are resolved where possible, so that
+links into other file systems behave in the correct fashion\&.
+.RE
 .TP
 \fBfile\-path\fP
 Used if the style \fBfind\-file\-in\-path\fP is true for the same context\&.
@@ -3634,7 +3690,7 @@ line that would be executed, simplified to remove the effect of any
 flags, and quoted so that the output can be run as a complete zsh
 command line\&.  This is used by the completion system to decide how to
 complete after a file handled by \fBzsh\-mime\-setup\fP\&.
-.RE
+)
 .TP
 \fBpick\-web\-browser\fP
 This function is separate from the two MIME functions described above
@@ -3735,7 +3791,7 @@ for Opera, and \fB%b \-remote "openUrl(%u)"\fP for all others\&.
 .PD 0
 .TP
 .PD
-\fBzcalc\fP [ \fIexpression\fP \&.\&.\&. ]
+\fBzcalc\fP [ \fB\-ef\fP ] [ \fIexpression\fP \&.\&.\&. ]
 A reasonably powerful calculator based on zsh\&'s arithmetic evaluation
 facility\&.  The syntax is similar to that of formulae in most programming
 languages; see
@@ -3755,6 +3811,13 @@ the history of previous calculations, is available; the history is saved in
 the file \fB~/\&.zcalc_history\fP\&.  To exit, enter a blank line or type `\fB:q\fP\&'
 on its own (`\fBq\fP\&' is allowed for historical compatibility)\&.
 .PP
+A line ending with a single backslash is treated in the same fashion
+as it is in command line editing:  the backslash is removed, the
+function prompts for more input (the prompt is preceded by `\fB\&.\&.\&.\fP\&'
+to indicate this), and the lines are combined into one to get the final
+result\&.  In addition, if the input so far contains more open than
+close parentheses \fBzcalc\fP will prompt for more input\&.
+.PP
 If arguments are given to \fBzcalc\fP on start up, they are used to prime the
 first few positional parameters\&.  A visual indication of this is given when
 the calculator starts\&.
@@ -3766,6 +3829,14 @@ into the global namespace\&.
 The output base can be initialised by passing the option `\fB\-#\fP\fIbase\fP\&',
 for example `\fBzcalc \-#16\fP\&' (the `\fB#\fP' may have to be quoted, depending
 on the globbing options set)\&.
+.PP
+If the option `\fB\-e\fP\&' is set, the function runs non\-interactively:
+the arguments are treated as expressions to be evaluated as if entered
+interactively line by line\&.
+.PP
+If the option `\fB\-f\fP\&' is set, all numbers are treated as floating
+point, hence for example the expression `\fB3/4\fP\&' evaluates to 0\&.75
+rather than 0\&.  Options must appear in separate words\&.
 .PP
 The prompt is configurable via the parameter \fBZCALCPROMPT\fP, which
 undergoes standard prompt expansion\&.  The index of the current entry is
@@ -3821,6 +3892,8 @@ scope\&.
 .TP
 \fB:function\fP \fIname\fP [ \fIbody\fP ]
 Define a mathematical function or (with no \fIbody\fP) delete it\&.
+\fB:function\fP may be abbreviated to \fB:func\fP or simply \fB:f\fP\&.
+The \fIname\fP may contain the same characters as a shell function name\&.
 The function is defined using \fBzmathfuncdef\fP, see below\&.
 .RS
 .PP
@@ -3828,7 +3901,7 @@ Note that \fBzcalc\fP takes care of all quoting\&.  Hence for example:
 .PP
 .RS
 .nf
-\fBfunction cube $1 * $1 * $1\fP
+\fB:f cube $1 * $1 * $1\fP
 .fi
 .RE
 .PP
@@ -4265,7 +4338,7 @@ the names \fBzcp\fP and \fBzln\fP in some directory in your \fBfpath\fP\&.
 See `Keyboard Definition\&'
 above\&.
 .TP
-\fBzmv\fP [ \fB\-finqQsvwW\fP ] [ \-C | \-L | \-M | \-p \fIprogram\fP ] [ \-o \fIoptstring\fP ] \fIsrcpat\fP \fIdest\fP 
+\fBzmv\fP [ \fB\-finqQsvwW\fP ] [ \-C | \-L | \-M | \-[pP] \fIprogram\fP ] [ \-o \fIoptstring\fP ] \fIsrcpat\fP \fIdest\fP 
 Move (usually, rename) files matching the pattern \fIsrcpat\fP to
 corresponding files having names of the form given by \fIdest\fP, where
 \fIsrcpat\fP contains parentheses surrounding patterns which will be
@@ -4339,6 +4412,14 @@ Call \fIprogram\fP instead of \fBcp\fP, \fBln\fP or
 \fBmv\fP\&.  Whatever it does, it should at least understand the form
 `\fIprogram\fP \fB\-\fP\fB\-\fP \fIoldname\fP \fInewname\fP\&'
 where \fIoldname\fP and \fInewname\fP are filenames generated by \fBzmv\fP\&.
+\fIprogram\fP will be split into words, so might be e\&.g\&. the name
+of an archive tool plus a copy or rename subcommand\&.
+.TP
+\fB\-P\fP \fIprogram\fP
+As \fB\-p\fP \fIprogram\fP, except that
+\fIprogram\fP does not accept a following \fB\-\fP\fB\-\fP to indicate the
+end of options\&.  In this case filenames must already be in a sane
+form for the program in question\&.
 .TP
 \fB\-o\fP \fIoptstring\fP
 The \fIoptstring\fP is split into words and

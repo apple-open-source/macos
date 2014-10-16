@@ -38,7 +38,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_server_start "10 July 2001" SASL "SASL man pages"
+.TH sasl_server_start 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
 sasl_server_start \- Begin an authentication negotiation
 
@@ -82,7 +82,7 @@ and the protocol MUST account for this difference.
 is the length of initial response
 .PP
 .I serverout
-is created by the plugin library. It is the initial server response to send to the client. This is allocated/freed by the library and it is the job of the client to send it over the network to the server. Also protocal specific encoding (such as base64 encoding) must needs to be done by the server.
+is created by the plugin library. It is the initial server response to send to the client. This is allocated/freed by the library and it is the job of the client to send it over the network to the server. Also protocol specific encoding (such as base64 encoding) must needs to be done by the server.
 .PP
 .I serveroutlen
 is set to the length of initial server challenge
@@ -94,12 +94,12 @@ is set to the length of initial server challenge
 
 sasl_server_start returns an integer which corresponds to one of the
 SASL errorcodes. SASL_OK indicates that authentication is completed
-successfully. SASL_CONTINUE indicates sucess and that there are
+successfully. SASL_CONTINUE indicates success and that there are
 more steps needed in the authentication. All other return codes
 indicate errors and should either be handled or the authentication
 session should be quit.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_server_init(3), sasl_server_new(3), sasl_server_step(3)

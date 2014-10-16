@@ -119,18 +119,7 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
 	APR_ADDTO(CPPFLAGS, [-DHPUX -D_REENTRANT])
 	;;
     *-linux*)
-        case `uname -r` in
-	    2.* )  APR_ADDTO(CPPFLAGS, [-DLINUX=2])
-	           ;;
-	    1.* )  APR_ADDTO(CPPFLAGS, [-DLINUX=1])
-	           ;;
-	    * )
-	           ;;
-        esac
-	APR_ADDTO(CPPFLAGS, [-D_REENTRANT -D_GNU_SOURCE])
-	;;
-    *-GNU*)
-	APR_ADDTO(CPPFLAGS, [-DHURD -D_GNU_SOURCE])
+	APR_ADDTO(CPPFLAGS, [-DLINUX -D_REENTRANT -D_GNU_SOURCE])
 	;;
     *-lynx-lynxos)
 	APR_ADDTO(CPPFLAGS, [-D__NO_INCLUDE_WARN__ -DLYNXOS])
@@ -180,6 +169,9 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
     *-k*bsd*-gnu)
         APR_ADDTO(CPPFLAGS, [-D_REENTRANT -D_GNU_SOURCE])
         ;;
+    *-gnu*|*-GNU*)
+        APR_ADDTO(CPPFLAGS, [-D_REENTRANT -D_GNU_SOURCE -DHURD])
+        ;;
     *-next-nextstep*)
 	APR_SETIFNULL(CFLAGS, [-O])
 	APR_ADDTO(CPPFLAGS, [-DNEXT])
@@ -203,7 +195,7 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
                 APR_SETIFNULL(ac_cv_func_kqueue, [no]) 
                 APR_SETIFNULL(ac_cv_func_poll, [no]) # See issue 34332
             ;;
-            *-apple-darwin10.*)
+            *-apple-darwin1?.*)
                 APR_ADDTO(CPPFLAGS, [-DDARWIN_10])
             ;;
         esac

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010, 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,24 +34,26 @@
 #include "FormDataStreamCFNet.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "LoaderRunLoopCF.h"
+#include "HTTPHeaderNames.h"
 #include "Logging.h"
-#include "MIMETypeRegistry.h"
 #include "NetworkingContext.h"
 #include "ResourceError.h"
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
 #include "SynchronousLoaderClient.h"
+#include "SynchronousResourceHandleCFURLConnectionDelegate.h"
 #include <CFNetwork/CFNetwork.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <wtf/HashMap.h>
+#include <wtf/Ref.h>
 #include <wtf/Threading.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
+#include "ResourceHandleCFURLConnectionDelegateWithOperationQueue.h"
 #include "WebCoreSystemInterface.h"
 #if USE(CFNETWORK)
 #include "WebCoreURLResponse.h"
@@ -80,258 +82,29 @@ namespace WebCore {
 
 static HashSet<String>& allowsAnyHTTPSCertificateHosts()
 {
-    DEFINE_STATIC_LOCAL(HashSet<String>, hosts, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(HashSet<String>, hosts, ());
     return hosts;
 }
 
-static HashMap<String, RetainPtr<CFDataRef> >& clientCerts()
+static HashMap<String, RetainPtr<CFDataRef>>& clientCerts()
 {
-    typedef HashMap<String, RetainPtr<CFDataRef> > CertsMap;
-    DEFINE_STATIC_LOCAL(CertsMap, certs, ());
+    typedef HashMap<String, RetainPtr<CFDataRef>> CertsMap;
+    DEPRECATED_DEFINE_STATIC_LOCAL(CertsMap, certs, ());
     return certs;
 }
-
-#if !PLATFORM(MAC)
-static void setDefaultMIMEType(CFURLResponseRef response)
-{
-    static CFStringRef defaultMIMETypeString = defaultMIMEType().createCFString().leakRef();
-    
-    CFURLResponseSetMIMEType(response, defaultMIMETypeString);
-}
-#endif
 
 static void applyBasicAuthorizationHeader(ResourceRequest& request, const Credential& credential)
 {
     String authenticationHeader = "Basic " + base64Encode(String(credential.user() + ":" + credential.password()).utf8());
-    request.clearHTTPAuthorization(); // FIXME: Should addHTTPHeaderField be smart enough to not build comma-separated lists in headers like Authorization?
-    request.addHTTPHeaderField("Authorization", authenticationHeader);
+
+    request.setHTTPHeaderField(HTTPHeaderName::Authorization, authenticationHeader);
 }
-
-static CFURLRequestRef willSendRequest(CFURLConnectionRef conn, CFURLRequestRef cfRequest, CFURLResponseRef cfRedirectResponse, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-
-    if (!cfRedirectResponse) {
-        CFRetain(cfRequest);
-        return cfRequest;
-    }
-
-    LOG(Network, "CFNet - willSendRequest(conn=%p, handle=%p) (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    ResourceRequest request;
-    if (cfRedirectResponse) {
-        CFHTTPMessageRef httpMessage = CFURLResponseGetHTTPResponse(cfRedirectResponse);
-        if (httpMessage && CFHTTPMessageGetResponseStatusCode(httpMessage) == 307) {
-            RetainPtr<CFStringRef> lastHTTPMethod = handle->lastHTTPMethod().createCFString();
-            RetainPtr<CFStringRef> newMethod = adoptCF(CFURLRequestCopyHTTPRequestMethod(cfRequest));
-            if (CFStringCompareWithOptions(lastHTTPMethod.get(), newMethod.get(), CFRangeMake(0, CFStringGetLength(lastHTTPMethod.get())), kCFCompareCaseInsensitive)) {
-                RetainPtr<CFMutableURLRequestRef> mutableRequest = adoptCF(CFURLRequestCreateMutableCopy(0, cfRequest));
-                wkSetRequestStorageSession(handle->storageSession(), mutableRequest.get());
-                CFURLRequestSetHTTPRequestMethod(mutableRequest.get(), lastHTTPMethod.get());
-
-                FormData* body = handle->firstRequest().httpBody();
-                if (!equalIgnoringCase(handle->firstRequest().httpMethod(), "GET") && body && !body->isEmpty())
-                    WebCore::setHTTPBody(mutableRequest.get(), body);
-
-                String originalContentType = handle->firstRequest().httpContentType();
-                if (!originalContentType.isEmpty())
-                    CFURLRequestSetHTTPHeaderFieldValue(mutableRequest.get(), CFSTR("Content-Type"), originalContentType.createCFString().get());
-
-                request = mutableRequest.get();
-            }
-        }
-    }
-    if (request.isNull())
-        request = cfRequest;
-
-    // Should not set Referer after a redirect from a secure resource to non-secure one.
-    if (!request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https") && handle->context()->shouldClearReferrerOnHTTPSToHTTPRedirect())
-        request.clearHTTPReferrer();
-
-    handle->willSendRequest(request, cfRedirectResponse);
-
-    if (request.isNull())
-        return 0;
-
-    cfRequest = request.cfURLRequest(UpdateHTTPBody);
-
-    CFRetain(cfRequest);
-    return cfRequest;
-}
-
-static void didReceiveResponse(CFURLConnectionRef conn, CFURLResponseRef cfResponse, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-
-    LOG(Network, "CFNet - didReceiveResponse(conn=%p, handle=%p) (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    if (!handle->client())
-        return;
-
-#if PLATFORM(MAC)
-    // Avoid MIME type sniffing if the response comes back as 304 Not Modified.
-    CFHTTPMessageRef msg = wkGetCFURLResponseHTTPResponse(cfResponse);
-    int statusCode = msg ? CFHTTPMessageGetResponseStatusCode(msg) : 0;
-
-    if (statusCode != 304)
-        adjustMIMETypeIfNecessary(cfResponse);
-
-    if (_CFURLRequestCopyProtocolPropertyForKey(handle->firstRequest().cfURLRequest(DoNotUpdateHTTPBody), CFSTR("ForceHTMLMIMEType")))
-        wkSetCFURLResponseMIMEType(cfResponse, CFSTR("text/html"));
-#else
-    if (!CFURLResponseGetMIMEType(cfResponse)) {
-        // We should never be applying the default MIMEType if we told the networking layer to do content sniffing for handle.
-        ASSERT(!handle->shouldContentSniff());
-        setDefaultMIMEType(cfResponse);
-    }
-#endif
-    
-    handle->client()->didReceiveResponse(handle, cfResponse);
-}
-
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-static void didReceiveDataArray(CFURLConnectionRef conn, CFArrayRef dataArray, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    if (!handle->client())
-        return;
-
-    LOG(Network, "CFNet - didReceiveDataArray(conn=%p, handle=%p, arrayLength=%ld) (%s)", conn, handle, CFArrayGetCount(dataArray), handle->firstRequest().url().string().utf8().data());
-
-    handle->handleDataArray(dataArray);
-}
-#endif
-
-static void didReceiveData(CFURLConnectionRef conn, CFDataRef data, CFIndex originalLength, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    const UInt8* bytes = CFDataGetBytePtr(data);
-    CFIndex length = CFDataGetLength(data);
-
-    LOG(Network, "CFNet - didReceiveData(conn=%p, handle=%p, bytes=%ld) (%s)", conn, handle, length, handle->firstRequest().url().string().utf8().data());
-
-    if (handle->client())
-        handle->client()->didReceiveData(handle, (const char*)bytes, length, originalLength);
-}
-
-static void didSendBodyData(CFURLConnectionRef, CFIndex, CFIndex totalBytesWritten, CFIndex totalBytesExpectedToWrite, const void *clientInfo)
-{
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    if (!handle || !handle->client())
-        return;
-    handle->client()->didSendData(handle, totalBytesWritten, totalBytesExpectedToWrite);
-}
-
-static Boolean shouldUseCredentialStorageCallback(CFURLConnectionRef conn, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = const_cast<ResourceHandle*>(static_cast<const ResourceHandle*>(clientInfo));
-
-    LOG(Network, "CFNet - shouldUseCredentialStorage(conn=%p, handle=%p) (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    if (!handle)
-        return false;
-
-    return handle->shouldUseCredentialStorage();
-}
-
-static void didFinishLoading(CFURLConnectionRef conn, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-
-    LOG(Network, "CFNet - didFinishLoading(conn=%p, handle=%p) (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    if (handle->client())
-        handle->client()->didFinishLoading(handle, 0);
-}
-
-static void didFail(CFURLConnectionRef conn, CFErrorRef error, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-
-    LOG(Network, "CFNet - didFail(conn=%p, handle=%p, error = %p) (%s)", conn, handle, error, handle->firstRequest().url().string().utf8().data());
-
-    if (handle->client())
-        handle->client()->didFail(handle, ResourceError(error));
-}
-
-static CFCachedURLResponseRef willCacheResponse(CFURLConnectionRef, CFCachedURLResponseRef cachedResponse, const void* clientInfo)
-{
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    CFURLResponseRef wrappedResponse = CFCachedURLResponseGetWrappedResponse(cachedResponse);
-
-    // Workaround for <rdar://problem/6300990> Caching does not respect Vary HTTP header.
-    // FIXME: WebCore cache has issues with Vary, too (bug 58797, bug 71509).
-    if (CFHTTPMessageRef httpResponse = CFURLResponseGetHTTPResponse(wrappedResponse)) {
-        ASSERT(CFHTTPMessageIsHeaderComplete(httpResponse));
-        RetainPtr<CFStringRef> varyValue = adoptCF(CFHTTPMessageCopyHeaderFieldValue(httpResponse, CFSTR("Vary")));
-        if (varyValue)
-            return 0;
-    }
-
-#if PLATFORM(WIN)
-    if (handle->client() && !handle->client()->shouldCacheResponse(handle, cachedResponse))
-        return 0;
-#else
-    CFCachedURLResponseRef newResponse = handle->client()->willCacheResponse(handle, cachedResponse);
-    if (newResponse != cachedResponse)
-        return newResponse;
-#endif
-
-    CFRetain(cachedResponse);
-
-    return cachedResponse;
-}
-
-static void didReceiveChallenge(CFURLConnectionRef conn, CFURLAuthChallengeRef challenge, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    ASSERT(handle);
-    LOG(Network, "CFNet - didReceiveChallenge(conn=%p, handle=%p (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    handle->didReceiveAuthenticationChallenge(AuthenticationChallenge(challenge, handle));
-}
-
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-static Boolean canRespondToProtectionSpace(CFURLConnectionRef conn, CFURLProtectionSpaceRef protectionSpace, const void* clientInfo)
-{
-#if LOG_DISABLED
-    UNUSED_PARAM(conn);
-#endif
-    ResourceHandle* handle = static_cast<ResourceHandle*>(const_cast<void*>(clientInfo));
-    ASSERT(handle);
-
-    LOG(Network, "CFNet - canRespondToProtectionSpace(conn=%p, handle=%p (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
-
-    return handle->canAuthenticateAgainstProtectionSpace(core(protectionSpace));
-}
-#endif
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
+    if (m_connectionDelegate)
+        m_connectionDelegate->releaseHandle();
+
     if (m_connection) {
         LOG(Network, "CFNet - Cancelling connection %p (%s)", m_connection.get(), m_firstRequest.url().string().utf8().data());
         CFURLConnectionCancel(m_connection.get());
@@ -343,11 +116,11 @@ ResourceHandle::~ResourceHandle()
     LOG(Network, "CFNet - Destroying job %p (%s)", this, d->m_firstRequest.url().string().utf8().data());
 }
 
-void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff)
+void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff, SchedulingBehavior schedulingBehavior, CFDictionaryRef clientProperties)
 {
     if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty()) && !firstRequest().url().protocolIsInHTTPFamily()) {
         // Credentials for ftp can only be passed in URL, the didReceiveAuthenticationChallenge delegate call won't be made.
-        KURL urlWithCredentials(firstRequest().url());
+        URL urlWithCredentials(firstRequest().url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
         firstRequest().setURL(urlWithCredentials);
@@ -381,6 +154,9 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
 
     RetainPtr<CFMutableDictionaryRef> sslProps;
 
+#if PLATFORM(IOS)
+    sslProps = adoptCF(ResourceHandle::createSSLPropertiesFromNSURLRequest(firstRequest()));
+#else
     if (allowsAnyHTTPSCertificateHosts().contains(firstRequest().url().host().lower())) {
         sslProps = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
@@ -389,7 +165,7 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
         CFDictionaryAddValue(sslProps.get(), kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
     }
 
-    HashMap<String, RetainPtr<CFDataRef> >::iterator clientCert = clientCerts().find(firstRequest().url().host().lower());
+    HashMap<String, RetainPtr<CFDataRef>>::iterator clientCert = clientCerts().find(firstRequest().url().host().lower());
     if (clientCert != clientCerts().end()) {
         if (!sslProps)
             sslProps = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
@@ -397,6 +173,7 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
         wkSetClientCertificateInSSLProperties(sslProps.get(), (clientCert->value).get());
 #endif
     }
+#endif // PLATFORM(IOS)
 
     if (sslProps)
         CFURLRequestSetSSLProperties(request.get(), sslProps.get());
@@ -408,23 +185,21 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
     }
 #endif
 
-    CFURLConnectionClient_V6 client = { 6, this, 0, 0, 0, WebCore::willSendRequest, didReceiveResponse, didReceiveData, 0, didFinishLoading, didFail, willCacheResponse, didReceiveChallenge, didSendBodyData, shouldUseCredentialStorageCallback, 0,
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-        canRespondToProtectionSpace,
-#else
-        0,
-#endif
-        0,
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-        didReceiveDataArray
-#else 
-        0
-#endif
-    };
-
     CFMutableDictionaryRef streamProperties  = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!shouldUseCredentialStorage)
+
+    if (!shouldUseCredentialStorage) {
+        // Avoid using existing connections, because they may be already authenticated.
         CFDictionarySetValue(streamProperties, CFSTR("_kCFURLConnectionSessionID"), CFSTR("WebKitPrivateSession"));
+    }
+
+    if (schedulingBehavior == SchedulingBehavior::Synchronous) {
+        // Synchronous requests should not be subject to regular connection count limit to avoid deadlocks.
+        // If we are using all available connections for async requests, and make a sync request, then prior
+        // requests may get stuck waiting for delegate calls while we are in nested run loop, and the sync
+        // request won't start because there are no available connections.
+        // Connections are grouped by their socket stream properties, with each group having a separate count.
+        CFDictionarySetValue(streamProperties, CFSTR("_WebKitSynchronousRequest"), kCFBooleanTrue);
+    }
 
 #if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
     RetainPtr<CFDataRef> sourceApplicationAuditData = d->m_context->sourceApplicationAuditData();
@@ -433,8 +208,29 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
 #endif
 
     static const CFStringRef kCFURLConnectionSocketStreamProperties = CFSTR("kCFURLConnectionSocketStreamProperties");
-    RetainPtr<CFDictionaryRef> propertiesDictionary = adoptCF(CFDictionaryCreate(0, (const void**)&kCFURLConnectionSocketStreamProperties, (const void**)&streamProperties, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    RetainPtr<CFMutableDictionaryRef> propertiesDictionary;
+    if (clientProperties)
+        propertiesDictionary = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, clientProperties));
+    else
+        propertiesDictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    // FIXME: This code is different from iOS code in ResourceHandleMac.mm in that here we ignore stream properties that were present in client properties.
+    CFDictionaryAddValue(propertiesDictionary.get(), kCFURLConnectionSocketStreamProperties, streamProperties);
     CFRelease(streamProperties);
+
+#if PLATFORM(COCOA)
+    if (client() && client()->usesAsyncCallbacks())
+        d->m_connectionDelegate = adoptRef(new ResourceHandleCFURLConnectionDelegateWithOperationQueue(this));
+    else
+        d->m_connectionDelegate = adoptRef(new SynchronousResourceHandleCFURLConnectionDelegate(this));
+#else
+    d->m_connectionDelegate = adoptRef(new SynchronousResourceHandleCFURLConnectionDelegate(this));
+#endif
+    d->m_connectionDelegate->setupRequest(request.get());
+
+    CFURLConnectionClient_V6 client = d->m_connectionDelegate->makeConnectionClient();
+    if (shouldUseCredentialStorage)
+        client.shouldUseCredentialStorage = 0;
 
     d->m_connection = adoptCF(CFURLConnectionCreateWithProperties(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client), propertiesDictionary.get()));
 }
@@ -453,18 +249,17 @@ bool ResourceHandle::start()
 
     bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
 
-    createCFURLConnection(shouldUseCredentialStorage, d->m_shouldContentSniff);
+    createCFURLConnection(shouldUseCredentialStorage, d->m_shouldContentSniff, SchedulingBehavior::Asynchronous, client()->connectionProperties(this).get());
 
-#if PLATFORM(WIN)
-    CFURLConnectionScheduleWithCurrentMessageQueue(d->m_connection.get());
-#else
-    CFURLConnectionScheduleWithRunLoop(d->m_connection.get(), CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-#endif
-    CFURLConnectionScheduleDownloadWithRunLoop(d->m_connection.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
+    d->m_connectionDelegate->setupConnectionScheduling(d->m_connection.get());
     CFURLConnectionStart(d->m_connection.get());
 
     LOG(Network, "CFNet - Starting URL %s (handle=%p, conn=%p)", firstRequest().url().string().utf8().data(), this, d->m_connection.get());
-
+    
+#if ENABLE(WEB_TIMING)
+    setCollectsTimingData();
+#endif
+    
     return true;
 }
 
@@ -478,7 +273,7 @@ void ResourceHandle::cancel()
 
 void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
-    const KURL& url = request.url();
+    const URL& url = request.url();
     d->m_user = url.user();
     d->m_pass = url.pass();
     d->m_lastHTTPMethod = request.httpMethod();
@@ -502,20 +297,28 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
         }
     }
 
-    RefPtr<ResourceHandle> protect(this);
-    client()->willSendRequest(this, request, redirectResponse);
+    Ref<ResourceHandle> protect(*this);
+    if (client()->usesAsyncCallbacks())
+        client()->willSendRequestAsync(this, request, redirectResponse);
+    else {
+        client()->willSendRequest(this, request, redirectResponse);
 
-    // Client call may not preserve the session, especially if the request is sent over IPC.
-    if (!request.isNull())
-        request.setStorageSession(d->m_storageSession.get());
+        // Client call may not preserve the session, especially if the request is sent over IPC.
+        if (!request.isNull()) {
+            request.setStorageSession(d->m_storageSession.get());
+
+            d->m_currentRequest = request;
+        }
+    }
 }
 
 bool ResourceHandle::shouldUseCredentialStorage()
 {
     LOG(Network, "CFNet - shouldUseCredentialStorage()");
-    if (client())
-        return client()->shouldUseCredentialStorage(this);
-
+    if (ResourceHandleClient* client = this->client()) {
+        ASSERT(!client->usesAsyncCallbacks());
+        return client->shouldUseCredentialStorage(this);
+    }
     return false;
 }
 
@@ -541,7 +344,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     if (!d->m_user.isNull() && !d->m_pass.isNull()) {
         RetainPtr<CFURLCredentialRef> credential = adoptCF(CFURLCredentialCreate(kCFAllocatorDefault, d->m_user.createCFString().get(), d->m_pass.createCFString().get(), 0, kCFURLCredentialPersistenceNone));
         
-        KURL urlToStore;
+        URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
             urlToStore = challenge.failureResponse().url();
         CredentialStorage::set(core(credential.get()), challenge.protectionSpace(), urlToStore);
@@ -585,9 +388,12 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 bool ResourceHandle::canAuthenticateAgainstProtectionSpace(const ProtectionSpace& protectionSpace)
 {
-    if (client())
-        return client()->canAuthenticateAgainstProtectionSpace(this, protectionSpace);
-
+    if (ResourceHandleClient* client = this->client()) {
+        if (client->usesAsyncCallbacks())
+            client->canAuthenticateAgainstProtectionSpaceAsync(this, protectionSpace);
+        else
+            return client->canAuthenticateAgainstProtectionSpace(this, protectionSpace);
+    }
     return false;
 }
 #endif
@@ -612,7 +418,7 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         Credential webCredential(credential.user(), credential.password(), CredentialPersistenceNone);
         RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(webCredential));
         
-        KURL urlToStore;
+        URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
             urlToStore = challenge.failureResponse().url();      
         CredentialStorage::set(webCredential, challenge.protectionSpace(), urlToStore);
@@ -649,6 +455,32 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
         client()->receivedCancellation(this, challenge);
 }
 
+void ResourceHandle::receivedRequestToPerformDefaultHandling(const AuthenticationChallenge& challenge)
+{
+    LOG(Network, "CFNet - receivedRequestToPerformDefaultHandling()");
+    ASSERT(!challenge.isNull());
+    ASSERT(challenge.cfURLAuthChallengeRef());
+    if (challenge != d->m_currentWebChallenge)
+        return;
+
+    CFURLConnectionPerformDefaultHandlingForChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
+
+    clearAuthentication();
+}
+
+void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& challenge)
+{
+    LOG(Network, "CFNet - receivedChallengeRejection()");
+    ASSERT(!challenge.isNull());
+    ASSERT(challenge.cfURLAuthChallengeRef());
+    if (challenge != d->m_currentWebChallenge)
+        return;
+
+    CFURLConnectionRejectChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
+
+    clearAuthentication();
+}
+
 CFURLStorageSessionRef ResourceHandle::storageSession() const
 {
     return d->m_storageSession.get();
@@ -659,10 +491,10 @@ CFURLConnectionRef ResourceHandle::connection() const
     return d->m_connection.get();
 }
 
-CFURLConnectionRef ResourceHandle::releaseConnectionForDownload()
+RetainPtr<CFURLConnectionRef> ResourceHandle::releaseConnectionForDownload()
 {
     LOG(Network, "CFNet - Job %p releasing connection %p for download", this, d->m_connection.get());
-    return d->m_connection.leakRef();
+    return WTF::move(d->m_connection);
 }
 
 CFStringRef ResourceHandle::synchronousLoadRunLoopMode()
@@ -691,7 +523,8 @@ void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* contex
         return;
     }
 
-    handle->createCFURLConnection(storedCredentials == AllowStoredCredentials, ResourceHandle::shouldContentSniffURL(request.url()));
+    handle->createCFURLConnection(storedCredentials == AllowStoredCredentials, ResourceHandle::shouldContentSniffURL(request.url()),
+        SchedulingBehavior::Synchronous, handle->client()->connectionProperties(handle.get()).get());
 
     CFURLConnectionScheduleWithRunLoop(handle->connection(), CFRunLoopGetCurrent(), synchronousLoadRunLoopMode());
     CFURLConnectionScheduleDownloadWithRunLoop(handle->connection(), CFRunLoopGetCurrent(), synchronousLoadRunLoopMode());
@@ -703,17 +536,9 @@ void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* contex
     error = client->error();
 
     CFURLConnectionCancel(handle->connection());
-    
+
     if (error.isNull())
         response = client->response();
-    else {
-        response = ResourceResponse(request.url(), String(), 0, String(), String());
-        // FIXME: ResourceHandleMac also handles authentication errors by setting code to 401. CFNet version should probably do the same.
-        if (error.domain() == String(kCFErrorDomainCFNetwork))
-            response.setHTTPStatusCode(error.errorCode());
-        else
-            response.setHTTPStatusCode(404);
-    }
 
     data.swap(client->mutableData());
 }
@@ -744,63 +569,59 @@ bool ResourceHandle::loadsBlocked()
     return false;
 }
 
-#if PLATFORM(MAC)
-void ResourceHandle::schedule(SchedulePair* pair)
+#if PLATFORM(COCOA)
+void ResourceHandle::schedule(SchedulePair& pair)
 {
-    CFRunLoopRef runLoop = pair->runLoop();
+    CFRunLoopRef runLoop = pair.runLoop();
     if (!runLoop)
         return;
 
-    CFURLConnectionScheduleWithRunLoop(d->m_connection.get(), runLoop, pair->mode());
+    CFURLConnectionScheduleWithRunLoop(d->m_connection.get(), runLoop, pair.mode());
     if (d->m_startWhenScheduled) {
         CFURLConnectionStart(d->m_connection.get());
         d->m_startWhenScheduled = false;
     }
 }
 
-void ResourceHandle::unschedule(SchedulePair* pair)
+void ResourceHandle::unschedule(SchedulePair& pair)
 {
-    CFRunLoopRef runLoop = pair->runLoop();
+    CFRunLoopRef runLoop = pair.runLoop();
     if (!runLoop)
         return;
 
-    CFURLConnectionUnscheduleFromRunLoop(d->m_connection.get(), runLoop, pair->mode());
+    CFURLConnectionUnscheduleFromRunLoop(d->m_connection.get(), runLoop, pair.mode());
 }
 #endif
 
-#endif // USE(CFNETWORK)
-
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-void ResourceHandle::handleDataArray(CFArrayRef dataArray)
+const ResourceRequest& ResourceHandle::currentRequest() const
 {
-    ASSERT(client());
-    if (client()->supportsDataArray()) {
-        client()->didReceiveDataArray(this, dataArray);
-        return;
-    }
+    return d->m_currentRequest;
+}
 
-    CFIndex count = CFArrayGetCount(dataArray);
-    ASSERT(count);
-    if (count == 1) {
-        CFDataRef data = static_cast<CFDataRef>(CFArrayGetValueAtIndex(dataArray, 0));
-        CFIndex length = CFDataGetLength(data);
-        client()->didReceiveData(this, reinterpret_cast<const char*>(CFDataGetBytePtr(data)), length, static_cast<int>(length));
-        return;
-    }
+void ResourceHandle::continueWillSendRequest(const ResourceRequest& request)
+{
+    ResourceRequest requestResult = request;
+    if (!requestResult.isNull())
+        requestResult.setStorageSession(d->m_storageSession.get());
+    d->m_connectionDelegate->continueWillSendRequest(requestResult.cfURLRequest(UpdateHTTPBody));
+}
 
-    CFIndex totalSize = 0;
-    CFIndex index;
-    for (index = 0; index < count; index++)
-        totalSize += CFDataGetLength(static_cast<CFDataRef>(CFArrayGetValueAtIndex(dataArray, index)));
+void ResourceHandle::continueDidReceiveResponse()
+{
+    d->m_connectionDelegate->continueDidReceiveResponse();
+}
 
-    RetainPtr<CFMutableDataRef> mergedData = adoptCF(CFDataCreateMutable(kCFAllocatorDefault, totalSize));
-    for (index = 0; index < count; index++) {
-        CFDataRef data = static_cast<CFDataRef>(CFArrayGetValueAtIndex(dataArray, index));
-        CFDataAppendBytes(mergedData.get(), CFDataGetBytePtr(data), CFDataGetLength(data));
-    }
-
-    client()->didReceiveData(this, reinterpret_cast<const char*>(CFDataGetBytePtr(mergedData.get())), totalSize, static_cast<int>(totalSize));
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+void ResourceHandle::continueCanAuthenticateAgainstProtectionSpace(bool canAuthenticate)
+{
+    d->m_connectionDelegate->continueCanAuthenticateAgainstProtectionSpace(canAuthenticate);
 }
 #endif
+
+void ResourceHandle::continueWillCacheResponse(CFCachedURLResponseRef response)
+{
+    d->m_connectionDelegate->continueWillCacheResponse(response);
+}
+#endif // USE(CFNETWORK)
 
 } // namespace WebCore

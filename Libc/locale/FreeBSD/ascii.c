@@ -55,7 +55,7 @@ static size_t	_ascii_wcrtomb(char * __restrict, wchar_t,
 static size_t	_ascii_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
 		    size_t, size_t, mbstate_t * __restrict, locale_t);
 
-__private_extern__ int
+int
 _ascii_init(struct __xlocale_st_runelocale *xrl)
 {
 

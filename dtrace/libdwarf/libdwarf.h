@@ -692,11 +692,13 @@ typedef void  (*Dwarf_Handler)(Dwarf_Error /*error*/, Dwarf_Ptr /*errarg*/);
 #define DW_DLE_DEBUG_PUBTYPES_DUPLICATE         199
 #define DW_DLE_FRAME_CIE_DECODE_ERROR           200
 #define DW_DLE_FRAME_REGISTER_UNREPRESENTABLE   201
+#define DW_DLE_NOT_REF_FORM                     202
+#define DW_DLE_FORM_SEC_OFFSET_LENGTH_BAD       203
 
 
 
     /* DW_DLE_LAST MUST EQUAL LAST ERROR NUMBER */
-#define DW_DLE_LAST        			201
+#define DW_DLE_LAST        			203
 #define DW_DLE_LO_USER     0x10000
 
         /* taken as meaning 'undefined value', this is not

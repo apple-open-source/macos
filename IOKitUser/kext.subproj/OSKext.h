@@ -1530,13 +1530,11 @@ OSKextCopyResource(
  * aKext can be NULL with useCache set to FALSE if you wish the invalidate the
  * cache without passing in a kext.
  */
-#ifdef __MAC_10_9
 CF_EXPORT Boolean
 OSKextIsInExcludeList(
                       OSKextRef aKext,
                       Boolean   useCache)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
-#endif // __MAC_10_9
 
 #pragma mark Dependency Resolution
 /*********************************************************************
@@ -2804,7 +2802,6 @@ CF_EXPORT Boolean
 OSKextAuthenticate(OSKextRef aKext)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
-#ifdef __MAC_10_9
 /*!
  * @function OSKextIsSigned
  * @abstract
@@ -2822,7 +2819,6 @@ OSKextAuthenticate(OSKextRef aKext)
 CF_EXPORT Boolean
 OSKextIsSigned(OSKextRef aKext)
             __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
-#endif // __MAC_10_9
 
 /*!
  * @function OSKextIsAuthentic

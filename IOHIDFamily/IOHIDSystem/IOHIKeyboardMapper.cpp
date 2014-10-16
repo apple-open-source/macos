@@ -163,7 +163,7 @@ IOHIKeyboardMapper * IOHIKeyboardMapper::keyboardMapper(
 
 	if (me && !me->init(delegate, mapping, mappingLength, mappingShouldBeFreed))
 	{
-		me->free();
+		me->release();
 		return 0;
 	}
 
@@ -194,6 +194,7 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 	_stateDirty					= false;
 
 	_reserved = IONew(ExpansionData, 1);
+    bzero(_reserved, sizeof(ExpansionData));
 
 	_ejectTimerEventSource		= 0;
 
@@ -309,31 +310,31 @@ void IOHIKeyboardMapper::free()
 
     stickyKeysfree();
 
-    if (_ejectTimerEventSource) {
-        _ejectTimerEventSource->cancelTimeout();
-
-        IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
-
-        if ( workLoop )
-            workLoop->removeEventSource( _ejectTimerEventSource );
-
-        _ejectTimerEventSource->release();
-        _ejectTimerEventSource = 0;
-    }
-
-    if (_slowKeysTimerEventSource) {
-        _slowKeysTimerEventSource->cancelTimeout();
-
-        IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
-
-        if ( workLoop )
-            workLoop->removeEventSource( _slowKeysTimerEventSource );
-
-        _slowKeysTimerEventSource->release();
-        _slowKeysTimerEventSource = 0;
-    }
-
     if (_reserved) {
+        if (_ejectTimerEventSource) {
+            _ejectTimerEventSource->cancelTimeout();
+            
+            IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
+            
+            if ( workLoop )
+                workLoop->removeEventSource( _ejectTimerEventSource );
+            
+            _ejectTimerEventSource->release();
+            _ejectTimerEventSource = 0;
+        }
+        
+        if (_slowKeysTimerEventSource) {
+            _slowKeysTimerEventSource->cancelTimeout();
+            
+            IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
+            
+            if ( workLoop )
+                workLoop->removeEventSource( _slowKeysTimerEventSource );
+            
+            _slowKeysTimerEventSource->release();
+            _slowKeysTimerEventSource = 0;
+        }
+        
         IODelete(_reserved, ExpansionData, 1);
     }
 
@@ -653,7 +654,10 @@ bool IOHIKeyboardMapper::parseKeyMapping(const UInt8 *		  map,
 		/* If the map calls more sequences than are declared, bail out */
 	if (parsedMapping->numSeqs <= maxSeqNum)
 		return false;
-
+    
+    if (parsedMapping->numSeqs > NX_NUMSEQUENCES)
+        return false;
+    
 	/* Walk past all sequences */
 	for(i = 0; i < parsedMapping->numSeqs; i++)
 	{
@@ -736,7 +740,7 @@ bool IOHIKeyboardMapper::parseKeyMapping(const UInt8 *		  map,
         // check value of keyDefs
         unsigned char key = NX_NUMKEYCODES - 1;
         parsedMapping->specialKeys[NX_MODIFIERKEY_ALPHALOCK_STATELESS] = key;
-        parsedMapping->modDefs[key] = NULL;
+        parsedMapping->modDefs[NX_MODIFIERKEY_ALPHALOCK_STATELESS] = 0;
         parsedMapping->keyBits[key] = NX_MODIFIERKEY_ALPHALOCK_STATELESS | NX_MODMASK;
     }
     else {
@@ -1575,6 +1579,7 @@ void IOHIKeyboardMapper::stickyKeysfree (void)
 	if (_offParamDict)
 		_offParamDict->release();
 
+    if (_reserved) {
 		// release off fn param dict
 		if (_offFnParamDict)
 				_offFnParamDict->release();
@@ -1593,8 +1598,7 @@ void IOHIKeyboardMapper::stickyKeysfree (void)
 			_stickyKeysSetFnStateEventSource->release();
 			_stickyKeysSetFnStateEventSource = 0;
 		}
-
-
+    }
 }
 
 // allocate a StickyKeys_ToggleInfo struct

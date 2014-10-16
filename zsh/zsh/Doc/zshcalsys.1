@@ -1,4 +1,4 @@
-.TH "ZSHCALSYS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
+.TH "ZSHCALSYS" "1" "January 5, 2014" "zsh 5\&.0\&.5"
 .SH "NAME"
 zshcalsys \- zsh calendar system
 .\" Yodl file: Zsh/calsys.yo
@@ -742,17 +742,39 @@ time\&.
 .PP
 .RS
 .nf
-\fBAGEREF1=2006/10/04:10:15
+\fBAGEREF=2006/10/04:10:15
 AGEREF2=2006/10/04:10:45
 print *(+age)\fP
 .fi
 .RE
 .PP
 This shows the same example before using another form of argument
-passing\&.  The dates and times in the parameters \fBAGEREF1\fP and \fBAGEREF2\fP
+passing\&.  The dates and times in the parameters \fBAGEREF\fP and \fBAGEREF2\fP
 stay in effect until unset, but will be overridden if any argument is
 passed as an explicit argument to age\&.  Any explicit argument
 causes both parameters to be ignored\&.
+.PP
+Instead of an explicit date and time, it\&'s possible to use the
+modification time of a file as the date and time for either argument
+by introducing the file name with a colon:
+.PP
+.RS
+.nf
+\fBprint *(e\-age :file1\-)\fP
+.fi
+.RE
+.PP
+matches all files created on the same day (24 hours starting from
+midnight) as \fBfile1\fP\&.
+.PP
+.RS
+.nf
+\fBprint *(e\-age :file1 :file2\-)\fP
+.fi
+.RE
+.PP
+matches all files modified no earlier than \fBfile1\fP and
+no later than \fBfile2\fP; precision here is to the nearest second\&.
 .PP
 .SH "STYLES"
 .PP

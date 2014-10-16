@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		4D3DCB2008E084D300C78A0B /* msdosfs (Aggregate) */ = {
+		4D3DCB2008E084D300C78A0B /* msdosfs OSX */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs (Aggregate)" */;
+			buildConfigurationList = 4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs OSX" */;
 			buildPhases = (
 			);
 			dependencies = (
@@ -17,8 +17,20 @@
 				4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */,
 				4D9CE48B150080EE00186084 /* PBXTargetDependency */,
 			);
-			name = "msdosfs (Aggregate)";
+			name = "msdosfs OSX";
 			productName = "msdosfs (Aggregate)";
+		};
+		4D5A7D0C1816FB7E00D5FE60 /* msdosfs iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 4D5A7D0D1816FB7E00D5FE60 /* Build configuration list for PBXAggregateTarget "msdosfs iOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				4D5A7D141816FB9200D5FE60 /* PBXTargetDependency */,
+				4D5A7D121816FB8D00D5FE60 /* PBXTargetDependency */,
+			);
+			name = "msdosfs iOS";
+			productName = "msdosfs iOS";
 		};
 		4D9CE47A15007F7000186084 /* executables */ = {
 			isa = PBXAggregateTarget;
@@ -70,6 +82,7 @@
 		4D3DCF1A08E0BBF700C78A0B /* fsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0C08E0BBF700C78A0B /* fsutil.c */; };
 		4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0D08E0BBF700C78A0B /* fsutil.h */; };
 		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
+		4D46803317FC871600AAC579 /* msdosfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D46803217FC871600AAC579 /* msdosfs.c */; };
 		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
 		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
 		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
@@ -89,6 +102,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D3DCB5608E084D400C78A0B;
 			remoteInfo = "msdos.fs (Upgraded)";
+		};
+		4D5A7D111816FB8D00D5FE60 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCEF608E0BB1B00C78A0B;
+			remoteInfo = fsck_msdos;
+		};
+		4D5A7D131816FB9200D5FE60 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D46802C17FB978D00AAC579;
+			remoteInfo = msdosfs;
 		};
 		4D9CE47F15007F8C00186084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -174,7 +201,7 @@
 		4D027E2513B91F1400B48B76 /* libutil1.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil1.0.dylib; path = ../../../../usr/lib/libutil1.0.dylib; sourceTree = "<group>"; };
 		4D0C4AC51406BD9C002BFD22 /* copy_kext.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = copy_kext.sh; sourceTree = "<group>"; };
 		4D10326E0CD7C42C00952DEB /* msdosfs.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = msdosfs.py; sourceTree = "<group>"; tabWidth = 4; };
-		4D10326F0CD7C42C00952DEB /* test_fsck.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_fsck.py; sourceTree = "<group>"; };
+		4D10326F0CD7C42C00952DEB /* test_fsck.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_fsck.py; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
 		4D1032700CD7C42C00952DEB /* HexDump.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = HexDump.py; sourceTree = "<group>"; };
 		4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-msdosfs_kext.plist"; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCB4608E084D400C78A0B /* msdosfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdosfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -212,6 +239,9 @@
 		4D3DCF0C08E0BBF700C78A0B /* fsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fsutil.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0D08E0BBF700C78A0B /* fsutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fsutil.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0E08E0BBF700C78A0B /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D46802D17FB978D00AAC579 /* msdosfs.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = msdosfs.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D46803217FC871600AAC579 /* msdosfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = msdosfs.c; sourceTree = "<group>"; };
+		4D46803517FCDCD300AAC579 /* Notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Notes.txt; sourceTree = "<group>"; };
 		4D71368E112F748200BC4A72 /* msdosfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = msdosfs.xcconfig; sourceTree = "<group>"; };
 		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
 		4D91A5620920294E0067C87B /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = English; path = msdos_util.tproj/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -264,6 +294,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4D3DCEFA08E0BB1B00C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D46802A17FB978D00AAC579 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -340,6 +377,15 @@
 			path = fsck_msdos.tproj;
 			sourceTree = "<group>";
 		};
+		4D46803417FC872200AAC579 /* userfs_plugin */ = {
+			isa = PBXGroup;
+			children = (
+				4D46803517FCDCD300AAC579 /* Notes.txt */,
+				4D46803217FC871600AAC579 /* msdosfs.c */,
+			);
+			path = userfs_plugin;
+			sourceTree = "<group>";
+		};
 		7D8BA341010E490C02CA2964 /* msdosfs */ = {
 			isa = PBXGroup;
 			children = (
@@ -350,6 +396,7 @@
 				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
 				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
 				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
+				4D46803417FC872200AAC579 /* userfs_plugin */,
 				7D8BA376010E490C02CA2964 /* Products */,
 				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
 				4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */,
@@ -375,6 +422,7 @@
 				4D3DCB7408E084D400C78A0B /* msdos.util */,
 				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
 				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
+				4D46802D17FB978D00AAC579 /* msdosfs.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -431,6 +479,13 @@
 				4D3DCF1608E0BBF700C78A0B /* dosfs.h in Headers */,
 				4D3DCF1708E0BBF700C78A0B /* ext.h in Headers */,
 				4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D46802B17FB978D00AAC579 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -560,13 +615,30 @@
 			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
 			productType = "com.apple.product-type.tool";
 		};
+		4D46802C17FB978D00AAC579 /* msdosfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D46802E17FB978D00AAC579 /* Build configuration list for PBXNativeTarget "msdosfs" */;
+			buildPhases = (
+				4D46802917FB978D00AAC579 /* Sources */,
+				4D46802A17FB978D00AAC579 /* Frameworks */,
+				4D46802B17FB978D00AAC579 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = msdosfs;
+			productName = msdosfs;
+			productReference = 4D46802D17FB978D00AAC579 /* msdosfs.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		7D8BA340010E490C02CA2964 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -583,7 +655,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4D3DCB2008E084D300C78A0B /* msdosfs (Aggregate) */,
+				4D3DCB2008E084D300C78A0B /* msdosfs OSX */,
+				4D5A7D0C1816FB7E00D5FE60 /* msdosfs iOS */,
 				4D9CE47A15007F7000186084 /* executables */,
 				4D3DCB2B08E084D300C78A0B /* msdosfs.kext */,
 				4D3DCB5608E084D400C78A0B /* msdos.fs */,
@@ -591,6 +664,7 @@
 				4D3DCB4708E084D400C78A0B /* mount_msdos */,
 				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
 				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
+				4D46802C17FB978D00AAC579 /* msdosfs */,
 			);
 		};
 /* End PBXProject section */
@@ -803,6 +877,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4D46802917FB978D00AAC579 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D46803317FC871600AAC579 /* msdosfs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -815,6 +897,16 @@
 			isa = PBXTargetDependency;
 			target = 4D3DCB5608E084D400C78A0B /* msdos.fs */;
 			targetProxy = 4D3DCB7A08E084D400C78A0B /* PBXContainerItemProxy */;
+		};
+		4D5A7D121816FB8D00D5FE60 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */;
+			targetProxy = 4D5A7D111816FB8D00D5FE60 /* PBXContainerItemProxy */;
+		};
+		4D5A7D141816FB9200D5FE60 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D46802C17FB978D00AAC579 /* msdosfs */;
+			targetProxy = 4D5A7D131816FB9200D5FE60 /* PBXContainerItemProxy */;
 		};
 		4D9CE48015007F8C00186084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -897,6 +989,7 @@
 		4D3DCB4208E084D300C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -933,6 +1026,7 @@
 		4D3DCB4308E084D300C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -988,6 +1082,7 @@
 		4D3DCB6208E084D400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-msdos_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				PRODUCT_NAME = msdos;
@@ -998,6 +1093,7 @@
 		4D3DCB6308E084D400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-msdos_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				PRODUCT_NAME = msdos;
@@ -1059,6 +1155,91 @@
 			};
 			name = Release;
 		};
+		4D46802F17FB978D00AAC579 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4D46803017FB978D00AAC579 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = CodeCoverage;
+		};
+		4D46803117FB978D00AAC579 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4D5A7D0E1816FB7E00D5FE60 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4D5A7D0F1816FB7E00D5FE60 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = CodeCoverage;
+		};
+		4D5A7D101816FB7E00D5FE60 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		4D9CE47C15007F7000186084 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1084,10 +1265,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4D71368E112F748200BC4A72 /* msdosfs.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1096,6 +1280,11 @@
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -1105,10 +1294,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4D71368E112F748200BC4A72 /* msdosfs.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -1117,6 +1309,11 @@
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
@@ -1125,10 +1322,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4D71368E112F748200BC4A72 /* msdosfs.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1137,6 +1337,11 @@
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -1166,6 +1371,7 @@
 		4DD699550D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -1211,6 +1417,7 @@
 		4DD699570D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-msdos_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				PRODUCT_NAME = msdos;
@@ -1253,7 +1460,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs (Aggregate)" */ = {
+		4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs OSX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D3DCB2808E084D300C78A0B /* Debug */,
@@ -1319,6 +1526,26 @@
 				4D3DCEFF08E0BB1B00C78A0B /* Debug */,
 				4DD6995A0D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCF0008E0BB1B00C78A0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D46802E17FB978D00AAC579 /* Build configuration list for PBXNativeTarget "msdosfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D46802F17FB978D00AAC579 /* Debug */,
+				4D46803017FB978D00AAC579 /* CodeCoverage */,
+				4D46803117FB978D00AAC579 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D5A7D0D1816FB7E00D5FE60 /* Build configuration list for PBXAggregateTarget "msdosfs iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D5A7D0E1816FB7E00D5FE60 /* Debug */,
+				4D5A7D0F1816FB7E00D5FE60 /* CodeCoverage */,
+				4D5A7D101816FB7E00D5FE60 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

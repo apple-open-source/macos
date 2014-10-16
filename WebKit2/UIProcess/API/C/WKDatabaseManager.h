@@ -26,7 +26,7 @@
 #ifndef WKDatabaseManager_h
 #define WKDatabaseManager_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,39 +61,49 @@ WK_EXPORT WKStringRef WKDatabaseManagerGetDatabaseDetailsExpectedUsageKey();
 /* Value type: WKUInt64Ref */
 WK_EXPORT WKStringRef WKDatabaseManagerGetDatabaseDetailsCurrentUsageKey();
 
+/* Value type: WKDoubleRef, seconds since January 1st, 1970 UTC */
+WK_EXPORT WKStringRef WKDatabaseManagerGetDatabaseDetailsCreationTimeKey();
+
+/* Value type: WKDoubleRef, seconds since January 1st, 1970 UTC */
+WK_EXPORT WKStringRef WKDatabaseManagerGetDatabaseDetailsModificationTimeKey();
+
 
 // Database Manager Client
 typedef void (*WKDatabaseManagerDidModifyOriginCallback)(WKDatabaseManagerRef databaseManager, WKSecurityOriginRef origin, const void *clientInfo);
 typedef void (*WKDatabaseManagerDidModifyDatabaseCallback)(WKDatabaseManagerRef databaseManager, WKSecurityOriginRef origin, WKStringRef databaseIdentifier, const void *clientInfo);
 
-struct WKDatabaseManagerClient {
+typedef struct WKDatabaseManagerClientBase {
     int                                                                 version;
     const void *                                                        clientInfo;
+} WKDatabaseManagerClientBase;
+
+typedef struct WKDatabaseManagerClientV0 {
+    WKDatabaseManagerClientBase                                         base;
+
+    // Version 0.
     WKDatabaseManagerDidModifyOriginCallback                            didModifyOrigin;
     WKDatabaseManagerDidModifyDatabaseCallback                          didModifyDatabase;
-};
-typedef struct WKDatabaseManagerClient WKDatabaseManagerClient;
+} WKDatabaseManagerClientV0;
 
-enum { kWKDatabaseManagerClientCurrentVersion = 0 };
+enum { kWKDatabaseManagerClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 0 };
+typedef struct WKDatabaseManagerClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
 
+    // Version 0.
+    WKDatabaseManagerDidModifyOriginCallback                            didModifyOrigin;
+    WKDatabaseManagerDidModifyDatabaseCallback                          didModifyDatabase;
+} WKDatabaseManagerClient WK_DEPRECATED("Use an explicit versioned struct instead");
 
 WK_EXPORT WKTypeID WKDatabaseManagerGetTypeID();
 
-WK_EXPORT void WKDatabaseManagerSetClient(WKDatabaseManagerRef databaseManager, const WKDatabaseManagerClient* client);
+WK_EXPORT void WKDatabaseManagerSetClient(WKDatabaseManagerRef databaseManager, const WKDatabaseManagerClientBase* client);
 
 typedef void (*WKDatabaseManagerGetDatabasesByOriginFunction)(WKArrayRef, WKErrorRef, void*);
 WK_EXPORT void WKDatabaseManagerGetDatabasesByOrigin(WKDatabaseManagerRef databaseManager, void* context, WKDatabaseManagerGetDatabasesByOriginFunction function);
-#ifdef __BLOCKS__
-typedef void (^WKDatabaseManagerGetDatabasesByOriginBlock)(WKArrayRef, WKErrorRef);
-WK_EXPORT void WKDatabaseManagerGetDatabasesByOrigin_b(WKDatabaseManagerRef databaseManager, WKDatabaseManagerGetDatabasesByOriginBlock block);
-#endif
 
 typedef void (*WKDatabaseManagerGetDatabaseOriginsFunction)(WKArrayRef, WKErrorRef, void*);
 WK_EXPORT void WKDatabaseManagerGetDatabaseOrigins(WKDatabaseManagerRef contextRef, void* context, WKDatabaseManagerGetDatabaseOriginsFunction function);
-#ifdef __BLOCKS__
-typedef void (^WKDatabaseManagerGetDatabaseOriginsBlock)(WKArrayRef, WKErrorRef);
-WK_EXPORT void WKDatabaseManagerGetDatabaseOrigins_b(WKDatabaseManagerRef databaseManager, WKDatabaseManagerGetDatabaseOriginsBlock block);
-#endif
 
 WK_EXPORT void WKDatabaseManagerDeleteDatabasesWithNameForOrigin(WKDatabaseManagerRef databaseManager, WKStringRef databaseName, WKSecurityOriginRef origin);
 WK_EXPORT void WKDatabaseManagerDeleteDatabasesForOrigin(WKDatabaseManagerRef databaseManager, WKSecurityOriginRef origin);

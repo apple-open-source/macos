@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/mua.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/mua.xml
+ * ICU <specials> source: <path>/common/main/mua.xml
  */
 mua{
     Currencies{
@@ -225,7 +225,7 @@ mua{
         }
         ZMK{
             "ZMK",
-            "Solai Zambiya (1968-2012)",
+            "Solai Zambiya (1968–2012)",
         }
         ZMW{
             "ZMW",
@@ -236,5 +236,5 @@ mua{
             "Solai Zimbabwe",
         }
     }
-    Version{"2.0.82.45"}
+    Version{"2.0.92.87"}
 }

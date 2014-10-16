@@ -26,7 +26,7 @@
 #ifndef WKContextPrivateMac_h
 #define WKContextPrivateMac_h
 
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +43,9 @@ typedef void (^WKContextGetInfoForInstalledPlugInsBlock)(WKArrayRef, WKErrorRef)
 WK_EXPORT void WKContextGetInfoForInstalledPlugIns(WKContextRef context, WKContextGetInfoForInstalledPlugInsBlock block);
 
 WK_EXPORT void WKContextResetHSTSHosts(WKContextRef context);
+
+WK_EXPORT void WKContextRegisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme);
+WK_EXPORT void WKContextUnregisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme);
 
 /* DEPRECATED -  Please use constants from WKPluginInformation instead. */
 
@@ -63,6 +66,9 @@ WK_EXPORT WKStringRef WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailableKe
 
 /* Value type: WKBooleanRef */
 WK_EXPORT WKStringRef WKPlugInInfoIsSandboxedKey();
+
+WK_EXPORT bool WKContextShouldBlockWebGL();
+WK_EXPORT bool WKContextShouldSuggestBlockWebGL();
 
 #ifdef __cplusplus
 }

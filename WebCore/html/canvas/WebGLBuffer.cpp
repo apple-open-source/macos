@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,10 +29,8 @@
 
 #include "WebGLBuffer.h"
 
-#include "CheckedInt.h"
 #include "WebGLContextGroup.h"
 #include "WebGLRenderingContext.h"
-#include <wtf/ArrayBufferView.h>
 
 namespace WebCore {
 
@@ -83,7 +81,7 @@ bool WebGLBuffer::associateBufferDataImpl(const void* data, GC3Dsizeiptr byteLen
                 memcpy(m_elementArrayBuffer->data(), data, byteLength);
             }
         } else
-            m_elementArrayBuffer = 0;
+            m_elementArrayBuffer = nullptr;
         return true;
     case GraphicsContext3D::ARRAY_BUFFER:
         m_byteLength = byteLength;
@@ -102,14 +100,14 @@ bool WebGLBuffer::associateBufferData(ArrayBuffer* array)
 {
     if (!array)
         return false;
-    return associateBufferDataImpl(array ? array->data() : 0, array ? array->byteLength() : 0);
+    return associateBufferDataImpl(array->data(), array->byteLength());
 }
 
 bool WebGLBuffer::associateBufferData(ArrayBufferView* array)
 {
     if (!array)
         return false;
-    return associateBufferDataImpl(array ? array->baseAddress() : 0, array ? array->byteLength() : 0);
+    return associateBufferDataImpl(array->baseAddress(), array->byteLength());
 }
 
 bool WebGLBuffer::associateBufferSubDataImpl(GC3Dintptr offset, const void* data, GC3Dsizeiptr byteLength)
@@ -118,10 +116,10 @@ bool WebGLBuffer::associateBufferSubDataImpl(GC3Dintptr offset, const void* data
         return false;
 
     if (byteLength) {
-        CheckedInt<GC3Dintptr> checkedBufferOffset(offset);
-        CheckedInt<GC3Dsizeiptr> checkedDataLength(byteLength);
-        CheckedInt<GC3Dintptr> checkedBufferMax = checkedBufferOffset + checkedDataLength;
-        if (!checkedBufferMax.isValid() || offset > m_byteLength || checkedBufferMax.value() > m_byteLength)
+        Checked<GC3Dintptr, RecordOverflow> checkedBufferOffset(offset);
+        Checked<GC3Dsizeiptr, RecordOverflow> checkedDataLength(byteLength);
+        Checked<GC3Dintptr, RecordOverflow> checkedBufferMax = checkedBufferOffset + checkedDataLength;
+        if (checkedBufferMax.hasOverflowed() || offset > m_byteLength || checkedBufferMax.unsafeGet() > m_byteLength)
             return false;
     }
 
@@ -153,6 +151,12 @@ bool WebGLBuffer::associateBufferSubData(GC3Dintptr offset, ArrayBufferView* arr
     if (!array)
         return false;
     return associateBufferSubDataImpl(offset, array->baseAddress(), array->byteLength());
+}
+
+void WebGLBuffer::disassociateBufferData()
+{
+    m_byteLength = 0;
+    clearCachedMaxIndices();
 }
 
 GC3Dsizeiptr WebGLBuffer::byteLength() const

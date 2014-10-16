@@ -58,7 +58,7 @@ int mode_block = 0;
 
 #define PAD32(x) (((x) + 3) & ~3)
 
-void hex_and_ascii_print(const char *, const void *, unsigned int , const char *);
+void hex_and_ascii_print(const char *, const void *, size_t, const char *);
 
 struct section_info *
 new_section_info(pcap_t *pcap, struct pcapng_section_header_fields *shb)
@@ -385,7 +385,7 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				optptr = (u_char *)(idb + 1);
 
 				break;
-			}
+			}	
 			case PCAPNG_BT_EPB: {
 				struct pcapng_enhanced_packet_fields *epb = (struct pcapng_enhanced_packet_fields *)(block_header + 1);
 				printf("# Enhanced Packet Block\n");
@@ -535,10 +535,37 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 #define	SWAPLONGLONG(y) \
 (SWAPLONG((unsigned long)(y)) << 32 | SWAPLONG((unsigned long)((y) >> 32)))
 
+void
+test_pcap_ng_fopen_offline(const char *filename, char *errbuf)
+{
+	FILE *fp = fopen(filename, "r");
+	off_t offset;
+	
+	if (fp == NULL) {
+		warn("fopen(%s) failed", filename);
+		return;
+	}
+	offset = ftello(fp);
+	pcap_t *pcap = pcap_ng_fopen_offline(fp, errbuf);
+	if (pcap == NULL) {
+		warnx("pcap_ng_fopen_offline(%s) failed: %s\n",
+		      filename, errbuf);
+		if (ftello(fp) != offset)
+			warnx("pcap_ng_fopen_offline(%s) ftello(fp) (%llu) != offset (%llu)",
+			      filename, ftello(fp), offset);
+	} else {
+		pcap_close(pcap);
+	}
+	fclose(fp);
+	
+}
+
+
 int main(int argc, const char * argv[])
 {
 	int i;
 	char errbuf[PCAP_ERRBUF_SIZE];
+	
 #if 0
 	u_int64_t	section_length;
 	
@@ -577,6 +604,7 @@ int main(int argc, const char * argv[])
 		if (pcap == NULL) {
 			warnx("pcap_ng_open_offline(%s) failed: %s\n",
 				  argv[i], errbuf);
+			test_pcap_ng_fopen_offline(argv[i], errbuf);
 			continue;
 		}
 		int result = pcap_dispatch(pcap, -1, read_callback, (u_char *)pcap);

@@ -27,14 +27,8 @@
 
 #pragma ident	"@(#)ctf_lookup.c	1.6	06/01/07 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
-#include <ctf_impl.h>
-#else /* is Apple Mac OS X */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
 #include <ctf_impl.h>
 #include <mach-o/nlist.h>
-#endif /* __APPLE__ */
 
 /*
  * Compare the given input string and length against a table of known C storage
@@ -193,7 +187,6 @@ ctf_lookup_by_symbol(ctf_file_t *fp, ulong_t symidx)
 	if (symidx >= fp->ctf_nsyms)
 		return (ctf_set_errno(fp, EINVAL));
 
-#if defined(__APPLE__)
 	if (sp->cts_entsize == sizeof (struct nlist)) {
 		const struct nlist *nsym = (const struct nlist *)sp->cts_data + symidx;
 
@@ -224,9 +217,7 @@ ctf_lookup_by_symbol(ctf_file_t *fp, ulong_t symidx)
 			if (nsym->n_desc != STT_OBJECT)
 				return (ctf_set_errno(fp, ECTF_NOTDATA));
 		}
-	} else
-#endif /* __APPLE__ */
-	if (sp->cts_entsize == sizeof (Elf32_Sym)) {
+	} else if (sp->cts_entsize == sizeof (Elf32_Sym)) {
 		const Elf32_Sym *symp = (Elf32_Sym *)sp->cts_data + symidx;
 		if (ELF32_ST_TYPE(symp->st_info) != STT_OBJECT)
 			return (ctf_set_errno(fp, ECTF_NOTDATA));

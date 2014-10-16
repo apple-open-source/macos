@@ -91,15 +91,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
-/*
-static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
-*/
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/netstat/ipsec.c,v 1.1.2.3 2001/08/10 09:07:09 ru Exp $";
-#endif /* not lint */
-
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/socket.h>

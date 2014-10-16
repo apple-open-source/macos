@@ -36,15 +36,15 @@
 /* From ntpdate.c */
 int is_reachable (struct addrinfo *dst);
 
-int resolve_hosts (char **hosts, int hostc, struct addrinfo ***res, int pref_family);
+int resolve_hosts (char **hosts, int hostc, const char *servname, struct addrinfo ***res, int pref_family);
 
 void create_socket (SOCKET *rsock, sockaddr_u *dest);
 
 int sendpkt (SOCKET rsock, sockaddr_u *dest, struct pkt *pkt, int len);
 
-int recvdata (SOCKET rsock, sockaddr_u *sender, char *rdata, int rdata_len);
+int recvdata (SOCKET rsock, struct timeval timeout, sockaddr_u *sender, char *rdata, int rdata_len);
 
-int recvpkt (SOCKET rsock, struct pkt *rpkt, struct pkt *spkt);
+int recvpkt (SOCKET rsock, struct timeval timeout, struct pkt *rpkt, struct pkt *spkt);
 
 int recv_bcst_data (SOCKET rsock, char *rdata, int rdata_len, sockaddr_u *sas, sockaddr_u *ras);
 

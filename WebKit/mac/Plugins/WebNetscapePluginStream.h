@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,7 +31,7 @@
 
 #import <WebCore/Timer.h>
 #import <WebCore/NetscapePlugInStreamLoader.h>
-#import <WebKit/npfunctions.h>
+#import <WebKitLegacy/npfunctions.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
@@ -72,7 +72,7 @@ public:
 
     void cancelLoadAndDestroyStreamWithError(NSError *);
 
-    void setRequestURL(const WebCore::KURL& requestURL) { m_requestURL = requestURL; }
+    void setRequestURL(const WebCore::URL& requestURL) { m_requestURL = requestURL; }
 
     void start();
     void stop();
@@ -100,7 +100,7 @@ private:
     bool wantsAllStreams() const;
 
     RetainPtr<NSMutableData> m_deliveryData;
-    WebCore::KURL m_requestURL;
+    WebCore::URL m_requestURL;
     RetainPtr<NSURL> m_responseURL;
     CString m_mimeType;
 

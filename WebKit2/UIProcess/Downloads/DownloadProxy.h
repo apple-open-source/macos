@@ -33,6 +33,10 @@
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 
+namespace API {
+class Data;
+}
+
 namespace WebCore {
     class AuthenticationChallenge;
     class ResourceError;
@@ -43,36 +47,31 @@ namespace WebKit {
 
 class DownloadProxyMap;
 class WebContext;
-class WebData;
 class WebPageProxy;
 
-class DownloadProxy : public TypedAPIObject<APIObject::TypeDownload>, public CoreIPC::MessageReceiver {
+class DownloadProxy : public API::ObjectImpl<API::Object::Type::Download>, public IPC::MessageReceiver {
 public:
-    static PassRefPtr<DownloadProxy> create(DownloadProxyMap&, WebContext*);
+    static PassRefPtr<DownloadProxy> create(DownloadProxyMap&, WebContext&);
     ~DownloadProxy();
 
     uint64_t downloadID() const { return m_downloadID; }
     const WebCore::ResourceRequest& request() const { return m_request; }
-    WebData* resumeData() const { return m_resumeData.get(); }
+    API::Data* resumeData() const { return m_resumeData.get(); }
 
     void cancel();
 
     void invalidate();
     void processDidClose();
 
-    void didReceiveDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
-    void didReceiveSyncDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
-
-#if PLATFORM(QT)
-    void startTransfer(const String& filename);
-#endif
+    void didReceiveDownloadProxyMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveSyncDownloadProxyMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
 
 private:
-    explicit DownloadProxy(DownloadProxyMap&, WebContext*);
+    explicit DownloadProxy(DownloadProxyMap&, WebContext&);
 
-    // CoreIPC::MessageReceiver
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
+    // IPC::MessageReceiver
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
     // Message handlers.
     void didStart(const WebCore::ResourceRequest&);
@@ -83,14 +82,14 @@ private:
     void decideDestinationWithSuggestedFilename(const String& filename, String& destination, bool& allowOverwrite, SandboxExtension::Handle& sandboxExtensionHandle);
     void didCreateDestination(const String& path);
     void didFinish();
-    void didFail(const WebCore::ResourceError&, const CoreIPC::DataReference& resumeData);
-    void didCancel(const CoreIPC::DataReference& resumeData);
+    void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
+    void didCancel(const IPC::DataReference& resumeData);
 
     DownloadProxyMap& m_downloadProxyMap;
     RefPtr<WebContext> m_webContext;
     uint64_t m_downloadID;
 
-    RefPtr<WebData> m_resumeData;
+    RefPtr<API::Data> m_resumeData;
     WebCore::ResourceRequest m_request;
 };
 

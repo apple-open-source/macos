@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -29,10 +29,7 @@
 #include "FilterOperation.h"
 
 #include "AnimationUtilities.h"
-
-#if ENABLE(SVG)
 #include "CachedSVGDocumentReference.h"
-#endif
 
 namespace WebCore {
     
@@ -63,12 +60,12 @@ bool ReferenceFilterOperation::operator==(const FilterOperation& o) const
     return m_url == toReferenceFilterOperation(o).m_url;
 }
     
-#if ENABLE(SVG)
-void ReferenceFilterOperation::setCachedSVGDocumentReference(PassOwnPtr<CachedSVGDocumentReference> cachedSVGDocumentReference)
+CachedSVGDocumentReference* ReferenceFilterOperation::getOrCreateCachedSVGDocumentReference()
 {
-    m_cachedSVGDocumentReference = cachedSVGDocumentReference;
+    if (!m_cachedSVGDocumentReference)
+        m_cachedSVGDocumentReference = std::make_unique<CachedSVGDocumentReference>(m_url);
+    return m_cachedSVGDocumentReference.get();
 }
-#endif
 
 PassRefPtr<FilterOperation> BasicColorMatrixFilterOperation::blend(const FilterOperation* from, double progress, bool blendToPassthrough)
 {

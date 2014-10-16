@@ -28,12 +28,12 @@
 #include <IOKit/hid/IOHIDServicePlugIn.h>
 #include "IOHIDIUnknown.h"
 #include "IOHIDDeviceClass.h"
+#include "IOHIDUPSClass.h"
 
 #if TARGET_OS_EMBEDDED
     #include "IOHIDEventServiceClass.h"
-#else
-    #include "IOHIDUPSClass.h"
 #endif
+
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
@@ -46,10 +46,9 @@ void *IOHIDLibFactory(CFAllocatorRef allocator __unused, CFUUIDRef typeID)
 #if TARGET_OS_EMBEDDED
     else if (CFEqual(typeID, kIOHIDServicePlugInTypeID))
         return (void *) IOHIDEventServiceClass::alloc();
-#else
+#endif
     else if (CFEqual(typeID, kIOUPSPlugInTypeID))
         return (void *) IOHIDUPSClass::alloc();
-#endif
     else
         return NULL;
 }

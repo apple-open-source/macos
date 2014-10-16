@@ -50,11 +50,11 @@
 #include <stdio.h>
 
 #include <mach/mach.h>
+#include <mach/vm_page_size.h>
 
 vm_statistics64_data_t	vm_stat, last;
 char	*pgmname;
 mach_port_t myHost;
-vm_size_t pageSize = 4096; 	/* set to 4k default */
 
 void usage(void);
 void snapshot(void);
@@ -104,11 +104,6 @@ main(int argc, char *argv[])
 
 	myHost = mach_host_self();
 
-	if(host_page_size(mach_host_self(), &pageSize) != KERN_SUCCESS) {
-		fprintf(stderr, "%s: failed to get pagesize; defaulting to 4K.\n", pgmname);
-		pageSize = 4096;
-	}	
-
 	if (delay == 0.0) {
 		snapshot();
 	} else {
@@ -133,8 +128,7 @@ snapshot(void)
 {
 
 	get_stats(&vm_stat);
-	printf("Mach Virtual Memory Statistics: (page size of %d bytes)\n",
-				(int) (pageSize));
+	printf("Mach Virtual Memory Statistics: (page size of %llu bytes)\n", (mach_vm_size_t)vm_kernel_page_size);
 
 	sspstat("Pages free:", (uint64_t) (vm_stat.free_count - vm_stat.speculative_count));
 	sspstat("Pages active:", (uint64_t) (vm_stat.active_count));
@@ -171,8 +165,7 @@ banner(void)
 {
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: ");
-	printf("(page size of %d bytes)\n",
-				(int) (pageSize));
+	printf("(page size of %llu bytes)\n", (mach_vm_size_t)vm_kernel_page_size);
 	printf("%8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %11s %9s %8s %8s %8s %8s %8s %8s %8s %8s\n",
 	       "free",
 	       "active",

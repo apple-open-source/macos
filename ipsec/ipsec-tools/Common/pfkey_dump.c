@@ -251,6 +251,7 @@ pfkey_sadump1(m, withports)
 
 	int use_natt = 0;
 #endif
+	struct sadb_x_ipsecif *m_ipif = NULL;
 	struct sockaddr *sa;
 
 	/* check pfkey message. */
@@ -289,6 +290,7 @@ pfkey_sadump1(m, withports)
 	if (natt_type && natt_type->sadb_x_nat_t_type_type)
 		use_natt = 1;
 #endif
+	m_ipif = (void *)mhp[SADB_X_EXT_IPSECIF];
 	/* source address */
 	if (m_saddr == NULL) {
 		printf("no ADDRESS_SRC extension.\n");
@@ -387,10 +389,26 @@ pfkey_sadump1(m, withports)
 		m_sa->sadb_sa_replay,
 		m_sa->sadb_sa_flags);
 
+#ifdef SADB_X_EXT_SA2_DELETE_ON_DETACH
+	printf("flags2=0x%08x ",
+		   m_sa2->sadb_x_sa2_flags);
+#endif
+
 	/* state */
 	printf("state=");
 	GETMSGSTR(str_state, m_sa->sadb_sa_state);
 	printf("\n");
+
+	if (m_ipif) {
+		printf("\t");
+		if (m_ipif->sadb_x_ipsecif_internal_if[0])
+			printf("internal_if: %s  ", m_ipif->sadb_x_ipsecif_internal_if);
+		if (m_ipif->sadb_x_ipsecif_outgoing_if[0])
+			printf("outgoing_if: %s  ", m_ipif->sadb_x_ipsecif_outgoing_if);
+		if (m_ipif->sadb_x_ipsecif_ipsec_if[0])
+			printf("ipsec_if: %s  ", m_ipif->sadb_x_ipsecif_ipsec_if);
+		printf("disabled: %d\n", m_ipif->sadb_x_ipsecif_init_disabled);
+	}
 
 	/* lifetime */
 	if (m_lftc != NULL) {
@@ -639,17 +657,17 @@ int withports;
                (u_long)m_lfth->sadb_lifetime_usetime);
 	}
     
-    if (m_ipif) {
-        printf("\t");
-        if (m_ipif->sadb_x_ipsecif_internal_if[0])
-            printf("Internal interface: %s  ", m_ipif->sadb_x_ipsecif_internal_if);
-        if (m_ipif->sadb_x_ipsecif_outgoing_if[0])
-            printf("Outgoing interface: %s  ", m_ipif->sadb_x_ipsecif_outgoing_if);
-        if (m_ipif->sadb_x_ipsecif_ipsec_if[0])
-            printf("IPSec interface: %s  ", m_ipif->sadb_x_ipsecif_ipsec_if);
-        printf("Disabled: %d\n", m_ipif->sadb_x_ipsecif_init_disabled);
-    }
-    
+	if (m_ipif) {
+		printf("\t");
+		if (m_ipif->sadb_x_ipsecif_internal_if[0])
+			printf("internal_if: %s  ", m_ipif->sadb_x_ipsecif_internal_if);
+		if (m_ipif->sadb_x_ipsecif_outgoing_if[0])
+			printf("outgoing_if: %s  ", m_ipif->sadb_x_ipsecif_outgoing_if);
+		if (m_ipif->sadb_x_ipsecif_ipsec_if[0])
+			printf("ipsec_if: %s  ", m_ipif->sadb_x_ipsecif_ipsec_if);
+		printf("disabled: %d\n", m_ipif->sadb_x_ipsecif_init_disabled);
+	}
+
 	printf("\tspid=%ld seq=%ld pid=%ld\n",
            (u_long)m_xpl->sadb_x_policy_id,
            (u_long)m->sadb_msg_seq,

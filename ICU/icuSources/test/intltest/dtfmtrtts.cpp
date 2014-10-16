@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2012, International Business Machines Corporation
+ * Copyright (c) 1997-2014, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -27,8 +27,6 @@
 #ifndef INFINITE
 #define INFINITE 0
 #endif
-
-static const UVersionInfo ICU_452 = {4,5,2,0};
 
 // Define this to test just a single locale
 //#define TEST_ONE_LOC  "cs_CZ"
@@ -335,7 +333,7 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
             for(loop = 0; loop < DEPTH; ++loop) {
                 if (loop > 0)  {
                     d[loop] = fmt->parse(s[loop-1], status);
-                    failure(status, "fmt->parse", s[loop-1]+" in locale: " + origLocale.getName());
+                    failure(status, "fmt->parse", s[loop-1]+" in locale: " + origLocale.getName() + " with pattern: " + pat);
                     status = U_ZERO_ERROR; /* any error would have been reported */
                 }
 

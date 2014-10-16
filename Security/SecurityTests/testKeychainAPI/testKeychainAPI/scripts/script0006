@@ -1,0 +1,80 @@
+//
+// script0006
+//
+//		KCSetData
+//		KCGetData
+//
+// Create & Add an Generic Password item a default Keychain, then modify the data
+// 
+35 KCNewItem
+   Input Arguments : 4
+     Class : genp
+     Creator : meme
+     Data : /50/First Generic password:abcdefghijklmnopqrstuvwxyz#
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0006.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+38 KCSetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /3/Cat
+   Results : 1
+     OSStatus 0
+45 KCUpdateItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+//
+// NOTE! We return errKCInvalid (soon to change to access denied)
+// We want to prohibit processes from accessing data that is cached in 
+// memory that hasn't been written out.  We want to stop the process
+// from bypassing our rogue-app/access control UI
+//
+39 KCGetData
+   Input Arguments : 2
+     ItemIndex : 0
+     Data : /3/000
+   Results : 3
+     OSStatus 0
+     Data : /3/Cat
+     ActualLength : 3
+46 KCReleaseItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+6 KCReleaseKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+   Results : 1
+      OSStatus 0

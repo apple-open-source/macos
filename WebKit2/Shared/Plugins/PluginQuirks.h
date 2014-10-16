@@ -89,6 +89,9 @@ public:
         // freeze when sending right click events to them in windowed mode.
         IgnoreRightClickInWindowlessMode,
 
+        // Some ports don't support windowed plugins.
+        ForceFlashWindowlessMode,
+
         // Windows specific quirks:
 #elif PLUGIN_ARCHITECTURE(WIN)
         // Whether NPN_UserAgent should always return a Mozilla user agent.
@@ -113,7 +116,7 @@ public:
     void add(PluginQuirk quirk)
     {
         ASSERT(quirk >= 0);
-        ASSERT(quirk < NumPluginQuirks);
+        ASSERT_WITH_SECURITY_IMPLICATION(quirk < NumPluginQuirks);
         
         m_quirks |= (1 << quirk);
     }

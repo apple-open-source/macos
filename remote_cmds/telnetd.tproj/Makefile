@@ -30,3 +30,4 @@ ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 		"$(DSTROOT)/System/Library/LaunchDaemons/telnet.plist"
 endif
 	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"
+	/usr/bin/codesign --force --sign - --entitlements entitlements.plist $(DSTROOT)$(Install_Dir)/$(Project)

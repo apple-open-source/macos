@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -36,14 +36,12 @@ namespace WebCore {
 
 static inline IntSize outsetSizeForBlur(float stdDeviation)
 {
-    unsigned kernelSizeX = 0;
-    unsigned kernelSizeY = 0;
-    FEGaussianBlur::calculateUnscaledKernelSize(kernelSizeX, kernelSizeY, stdDeviation, stdDeviation);
+    IntSize kernelSize = FEGaussianBlur::calculateUnscaledKernelSize(FloatPoint(stdDeviation, stdDeviation));
 
     IntSize outset;
     // We take the half kernel size and multiply it with three, because we run box blur three times.
-    outset.setWidth(3 * kernelSizeX * 0.5f);
-    outset.setHeight(3 * kernelSizeY * 0.5f);
+    outset.setWidth(3 * kernelSize.width() * 0.5f);
+    outset.setHeight(3 * kernelSize.height() * 0.5f);
 
     return outset;
 }
@@ -87,22 +85,10 @@ bool FilterOperations::operationsMatch(const FilterOperations& other) const
     return true;
 }
 
-#if ENABLE(CSS_SHADERS)
-bool FilterOperations::hasCustomFilter() const
-{
-    for (size_t i = 0; i < m_operations.size(); ++i) {
-        FilterOperation::OperationType type = m_operations.at(i)->getOperationType();
-        if (type == FilterOperation::CUSTOM || type == FilterOperation::VALIDATED_CUSTOM)
-            return true;
-    }
-    return false;
-}
-#endif
-
 bool FilterOperations::hasReferenceFilter() const
 {
     for (size_t i = 0; i < m_operations.size(); ++i) {
-        if (m_operations.at(i)->getOperationType() == FilterOperation::REFERENCE)
+        if (m_operations.at(i)->type() == FilterOperation::REFERENCE)
             return true;
     }
     return false;
@@ -111,7 +97,7 @@ bool FilterOperations::hasReferenceFilter() const
 bool FilterOperations::hasOutsets() const
 {
     for (size_t i = 0; i < m_operations.size(); ++i) {
-        FilterOperation::OperationType operationType = m_operations.at(i).get()->getOperationType();
+        FilterOperation::OperationType operationType = m_operations.at(i).get()->type();
         if (operationType == FilterOperation::BLUR || operationType == FilterOperation::DROP_SHADOW)
             return true;
     }
@@ -123,7 +109,7 @@ FilterOutsets FilterOperations::outsets() const
     FilterOutsets totalOutsets;
     for (size_t i = 0; i < m_operations.size(); ++i) {
         const FilterOperation* filterOperation = m_operations.at(i).get();
-        switch (filterOperation->getOperationType()) {
+        switch (filterOperation->type()) {
         case FilterOperation::BLUR: {
             const BlurFilterOperation* blurOperation = toBlurFilterOperation(filterOperation);
             float stdDeviation = floatValueForLength(blurOperation->stdDeviation(), 0);
@@ -144,14 +130,6 @@ FilterOutsets FilterOperations::outsets() const
             totalOutsets += outsets;
             break;
         }
-#if ENABLE(CSS_SHADERS)
-        case FilterOperation::CUSTOM:
-        case FilterOperation::VALIDATED_CUSTOM: {
-            // FIXME: Need to include the filter margins here.
-            // https://bugs.webkit.org/show_bug.cgi?id=71400
-            break;
-        }
-#endif
         default:
             break;
         }

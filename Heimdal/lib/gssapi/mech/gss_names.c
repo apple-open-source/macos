@@ -126,8 +126,8 @@ _gss_mg_release_name(struct _gss_name *name)
 {
 	OM_uint32 junk;
 
-	if (name->gn_type.elements)
-		free(name->gn_type.elements);
+	_gss_free_oid(&junk, &name->gn_type);
+
 	while (HEIM_SLIST_FIRST(&name->gn_mn)) {
 		struct _gss_mechanism_name *mn;
 		mn = HEIM_SLIST_FIRST(&name->gn_mn);

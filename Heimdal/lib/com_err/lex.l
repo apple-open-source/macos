@@ -60,6 +60,7 @@ et			{ return ET; }
 error_table		{ return ET; }
 ec			{ return EC; }
 error_code		{ return EC; }
+cfprefix		{ return CFPREFIX; }
 prefix			{ return PREFIX; }
 index			{ return INDEX; }
 id			{ return ID; }
@@ -85,7 +86,7 @@ static int
 getstring(void)
 {
     char x[128];
-    int i = 0;
+    size_t i = 0;
     int c;
     int quote = 0;
     while(i < sizeof(x) - 1 && (c = input()) != EOF){

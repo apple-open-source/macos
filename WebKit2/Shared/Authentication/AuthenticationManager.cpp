@@ -47,7 +47,7 @@ namespace WebKit {
 
 static uint64_t generateAuthenticationChallengeID()
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     static int64_t uniqueAuthenticationChallengeID;
     return ++uniqueAuthenticationChallengeID;
@@ -61,12 +61,12 @@ const char* AuthenticationManager::supplementName()
 AuthenticationManager::AuthenticationManager(ChildProcess* process)
     : m_process(process)
 {
-    m_process->addMessageReceiver(Messages::AuthenticationManager::messageReceiverName(), this);
+    m_process->addMessageReceiver(Messages::AuthenticationManager::messageReceiverName(), *this);
 }
 
 uint64_t AuthenticationManager::establishIdentifierForChallenge(const WebCore::AuthenticationChallenge& authenticationChallenge)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     uint64_t challengeID = generateAuthenticationChallengeID();
     m_challenges.set(challengeID, authenticationChallenge);
@@ -97,21 +97,21 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(Download* download
 }
 
 // Currently, only Mac knows how to respond to authentication challenges with certificate info.
-#if !USE(SECURITY_FRAMEWORK)
-bool AuthenticationManager::tryUsePlatformCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const PlatformCertificateInfo&)
+#if !HAVE(SEC_IDENTITY)
+bool AuthenticationManager::tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const CertificateInfo&)
 {
     return false;
 }
 #endif
 
-void AuthenticationManager::useCredentialForChallenge(uint64_t challengeID, const Credential& credential, const PlatformCertificateInfo& certificateInfo)
+void AuthenticationManager::useCredentialForChallenge(uint64_t challengeID, const Credential& credential, const CertificateInfo& certificateInfo)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     AuthenticationChallenge challenge = m_challenges.take(challengeID);
     ASSERT(!challenge.isNull());
     
-    if (tryUsePlatformCertificateInfoForChallenge(challenge, certificateInfo))
+    if (tryUseCertificateInfoForChallenge(challenge, certificateInfo))
         return;
     
     AuthenticationClient* coreClient = challenge.authenticationClient();
@@ -126,7 +126,7 @@ void AuthenticationManager::useCredentialForChallenge(uint64_t challengeID, cons
 
 void AuthenticationManager::continueWithoutCredentialForChallenge(uint64_t challengeID)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     AuthenticationChallenge challenge = m_challenges.take(challengeID);
     ASSERT(!challenge.isNull());
@@ -142,7 +142,7 @@ void AuthenticationManager::continueWithoutCredentialForChallenge(uint64_t chall
 
 void AuthenticationManager::cancelChallenge(uint64_t challengeID)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     AuthenticationChallenge challenge = m_challenges.take(challengeID);
     ASSERT(!challenge.isNull());
@@ -154,6 +154,38 @@ void AuthenticationManager::cancelChallenge(uint64_t challengeID)
     }
 
     coreClient->receivedCancellation(challenge);
+}
+
+void AuthenticationManager::performDefaultHandling(uint64_t challengeID)
+{
+    ASSERT(RunLoop::isMain());
+
+    AuthenticationChallenge challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.isNull());
+    AuthenticationClient* coreClient = challenge.authenticationClient();
+    if (!coreClient) {
+        // This authentication challenge comes from a download.
+        Download::receivedRequestToPerformDefaultHandling(challenge);
+        return;
+    }
+
+    coreClient->receivedRequestToPerformDefaultHandling(challenge);
+}
+
+void AuthenticationManager::rejectProtectionSpaceAndContinue(uint64_t challengeID)
+{
+    ASSERT(RunLoop::isMain());
+
+    AuthenticationChallenge challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.isNull());
+    AuthenticationClient* coreClient = challenge.authenticationClient();
+    if (!coreClient) {
+        // This authentication challenge comes from a download.
+        Download::receivedChallengeRejection(challenge);
+        return;
+    }
+
+    coreClient->receivedChallengeRejection(challenge);
 }
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,8 @@
 #include "IOAudioDefines.h"
 #include "IOAudioLevelControl.h"
 #include "IOAudioToggleControl.h"
+#include "AudioTracepoints.h"
+
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOTimerEventSource.h>
@@ -35,6 +37,8 @@
 #include <libkern/c++/OSDictionary.h>
 #include <libkern/c++/OSSet.h>
 #include <libkern/c++/OSCollectionIterator.h>
+
+#include <sys/sysctl.h>
 
 #define NUM_POWER_STATES	2
 
@@ -102,6 +106,82 @@ OSMetaClassDefineReservedUnused(IOAudioDevice, 30);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 31);
 
 // New code added here
+
+//================================================================================================
+//
+//	Start Tracepoint Setup
+//
+//================================================================================================
+class AudioGlobals
+{
+public:
+    AudioGlobals(void);                             // Constructor
+    virtual ~AudioGlobals(void);					// Destructor
+};
+
+static int				AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req );
+static AudioGlobals		gAudioStackGlobals;						// needs to be declared early to register tracepoints via sysctl
+UInt32					gAudioStackDebugFlags = 0;				// extern-ed in IOAudioDebug.h
+
+SYSCTL_PROC ( _debug, OID_AUTO, Audio, CTLFLAG_RW, 0, 0, AudioSysctl, "Audio", "Audio debug interface" );
+
+static int AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req )
+{
+    int                 error = 0;
+    AudioSysctlArgs     audioArgs;
+    
+    DEBUG_UNUSED ( oidp );
+    DEBUG_UNUSED ( arg1 );
+    DEBUG_UNUSED ( arg2 );
+    
+    //IOLog( "USBSysctl: gUSBStackDebugFlags = 0x%08X\n", ( unsigned int ) gUSBStackDebugFlags );
+    
+    error = SYSCTL_IN ( req, &audioArgs, sizeof ( audioArgs ) );
+    if ( ( error == 0 ) && ( audioArgs.type == kAudioTypeDebug ) )
+    {
+        if ( audioArgs.operation == kAudioOperationGetFlags )
+        {
+            audioArgs.debugFlags = gAudioStackDebugFlags;
+            error = SYSCTL_OUT ( req, &audioArgs, sizeof ( audioArgs ) );
+        }
+        
+        else if ( audioArgs.operation == kAudioOperationSetFlags )
+        {
+            gAudioStackDebugFlags = audioArgs.debugFlags;
+        }
+    }
+    
+    IOLog("AudioSysctl: (%d)\n", gAudioStackDebugFlags);
+    return error;
+}
+
+
+
+AudioGlobals::AudioGlobals ( void )
+{
+    int debugFlags;
+    
+    if ( PE_parse_boot_argn ( "audio", &debugFlags, sizeof ( debugFlags ) ) )
+    {
+        gAudioStackDebugFlags = debugFlags;
+    }
+    
+    // Register our sysctl interface
+    sysctl_register_oid ( &sysctl__debug_Audio );
+    
+}
+
+
+
+AudioGlobals::~AudioGlobals ( void )
+{
+    // Unregister our sysctl interface
+    sysctl_unregister_oid ( &sysctl__debug_Audio );
+    
+}
+
+
+
 void IOAudioDevice::setDeviceModelName(const char *modelName)
 {
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::setDeviceModelName(%p)\n", this, modelName);
@@ -378,6 +458,7 @@ bool IOAudioDevice::start(IOService *provider)
     };
     
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::start(%p)\n", this, provider);
+    AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceStart, (uintptr_t)this, (uintptr_t)provider, 0, 0);
 	
 	if ( super::start ( provider ) )
 	{
@@ -416,6 +497,7 @@ bool IOAudioDevice::start(IOService *provider)
 	}
 	
     audioDebugIOLog(3, "- IOAudioDevice[%p]::start(%p)\n", this, provider);
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceStart, (uintptr_t)this, (uintptr_t)provider, result, 0);
 	return result;
 }
 
@@ -655,7 +737,11 @@ IOReturn IOAudioDevice::initiatePowerStateChange(UInt32 *microsecondsUntilComple
                 asyncPowerStateChangeInProgress = false;
                 protectedCompletePowerStateChange();
             }
-        } else {
+        } else if ( result == IOPMWillAckLater ) {
+            asyncPowerStateChangeInProgress = true;
+        }
+        else
+        {
             asyncPowerStateChangeInProgress = false;
         }
     }
@@ -800,15 +886,17 @@ void IOAudioDevice::audioEngineStopped()
 {
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::audioEngineStopped() - numRunningAudioEngines = %ld\n", this, (long int)( numRunningAudioEngines - 1 ) );
 
-    numRunningAudioEngines--;
+	if ( numRunningAudioEngines > 0 ) {
+	    numRunningAudioEngines--;
+	}
     
     if (numRunningAudioEngines == 0) {	// Last audio engine stopping - need to be idle
         if (getPowerState() == kIOAudioDeviceActive) {	// Go idle
-            if (asyncPowerStateChangeInProgress) {	// Sleep if there is a transition in progress
-                waitForPendingPowerStateChange();
-            }
-            
-            pendingPowerState = kIOAudioDeviceIdle;
+			if (asyncPowerStateChangeInProgress) {	// Sleep if there is a transition in progress
+				waitForPendingPowerStateChange();
+			}
+
+			pendingPowerState = kIOAudioDeviceIdle;
 
 			scheduleIdleAudioSleep();
         }

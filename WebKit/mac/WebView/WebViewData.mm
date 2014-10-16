@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -31,26 +31,31 @@
 
 #import "WebKitLogging.h"
 #import "WebPreferenceKeysPrivate.h"
+#import "WebViewGroup.h"
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/HistoryItem.h>
-#import <WebCore/RunLoop.h>
 #import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
+#import <wtf/RunLoop.h>
+
+#if PLATFORM(IOS)
+#import "WebGeolocationProviderIOS.h"
+#endif
 
 BOOL applicationIsTerminating = NO;
 int pluginDatabaseClientCount = 0;
 
-#if USE(ACCELERATED_COMPOSITING)
 void LayerFlushController::scheduleLayerFlush()
 {
     m_layerFlushScheduler.schedule();
 }
 
-void LayerFlushController::invalidateObserver()
+void LayerFlushController::invalidate()
 {
     m_layerFlushScheduler.invalidate();
+    m_webView = nullptr;
 }
 
 LayerFlushController::LayerFlushController(WebView* webView)
@@ -59,15 +64,22 @@ LayerFlushController::LayerFlushController(WebView* webView)
 {
     ASSERT_ARG(webView, webView);
 }
-#endif
+
+WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flushController)
+    : WebCore::LayerFlushScheduler(flushController)
+    , m_flushController(flushController)
+{
+}
 
 @implementation WebViewPrivate
 
 + (void)initialize
 {
+#if !PLATFORM(IOS)
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-    WebCore::RunLoop::initializeMainRunLoop();
+    RunLoop::initializeMainRunLoop();
+#endif
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -92,7 +104,16 @@ LayerFlushController::LayerFlushController(WebView* webView)
     dashboardBehaviorAllowWheelScrolling = YES;
 #endif
 
+#if PLATFORM(IOS)
+    isStopping = NO;
+    _geolocationProvider = [WebGeolocationProviderIOS sharedGeolocationProvider];
+#endif
+
+#if !PLATFORM(IOS)
     shouldCloseWithWindow = objc_collectingEnabled();
+#else
+    shouldCloseWithWindow = false;
+#endif
 
     pluginDatabaseClientCount++;
 
@@ -107,13 +128,19 @@ LayerFlushController::LayerFlushController(WebView* webView)
 {    
     ASSERT(applicationIsTerminating || !page);
     ASSERT(applicationIsTerminating || !preferences);
+#if !PLATFORM(IOS)
     ASSERT(!insertionPasteboard);
+#endif
 #if ENABLE(VIDEO)
     ASSERT(!fullscreenController);
 #endif
 
     [applicationNameForUserAgent release];
+#if !PLATFORM(IOS)
     [backgroundColor release];
+#else
+    CGColorRelease(backgroundColor);
+#endif
     [inspector release];
     [currentNodeHighlight release];
     [hostWindow release];
@@ -123,13 +150,28 @@ LayerFlushController::LayerFlushController(WebView* webView)
     [editingDelegateForwarder release];
     [mediaStyle release];
 
+#if ENABLE(REMOTE_INSPECTOR)
+#if PLATFORM(IOS)
+    [indicateLayer release];
+#endif
+#endif
+
+#if PLATFORM(IOS)
+    [UIKitDelegateForwarder release];
+    [formDelegateForwarder release];
+    [_caretChangeListeners release];
+    [_fixedPositionContent release];
+#endif
+
     [super dealloc];
 }
 
 - (void)finalize
 {
     ASSERT_MAIN_THREAD();
+#if !PLATFORM(IOS)
     ASSERT(!insertionPasteboard);
+#endif
 #if ENABLE(VIDEO)
     ASSERT(!fullscreenController);
 #endif

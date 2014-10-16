@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -219,9 +219,7 @@ bool IOStorage::open(IOService *     client,
 IOReturn IOStorage::read(IOService *           client,
                          UInt64                byteStart,
                          IOMemoryDescriptor *  buffer,
-#ifdef __LP64__
                          IOStorageAttributes * attributes,
-#endif /* __LP64__ */
                          UInt64 *              actualByteCount)
 {
     //
@@ -241,11 +239,7 @@ IOReturn IOStorage::read(IOService *           client,
 
     // Issue the asynchronous read.
 
-#ifdef __LP64__
     read(client, byteStart, buffer, attributes, &completion);
-#else /* !__LP64__ */
-    read(client, byteStart, buffer, NULL, &completion);
-#endif /* !__LP64__ */
 
     // Wait for the read to complete.
 
@@ -255,9 +249,7 @@ IOReturn IOStorage::read(IOService *           client,
 IOReturn IOStorage::write(IOService *           client,
                           UInt64                byteStart,
                           IOMemoryDescriptor *  buffer,
-#ifdef __LP64__
                           IOStorageAttributes * attributes,
-#endif /* __LP64__ */
                           UInt64 *              actualByteCount)
 {
     //
@@ -277,11 +269,7 @@ IOReturn IOStorage::write(IOService *           client,
 
     // Issue the asynchronous write.
 
-#ifdef __LP64__
     write(client, byteStart, buffer, attributes, &completion);
-#else /* !__LP64__ */
-    write(client, byteStart, buffer, NULL, &completion);
-#endif /* !__LP64__ */
 
     // Wait for the write to complete.
 
@@ -442,20 +430,33 @@ void IOStorage::unlockPhysicalExtents(IOService * client)
     return;
 }
 
+IOReturn IOStorage::setPriority(IOService *       client,
+                                IOStorageExtent * extents,
+                                UInt32            extentsCount,
+                                IOStoragePriority priority)
+
+{
+    //
+    // Reprioritize read or write requests at the specified byte offsets.
+    //
+
+    return kIOReturnUnsupported;
+}
+
 OSMetaClassDefineReservedUsed(IOStorage,  0);
 OSMetaClassDefineReservedUsed(IOStorage,  1);
 OSMetaClassDefineReservedUsed(IOStorage,  2);
 OSMetaClassDefineReservedUsed(IOStorage,  3);
+OSMetaClassDefineReservedUsed(IOStorage,  4);
 #ifdef __LP64__
-OSMetaClassDefineReservedUnused(IOStorage,  4);
 OSMetaClassDefineReservedUnused(IOStorage,  5);
 OSMetaClassDefineReservedUnused(IOStorage,  6);
+OSMetaClassDefineReservedUnused(IOStorage,  7);
 #else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOStorage,  4);
 OSMetaClassDefineReservedUsed(IOStorage,  5);
 OSMetaClassDefineReservedUsed(IOStorage,  6);
+OSMetaClassDefineReservedUsed(IOStorage,  7);
 #endif /* !__LP64__ */
-OSMetaClassDefineReservedUnused(IOStorage,  7);
 OSMetaClassDefineReservedUnused(IOStorage,  8);
 OSMetaClassDefineReservedUnused(IOStorage,  9);
 OSMetaClassDefineReservedUnused(IOStorage, 10);

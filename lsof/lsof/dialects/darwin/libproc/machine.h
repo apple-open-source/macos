@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: machine.h,v 1.9 2012/04/10 16:41:04 abe Exp abe $
+ * $Id: machine.h,v 1.10 2013/01/02 17:03:05 abe Exp $
  */
 
 
@@ -50,7 +50,7 @@
 # include <device/device_types.h>
 # endif	/* NEED_MACH_PORT_T */
 
-#include "/usr/include/string.h"
+#include <string.h>
 
 
 /*

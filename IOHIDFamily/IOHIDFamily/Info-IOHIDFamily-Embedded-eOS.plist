@@ -42,7 +42,7 @@
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
 			<key>IOClass</key>
-			<string>IOHIDUserClientIniter</string>
+			<string>IOHIDProviderPropertyMerger</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDEventService</string>
 			<key>IOProviderMergeProperties</key>
@@ -67,7 +67,7 @@
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
 			<key>IOClass</key>
-			<string>IOHIDUserClientIniter</string>
+			<string>IOHIDProviderPropertyMerger</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDDevice</string>
 			<key>IOProviderMergeProperties</key>

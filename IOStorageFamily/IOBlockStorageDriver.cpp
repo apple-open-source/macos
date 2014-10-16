@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,13 @@
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
+#include <kern/energy_perf.h>
 #include <kern/thread_call.h>
+///w:start
+#if TARGET_OS_EMBEDDED
+#include <sys/disk.h>
+#endif /* TARGET_OS_EMBEDDED */
+///w:stop
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOBlockStorageDriver, IOStorage)
@@ -118,6 +124,11 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
 
     _expansionData = IONew(ExpansionData, 1);
     if (_expansionData == 0)  return false;
+///w:start
+#if TARGET_OS_EMBEDDED
+    _expansionData->reserved0000     = 0;
+#endif /* TARGET_OS_EMBEDDED */
+///w:stop
 
     initMediaState();
     
@@ -1148,6 +1159,7 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
 #endif /* !__LP64__ */
                                      IOBlockStorageDriver::Context * context)
 {
+    UInt32 flags = 0;
     UInt64 block;
     UInt64 nblks;
     IOReturn result;
@@ -1168,6 +1180,28 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
 
     /* Now the protocol-specific provider implements the actual
      * start of the data transfer: */
+
+#ifdef __LP64__
+    if (attributes) {
+        if (attributes->priority > kIOStoragePriorityDefault) {
+            flags |= IO_PRIORITY_LOW;
+        }
+    }
+#else /* !__LP64__ */
+    if (context->request.attributes.priority > kIOStoragePriorityDefault) {
+        flags |= IO_PRIORITY_LOW;
+    }
+#endif /* !__LP64__ */
+
+    if (_solidState) {
+        flags |= IO_MEDIUM_SOLID_STATE;
+    }
+
+    if (buffer->getDirection() == kIODirectionIn) {
+        io_rate_update(flags, 1, 0, buffer->getLength(), 0);
+    } else {
+        io_rate_update(flags, 0, 1, 0, buffer->getLength());
+    }
 
 #if TARGET_OS_EMBEDDED
     // This is where we adjust the offset for this access to the nand layer.
@@ -1307,7 +1341,19 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         }
 
     } else {		/* fixed disk: not ejectable */
-        _ejectable	= false;
+        OSDictionary *dictionary = OSDynamicCast(OSDictionary, getProvider()->getProperty(kIOPropertyDeviceCharacteristicsKey));
+
+        if (dictionary) {
+            OSString *string = OSDynamicCast(OSString, dictionary->getObject(kIOPropertyMediumTypeKey));
+
+            if (string) {
+                if (string->isEqualTo(kIOPropertyMediumTypeSolidStateKey)) {
+                    _solidState = true;
+                }
+            }
+        }
+
+        _ejectable = false;
     }
 
     /* Obtain the constraint values for reads and writes. */
@@ -1462,6 +1508,13 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
+///w:start
+#if TARGET_OS_EMBEDDED
+    if (getProperty(kIOMaximumPriorityCountKey, gIOServicePlane)) {
+        _expansionData->reserved0000 = 1;
+    }
+#endif /* TARGET_OS_EMBEDDED */
+///w:stop
 
     /* Check for the device being ready with media inserted: */
 
@@ -1700,6 +1753,11 @@ IOBlockStorageDriver::unmap(IOService *       client,
 
     assert( sizeof( IOStorageExtent ) == sizeof( IOBlockStorageDeviceExtent ) );
 
+    if ( options )
+    {
+        return kIOReturnBadArgument;
+    }
+
     extentsOut      = ( IOBlockStorageDeviceExtent * ) extents;
     extentsOutCount = 0;
 
@@ -1772,6 +1830,42 @@ void IOBlockStorageDriver::unlockPhysicalExtents(IOService * client)
     //
 
     return;
+}
+
+IOReturn
+IOBlockStorageDriver::setPriority(IOService *       client,
+                                  IOStorageExtent * extents,
+                                  UInt32            extentsCount,
+                                  IOStoragePriority priority)
+{
+    UInt32                       extentsIndex;
+    IOBlockStorageDeviceExtent * extentsOut;
+
+    assert( sizeof( IOStorageExtent ) == sizeof( IOBlockStorageDeviceExtent ) );
+
+    extentsOut = ( IOBlockStorageDeviceExtent * ) extents;
+
+    for ( extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++ )
+    {
+        UInt64 blockStart;
+        UInt64 blockCount;
+
+        blockStart = extents[ extentsIndex ].byteStart / _mediaBlockSize;
+        blockCount = extents[ extentsIndex ].byteCount / _mediaBlockSize;
+
+        extentsOut[ extentsIndex ].blockStart = blockStart;
+        extentsOut[ extentsIndex ].blockCount = blockCount;
+    }
+
+///w:start
+#if TARGET_OS_EMBEDDED
+    if ( _expansionData->reserved0000 )
+    {
+        priority = DK_PRIORITY_TO_TIER( priority );
+    }
+#endif /* TARGET_OS_EMBEDDED */
+///w:stop
+    return getProvider( )->doSetPriority( extentsOut, extentsCount, priority );
 }
 
 bool
@@ -3336,6 +3430,12 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
     if (attributes)
     {
         if ((attributes->options & kIOStorageOptionReserved))
+        {
+            complete(completion, kIOReturnBadArgument);
+            return;
+        }
+
+        if (attributes->reserved0024)
         {
             complete(completion, kIOReturnBadArgument);
             return;

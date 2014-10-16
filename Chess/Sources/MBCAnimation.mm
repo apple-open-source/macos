@@ -107,6 +107,13 @@ using std::min;
 	[self doStep:nil];
 }
 
+- (void)cancel
+{
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
+    fStart.tv_sec = 0;
+    [self doStep:self];
+}
+
 @end
 
 // Local Variables:

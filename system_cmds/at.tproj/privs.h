@@ -74,8 +74,8 @@ gid_t real_gid, effective_gid;
 	effective_uid = geteuid(); \
 	real_gid = getgid(); \
 	effective_gid = getegid(); \
-	setegid(real_gid); \
-	seteuid(real_uid); \
+	if (setegid(real_gid)<0) perr("cannot setegid"); \
+	if (seteuid(real_uid)<0) perr("cannot seteuid"); \
 }
 
 #define RELINQUISH_PRIVS_ROOT(a, b) { \
@@ -83,8 +83,8 @@ gid_t real_gid, effective_gid;
 	effective_uid = geteuid(); \
 	real_gid = (b); \
 	effective_gid = getegid(); \
-	setegid(real_gid); \
-	seteuid(real_uid); \
+	if (setegid(real_gid)<0) perr("cannot setegid"); \
+	if (seteuid(real_uid)<0) perr("cannot seteuid"); \
 }
 
 #define PRIV_START { \
@@ -103,8 +103,8 @@ gid_t real_gid, effective_gid;
 	PRIV_START \
 	effective_uid = (a); \
 	effective_gid = (b); \
-	setregid((gid_t)-1, effective_gid); \
-	setreuid((uid_t)-1, effective_uid); \
+	if (setregid((gid_t)-1, effective_gid)<0) perr("cannot setregid"); \
+	if (setreuid((uid_t)-1, effective_uid)<0) perr("cannot setreuid"); \
 	PRIV_END \
 }
 #endif

@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>edtest.bat</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">edtest.bat&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+@echo off
+if &quot;%XSRC%&quot; == &quot;&quot; set XSRC=.
+test -f %XSRC%/tests/stateful-check.orig
+if errorlevel 1 update %XSRC%/tests/stateful-check %XSRC%/tests/stateful-check.orig
+sed -f %XSRC%/djgpp/stateful-check.sed %XSRC%/tests/stateful-check.orig &gt; stateful-check
+if errorlevel 1 goto SedError
+update ./stateful-check %XSRC%/tests/stateful-check
+rm -f ./stateful-check
+
+test -f %XSRC%/tests/stateless-check.orig
+if errorlevel 1 update %XSRC%/tests/stateless-check %XSRC%/tests/stateless-check.orig
+sed -f %XSRC%/djgpp/stateless-check.sed %XSRC%/tests/stateless-check.orig &gt; stateless-check
+if errorlevel 1 goto SedError
+update ./stateless-check %XSRC%/tests/stateless-check
+rm -f ./stateless-check
+
+test -f %XSRC%/tests/failuretranslit-check.orig
+if errorlevel 1 update %XSRC%/tests/failuretranslit-check %XSRC%/tests/failuretranslit-check.orig
+sed -f %XSRC%/djgpp/translit-check.sed %XSRC%/tests/failuretranslit-check.orig &gt; failuretranslit-check
+if errorlevel 1 goto SedError
+update ./failuretranslit-check %XSRC%/tests/failuretranslit-check
+rm -f ./failuretranslit-check
+
+test -f %XSRC%/tests/translit-check.orig
+if errorlevel 1 update %XSRC%/tests/translit-check %XSRC%/tests/translit-check.orig
+sed -f %XSRC%/djgpp/translit-check.sed %XSRC%/tests/translit-check.orig &gt; translit-check
+if errorlevel 1 goto SedError
+update ./translit-check %XSRC%/tests/translit-check
+rm -f ./translit-check
+goto End
+
+:SedError
+echo test script editing failed!
+
+:End
+</pre>
+<hr />
+</body></html>

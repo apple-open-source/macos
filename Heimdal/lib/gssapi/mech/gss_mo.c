@@ -384,8 +384,8 @@ gss_inquire_saslname_for_mech(OM_uint32 *minor_status,
  * Find a mech for a sasl name
  *
  * @param minor_status minor status code
- * @param sasl_mech_name
- * @param mech_type
+ * @param sasl_mech_name sasl mech name
+ * @param mech_type mech type
  *
  * @return returns GSS_S_COMPLETE or an error code.
  */
@@ -484,12 +484,6 @@ test_mech_attrs(gssapi_mech_interface mi,
 
 /**
  * Return set of mechanism that fullfill the criteria
- *
- * @param minor_status minor status code
- * @param desired_mech_attrs
- * @param except_mech_attrs
- * @param critical_mech_attrs
- * @param mechs returned mechs, free with gss_release_oid_set().
  *
  * @return returns GSS_S_COMPLETE or an error code.
  */
@@ -623,10 +617,10 @@ gss_inquire_attrs_for_mech(OM_uint32 * minor_status,
  * Return names and descriptions of mech attributes
  *
  * @param minor_status minor status code
- * @param mech_attr
- * @param name
- * @param short_desc
- * @param long_desc
+ * @param mech_attr attributes wanted
+ * @param name name of attribute
+ * @param short_desc short description
+ * @param long_desc long description
  *
  * @return returns GSS_S_COMPLETE or an error code.
  */

@@ -1,0 +1,21 @@
+/for i in $incpth/a
+.
+/if $test -f/s/$i/${SDKROOT}&/g
+/^$cat \/usr\/include\/signal\.h \/usr\/include\/sys\/signal\.h/s,/usr/include,${SDKROOT}&,g
+/\/usr\/include\/ctype\.h/s//${SDKROOT}&/
+/: Now check and see which directories actually exist, avoiding duplicates/a
+.
+/$test -d $xxx/s/$xxx/${SDKROOT}&/
+/: Looking for optional libraries/a
+.
+/test -d $thisdir/s/$thisdir/${SDKROOT}&/
+/for thisincl in $inclwanted;/a
+.
+/$test -d $thisincl/s/$thisincl/${SDKROOT}&/
+/^inctest=/s/$usrinc/${SDKROOT}&/
+/$usrinc\/sys\/$1/s/$usrinc/${SDKROOT}&/
+/^$cat >findhdr/a
+.
+/test -f \\$usrincdir\/\\$wanted/s/\\$usrincdir/\\${SDKROOT}&/
+/echo "\\$usrincdir\/\\$wanted"/s/"/"\\${SDKROOT}/
+w

@@ -1,3 +1,101 @@
+12-07-25 pathprobe.c: fix read() loop to handle EINTR
+12-06-28 vmalloc/malloc.c: use sbrk() unless VMALLOC_OPTIONS=mmap or asoinit(0,0,0)!=0 (workaround until next malloc update)
+12-06-28 aso/aso.c: asoinit(0,0,0): 0: no specific init, 1: app initialized
+12-06-27 sfio/sfvprintf.c: allow { L* z* } aliases for I* -- posix will probably pick one
+12-06-26 regex/regnexec.c: fix uninitialized variable reference
+12-06-26 comp/setlocale.c: utf8_wctomb() now calls (the corrrect) wc2utf8()
+12-06-25 string/chresc.c: accept \u[U+<hex>] and \u{U+<hex>}
+12-06-24 regex/regcomp.c: mb [^...] must be marked "complicated"
+12-06-20 port/astconf.c: increase DEBUG_astconf error debug levels (may leach into rt output)
+12-06-18 sfio/_sfopen.c: add 'e' => O_CLOEXEC
+12-06-18 features/fcntl.c: add #define O_CLOEXEC 0 if not defined
+12-06-13 features/float: handle __mips c99 peculiarities
+12-06-13 features/standards: handle __MACH__ posix peculiarities
+12-06-08 sfio/sfclose.c,sfmode.c: sfclose() for sfopopen() stream returns sh-compatible $?
+12-06-08 comp/strtold.c: fix header botch that missed ldexpl() prototype -- ouch
+12-06-06 misc/proclib.h: partially undo <ast_standards.h> for leaked ancient bsd-isms
+12-05-31 misc/proclib.h: <ast_standards.h> for linux undefined struct mmsghdr*
+12-05-31 error.h: add ERROR_PIPE(errno) to handle EPIPE and ECONNRESET
+12-05-31 Makefile: don't install $(INCLUDEDIR)/prototyped.h: src/cmd/INIT does it
+12-05-31 regcomp.c: add (?V...) ~(V...) REG_REGEXP switch
+12-05-28 regex: regoff_t in => ssize_t via api 20120528
+12-05-21 features/asometh: split intrinsic and method tests so code only instantiated in aso.c
+12-05-21 comp/strdup.c: use oldof() since mem overwritten by string copy
+12-05-18 misc/stk.c: fix access of moved realloc() data
+12-05-15 misc/optget.c: #? option with no value should have opt_info.num==0
+12-05-11 misc/stk.c: fix memmove() read of 1 uninitialized byte
+12-05-11 regex/regcoll.c: avoid memcpy() to self
+12-05-01 port/astconf.c: fix astconflist() to list standard minmax value if defined
+12-04-26 sfio/sftmp.c: fix memory leak due to inadvertent SF_STATIC copy
+12-04-26 sfio/sfwrite.c: fix subtle memory leak (with Vmlast or Vmpool or freeBSD malloc)
+12-04-26 vmalloc/vmbest.c: SIGSEGV overcommit check for __linux__ only
+12-04-25 vmalloc: add _vmfd() for private close-on-exec fds
+12-04-23 sfio_t.h: change getr to 32 bits to prepare for UTF-8 delimiters
+12-04-23 features/signal.c: add SIGSTKFLT
+12-04-17 regex/regcomp.c: fix (E:...) vs (E)... scoping
+12-04-11 features/sys: add aix's _LARGE_FILE_API to the _LARGEFILE(64)?_SOURCE mix -- anyone else?
+12-04-11 include/cmdarg.h,misc/cmdarg.c: (finally!) add a discipline with Cmdrun_f
+12-03-28 vmalloc: int vs [s]size_t cleanup
+12-03-27 sfio: fix #if logic that caused syntax errors (on 64 bit uwin)
+12-03-10 misc/optget.c: HELP_index for "PLUGIN" too
+12-02-29 include/shcmd.h: PLUGIN_VERSION 20111111 for cdt disc/meth change
+12-02-29 comp/spawnveg.c: fix sigcritical() to include waitpid() for internal child
+12-02-29 malloc.c: make __malloc_hook initialization thread safe
+12-02-24 comp/iconv.c: fix winix UTF-8 vs UCS-2 over-conversion
+12-02-24 astsa/*.h: clean up header guards
+12-02-24 astsa/astsa.omk: clean up standalone old make makefile interactions
+12-02-21 misc/cmdarg.c: fix bug that set argv[0]
+12-02-10 sfvprintf.c: fix 1 byte too long buffer access
+12-02-07 malloc.c/features/vmalloc: add gnu __malloc_hook tests
+12-02-06 vmmopen.c: fix ALIGN vs sys/param.h macro conflict
+12-02-02 astlicense.c: add license.component for component-specific licenses
+12-01-31 spawnveg.c: fix transient bug that made invalid setpgid() call
+12-01-27 pathpath.c: fix buffer size math when internal allocation requested
+12-01-24 malloc.c: fix _vmkeep() bug that did not return previous state
+12-01-23 malloc.c: add VMALLOC_OPTIONS=break to try sbrk() block allocator first
+12-01-21 astlicense.c: option style only overrides default license.type
+12-01-18 malloc.c: disable multiple regions for tracing or !vmbest or ASO_SIGNAL
+12-01-12 sfpkrd.c: add __sun I_PEEK+rsh runtime workaround
+12-01-10 shcmd.h: void* => Shbltin_t*
+12-01-10 tmxdate.c: handle { n>=1000 } TM_PARTS
+11-12-21 plug up some memory links -- thanks mhlavink
+11-12-21 vmprivate.c: enclose VM_NONMEM exception in CLRLOCK(vm,0) ... SETLOCK(vm,0)
+11-12-13 aso: in -lposix for uwin, not -last -- just like vmalloc
+11-12-13 sfpoll.c: all streams SF_IOINTR => don't ignore EINTR
+11-12-13 sfdcslow.c: set SF_IOINTR
+11-12-09 malloc.c: add _vmkeep() for setlocale() intercept _SYS_setlocale_free_OK
+11-12-04 sfio: _Sfmaxr=0 (unlimited) by default; use ulimit -M|-d or SFIO_OPTIONS
+11-12-01 aso: sync to new api
+11-11-11 optget.c: move .TH to the top for --nroff to get our macros first
+11-11-11 aso,cdt,vmalloc: resync with kpv
+11-11-11 cdt: preserve bits and Dt_link_t for CDT_VERSION < 20111111
+11-10-24 sfvprintf.c: %.-ns truncate from left to n chars
+11-10-21 sfvprintf.c: fix %0s (no width) core dump
+11-10-10 aso: add _WIN32 support
+11-09-26 vmalloc: sync with kpv
+11-08-29 features/{dirent,wchar,wctype}: eliminate #include with no header
+11-08-25 #pragma prototyped tweaks -- sun4 is dead, long live sun4
+11-08-25 ftwalk.c: FTS_SLNONE => FTW_SL
+11-08-11 features/wchar: fix #include _nxt_wchar for K&R C
+11-08-04 optget.c: tweak --html rendering
+11-07-24 mime.c: add %(default)[st] default if arg == ""
+11-07-21 setlocale.c: fix debug locale to treat "<<" as two single byte chars
+11-06-14 spawnveg.c: pgid -1: new session -2: setpgrp()&&tcsetpgid()
+11-06-14 pathprog.c: add darwin _NSGetExecutablePath
+11-05-14 features/common,features/align.c: { _X86_ _X64_ } conditionals for generic uwin
+11-05-13 tm/tminit.c: tweak tzname[] prototype
+11-05-09 astlicense.c: add ". file" parent-relative include and depth 4 input stack
+11-05-05 cmdarg: update to cmdopen_20110505 api
+11-05-03 sfio/sfclose.c: make sure close() errors propagate to sfclose() return value
+11-04-20 port/astlicense.c: add { id name } keys
+11-04-15 fmtdev.c: fix to work for non-{blk,chr} special
+11-04-12 stk: change size args to size_t and stseek() offset to ssize_t
+11-04-12 sfio: sync with kpv to optimize large SF_STRING sfputr() buffer allocation
+11-03-28 misc/fts.c: fix FTS_SLNONE logic to set it when it should!
+11-03-17 misc/stk.c: fixed bug that could delete an active stack frame
+11-03-10 sfio/sfvprintf.c: add %0<width>s to preserve <width> trailing chars in string arg
+11-03-09 misc/magic.c: add %d...%s where if %d==1 then %s=="" else %s=="s"
+11-03-09 misc/magic.tab: add windows ico
 11-02-08 misc/stk.c: change STK_FSIZE to (1024*sizeof(char*)) for 64 bit normalization
 11-02-02 sfio/sfmode.c: don't call sfsetbuf() on unbuffered stream to make it unbuffered
 11-02-02 features/wchar: handle hp.ia64 va_list interactions

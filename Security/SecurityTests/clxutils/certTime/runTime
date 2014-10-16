@@ -1,0 +1,23 @@
+#! /bin/csh -f
+#
+# run certTime thru all six options
+#
+set LOOPS = 1000
+if( $#argv == 1 ) then
+	set LOOPS = "$argv[1]"
+endif
+#
+# safely look for this required env var
+#
+setenv | grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+	echo Please set env var LOCAL_BUILD_DIR.
+	exit(1)
+endif
+#
+$LOCAL_BUILD_DIR/certTime p $LOOPS
+$LOCAL_BUILD_DIR/certTime g $LOOPS
+$LOCAL_BUILD_DIR/certTime t $LOOPS
+$LOCAL_BUILD_DIR/certTime c $LOOPS
+$LOCAL_BUILD_DIR/certTime s $LOOPS
+$LOCAL_BUILD_DIR/certTime v $LOOPS

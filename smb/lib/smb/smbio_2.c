@@ -62,7 +62,7 @@ int smb2io_check_directory(struct smb_ctx *ctx, const void *path,
 	
     if (smb_is_smb2(ctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         bzero(&rq, sizeof(rq));
         rq.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -104,7 +104,7 @@ int smb2io_check_directory(struct smb_ctx *ctx, const void *path,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          */
         error = smbio_check_directory(ctx, path, flags, nt_error);
     }
@@ -121,7 +121,7 @@ int smb2io_close_file(void *smbctx, SMBFID fid)
 	
     if (smb_is_smb2(ctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         bzero(&rq, sizeof(rq));
         rq.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -148,9 +148,9 @@ int smb2io_close_file(void *smbctx, SMBFID fid)
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          */
-        smb1_fid = (uint16_t) fid;  /* cast to smb1 fid */
+        smb1_fid = (uint16_t) fid;  /* cast to SMB 1 fid */
         
         error = smbio_close_file(ctx, smb1_fid);
     }
@@ -176,7 +176,7 @@ smb2io_get_dfs_referral(struct smb_ctx *smbctx, CFStringRef dfs_referral_str,
     
     if (smb_is_smb2(smbctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         
         /* Convert referral string to a C string */
@@ -234,7 +234,7 @@ smb2io_get_dfs_referral(struct smb_ctx *smbctx, CFStringRef dfs_referral_str,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          */
         error = getDfsReferralDict(smbctx, dfs_referral_str, max_referral_level,
                                    out_referral_dict);
@@ -267,7 +267,7 @@ smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
     
     if (smb_is_smb2(ctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         bzero(&rq, sizeof(rq));
         rq.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -353,12 +353,12 @@ smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
             
             /*
              * %%% To Do - implement these fields
-             * SMB 2.x cant get the File ID from just a create call so set
+             * SMB 2/3 cant get the File ID from just a create call so set
              * outparms->fileInode to be 0. Not sure if anyone uses this field.
              */
         }
         
-        /* return the SMB2 fid */
+        /* return the SMB 2/3 fid */
         *fid = rq.ioc_ret_fid;
         
     bad:  
@@ -368,7 +368,7 @@ smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          */
         if (inparms == NULL) {
             return (EINVAL);
@@ -383,8 +383,8 @@ smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
                                 &smb1_outparms, 
                                 &smb1_fid);
         if (!error) {
-            /* copy data from old SMB1 struct to newer SMB2 struct */
-            *fid = smb1_fid;   /* save smb1 fid */
+            /* copy data from old SMB 1 struct to newer SMB 2 struct */
+            *fid = smb1_fid;   /* save SMB 1 fid */
 
             if (outparms != NULL) {
                 outparms->createTime = smb1_outparms.createTime;
@@ -404,6 +404,73 @@ smb2io_ntcreatex(void *smbctx, const char *path, const char *streamName,
 }
 
 int
+smb2io_query_dir(void *smbctx,
+                 uint8_t file_info_class,
+                 uint8_t flags,
+                 uint32_t file_index,
+                 SMBFID fid,
+                 const char *name,
+                 uint32_t name_len,
+                 char *rcv_output_buffer,
+                 uint32_t rcv_max_output_len,
+                 uint32_t *rcv_output_len,
+                 uint32_t *query_dir_reply_len)
+{
+    struct smb_ctx *ctx = smbctx;
+    int error = 0;
+    struct smb2ioc_query_dir query_rq;
+        
+    if (smb_is_smb2(smbctx)) {
+        /*
+         * Using SMB 2/3
+         */
+        bzero(&query_rq, sizeof(query_rq));
+        query_rq.ioc_version = SMB_IOC_STRUCT_VERSION;
+        
+        query_rq.ioc_file_info_class = file_info_class;
+        query_rq.ioc_flags = flags;
+        query_rq.ioc_file_index = file_index;
+        query_rq.ioc_rcv_output_len = rcv_max_output_len;
+        query_rq.ioc_fid = fid;
+        query_rq.ioc_name_len = name_len;
+        query_rq.ioc_flags = flags;
+        
+        query_rq.ioc_name = name;
+        query_rq.ioc_rcv_output = rcv_output_buffer;
+        
+        /* Call the kernel to make the Ioctl call */
+        if (smb_ioctl_call(ctx->ct_fd, SMB2IOC_QUERY_DIR, &query_rq) == -1) {
+            smb_log_info("%s: smb_ioctl_call, syserr = %s",
+                         ASL_LEVEL_DEBUG,
+                         __FUNCTION__,
+                         strerror(errno));
+            error = errno;                  /* Some internal error happened? */
+        }
+        else {
+            error = query_rq.ioc_ret_ntstatus;	/* error from server */
+            if (error) {
+                smb_log_info("%s: smb_ioctl_call, ntstatus = 0x%x",
+                             ASL_LEVEL_DEBUG,
+                             __FUNCTION__,
+                             error);
+            }
+            
+            /* Return bytes actually read */
+            *rcv_output_len = query_rq.ioc_rcv_output_len;
+
+            /* Return bytes in Query Dir reply */
+            *query_dir_reply_len = query_rq.ioc_ret_output_len;
+        }
+    }
+    else {
+        /* SMB 1 not supported */
+        error = ENOTSUP;
+    }
+    
+    return error;
+}
+
+int
 smb2io_read(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count, 
             char *dst, uint32_t *bytes_read)
 {
@@ -414,7 +481,7 @@ smb2io_read(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count,
     
     if (smb_is_smb2(smbctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         bzero(&rwrq2, sizeof(rwrq2));
         rwrq2.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -456,10 +523,10 @@ smb2io_read(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          * Dont call smb_read() because I want to return bytesRead
          */        
-        smb1_fid = (uint16_t) fid;  /* cast to smb1 fid */
+        smb1_fid = (uint16_t) fid;  /* cast to SMB 1 fid */
         
         bzero(&rwrq, sizeof(rwrq));
         rwrq.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -499,11 +566,11 @@ smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt,
     
     if (smb_is_smb2(smbctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
 
         /*
-         * SMB2 only handles named pipe transactions where
+         * SMB 2/3 only handles named pipe transactions where
          * pipe data to send is in sndData
          * pipe data to receive is in rcvdData
          */
@@ -520,7 +587,7 @@ smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt,
         }	
         
         /*
-         * SMB2 ioctl uses 32 bit field, never let the calling process request 
+         * SMB 2/3 ioctl uses 32 bit field, never let the calling process request 
          * more than will fit in this field.
          */
         if (rcvDataLen != NULL) {
@@ -582,11 +649,11 @@ smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          */
         if (setup != NULL) {
             smb1_setup[0] = (uint16_t) setup[0];
-            smb1_setup[1] = (uint16_t) setup[1]; /* cast to smb1 fid */
+            smb1_setup[1] = (uint16_t) setup[1]; /* cast to SMB 1 fid */
             
             error = smbio_transact(smbctx, smb1_setup, 2, pipeName, 
                                    sndPData, sndPDataLen,
@@ -618,7 +685,7 @@ smb2io_write(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count,
     
     if (smb_is_smb2(smbctx)) {
         /*
-         * Using SMB2 
+         * Using SMB 2/3 
          */
         bzero(&rwrq2, sizeof(rwrq2));
         rwrq2.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -653,10 +720,10 @@ smb2io_write(struct smb_ctx *smbctx, SMBFID fid, off_t offset, uint32_t count,
     }
     else {
         /*
-         * Using SMB1 
+         * Using SMB 1
          * Dont call smb_write() because I want to return bytesRead
          */        
-        smb1_fid = (uint16_t) fid;  /* cast to smb1 fid */
+        smb1_fid = (uint16_t) fid;  /* cast to SMB 1 fid */
         
         bzero(&rwrq, sizeof(rwrq));
         rwrq.ioc_version = SMB_IOC_STRUCT_VERSION;

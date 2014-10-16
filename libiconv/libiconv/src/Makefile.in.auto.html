@@ -1,0 +1,151 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Makefile.in</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">Makefile.in&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment"># Makefile for libiconv/src
+</span>
+<span class="enscript-comment">#### Start of system configuration section. ####
+</span>
+<span class="enscript-comment"># Directories used by &quot;make&quot;:
+</span>srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+
+<span class="enscript-comment"># Directories used by &quot;make install&quot;:
+</span>prefix = @prefix@
+local_prefix = /usr/local
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+libdir = @libdir@
+datarootdir = @datarootdir@
+datadir = @datadir@
+localedir = @localedir@
+
+<span class="enscript-comment"># Programs used by &quot;make&quot;:
+</span>CC = @CC@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+INCLUDES = -I. -I$(<span class="enscript-reference">srcdir</span>) -I.. -I../include -I$(<span class="enscript-reference">srcdir</span>)/../include -I../srclib -I$(<span class="enscript-reference">srcdir</span>)/../srclib
+LIBTOOL = @LIBTOOL@
+LIBTOOL_COMPILE = $(<span class="enscript-reference">LIBTOOL</span>) --mode=compile
+LIBTOOL_LINK = $(<span class="enscript-reference">LIBTOOL</span>) --mode=link
+LIBTOOL_INSTALL = $(<span class="enscript-reference">LIBTOOL</span>) --mode=install
+LIBTOOL_UNINSTALL = $(<span class="enscript-reference">LIBTOOL</span>) --mode=uninstall
+RM = rm -f
+@SET_MAKE@
+
+<span class="enscript-comment"># Programs used by &quot;make install&quot;:
+</span>INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+mkinstalldirs = $(<span class="enscript-reference">SHELL</span>) @top_srcdir@/build-aux/mkinstalldirs
+
+<span class="enscript-comment">#### End of system configuration section. ####
+</span>
+SHELL = /bin/sh
+
+<span class="enscript-comment"># Needed by $(LIBTOOL).
+</span>top_builddir = ..
+
+<span class="enscript-comment"># Needed by SET_RELOCATABLE.
+</span>EXEEXT = @EXEEXT@
+
+<span class="enscript-comment"># We cannot link with libintl until libiconv is installed. (When we call
+</span><span class="enscript-comment"># libtool with arguments &quot;../lib/libiconv.la -lintl&quot;, libtool will call ld
+</span><span class="enscript-comment"># with &quot;../lib/.libs/libiconv.so $libdir/libintl.so $libdir/libiconv.so&quot;,
+</span><span class="enscript-comment"># (remember that $libdir/libintl.la lists $libdir/libiconv.so as a dependency),
+</span><span class="enscript-comment"># and this gives a fatal linker error on Solaris because the two libiconv.so
+</span><span class="enscript-comment"># files are different but have the same soname.
+</span><span class="enscript-comment"># So we can link the iconv executable only after we have installed libiconv,
+</span><span class="enscript-comment"># i.e. during &quot;make install&quot;. The intermediate 'iconv' executable is built
+</span><span class="enscript-comment"># without internationalization and not linked with libintl.
+</span>
+all : iconv_no_i18n iconv.@OBJEXT@
+	test <span class="enscript-string">`ls -ld . | sed -e 's/^d\(.........\).*/\1/'`</span> = rwxrwxrwx || chmod 777 .
+
+<span class="enscript-comment"># This is the temporary iconv executable, without internationalization.
+</span>iconv_no_i18n : iconv_no_i18n.@OBJEXT@ ../lib/libiconv.la
+	$(<span class="enscript-reference">LIBTOOL_LINK</span>) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">LDFLAGS</span>) iconv_no_i18n.@OBJEXT@ ../srclib/libicrt.a ../lib/libiconv.la -o $@
+
+iconv_no_i18n.@OBJEXT@ : $(<span class="enscript-reference">srcdir</span>)/iconv_no_i18n.c $(<span class="enscript-reference">srcdir</span>)/iconv.c
+	$(<span class="enscript-reference">CC</span>) -c $(<span class="enscript-reference">INCLUDES</span>) -I../lib $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">CPPFLAGS</span>) -DINSTALLDIR=\&quot;$(<span class="enscript-reference">bindir</span>)\&quot; -DLOCALEDIR=\&quot;$(<span class="enscript-reference">localedir</span>)\&quot; $(<span class="enscript-reference">srcdir</span>)/iconv_no_i18n.c
+
+iconv.@OBJEXT@ : $(<span class="enscript-reference">srcdir</span>)/iconv.c
+	$(<span class="enscript-reference">CC</span>) -c $(<span class="enscript-reference">INCLUDES</span>) -I../lib $(<span class="enscript-reference">CFLAGS</span>) $(<span class="enscript-reference">CPPFLAGS</span>) -DINSTALLDIR=\&quot;$(<span class="enscript-reference">bindir</span>)\&quot; -DLOCALEDIR=\&quot;$(<span class="enscript-reference">localedir</span>)\&quot; $(<span class="enscript-reference">srcdir</span>)/iconv.c
+
+<span class="enscript-comment"># The following rule is necessary to avoid a toplevel &quot;make -n check&quot; failure.
+</span>../lib/libiconv.la :
+	cd ../lib &amp;&amp; $(<span class="enscript-reference">MAKE</span>) libiconv.la
+
+<span class="enscript-comment"># Support for relocatability.
+</span>RELOCATABLE_LIBRARY_PATH = $(<span class="enscript-reference">libdir</span>)
+RELOCATABLE_SRC_DIR = $(<span class="enscript-reference">top_srcdir</span>)/srclib
+RELOCATABLE_BUILD_DIR = ../srclib
+RELOCATABLE_CONFIG_H_DIR = ..
+@SET_RELOCATABLE@
+iconv_LDFLAGS = <span class="enscript-string">`if test -n '$(RELOCATABLE_LDFLAGS)'; then $(RELOCATABLE_LDFLAGS) $(bindir); fi`</span>
+
+<span class="enscript-comment"># During &quot;make install&quot;, we can build the final iconv executable.
+</span><span class="enscript-comment"># On HP-UX, in order to ensure that the new libiconv.sl will override the old
+</span><span class="enscript-comment"># one that is hardcoded in libintl.sl, we need to mention libiconv.sl before
+</span><span class="enscript-comment"># libintl.sl on the link command line. We have to bypass libtool in order to
+</span><span class="enscript-comment"># achieve this.
+</span><span class="enscript-comment"># On Solaris, the linker gives an error if we are using libintl.so and it
+</span><span class="enscript-comment"># refers to a libiconv.so in $prefix/lib since then it sees two libiconv.so's,
+</span><span class="enscript-comment"># one in $prefix/lib and one in ../lib/.libs. So we have to avoid using
+</span><span class="enscript-comment"># ../lib/libiconv.la entirely.
+</span>install : all force
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">exec_prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">exec_prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>) ; fi
+	case <span class="enscript-string">&quot;@host_os@&quot;</span> in \
+	  hpux*) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">LDFLAGS</span>) $(<span class="enscript-reference">iconv_LDFLAGS</span>) iconv.@OBJEXT@ ../srclib/libicrt.a -L$(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>) -liconv @LIBINTL@ <span class="enscript-string">`if test -n '$(DESTDIR)'; then echo &quot; -Wl,+b -Wl,$(libdir)&quot;; fi`</span> -o iconv;; \
+	  darwin*) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">LDFLAGS</span>) $(<span class="enscript-reference">iconv_LDFLAGS</span>) iconv.@OBJEXT@ ../srclib/libicrt.a -L$(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>) -liconv @LTLIBINTL@ -o iconv;; \
+	  *) $(<span class="enscript-reference">LIBTOOL_LINK</span>) $(<span class="enscript-reference">CC</span>) $(<span class="enscript-reference">LDFLAGS</span>) $(<span class="enscript-reference">iconv_LDFLAGS</span>) iconv.@OBJEXT@ ../srclib/libicrt.a $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">libdir</span>)/libiconv.la @LTLIBINTL@ -o iconv;; \
+	esac
+	$(<span class="enscript-reference">INSTALL_PROGRAM_ENV</span>) $(<span class="enscript-reference">LIBTOOL_INSTALL</span>) $(<span class="enscript-reference">INSTALL_PROGRAM</span>) iconv $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>)/iconv
+
+installdirs : force
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">exec_prefix</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">exec_prefix</span>) ; fi
+	if [ ! -d $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>) ] ; then $(<span class="enscript-reference">mkinstalldirs</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>) ; fi
+
+uninstall : force
+	$(<span class="enscript-reference">LIBTOOL_UNINSTALL</span>) $(<span class="enscript-reference">RM</span>) $(<span class="enscript-reference">DESTDIR</span>)$(<span class="enscript-reference">bindir</span>)/iconv
+
+check : all
+
+mostlyclean : clean
+
+clean : force
+	$(<span class="enscript-reference">RM</span>) *.@OBJEXT@ *.lo iconv_no_i18n iconv_no_i18n$(<span class="enscript-reference">EXEEXT</span>) iconv$(<span class="enscript-reference">EXEEXT</span>) core *.stackdump
+	$(<span class="enscript-reference">RM</span>) -r .libs _libs
+
+distclean : clean
+	$(<span class="enscript-reference">RM</span>) Makefile
+
+maintainer-clean : distclean
+
+force :
+
+</pre>
+<hr />
+</body></html>

@@ -89,7 +89,7 @@
 		BA79F9DB13BB7698006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PREFIX)/usr/local/share/man/man3";
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9DD13BB76B0006A292D /* getmntopts.3 in CopyFiles */,
@@ -106,7 +106,7 @@
 		BA79F9E713BB77BB006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PREFIX)/usr/local/OpenSourceVersions";
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9E913BB77FA006A292D /* libutil.plist in CopyFiles */,
@@ -116,7 +116,7 @@
 		BA79F9E813BB77D6006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PREFIX)/usr/local/OpenSourceLicenses";
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */,
@@ -126,7 +126,7 @@
 		FDBC26EE1741B13400CA4B2B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INSTALL_PREFIX)/System/Library/LaunchDaemons";
+			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/LaunchDaemons";
 			dstSubfolderSpec = 0;
 			files = (
 				FDBC27051741B1C300CA4B2B /* com.apple.tzlinkd.plist in CopyFiles */,
@@ -136,6 +136,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3F09C378186D1F73007AF93C /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcconfigs/base.xcconfig; sourceTree = "<group>"; };
 		BA79F9A313BB70FF006A292D /* ExtentManager.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ExtentManager.cpp; sourceTree = "<group>"; };
 		BA79F9A413BB70FF006A292D /* ExtentManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtentManager.h; sourceTree = "<group>"; };
 		BA79F9A513BB70FF006A292D /* getmntopts.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = getmntopts.3; sourceTree = "<group>"; };
@@ -159,8 +160,7 @@
 		BA79F9BC13BB70FF006A292D /* wipefs.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = wipefs.3; sourceTree = "<group>"; };
 		BA79F9BD13BB70FF006A292D /* wipefs.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = wipefs.cpp; sourceTree = "<group>"; };
 		BA79F9BE13BB70FF006A292D /* wipefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wipefs.h; sourceTree = "<group>"; };
-		BA79F9C013BB712E006A292D /* BSD.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
-		BA79F9C513BB718B006A292D /* libutil1.0.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil1.0.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA79F9C513BB718B006A292D /* libutil.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDBC26F01741B13400CA4B2B /* tzlinkd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tzlinkd; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDBC26F91741B18500CA4B2B /* tzlink.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tzlink.c; sourceTree = "<group>"; };
 		FDBC26FA1741B19000CA4B2B /* com.apple.tzlinkd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.tzlinkd.plist; sourceTree = "<group>"; };
@@ -192,7 +192,7 @@
 		BA79F99513BB70D7006A292D = {
 			isa = PBXGroup;
 			children = (
-				BA79F9C013BB712E006A292D /* BSD.xcconfig */,
+				3F09C378186D1F73007AF93C /* base.xcconfig */,
 				BA79F9A313BB70FF006A292D /* ExtentManager.cpp */,
 				BA79F9A413BB70FF006A292D /* ExtentManager.h */,
 				BA79F9A513BB70FF006A292D /* getmntopts.3 */,
@@ -228,7 +228,7 @@
 		BA79F9C613BB718B006A292D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BA79F9C513BB718B006A292D /* libutil1.0.dylib */,
+				BA79F9C513BB718B006A292D /* libutil.dylib */,
 				FDBC26F01741B13400CA4B2B /* tzlinkd */,
 			);
 			name = Products;
@@ -289,7 +289,7 @@
 			);
 			name = util;
 			productName = util;
-			productReference = BA79F9C513BB718B006A292D /* libutil1.0.dylib */;
+			productReference = BA79F9C513BB718B006A292D /* libutil.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		FDBC26EF1741B13400CA4B2B /* tzlinkd */ = {
@@ -346,11 +346,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/libutil.dylib",
+				"$(BUILT_PRODUCTS_DIR)/libutil1.0.dylib",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nset -x\n\nln -sf libutil1.0.dylib \"${BUILT_PRODUCTS_DIR}/libutil.dylib\"\n";
+			shellScript = "set -e\nset -x\n\nln -sf ${EXECUTABLE_NAME} \"${BUILT_PRODUCTS_DIR}/libutil1.0.dylib\"\n";
 		};
 		BA79F9EB13BB7864006A292D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -360,11 +360,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(DSTROOT)/$(INSTALL_PREFIX)/usr/lib/libutil.dylib",
+				"$(DSTROOT)/$(INSTALL_PATH)/libutil1.0.dylib",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nset -x\n\nln -sf libutil1.0.dylib \"${DSTROOT}/${INSTALL_PREFIX}/usr/lib/libutil.dylib\"\n";
+			shellScript = "set -e\nset -x\n\nln -sf ${EXECUTABLE_NAME} \"${DSTROOT}/${INSTALL_PATH}/libutil1.0.dylib\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -416,20 +416,22 @@
 /* Begin XCBuildConfiguration section */
 		BA79F99C13BB70D7006A292D /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA79F9C013BB712E006A292D /* BSD.xcconfig */;
+			baseConfigurationReference = 3F09C378186D1F73007AF93C /* base.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=iphoneos*]" = binary;
+				"PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*]" = XML;
 				USE_HEADERMAP = NO;
 			};
 			name = Debug;
 		};
 		BA79F99D13BB70D7006A292D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA79F9C013BB712E006A292D /* BSD.xcconfig */;
+			baseConfigurationReference = 3F09C378186D1F73007AF93C /* base.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=iphoneos*]" = binary;
+				"PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*]" = XML;
 				USE_HEADERMAP = NO;
 			};
 			name = Release;
@@ -451,12 +453,8 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = "$(INSTALL_PREFIX)/usr/lib";
-				INSTALL_PREFIX = "$(INSTALL_PREFIX_$(PLATFORM_NAME))";
-				INSTALL_PREFIX_iphonesimulator = "$(SDKROOT)";
-				LD_DYLIB_INSTALL_NAME = /usr/lib/libutil.dylib;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PREFIX)/usr/local/include";
-				PRODUCT_NAME = "$(TARGET_NAME)1.0";
+				INSTALL_PATH_ACTUAL = /usr/lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
@@ -473,12 +471,8 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = "$(INSTALL_PREFIX)/usr/lib";
-				INSTALL_PREFIX = "$(INSTALL_PREFIX_$(PLATFORM_NAME))";
-				INSTALL_PREFIX_iphonesimulator = "$(SDKROOT)";
-				LD_DYLIB_INSTALL_NAME = /usr/lib/libutil.dylib;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PREFIX)/usr/local/include";
-				PRODUCT_NAME = "$(TARGET_NAME)1.0";
+				INSTALL_PATH_ACTUAL = /usr/lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;

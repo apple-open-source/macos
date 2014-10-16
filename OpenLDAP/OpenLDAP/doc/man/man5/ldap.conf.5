@@ -310,6 +310,10 @@ negotiates TLS by issuing the LDAP StartTLS operation.
 .B TLS_CACERT <filename>
 Specifies the file that contains certificates for all of the Certificate
 Authorities the client will recognize.
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLS_TRUSTED_CERTS
+option.
 .TP
 .B TLS_CACERTDIR <path>
 Specifies the path of a directory that contains Certificate Authority
@@ -323,6 +327,10 @@ When using Mozilla NSS, <path> may contain a Mozilla NSS cert/key
 database.  If <path> contains a Mozilla NSS cert/key database and
 CA cert files, OpenLDAP will use the cert/key database and will
 ignore the CA cert files.
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLS_TRUSTED_CERTS
+option.
 .TP
 .B TLS_CERT <filename>
 Specifies the file that contains the client certificate.
@@ -342,6 +350,10 @@ Use certutil -L to list the certificates by name:
 .nf
 	certutil -d /path/to/certdbdir -L
 .fi
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLS_IDENTITY
+option.
 .TP
 .B TLS_KEY <filename>
 Specifies the file that contains the private key that matches the certificate
@@ -363,6 +375,9 @@ to the empty string:
 You must have the old password, if any.  Ignore the WARNING about the running
 browser.  Press 'Enter' for the new password.
 
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLS_IDENTITY
+option.
 .TP
 .B TLS_CIPHER_SUITE <cipher-suite-spec>
 Specifies acceptable cipher suite and preference order.
@@ -405,13 +420,17 @@ is in the source code for Mozilla NSS in the file sslinfo.c in the structure
 .nf
         static const SSLCipherSuiteInfo suiteInfo[]
 .fi
+
+When using SecureTransport this directive uses cipher names known to the Security framework unless you prefix the value with
+.BR OpenSSL:
+in which case it uses cipher names known to OpenSSL.
 .RE
 .TP
 .B TLS_RANDFILE <filename>
 Specifies the file to obtain random bits from when /dev/[u]random is
 not available. Generally set to the name of the EGD/PRNGD socket.
 The environment variable RANDFILE can also be used to specify the filename.
-This parameter is ignored with GnuTLS and Mozilla NSS.
+This parameter is ignored with SecureTransport, GnuTLS and Mozilla NSS.
 .TP
 .B TLS_REQCERT <level>
 Specifies what checks to perform on server certificates in a TLS session,
@@ -463,6 +482,26 @@ Check the CRL for a whole certificate chain
 Specifies the file containing a Certificate Revocation List to be used
 to verify if the server certificates have not been revoked. This
 parameter is only supported with GnuTLS and Mozilla NSS.
+.TP
+.B TLS_IDENTITY
+Names the identity in the system keychain.  An identity is a certificate paired with a private key.
+
+Used by SecureTransport instead of
+.BR TLS_CERT
+and
+.BR TLS_KEY.
+Ignored by OpenSSL, GnuTLS and Mozilla NSS.
+.TP
+.B TLS_TRUSTED_CERTS
+Lists the trusted certificates in the system keychain separated by '|'.
+For example:
+TLS_TRUSTED_CERTS Frobozz, Inc.|Widgets R Us|www.example.com
+
+Used by SecureTransport instead of
+.BR TLS_CACERT
+and
+.BR TLS_CACERTDIR.
+Ignored by OpenSSL, GnuTLS and Mozilla NSS.
 .SH "ENVIRONMENT VARIABLES"
 .TP
 LDAPNOINIT

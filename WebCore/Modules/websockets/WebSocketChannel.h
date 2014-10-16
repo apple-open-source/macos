@@ -55,10 +55,7 @@ class SocketStreamHandle;
 class SocketStreamError;
 class WebSocketChannelClient;
 
-class WebSocketChannel : public RefCounted<WebSocketChannel>, public SocketStreamHandleClient, public ThreadableWebSocketChannel
-#if ENABLE(BLOB)
-                       , public FileReaderLoaderClient
-#endif
+class WebSocketChannel : public RefCounted<WebSocketChannel>, public SocketStreamHandleClient, public ThreadableWebSocketChannel, public FileReaderLoaderClient
 {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -68,29 +65,29 @@ public:
     bool send(const char* data, int length);
 
     // ThreadableWebSocketChannel functions.
-    virtual void connect(const KURL&, const String& protocol) OVERRIDE;
-    virtual String subprotocol() OVERRIDE;
-    virtual String extensions() OVERRIDE;
-    virtual ThreadableWebSocketChannel::SendResult send(const String& message) OVERRIDE;
-    virtual ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&, unsigned byteOffset, unsigned byteLength) OVERRIDE;
-    virtual ThreadableWebSocketChannel::SendResult send(const Blob&) OVERRIDE;
-    virtual unsigned long bufferedAmount() const OVERRIDE;
-    virtual void close(int code, const String& reason) OVERRIDE; // Start closing handshake.
-    virtual void fail(const String& reason) OVERRIDE;
-    virtual void disconnect() OVERRIDE;
+    virtual void connect(const URL&, const String& protocol) override;
+    virtual String subprotocol() override;
+    virtual String extensions() override;
+    virtual ThreadableWebSocketChannel::SendResult send(const String& message) override;
+    virtual ThreadableWebSocketChannel::SendResult send(const JSC::ArrayBuffer&, unsigned byteOffset, unsigned byteLength) override;
+    virtual ThreadableWebSocketChannel::SendResult send(Blob&) override;
+    virtual unsigned long bufferedAmount() const override;
+    virtual void close(int code, const String& reason) override; // Start closing handshake.
+    virtual void fail(const String& reason) override;
+    virtual void disconnect() override;
 
-    virtual void suspend() OVERRIDE;
-    virtual void resume() OVERRIDE;
+    virtual void suspend() override;
+    virtual void resume() override;
 
     // SocketStreamHandleClient functions.
-    virtual void willOpenSocketStream(SocketStreamHandle*) OVERRIDE;
-    virtual void didOpenSocketStream(SocketStreamHandle*) OVERRIDE;
-    virtual void didCloseSocketStream(SocketStreamHandle*) OVERRIDE;
-    virtual void didReceiveSocketStreamData(SocketStreamHandle*, const char*, int) OVERRIDE;
-    virtual void didUpdateBufferedAmount(SocketStreamHandle*, size_t bufferedAmount) OVERRIDE;
-    virtual void didFailSocketStream(SocketStreamHandle*, const SocketStreamError&) OVERRIDE;
-    virtual void didReceiveAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&) OVERRIDE;
-    virtual void didCancelAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&) OVERRIDE;
+    virtual void willOpenSocketStream(SocketStreamHandle*) override;
+    virtual void didOpenSocketStream(SocketStreamHandle*) override;
+    virtual void didCloseSocketStream(SocketStreamHandle*) override;
+    virtual void didReceiveSocketStreamData(SocketStreamHandle*, const char*, int) override;
+    virtual void didUpdateBufferedAmount(SocketStreamHandle*, size_t bufferedAmount) override;
+    virtual void didFailSocketStream(SocketStreamHandle*, const SocketStreamError&) override;
+    virtual void didReceiveAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&) override;
+    virtual void didCancelAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&) override;
 
     enum CloseEventCode {
         CloseEventCodeNotSpecified = -1,
@@ -111,13 +108,11 @@ public:
         CloseEventCodeMaximumUserDefined = 4999
     };
 
-#if ENABLE(BLOB)
     // FileReaderLoaderClient functions.
     virtual void didStartLoading();
     virtual void didReceiveData();
     virtual void didFinishLoading();
     virtual void didFail(int errorCode);
-#endif
 
     using RefCounted<WebSocketChannel>::ref;
     using RefCounted<WebSocketChannel>::deref;
@@ -161,7 +156,7 @@ private:
     };
     void enqueueTextFrame(const CString&);
     void enqueueRawFrame(WebSocketFrame::OpCode, const char* data, size_t dataLength);
-    void enqueueBlobFrame(WebSocketFrame::OpCode, const Blob&);
+    void enqueueBlobFrame(WebSocketFrame::OpCode, Blob&);
 
     void processOutgoingFrameQueue();
     void abortOutgoingFrameQueue();
@@ -182,14 +177,12 @@ private:
     // instead of call sendFrame() directly.
     bool sendFrame(WebSocketFrame::OpCode, const char* data, size_t dataLength);
 
-#if ENABLE(BLOB)
     enum BlobLoaderStatus {
         BlobLoaderNotStarted,
         BlobLoaderStarted,
         BlobLoaderFinished,
         BlobLoaderFailed
     };
-#endif
 
     Document* m_document;
     WebSocketChannelClient* m_client;
@@ -215,14 +208,12 @@ private:
     unsigned short m_closeEventCode;
     String m_closeEventReason;
 
-    Deque<OwnPtr<QueuedFrame> > m_outgoingFrameQueue;
+    Deque<OwnPtr<QueuedFrame>> m_outgoingFrameQueue;
     OutgoingFrameQueueStatus m_outgoingFrameQueueStatus;
 
-#if ENABLE(BLOB)
     // FIXME: Load two or more Blobs simultaneously for better performance.
     OwnPtr<FileReaderLoader> m_blobLoader;
     BlobLoaderStatus m_blobLoaderStatus;
-#endif
 
     WebSocketDeflateFramer m_deflateFramer;
 };

@@ -1,0 +1,60 @@
+#! /bin/csh -f
+#
+# wrapper for running sslViewer from protClient script.
+#
+# usage: runProtClient [q] [e errMsg] viewerArgs ...
+#
+set OUR_QUIET=0
+set VIEW_QUIET=
+set VIEWER_ARGS=
+set ERR_MSG=
+set EXPECT_ERR=0
+
+#
+# q and e used here; q used both here and in sslViewer
+#
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case q:
+            set OUR_QUIET = 1
+			set VIEW_QUIET = q
+            shift
+            breaksw
+		case e:
+			shift
+			if($#argv == 0) then
+				echo specify errMsg with e option
+				exit(1)
+			endif
+			set ERR_MSG = "$argv[1]"
+			set EXPECT_ERR=1
+			shift
+            breaksw
+		default:
+			set thisArg = "$argv[1]"
+			set VIEWER_ARGS = "$VIEWER_ARGS $thisArg"
+			shift
+			breaksw
+	endsw
+end
+if($OUR_QUIET == 0) then
+	if($EXPECT_ERR == 1) then
+		echo === $ERR_MSG
+	endif
+endif
+set cmd="sslViewer $VIEWER_ARGS $VIEW_QUIET"
+if($OUR_QUIET == 0) then
+	echo $cmd
+endif
+$cmd 
+if($status != $EXPECT_ERR) then
+	if($EXPECT_ERR == 0) then
+		echo @@@@ UNEXPECTED ERROR FROM sslViewer. Aborting.
+	else
+		echo @@@ FAILED TO GET EXPECTED ERROR FROM sslViewer. Aborting.
+	endif
+	exit(1)
+endif
+
+	
+			

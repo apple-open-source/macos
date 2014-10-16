@@ -131,7 +131,7 @@ macNCopt_str_to_type(const char * str,
 
     switch (type) {
       case macNCtype_afp_password_e: {
-	  int len = strlen(str);
+	  int len = (int)strlen(str);
 	  if (*len_p < AFP_PASSWORD_LEN) {
 	      if (err)
 		  snprintf(err->str, sizeof(err->str),
@@ -152,7 +152,7 @@ macNCopt_str_to_type(const char * str,
         }
 	break;
       case macNCtype_pstring_e: {
-	  int len = strlen(str);
+	  int len = (int)strlen(str);
 	  if (*len_p < (len + 1)) {
 	      if (err)
 		  snprintf(err->str, sizeof(err->str),
@@ -170,10 +170,8 @@ macNCopt_str_to_type(const char * str,
 	    snprintf(err->str, sizeof(err->str),
 		     "%s: not supported", type_info->name);
 	return (FALSE);
-	break;
       default:
 	return (dhcptype_from_str(str, type, buf, len_p, err));
-	break;
     }
     return (TRUE);
 }
@@ -200,7 +198,7 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
     void * 	buf_p = buf;
     int 	l;
 
-    l = strlen(volname) + strlen(pathname);
+    l = (int)strlen(volname) + (int)strlen(pathname);
     if (l > AFP_PATH_LIMIT) {
 	if (err)
 	    snprintf(err->str, sizeof(err->str),
@@ -224,7 +222,7 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
     *((u_short *)buf_p) = port;			/* port */
     buf_p += sizeof(port);
 
-    l = strlen(volname);			/* VolName */
+    l = (int)strlen(volname);			/* VolName */
     *((u_char *)buf_p) = l;
     buf_p++;
     if (l)
@@ -237,7 +235,7 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
     *((uint8_t *)buf_p) = pathtype;		/* AFPPathType */
     buf_p += sizeof(pathtype);
 
-    l = strlen(pathname);			/* PathName */
+    l = (int)strlen(pathname);			/* PathName */
     *((uint8_t *)buf_p) = l;
     buf_p++;
     if (l) {

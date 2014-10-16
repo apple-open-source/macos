@@ -21,12 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifdef __APPLE__
-
 #include <mach/machine.h>
 
 #define I386_STRING		"i386"
 #define X86_64_STRING		"x86_64"
+#define ARM_STRING		"arm"
+#define ARM64_STRING		"arm64"
 #define ANY_CPU_STRING		"any"
 
 static inline char*
@@ -37,6 +37,12 @@ string_for_arch(cpu_type_t arch)
 			return I386_STRING;
 		case CPU_TYPE_X86_64:
 			return X86_64_STRING;
+		case CPU_TYPE_ARM:
+			return ARM_STRING;
+#if defined(CPU_TYPE_ARM64) && !defined(RC_HIDE_64)
+		case CPU_TYPE_ARM64:
+			return ARM64_STRING;
+#endif
 		case CPU_TYPE_ANY:
 			return ANY_CPU_STRING;
 		default:
@@ -51,6 +57,12 @@ arch_for_string(const char* string)
 		return CPU_TYPE_I386;
 	else if(!strcmp(string, X86_64_STRING))
 		return CPU_TYPE_X86_64;
+	else if(!strcmp(string, ARM_STRING))
+		return CPU_TYPE_ARM;
+#if defined(CPU_TYPE_ARM64) && !defined(RC_HIDE_64)
+	else if(!strcmp(string, ARM64_STRING))
+		return CPU_TYPE_ARM64;
+#endif
 	else if(!strcmp(string, ANY_CPU_STRING))
 		return CPU_TYPE_ANY;
 	else
@@ -81,8 +93,11 @@ static inline int needs_swapping(cpu_type_t a, cpu_type_t b)
 #define host_arch CPU_TYPE_I386
 #elif defined(__x86_64__)
 #define host_arch CPU_TYPE_X86_64
+#elif defined(__arm__)
+#define host_arch CPU_TYPE_ARM
+#elif defined(__arm64__)
+#define host_arch CPU_TYPE_ARM64
 #else
 #error Unsupported architecture
 #endif
 
-#endif

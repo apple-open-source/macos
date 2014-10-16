@@ -26,7 +26,7 @@ APU_MODULES = @APU_MODULES@
 LINK_MODULE = $(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LT_LDFLAGS) $(ALL_CFLAGS) $(ALL_LDFLAGS) $(APRUTIL_LDFLAGS) -release $(APRUTIL_MAJOR_VERSION) -module -rpath $(APU_DSO_LIBDIR)
 APU_DSO_LIBDIR = @APU_DSO_LIBDIR@
 
-LT_VERSION = @APU_LTVERSION@
+LT_VERSION = -version-info 3:0:3
 
 EXTRA_OBJECTS = @EXTRA_OBJECTS@
 
@@ -41,6 +41,8 @@ LDADD_dbm_db = @LDADD_dbm_db@
 LDADD_dbm_gdbm = @LDADD_dbm_gdbm@
 LDADD_dbm_ndbm = @LDADD_dbm_ndbm@
 LDADD_ldap = @LDADD_ldap@
+LDADD_crypto_openssl = @LDADD_crypto_openssl@
+LDADD_crypto_nss = @LDADD_crypto_nss@
 
 TARGETS = $(TARGET_LIB) aprutil.exp apu-config.out $(APU_MODULES)
 

@@ -26,7 +26,7 @@
 #define PCSC_ERROR_EXIT(rv, text) \
 if (rv != SCARD_S_SUCCESS) \
 { \
-	printf(text ": %s (0x%lX)\n", pcsc_stringify_error(rv), rv); \
+	printf(text ": %s (0x%ulX)\n", pcsc_stringify_error(rv), rv); \
 	goto end; \
 }
 
@@ -51,7 +51,7 @@ int main(void)
 	rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
 	if (rv != SCARD_S_SUCCESS)
 	{
-		printf("SCardEstablishContext: Cannot Connect to Resource Manager %lX\n", rv);
+		printf("SCardEstablishContext: Cannot Connect to Resource Manager %ulX\n", rv);
 		return 1;
 	}
 
@@ -101,7 +101,8 @@ int main(void)
 	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	if ((length != 2) || (bRecvBuffer[0] != 0x90) || (bRecvBuffer[1] != 0x00))
 	{
-		printf("cmd1 failed: %02X%02X\n", bRecvBuffer[0], bRecvBuffer[1]);
+		printf("cmd1 failed (%uld): %02X%02X\n", length, bRecvBuffer[length-2],
+			bRecvBuffer[length-1]);
 		goto end;
 	}
 
@@ -112,8 +113,8 @@ int main(void)
 	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	if ((length != 6) || (bRecvBuffer[4] != 0x90) || (bRecvBuffer[5] != 0x00))
 	{
-		printf("cmd2 failed (%ld) : %02X%02X\n", length, bRecvBuffer[4],
-			bRecvBuffer[5]);
+		printf("cmd2 failed (%uld) : %02X%02X\n", length, bRecvBuffer[length-2],
+			bRecvBuffer[length-1]);
 		goto end;
 	}
 
@@ -127,8 +128,8 @@ int main(void)
 	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	if ((length != 2) || (bRecvBuffer[0] != 0x90) || (bRecvBuffer[1] != 0x00))
 	{
-		printf("cmd2 failed (%ld) : %02X%02X\n", length, bRecvBuffer[0],
-			bRecvBuffer[1]);
+		printf("cmd3 failed (%uld): %02X%02X\n", length, bRecvBuffer[length-2],
+			bRecvBuffer[length-1]);
 		goto end;
 	}
 
@@ -139,8 +140,8 @@ int main(void)
 	PCSC_ERROR_EXIT(rv, "SCardTransmit")
 	if ((length != 7) || (bRecvBuffer[5] != 0x90) || (bRecvBuffer[6] != 0x00))
 	{
-		printf("cmd3 failed (%ld): %02X%02X\n", length, bRecvBuffer[5],
-			bRecvBuffer[6]);
+		printf("cmd4 failed (%uld): %02X%02X\n", length, bRecvBuffer[length-2],
+			bRecvBuffer[length-1]);
 		goto end;
 	}
 
@@ -150,7 +151,7 @@ end:
 	/* We try to leave things as clean as possible */
     rv = SCardReleaseContext(hContext);
     if (rv != SCARD_S_SUCCESS)
-        printf("SCardReleaseContext: %s (0x%lX)\n", pcsc_stringify_error(rv),
+        printf("SCardReleaseContext: %s (0x%ulX)\n", pcsc_stringify_error(rv),
             rv);
 
     /* free allocated memory */

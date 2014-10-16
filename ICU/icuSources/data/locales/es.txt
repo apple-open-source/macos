@@ -1,16 +1,24 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: <path>/xml/main/es.xml
+ * ICU <specials> source: <path>/common/main/es.xml
  */
 es{
     AuxExemplarCharacters{"[ª à ă â å ä ã ā æ ç è ĕ ê ë ē ì ĭ î ï ī º ò ŏ ô ö ø ō œ ù ŭ û ū ÿ]"}
+    Ellipsis{
+        final{"{0}…"}
+        initial{"… {0}"}
+        medial{"{0}… {1}"}
+        word-final{"{0}…"}
+        word-initial{"… {0}"}
+        word-medial{"{0}… {1}"}
+    }
     ExemplarCharacters{"[a á b c d e é f g h i í j k l m n ñ o ó p q r s t u ú ü v w x y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z]"}
     ExemplarCharactersPunctuation{
@@ -20,9 +28,15 @@ es{
     LocaleScript{
         "Latn",
     }
+    MoreInformation{"?"}
     NumberElements{
         latn{
+            miscPatterns{
+                atLeast{"Más de {0}"}
+                range{"{0}-{1}"}
+            }
             patterns{
+                accountingFormat{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
@@ -55,16 +69,16 @@ es{
                         other{"000 millones"}
                     }
                     1000000000{
-                        one{"0 millardo"}
-                        other{"0 millardos"}
+                        one{"0 mil millones"}
+                        other{"0 mil millones"}
                     }
                     10000000000{
-                        one{"00 millardos"}
-                        other{"00 millardos"}
+                        one{"00 mil millones"}
+                        other{"00 mil millones"}
                     }
                     100000000000{
-                        one{"000 millardos"}
-                        other{"000 millardos"}
+                        one{"000 mil millones"}
+                        other{"000 mil millones"}
                     }
                     1000000000000{
                         one{"0 billón"}
@@ -83,52 +97,52 @@ es{
             patternsShort{
                 decimalFormat{
                     1000{
-                        one{"0 K"}
-                        other{"0 K"}
+                        one{"0K"}
+                        other{"0K"}
                     }
                     10000{
-                        one{"00 K"}
-                        other{"00 K"}
+                        one{"00K"}
+                        other{"00K"}
                     }
                     100000{
-                        one{"000 K"}
-                        other{"000 K"}
+                        one{"000K"}
+                        other{"000K"}
                     }
                     1000000{
-                        one{"0 M"}
-                        other{"0 M"}
+                        one{"0M"}
+                        other{"0M"}
                     }
                     10000000{
-                        one{"00 M"}
-                        other{"00 M"}
+                        one{"00M"}
+                        other{"00M"}
                     }
                     100000000{
-                        one{"000 M"}
-                        other{"000 M"}
+                        one{"000M"}
+                        other{"000M"}
                     }
                     1000000000{
                         one{"0000 M"}
                         other{"0000 M"}
                     }
                     10000000000{
-                        one{"00 K M"}
-                        other{"00 K M"}
+                        one{"00MRD"}
+                        other{"00MRD"}
                     }
                     100000000000{
-                        one{"000 K M"}
-                        other{"000 K M"}
+                        one{"000MRD"}
+                        other{"000MRD"}
                     }
                     1000000000000{
-                        one{"0 B"}
-                        other{"0 B"}
+                        one{"0B"}
+                        other{"0B"}
                     }
                     10000000000000{
-                        one{"00 B"}
-                        other{"00 B"}
+                        one{"00B"}
+                        other{"00B"}
                     }
                     100000000000000{
-                        one{"000 B"}
-                        other{"000 B"}
+                        one{"000B"}
+                        other{"000B"}
                     }
                 }
             }
@@ -143,10 +157,11 @@ es{
                 perMille{"‰"}
                 percentSign{"%"}
                 plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
     }
-    Version{"2.0.82.47"}
+    Version{"2.0.98.52"}
     calendar{
         buddhist{
             eras{
@@ -157,10 +172,10 @@ es{
         }
         chinese{
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
                 "EEEE, d-M-y",
                 "d-M-y",
                 "d-M-y",
@@ -206,17 +221,17 @@ es{
         }
         generic{
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
                 "dd/MM/y G",
                 "dd/MM/yy GGGGG",
                 "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -233,7 +248,7 @@ es{
                 M{"L"}
                 MEd{"E, d/M"}
                 MMM{"LLL"}
-                MMMEd{"E d MMM"}
+                MMMEd{"E, d MMM"}
                 MMMMd{"d 'de' MMMM"}
                 MMMd{"d MMM"}
                 MMMdd{"dd-MMM"}
@@ -272,28 +287,36 @@ es{
                     M{"M–M"}
                 }
                 MEd{
-                    M{"E d/M – E d/M"}
-                    d{"E d/M – E d/M"}
+                    M{"E, d/M–E, d/M"}
+                    d{"E, d/M–E, d/M"}
                 }
                 MMM{
                     M{"MMM–MMM"}
                 }
                 MMMEd{
-                    M{"E d MMM – E d MMM"}
-                    d{"E d MMM – E d MMM"}
+                    M{"E, d MMM–E, d MMM"}
+                    d{"E, d MMM–E, d MMM"}
+                }
+                MMMMEd{
+                    M{"E, d 'de' MMMM–E, d 'de' MMMM"}
+                    d{"E, d 'de' MMMM–E, d 'de' MMMM"}
+                }
+                MMMMd{
+                    M{"d 'de' MMMM–d 'de' MMMM"}
+                    d{"d–d MMMM"}
                 }
                 MMMd{
-                    M{"d MMM – d MMM"}
+                    M{"d MMM–d MMM"}
                     d{"d–d MMM"}
                 }
                 Md{
-                    M{"d/M – d/M"}
-                    d{"d/M – d/M"}
+                    M{"d/M–d/M"}
+                    d{"d/M–d/M"}
                 }
                 d{
                     d{"d–d"}
                 }
-                fallback{"{0} – {1}"}
+                fallback{"{0}–{1}"}
                 h{
                     a{"h a – h a"}
                     h{"h–h a"}
@@ -316,88 +339,110 @@ es{
                     y{"y–y G"}
                 }
                 yM{
-                    M{"M/y – M/y G"}
-                    y{"M/y – M/y G"}
+                    M{"M/y–M/y G"}
+                    y{"M/y–M/y G"}
                 }
                 yMEd{
-                    M{"E d/M/y – E d/M/y G"}
-                    d{"E d/M/y – E d/M/y G"}
-                    y{"E d/M/y – E d/M/y G"}
+                    M{"E, d/M/y–E, d/M/y G"}
+                    d{"E, d/M/y–E, d/M/y G"}
+                    y{"E, d/M/y–E, d/M/y G"}
                 }
                 yMMM{
                     M{"MMM–MMM y G"}
                     y{"MMM y – MMM y G"}
                 }
                 yMMMEd{
-                    M{"E d MMM – E d MMM y G"}
-                    d{"E d MMM – E d MMM y G"}
-                    y{"E d MMM y – E d MMM y G"}
+                    M{"E, d MMM–E, d MMM y G"}
+                    d{"E, d MMM–E, d MMM y G"}
+                    y{"E, d MMM y–E, d MMM y G"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM y G"}
-                    y{"MMMM y – MMMM y G"}
+                    M{"MMMM–MMMM 'de' y G"}
+                    y{"MMMM 'de' y–MMMM 'de' y G"}
+                }
+                yMMMMEd{
+                    M{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y G"}
+                    d{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y G"}
+                    y{"E, d 'de' MMMM 'de' y–E, d 'de' MMMM 'de' y G"}
+                }
+                yMMMMd{
+                    M{"d 'de' MMMM–d 'de' MMMM y G"}
+                    d{"d–d 'de' MMMM 'de' y G"}
+                    y{"d 'de' MMMM 'de' y–d 'de' MMMM 'de' y G"}
                 }
                 yMMMd{
-                    M{"d MMM – d MMM y G"}
+                    M{"d MMM–d MMM y G"}
                     d{"d–d MMM y G"}
-                    y{"d MMM y – d MMM y G"}
+                    y{"d MMM y–d MMM y G"}
                 }
                 yMd{
-                    M{"d/M/y – d/M/y G"}
-                    d{"d/M/y – d/M/y G"}
-                    y{"d/M/y – d/M/y G"}
+                    M{"d/M/y–d/M/y G"}
+                    d{"d/M/y–d/M/y G"}
+                    y{"d/M/y–d/M/y G"}
                 }
             }
         }
         gregorian{
             AmPmMarkers{
+                "a. m.",
+                "p. m.",
+            }
+            AmPmMarkersNarrow{
                 "a.m.",
                 "p.m.",
             }
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
                 "EEEE, d 'de' MMMM 'de' y",
                 "d 'de' MMMM 'de' y",
-                "dd/MM/y",
-                "dd/MM/yy",
+                "d/M/y",
+                "d/M/yy",
                 "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
+            appendItems{
+                Timezone{"{0} {1}"}
+            }
             availableFormats{
+                EHm{"E, H:mm"}
+                EHms{"E, H:mm:ss"}
                 Ed{"E d"}
+                Ehm{"E, h:mm a"}
+                Ehms{"E, h:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMMEd{"E, d 'de' MMMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
                 M{"L"}
                 MEd{"E, d/M"}
                 MMM{"LLL"}
                 MMMEd{"E d MMM"}
+                MMMMEd{"E d 'de' MMMM"}
                 MMMMd{"d 'de' MMMM"}
                 MMMd{"d MMM"}
                 MMMdd{"dd-MMM"}
-                MMd{"d/MM"}
-                MMdd{"dd/MM"}
+                MMd{"d/M"}
+                MMdd{"d/M"}
                 Md{"d/M"}
                 d{"d"}
-                h{"hh a"}
-                hm{"hh:mm a"}
-                hms{"hh:mm:ss a"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/y"}
                 yMEd{"EEE, d/M/y"}
-                yMM{"MM/y"}
+                yMM{"M/y"}
                 yMMM{"MMM y"}
                 yMMMEd{"EEE, d MMM y"}
                 yMMMM{"MMMM 'de' y"}
@@ -418,7 +463,7 @@ es{
                         "vie",
                         "sáb",
                     }
-                    short{
+                    narrow{
                         "D",
                         "L",
                         "M",
@@ -426,6 +471,15 @@ es{
                         "J",
                         "V",
                         "S",
+                    }
+                    short{
+                        "DO",
+                        "LU",
+                        "MA",
+                        "MI",
+                        "JU",
+                        "VI",
+                        "SA",
                     }
                     wide{
                         "domingo",
@@ -457,13 +511,13 @@ es{
                         "S",
                     }
                     short{
-                        "D",
-                        "L",
-                        "M",
-                        "X",
-                        "J",
-                        "V",
-                        "S",
+                        "DO",
+                        "LU",
+                        "MA",
+                        "MI",
+                        "JU",
+                        "VI",
+                        "SA",
                     }
                     wide{
                         "Domingo",
@@ -478,8 +532,8 @@ es{
             }
             eras{
                 abbreviated{
-                    "a.C.",
-                    "d.C.",
+                    "a. C.",
+                    "d. C.",
                 }
                 wide{
                     "antes de Cristo",
@@ -488,44 +542,47 @@ es{
             }
             intervalFormats{
                 H{
-                    H{"HH–HH"}
+                    H{"H–H"}
                 }
                 Hm{
-                    H{"HH:mm – HH:mm"}
-                    m{"HH:mm – HH:mm"}
+                    H{"H:mm–H:mm"}
+                    m{"H:mm–H:mm"}
                 }
                 Hmv{
-                    H{"HH:mm – HH:mm v"}
-                    m{"HH:mm – HH:mm v"}
+                    H{"H:mm–H:mm v"}
+                    m{"H:mm–H:mm v"}
+                }
+                Hv{
+                    H{"H–H v"}
                 }
                 M{
                     M{"M–M"}
                 }
                 MEd{
-                    M{"E d/M – E d/M"}
-                    d{"E d/M – E d/M"}
+                    M{"E, d/M–E, d/M"}
+                    d{"E, d/M–E, d/M"}
                 }
                 MMM{
                     M{"MMM–MMM"}
                 }
                 MMMEd{
-                    M{"E d MMM – E d MMM"}
-                    d{"E d MMM – E d MMM"}
+                    M{"E, d MMM–E, d MMM"}
+                    d{"E, d MMM–E, d MMM"}
                 }
                 MMMd{
-                    M{"d MMM – d MMM"}
+                    M{"d MMM–d MMM"}
                     d{"d–d MMM"}
                 }
                 Md{
-                    M{"d/M – d/M"}
-                    d{"d/M – d/M"}
+                    M{"d/M–d/M"}
+                    d{"d/M–d/M"}
                 }
                 d{
                     d{"d–d"}
                 }
-                fallback{"{0} – {1}"}
+                fallback{"{0}–{1}"}
                 h{
-                    a{"h a – h a"}
+                    a{"h a–h a"}
                     h{"h–h a"}
                 }
                 hm{
@@ -534,48 +591,58 @@ es{
                     m{"h:mm – h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm – h:mm a v"}
-                    m{"h:mm – h:mm a v"}
+                    a{"h:mm a–h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
                 }
                 hv{
-                    a{"h a – h a v"}
+                    a{"h a–h a v"}
                     h{"h–h a v"}
                 }
                 y{
                     y{"y–y"}
                 }
                 yM{
-                    M{"M/y – M/y"}
-                    y{"M/y – M/y"}
+                    M{"M/y–M/y"}
+                    y{"M/y–M/y"}
                 }
                 yMEd{
-                    M{"E d/M/y – E d/M/y"}
-                    d{"E d/M/y – E d/M/y"}
-                    y{"E d/M/y – E d/M/y"}
+                    M{"E, d/M/y–E, d/M/y"}
+                    d{"E, d/M/y–E, d/M/y"}
+                    y{"E, d/M/y–E, d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMM y"}
-                    y{"MMM y – MMM y"}
+                    y{"MMM y–MMM y"}
                 }
                 yMMMEd{
-                    M{"E d MMM – E d MMM y"}
-                    d{"E d MMM – E d MMM y"}
-                    y{"E d MMM y – E d MMM y"}
+                    M{"E, d MMM–E, d MMM y"}
+                    d{"E, d MMM–E, d MMM y"}
+                    y{"E, d MMM y–E, d MMM y"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM y"}
-                    y{"MMMM y – MMMM y"}
+                    M{"MMMM–MMMM 'de' y"}
+                    y{"MMMM 'de' y–MMMM 'de' y"}
+                }
+                yMMMMEd{
+                    M{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y"}
+                    d{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y"}
+                    y{"E, d 'de' MMMM 'de' y–E, d 'de' MMMM 'de' y"}
+                }
+                yMMMMd{
+                    M{"d 'de' MMMM–d 'de' MMMM 'de' y"}
+                    d{"d–d MMMM y"}
+                    y{"d 'de' MMMM 'de' y–d 'de' MMMM 'de' y"}
                 }
                 yMMMd{
-                    M{"d MMM – d MMM y"}
+                    M{"d MMM–d MMM y"}
                     d{"d–d MMM y"}
-                    y{"d MMM y – d MMM y"}
+                    y{"d MMM y–d MMM y"}
                 }
                 yMd{
-                    M{"d/M/y – d/M/y"}
-                    d{"d/M/y – d/M/y"}
-                    y{"d/M/y – d/M/y"}
+                    M{"d/M/y–d/M/y"}
+                    d{"d/M/y–d/M/y"}
+                    y{"d/M/y–d/M/y"}
                 }
             }
             monthNames{
@@ -589,37 +656,7 @@ es{
                         "jun",
                         "jul",
                         "ago",
-                        "sep",
-                        "oct",
-                        "nov",
-                        "dic",
-                    }
-                    wide{
-                        "enero",
-                        "febrero",
-                        "marzo",
-                        "abril",
-                        "mayo",
-                        "junio",
-                        "julio",
-                        "agosto",
-                        "septiembre",
-                        "octubre",
-                        "noviembre",
-                        "diciembre",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "ene",
-                        "feb",
-                        "mar",
-                        "abr",
-                        "mayo",
-                        "jun",
-                        "jul",
-                        "ago",
-                        "sep",
+                        "sept",
                         "oct",
                         "nov",
                         "dic",
@@ -638,6 +675,64 @@ es{
                         "N",
                         "D",
                     }
+                    wide{
+                        "enero",
+                        "febrero",
+                        "marzo",
+                        "abril",
+                        "mayo",
+                        "junio",
+                        "julio",
+                        "agosto",
+                        "septiembre",
+                        "octubre",
+                        "noviembre",
+                        "diciembre",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Ene",
+                        "Feb",
+                        "Mar",
+                        "Abr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Ago",
+                        "Sept",
+                        "Oct",
+                        "Nov",
+                        "Dic",
+                    }
+                    narrow{
+                        "E",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "J",
+                        "J",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
+                    wide{
+                        "Enero",
+                        "Febrero",
+                        "Marzo",
+                        "Abril",
+                        "Mayo",
+                        "Junio",
+                        "Julio",
+                        "Agosto",
+                        "Septiembre",
+                        "Octubre",
+                        "Noviembre",
+                        "Diciembre",
+                    }
                 }
             }
             quarters{
@@ -655,13 +750,19 @@ es{
                         "4T",
                     }
                     wide{
-                        "1er trimestre",
-                        "2º trimestre",
-                        "3er trimestre",
-                        "4º trimestre",
+                        "1.er trimestre",
+                        "2.º trimestre",
+                        "3.er trimestre",
+                        "4.º trimestre",
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "T1",
+                        "T2",
+                        "T3",
+                        "T4",
+                    }
                     narrow{
                         "1T",
                         "2T",
@@ -693,17 +794,17 @@ es{
         }
         japanese{
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "H:mm:ss (zzzz)",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
                 "dd/MM/y G",
                 "dd/MM/yy GGGGG",
                 "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -740,10 +841,15 @@ es{
         }
     }
     delimiters{
-        alternateQuotationEnd{"»"}
-        alternateQuotationStart{"«"}
-        quotationEnd{"”"}
-        quotationStart{"“"}
+        alternateQuotationEnd{"”"}
+        alternateQuotationStart{"“"}
+        quotationEnd{"»"}
+        quotationStart{"«"}
+    }
+    durationUnits{
+        hm{"h:mm"}
+        hms{"h:mm:ss"}
+        ms{"m:ss"}
     }
     fields{
         day{
@@ -755,6 +861,16 @@ es{
                 "1"{"mañana"}
                 "2"{"pasado mañana"}
             }
+            relativeTime{
+                future{
+                    one{"dentro de {0} día"}
+                    other{"dentro de {0} días"}
+                }
+                past{
+                    one{"hace {0} día"}
+                    other{"hace {0} días"}
+                }
+            }
         }
         dayperiod{
             dn{"periodo del día"}
@@ -762,11 +878,45 @@ es{
         era{
             dn{"era"}
         }
+        fri{
+            relative{
+                "-1"{"el viernes pasado"}
+                "0"{"este viernes"}
+                "1"{"el próximo viernes"}
+            }
+        }
         hour{
             dn{"hora"}
+            relativeTime{
+                future{
+                    one{"dentro de {0} hora"}
+                    other{"dentro de {0} horas"}
+                }
+                past{
+                    one{"hace {0} hora"}
+                    other{"hace {0} horas"}
+                }
+            }
         }
         minute{
             dn{"minuto"}
+            relativeTime{
+                future{
+                    one{"dentro de {0} minuto"}
+                    other{"dentro de {0} minutos"}
+                }
+                past{
+                    one{"hace {0} minuto"}
+                    other{"hace {0} minutos"}
+                }
+            }
+        }
+        mon{
+            relative{
+                "-1"{"el lunes pasado"}
+                "0"{"este lunes"}
+                "1"{"el próximo lunes"}
+            }
         }
         month{
             dn{"mes"}
@@ -775,9 +925,67 @@ es{
                 "0"{"este mes"}
                 "1"{"el próximo mes"}
             }
+            relativeTime{
+                future{
+                    one{"dentro de {0} mes"}
+                    other{"dentro de {0} meses"}
+                }
+                past{
+                    one{"hace {0} mes"}
+                    other{"hace {0} meses"}
+                }
+            }
+        }
+        sat{
+            relative{
+                "-1"{"el sábado pasado"}
+                "0"{"este sábado"}
+                "1"{"el próximo sábado"}
+            }
         }
         second{
             dn{"segundo"}
+            relative{
+                "0"{"ahora"}
+            }
+            relativeTime{
+                future{
+                    one{"dentro de {0} segundo"}
+                    other{"dentro de {0} segundos"}
+                }
+                past{
+                    one{"hace {0} segundo"}
+                    other{"hace {0} segundos"}
+                }
+            }
+        }
+        sun{
+            relative{
+                "-1"{"el domingo pasado"}
+                "0"{"este domingo"}
+                "1"{"el próximo domingo"}
+            }
+        }
+        thu{
+            relative{
+                "-1"{"el jueves pasado"}
+                "0"{"este jueves"}
+                "1"{"el próximo jueves"}
+            }
+        }
+        tue{
+            relative{
+                "-1"{"el martes pasado"}
+                "0"{"este martes"}
+                "1"{"el próximo martes"}
+            }
+        }
+        wed{
+            relative{
+                "-1"{"el miércoles pasado"}
+                "0"{"este miércoles"}
+                "1"{"el próximo miércoles"}
+            }
         }
         week{
             dn{"semana"}
@@ -785,6 +993,16 @@ es{
                 "-1"{"la semana pasada"}
                 "0"{"esta semana"}
                 "1"{"la próxima semana"}
+            }
+            relativeTime{
+                future{
+                    one{"dentro de {0} semana"}
+                    other{"dentro de {0} semanas"}
+                }
+                past{
+                    one{"hace {0} semana"}
+                    other{"hace {0} semanas"}
+                }
             }
         }
         weekday{
@@ -797,9 +1015,19 @@ es{
                 "0"{"este año"}
                 "1"{"el próximo año"}
             }
+            relativeTime{
+                future{
+                    one{"dentro de {0} año"}
+                    other{"dentro de {0} años"}
+                }
+                past{
+                    one{"hace {0} año"}
+                    other{"hace {0} años"}
+                }
+            }
         }
         zone{
-            dn{"zona"}
+            dn{"zona horaria"}
         }
     }
     listPattern{
@@ -809,126 +1037,733 @@ es{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        unit{
+            2{"{0} y {1}"}
+            end{"{0} y {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        unit-short{
+            2{"{0} y {1}"}
+            end{"{0}, {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
     }
     measurementSystemNames{
-        UK{"británico"}
+        UK{"anglosajón"}
         US{"estadounidense"}
         metric{"métrico"}
     }
+    transformNames{
+        BGN{"BGN"}
+        Numeric{"Numérico"}
+        Tone{"Tono"}
+        UNGEGN{"UNGEGN"}
+        x-Accents{"Acentos"}
+        x-Fullwidth{"Ancho completo"}
+        x-Halfwidth{"Ancho medio"}
+        x-Jamo{"Jamo"}
+        x-Pinyin{"Pinyin"}
+        x-Publishing{"Publicación"}
+    }
     units{
-        day{
-            one{"{0} día"}
-            other{"{0} días"}
+        acceleration{
+            g-force{
+                one{"{0} unidad de fuerza gravitacional"}
+                other{"{0} unidades de fuerza gravitacional"}
+            }
         }
-        day-future{
-            one{"Dentro de {0} día"}
-            other{"Dentro de {0} días"}
+        angle{
+            arc-minute{
+                one{"{0} minuto"}
+                other{"{0} minutos"}
+            }
+            arc-second{
+                one{"{0} segundo"}
+                other{"{0} segundos"}
+            }
+            degree{
+                one{"{0} grado"}
+                other{"{0} grados"}
+            }
         }
-        day-past{
-            one{"Hace {0} día"}
-            other{"Hace {0} días"}
+        area{
+            acre{
+                one{"{0} acre"}
+                other{"{0} acres"}
+            }
+            hectare{
+                one{"{0} hectárea"}
+                other{"{0} hectáreas"}
+            }
+            square-foot{
+                one{"{0} pie cuadrado"}
+                other{"{0} pies cuadrados"}
+            }
+            square-kilometer{
+                one{"{0} kilómetro cuadrado"}
+                other{"{0} kilómetros cuadrados"}
+            }
+            square-meter{
+                one{"{0} metro cuadrado"}
+                other{"{0} metros cuadrados"}
+            }
+            square-mile{
+                one{"{0} milla cuadrada"}
+                other{"{0} millas cuadradas"}
+            }
         }
-        hour{
-            one{"{0} hora"}
-            other{"{0} horas"}
+        compound{
+            per{"{0} por {1}"}
         }
-        hour-future{
-            one{"Dentro de {0} hora"}
-            other{"Dentro de {0} horas"}
+        duration{
+            day{
+                one{"{0} día"}
+                other{"{0} días"}
+            }
+            hour{
+                one{"{0} hora"}
+                other{"{0} horas"}
+            }
+            millisecond{
+                one{"{0} milisegundo"}
+                other{"{0} milisegundos"}
+            }
+            minute{
+                one{"{0} minuto"}
+                other{"{0} minutos"}
+            }
+            month{
+                one{"{0} mes"}
+                other{"{0} meses"}
+            }
+            second{
+                one{"{0} segundo"}
+                other{"{0} segundos"}
+            }
+            week{
+                one{"{0} semana"}
+                other{"{0} semanas"}
+            }
+            year{
+                one{"{0} año"}
+                other{"{0} años"}
+            }
         }
-        hour-past{
-            one{"Hace {0} hora"}
-            other{"Hace {0} horas"}
+        energy{
+            calorie{
+                one{"{0} caloría"}
+                other{"{0} calorías"}
+            }
+            foodcalorie{
+                one{"{0} caloría"}
+                other{"{0} calorías"}
+            }
+            joule{
+                one{"{0} julio"}
+                other{"{0} julios"}
+            }
+            kilocalorie{
+                one{"{0} kilocaloría"}
+                other{"{0} kilocalorías"}
+            }
+            kilojoule{
+                one{"{0} kilojulio"}
+                other{"{0} kilojulios"}
+            }
         }
-        minute{
-            one{"{0} minuto"}
-            other{"{0} minutos"}
+        length{
+            centimeter{
+                one{"{0} centímetro"}
+                other{"{0} centímetros"}
+            }
+            foot{
+                one{"{0} pie"}
+                other{"{0} pies"}
+            }
+            inch{
+                one{"{0} pulgada"}
+                other{"{0} pulgadas"}
+            }
+            kilometer{
+                one{"{0} kilómetro"}
+                other{"{0} kilómetros"}
+            }
+            light-year{
+                one{"{0} año luz"}
+                other{"{0} años luz"}
+            }
+            meter{
+                one{"{0} metro"}
+                other{"{0} metros"}
+            }
+            mile{
+                one{"{0} milla"}
+                other{"{0} millas"}
+            }
+            millimeter{
+                one{"{0} milímetro"}
+                other{"{0} milímetros"}
+            }
+            picometer{
+                one{"{0} picómetro"}
+                other{"{0} picómetros"}
+            }
+            yard{
+                one{"{0} yarda"}
+                other{"{0} yardas"}
+            }
         }
-        minute-future{
-            one{"Dentro de {0} minuto"}
-            other{"Dentro de {0} minutos"}
+        mass{
+            gram{
+                one{"{0} gramo"}
+                other{"{0} gramos"}
+            }
+            kilogram{
+                one{"{0} kilogramo"}
+                other{"{0} kilogramos"}
+            }
+            ounce{
+                one{"{0} onza"}
+                other{"{0} onzas"}
+            }
+            pound{
+                one{"{0} libra"}
+                other{"{0} libras"}
+            }
         }
-        minute-past{
-            one{"Hace {0} minuto"}
-            other{"Hace {0} minutos"}
+        power{
+            horsepower{
+                one{"{0} caballo de vapor"}
+                other{"{0} caballos de vapor"}
+            }
+            kilowatt{
+                one{"{0} kilovatio"}
+                other{"{0} kilovatios"}
+            }
+            watt{
+                one{"{0} vatio"}
+                other{"{0} vatios"}
+            }
         }
-        month{
-            one{"{0} mes"}
-            other{"{0} meses"}
+        pressure{
+            hectopascal{
+                one{"{0} hectopascal"}
+                other{"{0} hectopascales"}
+            }
+            inch-hg{
+                one{"{0} pulgada de mercurio"}
+                other{"{0} pulgadas de mercurio"}
+            }
+            millibar{
+                one{"{0} milibar"}
+                other{"{0} milibares"}
+            }
         }
-        month-future{
-            one{"Dentro de {0} mes"}
-            other{"Dentro de {0} meses"}
+        speed{
+            kilometer-per-hour{
+                one{"{0} kilómetro por hora"}
+                other{"{0} kilómetros por hora"}
+            }
+            meter-per-second{
+                one{"{0} metro por segundo"}
+                other{"{0} metros por segundo"}
+            }
+            mile-per-hour{
+                one{"{0} milla por hora"}
+                other{"{0} millas por hora"}
+            }
         }
-        month-past{
-            one{"Hace {0} mes"}
-            other{"Hace {0} meses"}
+        temperature{
+            celsius{
+                one{"{0} grado Celsius"}
+                other{"{0} grados Celsius"}
+            }
+            fahrenheit{
+                one{"{0} grado Fahrenheit"}
+                other{"{0} grados Fahrenheit"}
+            }
         }
-        second{
-            one{"{0} segundo"}
-            other{"{0} segundos"}
+        volume{
+            cubic-kilometer{
+                one{"{0} kilómetro cúbico"}
+                other{"{0} kilómetros cúbicos"}
+            }
+            cubic-mile{
+                one{"{0} milla cúbica"}
+                other{"{0} millas cúbicas"}
+            }
+            liter{
+                one{"{0} litro"}
+                other{"{0} litros"}
+            }
         }
-        second-future{
-            one{"Dentro de {0} segundo"}
-            other{"Dentro de {0} segundos"}
+    }
+    unitsNarrow{
+        acceleration{
+            g-force{
+                one{"{0} G"}
+                other{"{0} G"}
+            }
         }
-        second-past{
-            one{"Hace {0} segundo"}
-            other{"Hace {0} segundos"}
+        angle{
+            arc-minute{
+                one{"{0}'"}
+                other{"{0}'"}
+            }
+            arc-second{
+                one{"{0}\u0022"}
+                other{"{0}\u0022"}
+            }
+            degree{
+                one{"{0}°"}
+                other{"{0}°"}
+            }
         }
-        week{
-            one{"{0} semana"}
-            other{"{0} semanas"}
+        area{
+            acre{
+                one{"{0} ac"}
+                other{"{0} ac"}
+            }
+            hectare{
+                one{"{0} ha"}
+                other{"{0} ha"}
+            }
+            square-foot{
+                one{"{0} ft²"}
+                other{"{0} ft²"}
+            }
+            square-kilometer{
+                one{"{0} km²"}
+                other{"{0} km²"}
+            }
+            square-meter{
+                one{"{0} m²"}
+                other{"{0} m²"}
+            }
+            square-mile{
+                one{"{0} mi²"}
+                other{"{0} mi²"}
+            }
         }
-        week-future{
-            one{"Dentro de {0} semana"}
-            other{"Dentro de {0} semanas"}
+        compound{
+            per{"{0}/{1}"}
         }
-        week-past{
-            one{"Hace {0} semana"}
-            other{"Hace {0} semanas"}
+        duration{
+            day{
+                one{"{0} d"}
+                other{"{0} d"}
+            }
+            hour{
+                one{"{0} h"}
+                other{"{0} h"}
+            }
+            millisecond{
+                one{"{0} ms"}
+                other{"{0} ms"}
+            }
+            minute{
+                one{"{0} min"}
+                other{"{0} min"}
+            }
+            month{
+                one{"{0} m"}
+                other{"{0} m"}
+            }
+            second{
+                one{"{0} s"}
+                other{"{0} s"}
+            }
+            week{
+                one{"{0} semana"}
+                other{"{0} sem"}
+            }
+            year{
+                one{"{0}a"}
+                other{"{0} a"}
+            }
         }
-        year{
-            one{"{0} año"}
-            other{"{0} años"}
+        energy{
+            calorie{
+                one{"{0}cal"}
+                other{"{0}cal"}
+            }
+            foodcalorie{
+                one{"{0}cal"}
+                other{"{0}cal"}
+            }
+            joule{
+                one{"{0}J"}
+                other{"{0}J"}
+            }
+            kilocalorie{
+                one{"{0}kcal"}
+                other{"{0}kcal"}
+            }
+            kilojoule{
+                one{"{0}kJ"}
+                other{"{0}kJ"}
+            }
         }
-        year-future{
-            one{"Dentro de {0} año"}
-            other{"Dentro de {0} años"}
+        length{
+            centimeter{
+                one{"{0} cm"}
+                other{"{0} cm"}
+            }
+            foot{
+                one{"{0} ft"}
+                other{"{0} ft"}
+            }
+            inch{
+                one{"{0} in"}
+                other{"{0} in"}
+            }
+            kilometer{
+                one{"{0} km"}
+                other{"{0} km"}
+            }
+            light-year{
+                one{"{0} a. l."}
+                other{"{0} a. l."}
+            }
+            meter{
+                one{"{0} m"}
+                other{"{0} m"}
+            }
+            mile{
+                one{"{0} mi"}
+                other{"{0} mi"}
+            }
+            millimeter{
+                one{"{0} mm"}
+                other{"{0} mm"}
+            }
+            picometer{
+                one{"{0} pm"}
+                other{"{0} pm"}
+            }
+            yard{
+                one{"{0} yd"}
+                other{"{0} yd"}
+            }
         }
-        year-past{
-            one{"Hace {0} año"}
-            other{"Hace {0} años"}
+        mass{
+            gram{
+                one{"{0} g"}
+                other{"{0} g"}
+            }
+            kilogram{
+                one{"{0} kg"}
+                other{"{0} kg"}
+            }
+            ounce{
+                one{"{0} oz"}
+                other{"{0} oz"}
+            }
+            pound{
+                one{"{0} lb"}
+                other{"{0} lb"}
+            }
+        }
+        power{
+            horsepower{
+                one{"{0} hp"}
+                other{"{0} hp"}
+            }
+            kilowatt{
+                one{"{0} kW"}
+                other{"{0} kW"}
+            }
+            watt{
+                one{"{0} W"}
+                other{"{0} W"}
+            }
+        }
+        pressure{
+            hectopascal{
+                one{"{0} hPa"}
+                other{"{0} hPa"}
+            }
+            inch-hg{
+                one{"{0} inHg"}
+                other{"{0} inHg"}
+            }
+            millibar{
+                one{"{0} mbar"}
+                other{"{0} mbar"}
+            }
+        }
+        speed{
+            kilometer-per-hour{
+                one{"{0} km/h"}
+                other{"{0} km/h"}
+            }
+            meter-per-second{
+                one{"{0} m/s"}
+                other{"{0} m/s"}
+            }
+            mile-per-hour{
+                one{"{0} mi/h"}
+                other{"{0} mi/h"}
+            }
+        }
+        temperature{
+            celsius{
+                one{"{0} °"}
+                other{"{0} °"}
+            }
+            fahrenheit{
+                one{"{0} °F"}
+                other{"{0} °F"}
+            }
+        }
+        volume{
+            cubic-kilometer{
+                one{"{0} km³"}
+                other{"{0} km³"}
+            }
+            cubic-mile{
+                one{"{0} mi³"}
+                other{"{0} mi³"}
+            }
+            liter{
+                one{"{0} l"}
+                other{"{0} l"}
+            }
         }
     }
     unitsShort{
-        day{
-            one{"{0} día"}
-            other{"{0} días"}
+        acceleration{
+            g-force{
+                one{"{0} G"}
+                other{"{0} G"}
+            }
         }
-        hour{
-            one{"{0} h"}
-            other{"{0} h"}
+        angle{
+            arc-minute{
+                one{"{0} min"}
+                other{"{0} min"}
+            }
+            arc-second{
+                one{"{0} s"}
+                other{"{0} s"}
+            }
+            degree{
+                one{"{0}°"}
+                other{"{0}°"}
+            }
         }
-        minute{
-            one{"{0} min"}
-            other{"{0} min"}
+        area{
+            acre{
+                one{"{0} ac"}
+                other{"{0} ac"}
+            }
+            hectare{
+                one{"{0} ha"}
+                other{"{0} ha"}
+            }
+            square-foot{
+                one{"{0} ft²"}
+                other{"{0} ft²"}
+            }
+            square-kilometer{
+                one{"{0} km²"}
+                other{"{0} km²"}
+            }
+            square-meter{
+                one{"{0} m²"}
+                other{"{0} m²"}
+            }
+            square-mile{
+                one{"{0} mi²"}
+                other{"{0} mi²"}
+            }
         }
-        month{
-            one{"{0} mes"}
-            other{"{0} meses"}
+        compound{
+            per{"{0}/{1}"}
         }
-        second{
-            one{"{0} s"}
-            other{"{0} s"}
+        duration{
+            day{
+                one{"{0} día"}
+                other{"{0} días"}
+            }
+            hour{
+                one{"{0} h"}
+                other{"{0} h"}
+            }
+            millisecond{
+                one{"{0} ms"}
+                other{"{0} ms"}
+            }
+            minute{
+                one{"{0} min"}
+                other{"{0} min"}
+            }
+            month{
+                one{"{0} m"}
+                other{"{0} m"}
+            }
+            second{
+                one{"{0} s"}
+                other{"{0} s"}
+            }
+            week{
+                one{"{0} sem"}
+                other{"{0} sem"}
+            }
+            year{
+                one{"{0} a"}
+                other{"{0} a"}
+            }
         }
-        week{
-            one{"{0} semana"}
-            other{"{0} semanas"}
+        energy{
+            calorie{
+                one{"{0} cal"}
+                other{"{0} cal"}
+            }
+            foodcalorie{
+                one{"{0} cal"}
+                other{"{0} cal"}
+            }
+            joule{
+                one{"{0} J"}
+                other{"{0} J"}
+            }
+            kilocalorie{
+                one{"{0} kcal"}
+                other{"{0} kcal"}
+            }
+            kilojoule{
+                one{"{0} kJ"}
+                other{"{0} kJ"}
+            }
         }
-        year{
-            one{"{0} año"}
-            other{"{0} años"}
+        length{
+            centimeter{
+                one{"{0} cm"}
+                other{"{0} cm"}
+            }
+            foot{
+                one{"{0} ft"}
+                other{"{0} ft"}
+            }
+            inch{
+                one{"{0} in"}
+                other{"{0} in"}
+            }
+            kilometer{
+                one{"{0} km"}
+                other{"{0} km"}
+            }
+            light-year{
+                one{"{0} a. l."}
+                other{"{0} a. l."}
+            }
+            meter{
+                one{"{0} m"}
+                other{"{0} m"}
+            }
+            mile{
+                one{"{0} mi"}
+                other{"{0} mi"}
+            }
+            millimeter{
+                one{"{0} mm"}
+                other{"{0} mm"}
+            }
+            picometer{
+                one{"{0} pm"}
+                other{"{0} pm"}
+            }
+            yard{
+                one{"{0} yd"}
+                other{"{0} yd"}
+            }
+        }
+        mass{
+            gram{
+                one{"{0} g"}
+                other{"{0} g"}
+            }
+            kilogram{
+                one{"{0} kg"}
+                other{"{0} kg"}
+            }
+            ounce{
+                one{"{0} oz"}
+                other{"{0} oz"}
+            }
+            pound{
+                one{"{0} lb"}
+                other{"{0} lb"}
+            }
+        }
+        power{
+            horsepower{
+                one{"{0} CV"}
+                other{"{0} CV"}
+            }
+            kilowatt{
+                one{"{0} kW"}
+                other{"{0} kW"}
+            }
+            watt{
+                one{"{0} W"}
+                other{"{0} W"}
+            }
+        }
+        pressure{
+            hectopascal{
+                one{"{0} hPa"}
+                other{"{0} hPa"}
+            }
+            inch-hg{
+                one{"{0} inHg"}
+                other{"{0} inHg"}
+            }
+            millibar{
+                one{"{0} mbar"}
+                other{"{0} mbar"}
+            }
+        }
+        speed{
+            kilometer-per-hour{
+                one{"{0} km/h"}
+                other{"{0} km/h"}
+            }
+            meter-per-second{
+                one{"{0} m/s"}
+                other{"{0} m/s"}
+            }
+            mile-per-hour{
+                one{"{0} mi/h"}
+                other{"{0} mi/h"}
+            }
+        }
+        temperature{
+            celsius{
+                one{"{0} °C"}
+                other{"{0} °C"}
+            }
+            fahrenheit{
+                one{"{0} °F"}
+                other{"{0} °F"}
+            }
+        }
+        volume{
+            cubic-kilometer{
+                one{"{0} km³"}
+                other{"{0} km³"}
+            }
+            cubic-mile{
+                one{"{0} mi³"}
+                other{"{0} mi³"}
+            }
+            liter{
+                one{"{0} l"}
+                other{"{0} l"}
+            }
         }
     }
 }

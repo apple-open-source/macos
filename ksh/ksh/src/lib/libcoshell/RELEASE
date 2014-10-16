@@ -1,3 +1,7 @@
+12-02-22 coinit.c: handle non-identifier export var names
+11-12-13 cowait.c: handle sfpoll() error return on interrupt
+11-11-21 cowait.c: poll before blocking read to weed out killed jobs (no 'x' message)
+11-08-30 codata.c,coopen.c: drop macro "..." catenation for old cc
 10-08-11 coinit.c: force _BLD_DLL for environ intercept
 10-06-01 sync with ast api 20100601
 10-05-19 cokill.c: do cowait(co,co,0) to drain pending messages

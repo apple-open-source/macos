@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2008, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2007 David Smith (catfish.man@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,27 +30,21 @@
 #include "config.h"
 #include "ClassNodeList.h"
 
-#include "Document.h"
 #include "NodeRareData.h"
 #include "StyledElement.h"
 
 namespace WebCore {
 
-ClassNodeList::ClassNodeList(PassRefPtr<Node> rootNode, const String& classNames)
-    : LiveNodeList(rootNode, ClassNodeListType, InvalidateOnClassAttrChange)
-    , m_classNames(classNames, document()->inQuirksMode())
+ClassNodeList::ClassNodeList(ContainerNode& rootNode, const String& classNames)
+    : CachedLiveNodeList(rootNode, InvalidateOnClassAttrChange)
+    , m_classNames(classNames, document().inQuirksMode())
     , m_originalClassNames(classNames)
 {
 }
 
 ClassNodeList::~ClassNodeList()
 {
-    ownerNode()->nodeLists()->removeCacheWithName(this, ClassNodeListType, m_originalClassNames);
-} 
-
-bool ClassNodeList::nodeMatches(Element* testNode) const
-{
-    return nodeMatchesInlined(testNode);
+    ownerNode().nodeLists()->removeCacheWithName(this, m_originalClassNames);
 }
 
 } // namespace WebCore

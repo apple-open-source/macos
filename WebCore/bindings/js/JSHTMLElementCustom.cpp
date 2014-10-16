@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,43 +30,23 @@
 #include "HTMLFormElement.h"
 #include <runtime/JSWithScope.h>
 
-#if ENABLE(MICRODATA)
-#include "JSMicroDataItemValue.h"
-#endif
-
 namespace WebCore {
 
 using namespace JSC;
 
 JSScope* JSHTMLElement::pushEventHandlerScope(ExecState* exec, JSScope* scope) const
 {
-    HTMLElement* element = impl();
+    HTMLElement& element = impl();
 
     // The document is put on first, fall back to searching it only after the element and form.
-    scope = JSWithScope::create(exec, asObject(toJS(exec, globalObject(), element->ownerDocument())), scope);
+    scope = JSWithScope::create(exec, asObject(toJS(exec, globalObject(), &element.document())), scope);
 
     // The form is next, searched before the document, but after the element itself.
-    if (HTMLFormElement* form = element->form())
+    if (HTMLFormElement* form = element.form())
         scope = JSWithScope::create(exec, asObject(toJS(exec, globalObject(), form)), scope);
 
     // The element is on top, searched first.
-    return JSWithScope::create(exec, asObject(toJS(exec, globalObject(), element)), scope);
+    return JSWithScope::create(exec, asObject(toJS(exec, globalObject(), &element)), scope);
 }
-
-#if ENABLE(MICRODATA)
-JSValue JSHTMLElement::itemValue(ExecState* exec) const
-{
-    HTMLElement* element = impl();
-    return toJS(exec, globalObject(), WTF::getPtr(element->itemValue()));
-}
-
-void JSHTMLElement::setItemValue(ExecState* exec, JSValue value)
-{
-    HTMLElement* imp = impl();
-    ExceptionCode ec = 0;
-    imp->setItemValue(valueToStringWithNullCheck(exec, value), ec);
-    setDOMException(exec, ec);
-}
-#endif
 
 } // namespace WebCore

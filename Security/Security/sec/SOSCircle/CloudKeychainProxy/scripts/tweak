@@ -1,0 +1,131 @@
+#!/bin/sh
+
+generateCreditCards=0
+generateAutofill=0
+helpme=0
+generateConflict=0
+clearAllItems=0
+
+usage() {
+	echo 'Usage: Generate random credit card entries (-c) or autofill (-a). Both can be specified. x will generate a conflict item, K to clear all'
+         exit 2
+}
+
+args=`getopt cahxK $*`
+test  $? -eq  0 || usage
+set -- $args
+for i
+do
+	   case "$i"
+	   in
+			-c)
+					   generateCreditCards=1;
+					   shift;;
+			-a)
+					   generateAutofill=1;
+					   shift;;
+			-x)
+				generateConflict=1;
+				shift;;
+			-K)
+				clearAllItems=1;
+				shift;;
+			-h)
+					   helpme=1
+					   shift; break;;
+			--)
+					   shift; break;;
+	   esac
+done
+
+test "$helpme" -ne 0 && usage
+
+if [ $generateCreditCards -eq 0 -a $generateAutofill -eq 0 -a $generateConflict -eq 0 ]
+then
+	generateCreditCards=1
+fi
+
+# end of option processing
+           
+# Set expiration date
+exp=`date "+%Y-%m-%dT%H:%M:%SZ"`
+
+# Make up a credit card number
+amexcc=`echo $((RANDOM%372711122299888+372711122299111))`
+visacc=`echo $((RANDOM%4888123456789888+4888123456789111))`
+mccc=`echo $((RANDOM%5523123456789888+5523123456789111))`
+cclist=($amexcc $visacc $mccc)
+
+idx=`echo $((RANDOM%3+0))`
+
+cctypes=("American Express" "Visa" "Master Card")
+ccnumber=${cclist[idx]}
+
+ccholders=("Sam" "Ella" "Alice" "Bob" "Mallory" "Eve")
+cardholderName=${ccholders[$RANDOM % ${#ccholders[@]} ]}
+cardholderName=`hostname | head -c 18`
+cardholderShortName=`hostname | head -c 8`
+
+cardnamestring="$cardholderShortName""’s ""${cctypes[idx]}"
+
+cat <<EOF > ccdata.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>CardNameUIString</key>
+        <string>$cardnamestring</string>
+        <key>CardNumber</key>
+        <string>$ccnumber</string>
+        <key>CardholderName</key>
+        <string>$cardholderName</string>
+        <key>ExpirationDate</key>
+        <date>$exp</date>
+</dict>
+</plist>
+EOF
+
+plutil -convert binary1 -o ccdata.bin ccdata.plist
+
+# debug output
+cat ccdata.plist
+
+uid=`uuidgen`
+
+# Create a random credit card item in the keychain
+
+if [ $generateCreditCards -ne 0 ]
+then
+	security item -v -a -f ccdata.bin class=genp,sync=1,acct="$uid",agrp="com.apple.safari.credit-cards",icmt="This keychain item is used by Safari to automatically fill credit card information in web forms.",type=7477,pdmn=ak,svce="SafariCreditCardEntries",labl="Safari Credit Card Entry: $cardnamestring"
+	if [ "$?" -ne "0" ]; then
+		echo "credit card item add failed; is the device locked? "
+	fi
+fi
+
+if [ $generateAutofill -ne 0 ]
+then
+	`echo $((RANDOM%9999)) > tweakpw`
+	email=${ccholders[$RANDOM % ${#ccholders[@]} ]}
+	security item -v -a -f tweakpw class=inet,acct="$email@gmail.com",agrp="com.apple.cfnetwork",atyp=form,desc="Web form password",labl="accounts.google.com ($email@gmail.com)",pdmn=ak,port=0,ptcl=htps,srvr=accounts.google.com,type=7477,sync=1
+         if [ "$?" -ne "0" ]; then
+ 		echo "autofill item add failed; is the device locked? "
+	fi
+fi
+
+if [ $generateConflict -ne 0 ]
+then
+        `echo "1234" > tweakpw`
+        email="conflict"
+        security item -v -a -f tweakpw class=inet,acct="$email@gmail.com",agrp="com.apple.cfnetwork",atyp=form,desc="Web form password",labl="accounts.google.com ($email@gmail.com)",pdmn=ak,port=0,ptcl=htps,srvr=accounts.google.com,type=7477,sync=1
+         if [ "$?" -ne "0" ]; then
+                echo "conflict item add failed; is the device locked? "
+        fi
+fi
+
+if  [ $clearAllItems -ne 0 ]
+then
+	echo "Deleting all tweak inet and genp items"
+	security item -D class=genp,type=7477,sync=1,pdmn=ak,svce="SafariCreditCardEntries"
+	security item -D class=inet,type=7477,ptcl=htps,srvr=accounts.google.com,sync=1
+fi
+

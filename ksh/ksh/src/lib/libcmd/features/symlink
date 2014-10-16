@@ -1,5 +1,6 @@
 lib	lchmod note{ lchmod implemented }end execute{
-	#include <unistd.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
 	#include <errno.h>
 	int
 	main()
@@ -10,7 +11,8 @@ lib	lchmod note{ lchmod implemented }end execute{
 }end
 
 lib	lchown note{ lchown implemented }end execute{
-	#include <unistd.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
 	#include <errno.h>
 	int
 	main()

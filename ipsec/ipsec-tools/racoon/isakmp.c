@@ -128,7 +128,6 @@
 #include "ipsecMessageTracer.h"
 #include "power_mgmt.h"
 
-
 extern caddr_t val2str (const char *, size_t);
 u_char i_ck0[] = { 0,0,0,0,0,0,0,0 }; /* used to verify the i_ck. */
 u_char r_ck0[] = { 0,0,0,0,0,0,0,0 }; /* used to verify the r_ck. */
@@ -367,8 +366,7 @@ isakmp_main(vchar_t *msg, struct sockaddr_storage *remote,  struct sockaddr_stor
 	 * I think it may no be here because the version depends
 	 * on exchange status.
 	 */
-	if (ISAKMP_GETMAJORV(isakmp_version) != ISAKMP_MAJOR_VERSION_IKEV1 &&
-        ISAKMP_GETMAJORV(isakmp_version) != ISAKMP_MAJOR_VERSION_IKEV2) {        
+	if (ISAKMP_GETMAJORV(isakmp_version) != ISAKMP_MAJOR_VERSION_IKEV1) {
 			plog(ASL_LEVEL_ERR, "invalid major version %d.\n", isakmp_version);
 			return;
     }
@@ -387,14 +385,14 @@ isakmp_main(vchar_t *msg, struct sockaddr_storage *remote,  struct sockaddr_stor
     if (isakmp_version == ISAKMP_VERSION_NUMBER_IKEV1) {
 		/* check the Flags field. */
 		/* XXX How is the exclusive check, E and A ? */
-		if (isakmp->flags & ~(ISAKMP_FLAG_E | ISAKMP_FLAG_C | ISAKMP_FLAG_A)) { //%%%%%%%%%%%% any other flags for IKEv2 ?????
+		if (isakmp->flags & ~(ISAKMP_FLAG_E | ISAKMP_FLAG_C | ISAKMP_FLAG_A)) {
 			plog(ASL_LEVEL_ERR, "invalid flag 0x%02x.\n", isakmp->flags);
 			return;
 		}
 
 		/* ignore commit bit. */
 		if (ISSET(isakmp->flags, ISAKMP_FLAG_C)) {
-			if (isakmp->msgid == 0) {                   //%%%%% does this apply to V2
+			if (isakmp->msgid == 0) {
 				isakmp_info_send_nx(isakmp, remote, local,
 									ISAKMP_NTYPE_INVALID_FLAGS, NULL);
 				plog(ASL_LEVEL_ERR, "Commit bit on Phase 1 forbidden.\n");
@@ -450,7 +448,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 		    ! (iph1->natt_flags & NAT_PORTS_CHANGED) &&
 		    ((cmpsaddrstrict(iph1->remote, remote) != 0) ||
 		    (cmpsaddrstrict(iph1->local, local) != 0)))
-		{     //%%%%%%%%%%%%%%%%%%%% make this a separate function - ikev2 needs it      
+		{
 			/* prevent memory leak */
 			racoon_free(iph1->remote);
 			racoon_free(iph1->local);
@@ -1241,7 +1239,6 @@ ikev1_phase1_established(phase1_handle_t *iph1)
     return 0;
 }
 
-
 /*
  * parse ISAKMP payloads, without ISAKMP base header.
  */
@@ -1522,6 +1519,16 @@ isakmp_open(void)
 		if (setsockopt_bypass(p->sock, p->addr->ss_family) < 0)
 			goto err_and_next;
 
+		if (setsockopt(p->sock, SOL_SOCKET, SO_REUSEADDR, (const void *)&yes, sizeof(yes)) < 0) {
+			plog(ASL_LEVEL_ERR, "setsockopt SO_REUSEADDR (%s)\n", strerror(errno));
+			goto err_and_next;
+		}
+		
+		if (setsockopt(p->sock, SOL_SOCKET, SO_REUSEPORT, (const void *)&yes, sizeof(yes)) < 0) {
+			plog(ASL_LEVEL_ERR, "setsockopt SO_REUSEPORT (%s)\n", strerror(errno));
+			goto err_and_next;
+		}
+		
 		if (extract_port(p->addr) == PORT_ISAKMP) {
 			if (setsockopt(p->sock, SOL_SOCKET, SO_NOTIFYCONFLICT, 
 				(void *)&yes, sizeof(yes)) < 0) {
@@ -1706,6 +1713,7 @@ isakmp_send(iph1, sbuf)
 	int len = 0;
 	int s;
 	vchar_t *vbuf = NULL;
+	
 #ifdef ENABLE_NATT
 	size_t extralen = NON_ESP_MARKER_USE(iph1) ? NON_ESP_MARKER_LEN : 0;
 
@@ -1799,7 +1807,6 @@ isakmp_ph1resend(iph1)
 	phase1_handle_t *iph1;
 {
 	time_t retry_interval;
-	
     
 	// make sure there is a buffer to send
 	// isakmp_plist_set_all() could have returned NULL
@@ -1888,7 +1895,6 @@ isakmp_ph2resend(iph2)
 			"Internal error - attempt to re-send Phase 2 with no Phase 1 bound.\n");
 		return -1;
 	}
-
     
 	if (FSM_STATE_IS_EXPIRED(iph2->ph1->status)){
 		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
@@ -1954,7 +1960,6 @@ isakmp_ph2resend(iph2)
 	return 0;
 }
 
-
 /* called from scheduler */
 void
 isakmp_ph1expire_stub(p)
@@ -1999,7 +2004,6 @@ isakmp_ph1expire(iph1)
 		iph1->sce = sched_new(1, isakmp_ph1expire_stub, iph1);
 		return;
 	}
-    
 
 	iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 }
@@ -2048,11 +2052,9 @@ int               ignore_sess_drop_policy;
 		 isakmp_pindex(&iph1->index, 0));
 	racoon_free(src);
 	racoon_free(dst);
-
-    {
-        if (!ignore_sess_drop_policy && ike_session_drop_rekey(iph1->parent_session, IKE_SESSION_REKEY_TYPE_PH1)) {
-            return;
-        }
+	
+	if (!ignore_sess_drop_policy && ike_session_drop_rekey(iph1->parent_session, IKE_SESSION_REKEY_TYPE_PH1)) {
+		return;
 	}
 
 	// exit if there is another ph1 that is established (with a pending rekey timer)
@@ -2082,12 +2084,10 @@ int               ignore_sess_drop_policy;
         plog(ASL_LEVEL_DEBUG, "Begin Phase 1 rekey.\n");
 
 		/* start phase 1 negotiation as a initiator. */
-        {
-			if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0) < 0) {
-				plog(ASL_LEVEL_DEBUG, "Phase 1 rekey Failed.\n");
-			}
-            iph1->is_rekey = TRUE;
+		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0) < 0) {
+			plog(ASL_LEVEL_DEBUG, "Phase 1 rekey Failed.\n");
 		}
+		iph1->is_rekey = TRUE;
 	} else {
 		plog(ASL_LEVEL_ERR,
 			 "Phase1 rekey failed: no configuration found for %s.\n",
@@ -2260,12 +2260,13 @@ isakmp_ph2expire(iph2)
 								  ipsecdoi2pfkey_proto(pr->proto_id),
 								  IPSEC_MODE_ANY,
 								  iph2->src, iph2->dst, pr->spi_p /* pr->reqid_out */);
+			}
 		}
 	}
     if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
         fsm_set_state(&iph2->status, IKEV1_STATE_PHASE2_EXPIRED);
 	iph2->sce = sched_new(1, isakmp_ph2delete_stub, iph2);
-
+		
 	return;
 }
 
@@ -2348,37 +2349,32 @@ isakmp_post_acquire(phase2_handle_t *iph2)
     }
     if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
         iph1 = ike_session_update_ph2_ph1bind(iph2);
-	else
-		iph1 = ike_session_get_established_or_negoing_ph1(iph2->parent_session);
 
 	/* no IKE-SA found. */
 	if (iph1 == NULL) {
 		iph2->retry_checkph1 = lcconf->retry_checkph1;
         
 		/* start phase 1 negotiation as a initiator. */
-        {
-            sched_new(1, isakmp_chkph1there_stub, iph2);
-            
-            plog(ASL_LEVEL_INFO,
-                 "IPsec-SA request for %s queued due to no Phase 1 found.\n",
-                 saddrwop2str((struct sockaddr *)iph2->dst));
-            
-            // exit if there is another ph1 that is established (with a pending rekey timer)
-            if (ike_session_has_negoing_ph1(iph2->parent_session)) {
-                plog(ASL_LEVEL_INFO,
-                     "Request for Phase 1 was ignored due to another negotiating Phase 1.\n");
-                return 0;
-            }
-            
-			if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
-				plog(ASL_LEVEL_INFO,
-					 "Request for Phase 1 failed. Will try later.\n");
-			}
+		sched_new(1, isakmp_chkph1there_stub, iph2);
+		
+		plog(ASL_LEVEL_INFO,
+			 "IPsec-SA request for %s queued due to no Phase 1 found.\n",
+			 saddrwop2str((struct sockaddr *)iph2->dst));
+		
+		// exit if there is another ph1 that is established (with a pending rekey timer)
+		if (ike_session_has_negoing_ph1(iph2->parent_session)) {
+			plog(ASL_LEVEL_INFO,
+				 "Request for Phase 1 was ignored due to another negotiating Phase 1.\n");
+			return 0;
+		}
+		
+		if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
+			plog(ASL_LEVEL_INFO,
+				 "Request for Phase 1 failed. Will try later.\n");
 		}
 		return 0;
 		/*NOTREACHED*/
 	}
-    
 
 	/* found ISAKMP-SA, but on negotiation. */
 	if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
@@ -2395,11 +2391,9 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 	/* found ISAKMP-SA. */
 
 	/* begin quick mode */
-    {
-		plog(ASL_LEVEL_DEBUG, "Begin QUICK mode.\n");
-		if (ikev1_ph2begin_i(iph1, iph2))
-			return -1;
-	}
+	plog(ASL_LEVEL_DEBUG, "Begin QUICK mode.\n");
+	if (ikev1_ph2begin_i(iph1, iph2))
+		return -1;
 	return 0;
 }
 
@@ -2516,10 +2510,8 @@ isakmp_chkph1there(iph2)
 		plog(ASL_LEVEL_DEBUG, "dst: %s\n", saddr2str((struct sockaddr *)iph2->dst));
 
 		/* begin quick mode */
-        {
-			if (ikev1_ph2begin_i(iph1, iph2)) {
-				ike_session_unlink_phase2(iph2);
-			}
+		if (ikev1_ph2begin_i(iph1, iph2)) {
+			ike_session_unlink_phase2(iph2);
 		}
 		return;
 	}
@@ -2527,11 +2519,9 @@ isakmp_chkph1there(iph2)
         	struct remoteconf *rmconf = getrmconf(iph2->dst);
 		/* start phase 1 negotiation as a initiator. */
 		if (rmconf) {
-            {
-				if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
-					plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
-				}
-			}			
+			if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
+				plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
+			}
 		} else if (rmconf == NULL) {
 			plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no remoteconf found... failed to initiate new one\n");
 		}

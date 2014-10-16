@@ -38,15 +38,7 @@
 fbt:::
 {
 	n++;
-#if !defined(__APPLE__)
-#ifdef __sparc
 	trace(*(int *)0x8000000000000000 ^ rand());
-#else
-	trace(*(int *)(`kernelbase - 1));
-#endif
-#else
-	trace(*(int *)0x8000000000000000 ^ rand());
-#endif /* __APPLE__ */
 }
 
 dtrace:::ERROR

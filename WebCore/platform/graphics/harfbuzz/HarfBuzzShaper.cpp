@@ -34,13 +34,13 @@
 #include "Font.h"
 #include "HarfBuzzFace.h"
 #include "SurrogatePairAwareTextIterator.h"
-#include "TextRun.h"
 #include "hb-icu.h"
 #include <unicode/normlzr.h>
 #include <unicode/uchar.h>
 #include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
-#include <wtf/unicode/Unicode.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
@@ -192,10 +192,8 @@ HarfBuzzShaper::HarfBuzzShaper(const Font* font, const TextRun& run)
     , m_padPerWordBreak(0)
     , m_padError(0)
     , m_letterSpacing(font->letterSpacing())
-    , m_fromIndex(0)
-    , m_toIndex(m_run.length())
 {
-    m_normalizedBuffer = adoptArrayPtr(new UChar[m_run.length() + 1]);
+    m_normalizedBuffer = std::make_unique<UChar[]>(m_run.length() + 1);
     m_normalizedBufferLength = m_run.length();
     normalizeCharacters(m_run, m_normalizedBuffer.get(), m_normalizedBufferLength);
     setPadding(m_run.expansion());
@@ -277,7 +275,7 @@ void HarfBuzzShaper::setNormalizedBuffer(NormalizeMode normalizeMode)
         sourceText = normalizedString.getBuffer();
     }
 
-    m_normalizedBuffer = adoptArrayPtr(new UChar[m_normalizedBufferLength + 1]);
+    m_normalizedBuffer = std::make_unique<UChar[]>(m_normalizedBufferLength + 1);
     normalizeSpacesAndMirrorChars(sourceText, m_normalizedBuffer.get(), m_normalizedBufferLength, normalizeMode);
 }
 
@@ -328,15 +326,6 @@ void HarfBuzzShaper::setPadding(int padding)
         m_padPerWordBreak = 0;
 }
 
-
-void HarfBuzzShaper::setDrawRange(int from, int to)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(from >= 0);
-    ASSERT_WITH_SECURITY_IMPLICATION(to <= m_run.length());
-    m_fromIndex = from;
-    m_toIndex = to;
-}
-
 void HarfBuzzShaper::setFontFeatures()
 {
     const FontDescription& description = m_font->fontDescription();
@@ -347,6 +336,22 @@ void HarfBuzzShaper::setFontFeatures()
         m_features.append(vrt2);
     }
 
+    hb_feature_t kerning = { HarfBuzzFace::kernTag, 0, 0, static_cast<unsigned>(-1) };
+    switch (description.kerning()) {
+    case FontDescription::NormalKerning:
+        kerning.value = 1;
+        m_features.append(kerning);
+        break;
+    case FontDescription::NoneKerning:
+        kerning.value = 0;
+        m_features.append(kerning);
+        break;
+    case FontDescription::AutoKerning:
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
     FontFeatureSettings* settings = description.featureSettings();
     if (!settings)
         return;
@@ -354,7 +359,7 @@ void HarfBuzzShaper::setFontFeatures()
     unsigned numFeatures = settings->size();
     for (unsigned i = 0; i < numFeatures; ++i) {
         hb_feature_t feature;
-        const UChar* tag = settings->at(i).tag().characters();
+        auto& tag = settings->at(i).tag();
         feature.tag = HB_TAG(tag[0], tag[1], tag[2], tag[3]);
         feature.value = settings->at(i).value();
         feature.start = 0;
@@ -477,10 +482,10 @@ bool HarfBuzzShaper::shapeHarfBuzzRuns(bool shouldSetDirection)
         hb_buffer_add_utf16(harfBuzzBuffer.get(), &preContext, 1, 1, 0);
 
         if (m_font->isSmallCaps() && u_islower(m_normalizedBuffer[currentRun->startIndex()])) {
-            String upperText = String(m_normalizedBuffer.get() + currentRun->startIndex(), currentRun->numCharacters());
-            upperText.makeUpper();
+            String upperText = String(m_normalizedBuffer.get() + currentRun->startIndex(), currentRun->numCharacters()).upper();
             currentFontData = m_font->glyphDataForCharacter(upperText[0], false, SmallCapsVariant).fontData;
-            hb_buffer_add_utf16(harfBuzzBuffer.get(), reinterpret_cast<const uint16_t*>(upperText.characters()), currentRun->numCharacters(), 0, currentRun->numCharacters());
+            const UChar* characters = StringView(upperText).upconvertedCharacters();
+            hb_buffer_add_utf16(harfBuzzBuffer.get(), reinterpret_cast<const uint16_t*>(characters), currentRun->numCharacters(), 0, currentRun->numCharacters());
         } else
             hb_buffer_add_utf16(harfBuzzBuffer.get(), reinterpret_cast<const uint16_t*>(m_normalizedBuffer.get() + currentRun->startIndex()), currentRun->numCharacters(), 0, currentRun->numCharacters());
 
@@ -571,14 +576,12 @@ void HarfBuzzShaper::fillGlyphBufferFromHarfBuzzRun(GlyphBuffer* glyphBuffer, Ha
         float glyphAdvanceX = advances[i] + nextOffset.x() - currentOffset.x();
         float glyphAdvanceY = nextOffset.y() - currentOffset.y();
         if (m_run.rtl()) {
-            if (currentCharacterIndex > m_toIndex)
+            if (currentCharacterIndex > m_run.length())
                 m_startOffset.move(glyphAdvanceX, glyphAdvanceY);
-            else if (currentCharacterIndex >= m_fromIndex)
+            else
                 glyphBuffer->add(glyphs[i], currentRun->fontData(), createGlyphBufferAdvance(glyphAdvanceX, glyphAdvanceY));
         } else {
-            if (currentCharacterIndex < m_fromIndex)
-                m_startOffset.move(glyphAdvanceX, glyphAdvanceY);
-            else if (currentCharacterIndex < m_toIndex)
+            if (currentCharacterIndex < m_run.length())
                 glyphBuffer->add(glyphs[i], currentRun->fontData(), createGlyphBufferAdvance(glyphAdvanceX, glyphAdvanceY));
         }
     }

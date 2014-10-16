@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,17 +26,23 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
+
+#if !TARGET_OS_IPHONE
+#import <AppKit/AppKit.h>
+#endif
 
 extern NSString *WebKitLocalCacheDefaultsKey;
 
 @interface NSString (WebKitExtras)
 
+#if !TARGET_OS_IPHONE
 - (void)_web_drawAtPoint:(NSPoint)point font:(NSFont *)font textColor:(NSColor *)textColor allowingFontSmoothing:(BOOL)fontSmoothingIsAllowed;
 - (void)_web_drawAtPoint:(NSPoint)point font:(NSFont *)font textColor:(NSColor *)textColor;
 - (void)_web_drawDoubledAtPoint:(NSPoint)textPoint withTopColor:(NSColor *)topColor bottomColor:(NSColor *)bottomColor font:(NSFont *)font;
 
 - (float)_web_widthWithFont:(NSFont *)font;
+#endif
 
 // Handles home directories that have symlinks in their paths.
 // This works around 2774250.
@@ -44,7 +50,9 @@ extern NSString *WebKitLocalCacheDefaultsKey;
 
 - (NSString *)_web_stringByStrippingReturnCharacters;
 
+#if !TARGET_OS_IPHONE
 + (NSStringEncoding)_web_encodingForResource:(Handle)resource;
+#endif
 
 - (BOOL)_webkit_isCaseInsensitiveEqualToString:(NSString *)string;
 - (BOOL)_webkit_hasCaseInsensitivePrefix:(NSString *)suffix;
@@ -55,7 +63,13 @@ extern NSString *WebKitLocalCacheDefaultsKey;
 - (NSString *)_webkit_stringByTrimmingWhitespace;
 - (NSString *)_webkit_stringByCollapsingNonPrintingCharacters;
 - (NSString *)_webkit_stringByCollapsingWhitespaceCharacters;
+#if !TARGET_OS_IPHONE
 - (NSString *)_webkit_fixedCarbonPOSIXPath;
+#endif
+
+#if TARGET_OS_IPHONE
++ (NSString *)_web_stringWithData:(NSData *)data textEncodingName:(NSString *)textEncodingName;
+#endif
 
 + (NSString *)_webkit_localCacheDirectoryWithBundleIdentifier:(NSString*)bundleIdentifier;
 

@@ -89,20 +89,25 @@ nibbleFromChar(char c)
 
 /* Convert a string of characters representing a hex buffer into a series of bytes of that real value */
 byteBuffer
-hexStringToBytes(char *inhex)
+hexStringToBytes(const char *inhex)
 {
 	byteBuffer retval;
-	uint8_t *p;
+	const uint8_t *p;
 	int len, i;
-	
-	len = (int) strlen(inhex) / 2;
-	if((retval = mallocByteBuffer(len)) == NULL) return NULL;
     
-	for(i=0, p = (uint8_t *) inhex; i<len; i++) {
-        retval->bytes[i] = (nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
-        p += 2;
-	}
-    retval->bytes[len] = 0;
+    if(!inhex) len = 0;
+	else len = (int) strlen(inhex) / 2;
+    
+	if((retval = mallocByteBuffer(len)) == NULL) return NULL;
+
+    if(inhex) {
+        for(i=0, p = (const uint8_t *) inhex; i<len; i++) {
+            retval->bytes[i] = (nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
+            p += 2;
+        }
+        retval->bytes[len] = 0;
+    } else
+        retval->bytes = NULL;
 	return retval;
 }
 

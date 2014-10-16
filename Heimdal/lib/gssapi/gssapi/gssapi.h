@@ -287,130 +287,6 @@ struct krb5_ccache_data; /* for gss_krb5_copy_ccache, deprecated */
 #include <gssapi_oid.h>
 #include <gssapi_protos.h>
 
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {10, (void *)"\x2a\x86\x48\x86\xf7\x12"
- *              "\x01\x02\x01\x01"},
- * corresponding to an object-identifier value of
- * {iso(1) member-body(2) United States(840) mit(113554)
- *  infosys(1) gssapi(2) generic(1) user_name(1)}.  The constant
- * GSS_C_NT_USER_NAME should be initialized to point
- * to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_user_name_oid_desc;
-#define GSS_C_NT_USER_NAME (&__gss_c_nt_user_name_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {10, (void *)"\x2a\x86\x48\x86\xf7\x12"
- *              "\x01\x02\x01\x02"},
- * corresponding to an object-identifier value of
- * {iso(1) member-body(2) United States(840) mit(113554)
- *  infosys(1) gssapi(2) generic(1) machine_uid_name(2)}.
- * The constant GSS_C_NT_MACHINE_UID_NAME should be
- * initialized to point to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_machine_uid_name_oid_desc;
-#define GSS_C_NT_MACHINE_UID_NAME (&__gss_c_nt_machine_uid_name_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {10, (void *)"\x2a\x86\x48\x86\xf7\x12"
- *              "\x01\x02\x01\x03"},
- * corresponding to an object-identifier value of
- * {iso(1) member-body(2) United States(840) mit(113554)
- *  infosys(1) gssapi(2) generic(1) string_uid_name(3)}.
- * The constant GSS_C_NT_STRING_UID_NAME should be
- * initialized to point to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_string_uid_name_oid_desc;
-#define GSS_C_NT_STRING_UID_NAME (&__gss_c_nt_string_uid_name_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {6, (void *)"\x2b\x06\x01\x05\x06\x02"},
- * corresponding to an object-identifier value of
- * {iso(1) org(3) dod(6) internet(1) security(5)
- * nametypes(6) gss-host-based-services(2)).  The constant
- * GSS_C_NT_HOSTBASED_SERVICE_X should be initialized to point
- * to that gss_OID_desc.  This is a deprecated OID value, and
- * implementations wishing to support hostbased-service names
- * should instead use the GSS_C_NT_HOSTBASED_SERVICE OID,
- * defined below, to identify such names;
- * GSS_C_NT_HOSTBASED_SERVICE_X should be accepted a synonym
- * for GSS_C_NT_HOSTBASED_SERVICE when presented as an input
- * parameter, but should not be emitted by GSS-API
- * implementations
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_hostbased_service_x_oid_desc;
-#define GSS_C_NT_HOSTBASED_SERVICE_X (&__gss_c_nt_hostbased_service_x_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {10, (void *)"\x2a\x86\x48\x86\xf7\x12"
- *              "\x01\x02\x01\x04"}, corresponding to an
- * object-identifier value of {iso(1) member-body(2)
- * Unites States(840) mit(113554) infosys(1) gssapi(2)
- * generic(1) service_name(4)}.  The constant
- * GSS_C_NT_HOSTBASED_SERVICE should be initialized
- * to point to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_hostbased_service_oid_desc;
-#define GSS_C_NT_HOSTBASED_SERVICE (&__gss_c_nt_hostbased_service_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {6, (void *)"\x2b\x06\01\x05\x06\x03"},
- * corresponding to an object identifier value of
- * {1(iso), 3(org), 6(dod), 1(internet), 5(security),
- * 6(nametypes), 3(gss-anonymous-name)}.  The constant
- * and GSS_C_NT_ANONYMOUS should be initialized to point
- * to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_anonymous_oid_desc;
-#define GSS_C_NT_ANONYMOUS (&__gss_c_nt_anonymous_oid_desc)
-
-/*
- * The implementation must reserve static storage for a
- * gss_OID_desc object containing the value
- * {6, (void *)"\x2b\x06\x01\x05\x06\x04"},
- * corresponding to an object-identifier value of
- * {1(iso), 3(org), 6(dod), 1(internet), 5(security),
- * 6(nametypes), 4(gss-api-exported-name)}.  The constant
- * GSS_C_NT_EXPORT_NAME should be initialized to point
- * to that gss_OID_desc.
- */
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_export_name_oid_desc;
-#define GSS_C_NT_EXPORT_NAME (&__gss_c_nt_export_name_oid_desc) 
-
-/*
- * Digest mechanism
- */
-
-extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_sasl_digest_md5_mechanism_oid_desc;
-#define GSS_SASL_DIGEST_MD5_MECHANISM (&__gss_sasl_digest_md5_mechanism_oid_desc)
-
-/*
- * gss_inquire_sec_context_by_oid parameter for retrieving
- * SSPI compatible session key.
- */
-extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_inq_sspi_session_key_oid_desc;
-#define GSS_C_INQ_SSPI_SESSION_KEY (&__gss_c_inq_sspi_session_key_oid_desc)
-
-/*
- * gss_inquire_sec_context_by_oid parameter for retrieving
- * the encoded Win2K PAC. Valid with both Kerberos and NTLM
- * concrete mechanisms.
- */
-extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_inq_win2k_pac_x_oid_desc;
-#define GSS_C_INQ_WIN2K_PAC_X (&__gss_c_inq_win2k_pac_x_oid_desc)
-
 /* Major status codes */
 
 #define GSS_S_COMPLETE 0
@@ -514,7 +390,7 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 
 #ifdef __APPLE__
 
-#import <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #define kGSSICPassword			CFSTR("kGSSICPassword")
 #define kGSSICCertificate		CFSTR("kGSSICCertificate")

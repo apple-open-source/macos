@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -31,7 +31,7 @@ XC_OVR_ZZ60
 CURL_OVERRIDE_AUTOCONF
 
 dnl configure script copyright
-AC_COPYRIGHT([Copyright (c) 1998 - 2013 Daniel Stenberg, <daniel@haxx.se>
+AC_COPYRIGHT([Copyright (c) 1998 - 2014 Daniel Stenberg, <daniel@haxx.se>
 This configure script may be copied, distributed and modified under the
 terms of the curl license; see COPYING for more details])
 
@@ -126,7 +126,7 @@ fi
 dnl figure out the libcurl version
 CURLVERSION=`$SED -ne 's/^#define LIBCURL_VERSION "\(.*\)"/\1/p' ${srcdir}/include/curl/curlver.h`
 XC_CHECK_PROG_CC
-AM_INIT_AUTOMAKE
+XC_AUTOMAKE
 AC_MSG_CHECKING([curl version])
 AC_MSG_RESULT($CURLVERSION)
 
@@ -150,7 +150,6 @@ dnl initialize all the info variables
     curl_ssl_msg="no      (--with-{ssl,gnutls,nss,polarssl,cyassl,axtls,winssl,darwinssl} )"
     curl_ssh_msg="no      (--with-libssh2)"
    curl_zlib_msg="no      (--with-zlib)"
-   curl_krb4_msg="no      (--with-krb4*)"
     curl_gss_msg="no      (--with-gssapi)"
  curl_spnego_msg="no      (--with-spnego)"
 curl_tls_srp_msg="no      (--enable-tls-srp)"
@@ -1066,6 +1065,7 @@ AC_HELP_STRING([--disable-ipv6],[Disable ipv6 support]),
   AC_TRY_RUN([ /* is AF_INET6 available? */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <stdlib.h> /* for exit() */
 main()
 {
  if (socket(AF_INET6, SOCK_STREAM, 0) < 0)
@@ -1135,101 +1135,6 @@ no)
 esac
 
 dnl **********************************************************************
-dnl Check for the presence of Kerberos4 libraries and headers
-dnl **********************************************************************
-
-AC_ARG_WITH(krb4-includes,
-AC_HELP_STRING([--with-krb4-includes=DIR],
-               [Specify location of kerberos4 headers]),[
- CPPFLAGS="$CPPFLAGS -I$withval"
- KRB4INC="$withval"
- want_krb4=yes
- ])
-
-AC_ARG_WITH(krb4-libs,
-AC_HELP_STRING([--with-krb4-libs=DIR],[Specify location of kerberos4 libs]),[
- LDFLAGS="$LDFLAGS -L$withval"
- KRB4LIB="$withval"
- want_krb4=yes
- ])
-
-
-OPT_KRB4=off
-AC_ARG_WITH(krb4,dnl
-AC_HELP_STRING([--with-krb4=DIR],[where to look for Kerberos4]),[
-  OPT_KRB4="$withval"
-  if test X"$OPT_KRB4" != Xno; then
-    want_krb4="yes"
-    if test X"$OPT_KRB4" != Xyes; then
-      LDFLAGS="$LDFLAGS -L$OPT_KRB4/lib$libsuff"
-      KRB4LIB="$OPT_KRB4/lib$libsuff"
-      CPPFLAGS="$CPPFLAGS -I$OPT_KRB4/include"
-      KRB4INC="$OPT_KRB4/include"
-    fi
-  fi
- ])
-
-AC_MSG_CHECKING([if Kerberos4 support is requested])
-
-if test "$want_krb4" = yes
-then
-  if test "$ipv6" = "yes"; then
-    echo krb4 is not compatible with IPv6
-    exit 1
-  fi
-  AC_MSG_RESULT(yes)
-
-  dnl Check for & handle argument to --with-krb4
-
-  AC_MSG_CHECKING(where to look for Kerberos4)
-  if test X"$OPT_KRB4" = Xyes
-  then
-    AC_MSG_RESULT([defaults])
-  else
-    AC_MSG_RESULT([libs in $KRB4LIB, headers in $KRB4INC])
-  fi
-
-  dnl Check for DES library
-  AC_CHECK_LIB(des, des_pcbc_encrypt,
-  [
-    AC_CHECK_HEADERS(des.h)
-
-    dnl resolv lib?
-    AC_CHECK_FUNC(res_search, , [AC_CHECK_LIB(resolv, res_search)])
-
-    dnl Check for the Kerberos4 library
-    AC_CHECK_LIB(krb, krb_net_read,
-    [
-      dnl Check for header files
-      AC_CHECK_HEADERS(krb.h)
-
-      dnl we found the required libraries, add to LIBS
-      LIBS="-lkrb -lcom_err -ldes $LIBS"
-
-      dnl Check for function krb_get_our_ip_for_realm
-      dnl this is needed for NAT networks
-      AC_CHECK_FUNCS(krb_get_our_ip_for_realm)
-
-      dnl add define KRB4
-      AC_DEFINE(HAVE_KRB4, 1,
-      [if you have the Kerberos4 libraries (including -ldes)])
-
-      dnl substitute it too!
-      KRB4_ENABLED=1
-      AC_SUBST(KRB4_ENABLED)
-
-      curl_krb4_msg="enabled"
-
-      dnl the krb4 stuff needs a strlcpy()
-      AC_CHECK_FUNCS(strlcpy)
-
-    ])
-  ])
-else
-  AC_MSG_RESULT(no)
-fi
-
-dnl **********************************************************************
 dnl Check for FBopenssl(SPNEGO) libraries
 dnl **********************************************************************
 
@@ -1268,26 +1173,26 @@ dnl **********************************************************************
 dnl Check for GSS-API libraries
 dnl **********************************************************************
 
-dnl check for gss stuff in the /usr as default
+dnl check for GSS-API stuff in the /usr as default
 
 GSSAPI_ROOT="/usr"
 AC_ARG_WITH(gssapi-includes,
   AC_HELP_STRING([--with-gssapi-includes=DIR],
-                 [Specify location of GSSAPI header]),
+                 [Specify location of GSS-API headers]),
   [ GSSAPI_INCS="-I$withval"
     want_gss="yes" ]
 )
 
 AC_ARG_WITH(gssapi-libs,
   AC_HELP_STRING([--with-gssapi-libs=DIR],
-                 [Specify location of GSSAPI libs]),
+                 [Specify location of GSS-API libs]),
   [ GSSAPI_LIB_DIR="-L$withval"
     want_gss="yes" ]
 )
 
 AC_ARG_WITH(gssapi,
   AC_HELP_STRING([--with-gssapi=DIR],
-                 [Where to look for GSSAPI]), [
+                 [Where to look for GSS-API]), [
   GSSAPI_ROOT="$withval"
   if test x"$GSSAPI_ROOT" != xno; then
     want_gss="yes"
@@ -1299,12 +1204,14 @@ AC_ARG_WITH(gssapi,
 ])
 
 save_CPPFLAGS="$CPPFLAGS"
-AC_MSG_CHECKING([if GSSAPI support is requested])
+AC_MSG_CHECKING([if GSS-API support is requested])
 if test x"$want_gss" = xyes; then
   AC_MSG_RESULT(yes)
 
   if test -z "$GSSAPI_INCS"; then
-     if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
+     if test -n "$host_alias" -a -f "$GSSAPI_ROOT/bin/$host_alias-krb5-config"; then
+        GSSAPI_INCS=`$GSSAPI_ROOT/bin/$host_alias-krb5-config --cflags gssapi`
+     elif test -f "$GSSAPI_ROOT/bin/krb5-config"; then
         GSSAPI_INCS=`$GSSAPI_ROOT/bin/krb5-config --cflags gssapi`
      elif test "$GSSAPI_ROOT" != "yes"; then
         GSSAPI_INCS="-I$GSSAPI_ROOT/include"
@@ -1316,7 +1223,7 @@ if test x"$want_gss" = xyes; then
   AC_CHECK_HEADER(gss.h,
     [
       dnl found in the given dirs
-      AC_DEFINE(HAVE_GSSGNU, 1, [if you have the GNU gssapi libraries])
+      AC_DEFINE(HAVE_GSSGNU, 1, [if you have GNU GSS])
       gnu_gss=yes
     ],
     [
@@ -1337,19 +1244,19 @@ AC_INCLUDES_DEFAULT
         AC_CHECK_HEADER(gssapi.h,
             [
               dnl found
-              AC_DEFINE(HAVE_GSSHEIMDAL, 1, [if you have the Heimdal gssapi libraries])
+              AC_DEFINE(HAVE_GSSHEIMDAL, 1, [if you have Heimdal])
             ],
             [
               dnl no header found, disabling GSS
               want_gss=no
-              AC_MSG_WARN(disabling GSSAPI since no header files was found)
+              AC_MSG_WARN(disabling GSS-API support since no header files were found)
             ]
           )
       else
         dnl MIT found
-        AC_DEFINE(HAVE_GSSMIT, 1, [if you have the MIT gssapi libraries])
-        dnl check if we have a really old MIT kerberos (<= 1.2)
-        AC_MSG_CHECKING([if gssapi headers declare GSS_C_NT_HOSTBASED_SERVICE])
+        AC_DEFINE(HAVE_GSSMIT, 1, [if you have MIT Kerberos])
+        dnl check if we have a really old MIT Kerberos version (<= 1.2)
+        AC_MSG_CHECKING([if GSS-API headers declare GSS_C_NT_HOSTBASED_SERVICE])
         AC_COMPILE_IFELSE([
           AC_LANG_PROGRAM([[
 #include <gssapi/gssapi.h>
@@ -1367,7 +1274,7 @@ AC_INCLUDES_DEFAULT
         ],[
           AC_MSG_RESULT([no])
           AC_DEFINE(HAVE_OLD_GSSMIT, 1,
-            [if you have an old MIT gssapi library, lacking GSS_C_NT_HOSTBASED_SERVICE])
+            [if you have an old MIT Kerberos version, lacking GSS_C_NT_HOSTBASED_SERVICE])
         ])
       fi
     ]
@@ -1376,9 +1283,9 @@ else
   AC_MSG_RESULT(no)
 fi
 if test x"$want_gss" = xyes; then
-  AC_DEFINE(HAVE_GSSAPI, 1, [if you have the gssapi libraries])
+  AC_DEFINE(HAVE_GSSAPI, 1, [if you have GSS-API libraries])
 
-  curl_gss_msg="enabled (MIT/Heimdal)"
+  curl_gss_msg="enabled (MIT Kerberos/Heimdal)"
 
   if test -n "$gnu_gss"; then
     curl_gss_msg="enabled (GNU GSS)"
@@ -1389,8 +1296,19 @@ if test x"$want_gss" = xyes; then
      *-*-darwin*)
         LIBS="-lgssapi_krb5 -lresolv $LIBS"
         ;;
+     *-hp-hpux*)
+        if test "$GSSAPI_ROOT" != "yes"; then
+           LDFLAGS="$LDFLAGS -L$GSSAPI_ROOT/lib$libsuff"
+        fi
+        LIBS="-lgss $LIBS"
+        ;;
      *)
-        if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
+        if test -n "$host_alias" -a -f "$GSSAPI_ROOT/bin/$host_alias-krb5-config"; then
+           dnl krb5-config doesn't have --libs-only-L or similar, put everything
+           dnl into LIBS
+           gss_libs=`$GSSAPI_ROOT/bin/$host_alias-krb5-config --libs gssapi`
+           LIBS="$gss_libs $LIBS"
+        elif test -f "$GSSAPI_ROOT/bin/krb5-config"; then
            dnl krb5-config doesn't have --libs-only-L or similar, put everything
            dnl into LIBS
            gss_libs=`$GSSAPI_ROOT/bin/krb5-config --libs gssapi`
@@ -1405,7 +1323,14 @@ if test x"$want_gss" = xyes; then
      esac
   else
      LDFLAGS="$LDFLAGS $GSSAPI_LIB_DIR"
-     LIBS="-lgssapi $LIBS"
+     case $host in
+     *-hp-hpux*)
+        LIBS="-lgss $LIBS"
+        ;;
+     *)
+        LIBS="-lgssapi $LIBS"
+        ;;
+     esac
   fi
 else
   CPPFLAGS="$save_CPPFLAGS"
@@ -1676,7 +1601,10 @@ if test "$curl_ssl_msg" = "$init_ssl_msg" && test X"$OPT_SSL" != Xno; then
                     ENGINE_cleanup \
                     CRYPTO_cleanup_all_ex_data \
                     SSL_get_shutdown \
-                    SSLv2_client_method )
+                    SSLv2_client_method \
+                    SSL_CTX_set_next_proto_select_cb \
+                    SSL_CTX_set_alpn_protos \
+                    SSL_CTX_set_alpn_select_cb )
 
     dnl Make an attempt to detect if this is actually yassl's headers and
     dnl OpenSSL emulation layer. We still leave everything else believing
@@ -2079,6 +2007,12 @@ if test "$curl_ssl_msg" = "$init_ssl_msg"; then
     if test "x$USE_CYASSL" = "xyes"; then
       AC_MSG_NOTICE([detected CyaSSL])
 
+      dnl cyassl/ctaocrypt/types.h needs SIZEOF_LONG_LONG defined!
+      AC_CHECK_SIZEOF(long long)
+
+      dnl Versions since at least 2.9.4 renamed error.h to error-ssl.h
+      AC_CHECK_HEADERS(cyassl/error-ssl.h)
+
       LIBS="-lcyassl -lm $LIBS"
 
       if test -n "$cyassllib"; then
@@ -2163,8 +2097,8 @@ if test "$curl_ssl_msg" = "$init_ssl_msg"; then
          CPPFLAGS="$CPPFLAGS $addcflags"
       fi
 
-      dnl The function PK11_CreateGenericObject is needed to load libnsspem.so
-      AC_CHECK_LIB(nss3, PK11_CreateGenericObject,
+      dnl The function SSL_VersionRangeSet() is needed to enable TLS > 1.0
+      AC_CHECK_LIB(nss3, SSL_VersionRangeSet,
        [
        AC_DEFINE(USE_NSS, 1, [if NSS is enabled])
        AC_SUBST(USE_NSS, [1])
@@ -2179,14 +2113,6 @@ if test "$curl_ssl_msg" = "$init_ssl_msg"; then
 
       if test "x$USE_NSS" = "xyes"; then
         AC_MSG_NOTICE([detected NSS version $version])
-
-        dnl NSS_InitContext() was introduced in NSS 3.12.5 and helps to prevent
-        dnl collisions on NSS initialization/shutdown with other libraries
-        AC_CHECK_FUNC(NSS_InitContext,
-        [
-          AC_DEFINE(HAVE_NSS_INITCONTEXT, 1, [if you have the NSS_InitContext function])
-          AC_SUBST(HAVE_NSS_INITCONTEXT, [1])
-        ])
 
         dnl when shared libs were found in a path that the run-time
         dnl linker doesn't search through, we need to add it to
@@ -2248,10 +2174,11 @@ if test "$curl_ssl_msg" = "$init_ssl_msg"; then
       USE_AXTLS="yes"
       curl_ssl_msg="enabled (axTLS)"
 
-
-      LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LIB_AXTLS"
-      export LD_LIBRARY_PATH
-      AC_MSG_NOTICE([Added $LIB_AXTLS to LD_LIBRARY_PATH])
+      if test "x$cross_compiling" != "xyes"; then
+        LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LIB_AXTLS"
+        export LD_LIBRARY_PATH
+        AC_MSG_NOTICE([Added $LIB_AXTLS to LD_LIBRARY_PATH])
+      fi
       ],[
       LDFLAGS="$CLEANLDFLAGS"
       CPPFLAGS="$CLEANCPPFLAGS"
@@ -2553,19 +2480,19 @@ AC_HELP_STRING([--disable-versioned-symbols], [Disable versioned symbols in shar
         AC_MSG_RESULT(yes)
         if test "x$OPENSSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="OPENSSL_"
-        elif test "x$GNUTLS_ENABLED" == "x1"; then
+        elif test "x$GNUTLS_ENABLED" = "x1"; then
           versioned_symbols_flavour="GNUTLS_"
-        elif test "x$NSS_ENABLED" == "x1"; then
+        elif test "x$NSS_ENABLED" = "x1"; then
           versioned_symbols_flavour="NSS_"
-        elif test "x$POLARSSL_ENABLED" == "x1"; then
+        elif test "x$POLARSSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="POLARSSL_"
-        elif test "x$CYASSL_ENABLED" == "x1"; then
+        elif test "x$CYASSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="CYASSL_"
-        elif test "x$AXTLS_ENABLED" == "x1"; then
+        elif test "x$AXTLS_ENABLED" = "x1"; then
           versioned_symbols_flavour="AXTLS_"
-        elif test "x$WINSSL_ENABLED" == "x1"; then
+        elif test "x$WINSSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="WINSSL_"
-        elif test "x$DARWINSSL_ENABLED" == "x1"; then
+        elif test "x$DARWINSSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="DARWINSSL_"
         else
           versioned_symbols_flavour=""
@@ -2783,7 +2710,7 @@ if test "$want_idn" = "yes"; then
     if test "x$ac_cv_header_tld_h" = "xyes"; then
       AC_SUBST([IDN_ENABLED], [1])
       curl_idn_msg="enabled"
-      if test -n "$IDN_DIR"; then
+      if test -n "$IDN_DIR" -a "x$cross_compiling" != "xyes"; then
         LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$IDN_DIR"
         export LD_LIBRARY_PATH
         AC_MSG_NOTICE([Added $IDN_DIR to LD_LIBRARY_PATH])
@@ -2807,6 +2734,84 @@ dnl Let's hope this split URL remains working:
 dnl http://publibn.boulder.ibm.com/doc_link/en_US/a_doc_lib/aixprggd/ \
 dnl genprogc/thread_quick_ref.htm
 
+
+dnl **********************************************************************
+dnl Check for nghttp2
+dnl **********************************************************************
+
+OPT_H2="yes"
+AC_ARG_WITH(nghttp2,
+AC_HELP_STRING([--with-nghttp2=PATH],[Enable nghttp2 usage])
+AC_HELP_STRING([--without-nghttp2],[Disable nghttp2 usage]),
+  [OPT_H2=$withval])
+case "$OPT_H2" in
+  no)
+    dnl --without-nghttp2 option used
+    want_h2="no"
+    ;;
+  yes)
+    dnl --with-nghttp2 option used without path
+    want_h2="default"
+    want_h2_path=""
+    ;;
+  *)
+    dnl --with-nghttp2 option used with path
+    want_h2="yes"
+    want_h2_path="$withval/lib/pkgconfig"
+    ;;
+esac
+
+curl_h2_msg="disabled (--with-nghttp2)"
+if test X"$want_h2" != Xno; then
+  dnl backup the pre-nghttp2 variables
+  CLEANLDFLAGS="$LDFLAGS"
+  CLEANCPPFLAGS="$CPPFLAGS"
+  CLEANLIBS="$LIBS"
+
+  CURL_CHECK_PKGCONFIG(libnghttp2, $want_h2_path)
+
+  if test "$PKGCONFIG" != "no" ; then
+    LIB_H2=`CURL_EXPORT_PCDIR([$want_h2_path])
+      $PKGCONFIG --libs-only-l libnghttp2`
+    AC_MSG_NOTICE([-l is $LIB_H2])
+
+    CPP_H2=`CURL_EXPORT_PCDIR([$want_h2_path]) dnl
+      $PKGCONFIG --cflags-only-I libnghttp2`
+    AC_MSG_NOTICE([-I is $CPP_H2])
+
+    LD_H2=`CURL_EXPORT_PCDIR([$want_h2_path])
+      $PKGCONFIG --libs-only-L libnghttp2`
+    AC_MSG_NOTICE([-L is $LD_H2])
+
+    LDFLAGS="$LDFLAGS $LD_H2"
+    CPPFLAGS="$CPPFLAGS $CPP_H2"
+    LIBS="$LIB_H2 $LIBS"
+
+    AC_CHECK_LIB(nghttp2, nghttp2_session_client_new,
+      [
+       AC_CHECK_HEADERS(nghttp2/nghttp2.h,
+          curl_h2_msg="enabled (nghttp2)"
+          NGHTTP2_ENABLED=1
+          AC_DEFINE(USE_NGHTTP2, 1, [if nghttp2 is in use])
+          AC_SUBST(USE_NGHTTP2, [1])
+       )
+      ],
+        dnl not found, revert back to clean variables
+        LDFLAGS=$CLEANLDFLAGS
+        CPPFLAGS=$CLEANCPPFLAGS
+        LIBS=$CLEANLIBS
+    )
+
+  else
+    dnl no nghttp2 pkg-config found, deal with it
+    if test X"$want_h2" != Xdefault; then
+      dnl To avoid link errors, we do not allow --with-nghttp2 without
+      dnl a pkgconfig file
+      AC_MSG_ERROR([--with-nghttp2 was specified but could not find libnghttp2 pkg-config file.])
+    fi
+  fi
+
+fi
 
 dnl **********************************************************************
 dnl Back to "normal" configuring
@@ -3035,8 +3040,10 @@ AC_CHECK_FUNCS([fork \
   getppid \
   getprotobyname \
   getpwuid \
+  getpwuid_r \
   getrlimit \
   gettimeofday \
+  if_nametoindex \
   inet_addr \
   perror \
   pipe \
@@ -3158,14 +3165,26 @@ if test "$want_thres" = "yes"; then
   AC_CHECK_HEADER(pthread.h,
     [ AC_DEFINE(HAVE_PTHREAD_H, 1, [if you have <pthread.h>])
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -pthread"
-      AC_CHECK_LIB(pthread, pthread_create,
-        [ AC_MSG_NOTICE([using POSIX threaded DNS lookup])
-          AC_DEFINE(USE_THREADS_POSIX, 1, [if you want POSIX threaded DNS lookup])
-          USE_THREADS_POSIX=1
-          curl_res_msg="threaded"
-        ],
-        [ CFLAGS="$save_CFLAGS"])
+
+      dnl first check for function without lib
+      AC_CHECK_FUNC(pthread_create, [USE_THREADS_POSIX=1] )
+
+      dnl if it wasn't found without lib, search for it in pthread lib
+      if test "$USE_THREADS_POSIX" != "1"
+      then
+        CFLAGS="$CFLAGS -pthread"
+        AC_CHECK_LIB(pthread, pthread_create,
+                     [USE_THREADS_POSIX=1],
+                     [ CFLAGS="$save_CFLAGS"])
+      fi
+
+      if test "x$USE_THREADS_POSIX" = "x1"
+      then
+        AC_DEFINE(USE_THREADS_POSIX, 1, [if you want POSIX threaded DNS lookup])
+        curl_res_msg="POSIX threaded"
+      fi
+
+
   ])
 fi
 
@@ -3235,6 +3254,7 @@ AC_HELP_STRING([--disable-crypto-auth],[Disable cryptographic authentication]),
   no)
        AC_MSG_RESULT(no)
        AC_DEFINE(CURL_DISABLE_CRYPTO_AUTH, 1, [to disable cryptographic authentication])
+       CURL_DISABLE_CRYPTO_AUTH=1
        ;;
   *)   AC_MSG_RESULT(yes)
        ;;
@@ -3338,6 +3358,11 @@ dnl yes or no
 ENABLE_SHARED="$enable_shared"
 AC_SUBST(ENABLE_SHARED)
 
+dnl to let curl-config output the static libraries correctly
+ENABLE_STATIC="$enable_static"
+AC_SUBST(ENABLE_STATIC)
+
+
 dnl
 dnl For keeping supported features and protocols also in pkg-config file
 dnl since it is more cross-compile friendly than curl-config
@@ -3347,9 +3372,6 @@ if test "x$USE_SSLEAY" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES SSL"
 elif test -n "$SSL_ENABLED"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES SSL"
-fi
-if test "@KRB4_ENABLED@" = "x1"; then
-  SUPPORT_FEATURES="$SUPPORT_FEATURES KRB4"
 fi
 if test "x$IPV6_ENABLED" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES IPv6"
@@ -3366,7 +3388,8 @@ fi
 if test "x$USE_WINDOWS_SSPI" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES SSPI"
 fi
-if test "x$CURL_DISABLE_HTTP" != "x1"; then
+if test "x$CURL_DISABLE_HTTP" != "x1" -a \
+	"x$CURL_DISABLE_CRYPTO_AUTH" != "x1"; then
   if test "x$USE_SSLEAY" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
       -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
       -o "x$DARWINSSL_ENABLED" = "x1"; then
@@ -3378,6 +3401,16 @@ if test "x$CURL_DISABLE_HTTP" != "x1"; then
 fi
 if test "x$USE_TLS_SRP" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES TLS-SRP"
+fi
+
+if test "x$USE_NGHTTP2" = "x1"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES HTTP2"
+fi
+if test "x$curl_spnego_msg" = "xenabled"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES SPNEGO"
+fi
+if test "x$want_gss" = "xyes"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES GSS-API"
 fi
 
 AC_SUBST(SUPPORT_FEATURES)
@@ -3481,6 +3514,7 @@ AC_CONFIG_FILES([Makefile \
            docs/Makefile \
            docs/examples/Makefile \
            docs/libcurl/Makefile \
+           docs/libcurl/opts/Makefile \
            include/Makefile \
            include/curl/Makefile \
            src/Makefile \
@@ -3514,6 +3548,8 @@ AC_OUTPUT
 
 CURL_GENERATE_CONFIGUREHELP_PM
 
+XC_AMEND_DISTCLEAN([lib src tests/unit tests/server tests/libtest docs/examples])
+
 AC_MSG_NOTICE([Configured to build curl/libcurl:
 
   curl version:     ${CURLVERSION}
@@ -3523,8 +3559,7 @@ AC_MSG_NOTICE([Configured to build curl/libcurl:
   SSL support:      ${curl_ssl_msg}
   SSH support:      ${curl_ssh_msg}
   zlib support:     ${curl_zlib_msg}
-  krb4 support:     ${curl_krb4_msg}
-  GSSAPI support:   ${curl_gss_msg}
+  GSS-API support:  ${curl_gss_msg}
   SPNEGO support:   ${curl_spnego_msg}
   TLS-SRP support:  ${curl_tls_srp_msg}
   resolver:         ${curl_res_msg}
@@ -3542,6 +3577,7 @@ AC_MSG_NOTICE([Configured to build curl/libcurl:
   RTSP support:     ${curl_rtsp_msg}
   RTMP support:     ${curl_rtmp_msg}
   metalink support: ${curl_mtlnk_msg}
+  HTTP2 support:    ${curl_h2_msg}
   Protocols:        ${SUPPORT_PROTOCOLS}
 ])
 

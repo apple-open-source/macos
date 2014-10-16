@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -30,15 +30,30 @@
 
 #include "MediaPlayerPrivateAVFoundation.h"
 
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE) || HAVE(ENCRYPTED_MEDIA_V2)
+typedef struct OpaqueAVCFAssetResourceLoadingRequest* AVCFAssetResourceLoadingRequestRef;
+#endif
+
 namespace WebCore {
 
 class AVFWrapper;
+class WebCoreAVCFResourceLoader;
 
 class MediaPlayerPrivateAVFoundationCF : public MediaPlayerPrivateAVFoundation {
 public:
     virtual ~MediaPlayerPrivateAVFoundationCF();
 
-    virtual void tracksChanged() OVERRIDE;
+    virtual void tracksChanged() override;
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    bool shouldWaitForLoadingOfResource(AVCFAssetResourceLoadingRequestRef);
+    void didCancelLoadingRequest(AVCFAssetResourceLoadingRequestRef);
+    void didStopLoadingRequest(AVCFAssetResourceLoadingRequestRef);
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    RetainPtr<AVCFAssetResourceLoadingRequestRef> takeRequestForKeyURI(const String&);
+#endif
 
     static void registerMediaEngine(MediaEngineRegistrar);
 
@@ -48,7 +63,7 @@ private:
     // Engine support
     static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
-    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs, const KURL&);
+    static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
     static bool isAvailable();
 
     virtual void cancelLoad();
@@ -58,7 +73,7 @@ private:
     virtual void platformSetVisible(bool);
     virtual void platformPlay();
     virtual void platformPause();
-    virtual float currentTime() const;
+    virtual double currentTimeDouble() const override;
     virtual void setVolume(float);
     virtual void setClosedCaptionsVisible(bool);
     virtual void paint(GraphicsContext*, const IntRect&);
@@ -76,16 +91,16 @@ private:
     virtual void checkPlayability();
     virtual void updateRate();
     virtual float rate() const;
-    virtual void seekToTime(double time);
-    virtual unsigned totalBytes() const;
-    virtual PassRefPtr<TimeRanges> platformBufferedTimeRanges() const;
+    virtual void seekToTime(double time, double negativeTolerance, double positiveTolerance);
+    virtual unsigned long long totalBytes() const;
+    virtual std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const;
     virtual double platformMinTimeSeekable() const;
     virtual double platformMaxTimeSeekable() const;
-    virtual float platformDuration() const;
+    virtual double platformDuration() const;
     virtual float platformMaxTimeLoaded() const;
     virtual void beginLoadingMetadata();
     virtual void sizeChanged();
-    virtual bool requiresImmediateCompositing() const OVERRIDE;
+    virtual bool requiresImmediateCompositing() const override;
 
     virtual bool hasAvailableVideoFrame() const;
 
@@ -98,16 +113,22 @@ private:
     virtual bool hasContextRenderer() const;
     virtual bool hasLayerRenderer() const;
 
+    virtual void updateVideoLayerGravity() override;
+
     virtual void contentsNeedsDisplay();
 
-    virtual String languageOfPrimaryAudioTrack() const OVERRIDE;
+#if ENABLE(ENCRYPTED_MEDIA_V2)
+    virtual std::unique_ptr<CDMSession> createSession(const String&) override;
+#endif
+
+    virtual String languageOfPrimaryAudioTrack() const override;
 
 #if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
     void processMediaSelectionOptions();
 #endif
 
-    virtual void setCurrentTrack(InbandTextTrackPrivateAVF*) OVERRIDE;
-    virtual InbandTextTrackPrivateAVF* currentTrack() const OVERRIDE;
+    virtual void setCurrentTextTrack(InbandTextTrackPrivateAVF*) override;
+    virtual InbandTextTrackPrivateAVF* currentTextTrack() const override;
 
 #if !HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
     void processLegacyClosedCaptionsTracks();
@@ -115,8 +136,14 @@ private:
 
     friend class AVFWrapper;
     AVFWrapper* m_avfWrapper;
-    
+
     mutable String m_languageOfPrimaryAudioTrack;
+
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE)
+    friend class WebCoreAVCFResourceLoader;
+    HashMap<RetainPtr<AVCFAssetResourceLoadingRequestRef>, RefPtr<WebCoreAVCFResourceLoader>> m_resourceLoaderMap;
+#endif
+
     bool m_videoFrameHasDrawn;
 };
 

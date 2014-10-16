@@ -72,7 +72,7 @@ static gss_mo_desc _gssntlm_mech_options[] = {
 	GSS_MO_MA,
 	"NTLMv1",
 	NULL,
-	_gss_mo_get_option_1
+	_gss_mo_get_option_0
     },
     {
 	GSS_C_NTLM_FORCE_V1,

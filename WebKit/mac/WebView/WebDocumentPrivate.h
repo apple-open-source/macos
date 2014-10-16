@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -26,15 +26,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebDocument.h>
-#import <WebKit/WebHTMLView.h>
+#import <WebKitLegacy/WebDocument.h>
+#import <WebKitLegacy/WebHTMLView.h>
 
 @class DOMDocument;
 @class PDFDocument;
 
+#if !TARGET_OS_IPHONE
 @protocol WebDocumentImage <NSObject>
 - (NSImage *)image;
 @end
+#endif
 
 // This method is deprecated as it now lives on WebFrame.
 @protocol WebDocumentDOM <NSObject>
@@ -43,8 +45,10 @@
 @end
 
 @protocol WebDocumentSelection <WebDocumentText>
+#if !TARGET_OS_IPHONE
 - (NSArray *)pasteboardTypesForSelection;
 - (void)writeSelectionWithPasteboardTypes:(NSArray *)types toPasteboard:(NSPasteboard *)pasteboard;
+#endif
 
 // Array of rects that tightly enclose the selected text, in coordinates of selectinView.
 - (NSArray *)selectionTextRects;
@@ -52,9 +56,13 @@
 // Rect tightly enclosing the entire selected area, in coordinates of selectionView.
 - (NSRect)selectionRect;
 
+#if !TARGET_OS_IPHONE
 // NSImage of the portion of the selection that's in view. This does not draw backgrounds. 
 // The text is all black according to the parameter.
 - (NSImage *)selectionImageForcingBlackText:(BOOL)forceBlackText;
+#else
+- (CGImageRef)selectionImageForcingBlackText:(BOOL)forceBlackText;
+#endif
 
 // Rect tightly enclosing the entire selected area, in coordinates of selectionView.
 // NOTE: This method is equivalent to selectionRect and shouldn't be used; use selectionRect instead.
@@ -85,3 +93,23 @@
 
 @interface WebHTMLView (WebDocumentPrivateProtocols) <WebDocumentSelection, WebDocumentIncrementalSearching>
 @end
+
+#if TARGET_OS_IPHONE
+@protocol WebPDFDocumentRepresentation <WebDocumentRepresentation>
+/*!
+    @method supportedMIMETypes
+    @abstract Returns list of MIME types handled by this view.
+    @result Array of strings representing the supported MIME types.
+*/
++ (NSArray *)supportedMIMETypes;
+@end
+
+@protocol WebPDFDocumentView <WebDocumentView>
+/*!
+    @method supportedMIMETypes
+    @abstract Returns list of MIME types handled by this view.
+    @result Array of strings representing the supported MIME types.
+*/
++ (NSArray *)supportedMIMETypes;
+@end
+#endif

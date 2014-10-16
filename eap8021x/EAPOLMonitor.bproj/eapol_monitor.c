@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -154,36 +154,6 @@ S_get_bundle()
 	bundle = CFBundleGetMainBundle();
     }
     return (bundle);
-}
-
-/* 
- * Function: my_CFStringCopyComponent
- * Purpose:
- *    Separates the given string using the given separator, and returns
- *    the component at the specified index.
- * Returns:
- *    NULL if no such component exists, non-NULL component otherwise
- */
-static CFStringRef
-my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
-			 CFIndex component_index)
-{
-    CFArrayRef		arr;
-    CFStringRef		component = NULL;
-
-    arr = CFStringCreateArrayBySeparatingStrings(NULL, path, separator);
-    if (arr == NULL) {
-	goto done;
-    }
-    if (CFArrayGetCount(arr) <= component_index) {
-	goto done;
-    }
-    component = CFRetain(CFArrayGetValueAtIndex(arr, component_index));
-
- done:
-    my_CFRelease(&arr);
-    return (component);
-
 }
 
 static CFStringRef
@@ -539,6 +509,7 @@ MonitoredInterfaceStopAuthentication(MonitoredInterfaceRef mon)
     int			status;
 
     EAPLOG(LOG_NOTICE, "EAPOLMonitor: %s stopping", mon->if_name);
+    mon->state = kMonitorStateIdle;
     status = EAPOLControlStop(mon->if_name);
     if (status != 0) {
 	EAPLOG(LOG_NOTICE,
@@ -794,9 +765,20 @@ MonitoredInterfaceProcessStatus(MonitoredInterfaceRef mon,
 	    }
 	    else if (mon->link_active_when_started == FALSE) {
 		CFAbsoluteTime	now;
-	    
+
+		/*
+		 * <rdar://problem/8644279>
+		 * If the link was inactive when we were started, ignore
+		 * eapolclient entering the Inactive state if it's been
+		 * less than the INACTIVE_IGNORE_INTERVAL (0.5 seconds).
+		 * It is a larger value than we need since the USB Ethernet
+		 * driver typically has a delay of just over 0.02 seconds,
+		 * but is short enough to avoid doing the wrong thing in
+		 * other cases.
+		 */
 		now = CFAbsoluteTimeGetCurrent();
-		if ((now - mon->start_time) > 0.9) {
+#define INACTIVE_IGNORE_INTERVAL	0.5
+		if ((now - mon->start_time) > INACTIVE_IGNORE_INTERVAL) {
 		    stop_it = TRUE;
 		}
 		else {
@@ -837,6 +819,10 @@ MonitoredInterfaceCheckStatus(MonitoredInterfaceRef mon)
     switch (control_state) {
     case kEAPOLControlStateIdle:
     case kEAPOLControlStateStopping:
+	if (mon->state == kMonitorStateStarted) {
+	    /* user is controlling things */
+	    mon->ignore_until_link_status_changes = TRUE;
+	}
 	mon->state = kMonitorStateIdle;
 	if (EAPOLControlDidUserCancel(mon->if_name)) {
 	    mon->ignore_until_link_status_changes = TRUE;
@@ -872,7 +858,6 @@ MonitoredInterfaceLinkStatusChanged(MonitoredInterfaceRef mon)
 	    mon->state = kMonitorStateIdle;
 	}
     }
-    mon->require_fresh_detection = TRUE;
     mon->ignore_until_link_status_changes = FALSE;
     return;
 }
@@ -906,41 +891,6 @@ prompt_or_start(const void * key, const void * value, void * arg)
     /* check for an existing binding */
     dict = isA_CFDictionary(value);
     if (dict != NULL) {
-	CFNumberRef	age_seconds_cf;
-
-	age_seconds_cf
-	    = CFDictionaryGetValue(dict,
-				   kEAPOLAutoDetectSecondsSinceLastPacket);
-	if (isA_CFNumber(age_seconds_cf) != NULL) {
-	    (void)CFNumberGetValue(age_seconds_cf,
-				   kCFNumberSInt32Type,
-				   &age_seconds);
-	    if (age_seconds == 0) {
-		mon->require_fresh_detection = FALSE;
-	    }
-	    else {
-		if (is_link_active(mon->if_name) == FALSE) {
-		    EAPLOG(LOG_DEBUG,
-			   "EAPOLMonitor: %s link isn't active",
-			   mon->if_name);
-		    return;
-		}
-		if (mon->require_fresh_detection && age_seconds > 2) {
-		    /* if the link status changed, wait for next packet */
-		    EAPLOG(LOG_DEBUG,
-			   "EAPOLMonitor: %s wait for a fresh detect",
-			   mon->if_name);
-		    return;
-		}
-		if (age_seconds > 30) {
-		    /* if it's been awhile, wait for the next packet */
-		    EAPLOG(LOG_DEBUG,
-			   "EAPOLMonitor: %s ignoring (%d seconds)",
-			   mon->if_name, age_seconds);
-		    return;
-		}
-	    }
-	}
 	authenticator 
 	    = CFDictionaryGetValue(dict,
 				   kEAPOLAutoDetectAuthenticatorMACAddress);

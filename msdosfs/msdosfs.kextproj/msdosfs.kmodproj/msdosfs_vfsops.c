@@ -94,6 +94,7 @@
 #include <IOKit/IOTypes.h>
 #include <libkern/OSMalloc.h>
 #include <libkern/OSKextLib.h>
+#include <libkern/crypto/md5.h>
 #include <TargetConditionals.h>
 
 #include "bpb.h"
@@ -290,6 +291,40 @@ error_exit:
 #endif
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_MOUNT|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
+}
+
+/*
+ * Create a version 3 UUID from unique data in the SHA1 "name space".
+ * Version 3 UUIDs are derived using MD5 checksum.  Here, the unique
+ * data is the 4-byte volume ID and the number of sectors (normalized
+ * to a 4-byte little endian value).
+ */
+static void msdosfs_generate_volume_uuid(uuid_t result_uuid, uint8_t volumeID[4], uint32_t totalSectors)
+{
+    MD5_CTX c;
+    uint8_t sectorsLittleEndian[4];
+    
+    UUID_DEFINE( kFSUUIDNamespaceSHA1, 0xB3, 0xE2, 0x0F, 0x39, 0xF2, 0x92, 0x11, 0xD6, 0x97, 0xA4, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC );
+
+    /*
+     * Normalize totalSectors to a little endian value so that this returns the
+     * same UUID regardless of endianness.
+     */
+    putuint32(sectorsLittleEndian, totalSectors);
+    
+    /*
+     * Generate an MD5 hash of our "name space", and our unique bits of data
+     * (the volume ID and total sectors).
+     */
+    MD5Init(&c);
+    MD5Update(&c, kFSUUIDNamespaceSHA1, sizeof(uuid_t));
+    MD5Update(&c, volumeID, 4);
+    MD5Update(&c, sectorsLittleEndian, sizeof(sectorsLittleEndian));
+    MD5Final(result_uuid, &c);
+    
+    /* Force the resulting UUID to be a version 3 UUID. */
+    result_uuid[6] = (result_uuid[6] & 0x0F) | 0x30;
+    result_uuid[8] = (result_uuid[8] & 0x3F) | 0x80;
 }
 
 int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
@@ -677,6 +712,17 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 			
 			/* Copy the volume serial number into the mount point. */
 			bcopy(extboot->exVolumeID, pmp->pm_volume_serial_num, sizeof(pmp->pm_volume_serial_num));
+            
+            /* 
+             * See if the volume has a non-zero ID; if so, turn it into a UUID.
+             * The field is odd aligned, so don't cast to uint32_t.
+             */
+            if (pmp->pm_volume_serial_num[0] || pmp->pm_volume_serial_num[1] ||
+                pmp->pm_volume_serial_num[2] || pmp->pm_volume_serial_num[3])
+            {
+                pmp->pm_flags |= MSDOSFS_HAS_VOL_UUID;
+                msdosfs_generate_volume_uuid(pmp->pm_uuid, pmp->pm_volume_serial_num, total_sectors);
+            }
 			
 			/*
 			 * Copy the label from the boot sector into the mount point.
@@ -1267,6 +1313,12 @@ int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 		strlcpy(attr->f_vol_name, (char*)pmp->pm_label, MAXPATHLEN);
 		VFSATTR_SET_SUPPORTED(attr, f_vol_name);
 	}
+    
+    if (VFSATTR_IS_ACTIVE(attr, f_uuid) && (pmp->pm_flags & MSDOSFS_HAS_VOL_UUID))
+    {
+        memcpy(attr->f_uuid, pmp->pm_uuid, sizeof(uuid_t));
+        VFSATTR_SET_SUPPORTED(attr, f_uuid);
+    }
 	
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_GETATTR|DBG_FUNC_END, pmp, attr->f_supported, 0, 0, 0);
 	return 0;
@@ -1426,6 +1478,11 @@ int msdosfs_vfs_sync(mp, waitfor, context)
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
 	int error, allerror = 0;
 	struct msdosfs_sync_cargs args;
+
+	if (pmp->pm_flags & MSDOSFSMNT_RONLY) {
+		/* For read-only mounts, there's no syncing to do */
+		return 0;
+	}
 
 	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_SYNC|DBG_FUNC_START, pmp, 0, 0, 0, 0);
 	

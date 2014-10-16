@@ -1,0 +1,64 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>iconv.rc</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">iconv.rc&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+/* Resources for iconv.dll */
+/* There are 4 occurrences of the version number in this file. */
+
+#include &lt;winver.h&gt;
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,11,0,0
+ PRODUCTVERSION 1,11,0,0
+ FILEFLAGSMASK 0x3fL /* VS_FFI_FILEFLAGSMASK */
+#ifdef _DEBUG
+ FILEFLAGS 0x1L  /* VS_FF_DEBUG */
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x10004L  /* VOS_DOS_WINDOWS32 */
+ FILETYPE 0x2L  /* VFT_DLL */
+ FILESUBTYPE 0x0L  /* VFT2_UNKNOWN */
+BEGIN
+    BLOCK &quot;StringFileInfo&quot;
+    BEGIN
+        BLOCK &quot;04090000&quot;  /* Lang = US English, Charset = ASCII */
+        BEGIN
+            VALUE &quot;Comments&quot;, &quot;This library is free software; you can redistribute it and/or modify it under the terms of the GNU Library General Public License. You should have received a copy of the GNU Library General Public License along with this library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA\0&quot;
+            VALUE &quot;CompanyName&quot;, &quot;Free Software Foundation\0&quot;
+            VALUE &quot;FileDescription&quot;, &quot;LGPLed libiconv for Windows NT/2000/XP and Windows 95/98/ME\0&quot;
+            VALUE &quot;FileVersion&quot;, &quot;1.11\0&quot;
+            VALUE &quot;InternalName&quot;, &quot;iconv.dll\0&quot;
+            VALUE &quot;LegalCopyright&quot;, &quot;Copyright (C) 1999-2005\0&quot;
+            VALUE &quot;LegalTrademarks&quot;, &quot;\0&quot;
+            VALUE &quot;OriginalFilename&quot;, &quot;iconv.dll\0&quot;
+            VALUE &quot;ProductName&quot;, &quot;libiconv: character set conversion library\0&quot;
+            VALUE &quot;ProductVersion&quot;, &quot;1.11\0&quot;
+        END
+    END
+    BLOCK &quot;VarFileInfo&quot;
+    BEGIN
+        VALUE &quot;Translation&quot;, 0x0409, 0  /* US English, ASCII */
+    END
+END
+</pre>
+<hr />
+</body></html>

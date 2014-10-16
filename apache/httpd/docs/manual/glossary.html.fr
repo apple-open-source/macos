@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page" class="no-sidebar"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p>
-<p class="apache">Serveur Apache HTTP Version 2.2</p>
+<p class="apache">Serveur Apache HTTP Version 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Glossaire</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Glossaire</h1>
 <div class="toplang">
 <p><span>Langues Disponibles: </span><a href="./de/glossary.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/glossary.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -29,8 +29,6 @@
 <a href="./ko/glossary.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./tr/glossary.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
-<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
-            anglaise pour les changements récents.</div>
 
     <p>Ce glossaire définit la terminologie courante relative à Apache en
     particulier, et aux serveurs web en général. Vous trouverez plus
@@ -55,8 +53,8 @@
       Voir : <a href="ssl/">chiffrement SSL/TLS</a>
     </dd>
 
-    <dt><a name="apr1" id="apr1">APR</a></dt>
-    <dd>voir "Bibliothèques pour la portabilité d'Apache".
+    <dt><a name="apr" id="apr">APR</a></dt>
+    <dd>Voir "Bibliothèques pour la portabilité d'Apache"
     </dd>
 
     <dt><a name="tarball" id="tarball">Archive Tar (Tarball)</a></dt>
@@ -167,6 +165,15 @@
     Voir : <a href="ssl/">chiffrement SSL/TLS</a>
   </dd>
 
+  <dt><a name="subrequest" id="subrequest">Sous-requête</a></dt>
+    <dd>Apache possède une API des sous-requêtes pour les modules qui
+    permettent l'évaluation complète ou partielle par le serveur de
+    chemins d'autres systèmes de fichiers ou d'URL. Par exemple, la
+    directive <code class="directive"><a href="./mod/mod_dir.html#directoryindex">DirectoryIndex</a></code>,
+    les modules <code class="module"><a href="./mod/mod_autoindex.html">mod_autoindex</a></code> et
+    <code class="module"><a href="./mod/mod_include.html">mod_include</a></code> utilisent cette API.
+    </dd>
+
   <dt><a name="symmetriccryptophraphy" id="symmetriccryptophraphy">
   Cryptographie Symétrique (Symmetric Cryptography)</a></dt>
   <dd>L'étude et l'application des <em>Algorithmes de chiffrement</em> qui
@@ -228,8 +235,20 @@
     ensembles de fichiers ou ressources avec une grande flexibilité
       - par exemple, tous les fichiers .gif et .jpg situés dans tout répertoire
       nommé "images", pourraient être enregistrés comme
-      "<code>/images/.*(jpg|gif)$</code>".  Apache utilise les Expressions
-      Rationnelles Compatibles avec Perl fournies par la librairie <a href="http://www.pcre.org/">PCRE</a>.
+      "<code>/images/.*(jpg|gif)$</code>".  Lorsque l'on utilise des
+      expressions rationnelles pour la substitution de chaînes, les
+      variables spéciales $1 ... $9 contiennent des références arrières
+      vers les parties regroupées (entre parenthèses) de l'expression
+      qui correspond. La variable spéciale $0 contient une référence
+      arrière vers l'ensemble de l'expression qui correspond. Pour
+      insérer un caractère littéral "dollar" dans la chaîne de
+      remplacement, il faut l'échapper avec un anti-slash. Pour des
+      raisons historiques, la variable &amp; peut être utilisée en tant
+      qu'alias de $0 dans certains cas, mais ceci n'est plus possible
+      depuis la version 2.3.6. Apache utilise les Expressions
+      Rationnelles Compatibles avec Perl fournies par la librairie <a href="http://www.pcre.org/">PCRE</a>. Vous trouverez plus
+      d'information à propos de la syntaxe des expressions rationnelles
+      PCRE sur ce site, ou dans le <a href="http://en.wikipedia.org/wiki/PCRE">Wikipedia de la PCRE</a>.
   </dd>
 
     <dt><a name="configurationfile" id="configurationfile">
@@ -327,20 +346,33 @@
     Voir : <a href="howto/ssi.html">Introduction aux Inclusions Côté Serveur</a>
   </dd>
 
+  <dt><a name="servernameindication" id="servernameindication">Indication du nom du serveur</a> <a name="sni" id="sni">(SNI)</a></dt>
+    <dd>Une fonctionnalité SSL permettant de spécifier le
+    nom du serveur désiré dans le message initial de la
+    négociation SSL, de façon à ce que le serveur web
+    puisse choisir la bonne configuration de serveur virtuel à
+    utiliser pendant le déroulement de la négociation SSL.
+    Cette fonctionnalité a été ajoutée
+    à SSL lorsque sont apparues les extensions TLS, RFC 3546.<br />
+      Voir <a href="ssl/ssl_faq.html">la FAQ SSL</a>
+      et <a href="http://www.ietf.org/rfc/rfc3546.txt">la RFC 3546</a>
+    </dd>
+
+
+
 <dt><a name="commongatewayinterface" id="commongatewayinterface">
 Interface commune avec les programmes externes
 (Common Gateway Interface)</a>
 	 <a name="cgi" id="cgi">(CGI)</a></dt>
     <dd>La définition standard d'une interface entre un serveur web et un
     programme externe pour permettre à ce dernier de traiter des requêtes.
-      L'interface a été initialement définie par <a href="http://hoohoo.ncsa.uiuc.edu/cgi/overview.html">NCSA</a> mais il
-      existe aussi le projet
-      <a href="http://www.w3.org/CGI/">RFC project</a>.<br />
+     Il existe une <a href="http://www.ietf.org/rfc/rfc3875">RFC
+     informationnelle</a> qui en couvre les spécificités.<br />
       Voir : <a href="howto/cgi.html">Contenu dynamique avec CGI</a>
     </dd>
 
 
-    
+
 <dt><a name="uniformresourcelocator" id="uniformresourcelocator">
 Localisation de Ressource Uniformisée
 (Uniform Resource Locator)
@@ -352,7 +384,7 @@ Localisation de Ressource Uniformisée
     <code>http</code> ou
     <code>https</code>, un nom d'hôte, et un chemin.  Une URL pour cette page
     pourrait être
-    <code>http://httpd.apache.org/docs/2.2/glossary.html</code>.
+    <code>http://httpd.apache.org/docs/2.4/glossary.html</code>.
   </dd>
 
 
@@ -561,7 +593,7 @@ Localisation de Ressource Uniformisée
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/glossary.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/glossary.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -576,7 +608,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/glossary.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

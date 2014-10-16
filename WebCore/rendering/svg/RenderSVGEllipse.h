@@ -27,15 +27,13 @@
 #ifndef RenderSVGEllipse_h
 #define RenderSVGEllipse_h
 
-#if ENABLE(SVG)
 #include "RenderSVGShape.h"
-#include "SVGStyledTransformableElement.h"
 
 namespace WebCore {
 
-class RenderSVGEllipse : public RenderSVGShape {
+class RenderSVGEllipse final : public RenderSVGShape {
 public:
-    explicit RenderSVGEllipse(SVGStyledTransformableElement*);
+    RenderSVGEllipse(SVGGraphicsElement&, PassRef<RenderStyle>);
     virtual ~RenderSVGEllipse();
 
 private:
@@ -43,6 +41,7 @@ private:
 
     virtual void updateShapeFromElement();
     virtual bool isEmpty() const { return m_usePathFallback ? RenderSVGShape::isEmpty() : m_fillBoundingBox.isEmpty(); };
+    virtual bool isRenderingDisabled() const override;
     virtual void fillShape(GraphicsContext*) const;
     virtual void strokeShape(GraphicsContext*) const;
     virtual bool shapeDependentStrokeContains(const FloatPoint&);
@@ -57,5 +56,4 @@ private:
 
 }
 
-#endif // ENABLE(SVG)
 #endif

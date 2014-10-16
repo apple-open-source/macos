@@ -34,14 +34,6 @@
  */
 #define kSMBPreferencesAppID "com.apple.smb.server.plist"
 
-/* Path to the plist that contains default settings for Desktop systems. */
-#define kSMBPreferencesDesktopDefaults \
-    "/System/Library/CoreServices/SmbFileServer.bundle/Contents/Resources/DesktopDefaults.plist"
-
-/* Path to the plist that contains default settings for Server systems. */
-#define kSMBPreferencesServerDefaults \
-    "/System/Library/CoreServices/SmbFileServer.bundle/Contents/Resources/ServerDefaults.plist"
-
 /* Path to the tool that can be run to explicitly control preferences
  * synchronization. Preferences are synchronized automatically by the
  * com.apple.smb.server.preferences launchd job, but if you need more control,

@@ -56,11 +56,7 @@ syscall::read:
 	printf("syscall: %d\n", i++);
 }
 
-#if !defined(__APPLE__)
-fbt:genunix:read:
-#else
 fbt:mach_kernel:read_nocancel:
-#endif /* __APPLE__ */
 {
 	printf("fbt: %d\n", j++);
 }

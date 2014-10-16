@@ -1035,7 +1035,7 @@ you can specify.
 .B TLSCipherSuite <cipher-suite-spec>
 Permits configuring what ciphers will be accepted and the preference order.
 <cipher-suite-spec> should be a cipher specification for the TLS library
-in use (OpenSSL, GnuTLS, or Mozilla NSS).
+in use (SecureTransport, OpenSSL, GnuTLS, or Mozilla NSS).
 Example:
 .RS
 .RS
@@ -1073,6 +1073,10 @@ is in the source code for Mozilla NSS in the file sslinfo.c in the structure
 .nf
         static const SSLCipherSuiteInfo suiteInfo[]
 .fi
+
+When using SecureTransport this directive uses cipher names known to the Security framework unless you prefix the value with
+.BR OpenSSL:
+in which case it uses cipher names known to OpenSSL.
 .RE
 .TP
 .B TLSCACertificateFile <filename>
@@ -1085,6 +1089,10 @@ these certificates. If the signing CA was not a top-level (root) CA,
 certificates for the entire sequence of CA's from the signing CA to
 the top-level CA should be present. Multiple certificates are simply
 appended to the file; the order is not significant.
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLSTrustedCerts
+option.
 .TP
 .B TLSCACertificatePath <path>
 Specifies the path of a directory that contains Certificate Authority
@@ -1096,6 +1104,10 @@ When using Mozilla NSS, <path> may contain a Mozilla NSS cert/key
 database.  If <path> contains a Mozilla NSS cert/key database and
 CA cert files, OpenLDAP will use the cert/key database and will
 ignore the CA cert files.
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLSTrustedCerts
+option.
 .TP
 .B TLSCertificateFile <filename>
 Specifies the file that contains the
@@ -1117,6 +1129,10 @@ Use certutil -L to list the certificates by name:
 .nf
 	certutil -d /path/to/certdbdir -L
 .fi
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLSIdentity
+option.
 .TP
 .B TLSCertificateKeyFile <filename>
 Specifies the file that contains the
@@ -1137,6 +1153,10 @@ modutil to change the password to the empty string:
 .fi
 You must have the old password, if any.  Ignore the WARNING about the running
 browser.  Press 'Enter' for the new password.
+
+When using SecureTransport this option is not valid.  Instead use the
+.BR TLSIdentity
+option.
 .TP
 .B TLSDHParamFile <filename>
 This directive specifies the file that contains parameters for Diffie-Hellman
@@ -1153,7 +1173,7 @@ this directive is ignored.  This directive is ignored when using Mozilla NSS.
 Specifies the file to obtain random bits from when /dev/[u]random
 is not available.  Generally set to the name of the EGD/PRNGD socket.
 The environment variable RANDFILE can also be used to specify the filename.
-This directive is ignored with GnuTLS and Mozilla NSS.
+This directive is ignored with SecureTransport, GnuTLS and Mozilla NSS.
 .TP
 .B TLSVerifyClient <level>
 Specifies what checks to perform on client certificates in an
@@ -1214,6 +1234,26 @@ Check the CRL for a whole certificate chain
 Specifies a file containing a Certificate Revocation List to be used
 for verifying that certificates have not been revoked. This directive is
 only valid when using GnuTLS and Mozilla NSS.
+.TP
+.B TLSIdentity
+Names the identity in the system keychain.  An identity is a certificate paired with a private key.
+
+Used by SecureTransport instead of
+.BR TLSCertificateFile
+and
+.BR TLSCertificateKeyFile.
+Ignored by OpenSSL, GnuTLS and Mozilla NSS.
+.TP
+.B TLSTrustedCerts
+Lists the trusted certificates in the system keychain separated by '|'.
+For example:
+TLSTrustedCerts Frobozz, Inc.|Widgets R Us|www.example.com
+
+Used by SecureTransport instead of
+.BR TLSCACertificateFile
+and
+.BR TLSCACertificatePath.
+Ignored by OpenSSL, GnuTLS and Mozilla NSS.
 .SH GENERAL BACKEND OPTIONS
 Options in this section only apply to the configuration file section
 for the specified backend.  They are supported by every
@@ -1733,6 +1773,8 @@ the contextCSN is stored in the context entry.
 .B [tls_key=<file>]
 .B [tls_cacert=<file>]
 .B [tls_cacertdir=<path>]
+.B [tls_identity=<name>]
+.B [tls_trusted_certs=<list>]
 .B [tls_reqcert=never|allow|try|demand]
 .B [tls_ciphersuite=<ciphers>]
 .B [tls_crlcheck=none|peer|all]

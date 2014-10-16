@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,18 +27,27 @@
 #define WebContextClient_h
 
 #include "APIClient.h"
+#include "APIData.h"
 #include "WKContext.h"
+
+namespace API {
+class Array;
+
+template<> struct ClientTraits<WKContextClientBase> {
+    typedef std::tuple<WKContextClientV0, WKContextClientV1> Versions;
+};
+}
 
 namespace WebKit {
 
-class ImmutableArray;
 class WebContext;
 
-class WebContextClient : public APIClient<WKContextClient, kWKContextClientCurrentVersion> {
+class WebContextClient : public API::Client<WKContextClientBase> {
 public:
     void plugInAutoStartOriginHashesChanged(WebContext*);
     void networkProcessDidCrash(WebContext*);
-    void plugInInformationBecameAvailable(WebContext*, ImmutableArray*);
+    void plugInInformationBecameAvailable(WebContext*, API::Array*);
+    PassRefPtr<API::Data> copyWebCryptoMasterKey(WebContext*);
 };
 
 } // namespace WebKit

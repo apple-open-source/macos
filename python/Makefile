@@ -3,9 +3,13 @@
 ##---------------------------------------------------------------------
 Project = python
 VERSIONERDIR = /usr/local/versioner
+# Look for /usr/local/versioner in $(SDKROOT), defaulting to /usr/local/versioner
+SDKVERSIONERDIR := $(or $(wildcard $(SDKROOT)$(VERSIONERDIR)),$(VERSIONERDIR))
 FIX = $(SRCROOT)/fix
 DEFAULT = 2.7
-VERSIONS = 2.5 2.6 2.7
+KNOWNVERSIONS = 2.6 2.7
+BOOTSTRAPPYTHON =
+VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPYTHON))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 REVERSEVERS := $(filter-out $(DEFAULT),$(VERSIONS)) $(DEFAULT)
 
@@ -93,6 +97,7 @@ build::
 	    mkdir -p "$(SYMROOT)/$$vers" && \
 	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" && \
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
+		{ [ "$$vers" != $(DEFAULT) ] || export PYTHON_DEFAULT=YES; } && \
 		TOPSRCROOT='$(SRCROOT)' \
 		$(MAKE) -C "$(OBJROOT)/$$vers" install \
 		SRCROOT="$(SRCROOT)/$$vers" \
@@ -108,8 +113,10 @@ build::
 	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix && \
 	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
+	for vers in $(KNOWNVERSIONS); do \
+	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) || exit 1; \
+	done && \
 	for vers in $(VERSIONS); do \
-	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) && \
 	    cat $(SYMROOT)/$$vers/LOG && \
 	    rm -f $(SYMROOT)/$$vers/LOG || exit 1; \
 	done && \
@@ -120,21 +127,7 @@ build::
 	    exit 1; \
 	fi
 
-##---------------------------------------------------------------------
-# After the rest of the merge, we need to merge /usr/lib manually.  The
-# problem is that now libpythonN.dylib is ambiguous, and probably best
-# to just avoid it, and just keep libpythonN.M.dylib.  libpython.dylib
-# will correspond with the default version.
-##---------------------------------------------------------------------
-MERGELIB = /usr/lib
-merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd
-	install -d $(DSTROOT)$(MERGELIB)
-	@set -x && \
-	for vers in $(VERSIONS); do \
-	    ln -sf ../..$(PYFRAMEWORKVERSIONS)/$$vers/Python $(DSTROOT)$(MERGELIB)/lib$(Project)$$vers.dylib && \
-	    ln -sf ../..$(PYFRAMEWORKVERSIONS)/$$vers/lib/$(Project)$$vers $(DSTROOT)$(MERGELIB)/$(Project)$$vers || exit 1; \
-	done
-	ln -sf lib$(Project)$(DEFAULT).dylib $(DSTROOT)$(MERGELIB)/lib$(Project).dylib
+merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd legacySymLinks
 
 mergebegin:
 	@echo ####### Merging #######
@@ -142,7 +135,7 @@ mergebegin:
 MERGEBIN = /usr/bin
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(DSTROOT)$(VERSIONHEADER) $(OBJROOT)/wrappers
-	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(VERSIONERDIR)/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
+	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(SDKVERSIONERDIR)/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
 	@set -x && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
 	    ln -f $(DSTROOT)$(TEMPWRAPPER) $(DSTROOT)$(MERGEBIN)/$$w || exit 1; \
@@ -259,7 +252,8 @@ MERGEVERSIONSCONDITIONAL = \
     Developer/Applications
 MERGEVERSIONS = \
     Library \
-    usr/include
+    usr/include \
+    usr/lib
 MERGEREVERSEVERSIONS = \
     System
 mergeversions:
@@ -287,3 +281,13 @@ fixsmptd:
 	for i in smtpd*.py; do \
 	    ed - $$i < $(FIX)/smtpd.py.ed || exit 1; \
 	done
+
+# We're symlinking 2.3 and 2.5 to 2.6 so apps that link against them don't crash on launch.
+# Yes this is a bad idea, but it's the least bad from the customer's perspective.
+legacySymLinks:
+	set -x && \
+	fwdst=$(DSTROOT)/$(PYFRAMEWORKVERSIONS) && \
+	cd $$fwdst && \
+	ln -s 2.6 2.3 && \
+	ln -s 2.6 2.5 && \
+	set +x

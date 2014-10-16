@@ -100,6 +100,8 @@ kswitch(struct kswitch_options *opt, int argc, char **argv)
 
 	    ret = krb5_unparse_name(kcc_context, p, &name);
 	    krb5_free_principal(kcc_context, p);
+	    if (ret)
+		continue;
 
 	    snprintf(num, sizeof(num), "%d", (int)(len + 1));
 	    rtbl_add_column_entry_by_id(ct, 0, num);

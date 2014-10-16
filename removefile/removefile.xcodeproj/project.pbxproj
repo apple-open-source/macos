@@ -19,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = removefile.xcconfig; path = xcodescripts/removefile.xcconfig; sourceTree = "<group>"; };
 		FCCE1789135924FC002CEE6D /* libremovefile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libremovefile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE178F13592780002CEE6D /* checkint.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = checkint.3; sourceTree = "<group>"; };
 		FCCE179013592780002CEE6D /* checkint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = checkint.h; sourceTree = "<group>"; };
@@ -31,7 +32,6 @@
 		FCCE179713592780002CEE6D /* removefile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = removefile.c; sourceTree = "<group>"; };
 		FCCE179813592780002CEE6D /* removefile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = removefile.h; sourceTree = "<group>"; };
 		FCCE17A5135A3E9C002CEE6D /* install_files.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = install_files.sh; path = xcodescripts/install_files.sh; sourceTree = "<group>"; };
-		FCCE17AA135A4DE9002CEE6D /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
 		FCCE17D3135A6961002CEE6D /* test-removefile */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-removefile"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE17DD135A69CD002CEE6D /* test-removefile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-removefile.c"; path = "test/test-removefile.c"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -57,6 +57,7 @@
 		FCCE1779135924CD002CEE6D = {
 			isa = PBXGroup;
 			children = (
+				3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */,
 				FCCE179813592780002CEE6D /* removefile.h */,
 				FCCE179113592780002CEE6D /* removefile_priv.h */,
 				FCCE179613592780002CEE6D /* removefile.3 */,
@@ -69,7 +70,6 @@
 				FCCE17A5135A3E9C002CEE6D /* install_files.sh */,
 				FCCE179013592780002CEE6D /* checkint.h */,
 				FCCE178F13592780002CEE6D /* checkint.3 */,
-				FCCE17AA135A4DE9002CEE6D /* BSD.xcconfig */,
 				FCCE178A135924FC002CEE6D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -202,25 +202,19 @@
 /* Begin XCBuildConfiguration section */
 		FCCE1781135924CD002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FCCE17AA135A4DE9002CEE6D /* BSD.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		FCCE178C135924FD002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				GCC_PREPROCESSOR_DEFINITIONS = "__DARWIN_NON_CANCELABLE=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				INSTALL_PATH = /usr/lib/system;
-				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib/system";
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
@@ -235,15 +229,13 @@
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-ldyld_sim",
-					"-lcompiler_rt_sim",
+					"-ldyld",
+					"-lcompiler_rt",
+					"-lsystem_sim_kernel",
+					"-lsystem_sim_platform",
+					"-lsystem_malloc",
 					"-lsystem_sim_c",
-					"-Wl,-upward-lSystem",
 				);
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				"PRODUCT_NAME[sdk=iphonesimulator*]" = removefile_sim;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;

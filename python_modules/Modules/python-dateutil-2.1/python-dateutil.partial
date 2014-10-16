@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>python-dateutil</string>
+        <key>OpenSourceVersion</key>
+        <string>2.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://labix.org/python-dateutil</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/p/python-dateutil/python-dateutil-2.1.tar.gz#md5=1534bb15cf311f07afaa3aacba1c028b</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-07-22</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>1534bb15cf311f07afaa3aacba1c028b</string>
+</dict>

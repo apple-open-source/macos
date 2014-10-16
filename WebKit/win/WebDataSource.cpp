@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,7 +44,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/KURL.h>
+#include <WebCore/URL.h>
 #include <WebCore/ResourceBuffer.h>
 
 using namespace WebCore;
@@ -189,7 +189,7 @@ HRESULT WebDataSource::representation(/* [retval][out] */ IWebDocumentRepresenta
 {
     HRESULT hr = S_OK;
     if (!m_representation) {
-        WebHTMLRepresentation* htmlRep = WebHTMLRepresentation::createInstance(static_cast<WebFrameLoaderClient*>(m_loader->frameLoader()->client())->webFrame());
+        WebHTMLRepresentation* htmlRep = WebHTMLRepresentation::createInstance(static_cast<WebFrameLoaderClient&>(m_loader->frameLoader()->client()).webFrame());
         hr = htmlRep->QueryInterface(IID_IWebDocumentRepresentation, (void**) &m_representation);
         htmlRep->Release();
     }
@@ -199,7 +199,7 @@ HRESULT WebDataSource::representation(/* [retval][out] */ IWebDocumentRepresenta
 
 HRESULT WebDataSource::webFrame(/* [retval][out] */ IWebFrame** frame)
 {
-    *frame = static_cast<WebFrameLoaderClient*>(m_loader->frameLoader()->client())->webFrame();
+    *frame = static_cast<WebFrameLoaderClient&>(m_loader->frameLoader()->client()).webFrame();
     (*frame)->AddRef();
     return S_OK;
 }
@@ -254,8 +254,8 @@ HRESULT STDMETHODCALLTYPE WebDataSource::pageTitle(
 HRESULT STDMETHODCALLTYPE WebDataSource::unreachableURL( 
     /* [retval][out] */ BSTR* url)
 {
-    KURL unreachableURL = m_loader->unreachableURL();
-    BString urlString((LPOLESTR)unreachableURL.string().characters(), unreachableURL.string().length());
+    URL unreachableURL = m_loader->unreachableURL();
+    BString urlString(unreachableURL.string());
 
     *url = urlString.release();
     return S_OK;
@@ -293,7 +293,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::subresourceForURL(
 
     *resource = 0;
 
-    Document *doc = m_loader->frameLoader()->frame()->document();
+    Document *doc = m_loader->frameLoader()->frame().document();
 
     if (!doc)
         return E_FAIL;

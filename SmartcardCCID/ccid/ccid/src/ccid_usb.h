@@ -1,6 +1,6 @@
 /*
     ccid_usb.h:  USB access routines using the libusb library
-    Copyright (C) 2003-2004   Ludovic Rousseau
+    Copyright (C) 2003-2010   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid_usb.h 4346 2009-07-28 13:39:37Z rousseau $
+ * $Id: ccid_usb.h 5473 2011-01-04 09:52:26Z rousseau $
  */
 
 #ifndef __CCID_USB_H__
@@ -35,13 +35,15 @@ status_t ReadUSB(unsigned int reader_index, unsigned int *length,
 
 status_t CloseUSB(unsigned int reader_index);
 
-#if defined (__USB_H__) || defined (_SYS_USB_LIBUSB_USB_H)
-/*@null@*/ struct usb_interface *get_ccid_usb_interface(
-	struct usb_device *dev, int *num);
-#endif
+#include <libusb.h>
+/*@null@*/ const struct libusb_interface *get_ccid_usb_interface(
+	struct libusb_config_descriptor *desc, int *num);
+
+const unsigned char *get_ccid_device_descriptor(const struct libusb_interface *usb_interface);
 
 int ControlUSB(int reader_index, int requesttype, int request, int value,
 	unsigned char *bytes, unsigned int size);
 
 int InterruptRead(int reader_index, int timeout);
+void InterruptStop(int reader_index);
 #endif

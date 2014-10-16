@@ -316,7 +316,6 @@ _WKAppVersionCheckLessThan
 -[WebPreferences(WebPrivate) cssCompositingEnabled]
 -[WebPreferences(WebPrivate) webAudioEnabled]
 -[WebPreferences(WebPrivate) seamlessIFramesEnabled]
--[WebPreferences(WebPrivate) cssGridLayoutEnabled]
 -[WebPreferences(WebPrivate) fullScreenEnabled]
 -[WebPreferences(WebPrivate) asynchronousSpellCheckingEnabled]
 -[WebPreferences(WebPrivate) hyperlinkAuditingEnabled]
@@ -1263,7 +1262,6 @@ _WKCreatePrivateStorageSession
 -[WebPreferences(WebPrivate) setCanvasUsesAcceleratedDrawing:]
 -[WebPreferences(WebPrivate) setAcceleratedDrawingEnabled:]
 -[WebPreferences(WebPrivate) setCSSRegionsEnabled:]
--[WebPreferences(WebPrivate) setCSSGridLayoutEnabled:]
 -[WebPreferences(WebPrivate) setUsePreHTML5ParserQuirks:]
 -[WebPreferences(WebPrivate) setAsynchronousSpellCheckingEnabled:]
 -[WebPreferences(WebPrivate) setMockScrollbarsEnabled:]
@@ -1595,7 +1593,6 @@ __ZN15WebChromeClient29invalidateContentsAndRootViewERKN7WebCore7IntRectEb
 __ZN7WebCore15InspectorClient19setShowDebugBordersEb
 __ZN7WebCore15InspectorClient17setShowFPSCounterEb
 __ZN7WebCore15InspectorClient28setContinuousPaintingEnabledEb
-__ZN7WebCore15InspectorClient21overrideDeviceMetricsEiifb
 __ZN26WebInspectorFrontendClient21disconnectFromBackendEv
 -[WebInspectorWindowController destroyInspectorView:]
 -[WebInspector releaseFrontend]

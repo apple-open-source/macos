@@ -39,11 +39,13 @@
 #include <JavaScriptCore/SourceCode.h>
 #include <JavaScriptCore/Strong.h>
 #include <JavaScriptCore/StrongInlines.h>
+#include <WebCore/AudioHardwareListener.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/Frame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageThrottler.h>
 #include <WebCore/ScriptController.h>
+#include <wtf/NeverDestroyed.h>
 
 using namespace JSC;
 using namespace WebCore;
@@ -71,8 +73,8 @@ NPRuntimeObjectMap::PluginProtector::~PluginProtector()
 NPObject* NPRuntimeObjectMap::getOrCreateNPObject(VM& vm, JSObject* jsObject)
 {
     // If this is a JSNPObject, we can just get its underlying NPObject.
-    if (jsObject->classInfo() == &JSNPObject::s_info) {
-        JSNPObject* jsNPObject = static_cast<JSNPObject*>(jsObject);
+    if (jsObject->classInfo() == JSNPObject::info()) {
+        JSNPObject* jsNPObject = jsCast<JSNPObject*>(jsObject);
         NPObject* npObject = jsNPObject->npObject();
         
         retainNPObject(npObject);
@@ -108,7 +110,7 @@ JSObject* NPRuntimeObjectMap::getOrCreateJSObject(JSGlobalObject* globalObject, 
         return jsNPObject;
 
     JSNPObject* jsNPObject = JSNPObject::create(globalObject, this, npObject);
-    weakAdd(m_jsNPObjects, npObject, JSC::PassWeak<JSNPObject>(jsNPObject, this, npObject));
+    weakAdd(m_jsNPObjects, npObject, JSC::Weak<JSNPObject>(jsNPObject, this, npObject));
     return jsNPObject;
 }
 
@@ -188,10 +190,14 @@ bool NPRuntimeObjectMap::evaluate(NPObject* npObject, const String& scriptString
     if (!globalObject)
         return false;
 
+#if PLATFORM(COCOA)
     if (m_pluginView && !m_pluginView->isBeingDestroyed()) {
-        if (Page* page = m_pluginView->frame()->page())
-            page->pageThrottler()->reportInterestingEvent();
+        if (Page* page = m_pluginView->frame()->page()) {
+            if (m_pluginView->audioHardwareActivity() != WebCore::AudioHardwareActivityType::IsInactive && page->pageThrottler())
+                page->pageThrottler()->pluginDidEvaluateWhileAudioIsPlaying();
+        }
     }
+#endif
 
     ExecState* exec = globalObject->globalExec();
     
@@ -244,7 +250,7 @@ JSGlobalObject* NPRuntimeObjectMap::globalObject() const
     if (!frame)
         return 0;
 
-    return frame->script()->globalObject(pluginWorld());
+    return frame->script().globalObject(pluginWorld());
 }
 
 ExecState* NPRuntimeObjectMap::globalExec() const
@@ -258,7 +264,7 @@ ExecState* NPRuntimeObjectMap::globalExec() const
 
 static String& globalExceptionString()
 {
-    DEFINE_STATIC_LOCAL(String, exceptionString, ());
+    static NeverDestroyed<String> exceptionString;
     return exceptionString;
 }
 
@@ -274,7 +280,7 @@ void NPRuntimeObjectMap::moveGlobalExceptionToExecState(ExecState* exec)
 
     {
         JSLockHolder lock(exec);
-        throwError(exec, createError(exec, globalExceptionString()));
+        exec->vm().throwException(exec, createError(exec, globalExceptionString()));
     }
     
     globalExceptionString() = String();
@@ -302,7 +308,7 @@ void NPRuntimeObjectMap::addToInvalidationQueue(NPObject* npObject)
 
 void NPRuntimeObjectMap::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    JSNPObject* object = static_cast<JSNPObject*>(handle.get().asCell());
+    JSNPObject* object = jsCast<JSNPObject*>(handle.get().asCell());
     weakRemove(m_jsNPObjects, static_cast<NPObject*>(context), object);
     addToInvalidationQueue(object->leakNPObject());
 }

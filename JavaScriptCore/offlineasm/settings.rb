@@ -172,7 +172,17 @@ end
 #
 
 def emitCodeInConfiguration(concreteSettings, ast, backend)
-    $output.puts cppSettingsTest(concreteSettings)
+    Label.resetReferenced
+
+    if !$emitWinAsm
+        $output.puts cppSettingsTest(concreteSettings)
+    else
+        if backend == "X86_WIN"
+            $output.puts ".MODEL FLAT, C"
+        end
+        $output.puts "INCLUDE #{File.basename($output.path)}.sym"
+        $output.puts "_TEXT SEGMENT"
+    end
     
     if isASTErroneous(ast)
         $output.puts "#error \"Invalid configuration.\""
@@ -182,7 +192,21 @@ def emitCodeInConfiguration(concreteSettings, ast, backend)
         yield concreteSettings, ast, backend
     end
     
-    $output.puts "#endif"
+    if !$emitWinAsm
+        $output.puts "#endif"
+    else
+        $output.puts "_TEXT ENDS"
+        $output.puts "END"
+
+        # Write symbols needed by MASM
+        File.open("#{File.basename($output.path)}.sym", "w") {
+            | outp |
+            Label.forReferencedExtern {
+                | name |
+                outp.puts "EXTERN #{name[1..-1]} : near"
+            }
+        }
+    end
 end
 
 #

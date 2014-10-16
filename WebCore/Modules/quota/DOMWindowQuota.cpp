@@ -60,8 +60,9 @@ DOMWindowQuota* DOMWindowQuota::from(DOMWindow* window)
 {
     DOMWindowQuota* supplement = static_cast<DOMWindowQuota*>(Supplement<DOMWindow>::from(window, supplementName()));
     if (!supplement) {
-        supplement = new DOMWindowQuota(window);
-        provideTo(window, supplementName(), adoptPtr(supplement));
+        auto newSupplement = std::make_unique<DOMWindowQuota>(window);
+        supplement = newSupplement.get();
+        provideTo(window, supplementName(), WTF::move(newSupplement));
     }
     return supplement;
 }
@@ -75,7 +76,7 @@ StorageInfo* DOMWindowQuota::webkitStorageInfo(DOMWindow* window)
 StorageInfo* DOMWindowQuota::webkitStorageInfo() const
 {
     if (!m_storageInfo && frame()) {
-        frame()->document()->addConsoleMessage(JSMessageSource, WarningMessageLevel, "window.webkitStorageInfo is deprecated. Use navigator.webkitTemporaryStorage or navigator.webkitPersistentStorage instead.");
+        frame()->document()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, ASCIILiteral("window.webkitStorageInfo is deprecated. Use navigator.webkitTemporaryStorage or navigator.webkitPersistentStorage instead."));
         m_storageInfo = StorageInfo::create();
     }
     return m_storageInfo.get();

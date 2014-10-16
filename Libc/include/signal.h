@@ -61,7 +61,9 @@
 #include <sys/cdefs.h>
 #include <_types.h>
 #include <sys/signal.h>
-#include <sys/_types/_pthread_t.h>
+
+#include <sys/_pthread/_pthread_types.h>
+#include <sys/_pthread/_pthread_t.h>
 
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 extern __const char *__const sys_signame[NSIG];

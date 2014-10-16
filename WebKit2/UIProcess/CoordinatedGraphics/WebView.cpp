@@ -29,9 +29,10 @@
 
 #include "WebView.h"
 
+#include "CoordinatedDrawingAreaProxy.h"
 #include "CoordinatedLayerTreeHostProxy.h"
-#include "DrawingAreaProxyImpl.h"
 #include "NotImplemented.h"
+#include "ViewState.h"
 #include "WebContextMenuProxy.h"
 #include "WebPageProxy.h"
 #include <WebCore/CoordinatedGraphicsScene.h>
@@ -47,19 +48,21 @@ namespace WebKit {
 WebView::WebView(WebContext* context, WebPageGroup* pageGroup)
     : m_focused(false)
     , m_visible(false)
-    , m_contentScaleFactor(1.0)
     , m_opacity(1.0)
 {
-    // Need to call createWebPage after other data members, specifically m_visible, are initialized.
-    m_page = context->createWebPage(this, pageGroup);
+    WebPageConfiguration webPageConfiguration;
+    webPageConfiguration.pageGroup = pageGroup;
 
-    m_page->pageGroup()->preferences()->setAcceleratedCompositingEnabled(true);
-    m_page->pageGroup()->preferences()->setForceCompositingMode(true);
+    // Need to call createWebPage after other data members, specifically m_visible, are initialized.
+    m_page = context->createWebPage(*this, WTF::move(webPageConfiguration));
+
+    m_page->pageGroup().preferences().setAcceleratedCompositingEnabled(true);
+    m_page->pageGroup().preferences().setForceCompositingMode(true);
 
     char* debugVisualsEnvironment = getenv("WEBKIT_SHOW_COMPOSITING_DEBUG_VISUALS");
     bool showDebugVisuals = debugVisualsEnvironment && !strcmp(debugVisualsEnvironment, "1");
-    m_page->pageGroup()->preferences()->setCompositingBordersVisible(showDebugVisuals);
-    m_page->pageGroup()->preferences()->setCompositingRepaintCountersVisible(showDebugVisuals);
+    m_page->pageGroup().preferences().setCompositingBordersVisible(showDebugVisuals);
+    m_page->pageGroup().preferences().setCompositingRepaintCountersVisible(showDebugVisuals);
 }
 
 WebView::~WebView()
@@ -73,8 +76,23 @@ WebView::~WebView()
 void WebView::initialize()
 {
     m_page->initializeWebPage();
-    if (CoordinatedGraphicsScene* scene = coordinatedGraphicsScene())
-        scene->setActive(true);
+    setActive(true);
+}
+
+void WebView::setContentScaleFactor(float scaleFactor)
+{
+    m_page->scalePage(scaleFactor, roundedIntPoint(contentPosition()));
+    updateViewportSize();
+}
+
+void WebView::setActive(bool active)
+{
+    CoordinatedGraphicsScene* scene = coordinatedGraphicsScene();
+    if (!scene || scene->isActive() == active)
+        return;
+
+    scene->setActive(active);
+    m_page->viewStateDidChange(ViewState::WindowIsActive);
 }
 
 void WebView::setSize(const WebCore::IntSize& size)
@@ -93,7 +111,7 @@ void WebView::setFocused(bool focused)
         return;
 
     m_focused = focused;
-    m_page->viewStateDidChange(WebPageProxy::ViewIsFocused | WebPageProxy::ViewWindowIsActive);
+    m_page->viewStateDidChange(ViewState::IsFocused | ViewState::WindowIsActive);
 }
 
 void WebView::setVisible(bool visible)
@@ -102,7 +120,10 @@ void WebView::setVisible(bool visible)
         return;
 
     m_visible = visible;
-    m_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
+    m_page->viewStateDidChange(ViewState::IsVisible);
+
+    if (CoordinatedDrawingAreaProxy* drawingArea = static_cast<CoordinatedDrawingAreaProxy*>(page()->drawingArea()))
+        drawingArea->visibilityDidChange();
 }
 
 void WebView::setUserViewportTranslation(double tx, double ty)
@@ -168,35 +189,28 @@ void WebView::resumeActiveDOMObjectsAndAnimations()
     m_page->resumeActiveDOMObjectsAndAnimations();
 }
 
-void WebView::setShowsAsSource(bool showsAsSource)
-{
-    m_page->setMainFrameInViewSourceMode(showsAsSource);
-}
-
-bool WebView::showsAsSource() const
-{
-    return m_page->mainFrameInViewSourceMode();
-}
-
 #if ENABLE(FULLSCREEN_API)
-bool WebView::exitFullScreen()
+WebFullScreenManagerProxyClient& WebView::fullScreenManagerProxyClient()
 {
-#if PLATFORM(EFL)
-    // FIXME: Implement this for other platforms.
-    if (!m_page->fullScreenManager()->isFullScreen())
+    return *this;
+}
+
+bool WebView::requestExitFullScreen()
+{
+    if (!isFullScreen())
         return false;
-#endif
+
     m_page->fullScreenManager()->requestExitFullScreen();
     return true;
 }
 #endif
 
-void WebView::initializeClient(const WKViewClient* client)
+void WebView::initializeClient(const WKViewClientBase* client)
 {
     m_client.initialize(client);
 }
 
-void WebView::didChangeContentsSize(const WebCore::IntSize& size)
+void WebView::didChangeContentSize(const WebCore::IntSize& size)
 {
     if (m_contentsSize == size)
         return;
@@ -207,6 +221,11 @@ void WebView::didChangeContentsSize(const WebCore::IntSize& size)
     updateViewportSize();
 }
 
+void WebView::didFindZoomableArea(const WebCore::IntPoint& target, const WebCore::IntRect& area)
+{
+    m_client.didFindZoomableArea(this, target, area);
+}
+
 AffineTransform WebView::transformFromScene() const
 {
     return transformToScene().inverse();
@@ -215,7 +234,9 @@ AffineTransform WebView::transformFromScene() const
 AffineTransform WebView::transformToScene() const
 {
     FloatPoint position = -m_contentPosition;
-    float effectiveScale = m_contentScaleFactor * m_page->deviceScaleFactor();
+    float effectiveScale = m_page->deviceScaleFactor();
+    if (m_page->useFixedLayout())
+        effectiveScale *= contentScaleFactor();
     position.scale(effectiveScale, effectiveScale);
 
     TransformationMatrix transform = m_userViewportTransform;
@@ -227,20 +248,15 @@ AffineTransform WebView::transformToScene() const
 
 CoordinatedGraphicsScene* WebView::coordinatedGraphicsScene()
 {
-    DrawingAreaProxy* drawingArea = m_page->drawingArea();
-    if (!drawingArea)
-        return 0;
+    if (CoordinatedDrawingAreaProxy* drawingArea = static_cast<CoordinatedDrawingAreaProxy*>(page()->drawingArea()))
+        return drawingArea->coordinatedLayerTreeHostProxy().coordinatedGraphicsScene();
 
-    WebKit::CoordinatedLayerTreeHostProxy* layerTreeHostProxy = drawingArea->coordinatedLayerTreeHostProxy();
-    if (!layerTreeHostProxy)
-        return 0;
-
-    return layerTreeHostProxy->coordinatedGraphicsScene();
+    return nullptr;
 }
 
 void WebView::updateViewportSize()
 {
-    if (DrawingAreaProxy* drawingArea = page()->drawingArea()) {
+    if (CoordinatedDrawingAreaProxy* drawingArea = static_cast<CoordinatedDrawingAreaProxy*>(page()->drawingArea())) {
         // Web Process expects sizes in UI units, and not raw device units.
         drawingArea->setSize(roundedIntSize(dipSize()), IntSize(), IntSize());
         FloatRect visibleContentsRect(contentPosition(), visibleContentsSize());
@@ -260,17 +276,17 @@ inline WebCore::FloatSize WebView::dipSize() const
 WebCore::FloatSize WebView::visibleContentsSize() const
 {
     FloatSize visibleContentsSize(dipSize());
-    visibleContentsSize.scale(1 / m_contentScaleFactor);
+    if (m_page->useFixedLayout())
+        visibleContentsSize.scale(1 / contentScaleFactor());
 
     return visibleContentsSize;
 }
 
 // Page Client
 
-PassOwnPtr<DrawingAreaProxy> WebView::createDrawingAreaProxy()
+std::unique_ptr<DrawingAreaProxy> WebView::createDrawingAreaProxy()
 {
-    OwnPtr<DrawingAreaProxy> drawingArea = DrawingAreaProxyImpl::create(page());
-    return drawingArea.release();
+    return std::make_unique<CoordinatedDrawingAreaProxy>(page());
 }
 
 void WebView::setViewNeedsDisplay(const WebCore::IntRect& area)
@@ -288,9 +304,23 @@ void WebView::scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntS
     setViewNeedsDisplay(scrollRect);
 }
 
+void WebView::requestScroll(const WebCore::FloatPoint&, bool)
+{
+    notImplemented();
+}
+
 WebCore::IntSize WebView::viewSize()
 {
     return roundedIntSize(dipSize());
+}
+
+bool WebView::isActive() const
+{
+    const CoordinatedGraphicsScene* scene = const_cast<WebView*>(this)->coordinatedGraphicsScene();
+    if (!scene)
+        return false;
+
+    return scene->isActive();
 }
 
 bool WebView::isViewWindowActive()
@@ -315,7 +345,7 @@ bool WebView::isViewInWindow()
     return true;
 }
 
-void WebView::processDidCrash()
+void WebView::processDidExit()
 {
     m_client.webProcessCrashed(this, m_page->urlAtProcessExit());
 }
@@ -338,6 +368,12 @@ void WebView::preferencesDidChange()
 void WebView::toolTipChanged(const String&, const String& newToolTip)
 {
     m_client.didChangeTooltip(this, newToolTip);
+}
+
+void WebView::didCommitLoadForMainFrame(const String&, bool)
+{
+    setContentPosition(WebCore::FloatPoint());
+    m_contentsSize = IntSize();
 }
 
 void WebView::setCursor(const WebCore::Cursor&)
@@ -370,13 +406,13 @@ void WebView::executeUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
     m_undoController.executeUndoRedo(undoOrRedo);
 }
 
-IntPoint WebView::screenToWindow(const IntPoint& point)
+IntPoint WebView::screenToRootView(const IntPoint& point)
 {
     notImplemented();
     return point;
 }
 
-IntRect WebView::windowToScreen(const IntRect&)
+IntRect WebView::rootViewToScreen(const IntRect&)
 {
     notImplemented();
     return IntRect();
@@ -388,9 +424,9 @@ void WebView::doneWithKeyEvent(const NativeWebKeyboardEvent&, bool)
 }
 
 #if ENABLE(TOUCH_EVENTS)
-void WebView::doneWithTouchEvent(const NativeWebTouchEvent&, bool /*wasEventHandled*/)
+void WebView::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
 {
-    notImplemented();
+    m_client.doneWithTouchEvent(this, event, wasEventHandled);
 }
 #endif
 
@@ -407,7 +443,7 @@ PassRefPtr<WebContextMenuProxy> WebView::createContextMenuProxy(WebPageProxy*)
 }
 
 #if ENABLE(INPUT_TYPE_COLOR)
-PassRefPtr<WebColorChooserProxy> WebView::createColorChooserProxy(WebPageProxy*, const WebCore::Color&, const WebCore::IntRect&)
+PassRefPtr<WebColorPicker> WebView::createColorPicker(WebPageProxy*, const WebCore::Color&, const WebCore::IntRect&)
 {
     notImplemented();
     return 0;
@@ -421,53 +457,15 @@ void WebView::setFindIndicator(PassRefPtr<FindIndicator>, bool, bool)
 
 void WebView::enterAcceleratedCompositingMode(const LayerTreeContext&)
 {
-    if (CoordinatedGraphicsScene* scene = coordinatedGraphicsScene())
-        scene->setActive(true);
+    setActive(true);
 }
 
 void WebView::exitAcceleratedCompositingMode()
 {
-    if (CoordinatedGraphicsScene* scene = coordinatedGraphicsScene())
-        scene->setActive(false);
+    setActive(false);
 }
 
 void WebView::updateAcceleratedCompositingMode(const LayerTreeContext&)
-{
-    notImplemented();
-}
-
-void WebView::didCommitLoadForMainFrame(bool)
-{
-    notImplemented();
-}
-
-void WebView::didFinishLoadingDataForCustomRepresentation(const String&, const CoreIPC::DataReference&)
-{
-    notImplemented();
-}
-
-double WebView::customRepresentationZoomFactor()
-{
-    notImplemented();
-    return 0;
-}
-
-void WebView::setCustomRepresentationZoomFactor(double)
-{
-    notImplemented();
-}
-
-void WebView::flashBackingStoreUpdates(const Vector<IntRect>&)
-{
-    notImplemented();
-}
-
-void WebView::findStringInCustomRepresentation(const String&, FindOptions, unsigned)
-{
-    notImplemented();
-}
-
-void WebView::countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned)
 {
     notImplemented();
 }
@@ -514,7 +512,6 @@ void WebView::didChangeViewportProperties(const WebCore::ViewportAttributes& att
 void WebView::pageDidRequestScroll(const IntPoint& position)
 {
     FloatPoint uiPosition(position);
-    uiPosition.scale(contentScaleFactor(), contentScaleFactor());
     setContentPosition(uiPosition);
 
     m_client.didChangeContentsPosition(this, position);
@@ -528,6 +525,11 @@ void WebView::didRenderFrame(const WebCore::IntSize& contentsSize, const WebCore
 void WebView::pageTransitionViewportReady()
 {
     m_client.didCompletePageTransition(this);
+}
+
+void WebView::findZoomableAreaForPoint(const IntPoint& point, const IntSize& size)
+{
+    m_page->findZoomableAreaForPoint(transformFromScene().mapPoint(point), transformFromScene().mapSize(size));
 }
 
 } // namespace WebKit

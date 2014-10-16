@@ -2,8 +2,7 @@
 
 set -ex
 
-# check if we're building for the simulator
-[ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] && DSTROOT="$DSTROOT$SDKROOT"
+DSTROOT=${DSTROOT}${INSTALL_PATH_PREFIX}
 
 mkdir -m 0755 -p ${DSTROOT}/usr/local/OpenSourceLicenses ${DSTROOT}/usr/local/OpenSourceVersions
 install -m 0444 ${SRCROOT}/bzip2.plist ${DSTROOT}/usr/local/OpenSourceVersions/bzip2.plist

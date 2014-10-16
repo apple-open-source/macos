@@ -80,6 +80,37 @@ if($opt_x) {
     }
 }
 
+my %defineRules = (
+    'HEIMDAL_DEPRECATED' =>
+	"#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))\n".
+	"#define HEIMDAL_DEPRECATED __attribute__((deprecated))\n".
+	"#elif defined(_MSC_VER) && (_MSC_VER>1200)\n".
+	"#define HEIMDAL_DEPRECATED __declspec(deprecated)\n".
+	"#else\n".
+	"#define HEIMDAL_DEPRECATED\n".
+	"#endif",
+    'HEIMDAL_PRINTF_ATTRIBUTE' => 
+        "#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))\n".
+	"#define HEIMDAL_PRINTF_ATTRIBUTE(x) __attribute__((format x))\n".
+	"#else\n".
+	"#define HEIMDAL_PRINTF_ATTRIBUTE(x)\n".
+	"#endif",
+   'HEIMDAL_NORETURN_ATTRIBUTE' =>
+	"#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))\n".
+	"#define HEIMDAL_NORETURN_ATTRIBUTE __attribute__((noreturn))\n".
+	"#else\n".
+	"#define HEIMDAL_NORETURN_ATTRIBUTE\n".
+	"#endif",
+    'HEIMDAL_UNUSED_ATTRIBUTE' =>
+	"#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))\n".
+	"#define HEIMDAL_UNUSED_ATTRIBUTE __attribute__((unused))\n".
+	"#else\n".
+	"#define HEIMDAL_UNUSED_ATTRIBUTE\n".
+	"#endif"
+);
+	
+my %usedRules;
+
 while(<>) {
     print $brace, " ", $_ if($debug);
     
@@ -130,10 +161,12 @@ while(<>) {
 		    $_ = "$1 $4";
 		}
 		if(m/(.*)\s(\w+DEPRECATED)(.*)/) {
+		    $usedRules{$2} = 1;
 		    $attr .= " $2";
 		    $_ = "$1 $3";
 		}
 		if(m/(.*)\s(HEIMDAL_\w+_ATTRIBUTE)\s?(\(.*\))?(.*)/) {
+		    $usedRules{$2} = 1;
 		    $attr .= " $2$3";
 		    $_ = "$1 $4";
 		}
@@ -195,10 +228,25 @@ while(<>) {
 		    $mac = $exported{$f}{macos};
 		    $mac = "NA" if (!defined $mac);
 		    die "$f neither" if ($mac eq "NA" and $ios eq "NA");
-		    $_ = $_ . "  __OSX_AVAILABLE_STARTING(__MAC_${mac}, __IPHONE_${ios})";
+
+		    if (exists $exported{$f}{deprecated}) {
+			$iosDep = $exported{$f}{iosDep};
+			if ($ios eq "NA") {
+			    $iosDep = "NA";
+			}
+
+			$macDep = $exported{$f}{macosDep};
+			if ($mac eq "NA") {
+			    $macDep = "NA";
+			}
+
+			$_ = $_ . "  __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_${mac}, __MAC_${macDep}, __IPHONE_${ios}, __IPHONE_${iosDep}, \"$exported{$f}{deprecated}\")";
+		    } else {
+			$_ = $_ . "  __OSX_AVAILABLE_STARTING(__MAC_${mac}, __IPHONE_${ios})";
+		    }
 		}
 		print "found function $f\n" if($debug);
-		if (exists $deprecated{$f}) {
+		if (exists $deprecated{$f} && !$apple && exists $exported{$f}) {
 		    $_ = $_ . "  GSSAPI_DEPRECATED_FUNCTION(\"$deprecated{$f}\")";
 		    $depfunction{GSSAPI_DEPRECATED_FUNCTION} = 1;
 		}
@@ -298,6 +346,18 @@ if($oproto) {
 }
 $private_h_trailer = "";
 
+foreach(sort keys %usedRules) {
+    next if not exists $defineRules{$_};
+
+    my $var = "#ifndef $_
+$defineRules{$_}
+#endif
+
+";
+
+    $private_h_header .= $var;
+    $public_h_header .= $var;
+}
 
 foreach(sort keys %funcs){
     if(/^(DllMain|main)$/) { next }
@@ -322,7 +382,7 @@ foreach(sort keys %funcs){
 	if($documentation{$_}) {
 	    $public_h .= "/**\n";
 	    $public_h .= "$documentation{$_}";
-	    $public_h .= " */\n";
+	    $public_h .= " */\n\n";
 	}
 	if($flags{"function-blocking"}) {
 	    $fupper = uc $_;

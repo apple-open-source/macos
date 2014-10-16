@@ -25,32 +25,7 @@
 
 #pragma ident	"@(#)dt_module.c	1.13	07/08/07 SMI"
 
-#if !defined(__APPLE__)
 #include <sys/types.h>
-#include <sys/modctl.h>
-#include <sys/kobj.h>
-#include <sys/kobj_impl.h>
-#include <sys/sysmacros.h>
-#include <sys/elf.h>
-#include <sys/task.h>
-
-#include <unistd.h>
-#include <project.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <libelf.h>
-#include <limits.h>
-#include <assert.h>
-#include <errno.h>
-#include <dirent.h>
-
-#else /* is Apple Mac OS X */
-#include <sys/types.h>
-/* NOTHING */ /* In lieu of Solaris <sys/modctl.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/kobj.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/kobj_impl.h> */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
-
 #include <sys/stat.h>
 
 #include "darwin_shim.h"
@@ -64,9 +39,7 @@
 #define stat64 stat
 #define OBJFS_ROOT "/system/object"
 	
-/* NOTHING */ /* In lieu of Solaris <sys/task.h> */
 #include <unistd.h>
-/* NOTHING */ /* In lieu of Solaris <project.h> */
 #include <strings.h>
 #include <stdlib.h>
 #include <libelf.h>
@@ -74,18 +47,20 @@
 #include <assert.h>
 #include <errno.h>
 #include <dirent.h>
+#include <ctype.h>
+#include <sys/sysctl.h>
 
 #include <dtrace.h>
 
 #include <System/sys/kas_info.h>
-
-#endif /* __APPLE__ */
 
 #include <dt_strtab.h>
 #include <dt_module.h>
 #include <dt_impl.h>
 
 static const char *dt_module_strtab; /* active strtab for qsort callbacks */
+
+int dtrace_kernel_path(char*, size_t);
 
 static void
 dt_module_symhash_insert(dt_module_t *dmp, const char *name, uint_t id)
@@ -448,7 +423,6 @@ static const dt_modops_t dt_modops_64 = {
 	dt_module_symaddr64
 };
 
-#if defined(__APPLE__)
 char 
 *demangleSymbolCString(const char *mangled)
 {
@@ -939,7 +913,6 @@ static const dt_modops_t dt_modops_macho_64 = {
 	dt_module_symname_macho_64,
 	dt_module_symaddr_macho_64
 };
-#endif /* __APPLE__ */
 
 dt_module_t *
 dt_module_create(dtrace_hdl_t *dtp, const char *name)
@@ -962,17 +935,10 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	dtp->dt_mods[h] = dmp;
 	dtp->dt_nmods++;
 
-#if !defined(__APPLE__)
-	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
-		dmp->dm_ops = &dt_modops_64;
-	else
-		dmp->dm_ops = &dt_modops_32;
-#else
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
 		dmp->dm_ops = &dt_modops_macho_64;
 	else
 		dmp->dm_ops = &dt_modops_macho_32;
-#endif /* __APPLE__ */
 
 	return (dmp);
 }
@@ -1044,11 +1010,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return (0); /* module is already loaded */
 
 	dmp->dm_ctdata.cts_name = ".SUNW_ctf";
-#if !defined(__APPLE__)
-	dmp->dm_ctdata.cts_type = SHT_PROGBITS;
-#else
 	dmp->dm_ctdata.cts_type = SHT_UNKNOWN12;
-#endif /* __APPLE__ */
 	dmp->dm_ctdata.cts_flags = 0;
 	dmp->dm_ctdata.cts_data = NULL;
 	dmp->dm_ctdata.cts_size = 0;
@@ -1056,30 +1018,17 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_ctdata.cts_offset = 0;
 
 	dmp->dm_symtab.cts_name = ".symtab";
-#if !defined(__APPLE__)
-	dmp->dm_symtab.cts_type = SHT_SYMTAB;
-#else
 	dmp->dm_symtab.cts_type = SHT_STRTAB;
-#endif /* __APPLE__ */
 	dmp->dm_symtab.cts_flags = 0;
 	dmp->dm_symtab.cts_data = NULL;
 	dmp->dm_symtab.cts_size = 0;
-#if !defined(__APPLE__)
-	dmp->dm_symtab.cts_entsize = dmp->dm_ops == &dt_modops_64 ?
-	    sizeof (Elf64_Sym) : sizeof (Elf32_Sym);
-#else
 	dmp->dm_symtab.cts_entsize = 
 		dmp->dm_ops == &dt_modops_macho_32 ? sizeof(struct nlist) : 
 		dmp->dm_ops == &dt_modops_macho_64 ? sizeof(struct nlist_64) : 
 		(dmp->dm_ops == &dt_modops_64 ? sizeof (Elf64_Sym) : sizeof (Elf32_Sym));
-#endif /* __APPLE__ */
 	dmp->dm_symtab.cts_offset = 0;
 
-#if !defined(__APPLE__)
-	dmp->dm_strtab.cts_name = ".strtab";
-#else
 	dmp->dm_strtab.cts_name = ".dir_str_table";
-#endif /* __APPLE__ */
 	dmp->dm_strtab.cts_type = SHT_STRTAB;
 	dmp->dm_strtab.cts_flags = 0;
 	dmp->dm_strtab.cts_data = NULL;
@@ -1158,36 +1107,16 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dmp->dm_ctfp != NULL || dt_module_load(dtp, dmp) != 0)
 		return (dmp->dm_ctfp);
 
-#if defined(__APPLE__)
 	if (dmp->dm_ops == &dt_modops_macho_64)
 		model = CTF_MODEL_LP64;
 	else if (dmp->dm_ops == &dt_modops_macho_32)
 		model = CTF_MODEL_ILP32;
 	else
-#endif /* __APPLE__ */
 	if (dmp->dm_ops == &dt_modops_64)
 		model = CTF_MODEL_LP64;
 	else
 		model = CTF_MODEL_ILP32;
 
-	/*
-	 * If the data model of the module does not match our program data
-	 * model, then do not permit CTF from this module to be opened and
-	 * returned to the compiler.  If we support mixed data models in the
-	 * future for combined kernel/user tracing, this can be removed.
-	 */
-	/*
-	 * APPLE NOTE: We are forced to support mixed models now. Xnu is
-	 * currently always CTF_MODEL_ILP32, even when user programs are
-	 * CTF_MODEL_LP64. 
-	 */
-#if !defined(__APPLE__)
-	if (dtp->dt_conf.dtc_ctfmodel != model) {
-		(void) dt_set_errno(dtp, EDT_DATAMODEL);
-		return (NULL);
-	}
-#endif
-	
 	if (dmp->dm_ctdata.cts_size == 0) {
 		(void) dt_set_errno(dtp, EDT_NOCTF);
 		return (NULL);
@@ -1344,14 +1273,11 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 const char *
 dt_module_modelname(dt_module_t *dmp)
 {
-#if defined(__APPLE__)
 	if (dmp->dm_ops == &dt_modops_macho_64)
 		return ("64-bit");
 	else if (dmp->dm_ops == &dt_modops_32)
 		return ("32-bit");
-	else
-#endif /* __APPLE__ */
-	if (dmp->dm_ops == &dt_modops_64)
+	else if (dmp->dm_ops == &dt_modops_64)
 		return ("64-bit");
 	else
 		return ("32-bit");
@@ -1375,28 +1301,16 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	Elf_Data *dp;
 	Elf_Scn *sp;
 
-#if !defined(__APPLE__)
-	(void) snprintf(fname, sizeof (fname),
-	    "%s/%s/object", OBJFS_ROOT, name);
-#else
 	unsigned read_cmd = ELF_C_READ;
-	
-	if (0 == strcmp("mach_kernel", name)) {
-		strncpy(fname, "/mach_kernel.ctfsys", sizeof (fname)); // Look for module "mach_kernel"
-		
-		 // pre-flight /mach_kernel.ctfsys
-		if ((fd = open(fname, O_RDONLY)) == -1)
-			strncpy(fname, "/mach_kernel", sizeof (fname)); // fallback to /mach_kernel
-		else
-			(void) close(fd); // close successful pre-flight of /mach_kernel.ctfsys
-			
-		read_cmd = ELF_C_RDKERNTYPE;
-	} else {
-	(void) snprintf(fname, sizeof (fname),
-	    "%s/%s/object", OBJFS_ROOT, name);
-	}
-#endif /* __APPLE__ */
 
+	if (0 == strcmp("mach_kernel", name)) {
+		if (dtrace_kernel_path(fname, sizeof(fname)) != 0) {
+			dt_dprintf("failed to retrieve the kernel binary, the module cache will not be updated\n");
+			return;
+		}
+
+		read_cmd = ELF_C_RDKERNTYPE;
+	}
 
 	if ((fd = open(fname, O_RDONLY)) == -1 || fstat64(fd, &st) == -1 ||
 	    (dmp = dt_module_create(dtp, name)) == NULL) {
@@ -1411,11 +1325,7 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	 * then close the underlying file descriptor immediately.  If this
 	 * succeeds, we know that we can continue safely using dmp->dm_elf.
 	 */
-#if !defined(__APPLE__)
-	dmp->dm_elf = elf_begin(fd, ELF_C_READ, NULL);
-#else
 	dmp->dm_elf = elf_begin(fd, read_cmd, NULL);
-#endif /* __APPLE__ */
 	err = elf_cntl(dmp->dm_elf, ELF_C_FDREAD);
 	(void) close(fd);
 
@@ -1428,16 +1338,6 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	}
 
 	switch (gelf_getclass(dmp->dm_elf)) {
-#if !defined(__APPLE__)
-	case ELFCLASS32:
-		dmp->dm_ops = &dt_modops_32;
-		bits = 32;
-		break;
-	case ELFCLASS64:
-		dmp->dm_ops = &dt_modops_64;
-		bits = 64;
-		break;
-#else
 	case ELFCLASS32:
 		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_32 : &dt_modops_32);
 		bits = 32;
@@ -1446,7 +1346,6 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_64 : &dt_modops_64);
 		bits = 64;
 		break;
-#endif /* __APPLE__ */
 	default:
 		dt_dprintf("failed to load %s: unknown ELF class\n", fname);
 		dt_module_destroy(dtp, dmp);
@@ -1506,27 +1405,9 @@ dtrace_update(dtrace_hdl_t *dtp)
 	    dmp != NULL; dmp = dt_list_next(dmp))
 		dt_module_unload(dtp, dmp);
 
-#if !defined(__APPLE__)
-	/*
-	 * Open /system/object and attempt to create a libdtrace module for
-	 * each kernel module that is loaded on the current system.
-	 */
-	if (!(dtp->dt_oflags & DTRACE_O_NOSYS) &&
-	    (dirp = opendir(OBJFS_ROOT)) != NULL) {
-		struct dirent *dp;
-
-		while ((dp = readdir(dirp)) != NULL) {
-			if (dp->d_name[0] != '.')
-				dt_module_update(dtp, dp->d_name);
-		}
-
-		(void) closedir(dirp);
-	}
-#else
 	if (!(dtp->dt_oflags & DTRACE_O_NOSYS)) {
 		dt_module_update(dtp, "mach_kernel");
 	}
-#endif /* __APPLE__ */
 
 	/*
 	 * Look up all the macro identifiers and set di_id to the latest value.
@@ -1550,15 +1431,9 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * x86 krtld is folded into unix, so if we don't find it, use unix
 	 * instead.
 	 */
-#if !defined(__APPLE__)
-	dtp->dt_exec = dt_module_lookup_by_name(dtp, "genunix");
-	dtp->dt_rtld = dt_module_lookup_by_name(dtp, "krtld");
-	if (dtp->dt_rtld == NULL)
-		dtp->dt_rtld = dt_module_lookup_by_name(dtp, "unix");
-#else
 	dtp->dt_exec = dt_module_lookup_by_name(dtp, "mach_kernel");
 	dtp->dt_rtld = dt_module_lookup_by_name(dtp, "dyld"); /* XXX to what purpose? */
-#endif /* __APPLE__ */
+
 	/*
 	 * If this is the first time we are initializing the module list,
 	 * remove the module for genunix from the module list and then move it
@@ -1684,58 +1559,6 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 
 	return (dt_set_errno(dtp, EDT_NOSYM));
 }
-
-/*
- * Exported interface to look up a symbol by address.  We return the GElf_Sym
- * and complete symbol information for the matching symbol.
- */
-#if !defined(__APPLE__)
-int
-dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
-    GElf_Sym *symp, dtrace_syminfo_t *sip)
-{
-	dt_module_t *dmp;
-	uint_t id;
-	const dtrace_vector_t *v = dtp->dt_vector;
-
-	if (v != NULL)
-		return (v->dtv_lookup_by_addr(dtp->dt_varg, addr, symp, sip));
-
-	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
-	    dmp = dt_list_next(dmp)) {
-		if (addr - dmp->dm_text_va < dmp->dm_text_size ||
-		    addr - dmp->dm_data_va < dmp->dm_data_size ||
-		    addr - dmp->dm_bss_va < dmp->dm_bss_size)
-			break;
-	}
-
-	if (dmp == NULL)
-		return (dt_set_errno(dtp, EDT_NOSYMADDR));
-
-	if (dt_module_load(dtp, dmp) == -1)
-		return (-1); /* dt_errno is set for us */
-
-	if (symp != NULL) {
-		if (dmp->dm_ops->do_symaddr(dmp, addr, symp, &id) == NULL)
-			return (dt_set_errno(dtp, EDT_NOSYMADDR));
-	}
-
-	if (sip != NULL) {
-		sip->dts_object = dmp->dm_name;
-
-		if (symp != NULL) {
-			sip->dts_name = (const char *)
-			    dmp->dm_strtab.cts_data + symp->st_name;
-			sip->dts_id = id;
-		} else {
-			sip->dts_name = NULL;
-			sip->dts_id = 0;
-		}
-	}
-
-	return (0);
-}
-#endif
 
 int
 dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,

@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>cns11643_4.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">cns11643_4.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * CNS 11643-1992 plane 4
+ */</span>
+
+<span class="enscript-comment">/*
+ * The table has been split into two parts. Each part's entries fit it 16 bits.
+ * But the combined table would need 17 bits per entry.
+ */</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cns11643_4a.h&quot;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;cns11643_4b.h&quot;</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">cns11643_4_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1 = s[0];
+  <span class="enscript-keyword">if</span> ((c1 &gt;= 0x21 &amp;&amp; c1 &lt;= 0x6e)) {
+    <span class="enscript-keyword">if</span> (n &gt;= 2) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c2 = s[1];
+      <span class="enscript-keyword">if</span> (c2 &gt;= 0x21 &amp;&amp; c2 &lt; 0x7f) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i = 94 * (c1 - 0x21) + (c2 - 0x21);
+        ucs4_t wc = 0xfffd;
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">short</span> swc;
+        {
+          <span class="enscript-keyword">if</span> (i &lt; 2914)
+            swc = cns11643_4a_2uni_page21[i],
+            wc = cns11643_4a_2uni_upages[swc&gt;&gt;8] | (swc &amp; 0xff);
+          <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (i &lt; 7298)
+            swc = cns11643_4b_2uni_page40[i-2914],
+            wc = cns11643_4b_2uni_upages[swc&gt;&gt;8] | (swc &amp; 0xff);
+        }
+        <span class="enscript-keyword">if</span> (wc != 0xfffd) {
+          *pwc = wc;
+          <span class="enscript-keyword">return</span> 2;
+        }
+      }
+      <span class="enscript-keyword">return</span> RET_ILSEQ;
+    }
+    <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+  }
+  <span class="enscript-keyword">return</span> RET_ILSEQ;
+}
+</pre>
+<hr />
+</body></html>

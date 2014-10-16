@@ -211,7 +211,6 @@ struct webdav_args
 #define WEBDAV_SECURECONNECTION	0x00000002		/* Secure connection flag (the connection to the server is secure) */
 
 /* Defines for webdav_args pa_server_ident field */
-#define WEBDAV_IDISK_SERVER			0x00000001
 #define WEBDAV_MICROSOFT_IIS_SERVER	0x00000002
 
 struct webdav_cred
@@ -637,6 +636,8 @@ struct webdavmount
 	struct mount *pm_mountp;					/* vfs structure for this filesystem */
 	char *pm_vol_name;							/* volume name */
 	struct sockaddr *pm_socket_name;			/* Socket to server name */
+	struct webdav_statfs pm_statfsbuf;			/* cached statfs data */
+	time_t pm_statfstime;						/* sm_statfsbuf cache time */
 	u_int32_t pm_open_connections;				/* number of connections opened to user-land server */
 	u_int32_t pm_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	off_t pm_dir_size;							/* size of directories */
@@ -708,6 +709,14 @@ struct open_associatecachefile
 #define WEBDAV_WASMAPPED		0x00000100		/* Indicates that the file is or was mapped */
 #define WEBDAV_NEGNCENTRIES		0x00000200		/* Indicates one or more negative name cache entries exist (directory nodes only) */
 
+/*
+ * PM_MAX_STATFSTIME is the maximum time to cache statfs data. Since this
+ * should be a fast call on the server, the time the data cached is short.
+ * That lets the cache handle bursts of statfs() requests without generating
+ * lots of network traffic.
+ */
+#define PM_MAX_STATFSTIME 2
+
 /* Defines for webdavmount pm_status field */
 
 #define WEBDAV_MOUNT_SUPPORTS_STATFS 0x00000001	/* Indicates that the server supports quata and quota used properties */
@@ -721,10 +730,10 @@ struct open_associatecachefile
 
 /* Webdav sizes for statfs */
 
-#define WEBDAV_NUM_BLOCKS -1					/* not supported */
-#define WEBDAV_FREE_BLOCKS	-1					/* not supported */
-#define WEBDAV_NUM_FILES 65535					/* Like HFS */
-#define WEBDAV_FREE_FILES (WEBDAV_NUM_FILES - 2) /* Used a couple */
+#define WEBDAV_NUM_BLOCKS 0				/* not supported */
+#define WEBDAV_FREE_BLOCKS	0				/* not supported */
+#define WEBDAV_NUM_FILES 0					/* total file nodes in file system */
+#define WEBDAV_FREE_FILES 0				/* free file nodes in fs */
 
 /* Webdav status macros */
 

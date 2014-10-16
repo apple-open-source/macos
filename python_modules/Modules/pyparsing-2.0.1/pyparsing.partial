@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>pyparsing</string>
+        <key>OpenSourceVersion</key>
+        <string>2.0.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pyparsing.wikispaces.com/</string>
+        <key>OpenSourceURL</key>
+        <string>https://pypi.python.org/packages/source/p/pyparsing/pyparsing-2.0.1.tar.gz#md5=37adec94104b98591507218bc82e7c31</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-07-22</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>37adec94104b98591507218bc82e7c31</string>
+</dict>

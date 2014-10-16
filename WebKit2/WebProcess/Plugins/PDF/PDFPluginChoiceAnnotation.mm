@@ -61,17 +61,17 @@ void PDFPluginChoiceAnnotation::updateGeometry()
 
 void PDFPluginChoiceAnnotation::commit()
 {
-    choiceAnnotation().stringValue = static_cast<HTMLSelectElement*>(element())->value();
+    choiceAnnotation().stringValue = toHTMLSelectElement(element())->value();
 
     PDFPluginAnnotation::commit();
 }
 
 PassRefPtr<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
 {
-    Document* document = parent()->ownerDocument();
+    Document& document = parent()->document();
     PDFAnnotationChoiceWidget *choiceAnnotation = this->choiceAnnotation();
 
-    RefPtr<Element> element = document->createElement(selectTag, false);
+    RefPtr<Element> element = document.createElement(selectTag, false);
 
     StyledElement* styledElement = static_cast<StyledElement*>(element.get());
 
@@ -83,7 +83,7 @@ PassRefPtr<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
     NSString *selectedChoice = choiceAnnotation.stringValue;
 
     for (NSString *choice in choices) {
-        RefPtr<Element> choiceOption = document->createElement(optionTag, false);
+        RefPtr<Element> choiceOption = document.createElement(optionTag, false);
         choiceOption->setAttribute(valueAttr, choice);
         choiceOption->setTextContent(choice, ASSERT_NO_EXCEPTION);
 

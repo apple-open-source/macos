@@ -631,7 +631,14 @@ ip_print(netdissect_options *ndo,
 		}
 	    }
 
-            printf(")\n    ");
+#ifdef __APPLE__
+			if (!gflag)
+				printf(")\n    ");
+			else
+				printf(") ");
+#else
+			printf(")\n    ");
+#endif
 	}
 
 	/*

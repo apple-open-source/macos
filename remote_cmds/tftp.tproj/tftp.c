@@ -100,7 +100,7 @@ static void startclock(void);
 static void stopclock(void);
 static void timer(int);
 static void tpacket(const char *, struct tftphdr *, int);
-static int cmpport(struct sockaddr *, struct sockaddr *);
+static int sockaddrcmp(struct sockaddr *, struct sockaddr *);
 
 static void get_options(struct tftphdr *, int);
 
@@ -234,9 +234,9 @@ send_data:
 			}
 			if (!serv.ss_family)
 				serv = from;
-			else if (!cmpport((struct sockaddr *)&serv,
-			    (struct sockaddr *)&from)) {
-				warn("server port mismatch");
+			else if (!sockaddrcmp((struct sockaddr *)&serv,
+					      (struct sockaddr *)&from)) {
+				warn("server address/port mismatch");
 				goto abort;
 			}
 			peer = from;
@@ -337,6 +337,8 @@ recvfile(fd, name, mode)
 
 	signal(SIGALRM, timer);
 	do {
+		short rx_opcode;
+
 		if (firsttrip) {
 			size = makerequest(RRQ, name, ap, mode, 0);
 			readlen = PKTSIZE;
@@ -361,6 +363,9 @@ send_ack:
 		}
 		write_behind(file, convert);
 		for ( ; ; ) {
+			int j;
+			unsigned short rx_block;
+
 			alarm(rexmtval);
 			do  {
 				fromlen = sizeof(from);
@@ -372,35 +377,39 @@ send_ack:
 				warn("recvfrom");
 				goto abort;
 			}
-			if (!serv.ss_family)
-				serv = from;
-			else if (!cmpport((struct sockaddr *)&serv,
-			    (struct sockaddr *)&from)) {
-				warn("server port mismatch");
-				goto abort;
+			if (serv.ss_family != AF_UNSPEC
+			    && !sockaddrcmp((struct sockaddr *)&serv,
+					    (struct sockaddr *)&from)) {
+				/* ignore this packet */
+				if (trace && verbose)
+					tpacket("ignored", dp, n);
+				continue;
 			}
-			peer = from;
 			if (trace)
 				tpacket("received", dp, n);
 			/* should verify client address */
-			dp->th_opcode = ntohs(dp->th_opcode);
-			if (dp->th_opcode == ERROR) {
+			rx_opcode = ntohs(dp->th_opcode);
+			switch (rx_opcode) {
+			case ERROR:
 				printf("Error code %d: %s\n", dp->th_code,
 					dp->th_msg);
 				txrx_error = 1;
-				goto abort;
-			}
-			if (dp->th_opcode == DATA) {
-				int j;
-				
-				dp->th_block = ntohs(dp->th_block);
-				if (dp->th_block == 1 && !oack && block == 1) {
-					/* no OACK, revert to defaults */
-					blksize = def_blksize;
-					rexmtval = def_rexmtval;
+				if (serv.ss_family == AF_UNSPEC) {
+					peer = from;
 				}
-				if (dp->th_block == (u_short) block) {
-					break;		/* have next packet */
+				goto abort;
+			case DATA:
+				rx_block = ntohs(dp->th_block);
+				if (rx_block == (u_short)block) {
+					if (block == 1 && !oack) {
+						/* no OACK, revert to defaults */
+						blksize = def_blksize;
+						rexmtval = def_rexmtval;
+					}
+					if (serv.ss_family == AF_UNSPEC) {
+						peer = serv = from;
+					}
+					goto next_packet;
 				}
 				/* On an error, try to synchronize
 				 * both sides.
@@ -409,12 +418,16 @@ send_ack:
 				if (j && trace) {
 					printf("discarded %d packets\n", j);
 				}
-				if (dp->th_block == (u_short)(block-1)) {
+				if (rx_block == (u_short)(block - 1)
+				    && serv.ss_family != AF_UNSPEC) {
 					goto send_ack;	/* resend ack */
 				}
-			}
-			if (dp->th_opcode == OACK) {
+				break;
+			case OACK:
 				if (block == 1) {
+					if (serv.ss_family == AF_UNSPEC) {
+						serv = peer = from;
+					}
 					oack = 1;
 					blksize = def_blksize;
 					rexmtval = def_rexmtval;
@@ -425,8 +438,12 @@ send_ack:
 					size = 4;
 					goto send_ack;
 				}
+				break;
+			default:
+				break;
 			}
 		}
+next_packet:
 	/*	size = write(fd, dp->th_data, n - 4); */
 		size = writeit(file, &dp, n - 4, convert);
 		if (size < 0) {
@@ -683,19 +700,43 @@ timer(sig)
 	longjmp(timeoutbuf, 1);
 }
 
+typedef union {
+	struct sockaddr *	addr;
+	struct sockaddr_in *	in;
+	struct sockaddr_in6 *	in6;
+} sockaddr_union;
+
 static int
-cmpport(sa, sb)
-	struct sockaddr *sa;
-	struct sockaddr *sb;
+sockaddrcmp(struct sockaddr * sa, struct sockaddr * sb)
 {
-	char a[NI_MAXSERV], b[NI_MAXSERV];
+	sockaddr_union		a;
+	sockaddr_union		b;
 
-	if (getnameinfo(sa, sa->sa_len, NULL, 0, a, sizeof(a), NI_NUMERICSERV))
+	if (sa->sa_len != sb->sa_len
+	    || sa->sa_family != sb->sa_family) {
 		return 0;
-	if (getnameinfo(sb, sb->sa_len, NULL, 0, b, sizeof(b), NI_NUMERICSERV))
-		return 0;
-	if (strcmp(a, b) != 0)
-		return 0;
-
+	}
+	a.addr = sa;
+	b.addr = sb;
+	switch (sa->sa_family) {
+	case AF_INET:
+		if (a.in->sin_port != b.in->sin_port
+		    || a.in->sin_addr.s_addr != b.in->sin_addr.s_addr) {
+			return 0;
+		}
+		break;
+	case AF_INET6:
+		if (a.in6->sin6_port != b.in6->sin6_port
+		    || !IN6_ARE_ADDR_EQUAL(&a.in6->sin6_addr,
+					   &b.in6->sin6_addr)) {
+			return 0;
+		}
+		break;
+	default:
+		if (bcmp(sa, sb, sa->sa_len) != 0) {
+			return 0;
+		}
+		break;
+	}
 	return 1;
 }

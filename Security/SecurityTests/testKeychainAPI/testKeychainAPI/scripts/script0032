@@ -1,0 +1,23 @@
+//
+// script00032
+//
+//		KCLogin
+//		KCChangeLoginPassword
+//		KCLogout
+//
+64 KCLogin
+   Input Arguments : 2
+     Name : LoginKC
+     Password : Craig
+   Results : 1
+     OSStatus 0
+66 KCChangeLoginPassword
+   Input Arguments : 2
+     OldPassword : Craig
+     NewPassword : Craig2
+   Results : 1
+     OSStatus 0
+65 KCLogout
+   Input Arguments : 0
+   Results : 1
+     OSStatus 0

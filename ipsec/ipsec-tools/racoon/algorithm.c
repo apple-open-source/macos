@@ -50,7 +50,6 @@
 #include "ipsec_doi.h"
 #include "gcmalloc.h"
 
-
 static struct hash_algorithm oakley_hashdef[] = {
 { "md5",	algtype_md5,		OAKLEY_ATTR_HASH_ALG_MD5,
 		eay_md5_init,		eay_md5_update,
@@ -736,7 +735,6 @@ alg_oakley_authdef_name (doi)
 	return "*UNKNOWN*";
 }
 
-
 /*
  * give the default key length
  * OUT:	-1:		NG
@@ -881,7 +879,6 @@ algtype2doi(class, type)
 	}
 	return res;
 }
-
 
 /*
  * convert algorithm class to DOI value.

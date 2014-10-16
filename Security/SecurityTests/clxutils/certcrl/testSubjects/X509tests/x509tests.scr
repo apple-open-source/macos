@@ -1,0 +1,969 @@
+#
+# script input to certcrl for X509 tests
+#
+globals
+requireCrlForAll = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+allowUnverified = true
+end
+
+test = Test1
+dir  = test1
+revokePolicy = crl
+cert = "End Certificate CP.01.01.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+end
+test = Test2
+dir  = test2
+revokePolicy = crl
+cert = "End Certificate CP.01.02.crt"
+cert = "Intermediate Certificate CP.01.02.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.01.02.crl"
+error = TP_NOT_TRUSTED
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_TRUSTED
+end
+test = Test3
+dir  = test3
+revokePolicy = crl
+cert = "End Certificate CP.01.03.crt"
+cert = "Intermediate Certificate CP.01.03.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.01.03.crl"
+error = CSSMERR_TP_NOT_TRUSTED
+end
+
+test = Test4
+dir  = test4
+revokePolicy = crl
+cert = "End Certificate CP.02.01.crt"
+cert = "Intermediate Certificate 1 CP.02.01.crt"
+cert = "Intermediate Certificate 2 CP.02.01.crt"
+crl  = "Intermediate CRL 1 CP.02.01.crl"
+crl  = "Intermediate CRL 2 CP.02.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = Test5
+dir  = test5
+revokePolicy = crl
+cert = "End Certificate CP.02.02.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.02.02.crl"
+cert = "Intermediate Certificate CP.02.02.crt"
+error = CSSMERR_TP_CERT_NOT_VALID_YET
+end
+
+test = Test6
+dir  = test6
+revokePolicy = crl
+cert = "End Certificate CP.02.03.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Intermediate CRL CP.02.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+cert = "Intermediate Certificate CP.02.03.crt"
+error = CSSMERR_TP_CERT_NOT_VALID_YET
+end
+
+test = Test7
+dir  = test7
+revokePolicy = crl
+cert = "End Certificate CP.02.04.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.02.04.crl"
+cert = "Intermediate Certificate CP.02.04.crt"
+end
+
+test = Test8
+dir  = test8
+revokePolicy = crl
+cert = "End Certificate CP.02.05.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.02.05.crl"
+cert = "Intermediate Certificate CP.02.05.crt"
+error = CSSMERR_TP_CERT_NOT_VALID_YET
+end
+
+test = Test9
+dir  = test9
+revokePolicy = crl
+cert = "End Certificate CP.03.01.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.03.01.crl"
+cert = "Intermediate Certificate CP.03.01.crt"
+error = CSSMERR_TP_CERT_EXPIRED
+end
+
+test = Test10
+dir  = test10
+revokePolicy = crl
+cert = "End Certificate CP.03.02.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.03.02.crl"
+cert = "Intermediate Certificate CP.03.02.crt"
+error = CSSMERR_TP_CERT_EXPIRED
+end
+
+test = Test11
+dir  = test11
+revokePolicy = crl
+cert = "End Certificate CP.03.03.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.03.03.crl"
+cert = "Intermediate Certificate CP.03.03.crt"
+error = CSSMERR_TP_CERT_EXPIRED
+end
+
+test = Test12
+dir  = test12
+revokePolicy = crl
+cert = "End Certificate CP.03.04.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.03.04.crl"
+cert = "Intermediate Certificate CP.03.04.crt"
+end
+
+test = Test13
+dir  = test13
+revokePolicy = crl
+cert = "End Certificate CP.04.01.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.04.01.crl"
+cert = "Intermediate Certificate CP.04.01.crt"
+error = CSSMERR_TP_NOT_TRUSTED
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = Test14
+dir  = test14
+revokePolicy = crl
+cert = "End Certificate CP.04.02.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.04.02.crl"
+cert = "Intermediate Certificate CP.04.02.crt"
+error = CSSMERR_TP_NOT_TRUSTED
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = Test15
+dir  = test15
+revokePolicy = crl
+cert = "End Certificate CP.04.03.crt"
+root = "Trust Anchor CP.01.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+crl  = "Intermediate CRL CP.04.03.crl"
+cert = "Intermediate Certificate CP.04.03.crt"
+end
+
+test = test16
+dir  = test16
+revokePolicy = crl
+cert = "End Certificate CP.04.04.crt"
+cert = "Intermediate Certificate CP.04.04.crt"
+crl  = "Intermediate CRL CP.04.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test17
+dir  = test17
+revokePolicy = crl
+cert = "End Certificate CP.04.05.crt"
+cert = "Intermediate Certificate CP.04.05.crt"
+crl  = "Intermediate CRL CP.04.05.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test18
+dir  = test18
+revokePolicy = crl
+cert = "End Certificate CP.04.06.crt"
+cert = "Intermediate Certificate CP.04.06.crt"
+crl  = "Intermediate CRL CP.04.06.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test19
+dir  = test19
+revokePolicy = crl
+cert = "End Certificate CP.05.01.crt"
+cert = "Intermediate Certificate CP.05.01.crt"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = test20
+dir  = test20
+revokePolicy = crl
+cert = "End Certificate CP.06.01.crt"
+cert = "Intermediate Certificate CP.06.01.crt"
+crl  = "Intermediate CRL CP.06.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 1:CSSMERR_TP_CERT_REVOKED
+end
+
+test = test21
+dir  = test21
+revokePolicy = crl
+cert = "End Certificate CP.06.02.crt"
+cert = "Intermediate Certificate CP.06.02.crt"
+crl  = "Intermediate CRL CP.06.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_CERT_REVOKED
+certerror = 0:CSSMERR_TP_CERT_REVOKED
+end
+
+test = test22
+dir  = test22
+revokePolicy = crl
+cert = "End Certificate IC.01.01.crt"
+cert = "Intermediate Certificate IC.01.01.crt"
+crl  = "Intermediate CRL IC.01.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 1:CSSMERR_APPLETP_INVALID_CA
+end
+
+test = test23
+dir  = test23
+revokePolicy = crl
+cert = "End Certificate IC.02.01.crt"
+cert = "Intermediate Certificate IC.02.01.crt"
+crl  = "Intermediate CRL IC.02.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 1:CSSMERR_APPLETP_INVALID_CA
+end
+
+test = test24
+dir  = test24
+revokePolicy = crl
+cert = "End Certificate IC.02.02.crt"
+cert = "Intermediate Certificate IC.02.02.crt"
+crl  = "Intermediate CRL IC.02.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test25
+dir  = test25
+revokePolicy = crl
+cert = "End Certificate IC.02.03.crt"
+cert = "Intermediate Certificate IC.02.03.crt"
+crl  = "Intermediate CRL IC.02.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 1:CSSMERR_APPLETP_INVALID_CA
+end
+
+test = test26
+dir  = test26
+revokePolicy = crl
+cert = "End Certificate IC.02.04.crt"
+cert = "Intermediate Certificate IC.02.04.crt"
+crl  = "Intermediate CRL IC.02.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test27
+dir  = test27
+revokePolicy = crl
+cert = "End Certificate IC.04.01.crt"
+cert = "Intermediate Certificate IC.04.01.crt"
+crl  = "Intermediate CRL IC.04.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test28
+dir  = test28
+revokePolicy = crl
+cert = "End Certificate IC.05.01.crt"
+cert = "Intermediate Certificate IC.05.01.crt"
+crl  = "Intermediate CRL IC.05.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 1:CSSMERR_APPLETP_INVALID_KEY_USAGE
+end
+
+test = test29
+dir  = test29
+revokePolicy = crl
+cert = "End Certificate IC.05.02.crt"
+cert = "Intermediate Certificate IC.05.02.crt"
+crl  = "Intermediate CRL IC.05.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 1:CSSMERR_APPLETP_INVALID_KEY_USAGE
+end
+
+test = test30
+dir  = test30
+revokePolicy = crl
+cert = "End Certificate IC.05.03.crt"
+cert = "Intermediate Certificate IC.05.03.crt"
+crl  = "Intermediate CRL IC.05.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test31
+dir  = test31
+revokePolicy = crl
+cert = "End Certificate IC.06.01.crt"
+cert = "Intermediate Certificate IC.06.01.crt"
+crl  = "Intermediate CRL IC.06.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+# for the issuer
+certerror = 1:CSSMERR_APPLETP_INVALID_KEY_USAGE
+# for the leaf
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_POLICY_FAIL
+end
+
+test = test32
+dir  = test32
+revokePolicy = crl
+cert = "End Certificate IC.06.02.crt"
+cert = "Intermediate Certificate IC.06.02.crt"
+crl  = "Intermediate CRL IC.06.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+# for the issuer
+certerror = 1:CSSMERR_APPLETP_INVALID_KEY_USAGE
+# for the leaf
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_POLICY_FAIL
+end
+
+test = test33
+dir  = test33
+revokePolicy = crl
+cert = "End Certificate IC.06.03.crt"
+cert = "Intermediate Certificate IC.06.03.crt"
+crl  = "Intermediate CRL IC.06.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test34
+dir  = test34
+revokePolicy = crl
+echo FIXME: test34 needs policy work
+cert = "End Certificate PP.01.01.crt"
+cert = "Intermediate Certificate PP.01.01.crt"
+crl  = "Intermediate CRL PP.01.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test35
+dir  = test35
+revokePolicy = crl
+echo FIXME: test35 needs policy work
+cert = "End Certificate PP.01.02.crt"
+cert = "Intermediate Certificate PP.01.02.crt"
+crl  = "Intermediate CRL PP.01.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test36
+dir  = test36
+revokePolicy = crl
+echo FIXME: test36 needs policy work
+cert = "End Certificate PP.01.03.crt"
+cert = "Intermediate Certificate 1 PP.01.03.crt"
+cert = "Intermediate Certificate 2 PP.01.03.crt"
+crl  = "Intermediate CRL 1 PP.01.03.crl"
+crl  = "Intermediate CRL 2 PP.01.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test37
+dir  = test37
+revokePolicy = crl
+echo FIXME: test37 needs policy work
+cert = "End Certificate PP.01.04.crt"
+cert = "Intermediate Certificate 1 PP.01.04.crt"
+cert = "Intermediate Certificate 2 PP.01.04.crt"
+crl  = "Intermediate CRL 1 PP.01.04.crl"
+crl  = "Intermediate CRL 2 PP.01.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test38
+dir  = test38
+revokePolicy = crl
+echo FIXME: test38 needs policy work
+cert = "End Certificate PP.01.05.crt"
+cert = "Intermediate Certificate 1 PP.01.05.crt"
+cert = "Intermediate Certificate 2 PP.01.05.crt"
+crl  = "Intermediate CRL 1 PP.01.05.crl"
+crl  = "Intermediate CRL 2 PP.01.05.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test39
+dir  = test39
+revokePolicy = crl
+echo FIXME: test39 needs policy work
+cert = "End Certificate PP.01.06.crt"
+cert = "Intermediate Certificate 1 PP.01.06.crt"
+cert = "Intermediate Certificate 2 PP.01.06.crt"
+cert = "Intermediate Certificate 3 PP.01.06.crt"
+crl  = "Intermediate CRL 1 PP.01.06.crl"
+crl  = "Intermediate CRL 2 PP.01.06.crl"
+crl  = "Intermediate CRL 3 PP.01.06.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+end
+
+test = test40
+dir  = test40
+revokePolicy = crl
+echo FIXME: test40 needs policy work
+cert = "End Certificate PP.01.07.crt"
+cert = "Intermediate Certificate 1 PP.01.07.crt"
+cert = "Intermediate Certificate 2 PP.01.07.crt"
+cert = "Intermediate Certificate 3 PP.01.07.crt"
+crl  = "Intermediate CRL 1 PP.01.07.crl"
+crl  = "Intermediate CRL 2 PP.01.07.crl"
+crl  = "Intermediate CRL 3 PP.01.07.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+end
+
+test = test41
+dir  = test41
+revokePolicy = crl
+echo FIXME: test41 needs policy work
+cert = "End Certificate PP.01.08.crt"
+cert = "Intermediate Certificate 1 PP.01.08.crt"
+cert = "Intermediate Certificate 2 PP.01.08.crt"
+cert = "Intermediate Certificate 3 PP.01.08.crt"
+crl  = "Intermediate CRL 1 PP.01.08.crl"
+crl  = "Intermediate CRL 2 PP.01.08.crl"
+crl  = "Intermediate CRL 3 PP.01.08.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+end
+
+test = test42
+dir  = test42
+revokePolicy = crl
+echo FIXME: test42 needs policy work
+cert = "End Certificate PP.01.09.crt"
+cert = "Intermediate Certificate 1 PP.01.09.crt"
+cert = "Intermediate Certificate 2 PP.01.09.crt"
+cert = "Intermediate Certificate 3 PP.01.09.crt"
+cert = "Intermediate Certificate 4 PP.01.09.crt"
+crl  = "Intermediate CRL 1 PP.01.09.crl"
+crl  = "Intermediate CRL 2 PP.01.09.crl"
+crl  = "Intermediate CRL 3 PP.01.09.crl"
+crl  = "Intermediate CRL 4 PP.01.09.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test43
+dir  = test43
+revokePolicy = crl
+echo FIXME: test43 needs policy work
+cert = "End Certificate PP.06.01.crt"
+cert = "Intermediate Certificate 1 PP.06.01.crt"
+cert = "Intermediate Certificate 2 PP.06.01.crt"
+cert = "Intermediate Certificate 3 PP.06.01.crt"
+cert = "Intermediate Certificate 4 PP.06.01.crt"
+crl  = "Intermediate CRL 1 PP.06.01.crl"
+crl  = "Intermediate CRL 2 PP.06.01.crl"
+crl  = "Intermediate CRL 3 PP.06.01.crl"
+crl  = "Intermediate CRL 4 PP.06.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test44
+dir  = test44
+revokePolicy = crl
+echo FIXME: test44 needs policy work
+cert = "End Certificate PP.06.02.crt"
+cert = "Intermediate Certificate 1 PP.06.02.crt"
+cert = "Intermediate Certificate 2 PP.06.02.crt"
+cert = "Intermediate Certificate 3 PP.06.02.crt"
+cert = "Intermediate Certificate 4 PP.06.02.crt"
+crl  = "Intermediate CRL 1 PP.06.02.crl"
+crl  = "Intermediate CRL 2 PP.06.02.crl"
+crl  = "Intermediate CRL 3 PP.06.02.crl"
+crl  = "Intermediate CRL 4 PP.06.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test45
+dir  = test45
+revokePolicy = crl
+echo FIXME: test45 needs policy work
+cert = "End Certificate PP.06.03.crt"
+cert = "Intermediate Certificate 1 PP.06.03.crt"
+cert = "Intermediate Certificate 2 PP.06.03.crt"
+cert = "Intermediate Certificate 3 PP.06.03.crt"
+cert = "Intermediate Certificate 4 PP.06.03.crt"
+crl  = "Intermediate CRL 1 PP.06.03.crl"
+crl  = "Intermediate CRL 2 PP.06.03.crl"
+crl  = "Intermediate CRL 3 PP.06.03.crl"
+crl  = "Intermediate CRL 4 PP.06.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test46
+dir  = test46
+revokePolicy = crl
+echo FIXME: test46 needs policy work
+cert = "End Certificate PP.06.04.crt"
+cert = "Intermediate Certificate 1 PP.06.04.crt"
+cert = "Intermediate Certificate 2 PP.06.04.crt"
+cert = "Intermediate Certificate 3 PP.06.04.crt"
+cert = "Intermediate Certificate 4 PP.06.04.crt"
+crl  = "Intermediate CRL 1 PP.06.04.crl"
+crl  = "Intermediate CRL 2 PP.06.04.crl"
+crl  = "Intermediate CRL 3 PP.06.04.crl"
+crl  = "Intermediate CRL 4 PP.06.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test47
+dir  = test47
+revokePolicy = crl
+echo FIXME: test47 needs policy work
+cert = "End Certificate PP.06.05.crt"
+cert = "Intermediate Certificate 1 PP.06.05.crt"
+cert = "Intermediate Certificate 2 PP.06.05.crt"
+cert = "Intermediate Certificate 3 PP.06.05.crt"
+cert = "Intermediate Certificate 4 PP.06.05.crt"
+crl  = "Intermediate CRL 1 PP.06.05.crl"
+crl  = "Intermediate CRL 2 PP.06.05.crl"
+crl  = "Intermediate CRL 3 PP.06.05.crl"
+crl  = "Intermediate CRL 4 PP.06.05.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test48
+dir  = test48
+revokePolicy = crl
+echo FIXME: test48 needs policy work
+cert = "End Certificate PP.08.01.crt"
+cert = "Intermediate Certificate PP.08.01.crt"
+crl  = "Intermediate CRL PP.08.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test49
+dir  = test49
+revokePolicy = crl
+echo FIXME: test49 needs policy work
+cert = "End Certificate PP.08.02.crt"
+cert = "Intermediate Certificate PP.08.02.crt"
+crl  = "Intermediate CRL PP.08.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test50
+dir  = test50
+revokePolicy = crl
+echo FIXME: test50 needs policy work
+cert = "End Certificate PP.08.03.crt"
+cert = "Intermediate Certificate PP.08.03.crt"
+crl  = "Intermediate CRL PP.08.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test51
+dir  = test51
+revokePolicy = crl
+echo FIXME: test51 needs policy work
+cert = "End Certificate PP.08.04.crt"
+cert = "Intermediate Certificate PP.08.04.crt"
+crl  = "Intermediate CRL PP.08.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test52
+dir  = test52
+revokePolicy = crl
+echo FIXME: test52 needs policy work
+cert = "End Certificate PP.08.05.crt"
+cert = "Intermediate Certificate PP.08.05.crt"
+crl  = "Intermediate CRL PP.08.05.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test53
+dir  = test53
+revokePolicy = crl
+echo FIXME: test53 needs policy work
+cert = "End Certificate PP.08.06.crt"
+cert = "Intermediate Certificate PP.08.06.crt"
+crl  = "Intermediate CRL PP.08.06.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test54
+dir  = test54
+revokePolicy = crl
+cert = "End Certificate PL.01.01.crt"
+cert = "Intermediate Certificate 1 PL.01.01.crt"
+cert = "Intermediate Certificate 2 PL.01.01.crt"
+crl  = "Intermediate CRL 1 PL.01.01.crl"
+crl  = "Intermediate CRL 2 PL.01.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 2:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+end
+
+test = test55
+dir  = test55
+revokePolicy = crl
+cert = "End Certificate PL.01.02.crt"
+cert = "Intermediate Certificate 1 PL.01.02.crt"
+cert = "Intermediate Certificate 2 PL.01.02.crt"
+crl  = "Intermediate CRL 1 PL.01.02.crl"
+crl  = "Intermediate CRL 2 PL.01.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+certerror = 2:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+end
+
+test = test56
+dir  = test56
+revokePolicy = crl
+cert = "End Certificate PL.01.03.crt"
+cert = "Intermediate Certificate PL.01.03.crt"
+crl  = "Intermediate CRL PL.01.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test57
+dir  = test57
+revokePolicy = crl
+cert = "End Certificate PL.01.04.crt"
+cert = "Intermediate Certificate PL.01.04.crt"
+crl  = "Intermediate CRL PL.01.04.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+end
+
+test = test58
+dir  = test58
+revokePolicy = crl
+cert = "End Certificate PL.01.05.crt"
+cert = "Intermediate Certificate 1 PL.01.05.crt"
+cert = "Intermediate Certificate 2 PL.01.05.crt"
+cert = "Intermediate Certificate 3 PL.01.05.crt"
+crl  = "Intermediate CRL 1 PL.01.05.crl"
+crl  = "Intermediate CRL 2 PL.01.05.crl"
+crl  = "Intermediate CRL 3 PL.01.05.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 2:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+end
+
+test = test59
+dir  = test59
+revokePolicy = crl
+cert = "End Certificate PL.01.06.crt"
+cert = "Intermediate Certificate 1 PL.01.06.crt"
+cert = "Intermediate Certificate 2 PL.01.06.crt"
+cert = "Intermediate Certificate 3 PL.01.06.crt"
+crl  = "Intermediate CRL 1 PL.01.06.crl"
+crl  = "Intermediate CRL 2 PL.01.06.crl"
+crl  = "Intermediate CRL 3 PL.01.06.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 2:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+end
+
+test = test60
+dir  = test60
+revokePolicy = crl
+cert = "End Certificate PL.01.07.crt"
+cert = "Intermediate Certificate 1 PL.01.07.crt"
+cert = "Intermediate Certificate 2 PL.01.07.crt"
+cert = "Intermediate Certificate 3 PL.01.07.crt"
+cert = "Intermediate Certificate 4 PL.01.07.crt"
+crl  = "Intermediate CRL 1 PL.01.07.crl"
+crl  = "Intermediate CRL 2 PL.01.07.crl"
+crl  = "Intermediate CRL 3 PL.01.07.crl"
+crl  = "Intermediate CRL 4 PL.01.07.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 3:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+end
+
+test = test61
+dir  = test61
+revokePolicy = crl
+cert = "End Certificate PL.01.08.crt"
+cert = "Intermediate Certificate 1 PL.01.08.crt"
+cert = "Intermediate Certificate 2 PL.01.08.crt"
+cert = "Intermediate Certificate 3 PL.01.08.crt"
+cert = "Intermediate Certificate 4 PL.01.08.crt"
+crl  = "Intermediate CRL 1 PL.01.08.crl"
+crl  = "Intermediate CRL 2 PL.01.08.crl"
+crl  = "Intermediate CRL 3 PL.01.08.crl"
+crl  = "Intermediate CRL 4 PL.01.08.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+certerror = 3:CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+end
+
+test = test62
+dir  = test62
+revokePolicy = crl
+cert = "End Certificate PL.01.09.crt"
+cert = "Intermediate Certificate 1 PL.01.09.crt"
+cert = "Intermediate Certificate 2 PL.01.09.crt"
+cert = "Intermediate Certificate 3 PL.01.09.crt"
+cert = "Intermediate Certificate 4 PL.01.09.crt"
+crl  = "Intermediate CRL 1 PL.01.09.crl"
+crl  = "Intermediate CRL 2 PL.01.09.crl"
+crl  = "Intermediate CRL 3 PL.01.09.crl"
+crl  = "Intermediate CRL 4 PL.01.09.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test63
+dir  = test63
+revokePolicy = crl
+cert = "End Certificate PL.01.10.crt"
+cert = "Intermediate Certificate 1 PL.01.10.crt"
+cert = "Intermediate Certificate 2 PL.01.10.crt"
+cert = "Intermediate Certificate 3 PL.01.10.crt"
+cert = "Intermediate Certificate 4 PL.01.10.crt"
+crl  = "Intermediate CRL 1 PL.01.10.crl"
+crl  = "Intermediate CRL 2 PL.01.10.crl"
+crl  = "Intermediate CRL 3 PL.01.10.crl"
+crl  = "Intermediate CRL 4 PL.01.10.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+leafCertIsCA = true
+end
+
+test = test64
+dir  = test64
+revokePolicy = crl
+cert = "End Certificate RL.02.01.crt"
+cert = "Intermediate Certificate RL.02.01.crt"
+crl  = "Intermediate CRL RL.02.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_TRUSTED
+end
+
+test = test65
+dir  = test65
+revokePolicy = crl
+cert = "End Certificate RL.03.01.crt"
+cert = "Intermediate Certificate 1 RL.03.01.crt"
+cert = "Intermediate Certificate 2 RL.03.01.crt"
+crl  = "Intermediate CRL RL.03.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = test66
+dir  = test66
+revokePolicy = crl
+cert = "End Certificate RL.03.02.crt"
+cert = "Intermediate Certificate RL.03.02.crt"
+crl  = "Intermediate CRL RL.03.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = test67
+dir  = test67
+revokePolicy = crl
+cert = "End Certificate RL.03.03.crt"
+cert = "Intermediate Certificate RL.03.03.crt"
+crl  = "Intermediate CRL 1 RL.03.03.crl"
+crl  = "Intermediate CRL 2 RL.03.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test68
+dir  = test68
+revokePolicy = crl
+cert = "End Certificate RL.05.01.crt"
+cert = "Intermediate Certificate 1 RL.05.01.crt"
+cert = "Intermediate Certificate 2 RL.05.01.crt"
+crl  = "Intermediate CRL 1 RL.05.01.crl"
+crl  = "Intermediate CRL 2 RL.05.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 1:CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN
+end
+
+test = test69
+dir  = test69
+revokePolicy = crl
+cert = "End Certificate RL.05.02.crt"
+cert = "Intermediate Certificate RL.05.02.crt"
+crl  = "Intermediate CRL RL.05.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN
+end
+
+test = test70
+dir  = test70
+revokePolicy = crl
+cert = "End Certificate RL.06.01.crt"
+cert = "Intermediate Certificate 1 RL.06.01.crt"
+cert = "Intermediate Certificate 2 RL.06.01.crt"
+crl  = "Intermediate CRL 1 RL.06.01.crl"
+crl  = "Intermediate CRL 2 RL.06.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 1:CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN
+end
+
+test = test71
+dir  = test71
+revokePolicy = crl
+cert = "End Certificate RL.06.02.crt"
+cert = "Intermediate Certificate RL.06.02.crt"
+crl  = "Intermediate CRL RL.06.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN
+end
+
+test = test72
+dir  = test72
+revokePolicy = crl
+cert = "End Certificate RL.07.01.crt"
+cert = "Intermediate Certificate RL.07.01.crt"
+crl  = "Intermediate CRL RL.07.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+# FIXME should be CSSMERR_APPLETP_CRL_EXPIRED
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = test73
+dir  = test73
+revokePolicy = crl
+cert = "End Certificate RL.07.02.crt"
+cert = "Intermediate Certificate RL.07.02.crt"
+crl  = "Intermediate CRL RL.07.02.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+# FIXME should be CSSMERR_APPLETP_CRL_EXPIRED
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+end
+
+test = test74
+dir  = test74
+revokePolicy = crl
+cert = "End Certificate RL.07.03.crt"
+cert = "Intermediate Certificate RL.07.03.crt"
+crl  = "Intermediate CRL RL.07.03.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+end
+
+test = test75
+dir  = test75
+revokePolicy = crl
+cert = "End Certificate RL.08.01.crt"
+cert = "Intermediate Certificate RL.08.01.crt"
+crl  = "Intermediate CRL RL.08.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_UNKNOWN_CRL_EXTEN
+end
+
+test = test76
+dir  = test76
+revokePolicy = crl
+cert = "End Certificate RL.09.01.crt"
+cert = "Intermediate Certificate RL.09.01.crt"
+crl  = "Intermediate CRL RL.09.01.crl"
+crl  = "Trust Anchor CRL CP.01.01.crl"
+root = "Trust Anchor CP.01.01.crt"
+error = CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_CRL_NOT_FOUND
+certerror = 0:CSSMERR_APPLETP_IDP_FAIL
+end
+

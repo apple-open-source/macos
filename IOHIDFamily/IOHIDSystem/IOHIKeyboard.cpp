@@ -1064,25 +1064,27 @@ void IOHIKeyboard::_keyboardEvent( IOHIKeyboard * self,
       /* repeat */           bool       repeat,
       /* atTime */           AbsoluteTime ts)
 {
-    KeyboardEventCallback	keCallback;
-    keCallback = (KeyboardEventCallback)self->_keyboardEventAction;
-    
-    if ( !keCallback )
-        return;
+    if (!self || !self->_keyboardEventAction || !self->_keyboardEventTarget) {
+        // nothing to be done
+    }
+    else {
+        // this is skanky
+        KeyboardEventCallback	keCallback = (KeyboardEventCallback)self->_keyboardEventAction;
         
-    (*keCallback)(  self->_keyboardEventTarget,
-                    eventType,
-                    flags,
-                    key,
-                    charCode,
-                    charSet,
-                    origCharCode,
-                    origCharSet,
-                    keyboardType,
-                    repeat,
-                    ts,
-                    self,
-                    0);
+        (*keCallback)(self->_keyboardEventTarget,
+                      eventType,
+                      flags,
+                      key,
+                      charCode,
+                      charSet,
+                      origCharCode,
+                      origCharSet,
+                      keyboardType,
+                      repeat,
+                      ts,
+                      self,
+                      0);
+    }
 }
 
 void IOHIKeyboard::_keyboardSpecialEvent( 	
@@ -1095,37 +1097,41 @@ void IOHIKeyboard::_keyboardSpecialEvent(
         /* repeat */         bool       repeat,
         /* atTime */         AbsoluteTime ts)
 {
-    KeyboardSpecialEventCallback kseCallback;
-    kseCallback = (KeyboardSpecialEventCallback)self->_keyboardSpecialEventAction;
-    
-    if ( !kseCallback )
-        return;
+    if (!self || !self->_keyboardSpecialEventAction || !self->_keyboardEventTarget) {
+        // nothing to be done
+    }
+    else {
+        // this is skanky
+        KeyboardSpecialEventCallback kseCallback = (KeyboardSpecialEventCallback)self->_keyboardSpecialEventAction;
         
-    (*kseCallback)( self->_keyboardEventTarget,
-                    eventType,
-                    flags,
-                    key,
-                    flavor,
-                    guid,
-                    repeat,
-                    ts,
-                    self,
-                    0);
+        (*kseCallback)(self->_keyboardEventTarget,
+                       eventType,
+                       flags,
+                       key,
+                       flavor,
+                       guid,
+                       repeat,
+                       ts,
+                       self,
+                       0);
+    }
 }
         
 void IOHIKeyboard::_updateEventFlags( IOHIKeyboard * self,
 				unsigned flags)
 {
-    UpdateEventFlagsCallback uefCallback;
-    uefCallback = (UpdateEventFlagsCallback)self->_updateEventFlagsAction;
-    
-    if ( !uefCallback )
-        return;
+    if (!self || !self->_keyboardSpecialEventAction || !self->_keyboardEventTarget) {
+        // nothing to be done
+    }
+    else {
+        // this is skanky
+        UpdateEventFlagsCallback uefCallback = (UpdateEventFlagsCallback)self->_updateEventFlagsAction;
         
-    (*uefCallback)( self->_updateEventFlagsTarget,
-                    flags,
-                    self,
-                    0);
+        (*uefCallback)(self->_updateEventFlagsTarget,
+                       flags,
+                       self,
+                       0);
+    }
 }
 
 /******************************************************************************/
@@ -1217,7 +1223,7 @@ postSecureKey(UInt8 key, bool down)
 {
     KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
     bool posted = false;
-    if (reservedStruct->hasSecurePrompt) {
+    if (reservedStruct && reservedStruct->hasSecurePrompt) {
         IOHIDSecurePromptClient *client = NULL;
         OSIterator *itr = getClientIterator();
         if (itr) {

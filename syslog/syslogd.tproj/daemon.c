@@ -22,7 +22,6 @@
  */
 
 #include <TargetConditionals.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -40,7 +39,6 @@
 #include <pthread.h>
 #include <vproc_priv.h>
 #include <mach/mach.h>
-#include <assert.h>
 #include <libkern/OSAtomic.h>
 #include <libproc.h>
 #include <uuid/uuid.h>
@@ -48,7 +46,6 @@
 
 #define LIST_SIZE_DELTA 256
 
-#define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
 
 #define ASL_MSG_TYPE_MASK 0x0000000f
@@ -65,7 +62,7 @@
 #define VERIFY_STATUS_INVALID_MESSAGE 1
 #define VERIFY_STATUS_EXCEEDED_QUOTA 2
 
-extern void disaster_message(aslmsg m);
+extern void disaster_message(asl_msg_t *m);
 extern int asl_action_reset(void);
 extern int asl_action_control_set_param(const char *s);
 
@@ -73,16 +70,21 @@ static char myname[MAXHOSTNAMELEN + 1] = {0};
 static int name_change_token = -1;
 
 static OSSpinLock count_lock = 0;
+static int aslmanager_triggered = 0;
+
 
 #if !TARGET_OS_EMBEDDED
 static vproc_transaction_t vproc_trans = {0};
+#define DEFAULT_WORK_QUEUE_SIZE_MAX 10240000
+#else
+#define DEFAULT_WORK_QUEUE_SIZE_MAX 4096000
 #endif
 
 #define QUOTA_KERN_EXCEEDED_MESSAGE "*** kernel exceeded %d log message per second limit  -  remaining messages this second discarded ***"
 
 #define DEFAULT_DB_FILE_MAX 25600000
-#define DEFAULT_DB_MEMORY_MAX 8192
-#define DEFAULT_DB_MINI_MAX 256
+#define DEFAULT_DB_MEMORY_MAX 512
+#define DEFAULT_DB_MEMORY_STR_MAX 4096000
 #define DEFAULT_MPS_LIMIT 500
 #define DEFAULT_REMOTE_DELAY 5000
 #define DEFAULT_BSD_MAX_DUP_SEC 30
@@ -108,7 +110,7 @@ static const char *kern_notify_key[] =
 static int kern_notify_token[8] = {-1, -1, -1, -1, -1, -1, -1, -1 };
 
 static uint32_t
-kern_quota_check(time_t now, aslmsg msg, uint32_t level)
+kern_quota_check(time_t now, asl_msg_t *msg, uint32_t level)
 {
 	char *str, lstr[2];
 
@@ -134,11 +136,11 @@ kern_quota_check(time_t now, aslmsg msg, uint32_t level)
 	asprintf(&str, QUOTA_KERN_EXCEEDED_MESSAGE, global.mps_limit);
 	if (str != NULL)
 	{
-		asl_set(msg, ASL_KEY_MSG, str);
+		asl_msg_set_key_val(msg, ASL_KEY_MSG, str);
 		free(str);
 		lstr[0] = kern_level + '0';
 		lstr[1] = 0;
-		asl_set(msg, ASL_KEY_LEVEL, lstr);
+		asl_msg_set_key_val(msg, ASL_KEY_LEVEL, lstr);
 	}
 
 	return VERIFY_STATUS_OK;
@@ -215,7 +217,7 @@ asl_client_count_decrement()
  */
 
 static uint32_t
-aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_out)
+aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_out)
 {
 	const char *val, *fac, *ruval, *rgval;
 	char buf[64];
@@ -238,23 +240,25 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	/* PID */
 	pid = 0;
 
-	val = asl_get(msg, ASL_KEY_PID);
-	if (val == NULL) asl_set(msg, ASL_KEY_PID, "0");
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_PID);
+	if (val == NULL) asl_msg_set_key_val(msg, ASL_KEY_PID, "0");
 	else pid = (pid_t)atoi(val);
 
 	/* if PID is 1 (launchd), use the refpid if provided */
 	if (pid == 1)
 	{
-		val = asl_get(msg, ASL_KEY_REF_PID);
+		val = asl_msg_get_val_for_key(msg, ASL_KEY_REF_PID);
 		if (val != NULL) pid = (pid_t)atoi(val);
 	}
 
 	/* Level */
-	val = asl_get(msg, ASL_KEY_LEVEL);
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_LEVEL);
 	level = ASL_LEVEL_DEBUG;
+	if (source == SOURCE_KERN) level = ASL_LEVEL_NOTICE;
+
 	if ((val != NULL) && (val[1] == '\0') && (val[0] >= '0') && (val[0] <= '7')) level = val[0] - '0';
 	snprintf(buf, sizeof(buf), "%d", level);
-	asl_set(msg, ASL_KEY_LEVEL, buf);
+	asl_msg_set_key_val(msg, ASL_KEY_LEVEL, buf);
 
 	/* check kernel quota if enabled and no processes are watching */
 	if ((pid == 0) && (global.mps_limit > 0) && (global.watchers_active == 0))
@@ -270,102 +274,131 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 		if (proc_pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, 1, &pinfo, sizeof(pinfo)) == sizeof(pinfo))
 		{
 			uuid_unparse(pinfo.p_uuid, ustr);
-			asl_set(msg, ASL_KEY_SENDER_MACH_UUID, ustr);
+			asl_msg_set_key_val(msg, ASL_KEY_SENDER_MACH_UUID, ustr);
 		}
 	}
 
 	tick = 0;
-	val = asl_get(msg, ASL_KEY_TIME);
-	if (val != NULL) tick = asl_parse_time(val);
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_TIME);
+	if (val != NULL) tick = asl_core_parse_time(val, NULL);
 
 	/* Set time to now if it is unset or from the future (not allowed!) */
 	if ((tick == 0) || (tick > now)) tick = now;
 
 	/* Canonical form: seconds since the epoch */
 	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
-	asl_set(msg, ASL_KEY_TIME, buf);
+	asl_msg_set_key_val(msg, ASL_KEY_TIME, buf);
 
 	/* Host */
-	val = asl_get(msg, ASL_KEY_HOST);
-	if (val == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
-
-	uid = -2;
-	val = asl_get(msg, ASL_KEY_UID);
-	if (val != NULL)
-	{
-		uid = atoi(val);
-		if ((uid == 0) && strcmp(val, "0")) uid = -2;
-		if (uid_out != NULL) *uid_out = uid;
-	}
-
-	gid = -2;
-	val = asl_get(msg, ASL_KEY_GID);
-	if (val != NULL)
-	{
-		gid = atoi(val);
-		if ((gid == 0) && strcmp(val, "0")) gid = -2;
-	}
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_HOST);
+	if (val == NULL) asl_msg_set_key_val(msg, ASL_KEY_HOST, whatsmyhostname());
 
 	/* UID  & GID */
+	uid = -2;
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_UID);
+	if (val == NULL)
+	{
+		asl_msg_set_key_val(msg, ASL_KEY_UID, "-2");
+	}
+	else
+	{
+		uid = atoi(val);
+		if ((uid == 0) && strcmp(val, "0"))
+		{
+			uid = -2;
+			asl_msg_set_key_val(msg, ASL_KEY_UID, "-2");
+		}
+	}
+
+	if (uid_out != NULL) *uid_out = uid;
+
+	gid = -2;
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_GID);
+	if (val == NULL)
+	{
+		asl_msg_set_key_val(msg, ASL_KEY_GID, "-2");
+	}
+	else
+	{
+		gid = atoi(val);
+		if ((gid == 0) && strcmp(val, "0"))
+		{
+			gid = -2;
+			asl_msg_set_key_val(msg, ASL_KEY_GID, "-2");
+		}
+	}
+
 	switch (source)
 	{
 		case SOURCE_KERN:
 		case SOURCE_INTERNAL:
 		{
-			asl_set(msg, ASL_KEY_UID, "0");
-			asl_set(msg, ASL_KEY_GID, "0");
+			uid = 0;
+			asl_msg_set_key_val(msg, ASL_KEY_UID, "0");
+
+			gid = 0;
+			asl_msg_set_key_val(msg, ASL_KEY_GID, "0");
+
 			break;
 		}
-		case SOURCE_ASL_SOCKET:
+		case SOURCE_UDP_SOCKET:
 		case SOURCE_ASL_MESSAGE:
 		case SOURCE_LAUNCHD:
 		{
-			/* we trust the UID & GID in the message */
 			break;
 		}
 		default:
 		{
-			/* we do not trust the UID 0 or GID 0 or 80 in the message */
-			if (uid == 0) asl_set(msg, ASL_KEY_UID, "-2");
-			if ((gid == 0) || (gid == 80)) asl_set(msg, ASL_KEY_GID, "-2");
+			/* do not trust the UID 0 or GID 0 or 80 in SOURCE_BSD_SOCKET or SOURCE_UNKNOWN */
+			if (uid == 0)
+			{
+				uid = -2;
+				asl_msg_set_key_val(msg, ASL_KEY_UID, "-2");
+			}
+
+			if ((gid == 0) || (gid == 80))
+			{
+				gid = -2;
+				asl_msg_set_key_val(msg, ASL_KEY_GID, "-2");
+			}
 		}
 	}
 
 	/* Sender */
-	val = asl_get(msg, ASL_KEY_SENDER);
+	val = asl_msg_get_val_for_key(msg, ASL_KEY_SENDER);
 	if (val == NULL)
 	{
 		switch (source)
 		{
 			case SOURCE_KERN:
 			{
-				asl_set(msg, ASL_KEY_SENDER, "kernel");
+				asl_msg_set_key_val(msg, ASL_KEY_SENDER, "kernel");
 				break;
 			}
 			case SOURCE_INTERNAL:
 			{
-				asl_set(msg, ASL_KEY_SENDER, "syslogd");
+				asl_msg_set_key_val(msg, ASL_KEY_SENDER, "syslogd");
 				break;
 			}
 			default:
 			{
-				asl_set(msg, ASL_KEY_SENDER, "Unknown");
+				asl_msg_set_key_val(msg, ASL_KEY_SENDER, "Unknown");
 			}
 		}
 	}
 	else if ((source != SOURCE_KERN) && (uid != 0) && (!strcmp(val, "kernel")))
 	{
 		/* allow UID 0 to send messages with "Sender kernel", but nobody else */
-		asl_set(msg, ASL_KEY_SENDER, "Unknown");
+		asl_msg_set_key_val(msg, ASL_KEY_SENDER, "Unknown");
 	}
 
 	/* Facility */
-	fac = asl_get(msg, ASL_KEY_FACILITY);
+	fac = asl_msg_get_val_for_key(msg, ASL_KEY_FACILITY);
 	if (fac == NULL)
 	{
 		if (source == SOURCE_KERN) fac = "kern";
 		else fac = "user";
-		asl_set(msg, ASL_KEY_FACILITY, fac);
+		asl_msg_set_key_val(msg, ASL_KEY_FACILITY, fac);
 	}
 	else if (fac[0] == '#')
 	{
@@ -377,12 +410,12 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 		}
 
 		fac = asl_syslog_faciliy_num_to_name(fnum);
-		asl_set(msg, ASL_KEY_FACILITY, fac);
+		asl_msg_set_key_val(msg, ASL_KEY_FACILITY, fac);
 	}
 	else if (!strncmp(fac, SYSTEM_RESERVED, SYSTEM_RESERVED_LEN))
 	{
 		/* only UID 0 may use "com.apple.system" */
-		if (uid != 0) asl_set(msg, ASL_KEY_FACILITY, FACILITY_USER);
+		if (uid != 0) asl_msg_set_key_val(msg, ASL_KEY_FACILITY, FACILITY_USER);
 	}
 
 	/*
@@ -392,17 +425,17 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	 */
 	if (source == SOURCE_KERN)
 	{
-		asl_set(msg, ASL_KEY_READ_UID, "0");
-		asl_set(msg, ASL_KEY_READ_GID, "80");
+		asl_msg_set_key_val(msg, ASL_KEY_READ_UID, "0");
+		asl_msg_set_key_val(msg, ASL_KEY_READ_GID, "80");
 	}
 	else
 	{
-		ruval = asl_get(msg, ASL_KEY_READ_UID);
-		rgval = asl_get(msg, ASL_KEY_READ_GID);
+		ruval = asl_msg_get_val_for_key(msg, ASL_KEY_READ_UID);
+		rgval = asl_msg_get_val_for_key(msg, ASL_KEY_READ_GID);
 
 		if ((ruval == NULL) && (rgval == NULL))
 		{
-			asl_set(msg, ASL_KEY_READ_GID, "80");
+			asl_msg_set_key_val(msg, ASL_KEY_READ_GID, "80");
 		}
 	}
 
@@ -410,14 +443,14 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	if ((!strcmp(fac, "com.apple.system.utmpx")) || (!strcmp(fac, "com.apple.system.lastlog")))
 	{
 		snprintf(buf, sizeof(buf), "%lu", tick + global.utmp_ttl);
-		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
+		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
 	/* Set DB Expire Time for Filesystem errors */
 	if (!strcmp(fac, FSLOG_VAL_FACILITY))
 	{
 		snprintf(buf, sizeof(buf), "%lu", tick + FS_TTL_SEC);
-		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
+		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
 	/*
@@ -433,7 +466,7 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 }
 
 void
-list_append_msg(asl_search_result_t *list, aslmsg msg)
+list_append_msg(asl_msg_list_t *list, asl_msg_t *msg)
 {
 	if (list == NULL) return;
 	if (msg == NULL) return;
@@ -481,18 +514,19 @@ init_globals(void)
 	global.launchd_enabled = 1;
 
 #if TARGET_OS_EMBEDDED
-	global.dbtype = DB_TYPE_MINI;
+	global.dbtype = DB_TYPE_MEMORY;
 #else
 	global.dbtype = DB_TYPE_FILE;
 #endif
 	global.db_file_max = DEFAULT_DB_FILE_MAX;
 	global.db_memory_max = DEFAULT_DB_MEMORY_MAX;
-	global.db_mini_max = DEFAULT_DB_MINI_MAX;
+	global.db_memory_str_max = DEFAULT_DB_MEMORY_STR_MAX;
 	global.mps_limit = DEFAULT_MPS_LIMIT;
 	global.remote_delay_time = DEFAULT_REMOTE_DELAY;
 	global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
 	global.mark_time = DEFAULT_MARK_SEC;
 	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
+	global.max_work_queue_size = DEFAULT_WORK_QUEUE_SIZE_MAX;
 
 	global.asl_out_module = asl_out_module_init();
 	OSSpinLockUnlock(&global.lock);
@@ -609,6 +643,14 @@ control_set_param(const char *s, bool eval)
 		else global.mps_limit = DEFAULT_MPS_LIMIT;
 		OSSpinLockUnlock(&global.lock);
 	}
+	else if (!strcasecmp(l[0], "max_work_queue_size"))
+	{
+		/* = max_work_queue_size number */
+		OSSpinLockLock(&global.lock);
+		if (eval) global.max_work_queue_size = (int64_t)atoll(l[1]);
+		else global.max_work_queue_size = DEFAULT_WORK_QUEUE_SIZE_MAX;
+		OSSpinLockUnlock(&global.lock);
+	}
 	else if (!strcasecmp(l[0], "max_file_size"))
 	{
 		/* = max_file_size bytes */
@@ -633,7 +675,7 @@ control_set_param(const char *s, bool eval)
 			v32a = 0;
 			v32b = 0;
 			v32c = 0;
-			
+
 			if ((l[1][0] >= '0') && (l[1][0] <= '9'))
 			{
 				intval = atoi(l[1]);
@@ -651,31 +693,26 @@ control_set_param(const char *s, bool eval)
 				intval = DB_TYPE_MEMORY;
 				if ((count >= 3) && (strcmp(l[2], "-"))) v32b = atoi(l[2]);
 			}
-			else if (!strncasecmp(l[1], "min", 3))
-			{
-				intval = DB_TYPE_MINI;
-				if ((count >= 3) && (strcmp(l[2], "-"))) v32c = atoi(l[2]);
-			}
 			else
 			{
 				free_string_list(l);
 				return -1;
 			}
-			
+
 			if (v32a == 0) v32a = global.db_file_max;
 			if (v32b == 0) v32b = global.db_memory_max;
-			if (v32c == 0) v32c = global.db_mini_max;
-			
+			if (v32c == 0) v32c = global.db_memory_str_max;
+
 			config_data_store(intval, v32a, v32b, v32c);
 		}
 		else
 		{
 #if TARGET_OS_EMBEDDED
-			intval = DB_TYPE_MINI;
+			intval = DB_TYPE_MEMORY;
 #else
 			intval = DB_TYPE_FILE;
 #endif
-			config_data_store(intval, DEFAULT_DB_FILE_MAX, DEFAULT_DB_MEMORY_MAX, DEFAULT_DB_MINI_MAX);
+			config_data_store(intval, DEFAULT_DB_FILE_MAX, DEFAULT_DB_MEMORY_MAX, DEFAULT_DB_MEMORY_STR_MAX);
 		}
 	}
 
@@ -684,9 +721,9 @@ control_set_param(const char *s, bool eval)
 }
 
 static int
-control_message(aslmsg msg)
+control_message(asl_msg_t *msg)
 {
-	const char *str = asl_get(msg, ASL_KEY_MSG);
+	const char *str = asl_msg_get_val_for_key(msg, ASL_KEY_MSG);
 
 	if (str == NULL) return 0;
 
@@ -712,10 +749,48 @@ control_message(aslmsg msg)
 }
 
 void
-process_message(aslmsg msg, uint32_t source)
+process_message(asl_msg_t *msg, uint32_t source)
 {
+	int64_t msize = 0;
+	static bool wq_draining = false;
+	bool is_control = false;
+	asl_msg_t *x;
+
 	if (msg == NULL) return;
 
+	is_control = asl_check_option(msg, ASL_OPT_CONTROL) != 0;
+
+	if ((!is_control) && wq_draining)
+	{
+		if (global.work_queue_size >= (global.max_work_queue_size / 2))
+		{
+			asldebug("Work queue draining: dropped message.\n");
+			asl_msg_release(msg);
+			return;
+		}
+		else
+		{
+			asldebug("Work queue re-enabled at 1/2 max.  size %llu  max %llu\n", global.work_queue_size, global.max_work_queue_size);
+			wq_draining = false;
+		}
+	}
+
+	for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
+
+	if ((global.work_queue_size + msize) >= global.max_work_queue_size)
+	{
+		char *str = NULL;
+
+		wq_draining = true;
+		asl_msg_release(msg);
+
+		asldebug("Work queue disabled.  msize %llu  size %llu  max %llu\n", msize, global.work_queue_size + msize, global.max_work_queue_size);
+		asprintf(&str, "[Sender syslogd] [Level 2] [PID %u] [Message Internal work queue size limit exceeded - dropping messages] [UID 0] [UID 0] [Facility syslog]", global.pid);
+		msg = asl_msg_from_string(str);
+		free(str);
+	}
+
+	OSAtomicAdd64(msize, &global.work_queue_size);
 	OSAtomicIncrement32(&global.work_queue_count);
 	dispatch_async(global.work_queue, ^{
 		int32_t kplevel;
@@ -740,7 +815,7 @@ process_message(aslmsg msg, uint32_t source)
 				notify_post(kern_notify_key[kplevel]);
 			}
 
-			if ((uid == 0) && asl_check_option(msg, ASL_OPT_CONTROL)) control_message(msg);
+			if ((uid == 0) && is_control) control_message(msg);
 
 			/* send message to output modules */
 			asl_out_message(msg);
@@ -749,7 +824,9 @@ process_message(aslmsg msg, uint32_t source)
 #endif
 		}
 
-		asl_free(msg);
+		asl_msg_release(msg);
+
+		OSAtomicAdd64(-1ll * msize, &global.work_queue_size);
 		OSAtomicDecrement32(&global.work_queue_count);
 	});
 }
@@ -757,16 +834,44 @@ process_message(aslmsg msg, uint32_t source)
 int
 internal_log_message(const char *str)
 {
-	aslmsg msg;
+	asl_msg_t *msg;
 
 	if (str == NULL) return 1;
 
-	msg = (aslmsg)asl_msg_from_string(str);
+	msg = asl_msg_from_string(str);
 	if (msg == NULL) return 1;
 
 	process_message(msg, SOURCE_INTERNAL);
 
 	return 0;
+}
+
+void
+trigger_aslmanager()
+{
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (aslmanager_triggered == 0)
+		{
+			aslmanager_triggered = 1;
+
+			time_t now = time(0);
+			if ((now - global.aslmanager_last_trigger) >= ASLMANAGER_DELAY)
+			{
+				global.aslmanager_last_trigger = now;
+				asl_trigger_aslmanager();
+				aslmanager_triggered = 0;
+			}
+			else
+			{
+				uint64_t delta = ASLMANAGER_DELAY - (now - global.aslmanager_last_trigger);
+				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+					global.aslmanager_last_trigger = time(0);
+					asl_trigger_aslmanager();
+					aslmanager_triggered = 0;
+				});
+			}
+		}
+	});
 }
 
 int
@@ -800,14 +905,14 @@ asl_mark(void)
 	free(str);
 }
 
-aslmsg 
+asl_msg_t *
 asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 {
 	int pf, pri, index, n;
 	char *p, *colon, *brace, *space, *tmp, *tval, *hval, *sval, *pval, *mval;
 	char prival[8];
 	const char *fval;
-	aslmsg msg;
+	asl_msg_t *msg;
 	struct tm time;
 	time_t tick;
 
@@ -815,6 +920,8 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 	if (len <= 0) return NULL;
 
 	pri = LOG_DEBUG;
+	if (source == SOURCE_KERN) pri = LOG_NOTICE;
+
 	tval = NULL;
 	hval = NULL;
 	sval = NULL;
@@ -871,7 +978,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 		memcpy(tmp, p, 15);
 		tmp[15] = '\0';
 
-		tick = asl_parse_time(tmp);
+		tick = asl_core_parse_time(tmp, NULL);
 		if (tick == (time_t)-1)
 		{
 			tval = tmp;
@@ -890,12 +997,12 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 	/* stop here for kernel messages */
 	if (source == SOURCE_KERN)
 	{
-		msg = asl_new(ASL_TYPE_MSG);
+		msg = asl_msg_new(ASL_TYPE_MSG);
 		if (msg == NULL) return NULL;
 
-		asl_set(msg, ASL_KEY_MSG, p);
-		asl_set(msg, ASL_KEY_LEVEL, prival);
-		asl_set(msg, ASL_KEY_PID, "0");
+		asl_msg_set_key_val(msg, ASL_KEY_MSG, p);
+		asl_msg_set_key_val(msg, ASL_KEY_LEVEL, prival);
+		asl_msg_set_key_val(msg, ASL_KEY_PID, "0");
 
 		return msg;
 	}
@@ -973,61 +1080,61 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 
 	if (fval == NULL) fval = asl_syslog_faciliy_num_to_name(LOG_USER);
 
-	msg = asl_new(ASL_TYPE_MSG);
+	msg = asl_msg_new(ASL_TYPE_MSG);
 	if (msg == NULL) return NULL;
 
 	if (tval != NULL)
 	{
-		asl_set(msg, ASL_KEY_TIME, tval);
+		asl_msg_set_key_val(msg, ASL_KEY_TIME, tval);
 		free(tval);
 	}
 
-	if (fval != NULL) asl_set(msg, "Facility", fval);
-	else asl_set(msg, "Facility", "user");
+	if (fval != NULL) asl_msg_set_key_val(msg, "Facility", fval);
+	else asl_msg_set_key_val(msg, "Facility", "user");
 
 	if (sval != NULL)
 	{
-		asl_set(msg, ASL_KEY_SENDER, sval);
+		asl_msg_set_key_val(msg, ASL_KEY_SENDER, sval);
 		free(sval);
 	}
 
 	if (pval != NULL)
 	{
-		asl_set(msg, ASL_KEY_PID, pval);
+		asl_msg_set_key_val(msg, ASL_KEY_PID, pval);
 		free(pval);
 	}
 	else
 	{
-		asl_set(msg, ASL_KEY_PID, "-1");
+		asl_msg_set_key_val(msg, ASL_KEY_PID, "-1");
 	}
 
 	if (mval != NULL)
 	{
-		asl_set(msg, ASL_KEY_MSG, mval);
+		asl_msg_set_key_val(msg, ASL_KEY_MSG, mval);
 		free(mval);
 	}
 
-	asl_set(msg, ASL_KEY_LEVEL, prival);
-	asl_set(msg, ASL_KEY_UID, "-2");
-	asl_set(msg, ASL_KEY_GID, "-2");
+	asl_msg_set_key_val(msg, ASL_KEY_LEVEL, prival);
+	asl_msg_set_key_val(msg, ASL_KEY_UID, "-2");
+	asl_msg_set_key_val(msg, ASL_KEY_GID, "-2");
 
 	if (hval != NULL)
 	{
-		asl_set(msg, ASL_KEY_HOST, hval);
+		asl_msg_set_key_val(msg, ASL_KEY_HOST, hval);
 		free(hval);
 	}
 	else if (rhost != NULL)
 	{
-		asl_set(msg, ASL_KEY_HOST, rhost);
+		asl_msg_set_key_val(msg, ASL_KEY_HOST, rhost);
 	}
 
 	return msg;
 }
 
-aslmsg 
+asl_msg_t *
 asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 {
-	aslmsg msg;
+	asl_msg_t *msg;
 	int status, x, legacy, off;
 
 	asldebug("asl_input_parse: %s\n", (in == NULL) ? "NULL" : in);
@@ -1057,10 +1164,10 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 	off = 11;
 	if (in[0] == '[') off = 0;
 
-	msg = (aslmsg)asl_msg_from_string(in + off);
+	msg = asl_msg_from_string(in + off);
 	if (msg == NULL) return NULL;
 
-	if (rhost != NULL) asl_set(msg, ASL_KEY_HOST, rhost);
+	if (rhost != NULL) asl_msg_set_key_val(msg, ASL_KEY_HOST, rhost);
 
 	return msg;
 }
@@ -1069,7 +1176,7 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 void
 launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t sender_uid, gid_t sender_gid, int priority, const char *from_name, const char *about_name, const char *session_name, const char *msg)
 {
-	aslmsg m;
+	asl_msg_t *m;
 	char str[256];
 	time_t now;
 
@@ -1080,7 +1187,7 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	when->tv_sec, when->tv_usec, from_pid, about_pid, sender_uid, sender_gid, priority, from_name, about_name, session_name, msg);
 */
 
-	m = asl_new(ASL_TYPE_MSG);
+	m = asl_msg_new(ASL_TYPE_MSG);
 	if (m == NULL) return;
 
 	/* Level */
@@ -1088,60 +1195,60 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	if (priority > ASL_LEVEL_DEBUG) priority = ASL_LEVEL_DEBUG;
 	snprintf(str, sizeof(str), "%d", priority);
 
-	asl_set(m, ASL_KEY_LEVEL, str);
+	asl_msg_set_key_val(m, ASL_KEY_LEVEL, str);
 
 	/* Time */
 	if (when != NULL)
 	{
 		snprintf(str, sizeof(str), "%lu", when->tv_sec);
-		asl_set(m, ASL_KEY_TIME, str);
+		asl_msg_set_key_val(m, ASL_KEY_TIME, str);
 
 		snprintf(str, sizeof(str), "%lu", 1000 * (unsigned long int)when->tv_usec);
-		asl_set(m, ASL_KEY_TIME_NSEC, str);
+		asl_msg_set_key_val(m, ASL_KEY_TIME_NSEC, str);
 	}
 	else
 	{
 		now = time(NULL);
 		snprintf(str, sizeof(str), "%lu", now);
-		asl_set(m, ASL_KEY_TIME, str);
+		asl_msg_set_key_val(m, ASL_KEY_TIME, str);
 	}
 
 	/* Facility */
-	asl_set(m, ASL_KEY_FACILITY, FACILITY_CONSOLE);
+	asl_msg_set_key_val(m, ASL_KEY_FACILITY, FACILITY_CONSOLE);
 
 	/* UID */
 	snprintf(str, sizeof(str), "%u", (unsigned int)sender_uid);
-	asl_set(m, ASL_KEY_UID, str);
+	asl_msg_set_key_val(m, ASL_KEY_UID, str);
 
 	/* GID */
 	snprintf(str, sizeof(str), "%u", (unsigned int)sender_gid);
-	asl_set(m, ASL_KEY_GID, str);
+	asl_msg_set_key_val(m, ASL_KEY_GID, str);
 
 	/* PID */
 	if (from_pid != 0)
 	{
 		snprintf(str, sizeof(str), "%u", (unsigned int)from_pid);
-		asl_set(m, ASL_KEY_PID, str);
+		asl_msg_set_key_val(m, ASL_KEY_PID, str);
 	}
 
 	/* Reference PID */
 	if ((about_pid > 0) && (about_pid != from_pid))
 	{
 		snprintf(str, sizeof(str), "%u", (unsigned int)about_pid);
-		asl_set(m, ASL_KEY_REF_PID, str);
+		asl_msg_set_key_val(m, ASL_KEY_REF_PID, str);
 	}
 
 	/* Sender */
 	if (from_name != NULL)
 	{
-		asl_set(m, ASL_KEY_SENDER, from_name);
+		asl_msg_set_key_val(m, ASL_KEY_SENDER, from_name);
 	}
 
 	/* ReadUID */
 	if (sender_uid != 0)
 	{
 		snprintf(str, sizeof(str), "%d", (int)sender_uid);
-		asl_set(m, ASL_KEY_READ_UID, str);
+		asl_msg_set_key_val(m, ASL_KEY_READ_UID, str);
 	}
 
 	/* Reference Process */
@@ -1149,20 +1256,20 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	{
 		if ((from_name != NULL) && (strcmp(from_name, about_name) != 0))
 		{
-			asl_set(m, ASL_KEY_REF_PROC, about_name);
+			asl_msg_set_key_val(m, ASL_KEY_REF_PROC, about_name);
 		}
 	}
 
 	/* Session */
 	if (session_name != NULL)
 	{
-		asl_set(m, ASL_KEY_SESSION, session_name);
+		asl_msg_set_key_val(m, ASL_KEY_SESSION, session_name);
 	}
 
 	/* Message */
 	if (msg != NULL)
 	{
-		asl_set(m, ASL_KEY_MSG, msg);
+		asl_msg_set_key_val(m, ASL_KEY_MSG, msg);
 	}
 
 	process_message(m, SOURCE_LAUNCHD);

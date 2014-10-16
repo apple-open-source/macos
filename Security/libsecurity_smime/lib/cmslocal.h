@@ -49,6 +49,7 @@
 
 extern const SecAsn1Template SecCmsIssuerAndSNTemplate[];
 extern const SecAsn1Template SecCmsContentInfoTemplate[];
+extern const SecAsn1Template *nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate);
 
 /************************************************************************/
 SEC_BEGIN_PROTOS
@@ -88,8 +89,8 @@ SecCmsCipherContextDestroy(SecCmsCipherContextRef cc);
  * we see the data we do not know how many padding bytes there are
  * (always between 1 and bsize).
  */
-extern size_t
-SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final);
+extern unsigned int
+SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final);
 
 /*
  * SecCmsCipherContextEncryptLength - find the output length of the next call to encrypt.
@@ -100,8 +101,8 @@ SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Bo
  *
  * Result can be used to perform memory allocations.
  */
-extern size_t
-SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final);
+extern unsigned int
+SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final);
 
 /*
  * SecCmsCipherContextDecrypt - do the decryption
@@ -122,8 +123,8 @@ SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Bo
  */ 
 extern OSStatus
 SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  size_t *output_len_p, size_t max_output_len,
-		  const unsigned char *input, size_t input_len,
+		  unsigned int *output_len_p, unsigned int max_output_len,
+		  const unsigned char *input, unsigned int input_len,
 		  Boolean final);
 
 /*
@@ -145,8 +146,8 @@ SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 extern OSStatus
 SecCmsCipherContextEncrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  size_t *output_len_p, size_t max_output_len,
-		  const unsigned char *input, size_t input_len,
+		  unsigned int *output_len_p, unsigned int max_output_len,
+		  const unsigned char *input, unsigned int input_len,
 		  Boolean final);
 
 /************************************************************************
@@ -162,12 +163,12 @@ SecCmsCipherContextEncrypt(SecCmsCipherContextRef cc, unsigned char *output,
 extern OSStatus
 SecCmsUtilEncryptSymKeyRSA(PLArenaPool *poolp, SecCertificateRef cert,
                               SecSymmetricKeyRef key,
-                              CSSM_DATA_PTR encKey);
+                              SecAsn1Item * encKey);
 
 extern OSStatus
 SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
                                     SecPublicKeyRef publickey,
-                                    SecSymmetricKeyRef bulkkey, CSSM_DATA_PTR encKey);
+                                    SecSymmetricKeyRef bulkkey, SecAsn1Item * encKey);
 
 /*
  * SecCmsUtilDecryptSymKeyRSA - unwrap a RSA-wrapped symmetric key
@@ -177,33 +178,24 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
  * a hardware token...
  */
 extern SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyRSA(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
-
-extern OSStatus
-SecCmsUtilEncryptSymKeyECDH(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
-			CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm, SECAlgorithmID *keyEncAlg,
-			CSSM_DATA_PTR originatorPubKey);
-
-extern SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyECDH(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm,
-    SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, CSSM_DATA_PTR pubKey);
+SecCmsUtilDecryptSymKeyRSA(SecPrivateKeyRef privkey, SecAsn1Item * encKey, SECOidTag bulkalgtag);
 
 #if 0
 extern OSStatus
 SecCmsUtilEncryptSymKeyMISSI(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
-			SECOidTag symalgtag, CSSM_DATA_PTR encKey, CSSM_DATA_PTR *pparams, void *pwfn_arg);
+			SECOidTag symalgtag, SecAsn1Item * encKey, SecAsn1Item * *pparams, void *pwfn_arg);
 
 extern SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyMISSI(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey,
+SecCmsUtilDecryptSymKeyMISSI(SecPrivateKeyRef privkey, SecAsn1Item * encKey,
 			SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, void *pwfn_arg);
 
 extern OSStatus
 SecCmsUtilEncryptSymKeyESDH(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
-			CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm, SECAlgorithmID *keyEncAlg,
-			CSSM_DATA_PTR originatorPubKey);
+			SecAsn1Item * encKey, SecAsn1Item * *ukm, SECAlgorithmID *keyEncAlg,
+			SecAsn1Item * originatorPubKey);
 
 extern SecSymmetricKeyRef
-SecCmsUtilDecryptSymKeyESDH(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey,
+SecCmsUtilDecryptSymKeyESDH(SecPrivateKeyRef privkey, SecAsn1Item * encKey,
 			SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, void *pwfn_arg);
 #endif
 
@@ -264,13 +256,13 @@ SecCmsArraySort(void **primary, int (*compare)(void *,void *), void **secondary,
  * with SecCmsAttributeAddValue.
  */
 extern SecCmsAttribute *
-SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, CSSM_DATA_PTR value, Boolean encoded);
+SecCmsAttributeCreate(PRArenaPool *poolp, SECOidTag oidtag, SecAsn1Item * value, Boolean encoded);
 
 /*
  * SecCmsAttributeAddValue - add another value to an attribute
  */
 extern OSStatus
-SecCmsAttributeAddValue(PLArenaPool *poolp, SecCmsAttribute *attr, CSSM_DATA_PTR value);
+SecCmsAttributeAddValue(PLArenaPool *poolp, SecCmsAttribute *attr, SecAsn1Item * value);
 
 /*
  * SecCmsAttributeGetType - return the OID tag
@@ -285,14 +277,14 @@ SecCmsAttributeGetType(SecCmsAttribute *attr);
  * - Multiple values are *not* expected.
  * - Empty values are *not* expected.
  */
-extern CSSM_DATA_PTR
+extern SecAsn1Item *
 SecCmsAttributeGetValue(SecCmsAttribute *attr);
 
 /*
  * SecCmsAttributeCompareValue - compare the attribute's first value against data
  */
 extern Boolean
-SecCmsAttributeCompareValue(SecCmsAttribute *attr, CSSM_DATA_PTR av);
+SecCmsAttributeCompareValue(SecCmsAttribute *attr, SecAsn1Item * av);
 
 /*
  * SecCmsAttributeArrayEncode - encode an Attribute array as SET OF Attributes
@@ -303,8 +295,8 @@ SecCmsAttributeCompareValue(SecCmsAttribute *attr, CSSM_DATA_PTR av);
  * and think long and hard about the implications of making it always
  * do the reordering.)
  */
-extern CSSM_DATA_PTR
-SecCmsAttributeArrayEncode(PRArenaPool *poolp, SecCmsAttribute ***attrs, CSSM_DATA_PTR dest);
+extern SecAsn1Item *
+SecCmsAttributeArrayEncode(PRArenaPool *poolp, SecCmsAttribute ***attrs, SecAsn1Item * dest);
 
 /*
  * SecCmsAttributeArrayReorder - sort attribute array by attribute's DER encoding
@@ -338,7 +330,7 @@ SecCmsAttributeArrayAddAttr(PLArenaPool *poolp, SecCmsAttribute ***attrs, SecCms
  * SecCmsAttributeArraySetAttr - set an attribute's value in a set of attributes
  */
 extern OSStatus
-SecCmsAttributeArraySetAttr(PLArenaPool *poolp, SecCmsAttribute ***attrs, SECOidTag type, CSSM_DATA_PTR value, Boolean encoded);
+SecCmsAttributeArraySetAttr(PLArenaPool *poolp, SecCmsAttribute ***attrs, SECOidTag type, SecAsn1Item * value, Boolean encoded);
 
 /************************************************************************/
 SEC_END_PROTOS

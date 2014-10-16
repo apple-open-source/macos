@@ -32,7 +32,6 @@
 #include "PutDirectIndexMode.h"
 #include "WriteBarrier.h"
 #include <wtf/HashMap.h>
-#include <wtf/Platform.h>
 
 namespace JSC {
 
@@ -44,7 +43,7 @@ struct SparseArrayEntry : public WriteBarrier<Unknown> {
     SparseArrayEntry() : attributes(0) { }
 
     JSValue get(ExecState*, JSObject*) const;
-    void get(PropertySlot&) const;
+    void get(JSObject*, PropertySlot&) const;
     void get(PropertyDescriptor&) const;
     void put(ExecState*, JSValue thisValue, SparseArrayValueMap*, JSValue, bool shouldThrow);
     JSValue getNonSparseMode() const;
@@ -57,7 +56,7 @@ public:
     typedef JSCell Base;
     
 private:
-    typedef HashMap<uint64_t, SparseArrayEntry, WTF::IntHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t> > Map;
+    typedef HashMap<uint64_t, SparseArrayEntry, WTF::IntHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> Map;
 
     enum Flags {
         Normal = 0,
@@ -70,10 +69,10 @@ private:
     
     void finishCreation(VM&);
 
-    static const unsigned StructureFlags = OverridesVisitChildren | JSCell::StructureFlags;
+    static const unsigned StructureFlags = OverridesVisitChildren | StructureIsImmortal | JSCell::StructureFlags;
 
 public:
-    static JS_EXPORTDATA const ClassInfo s_info;
+    DECLARE_EXPORT_INFO;
     
     typedef Map::iterator iterator;
     typedef Map::const_iterator const_iterator;

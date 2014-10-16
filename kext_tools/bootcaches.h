@@ -49,7 +49,6 @@
 // bootcaches.plist and keys
 
 #define kBootCachesPath             "/usr/standalone/bootcaches.plist"
-#define kBootCachesDisabledPath "/usr/standalone/bootcaches-cachesonly.plist"
 #define kBCPreBootKey               CFSTR("PreBootPaths")    // dict
 #define kBCLabelKey                 CFSTR("DiskLabel")       // ".disk_label"
 #define kBCBootersKey               CFSTR("BooterPaths")     // dict
@@ -61,20 +60,25 @@
 #define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
 #define kBCKernelcacheV2Key         CFSTR("Kernelcache v1.2")// dict
 #define kBCKernelcacheV3Key         CFSTR("Kernelcache v1.3")// dict
-#define kBCKernelPathKey            CFSTR("KernelPath")      // path string
-#define kBCArchsKey                 CFSTR("Archs")           //   ar: ppc, i386
-#define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   ar: /S/L/E & /L/E
-#define kBCPathKey                  CFSTR("Path")            //   path to cache
+#define kBCKernelPathKey            CFSTR("KernelPath")      //   m_k | kernel
+#define kBCPreferredCompressionKey  CFSTR("Preferred Compression") // "lzvn"
+#if DEV_KERNEL_SUPPORT
+#define kBCKernelsDirKey            CFSTR("KernelsDir")      //   S/L/Kernels
+#endif
+#define kBCArchsKey                 CFSTR("Archs")           //   ... i386
+#define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E, /L/E
+#define kBCPathKey                  CFSTR("Path")            //   ...kernelcache
 // AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
 #define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
-#define kBCBootConfigKey            CFSTR("BootConfig")      // path to plist
+#define kBCBootConfigKey            CFSTR("BootConfig")      // bc.plist
 #define kBCEncryptedRootKey         CFSTR("EncryptedRoot")   // dict
 #define kBCCSFDEPropertyCacheKey    CFSTR("EncryptedPropertyCache") // .wipekey
 #define kBCCSFDERootVolPropCacheKey CFSTR("RootVolumePropertyCache")//A_B only?
 #define kBCCSFDEDefResourcesDirKey  CFSTR("DefaultResourcesDir") // EfiLoginUI
 #define kBCCSFDELocalizationSrcKey  CFSTR("LocalizationSource")  // EFI.fr/Res
-#define kBCCSFDELanguagesPrefKey    CFSTR("LanguagesPref")  // .Global...
-#define kBCCSFDELocRsrcsCacheKey    CFSTR("LocalizedResourcesCache") // EFILogLocs
+#define kBCCSFDELanguagesPrefKey    CFSTR("LanguagesPref")   //   .GlobalPrefs
+#define kBCCSFDEBackgroundImageKey  CFSTR("BackgroundImage") //   desktop..png
+#define kBCCSFDELocRsrcsCacheKey    CFSTR("LocalizedResourcesCache") // EFILocs
 
 
 typedef enum {
@@ -107,11 +111,14 @@ struct bootCaches {
     CFDictionaryRef cacheinfo;  // raw BootCaches.plist data (for archs, etc)
     struct timespec bcTime;     // cache the timestamp of bootcaches.plist
 
-    char kernel[BCPATH_MAX];    // /Volumes/foo/mach_kernel (watch only)
+    char kernelpath[BCPATH_MAX]; // path to kernel file (watch only)
+                                 // <= 10.9 - /Volumes/foo/mach_kernel
+                                 // > 10.9 - /Volumes/foo/System/Library/Kernels/kernel
     int  nexts;                 // number of extensions directory paths
     char *exts;                 // null terminated extensions dir paths 
     char locSource[BCPATH_MAX]; // only EFILogin.framework/Resources for now
-    char locPref[BCPATH_MAX];   // /L/P/.GlabalPreferences
+    char locPref[BCPATH_MAX];   // /L/P/.GlobalPreferences
+    char bgImage[BCPATH_MAX];   // /L/Caches/com.apple.desktop.admin.png
     unsigned nrps;              // number of RPS paths in Apple_Boot
     cachedPath *rpspaths;       // e.g. mkext, kernel, Boot.plist 
     unsigned nmisc;             // "other" files (non-critical)
@@ -120,22 +127,33 @@ struct bootCaches {
     cachedPath ofbooter;        // (we have to bless them, etc)
 
     // pointers to special watched paths (stored in arrays above)
-    cachedPath *kext_boot_cache_file;     // -> mkext or kernelcache
+    cachedPath *kext_boot_cache_file;     // -> kernelcache
     cachedPath *bootconfig;     // -> .../L/Prefs/SC/com.apple.Boot.plist
     cachedPath *efidefrsrcs;    // -> usr/standalone/i386/EfiLoginUI
     cachedPath *efiloccache;    // -> ...Caches/../EFILoginLocalizations
     cachedPath *label;          // -> .../S/L/CS/.disk_label (in miscPaths)
     cachedPath *erpropcache;    // crypto metadata gets special treatment
     Boolean erpropTSOnly;       // whether props expected in root fsys
+#if DEV_KERNEL_SUPPORT
+    int kernelsCount;           // count of valid kernels in /System/Library/Kernels
+                                // This will be 0 for volumes that do not support
+                                // /System/Library/Kernels/.
+    int nekcp;                          // number of extraKernelCachePaths
+    cachedPath *extraKernelCachePaths;  // kernelcache files with suffix, may be NULL
+#endif
 };
 /* use sizeof() to get it the right bounds */
 #undef TSPATH_MAX
 #undef BCPATH_MAX
 #undef ROOTPATH_MAX
 
-// inspectors
+// check and tweak Boot!=Root status
 Boolean hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
                          CFArrayRef *dataPartsCopy, Boolean *isAPM);
+Boolean notBRDefault(const char *mount, const char *subdir);
+int markNotBRDefault(int scopefd, const char *mount, const char* subdir,
+                     Boolean marking);
+
 // Everything except vol_path is optional.
 // If specified, vol_bsd must point to at least DEVMAXPATHSIZE bytes.
 // If specified, vol_name must point to at least NAME_MAX bytes.
@@ -144,6 +162,7 @@ Boolean hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
 int copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid,
                    CFStringRef *cslvf_uuid, char vol_bsd[DEVMAXPATHSIZE],
                    char vol_name[NAME_MAX]);
+
 // no CSFDE data => encContext = NULL, timeStamp = 0LL;
 int copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *encContext,
                    time_t *timeStamp);
@@ -153,16 +172,25 @@ int copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *encContext,
 struct bootCaches* readBootCaches(char *volRoot, BRUpdateOpts_t opts);
 // and kextd
 struct bootCaches* readBootCachesForDADisk(DADiskRef dadisk);   // kextd
+// (Warning: these will create S/L/Caches/bootstamps if missing.)
 
 void destroyCaches(struct bootCaches *caches);
 DADiskRef createDiskForMount(DASessionRef session, const char *mount);
 
-// "stat" a cachedPath, returning out-of-date & setting tstamp; logs errors
-// (currently only used in bootcaches.c)
-Boolean needsUpdate(char *root, cachedPath* cpath);
-// check all cached paths w/needsUpdate (exts/mkext not checked)
-Boolean needUpdates(struct bootCaches *caches, Boolean *rps, 
-                    Boolean *booters, Boolean *misc, OSKextLogSpec oodLogSpec);
+// Check all cached paths vs. bootstamps
+Boolean needUpdates(struct bootCaches *caches, BRUpdateOpts_t opts,
+                    Boolean *rps, Boolean *booters, Boolean *misc,
+                    OSKextLogSpec oodLogSpec);
+
+/* When copying non-default content to a helper partition,
+   taintDefaultStamps() finds and taints any online volumes that own the
+   helper.  Once tainted, kextcache -u (called through Disk Management
+   by Startup Disk and the Installer) will notice that the helper contents
+   need to be replaced and will restore the volume and helper back to the
+   default configuration.  kextd ignores the taint in its checks, but if
+   something else changes, the kextcache -u launched by kextd *will*
+   notice the taint and copy everything instead of only what changed. */
+int taintDefaultStamps(CFStringRef targetBSD);
 
 // update the bootstamp files from the tstamps stored in the bootCaches struct
 #define kBCStampsUnlinkOnly 0           // updateStamps always unlinks
@@ -180,7 +208,7 @@ int rebuild_kext_boot_cache_file(
     struct bootCaches *caches,
     Boolean wait,
     const char * cache_path,
-    const char * kernel_path);
+    const char * kernel_file);
 
 // check/rebuild CSFDE caches
 Boolean check_csfde(struct bootCaches *caches);

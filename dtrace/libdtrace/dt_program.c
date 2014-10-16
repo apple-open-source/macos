@@ -165,10 +165,8 @@ dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 		return (-1);
 
 	n = dt_ioctl(dtp, DTRACEIOC_ENABLE, dof);
-#if defined(__APPLE__)
         if (n == -1 && (errno & 0xfffff000))
                 n = (((unsigned int)errno) >> 12); /* Darwin's ioctls only return -1 or zero. Overload errno to mimic Solaris. */
-#endif /* __APPLE__ */	
 	dtrace_dof_destroy(dtp, dof);
 
 	if (n == -1) {
@@ -434,11 +432,6 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	fname = alloca(strlen(prp->pr_name) + 1 + i);
 	dt_header_fmt_func(fname, prp->pr_name);
 
-#if !defined(__APPLE__)
-	if (fprintf(infop->dthi_out, "extern void __dtrace_%s___%s(",
-	    infop->dthi_pfname, fname) < 0)
-		return (dt_set_errno(dtp, errno));
-#else
 	char* probe;
 	
 	if ((probe = dt_ld_encode_probe(infop->dthi_pfname, fname, prp)) == NULL)
@@ -446,21 +439,13 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	
 	if (fprintf(infop->dthi_out, "extern void %s(", probe) < 0)
 		return (dt_set_errno(dtp, errno));
-#endif
 	
 	for (dnp = prp->pr_nargs, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
-#if !defined(__APPLE__)
-		if (fprintf(infop->dthi_out, "%s",
-		    ctf_type_name(dnp->dn_ctfp, dnp->dn_type,
-		    buf, sizeof (buf))) < 0)
-			return (dt_set_errno(dtp, errno));
-#else
 		if (fprintf(infop->dthi_out, "%s%s",
 			    dt_is_single_rank_pointer_type(dnp->dn_ctfp, dnp->dn_type) ? "const " : "",
 			    ctf_type_name(dnp->dn_ctfp, dnp->dn_type,
 					  buf, sizeof (buf))) < 0)
 			return (dt_set_errno(dtp, errno));
-#endif
 		
 		if (i + 1 != prp->pr_nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
@@ -473,16 +458,6 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	if (fprintf(infop->dthi_out, ");\n") < 0)
 		return (dt_set_errno(dtp, errno));
 
-#if !defined(__APPLE__)
-	if (fprintf(infop->dthi_out,
-	    "#ifndef\t__sparc\n"
-	    "extern int __dtraceenabled_%s___%s(void);\n"
-	    "#else\n"
-	    "extern int __dtraceenabled_%s___%s(long);\n"
-	    "#endif\n",
-	    infop->dthi_pfname, fname, infop->dthi_pfname, fname) < 0)
-		return (dt_set_errno(dtp, errno));
-#else
 	char* isenabled;
 		
 	if ((isenabled = dt_ld_encode_isenabled(infop->dthi_pfname, fname)) == NULL)
@@ -493,7 +468,6 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	
 	free(isenabled);
 	isenabled = NULL;
-#endif
 	
 	return (0);
 }
@@ -532,24 +506,13 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 			return (dt_set_errno(dtp, errno));
 	}
 	
-#if defined(__APPLE__)
 	if (fprintf(infop->dthi_out, ") \\\n") < 0)
 		return (dt_set_errno(dtp, errno));
 	
 	if (fprintf(infop->dthi_out, "do { \\\n\t") < 0)
 		return (dt_set_errno(dtp, errno));
-#endif /* __APPLE__ */
 	
 	if (!infop->dthi_empty) {
-#if !defined(__APPLE__)
-		if (fprintf(infop->dthi_out, ") \\\n\t") < 0)
-			return (dt_set_errno(dtp, errno));
-		
-		if (fprintf(infop->dthi_out, "__dtrace_%s___%s(",
-			    infop->dthi_pfname, fname) < 0)
-		return (dt_set_errno(dtp, errno));
-		
-#else		
 		if (fprintf(infop->dthi_out, "__asm__ volatile(\".reference \" %s_TYPEDEFS); \\\n\t", infop->dthi_pmname) < 0)
 			return (dt_set_errno(dtp, errno));
 
@@ -563,7 +526,6 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		
 		free(probe);
 		probe = NULL;
-#endif // __APPLE__
 
 		for (i = 0; i < prp->pr_nargc; i++) {
 			if (fprintf(infop->dthi_out, "arg%d", i) < 0)
@@ -573,7 +535,6 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 			    fprintf(infop->dthi_out, ", ") < 0)
 				return (dt_set_errno(dtp, errno));
 		}
-#if defined(__APPLE__)
 		if (fprintf(infop->dthi_out, "); \\\n\t") < 0)
 			return (dt_set_errno(dtp, errno));
 		
@@ -581,33 +542,12 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 			if (fprintf(infop->dthi_out, "__asm__ volatile(\".reference \" %s_STABILITY); \\\n", infop->dthi_pmname) < 0)
 				return (dt_set_errno(dtp, errno));
 		}
-#endif /* __APPLE__ */
 	}
 
-#if !defined(__APPLE__)
-	if (fprintf(infop->dthi_out, ")\n") < 0)
-		return (dt_set_errno(dtp, errno));
-#else	
 	if (fprintf(infop->dthi_out, "} while (0)\n") < 0)
 		return (dt_set_errno(dtp, errno));
-#endif
 	
 	if (!infop->dthi_empty) {
-#if !defined(__APPLE__)
-		if (fprintf(infop->dthi_out,
-		    "#ifndef\t__sparc\n"
-		    "#define\t%s_%s_ENABLED() \\\n"
-		    "\t__dtraceenabled_%s___%s()\n"
-		    "#else\n"
-		    "#define\t%s_%s_ENABLED() \\\n"
-		    "\t__dtraceenabled_%s___%s(0)\n"
-		    "#endif\n",
-		    infop->dthi_pmname, mname,
-		    infop->dthi_pfname, fname,
-		    infop->dthi_pmname, mname,
-		    infop->dthi_pfname, fname) < 0)
-			return (dt_set_errno(dtp, errno));
-#else
 		char* isenabled;
 
 		if (fprintf(infop->dthi_out, "#define\t%s_%s_ENABLED() \\\n",
@@ -628,7 +568,6 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		
 		free(isenabled);
 		isenabled = NULL;
-#endif
 	} else {
 		if (fprintf(infop->dthi_out, "#define\t%s_%s_ENABLED() (0)\n",
 		    infop->dthi_pmname, mname) < 0)
@@ -666,10 +605,6 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	info.dthi_pfname = alloca(strlen(pvp->pv_desc.dtvd_name) + 1 + i);
 	dt_header_fmt_func(info.dthi_pfname, pvp->pv_desc.dtvd_name);
 
-#if !defined(__APPLE__)	
-	if (fprintf(out, "#if _DTRACE_VERSION\n\n") < 0)
-		return (dt_set_errno(dtp, errno));
-#else
 	char* stability;
 	
 	if ((stability = dt_ld_encode_stability(info.dthi_pfname, pvp)) == NULL)
@@ -694,7 +629,6 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	
 	if (fprintf(out, "#if !defined(DTRACE_PROBES_DISABLED) || !DTRACE_PROBES_DISABLED\n\n") < 0)
 		return (dt_set_errno(dtp, errno));
-#endif /* __APPLE__ */
 	
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_probe, &info) != 0)
 		return (-1); /* dt_errno is set for us */

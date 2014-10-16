@@ -94,8 +94,11 @@ attributes:
 
 */
 
-#import <CoreFoundation/CoreFoundation.h>
-#import <dispatch/dispatch.h>
+#ifndef HEIMDAL_HEIMCRED_H
+#define HEIMDAL_HEIMCRED_H 1
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
 
 #define HEIMCRED_CONST(_t,_c) extern const _t _c
 #include <heimcred-const.h>
@@ -117,7 +120,7 @@ HeimCredRef
 HeimCredCopyFromUUID(CFUUIDRef);
 
 bool
-HeimCredSetAttribute(HeimCredRef cred, CFTypeRef key, CFTypeID value, CFErrorRef *error);
+HeimCredSetAttribute(HeimCredRef cred, CFTypeRef key, CFTypeRef value, CFErrorRef *error);
 
 bool
 HeimCredSetAttributes(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error);
@@ -149,6 +152,12 @@ HeimCredReleaseTransient(HeimCredRef cred);
 bool
 HeimCredMove(CFUUIDRef from, CFUUIDRef to);
 
+CFUUIDRef
+HeimCredCopyDefaultCredential(CFStringRef mech, CFErrorRef *error);
+
+CFDictionaryRef
+HeimCredCopyStatus(CFStringRef mech);
+
 CFDictionaryRef
 HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef input);
 
@@ -157,11 +166,22 @@ HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef input);
  * Only valid XPCService side
  */
 typedef CFDictionaryRef (*HeimCredAuthCallback)(HeimCredRef, CFDictionaryRef);
+typedef CFTypeRef (*HeimCredStatusCallback)(HeimCredRef);
 
 void
 _HeimCredRegisterMech(CFStringRef mech,
 		      CFSetRef publicAttributes,
-		      HeimCredAuthCallback callback);
+		      HeimCredStatusCallback statusCallback,
+		      HeimCredAuthCallback authCallback);
+
+void
+_HeimCredRegisterKerberos(void);
+
+void
+_HeimCredRegisterNTLM(void);
+
+CFMutableDictionaryRef
+_HeimCredCreateBaseSchema(CFStringRef objectType);
 
 /*
 typedef struct HeimAuth_s *HeimAuthRef;
@@ -172,3 +192,5 @@ HeimCreateAuthetication(CFDictionaryRef input);
 bool
 HeimAuthStep(HeimAuthRef cred, CFTypeRef input, CFTypeRef *output, CFErrorRef *error);
 */
+
+#endif /* HEIMDAL_HEIMCRED_H */

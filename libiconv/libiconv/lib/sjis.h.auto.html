@@ -1,0 +1,157 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>sjis.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">sjis.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/*
+ * Copyright (C) 1999-2002 Free Software Foundation, Inc.
+ * This file is part of the GNU LIBICONV Library.
+ *
+ * The GNU LIBICONV Library is free software; you can redistribute it
+ * and/or modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * The GNU LIBICONV Library is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
+ */</span>
+
+<span class="enscript-comment">/*
+ * SHIFT_JIS
+ */</span>
+
+<span class="enscript-comment">/*
+   Conversion between SJIS codes (s1,s2) and JISX0208 codes (c1,c2):
+   Example. (s1,s2) = 0x8140, (c1,c2) = 0x2121.
+   0x81 &lt;= s1 &lt;= 0x9F || 0xE0 &lt;= s1 &lt;= 0xEA,
+   0x40 &lt;= s2 &lt;= 0x7E || 0x80 &lt;= s2 &lt;= 0xFC,
+   0x21 &lt;= c1 &lt;= 0x74, 0x21 &lt;= c2 &lt;= 0x7E.
+   Invariant:
+     94*2*(s1 &lt; 0xE0 ? s1-0x81 : s1-0xC1) + (s2 &lt; 0x80 ? s2-0x40 : s2-0x41)
+     = 94*(c1-0x21)+(c2-0x21)
+   Conversion (s1,s2) -&gt; (c1,c2):
+     t1 := (s1 &lt; 0xE0 ? s1-0x81 : s1-0xC1)
+     t2 := (s2 &lt; 0x80 ? s2-0x40 : s2-0x41)
+     c1 := 2*t1 + (t2 &lt; 0x5E ? 0 : 1) + 0x21
+     c2 := (t2 &lt; 0x5E ? t2 : t2-0x5E) + 0x21
+   Conversion (c1,c2) -&gt; (s1,s2):
+     t1 := (c1 - 0x21) &gt;&gt; 1
+     t2 := ((c1 - 0x21) &amp; 1) * 0x5E + (c2 - 0x21)
+     s1 := (t1 &lt; 0x1F ? t1+0x81 : t1+0xC1)
+     s2 := (t2 &lt; 0x3F ? t2+0x40 : t2+0x41)
+ */</span>
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">sjis_mbtowc</span> (conv_t conv, ucs4_t *pwc, <span class="enscript-type">const</span> <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *s, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c = *s;
+  <span class="enscript-keyword">if</span> (c &lt; 0x80 || (c &gt;= 0xa1 &amp;&amp; c &lt;= 0xdf))
+    <span class="enscript-keyword">return</span> jisx0201_mbtowc(conv,pwc,s,n);
+  <span class="enscript-keyword">else</span> {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> s1, s2;
+    s1 = c;
+    <span class="enscript-keyword">if</span> ((s1 &gt;= 0x81 &amp;&amp; s1 &lt;= 0x9f) || (s1 &gt;= 0xe0 &amp;&amp; s1 &lt;= 0xea)) {
+      <span class="enscript-keyword">if</span> (n &lt; 2)
+        <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+      s2 = s[1];
+      <span class="enscript-keyword">if</span> ((s2 &gt;= 0x40 &amp;&amp; s2 &lt;= 0x7e) || (s2 &gt;= 0x80 &amp;&amp; s2 &lt;= 0xfc)) {
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> t1 = (s1 &lt; 0xe0 ? s1-0x81 : s1-0xc1);
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> t2 = (s2 &lt; 0x80 ? s2-0x40 : s2-0x41);
+        <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+        buf[0] = 2*t1 + (t2 &lt; 0x5e ? 0 : 1) + 0x21;
+        buf[1] = (t2 &lt; 0x5e ? t2 : t2-0x5e) + 0x21;
+        <span class="enscript-keyword">return</span> jisx0208_mbtowc(conv,pwc,buf,2);
+      }
+    } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (s1 &gt;= 0xf0 &amp;&amp; s1 &lt;= 0xf9) {
+      <span class="enscript-comment">/* User-defined range. See
+       * Ken Lunde's &quot;CJKV Information Processing&quot;, table 4-66, p. 206. */</span>
+      <span class="enscript-keyword">if</span> (n &lt; 2)
+        <span class="enscript-keyword">return</span> RET_TOOFEW(0);
+      s2 = s[1];
+      <span class="enscript-keyword">if</span> ((s2 &gt;= 0x40 &amp;&amp; s2 &lt;= 0x7e) || (s2 &gt;= 0x80 &amp;&amp; s2 &lt;= 0xfc)) {
+        *pwc = 0xe000 + 188*(s1 - 0xf0) + (s2 &lt; 0x80 ? s2-0x40 : s2-0x41);
+        <span class="enscript-keyword">return</span> 2;
+      }
+    }
+    <span class="enscript-keyword">return</span> RET_ILSEQ;
+  }
+}
+
+<span class="enscript-type">static</span> <span class="enscript-type">int</span>
+<span class="enscript-function-name">sjis_wctomb</span> (conv_t conv, <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> *r, ucs4_t wc, size_t n)
+{
+  <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[2];
+  <span class="enscript-type">int</span> ret;
+
+  <span class="enscript-comment">/* Try JIS X 0201-1976. */</span>
+  ret = jisx0201_wctomb(conv,buf,wc,1);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c;
+    <span class="enscript-keyword">if</span> (ret != 1) abort();
+    c = buf[0];
+    <span class="enscript-keyword">if</span> (c &lt; 0x80 || (c &gt;= 0xa1 &amp;&amp; c &lt;= 0xdf)) {
+      r[0] = c;
+      <span class="enscript-keyword">return</span> 1;
+    }
+  }
+
+  <span class="enscript-comment">/* Try JIS X 0208-1990. */</span>
+  ret = jisx0208_wctomb(conv,buf,wc,2);
+  <span class="enscript-keyword">if</span> (ret != RET_ILUNI) {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1, c2;
+    <span class="enscript-keyword">if</span> (ret != 2) abort();
+    <span class="enscript-keyword">if</span> (n &lt; 2)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    c1 = buf[0];
+    c2 = buf[1];
+    <span class="enscript-keyword">if</span> ((c1 &gt;= 0x21 &amp;&amp; c1 &lt;= 0x74) &amp;&amp; (c2 &gt;= 0x21 &amp;&amp; c2 &lt;= 0x7e)) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> t1 = (c1 - 0x21) &gt;&gt; 1;
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> t2 = (((c1 - 0x21) &amp; 1) ? 0x5e : 0) + (c2 - 0x21);
+      r[0] = (t1 &lt; 0x1f ? t1+0x81 : t1+0xc1);
+      r[1] = (t2 &lt; 0x3f ? t2+0x40 : t2+0x41);
+      <span class="enscript-keyword">return</span> 2;
+    }
+  }
+
+  <span class="enscript-comment">/* User-defined range. See
+   * Ken Lunde's &quot;CJKV Information Processing&quot;, table 4-66, p. 206. */</span>
+  <span class="enscript-keyword">if</span> (wc &gt;= 0xe000 &amp;&amp; wc &lt; 0xe758) {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> c1, c2;
+    <span class="enscript-keyword">if</span> (n &lt; 2)
+      <span class="enscript-keyword">return</span> RET_TOOSMALL;
+    c1 = (<span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>) (wc - 0xe000) / 188;
+    c2 = (<span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>) (wc - 0xe000) % 188;
+    r[0] = c1+0xf0;
+    r[1] = (c2 &lt; 0x3f ? c2+0x40 : c2+0x41);
+    <span class="enscript-keyword">return</span> 2;
+  }
+
+  <span class="enscript-keyword">return</span> RET_ILUNI;
+}
+</pre>
+<hr />
+</body></html>

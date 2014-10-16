@@ -1,0 +1,32 @@
+Starting in 4.0 the keychain will be using content protection
+
+We will define 4 new classes for the keychain:
+
+Ak = non_exportable, uid_protection|pin_protection
+Ck = wrap_on_lock|unwrap_on_lock|non_exportable, uid_protection|pin_protection
+Dk = non_exportable, uid_protection
+Ek = wrap_on_lock|unwrap_on_lock|non_exportable, uid_protection|pin_protection
+
+A new attribute will be added to all keychain items allowing a caller
+to specify the content protection level.
+Caller will have a choice or class Ak, Ck, Dk or Ek protection for the
+items data.
+
+Consider whether or not to allow SecItemUpdate to change the protection class.
+
+Backup will no longer directly backup the keychain file, instead a new
+SecKeychainMigrate() SPI will be added which takes a keybag and a password and
+returns a keychain blob in which class A and C items are protected by the
+provided keybags A and C keys, and the class E key protected items will not
+migrate.
+
+Restore will pass the keychain file from an old backup or keychain blob
+returned by the new SPI and the backup keybag and password to securityd so
+items can be migrated back into the system keychain db.  Class E items in the
+backup set will only get restored if they are decryptable (restore is to same
+device) otherwise they are discarded during the restore.
+
+
+Implementors notes:
+Migrate will take a db file needing to be upgraded or a keychain blob
+needing to be migrated into the system security domain.

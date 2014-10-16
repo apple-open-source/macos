@@ -1,6 +1,6 @@
 /* sample-server.c -- sample SASL server
  * Rob Earhart
- * $Id: sample-server.c,v 1.3 2005/05/17 21:56:45 snsimon Exp $
+ * $Id: sample-server.c,v 1.34 2011/09/01 14:12:18 mel Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "../../cyrus_sasl/config.h"
 #include <limits.h>
 #include <stdio.h>
 
@@ -62,8 +62,15 @@ __declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, 
 #else /* WIN32 */
 # include <netinet/in.h>
 #endif /* WIN32 */
+#ifdef __APPLE__
+#include <sasl/sasl.h>
+#include <sasl/saslplug.h>
+#include <sasl/saslutil.h>
+#else
 #include <sasl.h>
+#include <saslplug.h>
 #include <saslutil.h>
+#endif
 
 #ifndef HAVE_GETSUBOPT
 int getsubopt(char **optionp, const char * const *tokens, char **valuep);
@@ -185,9 +192,9 @@ getpath(void *context __attribute__((unused)),
 
 static sasl_callback_t callbacks[] = {
   {
-    SASL_CB_LOG, &sasl_my_log, NULL
+    SASL_CB_LOG, (sasl_callback_ft)&sasl_my_log, NULL
   }, {
-    SASL_CB_GETPATH, &getpath, NULL
+    SASL_CB_GETPATH, (sasl_callback_ft)&getpath, NULL
   }, {
     SASL_CB_LIST_END, NULL, NULL
   }
@@ -246,6 +253,7 @@ samp_send(const char *buffer,
     saslfail(result, "Encoding data in base64", NULL);
   printf("S: %s\n", buf);
   free(buf);
+  fflush(stdout);
 }
 
 static unsigned
@@ -254,12 +262,19 @@ samp_recv()
   unsigned len;
   int result;
   
-  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin))
+  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)) {
     fail("Unable to parse input");
+  }
 
-  if (strncmp(buf, "C: ", 3)!=0)
+  if (strncmp(buf, "C: ", 3) != 0) {
     fail("Line must start with 'C: '");
+  }
     
+  len = strlen(buf);
+  if (len > 0 && buf[len-1] == '\n') {
+      buf[len-1] = '\0';
+  }
+
   result = sasl_decode64(buf + 3, (unsigned) strlen(buf + 3), buf,
 			 SAMPLE_SEC_BUF_SIZE, &len);
   if (result != SASL_OK)
@@ -315,7 +330,7 @@ main(int argc, char *argv[])
     case 'b':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)bit_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)bit_subopts, &value)) {
 	case OPT_MIN:
 	  if (! value)
 	    errflag = 1;
@@ -337,7 +352,7 @@ main(int argc, char *argv[])
     case 'e':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)ext_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)ext_subopts, &value)) {
 	case OPT_EXT_SSF:
 	  if (! value)
 	    errflag = 1;
@@ -363,7 +378,7 @@ main(int argc, char *argv[])
     case 'f':
       options = optarg;
       while (*options != '\0') {
-	switch(getsubopt(&options, (const char * const *)flag_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)flag_subopts, &value)) {
 	case OPT_NOPLAIN:
 	  secprops.security_flags |= SASL_SEC_NOPLAINTEXT;
 	  break;
@@ -397,7 +412,7 @@ main(int argc, char *argv[])
     case 'i':
       options = optarg;
       while (*options != '\0')
-	switch(getsubopt(&options, (const char * const *)ip_subopts, &value)) {
+	switch(getsubopt(&options, (char * const *)ip_subopts, &value)) {
 	case OPT_IP_LOCAL:
 	  if (! value)
 	    errflag = 1;
@@ -471,8 +486,10 @@ main(int argc, char *argv[])
   }
 
   result = sasl_server_init(callbacks, "sample");
-  if (result != SASL_OK)
+  if (result != SASL_OK) {
     saslfail(result, "Initializing libsasl", NULL);
+    fprintf(stderr, "%s\n", sasl_errdetail(conn));
+  }
 
   atexit(&sasl_done);
 
@@ -484,8 +501,10 @@ main(int argc, char *argv[])
 			   NULL,
 			   serverlast,
 			   &conn);
-  if (result != SASL_OK)
+  if (result != SASL_OK) {
     saslfail(result, "Allocating sasl connection state", NULL);
+    fprintf(stderr, "%s\n", sasl_errdetail(conn));
+  }
   
   atexit(&free_conn);
 
@@ -494,8 +513,10 @@ main(int argc, char *argv[])
 			    SASL_SSF_EXTERNAL,
 			    &extssf);
 
-      if (result != SASL_OK)
+      if (result != SASL_OK) {
 	  saslfail(result, "Setting external SSF", NULL);
+          fprintf(stderr, "%s\n", sasl_errdetail(conn));
+      }
   }
   
   if(ext_authid) {
@@ -503,16 +524,20 @@ main(int argc, char *argv[])
 			    SASL_AUTH_EXTERNAL,
 			    &ext_authid);
 
-      if (result != SASL_OK)
+      if (result != SASL_OK) {
 	  saslfail(result, "Setting external authid", NULL);
+          fprintf(stderr, "%s\n", sasl_errdetail(conn));
+      }
   }
 
   result = sasl_setprop(conn,
 			SASL_SEC_PROPS,
 			&secprops);
 
-  if (result != SASL_OK)
+  if (result != SASL_OK) {
     saslfail(result, "Setting security properties", NULL);
+    fprintf(stderr, "%s\n", sasl_errdetail(conn));
+  }
 
   if (mech) {
     printf("Forcing use of mechanism %s\n", mech);
@@ -530,9 +555,11 @@ main(int argc, char *argv[])
 			   NULL,
 			   &data,
 			   &len,
-			   &count);
-    if (result != SASL_OK)
+			   (int *)&count);
+    if (result != SASL_OK) {
       saslfail(result, "Generating client mechanism list", NULL);
+      fprintf(stderr, "%s\n", sasl_errdetail(conn));
+    }
   }
   
   printf("Sending list of %d mechanism(s)\n", count);
@@ -549,7 +576,7 @@ main(int argc, char *argv[])
   if (strlen(buf) < len) {
     /* Hmm, there's an initial response here */
     data = buf + strlen(buf) + 1;
-    len = len - strlen(buf) - 1;
+    len = len - (unsigned) strlen(buf) - 1;
   } else {
     data = NULL;
     len = 0;
@@ -560,8 +587,10 @@ main(int argc, char *argv[])
 			     len,
 			     &data,
 			     &len);
-  if (result != SASL_OK && result != SASL_CONTINUE)
+  if (result != SASL_OK && result != SASL_CONTINUE) {
+    fprintf(stderr, "%s\n", sasl_errdetail(conn));
     saslfail(result, "Starting SASL negotiation", sasl_errstring(result,NULL,NULL));
+  }
 
   while (result == SASL_CONTINUE) {
     if (data) {
@@ -574,8 +603,10 @@ main(int argc, char *argv[])
     data = NULL;
     result = sasl_server_step(conn, buf, len,
 			      &data, &len);
-    if (result != SASL_OK && result != SASL_CONTINUE)
+    if (result != SASL_OK && result != SASL_CONTINUE) {
+      fprintf(stderr, "%s\n", sasl_errdetail(conn));
       saslfail(result, "Performing SASL negotiation", sasl_errstring(result,NULL,NULL));
+    }
   }
   puts("Negotiation complete");
 
@@ -605,8 +636,10 @@ main(int argc, char *argv[])
 #define SERVER_MSG1 "srv message 1"
   result=sasl_encode(conn,SERVER_MSG1,sizeof(SERVER_MSG1),
   	&data,&len);
-  if (result != SASL_OK)
+  if (result != SASL_OK) {
+      fprintf(stderr, "%s\n", sasl_errdetail(conn));
       saslfail(result, "sasl_encode", NULL);
+  }
   printf("sending encrypted message '%s'\n",SERVER_MSG1);
   samp_send(data,len);
   printf("Waiting for encrypted message...\n");
@@ -615,11 +648,15 @@ main(int argc, char *argv[])
  	unsigned int recv_len;
  	const char *recv_data;
 	result=sasl_decode(conn,buf,len,&recv_data,&recv_len);
- 	if (result != SASL_OK)
-      saslfail(result, "sasl_encode", NULL);
+ 	if (result != SASL_OK) {
+          fprintf(stderr, "%s\n", sasl_errdetail(conn));
+          saslfail(result, "sasl_encode", NULL);
+        }
     printf("recieved decoded message '%s'\n",recv_data);
-    if(strcmp(recv_data,CLIENT_MSG1)!=0)
+    if(strcmp(recv_data,CLIENT_MSG1)!=0) {
+        fprintf(stderr, "%s\n", sasl_errdetail(conn));
     	saslfail(1,"recive decoded server message",NULL);
+    }
  }
 
 #ifdef WIN32

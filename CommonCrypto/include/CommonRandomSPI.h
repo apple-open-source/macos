@@ -84,13 +84,11 @@
 				context.
  */
 
+#include <CommonCrypto/CommonRandom.h>
 
 #if defined(__cplusplus)
 extern "C" {
-#endif	
-
-typedef CCCryptorStatus CCRNGStatus;
-
+#endif
 
 /*!
     @typedef    CCRandomRef

@@ -1,0 +1,72 @@
+#! /bin/csh -f
+#
+# Run complete performance test suite, output to stdout. No options.
+#
+# Run this from SecurityTests/cspxutils. Both cspxutils and clxutils
+# must built (and they must be peers, i.e., ../clxutils exists). 
+# Executables must be in $LOCAL_BUILD_DIR.
+#
+
+set CSPXUTILS=`pwd`
+#
+# Verify existence of a few crucial things before we start.
+#
+if ( ! -e ../clxutils) then
+	echo ../clxutils not found. Aborting.
+	exit(1)
+endif
+cd ../clxutils; set CLXUTILS=`pwd`
+#
+# safely look for this required env var
+#
+setenv | grep LOCAL_BUILD_DIR > /dev/null
+if($status != 0) then
+	echo Please set env var LOCAL_BUILD_DIR.
+	exit(1)
+endif
+set BUILD_DIR=$LOCAL_BUILD_DIR
+#
+if( ( ! -e $BUILD_DIR/perform ) || \
+    ( ! -e $BUILD_DIR/certTime) || \
+	( ! -e $CLXUTILS/certTime)) then
+	echo === You do not seem to have all of the required executables.
+	echo === Please build all of cspxutils and clxutils. 
+	echo === See the README files in those directories for info.
+	exit(1)
+endif
+#
+cd $CSPXUTILS/perform
+set cmd="./doPerform 1000 10240"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+cd $BUILD_DIR
+set cmd="./hashTime"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+cd $BUILD_DIR
+set cmd="./sigPerform a=r l=1000 k=1024"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+set cmd="./asymPerform k=1024"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+cd $CLXUTILS/certTime || exit(1)
+set cmd="./runTime"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+cd $CLXUTILS/kcTime || exit(1)
+set cmd="$BUILD_DIR/kcTime"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+cd $CLXUTILS/secTime || exit(1)
+set cmd="$BUILD_DIR/secTime"
+echo $cmd
+$cmd || exit(1)
+echo ==============================================================
+echo Performance suite complete.

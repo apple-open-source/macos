@@ -27,6 +27,9 @@
 #include "ssl_private.h"
 #include "mod_ssl.h"
 #include "util_md5.h"
+#include "util_mutex.h"
+#include "ap_provider.h"
+
 #include <assert.h>
 
 /*
@@ -47,58 +50,32 @@
 
 #define AP_END_CMD { NULL }
 
-const char ssl_valid_ssl_mutex_string[] =
-    "Valid SSLMutex mechanisms are: `none', `default'"
-#if APR_HAS_FLOCK_SERIALIZE
-    ", `flock:/path/to/file'"
-#endif
-#if APR_HAS_FCNTL_SERIALIZE
-    ", `fcntl:/path/to/file'"
-#endif
-#if APR_HAS_SYSVSEM_SERIALIZE && !defined(PERCHILD_MPM)
-    ", `sysvsem'"
-#endif
-#if APR_HAS_POSIXSEM_SERIALIZE
-    ", `posixsem'"
-#endif
-#if APR_HAS_PROC_PTHREAD_SERIALIZE
-    ", `pthread'"
-#endif
-#if APR_HAS_FLOCK_SERIALIZE || APR_HAS_FCNTL_SERIALIZE
-    ", `file:/path/to/file'"
-#endif
-#if (APR_HAS_SYSVSEM_SERIALIZE && !defined(PERCHILD_MPM)) || APR_HAS_POSIXSEM_SERIALIZE
-    ", `sem'"
-#endif
-    " ";
-
 static const command_rec ssl_config_cmds[] = {
     /*
      * Global (main-server) context configuration directives
      */
-    SSL_CMD_SRV(Mutex, TAKE1, ssl_valid_ssl_mutex_string)
     SSL_CMD_SRV(PassPhraseDialog, TAKE1,
                 "SSL dialog mechanism for the pass phrase query "
-                "(`builtin', `|/path/to/pipe_program`, "
-                "or `exec:/path/to/cgi_program')")
+                "('builtin', '|/path/to/pipe_program', "
+                "or 'exec:/path/to/cgi_program')")
     SSL_CMD_SRV(SessionCache, TAKE1,
                 "SSL Session Cache storage "
-                "(`none', `nonenotnull', `dbm:/path/to/file')")
+                "('none', 'nonenotnull', 'dbm:/path/to/file')")
 #if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ENGINE_INIT)
     SSL_CMD_SRV(CryptoDevice, TAKE1,
                 "SSL external Crypto Device usage "
-                "(`builtin', `...')")
+                "('builtin', '...')")
 #endif
     SSL_CMD_SRV(RandomSeed, TAKE23,
                 "SSL Pseudo Random Number Generator (PRNG) seeding source "
-                "(`startup|connect builtin|file:/path|exec:/path [bytes]')")
+                "('startup|connect builtin|file:/path|exec:/path [bytes]')")
 
     /*
      * Per-server context configuration directives
      */
     SSL_CMD_SRV(Engine, TAKE1,
                 "SSL switch for the protocol engine "
-                "(`on', `off')")
+                "('on', 'off')")
     SSL_CMD_SRV(FIPS, FLAG,
                 "Enable FIPS-140 mode "
                 "(`on', `off')")
@@ -107,52 +84,54 @@ static const command_rec ssl_config_cmds[] = {
                 "(`on', `off')")
     SSL_CMD_ALL(CipherSuite, TAKE1,
                 "Colon-delimited list of permitted SSL Ciphers "
-                "(`XXX:...:XXX' - see manual)")
+                "('XXX:...:XXX' - see manual)")
     SSL_CMD_SRV(CertificateFile, TAKE1,
                 "SSL Server Certificate file "
-                "(`/path/to/file' - PEM or DER encoded)")
+                "('/path/to/file' - PEM or DER encoded)")
     SSL_CMD_SRV(CertificateKeyFile, TAKE1,
                 "SSL Server Private Key file "
-                "(`/path/to/file' - PEM or DER encoded)")
+                "('/path/to/file' - PEM or DER encoded)")
     SSL_CMD_SRV(CertificateChainFile, TAKE1,
                 "SSL Server CA Certificate Chain file "
-                "(`/path/to/file' - PEM encoded)")
+                "('/path/to/file' - PEM encoded)")
+#ifdef HAVE_TLS_SESSION_TICKETS
+    SSL_CMD_SRV(SessionTicketKeyFile, TAKE1,
+                "TLS session ticket encryption/decryption key file (RFC 5077) "
+                "('/path/to/file' - file with 48 bytes of random data)")
+#endif
     SSL_CMD_ALL(CACertificatePath, TAKE1,
                 "SSL CA Certificate path "
-                "(`/path/to/dir' - contains PEM encoded files)")
+                "('/path/to/dir' - contains PEM encoded files)")
     SSL_CMD_ALL(CACertificateFile, TAKE1,
                 "SSL CA Certificate file "
-                "(`/path/to/file' - PEM encoded)")
+                "('/path/to/file' - PEM encoded)")
     SSL_CMD_SRV(CADNRequestPath, TAKE1,
                 "SSL CA Distinguished Name path "
-                "(`/path/to/dir' - symlink hashes to PEM of acceptable CA names to request)")
+                "('/path/to/dir' - symlink hashes to PEM of acceptable CA names to request)")
     SSL_CMD_SRV(CADNRequestFile, TAKE1,
                 "SSL CA Distinguished Name file "
-                "(`/path/to/file' - PEM encoded to derive acceptable CA names to request)")
+                "('/path/to/file' - PEM encoded to derive acceptable CA names to request)")
     SSL_CMD_SRV(CARevocationPath, TAKE1,
                 "SSL CA Certificate Revocation List (CRL) path "
-                "(`/path/to/dir' - contains PEM encoded files)")
+                "('/path/to/dir' - contains PEM encoded files)")
     SSL_CMD_SRV(CARevocationFile, TAKE1,
                 "SSL CA Certificate Revocation List (CRL) file "
-                "(`/path/to/file' - PEM encoded)")
+                "('/path/to/file' - PEM encoded)")
+    SSL_CMD_SRV(CARevocationCheck, TAKE1,
+                "SSL CA Certificate Revocation List (CRL) checking mode")
     SSL_CMD_ALL(VerifyClient, TAKE1,
                 "SSL Client verify type "
-                "(`none', `optional', `require', `optional_no_ca')")
+                "('none', 'optional', 'require', 'optional_no_ca')")
     SSL_CMD_ALL(VerifyDepth, TAKE1,
                 "SSL Client verify depth "
-                "(`N' - number of intermediate certificates)")
+                "('N' - number of intermediate certificates)")
     SSL_CMD_SRV(SessionCacheTimeout, TAKE1,
                 "SSL Session Cache object lifetime "
-                "(`N' - number of seconds)")
-#ifdef OPENSSL_NO_SSL2
-#define SSLv2_PROTO_PREFIX ""
-#else
-#define SSLv2_PROTO_PREFIX "SSLv2|"
-#endif
+                "('N' - number of seconds)")
 #ifdef HAVE_TLSV1_X
-#define SSL_PROTOCOLS SSLv2_PROTO_PREFIX "SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#define SSL_PROTOCOLS "SSLv3|TLSv1|TLSv1.1|TLSv1.2"
 #else
-#define SSL_PROTOCOLS SSLv2_PROTO_PREFIX "SSLv3|TLSv1"
+#define SSL_PROTOCOLS "SSLv3|TLSv1"
 #endif
     SSL_CMD_SRV(Protocol, RAW_ARGS,
                 "Enable or disable various SSL protocols "
@@ -160,7 +139,7 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(HonorCipherOrder, FLAG,
                 "Use the server's cipher ordering preference")
     SSL_CMD_SRV(Compression, FLAG,
-                "Enable SSL level compression"
+                "Enable SSL level compression "
                 "(`on', `off')")
     SSL_CMD_SRV(InsecureRenegotiation, FLAG,
                 "Enable support for insecure renegotiation")
@@ -169,57 +148,71 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(StrictSNIVHostCheck, FLAG,
                 "Strict SNI virtual host checking")
 
+#ifdef HAVE_SRP
+    SSL_CMD_SRV(SRPVerifierFile, TAKE1,
+                "SRP verifier file "
+                "('/path/to/file' - created by srptool)")
+    SSL_CMD_SRV(SRPUnknownUserSeed, TAKE1,
+                "SRP seed for unknown users (to avoid leaking a user's existence) "
+                "('some secret text')")
+#endif
+
     /*
      * Proxy configuration for remote SSL connections
      */
     SSL_CMD_SRV(ProxyEngine, FLAG,
                 "SSL switch for the proxy protocol engine "
-                "(`on', `off')")
+                "('on', 'off')")
     SSL_CMD_SRV(ProxyProtocol, RAW_ARGS,
-                "SSL Proxy: enable or disable SSL protocol flavors "
+               "SSL Proxy: enable or disable SSL protocol flavors "
                 "('[+-][" SSL_PROTOCOLS "] ...' - see manual)")
     SSL_CMD_SRV(ProxyCipherSuite, TAKE1,
                "SSL Proxy: colon-delimited list of permitted SSL ciphers "
-               "(`XXX:...:XXX' - see manual)")
+               "('XXX:...:XXX' - see manual)")
     SSL_CMD_SRV(ProxyVerify, TAKE1,
                "SSL Proxy: whether to verify the remote certificate "
-               "(`on' or `off')")
+               "('on' or 'off')")
     SSL_CMD_SRV(ProxyVerifyDepth, TAKE1,
                "SSL Proxy: maximum certificate verification depth "
-               "(`N' - number of intermediate certificates)")
+               "('N' - number of intermediate certificates)")
     SSL_CMD_SRV(ProxyCACertificateFile, TAKE1,
                "SSL Proxy: file containing server certificates "
-               "(`/path/to/file' - PEM encoded certificates)")
+               "('/path/to/file' - PEM encoded certificates)")
     SSL_CMD_SRV(ProxyCACertificatePath, TAKE1,
                "SSL Proxy: directory containing server certificates "
-               "(`/path/to/dir' - contains PEM encoded certificates)")
+               "('/path/to/dir' - contains PEM encoded certificates)")
     SSL_CMD_SRV(ProxyCARevocationPath, TAKE1,
                 "SSL Proxy: CA Certificate Revocation List (CRL) path "
-                "(`/path/to/dir' - contains PEM encoded files)")
+                "('/path/to/dir' - contains PEM encoded files)")
     SSL_CMD_SRV(ProxyCARevocationFile, TAKE1,
                 "SSL Proxy: CA Certificate Revocation List (CRL) file "
-                "(`/path/to/file' - PEM encoded)")
+                "('/path/to/file' - PEM encoded)")
+    SSL_CMD_SRV(ProxyCARevocationCheck, TAKE1,
+                "SSL Proxy: CA Certificate Revocation List (CRL) checking mode")
     SSL_CMD_SRV(ProxyMachineCertificateFile, TAKE1,
                "SSL Proxy: file containing client certificates "
-               "(`/path/to/file' - PEM encoded certificates)")
+               "('/path/to/file' - PEM encoded certificates)")
     SSL_CMD_SRV(ProxyMachineCertificatePath, TAKE1,
                "SSL Proxy: directory containing client certificates "
-               "(`/path/to/dir' - contains PEM encoded certificates)")
+               "('/path/to/dir' - contains PEM encoded certificates)")
     SSL_CMD_SRV(ProxyMachineCertificateChainFile, TAKE1,
                "SSL Proxy: file containing issuing certificates "
                "of the client certificate "
                "(`/path/to/file' - PEM encoded certificates)")
     SSL_CMD_SRV(ProxyCheckPeerExpire, FLAG,
-                "SSL Proxy: check the peers certificate expiration date")
+                "SSL Proxy: check the peer certificate's expiration date")
     SSL_CMD_SRV(ProxyCheckPeerCN, FLAG,
-                "SSL Proxy: check the peers certificate CN")
+                "SSL Proxy: check the peer certificate's CN")
+    SSL_CMD_SRV(ProxyCheckPeerName, FLAG,
+                "SSL Proxy: check the peer certificate's name "
+                "(must be present in subjectAltName extension or CN")
 
     /*
      * Per-directory context configuration directives
      */
     SSL_CMD_DIR(Options, OPTIONS, RAW_ARGS,
                "Set one or more options to configure the SSL engine"
-               "(`[+-]option[=value] ...' - see manual)")
+               "('[+-]option[=value] ...' - see manual)")
     SSL_CMD_DIR(RequireSSL, AUTHCFG, NO_ARGS,
                "Require the SSL protocol for the per-directory context "
                "(no arguments)")
@@ -230,6 +223,53 @@ static const command_rec ssl_config_cmds[] = {
                 "Configure the amount of memory that will be used for buffering the "
                 "request body if a per-location SSL renegotiation is required due to "
                 "changed access control requirements")
+
+    SSL_CMD_SRV(OCSPEnable, FLAG,
+               "Enable use of OCSP to verify certificate revocation ('on', 'off')")
+    SSL_CMD_SRV(OCSPDefaultResponder, TAKE1,
+               "URL of the default OCSP Responder")
+    SSL_CMD_SRV(OCSPOverrideResponder, FLAG,
+               "Force use of the default responder URL ('on', 'off')")
+    SSL_CMD_SRV(OCSPResponseTimeSkew, TAKE1,
+                "Maximum time difference in OCSP responses")
+    SSL_CMD_SRV(OCSPResponseMaxAge, TAKE1,
+                "Maximum age of OCSP responses")
+    SSL_CMD_SRV(OCSPResponderTimeout, TAKE1,
+                "OCSP responder query timeout")
+
+#ifdef HAVE_OCSP_STAPLING
+    /*
+     * OCSP Stapling options
+     */
+    SSL_CMD_SRV(StaplingCache, TAKE1,
+                "SSL Stapling Response Cache storage "
+                "(`dbm:/path/to/file')")
+    SSL_CMD_SRV(UseStapling, FLAG,
+                "SSL switch for the OCSP Stapling protocol " "(`on', `off')")
+    SSL_CMD_SRV(StaplingResponseTimeSkew, TAKE1,
+                "SSL stapling option for maximum time difference in OCSP responses")
+    SSL_CMD_SRV(StaplingResponderTimeout, TAKE1,
+                "SSL stapling option for OCSP responder timeout")
+    SSL_CMD_SRV(StaplingResponseMaxAge, TAKE1,
+                "SSL stapling option for maximum age of OCSP responses")
+    SSL_CMD_SRV(StaplingStandardCacheTimeout, TAKE1,
+                "SSL stapling option for normal OCSP Response Cache Lifetime")
+    SSL_CMD_SRV(StaplingReturnResponderErrors, FLAG,
+                "SSL stapling switch to return Status Errors Back to Client"
+                "(`on', `off')")
+    SSL_CMD_SRV(StaplingFakeTryLater, FLAG,
+                "SSL stapling switch to send tryLater response to client on error "
+                "(`on', `off')")
+    SSL_CMD_SRV(StaplingErrorCacheTimeout, TAKE1,
+                "SSL stapling option for OCSP Response Error Cache Lifetime")
+    SSL_CMD_SRV(StaplingForceURL, TAKE1,
+                "SSL stapling option to Force the OCSP Stapling URL")
+#endif
+
+#ifdef HAVE_SSL_CONF_CMD
+    SSL_CMD_SRV(OpenSSLConfCmd, TAKE2,
+		"OpenSSL configuration command")
+#endif
 
     /* Deprecated directives. */
     AP_INIT_RAW_ARGS("SSLLog", ap_set_deprecated, NULL, OR_ALL,
@@ -248,15 +288,11 @@ static apr_status_t ssl_cleanup_pre_config(void *data)
     /*
      * Try to kill the internals of the SSL library.
      */
-#ifdef HAVE_OPENSSL
-#if OPENSSL_VERSION_NUMBER >= 0x00907001
     /* Corresponds to OPENSSL_load_builtin_modules():
      * XXX: borrowed from apps.h, but why not CONF_modules_free()
      * which also invokes CONF_modules_finish()?
      */
     CONF_modules_unload(1);
-#endif
-#endif
     /* Corresponds to SSL_library_init: */
     EVP_cleanup();
 #if HAVE_ENGINE_LOAD_BUILTIN_ENGINES
@@ -290,20 +326,14 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
      * code can successfully test the SSL environment.
      */
     CRYPTO_malloc_init();
-#ifdef HAVE_OPENSSL
     ERR_load_crypto_strings();
-#endif
     SSL_load_error_strings();
     SSL_library_init();
 #if HAVE_ENGINE_LOAD_BUILTIN_ENGINES
     ENGINE_load_builtin_engines();
 #endif
-#ifdef HAVE_OPENSSL
     OpenSSL_add_all_algorithms();
-#if OPENSSL_VERSION_NUMBER >= 0x00907001
     OPENSSL_load_builtin_modules();
-#endif
-#endif
 
     /*
      * Let us cleanup the ssl library when the module is unloaded
@@ -316,6 +346,12 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
 
     /* Register to handle mod_status status page generation */
     ssl_scache_status_register(pconf);
+
+    /* Register mutex type names so they can be configured with Mutex */
+    ap_mutex_register(pconf, SSL_CACHE_MUTEX_TYPE, NULL, APR_LOCK_DEFAULT, 0);
+#ifdef HAVE_OCSP_STAPLING
+    ap_mutex_register(pconf, SSL_STAPLING_MUTEX_TYPE, NULL, APR_LOCK_DEFAULT, 0);
+#endif
 
     return OK;
 }
@@ -331,6 +367,7 @@ static SSLConnRec *ssl_init_connection_ctx(conn_rec *c)
     sslconn = apr_pcalloc(c->pool, sizeof(*sslconn));
 
     sslconn->server = c->base_server;
+    sslconn->verify_depth = UNSET;
 
     myConnConfigSet(c, sslconn);
 
@@ -345,7 +382,7 @@ int ssl_proxy_enable(conn_rec *c)
     sc = mySrvConfig(sslconn->server);
 
     if (!sc->proxy_enabled) {
-        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(01961)
                       "SSL Proxy requested for %s but not enabled "
                       "[Hint: SSLProxyEngine]", sc->vhost_id);
 
@@ -381,7 +418,7 @@ int ssl_engine_disable(conn_rec *c)
     return 1;
 }
 
-int ssl_init_ssl_connection(conn_rec *c)
+int ssl_init_ssl_connection(conn_rec *c, request_rec *r)
 {
     SSLSrvConfigRec *sc;
     SSL *ssl;
@@ -409,10 +446,10 @@ int ssl_init_ssl_connection(conn_rec *c)
      * so we can detach later.
      */
     if (!(ssl = SSL_new(mctx->ssl_ctx))) {
-        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(01962)
                       "Unable to create a new SSL connection from the SSL "
                       "context");
-        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, server);
+        ssl_log_ssl_error(SSLLOG_MARK, APLOG_ERR, server);
 
         c->aborted = 1;
 
@@ -425,9 +462,9 @@ int ssl_init_ssl_connection(conn_rec *c)
     if (!SSL_set_session_id_context(ssl, (unsigned char *)vhost_md5,
                                     APR_MD5_DIGESTSIZE*2))
     {
-        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-                      "Unable to set session id context to `%s'", vhost_md5);
-        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, server);
+        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(01963)
+                      "Unable to set session id context to '%s'", vhost_md5);
+        ssl_log_ssl_error(SSLLOG_MARK, APLOG_ERR, server);
 
         c->aborted = 1;
 
@@ -439,18 +476,9 @@ int ssl_init_ssl_connection(conn_rec *c)
 
     sslconn->ssl = ssl;
 
-    /*
-     *  Configure callbacks for SSL connection
-     */
-    SSL_set_tmp_rsa_callback(ssl, ssl_callback_TmpRSA);
-    SSL_set_tmp_dh_callback(ssl,  ssl_callback_TmpDH);
-#ifndef OPENSSL_NO_EC
-    SSL_set_tmp_ecdh_callback(ssl, ssl_callback_TmpECDH);
-#endif
-
     SSL_set_verify_result(ssl, X509_V_OK);
 
-    ssl_io_filter_init(c, ssl);
+    ssl_io_filter_init(c, r, ssl);
 
     return APR_SUCCESS;
 }
@@ -513,21 +541,11 @@ static int ssl_hook_pre_connection(conn_rec *c, void *csd)
      * later access inside callback functions
      */
 
-    ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
+    ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(01964)
                   "Connection to child %ld established "
                   "(server %s)", c->id, sc->vhost_id);
 
-    return ssl_init_ssl_connection(c);
-}
-
-
-static void ssl_hook_Insert_Filter(request_rec *r)
-{
-    SSLSrvConfigRec *sc = mySrvConfig(r->server);
-
-    if (sc->enabled == SSL_ENABLED_OPTIONAL) {
-        ap_add_output_filter("UPGRADE_FILTER", NULL, r, r->connection);
-    }
+    return ssl_init_ssl_connection(c, NULL);
 }
 
 /*
@@ -549,20 +567,30 @@ static void ssl_register_hooks(apr_pool_t *p)
     ap_hook_default_port  (ssl_hook_default_port,  NULL,NULL, APR_HOOK_MIDDLE);
     ap_hook_pre_config    (ssl_hook_pre_config,    NULL,NULL, APR_HOOK_MIDDLE);
     ap_hook_child_init    (ssl_init_Child,         NULL,NULL, APR_HOOK_MIDDLE);
-    ap_hook_check_user_id (ssl_hook_UserCheck,     NULL,NULL, APR_HOOK_FIRST);
+    ap_hook_check_authn   (ssl_hook_UserCheck,     NULL,NULL, APR_HOOK_FIRST,
+                           AP_AUTH_INTERNAL_PER_CONF);
     ap_hook_fixups        (ssl_hook_Fixup,         NULL,NULL, APR_HOOK_MIDDLE);
-    ap_hook_access_checker(ssl_hook_Access,        NULL,NULL, APR_HOOK_MIDDLE);
-    ap_hook_auth_checker  (ssl_hook_Auth,          NULL,NULL, APR_HOOK_MIDDLE);
+    ap_hook_check_access  (ssl_hook_Access,        NULL,NULL, APR_HOOK_MIDDLE,
+                           AP_AUTH_INTERNAL_PER_CONF);
+    ap_hook_check_authz   (ssl_hook_Auth,          NULL,NULL, APR_HOOK_MIDDLE,
+                           AP_AUTH_INTERNAL_PER_CONF);
     ap_hook_post_read_request(ssl_hook_ReadReq, pre_prr,NULL, APR_HOOK_MIDDLE);
-    ap_hook_insert_filter (ssl_hook_Insert_Filter, NULL,NULL, APR_HOOK_MIDDLE);
-/*    ap_hook_handler       (ssl_hook_Upgrade,       NULL,NULL, APR_HOOK_MIDDLE); */
 
     ssl_var_register(p);
 
     APR_REGISTER_OPTIONAL_FN(ssl_proxy_enable);
     APR_REGISTER_OPTIONAL_FN(ssl_engine_disable);
 
-    APR_REGISTER_OPTIONAL_FN(ssl_extlist_by_oid);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "ssl",
+                              AUTHZ_PROVIDER_VERSION,
+                              &ssl_authz_provider_require_ssl,
+                              AP_AUTH_INTERNAL_PER_CONF);
+
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "ssl-verify-client",
+                              AUTHZ_PROVIDER_VERSION,
+                              &ssl_authz_provider_verify_client,
+                              AP_AUTH_INTERNAL_PER_CONF);
+
 }
 
 module AP_MODULE_DECLARE_DATA ssl_module = {

@@ -36,34 +36,30 @@ namespace WebKit {
 
 void NetworkProcessProxy::setProcessSuppressionEnabled(bool processSuppressionEnabled)
 {
-    if (!isValid())
+    if (state() != State::Running)
         return;
     
     connection()->send(Messages::NetworkProcess::SetProcessSuppressionEnabled(processSuppressionEnabled), 0);
 }
 
-#if HAVE(XPC)
 static bool shouldUseXPC()
 {
     if (id value = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseXPCServiceForWebProcess"])
         return [value boolValue];
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if USE(XPC_SERVICES)
     return true;
 #else
     return false;
 #endif
 }
-#endif
 
 void NetworkProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
     launchOptions.architecture = ProcessLauncher::LaunchOptions::MatchCurrentArchitecture;
     launchOptions.executableHeap = false;
 
-#if HAVE(XPC)
     launchOptions.useXPC = shouldUseXPC();
-#endif
 }
 
 } // namespace WebKit

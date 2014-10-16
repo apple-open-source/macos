@@ -90,12 +90,12 @@ loop(gss_OID mechoid,
     int server_done = 0, client_done = 0;
     int num_loops = 0;
     OM_uint32 maj_stat, min_stat;
-    gss_name_t gss_target_name,
+    gss_name_t gss_target_name = GSS_C_NO_NAME,
 	gss_acceptor_name = GSS_C_NO_NAME;
     gss_buffer_desc input_token, output_token;
-    OM_uint32 flags = 0, ret_cflags, ret_sflags;
-    gss_OID actual_mech_client;
-    gss_OID actual_mech_server;
+    OM_uint32 flags = 0, ret_cflags = 0, ret_sflags = 0;
+    gss_OID actual_mech_client = NULL;
+    gss_OID actual_mech_server = NULL;
     gss_cred_id_t acceptor_cred = GSS_C_NO_CREDENTIAL;
 
     *actual_mech = GSS_C_NO_OID;
@@ -389,7 +389,7 @@ wrapunwrap_iov(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID mechoid)
     memcpy(p, iov[5].buffer.value, iov[5].buffer.length);
     p += iov[5].buffer.length;
 
-    assert(p - ((unsigned char *)token.data) == token.length);
+    assert((size_t)(p - ((unsigned char *)token.data)) == token.length);
 
     if ((flags & (USE_SIGN_ONLY|FORCE_IOV)) == 0) {
 	gss_buffer_desc input, output;
@@ -558,6 +558,58 @@ ac_complete(void *ctx, OM_uint32 major, gss_status_id_t status,
 
  out:
     gss_release_oid_set(&junk, &oids);
+}
+
+/*
+ *
+ */
+
+static int
+check_sasl_names(void)
+{
+    gss_buffer_desc sasl_name, name, description;
+    OM_uint32 maj_stat, min_stat;
+    gss_OID desired_mech = GSS_C_NO_OID;
+    gss_OID oid = GSS_C_NO_OID;
+    gss_OID_set mech_set;
+    OM_uint32 n; 
+
+    maj_stat = gss_indicate_mechs(&min_stat, &mech_set);
+    if (maj_stat != GSS_S_COMPLETE)
+	gssapi_err(maj_stat, min_stat, GSS_C_NO_OID);
+
+    for (n = 0; n < mech_set->count; n++) {
+
+	desired_mech = &mech_set->elements[n];
+	oid = GSS_C_NO_OID;
+	
+	maj_stat = gss_inquire_saslname_for_mech(&min_stat,
+						 desired_mech,
+						 &sasl_name,
+						 &name,
+						 &description);
+	if (maj_stat)
+	    gssapi_err(maj_stat, min_stat, desired_mech);
+
+	gss_release_buffer(&min_stat, &name);
+	gss_release_buffer(&min_stat, &description);
+
+	maj_stat = gss_inquire_mech_for_saslname(&maj_stat,
+						 &sasl_name,
+						 &oid);
+	if (maj_stat) 
+	    gssapi_err(maj_stat, min_stat, desired_mech);
+
+	gss_release_buffer(&min_stat, &sasl_name);
+#if 0
+	if (!gss_oid_equal(desired_mech, oid))
+	    errx(1, "mech oid not the expected out");
+#endif
+    }
+    
+    gss_release_oid_set(&min_stat, &mech_set);
+
+    return 0;
 }
 
 /*
@@ -1328,6 +1380,8 @@ main(int argc, char **argv)
     }
 
     empty_release();
+
+    check_sasl_names();
 
     krb5_free_context(context);
 

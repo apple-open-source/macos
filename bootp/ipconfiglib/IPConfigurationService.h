@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,11 @@ extern const CFStringRef	kIPConfigurationServiceOptionMTU; /* number */
  * - specify whether to perform Neighbor Unreachability Detection
  */
 extern const CFStringRef	kIPConfigurationServiceOptionPerformNUD; /* boolean */
+
+/*
+ * kIPConfigurationServiceOptionIPv6Entity (CFDictionaryRef)
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionIPv6Entity; /* dictionary */
 
 /*
  * Function: IPConfigurationServiceCreate
@@ -161,5 +166,17 @@ IPConfigurationServiceGetNotificationKey(IPConfigurationServiceRef service);
  */
 CFDictionaryRef
 IPConfigurationServiceCopyInformation(IPConfigurationServiceRef service);
+
+/*
+ * Function: IPConfigurationServiceRefreshConfiguration
+ * Purpose:
+ *   Force a configuration refresh for the specified 'service'. Analogous
+ *   to SCNetworkInterfaceForceConfigurationRefresh().
+ *
+ * Parameters:
+ *   service			: the service to refresh configuration
+ */
+void
+IPConfigurationServiceRefreshConfiguration(IPConfigurationServiceRef service);
 
 #endif /* _IPCONFIGURATIONSERVICE_H */

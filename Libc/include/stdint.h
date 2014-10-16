@@ -149,10 +149,6 @@ typedef uint64_t        uint_fast64_t;
 #define PTRDIFF_MAX       INT32_MAX
 #endif
 
-/* We have no sig_atomic_t yet, so no SIG_ATOMIC_{MIN,MAX}.
-   Should end up being {-127,127} or {0,255} ... or bigger.
-   My bet would be on one of {U}INT32_{MIN,MAX}. */
-
 #if __WORDSIZE == 64
 #define SIZE_MAX	  UINT64_MAX
 #else

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2002, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2002, 2005, 2006, 2007, 2008, 2009, 2013, 2014 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -22,12 +22,9 @@
 #ifndef Operations_h
 #define Operations_h
 
+#include "CallFrame.h"
 #include "ExceptionHelpers.h"
-#include "Interpreter.h"
-#include "JSCJSValueInlines.h"
-#include "JSProxy.h"
-#include "JSString.h"
-#include "StructureInlines.h"
+#include "JSCJSValue.h"
 
 namespace JSC {
 
@@ -77,13 +74,13 @@ ALWAYS_INLINE JSValue jsString(ExecState* exec, const String& u1, const String& 
     return JSRopeString::create(exec->vm(), jsString(vm, u1), jsString(vm, u2), jsString(vm, u3));
 }
 
-ALWAYS_INLINE JSValue jsString(ExecState* exec, Register* strings, unsigned count)
+ALWAYS_INLINE JSValue jsStringFromRegisterArray(ExecState* exec, Register* strings, unsigned count)
 {
     VM* vm = &exec->vm();
     JSRopeString::RopeBuilder ropeBuilder(*vm);
 
     for (unsigned i = 0; i < count; ++i) {
-        JSValue v = strings[i].jsValue();
+        JSValue v = strings[-static_cast<int>(i)].jsValue();
         if (!ropeBuilder.append(v.toString(exec)))
             return throwOutOfMemoryError(exec);
     }
@@ -199,14 +196,16 @@ ALWAYS_INLINE JSValue jsAdd(CallFrame* callFrame, JSValue v1, JSValue v2)
 
 inline size_t normalizePrototypeChainForChainAccess(CallFrame* callFrame, JSValue base, JSValue slotBase, const Identifier& propertyName, PropertyOffset& slotOffset)
 {
+    VM& vm = callFrame->vm();
     JSCell* cell = base.asCell();
     size_t count = 0;
         
-    while (slotBase != cell) {
+    while (!slotBase || slotBase != cell) {
         if (cell->isProxy())
             return InvalidPrototypeChain;
-            
-        if (cell->structure()->typeInfo().hasImpureGetOwnPropertySlot())
+
+        const TypeInfo& typeInfo = cell->structure()->typeInfo();
+        if (typeInfo.hasImpureGetOwnPropertySlot() && !typeInfo.newImpurePropertyFiresWatchpoints())
             return InvalidPrototypeChain;
             
         JSValue v = cell->structure()->prototypeForLookup(callFrame);
@@ -214,34 +213,37 @@ inline size_t normalizePrototypeChainForChainAccess(CallFrame* callFrame, JSValu
         // If we didn't find slotBase in base's prototype chain, then base
         // must be a proxy for another object.
 
-        if (v.isNull())
+        if (v.isNull()) {
+            if (!slotBase)
+                return count;
             return InvalidPrototypeChain;
+        }
 
         cell = v.asCell();
 
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
-        if (cell->structure()->isDictionary()) {
+        if (cell->structure(vm)->isDictionary()) {
             asObject(cell)->flattenDictionaryObject(callFrame->vm());
             if (slotBase == cell)
-                slotOffset = cell->structure()->get(callFrame->vm(), propertyName); 
+                slotOffset = cell->structure(vm)->get(callFrame->vm(), propertyName); 
         }
             
         ++count;
     }
         
-    ASSERT(count);
     return count;
 }
 
 inline size_t normalizePrototypeChain(CallFrame* callFrame, JSCell* base)
 {
+    VM& vm = callFrame->vm();
     size_t count = 0;
     while (1) {
         if (base->isProxy())
             return InvalidPrototypeChain;
             
-        JSValue v = base->structure()->prototypeForLookup(callFrame);
+        JSValue v = base->structure(vm)->prototypeForLookup(callFrame);
         if (v.isNull())
             return count;
 
@@ -249,7 +251,7 @@ inline size_t normalizePrototypeChain(CallFrame* callFrame, JSCell* base)
 
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
-        if (base->structure()->isDictionary())
+        if (base->structure(vm)->isDictionary())
             asObject(base)->flattenDictionaryObject(callFrame->vm());
 
         ++count;
@@ -259,7 +261,7 @@ inline size_t normalizePrototypeChain(CallFrame* callFrame, JSCell* base)
 inline bool isPrototypeChainNormalized(JSGlobalObject* globalObject, Structure* structure)
 {
     for (;;) {
-        if (structure->typeInfo().type() == ProxyType)
+        if (structure->isProxy())
             return false;
             
         JSValue v = structure->prototypeForLookup(globalObject);

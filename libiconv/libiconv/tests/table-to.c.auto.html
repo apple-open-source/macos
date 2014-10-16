@@ -1,0 +1,135 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>table-to.c</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">table-to.c&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Copyright (C) 2000-2002, 2004-2005 Free Software Foundation, Inc.
+   This file is part of the GNU LIBICONV Library.
+
+   The GNU LIBICONV Library is free software; you can redistribute it
+   and/or modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   The GNU LIBICONV Library is distributed in the hope that it will be
+   useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with the GNU LIBICONV Library; see the file COPYING.LIB.
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+<span class="enscript-comment">/* Create a table from Unicode to CHARSET. */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;config.h&quot;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stddef.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdio.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;stdlib.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;iconv.h&gt;</span>
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;errno.h&gt;</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&quot;binary-io.h&quot;</span>
+
+<span class="enscript-type">int</span> <span class="enscript-function-name">main</span> (<span class="enscript-type">int</span> argc, <span class="enscript-type">char</span>* argv[])
+{
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span>* charset;
+  iconv_t cd;
+  <span class="enscript-type">int</span> bmp_only;
+
+  <span class="enscript-keyword">if</span> (argc != 2) {
+    fprintf(stderr,<span class="enscript-string">&quot;Usage: table-to charset\n&quot;</span>);
+    exit(1);
+  }
+  charset = argv[1];
+
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">O_BINARY</span>
+  SET_BINARY(fileno(stdout));
+#<span class="enscript-reference">endif</span>
+
+  cd = iconv_open(charset,<span class="enscript-string">&quot;UCS-4-INTERNAL&quot;</span>);
+  <span class="enscript-keyword">if</span> (cd == (iconv_t)(-1)) {
+    perror(<span class="enscript-string">&quot;iconv_open&quot;</span>);
+    exit(1);
+  }
+
+  <span class="enscript-comment">/* When testing UTF-8, stop at 0x10000, otherwise the output file gets too
+     big. */</span>
+  bmp_only = (strcmp(charset,<span class="enscript-string">&quot;UTF-8&quot;</span>) == 0);
+
+  {
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> i;
+    <span class="enscript-type">unsigned</span> <span class="enscript-type">char</span> buf[10];
+    <span class="enscript-keyword">for</span> (i = 0; i &lt; (bmp_only ? 0x10000 : 0x110000); i++) {
+      <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> in = i;
+      <span class="enscript-type">const</span> <span class="enscript-type">char</span>* inbuf = (<span class="enscript-type">const</span> <span class="enscript-type">char</span>*) &amp;in;
+      size_t inbytesleft = <span class="enscript-keyword">sizeof</span>(<span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>);
+      <span class="enscript-type">char</span>* outbuf = (<span class="enscript-type">char</span>*)buf;
+      size_t outbytesleft = <span class="enscript-keyword">sizeof</span>(buf);
+      size_t result;
+      size_t result2 = 0;
+      iconv(cd,NULL,NULL,NULL,NULL);
+      result = iconv(cd,(ICONV_CONST <span class="enscript-type">char</span>**)&amp;inbuf,&amp;inbytesleft,&amp;outbuf,&amp;outbytesleft);
+      <span class="enscript-keyword">if</span> (result != (size_t)(-1))
+        result2 = iconv(cd,NULL,NULL,&amp;outbuf,&amp;outbytesleft);
+      <span class="enscript-keyword">if</span> (result == (size_t)(-1) || result2 == (size_t)(-1)) {
+        <span class="enscript-keyword">if</span> (errno != EILSEQ) {
+          <span class="enscript-type">int</span> saved_errno = errno;
+          fprintf(stderr,<span class="enscript-string">&quot;0x%02X: iconv error: &quot;</span>,i);
+          errno = saved_errno;
+          perror(<span class="enscript-string">&quot;&quot;</span>);
+          exit(1);
+        }
+      } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (result == 0) <span class="enscript-comment">/* ignore conversions with transliteration */</span> {
+        <span class="enscript-keyword">if</span> (inbytesleft == 0 &amp;&amp; outbytesleft &lt; <span class="enscript-keyword">sizeof</span>(buf)) {
+          <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> jmax = <span class="enscript-keyword">sizeof</span>(buf) - outbytesleft;
+          <span class="enscript-type">unsigned</span> <span class="enscript-type">int</span> j;
+          printf(<span class="enscript-string">&quot;0x&quot;</span>);
+          <span class="enscript-keyword">for</span> (j = 0; j &lt; jmax; j++)
+            printf(<span class="enscript-string">&quot;%02X&quot;</span>,buf[j]);
+          printf(<span class="enscript-string">&quot;\t0x%04X\n&quot;</span>,i);
+        } <span class="enscript-keyword">else</span> <span class="enscript-keyword">if</span> (inbytesleft == 0 &amp;&amp; i &gt;= 0xe0000 &amp;&amp; i &lt; 0xe0080) {
+          <span class="enscript-comment">/* Language tags may silently be dropped. */</span>
+        } <span class="enscript-keyword">else</span> {
+          fprintf(stderr,<span class="enscript-string">&quot;0x%02X: inbytes = %ld, outbytes = %ld\n&quot;</span>,i,(<span class="enscript-type">long</span>)(<span class="enscript-keyword">sizeof</span>(<span class="enscript-type">unsigned</span> <span class="enscript-type">int</span>)-inbytesleft),(<span class="enscript-type">long</span>)(<span class="enscript-keyword">sizeof</span>(buf)-outbytesleft));
+          exit(1);
+        }
+      }
+    }
+  }
+
+  <span class="enscript-keyword">if</span> (iconv_close(cd) &lt; 0) {
+    perror(<span class="enscript-string">&quot;iconv_close&quot;</span>);
+    exit(1);
+  }
+
+  <span class="enscript-keyword">if</span> (ferror(stdin) || ferror(stdout) || fclose(stdout)) {
+    fprintf(stderr,<span class="enscript-string">&quot;I/O error\n&quot;</span>);
+    exit(1);
+  }
+
+  exit(0);
+}
+</pre>
+<hr />
+</body></html>

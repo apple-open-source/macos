@@ -31,8 +31,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__used static const char copyright[] =
 "@(#) Copyright (c) 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -41,7 +42,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)rm.c	8.5 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] =
+__used static const char rcsid[] =
   "$FreeBSD: src/bin/rm/rm.c,v 1.33 2001/06/13 15:01:25 ru Exp $";
 #endif
 #endif /* not lint */

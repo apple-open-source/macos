@@ -240,8 +240,9 @@ typedef struct IOUPSPlugInInterface {
                         release the object that is returned.
             @param      thisPointer 	The UPS Interface to use.
             @param   	source          Pointer to a CFTypeRef.  It is expected that this
-                                        point to either a CFRunLoopSourceRef or a 
-                                        CFRunLoopTimerRef.
+                                        point to either a CFRunLoopSourceRef, a
+                                        CFRunLoopTimerRef or a CFArray containing the
+                                        aforementioned types.
             @result	An IOReturn error code.
     */
     IOReturn (*createAsyncEventSource)(	void * thisPointer,

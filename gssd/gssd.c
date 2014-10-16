@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -122,7 +122,7 @@ krb5_enctype NFS_ENCTYPES[] = {
 };
 
 #define NUM_NFS_ENCTYPES	((uint32_t)(sizeof(NFS_ENCTYPES)/sizeof(krb5_enctype)))
-
+extern int ctx_counter;
 
 static uint32_t uid_to_gss_name(uint32_t *, uid_t, gss_OID, gss_name_t *);
 static char *	get_next_kerb_component(char *);
@@ -139,7 +139,7 @@ static void *	shutdown_thread(void *);
 static void	disable_timeout(int);
 static void *	timeout_thread(void *);
 static void	vm_alloc_buffer(gss_buffer_t, uint8_t **, uint32_t *);
-static uint32_t GetSessionKey(uint32_t *, gss_OID mech, gss_ctx_id_t *, gssd_byte_buffer *,
+static uint32_t GetSessionKey(uint32_t *, gss_OID mech, gss_ctx_id_t, gssd_byte_buffer *,
 			mach_msg_type_number_t *);
 static uint32_t badcall(char *, uint32_t *, gssd_ctx *, gssd_cred *, uint32_t *,
 			gssd_byte_buffer *, mach_msg_type_number_t *,
@@ -729,13 +729,14 @@ int main(int argc, char *argv[])
 
 	DEBUG(2, "Total %d init_sec_context errors out of %d calls\n", initErr, initCnt);
 	DEBUG(2, "Total %d accept_sec_context errors out of %d calls\n", acceptErr, acceptCnt);
-
+	DEBUG(2, "Total entries left = %d\n", ctx_counter);
 #ifdef VDEBUG
 	DEBUG(3, "exiting with transaction count = %lu, "
 		"standby count = %lu\n",
 		(unsigned long) _vproc_transaction_count(),
 		(unsigned long) _vproc_standby_count());
 #endif
+
 	return (0);
 }
 
@@ -755,9 +756,9 @@ get_local_realms(krb5_realm **realms)
 		return (FALSE);
 	}
 	error = krb5_get_default_realms(kctx, realms);
+	krb5_free_context(kctx);
 	if (error) {
 		Log("Could not get kerbose default realms");
-		krb5_free_context(kctx);
 		return (FALSE);
 	}
 	return (TRUE);
@@ -1463,6 +1464,7 @@ is_nfs_service(gss_name_t svcname)
 		is_nfs = IS_NFS_SERVICE(str);
 
 done:
+	gss_release_name(&min, &canon);
 	free(str);
 
 	return (is_nfs);
@@ -1642,13 +1644,14 @@ shutdown_thread(void *arg __attribute__((unused)))
 	int remote_token;
 	int master_token;
 	sigset_t quitset[1];
-
+	char *notify_name = asl_remote_notify_name();
+	
 	pthread_setname_np("Signal thread");
 
 	sigemptyset(quitset);
 	sigaddset(quitset, SIGQUIT);
 
-	status = notify_register_signal(asl_remote_notify_name(), SIGUSR2, &remote_token);
+	status = notify_register_signal(notify_name, SIGUSR2, &remote_token);
 	if (status != NOTIFY_STATUS_OK)
 		Log("Could not register for asl notifications: %s\n", asl_remote_notify_name());
 	status = notify_register_signal(NOTIFY_SYSTEM_MASTER, SIGUSR2, &master_token);
@@ -1724,6 +1727,7 @@ shutdown_thread(void *arg __attribute__((unused)))
 	 */
 	pthread_cond_broadcast(numthreads_cv);
 	pthread_mutex_unlock(numthreads_lock);
+	free(notify_name);
 
 	return (NULL);
 }
@@ -1842,7 +1846,7 @@ is_kerberos_key_mech(gss_const_OID mech)
 }
 
 static uint32_t
-GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t *ctx,
+GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t ctx,
 		gssd_byte_buffer *skey, mach_msg_type_number_t *skeyCnt)
 {
 	gss_krb5_lucid_context_v1_t *lucid_ctx = NULL;
@@ -1858,7 +1862,7 @@ GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t *ctx,
 
 	if (gss_oid_equal(mech, GSS_NTLM_MECHANISM)) {
 		gss_buffer_set_t keys;
-		maj_stat = gss_inquire_sec_context_by_oid(minor, *ctx, GSS_NTLM_GET_SESSION_KEY_X, &keys);
+		maj_stat = gss_inquire_sec_context_by_oid(minor, ctx, GSS_NTLM_GET_SESSION_KEY_X, &keys);
 		if (maj_stat != GSS_S_COMPLETE)
 			return (maj_stat);
 
@@ -1876,14 +1880,13 @@ GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t *ctx,
 
 	} else if (is_kerberos_key_mech(mech)) {
 		DEBUG(4, "Calling  gss_krb5_export_lucid_sec_context\n");
-		maj_stat = gss_krb5_export_lucid_sec_context(minor, ctx,
+		maj_stat = gss_krb5_export_lucid_sec_context(minor, &ctx,
 							     1, &some_lucid_ctx);
 		DEBUG(3, "gss_krb5_export_lucid_sec_context returned %#K; %#k", maj_stat, mech, *minor);
 
 		if (maj_stat != GSS_S_COMPLETE) {
 			return (maj_stat);
 		}
-		*ctx = GSS_C_NO_CONTEXT;
 
 		vers = ((gss_krb5_lucid_context_version_t *)some_lucid_ctx)->version;
 		switch (vers) {
@@ -2008,10 +2011,11 @@ gss_name_to_kprinc(uint32_t *minor, gss_name_t name, krb5_principal *princ, krb5
  * Given a kerberos principal find the best cache name to use.
  */
 
-static int cred_logged = 0;  /* Only complain about missing creds once per gssd session */
+#define KFCN_ALIVE 1
+#define KFCN_EXPIRED 2
 
 static char*
-krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *expired)
+krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *flags)
 {
 	krb5_error_code error, err;
 	krb5_cc_cache_cursor cursor;
@@ -2022,20 +2026,17 @@ krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *expired)
 	time_t ltime;
 	const char *msg = NULL;
 	int cnt = 0;
-	*expired = 0;
+	*flags = 0;
 
 	err = krb5_cc_cache_get_first(kcontext, NULL, &cursor);
 	if (err) {
-		if (!cred_logged) {
-			Log("No credentials found, using default (need to kinit?)\n");
-			cred_logged = 1;
-			msg = krb5_get_error_message(kcontext, err);
-			Info("Could not get cache collection cursor %s\n", msg);
-			krb5_free_error_message(kcontext, msg);
-		}
+		msg = krb5_get_error_message(kcontext, err);
+		Info("Could not get cache collection cursor %s\n", msg);
+		krb5_free_error_message(kcontext, msg);
 		return (NULL);
 	}
 	while (!(error = krb5_cc_cache_next(kcontext, cursor, &ccache))) {
+		int isdead = 0;
 		cnt += 1;
 		err = krb5_cc_get_full_name(kcontext, ccache, &cname);
 		if (err) {
@@ -2058,47 +2059,49 @@ krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *expired)
 			cname = NULL;
 			continue;
 		}
+
+		err = krb5_cc_get_lifetime(kcontext, ccache, &ltime);
+
+		if (ltime <= 0) {
+			if (err && err != KRB5_CC_END) {
+				msg = krb5_get_error_message(kcontext, err);
+				Info("krb5_cc_get_lifetime error: %s\n", msg);
+				krb5_free_error_message(kcontext, msg);
+			}
+			isdead = 1;
+		} else {
+			*flags |= KFCN_ALIVE;
+		}
+
 		if (krb5_realm_compare(kcontext, sprinc, ccache_princ)) {
 			(void) krb5_unparse_name(kcontext, ccache_princ, &kname);
 			krb5_free_principal(kcontext, ccache_princ);
-
-			ltime = 0;
-			*expired = 0;
-			err = krb5_cc_get_lifetime(kcontext, ccache, &ltime);
 			Info("Found cache %d: %s for %s lifetime %ld\n",
-			      cnt, cname, kname ? kname : "could not get principal name", ltime);
-			if (kname) {
-				free(kname);
-				kname = NULL;
-			}
+			     cnt, cname, kname ? kname : "could not get principal name", ltime);
+			free(kname);
 
-			if (ltime <= 0) {
-				if (err && err != KRB5_CC_END) {
-					msg = krb5_get_error_message(kcontext, err);
-					Info("krb5_cc_get_lifetime error: %s\n", msg);
-					krb5_free_error_message(kcontext, msg);
-				}
-				*expired = 1;
-			} else {
+			if (!isdead) {
 				krb5_cc_close(kcontext, ccache);
+				*flags &= ~KFCN_EXPIRED;
 				break;
+			} else {
+				*flags |= KFCN_EXPIRED;
 			}
+		} else {
+			(void) krb5_free_principal(kcontext, ccache_princ);
 		}
+		
 		krb5_cc_close(kcontext, ccache);
 		free(cname);
 		cname = NULL;
 	}
-	if (error == KRB5_CC_END) {
-		if (!cred_logged) {
-			Notice("No credentials found for %s, using default (need to kinit?)\n", krb5_principal_get_realm(kcontext, sprinc));
-			cred_logged = 1;
-		}
-	} else if (error) {
+	if (error != KRB5_CC_END) {
 		msg = krb5_get_error_message(kcontext, error);
 		Log("Could not iterate through cache collections: %s\n", msg);
 		krb5_free_error_message(kcontext, msg);
 	}
-
+	(void) krb5_cc_cache_end_seq_get(kcontext, cursor);
+	
 	return (cname);
 }
 
@@ -2115,7 +2118,7 @@ set_principal_identity(gss_name_t sname, uint32_t *minor)
 	uint32_t major;
 	char *cname;
 	krb5_context kctx;
-	int error, expired;
+	int error, flags;
 
 	*minor = 0;
 	error = krb5_init_context(&kctx);
@@ -2131,11 +2134,11 @@ set_principal_identity(gss_name_t sname, uint32_t *minor)
 		return (major);
 	}
 
-	cname = krb5_find_cache_name(kctx, sprinc, &expired);
+	cname = krb5_find_cache_name(kctx, sprinc, &flags);
 	krb5_free_principal(kctx, sprinc);
 	krb5_free_context(kctx);
-	Debug("Using ccache <%s> expired = %d\n", cname ? cname : "Default", expired);
-	if (expired)
+	Debug("Using ccache <%s> flags = %d\n", cname ? cname : "Default", flags);
+	if (flags == KFCN_EXPIRED)
 		return (GSS_S_CREDENTIALS_EXPIRED);
 	if (cname) {
 		major = gss_krb5_ccache_name(minor, cname, NULL);
@@ -2436,7 +2439,7 @@ svc_mach_gss_init_sec_context_common(
 	uint32_t major_stat;
 	uint32_t major, minor;
 	uint32_t __unused in_gssd_flags = *gssd_flags;
-
+	
 	DEBUG(2, "Using mech = %d\n", mech);
 	DEBUG(3, "\tcred_handle = %p\n", cred_handle);
 	DEBUG(3, "\tgss_context = %p\n", context);
@@ -2486,6 +2489,7 @@ svc_mach_gss_init_sec_context_common(
 					strlcpy(displayname, s, MAX_DISPLAY_STR);
 					free(s);
 				}
+				gss_release_name(&minor, &source);
 			}
 		}
 
@@ -2510,7 +2514,7 @@ svc_mach_gss_init_sec_context_common(
 		/*
 		 * Fetch the (sub)session key from the context
 		 */
-		major_stat = GetSessionKey(minor_stat, mech_oid, context,
+		major_stat = GetSessionKey(minor_stat, mech_oid, *context,
 					   skey, skeyCnt);
 
 		DEBUG(2, "Client key: length = %d\n", *skeyCnt);
@@ -2645,6 +2649,19 @@ svc_mach_gss_init_sec_context_v2(
 		goto out;
 	}
 
+	/*
+	 * Below currently doesn't do anything since the mach defs file has
+	 * the major_stat as an out parameter, so *major_stat is always going
+	 * to be 0 (GSS_S_COMPLETE). If we ever rev the protocol we should change
+	 * that. It's not so bad since gss_init_sec_context will note that the
+	 * context is invalid and we will destroy the context on returning.
+	 */
+	if (*major_stat != GSS_S_CONTINUE_NEEDED && *major_stat != GSS_S_COMPLETE) {
+		kr = KERN_SUCCESS;
+		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
+		goto done;
+	}
+
 	if (*gss_context == CAST(gssd_ctx, GSS_C_NO_CONTEXT)) {
 
 		if (no_canon || (*gssd_flags & GSSD_NO_CANON))
@@ -2736,7 +2753,6 @@ svc_mach_gss_init_sec_context_v2(
 								   otokenCnt,
 								   displayname,
 								   minor_stat);
-
 
 		if (*major_stat == GSS_S_COMPLETE ||
 		    *major_stat == GSS_S_CONTINUE_NEEDED)
@@ -2927,7 +2943,7 @@ svc_mach_gss_accept_sec_context_v2(
 		/*
 		 * Fetch the (sub)session key from the context
 		 */
-		*major_stat = GetSessionKey(minor_stat, oid, &g_cntx,
+		*major_stat = GetSessionKey(minor_stat, oid, g_cntx,
 					    skey, skeyCnt);
 
 		DEBUG(2, "Server key length = %d\n", *skeyCnt);

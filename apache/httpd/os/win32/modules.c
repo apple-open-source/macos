@@ -19,7 +19,6 @@
  * the core server
  */
 
-#define CORE_PRIVATE
 #include "httpd.h"
 #include "http_config.h"
 
@@ -30,7 +29,7 @@ extern module http_module;
 extern module so_module;
 
 AP_DECLARE_DATA module *ap_prelinked_modules[] = {
-  &core_module,
+  &core_module, /* core must come first */
   &win32_module,
   &mpm_winnt_module,
   &http_module,

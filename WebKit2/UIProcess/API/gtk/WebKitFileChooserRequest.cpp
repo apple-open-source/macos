@@ -20,14 +20,15 @@
 #include "config.h"
 #include "WebKitFileChooserRequest.h"
 
-#include "ImmutableArray.h"
+#include "APIArray.h"
+#include "APIString.h"
 #include "WebKitFileChooserRequestPrivate.h"
 #include "WebOpenPanelParameters.h"
 #include "WebOpenPanelResultListenerProxy.h"
 #include <WebCore/FileSystem.h>
 #include <glib/gi18n-lib.h>
-#include <wtf/gobject/GOwnPtr.h>
 #include <wtf/gobject/GRefPtr.h>
+#include <wtf/gobject/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
@@ -205,14 +206,14 @@ const gchar* const* webkit_file_chooser_request_get_mime_types(WebKitFileChooser
     if (request->priv->mimeTypes)
         return reinterpret_cast<gchar**>(request->priv->mimeTypes->pdata);
 
-    RefPtr<ImmutableArray> mimeTypes = request->priv->parameters->acceptMIMETypes();
+    RefPtr<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
     size_t numOfMimeTypes = mimeTypes->size();
     if (!numOfMimeTypes)
         return 0;
 
     request->priv->mimeTypes = adoptGRef(g_ptr_array_new_with_free_func(g_free));
     for (size_t i = 0; i < numOfMimeTypes; ++i) {
-        WebString* webMimeType = static_cast<WebString*>(mimeTypes->at(i));
+        API::String* webMimeType = static_cast<API::String*>(mimeTypes->at(i));
         String mimeTypeString = webMimeType->string();
         if (mimeTypeString.isEmpty())
             continue;
@@ -246,7 +247,7 @@ GtkFileFilter* webkit_file_chooser_request_get_mime_types_filter(WebKitFileChoos
     if (request->priv->filter)
         return request->priv->filter.get();
 
-    RefPtr<ImmutableArray> mimeTypes = request->priv->parameters->acceptMIMETypes();
+    RefPtr<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
     size_t numOfMimeTypes = mimeTypes->size();
     if (!numOfMimeTypes)
         return 0;
@@ -256,7 +257,7 @@ GtkFileFilter* webkit_file_chooser_request_get_mime_types_filter(WebKitFileChoos
     // sure we keep the ownership during the lifetime of the request.
     request->priv->filter = gtk_file_filter_new();
     for (size_t i = 0; i < numOfMimeTypes; ++i) {
-        WebString* webMimeType = static_cast<WebString*>(mimeTypes->at(i));
+        API::String* webMimeType = static_cast<API::String*>(mimeTypes->at(i));
         String mimeTypeString = webMimeType->string();
         if (mimeTypeString.isEmpty())
             continue;
@@ -298,15 +299,15 @@ void webkit_file_chooser_request_select_files(WebKitFileChooserRequest* request,
     g_return_if_fail(files);
 
     GRefPtr<GPtrArray> selectedFiles = adoptGRef(g_ptr_array_new_with_free_func(g_free));
-    Vector<RefPtr<APIObject> > choosenFiles;
+    Vector<RefPtr<API::Object> > choosenFiles;
     for (int i = 0; files[i]; i++) {
         GRefPtr<GFile> filename = adoptGRef(g_file_new_for_path(files[i]));
 
         // Make sure the file path is presented as an URI (escaped
         // string, with the 'file://' prefix) to WebCore otherwise the
         // FileChooser won't actually choose it.
-        GOwnPtr<char> uri(g_file_get_uri(filename.get()));
-        choosenFiles.append(WebURL::create(String::fromUTF8(uri.get())));
+        GUniquePtr<char> uri(g_file_get_uri(filename.get()));
+        choosenFiles.append(API::URL::create(String::fromUTF8(uri.get())));
 
         // Do not use the URI here because this won't reach WebCore.
         g_ptr_array_add(selectedFiles.get(), g_strdup(files[i]));
@@ -314,7 +315,7 @@ void webkit_file_chooser_request_select_files(WebKitFileChooserRequest* request,
     g_ptr_array_add(selectedFiles.get(), 0);
 
     // Select the files in WebCore and update local private attributes.
-    request->priv->listener->chooseFiles(ImmutableArray::adopt(choosenFiles).get());
+    request->priv->listener->chooseFiles(API::Array::create(WTF::move(choosenFiles)).get());
     request->priv->selectedFiles = selectedFiles;
     request->priv->handledRequest = true;
 }
@@ -345,14 +346,14 @@ const gchar* const* webkit_file_chooser_request_get_selected_files(WebKitFileCho
     if (request->priv->selectedFiles)
         return reinterpret_cast<gchar**>(request->priv->selectedFiles->pdata);
 
-    RefPtr<ImmutableArray> selectedFileNames = request->priv->parameters->selectedFileNames();
+    RefPtr<API::Array> selectedFileNames = request->priv->parameters->selectedFileNames();
     size_t numOfFiles = selectedFileNames->size();
     if (!numOfFiles)
         return 0;
 
     request->priv->selectedFiles = adoptGRef(g_ptr_array_new_with_free_func(g_free));
     for (size_t i = 0; i < numOfFiles; ++i) {
-        WebString* webFileName = static_cast<WebString*>(selectedFileNames->at(i));
+        API::String* webFileName = static_cast<API::String*>(selectedFileNames->at(i));
         if (webFileName->isEmpty())
             continue;
         CString filename = fileSystemRepresentation(webFileName->string());

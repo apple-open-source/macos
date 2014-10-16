@@ -27,14 +27,14 @@
 #define WKStringCF_h
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <WebKit2/WKBase.h>
+#include <WebKit/WKBase.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 WK_EXPORT WKStringRef WKStringCreateWithCFString(CFStringRef string);
-WK_EXPORT CFStringRef WKStringCopyCFString(CFAllocatorRef alloc, WKStringRef string);
+WK_EXPORT CFStringRef WKStringCopyCFString(CFAllocatorRef alloc, WKStringRef string) CF_RETURNS_RETAINED;
 
 #ifdef __cplusplus
 }

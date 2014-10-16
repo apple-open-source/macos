@@ -243,7 +243,7 @@ TRYAGAIN:
 
 		e = xar_ea_new(f, tempnam);
 		xar_ea_pset(f, e, "fstype", fsname);
-		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_fbsdattr_read, &context);
+		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_fbsdattr_read, &context);
 
 		free(FBSDATTR_CONTEXT(&context)->buf);
 		FBSDATTR_CONTEXT(&context)->buf = NULL;
@@ -331,7 +331,7 @@ int32_t xar_fbsdattr_extract(xar_t x, xar_file_t f, const char* file, char *buff
 		}
 
 		FBSDATTR_CONTEXT(&context)->file = file;
-		xar_attrcopy_from_heap(x, f, p, xar_fbsdattr_write, &context);
+		XAR(x)->attrcopy_from_heap(x, f, p, xar_fbsdattr_write, &context);
 	}
 
 

@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -102,6 +102,9 @@ DatabaseContext::DatabaseContext(ScriptExecutionContext* context)
     , m_hasOpenDatabases(false)
     , m_isRegistered(true) // will register on construction below.
     , m_hasRequestedTermination(false)
+#if PLATFORM(IOS)
+    , m_paused(false)
+#endif
 {
     // ActiveDOMObject expects this to be called to set internal flags.
     suspendIfNeeded();
@@ -125,23 +128,15 @@ DatabaseContext::~DatabaseContext()
     DatabaseManager::manager().didDestructDatabaseContext();
 }
 
-// This is called if the associated ScriptExecutionContext is destructing while
+// This is called if the associated ScriptExecutionContext is destroyed while
 // we're still associated with it. That's our cue to disassociate and shutdown.
-// To do this, we stop the database and let everything shutdown naturally
-// because the database closing process may still make use of this context.
+// To do this, we stop the database and let everything shut down naturally
+// because the database closing process might still make use of this context.
 // It is not safe to just delete the context here.
 void DatabaseContext::contextDestroyed()
 {
     stopDatabases();
-
-    // Normally, willDestroyActiveDOMObject() is called in ~ActiveDOMObject().
-    // However, we're here because the destructor hasn't been called, and the
-    // ScriptExecutionContext we're associated with is about to be destructed.
-    // So, go ahead an unregister self from the ActiveDOMObject list, and
-    // set m_scriptExecutionContext to 0 so that ~ActiveDOMObject() doesn't
-    // try to do so again.
-    m_scriptExecutionContext->willDestroyActiveDOMObject(this);
-    m_scriptExecutionContext = 0;
+    ActiveDOMObject::contextDestroyed();
 }
 
 // stop() is from stopActiveDOMObjects() which indicates that the owner Frame
@@ -161,6 +156,9 @@ PassRefPtr<DatabaseBackendContext> DatabaseContext::backend()
 DatabaseThread* DatabaseContext::databaseThread()
 {
     if (!m_databaseThread && !m_hasOpenDatabases) {
+#if PLATFORM(IOS)
+        MutexLocker lock(m_databaseThreadMutex);
+#endif
         // It's OK to ask for the m_databaseThread after we've requested
         // termination because we're still using it to execute the closing
         // of the database. However, it is NOT OK to create a new thread
@@ -171,13 +169,29 @@ DatabaseThread* DatabaseContext::databaseThread()
         // because in that case we already had a database thread and terminated it and should not create another.
         m_databaseThread = DatabaseThread::create();
         if (!m_databaseThread->start())
-            m_databaseThread = 0;
+            m_databaseThread = nullptr;
+
+#if PLATFORM(IOS)
+        if (m_databaseThread)
+            m_databaseThread->setPaused(m_paused);
+#endif
     }
 
     return m_databaseThread.get();
 }
 
-bool DatabaseContext::stopDatabases(DatabaseTaskSynchronizer* cleanupSync)
+#if PLATFORM(IOS)
+void DatabaseContext::setPaused(bool paused)
+{
+    MutexLocker lock(m_databaseThreadMutex);
+
+    m_paused = paused;
+    if (m_databaseThread)
+        m_databaseThread->setPaused(m_paused);
+}
+#endif // PLATFORM(IOS)
+
+bool DatabaseContext::stopDatabases(DatabaseTaskSynchronizer* synchronizer)
 {
     if (m_isRegistered) {
         DatabaseManager::manager().unregisterDatabaseContext(this);
@@ -195,7 +209,7 @@ bool DatabaseContext::stopDatabases(DatabaseTaskSynchronizer* cleanupSync)
     // DatabaseThread.
 
     if (m_databaseThread && !m_hasRequestedTermination) {
-        m_databaseThread->requestTermination(cleanupSync);
+        m_databaseThread->requestTermination(synchronizer);
         m_hasRequestedTermination = true;
         return true;
     }
@@ -206,11 +220,11 @@ bool DatabaseContext::allowDatabaseAccess() const
 {
     if (m_scriptExecutionContext->isDocument()) {
         Document* document = toDocument(m_scriptExecutionContext);
-        if (!document->page() || (document->page()->settings()->privateBrowsingEnabled() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(document->securityOrigin()->protocol())))
+        if (!document->page() || (document->page()->usesEphemeralSession() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(document->securityOrigin()->protocol())))
             return false;
         return true;
     }
-    ASSERT(m_scriptExecutionContext->isWorkerContext());
+    ASSERT(m_scriptExecutionContext->isWorkerGlobalScope());
     // allowDatabaseAccess is not yet implemented for workers.
     return true;
 }
@@ -220,10 +234,10 @@ void DatabaseContext::databaseExceededQuota(const String& name, DatabaseDetails 
     if (m_scriptExecutionContext->isDocument()) {
         Document* document = toDocument(m_scriptExecutionContext);
         if (Page* page = document->page())
-            page->chrome().client()->exceededDatabaseQuota(document->frame(), name, details);
+            page->chrome().client().exceededDatabaseQuota(document->frame(), name, details);
         return;
     }
-    ASSERT(m_scriptExecutionContext->isWorkerContext());
+    ASSERT(m_scriptExecutionContext->isWorkerGlobalScope());
     // FIXME: This needs a real implementation; this is a temporary solution for testing.
     const unsigned long long defaultQuota = 5 * 1024 * 1024;
     DatabaseManager::manager().setQuota(m_scriptExecutionContext->securityOrigin(), defaultQuota);

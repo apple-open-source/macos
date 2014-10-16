@@ -1419,7 +1419,7 @@ _krb5_kcm_get_status(int status)
 	"fail",
 	"stop"
     };
-    if (status >= 0 && status < sizeof(msg) / sizeof(msg[0]))
+    if (status >= 0 && status < (int)(sizeof(msg) / sizeof(msg[0])))
 	return msg[status];
     return "unknown";
 }

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,21 +28,20 @@
 
 #include "CSSValue.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
 class CSSUnicodeRangeValue : public CSSValue {
 public:
-    static PassRefPtr<CSSUnicodeRangeValue> create(UChar32 from, UChar32 to)
+    static PassRef<CSSUnicodeRangeValue> create(UChar32 from, UChar32 to)
     {
-        return adoptRef(new CSSUnicodeRangeValue(from, to));
+        return adoptRef(*new CSSUnicodeRangeValue(from, to));
     }
 
     UChar32 from() const { return m_from; }
     UChar32 to() const { return m_to; }
 
-    String customCssText() const;
+    String customCSSText() const;
 
     bool equals(const CSSUnicodeRangeValue&) const;
 
@@ -57,6 +56,8 @@ private:
     UChar32 m_from;
     UChar32 m_to;
 };
+
+CSS_VALUE_TYPE_CASTS(CSSUnicodeRangeValue, isUnicodeRangeValue())
 
 } // namespace WebCore
 

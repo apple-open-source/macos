@@ -41,15 +41,9 @@
 BEGIN
 {
 	ptr = alloca(sizeof (int));
-#if !defined(__APPLE__)
-	bcopy((void *)&`kmem_flags, ptr, sizeof (int));
-	intp = (int *)ptr;
-	ret = (`kmem_flags == *intp) ? 0 : 1;
-#else
 	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
 	intp = (int *)ptr;
 	ret = (`max_ncpus == *intp) ? 0 : 1;
-#endif /* __APPLE__ */
 }
 
 tick-1
@@ -61,12 +55,7 @@ tick-1
 tick-1
 /ret == 1/
 {
-#if !defined(__APPLE__)
-	printf("memory address contained 0x%x, expected 0x%x\n",
-		*intp, `kmem_flags);
-#else
 	printf("memory address contained 0x%x, expected 0x%x\n",
 		*intp, `max_ncpus);
-#endif /* __APPLE__ */
 	exit(1);
 }

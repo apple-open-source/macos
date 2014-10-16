@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,8 @@
 
 #ifndef _IOKIT_IOAUDIOSELECTORCONTROL_H
 #define _IOKIT_IOAUDIOSELECTORCONTROL_H
+
+#include <AvailabilityMacros.h>
 
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioControl.h>
@@ -49,26 +51,26 @@ public:
 	static IOAudioSelectorControl *createOutputSelector(SInt32 initialValue,
 															UInt32 channelID,
 															const char *channelName = 0,
-															UInt32 cntrlID = 0);
+															UInt32 cntrlID = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	static IOAudioSelectorControl *createOutputClockSelector(SInt32 initialValue,
                                                                     UInt32 channelID,
 																	UInt32 clockSource,
                                                                     const char *channelName = 0,
-                                                                    UInt32 cntrlID = 0);
+                                                                    UInt32 cntrlID = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	static IOAudioSelectorControl *createInputClockSelector(SInt32 initialValue,
                                                                     UInt32 channelID,
 																	UInt32 clockSource,
                                                                     const char *channelName = 0,
-                                                                    UInt32 cntrlID = 0);
+                                                                    UInt32 cntrlID = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
     // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 0);
-	virtual IOReturn removeAvailableSelection(SInt32 selectionValue);
+	virtual IOReturn removeAvailableSelection(SInt32 selectionValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 1);
-	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, const char *selectionDescription);
+	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, const char *selectionDescription) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 2);
-	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, OSString *selectionDescription);
+	virtual IOReturn replaceAvailableSelection(SInt32 selectionValue, OSString *selectionDescription) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     // OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 3);
-	virtual IOReturn addAvailableSelection(SInt32 selectionValue, OSString *selectionDescription, const char* pszName, OSObject* tag);		// <rdar://8202424>
+	virtual IOReturn addAvailableSelection(SInt32 selectionValue, OSString *selectionDescription, const char* pszName, OSObject* tag) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://8202424>
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioSelectorControl, 0);
@@ -96,12 +98,12 @@ public:
                                             const char *channelName = 0,
                                             UInt32 cntrlID = 0,
                                             UInt32 subType = 0,
-                                            UInt32 usage = 0);
+                                            UInt32 usage = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                                             
     static IOAudioSelectorControl *createInputSelector(SInt32 initialValue,
                                                         UInt32 channelID,
                                                         const char *channelName = 0,
-                                                        UInt32 cntrlID = 0);
+                                                        UInt32 cntrlID = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
                                                         
     virtual bool init(SInt32 initialValue,
                       UInt32 channelID,
@@ -109,16 +111,16 @@ public:
                       UInt32 cntrlID = 0,
                       UInt32 subType = 0,
                       UInt32 usage = 0,
-                      OSDictionary *properties = 0);
+                      OSDictionary *properties = 0) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual void free();
+    virtual void free() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn addAvailableSelection(SInt32 selectionValue, const char *selectionDescription);
-    virtual IOReturn addAvailableSelection(SInt32 selectionValue, OSString *selectionDescription);
+    virtual IOReturn addAvailableSelection(SInt32 selectionValue, const char *selectionDescription) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+    virtual IOReturn addAvailableSelection(SInt32 selectionValue, OSString *selectionDescription) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual bool valueExists(SInt32 selectorValue);
+    virtual bool valueExists(SInt32 selectorValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-    virtual IOReturn validateValue(OSObject *newValue);
+    virtual IOReturn validateValue(OSObject *newValue) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 };
 

@@ -34,7 +34,7 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
-#include "KURL.h"
+#include "URL.h"
 #include "ThreadableLoaderClient.h"
 #include "Timer.h"
 #include <wtf/RefPtr.h>
@@ -48,10 +48,10 @@ class ResourceResponse;
 class TextResourceDecoder;
 class ThreadableLoader;
 
-class EventSource : public RefCounted<EventSource>, public EventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
+class EventSource final : public RefCounted<EventSource>, public EventTargetWithInlineData, private ThreadableLoaderClient, public ActiveDOMObject {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<EventSource> create(ScriptExecutionContext*, const String& url, const Dictionary&, ExceptionCode&);
+    static PassRefPtr<EventSource> create(ScriptExecutionContext&, const String& url, const Dictionary&, ExceptionCode&);
     virtual ~EventSource();
 
     static const unsigned long long defaultReconnectDelay;
@@ -75,37 +75,35 @@ public:
     using RefCounted<EventSource>::ref;
     using RefCounted<EventSource>::deref;
 
-    virtual const AtomicString& interfaceName() const;
-    virtual ScriptExecutionContext* scriptExecutionContext() const;
-
-    virtual void stop();
+    virtual EventTargetInterface eventTargetInterface() const override { return EventSourceEventTargetInterfaceType; }
+    virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
 private:
-    EventSource(ScriptExecutionContext*, const KURL&, const Dictionary&);
+    EventSource(ScriptExecutionContext&, const URL&, const Dictionary&);
 
-    virtual void refEventTarget() { ref(); }
-    virtual void derefEventTarget() { deref(); }
-    virtual EventTargetData* eventTargetData();
-    virtual EventTargetData* ensureEventTargetData();
+    virtual void refEventTarget() override { ref(); }
+    virtual void derefEventTarget() override { deref(); }
 
-    virtual void didReceiveResponse(unsigned long, const ResourceResponse&);
-    virtual void didReceiveData(const char*, int);
-    virtual void didFinishLoading(unsigned long, double);
-    virtual void didFail(const ResourceError&);
-    virtual void didFailAccessControlCheck(const ResourceError&);
-    virtual void didFailRedirectCheck();
+    virtual void didReceiveResponse(unsigned long, const ResourceResponse&) override;
+    virtual void didReceiveData(const char*, int) override;
+    virtual void didFinishLoading(unsigned long, double) override;
+    virtual void didFail(const ResourceError&) override;
+    virtual void didFailAccessControlCheck(const ResourceError&) override;
+    virtual void didFailRedirectCheck() override;
+
+    virtual void stop() override;
 
     void connect();
     void networkRequestEnded();
     void scheduleInitialConnect();
     void scheduleReconnect();
-    void connectTimerFired(Timer<EventSource>*);
+    void connectTimerFired(Timer<EventSource>&);
     void abortConnectionAttempt();
     void parseEventStream();
     void parseEventStreamLine(unsigned pos, int fieldLength, int lineLength);
     PassRefPtr<MessageEvent> createMessageEvent();
 
-    KURL m_url;
+    URL m_url;
     bool m_withCredentials;
     State m_state;
 
@@ -122,8 +120,6 @@ private:
     String m_lastEventId;
     unsigned long long m_reconnectDelay;
     String m_eventStreamOrigin;
-
-    EventTargetData m_eventTargetData;
 };
 
 } // namespace WebCore

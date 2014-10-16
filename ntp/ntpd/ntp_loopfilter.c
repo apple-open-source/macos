@@ -27,6 +27,8 @@
 #include "ntp_syscall.h"
 #endif /* KERNEL_PLL */
 
+#include <os/trace.h>
+
 /*
  * This is an implementation of the clock discipline algorithm described
  * in UDel TR 97-4-3, as amended. It operates as an adaptive parameter,
@@ -394,8 +396,7 @@ local_clock(
 			    fp_offset);
 			report_event(EVNT_CLOCKRESET, NULL, tbuf);
 			step_systime(fp_offset);
-			msyslog(LOG_NOTICE, "ntpd: time set %+.6f s",
-	   		    fp_offset);
+			msyslog(LOG_NOTICE, "time set %+.6f s", fp_offset);
 			reinit_timer();
 			tc_counter = 0;
 			clock_jitter = LOGTOD(sys_precision);
@@ -806,7 +807,11 @@ set_freq(
 	)
 {
 	char	tbuf[80];
-
+    
+	if (freq != drift_comp) {
+		os_trace("drift PPM:%.3f -> %.3f", drift_comp * 1e6, freq * 1e6);
+		msyslog(LOG_NOTICE, "drift PPM:%.3f -> %.3f", drift_comp * 1e6, freq * 1e6);
+	}
 	drift_comp = freq;
 
 #ifdef KERNEL_PLL

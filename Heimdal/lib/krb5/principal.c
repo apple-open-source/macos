@@ -73,8 +73,6 @@ host/admin@H5L.ORG
  * @param context A Kerberos context.
  * @param p a principal to free.
  *
- * @return An krb5 error code, see krb5_get_error_message().
- *
  * @ingroup krb5_principal
  */
 
@@ -94,8 +92,6 @@ krb5_free_principal(krb5_context context,
  * @param context A Kerberos context.
  * @param principal principal to set the type for
  * @param type the new type
- *
- * @return An krb5 error code, see krb5_get_error_message().
  *
  * @ingroup krb5_principal
  */
@@ -396,7 +392,6 @@ krb5_parse_name(krb5_context context,
 
 static const char quotable_chars[] = " \n\t\b\\/@";
 static const char replace_chars[] = " ntb\\/@";
-static const char nq_chars[] = "    \\/@";
 
 #define add_char(BASE, INDEX, LEN, C) do { if((INDEX) < (LEN)) (BASE)[(INDEX)++] = (C); }while(0);
 

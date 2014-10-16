@@ -20,11 +20,11 @@
 #include "config.h"
 #include "WebKitNavigationPolicyDecision.h"
 
+#include "APIURLRequest.h"
 #include "WebEvent.h"
 #include "WebKitEnumTypes.h"
 #include "WebKitPolicyDecisionPrivate.h"
 #include "WebKitURIRequestPrivate.h"
-#include "WebURLRequest.h"
 #include <glib/gi18n-lib.h>
 #include <wtf/gobject/GRefPtr.h>
 #include <wtf/text/CString.h>
@@ -243,14 +243,7 @@ const char* webkit_navigation_policy_decision_get_frame_name(WebKitNavigationPol
     return decision->priv->frameName.data();
 }
 
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_LINK_CLICKED, NavigationTypeLinkClicked);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_FORM_SUBMITTED, NavigationTypeFormSubmitted);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_BACK_FORWARD, NavigationTypeBackForward);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_RELOAD, NavigationTypeReload);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_FORM_RESUBMITTED, NavigationTypeFormResubmitted);
-COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_NAVIGATION_TYPE_OTHER, NavigationTypeOther);
-
-WebKitNavigationPolicyDecision* webkitNavigationPolicyDecisionCreate(WebKitNavigationType navigationType, unsigned mouseButton, unsigned modifiers, WebURLRequest* request, const char* frameName, WebFramePolicyListenerProxy* listener)
+WebKitNavigationPolicyDecision* webkitNavigationPolicyDecisionCreate(WebKitNavigationType navigationType, unsigned mouseButton, unsigned modifiers, API::URLRequest* request, const char* frameName, WebFramePolicyListenerProxy* listener)
 {
     WebKitNavigationPolicyDecision* decision = WEBKIT_NAVIGATION_POLICY_DECISION(g_object_new(WEBKIT_TYPE_NAVIGATION_POLICY_DECISION, NULL));
     decision->priv->navigationType = navigationType;

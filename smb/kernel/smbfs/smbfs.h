@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,15 +36,16 @@
 #ifndef _SMBFS_SMBFS_H_
 #define _SMBFS_SMBFS_H_
 
+#include <sys/kdebug.h>
 #include <netinet/in.h>
 #include <netsmb/netbios.h>
 
-#define SMBFS_VERMAJ	2
-#define SMBFS_VERMIN	0300
+#define SMBFS_VERMAJ	3
+#define SMBFS_VERMIN	0000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 2.0.3"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 10.9"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 3.0.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 10.10"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
@@ -165,6 +166,7 @@ struct smb_mount_args {
 	unsigned char	unique_id[SMB_MAX_UNIQUE_ID] __attribute((aligned(8))); /* A set of bytes that uniquely identifies this volume */
 	char		volume_name[MAXPATHLEN] __attribute((aligned(8))); /* The starting path they want used for the mount */
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+	int32_t		max_resp_timeout;
 };
 
 #define SMBFS_SYSCTL_REMOUNT 1
@@ -264,7 +266,7 @@ struct smbmount {
 	time_t			sm_statfstime; /* sm_statfsbuf cache time */
 	lck_mtx_t		sm_statfslock; /* sm_statsbuf lock */
 	struct vfsstatfs	sm_statfsbuf; /* cached statfs data */
-	lck_mtx_t		sm_reclaim_renamelock; /* mount reclaim/rename lock */
+	lck_mtx_t		sm_reclaim_lock; /* mount reclaim lock */
 	void			*notify_thread;	/* pointer to the notify thread structure */
 	int32_t			tooManyNotifies;
 	lck_mtx_t		sm_svrmsg_lock;		/* protects svrmsg fields */
@@ -318,6 +320,98 @@ void smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 #define SMB_IOMIN (1024 * 1024)
 #define SMB_IOMAXCACHE (SMB_IOMIN * 4)
 #define SMB_IOMAX ((size_t)MAX_UPL_SIZE * PAGE_SIZE)
+
+/*
+* KERNEL_DEBUG related definitions for SMB.
+*
+* NOTE: The Class DBG_FSYSTEM = 3, and Subclass DBG_SMB = 0xA, so these
+* debug codes are of the form 0x030Annnn.
+*/
+#define DBG_SMB     0xA     /* SMB-specific events; see the smb project */
+
+#define SMB_DBG_CODE(code)    FSDBG_CODE(DBG_SMB, code)
+
+/* example usage */
+//SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_START, 0, 0, 0, 0, 0);
+//SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_END, error, 0, 0, 0, 0);
+//SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_NONE, 0xabc001, error, 0, 0, 0);
+
+enum {
+        /* VFS OPs */
+        SMB_DBG_MOUNT                     = SMB_DBG_CODE(0),    /* 0x030A0000 */
+        SMB_DBG_UNMOUNT                   = SMB_DBG_CODE(1),    /* 0x030A0004 */
+        SMB_DBG_ROOT                      = SMB_DBG_CODE(2),    /* 0x030A0008 */
+        SMB_DBG_VFS_GETATTR               = SMB_DBG_CODE(3),    /* 0x030A000C */
+        SMB_DBG_SYNC                      = SMB_DBG_CODE(4),    /* 0x030A0010 */
+        SMB_DBG_VGET                      = SMB_DBG_CODE(5),    /* 0x030A0014 */
+        SMB_DBG_SYSCTL                    = SMB_DBG_CODE(6),    /* 0x030A0018 */
+    
+        /* VFS VNODE OPs */
+        SMB_DBG_ADVLOCK                   = SMB_DBG_CODE(7),    /* 0x030A001C */
+        SMB_DBG_CLOSE                     = SMB_DBG_CODE(8),    /* 0x030A0020 */
+        SMB_DBG_CREATE                    = SMB_DBG_CODE(9),    /* 0x030A0024 */
+        SMB_DBG_FSYNC                     = SMB_DBG_CODE(10),   /* 0x030A0028 */
+        SMB_DBG_GET_ATTR                  = SMB_DBG_CODE(11),   /* 0x030A002C */
+        SMB_DBG_PAGE_IN                   = SMB_DBG_CODE(12),   /* 0x030A0030 */
+        SMB_DBG_INACTIVE                  = SMB_DBG_CODE(13),   /* 0x030A0034 */
+        SMB_DBG_IOCTL                     = SMB_DBG_CODE(14),   /* 0x030A0038 */
+        SMB_DBG_LINK                      = SMB_DBG_CODE(15),   /* 0x030A003C */
+        SMB_DBG_LOOKUP                    = SMB_DBG_CODE(16),   /* 0x030A0040 */
+        SMB_DBG_MKDIR                     = SMB_DBG_CODE(17),   /* 0x030A0044 */
+        SMB_DBG_MKNODE                    = SMB_DBG_CODE(18),   /* 0x030A0048 */
+        SMB_DBG_MMAP                      = SMB_DBG_CODE(19),   /* 0x030A004C */
+        SMB_DBG_MNOMAP                    = SMB_DBG_CODE(20),   /* 0x030A0050 */
+        SMB_DBG_OPEN                      = SMB_DBG_CODE(21),   /* 0x030A0054 */
+        SMB_DBG_CMPD_OPEN                 = SMB_DBG_CODE(22),   /* 0x030A0058 */
+        SMB_DBG_PATHCONF                  = SMB_DBG_CODE(23),   /* 0x030A005C */
+        SMB_DBG_PAGE_OUT                  = SMB_DBG_CODE(24),   /* 0x030A0060 */
+        SMB_DBG_COPYFILE                  = SMB_DBG_CODE(25),   /* 0x030A0064 */
+        SMB_DBG_READ                      = SMB_DBG_CODE(26),   /* 0x030A0068 */
+        SMB_DBG_READ_DIR                  = SMB_DBG_CODE(27),   /* 0x030A006C */
+        SMB_DBG_READ_DIR_ATTR             = SMB_DBG_CODE(28),   /* 0x030A0070 */
+        SMB_DBG_READ_LINK                 = SMB_DBG_CODE(29),   /* 0x030A0074 */
+        SMB_DBG_RECLAIM                   = SMB_DBG_CODE(30),   /* 0x030A0078 */
+        SMB_DBG_REMOVE                    = SMB_DBG_CODE(31),   /* 0x030A007C */
+        SMB_DBG_RENAME                    = SMB_DBG_CODE(32),   /* 0x030A0080 */
+        SMB_DBG_RM_DIR                    = SMB_DBG_CODE(33),   /* 0x030A0084 */
+        SMB_DBG_SET_ATTR                  = SMB_DBG_CODE(34),   /* 0x030A0088 */
+        SMB_DBG_SYM_LINK                  = SMB_DBG_CODE(35),   /* 0x030A008C */
+        SMB_DBG_WRITE                     = SMB_DBG_CODE(36),   /* 0x030A0090 */
+        SMB_DBG_STRATEGY                  = SMB_DBG_CODE(37),   /* 0x030A0094 */
+        SMB_DBG_GET_XATTR                 = SMB_DBG_CODE(38),   /* 0x030A0098 */
+        SMB_DBG_SET_XATTR                 = SMB_DBG_CODE(39),   /* 0x030A009C */
+        SMB_DBG_RM_XATTR                  = SMB_DBG_CODE(40),   /* 0x030A00A0 */
+        SMB_DBG_LIST_XATTR                = SMB_DBG_CODE(41),   /* 0x030A00A4 */
+        SMB_DBG_MONITOR                   = SMB_DBG_CODE(42),   /* 0x030A00A8 */
+        SMB_DBG_GET_NSTREAM               = SMB_DBG_CODE(43),   /* 0x030A00AC */
+        SMB_DBG_MAKE_NSTREAM              = SMB_DBG_CODE(44),   /* 0x030A00B0 */
+        SMB_DBG_RM_NSTREAM                = SMB_DBG_CODE(45),   /* 0x030A00B4 */
+        SMB_DBG_ACCESS                    = SMB_DBG_CODE(46),   /* 0x030A00B8 */
+        SMB_DBG_ALLOCATE                  = SMB_DBG_CODE(47),   /* 0x030A00BC */
+    
+        /* Sub Functions */
+        SMB_DBG_SMBFS_CLOSE               = SMB_DBG_CODE(48),   /* 0x030A00C0 */
+        SMB_DBG_SMBFS_CREATE              = SMB_DBG_CODE(49),   /* 0x030A00C4 */
+        SMB_DBG_SMBFS_FSYNC               = SMB_DBG_CODE(50),   /* 0x030A00C8 */
+        SMB_DBG_SMB_FSYNC                 = SMB_DBG_CODE(51),   /* 0x030A00CC */
+        SMB_DBG_SMBFS_UPDATE_CACHE        = SMB_DBG_CODE(52),   /* 0x030A00D0 */
+        SMB_DBG_SMBFS_OPEN                = SMB_DBG_CODE(53),   /* 0x030A00D4 */
+        SMB_DBG_SMB_READ                  = SMB_DBG_CODE(54),   /* 0x030A00D8 */
+        SMB_DBG_SMB_RW_ASYNC              = SMB_DBG_CODE(55),   /* 0x030A00DC */
+        SMB_DBG_SMB_RW_FILL               = SMB_DBG_CODE(56),   /* 0x030A00E0 */
+        SMB_DBG_PACK_ATTR_BLK             = SMB_DBG_CODE(57),   /* 0x030A00E4 */
+        SMB_DBG_SMBFS_REMOVE              = SMB_DBG_CODE(58),   /* 0x030A00E8 */
+        SMB_DBG_SMBFS_SETATTR             = SMB_DBG_CODE(59),   /* 0x030A00EC */
+        SMB_DBG_SMBFS_GET_SEC             = SMB_DBG_CODE(60),   /* 0x030A00F0 */
+        SMB_DBG_SMBFS_SET_SEC             = SMB_DBG_CODE(61),   /* 0x030A00F4 */
+        SMB_DBG_SMBFS_GET_MAX_ACCESS      = SMB_DBG_CODE(62),   /* 0x030A00F8 */
+        SMB_DBG_SMBFS_LOOKUP              = SMB_DBG_CODE(63),   /* 0x030A00FC */
+        SMB_DBG_SMBFS_NOTIFY              = SMB_DBG_CODE(64),   /* 0x030A0100 */
+	
+        SMB_DBG_GET_ATTRLIST_BULK         = SMB_DBG_CODE(65),   /* 0x030A0104 */
+        SMB_DBG_UPDATE_CTX                = SMB_DBG_CODE(66),   /* 0x030A0108 */
+};
+
 
 #endif	/* KERNEL */
 

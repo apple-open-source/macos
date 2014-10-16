@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005, 2007, 2008, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,15 +37,18 @@
 
 __BEGIN_DECLS
 
-void	interface_update_ipv4	(struct ifaddrs *ifap, const char *if_name);
+void	ipv4_interface_update(struct ifaddrs *ifap, const char *if_name);
 
-void	interface_collision_ipv4(const char *if_name,
-				 struct in_addr ip_addr,
-				 int hw_len, const void * hw_addr);
+void	ipv4_arp_collision(const char *if_name,
+			   struct in_addr ip_addr,
+			   int hw_len, const void * hw_addr);
 
 #if	!TARGET_OS_IPHONE
-void	port_in_use_ipv4	(uint16_t port, pid_t req_pid);
+void	ipv4_port_in_use(uint16_t port, pid_t req_pid);
 #endif	/* !TARGET_OS_IPHONE */
+
+void	ipv4_router_arp_failure(const char * if_name);
+void	ipv4_router_arp_alive(const char * if_name);
 
 __END_DECLS
 

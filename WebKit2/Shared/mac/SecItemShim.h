@@ -26,7 +26,7 @@
 #ifndef SecItemShim_h
 #define SecItemShim_h
 
-#if USE(SECURITY_FRAMEWORK)
+#if ENABLE(SEC_ITEM_SHIM)
 
 #include "Connection.h"
 
@@ -35,19 +35,19 @@ namespace WebKit {
 class ChildProcess;
 class SecItemResponseData;
 
-class SecItemShim : public CoreIPC::Connection::WorkQueueMessageReceiver {
+class SecItemShim : public IPC::Connection::WorkQueueMessageReceiver {
 WTF_MAKE_NONCOPYABLE(SecItemShim);
 public:
     static SecItemShim& shared();
 
     void initialize(ChildProcess*);
-    void initializeConnection(CoreIPC::Connection*);
+    void initializeConnection(IPC::Connection*);
 
 private:
     SecItemShim();
 
-    // CoreIPC::Connection::WorkQueueMessageReceiver.
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    // IPC::Connection::WorkQueueMessageReceiver.
+    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
 
     void secItemResponse(uint64_t requestID, const SecItemResponseData&);
 
@@ -56,6 +56,6 @@ private:
 
 } // namespace WebKit
 
-#endif // USE(SECURITY_FRAMEWORK)
+#endif // ENABLE(SEC_ITEM_SHIM)
 
 #endif // SecItemShim_h

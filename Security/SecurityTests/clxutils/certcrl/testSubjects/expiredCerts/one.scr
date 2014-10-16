@@ -1,0 +1,25 @@
+#
+# test handling of expired certs, Radar 3622125.
+#
+
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+#
+# Verify recovery with both good and expired CA in inputs AND DLDB
+#
+test = "Expired and good CA and root in both inputs and DLDBs"
+cert = ecGoodLeaf.cer
+cert = ecExpiredCA.cer
+cert = ecExpiredRoot.cer
+# throw this in too!
+root = ecExpiredRoot.cer
+root = ecGoodRoot.cer
+certDb = expiredCA.keychain
+certDb = expiredRoot.keychain
+certDb = goodCA.keychain
+end

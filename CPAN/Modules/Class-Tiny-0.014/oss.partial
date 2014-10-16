@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Class-Tiny</string>
+        <key>OpenSourceVersion</key>
+        <string>0.014</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DA/DAGOLDEN/Class-Tiny-0.014.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2014-02-06</string>
+        <key>OpenSourceLicense</key>
+        <string>Apache 2.0</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

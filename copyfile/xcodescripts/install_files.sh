@@ -1,20 +1,9 @@
 #!/bin/sh
 set -e -x
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-        if [ -d ${DSTROOT}${SDKROOT}/usr/lib/system ] ; then
-                for lib in ${DSTROOT}${SDKROOT}/usr/lib/system/*.dylib ; do
-                        install_name_tool -id "${lib#${DSTROOT}${SDKROOT}}" "${lib}"
-                done
-        fi
-	exit 0
-fi
-
-# don't install files for installhdrs or simulator builds
-if [ "$ACTION" == "installhdrs" -o ] ; then
-	exit 0
-fi
+# don't install man pages for installhdrs or iOS builds
+if [ "$ACTION" = installhdrs ]; then exit 0; fi
+if [ "${PLATFORM_NAME/iphone/}" != "${PLATFORM_NAME}" ]; then exit 0; fi
 
 function InstallManPages() {
 	for MANPAGE in "$@"; do
@@ -42,3 +31,10 @@ LinkManPages copyfile.3 \
 	copyfile_state_free.3 \
 	copyfile_state_get.3 \
 	copyfile_state_set.3
+
+InstallManPages xattr_name_with_flags.3
+LinkManPages    xattr_name_with_flags.3 \
+	xattr_name_without_flags.3 \
+	xattr_flags_from_name.3 \
+	xattr_intent_with_flags.3
+

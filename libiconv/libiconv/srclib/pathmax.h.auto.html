@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>pathmax.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">pathmax.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Define PATH_MAX somehow.  Requires sys/types.h.
+   Copyright (C) 1992, 1999, 2001, 2003, 2006 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_PATHMAX_H</span>
+# <span class="enscript-reference">define</span> <span class="enscript-variable-name">_PATHMAX_H</span>
+
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;unistd.h&gt;</span>
+
+<span class="enscript-comment">/* Non-POSIX BSD systems might have gcc's limits.h, which doesn't define
+   PATH_MAX but might cause redefinition warnings when sys/param.h is
+   later included (as on MORE/BSD 4.3).  */</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_POSIX_VERSION</span> || !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">__GNUC__</span>
+#  <span class="enscript-reference">include</span> <span class="enscript-string">&lt;limits.h&gt;</span>
+# <span class="enscript-reference">endif</span>
+
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_POSIX_PATH_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">_POSIX_PATH_MAX</span> 255
+# <span class="enscript-reference">endif</span>
+
+# <span class="enscript-reference">if</span> !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PATH_MAX</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">_PC_PATH_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PATH_MAX</span> (pathconf (<span class="enscript-string">&quot;/&quot;</span>, _PC_PATH_MAX) &lt; 1 ? 1024 \
+		    : pathconf (<span class="enscript-string">&quot;/&quot;</span>, _PC_PATH_MAX))
+# <span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Don't include sys/param.h if it already has been.  */</span>
+# <span class="enscript-reference">if</span> <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">HAVE_SYS_PARAM_H</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PATH_MAX</span> &amp;&amp; !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">MAXPATHLEN</span>
+#  <span class="enscript-reference">include</span> <span class="enscript-string">&lt;sys/param.h&gt;</span>
+# <span class="enscript-reference">endif</span>
+
+# <span class="enscript-reference">if</span> !<span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">PATH_MAX</span> &amp;&amp; <span class="enscript-variable-name">defined</span> <span class="enscript-variable-name">MAXPATHLEN</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PATH_MAX</span> MAXPATHLEN
+# <span class="enscript-reference">endif</span>
+
+# <span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">PATH_MAX</span>
+#  <span class="enscript-reference">define</span> <span class="enscript-variable-name">PATH_MAX</span> _POSIX_PATH_MAX
+# <span class="enscript-reference">endif</span>
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _PATHMAX_H */</span>
+</pre>
+<hr />
+</body></html>

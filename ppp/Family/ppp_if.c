@@ -83,6 +83,7 @@ Definitions
 Forward declarations
 ----------------------------------------------------------------------------- */
 
+static void ppp_if_start(ifnet_t interface);
 static errno_t ppp_if_output(ifnet_t ifp, mbuf_t m);
 static void ppp_if_if_free(ifnet_t ifp);
 static errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data);
@@ -181,7 +182,7 @@ int ppp_if_attach(u_short *unit)
 {
     int 		ret = 0;	
     struct ppp_if  	*wan, *wan1;
-	struct ifnet_init_params init;
+	struct ifnet_init_eparams init;
 	struct ifnet_stats_param stats;
 	
     MALLOC(wan, struct ppp_if *, sizeof(struct ppp_if), M_TEMP, M_WAITOK);
@@ -232,12 +233,14 @@ int ppp_if_attach(u_short *unit)
 	else
 		TAILQ_INSERT_TAIL(&ppp_if_head, wan, next);
 
-    bzero(&init, sizeof(init));
+	bzero(&init, sizeof(init));
+	init.ver = IFNET_INIT_CURRENT_VERSION;
+	init.len = sizeof(init);
 	init.name = APPLE_PPP_NAME;
 	init.unit = *unit;
 	init.family = IFNET_FAMILY_PPP;
 	init.type = IFT_PPP;
-	init.output = ppp_if_output;
+	init.start = ppp_if_start;
 	init.demux = ppp_if_demux;
 	init.add_proto = ppp_if_add_proto;
 	init.del_proto = ppp_if_del_proto;
@@ -249,7 +252,7 @@ int ppp_if_attach(u_short *unit)
 	
 	lck_mtx_unlock(ppp_domain_mutex);
 
-	ret = ifnet_allocate(&init, &wan->net);
+	ret = ifnet_allocate_extended(&init, &wan->net);
     if (ret)
         goto error_nolock;
 
@@ -977,6 +980,18 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data)
 This gets called at splnet from if_ppp.c at various times
 when there is data ready to be sent
 ----------------------------------------------------------------------------- */
+static void ppp_if_start(ifnet_t interface)
+{
+	mbuf_t data;
+	
+	for (;;) {
+		if (ifnet_dequeue(interface, &data) != 0)
+			break;
+		if (ppp_if_output(interface, data) != 0)
+			break;
+	}
+}
+
 errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 {
     struct ppp_if 	*wan = ifnet_softc(ifp);

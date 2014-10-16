@@ -27,9 +27,7 @@
 #pragma ident	"@(#)tst.spin.c	1.1	06/08/28 SMI"
 
 #include <unistd.h>
-#if defined(__APPLE__)
 #include <stdint.h>
-#endif
 
 volatile long long count = 0;
 
@@ -60,9 +58,5 @@ foo(int a, int b)
 int
 main(int argc, char **argv)
 {
-#if !defined(__APPLE__)
-	return (foo(argc, (int)argv) == 0);
-#else
 	return (foo(argc, (uintptr_t)argv) == 0);
-#endif /* __APPLE__ */
 }

@@ -440,7 +440,8 @@ unpeer(
 		    "peer struct for %s not in association table!",
 		    stoa(&peer_to_remove->srcadr));
 	}
-
+	free(peer_to_remove->dns_name);
+	peer_to_remove->dns_name = NULL;
 	LINK_SLIST(peer_free, peer_to_remove, next);
 	peer_free_count++;
 }
@@ -502,6 +503,7 @@ peer_config(
 	    flags | FLAG_CONFIG, cast_flags, ttl, key);
  	if (peer) {
  		peer->dns_name = strdup(dns_name);
+		msyslog(LOG_NOTICE, "peer %s @ %s", dns_name, stoa(&peer->srcadr));
  		next_update = get_dns_flags(dns_name, peer);
  		if (dns_timer == 0 || (dns_timer > next_update))
  			dns_timer = next_update;

@@ -25,10 +25,8 @@
 #include <wtf/Atomics.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/unicode/Unicode.h>
 
 using namespace WTF;
-using namespace WTF::Unicode;
 using namespace std;
 
 namespace WebCore {
@@ -36,18 +34,18 @@ namespace WebCore {
 // Hack, not entirely correct
 static inline bool isCharStop(UChar c)
 {
-    CharCategory charCategory = category(c);
-    return charCategory != Mark_NonSpacing && (charCategory != Other_Surrogate || (c < 0xd800 || c >= 0xdc00));
+    int8_t charType = u_charType(c);
+    return U_MASK(charType) & U_GC_MN_MASK || (U_MASK(charType) & U_GC_CS_MASK && (c >= 0xd800 && c < 0xdc00));
 }
 
 static inline bool isLineStop(UChar c)
 {
-    return category(c) != Separator_Line;
+    return !(U_GET_GC_MASK(c) & U_GC_ZL_MASK);
 }
 
 static inline bool isSentenceStop(UChar c)
 {
-    return isPunct(c);
+    return u_ispunct(c);
 }
 
 class TextBreakIterator {
@@ -114,9 +112,9 @@ int WordBreakIterator::next()
     }
     bool haveSpace = false;
     while (currentPos < length) {
-        if (haveSpace && !isSpace(string[currentPos]))
+        if (haveSpace && !u_isspace(string[currentPos]))
             break;
-        if (isSpace(string[currentPos]))
+        if (u_isspace(string[currentPos]))
             haveSpace = true;
         ++currentPos;
     }
@@ -131,9 +129,9 @@ int WordBreakIterator::previous()
     }
     bool haveSpace = false;
     while (currentPos > 0) {
-        if (haveSpace && !isSpace(string[currentPos]))
+        if (haveSpace && !u_isspace(string[currentPos]))
             break;
-        if (isSpace(string[currentPos]))
+        if (u_isspace(string[currentPos]))
             haveSpace = true;
         --currentPos;
     }
@@ -232,7 +230,7 @@ int SentenceBreakIterator::previous()
 
 TextBreakIterator* wordBreakIterator(const UChar* string, int length)
 {
-    DEFINE_STATIC_LOCAL(WordBreakIterator, iterator, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(WordBreakIterator, iterator, ());
     iterator.reset(string, length);
     return &iterator;
 }
@@ -290,7 +288,7 @@ void releaseLineBreakIterator(TextBreakIterator* iterator)
 
 TextBreakIterator* sentenceBreakIterator(const UChar* string, int length)
 {
-    DEFINE_STATIC_LOCAL(SentenceBreakIterator, iterator, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(SentenceBreakIterator, iterator, ());
     iterator.reset(string, length);
     return &iterator;
 }
@@ -342,7 +340,7 @@ bool isWordTextBreak(TextBreakIterator*)
 
 TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
 {
-    DEFINE_STATIC_LOCAL(CharBreakIterator, iterator, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(CharBreakIterator, iterator, ());
     iterator.reset(string, length);
     return &iterator;
 }

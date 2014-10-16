@@ -42,11 +42,12 @@
 
 #include "cmslocal.h"
 
-#include "secitem.h"
+#include "SecAsn1Item.h"
 #include "secoid.h"
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <security_asn1/secport.h>
 
 /*
  * SecCmsMessageCreate - create a CMS message object
@@ -54,40 +55,24 @@
  * "poolp" - arena to allocate memory from, or NULL if new arena should be created
  */
 SecCmsMessageRef
-SecCmsMessageCreate(SecArenaPoolRef pool)
+SecCmsMessageCreate(void)
 {
-    PLArenaPool *poolp = (PLArenaPool *)pool;
-    void *mark = NULL;
+    PLArenaPool *poolp;
     SecCmsMessageRef cmsg;
-    Boolean poolp_is_ours = PR_FALSE;
 
-    if (poolp == NULL) {
-	poolp = PORT_NewArena (1024);           /* XXX what is right value? */
-	if (poolp == NULL)
-	    return NULL;
-	poolp_is_ours = PR_TRUE;
-    } 
-
-    if (!poolp_is_ours)
-	mark = PORT_ArenaMark(poolp);
+    poolp = PORT_NewArena (1024);           /* XXX what is right value? */
+    if (poolp == NULL)
+	return NULL;
 
     cmsg = (SecCmsMessageRef)PORT_ArenaZAlloc (poolp, sizeof(SecCmsMessage));
     if (cmsg == NULL) {
-	if (!poolp_is_ours) {
-	    if (mark) {
-		PORT_ArenaRelease(poolp, mark);
-	    }
-	} else
-	    PORT_FreeArena(poolp, PR_FALSE);
+	PORT_FreeArena(poolp, PR_FALSE);
 	return NULL;
     }
 
     cmsg->poolp = poolp;
-    cmsg->poolp_is_ours = poolp_is_ours;
+    cmsg->contentInfo.cmsg = cmsg;
     cmsg->refCount = 1;
-
-    if (mark)
-	PORT_ArenaUnmark(poolp, mark);
 
     return cmsg;
 }
@@ -103,8 +88,7 @@ SecCmsMessageCreate(SecArenaPoolRef pool)
 void
 SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
 			PK11PasswordFunc pwfn, void *pwfn_arg,
-			SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
-			SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests)
+			SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg)
 {
 #if 0
     // @@@ Deal with password stuff.
@@ -114,8 +98,6 @@ SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,
     cmsg->pwfn_arg = pwfn_arg;
     cmsg->decrypt_key_cb = decrypt_key_cb;
     cmsg->decrypt_key_cb_arg = decrypt_key_cb_arg;
-    cmsg->detached_digestalgs = detached_digestalgs;
-    cmsg->detached_digests = detached_digests;
 }
 
 /*
@@ -134,9 +116,7 @@ SecCmsMessageDestroy(SecCmsMessageRef cmsg)
 
     SecCmsContentInfoDestroy(&(cmsg->contentInfo));
 
-    /* if poolp is not NULL, cmsg is the owner of its arena */
-    if (cmsg->poolp_is_ours)
-	PORT_FreeArena (cmsg->poolp, PR_FALSE);	/* XXX clear it? */
+    PORT_FreeArena (cmsg->poolp, PR_FALSE);	/* XXX clear it? */
 }
 
 /*
@@ -158,15 +138,6 @@ SecCmsMessageCopy(SecCmsMessageRef cmsg)
 }
 
 /*
- * SecCmsMessageGetArena - return a pointer to the message's arena pool
- */
-SecArenaPoolRef
-SecCmsMessageGetArena(SecCmsMessageRef cmsg)
-{
-    return (SecArenaPoolRef)cmsg->poolp;
-}
-
-/*
  * SecCmsMessageGetContentInfo - return a pointer to the top level contentInfo
  */
 SecCmsContentInfoRef
@@ -180,12 +151,12 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg)
  * In the case of those types which are encrypted, this returns the *plain* content.
  * In case of nested contentInfos, this descends and retrieves the innermost content.
  */
-CSSM_DATA_PTR
+const SecAsn1Item *
 SecCmsMessageGetContent(SecCmsMessageRef cmsg)
 {
     /* this is a shortcut */
     SecCmsContentInfoRef cinfo = SecCmsMessageGetContentInfo(cmsg);
-    CSSM_DATA_PTR pItem = SecCmsContentInfoGetInnerContent(cinfo);
+    const SecAsn1Item *pItem = SecCmsContentInfoGetInnerContent(cinfo);
     return pItem;
 }
 
@@ -307,7 +278,7 @@ SecCmsMessageIsSigned(SecCmsMessageRef cmsg)
 Boolean
 SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen)
 {
-    CSSM_DATA_PTR item = NULL;
+    SecAsn1Item * item = NULL;
 
     if (cmsg == NULL)
 	return PR_TRUE;
@@ -322,41 +293,3 @@ SecCmsMessageIsContentEmpty(SecCmsMessageRef cmsg, unsigned int minLen)
 
     return PR_FALSE;
 }
-
-/*
- * SecCmsMessageContainsTSTInfo - see if message contains a TimeStamping info block
- */
-Boolean
-SecCmsMessageContainsTSTInfo(SecCmsMessageRef cmsg)
-{
-    SecCmsContentInfoRef cinfo;
-
-    /* walk down the chain of contentinfos */
-    for (cinfo = &(cmsg->contentInfo); cinfo != NULL; cinfo = SecCmsContentInfoGetChildContentInfo(cinfo))
-    {
-        switch (SecCmsContentInfoGetContentTypeTag(cinfo))
-        {
-        case SEC_OID_PKCS9_ID_CT_TSTInfo:
-            // TSTInfo is in cinfo->rawContent->Data
-            return PR_TRUE;
-        default:
-            break;
-        }
-    }
-    return PR_FALSE;
-}
-
-void
-SecCmsMessageSetTSACallback(SecCmsMessageRef cmsg, SecCmsTSACallback tsaCallback)
-{
-    if (cmsg)
-        cmsg->tsaCallback = tsaCallback;
-}
-
-void
-SecCmsMessageSetTSAContext(SecCmsMessageRef cmsg, const void *tsaContext)   //CFTypeRef
-{
-    if (cmsg)
-        cmsg->tsaContext = tsaContext;
-}
-

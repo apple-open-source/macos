@@ -38,23 +38,23 @@ OSDefineMetaClassAndStructors(IOHIDUserDevice, IOHIDDevice)
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDUserDevice * IOHIDUserDevice::withProperties(OSDictionary * properties)
 {
-	IOHIDUserDevice * device = new IOHIDUserDevice;
-	
-	do { 
-		if ( !device )
-			break;
-			
-		if ( !device->initWithProperties(properties) )
-			break;
+    IOHIDUserDevice * device = new IOHIDUserDevice;
+    
+    do { 
+        if ( !device )
+            break;
+            
+        if ( !device->initWithProperties(properties) )
+            break;
         
         return device;
         
-	} while ( false );
-	
+    } while ( false );
+    
     if ( device )
         device->release();
     
-	return NULL;
+    return NULL;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -92,14 +92,14 @@ void IOHIDUserDevice::free()
 //----------------------------------------------------------------------------------------------------
 bool IOHIDUserDevice::handleStart( IOService * provider )
 {
-	if (!super::handleStart(provider))
-		return false;
-	
+    if (!super::handleStart(provider))
+        return false;
+    
     _provider = OSDynamicCast(IOHIDResourceDeviceUserClient, provider);
     if ( !_provider )
         return false;
         
-	return true;
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -107,7 +107,7 @@ bool IOHIDUserDevice::handleStart( IOService * provider )
 //----------------------------------------------------------------------------------------------------
 void IOHIDUserDevice::handleStop(  IOService * provider )
 {
-	super::handleStop(provider);
+    super::handleStop(provider);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -288,18 +288,18 @@ IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor )
     if ( !data )
         return kIOReturnError;
             
-	*descriptor = IOBufferMemoryDescriptor::withBytes(data->getBytesNoCopy(), data->getLength(), kIODirectionNone);
+    *descriptor = IOBufferMemoryDescriptor::withBytes(data->getBytesNoCopy(), data->getLength(), kIODirectionNone);
 
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
 }
 
 
 //----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::getReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor	*report,
-									IOHIDReportType		reportType,
-									IOOptionBits		options )
+IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor    *report,
+                                    IOHIDReportType        reportType,
+                                    IOOptionBits        options )
 {
     return _provider->getReport(report, reportType, options);
 }
@@ -308,9 +308,9 @@ IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor	*report,
 //----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::setReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor	*report,
-									IOHIDReportType		reportType,
-									IOOptionBits		options)
+IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor    *report,
+                                    IOHIDReportType        reportType,
+                                    IOOptionBits        options)
 {
     return _provider->setReport(report, reportType, options);
 }

@@ -2,7 +2,7 @@
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (c) 2000 Daniel Molkentin (molkentin@kde.org)
  *  Copyright (c) 2000 Stefan Schimanski (schimmi@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2004, 2005, 2006 Apple Inc.
  *  Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  *  This library is free software; you can redistribute it and/or
@@ -39,7 +39,10 @@
 #include "Settings.h"
 #include "StorageNamespace.h"
 #include <wtf/HashSet.h>
+#include <wtf/NumberOfCores.h>
 #include <wtf/StdLibExtras.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
@@ -58,15 +61,12 @@ Navigator::~Navigator()
 // sites such as nwa.com -- the library thinks Safari is Netscape 4 if we don't do this!
 static bool shouldHideFourDot(Frame* frame)
 {
-    const String* sourceURL = frame->script()->sourceURL();
+    const String* sourceURL = frame->script().sourceURL();
     if (!sourceURL)
         return false;
     if (!(sourceURL->endsWith("/dqm_script.js") || sourceURL->endsWith("/dqm_loader.js") || sourceURL->endsWith("/tdqm_loader.js")))
         return false;
-    Settings* settings = frame->settings();
-    if (!settings)
-        return false;
-    return settings->needsSiteSpecificQuirks();
+    return frame->settings().needsSiteSpecificQuirks();
 }
 
 String Navigator::appVersion() const
@@ -94,7 +94,7 @@ String Navigator::userAgent() const
     if (!m_frame->page())
         return String();
         
-    return m_frame->loader()->userAgent(m_frame->document()->url());
+    return m_frame->loader().userAgent(m_frame->document()->url());
 }
 
 DOMPluginArray* Navigator::plugins() const
@@ -116,7 +116,7 @@ bool Navigator::cookieEnabled() const
     if (!m_frame)
         return false;
 
-    if (m_frame->page() && !m_frame->page()->settings()->cookieEnabled())
+    if (m_frame->page() && !m_frame->page()->settings().cookieEnabled())
         return false;
 
     return cookiesEnabled(m_frame->document());
@@ -124,16 +124,45 @@ bool Navigator::cookieEnabled() const
 
 bool Navigator::javaEnabled() const
 {
-    if (!m_frame || !m_frame->settings())
+    if (!m_frame)
         return false;
 
-    if (!m_frame->settings()->isJavaEnabled())
+    if (!m_frame->settings().isJavaEnabled())
         return false;
-    if (m_frame->document()->securityOrigin()->isLocal() && !m_frame->settings()->isJavaEnabledForLocalFiles())
+    if (m_frame->document()->securityOrigin()->isLocal() && !m_frame->settings().isJavaEnabledForLocalFiles())
         return false;
 
     return true;
 }
+
+#if defined(ENABLE_NAVIGATOR_HWCONCURRENCY)
+int Navigator::hardwareConcurrency() const
+{
+    // Enforce a maximum for the number of cores reported to mitigate
+    // fingerprinting for the minority of machines with large numbers of cores.
+    // If machines with more than 8 cores become commonplace, we should bump this number.
+    // see https://bugs.webkit.org/show_bug.cgi?id=132588 for the
+    // rationale behind this decision.
+#if PLATFORM(IOS)
+    const int maxCoresToReport = 2;
+#else
+    const int maxCoresToReport = 8;
+#endif
+    int hardwareConcurrency = numberOfProcessorCores();
+
+    if (hardwareConcurrency > maxCoresToReport)
+        return maxCoresToReport;
+
+    return hardwareConcurrency;
+}
+#endif
+
+#if PLATFORM(IOS)
+bool Navigator::standalone() const
+{
+    return m_frame && m_frame->settings().standalone();
+}
+#endif
 
 void Navigator::getStorageUpdates()
 {

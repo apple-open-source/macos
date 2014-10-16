@@ -19,8 +19,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SVG)
 #include "SVGStringList.h"
 
 #include "SVGElement.h"
@@ -50,7 +48,8 @@ void SVGStringList::parse(const String& data, UChar delimiter)
     // TODO : more error checking/reporting
     clear();
 
-    const UChar* ptr = data.characters();
+    auto upconvertedCharacters = StringView(data).upconvertedCharacters();
+    const UChar* ptr = upconvertedCharacters;
     const UChar* end = ptr + data.length();
     while (ptr < end) {
         const UChar* start = ptr;
@@ -79,5 +78,3 @@ String SVGStringList::valueAsString() const
 }
 
 }
-
-#endif // ENABLE(SVG)

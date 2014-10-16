@@ -82,7 +82,7 @@ length_type (const char *name, const Type *t,
 	    length_primitive ("heim_integer", name, variable);
 	} else if (t->range->min == INT_MIN && t->range->max == INT_MAX) {
 	    length_primitive ("integer", name, variable);
-	} else if (t->range->min == 0 && t->range->max == UINT_MAX) {
+	} else if (t->range->min == 0 && (unsigned int)t->range->max == UINT_MAX) {
 	    length_primitive ("unsigned", name, variable);
 	} else if (t->range->min == 0 && t->range->max == INT_MAX) {
 	    length_primitive ("unsigned", name, variable);
@@ -261,8 +261,6 @@ length_type (const char *name, const Type *t,
     case TOID:
 	length_primitive ("oid", name, variable);
 	break;
-    default :
-	abort ();
     }
     return 0;
 }

@@ -1,10 +1,13 @@
 USB CCID IFD Handler
 ====================
 
-  This package provides the source code for a generic USB CCID
-(Chip/Smart Card Interface Devices) driver. See [1] for the USB CCID
-specifications from the USB working group.
+This package provides the source code for a generic USB CCID (Chip/Smart
+Card Interface Devices) and ICCD (Integrated Circuit(s) Card Devices)
+driver. See the USB CCID [1] and ICCD [2] specifications from the USB
+working group.
 
+[1] http://www.usb.org/developers/devclass_docs/DWG_Smart-Card_CCID_Rev110.pdf
+[2] http://www.usb.org/developers/devclass_docs/DWG_Smart-Card_USB-ICC_ICCD_rev10.pdf
 
 Authors:
 ========
@@ -16,202 +19,42 @@ Authors:
   directory. I (Ludovic Rousseau) greatly improved this code.
 
 
-Supported CCID readers:
-=======================
+CCID and ICCD readers:
+======================
 
-(in alphabetical order)
-- ActivCard USB reader 3.0
-- ActivCard Activkey Sim [66]
-- Advanced Card Systems ACR 38U-CCID [16]
-  old versions of this reader have a bug: the reader do timeout when a
-  special USB frame is sent from the reader. If the frame size if a
-  multiple of wMaxPacketSize the communication is stopped.
-- Alcor Micro AU9520 [46]
-  Firmware 1.01 is bogus. The time request sent by the card is not
-  forwarded by the reader to the host.
-- Athena ASE IIIe USB V2 [29]
-- Athena ASE IIIe KB USB [42]
-- Blutronics Bludrive II CCID
-- C3PO LTC31 (new model, USB product id 0x0006) [8]
-- Cherry XX33 keyboard [?]
-- Cherry XX44 keyboard (SmartBoard G83-6744) [18] 
-- Cherry SmartTerminal ST2000U [35]
-- Cherry ST-1044U [27]
-- Covadis Alya [63]
-- Dell keyboard SK-3106 [?]
-- Dell smart card reader keyboard [?]
-- Eutron CryptoIdentity [26]
-- Eutron Digipass 860 [59]
-- Eutron SIM Pocket Combo [25]
-- Eutron Smart Pocket [58]
-- Gemalto GemPC 433 SL [2] (old name: GemPC 433 SL)
-- Gemalto GemPC Card [41]
-- Gemalto GemPC PinPad [67]
-- Gemalto GemPC Twin [4]
-- Gemalto GemCore POS Pro
-- Gemalto GemCore SIM Pro
-- Gemalto USB Shell Token V2 [3] (old name GemPC Key)
-- Kobil KAAN Base [19]
-- Kobil KAAN Advanced [20]
-- Kobil KAAN SIM III [21]
-- Kobil EMV TriCAP Reader [68]
-- Kobil KAAN TriB@nk [69]
-- Kobil SecOVID Reader III [70]
-- Lexar Smart Enterprise Guardian [71]
-- OmniKey CardMan 3121 [5]
-- RSA SecureID SID800 [50]
-- SCM Micro SCR 331 [6]
-  You shall upgrade the firmware [17] using version 5.18 or later.
-- SCM Micro SCR 331-DI [11]
-  You shall upgrade the firmware [17] using version 6.22 or later.
-- SCM Micro SCR 3310 [30]
-- SCM Micro SCR 3311 [31]
-- SCM Micro SCR 335 [7]
-  The firmware of this reader can't be upgraded so be sure to buy a
-  recent model with firmware 5.14 or later
-- SCM Micro SCR 355
-- SCM Micro SPR 532 [9]
-  You shall contact Torsten Maykranz <tmaykranz@scmmicro.de> to get a
-  firmware upgrade.
-- SmartEpad (v 2.0) [32]
-  The firmware gives a very strange description of the reader (like a
-  dwDefaultClock: 1024.000 MHz). So do not expect a perfect behavior.
-- Verisign Secure Storage Token [24]
-- Verisign Secure Token [?]
-- Xiring Teo [52]
-- Xiring Xi Sign PKI [76]
-
-
-Should work but untested by me:
-===============================
-
-I would like to get these readers to perform test and validation and
-move them in the supported list above. If you are one of the
-manufacturers, please, contact me.
-
-- Advanced Card Systems ACR122 [62]
-- Advanced Card Systems ACR122U PICC Interface
-- Aktiv Rutoken Magistra
-- Aladdin eToken PRO USB 72K Java [73]
-- Axalto Reflex USB v3 [38]
-- Atmel AT91SO [74]
-- Atmel AT98SC032CT [77]
-- C3PO LTC32 [13]
-- C3PO TLTC2USB
-- C3PO KBR36
-- Charismathics token
-- Cherry SmartBoard, G83-6610 [61]
-- Cherry SmartTerminal ST-1200USB
-- Covadis Véga [64]
-- Gemalto GemPC Express
-- Gemalto Gem e-Seal Pro
-- Fujitsu Siemens Computers SmartCard USB 2A [53]
-- Fujitsu Siemens Computers SmartCard Keyboard USB 2A [54]
-- Gemalto PDT
-- Giesecke & Devrient StarSign Card Token 350 (ICCD) [57]
-- Giesecke & Devrient StarSign Card Token 550 (ICCD)
-- HP USB Smart Card Keyboard [44]
-- HP USB Smartcard Reader
-- HP MFP Smart Card Reader
-- id3 Semiconductors CL1356D [45] (tested by me but I don't have the
-  reader anymore)
-- id3 Semiconductors CL1356T [48] (it should be the same firmware as the
-  CL1356D)
-- id3 Semiconductors CL1356A HID
-- iMONO 43 in 1 + Sim + Smart Card Reader 
-- KONA USB SmartCard
-- Lenovo Integrated Smart Card Reader
-- Lexar/Gemalto Smart Enterprise Guardian [60]
-- MSI StarReader SMART [75]
-- O2Micro Oz776 (0x7762 and 0x7772 versions)
-- Oberthur ID-One Cosmo Card
-- OmniKey CardMan 1021
-- OmniKey CardMan 3021 [49]
-- OmniKey CardMan 3621 [43]
-- OmniKey CardMan 3821 [37]
-- OmniKey CardMan 4321 [55]
-- OmniKey CardMan 5121 [33]
-- OmniKey CardMan 5125 [51]
-- OmniKey CardMan 5321 [56]
-- OmniKey CardMan 6121 [36]
-- Philips JCOP41V221
-- Philips SmartMX (Rainbow/SafeNet Key 4000?)
-- Precise Biometrics 200 MC
-- Precise Biometrics 250 MC
-- Raritan D2CIM-DVUSB VM/CCID
-- SchlumbergerSema Cyberflex Access e-gate ICCD
-- SCM Micro SCR 331-DI NTTCom [23]
-- SCM Micro SCR 3310-NTTCOM [28]
-- SCM Micro SCR 3320 [31b]
-- SCM Micro SCR 333 [15]
-- SCM Micro SCR 3340 ExpressCard54 [34]
-- SCM Micro SDI 010 [39]
-- Silitek SK-3105 keyboard [12] or C3PO TLTC2USB [14]
-- Sitecom USB simcard reader MD-010
-- SpringCard CrazyWriter
-- SpringCard CSB6 Basic
-- SpringCard CSB6 Secure
-- SpringCard CSB6 Ultimate [72]
-- SpringCard EasyFinger Standard
-- SpringCard EasyFinger Ultimate
-- SpringCard Prox'N'Roll
-- TianYu CCID SmartKey
-- Validy USB Token [65]
-- Vasco DP905
-- VMware Virtual USB CCID
-- Winbond Electronics (for OEM only) [40]
-
-
-Unsupported or partly supported CCID readers:
-=============================================
-
-- ActivCard USB reader 2.0 [10]
-    The reader do timeout when a special USB frame is sent from the
-    reader. If the frame size if a multiple of wMaxPacketSize the
-    communication is stopped.
-- Broadcom Corp 5880 (found in Dell E6500 laptop)
-    No communication to the device ("Resource temporarily unavailable"
-    error)
-- C3PO LTC31 (old model, USB product id 0x0003) [8]
-    The reader works fine with Linux kernel 2.4 but does not with Linux
-    kernel 2.6. The ioctl() syscall returns EINVAL (Invalid argument)
-- iDream (THRC2002-2) [47]
-    PPS fails with a Cryptoflex card
-    powerup fails with a Setcos card
-    does work with the belgium eID (the reader is sold for this
-    application)
-- jNet Technology jToken s1
-    Reader does not respond at all
-- Kobil mIDentity [22]
-    Time requests are not managed correctly and make the firmware fails.
-    This is not a problem unless you use a time-consuming APDU like RSA
-    key generation.
-    A new firmware will correct the bug.
-- Reiner-SCT cyberJack pinpad(a)
-    Time requests are not managed and the driver may time out without
-    any response from the reader.  This is not a problem unless you use
-    a time-consuming APDU like RSA key generation.
+A reader can be in one of these list:
+- supported
+    See http://pcsclite.alioth.debian.org/ccid/supported.html
+- should working
+    See http://pcsclite.alioth.debian.org/ccid/shouldwork.html
+- unsupported
+    See http://pcsclite.alioth.debian.org/ccid/unsupported.html
+- disabled
+    See http://pcsclite.alioth.debian.org/ccid/disabled.html
 
 
 Supported operating systems:
 ============================
 
-- GNU/Linux (libusb 0.1.7)
-- MacOS X/Darwin (libusb 0.1.8beta, CVS snapshot. See "Known problems")
-  to libusb)
+- GNU/Linux (libusb 1.0)
+- MacOS X/Darwin (libusb 1.0)
+
+See also http://pcsclite.alioth.debian.org/ccid.html for more
+information.
 
 
 Debug informations:
 ===================
 
 The driver uses the debug function provided by pcscd. So if pcscd sends
-its debug to stderr (pcscd --foreground) then the CCID will also send
-its debug to stderr. If pcscd sends its debug to syslog (by default)
-then the CCID will also send its debug to syslog.
+its debug to stdout (pcscd --foreground) then the CCID driver will also
+send its debug to stdout. If pcscd sends its debug to syslog (by
+default) then the CCID driver will also send its debug to syslog.
 
 You can change the debug level using the Info.plist configuration file.
 The Info.plist is installed, by default, in
 /usr/local/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist
+or set the environment variable LIBCCID_ifdLogLevel.
 
 The debug level is set in the ifdLogLevel field. It is a binary OR
 combinaison of 4 different levels.
@@ -234,36 +77,24 @@ replug your readers. You can also restart pcscd.
 Voltage selection
 =================
 
-You can change the voltage level using the Info.plist configuration file.  The
-Info.plist is installed, by default, in
+You can change the voltage level using the Info.plist configuration
+file.  The Info.plist is installed, by default, in
 /usr/local/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist
 
 The voltage level is set in the ifdDriverOptions field. It is a binary OR
 combinaison of 4 different levels.
 
 -  0: power on the card at 5V (default value)
-- 16: power on the card at 3V and then, if 3V fails then use 5V
+- 16: power on the card at 3V and, if 3V fails then use 5V
 - 32: power on the card at 1.8V, then 3V and then 5V
 - 48: let the reader decide
 
-By default the voltage level is set to 0  and correspond to 5V.
+By default the voltage level is set to 0 and correspond to 5V.
 
 You have to restart the driver so it read the configuration file again
 and use the new debug level value.  To restart the driver you just need
 to unplug all your CCID readers so the the driver is unloaded and then
 replug your readers.  You can also restart pcscd.
-
-
-Known problems:
-===============
-
-MacOSX libusb
-"""""""""""""
-    There is a bug in libusb that crash the libusb library when you
-    unplug a reader and replug it in another USB socket.  So if you
-    unplug a reader replug it in the same USB socket.
-
-    see http://sourceforge.net/tracker/index.php?func=detail&aid=886778&group_id=1674&atid=101674
 
 
 Licence:
@@ -287,11 +118,368 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 History:
 ========
 
+1.4.14 - 25 NOvember 2013, Ludovic Rousseau
+    - Add support of
+      . Gemalto GemCore SIM Pro firmware 2.0 (using USB)
+    - report FEATURE_IFD_PIN_PROPERTIES only for pinpad readers
+    - Generalize the management of (old) readers with bDeviceClass = 0xFF
+    - some minor bugs removed
+
+
+1.4.13 - 9 October 2013, Ludovic Rousseau
+    - Add support of
+      . Access IS ePassport Reader
+      . Planeta RC700-NFC CCID
+    - Add support of Windows value for CM_IOCTL_GET_FEATURE_REQUEST
+      Windows uses 0x313520 for SCARD_CTL_CODE(3400) pcsc-lite uses
+      0x42000D48 for SCARD_CTL_CODE(3400)
+      RDP aplications (like rdesktop) will convert SCardControl()
+      commands from a Windows application (so using 0x313520) to
+      pcsc-lite.
+    - fix multi-slot support for card movement notification (introduced
+      in 1.4.12)
+    - Mac OS X: differentiate each libccid library by the dynamic linker
+      using --prefix=/fake/$BUNDLE_ID
+    - some minor bugs removed
+
+
+1.4.12 - 12 August 2013, Ludovic Rousseau
+    - Add support of
+      . HID OMNIKEY 5127 CK
+      . HID OMNIKEY 5326 DFR
+      . HID OMNIKEY 5427 CK
+      . Ingenico WITEO USB Smart Card Reader (Base and Badge)
+      . SecuTech SecuTech Token
+    - Add support of card movement notifications for multi-slot readers
+    - Check libusb is at least at version 1.0.8
+    - Get the serialconfdir value from pcsc-lite pkg config instead of
+      using $(DESTDIR)/$(sysconfdir)/reader.conf.d/
+    - Disable class driver on Mac OS X
+    - Update the bundle name template to include the vendor name
+    - some minor bugs removed
+
+
+1.4.11 - 12 June 2013, Ludovic Rousseau
+    - Add support of
+       . Gemalto IDBridge CT30
+       . Gemalto IDBridge K30
+       . SCM Microsystems Inc. SCL010 Contactless Reader
+       . SCM Microsystems Inc. SDI011 Contactless Reader
+       . THRC reader
+    - Better management of time extension requests
+    - parse: better support of devices with bInterfaceClass = 0xFF
+    - udev rule file: Remove setting group to pcscd, remove support of
+      Linux kernel < 2.6.35 for auto power up management
+    - some minor bugs removed
+
+
+1.4.10 - 16 April 2013, Ludovic Rousseau
+    - Add support of
+       . ACS APG8201 USB Reader with PID 0x8202
+       . GIS Ltd SmartMouse USB
+       . Gemalto IDBridge K3000
+       . Identive CLOUD 2700 F Smart Card Reader
+       . Identive CLOUD 2700 R Smart Card Reader
+       . Identive CLOUD 4500 F Dual Interface Reader
+       . Identive CLOUD 4510 F Contactless + SAM Reader
+       . Identive CLOUD 4700 F Dual Interface Reader
+       . Identive CLOUD 4710 F Contactless + SAM Reader
+       . Inside Secure AT90SCR050
+       . Inside Secure AT90SCR100
+       . Inside Secure AT90SCR200
+       . SCR3310-NTTCom USB SmartCard Reader
+       . SafeTech SafeTouch
+       . SpringCard H512 Series
+       . SpringCard H663 Series
+       . SpringCard NFC'Roll
+       . Yubico Yubikey NEO CCID
+       . Yubico Yubikey NEO OTP+CCID
+    - Add support of time extension for Escape commands
+
+
+1.4.9 - 16 January 2013, Ludovic Rousseau
+    - Add support of
+       . Aktiv Rutoken PINPad In
+       . Aktiv Rutoken PINPad Ex
+       . REINER SCT cyberJack go
+    - Info.plist: Correctly handle reader names containing &
+
+
+1.4.8 - 22 June 2012, Ludovic Rousseau
+    - Add support of
+       . SCR3310-NTTCom USB (was removed in version 1.4.6)
+       . Inside Secure VaultIC 420 Smart Object
+       . Inside Secure VaultIC 440 Smart Object
+    - Wait up to 3 seconds for reader start up
+    - Add support of new PC/SC V2 part 10 properties:
+        . dwMaxAPDUDataSize
+        . wIdVendor
+        . wIdProduct
+    - Use helper functions from libPCSCv2part10 to parse the PC/SC v2
+      part 10 features
+
+
+1.4.7 - 22 June 2012, Ludovic Rousseau
+    - Add support of
+       . ACS ACR101 ICC Reader
+       . ACS CryptoMate64
+       . Alcor Micro AU9522
+       . Bit4id CKey4
+       . Bit4id cryptokey
+       . Bit4id iAM
+       . Bit4id miniLector
+       . Bit4id miniLector-s
+       . CCB eSafeLD
+       . Gemalto Ezio Shield Branch
+       . KOBIL Systems IDToken
+       . NXP PR533
+    - KOBIL Systems IDToken special cases:
+       . Give more time (3 seconds instead of 2) to the reader to answer
+       . Hack for the Kobil IDToken and Geman eID card. The German eID
+         card is bogus and need to be powered off before a power on
+       . Add Reader-Info-Commands special APDU/command
+         - Manufacturer command
+         - Product name command
+         - Firmware version command
+         - Driver version command
+    - Use auto suspend for CCID devices only (Closes Alioth bug
+      [#313445] "Do not activate USB suspend for composite devices:
+      keyboard")
+    - Fix some error management in the T=1 TPDU state machine
+    - some minor bugs removed
+    - some minor improvements added
+
+
+1.4.6 - 6 April 2012, Ludovic Rousseau
+    - Add support of
+       . Avtor SC Reader 371
+       . Avtor SecureToken
+       . DIGIPASS KEY 202
+       . Fujitsu SmartCase KB SCR eSIG
+       . Giesecke & Devrient StarSign CUT
+       . Inside Secure VaultIC 460 Smart Object
+       . Macally NFC CCID eNetPad reader
+       . OmniKey 6321 USB
+       . SCM SDI 011
+       . Teridian TSC12xxF
+       . Vasco DIGIPASS KEY 101
+    - Remove support of readers without a USB CCID descriptor file
+       . 0x08E6:0x34C1:Gemalto Ezio Shield Secure Channel
+       . 0x08E6:0x34C4:Gemalto Ezio Generic
+       . 0x04E6:0x511A:SCM SCR 3310 NTTCom
+       . 0x0783:0x0008:C3PO LTC32 USBv2 with keyboard support
+       . 0x0783:0x9002:C3PO TLTC2USB
+       . 0x047B:0x020B:Silitek SK-3105
+    - Disable SPE for HP USB CCID Smartcard Keyboard. The reader is
+      bogus and unsafe.
+    - Convert "&" in a reader name into "&amp;" to fix a problem on Mac
+      OS X
+    - Fix a problem with ICCD type A devices. We now wait for device ready
+    - Secure PIN Verify and PIN Modify: set the minimum timeout to 90
+      seconds
+    - Add support of wIdVendor and wIdProduct properties
+    - Add support of dwMaxAPDUDataSize
+    - Add support of Gemalto firmware features
+    - some minor bugs removed
+
+
+1.4.5 - 11 October 2011, Ludovic Rousseau
+    - Add support of
+      . Alcor Micro AU9540
+      . BIFIT USB-Token iBank2key
+      . BIFIT iBank2Key
+      . Gemalto Ezio Shield PinPad reader
+      . Gemalto SA .NET Dual
+      . Precise Sense MC reader (with fingerprint)
+      . SDS DOMINO-Key TWIN Pro
+      . Ubisys 13.56MHz RFID (CCID)
+    - Add support of bPPDUSupport and FEATURE_CCID_ESC_COMMAND
+    - SCARD_ATTR_VENDOR_NAME and SCARD_ATTR_VENDOR_IFD_VERSION are not
+      the vendor name and version of the driver but of the IFD:
+      InterFace Device i.e. the smart card reader.  We then return the
+      USB iManufacturer string as SCARD_ATTR_VENDOR_NAME and USB
+      bcdDevice as SCARD_ATTR_VENDOR_IFD_VERSION
+    - reduce binary size bu removing unused features from simclist
+    - Fix some warnings reported bu Coverity
+
+
+1.4.4 - 13 May 2011, Ludovic Rousseau
+    - Add support of
+      . Gemalto Ezio CB+
+      . Gemalto Ezio Generic
+      . Gemalto Ezio Shield
+      . Gemalto Ezio Shield PinPad
+      . Gemalto Ezio Shield Secure Channel
+    - Activate USB automatic power suspend. The Linux kernel should
+      power off the reader automatically if it is not used (pcscd is not
+      running).
+    - Add support of TLV Properties wLcdMaxCharacters and wLcdMaxLines.
+      They just duplicate wLcdLayout
+    - some minor bugs removed
+
+
+1.4.3 - 2 April 2011, Ludovic Rousseau
+    - Add support of
+      . Feitian ePass2003 readers
+      . Neowave Weneo
+      . SCM SCL011
+      . Vasco DIGIPASS 920
+    - use :libudev: instead of :libhal: naming scheme.
+    - Do not install RSA_SecurID_getpasswd and Kobil_mIDentity_switch
+      and the associated documentation.
+    - the Secure Pin Entry of the HP USB Smart Card Keyboard is bogus so
+      disable it
+    - some minor bugs removed
+
+
+1.4.2 - 22 February 2011, Ludovic Rousseau
+    - Add support of
+      . ACS APG8201 PINhandy 1
+      . Aktiv Rutoken lite readers
+      . Feitian SCR310 reader (also known as 301v2)
+      . Oberthur ID-ONE TOKEN SLIM v2
+      . Vasco DIGIPASS KEY 200
+      . Vasco DIGIPASS KEY 860
+      . Xiring Leo v2
+      . Xiring MyLeo
+      . new Neowave Weneo token
+    - Add back support of "bogus" Oz776, REINER SCT and BLUDRIVE II
+    - Ease detection of OpenCT by pcsc-lite
+    - disable use of interrupt card events for multi slots readers (the
+      algorithm is bogus and can't be used)
+    - fix minor problems detected by the clang tool
+    - some minor bugs removed
+
+
+1.4.1 - 3 December 2010, Ludovic Rousseau
+    - Add support of
+      . Akasa AK-CR-03, BZH uKeyCI800-K18
+      . Free Software Initiative of Japan Gnuk token readers
+      . Gemalto Smart Guardian (SG CCID)
+      . ReinerSCT cyberJack RFID basis
+    - Remove O2 Micro Oz776 and Blutronics Bludrive II CCID since they
+      are no more supported since version 1.4.0
+    - SecurePINVerify() & SecurePINModify(): Accept big and little
+      endian byte orders for multibytes fields. The application
+      should not use HOST_TO_CCID_16() and HOST_TO_CCID_32() any more
+      and just use the normal byte order of the architecture.
+    - Need pcsc-lite 1.6.5 for TAG_IFD_POLLING_THREAD_WITH_TIMEOUT
+    - Add --enable-embedded (default is no) to build libccid for an
+      embedded system.  This will activate the NO_LOG option to disable
+      logging and limit RAM and disk consumption.
+    - Remove --enable-udev option since it is not used anymore with
+      libhal. The udev rules file is now used to change the access
+      rights of the device and not send a hotplug signal to pcscd.
+      See http://ludovicrousseau.blogspot.com/2010/09/pcscd-auto-start.html
+    - some minor bugs removed
+
+
+1.4.0 - 4 August 2010, Ludovic Rousseau
+    - add support of
+      . ACS AET65
+      . Broadcom 5880
+      . C3PO LTC36
+      . Dectel CI692
+      . Gemalto Hybrid Smartcard Reader
+      . Kingtrust Multi-Reader
+      . Tianyu Smart Card Reader
+      . Todos CX00
+    - Add support of the SCM SDI 010 again. At least the contact
+      interface can be used.
+    - Use libusb-1.0 instead of libusb-0.1
+    - add support of TAG_IFD_STOP_POLLING_THREAD and use of the
+      asynchronous libusb API to be able to stop a transfer.
+    - Request pcsc-lite 1.6.2 minimum (instead of 1.6.0) to have
+      TAG_IFD_STOP_POLLING_THREAD defined
+    - The O2MICRO OZ776 patch (for OZ776, OZ776_7772, REINER_SCT and
+      BLUDRIVEII_CCID) is no more supported with libusb-1.0
+    - correctly get the IFSC from the ATR (ATR parsing was not always
+      correct)
+    - some minor bugs removed
+
+
+1.3.13 - 4 June 2010, Ludovic Rousseau
+    - much faster warm start (up to 3.8 second gained)
+    - Add support of SCARD_ATTR_VENDOR_IFD_SERIAL_NO to get the serial
+      number of the USB device
+    - some minor bugs removed
+
+
+1.3.12 - 8 May 2010, Ludovic Rousseau
+    - add support of
+      . Ask CPL108
+      . Atmel AT90SCR050
+      . Atmel AT90SCR100
+      . Atmel VaultIC420
+      . Atmel VaultIC440
+      . Atmel VaultIC460
+      . Cherry SmartTerminal XX7X
+      . Covadis Auriga
+      . German Privacy Foundation Crypto Stick v1.2
+      . GoldKey PIV Token
+      . KOBIL Smart Token
+      . KOBIL mIDentity 4smart
+      . KOBIL mIDentity 4smart AES
+      . KOBIL mIDentity 4smart fullsize AES
+      . KOBIL mIDentity fullsize
+      . KOBIL mIDentity visual
+      . SCM SCR3500
+      . Smart SBV280
+      . Todos AGM2 CCID
+      . Vasco DIGIPASS KEY 200
+      . Vasco DIGIPASS KEY 860
+      . Vasco DP855
+      . Vasco DP865
+      . id3 CL1356T5
+    - remove support of Smart SBV280 on manufacturer request. They use
+      libusb directly.
+    - remove support of SCM SDI 010 on manufacturer request since not
+      supported by my driver
+    - Enable the Broadcom 5880 reader. It should work after a firmware
+      upgrade.
+    - better support of Dell keyboard
+    - better support of multislot readers (like the GemCore SIM Pro)
+    - better support of SCM SCR3310
+    - better support of ICCD version A devices
+    - The Covadis Véga-Alpha reader is a GemPC pinpad inside. So we use
+      the same code to:
+      . load the strings for the display
+      . avoid limitation of the reader
+    - IFDHControl(): the (proprietary) get firmware version escape
+      command is allowed with a Gemalto reader
+      . the (proprietary) switch interface escape command is allowed on
+      the Gemalto GemProx DU
+      . return IFD_ERROR_NOT_SUPPORTED instead of
+      IFD_COMMUNICATION_ERROR if the dwControlCode value is not
+      supported
+      . return IFD_ERROR_INSUFFICIENT_BUFFER when appropriate
+    - IFDHGetCapabilities(): add support of SCARD_ATTR_ICC_PRESENCE and
+      SCARD_ATTR_ICC_INTERFACE_STATUS
+    - support FEATURE_GET_TLV_PROPERTIES
+    - add support of IOCTL_FEATURE_GET_TLV_PROPERTIES bMinPINSize &
+      bMaxPINSize for Gemalto Pinpad V1 & Covadis Véga-Alpha
+    - support extended APDU of up to 64kB with APDU readers.
+    - get the language selected during Mac OS X installation as language
+      to use for Covadis Véga-Alpha and Gemalto GemPC PinPad pinpad
+      readers
+    - FEATURE_MCT_READER_DIRECT is also supported by the Kobil mIDentity
+      visual
+    - better support of Sun Studio CC
+    - some minor bugs removed
+
+
 1.3.11 - 28 July 2009, Ludovic Rousseau
-    - add support of Raritan D2CIM-DVUSB VM/CCID, Feitian SCR301,
-      Softforum XecureHSM, 2 Neowave Weneo tokens, Synnix STD200, Aktiv
-      Rutoken ECP, Alcor Micro SCR001, ATMEL AT91SC192192CT-USB,
-      Panasonic USB Smart Card Reader 7A-Smart, Gemalto GemProx DU and SU
+    - add support of
+      . Raritan D2CIM-DVUSB VM/CCID
+      . Feitian SCR301
+      . Softforum XecureHSM
+      . 2 Neowave Weneo tokens
+      . Synnix STD200
+      . Aktiv Rutoken ECP
+      . Alcor Micro SCR001
+      . ATMEL AT91SC192192CT-USB
+      . Panasonic USB Smart Card Reader 7A-Smart
+      . Gemalto GemProx DU and SU
     - remove support of Reiner-SCT cyberJack pinpad(a) on request of
       Reiner-SCT.  You should user the Reiner-SCT driver instead
     - define CFBundleName to CCIDCLASSDRIVER so that non class drivers
@@ -311,10 +499,15 @@ History:
 
 
 1.3.10 - 7 March 2009, Ludovic Rousseau
-    - add support for MSI StarReader SMART, Noname reader (from
-      Omnikey), Xiring Xi Sign PKI, Realtek 43 in 1 + Sim + Smart Card
-      Reader, Atmel AT98SC032CT, Aktiv Rutoken Magistra, TianYu CCID
-      SmartKey, Precise Biometrics 200 MC and 250 MC
+    - add support for
+      . Aktiv Rutoken Magistra
+      . Atmel AT98SC032CT
+      . MSI StarReader SMART
+      . Noname reader (from Omnikey)
+      . Precise Biometrics 200 MC and 250 MC
+      . Realtek 43 in 1 + Sim + Smart Card Reader
+      . TianYu CCID SmartKey
+      . Xiring Xi Sign PKI
     - add a patch to support the bogus OpenPGP card (on board key
       generation sometimes timed out)
     - disable support of the contactless part of SDI010 and SCR331DI
@@ -323,12 +516,22 @@ History:
 
 
 1.3.9 - 18 November 2008, Ludovic Rousseau
-    - add support for Aladdin eToken PRO USB 72K Java, Cherry
-      SmartTerminal ST-1200USB, Atmel AT91SO, SpringCard Prox'N'Roll,
-      CSB6 Basic, EasyFinger Ultimate, CSB6 Ultimate, EasyFinger
-      Standard, CrazyWriter, CSB6 Secure, KONA USB SmartCard, HP MFP
-      Smart Card Reader, ACS ACR122U PICC, Gemalto PDT, VMware Virtual
-      USB CCID
+    - add support for
+     . ACS ACR122U PICC
+     . Aladdin eToken PRO USB 72K Java
+     . Atmel AT91SO
+     . CSB6 Basic
+     . CSB6 Secure
+     . CSB6 Ultimate
+     . Cherry SmartTerminal ST-1200USB
+     . CrazyWriter
+     . EasyFinger Standard
+     . EasyFinger Ultimate
+     . Gemalto PDT
+     . HP MFP Smart Card Reader
+     . KONA USB SmartCard
+     . SpringCard Prox'N'Roll
+     . VMware Virtual USB CCID
     - MacOSX/configure: do not overwrite PCSC_CFLAGS, PCSC_LIBS,
       LIBUSB_CFLAGS and LIBUSB_LIBS if already defined by the user
     - by default, link statically against libusb on Mac OS X
@@ -341,7 +544,8 @@ History:
 
 
 1.3.8 - 27 June 2008, Ludovic Rousseau
-    - add support for Oberthur ID-One Cosmo Card
+    - add support for
+      . Oberthur ID-One Cosmo Card
     - do not include the release number in the Info.plist to avoid a
       diff of a configuration file when upgrading the package.
     - do not fail compilation if libusb is not available
@@ -351,8 +555,10 @@ History:
 
 
 1.3.7 - 8 June 2008, Ludovic Rousseau
-    - add support for ActivCard Activkey Sim, Pro-Active CSB6 Ultimate,
-      id3 Semiconductors CL1356A HID
+    - add support for
+      . ActivCard Activkey Sim
+      . Pro-Active CSB6 Ultimate
+      . id3 Semiconductors CL1356A HID
     - src/parse: do not try to parse devices with bInterfaceClass=0xFF
       by default (use command line argument -p for proprietary class)
     - configure.in: check if libusb-0.1 is emulated by libusb-compat +
@@ -364,8 +570,12 @@ History:
 
 
 1.3.6 - 30 April 2008, Ludovic Rousseau
-    - add support for Covadis Alya, Covadis Véga, Precise Biometrics 250
-      MC, Vasco DP905, Validy TokenA sl vt
+    - add support for
+     . Covadis Alya
+     . Covadis Véga
+     . Precise Biometrics 250 MC
+     . Validy TokenA sl vt
+     . Vasco DP905
     - better support for the O2Micro OZ776, GemCore SIM Pro
     - the environment variable LIBCCID_ifdLogLevel overwrite the value
       of ifdLogLevel read from the Info.plist file
@@ -719,88 +929,6 @@ History:
     - First public release
 
 
-References:
-===========
-
-[1] http://www.usb.org/developers/devclass_docs/ccid_classspec_1_00a.pdf
-[2] http://www.gemalto.com/products/pc_usb_sl/
-[3] http://www.gemalto.com/products/usb_shell_token_v2/
-[4] http://www.gemalto.com/products/pctwin/
-[5] http://www.omnikey.com/?id=products&tx_okprod_pi1[product]=21
-[6] http://scmmicro.com/security/view_product_en.php?PID=3
-[7] http://scmmicro.com/security/view_product_en.php?PID=11
-[8] http://www.c3po.es/ltc31.html
-[9] http://scmmicro.com/security/view_product_en.php?PID=13
-[10] http://www.activcard.com/products/usb_reader.html
-[11] http://www.scmmicro.com/security/SCR331-DI.html
-[12] http://www.silitek.com/prod/getProduct.do?xml_id=4_2&menu_id=4_2_8&cid=1_8_5
-[13] http://www.c3po.es/ltc32.html
-[14] http://www.c3po.es/tltc2usb.html
-[15] http://scmmicro.com/security/view_product_en.php?PID=10
-[16] http://www.acs.com.hk/Product_Readers.asp?productID=107&PCate=Products_PC_Linked_SmartCard_Readers
-[17] http://www.scmmicro.com/support/pcs_downloads.php
-[18] http://www.cherrycorp.com/english/advanced-line/advanced-line_smartboard_g83-6744.htm
-[19] http://www.kobil.com/e/products/smartcard/kaan-base.php
-[20] http://www.kobil.com/e/products/smartcard/kaan-advanced.php
-[21] http://www.kobil.com/d/products/smartcard/kaansim3.php
-[22] http://www.kobil.com/e/products/index.php?s=midentity
-[23] http://www.ntt.com/jpki/SCR331DI.html
-[24] http://www.verisign.co.uk/products-services/security-services/unified-authentication/usb-tokens/
-[25] http://www.eutron.com/simpocket.asp
-[26] http://www.cryptoidentity.eutron.com/eng/home.asp
-[27] http://www.cherry.de/english/advanced-line/advanced_smartterminal_st-1044u.htm
-[28] http://www.ntt.com/jpki/scr3310.html
-[29] http://www.asedrive.com/product.asp?pid=1
-[30] http://scmmicro.com/security/view_product_en.php?PID=4
-[31] http://scmmicro.com/security/view_product_en.php?PID=5
-[31b] http://scmmicro.com/security/view_product_en.php?PID=6
-[32] http://www.smartepad.com.br/
-[33] http://www.omnikey.com/?id=products&tx_okprod_pi1[product]=37
-[34] http://scmmicro.com/security/view_product_en.php?PID=7
-[35] http://www.cherry.de/deutsch/advanced-line/advanced_smart_terminal_st-2000u.htm
-[36] http://www.omnikey.com/index.php?id=products&tx_okprod_pi1[product]=29
-[37] http://www.omnikey.com/index.php?id=products&tx_okprod_pi1[product]=33
-[38] http://www.reflexreaders.com/Products/reflex_usbnew.html
-[39] http://scmmicro.com/security/view_product_en.php?PID=19
-[40] http://www.winbond.com.tw/E-WINBONDHTM/partner/b_2_e_4.htm
-[41] http://www.gemplus.com/products/gempc_card/
-[42] http://www.asedrive.com/product.asp?pid=2
-[43] http://www.omnikey.com/?id=products&tx_okprod_pi1[product]=31
-[44] http://h18000.www1.hp.com/products/quickspecs/12346_na/12346_na.HTML
-[45] http://www.id3semiconductors.com/produits/cl1356D.htm
-[46] http://www.alcormicro.com/products_detail.php?main_id=8&p_id=21
-[47] http://www.tai-hao.com/english/products_detail.php?main_id=4&second_id=13&p_id=53&now_rows=1
-[48] http://www.id3semiconductors.com/produits/cl1356T.htm
-[49] http://www.omnikey.com/index.php?id=products&tx_okprod_pi1[product]=48
-[50] http://www.rsa.com/products/securid/datasheets/SID800_DS_0507.pdf
-[51] http://www.omnikey.com/?id=products&tx_okprod_pi1[product]=39
-[52] http://www.teobyxiring.com/
-[53] http://www.fujitsu-siemens.com/solutions/business_solutions/security/security_products/smartcase_scr_usbex.html
-[54] http://www.fujitsu-siemens.com/solutions/business_solutions/security/security_products/smartcase_kbpc_cx.html
-[55] http://omnikey.aaitg.com/?id=products&tx_okprod_pi1[product]=50
-[56] http://omnikey.aaitg.com/?id=products&tx_okprod_pi1[product]=41
-[57] http://www.gi-de.com/portal/page?_pageid=42,126834&_dad=portal&_schema=PORTAL
-[58] http://www.eutronsec.com/infosecurity/Contents/ProductLine/Details.aspx?IDProd=26&IDFamiglia=3
-[59] http://www.eutronsec.com/infosecurity/Contents/ProductLine/Details.aspx?IDProd=62&IDFamiglia=39
-[60] http://www.lexar.com/enterprise/ent_ppsd.html
-[61] http://www.cherry.de/deutsch/produkte/chipkartentastaturen_g-6610.htm
-[62] http://acs.com.hk/acr122.php
-[63] http://covadis.ch/Alya.239.0.html
-[64] http://covadis.ch/Vega.104.0.html
-[65] http://www.validy.com/en/products/token/
-[66] http://www.actividentity.com/products/activkey_usb_tokens__home.php
-[67] http://www.gemalto.com/products/pc_pinpad/
-[68] http://www.kobil.com/index.php?id=71&type=7&L
-[69] http://www.kobil.com/index.php?id=555&type=7&L=0
-[70] http://www.kobil.com/index.php?id=128&type=7&L=1%22
-[71] http://www.lexar.com/enterprise/ent_ppsd.html
-[72] http://www.springcard.com/products/csb6.html
-[73] http://www.aladdin.com/etoken/devices/pro-usb.aspx
-[74] http://www.atmel.com/dyn/products/tools_card.asp?tool_id=3981
-[75] http://global.msi.com.tw/index.php?func=proddesc&maincat_no=132&prod_no=1411
-[76] http://www.xiring.com/pageLibre00012c0e.php
-[77] http://www.atmel.com/dyn/products/product_card.asp?part_id=4063
-
-$Id: README 4347 2009-07-28 20:52:50Z rousseau $
+$Id: README 6795 2013-11-25 18:09:17Z rousseau $
 
  vim:ts=20

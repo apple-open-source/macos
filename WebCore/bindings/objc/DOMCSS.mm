@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -52,10 +52,6 @@
 #import "DOMWebKitCSSKeyframesRule.h"
 #import "DOMWebKitCSSTransformValue.h"
 
-#if ENABLE(CSS_SHADERS)
-#import "DOMWebKitCSSFilterRule.h"
-#endif
-
 #if ENABLE(CSS_FILTERS)
 #import "DOMWebKitCSSFilterValue.h"
 #endif
@@ -66,10 +62,6 @@
 
 #if ENABLE(CSS_DEVICE_ADAPTATION)
 #import "DOMWebKitCSSViewportRule.h"
-#endif
-
-#if ENABLE(SHADOW_DOM)
-#import "DOMCSSHostRule.h"
 #endif
 
 //------------------------------------------------------------------------------------------
@@ -117,14 +109,6 @@ Class kitClass(WebCore::CSSRule* impl)
 #if ENABLE(CSS_REGIONS)
         case DOM_WEBKIT_REGION_RULE:
             return [DOMWebKitCSSRegionRule class];
-#endif
-#if ENABLE(SHADOW_DOM)
-        case DOM_HOST_RULE:
-            return [DOMCSSHostRule class];
-#endif
-#if ENABLE(CSS_SHADERS)
-        case DOM_WEBKIT_FILTER_RULE:
-            return [DOMWebKitCSSFilterRule class];
 #endif
     }
     ASSERT_NOT_REACHED();

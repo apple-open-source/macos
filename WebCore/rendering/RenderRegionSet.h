@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,19 +47,17 @@ class RenderFlowThread;
 
 class RenderRegionSet : public RenderRegion {
 public:
-    RenderRegionSet(Element*, RenderFlowThread*);
-    
+    void expandToEncompassFlowThreadContentsIfNeeded();
+
 protected:
-    virtual bool shouldHaveAutoLogicalHeight() const OVERRIDE { return false; }
+    RenderRegionSet(Document&, PassRef<RenderStyle>, RenderFlowThread&);
 
 private:
-    virtual void installFlowThread() OVERRIDE;
-
-    virtual void expandToEncompassFlowThreadContentsIfNeeded() OVERRIDE;
+    virtual void installFlowThread() override final;
 
     virtual const char* renderName() const = 0;
     
-    virtual bool isRenderRegionSet() const OVERRIDE { return true; }
+    virtual bool isRenderRegionSet() const override final { return true; }
 };
 
 } // namespace WebCore

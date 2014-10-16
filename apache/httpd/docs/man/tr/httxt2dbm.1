@@ -19,7 +19,7 @@
 .el .ne 3
 .IP "\\$1" \\$2
 ..
-.TH "HTTXT2DBM" 1 "2012-03-21" "Apache HTTP Sunucusu" "httxt2dbm"
+.TH "HTTXT2DBM" 1 "2013-04-17" "Apache HTTP Sunucusu" "httxt2dbm"
 .nh
 .SH İSİM
 httxt2dbm \- RewriteMap ile kullanmak için DBM dosyaları üretir
@@ -35,6 +35,9 @@ httxt2dbm \- RewriteMap ile kullanmak için DBM dosyaları üretir
 .PP
 \fBhttxt2dbm\fR, RewriteMap ile kullanmak için düz metin dosyalardan DBM dosyaları üretir\&.
  
+.PP
+Çıktı dosyası mevcutsa dosya kırpılmaz\&. Yeni anahtarlar eklenir, mevcutlar da güncellenir\&.
+ 
 
 .SH "SEÇENEKLER"
  
@@ -44,7 +47,7 @@ httxt2dbm \- RewriteMap ile kullanmak için DBM dosyaları üretir
 Çıktı daha ayrıntılı olur\&.  
 .TP
 \fB-f\fR \fIDBM_türü\fR
-Çıktı için kullanılacak DBM türü belirtilir\&. Belirtilmediği takdirde APR öntanımlısı kullanılır\&. Belirtilebilecek DBM türleri: GDBM dosyalar için GDBM SDBM dosyalar için SDBM Berkeley DB dosyalar için DB NDBM dosyalar için NDBM öntanımlı DBM türü için default  
+Çıktı için kullanılacak DBM türü belirtilir\&. Belirtilmediği takdirde APR öntanımlısı kullanılır\&. Belirtilebilecek DBM türleri: GDBM dosyalar için GDBM, SDBM dosyalar için SDBM, Berkeley DB dosyalar için DB, NDBM dosyalar için NDBM, öntanımlı DBM türü için default  
 .TP
 \fB-i\fR \fIkaynak_metin\fR
 DBM dosyasının üretiminde kullanılacak girdi dosyası belirtilir\&. Bu dosya, her satırda bir kayıt bulunmak üzere her satırı şöyle biçemlenmiş olmalıdır: anahtar değer\&. Bu dosyanın biçemi ve manası ile ilgili ayrıntılar için RewriteMap yönergesinin açıklamasına bakınız\&.  

@@ -431,6 +431,7 @@ environment_changed(krb5_context context)
     if (context->default_cc_name &&
 	(strncmp(context->default_cc_name, "KCM:", 4) == 0 ||
 	 strncmp(context->default_cc_name, "API:", 4) == 0 ||
+	 strncmp(context->default_cc_name, "XCACHE:", 4) == 0 ||
 	 strncmp(context->default_cc_name, "KCC:", 4) == 0))
 	return 1;
 
@@ -1299,7 +1300,8 @@ krb5_cc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     if (strcmp(from->ops->prefix, to->ops->prefix) != 0) {
 	krb5_set_error_message(context, KRB5_CC_NOSUPP,
 			       N_("Moving credentials between diffrent "
-				 "types not yet supported", ""));
+				  "types not yet supported (from %s to %s)", ""),
+			       from->ops->prefix, to->ops->prefix);
 	return KRB5_CC_NOSUPP;
     }
 
@@ -1916,6 +1918,15 @@ krb5_cc_set_acl(krb5_context context, krb5_ccache id, const char *type, void *pt
 {
     if (id->ops->set_acl)
 	return id->ops->set_acl(context, id, type, ptr);
+    return 0;
+}
+
+krb5_error_code
+krb5_cc_copy_data(krb5_context context, krb5_ccache id, void *keys, void **data)
+{
+    *data = NULL;
+    if (id->ops->copy_data)
+	return id->ops->copy_data(context, id, keys, data);
     return 0;
 }
 

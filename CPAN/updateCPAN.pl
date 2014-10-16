@@ -1,5 +1,19 @@
 #!/usr/bin/perl
 
+# updateCPAN
+#
+# Set $FileCurrent to the name of the .inc file that you want to read in, and
+# find the latest versions for those modules.  Set the @FilePreviousList list
+# to the name of the other .inc files, so if $FileCurrent contains a version
+# not used by any other version, it can use "svn mv" to make the new directory,
+# otherwise, "svn cp" will be used.
+#
+# By default, updateCPAN will only print out what I would do.  The -d flag
+# causes actual changes; new svn directories will be created, the new modules
+# will be downloaded and then the $FileCurrent file will be updated with the
+# new version numbers.
+#
+
 use strict;
 use CPAN;
 use File::Basename ();
@@ -8,8 +22,8 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.16.inc';
-my @FilePreviousList = qw(5.12.inc 5.10.inc);
+my $FileCurrent = '5.18.inc';
+my @FilePreviousList = qw(5.16.inc);
 my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
 
 my $download;

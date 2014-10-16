@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -71,14 +71,14 @@ private:
     void clearCallbackWrappers();
 
     // APIs called from the backend published via AbstractSQLTransaction:
-    virtual void requestTransitToState(SQLTransactionState) OVERRIDE;
-    virtual bool hasCallback() const OVERRIDE;
-    virtual bool hasSuccessCallback() const OVERRIDE;
-    virtual bool hasErrorCallback() const OVERRIDE;
-    virtual void setBackend(AbstractSQLTransactionBackend*) OVERRIDE;
+    virtual void requestTransitToState(SQLTransactionState) override;
+    virtual bool hasCallback() const override;
+    virtual bool hasSuccessCallback() const override;
+    virtual bool hasErrorCallback() const override;
+    virtual void setBackend(AbstractSQLTransactionBackend*) override;
 
     // State Machine functions:
-    virtual StateFunction stateFunctionFor(SQLTransactionState) OVERRIDE;
+    virtual StateFunction stateFunctionFor(SQLTransactionState) override;
     bool computeNextStateAndCleanupIfNeeded();
 
     // State functions:

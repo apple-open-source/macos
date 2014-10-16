@@ -147,7 +147,7 @@ stf_reachability_callback(SCNetworkReachabilityRef target,
 			  SCNetworkReachabilityFlags flags,
 			  void * info)
 {
-    int			count;
+    CFIndex		count;
     int			error;
     int			i;
     interface_t *	if_p;
@@ -400,7 +400,7 @@ stf_update_address(ServiceRef service_p, CFDictionaryRef info,
 	if (local_ip.s_addr != 0) {
 	    /* set the new address and publish */
 	    make_6to4_addr(local_ip, &local_ip6, TRUE);
-	    ServiceSetIPv6Address(service_p, &local_ip6, STF_PREFIX_LENGTH,
+	    ServiceSetIPv6Address(service_p, &local_ip6, STF_PREFIX_LENGTH, 0,
 				  ND6_INFINITE_LIFETIME, ND6_INFINITE_LIFETIME);
 	    if (isA_CFString(signature) != NULL) {
 		stf->signature = CFRetain(signature);

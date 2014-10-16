@@ -26,6 +26,8 @@
 #ifndef _LDAP_H
 #define _LDAP_H
 
+#include <Availability.h>
+
 /* pull in lber */
 #include <lber.h>
 
@@ -163,8 +165,10 @@ LDAP_BEGIN_DECL
 #define LDAP_OPT_X_TLS_NEWCTX		0x600f
 #define LDAP_OPT_X_TLS_CRLFILE		0x6010	/* GNUtls only */
 #define LDAP_OPT_X_TLS_PACKAGE		0x6011
-#define LDAP_OPT_X_TLS_CERT_IDENTITY 0x60fe /*Apple Specific code*/
-#define LDAP_OPT_X_TLS_PASSPHRASE	0x60ff  /*Apple Specific code*/
+#define LDAP_OPT_X_TLS_IDENTITY		0x60fc	/* SecureTransport only */
+#define LDAP_OPT_X_TLS_TRUSTED_CERTS 0x60fd	/* SecureTransport only */
+#define LDAP_OPT_X_TLS_CERT_IDENTITY 0x60fe /*Apple Specific code (OpenSSL) */
+#define LDAP_OPT_X_TLS_PASSPHRASE	0x60ff  /*Apple Specific code (OpenSSL) */
 
 #define LDAP_OPT_X_TLS_NEVER	0
 #define LDAP_OPT_X_TLS_HARD		1
@@ -1023,12 +1027,12 @@ ldap_create_control LDAP_P((	/* deprecated, use ldap_control_create */
 	LDAP_CONST char *requestOID,
 	BerElement *ber,
 	int iscritical,
-	LDAPControl **ctrlp ));
+	LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_control_create");
 
 LDAP_F( LDAPControl * )
 ldap_find_control LDAP_P((	/* deprecated, use ldap_control_find */
 	LDAP_CONST char *oid,
-	LDAPControl **ctrls ));
+	LDAPControl **ctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_control_find");
 #endif
 
 LDAP_F( int )
@@ -1133,7 +1137,7 @@ ldap_abandon_ext LDAP_P((
 LDAP_F( int )
 ldap_abandon LDAP_P((	/* deprecated, use ldap_abandon_ext */
 	LDAP *ld,
-	int msgid ));
+	int msgid )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_abandon_ext");
 #endif
 
 /*
@@ -1161,13 +1165,13 @@ LDAP_F( int )
 ldap_add LDAP_P((	/* deprecated, use ldap_add_ext */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAPMod **attrs ));
+	LDAPMod **attrs )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_add_ext");
 
 LDAP_F( int )
 ldap_add_s LDAP_P((	/* deprecated, use ldap_add_ext_s */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAPMod **attrs ));
+	LDAPMod **attrs )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_add_ext_s");
 #endif
 
 
@@ -1261,14 +1265,14 @@ ldap_bind LDAP_P((	/* deprecated, use ldap_sasl_bind */
 	LDAP *ld,
 	LDAP_CONST char *who,
 	LDAP_CONST char *passwd,
-	int authmethod ));
+	int authmethod )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_sasl_bind");
 
 LDAP_F( int )
 ldap_bind_s LDAP_P((	/* deprecated, use ldap_sasl_bind_s */
 	LDAP *ld,
 	LDAP_CONST char *who,
 	LDAP_CONST char *cred,
-	int authmethod ));
+	int authmethod )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_sasl_bind_s");
 
 /*
  * in sbind.c:
@@ -1277,13 +1281,13 @@ LDAP_F( int )
 ldap_simple_bind LDAP_P(( /* deprecated, use ldap_sasl_bind */
 	LDAP *ld,
 	LDAP_CONST char *who,
-	LDAP_CONST char *passwd ));
+	LDAP_CONST char *passwd )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_sasl_bind");
 
 LDAP_F( int )
 ldap_simple_bind_s LDAP_P(( /* deprecated, use ldap_sasl_bind_s */
 	LDAP *ld,
 	LDAP_CONST char *who,
-	LDAP_CONST char *passwd ));
+	LDAP_CONST char *passwd )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_sasl_bind_s");
 
 #endif
 
@@ -1316,14 +1320,14 @@ ldap_compare LDAP_P((	/* deprecated, use ldap_compare_ext */
 	LDAP *ld,
 	LDAP_CONST char *dn,
 	LDAP_CONST char *attr,
-	LDAP_CONST char *value ));
+	LDAP_CONST char *value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_compare_ext");
 
 LDAP_F( int )
 ldap_compare_s LDAP_P((	/* deprecated, use ldap_compare_ext_s */
 	LDAP *ld,
 	LDAP_CONST char *dn,
 	LDAP_CONST char *attr,
-	LDAP_CONST char *value ));
+	LDAP_CONST char *value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_compare_ext_s");
 #endif
 
 
@@ -1349,12 +1353,12 @@ ldap_delete_ext_s LDAP_P((
 LDAP_F( int )
 ldap_delete LDAP_P((	/* deprecated, use ldap_delete_ext */
 	LDAP *ld,
-	LDAP_CONST char *dn ));
+	LDAP_CONST char *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_delete_ext");
 
 LDAP_F( int )
 ldap_delete_s LDAP_P((	/* deprecated, use ldap_delete_ext_s */
 	LDAP *ld,
-	LDAP_CONST char *dn ));
+	LDAP_CONST char *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_delete_ext_s");
 #endif
 
 
@@ -1381,12 +1385,12 @@ LDAP_F( int )
 ldap_result2error LDAP_P((	/* deprecated, use ldap_parse_result */
 	LDAP *ld,
 	LDAPMessage *r,
-	int freeit ));
+	int freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_parse_result");
 
 LDAP_F( void )
 ldap_perror LDAP_P((	/* deprecated, use ldap_err2string */
 	LDAP *ld,
-	LDAP_CONST char *s ));
+	LDAP_CONST char *s )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_err2string");
 #endif
 
 
@@ -1431,13 +1435,13 @@ LDAP_F( int )
 ldap_modify LDAP_P((	/* deprecated, use ldap_modify_ext */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAPMod **mods ));
+	LDAPMod **mods )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_modify_ext");
 
 LDAP_F( int )
 ldap_modify_s LDAP_P((	/* deprecated, use ldap_modify_ext_s */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAPMod **mods ));
+	LDAPMod **mods )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_modify_ext_s");
 #endif
 
 
@@ -1472,7 +1476,7 @@ ldap_rename2 LDAP_P((	/* deprecated, use ldap_rename */
 	LDAP_CONST char *dn,
 	LDAP_CONST char *newrdn,
 	LDAP_CONST char *newSuperior,
-	int deleteoldrdn ));
+	int deleteoldrdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename");
 
 LDAP_F( int )
 ldap_rename2_s LDAP_P((	/* deprecated, use ldap_rename_s */
@@ -1480,33 +1484,33 @@ ldap_rename2_s LDAP_P((	/* deprecated, use ldap_rename_s */
 	LDAP_CONST char *dn,
 	LDAP_CONST char *newrdn,
 	LDAP_CONST char *newSuperior,
-	int deleteoldrdn ));
+	int deleteoldrdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename_s");
 
 LDAP_F( int )
 ldap_modrdn LDAP_P((	/* deprecated, use ldap_rename */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAP_CONST char *newrdn ));
+	LDAP_CONST char *newrdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename");
 
 LDAP_F( int )
 ldap_modrdn_s LDAP_P((	/* deprecated, use ldap_rename_s */
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAP_CONST char *newrdn ));
+	LDAP_CONST char *newrdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename_s");
 
 LDAP_F( int )
 ldap_modrdn2 LDAP_P((	/* deprecated, use ldap_rename */
 	LDAP *ld,
 	LDAP_CONST char *dn,
 	LDAP_CONST char *newrdn,
-	int deleteoldrdn ));
+	int deleteoldrdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename");
 
 LDAP_F( int )
 ldap_modrdn2_s LDAP_P((	/* deprecated, use ldap_rename_s */
 	LDAP *ld,
 	LDAP_CONST char *dn,
 	LDAP_CONST char *newrdn,
-	int deleteoldrdn));
+	int deleteoldrdn)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_rename_s");
 #endif
 
 
@@ -1517,12 +1521,12 @@ ldap_modrdn2_s LDAP_P((	/* deprecated, use ldap_rename_s */
 LDAP_F( LDAP * )
 ldap_init LDAP_P(( /* deprecated, use ldap_create or ldap_initialize */
 	LDAP_CONST char *host,
-	int port ));
+	int port )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_initialize");
 
 LDAP_F( LDAP * )
 ldap_open LDAP_P((	/* deprecated, use ldap_create or ldap_initialize */
 	LDAP_CONST char *host,
-	int port ));
+	int port )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_initialize");
 #endif
 
 LDAP_F( int )
@@ -1749,17 +1753,17 @@ ldap_dn_normalize LDAP_P((
 
 LDAP_F( char * )
 ldap_dn2ufn LDAP_P(( /* deprecated, use ldap_str2dn/dn2str */
-	LDAP_CONST char *dn ));
+	LDAP_CONST char *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2dn/dn2str");
 
 LDAP_F( char ** )
 ldap_explode_dn LDAP_P(( /* deprecated, ldap_str2dn */
 	LDAP_CONST char *dn,
-	int notypes ));
+	int notypes )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2dn");
 
 LDAP_F( char ** )
 ldap_explode_rdn LDAP_P(( /* deprecated, ldap_str2rdn */
 	LDAP_CONST char *rdn,
-	int notypes ));
+	int notypes )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2rdn");
 
 typedef int LDAPDN_rewrite_func
 	LDAP_P(( LDAPDN dn, unsigned flags, void *ctx ));
@@ -1770,15 +1774,15 @@ ldap_X509dn2bv LDAP_P(( void *x509_name, struct berval *dn,
 
 LDAP_F( char * )
 ldap_dn2dcedn LDAP_P(( /* deprecated, ldap_str2dn/dn2str */
-	LDAP_CONST char *dn ));
+	LDAP_CONST char *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2dn/dn2str");
 
 LDAP_F( char * )
 ldap_dcedn2dn LDAP_P(( /* deprecated, ldap_str2dn/dn2str */
-	LDAP_CONST char *dce ));
+	LDAP_CONST char *dce )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2dn/dn2str");
 
 LDAP_F( char * )
 ldap_dn2ad_canonical LDAP_P(( /* deprecated, ldap_str2dn/dn2str */
-	LDAP_CONST char *dn ));
+	LDAP_CONST char *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2dn/dn2str");
 
 LDAP_F( int )
 ldap_get_dn_ber LDAP_P((
@@ -1827,15 +1831,15 @@ LDAP_F( char ** )
 ldap_get_values LDAP_P((	/* deprecated, use ldap_get_values_len */
 	LDAP *ld,
 	LDAPMessage *entry,
-	LDAP_CONST char *target ));
+	LDAP_CONST char *target )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_get_values_len");
 
 LDAP_F( int )
 ldap_count_values LDAP_P((	/* deprecated, use ldap_count_values_len */
-	char **vals ));
+	char **vals )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_count_values_len");
 
 LDAP_F( void )
 ldap_value_free LDAP_P((	/* deprecated, use ldap_value_free_len */
-	char **vals ));
+	char **vals )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_value_free_len");
 #endif
 
 /*
@@ -1911,7 +1915,7 @@ ldap_search LDAP_P((	/* deprecated, use ldap_search_ext */
 	int scope,
 	LDAP_CONST char *filter,
 	char **attrs,
-	int attrsonly ));
+	int attrsonly )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_search_ext");
 
 LDAP_F( int )
 ldap_search_s LDAP_P((	/* deprecated, use ldap_search_ext_s */
@@ -1921,7 +1925,7 @@ ldap_search_s LDAP_P((	/* deprecated, use ldap_search_ext_s */
 	LDAP_CONST char *filter,
 	char **attrs,
 	int attrsonly,
-	LDAPMessage **res ));
+	LDAPMessage **res )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_search_ext_s");
 
 LDAP_F( int )
 ldap_search_st LDAP_P((	/* deprecated, use ldap_search_ext_s */
@@ -1932,7 +1936,7 @@ ldap_search_st LDAP_P((	/* deprecated, use ldap_search_ext_s */
     char **attrs,
 	int attrsonly,
 	struct timeval *timeout,
-	LDAPMessage **res ));
+	LDAPMessage **res )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_search_ext_s");
 #endif
 
 /*
@@ -1957,11 +1961,11 @@ ldap_destroy LDAP_P((
 #if LDAP_DEPRECATED
 LDAP_F( int )
 ldap_unbind LDAP_P(( /* deprecated, use ldap_unbind_ext */
-	LDAP *ld ));
+	LDAP *ld )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_unbind_ext");
 
 LDAP_F( int )
 ldap_unbind_s LDAP_P(( /* deprecated, use ldap_unbind_ext_s */
-	LDAP *ld ));
+	LDAP *ld )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_unbind_ext_s");
 #endif
 
 /*
@@ -2014,28 +2018,28 @@ ldap_mods_free LDAP_P((
  */
 typedef int (LDAP_SORT_AD_CMP_PROC) LDAP_P(( /* deprecated */
 	LDAP_CONST char *left,
-	LDAP_CONST char *right ));
+	LDAP_CONST char *right )) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA);
 
 typedef int (LDAP_SORT_AV_CMP_PROC) LDAP_P(( /* deprecated */
 	LDAP_CONST void *left,
-	LDAP_CONST void *right ));
+	LDAP_CONST void *right )) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA);
 
 LDAP_F( int )	/* deprecated */
 ldap_sort_entries LDAP_P(( LDAP *ld,
 	LDAPMessage **chain,
 	LDAP_CONST char *attr,
-	LDAP_SORT_AD_CMP_PROC *cmp ));
+	LDAP_SORT_AD_CMP_PROC *cmp )) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA);
 
 LDAP_F( int )	/* deprecated */
 ldap_sort_values LDAP_P((
 	LDAP *ld,
 	char **vals,
-	LDAP_SORT_AV_CMP_PROC *cmp ));
+	LDAP_SORT_AV_CMP_PROC *cmp )) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA);
 
 LDAP_F( int ) /* deprecated */
 ldap_sort_strcasecmp LDAP_P((
 	LDAP_CONST void *a,
-	LDAP_CONST void *b ));
+	LDAP_CONST void *b )) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA);
 #endif
 
 /*
@@ -2135,7 +2139,7 @@ ldap_parse_page_control LDAP_P((
 	LDAP *ld,
 	LDAPControl **ctrls,
 	ber_int_t *count,
-	struct berval **cookie ));
+	struct berval **cookie )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_parse_pageresponse_control");
 #endif
 
 LDAP_F( int )

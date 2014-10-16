@@ -1,0 +1,264 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>gettext.h</title>
+<style type="text/css">
+.enscript-comment { font-style: italic; color: rgb(178,34,34); }
+.enscript-function-name { font-weight: bold; color: rgb(0,0,255); }
+.enscript-variable-name { font-weight: bold; color: rgb(184,134,11); }
+.enscript-keyword { font-weight: bold; color: rgb(160,32,240); }
+.enscript-reference { font-weight: bold; color: rgb(95,158,160); }
+.enscript-string { font-weight: bold; color: rgb(188,143,143); }
+.enscript-builtin { font-weight: bold; color: rgb(218,112,214); }
+.enscript-type { font-weight: bold; color: rgb(34,139,34); }
+.enscript-highlight { text-decoration: underline; color: 0; }
+</style>
+</head>
+<body id="top">
+<h1 style="margin:8px;" id="f1">gettext.h&nbsp;&nbsp;&nbsp;<span style="font-weight: normal; font-size: 0.5em;">[<a href="?txt">plain text</a>]</span></h1>
+<hr/>
+<div></div>
+<pre>
+<span class="enscript-comment">/* Convenience header for conditional use of GNU &lt;libintl.h&gt;.
+   Copyright (C) 1995-1998, 2000-2002, 2004-2006 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU Library General Public License as published
+   by the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public
+   License along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+   USA.  */</span>
+
+#<span class="enscript-reference">ifndef</span> <span class="enscript-variable-name">_LIBGETTEXT_H</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_LIBGETTEXT_H</span> 1
+
+<span class="enscript-comment">/* NLS can be disabled through the configure --disable-nls option.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">ENABLE_NLS</span>
+
+<span class="enscript-comment">/* Get declarations of GNU message catalog functions.  */</span>
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;libintl.h&gt;</span>
+
+#<span class="enscript-reference">else</span>
+
+<span class="enscript-comment">/* Solaris /usr/include/locale.h includes /usr/include/libintl.h, which
+   chokes if dcgettext is defined as a macro.  So include it now, to make
+   later inclusions of &lt;locale.h&gt; a NOP.  We don't include &lt;libintl.h&gt;
+   as well because people using &quot;gettext.h&quot; will not include &lt;libintl.h&gt;,
+   and also including &lt;libintl.h&gt; would fail on SunOS 4, whereas &lt;locale.h&gt;
+   is OK.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__sun</span>)
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;locale.h&gt;</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Many header files from the libstdc++ coming with g++ 3.3 or newer include
+   &lt;libintl.h&gt;, which chokes if dcgettext is defined as a macro.  So include
+   it now, to make later inclusions of &lt;libintl.h&gt; a NOP.  */</span>
+#<span class="enscript-reference">if</span> <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__cplusplus</span>) &amp;&amp; <span class="enscript-reference">defined</span>(<span class="enscript-variable-name">__GNUG__</span>) &amp;&amp; (<span class="enscript-variable-name">__GNUC__</span> &gt;= 3)
+# <span class="enscript-reference">include</span> <span class="enscript-string">&lt;cstdlib&gt;</span>
+# <span class="enscript-reference">if</span> (<span class="enscript-variable-name">__GLIBC__</span> &gt;= 2) || <span class="enscript-variable-name">_GLIBCXX_HAVE_LIBINTL_H</span>
+#  <span class="enscript-reference">include</span> <span class="enscript-string">&lt;libintl.h&gt;</span>
+# <span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* Disabled NLS.
+   The casts to 'const char *' serve the purpose of producing warnings
+   for invalid uses of the value returned from these functions.
+   On pre-ANSI systems without 'const', the config.h file is supposed to
+   contain &quot;#define const&quot;.  */</span>
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">gettext</span>(Msgid) ((const char *) (Msgid))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">dgettext</span>(Domainname, Msgid) ((const char *) (Msgid))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">dcgettext</span>(Domainname, Msgid, Category) ((const char *) (Msgid))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">ngettext</span>(Msgid1, Msgid2, N) \
+    ((N) == 1 ? (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid1) : (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid2))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">dngettext</span>(Domainname, Msgid1, Msgid2, N) \
+    ((N) == 1 ? (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid1) : (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid2))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">dcngettext</span>(Domainname, Msgid1, Msgid2, N, Category) \
+    ((N) == 1 ? (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid1) : (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *) (Msgid2))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">textdomain</span>(Domainname) ((const char *) (Domainname))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">bindtextdomain</span>(Domainname, Dirname) ((const char *) (Dirname))
+# <span class="enscript-reference">define</span> <span class="enscript-function-name">bind_textdomain_codeset</span>(Domainname, Codeset) ((const char *) (Codeset))
+
+#<span class="enscript-reference">endif</span>
+
+<span class="enscript-comment">/* A pseudo function call that serves as a marker for the automated
+   extraction of messages, but does not call gettext().  The run-time
+   translation is done at a different place in the code.
+   The argument, String, should be a literal string.  Concatenated strings
+   and other string expressions won't work.
+   The macro's expansion is not parenthesized, so that it is suitable as
+   initializer for static 'char[]' or 'const char[]' variables.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">gettext_noop</span>(String) String
+
+<span class="enscript-comment">/* The separator between msgctxt and msgid in a .mo file.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">GETTEXT_CONTEXT_GLUE</span> <span class="enscript-string">&quot;\004&quot;</span>
+
+<span class="enscript-comment">/* Pseudo function calls, taking a MSGCTXT and a MSGID instead of just a
+   MSGID.  MSGCTXT and MSGID must be string literals.  MSGCTXT should be
+   short and rarely need to change.
+   The letter 'p' stands for 'particular' or 'special'.  */</span>
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">pgettext</span>(Msgctxt, Msgid) \
+  pgettext_aux (NULL, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dpgettext</span>(Domainname, Msgctxt, Msgid) \
+  pgettext_aux (Domainname, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dcpgettext</span>(Domainname, Msgctxt, Msgid, Category) \
+  pgettext_aux (Domainname, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, Category)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">npgettext</span>(Msgctxt, Msgid, MsgidPlural, N) \
+  npgettext_aux (NULL, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, MsgidPlural, N, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dnpgettext</span>(Domainname, Msgctxt, Msgid, MsgidPlural, N) \
+  npgettext_aux (Domainname, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, MsgidPlural, N, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dcnpgettext</span>(Domainname, Msgctxt, Msgid, MsgidPlural, N, Category) \
+  npgettext_aux (Domainname, Msgctxt GETTEXT_CONTEXT_GLUE Msgid, Msgid, MsgidPlural, N, Category)
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__GNUC__</span>
+__inline
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+inline
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">pgettext_aux</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *domain,
+	      <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msg_ctxt_id, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid,
+	      <span class="enscript-type">int</span> category)
+{
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *translation = dcgettext (domain, msg_ctxt_id, category);
+  <span class="enscript-keyword">if</span> (translation == msg_ctxt_id)
+    <span class="enscript-keyword">return</span> msgid;
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> translation;
+}
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__GNUC__</span>
+__inline
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+inline
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">npgettext_aux</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *domain,
+	       <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msg_ctxt_id, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid,
+	       <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid_plural, <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> <span class="enscript-type">int</span> n,
+	       <span class="enscript-type">int</span> category)
+{
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *translation =
+    dcngettext (domain, msg_ctxt_id, msgid_plural, n, category);
+  <span class="enscript-keyword">if</span> (translation == msg_ctxt_id || translation == msgid_plural)
+    <span class="enscript-keyword">return</span> (n == 1 ? msgid : msgid_plural);
+  <span class="enscript-keyword">else</span>
+    <span class="enscript-keyword">return</span> translation;
+}
+
+<span class="enscript-comment">/* The same thing extended for non-constant arguments.  Here MSGCTXT and MSGID
+   can be arbitrary expressions.  But for string literals these macros are
+   less efficient than those above.  */</span>
+
+#<span class="enscript-reference">include</span> <span class="enscript-string">&lt;string.h&gt;</span>
+
+#<span class="enscript-reference">define</span> <span class="enscript-variable-name">_LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS</span> \
+  __GNUC__ &gt;= 3 || defined __cplusplus
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">pgettext_expr</span>(Msgctxt, Msgid) \
+  dcpgettext_expr (NULL, Msgctxt, Msgid, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dpgettext_expr</span>(Domainname, Msgctxt, Msgid) \
+  dcpgettext_expr (Domainname, Msgctxt, Msgid, LC_MESSAGES)
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__GNUC__</span>
+__inline
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+inline
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">dcpgettext_expr</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *domain,
+		 <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgctxt, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid,
+		 <span class="enscript-type">int</span> category)
+{
+  size_t msgctxt_len = strlen (msgctxt) + 1;
+  size_t msgid_len = strlen (msgid) + 1;
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *translation;
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">_LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS</span>
+  <span class="enscript-type">char</span> msg_ctxt_id[msgctxt_len + msgid_len];
+#<span class="enscript-reference">else</span>
+  <span class="enscript-type">char</span> buf[1024];
+  <span class="enscript-type">char</span> *msg_ctxt_id =
+    (msgctxt_len + msgid_len &lt;= <span class="enscript-keyword">sizeof</span> (buf)
+     ? buf
+     : (<span class="enscript-type">char</span> *) malloc (msgctxt_len + msgid_len));
+  <span class="enscript-keyword">if</span> (msg_ctxt_id != NULL)
+#<span class="enscript-reference">endif</span>
+    {
+      memcpy (msg_ctxt_id, msgctxt, msgctxt_len - 1);
+      msg_ctxt_id[msgctxt_len - 1] = '\004';
+      memcpy (msg_ctxt_id + msgctxt_len, msgid, msgid_len);
+      translation = dcgettext (domain, msg_ctxt_id, category);
+#<span class="enscript-reference">if</span> !(<span class="enscript-variable-name">_LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS</span>)
+      <span class="enscript-keyword">if</span> (msg_ctxt_id != buf)
+	free (msg_ctxt_id);
+#<span class="enscript-reference">endif</span>
+      <span class="enscript-keyword">if</span> (translation != msg_ctxt_id)
+	<span class="enscript-keyword">return</span> translation;
+    }
+  <span class="enscript-keyword">return</span> msgid;
+}
+
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">npgettext_expr</span>(Msgctxt, Msgid, MsgidPlural, N) \
+  dcnpgettext_expr (NULL, Msgctxt, Msgid, MsgidPlural, N, LC_MESSAGES)
+#<span class="enscript-reference">define</span> <span class="enscript-function-name">dnpgettext_expr</span>(Domainname, Msgctxt, Msgid, MsgidPlural, N) \
+  dcnpgettext_expr (Domainname, Msgctxt, Msgid, MsgidPlural, N, LC_MESSAGES)
+
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__GNUC__</span>
+__inline
+#<span class="enscript-reference">else</span>
+#<span class="enscript-reference">ifdef</span> <span class="enscript-variable-name">__cplusplus</span>
+inline
+#<span class="enscript-reference">endif</span>
+#<span class="enscript-reference">endif</span>
+<span class="enscript-type">static</span> <span class="enscript-type">const</span> <span class="enscript-type">char</span> *
+<span class="enscript-function-name">dcnpgettext_expr</span> (<span class="enscript-type">const</span> <span class="enscript-type">char</span> *domain,
+		  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgctxt, <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid,
+		  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *msgid_plural, <span class="enscript-type">unsigned</span> <span class="enscript-type">long</span> <span class="enscript-type">int</span> n,
+		  <span class="enscript-type">int</span> category)
+{
+  size_t msgctxt_len = strlen (msgctxt) + 1;
+  size_t msgid_len = strlen (msgid) + 1;
+  <span class="enscript-type">const</span> <span class="enscript-type">char</span> *translation;
+#<span class="enscript-reference">if</span> <span class="enscript-variable-name">_LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS</span>
+  <span class="enscript-type">char</span> msg_ctxt_id[msgctxt_len + msgid_len];
+#<span class="enscript-reference">else</span>
+  <span class="enscript-type">char</span> buf[1024];
+  <span class="enscript-type">char</span> *msg_ctxt_id =
+    (msgctxt_len + msgid_len &lt;= <span class="enscript-keyword">sizeof</span> (buf)
+     ? buf
+     : (<span class="enscript-type">char</span> *) malloc (msgctxt_len + msgid_len));
+  <span class="enscript-keyword">if</span> (msg_ctxt_id != NULL)
+#<span class="enscript-reference">endif</span>
+    {
+      memcpy (msg_ctxt_id, msgctxt, msgctxt_len - 1);
+      msg_ctxt_id[msgctxt_len - 1] = '\004';
+      memcpy (msg_ctxt_id + msgctxt_len, msgid, msgid_len);
+      translation = dcngettext (domain, msg_ctxt_id, msgid_plural, n, category);
+#<span class="enscript-reference">if</span> !(<span class="enscript-variable-name">_LIBGETTEXT_HAVE_VARIABLE_SIZE_ARRAYS</span>)
+      <span class="enscript-keyword">if</span> (msg_ctxt_id != buf)
+	free (msg_ctxt_id);
+#<span class="enscript-reference">endif</span>
+      <span class="enscript-keyword">if</span> (!(translation == msg_ctxt_id || translation == msgid_plural))
+	<span class="enscript-keyword">return</span> translation;
+    }
+  <span class="enscript-keyword">return</span> (n == 1 ? msgid : msgid_plural);
+}
+
+#<span class="enscript-reference">endif</span> <span class="enscript-comment">/* _LIBGETTEXT_H */</span>
+</pre>
+<hr />
+</body></html>

@@ -24,14 +24,11 @@
 #define _COPYFILE_H_
 
 /*
- * this is an API to faciliatate copying of files and their
- * associated metadata.  There are several open source projects that
- * need modifications to support preserving extended attributes and
- * acls and this API collapses several hundred lines of modifications
- * into one or two calls.
- *
- * This implementation is incomplete and the interface may change in a 
- * future release.
+ * This API facilitates the copying of files and their associated
+ * metadata.  There are several open source projects that need
+ * modifications to support preserving extended attributes and ACLs
+ * and this API collapses several hundred lines of modifications into
+ * one or two calls.
  */
 
 /* private */

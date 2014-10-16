@@ -1,0 +1,30 @@
+todo:
+* utf8
+* check that partition supports it, especially in unit test
+* docs, explain user_xattr, mount -o remount
+* change to use section 2 calls instead of section 3
+* buffer size, reuse buffer?
+* symbolic link handling (O_NOFOLLOW on Mac OS X)
+* Check it can be used with Perl 5.6.x
+* Test setting attributes on directories, as suggested at Brum.pm
+* Factor out common code from the tests
+* Refactor the buffer allocation into a common function in ExtAttr.xs
+
+* Remove dependency on libattr on Linux - just define ENOATTR -> ENODATA?
+  (Feels a bit evil to do that.)
+
+* Unite somehow with File::Attributes (which is for file systems
+  without xattrs)?
+
+* Document pre-reqs for test suite: Test::Distribution, Test::Pod::Coverage,
+  Test::YAML::Meta. Include these in a .spec file that we can include
+  with distro
+
+* Disallow nuls in the attribute names. The list handling will break
+  if we allow this. (Alternative is to make the portable listxattr follow
+  the BSD API, where the separator is a length byte.)
+
+* Support new extensible system attributes (and its API) on Solaris?
+  See the PSARC referenced in the docs and its fgetattr, etc.
+  implementation.
+

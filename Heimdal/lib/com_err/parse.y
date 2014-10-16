@@ -56,7 +56,7 @@ extern char *yytext;
   int number;
 }
 
-%token ET INDEX PREFIX EC ID END
+%token ET INDEX PREFIX CFPREFIX EC ID END
 %token <string> STRING
 %token <number> NUMBER
 
@@ -98,6 +98,10 @@ statements	: statement
 statement	: INDEX NUMBER
 		{
 			number = $2;
+		}
+		| CFPREFIX STRING
+		{
+		    prefix = $2;
 		}
 		| PREFIX STRING
 		{

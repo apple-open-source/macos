@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -44,7 +44,7 @@ regrexec(const regex_t* p, const char* s, size_t len, size_t nmatch, regmatch_t*
 	register size_t*	fail;
 	register Bm_mask_t**	mask;
 	register size_t		index;
-	register int		n;
+	register ssize_t	n;
 	unsigned char*		end;
 	size_t			mid;
 	int			complete;
@@ -142,4 +142,40 @@ regrexec(const regex_t* p, const char* s, size_t len, size_t nmatch, regmatch_t*
  done:
 	env->rex = e;
 	return n;
+}
+
+/*
+ * 20120528: regoff_t changed from int to ssize_t
+ */
+
+#if defined(__EXPORT__)
+#define extern		__EXPORT__
+#endif
+
+#undef	regrexec
+#if _map_libc
+#define regrexec	_ast_regrexec
+#endif
+
+extern int
+regrexec(const regex_t* p, const char* s, size_t len, size_t nmatch, oldregmatch_t* oldmatch, regflags_t flags, int sep, void* handle, regrecord_t record)
+{
+	if (oldmatch)
+	{
+		regmatch_t*	match;
+		ssize_t		i;
+		int		r;
+
+		if (!(match = oldof(0, regmatch_t, nmatch, 0)))
+			return -1;
+		if (!(r = regrexec_20120528(p, s, len, nmatch, match, flags, sep, handle, record)))
+			for (i = 0; i < nmatch; i++)
+			{
+				oldmatch[i].rm_so = match[i].rm_so;
+				oldmatch[i].rm_eo = match[i].rm_eo;
+			}
+		free(match);
+		return r;
+	}
+	return regrexec_20120528(p, s, len, 0, NiL, flags, sep, handle, record);
 }

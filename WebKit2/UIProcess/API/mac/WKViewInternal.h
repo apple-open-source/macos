@@ -23,43 +23,57 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "WKViewPrivate.h"
+
 #import "PluginComplexTextInputState.h"
-#import "WKView.h"
+#import "SameDocumentNavigationType.h"
 #import "WebFindOptions.h"
 #import <wtf/Forward.h>
+#import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
 
-namespace CoreIPC {
-    class DataReference;
+@class WKWebViewConfiguration;
+
+namespace IPC {
+class DataReference;
 }
 
 namespace WebCore {
-    struct KeypressCommand;
-    class Image;
-    class SharedBuffer;
+class Image;
+class SharedBuffer;
+struct KeypressCommand;
 }
 
 namespace WebKit {
-    class DrawingAreaProxy;
-    class FindIndicator;
-    class LayerTreeContext;
-    struct ColorSpaceData;
-    struct EditorState;
+class DrawingAreaProxy;
+class FindIndicator;
+class LayerTreeContext;
+class ViewSnapshot;
+class WebContext;
+struct ColorSpaceData;
+struct EditorState;
+struct WebPageConfiguration;
 }
 
 @class WKFullScreenWindowController;
+@class WKWebView;
+#if WK_API_ENABLED
+@class _WKThumbnailView;
+#endif
 
-@interface WKView (Internal)
-- (PassOwnPtr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy;
+@interface WKView ()
+#if WK_API_ENABLED
+- (instancetype)initWithFrame:(CGRect)frame context:(WebKit::WebContext&)context configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView;
+#endif
+
+- (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy;
 - (BOOL)_isFocused;
-- (void)_processDidCrash;
+- (void)_processDidExit;
 - (void)_pageClosed;
 - (void)_didRelaunchProcess;
 - (void)_preferencesDidChange;
 - (void)_toolTipChangedFrom:(NSString *)oldToolTip to:(NSString *)newToolTip;
-- (void)_setCursor:(NSCursor *)cursor;
 - (void)_setUserInterfaceItemState:(NSString *)commandName enabled:(BOOL)isEnabled state:(int)newState;
-- (BOOL)_interpretKeyEvent:(NSEvent *)theEvent savingCommandsTo:(Vector<WebCore::KeypressCommand>&)commands;
 - (void)_doneWithKeyEvent:(NSEvent *)event eventWasHandled:(BOOL)eventWasHandled;
 - (bool)_executeSavedCommandBySelector:(SEL)selector;
 - (void)_setIntrinsicContentSize:(NSSize)intrinsicContentSize;
@@ -68,18 +82,16 @@ namespace WebKit {
 - (void)_setFindIndicator:(PassRefPtr<WebKit::FindIndicator>)findIndicator fadeOut:(BOOL)fadeOut animate:(BOOL)animate;
 
 - (void)_setAcceleratedCompositingModeRootLayer:(CALayer *)rootLayer;
+- (CALayer *)_acceleratedCompositingModeRootLayer;
+
+- (PassRefPtr<WebKit::ViewSnapshot>)_takeViewSnapshot;
+- (void)_wheelEventWasNotHandledByWebCore:(NSEvent *)event;
 
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
 
 - (void)_pluginFocusOrWindowFocusChanged:(BOOL)pluginHasFocusAndWindowHasFocus pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 - (void)_setPluginComplexTextInputState:(WebKit::PluginComplexTextInputState)pluginComplexTextInputState pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 
-- (void)_setPageHasCustomRepresentation:(BOOL)pageHasCustomRepresentation;
-- (void)_didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:(const String&)suggestedFilename dataReference:(const CoreIPC::DataReference&)dataReference;
-- (double)_customRepresentationZoomFactor;
-- (void)_setCustomRepresentationZoomFactor:(double)zoomFactor;
-- (void)_findStringInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
-- (void)_countStringMatchesInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
 - (void)_setPromisedData:(WebCore::Image *)image withFileName:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl withArchive:(WebCore::SharedBuffer*) archiveBuffer forPasteboard:(NSString *)pasteboardName;
 - (void)_updateSecureInputState;
@@ -87,12 +99,6 @@ namespace WebKit {
 - (void)_notifyInputContextAboutDiscardedComposition;
 
 - (WebKit::ColorSpaceData)_colorSpace;
-
-#if ENABLE(FULLSCREEN_API)
-- (BOOL)hasFullScreenWindowController;
-- (WKFullScreenWindowController*)fullScreenWindowController;
-- (void)closeFullScreenWindowController;
-#endif
 
 - (void)_cacheWindowBottomCornerRect;
 
@@ -102,6 +108,20 @@ namespace WebKit {
 - (void)_setSuppressVisibilityUpdates:(BOOL)suppressVisibilityUpdates;
 - (BOOL)_suppressVisibilityUpdates;
 
-- (BOOL)_isWindowOccluded;
+- (void)_didFirstVisuallyNonEmptyLayoutForMainFrame;
+- (void)_didFinishLoadForMainFrame;
+- (void)_didSameDocumentNavigationForMainFrame:(WebKit::SameDocumentNavigationType)type;
+- (void)_removeNavigationGestureSnapshot;
+
+#if WK_API_ENABLED
+@property (nonatomic, setter=_setThumbnailView:) _WKThumbnailView *_thumbnailView;
+- (void)_reparentLayerTreeInThumbnailView;
+#endif
+
+// FullScreen
+
+@property (readonly) BOOL _hasFullScreenWindowController;
+@property (readonly) WKFullScreenWindowController *_fullScreenWindowController;
+- (void)_closeFullScreenWindowController;
 
 @end

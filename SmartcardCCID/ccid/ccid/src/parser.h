@@ -3,9 +3,10 @@
  *
  * Copyright (C) 2003
  *  Toni Andjelkovic <toni@soth.at>
+ * Copyright (C) 2003-2009
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: parser.h 4248 2009-06-05 08:41:19Z rousseau $
+ * $Id: parser.h 5434 2010-12-08 14:13:21Z rousseau $
  */
 
 /**
@@ -16,25 +17,16 @@
 #ifndef __parser_h__
 #define __parser_h__
 
-#ifdef __cplusplus
-extern "C"
+#include "simclist.h"
+
+struct bundleElt
 {
-#endif
+	char *key;
+	list_t values;
+};
 
-#define TOKEN_MAX_KEY_SIZE   200
-#define TOKEN_MAX_VALUE_SIZE 200
-
-#define TOKEN_TYPE_KEY         1
-#define TOKEN_TYPE_STRING      2
-
-int LTPBundleFindValueWithKey(const char *fileName, const char *tokenKey,
-                              /*@out@*/ char *tokenValue, int tokenIndice);
-
-int LTPBundleFindOptionalValueWithKey(const char *fileName,
-	const char *tokenKey, /*@out@*/ char *tokenValue, int tokenIndice);
-
-#ifdef __cplusplus
-}
-#endif
+int LTPBundleFindValueWithKey(list_t *l, const char *key, list_t **values);
+int bundleParse(const char *fileName, list_t *l);
+void bundleRelease(list_t *l);
 
 #endif

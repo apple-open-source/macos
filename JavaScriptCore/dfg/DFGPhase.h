@@ -26,8 +26,6 @@
 #ifndef DFGPhase_h
 #define DFGPhase_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(DFG_JIT)
 
 #include "DFGCommon.h"
@@ -51,6 +49,8 @@ public:
     
     const char* name() const { return m_name; }
     
+    Graph& graph() { return m_graph; }
+    
     // Each phase must have a run() method.
     
 protected:
@@ -73,7 +73,7 @@ template<typename PhaseType>
 bool runAndLog(PhaseType& phase)
 {
     bool result = phase.run();
-    if (result && logCompilationChanges())
+    if (result && logCompilationChanges(phase.graph().m_plan.mode))
         dataLogF("Phase %s changed the IR.\n", phase.name());
     return result;
 }

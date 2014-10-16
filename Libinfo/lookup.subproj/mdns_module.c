@@ -133,6 +133,13 @@
 #define MEDIUM_AAAA_EXTRA 5
 #define LONG_AAAA_EXTRA 10
 
+#define MDNS_DEBUG_FILE "/etc/.mdns_debug"
+#define MDNS_DEBUG_STDOUT 0x00000001
+#define MDNS_DEBUG_STDERR 0x00000002
+#define MDNS_DEBUG_ASL    0x00000004
+#define MDNS_DEBUG_OUT    0x00000007
+#define MDNS_DEBUG_MORE   0x00000010
+
 static int _mdns_debug = 0;
 
 // mutex protects DNSServiceProcessResult and DNSServiceRefDeallocate
@@ -196,6 +203,25 @@ const static uint8_t hexval[128] = {
 	0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,		/* 96 - 111 */
 	0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0		/* 112 - 127 */
 };
+
+static void
+_mdns_debug_message(const char *str, ...)
+{
+	va_list v;
+	char *out = NULL;
+	if ((_mdns_debug & MDNS_DEBUG_OUT) == 0) return;
+
+	va_start(v, str);
+	vasprintf(&out, str, v);
+	if (out == NULL) return;
+
+	if (_mdns_debug & MDNS_DEBUG_STDOUT) fprintf(stdout, "%s", out);
+	if (_mdns_debug & MDNS_DEBUG_STDERR) fprintf(stderr, "%s", out);
+	if (_mdns_debug & MDNS_DEBUG_ASL) asl_log_message(ASL_LEVEL_NOTICE, "%s", out);
+	free(out);
+
+	va_end(v);
+}
 
 static char *
 _mdns_reverse_ipv4(const char *addr)
@@ -717,7 +743,24 @@ _mdns_init(void)
 {
 	pthread_atfork(_mdns_atfork_prepare, _mdns_atfork_parent, _mdns_atfork_child);
 
-	_mdns_debug = getenv("RES_DEBUG") != NULL;
+	if (getenv("RES_DEBUG") != NULL) _mdns_debug |= MDNS_DEBUG_STDOUT;
+	int fd = open(MDNS_DEBUG_FILE, O_RDONLY, 0);
+	errno = 0;
+	if (fd >= 0)
+	{
+		int i, n;
+		char c[5];
+		memset(c, 0, sizeof(c));
+		n = read(fd, c, 4);
+
+		for (i = 0; i < n; i++)
+		{
+			if ((c[i] == 'o') || (c[i] == 'O')) _mdns_debug |= MDNS_DEBUG_STDOUT;
+			if ((c[i] == 'e') || (c[i] == 'E')) _mdns_debug |= MDNS_DEBUG_STDERR;
+			if ((c[i] == 'a') || (c[i] == 'A')) _mdns_debug |= MDNS_DEBUG_ASL;
+			if ((c[i] == 'm') || (c[i] == 'M')) _mdns_debug |= MDNS_DEBUG_MORE;
+		}
+	}
 }
 
 si_mod_t *
@@ -745,7 +788,7 @@ si_module_static_mdns(void)
 	};
 
 	static dispatch_once_t once;
-	
+
 	dispatch_once(&once, ^{
 		si.name = strdup("mdns");
 		_mdns_init();
@@ -766,7 +809,7 @@ _mdns_parse_domain_name(const uint8_t *data, uint32_t datalen)
 	uint32_t len;
 	uint32_t domainlen = 0;
 	char *domain = NULL;
-	
+
 	if ((data == NULL) || (datalen == 0)) return NULL;
 
 	// i: index into input data
@@ -1021,7 +1064,8 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 		if (iface2 != 0) iface = iface2;
 	}
 
-	if (_mdns_debug) printf(";; mdns query %s %d %d\n", qname, type, class);
+	_mdns_debug_message(";; mdns query %s %d %d [ctx %p]\n", qname, type, class, ctx);
+
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 	if (qname != name) free(qname);
 	return status;
@@ -1034,30 +1078,45 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 static int
 _mdns_query_is_complete(mdns_query_context_t *ctx)
 {
+	int complete = 0;
+
+	/* NULL context is an error, but we call it complete */
 	if (ctx == NULL) return 1;
-	//if (ctx->flags & kDNSServiceFlagsMoreComing) return 0;
-	if (ctx->last_type != ctx->type) return 0;
+
+	/*
+	 * The default is to ignore kDNSServiceFlagsMoreComing, since it has either
+	 * never been supported or worked correctly.  MDNS_DEBUG_MORE makes us honor it.
+	 */
+	if (ctx->flags & kDNSServiceFlagsMoreComing) {
+		if (_mdns_debug & MDNS_DEBUG_MORE) {
+			_mdns_debug_message(";; mdns is_complete type %d ctx %p more coming - incomplete\n", ctx->type, ctx);
+			return 0;
+		}
+	}
+
+	if (ctx->last_type != ctx->type) {
+		_mdns_debug_message(";; mdns is_complete ctx %p type mismatch (%d != %d) - incomplete\n", ctx, ctx->last_type, ctx->type);
+		return 0;
+	}
+
 	switch (ctx->type) {
 		case ns_t_a:
 		case ns_t_aaaa:
-			if (ctx->host != NULL && ctx->host->addr_count > 0) {
-				return 1;
-			}
+			if (ctx->host != NULL && ctx->host->addr_count > 0) complete = 1;
 			break;
 		case ns_t_ptr:
-			if (ctx->host != NULL && ctx->host->host.h_name != NULL) {
-				return 1;
-			}
+			if (ctx->host != NULL && ctx->host->host.h_name != NULL) complete = 1;
 			break;
 		case ns_t_srv:
-			if (ctx->reply != NULL && ctx->reply->srv != NULL) {
-				return 1;
-			}
+			if (ctx->reply != NULL && ctx->reply->srv != NULL) complete = 1;
 			break;
 		default:
-			return 0;
+			_mdns_debug_message(";; mdns is_complete unexpected type %d ctx %p\n", ctx->type, ctx);
 	}
-	return 0;
+
+	_mdns_debug_message(";; mdns is_complete type %d ctx %p %s%scomplete\n", ctx->type, ctx, (ctx->flags & kDNSServiceFlagsMoreComing) ? "(more coming flag ignored)" : "", (complete == 0) ? " - in" : " - ");
+
+	return complete;
 }
 
 /* _mdns_query_clear
@@ -1076,16 +1135,17 @@ _mdns_query_clear(mdns_query_context_t *ctx)
 			DNSServiceRefDeallocate(ctx->sd);
 		}
 	}
-	
+
 	ctx->sd = NULL;
 	ctx->sd_gen = 0;
 	ctx->flags = 0;
 	ctx->kq = -1;
 
-	if (!complete) {
+	if (complete == 0) {
 		_mdns_hostent_clear(ctx->host);
 		ctx->anslen = -1;
 	}
+
 	return complete;
 }
 
@@ -1102,7 +1162,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 	context->last_type = rrtype;
 
 	if (errorCode != kDNSServiceErr_NoError) {
-		if (_mdns_debug) printf(";; [%s %hu %hu]: error %d\n", fullname, rrtype, rrclass, errorCode);
+		_mdns_debug_message(";; [%s %hu %hu]: error %d [ctx %p]\n", fullname, rrtype, rrclass, errorCode, context);
 		goto wakeup_kevent;
 	}
 
@@ -1160,6 +1220,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 				name = _mdns_parse_domain_name(rdata, rdlen);
 				if (!name) malformed = 1;
 				_mdns_hostent_append_alias(context->host, name);
+				_mdns_debug_message(";; [%s %hu %hu] cname %s [ctx %p]\n", fullname, rrtype, rrclass, name, context);
 				free(name);
 				break;
 			case ns_t_ptr:
@@ -1201,8 +1262,8 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 				malformed = _mdns_debug;
 				break;
 		}
-		if (malformed && _mdns_debug) {
-			printf(";; [%s %hu %hu]: malformed reply\n", fullname, rrtype, rrclass);
+		if (malformed != 0) {
+			_mdns_debug_message(";; [%s %hu %hu]: malformed reply [ctx %p]\n", fullname, rrtype, rrclass, context);
 			goto wakeup_kevent;
 		}
 	}
@@ -1212,9 +1273,8 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 		uint8_t *cp;
 		HEADER *ans;
 		size_t buflen = context->ansmaxlen - context->anslen;
-		if (buflen < NS_HFIXEDSZ)
-		{
-			if (_mdns_debug) printf(";; [%s %hu %hu]: malformed reply\n", fullname, rrtype, rrclass);
+		if (buflen < NS_HFIXEDSZ) {
+			_mdns_debug_message(";; [%s %hu %hu]: malformed reply (too small) [ctx %p]\n", fullname, rrtype, rrclass, context);
 			goto wakeup_kevent;
 		}
 
@@ -1222,7 +1282,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 
 		n = _mdns_pack_domain_name(fullname, cp, buflen);
 		if (n < 0) {
-			if (_mdns_debug) printf(";; [%s %hu %hu]: name mismatch\n", fullname, rrtype, rrclass);
+			_mdns_debug_message(";; [%s %hu %hu]: name mismatch [ctx %p]\n", fullname, rrtype, rrclass, context);
 			goto wakeup_kevent;
 		}
 
@@ -1230,7 +1290,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 		// resource name (n), the resource record data (rdlen) and
 		// the resource record header (10).
 		if (buflen < n + rdlen + 10) {
-			if (_mdns_debug) printf(";; [%s %hu %hu]: insufficient buffer space for reply\n", fullname, rrtype, rrclass);
+			_mdns_debug_message(";; [%s %hu %hu]: insufficient buffer space for reply [ctx %p]\n", fullname, rrtype, rrclass, context);
 			goto wakeup_kevent;
 		}
 
@@ -1265,7 +1325,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 		context->anslen = (size_t)(cp - context->answer);
 	}
 
-	if (_mdns_debug) printf(";; [%s %hu %hu]\n", fullname, rrtype, rrclass);
+	_mdns_debug_message(";; [%s %hu %hu] reply [ctx %p]\n", fullname, rrtype, rrclass, context);
 
 wakeup_kevent:
 	// Ping the waiting thread in case this callback was invoked on another
@@ -1273,7 +1333,7 @@ wakeup_kevent:
 		struct kevent ev;
 		EV_SET(&ev, 1, EVFILT_USER, 0, NOTE_TRIGGER, 0, 0);
 		int res = kevent(context->kq, &ev, 1, NULL, 0, NULL);
-		if (res && _mdns_debug) printf(";; kevent EV_TRIGGER: %s\n", strerror(errno));
+		if (res != 0) _mdns_debug_message(";; kevent EV_TRIGGER: %s [ctx %p]\n", strerror(errno), context);
 	}
 }
 
@@ -1424,12 +1484,17 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 										name, class,
 										(type == 0) ? ns_t_a : type, interface, flags, kq);
 			}
+
 			if (err == 0 && type == 0) {
 				err = _mdns_query_start(&ctx[n_ctx++], reply,
 										answer, anslen,
 										name, class, ns_t_aaaa, interface, flags, kq);
 			}
-			if (err && _mdns_debug) printf(";; initialization error %d\n", err);
+
+			if (err != 0) {
+				_mdns_debug_message(";; initialization error %d\n", err);
+			}
+
 			// try to reinitialize
 			if (err == kDNSServiceErr_Unknown ||
 				err == kDNSServiceErr_ServiceNotRunning ||
@@ -1456,7 +1521,8 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			if (err != 0 || n != 0) break;
 		}
 
-		if (_mdns_debug) printf(";; kevent timeout %ld.%ld\n", timeout.tv_sec, timeout.tv_nsec);
+		_mdns_debug_message(";; set kevent timeout %ld.%ld [ctx %p %p]\n", timeout.tv_sec, timeout.tv_nsec, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
+
 		n = kevent(kq, NULL, 0, &ev, 1, &timeout);
 		if (n < 0 && errno != EINTR) {
 			res = -1;
@@ -1474,7 +1540,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			err = DNSServiceProcessResult(_mdns_sdref);
 			if (err == kDNSServiceErr_ServiceNotRunning ||
 			    err == kDNSServiceErr_BadReference) {
-				if (_mdns_debug) printf(";; DNSServiceProcessResult status %d\n", err);
+				_mdns_debug_message(";; DNSServiceProcessResult status %d [ctx %p %p]\n", err, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 				err = 0;
 				// re-initialize the shared connection
 				_mdns_generation++;
@@ -1487,22 +1553,25 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 		// Check if all queries are complete (including errors)
 		complete = 1;
 		for (i = 0; i < n_ctx; ++i) {
-			if (_mdns_query_is_complete(&ctx[i]) || ctx[i].error != 0) {
+			if ((ctx[i].error != 0) || _mdns_query_is_complete(&ctx[i])) {
 				if (ctx[i].type == ns_t_a) {
 					got_a_response = GOT_DATA;
 					if (ctx[i].error != 0) got_a_response = GOT_ERROR;
 				}
+				_mdns_debug_message(";; [%s %d %d] finished processing ctx %p\n", name, class, type, &(ctx[i]));
+
 			} else {
+				_mdns_debug_message(";; [%s %d %d] continuing ctx %p\n", name, class, type, &(ctx[i]));
 				complete = 0;
 			}
 		}
 		pthread_mutex_unlock(&_mdns_mutex);
 
 		if (err != 0) {
-			if (_mdns_debug) printf(";; DNSServiceProcessResult status %d\n", err);
+			_mdns_debug_message(";; DNSServiceProcessResult error status %d [ctx %p %p]\n", err, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 			break;
 		} else if (complete == 1) {
-			if (_mdns_debug) printf(";; done\n");
+			_mdns_debug_message(";; [%s %d %d] done [ctx %p %p]\n", name, class, type, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 			break;
 		} else if (got_a_response != 0) {
 			// got A, adjust deadline for AAAA
@@ -1534,7 +1603,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			// check that delta doesn't exceed our total timeout
 			_mdns_sub_time(&tn, &timeout, &delta);
 			if (tn.tv_sec >= 0) {
-				if (_mdns_debug) printf(";; new timeout (waiting for AAAA) %ld.%ld\n", delta.tv_sec, delta.tv_nsec);
+				_mdns_debug_message(";; new timeout [%s %d %d] (waiting for AAAA) %ld.%ld [ctx %p %p]\n", name, class, type, delta.tv_sec, delta.tv_nsec, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 				_mdns_deadline(&finish, &delta);
 			}
 		}
@@ -1544,7 +1613,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 
 		// check for time remaining
 		if (timeout.tv_sec < 0) {
-			if (_mdns_debug) printf(";; timeout\n");
+			_mdns_debug_message(";; [%s %d %d] timeout [ctx %p %p]\n", name, class, type, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 			break;
 		}
 	}

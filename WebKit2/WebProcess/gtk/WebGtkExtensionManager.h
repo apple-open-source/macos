@@ -22,6 +22,7 @@
 
 #include "Module.h"
 #include "WKBundle.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 #include <wtf/gobject/GRefPtr.h>
@@ -38,17 +39,20 @@ class WebGtkExtensionManager {
     WTF_MAKE_NONCOPYABLE(WebGtkExtensionManager);
 
 public:
-    static WebGtkExtensionManager& shared();
+    WK_EXPORT static WebGtkExtensionManager& shared();
 
-    void initialize(WKBundleRef, WKTypeRef);
+    WK_EXPORT void initialize(WKBundleRef, WKTypeRef);
 
 private:
     WebGtkExtensionManager();
 
     void scanModules(const String&, Vector<String>&);
+    bool initializeWebExtension(Module* extensionModule, GVariant* userData);
 
     Vector<Module*> m_extensionModules;
     GRefPtr<WebKitWebExtension> m_extension;
+
+    friend class NeverDestroyed<WebGtkExtensionManager>;
 };
 
 } // namespace WebKit

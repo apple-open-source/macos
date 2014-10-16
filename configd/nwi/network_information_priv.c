@@ -35,7 +35,7 @@
 __private_extern__
 const sa_family_t nwi_af_list[] = {AF_INET, AF_INET6};
 
-static __inline__ unsigned int
+static __inline__ size_t
 nwi_state_compute_size(unsigned int n)
 {
 	return (offsetof(nwi_state, nwi_ifstates[n]));
@@ -67,15 +67,16 @@ nwi_state_t
 nwi_state_new(nwi_state_t old_state, int elems)
 {
 	nwi_state_t state = NULL;
-	int new_size;
+	uint32_t new_size;
 
 	if (old_state == NULL && elems == 0) {
 		return NULL;
 	}
 
 	/* Need to insert a last node for each of the v4/v6 list */
-	new_size = (elems != 0)?
-			(sizeof(nwi_state)  + nwi_state_compute_size((elems+1) * 2)):0;
+	new_size = (elems != 0)
+			? (uint32_t)(sizeof(nwi_state) + nwi_state_compute_size((elems+1) * 2))
+			: 0;
 
 	/* Should we reallocate? */
 	if (old_state != NULL) {
@@ -85,10 +86,6 @@ nwi_state_new(nwi_state_t old_state, int elems)
 	}
 
 	state = malloc(new_size);
-	if (state == NULL) {
-		return NULL;
-	}
-
 	bzero(state, new_size);
 	state->size = new_size;
 
@@ -366,7 +363,7 @@ nwi_ifstate_set_removed_str(nwi_state_t state, nwi_ifstate_t ifstate)
 static
 void
 nwi_state_merge_added(nwi_state_t state, nwi_state_t old_state,
-		    nwi_state_t new_state)
+		      nwi_state_t new_state)
 {
 	int i;
 	nwi_ifstate_t scan;
@@ -442,7 +439,7 @@ nwi_state_diff(nwi_state_t old_state, nwi_state_t new_state)
 
 	diff = nwi_state_new(NULL, total_count);
 
-	nwi_state_merge_added(diff, old_state,  new_state);
+	nwi_state_merge_added(diff, old_state, new_state);
 	nwi_state_merge_removed(diff, old_state);
 
 	/* Diff consists of a nwi_state_t with annotated diff_str's */

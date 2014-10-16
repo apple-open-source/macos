@@ -27,24 +27,24 @@
 #define SecurityOriginData_h
 
 #include "APIObject.h"
-#include "GenericCallback.h"
+#include "GenericCallback.h" // FIXME: This is a UIProcess file, and may not be included from Shared directory files.
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
+namespace IPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
 }
 
 namespace WebKit {
 
-typedef GenericCallback<WKArrayRef> ArrayCallback;
+typedef GenericCallback<API::Array*> ArrayCallback;
 
 struct SecurityOriginData {
-    static SecurityOriginData fromSecurityOrigin(WebCore::SecurityOrigin*);
+    static SecurityOriginData fromSecurityOrigin(const WebCore::SecurityOrigin*);
     PassRefPtr<WebCore::SecurityOrigin> securityOrigin() const;
 
-    void encode(CoreIPC::ArgumentEncoder&) const;
-    static bool decode(CoreIPC::ArgumentDecoder&, SecurityOriginData&);
+    void encode(IPC::ArgumentEncoder&) const;
+    static bool decode(IPC::ArgumentDecoder&, SecurityOriginData&);
 
     // FIXME <rdar://9018386>: We should be sending more state across the wire than just the protocol,
     // host, and port.
@@ -52,9 +52,13 @@ struct SecurityOriginData {
     String protocol;
     String host;
     int port;
+
+    SecurityOriginData isolatedCopy() const;
 };
 
 void performAPICallbackWithSecurityOriginDataVector(const Vector<SecurityOriginData>&, ArrayCallback*);
+
+bool operator==(const SecurityOriginData&, const SecurityOriginData&);
 
 } // namespace WebKit
 

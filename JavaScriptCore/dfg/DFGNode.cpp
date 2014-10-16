@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,27 +28,112 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "DFGGraph.h"
 #include "DFGNodeAllocator.h"
+#include "JSCInlines.h"
 
 namespace JSC { namespace DFG {
+
+bool MultiPutByOffsetData::writesStructures() const
+{
+    for (unsigned i = variants.size(); i--;) {
+        if (variants[i].kind() == PutByIdVariant::Transition)
+            return true;
+    }
+    return false;
+}
+
+bool MultiPutByOffsetData::reallocatesStorage() const
+{
+    for (unsigned i = variants.size(); i--;) {
+        if (variants[i].kind() != PutByIdVariant::Transition)
+            continue;
+        
+        if (variants[i].oldStructure()->outOfLineCapacity() ==
+            variants[i].newStructure()->outOfLineCapacity())
+            continue;
+        
+        return true;
+    }
+    return false;
+}
+
+void BranchTarget::dump(PrintStream& out) const
+{
+    if (!block)
+        return;
+    
+    out.print(*block);
+    
+    if (count == count) // If the count is not NaN, then print it.
+        out.print("/w:", count);
+}
 
 unsigned Node::index() const
 {
     return NodeAllocator::allocatorOf(this)->indexOf(this);
 }
 
+bool Node::hasVariableAccessData(Graph& graph)
+{
+    switch (op()) {
+    case Phi:
+        return graph.m_form != SSA;
+    case GetLocal:
+    case GetArgument:
+    case SetLocal:
+    case SetArgument:
+    case Flush:
+    case PhantomLocal:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void Node::convertToIdentity()
+{
+    RELEASE_ASSERT(child1());
+    RELEASE_ASSERT(!child2());
+    NodeFlags result = canonicalResultRepresentation(this->result());
+    setOpAndDefaultFlags(Identity);
+    setResult(result);
+}
+
 } } // namespace JSC::DFG
 
 namespace WTF {
 
-void printInternal(PrintStream& out, JSC::DFG::Node* node)
+using namespace JSC;
+using namespace JSC::DFG;
+
+void printInternal(PrintStream& out, SwitchKind kind)
+{
+    switch (kind) {
+    case SwitchImm:
+        out.print("SwitchImm");
+        return;
+    case SwitchChar:
+        out.print("SwitchChar");
+        return;
+    case SwitchString:
+        out.print("SwitchString");
+        return;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void printInternal(PrintStream& out, Node* node)
 {
     if (!node) {
         out.print("-");
         return;
     }
     out.print("@", node->index());
-    out.print(JSC::AbbreviatedSpeculationDump(node->prediction()));
+    if (node->hasDoubleResult())
+        out.print("<Double>");
+    else if (node->hasInt52Result())
+        out.print("<Int52>");
 }
 
 } // namespace WTF

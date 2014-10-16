@@ -312,8 +312,10 @@ cert2epi(hx509_context context, void *ctx, hx509_cert c)
 			   id.issuerAndSerialNumber->length,
 			   &iasn, &size, ret);
 	free_IssuerAndSerialNumber(&iasn);
-	if (ret)
+	if (ret) {
+	    free_ExternalPrincipalIdentifier(&id);
 	    return ret;
+	}
 	if (id.issuerAndSerialNumber->length != size)
 	    abort();
     }
@@ -1413,7 +1415,7 @@ pk_rd_pa_reply_dh(krb5_context context,
 	}
 
 	dh_gen_keylen = DH_compute_key(dh_gen_key, kdc_dh_pubkey, ctx->u.dh);
-	if (dh_gen_keylen <= 0 || dh_gen_keylen < size / 2) {
+	if (dh_gen_keylen <= 0 || (size_t)dh_gen_keylen < size / 2) {
 	    ret = KRB5KRB_ERR_GENERIC;
 	    dh_gen_keylen = 0;
 	    krb5_set_error_message(context, ret,
@@ -1728,7 +1730,6 @@ hx_pass_prompter(void *data, const hx509_prompt *prompter)
 	break;
     case HX509_PROMPT_TYPE_PASSWORD:
     case HX509_PROMPT_TYPE_QUESTION:
-    default:
 	prompt.type   = KRB5_PROMPT_TYPE_PASSWORD;
 	break;
     }

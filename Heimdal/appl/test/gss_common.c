@@ -131,7 +131,7 @@ select_mech(const char *str)
     else if (strcasecmp(str, "no-oid") == 0)
 	return GSS_C_NO_OID;
     else
-	errx (1, "Unknown mechanism '%s' (spnego, krb5, no-oid)", mech);
+	errx (1, "Unknown mechanism '%s' (spnego, krb5, no-oid)", str);
 }
 
 void

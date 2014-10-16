@@ -98,9 +98,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#if !defined(__APPLE__)
-#include <ucontext.h>
-#endif
 #include <limits.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -692,7 +689,9 @@ dt_action_tracemem(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 
 	dt_node_t *addr = dnp->dn_args;
-	dt_node_t *size = dnp->dn_args->dn_list;
+	dt_node_t *max = dnp->dn_args->dn_list;
+	dt_node_t *size;
+
 
 	char n[DT_TYPE_NAMELEN];
 
@@ -704,17 +703,37 @@ dt_action_tracemem(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    dt_node_type_name(addr, n, sizeof (n)));
 	}
 
-	if (dt_node_is_posconst(size) == 0) {
-		dnerror(size, D_TRACEMEM_SIZE, "tracemem( ) argument #2 must "
+	if (dt_node_is_posconst(max) == 0) {
+		dnerror(max, D_TRACEMEM_SIZE, "tracemem( ) argument #2 must "
 		    "be a non-zero positive integral constant expression\n");
+	}
+
+	if ((size = max->dn_list) != NULL) {
+		if (size->dn_list != NULL) {
+			dnerror(size, D_TRACEMEM_ARGS, "tracemem ( ) prototype "
+			    "mismatch: expected at most 3 args\n");
+		}
+
+		if (!dt_node_is_scalar(size)) {
+			dnerror(size, D_TRACEMEM_DYNSIZE, "tracemem ( ) "
+			    "dynamic size (argument #3) must be of "
+			    "scalar type\n");
+		}
+
+		dt_cg(yypcb, size);
+		ap->dtad_difo = dt_as(yypcb);
+		ap->dtad_difo->dtdo_rtype = dt_int_rtype;
+		ap->dtad_kind = DTRACEACT_TRACEMEM_DYNSIZE;
+
+		ap = dt_stmt_action(dtp, sdp);
 	}
 
 	dt_cg(yypcb, addr);
 	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_kind = DTRACEACT_DIFEXPR;
+	ap->dtad_kind = DTRACEACT_TRACEMEM;
 
 	ap->dtad_difo->dtdo_rtype.dtdt_flags |= DIF_TF_BYREF;
-	ap->dtad_difo->dtdo_rtype.dtdt_size = size->dn_value;
+	ap->dtad_difo->dtdo_rtype.dtdt_size = max->dn_value;
 }
 
 static void
@@ -933,7 +952,6 @@ dt_action_raise(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	ap->dtad_kind = DTRACEACT_RAISE;
 }
 
-#if defined(__APPLE__)
 static void
 dt_action_pidresume(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
@@ -943,7 +961,6 @@ dt_action_pidresume(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = DTRACEACT_PIDRESUME;
 }
-#endif /*__APPLE__*/
 
 static void
 dt_action_exit(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
@@ -986,35 +1003,34 @@ dt_action_discard(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	ap->dtad_kind = DTRACEACT_DISCARD;
 }
 
-#if defined(__APPLE__)
-static uint64_t 
+static uint64_t
 dt_action_apple_build_arg(uint16_t op, uint32_t parameter, uint8_t follow_count)
 {
     uint64_t op64 = op;
     uint64_t follow_count64 = follow_count;
     uint64_t parameter64 = parameter;
-    uint64_t arg = 
+    uint64_t arg =
     ((parameter64) << 32) | ((follow_count64) << 16) | (op64);
-    
+
     return arg;
 }
-static void 
+static void
 dt_action_apple_define(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
     dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-    
+
 	if (!dt_node_is_integer(dnp->dn_args)) {
 		dnerror(dnp->dn_args, D_APPLE_BADPARAM,
                 "apple_define( ) first argument must be an integer type code\n");
 	}
-    
+
     /*
      * Convert our string id into a numeric id unique for this compilation
      */
     const char *arg1 = dnp->dn_args->dn_list->dn_string;
     ssize_t new_id = dt_strtab_insert(dtp->dt_apple_ids, arg1);
     uint16_t uid;
-    
+
     if (new_id > 0 && new_id <= UINT16_MAX) {
         uid = (uint16_t)new_id;
     } else {
@@ -1022,14 +1038,14 @@ dt_action_apple_define(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp
                 "apple_define( ) internal error with second argument \n");
         return;
     }
-    
-    /* 
+
+    /*
      * the parameter will be packed with the id, and the type code.
      */
     uint16_t type_code = dnp->dn_args->dn_value;
     uint32_t parameter = ((uint32_t)type_code) << 16;
     parameter |= (uint32_t)uid;
-    
+
     /*
      * We send the string name down as well, so now the consumer has the
      * string, the uid of that string to expect in later actions, like
@@ -1041,7 +1057,7 @@ dt_action_apple_define(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp
 	ap->dtad_kind = DTRACEACT_APPLEBINARY;
     ap->dtad_arg = dt_action_apple_build_arg(1, parameter, 0);
 }
-static void 
+static void
 dt_action_apple_flag(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
     /*
@@ -1050,7 +1066,7 @@ dt_action_apple_flag(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
      * It also has an integer value to indicate the "level".
      */
     dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-        
+
     dt_cg(yypcb, dnp->dn_args->dn_list);
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = DTRACEACT_APPLEBINARY;
@@ -1059,77 +1075,77 @@ dt_action_apple_flag(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 /*
  * This function is not defined static so we can override it externally.
  */
-void 
+void
 dt_action_apple_general(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
-    /* 
+    /*
      * The intent of this function is that it will be interposed on by an
      * Apple service which links to libdtrace to provide a special feature
-     * which was not planned at the time this version of dtrace was shipped. 
-     * If this code executes, it's probably an error, but it's safe to 
+     * which was not planned at the time this version of dtrace was shipped.
+     * If this code executes, it's probably an error, but it's safe to
      * warn the user and ignore it.
      */
     dnerror(dnp->dn_args, D_APPLE_BADPARAM,
            "apple_general( ) was not implemented by this consumer.\n");
 }
-/* 
+/*
  * Apple's generic expression logging action, like trace, except it carries
  * a numeric id to identify what is being traced.  The id comes from a call
  * to apple_define() action.
  */
-static void 
+static void
 dt_action_apple_log(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
     dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-    
+
     /*
-     * Convert our unique string id into a numeric one (unique for this 
+     * Convert our unique string id into a numeric one (unique for this
      * compilation)
      */
     const char *arg1 = dnp->dn_args->dn_string;
     ssize_t new_id = dt_strtab_insert(dtp->dt_apple_ids, arg1);
     uint16_t uid;
-    
+
     if (new_id > 0 && new_id <= UINT16_MAX) {
         uid = (uint16_t)new_id;
     } else {
         dnerror(dnp->dn_args, D_APPLE_BADPARAM,
                 "apple_define( ) internal error with first argument \n");
         return;
-    }    
-    
+    }
+
 	dt_cg(yypcb, dnp->dn_args->dn_list);
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = DTRACEACT_APPLEBINARY;
     ap->dtad_arg = dt_action_apple_build_arg(4, uid, 0);
 }
-static void 
+static void
 dt_action_apple_stack(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
     /*
-     * 1.) Insert a marker to note that a stack is coming 
+     * 1.) Insert a marker to note that a stack is coming
      */
     dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-    
+
     dt_action_difconst(ap, 0, DTRACEACT_APPLEBINARY);
     ap->dtad_arg = dt_action_apple_build_arg(5, 0, 1);
-    
+
     /*
      * 2.) Add a stack command
      */
     dt_action_stack(dtp, dnp, sdp);
 }
-static void 
+static void
 dt_action_apple_ustack(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
     /*
-     * 1.) Insert a marker to note that a stack is coming 
+     * 1.) Insert a marker to note that a stack is coming
      */
     dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-    
+
     dt_action_difconst(ap, 0, DTRACEACT_APPLEBINARY);
     ap->dtad_arg = dt_action_apple_build_arg(6, 0, 1);
-    
+
     /*
      * 2.) Add a stack command
      */
@@ -1166,7 +1182,6 @@ dt_action_apple(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
             break;
     }
 }
-#endif
 
 static void
 dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
@@ -1257,7 +1272,6 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	case DT_ACT_JSTACK:
 		dt_action_ustack(dtp, dnp->dn_expr, sdp);
 		break;
-#if defined(__APPLE__)
 	case DT_ACT_APPLEDEFINE:
 	case DT_ACT_APPLEFLAG:
 	case DT_ACT_APPLEGEN:
@@ -1269,8 +1283,7 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 
 	case DT_ACT_PIDRESUME:
 		dt_action_pidresume(dtp, dnp->dn_expr, sdp);
-		break;		
-#endif
+		break;
 	default:
 		dnerror(dnp->dn_expr, D_UNKNOWN, "tracing function %s( ) is "
 		    "not yet supported\n", dnp->dn_expr->dn_ident->di_name);
@@ -1930,15 +1943,12 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
  * and return a FILE handle for the cpp output.  We use the /dev/fd filesystem
  * here to simplify the code by leveraging file descriptor inheritance.
  */
-#ifndef __APPLE__
-static
-#endif
 FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 {
 	int argc = dtp->dt_cpp_argc;
-	// We use gcc -E and thus need to pass -o as well
-	// We do not define __STDC__, gcc does that for us, so one less arg
+	// We use clang -E and thus need to pass -o as well
+	// We do not define __STDC__, clang does that for us, so one less arg
 	char **argv = malloc(sizeof (char *) * (argc + 5));
 	FILE *tfp = tmpfile();
 	FILE *ofp = tmpfile();
@@ -2006,28 +2016,9 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	    "-D__SUNW_D_VERSION=0x%08x", dtp->dt_vmax);
 	argv[argc++] = verdef;
 
-	// gcc has __STDC__ set in stone, it warns uncontrollably
-	// if we attempt to redefine or undefine it.
-#if !defined(__APPLE__)
-	switch (dtp->dt_stdcmode) {
-	case DT_STDC_XA:
-	case DT_STDC_XT:
-		argv[argc++] = "-D__STDC__=0";
-		break;
-	case DT_STDC_XC:
-		argv[argc++] = "-D__STDC__=1";
-		break;
-	}
-#endif
-
-#if !defined(__APPLE__)
-	argv[argc++] = ipath;
-	argv[argc++] = opath;
-#else
 	argv[argc++] = "-o";
 	argv[argc++] = opath;
 	argv[argc++] = ipath;
-#endif
 	argv[argc] = NULL;
 
 	/*
@@ -2479,10 +2470,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	pcb.pcb_context = context;
 	pcb.pcb_token = context;
 
-#if !defined(__APPLE__)
-#else
 	yyinit(&pcb); // Darwin lex(1) ("flex") handily manages the string now present in pcb.pcb_string
-#endif /* __APPLE__ */
 	if (context != DT_CTX_DPROG)
 		yybegin(YYS_EXPR);
 	else if (cflags & DTRACE_C_CTL)

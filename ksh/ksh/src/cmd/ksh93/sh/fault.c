@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -168,7 +168,7 @@ void	sh_fault(register int sig)
 		}
 	}
 	errno = 0;
-	if(pp->mode==SH_JMPCMD)
+	if(pp->mode==SH_JMPCMD || (pp->mode==1 && shp->bltinfun) && !(flag&SH_SIGIGNORE))
 		shp->lastsig = sig;
 	if(trap)
 	{
@@ -191,7 +191,7 @@ void	sh_fault(register int sig)
 			{
 				sigrelease(sig);
 				sh_exit(SH_EXITSIG);
-				flag = 0;
+				return;
 			}
 		}
 #endif /* SIGTSTP */
@@ -533,11 +533,13 @@ void sh_exit(register int xno)
 		sh_onstate(SH_MONITOR);
 		sh_offstate(SH_STOPOK);
 		shp->trapnote = 0;
+		shp->forked = 1;
 		if(!shp->subshell && (sig=sh_fork(shp,0,NIL(int*))))
 		{
 			job.curpgid = 0;
 			job.parent = (pid_t)-1;
 			job_wait(sig);
+			shp->forked = 0;
 			job.parent = 0;
 			shp->sigflag[SIGTSTP] = 0;
 			/* wait for child to stop */
@@ -557,7 +559,6 @@ void sh_exit(register int xno)
 			killpg(job.curpgid,SIGTSTP);
 			/* child resumes */
 			job_clear();
-			shp->forked = 1;
 			shp->exitval = (xno&SH_EXITMASK);
 			return;
 		}
@@ -579,6 +580,8 @@ void sh_exit(register int xno)
 #if SHOPT_TYPEDEF
 	shp->mktype = 0;
 #endif /* SHOPT_TYPEDEF*/
+	if(job.in_critical)
+		job_unlock();
 	if(pp->mode == SH_JMPSCRIPT && !pp->prev) 
 		sh_done(shp,sig);
 	if(pp->mode)

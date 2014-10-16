@@ -90,12 +90,6 @@
 #include <mypwd.h>
 #include <canon_addr.h>
 
-#ifdef __APPLE_OS_X_SERVER__
-/* Apple Open Directory */
-#include <DirectoryService/DirServices.h>
-#include "aod.h"
-#endif /* __APPLE_OS_X_SERVER__ */
-
 /* Application-specific. */
 
 #include "local.h"
@@ -106,10 +100,6 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 {
     const char *myname = "deliver_switch";
     int     status = 0;
-#ifdef __APPLE_OS_X_SERVER__
-	int		addr_count = 0;
-	struct od_user_opts user_opts;
-#endif /* __APPLE_OS_X_SERVER__ */
     struct stat st;
     struct mypasswd *mypwd;
 
@@ -178,26 +168,6 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
     if (state.msg_attr.owner != 0
 	&& strcasecmp(state.msg_attr.owner, state.msg_attr.user) != 0)
 	return (deliver_indirect(state));
-
-#ifdef __APPLE_OS_X_SERVER__
-        /*
-         * Check for forward info in user record
-         */
-
-        if (var_enable_server_options && var_check_for_od_forward){
-          int ar = var_use_getpwnam_ext ?
-              ads_get_user_options(state.msg_attr.user, &user_opts) :
-              aod_get_user_options(state.msg_attr.user, &user_opts);
-          if (!ar){
-            if ( user_opts.fAcctState == eAcctForwarded ){
-              status = deliver_token_string( state, usr_attr, user_opts.fAutoFwdAddr, &addr_count );
-              return( status );
-            }
-          }
-        }
-
-
-#endif /* __APPLE_OS_X_SERVER__ */
 
     /*
      * Always forward recipients in :include: files.
@@ -300,7 +270,7 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
     state.msg_attr.user = mystrdup(state.msg_attr.local);
     if (*var_rcpt_delim) {
 	state.msg_attr.extension =
-	    split_addr(state.msg_attr.user, *var_rcpt_delim);
+	    split_addr(state.msg_attr.user, var_rcpt_delim);
 	if (state.msg_attr.extension && strchr(state.msg_attr.extension, '/')) {
 	    msg_warn("%s: address with illegal extension: %s",
 		     state.msg_attr.queue_id, state.msg_attr.local);

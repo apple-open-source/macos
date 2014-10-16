@@ -1,0 +1,253 @@
+						  clxutils Info
+				   last update 10/11/06 dmitch
+						  
+This directory contains a set of programs intended for use in testing the
+following components of Security.framework on the OS X platform:
+
+	-- libsecurity_apple_x509_cl
+	-- libsecurity_apple_x509_tp
+	-- libsecurity_ssl
+	-- libsecurity_pkcs12
+	-- security_dotmactp
+	-- libsecurity_ocspd
+	-- import/export portion of libsecurity_keychain
+	
+The intended users are software engineers who are familiar with APIs for 
+the above modules. The programs are used for design verification testing 
+(DVT) and for interactive exercising of the above modules during bringup, 
+and for subsequent regression testing. 
+
+The intention is that there is within these tests are a way to exercise
+every supported CL, TP, SSL, and import/export function. That's a tall 
+order; we give it our best shot.
+
+
+Building
+--------
+
+Short version: to build everything in clxutils, cd to clxutils and 
+type 'make'. The resulting executables are placed in the location specified
+in the LOCAL_BUILD_DIR environment variable (which you really must set to use
+these tests effectively). If you haven't also built the cspxutils directory, 
+you need the libcsputils.a library built therein; see below. 
+
+Long version: The programs in clxutils build via standard Unix 
+Makefiles, not by Xcode. You generally want to set LOCAL_BUILD_DIR to 
+the same place Xcode places its built binaries ("Place Build Products in:" 
+in the Building pane in Xcode app's Preferences). This package builds OK
+if you do not have $LOCAL_BUILD_DIR set, but the installed
+Security.framework has to be up-to-date, and the cltpdvt script (see
+below) will not run since executables are placed in their respective
+source directories. 
+
+(Note: the number of times the LOCAL_BUILD_DIR environment variable is
+mentioned here tends to lead an alert user of this code to just set that in
+the user's .cshrc or equivalent and be done with it.)
+
+The source for each program is contained in its own directory; you can 
+build a program on its own by typing 'make' in that directory. There is 
+also a top-level Makefile in clxutils so that you can go there and type 
+'make' and all of the included programs will build. The 'make clean' 
+target is supported at both levels. 
+
+Note that most of these program link against libcsputils.a, which 
+is built by SecurityTests/cspxutils/. Due to restrictions with 
+buildit and the Engineering build environment, the top-level Makefile 
+in clxutils does *not* ensure that libcsputils.a is built. You 
+have to do that. The easiest way to do that is, from the clxutils 
+directory:
+
+  # cd ../cspxutils/utilLib
+  # make
+
+This source tree is generally up-to-date with top-of-tree Security. 
+No changes will be checked in to TOT clxutils until the corresponding
+changes to Security, if any are needed, are also checked into TOT
+Security.  
+
+Running
+-------
+
+Each executable can be run on its own, generally from anywhere (although
+a few tests expect specific files in cwd and will let you know about 
+this right away if they are not there). All of these are UNIX command 
+line tools using only a console (tty). There are some common command 
+line arguments described below. There is also a script in clutils named 
+cltpdvt which runs many of the programs in sequence, aborting on any error.   
+ 
+The cltpdvt script has an 'l' option (the letter l) which causes a more
+extensive set of thests to run. It also has an 'f' option which causes
+a full SSL regression test to run. This includes building several keychains
+in  the current user's ~/Library/Keychains. In the absense of this, the 
+verifyPing script (in the sslViewer directory) is used to verify
+client-side (only) SSL functionality. 
+
+Note that if you're running the Security framework which
+you have built yourself, you'll need to set the DYLD_FRAMEWORK_PATH 
+environment variable. Generally this will be set to the same
+value as the LOCAL_BUILD_DIR environment variable described above.
+
+All programs display usage info if you just run them with the 'h' command 
+line argument. All programs which operate on certs expect the cert file
+to be in raw BER-encoded form.
+
+Diagnosing a failure of cltpdvt
+-------------------------------
+
+A normal run of the cltpdvt script - e.g. when run in the nightly build and
+in the buildbot environment - specifies the 'q' argument, which for most tests
+causes just a startup banner for each test to be printed; the banner shows the 
+command line arguments passed to the tests. For example
+
+   # cltpdvt q f
+   Starting cgConstruct; args: d=0 q 
+   Starting cgConstruct; args: d=0 a=f q 
+   Starting cgVerify; args: d n=2 q 
+   ...etc.
+   
+The first step in diagnosing a failure is generally to run the last test
+command seen in the list, without the 'q' option, in order to get more
+info about the failure. 
+
+Note a few of the tests, notably the scripts in the sslScripts/ directory, 
+have a lot more console spew than just a basic startup banner. This spew 
+involves the command necessary to set up the SSL test environment, including 
+creating a number of keychain and populating them with certs and keys. In
+case fo a failure in this case, look for the last instance of a "Starting..."
+banner are restart from there. 
+
+
+Description of tests
+-------------------
+
+anchorTest		  : test cert decode/encode using system anchors. 
+caVerify          : Tests proper verification of BasicConstraints extensions.
+                    Written specifically for Radar 3022936.
+certcrl			  : Industrial strength Power Tool tool to evaluate cert and CRL 
+                    collections. Allows for single command-line operation as well 
+					as operation from a script file. Allows explicit testing of 
+					every feature in the TP's CertGroupVerify function. See 
+					README.doc in the certcrl directory for more info. There
+					are a number of scripts, located in certcrtl/testSubjects/, which 
+					are used extensively by the top-level cltpdvt script to test
+					a wide variety of features. 
+certLabelTest	  : Test SecCertificateInferLabel()
+certSerialEncodeTest : Verify proper encoding of unsigned integer as a DER_encoded signed integer.
+					   Verifies Radar 4471281.
+cgConstruct	      : Tests TP's CSSM_CertGroupConstruct().
+cgVerify	      : Tests TP's CSSM_CertGroupVerify().
+clAppUtils		  : common routines used through this test suite
+extendAttrTest    : test Extended keychain item attributes
+extenTest         : test all known extensions by generating random (but reasonable)
+                    extensions, encoding them with the CL, decoding with the CL, and 
+		            displaying both pre-encode and post-encode versions. 
+extenTestTp		  : Same as extenTest, using CSSM_TP_SubmitCredRequest() to create 
+					certs. 
+importExport	  : Exhaustive regression test of every line of code in the SecImportExport module
+kcExport		  : export item(s) from a keychain, with extensive verification
+kcImport		  : import item(s) into a keychain, with extensive verification
+signerAndSubj     : Build two certs, a signer and a subject which is signed by
+                    the signer. Verify every which way, including operations
+			        expected to result in verification failure. 
+signerAndSubjSsl  : same as signerAndSubj, using CSSM_TP_SubmitCredRequest to
+                    create the certs, with SSL-compatible extensions. 
+signerAndSubjTp   : same as signerAndSubj, using CSSM_TP_SubmitCredRequest to
+                    create the certs. 
+smimePolicy		  : Test CSSMOID_APPLE_TP_SMIME TP policy.
+sslAlert		  : dual-threaded client/server test of SecureTransport's
+					alert message handling. 
+sslAuth			  : dual-threaded client/server test of SecureTransport's
+					client authentication logic.
+sslCipher		  : Exhaustive dual-threaded client/server test of SecureTransport's
+					ciphersuite support
+sslProt			  : dual-threaded client/server test of SecureTransport's
+					SSLProtocolVersion handling
+sslScripts		  : Misc. scripts to generate certs, keychains, etc. 
+sslViewer         : Power Tool to analyze the characteristics of an SSL server.
+                    Many options to let you see the server's certs, the data
+					returned, negotiated SSL paramters, etc. This directory
+					also has a script, pingSslSites, which runs sslViewer on 
+					a number of known (more-or-less) good SSL sites. See the
+					script for restrictions. 
+sslServer         : Simple SecureTransport-based server. 
+sslSession		  : one-shot two-thread SSL client/server, limited options.
+sslSubjName		  : Inelegant test of SecureTransport/TP verification of host
+					name verification
+threadTest        : fire up a bunch of threads, each of which executes a random
+                    selection out of a large number of possible tests. 
+
+
+Tools, not run as part of cltpdvt
+---------------------------------
+certChain		  : Given a cert, produce a complete ordered cert chain back to a root.
+certInCrl		  : simple "see if cert is in CRL"
+certsFromDb       : Extracts all certs from a given DB (keychain) and writes
+					them to files. 
+certTime		  : measure performance of cert parse and build.
+clTool            : interactive "one step at a time" exerciser, mainly for
+                    diagnosing memory leaks.
+cmsTime           : measure performance of CMS decode & verify
+cmstool			  : manipluate CMS messages via libsecurity_smime SPI 
+crlTool           : fetch and parse CRLs for given cert
+dotMacArchive	  : test use of security_dotmactp to manipulate Identity archives on 
+					the .mac server
+dotMacRequest	  : exercise security_dotmactp at SecCertificateRequest level 
+dotMacTool		  : exercise basic security_dotmactp functions
+extendAttrTool    : view and manipulate extended keychain item attributes
+extenGrab		  : Parses a cert file and writes out the DER-encoded
+					extension values for subsequent analysis and processing. 
+extractCertFields : A tool to extract fields from a cert file
+			        and print them, on stdout, in C form. Used for embedding
+			        root certs in the TP; obsolete. 
+findCert		  : Find all certs in keychain search list matching specified email address
+idTool			  : SecIdentityRef exerciser
+kcTime			  : measure performance of keychain operations
+kcTool            : Rudimentary tool to exercise exercise keychain support
+keyFromCert       : Tool to extract a public key from a cert file and write the
+                    key blob to another file. 
+krbtool			  : basic PKINIT tool
+makeCertPolicy    : create a self signed cert with a Cert Policies extension
+makeCrl           : create a CRL revoking a given cert
+newCmsTool        : Power Tool to manipluate CMS messages via libsecurity_cms API
+NISCC             : tools for testing NISCC certs (see TLS_SSL/README.txt for more info). 
+ocspTool		  : simple OCSP request/response generator and parser
+ocspdTool		  : basic ocspd tool
+parseCert         : display contents of a cert, to the best of the CL's ability to 
+                    parse it. Displays all known fields and extensions in parsed
+			        form. 
+parseCrl		  : display contents of a CRL. 
+pemtool			  : encode and decode to/from PEM format. 
+p12				  : PKCS12 tool. Obsolete for now since libsecurity_pkcs12 isn't viable outside of 
+						Security.framework. 
+p12Reencode		  : test decode/reencode of p12 blobs. Currently not working. 
+pemtool           : tool to convert files between PEM and DER format. 
+rootStoreTool     : Trust Settings tool, including parser for trust settings records. 
+secTime			  : measure performance of various Sec layer functions.
+secTrustTime      : measure performance of SecTrust and TP cert verify
+simpleUrlAccess   : simple tool to exercise SecureTransport via URLAccess's 
+                    URLSimpleDownload(). URLSimpleDownload is deprecated, so this program is too. 
+sslBench		  : measure SSL handshake timing and throughput.
+sslEAP            : test EAP-FAST style PAC-based session resumption.
+sslHandshakeTime  : measure performance of SSLHandshake()
+sslHandshakeTimeRB : measure performance of SSLHandshake() using RingBuffer I/O
+sslScripts/		  : futher SSL tests optionally run by cltpdvt. 
+   makeLocalCert  : builds the keychains and cert used by ssldvt
+   ssldvt		  : keychain-intensive test of SecureTransport
+sslThroughput     : Measure performance of SecureTransport - setup and sustained data throughput,
+                    using RingBuffer I/O (no sockets). 
+sysIdTool         : Tool for manipulating system identities. 
+trustApps		  : set list of trusted apps for specified executable
+unBER             : Fairly robust "Decode a BER-encoded file" program. 
+urlPageGrab       : fetch a page of HTML, do a rudimentary parse looking for 
+                    "IMG SRC" tags, fetch each image in a separate thread. Uses
+					URLSimpleDownload, and is used for diagnosing failure from that
+					level on down to SecureTransport (inclusive). 
+userTrustTest     : Rudimentary test of (deprecated) UserTrust mechanism. 
+vfyCacCert		  : verify a CAC certificate
+vfyCert           : verify one cert with another, or a root cert with itself. 
+vfyCertChain      : verify a chain of certs with optional TP policies. Obsoleted
+					by certcrl.
+
+
+Most programs use common code in clAppUtils. Many also use the common CSP code
+in ../cspxutils/utilLib. 

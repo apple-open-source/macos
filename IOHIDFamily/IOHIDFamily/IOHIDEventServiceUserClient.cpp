@@ -236,6 +236,12 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
     return true;
 }
 
+void IOHIDEventServiceUserClient::stop( IOService * provider )
+{
+    _owner = NULL;
+    super::stop(provider);
+}
+
 //==============================================================================
 // IOHIDEventServiceUserClient::_open
 //==============================================================================
@@ -252,6 +258,10 @@ IOReturn IOHIDEventServiceUserClient::_open(
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
 {
+    if (!_owner) {
+        _queue->setState(false);
+        return kIOReturnOffline;
+    }
     
     // get ready just in case events start coming our way
     _queue->setState(true);
@@ -286,6 +296,7 @@ IOReturn IOHIDEventServiceUserClient::_close(
 IOReturn IOHIDEventServiceUserClient::close()
 {
     _queue->setState(false);
+    if (_owner)
     _owner->close(this, _options);
 
     return kIOReturnSuccess;
@@ -341,7 +352,7 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
 //==============================================================================
 IOHIDEvent * IOHIDEventServiceUserClient::copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options)
 {
-    return _owner->copyEvent(type, matching, options);
+    return _owner ? _owner->copyEvent(type, matching, options) : NULL;
 }
 
 //==============================================================================
@@ -362,7 +373,8 @@ IOReturn IOHIDEventServiceUserClient::_setElementValue(
 //==============================================================================
 void IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value)
 {
-    return _owner->setElementValue(usagePage, usage, value);
+    if (_owner)
+        _owner->setElementValue(usagePage, usage, value);
 }
 
 //==============================================================================
@@ -370,7 +382,8 @@ void IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage
 //==============================================================================
 bool IOHIDEventServiceUserClient::didTerminate(IOService *provider, IOOptionBits options, bool *defer)
 {
-    _owner->close(this, _options);
+    if (_owner)
+        _owner->close(this, _options);
         
     return super::didTerminate(provider, options, defer);
 }
@@ -382,11 +395,11 @@ void IOHIDEventServiceUserClient::free()
 {
     if (_queue) {
         _queue->release();
-        _queue = 0;
+        _queue = NULL;
     }
 
     if (_owner) {
-        _owner = 0;
+        _owner = NULL;
     }
     
     super::free();
@@ -397,7 +410,7 @@ void IOHIDEventServiceUserClient::free()
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::setProperties( OSObject * properties )
 {
-    return _owner->setProperties(properties);
+    return _owner ? _owner->setProperties(properties) : kIOReturnOffline;
 }
 
 //==============================================================================

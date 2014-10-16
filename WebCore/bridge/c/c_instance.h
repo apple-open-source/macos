@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -51,22 +51,22 @@ public:
     static void setGlobalException(String);
     static void moveGlobalExceptionToExecState(ExecState*);
 
-    ~CInstance ();
+    virtual ~CInstance();
 
-    virtual Class *getClass() const;
+    virtual Class *getClass() const override;
 
-    virtual JSValue valueOf(ExecState*) const;
-    virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
+    virtual JSValue valueOf(ExecState*) const override;
+    virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const override;
 
-    virtual JSValue getMethod(ExecState*, PropertyName);
-    virtual JSValue invokeMethod(ExecState*, RuntimeMethod* method);
-    virtual bool supportsInvokeDefaultMethod() const;
-    virtual JSValue invokeDefaultMethod(ExecState*);
+    virtual JSValue getMethod(ExecState*, PropertyName) override;
+    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*) override;
+    virtual bool supportsInvokeDefaultMethod() const override;
+    virtual JSValue invokeDefaultMethod(ExecState*) override;
 
-    virtual bool supportsConstruct() const;
-    virtual JSValue invokeConstruct(ExecState*, const ArgList&);
+    virtual bool supportsConstruct() const override;
+    virtual JSValue invokeConstruct(ExecState*, const ArgList&) override;
 
-    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+    virtual void getPropertyNames(ExecState*, PropertyNameArray&) override;
 
     JSValue stringValue(ExecState*) const;
     JSValue numberValue(ExecState*) const;
@@ -77,7 +77,7 @@ public:
 private:
     CInstance(NPObject*, PassRefPtr<RootObject>);
 
-    virtual RuntimeObject* newRuntimeObject(ExecState*);
+    virtual RuntimeObject* newRuntimeObject(ExecState*) override;
     bool toJSPrimitive(ExecState*, const char*, JSValue&) const;
 
 

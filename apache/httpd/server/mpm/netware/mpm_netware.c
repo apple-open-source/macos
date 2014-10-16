@@ -61,8 +61,6 @@
 #include <sys/select.h>
 #endif
 
-#define CORE_PRIVATE
-
 #include "ap_config.h"
 #include "httpd.h"
 #include "mpm_default.h"
@@ -88,6 +86,8 @@
 #include <library.h>
 #include <screen.h>
 
+int nlmUnloadSignaled(int wait);
+
 /* Limit on the total --- clients will be locked out if more servers than
  * this are needed.  It is intended solely to keep the server from crashing
  * when things get out of hand.
@@ -108,9 +108,11 @@
 #define WORKER_READY        SERVER_READY
 #define WORKER_IDLE_KILL    SERVER_IDLE_KILL
 
-/* config globals */
+#define MPM_HARD_LIMITS_FILE "/mpm_default.h"
 
-int ap_threads_per_child=0;         /* Worker threads per child */
+/* *Non*-shared http_main globals... */
+
+static int ap_threads_per_child=0;         /* Worker threads per child */
 static int ap_threads_to_start=0;
 static int ap_threads_min_free=0;
 static int ap_threads_max_free=0;
@@ -119,13 +121,10 @@ static int mpm_state = AP_MPMQ_STARTING;
 
 /*
  * The max child slot ever assigned, preserved across restarts.  Necessary
- * to deal with MaxClients changes across SIGWINCH restarts.  We use this
+ * to deal with MaxRequestWorkers changes across SIGWINCH restarts.  We use this
  * value to optimize routines that have to scan the entire scoreboard.
  */
-int ap_max_workers_limit = -1;
-server_rec *ap_server_conf;
-
-/* *Non*-shared http_main globals... */
+static int ap_max_workers_limit = -1;
 
 int hold_screen_on_exit = 0; /* Indicates whether the screen should be held open */
 
@@ -171,7 +170,7 @@ static int volatile shutdown_pending;
 static int volatile restart_pending;
 static int volatile is_graceful;
 static int volatile wait_to_finish=1;
-ap_generation_t volatile ap_my_generation=0;
+static ap_generation_t volatile ap_my_generation=0;
 
 /* a clean exit from a child with proper cleanup */
 static void clean_child_exit(int code, int worker_num, apr_pool_t *ptrans,
@@ -199,52 +198,63 @@ static void mpm_main_cleanup(void)
     }
 }
 
-AP_DECLARE(apr_status_t) ap_mpm_query(int query_code, int *result)
+static int netware_query(int query_code, int *result, apr_status_t *rv)
 {
+    *rv = APR_SUCCESS;
     switch(query_code){
         case AP_MPMQ_MAX_DAEMON_USED:
             *result = 1;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_IS_THREADED:
             *result = AP_MPMQ_DYNAMIC;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_IS_FORKED:
             *result = AP_MPMQ_NOT_SUPPORTED;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_HARD_LIMIT_DAEMONS:
             *result = HARD_SERVER_LIMIT;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_HARD_LIMIT_THREADS:
             *result = HARD_THREAD_LIMIT;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MAX_THREADS:
             *result = ap_threads_limit;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MIN_SPARE_DAEMONS:
             *result = 0;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MIN_SPARE_THREADS:
             *result = ap_threads_min_free;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MAX_SPARE_DAEMONS:
             *result = 0;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MAX_SPARE_THREADS:
             *result = ap_threads_max_free;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MAX_REQUESTS_DAEMON:
             *result = ap_max_requests_per_child;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MAX_DAEMONS:
             *result = 1;
-            return APR_SUCCESS;
+            break;
         case AP_MPMQ_MPM_STATE:
             *result = mpm_state;
-            return APR_SUCCESS;
+            break;
+        case AP_MPMQ_GENERATION:
+            *result = ap_my_generation;
+            break;
+        default:
+            *rv = APR_ENOTIMPL;
+            break;
     }
-    return APR_ENOTIMPL;
+    return OK;
 }
 
+static const char *netware_get_name(void)
+{
+    return "NetWare";
+}
 
 /*****************************************************************
  * Connection structures and accounting...
@@ -314,12 +324,6 @@ int nlmUnloadSignaled(int wait)
  */
 
 
-int ap_graceful_stop_signalled(void)
-{
-    /* not ever called anymore... */
-    return 0;
-}
-
 #define MAX_WB_RETRIES  3
 #ifdef DBINFO_ON
 static int would_block = 0;
@@ -333,12 +337,13 @@ void worker_main(void *arg)
 {
     ap_listen_rec *lr, *first_lr, *last_lr = NULL;
     apr_pool_t *ptrans;
-    apr_pool_t *pbucket;
     apr_allocator_t *allocator;
     apr_bucket_alloc_t *bucket_alloc;
     conn_rec *current_conn;
     apr_status_t stat = APR_EINIT;
     ap_sb_handle_t *sbh;
+    apr_thread_t *thd = NULL;
+    apr_os_thread_t osthd;
 
     int my_worker_num = (int)arg;
     apr_socket_t *csd = NULL;
@@ -350,6 +355,9 @@ void worker_main(void *arg)
     int srv;
     struct timeval tv;
     int wouldblock_retry;
+
+    osthd = apr_os_thread_current();
+    apr_os_thread_put(&thd, &osthd, pmain);
 
     tv.tv_sec = 1;
     tv.tv_usec = 0;
@@ -397,7 +405,7 @@ void worker_main(void *arg)
 
             if (srv <= 0) {
                 if (srv < 0) {
-                    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+                    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00217)
                         "select() failed on listen socket");
                     apr_thread_yield();
                 }
@@ -496,14 +504,14 @@ void worker_main(void *arg)
                         * Ben Hyde noted that temporary ENETDOWN situations
                         * occur in mobile IP.
                         */
-                        ap_log_error(APLOG_MARK, APLOG_EMERG, stat, ap_server_conf,
+                        ap_log_error(APLOG_MARK, APLOG_EMERG, stat, ap_server_conf, APLOGNO(00218)
                             "apr_socket_accept: giving up.");
                         clean_child_exit(APEXIT_CHILDFATAL, my_worker_num, ptrans,
                                          bucket_alloc);
                 }
 #endif
                 else {
-                        ap_log_error(APLOG_MARK, APLOG_ERR, stat, ap_server_conf,
+                        ap_log_error(APLOG_MARK, APLOG_ERR, stat, ap_server_conf, APLOGNO(00219)
                             "apr_socket_accept: (client socket)");
                         clean_child_exit(1, my_worker_num, ptrans, bucket_alloc);
                 }
@@ -519,6 +527,7 @@ void worker_main(void *arg)
                                                 my_worker_num, sbh,
                                                 bucket_alloc);
         if (current_conn) {
+            current_conn->current_thread = thd;
             ap_process_connection(current_conn, csd);
             ap_lingering_close(current_conn);
         }
@@ -605,7 +614,6 @@ static int hold_off_on_exponential_spawning;
 static void perform_idle_server_maintenance(apr_pool_t *p)
 {
     int i;
-    int to_kill;
     int idle_count;
     worker_score *ws;
     int free_length;
@@ -616,7 +624,6 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
     /* initialize the free_list */
     free_length = 0;
 
-    to_kill = -1;
     idle_count = 0;
     last_non_dead = -1;
     total_non_dead = 0;
@@ -648,13 +655,6 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
             */
             if (status <= WORKER_READY) {
                 ++ idle_count;
-                /* always kill the highest numbered child if we have to...
-                * no really well thought out reason ... other than observing
-                * the server behaviour under linux where lower numbered children
-                * tend to service more hits (and hence are more likely to have
-                * their data in cpu caches).
-                */
-                to_kill = i;
             }
 
             ++total_non_dead;
@@ -680,16 +680,16 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
             static int reported = 0;
 
             if (!reported) {
-                ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf,
-                    "server reached MaxClients setting, consider"
-                    " raising the MaxClients setting");
+                ap_log_error(APLOG_MARK, APLOG_ERR, 0, ap_server_conf, APLOGNO(00220)
+                    "server reached MaxRequestWorkers setting, consider"
+                    " raising the MaxRequestWorkers setting");
                 reported = 1;
             }
             idle_spawn_rate = 1;
         }
         else {
             if (idle_spawn_rate >= 8) {
-                ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf,
+                ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf, APLOGNO(00221)
                     "server seems busy, (you may need "
                     "to increase StartServers, or Min/MaxSpareServers), "
                     "spawning %d children, there are %d idle, and "
@@ -717,7 +717,7 @@ static void perform_idle_server_maintenance(apr_pool_t *p)
     }
 }
 
-static void display_settings ()
+static void display_settings()
 {
     int status_array[SERVER_NUM_STATUS];
     int i, status, total=0;
@@ -830,7 +830,7 @@ static int setup_listeners(server_rec *s)
     int sockdes;
 
     if (ap_setup_listeners(s) < 1 ) {
-        ap_log_error(APLOG_MARK, APLOG_ALERT, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_ALERT, 0, s, APLOGNO(00222)
             "no listening sockets available, shutting down");
         return -1;
     }
@@ -862,7 +862,7 @@ static int shutdown_listeners()
  * Executive routines.
  */
 
-int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
+static int netware_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 {
     apr_status_t status=0;
 
@@ -870,7 +870,7 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
     ap_server_conf = s;
 
     if (setup_listeners(s)) {
-        ap_log_error(APLOG_MARK, APLOG_ALERT, status, s,
+        ap_log_error(APLOG_MARK, APLOG_ALERT, status, s, APLOGNO(00223)
             "no listening sockets available, shutting down");
         return -1;
     }
@@ -886,6 +886,11 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 
     /* Only set slot 0 since that is all NetWare will ever have. */
     ap_scoreboard_image->parent[0].pid = getpid();
+    ap_run_child_status(ap_server_conf,
+                        ap_scoreboard_image->parent[0].pid,
+                        ap_my_generation,
+                        0,
+                        MPM_CHILD_STARTED);
 
     set_signals();
 
@@ -905,17 +910,12 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         hold_screen_on_exit = 0;
     }
 
-    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00224)
             "%s configured -- resuming normal operations",
             ap_get_server_description());
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf,
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, ap_server_conf, APLOGNO(00225)
             "Server built: %s", ap_get_server_built());
-#ifdef AP_MPM_WANT_SET_ACCEPT_LOCK_MECH
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf,
-            "AcceptMutex: %s (default: %s)",
-            apr_proc_mutex_name(accept_mutex),
-            apr_proc_mutex_defname());
-#endif
+    ap_log_command_line(plog, s);
     show_server_data();
 
     mpm_state = AP_MPMQ_RUNNING;
@@ -928,16 +928,21 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
     }
     mpm_state = AP_MPMQ_STOPPING;
 
+    ap_run_child_status(ap_server_conf,
+                        ap_scoreboard_image->parent[0].pid,
+                        ap_my_generation,
+                        0,
+                        MPM_CHILD_EXITED);
 
     /* Shutdown the listen sockets so that we don't get stuck in a blocking call.
     shutdown_listeners();*/
 
     if (shutdown_pending) { /* Got an unload from the console */
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00226)
             "caught SIGTERM, shutting down");
 
         while (worker_thread_count > 0) {
-            printf ("\rShutdown pending. Waiting for %d thread(s) to terminate...",
+            printf ("\rShutdown pending. Waiting for %u thread(s) to terminate...",
                     worker_thread_count);
             apr_thread_yield();
         }
@@ -953,12 +958,12 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
         ++ap_my_generation;
         ap_scoreboard_image->global->running_generation = ap_my_generation;
 
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, ap_server_conf, APLOGNO(00227)
                 "Graceful restart requested, doing restart");
 
         /* Wait for all of the threads to terminate before initiating the restart */
         while (worker_thread_count > 0) {
-            printf ("\rRestart pending. Waiting for %d thread(s) to terminate...",
+            printf ("\rRestart pending. Waiting for %u thread(s) to terminate...",
                     worker_thread_count);
             apr_thread_yield();
         }
@@ -971,12 +976,9 @@ int ap_mpm_run(apr_pool_t *_pconf, apr_pool_t *plog, server_rec *s)
 
 static int netware_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp)
 {
-    int debug;
     char *addrname = NULL;
 
     mpm_state = AP_MPMQ_STARTING;
-
-    debug = ap_exists_config_define("DEBUG");
 
     is_graceful = 0;
     ap_my_pid = getpid();
@@ -995,22 +997,115 @@ static int netware_pre_config(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp
     ap_threads_min_free = DEFAULT_MIN_FREE_THREADS;
     ap_threads_max_free = DEFAULT_MAX_FREE_THREADS;
     ap_threads_limit = HARD_THREAD_LIMIT;
-    ap_max_requests_per_child = DEFAULT_MAX_REQUESTS_PER_CHILD;
     ap_extended_status = 0;
+
+    /* override core's default thread stacksize */
     ap_thread_stacksize = DEFAULT_THREAD_STACKSIZE;
-#ifdef AP_MPM_WANT_SET_MAX_MEM_FREE
-    ap_max_mem_free = APR_ALLOCATOR_MAX_FREE_UNLIMITED;
-#endif
+
+    return OK;
+}
+
+static int netware_check_config(apr_pool_t *p, apr_pool_t *plog,
+                                apr_pool_t *ptemp, server_rec *s)
+{
+    static int restart_num = 0;
+    int startup = 0;
+
+    /* we want this only the first time around */
+    if (restart_num++ == 0) {
+        startup = 1;
+    }
+
+    if (ap_threads_limit > HARD_THREAD_LIMIT) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00228)
+                         "WARNING: MaxThreads of %d exceeds compile-time "
+                         "limit of", ap_threads_limit);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " %d threads, decreasing to %d.",
+                         HARD_THREAD_LIMIT, HARD_THREAD_LIMIT);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " To increase, please see the HARD_THREAD_LIMIT"
+                         "define in");
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " server/mpm/netware%s.", MPM_HARD_LIMITS_FILE);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00229)
+                         "MaxThreads of %d exceeds compile-time limit "
+                         "of %d, decreasing to match",
+                         ap_threads_limit, HARD_THREAD_LIMIT);
+        }
+        ap_threads_limit = HARD_THREAD_LIMIT;
+    }
+    else if (ap_threads_limit < 1) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         APLOGNO(00230) "WARNING: MaxThreads of %d not allowed, "
+                         "increasing to 1.", ap_threads_limit);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+                         "MaxThreads of %d not allowed, increasing to 1",
+                         ap_threads_limit);
+        }
+        ap_threads_limit = 1;
+    }
+
+    /* ap_threads_to_start > ap_threads_limit effectively checked in
+     * call to startup_workers(ap_threads_to_start) in ap_mpm_run()
+     */
+    if (ap_threads_to_start < 0) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00231)
+                         "WARNING: StartThreads of %d not allowed, "
+                         "increasing to 1.", ap_threads_to_start);
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00232)
+                         "StartThreads of %d not allowed, increasing to 1",
+                         ap_threads_to_start);
+        }
+        ap_threads_to_start = 1;
+    }
+
+    if (ap_threads_min_free < 1) {
+        if (startup) {
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL, APLOGNO(00233)
+                         "WARNING: MinSpareThreads of %d not allowed, "
+                         "increasing to 1", ap_threads_min_free);
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " to avoid almost certain server failure.");
+            ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_STARTUP, 0, NULL,
+                         " Please read the documentation.");
+        } else {
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(00234)
+                         "MinSpareThreads of %d not allowed, increasing to 1",
+                         ap_threads_min_free);
+        }
+        ap_threads_min_free = 1;
+    }
+
+    /* ap_threads_max_free < ap_threads_min_free + 1 checked in ap_mpm_run() */
 
     return OK;
 }
 
 static void netware_mpm_hooks(apr_pool_t *p)
 {
-    ap_hook_pre_config(netware_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
+    /* Run the pre-config hook after core's so that it can override the
+     * default setting of ThreadStackSize for NetWare.
+     */
+    static const char * const predecessors[] = {"core.c", NULL};
+
+    ap_hook_pre_config(netware_pre_config, predecessors, NULL, APR_HOOK_MIDDLE);
+    ap_hook_check_config(netware_check_config, NULL, NULL, APR_HOOK_MIDDLE);
+    //ap_hook_post_config(netware_post_config, NULL, NULL, 0);
+    //ap_hook_child_init(netware_child_init, NULL, NULL, APR_HOOK_MIDDLE);
+    //ap_hook_open_logs(netware_open_logs, NULL, aszSucc, APR_HOOK_REALLY_FIRST);
+    ap_hook_mpm(netware_run, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_mpm_query(netware_query, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_mpm_get_name(netware_get_name, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
-void netware_rewrite_args(process_rec *process)
+static void netware_rewrite_args(process_rec *process)
 {
     char *def_server_root;
     char optbuf[3];
@@ -1058,7 +1153,7 @@ void netware_rewrite_args(process_rec *process)
 
             optbuf[0] = '-';
             optbuf[2] = '\0';
-            apr_getopt_init(&opt, process->pool, process->argc, (char**) process->argv);
+            apr_getopt_init(&opt, process->pool, process->argc, process->argv);
             while (apr_getopt(opt, AP_SERVER_BASEARGS"n:", optbuf + 1, &opt_arg) == APR_SUCCESS) {
                 switch (optbuf[1]) {
                 case 'n':
@@ -1099,7 +1194,7 @@ static int CommandLineInterpreter(scr_t screenID, const char *commandLine)
     if (strlen(commandLine) <= strlen(szCommand))
         return NOTMYCOMMAND;
 
-    strncpy (szcommandLine, commandLine, sizeof(szcommandLine)-1);
+    apr_cpystrn(szcommandLine, commandLine, sizeof(szcommandLine));
 
     /*  All added commands begin with "APACHE2 " */
 
@@ -1224,16 +1319,6 @@ static const char *set_min_free_threads(cmd_parms *cmd, void *dummy, const char 
     }
 
     ap_threads_min_free = atoi(arg);
-    if (ap_threads_min_free <= 0) {
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "WARNING: detected MinSpareServers set to non-positive.");
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "Resetting to 1 to avoid almost certain Apache failure.");
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "Please read the documentation.");
-       ap_threads_min_free = 1;
-    }
-
     return NULL;
 }
 
@@ -1256,23 +1341,6 @@ static const char *set_thread_limit (cmd_parms *cmd, void *dummy, const char *ar
     }
 
     ap_threads_limit = atoi(arg);
-    if (ap_threads_limit > HARD_THREAD_LIMIT) {
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    "WARNING: MaxThreads of %d exceeds compile time limit "
-                    "of %d threads,", ap_threads_limit, HARD_THREAD_LIMIT);
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    " lowering MaxThreads to %d.  To increase, please "
-                    "see the", HARD_THREAD_LIMIT);
-       ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                    " HARD_THREAD_LIMIT define in %s.",
-                    AP_MPM_HARD_LIMITS_FILE);
-       ap_threads_limit = HARD_THREAD_LIMIT;
-    }
-    else if (ap_threads_limit < 1) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-            "WARNING: Require MaxThreads > 0, setting to 1");
-        ap_threads_limit = 1;
-    }
     return NULL;
 }
 
@@ -1289,7 +1357,7 @@ AP_INIT_TAKE1("MaxThreads", set_thread_limit, NULL, RSRC_CONF,
 { NULL }
 };
 
-module AP_MODULE_DECLARE_DATA mpm_netware_module = {
+AP_DECLARE_MODULE(mpm_netware) = {
     MPM20_MODULE_STUFF,
     netware_rewrite_args,   /* hook to run before apache parses args */
     NULL,                   /* create per-directory config structure */

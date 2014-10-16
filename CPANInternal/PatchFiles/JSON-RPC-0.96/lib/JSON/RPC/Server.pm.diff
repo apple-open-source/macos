@@ -1,6 +1,26 @@
---- JSON-RPC-0.96/lib/JSON/RPC/Server.pm	2008-02-24 17:48:24.000000000 -0800
-+++ JSON-RPC-0.96/lib/JSON/RPC/Server.pm	2010-04-21 12:49:46.000000000 -0700
-@@ -205,8 +205,8 @@
+diff --git a/JSON-RPC-0.96/lib/JSON/RPC/Server.pm b/JSON-RPC-0.96/lib/JSON/RPC/Server.pm
+index df483bb..a1c51cf 100644
+--- JSON-RPC-0.96/lib/JSON/RPC/Server.pm
++++ JSON-RPC-0.96/lib/JSON/RPC/Server.pm
+@@ -4,7 +4,7 @@
+ ##############################################################################
+ 
+ use strict;
+-use JSON ();
++use JSON::PP;
+ use Carp ();
+ 
+ use HTTP::Request ();
+@@ -43,7 +43,7 @@ BEGIN {
+ 
+ 
+ sub create_json_coder {
+-    JSON->new->utf8; # assumes UTF8
++    JSON::PP->new->utf8; # assumes UTF8
+ }
+ 
+ 
+@@ -205,8 +205,8 @@ sub _handle {
      my $result;
  
      if ($obj->{version}) {
@@ -11,7 +31,7 @@
                                ;
      }
      else {
-@@ -217,7 +217,7 @@
+@@ -217,7 +217,7 @@ sub _handle {
          else {
              $params[0] = $params;
          }
@@ -20,4 +40,12 @@
      }
  
  
-
+@@ -571,7 +571,7 @@ An error code number in your procedure is an integer between 501 and 899.
+ Setter/Getter to json encoder/decoder object.
+ The default value is L<JSON> object in the below way:
+ 
+- JSON->new->utf8
++ JSON::PP->new->utf8
+ 
+ In your procedure, changes its behaviour.
+ 

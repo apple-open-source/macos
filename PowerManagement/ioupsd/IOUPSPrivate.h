@@ -34,7 +34,9 @@
     @discussion It is expected that every IOService module that contains
     a IOUPSCFPlugIn will at least define this key in it property table.
 */
-#define kIOUPSDeviceKey			"UPSDevice"
+#define kIOUPSDeviceKey             "UPSDevice"
+#define kIOPowerDeviceUsageKey      0x84
+#define kIOBatterySystemUsageKey    0x85
 
 /*!
     @defined kIOUPSPlugInServerName

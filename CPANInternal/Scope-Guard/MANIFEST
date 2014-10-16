@@ -1,9 +1,0 @@
-Changes
-MANIFEST
-META.yml
-Makefile.PL
-README
-lib/Scope/Guard.pm
-t/Scope-Guard.t
-t/pod.t
-t/pod_coverage.t

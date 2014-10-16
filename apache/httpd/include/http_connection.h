@@ -26,7 +26,6 @@
 #ifndef APACHE_HTTP_CONNECTION_H
 #define APACHE_HTTP_CONNECTION_H
 
-#include "apr_hooks.h"
 #include "apr_network_io.h"
 #include "apr_buckets.h"
 
@@ -38,12 +37,11 @@ extern "C" {
  * @brief Apache connection library
  */
 
-#ifdef CORE_PRIVATE
 /**
  * This is the protocol module driver.  This calls all of the
  * pre-connection and connection hooks for all protocol modules.
  * @param c The connection on which the request is read
- * @param csd The mechanism on which this connection is to be read.  
+ * @param csd The mechanism on which this connection is to be read.
  *            Most times this will be a socket, but it is up to the module
  *            that accepts the request to determine the exact type.
  */
@@ -71,19 +69,20 @@ AP_CORE_DECLARE(void) ap_flush_conn(conn_rec *c);
  * @param c The connection we are closing
  */
 AP_DECLARE(void) ap_lingering_close(conn_rec *c);
-#endif
 
-  /* Hooks */
+AP_DECLARE(int) ap_start_lingering_close(conn_rec *c);
+
+/* Hooks */
 /**
- * create_connection is a RUN_FIRST hook which allows modules to create 
- * connections. In general, you should not install filters with the 
- * create_connection hook. If you require vhost configuration information 
+ * create_connection is a RUN_FIRST hook which allows modules to create
+ * connections. In general, you should not install filters with the
+ * create_connection hook. If you require vhost configuration information
  * to make filter installation decisions, you must use the pre_connection
  * or install_network_transport hook. This hook should close the connection
  * if it encounters a fatal error condition.
  *
  * @param p The pool from which to allocate the connection record
- * @param server The server record to create the connection too. 
+ * @param server The server record to create the connection too.
  * @param csd The socket that has been accepted
  * @param conn_id A unique identifier for this connection.  The ID only
  *                needs to be unique at that time, not forever.
@@ -94,13 +93,13 @@ AP_DECLARE(void) ap_lingering_close(conn_rec *c);
 AP_DECLARE_HOOK(conn_rec *, create_connection,
                 (apr_pool_t *p, server_rec *server, apr_socket_t *csd,
                  long conn_id, void *sbh, apr_bucket_alloc_t *alloc))
-   
+
 /**
  * This hook gives protocol modules an opportunity to set everything up
  * before calling the protocol handler.  All pre-connection hooks are
  * run until one returns something other than ok or decline
  * @param c The connection on which the request has been received.
- * @param csd The mechanism on which this connection is to be read.  
+ * @param csd The mechanism on which this connection is to be read.
  *            Most times this will be a socket, but it is up to the module
  *            that accepts the request to determine the exact type.
  * @return OK or DECLINED
@@ -146,5 +145,5 @@ AP_DECLARE(apr_bucket *) ap_bucket_eoc_create(apr_bucket_alloc_t *list);
 }
 #endif
 
-#endif	/* !APACHE_HTTP_REQUEST_H */
+#endif  /* !APACHE_HTTP_REQUEST_H */
 /** @} */

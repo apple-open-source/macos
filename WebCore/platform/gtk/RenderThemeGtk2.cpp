@@ -38,7 +38,7 @@
 #include "HTMLNames.h"
 #include "MediaControlElements.h"
 #include "PaintInfo.h"
-#include "RenderObject.h"
+#include "RenderElement.h"
 #include "TextDirection.h"
 #include "UserAgentStyleSheets.h"
 #include "WidgetRenderingContext.h"
@@ -97,7 +97,7 @@ void RenderThemeGtk::initMediaColors()
 }
 #endif
 
-static void adjustRectForFocus(GtkWidget* widget, IntRect& rect, bool ignoreInteriorFocusProperty = false)
+static void adjustRectForFocus(GtkWidget* widget, FloatRect& rect, bool ignoreInteriorFocusProperty = false)
 {
     gint focusWidth, focusPad;
     gboolean interiorFocus = 0;
@@ -110,9 +110,9 @@ static void adjustRectForFocus(GtkWidget* widget, IntRect& rect, bool ignoreInte
     rect.inflate(focusWidth + focusPad);
 }
 
-void RenderThemeGtk::adjustRepaintRect(const RenderObject* renderObject, IntRect& rect)
+void RenderThemeGtk::adjustRepaintRect(const RenderObject& renderObject, FloatRect& rect)
 {
-    ControlPart part = renderObject->style()->appearance();
+    ControlPart part = renderObject.style().appearance();
     switch (part) {
     case CheckboxPart:
     case RadioPart: {
@@ -131,7 +131,7 @@ void RenderThemeGtk::adjustRepaintRect(const RenderObject* renderObject, IntRect
     }
 }
 
-static GtkStateType getGtkStateType(RenderThemeGtk* theme, RenderObject* object)
+static GtkStateType getGtkStateType(RenderThemeGtk* theme, const RenderObject& object)
 {
     if (!theme->isEnabled(object) || theme->isReadOnlyControl(object))
         return GTK_STATE_INSENSITIVE;
@@ -142,28 +142,28 @@ static GtkStateType getGtkStateType(RenderThemeGtk* theme, RenderObject* object)
     return GTK_STATE_NORMAL;
 }
 
-static void setToggleSize(const RenderThemeGtk* theme, RenderStyle* style, GtkWidget* widget)
+static void setToggleSize(const RenderThemeGtk*, RenderStyle& style, GtkWidget* widget)
 {
     // The width and height are both specified, so we shouldn't change them.
-    if (!style->width().isIntrinsicOrAuto() && !style->height().isAuto())
+    if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
 
     gint indicatorSize;
     gtk_widget_style_get(widget, "indicator-size", &indicatorSize, NULL);
-    if (style->width().isIntrinsicOrAuto())
-        style->setWidth(Length(indicatorSize, Fixed));
-    if (style->height().isAuto())
-        style->setHeight(Length(indicatorSize, Fixed));
+    if (style.width().isIntrinsicOrAuto())
+        style.setWidth(Length(indicatorSize, Fixed));
+    if (style.height().isAuto())
+        style.setHeight(Length(indicatorSize, Fixed));
 }
 
-static void paintToggle(RenderThemeGtk* theme, RenderObject* renderObject, const PaintInfo& info, const IntRect& rect, GtkWidget* widget)
+static void paintToggle(RenderThemeGtk* theme, const RenderObject& renderObject, const PaintInfo& info, const IntRect& rect, GtkWidget* widget)
 {
     // We do not call gtk_toggle_button_set_active here, because some themes begin a series of
     // animation frames in a "toggled" signal handler. This puts some checkboxes in a half-way
     // checked state. Every GTK+ theme I tested merely looks at the shadow type (and not the
     // 'active' property) to determine whether or not to draw the check.
     gtk_widget_set_sensitive(widget, theme->isEnabled(renderObject) && !theme->isReadOnlyControl(renderObject));
-    gtk_widget_set_direction(widget, gtkTextDirection(renderObject->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(renderObject.style().direction()));
 
     bool indeterminate = theme->isIndeterminate(renderObject);
     gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(widget), indeterminate);
@@ -187,29 +187,30 @@ static void paintToggle(RenderThemeGtk* theme, RenderObject* renderObject, const
     }
 
     if (theme->isFocused(renderObject)) {
-        IntRect focusRect(buttonRect);
+        FloatRect focusRect(buttonRect);
         adjustRectForFocus(widget, focusRect, true);
-        widgetContext.gtkPaintFocus(focusRect, widget, toggleState, detail);
+        // FIXME: adopt device pixel positioned themes.
+        widgetContext.gtkPaintFocus(IntRect(focusRect), widget, toggleState, detail);
     }
 }
 
-void RenderThemeGtk::setCheckboxSize(RenderStyle* style) const
+void RenderThemeGtk::setCheckboxSize(RenderStyle& style) const
 {
     setToggleSize(this, style, gtkCheckButton());
 }
 
-bool RenderThemeGtk::paintCheckbox(RenderObject* renderObject, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintCheckbox(const RenderObject& renderObject, const PaintInfo& info, const IntRect& rect)
 {
     paintToggle(this, renderObject, info, rect, gtkCheckButton());
     return false;
 }
 
-void RenderThemeGtk::setRadioSize(RenderStyle* style) const
+void RenderThemeGtk::setRadioSize(RenderStyle& style) const
 {
     setToggleSize(this, style, gtkRadioButton());
 }
 
-bool RenderThemeGtk::paintRadio(RenderObject* renderObject, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintRadio(const RenderObject& renderObject, const PaintInfo& info, const IntRect& rect)
 {
     paintToggle(this, renderObject, info, rect, gtkRadioButton());
     return false;
@@ -227,7 +228,7 @@ static void setWidgetHasFocus(GtkWidget* widget, gboolean hasFocus)
         GTK_WIDGET_UNSET_FLAGS(widget, GTK_HAS_FOCUS);
 }
 
-bool RenderThemeGtk::paintButton(RenderObject* object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintButton(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
 {
     if (info.context->paintingDisabled())
         return false;
@@ -238,7 +239,7 @@ bool RenderThemeGtk::paintButton(RenderObject* object, const PaintInfo& info, co
 
     GtkStateType state = getGtkStateType(this, object);
     gtk_widget_set_state(widget, state);
-    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(object.style().direction()));
 
     if (isFocused(object)) {
         setWidgetHasFocus(widget, TRUE);
@@ -288,11 +289,11 @@ int RenderThemeGtk::getComboBoxSeparatorWidth() const
     return gtk_widget_get_style(separator)->xthickness;
 }
 
-int RenderThemeGtk::comboBoxArrowSize(RenderStyle* style) const
+int RenderThemeGtk::comboBoxArrowSize(RenderStyle& style) const
 {
     // Taking the font size and reversing the DPI conversion seems to match
     // GTK+ rendering as closely as possible.
-    return style->font().size() * (72.0 / RenderThemeGtk::getScreenDPI());
+    return style.font().size() * (72.0 / RenderThemeGtk::getScreenDPI());
 }
 
 static void getButtonInnerBorder(GtkWidget* button, int& left, int& top, int& right, int& bottom)
@@ -315,11 +316,11 @@ static void getButtonInnerBorder(GtkWidget* button, int& left, int& top, int& ri
 }
 
 
-void RenderThemeGtk::getComboBoxPadding(RenderStyle* style, int& left, int& top, int& right, int& bottom) const
+void RenderThemeGtk::getComboBoxPadding(RenderStyle& style, int& left, int& top, int& right, int& bottom) const
 {
     // If this menu list button isn't drawn using the native theme, we
     // don't add any extra padding beyond what WebCore already uses.
-    if (style->appearance() == NoControlPart)
+    if (style.appearance() == NoControlPart)
         return;
 
     // A combo box button is a button with widgets packed into it.
@@ -331,42 +332,44 @@ void RenderThemeGtk::getComboBoxPadding(RenderStyle* style, int& left, int& top,
     int arrowAndSeperatorLength = comboBoxArrowSize(style) +
         getComboBoxSeparatorWidth() + (3 * buttonWidgetStyle->xthickness);
 
-    if (style->direction() == RTL)
+    if (style.direction() == RTL)
         left += arrowAndSeperatorLength;
     else
         right += arrowAndSeperatorLength;
 }
 
-int RenderThemeGtk::popupInternalPaddingLeft(RenderStyle* style) const
+int RenderThemeGtk::popupInternalPaddingLeft(RenderStyle& style) const
 {
     int left = 0, top = 0, right = 0, bottom = 0;
     getComboBoxPadding(style, left, top, right, bottom);
     return left;
 }
 
-int RenderThemeGtk::popupInternalPaddingRight(RenderStyle* style) const
+int RenderThemeGtk::popupInternalPaddingRight(RenderStyle& style) const
 {
     int left = 0, top = 0, right = 0, bottom = 0;
     getComboBoxPadding(style, left, top, right, bottom);
     return right;
 }
 
-int RenderThemeGtk::popupInternalPaddingTop(RenderStyle* style) const
+int RenderThemeGtk::popupInternalPaddingTop(RenderStyle& style) const
 {
     int left = 0, top = 0, right = 0, bottom = 0;
     getComboBoxPadding(style, left, top, right, bottom);
     return top;
 }
 
-int RenderThemeGtk::popupInternalPaddingBottom(RenderStyle* style) const
+int RenderThemeGtk::popupInternalPaddingBottom(RenderStyle& style) const
 {
     int left = 0, top = 0, right = 0, bottom = 0;
     getComboBoxPadding(style, left, top, right, bottom);
     return bottom;
 }
 
-bool RenderThemeGtk::paintMenuList(RenderObject* object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintMenuList(const RenderObject& object, const PaintInfo& info, const FloatRect& r)
 {
+    // FIXME: adopt subpixel themes.
+    IntRect rect = IntRect(r);   
     if (paintButton(object, info, rect))
         return true;
 
@@ -378,12 +381,12 @@ bool RenderThemeGtk::paintMenuList(RenderObject* object, const PaintInfo& info, 
 
     int leftBorder = 0, rightBorder = 0, bottomBorder = 0, topBorder = 0;
     getButtonInnerBorder(gtkComboBoxButton(), leftBorder, topBorder, rightBorder, bottomBorder);
-    RenderStyle* style = object->style();
+    RenderStyle& style = object.style();
     int arrowSize = comboBoxArrowSize(style);
     GtkStyle* buttonStyle = gtk_widget_get_style(gtkComboBoxButton());
 
     IntRect arrowRect(0, (rect.height() - arrowSize) / 2, arrowSize, arrowSize);
-    if (style->direction() == RTL)
+    if (style.direction() == RTL)
         arrowRect.setX(leftBorder + buttonStyle->xthickness);
     else
         arrowRect.setX(rect.width() - rightBorder - buttonStyle->xthickness - arrowSize);
@@ -407,7 +410,7 @@ bool RenderThemeGtk::paintMenuList(RenderObject* object, const PaintInfo& info, 
     bottomBorder += focusPadding + focusWidth;
     int separatorWidth = getComboBoxSeparatorWidth();
     IntRect separatorRect(0, topBorder, separatorWidth, rect.height() - topBorder - bottomBorder);
-    if (style->direction() == RTL)
+    if (style.direction() == RTL)
         separatorRect.setX(arrowRect.x() + arrowRect.width() + buttonStyle->xthickness + separatorWidth);
     else
         separatorRect.setX(arrowRect.x() - buttonStyle->xthickness - separatorWidth);
@@ -422,18 +425,18 @@ bool RenderThemeGtk::paintMenuList(RenderObject* object, const PaintInfo& info, 
     return false;
 }
 
-bool RenderThemeGtk::paintTextField(RenderObject* renderObject, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintTextField(const RenderObject& renderObject, const PaintInfo& info, const FloatRect& rect)
 {
     GtkWidget* widget = gtkEntry();
 
     bool enabled = isEnabled(renderObject) && !isReadOnlyControl(renderObject);
     GtkStateType backgroundState = enabled ? GTK_STATE_NORMAL : GTK_STATE_INSENSITIVE;
     gtk_widget_set_sensitive(widget, enabled);
-    gtk_widget_set_direction(widget, gtkTextDirection(renderObject->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(renderObject.style().direction()));
     setWidgetHasFocus(widget, isFocused(renderObject));
 
-    WidgetRenderingContext widgetContext(info.context, rect);
-    IntRect textFieldRect(IntPoint(), rect.size());
+    WidgetRenderingContext widgetContext(info.context, IntRect(rect));
+    IntRect textFieldRect(IntPoint(), IntSize(rect.size()));
 
     // The entry background is only painted over the interior part of the GTK+ entry, not
     // the entire frame. This happens in the Mozilla theme drawing code as well.
@@ -465,12 +468,12 @@ bool RenderThemeGtk::paintTextField(RenderObject* renderObject, const PaintInfo&
     return false;
 }
 
-bool RenderThemeGtk::paintSliderTrack(RenderObject* object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintSliderTrack(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
 {
     if (info.context->paintingDisabled())
         return false;
 
-    ControlPart part = object->style()->appearance();
+    ControlPart part = object.style().appearance();
     ASSERT(part == SliderHorizontalPart || part == SliderVerticalPart || part == MediaVolumeSliderPart);
 
     // We shrink the trough rect slightly to make room for the focus indicator.
@@ -483,7 +486,7 @@ bool RenderThemeGtk::paintSliderTrack(RenderObject* object, const PaintInfo& inf
         widget = gtkVScale();
         troughRect.inflateY(-gtk_widget_get_style(widget)->ythickness);
     }
-    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(object.style().direction()));
 
     WidgetRenderingContext widgetContext(info.context, rect);
     widgetContext.gtkPaintBox(troughRect, widget, GTK_STATE_ACTIVE, GTK_SHADOW_OUT, "trough");
@@ -493,12 +496,12 @@ bool RenderThemeGtk::paintSliderTrack(RenderObject* object, const PaintInfo& inf
     return false;
 }
 
-bool RenderThemeGtk::paintSliderThumb(RenderObject* object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeGtk::paintSliderThumb(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
 {
     if (info.context->paintingDisabled())
         return false;
 
-    ControlPart part = object->style()->appearance();
+    ControlPart part = object.style().appearance();
     ASSERT(part == SliderThumbHorizontalPart || part == SliderThumbVerticalPart || part == MediaVolumeSliderThumbPart);
 
     GtkWidget* widget = 0;
@@ -513,7 +516,7 @@ bool RenderThemeGtk::paintSliderThumb(RenderObject* object, const PaintInfo& inf
         detail = "vscale";
         orientation = GTK_ORIENTATION_VERTICAL;
     }
-    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(object.style().direction()));
 
     // Only some themes have slider thumbs respond to clicks and some don't. This information is
     // gathered via the 'activate-slider' property, but it's deprecated in GTK+ 2.22 and removed in
@@ -525,9 +528,9 @@ bool RenderThemeGtk::paintSliderThumb(RenderObject* object, const PaintInfo& inf
     return false;
 }
 
-void RenderThemeGtk::adjustSliderThumbSize(RenderStyle* style, Element*) const
+void RenderThemeGtk::adjustSliderThumbSize(RenderStyle& style, Element&) const
 {
-    ControlPart part = style->appearance();
+    ControlPart part = style.appearance();
     if (part != SliderThumbHorizontalPart && part != SliderThumbVerticalPart)
         return;
 
@@ -539,20 +542,19 @@ void RenderThemeGtk::adjustSliderThumbSize(RenderStyle* style, Element*) const
                          NULL);
 
     if (part == SliderThumbHorizontalPart) {
-        style->setWidth(Length(length, Fixed));
-        style->setHeight(Length(width, Fixed));
+        style.setWidth(Length(length, Fixed));
+        style.setHeight(Length(width, Fixed));
         return;
     }
     ASSERT(part == SliderThumbVerticalPart || part == MediaVolumeSliderThumbPart);
-    style->setWidth(Length(width, Fixed));
-    style->setHeight(Length(length, Fixed));
+    style.setWidth(Length(width, Fixed));
+    style.setHeight(Length(length, Fixed));
 }
 
-#if ENABLE(PROGRESS_ELEMENT)
-bool RenderThemeGtk::paintProgressBar(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+bool RenderThemeGtk::paintProgressBar(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
     GtkWidget* widget = gtkProgressBar();
-    gtk_widget_set_direction(widget, gtkTextDirection(renderObject->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(renderObject.style().direction()));
 
     WidgetRenderingContext widgetContext(paintInfo.context, rect);
     IntRect fullProgressBarRect(IntPoint(), rect.size());
@@ -569,9 +571,8 @@ bool RenderThemeGtk::paintProgressBar(RenderObject* renderObject, const PaintInf
 
     return false;
 }
-#endif
 
-void RenderThemeGtk::adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle* style, Element*) const
+void RenderThemeGtk::adjustInnerSpinButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
 {
     GtkStyle* gtkStyle = gtk_widget_get_style(gtkSpinButton());
     const PangoFontDescription* fontDescription = gtkStyle->font_desc;
@@ -579,14 +580,14 @@ void RenderThemeGtk::adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle* sty
 
     // Force an odd arrow size here. GTK+ 3.x forces even in this case, but
     // Nodoka-based themes look incorrect with an even arrow size.
-    int width = max(PANGO_PIXELS(fontSize), minSpinButtonArrowSize);
+    int width = std::max(PANGO_PIXELS(fontSize), minSpinButtonArrowSize);
     width += -((width % 2) - 1) + gtkStyle->xthickness;
 
-    style->setWidth(Length(width, Fixed));
-    style->setMinWidth(Length(width, Fixed));
+    style.setWidth(Length(width, Fixed));
+    style.setMinWidth(Length(width, Fixed));
 }
 
-bool RenderThemeGtk::paintInnerSpinButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+bool RenderThemeGtk::paintInnerSpinButton(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
     // We expand the painted area by 2 pixels on the top and bottom and 2 pixels on the right. This
     // is because GTK+ themes want to draw over the text box borders, but WebCore renders the inner
@@ -597,7 +598,7 @@ bool RenderThemeGtk::paintInnerSpinButton(RenderObject* renderObject, const Pain
 
     WidgetRenderingContext widgetContext(paintInfo.context, expandedRect);
     GtkWidget* widget = gtkSpinButton();
-    gtk_widget_set_direction(widget, gtkTextDirection(renderObject->style()->direction()));
+    gtk_widget_set_direction(widget, gtkTextDirection(renderObject.style().direction()));
 
     IntRect fullSpinButtonRect(IntPoint(), expandedRect.size());
     widgetContext.gtkPaintBox(fullSpinButtonRect, widget, GTK_STATE_NORMAL, GTK_SHADOW_IN, "spinbutton");
@@ -654,6 +655,7 @@ bool RenderThemeGtk::paintInnerSpinButton(RenderObject* renderObject, const Pain
 GRefPtr<GdkPixbuf> getStockIconForWidgetType(GType widgetType, const char* iconName, gint direction, gint state, gint iconSize)
 {
     ASSERT(widgetType == GTK_TYPE_CONTAINER || widgetType == GTK_TYPE_ENTRY);
+    ASSERT(iconName);
 
     RenderThemeGtk* theme = static_cast<RenderThemeGtk*>(RenderTheme::defaultTheme().get());
     GtkWidget* widget = widgetType == GTK_TYPE_CONTAINER ? GTK_WIDGET(theme->gtkContainer()) : theme->gtkEntry();
@@ -666,8 +668,11 @@ GRefPtr<GdkPixbuf> getStockIconForWidgetType(GType widgetType, const char* iconN
                                               static_cast<GtkIconSize>(iconSize), 0, 0));
 }
 
-GRefPtr<GdkPixbuf> getStockSymbolicIconForWidgetType(GType widgetType, const char* symbolicIconName, const char *fallbackStockIconName, gint direction, gint state, gint iconSize)
+GRefPtr<GdkPixbuf> getStockSymbolicIconForWidgetType(GType widgetType, const char* /* symbolicIconName */, const char* fallbackStockIconName, gint direction, gint state, gint iconSize)
 {
+    if (!fallbackStockIconName)
+        return nullptr;
+
     return getStockIconForWidgetType(widgetType, fallbackStockIconName, direction, state, iconSize);
 }
 
@@ -695,31 +700,31 @@ Color RenderThemeGtk::platformInactiveSelectionForegroundColor() const
     return gtk_widget_get_style(widget)->text[GTK_STATE_ACTIVE];
 }
 
-Color RenderThemeGtk::activeListBoxSelectionBackgroundColor() const
+Color RenderThemeGtk::platformActiveListBoxSelectionBackgroundColor() const
 {
     GtkWidget* widget = gtkTreeView();
     return gtk_widget_get_style(widget)->base[GTK_STATE_SELECTED];
 }
 
-Color RenderThemeGtk::inactiveListBoxSelectionBackgroundColor() const
+Color RenderThemeGtk::platformInactiveListBoxSelectionBackgroundColor() const
 {
     GtkWidget* widget = gtkTreeView();
     return gtk_widget_get_style(widget)->base[GTK_STATE_ACTIVE];
 }
 
-Color RenderThemeGtk::activeListBoxSelectionForegroundColor() const
+Color RenderThemeGtk::platformActiveListBoxSelectionForegroundColor() const
 {
     GtkWidget* widget = gtkTreeView();
     return gtk_widget_get_style(widget)->text[GTK_STATE_SELECTED];
 }
 
-Color RenderThemeGtk::inactiveListBoxSelectionForegroundColor() const
+Color RenderThemeGtk::platformInactiveListBoxSelectionForegroundColor() const
 {
     GtkWidget* widget = gtkTreeView();
     return gtk_widget_get_style(widget)->text[GTK_STATE_ACTIVE];
 }
 
-Color RenderThemeGtk::systemColor(int cssValueId) const
+Color RenderThemeGtk::systemColor(CSSValueID cssValueId) const
 {
     switch (cssValueId) {
     case CSSValueButtontext:
@@ -731,7 +736,7 @@ Color RenderThemeGtk::systemColor(int cssValueId) const
     }
 }
 
-static void gtkStyleSetCallback(GtkWidget* widget, GtkStyle* previous, RenderTheme* renderTheme)
+static void gtkStyleSetCallback(GtkWidget*, GtkStyle*, RenderTheme* renderTheme)
 {
     // FIXME: Make sure this function doesn't get called many times for a single GTK+ style change signal.
     renderTheme->platformColorsDidChange();

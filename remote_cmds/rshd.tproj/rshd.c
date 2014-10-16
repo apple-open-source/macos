@@ -39,6 +39,7 @@
  */
 
 #ifndef lint
+__attribute__((__used__))
 static const char copyright[] =
 "@(#) Copyright (c) 1988, 1989, 1992, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";

@@ -445,7 +445,7 @@ arp_get_next_seq(void)
 static int
 route_get(int s, route_msg * msg_p, struct in_addr iaddr, int if_index)
 {
-    int 			n;
+    ssize_t			n;
     int 			pid = getpid();
     struct rt_msghdr *		rtm = &(msg_p->m_rtm);
     struct sockaddr_inarp *	sin;

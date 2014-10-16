@@ -46,10 +46,10 @@
  * - If the hostname have several addresses, the first will be tried
  *   directly then in turn the other will be tried every 3 seconds
  *   (host_timeout).
- * - UDP requests are tried 3 times, and it tried with a individual timeout of kdc_timeout / 3.
+ * - UDP requests are tried 3 times (ntries), and it tried with a individual timeout of kdc_timeout / ntries.
  * - TCP and HTTP requests are tried 1 time.
  *
- *  Total wait time shorter then (number of addresses * 3) + kdc_timeout seconds.
+ *  Total wait time is (number of addresses * 3) + kdc_timeout seconds.
  *
  */
 
@@ -386,7 +386,7 @@ send_stream(krb5_context context, struct host *host)
 
     if (len < 0)
 	return errno;
-    else if (len < host->data.length) {
+    else if ((size_t)len < host->data.length) {
 	host->data.length -= len;
 	memmove(host->data.data, ((uint8_t *)host->data.data) + len, host->data.length - len);
 	return -1;
@@ -409,7 +409,7 @@ recv_stream(krb5_context context, struct host *host)
 	return HEIM_NET_CONN_REFUSED;
     }
 
-    if (context->max_msg_size - host->data.length < nbytes) {
+    if (context->max_msg_size - host->data.length < (size_t)nbytes) {
 	krb5_set_error_message(context, KRB5KRB_ERR_FIELD_TOOLONG,
 			       N_("TCP message from KDC too large %d", ""),
 			       (int)(host->data.length + nbytes));
@@ -875,8 +875,6 @@ host_create(krb5_context context,
     case KRB5_KRBHST_UDP :
 	host->fun = &udp_fun;
 	break;
-    default:
-	heim_abort("undefined transport protocol: %d", (int)host->hi->proto);
     }
 
     host->tries = host->fun->ntries;
@@ -1064,8 +1062,6 @@ set_fd_status(struct host *h, fd_set *rfds, fd_set *wfds, int *max_fd)
     case DEAD:
     case CONNECT:
 	break;
-    default:
-	heim_abort("set_fd_status: invalid host state: %d", (int)h->state);
     }
     if (h->fd > *max_fd)
 	*max_fd = h->fd + 1;
@@ -1240,7 +1236,7 @@ krb5_sendto_context(krb5_context context,
 		    krb5_const_realm realm,
 		    krb5_data *receive)
 {
-    krb5_error_code ret;
+    krb5_error_code ret = KRB5_KDC_UNREACH;
     krb5_krbhst_handle handle = NULL;
     struct timeval nrstart, nrstop, stop_time;
     int type, freectx = 0;
@@ -1372,6 +1368,7 @@ krb5_sendto_context(krb5_context context,
 	    else
 		action = KRB5_SENDTO_KRBHST;
 
+	    ret = 0;
 	    break;
 	case KRB5_SENDTO_FILTER:
 	    /* default to next state, the filter function might modify this */

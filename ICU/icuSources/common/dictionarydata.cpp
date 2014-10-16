@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2012, International Business Machines
+* Copyright (C) 2014, International Business Machines
 * Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * dictionarydata.h
@@ -19,11 +19,16 @@
 
 U_NAMESPACE_BEGIN
 
-#ifndef CYGWINMSVC /* On Cygwin/MSVC, the error redefinition of symbols occurs.*/
-const int32_t DictionaryData::TRIE_TYPE_BYTES;
-const int32_t DictionaryData::TRIE_TYPE_UCHARS;
-#endif
+const int32_t  DictionaryData::TRIE_TYPE_BYTES = 0;
+const int32_t  DictionaryData::TRIE_TYPE_UCHARS = 1;
+const int32_t  DictionaryData::TRIE_TYPE_MASK = 7;
+const int32_t  DictionaryData::TRIE_HAS_VALUES = 8;
 
+const int32_t  DictionaryData::TRANSFORM_NONE = 0;
+const int32_t  DictionaryData::TRANSFORM_TYPE_OFFSET = 0x1000000;
+const int32_t  DictionaryData::TRANSFORM_TYPE_MASK = 0x7f000000;
+const int32_t  DictionaryData::TRANSFORM_OFFSET_MASK = 0x1fffff;
+    
 DictionaryMatcher::~DictionaryMatcher() {
 }
 
@@ -113,7 +118,7 @@ int32_t BytesDictionaryMatcher::matches(UText *text, int32_t maxLength, int32_t 
             if (count < limit) {
                 if (values != NULL) {
                     values[count] = bt.getValue();
-            }
+                }
                 lengths[count++] = numChars;
             }
             if (result == USTRINGTRIE_FINAL_VALUE) {

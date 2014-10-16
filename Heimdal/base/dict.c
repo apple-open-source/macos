@@ -189,7 +189,7 @@ heim_dict_copy_value(heim_dict_t dict, heim_object_t key)
  */
 
 int
-heim_dict_add_value(heim_dict_t dict, heim_object_t key, heim_object_t value)
+heim_dict_set_value(heim_dict_t dict, heim_object_t key, heim_object_t value)
 {
     struct hashentry **tabptr, *h;
 
@@ -253,13 +253,13 @@ heim_dict_delete_key(heim_dict_t dict, heim_object_t key)
  */
 
 void
-heim_dict_iterate_f(heim_dict_t dict, heim_dict_iterator_f_t func, void *arg)
+heim_dict_iterate_f(heim_dict_t dict, void *arg, heim_dict_iterator_f_t func)
 {
     struct hashentry **h, *g;
 
     for (h = dict->tab; h < &dict->tab[dict->size]; ++h)
 	for (g = *h; g; g = g->next)
-	    func(dict, g->key, g->value, arg);
+	    func(g->key, g->value, arg);
 }
 
 #ifdef __BLOCKS__

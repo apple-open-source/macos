@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -45,19 +45,17 @@ namespace WebCore {
         PolicyIgnore
     };
 
-    // NOTE: Keep in sync with WebKit/mac/WebView/WebFramePrivate.h and WebKit/win/Interfaces/IWebFramePrivate.idl
-    enum FrameLoadType {
-        FrameLoadTypeStandard,
-        FrameLoadTypeBack,
-        FrameLoadTypeForward,
-        FrameLoadTypeIndexedBackForward, // a multi-item hop in the backforward list
-        FrameLoadTypeReload,
-        // Skipped value: 'FrameLoadTypeReloadAllowingStaleData', still present in mac/win public API. Ready to be reused
-        FrameLoadTypeSame = FrameLoadTypeReload + 2, // user loads same URL again (but not reload button)
-        FrameLoadTypeRedirectWithLockedBackForwardList, // FIXME: Merge "lockBackForwardList", "lockHistory", "quickRedirect" and "clientRedirect" into a single concept of redirect.
-        FrameLoadTypeReplace,
-        FrameLoadTypeReloadFromOrigin,
-    };
+enum class FrameLoadType {
+    Standard,
+    Back,
+    Forward,
+    IndexedBackForward, // a multi-item hop in the backforward list
+    Reload,
+    Same, // user loads same URL again (but not reload button)
+    RedirectWithLockedBackForwardList, // FIXME: Merge "lockBackForwardList", "lockHistory", "quickRedirect" and "clientRedirect" into a single concept of redirect.
+    Replace,
+    ReloadFromOrigin,
+};
 
     enum NavigationType {
         NavigationTypeLinkClicked,
@@ -105,7 +103,27 @@ namespace WebCore {
         AboutToInstantiatePlugin,
         NotAboutToInstantiatePlugin
     };
+    
+    enum WebGLLoadPolicy {
+        WebGLBlockCreation,
+        WebGLAllowCreation,
+        WebGLPendingCreation
+    };
 
+    enum class LockHistory {
+        Yes,
+        No
+    };
+
+    enum class LockBackForwardList {
+        Yes,
+        No
+    };
+
+    enum class AllowNavigationToInvalidURL {
+        Yes,
+        No
+    };
 }
 
 #endif

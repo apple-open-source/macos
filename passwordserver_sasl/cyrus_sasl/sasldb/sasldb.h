@@ -97,7 +97,13 @@ LIBSASL_API int _sasldb_listusers(const sasl_utils_t *utils,
 				  sasldb_list_callback_t callback,
 				  void *callback_rock);
 
-/* The rest are implemented in allockey.c and individal drivers need not
+#if defined(KEEP_DB_OPEN)
+void sasldb_auxprop_free (void *glob_context, const sasl_utils_t *utils);
+#else
+#define sasldb_auxprop_free	NULL
+#endif
+
+/* The rest are implemented in allockey.c and individual drivers need not
  * do so */
 /* These two are aliases for getdata/putdata */
 int _sasldb_getsecret(const sasl_utils_t *utils,

@@ -435,7 +435,7 @@ static void update_physmem(struct globalstat *gs,
     
     total_free = (uint64_t)tsamp->vm_stat.free_count * tsamp->pagesize;
     total_used_count = (uint64_t)tsamp->vm_stat.wire_count + tsamp->vm_stat.inactive_count
-			+ tsamp->vm_stat.active_count;
+			+ tsamp->vm_stat.active_count + tsamp->vm_stat.compressor_page_count;
     total_used = total_used_count * tsamp->pagesize;
 
     wiredresult = top_init_uinteger(tsamp->vm_stat.wire_count

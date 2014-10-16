@@ -749,11 +749,11 @@ void ServiceBrowserCallback (DNSServiceRef sdRef,
     CFStringRef cfServiceName = CFStringCreateWithCString(NULL, serviceName, kCFStringEncodingUTF8);
     if (cfServiceName == NULL)
     {
-        static int msg_count = 0;
-        if (msg_count < 1000)
+        static int msgCount = 0;
+        if (msgCount < 1000)
         {
             asl_log(NULL, NULL, ASL_LEVEL_INFO, "%s:%s Can not create CFString for serviceName %s", sPluginIdentifier, __FUNCTION__, serviceName);
-            msg_count++;
+            msgCount++;
         }
         return;
     }

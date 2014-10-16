@@ -29,8 +29,8 @@
 class U128
 {
 public:
-	U128(uint64_t lo = 0) : lo(lo), hi(0)				{ };
-	U128(uint64_t hi, uint64_t lo)	: lo(lo), hi(hi)	{ };
+	U128(uint64_t _lo = 0) : lo(_lo), hi(0)				{ };
+	U128(uint64_t _hi, uint64_t _lo)	: lo(_lo), hi(_hi)	{ };
 	inline bool operator==( const U128 &A ) const	 	{ return ( A.hi == hi ) && ( A.lo == lo ); }
 	inline bool operator>( const U128 &A ) const		{ return ( ( A.hi > hi ) || ( ( A.hi == hi ) && ( A.lo > lo ) ) ); }
 	inline bool operator<( const U128 &A ) const 		{ return !( ( A.hi > hi ) || ( ( A.hi == hi ) && ( A.lo > lo ) ) ); }

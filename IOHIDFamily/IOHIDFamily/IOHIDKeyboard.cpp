@@ -182,13 +182,13 @@ IOHIDKeyboard::start(IOService *provider)
 
 void IOHIDKeyboard::stop(IOService * provider)
 {    
+    _provider = NULL;
     if (_asyncLEDThread)
     {
 	thread_call_cancel(_asyncLEDThread);
 	thread_call_free(_asyncLEDThread);
 	_asyncLEDThread = 0;
     }
-
     super::stop(provider);
 }
 
@@ -213,6 +213,8 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 {
     UInt32  alpha   = usage;
     bool    repeat  = ((options & kHIDDispatchOptionKeyboardNoRepeat) == 0);
+    UInt32          vendorID = _provider ? _provider->getVendorID() : 0;
+    unsigned int    keycode = 0xff;
     
     if ((usagePage > 0xffff) || (usage > 0xffff))
         IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage/page unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
@@ -222,25 +224,43 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 	{
 		case kHIDPage_KeyboardOrKeypad:
         case kHIDPage_AppleVendorKeyboard:
-            unsigned int keycode;
-            
             if (repeat != _repeat)
             {
                 _repeat = repeat;
                 setRepeatMode(_repeat);
             }
-            if ( usagePage == kHIDPage_KeyboardOrKeypad )
-                keycode = _usb_2_adb_keymap[alpha];
-            else
-                keycode = _usb_apple_2_adb_keymap[alpha];
 
-            if ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
-                super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
-            else 
-                super::dispatchKeyboardEvent(keycode, keyDown, timeStamp);
+            do {
+                if ( usagePage == kHIDPage_KeyboardOrKeypad ) {
+                    if ( alpha >= sizeof(_usb_2_adb_keymap) ) {
+                        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+                        break;
+                    }
+
+                    keycode = _usb_2_adb_keymap[alpha];
+                }
+                else {
+                    if ( alpha >= sizeof(_usb_apple_2_adb_keymap) ) {
+                        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+                        break;
+                    }
+
+                    keycode = _usb_apple_2_adb_keymap[alpha];
+                }
+
+                if ((usagePage == kHIDPage_AppleVendorKeyboard) &&
+                    (usage == kHIDUsage_AppleVendorKeyboard_Function) &&
+                    _containsFKey) {
+                    super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
+                }
+                else {
+                    super::dispatchKeyboardEvent(keycode, keyDown, timeStamp);
+                }
+            } while ( 0 );
             break;
+            
         case kHIDPage_AppleVendorTopCase:
-            if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
+            if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) && _containsFKey)
                 super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
 			break;
 	}
@@ -265,6 +285,7 @@ IOHIDKeyboard::_asyncLED(OSObject *target)
 void
 IOHIDKeyboard::Set_LED_States(UInt8 ledState)
 {
+    if (_provider) {
     bool				resync = _resyncLED;
     
     _resyncLED = FALSE;
@@ -278,6 +299,7 @@ IOHIDKeyboard::Set_LED_States(UInt8 ledState)
 		
 		_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
     }    
+    }
 }
 
 //******************************************************************************
@@ -345,9 +367,11 @@ IOHIDKeyboard::getLEDStatus (void )
 {
     unsigned	ledState = 0;
     
+    if (_provider) {
     for (int i=0; i<2; i++)
     {
 		ledState |= (_provider->getElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock)) << i;
+    }
     }
     return ledState;
 }
@@ -373,7 +397,7 @@ IOHIDKeyboard::deviceType ( void )
     }
     //Info.plist key is <integer>, not <string>
     else {
-        xml_handlerID = (OSNumber*)_provider->copyProperty("alt_handler_id");
+        xml_handlerID = _provider ? (OSNumber*)_provider->copyProperty("alt_handler_id") : NULL;
         if ( OSDynamicCast(OSNumber, xml_handlerID) ) {
         id = xml_handlerID->unsigned32BitValue();
     }
@@ -428,11 +452,11 @@ IOHIDKeyboard::interfaceID ( void )
 UInt32
 IOHIDKeyboard::handlerID ( void )
 {
-    UInt16 productID    = _provider->getProductID();
-    UInt16 vendorID     = _provider->getVendorID();
     UInt32 ret_id       = kgestUSBUnknownANSIkd;  //Default for all unknown USB keyboards is 2
 
-    //New feature for hardware identification using Gestalt.h values
+    if (_provider) {
+        UInt16 productID    = _provider->getProductID();
+        UInt16 vendorID     = _provider->getVendorID();
     if (vendorID == kIOUSBVendorIDAppleComputer)
     {
         switch (productID)
@@ -498,6 +522,7 @@ IOHIDKeyboard::handlerID ( void )
                     ret_id = kgestUSBCosmoANSIKbd;  
                     break;
         }
+    }
     }
 
     return ret_id;  //non-Apple USB keyboards should all return "2"

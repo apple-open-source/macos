@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -30,6 +30,7 @@
 #define AudioScheduledSourceNode_h
 
 #include "AudioNode.h"
+#include "ExceptionCode.h"
 
 namespace WebCore {
 
@@ -57,12 +58,12 @@ public:
     AudioScheduledSourceNode(AudioContext*, float sampleRate);
 
     // Scheduling.
-    void start(double when);
-    void stop(double when);
+    void start(double when, ExceptionCode&);
+    void stop(double when, ExceptionCode&);
 
 #if ENABLE(LEGACY_WEB_AUDIO)
-    void noteOn(double when);
-    void noteOff(double when);
+    void noteOn(double when, ExceptionCode&);
+    void noteOff(double when, ExceptionCode&);
 #endif
 
     unsigned short playbackState() const { return static_cast<unsigned short>(m_playbackState); }

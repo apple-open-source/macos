@@ -1,20 +1,48 @@
-USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2012 AT&T Intellectual Property][-license?http://www.eclipse.org/org/documents/epl-v10.html]"
+### this script contains archaic constructs that work with all sh variants ###
 # package - source and binary package control
-# this script is written to make it through all sh variants
 # Glenn Fowler <gsf@research.att.com>
+
+command=package
 
 case $-:$BASH_VERSION in
 *x*:[0123456789]*)	: bash set -x is broken :; set +ex ;;
 esac
 
-command=package
+# ksh checks -- ksh between 2007-11-05 and 2011-11-11 conflict with new -lcmd -- wea culpa
+checksh()
+{
+	egrep 'Version.*(88|1993)' $1 >/dev/null 2>&1 ||
+	$1 -c '(( .sh.version >= 20111111 ))' >/dev/null 2>&1
+}
+
+case $_AST_BIN_PACKAGE_:$SHELL:$0 in
+1:*:*|*:/bin/sh:*)
+	;;
+*:*/*:*/*)
+	_AST_BIN_PACKAGE_=1 # prevent non-interactive sh .rc referencing bin/package recursion #
+	export _AST_BIN_PACKAGE_
+	if	checksh $SHELL
+	then	: no -lcmd conflict :
+	else	case " $* " in
+		*" debug "*|*" DEBUG "*|*" show "*)
+			echo $command: $SHELL: warning: possible -lcmd conflict -- falling back to /bin/sh >&2
+			;;
+		esac
+		SHELL=/bin/sh
+		export SHELL
+		exec $SHELL "$0" "$@"
+	fi
+	;;
+esac
 
 LC_ALL=C
+export LC_ALL
 
 src="cmd contrib etc lib"
 use="/usr/common /exp /usr/local /usr/add-on /usr/addon /usr/tools /usr /opt"
 usr="/home"
-lib="/usr/local/lib /usr/local/shlib"
+lib="" # nee /usr/local/lib /usr/local/shlib
 ccs="/usr/kvm /usr/ccs/bin"
 org="gnu GNU"
 makefiles="Mamfile Nmakefile nmakefile Makefile makefile"
@@ -40,16 +68,18 @@ admin_ping="ping -c 1 -w 5"
 default_url=default.url
 MAKESKIP=${MAKESKIP:-"*[-.]*"}
 RATZ=ratz
+SED=
 TAR=tar
 TARFLAGS=xv
 TARPROBE=B
+TR=
 
 all_types='*.*|sun4'		# all but sun4 match *.*
 
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	USAGE=$'
 [-?
-@(#)$Id: package (AT&T Research) 2011-02-02 $
+@(#)$Id: package (AT&T Research) 2012-06-28 $
 ]'$USAGE_LICENSE$'
 [+NAME?package - source and binary package control]
 [+DESCRIPTION?The \bpackage\b command controls source and binary
@@ -152,7 +182,13 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
                 [+M T W?The \badmin\b action \bmake\b, \btest\b and
                     \bwrite\b action error counts. A non-numeric value in
                     any of these fields disables the corresponding action.]
+	    	[+owner?The owner contact information.]
+		[+attributes?\aname=value\a attributes. Should at least contain
+		    \bcc\b=\acompiler-version\a.]
             }
+	[+clean | clobber?Delete the \barch/\b\aHOSTTYPE\a hierarchy; this
+	    deletes all generated files and directories for \aHOSTTYPE\a.
+	    The heirarchy can be rebuilt by \bpackage make\b.]
         [+contents\b [ \apackage\a ... ]]?List description and
             components for \apackage\a on the standard output.]
         [+copyright\b [ \apackage\a ... ]]?List the general copyright
@@ -288,16 +324,18 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
             packages is updated. This action requires \bwget\b(1), \blynx\b(1),
             \bcurl\b(1) or a shell that supports io to
 	    \b/dev/tcp/\b\ahost\a/\aport\a.]
-        [+use\b [ \auid\a | \apackage\a | - ]] [ command ...]]?Run
+        [+use\b [ \auid\a | \apackage\a | . [ 32 | 64 ]] | 32 | 64 | - ]] [ command ...]]?Run
             \acommand\a, or an interactive shell if \acommand\a is omitted,
             with the environment initialized for using the package (can you
             say \ashared\a \alibrary\a or \adll\a without cussing?) If
-            either \auid\a or \apackage\a is specified then it is used to
-            determine a \b$PACKAGEROOT\b, possibly different from the
-            current directory. For example, to try out bozo`s package:
+            \auid\a or \apackage\a or \a.\a is specified then it is used
+	    to determine a \b$PACKAGEROOT\b, possibly different from
+	    the current directory. For example, to try out bozo`s package:
             \bpackage use bozo\b. The \buse\b action may be run from any
             directory. If the file \b$INSTALLROOT/lib/package/profile\b is
-            readable then it is sourced to initialize the environment.]
+            readable then it is sourced to initialize the environment. 32 or 64
+	    implies \b$PACKAGEROOT\b of . and specifies the target architecture
+	    word size (which may be silently ignored.)]
         [+verify\b [ \apackage\a ]]?Verify installed binary files
             against the checksum files in
             \b$INSTALLROOT/lib/\b\apackage\a\b/gen/*.sum\b. The checksum
@@ -499,6 +537,7 @@ action=
 admin_all=1
 admin_on=
 authorize=
+bit=
 exec=
 flat=0
 force=0
@@ -536,7 +575,7 @@ do	case $# in
 	0)	set host type ;;
 	esac
 	case $1 in
-	admin|contents|copyright|export|host|install|license|list|make|read|regress|release|remove|results|setup|test|update|use|verify|view|write|TEST)
+	admin|clean|clobber|contents|copyright|export|host|install|license|list|make|read|regress|release|remove|results|setup|test|update|use|verify|view|write|TEST)
 		action=$1
 		shift
 		break
@@ -604,8 +643,8 @@ do	case $# in
 			bH="<CENTER><H3><FONT face=courier color=red>"
 			eH='</FONT></H3></CENTER>'
 			bP='<P>'
-			bL='<P><TABLE cellpadding=0 cellspacing=2>'		
-			bL2='<P><TABLE border=0 cellpadding=0 cellspacing=2>'		
+			bL='<P><TABLE cellpadding=0 cellspacing=2>'
+			bL2='<P><TABLE border=0 cellpadding=0 cellspacing=2>'
 			eL='</TABLE><P>'
 			bT='<TR><TD align=right valign=top><B>'
 			bD='</B></TD><TD align=left>'	eD='</TD></TR>'
@@ -671,7 +710,7 @@ ${bT}(3)${bD}These instructions bypass the ${bI}click to download${eI} package l
 ${bT}(4)${bD}If the ${bB}bin/package${eB} script does not exist then run:${bX}
 		test -d bin || mkdir bin
 		url=\$URL/package
-		(wget -O bin/package \$url||curl \$url||hurl \$url) > bin/package
+		(wget -O - \$url||curl -L \$url||hurl \$url) > bin/package
 		chmod +x bin/package${eX}${eD}
 ${bT}(5)${bD}Determine the list of package names you want from the download site, then
       use the ${Mpackage} command to do the actual download:${bX}
@@ -830,7 +869,7 @@ ${bT}(3)${bD}These instructions bypass the ${bI}click to download${eI} package l
 ${bT}(4)${bD}If the ${bB}bin/package${eB} script does not exist then run:${bX}
 		test -d bin || mkdir bin
 		url=\$URL/package
-		(wget -O bin/package \$url||curl \$url||hurl \$url) > bin/package
+		(wget -O - \$url||curl -L \$url||hurl \$url) > bin/package
 		chmod +x bin/package${eX}${eD}
 ${bT}(5)${bD}Determine the list of package names you want from the download site, then
       use the ${Mpackage} command to do the actual download:${bX}
@@ -963,6 +1002,14 @@ ${bT}(5)${bD}Read all unread package archive(s):${bX}
 		   M T W   The admin action make, test and write action error
 			   counts. A non-numeric value in any of these fields
 			   disables the corresponding action.
+	    	   owner   The owner contact information.
+		   attributes
+		           NAME=VALUE attributes. Should at least contain
+			   cc=compiler-version.
+	clean | clobber
+	    Delete the arch/HOSTTYPE hierarchy; this deletes all generated
+	    files and directories for HOSTTYPE. The heirarchy can be rebuilt
+	    by package make.]
 	contents [ package ... ]
 		List description and components for PACKAGE on the standard
 		output.
@@ -1099,16 +1146,18 @@ ${bT}(5)${bD}Read all unread package archive(s):${bX}
 		the closure of required packages is updated. This action
 		requires wget(1), lynx(1), curl(1) or a shell that supports
 		io to /dev/tcp/HOST/PORT.
-   	use [ uid | PACKAGE | - ] [ COMMAND ... ]
+   	use [ uid | PACKAGE | . [ 32 | 64 ] | 32 | 64 | - ] [ COMMAND ... ]
    		Run COMMAND or an interactive shell if COMMAND is omitted, with
 		the environment initialized for using the package (can you say
-		shared library without cussing?) If either uid or PACKAGE is
+		shared library without cussing?) If uid or PACKAGE or . is
 		specified then it is used to determine a \$PACKAGEROOT,
 		possibly different from the current directory. For example, to
 		try out bozo's package: \"package use bozo\". In this case the
 		command may be run from any directory. If the file
 		\$INSTALLROOT/lib/package/profile is readable then it is
-		sourced to initialize the environment.]
+		sourced to initialize the environment. 32 or 64 implies
+		\$PACKAGEROOT of . and specifies the target architecture word
+		size (which may be silently ignored.)
 	verify [ PACKAGE ]
 		Verify installed binary files against the checksum files in
 		\$INSTALLROOT/lib/package/gen/*.sum. The checksum files contain
@@ -1365,6 +1414,78 @@ setup)	PACKAGEROOT=${PWD:-`pwd`}
 	export PACKAGEROOT
 	KEEP_PACKAGEROOT=1
 	;;
+use)	case $1 in
+	.|32|64)case $1 in
+		32|64)	bit=$1 ;;
+		esac
+		shift
+
+		# HOSTTYPE specific setup
+
+		case $HOSTTYPE in
+		win32.*)sys=uwin
+			wow=`uname -i`
+			case $bit in
+			32)	case $HOSTTYPE in
+				*-64)	HOSTTYPE=${HOSTTYPE%-64} ;;
+				esac
+				case $wow in
+				*/32)	;;
+				*)	vpath / /$bit ;;
+				esac
+				;;
+			64)	case $HOSTTYPE in
+				*-64)	;;
+				*)	HOSTTYPE=$HOSTTYPE-64 ;;
+				esac
+				case $wow in
+				*/32)	echo $command: cannot build $bit-bit on $wow $sys >&2; exit 2 ;;
+				*)	vpath / /$bit ;;
+				esac
+				;;
+			esac
+			case $bit in
+			'')	PS1="($sys) " ;;
+			*)	PS1="($sys-$bit) " ;;
+			esac
+
+			$exec umask 002
+			$exec unset MAKESKIP
+
+			$exec export P=$PWD
+			$exec export A=$P/arch/$HOSTTYPE
+
+			$exec export CDPATH=:..:$A/src/cmd:$A/src/lib:$A/src/uwin:$P/lib/package
+			$exec export INSTALLROOT=$A
+			$exec export PACKAGEROOT=$P
+			$exec export PATH=$A/bin:$P/bin:$PATH
+			$exec export PS1="$PS1"
+			$exec export VPATH=$A:$P
+			$exec export nativepp=/usr/lib
+
+			if	test '' != "$INSTALLROOT" -a -d $INSTALLROOT/include/ast
+			then	$exec export PACKAGE_ast=$INSTALLROOT
+			elif	test -d ${PWD%/*}/ast/arch/$HOSTTYPE
+			then	$exec export PACKAGE_ast=${PWD%/*}/ast/arch/$HOSTTYPE
+			fi
+
+			# run the command
+
+			case $# in
+			0)	case $show in
+				':')	$exec exec $SHELL ;;
+				esac
+				;;
+			*)	$exec exec $SHELL -c "$@"
+				;;
+			esac
+			exit
+			;;
+		esac
+		PACKAGEROOT=${PWD:-`pwd`}
+		$show export PACKAGEROOT
+	esac
+	;;
 esac
 
 # true if arg is a valid PACKAGEROOT
@@ -1460,9 +1581,9 @@ hostinfo() # attribute ...
 		done
 		PATH=$PATH:$i/bin
 	done
-	case $* in
-	type)	# LD_LIBRARY_PATH may be out of sync with PATH here
-		SED=sed
+	# LD_LIBRARY_PATH may be out of sync with PATH here
+	case $SED in
+	'')	SED=sed
 		$SED 1d < /dev/null > /dev/null 2>&1 ||
 		for dir in /bin /usr/bin
 		do	if	test -x $dir/$SED
@@ -1530,7 +1651,7 @@ hostinfo() # attribute ...
 
 	_hostinfo_=
 	for info
-	do	
+	do
 	case $info in
 	cpu)	case $NPROC in
 		[123456789]*)
@@ -1801,6 +1922,9 @@ int main()
 			case $a in
 			''|*' '*|*/*:*)
 				;;
+			*.*-*)	_hostinfo_="$_hostinfo_ $a"
+				continue
+				;;
 			*-*-*)	case $canon in
 				'')	canon=$a ;;
 				esac
@@ -1859,14 +1983,14 @@ int main()
 			'')	h=local ;;
 			esac
 			a=`arch || uname -m || att uname -m || uname -s || att uname -s`
-			case $a in 
+			case $a in
 			*[\ \	]*)	a=`echo $a | $SED "s/[ 	]/-/g"` ;;
 			esac
 			case $a in
 			'')	a=unknown ;;
 			esac
 			m=`mach || machine || uname -p || att uname -p`
-			case $m in 
+			case $m in
 			*[\ \	]*)	m=`echo $m | $SED "s/[ 	]/-/g"` ;;
 			esac
 			case $m in
@@ -2287,7 +2411,8 @@ int main()
 				*) abi=-64 ;;
 				esac
 				;;
-			*)	cd ${TMPDIR:-/tmp}
+			*)	pwd=`pwd`
+				cd ${TMPDIR:-/tmp}
 				tmp=hi$$
 				trap 'rm -f $tmp.*' 0 1 2
 				cat > $tmp.a.c <<!
@@ -2319,6 +2444,9 @@ int b() { return 0; }
 						fi
 					done
 				fi </dev/null >/dev/null 2>&1
+				rm -f $tmp.*
+				trap - 0 1 2
+				cd $pwd
 				;;
 			esac
 			case $type$abi in
@@ -2335,6 +2463,29 @@ int b() { return 0; }
 			sgi.mips[456789]-64)
 				;;
 			*)	type=$type$abi
+				;;
+			esac
+			;;
+		*)	case $bits in
+			'')	case `file /bin/sh 2>/dev/null` in
+				*universal*64*)
+					pwd=`pwd`
+					cd ${TMPDIR:-/tmp}
+					tmp=hi$$
+					trap 'rm -f $tmp.*' 0 1 2
+					cat > $tmp.a.c <<!
+int main() { return 0; }
+!
+					if	$cc -o $tmp.a.exe $tmp.a.c
+					then	case `file $tmp.a.exe` in
+						*64*)	bits=64 ;;
+						esac
+					fi </dev/null >/dev/null 2>&1
+					rm -f $tmp.*
+					trap - 0 1 2
+					cd $pwd
+					;;
+				esac
 				;;
 			esac
 			;;
@@ -2588,12 +2739,6 @@ case $x in
 	$show export INSTALLROOT
 	export INSTALLROOT
 
-	# HOSTTYPE specific package profile
-
-	if	test -r $INSTALLROOT/lib/package/profile
-	then	. $INSTALLROOT/lib/package/profile
-	fi
-
 	# check the basic package hierarchy
 
 	case $action in
@@ -2621,17 +2766,21 @@ case $x in
 			esac
 		}
 
-		for i in arch arch/$HOSTTYPE
-		do	test -d $PACKAGEROOT/$i || $exec mkdir $PACKAGEROOT/$i || exit
-		done
-		for i in lib
-		do	test -d $INSTALLROOT/$i || $exec mkdir $INSTALLROOT/$i || exit
-		done
+		case $action in
+		admin)	;;
+		*)	for i in arch arch/$HOSTTYPE
+			do	test -d $PACKAGEROOT/$i || $exec mkdir $PACKAGEROOT/$i || exit
+			done
+			for i in lib
+			do	test -d $INSTALLROOT/$i || $exec mkdir $INSTALLROOT/$i || exit
+			done
+			;;
+		esac
 
 		# no $INITROOT means INIT already installed elsewhere
 
 		if	test -d $INITROOT
-		then	
+		then
 			# update the basic package commands
 
 			for i in execrate ignore mamprobe silent
@@ -2670,7 +2819,7 @@ cat $INITROOT/$i.sh
 	PATH=$path
 	case $cc in
 	?*)	if	test -f $INITROOT/hello.c
-		then	
+		then
 			# check if $CC (full path $cc) is a cross compiler
 
 			(
@@ -2904,14 +3053,7 @@ cat $INITROOT/$i.sh
 	case $KEEP_SHELL in
 	0)	executable "$SHELL" || SHELL=
 		case $SHELL in
-		?*)	case `$SHELL -c 'echo $KSH_VERSION' 2>&1` in
-			Version*????-??-??)
-				;;
-			?*)	: any output here means $SHELL is not reliable for scripting
-				SHELL=
-				;;
-			esac
-			;;
+		?*)	checksh $SHELL || SHELL= ;;
 		esac
 		case $SHELL in
 		''|/bin/*|/usr/bin/*)
@@ -2919,13 +3061,9 @@ cat $INITROOT/$i.sh
 			'')	SHELL=/bin/sh ;;
 			esac
 			for i in ksh sh bash
-			do	if	onpath $i
-				then	case `$_onpath_ -c 'echo $KSH_VERSION' 2>&1` in
-					Version*????-??-??|'')
-						SHELL=$_onpath_
-						break
-						;;
-					esac
+			do	if	onpath $i && checksh $_onpath_
+				then	SHELL=$_onpath_
+					break
 				fi
 			done
 			;;
@@ -3025,6 +3163,7 @@ cat $INITROOT/$i.sh
 	esac
 	;;
 esac
+
 PACKAGESRC=$PACKAGEROOT/lib/package
 PACKAGEBIN=$INSTALLROOT/lib/package
 case $action:$run in
@@ -3037,6 +3176,12 @@ use:-)	set '' $args
 	run="$@"
 	;;
 esac
+
+# HOSTTYPE specific package profile
+
+if	test -r $INSTALLROOT/lib/package/profile
+then	. $INSTALLROOT/lib/package/profile
+fi
 
 # more cygwin hassles
 
@@ -3075,7 +3220,8 @@ esac
 # set up the view state
 
 VIEW_bin=$INSTALLROOT VIEW_src=$PACKAGEROOT VIEW_all="$INSTALLROOT $PACKAGEROOT"
-if	(vpath) >/dev/null 2>&1 && vpath $INSTALLROOT $PACKAGEROOT $USER_VPATH_CHAIN
+if	(vpath $INSTALLROOT $PACKAGEROOT $USER_VPATH_CHAIN) >/dev/null 2>&1 &&
+	 vpath $INSTALLROOT $PACKAGEROOT $USER_VPATH_CHAIN
 then	$show vpath $INSTALLROOT $PACKAGEROOT $USER_VPATH_CHAIN
 else	VPATH=$INSTALLROOT:$PACKAGEROOT$USER_VPATH
 	$show VPATH=$VPATH
@@ -3355,7 +3501,8 @@ int main(int argc, char** argv) { return argc || argv; }
 						esac
 						$exec touch $PROTOROOT/UPDATE
 					)
-					if (vpath) >/dev/null 2>&1 && vpath $INSTALLROOT - && vpath $INSTALLROOT $PROTOROOT $PROTOROOT $PACKAGEROOT
+					if	(vpath $INSTALLROOT - $INSTALLROOT $PROTOROOT $PROTOROOT $PACKAGEROOT) >/dev/null 2>&1 &&
+						 vpath $INSTALLROOT - $INSTALLROOT $PROTOROOT $PROTOROOT $PACKAGEROOT
 					then	$show vpath $INSTALLROOT $PROTOROOT $PROTOROOT $PACKAGEROOT $USER_VPATH_CHAIN
 					else	VPATH=$INSTALLROOT:$PROTOROOT:$PACKAGEROOT$USER_VPATH
 						$show VPATH=$VPATH
@@ -3868,20 +4015,17 @@ package_verify() # sum
 
 make_recurse() # dir
 {
-	_make_recurse_k=0
 	for _make_recurse_j in $makefiles
 	do	if	view - $1/$_make_recurse_j
-		then	_make_recurse_k=1
-			break
+		then	return
 		fi
 	done
-	case $_make_recurse_k in
-	0)	case $exec in
+	if	test -d $1
+	then	case $exec in
 		'')	echo :MAKE: > $1/Makefile || exit ;;
 		*)	$exec "echo :MAKE: > $1/Makefile" ;;
 		esac
-		;;
-	esac
+	fi
 }
 
 get() # host path [ file size ]
@@ -4168,7 +4312,7 @@ checksrc()
 {
 	case $package_src in
 	'')	package_src=$src
-		for _i_ in `cd $PACKAGESRC; ls *.lic 2>/dev/null | sed 's/[-.].*//'`
+		for _i_ in `cd $PACKAGESRC; ls *.def *.lic *.pkg 2>/dev/null | sed 's/[-.].*//'`
 		do	case " $package_src " in
 			*" $_i_ "*)
 				;;
@@ -4258,10 +4402,10 @@ admin)	while	test ! -f $admin_db
 	esac
 	trap 'kill $pids >/dev/null 2>&1' 1 2 3 15
 	index=0
-	while	read type host root date time make test write comment
+	while	read type host root date time make test write owner attributes
 	do	case $type in
 		''|'#'*);;
-		*=*)	eval "$type $host $root $date $time $make $test $write $comment"
+		*=*)	eval "$type $host $root $date $time $make $test $write $owner $attributes"
 			;;
 		*)	case $admin_action in
 			make|test|write)
@@ -4282,6 +4426,7 @@ admin)	while	test ! -f $admin_db
 			*)	user=
 				;;
 			esac
+			: type=$type host=$host root=$root date=$date time=$time make=$make test=$test write=$write :
 			name=$host
 			host=`echo $name | sed 's,[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789],__,g'`
 			eval x='$'${host}_index
@@ -4507,6 +4652,30 @@ admin)	while	test ! -f $admin_db
 		remote_hosts=$remote
 		;;
 	esac
+	for host in $remote_hosts $local_hosts
+	do	eval share=\$${host}_share
+		case $share in
+		?*)	while	:
+			do	oshare=$share
+				for s in $share
+				do	eval r='$'${s}_share
+					case $r in
+					?*)	case " $share " in
+						*" $r "*)	;;
+						*)		share="$share $r" ;;
+						esac
+						;;
+					esac
+				done
+				case $share in
+				$oshare)	eval ${host}_share="'$share'"
+						break
+						;;
+				esac
+			done
+			;;
+		esac
+	done
 	for host in $remote_hosts
 	do	eval type=\$${host}_type
 		case " $local_types " in
@@ -4590,7 +4759,7 @@ admin)	while	test ! -f $admin_db
 			case $admin_binary:$sync in
 			:?*)	eval syncname='$'${sync}_name
 				test -x $PACKAGEROOT/bin/package && $admin_ditto $admin_ditto_update --remote=$rsh --expr="name=='package'" $PACKAGEROOT/bin $user$syncname:$root/bin
-				test -d $PACKAGESRC && $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
+				test -d $PACKAGESRC && $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1&&path!='LICENSES/*')status=SKIP;path=='LICENSES*|*.(pkg|lic|def)'" $PACKAGESRC $user$syncname:$root/lib/package
 				for dir in $package_src
 				do	case $MAKESKIP in
 					'')	expr="--expr=if(name=='$admin_ditto_skip')status=SKIP" ;;
@@ -4627,7 +4796,7 @@ admin)	while	test ! -f $admin_db
 		*)	echo "{"
 			case $admin_binary:$sync in
 			:?*)	eval syncname='$'${sync}_name
-				test -d $PACKAGESRC && echo $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
+				test -d $PACKAGESRC && echo $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic|def)'" $PACKAGESRC $user$syncname:$root/lib/package
 				for dir in $package_src
 				do	case $MAKESKIP in
 					'')	expr="--expr=if(name=='$admin_ditto_skip')status=SKIP" ;;
@@ -4701,7 +4870,7 @@ admin)	while	test ! -f $admin_db
 					M=$6 T=$7 W=$8
 					case $admin_action in
 					make|view)
-						M=`grep -c ']:.* \*\*\*.* code ' $admin_log/$2` ;;
+						M=`egrep -c ']:.* (\*\*\*.* code|don'\''t know) | \*\*\* termination code ' $admin_log/$2` ;;
 					test)	T=`grep -ci 'fail[es]' $admin_log/$2` ;;
 					*)	W=`grep '^[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz]*:.' $admin_log/$2 | egrep -cv 'start at|done  at|output captured|warning:|: package not found|whence: command not found'` ;;
 					esac
@@ -4758,14 +4927,23 @@ admin)	while	test ! -f $admin_db
 					H=$2$t2
 					R=$3$t3
 					case $# in
-					[0-8])	C=
+					[0-8])	O=
+						K=
 						;;
 					*)	shift 8
-						C=" $*"
+						O=$1
+						K=$2
+						case $O in
+						''|?|??|???)	K="	$K" ;;
+						esac
+						case $# in
+						[0-2])	;;
+						*)	K="$K $*" ;;
+						esac
 						;;
 					esac
-					echo "$A	$H	$R	$D	$E	$M $T $W$C"
-					echo "$A	$H	$R	$D	$E	$M $T $W$C" >&9
+					echo "$A	$H	$R	$D	$E	$M $T $W $O	$K"
+					echo "$A	$H	$R	$D	$E	$M $T $W $O	$K" >&9
 					continue
 					;;
 				esac
@@ -4777,6 +4955,12 @@ admin)	while	test ! -f $admin_db
 		mv $admin_db.new $admin_db
 		;;
 	esac
+	;;
+
+clean|clobber)
+	cd $PACKAGEROOT
+	$exec rm -rf $INSTALLROOT
+	exit
 	;;
 
 contents|list)
@@ -5138,29 +5322,46 @@ license)# all work in $PACKAGESRC/LICENSES
 			;;
 		esac
 		;;
+	*)	checkaout proto || exit
+		a=
+		for i
+		do	while	:
+			do	if	test -f ../$i.lic
+				then	j=`proto -df -l ../$i.lic -o query=type /dev/null 2>/dev/null`
+					case $j in
+					?*)	if	test -f $j
+						then	case " $a " in
+							*" $j "*)	;;
+							*)		a="$a $j" ;;
+							esac
+						fi
+						break
+						;;
+					esac
+				fi
+				case $i in
+				*-*)	i=`echo $i | sed 's/-[^-]*$//'`
+					;;
+				*)	echo "$command: $i: package license not found" >&2
+					break
+					;;
+				esac
+			done
+		done
+		set '' $a
+		shift
+		;;
 	esac
 	for i
-	do	j=$i
-		while	:
-		do	if	test -f $j
-			then	case $exec in
-				'')	echo
-					echo "		--- $j package source license ---"
-					echo
-					cat $j
-					;;
-				*)	echo $PACKAGESRC/LICENSES/$j
-				esac
-				break
-			fi
-			case $j in
-			*-*)	j=`echo $j | sed -e 's,-[^-]*$,,'`
-				;;
-			*)	echo "$command: $i: no package license" >&2
-				break
-				;;
-			esac
-		done
+	do	case $exec in
+		'')	echo
+			echo "		--- $i source license ---"
+			echo
+			cat $i
+			;;
+		*)	echo $PACKAGESRC/LICENSES/$i
+			;;
+		esac
 	done
 	;;
 
@@ -5170,7 +5371,7 @@ make|view)
 	'')	lic="lib/package/*.lic"
 		;;
 	*) 	for i in $package
-		do	lic=lib/package/$i.lic
+		do	lic="$lic lib/package/$i.lic"
 			case $i in
 			*-*)	lic="$lic lib/package/"`echo $i | sed 's,-.*,,'`".lic" ;;
 			esac
@@ -5235,7 +5436,10 @@ make|view)
 
 	# verify the top view
 
-	if	test ! -d $INSTALLROOT/src
+	if	test ! -d $PACKAGEROOT/src
+	then	note no source packages to make
+		exit 0
+	elif	test ! -d $INSTALLROOT/src
 	then	note initialize the $INSTALLROOT view
 	fi
 	for i in arch arch/$HOSTTYPE
@@ -5268,15 +5472,32 @@ make|view)
 			done
 		fi
 	done
+	def=
 	for i in $lic
 	do	test -f $i || continue
+		cmp -s $i $INSTALLROOT/$i 2>/dev/null ||
+		$exec cp $PACKAGEROOT/$i $INSTALLROOT/$i
+		for j in `grep '^. .*\.def$' $i`
+		do	case $j in
+			.)	;;
+			*)	case " $def " in
+				*" $i "*)	;;
+				*)		def="$def $i" ;;
+				esac
+				;;
+			esac
+		done
+	done
+	for i in $def
+	do	i=lib/package/$i
+		test -f $i || continue
 		cmp -s $i $INSTALLROOT/$i 2>/dev/null ||
 		$exec cp $PACKAGEROOT/$i $INSTALLROOT/$i
 	done
 
 	# check $CC and { ar cc ld ldd } intercepts
 
-	h=$HOSTTYPE
+	h="${HOSTTYPE} ${HOSTTYPE}.*"
 	case $HOSTTYPE in
 	*.*)	t=`echo $HOSTTYPE | sed 's/[.][^.]*//'`
 		h="$h $t"
@@ -5295,52 +5516,55 @@ make|view)
 		b=$INSTALLROOT/bin/$c
 		t=$INSTALLROOT/lib/package/gen/$c.tim
 		intercept=0
-		for a in $h
-		do	s=$INITROOT/$c.$a
-			test -x "$s" || continue
-			if	cmp -s "$s" "$b" >/dev/null 2>&1
-			then	intercept=1
-				break
-			fi
-			case `ls -t "$t" "$b" "$s" 2>/dev/null` in
-			$t*)	;;
-			$b*)	cc=$b
-				;;
-			$s*)	cd $INSTALLROOT/lib/package/gen
-				tmp=pkg$$
-				eval '$'exec echo "'int main(){return 0;}' > $tmp.c"
-				if	$exec $s -o $tmp.exe $tmp.c >/dev/null 2>&1 &&
-					test -x $tmp.exe
-				then	case $HOSTTYPE in
-					*.mips*)$s -version >/dev/null 2>&1 || s= ;;
-					esac
-					case $s in
-					?*)	$exec sed "s/^HOSTTYPE=.*/HOSTTYPE=$HOSTTYPE/" < "$s" > "$b" || exit
-						$exec chmod +x "$b" || exit
-						cc=$b
-						intercept=1
-						note update $b
-						;;
-					esac
+		for k in $h
+		do	for s in $INITROOT/$c.$k
+			do	test -x "$s" || continue
+				if	cmp -s "$s" "$b" >/dev/null 2>&1
+				then	intercept=1
+					break 2
 				fi
-				$exec rm -f $tmp.*
-				$exec touch "$t"
-				cd $PACKAGEROOT
-				;;
-			esac
+				case `ls -t "$t" "$b" "$s" 2>/dev/null` in
+				$t*)	;;
+				$b*)	cc=$b
+					;;
+				$s*)	cd $INSTALLROOT/lib/package/gen
+					tmp=pkg$$
+					eval '$'exec echo "'int main(){return 0;}' > $tmp.c"
+					if	$exec $s -o $tmp.exe $tmp.c >/dev/null 2>&1 &&
+						test -x $tmp.exe
+					then	case $HOSTTYPE in
+						*.mips*)$s -version >/dev/null 2>&1 || s= ;;
+						esac
+						case $s in
+						?*)	$exec sed "s/^HOSTTYPE=.*/HOSTTYPE=$HOSTTYPE/" < "$s" > "$b" || exit
+							$exec chmod +x "$b" || exit
+							cc=$b
+							intercept=1
+							note update $b
+							;;
+						esac
+					fi
+					$exec rm -f $tmp.*
+					$exec touch "$t"
+					cd $PACKAGEROOT
+					;;
+				esac
+				break 2
+			done
 		done
 		case $intercept in
 		1)	c=ld
 			b=$INSTALLROOT/bin/$c
-			for t in $h
-			do	s=$INITROOT/$c.$t
-				test -x "$s" || continue
-				case `ls -t "$b" "$s" 2>/dev/null` in
-				$b*)	;;
-				$s*)	$exec cp "$s" "$b"
-					note update $b
-					;;
-				esac
+			for k in $h
+			do	for s in $INITROOT/$c.$k
+				do	test -x "$s" || continue
+					case `ls -t "$b" "$s" 2>/dev/null` in
+					$b*)	;;
+					$s*)	$exec cp "$s" "$b"
+						note update $b
+						;;
+					esac
+				done
 			done
 			;;
 		esac
@@ -5441,7 +5665,7 @@ make|view)
 	# no $INITROOT means INIT already installed elsewhere
 
 	if	test -d $INITROOT
-	then	
+	then
 		# update probe scripts
 
 		for i in lib/probe lib/probe/C lib/probe/C/make
@@ -5531,7 +5755,7 @@ cat $j $k
 		esac
 		;;
 	esac
- 
+
 	# separate flags from target list
 
 	case $target in
@@ -5583,7 +5807,8 @@ cat $j $k
 				;;
 			esac
 			if	test '' != "$PROTOROOT"
-			then	if (vpath) >/dev/null 2>&1 && vpath $INSTALLROOT - && vpath $PROTOROOT - && vpath $INSTALLROOT $PACKAGEROOT
+			then	if	(vpath $INSTALLROOT - $PROTOROOT - $INSTALLROOT $PACKAGEROOT) >/dev/null 2>&1 &&
+					 vpath $INSTALLROOT - $PROTOROOT - $INSTALLROOT $PACKAGEROOT
 				then	$show vpath $INSTALLROOT $PACKAGEROOT $USER_VPATH_CHAIN
 				else	VPATH=$INSTALLROOT:$PACKAGEROOT$USER_VPATH
 					$show VPATH=$VPATH
@@ -5628,42 +5853,70 @@ cat $j $k
 
 	case $exec in
 	'')	if	test ! -f $INSTALLROOT/bin/.paths -o -w $INSTALLROOT/bin/.paths
-		then	nl="
-"
-			o=`cat $INSTALLROOT/bin/.paths 2>/dev/null`
-			v=
-			n=
-			case $nl$o in
-			*${nl}FPATH=*|*#FPATH=*|*[Nn][Oo]FPATH=*)
-				;;
-			*)	case $n in
-				'')	;;
-				*)	n="$n$nl" v="$v|" ;;
-				esac
-				n="${n}FPATH=../fun"
-				v="${v}FPATH"
+		then	N='
+'
+			b= f= h= n= p= u= B= L=
+			if	test -f $INSTALLROOT/bin/.paths
+			then	exec < $INSTALLROOT/bin/.paths
+				while	read x
+				do	case $x in
+					'#'?*)		case $h in
+							'')	h=$x ;;
+							esac
+							;;
+					*BUILTIN_LIB=*)	b=$x
+							;;
+					*FPATH=*)	f=$x
+							;;
+					*PLUGIN_LIB=*)	p=$x
+							;;
+					*)		case $u in
+							?*)	u=$u$N ;;
+							esac
+							u=$u$x
+							;;
+					esac
+				done
+			fi
+			ifs=$IFS
+			m=
+			case $p in
+			?*)	b=
 				;;
 			esac
-			case $nl$o in
-			*${nl}BUILTIN_LIB=*|*#BUILTIN_LIB=*|*[Nn][Oo]BUILTIN_LIB=*)
-				;;
-			*)	case $n in
-				'')	;;
-				*)	n="$n$nl" v="$v|" ;;
+			case $b in
+			?*)	IFS='='
+				set $b
+				IFS=$ifs
+				shift
+				p="PLUGIN_LIB=$*"
+				case $b in
+				[Nn][Oo]*)	p=no$p ;;
 				esac
+				m=1
+				;;
+			esac
+			case $f in
+			'')	f="FPATH=../fun"
+				m=1
+				;;
+			esac
+			case $h in
+			'')	h='# use { no NO } prefix to permanently disable #' ;;
+			esac
+			case $p in
+			'')	p="PLUGIN_LIB=cmd"
 				if	grep '^setv mam_cc_DIALECT .* EXPORT=[AD]LL' $INSTALLROOT/lib/probe/C/mam/* >/dev/null 2>&1
-				then	x=
-				else	x='no'
+				then	p=no$p
 				fi
-				n="${n}${x}BUILTIN_LIB=cmd"
-				v="${v}BUILTIN_LIB"
+				m=1
 				;;
 			esac
-			case $n in
-			?*)	case $o in
-				?*)	o=`egrep -v "($v)=" $INSTALLROOT/bin/.paths`$nl ;;
+			case $m in
+			1)	case $u in
+				?*)	u=$N$u ;;
 				esac
-				echo "# use { # no NO } prefix instead of XX to permanently disable #$nl$o$n" > $INSTALLROOT/bin/.paths
+				echo "$h$N$p$N$f$N$u" > $INSTALLROOT/bin/.paths
 				;;
 			esac
 		fi
@@ -6356,7 +6609,7 @@ results)set '' $target
 					;;
 				errors)	$exec egrep -i '\*\*\*|FAIL[ES]|^TEST.* [123456789][0123456789]* error|core.*dump' $j | sed -e '/^TEST.\//s,/[^ ]*/,,'
 					;;
-				rt)	$exec rt - $j
+				rt)	$exec $KSH rt - $j
 					;;
 				*)	$exec egrep -i '^TEST|FAIL' $j
 					;;

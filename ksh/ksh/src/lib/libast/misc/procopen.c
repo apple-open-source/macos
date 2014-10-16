@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -163,7 +163,6 @@ modify(Proc_t* proc, int forked, int op, long arg1, long arg2)
 	if (forked)
 	{
 		int	i;
-		int	k;
 #ifndef TIOCSCTTY
 		char*	s;
 #endif
@@ -202,7 +201,7 @@ modify(Proc_t* proc, int forked, int op, long arg1, long arg2)
 				return -1;
 #endif
 			for (i = 0; i <= 2; i++)
-				if (arg1 != i && arg2 != i && (k = fcntl(arg1, F_DUPFD, i)) != i)
+				if (arg1 != i && arg2 != i && fcntl(arg1, F_DUPFD, i) != i)
 					return -1;
 			if (arg1 > 2)
 				close(arg1);
@@ -260,12 +259,14 @@ modify(Proc_t* proc, int forked, int op, long arg1, long arg2)
 				if (arg2 != PROC_ARG_NULL)
 				{
 					m->arg.fd.child.flag = fcntl(arg2, F_GETFD, 0);
-					if ((m->save = fcntl(arg2, F_DUPFD, 3)) < 0)
+					if ((m->save = fcntl(arg2, F_dupfd_cloexec, 3)) < 0)
 					{
 						m->op = 0;
 						return -1;
 					}
+#if F_dupfd_cloexec == F_DUPFD
 					fcntl(m->save, F_SETFD, FD_CLOEXEC);
+#endif
 					close(arg2);
 					if (fcntl(arg1, F_DUPFD, arg2) != arg2)
 						return -1;

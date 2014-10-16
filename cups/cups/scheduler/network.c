@@ -1,23 +1,16 @@
 /*
- * "$Id: network.c 11528 2014-01-14 20:24:03Z msweet $"
+ * "$Id: network.c 11531 2014-01-15 18:45:31Z msweet $"
  *
- *   Network interface functions for the CUPS scheduler.
+ * Network interface functions for the CUPS scheduler.
  *
- *   Copyright 2007-2012 by Apple Inc.
- *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
+ * Copyright 2007-2014 by Apple Inc.
+ * Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   "LICENSE" which should have been included with this file.  If this
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * Contents:
- *
- *   cupsdNetIFFind()   - Find a network interface.
- *   cupsdNetIFFree()   - Free the current network interface list.
- *   cupsdNetIFUpdate() - Update the network interface list as needed...
- *   compare_netif()    - Compare two network interfaces.
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * "LICENSE" which should have been included with this file.  If this
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -305,5 +298,5 @@ compare_netif(cupsd_netif_t *a,		/* I - First network interface */
 
 
 /*
- * End of "$Id: network.c 11528 2014-01-14 20:24:03Z msweet $".
+ * End of "$Id: network.c 11531 2014-01-15 18:45:31Z msweet $".
  */

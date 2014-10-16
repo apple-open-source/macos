@@ -25,6 +25,7 @@
 #define WebKitWebContext_h
 
 #include <glib-object.h>
+#include <webkit2/WebKitCertificateInfo.h>
 #include <webkit2/WebKitCookieManager.h>
 #include <webkit2/WebKitDefines.h>
 #include <webkit2/WebKitDownload.h>
@@ -62,9 +63,38 @@ typedef enum {
 } WebKitCacheModel;
 
 /**
+ * WebKitProcessModel:
+ * @WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS: Use a single process to
+ *   perform content rendering. The process is shared among all the
+ *   #WebKitWebView instances created by the application: if the process
+ *   hangs or crashes all the web views in the application will be affected.
+ *   This is the default process model, and it should suffice for most cases.
+ * @WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES: Use one process
+ *   for each #WebKitWebView, while still allowing for some of them to
+ *   share a process in certain situations. The main advantage
+ *   of this process model is that the rendering process for a web view
+ *   can crash while the rest of the views keep working normally. This
+ *   process model is indicated for applications which may use a number
+ *   of web views and the content of in each must not interfere with the
+ *   rest — for example a full-fledged web browser with support for
+ *   multiple tabs.
+ *
+ * Enum values used for determining the #WebKitWebContext process model.
+ *
+ * Since: 2.4
+ */
+typedef enum {
+    WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS,
+    WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES,
+} WebKitProcessModel;
+
+/**
  * WebKitTLSErrorsPolicy:
  * @WEBKIT_TLS_ERRORS_POLICY_IGNORE: Ignore TLS errors.
- * @WEBKIT_TLS_ERRORS_POLICY_FAIL: TLS errors make the load to finish with an error.
+ * @WEBKIT_TLS_ERRORS_POLICY_FAIL: TLS errors will emit
+ *   #WebKitWebView::load-failed-with-tls-errors and, if the signal is handled,
+ *   finish the load. In case the signal is not handled,
+ *   #WebKitWebView::load-failed is emitted before the load finishes.
  *
  * Enum values used to denote the TLS errors policy.
  */
@@ -192,12 +222,29 @@ webkit_web_context_set_web_extensions_directory     (WebKitWebContext           
                                                      const gchar                   *directory);
 
 WEBKIT_API void
+webkit_web_context_set_web_extensions_initialization_user_data
+                                                    (WebKitWebContext              *context,
+                                                     GVariant                      *user_data);
+
+WEBKIT_API void
 webkit_web_context_prefetch_dns                     (WebKitWebContext              *context,
                                                      const gchar                   *hostname);
 
 WEBKIT_API void
 webkit_web_context_set_disk_cache_directory         (WebKitWebContext              *context,
                                                      const gchar                   *directory);
+
+WEBKIT_API void
+webkit_web_context_allow_tls_certificate_for_host   (WebKitWebContext              *context,
+                                                     WebKitCertificateInfo         *info,
+                                                     const gchar                   *host);
+
+WEBKIT_API void
+webkit_web_context_set_process_model                (WebKitWebContext              *context,
+                                                     WebKitProcessModel             process_model);
+
+WEBKIT_API WebKitProcessModel
+webkit_web_context_get_process_model                (WebKitWebContext              *context);
 
 G_END_DECLS
 

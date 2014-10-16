@@ -1,9 +1,9 @@
 /* OTP SASL plugin
  * Ken Murchison
- * $Id: otp.c,v 1.8 2006/01/24 20:37:26 snsimon Exp $
+ * $Id: otp.c,v 1.43 2011/09/01 14:12:18 mel Exp $
  */
 /* 
- * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1998-2009 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,7 +68,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: otp.c,v 1.8 2006/01/24 20:37:26 snsimon Exp $";
+static const char plugin_id[] = "$Id: otp.c,v 1.43 2011/09/01 14:12:18 mel Exp $";
 
 #define OTP_SEQUENCE_MAX	9999
 #define OTP_SEQUENCE_DEFAULT	499
@@ -115,12 +115,14 @@ void bin2hex(unsigned char *bin, int binlen, char *hex)
  * Hash the data using the given algorithm and fold it into 64 bits,
  * swabbing bytes if necessary.
  */
-static void otp_hash(const EVP_MD *md, char *in, int inlen,
+static void otp_hash(const EVP_MD *md, char *in, size_t inlen,
 		     unsigned char *out, int swab)
 {
     EVP_MD_CTX mdctx;
     char hash[EVP_MAX_MD_SIZE];
-    int i, j, hashlen;
+    unsigned int i;
+    int j;
+    unsigned hashlen;
     
     EVP_DigestInit(&mdctx, md);
     EVP_DigestUpdate(&mdctx, in, inlen);
@@ -190,7 +192,7 @@ static int parse_challenge(const sasl_utils_t *utils,
     if (!is_init) {
 	/* check the prefix */
 	if (!*c || strncmp(c, "otp-", 4)) {
-	    SETERROR(utils, "not a OTP challenge");
+	    SETERROR(utils, "not an OTP challenge");
 	    return SASL_BADPROT;
 	}
 	
@@ -276,7 +278,8 @@ static void
 otp_common_mech_free(void *global_context __attribute__((unused)),
 		     const sasl_utils_t *utils __attribute__((unused)))
 {
-    EVP_cleanup();
+    /* Don't call EVP_cleanup(); here, as this might confuse the calling
+       application if it also uses OpenSSL */
 }
 
 /*****************************  Server Section  *****************************/
@@ -348,6 +351,10 @@ static int opie_server_mech_step(void *conn_context,
     *serverout = NULL;
     *serveroutlen = 0;
     
+    if (text == NULL) {
+	return SASL_BADPROT;
+    }
+
     switch (text->state) {
 
     case 1: {
@@ -403,7 +410,7 @@ static int opie_server_mech_step(void *conn_context,
 	result = _plug_buf_alloc(params->utils, &(text->out_buf),
 				 &(text->out_buf_len), OTP_CHALLENGE_MAX+1);
 	if (result != SASL_OK) return result;
-	
+
 	/* create challenge - return sasl_continue on success */
 	result = opiechallenge(&text->opie, text->authid, text->out_buf);
 	
@@ -532,6 +539,7 @@ static sasl_server_plug_t otp_server_plugins[] =
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_FORWARD_SECRECY,
 	SASL_FEAT_WANT_CLIENT_FIRST
+	| SASL_FEAT_DONTUSE_USERPASSWD
 	| SASL_FEAT_ALLOWS_PROXY,
 	NULL,
 	&otp_server_mech_new,
@@ -583,7 +591,7 @@ static int make_secret(const sasl_utils_t *utils,
 		       const char *alg, unsigned seq, char *seed, char *otp,
 		       time_t timeout, sasl_secret_t **secret)
 {
-    unsigned sec_len;
+    size_t sec_len;
     unsigned char *data;
     char buf[2*OTP_HASH_SIZE+1];
     
@@ -601,13 +609,13 @@ static int make_secret(const sasl_utils_t *utils,
 	return SASL_NOMEM;
     }
     
-    (*secret)->len = sec_len;
+    (*secret)->len = (unsigned) sec_len;
     data = (*secret)->data;
 
     bin2hex(otp, OTP_HASH_SIZE, buf);
     buf[2*OTP_HASH_SIZE] = '\0';
     
-    sprintf((char *)data, "%s\t%04d\t%s\t%s\t%020ld",
+    sprintf(data, "%s\t%04d\t%s\t%s\t%020ld",
 	    alg, seq, seed, buf, timeout);
     
     return SASL_OK;
@@ -639,7 +647,7 @@ static int parse_secret(const sasl_utils_t *utils,
 	strcpy(alg, (char*) c);
 	c += strlen(alg)+1;
 	
-	*seq = strtoul((char *)c, NULL, 10);
+	*seq = strtoul(c, NULL, 10);
 	c += 5;
 	
 	strcpy(seed, (char*) c);
@@ -691,7 +699,7 @@ static int word2bin(const sasl_utils_t *utils,
     char *c, *word, buf[OTP_RESPONSE_MAX+1];
     void *base;
     int nmemb;
-    long x = 0;
+    unsigned long x = 0;
     unsigned char bits[OTP_HASH_SIZE+1]; /* 1 for checksum */
     unsigned char chksum;
     int bit, fbyte, lbyte;
@@ -729,7 +737,7 @@ static int word2bin(const sasl_utils_t *utils,
 					     sizeof(const char*),
 					     strptrcasecmp);
 	    if (str_ptr) {
-		x = str_ptr - otp_std_dict;
+		x = (unsigned long) (str_ptr - otp_std_dict);
 	    }
 	    else if (i == 0) {
 		/* couldn't find first word, try alternate dictionary */
@@ -991,8 +999,7 @@ static int otp_server_mech_step1(server_context_t *text,
 	if (result < 0 ||
 	    (!auxprop_values[0].name || !auxprop_values[0].values)) {
 	    /* We didn't find this username */
-	    params->utils->seterror(params->utils->conn,0,
-				    "no OTP secret in database");
+	    SETERROR(params->utils, "no OTP secret in database");
 	    result = params->transition ? SASL_TRANS : SASL_NOUSER;
 	    return (result);
 	}
@@ -1006,8 +1013,7 @@ static int otp_server_mech_step1(server_context_t *text,
 	    
 	    if (result != SASL_OK) return result;
 	} else {
-	    params->utils->seterror(params->utils->conn, 0,
-				    "don't have a OTP secret");
+	    SETERROR(params->utils, "don't have an OTP secret");
 	    return SASL_FAIL;
 	}
 	
@@ -1090,7 +1096,7 @@ static int otp_server_mech_step1(server_context_t *text,
 	    text->alg->name, text->seq-1, text->seed);
     
     *serverout = text->out_buf;
-    *serveroutlen = strlen(text->out_buf);
+    *serveroutlen = (unsigned) strlen(text->out_buf);
     
     text->state = 2;
     
@@ -1155,8 +1161,7 @@ otp_server_mech_step2(server_context_t *text,
 	params->utils->prop_dispose(&propctx);
 
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error putting OTP secret");
+	SETERROR(params->utils, "Error putting OTP secret");
     }
     
     text->locked = 0;
@@ -1286,11 +1291,14 @@ static int otp_setpass(void *glob_context __attribute__((unused)),
 	return SASL_NOMECH;
     }
     
-    r = _plug_parseuser(sparams->utils, &user_only, &realm, sparams->user_realm,
-			sparams->serverFQDN, userstr);
+    r = _plug_parseuser(sparams->utils,
+			&user_only,
+			&realm,
+			sparams->user_realm,
+			sparams->serverFQDN,
+			userstr);
     if (r) {
-	sparams->utils->seterror(sparams->utils->conn, 0, 
-				 "OTP: Error parsing user");
+	SETERROR(sparams->utils, "OTP: Error parsing user");
 	return r;
     }
 
@@ -1364,8 +1372,7 @@ static int otp_setpass(void *glob_context __attribute__((unused)),
 	sparams->utils->prop_dispose(&propctx);
     
     if (r) {
-	sparams->utils->seterror(sparams->utils->conn, 0, 
-				 "Error putting OTP secret");
+	SETERROR(sparams->utils, "Error putting OTP secret");
 	goto cleanup;
     }
     
@@ -1388,7 +1395,9 @@ static int otp_mech_avail(void *glob_context __attribute__((unused)),
     /* Do we have a backend that can store properties? */
     if (!sparams->utils->auxprop_store ||
 	sparams->utils->auxprop_store(NULL, NULL, NULL) != SASL_OK) {
-	SETERROR(sparams->utils, "OTP: auxprop backend can't store properties");
+	sparams->utils->log(NULL,
+			    SASL_LOG_DEBUG,
+			    "OTP: auxprop backend can't store properties");
 	return SASL_NOMECH;
     }
     
@@ -1452,6 +1461,8 @@ typedef struct client_context {
 
     char *out_buf;
     unsigned out_buf_len;
+
+    char challenge[OTP_CHALLENGE_MAX+1];
 } client_context_t;
 
 static int otp_client_mech_new(void *glob_context __attribute__((unused)),
@@ -1517,7 +1528,7 @@ static int otp_client_mech_step1(client_context_t *text,
     
     /* try to get the secret pass-phrase if we don't have a chalprompt */
     if ((params->utils->getcallback(params->utils->conn, SASL_CB_ECHOPROMPT,
-				    &echo_cb, &echo_context) == SASL_FAIL) &&
+				    (sasl_callback_ft *)&echo_cb, &echo_context) == SASL_FAIL) &&
 	(text->password == NULL)) {
 	pass_result = _plug_get_password(params->utils, &text->password,
 					 &text->free_password, prompt_need);
@@ -1596,7 +1607,6 @@ static int otp_client_mech_step2(client_context_t *text,
 				 sasl_out_params_t *oparams)
 {
     int echo_result = SASL_OK;
-    char challenge[OTP_CHALLENGE_MAX+1];
     int result;
     
     if (serverinlen > OTP_CHALLENGE_MAX) {
@@ -1605,15 +1615,17 @@ static int otp_client_mech_step2(client_context_t *text,
     }
     
     /* we can't assume that challenge is null-terminated */
-    strncpy(challenge, serverin, serverinlen);
-    challenge[serverinlen] = '\0';
+    strncpy(text->challenge, serverin, serverinlen);
+    text->challenge[serverinlen] = '\0';
     
-    /* try to get the one-time password if we don't ave the secret */
+    /* try to get the one-time password if we don't have the secret */
     if ((text->password == NULL) && (text->otpassword == NULL)) {
-	echo_result = _plug_challenge_prompt(params->utils, SASL_CB_ECHOPROMPT,
-					     challenge,
+	echo_result = _plug_challenge_prompt(params->utils,
+					     SASL_CB_ECHOPROMPT,
+					     text->challenge,
 					     "Please enter your one-time password",
-					     &text->otpassword, prompt_need);
+					     &text->otpassword,
+					     prompt_need);
 	
 	if ((echo_result != SASL_OK) && (echo_result != SASL_INTERACT))
 	    return echo_result;
@@ -1629,14 +1641,20 @@ static int otp_client_mech_step2(client_context_t *text,
     if (echo_result == SASL_INTERACT) {
 	/* make the prompt list */
 	result =
-	    _plug_make_prompts(params->utils, prompt_need,
-			       NULL, NULL,
-			       NULL, NULL,
-			       NULL, NULL,
-			       challenge, echo_result == SASL_INTERACT ?
-			       "Please enter your one-time password" : NULL,
+	    _plug_make_prompts(params->utils,
+			       prompt_need,
 			       NULL,
-			       NULL, NULL, NULL);
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       text->challenge,
+			       "Please enter your one-time password",
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL);
 	if (result != SASL_OK) return result;
 	
 	return SASL_INTERACT;
@@ -1645,9 +1663,8 @@ static int otp_client_mech_step2(client_context_t *text,
     /* the application provided us with a one-time password so use it */
     if (text->otpassword) {
 	*clientout = text->otpassword;
-	*clientoutlen = strlen(text->otpassword);
+	*clientoutlen = (unsigned) strlen(text->otpassword);
     }
-    
     /* generate our own response using the user's secret pass-phrase */
     else {
 	algorithm_option_t *alg;
@@ -1658,7 +1675,11 @@ static int otp_client_mech_step2(client_context_t *text,
 	
 	/* parse challenge */
 	result = parse_challenge(params->utils,
-				 challenge, &alg, &seq, seed, 0);
+				 text->challenge,
+				 &alg,
+				 &seq,
+				 seed,
+				 0);
 	if (result != SASL_OK) return result;
 	
 	if (!text->password) {
@@ -1721,7 +1742,7 @@ static int otp_client_mech_step2(client_context_t *text,
 	}
 	
 	*clientout = text->out_buf;
-	*clientoutlen = strlen(text->out_buf);
+	*clientoutlen = (unsigned) strlen(text->out_buf);
     }
     
     /* set oparams */

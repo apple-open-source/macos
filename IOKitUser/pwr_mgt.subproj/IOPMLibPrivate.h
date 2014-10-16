@@ -65,20 +65,17 @@ __BEGIN_DECLS
             You can query User activity  state via notify_get_state() when this notification
             fires. The returned value will be either kIOUserIsIdle or kIOUserIsActive
  */
-
-
 enum { 
    kIOUserIsIdle = 0, 
    kIOUserIsActive = 1
 };
 
-#define kIOUserActivityNotifyName                           "com.apple.powermanagement.useractivity"
-
+#define kIOUserActivityNotifyName                           "com.apple.system.powermanagement.useractivity"
 
 /*! @define kIOUserAssertionReSync
    @abstract This is the Notify(3) string fired by powerd every time the process is started.
  */
-#define kIOUserAssertionReSync                              "com.apple.powermanagement.assertionresync" 
+#define kIOUserAssertionReSync                              "com.apple.system.powermanagement.assertionresync"
 
 /*! @define     kIOPMDarkWakeControlEntitlement
  *  @abstract   Apple internal entitlement for processes that may influence
@@ -90,6 +87,12 @@ enum {
  *  @abstract   Apple internal entitlement for processes that receive Interactive Push notifications.
  */
 #define kIOPMInteractivePushEntitlement     CFSTR("com.apple.private.iokit.interactive-push")
+
+/*! @define     kIOPMReservePwrCtrlEntitlement
+ *  @abstract   Apple internal entitlement for processes that create kIOPMAssertAwakeReservePower assertion 
+ *              and call IOPMSetReservePowerMode()
+ */
+#define kIOPMReservePwrCtrlEntitlement      CFSTR("com.apple.private.iokit.reservepower-control")
 
 
 /*!
@@ -290,6 +293,20 @@ enum {
  */
 #define kIOPMAssertionTypeBackgroundTask                    CFSTR("BackgroundTask")
 
+/*! 
+ * @constant    kIOPMAssertAwakeReservePower
+ *
+ * @discussion  This assertion should be created to prevent system idle sleep even when system
+ *              is in reserve power mode. 
+ *
+ *              Process creating this assertion must have kIOPMReservePwrCtrlEntitlement 
+ *              entitlement.
+ */
+#define kIOPMAssertAwakeReservePower                       CFSTR("AwakeOnReservePower")
+
+
+
+
 /*! @define         kIOPMAssertionTypeDenySystemSleep
  *  @deprecated     Please use public assertion <code>@link kIOPMAssertionTypePreventSystemSleep@/link</code>,
  *                  instead of this one.
@@ -337,6 +354,13 @@ enum {
  */
 #define kIOPMAssertInternalPreventDisplaySleep              CFSTR("InternalPreventDisplaySleep")
 
+/*! @define         kIOPMAssertRequiresDisplayAudio
+ *
+ *  @discussion     Prevents display from sleeping even if user is idle, but allows loginwindow
+ *                  to start the screen saver. 
+ */
+#define kIOPMAssertRequiresDisplayAudio                CFSTR("RequiresDisplayAudio")
+
 /*! @define         kIOPMAssertMaintenanceActivity
  *
  * @abstract        Keep the system awake in FullWake or DarkWake for maintenance activity.
@@ -350,14 +374,14 @@ enum {
  * @abstract        Prevents idle sleep, but also reverts a sleep-in-progress.
  *
  * @discussion      Do not create this assertion directly. Create it by calling
- *                  <code>@link IOPMAssertionDeclareSystemIsActive()@/link</code>
+ *                  <code>@link IOPMAssertionDeclareSystemActivity()@/link</code>
  *
  * 'kIOPMAssertionTypeSystemIsActive will revert an idle sleep currently in progress
  * where possible. If reverting an idle sleep is not possible, it will try to wake the system
  * up immediately once the system goes to sleep. Apart from this one side-effect, it behaves
  * identically to a PreventUserIdleSystemSleep assertion.
  *
- * Consider calling IOPMAssertionDeclareSystemIsActive() if you would like to create an
+ * Consider calling IOPMAssertionDeclareSystemActivity() if you would like to create an
  * assertion of this type instead of directly creating it using one of the IOPMAssertionCreate
  * APIs.
  *
@@ -485,13 +509,40 @@ enum {
 
 #define kIOPMAssertionAppliesOnLidClose                     CFSTR("AppliesOnLidClose")
 
+/*! 
+ * @constant kIOPMAssertionCreatorBacktrace
+ * @abstract CFDataRef type. If present, holds the backtrace of the thread creating assertion.
+ */
+#define kIOPMAssertionCreatorBacktrace                      CFSTR("CreatorBacktrace")
+
+/*!
+ * @constant kIOPMAssertionOnBehalfOfPID
+ * @abstract CFNumberRef type. If present, specifies the PID on whose behalf the assertion is created.
+ *           This can be different from 'kIOPMAssertionPIDKey' as one process can be creating assertion for
+ *           other process. This key is purely for accounting & debugging purpose and no action is taken 
+ *           when 'kIOPMAssertionOnBehalfOfPID' dies.
+ *           This optional property can be set only at the time assertion creation and shouldn't be 
+ *           changed after assertion is created.
+ */
+#define kIOPMAssertionOnBehalfOfPID                         CFSTR("AssertionOnBehalfOfPID")
+
+/*!
+ * @constant kIOPMAssertionOnBehalfOfPIDReason
+ * @abstarct CFStringRef type. If present, gives a description on why process with PID 'kIOPMAssertionPIDKey' is 
+ *           creating assertion on behalf of process with PID 'kIOPMAssertionOnBehalfOfPID'
+ *           This optional property can be set only at the time assertion creation and shouldn't be 
+ *           changed after assertion is created.
+ */
+#define kIOPMAssertionOnBehalfOfPIDReason                   CFSTR("AssertionOnBehalfOfPIDReason")
+
+
+
 
 /*!
  * @constant        kIOPMAssertionTimedOutNotifyString
  * @discussion      Assertion notify(3) string
  *                  Fires when an assertion times out. Caller has to call IOPMAssertionNotify()
  *                  and register with powerd with this string before calling notify_register.
- *                  Call IOPMCopyTimedOutAssertions() for a list of timed-out assertions.
  */
 #define kIOPMAssertionTimedOutNotifyString                  "com.apple.system.powermanagement.assertions.timeout"
 
@@ -518,6 +569,22 @@ enum {
 #define kIOPMAssertionsChangedNotifyString                  "com.apple.system.powermanagement.assertions"
 
 /*!
+ * @constant        kIOPMAssertionsCollectBTString
+ * @discussion      Assertion notify(3) string
+ *                  Processes creating assertions listen on this string to enable/disable
+ *                  backtrace collection. When backtrace collected, processes send backtrace
+ *                  to powerd along with create request.
+ */
+#define kIOPMAssertionsCollectBTString                      "com.apple.powermanagement.collectbt"
+
+/*!
+ * @constant        kIOPMAssertionsLogBufferHighWM
+ * @discussion      Assertion notify(3) string
+ *                  Fires when assertion activity log buffer reaches high water mark.
+ */
+#define kIOPMAssertionsLogBufferHighWM                      "com.apple.powermanagement.assertions.logHighWM"
+
+/*!
  * @constant        kIOPMDisableAppSleepPrefix
  * @discussion      Assertion notify(3) string
  *                  Fires when a process raises an assertion of a type that can prevent app sleep.
@@ -541,6 +608,25 @@ enum {
  */
 #define kIOPMEnableAppSleepPrefix                           "com.apple.system.powermanagement.enableappsleep"
 
+/*!
+ * @constant        kIOPMLastWakeTimeString
+ * @discussion      Assertion notify(3) string
+ *                  Last wake time is posted on this string after powerd calculates the value on wake.
+ *
+ */
+#define kIOPMLastWakeTimeString                             "com.apple.powermanagement.lastwaketime"
+
+/*!
+ * @constant        kIOPMLastWakeTimeSMCDataString
+ * @discussion      Assertion notify(3) string
+ *                  Last wake time obtained from SMC is posted on this string after powerd calculates the value on wake.
+ *
+ */
+#define kIOPMLastWakeTimeSMCDataString                      "com.apple.powermanagement.lastwaketimesmcdata"
+
+
+
+
 
 /*! 
  * @define          kIOPMAssertionTimeoutActionKillProcess
@@ -552,6 +638,22 @@ enum {
 #define kIOPMAssertionTimeoutActionKillProcess              CFSTR("TimeoutActionKillProcess")
 
 
+/*! @function       IOPMPerformBlockWithAssertion
+ *
+ *  @abstract       Runs a caller-specified block while holding a power assertion.
+ *
+ *  @discussion     This is a convenience API, it can simplify some power assertion uses.
+ *
+ *  @param          assertion_properties is a CFDictionary describing the assertion to hold while
+ *                  executing <code>the_block</code>. See headerdoc comments for 
+ *                  <comment>IOPMAssertionCreateWithProperties</code> describing dictionary format.
+ *
+ *  @param          the_block is a block that doesn't take any arguments. IOPMPerformBlockWithAssertion
+ *                  will invoke the_block synchronously on the calling thread, and run until it completes.
+ */
+IOReturn IOPMPerformBlockWithAssertion(CFDictionaryRef assertion_properties, dispatch_block_t the_block);
+
+//IOReturn IOPMPerformBlockWithAssertionType(CFStringRef type, dispatch_block_t the_block);
 
 /*! @function IOPMAssertionSetTimeout
  *  @abstract Set a timeout for the given assertion.
@@ -563,15 +665,115 @@ enum {
  */
 IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion, CFTimeInterval timeoutInterval);
 
-/*! @function IOPMCopyTimedOutAssertions
- *  @abstract Returns a CFArray of assertions (as CFDictionary's) that have timed out.
- *  @discussion Only the 5 most recent assertions are recorded.
+/* 
+ * CFStrings defined for keys in dictionary returned by IOPMCopyAssertionActivityLog()
  */
-IOReturn IOPMCopyTimedOutAssertions(CFArrayRef *timedOutAssertions);
+#define     kIOPMAssertionActivityTime      CFSTR("ActivityTime")
+#define     kIOPMAssertionActivityAction    CFSTR("Action")
 
-CFStringRef IOPMAssertionCreateTimeOutKey(void);
-CFStringRef IOPMAssertionCreatePIDMappingKey(void);
-CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
+
+/*
+ *! @function   IOPMSetAssertionActivityLog
+ *  @abstract   Enable/disable assertion activity log by powerd. Activity logging must be enabled explicitly
+ *              before any calling IOPMCopyAssertionActivityLog().
+ *
+ *  @param enable           If true, logging is enabled, otherwise logging is disabled
+ *
+ *  @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMSetAssertionActivityLog(bool enable);
+
+/*
+ *!  @function  IOPMCopyAssertionActivityLog
+ *   @abstract  Internally calls IOPMCopyAssertionActivityUpdate(). 
+ *   @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMCopyAssertionActivityLog(CFArrayRef *assertionLog, bool *overflow);
+
+/*
+ *!  @function  IOPMCopyAssertionActivityUpdate
+ *   @abstract  Returns all assertions related activity since last time this function is called.
+ *              If this is called for first time, all available activity is returned. Depending on the 
+ *              frequency of assertion activity and any resets to the activity log, some of the activity 
+ *              entries may be lost.
+ *
+ *   @param  logUpdates     If successful, this field will have a pointer to array of dictionaries, each 
+ *                          dictionary with below key/value pairs. Each entry in the array points to one 
+ *                          assertion related activity since last read.
+ *              CFDictionary
+ *              {
+ *                  kIOPMAssertionActivityTime          : CFDateRef, Time when this assertion activity occurred
+ *                  kIOPMAssertionTypeKey               : CFStringRef, Type of assertion
+ *                  kIOPMAssertionNameKey               : CFStringRef, Description string passed to powerd 
+ *                                                        when assertion is created
+ *                  kIOPMAssertionActivityAction        : CFStringRef, This will be one of 'Create', 
+ *                                                        'Retain', 'Release', 'ClientDeath', 'Timeout', 
+ *                                                        'Turnoff', 'Turnon'
+ *                  kIOPMAssertionPIDKey                : CFNumberRef, PID of the creating process
+ *
+ *                  kIOPMAssertionRetainCountKey        : CFNumberRef, Retain count of this assertion
+ *                  kIOPMAssertionGlobalUniqueIDKey     : CFNumberRef, Unique Id of the assertion
+ *                  kIOPMAssertionOnBehalfOfPID         : CFNumberRef, If available, specifies the PID of the process 
+ *                                                        on whose behalf this assertion is created
+ *                  kIOPMAssertionOnBehalfOfPIDReason   : CFStringRef, If available, description on why assertion 
+ *                                                        is created on behalf of PID
+ *                  kIOPMAssertionCreatorBTSymbols      : CFArray of CFStrings giving the backtrace
+ *              }
+ *
+ *  @param  overflow        Set to true if some of the old assertion activity entries are lost between last call
+ *                          to this function and this call.
+ *
+ *  @param  prevRefCnt      Caller should set this to UINT_MAX on first call. Ons subsequent calls, caller should set this
+ *                          to value returned in previous call. This field is used by IOKit as reference index of 
+ *                          last entry returned on previous call.
+ *
+ *  @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow, uint32_t *prevRefCnt);
+
+
+
+/*
+ *! @function   IOPMSetAssertionActivityAggregate
+ *  @abstract   Enable/disable assertion activity duration aggregates by powerd. Activity aggregation must be enabled explicitly
+ *              before any calling IOPMCopyAssertionActivityAggregate().
+ *
+ *  @param enable           If true, logging is enabled, otherwise logging is disabled
+ *
+ *  @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMSetAssertionActivityAggregate(bool enable);
+
+
+/*
+ * ! @function  IOPMCopyAssertionActivityAggregate
+ *   @abstract  Returns aggregate duration for which each process held the assertion with in the specified time frame
+ *
+ *  @result     Returns CFDictionary on success.
+ *              The CFDictionary returned by this function is an aggregate of all processes preventing sleep
+ *              since the aggregation is enabled by calling IOPMSetAssertionActivityAggregate(). This dictionary
+ *              is in the format of Simple Array report and can be interpreted using IOReporting library APIs as
+ *              shown below:
+ *
+ *
+ *      IOReportIterate(dict, ^(IOReportChannelRef ch) {
+ *              printf(" %llu %lld %lld %lld\n", IOReportChannelGetChannelID(ch),
+ *                      IOReportArrayGetValueForIndex(ch, 1), 
+ *                      IOReportArrayGetValueForIndex(ch, 2),
+ *                      IOReportArrayGetValueForIndex(ch, 3));
+ *      });
+ *
+ *      'dict' is the dictionary returned by IOPMCopyAssertionActivityAggregate(). IOReportChannelGetChannelID()
+ *      returns the PID of the process. IOReportArrayGetValueForIndex(ch, 1) returns duration in seconds for which
+ *      this process prevented Idle sleep since the first call to IOPMSetAssertionActivityAggregate().
+ *      Similarly, value at index 2 returns duration in seconds for which this process prevented demand sleep and
+ *      value at index 3 returns duration for which this process prevented display sleep.
+ *
+ *      Delta of two outputs from IOPMCopyAssertionActivityAggregate() can be obtained by calling IOReporting API 
+ *      IOReportCreateSamplesDelta().
+ */
+CFDictionaryRef IOPMCopyAssertionActivityAggregate( );
+
 
 /*
  * Deprecated assertion constants
@@ -1571,6 +1773,37 @@ typedef uint32_t IOPMConnectionMessageToken;
 /*****************************************************************************/
 /*****************************************************************************/
 
+/*! IOPMClaimSystemWakeEvent
+ *
+ * Records information about system wake to a persistent log; recoverable with "pmset -g log".
+ * The caller must have evidence that activity in the calling process is responsible, or partly
+ * responsible for the physical hardware event that woke the system.
+ *
+ * Correct usage of this SPI:
+ *    - apsd detects that the system woke, and that there are incoming push notifications that
+ *    have the capability to awaken the system waiting for it. Also, this system must support
+ *    TCPKeepAlive, and have been woken by a Network event.
+ *    - A USB user space driver detects that the USB device it's responsible for generate the
+ *    PME.
+ *
+ * Incorrect usage of this SPI:
+ *    - An app that reconnects to a remote server in response to wakeup.
+ *    - An app that resumes video or audio in response to a wakeup.
+ *
+ * Caller must have kIOPMDarkWakeControlEntitlement - com.apple.private.iokit.darkwake-control.
+ *
+ * @param identity  Identity of the caller, as in "com.apple.apsd"
+ * @param reason    A string describing the unique identity or reason for the wake.
+ * @param description [Optional] further information about the wake event.
+ */
+void IOPMClaimSystemWakeEvent(
+        CFStringRef         identity,
+        CFStringRef         reason,
+        CFDictionaryRef     description);
+
+/*****************************************************************************/
+/*****************************************************************************/
+
 /*! @group IOPMCapabilityBits
  *
  *  Bits define capabilities in IOPMCapabilityBits type.
@@ -1791,7 +2024,6 @@ typedef void (*IOPMEventHandlerType)(
  *  This acknowledgement option is only valid when the system is transitioning into a
  *  sleep state i.e. entering a state with 0 capabilities. 
  *
- *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
  *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
@@ -1799,14 +2031,32 @@ typedef void (*IOPMEventHandlerType)(
  */
 #define kIOPMAckNetworkMaintenanceWakeDate    CFSTR("NetworkMaintenanceWakeDate")
 
-/*! kIOPMAckTimerPluginWakeDate
+/*! kIOPMAckSUWakeDate
  *
  *  This string can be used as a key in the 'options' dictionary
- *  argument to IOPMConnectionAcknowledgeEventWithOptions. 
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions. Caller
+ *  should push a CFDate value to match this key.
+ *
+ *  Task scheduling apps should use this key when scheduling Power Nap Software Updates.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities.
+ *
+ *  This acknowledgement argument may only be successfully used with
+ *  the requirements bitfield
+ *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
+ *
+ */
+#define kIOPMAckSUWakeDate    CFSTR("SoftwareUpdate")
+
+/*! kIOPMAckBackgroundTaskWakeDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
  *  - Caller should set a CFDate value to match this key.
  *  - Caller should set the kIOPMAcknowledgmentOptionSystemCapabilityRequirements key too.
  *
- *  The System timer plugin should populate this option to specify the next wakeup
+ *  CTS should populate this option to specify the next wakeup
  *  date.
  *
  *  Passing this "Date" option lets a caller request a maintenance wake
@@ -1814,16 +2064,15 @@ typedef void (*IOPMEventHandlerType)(
  *  to the requested power state at the requested time.
  *
  *  This acknowledgement option is only valid when the system is transitioning into a
- *  sleep state i.e. entering a state with 0 capabilities. 
+ *  sleep state i.e. entering a state with 0 capabilities.
  *
- *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
- *  the requirements bitfield 
+ *  the requirements bitfield
  *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
- * 
+ *
  */
-#define kIOPMAckTimerPluginWakeDate    CFSTR("TimerPluginWakeDate")
-
+#define kIOPMAckBackgroundTaskWakeDate    CFSTR("BackgroundTask")
+#define kIOPMAckTimerPluginWakeDate     kIOPMAckBackgroundTaskWakeDate
 
 /*! kIOPMAcknowledgmentOptionDate
  *
@@ -1841,7 +2090,6 @@ typedef void (*IOPMEventHandlerType)(
  *  This acknowledgement option is only valid when the system is transitioning into a
  *  sleep state i.e. entering a state with 0 capabilities. 
  *
- *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
  *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
@@ -1853,8 +2101,7 @@ typedef void (*IOPMEventHandlerType)(
 /*! kIOPMAcknowledgmentOptionSystemCapabilityRequirements
  *
  *  This string can be used as a key in the 'options' dictionary
- *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
- *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
  *
  *  This string should only be specified if the key
  *  kIOPMAcknowledgementOptionDate is also specified.
@@ -1866,7 +2113,6 @@ typedef void (*IOPMEventHandlerType)(
  *  This acknowledgement option is only valid when the system is transitioning into a
  *  sleep state i.e. entering a state with 0 capabilities. 
  *
- *  *** Limitation
  *  This acknowledgement argument may only be successfully used with
  *  the requirements bitfield 
  *      kIOPMCapabilityDisk | kIOPMCapabilityNetwork
@@ -1876,11 +2122,10 @@ typedef void (*IOPMEventHandlerType)(
 #define kIOPMAckSystemCapabilityRequirements                    kIOPMAcknowledgmentOptionSystemCapabilityRequirements
 
 /*!
- * @constant kIOPMAcknowledgementOptionSleepServiceDate
+ * @constant kIOPMAckAppRefreshWakeDate
  *
  *  This string can be used as a key in the 'options' dictionary
- *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
- *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
  *
  * Only sleepservicesd should pass this argument. Behavior if passed from any other process
  * is undefined.
@@ -1890,18 +2135,20 @@ typedef void (*IOPMEventHandlerType)(
  *  and perform SleepServices activity at the specified time.
  *
  *  This acknowledgement option is only valid when the system is transitioning into a
- *  sleep state i.e. entering a state with 0 capabilities. 
+ *  sleep state i.e. entering a state with 0 capabilities.
  *
  */
-#define kIOPMAcknowledgementOptionSleepServiceDate              CFSTR("SleepServiceDate")
+#define kIOPMAckAppRefreshWakeDate                            CFSTR("AppRefresh")
+
+// Deprecated:
+#define kIOPMAcknowledgementOptionSleepServiceDate              kIOPMAckAppRefreshWakeDate
 #define kIOPMAckSleepServiceDate                                kIOPMAcknowledgementOptionSleepServiceDate
 
 /*!
  * @constant kIOPMAckSleepServiceCapTimeout
  *
  *  This string can be used as a key in the 'options' dictionary
- *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
- *  an argument to IOPMSystemPowerStateSupportsAcknowledgementOption().
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
  *
  * Please pass a CFNumber kCFNumberIntType, with a value in milliseconds. 
  * e.g. Pass 120000 to specify a 2 minute cap.
@@ -2119,45 +2366,44 @@ typedef enum {
  * @function            IOPMAssertionDeclareSystemActivity
  *
  * @abstract            Declares to the power management policy mechanism that a system process
- *                      is performing a critical activity. PM policy will try to to take this
- *                      hint into account when dynamically switching between system run-modes.
+ *                      is performing a critical activity. If the device is in the process of 
+ *                      going to a lower power state, PM policy will attempt to awaken the device 
+ *                      to a usable state immediately.
  *
  * @discussion          No special privileges are necessary to make this call - any process may
  *                      call this API. Caller must specify an AssertionName - NULL is not
  *                      a valid input.
+ *                      IOPMAssertionDeclareSystemActivity cannot revert from forced sleep in progress. 
+ *                      IOPMAssertionDeclareSystemActivity can only revert from the early stages of idle sleeps.
  *
  * @param AssertionName     A string that describes the name of the caller and the activity being
  *                           handled by this assertion (e.g. "Baseband reboot in progress").
  *                           Name may be no longer than 128 characters.
  *
- * @param AssertionID      On Success, unique id will be returned in this parameter. Caller must
- *                          call <code>@link IOPMAssertionRelease@/link</code> on this unique ID
- *                          to indicate to PM policy that the critical activity was completed.
+ * @param AssertionID      On Success, unique id will be returned in this parameter. It represents
+ *                          an assertion of type <code>@link kIOPMAssertPreventUserIdleSystemSleep 
+ *                          @/link</code>. Caller must call <code>@link IOPMAssertionRelease@/link</code> 
+ *                          on this unique ID to indicate to PM policy that the critical activity was completed.
  *
- * @param SystemState      This parameter returns one of 2 values depending upon the run-mode
- *                          of the system:
- *
+ * @param SystemState     Returns either kIOPMSystemSleepReverted, or kIOPMSystemSleepNotReverted.    
  *                         kIOPMSystemSleepReverted -
- *                              This return value suggests that PM policy was able to
- *                              successfully act on the hint that there is a critical system
- *                              activity in progress. The policy mechanism will try its best
- *                              not to transition run-modes until
+ *                               Indicates that the system was already awake and usable; or we successfully 
+ *                               reverted an in-process sleep transition, bringing the device back to full wake.
+ *                               The system will attempt to remain awake in a usable state until
  *                              <code>@link IOPMAssertionRelease@/link</code> gets called on
- *                              the AssertionID
- *
+ *                              the AssertionID. 
+
  *                         kIOPMSystemSleepNotReverted -
- *                              This return value suggests that PM policy was not able to act
- *                              on the hint that there is a critical system activity in progress.
- *                              Typically, this is because the system is very late in the
- *                              process of transitioning between run-modes and PM policy
- *                              could not back out of the transition. PM will try to schedule
- *                              an immediate wakeup so that the system activity may be completed,
- *                              but it won't be able to revert/cancel the pending run-mode
- *                              transition.
- *                              Upon susbsequent system wakeup, the policy mechanism will try its
- *                              best not to transition run-modes till
+ *                              PM policy was not able to act on this assertion. The system is entering a sleep
+ *                              state and it cannot be reverted.
+ *                              If this is an idle sleep, PM will schedule device wake immediately 
+ *                              following this sleep; the device will be awake and usable then.
+ *                              Upon that system wakeup, the policy mechanism will try its
+ *                              best to remain awake in a usable state until
  *                              <code>@link IOPMAssertionRelease@/link</code> gets called on the
  *                              AssertionID.
+ *                              If the sleep transition is a force sleep, IOKit will not attempt to 
+ *                              immediately re-awaken the system. 
  *
  * @result                  Returns kIOReturnSuccess on success, any other return indicates
  *                          PM could not successfully activate the specified assertion.
@@ -2168,6 +2414,15 @@ IOReturn IOPMAssertionDeclareSystemActivity(
                         IOPMSystemState     *SystemState);
 
 IOReturn IOPMChangeSystemActivityAssertionBehavior(uint32_t newFlags, uint32_t *oldFlags);
+
+/*
+ * @function        IOPMSetReservePowerMode
+ *
+ * @abstract        Enables or disables reserve power mode.
+ *
+ * @discussion      Caller must have kIOPMReservePwrCtrlEntitlement entitlement
+ */
+IOReturn IOPMSetReservePowerMode(bool enable);
 
 
 /*
@@ -2210,6 +2465,101 @@ IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_
  * @abstract    Cancel and release an <code>IOPMNotificationHandle</code>
  */
 void IOPMUnregisterNotification(IOPMNotificationHandle handle);
+
+
+
+
+/*!
+ * @enum IOPMUserActivity States
+ * @abstract Describes the user's current active state, available via IOPMGetUserActivity.
+ *
+ * @constant kIOPMUserPresentActive A local physically present user, or a process representing a user,
+ *              is actively using the device. This includes typing, using local input devices,
+ *              using a remote control, or opening the lid.
+ *              Most user actions that light the display are UserPresent actions.
+ *              All non-idle network ScreenShared users are also reported as kIOPMUserPresentActive.
+ *
+ * @constant kIOPMUserPresentPassive The user is probably paying attention to the system, but
+ *              isn't interacting with it. This includes watching and
+ *              listening to media.
+ *
+ * @constant kIOPMUserRemoteClientActive A remote networked client
+ *              is connected and actively using this system's resources.
+ *              Including SMB, AFP, ssh, and other network 'Sharing' services.
+ *
+ * @constant kIOPMUserNotificationActive The system is displaying a notification, as a result of
+ *              incoming network activity. A local user may or may not be looking
+ *              at the machine; as the machine may have been asleep or unattended.
+ *
+ */
+enum {
+    kIOPMUserPresentActive        = (1<<0),
+    kIOPMUserPresentPassive       = (1<<1),
+    kIOPMUserRemoteClientActive   = (1<<2),
+    kIOPMUserNotificationActive   = (1<<3)
+};
+
+/*!
+ * IOPMGetUserActivityLevel describes the user's current activity level at the system.
+ *
+ * OS X reports this user activity level independently of the user's display idle sleep time,
+ * and system idle sleep times.
+ *
+ * - Where we measure user activity by the frequency of user action, the user's
+ *      level shall remain active for 5 minutes after last activity.
+ * - Where we measure activity through IOKit power assertions, we'll assume the 
+ *      user remains active as long as a power assertion is held.
+ * - When the system goes to sleep, we'll zero out the user activity tracking state.
+ * - It is a valid state for the Mac display to be lit and showing state 
+ *      (say with display Sleep timer = 20 minutes), but for this API to return 
+ *      activity with kIOPMUserPresentActive clear, because there's no
+ *      user input within 5 minutes.
+ *
+ * @param outUserActive is a bitfield, containing zero or more bits from User
+ *              Active States enum.
+ *
+ * @param mostSignificantActivity  When outUserActive includes one or more bits, this is the
+ *              one bit that best describes the user's system activity.
+ *              highOrderBit will be equal to one of the IOPMUserActivity constants
+ *                  kIOPMUserPresentActive, kIOPMUserPresentPassive, 
+ *                  kIOPMUserRemoteClientActive, or kIOPMUserNotification
+ *
+ * @result kIOReturnSuccess on success
+ *         kIOReturnNotReady if you're calling this too early in boot, before this data is available.
+ *         kIOReturnError, or other IOKit error code otherwise.
+ */
+IOReturn IOPMGetUserActivityLevel(uint64_t *outUserActive,
+                                  uint64_t *mostSignificantActivity);
+
+
+/*
+ * @function    IOPMScheduleUserActivityLevelNotification
+ *
+ * Get a callout when the user activity level changes.
+ *
+ * @param       queue The dispatch_queue to schedule the callout on.
+ *
+ * @param       block The block to execute when the state changes.
+ *              The block will receive two arguments -
+ *                  uint64_t outUserActive,
+ *                  and uint64_t mostSignificantActivity
+ *              They'll have the same meaning and behavior as described
+ *              in function IOPMGetUserActivityLevel.
+ *
+ * @result      NULL on failure. Upon success, caller should store the
+ *              <code>IOPMNotificationHandle</code> and pass that handle to
+ *              <code>IOPMUnregisterNotification</code> to stop 
+ *              receiving notifications.
+ */
+IOPMNotificationHandle IOPMScheduleUserActivityLevelNotification(dispatch_queue_t queue,
+                                                                 void (^block)(uint64_t, uint64_t));
+
+/*!
+ * IOPMCopyUserActivityLevelDescription
+ * Creates a debugging string describing a IOPMUserActivity state.
+ */
+CFStringRef IOPMCopyUserActivityLevelDescription(uint64_t userActive);
+
 
 /*!
  * @function    IOPMAssertionDeclareNotificationEvent
@@ -2319,7 +2669,10 @@ enum {
     kIOPMTCPKeepAliveExpirationOverride,
     kIOPMTCPKeepAliveIsActive,
     kIOPMTCPWakeQuota,
-    kIOPMTCPWakeQuotaInterval
+    kIOPMTCPWakeQuotaInterval,
+    kIOPMSetAssertionActivityLog,
+    kIOPMSetAssertionActivityAggregate,
+    kIOPMSetReservePowerMode,
 };
 
 /*!
@@ -2336,10 +2689,10 @@ void IOPMSetValueInt(int selector, int value);
 
 
 
-#define kIOPMDebugEnableAssertionLogging    0x1
-#define kIOPMDebugLogAssertionSynchronous   0x2
-#define kIOPMDebugLogCallbacks              0x4
-#define kIOPMDebugAppTimeoutStackshot       0x8
+#define kIOPMDebugAssertionASLLog           0x01
+#define kIOPMDebugLogAssertionSynchronous   0x02
+#define kIOPMDebugLogCallbacks              0x04
+#define kIOPMDebugAppTimeoutStackshot       0x08
 
 IOReturn IOPMSetDebugFlags(uint32_t newFlags, uint32_t *oldFlags);
 IOReturn IOPMSetBTWakeInterval(uint32_t newInterval, uint32_t *oldInterval);
@@ -2389,6 +2742,13 @@ enum {
  * req_type - Should be either kIOPMNotifyRegister or kIOPMNotifyDeRegister
  */
 IOReturn IOPMAssertionNotify(char *name, int req_type);
+
+
+/*
+ * Enable/disable back trace collection at the time of assertion creation.
+ * The backtrace collected can be retrieved with IOPMCopyAssertionsByProcess() API.
+ */
+void IOPMAssertionSetBTCollection(bool enable);
 
 
 __END_DECLS

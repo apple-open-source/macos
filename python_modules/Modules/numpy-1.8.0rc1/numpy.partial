@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>numpy</string>
+        <key>OpenSourceVersion</key>
+        <string>1.8.0rc1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://numpy.scipy.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://downloads.sourceforge.net/project/numpy/NumPy/1.8.0rc1/numpy-1.8.0rc1.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2FNumPy%2F1.8.0rc1%2F&ts=1381429695&use_mirror=hivelocity</string>
+        <key>OpenSourceImportDate</key>
+        <string>2013-10-10</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>4840c1bd161aac474cf8ba8db2b10b33</string>
+</dict>

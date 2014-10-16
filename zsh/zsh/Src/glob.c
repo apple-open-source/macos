@@ -445,41 +445,6 @@ insert(char *s, int checked)
     unqueue_signals();
 }
 
-/* Check to see if str is eligible for filename generation. */
-
-/**/
-mod_export int
-haswilds(char *str)
-{
-    /* `[' and `]' are legal even if bad patterns are usually not. */
-    if ((*str == Inbrack || *str == Outbrack) && !str[1])
-	return 0;
-
-    /* If % is immediately followed by ?, then that ? is     *
-     * not treated as a wildcard.  This is so you don't have *
-     * to escape job references such as %?foo.               */
-    if (str[0] == '%' && str[1] == Quest)
-	str[1] = '?';
-
-    for (; *str; str++) {
-	switch (*str) {
-	    case Inpar:
-	    case Bar:
-	    case Star:
-	    case Inbrack:
-	    case Inang:
-	    case Quest:
-		return 1;
-	    case Pound:
-	    case Hat:
-		if (isset(EXTENDEDGLOB))
-		    return 1;
-		break;
-	}
-    }
-    return 0;
-}
-
 /* Do the globbing:  scanner is called recursively *
  * with successive bits of the path until we've    *
  * tried all of it.                                */
@@ -708,8 +673,9 @@ parsecomplist(char *instr)
     }
 
     /* Parse repeated directories such as (dir/)# and (dir/)## */
-    if (*(str = instr) == Inpar && !skipparens(Inpar, Outpar, (char **)&str) &&
-        *str == Pound && isset(EXTENDEDGLOB) && str[-2] == '/') {
+    if (*(str = instr) == zpc_special[ZPC_INPAR] &&
+	!skipparens(Inpar, Outpar, (char **)&str) &&
+        *str == zpc_special[ZPC_HASH] && str[-2] == '/') {
 	instr++;
 	if (!(p1 = patcompile(instr, compflags, &instr)))
 	    return NULL;
@@ -761,9 +727,9 @@ parsepat(char *str)
      * Check for initial globbing flags, so that they don't form
      * a bogus path component.
      */
-    if ((*str == Inpar && str[1] == Pound && isset(EXTENDEDGLOB)) ||
-	(isset(KSHGLOB) && *str == '@' && str[1] == Inpar &&
-	 str[2] == Pound)) {
+    if ((*str == zpc_special[ZPC_INPAR] && str[1] == zpc_special[ZPC_HASH]) ||
+	(*str == zpc_special[ZPC_KSH_AT] && str[1] == Inpar &&
+	 str[2] == zpc_special[ZPC_HASH])) {
 	str += (*str == Inpar) ? 2 : 3;
 	if (!patgetglobflags(&str, &assert, &ignore))
 	    return NULL;
@@ -1146,7 +1112,8 @@ zglob(LinkList list, LinkNode np, int nountok)
     gf_pre_words = NULL;
 
     /* Check for qualifiers */
-    while (!nobareglob || isset(EXTENDEDGLOB)) {
+    while (!nobareglob ||
+	   (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_HASH])) {
 	struct qual *newquals;
 	char *s;
 	int sense, paren;
@@ -1192,10 +1159,11 @@ zglob(LinkList list, LinkNode np, int nountok)
 	    case Outpar:
 		paren++; /*FALLTHROUGH*/
 	    case Bar:
-		nobareglob = 1;
+		if (!zpc_disables[ZPC_BAR])
+		    nobareglob = 1;
 		break;
 	    case Tilde:
-		if (isset(EXTENDEDGLOB))
+		if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_TILDE])
 		    nobareglob = 1;
 		break;
 	    case Inpar:
@@ -1205,7 +1173,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 	}
 	if (*s != Inpar)
 	    break;
-	if (isset(EXTENDEDGLOB) && s[1] == Pound) {
+	if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_HASH] && s[1] == Pound) {
 	    if (s[2] == 'q') {
 		*s = 0;
 		s += 2;
@@ -1644,7 +1612,8 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    break;
 		}
 		default:
-		    zerr("unknown file attribute");
+		    untokenize(--s);
+		    zerr("unknown file attribute: %c", *s);
 		    restore_globstate(saved);
 		    return;
 		}

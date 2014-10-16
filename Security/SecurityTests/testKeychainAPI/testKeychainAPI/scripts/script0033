@@ -1,0 +1,64 @@
+//
+// script0033
+//
+//		KCNewItem
+//		KCAddItem
+//		KCGetData
+//
+// Create a Generic Password item & add it to a default Keychain twice
+// Also create new item that is identical and see if it can be added.
+35 KCNewItem
+   Input Arguments : 4
+     Class : genp
+     Creator : meme
+     Data : /50/First Generic password:abcdefghijklmnopqrstuvwxyz#
+   Results : 2
+     OSStatus 0
+     ItemIndex : 0
+35 KCNewItem
+   Input Arguments : 4
+     Class : genp
+     Creator : meme
+     Data : /50/First Generic password:abcdefghijklmnopqrstuvwxyz#
+   Results : 2
+     OSStatus 0
+     ItemIndex : 1
+3 KCMakeKCRefFromFSSpec
+   Input Arguments : 1
+      KeychainFile : test0033.001
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+14 KCCreateKeychain
+   Input Arguments : 2
+      KeychainIndex : 0
+      Password : Apple
+   Results : 2
+      OSStatus 0
+      KeychainIndex : 0
+8 KCUnlock
+   Input Arguments : 2
+     KeychainIndex : 0
+     Password : Apple
+   Results : 1
+     OSStatus 0
+13 KCSetDefaultKeychain
+   Input Arguments : 1
+     KeychainIndex : 0
+   Results : 1
+     OSStatus 0
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus 0
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 0
+   Results : 1
+     OSStatus -25299
+41 KCAddItem
+   Input Arguments : 1
+     ItemIndex : 1
+   Results : 1
+     OSStatus -25299

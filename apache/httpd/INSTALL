@@ -5,7 +5,7 @@
   ------------------
 
   For complete installation documentation, see [ht]docs/manual/install.html or
-  http://httpd.apache.org/docs/2.2/install.html
+  http://httpd.apache.org/docs/2.4/install.html
 
      $ ./configure --prefix=PREFIX
      $ make
@@ -17,12 +17,21 @@
               might use "/usr/local/apache2" for PREFIX (without the
               quotes).
 
-            * If you are a developer who will be linking your code with
-              Apache or using a debugger to step through server code,
-              ./configure's --with-included-apr option may be advantageous,
-              as it removes the possibility of version or compile-option
-              mismatches with APR and APR-util code.  (Many OSes now
-              include their own version of APR and APR-util.)
+            * Consider if you want to use a previously installed APR and
+              APR-Util (such as those provided with many OSes) or if you
+              need to use the APR and APR-Util from the apr.apache.org
+              project. If the latter, download the latest versions and
+              unpack them to ./srclib/apr and ./srclib/apr-util (no
+              version numbers in the directory names) and use
+              ./configure's --with-included-apr option. This is required
+              if you don't have the compiler which the system APR was
+              built with.  It can also be advantageous if you are a
+              developer who will be linking your code with Apache or using
+              a debugger to step through server code, as it removes the
+              possibility of version or compile-option mismatches with APR
+              and APR-Util code. As a convenience, prepackaged source-code
+              bundles of APR and APR-Util are occasionally also provided
+              as a httpd-2.X.X-deps.tar.gz download.
 
             * If you are a developer building Apache directly from
               Subversion, you will need to run ./buildconf before running
@@ -55,7 +64,7 @@
      --enable-rewrite=shared \
      --enable-speling=shared 
 
-  The easiest way to find all of the configuration flags for Apache 2.2
+  The easiest way to find all of the configuration flags for Apache 2.4
   is to run ./configure --help.
 
 
@@ -63,36 +72,33 @@
   ---------------------
 
   For complete documentation, see manual/platform/windows.html.en or
-  http://httpd.apache.org/docs/2.2/platform/windows.html.
+  http://httpd.apache.org/docs/2.4/platform/windows.html.
 
   The Apache/Win32 binaries are distributed as Windows Installer packages 
-  (.msi) named httpd-2.2.xx-win32-x86-no_ssl.msi for a version without mod_ssl
-  and httpd-2.2.xx-win32-x86-openssl-0.9.8x.msi for a version including the
-  mod_ssl plus the openssl library and command line utility.  These packages
+  (.msi) named httpd-2.4.xx-win32-x86-no_ssl.msi for a version without mod_ssl
+  and httpd-2.4.xx-win32-x86-openssl-1.0.1x.msi for a version including the
+  mod_ssl plus the openssl library and command line utility.  Additional 64 bit
+  binaries have similarly named -win64-x64 package names.  These packages
   may be unpacked without "installing" them by using the msiexec /a option.
 
-  If you have unpacked a source distribution (named httpd-2.2.x-win32-src.zip, 
-  without any -x86 notation) you must compile the package yourself, see the links
-  mentioned above.  Unless you intended to do this, please look again for the 
-  binary package from http://www.apache.org/dist/httpd/binaries/win32/ and
-  install the desired .msi package.
+  If you have unpacked a source distribution (named httpd-2.4.x-win32-src.zip, 
+  without any -x86 or -x64 notation) you must compile the package yourself, 
+  see the links mentioned above.  Unless you intended to do this, please look
+  again for an .msi package in http://www.apache.org/dist/httpd/binaries/win32/
+  and install that desired .msi package.
 
   The .msi package configures the httpd.conf file, and installs and starts 
-  the Apache2.2 service for you.  It also installs plenty of useful shortcuts
+  the Apache2.4 service for you.  It also installs plenty of useful shortcuts
   and the taskbar ApacheMonitor.  We strongly encourage you to use it.
 
 
   Postscript
   ----------
 
-  The Apache HTTP Server group cannot field user's installation questions.
-  There are many valuable forums to help you get started.  Please refer your
-  questions to the appropriate forum, such as the Users Mailing List at
-  http://httpd.apache.org/userslist.html or the usenet newsgroups
-  comp.infosystems.www.servers.unix or
-  comp.infosystems.www.servers.ms-windows.
+  To obtain help with installation problems, please see the resources at
+  <http://httpd.apache.org/support.html>
 
-  Thanks for using the Apache HTTP Server, version 2.2.
+  Thanks for using the Apache HTTP Server, version 2.4.
 
                                      The Apache Software Foundation
                                      http://www.apache.org/

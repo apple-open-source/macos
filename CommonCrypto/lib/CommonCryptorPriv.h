@@ -59,6 +59,7 @@ typedef struct cipherMode_t {
     const struct ccmode_ofb* ofb;
     const struct ccmode_xts* xts;
     const struct ccmode_gcm* gcm;
+    const struct ccmode_ccm* ccm;
 } cipherMode;
 
 #define ACTIVE 1

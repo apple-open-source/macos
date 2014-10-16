@@ -46,6 +46,29 @@
 			name = ipsec_libraries;
 			productName = ipsec_libraries;
 		};
+		78C83A04189841E800DB2F64 /* ipsec_libraries_embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 78C83A08189841E800DB2F64 /* Build configuration list for PBXAggregateTarget "ipsec_libraries_embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				78C83A131898421900DB2F64 /* PBXTargetDependency */,
+			);
+			name = ipsec_libraries_embedded;
+			productName = ipsec_libraries_embedded;
+		};
+		78C83A09189841FA00DB2F64 /* ipsec_executables_embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 78C83A0A189841FA00DB2F64 /* Build configuration list for PBXAggregateTarget "ipsec_executables_embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				78C83A111898421300DB2F64 /* PBXTargetDependency */,
+				78C83A0F1898421100DB2F64 /* PBXTargetDependency */,
+			);
+			name = ipsec_executables_embedded;
+			productName = ipsec_executables_embedded;
+		};
 		812530AA0D3FE994006BDF4F /* IPSec Embedded (Aggregate) */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 812530B50D3FE994006BDF4F /* Build configuration list for PBXAggregateTarget "IPSec Embedded (Aggregate)" */;
@@ -126,17 +149,16 @@
 		25F259610988657000D15623 /* throttle.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259210988657000D15623 /* throttle.c */; };
 		25F259620988657000D15623 /* vendorid.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259240988657000D15623 /* vendorid.c */; };
 		25F259630988657000D15623 /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
-		72171DAF166443AB0050B3B9 /* eap_aka.c in Sources */ = {isa = PBXBuildFile; fileRef = 72171DAE166443AB0050B3B9 /* eap_aka.c */; };
 		72265DDC0F818F9300730A7D /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
 		723B6A30162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
 		723B6A31162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
 		724ED87916851AAC008F2EBD /* ipsec.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BACBF18B10290AE000BBFC85 /* ipsec.txt */; };
 		724ED87A16851AB6008F2EBD /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
-		727FA360163A1A25000A3986 /* ipsec_interface.c in Sources */ = {isa = PBXBuildFile; fileRef = 727FA35F163A1A24000A3986 /* ipsec_interface.c */; };
-		727FA361163A1A25000A3986 /* ipsec_interface.c in Sources */ = {isa = PBXBuildFile; fileRef = 727FA35F163A1A24000A3986 /* ipsec_interface.c */; };
 		72B433770E3677D800D67508 /* com.apple.racoon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724F99500E3672FD00C56897 /* com.apple.racoon.plist */; };
 		72F5C72E1607A1AE004C192F /* api_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F5C72D1607A1AE004C192F /* api_support.c */; };
 		72F5C72F1607A1AE004C192F /* api_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F5C72D1607A1AE004C192F /* api_support.c */; };
+		7822D11E188DB07300874E91 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7822D11D188DB07300874E91 /* NetworkExtension.framework */; };
+		7822D120188DB07C00874E91 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7822D11F188DB07C00874E91 /* NetworkExtension.framework */; };
 		812530C30D3FE9DC006BDF4F /* algorithm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258AE0988657000D15623 /* algorithm.c */; };
 		812530C50D3FE9DC006BDF4F /* cfparse.y in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B40988657000D15623 /* cfparse.y */; };
 		812530C60D3FE9DC006BDF4F /* cftoken.l in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B60988657000D15623 /* cftoken.l */; };
@@ -224,7 +246,6 @@
 		834072A90EDCC5AC00B6CCE8 /* com.apple.racoon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724F99500E3672FD00C56897 /* com.apple.racoon.plist */; };
 		8D5B16750E5F7F4E00E72675 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D5B16230E5F7E9300E72675 /* libresolv.dylib */; };
 		8D5B167D0E5F7F9F00E72675 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D5B16230E5F7E9300E72675 /* libresolv.dylib */; };
-		BA04622B1562E6E400EF348A /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA04622A1562E6E400EF348A /* EAP8021X.framework */; };
 		BA485FA2109C1ECA00545E19 /* power_mgmt.c in Sources */ = {isa = PBXBuildFile; fileRef = BA485FA1109C1ECA00545E19 /* power_mgmt.c */; };
 		BA485FA3109C1ECA00545E19 /* power_mgmt.c in Sources */ = {isa = PBXBuildFile; fileRef = BA485FA1109C1ECA00545E19 /* power_mgmt.c */; };
 		BA48611C109C2BBA00545E19 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA48611B109C2BBA00545E19 /* IOKit.framework */; };
@@ -236,26 +257,13 @@
 		BA5B6F310EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */; };
 		BA5B6F320EC19F80003774E7 /* ipsecPolicyTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5B6F300EC19F80003774E7 /* ipsecPolicyTracer.c */; };
 		BA64A934114EFE8C00F3574C /* racoon.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA64A933114EFE5C00F3574C /* racoon.sb */; };
-		BA64A935114EFE9900F3574C /* racoon.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA64A933114EFE5C00F3574C /* racoon.sb */; };
 		BA6F109B0EA1DEC200546773 /* ike_session.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6F109A0EA1DEC200546773 /* ike_session.c */; };
 		BA6F109C0EA1DEC200546773 /* ike_session.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6F109A0EA1DEC200546773 /* ike_session.c */; };
 		BA7777A11107EBCE00DD87E1 /* isakmp_frag.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D70988657000D15623 /* isakmp_frag.c */; };
 		BA7777A21107EBF600DD87E1 /* isakmp_frag.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D70988657000D15623 /* isakmp_frag.c */; };
-		BA8BE71815655D360068DEB9 /* eap_sim.c in Sources */ = {isa = PBXBuildFile; fileRef = BA8BE71615655D360068DEB9 /* eap_sim.c */; };
-		BA952E79156704DF00B07934 /* eap.c in Sources */ = {isa = PBXBuildFile; fileRef = BA952E77156704DF00B07934 /* eap.c */; };
-		BAC2E175146DFD06009D4506 /* ikev2_ike_sa_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E16C146DFD05009D4506 /* ikev2_ike_sa_rfc.c */; };
-		BAC2E176146DFD06009D4506 /* ikev2_ike_sa_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E16C146DFD05009D4506 /* ikev2_ike_sa_rfc.c */; };
-		BAC2E177146DFD06009D4506 /* ikev2_ipsec_sa_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E16F146DFD05009D4506 /* ikev2_ipsec_sa_rfc.c */; };
-		BAC2E178146DFD06009D4506 /* ikev2_ipsec_sa_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E16F146DFD05009D4506 /* ikev2_ipsec_sa_rfc.c */; };
-		BAC2E179146DFD06009D4506 /* ikev2_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E172146DFD05009D4506 /* ikev2_rfc.c */; };
-		BAC2E17A146DFD06009D4506 /* ikev2_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC2E172146DFD05009D4506 /* ikev2_rfc.c */; };
 		BACBF18C10290AE000BBFC85 /* ipsec.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BACBF18B10290AE000BBFC85 /* ipsec.txt */; };
 		BACD8C6A1496A50C0042DEA1 /* Preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = BACD8C681496A50C0042DEA1 /* Preferences.c */; };
 		BACD8C6B1496A50C0042DEA1 /* Preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = BACD8C681496A50C0042DEA1 /* Preferences.c */; };
-		BACF4E5F146F909E008F04FC /* ikev2_info_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BACF4E5E146F909E008F04FC /* ikev2_info_rfc.c */; };
-		BACF4E60146F909E008F04FC /* ikev2_info_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BACF4E5E146F909E008F04FC /* ikev2_info_rfc.c */; };
-		BACF4E631470E394008F04FC /* ikev2_sessresume_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BACF4E621470E394008F04FC /* ikev2_sessresume_rfc.c */; };
-		BACF4E641470E394008F04FC /* ikev2_sessresume_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = BACF4E621470E394008F04FC /* ikev2_sessresume_rfc.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -294,6 +302,27 @@
 			remoteGlobalIDString = 72B3C2081684F5C4004E4548;
 			remoteInfo = ipsec_executables;
 		};
+		78C83A0E1898421100DB2F64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 812530BA0D3FE9DC006BDF4F;
+			remoteInfo = "racoon Embedded";
+		};
+		78C83A101898421300DB2F64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFD970D622C1700C5CB87;
+			remoteInfo = "setkey Embedded";
+		};
+		78C83A121898421900DB2F64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
+			remoteInfo = "libipsec Embedded";
+		};
 		812531100D3FEA28006BDF4F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
@@ -302,20 +331,6 @@
 			remoteInfo = "racoon arm";
 		};
 		81DDFDD80D622C4E00C5CB87 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
-			remoteInfo = "libipsec Embedded";
-		};
-		81DDFDDE0D622D1700C5CB87 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 81DDFDB80D622C2700C5CB87;
-			remoteInfo = "libipsec Embedded";
-		};
-		81DDFDE30D622D8C00C5CB87 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
 			proxyType = 1;
@@ -519,16 +534,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		BA64A932114EFE4400F3574C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/local/share/sandbox/profiles/embedded/builtin;
-			dstSubfolderSpec = 0;
-			files = (
-				BA64A935114EFE9900F3574C /* racoon.sb in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		BAA6806112B17CF900ACF6D3 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -673,15 +678,14 @@
 		25F259270988657000D15623 /* vmbuf.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = vmbuf.h; sourceTree = "<group>"; };
 		25F777B909ABE3E100C99783 /* key_debug.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = key_debug.c; path = Common/key_debug.c; sourceTree = "<group>"; };
 		25F777ED09ABE58400C99783 /* pfkey_dump.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pfkey_dump.c; path = Common/pfkey_dump.c; sourceTree = "<group>"; };
-		72171DAE166443AB0050B3B9 /* eap_aka.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eap_aka.c; sourceTree = "<group>"; };
 		72265DDB0F818F9300730A7D /* ipsec.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = ipsec.plist; sourceTree = "<group>"; };
 		723B6A2F162F7BE300895EE5 /* xpc_racoon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpc_racoon.c; sourceTree = "<group>"; };
 		723B6A33162F7C1100895EE5 /* ipsec_xpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipsec_xpc.h; sourceTree = "<group>"; };
 		724F99500E3672FD00C56897 /* com.apple.racoon.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.racoon.plist; sourceTree = "<group>"; };
-		727FA35F163A1A24000A3986 /* ipsec_interface.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipsec_interface.c; sourceTree = "<group>"; };
-		727FA362163A1A43000A3986 /* ipsec_interface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ipsec_interface.h; sourceTree = "<group>"; };
 		72F5C72D1607A1AE004C192F /* api_support.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = api_support.c; sourceTree = "<group>"; };
 		72F5C7311607A1DD004C192F /* api_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = api_support.h; sourceTree = "<group>"; };
+		7822D11D188DB07300874E91 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = ../../../../../System/Library/Frameworks/NetworkExtension.framework; sourceTree = "<group>"; };
+		7822D11F188DB07C00874E91 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks/NetworkExtension.framework; sourceTree = DEVELOPER_DIR; };
 		8125310A0D3FE9DC006BDF4F /* racoon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = racoon; sourceTree = BUILT_PRODUCTS_DIR; };
 		812A64EC0D4AA082004CB7EB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = SDKs/Purple/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		81657D551457582300B8A054 /* racoon_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = racoon_types.h; sourceTree = "<group>"; };
@@ -701,7 +705,6 @@
 		81EDB0670B5D8D7000840BC7 /* ipsec_dump_policy.3 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ipsec_dump_policy.3; path = libipsec/ipsec_dump_policy.3; sourceTree = "<group>"; };
 		81EDB0680B5D8D8900840BC7 /* ipsec_get_policylen.3 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ipsec_get_policylen.3; path = libipsec/ipsec_get_policylen.3; sourceTree = "<group>"; };
 		8D5B16230E5F7E9300E72675 /* libresolv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libresolv.dylib; path = /usr/lib/libresolv.dylib; sourceTree = "<absolute>"; };
-		BA04622A1562E6E400EF348A /* EAP8021X.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EAP8021X.framework; path = System/Library/PrivateFrameworks/EAP8021X.framework; sourceTree = SDKROOT; };
 		BA485FA1109C1ECA00545E19 /* power_mgmt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = power_mgmt.c; sourceTree = "<group>"; };
 		BA485FA6109C243900545E19 /* power_mgmt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = power_mgmt.h; sourceTree = "<group>"; };
 		BA48611B109C2BBA00545E19 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
@@ -716,23 +719,9 @@
 		BA64A933114EFE5C00F3574C /* racoon.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = racoon.sb; sourceTree = "<group>"; };
 		BA6F10940EA1D67700546773 /* ike_session.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ike_session.h; sourceTree = "<group>"; };
 		BA6F109A0EA1DEC200546773 /* ike_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ike_session.c; sourceTree = "<group>"; };
-		BA8BE71615655D360068DEB9 /* eap_sim.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eap_sim.c; sourceTree = "<group>"; };
-		BA8BE71715655D360068DEB9 /* eap_sim.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eap_sim.h; sourceTree = "<group>"; };
-		BA952E77156704DF00B07934 /* eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eap.c; sourceTree = "<group>"; };
-		BA952E78156704DF00B07934 /* eap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eap.h; sourceTree = "<group>"; };
-		BAC2E16C146DFD05009D4506 /* ikev2_ike_sa_rfc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikev2_ike_sa_rfc.c; sourceTree = "<group>"; };
-		BAC2E16D146DFD05009D4506 /* ikev2_ike_sa_rfc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikev2_ike_sa_rfc.h; sourceTree = "<group>"; };
-		BAC2E16E146DFD05009D4506 /* ikev2_info_rfc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikev2_info_rfc.h; sourceTree = "<group>"; };
-		BAC2E16F146DFD05009D4506 /* ikev2_ipsec_sa_rfc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikev2_ipsec_sa_rfc.c; sourceTree = "<group>"; };
-		BAC2E170146DFD05009D4506 /* ikev2_ipsec_sa_rfc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikev2_ipsec_sa_rfc.h; sourceTree = "<group>"; };
-		BAC2E172146DFD05009D4506 /* ikev2_rfc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikev2_rfc.c; sourceTree = "<group>"; };
-		BAC2E173146DFD06009D4506 /* ikev2_rfc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikev2_rfc.h; sourceTree = "<group>"; };
-		BAC2E174146DFD06009D4506 /* ikev2_sessresume_rfc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikev2_sessresume_rfc.h; sourceTree = "<group>"; };
 		BACBF18B10290AE000BBFC85 /* ipsec.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ipsec.txt; sourceTree = "<group>"; };
 		BACD8C681496A50C0042DEA1 /* Preferences.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Preferences.c; sourceTree = "<group>"; };
 		BACD8C691496A50C0042DEA1 /* Preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Preferences.h; sourceTree = "<group>"; };
-		BACF4E5E146F909E008F04FC /* ikev2_info_rfc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikev2_info_rfc.c; sourceTree = "<group>"; };
-		BACF4E621470E394008F04FC /* ikev2_sessresume_rfc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikev2_sessresume_rfc.c; sourceTree = "<group>"; };
 		C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
@@ -748,6 +737,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7822D11E188DB07300874E91 /* NetworkExtension.framework in Frameworks */,
 				81C387570D45208700975D5E /* DirectoryService.framework in Frameworks */,
 				81C387560D45208700975D5E /* Security.framework in Frameworks */,
 				25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */,
@@ -773,7 +763,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA04622B1562E6E400EF348A /* EAP8021X.framework in Frameworks */,
+				7822D120188DB07C00874E91 /* NetworkExtension.framework in Frameworks */,
 				8D5B167D0E5F7F9F00E72675 /* libresolv.dylib in Frameworks */,
 				817FFC4E0D6134A7004A8DD8 /* libipsec.A.dylib in Frameworks */,
 				812530F80D3FE9DC006BDF4F /* libiconv.dylib in Frameworks */,
@@ -806,7 +796,6 @@
 		23D2D78C087071FC00C51098 = {
 			isa = PBXGroup;
 			children = (
-				BA04622A1562E6E400EF348A /* EAP8021X.framework */,
 				BA64A933114EFE5C00F3574C /* racoon.sb */,
 				BACBF18B10290AE000BBFC85 /* ipsec.txt */,
 				72265DDB0F818F9300730A7D /* ipsec.plist */,
@@ -866,6 +855,8 @@
 		25D3DB4C098998230025F703 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				7822D11F188DB07C00874E91 /* NetworkExtension.framework */,
+				7822D11D188DB07300874E91 /* NetworkExtension.framework */,
 				81C964580DA2CBEF00257BC8 /* SystemConfiguration.framework */,
 				81C9645D0DA2CC2D00257BC8 /* SystemConfiguration.framework */,
 				812A64EC0D4AA082004CB7EB /* Security.framework */,
@@ -952,16 +943,6 @@
 				25F258CE0988657000D15623 /* handler.h */,
 				BA6F109A0EA1DEC200546773 /* ike_session.c */,
 				BA6F10940EA1D67700546773 /* ike_session.h */,
-				BAC2E16C146DFD05009D4506 /* ikev2_ike_sa_rfc.c */,
-				BAC2E16D146DFD05009D4506 /* ikev2_ike_sa_rfc.h */,
-				BAC2E16E146DFD05009D4506 /* ikev2_info_rfc.h */,
-				BACF4E5E146F909E008F04FC /* ikev2_info_rfc.c */,
-				BAC2E16F146DFD05009D4506 /* ikev2_ipsec_sa_rfc.c */,
-				BAC2E170146DFD05009D4506 /* ikev2_ipsec_sa_rfc.h */,
-				BAC2E172146DFD05009D4506 /* ikev2_rfc.c */,
-				BAC2E173146DFD06009D4506 /* ikev2_rfc.h */,
-				BAC2E174146DFD06009D4506 /* ikev2_sessresume_rfc.h */,
-				BACF4E621470E394008F04FC /* ikev2_sessresume_rfc.c */,
 				25F258CF0988657000D15623 /* ipsec_doi.c */,
 				25F258D00988657000D15623 /* ipsec_doi.h */,
 				BA5B6F280EC19F40003774E7 /* ipsecConfigTracer.c */,
@@ -1043,14 +1024,7 @@
 				25DE2DE60A8BD40E0010A46D /* vpn_control.c */,
 				25DE2DE70A8BD40E0010A46D /* vpn_control.h */,
 				81CA08910CE3BC870055C0AF /* vpn.c */,
-				BA8BE71615655D360068DEB9 /* eap_sim.c */,
-				72171DAE166443AB0050B3B9 /* eap_aka.c */,
-				BA8BE71715655D360068DEB9 /* eap_sim.h */,
-				BA952E77156704DF00B07934 /* eap.c */,
-				BA952E78156704DF00B07934 /* eap.h */,
 				BA5B6F4F0EC1A136003774E7 /* vpn.h */,
-				727FA35F163A1A24000A3986 /* ipsec_interface.c */,
-				727FA362163A1A43000A3986 /* ipsec_interface.h */,
 				72F5C72D1607A1AE004C192F /* api_support.c */,
 				72F5C7311607A1DD004C192F /* api_support.h */,
 				723B6A2F162F7BE300895EE5 /* xpc_racoon.c */,
@@ -1183,14 +1157,12 @@
 				812530FF0D3FE9DC006BDF4F /* CopyFiles */,
 				812531020D3FE9DC006BDF4F /* CopyFiles */,
 				725F453B0E36A15C005BB55C /* CopyFiles */,
-				BA64A932114EFE4400F3574C /* CopyFiles */,
 				812531040D3FE9DC006BDF4F /* ShellScript */,
 				834072BB0EDCC5C400B6CCE8 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				81DDFDDF0D622D1700C5CB87 /* PBXTargetDependency */,
 			);
 			name = "racoon Embedded";
 			productName = racoon;
@@ -1209,7 +1181,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				81DDFDE40D622D8C00C5CB87 /* PBXTargetDependency */,
 			);
 			name = "setkey Embedded";
 			productName = setkey;
@@ -1265,6 +1236,8 @@
 				25F258090987FC1500D15623 /* setkey */,
 				2537A1A709E4864800D0ECDA /* libipsec */,
 				812530AA0D3FE994006BDF4F /* IPSec Embedded (Aggregate) */,
+				78C83A09189841FA00DB2F64 /* ipsec_executables_embedded */,
+				78C83A04189841E800DB2F64 /* ipsec_libraries_embedded */,
 				812530BA0D3FE9DC006BDF4F /* racoon Embedded */,
 				81DDFD970D622C1700C5CB87 /* setkey Embedded */,
 				81DDFDB80D622C2700C5CB87 /* libipsec Embedded */,
@@ -1419,15 +1392,9 @@
 				BA5B6F2B0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */,
 				BA485FA2109C1ECA00545E19 /* power_mgmt.c in Sources */,
 				81CBCFE91447A1C20000D6E6 /* fsm.c in Sources */,
-				BAC2E175146DFD06009D4506 /* ikev2_ike_sa_rfc.c in Sources */,
-				BAC2E177146DFD06009D4506 /* ikev2_ipsec_sa_rfc.c in Sources */,
-				BAC2E179146DFD06009D4506 /* ikev2_rfc.c in Sources */,
-				BACF4E5F146F909E008F04FC /* ikev2_info_rfc.c in Sources */,
-				BACF4E631470E394008F04FC /* ikev2_sessresume_rfc.c in Sources */,
 				BACD8C6A1496A50C0042DEA1 /* Preferences.c in Sources */,
 				72F5C72E1607A1AE004C192F /* api_support.c in Sources */,
 				723B6A30162F7BE300895EE5 /* xpc_racoon.c in Sources */,
-				727FA360163A1A25000A3986 /* ipsec_interface.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1497,18 +1464,9 @@
 				BA5B6F2C0EC19F40003774E7 /* ipsecConfigTracer.c in Sources */,
 				BA5B6F2D0EC19F40003774E7 /* ipsecSessionTracer.c in Sources */,
 				BA485FA3109C1ECA00545E19 /* power_mgmt.c in Sources */,
-				BAC2E176146DFD06009D4506 /* ikev2_ike_sa_rfc.c in Sources */,
-				BAC2E178146DFD06009D4506 /* ikev2_ipsec_sa_rfc.c in Sources */,
-				BAC2E17A146DFD06009D4506 /* ikev2_rfc.c in Sources */,
-				BACF4E60146F909E008F04FC /* ikev2_info_rfc.c in Sources */,
-				BACF4E641470E394008F04FC /* ikev2_sessresume_rfc.c in Sources */,
 				BACD8C6B1496A50C0042DEA1 /* Preferences.c in Sources */,
-				BA8BE71815655D360068DEB9 /* eap_sim.c in Sources */,
-				BA952E79156704DF00B07934 /* eap.c in Sources */,
 				72F5C72F1607A1AE004C192F /* api_support.c in Sources */,
 				723B6A31162F7BE300895EE5 /* xpc_racoon.c in Sources */,
-				727FA361163A1A25000A3986 /* ipsec_interface.c in Sources */,
-				72171DAF166443AB0050B3B9 /* eap_aka.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1566,6 +1524,21 @@
 			target = 72B3C2081684F5C4004E4548 /* ipsec_executables */;
 			targetProxy = 72B3C21816850CC5004E4548 /* PBXContainerItemProxy */;
 		};
+		78C83A0F1898421100DB2F64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 812530BA0D3FE9DC006BDF4F /* racoon Embedded */;
+			targetProxy = 78C83A0E1898421100DB2F64 /* PBXContainerItemProxy */;
+		};
+		78C83A111898421300DB2F64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFD970D622C1700C5CB87 /* setkey Embedded */;
+			targetProxy = 78C83A101898421300DB2F64 /* PBXContainerItemProxy */;
+		};
+		78C83A131898421900DB2F64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
+			targetProxy = 78C83A121898421900DB2F64 /* PBXContainerItemProxy */;
+		};
 		812531110D3FEA28006BDF4F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 812530BA0D3FE9DC006BDF4F /* racoon Embedded */;
@@ -1575,16 +1548,6 @@
 			isa = PBXTargetDependency;
 			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
 			targetProxy = 81DDFDD80D622C4E00C5CB87 /* PBXContainerItemProxy */;
-		};
-		81DDFDDF0D622D1700C5CB87 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
-			targetProxy = 81DDFDDE0D622D1700C5CB87 /* PBXContainerItemProxy */;
-		};
-		81DDFDE40D622D8C00C5CB87 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 81DDFDB80D622C2700C5CB87 /* libipsec Embedded */;
-			targetProxy = 81DDFDE30D622D8C00C5CB87 /* PBXContainerItemProxy */;
 		};
 		81DDFDF10D627DE300C5CB87 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1747,6 +1710,8 @@
 				ALTERNATE_MODE = "$(inherited)";
 				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements-mac.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -1802,6 +1767,8 @@
 				ALTERNATE_MODE = "$(inherited)";
 				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements-mac.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1854,6 +1821,8 @@
 				ALTERNATE_MODE = "$(inherited)";
 				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements-mac.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -2091,6 +2060,48 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
+		78C83A05189841E800DB2F64 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		78C83A06189841E800DB2F64 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		78C83A07189841E800DB2F64 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
+		78C83A0B189841FA00DB2F64 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		78C83A0C189841FA00DB2F64 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		78C83A0D189841FA00DB2F64 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Default;
@@ -2645,6 +2656,26 @@
 				72B3C21316850B87004E4548 /* Development */,
 				72B3C21416850B87004E4548 /* Deployment */,
 				72B3C21516850B87004E4548 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		78C83A08189841E800DB2F64 /* Build configuration list for PBXAggregateTarget "ipsec_libraries_embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78C83A05189841E800DB2F64 /* Development */,
+				78C83A06189841E800DB2F64 /* Deployment */,
+				78C83A07189841E800DB2F64 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		78C83A0A189841FA00DB2F64 /* Build configuration list for PBXAggregateTarget "ipsec_executables_embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78C83A0B189841FA00DB2F64 /* Development */,
+				78C83A0C189841FA00DB2F64 /* Deployment */,
+				78C83A0D189841FA00DB2F64 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

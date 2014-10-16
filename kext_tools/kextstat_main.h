@@ -3,7 +3,7 @@
  *  kext_tools
  *
  *  Created by Nik Gervae on 5/03/08.
- *  Copyright 2008 Apple Inc. All rights reserved.
+ *  Copyright 2008, 2014 Apple Inc. All rights reserved.
  *
  */
 #ifndef _KEXTSTAT_MAIN_H
@@ -43,9 +43,11 @@ enum {
 
 #define kOptNameNoKernelComponents  "no-kernel"
 #define kOptNameListOnly            "list-only"
+#define kOptNameArchitecture        "arch"
 
 #define kOptNoKernelComponents      'k'
 #define kOptListOnly                'l'
+#define kOptArchitecture            'a'
 
 #if 0
 // bundle-id,version,compatible-version,is-kernel,is-interface,retaincount,path,uuid,started,prelinked,index,address,size,wired,dependencies,classes,cputype,cpusubtype
@@ -66,7 +68,7 @@ kOSBundleDependenciesKey
 kOSBundleMetaClassesKey
 #endif
 
-#define kOptChars                "b:hkl"
+#define kOptChars                "b:hkla"
 
 /* Options with no single-letter variant.  */
 // Do not use -1, that's getopt() end-of-args return value
@@ -80,6 +82,7 @@ struct option sOptInfo[] = {
     { kOptNameBundleIdentifier,   required_argument,  NULL,     kOptBundleIdentifier },
     { kOptNameNoKernelComponents, no_argument,        NULL,     kOptNoKernelComponents },
     { kOptNameListOnly,           no_argument,        NULL,     kOptListOnly },
+    { kOptNameArch,               no_argument,        NULL,     kOptArchitecture },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
@@ -91,6 +94,7 @@ struct option sOptInfo[] = {
 typedef struct {
     Boolean            flagNoKernelComponents;
     Boolean            flagListOnly;
+    Boolean            flagShowArchitecture;
     CFMutableArrayRef  bundleIDs;          // must release
     
     CFDictionaryRef    loadedKextInfo;     // must release

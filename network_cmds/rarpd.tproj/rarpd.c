@@ -41,18 +41,14 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
+
 #include <sys/cdefs.h>
+
 #ifndef lint
 __unused char    copyright[] =
 "@(#) Copyright (c) 1990 The Regents of the University of California.\n\
  All rights reserved.\n";
 #endif				/* not lint */
-
-#ifndef lint
-__unused static char rcsid[] =
-"@(#) $Id: rarpd.c,v 1.3 2006/04/05 03:13:14 lindak Exp $";
-#endif
-
 
 /*
  * rarpd - Reverse ARP Daemon

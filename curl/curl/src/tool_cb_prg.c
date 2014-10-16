@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -27,18 +27,19 @@
 
 #include "tool_cfgable.h"
 #include "tool_cb_prg.h"
+#include "tool_util.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
 /*
-** callback for CURLOPT_PROGRESSFUNCTION
+** callback for CURLOPT_XFERINFOFUNCTION
 */
 
 #define MAX_BARLENGTH 256
 
 int tool_progress_cb(void *clientp,
-                     double dltotal, double dlnow,
-                     double ultotal, double ulnow)
+                     curl_off_t dltotal, curl_off_t dlnow,
+                     curl_off_t ultotal, curl_off_t ulnow)
 {
   /* The original progress-bar source code was written for curl by Lars Aas,
      and this new edition inherits some of his concepts. */
@@ -49,17 +50,21 @@ int tool_progress_cb(void *clientp,
   double percent;
   int barwidth;
   int num;
-  int i;
-
+  struct timeval now = tvnow();
   struct ProgressData *bar = (struct ProgressData *)clientp;
+  curl_off_t total;
+  curl_off_t point;
 
   /* expected transfer size */
-  curl_off_t total = (curl_off_t)dltotal + (curl_off_t)ultotal +
-    bar->initial_size;
+  total = dltotal + ultotal + bar->initial_size;
 
   /* we've come this far */
-  curl_off_t point = (curl_off_t)dlnow + (curl_off_t)ulnow +
-    bar->initial_size;
+  point = dlnow + ulnow + bar->initial_size;
+
+  if(bar->calls && (tvdiff(now, bar->prevtime) < 100L) && point < total)
+    /* after first call, limit progress-bar updating to 10 Hz */
+    /* update when we're at 100% even if last update is less than 200ms ago */
+    return 0;
 
   if(point > total)
     /* we have got more than the expected total! */
@@ -83,20 +88,20 @@ int tool_progress_cb(void *clientp,
     num = (int) (((double)barwidth) * frac);
     if(num > MAX_BARLENGTH)
       num = MAX_BARLENGTH;
-    for(i = 0; i < num; i++)
-      line[i] = '#';
-    line[i] = '\0';
+    memset(line, '#', num);
+    line[num] = '\0';
     snprintf(format, sizeof(format), "\r%%-%ds %%5.1f%%%%", barwidth);
     fprintf(bar->out, format, line, percent);
   }
   fflush(bar->out);
   bar->prev = point;
+  bar->prevtime = now;
 
   return 0;
 }
 
 void progressbarinit(struct ProgressData *bar,
-                     struct Configurable *config)
+                     struct OperationConfig *config)
 {
 #ifdef __EMX__
   /* 20000318 mgs */
@@ -141,6 +146,5 @@ void progressbarinit(struct ProgressData *bar,
   bar->width = scr_size[0] - 1;
 #endif
 
-  bar->out = config->errors;
+  bar->out = config->global->errors;
 }
-

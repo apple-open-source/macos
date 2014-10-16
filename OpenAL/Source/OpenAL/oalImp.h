@@ -52,8 +52,13 @@ AL_API ALvoid AL_APIENTRY alSetDouble (ALenum pname, ALdouble value);
 
 AL_API ALvoid	AL_APIENTRY	alBufferDataStatic (ALint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq);
 
+// source notifications
 AL_API ALenum alSourceAddNotification (ALuint sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
 AL_API ALvoid alSourceRemoveNotification (ALuint	sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
+    
+// source spatialization
+AL_API ALvoid alSourceRenderingQuality (ALuint sid, ALint value);
+AL_API ALint  alSourceGetRenderingQuality (ALuint sid);
 
 // added for ASA (Apple Environmental Audio) 
 
@@ -61,6 +66,13 @@ ALC_API ALenum  alcASAGetSource(ALuint property, ALuint source, ALvoid *data, AL
 ALC_API ALenum  alcASASetSource(ALuint property, ALuint source, ALvoid *data, ALuint dataSize);
 ALC_API ALenum  alcASAGetListener(ALuint property, ALvoid *data, ALuint* dataSize);
 ALC_API ALenum  alcASASetListener(ALuint property, ALvoid *data, ALuint dataSize);
+    
+// 3DMixer output capturer
+ALC_API ALvoid  alcOutputCapturerPrepare( ALCuint frequency, ALCenum format, ALCsizei buffersize );
+ALC_API ALvoid  alcOutputCapturerStart();
+ALC_API ALvoid  alcOutputCapturerStop();
+ALC_API ALint   alcOutputCapturerAvailableSamples();
+ALC_API ALvoid  alcOutputCapturerSamples( ALCvoid *buffer, ALCsizei samples );
 
 // Used internally but no longer available via a header file. Some OpenAL applications may have been built with a header
 // that defined these constants so keep defining them.

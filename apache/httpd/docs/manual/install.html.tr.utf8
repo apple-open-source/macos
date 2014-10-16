@@ -9,17 +9,17 @@
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
-<script src="./style/scripts/prettify.js" type="text/javascript">
+<script src="./style/scripts/prettify.min.js" type="text/javascript">
 </script>
 
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p>
-<p class="apache">Apache HTTP Sunucusu Sürüm 2.2</p>
+<p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
 <img alt="" src="./images/feather.gif" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.2</a></div><div id="page-content"><div id="preamble"><h1>Derleme ve Kurulum</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="./">Sürüm 2.4</a></div><div id="page-content"><div id="preamble"><h1>Derleme ve Kurulum</h1>
 <div class="toplang">
 <p><span>Mevcut Diller: </span><a href="./de/install.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="./en/install.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
@@ -33,13 +33,15 @@
 
     <p>Bu belge Apache HTTP Sunucusunun sadece Unix ve Unix benzeri
       sistemlerde derlenmesini ve kurulmasını kapsar. Windows üzerinde
-      derleme ve kurulum için <a href="platform/windows.html">Apache HTTPd’nin
-      Microsoft Windows ile kullanımı</a> bölümüne bakınız. Diğer platformlar
-      için ise <a href="platform/">platform</a> belgelerine bakınız.</p>
+      derleme ve kurulum için <a href="platform/windows.html">Apache HTTP
+      Sunucusunun Microsoft Windows ile kullanımı</a> ve <a href="platform/win_compiling.html">Apache HTTP
+      Sunucusunun Microsoft Windows için Derlenmesi</a> bölümüne bakınız.
+      Diğer platformlar için ise <a href="platform/">platform</a>
+      belgelerine bakınız.</p>
 
-    <p>Apache HTTPd, derleme ortamını oluşturmak için çoğu Açık Kaynak Kodlu
-      projenin yaptığı gibi <code>libtool</code> ve <code>autoconf</code>
-      kullanır.</p>
+    <p>Apache HTTP Sunucusunun, derleme ortamını oluşturmak için çoğu Açık
+      Kaynak Kodlu projenin yaptığı gibi <code>libtool</code> ve
+      <code>autoconf</code> kullanır.</p>
 
     <p>Eğer sadece sürüm yükseltiyorsanız (2.2.50’den 2.2.51’e yükseltmek
       gibi) lütfen doğrudan <a href="#upgrading">Yükseltme</a> bölümüne
@@ -56,7 +58,8 @@
 <li><img alt="" src="./images/down.gif" /> <a href="#customize">Kişiselleştirme</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#test">Deneme</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#upgrading">Yükseltme</a></li>
-</ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><a href="programs/configure.html">Kaynak ağacının yapılandırılması</a></li><li><a href="invoking.html">Apache HTTPd’nin başlatılması</a></li><li><a href="stopping.html">Durdurma ve yeniden başlatma</a></li></ul><ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
+<li><img alt="" src="./images/down.gif" /> <a href="#thirdp">Üçüncü parti paketler</a></li>
+</ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><a href="programs/configure.html">Kaynak ağacının yapılandırılması</a></li><li><a href="invoking.html">Apache httpd’nin başlatılması</a></li><li><a href="stopping.html">Durdurma ve yeniden başlatma</a></li></ul><ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="overview" id="overview">Tez canlılar için genel bir bakış</a></h2>
@@ -123,19 +126,43 @@
 <div class="section">
 <h2><a name="requirements" id="requirements">Gereksinimler</a></h2>
 
-    <p>Apache HTTPd’yi derleyebilmek için şunlar mevcut olmalıdır:</p>
+    <p>Apache httpd’yi derleyebilmek için şunlar mevcut olmalıdır:</p>
 
     <dl>
+      <dt>APR ve APR-Util</dt>
+      <dd>APR ve APR-Util'in sisteminizde kurulu olduğundan emin olun. Kurulu
+        değilse veya sisteminizce sağlanmış sürümlerini kullanmak
+        istemiyorsanız APR ve APR-Util'in ikisini birden <a href="http://apr.apache.org/">Apache APR</a>'den indirin ve onları
+        Apache httpd dağıtımını açtığınız dizinin altında
+        <code>./srclib/apr</code> ve <code>./srclib/apr-util</code> dizinlerine
+        açın (Dizin isimlerinin sürüm numarası içermemesine dikkat edin,
+        örneğin, APR dağıtımı ./srclib/apr/ altında olsun.) ve
+        <code>./configure</code> betiğinin <code>--with-included-apr</code>
+        seçeneğini kullanın. Bazı platformlarda, httpd'nin, kurulu APR ve
+        APR-Util kopyanıza karşın derlenmesini sağlamak için ilgili
+        <code>-dev</code> paketlerini kurmanız gerekebilir.</dd>
+
+      <dt>Perl-Uyumlu Düzenli İfade Kütüphanesi (PCRE)</dt>
+      <dd>Bu kütüphane gereklidir, ancak artık httpd ile birlikte
+        dağıtılmamaktadır. Kaynak kodunu <a href="http://www.pcre.org/">http://www.pcre.org</a> sitesinden indirin ve bir port veya paket
+        olarak kurun. Eğer derleme sisteminiz PCRE kurulumunuz tarafından
+        kurulan <code>pcre-config</code> betiğini bulamazsa
+        <code>--with-pcre</code> seçeneğini kullanarak yerini belirtin. Bazı
+        platformlarda, httpd'nin, kurulu PCRE kopyanıza karşın derlenmesini
+        sağlamak için ilgili <code>-dev</code> paketlerini kurmanız
+        gerekebilir.</dd>
+
       <dt>Disk Alanı</dt>
       <dd>Geçici olarak en azından 50 MB boş disk alanınız olduğundan emin
-        olunuz. Kurulumdan sonra Apache yaklaşık 10 MB disk alanı kaplıyor
+        olunuz. Kurulumdan sonra sunucu yaklaşık 10 MB disk alanı kaplıyor
         olacaktır. Asıl disk alanı gereksinimi seçtiğiniz yapılandırma
-        seçenekleri ve üçüncü parti modüllere göre değişiklik
+        seçeneklerine, üçüncü parti modüllere ve şüphesiz sitenizin veya sunucu
+        üzerindeki sitelerin boyutlarına göre değişiklik
         gösterecektir.</dd>
 
       <dt>ANSI-C Derleyici ve Derleme Sistemi</dt>
       <dd>Bir ANSI-C derleyicinin kurulu olduğundan emin olunuz. <a href="http://www.gnu.org/">Free Software Foundation (FSF)</a>
-        tarafından dağıtılan <a href="http://www.gnu.org/software/gcc/gcc.html">GNU C derleyicisini
+        tarafından dağıtılan <a href="http://gcc.gnu.org/">GNU C derleyicisini
         (GCC)</a> kullanmanız önerilir. GCC yoksa en azından satıcınızın
         derleyicisinin ANSI uyumlu olduğundan emin olunuz. Ayrıca,
         <code>PATH</code> ortam değişkeninizin içerdiği yollarda
@@ -161,49 +188,7 @@
         <code class="program"><a href="./programs/configure.html">configure</a></code> betiği sisteminizde Perl 5 yorumlayıcısı
         bulamazsa bu betikleri kullanamazsınız. Ancak, bu durum Apache
         HTTPd’nin derlenip kurulmasına engel değildir.</dd>
-
-      <dt><a href="http://apr.apache.org">apr/apr-util &gt;= 1.2</a></dt>
-      <dd><code>apr</code> ve <code>apr-util</code> Apache HTTPd kaynak
-        paketiyle gelmektedir ve hemen hemen tüm durumlarda sorunsuz
-        kullanılabilecek durumdadır. Ancak sisteminizde <code>apr</code> veya
-        <code>apr-util</code>’in 1.0 veya 1.1 sürümleri kuruluysa onları paket
-        içindeki kütüphaneleri kullanmaya zorlamak için ya 1.2 sürümlerine
-        yükseltmeli ya da ayrı HTTPd derlemeleriniz olmalıdır. Paket içinde
-        gelen <code>apr</code>/<code>apr-util</code> kaynak kodlarını
-        kullanmak için <code class="program"><a href="./programs/configure.html">configure</a></code> betiğine
-        <code>--with-included-apr</code> seçeneğini belirtiniz.
-
-      <div class="note"><h3>Ek bilgi</h3>
-        <code>--with-included-apr</code> seçeneği 2.2.3 sürümünde eklenmiştir.
-      </div>
-      <div class="example"><p><code>
-        # Paketteki apr/apr-util’in kullanımını zorlamak için<br />
-        ./configure --with-included-apr<br />
-      </code></p></div>
-
-        Apache HTTPd’yi ve <code>apr</code>/<code>apr-util</code>’i ayrı ayrı
-        derlemek için:
-      <div class="example"><p><code>
-        # apr 1.2’nin derlenmesi ve kurulması<br />
-        cd srclib/apr<br />
-        ./configure --prefix=/usr/local/apr-httpd/<br />
-        make<br />
-        make install<br />
-        <br />
-        # apr-util 1.2’nin derlenmesi ve kurulması<br />
-        cd ../apr-util<br />
-        ./configure --prefix=/usr/local/apr-util-httpd/
-          --with-apr=/usr/local/apr-httpd/<br />
-        make<br />
-        make install<br />
-        <br />
-        # HTTPd’nin derlenmesi<br />
-        cd ../../<br />
-        ./configure --with-apr=/usr/local/apr-httpd/
-          --with-apr-util=/usr/local/apr-util-httpd/
-      </code></p></div>
-    </dd>
-  </dl>
+    </dl>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="download" id="download">İndirme</a></h2>
@@ -229,7 +214,7 @@
 <div class="section">
 <h2><a name="extract" id="extract">Paketi açma</a></h2>
 
-    <p>Apache HTTPd tar paketinden sıkıştırmayı kaldırdıktan sonra tar
+    <p>Apache HTTP Sunucusu tar paketinden sıkıştırmayı kaldırdıktan sonra tar
       arşivinden dosyaları çıkarmak basit bir işlemdir:</p>
 
     <div class="example"><p><code>
@@ -266,14 +251,15 @@
 
     <p>Bu noktada ayrıca, Apache HTTPd’de hangi özelliklerin bulunmasını
       istediğinizi <a href="mod/">modülleri</a> etkin kılarak veya iptal
-      ederek belirtebilirsiniz. Apache, öntanımlı olarak içerilmiş <a href="mod/module-dict.html#Status">temel</a> modüllerle gelir. Diğer
-      modüller <code>--enable-<var>modül</var></code> seçenekleri
-      kullanılarak etkinleştirilir. Buradaki <code><var>modül</var></code>,
-      önünden <code>mod_</code> dizgesi kaldırılmış ve içindeki altçizgi
-      imleri tire imleri ile değiştirilmiş modül ismidir. Ayrıca,
-      <code>--enable-<var>modül</var>=shared</code> seçeneklerini kullanarak
-      modülleri çalışma anında gerektiğinde yüklemek veya kaldırmak üzere <a href="dso.html">paylaşımlı nesneler (DSO’lar)</a> olarak derlemeniz de
-      mümkündür. Temel modülleri de benzer şekilde
+      ederek belirtebilirsiniz. Apache, öntanımlı olarak içerilmiş pek çok
+      modülle gelir. Bunlar çalışma anında devereye sokulup çıkarılabilen <a href="dso.html">paylaşımlaı nesneler (DSO'lar)</a> olarak derlenebilir.
+      Ayrıca, istediğiniz modülleri derleme sırasında
+      <code>--enable-<var>module</var>=static</code> seçeneğini kullanarak
+      durağan olarak derleyebilirsiniz. Ek modüller <code>--enable-
+      <var>modül</var></code> seçenekleri kullanılarak etkinleştirilir.
+      Buradaki <code><var>modül</var></code>, önünden <code>mod_</code> dizgesi
+      kaldırılmış ve içindeki altçizgi imleri tire imleri ile değiştirilmiş
+      modül ismidir. Temel modülleri de benzer şekilde
       <code>--disable-<var>modül</var></code> seçenekleriyle iptal
       edebilirsiniz. <code class="program"><a href="./programs/configure.html">configure</a></code> betiği mevcut olmayan
       modüller için sizi uyarmayıp, seçeneği yok saymakla yetineceğinden, bu
@@ -290,15 +276,15 @@
       izlenim edinmeniz için aşağıda tipik bir örneğe yer verilmiştir. Bu
       örnekte, Apache’nin <code>/sw/pkg/apache</code> önekiyle başlayan
       dizinlere kurulması, belli bir derleyici ve derleyici seçenekleriyle
-      derlenmesi ve <code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code> ve
-      <code class="module"><a href="./mod/mod_speling.html">mod_speling</a></code> modüllerinin de DSO mekanizması üzerinden
+      derlenmesi ve <code class="module"><a href="./mod/mod_ldap.html">mod_ldap</a></code> ve
+      <code class="module"><a href="./mod/mod_lua.html">mod_lua</a></code>modüllerinin de DSO mekanizması üzerinden
       daha sonra yüklenmek üzere derlenmesi istenmektedir:</p>
 
     <div class="example"><p><code>
       $ CC="pgcc" CFLAGS="-O2" \<br />
        ./configure --prefix=/sw/pkg/apache \<br />
-       --enable-rewrite=shared \<br />
-       --enable-speling=shared
+       --enable-ldap=shared \<br />
+       --enable-lua=shared
     </code></p></div>
 
     <p><code class="program"><a href="./programs/configure.html">configure</a></code> betiği başlatıldığında sisteminizde
@@ -329,7 +315,7 @@
       yapılandırdığınız (yukarı <code>--prefix</code> seçeneğine bakınız)
       paketi kurmaya geldi. Basitçe şu komutu veriniz:</p>
 
-    <div class="example"><p><code># make install</code></p></div>
+<div class="example"><p><code># make install</code></p></div>
 
     <p><code><em>ÖNEK</em></code> dizininde genellikle yazma izinlerinin
       sınırlı oluşu nedeniyle bu adım genellikle root yetkilerini
@@ -348,8 +334,8 @@
     <div class="example"><p><code>$ vi <em>ÖNEK</em>/conf/httpd.conf</code></p></div>
 
     <p>Bu kılavuz ve kullanılabilecek <a href="mod/directives.html">yapılandırma yönergelerinin</a> kılavuzlarını
-      <a href="./">docs/manual/</a> altında bulabileceğiniz gibi en
-      son sürümünü daima <a href="http://httpd.apache.org/docs/2.2/">http://httpd.apache.org/docs/2.2/</a> adresinde
+      <code><em>ÖNEK</em>/<a href="./">docs/manual/</a></code> altında
+      bulabileceğiniz gibi en son sürümünü daima <a href="http://httpd.apache.org/docs/2.4/">http://httpd.apache.org/docs/2.4/</a> adresinde
       bulabilirsiniz.</p>
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -374,7 +360,7 @@
     <p>Sürüm yükseltme işleminin ilk adımı, sitenizi etkileyen değişiklikleri
       öğrenmek için dağıtım duyurusunu ve kaynak paketindeki
       <code>CHANGES</code> dosyasını okumaktır. Ana sürümlerden yükseltme
-      yapıyorsanız (1.3’ten 2.0’a veya 2.0’dan 2.2’ye gibi), derleme anı ve
+      yapıyorsanız (2.0’ten 2.2’ye veya 2.2’den 2.4’e gibi), derleme anı ve
       çalışma anı yapılandırmalarındaki ana farklılıklar elle ayarlamalar
       yapmanızı gerektirecektir. Ayrıca, tüm modüllerin de modül API’sindeki
       değişikliklere uyum sağlaması için yükseltilmesi gerekecektir.</p>
@@ -412,6 +398,35 @@
       farklı bir <code>--prefix</code> ile kurabilir ve farklı bir port ile
       (<code class="directive"><a href="./mod/mpm_common.html#listen">Listen</a></code> yönergesini
       ayarlamak suretiyle) çalıştırabilirsiniz.</div>
+
+    <p>Özgün <code class="program"><a href="./programs/configure.html">configure</a></code> seçeneklerinizi değiştirmek veya
+      yeni seçenekler eklemek isterseniz bunları <code>config.nice</code>
+      betiğine komut satırı argümanları olarak belirtebilirsiniz:</p>
+
+    <div class="example"><p><code>
+    $ ./config.nice --prefix=/home/dnm/apache --with-port=90
+    </code></p></div>
+</div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="thirdp" id="thirdp">Üçüncü parti paketler</a></h2>
+
+    <p>Üçüncü partilerin çoğunun, Apache HTTP Sunucusunun belli bir platforma
+      kurulumu için paketlenmiş kendi dağıtımları vardır. Çeşitli Linux
+      dağıtımları, üçüncü parti Windows paketleri, Mac OS X, Solaris ve daha
+      pek çokları bunlar arasında sayılabilir.r</p>
+
+    <p>Yazılım lisansımız bu çeşit yeniden dağıtımlara izin verdiği gibi
+      bunları cesaretlendirir de. Ancak, sunucunun kurulum ve yapılandırmasının
+      belgelerimizde belittiğimizden farklı olması gibi bir durum ortaya
+      çıkabilir. Ne yazık ki, bu durum yakın zamanda değişecekmiş gibi
+      görünmüyor.</p>
+
+    <p>Bu <a href="http://wiki.apache.org/httpd/DistrosDefaultLayout">üçüncü parti
+      dağıtımlarla ilgili bir açıklamaya</a> HTTP
+      Sunucu wikisinde yer verilmiş olup bunların şu anki durumunu
+      yansıtmaktadır. Ancak, yine de, dağıtımınızın belli platformlarla ilgili
+      paket yönetimi ve kurulum işlemleri hakkında bilgi sahibi olmanız
+      gerekmektir.</p>
 </div></div>
 <div class="bottomlang">
 <p><span>Mevcut Diller: </span><a href="./de/install.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
@@ -424,7 +439,7 @@
 </div><div class="top"><a href="#page-header"><img src="./images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
-var comments_identifier = 'http://httpd.apache.org/docs/2.2/install.html';
+var comments_identifier = 'http://httpd.apache.org/docs/2.4/install.html';
 (function(w, d) {
     if (w.location.hostname.toLowerCase() == "httpd.apache.org") {
         d.write('<div id="comments_thread"><\/div>');
@@ -439,7 +454,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.2/install.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2013 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2014 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

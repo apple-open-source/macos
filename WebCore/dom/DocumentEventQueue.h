@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All Rights Reserved.
+ * Copyright (C) 2013 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -28,49 +29,38 @@
 #define DocumentEventQueue_h
 
 #include "EventQueue.h"
-#include <wtf/Forward.h>
+#include <memory>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class Document;
 class Event;
-class DocumentEventQueueTimer;
 class Node;
-class ScriptExecutionContext;
 
-class DocumentEventQueue : public RefCounted<DocumentEventQueue>, public EventQueue {
+class DocumentEventQueue final : public EventQueue {
 public:
-    enum ScrollEventTargetType {
-        ScrollEventDocumentTarget,
-        ScrollEventElementTarget
-    };
-
-    static PassRefPtr<DocumentEventQueue> create(ScriptExecutionContext*);
+    explicit DocumentEventQueue(Document&);
     virtual ~DocumentEventQueue();
 
-    // EventQueue
-    virtual bool enqueueEvent(PassRefPtr<Event>) OVERRIDE;
-    virtual bool cancelEvent(Event*) OVERRIDE;
-    virtual void close() OVERRIDE;
+    virtual bool enqueueEvent(PassRefPtr<Event>) override;
+    virtual bool cancelEvent(Event&) override;
+    virtual void close() override;
 
-    void enqueueOrDispatchScrollEvent(PassRefPtr<Node>, ScrollEventTargetType);
+    void enqueueOrDispatchScrollEvent(Node&);
 
 private:
-    explicit DocumentEventQueue(ScriptExecutionContext*);
-
     void pendingEventTimerFired();
-    void dispatchEvent(PassRefPtr<Event>);
+    void dispatchEvent(Event&);
 
-    OwnPtr<DocumentEventQueueTimer> m_pendingEventTimer;
+    class Timer;
+
+    Document& m_document;
+    std::unique_ptr<Timer> m_pendingEventTimer;
     ListHashSet<RefPtr<Event>, 16> m_queuedEvents;
     HashSet<Node*> m_nodesWithQueuedScrollEvents;
     bool m_isClosed;
-
-    friend class DocumentEventQueueTimer;    
 };
 
 }

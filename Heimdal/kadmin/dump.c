@@ -90,7 +90,7 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
 	return 0;
     }
 
-    CFDataRef xmldata = CFPropertyListCreateXMLData(NULL, dict);
+    CFDataRef xmldata = CFPropertyListCreateData(NULL, dict, kCFPropertyListXMLFormat_v1_0, 0, NULL);
     CFRelease(dict);
     if (xmldata == NULL) {
 	CFRelease(url);

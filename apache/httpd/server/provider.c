@@ -42,7 +42,7 @@ AP_DECLARE(apr_status_t) ap_register_provider(apr_pool_t *pool,
 
     if (global_providers == NULL) {
         global_providers = apr_hash_make(pool);
-        global_providers_names = apr_hash_make(pool);;
+        global_providers_names = apr_hash_make(pool);
         apr_pool_cleanup_register(pool, NULL, cleanup_global_providers,
                                   apr_pool_cleanup_null);
     }
@@ -136,7 +136,7 @@ AP_DECLARE(apr_array_header_t *) ap_list_provider_names(apr_pool_t *pool,
     ap_list_provider_names_t *entry;
     apr_hash_t *provider_group_hash, *h;
     apr_hash_index_t *hi;
-    char *val, *key;
+    char *val;
 
     if (global_providers_names == NULL) {
         return ret;
@@ -157,9 +157,41 @@ AP_DECLARE(apr_array_header_t *) ap_list_provider_names(apr_pool_t *pool,
     }
 
     for (hi = apr_hash_first(pool, h); hi; hi = apr_hash_next(hi)) {
-        apr_hash_this(hi, (void *)&key, NULL, (void *)&val);
+        apr_hash_this(hi, NULL, NULL, (void *)&val);
         entry = apr_array_push(ret);
         entry->provider_name = apr_pstrdup(pool, val);
+    }
+    return ret;
+}
+
+AP_DECLARE(apr_array_header_t *) ap_list_provider_groups(apr_pool_t *pool)
+{
+    apr_array_header_t *ret = apr_array_make(pool, 10, sizeof(ap_list_provider_groups_t));
+    ap_list_provider_groups_t *entry;
+    apr_hash_t *provider_group_hash;
+    apr_hash_index_t *groups_hi, *vers_hi;
+    char *group, *version;
+
+    if (global_providers_names == NULL)
+        return ret;
+
+    for (groups_hi = apr_hash_first(pool, global_providers_names);
+         groups_hi;
+         groups_hi = apr_hash_next(groups_hi))
+    {
+        apr_hash_this(groups_hi, (void *)&group, NULL, (void *)&provider_group_hash);
+        if (provider_group_hash == NULL)
+            continue;
+        for (vers_hi = apr_hash_first(pool, provider_group_hash);
+             vers_hi;
+             vers_hi = apr_hash_next(vers_hi))
+        {
+            apr_hash_this(vers_hi, (void *)&version, NULL, NULL);
+
+            entry = apr_array_push(ret);
+            entry->provider_group = group;
+            entry->provider_version = version;
+        }
     }
     return ret;
 }

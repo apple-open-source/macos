@@ -26,8 +26,9 @@
 #include "config.h"
 #include "WebRenderLayer.h"
 
+#include "APIArray.h"
+#include "APIString.h"
 #include "WebPage.h"
-#include "WebString.h"
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoaderClient.h>
@@ -46,7 +47,7 @@ PassRefPtr<WebRenderLayer> WebRenderLayer::create(WebPage* page)
     if (!mainFrame)
         return 0;
 
-    if (!mainFrame->loader()->client()->hasHTMLView())
+    if (!mainFrame->loader().client().hasHTMLView())
         return 0;
 
     RenderView* contentRenderer = mainFrame->contentRenderer();
@@ -60,26 +61,30 @@ PassRefPtr<WebRenderLayer> WebRenderLayer::create(WebPage* page)
     return adoptRef(new WebRenderLayer(rootLayer));
 }
 
-PassRefPtr<MutableArray> WebRenderLayer::createArrayFromLayerList(Vector<RenderLayer*>* list)
+PassRefPtr<WebRenderLayer> WebRenderLayer::create(PassRefPtr<WebRenderObject> renderer, bool isReflection, bool isClipping, bool isClipped, CompositingLayerType type, WebCore::IntRect absoluteBoundingBox, PassRefPtr<API::Array> negativeZOrderList, PassRefPtr<API::Array> normalFlowList, PassRefPtr<API::Array> positiveZOrderList)
+{
+    return adoptRef(new WebRenderLayer(renderer, isReflection, isClipping, isClipped, type, absoluteBoundingBox, negativeZOrderList, normalFlowList, positiveZOrderList));
+}
+
+PassRefPtr<API::Array> WebRenderLayer::createArrayFromLayerList(Vector<RenderLayer*>* list)
 {
     if (!list || !list->size())
-        return 0;
+        return nullptr;
 
-    RefPtr<MutableArray> array = MutableArray::create();
-    for (size_t i = 0; i < list->size(); ++i) {
-        RefPtr<WebRenderLayer> layer = adoptRef(new WebRenderLayer(list->at(i)));
-        array->append(layer.get());
-    }
+    Vector<RefPtr<API::Object>> layers;
+    layers.reserveInitialCapacity(list->size());
 
-    return array.release();
+    for (const auto& layer : *list)
+        layers.uncheckedAppend(adoptRef(new WebRenderLayer(layer)));
+
+    return API::Array::create(WTF::move(layers));
 }
 
 WebRenderLayer::WebRenderLayer(RenderLayer* layer)
 {
-    m_renderer = WebRenderObject::create(layer->renderer());
+    m_renderer = WebRenderObject::create(&layer->renderer());
     m_isReflection = layer->isReflection();
 
-#if USE(ACCELERATED_COMPOSITING)
     if (layer->isComposited()) {
         RenderLayerBacking* backing = layer->backing();
         m_isClipping = backing->hasClippingLayer();
@@ -99,19 +104,29 @@ WebRenderLayer::WebRenderLayer(RenderLayer* layer)
             break;
         }
     } else {
-#endif
         m_isClipping = false;
         m_isClipped = false;
         m_compositingLayerType = None;
-#if USE(ACCELERATED_COMPOSITING)
     }
-#endif
 
     m_absoluteBoundingBox = layer->absoluteBoundingBox();
 
     m_negativeZOrderList = createArrayFromLayerList(layer->negZOrderList());
     m_normalFlowList = createArrayFromLayerList(layer->normalFlowList());
     m_positiveZOrderList = createArrayFromLayerList(layer->posZOrderList());
+}
+
+WebRenderLayer::WebRenderLayer(PassRefPtr<WebRenderObject> renderer, bool isReflection, bool isClipping, bool isClipped, CompositingLayerType type, WebCore::IntRect absoluteBoundingBox, PassRefPtr<API::Array> negativeZOrderList, PassRefPtr<API::Array> normalFlowList, PassRefPtr<API::Array> positiveZOrderList)
+    : m_renderer(renderer)
+    , m_isReflection(isReflection)
+    , m_isClipping(isClipping)
+    , m_isClipped(isClipped)
+    , m_compositingLayerType(type)
+    , m_absoluteBoundingBox(absoluteBoundingBox)
+    , m_negativeZOrderList(negativeZOrderList)
+    , m_normalFlowList(normalFlowList)
+    , m_positiveZOrderList(positiveZOrderList)
+{
 }
 
 } // namespace WebKit

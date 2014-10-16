@@ -43,11 +43,7 @@ BEGIN
 tick-1
 /i != 5/
 {
-#if !defined(__APPLE__)
-	tracemem(`rootvp, 20);
-#else
 	tracemem(`avenrun, 20);
-#endif /* __APPLE__ */
 	i++;
 }
 

@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -140,9 +140,7 @@ int		flags;	/* SFFMT_LONG for wchar_t		*/
 #endif
 {
 	int		c, endc, n;
-#if _has_multibyte
 	SFMBDCL(mbs)
-#endif
 
 	if(*form == '^') /* complementing this set */
 	{	ac->yes = 0;
@@ -556,13 +554,10 @@ loop_fmt:
 				base = v;
 			goto loop_flags;
 
+		case 'z' : /* ssize_t or object size */
 		case 'I' : /* object size */
 			size = -1; flags = (flags & ~SFFMT_TYPES) | SFFMT_IFLAG;
-			if(isdigit(*form))
-			{	for(size = 0, n = *form; isdigit(n); n = *++form)
-					size = size*10 + (n - '0');
-			}
-			else if(*form == '*')
+			if(*form == '*')
 			{	form = (*_Sffmtintf)(form+1,&n);
 				if(*form == '$')
 				{	form += 1;
@@ -586,6 +581,11 @@ loop_fmt:
 				}
 				else	size = va_arg(args,int);
 			}
+			else if (fmt == 'z')
+				flags = (flags&~SFFMT_TYPES) | SFFMT_ZFLAG;
+			else if(isdigit(*form))
+				for(size = 0, n = *form; isdigit(n); n = *++form)
+					size = size*10 + (n - '0');
 			goto loop_flags;
 
 		case 'l' :
@@ -609,9 +609,6 @@ loop_fmt:
 			goto loop_flags;
 		case 'j' :
 			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_JFLAG;
-			goto loop_flags;
-		case 'z' :
-			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_ZFLAG;
 			goto loop_flags;
 		case 't' :
 			size = -1; flags = (flags&~SFFMT_TYPES) | SFFMT_TFLAG;

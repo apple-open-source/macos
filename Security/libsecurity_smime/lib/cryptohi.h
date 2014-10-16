@@ -52,9 +52,10 @@ SEC_BEGIN_PROTOS
  * most of the rest of the world) just generates 40 bytes of raw data.  These
  * functions convert between formats.
  */
-//extern SECStatus DSAU_EncodeDerSig(SECItem *dest, SECItem *src);
-//extern SECItem *DSAU_DecodeDerSig(SECItem *item);
+//extern SECStatus DSAU_EncodeDerSig(SecAsn1Item *dest, SecAsn1Item *src);
+//extern SecAsn1Item *DSAU_DecodeDerSig(SecAsn1Item *item);
 
+#if USE_CDSA_CRYPTO
 /*
  * Return a csp handle able to deal with algorithm
  */
@@ -64,7 +65,7 @@ extern CSSM_CSP_HANDLE SecCspHandleForAlgorithm(CSSM_ALGORITHMS algorithm);
  * Return a CSSM_ALGORITHMS for a given SECOidTag or 0 if there is none
  */
 extern CSSM_ALGORITHMS SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag);
-
+#endif
 
 /****************************************/
 /*
@@ -81,7 +82,7 @@ extern CSSM_ALGORITHMS SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag);
 **	"algid" the signature/hash algorithm to sign with 
 **		(must be compatible with the key type).
 */
-extern SECStatus SEC_SignData(SECItem *result, unsigned char *buf, int len,
+extern SECStatus SEC_SignData(SecAsn1Item *result, unsigned char *buf, int len,
 			     SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag);
 
 /*
@@ -93,7 +94,7 @@ extern SECStatus SEC_SignData(SECItem *result, unsigned char *buf, int len,
 **	"algtag" The algorithm tag to encode (need for RSA only)
 */
 extern SECStatus SGN_Digest(SecPrivateKeyRef privKey,
-                SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem *result, SECItem *digest);
+                SECOidTag digAlgTag, SECOidTag sigAlgTag, SecAsn1Item *result, SecAsn1Item *digest);
 
 /****************************************/
 /*
@@ -111,8 +112,8 @@ extern SECStatus SGN_Digest(SecPrivateKeyRef privKey,
 **	"algid" specifies the signing algorithm to use.  This must match
 **	    the key type.
 **/
-extern SECStatus VFY_VerifyDigest(SECItem *dig, SecPublicKeyRef key,
-				  SECItem *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx);
+extern SECStatus VFY_VerifyDigest(SecAsn1Item *dig, SecPublicKeyRef key,
+				  SecAsn1Item *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx);
 
 /*
 ** Verify the signature on a block of data. The signature data is an RSA
@@ -125,17 +126,17 @@ extern SECStatus VFY_VerifyDigest(SECItem *dig, SecPublicKeyRef key,
 **	    the key type.
 */
 extern SECStatus VFY_VerifyData(unsigned char *buf, int len,
-				SecPublicKeyRef key, SECItem *sig,
+				SecPublicKeyRef key, SecAsn1Item *sig,
 				SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx);
 
 
 
 extern SECStatus WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
 				    SecSymmetricKeyRef bulkkey,
-				    CSSM_DATA_PTR encKey);
+				    SecAsn1Item * encKey);
 
 
-extern SecSymmetricKeyRef WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
+extern SecSymmetricKeyRef WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, const SecAsn1Item *encKey, SECOidTag bulkalgtag);
 
 
 SEC_END_PROTOS

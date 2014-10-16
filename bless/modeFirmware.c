@@ -36,6 +36,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <fts.h>
+#include <dirent.h>
 
 #include <AvailabilityMacros.h>
 

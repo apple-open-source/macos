@@ -9,13 +9,10 @@
 
 #include "cert.h"
 #include "cmstpriv.h"
-#include "cmslocal.h"
-#include "secitem.h"
 #include <security_asn1/secerr.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainSearch.h>
-#include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecCertificatePriv.h>
@@ -26,14 +23,7 @@
 #include <Security/oidscert.h>
 
 /* for errKCDuplicateItem */
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
-#define CERT_DEBUG	0
-#if	CERT_DEBUG
-#define dprintf(args...)      printf(args)
-#else
-#define dprintf(args...)
-#endif
+#include <Security/SecBase.h>
 
 /* @@@ Remove this once it's back in the appropriate header. */
 static const uint8 X509V1IssuerNameStd[] = {INTEL_X509V3_CERT_R08, 23};
@@ -128,7 +118,7 @@ SecCertificateRef CERT_FindCertByNicknameOrEmailAddr(SecKeychainRef keychainOrAr
 {
    SecCertificateRef certificate;
     OSStatus status=SecCertificateFindByEmail(keychainOrArray,name,&certificate);
-    return status==noErr?certificate:NULL;
+    return status==errSecSuccess?certificate:NULL;
 }
 
 SecPublicKeyRef SECKEY_CopyPublicKey(SecPublicKeyRef pubKey)
@@ -194,7 +184,7 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
     attrs[1].data = nickname;
 #else
     attrs[1].tag = kSecSerialNumberItemAttr;
-    attrs[1].length = (UInt32)strlen(serialNumber)+1;
+    attrs[1].length = strlen(serialNumber)+1;
     attrs[1].data = (uint8 *)serialNumber;
 #endif
     SecKeychainAttributeList attrList = { 0, attrs };
@@ -202,12 +192,12 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
 	status = SecKeychainSearchCreateFromAttributes(keychainOrArray,itemClass,&attrList,&searchRef);
     if (status)
     {
-        printf("CERT_FindUserCertByUsage: SecKeychainSearchCreateFromAttributes:%d",(int)status);
+        printf("CERT_FindUserCertByUsage: SecKeychainSearchCreateFromAttributes:%ld",status);
         return NULL;
     }
 	status = SecKeychainSearchCopyNext(searchRef,&itemRef);
     if (status)
-    	printf("CERT_FindUserCertByUsage: SecKeychainSearchCopyNext:%d",(int)status);
+    	printf("CERT_FindUserCertByUsage: SecKeychainSearchCopyNext:%ld",status);
     CFRelease(searchRef);
     return (SecCertificateRef)itemRef;
 }
@@ -217,7 +207,7 @@ startNewClass(X509Certificate)
 CertType, kSecCertTypeItemAttr, "CertType", 0, NULL, UINT32)
 CertEncoding, kSecCertEncodingItemAttr, "CertEncoding", 0, NULL, UINT32)
 PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-Alias, kSecAlias, "Alias", 0, NULL, BLOB)
+Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
 Subject, kSecSubjectItemAttr, "Subject", 0, NULL, BLOB)
 Issuer, kSecIssuerItemAttr, "Issuer", 0, NULL, BLOB)
 SerialNumber, kSecSerialNumberItemAttr, "SerialNumber", 0, NULL, BLOB)
@@ -234,7 +224,6 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     SecTrustRef trust = NULL;
     CFArrayRef certChain = NULL;
     CSSM_TP_APPLE_EVIDENCE_INFO *statusChain;
-    CFDataRef actionData = NULL;
     OSStatus status = 0;
 
     if (!cert)
@@ -251,22 +240,6 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     status = SecTrustCreateWithCertificates(wrappedCert, policy, &trust);
     if (status)
 	goto loser;
-
-    /* Tell SecTrust that we don't care if any certs in the chain have expired,
-       nor do we want to stop when encountering a cert with a trust setting;
-       we always want to build the full chain.
-    */
-    CSSM_APPLE_TP_ACTION_DATA localActionData = {
-        CSSM_APPLE_TP_ACTION_VERSION,
-        CSSM_TP_ACTION_ALLOW_EXPIRED | CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT
-    };
-    actionData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)&localActionData, sizeof(localActionData), kCFAllocatorNull);
-    if (!actionData)
-        goto loser;
-
-    status = SecTrustSetParameters(trust, CSSM_TP_ACTION_DEFAULT, actionData);
-    if (status)
-        goto loser;
 
     status = SecTrustEvaluate(trust, NULL);
     if (status)
@@ -295,8 +268,6 @@ loser:
 	CFRelease(wrappedCert);
     if (trust)
 	CFRelease(trust);
-    if (actionData)
-	CFRelease(actionData);
     if (certChain && status)
     {
 	CFRelease(certChain);
@@ -360,61 +331,11 @@ SecCertificateRef CERT_FindCertByDERCert(SecKeychainRef keychainOrArray, const S
     return cert;
 }
 
-static int compareCssmData(
-    const CSSM_DATA *d1,
-    const CSSM_DATA *d2)
-{
-    if((d1 == NULL) || (d2 == NULL)) {
-	return 0;
-    }
-    if(d1->Length != d2->Length) {
-	return 0;
-    }
-    if(memcmp(d1->Data, d2->Data, d1->Length)) {
-	return 0;
-    }
-    return 1;
-}
-
 // Generate a certificate key from the issuer and serialnumber, then look it up in the database.
 // Return the cert if found. "issuerAndSN" is the issuer and serial number to look for
-SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN)
+SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN)
 {
     SecCertificateRef certificate;
-    int numRawCerts = SecCmsArrayCount((void **)rawCerts);
-    int dex;
-    OSStatus ortn;
-    
-    /* 
-     * First search the rawCerts array.
-     */
-    for(dex=0; dex<numRawCerts; dex++) {
-	ortn = SecCertificateCreateFromData(rawCerts[dex], 
-	    CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
-	    &certificate);
-	if(ortn) {
-	    continue;
-	}
-	SecCmsIssuerAndSN *isn = CERT_GetCertIssuerAndSN(pl, certificate);
-	if(isn == NULL) {
-	    CFRelease(certificate);
-	    continue;
-	}
-	if(!compareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
-	    CFRelease(certificate);
-	    continue;
-	}
-	if(!compareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
-	    CFRelease(certificate);
-	    continue;
-	}
-	/* got it */
-	dprintf("CERT_FindCertByIssuerAndSN: found cert %p\n", certificate);
-	return certificate;
-    }
-    
-    /* now search keychain(s) */
     OSStatus status = SecCertificateFindByIssuerAndSN(keychainOrArray, &issuerAndSN->derIssuer,
 	&issuerAndSN->serialNumber, &certificate);
     if (status)
@@ -426,41 +347,9 @@ SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray,
     return certificate;
 }
 
-SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, const SECItem *subjKeyID)
+SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID)
 {
     SecCertificateRef certificate;
-    int numRawCerts = SecCmsArrayCount((void **)rawCerts);
-    int dex;
-    OSStatus ortn;
-    SECItem skid;
-    
-    /* 
-     * First search the rawCerts array.
-     */
-    for(dex=0; dex<numRawCerts; dex++) {
-	int match;
-	ortn = SecCertificateCreateFromData(rawCerts[dex], 
-	    CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
-	    &certificate);
-	if(ortn) {
-	    continue;
-	}
-	if(CERT_FindSubjectKeyIDExtension(certificate, &skid)) {
-	    CFRelease(certificate);
-	    /* not present */
-	    continue;
-	}
-	match = compareCssmData(subjKeyID, &skid);
-	SECITEM_FreeItem(&skid, PR_FALSE);
-	if(match) {
-	    /* got it */
-	    return certificate;
-	}
-	CFRelease(certificate);
-    }
-
-    /* now search keychain(s) */
     OSStatus status = SecCertificateFindBySubjectKeyID(keychainOrArray,subjKeyID,&certificate);
     if (status)
     {
@@ -485,7 +374,7 @@ CERT_FindIdentityByCertificate (CFTypeRef keychainOrArray, SecCertificateRef cer
 SecIdentityRef
 CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN)
 {
-    SecCertificateRef certificate = CERT_FindCertByIssuerAndSN(keychainOrArray, NULL, NULL, issuerAndSN);
+    SecCertificateRef certificate = CERT_FindCertByIssuerAndSN(keychainOrArray, issuerAndSN);
     if (!certificate)
 	return NULL;
 
@@ -495,7 +384,7 @@ CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAnd
 SecIdentityRef
 CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SECItem *subjKeyID)
 {
-    SecCertificateRef certificate = CERT_FindCertBySubjectKeyID(keychainOrArray, NULL, subjKeyID);
+    SecCertificateRef certificate = CERT_FindCertBySubjectKeyID(keychainOrArray, subjKeyID);
     if (!certificate)
 	return NULL;
 
@@ -510,27 +399,63 @@ SECItem *CERT_FindSMimeProfile(SecCertificateRef cert)
 
 // Return the decoded value of the subjectKeyID extension. The caller should 
 // free up the storage allocated in retItem->data.
-SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert, SECItem *retItem)
+SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert,SECItem *retItem)
 {
-    CSSM_DATA_PTR fieldValue = NULL;
-    OSStatus ortn;
-    CSSM_X509_EXTENSION *extp;
-    CE_SubjectKeyID *skid;
-    
-    ortn = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_SubjectKeyIdentifier,
-	&fieldValue);
-    if(ortn || (fieldValue == NULL)) {
-	/* this cert doesn't have that extension */
-	return SECFailure;
+    fprintf(stderr, "WARNING: CERT_FindSubjectKeyIDExtension unimplemented\n");
+    return SECFailure;
+}
+
+static void * appMalloc (uint32 size, void *allocRef) {
+	return (malloc (size));
+}
+
+static void appFree (void *mem_ptr, void *allocRef) {
+	free (mem_ptr);
+ 	return;
+}
+
+static void * appRealloc (void *ptr, uint32 size, void *allocRef) {
+	return (realloc (ptr, size));
+}
+
+static void * appCalloc (uint32 num, uint32 size, void *allocRef) {
+	return (calloc (num, size));
+}
+
+static CSSM_API_MEMORY_FUNCS memFuncs = {
+	appMalloc,
+	appFree,
+	appRealloc,
+ 	appCalloc,
+ 	NULL
+ };
+
+// return a valid CL handle
+static int InitializeCL (CSSM_CL_HANDLE *clHandle)
+{
+    CSSM_VERSION version = {2, 0};
+
+    // load the module
+    CSSM_RETURN result = CSSM_ModuleLoad (&gGuidAppleX509CL, CSSM_KEY_HIERARCHY_NONE, NULL, NULL);
+    if (result != 0)
+    {
+	return false;
     }
-    extp = (CSSM_X509_EXTENSION *)fieldValue->Data;
-    skid = (CE_SubjectKeyID *)extp->value.parsedValue;
-    retItem->Data = (uint8 *)PORT_Alloc(skid->Length);
-    retItem->Length = skid->Length;
-    memmove(retItem->Data, skid->Data, retItem->Length);
-    SecCertificateReleaseFirstFieldValue(cert, &CSSMOID_SubjectKeyIdentifier,
-	fieldValue);
-    return SECSuccess;
+    
+    result = CSSM_ModuleAttach (&gGuidAppleX509CL, &version, &memFuncs, 0, CSSM_SERVICE_CL, 0, 0, NULL, 0, NULL, clHandle);
+    if (result != 0)
+    {
+	return false;
+    }
+    
+    return true;
+}
+
+// cleanup a CL handle
+static void CloseCL (CSSM_CL_HANDLE clHandle)
+{
+    CSSM_ModuleDetach (clHandle);
+    CSSM_ModuleUnload (&gGuidAppleX509CL, NULL, NULL);
 }
 
 // Extract the issuer and serial number from a certificate
@@ -549,16 +474,19 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
 
     mark = PORT_ArenaMark(pl);
 
-    status = SecCertificateGetCLHandle(cert, &clHandle);
-    if (status)
+    if (!InitializeCL (&clHandle))
 	goto loser;
     status = SecCertificateGetData(cert, &certData);
     if (status)
 	goto loser;
 
     /* Get the issuer from the cert. */
-    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData, 
-	&OID_X509V1IssuerNameStd, &resultsHandle, &numberOfFields, &issuer);
+    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData, &OID_X509V1IssuerNameStd, &resultsHandle, &numberOfFields, &issuer);
+
+    /* @@@ Remove this once we are sure CSSMOID_X509V1IssuerNameStd is working. */
+    /* Fall back on old normalized issuer if the new oid isn't supported yet. */
+    if (result)
+	result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData, &CSSMOID_X509V1IssuerName, &resultsHandle, &numberOfFields, &issuer);
 
     if (result || numberOfFields < 1)
 	goto loser;
@@ -568,8 +496,7 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
 
 
     /* Get the serialNumber from the cert. */
-    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData, 
-	&CSSMOID_X509V1SerialNumber, &resultsHandle, &numberOfFields, &serialNumber);
+    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData, &CSSMOID_X509V1SerialNumber, &resultsHandle, &numberOfFields, &serialNumber);
     if (result || numberOfFields < 1)
 	goto loser;
     result = CSSM_CL_CertAbortQuery(clHandle, resultsHandle);
@@ -600,6 +527,8 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
     CSSM_CL_FreeFieldValue(clHandle, &CSSMOID_X509V1SerialNumber, serialNumber);
     CSSM_CL_FreeFieldValue(clHandle, &OID_X509V1IssuerNameStd, issuer);
 
+    CloseCL (clHandle);
+    
     return certIssuerAndSN;
 
 loser:
@@ -610,6 +539,8 @@ loser:
     if (issuer)
 	CSSM_CL_FreeFieldValue(clHandle, &OID_X509V1IssuerNameStd, issuer);
 
+    CloseCL (clHandle);
+    
     PORT_SetError(SEC_INTERNAL_ONLY);
     return NULL;
 }
@@ -637,7 +568,7 @@ SECStatus CERT_ImportCerts(SecKeychainRef keychain, SECCertUsage usage, unsigned
 	    if (rv)
 	    {
 		if (rv == errKCDuplicateItem)
-		    rv = noErr;
+		    rv = errSecSuccess;
 		else
 		{
 		    CFRelease(cert);
@@ -682,36 +613,16 @@ SECStatus CERT_VerifyCertName(SecCertificateRef cert, const char *hostname)
 */
 SECStatus
 CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert,
-		const CSSM_DATA_PTR *otherCerts,    /* intermediates */
 		CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef)
 {
-    CFMutableArrayRef certificates = NULL;
+    CFArrayRef certificates;
+    const void *certs = cert;
     SecTrustRef trust = NULL;
     OSStatus rv;
-    int numOtherCerts = SecCmsArrayCount((void **)otherCerts);
-    int dex;
-    
-    /* 
-     * Certs to evaluate: first the leaf - our cert - then all the rest we know
-     * about. It's OK for otherCerts to contain a copy of the leaf. 
-     */
-    certificates = CFArrayCreateMutable(NULL, numOtherCerts + 1, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(certificates, cert);
-    for(dex=0; dex<numOtherCerts; dex++) {
-	SecCertificateRef intCert;
-	
-	rv = SecCertificateCreateFromData(otherCerts[dex], 
-	    CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
-	    &intCert);
-	if(rv) {
-	    goto loser;
-	}
-	CFArrayAppendValue(certificates, intCert);
-	CFRelease(intCert);
-    }
+
+    certificates = CFArrayCreate(NULL, &certs, 1, &kCFTypeArrayCallBacks);
     rv = SecTrustCreateWithCertificates(certificates, policies, &trust);
     CFRelease(certificates);
-    certificates = NULL;
     if (rv)
 	goto loser;
 
@@ -757,15 +668,14 @@ CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert,
 loser:
     if (trust)
 	CFRelease(trust);
-    if(certificates) 
-	CFRelease(certificates);
+
     return rv;
 }
 
 CFTypeRef
 CERT_PolicyForCertUsage(SECCertUsage certUsage)
 {
-    SecPolicySearchRef search = NULL;
+    SecPolicySearchRef search;
     SecPolicyRef policy = NULL;
     const CSSM_OID *policyOID;
     OSStatus rv;
@@ -808,6 +718,6 @@ CERT_PolicyForCertUsage(SECCertUsage certUsage)
 	goto loser;
 
 loser:
-    if(search) CFRelease(search);
+    CFRelease(search);
     return policy;
 }

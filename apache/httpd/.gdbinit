@@ -9,7 +9,7 @@ define dump_table
 	if $t[$i].val == (void *)0L
 	   printf "[%u] '%s'=>NULL\n", $i, $t[$i].key
 	else
-	   printf "[%u] '%s'='%s'\n", $i, $t[$i].key, $t[$i].val
+	   printf "[%u] '%s'='%s' [%p]\n", $i, $t[$i].key, $t[$i].val, $t[$i].val
 	end
 	set $i = $i + 1
     end
@@ -18,9 +18,38 @@ document dump_table
     Print the key/value pairs in a table.
 end
 
+define dump_string_hash
+    set $h = $arg0->array
+    set $n = $arg0->max
+    set $i = 0
+    while $i < $n
+        set $ent = $h[$i]       
+        while $ent != (void *)0L
+            printf "'%s' => '%p'\n", $ent->key, $ent->val
+            set $ent = $ent->next
+        end
+	set $i = $i + 1
+    end
+end
+document dump_string_hash
+    Print the entries in a hash table indexed by strings
+end
 
-define rh
-	run -f /home/dgaudet/ap2/conf/mpm.conf
+define dump_string_shash
+    set $h = $arg0->array
+    set $n = $arg0->max
+    set $i = 0
+    while $i < $n
+        set $ent = $h[$i]       
+        while $ent != (void *)0L
+            printf "'%s' => '%s'\n", $ent->key, $ent->val
+            set $ent = $ent->next
+        end
+	set $i = $i + 1
+    end
+end
+document dump_string_shash
+    Print the entries in a hash table indexed by strings with string values
 end
 
 define ro
@@ -244,6 +273,34 @@ document dump_filters
     Print filter chain info
 end
 
+define dump_filter_chain
+    set $r = $arg0
+    set $f = $r->output_filters
+    while $f
+        if $f == $r->output_filters
+            printf "r->output_filters =>\n"
+        end
+        if $f == $r->proto_output_filters
+            printf "r->proto_output_filters =>\n"
+        end
+        if $f == $r->connection->output_filters
+            printf "r->connection->output_filters =>\n"
+        end
+        
+        printf "  %s(0x%lx): type=%d, ctx=0x%lx, r=%s(0x%lx), c=0x%lx\n", \
+          $f->frec->name, (unsigned long)$f, $f->frec->ftype, (unsigned long)$f->ctx, \
+          $f->r == $r ? "r" : ($f->r == 0L ? "null" : \
+          ($f->r == $r->main ? "r->main" :  \
+          ($r->main && $f->r == $r->main->main ? "r->main->main" : "????"))), \
+          $f->r, $f->c
+
+        set $f = $f->next
+    end
+end
+document dump_filter_chain
+    Print filter chain info given a request_rec pointer
+end
+
 define dump_process_rec
     set $p = $arg0
     printf "process_rec=0x%lx:\n", (unsigned long)$p
@@ -275,3 +332,62 @@ end
 document dump_servers
     Print server_rec list info
 end
+
+define dump_request_tree
+    set $r = $arg0
+    set $i
+    while $r
+        printf "r=(0x%lx): uri=%s, handler=%s, r->main=0x%lx\n", \
+          $r, $r->unparsed_uri, $r->handler ? $r->handler : "(none)", $r->main
+        set $r = $r->main
+    end
+end        
+
+define dump_allocator
+    printf "Allocator current_free_index = %d, max_free_index = %d\n", \
+            ($arg0)->current_free_index, ($arg0)->max_free_index
+    printf "Allocator free list:\n"
+    set $i = 0
+    set $max =(sizeof $arg0->free)/(sizeof $arg0->free[0])
+    set $kb = 0
+    while $i < $max
+        set $node = $arg0->free[$i]
+        if $node != 0
+            printf " #%2d: ", $i
+            while $node != 0
+                printf "%d, ", 4096 << $node->index
+                set $kb = $kb + (4 << $node->index)
+                set $node = $node->next
+            end
+            printf "ends.\n"
+        end
+        set $i = $i + 1
+    end
+    printf "Sum of free blocks: %dkiB\n", $kb
+end
+document dump_allocator
+    Print status of an allocator and its freelists.
+end
+
+define dump_one_pool
+    set $p = $arg0
+    set $size = 0
+    set $free = 0
+    set $nodes = 0
+    set $node = $arg0->active
+    set $done = 0
+    while $done == 0
+        set $size = $size + (4096 << $node->index)
+        set $free = $free + ($node->endp - $node->first_avail)
+        set $nodes = $nodes + 1
+        set $node = $node->next
+        if $node == $arg0->active
+            set $done = 1
+        end
+    end
+    printf "Pool '%s' [%p]: %d/%d free (%d blocks)\n", $p->tag, $p, $free, $size, $nodes
+end
+
+# Set sane defaults for common signals:
+handle SIGPIPE noprint pass nostop
+handle SIGUSR1 print pass nostop

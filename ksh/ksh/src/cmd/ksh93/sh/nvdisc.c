@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -323,7 +323,7 @@ static void	assign(Namval_t *np,const char* val,int flags,Namfun_t *handle)
 		/* restore everything but the nvlink field */
 		memcpy(&SH_VALNOD->nvname,  &node.nvname, sizeof(node)-sizeof(node.nvlink));
 	}
-	else if(sh_isstate(SH_INIT))
+	else if(sh_isstate(SH_INIT) || np==SH_FUNNAMENOD)
 	{
 		/* don't free functions during reinitialization */
 		nv_putv(np,val,flags,handle);
@@ -355,6 +355,11 @@ static void	assign(Namval_t *np,const char* val,int flags,Namfun_t *handle)
 done:
 	if(bp== &block)
 		block_done(bp);
+	if(nq && nq->nvalue.rp->running==1)
+	{
+		nq->nvalue.rp->running=0;
+		_nv_unset(nq,0);
+	}
 }
 
 /*
@@ -393,11 +398,7 @@ static char*	lookup(Namval_t *np, int type, Sfdouble_t *dp,Namfun_t *handle)
 			*dp = nv_getnum(SH_VALNOD);
 		}
 		else if(cp = nv_getval(SH_VALNOD))
-		{
-			Shell_t *shp = sh_getinterp();
-			sfputr(shp->strbuf,cp,0);
-			cp = sfstruse(shp->strbuf);
-		}
+			cp = stkcopy(stkstd,cp);
 		_nv_unset(SH_VALNOD,NV_RDONLY);
 		if(!nv_isnull(&node))
 		{
@@ -416,6 +417,11 @@ static char*	lookup(Namval_t *np, int type, Sfdouble_t *dp,Namfun_t *handle)
 	}
 	if(bp== &block)
 		block_done(bp);
+	if(nq && nq->nvalue.rp->running==1)
+	{
+		nq->nvalue.rp->running=0;
+		_nv_unset(nq,0);
+	}
 	return(cp);
 }
 
@@ -724,7 +730,7 @@ Namfun_t *nv_disc(register Namval_t *np, register Namfun_t* fp, int mode)
 				}
 				lp = lp->next;
 			}
-			if(mode==NV_LAST)
+			if(mode==NV_LAST && lp->disc)
 				lpp = &lp->next;
 		}
 		if(mode==NV_POP)
@@ -732,7 +738,12 @@ Namfun_t *nv_disc(register Namval_t *np, register Namfun_t* fp, int mode)
 		/* push */
 		nv_offattr(np,NV_NODISC);
 		if(mode==NV_LAST)
-			fp->next = 0;
+		{
+			if(lp && !lp->disc)
+				fp->next = lp;
+			else
+				fp->next = 0;
+		}
 		else
 		{
 			if((fp->nofree&1) && *lpp)
@@ -827,7 +838,6 @@ static void *newnode(const char *name)
 	return((void*)np);
 }
 
-#if SHOPT_NAMESPACE
 /*
  * clone a numeric value
  */
@@ -945,7 +955,7 @@ int nv_clone(Namval_t *np, Namval_t *mp, int flags)
 			        mp->nvalue.cp = strdup(np->nvalue.cp);
 			nv_offattr(mp,NV_NOFREE);
 		}
-		else if(!(mp->nvalue.cp = np->nvalue.cp))
+		else if((np->nvfun || !nv_isattr(np,NV_ARRAY)) && !(mp->nvalue.cp = np->nvalue.cp))
 			nv_offattr(mp,NV_NOFREE);
 	}
 	if(flags&NV_MOVE)
@@ -957,20 +967,27 @@ int nv_clone(Namval_t *np, Namval_t *mp, int flags)
 		if(!nv_isattr(np,NV_MINIMAL) || nv_isattr(mp,NV_EXPORT))
 		{
 			mp->nvenv = np->nvenv;
-		        np->nvenv = 0;
-			np->nvflag = 0;
+			if(nv_isattr(np,NV_MINIMAL))
+			{
+				np->nvenv = 0;
+				np->nvflag = NV_EXPORT;
+			}
+			else
+				np->nvflag = 0;
 		}
 		else
 			np->nvflag &= NV_MINIMAL;
 	        nv_setsize(np,0);
 		return(1);
 	}
+	else if((flags&NV_ARRAY) && !nv_isattr(np,NV_MINIMAL))
+		mp->nvenv = np->nvenv;
 	if(nv_isattr(np,NV_INTEGER) && mp->nvalue.ip!=np->nvalue.ip && np->nvalue.cp!=Empty)
 	{
 		mp->nvalue.ip = (int*)num_clone(np,(void*)np->nvalue.ip);
 		nv_offattr(mp,NV_NOFREE);
 	}
-	else if(flags&NV_NOFREE)
+	else if((flags&NV_NOFREE) && !nv_arrayptr(np))
 	        nv_onattr(np,NV_NOFREE);
 	return(1);
 }
@@ -1024,7 +1041,6 @@ Namval_t *nv_mkclone(Namval_t *mp)
 	dtinsert(nv_dict(sh.namespace),np);
 	return(np);
 }
-#endif /* SHOPT_NAMESPACE */
 
 Namval_t *nv_search(const char *name, Dt_t *root, int mode)
 {
@@ -1130,8 +1146,23 @@ Namval_t *nv_bfsearch(const char *name, Dt_t *root, Namval_t **var, char **last)
 	*var = nq;
 	if(c=='[')
 		nv_endsubscript(nq, cp,NV_NOADD);
-	if(nq==shp->namespace)
-		return(nv_search(name,root,0));
+	stakseek(offset);
+#if SHOPT_NAMESPACE
+	if(nv_istable(nq))
+	{
+		Namval_t *nsp = shp->namespace;
+		if(last==0)
+			return(nv_search(name,root,0));
+		shp->namespace = 0;
+		stakputs(nv_name(nq));
+		shp->namespace = nsp;
+		stakputs(dname-1);
+		stakputc(0);
+		np = nv_search(stakptr(offset),root,0);
+		stakseek(offset);
+		return(np);
+	}
+#endif /* SHOPT_NAMESPACE */
 	while(nv_isarray(nq) && !nv_isattr(nq,NV_MINIMAL|NV_EXPORT) && nq->nvenv && nv_isarray((Namval_t*)nq->nvenv))
 		nq = (Namval_t*)nq->nvenv;
 	return((Namval_t*)nv_setdisc(nq,dname,nq,(Namfun_t*)nq));
@@ -1149,17 +1180,27 @@ done:
  *   failure.  For delete NULL means success and the node that cannot be
  *   deleted is returned on failure.
  */
-Namval_t *sh_addbuiltin(const char *path, int (*bltin)(int, char*[],void*),void *extra)
+Namval_t *sh_addbuiltin(const char *path, Shbltin_f bltin, void *extra)
 {
-	register const char	*name = path_basename(path);
+	register const char	*name;
 	char			*cp;
 	register Namval_t	*np, *nq=0;
 	int			offset=staktell();
-	if(name==path && bltin!=SYSTYPESET->nvalue.bfp && (nq=nv_bfsearch(name,sh.bltin_tree,(Namval_t**)0,&cp)))
+	if(extra==(void*)1)
+		name = path;
+	else if((name = path_basename(path))==path && bltin!=(Shbltin_f)SYSTYPESET->nvalue.bfp && (nq=nv_bfsearch(name,sh.bltin_tree,(Namval_t**)0,&cp)))
 		path = name = stakptr(offset);
-	if(np = nv_search(path,sh.bltin_tree,0))
+	else if(sh.bltin_dir && extra!=(void*)1)
+	{
+		stakputs(sh.bltin_dir);
+		stakputc('/');
+		stakputs(name);
+		path = stakptr(offset);
+	}
+	if(np = nv_search(name,sh.bltin_tree,0))
 	{
 		/* exists without a path */
+		stakseek(offset);
 		if(extra == (void*)1)
 		{
 			if(np->nvfun && !nv_isattr(np,NV_NOFREE))
@@ -1180,7 +1221,7 @@ Namval_t *sh_addbuiltin(const char *path, int (*bltin)(int, char*[],void*),void 
 			if(nv_isattr(np,BLT_SPC))
 				return(np);
 			if(!bltin)
-				bltin = np->nvalue.bfp;
+				bltin = (Shbltin_f)np->nvalue.bfp;
 			if(np->nvenv)
 				dtdelete(sh.bltin_tree,np);
 			if(extra == (void*)1)
@@ -1191,6 +1232,7 @@ Namval_t *sh_addbuiltin(const char *path, int (*bltin)(int, char*[],void*),void 
 	}
 	if(!np && !(np = nv_search(path,sh.bltin_tree,bltin?NV_ADD:0)))
 		return(0);
+	stakseek(offset);
 	if(nv_isattr(np,BLT_SPC))
 	{
 		if(extra)
@@ -1201,7 +1243,7 @@ Namval_t *sh_addbuiltin(const char *path, int (*bltin)(int, char*[],void*),void 
 	np->nvfun = 0;
 	if(bltin)
 	{
-		np->nvalue.bfp = bltin;
+		np->nvalue.bfp = (Nambfp_f)bltin;
 		nv_onattr(np,NV_BLTIN|NV_NOFREE);
 		np->nvfun = (Namfun_t*)extra;
 	}
@@ -1265,16 +1307,40 @@ static Namfun_t *clone_table(Namval_t* np, Namval_t *mp, int flags, Namfun_t *fp
 	return(&ntp->fun);
 }
 
+struct adata
+{
+	Shell_t		*sh;
+	Namval_t	*tp;
+	char		*mapname;
+	char		**argnam;
+	int		attsize;
+	char		*attval;
+};
+
+static void delete_fun(Namval_t *np, void *data)
+{
+	Shell_t *shp = ((struct adata*)data)->sh;
+	nv_delete(np,shp->fun_tree,NV_NOFREE);
+}
+
 static void put_table(register Namval_t* np, const char* val, int flags, Namfun_t* fp)
 {
 	register Dt_t		*root = ((struct table*)fp)->dict;
 	register Namval_t	*nq, *mp;
 	Namarr_t		*ap;
-	nv_putv(np,val,flags,fp);
+	struct adata		data;
 	if(val)
+	{
+		nv_putv(np,val,flags,fp);
 		return;
+	}
 	if(nv_isarray(np) && (ap=nv_arrayptr(np)) && array_elem(ap))
 		return;
+	memset(&data,0,sizeof(data));
+	data.mapname = nv_name(np);
+	data.sh = ((struct table*)fp)->shp;
+	nv_scan(data.sh->fun_tree,delete_fun,(void*)&data,NV_FUNCTION,NV_FUNCTION|NV_NOSCOPE);
+	dtview(root,0);
 	for(mp=(Namval_t*)dtfirst(root);mp;mp=nq)
 	{
 		_nv_unset(mp,flags);

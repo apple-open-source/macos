@@ -12,10 +12,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -34,7 +34,6 @@
 #include "Timer.h"
 #include "npruntime_impl.h"
 #include <string.h>
-#include <wtf/OwnArrayPtr.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -197,18 +196,10 @@ void PluginPackage::determineQuirks(const String& mimeType)
         if (compareFileVersion(flashTenVersion) >= 0) {
             // Flash 10.0 b218 doesn't like having a NULL window handle
             m_quirks.add(PluginQuirkDontSetNullWindowHandleOnDestroy);
-#if PLATFORM(QT)
-            m_quirks.add(PluginQuirkRequiresGtkToolKit);
-#endif
         } else {
             // Flash 9 and older requests windowless plugins if we return a mozilla user agent
             m_quirks.add(PluginQuirkWantsMozillaUserAgent);
         }
-
-#if PLATFORM(QT)
-        // Flash will crash on repeated calls to SetWindow in windowed mode
-        m_quirks.add(PluginQuirkDontCallSetWindowMoreThanOnce);
-#endif
 
 #if CPU(X86_64)
         // 64-bit Flash freezes if right-click is sent in windowless mode

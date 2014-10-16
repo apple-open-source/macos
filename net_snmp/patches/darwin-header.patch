@@ -1,3 +1,18 @@
+diff -Naur net-snmp-5.6.orig/include/net-snmp/system/darwin14.h net-snmp-5.6.working/include/net-snmp/system/darwin14.h
+--- net-snmp-5.6.orig/include/net-snmp/system/darwin14.h	1969-12-31 16:00:00.000000000 -0800
++++ net-snmp-5.6.working/include/net-snmp/system/darwin14.h	2013-10-02 16:23:54.000000000 -0700
+@@ -0,0 +1,11 @@
++/* This is a place for the changes needed to get net_snmp runnning on darwin14
++   Currently this just entails including darwin13.h
++*/
++
++#include "darwin13.h"
++
++#ifndef darwin14
++#   define darwin14 darwin
++#endif
++
++
 diff -Naur net-snmp-5.6.orig/include/net-snmp/system/darwin13.h net-snmp-5.6.working/include/net-snmp/system/darwin13.h
 --- net-snmp-5.6.orig/include/net-snmp/system/darwin13.h	1969-12-31 16:00:00.000000000 -0800
 +++ net-snmp-5.6.working/include/net-snmp/system/darwin13.h	2013-04-25 17:56:45.000000000 -0700
@@ -52,7 +67,7 @@ diff -Naur net-snmp-5.4.1.orig/Makefile.in net-snmp-5.4.1/Makefile.in
  INCLUDESUBDIR=system
  INCLUDESUBDIRHEADERS= aix.h bsd.h bsdi3.h bsdi4.h bsdi.h cygwin.h \
 -	darwin.h darwin7.h darwin8.h darwin9.h darwin10.h dragonfly.h dynix.h \
-+       darwin.h darwin7.h darwin8.h darwin9.h darwin10.h darwin11.h darwin12.h darwin13.h dragonfly.h dynix.h \
++       darwin.h darwin7.h darwin8.h darwin9.h darwin10.h darwin11.h darwin12.h darwin13.h darwin14.h dragonfly.h dynix.h \
  	freebsd2.h freebsd3.h freebsd4.h freebsd5.h freebsd6.h freebsd.h \
 	generic.h \
  	hpux.h irix.h linux.h mingw32.h mips.h netbsd.h openbsd.h osf5.h \

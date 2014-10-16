@@ -7,6 +7,8 @@
 # include <config.h>
 #endif
 
+#include <os/trace.h>
+
 #include <stdio.h>
 #include <signal.h>
 #ifdef HAVE_SYS_PARAM_H
@@ -1259,6 +1261,40 @@ interface_action(
 	 * ensures a single -I eth0 or "nic listen eth0" means do not
 	 * listen on any other addresses.
 	 */
+	if (AF_INET6 == if_netaddr->family) {
+		struct in6_ifreq ifr6 = {
+			.ifr_addr.sin6_len = sizeof(struct sockaddr_in6),
+			.ifr_addr.sin6_family = AF_INET6,
+			.ifr_addr.sin6_addr = if_netaddr->type.in6,
+		};
+		struct sockaddr_in6 sa6 = ifr6.ifr_addr;
+		
+		strlcpy(ifr6.ifr_name, if_name, sizeof(ifr6.ifr_name));		
+		int s6 = socket(AF_INET6, SOCK_DGRAM, 0);
+		if (s6 >= 0) {
+			int on = 1;
+			setsockopt(s6, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on));
+			if (ioctl(s6, SIOCGIFAFLAG_IN6, &ifr6) == 0) {
+				if (ifr6.ifr_ifru.ifru_flags6 & IN6_AVOID_FLAGS) {
+					os_trace_debug("Ignoring IPv6 address because 0x%x",
+							 ifr6.ifr_ifru.ifru_flags6 & IN6_AVOID_FLAGS);
+					goto bail;
+				}
+			} else { // probably a bad address
+				int save_errno = errno;
+				msyslog(LOG_DEBUG, "Ignoring address %s because ioctl failed errno:%d",
+						stoa((sockaddr_u *)&sa6), save_errno);
+				os_trace("Ignoring IPv6 address because ioctl failed errno:%d", save_errno);
+			bail:
+				close(s6);
+				return ACTION_IGNORE;
+			}
+			close(s6);
+		} else {
+			os_trace("Failed to create IPv6 dgram socket errno:%d", errno);
+		}
+	}
+			
 	if (NULL == nic_rule_list) {
 		DPRINTF(4, ("default listen\n"));
 		return ACTION_LISTEN;
@@ -1571,7 +1607,7 @@ update_interfaces(
 			continue;
 		if (AF_INET6 == family && !ipv6_works)
 			continue;
-
+		
 		/* create prototype */
 		init_interface(&interface);
 
@@ -3122,7 +3158,7 @@ fetch_timestamp(
 			l_fp nts;
 
 			tvp = (struct timeval *)CMSG_DATA(cmsghdr);
-			DPRINTF(4, ("fetch_timestamp: system network time stamp: %ld.%06ld\n",
+			DPRINTF(4, ("fetch_timestamp: system network time stamp: %ld.%06d\n",
 				    tvp->tv_sec, tvp->tv_usec));
 			nts.l_i = tvp->tv_sec + JAN_1970;
 			dtemp = (tvp->tv_usec 

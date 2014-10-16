@@ -64,9 +64,13 @@ map_alloc(enum map_type type, const void *buf,
     size_t len = size + sizeof(long) * 2;
     int i;
 
-    *map = ecalloc(1, sizeof(**map));
+    *map = calloc(1, sizeof(**map));
+    if (*map == NULL)
+	errx(1, "calloc");
 
-    p = emalloc(len);
+    p = malloc(len);
+    if (p == NULL)
+	errx(1, "malloc");
     (*map)->type = type;
     (*map)->start = p;
     (*map)->size = len;
@@ -80,7 +84,9 @@ map_alloc(enum map_type type, const void *buf,
     int flags, ret, fd;
     size_t pagesize = getpagesize();
 
-    *map = ecalloc(1, sizeof(**map));
+    *map = calloc(1, sizeof(**map));
+    if (*map == NULL)
+	errx(1, "calloc");
 
     (*map)->type = type;
 
@@ -119,8 +125,6 @@ map_alloc(enum map_type type, const void *buf,
     case UNDERRUN:
 	(*map)->data_start = p + pagesize;
 	break;
-   default:
-	abort();
     }
 #endif
     (*map)->data_size = size;
@@ -157,7 +161,7 @@ map_free(struct map_page *map, const char *test_name, const char *map_name)
 static void
 print_bytes (unsigned const char *buf, size_t len)
 {
-    int i;
+    size_t i;
 
     for (i = 0; i < len; ++i)
 	printf ("%02x ", buf[i]);
@@ -200,7 +204,7 @@ generic_test (const struct test_case *tests,
 	      int (ASN1CALL *copy)(const void *from, void *to))
 {
     unsigned char *buf, *buf2;
-    int i;
+    unsigned i;
     int failures = 0;
     void *data;
     struct map_page *data_map, *buf_map, *buf2_map;
@@ -241,7 +245,7 @@ generic_test (const struct test_case *tests,
 	    ++failures;
 	    continue;
 	}
-	if (sz != tests[i].byte_len) {
+	if (sz != (size_t)tests[i].byte_len) {
  	    printf ("encoding of %s has wrong len (%lu != %lu)\n",
 		    tests[i].name,
 		    (unsigned long)sz, (unsigned long)tests[i].byte_len);
@@ -300,7 +304,9 @@ generic_test (const struct test_case *tests,
 
 	current_state = "copy";
 	if (copy) {
-	    to = emalloc(data_size);
+	    to = malloc(data_size);
+	    if (to == NULL)
+		errx(1, "malloc");
 	    ret = (*copy)(data, to);
 	    if (ret != 0) {
 		printf ("copy of %s failed %d\n", tests[i].name, ret);
@@ -353,7 +359,7 @@ generic_decode_fail (const struct test_case *tests,
 		     int (ASN1CALL *decode)(unsigned char *, size_t, void *, size_t *))
 {
     unsigned char *buf;
-    int i;
+    unsigned i;
     int failures = 0;
     void *data;
     struct map_page *data_map, *buf_map;

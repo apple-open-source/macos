@@ -181,7 +181,7 @@ int32_t xar_data_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 #endif
 
 	tmpp = xar_prop_pset(f, NULL, "data", NULL);
-	retval = xar_attrcopy_to_heap(x, f, tmpp, xar_data_read,(void *)(&context));
+	retval = XAR(x)->attrcopy_to_heap(x, f, tmpp, xar_data_read,(void *)(&context));
 	if( context.total == 0 )
 		xar_prop_unset(f, "data");
 
@@ -242,7 +242,7 @@ int32_t xar_data_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 		close(context.fd);
 		return 0;
 	}
-	retval = xar_attrcopy_from_heap(x, f, tmpp, xar_data_write, (void *)(&context));
+	retval = XAR(x)->attrcopy_from_heap(x, f, tmpp, xar_data_write, (void *)(&context));
 	
 	if( context.fd > 0 ){		
 		close(context.fd);
@@ -274,5 +274,5 @@ int32_t xar_data_verify(xar_t x, xar_file_t f)
 	if (!tmpp)		// It appears that xar can have truely empty files, aka, no data. We should just fail to verify these files. 
 		return 0;	// After all, the checksum of blank is meaningless. So, failing to do so will cause a crash.
 	
-	return xar_attrcopy_from_heap(x, f, tmpp, NULL , (void *)(&context));
+	return XAR(x)->attrcopy_from_heap(x, f, tmpp, NULL , (void *)(&context));
 }

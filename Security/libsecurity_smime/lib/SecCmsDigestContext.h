@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsDigestContext.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010-2011 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract Interfaces of the CMS implementation.
@@ -57,7 +57,7 @@ SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *
 
 /*!
     @function
-    @abstract Cancel digesting operation.
+    @abstract Cancel digesting operation in progress and destroy it.
     @discussion Cancel a DigestContext created with @link SecCmsDigestContextStartMultiple SecCmsDigestContextStartMultiple function@/link.
  */
 extern void
@@ -65,11 +65,12 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx);
 
 /*!
     @function
-    @abstract Finish the digests and put them into an array of CSSM_DATAs (allocated on arena)
+    @abstract Destroy a SecCmsDigestContextRef.
+    @discussion Cancel a DigestContext created with @link SecCmsDigestContextStartMultiple SecCmsDigestContextStartMultiple function@/link after it has been used in a @link SecCmsSignedDataSetDigestContext SecCmsSignedDataSetDigestContext function@/link.
  */
-extern OSStatus
-SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef arena,
-			    CSSM_DATA_PTR **digestsp);
+extern void
+SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx);
+
 
 #if defined(__cplusplus)
 }

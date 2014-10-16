@@ -26,8 +26,8 @@
 #ifndef WKContextPrivate_h
 #define WKContextPrivate_h
 
-#include <WebKit2/WKBase.h>
-#include <WebKit2/WKContext.h>
+#include <WebKit/WKBase.h>
+#include <WebKit/WKContext.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +52,8 @@ WK_EXPORT void WKContextSetShouldUseFontSmoothing(WKContextRef context, bool use
 
 WK_EXPORT void WKContextRegisterURLSchemeAsSecure(WKContextRef context, WKStringRef urlScheme);
 
+WK_EXPORT void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef context, WKStringRef urlScheme);
+
 WK_EXPORT void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef context, WKStringRef urlScheme);
 
 WK_EXPORT void WKContextSetIconDatabasePath(WKContextRef context, WKStringRef iconDatabasePath);
@@ -61,8 +63,6 @@ WK_EXPORT void WKContextAllowSpecificHTTPSCertificateForHost(WKContextRef contex
 // FIXME: These functions are only effective if called before the Web process is launched. But
 // we should really change these settings to be on WebPreferences and changeable at runtime.
 WK_EXPORT void WKContextSetApplicationCacheDirectory(WKContextRef context, WKStringRef applicationCacheDirectory);
-WK_EXPORT void WKContextSetDatabaseDirectory(WKContextRef context, WKStringRef databaseDirectory);
-WK_EXPORT void WKContextSetLocalStorageDirectory(WKContextRef context, WKStringRef localStorageDirectory);
 WK_EXPORT void WKContextSetDiskCacheDirectory(WKContextRef context, WKStringRef diskCacheDirectory);
 WK_EXPORT void WKContextSetCookieStorageDirectory(WKContextRef context, WKStringRef cookieStorageDirectory);
 
@@ -78,6 +78,9 @@ WK_EXPORT void WKContextWarmInitialProcess(WKContextRef context);
 // FIXME: This function is temporary and useful during the development of the NetworkProcess feature.
 // At some point it should be removed.
 WK_EXPORT void WKContextSetUsesNetworkProcess(WKContextRef context, bool usesNetworkProcess);
+
+// Test only. Should be called before any secondary processes are started.
+WK_EXPORT void WKContextUseTestingNetworkSession(WKContextRef context);
 
 typedef void (*WKContextInvalidMessageFunction)(WKStringRef messageName);
 WK_EXPORT void WKContextSetInvalidMessageFunction(WKContextInvalidMessageFunction invalidMessageFunction);

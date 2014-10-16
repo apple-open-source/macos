@@ -27,11 +27,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/sbin/ifconfig/ifclone.c,v 1.3.2.1.2.1 2008/11/25 02:59:29 kensmith Exp $";
-#endif /* not lint */
-
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>

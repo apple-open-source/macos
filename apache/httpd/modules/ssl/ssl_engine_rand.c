@@ -45,19 +45,17 @@ int ssl_rand_seed(server_rec *s, apr_pool_t *p, ssl_rsctx_t nCtx, char *prefix)
     ssl_randseed_t *pRandSeeds;
     ssl_randseed_t *pRandSeed;
     unsigned char stackdata[256];
-    int nReq, nDone;
+    int nDone;
     apr_file_t *fp;
     int i, n, l;
 
     mc = myModConfig(s);
-    nReq  = 0;
     nDone = 0;
     apRandSeed = mc->aRandSeed;
     pRandSeeds = (ssl_randseed_t *)apRandSeed->elts;
     for (i = 0; i < apRandSeed->nelts; i++) {
         pRandSeed = &pRandSeeds[i];
         if (pRandSeed->nCtx == nCtx) {
-            nReq += pRandSeed->nBytes;
             if (pRandSeed->nSrc == SSL_RSSRC_FILE) {
                 /*
                  * seed in contents of an external file
@@ -83,7 +81,6 @@ int ssl_rand_seed(server_rec *s, apr_pool_t *p, ssl_rsctx_t nCtx, char *prefix)
                 nDone += ssl_rand_feedfp(p, fp, pRandSeed->nBytes);
                 ssl_util_ppclose(s, p, fp);
             }
-#ifdef HAVE_SSL_RAND_EGD
             else if (pRandSeed->nSrc == SSL_RSSRC_EGD) {
                 /*
                  * seed in contents provided by the external
@@ -93,7 +90,6 @@ int ssl_rand_seed(server_rec *s, apr_pool_t *p, ssl_rsctx_t nCtx, char *prefix)
                     continue;
                 nDone += n;
             }
-#endif
             else if (pRandSeed->nSrc == SSL_RSSRC_BUILTIN) {
                 struct {
                     time_t t;
@@ -124,11 +120,11 @@ int ssl_rand_seed(server_rec *s, apr_pool_t *p, ssl_rsctx_t nCtx, char *prefix)
             }
         }
     }
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
+    ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s,
                  "%sSeeding PRNG with %d bytes of entropy", prefix, nDone);
 
     if (RAND_status() == 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(01990)
                      "%sPRNG still contains insufficient entropy!", prefix);
 
     return nDone;

@@ -31,62 +31,116 @@
 #include <IOKit/hidevent/IOHIDEventService.h>
 
 
+class DigitizerTransducer;
+class EventElementCollection;
+class IOHIDEvent;
+
 /*! @class IOHIDEventDriver : public IOHIDEventService
     @abstract
     @discussion
 */
-struct  IOHIDReportHandler;
-
 class IOHIDEventDriver: public IOHIDEventService
 {
     OSDeclareDefaultStructors( IOHIDEventDriver )
 
 private:
     IOHIDInterface *            _interface;
-    IOHIDReportHandler *        _reportHandlers;
+    void *                      _reservedVoid[3] __unused;
     
-    IOHIDElement *              _ledElements[2];
     OSArray *                   _supportedElements;
         
     UInt32                      _bootSupport;
     bool                        _multipleReports;
-    bool                        _relativeButtonCollection;
-    UInt32                      _cachedButtonState;
-    bool                        _cachedRangeState;
+    bool                        _reservedBool   __unused;
+    UInt32                      _reservedUInt32 __unused;
+    bool                        _reservedBool1  __unused;
+    
     
     struct ExpansionData {
         SInt32  absoluteAxisRemovalPercentage;
+        SInt32  preferredAxisRemovalPercentage;
         
-        struct { 
-            bool        containsRange;
-            uint32_t    type;
+        struct {
+            OSArray *           elements;
+        } scroll;
+        
+        struct {
+            OSArray *           elements;
+            bool                disabled;
+        } relative;
+        
+        struct {
+            OSArray *           elements;
+            IOHIDElement *      ledElements[2];
+            UInt8               bootMouseData[4];
+        } keyboard;
+        
+        struct {
+            IOHIDElement *      deviceModeElement;
+            OSArray *           transducers;
+            bool                native;
         } digitizer;
         
         struct {
-            UInt32          capable;
-            UInt32          sendingReportID;
-            IOFixed         axis[6];
-            IOOptionBits    options;
+            OSArray *           elements;
+
+            UInt32              capable;
+            UInt32              sendingReportID;
+            IOFixed             axis[6];
+            UInt32              buttonState;
+            IOOptionBits        options;            
+            bool                disabled;
         } multiAxis;
+        
+        struct {
+            IOHIDElement *      gestureStateElement;
+            OSArray *           legacyElements;
+            OSArray *           gesturesCandidates;
+        } unicode;
+        
     };
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
     ExpansionData *             _reserved;
     
-    bool                    findElements ( OSArray * elementArray, UInt32 bootProtocol );
-        
-    bool                    storeReportElement ( IOHIDElement * element );
+    bool                    parseElements(OSArray * elementArray, UInt32 bootProtocol);
+    bool                    parseRelativeElement(IOHIDElement * element);
+    bool                    parseMultiAxisElement(IOHIDElement * element);
+    bool                    parseDigitizerElement(IOHIDElement * element);
+    bool                    parseDigitizerTransducerElement(IOHIDElement * element, IOHIDElement * parent=NULL);
+    bool                    parseScrollElement(IOHIDElement * element);
+    bool                    parseKeyboardElement(IOHIDElement * element);
+    bool                    parseUnicodeElement(IOHIDElement * element);
+    bool                    parseLegacyUnicodeElement(IOHIDElement * element);
+    bool                    parseGestureUnicodeElement(IOHIDElement * element);
+    
+    void                    processDigitizerElements();
+    void                    processMultiAxisElements();
+    void                    processUnicodeElements();
+    
+    void                    setRelativeProperties();
+    void                    setDigitizerProperties();
+    void                    setMultiAxisProperties();
+    void                    setScrollProperties();
+    void                    setKeyboardProperties();
+    void                    setUnicodeProperties();
 
-    void                    handleBootPointingReport (
-                                IOMemoryDescriptor *        report,
-                                SInt32 *                    dX,
-                                SInt32 *                    dY,
-                                UInt32 *                    buttonState);
-
-    static void             processMultiAxisElement(IOHIDElement * element, UInt32 * isMultiAxis, bool * supportsInk=NULL, IOHIDElement ** relativeCollection=NULL);
+    static UInt32           checkMultiAxisElement(IOHIDElement * element);
+    
     static void             calibrateDigitizerElement(IOHIDElement * element, SInt32 removalPercentage);
     static void             calibratePreferredStateElement(IOHIDElement * element, SInt32 removalPercentage);
-    static void             calibrateAxisToButtonElement(IOHIDElement * element, SInt32 removalPercentage);
+
+    void                    handleBootPointingReport(AbsoluteTime timeStamp, IOMemoryDescriptor * report, UInt32 reportID);
+    void                    handleRelativeReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleMultiAxisPointerReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleDigitizerReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleScrollReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleKeboardReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleUnicodeReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleUnicodeLegacyReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleUnicodeGestureReport(AbsoluteTime timeStamp, UInt32 reportID);
+    IOHIDEvent *            handleUnicodeGestureCandidateReport(EventElementCollection * candidate, AbsoluteTime timeStamp, UInt32 reportID);
+    
+    bool                    serializeCharacterGestureState(void * ref, OSSerialize * serializer);
 
 protected:
 
@@ -142,6 +196,8 @@ public:
                                 IOService *                 provider,
                                 IOOptionBits                options,
                                 bool *                      defer );
+
+    virtual IOReturn        setProperties( OSObject * properties );
     
     OSMetaClassDeclareReservedUnused(IOHIDEventDriver,  0);
     OSMetaClassDeclareReservedUnused(IOHIDEventDriver,  1);

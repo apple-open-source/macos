@@ -26,42 +26,54 @@
 #include "config.h"
 #include "WebProcessCreationParameters.h"
 
-#include "ArgumentCoders.h"
+#include "APIData.h"
+#include "WebCoreArgumentCoders.h"
 
 namespace WebKit {
 
 WebProcessCreationParameters::WebProcessCreationParameters()
-    : shouldTrackVisitedLinks(false)
-    , shouldAlwaysUseComplexTextCodePath(false)
+    : shouldAlwaysUseComplexTextCodePath(false)
     , shouldUseFontSmoothing(true)
     , defaultRequestTimeoutInterval(INT_MAX)
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     , nsURLCacheMemoryCapacity(0)
     , nsURLCacheDiskCapacity(0)
     , shouldForceScreenFontSubstitution(false)
     , shouldEnableKerningAndLigaturesByDefault(false)
+    , shouldEnableJIT(false)
+    , shouldEnableFTLJIT(false)
+    , shouldEnableMemoryPressureReliefLogging(false)
 #endif
 #if ENABLE(NETWORK_PROCESS)
     , usesNetworkProcess(false)
 #endif
     , memoryCacheDisabled(false)
+#if ENABLE(SERVICE_CONTROLS)
+    , hasImageServices(false)
+    , hasSelectionServices(false)
+    , hasRichContentServices(false)
+#endif
 {
 }
 
-void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder& encoder) const
+void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << injectedBundlePath;
     encoder << injectedBundlePathExtensionHandle;
     encoder << applicationCacheDirectory;
     encoder << applicationCacheDirectoryExtensionHandle;
-    encoder << databaseDirectory;
-    encoder << databaseDirectoryExtensionHandle;
-    encoder << localStorageDirectory;
-    encoder << localStorageDirectoryExtensionHandle;
+    encoder << webSQLDatabaseDirectory;
+    encoder << webSQLDatabaseDirectoryExtensionHandle;
     encoder << diskCacheDirectory;
     encoder << diskCacheDirectoryExtensionHandle;
     encoder << cookieStorageDirectory;
+#if PLATFORM(IOS)
     encoder << cookieStorageDirectoryExtensionHandle;
+    encoder << openGLCacheDirectoryExtensionHandle;
+    encoder << containerTemporaryDirectoryExtensionHandle;
+    encoder << hstsDatabasePathExtensionHandle;
+#endif
+    encoder << shouldUseTestingNetworkSession;
     encoder << urlSchemesRegistererdAsEmptyDocument;
     encoder << urlSchemesRegisteredAsSecure;
     encoder << urlSchemesForWhichDomainRelaxationIsForbidden;
@@ -69,18 +81,22 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder& encoder) con
     encoder << urlSchemesRegisteredAsNoAccess;
     encoder << urlSchemesRegisteredAsDisplayIsolated;
     encoder << urlSchemesRegisteredAsCORSEnabled;
+#if ENABLE(CACHE_PARTITIONING)
+    encoder << urlSchemesRegisteredAsCachePartitioned;
+#endif
 #if ENABLE(CUSTOM_PROTOCOLS)
     encoder << urlSchemesRegisteredForCustomProtocols;
 #endif
 #if USE(SOUP)
+#if !ENABLE(CUSTOM_PROTOCOLS)
     encoder << urlSchemesRegistered;
+#endif
     encoder << cookiePersistentStoragePath;
     encoder << cookiePersistentStorageType;
     encoder.encodeEnum(cookieAcceptPolicy);
     encoder << ignoreTLSErrors;
 #endif
     encoder.encodeEnum(cacheModel);
-    encoder << shouldTrackVisitedLinks;
     encoder << shouldAlwaysUseComplexTextCodePath;
     encoder << shouldUseFontSmoothing;
     encoder << iconDatabaseEnabled;
@@ -89,10 +105,10 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder& encoder) con
     encoder << textCheckerState;
     encoder << fullKeyboardAccessEnabled;
     encoder << defaultRequestTimeoutInterval;
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
     encoder << uiProcessBundleIdentifier;
 #endif
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     encoder << presenterApplicationPid;
     encoder << accessibilityEnhancedUserInterfaceEnabled;
     encoder << nsURLCacheMemoryCapacity;
@@ -102,6 +118,12 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder& encoder) con
     encoder << uiProcessBundleResourcePathExtensionHandle;
     encoder << shouldForceScreenFontSubstitution;
     encoder << shouldEnableKerningAndLigaturesByDefault;
+    encoder << shouldEnableJIT;
+    encoder << shouldEnableFTLJIT;
+    encoder << shouldEnableMemoryPressureReliefLogging;
+    encoder << !!bundleParameterData;
+    if (bundleParameterData)
+        encoder << bundleParameterData->dataReference();
 #endif
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
@@ -115,9 +137,15 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder& encoder) con
     encoder << plugInAutoStartOriginHashes;
     encoder << plugInAutoStartOrigins;
     encoder << memoryCacheDisabled;
+
+#if ENABLE(SERVICE_CONTROLS)
+    encoder << hasImageServices;
+    encoder << hasSelectionServices;
+    encoder << hasRichContentServices;
+#endif
 }
 
-bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, WebProcessCreationParameters& parameters)
+bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProcessCreationParameters& parameters)
 {
     if (!decoder.decode(parameters.injectedBundlePath))
         return false;
@@ -127,13 +155,9 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.applicationCacheDirectoryExtensionHandle))
         return false;
-    if (!decoder.decode(parameters.databaseDirectory))
+    if (!decoder.decode(parameters.webSQLDatabaseDirectory))
         return false;
-    if (!decoder.decode(parameters.databaseDirectoryExtensionHandle))
-        return false;
-    if (!decoder.decode(parameters.localStorageDirectory))
-        return false;
-    if (!decoder.decode(parameters.localStorageDirectoryExtensionHandle))
+    if (!decoder.decode(parameters.webSQLDatabaseDirectoryExtensionHandle))
         return false;
     if (!decoder.decode(parameters.diskCacheDirectory))
         return false;
@@ -141,7 +165,17 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.cookieStorageDirectory))
         return false;
+#if PLATFORM(IOS)
     if (!decoder.decode(parameters.cookieStorageDirectoryExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.openGLCacheDirectoryExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.containerTemporaryDirectoryExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.hstsDatabasePathExtensionHandle))
+        return false;
+#endif
+    if (!decoder.decode(parameters.shouldUseTestingNetworkSession))
         return false;
     if (!decoder.decode(parameters.urlSchemesRegistererdAsEmptyDocument))
         return false;
@@ -157,13 +191,19 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.urlSchemesRegisteredAsCORSEnabled))
         return false;
+#if ENABLE(CACHE_PARTITIONING)
+    if (!decoder.decode(parameters.urlSchemesRegisteredAsCachePartitioned))
+        return false;
+#endif
 #if ENABLE(CUSTOM_PROTOCOLS)
     if (!decoder.decode(parameters.urlSchemesRegisteredForCustomProtocols))
         return false;
 #endif
 #if USE(SOUP)
+#if !ENABLE(CUSTOM_PROTOCOLS)
     if (!decoder.decode(parameters.urlSchemesRegistered))
         return false;
+#endif
     if (!decoder.decode(parameters.cookiePersistentStoragePath))
         return false;
     if (!decoder.decode(parameters.cookiePersistentStorageType))
@@ -174,8 +214,6 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
 #endif
     if (!decoder.decodeEnum(parameters.cacheModel))
-        return false;
-    if (!decoder.decode(parameters.shouldTrackVisitedLinks))
         return false;
     if (!decoder.decode(parameters.shouldAlwaysUseComplexTextCodePath))
         return false;
@@ -193,12 +231,12 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.defaultRequestTimeoutInterval))
         return false;
-#if PLATFORM(MAC) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFNETWORK)
     if (!decoder.decode(parameters.uiProcessBundleIdentifier))
         return false;
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (!decoder.decode(parameters.presenterApplicationPid))
         return false;
     if (!decoder.decode(parameters.accessibilityEnhancedUserInterfaceEnabled))
@@ -217,6 +255,24 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.shouldEnableKerningAndLigaturesByDefault))
         return false;
+    if (!decoder.decode(parameters.shouldEnableJIT))
+        return false;
+    if (!decoder.decode(parameters.shouldEnableFTLJIT))
+        return false;
+    if (!decoder.decode(parameters.shouldEnableMemoryPressureReliefLogging))
+        return false;
+    
+    bool hasBundleParameterData;
+    if (!decoder.decode(hasBundleParameterData))
+        return false;
+
+    if (hasBundleParameterData) {
+        IPC::DataReference dataReference;
+        if (!decoder.decode(dataReference))
+            return false;
+
+        parameters.bundleParameterData = API::Data::create(dataReference.data(), dataReference.size());
+    }
 #endif
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
@@ -235,6 +291,15 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder& decoder, Web
         return false;
     if (!decoder.decode(parameters.memoryCacheDisabled))
         return false;
+
+#if ENABLE(SERVICE_CONTROLS)
+    if (!decoder.decode(parameters.hasImageServices))
+        return false;
+    if (!decoder.decode(parameters.hasSelectionServices))
+        return false;
+    if (!decoder.decode(parameters.hasRichContentServices))
+        return false;
+#endif
 
     return true;
 }

@@ -234,7 +234,7 @@ EAPI Eina_Bool ewk_settings_dns_prefetching_enabled_get(const Ewk_Settings *sett
 EAPI Eina_Bool ewk_settings_encoding_detector_enabled_set(Ewk_Settings *settings, Eina_Bool enable);
 
 /**
-* Returns whether the encoding detector is enabled or not.
+ * Returns whether the encoding detector is enabled or not.
  *
  * @param settings settings object to query whether encoding detector is enabled
  *
@@ -242,6 +242,27 @@ EAPI Eina_Bool ewk_settings_encoding_detector_enabled_set(Ewk_Settings *settings
  *         @c EINA_FALSE if not or on failure
  */
 EAPI Eina_Bool ewk_settings_encoding_detector_enabled_get(const Ewk_Settings *settings);
+
+/**
+ * Sets the default text encoding name.
+ *
+ * @param settings settings object to set default text encoding name
+ * @param encoding default text encoding name
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ */
+EAPI Eina_Bool ewk_settings_default_text_encoding_name_set(Ewk_Settings *settings, const char *encoding);
+
+/**
+ * Gets the default text encoding name.
+ *
+ * The returned string is guaranteed to be stringshared.
+ *
+ * @param settings settings object to query default text encoding name
+ *
+ * @return default text encoding name
+ */
+EAPI const char *ewk_settings_default_text_encoding_name_get(const Ewk_Settings *settings);
 
 /**
  * Sets preferred minimum contents width which is used as default minimum contents width
@@ -443,6 +464,52 @@ EAPI Eina_Bool ewk_settings_text_autosizing_enabled_set(Ewk_Settings *settings, 
  *         @c EINA_FALSE if not or on failure
  */
 EAPI Eina_Bool ewk_settings_text_autosizing_enabled_get(const Ewk_Settings *settings);
+
+/**
+ * Enables/disables web security.
+ *
+ * By default, the web security is enabled.
+ *
+ * @param settings settings object to set the web security
+ * @param enable @c EINA_TRUE to enable the web security
+ *               @c EINA_FALSE to disable
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ *
+ * @see ewk_settings_web_security_enabled_get()
+ */
+EAPI Eina_Bool ewk_settings_web_security_enabled_set(Ewk_Settings *settings, Eina_Bool enable);
+
+/**
+ * Returns whether the web security is enabled.
+ *
+ * @param settings settings object to query whether web security is enabled
+ *
+ * @return @c EINA_TRUE if the web security is enabled
+ *         @c EINA_FALSE if not or on failure
+ */
+EAPI Eina_Bool ewk_settings_web_security_enabled_get(const Ewk_Settings *settings);
+
+/**
+ * Changes spatial navigation state.
+ *
+ * @param settings settings object to enable/disable spatial navigation
+ * @param enabled @c EINA_TRUE to enable spatial navigation
+ *                @c EINA_FALSE to disable spatial navigation
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ */
+EAPI Eina_Bool ewk_settings_spatial_navigation_enabled_set(Ewk_Settings *settings, Eina_Bool enable);
+
+/**
+ * Returns current state of spatial navigation.
+ *
+ * @param settings settings object to get whether spatial navigation is enabled
+ *
+ * @return @c EINA_TRUE if spatial navigation is enabled
+ *         @c EINA_FALSE if spatial navigation is disabled
+ */
+EAPI Eina_Bool ewk_settings_spatial_navigation_enabled_get(const Ewk_Settings *settings);
 
 #ifdef __cplusplus
 }

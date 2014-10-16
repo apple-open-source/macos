@@ -1,0 +1,21 @@
+#
+# Test for empty subject detect, Radar 3901386
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Empty subject detect"
+cert = user.pem
+root = ca.pem
+# specify verify time so this test will always be valid
+verifyTime = 20041215000000
+# IS_IN_ANCHORS | IS_ROOT
+certstatus = 1:0x18
+certerror = 0:CSSMERR_APPLETP_INVALID_EMPTY_SUBJECT
+error = CSSMERR_TP_VERIFY_ACTION_FAILED
+end
+

@@ -38,11 +38,7 @@
 
 #pragma D option quiet
 
-#if !defined(__APPLE__)
-profile-200usec
-#else
 tick-200usec
-#endif
 {
 	printf("This test is a simple profile-usec provider test");
 	exit(0);

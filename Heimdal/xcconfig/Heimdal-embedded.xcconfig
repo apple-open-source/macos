@@ -1,0 +1,5 @@
+
+#include "Heimdal.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AspenFamily.xcconfig"
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator

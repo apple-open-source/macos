@@ -41,7 +41,10 @@ smb_gss_ssandx(struct smb_vc *vcp, uint32_t caps, uint16_t *action,
     if (vcp->vc_flags & SMBV_SMB2) {
         retval = smb2_smb_gss_session_setup(vcp, &session_flags, context);
         if (retval == 0) {
-            /* Remap SMB2 session flags to SMB1 action flags */
+            /* Save Flags field from Session Setup reply */
+            vcp->vc_sopt.sv_sessflags = session_flags;
+
+            /* Remap SMB 2/3 session flags to SMB 1 action flags */
             if (session_flags & SMB2_SESSION_FLAG_IS_GUEST) {
                 /* Return that we got logged in as Guest */
                 *action |= SMB_ACT_GUEST;

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2007-2012, International Business Machines
+*   Copyright (C) 2007-2012,2014 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -106,7 +106,13 @@ typedef enum UDateTimePatternMatchOptions {
     UDATPG_MATCH_SECOND_FIELD_LENGTH = 1 << UDATPG_SECOND_FIELD,
 #endif  /* U_HIDE_INTERNAL_API */
     /** @stable ICU 4.4 */
-    UDATPG_MATCH_ALL_FIELDS_LENGTH = (1 << UDATPG_FIELD_COUNT) - 1
+    UDATPG_MATCH_ALL_FIELDS_LENGTH = (1 << UDATPG_FIELD_COUNT) - 1,
+    /** @internal, Apple-specific for now */
+    UADATPG_FORCE_12_HOUR_CYCLE = 1 << 29,
+    /** @internal, Apple-specific for now */
+    UADATPG_FORCE_24_HOUR_CYCLE = 1 << 30,
+    /** @internal, Apple-specific for now */
+    UADATPG_FORCE_HOUR_CYCLE_MASK = 3 << 29,
 } UDateTimePatternMatchOptions;
 
 /**
@@ -584,5 +590,45 @@ U_STABLE const UChar * U_EXPORT2
 udatpg_getPatternForSkeleton(const UDateTimePatternGenerator *dtpg,
                              const UChar *skeleton, int32_t skeletonLength,
                              int32_t *pLength);
+
+/**
+ * Remap a pattern per the options (Apple-specific for now).
+ * Currently this will only remap the time to force an alternate time
+ * cycle (12-hour instead of 24-hour or vice versa), handling updating
+ * the pattern characters, insertion/removal of AM/PM marker, etc. in
+ * a locale-appropriate way. It calls udatpg_getBestPatternWithOptions
+ * as part of updating the time format.
+ * 
+ * @param dtpg a pointer to UDateTimePatternGenerator.
+ * @param pattern
+ *            The pattern to remap.
+ * @param patternLength
+ *            The length of the pattern (may be -1 to indicate that it
+ *            is zero-terminated).
+ * @param options
+ *            Options for forcing the hour cycle and for forcing the
+ *            length of specified fields in the
+ *            returned pattern to match those in the skeleton (when this
+ *            would not happen otherwise). For default behavior, use
+ *            UDATPG_MATCH_NO_OPTIONS.
+ * @param newPattern
+ *            The remapped pattern.
+ * @param newPatternCapacity
+ *            The capacity of newPattern.
+ * @param pErrorCode
+ *            A pointer to the UErrorCode. If at entry it indicates a
+ *            failure, the call will return immediately.
+ * @return
+ *            The length of newPattern. If this is greater than
+ *            newPatternCapacity an error will be set and the contents of 
+ *            newPattern are undefined.
+ * @internal
+ */
+U_INTERNAL int32_t U_EXPORT2
+uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
+                                const UChar *pattern, int32_t patternLength,
+                                UDateTimePatternMatchOptions options,
+                                UChar *newPattern, int32_t newPatternCapacity,
+                                UErrorCode *pErrorCode);
 
 #endif

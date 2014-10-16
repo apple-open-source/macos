@@ -42,6 +42,7 @@
 #include "InitializeThreading.h"
 #include "InspectorClientWinCE.h"
 #include "IntSize.h"
+#include "MainFrame.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
@@ -99,20 +100,20 @@ WebView::WebView(HWND hwnd, unsigned features)
     pageClients.inspectorClient = new WebKit::InspectorClientWinCE(this);
     m_page = new Page(pageClients);
 
-    Settings* settings = m_page->settings();
-    settings->setDefaultFixedFontSize(14);
-    settings->setDefaultFontSize(14);
-    settings->setMinimumFontSize(8);
-    settings->setMinimumLogicalFontSize(8);
-    settings->setScriptEnabled(true);
-    settings->setLoadsImagesAutomatically(true);
+    Settings& settings = m_page->settings();
+    settings.setDefaultFixedFontSize(14);
+    settings.setDefaultFontSize(14);
+    settings.setMinimumFontSize(8);
+    settings.setMinimumLogicalFontSize(8);
+    settings.setScriptEnabled(true);
+    settings.setLoadsImagesAutomatically(true);
 
     WebKit::FrameLoaderClientWinCE* loaderClient = new WebKit::FrameLoaderClientWinCE(this);
     RefPtr<Frame> frame = Frame::create(m_page, 0, loaderClient);
     m_frame = frame.get();
     loaderClient->setFrame(m_frame);
 
-    m_page->mainFrame()->init();
+    m_page->mainFrame().init();
 
     if (view()) {
         RECT windowRect;
@@ -155,27 +156,25 @@ void WebView::cleanup()
     UnregisterClass(kWebViewWindowClassName, WebCore::instanceHandle());
 }
 
-PassRefPtr<Frame> WebView::createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer,
-                                       bool /*allowsScrolling*/, int /*marginWidth*/, int /*marginHeight*/)
+PassRefPtr<Frame> WebView::createFrame(const URL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer,
+    bool /*allowsScrolling*/, int /*marginWidth*/, int /*marginHeight*/, Frame* parentFrame)
 {
-    Frame* coreFrame = m_frame;
-
     WebKit::FrameLoaderClientWinCE *loaderClient = new WebKit::FrameLoaderClientWinCE(this);
     RefPtr<Frame> childFrame = Frame::create(m_page, ownerElement, loaderClient);
     loaderClient->setFrame(childFrame.get());
 
-    coreFrame->tree()->appendChild(childFrame);
-    childFrame->tree()->setName(name);
+    parentFrame->tree().appendChild(childFrame);
+    childFrame->tree().setName(name);
     childFrame->init();
 
     // The creation of the frame may have run arbitrary JavaScript that removed it from the page already.
     if (!childFrame->page())
         return 0;
 
-    coreFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    parentFrame->loader().loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
-    if (!childFrame->tree()->parent())
+    if (!childFrame->tree().parent())
         return 0;
 
     return childFrame.release();
@@ -220,17 +219,17 @@ void WebView::load(const String &url)
 
 void WebView::load(const WebCore::ResourceRequest &request)
 {
-    frame()->loader()->load(FrameLoadRequest(frame(), request));
+    frame()->loader().load(FrameLoadRequest(frame(), request));
 }
 
 void WebView::reload()
 {
-    frame()->loader()->reload();
+    frame()->loader().reload();
 }
 
 void WebView::stop()
 {
-    frame()->loader()->stopAllLoaders();
+    frame()->loader().stopAllLoaders();
 }
 
 void WebView::paint(HDC hDC, const IntRect& clipRect)
@@ -239,7 +238,7 @@ void WebView::paint(HDC hDC, const IntRect& clipRect)
     if (!frameView)
         return;
 
-    OwnPtr<HRGN> clipRgn = adoptPtr(CreateRectRgn(clipRect.x(), clipRect.y(), clipRect.maxX(), clipRect.maxY()));
+    auto clipRgn = adoptGDIObject(::CreateRectRgn(clipRect.x(), clipRect.y(), clipRect.maxX(), clipRect.maxY()));
     SelectClipRgn(hDC, clipRgn.get());
 
     frameView->updateLayoutAndStyleIfNeededRecursive();
@@ -264,8 +263,8 @@ bool WebView::handlePaint(HWND hWnd)
             RECT rcClient;
             GetClientRect(m_windowHandle, &rcClient);
 
-            m_doubleBufferDC = adoptPtr(CreateCompatibleDC(hDC));
-            m_doubleBufferBitmap = adoptPtr(CreateCompatibleBitmap(hDC, rcClient.right, rcClient.bottom));
+            m_doubleBufferDC = adoptGDIObject(::CreateCompatibleDC(hDC));
+            m_doubleBufferBitmap = adoptGDIObject(::CreateCompatibleBitmap(hDC, rcClient.right, rcClient.bottom));
             SelectObject(m_doubleBufferDC.get(), m_doubleBufferBitmap.get());
         }
 
@@ -304,7 +303,7 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 
         PlatformMouseEvent moveEvent(hWnd, WM_MOUSEMOVE, 0, lParam, false);
         moveEvent.setClickCount(0);
-        m_page->mainFrame()->eventHandler()->handleMouseMoveEvent(moveEvent);
+        m_page->mainFrame().eventHandler().handleMouseMoveEvent(moveEvent);
 
         // Always start capturing events when the mouse goes down in our HWND.
         SetCapture(m_windowHandle);
@@ -319,23 +318,23 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
         globalPrevPoint = mouseEvent.position();
 
         mouseEvent.setClickCount(globalClickCount);
-        handled = m_page->mainFrame()->eventHandler()->handleMousePressEvent(mouseEvent);
+        handled = m_page->mainFrame().eventHandler().handleMousePressEvent(mouseEvent);
     } else if (message == WM_LBUTTONDBLCLK || message == WM_MBUTTONDBLCLK || message == WM_RBUTTONDBLCLK) {
         globalClickCount++;
         mouseEvent.setClickCount(globalClickCount);
-        handled = m_page->mainFrame()->eventHandler()->handleMousePressEvent(mouseEvent);
+        handled = m_page->mainFrame().eventHandler().handleMousePressEvent(mouseEvent);
     } else if (message == WM_LBUTTONUP || message == WM_MBUTTONUP || message == WM_RBUTTONUP) {
         // Record the global position and the button of the up.
         globalPrevButton = mouseEvent.button();
         globalPrevPoint = mouseEvent.position();
         mouseEvent.setClickCount(globalClickCount);
-        m_page->mainFrame()->eventHandler()->handleMouseReleaseEvent(mouseEvent);
+        m_page->mainFrame().eventHandler().handleMouseReleaseEvent(mouseEvent);
         ReleaseCapture();
     } else if (message == WM_MOUSEMOVE) {
         if (!insideThreshold)
             globalClickCount = 0;
         mouseEvent.setClickCount(globalClickCount);
-        handled = m_page->mainFrame()->eventHandler()->mouseMoved(mouseEvent);
+        handled = m_page->mainFrame().eventHandler().mouseMoved(mouseEvent);
     }
 
     return handled;
@@ -344,15 +343,15 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 bool WebView::handleMouseWheel(HWND hWnd, WPARAM wParam, LPARAM lParam, bool isHorizontal)
 {
     PlatformWheelEvent wheelEvent(hWnd, wParam, lParam, isHorizontal);
-    return frame()->eventHandler()->handleWheelEvent(wheelEvent);
+    return frame()->eventHandler().handleWheelEvent(wheelEvent);
 }
 
 bool WebView::handleKeyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
 {
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
 
     PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformEvent::RawKeyDown, systemKeyDown);
-    bool handled = frame->eventHandler()->keyEvent(keyEvent);
+    bool handled = frame.eventHandler().keyEvent(keyEvent);
 
     // These events cannot be canceled, and we have no default handling for them.
     // FIXME: match IE list more closely, see <http://msdn2.microsoft.com/en-us/library/ms536938.aspx>.
@@ -371,13 +370,13 @@ bool WebView::handleKeyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKe
 
 bool WebView::handleKeyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown)
 {
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
 
     PlatformKeyboardEvent keyEvent(m_windowHandle, charCode, keyData, PlatformEvent::Char, systemKeyDown);
     // IE does not dispatch keypress event for WM_SYSCHAR.
     if (systemKeyDown)
-        return frame->eventHandler()->handleAccessKey(keyEvent);
-    if (frame->eventHandler()->keyEvent(keyEvent))
+        return frame.eventHandler().handleAccessKey(keyEvent);
+    if (frame.eventHandler().keyEvent(keyEvent))
         return true;
 
     return false;
@@ -387,8 +386,8 @@ bool WebView::handleKeyUp(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyD
 {
     PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformEvent::KeyUp, systemKeyDown);
 
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
-    return frame->eventHandler()->keyEvent(keyEvent);
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
+    return frame.eventHandler().keyEvent(keyEvent);
 }
 
 LRESULT WebView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -411,12 +410,12 @@ LRESULT WebView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_LBUTTONUP:
         case WM_MBUTTONUP:
         case WM_RBUTTONUP:
-            if (frame()->eventHandler() && view()->didFirstLayout())
+            if (view()->didFirstLayout())
                 handled = handleMouseEvent(hWnd, message, wParam, lParam);
             break;
 
         case WM_MOUSEWHEEL:
-            if (frame()->eventHandler() && view()->didFirstLayout())
+            if (view()->didFirstLayout())
                 handled = handleMouseWheel(hWnd, wParam, lParam, wParam & MK_SHIFT);
             break;
 

@@ -27,27 +27,32 @@
 #define DrawingArea_h
 
 #include "DrawingAreaInfo.h"
-#include <WebCore/FloatPoint.h>
+#include "LayerTreeContext.h"
+#include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/LayerFlushThrottleState.h>
+#include <WebCore/PlatformScreen.h>
+#include <WebCore/ViewState.h>
+#include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
 
-namespace CoreIPC {
-    class Connection;
-    class MessageDecoder;
+namespace IPC {
+class Connection;
+class MessageDecoder;
 }
 
 namespace WebCore {
-    class GraphicsLayer;
-    class GraphicsLayerFactory;
+class DisplayRefreshMonitor;
+class FrameView;
+class GraphicsLayer;
+class GraphicsLayerFactory;
 }
 
 namespace WebKit {
 
 struct ColorSpaceData;
 class LayerTreeHost;
-class PageOverlay;
 class WebPage;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
@@ -56,10 +61,12 @@ class DrawingArea {
     WTF_MAKE_NONCOPYABLE(DrawingArea);
 
 public:
-    static PassOwnPtr<DrawingArea> create(WebPage*, const WebPageCreationParameters&);
+    static std::unique_ptr<DrawingArea> create(WebPage&, const WebPageCreationParameters&);
     virtual ~DrawingArea();
     
-    void didReceiveDrawingAreaMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    DrawingAreaType type() const { return m_type; }
+    
+    void didReceiveDrawingAreaMessage(IPC::Connection*, IPC::MessageDecoder&);
 
     virtual void setNeedsDisplay() = 0;
     virtual void setNeedsDisplayInRect(const WebCore::IntRect&) = 0;
@@ -73,59 +80,74 @@ public:
     virtual bool layerTreeStateIsFrozen() const { return false; }
     virtual LayerTreeHost* layerTreeHost() const { return 0; }
 
-    virtual void didInstallPageOverlay(PageOverlay*) { }
-    virtual void didUninstallPageOverlay(PageOverlay*) { }
-    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) { }
-    virtual void setPageOverlayOpacity(PageOverlay*, float) { }
-    // If this function returns false, PageOverlay should apply opacity when painting.
-    virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
-    virtual void pageCustomRepresentationChanged() { }
-
     virtual void setPaintingEnabled(bool) { }
     virtual void updatePreferences(const WebPreferencesStore&) { }
     virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) { }
 
-    virtual void setExposedRect(const WebCore::FloatRect&) { }
-    virtual void setClipsToExposedRect(bool) { }
+#if PLATFORM(COCOA)
+    virtual void setExposedRect(const WebCore::FloatRect&) = 0;
+    virtual WebCore::FloatRect exposedRect() const = 0;
+    virtual void acceleratedAnimationDidStart(uint64_t /*layerID*/, const String& /*key*/, double /*startTime*/) { }
+#endif
+#if PLATFORM(IOS)
+    virtual void setExposedContentRect(const WebCore::FloatRect&) = 0;
+#endif
     virtual void mainFrameScrollabilityChanged(bool) { }
 
-    virtual void didChangeScrollOffsetForAnyFrame() { }
+    virtual bool supportsAsyncScrolling() { return false; }
 
-#if USE(ACCELERATED_COMPOSITING)
-    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return 0; }
+    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) { return false; }
+
+    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
     virtual void scheduleCompositingLayerFlush() = 0;
+    virtual void scheduleCompositingLayerFlushImmediately() = 0;
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    virtual PassRefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID);
 #endif
 
 #if USE(COORDINATED_GRAPHICS)
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) = 0;
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection*, IPC::MessageDecoder&) = 0;
 #endif
 
-    virtual void dispatchAfterEnsuringUpdatedScrollPosition(const Function<void ()>&);
+    virtual void dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()>);
+
+    virtual void viewStateDidChange(WebCore::ViewState::Flags, bool /*wantsDidUpdateViewState*/) { }
+    virtual void setLayerHostingMode(LayerHostingMode) { }
+
+    virtual bool markLayersVolatileImmediatelyIfPossible() { return true; }
+
+    virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) { return false; }
 
 protected:
-    DrawingArea(DrawingAreaType, WebPage*);
+    DrawingArea(DrawingAreaType, WebPage&);
 
     DrawingAreaType m_type;
-    WebPage* m_webPage;
+    WebPage& m_webPage;
 
 private:
-    // CoreIPC message handlers.
+    // Message handlers.
     // FIXME: These should be pure virtual.
     virtual void updateBackingStoreState(uint64_t /*backingStoreStateID*/, bool /*respondImmediately*/, float /*deviceScaleFactor*/, const WebCore::IntSize& /*size*/, 
                                          const WebCore::IntSize& /*scrollOffset*/) { }
     virtual void didUpdate() { }
-    virtual void suspendPainting() { }
-    virtual void resumePainting() { }
-    virtual void setLayerHostingMode(uint32_t) { }
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     // Used by TiledCoreAnimationDrawingArea.
     virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) { }
     virtual void setDeviceScaleFactor(float) { }
     virtual void setColorSpace(const ColorSpaceData&) { }
+
+    virtual void adjustTransientZoom(double scale, WebCore::FloatPoint origin) { }
+    virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin) { }
+
+    virtual void addTransactionCallbackID(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
 #endif
 };
+
+#define DRAWING_AREA_TYPE_CASTS(ToValueTypeName, predicate) \
+    TYPE_CASTS_BASE(ToValueTypeName, DrawingArea, value, value->predicate, value.predicate)
 
 } // namespace WebKit
 

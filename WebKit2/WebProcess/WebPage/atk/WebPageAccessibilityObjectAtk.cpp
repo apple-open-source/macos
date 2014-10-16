@@ -30,7 +30,8 @@
 
 #include "WebPage.h"
 #include <WebCore/AXObjectCache.h>
-#include <WebCore/Frame.h>
+#include <WebCore/Document.h>
+#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 
 using namespace WebKit;
@@ -51,11 +52,11 @@ static AtkObject* accessibilityRootObjectWrapper(AtkObject* atkObject)
     if (!corePage)
         return 0;
 
-    Frame* coreFrame = corePage->mainFrame();
-    if (!coreFrame || !coreFrame->document())
+    Frame& coreFrame = corePage->mainFrame();
+    if (!coreFrame.document())
         return 0;
 
-    AccessibilityObject* coreRootObject = coreFrame->document()->axObjectCache()->rootObject();
+    AccessibilityObject* coreRootObject = coreFrame.document()->axObjectCache()->rootObject();
     if (!coreRootObject)
         return 0;
 

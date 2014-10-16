@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -23,7 +23,7 @@
 
 /*!
     @header SecCmsEncoder.h
-    @copyright 2004 Apple Computer, Inc. All Rights Reserved.
+    @Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 
     @availability 10.4 and later
     @abstract CMS message encoding
@@ -37,6 +37,7 @@
 #define _SECURITY_SECCMSENCODER_H_  1
 
 #include <Security/SecCmsBase.h>
+#include <CoreFoundation/CFData.h>
 
 
 #if defined(__cplusplus)
@@ -48,12 +49,12 @@ extern "C" {
 /*!
     @function
     @abstract Set up encoding of a CMS message.
+	@param cmsg The SecCmsMessageRef to be encoded.
     @param outputfn callback function for delivery of BER-encoded output will
         not be called if NULL.
     @param outputarg first argument passed to outputfn when it is called.
-    @param dest If non-NULL, pointer to a CSSM_DATA that will hold the
-        BER-encoded output.
-    @param destpoolp Pool to allocate BER-encoded output in.
+    @param dest If non-NULL, a CFMutableDataRef to which the
+        BER-encoded output will be appended.
     @param pwfn callback function for getting token password for enveloped
            data content with a password recipient.
     @param pwfn_arg first argument passed to pwfn when it is called.
@@ -71,10 +72,9 @@ extern "C" {
 extern OSStatus
 SecCmsEncoderCreate(SecCmsMessageRef cmsg,
                     SecCmsContentCallback outputfn, void *outputarg,
-                    CSSM_DATA_PTR dest, SecArenaPoolRef destpoolp,
+                    CFMutableDataRef outBer,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
-                    SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests,
                     SecCmsEncoderRef *outEncoder);
     
 /*!
@@ -116,11 +116,16 @@ SecCmsEncoderFinish(SecCmsEncoderRef encoder);
 /*!
     @function
     @abstract BER Encode a CMS message.
+	@param cmsg The SecCmsMessageRef to be encoded.
+	@param input The inner content of the message.
+    @param outBer A CFMutableDataRef to which the
+        BER-encoded output will be appended.
     @discussion BER Encode a CMS message, with input being the plaintext message and outBer being the output, stored in arena's pool.
  */
 extern OSStatus
-SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolRef arena,
-                    CSSM_DATA_PTR outBer);
+SecCmsMessageEncode(SecCmsMessageRef cmsg, const SecAsn1Item *input,
+                    CFMutableDataRef outBer);
+
 
 #if defined(__cplusplus)
 }

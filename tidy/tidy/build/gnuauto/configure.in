@@ -7,9 +7,9 @@
 #
 # CVS Info :
 #
-#   $Author: iccir $ 
-#   $Date: 2007/01/30 23:46:50 $ 
-#   $Revision: 1.3 $ 
+#   $Author$ 
+#   $Date$ 
+#   $Revision$ 
 #
 
 AC_INIT([include/tidy.h])

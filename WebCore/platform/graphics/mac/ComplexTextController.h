@@ -32,7 +32,6 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/unicode/Unicode.h>
 
 typedef unsigned short CGGlyph;
 
@@ -149,7 +148,7 @@ private:
     Vector<UChar, 256> m_smallCapsBuffer;
 
     // Retain lines rather than their runs for better performance.
-    Vector<RetainPtr<CTLineRef> > m_coreTextLines;
+    Vector<RetainPtr<CTLineRef>> m_coreTextLines;
     Vector<RefPtr<ComplexTextRun>, 16> m_complexTextRuns;
     Vector<CGSize, 256> m_adjustedAdvances;
     Vector<CGGlyph, 256> m_adjustedGlyphs;

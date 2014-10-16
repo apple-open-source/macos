@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+# Copyright (c) 2004,2008,2010 Apple Inc. All Rights Reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -20,8 +20,6 @@
 # 
 # @APPLE_LICENSE_HEADER_END@
 #
-_SecArenaPoolCreate
-_SecArenaPoolFree
 _SecCmsContentInfoGetBulkKey
 _SecCmsContentInfoGetBulkKeySize
 _SecCmsContentInfoGetChildContentInfo
@@ -39,12 +37,12 @@ _SecCmsContentInfoSetContentEncAlgID
 _SecCmsContentInfoSetContentEncryptedData
 _SecCmsContentInfoSetContentEnvelopedData
 _SecCmsContentInfoSetContentSignedData
-_SecCmsContentInfoSetContentOther
 _SecCmsDecoderCreate
 _SecCmsDecoderDestroy
 _SecCmsDecoderFinish
 _SecCmsDecoderUpdate
 _SecCmsDigestContextCancel
+_SecCmsDigestContextDestroy
 _SecCmsDigestContextFinishMultiple
 _SecCmsDigestContextStartMultiple
 _SecCmsDigestContextUpdate
@@ -58,7 +56,6 @@ _SecCmsEncoderUpdate
 _SecCmsEncryptedDataCreate
 _SecCmsEncryptedDataDestroy
 _SecCmsEncryptedDataGetContentInfo
-_SecCmsEnvelopedDataAddRecipient
 _SecCmsEnvelopedDataCreate
 _SecCmsEnvelopedDataDestroy
 _SecCmsEnvelopedDataGetContentInfo
@@ -70,30 +67,17 @@ _SecCmsMessageCreate
 _SecCmsMessageDecode
 _SecCmsMessageDestroy
 _SecCmsMessageEncode
-_SecCmsMessageGetArena
 _SecCmsMessageGetContent
 _SecCmsMessageGetContentInfo
 _SecCmsMessageIsContentEmpty
 _SecCmsMessageIsEncrypted
 _SecCmsMessageIsSigned
-_SecCmsMessageContainsTSTInfo
-_SecCmsMessageSetTSACallback
-_SecCmsMessageSetTSAContext
-_SecCmsTSAGetDefaultContext
-_SecCmsTSADefaultCallback
-_kTSAContextKeyURL
-_kTSAContextKeyNoCerts
-_kTSADebugContextKeyBadReq
-_kTSADebugContextKeyBadNonce
-_SecTSAResponseCopyDEREncoding
 _SecCmsRecipientInfoCreate
 _SecCmsRecipientInfoCreateWithSubjKeyID
 _SecCmsRecipientInfoCreateWithSubjKeyIDFromCert
-_SecCmsRecipientInfoDestroy
 _SecCmsSignedDataAddCertChain
 _SecCmsSignedDataAddCertList
 _SecCmsSignedDataAddCertificate
-_SecCmsSignedDataAddSignerInfo
 _SecCmsSignedDataContainsCertsOrCrls
 _SecCmsSignedDataCreate
 _SecCmsSignedDataCreateCertsOnly
@@ -105,7 +89,7 @@ _SecCmsSignedDataGetSignerInfo
 _SecCmsSignedDataGetSignerInfos
 _SecCmsSignedDataHasDigests
 _SecCmsSignedDataImportCerts
-_SecCmsSignedDataSetDigests
+_SecCmsSignedDataSetDigestContext
 _SecCmsSignedDataSignerInfoCount
 _SecCmsSignedDataVerifyCertsOnly
 _SecCmsSignedDataVerifySignerInfo
@@ -116,7 +100,6 @@ _SecCmsSignerInfoAddSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSigningTime
 _SecCmsSignerInfoCreate
 _SecCmsSignerInfoCreateWithSubjKeyID
-_SecCmsSignerInfoDestroy
 _SecCmsSignerInfoGetCertList
 _SecCmsSignerInfoGetDigestAlg
 _SecCmsSignerInfoGetDigestAlgTag
@@ -124,9 +107,7 @@ _SecCmsSignerInfoGetSignerCommonName
 _SecCmsSignerInfoGetSignerEmailAddress
 _SecCmsSignerInfoGetSigningCertificate
 _SecCmsSignerInfoGetSigningTime
-_SecCmsSignerInfoGetTimestampTime
 _SecCmsSignerInfoGetVerificationStatus
-_SecCmsSignerInfoGetEncDigest
 _SecCmsSignerInfoIncludeCerts
 _SecCmsSignerInfoSaveSMIMEProfile
 _SecCmsUtilVerificationStatusToString

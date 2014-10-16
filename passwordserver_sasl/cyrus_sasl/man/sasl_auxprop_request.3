@@ -38,9 +38,9 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.TH sasl_auxprop_request "10 July 2001" SASL "SASL man pages"
+.TH sasl_auxprop_request 3 "10 July 2001" SASL "SASL man pages"
 .SH NAME
-sasl_auxprop_request \- Request Auxilliary Properties from SASL
+sasl_auxprop_request \- Request Auxiliary Properties from SASL
 
 .SH SYNOPSIS
 .nf
@@ -54,10 +54,10 @@ sasl_auxprop_request \- Request Auxilliary Properties from SASL
 .SH DESCRIPTION
 
 .B sasl_auxprop_request
-will request that the SASL library obtain properties from any auxilliary
+will request that the SASL library obtain properties from any auxiliary
 property plugins that might be installed (such as the user's home directory
 from an LDAP server for example).  Such lookup occurs just after username
-cannonicalization is complete.  Therefore, the request should be made before
+canonicalization is complete.  Therefore, the request should be made before
 the call to sasl_server_start(3), but after the call to sasl_server_new(3).
 
 .I conn
@@ -72,7 +72,7 @@ Returns SASL_OK on success.  See sasl_errors(3) for meanings of other return
 codes.
 
 .SH "CONFORMING TO"
-RFC 2222
+RFC 4422
 .SH "SEE ALSO"
 sasl(3), sasl_errors(3), sasl_auxprop(3), sasl_auxprop_getctx(3),
 sasl_server_new(3), sasl_server_start(3)

@@ -4,9 +4,8 @@
 
 Project = tcl
 
-install_source:: check_for_autoconf
-check_for_autoconf:
-	$(_v) autoconf -V > /dev/null 2>&1 || (echo "installsrc phase needs autoconf installed" && false)
+TEMPROOT = $(SRCROOT)/temp
+export PATH := $(TEMPROOT)/usr/bin:$(PATH)
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -60,7 +59,16 @@ core84               := install-tcl84 install-tk84 ext84 cleanup84
 core                 := install-tcl install-tk ext ext_puretcl
 ext                  := install-tcl_ext
 
-install_source:: extract
+install_source:: install_temp_autoconf extract remove_temp_autoconf
+
+AUTOCONFARCHIVE = $(SRCROOT)/autoconf-18-root.cpio.gz
+install_temp_autoconf:
+	$(_v) $(MKDIR) $(TEMPROOT)
+	$(_v) ditto -x -z $(AUTOCONFARCHIVE) $(TEMPROOT)
+	$(_v) $(RM) $(AUTOCONFARCHIVE)
+
+remove_temp_autoconf:
+	$(_v) $(RMDIR) $(TEMPROOT)
 
 build::
 	$(_v) $(MKDIR) $(TCL_CONFIG_DIR)

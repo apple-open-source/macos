@@ -4,50 +4,30 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2014-07-25</string>
+		<string>2014-07-10</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>a941cc592e80c50b9b5c18f62cad3f05</string>
+		<string>f2ffb9c5ba32550aaa45b04c129412ed</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
 			<string>Removed GPLv3 bison-generated parsers</string>
-		</array>
+	</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceMD5</key>
-		<string>a8a27fdc1d9e1020c9f8922b608326de</string>
+		<string>b53e5f47c59ffbe26d20957636695baa</string>
 		<key>OpenSourceURL</key>
-		<string>http://fr2.php.net/releases/</string>
+		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.4.30</string>
+		<string>5.5.14</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2013-07-11</string>
-		<key>OpenSourceLicense</key>
-		<string>FreeType</string>
-		<key>OpenSourceMD5</key>
-		<string>aa1c67c73bbcbcc61bece94ac7389731</string>
-		<key>OpenSourceModifications</key>
-		<array/>
-		<key>OpenSourceProject</key>
-		<string>FreeType 2</string>
-		<key>OpenSourceSHA1</key>
-		<string>2d539b375688466a8e7dcc4260ab21003faab08c</string>
-		<key>OpenSourceURL</key>
-		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.5.0.1/freetype-2.5.0.1.tar.gz</string>
-		<key>OpenSourceVersion</key>
-		<string>2.5.0.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freetype.org/freetype2/index.html</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
@@ -68,28 +48,6 @@
 		<string>8d</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.ijg.org/</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2013-07-11</string>
-		<key>OpenSourceLicense</key>
-		<string>libpng</string>
-		<key>OpenSourceMD5</key>
-		<string>b9f33116aafde244d04caf1ee19eb573</string>
-		<key>OpenSourceModifications</key>
-		<array>
-			<string>Removed GPLv2 contributed code</string>
-		</array>
-		<key>OpenSourceProject</key>
-		<string>libpng</string>
-		<key>OpenSourceSHA1</key>
-		<string>d10af2004e7608425cbb8a8a99209a27af276ff7</string>
-		<key>OpenSourceURL</key>
-		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.6.2.tar.gz?download</string>
-		<key>OpenSourceVersion</key>
-		<string>1.6.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.libpng.org/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>

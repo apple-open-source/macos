@@ -629,7 +629,7 @@
 			</dict>
 			<key>Proxies</key>
 			<dict>
-				<key>ExceptionList</key>
+				<key>ExceptionsList</key>
 				<array>
 					<string>*.local</string>
 					<string>169.254/16</string>

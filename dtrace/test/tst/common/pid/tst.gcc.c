@@ -26,10 +26,8 @@
 
 #pragma ident	"@(#)tst.gcc.c	1.1	06/08/28 SMI"
 
-#if defined(__APPLE__)
 #include <sys/types.h>
 #include <stdlib.h>
-#endif
 
 #include <spawn.h>
 #include <signal.h>

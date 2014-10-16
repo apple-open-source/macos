@@ -35,12 +35,15 @@ namespace WebKit {
 
 class WebFrameProxy;
 
-class WebFrameListenerProxy : public APIObject {
+class WebFrameListenerProxy : public API::Object {
 public:
     virtual ~WebFrameListenerProxy();
 
     void invalidate();
     uint64_t listenerID() const { return m_listenerID; }
+
+    uint64_t navigationID() const { return m_navigationID; }
+    void setNavigationID(uint64_t navigationID) { m_navigationID = navigationID; }
 
 protected:
     WebFrameListenerProxy(WebFrameProxy*, uint64_t listenerID);
@@ -50,6 +53,7 @@ protected:
 private:
     RefPtr<WebFrameProxy> m_frame;
     uint64_t m_listenerID;
+    uint64_t m_navigationID;
 };
 
 } // namespace WebKit

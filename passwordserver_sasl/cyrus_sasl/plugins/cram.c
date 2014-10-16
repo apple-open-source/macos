@@ -194,8 +194,8 @@ crammd5_server_mech_step1(server_context_t *text,
 #else
     /* we shouldn't have received anything */
     if (clientinlen != 0) {
-        SETERROR(sparams->utils, "CRAM-MD5 does not accept inital data");
-        return SASL_BADPROT;
+	SETERROR(sparams->utils, "CRAM-MD5 does not accept inital data");
+	return SASL_BADPROT;
     }
 #endif
     
@@ -207,7 +207,7 @@ crammd5_server_mech_step1(server_context_t *text,
 	return SASL_NOMEM;
     }
     
-    /* always true unless using APPLE_ALLOW_VERIFY_ONLY */
+    /* APPLE: always true unless using APPLE_ALLOW_VERIFY_ONLY */
     if ( text->challenge == NULL )
     {
     /* allocate some space for the challenge */
@@ -219,9 +219,8 @@ crammd5_server_mech_step1(server_context_t *text,
     
     /* create the challenge */
     snprintf(text->challenge, 200, "<%s.%s@%s>", randdigits, time,
-            sparams->serverFQDN);
+	     sparams->serverFQDN);
     }
-    
     *serverout = text->challenge;
     *serveroutlen = (unsigned) strlen(text->challenge);
     
@@ -249,7 +248,9 @@ crammd5_server_mech_step2(server_context_t *text,
     size_t len;
     int result = SASL_FAIL;
     const char *password_request[] = { SASL_AUX_PASSWORD,
+#if defined(OBSOLETE_CRAM_ATTR)
 				       "*cmusaslsecretCRAM-MD5",
+#endif
 				       NULL };
     struct propval auxprop_values[3];
     HMAC_MD5_CTX tmphmac;
@@ -290,8 +291,11 @@ crammd5_server_mech_step2(server_context_t *text,
 					   password_request,
 					   auxprop_values);
     if (result < 0 ||
-	((!auxprop_values[0].name || !auxprop_values[0].values) &&
-	 (!auxprop_values[1].name || !auxprop_values[1].values))) {
+	((!auxprop_values[0].name || !auxprop_values[0].values)
+#if defined(OBSOLETE_CRAM_ATTR)
+	  && (!auxprop_values[1].name || !auxprop_values[1].values)
+#endif
+	)) {
 	/* We didn't find this username */
 	sparams->utils->seterror(sparams->utils->conn,0,
 				 "no secret in database");
@@ -319,10 +323,12 @@ crammd5_server_mech_step2(server_context_t *text,
 	sparams->utils->hmac_md5_precalc(&md5state, /* OUT */
 					 sec->data,
 					 sec->len);
+#if defined(OBSOLETE_CRAM_ATTR)
     } else if (auxprop_values[1].name && auxprop_values[1].values) {
 	/* We have a precomputed secret */
 	memcpy(&md5state, auxprop_values[1].values[0],
 	       sizeof(HMAC_MD5_STATE));
+#endif
     } else {
 	sparams->utils->seterror(sparams->utils->conn, 0,
 				 "Have neither type of secret");
@@ -355,7 +361,7 @@ crammd5_server_mech_step2(server_context_t *text,
     len = strlen(digest_str);
     if (clientinlen-pos-1 < len ||
 	strncmp(digest_str, clientin+pos+1, len) != 0) {
-	sparams->utils->seterror(sparams->utils->conn, 0,
+	sparams->utils->seterror(sparams->utils->conn, SASL_NOLOG,  /* APPLE: don't log */
 				 "incorrect digest response");
 	result = SASL_BADAUTH;
 	goto done;
@@ -395,7 +401,11 @@ static int crammd5_server_mech_step(void *conn_context,
     
     *serverout = NULL;
     *serveroutlen = 0;
-    
+
+    if (text == NULL) {
+	return SASL_BADPROT;
+    }
+
     /* this should be well more than is ever needed */
     if (clientinlen > 1024) {
 	SETERROR(sparams->utils, "CRAM-MD5 input longer than 1024 bytes");
@@ -664,7 +674,7 @@ static int crammd5_client_mech_step(void *conn_context,
     }
     
     maxsize = 32+1+strlen(oparams->authid)+30;
-    result = _plug_buf_alloc(params->utils, (unsigned char **)&(text->out_buf),
+    result = _plug_buf_alloc(params->utils, &(text->out_buf),
 			     &(text->out_buf_len), (unsigned) maxsize);
     if (result != SASL_OK) goto cleanup;
     

@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,7 +48,6 @@
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
 #include "WebScriptWorld.h"
-#include "WebScrollBar.h"
 #include "WebSerializedJSValue.h"
 #include "WebTextRenderer.h"
 #include "WebURLCredential.h"
@@ -160,8 +159,6 @@ HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter
     // These #defines are needed to appease the INITIALIZE_IF_CLASS macro.
     // There is no ICFDictionaryPropertyBag, we use IPropertyBag instead.
 #define ICFDictionaryPropertyBag IPropertyBag
-    // There is no IWebScrollBar, we only have IWebScrollBarPrivate.
-#define IWebScrollBar IWebScrollBarPrivate
     // There is no class called WebURLRequest -- WebMutableURLRequest implements it for us.
 #define WebURLRequest WebMutableURLRequest
 
@@ -170,7 +167,6 @@ HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter
         return CLASS_E_CLASSNOTAVAILABLE;
 
 #undef ICFDictionaryPropertyBag
-#undef IWebScrollBar
 #undef WebURLRequest
 #undef INITIALIZE_IF_CLASS
 

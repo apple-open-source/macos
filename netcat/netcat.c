@@ -97,9 +97,11 @@ int	Sflag;					/* TCP MD5 signature option */
 
 #ifdef __APPLE__
 int	Aflag;					/* Set SO_RECV_ANYIF on socket */
+int	aflag;					/* Set SO_AWDL_UNRESTRICTED on socket */
 char	*boundif;				/* interface to bind to */
 int	ifscope;				/* idx of bound to interface */
 int	Cflag;					/* cellular connection OFF option */
+int	Eflag;					/* expensive connection OFF option */
 int	tclass = SO_TC_BE;			/* traffic class value */
 int	Kflag;					/* traffic class option */
 int	Fflag;					/* disable flow advisory for UDP if set */
@@ -168,7 +170,7 @@ main(int argc, char *argv[])
 	sv = NULL;
 
 	while ((ch = getopt(argc, argv,
-	    "46AcDCb:dhi:jFG:H:I:J:K:L:klMnN:Oop:rSs:tUuvw:X:x:z")) != -1) {
+	    "46AacDCb:dEhi:jFG:H:I:J:K:L:klMnN:Oop:rSs:tUuvw:X:x:z")) != -1) {
 		switch (ch) {
 		case '4':
 			family = AF_INET;
@@ -178,6 +180,9 @@ main(int argc, char *argv[])
 			break;
 		case 'A':
 			Aflag = 1;
+			break;
+		case 'a':
+			aflag = 1;
 			break;
 		case 'U':
 			family = AF_UNIX;
@@ -201,6 +206,10 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 		case 'C':
 			Cflag = 1;
+			break;
+			
+		case 'E':
+			Eflag = 1;
 			break;
 		case 'b':
 			boundif = optarg;
@@ -1118,6 +1127,12 @@ set_common_sockopts(int s)
 			err(1, "SO_RECV_ANYIF");
 	}
 
+	if (aflag) {
+		if (setsockopt(s, SOL_SOCKET, SO_AWDL_UNRESTRICTED,
+			&x, sizeof(x)) == -1)
+			err(1, "SO_AWDL_UNRESTRICTED");
+	}
+
 	if (boundif && (lflag || Oflag)) {
 		/* Socket family could be AF_UNSPEC, so try both */
 		if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF, &ifscope,
@@ -1132,6 +1147,13 @@ set_common_sockopts(int s)
 		if (setsockopt(s, SOL_SOCKET, SO_RESTRICTIONS, &restrictions,
 		     sizeof (restrictions)) == -1)
 			err(1, "SO_RESTRICTIONS: SO_RESTRICT_DENY_CELLULAR");
+	}
+
+	if (Eflag) {
+		uint32_t restrictions = SO_RESTRICT_DENY_EXPENSIVE;
+		if (setsockopt(s, SOL_SOCKET, SO_RESTRICTIONS, &restrictions,
+		     sizeof (restrictions)) == -1)
+			err(1, "SO_RESTRICTIONS: SO_RESTRICT_DENY_EXPENSIVE");
 	}
 
 	if (Kflag) {
@@ -1198,6 +1220,8 @@ help(void)
 %s\
 %s\
 %s\
+%s\
+%s\
 	\t-c		Send CRLF as line-ending\n\
 	\t-D		Enable the debug socket option\n\
 	\t-d		Detach from stdin\n\
@@ -1237,12 +1261,14 @@ help(void)
 	""
 #else /* __APPLE__ */
 	"	\t-A		Set SO_RECV_ANYIF on socket\n",
+	"	\t-a		Set SO_AWDL_UNRESTRICTED on socket\n",
 	"	\t-C		Don't use cellular connection\n",
+	"	\t-E		Don't use expensive interfaces\n",
 	"	\t-b ifbound	Bind socket to interface\n",
+	"	\t-F		Do not use flow advisory (flow adv enabled by default)\n",
 	"	\t-O		Use old-style connect instead of connectx\n",
 	"	\t-o		Issue socket options after connect/bind\n",
 	"	\t-K tclass	Specify traffic class\n",
-	"	\t-F		Do not use flow advisory (flow adv enabled by default)\n",
 	"	\t-G conntimo	Connection timeout in seconds\n",
 	"	\t-H keepidle	Initial idle timeout in seconds\n",
 	"	\t-I keepintvl	Interval for repeating idle timeouts in seconds\n",
@@ -1261,7 +1287,7 @@ usage(int ret)
 #ifndef __APPLE__
 	fprintf(stderr, "usage: nc [-46cDdhklnrStUuvz] [-i interval] [-p source_port]\n");
 #else /* __APPLE__ */
-	fprintf(stderr, "usage: nc [-46AcCDdFhklMnOortUuvz] [-K tc] [-b boundif] [-i interval] [-p source_port]\n");
+	fprintf(stderr, "usage: nc [-46AacCDdEFhklMnOortUuvz] [-K tc] [-b boundif] [-i interval] [-p source_port]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");

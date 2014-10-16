@@ -1,2 +1,0 @@
-g/if get_platform()\[-4:] == 'i386':/s//if get_platform().endswith(('i386', 'x86_64', 'intel')):/
-w

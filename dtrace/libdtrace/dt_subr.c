@@ -26,23 +26,6 @@
 
 #pragma ident	"@(#)dt_subr.c	1.12	05/11/29 SMI"
 
-#if !defined(__APPLE__)
-#include <sys/sysmacros.h>
-
-#include <strings.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <ctype.h>
-#include <alloca.h>
-#include <assert.h>
-#include <libgen.h>
-#include <limits.h>
-#else /* is Apple Mac OS X */
-/* NOTHING */ /* In lieu of Solaris <sys/sysmacros.h> */
 #include <strings.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -56,7 +39,8 @@
 #include <libgen.h>
 #include <limits.h>
 #include <sys/sysctl.h>
-#endif /* __APPLE__ */
+
+int pidFromProcessName(char* name);
 
 #include <dt_impl.h>
 
@@ -139,12 +123,20 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 				vstr[vlen - 1] = '\0';
 				idp = dt_idhash_lookup(dtp->dt_macros, vstr);
 
-				if (idp == NULL)
+				if (idp != NULL) {
+					v = buf;
+					vlen = snprintf(buf, 32, "%d", idp->di_id);
+				} else if (strncmp(vstr, "pid_", strlen("pid_")) == 0) {
+					int pid = pidFromProcessName(vstr + strlen("pid_"));
+					if (pid != -1) {
+						v = buf;
+						vlen = snprintf(buf, 32, "%d", pid);
+					} else {
+						return (dt_set_errno(dtp, EDT_BADSPCV));
+					}
+				} else {
 					return (dt_set_errno(dtp, EDT_BADSPCV));
-
-				v = buf;
-				vlen = snprintf(buf, 32, "%d", idp->di_id);
-
+				}
 			} else
 				return (dt_set_errno(dtp, EDT_BADSPCV));
 		}
@@ -509,18 +501,6 @@ dt_status(dtrace_hdl_t *dtp, processorid_t cpu)
 	return (v->dtv_status(dtp->dt_varg, cpu));
 }
 
-#if !defined(__APPLE__)
-long
-dt_sysconf(dtrace_hdl_t *dtp, int name)
-{
-	const dtrace_vector_t *v = dtp->dt_vector;
-
-	if (v == NULL)
-		return (sysconf(name));
-
-	return (v->dtv_sysconf(dtp->dt_varg, name));
-}
-#else
 long
 dt_sysconf(dtrace_hdl_t *dtp, int name)
 {
@@ -550,7 +530,6 @@ dt_sysconf(dtrace_hdl_t *dtp, int name)
 
 	return (v->dtv_sysconf(dtp->dt_varg, name));
 }
-#endif /* __APPLE__ */
 
 /*
  * Wrapper around write(2) to handle partial writes.  For maximum safety of

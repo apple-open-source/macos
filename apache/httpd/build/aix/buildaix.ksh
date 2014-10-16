@@ -21,7 +21,7 @@
 # if arguments - try to run fast
 cmd=$0
 
-export CFLAGS='-O2'
+export CFLAGS='-O2 -qlanglvl=extc99'
 
 lslpp -L bos.adt.insttools >/dev/null
  [[ $? -ne 0 ]] && echo "must have bos.adt.insttools installed" && exit -1
@@ -81,20 +81,23 @@ rm -rf $TEMPDIR
 
 if [[ ! -e ./Makefile ]] # if Makefile exists go faster
 then
+#		--with-mpm=worker \n\
 	echo "+ ./configure \n\
 		--enable-layout=$LAYOUT \n\
 		--with-apr=$apr_config \n\
 		--with-apr-util=$apu_config \n\
-		--with-mpm=worker \n\
-		--enable-ssl \n\
-		--enable-mods-shared=all > build/aix/configure.out"
+		--enable-mpms-shared=all \n\
+		--enable-mods-shared=all \n\
+		--disable-lua > build/aix/configure.out"
+
+#		--with-mpm=worker \
 	./configure \
 		--enable-layout=$LAYOUT \
 		--with-apr=$apr_config \
 		--with-apr-util=$apu_config \
-		--with-mpm=worker \
-		--enable-ssl \
-		--enable-mods-shared=all > build/aix/configure.out
+		--enable-mpms-shared=all \
+		--enable-mods-shared=all \
+		--disable-lua > build/aix/configure.out
 		 [[ $? -ne 0 ]] && echo './configure' returned an error && exit -1
 else
 	echo $0: using existing Makefile

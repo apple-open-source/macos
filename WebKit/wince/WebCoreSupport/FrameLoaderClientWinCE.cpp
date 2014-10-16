@@ -32,11 +32,12 @@
 #include "FrameView.h"
 #include "HTMLFormElement.h"
 #include "MIMETypeRegistry.h"
+#include "MainFrame.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PluginDatabase.h"
 #include "PolicyChecker.h"
-#include "RenderPart.h"
+#include "RenderWidget.h"
 #include "SystemInfo.h"
 #include "WebKitVersion.h"
 #include "WebView.h"
@@ -57,9 +58,9 @@ FrameLoaderClientWinCE::~FrameLoaderClientWinCE()
 {
 }
 
-String FrameLoaderClientWinCE::userAgent(const KURL&)
+String FrameLoaderClientWinCE::userAgent(const URL&)
 {
-    DEFINE_STATIC_LOCAL(String, userAgentString, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(String, userAgentString, ());
 
     if (userAgentString.isNull()) {
         String webKitVersion = String::format("%d.%d", WEBKIT_MAJOR_VERSION, WEBKIT_MINOR_VERSION);
@@ -139,38 +140,38 @@ void FrameLoaderClientWinCE::dispatchDidReceiveResponse(DocumentLoader*, unsigne
     m_response = response;
 }
 
-void FrameLoaderClientWinCE::dispatchDecidePolicyForResponse(FramePolicyFunction policyFunction, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest&)
+void FrameLoaderClientWinCE::dispatchDecidePolicyForResponse(const WebCore::ResourceResponse& response, const WebCore::ResourceRequest&, FramePolicyFunction policyFunction)
 {
     if (canShowMIMEType(response.mimeType()))
-        (m_frame->loader()->policyChecker()->*policyFunction)(PolicyUse);
+        policyFunction(PolicyUse);
     else
-        (m_frame->loader()->policyChecker()->*policyFunction)(PolicyDownload);
+        policyFunction(PolicyDownload);
 }
 
-void FrameLoaderClientWinCE::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<FormState>, const String&)
+void FrameLoaderClientWinCE::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<FormState>, const String&, FramePolicyFunction policyFunction)
 {
-    (m_frame->loader()->policyChecker()->*policyFunction)(PolicyUse);
+    policyFunction(PolicyUse);
 }
 
-void FrameLoaderClientWinCE::dispatchDecidePolicyForNavigationAction(FramePolicyFunction policyFunction, const NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<FormState>)
+void FrameLoaderClientWinCE::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<FormState>, FramePolicyFunction policyFunction)
 {
-    (m_frame->loader()->policyChecker()->*policyFunction)(PolicyUse);
+    policyFunction(PolicyUse);
 }
 
-void FrameLoaderClientWinCE::dispatchWillSubmitForm(FramePolicyFunction policyFunction, PassRefPtr<FormState>)
+void FrameLoaderClientWinCE::dispatchWillSubmitForm(PassRefPtr<FormState>, FramePolicyFunction policyFunction)
 {
-    (m_frame->loader()->policyChecker()->*policyFunction)(PolicyUse);
+    policyFunction(PolicyUse);
 }
 
-PassRefPtr<Widget> FrameLoaderClientWinCE::createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool)
+PassRefPtr<Widget> FrameLoaderClientWinCE::createPlugin(const IntSize&, HTMLPlugInElement*, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool)
 {
     return 0;
 }
 
-PassRefPtr<Frame> FrameLoaderClientWinCE::createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
+PassRefPtr<Frame> FrameLoaderClientWinCE::createFrame(const URL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                                  const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight)
 {
-    return m_webView->createFrame(url, name, ownerElement, referrer, allowsScrolling, marginWidth, marginHeight);
+    return m_webView->createFrame(url, name, ownerElement, referrer, allowsScrolling, marginWidth, marginHeight, m_frame);
 }
 
 void FrameLoaderClientWinCE::redirectDataToPlugin(Widget* pluginWidget)
@@ -180,13 +181,13 @@ void FrameLoaderClientWinCE::redirectDataToPlugin(Widget* pluginWidget)
         m_hasSentResponseToPlugin = false;
 }
 
-PassRefPtr<Widget> FrameLoaderClientWinCE::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&)
+PassRefPtr<Widget> FrameLoaderClientWinCE::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const URL&, const Vector<String>&, const Vector<String>&)
 {
     notImplemented();
     return 0;
 }
 
-ObjectContentType FrameLoaderClientWinCE::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
+ObjectContentType FrameLoaderClientWinCE::objectContentType(const URL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
 {
     return FrameLoader::defaultObjectContentType(url, mimeType, shouldPreferPlugInsForImages);
 }
@@ -197,17 +198,7 @@ String FrameLoaderClientWinCE::overrideMediaType() const
     return String();
 }
 
-void FrameLoaderClientWinCE::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*)
-{
-    notImplemented();
-}
-
-void FrameLoaderClientWinCE::documentElementAvailable()
-{
-    notImplemented();
-}
-
-void FrameLoaderClientWinCE::didPerformFirstNavigation() const
+void FrameLoaderClientWinCE::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&)
 {
     notImplemented();
 }
@@ -252,22 +243,17 @@ bool FrameLoaderClientWinCE::shouldGoToHistoryItem(HistoryItem* item) const
     return item;
 }
 
-bool FrameLoaderClientWinCE::shouldStopLoadingForHistoryItem(HistoryItem* item) const
-{
-    return true;
-}
-
 void FrameLoaderClientWinCE::didDisplayInsecureContent()
 {
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::didRunInsecureContent(SecurityOrigin*, const KURL&)
+void FrameLoaderClientWinCE::didRunInsecureContent(SecurityOrigin*, const URL&)
 {
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::didDetectXSS(const KURL&, bool)
+void FrameLoaderClientWinCE::didDetectXSS(const URL&, bool)
 {
     notImplemented();
 }
@@ -317,7 +303,7 @@ void FrameLoaderClientWinCE::dispatchDidCancelClientRedirect()
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::dispatchWillPerformClientRedirect(const KURL&, double, double)
+void FrameLoaderClientWinCE::dispatchWillPerformClientRedirect(const URL&, double, double)
 {
     notImplemented();
 }
@@ -462,7 +448,7 @@ void FrameLoaderClientWinCE::prepareForDataSourceReplacement()
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::setTitle(const StringWithDirection&, const KURL&)
+void FrameLoaderClientWinCE::setTitle(const StringWithDirection&, const URL&)
 {
     notImplemented();
 }
@@ -607,9 +593,9 @@ void FrameLoaderClientWinCE::transitionToCommittedForNewPage()
     if (isMainFrame) {
         RECT rect;
         m_webView->frameRect(&rect);
-        frameView = FrameView::create(m_frame, IntRect(rect).size());
+        frameView = FrameView::create(*m_frame, IntRect(rect).size());
     } else
-        frameView = FrameView::create(m_frame);
+        frameView = FrameView::create(*m_frame);
 
     m_frame->setView(frameView);
 
@@ -631,7 +617,7 @@ void FrameLoaderClientWinCE::dispatchDidBecomeFrameset(bool)
 
 PassRefPtr<WebCore::FrameNetworkingContext> FrameLoaderClientWinCE::createNetworkingContext()
 {
-    return FrameNetworkingContextWinCE::create(m_frame, userAgent(KURL()));
+    return FrameNetworkingContextWinCE::create(m_frame, userAgent(URL()));
 }
 
 } // namespace WebKit

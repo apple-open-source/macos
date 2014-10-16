@@ -23,7 +23,7 @@
 #ifndef _MESSAGETRACER_H
 #define _MESSAGETRACER_H
 
-#import	 <asl.h>
+#include <asl.h>
 
 #define CONSTSTR(str) (const char *)str
 
@@ -43,17 +43,8 @@
 #define IPSECASLDOMAIN                                                  CONSTSTR("com.apple.Networking.vpn.asl.ipsec")
 #define IPSECASLKEY                                                     CONSTSTR("IPSEC")
 
-#if 1 //TARGET_OS_EMBEDDED
-#define IPSECLOGASLMSG(format, args...) syslog(LOG_NOTICE, format, ##args);
-#else
-#define IPSECLOGASLMSG(format, args...) do {						       		\
-						aslmsg m = asl_new(ASL_TYPE_MSG);			\
-						asl_set(m, ASL_KEY_FACILITY, IPSECASLDOMAIN);		\
-						asl_set(m, ASL_KEY_MSG, IPSECASLKEY);			\
-						asl_log(NULL, m, ASL_LEVEL_NOTICE, format, ##args);	\
-						asl_free(m);						\
-					} while(0)
-#endif
+extern void nelog(int level, const char *format, ...) __attribute__((format(__printf__, 2, 3)));
+#define IPSECLOGASLMSG(format, args...) nelog(LOG_NOTICE, format, ##args);
 
 #if TARGET_OS_EMBEDDED
 #define SESSIONTRACERSTOP(service)                                      {service->connecttime = 0; service->establishtime = 0;}

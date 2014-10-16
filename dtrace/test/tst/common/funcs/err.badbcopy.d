@@ -45,11 +45,7 @@ BEGIN
 
 	/* Attempt a copy from scratch memory to a kernel address */
 
-#if !defined(__APPLE__)
-	bcopy(ptr, (void *)&`kmem_flags, sizeof (int));
-#else
 	bcopy(ptr, (void *)&`max_ncpus, sizeof (int));
-#endif /* __APPLE__ */
 	exit(1);
 }
 

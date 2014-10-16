@@ -37,17 +37,16 @@
 
 #include "httpd.h"
 #include "http_config.h"
+#include "http_core.h"
 #include "http_log.h"
 #include "http_main.h"
-#include "mpm.h"
 #include "mpm_common.h"
+#include "mod_core.h"
 #include "ap_mpm.h"
 #include "ap_listen.h"
-#include "mpm_default.h"
+#include "util_mutex.h"
 
-#ifdef AP_MPM_WANT_SET_SCOREBOARD
 #include "scoreboard.h"
-#endif
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -59,320 +58,111 @@
 #include <unistd.h>
 #endif
 
+/* we know core's module_index is 0 */
+#undef APLOG_MODULE_INDEX
+#define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
+
 #if AP_ENABLE_EXCEPTION_HOOK
 APR_HOOK_STRUCT(
     APR_HOOK_LINK(fatal_exception)
     APR_HOOK_LINK(monitor)
+    APR_HOOK_LINK(drop_privileges)
+    APR_HOOK_LINK(mpm)
+    APR_HOOK_LINK(mpm_query)
+    APR_HOOK_LINK(mpm_register_timed_callback)
+    APR_HOOK_LINK(mpm_get_name)
+    APR_HOOK_LINK(end_generation)
+    APR_HOOK_LINK(child_status)
 )
 AP_IMPLEMENT_HOOK_RUN_ALL(int, fatal_exception,
                           (ap_exception_info_t *ei), (ei), OK, DECLINED)
 #else
 APR_HOOK_STRUCT(
     APR_HOOK_LINK(monitor)
+    APR_HOOK_LINK(drop_privileges)
+    APR_HOOK_LINK(mpm)
+    APR_HOOK_LINK(mpm_query)
+    APR_HOOK_LINK(mpm_register_timed_callback)
+    APR_HOOK_LINK(mpm_get_name)
+    APR_HOOK_LINK(end_generation)
+    APR_HOOK_LINK(child_status)
 )
 #endif
 AP_IMPLEMENT_HOOK_RUN_ALL(int, monitor,
-                          (apr_pool_t *p), (p), OK, DECLINED)
+                          (apr_pool_t *p, server_rec *s), (p, s), OK, DECLINED)
+AP_IMPLEMENT_HOOK_RUN_ALL(int, drop_privileges,
+                          (apr_pool_t * pchild, server_rec * s),
+                          (pchild, s), OK, DECLINED)
+AP_IMPLEMENT_HOOK_RUN_FIRST(int, mpm,
+                            (apr_pool_t *pconf, apr_pool_t *plog, server_rec *s),
+                            (pconf, plog, s), DECLINED)
+AP_IMPLEMENT_HOOK_RUN_FIRST(int, mpm_query,
+                            (int query_code, int *result, apr_status_t *_rv),
+                            (query_code, result, _rv), DECLINED)
+AP_IMPLEMENT_HOOK_RUN_FIRST(apr_status_t, mpm_register_timed_callback,
+                            (apr_time_t t, ap_mpm_callback_fn_t *cbfn, void *baton),
+                            (t, cbfn, baton), APR_ENOTIMPL)
+AP_IMPLEMENT_HOOK_VOID(end_generation,
+                       (server_rec *s, ap_generation_t gen),
+                       (s, gen))
+AP_IMPLEMENT_HOOK_VOID(child_status,
+                       (server_rec *s, pid_t pid, ap_generation_t gen, int slot, mpm_child_status status),
+                       (s,pid,gen,slot,status))
 
-
-#ifdef AP_MPM_WANT_RECLAIM_CHILD_PROCESSES
-
-typedef enum {DO_NOTHING, SEND_SIGTERM, SEND_SIGKILL, GIVEUP} action_t;
-
-typedef struct extra_process_t {
-    struct extra_process_t *next;
-    pid_t pid;
-} extra_process_t;
-
-static extra_process_t *extras;
-
-void ap_register_extra_mpm_process(pid_t pid)
-{
-    extra_process_t *p = (extra_process_t *)malloc(sizeof(extra_process_t));
-
-    p->next = extras;
-    p->pid = pid;
-    extras = p;
-}
-
-int ap_unregister_extra_mpm_process(pid_t pid)
-{
-    extra_process_t *cur = extras;
-    extra_process_t *prev = NULL;
-
-    while (cur && cur->pid != pid) {
-        prev = cur;
-        cur = cur->next;
-    }
-
-    if (cur) {
-        if (prev) {
-            prev->next = cur->next;
-        }
-        else {
-            extras = cur->next;
-        }
-        free(cur);
-        return 1; /* found */
-    }
-    else {
-        /* we don't know about any such process */
-        return 0;
-    }
-}
-
-static int reclaim_one_pid(pid_t pid, action_t action)
-{
-    apr_proc_t proc;
-    apr_status_t waitret;
-
-    /* Ensure pid sanity. */
-    if (pid < 1) {
-        return 1;
-    }        
-
-    proc.pid = pid;
-    waitret = apr_proc_wait(&proc, NULL, NULL, APR_NOWAIT);
-    if (waitret != APR_CHILD_NOTDONE) {
-        return 1;
-    }
-
-    switch(action) {
-    case DO_NOTHING:
-        break;
-
-    case SEND_SIGTERM:
-        /* ok, now it's being annoying */
-        ap_log_error(APLOG_MARK, APLOG_WARNING,
-                     0, ap_server_conf,
-                     "child process %" APR_PID_T_FMT
-                     " still did not exit, "
-                     "sending a SIGTERM",
-                     pid);
-        kill(pid, SIGTERM);
-        break;
-
-    case SEND_SIGKILL:
-        ap_log_error(APLOG_MARK, APLOG_ERR,
-                     0, ap_server_conf,
-                     "child process %" APR_PID_T_FMT
-                     " still did not exit, "
-                     "sending a SIGKILL",
-                     pid);
-#ifndef BEOS
-        kill(pid, SIGKILL);
-#else
-        /* sending a SIGKILL kills the entire team on BeOS, and as
-         * httpd thread is part of that team it removes any chance
-         * of ever doing a restart.  To counter this I'm changing to
-         * use a kinder, gentler way of killing a specific thread
-         * that is just as effective.
-         */
-        kill_thread(pid);
+/* hooks with no args are implemented last, after disabling APR hook probes */
+#if defined(APR_HOOK_PROBES_ENABLED)
+#undef APR_HOOK_PROBES_ENABLED
+#undef APR_HOOK_PROBE_ENTRY
+#define APR_HOOK_PROBE_ENTRY(ud,ns,name,args)
+#undef APR_HOOK_PROBE_RETURN
+#define APR_HOOK_PROBE_RETURN(ud,ns,name,rv,args)
+#undef APR_HOOK_PROBE_INVOKE
+#define APR_HOOK_PROBE_INVOKE(ud,ns,name,src,args)
+#undef APR_HOOK_PROBE_COMPLETE
+#define APR_HOOK_PROBE_COMPLETE(ud,ns,name,src,rv,args)
+#undef APR_HOOK_INT_DCL_UD
+#define APR_HOOK_INT_DCL_UD
 #endif
-        break;
+AP_IMPLEMENT_HOOK_RUN_FIRST(const char *, mpm_get_name,
+                            (void),
+                            (), NULL)
 
-    case GIVEUP:
-        /* gave it our best shot, but alas...  If this really
-         * is a child we are trying to kill and it really hasn't
-         * exited, we will likely fail to bind to the port
-         * after the restart.
-         */
-        ap_log_error(APLOG_MARK, APLOG_ERR,
-                     0, ap_server_conf,
-                     "could not make child process %" APR_PID_T_FMT
-                     " exit, "
-                     "attempting to continue anyway",
-                     pid);
-        break;
-    }
+typedef struct mpm_gen_info_t {
+    APR_RING_ENTRY(mpm_gen_info_t) link;
+    int gen;          /* which gen? */
+    int active;       /* number of active processes */
+    int done;         /* gen finished? (whether or not active processes) */
+} mpm_gen_info_t;
 
-    return 0;
-}
+APR_RING_HEAD(mpm_gen_info_head_t, mpm_gen_info_t);
+static struct mpm_gen_info_head_t *geninfo, *unused_geninfo;
+static int gen_head_init; /* yuck */
 
-void ap_reclaim_child_processes(int terminate)
+/* variables representing config directives implemented here */
+AP_DECLARE_DATA const char *ap_pid_fname;
+AP_DECLARE_DATA int ap_max_requests_per_child;
+AP_DECLARE_DATA char ap_coredump_dir[MAX_STRING_LEN];
+AP_DECLARE_DATA int ap_coredumpdir_configured;
+AP_DECLARE_DATA int ap_graceful_shutdown_timeout;
+AP_DECLARE_DATA apr_uint32_t ap_max_mem_free;
+AP_DECLARE_DATA apr_size_t ap_thread_stacksize;
+
+#define ALLOCATOR_MAX_FREE_DEFAULT (2048*1024)
+
+/* Set defaults for config directives implemented here.  This is
+ * called from core's pre-config hook, so MPMs which need to override
+ * one of these should run their pre-config hook after that of core.
+ */
+void mpm_common_pre_config(apr_pool_t *pconf)
 {
-    apr_time_t waittime = 1024 * 16;
-    int i;
-    extra_process_t *cur_extra;
-    int not_dead_yet;
-    int max_daemons;
-    apr_time_t starttime = apr_time_now();
-    /* this table of actions and elapsed times tells what action is taken
-     * at which elapsed time from starting the reclaim
-     */
-    struct {
-        action_t action;
-        apr_time_t action_time;
-    } action_table[] = {
-        {DO_NOTHING, 0}, /* dummy entry for iterations where we reap
-                          * children but take no action against
-                          * stragglers
-                          */
-        {SEND_SIGTERM, apr_time_from_sec(3)},
-        {SEND_SIGTERM, apr_time_from_sec(5)},
-        {SEND_SIGTERM, apr_time_from_sec(7)},
-        {SEND_SIGKILL, apr_time_from_sec(9)},
-        {GIVEUP,       apr_time_from_sec(10)}
-    };
-    int cur_action;      /* index of action we decided to take this
-                          * iteration
-                          */
-    int next_action = 1; /* index of first real action */
-
-    ap_mpm_query(AP_MPMQ_MAX_DAEMON_USED, &max_daemons);
-
-    do {
-        apr_sleep(waittime);
-        /* don't let waittime get longer than 1 second; otherwise, we don't
-         * react quickly to the last child exiting, and taking action can
-         * be delayed
-         */
-        waittime = waittime * 4;
-        if (waittime > apr_time_from_sec(1)) {
-            waittime = apr_time_from_sec(1);
-        }
-
-        /* see what action to take, if any */
-        if (action_table[next_action].action_time <= apr_time_now() - starttime) {
-            cur_action = next_action;
-            ++next_action;
-        }
-        else {
-            cur_action = 0; /* nothing to do */
-        }
-
-        /* now see who is done */
-        not_dead_yet = 0;
-        for (i = 0; i < max_daemons; ++i) {
-            pid_t pid = MPM_CHILD_PID(i);
-
-            if (pid == 0) {
-                continue; /* not every scoreboard entry is in use */
-            }
-
-            if (reclaim_one_pid(pid, action_table[cur_action].action)) {
-                MPM_NOTE_CHILD_KILLED(i);
-            }
-            else {
-                ++not_dead_yet;
-            }
-        }
-
-        cur_extra = extras;
-        while (cur_extra) {
-            extra_process_t *next = cur_extra->next;
-
-            if (reclaim_one_pid(cur_extra->pid, action_table[cur_action].action)) {
-                AP_DEBUG_ASSERT(1 == ap_unregister_extra_mpm_process(cur_extra->pid));
-            }
-            else {
-                ++not_dead_yet;
-            }
-            cur_extra = next;
-        }
-#if APR_HAS_OTHER_CHILD
-        apr_proc_other_child_refresh_all(APR_OC_REASON_RESTART);
-#endif
-
-    } while (not_dead_yet > 0 &&
-             action_table[cur_action].action != GIVEUP);
+    ap_pid_fname = DEFAULT_PIDLOG;
+    ap_max_requests_per_child = 0; /* unlimited */
+    apr_cpystrn(ap_coredump_dir, ap_server_root, sizeof(ap_coredump_dir));
+    ap_coredumpdir_configured = 0;
+    ap_graceful_shutdown_timeout = 0; /* unlimited */
+    ap_max_mem_free = ALLOCATOR_MAX_FREE_DEFAULT;
+    ap_thread_stacksize = 0; /* use system default */
 }
-
-void ap_relieve_child_processes(void)
-{
-    int i;
-    extra_process_t *cur_extra;
-    int max_daemons;
-
-    ap_mpm_query(AP_MPMQ_MAX_DAEMON_USED, &max_daemons);
-
-    /* now see who is done */
-    for (i = 0; i < max_daemons; ++i) {
-        pid_t pid = MPM_CHILD_PID(i);
-
-        if (pid == 0) {
-            continue; /* not every scoreboard entry is in use */
-        }
-
-        if (reclaim_one_pid(pid, DO_NOTHING)) {
-            MPM_NOTE_CHILD_KILLED(i);
-        }
-    }
-
-    cur_extra = extras;
-    while (cur_extra) {
-        extra_process_t *next = cur_extra->next;
-
-        if (reclaim_one_pid(cur_extra->pid, DO_NOTHING)) {
-            AP_DEBUG_ASSERT(1 == ap_unregister_extra_mpm_process(cur_extra->pid));
-        }
-        cur_extra = next;
-    }
-}
-
-/* Before sending the signal to the pid this function verifies that
- * the pid is a member of the current process group; either using
- * apr_proc_wait(), where waitpid() guarantees to fail for non-child
- * processes; or by using getpgid() directly, if available. */
-apr_status_t ap_mpm_safe_kill(pid_t pid, int sig)
-{
-#ifndef HAVE_GETPGID
-    apr_proc_t proc;
-    apr_status_t rv;
-    apr_exit_why_e why;
-    int status;
-
-    /* Ensure pid sanity */
-    if (pid < 1) {
-        return APR_EINVAL;
-    }
-
-    proc.pid = pid;
-    rv = apr_proc_wait(&proc, &status, &why, APR_NOWAIT);
-    if (rv == APR_CHILD_DONE) {
-#ifdef AP_MPM_WANT_PROCESS_CHILD_STATUS
-        /* The child already died - log the termination status if
-         * necessary: */
-        ap_process_child_status(&proc, why, status);
-#endif
-        return APR_EINVAL;
-    }
-    else if (rv != APR_CHILD_NOTDONE) {
-        /* The child is already dead and reaped, or was a bogus pid -
-         * log this either way. */
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, rv, ap_server_conf,
-                     "cannot send signal %d to pid %ld (non-child or "
-                     "already dead)", sig, (long)pid);
-        return APR_EINVAL;
-    }
-#else
-    pid_t pg;
-
-    /* Ensure pid sanity. */
-    if (pid < 1) {
-        return APR_EINVAL;
-    }
-
-    pg = getpgid(pid);    
-    if (pg == -1) {
-        /* Process already dead... */
-        return errno;
-    }
-
-    if (pg != getpgrp()) {
-        ap_log_error(APLOG_MARK, APLOG_ALERT, 0, ap_server_conf,
-                     "refusing to send signal %d to pid %ld outside "
-                     "process group", sig, (long)pid);
-        return APR_EINVAL;
-    }
-#endif        
-
-    return kill(pid, sig) ? errno : APR_SUCCESS;
-}
-#endif /* AP_MPM_WANT_RECLAIM_CHILD_PROCESSES */
-
-#ifdef AP_MPM_WANT_WAIT_OR_TIMEOUT
 
 /* number of calls to wait_or_timeout between writable probes */
 #ifndef INTERVAL_OF_WRITABLE_PROBES
@@ -380,15 +170,16 @@ apr_status_t ap_mpm_safe_kill(pid_t pid, int sig)
 #endif
 static int wait_or_timeout_counter;
 
-void ap_wait_or_timeout(apr_exit_why_e *status, int *exitcode, apr_proc_t *ret,
-                        apr_pool_t *p)
+AP_DECLARE(void) ap_wait_or_timeout(apr_exit_why_e *status, int *exitcode,
+                                    apr_proc_t *ret, apr_pool_t *p,
+                                    server_rec *s)
 {
     apr_status_t rv;
 
     ++wait_or_timeout_counter;
     if (wait_or_timeout_counter == INTERVAL_OF_WRITABLE_PROBES) {
         wait_or_timeout_counter = 0;
-        ap_run_monitor(p);
+        ap_run_monitor(p, s);
     }
 
     rv = apr_proc_wait_all_procs(ret, exitcode, status, APR_NOWAIT, p);
@@ -401,79 +192,12 @@ void ap_wait_or_timeout(apr_exit_why_e *status, int *exitcode, apr_proc_t *ret,
         return;
     }
 
-#ifdef NEED_WAITPID
-    if ((ret = reap_children(exitcode, status)) > 0) {
-        return;
-    }
-#endif
-
-    apr_sleep(SCOREBOARD_MAINTENANCE_INTERVAL);
+    apr_sleep(apr_time_from_sec(1));
     ret->pid = -1;
     return;
 }
-#endif /* AP_MPM_WANT_WAIT_OR_TIMEOUT */
 
-#ifdef AP_MPM_WANT_PROCESS_CHILD_STATUS
-int ap_process_child_status(apr_proc_t *pid, apr_exit_why_e why, int status)
-{
-    int signum = status;
-    const char *sigdesc = apr_signal_description_get(signum);
-
-    /* Child died... if it died due to a fatal error,
-     * we should simply bail out.  The caller needs to
-     * check for bad rc from us and exit, running any
-     * appropriate cleanups.
-     *
-     * If the child died due to a resource shortage,
-     * the parent should limit the rate of forking
-     */
-    if (APR_PROC_CHECK_EXIT(why)) {
-        if (status == APEXIT_CHILDSICK) {
-            return status;
-        }
-
-        if (status == APEXIT_CHILDFATAL) {
-            ap_log_error(APLOG_MARK, APLOG_ALERT,
-                         0, ap_server_conf,
-                         "Child %" APR_PID_T_FMT
-                         " returned a Fatal error... Apache is exiting!",
-                         pid->pid);
-            return APEXIT_CHILDFATAL;
-        }
-
-        return 0;
-    }
-
-    if (APR_PROC_CHECK_SIGNALED(why)) {
-        switch (signum) {
-        case SIGTERM:
-        case SIGHUP:
-        case AP_SIG_GRACEFUL:
-        case SIGKILL:
-            break;
-
-        default:
-            if (APR_PROC_CHECK_CORE_DUMP(why)) {
-                ap_log_error(APLOG_MARK, APLOG_NOTICE,
-                             0, ap_server_conf,
-                             "child pid %ld exit signal %s (%d), "
-                             "possible coredump in %s",
-                             (long)pid->pid, sigdesc, signum,
-                             ap_coredump_dir);
-            }
-            else {
-                ap_log_error(APLOG_MARK, APLOG_NOTICE,
-                             0, ap_server_conf,
-                             "child pid %ld exit signal %s (%d)",
-                             (long)pid->pid, sigdesc, signum);
-            }
-        }
-    }
-    return 0;
-}
-#endif /* AP_MPM_WANT_PROCESS_CHILD_STATUS */
-
-#if defined(TCP_NODELAY) && !defined(MPE) && !defined(TPF)
+#if defined(TCP_NODELAY)
 void ap_sock_disable_nagle(apr_socket_t *s)
 {
     /* The Nagle algorithm says that we should delay sending partial
@@ -488,7 +212,7 @@ void ap_sock_disable_nagle(apr_socket_t *s)
     apr_status_t status = apr_socket_opt_set(s, APR_TCP_NODELAY, 1);
 
     if (status != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, status, ap_server_conf,
+        ap_log_error(APLOG_MARK, APLOG_WARNING, status, ap_server_conf, APLOGNO(00542)
                      "apr_socket_opt_set: (TCP_NODELAY)");
     }
 }
@@ -503,7 +227,7 @@ AP_DECLARE(uid_t) ap_uname2id(const char *name)
         return (atoi(&name[1]));
 
     if (!(ent = getpwnam(name))) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, APLOGNO(00543)
                      "%s: bad user name %s", ap_server_argv0, name);
         exit(1);
     }
@@ -521,7 +245,7 @@ AP_DECLARE(gid_t) ap_gname2id(const char *name)
         return (atoi(&name[1]));
 
     if (!(ent = getgrnam(name))) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, APLOGNO(00544)
                      "%s: bad group name %s", ap_server_argv0, name);
         exit(1);
     }
@@ -533,10 +257,9 @@ AP_DECLARE(gid_t) ap_gname2id(const char *name)
 #ifndef HAVE_INITGROUPS
 int initgroups(const char *name, gid_t basegid)
 {
-#if defined(QNX) || defined(MPE) || defined(BEOS) || defined(_OSD_POSIX) || defined(TPF) || defined(__TANDEM) || defined(OS2) || defined(WIN32) || defined(NETWARE)
-/* QNX, MPE and BeOS do not appear to support supplementary groups. */
+#if defined(_OSD_POSIX) || defined(OS2) || defined(WIN32) || defined(NETWARE)
     return 0;
-#else /* ndef QNX */
+#else
     gid_t groups[NGROUPS_MAX];
     struct group *g;
     int index = 0;
@@ -559,220 +282,11 @@ int initgroups(const char *name, gid_t basegid)
     endgrent();
 
     return setgroups(index, groups);
-#endif /* def QNX */
+#endif
 }
 #endif /* def HAVE_INITGROUPS */
 
-#ifdef AP_MPM_USES_POD
-
-AP_DECLARE(apr_status_t) ap_mpm_pod_open(apr_pool_t *p, ap_pod_t **pod)
-{
-    apr_status_t rv;
-
-    *pod = apr_palloc(p, sizeof(**pod));
-    rv = apr_file_pipe_create(&((*pod)->pod_in), &((*pod)->pod_out), p);
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    apr_file_pipe_timeout_set((*pod)->pod_in, 0);
-    (*pod)->p = p;
-
-    /* close these before exec. */
-    apr_file_inherit_unset((*pod)->pod_in);
-    apr_file_inherit_unset((*pod)->pod_out);
-
-    return APR_SUCCESS;
-}
-
-AP_DECLARE(apr_status_t) ap_mpm_pod_check(ap_pod_t *pod)
-{
-    char c;
-    apr_size_t len = 1;
-    apr_status_t rv;
-
-    rv = apr_file_read(pod->pod_in, &c, &len);
-
-    if ((rv == APR_SUCCESS) && (len == 1)) {
-        return APR_SUCCESS;
-    }
-
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    return AP_NORESTART;
-}
-
-AP_DECLARE(apr_status_t) ap_mpm_pod_close(ap_pod_t *pod)
-{
-    apr_status_t rv;
-
-    rv = apr_file_close(pod->pod_out);
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    rv = apr_file_close(pod->pod_in);
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    return APR_SUCCESS;
-}
-
-static apr_status_t pod_signal_internal(ap_pod_t *pod)
-{
-    apr_status_t rv;
-    char char_of_death = '!';
-    apr_size_t one = 1;
-
-    rv = apr_file_write(pod->pod_out, &char_of_death, &one);
-    if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, ap_server_conf,
-                     "write pipe_of_death");
-    }
-
-    return rv;
-}
-
-/* This function connects to the server and sends enough data to
- * ensure the child wakes up and processes a new connection.  This
- * permits the MPM to skip the poll when there is only one listening
- * socket, because it provides a alternate way to unblock an accept()
- * when the pod is used.  */
-static apr_status_t dummy_connection(ap_pod_t *pod)
-{
-    const char *data;
-    apr_status_t rv;
-    apr_socket_t *sock;
-    apr_pool_t *p;
-    apr_size_t len;
-
-    /* create a temporary pool for the socket.  pconf stays around too long */
-    rv = apr_pool_create(&p, pod->p);
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    rv = apr_socket_create(&sock, ap_listeners->bind_addr->family,
-                           SOCK_STREAM, 0, p);
-    if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, ap_server_conf,
-                     "get socket to connect to listener");
-        apr_pool_destroy(p);
-        return rv;
-    }
-
-    /* on some platforms (e.g., FreeBSD), the kernel won't accept many
-     * queued connections before it starts blocking local connects...
-     * we need to keep from blocking too long and instead return an error,
-     * because the MPM won't want to hold up a graceful restart for a
-     * long time
-     */
-    rv = apr_socket_timeout_set(sock, apr_time_from_sec(3));
-    if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_WARNING, rv, ap_server_conf,
-                     "set timeout on socket to connect to listener");
-        apr_socket_close(sock);
-        apr_pool_destroy(p);
-        return rv;
-    }
-
-    rv = apr_socket_connect(sock, ap_listeners->bind_addr);
-    if (rv != APR_SUCCESS) {
-        int log_level = APLOG_WARNING;
-
-        if (APR_STATUS_IS_TIMEUP(rv)) {
-            /* probably some server processes bailed out already and there
-             * is nobody around to call accept and clear out the kernel
-             * connection queue; usually this is not worth logging
-             */
-            log_level = APLOG_DEBUG;
-        }
-
-        ap_log_error(APLOG_MARK, log_level, rv, ap_server_conf,
-                     "connect to listener on %pI", ap_listeners->bind_addr);
-        apr_pool_destroy(p);
-        return rv;
-    }
-
-    if (ap_listeners->protocol && strcasecmp(ap_listeners->protocol, "https") == 0) {
-        /* Send a TLS 1.0 close_notify alert.  This is perhaps the
-         * "least wrong" way to open and cleanly terminate an SSL
-         * connection.  It should "work" without noisy error logs if
-         * the server actually expects SSLv3/TLSv1.  With
-         * SSLv23_server_method() OpenSSL's SSL_accept() fails
-         * ungracefully on receipt of this message, since it requires
-         * an 11-byte ClientHello message and this is too short. */
-        static const unsigned char tls10_close_notify[7] = {
-            '\x15',         /* TLSPlainText.type = Alert (21) */
-            '\x03', '\x01', /* TLSPlainText.version = {3, 1} */
-            '\x00', '\x02', /* TLSPlainText.length = 2 */
-            '\x01',         /* Alert.level = warning (1) */
-            '\x00'          /* Alert.description = close_notify (0) */
-        };
-        data = (const char *)tls10_close_notify;
-        len = sizeof(tls10_close_notify);
-    }
-    else /* ... XXX other request types here? */ {
-        /* Create an HTTP request string.  We include a User-Agent so
-         * that adminstrators can track down the cause of the
-         * odd-looking requests in their logs.  A complete request is
-         * used since kernel-level filtering may require that much
-         * data before returning from accept(). */
-        data = apr_pstrcat(p, "OPTIONS * HTTP/1.0\r\nUser-Agent: ",
-                           ap_get_server_banner(),
-                           " (internal dummy connection)\r\n\r\n", NULL);
-        len = strlen(data);
-    }
-
-    apr_socket_send(sock, data, &len);
-    apr_socket_close(sock);
-    apr_pool_destroy(p);
-
-    return rv;
-}
-
-AP_DECLARE(apr_status_t) ap_mpm_pod_signal(ap_pod_t *pod)
-{
-    apr_status_t rv;
-
-    rv = pod_signal_internal(pod);
-    if (rv != APR_SUCCESS) {
-        return rv;
-    }
-
-    return dummy_connection(pod);
-}
-
-void ap_mpm_pod_killpg(ap_pod_t *pod, int num)
-{
-    int i;
-    apr_status_t rv = APR_SUCCESS;
-
-    /* we don't write anything to the pod here...  we assume
-     * that the would-be reader of the pod has another way to
-     * see that it is time to die once we wake it up
-     *
-     * writing lots of things to the pod at once is very
-     * problematic... we can fill the kernel pipe buffer and
-     * be blocked until somebody consumes some bytes or
-     * we hit a timeout...  if we hit a timeout we can't just
-     * keep trying because maybe we'll never successfully
-     * write again...  but then maybe we'll leave would-be
-     * readers stranded (a number of them could be tied up for
-     * a while serving time-consuming requests)
-     */
-    for (i = 0; i < num && rv == APR_SUCCESS; i++) {
-        rv = dummy_connection(pod);
-    }
-}
-#endif /* #ifdef AP_MPM_USES_POD */
-
 /* standard mpm configuration handling */
-#ifdef AP_MPM_WANT_SET_PIDFILE
-const char *ap_pid_fname = NULL;
 
 const char *ap_mpm_set_pidfile(cmd_parms *cmd, void *dummy,
                                const char *arg)
@@ -789,40 +303,12 @@ const char *ap_mpm_set_pidfile(cmd_parms *cmd, void *dummy,
     ap_pid_fname = arg;
     return NULL;
 }
-#endif
 
-#ifdef AP_MPM_WANT_SET_SCOREBOARD
-const char * ap_mpm_set_scoreboard(cmd_parms *cmd, void *dummy,
-                                   const char *arg)
+void ap_mpm_dump_pidfile(apr_pool_t *p, apr_file_t *out)
 {
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
-    if (err != NULL) {
-        return err;
-    }
-
-    ap_scoreboard_fname = arg;
-    return NULL;
+    apr_file_printf(out, "PidFile: \"%s\"\n",
+                    ap_server_root_relative(p, ap_pid_fname));
 }
-#endif
-
-#ifdef AP_MPM_WANT_SET_LOCKFILE
-const char *ap_lock_fname = NULL;
-
-const char *ap_mpm_set_lockfile(cmd_parms *cmd, void *dummy,
-                                const char *arg)
-{
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
-    if (err != NULL) {
-        return err;
-    }
-
-    ap_lock_fname = arg;
-    return NULL;
-}
-#endif
-
-#ifdef AP_MPM_WANT_SET_MAX_REQUESTS
-int ap_max_requests_per_child = 0;
 
 const char *ap_mpm_set_max_requests(cmd_parms *cmd, void *dummy,
                                     const char *arg)
@@ -832,20 +318,20 @@ const char *ap_mpm_set_max_requests(cmd_parms *cmd, void *dummy,
         return err;
     }
 
+    if (!strcasecmp(cmd->cmd->name, "MaxRequestsPerChild")) {
+        ap_log_error(APLOG_MARK, APLOG_INFO, 0, NULL, APLOGNO(00545)
+                     "MaxRequestsPerChild is deprecated, use "
+                     "MaxConnectionsPerChild instead.");
+    }
+
     ap_max_requests_per_child = atoi(arg);
 
     return NULL;
 }
-#endif
-
-#ifdef AP_MPM_WANT_SET_COREDUMPDIR
-char ap_coredump_dir[MAX_STRING_LEN];
-int ap_coredumpdir_configured;
 
 const char *ap_mpm_set_coredumpdir(cmd_parms *cmd, void *dummy,
                                    const char *arg)
 {
-    apr_status_t rv;
     apr_finfo_t finfo;
     const char *fname;
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
@@ -858,7 +344,7 @@ const char *ap_mpm_set_coredumpdir(cmd_parms *cmd, void *dummy,
         return apr_pstrcat(cmd->pool, "Invalid CoreDumpDirectory path ",
                            arg, NULL);
     }
-    if ((rv = apr_stat(&finfo, fname, APR_FINFO_TYPE, cmd->pool)) != APR_SUCCESS) {
+    if (apr_stat(&finfo, fname, APR_FINFO_TYPE, cmd->pool) != APR_SUCCESS) {
         return apr_pstrcat(cmd->pool, "CoreDumpDirectory ", fname,
                            " does not exist", NULL);
     }
@@ -870,13 +356,10 @@ const char *ap_mpm_set_coredumpdir(cmd_parms *cmd, void *dummy,
     ap_coredumpdir_configured = 1;
     return NULL;
 }
-#endif
 
-#ifdef AP_MPM_WANT_SET_GRACEFUL_SHUTDOWN
-int ap_graceful_shutdown_timeout = 0;
-
-const char * ap_mpm_set_graceful_shutdown(cmd_parms *cmd, void *dummy,
-                                          const char *arg)
+AP_DECLARE(const char *)ap_mpm_set_graceful_shutdown(cmd_parms *cmd,
+                                                     void *dummy,
+                                                     const char *arg)
 {
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
     if (err != NULL) {
@@ -885,244 +368,6 @@ const char * ap_mpm_set_graceful_shutdown(cmd_parms *cmd, void *dummy,
     ap_graceful_shutdown_timeout = atoi(arg);
     return NULL;
 }
-#endif
-
-#ifdef AP_MPM_WANT_SET_ACCEPT_LOCK_MECH
-apr_lockmech_e ap_accept_lock_mech = APR_LOCK_DEFAULT;
-
-const char ap_valid_accept_mutex_string[] =
-    "Valid accept mutexes for this platform and MPM are: default"
-#if APR_HAS_FLOCK_SERIALIZE
-    ", flock"
-#endif
-#if APR_HAS_FCNTL_SERIALIZE
-    ", fcntl"
-#endif
-#if APR_HAS_SYSVSEM_SERIALIZE && !defined(PERCHILD_MPM)
-    ", sysvsem"
-#endif
-#if APR_HAS_POSIXSEM_SERIALIZE
-    ", posixsem"
-#endif
-#if APR_HAS_PROC_PTHREAD_SERIALIZE
-    ", pthread"
-#endif
-    ".";
-
-AP_DECLARE(const char *) ap_mpm_set_accept_lock_mech(cmd_parms *cmd,
-                                                     void *dummy,
-                                                     const char *arg)
-{
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
-    if (err != NULL) {
-        return err;
-    }
-
-    if (!strcasecmp(arg, "default")) {
-        ap_accept_lock_mech = APR_LOCK_DEFAULT;
-    }
-#if APR_HAS_FLOCK_SERIALIZE
-    else if (!strcasecmp(arg, "flock")) {
-        ap_accept_lock_mech = APR_LOCK_FLOCK;
-    }
-#endif
-#if APR_HAS_FCNTL_SERIALIZE
-    else if (!strcasecmp(arg, "fcntl")) {
-        ap_accept_lock_mech = APR_LOCK_FCNTL;
-    }
-#endif
-
-    /* perchild can't use SysV sems because the permissions on the accept
-     * mutex can't be set to allow all processes to use the mutex and
-     * at the same time keep all users from being able to dink with the
-     * mutex
-     */
-#if APR_HAS_SYSVSEM_SERIALIZE && !defined(PERCHILD_MPM)
-    else if (!strcasecmp(arg, "sysvsem")) {
-        ap_accept_lock_mech = APR_LOCK_SYSVSEM;
-    }
-#endif
-#if APR_HAS_POSIXSEM_SERIALIZE
-    else if (!strcasecmp(arg, "posixsem")) {
-        ap_accept_lock_mech = APR_LOCK_POSIXSEM;
-    }
-#endif
-#if APR_HAS_PROC_PTHREAD_SERIALIZE
-    else if (!strcasecmp(arg, "pthread")) {
-        ap_accept_lock_mech = APR_LOCK_PROC_PTHREAD;
-    }
-#endif
-    else {
-        return apr_pstrcat(cmd->pool, arg, " is an invalid mutex mechanism; ",
-                           ap_valid_accept_mutex_string, NULL);
-    }
-    return NULL;
-}
-
-#endif
-
-#ifdef AP_MPM_WANT_SIGNAL_SERVER
-
-static const char *dash_k_arg;
-
-static int send_signal(pid_t pid, int sig)
-{
-    if (kill(pid, sig) < 0) {
-        ap_log_error(APLOG_MARK, APLOG_STARTUP, errno, NULL,
-                     "sending signal to server");
-        return 1;
-    }
-    return 0;
-}
-
-int ap_signal_server(int *exit_status, apr_pool_t *pconf)
-{
-    apr_status_t rv;
-    pid_t otherpid;
-    int running = 0;
-    const char *status;
-
-    *exit_status = 0;
-
-    rv = ap_read_pid(pconf, ap_pid_fname, &otherpid);
-    if (rv != APR_SUCCESS) {
-        if (rv != APR_ENOENT) {
-            ap_log_error(APLOG_MARK, APLOG_STARTUP, rv, NULL,
-                         "Error retrieving pid file %s", ap_pid_fname);
-            ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
-                         "Remove it before continuing if it is corrupted.");
-            *exit_status = 1;
-            return 1;
-        }
-        status = "httpd (no pid file) not running";
-    }
-    else {
-        if (kill(otherpid, 0) == 0) {
-            running = 1;
-            status = apr_psprintf(pconf,
-                                  "httpd (pid %" APR_PID_T_FMT ") already "
-                                  "running", otherpid);
-        }
-        else {
-            status = apr_psprintf(pconf,
-                                  "httpd (pid %" APR_PID_T_FMT "?) not running",
-                                  otherpid);
-        }
-    }
-
-    if (!strcmp(dash_k_arg, "start")) {
-        if (running) {
-            printf("%s\n", status);
-            return 1;
-        }
-    }
-
-    if (!strcmp(dash_k_arg, "stop")) {
-        if (!running) {
-            printf("%s\n", status);
-        }
-        else {
-            send_signal(otherpid, SIGTERM);
-        }
-        return 1;
-    }
-
-    if (!strcmp(dash_k_arg, "restart")) {
-        if (!running) {
-            printf("httpd not running, trying to start\n");
-        }
-        else {
-            *exit_status = send_signal(otherpid, SIGHUP);
-            return 1;
-        }
-    }
-
-    if (!strcmp(dash_k_arg, "graceful")) {
-        if (!running) {
-            printf("httpd not running, trying to start\n");
-        }
-        else {
-            *exit_status = send_signal(otherpid, AP_SIG_GRACEFUL);
-            return 1;
-        }
-    }
-
-    if (!strcmp(dash_k_arg, "graceful-stop")) {
-#ifdef AP_MPM_WANT_SET_GRACEFUL_SHUTDOWN
-        if (!running) {
-            printf("%s\n", status);
-        }
-        else {
-            *exit_status = send_signal(otherpid, AP_SIG_GRACEFUL_STOP);
-        }
-#else
-        printf("httpd MPM \"" MPM_NAME "\" does not support graceful-stop\n");
-#endif
-        return 1;
-    }
-
-    return 0;
-}
-
-void ap_mpm_rewrite_args(process_rec *process)
-{
-    apr_array_header_t *mpm_new_argv;
-    apr_status_t rv;
-    apr_getopt_t *opt;
-    char optbuf[3];
-    const char *optarg;
-
-    mpm_new_argv = apr_array_make(process->pool, process->argc,
-                                  sizeof(const char **));
-    *(const char **)apr_array_push(mpm_new_argv) = process->argv[0];
-    apr_getopt_init(&opt, process->pool, process->argc, process->argv);
-    opt->errfn = NULL;
-    optbuf[0] = '-';
-    /* option char returned by apr_getopt() will be stored in optbuf[1] */
-    optbuf[2] = '\0';
-    while ((rv = apr_getopt(opt, "k:" AP_SERVER_BASEARGS,
-                            optbuf + 1, &optarg)) == APR_SUCCESS) {
-        switch(optbuf[1]) {
-        case 'k':
-            if (!dash_k_arg) {
-                if (!strcmp(optarg, "start") || !strcmp(optarg, "stop") ||
-                    !strcmp(optarg, "restart") || !strcmp(optarg, "graceful") ||
-                    !strcmp(optarg, "graceful-stop")) {
-                    dash_k_arg = optarg;
-                    break;
-                }
-            }
-        default:
-            *(const char **)apr_array_push(mpm_new_argv) =
-                apr_pstrdup(process->pool, optbuf);
-            if (optarg) {
-                *(const char **)apr_array_push(mpm_new_argv) = optarg;
-            }
-        }
-    }
-
-    /* back up to capture the bad argument */
-    if (rv == APR_BADCH || rv == APR_BADARG) {
-        opt->ind--;
-    }
-
-    while (opt->ind < opt->argc) {
-        *(const char **)apr_array_push(mpm_new_argv) =
-            apr_pstrdup(process->pool, opt->argv[opt->ind++]);
-    }
-
-    process->argc = mpm_new_argv->nelts;
-    process->argv = (const char * const *)mpm_new_argv->elts;
-
-    if (dash_k_arg) {
-        APR_REGISTER_OPTIONAL_FN(ap_signal_server);
-    }
-}
-
-#endif /* AP_MPM_WANT_SIGNAL_SERVER */
-
-#ifdef AP_MPM_WANT_SET_MAX_MEM_FREE
-apr_uint32_t ap_max_mem_free = APR_ALLOCATOR_MAX_FREE_UNLIMITED;
 
 const char *ap_mpm_set_max_mem_free(cmd_parms *cmd, void *dummy,
                                     const char *arg)
@@ -1133,7 +378,8 @@ const char *ap_mpm_set_max_mem_free(cmd_parms *cmd, void *dummy,
         return err;
     }
 
-    value = strtol(arg, NULL, 0);
+    errno = 0;
+    value = strtol(arg, NULL, 10);
     if (value < 0 || errno == ERANGE)
         return apr_pstrcat(cmd->pool, "Invalid MaxMemFree value: ",
                            arg, NULL);
@@ -1142,11 +388,6 @@ const char *ap_mpm_set_max_mem_free(cmd_parms *cmd, void *dummy,
 
     return NULL;
 }
-
-#endif /* AP_MPM_WANT_SET_MAX_MEM_FREE */
-
-#ifdef AP_MPM_WANT_SET_STACKSIZE
-apr_size_t ap_thread_stacksize = 0; /* use system default */
 
 const char *ap_mpm_set_thread_stacksize(cmd_parms *cmd, void *dummy,
                                         const char *arg)
@@ -1157,7 +398,8 @@ const char *ap_mpm_set_thread_stacksize(cmd_parms *cmd, void *dummy,
         return err;
     }
 
-    value = strtol(arg, NULL, 0);
+    errno = 0;
+    value = strtol(arg, NULL, 10);
     if (value < 0 || errno == ERANGE)
         return apr_pstrcat(cmd->pool, "Invalid ThreadStackSize value: ",
                            arg, NULL);
@@ -1167,162 +409,160 @@ const char *ap_mpm_set_thread_stacksize(cmd_parms *cmd, void *dummy,
     return NULL;
 }
 
-#endif /* AP_MPM_WANT_SET_STACKSIZE */
-
-#ifdef AP_MPM_WANT_FATAL_SIGNAL_HANDLER
-
-static pid_t parent_pid, my_pid;
-apr_pool_t *pconf;
-
-#if AP_ENABLE_EXCEPTION_HOOK
-
-static int exception_hook_enabled;
-
-const char *ap_mpm_set_exception_hook(cmd_parms *cmd, void *dummy,
-                                      const char *arg)
+AP_DECLARE(apr_status_t) ap_mpm_query(int query_code, int *result)
 {
-    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
-    if (err != NULL) {
-        return err;
+    apr_status_t rv;
+
+    if (ap_run_mpm_query(query_code, result, &rv) == DECLINED) {
+        rv = APR_EGENERAL;
     }
 
-    if (cmd->server->is_virtual) {
-        return "EnableExceptionHook directive not allowed in <VirtualHost>";
+    return rv;
+}
+
+static void end_gen(mpm_gen_info_t *gi)
+{
+    ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, ap_server_conf,
+                 "end of generation %d", gi->gen);
+    ap_run_end_generation(ap_server_conf, gi->gen);
+    APR_RING_REMOVE(gi, link);
+    APR_RING_INSERT_HEAD(unused_geninfo, gi, mpm_gen_info_t, link);
+}
+
+apr_status_t ap_mpm_end_gen_helper(void *unused) /* cleanup on pconf */
+{
+    int gen = ap_config_generation - 1; /* differs from MPM generation */
+    mpm_gen_info_t *cur;
+
+    if (geninfo == NULL) {
+        /* initial pconf teardown, MPM hasn't run */
+        return APR_SUCCESS;
     }
 
-    if (strcasecmp(arg, "on") == 0) {
-        exception_hook_enabled = 1;
+    cur = APR_RING_FIRST(geninfo);
+    while (cur != APR_RING_SENTINEL(geninfo, mpm_gen_info_t, link) &&
+           cur->gen != gen) {
+        cur = APR_RING_NEXT(cur, link);
     }
-    else if (strcasecmp(arg, "off") == 0) {
-        exception_hook_enabled = 0;
+
+    if (cur == APR_RING_SENTINEL(geninfo, mpm_gen_info_t, link)) {
+        /* last child of generation already exited */
+        ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, ap_server_conf,
+                     "no record of generation %d", gen);
     }
     else {
-        return "parameter must be 'on' or 'off'";
+        cur->done = 1;
+        if (cur->active == 0) {
+            end_gen(cur);
+        }
+    }
+
+    return APR_SUCCESS;
+}
+
+/* core's child-status hook
+ * tracks number of remaining children per generation and
+ * runs the end-generation hook when the last child of
+ * a generation exits
+ */
+void ap_core_child_status(server_rec *s, pid_t pid,
+                          ap_generation_t gen, int slot,
+                          mpm_child_status status)
+{
+    mpm_gen_info_t *cur;
+    const char *status_msg = "unknown status";
+
+    if (!gen_head_init) { /* where to run this? */
+        gen_head_init = 1;
+        geninfo = apr_pcalloc(s->process->pool, sizeof *geninfo);
+        unused_geninfo = apr_pcalloc(s->process->pool, sizeof *unused_geninfo);
+        APR_RING_INIT(geninfo, mpm_gen_info_t, link);
+        APR_RING_INIT(unused_geninfo, mpm_gen_info_t, link);
+    }
+
+    cur = APR_RING_FIRST(geninfo);
+    while (cur != APR_RING_SENTINEL(geninfo, mpm_gen_info_t, link) &&
+           cur->gen != gen) {
+        cur = APR_RING_NEXT(cur, link);
+    }
+
+    switch(status) {
+    case MPM_CHILD_STARTED:
+        status_msg = "started";
+        if (cur == APR_RING_SENTINEL(geninfo, mpm_gen_info_t, link)) {
+            /* first child for this generation */
+            if (!APR_RING_EMPTY(unused_geninfo, mpm_gen_info_t, link)) {
+                cur = APR_RING_FIRST(unused_geninfo);
+                APR_RING_REMOVE(cur, link);
+                cur->active = cur->done = 0;
+            }
+            else {
+                cur = apr_pcalloc(s->process->pool, sizeof *cur);
+            }
+            cur->gen = gen;
+            APR_RING_ELEM_INIT(cur, link);
+            APR_RING_INSERT_HEAD(geninfo, cur, mpm_gen_info_t, link);
+        }
+        ap_random_parent_after_fork();
+        ++cur->active;
+        break;
+    case MPM_CHILD_EXITED:
+        status_msg = "exited";
+        if (cur == APR_RING_SENTINEL(geninfo, mpm_gen_info_t, link)) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(00546)
+                         "no record of generation %d of exiting child %" APR_PID_T_FMT,
+                         gen, pid);
+        }
+        else {
+            --cur->active;
+            if (!cur->active && cur->done) { /* no children, server has stopped/restarted */
+                end_gen(cur);
+            }
+        }
+        break;
+    case MPM_CHILD_LOST_SLOT:
+        status_msg = "lost slot";
+        /* we don't track by slot, so it doesn't matter */
+        break;
+    }
+    ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, s,
+                 "mpm child %" APR_PID_T_FMT " (gen %d/slot %d) %s",
+                 pid, gen, slot, status_msg);
+}
+
+AP_DECLARE(apr_status_t) ap_mpm_register_timed_callback(apr_time_t t, ap_mpm_callback_fn_t *cbfn, void *baton)
+{
+    return ap_run_mpm_register_timed_callback(t, cbfn, baton);
+}
+
+AP_DECLARE(const char *)ap_show_mpm(void)
+{
+    const char *name = ap_run_mpm_get_name();
+
+    if (!name) {
+        name = "";
+    }
+
+    return name;
+}
+
+AP_DECLARE(const char *)ap_check_mpm(void)
+{
+    static const char *last_mpm_name = NULL;
+
+    if (!_hooks.link_mpm || _hooks.link_mpm->nelts == 0)
+        return "No MPM loaded.";
+    else if (_hooks.link_mpm->nelts > 1)
+        return "More than one MPM loaded.";
+
+    if (last_mpm_name) {
+        if (strcmp(last_mpm_name, ap_show_mpm())) {
+            return "The MPM cannot be changed during restart.";
+        }
+    }
+    else {
+        last_mpm_name = apr_pstrdup(ap_pglobal, ap_show_mpm());
     }
 
     return NULL;
 }
-
-static void run_fatal_exception_hook(int sig)
-{
-    ap_exception_info_t ei = {0};
-
-    if (exception_hook_enabled &&
-        geteuid() != 0 &&
-        my_pid != parent_pid) {
-        ei.sig = sig;
-        ei.pid = my_pid;
-        ap_run_fatal_exception(&ei);
-    }
-}
-#endif /* AP_ENABLE_EXCEPTION_HOOK */
-
-/* handle all varieties of core dumping signals */
-static void sig_coredump(int sig)
-{
-    apr_filepath_set(ap_coredump_dir, pconf);
-    apr_signal(sig, SIG_DFL);
-#if AP_ENABLE_EXCEPTION_HOOK
-    run_fatal_exception_hook(sig);
-#endif
-    /* linuxthreads issue calling getpid() here:
-     *   This comparison won't match if the crashing thread is
-     *   some module's thread that runs in the parent process.
-     *   The fallout, which is limited to linuxthreads:
-     *   The special log message won't be written when such a
-     *   thread in the parent causes the parent to crash.
-     */
-    if (getpid() == parent_pid) {
-        ap_log_error(APLOG_MARK, APLOG_NOTICE,
-                     0, ap_server_conf,
-                     "seg fault or similar nasty error detected "
-                     "in the parent process");
-        /* XXX we can probably add some rudimentary cleanup code here,
-         * like getting rid of the pid file.  If any additional bad stuff
-         * happens, we are protected from recursive errors taking down the
-         * system since this function is no longer the signal handler   GLA
-         */
-    }
-    kill(getpid(), sig);
-    /* At this point we've got sig blocked, because we're still inside
-     * the signal handler.  When we leave the signal handler it will
-     * be unblocked, and we'll take the signal... and coredump or whatever
-     * is appropriate for this particular Unix.  In addition the parent
-     * will see the real signal we received -- whereas if we called
-     * abort() here, the parent would only see SIGABRT.
-     */
-}
-
-apr_status_t ap_fatal_signal_child_setup(server_rec *s)
-{
-    my_pid = getpid();
-    return APR_SUCCESS;
-}
-
-apr_status_t ap_fatal_signal_setup(server_rec *s, apr_pool_t *in_pconf)
-{
-#ifndef NO_USE_SIGACTION
-    struct sigaction sa;
-
-    sigemptyset(&sa.sa_mask);
-
-#if defined(SA_ONESHOT)
-    sa.sa_flags = SA_ONESHOT;
-#elif defined(SA_RESETHAND)
-    sa.sa_flags = SA_RESETHAND;
-#else
-    sa.sa_flags = 0;
-#endif
-
-    sa.sa_handler = sig_coredump;
-    if (sigaction(SIGSEGV, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGSEGV)");
-#ifdef SIGBUS
-    if (sigaction(SIGBUS, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGBUS)");
-#endif
-#ifdef SIGABORT
-    if (sigaction(SIGABORT, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGABORT)");
-#endif
-#ifdef SIGABRT
-    if (sigaction(SIGABRT, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGABRT)");
-#endif
-#ifdef SIGILL
-    if (sigaction(SIGILL, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGILL)");
-#endif
-#ifdef SIGFPE
-    if (sigaction(SIGFPE, &sa, NULL) < 0)
-        ap_log_error(APLOG_MARK, APLOG_WARNING, errno, s, "sigaction(SIGFPE)");
-#endif
-
-#else /* NO_USE_SIGACTION */
-
-    apr_signal(SIGSEGV, sig_coredump);
-#ifdef SIGBUS
-    apr_signal(SIGBUS, sig_coredump);
-#endif /* SIGBUS */
-#ifdef SIGABORT
-    apr_signal(SIGABORT, sig_coredump);
-#endif /* SIGABORT */
-#ifdef SIGABRT
-    apr_signal(SIGABRT, sig_coredump);
-#endif /* SIGABRT */
-#ifdef SIGILL
-    apr_signal(SIGILL, sig_coredump);
-#endif /* SIGILL */
-#ifdef SIGFPE
-    apr_signal(SIGFPE, sig_coredump);
-#endif /* SIGFPE */
-
-#endif /* NO_USE_SIGACTION */
-
-    pconf = in_pconf;
-    parent_pid = my_pid = getpid();
-
-    return APR_SUCCESS;
-}
-
-#endif /* AP_MPM_WANT_FATAL_SIGNAL_HANDLER */

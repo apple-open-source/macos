@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -36,7 +36,12 @@
 #import <wtf/HashMap.h>
 #import <wtf/PassOwnPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/ThreadingPrimitives.h>
 #import <wtf/text/WTFString.h>
+
+#if PLATFORM(IOS)
+#import "WebCaretChangeListener.h"
+#endif
 
 namespace WebCore {
 class AlternativeTextUIController;
@@ -59,36 +64,65 @@ class Page;
 #if ENABLE(FULLSCREEN_API)
 @class WebFullScreenController;
 #endif
+#if ENABLE(MEDIA_STREAM)
+@protocol WebUserMediaClient;
+#endif
+#if ENABLE(REMOTE_INSPECTOR) && PLATFORM(IOS)
+@class WebIndicateLayer;
+#endif
+
+#if PLATFORM(IOS)
+@class WAKWindow;
+@class WebEvent;
+@class WebFixedPositionContent;
+#endif
 
 extern BOOL applicationIsTerminating;
 extern int pluginDatabaseClientCount;
 
-#if USE(ACCELERATED_COMPOSITING)
-class LayerFlushController : public WebCore::LayerFlushSchedulerClient {
+class LayerFlushController;
+class WebViewGroup;
+
+class WebViewLayerFlushScheduler : public WebCore::LayerFlushScheduler {
 public:
-    static PassOwnPtr<LayerFlushController> create(WebView* webView)
+    WebViewLayerFlushScheduler(LayerFlushController*);
+    virtual ~WebViewLayerFlushScheduler() { }
+
+private:
+    virtual void layerFlushCallback() override
     {
-        return adoptPtr(new LayerFlushController(webView));
+        RefPtr<LayerFlushController> protector = m_flushController;
+        WebCore::LayerFlushScheduler::layerFlushCallback();
+    }
+    
+    LayerFlushController* m_flushController;
+};
+
+class LayerFlushController : public RefCounted<LayerFlushController>, public WebCore::LayerFlushSchedulerClient {
+public:
+    static PassRefPtr<LayerFlushController> create(WebView* webView)
+    {
+        return adoptRef(new LayerFlushController(webView));
     }
     
     virtual bool flushLayers();
     
     void scheduleLayerFlush();
-    void invalidateObserver();
+    void invalidate();
     
 private:
     LayerFlushController(WebView*);
     
     WebView* m_webView;
-    WebCore::LayerFlushScheduler m_layerFlushScheduler;
+    WebViewLayerFlushScheduler m_layerFlushScheduler;
 };
-#endif
 
 // FIXME: This should be renamed to WebViewData.
 @interface WebViewPrivate : NSObject {
 @public
     WebCore::Page* page;
-    
+    RefPtr<WebViewGroup> group;
+
     id UIDelegate;
     id UIDelegateForwarder;
     id resourceProgressDelegate;
@@ -102,6 +136,10 @@ private:
     id editingDelegateForwarder;
     id scriptDebugDelegate;
     id historyDelegate;
+#if PLATFORM(IOS)
+    id resourceProgressDelegateForwarder;
+    id formDelegateForwarder;
+#endif
 
     WebInspector *inspector;
     WebNodeHighlight *currentNodeHighlight;
@@ -117,6 +155,9 @@ private:
     
     WebPreferences *preferences;
     BOOL useSiteSpecificSpoofing;
+#if PLATFORM(IOS)
+    NSURL *userStyleSheetLocation;
+#endif
 
     NSWindow *hostWindow;
 
@@ -130,6 +171,9 @@ private:
     void *observationInfo;
     
     BOOL closed;
+#if PLATFORM(IOS)
+    BOOL closing;
+#endif
     BOOL shouldCloseWithWindow;
     BOOL mainFrameDocumentReady;
     BOOL drawsBackground;
@@ -138,7 +182,11 @@ private:
     BOOL becomingFirstResponderFromOutside;
     BOOL usesPageCache;
 
+#if !PLATFORM(IOS)
     NSColor *backgroundColor;
+#else
+    CGColorRef backgroundColor;
+#endif
 
     NSString *mediaStyle;
     
@@ -152,10 +200,31 @@ private:
     BOOL dashboardBehaviorAllowWheelScrolling;
 #endif
     
+#if PLATFORM(IOS)
+    BOOL isStopping;
+
+    id UIKitDelegate;
+    id UIKitDelegateForwarder;
+
+    id WebMailDelegate;
+
+    BOOL allowsMessaging;
+    NSMutableSet *_caretChangeListeners;
+    id <WebCaretChangeListener> _caretChangeListener;
+
+    CGSize fixedLayoutSize;
+    BOOL mainViewIsScrollingOrZooming;
+    int32_t didDrawTiles;
+    WTF::Mutex pendingFixedPositionLayoutRectMutex;
+    CGRect pendingFixedPositionLayoutRect;
+#endif
+
+#if !PLATFORM(IOS)
     // WebKit has both a global plug-in database and a separate, per WebView plug-in database. Dashboard uses the per WebView database.
     WebPluginDatabase *pluginDatabase;
+#endif
     
-    HashMap<unsigned long, RetainPtr<id> > identifierMap;
+    HashMap<unsigned long, RetainPtr<id>> identifierMap;
 
     BOOL _keyboardUIModeAccessed;
     WebCore::KeyboardUIMode _keyboardUIMode;
@@ -163,16 +232,16 @@ private:
     BOOL shouldUpdateWhileOffscreen;
 
     BOOL includesFlattenedCompositingLayersWhenDrawingToBitmap;
-    
-#if USE(ACCELERATED_COMPOSITING)
+
     // When this flag is set, next time a WebHTMLView draws, it needs to temporarily disable screen updates
     // so that the NSView drawing is visually synchronized with CALayer updates.
     BOOL needsOneShotDrawingSynchronization;
     BOOL postsAcceleratedCompositingNotifications;
-    OwnPtr<LayerFlushController> layerFlushController;
-#endif
+    RefPtr<LayerFlushController> layerFlushController;
 
+#if !PLATFORM(IOS)
     NSPasteboard *insertionPasteboard;
+#endif
             
     NSSize lastLayoutSize;
 
@@ -184,6 +253,12 @@ private:
     WebFullScreenController *newFullscreenController;
 #endif
 
+#if ENABLE(REMOTE_INSPECTOR)
+#if PLATFORM(IOS)
+    WebIndicateLayer *indicateLayer;
+#endif
+#endif
+
 #if USE(GLIB)
     CFRunLoopObserverRef glibRunLoopObserver;
 #endif
@@ -191,17 +266,26 @@ private:
     id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
     id<WebNotificationProvider> _notificationProvider;
 
+#if ENABLE(MEDIA_STREAM)
+    id<WebUserMediaClient> m_userMediaClient;
+#endif
+
     RefPtr<WebCore::HistoryItem> _globalHistoryItem;
 
     BOOL interactiveFormValidationEnabled;
     int validationMessageTimerMagnification;
 
     float customDeviceScaleFactor;
+#if PLATFORM(IOS)
+    WebFixedPositionContent* _fixedPositionContent;
+#endif
 
 #if USE(DICTATION_ALTERNATIVES)
     OwnPtr<WebCore::AlternativeTextUIController> m_alternativeTextUIController;
 #endif
 
     RetainPtr<NSData> sourceApplicationAuditData;
+
+    BOOL _didPerformFirstNavigation;
 }
 @end

@@ -176,6 +176,19 @@ void AppleEmbeddedHIDEventService::dispatchBiometricEvent(AbsoluteTime timeStamp
 }
 
 //====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchAtmosphericPressureEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchAtmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::atmosphericPressureEvent(timeStamp, level, sequence, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+//====================================================================================================
 // AppleEmbeddedHIDEventService::getOrientation
 //====================================================================================================
 IOHIDOrientationType AppleEmbeddedHIDEventService::getOrientation()
@@ -187,6 +200,14 @@ IOHIDOrientationType AppleEmbeddedHIDEventService::getOrientation()
 // AppleEmbeddedHIDEventService::getPlacement
 //====================================================================================================
 IOHIDPlacementType AppleEmbeddedHIDEventService::getPlacement()
+{
+    return 0;
+}
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::getReportInterval
+//====================================================================================================
+UInt32 AppleEmbeddedHIDEventService::getReportInterval()
 {
     return 0;
 }

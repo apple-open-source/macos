@@ -107,6 +107,14 @@ FILE *cfile, *hfile;
 int error_flag;
 struct assignment *assignment;
 
+static void ex(struct assignment *a, const char *fmt, ...)
+    __attribute__((__format__(printf, 2, 3)));
+static void cprint(int level, const char *fmt, ...)
+    __attribute__((__format__(printf, 2, 3)));
+static void hprint(int level, const char *fmt, ...)
+    __attribute__((__format__(printf, 2, 3)));
+
+
 
 static void
 ex(struct assignment *a, const char *fmt, ...)
@@ -598,6 +606,14 @@ gen_wrapper(struct assignment *as)
 	int max_args = -1;
 	char *end;
 	if(narguments == 0) {
+	    if (find(as, "min_args")) {
+		ex(as, "seen min_args without argument parameter");
+		exit(1);
+	    }
+	    if (find(as, "max_args")) {
+		ex(as, "seen min_args without argument");
+		exit(1);
+	    }
 	    max_args = 0;
 	} else {
 	    if((tmp = find(as, "min_args")) != NULL) {

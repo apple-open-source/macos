@@ -1,14 +1,14 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2012 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: rm (AT&T Research) 2010-12-10 $\n]"
+"[-?\n@(#)$Id: rm (AT&T Research) 2012-02-14 $\n]"
 USAGE_LICENSE
 "[+NAME?rm - remove files]"
 "[+DESCRIPTION?\brm\b removes the named \afile\a arguments. By default it"
@@ -47,7 +47,8 @@ USAGE_LICENSE
 "	The caller requires sufficient privilege, not to mention a strong"
 "	constitution, to use this option. Even though the directory must"
 "	not be empty, \brm\b still attempts to empty it before removal.]"
-"[f:force?Ignore nonexistent files and never prompt the user.]"
+"[f:force?Ignore nonexistent files, ignore no file operands specified,"
+"	and never prompt the user.]"
 "[i:interactive|prompt?Prompt whether to remove each file."
 "	An affirmative response (\by\b or \bY\b) removes the file, a quit"
 "	response (\bq\b or \bQ\b) causes \brm\b to exit immediately, and"
@@ -81,7 +82,7 @@ USAGE_LICENSE
 
 typedef struct State_s			/* program state		*/
 {
-	void*		context;	/* builtin context		*/
+	Shbltin_t*	context;	/* builtin context		*/
 	int		clobber;	/* clear out file data first	*/
 	int		directory;	/* remove(dir) not rmdir(dir)	*/
 	int		force;		/* force actions		*/
@@ -264,7 +265,7 @@ rm(State_t* state, register FTSENT* ent)
 				break;
 			}
 		}
-		else if (!state->force && state->terminal && eaccess(path, W_OK))
+		else if (!(ent->fts_info & FTS_SL) && !state->force && state->terminal && eaccess(path, W_OK))
 		{
 			if ((v = astquery(-1, "override protection %s for %s? ",
 #ifdef ETXTBSY
@@ -283,7 +284,7 @@ rm(State_t* state, register FTSENT* ent)
 #if _lib_fsync
 		if (state->clobber && S_ISREG(ent->fts_statp->st_mode) && ent->fts_statp->st_size > 0)
 		{
-			if ((n = open(path, O_WRONLY)) < 0)
+			if ((n = open(path, O_WRONLY|O_cloexec)) < 0)
 				error(ERROR_SYSTEM|2, "%s: cannot clear data", ent->fts_path);
 			else
 			{
@@ -326,7 +327,7 @@ rm(State_t* state, register FTSENT* ent)
 }
 
 int
-b_rm(int argc, register char** argv, void* context)
+b_rm(int argc, register char** argv, Shbltin_t* context)
 {
 	State_t		state;
 	FTS*		fts;
@@ -382,8 +383,10 @@ b_rm(int argc, register char** argv, void* context)
 	argv += opt_info.index;
 	if (*argv && streq(*argv, "-") && !streq(*(argv - 1), "--"))
 		argv++;
-	if (error_info.errors || !*argv)
+	if (error_info.errors || !*argv && !state.force)
 		error(ERROR_USAGE|4, "%s", optusage(NiL));
+	if (!*argv)
+		return 0;
 
 	/*
 	 * do it

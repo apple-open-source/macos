@@ -1,6 +1,6 @@
 /* $OpenLDAP: pkg/ldap/contrib/ldapsasl/ldapdb.c,v 1.1.2.7 2003/11/29 22:10:03 hyc Exp $ */
-/* SASL LDAP auxprop implementation
- * Copyright (C) 2002,2003 Howard Chu, All rights reserved. <hyc@symas.com>
+/* SASL LDAP auxprop+canonuser implementation
+ * Copyright (C) 2002-2007 Howard Chu, All rights reserved. <hyc@symas.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
@@ -14,6 +14,7 @@
 #include <config.h>
 
 #include <stdio.h>
+#include <ctype.h>
 
 #include "sasl.h"
 #include "saslutil.h"
@@ -26,12 +27,16 @@
 static char ldapdb[] = "ldapdb";
 
 typedef struct ldapctx {
+	int inited;		/* Have we already read the config? */
 	const char *uri;	/* URI of LDAP server */
 	struct berval id;	/* SASL authcid to bind as */
 	struct berval pw;	/* password for bind */
 	struct berval mech;	/* SASL mech */
 	int use_tls;		/* Issue StartTLS request? */
+	struct berval canon;	/* Use attr in user entry for canonical name */
 } ldapctx;
+
+static ldapctx ldapdb_ctx;
 
 static int ldapdb_interact(LDAP *ld, unsigned flags __attribute__((unused)),
 	void *def, void *inter)
@@ -79,7 +84,7 @@ static int ldapdb_connect(ldapctx *ctx, sasl_server_params_t *sparams,
     char *authzid;
 
     if((i=ldap_initialize(&cp->ld, ctx->uri))) {
-    	return i;
+	return i;
     }
 
     authzid = sparams->utils->malloc(ulen + sizeof("u:"));
@@ -126,7 +131,7 @@ static int ldapdb_connect(ldapctx *ctx, sasl_server_params_t *sparams,
     return i;
 }
 
-static void ldapdb_auxprop_lookup(void *glob_context,
+static int ldapdb_auxprop_lookup(void *glob_context,
 				  sasl_server_params_t *sparams,
 				  unsigned flags,
 				  const char *user,
@@ -135,15 +140,17 @@ static void ldapdb_auxprop_lookup(void *glob_context,
     ldapctx *ctx = glob_context;
     connparm cp;
     int ret, i, n, *aindx;
+    int result;
+    int j;
     const struct propval *pr;
     struct berval **bvals;
     LDAPMessage *msg, *res;
     char **attrs = NULL;
     
-    if(!ctx || !sparams || !user) return;
+    if(!ctx || !sparams || !user) return SASL_BADPARAM;
 
     pr = sparams->utils->prop_get(sparams->propctx);
-    if(!pr) return;
+    if (!pr) return SASL_FAIL;
 
     /* count how many attrs to fetch */
     for(i = 0, n = 0; pr[i].name; i++) {
@@ -153,12 +160,16 @@ static void ldapdb_auxprop_lookup(void *glob_context,
 	    continue;
 	n++;
     }
+
     /* nothing to do, bail out */
-    if (!n) return;
+    if (!n) return SASL_OK;
 
     /* alloc an array of attr names for search, and index to the props */
     attrs = sparams->utils->malloc((n+1)*sizeof(char *)*2);
-    if (!attrs) return;
+    if (!attrs) {
+	result = SASL_NOMEM;
+        goto done;
+    }
 
     aindx = (int *)(attrs + n + 1);
 
@@ -175,35 +186,88 @@ static void ldapdb_auxprop_lookup(void *glob_context,
     }
     attrs[n] = NULL;
 
-    if(ldapdb_connect(ctx, sparams, user, ulen, &cp)) {
-    	goto done;
+    if ((ret = ldapdb_connect(ctx, sparams, user, ulen, &cp)) != LDAP_SUCCESS) {
+	goto process_ldap_error;
     }
 
     ret = ldap_search_ext_s(cp.ld, cp.dn->bv_val+3, LDAP_SCOPE_BASE,
     	"(objectclass=*)", attrs, 0, cp.ctrl, NULL, NULL, 1, &res);
     ber_bvfree(cp.dn);
 
-    if (ret != LDAP_SUCCESS) goto done;
+    if (ret != LDAP_SUCCESS) {
+	goto process_ldap_error;
+    }
 
-    for(msg=ldap_first_message(cp.ld, res); msg; msg=ldap_next_message(cp.ld, msg))
-    {
+    /* Assume no user by default */
+    ret = LDAP_NO_SUCH_OBJECT;
+
+    for (msg = ldap_first_message(cp.ld, res);
+         msg;
+         msg = ldap_next_message(cp.ld, msg)) {
     	if (ldap_msgtype(msg) != LDAP_RES_SEARCH_ENTRY) continue;
-	for (i=0; i<n; i++)
-	{
+
+	/* Presence of a search result response indicates that the user exists */
+	ret = LDAP_SUCCESS;
+
+        for (i = 0; i < n; i++) {
 	    bvals = ldap_get_values_len(cp.ld, msg, attrs[i]);
 	    if (!bvals) continue;
-	    if (pr[aindx[i]].values)
+
+	    if (pr[aindx[i]].values) {
 	    	sparams->utils->prop_erase(sparams->propctx, pr[aindx[i]].name);
-	    sparams->utils->prop_set(sparams->propctx, pr[aindx[i]].name,
-				 bvals[0]->bv_val, bvals[0]->bv_len);
+	    }
+
+            for ( j = 0; bvals[j] != NULL; j++ ) {
+	        sparams->utils->prop_set(sparams->propctx,
+                                         pr[aindx[i]].name,
+				         bvals[j]->bv_val,
+                                         bvals[j]->bv_len);
+            }
 	    ber_bvecfree(bvals);
 	}
     }
     ldap_msgfree(res);
 
+ process_ldap_error:
+    switch (ret) {
+	case LDAP_SUCCESS:
+            result = SASL_OK;
+            break;
+
+	case LDAP_NO_SUCH_OBJECT:
+            result = SASL_NOUSER;
+            break;
+
+        case LDAP_NO_MEMORY:
+            result = SASL_NOMEM;
+            break;
+
+	case LDAP_SERVER_DOWN:
+	case LDAP_BUSY:
+	case LDAP_UNAVAILABLE:
+	case LDAP_CONNECT_ERROR:
+	    result = SASL_UNAVAIL;
+	    break;
+
+#if defined(LDAP_PROXY_AUTHZ_FAILURE)
+	case LDAP_PROXY_AUTHZ_FAILURE:
+#endif
+	case LDAP_INAPPROPRIATE_AUTH:
+	case LDAP_INVALID_CREDENTIALS:
+	case LDAP_INSUFFICIENT_ACCESS:
+	    result = SASL_BADAUTH;
+	    break;
+
+        default:
+            result = SASL_FAIL;
+            break;
+    }
+
  done:
     if(attrs) sparams->utils->free(attrs);
-    if(cp.ld) ldap_unbind(cp.ld);
+    if(cp.ld) ldap_unbind_ext(cp.ld, NULL, NULL);
+
+    return result;
 }
 
 static int ldapdb_auxprop_store(void *glob_context,
@@ -254,58 +318,169 @@ static int ldapdb_auxprop_store(void *glob_context,
 	if (i == LDAP_NO_MEMORY) i = SASL_NOMEM;
 	else i = SASL_FAIL;
     }
-    if (cp.ld) ldap_unbind(cp.ld);
+    if(cp.ld) ldap_unbind_ext(cp.ld, NULL, NULL);
     return i;
 }
 
-static void ldapdb_auxprop_free(void *glob_ctx, const sasl_utils_t *utils)
+static int
+ldapdb_canon_server(void *glob_context,
+		    sasl_server_params_t *sparams,
+		    const char *user,
+		    unsigned ulen,
+		    unsigned flags,
+		    char *out,
+		    unsigned out_max,
+		    unsigned *out_ulen)
 {
-	utils->free(glob_ctx);
+    ldapctx *ctx = glob_context;
+    connparm cp;
+    struct berval **bvals;
+    LDAPMessage *msg, *res;
+    char *rdn, *attrs[2];
+    unsigned len;
+    int ret;
+    
+    if(!ctx || !sparams || !user) return SASL_BADPARAM;
+
+    /* If no canon attribute was configured, we can't do anything */
+    if(!ctx->canon.bv_val) return SASL_BADPARAM;
+
+    /* Trim whitespace */
+    while(isspace(*(unsigned char *)user)) {
+	user++;
+	ulen--;
+    }
+    while(isspace((unsigned char)user[ulen-1])) {
+    	ulen--;
+    }
+    
+    if (!ulen) {
+    	sparams->utils->seterror(sparams->utils->conn, 0,
+	    "All-whitespace username.");
+	return SASL_FAIL;
+    }
+
+    ret = ldapdb_connect(ctx, sparams, user, ulen, &cp);
+    if ( ret ) goto done;
+
+    /* See if the RDN uses the canon attr. If so, just use the RDN
+     * value, we don't need to do a search.
+     */
+    rdn = cp.dn->bv_val+3;
+    if (!strncasecmp(ctx->canon.bv_val, rdn, ctx->canon.bv_len) &&
+    	rdn[ctx->canon.bv_len] == '=') {
+	char *comma;
+	rdn += ctx->canon.bv_len + 1;
+	comma = strchr(rdn, ',');
+	if ( comma )
+	    len = comma - rdn;
+	else 
+	    len = cp.dn->bv_len - (rdn - cp.dn->bv_val);
+	if ( len > out_max )
+	    len = out_max;
+	memcpy(out, rdn, len);
+	out[len] = '\0';
+	*out_ulen = len;
+	ret = SASL_OK;
+	ber_bvfree(cp.dn);
+	goto done;
+    }
+
+    /* Have to read the user's entry */
+    attrs[0] = ctx->canon.bv_val;
+    attrs[1] = NULL;
+    ret = ldap_search_ext_s(cp.ld, cp.dn->bv_val+3, LDAP_SCOPE_BASE,
+    	"(objectclass=*)", attrs, 0, cp.ctrl, NULL, NULL, 1, &res);
+    ber_bvfree(cp.dn);
+
+    if (ret != LDAP_SUCCESS) goto done;
+
+    for(msg=ldap_first_message(cp.ld, res); msg; msg=ldap_next_message(cp.ld, msg))
+    {
+    	if (ldap_msgtype(msg) != LDAP_RES_SEARCH_ENTRY) continue;
+	bvals = ldap_get_values_len(cp.ld, msg, attrs[0]);
+	if (!bvals) continue;
+	len = bvals[0]->bv_len;
+	if ( len > out_max )
+	    len = out_max;
+	memcpy(out, bvals[0]->bv_val, len);
+	*out_ulen = len;
+	ber_bvecfree(bvals);
+    }
+    ldap_msgfree(res);
+
+ done:
+    if(cp.ld) ldap_unbind_ext(cp.ld, NULL, NULL);
+    if (ret) {
+    	sparams->utils->seterror(sparams->utils->conn, 0,
+	    ldap_err2string(ret));
+	if (ret == LDAP_NO_MEMORY) ret = SASL_NOMEM;
+	else ret = SASL_FAIL;
+    }
+    return ret;
 }
 
-static sasl_auxprop_plug_t ldapdb_auxprop_plugin = {
-    0,				/* Features */
-    0,				/* spare */
-    NULL,			/* glob_context */
-    ldapdb_auxprop_free,	/* auxprop_free */
-    ldapdb_auxprop_lookup,	/* auxprop_lookup */
-    ldapdb,			/* name */
-    ldapdb_auxprop_store	/* auxprop store */
-};
-
-int ldapdb_auxprop_plug_init(const sasl_utils_t *utils,
-                             int max_version,
-                             int *out_version,
-                             sasl_auxprop_plug_t **plug,
-                             const char *plugname __attribute__((unused))) 
+static int
+ldapdb_canon_client(void *glob_context,
+		    sasl_client_params_t *cparams,
+		    const char *user,
+		    unsigned ulen,
+		    unsigned flags,
+		    char *out,
+		    unsigned out_max,
+		    unsigned *out_ulen)
 {
-    ldapctx tmp, *p;
+    if(!cparams || !user) return SASL_BADPARAM;
+
+    /* Trim whitespace */
+    while(isspace(*(unsigned char *)user)) {
+	user++;
+	ulen--;
+    }
+    while(isspace((unsigned char)user[ulen-1])) {
+    	ulen--;
+    }
+    
+    if (!ulen) {
+    	cparams->utils->seterror(cparams->utils->conn, 0,
+	    "All-whitespace username.");
+	return SASL_FAIL;
+    }
+
+    if (ulen > out_max) return SASL_BUFOVER;
+
+    memcpy(out, user, ulen);
+    out[ulen] = '\0';
+    *out_ulen = ulen;
+    return SASL_OK;
+}
+
+static int
+ldapdb_config(const sasl_utils_t *utils)
+{
+    ldapctx *p = &ldapdb_ctx;
     const char *s;
     unsigned len;
 
-    if(!out_version || !plug) return SASL_BADPARAM;
+    if(p->inited) return SASL_OK;
 
-    if(max_version < SASL_AUXPROP_PLUG_VERSION) return SASL_BADVERS;
-    
-    memset(&tmp, 0, sizeof(tmp));
-
-    utils->getopt(utils->getopt_context, ldapdb, "ldapdb_uri", &tmp.uri, NULL);
-    if(!tmp.uri) return SASL_BADPARAM;
+    utils->getopt(utils->getopt_context, ldapdb, "ldapdb_uri", &p->uri, NULL);
+    if(!p->uri) return SASL_BADPARAM;
 
     utils->getopt(utils->getopt_context, ldapdb, "ldapdb_id",
-    	(const char **)&tmp.id.bv_val, &len);
-    tmp.id.bv_len = len;
+    	(const char **)&p->id.bv_val, &len);
+    p->id.bv_len = len;
     utils->getopt(utils->getopt_context, ldapdb, "ldapdb_pw",
-    	(const char **)&tmp.pw.bv_val, &len);
-    tmp.pw.bv_len = len;
+    	(const char **)&p->pw.bv_val, &len);
+    p->pw.bv_len = len;
     utils->getopt(utils->getopt_context, ldapdb, "ldapdb_mech",
-    	(const char **)&tmp.mech.bv_val, &len);
-    tmp.mech.bv_len = len;
+    	(const char **)&p->mech.bv_val, &len);
+    p->mech.bv_len = len;
     utils->getopt(utils->getopt_context, ldapdb, "ldapdb_starttls", &s, NULL);
     if (s)
     {
-    	if (!strcasecmp(s, "demand")) tmp.use_tls = 2;
-	else if (!strcasecmp(s, "try")) tmp.use_tls = 1;
+    	if (!strcasecmp(s, "demand")) p->use_tls = 2;
+	else if (!strcasecmp(s, "try")) p->use_tls = 1;
     }
     utils->getopt(utils->getopt_context, ldapdb, "ldapdb_rc", &s, &len);
     if (s)
@@ -320,15 +495,75 @@ int ldapdb_auxprop_plug_init(const sasl_utils_t *utils,
 	    return SASL_NOMEM;
 	}
     }
+    utils->getopt(utils->getopt_context, ldapdb, "ldapdb_canon_attr",
+	(const char **)&p->canon.bv_val, &len);
+    p->canon.bv_len = len;
+    p->inited = 1;
 
-    p = utils->malloc(sizeof(ldapctx));
-    if (!p) return SASL_NOMEM;
-    *p = tmp;
-    ldapdb_auxprop_plugin.glob_context = p;
+    return SASL_OK;
+}
+
+static sasl_auxprop_plug_t ldapdb_auxprop_plugin = {
+    0,				/* Features */
+    0,				/* spare */
+    &ldapdb_ctx,		/* glob_context */
+    NULL,	/* auxprop_free */
+    ldapdb_auxprop_lookup,	/* auxprop_lookup */
+    ldapdb,			/* name */
+    ldapdb_auxprop_store	/* auxprop store */
+};
+
+int ldapdb_auxprop_plug_init(const sasl_utils_t *utils,
+                             int max_version,
+                             int *out_version,
+                             sasl_auxprop_plug_t **plug,
+                             const char *plugname __attribute__((unused))) 
+{
+    int rc;
+
+    if(!out_version || !plug) return SASL_BADPARAM;
+
+    if(max_version < SASL_AUXPROP_PLUG_VERSION) return SASL_BADVERS;
+    
+    rc = ldapdb_config(utils);
 
     *out_version = SASL_AUXPROP_PLUG_VERSION;
 
     *plug = &ldapdb_auxprop_plugin;
 
-    return SASL_OK;
+    return rc;
+}
+
+static sasl_canonuser_plug_t ldapdb_canonuser_plugin = {
+	0,	/* features */
+	0,	/* spare */
+	&ldapdb_ctx,	/* glob_context */
+	ldapdb,	/* name */
+	NULL,	/* canon_user_free */
+	ldapdb_canon_server,	/* canon_user_server */
+	ldapdb_canon_client,	/* canon_user_client */
+	NULL,
+	NULL,
+	NULL
+};
+
+int ldapdb_canonuser_plug_init(const sasl_utils_t *utils,
+                             int max_version,
+                             int *out_version,
+                             sasl_canonuser_plug_t **plug,
+                             const char *plugname __attribute__((unused))) 
+{
+    int rc;
+
+    if(!out_version || !plug) return SASL_BADPARAM;
+
+    if(max_version < SASL_CANONUSER_PLUG_VERSION) return SASL_BADVERS;
+    
+    rc = ldapdb_config(utils);
+
+    *out_version = SASL_CANONUSER_PLUG_VERSION;
+
+    *plug = &ldapdb_canonuser_plugin;
+
+    return rc;
 }

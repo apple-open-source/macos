@@ -58,7 +58,7 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
 
 /* Miscellaneous */
-int get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name);
+int get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope, char *if_name);
 u_int32_t get_if_media(char *if_name);
 u_int32_t get_if_baudrate(char *if_name);
 u_int32_t get_if_mtu(char *if_name);

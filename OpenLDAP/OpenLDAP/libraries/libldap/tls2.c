@@ -41,7 +41,7 @@ static tls_impl *tls_imp = &ldap_int_tls_impl;
 #define HAS_TLS( sb )	ber_sockbuf_ctrl( sb, LBER_SB_OPT_HAS_IO, \
 				(void *)tls_imp->ti_sbio )
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 #include <Security/Security.h>
 #include <syslog.h>
 #include <sys/stat.h>
@@ -110,6 +110,16 @@ ldap_int_tls_destroy( struct ldapoptions *lo )
 		lo->ldo_tls_ctx = NULL;
 	}
 
+#ifdef HAVE_SECURE_TRANSPORT
+	if ( lo->ldo_tls_identity ) {
+		LDAP_FREE( lo->ldo_tls_identity );
+		lo->ldo_tls_identity = NULL;
+	}
+	if ( lo->ldo_tls_trusted_certs ) {
+		LDAP_FREE( lo->ldo_tls_trusted_certs );
+		lo->ldo_tls_trusted_certs = NULL;
+	}
+#else
 	if ( lo->ldo_tls_certfile ) {
 		LDAP_FREE( lo->ldo_tls_certfile );
 		lo->ldo_tls_certfile = NULL;
@@ -118,10 +128,12 @@ ldap_int_tls_destroy( struct ldapoptions *lo )
 		LDAP_FREE( lo->ldo_tls_keyfile );
 		lo->ldo_tls_keyfile = NULL;
 	}
+#endif
 	if ( lo->ldo_tls_dhfile ) {
 		LDAP_FREE( lo->ldo_tls_dhfile );
 		lo->ldo_tls_dhfile = NULL;
 	}
+#ifndef HAVE_SECURE_TRANSPORT
 	if ( lo->ldo_tls_cacertfile ) {
 		LDAP_FREE( lo->ldo_tls_cacertfile );
 		lo->ldo_tls_cacertfile = NULL;
@@ -130,6 +142,7 @@ ldap_int_tls_destroy( struct ldapoptions *lo )
 		LDAP_FREE( lo->ldo_tls_cacertdir );
 		lo->ldo_tls_cacertdir = NULL;
 	}
+#endif
 	if ( lo->ldo_tls_ciphersuite ) {
 		LDAP_FREE( lo->ldo_tls_ciphersuite );
 		lo->ldo_tls_ciphersuite = NULL;
@@ -138,7 +151,7 @@ ldap_int_tls_destroy( struct ldapoptions *lo )
 		LDAP_FREE( lo->ldo_tls_crlfile );
 		lo->ldo_tls_crlfile = NULL;
 	}
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 	if ( lo->ldo_tls_cert_ref ) {
 		CFRelease( lo->ldo_tls_cert_ref );
 		lo->ldo_tls_cert_ref = NULL;
@@ -206,10 +219,15 @@ ldap_int_tls_init_ctx( struct ldapoptions *lo, int is_server )
 
 	tls_init( ti );
 #ifdef __APPLE__
+# ifdef HAVE_SECURE_TRANSPORT
+	if (is_server && !lts.lt_identity)
+		return LDAP_NOT_SUPPORTED;
+# else
     if(is_server && !lts.lt_server_ident_ref_name)
     {
         return LDAP_NOT_SUPPORTED;
     }
+# endif
 #else
 	if ( is_server && !lts.lt_certfile && !lts.lt_keyfile &&
 		!lts.lt_cacertfile && !lts.lt_cacertdir ) {
@@ -520,11 +538,16 @@ ldap_int_tls_config( LDAP *ld, int option, const char *arg )
 	int i;
 
 	switch( option ) {
+#ifdef HAVE_SECURE_TRANSPORT
+	case LDAP_OPT_X_TLS_IDENTITY:
+	case LDAP_OPT_X_TLS_TRUSTED_CERTS:
+#else
 	case LDAP_OPT_X_TLS_CACERTFILE:
 	case LDAP_OPT_X_TLS_CACERTDIR:
 	case LDAP_OPT_X_TLS_CERTFILE:
 	case LDAP_OPT_X_TLS_KEYFILE:
 	case LDAP_OPT_X_TLS_RANDOM_FILE:
+#endif
 	case LDAP_OPT_X_TLS_CIPHER_SUITE:
 	case LDAP_OPT_X_TLS_DHFILE:
 	case LDAP_OPT_X_TLS_CRLFILE:	/* GnuTLS only */
@@ -574,8 +597,8 @@ ldap_int_tls_config( LDAP *ld, int option, const char *arg )
 		}
 		return ldap_pvt_tls_set_option( ld, option, &i );
 		}
-#ifdef HAVE_OPENSSL_CRL
-	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL only */
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
+	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL and SecureTransport */
 		i = -1;
 		if ( strcasecmp( arg, "none" ) == 0 ) {
 			i = LDAP_OPT_X_TLS_CRL_NONE ;
@@ -630,6 +653,16 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 			tls_ctx_ref( lo->ldo_tls_ctx );
 		}
 		break;
+#ifdef HAVE_SECURE_TRANSPORT
+	case LDAP_OPT_X_TLS_IDENTITY:
+		*(char **)arg = lo->ldo_tls_identity ?
+			LDAP_STRDUP( lo->ldo_tls_identity ) : NULL;
+		break;
+	case LDAP_OPT_X_TLS_TRUSTED_CERTS:
+		*(char **)arg = lo->ldo_tls_trusted_certs ?
+			LDAP_STRDUP( lo->ldo_tls_trusted_certs ) : NULL;
+		break;
+#else
 	case LDAP_OPT_X_TLS_CACERTFILE:
 		*(char **)arg = lo->ldo_tls_cacertfile ?
 			LDAP_STRDUP( lo->ldo_tls_cacertfile ) : NULL;
@@ -646,6 +679,7 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 		*(char **)arg = lo->ldo_tls_keyfile ?
 			LDAP_STRDUP( lo->ldo_tls_keyfile ) : NULL;
 		break;
+#endif
 	case LDAP_OPT_X_TLS_DHFILE:
 		*(char **)arg = lo->ldo_tls_dhfile ?
 			LDAP_STRDUP( lo->ldo_tls_dhfile ) : NULL;
@@ -657,8 +691,8 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 	case LDAP_OPT_X_TLS_REQUIRE_CERT:
 		*(int *)arg = lo->ldo_tls_require_cert;
 		break;
-#ifdef HAVE_OPENSSL_CRL
-	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL only */
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
+	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL and SecureTransport */
 		*(int *)arg = lo->ldo_tls_crlcheck;
 		break;
 #endif
@@ -669,10 +703,12 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 	case LDAP_OPT_X_TLS_PROTOCOL_MIN:
 		*(int *)arg = lo->ldo_tls_protocol_min;
 		break;
+#ifndef HAVE_SECURE_TRANSPORT
 	case LDAP_OPT_X_TLS_RANDOM_FILE:
 		*(char **)arg = lo->ldo_tls_randfile ?
 			LDAP_STRDUP( lo->ldo_tls_randfile ) : NULL;
 		break;
+#endif
 	case LDAP_OPT_X_TLS_SSL_CTX: {
 		void *retval = 0;
 		if ( ld != NULL ) {
@@ -692,7 +728,7 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 		*(void **)arg = lo->ldo_tls_connect_arg;
 		break;
             
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
     case LDAP_OPT_X_TLS_CERT_IDENTITY:
         *(char **)arg = lo->ldo_tls_server_ident_ref_name ?
             LDAP_STRDUP( lo->ldo_tls_server_ident_ref_name) : NULL;
@@ -757,6 +793,16 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 	case LDAP_OPT_X_TLS_CONNECT_ARG:
 		lo->ldo_tls_connect_arg = arg;
 		return 0;
+#ifdef HAVE_SECURE_TRANSPORT
+	case LDAP_OPT_X_TLS_IDENTITY:
+		if ( lo->ldo_tls_identity ) LDAP_FREE( lo->ldo_tls_identity );
+		lo->ldo_tls_identity = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
+		return 0;
+	case LDAP_OPT_X_TLS_TRUSTED_CERTS:
+		if ( lo->ldo_tls_trusted_certs ) LDAP_FREE( lo->ldo_tls_trusted_certs );
+		lo->ldo_tls_trusted_certs = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
+		return 0;
+#else
 	case LDAP_OPT_X_TLS_CACERTFILE:
 		if ( lo->ldo_tls_cacertfile ) LDAP_FREE( lo->ldo_tls_cacertfile );
 		lo->ldo_tls_cacertfile = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
@@ -773,6 +819,7 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 		if ( lo->ldo_tls_keyfile ) LDAP_FREE( lo->ldo_tls_keyfile );
 		lo->ldo_tls_keyfile = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
 		return 0;
+#endif
 	case LDAP_OPT_X_TLS_DHFILE:
 		if ( lo->ldo_tls_dhfile ) LDAP_FREE( lo->ldo_tls_dhfile );
 		lo->ldo_tls_dhfile = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
@@ -793,8 +840,8 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 			return 0;
 		}
 		return -1;
-#ifdef HAVE_OPENSSL_CRL
-	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL only */
+#if defined(HAVE_OPENSSL_CRL) || defined(HAVE_SECURE_TRANSPORT)
+	case LDAP_OPT_X_TLS_CRLCHECK:	/* OpenSSL and SecureTransport */
 		if ( !arg ) return -1;
 		switch( *(int *) arg ) {
 		case LDAP_OPT_X_TLS_CRL_NONE:
@@ -814,6 +861,7 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 		if ( !arg ) return -1;
 		lo->ldo_tls_protocol_min = *(int *)arg;
 		return 0;
+#ifndef HAVE_SECURE_TRANSPORT
 	case LDAP_OPT_X_TLS_RANDOM_FILE:
 		if ( ld != NULL )
 			return -1;
@@ -830,6 +878,7 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
         if( lo->ldo_tls_passphrase) LDAP_FREE(lo->ldo_tls_passphrase);
         lo->ldo_tls_passphrase = arg ? LDAP_STRDUP( (char*) arg) : NULL;
         return 0;
+#endif
 #endif
 	case LDAP_OPT_X_TLS_NEWCTX:
 		if ( !arg ) return -1;
@@ -867,7 +916,7 @@ ldap_int_tls_start ( LDAP *ld, LDAPConn *conn, LDAPURLDesc *srv )
 
 	(void) tls_init( tls_imp );
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 	/* Get the host's certificate from the keychain if possible, and stash
 	 * it in the options for use once the SSL context is created.
 	 */
@@ -1334,7 +1383,7 @@ nomem:
 }
 
 #ifdef HAVE_TLS
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HAVE_SECURE_TRANSPORT)
 
 #define SYSTEM_KEYCHAIN_PATH  "/Library/Keychains/System.keychain"
 static void

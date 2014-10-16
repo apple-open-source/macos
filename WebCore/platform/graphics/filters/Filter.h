@@ -33,23 +33,29 @@ class FilterEffect;
 
 class Filter : public RefCounted<Filter> {
 public:
-    Filter(const AffineTransform& absoluteTransform)
+    Filter(const AffineTransform& absoluteTransform, float filterScale = 1)
         : m_absoluteTransform(absoluteTransform)
         , m_renderingMode(Unaccelerated)
+        , m_filterScale(filterScale)
     { }
     virtual ~Filter() { }
 
-    void setSourceImage(PassOwnPtr<ImageBuffer> sourceImage) { m_sourceImage = sourceImage; }
+    void setSourceImage(std::unique_ptr<ImageBuffer> sourceImage) { m_sourceImage = WTF::move(sourceImage); }
     ImageBuffer* sourceImage() { return m_sourceImage.get(); }
 
     FloatSize filterResolution() const { return m_filterResolution; }
     void setFilterResolution(const FloatSize& filterResolution) { m_filterResolution = filterResolution; }
+
+    float filterScale() const { return m_filterScale; }
+    void setFilterScale(float scale) { m_filterScale = scale; }
 
     const AffineTransform& absoluteTransform() const { return m_absoluteTransform; }
     FloatPoint mapAbsolutePointToLocalPoint(const FloatPoint& point) const { return m_absoluteTransform.inverse().mapPoint(point); }
 
     RenderingMode renderingMode() const { return m_renderingMode; }
     void setRenderingMode(RenderingMode renderingMode) { m_renderingMode = renderingMode; }
+
+    virtual bool isSVGFilter() const { return false; }
 
     virtual float applyHorizontalScale(float value) const { return value * m_filterResolution.width(); }
     virtual float applyVerticalScale(float value) const { return value * m_filterResolution.height(); }
@@ -58,11 +64,15 @@ public:
     virtual FloatRect filterRegion() const = 0;
 
 private:
-    OwnPtr<ImageBuffer> m_sourceImage;
+    std::unique_ptr<ImageBuffer> m_sourceImage;
     FloatSize m_filterResolution;
     AffineTransform m_absoluteTransform;
     RenderingMode m_renderingMode;
+    float m_filterScale;
 };
+
+#define FILTER_TYPE_CASTS(ToValueTypeName, predicate) \
+    TYPE_CASTS_BASE(ToValueTypeName, Filter, filter, filter->predicate, filter.predicate)
 
 } // namespace WebCore
 

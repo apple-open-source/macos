@@ -55,10 +55,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/sbin/ifconfig/af_inet6.c,v 1.6.6.1 2008/11/25 02:59:29 kensmith Exp $";
-#endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/ioctl.h>
@@ -345,6 +341,8 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 		printf("autoconf ");
 	if ((flags6 & IN6_IFF_TEMPORARY) != 0)
 		printf("temporary ");
+	if ((flags6 & IN6_IFF_DYNAMIC) != 0)
+		printf("dynamic ");
 	if ((flags6 & IN6_IFF_SECURED) != 0)
 		printf("secured ");
 

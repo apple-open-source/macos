@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,8 @@
 #define _IOKIT_IOAUDIOENGINEUSERCLIENT_H
 
 #include <IOKit/IOUserClient.h>
+#include <AvailabilityMacros.h>
+
 #ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
@@ -130,32 +132,32 @@ protected:
 	
 public:
 	virtual IOReturn externalMethod( uint32_t selector, IOExternalMethodArguments * arguments, 	IOExternalMethodDispatch * dispatch, 
-									OSObject * target, 	void * reference);
+									OSObject * target, 	void * reference) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// New code added here...
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 0);	
-	virtual IOReturn registerClientParameterBuffer (void * parameterBuffer, UInt32 bufferSetID);  // unused function
+	virtual IOReturn registerClientParameterBuffer (void * parameterBuffer, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;  // unused function
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 1);	
-	virtual IOAudioClientBufferExtendedInfo * findExtendedInfo(UInt32 bufferSetID);
+	virtual IOAudioClientBufferExtendedInfo * findExtendedInfo(UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 2);	
-	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput);
+	virtual IOReturn getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 3);	
-	virtual IOReturn getClientNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput);
+	virtual IOReturn getClientNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 4);	
-	virtual IOReturn safeRegisterClientBuffer(UInt32 audioStreamIndex, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
+	virtual IOReturn safeRegisterClientBuffer(UInt32 audioStreamIndex, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 5);	
-	virtual bool initWithAudioEngine(IOAudioEngine *engine, task_t task, void *securityToken, UInt32 type, OSDictionary *properties);	
+	virtual bool initWithAudioEngine(IOAudioEngine *engine, task_t task, void *securityToken, UInt32 type, OSDictionary *properties) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 6);	<rdar://problems/5321701>
-	virtual IOReturn safeRegisterClientBuffer64(UInt32 audioStreamIndex, mach_vm_address_t * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
+	virtual IOReturn safeRegisterClientBuffer64(UInt32 audioStreamIndex, mach_vm_address_t * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 7);	<rdar://problems/5321701>
-	virtual IOReturn registerClientBuffer64(IOAudioStream *audioStream, mach_vm_address_t sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
+	virtual IOReturn registerClientBuffer64(IOAudioStream *audioStream, mach_vm_address_t sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 8);	<rdar://problems/5321701>
-	virtual IOReturn registerBuffer64(IOAudioStream *audioStream, mach_vm_address_t sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
+	virtual IOReturn registerBuffer64(IOAudioStream *audioStream, mach_vm_address_t sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 9);	<rdar://problems/5321701>
-	virtual IOReturn unregisterBuffer64(mach_vm_address_t sourceBuffer, UInt32 bufferSetID);
+	virtual IOReturn unregisterBuffer64(mach_vm_address_t sourceBuffer, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 10);	<rdar://problems/5321701>
-	virtual IOReturn unregisterClientBuffer64(mach_vm_address_t  * sourceBuffer, UInt32 bufferSetID);
+	virtual IOReturn unregisterClientBuffer64(mach_vm_address_t  * sourceBuffer, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	// OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 11);	 <rdar://problems/5321701>
-	virtual IOAudioClientBufferExtendedInfo64 * findExtendedInfo64(UInt32 bufferSetID);
+	virtual IOAudioClientBufferExtendedInfo64 * findExtendedInfo64(UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
 	
 	
@@ -196,83 +198,83 @@ private:
 	OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 31);
 	
 protected:
-	virtual IOReturn clientClose();
-	virtual IOReturn clientDied();
+	virtual IOReturn clientClose() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn clientDied() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static IOReturn _closeClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn closeClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	virtual IOReturn closeClient();
+	static IOReturn _closeClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn closeClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn closeClient() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
 	
-	virtual IOReturn clientMemoryForType(UInt32 type, UInt32 *flags, IOMemoryDescriptor **memory);
-	virtual IOExternalMethod *getExternalMethodForIndex(UInt32 index);
-	virtual IOExternalTrap *getExternalTrapForIndex(UInt32 index);
-	virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon);
+	virtual IOReturn clientMemoryForType(UInt32 type, UInt32 *flags, IOMemoryDescriptor **memory) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOExternalMethod *getExternalMethodForIndex(UInt32 index) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOExternalTrap *getExternalTrapForIndex(UInt32 index) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static IOReturn _registerNotificationAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn registerNotificationAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	virtual IOReturn registerNotification(mach_port_t port, UInt32 refCon);
+	static IOReturn _registerNotificationAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn registerNotificationAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn registerNotification(mach_port_t port, UInt32 refCon) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
-	virtual void setOnline(bool newOnline);
+	virtual void setOnline(bool newOnline) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn performClientOutput(UInt32 firstSampleFrame, UInt32 loopCount, IOAudioClientBufferSet *bufferSet, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo);
-	virtual IOReturn performClientInput(UInt32 firstSampleFrame, IOAudioClientBufferSet *bufferSet);
-	virtual void performWatchdogOutput(IOAudioClientBufferSet *clientBufferSet, UInt32 generationCount);
+	virtual IOReturn performClientOutput(UInt32 firstSampleFrame, UInt32 loopCount, IOAudioClientBufferSet *bufferSet, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn performClientInput(UInt32 firstSampleFrame, IOAudioClientBufferSet *bufferSet) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual void performWatchdogOutput(IOAudioClientBufferSet *clientBufferSet, UInt32 generationCount) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual void lockBuffers();
-	virtual void unlockBuffers();
+	virtual void lockBuffers() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual void unlockBuffers() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static void setCommandGateUsage(IOAudioEngineUserClient *userClient, bool increment);		// <rdar://8518215>
+	static void setCommandGateUsage(IOAudioEngineUserClient *userClient, bool increment) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://8518215>
 
 public:
 	
-	static IOAudioEngineUserClient *withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type);
-	static IOAudioEngineUserClient *withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type, OSDictionary *properties);
+	static IOAudioEngineUserClient *withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static IOAudioEngineUserClient *withAudioEngine(IOAudioEngine *engine, task_t clientTask, void *securityToken, UInt32 type, OSDictionary *properties) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual bool initWithAudioEngine(IOAudioEngine *engine, task_t task, void *securityToken, UInt32 type);
+	virtual bool initWithAudioEngine(IOAudioEngine *engine, task_t task, void *securityToken, UInt32 type) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual void free();
-	virtual void freeClientBufferSetList();
-	virtual void freeClientBuffer(IOAudioClientBuffer64 *clientBuffer);
+	virtual void free() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual void freeClientBufferSetList() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual void freeClientBuffer(IOAudioClientBuffer64 *clientBuffer) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual void stop(IOService *provider);
+	virtual void stop(IOService *provider) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual bool isOnline();
+	virtual bool isOnline() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn registerBuffer(IOAudioStream *audioStream, void* sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
-	virtual IOReturn unregisterBuffer( void * sourceBuffer, UInt32 bufferSetID);
+	virtual IOReturn registerBuffer(IOAudioStream *audioStream, void* sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn unregisterBuffer( void * sourceBuffer, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static IOReturn _registerBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn registerBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	static IOReturn _unregisterBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn unregisterBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	static IOReturn _registerBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn registerBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static IOReturn _unregisterBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn unregisterBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn registerClientBuffer(IOAudioStream *audioStream, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
-	virtual IOReturn unregisterClientBuffer(void * sourceBuffer, UInt32 bufferSetID);
+	virtual IOReturn registerClientBuffer(IOAudioStream *audioStream, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn unregisterClientBuffer(void * sourceBuffer, UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static IOReturn _getNearestStartTimeAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn getNearestStartTimeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	static IOReturn _getNearestStartTimeAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn getNearestStartTimeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOAudioClientBufferSet *findBufferSet(UInt32 bufferSetID);
-	virtual void removeBufferSet(IOAudioClientBufferSet *bufferSet);
+	virtual IOAudioClientBufferSet *findBufferSet(UInt32 bufferSetID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual void removeBufferSet(IOAudioClientBufferSet *bufferSet) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn getConnectionID(UInt32 *connectionID);
+	virtual IOReturn getConnectionID(UInt32 *connectionID) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn clientStart();
-	virtual IOReturn clientStop();
+	virtual IOReturn clientStart() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn clientStop() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	static IOReturn _startClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn startClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
-	static IOReturn _stopClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
-	static IOReturn stopClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	static IOReturn _startClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn startClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	static IOReturn _stopClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;	// <rdar://7529580>
+	static IOReturn stopClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn startClient();
-	virtual IOReturn stopClient();
+	virtual IOReturn startClient() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn stopClient() AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual IOReturn performClientIO(UInt32 firstSampleFrame, UInt32 loopCount, bool inputIO, UInt32 bufferSetID, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo);
+	virtual IOReturn performClientIO(UInt32 firstSampleFrame, UInt32 loopCount, bool inputIO, UInt32 bufferSetID, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
-	virtual void sendFormatChangeNotification(IOAudioStream *audioStream);
-	virtual IOReturn sendNotification(UInt32 notificationType);
+	virtual void sendFormatChangeNotification(IOAudioStream *audioStream) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
+	virtual IOReturn sendNotification(UInt32 notificationType) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 	
 };
 

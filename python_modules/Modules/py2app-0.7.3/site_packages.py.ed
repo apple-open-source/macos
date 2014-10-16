@@ -1,0 +1,11 @@
+/'lib', 'python'/a
+.
+.,.+1c
+	if prefix == sys.prefix:
+	    paths.append(os.path.join("/Library/Python", sys.version[:3], "site-packages"))
+	    paths.append(os.path.join(sys.prefix, "Extras", "lib", "python"))
+	else:
+	    paths.append(os.path.join(prefix, 'lib', 'python' + sys.version[:3],
+		'site-packages'))
+.
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,8 @@
 
 #define dwarning(a) { if (g.debug) { printf a; fflush(stdout); } }
 #define pwarning(a) { printf a; fflush(stdout); }
+
+#define APPLE_BOOT_UUID		"426F6F74-0000-11AA-AA11-00306543ECAC"
 
 mach_port_t ioMasterPort;
 
@@ -1171,6 +1173,8 @@ GetDisksFromRegistry(io_iterator_t iter, int initialRun, int mountExisting)
 	while ((entry = IOIteratorNext(iter))) {
 		char           *ioBSDName = NULL;
 		//(needs release)
+		char           *ioContent = NULL;
+		//(needs release)
 			CFBooleanRef    boolean = 0;
 		//(don 't release)
 		   CFNumberRef number = 0;
@@ -1219,6 +1223,16 @@ GetDisksFromRegistry(io_iterator_t iter, int initialRun, int mountExisting)
 			goto Next;
 		}
 		assert(CFGetTypeID(string) == CFStringGetTypeID());
+
+		ioContent = daCreateCStringFromCFString(string);
+		assert(ioContent);
+
+		dwarning(("ioContent = '%s'\t", ioContent));
+
+		if (strcmp(ioContent, APPLE_BOOT_UUID) == 0
+			 || strcmp(ioContent, "Apple_Boot") == 0) {
+			goto Next;
+		}
 
 		//Writable
 
@@ -1299,6 +1313,8 @@ Next:
 			CFRelease(properties);
 		if (ioBSDName)
 			free(ioBSDName);
+		if (ioContent)
+			free(ioContent);
 
 		IOObjectRelease(entry);
 

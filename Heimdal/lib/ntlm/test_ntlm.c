@@ -532,6 +532,33 @@ test_jp(void)
     return 0;
 }
 
+static int
+test_mppe(void)
+{
+    const char *password = "clientPass";
+    const uint8_t ntlmresponse[24] = { 
+	0x82, 0x30, 0x9e, 0xcd, 0x8d, 0x70, 0x8b, 0x5e, 0xa0, 0x8f, 0xaa, 0x39, 0x81, 0xcd, 0x83, 0x54, 0x42, 0x33,
+	0x11, 0x4a, 0x3d, 0x85, 0xd6, 0xdf
+    };
+    const uint8_t sendkey_orig[16] = {
+	0x8B, 0x7C, 0xDC, 0x14, 0x9B, 0x99, 0x3A, 0x1B, 0xA1, 0x18, 0xCB, 0x15, 0x3F, 0x56, 0xDC, 0xCB
+    };
+    struct ntlm_buf pwbuf;
+    uint8_t sendkey[16], recvkey[16];
+
+    heim_ntlm_nt_key(password, &pwbuf);
+
+    heim_ntlm_mppe_getsessionkey(pwbuf.data, ntlmresponse, 1, 16, sendkey, recvkey);
+    heim_ntlm_free_buf(&pwbuf);
+
+    if (memcmp(sendkey, sendkey_orig, 16) != 0) {
+	warn("mppe: send key wrong");
+	return 1;
+    }
+
+    return 0;
+}
+
 #endif
 
 static int verbose_flag = 0;
@@ -599,6 +626,10 @@ main(int argc, char **argv)
     if (verbose_flag)
 	printf("test_jp\n");
     ret += test_jp();
+
+    if (verbose_flag)
+	printf("test_mppe\n");
+    ret += test_mppe();
 
 #endif
     return ret;

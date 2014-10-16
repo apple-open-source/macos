@@ -1,0 +1,39 @@
+This program, certChain, demonstrates how to use the SecTrust object to obtain
+a constructed, ordered, verified certificate chain given a single subject cert.
+It's a command-line program, with one argument - the filename of the subject cert. 
+The contents of all certs in the resulting cert chain will be displayed, along
+with possible errors detected while attempting to create the cert chain. 
+
+Intermediate certs can be in any of the current user's keychains. They do not 
+have to be in the default or login keychain. The chain must verify back to one 
+of the system-wide trusted roots in /System/Library/Keychains/X509Anchors. 
+
+To build the program just cd to its directory and type 'make'. 
+
+Included in the directory are several certs illustrating the operation of 
+certChain. 
+
+If you run 
+
+% ./certChain amazon_v3.100.cer
+
+...you will get an ordered cert chain of length 2 - one for the subject cert, and one for the root (which came from the system-wide X509Anchors). 
+
+Now try this one:
+
+% ./certChain keybank_v3.100.cer 
+
+You'll get cert chain of length 1, with the error message
+
+***Can not verify to a root cert 
+
+Now add the intermediate cert keybank_v3.101.cer to one of your keychains (using Keychain Access.app or /usr/bin/certtool). Try evaluating the cert again 
+
+% ./certChain keybank_v3.100.cer 
+
+You now get a fully verified cert chain with three certs in it:
+
+-- the subject cert, keybank_v3.100.cer, which you passed as a cmd line argument.
+-- the intermediate cert, keybank_v3.101.cer, which was obtained from one 
+   of your keychains.
+-- the root cert, which came from the system-wide X509Anchors.

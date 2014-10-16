@@ -39,7 +39,7 @@ enum
     kHIDPage_VR                     = 0x03,
     kHIDPage_Sport                  = 0x04,
     kHIDPage_Game                   = 0x05,
-    /* Reserved 0x06 */
+    kHIDPage_GenericDeviceControls  = 0x06,
     kHIDPage_KeyboardOrKeypad       = 0x07,    /* USB Device Class Definition for Human Interface Devices (HID). Note: the usage type for all key codes is Selector (Sel). */
     kHIDPage_LEDs                   = 0x08,
     kHIDPage_Button                 = 0x09,
@@ -55,10 +55,15 @@ enum
     /* Reserved 0x15 - 0x1F */
     kHIDPage_Sensor                 = 0x20,
     /* Reserved 0x21 - 0x7f */
-    /* Monitor 0x80 - 0x83     USB Device Class Definition for Monitor Devices */
+    kHIDPage_Monitor                = 0x80,
+    kHIDPage_MonitorEnumerated      = 0x81,
+    kHIDPage_MonitorVirtual         = 0x82,
+    kHIDPage_MonitorReserved        = 0x83,
     /* Power 0x84 - 0x87     USB Device Class Definition for Power Devices */
     kHIDPage_PowerDevice            = 0x84,                 /* Power Device Page */
     kHIDPage_BatterySystem          = 0x85,                 /* Battery System Page */
+    kHIDPage_PowerReserved          = 0x86,
+    kHIDPage_PowerReserved2         = 0x87,
     /* Reserved 0x88 - 0x8B */
     kHIDPage_BarCodeScanner         = 0x8C,    /* (Point of Sale) USB Device Class Definition for Bar Code Scanner Devices */
     kHIDPage_WeighingDevice         = 0x8D,    /* (Point of Sale) USB Device Class Definition for Weighing Devices */
@@ -123,7 +128,8 @@ enum
     kHIDUsage_GD_SystemAppMenu    = 0x86,    /* One-Shot Control */
     kHIDUsage_GD_SystemMenuHelp    = 0x87,    /* One-Shot Control */
     kHIDUsage_GD_SystemMenuExit    = 0x88,    /* One-Shot Control */
-    kHIDUsage_GD_SystemMenu    = 0x89,    /* Selector */
+    kHIDUsage_GD_SystemMenuSelect    = 0x89,    /* Selector */
+    kHIDUsage_GD_SystemMenu    = kHIDUsage_GD_SystemMenuSelect,    /* Selector */
     kHIDUsage_GD_SystemMenuRight    = 0x8A,    /* Re-Trigger Control */
     kHIDUsage_GD_SystemMenuLeft    = 0x8B,    /* Re-Trigger Control */
     kHIDUsage_GD_SystemMenuUp    = 0x8C,    /* Re-Trigger Control */
@@ -297,6 +303,12 @@ enum
     kHIDUsage_Game_GamepadTrigger    = 0x39,    /* Logical Collection */
     /* 0x3A - 0xFFFF Reserved */
     kHIDUsage_Game_Reserved = 0xFFFF
+};
+
+/* Generic Device Controls (0x0g) */
+enum
+{
+    kHIDUsage_GenDevControls_BackgroundControls     = 0x01, /* Application Collection */
 };
 
 /* KeyboardOrKeypad Page (0x07) */
@@ -718,7 +730,22 @@ enum
     kHIDUsage_Csmr_BroadcastMode    = 0x64,    /* One-Shot Control */
     kHIDUsage_Csmr_Snapshot    = 0x65,    /* One-Shot Control */
     kHIDUsage_Csmr_Still    = 0x66,    /* One-Shot Control */
-    /* 0x67 - 0x7F Reserved */
+    kHIDUsage_Csmr_PictureInPictureToggle = 0x67, /* One-Shot Control */
+    kHIDUsage_Csmr_PictureInPictureSwap = 0x68, /* One-Shot Control */
+    kHIDUsage_Csmr_RedMenuButton = 0x69, /* Momentary Control */
+    kHIDUsage_Csmr_GreenMenuButton = 0x6A, /* Momentary Control */
+    kHIDUsage_Csmr_BlueMenuButton = 0x6B, /* Momentary Control */
+    kHIDUsage_Csmr_YellowMenuButton = 0x6C, /* Momentary Control */
+    kHIDUsage_Csmr_Aspect = 0x6D, /* One-shot Control */
+    kHIDUsage_Csmr_3DModeSelect = 0x6E, /* One-shot Control */
+    kHIDUsage_Csmr_DisplayBrightnessIncrement = 0x6F, /* Re-Trigger Control */
+    kHIDUsage_Csmr_DisplayBrightnessDecrement = 0x70, /* Re-Trigger Control */
+    kHIDUsage_Csmr_DisplayBrightness = 0x71, /* Logical Collection */
+    kHIDUsage_Csmr_DisplayBacklightToggle = 0x72, /* One Shot Control */
+    kHIDUsage_Csmr_DisplayBrightnessMinimum = 0x73, /* One Shot Control */
+    kHIDUsage_Csmr_DisplayBrightnessMaximum = 0x74, /* One Shot Control */
+    kHIDUsage_Csmr_DisplayBrightnessSetAutoBrightness = 0x75, /* On Off Control */
+    /* 0x76 - 0x7F Reserved */
     kHIDUsage_Csmr_Selection    = 0x80,    /* Named Array */
     kHIDUsage_Csmr_Assign    = 0x81,    /* Selector */
     kHIDUsage_Csmr_ModeStep    = 0x82,    /* One-Shot Control */
@@ -788,6 +815,7 @@ enum
     kHIDUsage_Csmr_StopOrEject    = 0xCC,    /* One-Shot Control */
     kHIDUsage_Csmr_PlayOrPause    = 0xCD,    /* One-Shot Control */
     kHIDUsage_Csmr_PlayOrSkip    = 0xCE,    /* One-Shot Control */
+    kHIDUsage_Csmr_VoiceCommand    = 0xCF, /* One-Shot Control */
     /* 0xCF - 0xDF Reserved */
     kHIDUsage_Csmr_Volume    = 0xE0,    /* Linear Control */
     kHIDUsage_Csmr_Balance    = 0xE1,    /* Linear Control */
@@ -1066,6 +1094,80 @@ enum
     kHIDUsage_Csmr_Reserved = 0xFFFF
 };
 
+/* Digitizer Page (0x0D) */
+/* This section provides detailed descriptions of the usages employed by Digitizer Devices. */
+enum
+{
+    kHIDUsage_Dig_Digitizer                         = 0x01,     /* Application Collection */
+    kHIDUsage_Dig_Pen                               = 0x02,     /* Application Collection */
+    kHIDUsage_Dig_LightPen                          = 0x03,     /* Application Collection */
+    kHIDUsage_Dig_TouchScreen                       = 0x04,     /* Application Collection */
+    kHIDUsage_Dig_TouchPad                          = 0x05,     /* Application Collection */
+    kHIDUsage_Dig_WhiteBoard                        = 0x06,     /* Application Collection */
+    kHIDUsage_Dig_CoordinateMeasuringMachine        = 0x07,     /* Application Collection */
+    kHIDUsage_Dig_3DDigitizer                       = 0x08,     /* Application Collection */
+    kHIDUsage_Dig_StereoPlotter                     = 0x09,     /* Application Collection */
+    kHIDUsage_Dig_ArticulatedArm                    = 0x0A,     /* Application Collection */
+    kHIDUsage_Dig_Armature                          = 0x0B,     /* Application Collection */
+    kHIDUsage_Dig_MultiplePointDigitizer            = 0x0C,     /* Application Collection */
+    kHIDUsage_Dig_FreeSpaceWand                     = 0x0D,     /* Application Collection */
+    kHIDUsage_Dig_DeviceConfiguration               = 0x0E,     /* Application Collection */
+    /* 0x0F - 0x1F Reserved */
+    kHIDUsage_Dig_Stylus                            = 0x20,     /* Logical Collection */
+    kHIDUsage_Dig_Puck                              = 0x21,     /* Logical Collection */
+    kHIDUsage_Dig_Finger                            = 0x22,     /* Logical Collection */
+    kHIDUsage_Dig_DeviceSettings                    = 0x23,     /* Logical Collection */
+    kHIDUsage_Dig_GestureCharacter                  = 0x24,     /* Logical Collection */
+    /* 0x25 - 0x2F Reserved */
+    kHIDUsage_Dig_TipPressure                       = 0x30,     /* Dynamic Value */
+    kHIDUsage_Dig_BarrelPressure                    = 0x31,     /* Dynamic Value */
+    kHIDUsage_Dig_InRange                           = 0x32,     /* Momentary Control */
+    kHIDUsage_Dig_Touch                             = 0x33,     /* Momentary Control */
+    kHIDUsage_Dig_Untouch                           = 0x34,     /* One-Shot Control */
+    kHIDUsage_Dig_Tap                               = 0x35,     /* One-Shot Control */
+    kHIDUsage_Dig_Quality                           = 0x36,     /* Dynamic Value */
+    kHIDUsage_Dig_DataValid                         = 0x37,     /* Momentary Control */
+    kHIDUsage_Dig_TransducerIndex                   = 0x38,     /* Dynamic Value */
+    kHIDUsage_Dig_TabletFunctionKeys                = 0x39,     /* Logical Collection */
+    kHIDUsage_Dig_ProgramChangeKeys                 = 0x3A,     /* Logical Collection */
+    kHIDUsage_Dig_BatteryStrength                   = 0x3B,     /* Dynamic Value */
+    kHIDUsage_Dig_Invert                            = 0x3C,     /* Momentary Control */
+    kHIDUsage_Dig_XTilt                             = 0x3D,     /* Dynamic Value */
+    kHIDUsage_Dig_YTilt                             = 0x3E,     /* Dynamic Value */
+    kHIDUsage_Dig_Azimuth                           = 0x3F,     /* Dynamic Value */
+    kHIDUsage_Dig_Altitude                          = 0x40,     /* Dynamic Value */
+    kHIDUsage_Dig_Twist                             = 0x41,     /* Dynamic Value */
+    kHIDUsage_Dig_TipSwitch                         = 0x42,     /* Momentary Control */
+    kHIDUsage_Dig_SecondaryTipSwitch                = 0x43,     /* Momentary Control */
+    kHIDUsage_Dig_BarrelSwitch                      = 0x44,     /* Momentary Control */
+    kHIDUsage_Dig_Eraser                            = 0x45,     /* Momentary Control */
+    kHIDUsage_Dig_TabletPick                        = 0x46,     /* Momentary Control */
+    kHIDUsage_Dig_TouchValid                        = 0x47,     /* Momentary Control */
+    kHIDUsage_Dig_Width                             = 0x48,     /* Dynamic Value */
+    kHIDUsage_Dig_Height                            = 0x49,     /* Dynamic Value */
+    /* 0x4A - 0x50 Reserved */
+    kHIDUsage_Dig_ContactIdentifier                 = 0x51,     /* Dynamic Value */
+    kHIDUsage_Dig_DeviceMode                        = 0x52,     /* Dynamic Value */
+    kHIDUsage_Dig_DeviceIdentifier                  = 0x53,     /* Dynamic Value */
+    kHIDUsage_Dig_ContactCount                      = 0x54,     /* Dynamic Value */
+    kHIDUsage_Dig_ContactCountMaximum               = 0x55,     /* Static Value */
+    
+    /* 0x56 - 0x5F Reserved */
+    kHIDUsage_Dig_GestureCharacterEnable            = 0x60,     /* Dynamic Flag */
+    kHIDUsage_Dig_GestureCharacterQuality           = 0x61,     /* Dynamic Value */
+    kHIDUsage_Dig_GestureCharacterDataLength        = 0x62,     /* Dynamic Value */
+    kHIDUsage_Dig_GestureCharacterData              = 0x63,     /* Buffered Bytes */
+    kHIDUsage_Dig_GestureCharacterEncoding          = 0x64,     /* Named Array */
+    kHIDUsage_Dig_GestureCharacterEncodingUTF8      = 0x65,     /* Selector */
+    kHIDUsage_Dig_GestureCharacterEncodingUTF16LE   = 0x66,     /* Selector */
+    kHIDUsage_Dig_GestureCharacterEncodingUTF16BE   = 0x67,     /* Selector */
+    kHIDUsage_Dig_GestureCharacterEncodingUTF32LE   = 0x68,     /* Selector */
+    kHIDUsage_Dig_GestureCharacterEncodingUTF32BE   = 0x69,     /* Selector */
+    
+    /* 0x70 - 0xFFFF Reserved */
+    kHIDUsage_Dig_Reserved                          = 0xFFFF
+};
+
 /* Physical Interface Device Page (0x0F) */
 /* This section provides detailed descriptions of the usages employed by Power Devices. */
 enum
@@ -1109,7 +1211,7 @@ enum
     kHIDUsage_PID_FadeLevel = 0x5D,                        /* XXX */
     kHIDUsage_PID_FadeTime = 0x5E,                        /* XXX */
     kHIDUsage_PID_SetConditionReport = 0x5F,            /* XXX */
-
+    
     kHIDUsage_PID_CP_Offset = 0x60,                        /* XXX */
     kHIDUsage_PID_PositiveCoefficient = 0x61,            /* XXX */
     kHIDUsage_PID_NegativeCoefficient = 0x62,            /* XXX */
@@ -1126,7 +1228,7 @@ enum
     kHIDUsage_PID_SampleCount = 0x6D,                    /* XXX */
     kHIDUsage_PID_SetPeriodicReport = 0x6E,                /* XXX */
     kHIDUsage_PID_Offset = 0x6F,                        /* XXX */
-
+    
     kHIDUsage_PID_Magnitude = 0x70,                        /* XXX */
     kHIDUsage_PID_Phase = 0x71,                            /* XXX */
     kHIDUsage_PID_Period = 0x72,                        /* XXX */
@@ -1143,7 +1245,7 @@ enum
     kHIDUsage_PID_DeviceGainReport = 0x7D,                /* XXX */
     kHIDUsage_PID_DeviceGain = 0x7E,                    /* XXX */
     kHIDUsage_PID_PoolReport = 0x7F,                    /* XXX */
-
+    
     kHIDUsage_PID_RAM_PoolSize = 0x80,                    /* XXX */
     kHIDUsage_PID_ROM_PoolSize = 0x81,                    /* XXX */
     kHIDUsage_PID_ROM_EffectBlockCount = 0x82,            /* XXX */
@@ -1160,7 +1262,7 @@ enum
     kHIDUsage_PID_BlockLoadFull = 0x8D,                    /* XXX */
     kHIDUsage_PID_BlockLoadError = 0x8E,                /* XXX */
     kHIDUsage_PID_BlockHandle = 0x8F,                    /* XXX */
-
+    
     kHIDUsage_PID_BlockFreeReport = 0x90,                /* XXX */
     kHIDUsage_PID_TypeSpecificBlockHandle = 0x91,        /* XXX */
     kHIDUsage_PID_StateReport = 0x92,                    /* XXX */
@@ -1176,7 +1278,7 @@ enum
     kHIDUsage_PID_DC_DeviceContinue = 0x9C,                /* XXX */
     /* 0x9d - 0x9E Reserved */
     kHIDUsage_PID_DevicePaused = 0x9F,                    /* XXX */
-
+    
     kHIDUsage_PID_ActuatorsEnabled = 0xA0,                /* XXX */
     /* 0xA1 - 0xA3 Reserved */
     kHIDUsage_PID_SafetySwitch = 0xA4,                    /* XXX */
@@ -1190,55 +1292,6 @@ enum
     kHIDUsage_PID_RAM_PoolAvailable = 0xAC,                /* XXX */
     /* 0xAD - 0xFFFF Reserved */
     kHIDUsage_PID_Reserved = 0xFFFF
-};
-
-/* Digitizer Page (0x0D) */
-/* This section provides detailed descriptions of the usages employed by Digitizer Devices. */
-enum
-{
-    kHIDUsage_Dig_Digitizer    = 0x01,    /* Application Collection */
-    kHIDUsage_Dig_Pen    = 0x02,    /* Application Collection */
-    kHIDUsage_Dig_LightPen    = 0x03,    /* Application Collection */
-    kHIDUsage_Dig_TouchScreen    = 0x04,    /* Application Collection */
-    kHIDUsage_Dig_TouchPad    = 0x05,    /* Application Collection */
-    kHIDUsage_Dig_WhiteBoard    = 0x06,    /* Application Collection */
-    kHIDUsage_Dig_CoordinateMeasuringMachine    = 0x07,    /* Application Collection */
-    kHIDUsage_Dig_3DDigitizer    = 0x08,    /* Application Collection */
-    kHIDUsage_Dig_StereoPlotter    = 0x09,    /* Application Collection */
-    kHIDUsage_Dig_ArticulatedArm    = 0x0A,    /* Application Collection */
-    kHIDUsage_Dig_Armature    = 0x0B,    /* Application Collection */
-    kHIDUsage_Dig_MultiplePointDigitizer    = 0x0C,    /* Application Collection */
-    kHIDUsage_Dig_FreeSpaceWand    = 0x0D,    /* Application Collection */
-    /* 0x0E - 0x1F Reserved */
-    kHIDUsage_Dig_Stylus    = 0x20,    /* Logical Collection */
-    kHIDUsage_Dig_Puck    = 0x21,    /* Logical Collection */
-    kHIDUsage_Dig_Finger    = 0x22,    /* Logical Collection */
-    /* 0x23 - 0x2F Reserved */
-    kHIDUsage_Dig_TipPressure    = 0x30,    /* Dynamic Value */
-    kHIDUsage_Dig_BarrelPressure    = 0x31,    /* Dynamic Value */
-    kHIDUsage_Dig_InRange    = 0x32,    /* Momentary Control */
-    kHIDUsage_Dig_Touch    = 0x33,    /* Momentary Control */
-    kHIDUsage_Dig_Untouch    = 0x34,    /* One-Shot Control */
-    kHIDUsage_Dig_Tap    = 0x35,    /* One-Shot Control */
-    kHIDUsage_Dig_Quality    = 0x36,    /* Dynamic Value */
-    kHIDUsage_Dig_DataValid    = 0x37,    /* Momentary Control */
-    kHIDUsage_Dig_TransducerIndex    = 0x38,    /* Dynamic Value */
-    kHIDUsage_Dig_TabletFunctionKeys    = 0x39,    /* Logical Collection */
-    kHIDUsage_Dig_ProgramChangeKeys    = 0x3A,    /* Logical Collection */
-    kHIDUsage_Dig_BatteryStrength    = 0x3B,    /* Dynamic Value */
-    kHIDUsage_Dig_Invert    = 0x3C,    /* Momentary Control */
-    kHIDUsage_Dig_XTilt    = 0x3D,    /* Dynamic Value */
-    kHIDUsage_Dig_YTilt    = 0x3E,    /* Dynamic Value */
-    kHIDUsage_Dig_Azimuth    = 0x3F,    /* Dynamic Value */
-    kHIDUsage_Dig_Altitude    = 0x40,    /* Dynamic Value */
-    kHIDUsage_Dig_Twist    = 0x41,    /* Dynamic Value */
-    kHIDUsage_Dig_TipSwitch    = 0x42,    /* Momentary Control */
-    kHIDUsage_Dig_SecondaryTipSwitch    = 0x43,    /* Momentary Control */
-    kHIDUsage_Dig_BarrelSwitch    = 0x44,    /* Momentary Control */
-    kHIDUsage_Dig_Eraser    = 0x45,    /* Momentary Control */
-    kHIDUsage_Dig_TabletPick    = 0x46,    /* Momentary Control */
-    /* 0x47 - 0xFFFF Reserved */
-    kHIDUsage_Dig_Reserved = 0xFFFF
 };
 
 /* AlphanumericDisplay Page (0x14) */

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>keychain-cloud-circle</key>
+	<true/>
+	<key>com.apple.keystore.access-keychain-keys</key>
+	<true/>
+	<key>com.apple.keystore.device</key>
+	<true/>
+	<key>restore-keychain</key>
+	<true/>
+	<key>migrate-keychain</key>
+	<true/>
+	<key>modify-anchor-certificates</key>
+	<true/>
+	<key>com.apple.springboard.wipedevice</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>com.apple.security.regressions</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.security.regressions</string>
+		<string>lockdown-identities</string>
+		<string>apple</string>
+	</array>
+	<key>com.apple.private.ubiquity-kvstore-access</key>
+	<array>
+		<string>com.apple.securityd</string>
+	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>com.apple.security.cloudkeychainproxy</string>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>com.apple.security.cloudkeychainproxy</string>
+		<string>com.apple.security.cloudkeychain</string>
+		<string>CloudKeychainProxy.xpc</string>
+	</array>
+</dict>
+</plist>

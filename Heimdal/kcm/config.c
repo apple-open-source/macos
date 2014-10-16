@@ -35,6 +35,8 @@
 #include "kcm_locl.h"
 #include <getarg.h>
 
+static void usage(int ret) __attribute__((noreturn));
+
 static const char *config_file;	/* location of kcm config file */
 
 size_t max_request = 0;		/* maximal size of a request */

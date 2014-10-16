@@ -50,7 +50,6 @@
        (subpath "/usr/share"))
 
 (allow file-write* file-read*
-       (literal "/dev/random")
        (literal "/private/var/db/kcm-dump.bin")
        (literal "/private/var/db/kcm-dump.uuid")
        (literal "/private/var/run/kcm.pid"))

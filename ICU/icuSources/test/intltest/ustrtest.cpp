@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2012, International Business Machines Corporation and
+ * Copyright (c) 1997-2013, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -1174,6 +1174,14 @@ UnicodeStringTest::TestMiscellaneous()
         errln("UnicodeString(shared buffer).remove().getTerminatedBuffer() "
               "modified another copy of the string!");
     }
+
+    // ticket #9740
+    test1.setTo(TRUE, ucs, 3);
+    assertEquals("length of read-only alias", 3, test1.length());
+    test1.trim();
+    assertEquals("length of read-only alias after trim()", 2, test1.length());
+    assertEquals("length of terminated buffer of read-only alias + trim()",
+                 2, u_strlen(test1.getTerminatedBuffer()));
 }
 
 void
@@ -1682,7 +1690,7 @@ public:
 private:
     static const char fgClassID;
 
-    int32_t i, length;
+    int32_t i;
 };
 
 const char TestEnumeration::fgClassID=0;
@@ -1783,7 +1791,7 @@ namespace bogus {
     public:
         enum EInvariant { kInvariant };
         UnicodeString() : i(1) {}
-        UnicodeString(UBool /*isTerminated*/, const UChar * /*text*/, int32_t textLength) : i(textLength) {}
+        UnicodeString(UBool /*isTerminated*/, const UChar * /*text*/, int32_t textLength) : i(textLength) {(void)i;}
         UnicodeString(const char * /*src*/, int32_t length, enum EInvariant /*inv*/
 ) : i(length) {}
     private:

@@ -344,7 +344,7 @@ void * mb_reserve(mbchain_t mbp, size_t size)
 /*
  * Userland starts at word cound not the smb header, lucky for us
  * word cound starts at an even boundry. We will need to relook at
- * this when doing SMB2. Hopefully by then we will be using the whole
+ * this when doing SMB 2/3. Hopefully by then we will be using the whole
  * buffer for both userland and kernel.
  */
 int mb_put_padbyte(mbchain_t mbp)

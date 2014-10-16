@@ -8,9 +8,9 @@
 
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/02/03 02:31:29 $ 
-    $Revision: 1.4 $ 
+    $Author$ 
+    $Date$ 
+    $Revision$ 
 
   Avoids many include file circular dependencies.
 

@@ -98,37 +98,59 @@ smbfs_build_path(char *path, struct smbnode *np, size_t maxlen)
 	struct smbnode  *npstack[SMBFS_MAXPATHCOMP]; 
 	struct smbnode  **npp = &npstack[0]; 
 	int i, error = 0;
+    int lock_count = 0;
+	struct smbnode  *lock_stack[SMBFS_MAXPATHCOMP];
+	struct smbnode  **locked_npp = &lock_stack[0];
 	
     /*
-     * We hold sm_reclaim_renamelock to protect np->n_parent fields from a
-     * race with smbfs_vnop_reclaim() and smbfs_ClearChildren().
-     * See <rdar://problem/11824956>.
+     * We hold sm_reclaim_lock to protect np->n_parent fields from a
+     * race with smbfs_vnop_reclaim()/smbfs_ClearChildren() since we are 
+     * walking all the parents up to the root vnode. Always lock 
+     * sm_reclaim_lock first and then individual n_parent_rwlock next.
+     * See <rdar://problem/15707521>.
      */
-	lck_mtx_lock(&smp->sm_reclaim_renamelock);
+	lck_mtx_lock(&smp->sm_reclaim_lock);
+
+    lck_rw_lock_shared(&np->n_parent_rwlock);
+    *locked_npp++ = np;     /* Save node to be unlocked later */
+    lock_count += 1;
+
     i = 0;
-	while (np->n_parent) {
+    while (np->n_parent) {
 		if (i++ == SMBFS_MAXPATHCOMP) {
-            lck_mtx_unlock(&smp->sm_reclaim_renamelock);
-			return ENAMETOOLONG;
+			error = ENAMETOOLONG;
+            goto done;
         }
 		*npp++ = np;
-		np = np->n_parent;
+
+        np = np->n_parent;
+        
+        lck_rw_lock_shared(&np->n_parent_rwlock);
+        *locked_npp++ = np;     /* Save node to be unlocked later */
+        lock_count += 1;
 	}
-	
+
 	while (i-- && !error) {
 		np = *--npp;
 		if (strlcat(path, "/", MAXPATHLEN) >= maxlen) {
 			error = ENAMETOOLONG;
-		} else {
-			lck_rw_lock_shared(&np->n_name_rwlock);
+		}
+        else {
+            lck_rw_lock_shared(&np->n_name_rwlock);
 			if (strlcat(path, (char *)np->n_name, maxlen) >= maxlen) {
 				error = ENAMETOOLONG;
 			}
-			lck_rw_unlock_shared(&np->n_name_rwlock);
+            lck_rw_unlock_shared(&np->n_name_rwlock);
 		}
 	}
     
-    lck_mtx_unlock(&smp->sm_reclaim_renamelock);
+done:
+    /* Unlock all the nodes */
+    for (i = 0; i < lock_count; i++) {
+        lck_rw_unlock_shared(&lock_stack[i]->n_parent_rwlock);
+    }
+
+    lck_mtx_unlock(&smp->sm_reclaim_lock);
 	return error;
 }
 
@@ -173,9 +195,8 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 		error = smbfs_build_path(url, VTOSMB(vp), MAXPATHLEN);
 	}
 	if (error) {
-		lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
-		SMBERROR("%s: URL FAILED url = %s\n", VTOSMB(vp)->n_name, url);
-		lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
+		SMBERROR_LOCK(VTOSMB(vp), "%s: URL FAILED url = %s\n", VTOSMB(vp)->n_name, url);
+
 		SMB_FREE(url, M_SMBFSDATA);
 		SMB_FREE(argsp, M_SMBFSDATA);
 		*errp = error;
@@ -188,9 +209,8 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 	/* This can fail sometimes, should we even bother with it? */
 	error = vn_getpath(vp, mountOnPath, &length);
 	if (error) {
-		lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
-		SMBERROR("%s: vn_getpath FAILED, using smbfs_build_path!\n", VTOSMB(vp)->n_name);
-		lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
+		SMBERROR_LOCK(VTOSMB(vp), "%s: vn_getpath FAILED, using smbfs_build_path!\n", VTOSMB(vp)->n_name);
+        
 		if (strlcpy(mountOnPath, vfs_statfs(vnode_mount(vp))->f_mntonname, MAXPATHLEN) >= MAXPATHLEN) {
 			error = ENAMETOOLONG;
 		} else {
@@ -198,19 +218,17 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 		}
 	}
 	if (error) {
-		lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
-		SMBERROR("%s: Mount on name FAILED url = %s\n", VTOSMB(vp)->n_name, url);
-		lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
+		SMBERROR_LOCK(VTOSMB(vp), "%s: Mount on name FAILED url = %s\n", VTOSMB(vp)->n_name, url);
+        
 		SMB_FREE(mountOnPath, M_SMBFSDATA);
 		SMB_FREE(url, M_SMBFSDATA);
 		SMB_FREE(argsp, M_SMBFSDATA);
 		*errp = error;
 		return (NULL);
 	}
-	lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
-	SMBWARNING("%s: Triggering with URL = %s mountOnPath = %s\n", 
-			   VTOSMB(vp)->n_name, url, mountOnPath);
-	lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
+    
+    SMBWARNING_LOCK(VTOSMB(vp), "%s: Triggering with URL = %s mountOnPath = %s\n",
+                    VTOSMB(vp)->n_name, url, mountOnPath);
 
 	argsp->muc_url = url;
 	argsp->muc_mountpoint = mountOnPath;
@@ -240,73 +258,98 @@ static int
 smb_check_for_windows_symlink(struct smb_share *share, struct smbnode *np, 
 							  int *symlen, vfs_context_t context)
 {
-	uio_t uio;
-	MD5_CTX md5;
-	char m5b[SMB_SYMMD5LEN];
-	uint32_t state[4];
-	int len = 0;
-	unsigned char *sb, *cp;
+    uio_t uio = NULL;
+    MD5_CTX md5;
+    char m5b[SMB_SYMMD5LEN];
+    uint32_t state[4];
+    int len = 0;
+    unsigned char *sb = NULL;
+    unsigned char *cp;
     SMBFID fid = 0;
-	int error, cerror;
-	
-	error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA, &fid, context);
-	if (error) {
-		return error;
-    }
-	
-	SMB_MALLOC(sb, void *, (size_t)np->n_size, M_TEMP, M_WAITOK);
-	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
-	if (uio) {
-		uio_addiov(uio, CAST_USER_ADDR_T(sb), np->n_size);
-		error = smb_smb_read(share, fid, uio, context);
-		uio_free(uio);		
-	} 
-    else {
-		error = ENOMEM;
+    int error, cerror;
+    size_t read_size = 0; /* unused */
+
+    SMB_MALLOC(sb, void *, (size_t) np->n_size, M_TEMP, M_WAITOK);
+    if (sb == NULL) {
+        error = ENOMEM;
+        goto exit;
     }
     
-	cerror = smbfs_tmpclose(share, np, fid, context);
-	if (cerror) {
-		SMBWARNING("error %d closing fid %llx file %s\n", 
-                   cerror, fid, np->n_name);
+    uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
+    if (uio == NULL) {
+        error = ENOMEM;
+        goto exit;
     }
 
-	if (!error && !bcmp(sb, smb_symmagic, SMB_SYMMAGICLEN)) {
-		for (cp = &sb[SMB_SYMMAGICLEN]; cp < &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN-1]; cp++) {
-			if (!isdigit(*cp))
-				break;
-			len *= 10;
-			len += *cp - '0';
-		}
-		cp++; /* skip newline */
+    uio_addiov(uio, CAST_USER_ADDR_T(sb), np->n_size);
+    
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        /* SMB 2/3 */
+        error = smbfs_smb_cmpd_create_read_close(share, np,
+                                                 NULL, 0,
+                                                 NULL, 0,
+                                                 uio, &read_size,
+                                                 NULL,
+                                                 context);
+    }
+    else {
+        /* SMB 1 */
+        error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA, &fid, context);
+        if (error) {
+            goto exit;
+        }
+
+        error = smb_smb_read(share, fid, uio, context);
         
-        /* %%% Is this used with SMB2, if so, note the SMB_SYMHDRLEN */
-		if ((cp != &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN]) || 
-			(len > (int)(np->n_size - SMB_SYMHDRLEN))) {
-			SMBWARNING("bad symlink length\n");
-			error = ENOENT; /* Not a faked up symbolic link */
-		} else {
-			MD5Init(&md5);
-			MD5Update(&md5, &sb[SMB_SYMHDRLEN], len);
-			MD5Final((u_char *)state, &md5); 
-			(void)snprintf(m5b, sizeof(m5b), "%08x%08x%08x%08x",
-							htobel(state[0]), htobel(state[1]), htobel(state[2]), 
-						   htobel(state[3]));
-			if (bcmp(cp, m5b, SMB_SYMMD5LEN-1)) {
-				SMBWARNING("bad symlink md5\n");
-				error = ENOENT; /* Not a faked up symbolic link */
-			} else {
-				*symlen = len;
-				error = 0;
-			}
-		}
-	} 
+        cerror = smbfs_tmpclose(share, np, fid, context);
+        if (cerror) {
+            SMBWARNING_LOCK(np, "error %d closing fid %llx file %s\n", cerror, fid, np->n_name);
+        }
+    }
+
+    if (!error && !bcmp(sb, smb_symmagic, SMB_SYMMAGICLEN)) {
+        for (cp = &sb[SMB_SYMMAGICLEN]; cp < &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN-1]; cp++) {
+            if (!isdigit(*cp))
+                break;
+            len *= 10;
+            len += *cp - '0';
+        }
+        cp++; /* skip newline */
+        
+        if ((cp != &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN]) ||
+            (len > (int)(np->n_size - SMB_SYMHDRLEN))) {
+            SMBWARNING("bad symlink length\n");
+            error = ENOENT; /* Not a faked up symbolic link */
+        } else {
+            MD5Init(&md5);
+            MD5Update(&md5, &sb[SMB_SYMHDRLEN], len);
+            MD5Final((u_char *)state, &md5);
+            (void)snprintf(m5b, sizeof(m5b), "%08x%08x%08x%08x",
+                           htobel(state[0]), htobel(state[1]), htobel(state[2]),
+                           htobel(state[3]));
+            if (bcmp(cp, m5b, SMB_SYMMD5LEN-1)) {
+                SMBWARNING("bad symlink md5\n");
+                error = ENOENT; /* Not a faked up symbolic link */
+            } else {
+                *symlen = len;
+                error = 0;
+            }
+        }
+    }
     else {
 		error = ENOENT; /* Not a faked up symbolic link */
     }
     
-	SMB_FREE(sb, M_TEMP);
-	return error;
+exit:
+    if (uio != NULL) {
+        uio_free(uio);
+    }
+    
+    if (sb != NULL) {
+        SMB_FREE(sb, M_TEMP);
+    }
+    
+    return error;
 }
 
 /*
@@ -400,7 +443,7 @@ tolower(unsigned char ch)
 }
 
 /*
- * SMB 2.x - if the server supports File IDs, return ino as hashval
+ * SMB 2/3 - if the server supports File IDs, return ino as hashval
  * If no File IDs, create hashval from the name.  Currently we use strncasecmp 
  * to find a match, since it uses tolower, we should do the same when creating 
  * our hashval from the name.
@@ -531,14 +574,16 @@ loop:
              * really want but the best we can do at this time.
              */
             
-            /* Lock protects np->n_parent. See <rdar://problem/11824956> */
+            lck_rw_lock_shared(&np->n_parent_rwlock);
             lck_rw_lock_shared(&np->n_name_rwlock);
             if ((np->n_parent != dnp) || (np->n_nmlen != nmlen) ||
                 (smbfs_check_name(smp->sm_share, name, np->n_name, nmlen) != 0)) {
                 lck_rw_unlock_shared(&np->n_name_rwlock);
+                lck_rw_unlock_shared(&np->n_parent_rwlock);
                 continue;
             }
             lck_rw_unlock_shared(&np->n_name_rwlock);
+            lck_rw_unlock_shared(&np->n_parent_rwlock);
         }
         
         if ((np->n_flag & NDELETEONCLOSE) ||
@@ -550,12 +595,16 @@ loop:
 		/* If this is a stream make sure its the correct stream */
 		if (np->n_flag & N_ISSTREAM) {
 			DBG_ASSERT(sname);	/* Better be looking for a stream at this point */
-			if ((np->n_snmlen != snmlen) || 
+
+            lck_rw_lock_shared(&np->n_name_rwlock);
+            if ((np->n_snmlen != snmlen) ||
 				(bcmp(sname, np->n_sname, snmlen) != 0)) {
 				SMBERROR("We only support one stream and we found found %s looking for %s\n", 
 						 np->n_sname, sname);
+                lck_rw_unlock_shared(&np->n_name_rwlock);
 				continue;
 			}
+            lck_rw_unlock_shared(&np->n_name_rwlock);
 		}
         
 		if (ISSET(np->n_flag, NALLOC)) {
@@ -623,7 +672,7 @@ node_vtype_changed(vnode_t vp, enum vtype node_vtype, struct smbfattr *fap)
 		if ((VTOSMB(vp)->n_flag & NWINDOWSYMLNK) && (fap->fa_vtype == VREG)) {
 			/* 
 			 * This is a windows fake symlink, so the node type will come is as
-			 * a relgular file. Never let it change unless the node type comes
+			 * a regular file. Never let it change unless the node type comes
 			 * in as something other than a regular file.
 			 */
 			rt_value = FALSE;
@@ -647,9 +696,9 @@ node_vtype_changed(vnode_t vp, enum vtype node_vtype, struct smbfattr *fap)
 	}
 done:
 	if (rt_value) {
-		SMBWARNING("%s had node type and attr of %d 0x%x now its %d 0x%x\n", 
-				   VTOSMB(vp)->n_name, node_vtype, VTOSMB(vp)->n_dosattr,
-                   fap->fa_vtype, fap->fa_attr);
+		SMBWARNING_LOCK(VTOSMB(vp), "%s had node type and attr of %d 0x%x now its %d 0x%x\n",
+                        VTOSMB(vp)->n_name, node_vtype, VTOSMB(vp)->n_dosattr,
+                        fap->fa_vtype, fap->fa_attr);
 	}
 	return rt_value;
 }
@@ -792,6 +841,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 	
     lck_rw_init(&np->n_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_rw_init(&np->n_name_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
+	lck_rw_init(&np->n_parent_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
 	(void) smbnode_lock(np, SMBFS_EXCLUSIVE_LOCK);
 	/* if we error out, don't forget to unlock this */
 	locked = 1;
@@ -813,21 +863,43 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 	np->n_size = fap->fa_size;
 	np->n_data_alloc = fap->fa_data_alloc;
 	np->n_ino = fap->fa_ino;
+    
+    lck_rw_lock_exclusive(&np->n_name_rwlock);
 	np->n_name = smb_strndup(name, nmlen);
+    lck_rw_unlock_exclusive(&np->n_name_rwlock);
+    
 	np->n_nmlen = nmlen;
 	/* Default to what we can do and Windows support */
 	np->n_flags_mask = EXT_REQUIRED_BY_MAC;
+    
+    /*
+     * n_uid and n_gid are set to KAUTH_UID_NONE/KAUTH_GID_NONE as the
+     * default.
+     *
+     * If ACLs are retrieved for this node, then we will replace n_uid/n_gid
+     * with a uid/gid that was mapped from the SID.
+     *
+     * When asked for the uid/gid, if they are default values, we return
+     * uid/gid of the mounting user. If they are not set to default values,
+     * then ACLs must have been retrieved and the uid/gid set, so we return
+     * what ever value is set in n_uid/n_gid.
+     */
 	np->n_uid = KAUTH_UID_NONE;
 	np->n_gid = KAUTH_GID_NONE;
+    
+    /*
+     * n_nfs_uid/n_nfs_gid are the uid/gid from ACLs and from the NFS ACE.
+     * We dont really do much with it because OS X <-> Windows, we cant really
+     * trust its value. OS X <-> OS X we could trust its value.
+     */
 	np->n_nfs_uid = KAUTH_UID_NONE;
 	np->n_nfs_gid = KAUTH_GID_NONE;
 	SET(np->n_flag, NALLOC);
 	smb_vhashadd(np, hashval);
 	if (dvp) {
-         /* Lock protects np->n_parent. See <rdar://problem/11824956> */
-        lck_rw_lock_exclusive(&np->n_name_rwlock);
+        lck_rw_lock_exclusive(&np->n_parent_rwlock);
 		np->n_parent = dnp;
-        lck_rw_unlock_exclusive(&np->n_name_rwlock);
+        lck_rw_unlock_exclusive(&np->n_parent_rwlock);
         
 		if (!vnode_isvroot(dvp)) {
 			/* Make sure we can get the vnode, we could have an unmount about to happen */
@@ -916,7 +988,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 	if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) && 
 		(np->n_reparse_tag != IO_REPARSE_TAG_DFS) && 
 		(np->n_reparse_tag != IO_REPARSE_TAG_SYMLINK))  {
-		SMBWARNING("%s - unknown reparse point tag 0x%x\n", np->n_name, np->n_reparse_tag);
+        SMBWARNING_LOCK(np, "%s - unknown reparse point tag 0x%x\n", np->n_name, np->n_reparse_tag);
 	}
 	
 	if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) && 
@@ -994,8 +1066,19 @@ errout:
 	if (ISSET(np->n_flag, NWALLOC))
 		wakeup(np);
 		
-	SMB_FREE(np->n_name, M_SMBNODENAME);
+    lck_rw_lock_exclusive(&np->n_name_rwlock);
+    if (np->n_name != NULL) {
+        SMB_FREE(np->n_name, M_SMBNODENAME);
+        np->n_name = NULL; /* Catch anyone still refering to np->n_name */
+    }
+    lck_rw_unlock_exclusive(&np->n_name_rwlock);
+    
+	lck_rw_destroy(&np->n_rwlock, smbfs_rwlock_group);
+	lck_rw_destroy(&np->n_name_rwlock, smbfs_rwlock_group);
+	lck_rw_destroy(&np->n_parent_rwlock, smbfs_rwlock_group);
+    
 	SMB_FREE(np, M_SMBNODE);
+    
 	return error;
 }
 
@@ -1010,11 +1093,17 @@ smbfs_find_vgetstrm(struct smbmount *smp, struct smbnode *np, const char *sname,
 					size_t maxfilenamelen)
 {
 	uint64_t hashval;
-	    
+    vnode_t ret_vnode = NULL;
+    
+    lck_rw_lock_shared(&np->n_name_rwlock);
+    
     hashval = smbfs_hash(smp->sm_share, np->n_ino, np->n_name, np->n_nmlen);
-
-	return(smb_hashget(smp, np, hashval, np->n_name, np->n_nmlen, maxfilenamelen,
-					   N_ISSTREAM, sname));
+	ret_vnode = smb_hashget(smp, np, hashval, np->n_name, np->n_nmlen, maxfilenamelen,
+					   N_ISSTREAM, sname);
+    
+    lck_rw_unlock_shared(&np->n_name_rwlock);
+    
+	return(ret_vnode);
 }
 
 /* 
@@ -1037,6 +1126,7 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	int locked = 0;
 	struct componentname cnp;
 	size_t maxfilenamelen = share->ss_maxfilenamelen;
+    char *tmp_namep = NULL;
 	
 	/* Better have a root vnode at this point */
 	DBG_ASSERT(smp->sm_rvp);
@@ -1059,21 +1149,27 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	SMB_MALLOC (cnp.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK);
 	if (bcmp(sname, SFM_RESOURCEFORK_NAME, sizeof(SFM_RESOURCEFORK_NAME)) == 0) {
 		cnp.cn_nameptr = cnp.cn_pnbuf;
-		cnp.cn_namelen = snprintf(cnp.cn_nameptr, MAXPATHLEN, "%s%s", np->n_name, 
+        lck_rw_lock_shared(&np->n_name_rwlock);
+		cnp.cn_namelen = snprintf(cnp.cn_nameptr, MAXPATHLEN, "%s%s", np->n_name,
 								  _PATH_RSRCFORKSPEC);
-	} else {
+        lck_rw_unlock_shared(&np->n_name_rwlock);
+	}
+    else {
 		cnp.cn_nameptr = cnp.cn_pnbuf;
-		cnp.cn_namelen = snprintf(cnp.cn_nameptr, MAXPATHLEN, "%s%s%s", np->n_name, 
+        lck_rw_lock_shared(&np->n_name_rwlock);
+		cnp.cn_namelen = snprintf(cnp.cn_nameptr, MAXPATHLEN, "%s%s%s", np->n_name,
 								  _PATH_FORKSPECIFIER, sname);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
 		SMBWARNING("Creating non resource fork named stream: %s\n", cnp.cn_nameptr);
 	}
 
 	SMB_MALLOC(snp, struct smbnode *, sizeof *snp, M_SMBNODE, M_WAITOK);
 
+    lck_rw_lock_shared(&np->n_name_rwlock);
     hashval = smbfs_hash(share, fap->fa_ino, np->n_name, np->n_nmlen);
-
 	if ((*svpp = smb_hashget(smp, np, hashval, np->n_name, np->n_nmlen,
 							 maxfilenamelen, N_ISSTREAM, sname)) != NULL) {
+        lck_rw_unlock_shared(&np->n_name_rwlock);
 		SMB_FREE(snp, M_SMBNODE);
 		/* 
 		 * If this is the resource stream then the parents resource fork size 
@@ -1085,10 +1181,13 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 		smbfs_attr_cacheenter(share, *svpp, fap, FALSE, NULL);
 		goto done;
 	}
+    lck_rw_unlock_shared(&np->n_name_rwlock);
+
 	bzero(snp, sizeof(*snp));
 	lck_rw_init(&snp->n_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_rw_init(&snp->n_name_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
-	(void) smbnode_lock(snp, SMBFS_EXCLUSIVE_LOCK);	
+	lck_rw_init(&snp->n_parent_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
+	(void) smbnode_lock(snp, SMBFS_EXCLUSIVE_LOCK);
 	locked = 1;
 	snp->n_lastvop = smbfs_vgetstrm;
 	
@@ -1096,7 +1195,15 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	snp->n_size =  fap->fa_size;
 	snp->n_data_alloc = fap->fa_data_alloc;
 	snp->n_ino = np->n_ino;
-	snp->n_name = smb_strndup(np->n_name, np->n_nmlen);
+    
+    lck_rw_lock_shared(&np->n_name_rwlock);
+    tmp_namep = smb_strndup(np->n_name, np->n_nmlen);
+    lck_rw_unlock_shared(&np->n_name_rwlock);
+    
+    lck_rw_lock_exclusive(&snp->n_name_rwlock);
+	snp->n_name = tmp_namep;
+    lck_rw_unlock_exclusive(&snp->n_name_rwlock);
+    
 	snp->n_nmlen = np->n_nmlen;
 	snp->n_flags_mask = np->n_flags_mask;
 	snp->n_uid = np->n_uid;
@@ -1104,14 +1211,15 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	snp->n_nfs_uid = np->n_nfs_uid;
 	snp->n_nfs_gid = np->n_nfs_uid;
     
-    /* Lock protects snp->n_parent. See <rdar://problem/11824956> */
-    lck_rw_lock_exclusive(&snp->n_name_rwlock);
+    lck_rw_lock_exclusive(&snp->n_parent_rwlock);
 	snp->n_parent = np;
-    lck_rw_unlock_exclusive(&snp->n_name_rwlock);
+    lck_rw_unlock_exclusive(&snp->n_parent_rwlock);
     
 	/* Only a stream node can have a stream name */
 	snp->n_snmlen = strnlen(sname, maxfilenamelen+1);
+    lck_rw_lock_exclusive(&snp->n_name_rwlock);
 	snp->n_sname = smb_strndup(sname, snp->n_snmlen);
+    lck_rw_unlock_exclusive(&snp->n_name_rwlock);
 	
 	SET(snp->n_flag, N_ISSTREAM);
 	/* Special case that I would like to remove some day */
@@ -1213,8 +1321,22 @@ errout:
 	if (ISSET(snp->n_flag, NWALLOC))
 		wakeup(snp);
 	
-	SMB_FREE(snp->n_name, M_SMBNODENAME);
-	SMB_FREE(snp->n_sname, M_SMBNODENAME);
+    lck_rw_lock_exclusive(&snp->n_name_rwlock);
+    if (snp->n_name != NULL) {
+        SMB_FREE(snp->n_name, M_SMBNODENAME);
+        snp->n_name = NULL; /* Catch anyone still refering to np->n_name */
+    }
+
+    if (snp->n_sname != NULL) {
+        SMB_FREE(snp->n_sname, M_SMBNODENAME);
+        snp->n_sname = NULL; /* Catch anyone still refering to np->n_sname */
+    }
+    lck_rw_unlock_exclusive(&snp->n_name_rwlock);
+
+    lck_rw_destroy(&snp->n_rwlock, smbfs_rwlock_group);
+	lck_rw_destroy(&snp->n_name_rwlock, smbfs_rwlock_group);
+	lck_rw_destroy(&snp->n_parent_rwlock, smbfs_rwlock_group);
+    
 	SMB_FREE(snp, M_SMBNODE);
 
 done:	
@@ -1224,7 +1346,7 @@ done:
 
 /* 
  * Update the nodes resource fork size if needed. 
- * NOTE: Remmeber the parent can lock the child while hold its lock, but the 
+ * NOTE: Remember the parent can lock the child while hold its lock, but the 
  * child cannot lock the parent unless the child is not holding its lock. So 
  * this routine is safe, because the parent is locking the child.
  *
@@ -1243,25 +1365,42 @@ smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t context)
 	time_t rfrk_cache_timer;
 	struct timespec reqtime;
     uint32_t stream_flags = 0;
+	int use_cached_data = 0;
 	
+    /* If we are in reconnect, use cached data if we have it */
+    if (np->rfrk_cache_timer != 0) {
+        use_cached_data = (share->ss_flags & SMBS_RECONNECTING);
+    }
+
 	nanouptime(&reqtime);
-	SMB_CACHE_TIME(ts, np, attrtimeo);
+
+    /* Check to see if the cache has timed out */
+    SMB_CACHE_TIME(ts, np, attrtimeo);
+    
 	lck_mtx_lock(&np->rfrkMetaLock);
 	rfrk_cache_timer = ts.tv_sec - np->rfrk_cache_timer;
 	lck_mtx_unlock(&np->rfrkMetaLock);
-	/* Cache has expired go get the resource fork size. */
-	if (rfrk_cache_timer > attrtimeo) {
-		error = smbfs_smb_qstreaminfo(share, np,
+    
+	if ((rfrk_cache_timer > attrtimeo) && !use_cached_data) {
+        /* Cache has expired go get the resource fork size. */
+		error = smbfs_smb_qstreaminfo(share, np, VREG,
                                       NULL, 0,
                                       SFM_RESOURCEFORK_NAME,
                                       NULL, NULL,
                                       &strmsize, &strmsize_alloc,
                                       &stream_flags, NULL,
                                       context);
+        
+        if ((error == ETIMEDOUT) && (np->rfrk_cache_timer != 0)) {
+            /* Just return the cached data */
+            error = 0;
+            goto done;
+        }
+        
 		/* 
 		 * We got the resource stream size from the server, now update the resource
 		 * stream if we have one. Search our hash table and see if we have a stream,
-		 * if we find one then smbfs_find_vgetstrm will return it with  a vnode_get 
+		 * if we find one then smbfs_find_vgetstrm will return it with a vnode_get
 		 * and a smb node lock on it.
 		 */
 		if (error == 0) {
@@ -1278,7 +1417,8 @@ smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t context)
 				smbnode_unlock(VTOSMB(svpp));
 				vnode_put(svpp);
 			}
-		} else {
+		}
+        else {
 			/* 
 			 * Remember that smbfs_smb_qstreaminfo will update the resource forks 
 			 * cache and size if it finds  the resource fork. We are handling the 
@@ -1292,7 +1432,9 @@ smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t context)
 			np->rfrk_cache_timer = ts.tv_sec;
 			lck_mtx_unlock(&np->rfrkMetaLock);
 		}
-	}		
+	}
+
+done:
 	return(error);
 }
 
@@ -1492,14 +1634,26 @@ void smb_get_uid_gid_mode(struct smb_share *share, struct smbmount *smp,
 		}		
 	}
     else {
-        /* SMB 2.x or SMB 1 server that does not support Unix extensions */
-		if (!(share->ss_attributes & FILE_PERSISTENT_ACLS) && 
-			((*uid == KAUTH_UID_NONE) || (*gid == KAUTH_GID_NONE))) {
-			/* Use mapped ids since they don't support ACLs */
-			*uid = smp->sm_args.uid;
-			*gid = smp->sm_args.gid;
-		}
+        /*
+         * See comments in smbfs_nget about n_uid and n_gid and 
+         * KAUTH_UID_NONE/KAUTH_GID_NONE default values.
+         */
+        if ((*uid == KAUTH_UID_NONE) || (*gid == KAUTH_GID_NONE)) {
+            /*
+             * Either ACLs are off or no ACL retrieved for this item.
+             * Return the mounting user uid/gid
+             */
+            *uid = smp->sm_args.uid;
+            *gid = smp->sm_args.gid;
+        }
+        else {
+            /*
+             * uid/gid must have been set by a previous Get ACL, so just return
+             * their current value.
+             */
+        }
         
+        /* Figure out the mode */
         if (fap->fa_valid_mask & FA_UNIX_MODES_VALID) {
             /* 
              * Server gave us Posix modes via AAPL ReadDirAttr extension
@@ -1550,20 +1704,46 @@ void smb_get_uid_gid_mode(struct smb_share *share, struct smbmount *smp,
  * confusing customers and really didn't work the way Mac users would expect.
  */
 Boolean
-node_isimmutable(struct smb_share *share, vnode_t vp)
+node_isimmutable(struct smb_share *share, vnode_t vp, struct smbfattr *fap)
 {
 	Boolean unix_info2 = ((UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
 	Boolean darwin = (SSTOVC(share)->vc_flags & SMBV_DARWIN) ? TRUE : FALSE;
+    uint32_t is_dir = 0;
+    uint32_t is_read_only = 0;
+    
+    if (vp != NULL) {
+        if (vnode_isdir(vp)) {
+            is_dir = 1;
+        }
+        
+        if (VTOSMB(vp)->n_dosattr & SMB_EFA_RDONLY) {
+            is_read_only = 1;
+        }
+    }
+    else {
+        if (fap != NULL) {
+            /* smbfs_vnop_readdirattr or smbfs_vnop_getattrlistbulk */
+            if (fap->fa_vtype == VDIR) {
+                is_dir = 1;
+            }
+            
+            if (fap->fa_attr & SMB_EFA_RDONLY) {
+                is_read_only = 1;
+            }
+        }
+        else {
+            /* this should be impossible */
+            SMBERROR("vp and fap are NULL \n");
+        }
+    }
 	
     if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
-        if ((UNIX_SERVER(SSTOVC(share)) || !vnode_isdir(vp)) &&
-            (VTOSMB(vp)->n_dosattr & SMB_EFA_RDONLY)) {
+        if ((UNIX_SERVER(SSTOVC(share)) || !is_dir) && is_read_only) {
             return TRUE;
         }
     }
 	else {
-        if ((unix_info2 || darwin || !vnode_isdir(vp)) &&
-            (VTOSMB(vp)->n_dosattr & SMB_EFA_RDONLY)) {
+        if ((unix_info2 || darwin || !is_dir) && is_read_only) {
             return TRUE;
         }
     }
@@ -1885,7 +2065,7 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
 		if (!vnode_isdir(vp) && !(np->n_dosattr & SMB_EFA_ARCHIVE))
 			va->va_flags |= SF_ARCHIVED;
 		/* The server has it marked as read-only set the immutable bit. */
-		if (node_isimmutable(share, vp)) {
+		if (node_isimmutable(share, vp, NULL)) {
 			va->va_flags |= UF_IMMUTABLE;
 		}
 		/* 
@@ -1926,17 +2106,20 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
 	 * The stat call (getattr) uses va_fileid and the Carbon APIs,
 	 * which are hardlink-ignorant, will ask for va_linkid.
 	 */
+    lck_rw_lock_shared(&np->n_name_rwlock);
     VATTR_RETURN(va, va_fileid, smb2fs_smb_file_id_get(smp, np->n_ino,
                                                        np->n_name));
     VATTR_RETURN(va, va_linkid, smb2fs_smb_file_id_get(smp, np->n_ino,
                                                        np->n_name));
+    lck_rw_unlock_shared(&np->n_name_rwlock);
     
-    /* Lock protects np->n_parent. See <rdar://problem/11824956> */
-    lck_rw_lock_shared(&np->n_name_rwlock);
+    lck_rw_lock_shared(&np->n_parent_rwlock);
     if (np->n_parent != NULL) {
+        lck_rw_lock_shared(&np->n_parent->n_name_rwlock);
         VATTR_RETURN(va, va_parentid, smb2fs_smb_file_id_get(smp,
                                                              np->n_parent->n_ino,
                                                              np->n_parent->n_name));
+        lck_rw_unlock_shared(&np->n_parent->n_name_rwlock);
     }
     else {
         /*
@@ -1944,7 +2127,7 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
          * VATTR_RETURN(va, va_parentid, np->n_parentid);
          */
     }
-    lck_rw_unlock_shared(&np->n_name_rwlock);
+    lck_rw_unlock_shared(&np->n_parent_rwlock);
 
 	VATTR_RETURN(va, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
 	VATTR_RETURN(va, va_filerev, 0);	
@@ -1962,7 +2145,9 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
 	 * different from the real name 
 	 */
 	if (VATTR_IS_ACTIVE(va, va_name) && !vnode_isvroot(vp)) {
+        lck_rw_lock_shared(&np->n_name_rwlock);
 		strlcpy ((char*) va->va_name, (char*)np->n_name, MAXPATHLEN);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
 		VATTR_SET_SUPPORTED(va, va_name);
 	}
 	/* va_uuuid is done in smbfs_getattr */
@@ -2081,20 +2266,20 @@ smbfs_update_size(struct smbnode *np, struct timespec *reqtime, u_quad_t new_siz
 	
 	/* Only update the size if we don't have a set eof pending */
 	if (np->n_flag & NNEEDS_EOF_SET) {
-		SMB_LOG_IO("%s: Waiting on pending seteof, old eof = %lld  new eof = %lld\n", 
-				   np->n_name, np->n_size, new_size);
+        SMB_LOG_IO_LOCK(np, "%s: Waiting on pending seteof, old eof = %lld  new eof = %lld\n",
+                        np->n_name, np->n_size, new_size);
 		return FALSE;
 	}
 	
 	if (np->waitOnClusterWrite) {
-		SMB_LOG_IO("%s: Waiting on cluster write to complete, old eof = %lld  new eof = %lld\n", 
-				   np->n_name, np->n_size, new_size);
+		SMB_LOG_IO_LOCK(np, "%s: Waiting on cluster write to complete, old eof = %lld  new eof = %lld\n",
+                        np->n_name, np->n_size, new_size);
 		return FALSE;
 	}
 	
 	if (timespeccmp(reqtime, &np->n_sizetime, <=)) {
-		SMB_LOG_IO("%s: We set the eof after this lookup, old eof = %lld  new eof = %lld\n", 
-				   np->n_name, np->n_size, new_size);
+		SMB_LOG_IO_LOCK(np, "%s: We set the eof after this lookup, old eof = %lld  new eof = %lld\n",
+                        np->n_name, np->n_size, new_size);
 		return FALSE; /* we lost the race, tell the calling routine */
 	}
 	
@@ -2108,10 +2293,11 @@ smbfs_update_size(struct smbnode *np, struct timespec *reqtime, u_quad_t new_siz
 	 */
 	ubc_msync (np->n_vnode, 0, ubc_getsize(np->n_vnode), NULL, UBC_PUSHDIRTY | UBC_SYNC);
 	
-	SMBDEBUG("%s: smbfs_setsize, old eof = %lld  new eof = %lld time %ld:%ld  %ld:%ld\n", 
-			 np->n_name, np->n_size, new_size, 
-			 np->n_sizetime.tv_sec, np->n_sizetime.tv_nsec, 
-			 reqtime->tv_sec, reqtime->tv_nsec);
+	SMBDEBUG_LOCK(np, "%s: smbfs_setsize, old eof = %lld  new eof = %lld time %ld:%ld  %ld:%ld\n",
+                  np->n_name, np->n_size, new_size,
+                  np->n_sizetime.tv_sec, np->n_sizetime.tv_nsec,
+                  reqtime->tv_sec, reqtime->tv_nsec);
+
 	smbfs_setsize(np->n_vnode, new_size);
 	return TRUE;
 }
@@ -2124,10 +2310,10 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
     char *new_name2, *old_name;
     struct componentname cnp;
     struct smbnode *np, *fdnp = NULL, *tdnp = NULL;
-    struct smbmount *smp = NULL;
     vnode_t fdvp = NULL;
     uint32_t orig_flag = 0;
     int update_flags = 0;
+    int exclusive_lock = 0;
 
     if ((vp == NULL) ||
         (dvp == NULL) ||
@@ -2140,7 +2326,6 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
     }
     
     np = VTOSMB(vp);
-    smp = np->n_mount;
     
     /* 
      * Did the parent change? 
@@ -2153,7 +2338,7 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
      *
      * fnp = np (vp is locked)
      */
-	lck_mtx_lock(&smp->sm_reclaim_renamelock);
+    lck_rw_lock_shared(&np->n_parent_rwlock);
 
     if (np->n_parent != NULL) {
         fdnp = np->n_parent;
@@ -2169,8 +2354,40 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
         (fdvp != NULL) &&
         (tdnp != NULL) &&
         (fdnp != tdnp)) {
-        /* SMBDEBUG("parent change %s to %s fileID 0x%llx\n",
-                 fdnp->n_name, tdnp->n_name, np->n_ino); */
+        /*
+         * Parent changed, so need exclusive lock. Try to upgrade lock.
+         * If exclusive lock upgrade fails we lose the lock and
+         * have to take the exclusive lock on our own.
+         */
+        if (lck_rw_lock_shared_to_exclusive(&np->n_parent_rwlock) == FALSE) {
+            lck_rw_lock_exclusive(&np->n_parent_rwlock);
+            
+            /*
+             * Its remotely possible n_parent changed as we were getting the
+             * exclusive lock, so reset fdnp and fdvp
+             */
+            fdnp = NULL;
+            fdvp = NULL;
+            
+            if (np->n_parent != NULL) {
+                fdnp = np->n_parent;
+                if (fdnp->n_vnode != NULL) {
+                    fdvp = fdnp->n_vnode;
+                }
+            }
+            
+            /* Make sure fdnp and fdvp are still ok */
+            if ((fdnp == NULL) || (fdvp == NULL)) {
+                /* 
+                 * The parent disappeared. This should not happen. 
+                 * Just leave the vnode unchanged.
+                 */
+                SMBERROR_LOCK(np, "Parent lost during update for <%s> \n", np->n_name);
+                exclusive_lock = 1;
+                goto error;
+            }
+        }
+        exclusive_lock = 1;
         
         orig_flag = np->n_flag;
 
@@ -2212,16 +2429,24 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
         /* Mark that we need to update the vnodes parent */
         update_flags |= VNODE_UPDATE_PARENT;
     }
-    
-	lck_mtx_unlock(&smp->sm_reclaim_renamelock);
+
+error:
+    if (exclusive_lock == 0) {
+        /* Most of the time we should end up with just a shared lock */
+        lck_rw_unlock_shared(&np->n_parent_rwlock);
+    }
+    else {
+        /* Parent must have changed */
+        lck_rw_unlock_exclusive(&np->n_parent_rwlock);
+    }
 
     /*
      * Did the name change?
      */
+    lck_rw_lock_shared(&np->n_name_rwlock);
     if ((np->n_nmlen == name_len) &&
         (bcmp(np->n_name, new_name, np->n_nmlen) == 0)) {
         /* Name did not change, so nothing to update */
-        //SMBDEBUG("name did not change %s \n", np->n_name);
         
         /* Update parent if needed */
         if (update_flags != 0) {
@@ -2229,8 +2454,10 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
                                   update_flags);
         }
         
+        lck_rw_unlock_shared(&np->n_name_rwlock);
         return TRUE;
     }
+    lck_rw_unlock_shared(&np->n_name_rwlock);
     
     /*
      * n_rename_time is used to handle the case where an Enumerate req is sent,
@@ -2240,32 +2467,28 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
      */
 	if (timespeccmp(reqtime, &np->n_rename_time, <=)) {
         /* we lost the race, tell the calling routine */
-        /* SMBDEBUG("name enum time not expired %s %ld:%ld %ld:%ld \n", np->n_name,
-                 np->n_rename_time.tv_sec, np->n_rename_time.tv_nsec,
-                 reqtime->tv_sec, reqtime->tv_nsec); */
 
         /* Update parent if needed */
         if (update_flags != 0) {
+            lck_rw_lock_shared(&np->n_name_rwlock);
             vnode_update_identity(vp, dvp, np->n_name, (int) np->n_nmlen, 0,
                                   update_flags);
+            lck_rw_unlock_shared(&np->n_name_rwlock);
         }
         
         return FALSE;
 	}
 
-    //SMBDEBUG("name change %s to %s fileID 0x%llx\n", np->n_name, new_name, np->n_ino);
-
     /* Set the new name */
     new_name2 = smb_strndup(new_name, name_len);
     if (new_name2) {
         /* save the old name */
+        lck_rw_lock_exclusive(&np->n_name_rwlock);
         old_name = np->n_name;
         
         /* put in the new name */
-        lck_rw_lock_exclusive(&np->n_name_rwlock);
         np->n_name = new_name2;
         np->n_nmlen = name_len;
-        lck_rw_unlock_exclusive(&np->n_name_rwlock);
         
         /* Now its safe to free the old name */
         SMB_FREE(old_name, M_SMBNODENAME);
@@ -2281,14 +2504,17 @@ smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
         
         /* Add new entry, correct case */
         cache_enter(dvp, vp, &cnp);
-        
+        lck_rw_unlock_exclusive(&np->n_name_rwlock);
+       
         update_flags |= VNODE_UPDATE_NAME;
     }
 
     /* Update parent and/or name if needed */
     if (update_flags != 0) {
+        lck_rw_lock_shared(&np->n_name_rwlock);
         vnode_update_identity(vp, dvp, np->n_name, (int) np->n_nmlen, 0,
                               update_flags);
+        lck_rw_unlock_shared(&np->n_name_rwlock);
     }
 
 	return TRUE;
@@ -2875,7 +3101,8 @@ smb1fs_reconnect(struct smbmount *smp)
              * notify update.
              */
             if (np->n_vnode && (vnode_ismonitored(np->n_vnode))) {
-                SMBDEBUG("%s needs to be updated.\n", np->n_name);
+                SMBDEBUG_LOCK(np, "%s needs to be updated.\n", np->n_name);
+
                 /* Do we need to reopen this item */
                 if ((np->n_dosattr & SMB_EFA_DIRECTORY) && (np->d_fid != 0)) {
                     np->d_needReopen = TRUE;
@@ -3013,7 +3240,8 @@ smb2fs_reconnect(struct smbmount *smp)
              * notify update.
              */
             if (np->n_vnode && (vnode_ismonitored(np->n_vnode))) {
-                SMBDEBUG("%s needs to be updated.\n", np->n_name);
+                SMBDEBUG_LOCK(np, "%s needs to be updated.\n", np->n_name);
+                
                 /* Do we need to reopen this item */
                 if ((np->n_dosattr & SMB_EFA_DIRECTORY) && (np->d_fid != 0)) {
                     np->d_needReopen = TRUE;
@@ -3180,7 +3408,7 @@ smb2fs_reconnect(struct smbmount *smp)
                                                             FALSE, &current->dur_handle, vcp->vc_iod->iod_context);
                                 lck_mtx_lock(&smp->sm_share->ss_shlock);
                                 if (error) {
-                                    SMBERROR("Warning: Could not reopen %s \n", np->n_name);
+                                    SMBERROR_LOCK(np, "Warning: Could not reopen %s \n", np->n_name);
                                 }
                             }
                             else {
@@ -3188,7 +3416,7 @@ smb2fs_reconnect(struct smbmount *smp)
                                  * Failed to get a durable handle when this file
                                  * was opened, so can not reopen this file
                                  */
-                                SMBERROR("Missing durable handle %s \n", np->n_name);
+                                SMBERROR_LOCK(np, "Missing durable handle %s \n", np->n_name);
                                 error = EBADF;
                             }
                         }
@@ -3204,12 +3432,15 @@ smb2fs_reconnect(struct smbmount *smp)
                     } while (current != NULL);
                     
                     lck_mtx_lock(&np->f_openStateLock);
-                    np->f_openState &= ~kInReopen;
                     
                     if (error) {
                         /* Mark the file as revoked */
                         np->f_openState |= kNeedRevoke;
+                    } else if (np->f_fid == 0) {
+                        /* No shared forks to open, we can clear kInReopen now */
+                        np->f_openState &= ~kInReopen;
                     }
+                    
                     lck_mtx_unlock(&np->f_openStateLock);
                 }
                 
@@ -3250,7 +3481,7 @@ smb2fs_reconnect(struct smbmount *smp)
                 lck_mtx_lock(&np->f_openStateLock);
                 
                 if (np->f_openState & kNeedReopen) {
-                    SMBERROR("Only one attempt to reopen %s \n", np->n_name);
+                    SMBERROR_LOCK(np, "Only one attempt to reopen %s \n", np->n_name);
                     np->f_openState &= ~kNeedReopen;
                     
                     /* Mark the file as revoked */
@@ -3358,7 +3589,7 @@ smbfs_IObusy(struct smbmount *smp)
 }
 
 void
-smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent)
+smbfs_ClearChildren(struct smbmount *smp, struct smbnode *parent)
 {
     struct smbnode *np;
     uint32_t ii;
@@ -3372,60 +3603,60 @@ smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent)
             continue;
 
         for (np = (&smp->sm_hash[ii])->lh_first; np; np = np->n_hash.le_next) {
-            if (ISSET(np->n_flag, NALLOC)) {
-                /*
-                 * Now if (np->n_parent == parent) : OOPS
-                 *
-                 * Parent is in reclaim and child in alloc.
-                 * Most likely, It is the case of force unmount but we should
-                 * have never come here i.e. SMB should never create new child
-                 * smbnode when parent is in reclaim. In fact, this can be
-                 * verified by the fact that every function (vfs ops) calling
-                 * smbfs_nget() and smbfs_vgetstrm() takes exclusive lock on
-                 * parent. So while in NALLOC, parent can't proceed in
-                 * smbfs_vnop_reclaim() since he would wait on this lock at the
-                 * very beginning. Looking at the code, it makes no sense that
-                 * we could ever hit such situation.
-                 * Fixed in <rdar://problem/12442700>.
-                 */
-                if (np->n_parent == parent)
-                	SMBERROR("%s : Allocating child smbnode when parent \
-                          is in reclaim\n", __FUNCTION__);
-                else
-                	continue;
-            }
+            lck_rw_lock_exclusive(&np->n_parent_rwlock);
             
-            if (ISSET(np->n_flag, NTRANSIT)) {
-                /*
-                 * Now if (np->n_parent == parent) : OOPS
-                 *
-                 * Parent is in reclaim and child in reclaim too.
-                 * Most likely, It is the case of force unmount but we should
-                 * have never come here i.e. SMB should never reclaim child
-                 * smbnode when parent is still in reclaim.
-                 * Looking at the code in smbfs_vnop_reclaim(), parent can't
-                 * acquire sm_reclaim_renamelock and call smbfs_ClearChildren()
-                 * if child is already in NTRASIT since child has this lock.
-                 * So even in case of force unmount, EITHER parent could be here
-                 * and child is yet to enter NTRASIT OR child has this lock and
-                 * is in NTRASIT.
-                 * Fixed in <rdar://problem/12442700>.
-                 */
-                if (np->n_parent == parent)
-                	SMBERROR("%s : Child smbnode is in reclaim when parent \
-                          is still in reclaim\n", __FUNCTION__);
-                else
-                	continue;
-            }
-
-            lck_rw_lock_exclusive(&np->n_name_rwlock);
             if (np->n_parent == parent) {
+                if (ISSET(np->n_flag, NALLOC)) {
+                    /*
+                     * Now if (np->n_parent == parent) : OOPS
+                     *
+                     * Parent is in reclaim and child in alloc.
+                     * Most likely, it is the case of force unmount but we 
+                     * should have never come here i.e. SMB should never create 
+                     * a new child smbnode when its parent is in reclaim. In 
+                     * fact, this can be verified by the fact that every 
+                     * function (vfs ops) calling smbfs_nget() and 
+                     * smbfs_vgetstrm() takes an exclusive lock on the parent. 
+                     * So while in NALLOC, parent can't proceed in 
+                     * smbfs_vnop_reclaim() since he would wait on this lock at 
+                     * the very beginning. Looking at the code, it makes no 
+                     * sense that we could ever hit this situation.
+                     * Fixed in <rdar://problem/12442700>.
+                     */
+                 	SMBERROR("%s : Allocating child smbnode when parent \
+                             is in reclaim\n", __FUNCTION__);
+                }
+
+                if (ISSET(np->n_flag, NTRANSIT)) {
+                    /*
+                     * Now if (np->n_parent == parent) : OOPS
+                     *
+                     * Parent is in reclaim and child in reclaim too.
+                     * Most likely, tt is the case of force unmount but we 
+                     * should have never come here i.e. SMB should never 
+                     * reclaim a child smbnode when the parent is still in 
+                     * reclaim. Looking at the code in smbfs_vnop_reclaim(), 
+                     * parent can't acquire sm_reclaim_lock and call 
+                     * smbfs_ClearChildren() if the child is already in 
+                     * NTRANSIT since the child has sm_reclaim_lock lock.
+                     * So even in case of force unmount, EITHER parent can be 
+                     * here and child is yet to enter NTRANSIT OR the child has 
+                     * this lock and is in NTRANSIT.
+                     * Fixed in <rdar://problem/12442700>.
+                     */
+                	SMBERROR("%s : Child smbnode is in reclaim when parent \
+                             is still in reclaim\n", __FUNCTION__);
+                }
+
+                /* Clear the parent reference for this child */
                 np->n_flag &= ~NREFPARENT;
                 np->n_parent = NULL;
             }
-            lck_rw_unlock_exclusive(&np->n_name_rwlock);
-        }
+            
+            lck_rw_unlock_exclusive(&np->n_parent_rwlock);
+         }
     }
+    
     smbfs_hash_unlock(smp);
 }
 

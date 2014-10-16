@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ScrollingStateStickyNode.h"
 
-#if ENABLE(THREADED_SCROLLING) || USE(COORDINATED_GRAPHICS)
+#if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
 #include "GraphicsLayer.h"
 #include "ScrollingStateTree.h"
@@ -35,18 +35,18 @@
 
 namespace WebCore {
 
-PassOwnPtr<ScrollingStateStickyNode> ScrollingStateStickyNode::create(ScrollingStateTree* stateTree, ScrollingNodeID nodeID)
+PassRefPtr<ScrollingStateStickyNode> ScrollingStateStickyNode::create(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
 {
-    return adoptPtr(new ScrollingStateStickyNode(stateTree, nodeID));
+    return adoptRef(new ScrollingStateStickyNode(stateTree, nodeID));
 }
 
-ScrollingStateStickyNode::ScrollingStateStickyNode(ScrollingStateTree* tree, ScrollingNodeID nodeID)
-    : ScrollingStateNode(tree, nodeID)
+ScrollingStateStickyNode::ScrollingStateStickyNode(ScrollingStateTree& tree, ScrollingNodeID nodeID)
+    : ScrollingStateNode(StickyNode, tree, nodeID)
 {
 }
 
-ScrollingStateStickyNode::ScrollingStateStickyNode(const ScrollingStateStickyNode& node)
-    : ScrollingStateNode(node)
+ScrollingStateStickyNode::ScrollingStateStickyNode(const ScrollingStateStickyNode& node, ScrollingStateTree& adoptiveTree)
+    : ScrollingStateNode(node, adoptiveTree)
     , m_constraints(StickyPositionViewportConstraints(node.viewportConstraints()))
 {
 }
@@ -55,9 +55,9 @@ ScrollingStateStickyNode::~ScrollingStateStickyNode()
 {
 }
 
-PassOwnPtr<ScrollingStateNode> ScrollingStateStickyNode::clone()
+PassRefPtr<ScrollingStateNode> ScrollingStateStickyNode::clone(ScrollingStateTree& adoptiveTree)
 {
-    return adoptPtr(new ScrollingStateStickyNode(*this));
+    return adoptRef(new ScrollingStateStickyNode(*this, adoptiveTree));
 }
 
 void ScrollingStateStickyNode::updateConstraints(const StickyPositionViewportConstraints& constraints)
@@ -67,13 +67,13 @@ void ScrollingStateStickyNode::updateConstraints(const StickyPositionViewportCon
 
     m_constraints = constraints;
     setPropertyChanged(ViewportConstraints);
-    m_scrollingStateTree->setHasChangedProperties(true);
 }
 
 void ScrollingStateStickyNode::syncLayerPositionForViewportRect(const LayoutRect& viewportRect)
 {
-    FloatPoint position = m_constraints.layerPositionForViewportRect(viewportRect);
-    graphicsLayer()->syncPosition(position);
+    FloatPoint position = m_constraints.layerPositionForConstrainingRect(viewportRect);
+    if (layer().representsGraphicsLayer())
+        static_cast<GraphicsLayer*>(layer())->syncPosition(position);
 }
 
 void ScrollingStateStickyNode::dumpProperties(TextStream& ts, int indent) const
@@ -112,16 +112,16 @@ void ScrollingStateStickyNode::dumpProperties(TextStream& ts, int indent) const
     }
 
     writeIndent(ts, indent + 1);
-    FloatRect r = m_constraints.absoluteContainingBlockRect();
+    FloatRect r = m_constraints.containingBlockRect();
     ts << "(containing block rect " << r.x() << ", " << r.y() << " " << r.width() << " x " << r.height() << ")\n";
 
     writeIndent(ts, indent + 1);
-    r = m_constraints.absoluteStickyBoxRect();
+    r = m_constraints.stickyBoxRect();
     ts << "(sticky box rect " << r.x() << " " << r.y() << " " << r.width() << " " << r.height() << ")\n";
 
     writeIndent(ts, indent + 1);
-    r = m_constraints.absoluteStickyBoxRect();
-    ts << "(sticky box rect " << r.x() << " " << r.y() << " " << r.width() << " " << r.height() << ")\n";
+    r = m_constraints.constrainingRectAtLastLayout();
+    ts << "(constraining rect " << r.x() << " " << r.y() << " " << r.width() << " " << r.height() << ")\n";
 
     writeIndent(ts, indent + 1);
     ts << "(sticky offset at last layout " << m_constraints.stickyOffsetAtLastLayout().width() << " " << m_constraints.stickyOffsetAtLastLayout().height() << ")\n";
@@ -132,4 +132,4 @@ void ScrollingStateStickyNode::dumpProperties(TextStream& ts, int indent) const
 
 } // namespace WebCore
 
-#endif // ENABLE(THREADED_SCROLLING) || USE(COORDINATED_GRAPHICS)
+#endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)

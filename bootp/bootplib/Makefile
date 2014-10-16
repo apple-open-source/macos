@@ -72,7 +72,7 @@ interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
 dhcpopt: dhcp_options.c
-	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c -framework CoreFoundation -framework SystemConfiguration
+	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c -framework CoreFoundation -framework SystemConfiguration -framework CoreFoundation
 
 macncopt: macnc_options.c
 	cc -Wall -g -DTEST_MACNC_OPTIONS -o macncopt macnc_options.c dhcp_options.c ptrlist.c util.c DNSNameList.c
@@ -84,10 +84,10 @@ hfsvols: hfsvols.c hfsvols.h
 	cc -Wall -g -DTEST_HFSVOLS -o hfsvols hfsvols.c ptrlist.c dynarray.c
 
 nbimages: nbimages.c nbimages.h cfutil.c
-	cc -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c util.c nbsp.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
+	cc -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c util.c nbsp.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders -framework SystemConfiguration
 
 dnsnamelist: DNSNameList.c DNSNameList.h
-	cc -Wall -g -DTEST_DNSNAMELIST -o dnsnamelist DNSNameList.c util.c
+	cc -Wall -g -DTEST_DNSNAMELIST -o dnsnamelist DNSNameList.c util.c -framework CoreFoundation -framework SystemConfiguration
 
 subnets: subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_options.c
 	cc -g -Wall -DTEST_SUBNETS -o subnets subnets.c cfutil.c util.c ptrlist.c dynarray.c DNSNameList.c dhcp_options.c -framework CoreFoundation

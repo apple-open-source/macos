@@ -35,18 +35,18 @@ namespace WebKit {
 
 class WebPageProxy;
 
-class WebTextChecker : public TypedAPIObject<APIObject::TypeTextChecker> {
+class WebTextChecker : public API::ObjectImpl<API::Object::Type::TextChecker> {
 public:
     static WebTextChecker* shared();
 
-    void setClient(const WKTextCheckerClient*);
+    void setClient(const WKTextCheckerClientBase*);
     WebTextCheckerClient& client() { return m_client; }
 
     void continuousSpellCheckingEnabledStateChanged(bool);
     void grammarCheckingEnabledStateChanged(bool);
 
-    void checkSpelling(const WebPageProxy*, bool startBeforeSelection);
-    void changeSpellingToWord(const WebPageProxy*, const String&);
+    void checkSpelling(WebPageProxy*, bool startBeforeSelection);
+    void changeSpellingToWord(WebPageProxy*, const String&);
 
 private:
     WebTextChecker();

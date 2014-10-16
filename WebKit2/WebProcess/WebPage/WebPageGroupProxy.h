@@ -30,7 +30,7 @@
 #include "WebPageGroupData.h"
 #include <wtf/PassRefPtr.h>
 
-namespace CoreIPC {
+namespace IPC {
 class Connection;
 class MessageDecoder;
 }
@@ -41,7 +41,7 @@ class PageGroup;
 
 namespace WebKit {
 
-class WebPageGroupProxy : public TypedAPIObject<APIObject::TypeBundlePageGroup> {
+class WebPageGroupProxy : public API::ObjectImpl<API::Object::Type::BundlePageGroup> {
 public:
     static PassRefPtr<WebPageGroupProxy> create(const WebPageGroupData&);
     virtual ~WebPageGroupProxy();
@@ -52,7 +52,7 @@ public:
     bool isVisibleToHistoryClient() const { return m_data.visibleToHistoryClient; }
     WebCore::PageGroup* corePageGroup() const { return m_pageGroup; }
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&);
 
 private:
     WebPageGroupProxy(const WebPageGroupData&);

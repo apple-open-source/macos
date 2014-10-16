@@ -1,0 +1,51 @@
+#
+# Test Apple Resource Signing cert verification policy
+#
+globals
+allowUnverified = true
+crlNetFetchEnable = false
+certNetFetchEnable = false
+useSystemAnchors = false
+end
+
+test = "Full Resource Signing verification success"
+cert = leaf.cer
+cert = intermediate.cer
+root = root.cer
+policy = resourceSign
+verifyTime = 20061031000000
+end
+
+test = "No ExtendedKeyUsage in Leaf"
+cert = leafNoEKU.cer
+cert = intermediate.cer
+root = root.cer
+policy = resourceSign
+verifyTime = 20061031000000
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+certerror = 0:CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "Bad ExtendedKeyUsage in Leaf"
+cert = leafBadEKU.cer
+cert = intermediate.cer
+root = root.cer
+policy = resourceSign
+verifyTime = 20061031000000
+error = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+certerror = 0:CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+end
+
+test = "Bad KeyUsage in Leaf"
+cert = leafBadKU.cer
+cert = intermediate.cer
+root = root.cer
+policy = resourceSign
+verifyTime = 20061031000000
+error = TP_VERIFY_ACTION_FAILED
+certerror = 0:APPLETP_INVALID_KEY_USAGE
+end
+
+
+
+

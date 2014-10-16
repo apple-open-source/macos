@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,7 +76,7 @@ SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 	/* send the key to the server */
 	status = configremove(storePrivate->server,
 			      myKeyRef,
-			      myKeyLen,
+			      (mach_msg_type_number_t)myKeyLen,
 			      (int *)&sc_status);
 
 	if (__SCDynamicStoreCheckRetryAndHandleError(store,

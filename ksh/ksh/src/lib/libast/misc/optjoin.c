@@ -3,12 +3,12 @@
 *               This software is part of the ast package               *
 *          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
-*                  Common Public License, Version 1.0                  *
+*                 Eclipse Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
-*            http://www.opensource.org/licenses/cpl1.0.txt             *
-*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*          http://www.eclipse.org/org/documents/epl-v10.html           *
+*         (with md5 checksum b35adb5213ca9657e911e9befb180842)         *
 *                                                                      *
 *              Information and Software Systems Research               *
 *                            AT&T Research                             *
@@ -54,6 +54,7 @@ optjoin(char** argv, ...)
 	register Optpass_f	rep;
 	Optpass_f		err;
 	Optstate_t*		state;
+	int			r;
 	int			more;
 	int			user;
 	int			last_index;
@@ -63,7 +64,8 @@ optjoin(char** argv, ...)
 
 	state = optstate(&opt_info);
 	err = rep = 0;
-	for (;;)
+	r = -1;
+	while (r < 0)
 	{
 		va_start(ap, argv);
 		state->join = 0;
@@ -79,14 +81,16 @@ optjoin(char** argv, ...)
 				if (!more)
 				{
 					state->join = 0;
-					return 0;
+					r = 0;
+					break;
 				}
 				if (!user)
 				{
 					if (*argv[opt_info.index] != '+')
 					{
 						state->join = 0;
-						return 1;
+						r = 1;
+						break;
 					}
 					opt_info.again = -1;
 				}
@@ -112,7 +116,8 @@ optjoin(char** argv, ...)
 				if (!err)
 				{
 					state->join = 0;
-					return 1;
+					r = 1;
+					break;
 				}
 				(*err)(argv, 1);
 				opt_info.offset = 0;
@@ -120,4 +125,5 @@ optjoin(char** argv, ...)
 		}
 		va_end(ap);
 	}
+	return r;
 }

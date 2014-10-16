@@ -28,10 +28,9 @@
 
 #include "HTMLToken.h"
 #include "HTTPParsers.h"
-#include "KURL.h"
+#include "URL.h"
 #include "SuffixTree.h"
 #include "TextEncoding.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -61,7 +60,7 @@ public:
     void init(Document*, XSSAuditorDelegate*);
     void initForFragment();
 
-    PassOwnPtr<XSSInfo> filterToken(const FilterTokenRequest&);
+    std::unique_ptr<XSSInfo> filterToken(const FilterTokenRequest&);
     bool isSafeToSendToAnotherThread() const;
 
 private:
@@ -86,7 +85,7 @@ private:
     bool filterParamToken(const FilterTokenRequest&);
     bool filterEmbedToken(const FilterTokenRequest&);
     bool filterAppletToken(const FilterTokenRequest&);
-    bool filterIframeToken(const FilterTokenRequest&);
+    bool filterFrameToken(const FilterTokenRequest&);
     bool filterMetaToken(const FilterTokenRequest&);
     bool filterBaseToken(const FilterTokenRequest&);
     bool filterFormToken(const FilterTokenRequest&);
@@ -104,7 +103,7 @@ private:
     bool isContainedInRequest(const String&);
     bool isLikelySafeResource(const String& url);
 
-    KURL m_documentURL;
+    URL m_documentURL;
     bool m_isEnabled;
 
     ContentSecurityPolicy::ReflectedXSSDisposition m_xssProtection;
@@ -113,7 +112,7 @@ private:
 
     String m_decodedURL;
     String m_decodedHTTPBody;
-    OwnPtr<SuffixTree<ASCIICodebook> > m_decodedHTTPBodySuffixTree;
+    std::unique_ptr<SuffixTree<ASCIICodebook>> m_decodedHTTPBodySuffixTree;
 
     State m_state;
     String m_cachedDecodedSnippet;

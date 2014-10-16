@@ -118,12 +118,18 @@ command = {
 	help = "Change keys for specified principals (default all)."
 }
 command = {
+	option = {
+		long = "match-principal"
+		type = "string"
+		help = "copy only matching principals"
+		argument = "principal"
+	}
 	name = "copy"
 	function = "kt_copy"
 	argument = "source destination"
 	min_args = "2"
 	max_args = "2"
-	help = "Copies one keytab to another."
+	help = "Copies content of one keytab into another."
 }
 command = {
 	name = "get"
@@ -179,7 +185,6 @@ command = {
 		type = "flag"
 		help = "show timestamps"
 	}
-	max_args = "0"
 	function = "kt_list"
 	help = "Show contents of keytab."
 }
@@ -241,7 +246,6 @@ command = {
 command = {
 	name = "destroy"
 	function = "kt_destroy"
-	max_args = "0"
 	help = "Destroy (remove) the keytab."
 }
 command = {

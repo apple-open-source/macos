@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2008, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,6 +134,7 @@
 #define CFGPROP_REPLY_THRESHOLD_SECONDS	"reply_threshold_seconds"
 #define CFGPROP_RELAY_IP_LIST		"relay_ip_list"
 #define CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS "use_server_config_for_dhcp_options"
+#define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
 
 /*
  * On some platforms the root filesystem is mounted read-only;
@@ -148,17 +149,20 @@
 
 /* local defines */
 #define	MAXIDLE			(5*60)	/* we hang around for five minutes */
-#define SERVICE_BOOTP		0x00000001
-#define SERVICE_DHCP		0x00000002
-#define SERVICE_OLD_NETBOOT	0x00000004
-#define SERVICE_NETBOOT		0x00000008
-#define SERVICE_RELAY		0x00000010
+
+#define SERVICE_BOOTP				0x00000001
+#define SERVICE_DHCP				0x00000002
+#define SERVICE_OLD_NETBOOT			0x00000004
+#define SERVICE_NETBOOT				0x00000008
+#define SERVICE_RELAY				0x00000010
+#define SERVICE_IGNORE_ALLOW_DENY 		0x00000020
+#define SERVICE_DETECT_OTHER_DHCP_SERVER 	0x00000040
+#define SERVICE_DHCP_DISABLED			0x80000000
 
 /* global variables: */
 char		boot_tftp_dir[128] = "/private/tftpboot";
 int		bootp_socket = -1;
 int		debug = 0;
-bool		detect_other_dhcp_server = FALSE;
 bool		dhcp_ignore_client_identifier = FALSE;
 int		quiet = 0;
 uint32_t	reply_threshold_seconds = 0;
@@ -214,7 +218,6 @@ static int			S_relay_ip_list_count = 0;
 static int			S_max_hops = 4;
 static boolean_t		S_use_server_config_for_dhcp_options = TRUE;
 
-
 void
 my_log(int priority, const char *message, ...)
 {
@@ -243,6 +246,7 @@ static void		on_alarm(int sigraised);
 static void		on_sighup(int sigraised);
 static void		bootp_request(request_t * request);
 static void		S_server_loop();
+static void		S_publish_disabled_interfaces(boolean_t publish);
 
 #define PID_FILE "/var/run/bootpd.pid"
 static void
@@ -411,7 +415,7 @@ S_log_interfaces()
 
 	    for (i = 0; i < if_inet_count(if_p); i++) {
 		info = if_inet_addr_at(if_p, i);
-		strcpy(ip, inet_ntoa(info->addr));
+		strlcpy(ip, inet_ntoa(info->addr), sizeof(ip));
 		my_log(LOG_INFO, "interface %s: ip %s mask %s", 
 		       if_name(if_p), ip, inet_ntoa(info->mask));
 	    }
@@ -476,7 +480,7 @@ S_service_enable(CFTypeRef prop, u_int32_t which)
 {
     int 	i;
     CFStringRef	ifname_cf = NULL;
-    int		count;
+    CFIndex	count;
 
     if (prop == NULL) {
 	return;
@@ -575,7 +579,7 @@ typedef int (*qsort_compare_func_t)(const void *, const void *);
 static struct ether_addr *
 S_make_ether_list(CFArrayRef array, int * count_p)
 {
-    int			array_count = CFArrayGetCount(array);
+    CFIndex		array_count = CFArrayGetCount(array);
     int			count = 0;
     int			i;
     struct ether_addr * list;
@@ -619,13 +623,38 @@ S_make_ether_list(CFArrayRef array, int * count_p)
     return (list);
 }
 
+static __inline__ boolean_t
+ignore_allow_deny(interface_t * if_p)
+{
+    u_int32_t 	which = (S_which_services | if_p->user_defined);
+
+    return ((which & SERVICE_IGNORE_ALLOW_DENY) != 0);
+}
+
+__private_extern__ boolean_t
+detect_other_dhcp_server(interface_t * if_p)
+{
+    u_int32_t 	which = (S_which_services | if_p->user_defined);
+
+    return ((which & SERVICE_DETECT_OTHER_DHCP_SERVER) != 0);
+}
+
+__private_extern__ void
+disable_dhcp_on_interface(interface_t * if_p)
+{
+    if_p->user_defined &= ~SERVICE_DHCP;
+    if_p->user_defined |= SERVICE_DHCP_DISABLED;
+    S_publish_disabled_interfaces(TRUE);
+    return;
+}
+
 static boolean_t
-S_ok_to_respond(int hwtype, void * hwaddr, int hwlen)
+S_ok_to_respond(interface_t * if_p, int hwtype, void * hwaddr, int hwlen)
 {
     struct ether_addr *	search;
     boolean_t		respond = TRUE;
 
-    if (hwlen != ETHER_ADDR_LEN) {
+    if (hwlen != ETHER_ADDR_LEN || ignore_allow_deny(if_p)) {
 	return (TRUE);
     }
     if (S_deny != NULL) {
@@ -709,7 +738,7 @@ S_relay_ip_list_add(struct in_addr relay_ip)
 {
     if (S_relay_ip_list == NULL) {
 	S_relay_ip_list 
-	    = (struct in_addr *)malloc(sizeof(struct in_addr *));
+	    = (struct in_addr *)malloc(sizeof(struct in_addr));
 	S_relay_ip_list[0] = relay_ip;
 	S_relay_ip_list_count = 1;
     }
@@ -717,7 +746,7 @@ S_relay_ip_list_add(struct in_addr relay_ip)
 	S_relay_ip_list_count++;
 	S_relay_ip_list = (struct in_addr *)
 	    realloc(S_relay_ip_list,
-		    sizeof(struct in_addr *) * S_relay_ip_list_count);
+		    sizeof(struct in_addr) * S_relay_ip_list_count);
 	S_relay_ip_list[S_relay_ip_list_count - 1] = relay_ip;
     }
     return;
@@ -726,7 +755,7 @@ S_relay_ip_list_add(struct in_addr relay_ip)
 static void
 S_update_relay_ip_list(CFArrayRef list)
 {
-    int		count;
+    CFIndex	count;
     int		i;
 
     count = CFArrayGetCount(list);
@@ -845,6 +874,14 @@ S_update_services()
 	if (isA_CFArray(prop) != NULL) {
 	    S_update_relay_ip_list(prop);
 	}
+	/* Ignore Allow/Deny - not really a service */
+	S_service_enable(CFDictionaryGetValue(plist,
+					      CFSTR(CFGPROP_IGNORE_ALLOW_DENY)),
+			 SERVICE_IGNORE_ALLOW_DENY);
+	/* Detect Other DHCP Server - not really a service */
+	S_service_enable(CFDictionaryGetValue(plist,
+					      CFSTR(CFGPROP_DETECT_OTHER_DHCP_SERVER)),
+			 SERVICE_DETECT_OTHER_DHCP_SERVER);
     }
     /* allow/deny list */
     S_refresh_allow_deny(plist);
@@ -855,15 +892,6 @@ S_update_services()
 			  CFGPROP_REPLY_THRESHOLD_SECONDS,
 			  &reply_threshold_seconds);
 
-    /* detect other DHCP server */
-    detect_other_dhcp_server = FALSE;
-    num = 0;
-    set_number_from_plist(plist, CFSTR(CFGPROP_DETECT_OTHER_DHCP_SERVER),
-			  CFGPROP_DETECT_OTHER_DHCP_SERVER,
-			  &num);
-    if (num != 0) {
-	detect_other_dhcp_server = TRUE;
-    }
 
     /* ignore the DHCP client identifier */
     dhcp_ignore_client_identifier = FALSE;
@@ -934,8 +962,12 @@ bootp_enabled(interface_t * if_p)
 static __inline__ boolean_t
 dhcp_enabled(interface_t * if_p)
 {
-    u_int32_t 	which = (S_which_services | if_p->user_defined);
+    u_int32_t 	which;
 
+    if ((if_p->user_defined & SERVICE_DHCP_DISABLED) != 0) {
+	return (FALSE);
+    }
+    which = (S_which_services | if_p->user_defined);
     return (S_do_dhcp || (which & SERVICE_DHCP) != 0);
 }
 
@@ -1040,7 +1072,6 @@ main(int argc, char * argv[])
 	case 'H':
 	    usage();
 	    exit(1);
-	    break;
 	case 'I':
 	    ip_change_notifications = FALSE;
 	    break;
@@ -1158,27 +1189,43 @@ main(int argc, char * argv[])
 #if defined(IP_RECVIF)
 	if (setsockopt(bootp_socket, IPPROTO_IP, IP_RECVIF, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    my_log(LOG_INFO, "setsockopt(IP_RECVIF) failed: %s", 
+	    my_log(LOG_NOTICE, "setsockopt(IP_RECVIF) failed: %s", 
 		   strerror(errno));
 	    exit(1);
 	}
 #endif
+
+#if defined(SO_RECV_ANYIF)
+	if (setsockopt(bootp_socket, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
+		       sizeof(opt)) < 0) {
+	    my_log(LOG_NOTICE, "setsockopt(SO_RECV_ANYIF) failed");
+	}
+#endif /* SO_RECV_ANYIF */
 	
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_BROADCAST, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    my_log(LOG_INFO, "setsockopt(SO_BROADCAST) failed");
+	    my_log(LOG_NOTICE, "setsockopt(SO_BROADCAST) failed");
 	    exit(1);
 	}
 	if (setsockopt(bootp_socket, IPPROTO_IP, IP_RECVDSTADDR, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    my_log(LOG_INFO, "setsockopt(IPPROTO_IP, IP_RECVDSTADDR) failed");
+	    my_log(LOG_NOTICE, "setsockopt(IPPROTO_IP, IP_RECVDSTADDR) failed");
 	    exit(1);
 	}
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_REUSEADDR, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
-	    my_log(LOG_INFO, "setsockopt(SO_REUSEADDR) failed");
+	    my_log(LOG_NOTICE, "setsockopt(SO_REUSEADDR) failed");
 	    exit(1);
 	}
+#if defined(SO_TRAFFIC_CLASS)
+	opt = SO_TC_CTL;
+	/* set traffic class */
+	if (setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		       sizeof(opt)) < 0) {
+	    my_log(LOG_NOTICE, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
+		   strerror(errno));
+	}
+#endif /* SO_TRAFFIC_CLASS */
     }
     
     /* install our sighup handler */
@@ -1314,30 +1361,33 @@ bootp_add_bootfile(const char * request_file, const char * hostname,
     int		len;
     char 	path[PATH_MAX];
 
-    if (request_file && request_file[0])
-	strcpy(file, request_file);
-    else if (bootfile && bootfile[0])
-	strcpy(file, bootfile);
+    if (request_file && request_file[0]) {
+	strlcpy(file, request_file, sizeof(file));
+    }
+    else if (bootfile && bootfile[0]) {
+	strlcpy(file, bootfile, sizeof(file));
+    }
     else {
 	my_log(LOG_DEBUG, "no replyfile", path);
 	return (TRUE);
     }
 
-    if (file[0] == '/')	/* if absolute pathname */
-	strcpy(path, file);
+    if (file[0] == '/')	{ /* if absolute pathname */
+	strlcpy(path, file, sizeof(path));
+    }
     else {
-	strcpy(path, boot_tftp_dir);
-	strcat(path, "/");
-	strcat(path, file);
+	strlcpy(path, boot_tftp_dir, sizeof(path));
+	strlcat(path, "/", sizeof(path));
+	strlcat(path, file, sizeof(path));
     }
 
     /* see if file exists with a ".host" suffix */
     if (hostname) {
 	int 	n;
 
-	n = strlen(path);
-	strcat(path, ".");
-	strcat(path, hostname);
+	n = (int)strlen(path);
+	strlcat(path, ".", sizeof(path));
+	strlcat(path, hostname, sizeof(path));
 	if (access(path, R_OK) >= 0)
 	    dothost = TRUE;
 	else
@@ -1354,14 +1404,14 @@ bootp_add_bootfile(const char * request_file, const char * hostname,
 	    my_log(LOG_DEBUG, "boot file %s* missing", path);
 	}
     }
-    len = strlen(path);
+    len = (int)strlen(path);
     if (len >= reply_file_size) {
 	my_log(LOG_DEBUG, "boot file name too long %d >= %d",
 	       len, reply_file_size);
 	return (TRUE);
     }
     my_log(LOG_DEBUG, "replyfile %s", path);
-    strcpy(reply_file, path);
+    strlcpy(reply_file, path, reply_file_size);
     return (TRUE);
 }
 
@@ -1520,7 +1570,7 @@ bootp_request(request_t * request)
     } /* if RFC magic number */
 
     rp.bp_siaddr = if_inet_addr(request->if_p);
-    strcpy((char *)rp.bp_sname, server_name);
+    strlcpy((char *)rp.bp_sname, server_name, sizeof(rp.bp_sname));
     if (sendreply(request->if_p, &rp, sizeof(rp), FALSE, NULL)) {
 	my_log(LOG_INFO, "reply sent %s %s pktsize %d",
 	       hostname, inet_ntoa(iaddr), sizeof(rp));
@@ -1662,7 +1712,7 @@ add_subnet_options(char * hostname,
 	if (tags[i] == dhcptag_host_name_e) {
 	    if (hostname) {
 		if (dhcpoa_add(options, dhcptag_host_name_e,
-			       strlen(hostname), hostname)
+			       (int)strlen(hostname), hostname)
 		    != dhcpoa_success_e) {
 		    my_log(LOG_INFO, "couldn't add hostname: %s",
 			   dhcpoa_err(options));
@@ -1736,7 +1786,7 @@ add_subnet_options(char * hostname,
 	      case dhcptag_domain_name_e:
 		if (S_domain_name) {
 		    if (dhcpoa_add(options, dhcptag_domain_name_e,
-				   strlen(S_domain_name), S_domain_name)
+				   (int)strlen(S_domain_name), S_domain_name)
 			!= dhcpoa_success_e) {
 			my_log(LOG_INFO, "couldn't add domain name: %s",
 			       dhcpoa_err(options));
@@ -2089,7 +2139,7 @@ S_server_loop()
     struct sockaddr_in 	from = { sizeof(from), AF_INET };
     interface_t *	if_p = NULL;
     int 		mask;
-    int			n;
+    ssize_t		n;
     /* ALIGN: S_rxpkt is aligned to uint32, hence cast safe */
     struct dhcp *	request = (struct dhcp *)(void *)S_rxpkt;
 
@@ -2117,6 +2167,7 @@ S_server_loop()
 	    S_get_interfaces();
 	    S_log_interfaces();
 	    S_get_network_routes();
+	    S_publish_disabled_interfaces(FALSE);
 	    S_update_services();
 	    S_get_dns();
 	    S_sighup = FALSE;
@@ -2126,10 +2177,6 @@ S_server_loop()
 	    continue;
 	}
 	if (request->dp_hlen > sizeof(request->dp_chaddr)) {
-	    continue;
-	}
-	if (S_ok_to_respond(request->dp_htype, request->dp_chaddr, 
-			    request->dp_hlen) == FALSE) {
 	    continue;
 	}
 	dstaddr_p = S_which_dstaddr();
@@ -2142,36 +2189,54 @@ S_server_loop()
 
 #if defined(IP_RECVIF)
 	if_p = S_which_interface();
-	if (if_p == NULL) {
-	    continue;
-	}
 #else
 	if_p = if_first_broadcast_inet(S_interfaces);
 #endif
+	if (if_p == NULL) {
+	    continue;
+	}
+	if (S_ok_to_respond(if_p, request->dp_htype, request->dp_chaddr, 
+			    request->dp_hlen) == FALSE) {
+	    continue;
+	}
 
 	gettimeofday(&S_lastmsgtime, 0);
         mask = sigblock(sigmask(SIGALRM));
 	/* ALIGN: S_rxpkt is aligned, cast ok. */
-	S_dispatch_packet((struct bootp *)(void *)S_rxpkt, n, if_p, dstaddr_p);
+	S_dispatch_packet((struct bootp *)(void *)S_rxpkt, (int)n,
+			  if_p, dstaddr_p);
 	sigsetmask(mask);
     }
-    return;
 }
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
+#include <notify.h>
+
 static SCDynamicStoreRef	store;
+
 static void
 S_add_ip_change_notifications()
 {
     CFStringRef			key;
+    CFDictionaryRef		options;
     CFMutableArrayRef		patterns;
 
-    store = SCDynamicStoreCreate(NULL,
-				 CFSTR("com.apple.network.bootpd"),
-				 NULL,
-				 NULL);
+    options = CFDictionaryCreate(NULL,
+				 (const void * *)&kSCDynamicStoreUseSessionKeys,
+				 (const void * *)&kCFBooleanTrue,
+				 1,
+				 &kCFTypeDictionaryKeyCallBacks,
+				 &kCFTypeDictionaryValueCallBacks);
+    store = SCDynamicStoreCreateWithOptions(NULL,
+					    CFSTR("com.apple.network.bootpd"),
+					    options, 
+					    NULL,
+					    NULL);
+    CFRelease(options);
     if (store == NULL) {
+	syslog(LOG_ERR, "SCDynamicStoreCreate failed");
+	exit(2);
 	return;
     }
     key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
@@ -2184,5 +2249,66 @@ S_add_ip_change_notifications()
     SCDynamicStoreSetNotificationKeys(store, NULL, patterns);
     CFRelease(patterns);
     SCDynamicStoreNotifySignal(store, getpid(), SIGHUP);
+    return;
+}
+
+static CFArrayRef
+S_copy_disabled_interfaces(void)
+{
+    int 		i;
+    CFMutableArrayRef	list = NULL;
+
+    for (i = 0; i < S_interfaces->count; i++) {
+	interface_t * 	if_p = S_interfaces->list + i;
+
+	if ((if_p->user_defined & SERVICE_DHCP_DISABLED) != 0) {
+	    CFStringRef	if_name_cf;
+
+	    if_name_cf = CFStringCreateWithCString(NULL, if_name(if_p),
+						   kCFStringEncodingUTF8);
+	    if (list == NULL) {
+		list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	    }
+	    CFArrayAppendValue(list, if_name_cf);
+	    CFRelease(if_name_cf);
+	}
+    }
+    return (list);
+}
+
+#define kStoreKey		CFSTR(DHCPD_DYNAMIC_STORE_KEY)
+
+static void
+S_publish_disabled_interfaces(boolean_t publish)
+{
+    static boolean_t 	last_publish = FALSE;
+
+    if (publish == FALSE && last_publish == FALSE) {
+	/* we don't have anything to publish, and didn't publish last time */
+	return;
+    }
+    SCDynamicStoreRemoveValue(store, kStoreKey);
+    if (publish) {
+	CFArrayRef	list;
+
+	list = S_copy_disabled_interfaces();
+	if (list != NULL) {
+	    CFDictionaryRef	dict;
+	    CFStringRef		key;
+
+	    key = CFSTR(DHCPD_DISABLED_INTERFACES);
+	    dict = CFDictionaryCreate(NULL,
+				      (const void * *)&key,
+				      (const void * *)&list,
+				      1,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	    CFRelease(list);
+	    SCDynamicStoreAddTemporaryValue(store, kStoreKey, dict);
+	    CFRelease(dict);
+	}
+    }
+    notify_post(DHCPD_DISABLED_INTERFACES_NOTIFICATION_KEY);
+    last_publish = publish;
     return;
 }

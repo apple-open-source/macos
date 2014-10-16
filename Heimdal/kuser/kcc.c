@@ -35,6 +35,8 @@
 #include <sl.h>
 #include "kcc-commands.h"
 
+static void usage (int ret) __attribute__((noreturn));
+
 krb5_context kcc_context;
 static int version_flag;
 static int help_flag;

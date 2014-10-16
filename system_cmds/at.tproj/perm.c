@@ -60,10 +60,10 @@ static int check_for_user(FILE *fp,const char *name);
 static int check_for_user(FILE *fp,const char *name)
 {
     char *buffer;
-    size_t len;
+    int len;
     int found = 0;
 
-    len = strlen(name);
+    len = (int)strlen(name);
     if ((buffer = malloc(len+2)) == NULL)
 	errx(EXIT_FAILURE, "virtual memory exhausted");
 

@@ -1,0 +1,72 @@
+#! /bin/csh -f
+#
+# run client side of SSL client certificate test. Run this script
+# after starting authServe script.
+#
+# In SSL_AUTO mode, we wait SSL_WAIT seconds between runs of sslServer from
+# the protServe script to allow the sslServer to get initialized. 
+# Otherwise we wait manually via the sh script doprompt.
+#
+set SSL_KEYCHAIN=localcert
+set SSL_NEWROOT=localcert.cer
+#
+# set allow hostname spoof for use with numeric IP address (e.g., 10.0.61.6)
+# if the server cert doesn't have a subjectAltName.
+#
+#set NAME_SPOOF=H
+set NAME_SPOOF=
+
+set SSL_HOST=localhost
+
+set SSL_AUTO=0
+set QUIET=
+while ( $#argv > 0 )
+    switch ( "$argv[1]" )
+        case a:
+            set SSL_AUTO = 1
+            shift
+            breaksw
+        case q:
+            set QUIET = q
+            shift
+            breaksw
+        default:
+            echo 'Usage: protClient [a(auto)]'
+            exit(1)
+    endsw
+end
+#
+# options for every run of sslViewer
+#
+set STD_OPTS="$SSL_HOST a $SSL_NEWROOT $NAME_SPOOF"
+
+echo ===== Server tries authentication, client refuses
+
+runProtClient $QUIET $STD_OPTS P=1200 t T=r || exit(1)
+doprompt $SSL_AUTO $QUIET
+
+echo ===== Server tries authentication, client sends cert
+
+runProtClient $QUIET $STD_OPTS P=1201 k=$SSL_KEYCHAIN t T=s || exit(1)
+doprompt $SSL_AUTO $QUIET
+
+echo ===== Server requires authentication, client refuses, expect error
+
+runProtClient $QUIET e "Expect error due to auth requirement" \
+	$STD_OPTS P=1202 t T=r || exit(1)
+doprompt $SSL_AUTO $QUIET
+
+echo ===== Server requires authentication, client refuses, SSL3, expect error
+
+runProtClient $QUIET e "Expect error due to auth requirement" \
+	$STD_OPTS P=1203 3 T=r || exit(1)
+doprompt $SSL_AUTO $QUIET
+
+echo ===== Server requires authentication, client sends cert
+
+runProtClient $QUIET $STD_OPTS P=1204 k=$SSL_KEYCHAIN t T=s || exit(1)
+doprompt $SSL_AUTO $QUIET
+
+echo =====
+echo ===== authClient success
+echo =====

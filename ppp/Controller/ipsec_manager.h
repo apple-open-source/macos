@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef __IPSEC_MANAGER__
 #define __IPSEC_MANAGER__
 
+#include <sys/kern_event.h>
 
 enum {
     IPSEC_NOT_ASSERTED = 0,
@@ -82,13 +83,18 @@ int ipsec_setup_service(struct service *serv);
 int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gid, mach_port_t bootstrap, u_int8_t onTraffic, u_int8_t onDemand);
 int ipsec_stop(struct service *serv, int signal);
 int ipsec_getstatus(struct service *serv);
-int ipsec_copyextendedstatus (struct service *serv, void **reply, u_int16_t *replylen);
-int ipsec_copystatistics(struct service *serv, void **reply, u_int16_t *replylen);
-int ipsec_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all);
+int ipsec_copyextendedstatus(struct service *serv, CFDictionaryRef *statusdict);
+int ipsec_copystatistics(struct service *serv, CFDictionaryRef *statsdict);
+int ipsec_getconnectdata(struct service *serv, CFDictionaryRef *options, int all);
+
+int ipsec_install(struct service *serv);
+int ipsec_uninstall(struct service *serv);
 
 int ipsec_can_sleep(struct service *serv);
 int ipsec_will_sleep(struct service *serv, int checking);
 void ipsec_wake_up(struct service *serv);
+void ipsec_device_lock(struct service *serv);
+void ipsec_device_unlock(struct service *serv);
 void ipsec_log_out(struct service *serv);
 void ipsec_log_in(struct service *serv);
 void ipsec_log_switch(struct service *serv);
@@ -96,6 +102,7 @@ void ipsec_ipv4_state_changed(struct service *serv);
 void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRef userNotification, CFOptionFlags responseFlags);
 int ipsec_ondemand_add_service_data(struct service *serv, CFMutableDictionaryRef ondemand_dict);
 void ipsec_cellular_event(struct service *serv, int event);
+void ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg);
 
 int ipsec_init_things();
 

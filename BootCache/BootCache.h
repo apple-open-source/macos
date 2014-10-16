@@ -20,15 +20,9 @@
 /*
  * Files we read in during every boot.
  */
-#if defined __x86_64__
 #define BC_DYLD_SHARED_CACHE    "/var/db/dyld/dyld_shared_cache_x86_64"
+#define BC_DYLD_SHARED_CACHE_H  "/var/db/dyld/dyld_shared_cache_x86_64h"
 #define BC_DYLD_SHARED_CACHE_32 "/var/db/dyld/dyld_shared_cache_i386"
-#elif defined __i386__
-#define BC_DYLD_SHARED_CACHE    "/var/db/dyld/dyld_shared_cache_i386"
-#else
-#warning "Unkown architecture"
-#undef BC_DYLD_SHARED_CACHE
-#endif
 
 /*
  * If defined, entries/extents are sorted by their location on disk

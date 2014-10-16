@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +10,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -34,7 +34,18 @@ static int overridenWebKitLinkTimeVersion;
 
 BOOL WebKitLinkedOnOrAfter(int version)
 {
+#if !PLATFORM(IOS)
     return (WebKitLinkTimeVersion() >= version);
+#else
+    int32_t linkTimeVersion = WebKitLinkTimeVersion();
+    int32_t majorVersion = linkTimeVersion >> 16 & 0x0000FFFF;
+    
+    // The application was not linked against UIKit so assume most recent WebKit
+    if (linkTimeVersion == -1)
+        return YES;
+    
+    return (majorVersion >= version);
+#endif
 }
 
 void setWebKitLinkTimeVersion(int version)
@@ -47,5 +58,11 @@ static int WebKitLinkTimeVersion(void)
     if (overridenWebKitLinkTimeVersion)
         return overridenWebKitLinkTimeVersion;
 
+#if !PLATFORM(IOS)
     return NSVersionOfLinkTimeLibrary("WebKit");
+#else
+    // <rdar://problem/6627758> Need to implement WebKitLinkedOnOrAfter
+    // Third party applications do not link against WebKit, but rather against UIKit.
+    return NSVersionOfLinkTimeLibrary("UIKit");
+#endif
 }

@@ -88,6 +88,7 @@ extern void (*fun_krb5_init_context)();
 extern void (*fun_krb5_init_context_flags)();
 extern void (*fun_krb5_make_principal)();
 extern void (*fun_krb5_parse_name)();
+extern void (*fun_krb5_parse_name_flags)();
 extern void (*fun_krb5_principal_compare)();
 extern void (*fun_krb5_principal_get_realm)();
 extern void (*fun_krb5_timeofday)();
